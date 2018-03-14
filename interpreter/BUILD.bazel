@@ -1,0 +1,30 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+package(default_visibility = ["//visibility:public"])
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "activation.go",
+        "astwalker.go",
+        "dispatcher.go",
+        "evalstate.go",
+        "instructions.go",
+        "interpreter.go",
+        "metadata.go",
+        "program.go",
+    ],
+    deps = [
+        "//common:go_default_library",
+        "//interpreter/functions:go_default_library",
+        "//interpreter/types:go_default_library",
+        "//interpreter/types/adapters:go_default_library",
+        "//interpreter/types/objects:go_default_library",
+        "//io:syntax_proto",
+        "//operators:go_default_library",
+        "@com_github_golang_protobuf//proto:go_default_library",
+        "@com_github_golang_protobuf//ptypes/duration:go_default_library",
+        "@com_github_golang_protobuf//ptypes/struct:go_default_library",
+        "@com_github_golang_protobuf//ptypes/timestamp:go_default_library",
+    ]
+)

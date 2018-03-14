@@ -1,0 +1,103 @@
+package interpreter
+
+import (
+	testExpr "github.com/google/cel-go/interpreter/testing"
+	"fmt"
+	"testing"
+)
+
+func TestNewProgram_Empty(t *testing.T) {
+	program := NewProgram("",
+		testExpr.Empty.Expr,
+		testExpr.Empty.Info(t.Name()))
+	if loc, found := program.Metadata().Location(0); found {
+		t.Errorf("Unexpected location found: %v", loc)
+	}
+	if program.Container() != "" {
+		t.Errorf("Unexpected container name: %s", program.Container())
+	}
+	if step, hasNext := program.Instructions().Next(); hasNext {
+		t.Errorf("Unexpected step in empty program: %v", step)
+	}
+}
+
+func TestNewProgram_LogicalAnd(t *testing.T) {
+	program := NewProgram("",
+		testExpr.LogicalAnd.Expr,
+		testExpr.LogicalAnd.Info(t.Name()))
+	if loc, found := program.Metadata().Location(1); found {
+		t.Errorf("Unexpected location found: %v", loc)
+	}
+	if program.Container() != "" {
+		t.Errorf("Unexpected container name: %s", program.Container())
+	}
+	if _, hasNext := program.Instructions().Next(); !hasNext {
+		t.Error("Expected a step in program, but found none")
+	}
+	fmt.Printf("%s\n%s\n\n", t.Name(), program)
+}
+
+func TestNewProgram_Conditional(t *testing.T) {
+	program := NewProgram("",
+		testExpr.Conditional.Expr,
+		testExpr.Conditional.Info(t.Name()))
+	if loc, found := program.Metadata().Location(1); found {
+		t.Errorf("Unexpected location found: %v", loc)
+	}
+	if program.Container() != "" {
+		t.Errorf("Unexpected container name: %s", program.Container())
+	}
+	if _, hasNext := program.Instructions().Next(); !hasNext {
+		t.Error("Expected a step in program, but found none")
+	}
+	expected := "TestNewProgram_Conditional\n" +
+		"0: local 'a', r1\n" +
+		"1: jump  10 if r1 == undef\n" +
+		"2: jump  5 if r1 == false\n" +
+		"3: local 'b', r2\n" +
+		"4: const 1, r4\n" +
+		"5: call  _<_(r2, r4), r3\n" +
+		"6: jump  4\n" +
+		"7: local 'c', r5\n" +
+		"8: const hello, r7\n" +
+		"9: mov   list([7]), r8\n" +
+		"10: call  _==_(r5, r8), r6\n" +
+		"11: call  _?_:_(r1, r3, r6), r9\n\n"
+	actual := fmt.Sprintf("%s\n%s\n\n", t.Name(), program)
+	if actual != expected {
+		t.Errorf("program did not compile as expected. actual: %v\nexpected: %v",
+			actual, expected)
+	}
+}
+
+func TestNewProgram_Comprehension(t *testing.T) {
+	program := NewProgram("",
+		testExpr.Exists.Expr,
+		testExpr.Exists.Info(t.Name()))
+	if loc, found := program.Metadata().Location(1); !found {
+		t.Errorf("Unexpected location found: %v", loc)
+	}
+	if program.Container() != "" {
+		t.Errorf("Unexpected container name: %s", program.Container())
+	}
+	if _, hasNext := program.Instructions().Next(); !hasNext {
+		t.Error("Expected a step in program, but found none")
+	}
+	fmt.Printf("%s\n%s\n\n", t.Name(), program)
+}
+
+func TestNewProgram_DynMap(t *testing.T) {
+	program := NewProgram("",
+		testExpr.DynMap.Expr,
+		testExpr.DynMap.Info(t.Name()))
+	if loc, found := program.Metadata().Location(1); found {
+		t.Errorf("Unexpected location found: %v", loc)
+	}
+	if program.Container() != "" {
+		t.Errorf("Unexpected container name: %s", program.Container())
+	}
+	if _, hasNext := program.Instructions().Next(); !hasNext {
+		t.Error("Expected a step in program, but found none")
+	}
+	fmt.Printf("%s\n%s\n\n", t.Name(), program)
+}

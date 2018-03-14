@@ -1,0 +1,39 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "adapters.go",
+        "listadapter.go",
+        "mapadapter.go",
+        "msgadapter.go",
+    ],
+    deps = [
+        "//interpreter/types/objects:go_default_library",
+        "@com_github_golang_protobuf//proto:go_default_library",
+        "@com_github_golang_protobuf//ptypes:go_default_library",
+        "@com_github_golang_protobuf//ptypes/any:go_default_library",
+        "@com_github_golang_protobuf//ptypes/duration:go_default_library",
+        "@com_github_golang_protobuf//ptypes/struct:go_default_library",
+        "@com_github_golang_protobuf//ptypes/timestamp:go_default_library",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "adapters_test.go",
+        "listadapter_test.go",
+        "mapadapter_test.go",
+        "msgadapter_test.go",
+    ],
+    size = "small",
+    embed = [
+        ":go_default_library",
+    ],
+    deps = [
+        "//io:syntax_proto",
+        "//interpreter/testing:go_default_library",
+    ]
+)
