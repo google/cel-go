@@ -22,7 +22,7 @@ type Location interface {
 	Column() int // 0-based column number within source.
 }
 
-// SourcceLocation helper type to manually construct a location.
+// SourceLocation helper type to manually construct a location.
 type SourceLocation struct {
 	description string
 	line        int

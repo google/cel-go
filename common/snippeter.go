@@ -14,6 +14,7 @@
 
 package common
 
+// Snippeter interface for extracting a single line of text from a Source.
 type Snippeter interface {
 	// Return a line of content from the source and whether the line was found.
 	Snippet(line int) (string, bool)
