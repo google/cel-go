@@ -11,3 +11,16 @@ go_library(
     ],
     visibility = ["//visibility:public"],
 )
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "errors_test.go",
+        "source_test.go",
+    ],
+    size = "small",
+    embed = [
+        ":go_default_library",
+    ],
+    visibility = ["//visibility:public"],
+)
