@@ -15,7 +15,7 @@
 package checker
 
 import (
-	"celgo/semantics/types"
+	"github.com/google/cel-go/semantics/types"
 )
 
 // TypeProvider defines methods to lookup types and enums, and resolve field types.

@@ -6,6 +6,7 @@ go_library(
         "error.go",
         "errors.go",
         "location.go",
+        "snippeter.go",
         "source.go",
     ],
     visibility = ["//visibility:public"],

@@ -15,7 +15,7 @@
 package checker
 
 import (
-	"celgo/semantics/types"
+	"github.com/google/cel-go/semantics/types"
 	"fmt"
 )
 

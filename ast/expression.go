@@ -15,7 +15,7 @@
 package ast
 
 import (
-	"celgo/common"
+	"github.com/google/cel-go/common"
 )
 
 // Expression is the common interface for all AST expressions.

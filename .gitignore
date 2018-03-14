@@ -1,7 +1,7 @@
 .DS_Store
 .idea
 bazel-bin
-bazel-celgo
+bazel-cel-go
 bazel-genfiles
 bazel-out
 bazel-testlogs

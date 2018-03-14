@@ -14,7 +14,7 @@
 
 package checker
 
-import "celgo/semantics"
+import "github.com/google/cel-go/semantics"
 
 type Scopes struct {
 	scopes []*Group

@@ -14,7 +14,7 @@
 
 package ast
 
-import "celgo/common"
+import "github.com/google/cel-go/common"
 
 type CreateMessageExpression struct {
 	BaseExpression

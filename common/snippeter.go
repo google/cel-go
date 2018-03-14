@@ -12,28 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ast
+package common
 
-import "github.com/google/cel-go/common"
-
-type IdentExpression struct {
-	BaseExpression
-
-	Name string
-}
-
-func (e *IdentExpression) String() string {
-	return ToDebugString(e)
-}
-
-func (e *IdentExpression) writeDebugString(w *debugWriter) {
-	w.append(e.Name)
-	w.adorn(e)
-}
-
-func NewIdent(id int64, l common.Location, name string) *IdentExpression {
-	return &IdentExpression{
-		BaseExpression: BaseExpression{id: id, location: l},
-		Name:           name,
-	}
+type Snippeter interface {
+	// Return a line of content from the source and whether the line was found.
+	Snippet(line int) (string, bool)
 }

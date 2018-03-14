@@ -18,9 +18,9 @@ import (
 	"fmt"
 	"reflect"
 
-	"celgo/ast"
-	"celgo/common"
-	api "celgo/proto"
+	"github.com/google/cel-go/ast"
+	"github.com/google/cel-go/common"
+	api "github.com/google/cel-go/proto"
 )
 
 func Serialize(e ast.Expression) *api.ParsedExpr {
@@ -332,7 +332,7 @@ func (s *serializer) buildSourceInfo() *api.SourceInfo {
 	for id, loc := range s.locations {
 		lines[id] = int32(loc.Line())
 		columns[id] = int32(loc.Column())
-		locationName = loc.Source().Name()
+		locationName = loc.Description()
 	}
 
 	return &api.SourceInfo{

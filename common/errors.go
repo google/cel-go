@@ -12,46 +12,48 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// package common defines elements common to parsing and other diagnostics.
 package common
 
-import "fmt"
+import (
+	"fmt"
+)
 
-// Errors is the main error collector mechanism.
+// Errors type which contains a list of errors observed during parsing.
 type Errors struct {
 	errors []Error
+	source Source
 }
 
-// NewErrors returns a new Errors instance.
-func NewErrors() *Errors {
+// Create a new instance of the Errors type.
+func NewErrors(source Source) *Errors {
 	return &Errors{
 		errors: []Error{},
-	}
+		source: source}
 }
 
-// ReportError captures an error report from the caller.
+// Report an error at a source location.
 func (e *Errors) ReportError(l Location, format string, args ...interface{}) {
-	e.reportErrorInstance(Error{
+	err := Error{
 		Location: l,
 		Message:  fmt.Sprintf(format, args...),
-	})
+	}
+	e.errors = append(e.errors, err)
 }
 
-// GetErrors returns all the errors that are accumulated so far.
+// Return this list of observed errors.
 func (e *Errors) GetErrors() []Error {
 	return e.errors[:]
 }
 
-func (e *Errors) reportErrorInstance(err Error) {
-	e.errors = append(e.errors, err)
-}
-
-func (e *Errors) String() string {
-	result := ""
+// Convert the error set to a newline delimited string.
+func (e *Errors) ToDisplayString() string {
+	var result = ""
 	for i, err := range e.errors {
-		if i > 0 {
+		if i >= 1 {
 			result += "\n"
 		}
-		result += err.ToDisplayString()
+		result += err.ToDisplayString(e.source)
 	}
 	return result
 }

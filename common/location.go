@@ -12,43 +12,46 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// package common defines types common to parsing and other diagnostics.
 package common
 
-// Position is line/column position in an input source.
-type Location struct {
-	// Line is the line number of the position, starting with 1.
-	line int
-
-	// Column is the column number of the position, starting with 1.
-	column int
-
-	// Source is the optional name of the source input that was parsed. This is typically a file name.
-	source Source
+// Interface to represent a location within Source.
+type Location interface {
+	Description() string
+	Line() int   // 1-based line number within source.
+	Column() int // 0-based column number within source.
 }
 
-// NewLocation creates a new Location instance.
-func NewLocation(s Source, l int, c int) Location {
-	return Location{
-		source: s,
-		line:   l,
-		column: c,
-	}
+// Helper type to manually construct a location.
+type SourceLocation struct {
+	description string
+	line        int
+	column      int
 }
 
-func (l Location) Line() int {
+var (
+	// Ensure the SourceLocation implements the Location interface.
+	_ Location = &SourceLocation{}
+	NoLocation = &SourceLocation{}
+)
+
+
+// Create a new location.
+func NewLocation(description string, line, column int) Location {
+	return &SourceLocation{
+		description: description,
+		line:        line,
+		column:      column}
+}
+
+func (l *SourceLocation) Description() string {
+	return l.description
+}
+
+func (l *SourceLocation) Line() int {
 	return l.line
 }
 
-func (l Location) Column() int {
+func (l *SourceLocation) Column() int {
 	return l.column
-}
-
-func (l Location) Source() Source {
-	return l.source
-}
-
-var NoLocation = Location{
-	line:   0,
-	column: 0,
-	source: nil,
 }

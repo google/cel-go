@@ -15,8 +15,8 @@
 package checker
 
 import (
-	"celgo/common"
-	"celgo/semantics/types"
+	"github.com/google/cel-go/common"
+	"github.com/google/cel-go/semantics/types"
 )
 
 // TypeErrors is a specialization of Errors.
