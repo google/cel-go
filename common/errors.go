@@ -32,7 +32,7 @@ func NewErrors(source Source) *Errors {
 		source: source}
 }
 
-// Report an error at a source location.
+// ReportError records an error at a source location.
 func (e *Errors) ReportError(l Location, format string, args ...interface{}) {
 	err := Error{
 		Location: l,
@@ -41,12 +41,12 @@ func (e *Errors) ReportError(l Location, format string, args ...interface{}) {
 	e.errors = append(e.errors, err)
 }
 
-// Return this list of observed errors.
+// GetErrors returns the list of observed errors.
 func (e *Errors) GetErrors() []Error {
 	return e.errors[:]
 }
 
-// Convert the error set to a newline delimited string.
+// ToDisplayString returns the error set to a newline delimited string.
 func (e *Errors) ToDisplayString() string {
 	var result = ""
 	for i, err := range e.errors {

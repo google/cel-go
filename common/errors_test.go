@@ -19,19 +19,20 @@ import (
 	"testing"
 )
 
-// Test the reporting and recording of errors.
+// TestErrors reporting and recording.
 func TestErrors(t *testing.T) {
 	source := NewStringSource("a.b\n&&arg(missing, paren", "errors-test")
-	errors := NewErrors()
+	errors := NewErrors(source)
 	errors.ReportError(
 		NewLocation("errors-test", 1, 1), "No such field")
 	if len(errors.GetErrors()) != 1 {
-		t.Error("First eror not recorded")
+		t.Error("%s first error not recorded", t.Name())
 	}
 	errors.ReportError(
-		NewLocation("errors-test", 2, 20), "Syntax error, missing paren")
+		NewLocation("errors-test", 2, 20),
+		"Syntax error, missing paren")
 	if len(errors.GetErrors()) != 2 {
-		t.Error("Second error not recorded")
+		t.Errorf("%s second error not recorded", t.Name())
 	}
 	expected :=
 		"ERROR: errors-test:1:2: No such field\n" +
@@ -40,8 +41,8 @@ func TestErrors(t *testing.T) {
 			"ERROR: errors-test:2:21: Syntax error, missing paren\n" +
 			" | &&arg(missing, paren\n" +
 			" | ....................^"
-	actual := errors.ToDisplayString(source)
+	actual := errors.ToDisplayString()
 	if actual != expected {
-		t.Errorf("Expected %s, received %s", expected, actual)
+		t.Errorf("%s got %s, wanted %s", t.Name(), actual, expected)
 	}
 }

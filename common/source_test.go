@@ -20,54 +20,54 @@ import (
 )
 
 const (
-	UnexpectedValue   = "Expected '%v', got '%v'"
-	UnexpectedSnippet = "Expected snippet '%s', got '%s'"
-	SnippetNotFound   = "Expected snippet at line %d, but not found"
-	SnippetFound      = "Found snippet at line %d, where none was expected"
+	unexpectedValue   = "%s got snippet '%v', want '%v'"
+	unexpectedSnippet = "%s got snippet '%s', want '%v'"
+	snippetNotFound   = "%s snippet not found, wanted '%v'"
+	snippetFound      = "%s snippet found at line %d, wanted none"
 )
 
-// Test the error description method.
+// TestStringSource_Description the error description method.
 func TestStringSource_Description(t *testing.T) {
 	contents := "example content\nsecond line"
 	source := NewStringSource(contents, "description-test")
 	// Verify the content
 	if source.Content() != contents {
-		t.Errorf(UnexpectedValue, contents, source.Content())
+		t.Errorf(unexpectedValue, t.Name(), contents, source.Content())
 	}
 	// Verify the description
 	if source.Description() != "description-test" {
-		t.Errorf(UnexpectedValue, "description-test", source.Description())
+		t.Errorf(unexpectedValue, t.Name(), source.Description(), "description-test")
 	}
 
 	// Assert that the snippets on lines 1 & 2 are what was expected.
 	if str2, found := source.Snippet(2); !found {
-		t.Errorf(SnippetNotFound, 2)
+		t.Errorf(snippetNotFound, t.Name(), 2)
 
 	} else if str2 != "second line" {
-		t.Errorf(UnexpectedSnippet, "second line", str2)
+		t.Errorf(unexpectedSnippet, t.Name(), str2, "second line")
 	}
 	if str1, found := source.Snippet(1); !found {
-		t.Errorf(SnippetNotFound, 1)
+		t.Errorf(snippetNotFound, t.Name(), 1)
 
 	} else if str1 != "example content" {
-		t.Errorf(UnexpectedSnippet, "example content", str1)
+		t.Errorf(unexpectedSnippet, t.Name(), str1, "example content")
 	}
 }
 
-// Test the character offest to make sure that the offsets accurately reflect
+// TestStringSource_CharacterOffset make sure that the offsets accurately reflect
 // the location of a character in source.
 func TestStringSource_CharacterOffset(t *testing.T) {
 	contents := "c.d &&\n\t b.c.arg(10) &&\n\t test(10)"
 	source := NewStringSource(contents, "offset-test")
 	expectedLineOffsets := []int32{7, 24, 35}
 	if len(expectedLineOffsets) != len(source.LineOffsets()) {
-		t.Errorf("Expected list of size '%d', got a list of size '%d'",
-			len(expectedLineOffsets), len(source.LineOffsets()))
+		t.Errorf("Got list of size '%d', wanted size '%d'",
+			len(source.LineOffsets()), len(expectedLineOffsets))
 	} else {
 		for i, val := range expectedLineOffsets {
 			if val != source.LineOffsets()[i] {
-				t.Errorf("Expected line %d offset of %d, go %d",
-					i, val, source.LineOffsets()[i])
+				t.Errorf("Got %d, wanted line %d offset of %d, ",
+					val, source.LineOffsets()[i], i)
 			}
 		}
 	}
@@ -76,57 +76,57 @@ func TestStringSource_CharacterOffset(t *testing.T) {
 	charStart, _ := source.CharacterOffset(NewLocation("offset-test", 1, 2))
 	charEnd, _ := source.CharacterOffset(NewLocation("offset-test", 3, 2))
 	if "d &&\n\t b.c.arg(10) &&\n\t " != string(contents[charStart:charEnd]) {
-		t.Errorf(UnexpectedValue, "d &&\n\t b.c.arg(10) &&\n\t ",
-			string(contents[charStart:charEnd]))
+		t.Errorf(unexpectedValue, t.Name(),
+			string(contents[charStart:charEnd]),
+			"d &&\n\t b.c.arg(10) &&\n\t ")
 	}
 	if _, found := source.CharacterOffset(NewLocation("offset-test", 4, 0)); found {
 		t.Error("Character offset was out of range of source, but still found.")
 	}
 }
 
-// Test the computation of snippets, single lines of text, from a multiline
-// source.
+// TestStringSource_SnippetMultiline snippets of text from a multiline source.
 func TestStringSource_SnippetMultiline(t *testing.T) {
 	source := NewStringSource("hello\nworld\nmy\nbub\n", "four-line-test")
 	if str, found := source.Snippet(1); !found {
-		t.Errorf(SnippetNotFound, 1)
+		t.Errorf(snippetNotFound, t.Name(), 1)
 	} else if str != "hello" {
-		t.Errorf(UnexpectedSnippet, "hello", str)
+		t.Errorf(unexpectedSnippet, t.Name(), str, "hello")
 	}
 	if str2, found := source.Snippet(2); !found {
-		t.Errorf(SnippetNotFound, 2)
+		t.Errorf(snippetNotFound, t.Name(), 2)
 	} else if str2 != "world" {
-		t.Errorf(UnexpectedSnippet, "world", str2)
+		t.Errorf(unexpectedSnippet, t.Name(), str2, "world")
 	}
 	if str3, found := source.Snippet(3); !found {
-		t.Errorf(SnippetNotFound, 3)
+		t.Errorf(snippetNotFound, t.Name(), 3)
 	} else if str3 != "my" {
-		t.Errorf(UnexpectedSnippet, "my", str3)
+		t.Errorf(unexpectedSnippet, t.Name(), str3, "my")
 	}
 	if str4, found := source.Snippet(4); !found {
-		t.Errorf(SnippetNotFound, 4)
+		t.Errorf(snippetNotFound, t.Name(), 4)
 	} else if str4 != "bub" {
-		t.Errorf(UnexpectedSnippet, "bub", str4)
+		t.Errorf(unexpectedSnippet, t.Name(), str4, "bub")
 	}
 	if str5, found := source.Snippet(5); !found {
-		t.Errorf(SnippetNotFound, 5)
+		t.Errorf(snippetNotFound, t.Name(), 5)
 	} else if str5 != "" {
-		t.Errorf(UnexpectedSnippet, "", str5)
+		t.Errorf(unexpectedSnippet, t.Name(), str5, "")
 	}
 }
 
-// Test the computation of snippets from a single line source.
+// TestStringSource_SnippetSingleline snippets from a single line source.
 func TestStringSource_SnippetSingleline(t *testing.T) {
 	source := NewStringSource("hello, world", "one-line-test")
 	if str, found := source.Snippet(1); !found {
-		t.Errorf(SnippetNotFound, 1)
+		t.Errorf(snippetNotFound, t.Name(), 1)
 
 	} else if str != "hello, world" {
-		t.Errorf(UnexpectedSnippet, "hello, world", str)
+		t.Errorf(unexpectedSnippet, t.Name(), str, "hello, world")
 	}
 	if str2, found := source.Snippet(2); found {
-		t.Error(SnippetFound, 2)
+		t.Error(snippetFound, t.Name(), 2)
 	} else if str2 != "" {
-		t.Error(UnexpectedSnippet, "", str2)
+		t.Error(unexpectedSnippet, t.Name(), str2, "")
 	}
 }

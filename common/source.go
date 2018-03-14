@@ -19,7 +19,7 @@ import (
 	"strings"
 )
 
-// Interface for filter source contents.
+// Source interface for filter source contents.
 type Source interface {
 	Snippeter
 
@@ -51,7 +51,7 @@ type StringSource struct {
 	lineOffsets []int32
 }
 
-// Return a new Source given the string contents and description.
+// Create a new Source given the string contents and description.
 func NewStringSource(contents string, description string) Source {
 	// Compute line offsets up front as they are referred to frequently.
 	lines := strings.Split(contents, "\n")

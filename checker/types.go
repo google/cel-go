@@ -15,8 +15,8 @@
 package checker
 
 import (
-	"github.com/google/cel-go/semantics/types"
 	"fmt"
+	"github.com/google/cel-go/semantics/types"
 )
 
 func isAssignable(m *Mapping, t1 types.Type, t2 types.Type) *Mapping {

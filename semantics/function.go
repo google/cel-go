@@ -15,8 +15,8 @@
 package semantics
 
 import (
-	"github.com/google/cel-go/semantics/types"
 	"fmt"
+	"github.com/google/cel-go/semantics/types"
 )
 
 type Function struct {

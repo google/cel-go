@@ -15,14 +15,14 @@
 // package common defines types common to parsing and other diagnostics.
 package common
 
-// Interface to represent a location within Source.
+// Location interface to represent a location within Source.
 type Location interface {
 	Description() string
 	Line() int   // 1-based line number within source.
 	Column() int // 0-based column number within source.
 }
 
-// Helper type to manually construct a location.
+// SourcceLocation helper type to manually construct a location.
 type SourceLocation struct {
 	description string
 	line        int
@@ -31,10 +31,9 @@ type SourceLocation struct {
 
 var (
 	// Ensure the SourceLocation implements the Location interface.
-	_ Location = &SourceLocation{}
-	NoLocation = &SourceLocation{}
+	_          Location = &SourceLocation{}
+	NoLocation          = &SourceLocation{}
 )
-
 
 // Create a new location.
 func NewLocation(description string, line, column int) Location {
