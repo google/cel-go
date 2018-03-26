@@ -18,8 +18,8 @@ import (
 	"fmt"
 	"testing"
 
-	"celgo/ast"
-	"celgo/test"
+	"github.com/google/cel-go/ast"
+	"github.com/google/cel-go/test"
 	"reflect"
 )
 
@@ -274,9 +274,9 @@ var testCases = []testInfo{
 		I: `a.b(c)`,
 		P: `a^#1:*ast.IdentExpression#.b(
     		  c^#2:*ast.IdentExpression#)^#3:*ast.CallExpression#`,
-		L: `a^#1[1,1]#.b(
-    		  c^#2[1,5]#
-    		)^#3[1,2]#`,
+		L: `a^#1[1,0]#.b(
+    		  c^#2[1,4]#
+    		)^#3[1,1]#`,
 	},
 
 	// Parse error tests
@@ -311,7 +311,7 @@ ERROR: <input>:1:5: Syntax error: extraneous input 'b' expecting <EOF>
 	{
 		I: `has(m.f)`,
 		P: `m^#1:*ast.IdentExpression#.f~test-only~^#3:*ast.SelectExpression#`,
-		L: `m^#1[1,5]#.f~test-only~^#3[1,4]#`,
+		L: `m^#1[1,4]#.f~test-only~^#3[1,3]#`,
 	},
 	{
 		I: `m.exists_one(v, f)`,
@@ -620,7 +620,7 @@ func Test(t *testing.T) {
 
 			expression, errors := ParseText(tst.I)
 			if len(errors.GetErrors()) > 0 {
-				actualErr := errors.String()
+				actualErr := errors.ToDisplayString()
 				if tst.E == "" {
 					tt.Fatalf("Unexpected errors: %v", actualErr)
 				} else if !test.Compare(actualErr, tst.E) {

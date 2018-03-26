@@ -15,7 +15,7 @@
 package semantics
 
 import (
-	"celgo/ast"
+	"github.com/google/cel-go/ast"
 )
 
 type Reference interface {

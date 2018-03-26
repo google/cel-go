@@ -8,4 +8,4 @@ load("@io_bazel_rules_go//go:def.bzl", "gazelle", "go_prefix")
 
 gazelle(name = "gazelle")
 
-go_prefix("celgo")
+go_prefix("github.com/google/cel-go")

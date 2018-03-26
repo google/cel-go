@@ -18,11 +18,10 @@ import (
 	"fmt"
 	"testing"
 
-	"celgo/common"
-	"celgo/parser"
-	"celgo/semantics"
-	"celgo/semantics/types"
-	"celgo/test"
+	"github.com/google/cel-go/parser"
+	"github.com/google/cel-go/semantics"
+	"github.com/google/cel-go/semantics/types"
+	"github.com/google/cel-go/test"
 )
 
 var testCases = []testInfo{
@@ -986,11 +985,11 @@ func Test(t *testing.T) {
 
 			expression, errors := parser.ParseText(tst.I)
 			if len(errors.GetErrors()) > 0 {
-				tt.Fatalf("Unexpected parse errors: %v", errors.GetErrors()[0].ToDisplayString())
+				tt.Fatalf("Unexpected parse errors: %v",
+					errors.ToDisplayString())
 				return
 			}
 
-			errors = common.NewErrors()
 			env := NewEnv(errors, typeProvider)
 			AddStandard(env)
 
@@ -1007,7 +1006,7 @@ func Test(t *testing.T) {
 
 			semantics := Check(env, tst.Container, expression)
 			if len(errors.GetErrors()) > 0 {
-				errorString := errors.String()
+				errorString := errors.ToDisplayString()
 				if tst.Error != "" {
 					if !test.Compare(errorString, tst.Error) {
 						tt.Error(test.DiffMessage("Error mismatch", errorString, tst.Error))

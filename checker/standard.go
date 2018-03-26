@@ -15,9 +15,9 @@
 package checker
 
 import (
-	"celgo/operators"
-	"celgo/semantics"
-	"celgo/semantics/types"
+	"github.com/google/cel-go/operators"
+	"github.com/google/cel-go/semantics"
+	"github.com/google/cel-go/semantics/types"
 )
 
 func AddStandard(env *Env) {

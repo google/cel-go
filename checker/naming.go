@@ -17,7 +17,7 @@ package checker
 import (
 	"strings"
 
-	"celgo/ast"
+	"github.com/google/cel-go/ast"
 )
 
 //

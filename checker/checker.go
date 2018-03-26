@@ -18,10 +18,10 @@ import (
 	"fmt"
 	"reflect"
 
-	"celgo/ast"
-	"celgo/common"
-	"celgo/semantics"
-	"celgo/semantics/types"
+	"github.com/google/cel-go/ast"
+	"github.com/google/cel-go/common"
+	"github.com/google/cel-go/semantics"
+	"github.com/google/cel-go/semantics/types"
 )
 
 type checker struct {

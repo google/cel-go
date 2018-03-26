@@ -15,8 +15,8 @@
 package checker
 
 import (
-	"celgo/ast"
-	"celgo/semantics"
+	"github.com/google/cel-go/ast"
+	"github.com/google/cel-go/semantics"
 )
 
 type semanticAdorner struct {

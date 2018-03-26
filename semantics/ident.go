@@ -15,8 +15,8 @@
 package semantics
 
 import (
-	"celgo/ast"
-	"celgo/semantics/types"
+	"github.com/google/cel-go/ast"
+	"github.com/google/cel-go/semantics/types"
 )
 
 var Error = &Ident{

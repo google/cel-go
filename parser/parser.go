@@ -20,34 +20,32 @@ import (
 	"strconv"
 	"strings"
 
-	"celgo/ast"
-	"celgo/common"
-	"celgo/operators"
-	"celgo/parser/gen"
+	"github.com/google/cel-go/ast"
+	"github.com/google/cel-go/common"
+	"github.com/google/cel-go/operators"
+	"github.com/google/cel-go/parser/gen"
 
 	"github.com/antlr/antlr4/runtime/Go/antlr"
 )
 
-func ParseText(expression string) (ast.Expression, *common.Errors) {
-	errors := common.NewErrors()
-	expr := Parse(errors, expression, "<input>", AllMacros)
-	return expr, errors
+func ParseText(text string) (ast.Expression, *common.Errors) {
+	return Parse(common.NewStringSource(text, "<input>"), AllMacros)
 }
 
-func Parse(errors *common.Errors, expression string, sourceName string, macros Macros) ast.Expression {
+func Parse(source common.Source, macros Macros) (ast.Expression, *common.Errors) {
 	macroMap := make(map[string]Macro)
 	for _, m := range macros {
 		macroMap[makeMacroKey(m.name, m.args, m.instanceStyle)] = m
 	}
 
 	p := parser{
-		errors: &ParseErrors{errors},
-		source: common.NewTextSource(sourceName, expression),
+		errors: &ParseErrors{common.NewErrors(source)},
+		source: source,
 		macros: macroMap,
 		nextId: 1,
 	}
 
-	return p.parse(expression)
+	return p.parse(source.Content()), p.errors.Errors
 }
 
 type parser struct {
@@ -77,7 +75,7 @@ func (p *parser) parse(expression string) ast.Expression {
 // Listener implementations
 func (p *parser) SyntaxError(recognizer antlr.Recognizer, offendingSymbol interface{}, line, column int, msg string, e antlr.RecognitionException) {
 	// TODO: Snippet
-	l := common.NewLocation(p.source, line, column+1)
+	l := common.NewLocation(p.source.Description(), line, column)
 	p.errors.syntaxError(l, msg)
 }
 
@@ -510,7 +508,8 @@ func (p *parser) visitSlice(expressions []gen.IExprContext) []ast.Expression {
 }
 
 func (p *parser) location(token antlr.Token) common.Location {
-	return common.NewLocation(p.source, token.GetLine(), token.GetColumn()+1)
+	return common.NewLocation(p.source.Description(),
+		token.GetLine(), token.GetColumn())
 }
 
 func (p *parser) extractQualifiedName(e ast.Expression) (string, bool) {

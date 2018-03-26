@@ -18,28 +18,33 @@ import (
 	"fmt"
 	"reflect"
 
-	"celgo/ast"
-	"celgo/common"
-	api "celgo/proto"
+	"github.com/google/cel-go/ast"
+	"github.com/google/cel-go/common"
+	api "github.com/google/cel-spec/proto/v1"
 )
 
-func Serialize(e ast.Expression) *api.ParsedExpr {
+func Serialize(e ast.Expression, source common.Source) *api.ParsedExpr {
 	s := serializer{
+		source:    source,
 		nextId:    1,
-		locations: make(map[int64]common.Location),
+		positions: make(map[int64]int32),
 	}
 
 	expr := s.transform(e)
-	sourceInfo := s.buildSourceInfo()
 	return &api.ParsedExpr{
-		Expr:       expr,
-		SourceInfo: sourceInfo,
+		Expr: expr,
+		SourceInfo: &api.SourceInfo{
+			Location:    source.Description(),
+			LineOffsets: source.LineOffsets(),
+			Positions:   s.positions,
+		},
 	}
 }
 
 type serializer struct {
+	source    common.Source
 	nextId    int64
-	locations map[int64]common.Location
+	positions map[int64]int32
 }
 
 func (s *serializer) transform(e ast.Expression) *api.Expr {
@@ -320,24 +325,8 @@ func (s *serializer) transformSlice(exprs []ast.Expression) []*api.Expr {
 func (s *serializer) track(e ast.Expression) int64 {
 	id := s.nextId
 	s.nextId++
-	s.locations[id] = e.Location()
+	if offset, found := s.source.CharacterOffset(e.Location()); found {
+		s.positions[id] = offset
+	}
 	return id
-}
-
-func (s *serializer) buildSourceInfo() *api.SourceInfo {
-	lines := make(map[int64]int32)
-	columns := make(map[int64]int32)
-	var locationName string
-
-	for id, loc := range s.locations {
-		lines[id] = int32(loc.Line())
-		columns[id] = int32(loc.Column())
-		locationName = loc.Source().Name()
-	}
-
-	return &api.SourceInfo{
-		Location: locationName,
-		Columns:  columns,
-		Lines:    lines,
-	}
 }

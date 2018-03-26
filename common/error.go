@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// package common defines types common to parsing and other diagnostics.
 package common
 
 import (
@@ -19,27 +20,25 @@ import (
 	"strings"
 )
 
-// Error represents an error message.
+// Error type which references a location within source and a message.
 type Error struct {
-	// Location within the source.
 	Location Location
-
-	// Message is the actual error message.
-	Message string
+	Message  string
 }
 
-// ToDisplayString returns the error in a user-friendly format.
-func (e *Error) ToDisplayString() string {
-
-	result := fmt.Sprintf("ERROR: %s:%d:%d: %s", e.Location.Source().Name(), e.Location.Line(), e.Location.Column(), e.Message)
-
-	if snippet, found := e.Location.Source().Snippet(e.Location.Line()); found {
+// Stringer implementation that places errors in context with the source.
+func (e *Error) ToDisplayString(snippeter Snippeter) string {
+	var result = fmt.Sprintf("ERROR: %s:%d:%d: %s",
+		e.Location.Description(),
+		e.Location.Line(),
+		e.Location.Column()+1, // add one to the 0-based column for display
+		e.Message)
+	if snippet, found := snippeter.Snippet(e.Location.Line()); found {
 		result += "\n | "
 		result += snippet
 		result += "\n | "
-		result += strings.Repeat(".", int(e.Location.Column()-1))
+		result += strings.Repeat(".", e.Location.Column())
 		result += "^"
-
 	}
 	return result
 }

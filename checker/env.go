@@ -15,10 +15,10 @@
 package checker
 
 import (
-	"celgo/ast"
-	"celgo/common"
-	"celgo/semantics"
-	"celgo/semantics/types"
+	"github.com/google/cel-go/ast"
+	"github.com/google/cel-go/common"
+	"github.com/google/cel-go/semantics"
+	"github.com/google/cel-go/semantics/types"
 )
 
 type Env struct {
@@ -75,7 +75,9 @@ func (env *Env) LookupIdent(container string, typeName string) *semantics.Ident 
 		// Next try to import this as an enum value by splitting the name in a type prefix and
 		// the enum inside.
 		if enumValue, found := env.typeProvider.LookupEnumValue(candidate); found {
-			decl := semantics.NewIdent(candidate, types.Int64, ast.NewInt64Constant(0, common.NoLocation, enumValue))
+			decl := semantics.NewIdent(candidate,
+				types.Int64,
+				ast.NewInt64Constant(0, common.NoLocation, enumValue))
 			env.declarations.AddIdent(decl)
 		}
 	}

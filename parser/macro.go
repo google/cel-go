@@ -17,9 +17,9 @@ package parser
 import (
 	"fmt"
 
-	"celgo/ast"
-	"celgo/common"
-	"celgo/operators"
+	"github.com/google/cel-go/ast"
+	"github.com/google/cel-go/common"
+	"github.com/google/cel-go/operators"
 )
 
 type Macros []Macro

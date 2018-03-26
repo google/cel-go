@@ -15,8 +15,8 @@
 package checker
 
 import (
-	"celgo/semantics/types"
 	"fmt"
+	"github.com/google/cel-go/semantics/types"
 )
 
 type Mapping struct {
