@@ -36,12 +36,10 @@ func TestHierarchicalActivation(t *testing.T) {
 	if val, found := combined.ResolveName("a"); !found || !val.(bool) {
 		t.Error("Activation failed to resolve shadow value of 'a'")
 	}
-
 	// Resolve the parent only value.
 	if val, found := combined.ResolveName("b"); !found || val.(int) != -42 {
 		t.Error("Activation failed to resolve parent value of 'b'")
 	}
-
 	// Resolve the child only value.
 	if val, found := combined.ResolveName("c"); !found || val.(string) != "universe" {
 		t.Error("Activation failed to resolve child value of 'c'")
