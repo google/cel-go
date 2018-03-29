@@ -15,11 +15,10 @@
 package types
 
 import (
-	"github.com/google/cel-go/interpreter/types/adapters"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/timestamp"
-	"github.com/google/cel-spec/proto/v1"
+	expr "github.com/google/cel-spec/proto/v1/syntax"
 	"testing"
 )
 
@@ -75,19 +74,19 @@ func TestTypeOf_Bytes(t *testing.T) {
 }
 
 func TestTypeOf_Map(t *testing.T) {
-	if val, found := TypeOf(adapters.NewMapAdapter(map[string]int32{"0": 1, "1": 2, "2": 3})); !found || val != MapType {
+	if val, found := TypeOf(NewMapValue(map[string]int32{"0": 1, "1": 2, "2": 3})); !found || val != MapType {
 		t.Errorf("Unexpected type result. found: %t, type: %v", found, val)
 	}
 }
 
 func TestTypeOf_List(t *testing.T) {
-	if val, found := TypeOf(adapters.NewListAdapter([]int32{1, 2, 3})); !found || val != ListType {
+	if val, found := TypeOf(NewListValue([]int32{1, 2, 3})); !found || val != ListType {
 		t.Errorf("Unexpected type result. found: %t, type: %v", found, val)
 	}
 }
 
 func TestTypeOf_Proto(t *testing.T) {
-	expr := adapters.NewMsgAdapter(&syntax_proto.Expr{})
+	expr := NewProtoValue(&expr.Expr{})
 	if val, found := TypeOf(expr); !found ||
 		!val.Equal(MessageType("google.api.expr.v1.Expr")) {
 		t.Errorf("Unexpected type result. found: %t, type: %v", found, val)

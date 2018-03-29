@@ -12,32 +12,48 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package adapters
+// Adapter package defines utilities for adapting plain Go structs into
+// structs suitable for consumption with CEL.
+package types
 
 import (
-	"github.com/google/cel-go/interpreter/types/objects"
 	"fmt"
+	"github.com/google/cel-go/interpreter/types/aspects"
 	"reflect"
 )
 
-type MapAdapter interface {
-	objects.Equaler
-	objects.Indexer
-	objects.Protoer
-	objects.Iterable
+// MapValue mediates type conversions between Go and CEL types for
+// map values.
+//
+// MapValues are comparable, iterable, support indexed access by key,
+// and may be converted to a protobuf representation.
+type MapValue interface {
+	aspects.Equaler
+	aspects.Indexer
+	aspects.Protoer
+	aspects.Iterable
+
+	// Value of the underlying map.
 	Value() interface{}
+
+	// Number of entries in the map.
 	Len() int64
 }
 
-func NewMapAdapter(value interface{}) MapAdapter {
+func NewMapValue(value interface{}) MapValue {
 	refValue := reflect.ValueOf(value)
 	mapType := refValue.Type()
-	return &mapAdapter{value, &refValue, mapType, mapType.Key().Kind(), mapType.Elem().Kind()}
+	return &mapValue{
+		value,
+		&refValue,
+		mapType,
+		mapType.Key().Kind(),
+		mapType.Elem().Kind()}
 }
 
-var _ MapAdapter = &mapAdapter{}
+var _ MapValue = &mapValue{}
 
-type mapAdapter struct {
+type mapValue struct {
 	value    interface{}
 	refValue *reflect.Value
 	mapType  reflect.Type
@@ -45,12 +61,12 @@ type mapAdapter struct {
 	elemKind reflect.Kind
 }
 
-func (m *mapAdapter) Value() interface{} {
+func (m *mapValue) Value() interface{} {
 	return m.value
 }
 
-func (m *mapAdapter) Equal(other interface{}) bool {
-	adapter, ok := other.(*mapAdapter)
+func (m *mapValue) Equal(other interface{}) bool {
+	adapter, ok := other.(*mapValue)
 	if !ok || m.Len() != adapter.Len() {
 		return false
 	}
@@ -74,7 +90,7 @@ func (m *mapAdapter) Equal(other interface{}) bool {
 			} else if otherExprVal, err := ProtoToExpr(otherVal); err != nil {
 				fmt.Print(err)
 				return false
-			} else if thisEqualerVal, ok := thisExprVal.(objects.Equaler); ok {
+			} else if thisEqualerVal, ok := thisExprVal.(aspects.Equaler); ok {
 				if !thisEqualerVal.Equal(otherExprVal) {
 					return false
 				}
@@ -86,7 +102,7 @@ func (m *mapAdapter) Equal(other interface{}) bool {
 	return true
 }
 
-func (m *mapAdapter) Get(key interface{}) (interface{}, error) {
+func (m *mapValue) Get(key interface{}) (interface{}, error) {
 	if protoKey, err := ExprToProto(m.mapType.Key(), key); err != nil {
 		return nil, err
 	} else if value := m.refValue.MapIndex(reflect.ValueOf(protoKey)); !value.IsValid() {
@@ -96,7 +112,7 @@ func (m *mapAdapter) Get(key interface{}) (interface{}, error) {
 	}
 }
 
-func (m *mapAdapter) ToProto(refType reflect.Type) (interface{}, error) {
+func (m *mapValue) ToProto(refType reflect.Type) (interface{}, error) {
 	protoKey := refType.Key()
 	protoKeyKind := protoKey.Kind()
 	protoElem := refType.Elem()
@@ -128,11 +144,11 @@ func (m *mapAdapter) ToProto(refType reflect.Type) (interface{}, error) {
 			" map: %v, proto: %v", m.mapType, refType)
 }
 
-func (m *mapAdapter) Len() int64 {
+func (m *mapValue) Len() int64 {
 	return int64(m.refValue.Len())
 }
 
-func (m *mapAdapter) Iterator() objects.Iterator {
+func (m *mapValue) Iterator() aspects.Iterator {
 	return &mapIterator{
 		mapValue: m,
 		mapKeys:  m.refValue.MapKeys(),
@@ -141,7 +157,7 @@ func (m *mapAdapter) Iterator() objects.Iterator {
 }
 
 type mapIterator struct {
-	mapValue *mapAdapter
+	mapValue *mapValue
 	mapKeys  []reflect.Value
 	cursor   int64
 	len      int64
@@ -158,7 +174,7 @@ func (it *mapIterator) Next() interface{} {
 		refKey := it.mapKeys[index]
 		key, err := ProtoToExpr(refKey.Interface())
 		if err != nil {
-			fmt.Println(err)
+			return err
 		}
 		return key
 	}

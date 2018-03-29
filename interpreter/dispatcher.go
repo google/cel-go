@@ -12,20 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// The interpreter package provides functions to evaluate CEL programs against
+// a series of inputs and functions supplied at runtime.
 package interpreter
 
 import (
+	"fmt"
 	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/interpreter/types"
-	"fmt"
 	"reflect"
 )
 
+// Dispatcher resolves function calls to their appropriate overload.
 type Dispatcher interface {
+
+	// Add one or more overloads, returning an error if any Overload has the
+	// same Overload#Name.
 	Add(overloads ...*functions.Overload) error
+
+	// Dispatch a call to its appropriate Overload and return the result or
+	// error.
 	Dispatch(ctx *CallContext) (interface{}, error)
 }
 
+// CallContext description of a function call invocation.
 type CallContext struct {
 	call       *CallExpr
 	args       []interface{}
@@ -33,72 +43,66 @@ type CallContext struct {
 	metadata   Metadata
 }
 
+// Function name to be invoked as it is written in an expression.
 func (ctx *CallContext) Function() string {
 	return ctx.call.Function
 }
 
+// Overload name to be invoked, if set.
 func (ctx *CallContext) Overload() (string, bool) {
 	return ctx.call.Overload, ctx.call.Overload != ""
 }
 
+// Args to provide on the overload dispatch.
 func (ctx *CallContext) Args() []interface{} {
 	return ctx.args
 }
 
+// NewDispatcher returns an empty Dispatcher.
+//
+// Typically this call would be used with functions#StandardBuiltins:
+//
+//     dispatcher := NewDispatcher()
+//     dispatcher.Add(functions.StandardBuiltins())
 func NewDispatcher() *defaultDispatcher {
 	return &defaultDispatcher{
-		make(map[string]*overload),
-		make(map[string]map[int][]*overload)}
+		overloads: make(map[string]*overload),
+		functions: make(map[string]map[int][]*overload)}
 }
 
-type OverloadMap map[string]*overload
-type OverloadMapByFunctionAndArgCount map[string]map[int][]*overload
+// Helper types for tracking overloads by various dimensions.
+type overloadMap map[string]*overload
+type overloadMapByFunctionAndArgCount map[string]map[int][]*overload
 
 type defaultDispatcher struct {
-	overloads OverloadMap
-	functions OverloadMapByFunctionAndArgCount
+	overloads overloadMap
+	functions overloadMapByFunctionAndArgCount
 }
 
 var _ Dispatcher = &defaultDispatcher{}
 
-type overload struct {
-	function   string
-	overloadId string
-	argCount   int
-	argTypes   []types.Type
-	impl       functions.OverloadImpl
-}
-
-func (o *overload) handlesArgs(args []interface{}) bool {
-	for i, arg := range args {
-		argType := o.argTypes[i]
-		if !argType.IsDyn() {
-			if t, found := types.TypeOf(arg); !found {
-				return false
-			} else if !argType.Equal(t) {
-				return false
-			}
-		}
-	}
-	return true
-}
-
 func (d *defaultDispatcher) Add(overloads ...*functions.Overload) error {
 	for _, o := range overloads {
+		// Determine the arg count and type from the overload signature.
 		iface := reflect.TypeOf(o.Signature)
 		argCount := iface.NumIn()
 		argTypes := make([]types.Type, argCount)
 		for i := 0; i < argCount; i++ {
 			refType := iface.In(i)
 			var argType types.Type = nil
+			// If the arg type is an interface{}, this is equivalent to dyn.
 			if refType.Kind() == reflect.Interface {
 				argType = types.DynType
+				// Otherwise, instantiate a zero-value of the argument and inspect
+				// the value type.
 			} else {
 				refVal := reflect.New(refType).Elem()
 				if argTypeVal, found := types.TypeOf(refVal.Interface()); found {
 					argType = argTypeVal
 				}
 			}
+			// Set the arg type for the argument at the ordinal 'i' to the
+			// type that was resolved, otherwise, return an error.
 			if argType != nil {
 				argTypes[i] = argType
 			} else {
@@ -112,9 +116,13 @@ func (d *defaultDispatcher) Add(overloads ...*functions.Overload) error {
 			argCount,
 			argTypes,
 			o.Impl}
+		// Add the overload unless an overload of the same name has already
+		// been provided before.
 		if _, found := d.overloads[o.Name]; found {
 			return fmt.Errorf("overload already exists '%s'", o.Name)
 		}
+		// Index the overload by function and by arg count.
+		// TODO: consider indexing by abstract type.
 		d.overloads[o.Name] = overloadRef
 		if byFunction, found := d.functions[o.Function]; !found {
 			byFunction = make(map[int][]*overload)
@@ -137,6 +145,8 @@ func (d *defaultDispatcher) Dispatch(ctx *CallContext) (interface{}, error) {
 	}
 }
 
+// Find the overload that matches the call context. There should be only one,
+// otherwise the call is ambiguous and a runtime error produced.
 func (d *defaultDispatcher) findOverload(ctx *CallContext) (*overload, error) {
 	// TODO: Add location metadata to overloads.
 	if overloadId, found := ctx.Overload(); found {
@@ -169,4 +179,29 @@ func (d *defaultDispatcher) findOverload(ctx *CallContext) (*overload, error) {
 			"no matching overload for function '%s'",
 			ctx.Function())
 	}
+}
+
+// overload with the internal representation of a functions#Overload.
+type overload struct {
+	function   string
+	overloadId string
+	argCount   int
+	argTypes   []types.Type
+	impl       functions.OverloadImpl
+}
+
+// handleArgs assesses the count and arg type of the input args and indicates
+// whether the overload can be invoked with them.
+func (o *overload) handlesArgs(args []interface{}) bool {
+	for i, arg := range args {
+		argType := o.argTypes[i]
+		if !argType.IsDyn() {
+			if t, found := types.TypeOf(arg); !found {
+				return false
+			} else if !argType.Equal(t) {
+				return false
+			}
+		}
+	}
+	return true
 }

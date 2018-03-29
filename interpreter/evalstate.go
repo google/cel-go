@@ -12,12 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// The interpreter package provides functions to evaluate CEL programs against
+// a series of inputs and functions supplied at runtime.
 package interpreter
 
+// EvalState tracks the values associated with expression ids during execution.
 type EvalState interface {
+	// Get the value of the given expression id, false if not found.
 	Value(int64) (interface{}, bool)
 }
 
+// MutableEvalState permits the mutation of evaluation state for a given
+// expression id.
 type MutableEvalState interface {
 	EvalState
 	SetValue(int64, interface{})
@@ -26,6 +32,7 @@ type MutableEvalState interface {
 var _ EvalState = &defaultEvalState{}
 var _ MutableEvalState = &defaultEvalState{}
 
+// NewEvalState returns a MutableEvalState.
 func NewEvalState() *defaultEvalState {
 	return &defaultEvalState{make(map[int64]interface{})}
 }
@@ -43,6 +50,7 @@ func (s *defaultEvalState) SetValue(exprId int64, value interface{}) {
 	s.exprValues[exprId] = value
 }
 
+// TODO: replace this with the value.proto equivalents.
 type UnknownValue struct {
 	Args []Instruction
 }
@@ -51,6 +59,7 @@ func (o *UnknownValue) Equal(other interface{}) bool {
 	return false
 }
 
+// TODO: replace this with the value.proto equivalents.
 type ErrorValue struct {
 	ErrorSet []error
 }

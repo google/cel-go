@@ -10,7 +10,7 @@ package(
 
 go_proto_library(
     name = "syntax_proto",
-    importpath = "github.com/google/cel-spec/proto/v1",
+    importpath = "github.com/google/cel-spec/proto/v1/syntax",
     proto = "@com_google_cel_spec//proto/v1:syntax_protos",
 )
 

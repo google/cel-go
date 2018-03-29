@@ -12,32 +12,45 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package adapters
+// Adapter package defines utilities for adapting plain Go structs into
+// structs suitable for consumption with CEL.
+package types
 
 import (
-	"github.com/google/cel-go/interpreter/types/objects"
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
+	"github.com/google/cel-go/interpreter/types/aspects"
 	"reflect"
 )
 
-type MsgAdapter interface {
-	objects.Equaler
-	objects.Indexer
-	objects.Iterable
+// ObjectValue wraps accesses to protobuf messages in order to ensure
+// appropriate type conversions between Go and CEL.
+//
+// ObjectValue values are comparable, iterable, and support indexed access by
+// field name.
+//
+// Note: iterators will iterate over all default and non-default fields, but
+// for oneof field sets will only include the field name of the non-default
+// oneof.
+type ObjectValue interface {
+	aspects.Equaler
+	aspects.Indexer
+	aspects.Iterable
+
+	// Value of the underlying message.
 	Value() interface{}
 }
 
-type msgAdapter struct {
+type protoValue struct {
 	value       interface{}
 	refValue    *reflect.Value
 	isAny       bool
 	fieldValues map[string]interface{}
 }
 
-func NewMsgAdapter(value interface{}) MsgAdapter {
+func NewProtoValue(value interface{}) ObjectValue {
 	// Unwrap any.Any values on construction.
 	_, isAny := value.(*any.Any)
 	if isAny {
@@ -49,18 +62,18 @@ func NewMsgAdapter(value interface{}) MsgAdapter {
 		value = dynAny.Message
 	}
 	refValue := reflect.ValueOf(value)
-	return &msgAdapter{
+	return &protoValue{
 		value,
 		&refValue,
 		isAny,
 		make(map[string]interface{})}
 }
 
-func (m *msgAdapter) Value() interface{} {
+func (m *protoValue) Value() interface{} {
 	return m.value
 }
 
-func (m *msgAdapter) Get(field interface{}) (interface{}, error) {
+func (m *protoValue) Get(field interface{}) (interface{}, error) {
 	if fieldStr, ok := field.(string); !ok {
 		return nil, fmt.Errorf("unexpected field type")
 	} else if fieldValue, found := m.fieldValues[fieldStr]; found {
@@ -73,7 +86,7 @@ func (m *msgAdapter) Get(field interface{}) (interface{}, error) {
 		} else if fieldValue := refFieldValue.Interface(); fieldValue == nil {
 			// TODO: test getting an empty Any field.
 			refField := m.refValue.FieldByName(fieldStr)
-			return NewMsgAdapter(reflect.New(refField.Type()).Interface()), nil
+			return NewProtoValue(reflect.New(refField.Type()).Interface()), nil
 		} else if convertedValue, err := ProtoToExpr(fieldValue); err != nil {
 			return nil, err
 		} else {
@@ -83,8 +96,8 @@ func (m *msgAdapter) Get(field interface{}) (interface{}, error) {
 	}
 }
 
-func (m *msgAdapter) Equal(other interface{}) bool {
-	if adapter, ok := other.(MsgAdapter); ok {
+func (m *protoValue) Equal(other interface{}) bool {
+	if adapter, ok := other.(ObjectValue); ok {
 		first := m.value.(proto.Message)
 		second := adapter.Value().(proto.Message)
 		return proto.Equal(first, second)
@@ -92,7 +105,7 @@ func (m *msgAdapter) Equal(other interface{}) bool {
 	return false
 }
 
-func (m *msgAdapter) Iterator() objects.Iterator {
+func (m *protoValue) Iterator() aspects.Iterator {
 	refType := m.refValue.Type()
 	return &msgIterator{
 		msgValue:    m,
@@ -103,7 +116,7 @@ func (m *msgAdapter) Iterator() objects.Iterator {
 }
 
 type msgIterator struct {
-	msgValue    MsgAdapter
+	msgValue    ObjectValue
 	msgRefValue *reflect.Value
 	msgType     reflect.Type
 	cursor      int64

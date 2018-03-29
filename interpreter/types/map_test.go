@@ -12,15 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package adapters
+package types
 
 import (
-	"github.com/google/cel-go/interpreter/types/objects"
+	"github.com/google/cel-go/interpreter/types/aspects"
 	"testing"
 )
 
-func TestMapAdapter_Equal(t *testing.T) {
-	mapValue := NewMapAdapter(map[string]map[int32]float32{
+func TestMapValue_Equal(t *testing.T) {
+	mapValue := NewMapValue(map[string]map[int32]float32{
 		"nested": {1: -1.0, 2: 2.0},
 		"empty":  {}})
 	if !mapValue.Equal(mapValue) {
@@ -28,26 +28,26 @@ func TestMapAdapter_Equal(t *testing.T) {
 	}
 	if nestedVal, err := mapValue.Get("nested"); err != nil {
 		t.Error(err)
-	} else if mapValue.Equal(nestedVal) || nestedVal.(MapAdapter).Equal(mapValue) {
+	} else if mapValue.Equal(nestedVal) || nestedVal.(MapValue).Equal(mapValue) {
 		t.Error("Same length, but different key names")
 	}
 }
 
-func TestMapAdapter_Get(t *testing.T) {
-	mapValue := NewMapAdapter(map[string]map[int32]float32{
+func TestMapValue_Get(t *testing.T) {
+	mapValue := NewMapValue(map[string]map[int32]float32{
 		"nested": {1: -1.0, 2: 2.0},
 		"empty":  {}})
 	if nestedVal, err := mapValue.Get("nested"); err != nil {
 		t.Error(err)
-	} else if floatVal, err := nestedVal.(objects.Indexer).Get(int64(1)); err != nil {
+	} else if floatVal, err := nestedVal.(aspects.Indexer).Get(int64(1)); err != nil {
 		t.Error(err)
 	} else if floatVal != float64(-1.0) {
 		t.Error("Nested map access of float property not float64")
 	}
 }
 
-func TestMapAdapter_Iterator(t *testing.T) {
-	mapValue := NewMapAdapter(map[string]map[int32]float32{
+func TestMapValue_Iterator(t *testing.T) {
+	mapValue := NewMapValue(map[string]map[int32]float32{
 		"nested": {1: -1.0, 2: 2.0},
 		"empty":  {}})
 	it := mapValue.Iterator()

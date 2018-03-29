@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package types
+package providers
 
 import (
-	"github.com/google/cel-go/interpreter/types/adapters"
-	expr "github.com/google/cel-spec/proto/v1"
+	"github.com/google/cel-go/interpreter/types"
+	expr "github.com/google/cel-spec/proto/v1/syntax"
 	"reflect"
 	"testing"
 )
@@ -61,17 +61,17 @@ func TestTypeProvider_Getters(t *testing.T) {
 		}
 		if pos, err := sourceInfo.Get("Positions"); err != nil {
 			t.Error(err)
-		} else if !reflect.DeepEqual(pos.(adapters.MapAdapter).Value(),
+		} else if !reflect.DeepEqual(pos.(types.MapValue).Value(),
 			map[int64]int32{1: 2, 2: 4}) {
 			t.Errorf("Expected map[int64]int32, got %v", pos)
-		} else if posKeyVal, err := pos.(adapters.MapAdapter).Get(int64(1)); err != nil {
+		} else if posKeyVal, err := pos.(types.MapValue).Get(int64(1)); err != nil {
 			t.Error(err)
 		} else if posKeyVal.(int64) != 2 {
 			t.Error("Expected value to be int64, not int32")
 		}
 		if offsets, err := sourceInfo.Get("LineOffsets"); err != nil {
 			t.Error(err)
-		} else if offset1, err := offsets.(adapters.ListAdapter).Get(int64(1)); err != nil {
+		} else if offset1, err := offsets.(types.ListValue).Get(int64(1)); err != nil {
 			t.Error(err)
 		} else if offset1.(int64) != 2 {
 			t.Errorf("Expected index 1 to be value 2, was %v", offset1)

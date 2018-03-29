@@ -12,10 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package objects
+// The aspects package defines methods useful for composing a new CEL built-in
+// or abstract type that function with built-in CEL operators.
+package aspects
 
-import "reflect"
+// Iterable aggregate types permit traversal over their elements
+type Iterable interface {
 
-type Protoer interface {
-	ToProto(typeDesc reflect.Type) (interface{}, error)
+	// Iterator returns a new iterator view of the struct.
+	Iterator() Iterator
+}
+
+// Iterator permits safe traversal over the contents of an aggregate type.
+type Iterator interface {
+
+	// HasNext returns true if there are unvisited elements in the Iterator.
+	HasNext() bool
+
+	// Next returns the next element.
+	Next() interface{}
 }

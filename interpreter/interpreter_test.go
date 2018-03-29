@@ -18,8 +18,8 @@ import (
 	"github.com/google/cel-go/interpreter/functions"
 	testExpr "github.com/google/cel-go/interpreter/testing"
 	"github.com/google/cel-go/interpreter/types"
-	"github.com/google/cel-go/interpreter/types/adapters"
-	expr "github.com/google/cel-spec/proto/v1"
+	"github.com/google/cel-go/interpreter/types/providers"
+	expr "github.com/google/cel-spec/proto/v1/syntax"
 	"testing"
 )
 
@@ -47,7 +47,7 @@ func TestInterpreter_SelectExpr(t *testing.T) {
 
 	interpretable := interpreter.NewInterpretable(program)
 	result, _ := interpretable.Eval(
-		NewActivation(map[string]interface{}{"a.b": adapters.NewMapAdapter(map[string]bool{"c": true})}))
+		NewActivation(map[string]interface{}{"a.b": types.NewMapValue(map[string]bool{"c": true})}))
 	if result != true {
 		t.Errorf("Expected true, got: %v", result)
 	}
@@ -96,7 +96,7 @@ func BenchmarkInterpreter_ConditionalExpr(b *testing.B) {
 	activation := NewActivation(map[string]interface{}{
 		"a": false,
 		"b": 0.999,
-		"c": adapters.NewListAdapter([]string{"hello"})})
+		"c": types.NewListValue([]string{"hello"})})
 	for i := 0; i < b.N; i++ {
 		interpretable.Eval(activation)
 	}
@@ -118,6 +118,6 @@ func BenchmarkInterpreter_ComprehensionExpr(b *testing.B) {
 func StandardTestInterpreter() Interpreter {
 	dispatcher := NewDispatcher()
 	dispatcher.Add(functions.StandardBuiltins()...)
-	typeProvider := types.NewTypeProvider(&expr.ParsedExpr{})
+	typeProvider := providers.NewTypeProvider(&expr.ParsedExpr{})
 	return NewInterpreter(dispatcher, typeProvider)
 }

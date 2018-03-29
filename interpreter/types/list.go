@@ -12,46 +12,72 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package adapters
+// Adapter package defines utilities for adapting plain Go structs into
+// structs suitable for consumption with CEL.
+package types
 
 import (
-	"github.com/google/cel-go/interpreter/types/objects"
 	"fmt"
+	"github.com/google/cel-go/interpreter/types/aspects"
 	"reflect"
 )
 
-type ListAdapter interface {
-	objects.Equaler
-	objects.Indexer
-	objects.Protoer
-	objects.Iterable
+// ListValue for moderating between plain Go lists and list values, and
+// CEL list values.
+//
+// ListValues are comparable, iterable, support indexed access,
+// and may be converted to a protobuf representation.
+type ListValue interface {
+	aspects.Equaler
+	aspects.Indexer
+	aspects.Iterable
+	aspects.Protoer
+
+	// Value of the underlying list.
 	Value() interface{}
+
+	// Contains returns true if the input value exists in the list.
 	Contains(value interface{}) bool
-	Concat(other ListAdapter) ListAdapter
+
+	// Concat two lists together into an adapted list.
+	Concat(other ListValue) ListValue
+
+	// Len returns the length of the list.
 	Len() int64
 }
 
-var _ ListAdapter = &listAdapter{}
+var _ ListValue = &listValue{}
 
-type listAdapter struct {
+// Implementation of a ListValue which uses reflection to mediate between
+// Go and CEL types.
+type listValue struct {
 	value    interface{}
 	refValue *reflect.Value
 	listType reflect.Type
 	elemKind reflect.Kind
 }
 
-func NewListAdapter(value interface{}) ListAdapter {
+// NewListValue wraps a list value into a ListValue
+func NewListValue(value interface{}) ListValue {
 	refValue := reflect.ValueOf(value)
 	listType := refValue.Type()
-	return &listAdapter{value, &refValue, listType, listType.Elem().Kind()}
+	return &listValue{
+		value,
+		&refValue,
+		listType,
+		listType.Elem().Kind()}
 }
 
-func (l *listAdapter) Value() interface{} {
+func (l *listValue) Value() interface{} {
 	return l.value
 }
 
-func (l *listAdapter) Equal(other interface{}) bool {
-	adapter, ok := other.(ListAdapter)
+// Equal returns true if two lists are deeply equal.
+//
+// The other value must be a list of the same element type, length,
+// where each element at each ordinal is deeply equal.
+func (l *listValue) Equal(other interface{}) bool {
+	adapter, ok := other.(ListValue)
 	elemCount := l.Len()
 	if !ok || elemCount != adapter.Len() {
 		return false
@@ -59,7 +85,7 @@ func (l *listAdapter) Equal(other interface{}) bool {
 	for i := int64(0); i < elemCount; i++ {
 		elem, _ := l.Get(i)
 		otherElem, _ := adapter.Get(i)
-		if elemEqualer, ok := elem.(objects.Equaler); ok {
+		if elemEqualer, ok := elem.(aspects.Equaler); ok {
 			if !elemEqualer.Equal(otherElem) {
 				return false
 			}
@@ -70,7 +96,8 @@ func (l *listAdapter) Equal(other interface{}) bool {
 	return true
 }
 
-func (l *listAdapter) Get(index interface{}) (interface{}, error) {
+// Get a list element at the specified index.
+func (l *listValue) Get(index interface{}) (interface{}, error) {
 	i, ok := index.(int64)
 	if !ok {
 		return nil, fmt.Errorf("unexpected index type")
@@ -82,7 +109,7 @@ func (l *listAdapter) Get(index interface{}) (interface{}, error) {
 	return ProtoToExpr(value)
 }
 
-func (l *listAdapter) ToProto(refType reflect.Type) (interface{}, error) {
+func (l *listValue) ToProto(refType reflect.Type) (interface{}, error) {
 	protoElem := refType.Elem()
 	protoElemKind := protoElem.Kind()
 	if protoElemKind == l.elemKind {
@@ -105,13 +132,13 @@ func (l *listAdapter) ToProto(refType reflect.Type) (interface{}, error) {
 			" list elem: %v, proto elem: %v", l.elemKind, protoElemKind)
 }
 
-func (l *listAdapter) Contains(value interface{}) bool {
+func (l *listValue) Contains(value interface{}) bool {
 	for i := 0; i < int(l.Len()); i++ {
 		elem, _ := ProtoToExpr(l.refValue.Index(i).Interface())
 		matches := false
 		switch elem.(type) {
-		case objects.Equaler:
-			matches = elem.(objects.Equaler).Equal(value)
+		case aspects.Equaler:
+			matches = elem.(aspects.Equaler).Equal(value)
 		default:
 			matches = reflect.DeepEqual(elem, value)
 		}
@@ -122,33 +149,32 @@ func (l *listAdapter) Contains(value interface{}) bool {
 	return false
 }
 
-func (l *listAdapter) Concat(other ListAdapter) ListAdapter {
-	return &concatAdapter{prev: l, next: other}
+func (l *listValue) Concat(other ListValue) ListValue {
+	return &concatListValue{prev: l, next: other}
 }
 
-func (l *listAdapter) Len() int64 {
+func (l *listValue) Len() int64 {
 	return int64(l.refValue.Len())
 }
 
-func (l *listAdapter) Iterator() objects.Iterator {
+func (l *listValue) Iterator() aspects.Iterator {
 	return &listIterator{listValue: l, cursor: 0, len: l.Len()}
 }
 
-var _ ListAdapter = &concatAdapter{}
+var _ ListValue = &concatListValue{}
 
-type concatAdapter struct {
-	prev  ListAdapter
-	next  ListAdapter
+type concatListValue struct {
+	prev  ListValue
+	next  ListValue
 	value interface{}
 }
 
-func (l *concatAdapter) Value() interface{} {
+func (l *concatListValue) Value() interface{} {
 	if l.value == nil {
 		prevVal := reflect.ValueOf(l.prev.Value())
 		nextVal := reflect.ValueOf(l.next.Value())
 		merged := make([]interface{}, l.Len(), l.Len())
 		prevLen := int(l.prev.Len())
-		// TODO: make this more efficient.
 		for i := 0; i < prevLen; i++ {
 			merged[i] = prevVal.Index(i).Interface()
 		}
@@ -160,7 +186,7 @@ func (l *concatAdapter) Value() interface{} {
 	return l.value
 }
 
-func (l *concatAdapter) Get(index interface{}) (interface{}, error) {
+func (l *concatListValue) Get(index interface{}) (interface{}, error) {
 	i, ok := index.(int64)
 	if !ok {
 		return nil, fmt.Errorf("unexpected index type")
@@ -176,8 +202,8 @@ func (l *concatAdapter) Get(index interface{}) (interface{}, error) {
 	}
 }
 
-func (l *concatAdapter) Equal(other interface{}) bool {
-	adapter, ok := other.(ListAdapter)
+func (l *concatListValue) Equal(other interface{}) bool {
+	adapter, ok := other.(ListValue)
 	elemCount := l.Len()
 	if !ok || elemCount != adapter.Len() {
 		return false
@@ -185,7 +211,7 @@ func (l *concatAdapter) Equal(other interface{}) bool {
 	for i := int64(0); i < elemCount; i++ {
 		elem, _ := l.Get(i)
 		otherElem, _ := adapter.Get(i)
-		if elemEqualer, ok := elem.(objects.Equaler); ok &&
+		if elemEqualer, ok := elem.(aspects.Equaler); ok &&
 			!elemEqualer.Equal(otherElem) {
 			return false
 		}
@@ -196,29 +222,28 @@ func (l *concatAdapter) Equal(other interface{}) bool {
 	return true
 }
 
-func (l *concatAdapter) ToProto(refType reflect.Type) (interface{}, error) {
-	return NewListAdapter(l.Value()).ToProto(refType)
+func (l *concatListValue) ToProto(refType reflect.Type) (interface{}, error) {
+	return NewListValue(l.Value()).ToProto(refType)
 }
 
-func (l *concatAdapter) Contains(value interface{}) bool {
+func (l *concatListValue) Contains(value interface{}) bool {
 	return l.prev.Contains(value) || l.next.Contains(value)
 }
 
-func (l *concatAdapter) Concat(other ListAdapter) ListAdapter {
-	return &concatAdapter{prev: l, next: other}
+func (l *concatListValue) Concat(other ListValue) ListValue {
+	return &concatListValue{prev: l, next: other}
 }
 
-func (l *concatAdapter) Len() int64 {
+func (l *concatListValue) Len() int64 {
 	return l.prev.Len() + l.next.Len()
 }
 
-// Iteration functions
-func (l *concatAdapter) Iterator() objects.Iterator {
+func (l *concatListValue) Iterator() aspects.Iterator {
 	return &listIterator{listValue: l, cursor: 0, len: l.Len()}
 }
 
 type listIterator struct {
-	listValue ListAdapter
+	listValue ListValue
 	cursor    int64
 	len       int64
 }
@@ -233,7 +258,7 @@ func (it *listIterator) Next() interface{} {
 		it.cursor += 1
 		element, err := it.listValue.Get(index)
 		if err != nil {
-			fmt.Println(err)
+			return err
 		}
 		return element
 	}

@@ -15,8 +15,8 @@
 package interpreter
 
 import (
-	testExpr "github.com/google/cel-go/interpreter/testing"
 	"fmt"
+	testExpr "github.com/google/cel-go/interpreter/testing"
 	"testing"
 )
 

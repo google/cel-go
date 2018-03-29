@@ -12,18 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// TypeProvider specifies functions for creating new object instances and for
+// resolving enum values by name.
 package types
 
 import (
-	"github.com/google/cel-go/interpreter/types/adapters"
-	"github.com/google/cel-go/interpreter/types/objects"
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	dpb "github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/struct"
 	tspb "github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/google/cel-go/interpreter/types/aspects"
 )
 
+// Declare the type instances and their human readable names.
 var (
 	TypeType      Type = &exprType{name: "type"}
 	NullType      Type = &exprType{name: "null"}
@@ -41,12 +43,15 @@ var (
 	// TODO: handle registration of abstract types, currently hard-coded.
 )
 
+// Types may be compared with each other, have a name, and indicate whether
+// the underlying type is dynamic.
 type Type interface {
-	objects.Equaler
+	aspects.Equaler
 	Name() string
 	IsDyn() bool
 }
 
+// MessageType produces a new Type instance for a qualified message name.
 func MessageType(name string) Type {
 	if name == TimestampType.Name() {
 		return TimestampType
@@ -74,6 +79,8 @@ func (t *exprType) Equal(other interface{}) bool {
 	return ok && t.name == otherType.Name()
 }
 
+// TypeOf returns the CEL Type for the input value, or false if the type
+// cannot be found.
 func TypeOf(value interface{}) (Type, bool) {
 	switch value.(type) {
 	case Type:
@@ -94,12 +101,12 @@ func TypeOf(value interface{}) (Type, bool) {
 		return StringType, true
 	case []byte:
 		return BytesType, true
-	case adapters.ListAdapter:
+	case ListValue:
 		return ListType, true
-	case adapters.MapAdapter:
+	case MapValue:
 		return MapType, true
-	case adapters.MsgAdapter:
-		msgAdapter := value.(adapters.MsgAdapter)
+	case ObjectValue:
+		msgAdapter := value.(ObjectValue)
 		protoValue := msgAdapter.Value().(proto.Message)
 		return MessageType(proto.MessageName(protoValue)), true
 	case structpb.NullValue:

@@ -12,13 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package objects
+// The aspects package defines methods useful for composing a new CEL built-in
+// or abstract type that function with built-in CEL operators.
+package aspects
 
-type Iterable interface {
-	Iterator() Iterator
-}
+// Equaler specifies that this object may be tested for equality.
+type Equaler interface {
 
-type Iterator interface {
-	HasNext() bool
-	Next() interface{}
+	// Equal returns true if the `other` value has the same type and
+	// content as the implementing struct.
+	Equal(other interface{}) bool
 }

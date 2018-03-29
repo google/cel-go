@@ -18,8 +18,8 @@ go_library(
         "//common:go_default_library",
         "//interpreter/functions:go_default_library",
         "//interpreter/types:go_default_library",
-        "//interpreter/types/adapters:go_default_library",
-        "//interpreter/types/objects:go_default_library",
+        "//interpreter/types/aspects:go_default_library",
+        "//interpreter/types/providers:go_default_library",
         "//io:syntax_proto",
         "//operators:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
@@ -27,4 +27,25 @@ go_library(
         "@com_github_golang_protobuf//ptypes/struct:go_default_library",
         "@com_github_golang_protobuf//ptypes/timestamp:go_default_library",
     ]
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "activation_test.go",
+        "dispatcher_test.go",
+        "evalstate_test.go",
+        "interpreter_test.go",
+        "program_test.go",
+    ],
+    embed = [
+        ":go_default_library",
+    ],
+    deps = [
+        "//interpreter/functions:go_default_library",
+        "//interpreter/testing:go_default_library",
+        "//interpreter/types:go_default_library",
+        "//io:syntax_proto",
+        "//operators:go_default_library",
+    ],
 )

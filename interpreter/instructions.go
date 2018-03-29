@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// The interpreter package provides functions to evaluate CEL programs against
+// a series of inputs and functions supplied at runtime.
 package interpreter
 
 import (
@@ -19,6 +21,7 @@ import (
 	"strings"
 )
 
+// Instruction represents a single step within a CEL program.
 type Instruction interface {
 	fmt.Stringer
 	GetId() int64
@@ -30,7 +33,7 @@ var _ Instruction = &SelectExpr{}
 var _ Instruction = &CallExpr{}
 var _ Instruction = &CreateListExpr{}
 var _ Instruction = &CreateMapExpr{}
-var _ Instruction = &CreateTypeExpr{}
+var _ Instruction = &CreateObjectExpr{}
 var _ Instruction = &MovInst{}
 var _ Instruction = &JumpInst{}
 var _ Instruction = &PushScopeInst{}
@@ -44,6 +47,7 @@ func (e *baseInstruction) GetId() int64 {
 	return e.Id
 }
 
+// ConstExpr is a constant expression.
 type ConstExpr struct {
 	*baseInstruction
 	Value interface{}
@@ -57,6 +61,7 @@ func NewConst(exprId int64, value interface{}) *ConstExpr {
 	return &ConstExpr{&baseInstruction{exprId}, value}
 }
 
+// IdentExpr is an identifier expression.
 type IdentExpr struct {
 	*baseInstruction
 	Name string
@@ -70,6 +75,7 @@ func NewIdent(exprId int64, name string) *IdentExpr {
 	return &IdentExpr{&baseInstruction{exprId}, name}
 }
 
+// CallExpr is a call expression where the args are referenced by id.
 type CallExpr struct {
 	*baseInstruction
 	Function string
@@ -96,6 +102,7 @@ func NewCallOverload(exprId int64, function string, argIds []int64, overload str
 	return &CallExpr{&baseInstruction{exprId}, function, argIds, overload}
 }
 
+// SelectExpr is a select expression where the operand is represented by id.
 type SelectExpr struct {
 	*baseInstruction
 	Operand int64
@@ -111,6 +118,7 @@ func NewSelect(exprId int64, operandId int64, field string) *SelectExpr {
 	return &SelectExpr{&baseInstruction{exprId}, operandId, field}
 }
 
+// CrateListExpr will create a new list from the elements referened by their ids.
 type CreateListExpr struct {
 	*baseInstruction
 	Elements []int64
@@ -124,6 +132,8 @@ func NewList(exprId int64, elements []int64) *CreateListExpr {
 	return &CreateListExpr{&baseInstruction{exprId}, elements}
 }
 
+// CreateMapExpr will create a map from the key value pairs where each key and
+// value refers to an expression id.
 type CreateMapExpr struct {
 	*baseInstruction
 	KeyValues map[int64]int64
@@ -137,23 +147,24 @@ func NewMap(exprId int64, keyValues map[int64]int64) *CreateMapExpr {
 	return &CreateMapExpr{&baseInstruction{exprId}, keyValues}
 }
 
-type CreateTypeExpr struct {
+// CreateObjectExpr generates a new typed object with field values referenced
+// by id.
+type CreateObjectExpr struct {
 	*baseInstruction
 	Name        string
 	FieldValues map[string]int64
 }
 
-func (e *CreateTypeExpr) String() string {
+func (e *CreateObjectExpr) String() string {
 	return fmt.Sprintf("mov   type(%s%v), r%d", e.Name, e.FieldValues, e.GetId())
 }
 
-func NewType(exprId int64, name string,
-	fieldValues map[string]int64) *CreateTypeExpr {
-	return &CreateTypeExpr{&baseInstruction{exprId}, name, fieldValues}
+func NewObject(exprId int64, name string,
+	fieldValues map[string]int64) *CreateObjectExpr {
+	return &CreateObjectExpr{&baseInstruction{exprId}, name, fieldValues}
 }
 
-// TODO: These expressions get a bit iffy.
-// TODO: treat this like any other call?
+// JumpInst represents an conditional jump to an instruction offset.
 type JumpInst struct {
 	*baseInstruction
 	Count   int
@@ -172,6 +183,7 @@ func NewJump(exprId int64, instructionCount int, jumpOnValue interface{}) *JumpI
 	return &JumpInst{&baseInstruction{exprId}, instructionCount, jumpOnValue}
 }
 
+// MovInst assigns the value of one expression id to another.
 type MovInst struct {
 	*baseInstruction
 	ToExprId int64
@@ -185,6 +197,8 @@ func NewMov(exprId int64, toExprId int64) *MovInst {
 	return &MovInst{&baseInstruction{exprId}, toExprId}
 }
 
+// PushScopeInst results in the generation of a new Activation containing the values
+// of the associated declarations.
 type PushScopeInst struct {
 	*baseInstruction
 	Declarations map[string]int64
@@ -198,6 +212,8 @@ func NewPushScope(exprId int64, declarations map[string]int64) *PushScopeInst {
 	return &PushScopeInst{&baseInstruction{exprId}, declarations}
 }
 
+// PopScopeInst resets the current activation to the Activation#Parent() of the
+// previous activation.
 type PopScopeInst struct {
 	*baseInstruction
 }

@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Functions package defines the function names and implementations for
+// standard CEL overloads.
 package functions
 
 const (

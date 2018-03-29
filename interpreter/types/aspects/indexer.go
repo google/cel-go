@@ -12,8 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package objects
+// The aspects package defines methods useful for composing a new CEL built-in
+// or abstract type that function with built-in CEL operators.
+package aspects
 
+// Indexer permits random access of elements within an aggregate type by index.
 type Indexer interface {
+
+	// Get the value at the specified index or error.
 	Get(index interface{}) (interface{}, error)
 }

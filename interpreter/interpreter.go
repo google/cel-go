@@ -12,31 +12,42 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// The interpreter package provides functions to evaluate CEL programs against
+// a series of inputs and functions supplied at runtime.
 package interpreter
 
 import (
-	"github.com/google/cel-go/interpreter/types"
-	"github.com/google/cel-go/interpreter/types/adapters"
-	"github.com/google/cel-go/interpreter/types/objects"
 	"fmt"
+	"github.com/google/cel-go/interpreter/types"
+	"github.com/google/cel-go/interpreter/types/aspects"
+	"github.com/google/cel-go/interpreter/types/providers"
 )
 
+// Interpreter generates a new Interpretable from a Program.
 type Interpreter interface {
+	// NewInterpretable returns an Interpretable from a Program.
 	NewInterpretable(program Program) Interpretable
 }
 
+// Interpretable can accept a given Activation and produce a result along with
+// an accompanying EvalState which can be used to inspect whether additional
+// data might be necessary to complete the evaluation.
 type Interpretable interface {
+	// Eval an Activation to produce an output and EvalState.
 	Eval(activation Activation) (interface{}, EvalState)
 }
 
 type exprInterpreter struct {
 	dispatcher   Dispatcher
-	typeProvider types.TypeProvider
+	typeProvider providers.TypeProvider
 }
 
 var _ Interpreter = &exprInterpreter{}
 
-func NewInterpreter(dispatcher Dispatcher, typeProvider types.TypeProvider) *exprInterpreter {
+// NewInterpreter builds an Interpreter from a Dispatcher and TypeProvider
+// which will be used throughout the Eval of all Interpretable instances
+// gerenated from it.
+func NewInterpreter(dispatcher Dispatcher, typeProvider providers.TypeProvider) *exprInterpreter {
 	return &exprInterpreter{dispatcher, typeProvider}
 }
 
@@ -57,6 +68,7 @@ type exprInterpretable struct {
 var _ Interpretable = &exprInterpretable{}
 
 func (i *exprInterpretable) Eval(activation Activation) (interface{}, EvalState) {
+	// register machine-like evaluation of the program with the given activation.
 	currActivation := activation
 	stepper := i.program.Instructions()
 	var resultId int64
@@ -75,7 +87,7 @@ func (i *exprInterpretable) Eval(activation Activation) (interface{}, EvalState)
 			i.evalCreateList(step)
 		case *CreateMapExpr:
 			i.evalCreateMap(step)
-		case *CreateTypeExpr:
+		case *CreateObjectExpr:
 			i.evalCreateType(step)
 		case *MovInst:
 			i.evalMov(step)
@@ -130,7 +142,7 @@ func (i *exprInterpretable) evalSelect(step Instruction, currActivation Activati
 	operand := i.value(selExpr.Operand)
 	if unknown, ok := operand.(*UnknownValue); ok {
 		i.resolveUnknown(unknown, selExpr, currActivation)
-	} else if indexer, ok := operand.(objects.Indexer); ok {
+	} else if indexer, ok := operand.(aspects.Indexer); ok {
 		if fieldValue, err := indexer.Get(selExpr.Field); err == nil {
 			i.setValue(step.GetId(), fieldValue)
 		} else {
@@ -143,6 +155,10 @@ func (i *exprInterpretable) evalSelect(step Instruction, currActivation Activati
 	}
 }
 
+// resolveUnknown attempts to resolve a qualified name from a select expression
+// which may have generated unknown values during the course of execution if
+// the expression was not type-checked and the select, in fact, refers to a
+// qualified identifier name instead of a series of field selections.
 func (i *exprInterpretable) resolveUnknown(unknown *UnknownValue,
 	selExpr *SelectExpr,
 	currActivation Activation) {
@@ -197,7 +213,6 @@ func (i *exprInterpretable) evalCall(step Instruction, currActivation Activation
 	if result, err := i.interpreter.dispatcher.Dispatch(ctx); err == nil {
 		i.setValue(step.GetId(), result)
 	} else {
-		fmt.Println(err)
 		i.setValue(step.GetId(), err)
 	}
 }
@@ -209,7 +224,7 @@ func (i *exprInterpretable) evalCreateList(step Instruction) {
 		elements[idx] = i.value(elementId)
 	}
 	// TODO: Add an error state for the list if any element is an error
-	adaptingList := adapters.NewListAdapter(elements)
+	adaptingList := types.NewListValue(elements)
 	i.setValue(step.GetId(), adaptingList)
 }
 
@@ -221,12 +236,12 @@ func (i *exprInterpretable) evalCreateMap(step Instruction) {
 	}
 	// TODO: Add an error state if any key is repeated and any element in the
 	// map (key or value) is an error.
-	adaptingMap := adapters.NewMapAdapter(entries)
+	adaptingMap := types.NewMapValue(entries)
 	i.setValue(step.GetId(), adaptingMap)
 }
 
 func (i *exprInterpretable) evalCreateType(step Instruction) {
-	typeExpr := step.(*CreateTypeExpr)
+	typeExpr := step.(*CreateObjectExpr)
 	fields := make(map[string]interface{})
 	for field, valueId := range typeExpr.FieldValues {
 		fields[field] = i.value(valueId)
@@ -256,6 +271,6 @@ func (i *exprInterpretable) setValue(id int64, value interface{}) {
 }
 
 func (i *exprInterpretable) newValue(typeName string,
-	fields map[string]interface{}) (adapters.MsgAdapter, error) {
+	fields map[string]interface{}) (types.ObjectValue, error) {
 	return i.interpreter.typeProvider.NewValue(typeName, fields)
 }

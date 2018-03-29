@@ -16,7 +16,7 @@ package interpreter
 
 import (
 	"github.com/google/cel-go/interpreter/functions"
-	"github.com/grafeas/grafeas/server-go/filtering/operators"
+	"github.com/google/cel-go/operators"
 	"testing"
 )
 

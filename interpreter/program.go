@@ -12,32 +12,49 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// The interpreter package provides functions to evaluate CEL programs against
+// a series of inputs and functions supplied at runtime.
 package interpreter
 
 import (
-	"github.com/google/cel-go/common"
 	"fmt"
-	expr "github.com/google/cel-spec/proto/v1"
+	"github.com/google/cel-go/common"
+	expr "github.com/google/cel-spec/proto/v1/syntax"
 	"strings"
 )
 
-const (
-	UnknownError = "undef"
-)
-
+// Program contains instructions with some metadata and optionally run within
+// a container, e.g. module name or package name.
 type Program interface {
+	// Container is the module or package name where the program is run. The
+	// container is used to resolve type names and identifiers.
 	Container() string
+
+	// Instructions return an InstructionStepper which can be used to iterate
+	// through the program. Each call to Instructions generates a new stepper.
 	Instructions() InstructionStepper
+
+	// Metadata used to determine source locations of sub-expressions.
 	Metadata() Metadata
 }
 
+// IntructionStepper steps through program instructions and provides an option
+// to jump a certain number of instructions forward or back.
 type InstructionStepper interface {
+	// Next returns the next instruction, or false if the end of the program
+	// has been reached.
 	Next() (Instruction, bool)
+
+	// JumpCount moves a relative count of instructions forward or back in the
+	// program and returns whether the jump was successful.
+	//
+	// A jump may be unsuccessful if the number of instructions to jump exceeds
+	// the beginning or end of the program.
 	JumpCount(count int) bool
 }
 
 type exprProgram struct {
-	ast          *expr.Expr
+	expression   *expr.Expr
 	container    string
 	instructions []Instruction
 	metadata     *exprMetadata
@@ -45,14 +62,15 @@ type exprProgram struct {
 
 var _ Program = &exprProgram{}
 
-func NewProgram(container string, ast *expr.Expr,
-	info *expr.SourceInfo) *exprProgram {
-	metadata := newExprMetadata(info)
-	walker := NewAstWalker(metadata)
+// NewProgram creates a Program from a CEL expression and source information
+// within the specified container
+func NewProgram(container string, expression *expr.Expr,
+	sourceInfo *expr.SourceInfo) *exprProgram {
+	metadata := newExprMetadata(sourceInfo)
 	return &exprProgram{
-		ast,
+		expression,
 		container,
-		walker.Walk(ast),
+		WalkExpr(expression, metadata),
 		metadata}
 }
 
@@ -76,7 +94,7 @@ func (p *exprProgram) Metadata() Metadata {
 	return p.metadata
 }
 
-// The exprStepper keeps a cursor pointed at the next instruction to execute
+// exprStepper keeps a cursor pointed at the next instruction to execute
 // in the program.
 type exprStepper struct {
 	program     *exprProgram
@@ -139,14 +157,4 @@ func (m *exprMetadata) Location(exprId int64) (common.Location, bool) {
 func (m *exprMetadata) CharacterOffset(exprId int64) (int32, bool) {
 	position, found := m.info.Positions[exprId]
 	return position, found
-}
-
-func (m *exprMetadata) Expressions() []int64 {
-	expressions := make([]int64, len(m.info.Positions))
-	i := 0
-	for key := range m.info.Positions {
-		expressions[i] = key
-		i++
-	}
-	return expressions
 }

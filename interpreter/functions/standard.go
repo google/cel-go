@@ -12,41 +12,59 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Functions package defines the function names and implementations for
+// standard CEL overloads.
 package functions
 
 import (
 	"bytes"
-	"github.com/google/cel-go/interpreter/types"
-	"github.com/google/cel-go/interpreter/types/adapters"
-	"github.com/google/cel-go/interpreter/types/objects"
-	"github.com/google/cel-go/operators"
 	"fmt"
 	"github.com/golang/protobuf/ptypes"
 	dpb "github.com/golang/protobuf/ptypes/duration"
 	tspb "github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/google/cel-go/interpreter/types"
+	"github.com/google/cel-go/interpreter/types/aspects"
+	"github.com/google/cel-go/operators"
 	"regexp"
 	"strconv"
 	"time"
 )
 
-type OverloadImpl func(values ...interface{}) (interface{}, error)
-
+// Overload defines a named overload of a function, providing a void function
+// as a signature to be used for overload resolution, as well as an generic
+// overload implementation.
 type Overload struct {
-	Function  string
-	Name      string
+	// Function name as written in an expression or defined within
+	// operators.go.
+	Function string
+
+	// Name of the overload, must be unique.
+	Name string
+
+	// Signature of the overload as defined by a void function. The argument
+	// count and types will be derived by reflection.
 	Signature interface{}
-	Impl      OverloadImpl
+
+	// Impl of the overload to be called by a dispatcher.
+	Impl OverloadImpl
 }
 
+// OverloadImpl is a function with accepts zero or more arguments and produces
+// an value (as interface{}) or error as a result.
+type OverloadImpl func(values ...interface{}) (interface{}, error)
+
+// StandardBuiltins returns the definitions of the built-in CEL overloads.
+// TODO: Where possible, organize builtins within types and by aspects.
 func StandardBuiltins() []*Overload {
 	return []*Overload{
-		// Logical not
+		// Logical not (!a)
 		{
 			operators.LogicalNot, operators.LogicalNot,
 			func(value bool) {},
 			func(values ...interface{}) (interface{}, error) {
 				return !values[0].(bool), nil
 			}},
+		// Logical and (a && b)
 		{
 			operators.LogicalAnd, operators.LogicalAnd,
 			func(lhs, rhs bool) {},
@@ -64,6 +82,7 @@ func StandardBuiltins() []*Overload {
 					return lhs, nil
 				}
 			}},
+		// Logical or (a || b)
 		{
 			operators.LogicalOr, operators.LogicalOr,
 			func(value1, value2 bool) {},
@@ -81,6 +100,7 @@ func StandardBuiltins() []*Overload {
 					return lhs, nil
 				}
 			}},
+		// Conditional operator (a ? b : c)
 		{
 			operators.Conditional, operators.Conditional,
 			func(cond bool, trueVal, falseVal interface{}) {},
@@ -99,7 +119,7 @@ func StandardBuiltins() []*Overload {
 				}
 			}},
 
-		// Equality operators
+		// Equality overloads
 		{operators.Equals, EqualsBytes,
 			func(value1, value2 []byte) {},
 			func(values ...interface{}) (interface{}, error) {
@@ -111,9 +131,9 @@ func StandardBuiltins() []*Overload {
 		{operators.Equals, operators.Equals,
 			func(value1, value2 interface{}) {},
 			func(values ...interface{}) (interface{}, error) {
-				if value1, ok := values[0].(objects.Equaler); ok {
+				if value1, ok := values[0].(aspects.Equaler); ok {
 					return value1.Equal(values[1]), nil
-				} else if value2, ok := values[1].(objects.Equaler); ok {
+				} else if value2, ok := values[1].(aspects.Equaler); ok {
 					return value2.Equal(values[0]), nil
 				} else {
 					return values[0] == values[1], nil
@@ -129,9 +149,9 @@ func StandardBuiltins() []*Overload {
 		{operators.NotEquals, operators.NotEquals,
 			func(value1, value2 interface{}) {},
 			func(values ...interface{}) (interface{}, error) {
-				if value1, ok := values[0].(objects.Equaler); ok {
+				if value1, ok := values[0].(aspects.Equaler); ok {
 					return !value1.Equal(values[1]), nil
-				} else if value2, ok := values[1].(objects.Equaler); ok {
+				} else if value2, ok := values[1].(aspects.Equaler); ok {
 					return !value2.Equal(values[0]), nil
 				} else {
 					return values[0] != values[1], nil
@@ -365,10 +385,10 @@ func StandardBuiltins() []*Overload {
 				return append(values[0].([]byte), values[1].([]byte)...), nil
 			}},
 		{operators.Add, AddList,
-			func(value1 adapters.ListAdapter, value2 adapters.ListAdapter) {},
+			func(value1 types.ListValue, value2 types.ListValue) {},
 			func(values ...interface{}) (interface{}, error) {
-				list1 := values[0].(adapters.ListAdapter)
-				list2 := values[1].(adapters.ListAdapter)
+				list1 := values[0].(types.ListValue)
+				list2 := values[1].(types.ListValue)
 				return list1.Concat(list2), nil
 			}},
 		{operators.Add, AddTimestampDuration,
@@ -515,9 +535,9 @@ func StandardBuiltins() []*Overload {
 
 		// Index operator
 		{operators.Index, operators.Index,
-			func(value objects.Indexer, index interface{}) {},
+			func(value aspects.Indexer, index interface{}) {},
 			func(values ...interface{}) (interface{}, error) {
-				value := values[0].(objects.Indexer)
+				value := values[0].(aspects.Indexer)
 				index := values[1]
 				return value.Get(index)
 			}},
@@ -536,31 +556,31 @@ func StandardBuiltins() []*Overload {
 				return len(value), nil
 			}},
 		{Size, SizeList,
-			func(value adapters.ListAdapter) {},
+			func(value types.ListValue) {},
 			func(values ...interface{}) (interface{}, error) {
-				listValue := values[0].(adapters.ListAdapter)
+				listValue := values[0].(types.ListValue)
 				return listValue.Len(), nil
 			}},
 		{Size, SizeMap,
-			func(value adapters.MapAdapter) {},
+			func(value types.MapValue) {},
 			func(values ...interface{}) (interface{}, error) {
-				mapValue := values[0].(adapters.MapAdapter)
+				mapValue := values[0].(types.MapValue)
 				return mapValue.Len(), nil
 			}},
 
 		// In operator
 		{operators.In, InList,
-			func(value interface{}, listValue adapters.ListAdapter) {},
+			func(value interface{}, listValue types.ListValue) {},
 			func(values ...interface{}) (interface{}, error) {
 				element := values[0]
-				listValue := values[1].(adapters.ListAdapter)
+				listValue := values[1].(types.ListValue)
 				return listValue.Contains(element), nil
 			}},
 		{operators.In, InMap,
-			func(index interface{}, value objects.Indexer) {},
+			func(index interface{}, value aspects.Indexer) {},
 			func(values ...interface{}) (interface{}, error) {
 				index := values[0]
-				value := values[1].(objects.Indexer)
+				value := values[1].(aspects.Indexer)
 				// FIXME: This needs to be a Has() method
 				_, err := value.Get(index)
 				return err == nil, nil
@@ -947,21 +967,21 @@ func StandardBuiltins() []*Overload {
 
 		// Comprehensions functions.
 		{Iterator, Iterator,
-			func(value objects.Iterable) {},
+			func(value aspects.Iterable) {},
 			func(values ...interface{}) (interface{}, error) {
-				iterable := values[0].(objects.Iterable)
+				iterable := values[0].(aspects.Iterable)
 				return iterable.Iterator(), nil
 			}},
 		{HasNext, HasNext,
-			func(value objects.Iterator) {},
+			func(value aspects.Iterator) {},
 			func(values ...interface{}) (interface{}, error) {
-				it := values[0].(objects.Iterator)
+				it := values[0].(aspects.Iterator)
 				return it.HasNext(), nil
 			}},
 		{Next, Next,
-			func(value objects.Iterator) {},
+			func(value aspects.Iterator) {},
 			func(values ...interface{}) (interface{}, error) {
-				it := values[0].(objects.Iterator)
+				it := values[0].(aspects.Iterator)
 				return it.Next(), nil
 			}},
 	}

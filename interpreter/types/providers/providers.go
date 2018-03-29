@@ -12,27 +12,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package types
+// The types package includes utilities for instantiation, adaptation,
+// composition, and testing of CEL types.
+package providers
 
 import (
 	"bytes"
-	"github.com/google/cel-go/interpreter/types/adapters"
 	"compress/gzip"
 	"fmt"
 	"github.com/golang/protobuf/descriptor"
 	"github.com/golang/protobuf/proto"
 	protobuf "github.com/golang/protobuf/protoc-gen-go/descriptor"
+	"github.com/google/cel-go/interpreter/types"
 	"io/ioutil"
 	"reflect"
 )
 
+// TypeProvider specifies functions for creating new object instances and for
+// resolving enum values by name.
 type TypeProvider interface {
 	// Create a new instance of the qualified type name and initialize the
 	// fields with the values provided.
 	//
 	// Handles conversion of expression types to proto types.
-	NewValue(typeName string, fields map[string]interface{}) (adapters.MsgAdapter, error)
+	NewValue(typeName string, fields map[string]interface{}) (types.ObjectValue, error)
 
+	// Resolve a qualified enum name to its integer value, return false if the
+	// name could not be resolved.
 	EnumValue(enumName string) (int64, bool)
 }
 
@@ -43,6 +49,9 @@ type defaultTypeProvider struct {
 
 var _ TypeProvider = &defaultTypeProvider{}
 
+// NewTypeProvider accepts a list of proto message instances and returns a type
+// provider which can create new instances of the provided message or any
+// message that proto depends upon in its FileDescriptor.
 func NewTypeProvider(types ...proto.Message) *defaultTypeProvider {
 	protoTypes := make(map[string]reflect.Type)
 	enumValues := make(map[string]int64)
@@ -65,7 +74,7 @@ func (tp *defaultTypeProvider) EnumValue(enumName string) (int64, bool) {
 }
 
 func (tp *defaultTypeProvider) NewValue(typeName string,
-	fields map[string]interface{}) (adapters.MsgAdapter, error) {
+	fields map[string]interface{}) (types.ObjectValue, error) {
 	if refType, found := tp.typesByName[typeName]; found {
 		// create the new type instance.
 		value := reflect.New(refType.Elem())
@@ -79,13 +88,13 @@ func (tp *defaultTypeProvider) NewValue(typeName string,
 				return nil, fmt.Errorf("no such field")
 			}
 			if refFieldValue, err :=
-				adapters.ExprToProto(refField.Type(), fieldValue); err == nil {
+				types.ExprToProto(refField.Type(), fieldValue); err == nil {
 				refField.Set(reflect.ValueOf(refFieldValue))
 			} else {
 				return nil, err
 			}
 		}
-		return adapters.NewMsgAdapter(value.Interface()), nil
+		return types.NewProtoValue(value.Interface()), nil
 	} else {
 		return nil, fmt.Errorf("unknown type '%s'", typeName)
 	}

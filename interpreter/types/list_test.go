@@ -12,15 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package adapters
+package types
 
 import (
 	"reflect"
 	"testing"
 )
 
-func TestListAdapter_Get(t *testing.T) {
-	list := NewListAdapter([]int32{1, 2, 3})
+func TestListValue_Get(t *testing.T) {
+	list := NewListValue([]int32{1, 2, 3})
 	if getElem(t, list, 0) != int64(1) ||
 		getElem(t, list, 1) != int64(2) ||
 		getElem(t, list, 2) != int64(3) {
@@ -34,8 +34,8 @@ func TestListAdapter_Get(t *testing.T) {
 	}
 }
 
-func TestListAdapter_Iterator(t *testing.T) {
-	list := NewListAdapter([]int32{1, 2, 3})
+func TestListValue_Iterator(t *testing.T) {
+	list := NewListValue([]int32{1, 2, 3})
 	it := list.Iterator()
 	var i = int64(0)
 	for ; it.HasNext(); i++ {
@@ -53,9 +53,9 @@ func TestListAdapter_Iterator(t *testing.T) {
 	}
 }
 
-func TestConcatListAdapter_Get(t *testing.T) {
-	listA := NewListAdapter([]float32{1.0, 2.0})
-	listB := NewListAdapter([]float64{3.0})
+func TestConcatListValue_Get(t *testing.T) {
+	listA := NewListValue([]float32{1.0, 2.0})
+	listB := NewListValue([]float64{3.0})
 	list := listA.Concat(listB)
 	if getElem(t, list, 0) != float64(1.0) ||
 		getElem(t, list, 1) != float64(2.0) ||
@@ -70,9 +70,9 @@ func TestConcatListAdapter_Get(t *testing.T) {
 	}
 }
 
-func TestConcatListAdapter_Iterator(t *testing.T) {
-	listA := NewListAdapter([]float32{1.0, 2.0})
-	listB := NewListAdapter([]float64{3.0})
+func TestConcatListValue_Iterator(t *testing.T) {
+	listA := NewListValue([]float32{1.0, 2.0})
+	listB := NewListValue([]float64{3.0})
 	list := listA.Concat(listB)
 	it := list.Iterator()
 	var i = int64(0)
@@ -91,12 +91,12 @@ func TestConcatListAdapter_Iterator(t *testing.T) {
 	}
 }
 
-func TestConcatListAdapter_Equal(t *testing.T) {
-	listA := NewListAdapter([]float32{1.0, 2.0})
-	listB := NewListAdapter([]float64{3.0})
+func TestConcatListValue_Equal(t *testing.T) {
+	listA := NewListValue([]float32{1.0, 2.0})
+	listB := NewListValue([]float64{3.0})
 	listConcat := listA.Concat(listB)
 	// Note the internal type of list raw and concat list are slightly different.
-	listRaw := NewListAdapter([]interface{}{
+	listRaw := NewListValue([]interface{}{
 		float32(1.0), float64(2.0), float64(3.0)})
 	if !listRaw.Equal(listConcat) || !listConcat.Equal(listRaw) {
 		t.Errorf("Concat list and raw list were not equal")
@@ -106,9 +106,9 @@ func TestConcatListAdapter_Equal(t *testing.T) {
 	}
 }
 
-func TestListAdapter_Contains(t *testing.T) {
-	listA := NewListAdapter([]float32{1.0, 2.0})
-	listB := NewListAdapter([]float64{3.0})
+func TestListValue_Contains(t *testing.T) {
+	listA := NewListValue([]float32{1.0, 2.0})
+	listB := NewListValue([]float64{3.0})
 	list := listA.Concat(listB).Concat(listA)
 	if list.Contains(float32(3.0)) {
 		t.Error("List contains succeeded with wrong type")
@@ -118,9 +118,9 @@ func TestListAdapter_Contains(t *testing.T) {
 	}
 }
 
-func TestListAdapter_ToProto(t *testing.T) {
-	listA := NewListAdapter([]float32{1.0, 2.0})
-	listB := NewListAdapter([]float64{3.0})
+func TestListValue_ToProto(t *testing.T) {
+	listA := NewListValue([]float32{1.0, 2.0})
+	listB := NewListValue([]float64{3.0})
 	listConcat := listA.Concat(listB)
 	if protoList, err := listConcat.ToProto(reflect.TypeOf([]float32{})); err != nil {
 		t.Error(err)
@@ -129,21 +129,21 @@ func TestListAdapter_ToProto(t *testing.T) {
 	}
 }
 
-func TestListAdapter_NestedList(t *testing.T) {
+func TestListValue_NestedList(t *testing.T) {
 	listUint32 := []uint32{1, 2}
-	nestedUint32 := NewListAdapter([]interface{}{listUint32})
+	nestedUint32 := NewListValue([]interface{}{listUint32})
 	listUint64 := []uint64{1, 2}
-	nestedUint64 := NewListAdapter([]interface{}{listUint64})
+	nestedUint64 := NewListValue([]interface{}{listUint64})
 	if !nestedUint32.Equal(nestedUint64) {
 		t.Error("Could not find nested list")
 	}
-	if !nestedUint32.Contains(NewListAdapter(listUint64)) ||
-		!nestedUint64.Contains(NewListAdapter(listUint32)) {
+	if !nestedUint32.Contains(NewListValue(listUint64)) ||
+		!nestedUint64.Contains(NewListValue(listUint32)) {
 		t.Error("Could not find type compatible nested lists")
 	}
 }
 
-func getElem(t *testing.T, list ListAdapter, index int64) interface{} {
+func getElem(t *testing.T, list ListValue, index int64) interface{} {
 	t.Helper()
 	if val, err := list.Get(index); err != nil {
 		t.Errorf("Error reading list index %d, %v", index, err)

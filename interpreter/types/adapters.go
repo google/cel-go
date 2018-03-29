@@ -12,15 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package adapters
+// Adapter package defines utilities for adapting plain Go structs into
+// structs suitable for consumption with CEL.
+package types
 
 import (
-	"github.com/google/cel-go/interpreter/types/objects"
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	dpb "github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/struct"
 	tspb "github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/google/cel-go/interpreter/types/aspects"
 	"reflect"
 )
 
@@ -42,7 +44,7 @@ func ProtoToExpr(value interface{}) (interface{}, error) {
 	// Views on complex types which may have a mix of compatible types as well
 	// as ones that need upconversion.
 	case proto.Message:
-		return NewMsgAdapter(value), nil
+		return NewProtoValue(value), nil
 	default:
 		// lists and maps should be all that is left
 		refValue := reflect.ValueOf(value)
@@ -52,9 +54,9 @@ func ProtoToExpr(value interface{}) (interface{}, error) {
 		refKind := refValue.Kind()
 		switch refKind {
 		case reflect.Array, reflect.Slice:
-			return NewListAdapter(value), nil
+			return NewListValue(value), nil
 		case reflect.Map:
-			return NewMapAdapter(value), nil
+			return NewMapValue(value), nil
 		}
 	}
 	return nil, fmt.Errorf("unimplemented proto to expr conversion for:"+
@@ -89,26 +91,26 @@ func ExprToProto(refType reflect.Type, value interface{}) (interface{}, error) {
 		}
 	case reflect.Map:
 		switch value.(type) {
-		case objects.Protoer:
-			return value.(objects.Protoer).ToProto(refType)
+		case aspects.Protoer:
+			return value.(aspects.Protoer).ToProto(refType)
 		default:
-			return NewMapAdapter(value).ToProto(refType)
+			return NewMapValue(value).ToProto(refType)
 		}
 	case reflect.Slice, reflect.Array:
 		switch value.(type) {
-		case objects.Protoer:
-			return value.(objects.Protoer).ToProto(refType)
+		case aspects.Protoer:
+			return value.(aspects.Protoer).ToProto(refType)
 		case []byte:
 			return value.([]byte), nil
 		default:
-			return NewListAdapter(value).ToProto(refType)
+			return NewListValue(value).ToProto(refType)
 		}
 	case reflect.Struct, reflect.Ptr:
 		switch value.(type) {
 		case proto.Message, structpb.NullValue:
 			return value, nil
-		case MsgAdapter:
-			return value.(MsgAdapter).Value(), nil
+		case ObjectValue:
+			return value.(ObjectValue).Value(), nil
 		}
 	}
 	return nil, fmt.Errorf("unimplemented expr to proto conversion for:"+

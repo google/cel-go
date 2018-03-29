@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package adapters
+package types
 
 import (
 	"bytes"
-	"github.com/google/cel-go/interpreter/types/objects"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/struct"
-	expr "github.com/google/cel-spec/proto/v1"
+	"github.com/google/cel-go/interpreter/types/aspects"
+	expr "github.com/google/cel-spec/proto/v1/syntax"
 	"reflect"
 	"testing"
 )
@@ -36,10 +36,10 @@ func TestExprToProto(t *testing.T) {
 	expectExprToProto(t, "hello", "hello")
 	expectExprToProto(t, []byte("world"), []byte("world"))
 	expectExprToProto(t, []int64{1, 2, 3}, []int32{1, 2, 3})
-	expectExprToProto(t, NewListAdapter([]int64{1, 2, 3}), []int32{1, 2, 3})
+	expectExprToProto(t, NewListValue([]int64{1, 2, 3}), []int32{1, 2, 3})
 	expectExprToProto(t, map[int64]int64{1: 1, 2: 1, 3: 1},
 		map[int32]int32{1: 1, 2: 1, 3: 1})
-	expectExprToProto(t, NewMapAdapter(map[int64]int64{1: 1, 2: 1, 3: 1}),
+	expectExprToProto(t, NewMapValue(map[int64]int64{1: 1, 2: 1, 3: 1}),
 		map[int32]int32{1: 1, 2: 1, 3: 1})
 
 	// Null conversion tests.
@@ -47,8 +47,8 @@ func TestExprToProto(t *testing.T) {
 
 	// Proto conversion tests.
 	parsedExpr := &expr.ParsedExpr{}
-	expectExprToProto(t, NewMsgAdapter(parsedExpr), parsedExpr)
-	expectExprToProto(t, NewMsgAdapter(*parsedExpr), *parsedExpr)
+	expectExprToProto(t, NewProtoValue(parsedExpr), parsedExpr)
+	expectExprToProto(t, NewProtoValue(*parsedExpr), *parsedExpr)
 }
 
 func TestProtoToExpr(t *testing.T) {
@@ -63,16 +63,16 @@ func TestProtoToExpr(t *testing.T) {
 	expectProtoToExpr(t, "hello", "hello")
 	expectProtoToExpr(t, []byte("world"), []byte("world"))
 	expectProtoToExpr(t, []int32{1, 2, 3},
-		NewListAdapter([]int32{1, 2, 3}))
+		NewListValue([]int32{1, 2, 3}))
 	expectProtoToExpr(t, map[int32]int32{1: 1, 2: 1, 3: 1},
-		NewMapAdapter(map[int32]int32{1: 1, 2: 1, 3: 1}))
+		NewMapValue(map[int32]int32{1: 1, 2: 1, 3: 1}))
 
 	// Null conversion test.
 	expectProtoToExpr(t, structpb.NullValue_NULL_VALUE, structpb.NullValue_NULL_VALUE)
 
 	// Proto conversion test.
 	parsedExpr := &expr.ParsedExpr{}
-	expectProtoToExpr(t, parsedExpr, NewMsgAdapter(parsedExpr))
+	expectProtoToExpr(t, parsedExpr, NewProtoValue(parsedExpr))
 }
 
 func TestUnsupportedConversion(t *testing.T) {
@@ -120,8 +120,8 @@ func expectProtoToExpr(t *testing.T, in interface{}, out interface{}) {
 			equals = proto.Equal(val.(proto.Message), out.(proto.Message))
 		case bool, int64, uint64, float64, string:
 			equals = val == out
-		case objects.Equaler:
-			equals = val.(objects.Equaler).Equal(out)
+		case aspects.Equaler:
+			equals = val.(aspects.Equaler).Equal(out)
 		default:
 			equals = reflect.DeepEqual(val, out)
 		}

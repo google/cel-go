@@ -12,41 +12,96 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// The interpreter package provides functions to evaluate CEL programs against
+// a series of inputs and functions supplied at runtime.
 package interpreter
 
 import (
+	"fmt"
 	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/operators"
-	"fmt"
-	expr "github.com/google/cel-spec/proto/v1"
+	expr "github.com/google/cel-spec/proto/v1/syntax"
 )
 
 const (
-	GenSymFormat = "_sym_@%d"
+	// Constant used to generate symbols during AST walking.
+	genSymFormat = "_sym_@%d"
+
+	// unknownError name.
+	unknownError = "undef"
 )
 
-type AstWalker struct {
+// WalkExpr produces a set of Instruction values from a CEL expression.
+//
+// WalkExpr does a post-order traversal of a CEL syntax AST, which means
+// expressions are evaluated in a bottom-up fashion just as they would be in
+// a recursive execution pattern.
+func WalkExpr(expression *expr.Expr, metadata Metadata) []Instruction {
+	walker := &astWalker{
+		metadata,
+		getMaxId(expression),
+		newScope()}
+	return walker.walk(expression)
+}
+
+// astWalker implementation of the AST walking logic.
+type astWalker struct {
 	metadata  Metadata
 	genExprId int64
-	genSymId  string
 	scope     *blockScope
 }
 
-func NewAstWalker(metadata Metadata) *AstWalker {
-	var maxId int64 = 0
-	for _, id := range metadata.Expressions() {
-		if maxId < id {
-			maxId = id + 1
-		}
+func getMaxId(node *expr.Expr) int64 {
+	if node == nil {
+		return -1
 	}
-	return &AstWalker{
-		metadata,
-		maxId,
-		fmt.Sprintf(GenSymFormat, maxId),
-		newScope()}
+	currId := node.Id
+	switch node.ExprKind.(type) {
+	case *expr.Expr_SelectExpr:
+		return maxInt(currId, getMaxId(node.GetSelectExpr().Operand))
+	case *expr.Expr_CallExpr:
+		call := node.GetCallExpr()
+		currId = maxInt(currId, getMaxId(call.Target))
+		for _, arg := range call.Args {
+			currId = maxInt(currId, getMaxId(arg))
+		}
+		return currId
+	case *expr.Expr_ListExpr:
+		list := node.GetListExpr()
+		for _, elem := range list.Elements {
+			currId = maxInt(currId, getMaxId(elem))
+		}
+		return currId
+	case *expr.Expr_StructExpr:
+		str := node.GetStructExpr()
+		for _, entry := range str.Entries {
+			currId = maxInt(entry.Id, getMaxId(entry.GetMapKey()), getMaxId(entry.Value))
+		}
+		return currId
+	case *expr.Expr_ComprehensionExpr:
+		compre := node.GetComprehensionExpr()
+		return maxInt(currId,
+			getMaxId(compre.IterRange),
+			getMaxId(compre.AccuInit),
+			getMaxId(compre.LoopCondition),
+			getMaxId(compre.LoopStep),
+			getMaxId(compre.Result))
+	default:
+		return currId
+	}
 }
 
-func (w *AstWalker) Walk(node *expr.Expr) []Instruction {
+func maxInt(vals ...int64) int64 {
+	var result int64
+	for _, val := range vals {
+		if val > result {
+			result = val
+		}
+	}
+	return result
+}
+
+func (w *astWalker) walk(node *expr.Expr) []Instruction {
 	switch node.ExprKind.(type) {
 	case *expr.Expr_CallExpr:
 		return w.walkCall(node)
@@ -66,7 +121,7 @@ func (w *AstWalker) Walk(node *expr.Expr) []Instruction {
 	return []Instruction{}
 }
 
-func (w *AstWalker) walkConst(node *expr.Expr) Instruction {
+func (w *astWalker) walkConst(node *expr.Expr) Instruction {
 	constExpr := node.GetConstExpr()
 	var value interface{} = nil
 	switch constExpr.ConstantKind.(type) {
@@ -92,7 +147,7 @@ func (w *AstWalker) walkConst(node *expr.Expr) Instruction {
 	return NewConst(node.Id, value)
 }
 
-func (w *AstWalker) walkIdent(node *expr.Expr) []Instruction {
+func (w *astWalker) walkIdent(node *expr.Expr) []Instruction {
 	identName := node.GetIdentExpr().Name
 	if _, found := w.scope.ref(identName); !found {
 		ident := NewIdent(node.Id, identName)
@@ -102,29 +157,41 @@ func (w *AstWalker) walkIdent(node *expr.Expr) []Instruction {
 	return []Instruction{}
 }
 
-func (w *AstWalker) walkSelect(node *expr.Expr) []Instruction {
+func (w *astWalker) walkSelect(node *expr.Expr) []Instruction {
 	sel := node.GetSelectExpr()
 	operandId := w.getId(sel.Operand)
 	return append(
-		w.Walk(sel.Operand),
+		w.walk(sel.Operand),
 		NewSelect(node.Id, operandId, sel.Field))
 }
 
-func (w *AstWalker) walkCall(node *expr.Expr) []Instruction {
+func (w *astWalker) walkCall(node *expr.Expr) []Instruction {
 	call := node.GetCallExpr()
 	function := call.Function
 	argGroups, argGroupLens, argIds := w.walkCallArgs(call)
 	argCount := len(argIds)
 
-	// Compute the instruction set.
+	// Compute the instruction set, making sure to special case the behavior of
+	// logical and, logical or, and conditional operators.
 	var instructions []Instruction
 	switch function {
 	case operators.LogicalAnd, operators.LogicalOr:
+		// Compute the left-hand side with a jump if the value can be used to
+		// short-circuit the expression.
+		//
+		// Instruction layout:
+		// 0: lhs expr
+		// 1: jump to <END> on true (||), false (&&)
+		// 2: rhs expr
+		// 3: <END> logical-op(lhs, rhs)
 		var instructionCount = argCount - 1
 		for _, argGroupLen := range argGroupLens {
 			instructionCount += argGroupLen
 		}
 		var evalCount = 0
+		// Logical operators may have more than two arg groups in the future.
+		// e.g, and(a, b, c) === a && b && c.
+		// Ensure the groups are appropriately laid-out in memory.
 		for i, argGroup := range argGroups {
 			evalCount += argGroupLens[i]
 			instructions = append(instructions, argGroup...)
@@ -142,6 +209,8 @@ func (w *AstWalker) walkCall(node *expr.Expr) []Instruction {
 	case operators.Conditional:
 		// Compute the conditional jump, with two jumps, one for false,
 		// and one for true
+		//
+		// Instruction layout:
 		// 0: condition
 		// 1: jump to <END> on undefined/error
 		// 2: jump to <ELSE> on false
@@ -152,19 +221,23 @@ func (w *AstWalker) walkCall(node *expr.Expr) []Instruction {
 		conditionId, condition := argIds[0], argGroups[0]
 		trueId, trueVal := argIds[1], argGroups[1]
 		falseVal := argGroups[2]
+
+		// 0: condition
 		instructions = append(instructions, condition...)
-		// Jump on undefined instruction over both returns to end call.
+		// 1: jump to <END> on undefined/error
 		instructions = append(instructions,
-			NewJump(conditionId, len(trueVal)+len(falseVal)+3, UnknownError))
-		// Jump to the else.
+			NewJump(conditionId, len(trueVal)+len(falseVal)+3, unknownError))
+		// 2: jump to <ELSE> on false.
 		instructions = append(instructions,
 			NewJump(conditionId, len(trueVal)+2, false))
-		// Jump over the else.
+		// 3: <IF> expr
 		instructions = append(instructions, trueVal...)
-		// Jump to the end.
+		// 4: jump to <END>
 		instructions = append(instructions,
 			NewJump(trueId, len(falseVal), nil))
+		// 5: <ELSE> expr
 		instructions = append(instructions, falseVal...)
+		// 6: <END> ternary
 		return append(instructions, NewCall(node.Id, call.Function, argIds))
 
 	default:
@@ -175,18 +248,18 @@ func (w *AstWalker) walkCall(node *expr.Expr) []Instruction {
 	}
 }
 
-func (w *AstWalker) walkList(node *expr.Expr) []Instruction {
+func (w *astWalker) walkList(node *expr.Expr) []Instruction {
 	listExpr := node.GetListExpr()
 	var elementIds []int64
 	var elementSteps []Instruction
 	for _, elem := range listExpr.GetElements() {
 		elementIds = append(elementIds, w.getId(elem))
-		elementSteps = append(elementSteps, w.Walk(elem)...)
+		elementSteps = append(elementSteps, w.walk(elem)...)
 	}
 	return append(elementSteps, NewList(node.Id, elementIds))
 }
 
-func (w *AstWalker) walkStruct(node *expr.Expr) []Instruction {
+func (w *astWalker) walkStruct(node *expr.Expr) []Instruction {
 	structExpr := node.GetStructExpr()
 	keyValues := make(map[int64]int64)
 	fieldValues := make(map[string]int64)
@@ -198,21 +271,29 @@ func (w *AstWalker) walkStruct(node *expr.Expr) []Instruction {
 			fieldValues[entry.GetFieldKey()] = valueId
 		case *expr.Expr_CreateStruct_Entry_MapKey:
 			keyValues[w.getId(entry.GetMapKey())] = valueId
-			entrySteps = append(entrySteps, w.Walk(entry.GetMapKey())...)
+			entrySteps = append(entrySteps, w.walk(entry.GetMapKey())...)
 		}
-		entrySteps = append(entrySteps, w.Walk(entry.GetValue())...)
+		entrySteps = append(entrySteps, w.walk(entry.GetValue())...)
 	}
 	if len(structExpr.MessageName) == 0 {
 		return append(entrySteps, NewMap(node.Id, keyValues))
 	} else {
 		return append(entrySteps,
-			NewType(node.Id, structExpr.MessageName, fieldValues))
+			NewObject(node.Id, structExpr.MessageName, fieldValues))
 	}
 }
 
-func (w *AstWalker) walkComprehension(node *expr.Expr) []Instruction {
-	// expr: list.all(x, x < 10)
+func (w *astWalker) walkComprehension(node *expr.Expr) []Instruction {
+	// Serializing a comprehension into a linear set of executable steps is one
+	// of the more complex tasks in AST walking. The challenge being loop
+	// termination when errors or unknown values are encountered outside
+	// of the accumulation steps.
+
+	// The following example indicate sthe set of steps for the 'all' macro
 	//
+	// Expr: list.all(x, x < 10)
+	//
+	// Instruction layout:
 	// 0: list                            # iter-range
 	// 1: push-scope accu, iterVar, it
 	// 2: accu = true                     # init
@@ -233,7 +314,7 @@ func (w *AstWalker) walkComprehension(node *expr.Expr) []Instruction {
 	result := comprehensionExpr.GetResult()
 
 	// iter-range
-	rangeSteps := w.Walk(comprehensionRange)
+	rangeSteps := w.walk(comprehensionRange)
 
 	// Push Scope with the accumulator, iter var, and iterator
 	iteratorId := w.nextExprId()
@@ -254,7 +335,7 @@ func (w *AstWalker) walkComprehension(node *expr.Expr) []Instruction {
 	currScope.setRef(iterSymId, iteratorId)
 	w.pushScope(currScope)
 	// accu-init
-	accuInitSteps := w.Walk(comprehensionAccu)
+	accuInitSteps := w.walk(comprehensionAccu)
 
 	// iter-init
 	iterInitStep :=
@@ -272,10 +353,9 @@ func (w *AstWalker) walkComprehension(node *expr.Expr) []Instruction {
 	// 6+len(cond)+len(step):   jmp LOOP
 	// 7+len(cond)+len(step)    <result>
 	// <END>
-
 	// loop-condition and step, +len(condSteps), +len(stepSteps)
-	loopConditionSteps := w.Walk(comprehensionLoop)
-	loopStepSteps := w.Walk(comprehensionStep)
+	loopConditionSteps := w.walk(comprehensionLoop)
+	loopStepSteps := w.walk(comprehensionStep)
 	loopInstructionCount := 7 + len(loopConditionSteps) + len(loopStepSteps)
 
 	// iter-hasNext
@@ -299,7 +379,7 @@ func (w *AstWalker) walkComprehension(node *expr.Expr) []Instruction {
 	jumpCondStep := NewJump(stepId, -(loopInstructionCount - 2), nil)
 
 	// <END> result
-	resultSteps := w.Walk(result)
+	resultSteps := w.walk(result)
 	compResultUpdateStep := NewMov(w.getId(result), w.getId(node))
 	popScopeStep := NewPopScope(w.getId(node))
 	w.popScope()
@@ -308,9 +388,7 @@ func (w *AstWalker) walkComprehension(node *expr.Expr) []Instruction {
 	instructions = append(instructions, rangeSteps...)
 	instructions = append(instructions, pushScopeStep)
 	instructions = append(instructions, accuInitSteps...)
-	instructions = append(instructions, iterInitStep)
-	instructions = append(instructions, iterHasNextStep,
-		jumpIterEndStep)
+	instructions = append(instructions, iterInitStep, iterHasNextStep, jumpIterEndStep)
 	instructions = append(instructions, loopConditionSteps...)
 	instructions = append(instructions, jumpConditionFalseStep, nextIterVarStep)
 	instructions = append(instructions, loopStepSteps...)
@@ -320,7 +398,7 @@ func (w *AstWalker) walkComprehension(node *expr.Expr) []Instruction {
 	return instructions
 }
 
-func (w *AstWalker) walkCallArgs(call *expr.Expr_Call) (
+func (w *astWalker) walkCallArgs(call *expr.Expr_Call) (
 	argGroups [][]Instruction, argGroupLens []int, argIds []int64) {
 	args := getArgs(call)
 	argCount := len(args)
@@ -329,12 +407,16 @@ func (w *AstWalker) walkCallArgs(call *expr.Expr_Call) (
 	argIds = make([]int64, argCount)
 	for i, arg := range getArgs(call) {
 		argIds[i] = w.getId(arg)
-		argGroups[i] = w.Walk(arg)
+		argGroups[i] = w.walk(arg)
 		argGroupLens[i] = len(argGroups[i])
 	}
-	return
+	return // named outputs.
 }
 
+// Helper functions.
+
+// getArgs returns a unified set of call args for both global and receiver
+// style calls.
 func getArgs(call *expr.Expr_Call) []*expr.Expr {
 	var argSet []*expr.Expr
 	if call.Target != nil {
@@ -346,30 +428,40 @@ func getArgs(call *expr.Expr_Call) []*expr.Expr {
 	return argSet
 }
 
-func (w *AstWalker) nextSymId() string {
-	defer w.incExprId()
-	return fmt.Sprintf(GenSymFormat, w.genExprId)
-}
-
-func (w *AstWalker) nextExprId() int64 {
-	defer w.incExprId()
-	return w.genExprId
-}
-
-func (w *AstWalker) incExprId() {
+// nextSymId generates an expression-unique identifier name for identifiers
+// that need to be produced programmatically.
+func (w *astWalker) nextSymId() string {
+	nextId := w.genExprId
 	w.genExprId++
+	return fmt.Sprintf(genSymFormat, nextId)
 }
 
-func (w *AstWalker) pushScope(scope *blockScope) {
+// nextExprId generates expression ids when they are necessary for tracking
+// evaluation state, but not captured as part of the AST.
+func (w *astWalker) nextExprId() int64 {
+	nextId := w.genExprId
+	w.genExprId++
+	return nextId
+}
+
+// pushScope moves a new scope for expression id resolution onto the stack,
+// so that the same identifier name may be used in nested contexts (such as
+// nested comprehensions), but that the expression ids are kept unique per
+// scope.
+func (w *astWalker) pushScope(scope *blockScope) {
 	scope.parent = w.scope
 	w.scope = scope
 }
 
-func (w *AstWalker) popScope() {
+// popScope restores the identifier to expression id mapping defined in the
+// prior scope.
+func (w *astWalker) popScope() {
 	w.scope = w.scope.parent
 }
 
-func (w *AstWalker) getId(expr *expr.Expr) int64 {
+// getId returns the expression id associated with a given identifier if one
+// has been set within the current scope, else the expression id.
+func (w *astWalker) getId(expr *expr.Expr) int64 {
 	id := expr.GetId()
 	if ident := expr.GetIdentExpr(); ident != nil {
 		if altId, found := w.scope.ref(ident.Name); found {
@@ -379,6 +471,9 @@ func (w *AstWalker) getId(expr *expr.Expr) int64 {
 	return id
 }
 
+// blockScope tracks identifier references within a scope and ensures that for
+// all possible references to the same identifier, the same expression id is
+// used within generated Instruction values.
 type blockScope struct {
 	parent     *blockScope
 	references map[string]int64

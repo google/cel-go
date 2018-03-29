@@ -5,17 +5,42 @@ package(default_visibility = ["//interpreter:__subpackages__"])
 go_library(
     name = "go_default_library",
     srcs = [
-        "provider.go",
+        "adapters.go",
+        "list.go",
+        "map.go",
+        "object.go",
         "types.go",
     ],
     deps = [
-        "//interpreter/types/adapters:go_default_library",
-        "//interpreter/types/objects:go_default_library",
+        "//interpreter/types/aspects:go_default_library",
         "@com_github_golang_protobuf//descriptor:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_golang_protobuf//protoc-gen-go/descriptor:go_default_library",
+        "@com_github_golang_protobuf//ptypes:go_default_library",
+        "@com_github_golang_protobuf//ptypes/any:go_default_library",
         "@com_github_golang_protobuf//ptypes/duration:go_default_library",
         "@com_github_golang_protobuf//ptypes/struct:go_default_library",
         "@com_github_golang_protobuf//ptypes/timestamp:go_default_library",
     ]
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "adapters_test.go",
+        "list_test.go",
+        "map_test.go",
+        "object_test.go",
+        "types_test.go",
+    ],
+    embed = [
+        ":go_default_library",
+    ],
+    deps = [
+        "//io:syntax_proto",
+        "//interpreter/testing:go_default_library",
+        "@com_github_golang_protobuf//ptypes/duration:go_default_library",
+        "@com_github_golang_protobuf//ptypes/struct:go_default_library",
+        "@com_github_golang_protobuf//ptypes/timestamp:go_default_library",
+    ],
 )

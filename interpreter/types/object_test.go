@@ -12,22 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package adapters
+package types
 
 import (
-	testExpr "github.com/google/cel-go/interpreter/testing"
-	"fmt"
 	"github.com/golang/protobuf/ptypes"
+	testExpr "github.com/google/cel-go/interpreter/testing"
+	"reflect"
 	"testing"
 )
 
-func TestMsgAdapter_Get(t *testing.T) {
-	existsMsg := NewMsgAdapter(testExpr.Exists.Expr)
+func TestObjectValue_Get(t *testing.T) {
+	existsMsg := NewProtoValue(testExpr.Exists.Expr)
 	compreExpr, err := existsMsg.Get("ComprehensionExpr")
 	if err != nil {
 		t.Error(err)
 	}
-	iterVar, err := compreExpr.(MsgAdapter).Get("IterVar")
+	iterVar, err := compreExpr.(ObjectValue).Get("IterVar")
 	if err != nil {
 		t.Error(err)
 	}
@@ -39,22 +39,22 @@ func TestMsgAdapter_Get(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	field, err := selectExpr.(MsgAdapter).Get("Field")
+	field, err := selectExpr.(ObjectValue).Get("Field")
 	if field != "" {
 		t.Error("Selected field on unset message, but field was non-empty")
 	}
-	field2, err := selectExpr.(MsgAdapter).Get("Field")
+	field2, err := selectExpr.(ObjectValue).Get("Field")
 	if field2 != field {
 		t.Error("Selected cached field not equal to original field")
 	}
 }
 
-func TestMsgAdapter_Any(t *testing.T) {
+func TestObjectValue_Any(t *testing.T) {
 	anyVal, err := ptypes.MarshalAny(testExpr.Exists.Expr)
 	if err != nil {
 		t.Error(err)
 	}
-	existsMsg := NewMsgAdapter(anyVal)
+	existsMsg := NewProtoValue(anyVal)
 	compre, err := existsMsg.Get("ComprehensionExpr")
 	if err != nil {
 		t.Error(err)
@@ -64,10 +64,14 @@ func TestMsgAdapter_Any(t *testing.T) {
 	}
 }
 
-func TestMsgAdapter_Iterator(t *testing.T) {
-	existsMsg := NewMsgAdapter(testExpr.Exists.Expr)
+func TestObjectValue_Iterator(t *testing.T) {
+	existsMsg := NewProtoValue(testExpr.Exists.Expr)
 	it := existsMsg.Iterator()
+	var fields []interface{}
 	for it.HasNext() {
-		fmt.Println(it.Next())
+		fields = append(fields, it.Next())
+	}
+	if !reflect.DeepEqual(fields, []interface{}{"ComprehensionExpr", "Id"}) {
+		t.Errorf("Got %v, wanted %v", fields, []interface{}{"ComprehensionExpr", "Id"})
 	}
 }
