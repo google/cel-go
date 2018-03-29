@@ -15,10 +15,8 @@
 package interpreter
 
 import (
-	"github.com/google/cel-go/interpreter/functions"
 	testExpr "github.com/google/cel-go/interpreter/testing"
 	"github.com/google/cel-go/interpreter/types"
-	"github.com/google/cel-go/interpreter/types/providers"
 	expr "github.com/google/cel-spec/proto/v1/syntax"
 	"testing"
 )
@@ -116,8 +114,5 @@ func BenchmarkInterpreter_ComprehensionExpr(b *testing.B) {
 }
 
 func StandardTestInterpreter() Interpreter {
-	dispatcher := NewDispatcher()
-	dispatcher.Add(functions.StandardBuiltins()...)
-	typeProvider := providers.NewTypeProvider(&expr.ParsedExpr{})
-	return NewInterpreter(dispatcher, typeProvider)
+	return StandardIntepreter(&expr.ParsedExpr{})
 }

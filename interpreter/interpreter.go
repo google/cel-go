@@ -18,9 +18,11 @@ package interpreter
 
 import (
 	"fmt"
+	"github.com/golang/protobuf/proto"
 	"github.com/google/cel-go/interpreter/types"
 	"github.com/google/cel-go/interpreter/types/aspects"
 	"github.com/google/cel-go/interpreter/types/providers"
+	"github.com/google/cel-go/interpreter/functions"
 )
 
 // Interpreter generates a new Interpretable from a Program.
@@ -49,6 +51,15 @@ var _ Interpreter = &exprInterpreter{}
 // gerenated from it.
 func NewInterpreter(dispatcher Dispatcher, typeProvider providers.TypeProvider) *exprInterpreter {
 	return &exprInterpreter{dispatcher, typeProvider}
+}
+
+// StandardInterpreter builds a Dispatcher and TypeProvider with support
+// for all of the CEL builtins defined in the language definition.
+func StandardIntepreter(types ...proto.Message) *exprInterpreter {
+	dispatcher := NewDispatcher()
+	dispatcher.Add(functions.StandardBuiltins()...)
+	typeProvider := providers.NewTypeProvider(types...)
+	return NewInterpreter(dispatcher, typeProvider)
 }
 
 func (i *exprInterpreter) NewInterpretable(program Program) Interpretable {
