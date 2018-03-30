@@ -174,9 +174,8 @@ type JumpInst struct {
 func (e *JumpInst) String() string {
 	if e.OnValue != nil {
 		return fmt.Sprintf("jump  %d if r%d == %v", e.Count, e.GetId(), e.OnValue)
-	} else {
-		return fmt.Sprintf("jump  %d", e.Count)
 	}
+	return fmt.Sprintf("jump  %d", e.Count)
 }
 
 func NewJump(exprId int64, instructionCount int, jumpOnValue interface{}) *JumpInst {

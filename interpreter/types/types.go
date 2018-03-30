@@ -55,7 +55,8 @@ type Type interface {
 func MessageType(name string) Type {
 	if name == TimestampType.Name() {
 		return TimestampType
-	} else if name == DurationType.Name() {
+	}
+	if name == DurationType.Name() {
 		return DurationType
 	}
 	return &exprType{name: name}

@@ -124,7 +124,7 @@ func (i *exprInterpretable) Eval(activation Activation) (interface{}, EvalState)
 					return i.value(declId)
 				}
 			}
-			currActivation = ExtendActivation(currActivation, NewActivation(childActivaton))
+			currActivation = NewHierarchicalActivation(currActivation, NewActivation(childActivaton))
 		case *PopScopeInst:
 			currActivation = currActivation.Parent()
 		}
@@ -272,9 +272,8 @@ func (i *exprInterpretable) evalMov(step Instruction) {
 func (i *exprInterpretable) value(id int64) interface{} {
 	if object, found := i.state.Value(id); found {
 		return object
-	} else {
-		return nil
 	}
+	return nil
 }
 
 func (i *exprInterpretable) setValue(id int64, value interface{}) {

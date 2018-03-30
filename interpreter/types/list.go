@@ -197,9 +197,8 @@ func (l *concatListValue) Get(index interface{}) (interface{}, error) {
 	prevLen := l.prev.Len()
 	if i < prevLen {
 		return l.prev.Get(i)
-	} else {
-		return l.next.Get(i - prevLen)
 	}
+	return l.next.Get(i - prevLen)
 }
 
 func (l *concatListValue) Equal(other interface{}) bool {

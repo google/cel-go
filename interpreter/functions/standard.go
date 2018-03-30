@@ -73,14 +73,15 @@ func StandardBuiltins() []*Overload {
 				rhs, rhsIsBool := values[1].(bool)
 				if lhsIsBool && rhsIsBool {
 					return lhs && rhs, nil
-				} else if lhsIsBool && !lhs ||
+				}
+				if lhsIsBool && !lhs ||
 					rhsIsBool && !rhs {
 					return false, nil
-				} else if !rhsIsBool {
-					return rhs, nil
-				} else {
-					return lhs, nil
 				}
+				if !rhsIsBool {
+					return rhs, nil
+				}
+				return lhs, nil
 			}},
 		// Logical or (a || b)
 		{
@@ -91,14 +92,15 @@ func StandardBuiltins() []*Overload {
 				rhs, rhsIsBool := values[1].(bool)
 				if lhsIsBool && rhsIsBool {
 					return lhs || rhs, nil
-				} else if lhsIsBool && lhs ||
+				}
+				if lhsIsBool && lhs ||
 					rhsIsBool && rhs {
 					return true, nil
-				} else if !rhsIsBool {
-					return rhs, nil
-				} else {
-					return lhs, nil
 				}
+				if !rhsIsBool {
+					return rhs, nil
+				}
+				return lhs, nil
 			}},
 		// Conditional operator (a ? b : c)
 		{
@@ -111,12 +113,10 @@ func StandardBuiltins() []*Overload {
 				if isBool {
 					if cond {
 						return trueVal, nil
-					} else {
-						return falseVal, nil
 					}
-				} else {
-					return values[0], nil
+					return falseVal, nil
 				}
+				return values[0], nil
 			}},
 
 		// Equality overloads
@@ -133,11 +133,11 @@ func StandardBuiltins() []*Overload {
 			func(values ...interface{}) (interface{}, error) {
 				if value1, ok := values[0].(aspects.Equaler); ok {
 					return value1.Equal(values[1]), nil
-				} else if value2, ok := values[1].(aspects.Equaler); ok {
-					return value2.Equal(values[0]), nil
-				} else {
-					return values[0] == values[1], nil
 				}
+				if value2, ok := values[1].(aspects.Equaler); ok {
+					return value2.Equal(values[0]), nil
+				}
+				return values[0] == values[1], nil
 			}},
 		{operators.NotEquals, NotEqualsBytes,
 			func(value1, value2 []byte) {},
@@ -151,11 +151,11 @@ func StandardBuiltins() []*Overload {
 			func(values ...interface{}) (interface{}, error) {
 				if value1, ok := values[0].(aspects.Equaler); ok {
 					return !value1.Equal(values[1]), nil
-				} else if value2, ok := values[1].(aspects.Equaler); ok {
-					return !value2.Equal(values[0]), nil
-				} else {
-					return values[0] != values[1], nil
 				}
+				if value2, ok := values[1].(aspects.Equaler); ok {
+					return !value2.Equal(values[0]), nil
+				}
+				return values[0] != values[1], nil
 			}},
 
 		// Less than operator
@@ -802,10 +802,9 @@ func StandardBuiltins() []*Overload {
 				num := values[0].(int64)
 				if num >= 0 {
 					return uint64(num), nil
-				} else {
-					return nil,
-						fmt.Errorf("unsafe uint conversion of negative int")
 				}
+				return nil,
+					fmt.Errorf("unsafe uint conversion of negative int")
 			}},
 		{TypeConvertUint, UintFromDouble,
 			func(num float64) {},
@@ -813,10 +812,9 @@ func StandardBuiltins() []*Overload {
 				num := values[0].(float64)
 				if num >= 0.0 {
 					return float64(num), nil
-				} else {
-					return nil,
-						fmt.Errorf("unsafe uint conversion of negative double")
 				}
+				return nil,
+					fmt.Errorf("unsafe uint conversion of negative double")
 			}},
 		{TypeConvertUint, UintFromString,
 			func(num string) {},
@@ -960,9 +958,8 @@ func StandardBuiltins() []*Overload {
 			func(values ...interface{}) (interface{}, error) {
 				if t, found := types.TypeOf(values[0]); found {
 					return t, nil
-				} else {
-					return nil, fmt.Errorf("undefined type")
 				}
+				return nil, fmt.Errorf("undefined type")
 			}},
 
 		// Comprehensions functions.

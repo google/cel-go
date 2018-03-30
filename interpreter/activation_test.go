@@ -30,7 +30,7 @@ func TestHierarchicalActivation(t *testing.T) {
 	parent := NewActivation(map[string]interface{}{"a": "world", "b": -42})
 	// compose the child such that it shadows the parent
 	child := NewActivation(map[string]interface{}{"a": true, "c": "universe"})
-	combined := ExtendActivation(parent, child)
+	combined := NewHierarchicalActivation(parent, child)
 
 	// Resolve the shadowed child value.
 	if val, found := combined.ResolveName("a"); !found || !val.(bool) {

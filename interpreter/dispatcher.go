@@ -152,11 +152,10 @@ func (d *defaultDispatcher) findOverload(ctx *CallContext) (*overload, error) {
 	if overloadId, found := ctx.Overload(); found {
 		if match, found := d.overloads[overloadId]; found {
 			return match, nil
-		} else {
-			return nil, fmt.Errorf(
-				"unknown overload id '%s' for function '%s'",
-				ctx.call.Overload, ctx.Function())
 		}
+		return nil, fmt.Errorf(
+			"unknown overload id '%s' for function '%s'",
+			ctx.call.Overload, ctx.Function())
 	}
 	if byArgCount, found := d.functions[ctx.Function()]; found {
 		args := ctx.Args()
@@ -169,16 +168,14 @@ func (d *defaultDispatcher) findOverload(ctx *CallContext) (*overload, error) {
 		}
 		if len(matches) == 1 {
 			return matches[0], nil
-		} else {
-			return nil, fmt.Errorf("ambiguous overloads for function '%s'. "+
+		}
+		return nil, fmt.Errorf("ambiguous overloads for function '%s'. "+
 				"candidates: ['%s']",
 				ctx.Function(), matches)
-		}
-	} else {
-		return nil, fmt.Errorf(
-			"no matching overload for function '%s'",
-			ctx.Function())
 	}
+	return nil, fmt.Errorf(
+		"no matching overload for function '%s'",
+		ctx.Function())
 }
 
 // overload with the internal representation of a functions#Overload.

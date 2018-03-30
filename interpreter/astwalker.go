@@ -277,10 +277,9 @@ func (w *astWalker) walkStruct(node *expr.Expr) []Instruction {
 	}
 	if len(structExpr.MessageName) == 0 {
 		return append(entrySteps, NewMap(node.Id, keyValues))
-	} else {
-		return append(entrySteps,
-			NewObject(node.Id, structExpr.MessageName, fieldValues))
 	}
+	return append(entrySteps,
+		NewObject(node.Id, structExpr.MessageName, fieldValues))
 }
 
 func (w *astWalker) walkComprehension(node *expr.Expr) []Instruction {
@@ -488,9 +487,8 @@ func (b *blockScope) ref(ident string) (int64, bool) {
 		return inst, found
 	} else if b.parent != nil {
 		return b.parent.ref(ident)
-	} else {
-		return 0, false
 	}
+	return 0, false
 }
 
 func (b *blockScope) setRef(ident string, exprId int64) {
