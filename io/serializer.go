@@ -20,7 +20,7 @@ import (
 
 	"github.com/google/cel-go/ast"
 	"github.com/google/cel-go/common"
-	api "github.com/google/cel-spec/proto/v1"
+	api "github.com/google/cel-spec/proto/v1/syntax"
 )
 
 func Serialize(e ast.Expression, source common.Source) *api.ParsedExpr {

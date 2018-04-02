@@ -1,0 +1,12 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "equaler.go",
+        "indexer.go",
+        "iterator.go",
+        "protoer.go",
+    ],
+    visibility = ["//visibility:public"],
+)
