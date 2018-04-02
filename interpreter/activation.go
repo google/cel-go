@@ -58,10 +58,8 @@ func (a *mapActivation) Parent() Activation {
 }
 
 func (a *mapActivation) ResolveReference(exprId int64) (interface{}, bool) {
-	if object, found := a.references[exprId]; found {
-		return object, true
-	}
-	return nil, false
+	object, found := a.references[exprId]
+	return object, found
 }
 
 func (a *mapActivation) ResolveName(name string) (interface{}, bool) {

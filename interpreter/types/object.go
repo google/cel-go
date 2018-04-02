@@ -57,6 +57,7 @@ func NewProtoValue(value interface{}) ObjectValue {
 		// TODO: check whether the any being null is valid.
 		dynAny := &ptypes.DynamicAny{}
 		if err := ptypes.UnmarshalAny(value.(*any.Any), dynAny); err != nil {
+			// TODO: find a better way to handle unknown types.
 			panic(err)
 		}
 		value = dynAny.Message
@@ -141,7 +142,8 @@ func (it *msgIterator) HasNext() bool {
 				if fieldRefKind != reflect.Ptr && fieldRefKind != reflect.Interface {
 					it.cursorField = refMethod.Name[3:]
 					return true
-				} else if !fieldRefValue.IsNil() {
+				}
+				if !fieldRefValue.IsNil() {
 					fieldValue := fieldRefValue.Interface()
 					if _, isProto := fieldValue.(proto.Message); isProto {
 						it.cursorField = refMethod.Name[3:]

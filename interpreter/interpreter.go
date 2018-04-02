@@ -19,10 +19,10 @@ package interpreter
 import (
 	"fmt"
 	"github.com/golang/protobuf/proto"
+	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/interpreter/types"
 	"github.com/google/cel-go/interpreter/types/aspects"
 	"github.com/google/cel-go/interpreter/types/providers"
-	"github.com/google/cel-go/interpreter/functions"
 )
 
 // Interpreter generates a new Interpretable from a Program.
@@ -44,18 +44,16 @@ type exprInterpreter struct {
 	typeProvider providers.TypeProvider
 }
 
-var _ Interpreter = &exprInterpreter{}
-
 // NewInterpreter builds an Interpreter from a Dispatcher and TypeProvider
 // which will be used throughout the Eval of all Interpretable instances
 // gerenated from it.
-func NewInterpreter(dispatcher Dispatcher, typeProvider providers.TypeProvider) *exprInterpreter {
+func NewInterpreter(dispatcher Dispatcher, typeProvider providers.TypeProvider) Interpreter {
 	return &exprInterpreter{dispatcher, typeProvider}
 }
 
 // StandardInterpreter builds a Dispatcher and TypeProvider with support
 // for all of the CEL builtins defined in the language definition.
-func StandardIntepreter(types ...proto.Message) *exprInterpreter {
+func StandardIntepreter(types ...proto.Message) Interpreter {
 	dispatcher := NewDispatcher()
 	dispatcher.Add(functions.StandardBuiltins()...)
 	typeProvider := providers.NewTypeProvider(types...)
@@ -76,8 +74,6 @@ type exprInterpretable struct {
 	state       MutableEvalState
 }
 
-var _ Interpretable = &exprInterpretable{}
-
 func (i *exprInterpretable) Eval(activation Activation) (interface{}, EvalState) {
 	// register machine-like evaluation of the program with the given activation.
 	currActivation := activation
@@ -87,21 +83,21 @@ func (i *exprInterpretable) Eval(activation Activation) (interface{}, EvalState)
 		resultId = step.GetId()
 		switch step.(type) {
 		case *ConstExpr:
-			i.evalConst(step)
+			i.evalConst(step.(*ConstExpr))
 		case *IdentExpr:
-			i.evalIdent(step, currActivation)
+			i.evalIdent(step.(*IdentExpr), currActivation)
 		case *SelectExpr:
-			i.evalSelect(step, currActivation)
+			i.evalSelect(step.(*SelectExpr), currActivation)
 		case *CallExpr:
-			i.evalCall(step, currActivation)
+			i.evalCall(step.(*CallExpr), currActivation)
 		case *CreateListExpr:
-			i.evalCreateList(step)
+			i.evalCreateList(step.(*CreateListExpr))
 		case *CreateMapExpr:
-			i.evalCreateMap(step)
+			i.evalCreateMap(step.(*CreateMapExpr))
 		case *CreateObjectExpr:
-			i.evalCreateType(step)
+			i.evalCreateType(step.(*CreateObjectExpr))
 		case *MovInst:
-			i.evalMov(step)
+			i.evalMov(step.(*MovInst))
 			// Special instruction for modifying the program cursor
 		case *JumpInst:
 			jmpExpr := step.(*JumpInst)
@@ -132,36 +128,34 @@ func (i *exprInterpretable) Eval(activation Activation) (interface{}, EvalState)
 	return i.value(resultId), i.state
 }
 
-func (i *exprInterpretable) evalConst(step Instruction) {
-	i.setValue(step.GetId(), step.(*ConstExpr).Value)
+func (i *exprInterpretable) evalConst(constExpr *ConstExpr) {
+	i.setValue(constExpr.GetId(), constExpr.Value)
 }
 
-func (i *exprInterpretable) evalIdent(step Instruction, currActivation Activation) {
-	idExpr := step.(*IdentExpr)
+func (i *exprInterpretable) evalIdent(idExpr *IdentExpr, currActivation Activation) {
 	// TODO: Refactor this code for sharing.
 	if result, found := currActivation.ResolveName(idExpr.Name); found {
-		i.setValue(step.GetId(), result)
+		i.setValue(idExpr.GetId(), result)
 	} else if enum, found := i.interpreter.typeProvider.EnumValue(idExpr.Name); found {
-		i.setValue(step.GetId(), enum)
+		i.setValue(idExpr.GetId(), enum)
 	} else {
-		i.setValue(step.GetId(), &UnknownValue{[]Instruction{step}})
+		i.setValue(idExpr.GetId(), &UnknownValue{[]Instruction{idExpr}})
 	}
 }
 
-func (i *exprInterpretable) evalSelect(step Instruction, currActivation Activation) {
-	selExpr := step.(*SelectExpr)
+func (i *exprInterpretable) evalSelect(selExpr *SelectExpr, currActivation Activation) {
 	operand := i.value(selExpr.Operand)
 	if unknown, ok := operand.(*UnknownValue); ok {
 		i.resolveUnknown(unknown, selExpr, currActivation)
 	} else if indexer, ok := operand.(aspects.Indexer); ok {
 		if fieldValue, err := indexer.Get(selExpr.Field); err == nil {
-			i.setValue(step.GetId(), fieldValue)
+			i.setValue(selExpr.GetId(), fieldValue)
 		} else {
-			i.setValue(step.GetId(), err)
+			i.setValue(selExpr.GetId(), err)
 		}
 	} else {
 		// determine whether the operand was unknown or just the wrong type
-		i.setValue(step.GetId(),
+		i.setValue(selExpr.GetId(),
 			ErrorValue{[]error{fmt.Errorf("invalid operand in select")}})
 	}
 }
@@ -176,8 +170,8 @@ func (i *exprInterpretable) resolveUnknown(unknown *UnknownValue,
 	if object, found := currActivation.ResolveReference(selExpr.Id); found {
 		i.setValue(selExpr.Id, object)
 	} else {
-		var validIdent = true
-		var identifier = selExpr.Field
+		validIdent := true
+		identifier := selExpr.Field
 		for _, arg := range unknown.Args {
 			switch arg.(type) {
 			case *IdentExpr:
@@ -210,37 +204,34 @@ func (i *exprInterpretable) resolveUnknown(unknown *UnknownValue,
 	}
 }
 
-func (i *exprInterpretable) evalCall(step Instruction, currActivation Activation) {
-	callExpr := step.(*CallExpr)
+func (i *exprInterpretable) evalCall(callExpr *CallExpr, currActivation Activation) {
 	argVals := make([]interface{}, len(callExpr.Args), len(callExpr.Args))
 	for idx, argId := range callExpr.Args {
 		argVals[idx] = i.value(argId)
 	}
 	ctx := &CallContext{
-		call:       step.(*CallExpr),
+		call:       callExpr,
 		activation: currActivation,
 		args:       argVals,
 		metadata:   i.program.Metadata()}
 	if result, err := i.interpreter.dispatcher.Dispatch(ctx); err == nil {
-		i.setValue(step.GetId(), result)
+		i.setValue(callExpr.GetId(), result)
 	} else {
-		i.setValue(step.GetId(), err)
+		i.setValue(callExpr.GetId(), err)
 	}
 }
 
-func (i *exprInterpretable) evalCreateList(step Instruction) {
-	listExpr := step.(*CreateListExpr)
+func (i *exprInterpretable) evalCreateList(listExpr *CreateListExpr) {
 	elements := make([]interface{}, len(listExpr.Elements))
 	for idx, elementId := range listExpr.Elements {
 		elements[idx] = i.value(elementId)
 	}
 	// TODO: Add an error state for the list if any element is an error
 	adaptingList := types.NewListValue(elements)
-	i.setValue(step.GetId(), adaptingList)
+	i.setValue(listExpr.GetId(), adaptingList)
 }
 
-func (i *exprInterpretable) evalCreateMap(step Instruction) {
-	mapExpr := step.(*CreateMapExpr)
+func (i *exprInterpretable) evalCreateMap(mapExpr *CreateMapExpr) {
 	entries := make(map[interface{}]interface{})
 	for keyId, valueId := range mapExpr.KeyValues {
 		entries[i.value(keyId)] = i.value(valueId)
@@ -248,25 +239,23 @@ func (i *exprInterpretable) evalCreateMap(step Instruction) {
 	// TODO: Add an error state if any key is repeated and any element in the
 	// map (key or value) is an error.
 	adaptingMap := types.NewMapValue(entries)
-	i.setValue(step.GetId(), adaptingMap)
+	i.setValue(mapExpr.GetId(), adaptingMap)
 }
 
-func (i *exprInterpretable) evalCreateType(step Instruction) {
-	typeExpr := step.(*CreateObjectExpr)
+func (i *exprInterpretable) evalCreateType(objExpr *CreateObjectExpr) {
 	fields := make(map[string]interface{})
-	for field, valueId := range typeExpr.FieldValues {
+	for field, valueId := range objExpr.FieldValues {
 		fields[field] = i.value(valueId)
 	}
-	if value, err := i.newValue(typeExpr.Name, fields); err == nil {
-		i.setValue(step.GetId(), value)
+	if value, err := i.newValue(objExpr.Name, fields); err == nil {
+		i.setValue(objExpr.GetId(), value)
 	} else {
-		i.setValue(step.GetId(), err)
+		i.setValue(objExpr.GetId(), err)
 	}
 }
 
-func (i *exprInterpretable) evalMov(step Instruction) {
-	movExpr := step.(*MovInst)
-	i.setValue(movExpr.ToExprId, i.value(step.GetId()))
+func (i *exprInterpretable) evalMov(movExpr *MovInst) {
+	i.setValue(movExpr.ToExprId, i.value(movExpr.GetId()))
 }
 
 func (i *exprInterpretable) value(id int64) interface{} {

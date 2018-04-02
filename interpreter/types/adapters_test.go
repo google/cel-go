@@ -62,24 +62,21 @@ func TestProtoToExpr(t *testing.T) {
 	expectProtoToExpr(t, float64(-5.5), float64(-5.5))
 	expectProtoToExpr(t, "hello", "hello")
 	expectProtoToExpr(t, []byte("world"), []byte("world"))
-	expectProtoToExpr(t, []int32{1, 2, 3},
-		NewListValue([]int32{1, 2, 3}))
+	expectProtoToExpr(t, []int32{1, 2, 3}, NewListValue([]int32{1, 2, 3}))
 	expectProtoToExpr(t, map[int32]int32{1: 1, 2: 1, 3: 1},
 		NewMapValue(map[int32]int32{1: 1, 2: 1, 3: 1}))
-
 	// Null conversion test.
 	expectProtoToExpr(t, structpb.NullValue_NULL_VALUE, structpb.NullValue_NULL_VALUE)
-
 	// Proto conversion test.
 	parsedExpr := &expr.ParsedExpr{}
 	expectProtoToExpr(t, parsedExpr, NewProtoValue(parsedExpr))
 }
 
 func TestUnsupportedConversion(t *testing.T) {
-	if val, err := ProtoToExpr(NonConvertiable{}); err == nil {
+	if val, err := ProtoToExpr(nonConvertable{}); err == nil {
 		t.Error("Expected error when converting non-proto struct to proto", val)
 	}
-	if val, err := ExprToProto(reflect.TypeOf(NonConvertiable{}), NonConvertiable{}); err == nil {
+	if val, err := ExprToProto(reflect.TypeOf(nonConvertable{}), nonConvertable{}); err == nil {
 		t.Error("Expected error when converting non-proto expr to proto", val)
 	}
 }
@@ -132,6 +129,6 @@ func expectProtoToExpr(t *testing.T, in interface{}, out interface{}) {
 	}
 }
 
-type NonConvertiable struct {
+type nonConvertable struct {
 	Field string
 }

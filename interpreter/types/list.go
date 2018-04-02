@@ -46,8 +46,6 @@ type ListValue interface {
 	Len() int64
 }
 
-var _ ListValue = &listValue{}
-
 // Implementation of a ListValue which uses reflection to mediate between
 // Go and CEL types.
 type listValue struct {
@@ -114,7 +112,8 @@ func (l *listValue) ToProto(refType reflect.Type) (interface{}, error) {
 	protoElemKind := protoElem.Kind()
 	if protoElemKind == l.elemKind {
 		return l.value, nil
-	} else if protoElem.ConvertibleTo(l.listType.Elem()) {
+	}
+	if protoElem.ConvertibleTo(l.listType.Elem()) {
 		elemCount := int(l.Len())
 		protoList := reflect.MakeSlice(refType, elemCount, elemCount)
 		for i := 0; i < elemCount; i++ {
@@ -160,8 +159,6 @@ func (l *listValue) Len() int64 {
 func (l *listValue) Iterator() aspects.Iterator {
 	return &listIterator{listValue: l, cursor: 0, len: l.Len()}
 }
-
-var _ ListValue = &concatListValue{}
 
 type concatListValue struct {
 	prev  ListValue

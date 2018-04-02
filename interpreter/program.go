@@ -57,15 +57,13 @@ type exprProgram struct {
 	expression   *expr.Expr
 	container    string
 	instructions []Instruction
-	metadata     *exprMetadata
+	metadata     Metadata
 }
-
-var _ Program = &exprProgram{}
 
 // NewProgram creates a Program from a CEL expression and source information
 // within the specified container
 func NewProgram(container string, expression *expr.Expr,
-	sourceInfo *expr.SourceInfo) *exprProgram {
+	sourceInfo *expr.SourceInfo) Program {
 	metadata := newExprMetadata(sourceInfo)
 	return &exprProgram{
 		expression,
@@ -101,8 +99,6 @@ type exprStepper struct {
 	instruction int
 }
 
-var _ InstructionStepper = &exprStepper{}
-
 func (s *exprStepper) Next() (Instruction, bool) {
 	if s.instruction < len(s.program.instructions) {
 		inst := s.instruction
@@ -130,9 +126,7 @@ type exprMetadata struct {
 	info *expr.SourceInfo
 }
 
-var _ Metadata = &exprMetadata{}
-
-func newExprMetadata(info *expr.SourceInfo) *exprMetadata {
+func newExprMetadata(info *expr.SourceInfo) Metadata {
 	return &exprMetadata{info: info}
 }
 

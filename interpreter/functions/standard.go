@@ -42,7 +42,8 @@ type Overload struct {
 	Name string
 
 	// Signature of the overload as defined by a void function. The argument
-	// count and types will be derived by reflection.
+	// count and types will be derived by reflection and will be used to ensure
+	// the #Impl is called with right number of arguments of the expected type.
 	Signature interface{}
 
 	// Impl of the overload to be called by a dispatcher.
@@ -71,17 +72,20 @@ func StandardBuiltins() []*Overload {
 			func(values ...interface{}) (interface{}, error) {
 				lhs, lhsIsBool := values[0].(bool)
 				rhs, rhsIsBool := values[1].(bool)
+				// both are boolean use natural logic.
 				if lhsIsBool && rhsIsBool {
 					return lhs && rhs, nil
 				}
+				// one or the other is boolean and false, return false.
 				if lhsIsBool && !lhs ||
 					rhsIsBool && !rhs {
 					return false, nil
 				}
-				if !rhsIsBool {
-					return rhs, nil
+				// if the left-hand side is non-boolean return it as the error.
+				if !lhsIsBool {
+					return newError("Got '%v', expected argument of type 'bool'", values[0]), nil
 				}
-				return lhs, nil
+				return newError("Got '%v', expected argument of type 'bool'", values[1]), nil
 			}},
 		// Logical or (a || b)
 		{
@@ -90,17 +94,20 @@ func StandardBuiltins() []*Overload {
 			func(values ...interface{}) (interface{}, error) {
 				lhs, lhsIsBool := values[0].(bool)
 				rhs, rhsIsBool := values[1].(bool)
+				// both are boolean, use natural logic.
 				if lhsIsBool && rhsIsBool {
 					return lhs || rhs, nil
 				}
+				// one or the other is boolean and true, return true
 				if lhsIsBool && lhs ||
 					rhsIsBool && rhs {
 					return true, nil
 				}
-				if !rhsIsBool {
-					return rhs, nil
+				// if the left-hand side is non-boolean return it as the error.
+				if !lhsIsBool {
+					return newError("Got '%v', expected argument of type 'bool'", values[0]), nil
 				}
-				return lhs, nil
+				return newError("Got '%v', expected argument of type 'bool'", values[1]), nil
 			}},
 		// Conditional operator (a ? b : c)
 		{
@@ -116,7 +123,7 @@ func StandardBuiltins() []*Overload {
 					}
 					return falseVal, nil
 				}
-				return values[0], nil
+				return newError("Got '%v', expected argument of type 'bool'", values[0]), nil
 			}},
 
 		// Equality overloads
@@ -493,6 +500,7 @@ func StandardBuiltins() []*Overload {
 			}},
 
 		// Divide operator
+		// TODO: handle divide by zero.
 		{operators.Divide, DivideInt64,
 			func(value1 int64, value2 int64) {},
 			func(values ...interface{}) (interface{}, error) {
@@ -1035,5 +1043,14 @@ func timestampOp(value interface{}, visitor timestampVisitor) (interface{}, erro
 		return visitor(t)
 	} else {
 		return nil, err
+	}
+}
+
+func newError(msg string, value interface{}) interface{} {
+	switch value.(type) {
+	case error:
+		return value
+	default:
+		return fmt.Errorf(msg, value)
 	}
 }

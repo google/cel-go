@@ -51,8 +51,6 @@ func NewMapValue(value interface{}) MapValue {
 		mapType.Elem().Kind()}
 }
 
-var _ MapValue = &mapValue{}
-
 type mapValue struct {
 	value    interface{}
 	refValue *reflect.Value

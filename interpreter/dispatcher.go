@@ -35,7 +35,7 @@ type Dispatcher interface {
 	Dispatch(ctx *CallContext) (interface{}, error)
 }
 
-// CallContext description of a function call invocation.
+// CallContext provides a description of a function call invocation.
 type CallContext struct {
 	call       *CallExpr
 	args       []interface{}
@@ -64,7 +64,7 @@ func (ctx *CallContext) Args() []interface{} {
 //
 //     dispatcher := NewDispatcher()
 //     dispatcher.Add(functions.StandardBuiltins())
-func NewDispatcher() *defaultDispatcher {
+func NewDispatcher() Dispatcher {
 	return &defaultDispatcher{
 		overloads: make(map[string]*overload),
 		functions: make(map[string]map[int][]*overload)}
@@ -78,8 +78,6 @@ type defaultDispatcher struct {
 	overloads overloadMap
 	functions overloadMapByFunctionAndArgCount
 }
-
-var _ Dispatcher = &defaultDispatcher{}
 
 func (d *defaultDispatcher) Add(overloads ...*functions.Overload) error {
 	for _, o := range overloads {
@@ -170,8 +168,8 @@ func (d *defaultDispatcher) findOverload(ctx *CallContext) (*overload, error) {
 			return matches[0], nil
 		}
 		return nil, fmt.Errorf("ambiguous overloads for function '%s'. "+
-				"candidates: ['%s']",
-				ctx.Function(), matches)
+			"candidates: ['%v']",
+			ctx.Function(), matches)
 	}
 	return nil, fmt.Errorf(
 		"no matching overload for function '%s'",

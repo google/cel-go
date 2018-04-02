@@ -18,7 +18,7 @@ package interpreter
 
 // EvalState tracks the values associated with expression ids during execution.
 type EvalState interface {
-	// Get the value of the given expression id, false if not found.
+	// Value of the given expression id, false if not found.
 	Value(int64) (interface{}, bool)
 }
 
@@ -26,14 +26,12 @@ type EvalState interface {
 // expression id.
 type MutableEvalState interface {
 	EvalState
+	// SetValue associates an expression id with a value.
 	SetValue(int64, interface{})
 }
 
-var _ EvalState = &defaultEvalState{}
-var _ MutableEvalState = &defaultEvalState{}
-
 // NewEvalState returns a MutableEvalState.
-func NewEvalState() *defaultEvalState {
+func NewEvalState() MutableEvalState {
 	return &defaultEvalState{make(map[int64]interface{})}
 }
 
@@ -55,15 +53,7 @@ type UnknownValue struct {
 	Args []Instruction
 }
 
-func (o *UnknownValue) Equal(other interface{}) bool {
-	return false
-}
-
 // TODO: replace this with the value.proto equivalents.
 type ErrorValue struct {
 	ErrorSet []error
-}
-
-func (o *ErrorValue) Equal(other interface{}) bool {
-	return false
 }

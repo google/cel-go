@@ -27,18 +27,6 @@ type Instruction interface {
 	GetId() int64
 }
 
-var _ Instruction = &ConstExpr{}
-var _ Instruction = &IdentExpr{}
-var _ Instruction = &SelectExpr{}
-var _ Instruction = &CallExpr{}
-var _ Instruction = &CreateListExpr{}
-var _ Instruction = &CreateMapExpr{}
-var _ Instruction = &CreateObjectExpr{}
-var _ Instruction = &MovInst{}
-var _ Instruction = &JumpInst{}
-var _ Instruction = &PushScopeInst{}
-var _ Instruction = &PopScopeInst{}
-
 type baseInstruction struct {
 	Id int64
 }

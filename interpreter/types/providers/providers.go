@@ -47,12 +47,10 @@ type defaultTypeProvider struct {
 	enumsByName map[string]int64
 }
 
-var _ TypeProvider = &defaultTypeProvider{}
-
 // NewTypeProvider accepts a list of proto message instances and returns a type
 // provider which can create new instances of the provided message or any
 // message that proto depends upon in its FileDescriptor.
-func NewTypeProvider(types ...proto.Message) *defaultTypeProvider {
+func NewTypeProvider(types ...proto.Message) TypeProvider {
 	protoTypes := make(map[string]reflect.Type)
 	enumValues := make(map[string]int64)
 	descriptorSet := make(map[string]*protobuf.FileDescriptorProto)
