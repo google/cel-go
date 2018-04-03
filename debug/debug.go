@@ -28,9 +28,13 @@ type DebugAdorner interface {
 	GetMetadata(e interface{}) string
 }
 
+// DebugWriter manages writing expressions to an internal string.
 type DebugWriter interface {
 	fmt.Stringer
-	Append(e *expr.Expr)
+
+	// Buffer pushes an expression into an internal queue of expressions to
+	// write to a string.
+	Buffer(e *expr.Expr)
 }
 
 type emptyDebugAdorner struct {
@@ -48,7 +52,7 @@ func ToDebugString(e *expr.Expr) string {
 
 func ToAdornedDebugString(e *expr.Expr, adorner DebugAdorner) string {
 	w := newDebugWriter(adorner)
-	w.Append(e)
+	w.Buffer(e)
 	return w.String()
 }
 
@@ -68,7 +72,7 @@ func newDebugWriter(a DebugAdorner) *debugWriter {
 	}
 }
 
-func (w *debugWriter) Append(e *expr.Expr) {
+func (w *debugWriter) Buffer(e *expr.Expr) {
 	if e == nil {
 		return
 	}
@@ -92,7 +96,7 @@ func (w *debugWriter) Append(e *expr.Expr) {
 }
 
 func (w *debugWriter) appendSelect(sel *expr.Expr_Select) {
-	w.Append(sel.Operand)
+	w.Buffer(sel.Operand)
 	w.append(".")
 	w.append(sel.Field)
 	if sel.TestOnly {
@@ -102,7 +106,7 @@ func (w *debugWriter) appendSelect(sel *expr.Expr_Select) {
 
 func (w *debugWriter) appendCall(call *expr.Expr_Call) {
 	if call.Target != nil {
-		w.Append(call.Target)
+		w.Buffer(call.Target)
 		w.append(".")
 	}
 	w.append(call.Function)
@@ -115,7 +119,7 @@ func (w *debugWriter) appendCall(call *expr.Expr_Call) {
 				w.append(",")
 				w.appendLine()
 			}
-			w.Append(arg)
+			w.Buffer(arg)
 		}
 		w.removeIndent()
 		w.appendLine()
@@ -133,7 +137,7 @@ func (w *debugWriter) appendList(list *expr.Expr_CreateList) {
 				w.append(",")
 				w.appendLine()
 			}
-			w.Append(elem)
+			w.Buffer(elem)
 		}
 		w.removeIndent()
 		w.appendLine()
@@ -162,7 +166,7 @@ func (w *debugWriter) appendObject(obj *expr.Expr_CreateStruct) {
 			}
 			w.append(entry.GetFieldKey())
 			w.append(":")
-			w.Append(entry.Value)
+			w.Buffer(entry.Value)
 			w.adorn(entry)
 		}
 		w.removeIndent()
@@ -181,9 +185,9 @@ func (w *debugWriter) appendMap(obj *expr.Expr_CreateStruct) {
 				w.append(",")
 				w.appendLine()
 			}
-			w.Append(entry.GetMapKey())
+			w.Buffer(entry.GetMapKey())
 			w.append(":")
-			w.Append(entry.Value)
+			w.Buffer(entry.Value)
 			w.adorn(entry)
 		}
 		w.removeIndent()
@@ -203,7 +207,7 @@ func (w *debugWriter) appendComprehension(comprehension *expr.Expr_Comprehension
 	w.appendLine()
 	w.append("// Target")
 	w.appendLine()
-	w.Append(comprehension.IterRange)
+	w.Buffer(comprehension.IterRange)
 	w.append(",")
 	w.appendLine()
 	w.append("// Accumulator")
@@ -213,22 +217,22 @@ func (w *debugWriter) appendComprehension(comprehension *expr.Expr_Comprehension
 	w.appendLine()
 	w.append("// Init")
 	w.appendLine()
-	w.Append(comprehension.AccuInit)
+	w.Buffer(comprehension.AccuInit)
 	w.append(",")
 	w.appendLine()
 	w.append("// LoopCondition")
 	w.appendLine()
-	w.Append(comprehension.LoopCondition)
+	w.Buffer(comprehension.LoopCondition)
 	w.append(",")
 	w.appendLine()
 	w.append("// LoopStep")
 	w.appendLine()
-	w.Append(comprehension.LoopStep)
+	w.Buffer(comprehension.LoopStep)
 	w.append(",")
 	w.appendLine()
 	w.append("// Result")
 	w.appendLine()
-	w.Append(comprehension.Result)
+	w.Buffer(comprehension.Result)
 	w.append(")")
 	w.removeIndent()
 }

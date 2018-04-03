@@ -158,6 +158,7 @@ func makeQuantifier(kind quantifierKind, p *parserHelper, ctx interface{}, targe
 		step = p.newGlobalCall(ctx, operators.LogicalOr, accuIdent(), args[1])
 		result = accuIdent()
 	case quantifierExistsOne:
+		// TODO: make consistent with the CEL semantics.
 		zeroExpr := p.newConstInt(ctx, 0)
 		oneExpr := p.newConstInt(ctx, 1)
 		init = zeroExpr
