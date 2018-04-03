@@ -15,80 +15,50 @@
 package parser
 
 import (
-	"fmt"
-	"reflect"
 	"strconv"
-	"strings"
 
-	"github.com/google/cel-go/ast"
+	expr "github.com/google/cel-spec/proto/v1/syntax"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/operators"
 	"github.com/google/cel-go/parser/gen"
 
 	"github.com/antlr/antlr4/runtime/Go/antlr"
+	"github.com/golang/protobuf/ptypes/struct"
+	"fmt"
+	"reflect"
 )
 
-func ParseText(text string) (ast.Expression, *common.Errors) {
+func ParseText(text string) (*expr.ParsedExpr, *common.Errors) {
 	return Parse(common.NewStringSource(text, "<input>"), AllMacros)
 }
 
-func Parse(source common.Source, macros Macros) (ast.Expression, *common.Errors) {
-	macroMap := make(map[string]Macro)
-	for _, m := range macros {
-		macroMap[makeMacroKey(m.name, m.args, m.instanceStyle)] = m
-	}
-
-	p := parser{
-		errors: &ParseErrors{common.NewErrors(source)},
-		source: source,
-		macros: macroMap,
-		nextId: 1,
-	}
-
-	return p.parse(source.Content()), p.errors.Errors
+func Parse(source common.Source, macros Macros) (*expr.ParsedExpr, *common.Errors) {
+	p := parser{helper: NewParserHelper(source, macros)}
+	e := p.parse(source.Content())
+	return &expr.ParsedExpr{
+		Expr: e,
+		SourceInfo: p.helper.getSourceInfo(),
+	}, p.helper.errors.Errors
 }
 
 type parser struct {
 	gen.BaseCELVisitor
-
-	errors *ParseErrors
-	source common.Source
-	macros map[string]Macro
-	nextId int64
+	helper *parserHelper
 }
 
 var _ gen.CELVisitor = (*parser)(nil)
 
-func (p *parser) parse(expression string) ast.Expression {
+func (p *parser) parse(expression string) *expr.Expr {
 	stream := antlr.NewInputStream(expression)
 	lexer := gen.NewCELLexer(stream)
 	prsr := gen.NewCELParser(antlr.NewCommonTokenStream(lexer, 0))
 
 	lexer.RemoveErrorListeners()
 	prsr.RemoveErrorListeners()
-	lexer.AddErrorListener(p)
-	prsr.AddErrorListener(p)
+	lexer.AddErrorListener(p.helper)
+	prsr.AddErrorListener(p.helper)
 
-	return p.Visit(prsr.Start()).(ast.Expression)
-}
-
-// Listener implementations
-func (p *parser) SyntaxError(recognizer antlr.Recognizer, offendingSymbol interface{}, line, column int, msg string, e antlr.RecognitionException) {
-	// TODO: Snippet
-	l := common.NewLocation(p.source.Description(), line, column)
-	p.errors.syntaxError(l, msg)
-}
-
-func (p *parser) ReportAmbiguity(recognizer antlr.Parser, dfa *antlr.DFA, startIndex, stopIndex int, exact bool, ambigAlts *antlr.BitSet, configs antlr.ATNConfigSet) {
-	// Intentional
-}
-
-func (p *parser) ReportAttemptingFullContext(recognizer antlr.Parser, dfa *antlr.DFA, startIndex, stopIndex int, conflictingAlts *antlr.BitSet, configs antlr.ATNConfigSet) {
-	// Intentional
-}
-
-func (p *parser) ReportContextSensitivity(recognizer antlr.Parser, dfa *antlr.DFA, startIndex, stopIndex, prediction int, configs antlr.ATNConfigSet) {
-	// Intentional
+	return p.Visit(prsr.Start()).(*expr.Expr)
 }
 
 // Visitor implementations
@@ -123,14 +93,14 @@ func (p *parser) Visit(tree antlr.ParseTree) interface{} {
 	case *gen.IndexContext:
 		return p.VisitIndex(tree.(*gen.IndexContext))
 	case *gen.UnaryContext:
-		return &ast.ErrorExpression{}
+		return p.VisitUnary(tree.(*gen.UnaryContext))
 	}
 
 	text := "<<nil>>"
 	if tree != nil {
 		text = tree.GetText()
 	}
-	panic(fmt.Sprintf("Unknown parsetree type: '%+v': %+v [%s]", reflect.TypeOf(tree), tree, text))
+	panic(fmt.Sprintf("unknown parsetree type: '%+v': %+v [%s]", reflect.TypeOf(tree), tree, text))
 }
 
 // Visit a parse tree produced by CELParser#start.
@@ -140,43 +110,39 @@ func (p *parser) VisitStart(ctx *gen.StartContext) interface{} {
 
 // Visit a parse tree produced by CELParser#expr.
 func (p *parser) VisitExpr(ctx *gen.ExprContext) interface{} {
-	result := p.Visit(ctx.GetE()).(ast.Expression)
+	result := p.Visit(ctx.GetE()).(*expr.Expr)
 	if ctx.GetOp() == nil {
 		return result
 	}
 
-	ifTrue := p.Visit(ctx.GetE1()).(ast.Expression)
-	ifFalse := p.Visit(ctx.GetE2()).(ast.Expression)
-	return ast.NewCallFunction(p.id(), p.location(ctx.GetStart()), operators.Conditional, result, ifTrue, ifFalse)
+	ifTrue := p.Visit(ctx.GetE1()).(*expr.Expr)
+	ifFalse := p.Visit(ctx.GetE2()).(*expr.Expr)
+	return p.helper.newGlobalCall(ctx.GetOp(), operators.Conditional, result, ifTrue, ifFalse)
 }
 
 // Visit a parse tree produced by CELParser#conditionalOr.
 func (p *parser) VisitConditionalOr(ctx *gen.ConditionalOrContext) interface{} {
-	result := p.Visit(ctx.GetE()).(ast.Expression)
+	result := p.Visit(ctx.GetE()).(*expr.Expr)
 	if ctx.GetOps() == nil {
 		return result
 	}
-
-	for i, _ := range ctx.GetOps() {
-		next := p.Visit(ctx.GetE1()[i]).(ast.Expression)
-		result = ast.NewCallFunction(p.id(), p.location(ctx.GetStart()), operators.LogicalOr, result, next)
+	for i, op := range ctx.GetOps() {
+		next := p.Visit(ctx.GetE1()[i]).(*expr.Expr)
+		result = p.helper.newGlobalCall(op, operators.LogicalOr, result, next)
 	}
-
 	return result
 }
 
 // Visit a parse tree produced by CELParser#conditionalAnd.
 func (p *parser) VisitConditionalAnd(ctx *gen.ConditionalAndContext) interface{} {
-	result := p.Visit(ctx.GetE()).(ast.Expression)
+	result := p.Visit(ctx.GetE()).(*expr.Expr)
 	if ctx.GetOps() == nil {
 		return result
 	}
-
-	for i, _ := range ctx.GetOps() {
-		next := p.Visit(ctx.GetE1()[i]).(ast.Expression)
-		result = ast.NewCallFunction(p.id(), p.location(ctx.GetStart()), operators.LogicalAnd, result, next)
+	for i, op := range ctx.GetOps() {
+		next := p.Visit(ctx.GetE1()[i]).(*expr.Expr)
+		result = p.helper.newGlobalCall(op, operators.LogicalAnd, result, next)
 	}
-
 	return result
 }
 
@@ -185,19 +151,17 @@ func (p *parser) VisitRelation(ctx *gen.RelationContext) interface{} {
 	if ctx.Calc() != nil {
 		return p.Visit(ctx.Calc())
 	}
-
 	opText := ""
 	if ctx.GetOp() != nil {
 		opText = ctx.GetOp().GetText()
 	}
 
 	if op, found := operators.Find(opText); found {
-		lhs := p.Visit(ctx.Relation(0)).(ast.Expression)
-		rhs := p.Visit(ctx.Relation(1)).(ast.Expression)
-		return ast.NewCallFunction(p.id(), p.location(ctx.GetOp()), op, lhs, rhs)
+		lhs := p.Visit(ctx.Relation(0)).(*expr.Expr)
+		rhs := p.Visit(ctx.Relation(1)).(*expr.Expr)
+		return p.helper.newGlobalCall(ctx.GetOp(), op, lhs, rhs)
 	}
-
-	return &ast.ErrorExpression{}
+	return p.helper.reportError(ctx, "operator not found")
 }
 
 // Visit a parse tree produced by CELParser#calc.
@@ -205,19 +169,20 @@ func (p *parser) VisitCalc(ctx *gen.CalcContext) interface{} {
 	if ctx.Unary() != nil {
 		return p.Visit(ctx.Unary())
 	}
-
 	opText := ""
 	if ctx.GetOp() != nil {
 		opText = ctx.GetOp().GetText()
 	}
-
 	if op, found := operators.Find(opText); found {
-		lhs := p.Visit(ctx.Calc(0)).(ast.Expression)
-		rhs := p.Visit(ctx.Calc(1)).(ast.Expression)
-		return ast.NewCallFunction(p.id(), p.location(ctx.GetOp()), op, lhs, rhs)
+		lhs := p.Visit(ctx.Calc(0)).(*expr.Expr)
+		rhs := p.Visit(ctx.Calc(1)).(*expr.Expr)
+		return p.helper.newGlobalCall(ctx.GetOp(), op, lhs, rhs)
 	}
+	return p.helper.reportError(ctx, "operator not found")
+}
 
-	return &ast.ErrorExpression{}
+func (p *parser) VisitUnary(ctx *gen.UnaryContext) interface{} {
+	return p.helper.newConstString(ctx, "<<error>>")
 }
 
 // Visit a parse tree produced by CELParser#StatementExpr.
@@ -232,8 +197,7 @@ func (p *parser) VisitStatementExpr(ctx *gen.StatementExprContext) interface{} {
 	case *gen.CreateMessageContext:
 		return p.VisitCreateMessage(ctx.Statement().(*gen.CreateMessageContext))
 	}
-
-	return &ast.ErrorExpression{}
+	return p.helper.reportError(ctx, "unsupported simple expression")
 }
 
 // Visit a parse tree produced by CELParser#LogicalNot.
@@ -241,33 +205,26 @@ func (p *parser) VisitLogicalNot(ctx *gen.LogicalNotContext) interface{} {
 	if len(ctx.GetOps())%2 == 0 {
 		return p.Visit(ctx.Statement())
 	}
-
-	target := p.Visit(ctx.Statement()).(ast.Expression)
-
-	return ast.NewCallFunction(p.id(), p.location(ctx.GetStart()), operators.LogicalNot, target)
-
+	target := p.Visit(ctx.Statement()).(*expr.Expr)
+	return p.helper.newGlobalCall(ctx.GetOps()[0], operators.LogicalNot, target)
 }
 
 func (p *parser) VisitNegate(ctx *gen.NegateContext) interface{} {
 	if len(ctx.GetOps())%2 == 0 {
 		return p.Visit(ctx.Statement())
 	}
-
-	target := p.Visit(ctx.Statement()).(ast.Expression)
-
-	return ast.NewCallFunction(p.id(), p.location(ctx.GetStart()), operators.Negate, target)
+	target := p.Visit(ctx.Statement()).(*expr.Expr)
+	return p.helper.newGlobalCall(ctx.GetOps()[0], operators.Negate, target)
 }
 
 // Visit a parse tree produced by CELParser#SelectOrCall.
 func (p *parser) VisitSelectOrCall(ctx *gen.SelectOrCallContext) interface{} {
-	target := p.Visit(ctx.Statement()).(ast.Expression)
+	operand := p.Visit(ctx.Statement()).(*expr.Expr)
 	id := ctx.GetId().GetText()
-
 	if ctx.GetOpen() != nil {
-		return p.newCallMethodOrMacro(p.location(ctx.GetOp()), id, target, p.visitList(ctx.GetArgs())...)
+		return p.helper.newMemberCall(ctx.GetOpen(), id, operand, p.visitList(ctx.GetArgs())...)
 	}
-
-	return ast.NewSelect(p.id(), p.location(ctx.GetOp()), target, id, false)
+	return p.helper.newSelect(ctx.GetOp(), operand, id)
 }
 
 // Visit a parse tree produced by CELParser#PrimaryExpr.
@@ -277,9 +234,6 @@ func (p *parser) VisitPrimaryExpr(ctx *gen.PrimaryExprContext) interface{} {
 		return p.VisitNested(ctx.Primary().(*gen.NestedContext))
 	case *gen.IdentOrGlobalCallContext:
 		return p.VisitIdentOrGlobalCall(ctx.Primary().(*gen.IdentOrGlobalCallContext))
-		// TODO(b/67832261): Deprecate the 'in' function.
-	case *gen.DeprecatedInContext:
-		return p.VisitDeprecatedIn(ctx.Primary().(*gen.DeprecatedInContext))
 	case *gen.CreateListContext:
 		return p.VisitCreateList(ctx.Primary().(*gen.CreateListContext))
 	case *gen.CreateStructContext:
@@ -288,40 +242,35 @@ func (p *parser) VisitPrimaryExpr(ctx *gen.PrimaryExprContext) interface{} {
 		return p.VisitConstantLiteral(ctx.Primary().(*gen.ConstantLiteralContext))
 	}
 
-	return &ast.ErrorExpression{}
+	return p.helper.reportError(ctx, "invalid primary expression")
 }
 
 // Visit a parse tree produced by CELParser#Index.
 func (p *parser) VisitIndex(ctx *gen.IndexContext) interface{} {
-	target := p.Visit(ctx.Statement()).(ast.Expression)
-	index := p.Visit(ctx.GetIndex()).(ast.Expression)
-	return ast.NewCallFunction(p.id(), p.location(ctx.GetOp()), operators.Index, target, index)
+	target := p.Visit(ctx.Statement()).(*expr.Expr)
+	index := p.Visit(ctx.GetIndex()).(*expr.Expr)
+	return p.helper.newGlobalCall(ctx.GetOp(), operators.Index, target, index)
 }
 
 // Visit a parse tree produced by CELParser#CreateMessage.
 func (p *parser) VisitCreateMessage(ctx *gen.CreateMessageContext) interface{} {
-	target := p.Visit(ctx.Statement()).(ast.Expression)
-
-	messageName, found := p.extractQualifiedName(target)
-	if !found {
-		return &ast.ErrorExpression{}
+	target := p.Visit(ctx.Statement()).(*expr.Expr)
+	if messageName, found := p.extractQualifiedName(target); found {
+		entries := p.VisitIFieldInitializerList(ctx.GetEntries()).([]*expr.Expr_CreateStruct_Entry)
+		return p.helper.newObject(ctx, messageName, entries...)
 	}
-
-	entries := p.VisitIFieldInitializerList(ctx.GetEntries()).([]*ast.FieldEntry)
-
-	return ast.NewCreateMessage(p.id(), p.location(ctx.GetStart()), messageName, entries...)
+	return p.helper.newExpr(ctx)
 }
 
 func (p *parser) VisitIFieldInitializerList(ctx gen.IFieldInitializerListContext) interface{} {
 	if ctx == nil || ctx.GetFields() == nil {
-		return []*ast.FieldEntry{}
+		return []*expr.Expr_CreateStruct_Entry{}
 	}
 
-	result := make([]*ast.FieldEntry, len(ctx.GetFields()))
+	result := make([]*expr.Expr_CreateStruct_Entry, len(ctx.GetFields()))
 	for i, f := range ctx.GetFields() {
-		value := p.Visit(ctx.GetValues()[i]).(ast.Expression)
-
-		field := ast.NewFieldEntry(p.id(), p.location(ctx.GetCols()[i]), f.GetText(), value)
+		value := p.Visit(ctx.GetValues()[i]).(*expr.Expr)
+		field := p.helper.newObjectField(ctx.GetCols()[i], f.GetText(), value)
 		result[i] = field
 	}
 	return result
@@ -336,16 +285,9 @@ func (p *parser) VisitIdentOrGlobalCall(ctx *gen.IdentOrGlobalCallContext) inter
 	identName += ctx.GetId().GetText()
 
 	if ctx.GetOp() != nil {
-		return p.newCallFunctionOrMacro(p.location(ctx.GetOp()), identName, p.visitList(ctx.GetArgs())...)
+		return p.helper.newGlobalCall(ctx.GetOp(), identName, p.visitList(ctx.GetArgs())...)
 	}
-
-	return ast.NewIdent(p.id(), p.location(ctx.GetStart()), identName)
-}
-
-// Visit a parse tree produced by CELParser#DeprecatedIn.
-func (p *parser) VisitDeprecatedIn(ctx *gen.DeprecatedInContext) interface{} {
-	identName := ctx.GetId().GetText()
-	return p.newCallFunctionOrMacro(p.location(ctx.GetOp()), identName, p.visitList(ctx.GetArgs())...)
+	return p.helper.newIdent(ctx.GetId(), identName)
 }
 
 // Visit a parse tree produced by CELParser#Nested.
@@ -355,17 +297,16 @@ func (p *parser) VisitNested(ctx *gen.NestedContext) interface{} {
 
 // Visit a parse tree produced by CELParser#CreateList.
 func (p *parser) VisitCreateList(ctx *gen.CreateListContext) interface{} {
-	return ast.NewCreateList(p.id(), p.location(ctx.GetStart()), p.visitList(ctx.GetElems())...)
+	return p.helper.newList(ctx, p.visitList(ctx.GetElems())...)
 }
 
 // Visit a parse tree produced by CELParser#CreateStruct.
 func (p *parser) VisitCreateStruct(ctx *gen.CreateStructContext) interface{} {
-	entries := []*ast.StructEntry{}
+	entries := []*expr.Expr_CreateStruct_Entry{}
 	if ctx.GetEntries() != nil {
-		entries = p.Visit(ctx.GetEntries()).([]*ast.StructEntry)
+		entries = p.Visit(ctx.GetEntries()).([]*expr.Expr_CreateStruct_Entry)
 	}
-
-	return ast.NewCreateStruct(p.id(), p.location(ctx.GetStart()), entries...)
+	return p.helper.newMap(ctx.GetStart(), entries...)
 }
 
 // Visit a parse tree produced by CELParser#ConstantLiteral.
@@ -388,19 +329,18 @@ func (p *parser) VisitConstantLiteral(ctx *gen.ConstantLiteralContext) interface
 	case *gen.NullContext:
 		return p.VisitNull(ctx.Literal().(*gen.NullContext))
 	}
-
-	return &ast.ErrorExpression{}
+	return p.helper.reportError(ctx, "invalid literal")
 }
 
 // Visit a parse tree produced by CELParser#exprList.
 func (p *parser) VisitExprList(ctx *gen.ExprListContext) interface{} {
 	if ctx == nil || ctx.GetE() == nil {
-		return []ast.Expression{}
+		return []*expr.Expr{}
 	}
 
-	result := make([]ast.Expression, len(ctx.GetE()))
+	result := make([]*expr.Expr, len(ctx.GetE()))
 	for i, e := range ctx.GetE() {
-		exp := p.Visit(e).(ast.Expression)
+		exp := p.Visit(e).(*expr.Expr)
 		result[i] = exp
 	}
 	return result
@@ -408,21 +348,17 @@ func (p *parser) VisitExprList(ctx *gen.ExprListContext) interface{} {
 
 // Visit a parse tree produced by CELParser#mapInitializerList.
 func (p *parser) VisitMapInitializerList(ctx *gen.MapInitializerListContext) interface{} {
-
 	if ctx == nil || ctx.GetKeys() == nil {
-		return []*ast.StructEntry{}
+		return []*expr.Expr_CreateStruct_Entry{}
 	}
 
-	result := make([]*ast.StructEntry, len(ctx.GetCols()))
-
-	for i, _ := range ctx.GetCols() {
-		key := p.Visit(ctx.GetKeys()[i]).(ast.Expression)
-		value := p.Visit(ctx.GetValues()[i]).(ast.Expression)
-
-		entry := ast.NewStructEntry(p.id(), p.location(ctx.GetStart()), key, value)
+	result := make([]*expr.Expr_CreateStruct_Entry, len(ctx.GetCols()))
+	for i, col := range ctx.GetCols() {
+		key := p.Visit(ctx.GetKeys()[i]).(*expr.Expr)
+		value := p.Visit(ctx.GetValues()[i]).(*expr.Expr)
+		entry := p.helper.newMapEntry(col, key, value)
 		result[i] = entry
 	}
-
 	return result
 }
 
@@ -430,10 +366,9 @@ func (p *parser) VisitMapInitializerList(ctx *gen.MapInitializerListContext) int
 func (p *parser) VisitInt(ctx *gen.IntContext) interface{} {
 	i, err := strconv.ParseInt(ctx.GetTok().GetText(), 10, 64)
 	if err != nil {
-		return &ast.ErrorExpression{}
+		return p.helper.reportError(ctx, "invalid int literal")
 	}
-
-	return ast.NewInt64Constant(p.id(), p.location(ctx.GetStart()), i)
+	return p.helper.newConstInt(ctx, i)
 }
 
 // Visit a parse tree produced by CELParser#Uint.
@@ -442,137 +377,94 @@ func (p *parser) VisitUint(ctx *gen.UintContext) interface{} {
 	text = text[:len(text)-1]
 	i, err := strconv.ParseUint(text, 10, 64)
 	if err != nil {
-		return &ast.ErrorExpression{}
+		return p.helper.reportError(ctx, "invalid uint literal")
 	}
-
-	return ast.NewUint64Constant(p.id(), p.location(ctx.GetStart()), i)
+	return p.helper.newConstUint(ctx, i)
 }
 
 // Visit a parse tree produced by CELParser#Double.
 func (p *parser) VisitDouble(ctx *gen.DoubleContext) interface{} {
 	f, err := strconv.ParseFloat(ctx.GetTok().GetText(), 64)
 	if err != nil {
-		return &ast.ErrorExpression{}
+		return p.helper.reportError(ctx, "invalid double literal")
 	}
-	return ast.NewDoubleConstant(p.id(), p.location(ctx.GetStart()), f)
+	return p.helper.newConstDouble(ctx, f)
 
 }
 
 // Visit a parse tree produced by CELParser#String.
 func (p *parser) VisitString(ctx *gen.StringContext) interface{} {
-	return ast.NewStringConstant(p.id(), p.location(ctx.GetStart()), unquote(ctx.GetText()))
+	s := p.unquote(ctx, ctx.GetText())
+	return p.helper.newConstString(ctx, s)
 }
 
 // Visit a parse tree produced by CELParser#Bytes.
 func (p *parser) VisitBytes(ctx *gen.BytesContext) interface{} {
 	// TODO(ozben): Not sure if this is the right encoding.
-	b := []byte(unquote(ctx.GetTok().GetText()[1:]))
-	return ast.NewBytesConstant(p.id(), p.location(ctx.GetStart()), b)
+	b := []byte(p.unquote(ctx, ctx.GetTok().GetText()[1:]))
+	return p.helper.newConstBytes(ctx, b)
 }
 
 // Visit a parse tree produced by CELParser#BoolTrue.
 func (p *parser) VisitBoolTrue(ctx *gen.BoolTrueContext) interface{} {
-	return ast.NewBoolConstant(p.id(), p.location(ctx.GetStart()), true)
+	return p.helper.newConstBool(ctx,true)
 }
 
 // Visit a parse tree produced by CELParser#BoolFalse.
 func (p *parser) VisitBoolFalse(ctx *gen.BoolFalseContext) interface{} {
-	return ast.NewBoolConstant(p.id(), p.location(ctx.GetStart()), false)
+	return p.helper.newConstBool(ctx,false)
 }
 
 // Visit a parse tree produced by CELParser#Null.
 func (p *parser) VisitNull(ctx *gen.NullContext) interface{} {
-	return ast.NewNullConstant(p.id(), p.location(ctx.GetStart()))
+	return p.helper.newConstant(ctx,
+		&expr.Constant{
+			&expr.Constant_NullValue{
+				structpb.NullValue_NULL_VALUE}})
 }
 
-func (p *parser) visitList(ctx gen.IExprListContext) []ast.Expression {
+func (p *parser) visitList(ctx gen.IExprListContext) []*expr.Expr {
 	if ctx == nil {
-		return []ast.Expression{}
+		return []*expr.Expr{}
 	}
-
 	return p.visitSlice(ctx.GetE())
 }
 
-func (p *parser) visitSlice(expressions []gen.IExprContext) []ast.Expression {
+func (p *parser) visitSlice(expressions []gen.IExprContext) []*expr.Expr {
 	if expressions == nil {
-		return []ast.Expression{}
+		return []*expr.Expr{}
 	}
-
-	result := make([]ast.Expression, len(expressions))
+	result := make([]*expr.Expr, len(expressions))
 	for i, e := range expressions {
-		expr := p.Visit(e).(ast.Expression)
+		expr := p.Visit(e).(*expr.Expr)
 		result[i] = expr
 	}
-
 	return result
 }
 
-func (p *parser) location(token antlr.Token) common.Location {
-	return common.NewLocation(p.source.Description(),
-		token.GetLine(), token.GetColumn())
-}
-
-func (p *parser) extractQualifiedName(e ast.Expression) (string, bool) {
+func (p *parser) extractQualifiedName(e *expr.Expr) (string, bool) {
 	if e == nil {
 		return "", false
 	}
-
-	switch e.(type) {
-	case *ast.IdentExpression:
-		return e.(*ast.IdentExpression).Name, true
-	case *ast.SelectExpression:
-		s := e.(*ast.SelectExpression)
-		if prefix, found := p.extractQualifiedName(s.Target); found {
+	switch e.ExprKind.(type) {
+	case *expr.Expr_IdentExpr:
+		return e.GetIdentExpr().Name, true
+	case *expr.Expr_SelectExpr:
+		s := e.GetSelectExpr()
+		if prefix, found := p.extractQualifiedName(s.Operand); found {
 			return prefix + "." + s.Field, true
 		}
 	}
-
-	p.errors.notAQualifiedName(e.Location())
+	// TODO: Add a method to Source to get location from character offset.
+	location := p.helper.getLocation(e.Id)
+	p.helper.reportError(location, "expected a qualified name")
 	return "", false
 }
 
-func unquote(str string) string {
-	// TODO: escape sequences
-	if strings.ToLower(str)[0] == 'r' {
-		str = str[1:]
+func (p *parser) unquote(ctx interface{}, value string) string {
+	if text, err := strconv.Unquote(value); err == nil {
+		return text
 	}
-
-	if strings.HasPrefix(str, `""""`) {
-		return str[3 : len(str)-3]
-	}
-	if strings.HasPrefix(str, "''") {
-		return str[3 : len(str)-3]
-	}
-	if strings.HasPrefix(str, `"`) {
-		return str[1 : len(str)-1]
-	}
-	if strings.HasPrefix(str, `'`) {
-		return str[1 : len(str)-1]
-	}
-
-	panic("Unable to unquote")
-}
-
-func (p *parser) newCallMethodOrMacro(loc common.Location, name string, target ast.Expression, args ...ast.Expression) ast.Expression {
-	macro, found := p.macros[makeMacroKey(name, len(args), true)]
-	if !found {
-		return ast.NewCallMethod(p.id(), loc, name, target, args...)
-	}
-
-	return macro.expander(p, loc, target, args)
-}
-
-func (p *parser) newCallFunctionOrMacro(loc common.Location, name string, args ...ast.Expression) ast.Expression {
-	macro, found := p.macros[makeMacroKey(name, len(args), false)]
-	if !found {
-		return ast.NewCallFunction(p.id(), loc, name, args...)
-	}
-
-	return macro.expander(p, loc, nil, args)
-}
-
-func (p *parser) id() int64 {
-	id := p.nextId
-	p.nextId++
-	return id
+	p.helper.reportError(ctx, "unable to unquote string")
+	return value
 }

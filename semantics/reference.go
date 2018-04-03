@@ -15,7 +15,7 @@
 package semantics
 
 import (
-	"github.com/google/cel-go/ast"
+	expr "github.com/google/cel-spec/proto/v1/syntax"
 )
 
 type Reference interface {
@@ -57,7 +57,7 @@ func (f *FunctionReference) String() string {
 
 type IdentReference struct {
 	name  string
-	value ast.Constant
+	value *expr.Expr
 }
 
 var _ Reference = &IdentReference{}
@@ -74,7 +74,7 @@ func (i *IdentReference) String() string {
 	return i.name
 }
 
-func NewIdentReference(name string, constant ast.Constant) *IdentReference {
+func NewIdentReference(name string, constant *expr.Expr) *IdentReference {
 	return &IdentReference{
 		name:  name,
 		value: constant,
@@ -101,6 +101,6 @@ func (r *IdentReference) Name() string {
 	return r.name
 }
 
-func (r *IdentReference) Value() ast.Constant {
+func (r *IdentReference) Value() *expr.Expr {
 	return r.value
 }

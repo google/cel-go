@@ -17,9 +17,8 @@ package parser
 import (
 	"fmt"
 
-	"github.com/google/cel-go/ast"
-	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/operators"
+	expr "github.com/google/cel-spec/proto/v1/syntax"
 )
 
 type Macros []Macro
@@ -28,7 +27,7 @@ type Macro struct {
 	name          string
 	instanceStyle bool
 	args          int
-	expander      func(*parser, common.Location, ast.Expression, []ast.Expression) ast.Expression
+	expander      func(*parserHelper, interface{}, *expr.Expr, []*expr.Expr) *expr.Expr
 }
 
 var AllMacros = []Macro{
@@ -100,15 +99,11 @@ var NoMacros = []Macro{}
 // Field Presence
 // ==============
 
-func makeHas(p *parser, loc common.Location, target ast.Expression, args []ast.Expression) ast.Expression {
-	switch args[0].(type) {
-	case *ast.SelectExpression:
-		s := args[0].(*ast.SelectExpression)
-		return ast.NewSelect(p.id(), loc, s.Target, s.Field, true)
+func makeHas(p *parserHelper, ctx interface{}, target *expr.Expr, args []*expr.Expr) *expr.Expr {
+	if s, ok := args[0].ExprKind.(*expr.Expr_SelectExpr); ok {
+		return p.newPresenceTest(ctx, s.SelectExpr.Operand, s.SelectExpr.Field)
 	}
-
-	p.errors.invalidHasArgument(loc)
-	return &ast.ErrorExpression{}
+	return p.reportError(ctx, "invalid argument to has() macro")
 }
 
 // Logical Quantifiers
@@ -124,71 +119,69 @@ const (
 	quantifierExistsOne
 )
 
-func makeAll(p *parser, loc common.Location, target ast.Expression, args []ast.Expression) ast.Expression {
-	return makeQuantifier(quantifierAll, p, loc, target, args)
+func makeAll(p *parserHelper, ctx interface{}, target *expr.Expr, args []*expr.Expr) *expr.Expr {
+	return makeQuantifier(quantifierAll, p, ctx, target, args)
 }
 
-func makeExists(p *parser, loc common.Location, target ast.Expression, args []ast.Expression) ast.Expression {
-	return makeQuantifier(quantifierExists, p, loc, target, args)
+func makeExists(p *parserHelper, ctx interface{}, target *expr.Expr, args []*expr.Expr) *expr.Expr {
+	return makeQuantifier(quantifierExists, p, ctx, target, args)
 }
 
-func makeExistsOne(p *parser, loc common.Location, target ast.Expression, args []ast.Expression) ast.Expression {
-	return makeQuantifier(quantifierExistsOne, p, loc, target, args)
+func makeExistsOne(p *parserHelper, ctx interface{}, target *expr.Expr, args []*expr.Expr) *expr.Expr {
+	return makeQuantifier(quantifierExistsOne, p, ctx, target, args)
 }
 
-func makeQuantifier(kind quantifierKind, p *parser, loc common.Location, target ast.Expression, args []ast.Expression) ast.Expression {
+func makeQuantifier(kind quantifierKind, p *parserHelper, ctx interface{}, target *expr.Expr, args []*expr.Expr) *expr.Expr {
 	v, found := extractIdent(args[0])
 	if !found {
-		p.errors.argumentIsNotIdent(args[0].Location())
-		return &ast.ErrorExpression{}
+		offset := p.positions[args[0].Id]
+		location, _ := p.source.LocationFromOffset(offset)
+		return p.reportError(location, "argument must be a simple name")
+	}
+	accuIdent := func() *expr.Expr {
+		return p.newIdent(ctx, accumulatorName)
 	}
 
-	accuIdent := func() ast.Expression {
-		return ast.NewIdent(p.id(), loc, accumulatorName)
-	}
-
-	var init ast.Expression
-	var condition ast.Expression
-	var step ast.Expression
-	var result ast.Expression
+	var init *expr.Expr
+	var condition *expr.Expr
+	var step *expr.Expr
+	var result *expr.Expr
 	switch kind {
 	case quantifierAll:
-		init = ast.NewBoolConstant(p.id(), loc, true)
+		init = p.newConstBool(ctx, true)
 		condition = accuIdent()
-		step = ast.NewCallFunction(p.id(), loc, operators.LogicalAnd, accuIdent(), args[1])
+		step = p.newGlobalCall(ctx, operators.LogicalAnd, accuIdent(), args[1])
 		result = accuIdent()
 	case quantifierExists:
-		init = ast.NewBoolConstant(p.id(), loc, false)
-		condition = ast.NewCallFunction(p.id(), loc, operators.LogicalNot, accuIdent())
-		step = ast.NewCallFunction(p.id(), loc, operators.LogicalOr, accuIdent(), args[1])
+		init = p.newConstBool(ctx, false)
+		condition = p.newGlobalCall(ctx, operators.LogicalNot, accuIdent())
+		step = p.newGlobalCall(ctx, operators.LogicalOr, accuIdent(), args[1])
 		result = accuIdent()
 	case quantifierExistsOne:
-		zeroExpr := ast.NewInt64Constant(p.id(), loc, 0)
-		oneExpr := ast.NewInt64Constant(p.id(), loc, 1)
+		zeroExpr := p.newConstInt(ctx, 0)
+		oneExpr := p.newConstInt(ctx, 1)
 		init = zeroExpr
-		condition = ast.NewCallFunction(p.id(), loc, operators.LessEquals, accuIdent(), oneExpr)
-		step = ast.NewCallFunction(p.id(), loc, operators.Conditional, args[1],
-			ast.NewCallFunction(p.id(), loc, operators.Add, accuIdent(), oneExpr), accuIdent())
-		result = ast.NewCallFunction(p.id(), loc, operators.Equals, accuIdent(), oneExpr)
+		condition = p.newGlobalCall(ctx, operators.LessEquals, accuIdent(), oneExpr)
+		step = p.newGlobalCall(ctx, operators.Conditional, args[1],
+			p.newGlobalCall(ctx, operators.Add, accuIdent(), oneExpr), accuIdent())
+		result = p.newGlobalCall(ctx, operators.Equals, accuIdent(), oneExpr)
 	default:
 		panic("unrecognized quantifier")
 	}
-
-	return ast.NewComprehension(p.id(), loc, v, target, accumulatorName, init, condition, step, result)
+	return p.newComprehension(ctx, v, target, accumulatorName, init, condition, step, result)
 }
 
 // Map
 // ===
 
-func makeMap(p *parser, loc common.Location, target ast.Expression, args []ast.Expression) ast.Expression {
+func makeMap(p *parserHelper, ctx interface{}, target *expr.Expr, args []*expr.Expr) *expr.Expr {
 	v, found := extractIdent(args[0])
 	if !found {
-		p.errors.argumentIsNotIdent(args[0].Location())
-		return &ast.ErrorExpression{}
+		return p.reportError(ctx, "argument is not an identifier")
 	}
 
-	var fn ast.Expression
-	var filter ast.Expression
+	var fn *expr.Expr
+	var filter *expr.Expr
 
 	if len(args) == 3 {
 		filter = args[1]
@@ -198,44 +191,42 @@ func makeMap(p *parser, loc common.Location, target ast.Expression, args []ast.E
 		fn = args[1]
 	}
 
-	accuExpr := ast.NewIdent(p.id(), loc, accumulatorName)
-	init := ast.NewCreateList(p.id(), loc)
-	condition := ast.NewBoolConstant(p.id(), loc, true)
+	accuExpr := p.newIdent(ctx, accumulatorName)
+	init := p.newList(ctx)
+	condition := p.newConstBool(ctx, true)
 	// TODO: use compiler internal method for faster, stateful add.
-	step := ast.NewCallFunction(p.id(), loc, operators.Add, accuExpr, ast.NewCreateList(p.id(), loc, fn))
+	step := p.newGlobalCall(ctx, operators.Add, accuExpr, p.newList(ctx, fn))
 
 	if filter != nil {
-		step = ast.NewCallFunction(p.id(), loc, operators.Conditional, filter, step, accuExpr)
+		step = p.newGlobalCall(ctx, operators.Conditional, filter, step, accuExpr)
 	}
-	return ast.NewComprehension(p.id(), loc, v, target, accumulatorName, init, condition, step, accuExpr)
+	return p.newComprehension(ctx, v, target, accumulatorName, init, condition, step, accuExpr)
 }
 
 // Filter
 // ======
 
-func makeFilter(p *parser, loc common.Location, target ast.Expression, args []ast.Expression) ast.Expression {
+func makeFilter(p *parserHelper, ctx interface{}, target *expr.Expr, args []*expr.Expr) *expr.Expr {
 	v, found := extractIdent(args[0])
 	if !found {
-		p.errors.argumentIsNotIdent(args[0].Location())
-		return &ast.ErrorExpression{}
+		return p.reportError(ctx, "argument is not an identifier")
 	}
 
 	filter := args[1]
-	accuExpr := ast.NewIdent(p.id(), loc, accumulatorName)
-	init := ast.NewCreateList(p.id(), loc)
-	condition := ast.NewBoolConstant(p.id(), loc, true)
+	accuExpr := p.newIdent(ctx, accumulatorName)
+	init := p.newList(ctx)
+	condition := p.newConstBool(ctx, true)
 	// TODO: use compiler internal method for faster, stateful add.
-	step := ast.NewCallFunction(p.id(), loc, operators.Add, accuExpr, ast.NewCreateList(p.id(), loc, args[0]))
-	step = ast.NewCallFunction(p.id(), loc, operators.Conditional, filter, step, accuExpr)
-	return ast.NewComprehension(p.id(), loc, v, target, accumulatorName, init, condition, step, accuExpr)
+	step := p.newGlobalCall(ctx, operators.Add, accuExpr, p.newList(ctx, args[0]))
+	step = p.newGlobalCall(ctx, operators.Conditional, filter, step, accuExpr)
+	return p.newComprehension(ctx, v, target, accumulatorName, init, condition, step, accuExpr)
 }
 
-func extractIdent(e ast.Expression) (string, bool) {
-	switch e.(type) {
-	case *ast.IdentExpression:
-		return e.(*ast.IdentExpression).Name, true
+func extractIdent(e *expr.Expr) (string, bool) {
+	switch e.ExprKind.(type) {
+	case *expr.Expr_IdentExpr:
+		return e.GetIdentExpr().Name, true
 	}
-
 	return "", false
 }
 

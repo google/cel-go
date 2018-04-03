@@ -3,9 +3,12 @@ load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
 
 package(
     default_visibility = [
+        "//checker:__subpackages__",
+        "//debug:__subpackages__",
         "//interpreter:__subpackages__",
         "//parser:__subpackages__",
-    ],
+        "//semantics:__subpackages__",
+      ],
 )
 
 go_proto_library(
@@ -14,15 +17,3 @@ go_proto_library(
     proto = "@com_google_cel_spec//proto/v1:syntax_protos",
 )
 
-go_library(
-    name = "go_default_library",
-    srcs = [
-        "serializer.go",
-    ],
-    deps = [
-        ":syntax_proto",
-        "//ast:go_default_library",
-        "//common:go_default_library",
-        "@com_github_antlr//runtime/Go/antlr:go_default_library",
-    ],
-)

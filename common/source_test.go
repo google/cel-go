@@ -73,14 +73,14 @@ func TestStringSource_CharacterOffset(t *testing.T) {
 	}
 	// Ensure that selecting a set of characters across multiple lines works as
 	// expected.
-	charStart, _ := source.CharacterOffset(NewLocation("offset-test", 1, 2))
-	charEnd, _ := source.CharacterOffset(NewLocation("offset-test", 3, 2))
+	charStart, _ := source.CharacterOffset(NewLocation(1, 2))
+	charEnd, _ := source.CharacterOffset(NewLocation(3, 2))
 	if "d &&\n\t b.c.arg(10) &&\n\t " != string(contents[charStart:charEnd]) {
 		t.Errorf(unexpectedValue, t.Name(),
 			string(contents[charStart:charEnd]),
 			"d &&\n\t b.c.arg(10) &&\n\t ")
 	}
-	if _, found := source.CharacterOffset(NewLocation("offset-test", 4, 0)); found {
+	if _, found := source.CharacterOffset(NewLocation(4, 0)); found {
 		t.Error("Character offset was out of range of source, but still found.")
 	}
 }

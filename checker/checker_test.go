@@ -751,9 +751,9 @@ ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, nul
 ERROR: <input>:1:1: expression of type 'google.api.tools.expr.test.TestAllTypes' cannot be range of a comprehension (must be list, map, or dynamic)
  | x.all(e, 0)
  | ^
-ERROR: <input>:1:2: found no matching overload for '_&&_' applied to '(bool, int)'
+ERROR: <input>:1:6: found no matching overload for '_&&_' applied to '(bool, int)'
  | x.all(e, 0)
- | .^
+ | .....^
 		`,
 	},
 
@@ -1018,7 +1018,7 @@ func Test(t *testing.T) {
 				tt.Errorf("Expected error not thrown: %s", tst.Error)
 			}
 
-			actual := semantics.GetType(expression)
+			actual := semantics.GetType(expression.Expr)
 
 			if tst.Error == "" {
 				if actual == nil || !actual.Equals(tst.Type) {
@@ -1027,7 +1027,7 @@ func Test(t *testing.T) {
 			}
 
 			if tst.R != "" {
-				actualStr := print(expression, semantics)
+				actualStr := print(expression.Expr, semantics)
 				if !test.Compare(actualStr, tst.R) {
 					tt.Error(test.DiffMessage("Structure error", actualStr, tst.R))
 				}

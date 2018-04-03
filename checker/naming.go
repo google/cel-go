@@ -17,7 +17,7 @@ package checker
 import (
 	"strings"
 
-	"github.com/google/cel-go/ast"
+	expr "github.com/google/cel-spec/proto/v1/syntax"
 )
 
 //
@@ -51,14 +51,14 @@ func qualifiedTypeNameCandidates(container string, typeName string) []string {
 // Attempt to interpret an expression as a qualified name. This traverses select and getIdent
 // expression and returns the name they constitute, or null if the expression cannot be
 // interpreted like this.
-func asQualifiedName(e ast.Expression) (string, bool) {
-	switch e.(type) {
-	case *ast.IdentExpression:
-		i := e.(*ast.IdentExpression)
+func asQualifiedName(e *expr.Expr) (string, bool) {
+	switch e.ExprKind.(type) {
+	case *expr.Expr_IdentExpr:
+		i := e.GetIdentExpr()
 		return i.Name, true
-	case *ast.SelectExpression:
-		s := e.(*ast.SelectExpression)
-		if qname, found := asQualifiedName(s.Target); found {
+	case *expr.Expr_SelectExpr:
+		s := e.GetSelectExpr()
+		if qname, found := asQualifiedName(s.Operand); found {
 			return qname + "." + s.Field, true
 		}
 	}

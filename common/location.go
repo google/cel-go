@@ -17,14 +17,12 @@ package common
 
 // Location interface to represent a location within Source.
 type Location interface {
-	Description() string
 	Line() int   // 1-based line number within source.
 	Column() int // 0-based column number within source.
 }
 
 // SourceLocation helper type to manually construct a location.
 type SourceLocation struct {
-	description string
 	line        int
 	column      int
 }
@@ -32,19 +30,14 @@ type SourceLocation struct {
 var (
 	// Ensure the SourceLocation implements the Location interface.
 	_          Location = &SourceLocation{}
-	NoLocation          = &SourceLocation{}
+	NoLocation          = &SourceLocation{-1, -1}
 )
 
 // Create a new location.
-func NewLocation(description string, line, column int) Location {
+func NewLocation(line, column int) Location {
 	return &SourceLocation{
-		description: description,
 		line:        line,
 		column:      column}
-}
-
-func (l *SourceLocation) Description() string {
-	return l.description
 }
 
 func (l *SourceLocation) Line() int {
