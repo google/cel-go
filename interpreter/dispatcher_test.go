@@ -17,6 +17,7 @@ package interpreter
 import (
 	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/operators"
+	"github.com/google/cel-go/overloads"
 	"testing"
 )
 
@@ -42,7 +43,7 @@ func TestDefaultDispatcher_DispatchOverload(t *testing.T) {
 		call: NewCallOverload(0,
 			operators.Equals,
 			[]int64{1, 2},
-			operators.Equals),
+			overloads.Equals),
 		args: []interface{}{int64(100), int64(200)}}
 	invokeCall(t, dispatcher, call, false)
 }

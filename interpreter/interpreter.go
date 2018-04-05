@@ -21,8 +21,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/interpreter/types"
-	"github.com/google/cel-go/interpreter/types/traits"
 	"github.com/google/cel-go/interpreter/types/providers"
+	"github.com/google/cel-go/interpreter/types/traits"
 )
 
 // Interpreter generates a new Interpretable from a Program.

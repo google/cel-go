@@ -18,7 +18,6 @@ package interpreter
 
 import (
 	"fmt"
-	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/operators"
 	"github.com/google/cel-go/overloads"
 	expr "github.com/google/cel-spec/proto/v1/syntax"
