@@ -12,47 +12,47 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package checker
+package types
 
 import (
 	"fmt"
-	"github.com/google/cel-go/semantics/types"
+	"github.com/google/cel-spec/proto/checked/v1/checked"
 )
 
 type Mapping struct {
-	mapping map[string]types.Type
+	mapping map[string]*checked.Type
 }
 
-func newMapping() *Mapping {
+func NewMapping() *Mapping {
 	return &Mapping{
-		mapping: make(map[string]types.Type),
+		mapping: make(map[string]*checked.Type),
 	}
 }
 
-func (s *Mapping) Add(from types.Type, to types.Type) {
-	s.mapping[typeKey(from)] = to
+func (m *Mapping) Add(from *checked.Type, to *checked.Type) {
+	m.mapping[typeKey(from)] = to
 }
 
-func (s *Mapping) Find(from types.Type) (types.Type, bool) {
-	if r, found := s.mapping[typeKey(from)]; found {
+func (m *Mapping) Find(from *checked.Type) (*checked.Type, bool) {
+	if r, found := m.mapping[typeKey(from)]; found {
 		return r, found
 	}
 	return nil, false
 }
 
-func (s *Mapping) Copy() *Mapping {
-	c := newMapping()
+func (m *Mapping) Copy() *Mapping {
+	c := NewMapping()
 
-	for k, v := range s.mapping {
+	for k, v := range m.mapping {
 		c.mapping[k] = v
 	}
 	return c
 }
 
-func (s *Mapping) String() string {
+func (m *Mapping) String() string {
 	result := "{"
 
-	for k, v := range s.mapping {
+	for k, v := range m.mapping {
 		result += fmt.Sprintf("%v => %v   ", k, v)
 	}
 

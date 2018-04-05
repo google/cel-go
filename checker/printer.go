@@ -15,13 +15,14 @@
 package checker
 
 import (
+	"github.com/google/cel-go/checker/types"
 	"github.com/google/cel-go/debug"
-	"github.com/google/cel-go/semantics"
+	"github.com/google/cel-spec/proto/checked/v1/checked"
 	expr "github.com/google/cel-spec/proto/v1/syntax"
 )
 
 type semanticAdorner struct {
-	s *semantics.Semantics
+	checks *checked.CheckedExpr
 }
 
 var _ debug.DebugAdorner = &semanticAdorner{}
@@ -32,24 +33,22 @@ func (a *semanticAdorner) GetMetadata(elem interface{}) string {
 	if !isExpr {
 		return result
 	}
-	t := a.s.GetType(e)
+	t := a.checks.TypeMap[e.Id]
 	if t != nil {
 		result += "~"
-		result += t.String()
+		result += types.FormatType(t)
 	}
 
-	var ref semantics.Reference = nil
 	switch e.ExprKind.(type) {
 	case *expr.Expr_IdentExpr,
-	     *expr.Expr_CallExpr,
-	     *expr.Expr_StructExpr,
-	     *expr.Expr_SelectExpr:
-		ref = a.s.GetReference(e)
-		if ref != nil {
-			if iref, ok := ref.(*semantics.IdentReference); ok {
-				result += "^" + iref.Name()
-			} else if fref, ok := ref.(*semantics.FunctionReference); ok {
-				for i, overload := range fref.Overloads() {
+		*expr.Expr_CallExpr,
+		*expr.Expr_StructExpr,
+		*expr.Expr_SelectExpr:
+		if ref, found := a.checks.ReferenceMap[e.Id]; found {
+			if len(ref.GetOverloadId()) == 0 {
+				result += "^" + ref.Name
+			} else {
+				for i, overload := range ref.OverloadId {
 					if i == 0 {
 						result += "^"
 					} else {
@@ -64,7 +63,7 @@ func (a *semanticAdorner) GetMetadata(elem interface{}) string {
 	return result
 }
 
-func print(e *expr.Expr, s *semantics.Semantics) string {
-	a := &semanticAdorner{s: s}
+func print(e *expr.Expr, checks *checked.CheckedExpr) string {
+	a := &semanticAdorner{checks: checks}
 	return debug.ToAdornedDebugString(e, a)
 }

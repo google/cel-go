@@ -27,7 +27,7 @@ func TestErrors(t *testing.T) {
 	if len(errors.GetErrors()) != 1 {
 		t.Error("%s first error not recorded", t.Name())
 	}
-	errors.ReportError(NewLocation( 2, 20),
+	errors.ReportError(NewLocation(2, 20),
 		"Syntax error, missing paren")
 	if len(errors.GetErrors()) != 2 {
 		t.Errorf("%s second error not recorded", t.Name())

@@ -23,8 +23,9 @@ import (
 	dpb "github.com/golang/protobuf/ptypes/duration"
 	tspb "github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/google/cel-go/interpreter/types"
-	"github.com/google/cel-go/interpreter/types/aspects"
+	"github.com/google/cel-go/interpreter/types/traits"
 	"github.com/google/cel-go/operators"
+	"github.com/google/cel-go/overloads"
 	"regexp"
 	"strconv"
 	"time"
@@ -55,19 +56,19 @@ type Overload struct {
 type OverloadImpl func(values ...interface{}) (interface{}, error)
 
 // StandardBuiltins returns the definitions of the built-in CEL overloads.
-// TODO: Where possible, organize builtins within types and by aspects.
+// TODO: Where possible, organize builtins within types and by traits.
 func StandardBuiltins() []*Overload {
 	return []*Overload{
 		// Logical not (!a)
 		{
-			operators.LogicalNot, operators.LogicalNot,
+			operators.LogicalNot, overloads.LogicalNot,
 			func(value bool) {},
 			func(values ...interface{}) (interface{}, error) {
 				return !values[0].(bool), nil
 			}},
 		// Logical and (a && b)
 		{
-			operators.LogicalAnd, operators.LogicalAnd,
+			operators.LogicalAnd, overloads.LogicalAnd,
 			func(lhs, rhs bool) {},
 			func(values ...interface{}) (interface{}, error) {
 				lhs, lhsIsBool := values[0].(bool)
@@ -89,7 +90,7 @@ func StandardBuiltins() []*Overload {
 			}},
 		// Logical or (a || b)
 		{
-			operators.LogicalOr, operators.LogicalOr,
+			operators.LogicalOr, overloads.LogicalOr,
 			func(value1, value2 bool) {},
 			func(values ...interface{}) (interface{}, error) {
 				lhs, lhsIsBool := values[0].(bool)
@@ -111,7 +112,7 @@ func StandardBuiltins() []*Overload {
 			}},
 		// Conditional operator (a ? b : c)
 		{
-			operators.Conditional, operators.Conditional,
+			operators.Conditional, overloads.Conditional,
 			func(cond bool, trueVal, falseVal interface{}) {},
 			func(values ...interface{}) (interface{}, error) {
 				cond, isBool := values[0].(bool)
@@ -127,71 +128,44 @@ func StandardBuiltins() []*Overload {
 			}},
 
 		// Equality overloads
-		{operators.Equals, EqualsBytes,
-			func(value1, value2 []byte) {},
-			func(values ...interface{}) (interface{}, error) {
-				value1 := values[0].([]byte)
-				value2 := values[1].([]byte)
-				return bytes.Equal(value1, value2), nil
-			}},
+		{operators.Equals, overloads.Equals,
+			func(value1, value2 interface{}) {}, equals},
 
-		{operators.Equals, operators.Equals,
-			func(value1, value2 interface{}) {},
-			func(values ...interface{}) (interface{}, error) {
-				if value1, ok := values[0].(aspects.Equaler); ok {
-					return value1.Equal(values[1]), nil
-				}
-				if value2, ok := values[1].(aspects.Equaler); ok {
-					return value2.Equal(values[0]), nil
-				}
-				return values[0] == values[1], nil
-			}},
-		{operators.NotEquals, NotEqualsBytes,
-			func(value1, value2 []byte) {},
-			func(values ...interface{}) (interface{}, error) {
-				value1 := values[0].([]byte)
-				value2 := values[1].([]byte)
-				return !bytes.Equal(value1, value2), nil
-			}},
-		{operators.NotEquals, operators.NotEquals,
-			func(value1, value2 interface{}) {},
-			func(values ...interface{}) (interface{}, error) {
-				if value1, ok := values[0].(aspects.Equaler); ok {
-					return !value1.Equal(values[1]), nil
-				}
-				if value2, ok := values[1].(aspects.Equaler); ok {
-					return !value2.Equal(values[0]), nil
-				}
-				return values[0] != values[1], nil
-			}},
+		{operators.NotEquals, overloads.NotEquals,
+			func(value1, value2 interface{}) {}, notEquals},
 
 		// Less than operator
-		{operators.Less, LessBool,
+		{operators.Less, overloads.LessBool,
 			func(value1, value2 bool) {},
 			func(values ...interface{}) (interface{}, error) {
 				return !values[0].(bool) && values[1].(bool), nil
 			}},
-		{operators.Less, LessInt64,
+		{operators.Less, overloads.LessInt64,
 			func(value1, value2 int64) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0].(int64) < values[1].(int64), nil
 			}},
-		{operators.Less, LessUint64,
+		{operators.Less, overloads.LessUint64,
 			func(value1, value2 uint64) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0].(uint64) < values[1].(uint64), nil
 			}},
-		{operators.Less, LessDouble,
+		{operators.Less, overloads.LessDouble,
 			func(value1, value2 float64) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0].(float64) < values[1].(float64), nil
 			}},
-		{operators.Less, LessString,
+		{operators.Less, overloads.LessString,
 			func(value1, value2 string) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0].(string) < values[1].(string), nil
 			}},
-		{operators.Less, LessTimestamp,
+		{operators.Less, overloads.LessBytes,
+			func(value1, value2 []byte) {},
+			func(values ...interface{}) (interface{}, error) {
+				return bytes.Compare(values[0].([]byte), values[1].([]byte)) < 0, nil
+			}},
+		{operators.Less, overloads.LessTimestamp,
 			func(value1, value2 *tspb.Timestamp) {},
 			func(values ...interface{}) (interface{}, error) {
 				if ts1, err := ptypes.Timestamp(values[0].(*tspb.Timestamp)); err != nil {
@@ -202,7 +176,7 @@ func StandardBuiltins() []*Overload {
 					return ts1.Before(ts2), nil
 				}
 			}},
-		{operators.Less, LessDuration,
+		{operators.Less, overloads.LessDuration,
 			func(value1, value2 *dpb.Duration) {},
 			func(values ...interface{}) (interface{}, error) {
 				if d1, err := ptypes.Duration(values[0].(*dpb.Duration)); err != nil {
@@ -215,32 +189,37 @@ func StandardBuiltins() []*Overload {
 			}},
 
 		// Less than or equal operator
-		{operators.LessEquals, LessEqualsBool,
+		{operators.LessEquals, overloads.LessEqualsBool,
 			func(value1, value2 bool) {},
 			func(values ...interface{}) (interface{}, error) {
 				return !values[0].(bool), nil
 			}},
-		{operators.LessEquals, LessEqualsInt64,
+		{operators.LessEquals, overloads.LessEqualsInt64,
 			func(value1, value2 int64) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0].(int64) <= values[1].(int64), nil
 			}},
-		{operators.LessEquals, LessEqualsUint64,
+		{operators.LessEquals, overloads.LessEqualsUint64,
 			func(value1, value2 uint64) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0].(uint64) <= values[1].(uint64), nil
 			}},
-		{operators.LessEquals, LessEqualsDouble,
+		{operators.LessEquals, overloads.LessEqualsDouble,
 			func(value1, value2 float64) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0].(float64) <= values[1].(float64), nil
 			}},
-		{operators.LessEquals, LessEqualsString,
+		{operators.LessEquals, overloads.LessEqualsString,
 			func(value1, value2 string) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0].(string) <= values[1].(string), nil
 			}},
-		{operators.LessEquals, LessEqualsTimestamp,
+		{operators.Less, overloads.LessEqualsBytes,
+			func(value1, value2 []byte) {},
+			func(values ...interface{}) (interface{}, error) {
+				return bytes.Compare(values[0].([]byte), values[1].([]byte)) <= 0, nil
+			}},
+		{operators.LessEquals, overloads.LessEqualsTimestamp,
 			func(value1, value2 *tspb.Timestamp) {},
 			func(values ...interface{}) (interface{}, error) {
 				if ts1, err := ptypes.Timestamp(values[0].(*tspb.Timestamp)); err != nil {
@@ -251,7 +230,7 @@ func StandardBuiltins() []*Overload {
 					return ts1.Before(ts2) || ts1.Equal(ts2), nil
 				}
 			}},
-		{operators.LessEquals, LessEqualsDuration,
+		{operators.LessEquals, overloads.LessEqualsDuration,
 			func(value1, value2 *dpb.Duration) {},
 			func(values ...interface{}) (interface{}, error) {
 				if d1, err := ptypes.Duration(values[0].(*dpb.Duration)); err != nil {
@@ -264,32 +243,37 @@ func StandardBuiltins() []*Overload {
 			}},
 
 		// Greater than operator
-		{operators.Greater, GreaterBool,
+		{operators.Greater, overloads.GreaterBool,
 			func(value1 bool, value2 bool) {},
 			func(values ...interface{}) (interface{}, error) {
 				return !values[1].(bool) && values[0].(bool), nil
 			}},
-		{operators.Greater, GreaterInt64,
+		{operators.Greater, overloads.GreaterInt64,
 			func(value1 int64, value2 int64) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0].(int64) > values[1].(int64), nil
 			}},
-		{operators.Greater, GreaterUint64,
+		{operators.Greater, overloads.GreaterUint64,
 			func(value1 uint64, value2 uint64) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0].(uint64) > values[1].(uint64), nil
 			}},
-		{operators.Greater, GreaterDouble,
+		{operators.Greater, overloads.GreaterDouble,
 			func(value1 float64, value2 float64) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0].(float64) > values[1].(float64), nil
 			}},
-		{operators.Greater, GreaterString,
+		{operators.Greater, overloads.GreaterString,
 			func(value1 string, value2 string) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0].(string) > values[1].(string), nil
 			}},
-		{operators.Greater, GreaterTimestamp,
+		{operators.Less, overloads.GreaterBytes,
+			func(value1, value2 []byte) {},
+			func(values ...interface{}) (interface{}, error) {
+				return bytes.Compare(values[0].([]byte), values[1].([]byte)) > 0, nil
+			}},
+		{operators.Greater, overloads.GreaterTimestamp,
 			func(value1 *tspb.Timestamp, value2 *tspb.Timestamp) {},
 			func(values ...interface{}) (interface{}, error) {
 				if ts1, err := ptypes.Timestamp(values[0].(*tspb.Timestamp)); err != nil {
@@ -300,7 +284,7 @@ func StandardBuiltins() []*Overload {
 					return ts1.After(ts2), nil
 				}
 			}},
-		{operators.Greater, GreaterDuration,
+		{operators.Greater, overloads.GreaterDuration,
 			func(value1 *dpb.Duration, value2 *dpb.Duration) {},
 			func(values ...interface{}) (interface{}, error) {
 				if d1, err := ptypes.Duration(values[0].(*dpb.Duration)); err != nil {
@@ -313,32 +297,37 @@ func StandardBuiltins() []*Overload {
 			}},
 
 		// Greater than equal operators
-		{operators.GreaterEquals, GreaterEqualsBool,
+		{operators.GreaterEquals, overloads.GreaterEqualsBool,
 			func(value1 bool, value2 bool) {},
 			func(values ...interface{}) (interface{}, error) {
 				return !values[1].(bool), nil
 			}},
-		{operators.GreaterEquals, GreaterEqualsInt64,
+		{operators.GreaterEquals, overloads.GreaterEqualsInt64,
 			func(value1 int64, value2 int64) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0].(int64) >= values[1].(int64), nil
 			}},
-		{operators.GreaterEquals, GreaterEqualsUint64,
+		{operators.GreaterEquals, overloads.GreaterEqualsUint64,
 			func(value1 uint64, value2 uint64) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0].(uint64) >= values[1].(uint64), nil
 			}},
-		{operators.GreaterEquals, GreaterEqualsDouble,
+		{operators.GreaterEquals, overloads.GreaterEqualsDouble,
 			func(value1 float64, value2 float64) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0].(float64) >= values[1].(float64), nil
 			}},
-		{operators.GreaterEquals, GreaterEqualsString,
+		{operators.GreaterEquals, overloads.GreaterEqualsString,
 			func(value1 string, value2 string) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0].(string) >= values[1].(string), nil
 			}},
-		{operators.GreaterEquals, GreaterEqualsTimestamp,
+		{operators.Less, overloads.GreaterEqualsBytes,
+			func(value1, value2 []byte) {},
+			func(values ...interface{}) (interface{}, error) {
+				return bytes.Compare(values[0].([]byte), values[1].([]byte)) >= 0, nil
+			}},
+		{operators.GreaterEquals, overloads.GreaterEqualsTimestamp,
 			func(value1 *tspb.Timestamp, value2 *tspb.Timestamp) {},
 			func(values ...interface{}) (interface{}, error) {
 				if ts1, err := ptypes.Timestamp(values[0].(*tspb.Timestamp)); err != nil {
@@ -349,7 +338,7 @@ func StandardBuiltins() []*Overload {
 					return ts1.After(ts2) || ts1.Equal(ts2), nil
 				}
 			}},
-		{operators.GreaterEquals, GreaterEqualsDuration,
+		{operators.GreaterEquals, overloads.GreaterEqualsDuration,
 			func(value1 *dpb.Duration, value2 *dpb.Duration) {},
 			func(values ...interface{}) (interface{}, error) {
 				value1 := values[0].(*dpb.Duration)
@@ -366,39 +355,39 @@ func StandardBuiltins() []*Overload {
 		// TODO: Verify overflow, NaN, underflow cases for numeric values.
 
 		// Add operator
-		{operators.Add, AddInt64,
+		{operators.Add, overloads.AddInt64,
 			func(value1 int64, value2 int64) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0].(int64) + values[1].(int64), nil
 			}},
-		{operators.Add, AddUint64,
+		{operators.Add, overloads.AddUint64,
 			func(value1 uint64, value2 uint64) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0].(uint64) + values[1].(uint64), nil
 			}},
-		{operators.Add, AddDouble,
+		{operators.Add, overloads.AddDouble,
 			func(value1 float64, value2 float64) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0].(float64) + values[1].(float64), nil
 			}},
-		{operators.Add, AddString,
+		{operators.Add, overloads.AddString,
 			func(value1 string, value2 string) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0].(string) + values[1].(string), nil
 			}},
-		{operators.Add, AddBytes,
+		{operators.Add, overloads.AddBytes,
 			func(value1 []byte, value2 []byte) {},
 			func(values ...interface{}) (interface{}, error) {
 				return append(values[0].([]byte), values[1].([]byte)...), nil
 			}},
-		{operators.Add, AddList,
+		{operators.Add, overloads.AddList,
 			func(value1 types.ListValue, value2 types.ListValue) {},
 			func(values ...interface{}) (interface{}, error) {
 				list1 := values[0].(types.ListValue)
 				list2 := values[1].(types.ListValue)
 				return list1.Concat(list2), nil
 			}},
-		{operators.Add, AddTimestampDuration,
+		{operators.Add, overloads.AddTimestampDuration,
 			func(value1 *tspb.Timestamp, value2 *dpb.Duration) {},
 			func(values ...interface{}) (interface{}, error) {
 				if ts, err := ptypes.Timestamp(values[0].(*tspb.Timestamp)); err != nil {
@@ -409,7 +398,7 @@ func StandardBuiltins() []*Overload {
 					return ts.Add(dur), nil
 				}
 			}},
-		{operators.Add, AddDurationTimestamp,
+		{operators.Add, overloads.AddDurationTimestamp,
 			func(value1 *dpb.Duration, value2 *tspb.Timestamp) {},
 			func(values ...interface{}) (interface{}, error) {
 				if dur, err := ptypes.Duration(values[0].(*dpb.Duration)); err != nil {
@@ -420,7 +409,7 @@ func StandardBuiltins() []*Overload {
 					return ts.Add(dur), nil
 				}
 			}},
-		{operators.Add, AddDurationDuration,
+		{operators.Add, overloads.AddDurationDuration,
 			func(value1 *dpb.Duration, value2 *dpb.Duration) {},
 			func(values ...interface{}) (interface{}, error) {
 				if dur1, err := ptypes.Duration(values[0].(*dpb.Duration)); err != nil {
@@ -433,22 +422,22 @@ func StandardBuiltins() []*Overload {
 			}},
 
 		// Subtract operators
-		{operators.Subtract, SubtractInt64,
+		{operators.Subtract, overloads.SubtractInt64,
 			func(value1 int64, value2 int64) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0].(int64) - values[1].(int64), nil
 			}},
-		{operators.Subtract, SubtractUint64,
+		{operators.Subtract, overloads.SubtractUint64,
 			func(value1 uint64, value2 uint64) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0].(uint64) - values[1].(uint64), nil
 			}},
-		{operators.Subtract, SubtractDouble,
+		{operators.Subtract, overloads.SubtractDouble,
 			func(value1 float64, value2 float64) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0].(float64) - values[1].(float64), nil
 			}},
-		{operators.Subtract, SubtractTimestampTimestamp,
+		{operators.Subtract, overloads.SubtractTimestampTimestamp,
 			func(value1 *tspb.Timestamp, value2 *tspb.Timestamp) {},
 			func(values ...interface{}) (interface{}, error) {
 				if ts1, err := ptypes.Timestamp(values[0].(*tspb.Timestamp)); err != nil {
@@ -459,7 +448,7 @@ func StandardBuiltins() []*Overload {
 					return ts1.Sub(ts2), nil
 				}
 			}},
-		{operators.Subtract, SubtractTimestampDuration,
+		{operators.Subtract, overloads.SubtractTimestampDuration,
 			func(value1 *tspb.Timestamp, value2 *dpb.Duration) {},
 			func(values ...interface{}) (interface{}, error) {
 				if ts, err := ptypes.Timestamp(values[0].(*tspb.Timestamp)); err != nil {
@@ -470,7 +459,7 @@ func StandardBuiltins() []*Overload {
 					return ts.Add(-dur), nil
 				}
 			}},
-		{operators.Subtract, SubtractDurationDuration,
+		{operators.Subtract, overloads.SubtractDurationDuration,
 			func(value1 *dpb.Duration, value2 *dpb.Duration) {},
 			func(values ...interface{}) (interface{}, error) {
 				if dur1, err := ptypes.Duration(values[0].(*dpb.Duration)); err != nil {
@@ -483,17 +472,17 @@ func StandardBuiltins() []*Overload {
 			}},
 
 		// Multiply operator
-		{operators.Multiply, MultiplyInt64,
+		{operators.Multiply, overloads.MultiplyInt64,
 			func(value1 int64, value2 int64) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0].(int64) * values[1].(int64), nil
 			}},
-		{operators.Multiply, MultiplyUint64,
+		{operators.Multiply, overloads.MultiplyUint64,
 			func(value1 uint64, value2 uint64) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0].(uint64) * values[1].(uint64), nil
 			}},
-		{operators.Multiply, MultiplyDouble,
+		{operators.Multiply, overloads.MultiplyDouble,
 			func(value1 float64, value2 float64) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0].(float64) * values[1].(float64), nil
@@ -501,41 +490,41 @@ func StandardBuiltins() []*Overload {
 
 		// Divide operator
 		// TODO: handle divide by zero.
-		{operators.Divide, DivideInt64,
+		{operators.Divide, overloads.DivideInt64,
 			func(value1 int64, value2 int64) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0].(int64) / values[1].(int64), nil
 			}},
-		{operators.Divide, DivideUint64,
+		{operators.Divide, overloads.DivideUint64,
 			func(value1 uint64, value2 uint64) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0].(uint64) / values[1].(uint64), nil
 			}},
-		{operators.Divide, DivideDouble,
+		{operators.Divide, overloads.DivideDouble,
 			func(value1 float64, value2 float64) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0].(float64) / values[1].(float64), nil
 			}},
 
 		// Modulo operator
-		{operators.Modulo, ModuloInt64,
+		{operators.Modulo, overloads.ModuloInt64,
 			func(value1 int64, value2 int64) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0].(int64) % values[1].(int64), nil
 			}},
-		{operators.Modulo, ModuloUint64,
+		{operators.Modulo, overloads.ModuloUint64,
 			func(value1 uint64, value2 uint64) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0].(uint64) % values[1].(uint64), nil
 			}},
 
 		// Negate operator
-		{operators.Negate, NegateInt64,
+		{operators.Negate, overloads.NegateInt64,
 			func(value int64) {},
 			func(values ...interface{}) (interface{}, error) {
 				return -values[0].(int64), nil
 			}},
-		{operators.Negate, NegateDouble,
+		{operators.Negate, overloads.NegateDouble,
 			func(value uint64) {},
 			func(values ...interface{}) (interface{}, error) {
 				return -values[0].(float64), nil
@@ -543,33 +532,33 @@ func StandardBuiltins() []*Overload {
 
 		// Index operator
 		{operators.Index, operators.Index,
-			func(value aspects.Indexer, index interface{}) {},
+			func(value traits.Indexer, index interface{}) {},
 			func(values ...interface{}) (interface{}, error) {
-				value := values[0].(aspects.Indexer)
+				value := values[0].(traits.Indexer)
 				index := values[1]
 				return value.Get(index)
 			}},
 
 		// Size function
-		{Size, SizeString,
+		{overloads.Size, overloads.SizeString,
 			func(value string) {},
 			func(values ...interface{}) (interface{}, error) {
 				value := values[0].(string)
 				return len(value), nil
 			}},
-		{Size, SizeBytes,
+		{overloads.Size, overloads.SizeBytes,
 			func(value []byte) {},
 			func(values ...interface{}) (interface{}, error) {
 				value := values[0].([]byte)
 				return len(value), nil
 			}},
-		{Size, SizeList,
+		{overloads.Size, overloads.SizeList,
 			func(value types.ListValue) {},
 			func(values ...interface{}) (interface{}, error) {
 				listValue := values[0].(types.ListValue)
 				return listValue.Len(), nil
 			}},
-		{Size, SizeMap,
+		{overloads.Size, overloads.SizeMap,
 			func(value types.MapValue) {},
 			func(values ...interface{}) (interface{}, error) {
 				mapValue := values[0].(types.MapValue)
@@ -577,25 +566,25 @@ func StandardBuiltins() []*Overload {
 			}},
 
 		// In operator
-		{operators.In, InList,
+		{operators.In, overloads.InList,
 			func(value interface{}, listValue types.ListValue) {},
 			func(values ...interface{}) (interface{}, error) {
 				element := values[0]
 				listValue := values[1].(types.ListValue)
 				return listValue.Contains(element), nil
 			}},
-		{operators.In, InMap,
-			func(index interface{}, value aspects.Indexer) {},
+		{operators.In, overloads.InMap,
+			func(index interface{}, value traits.Indexer) {},
 			func(values ...interface{}) (interface{}, error) {
 				index := values[0]
-				value := values[1].(aspects.Indexer)
+				value := values[1].(traits.Indexer)
 				// FIXME: This needs to be a Has() method
 				_, err := value.Get(index)
 				return err == nil, nil
 			}},
 
 		// Matches function
-		{MatchString, MatchString,
+		{overloads.MatchString, overloads.MatchString,
 			func(text string, pattern string) {},
 			func(values ...interface{}) (interface{}, error) {
 				text := values[0].(string)
@@ -604,111 +593,111 @@ func StandardBuiltins() []*Overload {
 			}},
 
 		// Timestamp member functions.
-		{TimeGetFullYear, TimestampToYear,
+		{overloads.TimeGetFullYear, overloads.TimestampToYear,
 			func(timestamp *tspb.Timestamp) {},
 			func(values ...interface{}) (interface{}, error) {
 				return timestampOp(values[0], timestampGetFullYear)
 			}},
-		{TimeGetMonth, TimestampToMonth,
+		{overloads.TimeGetMonth, overloads.TimestampToMonth,
 			func(timestamp *tspb.Timestamp) {},
 			func(values ...interface{}) (interface{}, error) {
 				return timestampOp(values[0], timestampGetMonth)
 			}},
-		{TimeGetDayOfYear, TimestampToDayOfYear,
+		{overloads.TimeGetDayOfYear, overloads.TimestampToDayOfYear,
 			func(timestamp *tspb.Timestamp) {},
 			func(values ...interface{}) (interface{}, error) {
 				return timestampOp(values[0], timestampGetDayOfYear)
 			}},
-		{TimeGetDate, TimestampToDayOfMonthZeroBased,
+		{overloads.TimeGetDate, overloads.TimestampToDayOfMonthZeroBased,
 			func(timestamp *tspb.Timestamp) {},
 			func(values ...interface{}) (interface{}, error) {
 				return timestampOp(values[0], timestampGetDayOfMonthZeroBased)
 			}},
-		{TimeGetDayOfMonth, TimestampToDayOfMonthOneBased,
+		{overloads.TimeGetDayOfMonth, overloads.TimestampToDayOfMonthOneBased,
 			func(timestamp *tspb.Timestamp) {},
 			func(values ...interface{}) (interface{}, error) {
 				return timestampOp(values[0], timestampGetDayOfMonthOneBased)
 			}},
-		{TimeGetDayOfWeek, TimestampToDayOfWeek,
+		{overloads.TimeGetDayOfWeek, overloads.TimestampToDayOfWeek,
 			func(timestamp *tspb.Timestamp) {},
 			func(values ...interface{}) (interface{}, error) {
 				return timestampOp(values[0], timestampGetDayOfWeek)
 			}},
-		{TimeGetHours, TimestampToHours,
+		{overloads.TimeGetHours, overloads.TimestampToHours,
 			func(timestamp *tspb.Timestamp) {},
 			func(values ...interface{}) (interface{}, error) {
 				return timestampOp(values[0], timestampGetHours)
 			}},
-		{TimeGetMinutes, TimestampToMinutes,
+		{overloads.TimeGetMinutes, overloads.TimestampToMinutes,
 			func(timestamp *tspb.Timestamp) {},
 			func(values ...interface{}) (interface{}, error) {
 				return timestampOp(values[0], timestampGetMinutes)
 			}},
-		{TimeGetSeconds, TimestampToSeconds,
+		{overloads.TimeGetSeconds, overloads.TimestampToSeconds,
 			func(timestamp *tspb.Timestamp) {},
 			func(values ...interface{}) (interface{}, error) {
 				return timestampOp(values[0], timestampGetSeconds)
 			}},
-		{TimeGetMilliseconds, TimestampToMilliseconds,
+		{overloads.TimeGetMilliseconds, overloads.TimestampToMilliseconds,
 			func(timestamp *tspb.Timestamp) {},
 			func(values ...interface{}) (interface{}, error) {
 				return timestampOp(values[0], timestampGetMilliseconds)
 			}},
 
 		// Timestamp with time zone.
-		{TimeGetFullYear, TimestampToYearWithTz,
+		{overloads.TimeGetFullYear, overloads.TimestampToYearWithTz,
 			func(timestamp *tspb.Timestamp, tz string) {},
 			func(values ...interface{}) (interface{}, error) {
 				return timestampOp(values[0], timeZone(values[1], timestampGetFullYear))
 			}},
-		{TimeGetMonth, TimestampToMonthWithTz,
+		{overloads.TimeGetMonth, overloads.TimestampToMonthWithTz,
 			func(timestamp *tspb.Timestamp, tz string) {},
 			func(values ...interface{}) (interface{}, error) {
 				return timestampOp(values[0], timeZone(values[1], timestampGetMonth))
 			}},
-		{TimeGetDayOfWeek, TimestampToDayOfYearWithTz,
+		{overloads.TimeGetDayOfWeek, overloads.TimestampToDayOfYearWithTz,
 			func(timestamp *tspb.Timestamp, tz string) {},
 			func(values ...interface{}) (interface{}, error) {
 				return timestampOp(values[0], timeZone(values[1], timestampGetDayOfYear))
 			}},
-		{TimeGetDate, TimestampToDayOfMonthZeroBasedWithTz,
+		{overloads.TimeGetDate, overloads.TimestampToDayOfMonthZeroBasedWithTz,
 			func(timestamp *tspb.Timestamp, tz string) {},
 			func(values ...interface{}) (interface{}, error) {
 				return timestampOp(values[0], timeZone(values[1], timestampGetDayOfMonthZeroBased))
 			}},
-		{TimeGetDayOfMonth, TimestampToDayOfMonthOneBasedWithTz,
+		{overloads.TimeGetDayOfMonth, overloads.TimestampToDayOfMonthOneBasedWithTz,
 			func(timestamp *tspb.Timestamp, tz string) {},
 			func(values ...interface{}) (interface{}, error) {
 				return timestampOp(values[0], timeZone(values[1], timestampGetDayOfMonthOneBased))
 			}},
-		{TimeGetDayOfWeek, TimestampToDayOfWeekWithTz,
+		{overloads.TimeGetDayOfWeek, overloads.TimestampToDayOfWeekWithTz,
 			func(timestamp *tspb.Timestamp, tz string) {},
 			func(values ...interface{}) (interface{}, error) {
 				return timestampOp(values[0], timeZone(values[1], timestampGetDayOfWeek))
 			}},
-		{TimeGetHours, TimestampToHoursWithTz,
+		{overloads.TimeGetHours, overloads.TimestampToHoursWithTz,
 			func(timestamp *tspb.Timestamp, tz string) {},
 			func(values ...interface{}) (interface{}, error) {
 				return timestampOp(values[0], timeZone(values[1], timestampGetHours))
 			}},
-		{TimeGetMinutes, TimestampToMinutesWithTz,
+		{overloads.TimeGetMinutes, overloads.TimestampToMinutesWithTz,
 			func(timestamp *tspb.Timestamp, tz string) {},
 			func(values ...interface{}) (interface{}, error) {
 				return timestampOp(values[0], timeZone(values[1], timestampGetMinutes))
 			}},
-		{TimeGetSeconds, TimestampToSecondsWithTz,
+		{overloads.TimeGetSeconds, overloads.TimestampToSecondsWithTz,
 			func(timestamp *tspb.Timestamp, tz string) {},
 			func(values ...interface{}) (interface{}, error) {
 				return timestampOp(values[0], timeZone(values[1], timestampGetSeconds))
 			}},
-		{TimeGetMilliseconds, TimestampToMillisecondsWithTz,
+		{overloads.TimeGetMilliseconds, overloads.TimestampToMillisecondsWithTz,
 			func(timestamp *tspb.Timestamp, tz string) {},
 			func(values ...interface{}) (interface{}, error) {
 				return timestampOp(values[0], timeZone(values[1], timestampGetMilliseconds))
 			}},
 
 		// Duration member functions.
-		{TimeGetHours, DurationToHours,
+		{overloads.TimeGetHours, overloads.DurationToHours,
 			func(duration *dpb.Duration) {},
 			func(values ...interface{}) (interface{}, error) {
 				duration := values[0].(*dpb.Duration)
@@ -718,7 +707,7 @@ func StandardBuiltins() []*Overload {
 					return nil, err
 				}
 			}},
-		{TimeGetMinutes, DurationToMinutes,
+		{overloads.TimeGetMinutes, overloads.DurationToMinutes,
 			func(duration *dpb.Duration) {},
 			func(values ...interface{}) (interface{}, error) {
 				duration := values[0].(*dpb.Duration)
@@ -728,7 +717,7 @@ func StandardBuiltins() []*Overload {
 					return nil, err
 				}
 			}},
-		{TimeGetSeconds, DurationToSeconds,
+		{overloads.TimeGetSeconds, overloads.DurationToSeconds,
 			func(duration *dpb.Duration) {},
 			func(values ...interface{}) (interface{}, error) {
 				duration := values[0].(*dpb.Duration)
@@ -738,7 +727,7 @@ func StandardBuiltins() []*Overload {
 					return nil, err
 				}
 			}},
-		{TimeGetMilliseconds, DurationToMilliseconds,
+		{overloads.TimeGetMilliseconds, overloads.DurationToMilliseconds,
 			func(duration *dpb.Duration) {},
 			func(values ...interface{}) (interface{}, error) {
 				duration := values[0].(*dpb.Duration)
@@ -753,30 +742,30 @@ func StandardBuiltins() []*Overload {
 		// TODO: verify type conversion safety of numeric values.
 
 		// Int conversions.
-		{TypeConvertInt, IntFromInt,
+		{overloads.TypeConvertInt, overloads.IntToInt,
 			func(num int64) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0], nil
 			}},
-		{TypeConvertInt, IntFromUint,
+		{overloads.TypeConvertInt, overloads.UintToInt,
 			func(num uint64) {},
 			func(values ...interface{}) (interface{}, error) {
 				num := values[0].(uint64)
 				return int64(num), nil
 			}},
-		{TypeConvertInt, IntFromDouble,
+		{overloads.TypeConvertInt, overloads.DoubleToInt,
 			func(num float64) {},
 			func(values ...interface{}) (interface{}, error) {
 				num := values[0].(float64)
 				return int64(num), nil
 			}},
-		{TypeConvertInt, IntFromString,
+		{overloads.TypeConvertInt, overloads.StringToInt,
 			func(num string) {},
 			func(values ...interface{}) (interface{}, error) {
 				num := values[0].(string)
 				return strconv.ParseInt(num, 10, 64)
 			}},
-		{TypeConvertInt, IntFromTimestamp,
+		{overloads.TypeConvertInt, overloads.TimestampToInt,
 			func(ts *tspb.Timestamp) {},
 			func(values ...interface{}) (interface{}, error) {
 				// Return the Unix time in seconds since 1970
@@ -787,7 +776,7 @@ func StandardBuiltins() []*Overload {
 					return nil, err
 				}
 			}},
-		{TypeConvertInt, IntFromDuration,
+		{overloads.TypeConvertInt, overloads.DurationToInt,
 			func(ts *dpb.Duration) {},
 			func(values ...interface{}) (interface{}, error) {
 				dur := values[0].(*dpb.Duration)
@@ -799,12 +788,12 @@ func StandardBuiltins() []*Overload {
 			}},
 
 		// Uint conversions.
-		{TypeConvertUint, UintFromUint,
+		{overloads.TypeConvertUint, overloads.UintToUint,
 			func(num uint64) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0], nil
 			}},
-		{TypeConvertUint, UintFromInt,
+		{overloads.TypeConvertUint, overloads.IntToUint,
 			func(num int64) {},
 			func(values ...interface{}) (interface{}, error) {
 				num := values[0].(int64)
@@ -814,7 +803,7 @@ func StandardBuiltins() []*Overload {
 				return nil,
 					fmt.Errorf("unsafe uint conversion of negative int")
 			}},
-		{TypeConvertUint, UintFromDouble,
+		{overloads.TypeConvertUint, overloads.DoubleToUint,
 			func(num float64) {},
 			func(values ...interface{}) (interface{}, error) {
 				num := values[0].(float64)
@@ -824,109 +813,109 @@ func StandardBuiltins() []*Overload {
 				return nil,
 					fmt.Errorf("unsafe uint conversion of negative double")
 			}},
-		{TypeConvertUint, UintFromString,
+		{overloads.TypeConvertUint, overloads.StringToUint,
 			func(num string) {},
 			func(values ...interface{}) (interface{}, error) {
 				return strconv.ParseUint(values[0].(string), 10, 64)
 			}},
 
 		// Double conversions.
-		{TypeConvertDouble, DoubleFromDouble,
+		{overloads.TypeConvertDouble, overloads.DoubleToDouble,
 			func(num float64) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0], nil
 			}},
-		{TypeConvertDouble, DoubleFromInt,
+		{overloads.TypeConvertDouble, overloads.IntToDouble,
 			func(num int64) {},
 			func(values ...interface{}) (interface{}, error) {
 				num := values[0].(int64)
 				return float64(num), nil
 			}},
-		{TypeConvertDouble, DoubleFromUint,
+		{overloads.TypeConvertDouble, overloads.UintToDouble,
 			func(num uint64) {},
 			func(values ...interface{}) (interface{}, error) {
 				num := values[0].(uint64)
 				return float64(num), nil
 			}},
-		{TypeConvertDouble, DoubleFromString,
+		{overloads.TypeConvertDouble, overloads.StringToDouble,
 			func(num string) {},
 			func(values ...interface{}) (interface{}, error) {
 				return strconv.ParseFloat(values[0].(string), 64)
 			}},
 
 		// Bool conversions.
-		{TypeConvertBool, BoolFromBool,
+		{overloads.TypeConvertBool, overloads.BoolToBool,
 			func(value bool) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0], nil
 			}},
-		{TypeConvertBool, BoolFromString,
+		{overloads.TypeConvertBool, overloads.StringToBool,
 			func(value string) {},
 			func(values ...interface{}) (interface{}, error) {
 				return strconv.ParseBool(values[0].(string))
 			}},
 
 		// Bytes conversions.
-		{TypeConvertBytes, BytesFromBytes,
+		{overloads.TypeConvertBytes, overloads.BytesToBytes,
 			func(value []byte) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0], nil
 			}},
-		{TypeConvertBytes, BytesFromString,
+		{overloads.TypeConvertBytes, overloads.StringToBytes,
 			func(value string) {},
 			func(values ...interface{}) (interface{}, error) {
 				return []byte(values[0].(string)), nil
 			}},
 
 		// String conversions.
-		{TypeConvertString, StringFromString,
+		{overloads.TypeConvertString, overloads.StringToString,
 			func(value string) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0], nil
 			}},
-		{TypeConvertString, StringFromBool,
+		{overloads.TypeConvertString, overloads.BoolToString,
 			func(value bool) {},
 			func(values ...interface{}) (interface{}, error) {
 				return fmt.Sprintf("%t", values[0].(bool)), nil
 			}},
-		{TypeConvertString, StringFromInt,
+		{overloads.TypeConvertString, overloads.IntToString,
 			func(num int64) {},
 			func(values ...interface{}) (interface{}, error) {
 				return fmt.Sprintf("%d", values[0].(int64)), nil
 			}},
-		{TypeConvertString, StringFromUint,
+		{overloads.TypeConvertString, overloads.UintToString,
 			func(num uint64) {},
 			func(values ...interface{}) (interface{}, error) {
 				return fmt.Sprintf("%d", values[0].(uint64)), nil
 			}},
-		{TypeConvertString, StringFromDouble,
+		{overloads.TypeConvertString, overloads.DoubleToString,
 			func(num float64) {},
 			func(values ...interface{}) (interface{}, error) {
 				return fmt.Sprintf("%g", values[0].(float64)), nil
 			}},
-		{TypeConvertString, StringFromBytes,
+		{overloads.TypeConvertString, overloads.BytesToString,
 			func(value []byte) {},
 			func(values ...interface{}) (interface{}, error) {
 				return fmt.Sprintf("%s", values[0].([]byte)), nil
 			}},
-		{TypeConvertString, StringFromTimestamp,
+		{overloads.TypeConvertString, overloads.TimestampToString,
 			func(value *tspb.Timestamp) {},
 			func(values ...interface{}) (interface{}, error) {
 				return ptypes.TimestampString(values[0].(*tspb.Timestamp)), nil
 			}},
-		{TypeConvertString, StringFromDuration,
+		{overloads.TypeConvertString, overloads.DurationToString,
 			func(value *dpb.Duration) {},
 			func(values ...interface{}) (interface{}, error) {
 				return ptypes.TimestampString(values[0].(*tspb.Timestamp)), nil
 			}},
 
 		// Timestamp conversions.
-		{TypeConvertTimestamp, TimestampFromTimestamp,
+		{overloads.TypeConvertTimestamp, overloads.TimestampToTimestamp,
 			func(value *tspb.Timestamp) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0], nil
 			}},
-		{TypeConvertTimestamp, TimestampFromString,
+		{overloads.TypeConvertTimestamp, overloads.StringToTimestamp,
 			func(value string) {},
 			func(values ...interface{}) (interface{}, error) {
 				if t, err := time.Parse(time.RFC3339, values[0].(string)); err != nil {
@@ -935,7 +924,7 @@ func StandardBuiltins() []*Overload {
 					return ptypes.TimestampProto(t)
 				}
 			}},
-		{TypeConvertTimestamp, TimestampFromInt,
+		{overloads.TypeConvertTimestamp, overloads.IntToTimestamp,
 			func(value int64) {},
 			func(values ...interface{}) (interface{}, error) {
 				value := values[0].(int64)
@@ -943,17 +932,17 @@ func StandardBuiltins() []*Overload {
 				return ptypes.TimestampProto(time.Unix(value, 0))
 			}},
 		// Duration conversions.
-		{TypeConvertDuration, DurationFromDuration,
+		{overloads.TypeConvertDuration, overloads.DurationToDuration,
 			func(value *dpb.Duration) {},
 			func(values ...interface{}) (interface{}, error) {
 				return values[0], nil
 			}},
-		{TypeConvertDuration, DurationFromString,
+		{overloads.TypeConvertDuration, overloads.StringToDuration,
 			func(value string) {},
 			func(values ...interface{}) (interface{}, error) {
 				return time.ParseDuration(values[0].(string))
 			}},
-		{TypeConvertDuration, DurationFromInt,
+		{overloads.TypeConvertDuration, overloads.IntToDuration,
 			func(value int64) {},
 			func(values ...interface{}) (interface{}, error) {
 				// Duration in seconds
@@ -961,7 +950,7 @@ func StandardBuiltins() []*Overload {
 			}},
 
 		// Type operations.
-		{TypeOfValue, TypeOfValue,
+		{overloads.TypeConvertType, overloads.TypeConvertType,
 			func(value types.Type) {},
 			func(values ...interface{}) (interface{}, error) {
 				if t, found := types.TypeOf(values[0]); found {
@@ -971,22 +960,22 @@ func StandardBuiltins() []*Overload {
 			}},
 
 		// Comprehensions functions.
-		{Iterator, Iterator,
-			func(value aspects.Iterable) {},
+		{overloads.Iterator, overloads.Iterator,
+			func(value traits.Iterable) {},
 			func(values ...interface{}) (interface{}, error) {
-				iterable := values[0].(aspects.Iterable)
+				iterable := values[0].(traits.Iterable)
 				return iterable.Iterator(), nil
 			}},
-		{HasNext, HasNext,
-			func(value aspects.Iterator) {},
+		{overloads.HasNext, overloads.HasNext,
+			func(value traits.Iterator) {},
 			func(values ...interface{}) (interface{}, error) {
-				it := values[0].(aspects.Iterator)
+				it := values[0].(traits.Iterator)
 				return it.HasNext(), nil
 			}},
-		{Next, Next,
-			func(value aspects.Iterator) {},
+		{overloads.Next, overloads.Next,
+			func(value traits.Iterator) {},
 			func(values ...interface{}) (interface{}, error) {
-				it := values[0].(aspects.Iterator)
+				it := values[0].(traits.Iterator)
 				return it.Next(), nil
 			}},
 	}
@@ -1052,5 +1041,28 @@ func newError(msg string, value interface{}) interface{} {
 		return value
 	default:
 		return fmt.Errorf(msg, value)
+	}
+}
+
+func equals(values ...interface{}) (interface{}, error) {
+	if value1, ok := values[0].(traits.Equaler); ok {
+		return value1.Equal(values[1]), nil
+	}
+	if value2, ok := values[1].(traits.Equaler); ok {
+		return value2.Equal(values[0]), nil
+	}
+	if value1, ok := values[0].([]byte); ok {
+		if value2, ok := values[1].([]byte); ok {
+			return bytes.Equal(value1, value2), nil
+		}
+	}
+	return values[0] == values[1], nil
+}
+
+func notEquals(values ...interface{}) (interface{}, error) {
+	if val, err := equals(values); err != nil {
+		return nil, err
+	} else {
+		return !val.(bool), nil
 	}
 }

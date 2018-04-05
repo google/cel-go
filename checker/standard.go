@@ -15,12 +15,14 @@
 package checker
 
 import (
+	"github.com/google/cel-go/checker/decls"
+	"github.com/google/cel-go/checker/types"
 	"github.com/google/cel-go/operators"
-	"github.com/google/cel-go/semantics"
-	"github.com/google/cel-go/semantics/types"
+	"github.com/google/cel-go/overloads"
+	"github.com/google/cel-spec/proto/checked/v1/checked"
 )
 
-func AddStandard(env *Env) {
+func StandardDeclarations() []*checked.Decl {
 	// Some shortcuts we use when building declarations.
 	paramA := types.NewTypeParam("A")
 	typeParamAList := []string{"A"}
@@ -29,235 +31,390 @@ func AddStandard(env *Env) {
 	typeParamABList := []string{"A", "B"}
 	mapOfAB := types.NewMap(paramA, paramB)
 
-	// Booleans
-	env.AddFunction(
-		semantics.NewFunction(operators.Conditional,
-			semantics.NewParameterizedOverload("conditional", false, typeParamAList, paramA, types.Bool, paramA, paramA)))
-	env.AddFunction(
-		semantics.NewFunction(operators.LogicalAnd,
-			semantics.NewOverload("logical_and", false, types.Bool, types.Bool, types.Bool)))
-	env.AddFunction(
-		semantics.NewFunction(operators.LogicalOr,
-			semantics.NewOverload("logical_or", false, types.Bool, types.Bool, types.Bool)))
-	env.AddFunction(
-		semantics.NewFunction(operators.LogicalNot,
-			semantics.NewOverload("logical_not", false, types.Bool, types.Bool)))
-	env.AddFunction(
-		semantics.NewFunction("matches",
-			semantics.NewOverload("matches", false, types.Bool, types.String, types.String)))
-
-	// Relations
-	env.AddFunction(
-		semantics.NewFunction(operators.Less,
-			semantics.NewOverload("less_bool", false, types.Bool, types.Bool, types.Bool),
-			semantics.NewOverload("less_int64", false, types.Bool, types.Int64, types.Int64),
-			semantics.NewOverload("less_uint64", false, types.Bool, types.Uint64, types.Uint64),
-			semantics.NewOverload("less_double", false, types.Bool, types.Double, types.Double),
-			semantics.NewOverload("less_string", false, types.Bool, types.String, types.String),
-			semantics.NewOverload("less_bytes", false, types.Bool, types.Bytes, types.Bytes)))
-	env.AddFunction(
-		semantics.NewFunction(operators.LessEquals,
-			semantics.NewOverload("less_equals_bool", false, types.Bool, types.Bool, types.Bool),
-			semantics.NewOverload("less_equals_int64", false, types.Bool, types.Int64, types.Int64),
-			semantics.NewOverload("less_equals_uint64", false, types.Bool, types.Uint64, types.Uint64),
-			semantics.NewOverload("less_equals_double", false, types.Bool, types.Double, types.Double),
-			semantics.NewOverload("less_equals_string", false, types.Bool, types.String, types.String),
-			semantics.NewOverload("less_equals_bytes", false, types.Bool, types.Bytes, types.Bytes)))
-	env.AddFunction(
-		semantics.NewFunction(operators.Greater,
-			semantics.NewOverload("greater_bool", false, types.Bool, types.Bool, types.Bool),
-			semantics.NewOverload("greater_int64", false, types.Bool, types.Int64, types.Int64),
-			semantics.NewOverload("greater_uint64", false, types.Bool, types.Uint64, types.Uint64),
-			semantics.NewOverload("greater_double", false, types.Bool, types.Double, types.Double),
-			semantics.NewOverload("greater_string", false, types.Bool, types.String, types.String),
-			semantics.NewOverload("greater_bytes", false, types.Bool, types.Bytes, types.Bytes)))
-	env.AddFunction(
-		semantics.NewFunction(operators.GreaterEquals,
-			semantics.NewOverload("greater_equals_bool", false, types.Bool, types.Bool, types.Bool),
-			semantics.NewOverload("greater_equals_int64", false, types.Bool, types.Int64, types.Int64),
-			semantics.NewOverload("greater_equals_uint64", false, types.Bool, types.Uint64, types.Uint64),
-			semantics.NewOverload("greater_equals_double", false, types.Bool, types.Double, types.Double),
-			semantics.NewOverload("greater_equals_string", false, types.Bool, types.String, types.String),
-			semantics.NewOverload("greater_equals_bytes", false, types.Bool, types.Bytes, types.Bytes)))
-	env.AddFunction(
-		semantics.NewFunction(operators.Equals,
-			semantics.NewParameterizedOverload("equals", false, typeParamAList, types.Bool, paramA, paramA)))
-	env.AddFunction(
-		semantics.NewFunction(operators.NotEquals,
-			semantics.NewParameterizedOverload("not_equals", false, typeParamAList, types.Bool, paramA, paramA)))
-
-	// Algebra
-	env.AddFunction(
-		semantics.NewFunction(operators.Subtract,
-			semantics.NewOverload("subtract_int64", false, types.Int64, types.Int64, types.Int64),
-			semantics.NewOverload("subtract_uint64", false, types.Uint64, types.Uint64, types.Uint64),
-			semantics.NewOverload("subtract_double", false, types.Double, types.Double, types.Double)))
-	env.AddFunction(
-		semantics.NewFunction(operators.Multiply,
-			semantics.NewOverload("multiply_int64", false, types.Int64, types.Int64, types.Int64),
-			semantics.NewOverload("multiply_uint64", false, types.Uint64, types.Uint64, types.Uint64),
-			semantics.NewOverload("multiply_double", false, types.Double, types.Double, types.Double)))
-	env.AddFunction(
-		semantics.NewFunction(operators.Divide,
-			semantics.NewOverload("divide_int64", false, types.Int64, types.Int64, types.Int64),
-			semantics.NewOverload("divide_uint64", false, types.Uint64, types.Uint64, types.Uint64),
-			semantics.NewOverload("divide_double", false, types.Double, types.Double, types.Double)))
-	env.AddFunction(
-		semantics.NewFunction(operators.Modulo,
-			semantics.NewOverload("modulo_int64", false, types.Int64, types.Int64, types.Int64),
-			semantics.NewOverload("modulo_uint64", false, types.Uint64, types.Uint64, types.Uint64)))
-	env.AddFunction(
-		semantics.NewFunction(operators.Add,
-			semantics.NewOverload("add_int64", false, types.Int64, types.Int64, types.Int64),
-			semantics.NewOverload("add_uint64", false, types.Uint64, types.Uint64, types.Uint64),
-			semantics.NewOverload("add_double", false, types.Double, types.Double, types.Double),
-			semantics.NewOverload("add_string", false, types.String, types.String, types.String),
-			semantics.NewOverload("add_bytes", false, types.Bytes, types.Bytes, types.Bytes),
-			semantics.NewParameterizedOverload("add_list", false, typeParamAList, listOfA, listOfA, listOfA)))
-	env.AddFunction(
-		semantics.NewFunction(operators.Negate,
-			semantics.NewOverload("negate_int64", false, types.Int64, types.Int64),
-			semantics.NewOverload("negate_double", false, types.Double, types.Double)))
-
-	// Index
-	env.AddFunction(
-		semantics.NewFunction(operators.Index,
-			semantics.NewParameterizedOverload("index_list", false, typeParamAList, paramA, listOfA, types.Int64),
-			semantics.NewParameterizedOverload("index_map", false, typeParamABList, paramB, mapOfAB, paramA)))
-
-	// Collections
-	env.AddFunction(
-		semantics.NewFunction("size",
-			semantics.NewOverload("size_string", false, types.Int64, types.String),
-			semantics.NewOverload("size_bytes", false, types.Int64, types.Bytes),
-			semantics.NewParameterizedOverload("size_list", false, typeParamAList, types.Int64, listOfA),
-			semantics.NewParameterizedOverload("size_map", false, typeParamABList, types.Int64, mapOfAB)))
-
-	env.AddFunction(
-		semantics.NewFunction(operators.In,
-			semantics.NewParameterizedOverload("in_list", false, typeParamAList, types.Bool, paramA, listOfA),
-			semantics.NewParameterizedOverload("in_map", false, typeParamABList, types.Bool, paramA, mapOfAB)))
-
-	for _, t := range []types.Type{types.Int64, types.Uint64, types.Bool, types.Double, types.Bytes, types.String} {
-		env.AddIdent(semantics.NewIdent(t.String(), types.NewTypeType(t), nil))
+	var idents []*checked.Decl
+	for _, t := range []*checked.Type{types.Int64, types.Uint64, types.Bool, types.Double, types.Bytes, types.String} {
+		idents = append(idents, decls.NewIdent(types.FormatType(t), types.NewType(t), nil))
 	}
+	idents = append(idents,
+		decls.NewIdent("list", types.NewType(listOfA), nil),
+		decls.NewIdent("map", types.NewType(mapOfAB), nil))
 
-	env.AddFunction(
-		semantics.NewFunction("list",
-			semantics.NewParameterizedOverload("list_type", false, typeParamAList, types.NewTypeType(listOfA), types.NewTypeType(paramA))))
+	// Booleans
+	// TODO: allow the conditional to return a heterogenous type.
+	return append(idents, []*checked.Decl{
+		decls.NewFunction(operators.Conditional,
+			decls.NewParameterizedOverload(overloads.Conditional,
+				[]*checked.Type{types.Bool, paramA, paramA}, paramA,
+				typeParamAList)),
 
-	env.AddFunction(
-		semantics.NewFunction("map",
-			semantics.NewParameterizedOverload(
-				"map_type", false, typeParamABList, types.NewTypeType(mapOfAB), types.NewTypeType(paramA), types.NewTypeType(paramB))))
+		decls.NewFunction(operators.LogicalAnd,
+			decls.NewOverload(overloads.LogicalAnd,
+				[]*checked.Type{types.Bool, types.Bool}, types.Bool)),
 
-	env.AddFunction(
-		semantics.NewFunction("type",
-			semantics.NewParameterizedOverload("type", false, typeParamAList, types.NewTypeType(paramA), paramA)))
+		decls.NewFunction(operators.LogicalOr,
+			decls.NewOverload(overloads.LogicalOr,
+				[]*checked.Type{types.Bool, types.Bool}, types.Bool)),
 
-	// Conversions to int
-	env.AddFunction(
-		semantics.NewFunction("int",
-			semantics.NewOverload("uint64_to_int64", false, types.Int64, types.Uint64),
-			semantics.NewOverload("double_to_int64", false, types.Int64, types.Double),
-			semantics.NewOverload("string_to_int64", false, types.Int64, types.String)))
+		decls.NewFunction(operators.LogicalNot,
+			decls.NewOverload(overloads.LogicalNot,
+				[]*checked.Type{types.Bool}, types.Bool)),
 
-	// Conversions to uint
-	env.AddFunction(
-		semantics.NewFunction("uint",
-			semantics.NewOverload("int64_to_uint64", false, types.Uint64, types.Int64),
-			semantics.NewOverload("double_to_uint64", false, types.Uint64, types.Double),
-			semantics.NewOverload("string_to_uint64", false, types.Uint64, types.String)))
+		decls.NewFunction(overloads.Matches,
+			decls.NewInstanceOverload(overloads.MatchString,
+				[]*checked.Type{types.String, types.String}, types.Bool)),
 
-	// Conversions to double
-	env.AddFunction(
-		semantics.NewFunction("double",
-			semantics.NewOverload("int64_to_double", false, types.Double, types.Int64),
-			semantics.NewOverload("uint64_to_double", false, types.Double, types.Uint64),
-			semantics.NewOverload("string_to_double", false, types.Double, types.String)))
+		// Relations
 
-	// Conversions to string
-	env.AddFunction(
-		semantics.NewFunction("string",
-			semantics.NewOverload("int64_to_string", false, types.String, types.Int64),
-			semantics.NewOverload("uint64_to_string", false, types.String, types.Uint64),
-			semantics.NewOverload("double_to_string", false, types.String, types.Double),
-			semantics.NewOverload("bytes_to_string", false, types.String, types.Bytes)))
+		decls.NewFunction(operators.Less,
+			decls.NewOverload(overloads.LessBool,
+				[]*checked.Type{types.Bool, types.Bool}, types.Bool),
+			decls.NewOverload(overloads.LessInt64,
+				[]*checked.Type{types.Int64, types.Int64}, types.Bool),
+			decls.NewOverload(overloads.LessUint64,
+				[]*checked.Type{types.Uint64, types.Uint64}, types.Bool),
+			decls.NewOverload(overloads.LessDouble,
+				[]*checked.Type{types.Double, types.Double}, types.Bool),
+			decls.NewOverload(overloads.LessString,
+				[]*checked.Type{types.String, types.String}, types.Bool),
+			decls.NewOverload(overloads.LessBytes,
+				[]*checked.Type{types.Bytes, types.Bytes}, types.Bool),
+			decls.NewOverload(overloads.LessTimestamp,
+				[]*checked.Type{types.Timestamp, types.Timestamp}, types.Bool),
+			decls.NewOverload(overloads.LessDuration,
+				[]*checked.Type{types.Duration, types.Duration}, types.Bool)),
 
-	// Conversions to list
-	env.AddFunction(
-		semantics.NewFunction("list",
-			semantics.NewParameterizedOverload(
-				"to_list", false, typeParamAList, listOfA, types.NewTypeType(paramA), listOfA)))
+		decls.NewFunction(operators.LessEquals,
+			decls.NewOverload(overloads.LessEqualsBool,
+				[]*checked.Type{types.Bool, types.Bool}, types.Bool),
+			decls.NewOverload(overloads.LessEqualsInt64,
+				[]*checked.Type{types.Int64, types.Int64}, types.Bool),
+			decls.NewOverload(overloads.LessEqualsUint64,
+				[]*checked.Type{types.Uint64, types.Uint64}, types.Bool),
+			decls.NewOverload(overloads.LessEqualsDouble,
+				[]*checked.Type{types.Double, types.Double}, types.Bool),
+			decls.NewOverload(overloads.LessEqualsString,
+				[]*checked.Type{types.String, types.String}, types.Bool),
+			decls.NewOverload(overloads.LessEqualsBytes,
+				[]*checked.Type{types.Bytes, types.Bytes}, types.Bool),
+			decls.NewOverload(overloads.LessEqualsTimestamp,
+				[]*checked.Type{types.Timestamp, types.Timestamp}, types.Bool),
+			decls.NewOverload(overloads.LessEqualsDuration,
+				[]*checked.Type{types.Duration, types.Duration}, types.Bool)),
 
-	// Conversions to map
-	env.AddFunction(
-		semantics.NewFunction("map",
-			semantics.NewParameterizedOverload(
-				"to_map", false, typeParamABList, mapOfAB, types.NewTypeType(paramA), types.NewTypeType(paramB), mapOfAB)))
+		decls.NewFunction(operators.Greater,
+			decls.NewOverload(overloads.GreaterBool,
+				[]*checked.Type{types.Bool, types.Bool}, types.Bool),
+			decls.NewOverload(overloads.GreaterInt64,
+				[]*checked.Type{types.Int64, types.Int64}, types.Bool),
+			decls.NewOverload(overloads.GreaterUint64,
+				[]*checked.Type{types.Uint64, types.Uint64}, types.Bool),
+			decls.NewOverload(overloads.GreaterDouble,
+				[]*checked.Type{types.Double, types.Double}, types.Bool),
+			decls.NewOverload(overloads.GreaterString,
+				[]*checked.Type{types.String, types.String}, types.Bool),
+			decls.NewOverload(overloads.GreaterBytes,
+				[]*checked.Type{types.Bytes, types.Bytes}, types.Bool),
+			decls.NewOverload(overloads.GreaterTimestamp,
+				[]*checked.Type{types.Timestamp, types.Timestamp}, types.Bool),
+			decls.NewOverload(overloads.GreaterDuration,
+				[]*checked.Type{types.Duration, types.Duration}, types.Bool)),
 
-	// Conversions to bytes
-	env.AddFunction(
-		semantics.NewFunction("bytes",
-			semantics.NewOverload("string_to_bytes", false, types.Bytes, types.String)))
+		decls.NewFunction(operators.GreaterEquals,
+			decls.NewOverload(overloads.GreaterEqualsBool,
+				[]*checked.Type{types.Bool, types.Bool}, types.Bool),
+			decls.NewOverload(overloads.GreaterEqualsInt64,
+				[]*checked.Type{types.Int64, types.Int64}, types.Bool),
+			decls.NewOverload(overloads.GreaterEqualsUint64,
+				[]*checked.Type{types.Uint64, types.Uint64}, types.Bool),
+			decls.NewOverload(overloads.GreaterEqualsDouble,
+				[]*checked.Type{types.Double, types.Double}, types.Bool),
+			decls.NewOverload(overloads.GreaterEqualsString,
+				[]*checked.Type{types.String, types.String}, types.Bool),
+			decls.NewOverload(overloads.GreaterEqualsBytes,
+				[]*checked.Type{types.Bytes, types.Bytes}, types.Bool),
+			decls.NewOverload(overloads.GreaterEqualsTimestamp,
+				[]*checked.Type{types.Timestamp, types.Timestamp}, types.Bool),
+			decls.NewOverload(overloads.GreaterEqualsDuration,
+				[]*checked.Type{types.Duration, types.Duration}, types.Bool)),
 
-	// Conversions to dyn
-	env.AddFunction(
-		semantics.NewFunction("dyn",
-			semantics.NewParameterizedOverload("to_dyn", false, typeParamAList, types.Dynamic, paramA)))
+		decls.NewFunction(operators.Equals,
+			decls.NewParameterizedOverload(overloads.Equals,
+				[]*checked.Type{paramA, paramA}, types.Bool,
+				typeParamAList)),
 
-	// Date/time functions
-	env.AddFunction(
-		semantics.NewFunction("getFullYear",
-			semantics.NewOverload("timestamp_to_year", true, types.Int64, types.Timestamp),
-			semantics.NewOverload("timestamp_to_year_with_tz", true, types.Int64, types.Timestamp, types.String)))
+		decls.NewFunction(operators.NotEquals,
+			decls.NewParameterizedOverload(overloads.NotEquals,
+				[]*checked.Type{paramA, paramA}, types.Bool,
+				typeParamAList)),
 
-	env.AddFunction(
-		semantics.NewFunction("getMonth",
-			semantics.NewOverload("timestamp_to_month", true, types.Int64, types.Timestamp),
-			semantics.NewOverload("timestamp_to_month_with_tz", true, types.Int64, types.Timestamp, types.String)))
+		// Algebra
 
-	env.AddFunction(
-		semantics.NewFunction("getDayOfYear",
-			semantics.NewOverload("timestamp_to_day_of_year", true, types.Int64, types.Timestamp),
-			semantics.NewOverload("timestamp_to_day_of_year_with_tz", true, types.Int64, types.Timestamp, types.String)))
+		decls.NewFunction(operators.Subtract,
+			decls.NewOverload(overloads.SubtractInt64,
+				[]*checked.Type{types.Int64, types.Int64}, types.Int64),
+			decls.NewOverload(overloads.SubtractUint64,
+				[]*checked.Type{types.Uint64, types.Uint64}, types.Uint64),
+			decls.NewOverload(overloads.SubtractDouble,
+				[]*checked.Type{types.Double, types.Double}, types.Double),
+			decls.NewOverload(overloads.SubtractTimestampTimestamp,
+				[]*checked.Type{types.Timestamp, types.Timestamp}, types.Duration),
+			decls.NewOverload(overloads.SubtractTimestampDuration,
+				[]*checked.Type{types.Timestamp, types.Duration}, types.Timestamp),
+			decls.NewOverload(overloads.SubtractDurationDuration,
+				[]*checked.Type{types.Duration, types.Duration}, types.Duration)),
 
-	env.AddFunction(
-		semantics.NewFunction("getDayOfMonth",
-			semantics.NewOverload("timestamp_to_day_of_month", true, types.Int64, types.Timestamp),
-			semantics.NewOverload("timestamp_to_day_of_month_with_tz", true, types.Int64, types.Timestamp, types.String)))
+		decls.NewFunction(operators.Multiply,
+			decls.NewOverload(overloads.MultiplyInt64,
+				[]*checked.Type{types.Int64, types.Int64}, types.Int64),
+			decls.NewOverload(overloads.MultiplyUint64,
+				[]*checked.Type{types.Uint64, types.Uint64}, types.Uint64),
+			decls.NewOverload(overloads.MultiplyDouble,
+				[]*checked.Type{types.Double, types.Double}, types.Double)),
 
-	env.AddFunction(
-		semantics.NewFunction("getDate",
-			semantics.NewOverload("timestamp_to_day_of_month_1_based", true, types.Int64, types.Timestamp),
-			semantics.NewOverload("timestamp_to_day_of_month_1_based_with_tz", true, types.Int64, types.Timestamp, types.String)))
+		decls.NewFunction(operators.Divide,
+			decls.NewOverload(overloads.DivideInt64,
+				[]*checked.Type{types.Int64, types.Int64}, types.Int64),
+			decls.NewOverload(overloads.DivideUint64,
+				[]*checked.Type{types.Uint64, types.Uint64}, types.Uint64),
+			decls.NewOverload(overloads.DivideDouble,
+				[]*checked.Type{types.Double, types.Double}, types.Double)),
 
-	env.AddFunction(
-		semantics.NewFunction("getDayOfWeek",
-			semantics.NewOverload("timestamp_to_day_of_week", true, types.Int64, types.Timestamp),
-			semantics.NewOverload("timestamp_to_day_of_week_with_tz", true, types.Int64, types.Timestamp, types.String)))
+		decls.NewFunction(operators.Modulo,
+			decls.NewOverload(overloads.ModuloInt64,
+				[]*checked.Type{types.Int64, types.Int64}, types.Int64),
+			decls.NewOverload(overloads.ModuloUint64,
+				[]*checked.Type{types.Uint64, types.Uint64}, types.Uint64)),
 
-	env.AddFunction(
-		semantics.NewFunction("getHours",
-			semantics.NewOverload("timestamp_to_hours", true, types.Int64, types.Timestamp),
-			semantics.NewOverload("timestamp_to_hours_with_tz", true, types.Int64, types.Timestamp, types.String),
-			semantics.NewOverload("duration_to_hours", true, types.Int64, types.Duration)))
+		decls.NewFunction(operators.Add,
+			decls.NewOverload(overloads.AddInt64,
+				[]*checked.Type{types.Int64, types.Int64}, types.Int64),
+			decls.NewOverload(overloads.AddUint64,
+				[]*checked.Type{types.Uint64, types.Uint64}, types.Uint64),
+			decls.NewOverload(overloads.AddDouble,
+				[]*checked.Type{types.Double, types.Double}, types.Double),
+			decls.NewOverload(overloads.AddString,
+				[]*checked.Type{types.String, types.String}, types.String),
+			decls.NewOverload(overloads.AddBytes,
+				[]*checked.Type{types.Bytes, types.Bytes}, types.Bytes),
+			decls.NewParameterizedOverload(overloads.AddList,
+				[]*checked.Type{listOfA, listOfA}, listOfA,
+				typeParamAList),
+			decls.NewOverload(overloads.AddTimestampDuration,
+				[]*checked.Type{types.Timestamp, types.Duration}, types.Timestamp),
+			decls.NewOverload(overloads.AddDurationTimestamp,
+				[]*checked.Type{types.Duration, types.Timestamp}, types.Timestamp),
+			decls.NewOverload(overloads.AddDurationDuration,
+				[]*checked.Type{types.Duration, types.Duration}, types.Duration)),
 
-	env.AddFunction(
-		semantics.NewFunction("getMinutes",
-			semantics.NewOverload("timestamp_to_minutes", true, types.Int64, types.Timestamp),
-			semantics.NewOverload("timestamp_to_minutes_with_tz", true, types.Int64, types.Timestamp, types.String),
-			semantics.NewOverload("duration_to_minutes", true, types.Int64, types.Duration)))
+		decls.NewFunction(operators.Negate,
+			decls.NewOverload(overloads.NegateInt64,
+				[]*checked.Type{types.Int64}, types.Int64),
+			decls.NewOverload(overloads.NegateDouble,
+				[]*checked.Type{types.Double}, types.Double)),
 
-	env.AddFunction(
-		semantics.NewFunction("getSeconds",
-			semantics.NewOverload("timestamp_to_seconds", true, types.Int64, types.Timestamp),
-			semantics.NewOverload("timestamp_to_seconds_with_tz", true, types.Int64, types.Timestamp, types.String),
-			semantics.NewOverload("duration_to_seconds", true, types.Int64, types.Duration)))
+		// Index
 
-	env.AddFunction(
-		semantics.NewFunction("getMilliseconds",
-			semantics.NewOverload("timestamp_to_milliseconds", true, types.Int64, types.Timestamp),
-			semantics.NewOverload("timestamp_to_milliseconds_with_tz", true, types.Int64, types.Timestamp, types.String),
-			semantics.NewOverload("duration_to_milliseconds", true, types.Int64, types.Duration)))
+		decls.NewFunction(operators.Index,
+			decls.NewParameterizedOverload(overloads.IndexList,
+				[]*checked.Type{listOfA, types.Int64}, paramA,
+				typeParamAList),
+			decls.NewParameterizedOverload(overloads.IndexMap,
+				[]*checked.Type{mapOfAB, paramA}, paramB,
+				typeParamABList)),
+		//decls.NewOverload(overloads.IndexMessage,
+		//	[]*checked.Type{types.Dyn, types.String}, types.Dyn)),
+
+		// Collections
+
+		decls.NewFunction(overloads.Size,
+			decls.NewInstanceOverload(overloads.SizeStringInst,
+				[]*checked.Type{types.String}, types.Int64),
+			decls.NewInstanceOverload(overloads.SizeBytesInst,
+				[]*checked.Type{types.Bytes}, types.Int64),
+			decls.NewParameterizedInstanceOverload(overloads.SizeListInst,
+				[]*checked.Type{listOfA}, types.Int64, typeParamAList),
+			decls.NewParameterizedInstanceOverload(overloads.SizeMapInst,
+				[]*checked.Type{mapOfAB}, types.Int64, typeParamABList),
+			decls.NewOverload(overloads.SizeString,
+				[]*checked.Type{types.String}, types.Int64),
+			decls.NewOverload(overloads.SizeBytes,
+				[]*checked.Type{types.Bytes}, types.Int64),
+			decls.NewParameterizedOverload(overloads.SizeList,
+				[]*checked.Type{listOfA}, types.Int64, typeParamAList),
+			decls.NewParameterizedOverload(overloads.SizeMap,
+				[]*checked.Type{mapOfAB}, types.Int64, typeParamABList)),
+
+		decls.NewFunction(operators.In,
+			decls.NewParameterizedOverload(overloads.InList,
+				[]*checked.Type{paramA, listOfA}, types.Bool,
+				typeParamAList),
+			decls.NewParameterizedOverload(overloads.InMap,
+				[]*checked.Type{paramA, mapOfAB}, types.Bool,
+				typeParamABList)),
+		//decls.NewOverload(overloads.InMessage,
+		//	[]*checked.Type{types.Dyn, types.String},types.Bool)),
+
+		// Deprecated 'in()' function
+
+		decls.NewFunction(overloads.DeprecatedIn,
+			decls.NewParameterizedOverload(overloads.InList,
+				[]*checked.Type{paramA, listOfA}, types.Bool,
+				typeParamAList),
+			decls.NewParameterizedOverload(overloads.InMap,
+				[]*checked.Type{paramA, mapOfAB}, types.Bool,
+				typeParamABList)),
+		//decls.NewOverload(overloads.InMessage,
+		//	[]*checked.Type{types.Dyn, types.String},types.Bool)),
+
+		// Conversions to type
+
+		decls.NewFunction(overloads.TypeConvertType,
+			decls.NewParameterizedOverload(overloads.TypeConvertType,
+				[]*checked.Type{paramA}, types.NewType(paramA), typeParamAList)),
+
+		// Conversions to int
+
+		decls.NewFunction(overloads.TypeConvertInt,
+			decls.NewOverload(overloads.IntToInt, []*checked.Type{types.Int64}, types.Int64),
+			decls.NewOverload(overloads.UintToInt, []*checked.Type{types.Uint64}, types.Int64),
+			decls.NewOverload(overloads.DoubleToInt, []*checked.Type{types.Double}, types.Int64),
+			decls.NewOverload(overloads.StringToInt, []*checked.Type{types.String}, types.Int64),
+			decls.NewOverload(overloads.TimestampToInt, []*checked.Type{types.Timestamp}, types.Int64),
+			decls.NewOverload(overloads.DurationToInt, []*checked.Type{types.Duration}, types.Int64)),
+
+		// Conversions to uint
+
+		decls.NewFunction(overloads.TypeConvertUint,
+			decls.NewOverload(overloads.UintToUint, []*checked.Type{types.Uint64}, types.Uint64),
+			decls.NewOverload(overloads.IntToUint, []*checked.Type{types.Int64}, types.Uint64),
+			decls.NewOverload(overloads.DoubleToUint, []*checked.Type{types.Double}, types.Uint64),
+			decls.NewOverload(overloads.StringToUint, []*checked.Type{types.String}, types.Uint64)),
+
+		// Conversions to double
+
+		decls.NewFunction(overloads.TypeConvertDouble,
+			decls.NewOverload(overloads.DoubleToDouble, []*checked.Type{types.Double}, types.Double),
+			decls.NewOverload(overloads.IntToDouble, []*checked.Type{types.Int64}, types.Double),
+			decls.NewOverload(overloads.UintToDouble, []*checked.Type{types.Uint64}, types.Double),
+			decls.NewOverload(overloads.StringToDouble, []*checked.Type{types.String}, types.Double)),
+
+		// Conversions to bool
+
+		decls.NewFunction(overloads.TypeConvertBool,
+			decls.NewOverload(overloads.BoolToBool, []*checked.Type{types.Bool}, types.Bool),
+			decls.NewOverload(overloads.StringToBool, []*checked.Type{types.String}, types.Bool)),
+
+		// Conversions to string
+
+		decls.NewFunction(overloads.TypeConvertString,
+			decls.NewOverload(overloads.StringToString, []*checked.Type{types.String}, types.String),
+			decls.NewOverload(overloads.BoolToString, []*checked.Type{types.Bool}, types.String),
+			decls.NewOverload(overloads.IntToString, []*checked.Type{types.Int64}, types.String),
+			decls.NewOverload(overloads.UintToString, []*checked.Type{types.Uint64}, types.String),
+			decls.NewOverload(overloads.DoubleToString, []*checked.Type{types.Double}, types.String),
+			decls.NewOverload(overloads.BytesToString, []*checked.Type{types.Bytes}, types.String),
+			decls.NewOverload(overloads.TimestampToString, []*checked.Type{types.Timestamp}, types.String),
+			decls.NewOverload(overloads.DurationToString, []*checked.Type{types.Duration}, types.String)),
+
+		// Conversions to bytes
+
+		decls.NewFunction(overloads.TypeConvertBytes,
+			decls.NewOverload(overloads.BytesToBytes, []*checked.Type{types.Bytes}, types.Bytes),
+			decls.NewOverload(overloads.StringToBytes, []*checked.Type{types.String}, types.Bytes)),
+
+		// Conversions to timestamps
+
+		decls.NewFunction(overloads.TypeConvertTimestamp,
+			decls.NewOverload(overloads.TimestampToTimestamp,
+				[]*checked.Type{types.Timestamp}, types.Timestamp),
+			decls.NewOverload(overloads.StringToTimestamp,
+				[]*checked.Type{types.String}, types.Timestamp),
+			decls.NewOverload(overloads.IntToTimestamp,
+				[]*checked.Type{types.Int64}, types.Timestamp)),
+
+		// Conversions to durations
+
+		decls.NewFunction(overloads.TypeConvertDuration,
+			decls.NewOverload(overloads.DurationToDuration,
+				[]*checked.Type{types.Duration}, types.Duration),
+			decls.NewOverload(overloads.StringToDuration,
+				[]*checked.Type{types.String}, types.Duration),
+			decls.NewOverload(overloads.IntToDuration,
+				[]*checked.Type{types.Int64}, types.Duration)),
+
+		// Conversions to Dyn
+
+		decls.NewFunction(overloads.TypeConvertDyn,
+			decls.NewParameterizedOverload(overloads.ToDyn, []*checked.Type{paramA}, types.Dyn,
+				typeParamAList)),
+
+		// Date/time functions
+
+		decls.NewFunction(overloads.TimeGetFullYear,
+			decls.NewInstanceOverload(overloads.TimestampToYear,
+				[]*checked.Type{types.Timestamp}, types.Int64),
+			decls.NewInstanceOverload(overloads.TimestampToYearWithTz,
+				[]*checked.Type{types.Timestamp, types.String}, types.Int64)),
+
+		decls.NewFunction(overloads.TimeGetMonth,
+			decls.NewInstanceOverload(overloads.TimestampToMonth,
+				[]*checked.Type{types.Timestamp}, types.Int64),
+			decls.NewInstanceOverload(overloads.TimestampToMonthWithTz,
+				[]*checked.Type{types.Timestamp, types.String}, types.Int64)),
+
+		decls.NewFunction(overloads.TimeGetDayOfYear,
+			decls.NewInstanceOverload(overloads.TimestampToDayOfYear,
+				[]*checked.Type{types.Timestamp}, types.Int64),
+			decls.NewInstanceOverload(overloads.TimestampToDayOfYearWithTz,
+				[]*checked.Type{types.Timestamp, types.String}, types.Int64)),
+
+		decls.NewFunction(overloads.TimeGetDayOfMonth,
+			decls.NewInstanceOverload(overloads.TimestampToDayOfMonthZeroBased,
+				[]*checked.Type{types.Timestamp}, types.Int64),
+			decls.NewInstanceOverload(overloads.TimestampToDayOfMonthZeroBasedWithTz,
+				[]*checked.Type{types.Timestamp, types.String}, types.Int64)),
+
+		decls.NewFunction(overloads.TimeGetDate,
+			decls.NewInstanceOverload(overloads.TimestampToDayOfMonthOneBased,
+				[]*checked.Type{types.Timestamp}, types.Int64),
+			decls.NewInstanceOverload(overloads.TimestampToDayOfMonthOneBasedWithTz,
+				[]*checked.Type{types.Timestamp, types.String}, types.Int64)),
+
+		decls.NewFunction(overloads.TimeGetDayOfWeek,
+			decls.NewInstanceOverload(overloads.TimestampToDayOfWeek,
+				[]*checked.Type{types.Timestamp}, types.Int64),
+			decls.NewInstanceOverload(overloads.TimestampToDayOfWeekWithTz,
+				[]*checked.Type{types.Timestamp, types.String}, types.Int64)),
+
+		decls.NewFunction(overloads.TimeGetHours,
+			decls.NewInstanceOverload(overloads.TimestampToHours,
+				[]*checked.Type{types.Timestamp}, types.Int64),
+			decls.NewInstanceOverload(overloads.TimestampToHoursWithTz,
+				[]*checked.Type{types.Timestamp, types.String}, types.Int64),
+			decls.NewInstanceOverload(overloads.DurationToHours,
+				[]*checked.Type{types.Duration}, types.Int64)),
+
+		decls.NewFunction(overloads.TimeGetMinutes,
+			decls.NewInstanceOverload(overloads.TimestampToMinutes,
+				[]*checked.Type{types.Timestamp}, types.Int64),
+			decls.NewInstanceOverload(overloads.TimestampToMinutesWithTz,
+				[]*checked.Type{types.Timestamp, types.String}, types.Int64),
+			decls.NewInstanceOverload(overloads.DurationToMinutes,
+				[]*checked.Type{types.Duration}, types.Int64)),
+
+		decls.NewFunction(overloads.TimeGetSeconds,
+			decls.NewInstanceOverload(overloads.TimestampToSeconds,
+				[]*checked.Type{types.Timestamp}, types.Int64),
+			decls.NewInstanceOverload(overloads.TimestampToSecondsWithTz,
+				[]*checked.Type{types.Timestamp, types.String}, types.Int64),
+			decls.NewInstanceOverload(overloads.DurationToSeconds,
+				[]*checked.Type{types.Duration}, types.Int64)),
+
+		decls.NewFunction(overloads.TimeGetMilliseconds,
+			decls.NewInstanceOverload(overloads.TimestampToMilliseconds,
+				[]*checked.Type{types.Timestamp}, types.Int64),
+			decls.NewInstanceOverload(overloads.TimestampToMillisecondsWithTz,
+				[]*checked.Type{types.Timestamp, types.String}, types.Int64),
+			decls.NewInstanceOverload(overloads.DurationToMilliseconds,
+				[]*checked.Type{types.Duration}, types.Int64))}...)
 }

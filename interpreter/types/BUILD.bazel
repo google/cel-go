@@ -12,7 +12,7 @@ go_library(
         "types.go",
     ],
     deps = [
-        "//interpreter/types/aspects:go_default_library",
+        "//interpreter/types/traits:go_default_library",
         "@com_github_golang_protobuf//descriptor:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_golang_protobuf//protoc-gen-go/descriptor:go_default_library",

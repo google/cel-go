@@ -15,21 +15,22 @@
 package checker
 
 import (
+	"github.com/google/cel-go/checker/decls"
+	"github.com/google/cel-go/checker/types"
 	"github.com/google/cel-go/common"
-	"github.com/google/cel-go/semantics"
-	"github.com/google/cel-go/semantics/types"
+	"github.com/google/cel-spec/proto/checked/v1/checked"
 	expr "github.com/google/cel-spec/proto/v1/syntax"
 )
 
 type Env struct {
 	errors       *TypeErrors
-	typeProvider TypeProvider
+	typeProvider types.TypeProvider
 
-	declarations *Scopes
+	declarations *decls.Scopes
 }
 
-func NewEnv(errors *common.Errors, typeProvider TypeProvider) *Env {
-	declarations := NewScopes()
+func NewEnv(errors *common.Errors, typeProvider types.TypeProvider) *Env {
+	declarations := decls.NewScopes()
 	declarations.Push()
 
 	return &Env{
@@ -39,69 +40,84 @@ func NewEnv(errors *common.Errors, typeProvider TypeProvider) *Env {
 	}
 }
 
-func (env *Env) AddFunction(function *semantics.Function) {
-	current := env.declarations.FindFunction(function.Name())
-
-	if current != nil {
-		function = function.Merge(current)
+func (e *Env) Add(decls ...*checked.Decl) {
+	for _, decl := range decls {
+		switch decl.DeclKind.(type) {
+		case *checked.Decl_Ident:
+			e.addIdent(decl)
+		case *checked.Decl_Function:
+			e.addFunction(decl)
+		}
 	}
-	env.declarations.AddFunction(function)
 }
 
-func (env *Env) AddIdent(ident *semantics.Ident) {
-	current := env.declarations.FindIdentInScope(ident.Name())
+func (e *Env) addFunction(decl *checked.Decl) {
+	current := e.declarations.FindFunction(decl.Name)
+	if current != nil {
+		if current.Name != decl.Name {
+			return
+		}
+		// TODO: Check for conflicts.
+		function := current.GetFunction()
+		function.Overloads = append(function.Overloads,
+			decl.GetFunction().Overloads...)
+		decl = current
+	} else {
+		e.declarations.AddFunction(decl)
+	}
+}
+
+func (e *Env) addIdent(decl *checked.Decl) {
+	current := e.declarations.FindIdentInScope(decl.Name)
 	if current != nil {
 		panic("ident already exists")
 	}
-
-	env.declarations.AddIdent(ident)
+	e.declarations.AddIdent(decl)
 }
 
-func (env *Env) LookupIdent(container string, typeName string) *semantics.Ident {
+func (e *Env) LookupIdent(container string, typeName string) *checked.Decl {
 	for _, candidate := range qualifiedTypeNameCandidates(container, typeName) {
-		if ident := env.declarations.FindIdent(candidate); ident != nil {
+		if ident := e.declarations.FindIdent(candidate); ident != nil {
 			return ident
 		}
 
 		// Next try to import the name as a reference to a message type. If found,
 		// the declaration is added to the outest (global) scope of the
 		// environment, so next time we can access it faster.
-		if t := env.typeProvider.LookupType(candidate); t != nil {
-			decl := semantics.NewIdent(candidate, t, nil)
-			env.declarations.AddIdent(decl)
+		if t := e.typeProvider.LookupType(candidate); t != nil {
+			decl := decls.NewIdent(candidate, t, nil)
+			e.declarations.AddIdent(decl)
 			return decl
 		}
 
 		// Next try to import this as an enum value by splitting the name in a type prefix and
 		// the enum inside.
-		if enumValue, found := env.typeProvider.LookupEnumValue(candidate); found {
-			decl := semantics.NewIdent(candidate,
+		if enumValue, found := e.typeProvider.LookupEnumValue(candidate); found {
+			decl := decls.NewIdent(candidate,
 				types.Int64,
-				&expr.Expr{
-					ExprKind: &expr.Expr_ConstExpr{
-						&expr.Constant{
-							&expr.Constant_Int64Value{
-								enumValue}}}})
-			env.declarations.AddIdent(decl)
+				&expr.Constant{
+					ConstantKind: &expr.Constant_Int64Value{
+						Int64Value: enumValue}})
+			e.declarations.AddIdent(decl)
 		}
 	}
 
 	return nil
 }
 
-func (env *Env) LookupFunction(container string, typeName string) *semantics.Function {
+func (e *Env) LookupFunction(container string, typeName string) *checked.Decl {
 	for _, candidate := range qualifiedTypeNameCandidates(container, typeName) {
-		if fn := env.declarations.FindFunction(candidate); fn != nil {
+		if fn := e.declarations.FindFunction(candidate); fn != nil {
 			return fn
 		}
 	}
 	return nil
 }
 
-func (env *Env) enterScope() {
-	env.declarations.Push()
+func (e *Env) enterScope() {
+	e.declarations.Push()
 }
 
-func (env *Env) exitScope() {
-	env.declarations.Pop()
+func (e *Env) exitScope() {
+	e.declarations.Pop()
 }

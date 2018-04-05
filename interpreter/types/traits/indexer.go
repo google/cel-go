@@ -12,42 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package semantics
+// The traits package defines methods useful for composing a new CEL built-in
+// or abstract type that function with built-in CEL operators.
+package traits
 
-import (
-	"github.com/google/cel-go/semantics/types"
-	expr "github.com/google/cel-spec/proto/v1/syntax"
-)
+// Indexer permits random access of elements within an aggregate type by index.
+type Indexer interface {
 
-var Error = &Ident{
-	name: "*ident_error*",
-	t:    types.Error,
-}
-
-type Ident struct {
-	name  string
-	t     types.Type
-	value *expr.Expr
-}
-
-var _ Declaration = &Ident{}
-
-func NewIdent(name string, t types.Type, value *expr.Expr) *Ident {
-	return &Ident{
-		name:  name,
-		t:     t,
-		value: value,
-	}
-}
-
-func (i *Ident) Name() string {
-	return i.name
-}
-
-func (i *Ident) Type() types.Type {
-	return i.t
-}
-
-func (i *Ident) Value() *expr.Expr {
-	return i.value
+	// Get the value at the specified index or error.
+	Get(index interface{}) (interface{}, error)
 }

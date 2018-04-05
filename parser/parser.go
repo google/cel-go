@@ -17,14 +17,14 @@ package parser
 import (
 	"strconv"
 
-	expr "github.com/google/cel-spec/proto/v1/syntax"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/operators"
 	"github.com/google/cel-go/parser/gen"
+	expr "github.com/google/cel-spec/proto/v1/syntax"
 
+	"fmt"
 	"github.com/antlr/antlr4/runtime/Go/antlr"
 	"github.com/golang/protobuf/ptypes/struct"
-	"fmt"
 	"reflect"
 )
 
@@ -36,7 +36,7 @@ func Parse(source common.Source, macros Macros) (*expr.ParsedExpr, *common.Error
 	p := parser{helper: NewParserHelper(source, macros)}
 	e := p.parse(source.Content())
 	return &expr.ParsedExpr{
-		Expr: e,
+		Expr:       e,
 		SourceInfo: p.helper.getSourceInfo(),
 	}, p.helper.errors.Errors
 }
@@ -407,12 +407,12 @@ func (p *parser) VisitBytes(ctx *gen.BytesContext) interface{} {
 
 // Visit a parse tree produced by CELParser#BoolTrue.
 func (p *parser) VisitBoolTrue(ctx *gen.BoolTrueContext) interface{} {
-	return p.helper.newConstBool(ctx,true)
+	return p.helper.newConstBool(ctx, true)
 }
 
 // Visit a parse tree produced by CELParser#BoolFalse.
 func (p *parser) VisitBoolFalse(ctx *gen.BoolFalseContext) interface{} {
-	return p.helper.newConstBool(ctx,false)
+	return p.helper.newConstBool(ctx, false)
 }
 
 // Visit a parse tree produced by CELParser#Null.

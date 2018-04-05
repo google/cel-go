@@ -18,7 +18,7 @@ package types
 
 import (
 	"fmt"
-	"github.com/google/cel-go/interpreter/types/aspects"
+	"github.com/google/cel-go/interpreter/types/traits"
 	"reflect"
 )
 
@@ -28,10 +28,10 @@ import (
 // MapValues are comparable, iterable, support indexed access by key,
 // and may be converted to a protobuf representation.
 type MapValue interface {
-	aspects.Equaler
-	aspects.Indexer
-	aspects.Protoer
-	aspects.Iterable
+	traits.Equaler
+	traits.Indexer
+	traits.Protoer
+	traits.Iterable
 
 	// Value of the underlying map.
 	Value() interface{}
@@ -88,7 +88,7 @@ func (m *mapValue) Equal(other interface{}) bool {
 			} else if otherExprVal, err := ProtoToExpr(otherVal); err != nil {
 				fmt.Print(err)
 				return false
-			} else if thisEqualerVal, ok := thisExprVal.(aspects.Equaler); ok {
+			} else if thisEqualerVal, ok := thisExprVal.(traits.Equaler); ok {
 				if !thisEqualerVal.Equal(otherExprVal) {
 					return false
 				}
@@ -146,7 +146,7 @@ func (m *mapValue) Len() int64 {
 	return int64(m.refValue.Len())
 }
 
-func (m *mapValue) Iterator() aspects.Iterator {
+func (m *mapValue) Iterator() traits.Iterator {
 	return &mapIterator{
 		mapValue: m,
 		mapKeys:  m.refValue.MapKeys(),

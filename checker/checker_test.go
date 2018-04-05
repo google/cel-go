@@ -18,10 +18,12 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/golang/protobuf/proto"
+	"github.com/google/cel-go/checker/decls"
+	"github.com/google/cel-go/checker/types"
 	"github.com/google/cel-go/parser"
-	"github.com/google/cel-go/semantics"
-	"github.com/google/cel-go/semantics/types"
 	"github.com/google/cel-go/test"
+	"github.com/google/cel-spec/proto/checked/v1/checked"
 )
 
 var testCases = []testInfo{
@@ -120,7 +122,7 @@ var testCases = []testInfo{
 	{
 		I:    `[]`,
 		R:    `[]~list(dyn)`,
-		Type: types.NewList(types.Dynamic),
+		Type: types.NewList(types.Dyn),
 	},
 	{
 		I:    `[1]`,
@@ -234,7 +236,7 @@ ERROR: <input>:1:11: type 'int' does not match previous type 'uint' in aggregate
 	TestAllTypes{single_int32 : 1~int, single_int64 : 2~int}
 	  ~google.api.tools.expr.test.TestAllTypes
 	    ^google.api.tools.expr.test.TestAllTypes`,
-		Type: types.NewMessage("google.api.tools.expr.test.TestAllTypes"),
+		Type: types.NewObject("google.api.tools.expr.test.TestAllTypes"),
 	},
 
 	{
@@ -258,15 +260,11 @@ ERROR: <input>:1:11: type 'int' does not match previous type 'uint' in aggregate
 	{
 		I: `size(x) == x.size()`,
 		R: `
-_==_(size(x~list(int)^x)~int^size_list, x~list(int)^x.size()~int^my_size)
+_==_(size(x~list(int)^x)~int^size_list, x~list(int)^x.size()~int^list_size)
   ~bool^equals`,
 		Env: env{
-			functions: []*semantics.Function{
-				semantics.NewFunction("size",
-					semantics.NewOverload("my_size", true, types.Int64, types.NewList(types.NewTypeParam("A")))),
-			},
-			idents: []*semantics.Ident{
-				semantics.NewIdent("x", types.NewList(types.Int64), nil),
+			idents: []*checked.Decl{
+				decls.NewIdent("x", types.NewList(types.Int64), nil),
 			},
 		},
 		Type: types.Bool,
@@ -337,8 +335,8 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 	{
 		I: `x.single_int32 != null`,
 		Env: env{
-			idents: []*semantics.Ident{
-				semantics.NewIdent("x", types.NewMessage("google.api.tools.expr.test.Proto2Message"), nil),
+			idents: []*checked.Decl{
+				decls.NewIdent("x", types.NewObject("google.api.tools.expr.test.Proto2Message"), nil),
 			},
 		},
 		Error: `
@@ -351,8 +349,8 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 	{
 		I: `x.single_value + 1 / x.single_struct == 23`,
 		Env: env{
-			idents: []*semantics.Ident{
-				semantics.NewIdent("x", types.NewMessage("google.api.tools.expr.test.TestAllTypes"), nil),
+			idents: []*checked.Decl{
+				decls.NewIdent("x", types.NewObject("google.api.tools.expr.test.TestAllTypes"), nil),
 			},
 		},
 		R: `_==_(_+_(x~google.api.tools.expr.test.TestAllTypes^x.single_value~dyn,
@@ -368,15 +366,15 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 	{
 		I: `x.single_value[23] + x.single_struct`,
 		Env: env{
-			idents: []*semantics.Ident{
-				semantics.NewIdent("x", types.NewMessage("google.api.tools.expr.test.TestAllTypes"), nil),
+			idents: []*checked.Decl{
+				decls.NewIdent("x", types.NewObject("google.api.tools.expr.test.TestAllTypes"), nil),
 			},
 		},
 		R: `_+_(_[_](x~google.api.tools.expr.test.TestAllTypes^x.single_value~dyn, 23~int)
 	    ~dyn^index_list|index_map,
 	    x~google.api.tools.expr.test.TestAllTypes^x.single_struct~dyn)
-	~dyn^add_int64|add_uint64|add_double|add_string|add_bytes|add_list`,
-		Type: types.Dynamic,
+	~dyn^add_int64|add_uint64|add_double|add_string|add_bytes|add_list|add_timestamp_duration|add_duration_timestamp|add_duration_duration`,
+		Type: types.Dyn,
 	},
 
 	// TODO: We have minimal proto support. This would get fixed with better proto support.
@@ -394,8 +392,8 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 		R:    `size(_+_([]~list(int), [1~int]~list(int))~list(int)^add_list)~int^size_list`,
 		Type: types.Int64,
 		Env: env{
-			idents: []*semantics.Ident{
-				semantics.NewIdent("x", types.NewMessage("google.api.tools.expr.test.TestAllTypes"), nil),
+			idents: []*checked.Decl{
+				decls.NewIdent("x", types.NewObject("google.api.tools.expr.test.TestAllTypes"), nil),
 			},
 		},
 	},
@@ -404,9 +402,9 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 		I: `x + y`,
 		R: ``,
 		Env: env{
-			idents: []*semantics.Ident{
-				semantics.NewIdent("x", types.NewList(types.NewMessage("google.api.tools.expr.test.TestAllTypes")), nil),
-				semantics.NewIdent("y", types.NewList(types.Int64), nil),
+			idents: []*checked.Decl{
+				decls.NewIdent("x", types.NewList(types.NewObject("google.api.tools.expr.test.TestAllTypes")), nil),
+				decls.NewIdent("y", types.NewList(types.Int64), nil),
 			},
 		},
 		Error: `
@@ -419,8 +417,8 @@ ERROR: <input>:1:3: found no matching overload for '_+_' applied to '(list(googl
 	{
 		I: `x[1u]`,
 		Env: env{
-			idents: []*semantics.Ident{
-				semantics.NewIdent("x", types.NewList(types.NewMessage("google.api.tools.expr.test.TestAllTypes")), nil),
+			idents: []*checked.Decl{
+				decls.NewIdent("x", types.NewList(types.NewObject("google.api.tools.expr.test.TestAllTypes")), nil),
 			},
 		},
 		Error: `
@@ -433,8 +431,8 @@ ERROR: <input>:1:2: found no matching overload for '_[_]' applied to '(list(goog
 	{
 		I: `(x + x)[1].single_int32 == size(x)`,
 		Env: env{
-			idents: []*semantics.Ident{
-				semantics.NewIdent("x", types.NewList(types.NewMessage("google.api.tools.expr.test.TestAllTypes")), nil),
+			idents: []*checked.Decl{
+				decls.NewIdent("x", types.NewList(types.NewObject("google.api.tools.expr.test.TestAllTypes")), nil),
 			},
 		},
 		R: `
@@ -455,8 +453,8 @@ _==_(_[_](_+_(x~list(google.api.tools.expr.test.TestAllTypes)^x,
 	{
 		I: `x.repeated_int64[x.single_int32] == 23`,
 		Env: env{
-			idents: []*semantics.Ident{
-				semantics.NewIdent("x", types.NewMessage("google.api.tools.expr.test.TestAllTypes"), nil),
+			idents: []*checked.Decl{
+				decls.NewIdent("x", types.NewObject("google.api.tools.expr.test.TestAllTypes"), nil),
 			},
 		},
 		R: `
@@ -471,8 +469,8 @@ _==_(_[_](x~google.api.tools.expr.test.TestAllTypes^x.repeated_int64~list(int),
 	{
 		I: `size(x.map_int64_nested_type) == 0`,
 		Env: env{
-			idents: []*semantics.Ident{
-				semantics.NewIdent("x", types.NewMessage("google.api.tools.expr.test.TestAllTypes"), nil),
+			idents: []*checked.Decl{
+				decls.NewIdent("x", types.NewObject("google.api.tools.expr.test.TestAllTypes"), nil),
 			},
 		},
 		R: `
@@ -488,8 +486,8 @@ _==_(size(x~google.api.tools.expr.test.TestAllTypes^x.map_int64_nested_type
 	{
 		I: `x.repeated_int64.map(x, double(x))`,
 		Env: env{
-			idents: []*semantics.Ident{
-				semantics.NewIdent("x", types.NewMessage("google.api.tools.expr.test.TestAllTypes"), nil),
+			idents: []*checked.Decl{
+				decls.NewIdent("x", types.NewObject("google.api.tools.expr.test.TestAllTypes"), nil),
 			},
 		},
 		R: `
@@ -522,8 +520,8 @@ _==_(size(x~google.api.tools.expr.test.TestAllTypes^x.map_int64_nested_type
 	{
 		I: `x.repeated_int64.map(x, x > 0, double(x))`,
 		Env: env{
-			idents: []*semantics.Ident{
-				semantics.NewIdent("x", types.NewMessage("google.api.tools.expr.test.TestAllTypes"), nil),
+			idents: []*checked.Decl{
+				decls.NewIdent("x", types.NewObject("google.api.tools.expr.test.TestAllTypes"), nil),
 			},
 		},
 		R: `
@@ -563,8 +561,8 @@ _==_(size(x~google.api.tools.expr.test.TestAllTypes^x.map_int64_nested_type
 	{
 		I: `x[2].single_int32 == 23`,
 		Env: env{
-			idents: []*semantics.Ident{
-				semantics.NewIdent("x", types.NewMap(types.String, types.NewMessage("google.api.tools.expr.test.TestAllTypes")), nil),
+			idents: []*checked.Decl{
+				decls.NewIdent("x", types.NewMap(types.String, types.NewObject("google.api.tools.expr.test.TestAllTypes")), nil),
 			},
 		},
 		Error: `
@@ -577,8 +575,8 @@ ERROR: <input>:1:2: found no matching overload for '_[_]' applied to '(map(strin
 	{
 		I: `x["a"].single_int32 == 23`,
 		Env: env{
-			idents: []*semantics.Ident{
-				semantics.NewIdent("x", types.NewMap(types.String, types.NewMessage("google.api.tools.expr.test.TestAllTypes")), nil),
+			idents: []*checked.Decl{
+				decls.NewIdent("x", types.NewMap(types.String, types.NewObject("google.api.tools.expr.test.TestAllTypes")), nil),
 			},
 		},
 		R: `
@@ -595,8 +593,8 @@ ERROR: <input>:1:2: found no matching overload for '_[_]' applied to '(map(strin
 	{
 		I: `x.single_nested_message.bb == 43 && has(x.single_nested_message)`,
 		Env: env{
-			idents: []*semantics.Ident{
-				semantics.NewIdent("x", types.NewMessage("google.api.tools.expr.test.TestAllTypes"), nil),
+			idents: []*checked.Decl{
+				decls.NewIdent("x", types.NewObject("google.api.tools.expr.test.TestAllTypes"), nil),
 			},
 		},
 
@@ -608,26 +606,14 @@ ERROR: <input>:1:2: found no matching overload for '_[_]' applied to '(map(strin
     		  )~bool^equals,
     		  x~google.api.tools.expr.test.TestAllTypes^x.single_nested_message~test-only~~bool
     		)~bool^logical_and`,
-		//	R: `
-		//	_&&_(_==_(x~google.api.tools.expr.test.TestAllTypes^x.single_nested_message
-		//	~google.api.tools.expr.test.TestAllTypes.NestedMessage
-		//	.
-		//	bb
-		//	~int,
-		//	43~int)
-		//	~bool^equals,
-		//	has(x~google.api.tools.expr.test.TestAllTypes^x.single_nested_message)
-		//	~bool)
-		//	~bool^logical_and
-		//	`,
 		Type: types.Bool,
 	},
 
 	{
 		I: `x.single_nested_message.undefined == x.undefined && has(x.single_int32) && has(x.repeated_int32)`,
 		Env: env{
-			idents: []*semantics.Ident{
-				semantics.NewIdent("x", types.NewMessage("google.api.tools.expr.test.TestAllTypes"), nil),
+			idents: []*checked.Decl{
+				decls.NewIdent("x", types.NewObject("google.api.tools.expr.test.TestAllTypes"), nil),
 			},
 		},
 		Error: `
@@ -649,8 +635,8 @@ ERROR: <input>:1:79: field 'repeated_int32' does not support presence check
 	{
 		I: `x.single_nested_message != null`,
 		Env: env{
-			idents: []*semantics.Ident{
-				semantics.NewIdent("x", types.NewMessage("google.api.tools.expr.test.TestAllTypes"), nil),
+			idents: []*checked.Decl{
+				decls.NewIdent("x", types.NewObject("google.api.tools.expr.test.TestAllTypes"), nil),
 			},
 		},
 		R: `
@@ -665,8 +651,8 @@ ERROR: <input>:1:79: field 'repeated_int32' does not support presence check
 	{
 		I: `x.single_int64 != null`,
 		Env: env{
-			idents: []*semantics.Ident{
-				semantics.NewIdent("x", types.NewMessage("google.api.tools.expr.test.TestAllTypes"), nil),
+			idents: []*checked.Decl{
+				decls.NewIdent("x", types.NewObject("google.api.tools.expr.test.TestAllTypes"), nil),
 			},
 		},
 		Error: `
@@ -679,8 +665,8 @@ ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, nul
 	{
 		I: `x.single_int64_wrapper == null`,
 		Env: env{
-			idents: []*semantics.Ident{
-				semantics.NewIdent("x", types.NewMessage("google.api.tools.expr.test.TestAllTypes"), nil),
+			idents: []*checked.Decl{
+				decls.NewIdent("x", types.NewObject("google.api.tools.expr.test.TestAllTypes"), nil),
 			},
 		},
 		R: `
@@ -691,60 +677,101 @@ ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, nul
 		`,
 		Type: types.Bool,
 	},
-	//
-	//{
-	//	I: `x.repeated_int64.all(e, e > 0) && x.repeated_int64.exists(e, e < 0) && x.repeated_int64.exists_one(e, e == 0)`,
-	//	Env: env{
-	//		idents: []*semantics.Ident{
-	//			semantics.NewIdent("x", types.NewMessage("google.api.tools.expr.test.TestAllTypes"), nil),
-	//		},
-	//	},
-	//	R: `
-	//	_&&_(_&&_(__comprehension__(e,
-	//	x~google.api.tools.expr.test.TestAllTypes^x.repeated_int64
-	//	~list(int),
-	//	__result__,
-	//	true~bool,
-	//	__result__~bool^__result__,
-	//	_&&_(__result__~bool^__result__,
-	//	_>_(e~int^e, 0~int)~bool^greater_int64)
-	//	~bool^logical_and,
-	//	__result__~bool^__result__)
-	//	~bool,
-	//	__comprehension__(e,
-	//	x~google.api.tools.expr.test.TestAllTypes^x.repeated_int64
-	//	~list(int),
-	//	__result__,
-	//	false~bool,
-	//	!_(__result__~bool^__result__)~bool^logical_not,
-	//	_||_(__result__~bool^__result__,
-	//	_<_(e~int^e, 0~int)~bool^less_int64)
-	//	~bool^logical_or,
-	//	__result__~bool^__result__)
-	//	~bool)
-	//	~bool^logical_and,
-	//	__comprehension__(e,
-	//	x~google.api.tools.expr.test.TestAllTypes^x.repeated_int64
-	//	~list(int),
-	//	__result__,
-	//	0~int,
-	//	_<=_(__result__~int^__result__, 1~int)~bool^less_equals_int64,
-	//	_?_:_(_==_(e~int^e, 0~int)~bool^equals,
-	//	_+_(__result__~int^__result__, 1~int)~int^add_int64,
-	//	__result__~int^__result__)
-	//	~int^conditional,
-	//	_==_(__result__~int^__result__, 1~int)~bool^equals)
-	//	~bool)
-	//	~bool^logical_and
-	//	`,
-	//	Type: types.Bool,
-	//},
+	{
+		I: `x.repeated_int64.all(e, e > 0) && x.repeated_int64.exists(e, e < 0) && x.repeated_int64.exists_one(e, e == 0)`,
+		Env: env{
+			idents: []*checked.Decl{
+				decls.NewIdent("x", types.NewObject("google.api.tools.expr.test.TestAllTypes"), nil),
+			},
+		},
+		R: `
+		_&&_(
+    		  _&&_(
+    		    __comprehension__(
+    		      // Variable
+    		      e,
+    		      // Target
+    		      x~google.api.tools.expr.test.TestAllTypes^x.repeated_int64~list(int),
+    		      // Accumulator
+    		      __result__,
+    		      // Init
+    		      true~bool,
+    		      // LoopCondition
+    		      __result__~bool^__result__,
+    		      // LoopStep
+    		      _&&_(
+    		        __result__~bool^__result__,
+    		        _>_(
+    		          e~int^e,
+    		          0~int
+    		        )~bool^greater_int64
+    		      )~bool^logical_and,
+    		      // Result
+    		      __result__~bool^__result__)~bool,
+    		    __comprehension__(
+    		      // Variable
+    		      e,
+    		      // Target
+    		      x~google.api.tools.expr.test.TestAllTypes^x.repeated_int64~list(int),
+    		      // Accumulator
+    		      __result__,
+    		      // Init
+    		      false~bool,
+    		      // LoopCondition
+    		      !_(
+    		        __result__~bool^__result__
+    		      )~bool^logical_not,
+    		      // LoopStep
+    		      _||_(
+    		        __result__~bool^__result__,
+    		        _<_(
+    		          e~int^e,
+    		          0~int
+    		        )~bool^less_int64
+    		      )~bool^logical_or,
+    		      // Result
+    		      __result__~bool^__result__)~bool
+    		  )~bool^logical_and,
+    		  __comprehension__(
+    		    // Variable
+    		    e,
+    		    // Target
+    		    x~google.api.tools.expr.test.TestAllTypes^x.repeated_int64~list(int),
+    		    // Accumulator
+    		    __result__,
+    		    // Init
+    		    0~int,
+    		    // LoopCondition
+    		    _<=_(
+    		      __result__~int^__result__,
+    		      1~int
+    		    )~bool^less_equals_int64,
+    		    // LoopStep
+    		    _?_:_(
+    		      _==_(
+    		        e~int^e,
+    		        0~int
+    		      )~bool^equals,
+    		      _+_(
+    		        __result__~int^__result__,
+    		        1~int
+    		      )~int^add_int64,
+    		      __result__~int^__result__
+    		    )~int^conditional,
+    		    // Result
+    		    _==_(
+    		      __result__~int^__result__,
+    		      1~int
+    		    )~bool^equals)~bool
+    		)~bool^logical_and`,
+		Type: types.Bool,
+	},
 
 	{
 		I: `x.all(e, 0)`,
 		Env: env{
-			idents: []*semantics.Ident{
-				semantics.NewIdent("x", types.NewMessage("google.api.tools.expr.test.TestAllTypes"), nil),
+			idents: []*checked.Decl{
+				decls.NewIdent("x", types.NewObject("google.api.tools.expr.test.TestAllTypes"), nil),
 			},
 		},
 		Error: `
@@ -762,7 +789,7 @@ ERROR: <input>:1:6: found no matching overload for '_&&_' applied to '(bool, int
 		R: `	.google.api.tools.expr.test.TestAllTypes
 	~type(google.api.tools.expr.test.TestAllTypes)
 	^google.api.tools.expr.test.TestAllTypes`,
-		Type: types.NewTypeType(types.NewMessage("google.api.tools.expr.test.TestAllTypes")),
+		Type: types.NewType(types.NewObject("google.api.tools.expr.test.TestAllTypes")),
 	},
 
 	{
@@ -773,7 +800,7 @@ ERROR: <input>:1:6: found no matching overload for '_&&_' applied to '(bool, int
 	~type(google.api.tools.expr.test.TestAllTypes)
 	^google.api.tools.expr.test.TestAllTypes
 		`,
-		Type: types.NewTypeType(types.NewMessage("google.api.tools.expr.test.TestAllTypes")),
+		Type: types.NewType(types.NewObject("google.api.tools.expr.test.TestAllTypes")),
 	},
 
 	{
@@ -788,22 +815,21 @@ ERROR: <input>:1:5: undeclared reference to 'x' (in container '')
 		I:         `x`,
 		Container: "container",
 		Env: env{
-			idents: []*semantics.Ident{
-				semantics.NewIdent("container.x", types.NewMessage("google.api.tools.expr.test.TestAllTypes"), nil),
+			idents: []*checked.Decl{
+				decls.NewIdent("container.x", types.NewObject("google.api.tools.expr.test.TestAllTypes"), nil),
 			},
 		},
 		R:    `x~google.api.tools.expr.test.TestAllTypes^container.x`,
-		Type: types.NewMessage("google.api.tools.expr.test.TestAllTypes"),
+		Type: types.NewObject("google.api.tools.expr.test.TestAllTypes"),
 	},
 
 	{
-		I: `list(int) == type([1]) && map(int, uint) == type({1:2u})`,
+		I: `list == type([1]) && map == type({1:2u})`,
 		R: `
-_&&_(_==_(list(int~type(int)^int)~type(list(int))^list_type,
+_&&_(_==_(list~type(list(int))^list,
            type([1~int]~list(int))~type(list(int))^type)
        ~bool^equals,
-      _==_(map(int~type(int)^int, uint~type(uint)^uint)
-             ~type(map(int, uint))^map_type,
+      _==_(map~type(map(int, uint))^map,
             type({1~int : 2u~uint}~map(int, uint))~type(map(int, uint))^type)
         ~bool^equals)
   ~bool^logical_and
@@ -814,14 +840,14 @@ _&&_(_==_(list(int~type(int)^int)~type(list(int))^list_type,
 	{
 		I: `myfun(1, true, 3u) + 1.myfun(false, 3u).myfun(true, 42u)`,
 		Env: env{
-			functions: []*semantics.Function{
-				semantics.NewFunction("myfun",
-					semantics.NewOverload("myfun_instance", true, types.Int64, types.Int64, types.Bool, types.Uint64)),
-				semantics.NewFunction("myfun",
-					semantics.NewOverload("myfun_static", false, types.Int64, types.Int64, types.Bool, types.Uint64)),
+			functions: []*checked.Decl{
+				decls.NewFunction("myfun",
+					decls.NewInstanceOverload("myfun_instance",
+						[]*checked.Type{types.Int64, types.Bool, types.Uint64}, types.Int64),
+					decls.NewOverload("myfun_static",
+						[]*checked.Type{types.Int64, types.Bool, types.Uint64}, types.Int64)),
 			},
 		},
-		// Original "expected" is pretty broken. I think our code is doing-the-right-thing(TM).
 		R: `_+_(
     		  myfun(
     		    1~int,
@@ -836,12 +862,6 @@ _&&_(_==_(list(int~type(int)^int)~type(list(int))^list_type,
     		    42u~uint
     		  )~int^myfun_instance
     		)~int^add_int64`,
-		//R: `
-		//_+_(myfun(1~int, true~bool, 3u~uint)~int^myfun_static,
-		//42u~uint.
-		//myfun(3u~uint.myfun(1~int, false~bool)~int^myfun_instance, true~bool)
-		//~int^myfun_instance)
-		//~int^add_int64`,
 		Type: types.Int64,
 	},
 
@@ -850,8 +870,8 @@ _&&_(_==_(list(int~type(int)^int)~type(list(int))^list_type,
 	//	{
 	//		I: `false`,
 	//		Env: env{
-	//			functions: []*semantics.Function{
-	//				semantics.NewFunction("has",
+	//			functions: []*checked.Decl{
+	//				decls.NewFunction("has",
 	//					semantics.NewOverload("has_id", false, types.Dynamic, types.Dynamic)),
 	//			},
 	//		},
@@ -865,12 +885,14 @@ _&&_(_==_(list(int~type(int)^int)~type(list(int))^list_type,
 	{
 		I: `size(x) > 4`,
 		Env: env{
-			idents: []*semantics.Ident{
-				semantics.NewIdent("x", types.NewMessage("google.api.tools.expr.test.TestAllTypes"), nil),
+			idents: []*checked.Decl{
+				decls.NewIdent("x", types.NewObject("google.api.tools.expr.test.TestAllTypes"), nil),
 			},
-			functions: []*semantics.Function{
-				semantics.NewFunction("size",
-					semantics.NewOverload("size_message", false, types.Int64, types.NewMessage("google.api.tools.expr.test.TestAllTypes"))),
+			functions: []*checked.Decl{
+				decls.NewFunction("size",
+					decls.NewOverload("size_message",
+						[]*checked.Type{types.NewObject("google.api.tools.expr.test.TestAllTypes")},
+						types.Int64)),
 			},
 		},
 		Type: types.Bool,
@@ -879,8 +901,8 @@ _&&_(_==_(list(int~type(int)^int)~type(list(int))^list_type,
 	{
 		I: `x.single_int64_wrapper + 1 != 23`,
 		Env: env{
-			idents: []*semantics.Ident{
-				semantics.NewIdent("x", types.NewMessage("google.api.tools.expr.test.TestAllTypes"), nil),
+			idents: []*checked.Decl{
+				decls.NewIdent("x", types.NewObject("google.api.tools.expr.test.TestAllTypes"), nil),
 			},
 		},
 		R: `
@@ -897,20 +919,20 @@ _&&_(_==_(list(int~type(int)^int)~type(list(int))^list_type,
 
 var typeProvider = initTypeProvider()
 
-func initTypeProvider() TypeProvider {
-	provider := NewInMemoryTypeProvider()
+func initTypeProvider() types.TypeProvider {
+	provider := types.NewInMemoryTypeProvider()
 
-	nestedAllTypes := types.NewMessage("google.api.tools.expr.test.NestedTestAllTypes")
+	nestedAllTypes := types.NewObject("google.api.tools.expr.test.NestedTestAllTypes")
 
-	nestedMessageType := types.NewMessage("google.api.tools.expr.test.TestAllTypes.NestedMessage")
-	provider.AddType(nestedMessageType.Name(), nestedMessageType)
+	nestedMessageType := types.NewObject("google.api.tools.expr.test.TestAllTypes.NestedMessage")
+	provider.AddType(nestedMessageType.GetMessageType(), nestedMessageType)
 	provider.AddFieldType(nestedMessageType, "bb", types.Int64, false)
 
-	allTypes := types.NewMessage("google.api.tools.expr.test.TestAllTypes")
-	provider.AddType(allTypes.Name(), allTypes)
+	allTypes := types.NewObject("google.api.tools.expr.test.TestAllTypes")
+	provider.AddType(allTypes.GetMessageType(), allTypes)
 
-	provider.AddFieldType(allTypes, "single_struct", types.Dynamic, false)
-	provider.AddFieldType(allTypes, "single_value", types.Dynamic, false)
+	provider.AddFieldType(allTypes, "single_struct", types.Dyn, false)
+	provider.AddFieldType(allTypes, "single_value", types.Dyn, false)
 	provider.AddFieldType(allTypes, "single_int32", types.Int64, false)
 	provider.AddFieldType(allTypes, "single_int64", types.Int64, false)
 	provider.AddFieldType(allTypes, "repeated_int32", types.NewList(types.Int64), false)
@@ -927,28 +949,28 @@ func initTypeProvider() TypeProvider {
 	provider.AddEnum("google.api.tools.expr.test.TestAllTypes.NestedEnum.BAR", 1)
 	provider.AddEnum("google.api.tools.expr.test.TestAllTypes.NestedEnum.BAZ", 2)
 
-	//enumType := types.NewMessage("google.api.tools.expr.test.TestAllTypes.NestedEnum")
+	//enumType := types.NewObject("google.api.tools.expr.test.TestAllTypes.NestedEnum")
 	//provider.AddType(enumType.Name(), enumType)
 
 	return provider
 }
 
 var testEnvs = map[string]env{
-	"default": env{
-		functions: []*semantics.Function{
-			semantics.NewFunction("fg_s",
-				semantics.NewOverload("fg_s_0", false, types.String)),
-			semantics.NewFunction("fi_s_s",
-				semantics.NewOverload("fi_s_s_0", true, types.String, types.String)),
+	"default": {
+		functions: []*checked.Decl{
+			decls.NewFunction("fg_s",
+				decls.NewOverload("fg_s_0", []*checked.Type{}, types.String)),
+			decls.NewFunction("fi_s_s",
+				decls.NewInstanceOverload("fi_s_s_0", []*checked.Type{types.String}, types.String)),
 		},
-		idents: []*semantics.Ident{
-			semantics.NewIdent("is", types.String, nil),
-			semantics.NewIdent("ii", types.Int64, nil),
-			semantics.NewIdent("iu", types.Uint64, nil),
-			semantics.NewIdent("iz", types.Bool, nil),
-			semantics.NewIdent("ib", types.Bytes, nil),
-			semantics.NewIdent("id", types.Double, nil),
-			semantics.NewIdent("ix", types.Null, nil),
+		idents: []*checked.Decl{
+			decls.NewIdent("is", types.String, nil),
+			decls.NewIdent("ii", types.Int64, nil),
+			decls.NewIdent("iu", types.Uint64, nil),
+			decls.NewIdent("iz", types.Bool, nil),
+			decls.NewIdent("ib", types.Bytes, nil),
+			decls.NewIdent("id", types.Double, nil),
+			decls.NewIdent("ix", types.Null, nil),
 		},
 	},
 }
@@ -961,7 +983,7 @@ type testInfo struct {
 	R string
 
 	// Type is the expected type of the expression
-	Type types.Type
+	Type *checked.Type
 
 	// Container is the container name to use for test.
 	Container string
@@ -974,8 +996,8 @@ type testInfo struct {
 }
 
 type env struct {
-	idents    []*semantics.Ident
-	functions []*semantics.Function
+	idents    []*checked.Decl
+	functions []*checked.Decl
 }
 
 func Test(t *testing.T) {
@@ -991,16 +1013,16 @@ func Test(t *testing.T) {
 			}
 
 			env := NewEnv(errors, typeProvider)
-			AddStandard(env)
+			env.Add(StandardDeclarations()...)
 
 			if tst.Env.idents != nil {
 				for _, ident := range tst.Env.idents {
-					env.AddIdent(ident)
+					env.Add(ident)
 				}
 			}
 			if tst.Env.functions != nil {
 				for _, fn := range tst.Env.functions {
-					env.AddFunction(fn)
+					env.Add(fn)
 				}
 			}
 
@@ -1018,10 +1040,9 @@ func Test(t *testing.T) {
 				tt.Errorf("Expected error not thrown: %s", tst.Error)
 			}
 
-			actual := semantics.GetType(expression.Expr)
-
+			actual := semantics.TypeMap[expression.Expr.Id]
 			if tst.Error == "" {
-				if actual == nil || !actual.Equals(tst.Type) {
+				if actual == nil || !proto.Equal(actual, tst.Type) {
 					tt.Error(test.DiffMessage("Type Error", actual, tst.Type))
 				}
 			}

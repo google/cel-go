@@ -23,8 +23,8 @@ type Location interface {
 
 // SourceLocation helper type to manually construct a location.
 type SourceLocation struct {
-	line        int
-	column      int
+	line   int
+	column int
 }
 
 var (
@@ -36,8 +36,8 @@ var (
 // Create a new location.
 func NewLocation(line, column int) Location {
 	return &SourceLocation{
-		line:        line,
-		column:      column}
+		line:   line,
+		column: column}
 }
 
 func (l *SourceLocation) Line() int {

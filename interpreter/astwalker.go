@@ -18,8 +18,8 @@ package interpreter
 
 import (
 	"fmt"
-	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/operators"
+	"github.com/google/cel-go/overloads"
 	expr "github.com/google/cel-spec/proto/v1/syntax"
 )
 
@@ -338,7 +338,7 @@ func (w *astWalker) walkComprehension(node *expr.Expr) []Instruction {
 
 	// iter-init
 	iterInitStep :=
-		NewCall(iteratorId, functions.Iterator, []int64{w.getId(comprehensionRange)})
+		NewCall(iteratorId, overloads.Iterator, []int64{w.getId(comprehensionRange)})
 
 	// <LOOP>
 	// Loop instruction breakdown
@@ -360,7 +360,7 @@ func (w *astWalker) walkComprehension(node *expr.Expr) []Instruction {
 	// iter-hasNext
 	iterHasNextId := w.nextExprId()
 	iterHasNextStep :=
-		NewCall(iterHasNextId, functions.HasNext, []int64{iteratorId})
+		NewCall(iterHasNextId, overloads.HasNext, []int64{iteratorId})
 	// jump <END> if !it.hasNext()
 	jumpIterEndStep :=
 		NewJump(iterHasNextId, loopInstructionCount-2, false)
@@ -371,7 +371,7 @@ func (w *astWalker) walkComprehension(node *expr.Expr) []Instruction {
 		NewJump(loopId, loopInstructionCount-4, false)
 
 	// iter-next
-	nextIterVarStep := NewCall(iterNextId, functions.Next, []int64{iteratorId})
+	nextIterVarStep := NewCall(iterNextId, overloads.Next, []int64{iteratorId})
 	// assign the loop-step to the accu var
 	accuUpdateStep := NewMov(stepId, accuId)
 	// jump <LOOP>

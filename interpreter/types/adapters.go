@@ -22,7 +22,7 @@ import (
 	dpb "github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/struct"
 	tspb "github.com/golang/protobuf/ptypes/timestamp"
-	"github.com/google/cel-go/interpreter/types/aspects"
+	"github.com/google/cel-go/interpreter/types/traits"
 	"reflect"
 )
 
@@ -91,15 +91,15 @@ func ExprToProto(refType reflect.Type, value interface{}) (interface{}, error) {
 		}
 	case reflect.Map:
 		switch value.(type) {
-		case aspects.Protoer:
-			return value.(aspects.Protoer).ToProto(refType)
+		case traits.Protoer:
+			return value.(traits.Protoer).ToProto(refType)
 		default:
 			return NewMapValue(value).ToProto(refType)
 		}
 	case reflect.Slice, reflect.Array:
 		switch value.(type) {
-		case aspects.Protoer:
-			return value.(aspects.Protoer).ToProto(refType)
+		case traits.Protoer:
+			return value.(traits.Protoer).ToProto(refType)
 		case []byte:
 			return value.([]byte), nil
 		default:

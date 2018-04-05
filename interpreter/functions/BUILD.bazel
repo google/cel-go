@@ -5,13 +5,13 @@ package(default_visibility = ["//interpreter:__subpackages__"])
 go_library(
     name = "go_default_library",
     srcs = [
-        "functions.go",
         "standard.go",
     ],
     deps = [
         "//interpreter/types:go_default_library",
-        "//interpreter/types/aspects:go_default_library",
+        "//interpreter/types/traits:go_default_library",
         "//operators:go_default_library",
+        "//overloads:go_default_library",
         "@com_github_golang_protobuf//descriptor:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_golang_protobuf//ptypes:go_default_library",

@@ -1,16 +1,16 @@
 package parser
 
-import(
-	expr "github.com/google/cel-spec/proto/v1/syntax"
-	"github.com/google/cel-go/common"
+import (
 	"github.com/antlr/antlr4/runtime/Go/antlr"
+	"github.com/google/cel-go/common"
+	expr "github.com/google/cel-spec/proto/v1/syntax"
 )
 
 type parserHelper struct {
-	source common.Source
-	errors	*ParseErrors
-	macros map[string]Macro
-	nextId int64
+	source    common.Source
+	errors    *ParseErrors
+	macros    map[string]Macro
+	nextId    int64
 	positions map[int64]int32
 }
 
@@ -21,18 +21,18 @@ func NewParserHelper(source common.Source, macros Macros) *parserHelper {
 	}
 
 	return &parserHelper{
-		errors: &ParseErrors{common.NewErrors(source)},
-		source: source,
-		macros: macroMap,
-		nextId: 1,
+		errors:    &ParseErrors{common.NewErrors(source)},
+		source:    source,
+		macros:    macroMap,
+		nextId:    1,
 		positions: make(map[int64]int32),
 	}
 }
 
 func (p *parserHelper) getSourceInfo() *expr.SourceInfo {
 	return &expr.SourceInfo{
-		Location: p.source.Description(),
-		Positions: p.positions,
+		Location:    p.source.Description(),
+		Positions:   p.positions,
 		LineOffsets: p.source.LineOffsets()}
 }
 
@@ -62,42 +62,42 @@ func (p *parserHelper) newConstBool(ctx interface{}, value bool) *expr.Expr {
 }
 
 func (p *parserHelper) newConstString(ctx interface{}, value string) *expr.Expr {
-	return p.newConstant(ctx, &expr.Constant{ &expr.Constant_StringValue{ value }})
+	return p.newConstant(ctx, &expr.Constant{&expr.Constant_StringValue{value}})
 }
 
 func (p *parserHelper) newConstBytes(ctx interface{}, value []byte) *expr.Expr {
-	return p.newConstant(ctx, &expr.Constant{ &expr.Constant_BytesValue{ value }})
+	return p.newConstant(ctx, &expr.Constant{&expr.Constant_BytesValue{value}})
 }
 
 func (p *parserHelper) newConstInt(ctx interface{}, value int64) *expr.Expr {
-	return p.newConstant(ctx, &expr.Constant{ &expr.Constant_Int64Value{ value }})
+	return p.newConstant(ctx, &expr.Constant{&expr.Constant_Int64Value{value}})
 }
 
 func (p *parserHelper) newConstUint(ctx interface{}, value uint64) *expr.Expr {
-	return p.newConstant(ctx, &expr.Constant{ &expr.Constant_Uint64Value{ value }})
+	return p.newConstant(ctx, &expr.Constant{&expr.Constant_Uint64Value{value}})
 }
 
 func (p *parserHelper) newConstDouble(ctx interface{}, value float64) *expr.Expr {
-	return p.newConstant(ctx, &expr.Constant{ &expr.Constant_DoubleValue{ value }})
+	return p.newConstant(ctx, &expr.Constant{&expr.Constant_DoubleValue{value}})
 }
 
 func (p *parserHelper) newIdent(ctx interface{}, name string) *expr.Expr {
 	exprNode := p.newExpr(ctx)
-	exprNode.ExprKind = &expr.Expr_IdentExpr{IdentExpr: &expr.Expr_Ident{ Name: name }}
+	exprNode.ExprKind = &expr.Expr_IdentExpr{IdentExpr: &expr.Expr_Ident{Name: name}}
 	return exprNode
 }
 
 func (p *parserHelper) newSelect(ctx interface{}, operand *expr.Expr, field string) *expr.Expr {
 	exprNode := p.newExpr(ctx)
 	exprNode.ExprKind = &expr.Expr_SelectExpr{
-		SelectExpr: &expr.Expr_Select{ Operand: operand, Field: field }}
+		SelectExpr: &expr.Expr_Select{Operand: operand, Field: field}}
 	return exprNode
 }
 
 func (p *parserHelper) newPresenceTest(ctx interface{}, operand *expr.Expr, field string) *expr.Expr {
 	exprNode := p.newExpr(ctx)
 	exprNode.ExprKind = &expr.Expr_SelectExpr{
-		SelectExpr: &expr.Expr_Select{ Operand: operand, Field: field, TestOnly: true }}
+		SelectExpr: &expr.Expr_Select{Operand: operand, Field: field, TestOnly: true}}
 	return exprNode
 }
 
@@ -124,7 +124,7 @@ func (p *parserHelper) newMemberCall(ctx interface{}, function string, target *e
 func (p *parserHelper) newList(ctx interface{}, elements ...*expr.Expr) *expr.Expr {
 	exprNode := p.newExpr(ctx)
 	exprNode.ExprKind = &expr.Expr_ListExpr{
-		ListExpr: &expr.Expr_CreateList{ Elements: elements }}
+		ListExpr: &expr.Expr_CreateList{Elements: elements}}
 	return exprNode
 }
 
@@ -137,9 +137,9 @@ func (p *parserHelper) newMap(ctx interface{}, entries ...*expr.Expr_CreateStruc
 
 func (p *parserHelper) newMapEntry(ctx interface{}, key *expr.Expr, value *expr.Expr) *expr.Expr_CreateStruct_Entry {
 	return &expr.Expr_CreateStruct_Entry{
-		Id: p.id(ctx),
+		Id:      p.id(ctx),
 		KeyKind: &expr.Expr_CreateStruct_Entry_MapKey{MapKey: key},
-		Value: value}
+		Value:   value}
 }
 
 func (p *parserHelper) newObject(ctx interface{},
@@ -155,9 +155,9 @@ func (p *parserHelper) newObject(ctx interface{},
 
 func (p *parserHelper) newObjectField(ctx interface{}, field string, value *expr.Expr) *expr.Expr_CreateStruct_Entry {
 	return &expr.Expr_CreateStruct_Entry{
-		Id: p.id(ctx),
+		Id:      p.id(ctx),
 		KeyKind: &expr.Expr_CreateStruct_Entry_FieldKey{FieldKey: field},
-		Value: value}
+		Value:   value}
 }
 
 func (p *parserHelper) newComprehension(ctx interface{}, iterVar string,
@@ -170,13 +170,13 @@ func (p *parserHelper) newComprehension(ctx interface{}, iterVar string,
 	exprNode := p.newExpr(ctx)
 	exprNode.ExprKind = &expr.Expr_ComprehensionExpr{
 		ComprehensionExpr: &expr.Expr_Comprehension{
-			AccuVar: accuVar,
-			AccuInit: accuInit,
-			IterVar: iterVar,
-			IterRange: iterRange,
+			AccuVar:       accuVar,
+			AccuInit:      accuInit,
+			IterVar:       iterVar,
+			IterRange:     iterRange,
 			LoopCondition: condition,
-			LoopStep: step,
-			Result: result}}
+			LoopStep:      step,
+			Result:        result}}
 	return exprNode
 }
 
