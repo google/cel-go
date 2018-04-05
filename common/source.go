@@ -21,8 +21,6 @@ import (
 
 // Source interface for filter source contents.
 type Source interface {
-	Snippeter
-
 	// The source content represented as a string, for example a single file,
 	// textbox field, or url parameter.
 	Content() string
@@ -39,6 +37,13 @@ type Source interface {
 	// location line and column.
 	// Returns the line offset and whether the location was found.
 	CharacterOffset(location Location) (int32, bool)
+
+	// LocationFromOffset translates a raw character offset to a Location, or
+	// false if the conversion was not feasible.
+	LocationFromOffset(offset int32) (Location, bool)
+
+	// Return a line of content from the source and whether the line was found.
+	Snippet(line int) (string, bool)
 }
 
 // Ensure the StringSource implements the Source interface.
@@ -87,6 +92,11 @@ func (s *StringSource) CharacterOffset(location Location) (int32, bool) {
 	return -1, false
 }
 
+func (s *StringSource) LocationFromOffset(offset int32) (Location, bool) {
+	line, lineOffset := s.findLine(offset)
+	return NewLocation(int(line), int(offset - lineOffset)), true
+}
+
 func (s *StringSource) Snippet(line int) (string, bool) {
 	if charStart, found := s.findLineOffset(line); found {
 		charEnd, found := s.findLineOffset(line + 1)
@@ -106,5 +116,19 @@ func (s *StringSource) findLineOffset(line int) (int32, bool) {
 		return offset, true
 	}
 	return -1, false
+}
 
+func (s *StringSource) findLine(characterOffset int32) (int32, int32) {
+	var line int32 = 1
+	for _, lineOffset := range s.lineOffsets {
+		if lineOffset > characterOffset {
+			break;
+		} else {
+			line += 1
+		}
+	}
+	if line == 1 {
+		return line, 0
+	}
+	return line, s.lineOffsets[line-2]
 }

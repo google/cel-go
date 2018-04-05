@@ -27,13 +27,13 @@ type Error struct {
 }
 
 // Stringer implementation that places errors in context with the source.
-func (e *Error) ToDisplayString(snippeter Snippeter) string {
+func (e *Error) ToDisplayString(source Source) string {
 	var result = fmt.Sprintf("ERROR: %s:%d:%d: %s",
-		e.Location.Description(),
+		source.Description(),
 		e.Location.Line(),
 		e.Location.Column()+1, // add one to the 0-based column for display
 		e.Message)
-	if snippet, found := snippeter.Snippet(e.Location.Line()); found {
+	if snippet, found := source.Snippet(e.Location.Line()); found {
 		result += "\n | "
 		result += snippet
 		result += "\n | "

@@ -15,10 +15,10 @@
 package checker
 
 import (
-	"github.com/google/cel-go/ast"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/semantics"
 	"github.com/google/cel-go/semantics/types"
+	expr "github.com/google/cel-spec/proto/v1/syntax"
 )
 
 type Env struct {
@@ -77,7 +77,11 @@ func (env *Env) LookupIdent(container string, typeName string) *semantics.Ident 
 		if enumValue, found := env.typeProvider.LookupEnumValue(candidate); found {
 			decl := semantics.NewIdent(candidate,
 				types.Int64,
-				ast.NewInt64Constant(0, common.NoLocation, enumValue))
+				&expr.Expr{
+					ExprKind: &expr.Expr_ConstExpr{
+						&expr.Constant{
+							&expr.Constant_Int64Value{
+								enumValue}}}})
 			env.declarations.AddIdent(decl)
 		}
 	}

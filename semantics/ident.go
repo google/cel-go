@@ -15,8 +15,8 @@
 package semantics
 
 import (
-	"github.com/google/cel-go/ast"
 	"github.com/google/cel-go/semantics/types"
+	expr "github.com/google/cel-spec/proto/v1/syntax"
 )
 
 var Error = &Ident{
@@ -27,12 +27,12 @@ var Error = &Ident{
 type Ident struct {
 	name  string
 	t     types.Type
-	value ast.Constant
+	value *expr.Expr
 }
 
 var _ Declaration = &Ident{}
 
-func NewIdent(name string, t types.Type, value ast.Constant) *Ident {
+func NewIdent(name string, t types.Type, value *expr.Expr) *Ident {
 	return &Ident{
 		name:  name,
 		t:     t,
@@ -48,6 +48,6 @@ func (i *Ident) Type() types.Type {
 	return i.t
 }
 
-func (i *Ident) Value() ast.Constant {
+func (i *Ident) Value() *expr.Expr {
 	return i.value
 }

@@ -143,7 +143,7 @@ func (m *exprMetadata) Location(exprId int64) (common.Location, bool) {
 		}
 		line := lineIndex + 1
 		column := exprOffset - lineOffset
-		return common.NewLocation(m.info.Location, line, int(column)), true
+		return common.NewLocation(line, int(column)), true
 	}
 	return nil, false
 }

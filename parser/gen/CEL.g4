@@ -59,10 +59,8 @@ statement
     | statement op='{' entries=fieldInitializerList? '}'            # CreateMessage
     ;
 
-// TODO(b/67832261): Deprecate the 'in' function.
 primary
     : leadingDot='.'? id=IDENTIFIER (op='(' args=exprList? ')')?    # IdentOrGlobalCall
-    | id='in' op='(' args=exprList? ')'                             # DeprecatedIn
     | '(' e=expr ')'                                                # Nested
     | op='[' elems=exprList? ','? ']'                               # CreateList
     | op='{' entries=mapInitializerList? '}'                        # CreateStruct

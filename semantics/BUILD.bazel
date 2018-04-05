@@ -11,8 +11,8 @@ go_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//ast:go_default_library",
         "//common:go_default_library",
+        "//io:syntax_proto",
         "//semantics/types:go_default_library",
     ],
 )

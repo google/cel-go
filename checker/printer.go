@@ -15,19 +15,23 @@
 package checker
 
 import (
-	"github.com/google/cel-go/ast"
+	"github.com/google/cel-go/debug"
 	"github.com/google/cel-go/semantics"
+	expr "github.com/google/cel-spec/proto/v1/syntax"
 )
 
 type semanticAdorner struct {
 	s *semantics.Semantics
 }
 
-var _ ast.DebugAdorner = &semanticAdorner{}
+var _ debug.DebugAdorner = &semanticAdorner{}
 
-func (a *semanticAdorner) GetMetadata(e ast.Expression) string {
+func (a *semanticAdorner) GetMetadata(elem interface{}) string {
 	result := ""
-
+	e, isExpr := elem.(*expr.Expr)
+	if !isExpr {
+		return result
+	}
 	t := a.s.GetType(e)
 	if t != nil {
 		result += "~"
@@ -35,8 +39,11 @@ func (a *semanticAdorner) GetMetadata(e ast.Expression) string {
 	}
 
 	var ref semantics.Reference = nil
-	switch e.(type) {
-	case *ast.IdentExpression, *ast.CallExpression, *ast.CreateMessageExpression, *ast.SelectExpression:
+	switch e.ExprKind.(type) {
+	case *expr.Expr_IdentExpr,
+	     *expr.Expr_CallExpr,
+	     *expr.Expr_StructExpr,
+	     *expr.Expr_SelectExpr:
 		ref = a.s.GetReference(e)
 		if ref != nil {
 			if iref, ok := ref.(*semantics.IdentReference); ok {
@@ -57,10 +64,7 @@ func (a *semanticAdorner) GetMetadata(e ast.Expression) string {
 	return result
 }
 
-func print(e ast.Expression, s *semantics.Semantics) string {
-	a := semanticAdorner{
-		s: s,
-	}
-
-	return ast.ToAdornedDebugString(e, &a)
+func print(e *expr.Expr, s *semantics.Semantics) string {
+	a := &semanticAdorner{s: s}
+	return debug.ToAdornedDebugString(e, a)
 }

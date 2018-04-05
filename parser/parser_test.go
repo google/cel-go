@@ -18,169 +18,188 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/google/cel-go/ast"
 	"github.com/google/cel-go/test"
+	expr "github.com/google/cel-spec/proto/v1/syntax"
 	"reflect"
+	"github.com/google/cel-go/debug"
+	"github.com/google/cel-go/common"
 )
 
 var testCases = []testInfo{
 	{
 		I: `"A"`,
-		P: `"A"^#1:*ast.StringConstant#`,
+		P: `"A"^#1:*syntax.Constant_StringValue#`,
 	},
 	{
 		I: `true`,
-		P: `true^#1:*ast.BoolConstant#`,
+		P: `true^#1:*syntax.Constant_BoolValue#`,
 	},
 	{
 		I: `false`,
-		P: `false^#1:*ast.BoolConstant#`,
+		P: `false^#1:*syntax.Constant_BoolValue#`,
 	},
 	{
 		I: `0`,
-		P: `0^#1:*ast.Int64Constant#`,
+		P: `0^#1:*syntax.Constant_Int64Value#`,
 	},
 	{
 		I: `42`,
-		P: `42^#1:*ast.Int64Constant#`,
+		P: `42^#1:*syntax.Constant_Int64Value#`,
 	},
 	{
 		I: `0u`,
-		P: `0u^#1:*ast.Uint64Constant#`,
+		P: `0u^#1:*syntax.Constant_Uint64Value#`,
 	},
 	{
 		I: `23u`,
-		P: `23u^#1:*ast.Uint64Constant#`,
+		P: `23u^#1:*syntax.Constant_Uint64Value#`,
 	},
 	{
 		I: `24u`,
-		P: `24u^#1:*ast.Uint64Constant#`,
+		P: `24u^#1:*syntax.Constant_Uint64Value#`,
 	},
 	{
 		I: `-1`,
 		P: `-_(
-    		  1^#1:*ast.Int64Constant#)^#2:*ast.CallExpression#`,
+    		  1^#1:*syntax.Constant_Int64Value#
+			)^#2:*syntax.Expr_CallExpr#`,
 	},
 	{
 		I: `b"abc"`,
-		P: `b"abc"^#1:*ast.BytesConstant#`,
+		P: `b"abc"^#1:*syntax.Constant_BytesValue#`,
 	},
 	{
 		I: `23.39`,
-		P: `23.39^#1:*ast.DoubleConstant#`,
+		P: `23.39^#1:*syntax.Constant_DoubleValue#`,
 	},
 	{
 		I: `!a`,
 		P: `!_(
-    		  a^#1:*ast.IdentExpression#)^#2:*ast.CallExpression#`,
+    		  a^#1:*syntax.Expr_IdentExpr#
+			)^#2:*syntax.Expr_CallExpr#`,
 	},
 	{
 		I: `null`,
-		P: `null^#1:*ast.NullConstant#`,
+		P: `null^#1:*syntax.Constant_NullValue#`,
 	},
 	{
 		I: `a`,
-		P: `a^#1:*ast.IdentExpression#`,
+		P: `a^#1:*syntax.Expr_IdentExpr#`,
 	},
 	{
 		I: `a?b:c`,
 		P: `
 			_?_:_(
-    		  a^#1:*ast.IdentExpression#,
-    		  b^#2:*ast.IdentExpression#,
-    		  c^#3:*ast.IdentExpression#)^#4:*ast.CallExpression#`,
+    		  a^#1:*syntax.Expr_IdentExpr#,
+    		  b^#2:*syntax.Expr_IdentExpr#,
+    		  c^#3:*syntax.Expr_IdentExpr#
+			)^#4:*syntax.Expr_CallExpr#`,
 	},
 	{
 		I: `a || b`,
 		P: `_||_(
-    		  a^#1:*ast.IdentExpression#,
-    		  b^#2:*ast.IdentExpression#)^#3:*ast.CallExpression#`,
+    		  a^#1:*syntax.Expr_IdentExpr#,
+    		  b^#2:*syntax.Expr_IdentExpr#
+			)^#3:*syntax.Expr_CallExpr#`,
 	},
 	{
 		I: `a + b`,
 		P: `_+_(
-    		  a^#1:*ast.IdentExpression#,
-    		  b^#2:*ast.IdentExpression#)^#3:*ast.CallExpression#`,
+    		  a^#1:*syntax.Expr_IdentExpr#,
+    		  b^#2:*syntax.Expr_IdentExpr#
+			)^#3:*syntax.Expr_CallExpr#`,
 	},
 	{
 		I: `a - b`,
 		P: `_-_(
-    		  a^#1:*ast.IdentExpression#,
-    		  b^#2:*ast.IdentExpression#)^#3:*ast.CallExpression#`,
+    		  a^#1:*syntax.Expr_IdentExpr#,
+    		  b^#2:*syntax.Expr_IdentExpr#
+			)^#3:*syntax.Expr_CallExpr#`,
 	},
 	{
 		I: `a * b`,
 		P: `_*_(
-    		  a^#1:*ast.IdentExpression#,
-    		  b^#2:*ast.IdentExpression#)^#3:*ast.CallExpression#`,
+    		  a^#1:*syntax.Expr_IdentExpr#,
+    		  b^#2:*syntax.Expr_IdentExpr#
+			)^#3:*syntax.Expr_CallExpr#`,
 	},
 	{
 		I: `a / b`,
 		P: `_/_(
-    		  a^#1:*ast.IdentExpression#,
-    		  b^#2:*ast.IdentExpression#)^#3:*ast.CallExpression#`,
+    		  a^#1:*syntax.Expr_IdentExpr#,
+    		  b^#2:*syntax.Expr_IdentExpr#
+			)^#3:*syntax.Expr_CallExpr#`,
 	},
 	{
 		I: `a % b`,
 		P: `_%_(
-    		  a^#1:*ast.IdentExpression#,
-    		  b^#2:*ast.IdentExpression#)^#3:*ast.CallExpression#`,
+    		  a^#1:*syntax.Expr_IdentExpr#,
+    		  b^#2:*syntax.Expr_IdentExpr#
+			)^#3:*syntax.Expr_CallExpr#`,
 	},
 	{
 		I: `a in b`,
 		P: `_in_(
-    		  a^#1:*ast.IdentExpression#,
-    		  b^#2:*ast.IdentExpression#)^#3:*ast.CallExpression#`,
+    		  a^#1:*syntax.Expr_IdentExpr#,
+    		  b^#2:*syntax.Expr_IdentExpr#
+			)^#3:*syntax.Expr_CallExpr#`,
 	},
 	{
 		I: `a == b`,
 		P: `_==_(
-    		  a^#1:*ast.IdentExpression#,
-    		  b^#2:*ast.IdentExpression#)^#3:*ast.CallExpression#`,
+    		  a^#1:*syntax.Expr_IdentExpr#,
+    		  b^#2:*syntax.Expr_IdentExpr#
+			)^#3:*syntax.Expr_CallExpr#`,
 	},
 	{
 		I: `a != b`,
 		P: `_!=_(
-    		  a^#1:*ast.IdentExpression#,
-    		  b^#2:*ast.IdentExpression#)^#3:*ast.CallExpression#`,
+    		  a^#1:*syntax.Expr_IdentExpr#,
+    		  b^#2:*syntax.Expr_IdentExpr#
+			)^#3:*syntax.Expr_CallExpr#`,
 	},
 	{
 		I: `a > b`,
 		P: `_>_(
-    		  a^#1:*ast.IdentExpression#,
-    		  b^#2:*ast.IdentExpression#)^#3:*ast.CallExpression#`,
+    		  a^#1:*syntax.Expr_IdentExpr#,
+    		  b^#2:*syntax.Expr_IdentExpr#
+			)^#3:*syntax.Expr_CallExpr#`,
 	},
 	{
 		I: `a >= b`,
 		P: `_>=_(
-    		  a^#1:*ast.IdentExpression#,
-    		  b^#2:*ast.IdentExpression#)^#3:*ast.CallExpression#`,
+    		  a^#1:*syntax.Expr_IdentExpr#,
+    		  b^#2:*syntax.Expr_IdentExpr#
+			)^#3:*syntax.Expr_CallExpr#`,
 	},
 	{
 		I: `a < b`,
 		P: `_<_(
-    		  a^#1:*ast.IdentExpression#,
-    		  b^#2:*ast.IdentExpression#)^#3:*ast.CallExpression#`,
+    		  a^#1:*syntax.Expr_IdentExpr#,
+    		  b^#2:*syntax.Expr_IdentExpr#
+			)^#3:*syntax.Expr_CallExpr#`,
 	},
 	{
 		I: `a <= b`,
 		P: `_<=_(
-    		  a^#1:*ast.IdentExpression#,
-    		  b^#2:*ast.IdentExpression#)^#3:*ast.CallExpression#`,
+    		  a^#1:*syntax.Expr_IdentExpr#,
+    		  b^#2:*syntax.Expr_IdentExpr#
+			)^#3:*syntax.Expr_CallExpr#`,
 	},
 	{
 		I: `a.b`,
-		P: `a^#1:*ast.IdentExpression#.b^#2:*ast.SelectExpression#`,
+		P: `a^#1:*syntax.Expr_IdentExpr#.b^#2:*syntax.Expr_SelectExpr#`,
 	},
 	{
 		I: `a.b.c`,
-		P: `a^#1:*ast.IdentExpression#.b^#2:*ast.SelectExpression#.c^#3:*ast.SelectExpression#`,
+		P: `a^#1:*syntax.Expr_IdentExpr#.b^#2:*syntax.Expr_SelectExpr#.c^#3:*syntax.Expr_SelectExpr#`,
 	},
 	{
 		I: `a[b]`,
 		P: `_[_](
-    		  a^#1:*ast.IdentExpression#,
-    		  b^#2:*ast.IdentExpression#)^#3:*ast.CallExpression#`,
+    		  a^#1:*syntax.Expr_IdentExpr#,
+    		  b^#2:*syntax.Expr_IdentExpr#
+			)^#3:*syntax.Expr_CallExpr#`,
 	},
 
 	// TODO: This is an error.
@@ -193,90 +212,88 @@ var testCases = []testInfo{
 
 	{
 		I: `foo{ }`,
-		P: `foo{}^#2:*ast.CreateMessageExpression#`,
+		P: `foo{}^#2:*syntax.Expr_StructExpr#`,
 	},
 	{
 		I: `foo{ a:b }`,
 		P: `foo{
-    		  a:b^#2:*ast.IdentExpression#^#3:*ast.FieldEntry#}^#4:*ast.CreateMessageExpression#`,
+    		  a:b^#2:*syntax.Expr_IdentExpr#^#3:*syntax.Expr_CreateStruct_Entry#
+			}^#4:*syntax.Expr_StructExpr#`,
 	},
 	{
 		I: `foo{ a:b, c:d }`,
 		P: `foo{
-    		  a:b^#2:*ast.IdentExpression#^#3:*ast.FieldEntry#,
-    		  c:d^#4:*ast.IdentExpression#^#5:*ast.FieldEntry#}^#6:*ast.CreateMessageExpression#`,
+    		  a:b^#2:*syntax.Expr_IdentExpr#^#3:*syntax.Expr_CreateStruct_Entry#,
+    		  c:d^#4:*syntax.Expr_IdentExpr#^#5:*syntax.Expr_CreateStruct_Entry#
+			}^#6:*syntax.Expr_StructExpr#`,
 	},
 	{
 		I: `{}`,
-		P: `{}^#1:*ast.CreateStructExpression#`,
+		P: `{}^#1:*syntax.Expr_StructExpr#`,
 	},
 
 	{
 		I: `{a:b, c:d}`,
 		P: `{
-    		  a^#1:*ast.IdentExpression#:b^#2:*ast.IdentExpression#^#3:*ast.StructEntry#,
-    		  c^#4:*ast.IdentExpression#:d^#5:*ast.IdentExpression#^#6:*ast.StructEntry#}^#7:*ast.CreateStructExpression#`,
+    		  a^#1:*syntax.Expr_IdentExpr#:b^#2:*syntax.Expr_IdentExpr#^#3:*syntax.Expr_CreateStruct_Entry#,
+    		  c^#4:*syntax.Expr_IdentExpr#:d^#5:*syntax.Expr_IdentExpr#^#6:*syntax.Expr_CreateStruct_Entry#
+			}^#7:*syntax.Expr_StructExpr#`,
 	},
 	{
 		I: `[]`,
-		P: `[]^#1:*ast.CreateListExpression#`,
+		P: `[]^#1:*syntax.Expr_ListExpr#`,
 	},
 	{
 		I: `[a]`,
 		P: `[
-    		  a^#2:*ast.IdentExpression#]^#1:*ast.CreateListExpression#`,
+    		  a^#1:*syntax.Expr_IdentExpr#
+			]^#2:*syntax.Expr_ListExpr#`,
 	},
 	{
 		I: `[a, b, c]`,
 		P: `[
-    		  a^#2:*ast.IdentExpression#,
-    		  b^#3:*ast.IdentExpression#,
-    		  c^#4:*ast.IdentExpression#]^#1:*ast.CreateListExpression#`,
+    		  a^#1:*syntax.Expr_IdentExpr#,
+    		  b^#2:*syntax.Expr_IdentExpr#,
+    		  c^#3:*syntax.Expr_IdentExpr#
+			]^#4:*syntax.Expr_ListExpr#`,
 	},
 	{
 		I: `(a)`,
-		P: `a^#1:*ast.IdentExpression#`,
+		P: `a^#1:*syntax.Expr_IdentExpr#`,
 	},
 	{
 		I: `((a))`,
-		P: `a^#1:*ast.IdentExpression#`,
-	},
-	{
-		// Deprecated "in"
-		I: `in(a,b)`,
-		P: `in(
-    		  a^#1:*ast.IdentExpression#,
-    		  b^#2:*ast.IdentExpression#)^#3:*ast.CallExpression#`,
+		P: `a^#1:*syntax.Expr_IdentExpr#`,
 	},
 	{
 		I: `a()`,
-		P: `a()^#1:*ast.CallExpression#`,
+		P: `a()^#1:*syntax.Expr_CallExpr#`,
 	},
 
 	{
 		I: `a(b)`,
 		P: `a(
-    		  b^#1:*ast.IdentExpression#)^#2:*ast.CallExpression#`,
+    		  b^#1:*syntax.Expr_IdentExpr#)^#2:*syntax.Expr_CallExpr#`,
 	},
 
 	{
 		I: `a(b, c)`,
 		P: `a(
-    		  b^#1:*ast.IdentExpression#,
-    		  c^#2:*ast.IdentExpression#)^#3:*ast.CallExpression#`,
+    		  b^#1:*syntax.Expr_IdentExpr#,
+    		  c^#2:*syntax.Expr_IdentExpr#)^#3:*syntax.Expr_CallExpr#`,
 	},
 	{
 		I: `a.b()`,
-		P: `a^#1:*ast.IdentExpression#.b()^#2:*ast.CallExpression#`,
+		P: `a^#1:*syntax.Expr_IdentExpr#.b()^#2:*syntax.Expr_CallExpr#`,
 	},
 
 	{
 		I: `a.b(c)`,
-		P: `a^#1:*ast.IdentExpression#.b(
-    		  c^#2:*ast.IdentExpression#)^#3:*ast.CallExpression#`,
+		P: `a^#1:*syntax.Expr_IdentExpr#.b(
+    		  c^#2:*syntax.Expr_IdentExpr#)^#3:*syntax.Expr_CallExpr#`,
 		L: `a^#1[1,0]#.b(
     		  c^#2[1,4]#
-    		)^#3[1,1]#`,
+    		)^#3[1,3]#`,
 	},
 
 	// Parse error tests
@@ -310,7 +327,7 @@ ERROR: <input>:1:5: Syntax error: extraneous input 'b' expecting <EOF>
 	// Macro tests
 	{
 		I: `has(m.f)`,
-		P: `m^#1:*ast.IdentExpression#.f~test-only~^#3:*ast.SelectExpression#`,
+		P: `m^#1:*syntax.Expr_IdentExpr#.f~test-only~^#3:*syntax.Expr_SelectExpr#`,
 		L: `m^#1[1,4]#.f~test-only~^#3[1,3]#`,
 	},
 	{
@@ -319,26 +336,30 @@ ERROR: <input>:1:5: Syntax error: extraneous input 'b' expecting <EOF>
     		  // Variable
     		  v,
     		  // Target
-    		  m^#1:*ast.IdentExpression#,
+    		  m^#1:*syntax.Expr_IdentExpr#,
     		  // Accumulator
     		  __result__,
     		  // Init
-    		  0^#4:*ast.Int64Constant#,
+    		  0^#4:*syntax.Constant_Int64Value#,
     		  // LoopCondition
     		  _<=_(
-    		    __result__^#7:*ast.IdentExpression#,
-    		    1^#5:*ast.Int64Constant#)^#6:*ast.CallExpression#,
+    		    __result__^#6:*syntax.Expr_IdentExpr#,
+    		    1^#5:*syntax.Constant_Int64Value#
+  			  )^#7:*syntax.Expr_CallExpr#,
     		  // LoopStep
     		  _?_:_(
-    		    f^#3:*ast.IdentExpression#,
+    		    f^#3:*syntax.Expr_IdentExpr#,
     		    _+_(
-    		      __result__^#10:*ast.IdentExpression#,
-    		      1^#5:*ast.Int64Constant#)^#9:*ast.CallExpression#,
-    		    __result__^#11:*ast.IdentExpression#)^#8:*ast.CallExpression#,
+    		      __result__^#8:*syntax.Expr_IdentExpr#,
+    		      1^#5:*syntax.Constant_Int64Value#
+				)^#9:*syntax.Expr_CallExpr#,
+    		    __result__^#10:*syntax.Expr_IdentExpr#
+			  )^#11:*syntax.Expr_CallExpr#,
     		  // Result
     		  _==_(
-    		    __result__^#13:*ast.IdentExpression#,
-    		    1^#5:*ast.Int64Constant#)^#12:*ast.CallExpression#)^#14:*ast.ComprehensionExpression#`,
+    		    __result__^#12:*syntax.Expr_IdentExpr#,
+    		    1^#5:*syntax.Constant_Int64Value#
+		      )^#13:*syntax.Expr_CallExpr#)^#14:*syntax.Expr_ComprehensionExpr#`,
 	},
 	{
 		I: `m.map(v, f)`,
@@ -346,20 +367,22 @@ ERROR: <input>:1:5: Syntax error: extraneous input 'b' expecting <EOF>
     		  // Variable
     		  v,
     		  // Target
-    		  m^#1:*ast.IdentExpression#,
+    		  m^#1:*syntax.Expr_IdentExpr#,
     		  // Accumulator
     		  __result__,
     		  // Init
-    		  []^#5:*ast.CreateListExpression#,
+    		  []^#5:*syntax.Expr_ListExpr#,
     		  // LoopCondition
-    		  true^#6:*ast.BoolConstant#,
+    		  true^#6:*syntax.Constant_BoolValue#,
     		  // LoopStep
     		  _+_(
-    		    __result__^#4:*ast.IdentExpression#,
+    		    __result__^#4:*syntax.Expr_IdentExpr#,
     		    [
-    		      f^#3:*ast.IdentExpression#]^#8:*ast.CreateListExpression#)^#7:*ast.CallExpression#,
-    		    // Result
-    		    __result__^#4:*ast.IdentExpression#)^#9:*ast.ComprehensionExpression#`,
+    		      f^#3:*syntax.Expr_IdentExpr#
+				]^#7:*syntax.Expr_ListExpr#
+ 			  )^#8:*syntax.Expr_CallExpr#,
+    		  // Result
+    		  __result__^#4:*syntax.Expr_IdentExpr#)^#9:*syntax.Expr_ComprehensionExpr#`,
 	},
 
 	{
@@ -368,23 +391,27 @@ ERROR: <input>:1:5: Syntax error: extraneous input 'b' expecting <EOF>
     		  // Variable
     		  v,
     		  // Target
-    		  m^#1:*ast.IdentExpression#,
+    		  m^#1:*syntax.Expr_IdentExpr#,
     		  // Accumulator
     		  __result__,
     		  // Init
-    		  []^#6:*ast.CreateListExpression#,
+    		  []^#6:*syntax.Expr_ListExpr#,
     		  // LoopCondition
-    		  true^#7:*ast.BoolConstant#,
+    		  true^#7:*syntax.Constant_BoolValue#,
     		  // LoopStep
     		  _?_:_(
-    		    p^#3:*ast.IdentExpression#,
+    		    p^#3:*syntax.Expr_IdentExpr#,
     		    _+_(
-    		      __result__^#5:*ast.IdentExpression#,
+    		      __result__^#5:*syntax.Expr_IdentExpr#,
     		      [
-    		        f^#4:*ast.IdentExpression#]^#9:*ast.CreateListExpression#)^#8:*ast.CallExpression#,
-    		      __result__^#5:*ast.IdentExpression#)^#10:*ast.CallExpression#,
+    		        f^#4:*syntax.Expr_IdentExpr#
+				  ]^#8:*syntax.Expr_ListExpr#
+				)^#9:*syntax.Expr_CallExpr#,
+    		    __result__^#5:*syntax.Expr_IdentExpr#
+                )^#10:*syntax.Expr_CallExpr#,
     		    // Result
-    		    __result__^#5:*ast.IdentExpression#)^#11:*ast.ComprehensionExpression#`,
+    		    __result__^#5:*syntax.Expr_IdentExpr#
+				)^#11:*syntax.Expr_ComprehensionExpr#`,
 	},
 
 	{
@@ -393,23 +420,26 @@ ERROR: <input>:1:5: Syntax error: extraneous input 'b' expecting <EOF>
     		  // Variable
     		  v,
     		  // Target
-    		  m^#1:*ast.IdentExpression#,
+    		  m^#1:*syntax.Expr_IdentExpr#,
     		  // Accumulator
     		  __result__,
     		  // Init
-    		  []^#5:*ast.CreateListExpression#,
+    		  []^#5:*syntax.Expr_ListExpr#,
     		  // LoopCondition
-    		  true^#6:*ast.BoolConstant#,
+    		  true^#6:*syntax.Constant_BoolValue#,
     		  // LoopStep
     		  _?_:_(
-    		    p^#3:*ast.IdentExpression#,
+    		    p^#3:*syntax.Expr_IdentExpr#,
     		    _+_(
-    		      __result__^#4:*ast.IdentExpression#,
+    		      __result__^#4:*syntax.Expr_IdentExpr#,
     		      [
-    		        v^#2:*ast.IdentExpression#]^#8:*ast.CreateListExpression#)^#7:*ast.CallExpression#,
-    		      __result__^#4:*ast.IdentExpression#)^#9:*ast.CallExpression#,
+    		        v^#2:*syntax.Expr_IdentExpr#
+				  ]^#7:*syntax.Expr_ListExpr#
+				)^#8:*syntax.Expr_CallExpr#,
+    		    __result__^#4:*syntax.Expr_IdentExpr#
+  				)^#9:*syntax.Expr_CallExpr#,
     		    // Result
-    		    __result__^#4:*ast.IdentExpression#)^#10:*ast.ComprehensionExpression#`,
+    		    __result__^#4:*syntax.Expr_IdentExpr#)^#10:*syntax.Expr_ComprehensionExpr#`,
 	},
 
 	// Tests from Java parser
@@ -417,31 +447,31 @@ ERROR: <input>:1:5: Syntax error: extraneous input 'b' expecting <EOF>
 		I: `[] + [1,2,3,] + [4]`,
 		P: `_+_(
     		  _+_(
-    		    []^#1:*ast.CreateListExpression#,
+    		    []^#1:*syntax.Expr_ListExpr#,
     		    [
-    		      1^#3:*ast.Int64Constant#,
-    		      2^#4:*ast.Int64Constant#,
-    		      3^#5:*ast.Int64Constant#
-    		    ]^#2:*ast.CreateListExpression#
-    		  )^#6:*ast.CallExpression#,
+    		      1^#2:*syntax.Constant_Int64Value#,
+    		      2^#3:*syntax.Constant_Int64Value#,
+    		      3^#4:*syntax.Constant_Int64Value#
+    		    ]^#5:*syntax.Expr_ListExpr#
+    		  )^#6:*syntax.Expr_CallExpr#,
     		  [
-    		    4^#8:*ast.Int64Constant#
-    		  ]^#7:*ast.CreateListExpression#
-    		)^#9:*ast.CallExpression#`,
+    		    4^#7:*syntax.Constant_Int64Value#
+    		  ]^#8:*syntax.Expr_ListExpr#
+    		)^#9:*syntax.Expr_CallExpr#`,
 	},
 	{
 		I: `{1:2u, 2:3u}`,
 		P: `{
-    		  1^#1:*ast.Int64Constant#:2u^#2:*ast.Uint64Constant#^#3:*ast.StructEntry#,
-    		  2^#4:*ast.Int64Constant#:3u^#5:*ast.Uint64Constant#^#6:*ast.StructEntry#
-    		}^#7:*ast.CreateStructExpression#`,
+    		  1^#1:*syntax.Constant_Int64Value#:2u^#2:*syntax.Constant_Uint64Value#^#3:*syntax.Expr_CreateStruct_Entry#,
+    		  2^#4:*syntax.Constant_Int64Value#:3u^#5:*syntax.Constant_Uint64Value#^#6:*syntax.Expr_CreateStruct_Entry#
+    		}^#7:*syntax.Expr_StructExpr#`,
 	},
 	{
 		I: `TestAllTypes{single_int32: 1, single_int64: 2}`,
 		P: `TestAllTypes{
-    		  single_int32:1^#2:*ast.Int64Constant#^#3:*ast.FieldEntry#,
-    		  single_int64:2^#4:*ast.Int64Constant#^#5:*ast.FieldEntry#
-    		}^#6:*ast.CreateMessageExpression#`,
+    		  single_int32:1^#2:*syntax.Constant_Int64Value#^#3:*syntax.Expr_CreateStruct_Entry#,
+    		  single_int64:2^#4:*syntax.Constant_Int64Value#^#5:*syntax.Expr_CreateStruct_Entry#
+    		}^#6:*syntax.Expr_StructExpr#`,
 	},
 	{
 		I: `TestAllTypes(){single_int32: 1, single_int64: 2}`,
@@ -455,10 +485,10 @@ ERROR: <input>:1:13: expected a qualified name
 		I: `size(x) == x.size()`,
 		P: `_==_(
     		  size(
-    		    x^#1:*ast.IdentExpression#
-    		  )^#2:*ast.CallExpression#,
-    		  x^#3:*ast.IdentExpression#.size()^#4:*ast.CallExpression#
-    		)^#5:*ast.CallExpression#`,
+    		    x^#1:*syntax.Expr_IdentExpr#
+    		  )^#2:*syntax.Expr_CallExpr#,
+    		  x^#3:*syntax.Expr_IdentExpr#.size()^#4:*syntax.Expr_CallExpr#
+    		)^#5:*syntax.Expr_CallExpr#`,
 	},
 	{
 		I: `1 + $`,
@@ -482,23 +512,23 @@ ERROR: <input>:2:1: Syntax error: mismatched input '3' expecting <EOF>
 	},
 	{
 		I: `"\""`,
-		P: `"\""^#1:*ast.StringConstant#`,
+		P: `"\""^#1:*syntax.Constant_StringValue#`,
 	},
 	{
 		I: `[1,3,4][0]`,
 		P: `_[_](
     		  [
-    		    1^#2:*ast.Int64Constant#,
-    		    3^#3:*ast.Int64Constant#,
-    		    4^#4:*ast.Int64Constant#
-    		  ]^#1:*ast.CreateListExpression#,
-    		  0^#5:*ast.Int64Constant#
-    		)^#6:*ast.CallExpression#`,
+    		    1^#1:*syntax.Constant_Int64Value#,
+    		    3^#2:*syntax.Constant_Int64Value#,
+    		    4^#3:*syntax.Constant_Int64Value#
+    		  ]^#4:*syntax.Expr_ListExpr#,
+    		  0^#5:*syntax.Constant_Int64Value#
+    		)^#6:*syntax.Expr_CallExpr#`,
 	},
 	{
 		I: `1.all(2, 3)`,
 		E: `
-ERROR: <input>:1:7: The argument must be a simple name
+ERROR: <input>:1:7: argument must be a simple name
  | 1.all(2, 3)
  | ......^
 		`,
@@ -507,63 +537,63 @@ ERROR: <input>:1:7: The argument must be a simple name
 		I: `x["a"].single_int32 == 23`,
 		P: `_==_(
     		  _[_](
-    		    x^#1:*ast.IdentExpression#,
-    		    "a"^#2:*ast.StringConstant#
-    		  )^#3:*ast.CallExpression#.single_int32^#4:*ast.SelectExpression#,
-    		  23^#5:*ast.Int64Constant#
-    		)^#6:*ast.CallExpression#`,
+    		    x^#1:*syntax.Expr_IdentExpr#,
+    		    "a"^#2:*syntax.Constant_StringValue#
+    		  )^#3:*syntax.Expr_CallExpr#.single_int32^#4:*syntax.Expr_SelectExpr#,
+    		  23^#5:*syntax.Constant_Int64Value#
+    		)^#6:*syntax.Expr_CallExpr#`,
 	},
 	{
 		I: `x.single_nested_message != null`,
 		P: `_!=_(
-    		  x^#1:*ast.IdentExpression#.single_nested_message^#2:*ast.SelectExpression#,
-    		  null^#3:*ast.NullConstant#
-    		)^#4:*ast.CallExpression#`,
+    		  x^#1:*syntax.Expr_IdentExpr#.single_nested_message^#2:*syntax.Expr_SelectExpr#,
+    		  null^#3:*syntax.Constant_NullValue#
+    		)^#4:*syntax.Expr_CallExpr#`,
 	},
 	{
 		I: `false && !true || false ? 2 : 3`,
 		P: `_?_:_(
     		  _||_(
     		    _&&_(
-    		      false^#1:*ast.BoolConstant#,
+    		      false^#1:*syntax.Constant_BoolValue#,
     		      !_(
-    		        true^#2:*ast.BoolConstant#
-    		      )^#3:*ast.CallExpression#
-    		    )^#4:*ast.CallExpression#,
-    		    false^#5:*ast.BoolConstant#
-    		  )^#6:*ast.CallExpression#,
-    		  2^#7:*ast.Int64Constant#,
-    		  3^#8:*ast.Int64Constant#
-    		)^#9:*ast.CallExpression#`,
+    		        true^#2:*syntax.Constant_BoolValue#
+    		      )^#3:*syntax.Expr_CallExpr#
+    		    )^#4:*syntax.Expr_CallExpr#,
+    		    false^#5:*syntax.Constant_BoolValue#
+    		  )^#6:*syntax.Expr_CallExpr#,
+    		  2^#7:*syntax.Constant_Int64Value#,
+    		  3^#8:*syntax.Constant_Int64Value#
+    		)^#9:*syntax.Expr_CallExpr#`,
 	},
 	{
 		I: `b"abc" + B"def"`,
 		P: `_+_(
-    		  b"abc"^#1:*ast.BytesConstant#,
-    		  b"def"^#2:*ast.BytesConstant#
-    		)^#3:*ast.CallExpression#`,
+    		  b"abc"^#1:*syntax.Constant_BytesValue#,
+    		  b"def"^#2:*syntax.Constant_BytesValue#
+    		)^#3:*syntax.Expr_CallExpr#`,
 	},
 	{
 		I: `1 + 2 * 3 - 1 / 2 == 6 % 1`,
 		P: `_==_(
     		  _-_(
     		    _+_(
-    		      1^#1:*ast.Int64Constant#,
+    		      1^#1:*syntax.Constant_Int64Value#,
     		      _*_(
-    		        2^#2:*ast.Int64Constant#,
-    		        3^#3:*ast.Int64Constant#
-    		      )^#4:*ast.CallExpression#
-    		    )^#5:*ast.CallExpression#,
+    		        2^#2:*syntax.Constant_Int64Value#,
+    		        3^#3:*syntax.Constant_Int64Value#
+    		      )^#4:*syntax.Expr_CallExpr#
+    		    )^#5:*syntax.Expr_CallExpr#,
     		    _/_(
-    		      1^#6:*ast.Int64Constant#,
-    		      2^#7:*ast.Int64Constant#
-    		    )^#8:*ast.CallExpression#
-    		  )^#9:*ast.CallExpression#,
+    		      1^#6:*syntax.Constant_Int64Value#,
+    		      2^#7:*syntax.Constant_Int64Value#
+    		    )^#8:*syntax.Expr_CallExpr#
+    		  )^#9:*syntax.Expr_CallExpr#,
     		  _%_(
-    		    6^#10:*ast.Int64Constant#,
-    		    1^#11:*ast.Int64Constant#
-    		  )^#12:*ast.CallExpression#
-    		)^#13:*ast.CallExpression#`,
+    		    6^#10:*syntax.Constant_Int64Value#,
+    		    1^#11:*syntax.Constant_Int64Value#
+    		  )^#12:*syntax.Expr_CallExpr#
+    		)^#13:*syntax.Expr_CallExpr#`,
 	},
 	{
 		I: `1 + +`,
@@ -579,9 +609,9 @@ ERROR: <input>:1:6: Syntax error: mismatched input '<EOF>' expecting {'in', '[',
 	{
 		I: `"abc" + "def"`,
 		P: `_+_(
-    		  "abc"^#1:*ast.StringConstant#,
-    		  "def"^#2:*ast.StringConstant#
-    		)^#3:*ast.CallExpression#`,
+    		  "abc"^#1:*syntax.Constant_StringValue#,
+    		  "def"^#2:*syntax.Constant_StringValue#
+    		)^#3:*syntax.Expr_CallExpr#`,
 	},
 }
 
@@ -599,18 +629,66 @@ type testInfo struct {
 	L string
 }
 
+
+type metadata interface {
+	GetLocation(exprId int64) (common.Location, bool)
+}
+
 type kindAndIdAdorner struct {
 }
 
-func (k *kindAndIdAdorner) GetMetadata(e ast.Expression) string {
-	return fmt.Sprintf("^#%d:%s#", e.Id(), reflect.TypeOf(e))
+func (k *kindAndIdAdorner) GetMetadata(elem interface{}) string {
+	switch elem.(type) {
+	case *expr.Expr:
+		e := elem.(*expr.Expr)
+		var valType interface{} = e.ExprKind
+		switch valType.(type) {
+		case *expr.Expr_ConstExpr:
+			valType = e.GetConstExpr().ConstantKind
+		}
+		return fmt.Sprintf("^#%d:%s#", e.Id, reflect.TypeOf(valType))
+	case *expr.Expr_CreateStruct_Entry:
+		entry := elem.(*expr.Expr_CreateStruct_Entry)
+		return fmt.Sprintf("^#%d:%s#", entry.Id, "*syntax.Expr_CreateStruct_Entry")
+	}
+	return ""
 }
 
 type locationAdorner struct {
+	sourceInfo *expr.SourceInfo
 }
 
-func (k *locationAdorner) GetMetadata(e ast.Expression) string {
-	return fmt.Sprintf("^#%d[%d,%d]#", e.Id(), e.Location().Line(), e.Location().Column())
+var _ metadata = &locationAdorner{}
+
+func (l *locationAdorner) GetLocation(exprId int64) (common.Location, bool) {
+	if pos, found := l.sourceInfo.Positions[exprId]; found {
+		var line = 1
+		for _, lineOffset := range l.sourceInfo.LineOffsets {
+			if lineOffset > pos {
+				break
+			} else {
+				line += 1
+			}
+		}
+		var column = pos
+		if line > 1 {
+			column = pos - l.sourceInfo.LineOffsets[line-2]
+		}
+		return common.NewLocation(line, int(column)), true
+	}
+	return common.NoLocation, false
+}
+
+func (l *locationAdorner) GetMetadata(elem interface{}) string {
+	var elemId int64 = 0
+	switch elem.(type) {
+	case *expr.Expr:
+		elemId = elem.(*expr.Expr).Id
+	case *expr.Expr_CreateStruct_Entry:
+		elemId = elem.(*expr.Expr_CreateStruct_Entry).Id
+	}
+	location, _ := l.GetLocation(elemId)
+	return fmt.Sprintf("^#%d[%d,%d]#", elemId, location.Line(), location.Column())
 }
 
 func Test(t *testing.T) {
@@ -631,13 +709,13 @@ func Test(t *testing.T) {
 				tt.Fatalf("Expected error not thrown: '%s'", tst.E)
 			}
 
-			actualWithKind := ast.ToAdornedDebugString(expression, &kindAndIdAdorner{})
+			actualWithKind := debug.ToAdornedDebugString(expression.Expr, &kindAndIdAdorner{})
 			if !test.Compare(actualWithKind, tst.P) {
 				tt.Fatal(test.DiffMessage("structure", actualWithKind, tst.P))
 			}
 
 			if tst.L != "" {
-				actualWithLocation := ast.ToAdornedDebugString(expression, &locationAdorner{})
+				actualWithLocation := debug.ToAdornedDebugString(expression.Expr, &locationAdorner{expression.SourceInfo})
 				if !test.Compare(actualWithLocation, tst.L) {
 					tt.Fatal(test.DiffMessage("location", actualWithLocation, tst.L))
 				}

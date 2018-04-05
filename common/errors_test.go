@@ -23,13 +23,11 @@ import (
 func TestErrors(t *testing.T) {
 	source := NewStringSource("a.b\n&&arg(missing, paren", "errors-test")
 	errors := NewErrors(source)
-	errors.ReportError(
-		NewLocation("errors-test", 1, 1), "No such field")
+	errors.ReportError(NewLocation(1, 1), "No such field")
 	if len(errors.GetErrors()) != 1 {
 		t.Error("%s first error not recorded", t.Name())
 	}
-	errors.ReportError(
-		NewLocation("errors-test", 2, 20),
+	errors.ReportError(NewLocation( 2, 20),
 		"Syntax error, missing paren")
 	if len(errors.GetErrors()) != 2 {
 		t.Errorf("%s second error not recorded", t.Name())

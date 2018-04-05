@@ -17,8 +17,8 @@ package semantics
 import (
 	"fmt"
 
-	"github.com/google/cel-go/ast"
 	"github.com/google/cel-go/semantics/types"
+	expr "github.com/google/cel-spec/proto/v1/syntax"
 )
 
 type Semantics struct {
@@ -33,12 +33,12 @@ func New(types map[int64]types.Type, references map[int64]Reference) *Semantics 
 	}
 }
 
-func (s *Semantics) GetType(e ast.Expression) types.Type {
-	return s.types[e.Id()]
+func (s *Semantics) GetType(e *expr.Expr) types.Type {
+	return s.types[e.Id]
 }
 
-func (s *Semantics) GetReference(e ast.Expression) Reference {
-	return s.references[e.Id()]
+func (s *Semantics) GetReference(e *expr.Expr) Reference {
+	return s.references[e.Id]
 }
 
 func (s *Semantics) String() string {
