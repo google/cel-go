@@ -12,28 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package checker
+package types
 
 import (
 	"fmt"
-	"github.com/google/cel-go/semantics/types"
+	"github.com/google/cel-spec/proto/checked/v1/checked"
 )
 
 type Mapping struct {
-	mapping map[string]types.Type
+	mapping map[string]*checked.Type
 }
 
-func newMapping() *Mapping {
+func NewMapping() *Mapping {
 	return &Mapping{
-		mapping: make(map[string]types.Type),
+		mapping: make(map[string]*checked.Type),
 	}
 }
 
-func (s *Mapping) Add(from types.Type, to types.Type) {
+func (s *Mapping) Add(from *checked.Type, to *checked.Type) {
 	s.mapping[typeKey(from)] = to
 }
 
-func (s *Mapping) Find(from types.Type) (types.Type, bool) {
+func (s *Mapping) Find(from *checked.Type) (*checked.Type, bool) {
 	if r, found := s.mapping[typeKey(from)]; found {
 		return r, found
 	}
@@ -41,7 +41,7 @@ func (s *Mapping) Find(from types.Type) (types.Type, bool) {
 }
 
 func (s *Mapping) Copy() *Mapping {
-	c := newMapping()
+	c := NewMapping()
 
 	for k, v := range s.mapping {
 		c.mapping[k] = v

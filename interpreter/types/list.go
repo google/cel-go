@@ -18,7 +18,7 @@ package types
 
 import (
 	"fmt"
-	"github.com/google/cel-go/interpreter/types/aspects"
+	"github.com/google/cel-go/interpreter/types/traits"
 	"reflect"
 )
 
@@ -28,10 +28,10 @@ import (
 // ListValues are comparable, iterable, support indexed access,
 // and may be converted to a protobuf representation.
 type ListValue interface {
-	aspects.Equaler
-	aspects.Indexer
-	aspects.Iterable
-	aspects.Protoer
+	traits.Equaler
+	traits.Indexer
+	traits.Iterable
+	traits.Protoer
 
 	// Value of the underlying list.
 	Value() interface{}
@@ -83,7 +83,7 @@ func (l *listValue) Equal(other interface{}) bool {
 	for i := int64(0); i < elemCount; i++ {
 		elem, _ := l.Get(i)
 		otherElem, _ := adapter.Get(i)
-		if elemEqualer, ok := elem.(aspects.Equaler); ok {
+		if elemEqualer, ok := elem.(traits.Equaler); ok {
 			if !elemEqualer.Equal(otherElem) {
 				return false
 			}
@@ -136,8 +136,8 @@ func (l *listValue) Contains(value interface{}) bool {
 		elem, _ := ProtoToExpr(l.refValue.Index(i).Interface())
 		matches := false
 		switch elem.(type) {
-		case aspects.Equaler:
-			matches = elem.(aspects.Equaler).Equal(value)
+		case traits.Equaler:
+			matches = elem.(traits.Equaler).Equal(value)
 		default:
 			matches = reflect.DeepEqual(elem, value)
 		}
@@ -156,7 +156,7 @@ func (l *listValue) Len() int64 {
 	return int64(l.refValue.Len())
 }
 
-func (l *listValue) Iterator() aspects.Iterator {
+func (l *listValue) Iterator() traits.Iterator {
 	return &listIterator{listValue: l, cursor: 0, len: l.Len()}
 }
 
@@ -207,7 +207,7 @@ func (l *concatListValue) Equal(other interface{}) bool {
 	for i := int64(0); i < elemCount; i++ {
 		elem, _ := l.Get(i)
 		otherElem, _ := adapter.Get(i)
-		if elemEqualer, ok := elem.(aspects.Equaler); ok &&
+		if elemEqualer, ok := elem.(traits.Equaler); ok &&
 			!elemEqualer.Equal(otherElem) {
 			return false
 		}
@@ -234,7 +234,7 @@ func (l *concatListValue) Len() int64 {
 	return l.prev.Len() + l.next.Len()
 }
 
-func (l *concatListValue) Iterator() aspects.Iterator {
+func (l *concatListValue) Iterator() traits.Iterator {
 	return &listIterator{listValue: l, cursor: 0, len: l.Len()}
 }
 

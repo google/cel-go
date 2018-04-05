@@ -94,7 +94,7 @@ func (s *StringSource) CharacterOffset(location Location) (int32, bool) {
 
 func (s *StringSource) LocationFromOffset(offset int32) (Location, bool) {
 	line, lineOffset := s.findLine(offset)
-	return NewLocation(int(line), int(offset - lineOffset)), true
+	return NewLocation(int(line), int(offset-lineOffset)), true
 }
 
 func (s *StringSource) Snippet(line int) (string, bool) {
@@ -122,7 +122,7 @@ func (s *StringSource) findLine(characterOffset int32) (int32, int32) {
 	var line int32 = 1
 	for _, lineOffset := range s.lineOffsets {
 		if lineOffset > characterOffset {
-			break;
+			break
 		} else {
 			line += 1
 		}

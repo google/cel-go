@@ -21,7 +21,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/interpreter/types"
-	"github.com/google/cel-go/interpreter/types/aspects"
+	"github.com/google/cel-go/interpreter/types/traits"
 	"github.com/google/cel-go/interpreter/types/providers"
 )
 
@@ -42,13 +42,16 @@ type Interpretable interface {
 type exprInterpreter struct {
 	dispatcher   Dispatcher
 	typeProvider providers.TypeProvider
+	// TODO: introduce a type registry that includes type value identifiers
 }
 
 // NewInterpreter builds an Interpreter from a Dispatcher and TypeProvider
 // which will be used throughout the Eval of all Interpretable instances
 // gerenated from it.
 func NewInterpreter(dispatcher Dispatcher, typeProvider providers.TypeProvider) Interpreter {
-	return &exprInterpreter{dispatcher, typeProvider}
+	return &exprInterpreter{
+		dispatcher:   dispatcher,
+		typeProvider: typeProvider}
 }
 
 // StandardInterpreter builds a Dispatcher and TypeProvider with support
@@ -147,7 +150,7 @@ func (i *exprInterpretable) evalSelect(selExpr *SelectExpr, currActivation Activ
 	operand := i.value(selExpr.Operand)
 	if unknown, ok := operand.(*UnknownValue); ok {
 		i.resolveUnknown(unknown, selExpr, currActivation)
-	} else if indexer, ok := operand.(aspects.Indexer); ok {
+	} else if indexer, ok := operand.(traits.Indexer); ok {
 		if fieldValue, err := indexer.Get(selExpr.Field); err == nil {
 			i.setValue(selExpr.GetId(), fieldValue)
 		} else {

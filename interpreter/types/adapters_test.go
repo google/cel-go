@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/struct"
-	"github.com/google/cel-go/interpreter/types/aspects"
+	"github.com/google/cel-go/interpreter/types/traits"
 	expr "github.com/google/cel-spec/proto/v1/syntax"
 	"reflect"
 	"testing"
@@ -117,8 +117,8 @@ func expectProtoToExpr(t *testing.T, in interface{}, out interface{}) {
 			equals = proto.Equal(val.(proto.Message), out.(proto.Message))
 		case bool, int64, uint64, float64, string:
 			equals = val == out
-		case aspects.Equaler:
-			equals = val.(aspects.Equaler).Equal(out)
+		case traits.Equaler:
+			equals = val.(traits.Equaler).Equal(out)
 		default:
 			equals = reflect.DeepEqual(val, out)
 		}

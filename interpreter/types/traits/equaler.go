@@ -12,8 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package semantics
+// The traits package defines methods useful for composing a new CEL built-in
+// or abstract type that function with built-in CEL operators.
+package traits
 
-type Declaration interface {
-	Name() string
+// Equaler specifies that this object may be tested for equality.
+type Equaler interface {
+
+	// Equal returns true if the `other` value has the same type and
+	// content as the implementing struct.
+	Equal(other interface{}) bool
 }

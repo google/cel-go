@@ -18,11 +18,11 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/google/cel-go/common"
+	"github.com/google/cel-go/debug"
 	"github.com/google/cel-go/test"
 	expr "github.com/google/cel-spec/proto/v1/syntax"
 	"reflect"
-	"github.com/google/cel-go/debug"
-	"github.com/google/cel-go/common"
 )
 
 var testCases = []testInfo{
@@ -628,7 +628,6 @@ type testInfo struct {
 	// L contains the expected source adorned debug output of the expression tree.
 	L string
 }
-
 
 type metadata interface {
 	GetLocation(exprId int64) (common.Location, bool)

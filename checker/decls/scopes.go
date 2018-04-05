@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package checker
+package decls
 
-import "github.com/google/cel-go/semantics"
+import "github.com/google/cel-spec/proto/checked/v1/checked"
 
 type Scopes struct {
 	scopes []*Group
@@ -35,11 +35,11 @@ func (s *Scopes) Pop() {
 	s.scopes = s.scopes[:len(s.scopes)-1]
 }
 
-func (s *Scopes) AddIdent(ident *semantics.Ident) {
-	s.scopes[0].idents[ident.Name()] = ident
+func (s *Scopes) AddIdent(decl *checked.Decl) {
+	s.scopes[0].idents[decl.Name] = decl
 }
 
-func (s *Scopes) FindIdent(name string) *semantics.Ident {
+func (s *Scopes) FindIdent(name string) *checked.Decl {
 	for i := len(s.scopes) - 1; i >= 0; i-- {
 		scope := s.scopes[i]
 		if ident, found := scope.idents[name]; found {
@@ -49,18 +49,18 @@ func (s *Scopes) FindIdent(name string) *semantics.Ident {
 	return nil
 }
 
-func (s *Scopes) FindIdentInScope(name string) *semantics.Ident {
+func (s *Scopes) FindIdentInScope(name string) *checked.Decl {
 	if ident, found := s.scopes[len(s.scopes)-1].idents[name]; found {
 		return ident
 	}
 	return nil
 }
 
-func (s *Scopes) AddFunction(fn *semantics.Function) {
-	s.scopes[0].functions[fn.Name()] = fn
+func (s *Scopes) AddFunction(fn *checked.Decl) {
+	s.scopes[0].functions[fn.Name] = fn
 }
 
-func (s *Scopes) FindFunction(name string) *semantics.Function {
+func (s *Scopes) FindFunction(name string) *checked.Decl {
 	for i := len(s.scopes) - 1; i >= 0; i-- {
 		scope := s.scopes[i]
 		if fn, found := scope.functions[name]; found {
@@ -71,13 +71,13 @@ func (s *Scopes) FindFunction(name string) *semantics.Function {
 }
 
 type Group struct {
-	idents    map[string]*semantics.Ident
-	functions map[string]*semantics.Function
+	idents    map[string]*checked.Decl
+	functions map[string]*checked.Decl
 }
 
 func newGroup() *Group {
 	return &Group{
-		idents:    make(map[string]*semantics.Ident),
-		functions: make(map[string]*semantics.Function),
+		idents:    make(map[string]*checked.Decl),
+		functions: make(map[string]*checked.Decl),
 	}
 }

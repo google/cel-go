@@ -12,24 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package types
+// The traits package defines methods useful for composing a new CEL built-in
+// or abstract type that function with built-in CEL operators.
+package traits
 
-var Error Type = &errorType{}
+// Iterable aggregate types permit traversal over their elements
+type Iterable interface {
 
-type errorType struct {
+	// Iterator returns a new iterator view of the struct.
+	Iterator() Iterator
 }
 
-var _ Type = &errorType{}
+// Iterator permits safe traversal over the contents of an aggregate type.
+type Iterator interface {
 
-func (e *errorType) Kind() TypeKind {
-	return KindError
-}
+	// HasNext returns true if there are unvisited elements in the Iterator.
+	HasNext() bool
 
-func (e *errorType) Equals(t Type) bool {
-	_, ok := t.(*errorType)
-	return ok
-}
-
-func (e *errorType) String() string {
-	return "!error!"
+	// Next returns the next element.
+	Next() interface{}
 }

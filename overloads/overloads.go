@@ -14,18 +14,22 @@
 
 // Functions package defines the function names and implementations for
 // standard CEL overloads.
-package functions
+package overloads
 
 const (
 	// Boolean logic overloads
+	Conditional            = "conditional"
+	LogicalAnd             = "logical_and"
+	LogicalOr              = "logical_or"
 	LogicalNot             = "logical_not"
-	EqualsBytes            = "equals_bytes"
-	NotEqualsBytes         = "not_equals_bytes"
+	Equals                 = "equals"
+	NotEquals              = "not_equals"
 	LessBool               = "less_bool"
 	LessInt64              = "less_int64"
 	LessUint64             = "less_uint64"
 	LessDouble             = "less_double"
 	LessString             = "less_string"
+	LessBytes              = "less_bytes"
 	LessTimestamp          = "less_timestamp"
 	LessDuration           = "less_duration"
 	LessEqualsBool         = "less_equals_bool"
@@ -33,6 +37,7 @@ const (
 	LessEqualsUint64       = "less_equals_uint64"
 	LessEqualsDouble       = "less_equals_double"
 	LessEqualsString       = "less_equals_string"
+	LessEqualsBytes        = "less_equals_bytes"
 	LessEqualsTimestamp    = "less_equals_timestamp"
 	LessEqualsDuration     = "less_equals_duration"
 	GreaterBool            = "greater_bool"
@@ -40,6 +45,7 @@ const (
 	GreaterUint64          = "greater_uint64"
 	GreaterDouble          = "greater_double"
 	GreaterString          = "greater_string"
+	GreaterBytes           = "greater_bytes"
 	GreaterTimestamp       = "greater_timestamp"
 	GreaterDuration        = "greater_duration"
 	GreaterEqualsBool      = "greater_equals_bool"
@@ -47,6 +53,7 @@ const (
 	GreaterEqualsUint64    = "greater_equals_uint64"
 	GreaterEqualsDouble    = "greater_equals_double"
 	GreaterEqualsString    = "greater_equals_string"
+	GreaterEqualsBytes     = "greater_equals_bytes"
 	GreaterEqualsTimestamp = "greater_equals_timestamp"
 	GreaterEqualsDuration  = "greater_equals_duration"
 
@@ -77,19 +84,31 @@ const (
 	NegateInt64                = "negate_int64"
 	NegateDouble               = "negate_double"
 
+	// Index overloads
+	IndexList    = "index_list"
+	IndexMap     = "index_map"
+	IndexMessage = "index_message" // TODO: introduce concept of types.Message
+
 	// In operators
-	InList = "in_list"
-	InMap  = "in_map"
+	DeprecatedIn = "in"
+	InList       = "in_list"
+	InMap        = "in_map"
+	InMessage    = "in_message" // TODO: introduce concept of types.Message
 
 	// Size overloads
-	Size       = "size"
-	SizeString = "size_string"
-	SizeBytes  = "size_bytes"
-	SizeList   = "size_list"
-	SizeMap    = "size_map"
+	Size           = "size"
+	SizeString     = "size_string"
+	SizeBytes      = "size_bytes"
+	SizeList       = "size_list"
+	SizeMap        = "size_map"
+	SizeStringInst = "string_size"
+	SizeBytesInst  = "bytes_size"
+	SizeListInst   = "list_size"
+	SizeMapInst    = "map_size"
 
 	// Matches function
-	MatchString = "matches"
+	Matches     = "matches"
+	MatchString = "matches_string"
 
 	// Time-based functions
 	TimeGetFullYear     = "getFullYear"
@@ -107,8 +126,8 @@ const (
 	TimestampToYear                = "timestamp_to_year"
 	TimestampToMonth               = "timestamp_to_month"
 	TimestampToDayOfYear           = "timestamp_to_day_of_year"
-	TimestampToDayOfMonthZeroBased = "timestamp_to_day_of_month_zero_based"
-	TimestampToDayOfMonthOneBased  = "timestamp_to_day_of_month_one_based"
+	TimestampToDayOfMonthZeroBased = "timestamp_to_day_of_month"
+	TimestampToDayOfMonthOneBased  = "timestamp_to_day_of_month_1_based"
 	TimestampToDayOfWeek           = "timestamp_to_day_of_week"
 	TimestampToHours               = "timestamp_to_hours"
 	TimestampToMinutes             = "timestamp_to_minutes"
@@ -119,8 +138,8 @@ const (
 	TimestampToYearWithTz                = "timestamp_to_year_with_tz"
 	TimestampToMonthWithTz               = "timestamp_to_month_with_tz"
 	TimestampToDayOfYearWithTz           = "timestamp_to_day_of_year_with_tz"
-	TimestampToDayOfMonthZeroBasedWithTz = "timestamp_to_day_of_month_zero_based_with_tz"
-	TimestampToDayOfMonthOneBasedWithTz  = "timestamp_to_day_of_month_one_based_with_tz"
+	TimestampToDayOfMonthZeroBasedWithTz = "timestamp_to_day_of_month_with_tz"
+	TimestampToDayOfMonthOneBasedWithTz  = "timestamp_to_day_of_month_1_based_with_tz"
 	TimestampToDayOfWeekWithTz           = "timestamp_to_day_of_week_with_tz"
 	TimestampToHoursWithTz               = "timestamp_to_hours_with_tz"
 	TimestampToMinutesWithTz             = "timestamp_to_minutes_with_tz"
@@ -142,59 +161,61 @@ const (
 	TypeConvertBytes     = "bytes"
 	TypeConvertTimestamp = "timestamp"
 	TypeConvertDuration  = "duration"
+	TypeConvertType      = "type"
+	TypeConvertDyn       = "dyn"
 
 	// Int conversion functions.
-	IntFromInt       = "int_from_int"
-	IntFromUint      = "int_from_uint"
-	IntFromDouble    = "int_from_double"
-	IntFromString    = "int_from_string"
-	IntFromTimestamp = "int_from_timestamp"
-	IntFromDuration  = "int_from_duration"
+	IntToInt       = "int64_to_int64"
+	UintToInt      = "uint64_to_int64"
+	DoubleToInt    = "double_to_int64"
+	StringToInt    = "string_to_int64"
+	TimestampToInt = "timestamp_to_int64"
+	DurationToInt  = "duration_to_int64"
 
 	// Uint conversion functions.
-	UintFromUint   = "uint_from_uint"
-	UintFromInt    = "uint_from_int"
-	UintFromDouble = "uint_from_double"
-	UintFromString = "uint_from_string"
+	UintToUint   = "uint64_to_uint64"
+	IntToUint    = "int64_to_uint64"
+	DoubleToUint = "double_to_uint64"
+	StringToUint = "string_to_uint64"
 
 	// Double conversion functions.
-	DoubleFromDouble = "double_from_double"
-	DoubleFromInt    = "double_from_int"
-	DoubleFromUint   = "double_from_uint"
-	DoubleFromString = "double_from_string"
+	DoubleToDouble = "double_to_double"
+	IntToDouble    = "int64_to_double"
+	UintToDouble   = "uint64_to_double"
+	StringToDouble = "string_to_double"
 
 	// Bool conversion functions.
-	BoolFromBool   = "bool_from_bool"
-	BoolFromString = "bool_from_string"
+	BoolToBool   = "bool_to_bool"
+	StringToBool = "string_to_bool"
 
 	// Bytes conversion functions.
-	BytesFromBytes  = "bytes_from_bytes"
-	BytesFromString = "bytes_from_string"
+	BytesToBytes  = "bytes_to_bytes"
+	StringToBytes = "string_to_bytes"
 
 	// String conversion functions.
-	StringFromString    = "string_from_string"
-	StringFromBool      = "string_from_bool"
-	StringFromInt       = "string_from_int"
-	StringFromUint      = "string_from_uint"
-	StringFromDouble    = "string_from_double"
-	StringFromBytes     = "string_from_bytes"
-	StringFromTimestamp = "string_from_timestamp"
-	StringFromDuration  = "string_from_duration"
+	StringToString    = "string_to_string"
+	BoolToString      = "bool_to_string"
+	IntToString       = "int64_to_string"
+	UintToString      = "uint64_to_string"
+	DoubleToString    = "double_to_string"
+	BytesToString     = "bytes_to_string"
+	TimestampToString = "timestamp_to_string"
+	DurationToString  = "duration_to_string"
 
 	// Timestamp conversion functions
-	TimestampFromTimestamp = "timestamp_from_timestamp"
-	TimestampFromString    = "timestamp_from_string"
-	TimestampFromInt       = "timestamp_from_int"
+	TimestampToTimestamp = "timestamp_to_timestamp"
+	StringToTimestamp    = "string_to_timestamp"
+	IntToTimestamp       = "int64_to_timestamp"
 
 	// Convert duration from string
-	DurationFromDuration = "duration_from_duration"
-	DurationFromString   = "duration_from_string"
-	DurationFromInt      = "duration_from_int"
+	DurationToDuration = "duration_to_duration"
+	StringToDuration   = "string_to_duration"
+	IntToDuration      = "int64_to_duration"
 
-	// Type inspection methods.
-	TypeOfValue = "type"
+	// Convert to dyn
+	ToDyn = "to_dyn"
 
-	// Comprehensions helper methods.
+	// Comprehensions helper methods, not directly accessible via a developer.
 	Iterator = "@iterator"
 	HasNext  = "@hasNext"
 	Next     = "@next"

@@ -12,56 +12,54 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package checker
+package types
 
 import (
-	"github.com/google/cel-go/semantics/types"
+	"github.com/google/cel-spec/proto/checked/v1/checked"
 )
 
 // TypeProvider defines methods to lookup types and enums, and resolve field types.
 type TypeProvider interface {
 
 	// LookupType looks up the Type given a qualified typeName. Returns nil if not found.
-	LookupType(typeName string) types.Type
+	LookupType(typeName string) *checked.Type
 
-	LookupFieldType(t *types.MessageType, fieldName string) (*FieldType, bool)
+	LookupFieldType(t *checked.Type, fieldName string) (*FieldType, bool)
 
 	// LookupEnumValue looks up the integer enum value given an enumName. Returns nil if not found.
 	LookupEnumValue(enumName string) (int64, bool)
 }
 
 type FieldType struct {
-	Type             types.Type
+	Type             *checked.Type
 	SupportsPresence bool
 }
 
 type InMemoryTypeProvider struct {
 	// TODO: This is pretty broken. We should fix it at some point
-	types  map[string]types.Type
+	types  map[string]*checked.Type
 	fields map[string]map[string]*FieldType
 	enums  map[string]int64
 }
 
-var _ TypeProvider = &InMemoryTypeProvider{}
-
 func NewInMemoryTypeProvider() *InMemoryTypeProvider {
 	return &InMemoryTypeProvider{
-		types:  make(map[string]types.Type),
+		types:  make(map[string]*checked.Type),
 		fields: make(map[string]map[string]*FieldType),
 		enums:  make(map[string]int64),
 	}
 }
 
 // LookupType looks up the Type given a qualified typeName. Returns nil if not found.
-func (p *InMemoryTypeProvider) LookupType(typeName string) types.Type {
+func (p *InMemoryTypeProvider) LookupType(typeName string) *checked.Type {
 	if t, found := p.types[typeName]; found {
-		return types.NewTypeType(t)
+		return NewType(t)
 	}
 	return nil
 }
 
-func (p *InMemoryTypeProvider) LookupFieldType(t *types.MessageType, fieldName string) (*FieldType, bool) {
-	if m, found1 := p.fields[t.Name()]; found1 {
+func (p *InMemoryTypeProvider) LookupFieldType(t *checked.Type, fieldName string) (*FieldType, bool) {
+	if m, found1 := p.fields[t.GetMessageType()]; found1 {
 		if f, found2 := m[fieldName]; found2 {
 			return f, true
 		}
@@ -79,20 +77,23 @@ func (p *InMemoryTypeProvider) LookupEnumValue(enumName string) (int64, bool) {
 	return 0, false
 }
 
-func (p *InMemoryTypeProvider) AddType(name string, t types.Type) {
+func (p *InMemoryTypeProvider) AddType(name string, t *checked.Type) {
 	p.types[name] = t
 }
 
-func (p *InMemoryTypeProvider) AddFieldType(t *types.MessageType, fieldName string, fieldType types.Type, supportsPresence bool) {
+func (p *InMemoryTypeProvider) AddFieldType(t *checked.Type,
+	fieldName string, fieldType *checked.Type, supportsPresence bool) {
 
 	var typeFields map[string]*FieldType
 	var found bool
-	if typeFields, found = p.fields[t.Name()]; !found {
+	if typeFields, found = p.fields[t.GetMessageType()]; !found {
 		typeFields = make(map[string]*FieldType)
-		p.fields[t.Name()] = typeFields
+		p.fields[t.GetMessageType()] = typeFields
 	}
 
-	typeFields[fieldName] = &FieldType{Type: fieldType, SupportsPresence: supportsPresence}
+	typeFields[fieldName] = &FieldType{
+		Type:             fieldType,
+		SupportsPresence: supportsPresence}
 }
 
 func (p *InMemoryTypeProvider) AddEnum(name string, value int64) {

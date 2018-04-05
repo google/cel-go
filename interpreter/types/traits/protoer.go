@@ -12,24 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package types
+// The traits package defines methods useful for composing a new CEL built-in
+// or abstract type that function with built-in CEL operators.
+package traits
 
-var Dynamic Type = &dynamicType{}
+import "reflect"
 
-type dynamicType struct {
-}
+// Protoer implementations support serialization to proto types / values which
+// may not be directly compatible with CEL.
+type Protoer interface {
 
-var _ Type = &dynamicType{}
-
-func (d *dynamicType) Kind() TypeKind {
-	return KindDynamic
-}
-
-func (d *dynamicType) Equals(t Type) bool {
-	_, ok := t.(*dynamicType)
-	return ok
-}
-
-func (d *dynamicType) String() string {
-	return "dyn"
+	// ToProto returns a proto value if the struct can be converted to the
+	// supplied typeDesc, error otherwise.
+	ToProto(typeDesc reflect.Type) (interface{}, error)
 }

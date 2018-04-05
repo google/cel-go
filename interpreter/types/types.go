@@ -22,7 +22,7 @@ import (
 	dpb "github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/struct"
 	tspb "github.com/golang/protobuf/ptypes/timestamp"
-	"github.com/google/cel-go/interpreter/types/aspects"
+	"github.com/google/cel-go/interpreter/types/traits"
 )
 
 // Declare the type instances and their human readable names.
@@ -46,7 +46,7 @@ var (
 // Types may be compared with each other, have a name, and indicate whether
 // the underlying type is dynamic.
 type Type interface {
-	aspects.Equaler
+	traits.Equaler
 	Name() string
 	IsDyn() bool
 }

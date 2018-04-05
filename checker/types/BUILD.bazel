@@ -1,0 +1,21 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "mapping.go",
+        "typeProvider.go",
+        "types.go",
+    ],
+    deps = [
+        "//common:go_default_library",
+        "//debug:go_default_library",
+        "//io:checked_proto",
+        "//io:syntax_proto",
+        "//operators:go_default_library",
+        "@com_github_golang_protobuf//proto:go_default_library",
+        "@com_github_golang_protobuf//ptypes/empty:go_default_library",
+        "@com_github_golang_protobuf//ptypes/struct:go_default_library",
+    ],
+    visibility = ["//visibility:public"],
+)

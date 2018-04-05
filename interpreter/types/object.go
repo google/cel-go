@@ -21,7 +21,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
-	"github.com/google/cel-go/interpreter/types/aspects"
+	"github.com/google/cel-go/interpreter/types/traits"
 	"reflect"
 )
 
@@ -35,9 +35,9 @@ import (
 // for oneof field sets will only include the field name of the non-default
 // oneof.
 type ObjectValue interface {
-	aspects.Equaler
-	aspects.Indexer
-	aspects.Iterable
+	traits.Equaler
+	traits.Indexer
+	traits.Iterable
 
 	// Value of the underlying message.
 	Value() interface{}
@@ -106,7 +106,7 @@ func (m *protoValue) Equal(other interface{}) bool {
 	return false
 }
 
-func (m *protoValue) Iterator() aspects.Iterator {
+func (m *protoValue) Iterator() traits.Iterator {
 	refType := m.refValue.Type()
 	return &msgIterator{
 		msgValue:    m,

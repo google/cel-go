@@ -15,7 +15,7 @@
 package types
 
 import (
-	"github.com/google/cel-go/interpreter/types/aspects"
+	"github.com/google/cel-go/interpreter/types/traits"
 	"testing"
 )
 
@@ -39,7 +39,7 @@ func TestMapValue_Get(t *testing.T) {
 		"empty":  {}})
 	if nestedVal, err := mapValue.Get("nested"); err != nil {
 		t.Error(err)
-	} else if floatVal, err := nestedVal.(aspects.Indexer).Get(int64(1)); err != nil {
+	} else if floatVal, err := nestedVal.(traits.Indexer).Get(int64(1)); err != nil {
 		t.Error(err)
 	} else if floatVal != float64(-1.0) {
 		t.Error("Nested map access of float property not float64")
