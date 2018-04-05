@@ -29,30 +29,30 @@ func NewMapping() *Mapping {
 	}
 }
 
-func (s *Mapping) Add(from *checked.Type, to *checked.Type) {
-	s.mapping[typeKey(from)] = to
+func (m *Mapping) Add(from *checked.Type, to *checked.Type) {
+	m.mapping[typeKey(from)] = to
 }
 
-func (s *Mapping) Find(from *checked.Type) (*checked.Type, bool) {
-	if r, found := s.mapping[typeKey(from)]; found {
+func (m *Mapping) Find(from *checked.Type) (*checked.Type, bool) {
+	if r, found := m.mapping[typeKey(from)]; found {
 		return r, found
 	}
 	return nil, false
 }
 
-func (s *Mapping) Copy() *Mapping {
+func (m *Mapping) Copy() *Mapping {
 	c := NewMapping()
 
-	for k, v := range s.mapping {
+	for k, v := range m.mapping {
 		c.mapping[k] = v
 	}
 	return c
 }
 
-func (s *Mapping) String() string {
+func (m *Mapping) String() string {
 	result := "{"
 
-	for k, v := range s.mapping {
+	for k, v := range m.mapping {
 		result += fmt.Sprintf("%v => %v   ", k, v)
 	}
 

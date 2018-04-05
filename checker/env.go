@@ -40,19 +40,19 @@ func NewEnv(errors *common.Errors, typeProvider types.TypeProvider) *Env {
 	}
 }
 
-func (env *Env) Add(decls ...*checked.Decl) {
+func (e *Env) Add(decls ...*checked.Decl) {
 	for _, decl := range decls {
 		switch decl.DeclKind.(type) {
 		case *checked.Decl_Ident:
-			env.addIdent(decl)
+			e.addIdent(decl)
 		case *checked.Decl_Function:
-			env.addFunction(decl)
+			e.addFunction(decl)
 		}
 	}
 }
 
-func (env *Env) addFunction(decl *checked.Decl) {
-	current := env.declarations.FindFunction(decl.Name)
+func (e *Env) addFunction(decl *checked.Decl) {
+	current := e.declarations.FindFunction(decl.Name)
 	if current != nil {
 		if current.Name != decl.Name {
 			return
@@ -63,61 +63,61 @@ func (env *Env) addFunction(decl *checked.Decl) {
 			decl.GetFunction().Overloads...)
 		decl = current
 	} else {
-		env.declarations.AddFunction(decl)
+		e.declarations.AddFunction(decl)
 	}
 }
 
-func (env *Env) addIdent(decl *checked.Decl) {
-	current := env.declarations.FindIdentInScope(decl.Name)
+func (e *Env) addIdent(decl *checked.Decl) {
+	current := e.declarations.FindIdentInScope(decl.Name)
 	if current != nil {
 		panic("ident already exists")
 	}
-	env.declarations.AddIdent(decl)
+	e.declarations.AddIdent(decl)
 }
 
-func (env *Env) LookupIdent(container string, typeName string) *checked.Decl {
+func (e *Env) LookupIdent(container string, typeName string) *checked.Decl {
 	for _, candidate := range qualifiedTypeNameCandidates(container, typeName) {
-		if ident := env.declarations.FindIdent(candidate); ident != nil {
+		if ident := e.declarations.FindIdent(candidate); ident != nil {
 			return ident
 		}
 
 		// Next try to import the name as a reference to a message type. If found,
 		// the declaration is added to the outest (global) scope of the
 		// environment, so next time we can access it faster.
-		if t := env.typeProvider.LookupType(candidate); t != nil {
+		if t := e.typeProvider.LookupType(candidate); t != nil {
 			decl := decls.NewIdent(candidate, t, nil)
-			env.declarations.AddIdent(decl)
+			e.declarations.AddIdent(decl)
 			return decl
 		}
 
 		// Next try to import this as an enum value by splitting the name in a type prefix and
 		// the enum inside.
-		if enumValue, found := env.typeProvider.LookupEnumValue(candidate); found {
+		if enumValue, found := e.typeProvider.LookupEnumValue(candidate); found {
 			decl := decls.NewIdent(candidate,
 				types.Int64,
 				&expr.Constant{
 					ConstantKind: &expr.Constant_Int64Value{
 						Int64Value: enumValue}})
-			env.declarations.AddIdent(decl)
+			e.declarations.AddIdent(decl)
 		}
 	}
 
 	return nil
 }
 
-func (env *Env) LookupFunction(container string, typeName string) *checked.Decl {
+func (e *Env) LookupFunction(container string, typeName string) *checked.Decl {
 	for _, candidate := range qualifiedTypeNameCandidates(container, typeName) {
-		if fn := env.declarations.FindFunction(candidate); fn != nil {
+		if fn := e.declarations.FindFunction(candidate); fn != nil {
 			return fn
 		}
 	}
 	return nil
 }
 
-func (env *Env) enterScope() {
-	env.declarations.Push()
+func (e *Env) enterScope() {
+	e.declarations.Push()
 }
 
-func (env *Env) exitScope() {
-	env.declarations.Pop()
+func (e *Env) exitScope() {
+	e.declarations.Pop()
 }
