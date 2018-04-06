@@ -15,8 +15,8 @@ computations are strongly desired.
 
 ## Want to integrate CEL?
 
-* See [![GoDoc](https://godoc.org/github.com/google/cel-go?status.svg)](https://godoc.org/github.com/google/cel-go)
-  to learn how to integrate CEL into services written in Go.
+* See [GoDoc][6] to learn how to integrate CEL into services written in Go.
+  [![GoDoc](https://godoc.org/github.com/google/cel-go?status.svg)][6]
 * See the [CEL C++][3] toolchain (under development) for information about how
   to integrate CEL evaluation into other environments.  
 
@@ -104,3 +104,4 @@ Disclaimer: This is not an official Google product.
 [3]:  https://github.com/google/cel-cpp
 [4]:  https://github.com/google/cel-go/issues
 [5]:  https://bazel.build
+[6]:  https://godoc.org/github.com/google/cel-go

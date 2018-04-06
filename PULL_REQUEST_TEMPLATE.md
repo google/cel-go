@@ -28,8 +28,9 @@ please keep lines to 72 characters or less.
 
 ## Merging
 
-* Once a CEL maintaner has approved the change, it may be merged.
-* Related commits should be squashed before merging.
+* If a CEL maintaner approves the change, it may be merged by the author if
+  they have write access. Otherwise, the change will be merged by a maintainer.
+* Multiple commits should be squashed before merging.
 * Please append the line `closes #<issue-num>: description` in the merge message,
   if applicable.
 
