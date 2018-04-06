@@ -4,7 +4,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for more details about when to create
 a GitHub [Pull Request][1] and when other kinds of contributions or
 consultation might be more desirable.
 
-When creating the a new pull request, please fork the repo and work within a
+When creating a new pull request, please fork the repo and work within a
 development branch.
 
 ## Commit Messages
