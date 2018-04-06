@@ -17,8 +17,8 @@ package checker
 import (
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/checker/types"
-	"github.com/google/cel-go/operators"
-	"github.com/google/cel-go/overloads"
+	"github.com/google/cel-go/common/operators"
+	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-spec/proto/checked/v1/checked"
 )
 

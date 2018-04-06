@@ -20,23 +20,23 @@ import (
 	"github.com/google/cel-go/common"
 )
 
-// ParseErrors is a specialization of Errors.
-type ParseErrors struct {
+// parseErrors is a specialization of Errors.
+type parseErrors struct {
 	*common.Errors
 }
 
-func (e *ParseErrors) syntaxError(l common.Location, message string) {
+func (e *parseErrors) syntaxError(l common.Location, message string) {
 	e.ReportError(l, fmt.Sprintf("Syntax error: %s", message))
 }
 
-func (e *ParseErrors) invalidHasArgument(l common.Location) {
+func (e *parseErrors) invalidHasArgument(l common.Location) {
 	e.ReportError(l, "The argument to the function 'has' must be a field selection")
 }
 
-func (e *ParseErrors) argumentIsNotIdent(l common.Location) {
+func (e *parseErrors) argumentIsNotIdent(l common.Location) {
 	e.ReportError(l, "The argument must be a simple name")
 }
 
-func (e *ParseErrors) notAQualifiedName(l common.Location) {
+func (e *parseErrors) notAQualifiedName(l common.Location) {
 	e.ReportError(l, "expected a qualified name")
 }

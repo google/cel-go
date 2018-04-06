@@ -20,37 +20,37 @@ import (
 	"github.com/google/cel-spec/proto/checked/v1/checked"
 )
 
-// TypeErrors is a specialization of Errors.
-type TypeErrors struct {
+// typeErrors is a specialization of Errors.
+type typeErrors struct {
 	*common.Errors
 }
 
-func (e *TypeErrors) undeclaredReference(l common.Location, container string, name string) {
+func (e *typeErrors) undeclaredReference(l common.Location, container string, name string) {
 	e.ReportError(l, "undeclared reference to '%s' (in container '%s')", name, container)
 }
 
-func (e *TypeErrors) expressionDoesNotSelectField(l common.Location) {
+func (e *typeErrors) expressionDoesNotSelectField(l common.Location) {
 	e.ReportError(l, "expression does not select a field")
 }
 
-func (e *TypeErrors) typeDoesNotSupportFieldSelection(l common.Location, t *checked.Type) {
+func (e *typeErrors) typeDoesNotSupportFieldSelection(l common.Location, t *checked.Type) {
 	e.ReportError(l, "type '%s' does not support field selection", t)
 }
 
-func (e *TypeErrors) undefinedField(l common.Location, field string) {
+func (e *typeErrors) undefinedField(l common.Location, field string) {
 	e.ReportError(l, "undefined field '%s'", field)
 }
 
-func (e *TypeErrors) fieldDoesNotSupportPresenceCheck(l common.Location, field string) {
+func (e *typeErrors) fieldDoesNotSupportPresenceCheck(l common.Location, field string) {
 	e.ReportError(l, "field '%s' does not support presence check", field)
 }
 
-func (e *TypeErrors) noMatchingOverload(l common.Location, name string, args []*checked.Type, isInstance bool) {
+func (e *typeErrors) noMatchingOverload(l common.Location, name string, args []*checked.Type, isInstance bool) {
 	signature := formatFunction(nil, args, isInstance)
 	e.ReportError(l, "found no matching overload for '%s' applied to '%s'", name, signature)
 }
 
-func (e *TypeErrors) aggregateTypeMismatch(l common.Location, aggregate *checked.Type, member *checked.Type) {
+func (e *typeErrors) aggregateTypeMismatch(l common.Location, aggregate *checked.Type, member *checked.Type) {
 	e.ReportError(
 		l,
 		"type '%s' does not match previous type '%s' in aggregate. Use 'dyn(x)' to make the aggregate dynamic.",
@@ -58,29 +58,29 @@ func (e *TypeErrors) aggregateTypeMismatch(l common.Location, aggregate *checked
 		types.FormatType(aggregate))
 }
 
-func (e *TypeErrors) notAType(l common.Location, t *checked.Type) {
+func (e *typeErrors) notAType(l common.Location, t *checked.Type) {
 	e.ReportError(l, "'%s(%v)' is not a type", types.FormatType(t), t)
 }
 
-func (e *TypeErrors) notAMessageType(l common.Location, t *checked.Type) {
+func (e *typeErrors) notAMessageType(l common.Location, t *checked.Type) {
 	e.ReportError(l, "'%s' is not a message type", types.FormatType(t))
 }
 
-func (e *TypeErrors) fieldTypeMismatch(l common.Location, name string, field *checked.Type, value *checked.Type) {
+func (e *typeErrors) fieldTypeMismatch(l common.Location, name string, field *checked.Type, value *checked.Type) {
 	e.ReportError(l, "expected type of field '%s' is '%s' but provided type is '%s'",
 		name, types.FormatType(field), types.FormatType(value))
 }
 
-func (e *TypeErrors) unexpectedFailedResolution(l common.Location, typeName string) {
+func (e *typeErrors) unexpectedFailedResolution(l common.Location, typeName string) {
 	e.ReportError(l, "[internal] unexpected failed resolution of '%s'", typeName)
 }
 
-func (e *TypeErrors) notAComprehensionRange(l common.Location, t *checked.Type) {
+func (e *typeErrors) notAComprehensionRange(l common.Location, t *checked.Type) {
 	e.ReportError(l, "expression of type '%s' cannot be range of a comprehension (must be list, map, or dynamic)",
 		types.FormatType(t))
 }
 
-func (e *TypeErrors) typeMismatch(l common.Location, expected *checked.Type, actual *checked.Type) {
+func (e *typeErrors) typeMismatch(l common.Location, expected *checked.Type, actual *checked.Type) {
 	e.ReportError(l, "expected type '%s' but found '%s'",
 		types.FormatType(expected), types.FormatType(actual))
 }

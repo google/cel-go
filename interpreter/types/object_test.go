@@ -40,6 +40,9 @@ func TestObjectValue_Get(t *testing.T) {
 		t.Error(err)
 	}
 	field, err := selectExpr.(ObjectValue).Get("Field")
+	if err != nil {
+		t.Error(err)
+	}
 	if field != "" {
 		t.Error("Selected field on unset message, but field was non-empty")
 	}

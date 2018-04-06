@@ -12,14 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The traits package defines methods useful for composing a new CEL built-in
-// or abstract type that function with built-in CEL operators.
+// Package traits declares interfaces to compose types that participate in
+// operator overloads.
 package traits
 
 // Equaler specifies that this object may be tested for equality.
 type Equaler interface {
-
-	// Equal returns true if the `other` value has the same type and
-	// content as the implementing struct.
+	// Equal returns true if the `other` value has the same type and content as
+	// the implementing struct.
 	Equal(other interface{}) bool
 }

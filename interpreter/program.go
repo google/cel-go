@@ -12,13 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The interpreter package provides functions to evaluate CEL programs against
-// a series of inputs and functions supplied at runtime.
 package interpreter
 
 import (
 	"fmt"
 	"github.com/google/cel-go/common"
+	"github.com/google/cel-spec/proto/checked/v1/checked"
 	expr "github.com/google/cel-spec/proto/v1/syntax"
 	"strings"
 )
@@ -61,15 +60,21 @@ type exprProgram struct {
 }
 
 // NewProgram creates a Program from a CEL expression and source information
-// within the specified container
-func NewProgram(container string, expression *expr.Expr,
-	sourceInfo *expr.SourceInfo) Program {
+// within the specified container.
+func NewProgram(expression *expr.Expr,
+	sourceInfo *expr.SourceInfo,
+	container string) Program {
 	metadata := newExprMetadata(sourceInfo)
 	return &exprProgram{
 		expression,
 		container,
 		WalkExpr(expression, metadata),
 		metadata}
+}
+
+// NewCheckedProgram creates a Program from a checked CEL expression.
+func NewCheckedProgram(c *checked.CheckedExpr, container string) Program {
+	return NewProgram(c.Expr, c.SourceInfo, container)
 }
 
 func (p *exprProgram) String() string {

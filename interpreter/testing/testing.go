@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The testing package provides test inputs and helpers used for interpreter
+// Package testing provides test inputs and helpers used for interpreter
 // related tests.
 package testing
 
@@ -21,7 +21,7 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/timestamp"
-	"github.com/google/cel-go/operators"
+	"github.com/google/cel-go/common/operators"
 	expr "github.com/google/cel-spec/proto/v1/syntax"
 )
 

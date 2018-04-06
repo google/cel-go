@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Adapter package defines utilities for adapting plain Go structs into
-// structs suitable for consumption with CEL.
 package types
 
 import (
@@ -26,8 +24,7 @@ import (
 	"reflect"
 )
 
-type TypeConverter func(*reflect.Value, interface{}) interface{}
-
+// ProtoToExpr converts from a proto value into an expression value.
 func ProtoToExpr(value interface{}) (interface{}, error) {
 	switch value.(type) {
 	// Compatible types
@@ -63,6 +60,7 @@ func ProtoToExpr(value interface{}) (interface{}, error) {
 		"%T %v", value, value)
 }
 
+// ExprToProto converts a value to a value of the reflected type
 func ExprToProto(refType reflect.Type, value interface{}) (interface{}, error) {
 	refKind := refType.Kind()
 	switch refKind {

@@ -8,20 +8,20 @@ import (
 
 type parserHelper struct {
 	source    common.Source
-	errors    *ParseErrors
+	errors    *parseErrors
 	macros    map[string]Macro
 	nextId    int64
 	positions map[int64]int32
 }
 
-func NewParserHelper(source common.Source, macros Macros) *parserHelper {
+func newParserHelper(source common.Source, macros Macros) *parserHelper {
 	macroMap := make(map[string]Macro)
 	for _, m := range macros {
 		macroMap[makeMacroKey(m.name, m.args, m.instanceStyle)] = m
 	}
 
 	return &parserHelper{
-		errors:    &ParseErrors{common.NewErrors(source)},
+		errors:    &parseErrors{common.NewErrors(source)},
 		source:    source,
 		macros:    macroMap,
 		nextId:    1,

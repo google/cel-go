@@ -23,9 +23,10 @@ import (
 
 func TestInterpreter_CallExpr(t *testing.T) {
 	interpreter := StandardTestInterpreter()
-	program := NewProgram("google.api.expr",
+	program := NewProgram(
 		testExpr.Equality.Expr,
-		testExpr.Equality.Info(t.Name()))
+		testExpr.Equality.Info(t.Name()),
+		"google.api.expr")
 	interpretable := interpreter.NewInterpretable(program)
 	result, state := interpretable.Eval(
 		NewActivation(map[string]interface{}{"a": int64(41)}))
@@ -39,9 +40,10 @@ func TestInterpreter_CallExpr(t *testing.T) {
 
 func TestInterpreter_SelectExpr(t *testing.T) {
 	interpreter := StandardTestInterpreter()
-	program := NewProgram("",
+	program := NewProgram(
 		testExpr.Select.Expr,
-		testExpr.Select.Info(t.Name()))
+		testExpr.Select.Info(t.Name()),
+		"")
 
 	interpretable := interpreter.NewInterpretable(program)
 	result, _ := interpretable.Eval(
@@ -54,9 +56,10 @@ func TestInterpreter_SelectExpr(t *testing.T) {
 func TestInterpreter_ConditionalExpr(t *testing.T) {
 	// a ? b < 1.0 : c == ["hello"]
 	interpreter := StandardTestInterpreter()
-	program := NewProgram("",
+	program := NewProgram(
 		testExpr.Conditional.Expr,
-		testExpr.Conditional.Info(t.Name()))
+		testExpr.Conditional.Info(t.Name()),
+		"")
 
 	interpretable := interpreter.NewInterpretable(program)
 	result, _ := interpretable.Eval(
@@ -71,9 +74,10 @@ func TestInterpreter_ConditionalExpr(t *testing.T) {
 func TestInterpreter_ComprehensionExpr(t *testing.T) {
 	// [1, 1u, 1.0].exists(x, type(x) == uint)
 	interpreter := StandardTestInterpreter()
-	program := NewProgram("",
+	program := NewProgram(
 		testExpr.Exists.Expr,
-		testExpr.Exists.Info(t.Name()))
+		testExpr.Exists.Info(t.Name()),
+		"")
 
 	interpretable := interpreter.NewInterpretable(program)
 	// TODO: make the type identifiers part of the standard declaration set.
@@ -87,9 +91,10 @@ func TestInterpreter_ComprehensionExpr(t *testing.T) {
 func BenchmarkInterpreter_ConditionalExpr(b *testing.B) {
 	// a ? b < 1.0 : c == ["hello"]
 	interpreter := StandardTestInterpreter()
-	program := NewProgram("",
+	program := NewProgram(
 		testExpr.Conditional.Expr,
-		testExpr.Conditional.Info(b.Name()))
+		testExpr.Conditional.Info(b.Name()),
+		"")
 	interpretable := interpreter.NewInterpretable(program)
 	activation := NewActivation(map[string]interface{}{
 		"a": false,
@@ -103,9 +108,10 @@ func BenchmarkInterpreter_ConditionalExpr(b *testing.B) {
 func BenchmarkInterpreter_ComprehensionExpr(b *testing.B) {
 	// [1, 1u, 1.0].exists(x, type(x) == uint)
 	interpreter := StandardTestInterpreter()
-	program := NewProgram("",
+	program := NewProgram(
 		testExpr.Exists.Expr,
-		testExpr.Exists.Info(b.Name()))
+		testExpr.Exists.Info(b.Name()),
+		"")
 	interpretable := interpreter.NewInterpretable(program)
 	activation := NewActivation(map[string]interface{}{"uint": types.UintType})
 	for i := 0; i < b.N; i++ {
@@ -114,5 +120,5 @@ func BenchmarkInterpreter_ComprehensionExpr(b *testing.B) {
 }
 
 func StandardTestInterpreter() Interpreter {
-	return StandardIntepreter(&expr.ParsedExpr{})
+	return NewStandardIntepreter(&expr.ParsedExpr{})
 }

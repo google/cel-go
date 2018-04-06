@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package operators defines the internal function names of operators.
+//
+// ALl operators in the expression language are modelled as function calls.
 package operators
 
 const (
@@ -56,6 +59,7 @@ var operators = map[string]string{
 	">=": GreaterEquals,
 }
 
+// Find the internal function name for an operator, if the input text is one.
 func Find(text string) (string, bool) {
 	op, found := operators[text]
 	return op, found

@@ -1,3 +1,4 @@
+// Package decls provides helpers for creating variable and function declarations.
 package decls
 
 import (

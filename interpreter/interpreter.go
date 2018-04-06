@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The interpreter package provides functions to evaluate CEL programs against
-// a series of inputs and functions supplied at runtime.
+// Package interpreter provides functions to evaluate parsed expressions with
+// the option to augment the evaluation with inputs and functions supplied at
+// evaluation time.
 package interpreter
 
 import (
@@ -56,9 +57,9 @@ func NewInterpreter(dispatcher Dispatcher, typeProvider providers.TypeProvider) 
 
 // StandardInterpreter builds a Dispatcher and TypeProvider with support
 // for all of the CEL builtins defined in the language definition.
-func StandardIntepreter(types ...proto.Message) Interpreter {
+func NewStandardIntepreter(types ...proto.Message) Interpreter {
 	dispatcher := NewDispatcher()
-	dispatcher.Add(functions.StandardBuiltins()...)
+	dispatcher.Add(functions.StandardOverloads()...)
 	typeProvider := providers.NewTypeProvider(types...)
 	return NewInterpreter(dispatcher, typeProvider)
 }

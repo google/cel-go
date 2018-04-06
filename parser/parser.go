@@ -12,13 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package parser declares an expression parser with support for macro
+// expansion.
 package parser
 
 import (
 	"strconv"
 
 	"github.com/google/cel-go/common"
-	"github.com/google/cel-go/operators"
+	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/parser/gen"
 	expr "github.com/google/cel-spec/proto/v1/syntax"
 
@@ -28,12 +30,18 @@ import (
 	"reflect"
 )
 
+// ParseText converts a text input into a parsed expression, if valid, as
+// well as a list of syntax errors encountered.
+//
+// By default all macros are enabled. For customization of the input data
+// or for customization of the macro set see Parse.
 func ParseText(text string) (*expr.ParsedExpr, *common.Errors) {
 	return Parse(common.NewStringSource(text, "<input>"), AllMacros)
 }
 
+// Parse converts a source input and macros set to a parsed expression.
 func Parse(source common.Source, macros Macros) (*expr.ParsedExpr, *common.Errors) {
-	p := parser{helper: NewParserHelper(source, macros)}
+	p := parser{helper: newParserHelper(source, macros)}
 	e := p.parse(source.Content())
 	return &expr.ParsedExpr{
 		Expr:       e,
@@ -61,8 +69,7 @@ func (p *parser) parse(expression string) *expr.Expr {
 	return p.Visit(prsr.Start()).(*expr.Expr)
 }
 
-// Visitor implementations
-
+// Visitor implementations.
 func (p *parser) Visit(tree antlr.ParseTree) interface{} {
 
 	switch tree.(type) {

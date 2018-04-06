@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package debug provides tools to print a parsed expression graph and
+// adorn each expression element with additional metadata.
 package debug
 
 import (
@@ -25,7 +27,8 @@ import (
 // DebugAdorner returns debug metadata that will be tacked on to the string
 // representation of an expression.
 type DebugAdorner interface {
-	GetMetadata(e interface{}) string
+	// GetMetadata for the input context.
+	GetMetadata(ctx interface{}) string
 }
 
 // DebugWriter manages writing expressions to an internal string.
@@ -40,14 +43,14 @@ type DebugWriter interface {
 type emptyDebugAdorner struct {
 }
 
-var EmptyAdorner DebugAdorner = &emptyDebugAdorner{}
+var emptyAdorner DebugAdorner = &emptyDebugAdorner{}
 
 func (a *emptyDebugAdorner) GetMetadata(e interface{}) string {
 	return ""
 }
 
 func ToDebugString(e *expr.Expr) string {
-	return ToAdornedDebugString(e, EmptyAdorner)
+	return ToAdornedDebugString(e, emptyAdorner)
 }
 
 func ToAdornedDebugString(e *expr.Expr, adorner DebugAdorner) string {
@@ -256,7 +259,6 @@ func formatConstant(c *expr.Constant) string {
 	default:
 		panic("Unknown constant type")
 	}
-	return ""
 }
 
 func (w *debugWriter) append(s string) {

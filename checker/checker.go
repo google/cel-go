@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package checker defines functions to type-checked a parsed expression
+// against a set of identifier and function declarations.
 package checker
 
 import (
@@ -37,7 +39,7 @@ type checker struct {
 	references map[int64]*checked.Reference
 }
 
-func Check(env *Env, container string, parsedExpr *expr.ParsedExpr) *checked.CheckedExpr {
+func Check(parsedExpr *expr.ParsedExpr, env *Env, container string) *checked.CheckedExpr {
 	c := checker{
 		env:                env,
 		container:          container,

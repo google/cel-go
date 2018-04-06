@@ -9,10 +9,10 @@ go_library(
     ],
     deps = [
         "//common:go_default_library",
-        "//debug:go_default_library",
+        "//common/debug:go_default_library",
+        "//common/operators:go_default_library",
         "//io:checked_proto",
         "//io:syntax_proto",
-        "//operators:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_golang_protobuf//ptypes/empty:go_default_library",
         "@com_github_golang_protobuf//ptypes/struct:go_default_library",

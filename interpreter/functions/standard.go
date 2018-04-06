@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Functions package defines the function names and implementations for
-// standard CEL overloads.
+// Package functions defines the standard builtin functions supported by the
+// interpreter and as declared within the checker#StandardDeclarations.
 package functions
 
 import (
@@ -22,10 +22,10 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	dpb "github.com/golang/protobuf/ptypes/duration"
 	tspb "github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/google/cel-go/common/operators"
+	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/interpreter/types"
 	"github.com/google/cel-go/interpreter/types/traits"
-	"github.com/google/cel-go/operators"
-	"github.com/google/cel-go/overloads"
 	"regexp"
 	"strconv"
 	"time"
@@ -55,9 +55,9 @@ type Overload struct {
 // an value (as interface{}) or error as a result.
 type OverloadImpl func(values ...interface{}) (interface{}, error)
 
-// StandardBuiltins returns the definitions of the built-in CEL overloads.
-// TODO: Where possible, organize builtins within types and by traits.
-func StandardBuiltins() []*Overload {
+// StandardOverloads returns the definitions of the built-in overloads.
+func StandardOverloads() []*Overload {
+	// TODO: Where possible, organize builtins within types and by traits.
 	return []*Overload{
 		// Logical not (!a)
 		{
