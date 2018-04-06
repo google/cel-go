@@ -21,9 +21,10 @@ import (
 )
 
 func TestNewProgram_Empty(t *testing.T) {
-	program := NewProgram("",
+	program := NewProgram(
 		testExpr.Empty.Expr,
-		testExpr.Empty.Info(t.Name()))
+		testExpr.Empty.Info(t.Name()),
+		"")
 	if loc, found := program.Metadata().Location(0); found {
 		t.Errorf("Unexpected location found: %v", loc)
 	}
@@ -36,9 +37,10 @@ func TestNewProgram_Empty(t *testing.T) {
 }
 
 func TestNewProgram_LogicalAnd(t *testing.T) {
-	program := NewProgram("",
+	program := NewProgram(
 		testExpr.LogicalAnd.Expr,
-		testExpr.LogicalAnd.Info(t.Name()))
+		testExpr.LogicalAnd.Info(t.Name()),
+		"")
 	if loc, found := program.Metadata().Location(1); found {
 		t.Errorf("Unexpected location found: %v", loc)
 	}
@@ -52,9 +54,10 @@ func TestNewProgram_LogicalAnd(t *testing.T) {
 }
 
 func TestNewProgram_Conditional(t *testing.T) {
-	program := NewProgram("",
+	program := NewProgram(
 		testExpr.Conditional.Expr,
-		testExpr.Conditional.Info(t.Name()))
+		testExpr.Conditional.Info(t.Name()),
+		"")
 	if loc, found := program.Metadata().Location(1); found {
 		t.Errorf("Unexpected location found: %v", loc)
 	}
@@ -85,9 +88,10 @@ func TestNewProgram_Conditional(t *testing.T) {
 }
 
 func TestNewProgram_Comprehension(t *testing.T) {
-	program := NewProgram("",
+	program := NewProgram(
 		testExpr.Exists.Expr,
-		testExpr.Exists.Info(t.Name()))
+		testExpr.Exists.Info(t.Name()),
+		"")
 	if loc, found := program.Metadata().Location(1); !found {
 		t.Errorf("Unexpected location found: %v", loc)
 	}
@@ -101,9 +105,10 @@ func TestNewProgram_Comprehension(t *testing.T) {
 }
 
 func TestNewProgram_DynMap(t *testing.T) {
-	program := NewProgram("",
+	program := NewProgram(
 		testExpr.DynMap.Expr,
-		testExpr.DynMap.Info(t.Name()))
+		testExpr.DynMap.Info(t.Name()),
+		"")
 	if loc, found := program.Metadata().Location(1); found {
 		t.Errorf("Unexpected location found: %v", loc)
 	}

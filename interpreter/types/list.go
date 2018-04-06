@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Adapter package defines utilities for adapting plain Go structs into
-// structs suitable for consumption with CEL.
 package types
 
 import (

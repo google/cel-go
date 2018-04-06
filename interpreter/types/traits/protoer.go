@@ -12,16 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The traits package defines methods useful for composing a new CEL built-in
-// or abstract type that function with built-in CEL operators.
 package traits
 
 import "reflect"
 
-// Protoer implementations support serialization to proto types / values which
-// may not be directly compatible with CEL.
+// Protoer types support serialization to proto values.
 type Protoer interface {
-
 	// ToProto returns a proto value if the struct can be converted to the
 	// supplied typeDesc, error otherwise.
 	ToProto(typeDesc reflect.Type) (interface{}, error)

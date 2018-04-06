@@ -19,7 +19,7 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/common"
-	"github.com/google/cel-go/debug"
+	"github.com/google/cel-go/common/debug"
 	"github.com/google/cel-go/test"
 	expr "github.com/google/cel-spec/proto/v1/syntax"
 	"reflect"

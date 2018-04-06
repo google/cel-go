@@ -23,7 +23,7 @@ import (
 )
 
 type Env struct {
-	errors       *TypeErrors
+	errors       *typeErrors
 	typeProvider types.TypeProvider
 
 	declarations *decls.Scopes
@@ -34,10 +34,16 @@ func NewEnv(errors *common.Errors, typeProvider types.TypeProvider) *Env {
 	declarations.Push()
 
 	return &Env{
-		errors:       &TypeErrors{errors},
+		errors:       &typeErrors{errors},
 		typeProvider: typeProvider,
 		declarations: declarations,
 	}
+}
+
+func NewStandardEnv(errors *common.Errors, typeProvider types.TypeProvider) *Env {
+	e := NewEnv(errors, typeProvider)
+	e.Add(StandardDeclarations()...)
+	return e
 }
 
 func (e *Env) Add(decls ...*checked.Decl) {

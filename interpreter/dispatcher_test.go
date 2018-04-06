@@ -15,15 +15,15 @@
 package interpreter
 
 import (
+	"github.com/google/cel-go/common/operators"
+	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/interpreter/functions"
-	"github.com/google/cel-go/operators"
-	"github.com/google/cel-go/overloads"
 	"testing"
 )
 
 func TestDefaultDispatcher_Dispatch(t *testing.T) {
 	dispatcher := NewDispatcher()
-	if err := dispatcher.Add(functions.StandardBuiltins()...); err != nil {
+	if err := dispatcher.Add(functions.StandardOverloads()...); err != nil {
 		t.Error(err)
 	}
 	call := &CallContext{
@@ -36,7 +36,7 @@ func TestDefaultDispatcher_Dispatch(t *testing.T) {
 
 func TestDefaultDispatcher_DispatchOverload(t *testing.T) {
 	dispatcher := NewDispatcher()
-	if err := dispatcher.Add(functions.StandardBuiltins()...); err != nil {
+	if err := dispatcher.Add(functions.StandardOverloads()...); err != nil {
 		t.Error(err)
 	}
 	call := &CallContext{
@@ -50,7 +50,7 @@ func TestDefaultDispatcher_DispatchOverload(t *testing.T) {
 
 func BenchmarkDefaultDispatcher_Dispatch(b *testing.B) {
 	dispatcher := NewDispatcher()
-	if err := dispatcher.Add(functions.StandardBuiltins()...); err != nil {
+	if err := dispatcher.Add(functions.StandardOverloads()...); err != nil {
 		b.Error(err)
 	}
 	for i := 0; i < b.N; i++ {
@@ -65,7 +65,7 @@ func BenchmarkDefaultDispatcher_Dispatch(b *testing.B) {
 
 func BenchmarkDefaultDispatcher_DispatchOverload(b *testing.B) {
 	dispatcher := NewDispatcher()
-	if err := dispatcher.Add(functions.StandardBuiltins()...); err != nil {
+	if err := dispatcher.Add(functions.StandardOverloads()...); err != nil {
 		b.Error(err)
 	}
 	for i := 0; i < b.N; i++ {

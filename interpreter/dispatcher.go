@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The interpreter package provides functions to evaluate CEL programs against
-// a series of inputs and functions supplied at runtime.
 package interpreter
 
 import (
@@ -60,10 +58,10 @@ func (ctx *CallContext) Args() []interface{} {
 
 // NewDispatcher returns an empty Dispatcher.
 //
-// Typically this call would be used with functions#StandardBuiltins:
+// Typically this call would be used with functions#StandardOverloads:
 //
 //     dispatcher := NewDispatcher()
-//     dispatcher.Add(functions.StandardBuiltins())
+//     dispatcher.Add(functions.StandardOverloads())
 func NewDispatcher() Dispatcher {
 	return &defaultDispatcher{
 		overloads: make(map[string]*overload),

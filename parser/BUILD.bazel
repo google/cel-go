@@ -11,7 +11,7 @@ go_library(
     deps = [
         "//io:syntax_proto",
         "//common:go_default_library",
-        "//operators:go_default_library",
+        "//common/operators:go_default_library",
         "//parser/gen:go_default_library",
         "@com_github_antlr//runtime/Go/antlr:go_default_library",
         "@com_github_golang_protobuf//ptypes/struct:go_default_library",
@@ -30,7 +30,7 @@ go_test(
         ":go_default_library",
     ],
     deps = [
-        "//debug:go_default_library",
+        "//common/debug:go_default_library",
         "//parser/gen:go_default_library",
         "//test:go_default_library",
         "@com_github_gogo_protobuf//proto:go_default_library",

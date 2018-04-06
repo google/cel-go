@@ -12,20 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The traits package defines methods useful for composing a new CEL built-in
-// or abstract type that function with built-in CEL operators.
 package traits
 
-// Iterable aggregate types permit traversal over their elements
+// Iterable aggregate types permit traversal over their elements.
 type Iterable interface {
-
 	// Iterator returns a new iterator view of the struct.
 	Iterator() Iterator
 }
 
 // Iterator permits safe traversal over the contents of an aggregate type.
 type Iterator interface {
-
 	// HasNext returns true if there are unvisited elements in the Iterator.
 	HasNext() bool
 

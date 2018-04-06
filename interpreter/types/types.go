@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// TypeProvider specifies functions for creating new object instances and for
-// resolving enum values by name.
+// Package types declares core language type interfaces with wrappers for
+// protocol buffer values.
 package types
 
 import (
@@ -25,7 +25,7 @@ import (
 	"github.com/google/cel-go/interpreter/types/traits"
 )
 
-// Declare the type instances and their human readable names.
+// Type instances and their human readable names.
 var (
 	TypeType      Type = &exprType{name: "type"}
 	NullType      Type = &exprType{name: "null"}
@@ -119,5 +119,5 @@ func TypeOf(value interface{}) (Type, bool) {
 }
 
 func (t *exprType) String() string {
-	return fmt.Sprint("typeof(%s)", t.name)
+	return fmt.Sprintf("typeof(%s)", t.name)
 }

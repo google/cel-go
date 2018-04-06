@@ -17,12 +17,15 @@ package parser
 import (
 	"fmt"
 
-	"github.com/google/cel-go/operators"
+	"github.com/google/cel-go/common/operators"
 	expr "github.com/google/cel-spec/proto/v1/syntax"
 )
 
+// Macros type alias for a collection of Macros.
 type Macros []Macro
 
+// Macro type which declares the function name and arg count expected for the
+// macro, as well as a macro expansion function.
 type Macro struct {
 	name          string
 	instanceStyle bool
@@ -30,8 +33,8 @@ type Macro struct {
 	expander      func(*parserHelper, interface{}, *expr.Expr, []*expr.Expr) *expr.Expr
 }
 
+// AllMacros includes the list of all spec-supported macros.
 var AllMacros = []Macro{
-
 	// The macro "has(m.f)" which tests the presence of a field, avoiding the need to specify
 	// the field as a string.
 	{
@@ -40,7 +43,6 @@ var AllMacros = []Macro{
 		args:          1,
 		expander:      makeHas,
 	},
-
 	// The macro "range.all(var, predicate)", which is true if for all elements in range the  predicate holds.
 	{
 		name:          operators.All,
@@ -48,7 +50,6 @@ var AllMacros = []Macro{
 		args:          2,
 		expander:      makeAll,
 	},
-
 	// The macro "range.exists(var, predicate)", which is true if for at least one element in
 	// range the predicate holds.
 	{
@@ -57,7 +58,6 @@ var AllMacros = []Macro{
 		args:          2,
 		expander:      makeExists,
 	},
-
 	// The macro "range.exists_one(var, predicate)", which is true if for exactly one element
 	// in range the predicate holds.
 	{
@@ -66,7 +66,6 @@ var AllMacros = []Macro{
 		args:          2,
 		expander:      makeExistsOne,
 	},
-
 	// The macro "range.map(var, function)", applies the function to the vars in the range.
 	{
 		name:          operators.Map,
@@ -74,7 +73,6 @@ var AllMacros = []Macro{
 		args:          2,
 		expander:      makeMap,
 	},
-
 	// The macro "range.map(var, predicate, function)", applies the function to the vars in
 	// the range for which the predicate holds true. The other variables are filtered out.
 	{
@@ -83,7 +81,6 @@ var AllMacros = []Macro{
 		args:          3,
 		expander:      makeMap,
 	},
-
 	// The macro "range.filter(var, predicate)", filters out the variables for which the
 	// predicate is false.
 	{
@@ -94,10 +91,8 @@ var AllMacros = []Macro{
 	},
 }
 
+// NoMacros list.
 var NoMacros = []Macro{}
-
-// Field Presence
-// ==============
 
 func makeHas(p *parserHelper, ctx interface{}, target *expr.Expr, args []*expr.Expr) *expr.Expr {
 	if s, ok := args[0].ExprKind.(*expr.Expr_SelectExpr); ok {
@@ -105,9 +100,6 @@ func makeHas(p *parserHelper, ctx interface{}, target *expr.Expr, args []*expr.E
 	}
 	return p.reportError(ctx, "invalid argument to has() macro")
 }
-
-// Logical Quantifiers
-// ===================
 
 const accumulatorName = "__result__"
 
@@ -172,9 +164,6 @@ func makeQuantifier(kind quantifierKind, p *parserHelper, ctx interface{}, targe
 	return p.newComprehension(ctx, v, target, accumulatorName, init, condition, step, result)
 }
 
-// Map
-// ===
-
 func makeMap(p *parserHelper, ctx interface{}, target *expr.Expr, args []*expr.Expr) *expr.Expr {
 	v, found := extractIdent(args[0])
 	if !found {
@@ -203,9 +192,6 @@ func makeMap(p *parserHelper, ctx interface{}, target *expr.Expr, args []*expr.E
 	}
 	return p.newComprehension(ctx, v, target, accumulatorName, init, condition, step, accuExpr)
 }
-
-// Filter
-// ======
 
 func makeFilter(p *parserHelper, ctx interface{}, target *expr.Expr, args []*expr.Expr) *expr.Expr {
 	v, found := extractIdent(args[0])

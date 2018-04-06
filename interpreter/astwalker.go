@@ -12,14 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The interpreter package provides functions to evaluate CEL programs against
-// a series of inputs and functions supplied at runtime.
 package interpreter
 
 import (
 	"fmt"
-	"github.com/google/cel-go/operators"
-	"github.com/google/cel-go/overloads"
+	"github.com/google/cel-go/common/operators"
+	"github.com/google/cel-go/common/overloads"
 	expr "github.com/google/cel-spec/proto/v1/syntax"
 )
 

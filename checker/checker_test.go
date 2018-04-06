@@ -1026,7 +1026,7 @@ func Test(t *testing.T) {
 				}
 			}
 
-			semantics := Check(env, tst.Container, expression)
+			semantics := Check(expression, env, tst.Container)
 			if len(errors.GetErrors()) > 0 {
 				errorString := errors.ToDisplayString()
 				if tst.Error != "" {

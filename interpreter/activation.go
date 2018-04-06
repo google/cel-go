@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The interpreter package provides functions to evaluate CEL programs against
-// a series of inputs and functions supplied at runtime.
 package interpreter
 
 // Activation used to resolve identifiers by name and references by id.

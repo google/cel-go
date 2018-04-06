@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The types package includes utilities for instantiation, adaptation,
-// composition, and testing of CEL types.
+// Package providers declares utilities for creating / resolving external types
+// as expression values.
 package providers
 
 import (
