@@ -3,7 +3,7 @@
 - [ ] There are no issues that match the desired change
 - [ ] The change is large enough it can't be addressed with a simple
      [Pull Request](./PULL_REQUEST_TEMPLATE.md) 
-- [ ] This is a bug and there are a concrete set of repro steps
+- [ ] If this is a bug, there are a concrete set of repro steps
 
 ## Change
 Replace this text with a summary of the proposed change.
