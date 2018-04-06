@@ -22,39 +22,23 @@ Learn more about CEL semantics in the [CEL Spec][1] repo.
 # Contribution Process
 
 All submissions require review. Small changes can be submitted directly via
-[Pull Request][2] on GitHub. Use your judgement about what constitutes a small
-change, but if in doubt, follow this process for larger changes:
+[Pull Request](./PULL_REQUEST_TEMPLATE.md) on GitHub. Use your judgement about
+what constitutes a small change, but if in doubt, follow this process for
+larger changes:
 
 * Determine whether the changes has already been requested in Issues.
 * If so, please add a comment to indicate your interest as this helps
-  the CEL Maintainers prioritize feedback.
-* If not, file a new Issue indicating:
-    * Description of the desired change
-    * Use case where it applies.
-    * Reproduction step(s), if applicable.
-    * Alternative solutions considered.
+  the CEL maintainers prioritize changes.
+* If not, file an [Issue](./ISSUE_TEMPLATE.md).
 
 If you are still in doubt about whether to file an Issue or would like to
 consult with the broader CEL Go community, feel free to send a message to
-the [CEL Go Discuss][3] Google group.
+the [CEL Go Discuss][2] Google group.
 
 ## Code Contributions
 
-For code contributions, consider the following:
-
-* Most changes should be accompanied by tests.
-* Commit messages should explain _why_ the changes were made.
-```
-Summary of change in 50 characters or less
-
-Background on why the change is being made with additional detail on
-consequences of the changes elsewhere in the code or to the general
-functionality of the library. Multiple paragraphs may be used, but
-please keep lines to 72 characters or less.
-```
-
-* Related commits should be squashed before merging.
-* Travis CI tests pass before review approval will be given.
+See [PULL_REQUEST_TEMPLATE.md](./PULL_REQUEST_TEMPLATE.md) for guidelines on
+creating, reviewing, and merging code contributions.
 
 ### Contributor License Agreement
 
@@ -84,5 +68,4 @@ or closing a pull request, or fixing or closing an issue -- because some
 issues will require more discussion than others.
 
 [1]:  https://github.com/google/cel-spec
-[2]:  https://help.github.com/articles/about-pull-requests
-[3]:  https://groups.google.com/forum/#!forum/cel-go-discuss
+[2]:  https://groups.google.com/forum/#!forum/cel-go-discuss
