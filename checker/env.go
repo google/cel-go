@@ -91,6 +91,7 @@ func (e *Env) addOverload(f *checked.Decl, overload *checked.Decl_FunctionDecl_O
 func (e *Env) addFunction(decl *checked.Decl) {
 	current := e.declarations.FindFunction(decl.Name)
 	if current == nil {
+		//Add the function declaration without overloads and check the overloads below.
 		current = decls.NewFunction(decl.Name)
 		e.declarations.AddFunction(current)
 	}
@@ -100,7 +101,6 @@ func (e *Env) addFunction(decl *checked.Decl) {
 	for _, overload := range decl.GetFunction().GetOverloads() {
 		e.addOverload(current, overload)
 	}
-	decl = current
 }
 
 func (e *Env) addIdent(decl *checked.Decl) {
