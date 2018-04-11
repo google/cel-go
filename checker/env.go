@@ -72,8 +72,8 @@ func (e *Env) addOverload(f *checked.Decl, overload *checked.Decl_FunctionDecl_O
 			types.IsAssignable(emptyMappings, existingErased, overloadErased) != nil)
 		if overlap &&
 			overload.GetIsInstanceFunction() == existing.GetIsInstanceFunction() {
-			e.errors.overlappingOverload(common.NoLocation, f.Name, overloadFunction,
-				existingFunction)
+			e.errors.overlappingOverload(common.NoLocation, f.Name, overload.GetOverloadId(), overloadFunction,
+				existing.GetOverloadId(), existingFunction)
 			return
 		}
 	}
@@ -95,9 +95,7 @@ func (e *Env) addFunction(decl *checked.Decl) {
 		current = decls.NewFunction(decl.Name)
 		e.declarations.AddFunction(current)
 	}
-	if current.Name != decl.Name {
-		return
-	}
+
 	for _, overload := range decl.GetFunction().GetOverloads() {
 		e.addOverload(current, overload)
 	}

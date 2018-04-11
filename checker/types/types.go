@@ -18,11 +18,12 @@ package types
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/golang/protobuf/ptypes/struct"
 	"github.com/google/cel-spec/proto/checked/v1/checked"
-	"strings"
 )
 
 const (
@@ -397,6 +398,22 @@ func typeKey(t *checked.Type) string {
 	return fmt.Sprintf("%v:%v", KindOf(t), t.String())
 }
 
+func formatFunction(resultType *checked.Type, args []*checked.Type) string {
+	result := ""
+	if resultType != nil {
+		result = fmt.Sprintf(" : %s", FormatType(resultType))
+	}
+
+	formatter := func(args []*checked.Type) []string {
+		formatted := make([]string, 0, len(args))
+		for _, arg := range args {
+			formatted = append(formatted, FormatType(arg))
+		}
+		return formatted
+	}
+	return fmt.Sprintf("function(%s)%s", strings.Join(formatter(args), ","), result)
+}
+
 func FormatType(t *checked.Type) string {
 	switch KindOf(t) {
 	case KindPrimitive:
@@ -407,6 +424,8 @@ func FormatType(t *checked.Type) string {
 			return "int"
 		}
 		return strings.Trim(strings.ToLower(t.GetPrimitive().String()), " ")
+	case KindFunction:
+		return formatFunction(t.GetFunction().GetResultType(), t.GetFunction().GetArgTypes())
 	case KindWrapper:
 		return fmt.Sprintf("wrapper(%s)", FormatType(NewPrimitive(t.GetWrapper())))
 	case KindObject:

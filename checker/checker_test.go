@@ -886,7 +886,7 @@ _&&_(_==_(list~type(list(int))^list,
 					decls.NewOverload("yourfunc_id", []*checked.Type{types.Dyn}, types.Dyn)),
 			},
 		},
-		Error: `ERROR: <input>:-1:0: overlapping overload for name 'myfunc' (type 'function:<result_type:<dyn:<> > arg_types:<dyn:<> > > ' cannot be distinguished from 'function:<result_type:<dyn:<> > arg_types:<dyn:<> > > ')`,
+		Error: `ERROR: <input>:-1:0: overlapping overload for name 'myfunc' (type 'function(dyn) : dyn' with overloadId: 'yourfunc_id' cannot be distinguished from 'function(dyn) : dyn' with overloadId: 'myfunc_id')`,
 	},
 	{
 		I: `size(x) > 4`,

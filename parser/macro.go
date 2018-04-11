@@ -21,6 +21,8 @@ import (
 	expr "github.com/google/cel-spec/proto/v1/syntax"
 )
 
+// TODO: Consider moving macros to common.
+
 // Macros type alias for a collection of Macros.
 type Macros []Macro
 
