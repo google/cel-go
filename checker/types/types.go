@@ -19,6 +19,7 @@ package types
 import (
 	"fmt"
 	"strings"
+	
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/golang/protobuf/ptypes/struct"
@@ -403,14 +404,14 @@ func formatFunction(resultType *checked.Type, args []*checked.Type) string {
 		result = fmt.Sprintf(" : %s", FormatType(resultType))
 	}
 
-	formatter := func(args []*checked.Type) []string {
+	formatter := func() []string {
 		formatted := make([]string, 0, len(args))
 		for _, arg := range args {
 			formatted = append(formatted, FormatType(arg))
 		}
 		return formatted
 	}
-	return fmt.Sprintf("function(%s)%s", strings.Join(formatter(args), ","), result)
+	return fmt.Sprintf("function(%s)%s", strings.Join(formatter(), ","), result)
 }
 
 func FormatType(t *checked.Type) string {
