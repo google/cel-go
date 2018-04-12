@@ -21,6 +21,8 @@ import (
 	expr "github.com/google/cel-spec/proto/v1/syntax"
 )
 
+// TODO: Consider moving macros to common.
+
 // Macros type alias for a collection of Macros.
 type Macros []Macro
 
@@ -93,6 +95,18 @@ var AllMacros = []Macro{
 
 // NoMacros list.
 var NoMacros = []Macro{}
+
+func (m *Macro) GetName() string {
+	return m.name
+}
+
+func (m *Macro) GetArgCount() int {
+	return m.args
+}
+
+func (m *Macro) GetIsInstanceStyle() bool {
+	return m.instanceStyle
+}
 
 func makeHas(p *parserHelper, ctx interface{}, target *expr.Expr, args []*expr.Expr) *expr.Expr {
 	if s, ok := args[0].ExprKind.(*expr.Expr_SelectExpr); ok {

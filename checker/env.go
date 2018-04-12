@@ -18,6 +18,7 @@ import (
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/checker/types"
 	"github.com/google/cel-go/common"
+	"github.com/google/cel-go/parser"
 	"github.com/google/cel-spec/proto/checked/v1/checked"
 	expr "github.com/google/cel-spec/proto/v1/syntax"
 )
@@ -57,19 +58,46 @@ func (e *Env) Add(decls ...*checked.Decl) {
 	}
 }
 
-func (e *Env) addFunction(decl *checked.Decl) {
-	current := e.declarations.FindFunction(decl.Name)
-	if current != nil {
-		if current.Name != decl.Name {
+func (e *Env) addOverload(f *checked.Decl, overload *checked.Decl_FunctionDecl_Overload) {
+	function := f.GetFunction()
+	emptyMappings := types.NewMapping()
+	overloadFunction := types.NewFunction(overload.GetResultType(),
+		overload.GetParams()...)
+	overloadErased := types.Substitute(emptyMappings, overloadFunction, true)
+	for _, existing := range function.GetOverloads() {
+		existingFunction := types.NewFunction(existing.GetResultType(),
+			existing.GetParams()...)
+		existingErased := types.Substitute(emptyMappings, existingFunction, true)
+		overlap := (types.IsAssignable(emptyMappings, overloadErased, existingErased) != nil ||
+			types.IsAssignable(emptyMappings, existingErased, overloadErased) != nil)
+		if overlap &&
+			overload.GetIsInstanceFunction() == existing.GetIsInstanceFunction() {
+			e.errors.overlappingOverload(common.NoLocation, f.Name, overload.GetOverloadId(), overloadFunction,
+				existing.GetOverloadId(), existingFunction)
 			return
 		}
-		// TODO: Check for conflicts.
-		function := current.GetFunction()
-		function.Overloads = append(function.Overloads,
-			decl.GetFunction().Overloads...)
-		decl = current
-	} else {
-		e.declarations.AddFunction(decl)
+	}
+
+	for _, macro := range parser.AllMacros {
+		if macro.GetName() == f.Name && macro.GetIsInstanceStyle() == overload.GetIsInstanceFunction() &&
+			macro.GetArgCount() == len(overload.GetParams()) {
+			e.errors.overlappingMacro(common.NoLocation, f.Name, macro.GetArgCount())
+			return
+		}
+	}
+	function.Overloads = append(function.GetOverloads(), overload)
+}
+
+func (e *Env) addFunction(decl *checked.Decl) {
+	current := e.declarations.FindFunction(decl.Name)
+	if current == nil {
+		//Add the function declaration without overloads and check the overloads below.
+		current = decls.NewFunction(decl.Name)
+		e.declarations.AddFunction(current)
+	}
+
+	for _, overload := range decl.GetFunction().GetOverloads() {
+		e.addOverload(current, overload)
 	}
 }
 

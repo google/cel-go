@@ -867,21 +867,27 @@ _&&_(_==_(list~type(list(int))^list,
 
 	// TODO: This doesn't seem like the right path for this kind of error. Env should catch the case and throw
 	// during env setup
-	//	{
-	//		I: `false`,
-	//		Env: env{
-	//			functions: []*checked.Decl{
-	//				decls.NewFunction("has",
-	//					semantics.NewOverload("has_id", false, types.Dynamic, types.Dynamic)),
-	//			},
-	//		},
-	//		Error: `
-	//ERROR: <input>:1:1: overload for name 'has' with 1 argument(s) overlaps with predefined macro
-	// | false
-	// | ^
-	//		`,
-	//	},
-
+	{
+		I: `false`,
+		Env: env{
+			functions: []*checked.Decl{
+				decls.NewFunction("has",
+					decls.NewOverload("has_id", []*checked.Type{types.Dyn}, types.Dyn)),
+			},
+		},
+		Error: `ERROR: <input>:-1:0: overload for name 'has' with 1 argument(s) overlaps with predefined macro`,
+	},
+	{
+		I: `false`,
+		Env: env{
+			functions: []*checked.Decl{
+				decls.NewFunction("myfunc",
+					decls.NewOverload("myfunc_id", []*checked.Type{types.Dyn}, types.Dyn),
+					decls.NewOverload("yourfunc_id", []*checked.Type{types.Dyn}, types.Dyn)),
+			},
+		},
+		Error: `ERROR: <input>:-1:0: overlapping overload for name 'myfunc' (type 'function(dyn) : dyn' with overloadId: 'yourfunc_id' cannot be distinguished from 'function(dyn) : dyn' with overloadId: 'myfunc_id')`,
+	},
 	{
 		I: `size(x) > 4`,
 		Env: env{

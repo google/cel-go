@@ -45,6 +45,17 @@ func (e *typeErrors) fieldDoesNotSupportPresenceCheck(l common.Location, field s
 	e.ReportError(l, "field '%s' does not support presence check", field)
 }
 
+func (e *typeErrors) overlappingOverload(l common.Location, name string, overloadId1 string, f1 *checked.Type,
+	overloadId2 string, f2 *checked.Type) {
+	e.ReportError(l, "overlapping overload for name '%s' (type '%s' with overloadId: '%s' cannot be distinguished from '%s' with "+
+		"overloadId: '%s')", name, types.FormatType(f1), overloadId1, types.FormatType(f2), overloadId2)
+}
+
+func (e *typeErrors) overlappingMacro(l common.Location, name string, args int) {
+	e.ReportError(l, "overload for name '%s' with %d argument(s) overlaps with predefined macro",
+		name, args)
+}
+
 func (e *typeErrors) noMatchingOverload(l common.Location, name string, args []*checked.Type, isInstance bool) {
 	signature := formatFunction(nil, args, isInstance)
 	e.ReportError(l, "found no matching overload for '%s' applied to '%s'", name, signature)
