@@ -18,6 +18,50 @@ go_repository(
 
 git_repository(
   name = "com_google_cel_spec",
-  commit = "3769a0b59441e6a2ebe747154dd1a4c85ce65ae0",
+  commit = "3c25c4d4ffb504e2c24c1d84196c78ba3ac9e612",
   remote = "https://github.com/google/cel-spec.git",
+)
+
+new_http_archive(
+    name = "com_google_googleapis",
+    url = "https://github.com/googleapis/googleapis/archive/common-protos-1_3_1.zip",
+    strip_prefix = "googleapis-common-protos-1_3_1/",
+    build_file_content = """
+load('@io_bazel_rules_go//proto:def.bzl', 'go_proto_library')
+
+proto_library(
+    name = 'rpc_status',
+    srcs = ['google/rpc/status.proto'],
+    deps = [
+        '@com_google_protobuf//:any_proto',
+        '@com_google_protobuf//:empty_proto'
+    ],
+    visibility = ['//visibility:public'],
+)
+
+go_proto_library(
+    name = 'rpc_status_go_proto',
+    # TODO: Switch to the correct import path when bazel rules fixed.
+    #importpath = 'google.golang.org/genproto/googleapis/rpc/status',
+    importpath = 'github.com/googleapis/googleapis/google/rpc',
+    proto = ':rpc_status',
+    visibility = ['//visibility:public'],
+)
+"""
+)
+
+git_repository(
+  name = "org_pubref_rules_protobuf",
+  remote = "https://github.com/pubref/rules_protobuf",
+  tag = "v0.8.2",
+)
+
+load("@org_pubref_rules_protobuf//go:rules.bzl", "go_proto_repositories")
+go_proto_repositories()
+
+go_repository(
+  name = "org_golang_google_grpc",
+  importpath = "google.golang.org/grpc",
+  tag = "v1.11.3",
+  remote = "https://github.com/grpc/grpc-go.git",
 )

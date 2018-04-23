@@ -31,7 +31,7 @@ type Interpreter interface {
 	NewInterpretable(program Program) Interpretable
 }
 
-// Interpretable can accept a given Activation and produce a result along with
+// Interpretable can accept a given Activation and produce a value along with
 // an accompanying EvalState which can be used to inspect whether additional
 // data might be necessary to complete the evaluation.
 type Interpretable interface {

@@ -202,14 +202,14 @@ func (p *parserHelper) id(ctx interface{}) int64 {
 	}
 	location := common.NewLocation(token.GetLine(), token.GetColumn())
 	id := p.nextId
-	p.positions[id], _ = p.source.CharacterOffset(location)
+	p.positions[id], _ = p.source.LocationOffset(location)
 	p.nextId++
 	return id
 }
 
 func (p *parserHelper) getLocation(id int64) common.Location {
 	characterOffset := p.positions[id]
-	location, _ := p.source.LocationFromOffset(characterOffset)
+	location, _ := p.source.OffsetLocation(characterOffset)
 	return location
 }
 

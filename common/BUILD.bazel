@@ -9,6 +9,9 @@ go_library(
         "source.go",
     ],
     importpath = "github.com/google/cel-go/common",
+    deps = [
+        "@com_google_cel_spec//proto/v1:syntax_go_proto",
+    ],
     visibility = ["//visibility:public"],
 )
 

@@ -16,10 +16,11 @@ package types
 
 import (
 	"fmt"
+	"reflect"
+
 	"github.com/golang/protobuf/ptypes/struct"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
-	"reflect"
 )
 
 var (
@@ -33,6 +34,8 @@ var (
 )
 
 // NewDynamicList returns a traits.Lister with heterogenous elements.
+// value should be an array of "native" types, i.e. any type that
+// NativeToValue() can convert to a ref.Value.
 func NewDynamicList(value interface{}) traits.Lister {
 	return &baseList{value, reflect.ValueOf(value)}
 }
@@ -44,7 +47,15 @@ func NewStringList(elems []string) traits.Lister {
 		elems:    elems}
 }
 
+// NewValueList returns a traits.Lister with ref.Value elements.
+func NewValueList(elems []ref.Value) traits.Lister {
+	return &valueList{
+		baseList: NewDynamicList(elems).(*baseList),
+		elems:    elems}
+}
+
 // baseList points to a list containing elements of any type.
+// value is an array of native values, and refValue is its reflection object.
 type baseList struct {
 	value    interface{}
 	refValue reflect.Value
@@ -361,6 +372,48 @@ func (l *stringList) Get(index ref.Value) ref.Value {
 }
 
 func (l *stringList) Size() ref.Value {
+	return Int(len(l.elems))
+}
+
+// valueList is a specialization of traits.Lister for ref.Value.
+type valueList struct {
+	*baseList
+	elems []ref.Value
+}
+
+func (l *valueList) Add(other ref.Value) ref.Value {
+	if other.Type() != ListType {
+		return NewErr("no such overload")
+	}
+	return &concatList{
+		prevList: l,
+		nextList: other.(traits.Lister)}
+}
+
+func (l *valueList) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
+	natives := make([]interface{}, len(l.elems))
+	for _, v := range l.elems {
+		if n, e := v.ConvertToNative(typeDesc); e != nil {
+			return nil, e
+		} else {
+			natives = append(natives, n)
+		}
+	}
+	return natives, nil
+}
+
+func (l *valueList) Get(index ref.Value) ref.Value {
+	if index.Type() != IntType {
+		return NewErr("unsupported index type '%s' in list", index.Type())
+	}
+	i := index.(Int)
+	if i < 0 || i >= l.Size().(Int) {
+		return NewErr("index '%d' out of range in list size '%d'", i, l.Size())
+	}
+	return l.elems[i]
+}
+
+func (l *valueList) Size() ref.Value {
 	return Int(len(l.elems))
 }
 

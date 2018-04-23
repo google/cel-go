@@ -35,7 +35,7 @@ go_library(
         "//common/types/ref:go_default_library",
         "//common/types/pb:go_default_library",
         "//common/types/traits:go_default_library",
-        "//io:checked_proto",
+        "@com_google_cel_spec//proto/checked/v1:checked_go_proto",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_golang_protobuf//ptypes:go_default_library",
         "@io_bazel_rules_go//proto/wkt:any_go_proto",
@@ -68,8 +68,8 @@ go_test(
     embed = [":go_default_library"],
     deps = [
         "//common/types/ref:go_default_library",
-        "//io:syntax_proto",
         "//test:go_default_library",
+        "@com_google_cel_spec//proto/v1:syntax_go_proto",
         "@com_github_golang_protobuf//jsonpb:go_default_library",
         "@io_bazel_rules_go//proto/wkt:any_go_proto",
         "@io_bazel_rules_go//proto/wkt:duration_go_proto",
