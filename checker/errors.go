@@ -15,7 +15,6 @@
 package checker
 
 import (
-	"github.com/google/cel-go/checker/types"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-spec/proto/checked/v1/checked"
 )
@@ -48,7 +47,7 @@ func (e *typeErrors) fieldDoesNotSupportPresenceCheck(l common.Location, field s
 func (e *typeErrors) overlappingOverload(l common.Location, name string, overloadId1 string, f1 *checked.Type,
 	overloadId2 string, f2 *checked.Type) {
 	e.ReportError(l, "overlapping overload for name '%s' (type '%s' with overloadId: '%s' cannot be distinguished from '%s' with "+
-		"overloadId: '%s')", name, types.FormatType(f1), overloadId1, types.FormatType(f2), overloadId2)
+		"overloadId: '%s')", name, FormatCheckedType(f1), overloadId1, FormatCheckedType(f2), overloadId2)
 }
 
 func (e *typeErrors) overlappingMacro(l common.Location, name string, args int) {
@@ -65,21 +64,21 @@ func (e *typeErrors) aggregateTypeMismatch(l common.Location, aggregate *checked
 	e.ReportError(
 		l,
 		"type '%s' does not match previous type '%s' in aggregate. Use 'dyn(x)' to make the aggregate dynamic.",
-		types.FormatType(member),
-		types.FormatType(aggregate))
+		FormatCheckedType(member),
+		FormatCheckedType(aggregate))
 }
 
 func (e *typeErrors) notAType(l common.Location, t *checked.Type) {
-	e.ReportError(l, "'%s(%v)' is not a type", types.FormatType(t), t)
+	e.ReportError(l, "'%s(%v)' is not a type", FormatCheckedType(t), t)
 }
 
 func (e *typeErrors) notAMessageType(l common.Location, t *checked.Type) {
-	e.ReportError(l, "'%s' is not a message type", types.FormatType(t))
+	e.ReportError(l, "'%s' is not a message type", FormatCheckedType(t))
 }
 
 func (e *typeErrors) fieldTypeMismatch(l common.Location, name string, field *checked.Type, value *checked.Type) {
 	e.ReportError(l, "expected type of field '%s' is '%s' but provided type is '%s'",
-		name, types.FormatType(field), types.FormatType(value))
+		name, FormatCheckedType(field), FormatCheckedType(value))
 }
 
 func (e *typeErrors) unexpectedFailedResolution(l common.Location, typeName string) {
@@ -88,12 +87,12 @@ func (e *typeErrors) unexpectedFailedResolution(l common.Location, typeName stri
 
 func (e *typeErrors) notAComprehensionRange(l common.Location, t *checked.Type) {
 	e.ReportError(l, "expression of type '%s' cannot be range of a comprehension (must be list, map, or dynamic)",
-		types.FormatType(t))
+		FormatCheckedType(t))
 }
 
 func (e *typeErrors) typeMismatch(l common.Location, expected *checked.Type, actual *checked.Type) {
 	e.ReportError(l, "expected type '%s' but found '%s'",
-		types.FormatType(expected), types.FormatType(actual))
+		FormatCheckedType(expected), FormatCheckedType(actual))
 }
 
 func formatFunction(resultType *checked.Type, argTypes []*checked.Type, isInstance bool) string {
@@ -102,7 +101,7 @@ func formatFunction(resultType *checked.Type, argTypes []*checked.Type, isInstan
 		target := argTypes[0]
 		argTypes = argTypes[1:]
 
-		result += types.FormatType(target)
+		result += FormatCheckedType(target)
 		result += "."
 	}
 
@@ -111,12 +110,12 @@ func formatFunction(resultType *checked.Type, argTypes []*checked.Type, isInstan
 		if i > 0 {
 			result += ", "
 		}
-		result += types.FormatType(arg)
+		result += FormatCheckedType(arg)
 	}
 	result += ")"
 	if resultType != nil {
 		result += " -> "
-		result += types.FormatType(resultType)
+		result += FormatCheckedType(resultType)
 	}
 
 	return result

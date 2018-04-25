@@ -15,7 +15,6 @@
 package checker
 
 import (
-	"github.com/google/cel-go/checker/types"
 	"github.com/google/cel-go/common/debug"
 	"github.com/google/cel-spec/proto/checked/v1/checked"
 	expr "github.com/google/cel-spec/proto/v1/syntax"
@@ -36,7 +35,7 @@ func (a *semanticAdorner) GetMetadata(elem interface{}) string {
 	t := a.checks.TypeMap[e.Id]
 	if t != nil {
 		result += "~"
-		result += types.FormatType(t)
+		result += FormatCheckedType(t)
 	}
 
 	switch e.ExprKind.(type) {

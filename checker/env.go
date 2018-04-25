@@ -16,8 +16,9 @@ package checker
 
 import (
 	"github.com/google/cel-go/checker/decls"
-	"github.com/google/cel-go/checker/types"
 	"github.com/google/cel-go/common"
+	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/parser"
 	"github.com/google/cel-spec/proto/checked/v1/checked"
 	expr "github.com/google/cel-spec/proto/v1/syntax"
@@ -25,12 +26,12 @@ import (
 
 type Env struct {
 	errors       *typeErrors
-	typeProvider types.TypeProvider
+	typeProvider ref.TypeProvider
 
 	declarations *decls.Scopes
 }
 
-func NewEnv(errors *common.Errors, typeProvider types.TypeProvider) *Env {
+func NewEnv(errors *common.Errors, typeProvider ref.TypeProvider) *Env {
 	declarations := decls.NewScopes()
 	declarations.Push()
 
@@ -41,7 +42,7 @@ func NewEnv(errors *common.Errors, typeProvider types.TypeProvider) *Env {
 	}
 }
 
-func NewStandardEnv(errors *common.Errors, typeProvider types.TypeProvider) *Env {
+func NewStandardEnv(errors *common.Errors, typeProvider ref.TypeProvider) *Env {
 	e := NewEnv(errors, typeProvider)
 	e.Add(StandardDeclarations()...)
 	return e
@@ -60,16 +61,16 @@ func (e *Env) Add(decls ...*checked.Decl) {
 
 func (e *Env) addOverload(f *checked.Decl, overload *checked.Decl_FunctionDecl_Overload) {
 	function := f.GetFunction()
-	emptyMappings := types.NewMapping()
-	overloadFunction := types.NewFunction(overload.GetResultType(),
+	emptyMappings := newMapping()
+	overloadFunction := newFunction(overload.GetResultType(),
 		overload.GetParams()...)
-	overloadErased := types.Substitute(emptyMappings, overloadFunction, true)
+	overloadErased := substitute(emptyMappings, overloadFunction, true)
 	for _, existing := range function.GetOverloads() {
-		existingFunction := types.NewFunction(existing.GetResultType(),
+		existingFunction := newFunction(existing.GetResultType(),
 			existing.GetParams()...)
-		existingErased := types.Substitute(emptyMappings, existingFunction, true)
-		overlap := (types.IsAssignable(emptyMappings, overloadErased, existingErased) != nil ||
-			types.IsAssignable(emptyMappings, existingErased, overloadErased) != nil)
+		existingErased := substitute(emptyMappings, existingFunction, true)
+		overlap := isAssignable(emptyMappings, overloadErased, existingErased) != nil ||
+			isAssignable(emptyMappings, existingErased, overloadErased) != nil
 		if overlap &&
 			overload.GetIsInstanceFunction() == existing.GetIsInstanceFunction() {
 			e.errors.overlappingOverload(common.NoLocation, f.Name, overload.GetOverloadId(), overloadFunction,
@@ -118,7 +119,7 @@ func (e *Env) LookupIdent(container string, typeName string) *checked.Decl {
 		// Next try to import the name as a reference to a message type. If found,
 		// the declaration is added to the outest (global) scope of the
 		// environment, so next time we can access it faster.
-		if t := e.typeProvider.LookupType(candidate); t != nil {
+		if t, found := e.typeProvider.FindType(candidate); found {
 			decl := decls.NewIdent(candidate, t, nil)
 			e.declarations.AddIdent(decl)
 			return decl
@@ -126,16 +127,16 @@ func (e *Env) LookupIdent(container string, typeName string) *checked.Decl {
 
 		// Next try to import this as an enum value by splitting the name in a type prefix and
 		// the enum inside.
-		if enumValue, found := e.typeProvider.LookupEnumValue(candidate); found {
+		if enumValue := e.typeProvider.EnumValue(candidate); enumValue.Type() != types.ErrType {
 			decl := decls.NewIdent(candidate,
-				types.Int64,
+				Int,
 				&expr.Constant{
 					ConstantKind: &expr.Constant_Int64Value{
-						Int64Value: enumValue}})
+						Int64Value: int64(enumValue.(types.Int))}})
 			e.declarations.AddIdent(decl)
+			return decl
 		}
 	}
-
 	return nil
 }
 

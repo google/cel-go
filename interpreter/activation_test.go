@@ -15,12 +15,13 @@
 package interpreter
 
 import (
+	"github.com/google/cel-go/common/types"
 	"testing"
 )
 
 func TestNewActivation(t *testing.T) {
 	activation := NewActivation(map[string]interface{}{"a": true})
-	if val, found := activation.ResolveName("a"); !found || !val.(bool) {
+	if val, found := activation.ResolveName("a"); !found || val != types.True {
 		t.Error("Activation failed to resolve 'a'")
 	}
 }
@@ -33,15 +34,15 @@ func TestHierarchicalActivation(t *testing.T) {
 	combined := NewHierarchicalActivation(parent, child)
 
 	// Resolve the shadowed child value.
-	if val, found := combined.ResolveName("a"); !found || !val.(bool) {
+	if val, found := combined.ResolveName("a"); !found || val != types.True {
 		t.Error("Activation failed to resolve shadow value of 'a'")
 	}
 	// Resolve the parent only value.
-	if val, found := combined.ResolveName("b"); !found || val.(int) != -42 {
+	if val, found := combined.ResolveName("b"); !found || val.(types.Int) != -42 {
 		t.Error("Activation failed to resolve parent value of 'b'")
 	}
 	// Resolve the child only value.
-	if val, found := combined.ResolveName("c"); !found || val.(string) != "universe" {
+	if val, found := combined.ResolveName("c"); !found || val.(types.String) != "universe" {
 		t.Error("Activation failed to resolve child value of 'c'")
 	}
 }

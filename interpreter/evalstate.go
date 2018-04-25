@@ -14,10 +14,12 @@
 
 package interpreter
 
+import "github.com/google/cel-go/common/types/ref"
+
 // EvalState tracks the values associated with expression ids during execution.
 type EvalState interface {
 	// Value of the given expression id, false if not found.
-	Value(int64) (interface{}, bool)
+	Value(int64) (ref.Value, bool)
 }
 
 // MutableEvalState permits the mutation of evaluation state for a given
@@ -25,33 +27,23 @@ type EvalState interface {
 type MutableEvalState interface {
 	EvalState
 	// SetValue associates an expression id with a value.
-	SetValue(int64, interface{})
+	SetValue(int64, ref.Value)
 }
 
 // NewEvalState returns a MutableEvalState.
 func NewEvalState() MutableEvalState {
-	return &defaultEvalState{make(map[int64]interface{})}
+	return &defaultEvalState{make(map[int64]ref.Value)}
 }
 
 type defaultEvalState struct {
-	exprValues map[int64]interface{}
+	exprValues map[int64]ref.Value
 }
 
-func (s *defaultEvalState) Value(exprId int64) (interface{}, bool) {
+func (s *defaultEvalState) Value(exprId int64) (ref.Value, bool) {
 	object, found := s.exprValues[exprId]
 	return object, found
 }
 
-func (s *defaultEvalState) SetValue(exprId int64, value interface{}) {
+func (s *defaultEvalState) SetValue(exprId int64, value ref.Value) {
 	s.exprValues[exprId] = value
-}
-
-// TODO: replace this with the value.proto equivalents.
-type UnknownValue struct {
-	Args []Instruction
-}
-
-// TODO: replace this with the value.proto equivalents.
-type ErrorValue struct {
-	ErrorSet []error
 }

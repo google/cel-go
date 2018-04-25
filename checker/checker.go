@@ -22,8 +22,8 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cel-go/checker/decls"
-	"github.com/google/cel-go/checker/types"
 	"github.com/google/cel-go/common"
+	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-spec/proto/checked/v1/checked"
 	expr "github.com/google/cel-spec/proto/v1/syntax"
 )
@@ -31,7 +31,7 @@ import (
 type checker struct {
 	env                *Env
 	container          string
-	mappings           *types.Mapping
+	mappings           *mapping
 	freeTypeVarCounter int
 	sourceInfo         *expr.SourceInfo
 
@@ -43,7 +43,7 @@ func Check(parsedExpr *expr.ParsedExpr, env *Env, container string) *checked.Che
 	c := checker{
 		env:                env,
 		container:          container,
-		mappings:           types.NewMapping(),
+		mappings:           newMapping(),
 		freeTypeVarCounter: 0,
 		sourceInfo:         parsedExpr.GetSourceInfo(),
 
@@ -56,7 +56,7 @@ func Check(parsedExpr *expr.ParsedExpr, env *Env, container string) *checked.Che
 	// by DYN.
 	m := make(map[int64]*checked.Type)
 	for k, v := range c.types {
-		m[k] = types.Substitute(c.mappings, v, true)
+		m[k] = substitute(c.mappings, v, true)
 	}
 
 	return &checked.CheckedExpr{
@@ -109,31 +109,31 @@ func (c *checker) check(e *expr.Expr) {
 }
 
 func (c *checker) checkInt64Constant(e *expr.Expr) {
-	c.setType(e, types.Int64)
+	c.setType(e, Int)
 }
 
 func (c *checker) checkUint64Constant(e *expr.Expr) {
-	c.setType(e, types.Uint64)
+	c.setType(e, Uint)
 }
 
 func (c *checker) checkStringConstant(e *expr.Expr) {
-	c.setType(e, types.String)
+	c.setType(e, String)
 }
 
 func (c *checker) checkBytesConstant(e *expr.Expr) {
-	c.setType(e, types.Bytes)
+	c.setType(e, Bytes)
 }
 
 func (c *checker) checkDoubleConstant(e *expr.Expr) {
-	c.setType(e, types.Double)
+	c.setType(e, Double)
 }
 
 func (c *checker) checkBoolConstant(e *expr.Expr) {
-	c.setType(e, types.Bool)
+	c.setType(e, Bool)
 }
 
 func (c *checker) checkNullConstant(e *expr.Expr) {
-	c.setType(e, types.Null)
+	c.setType(e, Null)
 }
 
 func (c *checker) checkIdent(e *expr.Expr) {
@@ -144,7 +144,7 @@ func (c *checker) checkIdent(e *expr.Expr) {
 		return
 	}
 
-	c.setType(e, types.Error)
+	c.setType(e, Error)
 	c.env.errors.undeclaredReference(c.location(e), c.container, identExpr.Name)
 }
 
@@ -157,7 +157,7 @@ func (c *checker) checkSelect(e *expr.Expr) {
 		if ident != nil {
 			if sel.TestOnly {
 				c.env.errors.expressionDoesNotSelectField(c.location(e))
-				c.setType(e, types.Bool)
+				c.setType(e, Bool)
 			} else {
 				c.setType(e, ident.GetIdent().Type)
 				c.setReference(e,
@@ -170,13 +170,13 @@ func (c *checker) checkSelect(e *expr.Expr) {
 	// Interpret as field selection, first traversing down the operand.
 	c.check(sel.Operand)
 	targetType := c.getType(sel.Operand)
-	resultType := types.Error
+	resultType := Error
 
-	switch types.KindOf(targetType) {
-	case types.KindError, types.KindDyn:
-		resultType = types.Dyn
+	switch kindOf(targetType) {
+	case kindError, kindDyn:
+		resultType = Dyn
 
-	case types.KindObject:
+	case kindObject:
 		messageType := targetType
 		if fieldType, found := c.lookupFieldType(c.location(e), messageType, sel.Field); found {
 			resultType = fieldType.Type
@@ -185,7 +185,7 @@ func (c *checker) checkSelect(e *expr.Expr) {
 			}
 		}
 
-	case types.KindMap:
+	case kindMap:
 		mapType := targetType.GetMapType()
 		resultType = mapType.ValueType
 
@@ -194,7 +194,7 @@ func (c *checker) checkSelect(e *expr.Expr) {
 	}
 
 	if sel.TestOnly {
-		resultType = types.Bool
+		resultType = Bool
 	}
 
 	c.setType(e, resultType)
@@ -241,7 +241,7 @@ func (c *checker) checkCall(e *expr.Expr) {
 		c.setType(e, resolution.Type)
 		c.setReference(e, resolution.Reference)
 	} else {
-		c.setType(e, types.Error)
+		c.setType(e, Error)
 	}
 }
 
@@ -249,7 +249,7 @@ func (c *checker) resolveOverload(
 	loc common.Location,
 	fn *checked.Decl, target *expr.Expr, args []*expr.Expr) *overloadResolution {
 
-	argTypes := []*checked.Type{}
+	var argTypes []*checked.Type
 	if target != nil {
 		argTypes = append(argTypes, c.getType(target))
 	}
@@ -258,7 +258,7 @@ func (c *checker) resolveOverload(
 	}
 
 	var resultType *checked.Type = nil
-	var ref *checked.Reference = nil
+	var checkedRef *checked.Reference = nil
 	for _, overload := range fn.GetFunction().Overloads {
 		if (target == nil && overload.IsInstanceFunction) ||
 			(target != nil && !overload.IsInstanceFunction) {
@@ -266,33 +266,33 @@ func (c *checker) resolveOverload(
 			continue
 		}
 
-		overloadType := types.NewFunction(overload.ResultType, overload.Params...)
+		overloadType := newFunction(overload.ResultType, overload.Params...)
 		if len(overload.TypeParams) > 0 {
 			// Instantiate overload's type with fresh type variables.
-			substitutions := types.NewMapping()
+			substitutions := newMapping()
 			for _, typePar := range overload.TypeParams {
-				substitutions.Add(types.NewTypeParam(typePar), c.newTypeVar())
+				substitutions.add(newTypeParam(typePar), c.newTypeVar())
 			}
 
-			overloadType = types.Substitute(substitutions, overloadType, false)
+			overloadType = substitute(substitutions, overloadType, false)
 		}
 
 		candidateArgTypes := overloadType.GetFunction().ArgTypes
 		if c.isAssignableList(argTypes, candidateArgTypes) {
-			if ref == nil {
-				ref = newFunctionReference(overload.OverloadId)
+			if checkedRef == nil {
+				checkedRef = newFunctionReference(overload.OverloadId)
 			} else {
-				ref.OverloadId = append(ref.OverloadId, overload.OverloadId)
+				checkedRef.OverloadId = append(checkedRef.OverloadId, overload.OverloadId)
 			}
 
 			if resultType == nil {
 				// First matching overload, determines result type.
-				resultType = types.Substitute(c.mappings,
+				resultType = substitute(c.mappings,
 					overloadType.GetFunction().ResultType,
 					false)
 			} else {
 				// More than one matching overload, narrow result type to DYN.
-				resultType = types.Dyn
+				resultType = Dyn
 			}
 
 		}
@@ -300,11 +300,11 @@ func (c *checker) resolveOverload(
 
 	if resultType == nil {
 		c.env.errors.noMatchingOverload(loc, fn.Name, argTypes, target != nil)
-		resultType = types.Error
+		resultType = Error
 		return nil
 	}
 
-	return newResolution(ref, resultType)
+	return newResolution(checkedRef, resultType)
 }
 
 func (c *checker) checkCreateList(e *expr.Expr) {
@@ -318,7 +318,7 @@ func (c *checker) checkCreateList(e *expr.Expr) {
 		// If the list is empty, assign free type var to elem type.
 		elemType = c.newTypeVar()
 	}
-	c.setType(e, types.NewList(elemType))
+	c.setType(e, newList(elemType))
 }
 
 func (c *checker) checkCreateStruct(e *expr.Expr) {
@@ -347,13 +347,13 @@ func (c *checker) checkCreateMap(e *expr.Expr) {
 		keyType = c.newTypeVar()
 		valueType = c.newTypeVar()
 	}
-	c.setType(e, types.NewMap(keyType, valueType))
+	c.setType(e, newMap(keyType, valueType))
 }
 
 func (c *checker) checkCreateMessage(e *expr.Expr) {
 	msgVal := e.GetStructExpr()
 	// Determine the type of the message.
-	messageType := types.Error
+	messageType := Error
 	decl := c.env.LookupIdent(c.container, msgVal.MessageName)
 	if decl == nil {
 		c.env.errors.undeclaredReference(c.location(e), c.container, msgVal.MessageName)
@@ -362,15 +362,15 @@ func (c *checker) checkCreateMessage(e *expr.Expr) {
 
 	c.setReference(e, newIdentReference(decl.Name, nil))
 	ident := decl.GetIdent()
-	identKind := types.KindOf(ident.Type)
-	if identKind != types.KindError {
-		if identKind != types.KindType {
+	identKind := kindOf(ident.Type)
+	if identKind != kindError {
+		if identKind != kindType {
 			c.env.errors.notAType(c.location(e), ident.Type)
 		} else {
 			messageType = ident.Type.GetType()
-			if types.KindOf(messageType) != types.KindObject {
+			if kindOf(messageType) != kindObject {
 				c.env.errors.notAMessageType(c.location(e), messageType)
-				messageType = types.Error
+				messageType = Error
 			}
 		}
 	}
@@ -382,7 +382,7 @@ func (c *checker) checkCreateMessage(e *expr.Expr) {
 		value := ent.Value
 		c.check(value)
 
-		fieldType := types.Error
+		fieldType := Error
 		if t, found := c.lookupFieldType(c.locationById(ent.Id), messageType, field); found {
 			fieldType = t.Type
 		}
@@ -400,14 +400,14 @@ func (c *checker) checkComprehension(e *expr.Expr) {
 	rangeType := c.getType(comp.IterRange)
 	var varType *checked.Type
 
-	switch types.KindOf(rangeType) {
-	case types.KindList:
+	switch kindOf(rangeType) {
+	case kindList:
 		varType = rangeType.GetListType().ElemType
-	case types.KindMap:
+	case kindMap:
 		// Ranges over the keys.
 		varType = rangeType.GetMapType().KeyType
-	case types.KindDyn, types.KindError:
-		varType = types.Dyn
+	case kindDyn, kindError:
+		varType = Dyn
 	default:
 		c.env.errors.notAComprehensionRange(c.location(comp.IterRange), rangeType)
 	}
@@ -418,7 +418,7 @@ func (c *checker) checkComprehension(e *expr.Expr) {
 	c.env.enterScope()
 	c.env.Add(decls.NewIdent(comp.IterVar, varType, nil))
 	c.check(comp.LoopCondition)
-	c.assertType(comp.LoopCondition, types.Bool)
+	c.assertType(comp.LoopCondition, Bool)
 	c.check(comp.LoopStep)
 	c.assertType(comp.LoopStep, accuType)
 	// Forget iteration variable, as result expression must only depend on accu.
@@ -437,17 +437,17 @@ func (c *checker) joinTypes(loc common.Location, previous *checked.Type, current
 		c.env.errors.aggregateTypeMismatch(loc, previous, current)
 		return previous
 	}
-	return types.MostGeneral(previous, current)
+	return mostGeneral(previous, current)
 }
 
 func (c *checker) newTypeVar() *checked.Type {
 	id := c.freeTypeVarCounter
 	c.freeTypeVarCounter++
-	return types.NewTypeParam(fmt.Sprintf("_var%d", id))
+	return newTypeParam(fmt.Sprintf("_var%d", id))
 }
 
 func (c *checker) isAssignable(t1 *checked.Type, t2 *checked.Type) bool {
-	subs := types.IsAssignable(c.mappings, t1, t2)
+	subs := isAssignable(c.mappings, t1, t2)
 	if subs != nil {
 		c.mappings = subs
 		return true
@@ -457,7 +457,7 @@ func (c *checker) isAssignable(t1 *checked.Type, t2 *checked.Type) bool {
 }
 
 func (c *checker) isAssignableList(l1 []*checked.Type, l2 []*checked.Type) bool {
-	subs := types.IsAssignableList(c.mappings, l1, l2)
+	subs := isAssignableList(c.mappings, l1, l2)
 	if subs != nil {
 		c.mappings = subs
 		return true
@@ -466,14 +466,14 @@ func (c *checker) isAssignableList(l1 []*checked.Type, l2 []*checked.Type) bool 
 	return false
 }
 
-func (c *checker) lookupFieldType(l common.Location, messageType *checked.Type, fieldName string) (*types.FieldType, bool) {
-	if c.env.typeProvider.LookupType(messageType.GetMessageType()) == nil {
+func (c *checker) lookupFieldType(l common.Location, messageType *checked.Type, fieldName string) (*ref.FieldType, bool) {
+	if _, found := c.env.typeProvider.FindType(messageType.GetMessageType()); !found {
 		// This should not happen, anyway, report an error.
 		c.env.errors.unexpectedFailedResolution(l, messageType.GetMessageType())
 		return nil, false
 	}
 
-	if ft, found := c.env.typeProvider.LookupFieldType(messageType, fieldName); found {
+	if ft, found := c.env.typeProvider.FindFieldType(messageType, fieldName); found {
 		return ft, found
 	}
 
@@ -485,7 +485,6 @@ func (c *checker) setType(e *expr.Expr, t *checked.Type) {
 	if old, found := c.types[e.Id]; found && !proto.Equal(old, t) {
 		panic(fmt.Sprintf("(Incompatible) Type already exists for expression: %v(%d) old:%v, new:%v", e, e.Id, old, t))
 	}
-
 	c.types[e.Id] = t
 }
 
@@ -497,7 +496,6 @@ func (c *checker) setReference(e *expr.Expr, r *checked.Reference) {
 	if old, found := c.references[e.Id]; found && !proto.Equal(old, r) {
 		panic(fmt.Sprintf("Reference already exists for expression: %v(%d) old:%v, new:%v", e, e.Id, old, r))
 	}
-
 	c.references[e.Id] = r
 }
 
@@ -512,9 +510,9 @@ type overloadResolution struct {
 	Type      *checked.Type
 }
 
-func newResolution(ref *checked.Reference, t *checked.Type) *overloadResolution {
+func newResolution(checkedRef *checked.Reference, t *checked.Type) *overloadResolution {
 	return &overloadResolution{
-		Reference: ref,
+		Reference: checkedRef,
 		Type:      t,
 	}
 }

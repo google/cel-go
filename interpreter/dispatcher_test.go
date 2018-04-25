@@ -17,6 +17,8 @@ package interpreter
 import (
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/overloads"
+	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter/functions"
 	"testing"
 )
@@ -30,8 +32,8 @@ func TestDefaultDispatcher_Dispatch(t *testing.T) {
 		call: NewCall(0,
 			operators.Equals,
 			[]int64{1, 2}),
-		args: []interface{}{int64(1), int64(2)}}
-	invokeCall(t, dispatcher, call, false)
+		args: []ref.Value{types.Int(1), types.Int(2)}}
+	invokeCall(t, dispatcher, call, types.False)
 }
 
 func TestDefaultDispatcher_DispatchOverload(t *testing.T) {
@@ -44,8 +46,8 @@ func TestDefaultDispatcher_DispatchOverload(t *testing.T) {
 			operators.Equals,
 			[]int64{1, 2},
 			overloads.Equals),
-		args: []interface{}{int64(100), int64(200)}}
-	invokeCall(t, dispatcher, call, false)
+		args: []ref.Value{types.Int(100), types.Int(200)}}
+	invokeCall(t, dispatcher, call, types.False)
 }
 
 func BenchmarkDefaultDispatcher_Dispatch(b *testing.B) {
@@ -58,7 +60,7 @@ func BenchmarkDefaultDispatcher_Dispatch(b *testing.B) {
 			call: NewCall(0,
 				operators.Equals,
 				[]int64{1, 2}),
-			args: []interface{}{int64(1), int64(2)}}
+			args: []ref.Value{types.Int(1), types.Int(2)}}
 		dispatcher.Dispatch(call)
 	}
 }
@@ -74,20 +76,20 @@ func BenchmarkDefaultDispatcher_DispatchOverload(b *testing.B) {
 				operators.Equals,
 				[]int64{1, 2},
 				operators.Equals),
-			args: []interface{}{int64(2), int64(2)}}
+			args: []ref.Value{types.Int(2), types.Int(2)}}
 		dispatcher.Dispatch(call)
 	}
 }
 
-func invokeCall(t *testing.T, dispatcher Dispatcher, call *CallContext, expected interface{}) {
+func invokeCall(t *testing.T, dispatcher Dispatcher, call *CallContext, expected ref.Value) {
 	t.Helper()
-	if result, err := dispatcher.Dispatch(call); err == nil {
+	if result := dispatcher.Dispatch(call); types.IsError(result) || types.IsUnknown(result) {
+		t.Error(result)
+	} else {
 		if result != expected {
 			t.Errorf(
 				"Unexpected result. expected: %v, got: %v in dispatcher: %v",
 				expected, result, dispatcher)
 		}
-	} else {
-		t.Error(err)
 	}
 }
