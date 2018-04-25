@@ -146,15 +146,7 @@ func (d Duration) Subtract(subtrahend ref.Value) ref.Value {
 	if DurationType != subtrahend.Type() {
 		return NewErr("unsupported overload")
 	}
-	dur1, err := ptypes.Duration(d.Duration)
-	if err != nil {
-		return &Err{err}
-	}
-	dur2, err := ptypes.Duration(subtrahend.(Duration).Duration)
-	if err != nil {
-		return &Err{err}
-	}
-	return Duration{ptypes.DurationProto(dur1 - dur2)}
+	return d.Add(subtrahend.(Duration).Negate())
 }
 
 func (d Duration) Type() ref.Type {

@@ -367,7 +367,7 @@ func (w *astWalker) walkComprehension(node *expr.Expr) []Instruction {
 	// eval <cond>
 	// jump <END> if condition false
 	jumpConditionFalseStep :=
-		NewJump(loopId, loopInstructionCount-4, breakIfEnd(loopId))
+		NewJump(loopId, loopInstructionCount-4, jumpIfEqual(loopId, types.False))
 
 	// iter-next
 	nextIterVarStep := NewCall(iterNextId, overloads.Next, []int64{iteratorId})

@@ -15,7 +15,6 @@
 package types
 
 import (
-	"fmt"
 	"github.com/google/cel-go/common/types/traits"
 	"reflect"
 	"testing"
@@ -80,7 +79,6 @@ func TestConcatListValue_Iterator(t *testing.T) {
 	var i = int64(0)
 	for ; it.HasNext() == True; i++ {
 		elem := it.Next()
-		fmt.Printf("it[%d] elem %v\n", i, elem)
 		if getElem(t, list, Int(i)) != elem {
 			t.Errorf(
 				"List iterator returned incorrect value: list[%d]: %v", i, elem)
