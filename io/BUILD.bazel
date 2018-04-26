@@ -4,10 +4,11 @@ load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
 package(
     default_visibility = [
         "//checker:__subpackages__",
-        "//common/debug:__subpackages__",
+        "//common:__subpackages__",
         "//interpreter:__subpackages__",
         "//parser:__subpackages__",
         "//semantics:__subpackages__",
+        "//test:__subpackages__",
       ],
 )
 

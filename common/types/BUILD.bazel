@@ -1,0 +1,66 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+package(default_visibility = ["//visibility:public"])
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "bool.go",
+        "bytes.go",
+        "double.go",
+        "duration.go",
+        "dyn.go",
+        "err.go",
+        "int.go",
+        "iterator.go",
+        "list.go",
+        "map.go",
+        "null.go",
+        "object.go",
+        "provider.go",
+        "string.go",
+        "timestamp.go",
+        "type.go",
+        "uint.go",
+        "unknown.go",
+    ],
+    deps = [
+        "//common/overloads:go_default_library",
+        "//common/types/ref:go_default_library",
+        "//common/types/pb:go_default_library",
+        "//common/types/traits:go_default_library",
+        "//io:checked_proto",
+        "@com_github_golang_protobuf//proto:go_default_library",
+        "@com_github_golang_protobuf//ptypes:go_default_library",
+        "@com_github_golang_protobuf//ptypes/duration:go_default_library",
+        "@com_github_golang_protobuf//ptypes/struct:go_default_library",
+        "@com_github_golang_protobuf//ptypes/timestamp:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "bool_test.go",
+        "bytes_test.go",
+        "double_test.go",
+        "duration_test.go",
+        "int_test.go",
+        "list_test.go",
+        "map_test.go",
+        "object_test.go",
+        "providers_test.go",
+        "string_test.go",
+        "timestamp_test.go",
+        "uint_test.go",
+    ],
+    size = "small",
+    embed = [":go_default_library"],
+    deps = [
+        "//common/types/ref:go_default_library",
+        "//io:syntax_proto",
+        "//test:go_default_library",
+        "@com_github_golang_protobuf//ptypes/duration:go_default_library",
+        "@com_github_golang_protobuf//ptypes/timestamp:go_default_library",
+    ],
+)

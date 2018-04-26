@@ -16,6 +16,7 @@ package interpreter
 
 import (
 	"fmt"
+	"github.com/google/cel-go/common/types/ref"
 	"strings"
 )
 
@@ -36,14 +37,14 @@ func (e *baseInstruction) GetId() int64 {
 // ConstExpr is a constant expression.
 type ConstExpr struct {
 	*baseInstruction
-	Value interface{}
+	Value ref.Value
 }
 
 func (e *ConstExpr) String() string {
 	return fmt.Sprintf("const %v, r%d", e.Value, e.GetId())
 }
 
-func NewConst(exprId int64, value interface{}) *ConstExpr {
+func NewConst(exprId int64, value ref.Value) *ConstExpr {
 	return &ConstExpr{&baseInstruction{exprId}, value}
 }
 
@@ -153,19 +154,19 @@ func NewObject(exprId int64, name string,
 // JumpInst represents an conditional jump to an instruction offset.
 type JumpInst struct {
 	*baseInstruction
-	Count   int
-	OnValue interface{} // may be nil
+	Count       int
+	OnCondition func(EvalState) bool
 }
 
 func (e *JumpInst) String() string {
-	if e.OnValue != nil {
-		return fmt.Sprintf("jump  %d if r%d == %v", e.Count, e.GetId(), e.OnValue)
-	}
-	return fmt.Sprintf("jump  %d", e.Count)
+	return fmt.Sprintf("jump  %d if cond<r%d>", e.Count, e.GetId())
 }
 
-func NewJump(exprId int64, instructionCount int, jumpOnValue interface{}) *JumpInst {
-	return &JumpInst{&baseInstruction{exprId}, instructionCount, jumpOnValue}
+func NewJump(exprId int64, instructionCount int, cond func(EvalState) bool) *JumpInst {
+	return &JumpInst{
+		baseInstruction: &baseInstruction{exprId},
+		Count:           instructionCount,
+		OnCondition:     cond}
 }
 
 // MovInst assigns the value of one expression id to another.

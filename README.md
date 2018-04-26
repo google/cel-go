@@ -52,7 +52,7 @@ import(
     "fmt"
     "github.com/google/cel-go/checker"
     "github.com/google/cel-go/checker/decls"
-    "github.com/google/cel-go/checker/types"
+    "github.com/google/cel-go/common/types"
     "github.com/google/cel-go/interpreter"
     "github.com/google/cel-go/parser"
 )
@@ -66,17 +66,18 @@ if len(errors.GetErrors()) != 0 {
 // Check the expression matches expectations given the declarations for
 // the identifiers a, b, c where the identifiers are scoped to the default
 // package (empty string):
-env := checker.NewStandardEnv(errors, types.NewInMemoryTypeProvider())
-env.Add(decls.NewIdent("a", types.Bool),
-    decls.NewIdent("b", types.Bool),
-    decls.NewIdent("c", types.NewList(types.Int64)))
+typeProvider := types.NewProvider()
+env := checker.NewStandardEnv(errors, typeProvider)
+env.Add(decls.NewIdent("a", checker.Bool),
+    decls.NewIdent("b", checker.Bool),
+    decls.NewIdent("c", checker.NewList(checker.Int)))
 c := checker.Check(p, env, "") 
 if len(errors.GetErrors()) != 0 {
     return nil, fmt.Error(errors.ToDisplayString()))
 }
 
 // Interpret the checked expression using the standard overloads.
-i := interpreter.NewStandardInterpreter()
+i := interpreter.NewStandardInterpreter(typeProvider)
 eval := i.NewInterpretable(interpreter.NewCheckedProgram(c, ""))
 result, err := eval.Interpret(
     interpreter.NewActivation(

@@ -16,14 +16,14 @@ package interpreter
 
 import (
 	"fmt"
-	testExpr "github.com/google/cel-go/interpreter/testing"
+	"github.com/google/cel-go/test"
 	"testing"
 )
 
 func TestNewProgram_Empty(t *testing.T) {
 	program := NewProgram(
-		testExpr.Empty.Expr,
-		testExpr.Empty.Info(t.Name()),
+		test.Empty.Expr,
+		test.Empty.Info(t.Name()),
 		"")
 	if loc, found := program.Metadata().Location(0); found {
 		t.Errorf("Unexpected location found: %v", loc)
@@ -38,8 +38,8 @@ func TestNewProgram_Empty(t *testing.T) {
 
 func TestNewProgram_LogicalAnd(t *testing.T) {
 	program := NewProgram(
-		testExpr.LogicalAnd.Expr,
-		testExpr.LogicalAnd.Info(t.Name()),
+		test.LogicalAnd.Expr,
+		test.LogicalAnd.Info(t.Name()),
 		"")
 	if loc, found := program.Metadata().Location(1); found {
 		t.Errorf("Unexpected location found: %v", loc)
@@ -55,8 +55,8 @@ func TestNewProgram_LogicalAnd(t *testing.T) {
 
 func TestNewProgram_Conditional(t *testing.T) {
 	program := NewProgram(
-		testExpr.Conditional.Expr,
-		testExpr.Conditional.Info(t.Name()),
+		test.Conditional.Expr,
+		test.Conditional.Info(t.Name()),
 		"")
 	if loc, found := program.Metadata().Location(1); found {
 		t.Errorf("Unexpected location found: %v", loc)
@@ -69,12 +69,12 @@ func TestNewProgram_Conditional(t *testing.T) {
 	}
 	expected := "TestNewProgram_Conditional\n" +
 		"0: local 'a', r1\n" +
-		"1: jump  10 if r1 == undef\n" +
-		"2: jump  5 if r1 == false\n" +
+		"1: jump  10 if cond<r1>\n" +
+		"2: jump  5 if cond<r1>\n" +
 		"3: local 'b', r2\n" +
 		"4: const 1, r4\n" +
 		"5: call  _<_(r2, r4), r3\n" +
-		"6: jump  4\n" +
+		"6: jump  5 if cond<r3>\n" +
 		"7: local 'c', r5\n" +
 		"8: const hello, r7\n" +
 		"9: mov   list([7]), r8\n" +
@@ -89,8 +89,8 @@ func TestNewProgram_Conditional(t *testing.T) {
 
 func TestNewProgram_Comprehension(t *testing.T) {
 	program := NewProgram(
-		testExpr.Exists.Expr,
-		testExpr.Exists.Info(t.Name()),
+		test.Exists.Expr,
+		test.Exists.Info(t.Name()),
 		"")
 	if loc, found := program.Metadata().Location(1); !found {
 		t.Errorf("Unexpected location found: %v", loc)
@@ -106,8 +106,8 @@ func TestNewProgram_Comprehension(t *testing.T) {
 
 func TestNewProgram_DynMap(t *testing.T) {
 	program := NewProgram(
-		testExpr.DynMap.Expr,
-		testExpr.DynMap.Info(t.Name()),
+		test.DynMap.Expr,
+		test.DynMap.Info(t.Name()),
 		"")
 	if loc, found := program.Metadata().Location(1); found {
 		t.Errorf("Unexpected location found: %v", loc)

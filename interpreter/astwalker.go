@@ -18,15 +18,14 @@ import (
 	"fmt"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/overloads"
+	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
 	expr "github.com/google/cel-spec/proto/v1/syntax"
 )
 
 const (
 	// Constant used to generate symbols during AST walking.
 	genSymFormat = "_sym_@%d"
-
-	// unknownError name.
-	unknownError = "undef"
 )
 
 // WalkExpr produces a set of Instruction values from a CEL expression.
@@ -121,26 +120,26 @@ func (w *astWalker) walk(node *expr.Expr) []Instruction {
 
 func (w *astWalker) walkConst(node *expr.Expr) Instruction {
 	constExpr := node.GetConstExpr()
-	var value interface{} = nil
+	var value ref.Value = nil
 	switch constExpr.ConstantKind.(type) {
 	case *expr.Constant_BoolValue:
-		value = constExpr.GetBoolValue()
+		value = types.Bool(constExpr.GetBoolValue())
 	case *expr.Constant_BytesValue:
-		value = constExpr.GetBytesValue()
+		value = types.Bytes(constExpr.GetBytesValue())
 	case *expr.Constant_DoubleValue:
-		value = constExpr.GetDoubleValue()
+		value = types.Double(constExpr.GetDoubleValue())
 	case *expr.Constant_DurationValue:
-		value = constExpr.GetDurationValue()
+		value = types.Duration{Duration: constExpr.GetDurationValue()}
 	case *expr.Constant_Int64Value:
-		value = constExpr.GetInt64Value()
+		value = types.Int(constExpr.GetInt64Value())
 	case *expr.Constant_NullValue:
-		value = constExpr.GetNullValue()
+		value = types.Null(constExpr.GetNullValue())
 	case *expr.Constant_StringValue:
-		value = constExpr.GetStringValue()
+		value = types.String(constExpr.GetStringValue())
 	case *expr.Constant_TimestampValue:
-		value = constExpr.GetTimestampValue()
+		value = types.Timestamp{Timestamp: constExpr.GetTimestampValue()}
 	case *expr.Constant_Uint64Value:
-		value = constExpr.GetUint64Value()
+		value = types.Uint(constExpr.GetUint64Value())
 	}
 	return NewConst(node.Id, value)
 }
@@ -198,7 +197,7 @@ func (w *astWalker) walkCall(node *expr.Expr) []Instruction {
 					NewJump(
 						argIds[i],
 						instructionCount-evalCount,
-						function == operators.LogicalOr))
+						jumpIfEqual(argIds[i], types.Bool(function == operators.LogicalOr))))
 			}
 			evalCount += 1
 		}
@@ -224,15 +223,17 @@ func (w *astWalker) walkCall(node *expr.Expr) []Instruction {
 		instructions = append(instructions, condition...)
 		// 1: jump to <END> on undefined/error
 		instructions = append(instructions,
-			NewJump(conditionId, len(trueVal)+len(falseVal)+3, unknownError))
+			NewJump(conditionId, len(trueVal)+len(falseVal) + 3,
+				jumpIfUnknownOrError(conditionId)))
 		// 2: jump to <ELSE> on false.
 		instructions = append(instructions,
-			NewJump(conditionId, len(trueVal)+2, false))
+			NewJump(conditionId, len(trueVal) + 2,
+				jumpIfEqual(conditionId, types.False)))
 		// 3: <IF> expr
 		instructions = append(instructions, trueVal...)
 		// 4: jump to <END>
 		instructions = append(instructions,
-			NewJump(trueId, len(falseVal), nil))
+			NewJump(trueId, len(falseVal) + 1, jumpAlways))
 		// 5: <ELSE> expr
 		instructions = append(instructions, falseVal...)
 		// 6: <END> ternary
@@ -361,19 +362,19 @@ func (w *astWalker) walkComprehension(node *expr.Expr) []Instruction {
 		NewCall(iterHasNextId, overloads.HasNext, []int64{iteratorId})
 	// jump <END> if !it.hasNext()
 	jumpIterEndStep :=
-		NewJump(iterHasNextId, loopInstructionCount-2, false)
+		NewJump(iterHasNextId, loopInstructionCount-2, breakIfEnd(iterHasNextId))
 	// eval x = it.next()
 	// eval <cond>
 	// jump <END> if condition false
 	jumpConditionFalseStep :=
-		NewJump(loopId, loopInstructionCount-4, false)
+		NewJump(loopId, loopInstructionCount-4, jumpIfEqual(loopId, types.False))
 
 	// iter-next
 	nextIterVarStep := NewCall(iterNextId, overloads.Next, []int64{iteratorId})
 	// assign the loop-step to the accu var
 	accuUpdateStep := NewMov(stepId, accuId)
 	// jump <LOOP>
-	jumpCondStep := NewJump(stepId, -(loopInstructionCount - 2), nil)
+	jumpCondStep := NewJump(stepId, -(loopInstructionCount - 2), jumpAlways)
 
 	// <END> result
 	resultSteps := w.walk(result)
@@ -491,4 +492,37 @@ func (b *blockScope) ref(ident string) (int64, bool) {
 
 func (b *blockScope) setRef(ident string, exprId int64) {
 	b.references[ident] = exprId
+}
+
+func jumpIfUnknownOrError(exprId int64) func(EvalState) bool {
+	return func(s EvalState) bool {
+		if val, found := s.Value(exprId); found {
+			return types.IsUnknown(val) || types.IsError(val)
+		}
+		return false
+	}
+}
+
+func breakIfEnd(conditionId int64) func(EvalState) bool {
+	return func(s EvalState) bool {
+		if val, found := s.Value(conditionId); found {
+			return types.IsUnknown(val) ||
+				types.IsError(val) ||
+				val == types.False
+		}
+		return true
+	}
+}
+
+func jumpIfEqual(exprId int64, value ref.Value) func(EvalState) bool {
+	return func(s EvalState) bool {
+		if val, found := s.Value(exprId); found {
+			return bool(val.Equal(value).(types.Bool))
+		}
+		return false
+	}
+}
+
+func jumpAlways(_ EvalState) bool {
+	return true
 }

@@ -14,6 +14,11 @@
 
 package interpreter
 
+import (
+	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
+)
+
 // Activation used to resolve identifiers by name and references by id.
 //
 // An Activation is the primary mechanism by which a caller supplies input
@@ -22,11 +27,11 @@ type Activation interface {
 
 	// ResolveReference returns a value from the activation by expression id,
 	// or false if the id-based reference could not be found.
-	ResolveReference(exprId int64) (interface{}, bool)
+	ResolveReference(exprId int64) (ref.Value, bool)
 
 	// ResolveName returns a value from the activation by qualified name, or
 	// false if the name could not be found.
-	ResolveName(name string) (interface{}, bool)
+	ResolveName(name string) (ref.Value, bool)
 
 	// Parent returns the parent of the current activation, may be nil.
 	// If non-nil, the parent will be searched during resolve calls.
@@ -47,7 +52,7 @@ func NewActivation(bindings map[string]interface{}) Activation {
 // accepts no arguments and produces an interface value.
 // TODO: consider passing the current activation to the supplier.
 type mapActivation struct {
-	references map[int64]interface{}
+	references map[int64]ref.Value
 	bindings   map[string]interface{}
 }
 
@@ -55,24 +60,25 @@ func (a *mapActivation) Parent() Activation {
 	return nil
 }
 
-func (a *mapActivation) ResolveReference(exprId int64) (interface{}, bool) {
-	object, found := a.references[exprId]
-	return object, found
-}
-
-func (a *mapActivation) ResolveName(name string) (interface{}, bool) {
-	// TODO: Look at how name resolution logic works for enums
+func (a *mapActivation) ResolveName(name string) (ref.Value, bool) {
 	if object, found := a.bindings[name]; found {
 		switch object.(type) {
 		// Resolve a lazily bound value.
-		case func() interface{}:
-			return object.(func() interface{})(), true
+		case func() ref.Value:
+			return object.(func() ref.Value)(), true
 		// Otherwise, return the bound value.
+		case ref.Value:
+			return object.(ref.Value), true
 		default:
-			return object, true
+			return types.NativeToValue(object), true
 		}
 	}
 	return nil, false
+}
+
+func (a *mapActivation) ResolveReference(exprId int64) (ref.Value, bool) {
+	object, found := a.references[exprId]
+	return object, found
 }
 
 // hierarchicalActivation which implements Activation and contains a parent and
@@ -86,18 +92,18 @@ func (a *hierarchicalActivation) Parent() Activation {
 	return a.parent
 }
 
-func (a *hierarchicalActivation) ResolveReference(exprId int64) (interface{}, bool) {
-	if object, found := a.child.ResolveReference(exprId); found {
-		return object, found
-	}
-	return a.parent.ResolveReference(exprId)
-}
-
-func (a *hierarchicalActivation) ResolveName(name string) (interface{}, bool) {
+func (a *hierarchicalActivation) ResolveName(name string) (ref.Value, bool) {
 	if object, found := a.child.ResolveName(name); found {
 		return object, found
 	}
 	return a.parent.ResolveName(name)
+}
+
+func (a *hierarchicalActivation) ResolveReference(exprId int64) (ref.Value, bool) {
+	if object, found := a.child.ResolveReference(exprId); found {
+		return object, found
+	}
+	return a.parent.ResolveReference(exprId)
 }
 
 // NewHierarchicalActivation takes two activations and produces a new one which prioritizes

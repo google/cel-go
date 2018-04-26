@@ -16,7 +16,6 @@ package checker
 
 import (
 	"github.com/google/cel-go/checker/decls"
-	"github.com/google/cel-go/checker/types"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-spec/proto/checked/v1/checked"
@@ -24,397 +23,397 @@ import (
 
 func StandardDeclarations() []*checked.Decl {
 	// Some shortcuts we use when building declarations.
-	paramA := types.NewTypeParam("A")
+	paramA := newTypeParam("A")
 	typeParamAList := []string{"A"}
-	listOfA := types.NewList(paramA)
-	paramB := types.NewTypeParam("B")
+	listOfA := newList(paramA)
+	paramB := newTypeParam("B")
 	typeParamABList := []string{"A", "B"}
-	mapOfAB := types.NewMap(paramA, paramB)
+	mapOfAB := newMap(paramA, paramB)
 
 	var idents []*checked.Decl
-	for _, t := range []*checked.Type{types.Int64, types.Uint64, types.Bool, types.Double, types.Bytes, types.String} {
-		idents = append(idents, decls.NewIdent(types.FormatType(t), types.NewType(t), nil))
+	for _, t := range []*checked.Type{Int, Uint, Bool, Double, Bytes, String} {
+		idents = append(idents, decls.NewIdent(FormatCheckedType(t), newType(t), nil))
 	}
 	idents = append(idents,
-		decls.NewIdent("list", types.NewType(listOfA), nil),
-		decls.NewIdent("map", types.NewType(mapOfAB), nil))
+		decls.NewIdent("list", newType(listOfA), nil),
+		decls.NewIdent("map", newType(mapOfAB), nil))
 
 	// Booleans
 	// TODO: allow the conditional to return a heterogenous type.
 	return append(idents, []*checked.Decl{
 		decls.NewFunction(operators.Conditional,
 			decls.NewParameterizedOverload(overloads.Conditional,
-				[]*checked.Type{types.Bool, paramA, paramA}, paramA,
+				[]*checked.Type{Bool, paramA, paramA}, paramA,
 				typeParamAList)),
 
 		decls.NewFunction(operators.LogicalAnd,
 			decls.NewOverload(overloads.LogicalAnd,
-				[]*checked.Type{types.Bool, types.Bool}, types.Bool)),
+				[]*checked.Type{Bool, Bool}, Bool)),
 
 		decls.NewFunction(operators.LogicalOr,
 			decls.NewOverload(overloads.LogicalOr,
-				[]*checked.Type{types.Bool, types.Bool}, types.Bool)),
+				[]*checked.Type{Bool, Bool}, Bool)),
 
 		decls.NewFunction(operators.LogicalNot,
 			decls.NewOverload(overloads.LogicalNot,
-				[]*checked.Type{types.Bool}, types.Bool)),
+				[]*checked.Type{Bool}, Bool)),
 
 		decls.NewFunction(overloads.Matches,
 			decls.NewInstanceOverload(overloads.MatchString,
-				[]*checked.Type{types.String, types.String}, types.Bool)),
+				[]*checked.Type{String, String}, Bool)),
 
 		// Relations
 
 		decls.NewFunction(operators.Less,
 			decls.NewOverload(overloads.LessBool,
-				[]*checked.Type{types.Bool, types.Bool}, types.Bool),
+				[]*checked.Type{Bool, Bool}, Bool),
 			decls.NewOverload(overloads.LessInt64,
-				[]*checked.Type{types.Int64, types.Int64}, types.Bool),
+				[]*checked.Type{Int, Int}, Bool),
 			decls.NewOverload(overloads.LessUint64,
-				[]*checked.Type{types.Uint64, types.Uint64}, types.Bool),
+				[]*checked.Type{Uint, Uint}, Bool),
 			decls.NewOverload(overloads.LessDouble,
-				[]*checked.Type{types.Double, types.Double}, types.Bool),
+				[]*checked.Type{Double, Double}, Bool),
 			decls.NewOverload(overloads.LessString,
-				[]*checked.Type{types.String, types.String}, types.Bool),
+				[]*checked.Type{String, String}, Bool),
 			decls.NewOverload(overloads.LessBytes,
-				[]*checked.Type{types.Bytes, types.Bytes}, types.Bool),
+				[]*checked.Type{Bytes, Bytes}, Bool),
 			decls.NewOverload(overloads.LessTimestamp,
-				[]*checked.Type{types.Timestamp, types.Timestamp}, types.Bool),
+				[]*checked.Type{Timestamp, Timestamp}, Bool),
 			decls.NewOverload(overloads.LessDuration,
-				[]*checked.Type{types.Duration, types.Duration}, types.Bool)),
+				[]*checked.Type{Duration, Duration}, Bool)),
 
 		decls.NewFunction(operators.LessEquals,
 			decls.NewOverload(overloads.LessEqualsBool,
-				[]*checked.Type{types.Bool, types.Bool}, types.Bool),
+				[]*checked.Type{Bool, Bool}, Bool),
 			decls.NewOverload(overloads.LessEqualsInt64,
-				[]*checked.Type{types.Int64, types.Int64}, types.Bool),
+				[]*checked.Type{Int, Int}, Bool),
 			decls.NewOverload(overloads.LessEqualsUint64,
-				[]*checked.Type{types.Uint64, types.Uint64}, types.Bool),
+				[]*checked.Type{Uint, Uint}, Bool),
 			decls.NewOverload(overloads.LessEqualsDouble,
-				[]*checked.Type{types.Double, types.Double}, types.Bool),
+				[]*checked.Type{Double, Double}, Bool),
 			decls.NewOverload(overloads.LessEqualsString,
-				[]*checked.Type{types.String, types.String}, types.Bool),
+				[]*checked.Type{String, String}, Bool),
 			decls.NewOverload(overloads.LessEqualsBytes,
-				[]*checked.Type{types.Bytes, types.Bytes}, types.Bool),
+				[]*checked.Type{Bytes, Bytes}, Bool),
 			decls.NewOverload(overloads.LessEqualsTimestamp,
-				[]*checked.Type{types.Timestamp, types.Timestamp}, types.Bool),
+				[]*checked.Type{Timestamp, Timestamp}, Bool),
 			decls.NewOverload(overloads.LessEqualsDuration,
-				[]*checked.Type{types.Duration, types.Duration}, types.Bool)),
+				[]*checked.Type{Duration, Duration}, Bool)),
 
 		decls.NewFunction(operators.Greater,
 			decls.NewOverload(overloads.GreaterBool,
-				[]*checked.Type{types.Bool, types.Bool}, types.Bool),
+				[]*checked.Type{Bool, Bool}, Bool),
 			decls.NewOverload(overloads.GreaterInt64,
-				[]*checked.Type{types.Int64, types.Int64}, types.Bool),
+				[]*checked.Type{Int, Int}, Bool),
 			decls.NewOverload(overloads.GreaterUint64,
-				[]*checked.Type{types.Uint64, types.Uint64}, types.Bool),
+				[]*checked.Type{Uint, Uint}, Bool),
 			decls.NewOverload(overloads.GreaterDouble,
-				[]*checked.Type{types.Double, types.Double}, types.Bool),
+				[]*checked.Type{Double, Double}, Bool),
 			decls.NewOverload(overloads.GreaterString,
-				[]*checked.Type{types.String, types.String}, types.Bool),
+				[]*checked.Type{String, String}, Bool),
 			decls.NewOverload(overloads.GreaterBytes,
-				[]*checked.Type{types.Bytes, types.Bytes}, types.Bool),
+				[]*checked.Type{Bytes, Bytes}, Bool),
 			decls.NewOverload(overloads.GreaterTimestamp,
-				[]*checked.Type{types.Timestamp, types.Timestamp}, types.Bool),
+				[]*checked.Type{Timestamp, Timestamp}, Bool),
 			decls.NewOverload(overloads.GreaterDuration,
-				[]*checked.Type{types.Duration, types.Duration}, types.Bool)),
+				[]*checked.Type{Duration, Duration}, Bool)),
 
 		decls.NewFunction(operators.GreaterEquals,
 			decls.NewOverload(overloads.GreaterEqualsBool,
-				[]*checked.Type{types.Bool, types.Bool}, types.Bool),
+				[]*checked.Type{Bool, Bool}, Bool),
 			decls.NewOverload(overloads.GreaterEqualsInt64,
-				[]*checked.Type{types.Int64, types.Int64}, types.Bool),
+				[]*checked.Type{Int, Int}, Bool),
 			decls.NewOverload(overloads.GreaterEqualsUint64,
-				[]*checked.Type{types.Uint64, types.Uint64}, types.Bool),
+				[]*checked.Type{Uint, Uint}, Bool),
 			decls.NewOverload(overloads.GreaterEqualsDouble,
-				[]*checked.Type{types.Double, types.Double}, types.Bool),
+				[]*checked.Type{Double, Double}, Bool),
 			decls.NewOverload(overloads.GreaterEqualsString,
-				[]*checked.Type{types.String, types.String}, types.Bool),
+				[]*checked.Type{String, String}, Bool),
 			decls.NewOverload(overloads.GreaterEqualsBytes,
-				[]*checked.Type{types.Bytes, types.Bytes}, types.Bool),
+				[]*checked.Type{Bytes, Bytes}, Bool),
 			decls.NewOverload(overloads.GreaterEqualsTimestamp,
-				[]*checked.Type{types.Timestamp, types.Timestamp}, types.Bool),
+				[]*checked.Type{Timestamp, Timestamp}, Bool),
 			decls.NewOverload(overloads.GreaterEqualsDuration,
-				[]*checked.Type{types.Duration, types.Duration}, types.Bool)),
+				[]*checked.Type{Duration, Duration}, Bool)),
 
 		decls.NewFunction(operators.Equals,
 			decls.NewParameterizedOverload(overloads.Equals,
-				[]*checked.Type{paramA, paramA}, types.Bool,
+				[]*checked.Type{paramA, paramA}, Bool,
 				typeParamAList)),
 
 		decls.NewFunction(operators.NotEquals,
 			decls.NewParameterizedOverload(overloads.NotEquals,
-				[]*checked.Type{paramA, paramA}, types.Bool,
+				[]*checked.Type{paramA, paramA}, Bool,
 				typeParamAList)),
 
 		// Algebra
 
 		decls.NewFunction(operators.Subtract,
 			decls.NewOverload(overloads.SubtractInt64,
-				[]*checked.Type{types.Int64, types.Int64}, types.Int64),
+				[]*checked.Type{Int, Int}, Int),
 			decls.NewOverload(overloads.SubtractUint64,
-				[]*checked.Type{types.Uint64, types.Uint64}, types.Uint64),
+				[]*checked.Type{Uint, Uint}, Uint),
 			decls.NewOverload(overloads.SubtractDouble,
-				[]*checked.Type{types.Double, types.Double}, types.Double),
+				[]*checked.Type{Double, Double}, Double),
 			decls.NewOverload(overloads.SubtractTimestampTimestamp,
-				[]*checked.Type{types.Timestamp, types.Timestamp}, types.Duration),
+				[]*checked.Type{Timestamp, Timestamp}, Duration),
 			decls.NewOverload(overloads.SubtractTimestampDuration,
-				[]*checked.Type{types.Timestamp, types.Duration}, types.Timestamp),
+				[]*checked.Type{Timestamp, Duration}, Timestamp),
 			decls.NewOverload(overloads.SubtractDurationDuration,
-				[]*checked.Type{types.Duration, types.Duration}, types.Duration)),
+				[]*checked.Type{Duration, Duration}, Duration)),
 
 		decls.NewFunction(operators.Multiply,
 			decls.NewOverload(overloads.MultiplyInt64,
-				[]*checked.Type{types.Int64, types.Int64}, types.Int64),
+				[]*checked.Type{Int, Int}, Int),
 			decls.NewOverload(overloads.MultiplyUint64,
-				[]*checked.Type{types.Uint64, types.Uint64}, types.Uint64),
+				[]*checked.Type{Uint, Uint}, Uint),
 			decls.NewOverload(overloads.MultiplyDouble,
-				[]*checked.Type{types.Double, types.Double}, types.Double)),
+				[]*checked.Type{Double, Double}, Double)),
 
 		decls.NewFunction(operators.Divide,
 			decls.NewOverload(overloads.DivideInt64,
-				[]*checked.Type{types.Int64, types.Int64}, types.Int64),
+				[]*checked.Type{Int, Int}, Int),
 			decls.NewOverload(overloads.DivideUint64,
-				[]*checked.Type{types.Uint64, types.Uint64}, types.Uint64),
+				[]*checked.Type{Uint, Uint}, Uint),
 			decls.NewOverload(overloads.DivideDouble,
-				[]*checked.Type{types.Double, types.Double}, types.Double)),
+				[]*checked.Type{Double, Double}, Double)),
 
 		decls.NewFunction(operators.Modulo,
 			decls.NewOverload(overloads.ModuloInt64,
-				[]*checked.Type{types.Int64, types.Int64}, types.Int64),
+				[]*checked.Type{Int, Int}, Int),
 			decls.NewOverload(overloads.ModuloUint64,
-				[]*checked.Type{types.Uint64, types.Uint64}, types.Uint64)),
+				[]*checked.Type{Uint, Uint}, Uint)),
 
 		decls.NewFunction(operators.Add,
 			decls.NewOverload(overloads.AddInt64,
-				[]*checked.Type{types.Int64, types.Int64}, types.Int64),
+				[]*checked.Type{Int, Int}, Int),
 			decls.NewOverload(overloads.AddUint64,
-				[]*checked.Type{types.Uint64, types.Uint64}, types.Uint64),
+				[]*checked.Type{Uint, Uint}, Uint),
 			decls.NewOverload(overloads.AddDouble,
-				[]*checked.Type{types.Double, types.Double}, types.Double),
+				[]*checked.Type{Double, Double}, Double),
 			decls.NewOverload(overloads.AddString,
-				[]*checked.Type{types.String, types.String}, types.String),
+				[]*checked.Type{String, String}, String),
 			decls.NewOverload(overloads.AddBytes,
-				[]*checked.Type{types.Bytes, types.Bytes}, types.Bytes),
+				[]*checked.Type{Bytes, Bytes}, Bytes),
 			decls.NewParameterizedOverload(overloads.AddList,
 				[]*checked.Type{listOfA, listOfA}, listOfA,
 				typeParamAList),
 			decls.NewOverload(overloads.AddTimestampDuration,
-				[]*checked.Type{types.Timestamp, types.Duration}, types.Timestamp),
+				[]*checked.Type{Timestamp, Duration}, Timestamp),
 			decls.NewOverload(overloads.AddDurationTimestamp,
-				[]*checked.Type{types.Duration, types.Timestamp}, types.Timestamp),
+				[]*checked.Type{Duration, Timestamp}, Timestamp),
 			decls.NewOverload(overloads.AddDurationDuration,
-				[]*checked.Type{types.Duration, types.Duration}, types.Duration)),
+				[]*checked.Type{Duration, Duration}, Duration)),
 
 		decls.NewFunction(operators.Negate,
 			decls.NewOverload(overloads.NegateInt64,
-				[]*checked.Type{types.Int64}, types.Int64),
+				[]*checked.Type{Int}, Int),
 			decls.NewOverload(overloads.NegateDouble,
-				[]*checked.Type{types.Double}, types.Double)),
+				[]*checked.Type{Double}, Double)),
 
 		// Index
 
 		decls.NewFunction(operators.Index,
 			decls.NewParameterizedOverload(overloads.IndexList,
-				[]*checked.Type{listOfA, types.Int64}, paramA,
+				[]*checked.Type{listOfA, Int}, paramA,
 				typeParamAList),
 			decls.NewParameterizedOverload(overloads.IndexMap,
 				[]*checked.Type{mapOfAB, paramA}, paramB,
 				typeParamABList)),
 		//decls.NewOverload(overloads.IndexMessage,
-		//	[]*checked.Type{types.Dyn, types.String}, types.Dyn)),
+		//	[]*checked.Type{Dyn, String}, Dyn)),
 
 		// Collections
 
 		decls.NewFunction(overloads.Size,
 			decls.NewInstanceOverload(overloads.SizeStringInst,
-				[]*checked.Type{types.String}, types.Int64),
+				[]*checked.Type{String}, Int),
 			decls.NewInstanceOverload(overloads.SizeBytesInst,
-				[]*checked.Type{types.Bytes}, types.Int64),
+				[]*checked.Type{Bytes}, Int),
 			decls.NewParameterizedInstanceOverload(overloads.SizeListInst,
-				[]*checked.Type{listOfA}, types.Int64, typeParamAList),
+				[]*checked.Type{listOfA}, Int, typeParamAList),
 			decls.NewParameterizedInstanceOverload(overloads.SizeMapInst,
-				[]*checked.Type{mapOfAB}, types.Int64, typeParamABList),
+				[]*checked.Type{mapOfAB}, Int, typeParamABList),
 			decls.NewOverload(overloads.SizeString,
-				[]*checked.Type{types.String}, types.Int64),
+				[]*checked.Type{String}, Int),
 			decls.NewOverload(overloads.SizeBytes,
-				[]*checked.Type{types.Bytes}, types.Int64),
+				[]*checked.Type{Bytes}, Int),
 			decls.NewParameterizedOverload(overloads.SizeList,
-				[]*checked.Type{listOfA}, types.Int64, typeParamAList),
+				[]*checked.Type{listOfA}, Int, typeParamAList),
 			decls.NewParameterizedOverload(overloads.SizeMap,
-				[]*checked.Type{mapOfAB}, types.Int64, typeParamABList)),
+				[]*checked.Type{mapOfAB}, Int, typeParamABList)),
 
 		decls.NewFunction(operators.In,
 			decls.NewParameterizedOverload(overloads.InList,
-				[]*checked.Type{paramA, listOfA}, types.Bool,
+				[]*checked.Type{paramA, listOfA}, Bool,
 				typeParamAList),
 			decls.NewParameterizedOverload(overloads.InMap,
-				[]*checked.Type{paramA, mapOfAB}, types.Bool,
+				[]*checked.Type{paramA, mapOfAB}, Bool,
 				typeParamABList)),
 		//decls.NewOverload(overloads.InMessage,
-		//	[]*checked.Type{types.Dyn, types.String},types.Bool)),
+		//	[]*checked.Type{Dyn, String},Bool)),
 
 		// Deprecated 'in()' function
 
 		decls.NewFunction(overloads.DeprecatedIn,
 			decls.NewParameterizedOverload(overloads.InList,
-				[]*checked.Type{paramA, listOfA}, types.Bool,
+				[]*checked.Type{paramA, listOfA}, Bool,
 				typeParamAList),
 			decls.NewParameterizedOverload(overloads.InMap,
-				[]*checked.Type{paramA, mapOfAB}, types.Bool,
+				[]*checked.Type{paramA, mapOfAB}, Bool,
 				typeParamABList)),
 		//decls.NewOverload(overloads.InMessage,
-		//	[]*checked.Type{types.Dyn, types.String},types.Bool)),
+		//	[]*checked.Type{Dyn, String},Bool)),
 
 		// Conversions to type
 
 		decls.NewFunction(overloads.TypeConvertType,
 			decls.NewParameterizedOverload(overloads.TypeConvertType,
-				[]*checked.Type{paramA}, types.NewType(paramA), typeParamAList)),
+				[]*checked.Type{paramA}, newType(paramA), typeParamAList)),
 
 		// Conversions to int
 
 		decls.NewFunction(overloads.TypeConvertInt,
-			decls.NewOverload(overloads.IntToInt, []*checked.Type{types.Int64}, types.Int64),
-			decls.NewOverload(overloads.UintToInt, []*checked.Type{types.Uint64}, types.Int64),
-			decls.NewOverload(overloads.DoubleToInt, []*checked.Type{types.Double}, types.Int64),
-			decls.NewOverload(overloads.StringToInt, []*checked.Type{types.String}, types.Int64),
-			decls.NewOverload(overloads.TimestampToInt, []*checked.Type{types.Timestamp}, types.Int64),
-			decls.NewOverload(overloads.DurationToInt, []*checked.Type{types.Duration}, types.Int64)),
+			decls.NewOverload(overloads.IntToInt, []*checked.Type{Int}, Int),
+			decls.NewOverload(overloads.UintToInt, []*checked.Type{Uint}, Int),
+			decls.NewOverload(overloads.DoubleToInt, []*checked.Type{Double}, Int),
+			decls.NewOverload(overloads.StringToInt, []*checked.Type{String}, Int),
+			decls.NewOverload(overloads.TimestampToInt, []*checked.Type{Timestamp}, Int),
+			decls.NewOverload(overloads.DurationToInt, []*checked.Type{Duration}, Int)),
 
 		// Conversions to uint
 
 		decls.NewFunction(overloads.TypeConvertUint,
-			decls.NewOverload(overloads.UintToUint, []*checked.Type{types.Uint64}, types.Uint64),
-			decls.NewOverload(overloads.IntToUint, []*checked.Type{types.Int64}, types.Uint64),
-			decls.NewOverload(overloads.DoubleToUint, []*checked.Type{types.Double}, types.Uint64),
-			decls.NewOverload(overloads.StringToUint, []*checked.Type{types.String}, types.Uint64)),
+			decls.NewOverload(overloads.UintToUint, []*checked.Type{Uint}, Uint),
+			decls.NewOverload(overloads.IntToUint, []*checked.Type{Int}, Uint),
+			decls.NewOverload(overloads.DoubleToUint, []*checked.Type{Double}, Uint),
+			decls.NewOverload(overloads.StringToUint, []*checked.Type{String}, Uint)),
 
 		// Conversions to double
 
 		decls.NewFunction(overloads.TypeConvertDouble,
-			decls.NewOverload(overloads.DoubleToDouble, []*checked.Type{types.Double}, types.Double),
-			decls.NewOverload(overloads.IntToDouble, []*checked.Type{types.Int64}, types.Double),
-			decls.NewOverload(overloads.UintToDouble, []*checked.Type{types.Uint64}, types.Double),
-			decls.NewOverload(overloads.StringToDouble, []*checked.Type{types.String}, types.Double)),
+			decls.NewOverload(overloads.DoubleToDouble, []*checked.Type{Double}, Double),
+			decls.NewOverload(overloads.IntToDouble, []*checked.Type{Int}, Double),
+			decls.NewOverload(overloads.UintToDouble, []*checked.Type{Uint}, Double),
+			decls.NewOverload(overloads.StringToDouble, []*checked.Type{String}, Double)),
 
 		// Conversions to bool
 
 		decls.NewFunction(overloads.TypeConvertBool,
-			decls.NewOverload(overloads.BoolToBool, []*checked.Type{types.Bool}, types.Bool),
-			decls.NewOverload(overloads.StringToBool, []*checked.Type{types.String}, types.Bool)),
+			decls.NewOverload(overloads.BoolToBool, []*checked.Type{Bool}, Bool),
+			decls.NewOverload(overloads.StringToBool, []*checked.Type{String}, Bool)),
 
 		// Conversions to string
 
 		decls.NewFunction(overloads.TypeConvertString,
-			decls.NewOverload(overloads.StringToString, []*checked.Type{types.String}, types.String),
-			decls.NewOverload(overloads.BoolToString, []*checked.Type{types.Bool}, types.String),
-			decls.NewOverload(overloads.IntToString, []*checked.Type{types.Int64}, types.String),
-			decls.NewOverload(overloads.UintToString, []*checked.Type{types.Uint64}, types.String),
-			decls.NewOverload(overloads.DoubleToString, []*checked.Type{types.Double}, types.String),
-			decls.NewOverload(overloads.BytesToString, []*checked.Type{types.Bytes}, types.String),
-			decls.NewOverload(overloads.TimestampToString, []*checked.Type{types.Timestamp}, types.String),
-			decls.NewOverload(overloads.DurationToString, []*checked.Type{types.Duration}, types.String)),
+			decls.NewOverload(overloads.StringToString, []*checked.Type{String}, String),
+			decls.NewOverload(overloads.BoolToString, []*checked.Type{Bool}, String),
+			decls.NewOverload(overloads.IntToString, []*checked.Type{Int}, String),
+			decls.NewOverload(overloads.UintToString, []*checked.Type{Uint}, String),
+			decls.NewOverload(overloads.DoubleToString, []*checked.Type{Double}, String),
+			decls.NewOverload(overloads.BytesToString, []*checked.Type{Bytes}, String),
+			decls.NewOverload(overloads.TimestampToString, []*checked.Type{Timestamp}, String),
+			decls.NewOverload(overloads.DurationToString, []*checked.Type{Duration}, String)),
 
 		// Conversions to bytes
 
 		decls.NewFunction(overloads.TypeConvertBytes,
-			decls.NewOverload(overloads.BytesToBytes, []*checked.Type{types.Bytes}, types.Bytes),
-			decls.NewOverload(overloads.StringToBytes, []*checked.Type{types.String}, types.Bytes)),
+			decls.NewOverload(overloads.BytesToBytes, []*checked.Type{Bytes}, Bytes),
+			decls.NewOverload(overloads.StringToBytes, []*checked.Type{String}, Bytes)),
 
 		// Conversions to timestamps
 
 		decls.NewFunction(overloads.TypeConvertTimestamp,
 			decls.NewOverload(overloads.TimestampToTimestamp,
-				[]*checked.Type{types.Timestamp}, types.Timestamp),
+				[]*checked.Type{Timestamp}, Timestamp),
 			decls.NewOverload(overloads.StringToTimestamp,
-				[]*checked.Type{types.String}, types.Timestamp),
+				[]*checked.Type{String}, Timestamp),
 			decls.NewOverload(overloads.IntToTimestamp,
-				[]*checked.Type{types.Int64}, types.Timestamp)),
+				[]*checked.Type{Int}, Timestamp)),
 
 		// Conversions to durations
 
 		decls.NewFunction(overloads.TypeConvertDuration,
 			decls.NewOverload(overloads.DurationToDuration,
-				[]*checked.Type{types.Duration}, types.Duration),
+				[]*checked.Type{Duration}, Duration),
 			decls.NewOverload(overloads.StringToDuration,
-				[]*checked.Type{types.String}, types.Duration),
+				[]*checked.Type{String}, Duration),
 			decls.NewOverload(overloads.IntToDuration,
-				[]*checked.Type{types.Int64}, types.Duration)),
+				[]*checked.Type{Int}, Duration)),
 
 		// Conversions to Dyn
 
 		decls.NewFunction(overloads.TypeConvertDyn,
-			decls.NewParameterizedOverload(overloads.ToDyn, []*checked.Type{paramA}, types.Dyn,
+			decls.NewParameterizedOverload(overloads.ToDyn, []*checked.Type{paramA}, Dyn,
 				typeParamAList)),
 
 		// Date/time functions
 
 		decls.NewFunction(overloads.TimeGetFullYear,
 			decls.NewInstanceOverload(overloads.TimestampToYear,
-				[]*checked.Type{types.Timestamp}, types.Int64),
+				[]*checked.Type{Timestamp}, Int),
 			decls.NewInstanceOverload(overloads.TimestampToYearWithTz,
-				[]*checked.Type{types.Timestamp, types.String}, types.Int64)),
+				[]*checked.Type{Timestamp, String}, Int)),
 
 		decls.NewFunction(overloads.TimeGetMonth,
 			decls.NewInstanceOverload(overloads.TimestampToMonth,
-				[]*checked.Type{types.Timestamp}, types.Int64),
+				[]*checked.Type{Timestamp}, Int),
 			decls.NewInstanceOverload(overloads.TimestampToMonthWithTz,
-				[]*checked.Type{types.Timestamp, types.String}, types.Int64)),
+				[]*checked.Type{Timestamp, String}, Int)),
 
 		decls.NewFunction(overloads.TimeGetDayOfYear,
 			decls.NewInstanceOverload(overloads.TimestampToDayOfYear,
-				[]*checked.Type{types.Timestamp}, types.Int64),
+				[]*checked.Type{Timestamp}, Int),
 			decls.NewInstanceOverload(overloads.TimestampToDayOfYearWithTz,
-				[]*checked.Type{types.Timestamp, types.String}, types.Int64)),
+				[]*checked.Type{Timestamp, String}, Int)),
 
 		decls.NewFunction(overloads.TimeGetDayOfMonth,
 			decls.NewInstanceOverload(overloads.TimestampToDayOfMonthZeroBased,
-				[]*checked.Type{types.Timestamp}, types.Int64),
+				[]*checked.Type{Timestamp}, Int),
 			decls.NewInstanceOverload(overloads.TimestampToDayOfMonthZeroBasedWithTz,
-				[]*checked.Type{types.Timestamp, types.String}, types.Int64)),
+				[]*checked.Type{Timestamp, String}, Int)),
 
 		decls.NewFunction(overloads.TimeGetDate,
 			decls.NewInstanceOverload(overloads.TimestampToDayOfMonthOneBased,
-				[]*checked.Type{types.Timestamp}, types.Int64),
+				[]*checked.Type{Timestamp}, Int),
 			decls.NewInstanceOverload(overloads.TimestampToDayOfMonthOneBasedWithTz,
-				[]*checked.Type{types.Timestamp, types.String}, types.Int64)),
+				[]*checked.Type{Timestamp, String}, Int)),
 
 		decls.NewFunction(overloads.TimeGetDayOfWeek,
 			decls.NewInstanceOverload(overloads.TimestampToDayOfWeek,
-				[]*checked.Type{types.Timestamp}, types.Int64),
+				[]*checked.Type{Timestamp}, Int),
 			decls.NewInstanceOverload(overloads.TimestampToDayOfWeekWithTz,
-				[]*checked.Type{types.Timestamp, types.String}, types.Int64)),
+				[]*checked.Type{Timestamp, String}, Int)),
 
 		decls.NewFunction(overloads.TimeGetHours,
 			decls.NewInstanceOverload(overloads.TimestampToHours,
-				[]*checked.Type{types.Timestamp}, types.Int64),
+				[]*checked.Type{Timestamp}, Int),
 			decls.NewInstanceOverload(overloads.TimestampToHoursWithTz,
-				[]*checked.Type{types.Timestamp, types.String}, types.Int64),
+				[]*checked.Type{Timestamp, String}, Int),
 			decls.NewInstanceOverload(overloads.DurationToHours,
-				[]*checked.Type{types.Duration}, types.Int64)),
+				[]*checked.Type{Duration}, Int)),
 
 		decls.NewFunction(overloads.TimeGetMinutes,
 			decls.NewInstanceOverload(overloads.TimestampToMinutes,
-				[]*checked.Type{types.Timestamp}, types.Int64),
+				[]*checked.Type{Timestamp}, Int),
 			decls.NewInstanceOverload(overloads.TimestampToMinutesWithTz,
-				[]*checked.Type{types.Timestamp, types.String}, types.Int64),
+				[]*checked.Type{Timestamp, String}, Int),
 			decls.NewInstanceOverload(overloads.DurationToMinutes,
-				[]*checked.Type{types.Duration}, types.Int64)),
+				[]*checked.Type{Duration}, Int)),
 
 		decls.NewFunction(overloads.TimeGetSeconds,
 			decls.NewInstanceOverload(overloads.TimestampToSeconds,
-				[]*checked.Type{types.Timestamp}, types.Int64),
+				[]*checked.Type{Timestamp}, Int),
 			decls.NewInstanceOverload(overloads.TimestampToSecondsWithTz,
-				[]*checked.Type{types.Timestamp, types.String}, types.Int64),
+				[]*checked.Type{Timestamp, String}, Int),
 			decls.NewInstanceOverload(overloads.DurationToSeconds,
-				[]*checked.Type{types.Duration}, types.Int64)),
+				[]*checked.Type{Duration}, Int)),
 
 		decls.NewFunction(overloads.TimeGetMilliseconds,
 			decls.NewInstanceOverload(overloads.TimestampToMilliseconds,
-				[]*checked.Type{types.Timestamp}, types.Int64),
+				[]*checked.Type{Timestamp}, Int),
 			decls.NewInstanceOverload(overloads.TimestampToMillisecondsWithTz,
-				[]*checked.Type{types.Timestamp, types.String}, types.Int64),
+				[]*checked.Type{Timestamp, String}, Int),
 			decls.NewInstanceOverload(overloads.DurationToMilliseconds,
-				[]*checked.Type{types.Duration}, types.Int64))}...)
+				[]*checked.Type{Duration}, Int))}...)
 }

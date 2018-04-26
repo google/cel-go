@@ -29,6 +29,8 @@ type Program interface {
 	// container is used to resolve type names and identifiers.
 	Container() string
 
+	GetInstruction(exprId int64) Instruction
+
 	// Instructions return an InstructionStepper which can be used to iterate
 	// through the program. Each call to Instructions generates a new stepper.
 	Instructions() InstructionStepper
@@ -53,10 +55,11 @@ type InstructionStepper interface {
 }
 
 type exprProgram struct {
-	expression   *expr.Expr
-	container    string
-	instructions []Instruction
-	metadata     Metadata
+	expression      *expr.Expr
+	container       string
+	revInstructions map[int64]int
+	instructions    []Instruction
+	metadata        Metadata
 }
 
 // NewProgram creates a Program from a CEL expression and source information
@@ -65,11 +68,17 @@ func NewProgram(expression *expr.Expr,
 	sourceInfo *expr.SourceInfo,
 	container string) Program {
 	metadata := newExprMetadata(sourceInfo)
+	instructions := WalkExpr(expression, metadata)
+	revInstructions := make(map[int64]int)
+	for i, inst := range instructions {
+		revInstructions[inst.GetId()] = i
+	}
 	return &exprProgram{
-		expression,
-		container,
-		WalkExpr(expression, metadata),
-		metadata}
+		expression:      expression,
+		container:       container,
+		instructions:    instructions,
+		revInstructions: revInstructions,
+		metadata:        metadata}
 }
 
 // NewCheckedProgram creates a Program from a checked CEL expression.
@@ -87,6 +96,10 @@ func (p *exprProgram) String() string {
 
 func (p *exprProgram) Container() string {
 	return p.container
+}
+
+func (p *exprProgram) GetInstruction(exprId int64) Instruction {
+	return p.instructions[p.revInstructions[exprId]]
 }
 
 func (p *exprProgram) Instructions() InstructionStepper {

@@ -15,50 +15,49 @@
 package interpreter
 
 import (
-	testExpr "github.com/google/cel-go/interpreter/testing"
-	"github.com/google/cel-go/interpreter/types"
+	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/test"
 	expr "github.com/google/cel-spec/proto/v1/syntax"
 	"testing"
 )
 
 func TestInterpreter_CallExpr(t *testing.T) {
-	interpreter := StandardTestInterpreter()
 	program := NewProgram(
-		testExpr.Equality.Expr,
-		testExpr.Equality.Info(t.Name()),
+		test.Equality.Expr,
+		test.Equality.Info(t.Name()),
 		"google.api.expr")
 	interpretable := interpreter.NewInterpretable(program)
 	result, state := interpretable.Eval(
 		NewActivation(map[string]interface{}{"a": int64(41)}))
-	if result != false {
+	if result != types.False {
 		t.Errorf("Expected false, go: %v", result)
 	}
-	if ident, found := state.Value(1); !found || ident != int64(41) {
+	if ident, found := state.Value(1); !found || ident != types.Int(41) {
 		t.Errorf("State of ident 'a' != 41, got: %v", ident)
 	}
 }
 
 func TestInterpreter_SelectExpr(t *testing.T) {
-	interpreter := StandardTestInterpreter()
 	program := NewProgram(
-		testExpr.Select.Expr,
-		testExpr.Select.Info(t.Name()),
+		test.Select.Expr,
+		test.Select.Info(t.Name()),
 		"")
 
 	interpretable := interpreter.NewInterpretable(program)
 	result, _ := interpretable.Eval(
-		NewActivation(map[string]interface{}{"a.b": types.NewMapValue(map[string]bool{"c": true})}))
-	if result != true {
+		NewActivation(map[string]interface{}{
+			"a.b": types.NewDynamicMap(map[string]bool{"c": true}),
+		}))
+	if result != types.True {
 		t.Errorf("Expected true, got: %v", result)
 	}
 }
 
 func TestInterpreter_ConditionalExpr(t *testing.T) {
 	// a ? b < 1.0 : c == ["hello"]
-	interpreter := StandardTestInterpreter()
 	program := NewProgram(
-		testExpr.Conditional.Expr,
-		testExpr.Conditional.Info(t.Name()),
+		test.Conditional.Expr,
+		test.Conditional.Info(t.Name()),
 		"")
 
 	interpretable := interpreter.NewInterpretable(program)
@@ -66,40 +65,38 @@ func TestInterpreter_ConditionalExpr(t *testing.T) {
 		NewActivation(map[string]interface{}{
 			"a": true,
 			"b": 0.999}))
-	if result != true {
+	if result != types.True {
 		t.Errorf("Expected true, got: %v", result)
 	}
 }
 
 func TestInterpreter_ComprehensionExpr(t *testing.T) {
 	// [1, 1u, 1.0].exists(x, type(x) == uint)
-	interpreter := StandardTestInterpreter()
 	program := NewProgram(
-		testExpr.Exists.Expr,
-		testExpr.Exists.Info(t.Name()),
+		test.Exists.Expr,
+		test.Exists.Info(t.Name()),
 		"")
 
 	interpretable := interpreter.NewInterpretable(program)
 	// TODO: make the type identifiers part of the standard declaration set.
 	result, _ := interpretable.Eval(
-		NewActivation(map[string]interface{}{"uint": types.UintType}))
-	if result != true {
+		NewActivation(map[string]interface{}{}))
+	if result != types.True {
 		t.Errorf("Expected true, got: %v", result)
 	}
 }
 
 func BenchmarkInterpreter_ConditionalExpr(b *testing.B) {
 	// a ? b < 1.0 : c == ["hello"]
-	interpreter := StandardTestInterpreter()
 	program := NewProgram(
-		testExpr.Conditional.Expr,
-		testExpr.Conditional.Info(b.Name()),
+		test.Conditional.Expr,
+		test.Conditional.Info(b.Name()),
 		"")
 	interpretable := interpreter.NewInterpretable(program)
 	activation := NewActivation(map[string]interface{}{
-		"a": false,
-		"b": 0.999,
-		"c": types.NewListValue([]string{"hello"})})
+		"a": types.False,
+		"b": types.Double(0.999),
+		"c": types.NativeToValue([]string{"hello"})})
 	for i := 0; i < b.N; i++ {
 		interpretable.Eval(activation)
 	}
@@ -107,18 +104,17 @@ func BenchmarkInterpreter_ConditionalExpr(b *testing.B) {
 
 func BenchmarkInterpreter_ComprehensionExpr(b *testing.B) {
 	// [1, 1u, 1.0].exists(x, type(x) == uint)
-	interpreter := StandardTestInterpreter()
 	program := NewProgram(
-		testExpr.Exists.Expr,
-		testExpr.Exists.Info(b.Name()),
+		test.Exists.Expr,
+		test.Exists.Info(b.Name()),
 		"")
 	interpretable := interpreter.NewInterpretable(program)
-	activation := NewActivation(map[string]interface{}{"uint": types.UintType})
+	activation := NewActivation(map[string]interface{}{})
 	for i := 0; i < b.N; i++ {
 		interpretable.Eval(activation)
 	}
 }
 
-func StandardTestInterpreter() Interpreter {
-	return NewStandardIntepreter(&expr.ParsedExpr{})
-}
+var (
+	interpreter = NewStandardIntepreter(types.NewProvider(&expr.ParsedExpr{}))
+)

@@ -1,0 +1,35 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+package(default_visibility = ["//visibility:public"])
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "checked.go",
+        "enum.go",
+        "file.go",
+        "pb.go",
+        "type.go",
+    ],
+    deps = [
+        "//io:checked_proto",
+        "@com_github_golang_protobuf//descriptor:go_default_library",
+        "@com_github_golang_protobuf//proto:go_default_library",
+        "@com_github_golang_protobuf//protoc-gen-go/descriptor:go_default_library",
+        "@com_github_golang_protobuf//ptypes/empty:go_default_library",
+        "@com_github_golang_protobuf//ptypes/struct:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "file_test.go",
+        "type_test.go",
+    ],
+    size = "small",
+    embed = [":go_default_library"],
+    deps = [
+        "//test:test_all_types_go_proto",
+    ],
+)
