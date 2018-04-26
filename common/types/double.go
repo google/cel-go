@@ -88,14 +88,14 @@ func (d Double) Divide(other ref.Value) ref.Value {
 	if DoubleType != other.Type() {
 		return NewErr("unsupported overload")
 	}
-	if other.(Double) != Double(0) {
-		return d / other.(Double)
+	if other.(Double) == Double(0) {
+		return NewErr("divide by zero")
 	}
-	return NewErr("divide by zero")
+	return d / other.(Double)
 }
 
 func (d Double) Equal(other ref.Value) ref.Value {
-	return Bool(DoubleType == other.Type() && d.Value() == other.Value())
+	return Bool(DoubleType == other.Type() && d == other)
 }
 
 func (d Double) Multiply(other ref.Value) ref.Value {
