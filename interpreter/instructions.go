@@ -44,7 +44,7 @@ func (e *ConstExpr) String() string {
 	return fmt.Sprintf("const %v, r%d", e.Value, e.GetId())
 }
 
-func NewConst(exprId int64, value ref.Value) *ConstExpr {
+func NewLiteral(exprId int64, value ref.Value) *ConstExpr {
 	return &ConstExpr{&baseInstruction{exprId}, value}
 }
 

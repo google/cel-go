@@ -130,8 +130,8 @@ func (e *Env) LookupIdent(container string, typeName string) *checked.Decl {
 		if enumValue := e.typeProvider.EnumValue(candidate); enumValue.Type() != types.ErrType {
 			decl := decls.NewIdent(candidate,
 				Int,
-				&expr.Constant{
-					ConstantKind: &expr.Constant_Int64Value{
+				&expr.Literal{
+					LiteralKind: &expr.Literal_Int64Value{
 						Int64Value: int64(enumValue.(types.Int))}})
 			e.declarations.AddIdent(decl)
 			return decl

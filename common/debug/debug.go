@@ -80,8 +80,8 @@ func (w *debugWriter) Buffer(e *expr.Expr) {
 		return
 	}
 	switch e.ExprKind.(type) {
-	case *expr.Expr_ConstExpr:
-		w.append(formatConstant(e.GetConstExpr()))
+	case *expr.Expr_LiteralExpr:
+		w.append(formatLiteral(e.GetLiteralExpr()))
 	case *expr.Expr_IdentExpr:
 		w.append(e.GetIdentExpr().Name)
 	case *expr.Expr_SelectExpr:
@@ -240,21 +240,21 @@ func (w *debugWriter) appendComprehension(comprehension *expr.Expr_Comprehension
 	w.removeIndent()
 }
 
-func formatConstant(c *expr.Constant) string {
-	switch c.ConstantKind.(type) {
-	case *expr.Constant_BoolValue:
+func formatLiteral(c *expr.Literal) string {
+	switch c.LiteralKind.(type) {
+	case *expr.Literal_BoolValue:
 		return fmt.Sprintf("%t", c.GetBoolValue())
-	case *expr.Constant_BytesValue:
+	case *expr.Literal_BytesValue:
 		return fmt.Sprintf("b\"%s\"", string(c.GetBytesValue()))
-	case *expr.Constant_DoubleValue:
+	case *expr.Literal_DoubleValue:
 		return fmt.Sprintf("%v", c.GetDoubleValue())
-	case *expr.Constant_Int64Value:
+	case *expr.Literal_Int64Value:
 		return fmt.Sprintf("%d", c.GetInt64Value())
-	case *expr.Constant_StringValue:
+	case *expr.Literal_StringValue:
 		return strconv.Quote(c.GetStringValue())
-	case *expr.Constant_Uint64Value:
+	case *expr.Literal_Uint64Value:
 		return fmt.Sprintf("%du", c.GetUint64Value())
-	case *expr.Constant_NullValue:
+	case *expr.Literal_NullValue:
 		return "null"
 	default:
 		panic("Unknown constant type")

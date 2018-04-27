@@ -106,8 +106,8 @@ func (w *astWalker) walk(node *expr.Expr) []Instruction {
 		return w.walkIdent(node)
 	case *expr.Expr_SelectExpr:
 		return w.walkSelect(node)
-	case *expr.Expr_ConstExpr:
-		return []Instruction{w.walkConst(node)}
+	case *expr.Expr_LiteralExpr:
+		return []Instruction{w.walkLiteral(node)}
 	case *expr.Expr_ListExpr:
 		return w.walkList(node)
 	case *expr.Expr_StructExpr:
@@ -118,30 +118,26 @@ func (w *astWalker) walk(node *expr.Expr) []Instruction {
 	return []Instruction{}
 }
 
-func (w *astWalker) walkConst(node *expr.Expr) Instruction {
-	constExpr := node.GetConstExpr()
+func (w *astWalker) walkLiteral(node *expr.Expr) Instruction {
+	literal := node.GetLiteralExpr()
 	var value ref.Value = nil
-	switch constExpr.ConstantKind.(type) {
-	case *expr.Constant_BoolValue:
-		value = types.Bool(constExpr.GetBoolValue())
-	case *expr.Constant_BytesValue:
-		value = types.Bytes(constExpr.GetBytesValue())
-	case *expr.Constant_DoubleValue:
-		value = types.Double(constExpr.GetDoubleValue())
-	case *expr.Constant_DurationValue:
-		value = types.Duration{Duration: constExpr.GetDurationValue()}
-	case *expr.Constant_Int64Value:
-		value = types.Int(constExpr.GetInt64Value())
-	case *expr.Constant_NullValue:
-		value = types.Null(constExpr.GetNullValue())
-	case *expr.Constant_StringValue:
-		value = types.String(constExpr.GetStringValue())
-	case *expr.Constant_TimestampValue:
-		value = types.Timestamp{Timestamp: constExpr.GetTimestampValue()}
-	case *expr.Constant_Uint64Value:
-		value = types.Uint(constExpr.GetUint64Value())
+	switch literal.LiteralKind.(type) {
+	case *expr.Literal_BoolValue:
+		value = types.Bool(literal.GetBoolValue())
+	case *expr.Literal_BytesValue:
+		value = types.Bytes(literal.GetBytesValue())
+	case *expr.Literal_DoubleValue:
+		value = types.Double(literal.GetDoubleValue())
+	case *expr.Literal_Int64Value:
+		value = types.Int(literal.GetInt64Value())
+	case *expr.Literal_NullValue:
+		value = types.Null(literal.GetNullValue())
+	case *expr.Literal_StringValue:
+		value = types.String(literal.GetStringValue())
+	case *expr.Literal_Uint64Value:
+		value = types.Uint(literal.GetUint64Value())
 	}
-	return NewConst(node.Id, value)
+	return NewLiteral(node.Id, value)
 }
 
 func (w *astWalker) walkIdent(node *expr.Expr) []Instruction {
@@ -223,17 +219,17 @@ func (w *astWalker) walkCall(node *expr.Expr) []Instruction {
 		instructions = append(instructions, condition...)
 		// 1: jump to <END> on undefined/error
 		instructions = append(instructions,
-			NewJump(conditionId, len(trueVal)+len(falseVal) + 3,
+			NewJump(conditionId, len(trueVal)+len(falseVal)+3,
 				jumpIfUnknownOrError(conditionId)))
 		// 2: jump to <ELSE> on false.
 		instructions = append(instructions,
-			NewJump(conditionId, len(trueVal) + 2,
+			NewJump(conditionId, len(trueVal)+2,
 				jumpIfEqual(conditionId, types.False)))
 		// 3: <IF> expr
 		instructions = append(instructions, trueVal...)
 		// 4: jump to <END>
 		instructions = append(instructions,
-			NewJump(trueId, len(falseVal) + 1, jumpAlways))
+			NewJump(trueId, len(falseVal)+1, jumpAlways))
 		// 5: <ELSE> expr
 		instructions = append(instructions, falseVal...)
 		// 6: <END> ternary

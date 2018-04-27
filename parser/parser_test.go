@@ -28,49 +28,49 @@ import (
 var testCases = []testInfo{
 	{
 		I: `"A"`,
-		P: `"A"^#1:*syntax.Constant_StringValue#`,
+		P: `"A"^#1:*syntax.Literal_StringValue#`,
 	},
 	{
 		I: `true`,
-		P: `true^#1:*syntax.Constant_BoolValue#`,
+		P: `true^#1:*syntax.Literal_BoolValue#`,
 	},
 	{
 		I: `false`,
-		P: `false^#1:*syntax.Constant_BoolValue#`,
+		P: `false^#1:*syntax.Literal_BoolValue#`,
 	},
 	{
 		I: `0`,
-		P: `0^#1:*syntax.Constant_Int64Value#`,
+		P: `0^#1:*syntax.Literal_Int64Value#`,
 	},
 	{
 		I: `42`,
-		P: `42^#1:*syntax.Constant_Int64Value#`,
+		P: `42^#1:*syntax.Literal_Int64Value#`,
 	},
 	{
 		I: `0u`,
-		P: `0u^#1:*syntax.Constant_Uint64Value#`,
+		P: `0u^#1:*syntax.Literal_Uint64Value#`,
 	},
 	{
 		I: `23u`,
-		P: `23u^#1:*syntax.Constant_Uint64Value#`,
+		P: `23u^#1:*syntax.Literal_Uint64Value#`,
 	},
 	{
 		I: `24u`,
-		P: `24u^#1:*syntax.Constant_Uint64Value#`,
+		P: `24u^#1:*syntax.Literal_Uint64Value#`,
 	},
 	{
 		I: `-1`,
 		P: `-_(
-    		  1^#1:*syntax.Constant_Int64Value#
+    		  1^#1:*syntax.Literal_Int64Value#
 			)^#2:*syntax.Expr_CallExpr#`,
 	},
 	{
 		I: `b"abc"`,
-		P: `b"abc"^#1:*syntax.Constant_BytesValue#`,
+		P: `b"abc"^#1:*syntax.Literal_BytesValue#`,
 	},
 	{
 		I: `23.39`,
-		P: `23.39^#1:*syntax.Constant_DoubleValue#`,
+		P: `23.39^#1:*syntax.Literal_DoubleValue#`,
 	},
 	{
 		I: `!a`,
@@ -80,7 +80,7 @@ var testCases = []testInfo{
 	},
 	{
 		I: `null`,
-		P: `null^#1:*syntax.Constant_NullValue#`,
+		P: `null^#1:*syntax.Literal_NullValue#`,
 	},
 	{
 		I: `a`,
@@ -340,25 +340,25 @@ ERROR: <input>:1:5: Syntax error: extraneous input 'b' expecting <EOF>
     		  // Accumulator
     		  __result__,
     		  // Init
-    		  0^#4:*syntax.Constant_Int64Value#,
+    		  0^#4:*syntax.Literal_Int64Value#,
     		  // LoopCondition
     		  _<=_(
     		    __result__^#6:*syntax.Expr_IdentExpr#,
-    		    1^#5:*syntax.Constant_Int64Value#
+    		    1^#5:*syntax.Literal_Int64Value#
   			  )^#7:*syntax.Expr_CallExpr#,
     		  // LoopStep
     		  _?_:_(
     		    f^#3:*syntax.Expr_IdentExpr#,
     		    _+_(
     		      __result__^#8:*syntax.Expr_IdentExpr#,
-    		      1^#5:*syntax.Constant_Int64Value#
+    		      1^#5:*syntax.Literal_Int64Value#
 				)^#9:*syntax.Expr_CallExpr#,
     		    __result__^#10:*syntax.Expr_IdentExpr#
 			  )^#11:*syntax.Expr_CallExpr#,
     		  // Result
     		  _==_(
     		    __result__^#12:*syntax.Expr_IdentExpr#,
-    		    1^#5:*syntax.Constant_Int64Value#
+    		    1^#5:*syntax.Literal_Int64Value#
 		      )^#13:*syntax.Expr_CallExpr#)^#14:*syntax.Expr_ComprehensionExpr#`,
 	},
 	{
@@ -373,7 +373,7 @@ ERROR: <input>:1:5: Syntax error: extraneous input 'b' expecting <EOF>
     		  // Init
     		  []^#5:*syntax.Expr_ListExpr#,
     		  // LoopCondition
-    		  true^#6:*syntax.Constant_BoolValue#,
+    		  true^#6:*syntax.Literal_BoolValue#,
     		  // LoopStep
     		  _+_(
     		    __result__^#4:*syntax.Expr_IdentExpr#,
@@ -397,7 +397,7 @@ ERROR: <input>:1:5: Syntax error: extraneous input 'b' expecting <EOF>
     		  // Init
     		  []^#6:*syntax.Expr_ListExpr#,
     		  // LoopCondition
-    		  true^#7:*syntax.Constant_BoolValue#,
+    		  true^#7:*syntax.Literal_BoolValue#,
     		  // LoopStep
     		  _?_:_(
     		    p^#3:*syntax.Expr_IdentExpr#,
@@ -426,7 +426,7 @@ ERROR: <input>:1:5: Syntax error: extraneous input 'b' expecting <EOF>
     		  // Init
     		  []^#5:*syntax.Expr_ListExpr#,
     		  // LoopCondition
-    		  true^#6:*syntax.Constant_BoolValue#,
+    		  true^#6:*syntax.Literal_BoolValue#,
     		  // LoopStep
     		  _?_:_(
     		    p^#3:*syntax.Expr_IdentExpr#,
@@ -449,28 +449,28 @@ ERROR: <input>:1:5: Syntax error: extraneous input 'b' expecting <EOF>
     		  _+_(
     		    []^#1:*syntax.Expr_ListExpr#,
     		    [
-    		      1^#2:*syntax.Constant_Int64Value#,
-    		      2^#3:*syntax.Constant_Int64Value#,
-    		      3^#4:*syntax.Constant_Int64Value#
+    		      1^#2:*syntax.Literal_Int64Value#,
+    		      2^#3:*syntax.Literal_Int64Value#,
+    		      3^#4:*syntax.Literal_Int64Value#
     		    ]^#5:*syntax.Expr_ListExpr#
     		  )^#6:*syntax.Expr_CallExpr#,
     		  [
-    		    4^#7:*syntax.Constant_Int64Value#
+    		    4^#7:*syntax.Literal_Int64Value#
     		  ]^#8:*syntax.Expr_ListExpr#
     		)^#9:*syntax.Expr_CallExpr#`,
 	},
 	{
 		I: `{1:2u, 2:3u}`,
 		P: `{
-    		  1^#1:*syntax.Constant_Int64Value#:2u^#2:*syntax.Constant_Uint64Value#^#3:*syntax.Expr_CreateStruct_Entry#,
-    		  2^#4:*syntax.Constant_Int64Value#:3u^#5:*syntax.Constant_Uint64Value#^#6:*syntax.Expr_CreateStruct_Entry#
+    		  1^#1:*syntax.Literal_Int64Value#:2u^#2:*syntax.Literal_Uint64Value#^#3:*syntax.Expr_CreateStruct_Entry#,
+    		  2^#4:*syntax.Literal_Int64Value#:3u^#5:*syntax.Literal_Uint64Value#^#6:*syntax.Expr_CreateStruct_Entry#
     		}^#7:*syntax.Expr_StructExpr#`,
 	},
 	{
 		I: `TestAllTypes{single_int32: 1, single_int64: 2}`,
 		P: `TestAllTypes{
-    		  single_int32:1^#2:*syntax.Constant_Int64Value#^#3:*syntax.Expr_CreateStruct_Entry#,
-    		  single_int64:2^#4:*syntax.Constant_Int64Value#^#5:*syntax.Expr_CreateStruct_Entry#
+    		  single_int32:1^#2:*syntax.Literal_Int64Value#^#3:*syntax.Expr_CreateStruct_Entry#,
+    		  single_int64:2^#4:*syntax.Literal_Int64Value#^#5:*syntax.Expr_CreateStruct_Entry#
     		}^#6:*syntax.Expr_StructExpr#`,
 	},
 	{
@@ -512,17 +512,17 @@ ERROR: <input>:2:1: Syntax error: mismatched input '3' expecting <EOF>
 	},
 	{
 		I: `"\""`,
-		P: `"\""^#1:*syntax.Constant_StringValue#`,
+		P: `"\""^#1:*syntax.Literal_StringValue#`,
 	},
 	{
 		I: `[1,3,4][0]`,
 		P: `_[_](
     		  [
-    		    1^#1:*syntax.Constant_Int64Value#,
-    		    3^#2:*syntax.Constant_Int64Value#,
-    		    4^#3:*syntax.Constant_Int64Value#
+    		    1^#1:*syntax.Literal_Int64Value#,
+    		    3^#2:*syntax.Literal_Int64Value#,
+    		    4^#3:*syntax.Literal_Int64Value#
     		  ]^#4:*syntax.Expr_ListExpr#,
-    		  0^#5:*syntax.Constant_Int64Value#
+    		  0^#5:*syntax.Literal_Int64Value#
     		)^#6:*syntax.Expr_CallExpr#`,
 	},
 	{
@@ -538,16 +538,16 @@ ERROR: <input>:1:7: argument must be a simple name
 		P: `_==_(
     		  _[_](
     		    x^#1:*syntax.Expr_IdentExpr#,
-    		    "a"^#2:*syntax.Constant_StringValue#
+    		    "a"^#2:*syntax.Literal_StringValue#
     		  )^#3:*syntax.Expr_CallExpr#.single_int32^#4:*syntax.Expr_SelectExpr#,
-    		  23^#5:*syntax.Constant_Int64Value#
+    		  23^#5:*syntax.Literal_Int64Value#
     		)^#6:*syntax.Expr_CallExpr#`,
 	},
 	{
 		I: `x.single_nested_message != null`,
 		P: `_!=_(
     		  x^#1:*syntax.Expr_IdentExpr#.single_nested_message^#2:*syntax.Expr_SelectExpr#,
-    		  null^#3:*syntax.Constant_NullValue#
+    		  null^#3:*syntax.Literal_NullValue#
     		)^#4:*syntax.Expr_CallExpr#`,
 	},
 	{
@@ -555,22 +555,22 @@ ERROR: <input>:1:7: argument must be a simple name
 		P: `_?_:_(
     		  _||_(
     		    _&&_(
-    		      false^#1:*syntax.Constant_BoolValue#,
+    		      false^#1:*syntax.Literal_BoolValue#,
     		      !_(
-    		        true^#2:*syntax.Constant_BoolValue#
+    		        true^#2:*syntax.Literal_BoolValue#
     		      )^#3:*syntax.Expr_CallExpr#
     		    )^#4:*syntax.Expr_CallExpr#,
-    		    false^#5:*syntax.Constant_BoolValue#
+    		    false^#5:*syntax.Literal_BoolValue#
     		  )^#6:*syntax.Expr_CallExpr#,
-    		  2^#7:*syntax.Constant_Int64Value#,
-    		  3^#8:*syntax.Constant_Int64Value#
+    		  2^#7:*syntax.Literal_Int64Value#,
+    		  3^#8:*syntax.Literal_Int64Value#
     		)^#9:*syntax.Expr_CallExpr#`,
 	},
 	{
 		I: `b"abc" + B"def"`,
 		P: `_+_(
-    		  b"abc"^#1:*syntax.Constant_BytesValue#,
-    		  b"def"^#2:*syntax.Constant_BytesValue#
+    		  b"abc"^#1:*syntax.Literal_BytesValue#,
+    		  b"def"^#2:*syntax.Literal_BytesValue#
     		)^#3:*syntax.Expr_CallExpr#`,
 	},
 	{
@@ -578,20 +578,20 @@ ERROR: <input>:1:7: argument must be a simple name
 		P: `_==_(
     		  _-_(
     		    _+_(
-    		      1^#1:*syntax.Constant_Int64Value#,
+    		      1^#1:*syntax.Literal_Int64Value#,
     		      _*_(
-    		        2^#2:*syntax.Constant_Int64Value#,
-    		        3^#3:*syntax.Constant_Int64Value#
+    		        2^#2:*syntax.Literal_Int64Value#,
+    		        3^#3:*syntax.Literal_Int64Value#
     		      )^#4:*syntax.Expr_CallExpr#
     		    )^#5:*syntax.Expr_CallExpr#,
     		    _/_(
-    		      1^#6:*syntax.Constant_Int64Value#,
-    		      2^#7:*syntax.Constant_Int64Value#
+    		      1^#6:*syntax.Literal_Int64Value#,
+    		      2^#7:*syntax.Literal_Int64Value#
     		    )^#8:*syntax.Expr_CallExpr#
     		  )^#9:*syntax.Expr_CallExpr#,
     		  _%_(
-    		    6^#10:*syntax.Constant_Int64Value#,
-    		    1^#11:*syntax.Constant_Int64Value#
+    		    6^#10:*syntax.Literal_Int64Value#,
+    		    1^#11:*syntax.Literal_Int64Value#
     		  )^#12:*syntax.Expr_CallExpr#
     		)^#13:*syntax.Expr_CallExpr#`,
 	},
@@ -609,8 +609,8 @@ ERROR: <input>:1:6: Syntax error: mismatched input '<EOF>' expecting {'in', '[',
 	{
 		I: `"abc" + "def"`,
 		P: `_+_(
-    		  "abc"^#1:*syntax.Constant_StringValue#,
-    		  "def"^#2:*syntax.Constant_StringValue#
+    		  "abc"^#1:*syntax.Literal_StringValue#,
+    		  "def"^#2:*syntax.Literal_StringValue#
     		)^#3:*syntax.Expr_CallExpr#`,
 	},
 }
@@ -642,8 +642,8 @@ func (k *kindAndIdAdorner) GetMetadata(elem interface{}) string {
 		e := elem.(*expr.Expr)
 		var valType interface{} = e.ExprKind
 		switch valType.(type) {
-		case *expr.Expr_ConstExpr:
-			valType = e.GetConstExpr().ConstantKind
+		case *expr.Expr_LiteralExpr:
+			valType = e.GetLiteralExpr().LiteralKind
 		}
 		return fmt.Sprintf("^#%d:%s#", e.Id, reflect.TypeOf(valType))
 	case *expr.Expr_CreateStruct_Entry:
