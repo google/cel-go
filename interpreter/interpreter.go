@@ -41,7 +41,6 @@ type Interpretable interface {
 type exprInterpreter struct {
 	dispatcher   Dispatcher
 	typeProvider ref.TypeProvider
-	// TODO: introduce a type registry that includes type value identifiers
 }
 
 // NewInterpreter builds an Interpreter from a Dispatcher and TypeProvider
@@ -63,10 +62,12 @@ func NewStandardIntepreter(typeProvider ref.TypeProvider) Interpreter {
 
 func (i *exprInterpreter) NewInterpretable(program Program) Interpretable {
 	// program needs to be pruned with the TypeProvider
+	evalState := NewEvalState(program.MaxInstructionId() + 1)
+	program.Init(i.dispatcher, evalState)
 	return &exprInterpretable{
 		interpreter: i,
 		program:     program,
-		state:       NewEvalState()}
+		state:       evalState}
 }
 
 type exprInterpretable struct {
@@ -78,13 +79,11 @@ type exprInterpretable struct {
 func (i *exprInterpretable) Eval(activation Activation) (interface{}, EvalState) {
 	// register machine-like evaluation of the program with the given activation.
 	currActivation := activation
-	stepper := i.program.Instructions()
+	stepper := i.program.Init(i.interpreter.dispatcher, i.state)
 	var resultId int64
 	for step, hasNext := stepper.Next(); hasNext; step, hasNext = stepper.Next() {
 		resultId = step.GetId()
 		switch step.(type) {
-		case *ConstExpr:
-			i.evalConst(step.(*ConstExpr))
 		case *IdentExpr:
 			i.evalIdent(step.(*IdentExpr), currActivation)
 		case *SelectExpr:
@@ -232,12 +231,12 @@ func (i *exprInterpretable) evalCreateMap(mapExpr *CreateMapExpr) {
 	entries := make(map[ref.Value]ref.Value)
 	for keyId, valueId := range mapExpr.KeyValues {
 		key := i.value(keyId)
-		if types.IsError(key) || types.IsUnknown(key) {
+		if types.IsError(key.Type()) || types.IsUnknown(key.Type()) {
 			i.setValue(mapExpr.GetId(), key)
 			return
 		}
 		val := i.value(valueId)
-		if types.IsError(val) || types.IsUnknown(val) {
+		if types.IsError(val.Type()) || types.IsUnknown(val.Type()) {
 			i.setValue(mapExpr.GetId(), val)
 			return
 		}

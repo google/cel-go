@@ -33,69 +33,29 @@ const (
 // WalkExpr does a post-order traversal of a CEL syntax AST, which means
 // expressions are evaluated in a bottom-up fashion just as they would be in
 // a recursive execution pattern.
-func WalkExpr(expression *expr.Expr, metadata Metadata) []Instruction {
+func WalkExpr(expression *expr.Expr,
+	metadata Metadata,
+	dispatcher Dispatcher,
+	state MutableEvalState) []Instruction {
+	nextId := maxId(expression)
 	walker := &astWalker{
-		metadata,
-		getMaxId(expression),
-		newScope()}
+		dispatcher: dispatcher,
+		genSymId:   nextId,
+		genExprId:  nextId,
+		metadata:   metadata,
+		scope:      newScope(),
+		state:      state}
 	return walker.walk(expression)
 }
 
 // astWalker implementation of the AST walking logic.
 type astWalker struct {
-	metadata  Metadata
-	genExprId int64
-	scope     *blockScope
-}
-
-func getMaxId(node *expr.Expr) int64 {
-	if node == nil {
-		return -1
-	}
-	currId := node.Id
-	switch node.ExprKind.(type) {
-	case *expr.Expr_SelectExpr:
-		return maxInt(currId, getMaxId(node.GetSelectExpr().Operand))
-	case *expr.Expr_CallExpr:
-		call := node.GetCallExpr()
-		currId = maxInt(currId, getMaxId(call.Target))
-		for _, arg := range call.Args {
-			currId = maxInt(currId, getMaxId(arg))
-		}
-		return currId
-	case *expr.Expr_ListExpr:
-		list := node.GetListExpr()
-		for _, elem := range list.Elements {
-			currId = maxInt(currId, getMaxId(elem))
-		}
-		return currId
-	case *expr.Expr_StructExpr:
-		str := node.GetStructExpr()
-		for _, entry := range str.Entries {
-			currId = maxInt(entry.Id, getMaxId(entry.GetMapKey()), getMaxId(entry.Value))
-		}
-		return currId
-	case *expr.Expr_ComprehensionExpr:
-		compre := node.GetComprehensionExpr()
-		return maxInt(currId,
-			getMaxId(compre.IterRange),
-			getMaxId(compre.AccuInit),
-			getMaxId(compre.LoopCondition),
-			getMaxId(compre.LoopStep),
-			getMaxId(compre.Result))
-	default:
-		return currId
-	}
-}
-
-func maxInt(vals ...int64) int64 {
-	var result int64
-	for _, val := range vals {
-		if val > result {
-			result = val
-		}
-	}
-	return result
+	dispatcher Dispatcher
+	genExprId  int64
+	genSymId   int64
+	metadata   Metadata
+	scope      *blockScope
+	state      MutableEvalState
 }
 
 func (w *astWalker) walk(node *expr.Expr) []Instruction {
@@ -107,7 +67,8 @@ func (w *astWalker) walk(node *expr.Expr) []Instruction {
 	case *expr.Expr_SelectExpr:
 		return w.walkSelect(node)
 	case *expr.Expr_LiteralExpr:
-		return []Instruction{w.walkLiteral(node)}
+		w.walkLiteral(node)
+		return []Instruction{}
 	case *expr.Expr_ListExpr:
 		return w.walkList(node)
 	case *expr.Expr_StructExpr:
@@ -137,7 +98,7 @@ func (w *astWalker) walkLiteral(node *expr.Expr) Instruction {
 	case *expr.Literal_Uint64Value:
 		value = types.Uint(literal.GetUint64Value())
 	}
-	return NewLiteral(node.Id, value)
+	w.state.SetValue(node.Id, value)
 }
 
 func (w *astWalker) walkIdent(node *expr.Expr) []Instruction {
@@ -425,8 +386,8 @@ func getArgs(call *expr.Expr_Call) []*expr.Expr {
 // nextSymId generates an expression-unique identifier name for identifiers
 // that need to be produced programmatically.
 func (w *astWalker) nextSymId() string {
-	nextId := w.genExprId
-	w.genExprId++
+	nextId := w.genSymId
+	w.genSymId++
 	return fmt.Sprintf(genSymFormat, nextId)
 }
 
@@ -502,9 +463,9 @@ func jumpIfUnknownOrError(exprId int64) func(EvalState) bool {
 func breakIfEnd(conditionId int64) func(EvalState) bool {
 	return func(s EvalState) bool {
 		if val, found := s.Value(conditionId); found {
-			return types.IsUnknown(val) ||
-				types.IsError(val) ||
-				val == types.False
+			return val == types.False ||
+				types.IsUnknown(val) ||
+				types.IsError(val)
 		}
 		return true
 	}
@@ -513,7 +474,9 @@ func breakIfEnd(conditionId int64) func(EvalState) bool {
 func jumpIfEqual(exprId int64, value ref.Value) func(EvalState) bool {
 	return func(s EvalState) bool {
 		if val, found := s.Value(exprId); found {
-			return bool(val.Equal(value).(types.Bool))
+			if types.IsBool(val.Type()) {
+				return bool(val.Equal(value).(types.Bool))
+			}
 		}
 		return false
 	}
@@ -521,4 +484,91 @@ func jumpIfEqual(exprId int64, value ref.Value) func(EvalState) bool {
 
 func jumpAlways(_ EvalState) bool {
 	return true
+}
+
+func comprehensionCount(nodes ...*expr.Expr) int64 {
+	if nodes == nil || len(nodes) == 0 {
+		return 0
+	}
+	count := int64(0)
+	for _, node := range nodes {
+		if node == nil {
+			continue
+		}
+		switch node.ExprKind.(type) {
+		case *expr.Expr_SelectExpr:
+			count += comprehensionCount(node.GetSelectExpr().GetOperand())
+		case *expr.Expr_CallExpr:
+			call := node.GetCallExpr()
+			count += comprehensionCount(call.GetTarget()) + comprehensionCount(call.GetArgs()...)
+		case *expr.Expr_ListExpr:
+			list := node.GetListExpr()
+			count += comprehensionCount(list.GetElements()...)
+		case *expr.Expr_StructExpr:
+			st := node.GetStructExpr()
+			for _, entry := range st.GetEntries() {
+				count += comprehensionCount(entry.GetMapKey()) +
+					comprehensionCount(entry.GetValue())
+			}
+		case *expr.Expr_ComprehensionExpr:
+			compre := node.GetComprehensionExpr()
+			count += 1
+			count += comprehensionCount(compre.IterRange) +
+				comprehensionCount(compre.AccuInit) +
+				comprehensionCount(compre.LoopCondition) +
+				comprehensionCount(compre.LoopStep) +
+				comprehensionCount(compre.Result)
+		}
+	}
+	return count
+}
+
+func maxId(node *expr.Expr) int64 {
+	if node == nil {
+		return 0
+	}
+	currId := node.Id
+	switch node.ExprKind.(type) {
+	case *expr.Expr_SelectExpr:
+		return maxInt(currId, maxId(node.GetSelectExpr().Operand))
+	case *expr.Expr_CallExpr:
+		call := node.GetCallExpr()
+		currId = maxInt(currId, maxId(call.Target))
+		for _, arg := range call.Args {
+			currId = maxInt(currId, maxId(arg))
+		}
+		return currId
+	case *expr.Expr_ListExpr:
+		list := node.GetListExpr()
+		for _, elem := range list.Elements {
+			currId = maxInt(currId, maxId(elem))
+		}
+		return currId
+	case *expr.Expr_StructExpr:
+		str := node.GetStructExpr()
+		for _, entry := range str.Entries {
+			currId = maxInt(entry.Id, maxId(entry.GetMapKey()), maxId(entry.Value))
+		}
+		return currId
+	case *expr.Expr_ComprehensionExpr:
+		compre := node.GetComprehensionExpr()
+		return maxInt(currId,
+			maxId(compre.IterRange),
+			maxId(compre.AccuInit),
+			maxId(compre.LoopCondition),
+			maxId(compre.LoopStep),
+			maxId(compre.Result))
+	default:
+		return currId
+	}
+}
+
+func maxInt(vals ...int64) int64 {
+	var result int64
+	for _, val := range vals {
+		if val > result {
+			result = val
+		}
+	}
+	return result
 }

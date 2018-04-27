@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package testing provides test inputs and helpers used for interpreter
-// related tests.
 package test
 
 import (
@@ -47,22 +45,25 @@ var (
 	Exists = &TestExpr{
 		ExprComprehension(1,
 			"x",
-			ExprList(5,
-				ExprLiteral(2, int64(1)),
-				ExprLiteral(3, uint64(1)),
-				ExprLiteral(4, float64(1.0))),
+			ExprList(8,
+				ExprConst(2, int64(0)),
+				ExprConst(3, int64(1)),
+				ExprConst(4, int64(2)),
+				ExprConst(5, int64(3)),
+				ExprConst(6, int64(4)),
+				ExprConst(7, uint64(5))),
 			"_accu_",
-			ExprLiteral(6, false),
-			ExprCall(8,
+			ExprConst(9, false),
+			ExprCall(10,
 				operators.LogicalNot,
-				ExprIdent(7, "_accu_")),
-			ExprCall(11,
+				ExprIdent(11, "_accu_")),
+			ExprCall(12,
 				operators.Equals,
-				ExprCall(10,
+				ExprCall(13,
 					"type",
-					ExprIdent(9, "x")),
-				ExprIdent(12, "uint")),
-			ExprIdent(13, "_accu_")),
+					ExprIdent(14, "x")),
+				ExprIdent(15, "uint")),
+			ExprIdent(16, "_accu_")),
 
 		&expr.SourceInfo{
 			LineOffsets: []int32{0},
@@ -80,7 +81,43 @@ var (
 				10: 18,
 				11: 20,
 				12: 20,
-				13: 28}}}
+				13: 28,
+				14: 28,
+				15: 28,
+				16: 28}}}
+
+	// elems.exists(x, type(x) == uint)
+	ExistsWithInput = &TestExpr{
+		ExprComprehension(1,
+			"x",
+			ExprIdent(2, "elems"),
+			"_accu_",
+			ExprConst(3, false),
+			ExprCall(4,
+				operators.LogicalNot,
+				ExprIdent(5, "_accu_")),
+			ExprCall(6,
+				operators.Equals,
+				ExprCall(7,
+					"type",
+					ExprIdent(8, "x")),
+				ExprIdent(9, "uint")),
+			ExprIdent(10, "_accu_")),
+
+		&expr.SourceInfo{
+			LineOffsets: []int32{0},
+			Positions: map[int64]int32{
+				0:  12,
+				1:  0,
+				2:  1,
+				3:  4,
+				4:  8,
+				5:  0,
+				6:  18,
+				7:  18,
+				8:  18,
+				9:  18,
+				10: 18}}}
 
 	// {"hello": "world".size(),
 	//  "dur": duration.Duration{10},
@@ -150,6 +187,17 @@ var (
 			operators.Equals,
 			ExprIdent(1, "a"),
 			ExprLiteral(3, int64(42))),
+		&expr.SourceInfo{
+			LineOffsets: []int32{},
+			Positions:   map[int64]int32{}}}
+
+	// a == 42
+	TypeEquality = &TestExpr{
+		ExprCall(4,
+			operators.Equals,
+			ExprCall(1, "type",
+				ExprIdent(2, "a")),
+			ExprIdent(3, "uint")),
 		&expr.SourceInfo{
 			LineOffsets: []int32{},
 			Positions:   map[int64]int32{}}}

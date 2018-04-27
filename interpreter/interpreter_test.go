@@ -16,6 +16,8 @@ package interpreter
 
 import (
 	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/test"
 	expr "github.com/google/cel-spec/proto/v1/syntax"
 	"testing"
@@ -102,6 +104,71 @@ func BenchmarkInterpreter_ConditionalExpr(b *testing.B) {
 	}
 }
 
+func BenchmarkInterpreter_EqualsCall(b *testing.B) {
+	// type(x) == uint
+	activation := NewActivation(map[string]interface{}{
+		"x": types.Uint(20)})
+	d := NewDispatcher()
+	d.Add(functions.StandardOverloads()...)
+	evalState := NewEvalState(4)
+	for i := 0; i < b.N; i++ {
+		xRef, _ := activation.ResolveName("x")
+		evalState.SetValue(1, xRef)
+		xRef, _ = evalState.Value(1)
+		typeOfXRef := xRef.ConvertToType(types.TypeType)
+		evalState.SetValue(2, typeOfXRef)
+		typeOfXRef, _ = evalState.Value(2)
+		evalState.SetValue(3, typeOfXRef.Equal(types.UintType))
+	}
+}
+
+func BenchmarkInterpreter_EqualsDispatch(b *testing.B) {
+	// type(x) == uint
+	activation := NewActivation(map[string]interface{}{
+		"x": types.Uint(20)})
+	d := NewDispatcher()
+	d.Add(functions.StandardOverloads()...)
+	p := types.NewProvider()
+	callTypeOf := NewCall(2, "type", []int64{1})
+	callEq := NewCall(3, "_==_", []int64{1, 2})
+	evalState := NewEvalState(4)
+	for i := 0; i < b.N; i++ {
+		xRef, _ := activation.ResolveName("x")
+		evalState.SetValue(1, xRef)
+		xRef, _ = evalState.Value(1)
+		ctxType := &CallContext{
+			call:       callTypeOf,
+			args:       []ref.Value{xRef},
+			activation: activation,
+		}
+		evalState.SetValue(callTypeOf.GetId(), d.Dispatch(ctxType))
+		typeOfXRef, _ := evalState.Value(callTypeOf.GetId())
+		// not-found here.
+		activation.ResolveName("uint")
+		uintType, _ := p.FindIdent("uint")
+		ctxEq := &CallContext{
+			call:       callEq,
+			args:       []ref.Value{typeOfXRef, uintType},
+			activation: activation,
+		}
+		evalState.SetValue(callEq.GetId(), d.Dispatch(ctxEq))
+	}
+}
+
+func BenchmarkInterpreter_EqualInstructions(b *testing.B) {
+	// type(x) == uint
+	program := NewProgram(
+		test.TypeEquality.Expr,
+		test.TypeEquality.Info(b.Name()),
+		"")
+	interpretable := interpreter.NewInterpretable(program)
+	activation := NewActivation(map[string]interface{}{
+		"x": types.Uint(20)})
+	for i := 0; i < b.N; i++ {
+		interpretable.Eval(activation)
+	}
+}
+
 func BenchmarkInterpreter_ComprehensionExpr(b *testing.B) {
 	// [1, 1u, 1.0].exists(x, type(x) == uint)
 	program := NewProgram(
@@ -110,6 +177,20 @@ func BenchmarkInterpreter_ComprehensionExpr(b *testing.B) {
 		"")
 	interpretable := interpreter.NewInterpretable(program)
 	activation := NewActivation(map[string]interface{}{})
+	for i := 0; i < b.N; i++ {
+		interpretable.Eval(activation)
+	}
+}
+
+func BenchmarkInterpreter_ComprehensionExprWithInput(b *testing.B) {
+	// elems.exists(x, type(x) == uint)
+	program := NewProgram(
+		test.ExistsWithInput.Expr,
+		test.ExistsWithInput.Info(b.Name()),
+		"")
+	interpretable := interpreter.NewInterpretable(program)
+	activation := NewActivation(map[string]interface{}{
+		"elems": types.NativeToValue([]interface{}{0, 1, 2, 3, 4, uint(5), 6})})
 	for i := 0; i < b.N; i++ {
 		interpretable.Eval(activation)
 	}

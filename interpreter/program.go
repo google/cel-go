@@ -31,9 +31,13 @@ type Program interface {
 
 	GetInstruction(exprId int64) Instruction
 
-	// Instructions return an InstructionStepper which can be used to iterate
-	// through the program. Each call to Instructions generates a new stepper.
-	Instructions() InstructionStepper
+	// Init returns an InstructionStepper which can be used to iterate
+	// through the program. Each call to Init generates a new stepper.
+	Init(dispatcher Dispatcher, state MutableEvalState) InstructionStepper
+
+	// MaxInstructionId returns the identifier of the last expression in the
+	// program.
+	MaxInstructionId() int64
 
 	// Metadata used to determine source locations of sub-expressions.
 	Metadata() Metadata
@@ -55,30 +59,11 @@ type InstructionStepper interface {
 }
 
 type exprProgram struct {
-	expression      *expr.Expr
 	container       string
-	revInstructions map[int64]int
+	expression      *expr.Expr
 	instructions    []Instruction
 	metadata        Metadata
-}
-
-// NewProgram creates a Program from a CEL expression and source information
-// within the specified container.
-func NewProgram(expression *expr.Expr,
-	sourceInfo *expr.SourceInfo,
-	container string) Program {
-	metadata := newExprMetadata(sourceInfo)
-	instructions := WalkExpr(expression, metadata)
-	revInstructions := make(map[int64]int)
-	for i, inst := range instructions {
-		revInstructions[inst.GetId()] = i
-	}
-	return &exprProgram{
-		expression:      expression,
-		container:       container,
-		instructions:    instructions,
-		revInstructions: revInstructions,
-		metadata:        metadata}
+	revInstructions map[int64]int
 }
 
 // NewCheckedProgram creates a Program from a checked CEL expression.
@@ -86,12 +71,17 @@ func NewCheckedProgram(c *checked.CheckedExpr, container string) Program {
 	return NewProgram(c.Expr, c.SourceInfo, container)
 }
 
-func (p *exprProgram) String() string {
-	instStrs := make([]string, len(p.instructions), len(p.instructions))
-	for i, inst := range p.instructions {
-		instStrs[i] = fmt.Sprintf("%d: %v", i, inst)
-	}
-	return strings.Join(instStrs, "\n")
+// NewProgram creates a Program from a CEL expression and source information
+// within the specified container.
+func NewProgram(expression *expr.Expr,
+	info *expr.SourceInfo,
+	container string) Program {
+	revInstructions := make(map[int64]int)
+	return &exprProgram{
+		container:       container,
+		expression:      expression,
+		revInstructions: revInstructions,
+		metadata:        newExprMetadata(info)}
 }
 
 func (p *exprProgram) Container() string {
@@ -102,12 +92,34 @@ func (p *exprProgram) GetInstruction(exprId int64) Instruction {
 	return p.instructions[p.revInstructions[exprId]]
 }
 
-func (p *exprProgram) Instructions() InstructionStepper {
+func (p *exprProgram) Init(dispatcher Dispatcher, state MutableEvalState) InstructionStepper {
+	if p.instructions == nil {
+		p.instructions = WalkExpr(p.expression, p.metadata, dispatcher, state)
+		for i, inst := range p.instructions {
+			p.revInstructions[inst.GetId()] = i
+		}
+	}
 	return &exprStepper{p, 0}
+}
+
+func (p *exprProgram) MaxInstructionId() int64 {
+	// The max instruction id is computed as the highest expression id + 1
+	// combined with the number of comprehensions times two. Each comprehension
+	// introduces two generated ids (one for an iterator and one for current
+	// iterator value) once the program is initialized.
+	return maxId(p.expression) + comprehensionCount(p.expression)*2
 }
 
 func (p *exprProgram) Metadata() Metadata {
 	return p.metadata
+}
+
+func (p *exprProgram) String() string {
+	instStrs := make([]string, len(p.instructions), len(p.instructions))
+	for i, inst := range p.instructions {
+		instStrs[i] = fmt.Sprintf("%d: %v", i, inst)
+	}
+	return strings.Join(instStrs, "\n")
 }
 
 // exprStepper keeps a cursor pointed at the next instruction to execute

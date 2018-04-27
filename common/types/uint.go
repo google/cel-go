@@ -25,8 +25,8 @@ import (
 type Uint uint64
 
 var (
-	_        ref.Value = Uint(uint64(0))
-	UintType           = NewTypeValue("uint",
+	// UintType singleton.
+	UintType = NewTypeValue("uint",
 		traits.AdderType,
 		traits.ComparerType,
 		traits.DividerType,

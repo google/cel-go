@@ -1,9 +1,9 @@
 package types
 
-import(
-	"testing"
-	"github.com/golang/protobuf/ptypes/timestamp"
+import (
 	"github.com/golang/protobuf/ptypes/duration"
+	"github.com/golang/protobuf/ptypes/timestamp"
+	"testing"
 )
 
 func TestString_Add(t *testing.T) {

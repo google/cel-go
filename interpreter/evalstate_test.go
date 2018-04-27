@@ -20,8 +20,8 @@ import (
 )
 
 func TestGetterSetter(t *testing.T) {
-	var evalState EvalState = NewEvalState()
-	if val, found := evalState.Value(1); found || val != nil {
+	var evalState EvalState = NewEvalState(2)
+	if val, found := evalState.Value(1); found && val != nil {
 		t.Error("Unexpected value found", val)
 	}
 	var mutableState = evalState.(MutableEvalState)

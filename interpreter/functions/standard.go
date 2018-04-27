@@ -244,6 +244,24 @@ func StandardOverloads() []*Overload {
 			Unary: func(value ref.Value) ref.Value {
 				return value.ConvertToType(types.TypeType)
 			}},
+
+		{Operator: overloads.Iterator,
+			OperandTrait: traits.IterableType,
+			Unary: func(value ref.Value) ref.Value {
+				return value.(traits.Iterable).Iterator()
+			}},
+
+		{Operator: overloads.HasNext,
+			OperandTrait: traits.IteratorType,
+			Unary: func(value ref.Value) ref.Value {
+				return value.(traits.Iterator).HasNext()
+			}},
+
+		{Operator: overloads.Next,
+			OperandTrait: traits.IteratorType,
+			Unary: func(value ref.Value) ref.Value {
+				return value.(traits.Iterator).Next()
+			}},
 	}
 
 }
