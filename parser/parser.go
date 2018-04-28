@@ -189,7 +189,7 @@ func (p *parser) VisitCalc(ctx *gen.CalcContext) interface{} {
 }
 
 func (p *parser) VisitUnary(ctx *gen.UnaryContext) interface{} {
-	return p.helper.newConstString(ctx, "<<error>>")
+	return p.helper.newLiteralString(ctx, "<<error>>")
 }
 
 // Visit a parse tree produced by CELParser#StatementExpr.
@@ -375,7 +375,7 @@ func (p *parser) VisitInt(ctx *gen.IntContext) interface{} {
 	if err != nil {
 		return p.helper.reportError(ctx, "invalid int literal")
 	}
-	return p.helper.newConstInt(ctx, i)
+	return p.helper.newLiteralInt(ctx, i)
 }
 
 // Visit a parse tree produced by CELParser#Uint.
@@ -386,7 +386,7 @@ func (p *parser) VisitUint(ctx *gen.UintContext) interface{} {
 	if err != nil {
 		return p.helper.reportError(ctx, "invalid uint literal")
 	}
-	return p.helper.newConstUint(ctx, i)
+	return p.helper.newLiteralUint(ctx, i)
 }
 
 // Visit a parse tree produced by CELParser#Double.
@@ -395,38 +395,38 @@ func (p *parser) VisitDouble(ctx *gen.DoubleContext) interface{} {
 	if err != nil {
 		return p.helper.reportError(ctx, "invalid double literal")
 	}
-	return p.helper.newConstDouble(ctx, f)
+	return p.helper.newLiteralDouble(ctx, f)
 
 }
 
 // Visit a parse tree produced by CELParser#String.
 func (p *parser) VisitString(ctx *gen.StringContext) interface{} {
 	s := p.unquote(ctx, ctx.GetText())
-	return p.helper.newConstString(ctx, s)
+	return p.helper.newLiteralString(ctx, s)
 }
 
 // Visit a parse tree produced by CELParser#Bytes.
 func (p *parser) VisitBytes(ctx *gen.BytesContext) interface{} {
 	// TODO(ozben): Not sure if this is the right encoding.
 	b := []byte(p.unquote(ctx, ctx.GetTok().GetText()[1:]))
-	return p.helper.newConstBytes(ctx, b)
+	return p.helper.newLiteralBytes(ctx, b)
 }
 
 // Visit a parse tree produced by CELParser#BoolTrue.
 func (p *parser) VisitBoolTrue(ctx *gen.BoolTrueContext) interface{} {
-	return p.helper.newConstBool(ctx, true)
+	return p.helper.newLiteralBool(ctx, true)
 }
 
 // Visit a parse tree produced by CELParser#BoolFalse.
 func (p *parser) VisitBoolFalse(ctx *gen.BoolFalseContext) interface{} {
-	return p.helper.newConstBool(ctx, false)
+	return p.helper.newLiteralBool(ctx, false)
 }
 
 // Visit a parse tree produced by CELParser#Null.
 func (p *parser) VisitNull(ctx *gen.NullContext) interface{} {
-	return p.helper.newConstant(ctx,
-		&expr.Constant{
-			&expr.Constant_NullValue{
+	return p.helper.newLiteral(ctx,
+		&expr.Literal{
+			&expr.Literal_NullValue{
 				structpb.NullValue_NULL_VALUE}})
 }
 

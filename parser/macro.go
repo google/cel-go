@@ -154,19 +154,19 @@ func makeQuantifier(kind quantifierKind, p *parserHelper, ctx interface{}, targe
 	var result *expr.Expr
 	switch kind {
 	case quantifierAll:
-		init = p.newConstBool(ctx, true)
+		init = p.newLiteralBool(ctx, true)
 		condition = accuIdent()
 		step = p.newGlobalCall(ctx, operators.LogicalAnd, accuIdent(), args[1])
 		result = accuIdent()
 	case quantifierExists:
-		init = p.newConstBool(ctx, false)
+		init = p.newLiteralBool(ctx, false)
 		condition = p.newGlobalCall(ctx, operators.LogicalNot, accuIdent())
 		step = p.newGlobalCall(ctx, operators.LogicalOr, accuIdent(), args[1])
 		result = accuIdent()
 	case quantifierExistsOne:
 		// TODO: make consistent with the CEL semantics.
-		zeroExpr := p.newConstInt(ctx, 0)
-		oneExpr := p.newConstInt(ctx, 1)
+		zeroExpr := p.newLiteralInt(ctx, 0)
+		oneExpr := p.newLiteralInt(ctx, 1)
 		init = zeroExpr
 		condition = p.newGlobalCall(ctx, operators.LessEquals, accuIdent(), oneExpr)
 		step = p.newGlobalCall(ctx, operators.Conditional, args[1],
@@ -197,7 +197,7 @@ func makeMap(p *parserHelper, ctx interface{}, target *expr.Expr, args []*expr.E
 
 	accuExpr := p.newIdent(ctx, accumulatorName)
 	init := p.newList(ctx)
-	condition := p.newConstBool(ctx, true)
+	condition := p.newLiteralBool(ctx, true)
 	// TODO: use compiler internal method for faster, stateful add.
 	step := p.newGlobalCall(ctx, operators.Add, accuExpr, p.newList(ctx, fn))
 
@@ -216,7 +216,7 @@ func makeFilter(p *parserHelper, ctx interface{}, target *expr.Expr, args []*exp
 	filter := args[1]
 	accuExpr := p.newIdent(ctx, accumulatorName)
 	init := p.newList(ctx)
-	condition := p.newConstBool(ctx, true)
+	condition := p.newLiteralBool(ctx, true)
 	// TODO: use compiler internal method for faster, stateful add.
 	step := p.newGlobalCall(ctx, operators.Add, accuExpr, p.newList(ctx, args[0]))
 	step = p.newGlobalCall(ctx, operators.Conditional, filter, step, accuExpr)

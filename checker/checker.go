@@ -73,23 +73,23 @@ func (c *checker) check(e *expr.Expr) {
 	}
 
 	switch e.ExprKind.(type) {
-	case *expr.Expr_ConstExpr:
-		constExpr := e.GetConstExpr()
-		switch constExpr.ConstantKind.(type) {
-		case *expr.Constant_BoolValue:
-			c.checkBoolConstant(e)
-		case *expr.Constant_BytesValue:
-			c.checkBytesConstant(e)
-		case *expr.Constant_DoubleValue:
-			c.checkDoubleConstant(e)
-		case *expr.Constant_Int64Value:
-			c.checkInt64Constant(e)
-		case *expr.Constant_NullValue:
-			c.checkNullConstant(e)
-		case *expr.Constant_StringValue:
-			c.checkStringConstant(e)
-		case *expr.Constant_Uint64Value:
-			c.checkUint64Constant(e)
+	case *expr.Expr_LiteralExpr:
+		literal := e.GetLiteralExpr()
+		switch literal.LiteralKind.(type) {
+		case *expr.Literal_BoolValue:
+			c.checkBoolLiteral(e)
+		case *expr.Literal_BytesValue:
+			c.checkBytesLiteral(e)
+		case *expr.Literal_DoubleValue:
+			c.checkDoubleLiteral(e)
+		case *expr.Literal_Int64Value:
+			c.checkInt64Literal(e)
+		case *expr.Literal_NullValue:
+			c.checkNullLiteral(e)
+		case *expr.Literal_StringValue:
+			c.checkStringLiteral(e)
+		case *expr.Literal_Uint64Value:
+			c.checkUint64Literal(e)
 		}
 	case *expr.Expr_IdentExpr:
 		c.checkIdent(e)
@@ -108,31 +108,31 @@ func (c *checker) check(e *expr.Expr) {
 	}
 }
 
-func (c *checker) checkInt64Constant(e *expr.Expr) {
+func (c *checker) checkInt64Literal(e *expr.Expr) {
 	c.setType(e, Int)
 }
 
-func (c *checker) checkUint64Constant(e *expr.Expr) {
+func (c *checker) checkUint64Literal(e *expr.Expr) {
 	c.setType(e, Uint)
 }
 
-func (c *checker) checkStringConstant(e *expr.Expr) {
+func (c *checker) checkStringLiteral(e *expr.Expr) {
 	c.setType(e, String)
 }
 
-func (c *checker) checkBytesConstant(e *expr.Expr) {
+func (c *checker) checkBytesLiteral(e *expr.Expr) {
 	c.setType(e, Bytes)
 }
 
-func (c *checker) checkDoubleConstant(e *expr.Expr) {
+func (c *checker) checkDoubleLiteral(e *expr.Expr) {
 	c.setType(e, Double)
 }
 
-func (c *checker) checkBoolConstant(e *expr.Expr) {
+func (c *checker) checkBoolLiteral(e *expr.Expr) {
 	c.setType(e, Bool)
 }
 
-func (c *checker) checkNullConstant(e *expr.Expr) {
+func (c *checker) checkNullLiteral(e *expr.Expr) {
 	c.setType(e, Null)
 }
 
@@ -540,7 +540,7 @@ func (c *checker) locationById(id int64) common.Location {
 	return common.NoLocation
 }
 
-func newIdentReference(name string, value *expr.Constant) *checked.Reference {
+func newIdentReference(name string, value *expr.Literal) *checked.Reference {
 	return &checked.Reference{Name: name, Value: value}
 }
 

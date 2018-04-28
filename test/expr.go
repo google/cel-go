@@ -18,9 +18,7 @@ package test
 
 import (
 	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/struct"
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/google/cel-go/common/operators"
 	expr "github.com/google/cel-spec/proto/v1/syntax"
 )
@@ -50,11 +48,11 @@ var (
 		ExprComprehension(1,
 			"x",
 			ExprList(5,
-				ExprConst(2, int64(1)),
-				ExprConst(3, uint64(1)),
-				ExprConst(4, float64(1.0))),
+				ExprLiteral(2, int64(1)),
+				ExprLiteral(3, uint64(1)),
+				ExprLiteral(4, float64(1.0))),
 			"_accu_",
-			ExprConst(6, false),
+			ExprLiteral(6, false),
 			ExprCall(8,
 				operators.LogicalNot,
 				ExprIdent(7, "_accu_")),
@@ -92,22 +90,16 @@ var (
 	DynMap = &TestExpr{
 		ExprMap(17,
 			ExprEntry(2,
-				ExprConst(1, "hello"),
+				ExprLiteral(1, "hello"),
 				ExprMemberCall(3,
 					"size",
-					ExprConst(4, "world"))),
-			ExprEntry(6,
-				ExprConst(5, "dur"),
-				ExprConst(7, &duration.Duration{Seconds: 10})),
-			ExprEntry(9,
-				ExprConst(8, "ts"),
-				ExprConst(10, &timestamp.Timestamp{Seconds: 1000})),
+					ExprLiteral(4, "world"))),
 			ExprEntry(12,
-				ExprConst(11, "null"),
-				ExprConst(13, structpb.NullValue_NULL_VALUE)),
+				ExprLiteral(11, "null"),
+				ExprLiteral(13, structpb.NullValue_NULL_VALUE)),
 			ExprEntry(15,
-				ExprConst(14, "bytes"),
-				ExprConst(16, []byte("bytes-string")))),
+				ExprLiteral(14, "bytes"),
+				ExprLiteral(16, []byte("bytes-string")))),
 
 		&expr.SourceInfo{
 			LineOffsets: []int32{},
@@ -119,7 +111,7 @@ var (
 			ExprIdent(1, "a"),
 			ExprSelect(6,
 				ExprType(5, "TestProto",
-					ExprField(4, "c", ExprConst(5, true))),
+					ExprField(4, "c", ExprLiteral(5, true))),
 				"c")),
 		&expr.SourceInfo{
 			LineOffsets: []int32{},
@@ -132,11 +124,11 @@ var (
 			ExprCall(3,
 				operators.Less,
 				ExprIdent(2, "b"),
-				ExprConst(4, 1.0)),
+				ExprLiteral(4, 1.0)),
 			ExprCall(6,
 				operators.Equals,
 				ExprIdent(5, "c"),
-				ExprList(8, ExprConst(7, "hello")))),
+				ExprList(8, ExprLiteral(7, "hello")))),
 		&expr.SourceInfo{
 			LineOffsets: []int32{},
 			Positions:   map[int64]int32{}}}
@@ -157,7 +149,7 @@ var (
 		ExprCall(2,
 			operators.Equals,
 			ExprIdent(1, "a"),
-			ExprConst(3, int64(42))),
+			ExprLiteral(3, int64(42))),
 		&expr.SourceInfo{
 			LineOffsets: []int32{},
 			Positions:   map[int64]int32{}}}
@@ -174,39 +166,33 @@ func ExprSelect(id int64, operand *expr.Expr, field string) *expr.Expr {
 			&expr.Expr_Select{operand, field, false}}}
 }
 
-func ExprConst(id int64, value interface{}) *expr.Expr {
-	var constExpr *expr.Constant
+func ExprLiteral(id int64, value interface{}) *expr.Expr {
+	var literal *expr.Literal
 	switch value.(type) {
 	case bool:
-		constExpr = &expr.Constant{&expr.Constant_BoolValue{value.(bool)}}
+		literal = &expr.Literal{&expr.Literal_BoolValue{value.(bool)}}
 	case int64:
-		constExpr = &expr.Constant{&expr.Constant_Int64Value{
+		literal = &expr.Literal{&expr.Literal_Int64Value{
 			value.(int64)}}
 	case uint64:
-		constExpr = &expr.Constant{&expr.Constant_Uint64Value{
+		literal = &expr.Literal{&expr.Literal_Uint64Value{
 			value.(uint64)}}
 	case float64:
-		constExpr = &expr.Constant{&expr.Constant_DoubleValue{
+		literal = &expr.Literal{&expr.Literal_DoubleValue{
 			value.(float64)}}
 	case string:
-		constExpr = &expr.Constant{&expr.Constant_StringValue{
+		literal = &expr.Literal{&expr.Literal_StringValue{
 			value.(string)}}
 	case structpb.NullValue:
-		constExpr = &expr.Constant{&expr.Constant_NullValue{
+		literal = &expr.Literal{&expr.Literal_NullValue{
 			value.(structpb.NullValue)}}
 	case []byte:
-		constExpr = &expr.Constant{&expr.Constant_BytesValue{
+		literal = &expr.Literal{&expr.Literal_BytesValue{
 			value.([]byte)}}
-	case *timestamp.Timestamp:
-		constExpr = &expr.Constant{&expr.Constant_TimestampValue{
-			value.(*timestamp.Timestamp)}}
-	case *duration.Duration:
-		constExpr = &expr.Constant{&expr.Constant_DurationValue{
-			value.(*duration.Duration)}}
 	default:
-		panic("constant type not implemented")
+		panic("literal type not implemented")
 	}
-	return &expr.Expr{id, &expr.Expr_ConstExpr{ConstExpr: constExpr}}
+	return &expr.Expr{id, &expr.Expr_LiteralExpr{LiteralExpr: literal}}
 }
 
 func ExprCall(id int64, function string, args ...*expr.Expr) *expr.Expr {

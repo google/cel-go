@@ -6,7 +6,7 @@ import (
 	expr "github.com/google/cel-spec/proto/v1/syntax"
 )
 
-func NewIdent(name string, t *checked.Type, v *expr.Constant) *checked.Decl {
+func NewIdent(name string, t *checked.Type, v *expr.Literal) *checked.Decl {
 	return &checked.Decl{
 		Name: name,
 		DeclKind: &checked.Decl_Ident{

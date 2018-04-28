@@ -51,34 +51,34 @@ func (p *parserHelper) reportError(ctx interface{}, format string, args ...inter
 	return err
 }
 
-func (p *parserHelper) newConstant(ctx interface{}, value *expr.Constant) *expr.Expr {
+func (p *parserHelper) newLiteral(ctx interface{}, value *expr.Literal) *expr.Expr {
 	exprNode := p.newExpr(ctx)
-	exprNode.ExprKind = &expr.Expr_ConstExpr{ConstExpr: value}
+	exprNode.ExprKind = &expr.Expr_LiteralExpr{LiteralExpr: value}
 	return exprNode
 }
 
-func (p *parserHelper) newConstBool(ctx interface{}, value bool) *expr.Expr {
-	return p.newConstant(ctx, &expr.Constant{&expr.Constant_BoolValue{value}})
+func (p *parserHelper) newLiteralBool(ctx interface{}, value bool) *expr.Expr {
+	return p.newLiteral(ctx, &expr.Literal{&expr.Literal_BoolValue{value}})
 }
 
-func (p *parserHelper) newConstString(ctx interface{}, value string) *expr.Expr {
-	return p.newConstant(ctx, &expr.Constant{&expr.Constant_StringValue{value}})
+func (p *parserHelper) newLiteralString(ctx interface{}, value string) *expr.Expr {
+	return p.newLiteral(ctx, &expr.Literal{&expr.Literal_StringValue{value}})
 }
 
-func (p *parserHelper) newConstBytes(ctx interface{}, value []byte) *expr.Expr {
-	return p.newConstant(ctx, &expr.Constant{&expr.Constant_BytesValue{value}})
+func (p *parserHelper) newLiteralBytes(ctx interface{}, value []byte) *expr.Expr {
+	return p.newLiteral(ctx, &expr.Literal{&expr.Literal_BytesValue{value}})
 }
 
-func (p *parserHelper) newConstInt(ctx interface{}, value int64) *expr.Expr {
-	return p.newConstant(ctx, &expr.Constant{&expr.Constant_Int64Value{value}})
+func (p *parserHelper) newLiteralInt(ctx interface{}, value int64) *expr.Expr {
+	return p.newLiteral(ctx, &expr.Literal{&expr.Literal_Int64Value{value}})
 }
 
-func (p *parserHelper) newConstUint(ctx interface{}, value uint64) *expr.Expr {
-	return p.newConstant(ctx, &expr.Constant{&expr.Constant_Uint64Value{value}})
+func (p *parserHelper) newLiteralUint(ctx interface{}, value uint64) *expr.Expr {
+	return p.newLiteral(ctx, &expr.Literal{&expr.Literal_Uint64Value{value}})
 }
 
-func (p *parserHelper) newConstDouble(ctx interface{}, value float64) *expr.Expr {
-	return p.newConstant(ctx, &expr.Constant{&expr.Constant_DoubleValue{value}})
+func (p *parserHelper) newLiteralDouble(ctx interface{}, value float64) *expr.Expr {
+	return p.newLiteral(ctx, &expr.Literal{&expr.Literal_DoubleValue{value}})
 }
 
 func (p *parserHelper) newIdent(ctx interface{}, name string) *expr.Expr {
