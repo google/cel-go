@@ -79,7 +79,7 @@ func (w *astWalker) walk(node *expr.Expr) []Instruction {
 	return []Instruction{}
 }
 
-func (w *astWalker) walkLiteral(node *expr.Expr) Instruction {
+func (w *astWalker) walkLiteral(node *expr.Expr) {
 	literal := node.GetLiteralExpr()
 	var value ref.Value = nil
 	switch literal.LiteralKind.(type) {
