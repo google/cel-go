@@ -32,6 +32,8 @@ type Dispatcher interface {
 	// error.
 	Dispatch(ctx *CallContext) ref.Value
 
+	// FindOverload returns an Overload definition matching the provided
+	// name.
 	FindOverload(overload string) (*functions.Overload, bool)
 }
 
