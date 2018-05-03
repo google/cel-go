@@ -25,15 +25,24 @@ import (
 // Program contains instructions with some metadata and optionally run within
 // a container, e.g. module name or package name.
 type Program interface {
+	// Begin returns an InstructionStepper which iterates through the
+	// instructions. Each call to Begin() returns a stepper that starts
+	// from the first instructions.
+	//
+	// Note: Init() must be called prior to Begin().
+	Begin() InstructionStepper
+
 	// Container is the module or package name where the program is run. The
 	// container is used to resolve type names and identifiers.
 	Container() string
 
+	// GetInstruction returns the instruction at the given expression id.
 	GetInstruction(exprId int64) Instruction
 
-	// Init returns an InstructionStepper which can be used to iterate
-	// through the program. Each call to Init generates a new stepper.
-	Init(dispatcher Dispatcher, state MutableEvalState) InstructionStepper
+	// Init ensures that instructions have been properly initialized prior to
+	// beginning the execution of a program. The init step may optimize the
+	// instruction set.
+	Init(dispatcher Dispatcher, state MutableEvalState)
 
 	// MaxInstructionId returns the identifier of the last expression in the
 	// program.
@@ -84,6 +93,13 @@ func NewProgram(expression *expr.Expr,
 		metadata:        newExprMetadata(info)}
 }
 
+func (p *exprProgram) Begin() InstructionStepper {
+	if p.instructions == nil {
+		panic("the Begin() method was called before program Init()")
+	}
+	return &exprStepper{p, 0}
+}
+
 func (p *exprProgram) Container() string {
 	return p.container
 }
@@ -92,14 +108,13 @@ func (p *exprProgram) GetInstruction(exprId int64) Instruction {
 	return p.instructions[p.revInstructions[exprId]]
 }
 
-func (p *exprProgram) Init(dispatcher Dispatcher, state MutableEvalState) InstructionStepper {
+func (p *exprProgram) Init(dispatcher Dispatcher, state MutableEvalState) {
 	if p.instructions == nil {
 		p.instructions = WalkExpr(p.expression, p.metadata, dispatcher, state)
 		for i, inst := range p.instructions {
 			p.revInstructions[inst.GetId()] = i
 		}
 	}
-	return &exprStepper{p, 0}
 }
 
 func (p *exprProgram) MaxInstructionId() int64 {
@@ -107,7 +122,7 @@ func (p *exprProgram) MaxInstructionId() int64 {
 	// combined with the number of comprehensions times two. Each comprehension
 	// introduces two generated ids (one for an iterator and one for current
 	// iterator value) once the program is initialized.
-	return maxId(p.expression) + comprehensionCount(p.expression)*2
+	return maxId(p.expression) + comprehensionCount(p.expression) * 2
 }
 
 func (p *exprProgram) Metadata() Metadata {

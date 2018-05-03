@@ -502,11 +502,9 @@ func comprehensionCount(nodes ...*expr.Expr) int64 {
 			call := node.GetCallExpr()
 			count += comprehensionCount(call.GetTarget()) + comprehensionCount(call.GetArgs()...)
 		case *expr.Expr_ListExpr:
-			list := node.GetListExpr()
-			count += comprehensionCount(list.GetElements()...)
+			count += comprehensionCount(node.GetListExpr().GetElements()...)
 		case *expr.Expr_StructExpr:
-			st := node.GetStructExpr()
-			for _, entry := range st.GetEntries() {
+			for _, entry := range node.GetStructExpr().GetEntries() {
 				count += comprehensionCount(entry.GetMapKey()) +
 					comprehensionCount(entry.GetValue())
 			}

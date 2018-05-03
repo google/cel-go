@@ -79,7 +79,7 @@ type exprInterpretable struct {
 func (i *exprInterpretable) Eval(activation Activation) (interface{}, EvalState) {
 	// register machine-like evaluation of the program with the given activation.
 	currActivation := activation
-	stepper := i.program.Init(i.interpreter.dispatcher, i.state)
+	stepper := i.program.Begin()
 	var resultId int64
 	for step, hasNext := stepper.Next(); hasNext; step, hasNext = stepper.Next() {
 		resultId = step.GetId()

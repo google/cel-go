@@ -33,7 +33,8 @@ func TestNewProgram_Empty(t *testing.T) {
 		t.Errorf("Unexpected container name: %s", program.Container())
 	}
 	state := NewEvalState(program.MaxInstructionId() + 1)
-	if step, hasNext := program.Init(dispatcher(), state).Next(); hasNext {
+	program.Init(dispatcher(), state)
+	if step, hasNext := program.Begin().Next(); hasNext {
 		t.Errorf("Unexpected step in empty program: %v", step)
 	}
 }
@@ -50,7 +51,8 @@ func TestNewProgram_LogicalAnd(t *testing.T) {
 		t.Errorf("Unexpected container name: %s", program.Container())
 	}
 	state := NewEvalState(program.MaxInstructionId() + 1)
-	if _, hasNext := program.Init(dispatcher(), state).Next(); !hasNext {
+	program.Init(dispatcher(), state)
+	if _, hasNext := program.Begin().Next(); !hasNext {
 		t.Error("Expected a step in program, but found none")
 	}
 	fmt.Printf("%s\n%s\n\n", t.Name(), program)
@@ -68,7 +70,8 @@ func TestNewProgram_Conditional(t *testing.T) {
 		t.Errorf("Unexpected container name: %s", program.Container())
 	}
 	state := NewEvalState(program.MaxInstructionId() + 1)
-	if _, hasNext := program.Init(dispatcher(), state).Next(); !hasNext {
+	program.Init(dispatcher(), state)
+	if _, hasNext := program.Begin().Next(); !hasNext {
 		t.Error("Expected a step in program, but found none")
 	}
 	expected := "TestNewProgram_Conditional\n" +
@@ -102,7 +105,8 @@ func TestNewProgram_Comprehension(t *testing.T) {
 		t.Errorf("Unexpected container name: %s", program.Container())
 	}
 	state := NewEvalState(program.MaxInstructionId() + 1)
-	if _, hasNext := program.Init(dispatcher(), state).Next(); !hasNext {
+	program.Init(dispatcher(), state)
+	if _, hasNext := program.Begin().Next(); !hasNext {
 		t.Error("Expected a step in program, but found none")
 	}
 	fmt.Printf("%s\n%s\n\n", t.Name(), program)
@@ -120,7 +124,8 @@ func TestNewProgram_DynMap(t *testing.T) {
 		t.Errorf("Unexpected container name: %s", program.Container())
 	}
 	state := NewEvalState(program.MaxInstructionId() + 1)
-	if _, hasNext := program.Init(dispatcher(), state).Next(); !hasNext {
+	program.Init(dispatcher(), state)
+	if _, hasNext := program.Begin().Next(); !hasNext {
 		t.Error("Expected a step in program, but found none")
 	}
 	fmt.Printf("%s\n%s\n\n", t.Name(), program)

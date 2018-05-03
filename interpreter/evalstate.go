@@ -44,6 +44,10 @@ type defaultEvalState struct {
 }
 
 func (s *defaultEvalState) Value(exprId int64) (ref.Value, bool) {
+	// TODO: The eval state assumes a dense progrma expression id space. While
+	// this is true of how the cel-go parser generates identifiers, it may not
+	// be true for all implementations or for the long term. Replace the use of
+	// parse-time generated expression ids with a dense runtiem identifier.
 	if exprId >= 0 && exprId < s.exprCount {
 		return s.exprValues[exprId], true
 	}
