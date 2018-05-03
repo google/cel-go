@@ -14,7 +14,9 @@
 
 package interpreter
 
-import "github.com/google/cel-go/common/types/ref"
+import (
+	"github.com/google/cel-go/common/types/ref"
+)
 
 // EvalState tracks the values associated with expression ids during execution.
 type EvalState interface {
@@ -31,17 +33,25 @@ type MutableEvalState interface {
 }
 
 // NewEvalState returns a MutableEvalState.
-func NewEvalState() MutableEvalState {
-	return &defaultEvalState{make(map[int64]ref.Value)}
+func NewEvalState(instructionCount int64) *defaultEvalState {
+	return &defaultEvalState{exprCount: instructionCount,
+		exprValues: make([]ref.Value, instructionCount, instructionCount)}
 }
 
 type defaultEvalState struct {
-	exprValues map[int64]ref.Value
+	exprCount  int64
+	exprValues []ref.Value
 }
 
 func (s *defaultEvalState) Value(exprId int64) (ref.Value, bool) {
-	object, found := s.exprValues[exprId]
-	return object, found
+	// TODO: The eval state assumes a dense progrma expression id space. While
+	// this is true of how the cel-go parser generates identifiers, it may not
+	// be true for all implementations or for the long term. Replace the use of
+	// parse-time generated expression ids with a dense runtiem identifier.
+	if exprId >= 0 && exprId < s.exprCount {
+		return s.exprValues[exprId], true
+	}
+	return nil, false
 }
 
 func (s *defaultEvalState) SetValue(exprId int64, value ref.Value) {

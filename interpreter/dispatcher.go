@@ -16,7 +16,6 @@ package interpreter
 
 import (
 	"fmt"
-	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
@@ -32,6 +31,10 @@ type Dispatcher interface {
 	// Dispatch a call to its appropriate Overload and return the result or
 	// error.
 	Dispatch(ctx *CallContext) ref.Value
+
+	// FindOverload returns an Overload definition matching the provided
+	// name.
+	FindOverload(overload string) (*functions.Overload, bool)
 }
 
 // CallContext provides a description of a function call invocation.
@@ -96,8 +99,7 @@ func (d *defaultDispatcher) Dispatch(ctx *CallContext) ref.Value {
 		}
 		argCount := len(ctx.args)
 		if argCount == 2 && overload.Binary != nil {
-			out := overload.Binary(ctx.args[0], ctx.args[1])
-			return out
+			return overload.Binary(ctx.args[0], ctx.args[1])
 		}
 		if argCount == 1 && overload.Unary != nil {
 			return overload.Unary(ctx.args[0])
@@ -110,18 +112,10 @@ func (d *defaultDispatcher) Dispatch(ctx *CallContext) ref.Value {
 	if operand.Type().HasTrait(traits.ReceiverType) {
 		operand.(traits.Receiver).Receive(function, overloadId, ctx.args[1:])
 	}
-	// Special dispatches for iteration.
-	if function == overloads.Iterator &&
-		operand.Type().HasTrait(traits.IterableType) {
-		return operand.(traits.Iterable).Iterator()
-	}
-	if function == overloads.HasNext &&
-		operand.Type().HasTrait(traits.IteratorType) {
-		return operand.(traits.Iterator).HasNext()
-	}
-	if function == overloads.Next &&
-		operand.Type().HasTrait(traits.IteratorType) {
-		return operand.(traits.Iterator).Next()
-	}
 	return types.NewErr("no such overload")
+}
+
+func (d *defaultDispatcher) FindOverload(overload string) (*functions.Overload, bool) {
+	o, found := d.overloads[overload]
+	return o, found
 }

@@ -71,7 +71,7 @@ func (t *TypeValue) Equal(other ref.Value) ref.Value {
 }
 
 func (t *TypeValue) HasTrait(trait int) bool {
-	return trait & t.traitMask == trait
+	return trait&t.traitMask == trait
 }
 
 func (t *TypeValue) Type() ref.Type {

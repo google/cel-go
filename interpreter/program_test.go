@@ -16,6 +16,7 @@ package interpreter
 
 import (
 	"fmt"
+	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/test"
 	"testing"
 )
@@ -31,7 +32,9 @@ func TestNewProgram_Empty(t *testing.T) {
 	if program.Container() != "" {
 		t.Errorf("Unexpected container name: %s", program.Container())
 	}
-	if step, hasNext := program.Instructions().Next(); hasNext {
+	state := NewEvalState(program.MaxInstructionId() + 1)
+	program.Init(dispatcher(), state)
+	if step, hasNext := program.Begin().Next(); hasNext {
 		t.Errorf("Unexpected step in empty program: %v", step)
 	}
 }
@@ -47,7 +50,9 @@ func TestNewProgram_LogicalAnd(t *testing.T) {
 	if program.Container() != "" {
 		t.Errorf("Unexpected container name: %s", program.Container())
 	}
-	if _, hasNext := program.Instructions().Next(); !hasNext {
+	state := NewEvalState(program.MaxInstructionId() + 1)
+	program.Init(dispatcher(), state)
+	if _, hasNext := program.Begin().Next(); !hasNext {
 		t.Error("Expected a step in program, but found none")
 	}
 	fmt.Printf("%s\n%s\n\n", t.Name(), program)
@@ -64,22 +69,22 @@ func TestNewProgram_Conditional(t *testing.T) {
 	if program.Container() != "" {
 		t.Errorf("Unexpected container name: %s", program.Container())
 	}
-	if _, hasNext := program.Instructions().Next(); !hasNext {
+	state := NewEvalState(program.MaxInstructionId() + 1)
+	program.Init(dispatcher(), state)
+	if _, hasNext := program.Begin().Next(); !hasNext {
 		t.Error("Expected a step in program, but found none")
 	}
 	expected := "TestNewProgram_Conditional\n" +
 		"0: local 'a', r1\n" +
-		"1: jump  10 if cond<r1>\n" +
-		"2: jump  5 if cond<r1>\n" +
+		"1: jump  8 if cond<r1>\n" +
+		"2: jump  4 if cond<r1>\n" +
 		"3: local 'b', r2\n" +
-		"4: const 1, r4\n" +
-		"5: call  _<_(r2, r4), r3\n" +
-		"6: jump  5 if cond<r3>\n" +
-		"7: local 'c', r5\n" +
-		"8: const hello, r7\n" +
-		"9: mov   list([7]), r8\n" +
-		"10: call  _==_(r5, r8), r6\n" +
-		"11: call  _?_:_(r1, r3, r6), r9\n\n"
+		"4: call  _<_(r2, r4), r3\n" +
+		"5: jump  4 if cond<r3>\n" +
+		"6: local 'c', r5\n" +
+		"7: mov   list([7]), r8\n" +
+		"8: call  _==_(r5, r8), r6\n" +
+		"9: call  _?_:_(r1, r3, r6), r9\n\n"
 	actual := fmt.Sprintf("%s\n%s\n\n", t.Name(), program)
 	if actual != expected {
 		t.Errorf("program did not compile as expected. actual: %v\nexpected: %v",
@@ -88,6 +93,7 @@ func TestNewProgram_Conditional(t *testing.T) {
 }
 
 func TestNewProgram_Comprehension(t *testing.T) {
+
 	program := NewProgram(
 		test.Exists.Expr,
 		test.Exists.Info(t.Name()),
@@ -98,7 +104,9 @@ func TestNewProgram_Comprehension(t *testing.T) {
 	if program.Container() != "" {
 		t.Errorf("Unexpected container name: %s", program.Container())
 	}
-	if _, hasNext := program.Instructions().Next(); !hasNext {
+	state := NewEvalState(program.MaxInstructionId() + 1)
+	program.Init(dispatcher(), state)
+	if _, hasNext := program.Begin().Next(); !hasNext {
 		t.Error("Expected a step in program, but found none")
 	}
 	fmt.Printf("%s\n%s\n\n", t.Name(), program)
@@ -115,8 +123,16 @@ func TestNewProgram_DynMap(t *testing.T) {
 	if program.Container() != "" {
 		t.Errorf("Unexpected container name: %s", program.Container())
 	}
-	if _, hasNext := program.Instructions().Next(); !hasNext {
+	state := NewEvalState(program.MaxInstructionId() + 1)
+	program.Init(dispatcher(), state)
+	if _, hasNext := program.Begin().Next(); !hasNext {
 		t.Error("Expected a step in program, but found none")
 	}
 	fmt.Printf("%s\n%s\n\n", t.Name(), program)
+}
+
+func dispatcher() Dispatcher {
+	dispatcher := NewDispatcher()
+	dispatcher.Add(functions.StandardOverloads()...)
+	return dispatcher
 }

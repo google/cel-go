@@ -1,6 +1,6 @@
 package types
 
-import(
+import (
 	"testing"
 )
 

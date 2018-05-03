@@ -139,7 +139,7 @@ func (t Timestamp) Subtract(subtrahend ref.Value) ref.Value {
 		}
 		ts2, err := ptypes.Timestamp(subtrahend.(Timestamp).Timestamp)
 		if err != nil {
-			return &Err{ err}
+			return &Err{err}
 		}
 		return Duration{ptypes.DurationProto(ts1.Sub(ts2))}
 	}
