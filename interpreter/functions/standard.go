@@ -278,6 +278,15 @@ func logicalAnd(lhs ref.Value, rhs ref.Value) ref.Value {
 		rhsIsBool && !rhs.(types.Bool) {
 		return types.False
 	}
+
+	if types.IsUnknown(lhs) {
+		return lhs
+	}
+
+	if types.IsUnknown(rhs) {
+		return rhs
+	}
+
 	// if the left-hand side is non-boolean return it as the error.
 	if !lhsIsBool {
 		return types.NewErr("Got '%v', expected argument of type 'bool'", lhs)
@@ -297,6 +306,15 @@ func logicalOr(lhs ref.Value, rhs ref.Value) ref.Value {
 		rhsIsBool && rhs.(types.Bool) {
 		return types.True
 	}
+
+	if types.IsUnknown(lhs) {
+		return lhs
+	}
+
+	if types.IsUnknown(rhs) {
+		return rhs
+	}
+
 	// if the left-hand side is non-boolean return it as the error.
 	if !lhsIsBool {
 		return types.NewErr("got '%v', expected argument of type 'bool'", lhs)

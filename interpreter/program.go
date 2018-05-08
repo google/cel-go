@@ -36,7 +36,11 @@ type Program interface {
 	// container is used to resolve type names and identifiers.
 	Container() string
 
-	// GetInstruction returns the instruction at the given expression id.
+	// Return the runtime expression id corresponding to the expression id from
+	// the AST.
+	GetRuntimeExpressionId(exprId int64) int64
+
+	// GetInstruction returns the instruction at the given runtime expression id.
 	GetInstruction(exprId int64) Instruction
 
 	// Init ensures that instructions have been properly initialized prior to
@@ -73,6 +77,7 @@ type exprProgram struct {
 	instructions    []Instruction
 	metadata        Metadata
 	revInstructions map[int64]int
+	exprIdMappigns  map[int64]int64
 }
 
 // NewCheckedProgram creates a Program from a checked CEL expression.
@@ -104,13 +109,20 @@ func (p *exprProgram) Container() string {
 	return p.container
 }
 
+func (p *exprProgram) GetRuntimeExpressionId(exprId int64) int64 {
+	if val, ok := p.exprIdMappigns[exprId]; ok {
+		return val
+	}
+	return exprId
+}
+
 func (p *exprProgram) GetInstruction(exprId int64) Instruction {
 	return p.instructions[p.revInstructions[exprId]]
 }
 
 func (p *exprProgram) Init(dispatcher Dispatcher, state MutableEvalState) {
 	if p.instructions == nil {
-		p.instructions = WalkExpr(p.expression, p.metadata, dispatcher, state)
+		p.instructions, p.exprIdMappigns = WalkExpr(p.expression, p.metadata, dispatcher, state)
 		for i, inst := range p.instructions {
 			p.revInstructions[inst.GetId()] = i
 		}
@@ -122,7 +134,7 @@ func (p *exprProgram) MaxInstructionId() int64 {
 	// combined with the number of comprehensions times two. Each comprehension
 	// introduces two generated ids (one for an iterator and one for current
 	// iterator value) once the program is initialized.
-	return maxId(p.expression) + comprehensionCount(p.expression) * 2
+	return maxId(p.expression) + comprehensionCount(p.expression)*2
 }
 
 func (p *exprProgram) Metadata() Metadata {

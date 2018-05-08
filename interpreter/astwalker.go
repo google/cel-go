@@ -36,26 +36,28 @@ const (
 func WalkExpr(expression *expr.Expr,
 	metadata Metadata,
 	dispatcher Dispatcher,
-	state MutableEvalState) []Instruction {
+	state MutableEvalState) ([]Instruction, map[int64]int64) {
 	nextId := maxId(expression)
 	walker := &astWalker{
-		dispatcher: dispatcher,
-		genSymId:   nextId,
-		genExprId:  nextId,
-		metadata:   metadata,
-		scope:      newScope(),
-		state:      state}
-	return walker.walk(expression)
+		dispatcher:     dispatcher,
+		genSymId:       nextId,
+		genExprId:      nextId,
+		metadata:       metadata,
+		scope:          newScope(),
+		state:          state,
+		exprIdMappings: make(map[int64]int64)}
+	return walker.walk(expression), walker.exprIdMappings
 }
 
 // astWalker implementation of the AST walking logic.
 type astWalker struct {
-	dispatcher Dispatcher
-	genExprId  int64
-	genSymId   int64
-	metadata   Metadata
-	scope      *blockScope
-	state      MutableEvalState
+	dispatcher     Dispatcher
+	genExprId      int64
+	genSymId       int64
+	metadata       Metadata
+	scope          *blockScope
+	state          MutableEvalState
+	exprIdMappings map[int64]int64
 }
 
 func (w *astWalker) walk(node *expr.Expr) []Instruction {
@@ -420,6 +422,7 @@ func (w *astWalker) getId(expr *expr.Expr) int64 {
 	id := expr.GetId()
 	if ident := expr.GetIdentExpr(); ident != nil {
 		if altId, found := w.scope.ref(ident.Name); found {
+			w.exprIdMappings[id] = altId
 			return altId
 		}
 	}
