@@ -41,10 +41,10 @@ func ConstantFoldExpr(expr *expr.ParsedExpr, interpreter Interpreter, container 
 	interpretable := interpreter.NewInterpretable(program)
 	result, state := interpretable.Eval(
 		NewActivation(map[string]interface{}{}))
+	// We could prune even in case of error but that is probably not very useful.
 	if !types.IsError(result) {
 		PruneExpr(expr.Expr, program, state)
 	}
-	fmt.Printf("Hit error %v\n", result.(ref.Value))
 	return result
 }
 
@@ -56,7 +56,7 @@ func (p *exprPruner) prune(node *expr.Expr) {
 	if node == nil {
 		return
 	}
-	if val, knownValue := p.value(p.program.GetRuntimeExpressionId(node.GetId())); knownValue {
+	if val, notErrorOrUnknown := p.value(p.program.GetRuntimeExpressionId(node.GetId())); notErrorOrUnknown {
 
 		// TODO if we have a list or struct, create a list/struct expression. This is useful especially
 		// if these expressions are result of a function call.
@@ -86,14 +86,14 @@ func (p *exprPruner) prune(node *expr.Expr) {
 		}
 	}
 
-	// We have either an unknown value, or something we dont want to transform. If
+	// We have either an unknown/error value, or something we dont want to transform. If
 	// possible, drill down more.
 
 	switch node.ExprKind.(type) {
 	case *expr.Expr_SelectExpr:
 		p.prune(node.GetSelectExpr().Operand)
 	case *expr.Expr_CallExpr:
-		// TODO if we have logical and/or here, it must be an unknown. Transform it such that only unknown branches are left.
+		// TODO if we have logical and/or with an unknown here, transform it such that only unknown branches are left.
 
 		call := node.GetCallExpr()
 		for _, arg := range call.Args {
@@ -119,7 +119,7 @@ func (p *exprPruner) prune(node *expr.Expr) {
 func (p *exprPruner) value(id int64) (ref.Value, bool) {
 	if object, found := p.state.Value(id); found {
 		fmt.Printf("index %d value %v \n", id, object)
-		return object, !types.IsUnknown(object)
+		return object, !(types.IsUnknown(object) || types.IsError(object))
 	}
 	fmt.Printf("index %d not found \n", id)
 	return nil, false
