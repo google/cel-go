@@ -1,8 +1,11 @@
 package types
 
 import (
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/duration"
+	"github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"reflect"
 	"testing"
 )
 
@@ -30,6 +33,30 @@ func TestString_Compare(t *testing.T) {
 	}
 	if !IsError(a.Compare(True)) {
 		t.Error("Comparison to a non-string type did not generate an error.")
+	}
+}
+
+func TestString_ConvertToNative_Error(t *testing.T) {
+	val, err := String("hello").ConvertToNative(reflect.TypeOf(0))
+	if err == nil {
+		t.Error("Got '%v', expected error", val)
+	}
+}
+
+func TestString_ConvertToNative_Json(t *testing.T) {
+	val, err := String("hello").ConvertToNative(jsonValueType)
+	pbVal := &structpb.Value{&structpb.Value_StringValue{"hello"}}
+	if err != nil ||
+		IsError(val) ||
+		!proto.Equal(val.(proto.Message), pbVal) {
+		t.Error("Error during conversion to json Value type", err, val)
+	}
+}
+
+func TestString_ConvertToNative_String(t *testing.T) {
+	val, err := String("hello").ConvertToNative(reflect.TypeOf(""))
+	if err != nil && val.(string) != "hello" {
+		t.Error("Got '%v', expected 'hello'", val)
 	}
 }
 
@@ -62,6 +89,9 @@ func TestString_ConvertToType(t *testing.T) {
 	}
 	if !String("goodbye").ConvertToType(StringType).Equal(String("goodbye")).(Bool) {
 		t.Error("String could not be converted to itself")
+	}
+	if !IsError(String("map{}").ConvertToType(MapType)) {
+		t.Error("Unsupported string conversion resulted in value.")
 	}
 }
 

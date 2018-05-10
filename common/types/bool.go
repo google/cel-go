@@ -15,6 +15,8 @@
 package types
 
 import (
+	"fmt"
+	"github.com/golang/protobuf/ptypes/struct"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 	"reflect"
@@ -49,7 +51,14 @@ func (b Bool) Compare(other ref.Value) ref.Value {
 }
 
 func (b Bool) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
-	return b.Value(), nil
+	if typeDesc == jsonValueType {
+		return &structpb.Value{
+			Kind: &structpb.Value_BoolValue{
+				BoolValue: b.Value().(bool)}}, nil
+	} else if typeDesc.Kind() == reflect.Bool {
+		return b.Value(), nil
+	}
+	return nil, fmt.Errorf("type conversion error from bool to '%v'", typeDesc)
 }
 
 func (b Bool) ConvertToType(typeVal ref.Type) ref.Value {
@@ -61,7 +70,7 @@ func (b Bool) ConvertToType(typeVal ref.Type) ref.Value {
 	case TypeType:
 		return BoolType
 	}
-	return NewErr("type conversion error from '%s' to '%s'", BoolType, typeVal)
+	return NewErr("type conversion error from '%v' to '%v'", BoolType, typeVal)
 }
 
 func (b Bool) Equal(other ref.Value) ref.Value {

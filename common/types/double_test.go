@@ -1,6 +1,9 @@
 package types
 
 import (
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/struct"
+	"reflect"
 	"testing"
 )
 
@@ -30,6 +33,37 @@ func TestDouble_Compare(t *testing.T) {
 	}
 }
 
+func TestDouble_ConvertToNative_Error(t *testing.T) {
+	val, err := Double(-10000).ConvertToNative(reflect.TypeOf(""))
+	if err == nil {
+		t.Errorf("Got '%v', expected error", val)
+	}
+}
+
+func TestDouble_ConvertToNative_Float32(t *testing.T) {
+	val, err := Double(3.1415).ConvertToNative(reflect.TypeOf(float32(0)))
+	if err != nil || val.(float32) != 3.1415 {
+		t.Errorf("Got '%v', wanted 3.1415", val)
+	}
+}
+
+func TestDouble_ConvertToNative_Float64(t *testing.T) {
+	val, err := Double(30000000.1).ConvertToNative(reflect.TypeOf(float64(0)))
+	if err != nil || val.(float64) != 30000000.1 {
+		t.Errorf("Got '%v', wanted 330000000.1", val)
+	}
+}
+
+func TestDouble_ConvertToNative_Json(t *testing.T) {
+	val, err := Double(-1.4).ConvertToNative(jsonValueType)
+	pbVal := &structpb.Value{&structpb.Value_NumberValue{-1.4}}
+	if err != nil ||
+		IsError(val) ||
+		!proto.Equal(val.(proto.Message), pbVal) {
+		t.Error("Error during conversion to json Value type", err, val)
+	}
+}
+
 func TestDouble_ConvertToType(t *testing.T) {
 	if !Double(-4.5).ConvertToType(IntType).Equal(Int(-4)).(Bool) {
 		t.Error("Unsuccessful type conversion to int")
@@ -45,6 +79,9 @@ func TestDouble_ConvertToType(t *testing.T) {
 	}
 	if !Double(-4.5).ConvertToType(TypeType).Equal(DoubleType).(Bool) {
 		t.Error("Unsuccessful type conversion to type")
+	}
+	if !IsError(Double(-4.5).ConvertToType(TimestampType)) {
+		t.Error("Unexpected conversion of type double to timestamp.")
 	}
 }
 

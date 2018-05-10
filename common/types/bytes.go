@@ -16,6 +16,7 @@ package types
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 	"reflect"
@@ -48,7 +49,13 @@ func (b Bytes) Compare(other ref.Value) ref.Value {
 }
 
 func (b Bytes) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
-	return b.Value(), nil
+	switch typeDesc.Kind() {
+	case reflect.Array, reflect.Slice:
+		if typeDesc.Elem().Kind() == reflect.Uint8 {
+			return b.Value(), nil
+		}
+	}
+	return nil, fmt.Errorf("type conversion error from Bytes to '%v'", typeDesc)
 }
 
 func (b Bytes) ConvertToType(typeVal ref.Type) ref.Value {

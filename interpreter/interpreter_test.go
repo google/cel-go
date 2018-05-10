@@ -32,7 +32,7 @@ func TestInterpreter_CallExpr(t *testing.T) {
 	result, state := interpretable.Eval(
 		NewActivation(map[string]interface{}{"a": int64(41)}))
 	if result != types.False {
-		t.Errorf("Expected false, go: %v", result)
+		t.Errorf("Expected false, got: %v", result)
 	}
 	if ident, found := state.Value(1); !found || ident != types.Int(41) {
 		t.Errorf("State of ident 'a' != 41, got: %v", ident)

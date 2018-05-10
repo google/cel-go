@@ -15,6 +15,7 @@
 package types
 
 import (
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	dpb "github.com/golang/protobuf/ptypes/duration"
@@ -95,7 +96,11 @@ func (d Duration) Compare(other ref.Value) ref.Value {
 }
 
 func (d Duration) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
-	return d.Value(), nil
+	if typeDesc == reflect.TypeOf(&dpb.Duration{}) {
+		return d.Value(), nil
+	}
+	return nil, fmt.Errorf("type conversion error from "+
+		"'google.protobuf.Duration' to '%v'", typeDesc)
 }
 
 func (d Duration) ConvertToType(typeVal ref.Type) ref.Value {

@@ -15,6 +15,7 @@
 package types
 
 import (
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cel-go/common/types/pb"
 	"github.com/google/cel-go/common/types/ref"
@@ -46,7 +47,11 @@ func NewObject(value proto.Message) ref.Value {
 }
 
 func (o *protoObj) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
-	return o.value, nil
+	if typeDesc == o.refValue.Type() {
+		return o.value, nil
+	}
+	return nil, fmt.Errorf("type conversion error from '%v' to '%v'",
+		o.refValue.Type(), typeDesc)
 }
 
 func (o *protoObj) ConvertToType(typeVal ref.Type) ref.Value {

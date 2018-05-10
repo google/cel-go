@@ -30,7 +30,12 @@ var (
 	NullValue = Null(structpb.NullValue_NULL_VALUE)
 )
 
-func (n Null) ConvertToNative(reflect.Type) (interface{}, error) {
+func (n Null) ConvertToNative(refType reflect.Type) (interface{}, error) {
+	if refType == jsonValueType {
+		return &structpb.Value{
+			Kind: &structpb.Value_NullValue{
+				NullValue: structpb.NullValue_NULL_VALUE}}, nil
+	}
 	return structpb.NullValue_NULL_VALUE, nil
 }
 

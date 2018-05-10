@@ -83,48 +83,90 @@ func TestTypeProvider_Getters(t *testing.T) {
 	}
 }
 
-func TestExprToProto(t *testing.T) {
+func TestValue_ConvertToNative(t *testing.T) {
 	// Core type conversion tests.
-	expectExprToProto(t, True, true)
-	expectExprToProto(t, Int(-1), int32(-1))
-	expectExprToProto(t, Int(2), int64(2))
-	expectExprToProto(t, Uint(3), uint32(3))
-	expectExprToProto(t, Uint(4), uint64(4))
-	expectExprToProto(t, Double(5.5), float32(5.5))
-	expectExprToProto(t, Double(-5.5), float64(-5.5))
-	expectExprToProto(t, String("hello"), "hello")
-	expectExprToProto(t, Bytes("world"), []byte("world"))
-	expectExprToProto(t, NewDynamicList([]int64{1, 2, 3}), []int32{1, 2, 3})
-	expectExprToProto(t, NewDynamicMap(map[int64]int64{1: 1, 2: 1, 3: 1}),
+	expectValueToNative(t, True, true)
+	expectValueToNative(t, Int(-1), int32(-1))
+	expectValueToNative(t, Int(2), int64(2))
+	expectValueToNative(t, Uint(3), uint32(3))
+	expectValueToNative(t, Uint(4), uint64(4))
+	expectValueToNative(t, Double(5.5), float32(5.5))
+	expectValueToNative(t, Double(-5.5), float64(-5.5))
+	expectValueToNative(t, String("hello"), "hello")
+	expectValueToNative(t, Bytes("world"), []byte("world"))
+	expectValueToNative(t, NewDynamicList([]int64{1, 2, 3}), []int32{1, 2, 3})
+	expectValueToNative(t, NewDynamicMap(map[int64]int64{1: 1, 2: 1, 3: 1}),
 		map[int32]int32{1: 1, 2: 1, 3: 1})
 
 	// Null conversion tests.
-	expectExprToProto(t, Null(structpb.NullValue_NULL_VALUE), structpb.NullValue_NULL_VALUE)
+	expectValueToNative(t, Null(structpb.NullValue_NULL_VALUE), structpb.NullValue_NULL_VALUE)
 
 	// Proto conversion tests.
 	parsedExpr := &expr.ParsedExpr{}
-	expectExprToProto(t, NewObject(parsedExpr), parsedExpr)
+	expectValueToNative(t, NewObject(parsedExpr), parsedExpr)
 }
 
-func TestProtoToExpr(t *testing.T) {
+func TestNativeToValue(t *testing.T) {
 	// Core type conversions.
-	expectProtoToExpr(t, true, True)
-	expectProtoToExpr(t, int32(-1), Int(-1))
-	expectProtoToExpr(t, int64(2), Int(2))
-	expectProtoToExpr(t, uint32(3), Uint(3))
-	expectProtoToExpr(t, uint64(4), Uint(4))
-	expectProtoToExpr(t, float32(5.5), Double(5.5))
-	expectProtoToExpr(t, float64(-5.5), Double(-5.5))
-	expectProtoToExpr(t, "hello", String("hello"))
-	expectProtoToExpr(t, []byte("world"), Bytes("world"))
-	expectProtoToExpr(t, []int32{1, 2, 3}, NewDynamicList([]int32{1, 2, 3}))
-	expectProtoToExpr(t, map[int32]int32{1: 1, 2: 1, 3: 1},
+	expectNativeToValue(t, true, True)
+	expectNativeToValue(t, int32(-1), Int(-1))
+	expectNativeToValue(t, int64(2), Int(2))
+	expectNativeToValue(t, uint32(3), Uint(3))
+	expectNativeToValue(t, uint64(4), Uint(4))
+	expectNativeToValue(t, float32(5.5), Double(5.5))
+	expectNativeToValue(t, float64(-5.5), Double(-5.5))
+	expectNativeToValue(t, "hello", String("hello"))
+	expectNativeToValue(t, []byte("world"), Bytes("world"))
+	expectNativeToValue(t, []int32{1, 2, 3}, NewDynamicList([]int32{1, 2, 3}))
+	expectNativeToValue(t, map[int32]int32{1: 1, 2: 1, 3: 1},
 		NewDynamicMap(map[int32]int32{1: 1, 2: 1, 3: 1}))
 	// Null conversion test.
-	expectProtoToExpr(t, structpb.NullValue_NULL_VALUE, Null(structpb.NullValue_NULL_VALUE))
+	expectNativeToValue(t, structpb.NullValue_NULL_VALUE, Null(structpb.NullValue_NULL_VALUE))
+
+	// Json primitive conversion test.
+	expectNativeToValue(t,
+		&structpb.Value{Kind: &structpb.Value_BoolValue{}},
+		False)
+	expectNativeToValue(t,
+		&structpb.Value{Kind: &structpb.Value_NumberValue{NumberValue: 1.1}},
+		Double(1.1))
+	expectNativeToValue(t,
+		&structpb.Value{Kind: &structpb.Value_NullValue{
+			NullValue: structpb.NullValue_NULL_VALUE}},
+		Null(structpb.NullValue_NULL_VALUE))
+	expectNativeToValue(t,
+		&structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "hello"}},
+		String("hello"))
+
+	// Json list conversion.
+	expectNativeToValue(t,
+		&structpb.Value{
+			Kind: &structpb.Value_ListValue{
+				ListValue: &structpb.ListValue{
+					Values: []*structpb.Value{
+						{&structpb.Value_StringValue{StringValue: "world"}},
+						{&structpb.Value_StringValue{StringValue: "five!"}}}}}},
+		NewJsonList(&structpb.ListValue{
+			Values: []*structpb.Value{
+				{&structpb.Value_StringValue{StringValue: "world"}},
+				{&structpb.Value_StringValue{StringValue: "five!"}}}}))
+
+	// Json struct conversion.
+	expectNativeToValue(t,
+		&structpb.Value{
+			Kind: &structpb.Value_StructValue{
+				StructValue: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"a": {&structpb.Value_StringValue{StringValue: "world"}},
+						"b": {&structpb.Value_StringValue{StringValue: "five!"}}}}}},
+		NewJsonStruct(&structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"a": {&structpb.Value_StringValue{StringValue: "world"}},
+				"b": {&structpb.Value_StringValue{StringValue: "five!"}}}}))
+
 	// Proto conversion test.
 	parsedExpr := &expr.ParsedExpr{}
-	expectProtoToExpr(t, parsedExpr, NewObject(parsedExpr))
+	expectNativeToValue(t, parsedExpr, NewObject(parsedExpr))
 }
 
 func TestUnsupportedConversion(t *testing.T) {
@@ -133,7 +175,7 @@ func TestUnsupportedConversion(t *testing.T) {
 	}
 }
 
-func expectExprToProto(t *testing.T, in ref.Value, out interface{}) {
+func expectValueToNative(t *testing.T, in ref.Value, out interface{}) {
 	t.Helper()
 	if val, err := in.ConvertToNative(reflect.TypeOf(out)); err != nil {
 		t.Error(err)
@@ -156,7 +198,7 @@ func expectExprToProto(t *testing.T, in ref.Value, out interface{}) {
 	}
 }
 
-func expectProtoToExpr(t *testing.T, in interface{}, out ref.Value) {
+func expectNativeToValue(t *testing.T, in interface{}, out ref.Value) {
 	t.Helper()
 	if val := NativeToValue(in); IsError(val) {
 		t.Error(val)

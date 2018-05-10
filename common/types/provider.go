@@ -162,8 +162,6 @@ func NativeToValue(value interface{}) ref.Value {
 	switch value.(type) {
 	case ref.Value:
 		return value.(ref.Value)
-	case structpb.NullValue:
-		return Null(value.(structpb.NullValue))
 	case bool:
 		return Bool(value.(bool))
 	case int:
@@ -190,6 +188,28 @@ func NativeToValue(value interface{}) ref.Value {
 		return NewStringList(value.([]string))
 	case *duration.Duration:
 		return Duration{value.(*duration.Duration)}
+	case *structpb.ListValue:
+		return NewJsonList(value.(*structpb.ListValue))
+	case structpb.NullValue:
+		return NullValue
+	case *structpb.Struct:
+		return NewJsonStruct(value.(*structpb.Struct))
+	case *structpb.Value:
+		v := value.(*structpb.Value)
+		switch v.Kind.(type) {
+		case *structpb.Value_BoolValue:
+			return NativeToValue(v.GetBoolValue())
+		case *structpb.Value_ListValue:
+			return NativeToValue(v.GetListValue())
+		case *structpb.Value_NullValue:
+			return NullValue
+		case *structpb.Value_NumberValue:
+			return NativeToValue(v.GetNumberValue())
+		case *structpb.Value_StringValue:
+			return NativeToValue(v.GetStringValue())
+		case *structpb.Value_StructValue:
+			return NativeToValue(v.GetStructValue())
+		}
 	case *timestamp.Timestamp:
 		return Timestamp{value.(*timestamp.Timestamp)}
 	case proto.Message:
