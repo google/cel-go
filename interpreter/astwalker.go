@@ -45,8 +45,8 @@ func WalkExpr(expression *expr.Expr,
 		metadata:       metadata,
 		scope:          newScope(),
 		state:          state,
-		exprIdMappings: make(map[int64]int64)}
-	return walker.walk(expression), walker.exprIdMappings
+		exprIdMap:      make(map[int64]int64)}
+	return walker.walk(expression), walker.exprIdMap
 }
 
 // astWalker implementation of the AST walking logic.
@@ -57,7 +57,7 @@ type astWalker struct {
 	metadata       Metadata
 	scope          *blockScope
 	state          MutableEvalState
-	exprIdMappings map[int64]int64
+	exprIdMap      map[int64]int64
 }
 
 func (w *astWalker) walk(node *expr.Expr) []Instruction {
@@ -422,7 +422,7 @@ func (w *astWalker) getId(expr *expr.Expr) int64 {
 	id := expr.GetId()
 	if ident := expr.GetIdentExpr(); ident != nil {
 		if altId, found := w.scope.ref(ident.Name); found {
-			w.exprIdMappings[id] = altId
+			w.exprIdMap[id] = altId
 			return altId
 		}
 	}
@@ -548,7 +548,7 @@ func maxId(node *expr.Expr) int64 {
 	case *expr.Expr_StructExpr:
 		str := node.GetStructExpr()
 		for _, entry := range str.Entries {
-			currId = maxInt(entry.Id, maxId(entry.GetMapKey()), maxId(entry.Value))
+			currId = maxInt(currId, entry.Id, maxId(entry.GetMapKey()), maxId(entry.Value))
 		}
 		return currId
 	case *expr.Expr_ComprehensionExpr:

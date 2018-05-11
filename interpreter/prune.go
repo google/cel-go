@@ -17,6 +17,7 @@ package interpreter
 import (
 	"fmt"
 	"github.com/golang/protobuf/ptypes/struct"
+	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	expr "github.com/google/cel-spec/proto/v1/syntax"
@@ -28,6 +29,13 @@ type exprPruner struct {
 	state   EvalState
 }
 
+// Prunes the given expression based on the given EvalState. Modifies the expression in place.
+// A typical use of this interface would be:
+// 1) Evaluate expr with some unknowns,
+// 2) If result is unknown:
+//   a) Maybe clone the expr(typically would be necessary only for the first iteration) and PruneExpr
+//   b) Goto 1
+// Functional call results which are known would be effectively cached across iterations.
 func PruneExpr(expr *expr.Expr, program Program, state EvalState) {
 	pruner := &exprPruner{
 		expr:    expr,
@@ -36,27 +44,90 @@ func PruneExpr(expr *expr.Expr, program Program, state EvalState) {
 	pruner.prune(expr)
 }
 
+// Prunes the given expression by evaluating the expression using the constant values in the expression. Modifies the expression in place.
+// A typical use case of this interface would be:
+// 1) Compile the expression (maybe via a service and maybe after checking a compiled expression does not exists in local cache)
+// 2) Prepare the environment and the interpreter
+// 3) ConstantFoldexpr
+// 4) Maybe cache the expression
+//
+// How the environment is prepared in step 2 is flexible. For example, If the caller caches the compiled and constant folded expressions,
+// but is not willing to constant fold( and thus cache results of) some external calls, then he can prepare the overloads accordingly.
+//
 func ConstantFoldExpr(expr *expr.ParsedExpr, interpreter Interpreter, container string) interface{} {
 	program := NewProgram(expr.Expr, expr.SourceInfo, container)
 	interpretable := interpreter.NewInterpretable(program)
 	result, state := interpretable.Eval(
 		NewActivation(map[string]interface{}{}))
-	// We could prune even in case of error but that is probably not very useful.
-	if !types.IsError(result) {
-		PruneExpr(expr.Expr, program, state)
-	}
+	// Even eval end is error, there might be legitimate cases where we want to constant fold. One such case is
+	// when caller deliberately does not provide some overloads.
+	PruneExpr(expr.Expr, program, state)
 	return result
 }
 
-func (p *exprPruner) createLiteral(node *expr.Expr, value *expr.Literal) {
-	node.ExprKind = &expr.Expr_LiteralExpr{LiteralExpr: value}
+func (p *exprPruner) createLiteral(node *expr.Expr, val *expr.Literal) {
+	node.ExprKind = &expr.Expr_LiteralExpr{LiteralExpr: val}
+}
+
+func (p *exprPruner) maybePruneAndOr(node *expr.Expr) bool {
+	fmt.Printf("Here1\n")
+	if !p.existsWithUnknownValue(node.GetId()) {
+		return false
+	}
+
+	call := node.GetCallExpr()
+
+	// We know result is unknown, so we have at least one unknown arg and if one side is a known value, we know we can ignore it.
+
+	if p.existsWithKnownValue(call.Args[0].GetId()) {
+		*node = *call.Args[1]
+		return true
+	}
+
+	if p.existsWithKnownValue(call.Args[1].GetId()) {
+		*node = *call.Args[0]
+		return true
+	}
+	return false
+}
+
+func (p *exprPruner) maybePruneConditional(node *expr.Expr) bool {
+	if !p.existsWithUnknownValue(node.GetId()) {
+		return false
+	}
+
+	call := node.GetCallExpr()
+	condVal, condValueExists := p.value(call.Args[0].GetId())
+	if !condValueExists || isUnknownOrError(condVal) {
+		return false
+	}
+
+	if condVal.Value().(bool) {
+		*node = *call.Args[1]
+	} else {
+		*node = *call.Args[2]
+	}
+	return true
+
+}
+
+func (p *exprPruner) maybePruneFunction(node *expr.Expr) bool {
+	call := node.GetCallExpr()
+	if call.Function == operators.LogicalOr || call.Function == operators.LogicalAnd {
+		return p.maybePruneAndOr(node)
+	}
+	if call.Function == operators.Conditional {
+		return p.maybePruneConditional(node)
+	}
+
+	return false
 }
 
 func (p *exprPruner) prune(node *expr.Expr) {
 	if node == nil {
 		return
 	}
-	if val, notErrorOrUnknown := p.value(p.program.GetRuntimeExpressionId(node.GetId())); notErrorOrUnknown {
+	if val, valueExists := p.value(node.GetId()); valueExists && !isUnknownOrError(val) {
 
 		// TODO if we have a list or struct, create a list/struct expression. This is useful especially
 		// if these expressions are result of a function call.
@@ -86,14 +157,17 @@ func (p *exprPruner) prune(node *expr.Expr) {
 		}
 	}
 
-	// We have either an unknown/error value, or something we dont want to transform. If
+	// We have either an unknown/error value, or something we dont want to transform, or expression was not evaluated. If
 	// possible, drill down more.
 
 	switch node.ExprKind.(type) {
 	case *expr.Expr_SelectExpr:
 		p.prune(node.GetSelectExpr().Operand)
 	case *expr.Expr_CallExpr:
-		// TODO if we have logical and/or with an unknown here, transform it such that only unknown branches are left.
+		if p.maybePruneFunction(node) {
+			p.prune(node)
+			return
+		}
 
 		call := node.GetCallExpr()
 		for _, arg := range call.Args {
@@ -117,10 +191,24 @@ func (p *exprPruner) prune(node *expr.Expr) {
 }
 
 func (p *exprPruner) value(id int64) (ref.Value, bool) {
-	if object, found := p.state.Value(id); found {
-		fmt.Printf("index %d value %v \n", id, object)
-		return object, !(types.IsUnknown(object) || types.IsError(object))
-	}
-	fmt.Printf("index %d not found \n", id)
-	return nil, false
+	val, found := p.state.Value(p.program.GetRuntimeExpressionId(id))
+	return val, (found && val != nil)
+}
+
+func isUnknown(val ref.Value) bool {
+	return types.IsUnknown(val)
+}
+
+func isUnknownOrError(val ref.Value) bool {
+	return types.IsUnknown(val) || types.IsError(val)
+}
+
+func (p *exprPruner) existsWithUnknownValue(id int64) bool {
+	val, valueExists := p.value(id)
+	return valueExists && isUnknown(val)
+}
+
+func (p *exprPruner) existsWithKnownValue(id int64) bool {
+	val, valueExists := p.value(id)
+	return valueExists && !isUnknown(val)
 }

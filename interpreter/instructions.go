@@ -16,6 +16,7 @@ package interpreter
 
 import (
 	"fmt"
+	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/types/ref"
 	"strings"
 )
@@ -68,6 +69,7 @@ type CallExpr struct {
 	Function string
 	Args     []int64
 	Overload string
+	Strict bool
 }
 
 func (e *CallExpr) String() string {
@@ -81,12 +83,19 @@ func (e *CallExpr) String() string {
 		e.GetId())
 }
 
+func checkIsStrict(function string) bool {
+	if function != operators.LogicalAnd && function != operators.LogicalOr && function != operators.Conditional {
+		return true
+	}
+	return false
+}
+
 func NewCall(exprId int64, function string, argIds []int64) *CallExpr {
-	return &CallExpr{&baseInstruction{exprId}, function, argIds, ""}
+	return &CallExpr{&baseInstruction{exprId}, function, argIds, "", checkIsStrict(function)}
 }
 
 func NewCallOverload(exprId int64, function string, argIds []int64, overload string) *CallExpr {
-	return &CallExpr{&baseInstruction{exprId}, function, argIds, overload}
+	return &CallExpr{&baseInstruction{exprId}, function, argIds, overload, checkIsStrict(function)}
 }
 
 // SelectExpr is a select expression where the operand is represented by id.
