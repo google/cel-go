@@ -15,7 +15,6 @@
 package interpreter
 
 import (
-	"fmt"
 	"github.com/golang/protobuf/ptypes/struct"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/types"
@@ -70,7 +69,6 @@ func (p *exprPruner) createLiteral(node *expr.Expr, val *expr.Literal) {
 }
 
 func (p *exprPruner) maybePruneAndOr(node *expr.Expr) bool {
-	fmt.Printf("Here1\n")
 	if !p.existsWithUnknownValue(node.GetId()) {
 		return false
 	}
