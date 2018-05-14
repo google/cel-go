@@ -27,6 +27,9 @@ type astPruner struct {
 	state   EvalState
 }
 
+// TODO Consider having a separate walk of the AST that finds common subexpressions. This can be called before or after
+// constant folding to find common subexpressions.
+
 // Prunes the given AST based on the given EvalState and generates a new AST. Modifies the AST in place.
 // Couple of typical use cases this interface would be:
 //
