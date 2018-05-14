@@ -108,7 +108,12 @@ var testCases = []testInfo{
 func Test(t *testing.T) {
 	for i, tst := range testCases {
 		fmt.Printf("TestCase %d\n", i)
-		ConstantFoldExpr(&expr.ParsedExpr{Expr: tst.E}, interpreter, "")
+		pExpr := &expr.ParsedExpr{Expr: tst.E}
+		program := NewProgram(pExpr.Expr, pExpr.SourceInfo, "")
+		interpretable := interpreter.NewInterpretable(program)
+		_, state := interpretable.Eval(
+			NewActivation(map[string]interface{}{}))
+		PruneAst(pExpr.Expr, state)
 		actual := debug.ToDebugString(tst.E)
 		if !test.Compare(actual, tst.P) {
 			t.Fatal(test.DiffMessage("structure", actual, tst.P))

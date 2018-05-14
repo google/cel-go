@@ -83,19 +83,19 @@ func (e *CallExpr) String() string {
 		e.GetId())
 }
 
-func checkIsStrict(function string) bool {
-	if function != operators.LogicalAnd && function != operators.LogicalOr && function != operators.Conditional {
-		return true
-	}
-	return false
-}
-
 func NewCall(exprId int64, function string, argIds []int64) *CallExpr {
 	return &CallExpr{&baseInstruction{exprId}, function, argIds, "", checkIsStrict(function)}
 }
 
 func NewCallOverload(exprId int64, function string, argIds []int64, overload string) *CallExpr {
 	return &CallExpr{&baseInstruction{exprId}, function, argIds, overload, checkIsStrict(function)}
+}
+
+func checkIsStrict(function string) bool {
+	if function != operators.LogicalAnd && function != operators.LogicalOr && function != operators.Conditional {
+		return true
+	}
+	return false
 }
 
 // SelectExpr is a select expression where the operand is represented by id.

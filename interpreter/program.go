@@ -36,10 +36,6 @@ type Program interface {
 	// container is used to resolve type names and identifiers.
 	Container() string
 
-	// Return the runtime expression id corresponding to the expression id from
-	// the AST.
-	GetRuntimeExpressionId(exprId int64) int64
-
 	// GetInstruction returns the instruction at the given runtime expression id.
 	GetInstruction(runtimeId int64) Instruction
 
@@ -77,7 +73,6 @@ type exprProgram struct {
 	instructions    []Instruction
 	metadata        Metadata
 	revInstructions map[int64]int
-	exprIdMap       map[int64]int64
 }
 
 // NewCheckedProgram creates a Program from a checked CEL expression.
@@ -109,20 +104,13 @@ func (p *exprProgram) Container() string {
 	return p.container
 }
 
-func (p *exprProgram) GetRuntimeExpressionId(exprId int64) int64 {
-	if val, ok := p.exprIdMap[exprId]; ok {
-		return val
-	}
-	return exprId
-}
-
 func (p *exprProgram) GetInstruction(runtimeId int64) Instruction {
 	return p.instructions[p.revInstructions[runtimeId]]
 }
 
 func (p *exprProgram) Init(dispatcher Dispatcher, state MutableEvalState) {
 	if p.instructions == nil {
-		p.instructions, p.exprIdMap = WalkExpr(p.expression, p.metadata, dispatcher, state)
+		p.instructions = WalkExpr(p.expression, p.metadata, dispatcher, state)
 		for i, inst := range p.instructions {
 			p.revInstructions[inst.GetId()] = i
 		}

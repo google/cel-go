@@ -22,60 +22,51 @@ import (
 	expr "github.com/google/cel-spec/proto/v1/syntax"
 )
 
-type exprPruner struct {
+type astPruner struct {
 	expr    *expr.Expr
-	program Program
 	state   EvalState
 }
 
-// Prunes the given expression based on the given EvalState. Modifies the expression in place.
-// A typical use of this interface would be:
+// Prunes the given AST based on the given EvalState and generates a new AST. Modifies the AST in place.
+// Couple of typical use cases this interface would be:
+//
+// A)
 // 1) Evaluate expr with some unknowns,
 // 2) If result is unknown:
-//   a) Maybe clone the expr(typically would be necessary only for the first iteration) and PruneExpr
+//   a) Maybe clone the expr(typically would be necessary only for the first iteration) and PruneAst
 //   b) Goto 1
 // Functional call results which are known would be effectively cached across iterations.
-func PruneExpr(expr *expr.Expr, program Program, state EvalState) {
-	pruner := &exprPruner{
+//
+// B)
+// 1) Compile the expression (maybe via a service and maybe after checking a compiled expression does not exists in
+//    local cache)
+// 2) Prepare the environment and the interpreter. Activation might be empty.
+// 3) Eval the expression. This might return unknown or error or a concrete value.
+// 4) PruneAst
+// 4) Maybe cache the expression
+// This is effectively constant folding the expression. How the environment is prepared in step 2 is flexible.
+// For example, If the caller caches the compiled and constant folded expressions, but is not willing to constant
+// fold(and thus cache results of) some external calls, then they can prepare the overloads accordingly.
+func PruneAst(expr *expr.Expr, state EvalState) {
+	pruner := &astPruner{
 		expr:    expr,
-		program: program,
 		state:   state}
 	pruner.prune(expr)
 }
 
-// Prunes the given expression by evaluating the expression using the constant values in the expression. Modifies the expression in place.
-// A typical use case of this interface would be:
-// 1) Compile the expression (maybe via a service and maybe after checking a compiled expression does not exists in local cache)
-// 2) Prepare the environment and the interpreter
-// 3) ConstantFoldexpr
-// 4) Maybe cache the expression
-//
-// How the environment is prepared in step 2 is flexible. For example, If the caller caches the compiled and constant folded expressions,
-// but is not willing to constant fold( and thus cache results of) some external calls, then he can prepare the overloads accordingly.
-//
-func ConstantFoldExpr(expr *expr.ParsedExpr, interpreter Interpreter, container string) interface{} {
-	program := NewProgram(expr.Expr, expr.SourceInfo, container)
-	interpretable := interpreter.NewInterpretable(program)
-	result, state := interpretable.Eval(
-		NewActivation(map[string]interface{}{}))
-	// Even eval end is error, there might be legitimate cases where we want to constant fold. One such case is
-	// when caller deliberately does not provide some overloads.
-	PruneExpr(expr.Expr, program, state)
-	return result
-}
-
-func (p *exprPruner) createLiteral(node *expr.Expr, val *expr.Literal) {
+func (p *astPruner) createLiteral(node *expr.Expr, val *expr.Literal) {
 	node.ExprKind = &expr.Expr_LiteralExpr{LiteralExpr: val}
 }
 
-func (p *exprPruner) maybePruneAndOr(node *expr.Expr) bool {
+func (p *astPruner) maybePruneAndOr(node *expr.Expr) bool {
 	if !p.existsWithUnknownValue(node.GetId()) {
 		return false
 	}
 
 	call := node.GetCallExpr()
 
-	// We know result is unknown, so we have at least one unknown arg and if one side is a known value, we know we can ignore it.
+	// We know result is unknown, so we have at least one unknown arg and if one side is a known value, we know we can
+	// ignore it.
 
 	if p.existsWithKnownValue(call.Args[0].GetId()) {
 		*node = *call.Args[1]
@@ -89,7 +80,7 @@ func (p *exprPruner) maybePruneAndOr(node *expr.Expr) bool {
 	return false
 }
 
-func (p *exprPruner) maybePruneConditional(node *expr.Expr) bool {
+func (p *astPruner) maybePruneConditional(node *expr.Expr) bool {
 	if !p.existsWithUnknownValue(node.GetId()) {
 		return false
 	}
@@ -109,7 +100,7 @@ func (p *exprPruner) maybePruneConditional(node *expr.Expr) bool {
 
 }
 
-func (p *exprPruner) maybePruneFunction(node *expr.Expr) bool {
+func (p *astPruner) maybePruneFunction(node *expr.Expr) bool {
 	call := node.GetCallExpr()
 	if call.Function == operators.LogicalOr || call.Function == operators.LogicalAnd {
 		return p.maybePruneAndOr(node)
@@ -121,7 +112,7 @@ func (p *exprPruner) maybePruneFunction(node *expr.Expr) bool {
 	return false
 }
 
-func (p *exprPruner) prune(node *expr.Expr) {
+func (p *astPruner) prune(node *expr.Expr) {
 	if node == nil {
 		return
 	}
@@ -188,9 +179,19 @@ func (p *exprPruner) prune(node *expr.Expr) {
 	}
 }
 
-func (p *exprPruner) value(id int64) (ref.Value, bool) {
-	val, found := p.state.Value(p.program.GetRuntimeExpressionId(id))
+func (p *astPruner) value(id int64) (ref.Value, bool) {
+	val, found := p.state.Value(p.state.GetRuntimeExpressionId(id))
 	return val, (found && val != nil)
+}
+
+func (p *astPruner) existsWithUnknownValue(id int64) bool {
+	val, valueExists := p.value(id)
+	return valueExists && isUnknown(val)
+}
+
+func (p *astPruner) existsWithKnownValue(id int64) bool {
+	val, valueExists := p.value(id)
+	return valueExists && !isUnknown(val)
 }
 
 func isUnknown(val ref.Value) bool {
@@ -199,14 +200,4 @@ func isUnknown(val ref.Value) bool {
 
 func isUnknownOrError(val ref.Value) bool {
 	return types.IsUnknown(val) || types.IsError(val)
-}
-
-func (p *exprPruner) existsWithUnknownValue(id int64) bool {
-	val, valueExists := p.value(id)
-	return valueExists && isUnknown(val)
-}
-
-func (p *exprPruner) existsWithKnownValue(id int64) bool {
-	val, valueExists := p.value(id)
-	return valueExists && !isUnknown(val)
 }
