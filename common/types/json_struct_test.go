@@ -79,7 +79,7 @@ func TestJsonStruct_ConvertToType(t *testing.T) {
 		t.Error("Map did not indicate itself as map type.")
 	}
 	if !IsError(mapVal.ConvertToType(ListType)) {
-		t.Error("Map converted to unsupported type without an error.")
+		t.Error("Got list, expected error.")
 	}
 }
 

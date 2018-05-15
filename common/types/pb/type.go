@@ -92,9 +92,11 @@ func (td *TypeDescription) getFieldsInfo() (map[string]*FieldDescription,
 	map[int][]*FieldDescription) {
 	if len(td.fields) == 0 {
 		isProto3 := td.file.desc.GetSyntax() == "proto3"
+		fieldIndexMap := make(map[string]int)
 		fieldDescMap := make(map[string]*descpb.FieldDescriptorProto)
-		for _, f := range td.desc.Field {
+		for i, f := range td.desc.Field {
 			fieldDescMap[f.GetName()] = f
+			fieldIndexMap[f.GetName()] = i
 		}
 		fieldProps := td.getFieldProperties()
 		if fieldProps != nil {
@@ -121,15 +123,14 @@ func (td *TypeDescription) getFieldsInfo() (map[string]*FieldDescription,
 				td.fieldIndices[oneofProp.Field] = append(td.fieldIndices[oneofProp.Field], fd)
 			}
 		} else {
-			var i = 0
 			for fieldName, desc := range fieldDescMap {
 				fd := &FieldDescription{
 					desc:   desc,
 					index:  int(desc.GetNumber()),
 					proto3: isProto3}
 				td.fields[fieldName] = fd
-				td.fieldIndices[i] = append(td.fieldIndices[i], fd)
-				i++
+				index := fieldIndexMap[fieldName]
+				td.fieldIndices[index] = append(td.fieldIndices[index], fd)
 			}
 		}
 	}

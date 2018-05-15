@@ -62,7 +62,7 @@ func TestBool_ConvertToType(t *testing.T) {
 		t.Error("Boolean could not be converted to a type.")
 	}
 	if !IsError(True.ConvertToType(TimestampType)) {
-		t.Error("Conversion to unsupported type did not error.")
+		t.Error("Got value, expected error.")
 	}
 }
 

@@ -29,7 +29,7 @@ func TestInt_Compare(t *testing.T) {
 		t.Error(("Comparison did not yield 0"))
 	}
 	if !IsError(gt.Compare(TypeType)) {
-		t.Error("Types not comparable")
+		t.Error("Got comparison value, expected error.")
 	}
 }
 
@@ -80,7 +80,7 @@ func TestInt_ConvertToType(t *testing.T) {
 		t.Error("Unsuccessful type conversion to type")
 	}
 	if !IsError(Int(-4).ConvertToType(DurationType)) {
-		t.Error("Unexpected conversion to duration")
+		t.Error("Got duration, expected error.")
 	}
 }
 

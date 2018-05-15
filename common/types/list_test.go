@@ -277,7 +277,9 @@ func TestStringList_Add_Empty(t *testing.T) {
 }
 
 func TestStringList_Add_Error(t *testing.T) {
-
+	if !IsError(NewStringList([]string{}).Add(True)) {
+		t.Error("Got list, expected error.")
+	}
 }
 
 func TestStringList_Add_Heterogenous(t *testing.T) {
@@ -312,9 +314,12 @@ func TestStringList_Add_StringLists(t *testing.T) {
 
 func TestStringList_ConvertToNative(t *testing.T) {
 	list := NewStringList([]string{"h", "e", "l", "p"})
-	_, err := list.ConvertToNative(reflect.TypeOf([]string{}))
+	val, err := list.ConvertToNative(reflect.TypeOf([]string{}))
 	if err != nil {
 		t.Error("Unable to convert string list to itself.")
+	}
+	if !reflect.DeepEqual(val, []string{"h", "e", "l", "p"}) {
+		t.Errorf("Got %v, expected ['h', 'e', 'l', 'p']", val)
 	}
 }
 

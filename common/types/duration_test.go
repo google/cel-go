@@ -29,7 +29,7 @@ func TestDuration_Compare(t *testing.T) {
 		t.Error("Durations were not considered equal.")
 	}
 	if !IsError(d.Compare(False)) {
-		t.Error("Unexpected comparison supported.")
+		t.Error("Got comparison result, expected error.")
 	}
 }
 
@@ -67,7 +67,7 @@ func TestDuration_ConvertToType_Identity(t *testing.T) {
 		t.Errorf("Got '%v', expected duration type", d.ConvertToType(TypeType))
 	}
 	if !IsError(d.ConvertToType(UintType)) {
-		t.Errorf("Expected error on conversion of duration to uint")
+		t.Errorf("Got value, expected error.")
 	}
 }
 

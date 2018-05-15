@@ -92,7 +92,7 @@ func TestJsonListValue_ConvertToType(t *testing.T) {
 		t.Error("Json list not convertible to itself.")
 	}
 	if !IsError(list.ConvertToType(MapType)) {
-		t.Error("Json list converted to an unsupported type.")
+		t.Error("Got map, expected error.")
 	}
 }
 

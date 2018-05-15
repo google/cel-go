@@ -81,7 +81,7 @@ func TestDouble_ConvertToType(t *testing.T) {
 		t.Error("Unsuccessful type conversion to type")
 	}
 	if !IsError(Double(-4.5).ConvertToType(TimestampType)) {
-		t.Error("Unexpected conversion of type double to timestamp.")
+		t.Error("Got value, expected error")
 	}
 }
 

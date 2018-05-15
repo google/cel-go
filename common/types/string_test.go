@@ -55,7 +55,7 @@ func TestString_ConvertToNative_Json(t *testing.T) {
 
 func TestString_ConvertToNative_String(t *testing.T) {
 	val, err := String("hello").ConvertToNative(reflect.TypeOf(""))
-	if err != nil && val.(string) != "hello" {
+	if err != nil || val.(string) != "hello" {
 		t.Error("Got '%v', expected 'hello'", val)
 	}
 }
