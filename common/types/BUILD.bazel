@@ -23,6 +23,7 @@ go_library(
         "type.go",
         "uint.go",
         "unknown.go",
+	"util.go",
     ],
     deps = [
         "//common/overloads:go_default_library",

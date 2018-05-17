@@ -113,8 +113,8 @@ func Test(t *testing.T) {
 		interpretable := interpreter.NewInterpretable(program)
 		_, state := interpretable.Eval(
 			NewActivation(map[string]interface{}{}))
-		PruneAst(pExpr.Expr, state)
-		actual := debug.ToDebugString(tst.E)
+		newExpr := PruneAst(pExpr.Expr, state)
+		actual := debug.ToDebugString(newExpr)
 		if !test.Compare(actual, tst.P) {
 			t.Fatal(test.DiffMessage("structure", actual, tst.P))
 		}
