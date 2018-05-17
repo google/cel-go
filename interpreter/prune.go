@@ -203,11 +203,9 @@ func (p *astPruner) prune(node *expr.Expr) (bool, *expr.Expr) {
 		var prunedEntry bool
 		for i, entry := range node.GetStructExpr().Entries {
 			newEntry := *entry
-			if x, ok := newEntry.GetKeyKind().(*expr.Expr_CreateStruct_Entry_MapKey); ok {
-				if pruned, newKey := p.prune(entry.GetMapKey()); pruned {
-					prunedEntry = true
-					x.MapKey = newKey
-				}
+			if pruned, newKey := p.prune(entry.GetMapKey()); pruned {
+				prunedEntry = true
+				newEntry.GetKeyKind().(*expr.Expr_CreateStruct_Entry_MapKey).MapKey = newKey
 			}
 			if pruned, newValue := p.prune(entry.Value); pruned {
 				prunedEntry = true
