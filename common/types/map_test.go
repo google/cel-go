@@ -15,14 +15,64 @@
 package types
 
 import (
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
 	"github.com/google/cel-go/common/types/traits"
+	"reflect"
 	"testing"
 )
 
-func TestMapValue_Equal(t *testing.T) {
+func TestBaseMap_Contains(t *testing.T) {
 	mapValue := NewDynamicMap(map[string]map[int32]float32{
 		"nested": {1: -1.0, 2: 2.0},
 		"empty":  {}}).(traits.Mapper)
+	if mapValue.Contains(String("nested")) != True {
+		t.Error("Expected key 'nested' contained in map.")
+	}
+	if mapValue.Contains(String("unknown")) != False {
+		t.Error("Expected key 'unknown' contained in map.")
+	}
+}
+
+func TestBaseMap_ConvertToNative_Error(t *testing.T) {
+	mapValue := NewDynamicMap(map[string]map[string]float32{
+		"nested": {"1": -1.0}})
+	val, err := mapValue.ConvertToNative(reflect.TypeOf(""))
+	if err == nil {
+		t.Error("Got '%v', expected error", val)
+	}
+}
+
+func TestBaseMap_ConvertToNative_Json(t *testing.T) {
+	mapValue := NewDynamicMap(map[string]map[string]float32{
+		"nested": {"1": -1.0}})
+	json, err := mapValue.ConvertToNative(jsonValueType)
+	if err != nil {
+		t.Error(err)
+	}
+	jsonTxt, err := (&jsonpb.Marshaler{}).MarshalToString(json.(proto.Message))
+	if jsonTxt != "{\"nested\":{\"1\":-1}}" {
+		t.Error(jsonTxt)
+	}
+}
+
+func TestBaseMap_ConvertToType(t *testing.T) {
+	mapValue := NewDynamicMap(map[string]string{"key": "value"})
+	if mapValue.ConvertToType(MapType) != mapValue {
+		t.Error("Map could not be converted to a map.")
+	}
+	if mapValue.ConvertToType(TypeType) != MapType {
+		t.Error("Map type was not listed as a map.")
+	}
+	if !IsError(mapValue.ConvertToType(ListType)) {
+		t.Error("Map conversion to unsupported type was not an error.")
+	}
+}
+
+func TestBaseMap_Equal_True(t *testing.T) {
+	mapValue := NewDynamicMap(map[string]map[int32]float32{
+		"nested": {1: -1.0, 2: 2.0},
+		"empty":  {}})
 	if mapValue.Equal(mapValue) != True {
 		t.Error("Map value was not equal to itself")
 	}
@@ -34,7 +84,19 @@ func TestMapValue_Equal(t *testing.T) {
 	}
 }
 
-func TestMapValue_Get(t *testing.T) {
+func TestBaseMap_Equal_False(t *testing.T) {
+	mapValue := NewDynamicMap(map[string]map[int32]float32{
+		"nested": {1: -1.0, 2: 2.0},
+		"empty":  {}})
+	otherValue := NewDynamicMap(map[string]map[int64]float64{
+		"nested": {1: -1.0, 2: 2.0, 3: 3.14},
+		"empty":  {}})
+	if mapValue.Equal(otherValue) != False {
+		t.Error("Inequal maps were deemed equal.")
+	}
+}
+
+func TestBaseMap_Get(t *testing.T) {
 	mapValue := NewDynamicMap(map[string]map[int32]float32{
 		"nested": {1: -1.0, 2: 2.0},
 		"empty":  {}}).(traits.Mapper)
@@ -47,7 +109,7 @@ func TestMapValue_Get(t *testing.T) {
 	}
 }
 
-func TestMapValue_Iterator(t *testing.T) {
+func TestBaseMap_Iterator(t *testing.T) {
 	mapValue := NewDynamicMap(map[string]map[int32]float32{
 		"nested": {1: -1.0, 2: 2.0},
 		"empty":  {}}).(traits.Mapper)

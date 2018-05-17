@@ -1,6 +1,8 @@
 package types
 
 import (
+	"github.com/golang/protobuf/ptypes/struct"
+	"reflect"
 	"testing"
 )
 
@@ -30,6 +32,23 @@ func TestUint_Compare(t *testing.T) {
 	}
 }
 
+func TestUint_ConvertToNative_Error(t *testing.T) {
+	val, err := Uint(10000).ConvertToNative(reflect.TypeOf(int(0)))
+	if err == nil {
+		t.Errorf("Got '%v', expected error", val)
+	}
+}
+
+func TestUint_ConvertToNative_Json(t *testing.T) {
+	val, err := Uint(10000).ConvertToNative(jsonValueType)
+	if err != nil {
+		t.Error(err)
+	}
+	if val.(*structpb.Value).GetNumberValue() != 10000. {
+		t.Errorf("Error converting uint to json number. Got '%v', expected 10000.", val)
+	}
+}
+
 func TestUint_ConvertToType(t *testing.T) {
 	if !Uint(18446744073709551612).ConvertToType(IntType).Equal(Int(-4)).(Bool) {
 		t.Error("Unsuccessful type conversion to int")
@@ -45,6 +64,9 @@ func TestUint_ConvertToType(t *testing.T) {
 	}
 	if !Uint(4).ConvertToType(TypeType).Equal(UintType).(Bool) {
 		t.Error("Unsuccessful type conversion to type")
+	}
+	if !IsError(Uint(4).ConvertToType(MapType)) {
+		t.Error("Unsupported uint type conversion resulted in value")
 	}
 }
 

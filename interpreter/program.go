@@ -122,7 +122,7 @@ func (p *exprProgram) MaxInstructionId() int64 {
 	// combined with the number of comprehensions times two. Each comprehension
 	// introduces two generated ids (one for an iterator and one for current
 	// iterator value) once the program is initialized.
-	return maxId(p.expression) + comprehensionCount(p.expression) * 2
+	return maxId(p.expression) + comprehensionCount(p.expression)*2
 }
 
 func (p *exprProgram) Metadata() Metadata {

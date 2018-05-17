@@ -217,7 +217,7 @@ func (i *exprInterpretable) evalCreateList(listExpr *CreateListExpr) {
 	elements := make([]ref.Value, len(listExpr.Elements))
 	for idx, elementId := range listExpr.Elements {
 		elem := i.value(elementId)
-		if types.IsError(elem) || types.IsUnknown(elem) {
+		if types.IsError(elem.Type()) || types.IsUnknown(elem.Type()) {
 			i.setValue(listExpr.GetId(), elem)
 			return
 		}

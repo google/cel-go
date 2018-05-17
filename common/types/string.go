@@ -15,7 +15,9 @@
 package types
 
 import (
+	"fmt"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/struct"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 	"reflect"
@@ -53,6 +55,15 @@ func (s String) Compare(other ref.Value) ref.Value {
 }
 
 func (s String) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
+	if typeDesc == jsonValueType {
+		return &structpb.Value{
+			Kind: &structpb.Value_StringValue{
+				StringValue: s.Value().(string)}}, nil
+	}
+	if typeDesc.Kind() != reflect.String {
+		return nil, fmt.Errorf(
+			"unsupported native conversion from string to '%v'", typeDesc)
+	}
 	return s.Value(), nil
 }
 

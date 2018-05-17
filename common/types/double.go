@@ -16,6 +16,7 @@ package types
 
 import (
 	"fmt"
+	"github.com/golang/protobuf/ptypes/struct"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 	"reflect"
@@ -64,8 +65,14 @@ func (d Double) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		return float32(value.(float64)), nil
 	case reflect.Float64:
 		return value, nil
+	case reflect.Ptr:
+		if typeDesc == jsonValueType {
+			return &structpb.Value{
+				Kind: &structpb.Value_NumberValue{
+					NumberValue: float64(d)}}, nil
+		}
 	}
-	return nil, fmt.Errorf("unsupported type conversion from 'double' to %v", typeDesc)
+	return nil, fmt.Errorf("type conversion error from Double to '%v'", typeDesc)
 }
 
 func (d Double) ConvertToType(typeVal ref.Type) ref.Value {

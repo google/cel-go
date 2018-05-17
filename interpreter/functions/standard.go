@@ -299,9 +299,9 @@ func logicalOr(lhs ref.Value, rhs ref.Value) ref.Value {
 	}
 	// if the left-hand side is non-boolean return it as the error.
 	if !lhsIsBool {
-		return types.NewErr("got '%v', expected argument of type 'bool'", lhs)
+		return types.NewErr("Got '%v', expected argument of type 'bool'", lhs)
 	}
-	return types.NewErr("got '%v', expected argument of type 'bool'", rhs)
+	return types.NewErr("Got '%v', expected argument of type 'bool'", rhs)
 }
 
 func conditional(values ...ref.Value) ref.Value {

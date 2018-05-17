@@ -1,6 +1,9 @@
 package types
 
 import (
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/struct"
+	"reflect"
 	"testing"
 )
 
@@ -26,7 +29,37 @@ func TestInt_Compare(t *testing.T) {
 		t.Error(("Comparison did not yield 0"))
 	}
 	if !IsError(gt.Compare(TypeType)) {
-		t.Error("Types not comparable")
+		t.Error("Got comparison value, expected error.")
+	}
+}
+
+func TestInt_ConvertToNative_Error(t *testing.T) {
+	val, err := Int(1).ConvertToNative(jsonStructType)
+	if err == nil {
+		t.Errorf("Got '%v', expected error", val)
+	}
+}
+
+func TestInt_ConvertToNative_Int32(t *testing.T) {
+	val, err := Int(20050).ConvertToNative(reflect.TypeOf(int32(0)))
+	if err != nil || val.(int32) != 20050 {
+		t.Errorf("Got '%v', expected 20050", err)
+	}
+}
+
+func TestInt_ConvertToNative_Int64(t *testing.T) {
+	// Value greater than max int32.
+	val, err := Int(4147483648).ConvertToNative(reflect.TypeOf(int64(0)))
+	if err != nil || val.(int64) != 4147483648 {
+		t.Errorf("Got '%v', expected 4147483648", err)
+	}
+}
+
+func TestInt_ConvertToNative_Json(t *testing.T) {
+	val, err := Int(4147483648).ConvertToNative(jsonValueType)
+	if err != nil || !proto.Equal(val.(proto.Message),
+		&structpb.Value{Kind: &structpb.Value_NumberValue{NumberValue: 4147483648}}) {
+		t.Errorf("Got '%v', expected a json number")
 	}
 }
 
@@ -45,6 +78,9 @@ func TestInt_ConvertToType(t *testing.T) {
 	}
 	if !Int(-4).ConvertToType(TypeType).Equal(IntType).(Bool) {
 		t.Error("Unsuccessful type conversion to type")
+	}
+	if !IsError(Int(-4).ConvertToType(DurationType)) {
+		t.Error("Got duration, expected error.")
 	}
 }
 

@@ -1,6 +1,9 @@
 package types
 
 import (
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/struct"
+	"reflect"
 	"testing"
 )
 
@@ -22,6 +25,32 @@ func TestBool_Compare(t *testing.T) {
 	}
 }
 
+func TestBool_ConvertToNative_Bool(t *testing.T) {
+	refType := reflect.TypeOf(true)
+	val, err := True.ConvertToNative(refType)
+	if err != nil || IsError(val) || !val.(bool) {
+		t.Error("Error during conversion to bool", err, val)
+	}
+}
+
+func TestBool_ConvertToNative_Error(t *testing.T) {
+	refType := reflect.TypeOf("")
+	val, err := True.ConvertToNative(refType)
+	if err == nil {
+		t.Error("Got '%v', expected error", val)
+	}
+}
+
+func TestBool_ConvertToNative_Json(t *testing.T) {
+	val, err := True.ConvertToNative(jsonValueType)
+	pbVal := &structpb.Value{&structpb.Value_BoolValue{true}}
+	if err != nil ||
+		IsError(val) ||
+		!proto.Equal(val.(proto.Message), pbVal) {
+		t.Error("Error during conversion to json Value type", err, val)
+	}
+}
+
 func TestBool_ConvertToType(t *testing.T) {
 	if !True.ConvertToType(StringType).Equal(String("true")).(Bool) {
 		t.Error("Boolean could not be converted to string")
@@ -33,7 +62,7 @@ func TestBool_ConvertToType(t *testing.T) {
 		t.Error("Boolean could not be converted to a type.")
 	}
 	if !IsError(True.ConvertToType(TimestampType)) {
-		t.Error("Conversion to unsupported type did not error.")
+		t.Error("Got value, expected error.")
 	}
 }
 
