@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "debug.go",
     ],
+    importpath = "github.com/google/cel-go/common/debug",
     visibility = ["//visibility:public"],
     deps = [
         "//common:go_default_library",

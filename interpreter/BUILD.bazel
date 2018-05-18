@@ -13,8 +13,9 @@ go_library(
         "interpreter.go",
         "metadata.go",
         "program.go",
-	"prune.go",
+	      "prune.go",
     ],
+      importpath = "github.com/google/cel-go/interpreter",
     deps = [
         "//common:go_default_library",
         "//common/operators:go_default_library",
@@ -26,9 +27,9 @@ go_library(
         "//io:checked_proto",
         "//io:syntax_proto",
         "@com_github_golang_protobuf//proto:go_default_library",
-        "@com_github_golang_protobuf//ptypes/duration:go_default_library",
-        "@com_github_golang_protobuf//ptypes/struct:go_default_library",
-        "@com_github_golang_protobuf//ptypes/timestamp:go_default_library",
+        "@io_bazel_rules_go//proto/wkt:duration_go_proto",
+        "@io_bazel_rules_go//proto/wkt:struct_go_proto",
+        "@io_bazel_rules_go//proto/wkt:timestamp_go_proto",
     ]
 )
 
@@ -53,8 +54,8 @@ go_test(
         "//io:syntax_proto",
         "//test:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
-        "@com_github_golang_protobuf//ptypes/duration:go_default_library",
-        "@com_github_golang_protobuf//ptypes/struct:go_default_library",
-        "@com_github_golang_protobuf//ptypes/timestamp:go_default_library",
+        "@io_bazel_rules_go//proto/wkt:duration_go_proto",
+        "@io_bazel_rules_go//proto/wkt:struct_go_proto",
+        "@io_bazel_rules_go//proto/wkt:timestamp_go_proto",
     ],
 )

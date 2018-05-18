@@ -10,5 +10,6 @@ go_library(
         "//io:checked_proto",
         "//io:syntax_proto",
     ],
+    importpath = "github.com/google/cel-go/checker/decls",
     visibility = ["//visibility:public"],
 )

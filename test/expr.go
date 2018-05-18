@@ -35,15 +35,15 @@ func (t *TestExpr) Info(location string) *expr.SourceInfo {
 var (
 	// program with no instructions.
 	Empty = &TestExpr{
-		&expr.Expr{},
+		Expr: &expr.Expr{},
 
-		&expr.SourceInfo{
+		SourceInfo: &expr.SourceInfo{
 			LineOffsets: []int32{},
 			Positions:   map[int64]int32{}}}
 
 	// [1, 1u, 1.0].exists(x, type(x) == uint)
 	Exists = &TestExpr{
-		ExprComprehension(1,
+		Expr: ExprComprehension(1,
 			"x",
 			ExprList(8,
 				ExprLiteral(2, int64(0)),
@@ -65,7 +65,7 @@ var (
 				ExprIdent(15, "uint")),
 			ExprIdent(16, "_accu_")),
 
-		&expr.SourceInfo{
+		SourceInfo: &expr.SourceInfo{
 			LineOffsets: []int32{0},
 			Positions: map[int64]int32{
 				0:  12,
@@ -88,7 +88,7 @@ var (
 
 	// elems.exists(x, type(x) == uint)
 	ExistsWithInput = &TestExpr{
-		ExprComprehension(1,
+		Expr: ExprComprehension(1,
 			"x",
 			ExprIdent(2, "elems"),
 			"_accu_",
@@ -104,7 +104,7 @@ var (
 				ExprIdent(9, "uint")),
 			ExprIdent(10, "_accu_")),
 
-		&expr.SourceInfo{
+		SourceInfo: &expr.SourceInfo{
 			LineOffsets: []int32{0},
 			Positions: map[int64]int32{
 				0:  12,
@@ -125,7 +125,7 @@ var (
 	//  "null": null,
 	//  "bytes": b"bytes-string"}
 	DynMap = &TestExpr{
-		ExprMap(17,
+		Expr: ExprMap(17,
 			ExprEntry(2,
 				ExprLiteral(1, "hello"),
 				ExprMemberCall(3,
@@ -138,7 +138,7 @@ var (
 				ExprLiteral(14, "bytes"),
 				ExprLiteral(16, []byte("bytes-string")))),
 
-		&expr.SourceInfo{
+		SourceInfo: &expr.SourceInfo{
 			LineOffsets: []int32{},
 			Positions:   map[int64]int32{}}}
 
@@ -156,7 +156,7 @@ var (
 
 	// a ? b < 1.0 : c == ["hello"]
 	Conditional = &TestExpr{
-		ExprCall(9, operators.Conditional,
+		Expr: ExprCall(9, operators.Conditional,
 			ExprIdent(1, "a"),
 			ExprCall(3,
 				operators.Less,
@@ -166,125 +166,128 @@ var (
 				operators.Equals,
 				ExprIdent(5, "c"),
 				ExprList(8, ExprLiteral(7, "hello")))),
-		&expr.SourceInfo{
+		SourceInfo: &expr.SourceInfo{
 			LineOffsets: []int32{},
 			Positions:   map[int64]int32{}}}
 
 	// a.b.c
 	Select = &TestExpr{
-		ExprSelect(3,
+		Expr: ExprSelect(3,
 			ExprSelect(2,
 				ExprIdent(1, "a"),
 				"b"),
 			"c"),
-		&expr.SourceInfo{
+		SourceInfo: &expr.SourceInfo{
 			LineOffsets: []int32{},
 			Positions:   map[int64]int32{}}}
 
 	// a == 42
 	Equality = &TestExpr{
-		ExprCall(2,
+		Expr: ExprCall(2,
 			operators.Equals,
 			ExprIdent(1, "a"),
 			ExprLiteral(3, int64(42))),
-		&expr.SourceInfo{
+		SourceInfo: &expr.SourceInfo{
 			LineOffsets: []int32{},
 			Positions:   map[int64]int32{}}}
 
 	// a == 42
 	TypeEquality = &TestExpr{
-		ExprCall(4,
+		Expr: ExprCall(4,
 			operators.Equals,
 			ExprCall(1, "type",
 				ExprIdent(2, "a")),
 			ExprIdent(3, "uint")),
-		&expr.SourceInfo{
+		SourceInfo: &expr.SourceInfo{
 			LineOffsets: []int32{},
 			Positions:   map[int64]int32{}}}
 )
 
 func ExprIdent(id int64, name string) *expr.Expr {
-	return &expr.Expr{id, &expr.Expr_IdentExpr{
-		&expr.Expr_Ident{name}}}
+	return &expr.Expr{Id: id, ExprKind: &expr.Expr_IdentExpr{
+		IdentExpr: &expr.Expr_Ident{Name: name}}}
 }
 
 func ExprSelect(id int64, operand *expr.Expr, field string) *expr.Expr {
-	return &expr.Expr{id,
-		&expr.Expr_SelectExpr{
-			&expr.Expr_Select{operand, field, false}}}
+	return &expr.Expr{Id: id,
+		ExprKind: &expr.Expr_SelectExpr{
+			SelectExpr: &expr.Expr_Select{
+				Operand:  operand,
+				Field:    field,
+				TestOnly: false}}}
 }
 
 func ExprLiteral(id int64, value interface{}) *expr.Expr {
 	var literal *expr.Literal
 	switch value.(type) {
 	case bool:
-		literal = &expr.Literal{&expr.Literal_BoolValue{value.(bool)}}
+		literal = &expr.Literal{LiteralKind: &expr.Literal_BoolValue{value.(bool)}}
 	case int64:
-		literal = &expr.Literal{&expr.Literal_Int64Value{
+		literal = &expr.Literal{LiteralKind: &expr.Literal_Int64Value{
 			value.(int64)}}
 	case uint64:
-		literal = &expr.Literal{&expr.Literal_Uint64Value{
+		literal = &expr.Literal{LiteralKind: &expr.Literal_Uint64Value{
 			value.(uint64)}}
 	case float64:
-		literal = &expr.Literal{&expr.Literal_DoubleValue{
+		literal = &expr.Literal{LiteralKind: &expr.Literal_DoubleValue{
 			value.(float64)}}
 	case string:
-		literal = &expr.Literal{&expr.Literal_StringValue{
+		literal = &expr.Literal{LiteralKind: &expr.Literal_StringValue{
 			value.(string)}}
 	case structpb.NullValue:
-		literal = &expr.Literal{&expr.Literal_NullValue{
-			value.(structpb.NullValue)}}
+		literal = &expr.Literal{LiteralKind: &expr.Literal_NullValue{
+			NullValue: value.(structpb.NullValue)}}
 	case []byte:
-		literal = &expr.Literal{&expr.Literal_BytesValue{
+		literal = &expr.Literal{LiteralKind: &expr.Literal_BytesValue{
 			value.([]byte)}}
 	default:
 		panic("literal type not implemented")
 	}
-	return &expr.Expr{id, &expr.Expr_LiteralExpr{LiteralExpr: literal}}
+	return &expr.Expr{Id: id, ExprKind: &expr.Expr_LiteralExpr{LiteralExpr: literal}}
 }
 
 func ExprCall(id int64, function string, args ...*expr.Expr) *expr.Expr {
-	return &expr.Expr{id,
-		&expr.Expr_CallExpr{
-			&expr.Expr_Call{nil, function, args}}}
+	return &expr.Expr{Id: id,
+		ExprKind: &expr.Expr_CallExpr{
+			CallExpr: &expr.Expr_Call{Target: nil, Function: function, Args: args}}}
 }
 
 func ExprMemberCall(id int64, function string, target *expr.Expr, args ...*expr.Expr) *expr.Expr {
-	return &expr.Expr{id,
-		&expr.Expr_CallExpr{
-			&expr.Expr_Call{target, function, args}}}
+	return &expr.Expr{Id: id,
+		ExprKind: &expr.Expr_CallExpr{
+			CallExpr: &expr.Expr_Call{Target: target, Function: function, Args: args}}}
 }
 
 func ExprList(id int64, elements ...*expr.Expr) *expr.Expr {
-	return &expr.Expr{id,
-		&expr.Expr_ListExpr{
-			&expr.Expr_CreateList{elements}}}
+	return &expr.Expr{Id: id,
+		ExprKind: &expr.Expr_ListExpr{
+			ListExpr: &expr.Expr_CreateList{Elements: elements}}}
 }
 
 func ExprMap(id int64, entries ...*expr.Expr_CreateStruct_Entry) *expr.Expr {
-	return &expr.Expr{id, &expr.Expr_StructExpr{
-		&expr.Expr_CreateStruct{Entries: entries}}}
+	return &expr.Expr{Id: id, ExprKind: &expr.Expr_StructExpr{
+		StructExpr: &expr.Expr_CreateStruct{Entries: entries}}}
 }
 
 func ExprType(id int64, messageName string,
 	entries ...*expr.Expr_CreateStruct_Entry) *expr.Expr {
-	return &expr.Expr{id, &expr.Expr_StructExpr{
-		&expr.Expr_CreateStruct{
-			messageName, entries}}}
+	return &expr.Expr{Id: id, ExprKind: &expr.Expr_StructExpr{
+		StructExpr: &expr.Expr_CreateStruct{
+			MessageName: messageName, Entries: entries}}}
 }
 
 func ExprEntry(id int64, key *expr.Expr,
 	value *expr.Expr) *expr.Expr_CreateStruct_Entry {
-	return &expr.Expr_CreateStruct_Entry{id,
-		&expr.Expr_CreateStruct_Entry_MapKey{key},
-		value}
+	return &expr.Expr_CreateStruct_Entry{Id: id,
+		KeyKind: &expr.Expr_CreateStruct_Entry_MapKey{MapKey: key},
+		Value:   value}
 }
 
 func ExprField(id int64, field string,
 	value *expr.Expr) *expr.Expr_CreateStruct_Entry {
-	return &expr.Expr_CreateStruct_Entry{id,
-		&expr.Expr_CreateStruct_Entry_FieldKey{field},
-		value}
+	return &expr.Expr_CreateStruct_Entry{Id: id,
+		KeyKind: &expr.Expr_CreateStruct_Entry_FieldKey{FieldKey: field},
+		Value:   value}
 }
 
 func ExprComprehension(id int64,
@@ -292,13 +295,14 @@ func ExprComprehension(id int64,
 	accuVar string, accuInit *expr.Expr,
 	loopCondition *expr.Expr, loopStep *expr.Expr,
 	resultExpr *expr.Expr) *expr.Expr {
-	return &expr.Expr{id, &expr.Expr_ComprehensionExpr{
-		&expr.Expr_Comprehension{
-			iterVar,
-			iterRange,
-			accuVar,
-			accuInit,
-			loopCondition,
-			loopStep,
-			resultExpr}}}
+	return &expr.Expr{Id: id,
+		ExprKind: &expr.Expr_ComprehensionExpr{
+			ComprehensionExpr: &expr.Expr_Comprehension{
+				IterVar:       iterVar,
+				IterRange:     iterRange,
+				AccuVar:       accuVar,
+				AccuInit:      accuInit,
+				LoopCondition: loopCondition,
+				LoopStep:      loopStep,
+				Result:        resultExpr}}}
 }

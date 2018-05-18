@@ -1,3 +1,17 @@
+// Copyright 2018 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package types
 
 import (
@@ -8,10 +22,9 @@ import (
 )
 
 func TestJsonStruct_Contains(t *testing.T) {
-	mapVal := NewJsonStruct(&structpb.Struct{
-		map[string]*structpb.Value{
-			"first":  {&structpb.Value_StringValue{"hello"}},
-			"second": {&structpb.Value_NumberValue{1}}}})
+	mapVal := NewJsonStruct(&structpb.Struct{Fields: map[string]*structpb.Value{
+		"first":  {Kind: &structpb.Value_StringValue{"hello"}},
+		"second": {Kind: &structpb.Value_NumberValue{1}}}})
 	if !mapVal.Contains(String("first")).(Bool) {
 		t.Error("Expected map to contain key 'first'", mapVal)
 	}
@@ -29,10 +42,9 @@ func TestJsonStruct_ConvertToNative_Error(t *testing.T) {
 }
 
 func TestJsonStruct_ConvertToNative_Json(t *testing.T) {
-	structVal := &structpb.Struct{
-		map[string]*structpb.Value{
-			"first":  {&structpb.Value_StringValue{"hello"}},
-			"second": {&structpb.Value_NumberValue{1}}}}
+	structVal := &structpb.Struct{Fields: map[string]*structpb.Value{
+		"first":  {Kind: &structpb.Value_StringValue{"hello"}},
+		"second": {Kind: &structpb.Value_NumberValue{1}}}}
 	mapVal := NewJsonStruct(structVal)
 	val, err := mapVal.ConvertToNative(jsonValueType)
 	if err != nil {
@@ -53,10 +65,9 @@ func TestJsonStruct_ConvertToNative_Json(t *testing.T) {
 }
 
 func TestJsonStruct_ConvertToNative_Map(t *testing.T) {
-	structVal := &structpb.Struct{
-		map[string]*structpb.Value{
-			"first":  {&structpb.Value_StringValue{"hello"}},
-			"second": {&structpb.Value_StringValue{"world"}}}}
+	structVal := &structpb.Struct{Fields: map[string]*structpb.Value{
+		"first":  {Kind: &structpb.Value_StringValue{"hello"}},
+		"second": {Kind: &structpb.Value_StringValue{"world"}}}}
 	mapVal := NewJsonStruct(structVal)
 	val, err := mapVal.ConvertToNative(reflect.TypeOf(map[string]string{}))
 	if err != nil {
@@ -68,10 +79,9 @@ func TestJsonStruct_ConvertToNative_Map(t *testing.T) {
 }
 
 func TestJsonStruct_ConvertToType(t *testing.T) {
-	mapVal := NewJsonStruct(&structpb.Struct{
-		map[string]*structpb.Value{
-			"first":  {&structpb.Value_StringValue{"hello"}},
-			"second": {&structpb.Value_NumberValue{1}}}})
+	mapVal := NewJsonStruct(&structpb.Struct{Fields: map[string]*structpb.Value{
+		"first":  {Kind: &structpb.Value_StringValue{"hello"}},
+		"second": {Kind: &structpb.Value_NumberValue{1}}}})
 	if mapVal.ConvertToType(MapType) != mapVal {
 		t.Error("Map could not be converted to a map.")
 	}
@@ -84,15 +94,13 @@ func TestJsonStruct_ConvertToType(t *testing.T) {
 }
 
 func TestJsonStruct_Equal(t *testing.T) {
-	mapVal := NewJsonStruct(&structpb.Struct{
-		map[string]*structpb.Value{
-			"first":  {&structpb.Value_StringValue{"hello"}},
-			"second": {&structpb.Value_StringValue{"1"}}}})
+	mapVal := NewJsonStruct(&structpb.Struct{Fields: map[string]*structpb.Value{
+		"first":  {Kind: &structpb.Value_StringValue{"hello"}},
+		"second": {Kind: &structpb.Value_StringValue{"1"}}}})
 
-	otherVal := NewJsonStruct(&structpb.Struct{
-		map[string]*structpb.Value{
-			"first":  {&structpb.Value_StringValue{"hello"}},
-			"second": {&structpb.Value_NumberValue{1}}}})
+	otherVal := NewJsonStruct(&structpb.Struct{Fields: map[string]*structpb.Value{
+		"first":  {Kind: &structpb.Value_StringValue{"hello"}},
+		"second": {Kind: &structpb.Value_NumberValue{1}}}})
 	if mapVal.Equal(otherVal) != False {
 		t.Errorf("Got equals 'true', expected 'false' for '%v' == '%v'",
 			mapVal, otherVal)

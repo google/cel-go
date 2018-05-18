@@ -8,6 +8,7 @@ go_library(
         "location.go",
         "source.go",
     ],
+    importpath = "github.com/google/cel-go/common",
     visibility = ["//visibility:public"],
 )
 
