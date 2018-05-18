@@ -39,23 +39,23 @@ func WalkExpr(expression *expr.Expr,
 	state MutableEvalState) []Instruction {
 	nextId := maxId(expression)
 	walker := &astWalker{
-		dispatcher: dispatcher,
-		genSymId:   nextId,
-		genExprId:  nextId,
-		metadata:   metadata,
-		scope:      newScope(),
-		state:      state}
+		dispatcher:     dispatcher,
+		genSymId:       nextId,
+		genExprId:      nextId,
+		metadata:       metadata,
+		scope:          newScope(),
+		state:          state}
 	return walker.walk(expression)
 }
 
 // astWalker implementation of the AST walking logic.
 type astWalker struct {
-	dispatcher Dispatcher
-	genExprId  int64
-	genSymId   int64
-	metadata   Metadata
-	scope      *blockScope
-	state      MutableEvalState
+	dispatcher     Dispatcher
+	genExprId      int64
+	genSymId       int64
+	metadata       Metadata
+	scope          *blockScope
+	state          MutableEvalState
 }
 
 func (w *astWalker) walk(node *expr.Expr) []Instruction {
@@ -420,6 +420,7 @@ func (w *astWalker) getId(expr *expr.Expr) int64 {
 	id := expr.GetId()
 	if ident := expr.GetIdentExpr(); ident != nil {
 		if altId, found := w.scope.ref(ident.Name); found {
+			w.state.SetRuntimeExpressionId(id, altId)
 			return altId
 		}
 	}
@@ -545,7 +546,7 @@ func maxId(node *expr.Expr) int64 {
 	case *expr.Expr_StructExpr:
 		str := node.GetStructExpr()
 		for _, entry := range str.Entries {
-			currId = maxInt(entry.Id, maxId(entry.GetMapKey()), maxId(entry.Value))
+			currId = maxInt(currId, entry.Id, maxId(entry.GetMapKey()), maxId(entry.Value))
 		}
 		return currId
 	case *expr.Expr_ComprehensionExpr:

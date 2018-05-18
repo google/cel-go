@@ -203,6 +203,10 @@ func (i *exprInterpretable) evalCall(callExpr *CallExpr, currActivation Activati
 	argVals := make([]ref.Value, len(callExpr.Args), len(callExpr.Args))
 	for idx, argId := range callExpr.Args {
 		argVals[idx] = i.value(argId)
+		if callExpr.Strict && (types.IsError(argVals[idx]) || types.IsUnknown(argVals[idx])) {
+			i.setValue(callExpr.GetId(), argVals[idx])
+			return
+		}
 	}
 	ctx := &CallContext{
 		call:       callExpr,

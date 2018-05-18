@@ -36,8 +36,8 @@ type Program interface {
 	// container is used to resolve type names and identifiers.
 	Container() string
 
-	// GetInstruction returns the instruction at the given expression id.
-	GetInstruction(exprId int64) Instruction
+	// GetInstruction returns the instruction at the given runtime expression id.
+	GetInstruction(runtimeId int64) Instruction
 
 	// Init ensures that instructions have been properly initialized prior to
 	// beginning the execution of a program. The init step may optimize the
@@ -104,8 +104,8 @@ func (p *exprProgram) Container() string {
 	return p.container
 }
 
-func (p *exprProgram) GetInstruction(exprId int64) Instruction {
-	return p.instructions[p.revInstructions[exprId]]
+func (p *exprProgram) GetInstruction(runtimeId int64) Instruction {
+	return p.instructions[p.revInstructions[runtimeId]]
 }
 
 func (p *exprProgram) Init(dispatcher Dispatcher, state MutableEvalState) {

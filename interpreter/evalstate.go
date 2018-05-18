@@ -20,6 +20,10 @@ import (
 
 // EvalState tracks the values associated with expression ids during execution.
 type EvalState interface {
+	// Return the runtime expression id corresponding to the expression id from
+	// the AST.
+	GetRuntimeExpressionId(exprId int64) int64
+
 	// Value of the given expression id, false if not found.
 	Value(int64) (ref.Value, bool)
 }
@@ -28,6 +32,10 @@ type EvalState interface {
 // expression id.
 type MutableEvalState interface {
 	EvalState
+
+	// Set runtimeId for the given exprId
+	SetRuntimeExpressionId(exprId int64, runtimeId int64)
+
 	// SetValue associates an expression id with a value.
 	SetValue(int64, ref.Value)
 }
@@ -35,12 +43,21 @@ type MutableEvalState interface {
 // NewEvalState returns a MutableEvalState.
 func NewEvalState(instructionCount int64) *defaultEvalState {
 	return &defaultEvalState{exprCount: instructionCount,
-		exprValues: make([]ref.Value, instructionCount, instructionCount)}
+		exprValues: make([]ref.Value, instructionCount, instructionCount),
+		exprIdMap:  make(map[int64]int64)}
 }
 
 type defaultEvalState struct {
 	exprCount  int64
 	exprValues []ref.Value
+	exprIdMap  map[int64]int64
+}
+
+func (s *defaultEvalState) GetRuntimeExpressionId(exprId int64) int64 {
+	if val, ok := s.exprIdMap[exprId]; ok {
+		return val
+	}
+	return exprId
 }
 
 func (s *defaultEvalState) Value(exprId int64) (ref.Value, bool) {
@@ -52,6 +69,10 @@ func (s *defaultEvalState) Value(exprId int64) (ref.Value, bool) {
 		return s.exprValues[exprId], true
 	}
 	return nil, false
+}
+
+func (s *defaultEvalState) SetRuntimeExpressionId(exprId int64, runtimeId int64) {
+	s.exprIdMap[exprId] = runtimeId
 }
 
 func (s *defaultEvalState) SetValue(exprId int64, value ref.Value) {
