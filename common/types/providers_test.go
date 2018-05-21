@@ -144,12 +144,12 @@ func TestNativeToValue(t *testing.T) {
 			Kind: &structpb.Value_ListValue{
 				ListValue: &structpb.ListValue{
 					Values: []*structpb.Value{
-						{&structpb.Value_StringValue{StringValue: "world"}},
-						{&structpb.Value_StringValue{StringValue: "five!"}}}}}},
+						{Kind: &structpb.Value_StringValue{StringValue: "world"}},
+						{Kind: &structpb.Value_StringValue{StringValue: "five!"}}}}}},
 		NewJsonList(&structpb.ListValue{
 			Values: []*structpb.Value{
-				{&structpb.Value_StringValue{StringValue: "world"}},
-				{&structpb.Value_StringValue{StringValue: "five!"}}}}))
+				{Kind: &structpb.Value_StringValue{StringValue: "world"}},
+				{Kind: &structpb.Value_StringValue{StringValue: "five!"}}}}))
 
 	// Json struct conversion.
 	expectNativeToValue(t,
@@ -157,12 +157,12 @@ func TestNativeToValue(t *testing.T) {
 			Kind: &structpb.Value_StructValue{
 				StructValue: &structpb.Struct{
 					Fields: map[string]*structpb.Value{
-						"a": {&structpb.Value_StringValue{StringValue: "world"}},
-						"b": {&structpb.Value_StringValue{StringValue: "five!"}}}}}},
+						"a": {Kind: &structpb.Value_StringValue{StringValue: "world"}},
+						"b": {Kind: &structpb.Value_StringValue{StringValue: "five!"}}}}}},
 		NewJsonStruct(&structpb.Struct{
 			Fields: map[string]*structpb.Value{
-				"a": {&structpb.Value_StringValue{StringValue: "world"}},
-				"b": {&structpb.Value_StringValue{StringValue: "five!"}}}}))
+				"a": {Kind: &structpb.Value_StringValue{StringValue: "world"}},
+				"b": {Kind: &structpb.Value_StringValue{StringValue: "five!"}}}}))
 
 	// Proto conversion test.
 	parsedExpr := &expr.ParsedExpr{}

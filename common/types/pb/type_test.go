@@ -55,8 +55,8 @@ func TestTypeDescription_Field(t *testing.T) {
 		t.Error("Field 'payload' was fetched at index 1, but not listed there.")
 	}
 	if !proto.Equal(fd.CheckedType(), &checked.Type{
-		&checked.Type_MessageType{
-			"google.api.tools.expr.test.TestAllTypes"}}) {
+		TypeKind: &checked.Type_MessageType{
+			MessageType: "google.api.tools.expr.test.TestAllTypes"}}) {
 		t.Error("Field 'payload' had an unexpected checked type.")
 	}
 }

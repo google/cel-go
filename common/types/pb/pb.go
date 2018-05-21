@@ -24,7 +24,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"io/ioutil"
-	"reflect"
 )
 
 // DescribeEnum takes a qualified enum name and returns an EnumDescription.
@@ -77,9 +76,6 @@ var (
 	// map from file / message / enum name to file description.
 	fileDescriptorMap    = make(map[string]*FileDescription)
 	revFileDescriptorMap = make(map[string]*FileDescription)
-
-	// map from reflected type to type description.
-	descriptorMap = make(map[reflect.Type]*TypeDescription)
 )
 
 func describeFileInternal(fileDesc *descpb.FileDescriptorProto) (*FileDescription, error) {

@@ -426,8 +426,8 @@ func (p *parser) VisitBoolFalse(ctx *gen.BoolFalseContext) interface{} {
 func (p *parser) VisitNull(ctx *gen.NullContext) interface{} {
 	return p.helper.newLiteral(ctx,
 		&expr.Literal{
-			&expr.Literal_NullValue{
-				structpb.NullValue_NULL_VALUE}})
+			LiteralKind: &expr.Literal_NullValue{
+				NullValue: structpb.NullValue_NULL_VALUE}})
 }
 
 func (p *parser) visitList(ctx gen.IExprListContext) []*expr.Expr {
@@ -443,8 +443,8 @@ func (p *parser) visitSlice(expressions []gen.IExprContext) []*expr.Expr {
 	}
 	result := make([]*expr.Expr, len(expressions))
 	for i, e := range expressions {
-		expr := p.Visit(e).(*expr.Expr)
-		result[i] = expr
+		ex := p.Visit(e).(*expr.Expr)
+		result[i] = ex
 	}
 	return result
 }

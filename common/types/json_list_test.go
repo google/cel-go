@@ -1,3 +1,17 @@
+// Copyright 2018 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package types
 
 import (
@@ -8,22 +22,22 @@ import (
 )
 
 func TestJsonListValue_Add(t *testing.T) {
-	listA := NewJsonList(&structpb.ListValue{[]*structpb.Value{
-		{&structpb.Value_StringValue{"hello"}},
-		{&structpb.Value_NumberValue{1}}}})
-	listB := NewJsonList(&structpb.ListValue{[]*structpb.Value{
-		{&structpb.Value_NumberValue{2}},
-		{&structpb.Value_NumberValue{3}}}})
+	listA := NewJsonList(&structpb.ListValue{Values: []*structpb.Value{
+		{Kind: &structpb.Value_StringValue{"hello"}},
+		{Kind: &structpb.Value_NumberValue{1}}}})
+	listB := NewJsonList(&structpb.ListValue{Values: []*structpb.Value{
+		{Kind: &structpb.Value_NumberValue{2}},
+		{Kind: &structpb.Value_NumberValue{3}}}})
 	list := listA.Add(listB)
 	nativeVal, err := list.ConvertToNative(jsonListValueType)
 	if err != nil {
 		t.Error(err)
 	}
-	expected := &structpb.ListValue{[]*structpb.Value{
-		{&structpb.Value_StringValue{"hello"}},
-		{&structpb.Value_NumberValue{1}},
-		{&structpb.Value_NumberValue{2}},
-		{&structpb.Value_NumberValue{3}}}}
+	expected := &structpb.ListValue{Values: []*structpb.Value{
+		{Kind: &structpb.Value_StringValue{"hello"}},
+		{Kind: &structpb.Value_NumberValue{1}},
+		{Kind: &structpb.Value_NumberValue{2}},
+		{Kind: &structpb.Value_NumberValue{3}}}}
 	if !proto.Equal(nativeVal.(proto.Message), expected) {
 		t.Errorf("Concatenated lists did not combine as expected."+
 			" Got '%v', expected '%v'", nativeVal, expected)
@@ -31,9 +45,9 @@ func TestJsonListValue_Add(t *testing.T) {
 }
 
 func TestJsonListValue_Contains(t *testing.T) {
-	list := NewJsonList(&structpb.ListValue{[]*structpb.Value{
-		{&structpb.Value_StringValue{"hello"}},
-		{&structpb.Value_NumberValue{1}}}})
+	list := NewJsonList(&structpb.ListValue{Values: []*structpb.Value{
+		{Kind: &structpb.Value_StringValue{"hello"}},
+		{Kind: &structpb.Value_NumberValue{1}}}})
 	if !list.Contains(Double(1)).(Bool) {
 		t.Error("Expected value list to contain number '1'", list)
 	}
@@ -43,9 +57,9 @@ func TestJsonListValue_Contains(t *testing.T) {
 }
 
 func TestJsonListValue_ConvertToNative_Json(t *testing.T) {
-	list := NewJsonList(&structpb.ListValue{[]*structpb.Value{
-		{&structpb.Value_StringValue{"hello"}},
-		{&structpb.Value_NumberValue{1}}}})
+	list := NewJsonList(&structpb.ListValue{Values: []*structpb.Value{
+		{Kind: &structpb.Value_StringValue{"hello"}},
+		{Kind: &structpb.Value_NumberValue{1}}}})
 	listVal, err := list.ConvertToNative(jsonListValueType)
 	if err != nil {
 		t.Error(err)
@@ -66,9 +80,9 @@ func TestJsonListValue_ConvertToNative_Json(t *testing.T) {
 }
 
 func TestJsonListValue_ConvertToNative_Slice(t *testing.T) {
-	list := NewJsonList(&structpb.ListValue{[]*structpb.Value{
-		{&structpb.Value_StringValue{"hello"}},
-		{&structpb.Value_NumberValue{1}}}})
+	list := NewJsonList(&structpb.ListValue{Values: []*structpb.Value{
+		{Kind: &structpb.Value_StringValue{"hello"}},
+		{Kind: &structpb.Value_NumberValue{1}}}})
 	listVal, err := list.ConvertToNative(reflect.TypeOf([]*structpb.Value{}))
 	if err != nil {
 		t.Error(err)
@@ -82,9 +96,9 @@ func TestJsonListValue_ConvertToNative_Slice(t *testing.T) {
 }
 
 func TestJsonListValue_ConvertToType(t *testing.T) {
-	list := NewJsonList(&structpb.ListValue{[]*structpb.Value{
-		{&structpb.Value_StringValue{"hello"}},
-		{&structpb.Value_NumberValue{1}}}})
+	list := NewJsonList(&structpb.ListValue{Values: []*structpb.Value{
+		{Kind: &structpb.Value_StringValue{"hello"}},
+		{Kind: &structpb.Value_NumberValue{1}}}})
 	if list.ConvertToType(TypeType) != ListType {
 		t.Error("Json list type was not a list.")
 	}
@@ -97,12 +111,12 @@ func TestJsonListValue_ConvertToType(t *testing.T) {
 }
 
 func TestJsonListValue_Equal(t *testing.T) {
-	listA := NewJsonList(&structpb.ListValue{[]*structpb.Value{
-		{&structpb.Value_StringValue{"hello"}},
-		{&structpb.Value_NumberValue{1}}}})
-	listB := NewJsonList(&structpb.ListValue{[]*structpb.Value{
-		{&structpb.Value_NumberValue{2}},
-		{&structpb.Value_NumberValue{3}}}})
+	listA := NewJsonList(&structpb.ListValue{Values: []*structpb.Value{
+		{Kind: &structpb.Value_StringValue{"hello"}},
+		{Kind: &structpb.Value_NumberValue{1}}}})
+	listB := NewJsonList(&structpb.ListValue{Values: []*structpb.Value{
+		{Kind: &structpb.Value_NumberValue{2}},
+		{Kind: &structpb.Value_NumberValue{3}}}})
 	if listA.Equal(listB).(Bool) || listB.Equal(listA).(Bool) {
 		t.Error("Lists with different elements considered equal.")
 	}
@@ -118,9 +132,9 @@ func TestJsonListValue_Equal(t *testing.T) {
 }
 
 func TestJsonListValue_Get_OutOfRange(t *testing.T) {
-	list := NewJsonList(&structpb.ListValue{[]*structpb.Value{
-		{&structpb.Value_StringValue{"hello"}},
-		{&structpb.Value_NumberValue{1}}}})
+	list := NewJsonList(&structpb.ListValue{Values: []*structpb.Value{
+		{Kind: &structpb.Value_StringValue{"hello"}},
+		{Kind: &structpb.Value_NumberValue{1}}}})
 	if !IsError(list.Get(Int(-1))) {
 		t.Error("Negative index did not result in error.")
 	}
@@ -133,11 +147,11 @@ func TestJsonListValue_Get_OutOfRange(t *testing.T) {
 }
 
 func TestJsonListValue_Iterator(t *testing.T) {
-	list := NewJsonList(&structpb.ListValue{[]*structpb.Value{
-		{&structpb.Value_StringValue{"hello"}},
-		{&structpb.Value_NumberValue{1}},
-		{&structpb.Value_NumberValue{2}},
-		{&structpb.Value_NumberValue{3}}}})
+	list := NewJsonList(&structpb.ListValue{Values: []*structpb.Value{
+		{Kind: &structpb.Value_StringValue{"hello"}},
+		{Kind: &structpb.Value_NumberValue{1}},
+		{Kind: &structpb.Value_NumberValue{2}},
+		{Kind: &structpb.Value_NumberValue{3}}}})
 	it := list.Iterator()
 	for i := Int(0); it.HasNext() != False; i++ {
 		v := it.Next()

@@ -47,7 +47,7 @@ func NewObject(value proto.Message) ref.Value {
 }
 
 func (o *protoObj) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
-	if typeDesc == o.refValue.Type() {
+	if typeDesc.AssignableTo(o.refValue.Type()) {
 		return o.value, nil
 	}
 	return nil, fmt.Errorf("type conversion error from '%v' to '%v'",

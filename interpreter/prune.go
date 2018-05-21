@@ -131,19 +131,26 @@ func (p *astPruner) prune(node *expr.Expr) (*expr.Expr, bool) {
 
 		switch val.Type() {
 		case types.BoolType:
-			return p.createLiteral(node, &expr.Literal{&expr.Literal_BoolValue{val.Value().(bool)}}), true
+			return p.createLiteral(node,
+				&expr.Literal{LiteralKind: &expr.Literal_BoolValue{val.Value().(bool)}}), true
 		case types.IntType:
-			return p.createLiteral(node, &expr.Literal{&expr.Literal_Int64Value{val.Value().(int64)}}), true
+			return p.createLiteral(node,
+				&expr.Literal{LiteralKind: &expr.Literal_Int64Value{val.Value().(int64)}}), true
 		case types.UintType:
-			return p.createLiteral(node, &expr.Literal{&expr.Literal_Uint64Value{val.Value().(uint64)}}), true
+			return p.createLiteral(node,
+				&expr.Literal{LiteralKind: &expr.Literal_Uint64Value{val.Value().(uint64)}}), true
 		case types.StringType:
-			return p.createLiteral(node, &expr.Literal{&expr.Literal_StringValue{val.Value().(string)}}), true
+			return p.createLiteral(node,
+				&expr.Literal{LiteralKind: &expr.Literal_StringValue{val.Value().(string)}}), true
 		case types.DoubleType:
-			return p.createLiteral(node, &expr.Literal{&expr.Literal_DoubleValue{val.Value().(float64)}}), true
+			return p.createLiteral(node,
+				&expr.Literal{LiteralKind: &expr.Literal_DoubleValue{val.Value().(float64)}}), true
 		case types.BytesType:
-			return p.createLiteral(node, &expr.Literal{&expr.Literal_BytesValue{val.Value().([]byte)}}), true
+			return p.createLiteral(node,
+				&expr.Literal{LiteralKind: &expr.Literal_BytesValue{val.Value().([]byte)}}), true
 		case types.NullType:
-			return p.createLiteral(node, &expr.Literal{&expr.Literal_NullValue{val.Value().(structpb.NullValue)}}), true
+			return p.createLiteral(node,
+				&expr.Literal{LiteralKind: &expr.Literal_NullValue{val.Value().(structpb.NullValue)}}), true
 		}
 	}
 

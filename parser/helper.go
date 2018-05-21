@@ -58,27 +58,32 @@ func (p *parserHelper) newLiteral(ctx interface{}, value *expr.Literal) *expr.Ex
 }
 
 func (p *parserHelper) newLiteralBool(ctx interface{}, value bool) *expr.Expr {
-	return p.newLiteral(ctx, &expr.Literal{&expr.Literal_BoolValue{value}})
+	return p.newLiteral(ctx,
+		&expr.Literal{LiteralKind: &expr.Literal_BoolValue{value}})
 }
 
 func (p *parserHelper) newLiteralString(ctx interface{}, value string) *expr.Expr {
-	return p.newLiteral(ctx, &expr.Literal{&expr.Literal_StringValue{value}})
+	return p.newLiteral(ctx,
+		&expr.Literal{LiteralKind: &expr.Literal_StringValue{value}})
 }
 
 func (p *parserHelper) newLiteralBytes(ctx interface{}, value []byte) *expr.Expr {
-	return p.newLiteral(ctx, &expr.Literal{&expr.Literal_BytesValue{value}})
+	return p.newLiteral(ctx,
+		&expr.Literal{LiteralKind: &expr.Literal_BytesValue{value}})
 }
 
 func (p *parserHelper) newLiteralInt(ctx interface{}, value int64) *expr.Expr {
-	return p.newLiteral(ctx, &expr.Literal{&expr.Literal_Int64Value{value}})
+	return p.newLiteral(ctx,
+		&expr.Literal{LiteralKind: &expr.Literal_Int64Value{value}})
 }
 
 func (p *parserHelper) newLiteralUint(ctx interface{}, value uint64) *expr.Expr {
-	return p.newLiteral(ctx, &expr.Literal{&expr.Literal_Uint64Value{value}})
+	return p.newLiteral(ctx, &expr.Literal{LiteralKind: &expr.Literal_Uint64Value{value}})
 }
 
 func (p *parserHelper) newLiteralDouble(ctx interface{}, value float64) *expr.Expr {
-	return p.newLiteral(ctx, &expr.Literal{&expr.Literal_DoubleValue{value}})
+	return p.newLiteral(ctx,
+		&expr.Literal{LiteralKind: &expr.Literal_DoubleValue{value}})
 }
 
 func (p *parserHelper) newIdent(ctx interface{}, name string) *expr.Expr {
