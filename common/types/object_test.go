@@ -69,7 +69,6 @@ func TestProtoObj_ConvertToNative(t *testing.T) {
 		t.Error("Messages were not equal, expect '%v', got '%v'", objVal.Value(), pbMessage)
 	}
 
-
 	anyVal, err := objVal.ConvertToNative(reflect.TypeOf(&any.Any{}))
 	if err != nil {
 		t.Error(err)

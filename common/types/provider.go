@@ -218,7 +218,7 @@ func NativeToValue(value interface{}) ref.Value {
 		val := value.(*any.Any)
 		unpackedAny := ptypes.DynamicAny{}
 		if ptypes.UnmarshalAny(val, &unpackedAny) != nil {
-			NewErr("Fail to unmarshal any")
+			NewErr("Fail to unmarshal any.")
 		}
 		return NativeToValue(unpackedAny.Message)
 	case proto.Message:

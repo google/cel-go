@@ -173,63 +173,53 @@ func TestNativeToValue(t *testing.T) {
 
 	// Any conversion test
 	// NullValue
-	{
-		anyValue, _ := NullValue.ConvertToNative(reflect.TypeOf(&any.Any{}))
-		expectNativeToValue(t, anyValue, NullValue)
+	anyValue, err := NullValue.ConvertToNative(reflect.TypeOf(&any.Any{}))
+	if err != nil {
+		t.Error(err)
 	}
+	expectNativeToValue(t, anyValue, NullValue)
 
 	// Json Struct
-	{
-		anyValue, _ := ptypes.MarshalAny(&structpb.Struct{
-			Fields: map[string]*structpb.Value{
-				"a": {Kind: &structpb.Value_StringValue{StringValue: "world"}},
-				"b": {Kind: &structpb.Value_StringValue{StringValue: "five!"}}}})
-		expected := NewJsonStruct(&structpb.Struct{
-			Fields: map[string]*structpb.Value{
-				"a": {Kind: &structpb.Value_StringValue{StringValue: "world"}},
-				"b": {Kind: &structpb.Value_StringValue{StringValue: "five!"}}}})
-		expectNativeToValue(t, anyValue, expected)
+	anyValue, err = ptypes.MarshalAny(&structpb.Value{
+		Kind: &structpb.Value_StructValue{
+			StructValue: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"a": {Kind: &structpb.Value_StringValue{StringValue: "world"}},
+					"b": {Kind: &structpb.Value_StringValue{StringValue: "five!"}}}}}})
+	if err != nil {
+		t.Error(err)
 	}
-
-	// Json Struct Value
-	{
-		anyValue, _ := ptypes.MarshalAny(&structpb.Value{
-			Kind: &structpb.Value_StructValue{
-				StructValue: &structpb.Struct{
-					Fields: map[string]*structpb.Value{
-						"a": {Kind: &structpb.Value_StringValue{StringValue: "world"}},
-						"b": {Kind: &structpb.Value_StringValue{StringValue: "five!"}}}}}})
-		expected := NewJsonStruct(&structpb.Struct{
-			Fields: map[string]*structpb.Value{
-				"a": {Kind: &structpb.Value_StringValue{StringValue: "world"}},
-				"b": {Kind: &structpb.Value_StringValue{StringValue: "five!"}}}})
-		expectNativeToValue(t, anyValue, expected)
-	}
+	expected := NewJsonStruct(&structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"a": {Kind: &structpb.Value_StringValue{StringValue: "world"}},
+			"b": {Kind: &structpb.Value_StringValue{StringValue: "five!"}}}})
+	expectNativeToValue(t, anyValue, expected)
 
 	//Json List
-	{
-		anyValue, _ := ptypes.MarshalAny(&structpb.Value{
-			Kind: &structpb.Value_ListValue{
-				ListValue: &structpb.ListValue{
-					Values: []*structpb.Value{
-						{Kind: &structpb.Value_StringValue{StringValue: "world"}},
-						{Kind: &structpb.Value_StringValue{StringValue: "five!"}}}}}})
-		expected := NewJsonList(&structpb.ListValue{
-			Values: []*structpb.Value{
-				{Kind: &structpb.Value_StringValue{StringValue: "world"}},
-				{Kind: &structpb.Value_StringValue{StringValue: "five!"}}}})
-		expectNativeToValue(t, anyValue, expected)
+	anyValue, err = ptypes.MarshalAny(&structpb.Value{
+		Kind: &structpb.Value_ListValue{
+			ListValue: &structpb.ListValue{
+				Values: []*structpb.Value{
+					{Kind: &structpb.Value_StringValue{StringValue: "world"}},
+					{Kind: &structpb.Value_StringValue{StringValue: "five!"}}}}}})
+	if err != nil {
+		t.Error(err)
 	}
+	expected = NewJsonList(&structpb.ListValue{
+		Values: []*structpb.Value{
+			{Kind: &structpb.Value_StringValue{StringValue: "world"}},
+			{Kind: &structpb.Value_StringValue{StringValue: "five!"}}}})
+	expectNativeToValue(t, anyValue, expected)
 
 	// Object
-	{
-		pbMessage := syntax.ParsedExpr{
-			SourceInfo: &syntax.SourceInfo{
-				LineOffsets: []int32{1, 2, 3}}}
-
-		anyValue, _ := ptypes.MarshalAny(&pbMessage)
-		expectNativeToValue(t, anyValue, NewObject(&pbMessage))
+	pbMessage := syntax.ParsedExpr{
+		SourceInfo: &syntax.SourceInfo{
+			LineOffsets: []int32{1, 2, 3}}}
+	anyValue, err = ptypes.MarshalAny(&pbMessage)
+	if err != nil {
+		t.Error(err)
 	}
+	expectNativeToValue(t, anyValue, NewObject(&pbMessage))
 }
 
 func TestUnsupportedConversion(t *testing.T) {
