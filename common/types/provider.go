@@ -16,6 +16,8 @@ package types
 
 import (
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/timestamp"
@@ -212,6 +214,13 @@ func NativeToValue(value interface{}) ref.Value {
 		}
 	case *timestamp.Timestamp:
 		return Timestamp{value.(*timestamp.Timestamp)}
+	case *any.Any:
+		val := value.(*any.Any)
+		unpackedAny := ptypes.DynamicAny{}
+		if ptypes.UnmarshalAny(val, &unpackedAny) != nil {
+			NewErr("Fail to unmarshal any.")
+		}
+		return NativeToValue(unpackedAny.Message)
 	case proto.Message:
 		return NewObject(value.(proto.Message))
 	default:

@@ -15,6 +15,9 @@
 package types
 
 import (
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/any"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 	"github.com/google/cel-go/test"
@@ -49,5 +52,34 @@ func TestProtoObject_Iterator(t *testing.T) {
 	}
 	if !reflect.DeepEqual(fields, []ref.Value{String("id"), String("comprehension_expr")}) {
 		t.Errorf("Got %v, wanted %v", fields, []interface{}{"id", "comprehension_expr"})
+	}
+}
+
+func TestProtoObj_ConvertToNative(t *testing.T) {
+	pbMessage := &syntax.ParsedExpr{
+		SourceInfo: &syntax.SourceInfo{
+			LineOffsets: []int32{1, 2, 3}}}
+	objVal := NewObject(pbMessage)
+
+	// Proto Message
+	val, err := objVal.ConvertToNative(reflect.TypeOf(&syntax.ParsedExpr{}))
+	if (err != nil) {
+		t.Error(err)
+	}
+	if !proto.Equal(val.(proto.Message), pbMessage) {
+		t.Error("Messages were not equal, expect '%v', got '%v'", objVal.Value(), pbMessage)
+	}
+
+	// google.protobuf.Any
+	anyVal, err := objVal.ConvertToNative(anyValueType)
+	if err != nil {
+		t.Error(err)
+	}
+	unpackedAny := ptypes.DynamicAny{}
+	if ptypes.UnmarshalAny(anyVal.(*any.Any), &unpackedAny) != nil {
+		NewErr("Failed to unmarshal any")
+	}
+	if !proto.Equal(unpackedAny.Message, objVal.Value().(proto.Message)) {
+		t.Error("Messages were not equal, expect '%v', got '%v'", objVal.Value(), unpackedAny.Message)
 	}
 }

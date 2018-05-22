@@ -5,6 +5,7 @@ package(default_visibility = ["//visibility:public"])
 go_library(
     name = "go_default_library",
     srcs = [
+        "any_value.go",
         "bool.go",
         "bytes.go",
         "double.go",
@@ -26,7 +27,7 @@ go_library(
         "type.go",
         "uint.go",
         "unknown.go",
-	      "util.go",
+	    "util.go",
     ],
     importpath = "github.com/google/cel-go/common/types",
     deps = [
@@ -37,6 +38,7 @@ go_library(
         "//io:checked_proto",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_golang_protobuf//ptypes:go_default_library",
+        "@io_bazel_rules_go//proto/wkt:any_go_proto",
         "@io_bazel_rules_go//proto/wkt:duration_go_proto",
         "@io_bazel_rules_go//proto/wkt:struct_go_proto",
         "@io_bazel_rules_go//proto/wkt:timestamp_go_proto",
@@ -55,6 +57,7 @@ go_test(
         "json_struct_test.go",
         "list_test.go",
         "map_test.go",
+        "null_test.go",
         "object_test.go",
         "providers_test.go",
         "string_test.go",
@@ -68,6 +71,7 @@ go_test(
         "//io:syntax_proto",
         "//test:go_default_library",
         "@com_github_golang_protobuf//jsonpb:go_default_library",
+        "@io_bazel_rules_go//proto/wkt:any_go_proto",
         "@io_bazel_rules_go//proto/wkt:duration_go_proto",
         "@io_bazel_rules_go//proto/wkt:timestamp_go_proto",
     ],

@@ -15,6 +15,8 @@
 package types
 
 import (
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/struct"
 	"github.com/google/cel-go/common/types/ref"
 	"reflect"
@@ -35,6 +37,13 @@ func (n Null) ConvertToNative(refType reflect.Type) (interface{}, error) {
 		return &structpb.Value{
 			Kind: &structpb.Value_NullValue{
 				NullValue: structpb.NullValue_NULL_VALUE}}, nil
+	}
+	if refType == anyValueType {
+		pb, err := n.ConvertToNative(jsonValueType)
+		if err != nil {
+			return nil, err
+		}
+		return ptypes.MarshalAny(pb.(proto.Message))
 	}
 	return structpb.NullValue_NULL_VALUE, nil
 }

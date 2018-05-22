@@ -16,6 +16,8 @@ package types
 
 import (
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/struct"
 	"reflect"
 	"testing"
@@ -92,6 +94,24 @@ func TestJsonListValue_ConvertToNative_Slice(t *testing.T) {
 			t.Errorf("elem[%d] Got '%v', expected '%v'",
 				i, v, list.Get(Int(i)))
 		}
+	}
+}
+
+func TestJsonListValue_ConvertToNative_Any(t *testing.T) {
+	list := NewJsonList(&structpb.ListValue{Values:[]*structpb.Value{
+		{Kind:&structpb.Value_StringValue{"hello"}},
+		{Kind:&structpb.Value_NumberValue{1}}}})
+	anyVal, err := list.ConvertToNative(anyValueType)
+	if err != nil{
+		t.Error(err)
+	}
+	unpackedAny := ptypes.DynamicAny{}
+	if ptypes.UnmarshalAny(anyVal.(*any.Any), &unpackedAny) != nil {
+		t.Error("Fail to unmarshal any")
+	}
+	if !proto.Equal(unpackedAny.Message,
+		list.Value().(proto.Message)) {
+		t.Errorf("Messages were not equal, got '%v'", unpackedAny.Message)
 	}
 }
 
