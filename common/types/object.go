@@ -17,12 +17,12 @@ package types
 import (
 	"fmt"
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/any"
 	"github.com/google/cel-go/common/types/pb"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 	"reflect"
-	"github.com/golang/protobuf/ptypes/any"
-	"github.com/golang/protobuf/ptypes"
 )
 
 type protoObj struct {

@@ -16,11 +16,11 @@ package types
 
 import (
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/struct"
 	"reflect"
 	"testing"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/any"
 )
 
 func TestJsonListValue_Add(t *testing.T) {
@@ -107,7 +107,7 @@ func TestJsonListValue_ConvertToNative_Any(t *testing.T) {
 	}
 	unpackedAny := ptypes.DynamicAny{}
 	if ptypes.UnmarshalAny(anyVal.(*any.Any), &unpackedAny) != nil {
-		NewErr("Fail to unmarshal any")
+		t.Error("Fail to unmarshal any")
 	}
 	if !proto.Equal(unpackedAny.Message,
 		list.Value().(proto.Message)) {

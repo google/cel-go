@@ -17,15 +17,14 @@ package types
 import (
 	"bytes"
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/struct"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 	expr "github.com/google/cel-spec/proto/v1/syntax"
 	"reflect"
 	"testing"
-	"github.com/google/cel-spec/proto/v1/syntax"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/any"
 )
 
 func TestTypeProvider_NewValue(t *testing.T) {
@@ -109,23 +108,58 @@ func TestValue_ConvertToNative(t *testing.T) {
 	expectValueToNative(t, NewObject(parsedExpr), parsedExpr)
 }
 
-func TestNativeToValue(t *testing.T) {
-	// Core type conversions.
-	expectNativeToValue(t, true, True)
-	expectNativeToValue(t, int32(-1), Int(-1))
-	expectNativeToValue(t, int64(2), Int(2))
-	expectNativeToValue(t, uint32(3), Uint(3))
-	expectNativeToValue(t, uint64(4), Uint(4))
-	expectNativeToValue(t, float32(5.5), Double(5.5))
-	expectNativeToValue(t, float64(-5.5), Double(-5.5))
-	expectNativeToValue(t, "hello", String("hello"))
-	expectNativeToValue(t, []byte("world"), Bytes("world"))
-	expectNativeToValue(t, []int32{1, 2, 3}, NewDynamicList([]int32{1, 2, 3}))
-	expectNativeToValue(t, map[int32]int32{1: 1, 2: 1, 3: 1},
-		NewDynamicMap(map[int32]int32{1: 1, 2: 1, 3: 1}))
-	// Null conversion test.
-	expectNativeToValue(t, structpb.NullValue_NULL_VALUE, Null(structpb.NullValue_NULL_VALUE))
+func TestNativeToValue_Any(t *testing.T) {
+	// NullValue
+	anyValue, err := NullValue.ConvertToNative(reflect.TypeOf(&any.Any{}))
+	if err != nil {
+		t.Error(err)
+	}
+	expectNativeToValue(t, anyValue, NullValue)
 
+	// Json Struct
+	anyValue, err = ptypes.MarshalAny(&structpb.Value{
+		Kind: &structpb.Value_StructValue{
+			StructValue: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"a": {Kind: &structpb.Value_StringValue{StringValue: "world"}},
+					"b": {Kind: &structpb.Value_StringValue{StringValue: "five!"}}}}}})
+	if err != nil {
+		t.Error(err)
+	}
+	expected := NewJsonStruct(&structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"a": {Kind: &structpb.Value_StringValue{StringValue: "world"}},
+			"b": {Kind: &structpb.Value_StringValue{StringValue: "five!"}}}})
+	expectNativeToValue(t, anyValue, expected)
+
+	//Json List
+	anyValue, err = ptypes.MarshalAny(&structpb.Value{
+		Kind: &structpb.Value_ListValue{
+			ListValue: &structpb.ListValue{
+				Values: []*structpb.Value{
+					{Kind: &structpb.Value_StringValue{StringValue: "world"}},
+					{Kind: &structpb.Value_StringValue{StringValue: "five!"}}}}}})
+	if err != nil {
+		t.Error(err)
+	}
+	expected = NewJsonList(&structpb.ListValue{
+		Values: []*structpb.Value{
+			{Kind: &structpb.Value_StringValue{StringValue: "world"}},
+			{Kind: &structpb.Value_StringValue{StringValue: "five!"}}}})
+	expectNativeToValue(t, anyValue, expected)
+
+	// Object
+	pbMessage := expr.ParsedExpr{
+		SourceInfo: &expr.SourceInfo{
+			LineOffsets: []int32{1, 2, 3}}}
+	anyValue, err = ptypes.MarshalAny(&pbMessage)
+	if err != nil {
+		t.Error(err)
+	}
+	expectNativeToValue(t, anyValue, NewObject(&pbMessage))
+}
+
+func TestNativeToValue_Json(t *testing.T) {
 	// Json primitive conversion test.
 	expectNativeToValue(t,
 		&structpb.Value{Kind: &structpb.Value_BoolValue{}},
@@ -170,56 +204,24 @@ func TestNativeToValue(t *testing.T) {
 	// Proto conversion test.
 	parsedExpr := &expr.ParsedExpr{}
 	expectNativeToValue(t, parsedExpr, NewObject(parsedExpr))
+}
 
-	// google.protobuf.Any conversion test
-	// NullValue
-	anyValue, err := NullValue.ConvertToNative(reflect.TypeOf(&any.Any{}))
-	if err != nil {
-		t.Error(err)
-	}
-	expectNativeToValue(t, anyValue, NullValue)
-
-	// Json Struct
-	anyValue, err = ptypes.MarshalAny(&structpb.Value{
-		Kind: &structpb.Value_StructValue{
-			StructValue: &structpb.Struct{
-				Fields: map[string]*structpb.Value{
-					"a": {Kind: &structpb.Value_StringValue{StringValue: "world"}},
-					"b": {Kind: &structpb.Value_StringValue{StringValue: "five!"}}}}}})
-	if err != nil {
-		t.Error(err)
-	}
-	expected := NewJsonStruct(&structpb.Struct{
-		Fields: map[string]*structpb.Value{
-			"a": {Kind: &structpb.Value_StringValue{StringValue: "world"}},
-			"b": {Kind: &structpb.Value_StringValue{StringValue: "five!"}}}})
-	expectNativeToValue(t, anyValue, expected)
-
-	//Json List
-	anyValue, err = ptypes.MarshalAny(&structpb.Value{
-		Kind: &structpb.Value_ListValue{
-			ListValue: &structpb.ListValue{
-				Values: []*structpb.Value{
-					{Kind: &structpb.Value_StringValue{StringValue: "world"}},
-					{Kind: &structpb.Value_StringValue{StringValue: "five!"}}}}}})
-	if err != nil {
-		t.Error(err)
-	}
-	expected = NewJsonList(&structpb.ListValue{
-		Values: []*structpb.Value{
-			{Kind: &structpb.Value_StringValue{StringValue: "world"}},
-			{Kind: &structpb.Value_StringValue{StringValue: "five!"}}}})
-	expectNativeToValue(t, anyValue, expected)
-
-	// Object
-	pbMessage := syntax.ParsedExpr{
-		SourceInfo: &syntax.SourceInfo{
-			LineOffsets: []int32{1, 2, 3}}}
-	anyValue, err = ptypes.MarshalAny(&pbMessage)
-	if err != nil {
-		t.Error(err)
-	}
-	expectNativeToValue(t, anyValue, NewObject(&pbMessage))
+func TestNativeToValue_Primitive(t *testing.T) {
+	// Core type conversions.
+	expectNativeToValue(t, true, True)
+	expectNativeToValue(t, int32(-1), Int(-1))
+	expectNativeToValue(t, int64(2), Int(2))
+	expectNativeToValue(t, uint32(3), Uint(3))
+	expectNativeToValue(t, uint64(4), Uint(4))
+	expectNativeToValue(t, float32(5.5), Double(5.5))
+	expectNativeToValue(t, float64(-5.5), Double(-5.5))
+	expectNativeToValue(t, "hello", String("hello"))
+	expectNativeToValue(t, []byte("world"), Bytes("world"))
+	expectNativeToValue(t, []int32{1, 2, 3}, NewDynamicList([]int32{1, 2, 3}))
+	expectNativeToValue(t, map[int32]int32{1: 1, 2: 1, 3: 1},
+		NewDynamicMap(map[int32]int32{1: 1, 2: 1, 3: 1}))
+	// Null conversion test.
+	expectNativeToValue(t, structpb.NullValue_NULL_VALUE, Null(structpb.NullValue_NULL_VALUE))
 }
 
 func TestUnsupportedConversion(t *testing.T) {

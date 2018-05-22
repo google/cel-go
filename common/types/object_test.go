@@ -15,15 +15,15 @@
 package types
 
 import (
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/any"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 	"github.com/google/cel-go/test"
 	"github.com/google/cel-spec/proto/v1/syntax"
 	"reflect"
 	"testing"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/any"
-	"github.com/golang/protobuf/ptypes"
 )
 
 func TestNewProtoObject(t *testing.T) {
