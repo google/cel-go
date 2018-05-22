@@ -20,6 +20,9 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 	"reflect"
+	"github.com/golang/protobuf/ptypes/any"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/proto"
 )
 
 var (
@@ -70,6 +73,9 @@ func (m *jsonStruct) ConvertToNative(refType reflect.Type) (interface{}, error) 
 		}
 		if refType == jsonStructType {
 			return m.Struct, nil
+		}
+		if refType == reflect.TypeOf(&any.Any{}) {
+			return ptypes.MarshalAny(m.Value().(proto.Message))
 		}
 	}
 	return nil, fmt.Errorf(

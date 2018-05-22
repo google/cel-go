@@ -37,6 +37,7 @@ go_library(
         "//io:checked_proto",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_golang_protobuf//ptypes:go_default_library",
+        "@io_bazel_rules_go//proto/wkt:any_go_proto",
         "@io_bazel_rules_go//proto/wkt:duration_go_proto",
         "@io_bazel_rules_go//proto/wkt:struct_go_proto",
         "@io_bazel_rules_go//proto/wkt:timestamp_go_proto",
@@ -60,6 +61,7 @@ go_test(
         "string_test.go",
         "timestamp_test.go",
         "uint_test.go",
+        "null_test.go"
     ],
     size = "small",
     embed = [":go_default_library"],
@@ -68,6 +70,7 @@ go_test(
         "//io:syntax_proto",
         "//test:go_default_library",
         "@com_github_golang_protobuf//jsonpb:go_default_library",
+        "@io_bazel_rules_go//proto/wkt:any_go_proto",
         "@io_bazel_rules_go//proto/wkt:duration_go_proto",
         "@io_bazel_rules_go//proto/wkt:timestamp_go_proto",
     ],

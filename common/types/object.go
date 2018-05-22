@@ -21,6 +21,8 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 	"reflect"
+	"github.com/golang/protobuf/ptypes/any"
+	"github.com/golang/protobuf/ptypes"
 )
 
 type protoObj struct {
@@ -50,6 +52,11 @@ func (o *protoObj) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	if typeDesc.AssignableTo(o.refValue.Type()) {
 		return o.value, nil
 	}
+
+	if typeDesc == reflect.TypeOf(&any.Any{}) {
+		return ptypes.MarshalAny(o.Value().(proto.Message))
+	}
+
 	return nil, fmt.Errorf("type conversion error from '%v' to '%v'",
 		o.refValue.Type(), typeDesc)
 }

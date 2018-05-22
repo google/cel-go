@@ -20,6 +20,9 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 	"reflect"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/any"
+	"github.com/golang/protobuf/proto"
 )
 
 var (
@@ -82,6 +85,9 @@ func (l *jsonListValue) ConvertToNative(refType reflect.Type) (interface{}, erro
 		}
 		if refType == jsonListValueType {
 			return l.ListValue, nil
+		}
+		if refType == reflect.TypeOf(&any.Any{}) {
+			return ptypes.MarshalAny(l.Value().(proto.Message))
 		}
 	}
 	return nil, fmt.Errorf("no conversion found from list type to native type."+
