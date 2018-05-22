@@ -39,12 +39,10 @@ func (n Null) ConvertToNative(refType reflect.Type) (interface{}, error) {
 			Kind: &structpb.Value_NullValue{
 				NullValue: structpb.NullValue_NULL_VALUE}}, nil
 	}
-
 	if refType == reflect.TypeOf(&any.Any{}) {
 		pb, _ := n.ConvertToNative(jsonValueType)
 		return ptypes.MarshalAny(pb.(proto.Message))
 	}
-
 	return structpb.NullValue_NULL_VALUE, nil
 }
 

@@ -61,6 +61,7 @@ func TestProtoObj_ConvertToNative(t *testing.T) {
 			LineOffsets: []int32{1, 2, 3}}}
 	objVal := NewObject(pbMessage)
 
+	// Proto Message
 	val, err := objVal.ConvertToNative(reflect.TypeOf(&syntax.ParsedExpr{}))
 	if (err != nil) {
 		t.Error(err)
@@ -69,6 +70,7 @@ func TestProtoObj_ConvertToNative(t *testing.T) {
 		t.Error("Messages were not equal, expect '%v', got '%v'", objVal.Value(), pbMessage)
 	}
 
+	// google.protobuf.Any
 	anyVal, err := objVal.ConvertToNative(reflect.TypeOf(&any.Any{}))
 	if err != nil {
 		t.Error(err)

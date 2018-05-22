@@ -14,6 +14,7 @@ func TestNull_ConvertToNative(t *testing.T) {
 		Kind: &structpb.Value_NullValue{
 			NullValue: structpb.NullValue_NULL_VALUE}}
 
+	// Json Value
 	val, err := NullValue.ConvertToNative(jsonValueType)
 	if err != nil {
 		t.Error("Fail to convert Null to jsonValueType")
@@ -22,11 +23,11 @@ func TestNull_ConvertToNative(t *testing.T) {
 		t.Errorf("Messages were not equal, got '%v'", val)
 	}
 
+	// google.protobuf.Any
 	val, err = NullValue.ConvertToNative(reflect.TypeOf(&any.Any{}))
 	if err != nil {
 		t.Error("Fail to convert Null to any.")
 	}
-
 	data := ptypes.DynamicAny{}
 	if ptypes.UnmarshalAny(val.(*any.Any), &data) != nil {
 		t.Error("Fail to unmarshal any.")
@@ -35,6 +36,7 @@ func TestNull_ConvertToNative(t *testing.T) {
 		t.Errorf("Messages were not equal, got '%v'", data.Message)
 	}
 
+	// NullValue
 	val, err = NullValue.ConvertToNative(reflect.TypeOf(structpb.NullValue_NULL_VALUE))
 	if err != nil {
 		t.Error("Fail to convert Null to strcutpb.NullValue")

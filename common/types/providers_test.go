@@ -171,7 +171,7 @@ func TestNativeToValue(t *testing.T) {
 	parsedExpr := &expr.ParsedExpr{}
 	expectNativeToValue(t, parsedExpr, NewObject(parsedExpr))
 
-	// Any conversion test
+	// google.protobuf.Any conversion test
 	// NullValue
 	anyValue, err := NullValue.ConvertToNative(reflect.TypeOf(&any.Any{}))
 	if err != nil {

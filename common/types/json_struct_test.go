@@ -71,19 +71,15 @@ func TestJsonStruct_ConvertToNative_Any(t *testing.T) {
 		Fields:map[string]*structpb.Value{
 			"first":  {Kind:&structpb.Value_StringValue{"hello"}},
 			"second": {Kind:&structpb.Value_NumberValue{1}}}}
-
 	mapVal := NewJsonStruct(structVal)
-
 	anyVal, err := mapVal.ConvertToNative(reflect.TypeOf(&any.Any{}))
 	if err != nil {
 		t.Error(err)
 	}
-
 	unpackedAny := ptypes.DynamicAny{}
 	if ptypes.UnmarshalAny(anyVal.(*any.Any), &unpackedAny) != nil {
 		NewErr("Failed to unmarshal any")
 	}
-
 	if !proto.Equal(unpackedAny.Message, mapVal.Value().(proto.Message)) {
 		t.Error("Messages were not equal, got '%v'", unpackedAny.Message)
 	}

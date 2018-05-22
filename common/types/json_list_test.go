@@ -105,12 +105,10 @@ func TestJsonListValue_ConvertToNative_Any(t *testing.T) {
 	if err != nil{
 		t.Error(err)
 	}
-
 	unpackedAny := ptypes.DynamicAny{}
 	if ptypes.UnmarshalAny(anyVal.(*any.Any), &unpackedAny) != nil {
 		NewErr("Fail to unmarshal any")
 	}
-
 	if !proto.Equal(unpackedAny.Message,
 		list.Value().(proto.Message)) {
 		t.Errorf("Messages were not equal, got '%v'", unpackedAny.Message)
