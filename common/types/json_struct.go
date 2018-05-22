@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/struct"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
@@ -74,7 +73,7 @@ func (m *jsonStruct) ConvertToNative(refType reflect.Type) (interface{}, error) 
 		if refType == jsonStructType {
 			return m.Struct, nil
 		}
-		if refType == reflect.TypeOf(&any.Any{}) {
+		if refType == anyValueType {
 			return ptypes.MarshalAny(m.Value().(proto.Message))
 		}
 	}

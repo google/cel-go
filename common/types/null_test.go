@@ -24,7 +24,7 @@ func TestNull_ConvertToNative(t *testing.T) {
 	}
 
 	// google.protobuf.Any
-	val, err = NullValue.ConvertToNative(reflect.TypeOf(&any.Any{}))
+	val, err = NullValue.ConvertToNative(anyValueType)
 	if err != nil {
 		t.Error("Fail to convert Null to any.")
 	}

@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/struct"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
@@ -110,7 +109,7 @@ func TestValue_ConvertToNative(t *testing.T) {
 
 func TestNativeToValue_Any(t *testing.T) {
 	// NullValue
-	anyValue, err := NullValue.ConvertToNative(reflect.TypeOf(&any.Any{}))
+	anyValue, err := NullValue.ConvertToNative(anyValueType)
 	if err != nil {
 		t.Error(err)
 	}

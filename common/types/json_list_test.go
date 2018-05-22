@@ -101,7 +101,7 @@ func TestJsonListValue_ConvertToNative_Any(t *testing.T) {
 	list := NewJsonList(&structpb.ListValue{Values:[]*structpb.Value{
 		{Kind:&structpb.Value_StringValue{"hello"}},
 		{Kind:&structpb.Value_NumberValue{1}}}})
-	anyVal, err := list.ConvertToNative(reflect.TypeOf(&any.Any{}))
+	anyVal, err := list.ConvertToNative(anyValueType)
 	if err != nil{
 		t.Error(err)
 	}

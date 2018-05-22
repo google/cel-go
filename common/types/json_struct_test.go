@@ -72,7 +72,7 @@ func TestJsonStruct_ConvertToNative_Any(t *testing.T) {
 			"first":  {Kind:&structpb.Value_StringValue{"hello"}},
 			"second": {Kind:&structpb.Value_NumberValue{1}}}}
 	mapVal := NewJsonStruct(structVal)
-	anyVal, err := mapVal.ConvertToNative(reflect.TypeOf(&any.Any{}))
+	anyVal, err := mapVal.ConvertToNative(anyValueType)
 	if err != nil {
 		t.Error(err)
 	}

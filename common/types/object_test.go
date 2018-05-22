@@ -71,7 +71,7 @@ func TestProtoObj_ConvertToNative(t *testing.T) {
 	}
 
 	// google.protobuf.Any
-	anyVal, err := objVal.ConvertToNative(reflect.TypeOf(&any.Any{}))
+	anyVal, err := objVal.ConvertToNative(anyValueType)
 	if err != nil {
 		t.Error(err)
 	}
