@@ -62,11 +62,11 @@ func (e *Env) Add(decls ...*checked.Decl) {
 func (e *Env) addOverload(f *checked.Decl, overload *checked.Decl_FunctionDecl_Overload) {
 	function := f.GetFunction()
 	emptyMappings := newMapping()
-	overloadFunction := newFunction(overload.GetResultType(),
+	overloadFunction := decls.NewFunctionType(overload.GetResultType(),
 		overload.GetParams()...)
 	overloadErased := substitute(emptyMappings, overloadFunction, true)
 	for _, existing := range function.GetOverloads() {
-		existingFunction := newFunction(existing.GetResultType(),
+		existingFunction := decls.NewFunctionType(existing.GetResultType(),
 			existing.GetParams()...)
 		existingErased := substitute(emptyMappings, existingFunction, true)
 		overlap := isAssignable(emptyMappings, overloadErased, existingErased) != nil ||
@@ -129,7 +129,7 @@ func (e *Env) LookupIdent(container string, typeName string) *checked.Decl {
 		// the enum inside.
 		if enumValue := e.typeProvider.EnumValue(candidate); enumValue.Type() != types.ErrType {
 			decl := decls.NewIdent(candidate,
-				Int,
+				decls.Int,
 				&expr.Literal{
 					LiteralKind: &expr.Literal_Int64Value{
 						Int64Value: int64(enumValue.(types.Int))}})

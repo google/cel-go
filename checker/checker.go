@@ -109,31 +109,31 @@ func (c *checker) check(e *expr.Expr) {
 }
 
 func (c *checker) checkInt64Literal(e *expr.Expr) {
-	c.setType(e, Int)
+	c.setType(e, decls.Int)
 }
 
 func (c *checker) checkUint64Literal(e *expr.Expr) {
-	c.setType(e, Uint)
+	c.setType(e, decls.Uint)
 }
 
 func (c *checker) checkStringLiteral(e *expr.Expr) {
-	c.setType(e, String)
+	c.setType(e, decls.String)
 }
 
 func (c *checker) checkBytesLiteral(e *expr.Expr) {
-	c.setType(e, Bytes)
+	c.setType(e, decls.Bytes)
 }
 
 func (c *checker) checkDoubleLiteral(e *expr.Expr) {
-	c.setType(e, Double)
+	c.setType(e, decls.Double)
 }
 
 func (c *checker) checkBoolLiteral(e *expr.Expr) {
-	c.setType(e, Bool)
+	c.setType(e, decls.Bool)
 }
 
 func (c *checker) checkNullLiteral(e *expr.Expr) {
-	c.setType(e, Null)
+	c.setType(e, decls.Null)
 }
 
 func (c *checker) checkIdent(e *expr.Expr) {
@@ -144,7 +144,7 @@ func (c *checker) checkIdent(e *expr.Expr) {
 		return
 	}
 
-	c.setType(e, Error)
+	c.setType(e, decls.Error)
 	c.env.errors.undeclaredReference(c.location(e), c.container, identExpr.Name)
 }
 
@@ -157,7 +157,7 @@ func (c *checker) checkSelect(e *expr.Expr) {
 		if ident != nil {
 			if sel.TestOnly {
 				c.env.errors.expressionDoesNotSelectField(c.location(e))
-				c.setType(e, Bool)
+				c.setType(e, decls.Bool)
 			} else {
 				c.setType(e, ident.GetIdent().Type)
 				c.setReference(e,
@@ -170,11 +170,11 @@ func (c *checker) checkSelect(e *expr.Expr) {
 	// Interpret as field selection, first traversing down the operand.
 	c.check(sel.Operand)
 	targetType := c.getType(sel.Operand)
-	resultType := Error
+	resultType := decls.Error
 
 	switch kindOf(targetType) {
 	case kindError, kindDyn:
-		resultType = Dyn
+		resultType = decls.Dyn
 
 	case kindObject:
 		messageType := targetType
@@ -194,7 +194,7 @@ func (c *checker) checkSelect(e *expr.Expr) {
 	}
 
 	if sel.TestOnly {
-		resultType = Bool
+		resultType = decls.Bool
 	}
 
 	c.setType(e, resultType)
@@ -241,7 +241,7 @@ func (c *checker) checkCall(e *expr.Expr) {
 		c.setType(e, resolution.Type)
 		c.setReference(e, resolution.Reference)
 	} else {
-		c.setType(e, Error)
+		c.setType(e, decls.Error)
 	}
 }
 
@@ -266,12 +266,12 @@ func (c *checker) resolveOverload(
 			continue
 		}
 
-		overloadType := newFunction(overload.ResultType, overload.Params...)
+		overloadType := decls.NewFunctionType(overload.ResultType, overload.Params...)
 		if len(overload.TypeParams) > 0 {
 			// Instantiate overload's type with fresh type variables.
 			substitutions := newMapping()
 			for _, typePar := range overload.TypeParams {
-				substitutions.add(newTypeParam(typePar), c.newTypeVar())
+				substitutions.add(decls.NewTypeParamType(typePar), c.newTypeVar())
 			}
 
 			overloadType = substitute(substitutions, overloadType, false)
@@ -292,7 +292,7 @@ func (c *checker) resolveOverload(
 					false)
 			} else {
 				// More than one matching overload, narrow result type to DYN.
-				resultType = Dyn
+				resultType = decls.Dyn
 			}
 
 		}
@@ -300,7 +300,7 @@ func (c *checker) resolveOverload(
 
 	if resultType == nil {
 		c.env.errors.noMatchingOverload(loc, fn.Name, argTypes, target != nil)
-		resultType = Error
+		resultType = decls.Error
 		return nil
 	}
 
@@ -318,7 +318,7 @@ func (c *checker) checkCreateList(e *expr.Expr) {
 		// If the list is empty, assign free type var to elem type.
 		elemType = c.newTypeVar()
 	}
-	c.setType(e, newList(elemType))
+	c.setType(e, decls.NewListType(elemType))
 }
 
 func (c *checker) checkCreateStruct(e *expr.Expr) {
@@ -347,13 +347,13 @@ func (c *checker) checkCreateMap(e *expr.Expr) {
 		keyType = c.newTypeVar()
 		valueType = c.newTypeVar()
 	}
-	c.setType(e, newMap(keyType, valueType))
+	c.setType(e, decls.NewMapType(keyType, valueType))
 }
 
 func (c *checker) checkCreateMessage(e *expr.Expr) {
 	msgVal := e.GetStructExpr()
 	// Determine the type of the message.
-	messageType := Error
+	messageType := decls.Error
 	decl := c.env.LookupIdent(c.container, msgVal.MessageName)
 	if decl == nil {
 		c.env.errors.undeclaredReference(c.location(e), c.container, msgVal.MessageName)
@@ -370,7 +370,7 @@ func (c *checker) checkCreateMessage(e *expr.Expr) {
 			messageType = ident.Type.GetType()
 			if kindOf(messageType) != kindObject {
 				c.env.errors.notAMessageType(c.location(e), messageType)
-				messageType = Error
+				messageType = decls.Error
 			}
 		}
 	}
@@ -382,7 +382,7 @@ func (c *checker) checkCreateMessage(e *expr.Expr) {
 		value := ent.Value
 		c.check(value)
 
-		fieldType := Error
+		fieldType := decls.Error
 		if t, found := c.lookupFieldType(c.locationById(ent.Id), messageType, field); found {
 			fieldType = t.Type
 		}
@@ -407,7 +407,7 @@ func (c *checker) checkComprehension(e *expr.Expr) {
 		// Ranges over the keys.
 		varType = rangeType.GetMapType().KeyType
 	case kindDyn, kindError:
-		varType = Dyn
+		varType = decls.Dyn
 	default:
 		c.env.errors.notAComprehensionRange(c.location(comp.IterRange), rangeType)
 	}
@@ -418,7 +418,7 @@ func (c *checker) checkComprehension(e *expr.Expr) {
 	c.env.enterScope()
 	c.env.Add(decls.NewIdent(comp.IterVar, varType, nil))
 	c.check(comp.LoopCondition)
-	c.assertType(comp.LoopCondition, Bool)
+	c.assertType(comp.LoopCondition, decls.Bool)
 	c.check(comp.LoopStep)
 	c.assertType(comp.LoopStep, accuType)
 	// Forget iteration variable, as result expression must only depend on accu.
@@ -443,7 +443,7 @@ func (c *checker) joinTypes(loc common.Location, previous *checked.Type, current
 func (c *checker) newTypeVar() *checked.Type {
 	id := c.freeTypeVarCounter
 	c.freeTypeVarCounter++
-	return newTypeParam(fmt.Sprintf("_var%d", id))
+	return decls.NewTypeParamType(fmt.Sprintf("_var%d", id))
 }
 
 func (c *checker) isAssignable(t1 *checked.Type, t2 *checked.Type) bool {

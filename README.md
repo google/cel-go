@@ -68,9 +68,9 @@ if len(errors.GetErrors()) != 0 {
 // package (empty string):
 typeProvider := types.NewProvider()
 env := checker.NewStandardEnv(errors, typeProvider)
-env.Add(decls.NewIdent("a", checker.Bool),
-    decls.NewIdent("b", checker.Bool),
-    decls.NewIdent("c", checker.NewList(checker.Int)))
+env.Add(decls.NewIdent("a", decls.Bool),
+    decls.NewIdent("b", decls.Bool),
+    decls.NewIdent("c", decls.NewListType(decls.Int)))
 c := checker.Check(p, env, "") 
 if len(errors.GetErrors()) != 0 {
     return nil, fmt.Error(errors.ToDisplayString()))
