@@ -176,9 +176,11 @@ func StandardOverloads() []*Overload {
 
 		// In operator
 		{Operator: operators.In,
-			OperandTrait: traits.ContainerType,
 			Binary: func(lhs ref.Value, rhs ref.Value) ref.Value {
-				return lhs.(traits.Container).Contains(rhs)
+				if rhs.Type().HasTrait(traits.ContainerType) {
+					return rhs.(traits.Container).Contains(lhs)
+				}
+				return types.NewErr("no such overload")
 			}},
 
 		// Matches function

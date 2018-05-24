@@ -18,6 +18,7 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter/functions"
+	"github.com/google/cel-go/parser"
 	"github.com/google/cel-go/test"
 	expr "github.com/google/cel-spec/proto/v1/syntax"
 	"testing"
@@ -85,6 +86,19 @@ func TestInterpreter_ComprehensionExpr(t *testing.T) {
 		NewActivation(map[string]interface{}{}))
 	if result != types.True {
 		t.Errorf("Expected true, got: %v", result)
+	}
+}
+
+func TestInterpreter_InList(t *testing.T) {
+	parsed, err := parser.ParseText("1 in [1, 2, 3]")
+	if len(err.GetErrors()) != 0 {
+		t.Error(err)
+	}
+	prg := NewProgram(parsed.GetExpr(), parsed.GetSourceInfo(), "")
+	i := interpreter.NewInterpretable(prg)
+	res, _ := i.Eval(NewActivation(map[string]interface{}{}))
+	if res != types.True {
+		t.Error("Got '%v', wanted 'true'", res)
 	}
 }
 
