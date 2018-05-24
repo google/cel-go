@@ -54,6 +54,10 @@ func (o *protoObj) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	if typeDesc == anyValueType {
 		return ptypes.MarshalAny(o.Value().(proto.Message))
 	}
+	// If the object is already assignable to the desired type return it.
+	if reflect.TypeOf(o).AssignableTo(typeDesc) {
+		return o, nil
+	}
 	return nil, fmt.Errorf("type conversion error from '%v' to '%v'",
 		o.refValue.Type(), typeDesc)
 }

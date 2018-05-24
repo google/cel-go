@@ -55,6 +55,9 @@ func (b Bytes) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 			return b.Value(), nil
 		}
 	}
+	if reflect.TypeOf(b).AssignableTo(typeDesc) {
+		return b, nil
+	}
 	return nil, fmt.Errorf("type conversion error from Bytes to '%v'", typeDesc)
 }
 

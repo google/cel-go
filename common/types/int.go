@@ -51,6 +51,19 @@ func (i Int) Add(other ref.Value) ref.Value {
 	return i + other.(Int)
 }
 
+func (i Int) Compare(other ref.Value) ref.Value {
+	if IntType != other.Type() {
+		return NewErr("unsupported overload")
+	}
+	if i < other.(Int) {
+		return IntNegOne
+	}
+	if i > other.(Int) {
+		return IntOne
+	}
+	return IntZero
+}
+
 func (i Int) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	refKind := typeDesc.Kind()
 	switch refKind {
@@ -65,20 +78,10 @@ func (i Int) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 					NumberValue: float64(i)}}, nil
 		}
 	}
+	if reflect.TypeOf(i).AssignableTo(typeDesc) {
+		return i, nil
+	}
 	return nil, fmt.Errorf("unsupported type conversion from 'int' to %v", typeDesc)
-}
-
-func (i Int) Compare(other ref.Value) ref.Value {
-	if IntType != other.Type() {
-		return NewErr("unsupported overload")
-	}
-	if i < other.(Int) {
-		return IntNegOne
-	}
-	if i > other.(Int) {
-		return IntOne
-	}
-	return IntZero
 }
 
 func (i Int) ConvertToType(typeVal ref.Type) ref.Value {

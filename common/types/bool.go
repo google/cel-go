@@ -55,8 +55,12 @@ func (b Bool) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		return &structpb.Value{
 			Kind: &structpb.Value_BoolValue{
 				BoolValue: b.Value().(bool)}}, nil
-	} else if typeDesc.Kind() == reflect.Bool {
+	}
+	if typeDesc.Kind() == reflect.Bool {
 		return b.Value(), nil
+	}
+	if reflect.TypeOf(b).AssignableTo(typeDesc) {
+		return b, nil
 	}
 	return nil, fmt.Errorf("type conversion error from bool to '%v'", typeDesc)
 }

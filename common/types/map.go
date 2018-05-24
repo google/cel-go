@@ -142,7 +142,7 @@ func (m *baseMap) Get(key ref.Value) ref.Value {
 		return &Err{err}
 	}
 	nativeKeyVal := reflect.ValueOf(nativeKey)
-	if nativeKeyVal.Type() != thisKeyType {
+	if !nativeKeyVal.Type().AssignableTo(thisKeyType) {
 		return NewErr("no such key: '%v'", nativeKey)
 	}
 	value := m.refValue.MapIndex(nativeKeyVal)

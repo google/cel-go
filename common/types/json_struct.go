@@ -40,13 +40,13 @@ func (m *jsonStruct) Contains(index ref.Value) ref.Value {
 	return !Bool(IsError(m.Get(index)))
 }
 
-func (m *jsonStruct) ConvertToNative(refType reflect.Type) (interface{}, error) {
-	switch refType.Kind() {
+func (m *jsonStruct) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
+	switch typeDesc.Kind() {
 	case reflect.Map:
-		otherKey := refType.Key()
-		otherElem := refType.Elem()
-		if refType.Key().Kind() == reflect.String {
-			nativeMap := reflect.MakeMapWithSize(refType, int(m.Size().(Int)))
+		otherKey := typeDesc.Key()
+		otherElem := typeDesc.Elem()
+		if typeDesc.Key().Kind() == reflect.String {
+			nativeMap := reflect.MakeMapWithSize(typeDesc, int(m.Size().(Int)))
 			it := m.Iterator()
 			for it.HasNext() == True {
 				key := it.Next()
@@ -65,21 +65,25 @@ func (m *jsonStruct) ConvertToNative(refType reflect.Type) (interface{}, error) 
 			return nativeMap.Interface(), nil
 		}
 	case reflect.Ptr:
-		if refType == jsonValueType {
+		if typeDesc == jsonValueType {
 			return &structpb.Value{
 				Kind: &structpb.Value_StructValue{
 					StructValue: m.Struct}}, nil
 		}
-		if refType == jsonStructType {
+		if typeDesc == jsonStructType {
 			return m.Struct, nil
 		}
-		if refType == anyValueType {
+		if typeDesc == anyValueType {
 			return ptypes.MarshalAny(m.Value().(proto.Message))
 		}
 	}
+	// If the struct is already assignable to the desired type return it.
+	if reflect.TypeOf(m).AssignableTo(typeDesc) {
+		return m, nil
+	}
 	return nil, fmt.Errorf(
 		"no conversion found from map type to native type."+
-			" map type: google.protobuf.Struct, native type: %v", refType)
+			" map type: google.protobuf.Struct, native type: %v", typeDesc)
 }
 
 func (m *jsonStruct) ConvertToType(typeVal ref.Type) ref.Value {

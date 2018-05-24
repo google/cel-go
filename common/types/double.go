@@ -72,6 +72,9 @@ func (d Double) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 					NumberValue: float64(d)}}, nil
 		}
 	}
+	if reflect.TypeOf(d).AssignableTo(typeDesc) {
+		return d, nil
+	}
 	return nil, fmt.Errorf("type conversion error from Double to '%v'", typeDesc)
 }
 

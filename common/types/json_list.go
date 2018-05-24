@@ -62,14 +62,14 @@ func (l *jsonListValue) Contains(elem ref.Value) ref.Value {
 	return False
 }
 
-func (l *jsonListValue) ConvertToNative(refType reflect.Type) (interface{}, error) {
-	switch refType.Kind() {
+func (l *jsonListValue) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
+	switch typeDesc.Kind() {
 	case reflect.Array, reflect.Slice:
 		elemCount := int(l.Size().(Int))
-		nativeList := reflect.MakeSlice(refType, elemCount, elemCount)
+		nativeList := reflect.MakeSlice(typeDesc, elemCount, elemCount)
 		for i := 0; i < elemCount; i++ {
 			elem := l.Get(Int(i))
-			nativeElemVal, err := elem.ConvertToNative(refType.Elem())
+			nativeElemVal, err := elem.ConvertToNative(typeDesc.Elem())
 			if err != nil {
 				return nil, err
 			}
@@ -77,20 +77,24 @@ func (l *jsonListValue) ConvertToNative(refType reflect.Type) (interface{}, erro
 		}
 		return nativeList.Interface(), nil
 	case reflect.Ptr:
-		if refType == jsonValueType {
+		if typeDesc == jsonValueType {
 			return &structpb.Value{
 				Kind: &structpb.Value_ListValue{
 					ListValue: l.ListValue}}, nil
 		}
-		if refType == jsonListValueType {
+		if typeDesc == jsonListValueType {
 			return l.ListValue, nil
 		}
-		if refType == anyValueType {
+		if typeDesc == anyValueType {
 			return ptypes.MarshalAny(l.Value().(proto.Message))
 		}
 	}
+	// If the list is already assignable to the desired type return it.
+	if reflect.TypeOf(l).AssignableTo(typeDesc) {
+		return l, nil
+	}
 	return nil, fmt.Errorf("no conversion found from list type to native type."+
-		" list elem: google.protobuf.Value, native type: %v", refType)
+		" list elem: google.protobuf.Value, native type: %v", typeDesc)
 }
 
 func (l *jsonListValue) ConvertToType(typeVal ref.Type) ref.Value {

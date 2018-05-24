@@ -74,25 +74,30 @@ func (l *baseList) Contains(elem ref.Value) ref.Value {
 	return False
 }
 
-func (l *baseList) ConvertToNative(refType reflect.Type) (interface{}, error) {
+func (l *baseList) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	// JSON conversions are a special case since the 'native' type in this case
 	// actually a protocol buffer message rather than a list.
-	if refType == jsonValueType || refType == jsonListValueType {
+	if typeDesc == jsonValueType || typeDesc == jsonListValueType {
 		jsonValues, err :=
 			l.ConvertToNative(reflect.TypeOf([]*structpb.Value{}))
 		if err != nil {
 			return nil, err
 		}
 		jsonList := &structpb.ListValue{Values: jsonValues.([]*structpb.Value)}
-		if refType == jsonListValueType {
+		if typeDesc == jsonListValueType {
 			return jsonList, nil
 		}
 		return &structpb.Value{Kind: &structpb.Value_ListValue{ListValue: jsonList}}, nil
 	}
 
+	// If the list is already assignable to the desired type return it.
+	if reflect.TypeOf(l).AssignableTo(typeDesc) {
+		return l, nil
+	}
+
 	// Non-list conversion.
-	if refType.Kind() != reflect.Slice && refType.Kind() != reflect.Array {
-		return nil, fmt.Errorf("type conversion error from list to '%v'", refType)
+	if typeDesc.Kind() != reflect.Slice && typeDesc.Kind() != reflect.Array {
+		return nil, fmt.Errorf("type conversion error from list to '%v'", typeDesc)
 	}
 
 	// List conversion.
@@ -100,7 +105,7 @@ func (l *baseList) ConvertToNative(refType reflect.Type) (interface{}, error) {
 	thisElem := thisType.Elem()
 	thisElemKind := thisElem.Kind()
 
-	otherElem := refType.Elem()
+	otherElem := typeDesc.Elem()
 	otherElemKind := otherElem.Kind()
 	if otherElemKind == thisElemKind {
 		return l.value, nil
@@ -108,7 +113,7 @@ func (l *baseList) ConvertToNative(refType reflect.Type) (interface{}, error) {
 	// Allow the element ConvertToNative() function to determine whether
 	// conversion is possible.
 	elemCount := int(l.Size().(Int))
-	nativeList := reflect.MakeSlice(refType, elemCount, elemCount)
+	nativeList := reflect.MakeSlice(typeDesc, elemCount, elemCount)
 	for i := 0; i < elemCount; i++ {
 		elem := l.Get(Int(i))
 		nativeElemVal, err := elem.ConvertToNative(otherElem)
@@ -335,6 +340,10 @@ func (l *stringList) ConvertToNative(typeDesc reflect.Type) (interface{}, error)
 				Kind: &structpb.Value_ListValue{
 					ListValue: jsonList}}, nil
 		}
+	}
+	// If the list is already assignable to the desired type return it.
+	if reflect.TypeOf(l).AssignableTo(typeDesc) {
+		return l, nil
 	}
 	return nil, fmt.Errorf("no conversion found from list type to native type."+
 		" list elem: string, native type: %v", typeDesc)

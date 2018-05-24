@@ -60,6 +60,9 @@ func (s String) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 			Kind: &structpb.Value_StringValue{
 				StringValue: s.Value().(string)}}, nil
 	}
+	if reflect.TypeOf(s).AssignableTo(typeDesc) {
+		return s, nil
+	}
 	if typeDesc.Kind() != reflect.String {
 		return nil, fmt.Errorf(
 			"unsupported native conversion from string to '%v'", typeDesc)
