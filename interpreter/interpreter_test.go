@@ -89,6 +89,19 @@ func TestInterpreter_ComprehensionExpr(t *testing.T) {
 	}
 }
 
+func TestInterpreter_ConstantReturnValue(t *testing.T) {
+	parsed, err := parser.ParseText("1")
+	if len(err.GetErrors()) != 0 {
+		t.Error(err)
+	}
+	prg := NewProgram(parsed.GetExpr(), parsed.GetSourceInfo(), "")
+	i := interpreter.NewInterpretable(prg)
+	res, _ := i.Eval(NewActivation(map[string]interface{}{}))
+	if int64(res.(types.Int)) != int64(1) {
+		t.Error("Got '%v', wanted 1", res)
+	}
+}
+
 func TestInterpreter_InList(t *testing.T) {
 	parsed, err := parser.ParseText("1 in [1, 2, 3]")
 	if len(err.GetErrors()) != 0 {
