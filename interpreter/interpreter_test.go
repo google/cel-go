@@ -102,6 +102,19 @@ func TestInterpreter_InList(t *testing.T) {
 	}
 }
 
+func TestInterpreter_MapIndex(t *testing.T) {
+	parsed, err := parser.ParseText("{'a':1}['a']")
+	if len(err.GetErrors()) != 0 {
+		t.Error(err)
+	}
+	prg := NewProgram(parsed.GetExpr(), parsed.GetSourceInfo(), "")
+	i := interpreter.NewInterpretable(prg)
+	res, _ := i.Eval(NewActivation(map[string]interface{}{}))
+	if res != types.Int(1) {
+		t.Errorf("Got '%v', wanted 1", res)
+	}
+}
+
 func BenchmarkInterpreter_ConditionalExpr(b *testing.B) {
 	// a ? b < 1.0 : c == ["hello"]
 	program := NewProgram(

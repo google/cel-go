@@ -75,6 +75,9 @@ func (i Uint) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 					NumberValue: float64(i)}}, nil
 		}
 	}
+	if reflect.TypeOf(i).AssignableTo(typeDesc) {
+		return i, nil
+	}
 	return nil, fmt.Errorf("unsupported type conversion from 'uint' to %v", typeDesc)
 }
 

@@ -32,18 +32,21 @@ var (
 	NullValue = Null(structpb.NullValue_NULL_VALUE)
 )
 
-func (n Null) ConvertToNative(refType reflect.Type) (interface{}, error) {
-	if refType == jsonValueType {
+func (n Null) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
+	if typeDesc == jsonValueType {
 		return &structpb.Value{
 			Kind: &structpb.Value_NullValue{
 				NullValue: structpb.NullValue_NULL_VALUE}}, nil
 	}
-	if refType == anyValueType {
+	if typeDesc == anyValueType {
 		pb, err := n.ConvertToNative(jsonValueType)
 		if err != nil {
 			return nil, err
 		}
 		return ptypes.MarshalAny(pb.(proto.Message))
+	}
+	if reflect.TypeOf(n).AssignableTo(typeDesc) {
+		return n, nil
 	}
 	return structpb.NullValue_NULL_VALUE, nil
 }
