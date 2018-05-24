@@ -123,7 +123,11 @@ func (i *exprInterpretable) Eval(activation Activation) (interface{}, EvalState)
 			currActivation = currActivation.Parent()
 		}
 	}
-	return i.value(resultId), i.state
+	result := i.value(resultId)
+	if result == nil {
+		result, _ = i.state.OnlyValue()
+	}
+	return result, i.state
 }
 
 func (i *exprInterpretable) evalConst(constExpr *ConstExpr) {
