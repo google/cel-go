@@ -922,6 +922,19 @@ _&&_(_==_(list~type(list(int))^list,
 		`,
 		Type: Bool,
 	},
+
+	{
+		I: `1 in [1, 2, 3]`,
+		R: `_in_(
+    		  1~int,
+    		  [
+    		    1~int,
+    		    2~int,
+    		    3~int
+    		  ]~list(int)
+    		)~bool^in_list`,
+		Type: Bool,
+	},
 }
 
 var typeProvider = initTypeProvider()
