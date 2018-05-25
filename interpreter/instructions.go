@@ -69,7 +69,7 @@ type CallExpr struct {
 	Function string
 	Args     []int64
 	Overload string
-	Strict bool
+	Strict   bool
 }
 
 func (e *CallExpr) String() string {

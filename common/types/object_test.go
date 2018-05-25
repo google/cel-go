@@ -63,7 +63,7 @@ func TestProtoObj_ConvertToNative(t *testing.T) {
 
 	// Proto Message
 	val, err := objVal.ConvertToNative(reflect.TypeOf(&syntax.ParsedExpr{}))
-	if (err != nil) {
+	if err != nil {
 		t.Error(err)
 	}
 	if !proto.Equal(val.(proto.Message), pbMessage) {
