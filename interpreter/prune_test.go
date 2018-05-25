@@ -15,7 +15,6 @@
 package interpreter
 
 import (
-	"fmt"
 	"github.com/google/cel-go/common/debug"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/test"
@@ -106,10 +105,9 @@ var testCases = []testInfo{
 }
 
 func Test(t *testing.T) {
-	for i, tst := range testCases {
-		fmt.Printf("TestCase %d\n", i)
+	for _, tst := range testCases {
 		pExpr := &expr.ParsedExpr{Expr: tst.E}
-		program := NewProgram(pExpr.Expr, pExpr.SourceInfo, "")
+		program := NewProgram(pExpr.Expr, pExpr.SourceInfo)
 		interpretable := interpreter.NewInterpretable(program)
 		_, state := interpretable.Eval(
 			NewActivation(map[string]interface{}{}))

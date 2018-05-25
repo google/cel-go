@@ -96,4 +96,3 @@ func (s *defaultEvalState) Value(exprId int64) (ref.Value, bool) {
 	}
 	return nil, false
 }
-

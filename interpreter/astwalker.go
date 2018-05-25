@@ -271,7 +271,7 @@ func (w *astWalker) walkComprehension(node *expr.Expr) []Instruction {
 	// iter-range
 	rangeSteps := w.walk(comprehensionRange)
 
-	// Push Scope with the accumulator, iter var, and iterator
+	// Push Module with the accumulator, iter var, and iterator
 	iteratorId := w.nextExprId()
 	iterNextId := w.nextExprId()
 	iterSymId := w.nextSymId()

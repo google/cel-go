@@ -52,6 +52,7 @@ import(
     "fmt"
     "github.com/google/cel-go/checker"
     "github.com/google/cel-go/checker/decls"
+    "github.com/google/cel-go/common/packages"
     "github.com/google/cel-go/common/types"
     "github.com/google/cel-go/interpreter"
     "github.com/google/cel-go/parser"
@@ -67,7 +68,7 @@ if len(errors.GetErrors()) != 0 {
 // the identifiers a, b, c where the identifiers are scoped to the default
 // package (empty string):
 typeProvider := types.NewProvider()
-env := checker.NewStandardEnv(errors, typeProvider)
+env := checker.NewStandardEnv(packages.DefaultPackage, typeProvider, errors)
 env.Add(decls.NewIdent("a", decls.Bool),
     decls.NewIdent("b", decls.Bool),
     decls.NewIdent("c", decls.NewListType(decls.Int)))
@@ -77,8 +78,8 @@ if len(errors.GetErrors()) != 0 {
 }
 
 // Interpret the checked expression using the standard overloads.
-i := interpreter.NewStandardInterpreter(typeProvider)
-eval := i.NewInterpretable(interpreter.NewCheckedProgram(c, ""))
+i := interpreter.NewStandardInterpreter(packages.DefaultPackage, typeProvider)
+eval := i.NewInterpretable(interpreter.NewCheckedProgram(c))
 result, err := eval.Interpret(
     interpreter.NewActivation(
         map[string]interface{}{
