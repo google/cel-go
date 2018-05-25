@@ -36,7 +36,7 @@ type Interpreter interface {
 // data might be necessary to complete the evaluation.
 type Interpretable interface {
 	// Eval an Activation to produce an output and EvalState.
-	Eval(activation Activation) (interface{}, EvalState)
+	Eval(activation Activation) (ref.Value, EvalState)
 }
 
 type exprInterpreter struct {
@@ -82,7 +82,7 @@ type exprInterpretable struct {
 	state       MutableEvalState
 }
 
-func (i *exprInterpretable) Eval(activation Activation) (interface{}, EvalState) {
+func (i *exprInterpretable) Eval(activation Activation) (ref.Value, EvalState) {
 	// register machine-like evaluation of the program with the given activation.
 	currActivation := activation
 	stepper := i.program.Begin()
