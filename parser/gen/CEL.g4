@@ -132,6 +132,8 @@ fragment DIGIT  : '0'..'9' ;
 fragment LETTER : 'A'..'Z' | 'a'..'z' ;
 fragment HEXDIGIT : ('0'..'9'|'a'..'f'|'A'..'F') ;
 fragment OCTDIGIT : '0'..'7' ;
+
+// TODO: Ensure escape sequences mirror those supported in Google SQL.
 fragment ESC_SEQ
     : '\\' ~('0'..'9'|'a'..'f'|'A'..'F' | '\r' | '\n' | '\t' | 'u')
     | UNI_SEQ

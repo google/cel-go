@@ -483,9 +483,10 @@ func (p *parser) extractQualifiedName(e *expr.Expr) (string, bool) {
 }
 
 func (p *parser) unquote(ctx interface{}, value string) string {
-	if text, err := strconv.Unquote(value); err == nil {
-		return text
+	text, err := unescape(value)
+	if err != nil {
+		p.helper.reportError(ctx, err.Error())
+		return value
 	}
-	p.helper.reportError(ctx, "unable to unquote string")
-	return value
+	return text
 }

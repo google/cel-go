@@ -613,6 +613,7 @@ ERROR: <input>:1:6: Syntax error: mismatched input '<EOF>' expecting {'in', '[',
     		  "def"^#2:*syntax.Literal_StringValue#
     		)^#3:*syntax.Expr_CallExpr#`,
 	},
+
 	{
 		I: `{"a": 1}."a"`,
 		E: `ERROR: <input>:1:10: Syntax error: mismatched input '"a"' expecting IDENTIFIER

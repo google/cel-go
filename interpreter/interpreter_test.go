@@ -17,13 +17,14 @@ package interpreter
 import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cel-go/checker"
-	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/packages"
+	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/parser"
 	"github.com/google/cel-go/test"
 	expr "github.com/google/cel-spec/proto/v1/syntax"
+	"reflect"
 	"testing"
 )
 
@@ -133,7 +134,23 @@ func TestInterpreter_InList(t *testing.T) {
 	i := interpreter.NewInterpretable(prg)
 	res, _ := i.Eval(NewActivation(map[string]interface{}{}))
 	if res != types.True {
-		t.Error("Got '%v', wanted 'true'", res)
+		t.Errorf("Got '%v', wanted 'true'", res)
+	}
+}
+
+func TestInterpreter_BuildMap(t *testing.T) {
+	parsed, err := parser.ParseText("{'b': '''hi''', 'c': name}")
+	if len(err.GetErrors()) != 0 {
+		t.Error(err)
+	}
+	prg := NewProgram(parsed.GetExpr(), parsed.GetSourceInfo())
+	i := interpreter.NewInterpretable(prg)
+	res, _ := i.Eval(NewActivation(map[string]interface{}{"name": "tristan"}))
+	value, _ := res.(ref.Value).ConvertToNative(
+		reflect.TypeOf(map[string]string{}))
+	mapVal := value.(map[string]string)
+	if mapVal["b"] != "hi" || mapVal["c"] != "tristan" {
+		t.Errorf("Got '%v', expected map[b:hi c:tristan]", value)
 	}
 }
 
