@@ -80,7 +80,7 @@ if len(errors.GetErrors()) != 0 {
 // Interpret the checked expression using the standard overloads.
 i := interpreter.NewStandardInterpreter(packages.DefaultPackage, typeProvider)
 eval := i.NewInterpretable(interpreter.NewCheckedProgram(c))
-result, err := eval.Interpret(
+result, state := eval.Interpret(
     interpreter.NewActivation(
         map[string]interface{}{
             "a": false,
