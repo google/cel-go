@@ -39,7 +39,9 @@ func StandardDeclarations() []*checked.Decl {
 	}
 	idents = append(idents,
 		decls.NewIdent("list", decls.NewTypeType(listOfA), nil),
-		decls.NewIdent("map", decls.NewTypeType(mapOfAB), nil))
+		decls.NewIdent("map", decls.NewTypeType(mapOfAB), nil),
+		decls.NewIdent("null_type", decls.NewTypeType(decls.Null), nil),
+		decls.NewIdent("type", decls.NewTypeType(decls.NewTypeType(nil)), nil))
 
 	// Booleans
 	// TODO: allow the conditional to return a heterogenous type.

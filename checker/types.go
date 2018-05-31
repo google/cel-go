@@ -71,6 +71,9 @@ func FormatCheckedType(t *checked.Type) string {
 	case kindDyn:
 		return "dyn"
 	case kindType:
+		if t.GetType() == nil {
+			return "type"
+		}
 		return fmt.Sprintf("type(%s)", FormatCheckedType(t.GetType()))
 	case kindError:
 		return "!error!"
@@ -97,8 +100,6 @@ func isEqualOrLessSpecific(t1 *checked.Type, t2 *checked.Type) bool {
 	switch kind1 {
 	case kindObject, kindPrimitive, kindWellKnown, kindWrapper:
 		return proto.Equal(t1, t2)
-	case kindType:
-		return isEqualOrLessSpecific(t1.GetType(), t2.GetType())
 	case kindList:
 		return isEqualOrLessSpecific(t1.GetListType().ElemType, t2.GetListType().ElemType)
 	case kindMap:
@@ -150,11 +151,11 @@ func internalIsAssignable(m *mapping, t1 *checked.Type, t2 *checked.Type) bool {
 			if isEqualOrLessSpecific(t1, t2Sub) && notReferencedIn(t2, t1) {
 				m.add(t2, t1)
 				return true
-			} else {
-				// Continue regular process with the assignment for type2.
-				return internalIsAssignable(m, t1, t2Sub)
 			}
-		} else if notReferencedIn(t2, t1) {
+			// Continue regular process with the assignment for type2.
+			return internalIsAssignable(m, t1, t2Sub)
+		}
+		if notReferencedIn(t2, t1) {
 			m.add(t2, t1)
 			return true
 		}
@@ -166,7 +167,8 @@ func internalIsAssignable(m *mapping, t1 *checked.Type, t2 *checked.Type) bool {
 		// become if we generalize type unification.
 		if t1Sub, found := m.find(t1); found {
 			return internalIsAssignable(m, t1Sub, t2)
-		} else if notReferencedIn(t1, t2) {
+		}
+		if notReferencedIn(t1, t2) {
 			m.add(t1, t2)
 			return true
 		}
@@ -193,8 +195,6 @@ func internalIsAssignable(m *mapping, t1 *checked.Type, t2 *checked.Type) bool {
 	switch kind1 {
 	case kindPrimitive, kindWellKnown, kindObject:
 		return proto.Equal(t1, t2)
-	case kindType:
-		return internalIsAssignable(m, t1.GetType(), t2.GetType())
 	case kindList:
 		return internalIsAssignable(m, t1.GetListType().ElemType, t2.GetListType().ElemType)
 	case kindMap:
@@ -209,6 +209,10 @@ func internalIsAssignable(m *mapping, t1 *checked.Type, t2 *checked.Type) bool {
 		return internalIsAssignableList(m,
 			append(fn1.ArgTypes, fn1.ResultType),
 			append(fn2.ArgTypes, fn2.ResultType))
+	case kindType:
+		// A type is a type is a type, any additional parameterization of the
+		// type cannot affect method resolution or assignability.
+		return true
 	default:
 		return false
 	}
@@ -240,6 +244,9 @@ func isNullable(kind int) bool {
 }
 
 func kindOf(t *checked.Type) int {
+	if t == nil || t.TypeKind == nil {
+		return kindUnknown
+	}
 	switch t.TypeKind.(type) {
 	case *checked.Type_Error:
 		return kindError
@@ -291,7 +298,10 @@ func substitute(m *mapping, t *checked.Type, typeParamToDyn bool) *checked.Type 
 	}
 	switch kind {
 	case kindType:
-		return decls.NewTypeType(substitute(m, t.GetType(), typeParamToDyn))
+		if t.GetType() != nil {
+			return decls.NewTypeType(substitute(m, t.GetType(), typeParamToDyn))
+		}
+		return t
 	case kindList:
 		return decls.NewListType(substitute(m, t.GetListType().ElemType, typeParamToDyn))
 	case kindMap:
@@ -319,8 +329,6 @@ func notReferencedIn(t *checked.Type, withinType *checked.Type) bool {
 	switch withinKind {
 	case kindWrapper:
 		return notReferencedIn(t, decls.NewPrimitiveType(withinType.GetWrapper()))
-	case kindType:
-		return notReferencedIn(t, withinType.GetType())
 	case kindList:
 		return notReferencedIn(t, withinType.GetListType().ElemType)
 	case kindMap:
