@@ -254,7 +254,6 @@ func StandardDeclarations() []*checked.Decl {
 				[]*checked.Type{paramA, mapOfAB}, decls.Bool,
 				typeParamABList)),
 
-
 		// Deprecated 'in()' function
 
 		decls.NewFunction(overloads.DeprecatedIn,

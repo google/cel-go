@@ -18,6 +18,7 @@ import (
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/packages"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/parser"
 	"github.com/google/cel-spec/proto/checked/v1/checked"
@@ -26,24 +27,30 @@ import (
 
 type Env struct {
 	errors       *typeErrors
+	packager     packages.Packager
 	typeProvider ref.TypeProvider
 
 	declarations *decls.Scopes
 }
 
-func NewEnv(errors *common.Errors, typeProvider ref.TypeProvider) *Env {
+func NewEnv(packager packages.Packager,
+	typeProvider ref.TypeProvider,
+	errors *common.Errors) *Env {
 	declarations := decls.NewScopes()
 	declarations.Push()
 
 	return &Env{
 		errors:       &typeErrors{errors},
+		packager:     packager,
 		typeProvider: typeProvider,
 		declarations: declarations,
 	}
 }
 
-func NewStandardEnv(errors *common.Errors, typeProvider ref.TypeProvider) *Env {
-	e := NewEnv(errors, typeProvider)
+func NewStandardEnv(packager packages.Packager,
+	typeProvider ref.TypeProvider,
+	errors *common.Errors) *Env {
+	e := NewEnv(packager, typeProvider, errors)
 	e.Add(StandardDeclarations()...)
 	return e
 }
@@ -110,8 +117,8 @@ func (e *Env) addIdent(decl *checked.Decl) {
 	e.declarations.AddIdent(decl)
 }
 
-func (e *Env) LookupIdent(container string, typeName string) *checked.Decl {
-	for _, candidate := range qualifiedTypeNameCandidates(container, typeName) {
+func (e *Env) LookupIdent(typeName string) *checked.Decl {
+	for _, candidate := range e.packager.ResolveCandidateNames(typeName) {
 		if ident := e.declarations.FindIdent(candidate); ident != nil {
 			return ident
 		}
@@ -140,8 +147,8 @@ func (e *Env) LookupIdent(container string, typeName string) *checked.Decl {
 	return nil
 }
 
-func (e *Env) LookupFunction(container string, typeName string) *checked.Decl {
-	for _, candidate := range qualifiedTypeNameCandidates(container, typeName) {
+func (e *Env) LookupFunction(typeName string) *checked.Decl {
+	for _, candidate := range e.packager.ResolveCandidateNames(typeName) {
 		if fn := e.declarations.FindFunction(candidate); fn != nil {
 			return fn
 		}

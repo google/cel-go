@@ -21,6 +21,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/packages"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/parser"
 	"github.com/google/cel-go/test"
@@ -1007,7 +1008,8 @@ func Test(t *testing.T) {
 				return
 			}
 
-			env := NewEnv(errors, typeProvider)
+			pkg := packages.NewPackage(tst.Container)
+			env := NewEnv(pkg, typeProvider, errors)
 			env.Add(StandardDeclarations()...)
 
 			if tst.Env.idents != nil {
@@ -1021,7 +1023,7 @@ func Test(t *testing.T) {
 				}
 			}
 
-			semantics := Check(expression, env, tst.Container)
+			semantics := Check(expression, env)
 			if len(errors.GetErrors()) > 0 {
 				errorString := errors.ToDisplayString()
 				if tst.Error != "" {

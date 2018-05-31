@@ -30,7 +30,6 @@ import (
 
 type checker struct {
 	env                *Env
-	container          string
 	mappings           *mapping
 	freeTypeVarCounter int
 	sourceInfo         *expr.SourceInfo
@@ -39,10 +38,9 @@ type checker struct {
 	references map[int64]*checked.Reference
 }
 
-func Check(parsedExpr *expr.ParsedExpr, env *Env, container string) *checked.CheckedExpr {
+func Check(parsedExpr *expr.ParsedExpr, env *Env) *checked.CheckedExpr {
 	c := checker{
 		env:                env,
-		container:          container,
 		mappings:           newMapping(),
 		freeTypeVarCounter: 0,
 		sourceInfo:         parsedExpr.GetSourceInfo(),
@@ -138,22 +136,23 @@ func (c *checker) checkNullLiteral(e *expr.Expr) {
 
 func (c *checker) checkIdent(e *expr.Expr) {
 	identExpr := e.GetIdentExpr()
-	if ident := c.env.LookupIdent(c.container, identExpr.Name); ident != nil {
+	if ident := c.env.LookupIdent(identExpr.Name); ident != nil {
 		c.setType(e, ident.GetIdent().Type)
 		c.setReference(e, newIdentReference(ident.Name, ident.GetIdent().Value))
 		return
 	}
 
 	c.setType(e, decls.Error)
-	c.env.errors.undeclaredReference(c.location(e), c.container, identExpr.Name)
+	c.env.errors.undeclaredReference(
+		c.location(e), c.env.packager.Package(), identExpr.Name)
 }
 
 func (c *checker) checkSelect(e *expr.Expr) {
 	sel := e.GetSelectExpr()
 	// Before traversing down the tree, try to interpret as qualified name.
-	qname, found := asQualifiedName(e)
+	qname, found := toQualifiedName(e)
 	if found {
-		ident := c.env.LookupIdent(c.container, qname)
+		ident := c.env.LookupIdent(qname)
 		if ident != nil {
 			if sel.TestOnly {
 				c.env.errors.expressionDoesNotSelectField(c.location(e))
@@ -211,15 +210,16 @@ func (c *checker) checkCall(e *expr.Expr) {
 
 	if call.Target == nil {
 		// Regular static call with simple name.
-		if fn := c.env.LookupFunction(c.container, call.Function); fn != nil {
+		if fn := c.env.LookupFunction(call.Function); fn != nil {
 			resolution = c.resolveOverload(c.location(e), fn, nil, call.Args)
 		} else {
-			c.env.errors.undeclaredReference(c.location(e), c.container, call.Function)
+			c.env.errors.undeclaredReference(
+				c.location(e), c.env.packager.Package(), call.Function)
 		}
 	} else {
 		// Check whether the target is actually a qualified name for a static function.
-		if qname, found := asQualifiedName(call.Target); found {
-			fn := c.env.LookupFunction(c.container, qname+"."+call.Function)
+		if qname, found := toQualifiedName(call.Target); found {
+			fn := c.env.LookupFunction(qname + "." + call.Function)
 			if fn != nil {
 				resolution = c.resolveOverload(c.location(e), fn, nil, call.Args)
 			}
@@ -229,10 +229,11 @@ func (c *checker) checkCall(e *expr.Expr) {
 			// Regular instance call.
 			c.check(call.Target)
 
-			if fn := c.env.LookupFunction(c.container, call.Function); fn != nil {
+			if fn := c.env.LookupFunction(call.Function); fn != nil {
 				resolution = c.resolveOverload(c.location(e), fn, call.Target, call.Args)
 			} else {
-				c.env.errors.undeclaredReference(c.location(e), c.container, call.Function)
+				c.env.errors.undeclaredReference(
+					c.location(e), c.env.packager.Package(), call.Function)
 			}
 		}
 	}
@@ -354,9 +355,10 @@ func (c *checker) checkCreateMessage(e *expr.Expr) {
 	msgVal := e.GetStructExpr()
 	// Determine the type of the message.
 	messageType := decls.Error
-	decl := c.env.LookupIdent(c.container, msgVal.MessageName)
+	decl := c.env.LookupIdent(msgVal.MessageName)
 	if decl == nil {
-		c.env.errors.undeclaredReference(c.location(e), c.container, msgVal.MessageName)
+		c.env.errors.undeclaredReference(
+			c.location(e), c.env.packager.Package(), msgVal.MessageName)
 		return
 	}
 
@@ -546,4 +548,21 @@ func newIdentReference(name string, value *expr.Literal) *checked.Reference {
 
 func newFunctionReference(overloads ...string) *checked.Reference {
 	return &checked.Reference{OverloadId: overloads}
+}
+
+// Attempt to interpret an expression as a qualified name. This traverses select and getIdent
+// expression and returns the name they constitute, or null if the expression cannot be
+// interpreted like this.
+func toQualifiedName(e *expr.Expr) (string, bool) {
+	switch e.ExprKind.(type) {
+	case *expr.Expr_IdentExpr:
+		i := e.GetIdentExpr()
+		return i.Name, true
+	case *expr.Expr_SelectExpr:
+		s := e.GetSelectExpr()
+		if qname, found := toQualifiedName(s.Operand); found {
+			return qname + "." + s.Field, true
+		}
+	}
+	return "", false
 }
