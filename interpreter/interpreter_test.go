@@ -17,8 +17,8 @@ package interpreter
 import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cel-go/checker"
-	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/packages"
+	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/parser"

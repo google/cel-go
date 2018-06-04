@@ -60,17 +60,29 @@ func TestString_ConvertToNative_Error(t *testing.T) {
 func TestString_ConvertToNative_Json(t *testing.T) {
 	val, err := String("hello").ConvertToNative(jsonValueType)
 	pbVal := &structpb.Value{Kind: &structpb.Value_StringValue{"hello"}}
-	if err != nil ||
-		IsError(val) ||
-		!proto.Equal(val.(proto.Message), pbVal) {
-		t.Error("Error during conversion to json Value type", err, val)
+	if err != nil {
+		t.Error(err)
+	} else if !proto.Equal(val.(proto.Message), pbVal) {
+		t.Errorf("Got '%v', expected json Value type", val)
+	}
+}
+
+func TestString_ConvertToNative_Ptr(t *testing.T) {
+	ptrType := ""
+	val, err := String("hello").ConvertToNative(reflect.TypeOf(&ptrType))
+	if err != nil {
+		t.Error(err)
+	} else if *val.(*string) != "hello" {
+		t.Errorf("Got '%v', expected 'hello'", val)
 	}
 }
 
 func TestString_ConvertToNative_String(t *testing.T) {
 	val, err := String("hello").ConvertToNative(reflect.TypeOf(""))
-	if err != nil || val.(string) != "hello" {
-		t.Error("Got '%v', expected 'hello'", val)
+	if err != nil {
+		t.Error(err)
+	} else if val.(string) != "hello" {
+		t.Errorf("Got '%v', expected 'hello'", val)
 	}
 }
 

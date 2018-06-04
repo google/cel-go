@@ -42,8 +42,10 @@ func TestBool_Compare(t *testing.T) {
 func TestBool_ConvertToNative_Bool(t *testing.T) {
 	refType := reflect.TypeOf(true)
 	val, err := True.ConvertToNative(refType)
-	if err != nil || IsError(val) || !val.(bool) {
-		t.Error("Error during conversion to bool", err, val)
+	if err != nil {
+		t.Error(err)
+	} else if !val.(bool) {
+		t.Error("Error during conversion to bool", val)
 	}
 }
 
@@ -51,17 +53,28 @@ func TestBool_ConvertToNative_Error(t *testing.T) {
 	refType := reflect.TypeOf("")
 	val, err := True.ConvertToNative(refType)
 	if err == nil {
-		t.Error("Got '%v', expected error", val)
+		t.Errorf("Got '%v', expected error", val)
 	}
 }
 
 func TestBool_ConvertToNative_Json(t *testing.T) {
 	val, err := True.ConvertToNative(jsonValueType)
 	pbVal := &structpb.Value{Kind: &structpb.Value_BoolValue{true}}
-	if err != nil ||
-		IsError(val) ||
-		!proto.Equal(val.(proto.Message), pbVal) {
-		t.Error("Error during conversion to json Value type", err, val)
+	if err != nil {
+		t.Error(err)
+	} else if !proto.Equal(val.(proto.Message), pbVal) {
+		t.Error("Error during conversion to json Value type", val)
+	}
+}
+
+func TestBool_ConvertToNative_Ptr(t *testing.T) {
+	ptrType := true
+	refType := reflect.TypeOf(&ptrType)
+	val, err := True.ConvertToNative(refType)
+	if err != nil {
+		t.Error(err)
+	} else if !*val.(*bool) {
+		t.Error("Error during conversion to *bool", val)
 	}
 }
 

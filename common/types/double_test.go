@@ -56,14 +56,18 @@ func TestDouble_ConvertToNative_Error(t *testing.T) {
 
 func TestDouble_ConvertToNative_Float32(t *testing.T) {
 	val, err := Double(3.1415).ConvertToNative(reflect.TypeOf(float32(0)))
-	if err != nil || val.(float32) != 3.1415 {
+	if err != nil {
+		t.Error(err)
+	} else if val.(float32) != 3.1415 {
 		t.Errorf("Got '%v', wanted 3.1415", val)
 	}
 }
 
 func TestDouble_ConvertToNative_Float64(t *testing.T) {
 	val, err := Double(30000000.1).ConvertToNative(reflect.TypeOf(float64(0)))
-	if err != nil || val.(float64) != 30000000.1 {
+	if err != nil {
+		t.Error(err)
+	} else if val.(float64) != 30000000.1 {
 		t.Errorf("Got '%v', wanted 330000000.1", val)
 	}
 }
@@ -71,10 +75,30 @@ func TestDouble_ConvertToNative_Float64(t *testing.T) {
 func TestDouble_ConvertToNative_Json(t *testing.T) {
 	val, err := Double(-1.4).ConvertToNative(jsonValueType)
 	pbVal := &structpb.Value{Kind: &structpb.Value_NumberValue{-1.4}}
-	if err != nil ||
-		IsError(val) ||
-		!proto.Equal(val.(proto.Message), pbVal) {
-		t.Error("Error during conversion to json Value type", err, val)
+	if err != nil {
+		t.Error(err)
+	} else if !proto.Equal(val.(proto.Message), pbVal) {
+		t.Errorf("Got '%v', expected -1.4", val)
+	}
+}
+
+func TestDouble_ConvertToNative_Ptr_Float32(t *testing.T) {
+	ptrType := float32(0)
+	val, err := Double(3.1415).ConvertToNative(reflect.TypeOf(&ptrType))
+	if err != nil {
+		t.Error(err)
+	} else if *val.(*float32) != 3.1415 {
+		t.Errorf("Got '%v', wanted 3.1415", val)
+	}
+}
+
+func TestDouble_ConvertToNative_Ptr_Float64(t *testing.T) {
+	ptrType := float64(0)
+	val, err := Double(30000000.1).ConvertToNative(reflect.TypeOf(&ptrType))
+	if err != nil {
+		t.Error(err)
+	} else if *val.(*float64) != 30000000.1 {
+		t.Errorf("Got '%v', wanted 330000000.1", val)
 	}
 }
 

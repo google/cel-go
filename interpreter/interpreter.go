@@ -18,8 +18,8 @@
 package interpreter
 
 import (
-	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/packages"
+	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 	"github.com/google/cel-go/interpreter/functions"

@@ -46,8 +46,8 @@ func TestBytes_Compare(t *testing.T) {
 
 func TestBytes_ConvertToNative_ByteSlice(t *testing.T) {
 	val, err := Bytes("123").ConvertToNative(reflect.TypeOf([]byte{}))
-	if err != nil || IsError(val) || !bytes.Equal(val.([]byte), []byte{49, 50, 51}) {
-		t.Errorf("Got '%v', wanted []byte{49, 50, 51}", val)
+	if err != nil || !bytes.Equal(val.([]byte), []byte{49, 50, 51}) {
+		t.Error("Got unexpected value, wanted []byte{49, 50, 51}", err, val)
 	}
 }
 

@@ -56,24 +56,51 @@ func TestInt_ConvertToNative_Error(t *testing.T) {
 
 func TestInt_ConvertToNative_Int32(t *testing.T) {
 	val, err := Int(20050).ConvertToNative(reflect.TypeOf(int32(0)))
-	if err != nil || val.(int32) != 20050 {
-		t.Errorf("Got '%v', expected 20050", err)
+	if err != nil {
+		t.Error(err)
+	} else if val.(int32) != 20050 {
+		t.Errorf("Got '%v', expected 20050", val)
 	}
 }
 
 func TestInt_ConvertToNative_Int64(t *testing.T) {
 	// Value greater than max int32.
 	val, err := Int(4147483648).ConvertToNative(reflect.TypeOf(int64(0)))
-	if err != nil || val.(int64) != 4147483648 {
-		t.Errorf("Got '%v', expected 4147483648", err)
+	if err != nil {
+		t.Error(err)
+	} else if val.(int64) != 4147483648 {
+		t.Errorf("Got '%v', expected 4147483648", val)
 	}
 }
 
 func TestInt_ConvertToNative_Json(t *testing.T) {
 	val, err := Int(4147483648).ConvertToNative(jsonValueType)
-	if err != nil || !proto.Equal(val.(proto.Message),
+	if err != nil {
+		t.Error(err)
+	} else if !proto.Equal(val.(proto.Message),
 		&structpb.Value{Kind: &structpb.Value_NumberValue{NumberValue: 4147483648}}) {
-		t.Errorf("Got '%v', expected a json number")
+		t.Errorf("Got '%v', expected a json number", val)
+	}
+}
+
+func TestInt_ConvertToNative_Ptr_Int32(t *testing.T) {
+	ptrType := int32(0)
+	val, err := Int(20050).ConvertToNative(reflect.TypeOf(&ptrType))
+	if err != nil {
+		t.Error(err)
+	} else if *val.(*int32) != 20050 {
+		t.Errorf("Got '%v', expected 20050", val)
+	}
+}
+
+func TestInt_ConvertToNative_Ptr_Int64(t *testing.T) {
+	// Value greater than max int32.
+	ptrType := int64(0)
+	val, err := Int(4147483648).ConvertToNative(reflect.TypeOf(&ptrType))
+	if err != nil {
+		t.Error(err)
+	} else if *val.(*int64) != 4147483648 {
+		t.Errorf("Got '%v', expected 4147483648", val)
 	}
 }
 
