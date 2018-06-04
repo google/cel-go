@@ -20,8 +20,8 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cel-go/checker/decls"
-	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/packages"
+	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/parser"
 	"github.com/google/cel-go/test"
@@ -834,10 +834,10 @@ ERROR: <input>:1:5: undeclared reference to 'x' (in container '')
 	{
 		I: `list == type([1]) && map == type({1:2u})`,
 		R: `
-_&&_(_==_(list~type(list(int))^list,
+_&&_(_==_(list~type(list(dyn))^list,
            type([1~int]~list(int))~type(list(int))^type)
        ~bool^equals,
-      _==_(map~type(map(int, uint))^map,
+      _==_(map~type(map(dyn, dyn))^map,
             type({1~int : 2u~uint}~map(int, uint))~type(map(int, uint))^type)
         ~bool^equals)
   ~bool^logical_and
@@ -940,6 +940,28 @@ _&&_(_==_(list~type(list(int))^list,
     		    3~int
     		  ]~list(int)
     		)~bool^in_list`,
+		Type: decls.Bool,
+	},
+
+	{
+		I: `type(null) == null_type`,
+		R: `_==_(
+    		  type(
+    		    null~null
+    		  )~type(null)^type,
+    		  null_type~type(null)^null_type
+    		)~bool^equals`,
+		Type: decls.Bool,
+	},
+
+	{
+		I: `type(type) == type`,
+		R: `_==_(
+    		  type(
+    		    type~type(type)^type
+    		  )~type(type(type))^type,
+    		  type~type(type)^type
+    		)~bool^equals`,
 		Type: decls.Bool,
 	},
 }
