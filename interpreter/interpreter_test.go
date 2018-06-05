@@ -93,22 +93,32 @@ func TestInterpreter_ComprehensionExpr(t *testing.T) {
 }
 
 func TestInterpreter_BuildObject(t *testing.T) {
-	parsed, errors := parser.ParseText("v1.Expr{id: 1}")
+	parsed, errors := parser.ParseText("v1.Expr{id: 1, " +
+		"literal_expr: v1.Literal{string_value: \"oneof_test\"}}")
+	if len(errors.GetErrors()) != 0 {
+		t.Errorf(errors.ToDisplayString())
+	}
 
 	pkgr := packages.NewPackage("google.api.expr")
 	provider := types.NewProvider(&expr.Expr{})
 	env := checker.NewStandardEnv(pkgr, provider, errors)
 	checked := checker.Check(parsed, env)
+	if len(errors.GetErrors()) != 0 {
+		t.Errorf(errors.ToDisplayString())
+	}
 
 	i := NewStandardIntepreter(pkgr, provider)
 	eval := i.NewInterpretable(NewCheckedProgram(checked))
 	result, _ := eval.Eval(NewActivation(map[string]interface{}{}))
-	if !proto.Equal(
-		result.(ref.Value).Value().(proto.Message),
-		&expr.Expr{Id: 1}) {
+	expected := &expr.Expr{Id: 1,
+		ExprKind: &expr.Expr_LiteralExpr{
+			LiteralExpr: &expr.Literal{
+				LiteralKind: &expr.Literal_StringValue{
+					StringValue: "oneof_test"}}}}
+	if !proto.Equal(result.(ref.Value).Value().(proto.Message), expected) {
 		t.Errorf("Could not build object properly. Got '%v', wanted '%v'",
 			result.(ref.Value).Value(),
-			&expr.Expr{Id: 1})
+			expected)
 	}
 }
 

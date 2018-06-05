@@ -31,9 +31,9 @@ func TestTypeProvider_NewValue(t *testing.T) {
 	if sourceInfo := typeProvider.NewValue(
 		"google.api.expr.v1.SourceInfo",
 		map[string]ref.Value{
-			"Location":    String("TestTypeProvider_NewValue"),
-			"LineOffsets": NewDynamicList([]int64{0, 2}),
-			"Positions":   NewDynamicMap(map[int64]int64{1: 2, 2: 4}),
+			"location":     String("TestTypeProvider_NewValue"),
+			"line_offsets": NewDynamicList([]int64{0, 2}),
+			"positions":    NewDynamicMap(map[int64]int64{1: 2, 2: 4}),
 		}); IsError(sourceInfo) {
 		t.Error(sourceInfo)
 	} else {
@@ -42,6 +42,22 @@ func TestTypeProvider_NewValue(t *testing.T) {
 			!reflect.DeepEqual(info.LineOffsets, []int32{0, 2}) ||
 			!reflect.DeepEqual(info.Positions, map[int64]int32{1: 2, 2: 4}) {
 			t.Errorf("Source info not properly configured: %v", info)
+		}
+	}
+}
+
+func TestTypeProvider_NewValue_OneofFields(t *testing.T) {
+	typeProvider := NewProvider(&expr.ParsedExpr{})
+	if exp := typeProvider.NewValue(
+		"google.api.expr.v1.Expr",
+		map[string]ref.Value{
+			"literal_expr": NewObject(&expr.Literal{LiteralKind: &expr.Literal_StringValue{StringValue: "oneof"}}),
+		}); IsError(exp) {
+		t.Error(exp)
+	} else {
+		e := exp.Value().(*expr.Expr)
+		if e.GetLiteralExpr().GetStringValue() != "oneof" {
+			t.Errorf("Expr with oneof could not be created: %v", e)
 		}
 	}
 }

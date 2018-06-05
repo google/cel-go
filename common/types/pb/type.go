@@ -123,11 +123,11 @@ func (td *TypeDescription) getFieldsInfo() (map[string]*FieldDescription,
 			for _, oneofProp := range fieldProps.OneofTypes {
 				desc := fieldDescMap[oneofProp.Prop.OrigName]
 				fd := &FieldDescription{
-					desc:   desc,
-					index:  oneofProp.Field,
-					prop:   oneofProp.Prop,
-					oneof:  true,
-					proto3: isProto3}
+					desc:      desc,
+					index:     oneofProp.Field,
+					prop:      oneofProp.Prop,
+					oneofProp: oneofProp,
+					proto3:    isProto3}
 				td.fields[oneofProp.Prop.OrigName] = fd
 				td.fieldIndices[oneofProp.Field] = append(td.fieldIndices[oneofProp.Field], fd)
 			}
@@ -169,11 +169,11 @@ func (td *TypeDescription) getFieldsAtIndex(i int) []*FieldDescription {
 
 // FieldDescription holds metadata related to fields declared within a type.
 type FieldDescription struct {
-	desc   *descpb.FieldDescriptorProto
-	index  int
-	prop   *proto.Properties
-	oneof  bool
-	proto3 bool
+	desc      *descpb.FieldDescriptorProto
+	index     int
+	prop      *proto.Properties
+	oneofProp *proto.OneofProperties
+	proto3    bool
 }
 
 // CheckedType returns the type-definition used at type-check time.
@@ -215,7 +215,15 @@ func (fd *FieldDescription) IsEnum() bool {
 
 // IsOneof returns true if the field is declared within a oneof block.
 func (fd *FieldDescription) IsOneof() bool {
-	return fd.oneof
+	return fd.oneofProp != nil
+}
+
+// OneofType returns the reflect.Type value of a oneof field.
+//
+// Oneof field values are wrapped in a struct which contains one field whose
+// value is a proto.Message.
+func (fd *FieldDescription) OneofType() reflect.Type {
+	return fd.oneofProp.Type
 }
 
 // IsMap returns true if the field is of map type.
@@ -249,8 +257,7 @@ func (fd *FieldDescription) OrigName() string {
 	return fd.prop.OrigName
 }
 
-// Name returns the CamelCase name of the field within the proto generated
-// struct.
+// Name returns the CamelCase name of the field within the proto-based struct.
 func (fd *FieldDescription) Name() string {
 	return fd.prop.Name
 }
@@ -260,14 +267,15 @@ func (fd *FieldDescription) SupportsPresence() bool {
 	return !fd.IsRepeated() && (fd.IsMessage() || !fd.proto3)
 }
 
-// TypeName returns the type name of the field.
-func (fd *FieldDescription) TypeName() string {
-	return sanitizeProtoName(fd.desc.GetTypeName())
-}
-
+// String returns a proto-like field definition string.
 func (fd *FieldDescription) String() string {
 	return fmt.Sprintf("%s %s = %d `oneof=%t`",
 		fd.TypeName(), fd.OrigName(), fd.Index(), fd.IsOneof())
+}
+
+// TypeName returns the type name of the field.
+func (fd *FieldDescription) TypeName() string {
+	return sanitizeProtoName(fd.desc.GetTypeName())
 }
 
 func (fd *FieldDescription) typeDefToType() *checked.Type {

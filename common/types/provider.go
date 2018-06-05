@@ -134,20 +134,30 @@ func (p *protoTypeProvider) NewValue(typeName string,
 	pbValue := value.Elem()
 
 	// for all of the field names referenced, set the provided value.
-	for fieldName, fieldValue := range fields {
-		if fd, found := td.FieldByName(fieldName); found {
-			fieldName = fd.Name()
+	for name, value := range fields {
+		fd, found := td.FieldByName(name)
+		if !found {
+			return NewErr("no such field '%s'", name)
 		}
-		refField := pbValue.FieldByName(fieldName)
+		refField := pbValue.Field(fd.Index())
 		if !refField.IsValid() {
-			// TODO: fix the error message
-			return NewErr("no such field '%s'", fieldName)
+			return NewErr("no such field '%s'", name)
 		}
-		protoValue, err := fieldValue.ConvertToNative(refField.Type())
+
+		dstType := refField.Type()
+		// Oneof fields are defined with wrapper structs that have a single proto.Message
+		// field value. The oneof wrapper is not a proto.Message instance.
+		if fd.IsOneof() {
+			oneofVal := reflect.New(fd.OneofType().Elem())
+			refField.Set(oneofVal)
+			refField = oneofVal.Elem().Field(0)
+			dstType = refField.Type()
+		}
+		fieldValue, err := value.ConvertToNative(dstType)
 		if err != nil {
 			return &Err{err}
 		}
-		refField.Set(reflect.ValueOf(protoValue))
+		refField.Set(reflect.ValueOf(fieldValue))
 	}
 	return NewObject(value.Interface().(proto.Message))
 }
