@@ -14,8 +14,6 @@
 
 grammar CEL;
 
-// Note: grammar here should be rather final, but lexis is a moving target.
-
 // Grammar Rules
 // =============
 
@@ -93,11 +91,6 @@ literal
 // Lexer Rules
 // ===========
 
-// TODO(b/63180832): align implementation with spec at go/api-expr/langdef.md.
-//   At this point, it would be premature to do this as the spec is still a moving
-//   target. The current rules were c&p from some other code in google3, and are
-//   only approximative.
-
 EQUALS : '==';
 NOT_EQUALS : '!=';
 LESS : '<';
@@ -127,31 +120,35 @@ TRUE : 'true';
 FALSE : 'false';
 NULL : 'null';
 
-fragment EXPONENT : ('e' | 'E') ( '+' | '-' )? DIGIT+ ;
-fragment DIGIT  : '0'..'9' ;
+fragment BACKSLASH : '\\';
 fragment LETTER : 'A'..'Z' | 'a'..'z' ;
+fragment DIGIT  : '0'..'9' ;
+fragment EXPONENT : ('e' | 'E') ( '+' | '-' )? DIGIT+ ;
 fragment HEXDIGIT : ('0'..'9'|'a'..'f'|'A'..'F') ;
-fragment OCTDIGIT : '0'..'7' ;
+fragment RAW : 'r' | 'R';
 
-// TODO: Ensure escape sequences mirror those supported in Google SQL.
 fragment ESC_SEQ
-    : '\\' ~('0'..'9'|'a'..'f'|'A'..'F' | '\r' | '\n' | '\t' | 'u')
-    | UNI_SEQ
-    | OCT_SEQ
+    : ESC_CHAR_SEQ
+    | ESC_BYTE_SEQ
+    | ESC_UNI_SEQ
+    | ESC_OCT_SEQ
     ;
 
-fragment SPECIAL_ESC_CHAR
-    : ('b'|'t'|'n'|'f'|'r'|'\"'|'\''|'\\')
+fragment ESC_CHAR_SEQ
+    : BACKSLASH ('a'|'b'|'f'|'n'|'r'|'t'|'v'|'"'|'\''|'\\'|'?'|'`')
     ;
 
-fragment OCT_SEQ
-    : '\\' ('0'..'3') ('0'..'7') ('0'..'7')
-    | '\\' ('0'..'7') ('0'..'7')
-    | '\\' ('0'..'7')
+fragment ESC_OCT_SEQ
+    : BACKSLASH ('0'..'3') ('0'..'7') ('0'..'7')
     ;
 
-fragment UNI_SEQ
-    : '\\' 'u' HEXDIGIT HEXDIGIT HEXDIGIT HEXDIGIT
+fragment ESC_BYTE_SEQ
+    : BACKSLASH ( 'x' | 'X' ) HEXDIGIT HEXDIGIT
+    ;
+
+fragment ESC_UNI_SEQ
+    : BACKSLASH 'u' HEXDIGIT HEXDIGIT HEXDIGIT HEXDIGIT
+    | BACKSLASH 'U' HEXDIGIT HEXDIGIT HEXDIGIT HEXDIGIT HEXDIGIT HEXDIGIT HEXDIGIT HEXDIGIT
     ;
 
 WHITESPACE : ( '\t' | ' ' | '\r' | '\n'| '\u000C' )+ -> channel(HIDDEN) ;
@@ -173,8 +170,8 @@ NUM_UINT
    ;
 
 STRING
-  : '"' (ESC_SEQ | ~('"'|'\n'|'\r'))* '"'
-  | '\'' (ESC_SEQ | ~('\''|'\n'|'\r'))* '\''
+  : '"' (ESC_SEQ | ~('\\'|'"'|'\n'|'\r'))* '"'
+  | '\'' (ESC_SEQ | ~('\\'|'\''|'\n'|'\r'))* '\''
   | '"""' (ESC_SEQ | ~('\\'))*? '"""'
   | '\'\'\'' (ESC_SEQ | ~('\\'))*? '\'\'\''
   | RAW '"' ~('"'|'\n'|'\r')* '"'
@@ -182,8 +179,6 @@ STRING
   | RAW '"""' .*? '"""'
   | RAW '\'\'\'' .*? '\'\'\''
   ;
-
-fragment RAW : 'r' | 'R';
 
 BYTES : ('b' | 'B') STRING;
 

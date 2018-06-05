@@ -303,7 +303,7 @@ var testCases = []testInfo{
 ERROR: <input>:1:2: Syntax error: token recognition error at: '@'
  | *@a | b
  | .^
-ERROR: <input>:1:1: Syntax error: extraneous input '*' expecting {'in', '[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
+ERROR: <input>:1:1: Syntax error: extraneous input '*' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
  | *@a | b
  | ^
 ERROR: <input>:1:5: Syntax error: token recognition error at: '| '
@@ -496,7 +496,7 @@ ERROR: <input>:1:13: expected a qualified name
 ERROR: <input>:1:5: Syntax error: token recognition error at: '$'
  | 1 + $
  | ....^
-ERROR: <input>:1:6: Syntax error: mismatched input '<EOF>' expecting {'in', '[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
+ERROR: <input>:1:6: Syntax error: mismatched input '<EOF>' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
  | 1 + $
  | .....^
 `,
@@ -598,10 +598,10 @@ ERROR: <input>:1:7: argument must be a simple name
 	{
 		I: `1 + +`,
 		E: `
-ERROR: <input>:1:5: Syntax error: mismatched input '+' expecting {'in', '[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
+ERROR: <input>:1:5: Syntax error: mismatched input '+' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
  | 1 + +
  | ....^
-ERROR: <input>:1:6: Syntax error: mismatched input '<EOF>' expecting {'in', '[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
+ERROR: <input>:1:6: Syntax error: mismatched input '<EOF>' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
  | 1 + +
  | .....^
 		`,
@@ -619,6 +619,57 @@ ERROR: <input>:1:6: Syntax error: mismatched input '<EOF>' expecting {'in', '[',
 		E: `ERROR: <input>:1:10: Syntax error: mismatched input '"a"' expecting IDENTIFIER
              | {"a": 1}."a"
     		 | .........^`,
+	},
+
+	{
+		I: `"\xC3\XBF"`,
+		P: `"Ã¿"^#1:*syntax.Literal_StringValue#`,
+	},
+
+	{
+		I: `"\303\277"`,
+		P: `"Ã¿"^#1:*syntax.Literal_StringValue#`,
+	},
+
+	{
+		I: `"hi\u263A \u263Athere"`,
+		P: `"hi☺ ☺there"^#1:*syntax.Literal_StringValue#`,
+	},
+
+	{
+		I: `"\U000003A8\?"`,
+		P: `"Ψ?"^#1:*syntax.Literal_StringValue#`,
+	},
+
+	{
+		I: `"\a\b\f\n\r\t\v'\"\\\? Legal escapes"`,
+		P: `"\a\b\f\n\r\t\v'\"\\? Legal escapes"^#1:*syntax.Literal_StringValue#`,
+	},
+
+	{
+		I: `"\xFh"`,
+		E: `ERROR: <input>:1:1: Syntax error: token recognition error at: '"\xFh'
+    		 | "\xFh"
+    		 | ^
+    		ERROR: <input>:1:6: Syntax error: token recognition error at: '"'
+    		 | "\xFh"
+    		 | .....^
+    		ERROR: <input>:1:7: Syntax error: mismatched input '<EOF>' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
+    		 | "\xFh"
+    		 | ......^`,
+	},
+
+	{
+		I: `"\a\b\f\n\r\t\v\'\"\\\? Illegal escape \>"`,
+		E: `ERROR: <input>:1:1: Syntax error: token recognition error at: '"\a\b\f\n\r\t\v\'\"\\\? Illegal escape \>'
+    		 | "\a\b\f\n\r\t\v\'\"\\\? Illegal escape \>"
+    		 | ^
+    		ERROR: <input>:1:42: Syntax error: token recognition error at: '"'
+    		 | "\a\b\f\n\r\t\v\'\"\\\? Illegal escape \>"
+    		 | .........................................^
+    		ERROR: <input>:1:43: Syntax error: mismatched input '<EOF>' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
+    		 | "\a\b\f\n\r\t\v\'\"\\\? Illegal escape \>"
+    		 | ..........................................^`,
 	},
 }
 
