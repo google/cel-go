@@ -124,7 +124,8 @@ func TestUnescapeLegalEscapes(t *testing.T) {
 }
 
 func TestUnescapeIllegalEscapes(t *testing.T) {
-	text, err := unescape(`"\a\b\f\n\r\t\v\'\"\\\? Illegal escapes \>"`)
+	// The first escape sequences are legal, but the '\>' is not.
+	text, err := unescape(`"\a\b\f\n\r\t\v\'\"\\\? Illegal escape \>"`)
 	if err == nil {
 		t.Errorf("Got '%v', expected error", text)
 	}
