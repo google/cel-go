@@ -112,3 +112,21 @@ func TestUnescapeUnicodeSequence(t *testing.T) {
 		t.Errorf("Got '%v', wanted '%v'", text, `☺☺`)
 	}
 }
+
+func TestUnescapeLegalEscapes(t *testing.T) {
+	text, err := unescape(`"\a\b\f\n\r\t\v\'\"\\\? Legal escapes"`)
+	if err != nil {
+		t.Error(err)
+	}
+	if text != "\a\b\f\n\r\t\v'\"\\? Legal escapes" {
+		t.Errorf("Got '%v', wanted '%v'", text, "\a\b\f\n\r\t\v'\"\\? Legal escapes")
+	}
+}
+
+func TestUnescapeIllegalEscapes(t *testing.T) {
+	// The first escape sequences are legal, but the '\>' is not.
+	text, err := unescape(`"\a\b\f\n\r\t\v\'\"\\\? Illegal escape \>"`)
+	if err == nil {
+		t.Errorf("Got '%v', expected error", text)
+	}
+}
