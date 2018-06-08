@@ -17,8 +17,8 @@ package checker
 import (
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common"
-	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/packages"
+	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/parser"
 	"github.com/google/cel-spec/proto/checked/v1/checked"

@@ -73,7 +73,7 @@ func (t Timestamp) Compare(other ref.Value) ref.Value {
 }
 
 func (t Timestamp) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
-	if typeDesc == reflect.TypeOf(&tpb.Timestamp{}) {
+	if typeDesc == timestampValueType {
 		return t.Value(), nil
 	}
 	// If the timestamp is already assignable to the desired type return it.
@@ -164,6 +164,8 @@ func (t Timestamp) Value() interface{} {
 }
 
 var (
+	timestampValueType = reflect.TypeOf(&tpb.Timestamp{})
+
 	timestampZeroArgOverloads = map[string]func(time.Time) ref.Value{
 		overloads.TimeGetFullYear:     timestampGetFullYear,
 		overloads.TimeGetMonth:        timestampGetMonth,
