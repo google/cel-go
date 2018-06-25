@@ -41,7 +41,7 @@ func DescribeFile(message proto.Message) (*FileDescription, error) {
 	if fd, found := revFileDescriptorMap[proto.MessageName(message)]; found {
 		return fd, nil
 	}
-	fileDesc, _ := descriptor.ForMessage(message.(descriptor.Message))
+	fileDesc, _ := descpb.ForMessage(message.(descpb.Message))
 	fd, err := describeFileInternal(fileDesc)
 	if err != nil {
 		return nil, err
