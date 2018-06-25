@@ -15,7 +15,9 @@
 package types
 
 import (
+	"fmt"
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/google/cel-go/common/types/pb"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
@@ -46,7 +48,18 @@ func NewObject(value proto.Message) ref.Value {
 }
 
 func (o *protoObj) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
-	return o.value, nil
+	if typeDesc.AssignableTo(o.refValue.Type()) {
+		return o.value, nil
+	}
+	if typeDesc == anyValueType {
+		return ptypes.MarshalAny(o.Value().(proto.Message))
+	}
+	// If the object is already assignable to the desired type return it.
+	if reflect.TypeOf(o).AssignableTo(typeDesc) {
+		return o, nil
+	}
+	return nil, fmt.Errorf("type conversion error from '%v' to '%v'",
+		o.refValue.Type(), typeDesc)
 }
 
 func (o *protoObj) ConvertToType(typeVal ref.Type) ref.Value {

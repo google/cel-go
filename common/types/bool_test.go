@@ -1,6 +1,23 @@
+// Copyright 2018 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package types
 
 import (
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/struct"
+	"reflect"
 	"testing"
 )
 
@@ -22,6 +39,45 @@ func TestBool_Compare(t *testing.T) {
 	}
 }
 
+func TestBool_ConvertToNative_Bool(t *testing.T) {
+	refType := reflect.TypeOf(true)
+	val, err := True.ConvertToNative(refType)
+	if err != nil {
+		t.Error(err)
+	} else if !val.(bool) {
+		t.Error("Error during conversion to bool", val)
+	}
+}
+
+func TestBool_ConvertToNative_Error(t *testing.T) {
+	refType := reflect.TypeOf("")
+	val, err := True.ConvertToNative(refType)
+	if err == nil {
+		t.Errorf("Got '%v', expected error", val)
+	}
+}
+
+func TestBool_ConvertToNative_Json(t *testing.T) {
+	val, err := True.ConvertToNative(jsonValueType)
+	pbVal := &structpb.Value{Kind: &structpb.Value_BoolValue{true}}
+	if err != nil {
+		t.Error(err)
+	} else if !proto.Equal(val.(proto.Message), pbVal) {
+		t.Error("Error during conversion to json Value type", val)
+	}
+}
+
+func TestBool_ConvertToNative_Ptr(t *testing.T) {
+	ptrType := true
+	refType := reflect.TypeOf(&ptrType)
+	val, err := True.ConvertToNative(refType)
+	if err != nil {
+		t.Error(err)
+	} else if !*val.(*bool) {
+		t.Error("Error during conversion to *bool", val)
+	}
+}
+
 func TestBool_ConvertToType(t *testing.T) {
 	if !True.ConvertToType(StringType).Equal(String("true")).(Bool) {
 		t.Error("Boolean could not be converted to string")
@@ -33,7 +89,7 @@ func TestBool_ConvertToType(t *testing.T) {
 		t.Error("Boolean could not be converted to a type.")
 	}
 	if !IsError(True.ConvertToType(TimestampType)) {
-		t.Error("Conversion to unsupported type did not error.")
+		t.Error("Got value, expected error.")
 	}
 }
 

@@ -16,6 +16,7 @@ package types
 
 import (
 	"fmt"
+	"github.com/golang/protobuf/ptypes/struct"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 	"reflect"
@@ -61,12 +62,29 @@ func (i Uint) Compare(other ref.Value) ref.Value {
 
 func (i Uint) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	value := i.Value()
-	refKind := typeDesc.Kind()
-	switch refKind {
+	switch typeDesc.Kind() {
 	case reflect.Uint32:
 		return uint32(value.(uint64)), nil
 	case reflect.Uint64:
 		return value, nil
+	case reflect.Ptr:
+		if typeDesc == jsonValueType {
+			return &structpb.Value{
+				Kind: &structpb.Value_NumberValue{
+					NumberValue: float64(i)}}, nil
+		}
+		switch typeDesc.Elem().Kind() {
+		case reflect.Uint32:
+			p := uint32(i)
+			return &p, nil
+		case reflect.Uint64:
+			p := uint64(i)
+			return &p, nil
+		}
+	case reflect.Interface:
+		if reflect.TypeOf(i).Implements(typeDesc) {
+			return i, nil
+		}
 	}
 	return nil, fmt.Errorf("unsupported type conversion from 'uint' to %v", typeDesc)
 }

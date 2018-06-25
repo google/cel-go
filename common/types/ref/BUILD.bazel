@@ -8,6 +8,7 @@ go_library(
         "provider.go",
         "reference.go",
     ],
+    importpath = "github.com/google/cel-go/common/types/ref",
     deps = [
         "//io:checked_proto",
     ],

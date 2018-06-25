@@ -16,6 +16,7 @@ package types
 
 import (
 	"fmt"
+	"github.com/golang/protobuf/ptypes/struct"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 	"reflect"
@@ -41,13 +42,33 @@ var (
 )
 
 func (m *baseMap) Contains(index ref.Value) ref.Value {
-	if IsError(index) || IsUnknown(index) {
-		return index
-	}
-	return Bool(m.Get(index) != ErrType)
+	return !Bool(IsError(m.Get(index).Type()))
 }
 
 func (m *baseMap) ConvertToNative(refType reflect.Type) (interface{}, error) {
+	// JSON conversion.
+	if refType == jsonValueType || refType == jsonStructType {
+		jsonEntries, err :=
+			m.ConvertToNative(reflect.TypeOf(map[string]*structpb.Value{}))
+		if err != nil {
+			return nil, err
+		}
+		jsonMap := &structpb.Struct{
+			Fields: jsonEntries.(map[string]*structpb.Value)}
+		if refType == jsonStructType {
+			return jsonMap, nil
+		}
+		return &structpb.Value{
+			Kind: &structpb.Value_StructValue{
+				StructValue: jsonMap}}, nil
+	}
+
+	// Non-map conversion.
+	if refType.Kind() != reflect.Map {
+		return nil, fmt.Errorf("type conversion error from map to '%v'", refType)
+	}
+
+	// Map conversion.
 	thisType := m.refValue.Type()
 	thisKey := thisType.Key()
 	thisKeyKind := thisKey.Kind()
@@ -62,29 +83,24 @@ func (m *baseMap) ConvertToNative(refType reflect.Type) (interface{}, error) {
 	if otherKeyKind == thisKeyKind && otherElemKind == thisElemKind {
 		return m.value, nil
 	}
-	if otherKey.ConvertibleTo(thisKey) && otherElem.ConvertibleTo(thisElem) {
-		elemCount := m.Size().(Int)
-		nativeMap := reflect.MakeMapWithSize(refType, int(elemCount))
-		it := m.Iterator()
-		for it.HasNext() == True {
-			key := it.Next()
-			refKeyValue, err := key.ConvertToNative(otherKey)
-			if err != nil {
-				return nil, err
-			}
-			refElemValue, err := m.Get(key).ConvertToNative(otherElem)
-			if err != nil {
-				return nil, err
-			}
-			nativeMap.SetMapIndex(
-				reflect.ValueOf(refKeyValue),
-				reflect.ValueOf(refElemValue))
+	elemCount := m.Size().(Int)
+	nativeMap := reflect.MakeMapWithSize(refType, int(elemCount))
+	it := m.Iterator()
+	for it.HasNext() == True {
+		key := it.Next()
+		refKeyValue, err := key.ConvertToNative(otherKey)
+		if err != nil {
+			return nil, err
 		}
-		return nativeMap.Interface(), nil
+		refElemValue, err := m.Get(key).ConvertToNative(otherElem)
+		if err != nil {
+			return nil, err
+		}
+		nativeMap.SetMapIndex(
+			reflect.ValueOf(refKeyValue),
+			reflect.ValueOf(refElemValue))
 	}
-	return nil, fmt.Errorf(
-		"no conversion found from map type to native type."+
-			" map type: %v, native type: %v", thisType, refType)
+	return nativeMap.Interface(), nil
 }
 
 func (m *baseMap) ConvertToType(typeVal ref.Type) ref.Value {
@@ -110,7 +126,7 @@ func (m *baseMap) Equal(other ref.Value) ref.Value {
 		key := it.Next()
 		if otherVal := otherMap.Get(key); IsError(otherVal.Type()) {
 			return False
-		} else if thisVal := m.Get(key); IsError(thisVal) {
+		} else if thisVal := m.Get(key); IsError(thisVal.Type()) {
 			return False
 		} else if thisVal.Equal(otherVal) != True {
 			return False
@@ -126,7 +142,7 @@ func (m *baseMap) Get(key ref.Value) ref.Value {
 		return &Err{err}
 	}
 	nativeKeyVal := reflect.ValueOf(nativeKey)
-	if nativeKeyVal.Type() != thisKeyType {
+	if !nativeKeyVal.Type().AssignableTo(thisKeyType) {
 		return NewErr("no such key: '%v'", nativeKey)
 	}
 	value := m.refValue.MapIndex(nativeKeyVal)

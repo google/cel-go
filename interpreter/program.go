@@ -22,8 +22,7 @@ import (
 	"strings"
 )
 
-// Program contains instructions with some metadata and optionally run within
-// a container, e.g. module name or package name.
+// Program contains instructions and related metadata.
 type Program interface {
 	// Begin returns an InstructionStepper which iterates through the
 	// instructions. Each call to Begin() returns a stepper that starts
@@ -32,12 +31,8 @@ type Program interface {
 	// Note: Init() must be called prior to Begin().
 	Begin() InstructionStepper
 
-	// Container is the module or package name where the program is run. The
-	// container is used to resolve type names and identifiers.
-	Container() string
-
-	// GetInstruction returns the instruction at the given expression id.
-	GetInstruction(exprId int64) Instruction
+	// GetInstruction returns the instruction at the given runtime expression id.
+	GetInstruction(runtimeId int64) Instruction
 
 	// Init ensures that instructions have been properly initialized prior to
 	// beginning the execution of a program. The init step may optimize the
@@ -68,7 +63,6 @@ type InstructionStepper interface {
 }
 
 type exprProgram struct {
-	container       string
 	expression      *expr.Expr
 	instructions    []Instruction
 	metadata        Metadata
@@ -76,18 +70,16 @@ type exprProgram struct {
 }
 
 // NewCheckedProgram creates a Program from a checked CEL expression.
-func NewCheckedProgram(c *checked.CheckedExpr, container string) Program {
-	return NewProgram(c.Expr, c.SourceInfo, container)
+func NewCheckedProgram(c *checked.CheckedExpr) Program {
+	// TODO: take advantage of the type-check information.
+	return NewProgram(c.Expr, c.SourceInfo)
 }
 
-// NewProgram creates a Program from a CEL expression and source information
-// within the specified container.
+// NewProgram creates a Program from a CEL expression and source information.
 func NewProgram(expression *expr.Expr,
-	info *expr.SourceInfo,
-	container string) Program {
+	info *expr.SourceInfo) Program {
 	revInstructions := make(map[int64]int)
 	return &exprProgram{
-		container:       container,
 		expression:      expression,
 		revInstructions: revInstructions,
 		metadata:        newExprMetadata(info)}
@@ -100,12 +92,8 @@ func (p *exprProgram) Begin() InstructionStepper {
 	return &exprStepper{p, 0}
 }
 
-func (p *exprProgram) Container() string {
-	return p.container
-}
-
-func (p *exprProgram) GetInstruction(exprId int64) Instruction {
-	return p.instructions[p.revInstructions[exprId]]
+func (p *exprProgram) GetInstruction(runtimeId int64) Instruction {
+	return p.instructions[p.revInstructions[runtimeId]]
 }
 
 func (p *exprProgram) Init(dispatcher Dispatcher, state MutableEvalState) {
@@ -122,7 +110,7 @@ func (p *exprProgram) MaxInstructionId() int64 {
 	// combined with the number of comprehensions times two. Each comprehension
 	// introduces two generated ids (one for an iterator and one for current
 	// iterator value) once the program is initialized.
-	return maxId(p.expression) + comprehensionCount(p.expression) * 2
+	return maxId(p.expression) + comprehensionCount(p.expression)*2
 }
 
 func (p *exprProgram) Metadata() Metadata {

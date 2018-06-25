@@ -271,7 +271,7 @@ func (w *astWalker) walkComprehension(node *expr.Expr) []Instruction {
 	// iter-range
 	rangeSteps := w.walk(comprehensionRange)
 
-	// Push Scope with the accumulator, iter var, and iterator
+	// Push Module with the accumulator, iter var, and iterator
 	iteratorId := w.nextExprId()
 	iterNextId := w.nextExprId()
 	iterSymId := w.nextSymId()
@@ -420,6 +420,7 @@ func (w *astWalker) getId(expr *expr.Expr) int64 {
 	id := expr.GetId()
 	if ident := expr.GetIdentExpr(); ident != nil {
 		if altId, found := w.scope.ref(ident.Name); found {
+			w.state.SetRuntimeExpressionId(id, altId)
 			return altId
 		}
 	}
@@ -545,7 +546,7 @@ func maxId(node *expr.Expr) int64 {
 	case *expr.Expr_StructExpr:
 		str := node.GetStructExpr()
 		for _, entry := range str.Entries {
-			currId = maxInt(entry.Id, maxId(entry.GetMapKey()), maxId(entry.Value))
+			currId = maxInt(currId, entry.Id, maxId(entry.GetMapKey()), maxId(entry.Value))
 		}
 		return currId
 	case *expr.Expr_ComprehensionExpr:

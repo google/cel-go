@@ -1,6 +1,23 @@
+// Copyright 2018 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package types
 
 import (
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/struct"
+	"reflect"
 	"testing"
 )
 
@@ -26,7 +43,64 @@ func TestInt_Compare(t *testing.T) {
 		t.Error(("Comparison did not yield 0"))
 	}
 	if !IsError(gt.Compare(TypeType)) {
-		t.Error("Types not comparable")
+		t.Error("Got comparison value, expected error.")
+	}
+}
+
+func TestInt_ConvertToNative_Error(t *testing.T) {
+	val, err := Int(1).ConvertToNative(jsonStructType)
+	if err == nil {
+		t.Errorf("Got '%v', expected error", val)
+	}
+}
+
+func TestInt_ConvertToNative_Int32(t *testing.T) {
+	val, err := Int(20050).ConvertToNative(reflect.TypeOf(int32(0)))
+	if err != nil {
+		t.Error(err)
+	} else if val.(int32) != 20050 {
+		t.Errorf("Got '%v', expected 20050", val)
+	}
+}
+
+func TestInt_ConvertToNative_Int64(t *testing.T) {
+	// Value greater than max int32.
+	val, err := Int(4147483648).ConvertToNative(reflect.TypeOf(int64(0)))
+	if err != nil {
+		t.Error(err)
+	} else if val.(int64) != 4147483648 {
+		t.Errorf("Got '%v', expected 4147483648", val)
+	}
+}
+
+func TestInt_ConvertToNative_Json(t *testing.T) {
+	val, err := Int(4147483648).ConvertToNative(jsonValueType)
+	if err != nil {
+		t.Error(err)
+	} else if !proto.Equal(val.(proto.Message),
+		&structpb.Value{Kind: &structpb.Value_NumberValue{NumberValue: 4147483648}}) {
+		t.Errorf("Got '%v', expected a json number", val)
+	}
+}
+
+func TestInt_ConvertToNative_Ptr_Int32(t *testing.T) {
+	ptrType := int32(0)
+	val, err := Int(20050).ConvertToNative(reflect.TypeOf(&ptrType))
+	if err != nil {
+		t.Error(err)
+	} else if *val.(*int32) != 20050 {
+		t.Errorf("Got '%v', expected 20050", val)
+	}
+}
+
+func TestInt_ConvertToNative_Ptr_Int64(t *testing.T) {
+	// Value greater than max int32.
+	ptrType := int64(0)
+	val, err := Int(4147483648).ConvertToNative(reflect.TypeOf(&ptrType))
+	if err != nil {
+		t.Error(err)
+	} else if *val.(*int64) != 4147483648 {
+		t.Errorf("Got '%v', expected 4147483648", val)
 	}
 }
 
@@ -45,6 +119,9 @@ func TestInt_ConvertToType(t *testing.T) {
 	}
 	if !Int(-4).ConvertToType(TypeType).Equal(IntType).(Bool) {
 		t.Error("Unsuccessful type conversion to type")
+	}
+	if !IsError(Int(-4).ConvertToType(DurationType)) {
+		t.Error("Got duration, expected error.")
 	}
 }
 

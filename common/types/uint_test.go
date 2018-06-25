@@ -1,6 +1,22 @@
+// Copyright 2018 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package types
 
 import (
+	"github.com/golang/protobuf/ptypes/struct"
+	"reflect"
 	"testing"
 )
 
@@ -30,6 +46,42 @@ func TestUint_Compare(t *testing.T) {
 	}
 }
 
+func TestUint_ConvertToNative_Error(t *testing.T) {
+	val, err := Uint(10000).ConvertToNative(reflect.TypeOf(int(0)))
+	if err == nil {
+		t.Errorf("Got '%v', expected error", val)
+	}
+}
+
+func TestUint_ConvertToNative_Json(t *testing.T) {
+	val, err := Uint(10000).ConvertToNative(jsonValueType)
+	if err != nil {
+		t.Error(err)
+	} else if val.(*structpb.Value).GetNumberValue() != 10000. {
+		t.Errorf("Error converting uint to json number. Got '%v', expected 10000.", val)
+	}
+}
+
+func TestUint_ConvertToNative_Ptr_Uint32(t *testing.T) {
+	ptrType := uint32(0)
+	val, err := Uint(10000).ConvertToNative(reflect.TypeOf(&ptrType))
+	if err != nil {
+		t.Error(err)
+	} else if *val.(*uint32) != uint32(10000) {
+		t.Errorf("Error converting uint to *uint32. Got '%v', expected 10000.", val)
+	}
+}
+
+func TestUint_ConvertToNative_Ptr_Uint64(t *testing.T) {
+	ptrType := uint64(0)
+	val, err := Uint(18446744073709551612).ConvertToNative(reflect.TypeOf(&ptrType))
+	if err != nil {
+		t.Error(err)
+	} else if *val.(*uint64) != uint64(18446744073709551612) {
+		t.Errorf("Error converting uint to *uint64. Got '%v', expected 18446744073709551612.", val)
+	}
+}
+
 func TestUint_ConvertToType(t *testing.T) {
 	if !Uint(18446744073709551612).ConvertToType(IntType).Equal(Int(-4)).(Bool) {
 		t.Error("Unsuccessful type conversion to int")
@@ -45,6 +97,9 @@ func TestUint_ConvertToType(t *testing.T) {
 	}
 	if !Uint(4).ConvertToType(TypeType).Equal(UintType).(Bool) {
 		t.Error("Unsuccessful type conversion to type")
+	}
+	if !IsError(Uint(4).ConvertToType(MapType)) {
+		t.Error("Unsupported uint type conversion resulted in value")
 	}
 }
 

@@ -7,14 +7,16 @@ go_library(
         "helper.go",
         "macro.go",
         "parser.go",
+        "unescape.go",
     ],
+    importpath = "github.com/google/cel-go/parser",
     deps = [
         "//io:syntax_proto",
         "//common:go_default_library",
         "//common/operators:go_default_library",
         "//parser/gen:go_default_library",
         "@com_github_antlr//runtime/Go/antlr:go_default_library",
-        "@com_github_golang_protobuf//ptypes/struct:go_default_library",
+        "@io_bazel_rules_go//proto/wkt:struct_go_proto",
     ],
     visibility = ["//visibility:public"],
 )
@@ -25,6 +27,7 @@ go_test(
     size = "small",
     srcs = [
         "parser_test.go",
+        "unescape_test.go",
     ],
     embed = [
         ":go_default_library",

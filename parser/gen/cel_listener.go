@@ -1,18 +1,4 @@
-// Copyright 2018 Google LLC
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-// Generated from /Users/ozben/go/src/celgo/bin/../parser/gen/CEL.g4 by ANTLR 4.7.
+// Generated from /Users/tswadell/lace/go/src/github.com/google/cel-go/bin/../parser/gen/CEL.g4 by ANTLR 4.7.
 
 package gen // CEL
 import "github.com/antlr/antlr4/runtime/Go/antlr"
@@ -62,9 +48,6 @@ type CELListener interface {
 
 	// EnterIdentOrGlobalCall is called when entering the IdentOrGlobalCall production.
 	EnterIdentOrGlobalCall(c *IdentOrGlobalCallContext)
-
-	// EnterDeprecatedIn is called when entering the DeprecatedIn production.
-	EnterDeprecatedIn(c *DeprecatedInContext)
 
 	// EnterNested is called when entering the Nested production.
 	EnterNested(c *NestedContext)
@@ -152,9 +135,6 @@ type CELListener interface {
 
 	// ExitIdentOrGlobalCall is called when exiting the IdentOrGlobalCall production.
 	ExitIdentOrGlobalCall(c *IdentOrGlobalCallContext)
-
-	// ExitDeprecatedIn is called when exiting the DeprecatedIn production.
-	ExitDeprecatedIn(c *DeprecatedInContext)
 
 	// ExitNested is called when exiting the Nested production.
 	ExitNested(c *NestedContext)

@@ -16,6 +16,8 @@ package types
 
 import (
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/timestamp"
@@ -132,20 +134,30 @@ func (p *protoTypeProvider) NewValue(typeName string,
 	pbValue := value.Elem()
 
 	// for all of the field names referenced, set the provided value.
-	for fieldName, fieldValue := range fields {
-		if fd, found := td.FieldByName(fieldName); found {
-			fieldName = fd.Name()
+	for name, value := range fields {
+		fd, found := td.FieldByName(name)
+		if !found {
+			return NewErr("no such field '%s'", name)
 		}
-		refField := pbValue.FieldByName(fieldName)
+		refField := pbValue.Field(fd.Index())
 		if !refField.IsValid() {
-			// TODO: fix the error message
-			return NewErr("no such field '%s'", fieldName)
+			return NewErr("no such field '%s'", name)
 		}
-		protoValue, err := fieldValue.ConvertToNative(refField.Type())
+
+		dstType := refField.Type()
+		// Oneof fields are defined with wrapper structs that have a single proto.Message
+		// field value. The oneof wrapper is not a proto.Message instance.
+		if fd.IsOneof() {
+			oneofVal := reflect.New(fd.OneofType().Elem())
+			refField.Set(oneofVal)
+			refField = oneofVal.Elem().Field(0)
+			dstType = refField.Type()
+		}
+		fieldValue, err := value.ConvertToNative(dstType)
 		if err != nil {
 			return &Err{err}
 		}
-		refField.Set(reflect.ValueOf(protoValue))
+		refField.Set(reflect.ValueOf(fieldValue))
 	}
 	return NewObject(value.Interface().(proto.Message))
 }
@@ -162,8 +174,6 @@ func NativeToValue(value interface{}) ref.Value {
 	switch value.(type) {
 	case ref.Value:
 		return value.(ref.Value)
-	case structpb.NullValue:
-		return Null(value.(structpb.NullValue))
 	case bool:
 		return Bool(value.(bool))
 	case int:
@@ -190,8 +200,37 @@ func NativeToValue(value interface{}) ref.Value {
 		return NewStringList(value.([]string))
 	case *duration.Duration:
 		return Duration{value.(*duration.Duration)}
+	case *structpb.ListValue:
+		return NewJsonList(value.(*structpb.ListValue))
+	case structpb.NullValue:
+		return NullValue
+	case *structpb.Struct:
+		return NewJsonStruct(value.(*structpb.Struct))
+	case *structpb.Value:
+		v := value.(*structpb.Value)
+		switch v.Kind.(type) {
+		case *structpb.Value_BoolValue:
+			return NativeToValue(v.GetBoolValue())
+		case *structpb.Value_ListValue:
+			return NativeToValue(v.GetListValue())
+		case *structpb.Value_NullValue:
+			return NullValue
+		case *structpb.Value_NumberValue:
+			return NativeToValue(v.GetNumberValue())
+		case *structpb.Value_StringValue:
+			return NativeToValue(v.GetStringValue())
+		case *structpb.Value_StructValue:
+			return NativeToValue(v.GetStructValue())
+		}
 	case *timestamp.Timestamp:
 		return Timestamp{value.(*timestamp.Timestamp)}
+	case *any.Any:
+		val := value.(*any.Any)
+		unpackedAny := ptypes.DynamicAny{}
+		if ptypes.UnmarshalAny(val, &unpackedAny) != nil {
+			NewErr("Fail to unmarshal any.")
+		}
+		return NativeToValue(unpackedAny.Message)
 	case proto.Message:
 		return NewObject(value.(proto.Message))
 	default:

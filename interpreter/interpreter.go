@@ -18,6 +18,7 @@
 package interpreter
 
 import (
+	"github.com/google/cel-go/common/packages"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
@@ -35,29 +36,34 @@ type Interpreter interface {
 // data might be necessary to complete the evaluation.
 type Interpretable interface {
 	// Eval an Activation to produce an output and EvalState.
-	Eval(activation Activation) (interface{}, EvalState)
+	Eval(activation Activation) (ref.Value, EvalState)
 }
 
 type exprInterpreter struct {
 	dispatcher   Dispatcher
+	packager     packages.Packager
 	typeProvider ref.TypeProvider
 }
 
 // NewInterpreter builds an Interpreter from a Dispatcher and TypeProvider
 // which will be used throughout the Eval of all Interpretable instances
 // gerenated from it.
-func NewInterpreter(dispatcher Dispatcher, typeProvider ref.TypeProvider) Interpreter {
+func NewInterpreter(dispatcher Dispatcher,
+	packager packages.Packager,
+	typeProvider ref.TypeProvider) Interpreter {
 	return &exprInterpreter{
 		dispatcher:   dispatcher,
+		packager:     packager,
 		typeProvider: typeProvider}
 }
 
 // StandardInterpreter builds a Dispatcher and TypeProvider with support
 // for all of the CEL builtins defined in the language definition.
-func NewStandardIntepreter(typeProvider ref.TypeProvider) Interpreter {
+func NewStandardIntepreter(packager packages.Packager,
+	typeProvider ref.TypeProvider) Interpreter {
 	dispatcher := NewDispatcher()
 	dispatcher.Add(functions.StandardOverloads()...)
-	return NewInterpreter(dispatcher, typeProvider)
+	return NewInterpreter(dispatcher, packager, typeProvider)
 }
 
 func (i *exprInterpreter) NewInterpretable(program Program) Interpretable {
@@ -76,7 +82,7 @@ type exprInterpretable struct {
 	state       MutableEvalState
 }
 
-func (i *exprInterpretable) Eval(activation Activation) (interface{}, EvalState) {
+func (i *exprInterpretable) Eval(activation Activation) (ref.Value, EvalState) {
 	// register machine-like evaluation of the program with the given activation.
 	currActivation := activation
 	stepper := i.program.Begin()
@@ -123,7 +129,11 @@ func (i *exprInterpretable) Eval(activation Activation) (interface{}, EvalState)
 			currActivation = currActivation.Parent()
 		}
 	}
-	return i.value(resultId), i.state
+	result := i.value(resultId)
+	if result == nil {
+		result, _ = i.state.OnlyValue()
+	}
+	return result, i.state
 }
 
 func (i *exprInterpretable) evalConst(constExpr *ConstExpr) {
@@ -164,45 +174,53 @@ func (i *exprInterpretable) resolveUnknown(unknown types.Unknown,
 	currActivation Activation) {
 	if object, found := currActivation.ResolveReference(selExpr.Id); found {
 		i.setValue(selExpr.Id, object)
-	} else {
-		validIdent := true
-		identifier := selExpr.Field
-		for _, arg := range unknown {
-			inst := i.program.GetInstruction(arg)
-			switch inst.(type) {
-			case *IdentExpr:
-				identifier = inst.(*IdentExpr).Name + "." + identifier
-			case *SelectExpr:
-				identifier = inst.(*SelectExpr).Field + "." + identifier
-			default:
-				argVal := i.value(arg)
-				if argVal.Type() == types.StringType {
-					identifier = string(argVal.(types.String)) + "." + identifier
-				} else {
-					validIdent = false
-					break
-				}
-			}
-		}
-		if validIdent {
-			if i.program.Container() != "" {
-				identifier = i.program.Container() + "." + identifier
-			}
-			if object, found := currActivation.ResolveName(identifier); found {
-				i.setValue(selExpr.Id, object)
-			} else if identVal, found := i.interpreter.typeProvider.FindIdent(identifier); found {
-				i.setValue(selExpr.Id, identVal)
+		return
+	}
+	validIdent := true
+	identifier := selExpr.Field
+	for _, arg := range unknown {
+		inst := i.program.GetInstruction(arg)
+		switch inst.(type) {
+		case *IdentExpr:
+			identifier = inst.(*IdentExpr).Name + "." + identifier
+		case *SelectExpr:
+			identifier = inst.(*SelectExpr).Field + "." + identifier
+		default:
+			argVal := i.value(arg)
+			if argVal.Type() == types.StringType {
+				identifier = string(argVal.(types.String)) + "." + identifier
 			} else {
-				i.setValue(selExpr.Id, append(types.Unknown{selExpr.Id}, unknown...))
+				validIdent = false
+				break
 			}
 		}
 	}
+	if !validIdent {
+		return
+	}
+	pkg := i.interpreter.packager
+	tp := i.interpreter.typeProvider
+	for _, id := range pkg.ResolveCandidateNames(identifier) {
+		if object, found := currActivation.ResolveName(id); found {
+			i.setValue(selExpr.Id, object)
+			return
+		}
+		if identVal, found := tp.FindIdent(id); found {
+			i.setValue(selExpr.Id, identVal)
+			return
+		}
+	}
+	i.setValue(selExpr.Id, append(types.Unknown{selExpr.Id}, unknown...))
 }
 
 func (i *exprInterpretable) evalCall(callExpr *CallExpr, currActivation Activation) {
 	argVals := make([]ref.Value, len(callExpr.Args), len(callExpr.Args))
 	for idx, argId := range callExpr.Args {
 		argVals[idx] = i.value(argId)
+		if callExpr.Strict && (types.IsError(argVals[idx]) || types.IsUnknown(argVals[idx])) {
+			i.setValue(callExpr.GetId(), argVals[idx])
+			return
+		}
 	}
 	ctx := &CallContext{
 		call:       callExpr,
@@ -217,7 +235,7 @@ func (i *exprInterpretable) evalCreateList(listExpr *CreateListExpr) {
 	elements := make([]ref.Value, len(listExpr.Elements))
 	for idx, elementId := range listExpr.Elements {
 		elem := i.value(elementId)
-		if types.IsError(elem) || types.IsUnknown(elem) {
+		if types.IsError(elem.Type()) || types.IsUnknown(elem.Type()) {
 			i.setValue(listExpr.GetId(), elem)
 			return
 		}
@@ -276,5 +294,13 @@ func (i *exprInterpretable) setValue(id int64, value ref.Value) {
 
 func (i *exprInterpretable) newValue(typeName string,
 	fields map[string]ref.Value) ref.Value {
+	pkg := i.interpreter.packager
+	tp := i.interpreter.typeProvider
+	for _, qualifiedTypeName := range pkg.ResolveCandidateNames(typeName) {
+		if _, found := tp.FindType(qualifiedTypeName); found {
+			typeName = qualifiedTypeName
+			break
+		}
+	}
 	return i.interpreter.typeProvider.NewValue(typeName, fields)
 }

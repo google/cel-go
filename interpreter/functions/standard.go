@@ -176,9 +176,11 @@ func StandardOverloads() []*Overload {
 
 		// In operator
 		{Operator: operators.In,
-			OperandTrait: traits.ContainerType,
 			Binary: func(lhs ref.Value, rhs ref.Value) ref.Value {
-				return lhs.(traits.Container).Contains(rhs)
+				if rhs.Type().HasTrait(traits.ContainerType) {
+					return rhs.(traits.Container).Contains(lhs)
+				}
+				return types.NewErr("no such overload")
 			}},
 
 		// Matches function
@@ -278,6 +280,15 @@ func logicalAnd(lhs ref.Value, rhs ref.Value) ref.Value {
 		rhsIsBool && !rhs.(types.Bool) {
 		return types.False
 	}
+
+	if types.IsUnknown(lhs) {
+		return lhs
+	}
+
+	if types.IsUnknown(rhs) {
+		return rhs
+	}
+
 	// if the left-hand side is non-boolean return it as the error.
 	if !lhsIsBool {
 		return types.NewErr("Got '%v', expected argument of type 'bool'", lhs)
@@ -297,11 +308,20 @@ func logicalOr(lhs ref.Value, rhs ref.Value) ref.Value {
 		rhsIsBool && rhs.(types.Bool) {
 		return types.True
 	}
+
+	if types.IsUnknown(lhs) {
+		return lhs
+	}
+
+	if types.IsUnknown(rhs) {
+		return rhs
+	}
+
 	// if the left-hand side is non-boolean return it as the error.
 	if !lhsIsBool {
-		return types.NewErr("got '%v', expected argument of type 'bool'", lhs)
+		return types.NewErr("Got '%v', expected argument of type 'bool'", lhs)
 	}
-	return types.NewErr("got '%v', expected argument of type 'bool'", rhs)
+	return types.NewErr("Got '%v', expected argument of type 'bool'", rhs)
 }
 
 func conditional(values ...ref.Value) ref.Value {

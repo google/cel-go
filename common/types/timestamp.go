@@ -15,6 +15,7 @@
 package types
 
 import (
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	tpb "github.com/golang/protobuf/ptypes/timestamp"
@@ -72,7 +73,15 @@ func (t Timestamp) Compare(other ref.Value) ref.Value {
 }
 
 func (t Timestamp) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
-	return t.Value(), nil
+	if typeDesc == timestampValueType {
+		return t.Value(), nil
+	}
+	// If the timestamp is already assignable to the desired type return it.
+	if reflect.TypeOf(t).AssignableTo(typeDesc) {
+		return t, nil
+	}
+	return nil, fmt.Errorf("type conversion error from "+
+		"'google.protobuf.Duration' to '%v'", typeDesc)
 }
 
 func (t Timestamp) ConvertToType(typeVal ref.Type) ref.Value {
@@ -155,6 +164,8 @@ func (t Timestamp) Value() interface{} {
 }
 
 var (
+	timestampValueType = reflect.TypeOf(&tpb.Timestamp{})
+
 	timestampZeroArgOverloads = map[string]func(time.Time) ref.Value{
 		overloads.TimeGetFullYear:     timestampGetFullYear,
 		overloads.TimeGetMonth:        timestampGetMonth,

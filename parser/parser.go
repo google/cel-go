@@ -35,6 +35,12 @@ import (
 //
 // By default all macros are enabled. For customization of the input data
 // or for customization of the macro set see Parse.
+//
+// Note: syntax errors may produce parse trees of unusual shape which could
+// in segfaults at parse-time. While the code attempts to account for all
+// such cases, it is possible a few still remain. These should be fixed by
+// adding a repro case to the parser_test.go and appropriate defensive coding
+// within the parser.
 func ParseText(text string) (*expr.ParsedExpr, *common.Errors) {
 	return Parse(common.NewStringSource(text, "<input>"), AllMacros)
 }
@@ -227,6 +233,10 @@ func (p *parser) VisitNegate(ctx *gen.NegateContext) interface{} {
 // Visit a parse tree produced by CELParser#SelectOrCall.
 func (p *parser) VisitSelectOrCall(ctx *gen.SelectOrCallContext) interface{} {
 	operand := p.Visit(ctx.Statement()).(*expr.Expr)
+	// Handle the error case where no valid identifier is specified.
+	if ctx.GetId() == nil {
+		return p.helper.newExpr(ctx)
+	}
 	id := ctx.GetId().GetText()
 	if ctx.GetOpen() != nil {
 		return p.helper.newMemberCall(ctx.GetOpen(), id, operand, p.visitList(ctx.GetArgs())...)
@@ -288,6 +298,10 @@ func (p *parser) VisitIdentOrGlobalCall(ctx *gen.IdentOrGlobalCallContext) inter
 	identName := ""
 	if ctx.GetLeadingDot() != nil {
 		identName = "."
+	}
+	// Handle the error case where no valid identifier is specified.
+	if ctx.GetId() == nil {
+		return p.helper.newExpr(ctx)
 	}
 	identName += ctx.GetId().GetText()
 
@@ -426,8 +440,8 @@ func (p *parser) VisitBoolFalse(ctx *gen.BoolFalseContext) interface{} {
 func (p *parser) VisitNull(ctx *gen.NullContext) interface{} {
 	return p.helper.newLiteral(ctx,
 		&expr.Literal{
-			&expr.Literal_NullValue{
-				structpb.NullValue_NULL_VALUE}})
+			LiteralKind: &expr.Literal_NullValue{
+				NullValue: structpb.NullValue_NULL_VALUE}})
 }
 
 func (p *parser) visitList(ctx gen.IExprListContext) []*expr.Expr {
@@ -443,8 +457,8 @@ func (p *parser) visitSlice(expressions []gen.IExprContext) []*expr.Expr {
 	}
 	result := make([]*expr.Expr, len(expressions))
 	for i, e := range expressions {
-		expr := p.Visit(e).(*expr.Expr)
-		result[i] = expr
+		ex := p.Visit(e).(*expr.Expr)
+		result[i] = ex
 	}
 	return result
 }
@@ -469,9 +483,10 @@ func (p *parser) extractQualifiedName(e *expr.Expr) (string, bool) {
 }
 
 func (p *parser) unquote(ctx interface{}, value string) string {
-	if text, err := strconv.Unquote(value); err == nil {
-		return text
+	text, err := unescape(value)
+	if err != nil {
+		p.helper.reportError(ctx, err.Error())
+		return value
 	}
-	p.helper.reportError(ctx, "unable to unquote string")
-	return value
+	return text
 }

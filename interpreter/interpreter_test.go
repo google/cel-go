@@ -15,24 +15,31 @@
 package interpreter
 
 import (
+	"github.com/golang/protobuf/proto"
+	"github.com/google/cel-go/checker"
+	"github.com/google/cel-go/common/packages"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter/functions"
+	"github.com/google/cel-go/parser"
 	"github.com/google/cel-go/test"
 	expr "github.com/google/cel-spec/proto/v1/syntax"
+	"reflect"
 	"testing"
 )
 
 func TestInterpreter_CallExpr(t *testing.T) {
 	program := NewProgram(
 		test.Equality.Expr,
-		test.Equality.Info(t.Name()),
-		"google.api.expr")
-	interpretable := interpreter.NewInterpretable(program)
+		test.Equality.Info(t.Name()))
+	intr := NewStandardIntepreter(
+		packages.NewPackage("google.api.expr"),
+		types.NewProvider(&expr.ParsedExpr{}))
+	interpretable := intr.NewInterpretable(program)
 	result, state := interpretable.Eval(
 		NewActivation(map[string]interface{}{"a": int64(41)}))
 	if result != types.False {
-		t.Errorf("Expected false, go: %v", result)
+		t.Errorf("Expected false, got: %v", result)
 	}
 	if ident, found := state.Value(1); !found || ident != types.Int(41) {
 		t.Errorf("State of ident 'a' != 41, got: %v", ident)
@@ -42,8 +49,7 @@ func TestInterpreter_CallExpr(t *testing.T) {
 func TestInterpreter_SelectExpr(t *testing.T) {
 	program := NewProgram(
 		test.Select.Expr,
-		test.Select.Info(t.Name()),
-		"")
+		test.Select.Info(t.Name()))
 
 	interpretable := interpreter.NewInterpretable(program)
 	result, _ := interpretable.Eval(
@@ -59,8 +65,7 @@ func TestInterpreter_ConditionalExpr(t *testing.T) {
 	// a ? b < 1.0 : c == ["hello"]
 	program := NewProgram(
 		test.Conditional.Expr,
-		test.Conditional.Info(t.Name()),
-		"")
+		test.Conditional.Info(t.Name()))
 
 	interpretable := interpreter.NewInterpretable(program)
 	result, _ := interpretable.Eval(
@@ -76,8 +81,7 @@ func TestInterpreter_ComprehensionExpr(t *testing.T) {
 	// [1, 1u, 1.0].exists(x, type(x) == uint)
 	program := NewProgram(
 		test.Exists.Expr,
-		test.Exists.Info(t.Name()),
-		"")
+		test.Exists.Info(t.Name()))
 
 	interpretable := interpreter.NewInterpretable(program)
 	// TODO: make the type identifiers part of the standard declaration set.
@@ -88,12 +92,96 @@ func TestInterpreter_ComprehensionExpr(t *testing.T) {
 	}
 }
 
+func TestInterpreter_BuildObject(t *testing.T) {
+	parsed, errors := parser.ParseText("v1.Expr{id: 1, " +
+		"literal_expr: v1.Literal{string_value: \"oneof_test\"}}")
+	if len(errors.GetErrors()) != 0 {
+		t.Errorf(errors.ToDisplayString())
+	}
+
+	pkgr := packages.NewPackage("google.api.expr")
+	provider := types.NewProvider(&expr.Expr{})
+	env := checker.NewStandardEnv(pkgr, provider, errors)
+	checked := checker.Check(parsed, env)
+	if len(errors.GetErrors()) != 0 {
+		t.Errorf(errors.ToDisplayString())
+	}
+
+	i := NewStandardIntepreter(pkgr, provider)
+	eval := i.NewInterpretable(NewCheckedProgram(checked))
+	result, _ := eval.Eval(NewActivation(map[string]interface{}{}))
+	expected := &expr.Expr{Id: 1,
+		ExprKind: &expr.Expr_LiteralExpr{
+			LiteralExpr: &expr.Literal{
+				LiteralKind: &expr.Literal_StringValue{
+					StringValue: "oneof_test"}}}}
+	if !proto.Equal(result.(ref.Value).Value().(proto.Message), expected) {
+		t.Errorf("Could not build object properly. Got '%v', wanted '%v'",
+			result.(ref.Value).Value(),
+			expected)
+	}
+}
+
+func TestInterpreter_ConstantReturnValue(t *testing.T) {
+	parsed, err := parser.ParseText("1")
+	if len(err.GetErrors()) != 0 {
+		t.Error(err)
+	}
+	prg := NewProgram(parsed.GetExpr(), parsed.GetSourceInfo())
+	i := interpreter.NewInterpretable(prg)
+	res, _ := i.Eval(NewActivation(map[string]interface{}{}))
+	if int64(res.(types.Int)) != int64(1) {
+		t.Error("Got '%v', wanted 1", res)
+	}
+}
+
+func TestInterpreter_InList(t *testing.T) {
+	parsed, err := parser.ParseText("1 in [1, 2, 3]")
+	if len(err.GetErrors()) != 0 {
+		t.Error(err)
+	}
+	prg := NewProgram(parsed.GetExpr(), parsed.GetSourceInfo())
+	i := interpreter.NewInterpretable(prg)
+	res, _ := i.Eval(NewActivation(map[string]interface{}{}))
+	if res != types.True {
+		t.Errorf("Got '%v', wanted 'true'", res)
+	}
+}
+
+func TestInterpreter_BuildMap(t *testing.T) {
+	parsed, err := parser.ParseText("{'b': '''hi''', 'c': name}")
+	if len(err.GetErrors()) != 0 {
+		t.Error(err)
+	}
+	prg := NewProgram(parsed.GetExpr(), parsed.GetSourceInfo())
+	i := interpreter.NewInterpretable(prg)
+	res, _ := i.Eval(NewActivation(map[string]interface{}{"name": "tristan"}))
+	value, _ := res.(ref.Value).ConvertToNative(
+		reflect.TypeOf(map[string]string{}))
+	mapVal := value.(map[string]string)
+	if mapVal["b"] != "hi" || mapVal["c"] != "tristan" {
+		t.Errorf("Got '%v', expected map[b:hi c:tristan]", value)
+	}
+}
+
+func TestInterpreter_MapIndex(t *testing.T) {
+	parsed, err := parser.ParseText("{'a':1}['a']")
+	if len(err.GetErrors()) != 0 {
+		t.Error(err)
+	}
+	prg := NewProgram(parsed.GetExpr(), parsed.GetSourceInfo())
+	i := interpreter.NewInterpretable(prg)
+	res, _ := i.Eval(NewActivation(map[string]interface{}{}))
+	if res != types.Int(1) {
+		t.Errorf("Got '%v', wanted 1", res)
+	}
+}
+
 func BenchmarkInterpreter_ConditionalExpr(b *testing.B) {
 	// a ? b < 1.0 : c == ["hello"]
 	program := NewProgram(
 		test.Conditional.Expr,
-		test.Conditional.Info(b.Name()),
-		"")
+		test.Conditional.Info(b.Name()))
 	interpretable := interpreter.NewInterpretable(program)
 	activation := NewActivation(map[string]interface{}{
 		"a": types.False,
@@ -159,8 +247,7 @@ func BenchmarkInterpreter_EqualInstructions(b *testing.B) {
 	// type(x) == uint
 	program := NewProgram(
 		test.TypeEquality.Expr,
-		test.TypeEquality.Info(b.Name()),
-		"")
+		test.TypeEquality.Info(b.Name()))
 	interpretable := interpreter.NewInterpretable(program)
 	activation := NewActivation(map[string]interface{}{
 		"x": types.Uint(20)})
@@ -173,8 +260,7 @@ func BenchmarkInterpreter_ComprehensionExpr(b *testing.B) {
 	// [1, 1u, 1.0].exists(x, type(x) == uint)
 	program := NewProgram(
 		test.Exists.Expr,
-		test.Exists.Info(b.Name()),
-		"")
+		test.Exists.Info(b.Name()))
 	interpretable := interpreter.NewInterpretable(program)
 	activation := NewActivation(map[string]interface{}{})
 	for i := 0; i < b.N; i++ {
@@ -186,8 +272,7 @@ func BenchmarkInterpreter_ComprehensionExprWithInput(b *testing.B) {
 	// elems.exists(x, type(x) == uint)
 	program := NewProgram(
 		test.ExistsWithInput.Expr,
-		test.ExistsWithInput.Info(b.Name()),
-		"")
+		test.ExistsWithInput.Info(b.Name()))
 	interpretable := interpreter.NewInterpretable(program)
 	activation := NewActivation(map[string]interface{}{
 		"elems": types.NativeToValue([]interface{}{0, 1, 2, 3, 4, uint(5), 6})})
@@ -197,5 +282,7 @@ func BenchmarkInterpreter_ComprehensionExprWithInput(b *testing.B) {
 }
 
 var (
-	interpreter = NewStandardIntepreter(types.NewProvider(&expr.ParsedExpr{}))
+	interpreter = NewStandardIntepreter(
+		packages.DefaultPackage,
+		types.NewProvider(&expr.ParsedExpr{}))
 )

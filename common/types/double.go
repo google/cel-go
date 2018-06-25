@@ -16,6 +16,7 @@ package types
 
 import (
 	"fmt"
+	"github.com/golang/protobuf/ptypes/struct"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 	"reflect"
@@ -57,15 +58,31 @@ func (d Double) Compare(other ref.Value) ref.Value {
 }
 
 func (d Double) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
-	value := d.Value()
-	refKind := typeDesc.Kind()
-	switch refKind {
+	switch typeDesc.Kind() {
 	case reflect.Float32:
-		return float32(value.(float64)), nil
+		return float32(d), nil
 	case reflect.Float64:
-		return value, nil
+		return float64(d), nil
+	case reflect.Ptr:
+		if typeDesc == jsonValueType {
+			return &structpb.Value{
+				Kind: &structpb.Value_NumberValue{
+					NumberValue: float64(d)}}, nil
+		}
+		switch typeDesc.Elem().Kind() {
+		case reflect.Float32:
+			p := float32(d)
+			return &p, nil
+		case reflect.Float64:
+			p := float64(d)
+			return &p, nil
+		}
+	case reflect.Interface:
+		if reflect.TypeOf(d).Implements(typeDesc) {
+			return d, nil
+		}
 	}
-	return nil, fmt.Errorf("unsupported type conversion from 'double' to %v", typeDesc)
+	return nil, fmt.Errorf("type conversion error from Double to '%v'", typeDesc)
 }
 
 func (d Double) ConvertToType(typeVal ref.Type) ref.Value {

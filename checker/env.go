@@ -17,6 +17,7 @@ package checker
 import (
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common"
+	"github.com/google/cel-go/common/packages"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/parser"
@@ -26,24 +27,30 @@ import (
 
 type Env struct {
 	errors       *typeErrors
+	packager     packages.Packager
 	typeProvider ref.TypeProvider
 
 	declarations *decls.Scopes
 }
 
-func NewEnv(errors *common.Errors, typeProvider ref.TypeProvider) *Env {
+func NewEnv(packager packages.Packager,
+	typeProvider ref.TypeProvider,
+	errors *common.Errors) *Env {
 	declarations := decls.NewScopes()
 	declarations.Push()
 
 	return &Env{
 		errors:       &typeErrors{errors},
+		packager:     packager,
 		typeProvider: typeProvider,
 		declarations: declarations,
 	}
 }
 
-func NewStandardEnv(errors *common.Errors, typeProvider ref.TypeProvider) *Env {
-	e := NewEnv(errors, typeProvider)
+func NewStandardEnv(packager packages.Packager,
+	typeProvider ref.TypeProvider,
+	errors *common.Errors) *Env {
+	e := NewEnv(packager, typeProvider, errors)
 	e.Add(StandardDeclarations()...)
 	return e
 }
@@ -62,11 +69,11 @@ func (e *Env) Add(decls ...*checked.Decl) {
 func (e *Env) addOverload(f *checked.Decl, overload *checked.Decl_FunctionDecl_Overload) {
 	function := f.GetFunction()
 	emptyMappings := newMapping()
-	overloadFunction := newFunction(overload.GetResultType(),
+	overloadFunction := decls.NewFunctionType(overload.GetResultType(),
 		overload.GetParams()...)
 	overloadErased := substitute(emptyMappings, overloadFunction, true)
 	for _, existing := range function.GetOverloads() {
-		existingFunction := newFunction(existing.GetResultType(),
+		existingFunction := decls.NewFunctionType(existing.GetResultType(),
 			existing.GetParams()...)
 		existingErased := substitute(emptyMappings, existingFunction, true)
 		overlap := isAssignable(emptyMappings, overloadErased, existingErased) != nil ||
@@ -110,8 +117,8 @@ func (e *Env) addIdent(decl *checked.Decl) {
 	e.declarations.AddIdent(decl)
 }
 
-func (e *Env) LookupIdent(container string, typeName string) *checked.Decl {
-	for _, candidate := range qualifiedTypeNameCandidates(container, typeName) {
+func (e *Env) LookupIdent(typeName string) *checked.Decl {
+	for _, candidate := range e.packager.ResolveCandidateNames(typeName) {
 		if ident := e.declarations.FindIdent(candidate); ident != nil {
 			return ident
 		}
@@ -129,7 +136,7 @@ func (e *Env) LookupIdent(container string, typeName string) *checked.Decl {
 		// the enum inside.
 		if enumValue := e.typeProvider.EnumValue(candidate); enumValue.Type() != types.ErrType {
 			decl := decls.NewIdent(candidate,
-				Int,
+				decls.Int,
 				&expr.Literal{
 					LiteralKind: &expr.Literal_Int64Value{
 						Int64Value: int64(enumValue.(types.Int))}})
@@ -140,8 +147,8 @@ func (e *Env) LookupIdent(container string, typeName string) *checked.Decl {
 	return nil
 }
 
-func (e *Env) LookupFunction(container string, typeName string) *checked.Decl {
-	for _, candidate := range qualifiedTypeNameCandidates(container, typeName) {
+func (e *Env) LookupFunction(typeName string) *checked.Decl {
+	for _, candidate := range e.packager.ResolveCandidateNames(typeName) {
 		if fn := e.declarations.FindFunction(candidate); fn != nil {
 			return fn
 		}
