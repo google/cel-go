@@ -18,6 +18,7 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/duration"
+	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 	"reflect"
 	"testing"
@@ -80,7 +81,23 @@ func TestBaseList_Equal(t *testing.T) {
 }
 
 func TestBaseList_Get(t *testing.T) {
-	list := NewDynamicList([]int32{1, 2, 3})
+	validateList123(t, NewDynamicList([]int32{1, 2, 3}).(traits.Lister))
+}
+
+func TestValueList_Get(t *testing.T) {
+	validateList123(t, NewValueList([]ref.Value{Int(1), Int(2), Int(3)}))
+}
+
+func TestBaseList_Iterator(t *testing.T) {
+	validateIterator123(t, NewDynamicList([]int32{1, 2, 3}).(traits.Lister))
+}
+
+func TestValueListValue_Iterator(t *testing.T) {
+	validateIterator123(t, NewValueList([]ref.Value{Int(1), Int(2), Int(3)}))
+}
+
+func validateList123(t *testing.T, list traits.Lister) {
+	t.Helper()
 	if getElem(t, list, 0) != Int(1) ||
 		getElem(t, list, 1) != Int(2) ||
 		getElem(t, list, 2) != Int(3) {
@@ -97,8 +114,8 @@ func TestBaseList_Get(t *testing.T) {
 	}
 }
 
-func TestBaseList_Iterator(t *testing.T) {
-	list := NewDynamicList([]int32{1, 2, 3})
+func validateIterator123(t *testing.T, list traits.Lister) {
+	t.Helper()
 	it := list.Iterator()
 	var i = int64(0)
 	for ; it.HasNext() == True; i++ {

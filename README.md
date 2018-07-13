@@ -69,10 +69,10 @@ if len(errors.GetErrors()) != 0 {
 // package (empty string):
 typeProvider := types.NewProvider()
 env := checker.NewStandardEnv(packages.DefaultPackage, typeProvider, errors)
-env.Add(decls.NewIdent("a", decls.Bool),
-    decls.NewIdent("b", decls.Bool),
-    decls.NewIdent("c", decls.NewListType(decls.Int)))
-c := checker.Check(p, env, "") 
+env.Add(decls.NewIdent("a", decls.Bool, nil),
+    decls.NewIdent("b", decls.Bool, nil),
+    decls.NewIdent("c", decls.NewListType(decls.Int), nil))
+c := checker.Check(p, env, "")
 if len(errors.GetErrors()) != 0 {
     return nil, fmt.Error(errors.ToDisplayString()))
 }

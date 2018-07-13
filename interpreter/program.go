@@ -163,8 +163,8 @@ func newExprMetadata(info *expr.SourceInfo) Metadata {
 	return &exprMetadata{info: info}
 }
 
-func (m *exprMetadata) Location(exprId int64) (common.Location, bool) {
-	if exprOffset, found := m.CharacterOffset(exprId); found {
+func (m *exprMetadata) IdLocation(exprId int64) (common.Location, bool) {
+	if exprOffset, found := m.IdOffset(exprId); found {
 		var index = 0
 		var lineIndex = 0
 		var lineOffset int32 = 0
@@ -181,7 +181,7 @@ func (m *exprMetadata) Location(exprId int64) (common.Location, bool) {
 	return nil, false
 }
 
-func (m *exprMetadata) CharacterOffset(exprId int64) (int32, bool) {
+func (m *exprMetadata) IdOffset(exprId int64) (int32, bool) {
 	position, found := m.info.Positions[exprId]
 	return position, found
 }

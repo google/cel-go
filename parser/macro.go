@@ -141,7 +141,7 @@ func makeQuantifier(kind quantifierKind, p *parserHelper, ctx interface{}, targe
 	v, found := extractIdent(args[0])
 	if !found {
 		offset := p.positions[args[0].Id]
-		location, _ := p.source.LocationFromOffset(offset)
+		location, _ := p.source.OffsetLocation(offset)
 		return p.reportError(location, "argument must be a simple name")
 	}
 	accuIdent := func() *expr.Expr {
