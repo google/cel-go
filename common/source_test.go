@@ -54,9 +54,9 @@ func TestStringSource_Description(t *testing.T) {
 	}
 }
 
-// TestStringSource_CharacterOffset make sure that the offsets accurately reflect
+// TestStringSource_LocationOffset make sure that the offsets accurately reflect
 // the location of a character in source.
-func TestStringSource_CharacterOffset(t *testing.T) {
+func TestStringSource_LocationOffset(t *testing.T) {
 	contents := "c.d &&\n\t b.c.arg(10) &&\n\t test(10)"
 	source := NewStringSource(contents, "offset-test")
 	expectedLineOffsets := []int32{7, 24, 35}
@@ -73,14 +73,14 @@ func TestStringSource_CharacterOffset(t *testing.T) {
 	}
 	// Ensure that selecting a set of characters across multiple lines works as
 	// expected.
-	charStart, _ := source.CharacterOffset(NewLocation(1, 2))
-	charEnd, _ := source.CharacterOffset(NewLocation(3, 2))
+	charStart, _ := source.LocationOffset(NewLocation(1, 2))
+	charEnd, _ := source.LocationOffset(NewLocation(3, 2))
 	if "d &&\n\t b.c.arg(10) &&\n\t " != string(contents[charStart:charEnd]) {
 		t.Errorf(unexpectedValue, t.Name(),
 			string(contents[charStart:charEnd]),
 			"d &&\n\t b.c.arg(10) &&\n\t ")
 	}
-	if _, found := source.CharacterOffset(NewLocation(4, 0)); found {
+	if _, found := source.LocationOffset(NewLocation(4, 0)); found {
 		t.Error("Character offset was out of range of source, but still found.")
 	}
 }

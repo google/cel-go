@@ -22,8 +22,7 @@ import (
 	"strings"
 )
 
-// Program contains instructions with some metadata and optionally run within
-// a container, e.g. module name or package name.
+// Program contains instructions and related metadata.
 type Program interface {
 	// Begin returns an InstructionStepper which iterates through the
 	// instructions. Each call to Begin() returns a stepper that starts
@@ -31,10 +30,6 @@ type Program interface {
 	//
 	// Note: Init() must be called prior to Begin().
 	Begin() InstructionStepper
-
-	// Container is the module or package name where the program is run. The
-	// container is used to resolve type names and identifiers.
-	Container() string
 
 	// GetInstruction returns the instruction at the given runtime expression id.
 	GetInstruction(runtimeId int64) Instruction
@@ -68,7 +63,6 @@ type InstructionStepper interface {
 }
 
 type exprProgram struct {
-	container       string
 	expression      *expr.Expr
 	instructions    []Instruction
 	metadata        Metadata
@@ -76,18 +70,16 @@ type exprProgram struct {
 }
 
 // NewCheckedProgram creates a Program from a checked CEL expression.
-func NewCheckedProgram(c *checked.CheckedExpr, container string) Program {
-	return NewProgram(c.Expr, c.SourceInfo, container)
+func NewCheckedProgram(c *checked.CheckedExpr) Program {
+	// TODO: take advantage of the type-check information.
+	return NewProgram(c.Expr, c.SourceInfo)
 }
 
-// NewProgram creates a Program from a CEL expression and source information
-// within the specified container.
+// NewProgram creates a Program from a CEL expression and source information.
 func NewProgram(expression *expr.Expr,
-	info *expr.SourceInfo,
-	container string) Program {
+	info *expr.SourceInfo) Program {
 	revInstructions := make(map[int64]int)
 	return &exprProgram{
-		container:       container,
 		expression:      expression,
 		revInstructions: revInstructions,
 		metadata:        newExprMetadata(info)}
@@ -98,10 +90,6 @@ func (p *exprProgram) Begin() InstructionStepper {
 		panic("the Begin() method was called before program Init()")
 	}
 	return &exprStepper{p, 0}
-}
-
-func (p *exprProgram) Container() string {
-	return p.container
 }
 
 func (p *exprProgram) GetInstruction(runtimeId int64) Instruction {
@@ -175,8 +163,8 @@ func newExprMetadata(info *expr.SourceInfo) Metadata {
 	return &exprMetadata{info: info}
 }
 
-func (m *exprMetadata) Location(exprId int64) (common.Location, bool) {
-	if exprOffset, found := m.CharacterOffset(exprId); found {
+func (m *exprMetadata) IdLocation(exprId int64) (common.Location, bool) {
+	if exprOffset, found := m.IdOffset(exprId); found {
 		var index = 0
 		var lineIndex = 0
 		var lineOffset int32 = 0
@@ -193,7 +181,7 @@ func (m *exprMetadata) Location(exprId int64) (common.Location, bool) {
 	return nil, false
 }
 
-func (m *exprMetadata) CharacterOffset(exprId int64) (int32, bool) {
+func (m *exprMetadata) IdOffset(exprId int64) (int32, bool) {
 	position, found := m.info.Positions[exprId]
 	return position, found
 }

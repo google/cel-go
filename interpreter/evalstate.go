@@ -20,9 +20,12 @@ import (
 
 // EvalState tracks the values associated with expression ids during execution.
 type EvalState interface {
-	// Return the runtime expression id corresponding to the expression id from
-	// the AST.
+	// GetRuntimeExpressionId returns the runtime id corresponding to the
+	// expression id from the AST.
 	GetRuntimeExpressionId(exprId int64) int64
+
+	// OnlyValue returns the value in the eval state, if only one exists.
+	OnlyValue() (ref.Value, bool)
 
 	// Value of the given expression id, false if not found.
 	Value(int64) (ref.Value, bool)
@@ -33,7 +36,7 @@ type EvalState interface {
 type MutableEvalState interface {
 	EvalState
 
-	// Set runtimeId for the given exprId
+	// SetRuntimeExpressionId sets the runtimeId for the given exprId.
 	SetRuntimeExpressionId(exprId int64, runtimeId int64)
 
 	// SetValue associates an expression id with a value.
@@ -60,13 +63,17 @@ func (s *defaultEvalState) GetRuntimeExpressionId(exprId int64) int64 {
 	return exprId
 }
 
-func (s *defaultEvalState) Value(exprId int64) (ref.Value, bool) {
-	// TODO: The eval state assumes a dense progrma expression id space. While
-	// this is true of how the cel-go parser generates identifiers, it may not
-	// be true for all implementations or for the long term. Replace the use of
-	// parse-time generated expression ids with a dense runtiem identifier.
-	if exprId >= 0 && exprId < s.exprCount {
-		return s.exprValues[exprId], true
+func (s *defaultEvalState) OnlyValue() (ref.Value, bool) {
+	var result ref.Value = nil
+	i := 0
+	for _, val := range s.exprValues {
+		if val != nil {
+			result = val
+			i++
+		}
+	}
+	if i == 1 {
+		return result, true
 	}
 	return nil, false
 }
@@ -77,4 +84,15 @@ func (s *defaultEvalState) SetRuntimeExpressionId(exprId int64, runtimeId int64)
 
 func (s *defaultEvalState) SetValue(exprId int64, value ref.Value) {
 	s.exprValues[exprId] = value
+}
+
+func (s *defaultEvalState) Value(exprId int64) (ref.Value, bool) {
+	// TODO: The eval state assumes a dense progrma expression id space. While
+	// this is true of how the cel-go parser generates identifiers, it may not
+	// be true for all implementations or for the long term. Replace the use of
+	// parse-time generated expression ids with a dense runtiem identifier.
+	if exprId >= 0 && exprId < s.exprCount {
+		return s.exprValues[exprId], true
+	}
+	return nil, false
 }

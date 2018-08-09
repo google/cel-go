@@ -39,23 +39,23 @@ func WalkExpr(expression *expr.Expr,
 	state MutableEvalState) []Instruction {
 	nextId := maxId(expression)
 	walker := &astWalker{
-		dispatcher:     dispatcher,
-		genSymId:       nextId,
-		genExprId:      nextId,
-		metadata:       metadata,
-		scope:          newScope(),
-		state:          state}
+		dispatcher: dispatcher,
+		genSymId:   nextId,
+		genExprId:  nextId,
+		metadata:   metadata,
+		scope:      newScope(),
+		state:      state}
 	return walker.walk(expression)
 }
 
 // astWalker implementation of the AST walking logic.
 type astWalker struct {
-	dispatcher     Dispatcher
-	genExprId      int64
-	genSymId       int64
-	metadata       Metadata
-	scope          *blockScope
-	state          MutableEvalState
+	dispatcher Dispatcher
+	genExprId  int64
+	genSymId   int64
+	metadata   Metadata
+	scope      *blockScope
+	state      MutableEvalState
 }
 
 func (w *astWalker) walk(node *expr.Expr) []Instruction {
@@ -271,7 +271,7 @@ func (w *astWalker) walkComprehension(node *expr.Expr) []Instruction {
 	// iter-range
 	rangeSteps := w.walk(comprehensionRange)
 
-	// Push Scope with the accumulator, iter var, and iterator
+	// Push Module with the accumulator, iter var, and iterator
 	iteratorId := w.nextExprId()
 	iterNextId := w.nextExprId()
 	iterSymId := w.nextSymId()

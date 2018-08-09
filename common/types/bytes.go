@@ -54,6 +54,10 @@ func (b Bytes) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		if typeDesc.Elem().Kind() == reflect.Uint8 {
 			return b.Value(), nil
 		}
+	case reflect.Interface:
+		if reflect.TypeOf(b).Implements(typeDesc) {
+			return b, nil
+		}
 	}
 	return nil, fmt.Errorf("type conversion error from Bytes to '%v'", typeDesc)
 }

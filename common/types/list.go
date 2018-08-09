@@ -16,10 +16,11 @@ package types
 
 import (
 	"fmt"
+	"reflect"
+
 	"github.com/golang/protobuf/ptypes/struct"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
-	"reflect"
 )
 
 var (
@@ -33,6 +34,8 @@ var (
 )
 
 // NewDynamicList returns a traits.Lister with heterogenous elements.
+// value should be an array of "native" types, i.e. any type that
+// NativeToValue() can convert to a ref.Value.
 func NewDynamicList(value interface{}) traits.Lister {
 	return &baseList{value, reflect.ValueOf(value)}
 }
@@ -44,7 +47,15 @@ func NewStringList(elems []string) traits.Lister {
 		elems:    elems}
 }
 
+// NewValueList returns a traits.Lister with ref.Value elements.
+func NewValueList(elems []ref.Value) traits.Lister {
+	return &valueList{
+		baseList: NewDynamicList(elems).(*baseList),
+		elems:    elems}
+}
+
 // baseList points to a list containing elements of any type.
+// value is an array of native values, and refValue is its reflection object.
 type baseList struct {
 	value    interface{}
 	refValue reflect.Value
@@ -74,25 +85,30 @@ func (l *baseList) Contains(elem ref.Value) ref.Value {
 	return False
 }
 
-func (l *baseList) ConvertToNative(refType reflect.Type) (interface{}, error) {
+func (l *baseList) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	// JSON conversions are a special case since the 'native' type in this case
 	// actually a protocol buffer message rather than a list.
-	if refType == jsonValueType || refType == jsonListValueType {
+	if typeDesc == jsonValueType || typeDesc == jsonListValueType {
 		jsonValues, err :=
 			l.ConvertToNative(reflect.TypeOf([]*structpb.Value{}))
 		if err != nil {
 			return nil, err
 		}
 		jsonList := &structpb.ListValue{Values: jsonValues.([]*structpb.Value)}
-		if refType == jsonListValueType {
+		if typeDesc == jsonListValueType {
 			return jsonList, nil
 		}
 		return &structpb.Value{Kind: &structpb.Value_ListValue{ListValue: jsonList}}, nil
 	}
 
+	// If the list is already assignable to the desired type return it.
+	if reflect.TypeOf(l).AssignableTo(typeDesc) {
+		return l, nil
+	}
+
 	// Non-list conversion.
-	if refType.Kind() != reflect.Slice && refType.Kind() != reflect.Array {
-		return nil, fmt.Errorf("type conversion error from list to '%v'", refType)
+	if typeDesc.Kind() != reflect.Slice && typeDesc.Kind() != reflect.Array {
+		return nil, fmt.Errorf("type conversion error from list to '%v'", typeDesc)
 	}
 
 	// List conversion.
@@ -100,7 +116,7 @@ func (l *baseList) ConvertToNative(refType reflect.Type) (interface{}, error) {
 	thisElem := thisType.Elem()
 	thisElemKind := thisElem.Kind()
 
-	otherElem := refType.Elem()
+	otherElem := typeDesc.Elem()
 	otherElemKind := otherElem.Kind()
 	if otherElemKind == thisElemKind {
 		return l.value, nil
@@ -108,7 +124,7 @@ func (l *baseList) ConvertToNative(refType reflect.Type) (interface{}, error) {
 	// Allow the element ConvertToNative() function to determine whether
 	// conversion is possible.
 	elemCount := int(l.Size().(Int))
-	nativeList := reflect.MakeSlice(refType, elemCount, elemCount)
+	nativeList := reflect.MakeSlice(typeDesc, elemCount, elemCount)
 	for i := 0; i < elemCount; i++ {
 		elem := l.Get(Int(i))
 		nativeElemVal, err := elem.ConvertToNative(otherElem)
@@ -336,6 +352,10 @@ func (l *stringList) ConvertToNative(typeDesc reflect.Type) (interface{}, error)
 					ListValue: jsonList}}, nil
 		}
 	}
+	// If the list is already assignable to the desired type return it.
+	if reflect.TypeOf(l).AssignableTo(typeDesc) {
+		return l, nil
+	}
 	return nil, fmt.Errorf("no conversion found from list type to native type."+
 		" list elem: string, native type: %v", typeDesc)
 }
@@ -352,6 +372,48 @@ func (l *stringList) Get(index ref.Value) ref.Value {
 }
 
 func (l *stringList) Size() ref.Value {
+	return Int(len(l.elems))
+}
+
+// valueList is a specialization of traits.Lister for ref.Value.
+type valueList struct {
+	*baseList
+	elems []ref.Value
+}
+
+func (l *valueList) Add(other ref.Value) ref.Value {
+	if other.Type() != ListType {
+		return NewErr("no such overload")
+	}
+	return &concatList{
+		prevList: l,
+		nextList: other.(traits.Lister)}
+}
+
+func (l *valueList) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
+	natives := make([]interface{}, len(l.elems))
+	for _, v := range l.elems {
+		if n, e := v.ConvertToNative(typeDesc); e != nil {
+			return nil, e
+		} else {
+			natives = append(natives, n)
+		}
+	}
+	return natives, nil
+}
+
+func (l *valueList) Get(index ref.Value) ref.Value {
+	if index.Type() != IntType {
+		return NewErr("unsupported index type '%s' in list", index.Type())
+	}
+	i := index.(Int)
+	if i < 0 || i >= l.Size().(Int) {
+		return NewErr("index '%d' out of range in list size '%d'", i, l.Size())
+	}
+	return l.elems[i]
+}
+
+func (l *valueList) Size() ref.Value {
 	return Int(len(l.elems))
 }
 

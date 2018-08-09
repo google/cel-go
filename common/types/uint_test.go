@@ -57,9 +57,28 @@ func TestUint_ConvertToNative_Json(t *testing.T) {
 	val, err := Uint(10000).ConvertToNative(jsonValueType)
 	if err != nil {
 		t.Error(err)
-	}
-	if val.(*structpb.Value).GetNumberValue() != 10000. {
+	} else if val.(*structpb.Value).GetNumberValue() != 10000. {
 		t.Errorf("Error converting uint to json number. Got '%v', expected 10000.", val)
+	}
+}
+
+func TestUint_ConvertToNative_Ptr_Uint32(t *testing.T) {
+	ptrType := uint32(0)
+	val, err := Uint(10000).ConvertToNative(reflect.TypeOf(&ptrType))
+	if err != nil {
+		t.Error(err)
+	} else if *val.(*uint32) != uint32(10000) {
+		t.Errorf("Error converting uint to *uint32. Got '%v', expected 10000.", val)
+	}
+}
+
+func TestUint_ConvertToNative_Ptr_Uint64(t *testing.T) {
+	ptrType := uint64(0)
+	val, err := Uint(18446744073709551612).ConvertToNative(reflect.TypeOf(&ptrType))
+	if err != nil {
+		t.Error(err)
+	} else if *val.(*uint64) != uint64(18446744073709551612) {
+		t.Errorf("Error converting uint to *uint64. Got '%v', expected 18446744073709551612.", val)
 	}
 }
 

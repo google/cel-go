@@ -32,19 +32,28 @@ var (
 	NullValue = Null(structpb.NullValue_NULL_VALUE)
 )
 
-func (n Null) ConvertToNative(refType reflect.Type) (interface{}, error) {
-	if refType == jsonValueType {
-		return &structpb.Value{
-			Kind: &structpb.Value_NullValue{
-				NullValue: structpb.NullValue_NULL_VALUE}}, nil
-	}
-	if refType == anyValueType {
-		pb, err := n.ConvertToNative(jsonValueType)
-		if err != nil {
-			return nil, err
+func (n Null) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
+	switch typeDesc.Kind() {
+	case reflect.Ptr:
+		switch typeDesc {
+		case jsonValueType:
+			return &structpb.Value{
+				Kind: &structpb.Value_NullValue{
+					NullValue: structpb.NullValue_NULL_VALUE}}, nil
+		case anyValueType:
+			pb, err := n.ConvertToNative(jsonValueType)
+			if err != nil {
+				return nil, err
+			}
+			return ptypes.MarshalAny(pb.(proto.Message))
 		}
-		return ptypes.MarshalAny(pb.(proto.Message))
+	case reflect.Interface:
+		if reflect.TypeOf(n).Implements(typeDesc) {
+			return n, nil
+		}
 	}
+	// By default return 'null'.
+	// TODO: determine whether there are other valid conversions for `null`.
 	return structpb.NullValue_NULL_VALUE, nil
 }
 

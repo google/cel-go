@@ -68,9 +68,9 @@ func TestJsonStruct_ConvertToNative_Json(t *testing.T) {
 
 func TestJsonStruct_ConvertToNative_Any(t *testing.T) {
 	structVal := &structpb.Struct{
-		Fields:map[string]*structpb.Value{
-			"first":  {Kind:&structpb.Value_StringValue{"hello"}},
-			"second": {Kind:&structpb.Value_NumberValue{1}}}}
+		Fields: map[string]*structpb.Value{
+			"first":  {Kind: &structpb.Value_StringValue{"hello"}},
+			"second": {Kind: &structpb.Value_NumberValue{1}}}}
 	mapVal := NewJsonStruct(structVal)
 	anyVal, err := mapVal.ConvertToNative(anyValueType)
 	if err != nil {
