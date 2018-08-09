@@ -15,52 +15,52 @@
 package checker
 
 import (
-	"github.com/google/cel-go/common"
-	"github.com/google/cel-spec/proto/checked/v1/checked"
+	commonpb "github.com/google/cel-go/common"
+	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
 )
 
 // typeErrors is a specialization of Errors.
 type typeErrors struct {
-	*common.Errors
+	*commonpb.Errors
 }
 
-func (e *typeErrors) undeclaredReference(l common.Location, container string, name string) {
+func (e *typeErrors) undeclaredReference(l commonpb.Location, container string, name string) {
 	e.ReportError(l, "undeclared reference to '%s' (in container '%s')", name, container)
 }
 
-func (e *typeErrors) expressionDoesNotSelectField(l common.Location) {
+func (e *typeErrors) expressionDoesNotSelectField(l commonpb.Location) {
 	e.ReportError(l, "expression does not select a field")
 }
 
-func (e *typeErrors) typeDoesNotSupportFieldSelection(l common.Location, t *checked.Type) {
+func (e *typeErrors) typeDoesNotSupportFieldSelection(l commonpb.Location, t *checkedpb.Type) {
 	e.ReportError(l, "type '%s' does not support field selection", t)
 }
 
-func (e *typeErrors) undefinedField(l common.Location, field string) {
+func (e *typeErrors) undefinedField(l commonpb.Location, field string) {
 	e.ReportError(l, "undefined field '%s'", field)
 }
 
-func (e *typeErrors) fieldDoesNotSupportPresenceCheck(l common.Location, field string) {
+func (e *typeErrors) fieldDoesNotSupportPresenceCheck(l commonpb.Location, field string) {
 	e.ReportError(l, "field '%s' does not support presence check", field)
 }
 
-func (e *typeErrors) overlappingOverload(l common.Location, name string, overloadId1 string, f1 *checked.Type,
-	overloadId2 string, f2 *checked.Type) {
+func (e *typeErrors) overlappingOverload(l commonpb.Location, name string, overloadId1 string, f1 *checkedpb.Type,
+	overloadId2 string, f2 *checkedpb.Type) {
 	e.ReportError(l, "overlapping overload for name '%s' (type '%s' with overloadId: '%s' cannot be distinguished from '%s' with "+
 		"overloadId: '%s')", name, FormatCheckedType(f1), overloadId1, FormatCheckedType(f2), overloadId2)
 }
 
-func (e *typeErrors) overlappingMacro(l common.Location, name string, args int) {
+func (e *typeErrors) overlappingMacro(l commonpb.Location, name string, args int) {
 	e.ReportError(l, "overload for name '%s' with %d argument(s) overlaps with predefined macro",
 		name, args)
 }
 
-func (e *typeErrors) noMatchingOverload(l common.Location, name string, args []*checked.Type, isInstance bool) {
+func (e *typeErrors) noMatchingOverload(l commonpb.Location, name string, args []*checkedpb.Type, isInstance bool) {
 	signature := formatFunction(nil, args, isInstance)
 	e.ReportError(l, "found no matching overload for '%s' applied to '%s'", name, signature)
 }
 
-func (e *typeErrors) aggregateTypeMismatch(l common.Location, aggregate *checked.Type, member *checked.Type) {
+func (e *typeErrors) aggregateTypeMismatch(l commonpb.Location, aggregate *checkedpb.Type, member *checkedpb.Type) {
 	e.ReportError(
 		l,
 		"type '%s' does not match previous type '%s' in aggregate. Use 'dyn(x)' to make the aggregate dynamic.",
@@ -68,34 +68,34 @@ func (e *typeErrors) aggregateTypeMismatch(l common.Location, aggregate *checked
 		FormatCheckedType(aggregate))
 }
 
-func (e *typeErrors) notAType(l common.Location, t *checked.Type) {
+func (e *typeErrors) notAType(l commonpb.Location, t *checkedpb.Type) {
 	e.ReportError(l, "'%s(%v)' is not a type", FormatCheckedType(t), t)
 }
 
-func (e *typeErrors) notAMessageType(l common.Location, t *checked.Type) {
+func (e *typeErrors) notAMessageType(l commonpb.Location, t *checkedpb.Type) {
 	e.ReportError(l, "'%s' is not a message type", FormatCheckedType(t))
 }
 
-func (e *typeErrors) fieldTypeMismatch(l common.Location, name string, field *checked.Type, value *checked.Type) {
+func (e *typeErrors) fieldTypeMismatch(l commonpb.Location, name string, field *checkedpb.Type, value *checkedpb.Type) {
 	e.ReportError(l, "expected type of field '%s' is '%s' but provided type is '%s'",
 		name, FormatCheckedType(field), FormatCheckedType(value))
 }
 
-func (e *typeErrors) unexpectedFailedResolution(l common.Location, typeName string) {
+func (e *typeErrors) unexpectedFailedResolution(l commonpb.Location, typeName string) {
 	e.ReportError(l, "[internal] unexpected failed resolution of '%s'", typeName)
 }
 
-func (e *typeErrors) notAComprehensionRange(l common.Location, t *checked.Type) {
+func (e *typeErrors) notAComprehensionRange(l commonpb.Location, t *checkedpb.Type) {
 	e.ReportError(l, "expression of type '%s' cannot be range of a comprehension (must be list, map, or dynamic)",
 		FormatCheckedType(t))
 }
 
-func (e *typeErrors) typeMismatch(l common.Location, expected *checked.Type, actual *checked.Type) {
+func (e *typeErrors) typeMismatch(l commonpb.Location, expected *checkedpb.Type, actual *checkedpb.Type) {
 	e.ReportError(l, "expected type '%s' but found '%s'",
 		FormatCheckedType(expected), FormatCheckedType(actual))
 }
 
-func formatFunction(resultType *checked.Type, argTypes []*checked.Type, isInstance bool) string {
+func formatFunction(resultType *checkedpb.Type, argTypes []*checkedpb.Type, isInstance bool) string {
 	result := ""
 	if isInstance {
 		target := argTypes[0]

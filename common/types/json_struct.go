@@ -82,9 +82,6 @@ func (m *jsonStruct) ConvertToNative(typeDesc reflect.Type) (interface{}, error)
 		if reflect.TypeOf(m).Implements(typeDesc) {
 			return m, nil
 		}
-		if refType == anyValueType {
-			return ptypes.MarshalAny(m.Value().(proto.Message))
-		}
 	}
 	return nil, fmt.Errorf(
 		"no conversion found from map type to native type."+

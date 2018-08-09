@@ -16,24 +16,24 @@ package checker
 
 import (
 	"fmt"
-	"github.com/google/cel-spec/proto/checked/v1/checked"
+	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
 )
 
 type mapping struct {
-	mapping map[string]*checked.Type
+	mapping map[string]*checkedpb.Type
 }
 
 func newMapping() *mapping {
 	return &mapping{
-		mapping: make(map[string]*checked.Type),
+		mapping: make(map[string]*checkedpb.Type),
 	}
 }
 
-func (m *mapping) add(from *checked.Type, to *checked.Type) {
+func (m *mapping) add(from *checkedpb.Type, to *checkedpb.Type) {
 	m.mapping[typeKey(from)] = to
 }
 
-func (m *mapping) find(from *checked.Type) (*checked.Type, bool) {
+func (m *mapping) find(from *checkedpb.Type) (*checkedpb.Type, bool) {
 	if r, found := m.mapping[typeKey(from)]; found {
 		return r, found
 	}
