@@ -53,7 +53,7 @@ func TestString_Compare(t *testing.T) {
 func TestString_ConvertToNative_Error(t *testing.T) {
 	val, err := String("hello").ConvertToNative(reflect.TypeOf(0))
 	if err == nil {
-		t.Error("Got '%v', expected error", val)
+		t.Errorf("Got '%v', expected error", val)
 	}
 }
 

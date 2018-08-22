@@ -305,7 +305,7 @@ func TestStringList_Add_Heterogenous(t *testing.T) {
 	list := listA.Add(listB).(traitspb.Lister).Value().([]interface{})
 	expected := []interface{}{"hello", int32(1), int32(2), int32(3)}
 	if len(list) != len(expected) {
-		t.Error("Unexpected list size. Got '%d', expected 4", len(list))
+		t.Errorf("Unexpected list size. Got '%d', expected 4", len(list))
 	}
 	for i, v := range expected {
 		if list[i] != v {
@@ -324,7 +324,7 @@ func TestStringList_Add_StringLists(t *testing.T) {
 	expected := []string{"hello", "world", "!"}
 	for i, v := range expected {
 		if list.Get(Int(i)).Equal(String(v)) != True {
-			t.Error("elem[%d] Got '%v', expected '%v'", i, list.Get(Int(i)), v)
+			t.Errorf("elem[%d] Got '%v', expected '%v'", i, list.Get(Int(i)), v)
 		}
 	}
 }
