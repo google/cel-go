@@ -176,7 +176,7 @@ func TestJsonListValue_Iterator(t *testing.T) {
 	for i := Int(0); it.HasNext() != False; i++ {
 		v := it.Next()
 		if v.Equal(list.Get(i)) != True {
-			t.Errorf("elem[%d] Got '%v', expected '%v'", v, list.Get(i))
+			t.Errorf("elem[%d] Got '%v', expected '%v'", i, v, list.Get(i))
 		}
 	}
 
