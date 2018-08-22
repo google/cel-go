@@ -18,7 +18,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
-	"github.com/google/cel-go/common/types/ref"
+	refpb "github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 	"github.com/google/cel-go/test"
 	"github.com/google/cel-spec/proto/v1/syntax"
@@ -46,11 +46,11 @@ func TestNewProtoObject(t *testing.T) {
 func TestProtoObject_Iterator(t *testing.T) {
 	existsMsg := NewObject(test.Exists.Expr).(traits.Iterable)
 	it := existsMsg.Iterator()
-	var fields []ref.Value
+	var fields []refpb.Value
 	for it.HasNext() == True {
 		fields = append(fields, it.Next())
 	}
-	if !reflect.DeepEqual(fields, []ref.Value{String("id"), String("comprehension_expr")}) {
+	if !reflect.DeepEqual(fields, []refpb.Value{String("id"), String("comprehension_expr")}) {
 		t.Errorf("Got %v, wanted %v", fields, []interface{}{"id", "comprehension_expr"})
 	}
 }

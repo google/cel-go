@@ -15,7 +15,7 @@
 package types
 
 import (
-	"github.com/golang/protobuf/ptypes/struct"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 	"reflect"
 	"testing"
 )

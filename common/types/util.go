@@ -14,7 +14,7 @@
 
 package types
 
-// IsUnknownOrError returns whether the input element ref.Type or ref.Value is an ErrType or
+// IsUnknownOrError returns whether the input element refpb.Type or refpb.Value is an ErrType or
 // UnknonwType.
 func IsUnknownOrError(elem interface{}) bool {
 	return IsUnknown(elem) || IsError(elem)

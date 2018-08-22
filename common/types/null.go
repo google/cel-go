@@ -15,10 +15,10 @@
 package types
 
 import (
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/struct"
-	"github.com/google/cel-go/common/types/ref"
+	protopb "github.com/golang/protobuf/proto"
+	ptypespb "github.com/golang/protobuf/ptypes"
+	structpb "github.com/golang/protobuf/ptypes/struct"
+	refpb "github.com/google/cel-go/common/types/ref"
 	"reflect"
 )
 
@@ -45,7 +45,7 @@ func (n Null) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 			if err != nil {
 				return nil, err
 			}
-			return ptypes.MarshalAny(pb.(proto.Message))
+			return ptypespb.MarshalAny(pb.(protopb.Message))
 		}
 	case reflect.Interface:
 		if reflect.TypeOf(n).Implements(typeDesc) {
@@ -57,7 +57,7 @@ func (n Null) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	return structpb.NullValue_NULL_VALUE, nil
 }
 
-func (n Null) ConvertToType(typeVal ref.Type) ref.Value {
+func (n Null) ConvertToType(typeVal refpb.Type) refpb.Value {
 	if typeVal == StringType {
 		return String("null")
 	}
@@ -67,11 +67,11 @@ func (n Null) ConvertToType(typeVal ref.Type) ref.Value {
 	return NewErr("type conversion error from '%s' to '%s'", NullType, typeVal)
 }
 
-func (n Null) Equal(other ref.Value) ref.Value {
+func (n Null) Equal(other refpb.Value) refpb.Value {
 	return Bool(NullType == other.Type())
 }
 
-func (n Null) Type() ref.Type {
+func (n Null) Type() refpb.Type {
 	return NullType
 }
 

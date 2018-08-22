@@ -16,13 +16,13 @@ package types
 
 import (
 	"fmt"
-	"github.com/golang/protobuf/ptypes/struct"
-	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/common/types/traits"
+	structpb "github.com/golang/protobuf/ptypes/struct"
+	refpb "github.com/google/cel-go/common/types/ref"
+	traitspb "github.com/google/cel-go/common/types/traits"
 	"reflect"
 )
 
-// Int type that implements ref.Value as well as comparison and math operators.
+// Int type that implements refpb.Value as well as comparison and math operators.
 type Int int64
 
 const (
@@ -35,23 +35,23 @@ const (
 var (
 	// IntType singleton.
 	IntType = NewTypeValue("int",
-		traits.AdderType,
-		traits.ComparerType,
-		traits.DividerType,
-		traits.ModderType,
-		traits.MultiplierType,
-		traits.NegatorType,
-		traits.SubtractorType)
+		traitspb.AdderType,
+		traitspb.ComparerType,
+		traitspb.DividerType,
+		traitspb.ModderType,
+		traitspb.MultiplierType,
+		traitspb.NegatorType,
+		traitspb.SubtractorType)
 )
 
-func (i Int) Add(other ref.Value) ref.Value {
+func (i Int) Add(other refpb.Value) refpb.Value {
 	if IntType != other.Type() {
 		return NewErr("unsupported overload")
 	}
 	return i + other.(Int)
 }
 
-func (i Int) Compare(other ref.Value) ref.Value {
+func (i Int) Compare(other refpb.Value) refpb.Value {
 	if IntType != other.Type() {
 		return NewErr("unsupported overload")
 	}
@@ -92,7 +92,7 @@ func (i Int) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	return nil, fmt.Errorf("unsupported type conversion from 'int' to %v", typeDesc)
 }
 
-func (i Int) ConvertToType(typeVal ref.Type) ref.Value {
+func (i Int) ConvertToType(typeVal refpb.Type) refpb.Value {
 	switch typeVal {
 	case IntType:
 		return i
@@ -108,7 +108,7 @@ func (i Int) ConvertToType(typeVal ref.Type) ref.Value {
 	return NewErr("type conversion error from '%s' to '%s'", IntType, typeVal)
 }
 
-func (i Int) Divide(other ref.Value) ref.Value {
+func (i Int) Divide(other refpb.Value) refpb.Value {
 	if IntType != other.Type() {
 		return NewErr("unsupported overload")
 	}
@@ -119,11 +119,11 @@ func (i Int) Divide(other ref.Value) ref.Value {
 	return i / otherInt
 }
 
-func (i Int) Equal(other ref.Value) ref.Value {
+func (i Int) Equal(other refpb.Value) refpb.Value {
 	return Bool(IntType == other.Type() && i.Value() == other.Value())
 }
 
-func (i Int) Modulo(other ref.Value) ref.Value {
+func (i Int) Modulo(other refpb.Value) refpb.Value {
 	if IntType != other.Type() {
 		return NewErr("unsupported overload")
 	}
@@ -134,25 +134,25 @@ func (i Int) Modulo(other ref.Value) ref.Value {
 	return i % otherInt
 }
 
-func (i Int) Multiply(other ref.Value) ref.Value {
+func (i Int) Multiply(other refpb.Value) refpb.Value {
 	if IntType != other.Type() {
 		return NewErr("unsupported overload")
 	}
 	return i * other.(Int)
 }
 
-func (i Int) Negate() ref.Value {
+func (i Int) Negate() refpb.Value {
 	return -i
 }
 
-func (i Int) Subtract(subtrahend ref.Value) ref.Value {
+func (i Int) Subtract(subtrahend refpb.Value) refpb.Value {
 	if IntType != subtrahend.Type() {
 		return NewErr("unsupported overload")
 	}
 	return i - subtrahend.(Int)
 }
 
-func (i Int) Type() ref.Type {
+func (i Int) Type() refpb.Type {
 	return IntType
 }
 

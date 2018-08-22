@@ -2,26 +2,26 @@ package parser
 
 import (
 	"github.com/antlr/antlr4/runtime/Go/antlr"
-	"github.com/google/cel-go/common"
-	expr "github.com/google/cel-spec/proto/v1/syntax"
+	commonpb "github.com/google/cel-go/common"
+	exprpb "github.com/google/cel-spec/proto/v1/syntax"
 )
 
 type parserHelper struct {
-	source    common.Source
+	source    commonpb.Source
 	errors    *parseErrors
 	macros    map[string]Macro
 	nextId    int64
 	positions map[int64]int32
 }
 
-func newParserHelper(source common.Source, macros Macros) *parserHelper {
+func newParserHelper(source commonpb.Source, macros Macros) *parserHelper {
 	macroMap := make(map[string]Macro)
 	for _, m := range macros {
 		macroMap[makeMacroKey(m.name, m.args, m.instanceStyle)] = m
 	}
 
 	return &parserHelper{
-		errors:    &parseErrors{common.NewErrors(source)},
+		errors:    &parseErrors{commonpb.NewErrors(source)},
 		source:    source,
 		macros:    macroMap,
 		nextId:    1,
@@ -29,18 +29,18 @@ func newParserHelper(source common.Source, macros Macros) *parserHelper {
 	}
 }
 
-func (p *parserHelper) getSourceInfo() *expr.SourceInfo {
-	return &expr.SourceInfo{
+func (p *parserHelper) getSourceInfo() *exprpb.SourceInfo {
+	return &exprpb.SourceInfo{
 		Location:    p.source.Description(),
 		Positions:   p.positions,
 		LineOffsets: p.source.LineOffsets()}
 }
 
-func (p *parserHelper) reportError(ctx interface{}, format string, args ...interface{}) *expr.Expr {
-	var location common.Location
+func (p *parserHelper) reportError(ctx interface{}, format string, args ...interface{}) *exprpb.Expr {
+	var location commonpb.Location
 	switch ctx.(type) {
-	case common.Location:
-		location = ctx.(common.Location)
+	case commonpb.Location:
+		location = ctx.(commonpb.Location)
 	case antlr.Token, antlr.ParserRuleContext:
 		err := p.newExpr(ctx)
 		location = p.getLocation(err.Id)
@@ -51,130 +51,130 @@ func (p *parserHelper) reportError(ctx interface{}, format string, args ...inter
 	return err
 }
 
-func (p *parserHelper) newLiteral(ctx interface{}, value *expr.Literal) *expr.Expr {
+func (p *parserHelper) newLiteral(ctx interface{}, value *exprpb.Literal) *exprpb.Expr {
 	exprNode := p.newExpr(ctx)
-	exprNode.ExprKind = &expr.Expr_LiteralExpr{LiteralExpr: value}
+	exprNode.ExprKind = &exprpb.Expr_LiteralExpr{LiteralExpr: value}
 	return exprNode
 }
 
-func (p *parserHelper) newLiteralBool(ctx interface{}, value bool) *expr.Expr {
+func (p *parserHelper) newLiteralBool(ctx interface{}, value bool) *exprpb.Expr {
 	return p.newLiteral(ctx,
-		&expr.Literal{LiteralKind: &expr.Literal_BoolValue{value}})
+		&exprpb.Literal{LiteralKind: &exprpb.Literal_BoolValue{value}})
 }
 
-func (p *parserHelper) newLiteralString(ctx interface{}, value string) *expr.Expr {
+func (p *parserHelper) newLiteralString(ctx interface{}, value string) *exprpb.Expr {
 	return p.newLiteral(ctx,
-		&expr.Literal{LiteralKind: &expr.Literal_StringValue{value}})
+		&exprpb.Literal{LiteralKind: &exprpb.Literal_StringValue{value}})
 }
 
-func (p *parserHelper) newLiteralBytes(ctx interface{}, value []byte) *expr.Expr {
+func (p *parserHelper) newLiteralBytes(ctx interface{}, value []byte) *exprpb.Expr {
 	return p.newLiteral(ctx,
-		&expr.Literal{LiteralKind: &expr.Literal_BytesValue{value}})
+		&exprpb.Literal{LiteralKind: &exprpb.Literal_BytesValue{value}})
 }
 
-func (p *parserHelper) newLiteralInt(ctx interface{}, value int64) *expr.Expr {
+func (p *parserHelper) newLiteralInt(ctx interface{}, value int64) *exprpb.Expr {
 	return p.newLiteral(ctx,
-		&expr.Literal{LiteralKind: &expr.Literal_Int64Value{value}})
+		&exprpb.Literal{LiteralKind: &exprpb.Literal_Int64Value{value}})
 }
 
-func (p *parserHelper) newLiteralUint(ctx interface{}, value uint64) *expr.Expr {
-	return p.newLiteral(ctx, &expr.Literal{LiteralKind: &expr.Literal_Uint64Value{value}})
+func (p *parserHelper) newLiteralUint(ctx interface{}, value uint64) *exprpb.Expr {
+	return p.newLiteral(ctx, &exprpb.Literal{LiteralKind: &exprpb.Literal_Uint64Value{value}})
 }
 
-func (p *parserHelper) newLiteralDouble(ctx interface{}, value float64) *expr.Expr {
+func (p *parserHelper) newLiteralDouble(ctx interface{}, value float64) *exprpb.Expr {
 	return p.newLiteral(ctx,
-		&expr.Literal{LiteralKind: &expr.Literal_DoubleValue{value}})
+		&exprpb.Literal{LiteralKind: &exprpb.Literal_DoubleValue{value}})
 }
 
-func (p *parserHelper) newIdent(ctx interface{}, name string) *expr.Expr {
+func (p *parserHelper) newIdent(ctx interface{}, name string) *exprpb.Expr {
 	exprNode := p.newExpr(ctx)
-	exprNode.ExprKind = &expr.Expr_IdentExpr{IdentExpr: &expr.Expr_Ident{Name: name}}
+	exprNode.ExprKind = &exprpb.Expr_IdentExpr{IdentExpr: &exprpb.Expr_Ident{Name: name}}
 	return exprNode
 }
 
-func (p *parserHelper) newSelect(ctx interface{}, operand *expr.Expr, field string) *expr.Expr {
+func (p *parserHelper) newSelect(ctx interface{}, operand *exprpb.Expr, field string) *exprpb.Expr {
 	exprNode := p.newExpr(ctx)
-	exprNode.ExprKind = &expr.Expr_SelectExpr{
-		SelectExpr: &expr.Expr_Select{Operand: operand, Field: field}}
+	exprNode.ExprKind = &exprpb.Expr_SelectExpr{
+		SelectExpr: &exprpb.Expr_Select{Operand: operand, Field: field}}
 	return exprNode
 }
 
-func (p *parserHelper) newPresenceTest(ctx interface{}, operand *expr.Expr, field string) *expr.Expr {
+func (p *parserHelper) newPresenceTest(ctx interface{}, operand *exprpb.Expr, field string) *exprpb.Expr {
 	exprNode := p.newExpr(ctx)
-	exprNode.ExprKind = &expr.Expr_SelectExpr{
-		SelectExpr: &expr.Expr_Select{Operand: operand, Field: field, TestOnly: true}}
+	exprNode.ExprKind = &exprpb.Expr_SelectExpr{
+		SelectExpr: &exprpb.Expr_Select{Operand: operand, Field: field, TestOnly: true}}
 	return exprNode
 }
 
-func (p *parserHelper) newGlobalCall(ctx interface{}, function string, args ...*expr.Expr) *expr.Expr {
+func (p *parserHelper) newGlobalCall(ctx interface{}, function string, args ...*exprpb.Expr) *exprpb.Expr {
 	if macro, found := p.macros[makeMacroKey(function, len(args), false)]; found {
 		return macro.expander(p, ctx, nil, args)
 	}
 	exprNode := p.newExpr(ctx)
-	exprNode.ExprKind = &expr.Expr_CallExpr{
-		CallExpr: &expr.Expr_Call{Function: function, Args: args}}
+	exprNode.ExprKind = &exprpb.Expr_CallExpr{
+		CallExpr: &exprpb.Expr_Call{Function: function, Args: args}}
 	return exprNode
 }
 
-func (p *parserHelper) newMemberCall(ctx interface{}, function string, target *expr.Expr, args ...*expr.Expr) *expr.Expr {
+func (p *parserHelper) newMemberCall(ctx interface{}, function string, target *exprpb.Expr, args ...*exprpb.Expr) *exprpb.Expr {
 	if macro, found := p.macros[makeMacroKey(function, len(args), true)]; found {
 		return macro.expander(p, ctx, target, args)
 	}
 	exprNode := p.newExpr(ctx)
-	exprNode.ExprKind = &expr.Expr_CallExpr{
-		CallExpr: &expr.Expr_Call{Function: function, Target: target, Args: args}}
+	exprNode.ExprKind = &exprpb.Expr_CallExpr{
+		CallExpr: &exprpb.Expr_Call{Function: function, Target: target, Args: args}}
 	return exprNode
 }
 
-func (p *parserHelper) newList(ctx interface{}, elements ...*expr.Expr) *expr.Expr {
+func (p *parserHelper) newList(ctx interface{}, elements ...*exprpb.Expr) *exprpb.Expr {
 	exprNode := p.newExpr(ctx)
-	exprNode.ExprKind = &expr.Expr_ListExpr{
-		ListExpr: &expr.Expr_CreateList{Elements: elements}}
+	exprNode.ExprKind = &exprpb.Expr_ListExpr{
+		ListExpr: &exprpb.Expr_CreateList{Elements: elements}}
 	return exprNode
 }
 
-func (p *parserHelper) newMap(ctx interface{}, entries ...*expr.Expr_CreateStruct_Entry) *expr.Expr {
+func (p *parserHelper) newMap(ctx interface{}, entries ...*exprpb.Expr_CreateStruct_Entry) *exprpb.Expr {
 	exprNode := p.newExpr(ctx)
-	exprNode.ExprKind = &expr.Expr_StructExpr{
-		StructExpr: &expr.Expr_CreateStruct{Entries: entries}}
+	exprNode.ExprKind = &exprpb.Expr_StructExpr{
+		StructExpr: &exprpb.Expr_CreateStruct{Entries: entries}}
 	return exprNode
 }
 
-func (p *parserHelper) newMapEntry(ctx interface{}, key *expr.Expr, value *expr.Expr) *expr.Expr_CreateStruct_Entry {
-	return &expr.Expr_CreateStruct_Entry{
+func (p *parserHelper) newMapEntry(ctx interface{}, key *exprpb.Expr, value *exprpb.Expr) *exprpb.Expr_CreateStruct_Entry {
+	return &exprpb.Expr_CreateStruct_Entry{
 		Id:      p.id(ctx),
-		KeyKind: &expr.Expr_CreateStruct_Entry_MapKey{MapKey: key},
+		KeyKind: &exprpb.Expr_CreateStruct_Entry_MapKey{MapKey: key},
 		Value:   value}
 }
 
 func (p *parserHelper) newObject(ctx interface{},
 	typeName string,
-	entries ...*expr.Expr_CreateStruct_Entry) *expr.Expr {
+	entries ...*exprpb.Expr_CreateStruct_Entry) *exprpb.Expr {
 	exprNode := p.newExpr(ctx)
-	exprNode.ExprKind = &expr.Expr_StructExpr{
-		StructExpr: &expr.Expr_CreateStruct{
+	exprNode.ExprKind = &exprpb.Expr_StructExpr{
+		StructExpr: &exprpb.Expr_CreateStruct{
 			MessageName: typeName,
 			Entries:     entries}}
 	return exprNode
 }
 
-func (p *parserHelper) newObjectField(ctx interface{}, field string, value *expr.Expr) *expr.Expr_CreateStruct_Entry {
-	return &expr.Expr_CreateStruct_Entry{
+func (p *parserHelper) newObjectField(ctx interface{}, field string, value *exprpb.Expr) *exprpb.Expr_CreateStruct_Entry {
+	return &exprpb.Expr_CreateStruct_Entry{
 		Id:      p.id(ctx),
-		KeyKind: &expr.Expr_CreateStruct_Entry_FieldKey{FieldKey: field},
+		KeyKind: &exprpb.Expr_CreateStruct_Entry_FieldKey{FieldKey: field},
 		Value:   value}
 }
 
 func (p *parserHelper) newComprehension(ctx interface{}, iterVar string,
-	iterRange *expr.Expr,
+	iterRange *exprpb.Expr,
 	accuVar string,
-	accuInit *expr.Expr,
-	condition *expr.Expr,
-	step *expr.Expr,
-	result *expr.Expr) *expr.Expr {
+	accuInit *exprpb.Expr,
+	condition *exprpb.Expr,
+	step *exprpb.Expr,
+	result *exprpb.Expr) *exprpb.Expr {
 	exprNode := p.newExpr(ctx)
-	exprNode.ExprKind = &expr.Expr_ComprehensionExpr{
-		ComprehensionExpr: &expr.Expr_Comprehension{
+	exprNode.ExprKind = &exprpb.Expr_ComprehensionExpr{
+		ComprehensionExpr: &exprpb.Expr_Comprehension{
 			AccuVar:       accuVar,
 			AccuInit:      accuInit,
 			IterVar:       iterVar,
@@ -185,8 +185,8 @@ func (p *parserHelper) newComprehension(ctx interface{}, iterVar string,
 	return exprNode
 }
 
-func (p *parserHelper) newExpr(ctx interface{}) *expr.Expr {
-	return &expr.Expr{Id: p.id(ctx)}
+func (p *parserHelper) newExpr(ctx interface{}) *exprpb.Expr {
+	return &exprpb.Expr{Id: p.id(ctx)}
 }
 
 func (p *parserHelper) id(ctx interface{}) int64 {
@@ -200,14 +200,14 @@ func (p *parserHelper) id(ctx interface{}) int64 {
 		// This should only happen if the ctx is nil
 		return -1
 	}
-	location := common.NewLocation(token.GetLine(), token.GetColumn())
+	location := commonpb.NewLocation(token.GetLine(), token.GetColumn())
 	id := p.nextId
 	p.positions[id], _ = p.source.LocationOffset(location)
 	p.nextId++
 	return id
 }
 
-func (p *parserHelper) getLocation(id int64) common.Location {
+func (p *parserHelper) getLocation(id int64) commonpb.Location {
 	characterOffset := p.positions[id]
 	location, _ := p.source.OffsetLocation(characterOffset)
 	return location
@@ -216,7 +216,7 @@ func (p *parserHelper) getLocation(id int64) common.Location {
 // ANTLR Parse listener implementations
 func (p *parserHelper) SyntaxError(recognizer antlr.Recognizer, offendingSymbol interface{}, line, column int, msg string, e antlr.RecognitionException) {
 	// TODO: Snippet
-	l := common.NewLocation(line, column)
+	l := commonpb.NewLocation(line, column)
 	p.errors.syntaxError(l, msg)
 }
 

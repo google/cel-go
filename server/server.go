@@ -4,16 +4,16 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/golang/protobuf/proto"
+	protopb "github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/google/cel-go/checker"
-	"github.com/google/cel-go/common"
-	"github.com/google/cel-go/common/packages"
-	"github.com/google/cel-go/common/types"
-	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/common/types/traits"
+	checkerpb "github.com/google/cel-go/checker"
+	commonpb "github.com/google/cel-go/common"
+	packagespb "github.com/google/cel-go/common/packages"
+	typespb "github.com/google/cel-go/common/types"
+	refpb "github.com/google/cel-go/common/types/ref"
+	traitspb "github.com/google/cel-go/common/types/traits"
 	"github.com/google/cel-go/interpreter"
-	"github.com/google/cel-go/parser"
+	parserpb "github.com/google/cel-go/parser"
 	cspb "github.com/google/cel-spec/proto/v1/cel_service"
 	"github.com/google/cel-spec/proto/v1/eval"
 	"github.com/google/cel-spec/proto/v1/value"
@@ -30,14 +30,14 @@ func (s *CelServer) Parse(ctx context.Context, in *cspb.ParseRequest) (*cspb.Par
 		return nil, st.Err()
 	}
 	// NOTE: syntax_version isn't currently used
-	src := common.NewStringSource(in.CelSource, in.SourceLocation)
-	var macs parser.Macros
+	src := commonpb.NewStringSource(in.CelSource, in.SourceLocation)
+	var macs parserpb.Macros
 	if in.DisableMacros {
-		macs = parser.NoMacros
+		macs = parserpb.NoMacros
 	} else {
-		macs = parser.AllMacros
+		macs = parserpb.AllMacros
 	}
-	expr, errs := parser.Parse(src, macs)
+	expr, errs := parserpb.Parse(src, macs)
 	resp := cspb.ParseResponse{}
 	if len(errs.GetErrors()) == 0 {
 		// Success
@@ -58,17 +58,17 @@ func (s *CelServer) Check(ctx context.Context, in *cspb.CheckRequest) (*cspb.Che
 		st := status.New(codes.InvalidArgument, "No source info.")
 		return nil, st.Err()
 	}
-	pkg := packages.NewPackage(in.Container)
-	typeProvider := types.NewProvider()
-	errs := common.NewErrors(common.NewInfoSource(in.ParsedExpr.SourceInfo))
-	var env *checker.Env
+	pkg := packagespb.NewPackage(in.Container)
+	typeProvider := typespb.NewProvider()
+	errs := commonpb.NewErrors(commonpb.NewInfoSource(in.ParsedExpr.SourceInfo))
+	var env *checkerpb.Env
 	if in.NoStdEnv {
-		env = checker.NewEnv(pkg, typeProvider, errs)
+		env = checkerpb.NewEnv(pkg, typeProvider, errs)
 	} else {
-		env = checker.NewStandardEnv(pkg, typeProvider, errs)
+		env = checkerpb.NewStandardEnv(pkg, typeProvider, errs)
 	}
 	env.Add(in.TypeEnv...)
-	c := checker.Check(in.ParsedExpr, env)
+	c := checkerpb.Check(in.ParsedExpr, env)
 	resp := cspb.CheckResponse{}
 	if len(errs.GetErrors()) == 0 {
 		// Success
@@ -81,8 +81,8 @@ func (s *CelServer) Check(ctx context.Context, in *cspb.CheckRequest) (*cspb.Che
 }
 
 func (s *CelServer) Eval(ctx context.Context, in *cspb.EvalRequest) (*cspb.EvalResponse, error) {
-	pkg := packages.NewPackage(in.Container)
-	typeProvider := types.NewProvider()
+	pkg := packagespb.NewPackage(in.Container)
+	typeProvider := typespb.NewProvider()
 	i := interpreter.NewStandardIntepreter(pkg, typeProvider)
 	var prog interpreter.Program
 	switch in.ExprKind.(type) {
@@ -115,7 +115,7 @@ func (s *CelServer) Eval(ctx context.Context, in *cspb.EvalRequest) (*cspb.EvalR
 
 // appendErrors converts the errors from errs to Status messages
 // and appends them to the list of issues.
-func appendErrors(errs *common.Errors, issues *[]*rpc.Status) {
+func appendErrors(errs *commonpb.Errors, issues *[]*rpc.Status) {
 	for _, e := range errs.GetErrors() {
 		status := ErrToStatus(e, cspb.StatusDetails_ERROR)
 		*issues = append(*issues, status)
@@ -123,7 +123,7 @@ func appendErrors(errs *common.Errors, issues *[]*rpc.Status) {
 }
 
 // ErrToStatus converts an Error to a Status message with the given severity.
-func ErrToStatus(e common.Error, severity cspb.StatusDetails_Severity) *rpc.Status {
+func ErrToStatus(e commonpb.Error, severity cspb.StatusDetails_Severity) *rpc.Status {
 	detail := cspb.StatusDetails{
 		Severity: severity,
 		Line:     int32(e.Location.Line()),
@@ -147,12 +147,12 @@ func ErrToStatus(e common.Error, severity cspb.StatusDetails_Severity) *rpc.Stat
 // common/types/provider.go and consolidated/refactored as appropriate.
 // In particular, make judicious use of types.NativeToValue().
 
-func RefValueToExprValue(res ref.Value) (*eval.ExprValue, error) {
-	if types.IsError(res) {
+func RefValueToExprValue(res refpb.Value) (*eval.ExprValue, error) {
+	if typespb.IsError(res) {
 		return &eval.ExprValue{
 			Kind: &eval.ExprValue_Error{}}, nil
 	}
-	if types.IsUnknown(res) {
+	if typespb.IsUnknown(res) {
 		return &eval.ExprValue{
 			Kind: &eval.ExprValue_Unknown{}}, nil
 	}
@@ -177,40 +177,40 @@ var (
 		"type":      value.TypeValue_TYPE_TYPE,
 		"uint":      value.TypeValue_UINT_TYPE,
 	}
-	basicTypeToTypeValue = map[value.TypeValue_BasicType]*types.TypeValue{
-		value.TypeValue_NULL_TYPE:   types.NullType,
-		value.TypeValue_BOOL_TYPE:   types.BoolType,
-		value.TypeValue_INT_TYPE:    types.IntType,
-		value.TypeValue_UINT_TYPE:   types.UintType,
-		value.TypeValue_DOUBLE_TYPE: types.DoubleType,
-		value.TypeValue_STRING_TYPE: types.StringType,
-		value.TypeValue_BYTES_TYPE:  types.BytesType,
-		value.TypeValue_TYPE_TYPE:   types.TypeType,
-		value.TypeValue_MAP_TYPE:    types.MapType,
-		value.TypeValue_LIST_TYPE:   types.ListType,
+	basicTypeToTypeValue = map[value.TypeValue_BasicType]*typespb.TypeValue{
+		value.TypeValue_NULL_TYPE:   typespb.NullType,
+		value.TypeValue_BOOL_TYPE:   typespb.BoolType,
+		value.TypeValue_INT_TYPE:    typespb.IntType,
+		value.TypeValue_UINT_TYPE:   typespb.UintType,
+		value.TypeValue_DOUBLE_TYPE: typespb.DoubleType,
+		value.TypeValue_STRING_TYPE: typespb.StringType,
+		value.TypeValue_BYTES_TYPE:  typespb.BytesType,
+		value.TypeValue_TYPE_TYPE:   typespb.TypeType,
+		value.TypeValue_MAP_TYPE:    typespb.MapType,
+		value.TypeValue_LIST_TYPE:   typespb.ListType,
 	}
 )
 
 // Convert res, which must not be error or unknown, to a Value proto.
-func RefValueToValue(res ref.Value) (*value.Value, error) {
+func RefValueToValue(res refpb.Value) (*value.Value, error) {
 	switch res.Type() {
-	case types.BoolType:
+	case typespb.BoolType:
 		return &value.Value{
 			Kind: &value.Value_BoolValue{res.Value().(bool)}}, nil
-	case types.BytesType:
+	case typespb.BytesType:
 		return &value.Value{
 			Kind: &value.Value_BytesValue{res.Value().([]byte)}}, nil
-	case types.DoubleType:
+	case typespb.DoubleType:
 		return &value.Value{
 			Kind: &value.Value_DoubleValue{res.Value().(float64)}}, nil
-	case types.IntType:
+	case typespb.IntType:
 		return &value.Value{
 			Kind: &value.Value_Int64Value{res.Value().(int64)}}, nil
-	case types.ListType:
-		l := res.(traits.Lister)
-		sz := l.Size().(types.Int)
+	case typespb.ListType:
+		l := res.(traitspb.Lister)
+		sz := l.Size().(typespb.Int)
 		elts := make([]*value.Value, int64(sz))
-		for i := types.Int(0); i < sz; i++ {
+		for i := typespb.Int(0); i < sz; i++ {
 			v, err := RefValueToValue(l.Get(i))
 			if err != nil {
 				return nil, err
@@ -220,11 +220,11 @@ func RefValueToValue(res ref.Value) (*value.Value, error) {
 		return &value.Value{
 			Kind: &value.Value_ListValue{
 				&value.ListValue{Values: elts}}}, nil
-	case types.MapType:
-		mapper := res.(traits.Mapper)
-		sz := mapper.Size().(types.Int)
+	case typespb.MapType:
+		mapper := res.(traitspb.Mapper)
+		sz := mapper.Size().(typespb.Int)
 		entries := make([]*value.MapValue_Entry, int64(sz))
-		for it := mapper.Iterator(); it.HasNext().(types.Bool); {
+		for it := mapper.Iterator(); it.HasNext().(typespb.Bool); {
 			k := it.Next()
 			v := mapper.Get(k)
 			kv, err := RefValueToValue(k)
@@ -240,14 +240,14 @@ func RefValueToValue(res ref.Value) (*value.Value, error) {
 		return &value.Value{
 			Kind: &value.Value_MapValue{
 				&value.MapValue{Entries: entries}}}, nil
-	case types.NullType:
+	case typespb.NullType:
 		return &value.Value{
 			Kind: &value.Value_NullValue{}}, nil
-	case types.StringType:
+	case typespb.StringType:
 		return &value.Value{
 			Kind: &value.Value_StringValue{res.Value().(string)}}, nil
-	case types.TypeType:
-		typeName := res.(ref.Type).TypeName()
+	case typespb.TypeType:
+		typeName := res.(refpb.Type).TypeName()
 		var tv *value.TypeValue
 		if basicType, found := typeNameToBasicType[typeName]; found {
 			// Names a basic type.
@@ -259,12 +259,12 @@ func RefValueToValue(res ref.Value) (*value.Value, error) {
 				DesignatorKind: &value.TypeValue_ObjectType{typeName}}
 		}
 		return &value.Value{Kind: &value.Value_TypeValue{tv}}, nil
-	case types.UintType:
+	case typespb.UintType:
 		return &value.Value{
 			Kind: &value.Value_Uint64Value{res.Value().(uint64)}}, nil
 	default:
 		// Object type
-		pb, ok := res.Value().(proto.Message)
+		pb, ok := res.Value().(protopb.Message)
 		if !ok {
 			return nil, status.New(codes.InvalidArgument, "Expected proto message").Err()
 		}
@@ -278,7 +278,7 @@ func RefValueToValue(res ref.Value) (*value.Value, error) {
 	return nil, status.New(codes.InvalidArgument, "unknown ref.Value type").Err()
 }
 
-func ExprValueToRefValue(ev *eval.ExprValue) (ref.Value, error) {
+func ExprValueToRefValue(ev *eval.ExprValue) (refpb.Value, error) {
 	switch ev.Kind.(type) {
 	case *eval.ExprValue_Value:
 		return ValueToRefValue(ev.GetValue())
@@ -290,39 +290,39 @@ func ExprValueToRefValue(ev *eval.ExprValue) (ref.Value, error) {
 		// able to decompose that string on output so we can
 		// round-trip arbitrary ExprValue messages.
 		// TODO(jimlarson) make a convention for this.
-		return types.NewErr("XXX add details later"), nil
+		return typespb.NewErr("XXX add details later"), nil
 	case *eval.ExprValue_Unknown:
-		return types.Unknown(ev.GetUnknown().Exprs), nil
+		return typespb.Unknown(ev.GetUnknown().Exprs), nil
 	}
 	return nil, status.New(codes.InvalidArgument, "unknown ExprValue kind").Err()
 }
 
-func ValueToRefValue(v *value.Value) (ref.Value, error) {
+func ValueToRefValue(v *value.Value) (refpb.Value, error) {
 	switch v.Kind.(type) {
 	case *value.Value_NullValue:
-		return types.NullValue, nil
+		return typespb.NullValue, nil
 	case *value.Value_BoolValue:
-		return types.Bool(v.GetBoolValue()), nil
+		return typespb.Bool(v.GetBoolValue()), nil
 	case *value.Value_Int64Value:
-		return types.Int(v.GetInt64Value()), nil
+		return typespb.Int(v.GetInt64Value()), nil
 	case *value.Value_Uint64Value:
-		return types.Uint(v.GetUint64Value()), nil
+		return typespb.Uint(v.GetUint64Value()), nil
 	case *value.Value_DoubleValue:
-		return types.Double(v.GetDoubleValue()), nil
+		return typespb.Double(v.GetDoubleValue()), nil
 	case *value.Value_StringValue:
-		return types.String(v.GetStringValue()), nil
+		return typespb.String(v.GetStringValue()), nil
 	case *value.Value_BytesValue:
-		return types.Bytes(v.GetBytesValue()), nil
+		return typespb.Bytes(v.GetBytesValue()), nil
 	case *value.Value_ObjectValue:
 		any := v.GetObjectValue()
 		var msg ptypes.DynamicAny
 		if err := ptypes.UnmarshalAny(any, &msg); err != nil {
 			return nil, err
 		}
-		return types.NewObject(msg.Message), nil
+		return typespb.NewObject(msg.Message), nil
 	case *value.Value_MapValue:
 		m := v.GetMapValue()
-		entries := make(map[ref.Value]ref.Value)
+		entries := make(map[refpb.Value]refpb.Value)
 		for _, entry := range m.Entries {
 			key, err := ValueToRefValue(entry.Key)
 			if err != nil {
@@ -334,10 +334,10 @@ func ValueToRefValue(v *value.Value) (ref.Value, error) {
 			}
 			entries[key] = value
 		}
-		return types.NewDynamicMap(entries), nil
+		return typespb.NewDynamicMap(entries), nil
 	case *value.Value_ListValue:
 		l := v.GetListValue()
-		elts := make([]ref.Value, len(l.Values))
+		elts := make([]refpb.Value, len(l.Values))
 		for i, e := range l.Values {
 			rv, err := ValueToRefValue(e)
 			if err != nil {
@@ -345,7 +345,7 @@ func ValueToRefValue(v *value.Value) (ref.Value, error) {
 			}
 			elts[i] = rv
 		}
-		return types.NewValueList(elts), nil
+		return typespb.NewValueList(elts), nil
 	case *value.Value_TypeValue:
 		var t *value.TypeValue
 		t = v.GetTypeValue()
@@ -359,7 +359,7 @@ func ValueToRefValue(v *value.Value) (ref.Value, error) {
 			return nil, status.New(codes.InvalidArgument, "unknown basic type").Err()
 		case *value.TypeValue_ObjectType:
 			o := t.GetObjectType()
-			return types.NewObjectTypeValue(o), nil
+			return typespb.NewObjectTypeValue(o), nil
 		}
 		return nil, status.New(codes.InvalidArgument, "unknown type designator kind").Err()
 	}

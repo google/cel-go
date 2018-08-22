@@ -16,15 +16,15 @@ package interpreter
 
 import (
 	"fmt"
-	"github.com/google/cel-go/interpreter/functions"
-	"github.com/google/cel-go/test"
+	functionspb "github.com/google/cel-go/interpreter/functions"
+	testpb "github.com/google/cel-go/test"
 	"testing"
 )
 
 func TestNewProgram_Empty(t *testing.T) {
 	program := NewProgram(
-		test.Empty.Expr,
-		test.Empty.Info(t.Name()))
+		testpb.Empty.Expr,
+		testpb.Empty.Info(t.Name()))
 	if loc, found := program.Metadata().IdLocation(0); found {
 		t.Errorf("Unexpected location found: %v", loc)
 	}
@@ -37,8 +37,8 @@ func TestNewProgram_Empty(t *testing.T) {
 
 func TestNewProgram_LogicalAnd(t *testing.T) {
 	program := NewProgram(
-		test.LogicalAnd.Expr,
-		test.LogicalAnd.Info(t.Name()))
+		testpb.LogicalAnd.Expr,
+		testpb.LogicalAnd.Info(t.Name()))
 	if loc, found := program.Metadata().IdLocation(1); found {
 		t.Errorf("Unexpected location found: %v", loc)
 	}
@@ -52,8 +52,8 @@ func TestNewProgram_LogicalAnd(t *testing.T) {
 
 func TestNewProgram_Conditional(t *testing.T) {
 	program := NewProgram(
-		test.Conditional.Expr,
-		test.Conditional.Info(t.Name()))
+		testpb.Conditional.Expr,
+		testpb.Conditional.Info(t.Name()))
 	if loc, found := program.Metadata().IdLocation(1); found {
 		t.Errorf("Unexpected location found: %v", loc)
 	}
@@ -83,8 +83,8 @@ func TestNewProgram_Conditional(t *testing.T) {
 func TestNewProgram_Comprehension(t *testing.T) {
 
 	program := NewProgram(
-		test.Exists.Expr,
-		test.Exists.Info(t.Name()))
+		testpb.Exists.Expr,
+		testpb.Exists.Info(t.Name()))
 	if loc, found := program.Metadata().IdLocation(1); !found {
 		t.Errorf("Unexpected location found: %v", loc)
 	}
@@ -98,8 +98,8 @@ func TestNewProgram_Comprehension(t *testing.T) {
 
 func TestNewProgram_DynMap(t *testing.T) {
 	program := NewProgram(
-		test.DynMap.Expr,
-		test.DynMap.Info(t.Name()))
+		testpb.DynMap.Expr,
+		testpb.DynMap.Info(t.Name()))
 	if loc, found := program.Metadata().IdLocation(1); found {
 		t.Errorf("Unexpected location found: %v", loc)
 	}
@@ -113,6 +113,6 @@ func TestNewProgram_DynMap(t *testing.T) {
 
 func dispatcher() Dispatcher {
 	dispatcher := NewDispatcher()
-	dispatcher.Add(functions.StandardOverloads()...)
+	dispatcher.Add(functionspb.StandardOverloads()...)
 	return dispatcher
 }

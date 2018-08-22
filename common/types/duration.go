@@ -16,17 +16,17 @@ package types
 
 import (
 	"fmt"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
+	protopb "github.com/golang/protobuf/proto"
+	ptypespb "github.com/golang/protobuf/ptypes"
 	dpb "github.com/golang/protobuf/ptypes/duration"
-	"github.com/google/cel-go/common/overloads"
-	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/common/types/traits"
+	overloadspb "github.com/google/cel-go/common/overloads"
+	refpb "github.com/google/cel-go/common/types/ref"
+	traitspb "github.com/google/cel-go/common/types/traits"
 	"reflect"
 	"time"
 )
 
-// Duration type that implements ref.Value and supports add, compare, negate,
+// Duration type that implements refpb.Value and supports add, compare, negate,
 // and subtract operators. This type is also a receiver which means it can
 // participate in dispatch to receiver functions.
 type Duration struct {
@@ -36,35 +36,35 @@ type Duration struct {
 var (
 	// DurationType singleton.
 	DurationType = NewTypeValue("google.protobuf.Duration",
-		traits.AdderType,
-		traits.ComparerType,
-		traits.NegatorType,
-		traits.ReceiverType,
-		traits.SubtractorType)
+		traitspb.AdderType,
+		traitspb.ComparerType,
+		traitspb.NegatorType,
+		traitspb.ReceiverType,
+		traitspb.SubtractorType)
 )
 
-func (d Duration) Add(other ref.Value) ref.Value {
+func (d Duration) Add(other refpb.Value) refpb.Value {
 	switch other.Type() {
 	case DurationType:
-		dur1, err := ptypes.Duration(d.Duration)
+		dur1, err := ptypespb.Duration(d.Duration)
 		if err != nil {
 			return &Err{err}
 		}
-		dur2, err := ptypes.Duration(other.(Duration).Duration)
+		dur2, err := ptypespb.Duration(other.(Duration).Duration)
 		if err != nil {
 			return &Err{err}
 		}
-		return Duration{ptypes.DurationProto(dur1 + dur2)}
+		return Duration{ptypespb.DurationProto(dur1 + dur2)}
 	case TimestampType:
-		dur, err := ptypes.Duration(d.Duration)
+		dur, err := ptypespb.Duration(d.Duration)
 		if err != nil {
 			return &Err{err}
 		}
-		ts, err := ptypes.Timestamp(other.(Timestamp).Timestamp)
+		ts, err := ptypespb.Timestamp(other.(Timestamp).Timestamp)
 		if err != nil {
 			return &Err{err}
 		}
-		tstamp, err := ptypes.TimestampProto(ts.Add(dur))
+		tstamp, err := ptypespb.TimestampProto(ts.Add(dur))
 		if err != nil {
 			return &Err{err}
 		}
@@ -73,15 +73,15 @@ func (d Duration) Add(other ref.Value) ref.Value {
 	return NewErr("unsupported overload")
 }
 
-func (d Duration) Compare(other ref.Value) ref.Value {
+func (d Duration) Compare(other refpb.Value) refpb.Value {
 	if DurationType != other.Type() {
 		return NewErr("unsupported overload")
 	}
-	dur1, err := ptypes.Duration(d.Duration)
+	dur1, err := ptypespb.Duration(d.Duration)
 	if err != nil {
 		return &Err{err}
 	}
-	dur2, err := ptypes.Duration(other.(Duration).Duration)
+	dur2, err := ptypespb.Duration(other.(Duration).Duration)
 	if err != nil {
 		return &Err{err}
 	}
@@ -107,14 +107,14 @@ func (d Duration) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		"'google.protobuf.Duration' to '%v'", typeDesc)
 }
 
-func (d Duration) ConvertToType(typeVal ref.Type) ref.Value {
+func (d Duration) ConvertToType(typeVal refpb.Type) refpb.Value {
 	switch typeVal {
 	case StringType:
-		if dur, err := ptypes.Duration(d.Duration); err == nil {
+		if dur, err := ptypespb.Duration(d.Duration); err == nil {
 			return String(dur.String())
 		}
 	case IntType:
-		if dur, err := ptypes.Duration(d.Duration); err == nil {
+		if dur, err := ptypespb.Duration(d.Duration); err == nil {
 			return Int(dur)
 		}
 	case DurationType:
@@ -125,21 +125,21 @@ func (d Duration) ConvertToType(typeVal ref.Type) ref.Value {
 	return NewErr("type conversion error from '%s' to '%s'", DurationType, typeVal)
 }
 
-func (d Duration) Equal(other ref.Value) ref.Value {
+func (d Duration) Equal(other refpb.Value) refpb.Value {
 	return Bool(DurationType == other.Type() &&
-		proto.Equal(d.Duration, other.Value().(proto.Message)))
+		protopb.Equal(d.Duration, other.Value().(protopb.Message)))
 }
 
-func (d Duration) Negate() ref.Value {
-	dur, err := ptypes.Duration(d.Duration)
+func (d Duration) Negate() refpb.Value {
+	dur, err := ptypespb.Duration(d.Duration)
 	if err != nil {
 		return &Err{err}
 	}
-	return Duration{ptypes.DurationProto(-dur)}
+	return Duration{ptypespb.DurationProto(-dur)}
 }
 
-func (d Duration) Receive(function string, overload string, args []ref.Value) ref.Value {
-	dur, err := ptypes.Duration(d.Duration)
+func (d Duration) Receive(function string, overload string, args []refpb.Value) refpb.Value {
+	dur, err := ptypespb.Duration(d.Duration)
 	if err != nil {
 		return &Err{err}
 	}
@@ -151,14 +151,14 @@ func (d Duration) Receive(function string, overload string, args []ref.Value) re
 	return NewErr("unsupported overload")
 }
 
-func (d Duration) Subtract(subtrahend ref.Value) ref.Value {
+func (d Duration) Subtract(subtrahend refpb.Value) refpb.Value {
 	if DurationType != subtrahend.Type() {
 		return NewErr("unsupported overload")
 	}
 	return d.Add(subtrahend.(Duration).Negate())
 }
 
-func (d Duration) Type() ref.Type {
+func (d Duration) Type() refpb.Type {
 	return DurationType
 }
 
@@ -169,17 +169,17 @@ func (d Duration) Value() interface{} {
 var (
 	durationValueType = reflect.TypeOf(&dpb.Duration{})
 
-	durationZeroArgOverloads = map[string]func(time.Duration) ref.Value{
-		overloads.TimeGetHours: func(dur time.Duration) ref.Value {
+	durationZeroArgOverloads = map[string]func(time.Duration) refpb.Value{
+		overloadspb.TimeGetHours: func(dur time.Duration) refpb.Value {
 			return Int(dur.Hours())
 		},
-		overloads.TimeGetMinutes: func(dur time.Duration) ref.Value {
+		overloadspb.TimeGetMinutes: func(dur time.Duration) refpb.Value {
 			return Int(dur.Minutes())
 		},
-		overloads.TimeGetSeconds: func(dur time.Duration) ref.Value {
+		overloadspb.TimeGetSeconds: func(dur time.Duration) refpb.Value {
 			return Int(dur.Seconds())
 		},
-		overloads.TimeGetMilliseconds: func(dur time.Duration) ref.Value {
+		overloadspb.TimeGetMilliseconds: func(dur time.Duration) refpb.Value {
 			return Int(dur.Nanoseconds() / 1000000)
 		}}
 )

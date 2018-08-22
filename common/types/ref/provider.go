@@ -15,7 +15,7 @@
 package ref
 
 import (
-	"github.com/google/cel-spec/proto/checked/v1/checked"
+	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
 )
 
 // TypeProvider specifies functions for creating new object instances and for
@@ -32,13 +32,13 @@ type TypeProvider interface {
 	// if not found.
 	//
 	// Used during type-checking only.
-	FindType(typeName string) (*checked.Type, bool)
+	FindType(typeName string) (*checkedpb.Type, bool)
 
 	// FieldFieldType returns the field type for a checked type value. Returns
 	// false if the field could not be found.
 	//
 	// Used during type-checking only.
-	FindFieldType(t *checked.Type, fieldName string) (*FieldType, bool)
+	FindFieldType(t *checkedpb.Type, fieldName string) (*FieldType, bool)
 
 	// NewValue creates a new type value from a qualified name and a map of
 	// field initializers.
@@ -59,5 +59,5 @@ type FieldType struct {
 	SupportsPresence bool
 
 	// Type of the field.
-	Type *checked.Type
+	Type *checkedpb.Type
 }
