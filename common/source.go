@@ -17,7 +17,7 @@ package common
 import (
 	"strings"
 
-	"github.com/google/cel-spec/proto/v1/syntax"
+	exprpb "github.com/google/cel-spec/proto/v1/syntax"
 )
 
 // Source interface for filter source contents.
@@ -86,7 +86,7 @@ func NewStringSource(contents string, description string) Source {
 	}
 }
 
-func NewInfoSource(info *syntax.SourceInfo) Source {
+func NewInfoSource(info *exprpb.SourceInfo) Source {
 	return &sourceImpl{
 		contents:    "",
 		description: info.Location,

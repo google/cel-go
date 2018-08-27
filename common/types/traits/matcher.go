@@ -14,10 +14,10 @@
 
 package traits
 
-import "github.com/google/cel-go/common/types/ref"
+import refpb "github.com/google/cel-go/common/types/ref"
 
 // Matcher interface for supporting 'matches()' overloads.
 type Matcher interface {
 	// Match returns true if the pattern matches the current value.
-	Match(pattern ref.Value) ref.Value
+	Match(pattern refpb.Value) refpb.Value
 }

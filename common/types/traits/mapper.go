@@ -14,11 +14,11 @@
 
 package traits
 
-import "github.com/google/cel-go/common/types/ref"
+import refpb "github.com/google/cel-go/common/types/ref"
 
 // Mapper interface which aggregates the traits of a maps.
 type Mapper interface {
-	ref.Value
+	refpb.Value
 	Container
 	Indexer
 	Iterable

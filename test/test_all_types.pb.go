@@ -3,14 +3,14 @@
 
 package test
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import any "github.com/golang/protobuf/ptypes/any"
-import duration "github.com/golang/protobuf/ptypes/duration"
+import "github.com/golang/protobuf/proto"
+import "fmt"
+import "math"
+import "github.com/golang/protobuf/ptypes/any"
+import "github.com/golang/protobuf/ptypes/duration"
 import _struct "github.com/golang/protobuf/ptypes/struct"
-import timestamp "github.com/golang/protobuf/ptypes/timestamp"
-import wrappers "github.com/golang/protobuf/ptypes/wrappers"
+import "github.com/golang/protobuf/ptypes/timestamp"
+import "github.com/golang/protobuf/ptypes/wrappers"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal

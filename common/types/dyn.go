@@ -14,20 +14,22 @@
 
 package types
 
-import "github.com/google/cel-go/common/types/ref"
+import (
+	refpb "github.com/google/cel-go/common/types/ref"
+)
 
 var (
 	// DynType singleton.
 	DynType = NewTypeValue("dyn")
 )
 
-// IsDyn indicates whether the input ref.Value or ref.Type is equal to DynType.
+// IsDyn indicates whether the input refpb.Value or refpb.Type is equal to DynType.
 func IsDyn(elem interface{}) bool {
 	switch elem.(type) {
-	case ref.Type:
+	case refpb.Type:
 		return elem == DynType
-	case ref.Value:
-		return IsDyn(elem.(ref.Value).Type())
+	case refpb.Value:
+		return IsDyn(elem.(refpb.Value).Type())
 	}
 	return false
 }

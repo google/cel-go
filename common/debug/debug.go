@@ -19,7 +19,7 @@ package debug
 import (
 	"bytes"
 	"fmt"
-	expr "github.com/google/cel-spec/proto/v1/syntax"
+	exprpb "github.com/google/cel-spec/proto/v1/syntax"
 	"strconv"
 	"strings"
 )
@@ -37,7 +37,7 @@ type DebugWriter interface {
 
 	// Buffer pushes an expression into an internal queue of expressions to
 	// write to a string.
-	Buffer(e *expr.Expr)
+	Buffer(e *exprpb.Expr)
 }
 
 type emptyDebugAdorner struct {
@@ -49,11 +49,11 @@ func (a *emptyDebugAdorner) GetMetadata(e interface{}) string {
 	return ""
 }
 
-func ToDebugString(e *expr.Expr) string {
+func ToDebugString(e *exprpb.Expr) string {
 	return ToAdornedDebugString(e, emptyAdorner)
 }
 
-func ToAdornedDebugString(e *expr.Expr, adorner DebugAdorner) string {
+func ToAdornedDebugString(e *exprpb.Expr, adorner DebugAdorner) string {
 	w := newDebugWriter(adorner)
 	w.Buffer(e)
 	return w.String()
@@ -75,30 +75,30 @@ func newDebugWriter(a DebugAdorner) *debugWriter {
 	}
 }
 
-func (w *debugWriter) Buffer(e *expr.Expr) {
+func (w *debugWriter) Buffer(e *exprpb.Expr) {
 	if e == nil {
 		return
 	}
 	switch e.ExprKind.(type) {
-	case *expr.Expr_LiteralExpr:
+	case *exprpb.Expr_LiteralExpr:
 		w.append(formatLiteral(e.GetLiteralExpr()))
-	case *expr.Expr_IdentExpr:
+	case *exprpb.Expr_IdentExpr:
 		w.append(e.GetIdentExpr().Name)
-	case *expr.Expr_SelectExpr:
+	case *exprpb.Expr_SelectExpr:
 		w.appendSelect(e.GetSelectExpr())
-	case *expr.Expr_CallExpr:
+	case *exprpb.Expr_CallExpr:
 		w.appendCall(e.GetCallExpr())
-	case *expr.Expr_ListExpr:
+	case *exprpb.Expr_ListExpr:
 		w.appendList(e.GetListExpr())
-	case *expr.Expr_StructExpr:
+	case *exprpb.Expr_StructExpr:
 		w.appendStruct(e.GetStructExpr())
-	case *expr.Expr_ComprehensionExpr:
+	case *exprpb.Expr_ComprehensionExpr:
 		w.appendComprehension(e.GetComprehensionExpr())
 	}
 	w.adorn(e)
 }
 
-func (w *debugWriter) appendSelect(sel *expr.Expr_Select) {
+func (w *debugWriter) appendSelect(sel *exprpb.Expr_Select) {
 	w.Buffer(sel.Operand)
 	w.append(".")
 	w.append(sel.Field)
@@ -107,7 +107,7 @@ func (w *debugWriter) appendSelect(sel *expr.Expr_Select) {
 	}
 }
 
-func (w *debugWriter) appendCall(call *expr.Expr_Call) {
+func (w *debugWriter) appendCall(call *exprpb.Expr_Call) {
 	if call.Target != nil {
 		w.Buffer(call.Target)
 		w.append(".")
@@ -130,7 +130,7 @@ func (w *debugWriter) appendCall(call *expr.Expr_Call) {
 	w.append(")")
 }
 
-func (w *debugWriter) appendList(list *expr.Expr_CreateList) {
+func (w *debugWriter) appendList(list *exprpb.Expr_CreateList) {
 	w.append("[")
 	if len(list.GetElements()) > 0 {
 		w.appendLine()
@@ -148,7 +148,7 @@ func (w *debugWriter) appendList(list *expr.Expr_CreateList) {
 	w.append("]")
 }
 
-func (w *debugWriter) appendStruct(obj *expr.Expr_CreateStruct) {
+func (w *debugWriter) appendStruct(obj *exprpb.Expr_CreateStruct) {
 	if obj.MessageName != "" {
 		w.appendObject(obj)
 	} else {
@@ -156,7 +156,7 @@ func (w *debugWriter) appendStruct(obj *expr.Expr_CreateStruct) {
 	}
 }
 
-func (w *debugWriter) appendObject(obj *expr.Expr_CreateStruct) {
+func (w *debugWriter) appendObject(obj *exprpb.Expr_CreateStruct) {
 	w.append(obj.MessageName)
 	w.append("{")
 	if len(obj.Entries) > 0 {
@@ -178,7 +178,7 @@ func (w *debugWriter) appendObject(obj *expr.Expr_CreateStruct) {
 	w.append("}")
 }
 
-func (w *debugWriter) appendMap(obj *expr.Expr_CreateStruct) {
+func (w *debugWriter) appendMap(obj *exprpb.Expr_CreateStruct) {
 	w.append("{")
 	if len(obj.Entries) > 0 {
 		w.appendLine()
@@ -199,7 +199,7 @@ func (w *debugWriter) appendMap(obj *expr.Expr_CreateStruct) {
 	w.append("}")
 }
 
-func (w *debugWriter) appendComprehension(comprehension *expr.Expr_Comprehension) {
+func (w *debugWriter) appendComprehension(comprehension *exprpb.Expr_Comprehension) {
 	w.append("__comprehension__(")
 	w.addIndent()
 	w.appendLine()
@@ -240,21 +240,21 @@ func (w *debugWriter) appendComprehension(comprehension *expr.Expr_Comprehension
 	w.removeIndent()
 }
 
-func formatLiteral(c *expr.Literal) string {
+func formatLiteral(c *exprpb.Literal) string {
 	switch c.LiteralKind.(type) {
-	case *expr.Literal_BoolValue:
+	case *exprpb.Literal_BoolValue:
 		return fmt.Sprintf("%t", c.GetBoolValue())
-	case *expr.Literal_BytesValue:
+	case *exprpb.Literal_BytesValue:
 		return fmt.Sprintf("b\"%s\"", string(c.GetBytesValue()))
-	case *expr.Literal_DoubleValue:
+	case *exprpb.Literal_DoubleValue:
 		return fmt.Sprintf("%v", c.GetDoubleValue())
-	case *expr.Literal_Int64Value:
+	case *exprpb.Literal_Int64Value:
 		return fmt.Sprintf("%d", c.GetInt64Value())
-	case *expr.Literal_StringValue:
+	case *exprpb.Literal_StringValue:
 		return strconv.Quote(c.GetStringValue())
-	case *expr.Literal_Uint64Value:
+	case *exprpb.Literal_Uint64Value:
 		return fmt.Sprintf("%du", c.GetUint64Value())
-	case *expr.Literal_NullValue:
+	case *exprpb.Literal_NullValue:
 		return "null"
 	default:
 		panic("Unknown constant type")

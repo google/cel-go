@@ -15,7 +15,7 @@
 package traits
 
 import (
-	"github.com/google/cel-go/common/types/ref"
+	refpb "github.com/google/cel-go/common/types/ref"
 )
 
 // Iterable aggregate types permit traversal over their elements.
@@ -26,11 +26,11 @@ type Iterable interface {
 
 // Iterator permits safe traversal over the contents of an aggregate type.
 type Iterator interface {
-	ref.Value
+	refpb.Value
 
 	// HasNext returns true if there are unvisited elements in the Iterator.
-	HasNext() ref.Value
+	HasNext() refpb.Value
 
 	// Next returns the next element.
-	Next() ref.Value
+	Next() refpb.Value
 }

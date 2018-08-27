@@ -16,11 +16,11 @@ package interpreter
 
 import (
 	"fmt"
-	"github.com/google/cel-go/common/operators"
-	"github.com/google/cel-go/common/overloads"
-	"github.com/google/cel-go/common/types"
-	"github.com/google/cel-go/common/types/ref"
-	expr "github.com/google/cel-spec/proto/v1/syntax"
+	operatorspb "github.com/google/cel-go/common/operators"
+	overloadspb "github.com/google/cel-go/common/overloads"
+	typespb "github.com/google/cel-go/common/types"
+	refpb "github.com/google/cel-go/common/types/ref"
+	exprpb "github.com/google/cel-spec/proto/v1/syntax"
 )
 
 const (
@@ -33,7 +33,7 @@ const (
 // WalkExpr does a post-order traversal of a CEL syntax AST, which means
 // expressions are evaluated in a bottom-up fashion just as they would be in
 // a recursive execution pattern.
-func WalkExpr(expression *expr.Expr,
+func WalkExpr(expression *exprpb.Expr,
 	metadata Metadata,
 	dispatcher Dispatcher,
 	state MutableEvalState) []Instruction {
@@ -58,50 +58,50 @@ type astWalker struct {
 	state      MutableEvalState
 }
 
-func (w *astWalker) walk(node *expr.Expr) []Instruction {
+func (w *astWalker) walk(node *exprpb.Expr) []Instruction {
 	switch node.ExprKind.(type) {
-	case *expr.Expr_CallExpr:
+	case *exprpb.Expr_CallExpr:
 		return w.walkCall(node)
-	case *expr.Expr_IdentExpr:
+	case *exprpb.Expr_IdentExpr:
 		return w.walkIdent(node)
-	case *expr.Expr_SelectExpr:
+	case *exprpb.Expr_SelectExpr:
 		return w.walkSelect(node)
-	case *expr.Expr_LiteralExpr:
+	case *exprpb.Expr_LiteralExpr:
 		w.walkLiteral(node)
 		return []Instruction{}
-	case *expr.Expr_ListExpr:
+	case *exprpb.Expr_ListExpr:
 		return w.walkList(node)
-	case *expr.Expr_StructExpr:
+	case *exprpb.Expr_StructExpr:
 		return w.walkStruct(node)
-	case *expr.Expr_ComprehensionExpr:
+	case *exprpb.Expr_ComprehensionExpr:
 		return w.walkComprehension(node)
 	}
 	return []Instruction{}
 }
 
-func (w *astWalker) walkLiteral(node *expr.Expr) {
+func (w *astWalker) walkLiteral(node *exprpb.Expr) {
 	literal := node.GetLiteralExpr()
-	var value ref.Value = nil
+	var value refpb.Value = nil
 	switch literal.LiteralKind.(type) {
-	case *expr.Literal_BoolValue:
-		value = types.Bool(literal.GetBoolValue())
-	case *expr.Literal_BytesValue:
-		value = types.Bytes(literal.GetBytesValue())
-	case *expr.Literal_DoubleValue:
-		value = types.Double(literal.GetDoubleValue())
-	case *expr.Literal_Int64Value:
-		value = types.Int(literal.GetInt64Value())
-	case *expr.Literal_NullValue:
-		value = types.Null(literal.GetNullValue())
-	case *expr.Literal_StringValue:
-		value = types.String(literal.GetStringValue())
-	case *expr.Literal_Uint64Value:
-		value = types.Uint(literal.GetUint64Value())
+	case *exprpb.Literal_BoolValue:
+		value = typespb.Bool(literal.GetBoolValue())
+	case *exprpb.Literal_BytesValue:
+		value = typespb.Bytes(literal.GetBytesValue())
+	case *exprpb.Literal_DoubleValue:
+		value = typespb.Double(literal.GetDoubleValue())
+	case *exprpb.Literal_Int64Value:
+		value = typespb.Int(literal.GetInt64Value())
+	case *exprpb.Literal_NullValue:
+		value = typespb.Null(literal.GetNullValue())
+	case *exprpb.Literal_StringValue:
+		value = typespb.String(literal.GetStringValue())
+	case *exprpb.Literal_Uint64Value:
+		value = typespb.Uint(literal.GetUint64Value())
 	}
 	w.state.SetValue(node.Id, value)
 }
 
-func (w *astWalker) walkIdent(node *expr.Expr) []Instruction {
+func (w *astWalker) walkIdent(node *exprpb.Expr) []Instruction {
 	identName := node.GetIdentExpr().Name
 	if _, found := w.scope.ref(identName); !found {
 		ident := NewIdent(node.Id, identName)
@@ -111,7 +111,7 @@ func (w *astWalker) walkIdent(node *expr.Expr) []Instruction {
 	return []Instruction{}
 }
 
-func (w *astWalker) walkSelect(node *expr.Expr) []Instruction {
+func (w *astWalker) walkSelect(node *exprpb.Expr) []Instruction {
 	sel := node.GetSelectExpr()
 	operandId := w.getId(sel.Operand)
 	return append(
@@ -119,7 +119,7 @@ func (w *astWalker) walkSelect(node *expr.Expr) []Instruction {
 		NewSelect(node.Id, operandId, sel.Field))
 }
 
-func (w *astWalker) walkCall(node *expr.Expr) []Instruction {
+func (w *astWalker) walkCall(node *exprpb.Expr) []Instruction {
 	call := node.GetCallExpr()
 	function := call.Function
 	argGroups, argGroupLens, argIds := w.walkCallArgs(call)
@@ -129,7 +129,7 @@ func (w *astWalker) walkCall(node *expr.Expr) []Instruction {
 	// logical and, logical or, and conditional operators.
 	var instructions []Instruction
 	switch function {
-	case operators.LogicalAnd, operators.LogicalOr:
+	case operatorspb.LogicalAnd, operatorspb.LogicalOr:
 		// Compute the left-hand side with a jump if the value can be used to
 		// short-circuit the expression.
 		//
@@ -154,13 +154,13 @@ func (w *astWalker) walkCall(node *expr.Expr) []Instruction {
 					NewJump(
 						argIds[i],
 						instructionCount-evalCount,
-						jumpIfEqual(argIds[i], types.Bool(function == operators.LogicalOr))))
+						jumpIfEqual(argIds[i], typespb.Bool(function == operatorspb.LogicalOr))))
 			}
 			evalCount += 1
 		}
 		return append(instructions, NewCall(node.Id, call.Function, argIds))
 
-	case operators.Conditional:
+	case operatorspb.Conditional:
 		// Compute the conditional jump, with two jumps, one for false,
 		// and one for true
 		//
@@ -185,7 +185,7 @@ func (w *astWalker) walkCall(node *expr.Expr) []Instruction {
 		// 2: jump to <ELSE> on false.
 		instructions = append(instructions,
 			NewJump(conditionId, len(trueVal)+2,
-				jumpIfEqual(conditionId, types.False)))
+				jumpIfEqual(conditionId, typespb.False)))
 		// 3: <IF> expr
 		instructions = append(instructions, trueVal...)
 		// 4: jump to <END>
@@ -204,7 +204,7 @@ func (w *astWalker) walkCall(node *expr.Expr) []Instruction {
 	}
 }
 
-func (w *astWalker) walkList(node *expr.Expr) []Instruction {
+func (w *astWalker) walkList(node *exprpb.Expr) []Instruction {
 	listExpr := node.GetListExpr()
 	var elementIds []int64
 	var elementSteps []Instruction
@@ -215,7 +215,7 @@ func (w *astWalker) walkList(node *expr.Expr) []Instruction {
 	return append(elementSteps, NewList(node.Id, elementIds))
 }
 
-func (w *astWalker) walkStruct(node *expr.Expr) []Instruction {
+func (w *astWalker) walkStruct(node *exprpb.Expr) []Instruction {
 	structExpr := node.GetStructExpr()
 	keyValues := make(map[int64]int64)
 	fieldValues := make(map[string]int64)
@@ -223,9 +223,9 @@ func (w *astWalker) walkStruct(node *expr.Expr) []Instruction {
 	for _, entry := range structExpr.GetEntries() {
 		valueId := w.getId(entry.GetValue())
 		switch entry.KeyKind.(type) {
-		case *expr.Expr_CreateStruct_Entry_FieldKey:
+		case *exprpb.Expr_CreateStruct_Entry_FieldKey:
 			fieldValues[entry.GetFieldKey()] = valueId
-		case *expr.Expr_CreateStruct_Entry_MapKey:
+		case *exprpb.Expr_CreateStruct_Entry_MapKey:
 			keyValues[w.getId(entry.GetMapKey())] = valueId
 			entrySteps = append(entrySteps, w.walk(entry.GetMapKey())...)
 		}
@@ -238,7 +238,7 @@ func (w *astWalker) walkStruct(node *expr.Expr) []Instruction {
 		NewObject(node.Id, structExpr.MessageName, fieldValues))
 }
 
-func (w *astWalker) walkComprehension(node *expr.Expr) []Instruction {
+func (w *astWalker) walkComprehension(node *exprpb.Expr) []Instruction {
 	// Serializing a comprehension into a linear set of executable steps is one
 	// of the more complex tasks in AST walking. The challenge being loop
 	// termination when errors or unknown values are encountered outside
@@ -294,7 +294,7 @@ func (w *astWalker) walkComprehension(node *expr.Expr) []Instruction {
 
 	// iter-init
 	iterInitStep :=
-		NewCall(iteratorId, overloads.Iterator, []int64{w.getId(comprehensionRange)})
+		NewCall(iteratorId, overloadspb.Iterator, []int64{w.getId(comprehensionRange)})
 
 	// <LOOP>
 	// Loop instruction breakdown
@@ -316,7 +316,7 @@ func (w *astWalker) walkComprehension(node *expr.Expr) []Instruction {
 	// iter-hasNext
 	iterHasNextId := w.nextExprId()
 	iterHasNextStep :=
-		NewCall(iterHasNextId, overloads.HasNext, []int64{iteratorId})
+		NewCall(iterHasNextId, overloadspb.HasNext, []int64{iteratorId})
 	// jump <END> if !it.hasNext()
 	jumpIterEndStep :=
 		NewJump(iterHasNextId, loopInstructionCount-2, breakIfEnd(iterHasNextId))
@@ -324,10 +324,10 @@ func (w *astWalker) walkComprehension(node *expr.Expr) []Instruction {
 	// eval <cond>
 	// jump <END> if condition false
 	jumpConditionFalseStep :=
-		NewJump(loopId, loopInstructionCount-4, jumpIfEqual(loopId, types.False))
+		NewJump(loopId, loopInstructionCount-4, jumpIfEqual(loopId, typespb.False))
 
 	// iter-next
-	nextIterVarStep := NewCall(iterNextId, overloads.Next, []int64{iteratorId})
+	nextIterVarStep := NewCall(iterNextId, overloadspb.Next, []int64{iteratorId})
 	// assign the loop-step to the accu var
 	accuUpdateStep := NewMov(stepId, accuId)
 	// jump <LOOP>
@@ -353,7 +353,7 @@ func (w *astWalker) walkComprehension(node *expr.Expr) []Instruction {
 	return instructions
 }
 
-func (w *astWalker) walkCallArgs(call *expr.Expr_Call) (
+func (w *astWalker) walkCallArgs(call *exprpb.Expr_Call) (
 	argGroups [][]Instruction, argGroupLens []int, argIds []int64) {
 	args := getArgs(call)
 	argCount := len(args)
@@ -372,8 +372,8 @@ func (w *astWalker) walkCallArgs(call *expr.Expr_Call) (
 
 // getArgs returns a unified set of call args for both global and receiver
 // style calls.
-func getArgs(call *expr.Expr_Call) []*expr.Expr {
-	var argSet []*expr.Expr
+func getArgs(call *exprpb.Expr_Call) []*exprpb.Expr {
+	var argSet []*exprpb.Expr
 	if call.Target != nil {
 		argSet = append(argSet, call.Target)
 	}
@@ -416,7 +416,7 @@ func (w *astWalker) popScope() {
 
 // getId returns the expression id associated with a given identifier if one
 // has been set within the current scope, else the expression id.
-func (w *astWalker) getId(expr *expr.Expr) int64 {
+func (w *astWalker) getId(expr *exprpb.Expr) int64 {
 	id := expr.GetId()
 	if ident := expr.GetIdentExpr(); ident != nil {
 		if altId, found := w.scope.ref(ident.Name); found {
@@ -455,7 +455,7 @@ func (b *blockScope) setRef(ident string, exprId int64) {
 func jumpIfUnknownOrError(exprId int64) func(EvalState) bool {
 	return func(s EvalState) bool {
 		if val, found := s.Value(exprId); found {
-			return types.IsUnknown(val) || types.IsError(val)
+			return typespb.IsUnknown(val) || typespb.IsError(val)
 		}
 		return false
 	}
@@ -464,19 +464,19 @@ func jumpIfUnknownOrError(exprId int64) func(EvalState) bool {
 func breakIfEnd(conditionId int64) func(EvalState) bool {
 	return func(s EvalState) bool {
 		if val, found := s.Value(conditionId); found {
-			return val == types.False ||
-				types.IsUnknown(val) ||
-				types.IsError(val)
+			return val == typespb.False ||
+				typespb.IsUnknown(val) ||
+				typespb.IsError(val)
 		}
 		return true
 	}
 }
 
-func jumpIfEqual(exprId int64, value ref.Value) func(EvalState) bool {
+func jumpIfEqual(exprId int64, value refpb.Value) func(EvalState) bool {
 	return func(s EvalState) bool {
 		if val, found := s.Value(exprId); found {
-			if types.IsBool(val.Type()) {
-				return bool(val.Equal(value).(types.Bool))
+			if typespb.IsBool(val.Type()) {
+				return bool(val.Equal(value).(typespb.Bool))
 			}
 		}
 		return false
@@ -487,7 +487,7 @@ func jumpAlways(_ EvalState) bool {
 	return true
 }
 
-func comprehensionCount(nodes ...*expr.Expr) int64 {
+func comprehensionCount(nodes ...*exprpb.Expr) int64 {
 	if nodes == nil || len(nodes) == 0 {
 		return 0
 	}
@@ -497,19 +497,19 @@ func comprehensionCount(nodes ...*expr.Expr) int64 {
 			continue
 		}
 		switch node.ExprKind.(type) {
-		case *expr.Expr_SelectExpr:
+		case *exprpb.Expr_SelectExpr:
 			count += comprehensionCount(node.GetSelectExpr().GetOperand())
-		case *expr.Expr_CallExpr:
+		case *exprpb.Expr_CallExpr:
 			call := node.GetCallExpr()
 			count += comprehensionCount(call.GetTarget()) + comprehensionCount(call.GetArgs()...)
-		case *expr.Expr_ListExpr:
+		case *exprpb.Expr_ListExpr:
 			count += comprehensionCount(node.GetListExpr().GetElements()...)
-		case *expr.Expr_StructExpr:
+		case *exprpb.Expr_StructExpr:
 			for _, entry := range node.GetStructExpr().GetEntries() {
 				count += comprehensionCount(entry.GetMapKey()) +
 					comprehensionCount(entry.GetValue())
 			}
-		case *expr.Expr_ComprehensionExpr:
+		case *exprpb.Expr_ComprehensionExpr:
 			compre := node.GetComprehensionExpr()
 			count += 1
 			count += comprehensionCount(compre.IterRange) +
@@ -522,34 +522,34 @@ func comprehensionCount(nodes ...*expr.Expr) int64 {
 	return count
 }
 
-func maxId(node *expr.Expr) int64 {
+func maxId(node *exprpb.Expr) int64 {
 	if node == nil {
 		return 0
 	}
 	currId := node.Id
 	switch node.ExprKind.(type) {
-	case *expr.Expr_SelectExpr:
+	case *exprpb.Expr_SelectExpr:
 		return maxInt(currId, maxId(node.GetSelectExpr().Operand))
-	case *expr.Expr_CallExpr:
+	case *exprpb.Expr_CallExpr:
 		call := node.GetCallExpr()
 		currId = maxInt(currId, maxId(call.Target))
 		for _, arg := range call.Args {
 			currId = maxInt(currId, maxId(arg))
 		}
 		return currId
-	case *expr.Expr_ListExpr:
+	case *exprpb.Expr_ListExpr:
 		list := node.GetListExpr()
 		for _, elem := range list.Elements {
 			currId = maxInt(currId, maxId(elem))
 		}
 		return currId
-	case *expr.Expr_StructExpr:
+	case *exprpb.Expr_StructExpr:
 		str := node.GetStructExpr()
 		for _, entry := range str.Entries {
 			currId = maxInt(currId, entry.Id, maxId(entry.GetMapKey()), maxId(entry.Value))
 		}
 		return currId
-	case *expr.Expr_ComprehensionExpr:
+	case *exprpb.Expr_ComprehensionExpr:
 		compre := node.GetComprehensionExpr()
 		return maxInt(currId,
 			maxId(compre.IterRange),

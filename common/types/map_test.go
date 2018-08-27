@@ -16,8 +16,8 @@ package types
 
 import (
 	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
-	"github.com/google/cel-go/common/types/traits"
+	protopb "github.com/golang/protobuf/proto"
+	traitspb "github.com/google/cel-go/common/types/traits"
 	"reflect"
 	"testing"
 )
@@ -25,7 +25,7 @@ import (
 func TestBaseMap_Contains(t *testing.T) {
 	mapValue := NewDynamicMap(map[string]map[int32]float32{
 		"nested": {1: -1.0, 2: 2.0},
-		"empty":  {}}).(traits.Mapper)
+		"empty":  {}}).(traitspb.Mapper)
 	if mapValue.Contains(String("nested")) != True {
 		t.Error("Expected key 'nested' contained in map.")
 	}
@@ -39,7 +39,7 @@ func TestBaseMap_ConvertToNative_Error(t *testing.T) {
 		"nested": {"1": -1.0}})
 	val, err := mapValue.ConvertToNative(reflect.TypeOf(""))
 	if err == nil {
-		t.Error("Got '%v', expected error", val)
+		t.Errorf("Got '%v', expected error", val)
 	}
 }
 
@@ -50,7 +50,7 @@ func TestBaseMap_ConvertToNative_Json(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	jsonTxt, err := (&jsonpb.Marshaler{}).MarshalToString(json.(proto.Message))
+	jsonTxt, err := (&jsonpb.Marshaler{}).MarshalToString(json.(protopb.Message))
 	if jsonTxt != "{\"nested\":{\"1\":-1}}" {
 		t.Error(jsonTxt)
 	}
@@ -99,10 +99,10 @@ func TestBaseMap_Equal_False(t *testing.T) {
 func TestBaseMap_Get(t *testing.T) {
 	mapValue := NewDynamicMap(map[string]map[int32]float32{
 		"nested": {1: -1.0, 2: 2.0},
-		"empty":  {}}).(traits.Mapper)
+		"empty":  {}}).(traitspb.Mapper)
 	if nestedVal := mapValue.Get(String("nested")); IsError(nestedVal) {
 		t.Error(nestedVal)
-	} else if floatVal := nestedVal.(traits.Indexer).Get(Int(1)); IsError(floatVal) {
+	} else if floatVal := nestedVal.(traitspb.Indexer).Get(Int(1)); IsError(floatVal) {
 		t.Error(floatVal)
 	} else if floatVal.Equal(Double(-1.0)) != True {
 		t.Error("Nested map access of float property not float64")
@@ -112,7 +112,7 @@ func TestBaseMap_Get(t *testing.T) {
 func TestBaseMap_Iterator(t *testing.T) {
 	mapValue := NewDynamicMap(map[string]map[int32]float32{
 		"nested": {1: -1.0, 2: 2.0},
-		"empty":  {}}).(traits.Mapper)
+		"empty":  {}}).(traitspb.Mapper)
 	it := mapValue.Iterator()
 	var i = 0
 	var fieldNames []interface{}

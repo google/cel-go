@@ -15,11 +15,11 @@
 package interpreter
 
 import (
-	"github.com/google/cel-go/common"
+	commonpb "github.com/google/cel-go/common"
 )
 
 // Metadata interface for accessing position information about expressions.
-// TODO(jimlarson) Replace with common.Source.
+// TODO(jimlarson) Replace with commonpb.Source.
 type Metadata interface {
 	// IdOffset returns raw character offset of an expression within
 	// Source, or false if the expression cannot be found.
@@ -28,5 +28,5 @@ type Metadata interface {
 	// IdLocation returns a common.Location for the given expression id,
 	// or false if one cannot be found.  It behaves as the obvious
 	// composition of IdOffset() and OffsetLocation().
-	IdLocation(exprId int64) (common.Location, bool)
+	IdLocation(exprId int64) (commonpb.Location, bool)
 }

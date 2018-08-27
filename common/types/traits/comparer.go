@@ -15,7 +15,7 @@
 package traits
 
 import (
-	"github.com/google/cel-go/common/types/ref"
+	refpb "github.com/google/cel-go/common/types/ref"
 )
 
 // Comparer interface for ordering comparisons between values in order to
@@ -29,5 +29,5 @@ type Comparer interface {
 	//
 	// If the comparison cannot be made or is not supported, an error should
 	// be returned.
-	Compare(other ref.Value) ref.Value
+	Compare(other refpb.Value) refpb.Value
 }

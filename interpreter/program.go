@@ -16,9 +16,9 @@ package interpreter
 
 import (
 	"fmt"
-	"github.com/google/cel-go/common"
-	"github.com/google/cel-spec/proto/checked/v1/checked"
-	expr "github.com/google/cel-spec/proto/v1/syntax"
+	commonpb "github.com/google/cel-go/common"
+	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
+	exprpb "github.com/google/cel-spec/proto/v1/syntax"
 	"strings"
 )
 
@@ -63,21 +63,21 @@ type InstructionStepper interface {
 }
 
 type exprProgram struct {
-	expression      *expr.Expr
+	expression      *exprpb.Expr
 	instructions    []Instruction
 	metadata        Metadata
 	revInstructions map[int64]int
 }
 
 // NewCheckedProgram creates a Program from a checked CEL expression.
-func NewCheckedProgram(c *checked.CheckedExpr) Program {
+func NewCheckedProgram(c *checkedpb.CheckedExpr) Program {
 	// TODO: take advantage of the type-check information.
 	return NewProgram(c.Expr, c.SourceInfo)
 }
 
 // NewProgram creates a Program from a CEL expression and source information.
-func NewProgram(expression *expr.Expr,
-	info *expr.SourceInfo) Program {
+func NewProgram(expression *exprpb.Expr,
+	info *exprpb.SourceInfo) Program {
 	revInstructions := make(map[int64]int)
 	return &exprProgram{
 		expression:      expression,
@@ -154,16 +154,16 @@ func (s *exprStepper) JumpCount(count int) bool {
 
 // The exprMetadata type provides helper functions for retrieving source
 // locations in a human readable manner based on the data contained within
-// the expr.SourceInfo message.
+// the exprpb.SourceInfo message.
 type exprMetadata struct {
-	info *expr.SourceInfo
+	info *exprpb.SourceInfo
 }
 
-func newExprMetadata(info *expr.SourceInfo) Metadata {
+func newExprMetadata(info *exprpb.SourceInfo) Metadata {
 	return &exprMetadata{info: info}
 }
 
-func (m *exprMetadata) IdLocation(exprId int64) (common.Location, bool) {
+func (m *exprMetadata) IdLocation(exprId int64) (commonpb.Location, bool) {
 	if exprOffset, found := m.IdOffset(exprId); found {
 		var index = 0
 		var lineIndex = 0
@@ -176,7 +176,7 @@ func (m *exprMetadata) IdLocation(exprId int64) (common.Location, bool) {
 		}
 		line := lineIndex + 1
 		column := exprOffset - lineOffset
-		return common.NewLocation(line, int(column)), true
+		return commonpb.NewLocation(line, int(column)), true
 	}
 	return nil, false
 }

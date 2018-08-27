@@ -16,7 +16,7 @@ package types
 
 import (
 	"fmt"
-	"github.com/google/cel-go/common/types/ref"
+	refpb "github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 	"reflect"
 )
@@ -56,7 +56,7 @@ func (t *TypeValue) ConvertToNative(typeDesc reflect.Type) (interface{}, error) 
 	return nil, fmt.Errorf("type conversion not supported for 'type'.")
 }
 
-func (t *TypeValue) ConvertToType(typeVal ref.Type) ref.Value {
+func (t *TypeValue) ConvertToType(typeVal refpb.Type) refpb.Value {
 	switch typeVal {
 	case TypeType:
 		return t
@@ -66,7 +66,7 @@ func (t *TypeValue) ConvertToType(typeVal ref.Type) ref.Value {
 	return NewErr("type conversion error from '%s' to '%s'", TypeType, typeVal)
 }
 
-func (t *TypeValue) Equal(other ref.Value) ref.Value {
+func (t *TypeValue) Equal(other refpb.Value) refpb.Value {
 	return Bool(TypeType == other.Type() && t.Value() == other.Value())
 }
 
@@ -74,7 +74,7 @@ func (t *TypeValue) HasTrait(trait int) bool {
 	return trait&t.traitMask == trait
 }
 
-func (t *TypeValue) Type() ref.Type {
+func (t *TypeValue) Type() refpb.Type {
 	return TypeType
 }
 

@@ -22,21 +22,21 @@ import (
 	"github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/google/cel-go/common/types/pb"
-	"github.com/google/cel-go/common/types/ref"
+	refpb "github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-spec/proto/checked/v1/checked"
 	"reflect"
 )
 
 type protoTypeProvider struct {
-	revTypeMap map[string]ref.Type
+	revTypeMap map[string]refpb.Type
 }
 
 // NewProvider accepts a list of proto message instances and returns a type
 // provider which can create new instances of the provided message or any
 // message that proto depends upon in its FileDescriptor.
-func NewProvider(types ...proto.Message) ref.TypeProvider {
+func NewProvider(types ...proto.Message) refpb.TypeProvider {
 	p := &protoTypeProvider{
-		revTypeMap: make(map[string]ref.Type)}
+		revTypeMap: make(map[string]refpb.Type)}
 	p.RegisterType(
 		BoolType,
 		BytesType,
@@ -64,7 +64,7 @@ func NewProvider(types ...proto.Message) ref.TypeProvider {
 	return p
 }
 
-func (p *protoTypeProvider) EnumValue(enumName string) ref.Value {
+func (p *protoTypeProvider) EnumValue(enumName string) refpb.Value {
 	enumVal, err := pb.DescribeEnum(enumName)
 	if err != nil {
 		return NewErr("unknown enum name '%s'", enumName)
@@ -73,7 +73,7 @@ func (p *protoTypeProvider) EnumValue(enumName string) ref.Value {
 }
 
 func (p *protoTypeProvider) FindFieldType(t *checked.Type,
-	fieldName string) (*ref.FieldType, bool) {
+	fieldName string) (*refpb.FieldType, bool) {
 	switch t.TypeKind.(type) {
 	default:
 		return nil, false
@@ -86,16 +86,16 @@ func (p *protoTypeProvider) FindFieldType(t *checked.Type,
 		if !found {
 			return nil, false
 		}
-		return &ref.FieldType{
+		return &refpb.FieldType{
 				Type:             field.CheckedType(),
 				SupportsPresence: field.SupportsPresence()},
 			true
 	}
 }
 
-func (p *protoTypeProvider) FindIdent(identName string) (ref.Value, bool) {
+func (p *protoTypeProvider) FindIdent(identName string) (refpb.Value, bool) {
 	if t, found := p.revTypeMap[identName]; found {
-		return t.(ref.Value), true
+		return t.(refpb.Value), true
 	}
 	if enumVal, err := pb.DescribeEnum(identName); err == nil {
 		return Int(enumVal.Value()), true
@@ -123,7 +123,7 @@ func (p *protoTypeProvider) FindType(typeName string) (*checked.Type, bool) {
 }
 
 func (p *protoTypeProvider) NewValue(typeName string,
-	fields map[string]ref.Value) ref.Value {
+	fields map[string]refpb.Value) refpb.Value {
 	td, err := pb.DescribeType(typeName)
 	if err != nil {
 		return NewErr("unknown type '%s'", typeName)
@@ -162,7 +162,7 @@ func (p *protoTypeProvider) NewValue(typeName string,
 	return NewObject(value.Interface().(proto.Message))
 }
 
-func (p *protoTypeProvider) RegisterType(types ...ref.Type) error {
+func (p *protoTypeProvider) RegisterType(types ...refpb.Type) error {
 	for _, t := range types {
 		p.revTypeMap[t.TypeName()] = t
 	}
@@ -170,10 +170,10 @@ func (p *protoTypeProvider) RegisterType(types ...ref.Type) error {
 	return nil
 }
 
-func NativeToValue(value interface{}) ref.Value {
+func NativeToValue(value interface{}) refpb.Value {
 	switch value.(type) {
-	case ref.Value:
-		return value.(ref.Value)
+	case refpb.Value:
+		return value.(refpb.Value)
 	case bool:
 		return Bool(value.(bool))
 	case int:

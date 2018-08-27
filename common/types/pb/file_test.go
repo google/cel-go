@@ -1,12 +1,12 @@
 package pb
 
 import (
-	"github.com/google/cel-go/test"
+	testpb "github.com/google/cel-go/test"
 	"testing"
 )
 
 func TestFileDescription_GetTypes(t *testing.T) {
-	fd, err := DescribeFile(&test.TestAllTypes{})
+	fd, err := DescribeFile(&testpb.TestAllTypes{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -46,7 +46,7 @@ func TestFileDescription_GetTypes(t *testing.T) {
 }
 
 func TestFileDescription_GetEnumNames(t *testing.T) {
-	fd, err := DescribeFile(&test.TestAllTypes{})
+	fd, err := DescribeFile(&testpb.TestAllTypes{})
 	if err != nil {
 		t.Error(err)
 	}

@@ -16,7 +16,7 @@
 // interpreter and as declared within the checker#StandardDeclarations.
 package functions
 
-import "github.com/google/cel-go/common/types/ref"
+import refpb "github.com/google/cel-go/common/types/ref"
 
 // Overload defines a named overload of a function, indicating an operand trait
 // which must be present on the first argument to the overload as well as one
@@ -48,11 +48,11 @@ type Overload struct {
 }
 
 // UnaryOp is a function that takes a single value and produces an output.
-type UnaryOp func(value ref.Value) ref.Value
+type UnaryOp func(value refpb.Value) refpb.Value
 
 // BinaryOp is a function that takes two values and produces an output.
-type BinaryOp func(lhs ref.Value, rhs ref.Value) ref.Value
+type BinaryOp func(lhs refpb.Value, rhs refpb.Value) refpb.Value
 
 // FunctionOp is a function with accepts zero or more arguments and produces
 // an value (as interface{}) or error as a result.
-type FunctionOp func(values ...ref.Value) ref.Value
+type FunctionOp func(values ...refpb.Value) refpb.Value

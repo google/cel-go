@@ -15,7 +15,7 @@
 package interpreter
 
 import (
-	"github.com/google/cel-go/common/types/ref"
+	refpb "github.com/google/cel-go/common/types/ref"
 )
 
 // EvalState tracks the values associated with expression ids during execution.
@@ -25,10 +25,10 @@ type EvalState interface {
 	GetRuntimeExpressionId(exprId int64) int64
 
 	// OnlyValue returns the value in the eval state, if only one exists.
-	OnlyValue() (ref.Value, bool)
+	OnlyValue() (refpb.Value, bool)
 
 	// Value of the given expression id, false if not found.
-	Value(int64) (ref.Value, bool)
+	Value(int64) (refpb.Value, bool)
 }
 
 // MutableEvalState permits the mutation of evaluation state for a given
@@ -40,19 +40,19 @@ type MutableEvalState interface {
 	SetRuntimeExpressionId(exprId int64, runtimeId int64)
 
 	// SetValue associates an expression id with a value.
-	SetValue(int64, ref.Value)
+	SetValue(int64, refpb.Value)
 }
 
 // NewEvalState returns a MutableEvalState.
 func NewEvalState(instructionCount int64) *defaultEvalState {
 	return &defaultEvalState{exprCount: instructionCount,
-		exprValues: make([]ref.Value, instructionCount, instructionCount),
+		exprValues: make([]refpb.Value, instructionCount, instructionCount),
 		exprIdMap:  make(map[int64]int64)}
 }
 
 type defaultEvalState struct {
 	exprCount  int64
-	exprValues []ref.Value
+	exprValues []refpb.Value
 	exprIdMap  map[int64]int64
 }
 
@@ -63,8 +63,8 @@ func (s *defaultEvalState) GetRuntimeExpressionId(exprId int64) int64 {
 	return exprId
 }
 
-func (s *defaultEvalState) OnlyValue() (ref.Value, bool) {
-	var result ref.Value = nil
+func (s *defaultEvalState) OnlyValue() (refpb.Value, bool) {
+	var result refpb.Value = nil
 	i := 0
 	for _, val := range s.exprValues {
 		if val != nil {
@@ -82,11 +82,11 @@ func (s *defaultEvalState) SetRuntimeExpressionId(exprId int64, runtimeId int64)
 	s.exprIdMap[exprId] = runtimeId
 }
 
-func (s *defaultEvalState) SetValue(exprId int64, value ref.Value) {
+func (s *defaultEvalState) SetValue(exprId int64, value refpb.Value) {
 	s.exprValues[exprId] = value
 }
 
-func (s *defaultEvalState) Value(exprId int64) (ref.Value, bool) {
+func (s *defaultEvalState) Value(exprId int64) (refpb.Value, bool) {
 	// TODO: The eval state assumes a dense progrma expression id space. While
 	// this is true of how the cel-go parser generates identifiers, it may not
 	// be true for all implementations or for the long term. Replace the use of

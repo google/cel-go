@@ -16,10 +16,10 @@ package types
 
 import (
 	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/duration"
-	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/common/types/traits"
+	protopb "github.com/golang/protobuf/proto"
+	dpb "github.com/golang/protobuf/ptypes/duration"
+	refpb "github.com/google/cel-go/common/types/ref"
+	traitspb "github.com/google/cel-go/common/types/traits"
 	"reflect"
 	"testing"
 )
@@ -81,22 +81,22 @@ func TestBaseList_Equal(t *testing.T) {
 }
 
 func TestBaseList_Get(t *testing.T) {
-	validateList123(t, NewDynamicList([]int32{1, 2, 3}).(traits.Lister))
+	validateList123(t, NewDynamicList([]int32{1, 2, 3}).(traitspb.Lister))
 }
 
 func TestValueList_Get(t *testing.T) {
-	validateList123(t, NewValueList([]ref.Value{Int(1), Int(2), Int(3)}))
+	validateList123(t, NewValueList([]refpb.Value{Int(1), Int(2), Int(3)}))
 }
 
 func TestBaseList_Iterator(t *testing.T) {
-	validateIterator123(t, NewDynamicList([]int32{1, 2, 3}).(traits.Lister))
+	validateIterator123(t, NewDynamicList([]int32{1, 2, 3}).(traitspb.Lister))
 }
 
 func TestValueListValue_Iterator(t *testing.T) {
-	validateIterator123(t, NewValueList([]ref.Value{Int(1), Int(2), Int(3)}))
+	validateIterator123(t, NewValueList([]refpb.Value{Int(1), Int(2), Int(3)}))
 }
 
-func validateList123(t *testing.T, list traits.Lister) {
+func validateList123(t *testing.T, list traitspb.Lister) {
 	t.Helper()
 	if getElem(t, list, 0) != Int(1) ||
 		getElem(t, list, 1) != Int(2) ||
@@ -114,7 +114,7 @@ func validateList123(t *testing.T, list traits.Lister) {
 	}
 }
 
-func validateIterator123(t *testing.T, list traits.Lister) {
+func validateIterator123(t *testing.T, list traitspb.Lister) {
 	t.Helper()
 	it := list.Iterator()
 	var i = int64(0)
@@ -153,7 +153,7 @@ func TestBaseList_Size(t *testing.T) {
 	if nestedUint32.Size() != IntOne {
 		t.Error("List indicates the incorrect size.")
 	}
-	if nestedUint32.Get(IntZero).(traits.Sizer).Size() != Int(2) {
+	if nestedUint32.Get(IntZero).(traitspb.Sizer).Size() != Int(2) {
 		t.Error("Nested list indicates the incorrect size.")
 	}
 }
@@ -161,7 +161,7 @@ func TestBaseList_Size(t *testing.T) {
 func TestConcatList_Add(t *testing.T) {
 	listA := NewDynamicList([]float32{1.0, 2.0})
 	listB := NewStringList([]string{"3"})
-	list := listA.Add(listB).(traits.Lister).Add(listA).
+	list := listA.Add(listB).(traitspb.Lister).Add(listA).
 		Value().([]interface{})
 	expected := []interface{}{
 		float32(1.0),
@@ -189,7 +189,7 @@ func TestConcatList_ConvertToNative_Json(t *testing.T) {
 	if err != nil || IsError(json) {
 		t.Errorf("Got '%v', expected '%v'", err, json)
 	}
-	jsonTxt, err := (&jsonpb.Marshaler{}).MarshalToString(json.(proto.Message))
+	jsonTxt, err := (&jsonpb.Marshaler{}).MarshalToString(json.(protopb.Message))
 	if err != nil {
 		t.Error(err)
 	}
@@ -203,7 +203,7 @@ func TestConcatList_ConvertToNative_ElementConversionError(t *testing.T) {
 	// Duration is serializable to a string form of json, but there is no
 	// concept of a duration literal within CEL, so the serialization to string
 	// is not supported here which should cause the conversion to json to fail.
-	listB := NewDynamicList([]*duration.Duration{{Seconds: 100}})
+	listB := NewDynamicList([]*dpb.Duration{{Seconds: 100}})
 	listConcat := listA.Add(listB)
 	json, err := listConcat.ConvertToNative(jsonValueType)
 	if err == nil {
@@ -213,7 +213,7 @@ func TestConcatList_ConvertToNative_ElementConversionError(t *testing.T) {
 
 func TestConcatList_ConvertToType(t *testing.T) {
 	listA := NewDynamicList([]float32{1.0, 2.0})
-	listB := NewDynamicList([]*duration.Duration{{Seconds: 100}})
+	listB := NewDynamicList([]*dpb.Duration{{Seconds: 100}})
 	list := listA.Add(listB)
 	if list.ConvertToType(ListType) != list {
 		t.Error("List conversion to list failed.")
@@ -248,7 +248,7 @@ func TestConcatListValue_Equal(t *testing.T) {
 func TestConcatListValue_Get(t *testing.T) {
 	listA := NewDynamicList([]float32{1.0, 2.0})
 	listB := NewDynamicList([]float64{3.0})
-	list := listA.Add(listB).(traits.Lister)
+	list := listA.Add(listB).(traitspb.Lister)
 	if getElem(t, list, 0) != Double(1.0) ||
 		getElem(t, list, 1) != Double(2.0) ||
 		getElem(t, list, 2) != Double(3.0) {
@@ -265,7 +265,7 @@ func TestConcatListValue_Get(t *testing.T) {
 func TestConcatListValue_Iterator(t *testing.T) {
 	listA := NewDynamicList([]float32{1.0, 2.0})
 	listB := NewDynamicList([]float64{3.0})
-	list := listA.Add(listB).(traits.Lister)
+	list := listA.Add(listB).(traitspb.Lister)
 	it := list.Iterator()
 	var i = int64(0)
 	for ; it.HasNext() == True; i++ {
@@ -302,10 +302,10 @@ func TestStringList_Add_Error(t *testing.T) {
 func TestStringList_Add_Heterogenous(t *testing.T) {
 	listA := NewStringList([]string{"hello"})
 	listB := NewDynamicList([]int32{1, 2, 3})
-	list := listA.Add(listB).(traits.Lister).Value().([]interface{})
+	list := listA.Add(listB).(traitspb.Lister).Value().([]interface{})
 	expected := []interface{}{"hello", int32(1), int32(2), int32(3)}
 	if len(list) != len(expected) {
-		t.Error("Unexpected list size. Got '%d', expected 4", len(list))
+		t.Errorf("Unexpected list size. Got '%d', expected 4", len(list))
 	}
 	for i, v := range expected {
 		if list[i] != v {
@@ -317,14 +317,14 @@ func TestStringList_Add_Heterogenous(t *testing.T) {
 func TestStringList_Add_StringLists(t *testing.T) {
 	listA := NewStringList([]string{"hello"})
 	listB := NewStringList([]string{"world", "!"})
-	list := listA.Add(listB).(traits.Lister)
+	list := listA.Add(listB).(traitspb.Lister)
 	if list.Size() != Int(3) {
 		t.Error("Combined list did not have correct size.")
 	}
 	expected := []string{"hello", "world", "!"}
 	for i, v := range expected {
 		if list.Get(Int(i)).Equal(String(v)) != True {
-			t.Error("elem[%d] Got '%v', expected '%v'", i, list.Get(Int(i)), v)
+			t.Errorf("elem[%d] Got '%v', expected '%v'", i, list.Get(Int(i)), v)
 		}
 	}
 }
@@ -354,7 +354,7 @@ func TestStringList_ConvertToNative_Json(t *testing.T) {
 	if err != nil || IsError(json) {
 		t.Errorf("Got '%v', expected '%v'", err, json)
 	}
-	jsonTxt, err := (&jsonpb.Marshaler{}).MarshalToString(json.(proto.Message))
+	jsonTxt, err := (&jsonpb.Marshaler{}).MarshalToString(json.(protopb.Message))
 	if err != nil {
 		t.Error(err)
 	}
@@ -366,7 +366,7 @@ func TestStringList_ConvertToNative_Json(t *testing.T) {
 	if err != nil || IsError(jsonList) {
 		t.Errorf("Got '%v', expected '%v'", err, jsonList)
 	}
-	jsonListTxt, err := (&jsonpb.Marshaler{}).MarshalToString(jsonList.(proto.Message))
+	jsonListTxt, err := (&jsonpb.Marshaler{}).MarshalToString(jsonList.(protopb.Message))
 	if jsonTxt != jsonListTxt {
 		t.Errorf("Json value and list value not equal.")
 	}
@@ -385,7 +385,7 @@ func TestStringList_Get_OutOfRange(t *testing.T) {
 	}
 }
 
-func getElem(t *testing.T, list traits.Indexer, index Int) interface{} {
+func getElem(t *testing.T, list traitspb.Indexer, index Int) interface{} {
 	t.Helper()
 	if val := list.Get(index); IsError(val) {
 		t.Errorf("Error reading list index %d, %v", index, val)
