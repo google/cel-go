@@ -15,10 +15,10 @@
 package types
 
 import (
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/any"
-	"github.com/golang/protobuf/ptypes/struct"
+	protopb "github.com/golang/protobuf/proto"
+	ptypespb "github.com/golang/protobuf/ptypes"
+	anypb "github.com/golang/protobuf/ptypes/any"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 	"reflect"
 	"testing"
 )
@@ -40,7 +40,7 @@ func TestJsonListValue_Add(t *testing.T) {
 		{Kind: &structpb.Value_NumberValue{1}},
 		{Kind: &structpb.Value_NumberValue{2}},
 		{Kind: &structpb.Value_NumberValue{3}}}}
-	if !proto.Equal(nativeVal.(proto.Message), expected) {
+	if !protopb.Equal(nativeVal.(protopb.Message), expected) {
 		t.Errorf("Concatenated lists did not combine as expected."+
 			" Got '%v', expected '%v'", nativeVal, expected)
 	}
@@ -66,7 +66,7 @@ func TestJsonListValue_ConvertToNative_Json(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if listVal != list.Value().(proto.Message) {
+	if listVal != list.Value().(protopb.Message) {
 		t.Error("List did not convert to its underlying representation.")
 	}
 
@@ -74,7 +74,7 @@ func TestJsonListValue_ConvertToNative_Json(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if !proto.Equal(val.(proto.Message),
+	if !protopb.Equal(val.(protopb.Message),
 		&structpb.Value{Kind: &structpb.Value_ListValue{
 			ListValue: listVal.(*structpb.ListValue)}}) {
 		t.Errorf("Messages were not equal, got '%v'", val)
@@ -105,12 +105,12 @@ func TestJsonListValue_ConvertToNative_Any(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	unpackedAny := ptypes.DynamicAny{}
-	if ptypes.UnmarshalAny(anyVal.(*any.Any), &unpackedAny) != nil {
+	unpackedAny := ptypespb.DynamicAny{}
+	if ptypespb.UnmarshalAny(anyVal.(*anypb.Any), &unpackedAny) != nil {
 		t.Error("Fail to unmarshal any")
 	}
-	if !proto.Equal(unpackedAny.Message,
-		list.Value().(proto.Message)) {
+	if !protopb.Equal(unpackedAny.Message,
+		list.Value().(protopb.Message)) {
 		t.Errorf("Messages were not equal, got '%v'", unpackedAny.Message)
 	}
 }
@@ -176,7 +176,7 @@ func TestJsonListValue_Iterator(t *testing.T) {
 	for i := Int(0); it.HasNext() != False; i++ {
 		v := it.Next()
 		if v.Equal(list.Get(i)) != True {
-			t.Errorf("elem[%d] Got '%v', expected '%v'", v, list.Get(i))
+			t.Errorf("elem[%d] Got '%v', expected '%v'", i, v, list.Get(i))
 		}
 	}
 

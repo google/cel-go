@@ -16,11 +16,11 @@ package types
 
 import (
 	"fmt"
-	"github.com/google/cel-go/common/types/ref"
+	refpb "github.com/google/cel-go/common/types/ref"
 	"reflect"
 )
 
-// Err type which extends the built-in go error and implements ref.Value.
+// Err type which extends the built-in go error and implements refpb.Value.
 type Err struct {
 	error
 }
@@ -38,12 +38,12 @@ func (e *Err) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	return nil, e.error
 }
 
-func (e *Err) ConvertToType(typeVal ref.Type) ref.Value {
+func (e *Err) ConvertToType(typeVal refpb.Type) refpb.Value {
 	// Errors are not convertible to other representations.
 	return e
 }
 
-func (e *Err) Equal(other ref.Value) ref.Value {
+func (e *Err) Equal(other refpb.Value) refpb.Value {
 	// An error cannot be equal to any other value, so it returns itself.
 	return e
 }
@@ -52,7 +52,7 @@ func (e *Err) String() string {
 	return e.error.Error()
 }
 
-func (e *Err) Type() ref.Type {
+func (e *Err) Type() refpb.Type {
 	return ErrType
 }
 
@@ -60,14 +60,14 @@ func (e *Err) Value() interface{} {
 	return e.error
 }
 
-// IsError returns whether the input element ref.Type or ref.Value is equal to
+// IsError returns whether the input element refpb.Type or refpb.Value is equal to
 // the ErrType singleton.
 func IsError(elem interface{}) bool {
 	switch elem.(type) {
-	case ref.Type:
+	case refpb.Type:
 		return elem == ErrType
-	case ref.Value:
-		return IsError(elem.(ref.Value).Type())
+	case refpb.Value:
+		return IsError(elem.(refpb.Value).Type())
 	}
 	return false
 }

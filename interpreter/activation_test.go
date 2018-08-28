@@ -15,13 +15,13 @@
 package interpreter
 
 import (
-	"github.com/google/cel-go/common/types"
+	typespb "github.com/google/cel-go/common/types"
 	"testing"
 )
 
 func TestNewActivation(t *testing.T) {
 	activation := NewActivation(map[string]interface{}{"a": true})
-	if val, found := activation.ResolveName("a"); !found || val != types.True {
+	if val, found := activation.ResolveName("a"); !found || val != typespb.True {
 		t.Error("Activation failed to resolve 'a'")
 	}
 }
@@ -34,15 +34,15 @@ func TestHierarchicalActivation(t *testing.T) {
 	combined := NewHierarchicalActivation(parent, child)
 
 	// Resolve the shadowed child value.
-	if val, found := combined.ResolveName("a"); !found || val != types.True {
+	if val, found := combined.ResolveName("a"); !found || val != typespb.True {
 		t.Error("Activation failed to resolve shadow value of 'a'")
 	}
 	// Resolve the parent only value.
-	if val, found := combined.ResolveName("b"); !found || val.(types.Int) != -42 {
+	if val, found := combined.ResolveName("b"); !found || val.(typespb.Int) != -42 {
 		t.Error("Activation failed to resolve parent value of 'b'")
 	}
 	// Resolve the child only value.
-	if val, found := combined.ResolveName("c"); !found || val.(types.String) != "universe" {
+	if val, found := combined.ResolveName("c"); !found || val.(typespb.String) != "universe" {
 		t.Error("Activation failed to resolve child value of 'c'")
 	}
 }

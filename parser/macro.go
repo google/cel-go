@@ -17,8 +17,8 @@ package parser
 import (
 	"fmt"
 
-	"github.com/google/cel-go/common/operators"
-	expr "github.com/google/cel-spec/proto/v1/syntax"
+	operatorspb "github.com/google/cel-go/common/operators"
+	exprpb "github.com/google/cel-spec/proto/v1/syntax"
 )
 
 // TODO: Consider moving macros to common.
@@ -32,7 +32,7 @@ type Macro struct {
 	name          string
 	instanceStyle bool
 	args          int
-	expander      func(*parserHelper, interface{}, *expr.Expr, []*expr.Expr) *expr.Expr
+	expander      func(*parserHelper, interface{}, *exprpb.Expr, []*exprpb.Expr) *exprpb.Expr
 }
 
 // AllMacros includes the list of all spec-supported macros.
@@ -40,14 +40,14 @@ var AllMacros = []Macro{
 	// The macro "has(m.f)" which tests the presence of a field, avoiding the need to specify
 	// the field as a string.
 	{
-		name:          operators.Has,
+		name:          operatorspb.Has,
 		instanceStyle: false,
 		args:          1,
 		expander:      makeHas,
 	},
 	// The macro "range.all(var, predicate)", which is true if for all elements in range the  predicate holds.
 	{
-		name:          operators.All,
+		name:          operatorspb.All,
 		instanceStyle: true,
 		args:          2,
 		expander:      makeAll,
@@ -55,7 +55,7 @@ var AllMacros = []Macro{
 	// The macro "range.exists(var, predicate)", which is true if for at least one element in
 	// range the predicate holds.
 	{
-		name:          operators.Exists,
+		name:          operatorspb.Exists,
 		instanceStyle: true,
 		args:          2,
 		expander:      makeExists,
@@ -63,14 +63,14 @@ var AllMacros = []Macro{
 	// The macro "range.exists_one(var, predicate)", which is true if for exactly one element
 	// in range the predicate holds.
 	{
-		name:          operators.ExistsOne,
+		name:          operatorspb.ExistsOne,
 		instanceStyle: true,
 		args:          2,
 		expander:      makeExistsOne,
 	},
 	// The macro "range.map(var, function)", applies the function to the vars in the range.
 	{
-		name:          operators.Map,
+		name:          operatorspb.Map,
 		instanceStyle: true,
 		args:          2,
 		expander:      makeMap,
@@ -78,7 +78,7 @@ var AllMacros = []Macro{
 	// The macro "range.map(var, predicate, function)", applies the function to the vars in
 	// the range for which the predicate holds true. The other variables are filtered out.
 	{
-		name:          operators.Map,
+		name:          operatorspb.Map,
 		instanceStyle: true,
 		args:          3,
 		expander:      makeMap,
@@ -86,7 +86,7 @@ var AllMacros = []Macro{
 	// The macro "range.filter(var, predicate)", filters out the variables for which the
 	// predicate is false.
 	{
-		name:          operators.Filter,
+		name:          operatorspb.Filter,
 		instanceStyle: true,
 		args:          2,
 		expander:      makeFilter,
@@ -108,8 +108,8 @@ func (m *Macro) GetIsInstanceStyle() bool {
 	return m.instanceStyle
 }
 
-func makeHas(p *parserHelper, ctx interface{}, target *expr.Expr, args []*expr.Expr) *expr.Expr {
-	if s, ok := args[0].ExprKind.(*expr.Expr_SelectExpr); ok {
+func makeHas(p *parserHelper, ctx interface{}, target *exprpb.Expr, args []*exprpb.Expr) *exprpb.Expr {
+	if s, ok := args[0].ExprKind.(*exprpb.Expr_SelectExpr); ok {
 		return p.newPresenceTest(ctx, s.SelectExpr.Operand, s.SelectExpr.Field)
 	}
 	return p.reportError(ctx, "invalid argument to has() macro")
@@ -125,67 +125,67 @@ const (
 	quantifierExistsOne
 )
 
-func makeAll(p *parserHelper, ctx interface{}, target *expr.Expr, args []*expr.Expr) *expr.Expr {
+func makeAll(p *parserHelper, ctx interface{}, target *exprpb.Expr, args []*exprpb.Expr) *exprpb.Expr {
 	return makeQuantifier(quantifierAll, p, ctx, target, args)
 }
 
-func makeExists(p *parserHelper, ctx interface{}, target *expr.Expr, args []*expr.Expr) *expr.Expr {
+func makeExists(p *parserHelper, ctx interface{}, target *exprpb.Expr, args []*exprpb.Expr) *exprpb.Expr {
 	return makeQuantifier(quantifierExists, p, ctx, target, args)
 }
 
-func makeExistsOne(p *parserHelper, ctx interface{}, target *expr.Expr, args []*expr.Expr) *expr.Expr {
+func makeExistsOne(p *parserHelper, ctx interface{}, target *exprpb.Expr, args []*exprpb.Expr) *exprpb.Expr {
 	return makeQuantifier(quantifierExistsOne, p, ctx, target, args)
 }
 
-func makeQuantifier(kind quantifierKind, p *parserHelper, ctx interface{}, target *expr.Expr, args []*expr.Expr) *expr.Expr {
+func makeQuantifier(kind quantifierKind, p *parserHelper, ctx interface{}, target *exprpb.Expr, args []*exprpb.Expr) *exprpb.Expr {
 	v, found := extractIdent(args[0])
 	if !found {
 		offset := p.positions[args[0].Id]
 		location, _ := p.source.OffsetLocation(offset)
 		return p.reportError(location, "argument must be a simple name")
 	}
-	accuIdent := func() *expr.Expr {
+	accuIdent := func() *exprpb.Expr {
 		return p.newIdent(ctx, accumulatorName)
 	}
 
-	var init *expr.Expr
-	var condition *expr.Expr
-	var step *expr.Expr
-	var result *expr.Expr
+	var init *exprpb.Expr
+	var condition *exprpb.Expr
+	var step *exprpb.Expr
+	var result *exprpb.Expr
 	switch kind {
 	case quantifierAll:
 		init = p.newLiteralBool(ctx, true)
 		condition = accuIdent()
-		step = p.newGlobalCall(ctx, operators.LogicalAnd, accuIdent(), args[1])
+		step = p.newGlobalCall(ctx, operatorspb.LogicalAnd, accuIdent(), args[1])
 		result = accuIdent()
 	case quantifierExists:
 		init = p.newLiteralBool(ctx, false)
-		condition = p.newGlobalCall(ctx, operators.LogicalNot, accuIdent())
-		step = p.newGlobalCall(ctx, operators.LogicalOr, accuIdent(), args[1])
+		condition = p.newGlobalCall(ctx, operatorspb.LogicalNot, accuIdent())
+		step = p.newGlobalCall(ctx, operatorspb.LogicalOr, accuIdent(), args[1])
 		result = accuIdent()
 	case quantifierExistsOne:
 		// TODO: make consistent with the CEL semantics.
 		zeroExpr := p.newLiteralInt(ctx, 0)
 		oneExpr := p.newLiteralInt(ctx, 1)
 		init = zeroExpr
-		condition = p.newGlobalCall(ctx, operators.LessEquals, accuIdent(), oneExpr)
-		step = p.newGlobalCall(ctx, operators.Conditional, args[1],
-			p.newGlobalCall(ctx, operators.Add, accuIdent(), oneExpr), accuIdent())
-		result = p.newGlobalCall(ctx, operators.Equals, accuIdent(), oneExpr)
+		condition = p.newGlobalCall(ctx, operatorspb.LessEquals, accuIdent(), oneExpr)
+		step = p.newGlobalCall(ctx, operatorspb.Conditional, args[1],
+			p.newGlobalCall(ctx, operatorspb.Add, accuIdent(), oneExpr), accuIdent())
+		result = p.newGlobalCall(ctx, operatorspb.Equals, accuIdent(), oneExpr)
 	default:
 		panic("unrecognized quantifier")
 	}
 	return p.newComprehension(ctx, v, target, accumulatorName, init, condition, step, result)
 }
 
-func makeMap(p *parserHelper, ctx interface{}, target *expr.Expr, args []*expr.Expr) *expr.Expr {
+func makeMap(p *parserHelper, ctx interface{}, target *exprpb.Expr, args []*exprpb.Expr) *exprpb.Expr {
 	v, found := extractIdent(args[0])
 	if !found {
 		return p.reportError(ctx, "argument is not an identifier")
 	}
 
-	var fn *expr.Expr
-	var filter *expr.Expr
+	var fn *exprpb.Expr
+	var filter *exprpb.Expr
 
 	if len(args) == 3 {
 		filter = args[1]
@@ -199,15 +199,15 @@ func makeMap(p *parserHelper, ctx interface{}, target *expr.Expr, args []*expr.E
 	init := p.newList(ctx)
 	condition := p.newLiteralBool(ctx, true)
 	// TODO: use compiler internal method for faster, stateful add.
-	step := p.newGlobalCall(ctx, operators.Add, accuExpr, p.newList(ctx, fn))
+	step := p.newGlobalCall(ctx, operatorspb.Add, accuExpr, p.newList(ctx, fn))
 
 	if filter != nil {
-		step = p.newGlobalCall(ctx, operators.Conditional, filter, step, accuExpr)
+		step = p.newGlobalCall(ctx, operatorspb.Conditional, filter, step, accuExpr)
 	}
 	return p.newComprehension(ctx, v, target, accumulatorName, init, condition, step, accuExpr)
 }
 
-func makeFilter(p *parserHelper, ctx interface{}, target *expr.Expr, args []*expr.Expr) *expr.Expr {
+func makeFilter(p *parserHelper, ctx interface{}, target *exprpb.Expr, args []*exprpb.Expr) *exprpb.Expr {
 	v, found := extractIdent(args[0])
 	if !found {
 		return p.reportError(ctx, "argument is not an identifier")
@@ -218,14 +218,14 @@ func makeFilter(p *parserHelper, ctx interface{}, target *expr.Expr, args []*exp
 	init := p.newList(ctx)
 	condition := p.newLiteralBool(ctx, true)
 	// TODO: use compiler internal method for faster, stateful add.
-	step := p.newGlobalCall(ctx, operators.Add, accuExpr, p.newList(ctx, args[0]))
-	step = p.newGlobalCall(ctx, operators.Conditional, filter, step, accuExpr)
+	step := p.newGlobalCall(ctx, operatorspb.Add, accuExpr, p.newList(ctx, args[0]))
+	step = p.newGlobalCall(ctx, operatorspb.Conditional, filter, step, accuExpr)
 	return p.newComprehension(ctx, v, target, accumulatorName, init, condition, step, accuExpr)
 }
 
-func extractIdent(e *expr.Expr) (string, bool) {
+func extractIdent(e *exprpb.Expr) (string, bool) {
 	switch e.ExprKind.(type) {
-	case *expr.Expr_IdentExpr:
+	case *exprpb.Expr_IdentExpr:
 		return e.GetIdentExpr().Name, true
 	}
 	return "", false

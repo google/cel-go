@@ -17,31 +17,31 @@ package types
 import (
 	"bytes"
 	"fmt"
-	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/common/types/traits"
+	refpb "github.com/google/cel-go/common/types/ref"
+	traitspb "github.com/google/cel-go/common/types/traits"
 	"reflect"
 )
 
-// Bytes type that implements ref.Value and supports add, compare, and size
+// Bytes type that implements refpb.Value and supports add, compare, and size
 // operations.
 type Bytes []byte
 
 var (
 	// BytesType singleton.
 	BytesType = NewTypeValue("bytes",
-		traits.AdderType,
-		traits.ComparerType,
-		traits.SizerType)
+		traitspb.AdderType,
+		traitspb.ComparerType,
+		traitspb.SizerType)
 )
 
-func (b Bytes) Add(other ref.Value) ref.Value {
+func (b Bytes) Add(other refpb.Value) refpb.Value {
 	if BytesType != other.Type() {
 		return NewErr("unsupported overload")
 	}
 	return append(b, other.(Bytes)...)
 }
 
-func (b Bytes) Compare(other ref.Value) ref.Value {
+func (b Bytes) Compare(other refpb.Value) refpb.Value {
 	if BytesType != other.Type() {
 		return NewErr("unsupported overload")
 	}
@@ -62,7 +62,7 @@ func (b Bytes) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	return nil, fmt.Errorf("type conversion error from Bytes to '%v'", typeDesc)
 }
 
-func (b Bytes) ConvertToType(typeVal ref.Type) ref.Value {
+func (b Bytes) ConvertToType(typeVal refpb.Type) refpb.Value {
 	switch typeVal {
 	case StringType:
 		return String(b)
@@ -74,16 +74,16 @@ func (b Bytes) ConvertToType(typeVal ref.Type) ref.Value {
 	return NewErr("type conversion error from '%s' to '%s'", BytesType, typeVal)
 }
 
-func (b Bytes) Equal(other ref.Value) ref.Value {
+func (b Bytes) Equal(other refpb.Value) refpb.Value {
 	return Bool(BytesType == other.Type() &&
 		bytes.Equal([]byte(b), other.(Bytes)))
 }
 
-func (b Bytes) Size() ref.Value {
+func (b Bytes) Size() refpb.Value {
 	return Int(len(b))
 }
 
-func (b Bytes) Type() ref.Type {
+func (b Bytes) Type() refpb.Type {
 	return BytesType
 }
 
