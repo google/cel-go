@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"reflect"
 
-	pbpb "github.com/google/cel-go/common/types/pb"
+	traitspb "github.com/google/cel-go/common/types/traits"
 	refpb "github.com/google/cel-go/common/types/ref"
 )
 
@@ -48,8 +48,8 @@ func NewTypeValue(name string, traits ...int) *TypeValue {
 // annotated with the traits relevant to all objects.
 func NewObjectTypeValue(name string) *TypeValue {
 	return NewTypeValue(name,
-		pbpb.IndexerType,
-		pbpb.IterableType)
+		traitspb.IndexerType,
+		traitspb.IterableType)
 }
 
 func (t *TypeValue) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {

@@ -11,18 +11,18 @@ import (
 	operatorspb "github.com/google/cel-go/common/operators"
 	testpb "github.com/google/cel-go/test"
 	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
-	"github.com/google/cel-spec/proto/v1/cel_service"
+	cspb "github.com/google/cel-spec/proto/v1/cel_service"
 	evalpb "github.com/google/cel-spec/proto/v1/eval"
 	exprpb "github.com/google/cel-spec/proto/v1/syntax"
 	valuepb "github.com/google/cel-spec/proto/v1/value"
-	"golang.org/x/net/context"
-	"google.golang.org/grpc"
+	contextpb "golang.org/x/net/context"
+	grpcpb "google.golang.org/grpc"
 )
 
 type serverTest struct {
 	cmd    *exec.Cmd
-	conn   *grpc..ClientConn
-	client cel_service.CelServiceClient
+	conn   *grpcpb.ClientConn
+	client cspb.CelServiceClient
 }
 
 var (
@@ -70,14 +70,14 @@ func setup() error {
 	}
 
 	log.Println("Connecting to ", addr)
-	conn, err := grpc.Dial(addr, grpc.WithInsecure())
+	conn, err := grpcpb.Dial(addr, grpcpb.WithInsecure())
 	if err != nil {
 		return err
 	}
 	globals.conn = conn
 
 	log.Println("Creating service client")
-	globals.client = cel_service.NewCelServiceClient(conn)
+	globals.client = cspb.NewCelServiceClient(conn)
 	return nil
 }
 
@@ -110,10 +110,10 @@ var (
 )
 
 func TestParse(t *testing.T) {
-	req := cel_service.ParseRequest{
+	req := cspb.ParseRequest{
 		CelSource: "1 + 1",
 	}
-	res, err := globals.client.Parse(context.Background(), &req)
+	res, err := globals.client.Parse(contextpb.Background(), &req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -167,10 +167,10 @@ func TestCheck(t *testing.T) {
 	// If TestParse() passes, it validates a good chunk
 	// of the server mechanisms for data conversion, so we
 	// won't be as fussy here..
-	req := cel_service.CheckRequest{
+	req := cspb.CheckRequest{
 		ParsedExpr: parsed,
 	}
-	res, err := globals.client.Check(context.Background(), &req)
+	res, err := globals.client.Check(contextpb.Background(), &req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -195,10 +195,10 @@ func TestCheck(t *testing.T) {
 }
 
 func TestEval(t *testing.T) {
-	req := cel_service.EvalRequest{
-		ExprKind: &cel_service.EvalRequest_ParsedExpr{parsed},
+	req := cspb.EvalRequest{
+		ExprKind: &cspb.EvalRequest_ParsedExpr{parsed},
 	}
-	res, err := globals.client.Eval(context.Background(), &req)
+	res, err := globals.client.Eval(contextpb.Background(), &req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -222,10 +222,10 @@ func TestEval(t *testing.T) {
 }
 
 func TestFullUp(t *testing.T) {
-	preq := cel_service.ParseRequest{
+	preq := cspb.ParseRequest{
 		CelSource: "x + y",
 	}
-	pres, err := globals.client.Parse(context.Background(), &preq)
+	pres, err := globals.client.Parse(contextpb.Background(), &preq)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -234,14 +234,14 @@ func TestFullUp(t *testing.T) {
 		t.Fatal("Empty parsed expression")
 	}
 
-	creq := cel_service.CheckRequest{
+	creq := cspb.CheckRequest{
 		ParsedExpr: parsedExpr,
 		TypeEnv: []*checkedpb.Decl{
 			declspb.NewIdent("x", declspb.Int, nil),
 			declspb.NewIdent("y", declspb.Int, nil),
 		},
 	}
-	cres, err := globals.client.Check(context.Background(), &creq)
+	cres, err := globals.client.Check(contextpb.Background(), &creq)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -265,14 +265,14 @@ func TestFullUp(t *testing.T) {
 		t.Error("Bad top-level type", tp)
 	}
 
-	ereq := cel_service.EvalRequest{
-		ExprKind: &cel_service.EvalRequest_CheckedExpr{checkedExpr},
+	ereq := cspb.EvalRequest{
+		ExprKind: &cspb.EvalRequest_CheckedExpr{checkedExpr},
 		Bindings: map[string]*evalpb.ExprValue{
 			"x": exprValueInt64(1),
 			"y": exprValueInt64(2),
 		},
 	}
-	eres, err := globals.client.Eval(context.Background(), &ereq)
+	eres, err := globals.client.Eval(contextpb.Background(), &ereq)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -309,10 +309,10 @@ func exprValueInt64(x int64) *evalpb.ExprValue {
 // and checks that the result is the boolean value 'true'.
 func expectEvalTrue(t *testing.T, source string) {
 	// Parse
-	preq := cel_service.ParseRequest{
+	preq := cspb.ParseRequest{
 		CelSource: source,
 	}
-	pres, err := globals.client.Parse(context.Background(), &preq)
+	pres, err := globals.client.Parse(contextpb.Background(), &preq)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -329,10 +329,10 @@ func expectEvalTrue(t *testing.T, source string) {
 	rootId := parsedExpr.Expr.Id
 
 	// Check
-	creq := cel_service.CheckRequest{
+	creq := cspb.CheckRequest{
 		ParsedExpr: parsedExpr,
 	}
-	cres, err := globals.client.Check(context.Background(), &creq)
+	cres, err := globals.client.Check(contextpb.Background(), &creq)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -357,10 +357,10 @@ func expectEvalTrue(t *testing.T, source string) {
 	}
 
 	// Eval
-	ereq := cel_service.EvalRequest{
-		ExprKind: &cel_service.EvalRequest_CheckedExpr{checkedExpr},
+	ereq := cspb.EvalRequest{
+		ExprKind: &cspb.EvalRequest_CheckedExpr{checkedExpr},
 	}
-	eres, err := globals.client.Eval(context.Background(), &ereq)
+	eres, err := globals.client.Eval(contextpb.Background(), &ereq)
 	if err != nil {
 		t.Fatal(err)
 	}

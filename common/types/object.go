@@ -20,8 +20,9 @@ import (
 
 	protopb "github.com/golang/protobuf/proto"
 	ptypespb "github.com/golang/protobuf/ptypes"
-	pbpb "github.com/google/cel-go/common/types/pb"
+	traitspb "github.com/google/cel-go/common/types/traits"
 	refpb "github.com/google/cel-go/common/types/ref"
+	pbpb "github.com/google/cel-go/common/types/pb"
 )
 
 type protoObj struct {
@@ -103,7 +104,7 @@ func (o *protoObj) Get(index refpb.Value) refpb.Value {
 	return NewErr("no such field '%s'", index)
 }
 
-func (o *protoObj) Iterator() pbpb.Iterator {
+func (o *protoObj) Iterator() traitspb.Iterator {
 	return &msgIterator{
 		baseIterator: &baseIterator{},
 		refValue:     o.refValue,

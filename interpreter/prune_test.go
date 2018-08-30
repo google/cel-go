@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	operatorspb "github.com/google/cel-go/common/operators"
-	debugpb "github.com/google/cel-go/common/overloads"
+	debugpb "github.com/google/cel-go/common/debug"
 	testpb "github.com/google/cel-go/test"
 	exprpb "github.com/google/cel-spec/proto/v1/syntax"
 )

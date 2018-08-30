@@ -23,7 +23,7 @@ import (
 	ptypespb "github.com/golang/protobuf/ptypes"
 	tpb "github.com/golang/protobuf/ptypes/timestamp"
 	overloadspb "github.com/google/cel-go/common/overloads"
-	pbpb "github.com/google/cel-go/common/types/pb"
+	traitspb "github.com/google/cel-go/common/types/traits"
 	refpb "github.com/google/cel-go/common/types/ref"
 )
 
@@ -37,10 +37,10 @@ type Timestamp struct {
 var (
 	// TimestampType singleton.
 	TimestampType = NewTypeValue("google.protobuf.Timestamp",
-		pbpb.AdderType,
-		pbpb.ComparerType,
-		pbpb.ReceiverType,
-		pbpb.SubtractorType)
+		traitspb.AdderType,
+		traitspb.ComparerType,
+		traitspb.ReceiverType,
+		traitspb.SubtractorType)
 )
 
 func (t Timestamp) Add(other refpb.Value) refpb.Value {

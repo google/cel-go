@@ -19,7 +19,7 @@ import (
 	"reflect"
 
 	structpb "github.com/golang/protobuf/ptypes/struct"
-	pbpb "github.com/google/cel-go/common/types/pb"
+	traitspb "github.com/google/cel-go/common/types/traits"
 	refpb "github.com/google/cel-go/common/types/ref"
 )
 
@@ -29,12 +29,12 @@ type Uint uint64
 var (
 	// UintType singleton.
 	UintType = NewTypeValue("uint",
-		pbpb.AdderType,
-		pbpb.ComparerType,
-		pbpb.DividerType,
-		pbpb.ModderType,
-		pbpb.MultiplierType,
-		pbpb.SubtractorType)
+		traitspb.AdderType,
+		traitspb.ComparerType,
+		traitspb.DividerType,
+		traitspb.ModderType,
+		traitspb.MultiplierType,
+		traitspb.SubtractorType)
 )
 
 const (

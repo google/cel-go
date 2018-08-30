@@ -23,7 +23,7 @@ import (
 	dpb "github.com/golang/protobuf/ptypes/duration"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	tpb "github.com/golang/protobuf/ptypes/timestamp"
-	pbpb "github.com/google/cel-go/common/types/pb"
+	"github.com/google/cel-go/common/types/pb"
 	refpb "github.com/google/cel-go/common/types/ref"
 	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
 )
@@ -54,7 +54,7 @@ func NewProvider(types ...protopb.Message) refpb.TypeProvider {
 		UintType)
 
 	for _, msgType := range types {
-		fd, err := pbpb.DescribeFile(msgType)
+		fd, err := pb.DescribeFile(msgType)
 		if err != nil {
 			panic(err)
 		}
@@ -66,7 +66,7 @@ func NewProvider(types ...protopb.Message) refpb.TypeProvider {
 }
 
 func (p *protoTypeProvider) EnumValue(enumName string) refpb.Value {
-	enumVal, err := pbpb.DescribeEnum(enumName)
+	enumVal, err := pb.DescribeEnum(enumName)
 	if err != nil {
 		return NewErr("unknown enum name '%s'", enumName)
 	}
@@ -79,7 +79,7 @@ func (p *protoTypeProvider) FindFieldType(t *checkedpb.Type,
 	default:
 		return nil, false
 	case *checkedpb.Type_MessageType:
-		msgType, err := pbpb.DescribeType(t.GetMessageType())
+		msgType, err := pb.DescribeType(t.GetMessageType())
 		if err != nil {
 			return nil, false
 		}
@@ -98,14 +98,14 @@ func (p *protoTypeProvider) FindIdent(identName string) (refpb.Value, bool) {
 	if t, found := p.revTypeMap[identName]; found {
 		return t.(refpb.Value), true
 	}
-	if enumVal, err := pbpb.DescribeEnum(identName); err == nil {
+	if enumVal, err := pb.DescribeEnum(identName); err == nil {
 		return Int(enumVal.Value()), true
 	}
 	return nil, false
 }
 
 func (p *protoTypeProvider) FindType(typeName string) (*checkedpb.Type, bool) {
-	if _, err := pbpb.DescribeType(typeName); err != nil {
+	if _, err := pb.DescribeType(typeName); err != nil {
 		return nil, false
 	}
 
@@ -113,7 +113,7 @@ func (p *protoTypeProvider) FindType(typeName string) (*checkedpb.Type, bool) {
 	if typeName != "" && typeName[0] == '.' {
 		typeName = typeName[1:]
 	}
-	if checkedType, found := pbpb.CheckedWellKnowns[typeName]; found {
+	if checkedType, found := pb.CheckedWellKnowns[typeName]; found {
 		return checkedType, true
 	}
 	return &checkedpb.Type{
@@ -125,7 +125,7 @@ func (p *protoTypeProvider) FindType(typeName string) (*checkedpb.Type, bool) {
 
 func (p *protoTypeProvider) NewValue(typeName string,
 	fields map[string]refpb.Value) refpb.Value {
-	td, err := pbpb.DescribeType(typeName)
+	td, err := pb.DescribeType(typeName)
 	if err != nil {
 		return NewErr("unknown type '%s'", typeName)
 	}

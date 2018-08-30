@@ -6,10 +6,10 @@ import (
 	"net"
 	"os"
 
-	"github.com/google/cel-go/server"
-	"github.com/google/cel-spec/proto/v1/cel_service"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
+	serverpb "github.com/google/cel-go/server"
+	cspb "github.com/google/cel-spec/proto/v1/cel_service"
+	grpcpb "google.golang.org/grpc"
+	reflectionpb "google.golang.org/grpc/reflection"
 )
 
 func main() {
@@ -27,10 +27,10 @@ func main() {
 	log.Println("Server wrote address")
 
 	log.Println("Server registering service on port")
-	s := grpc..NewServer()
-	cel_service.RegisterCelServiceServer(s, &server.CelServer{})
+	s := grpcpb.NewServer()
+	cspb.RegisterCelServiceServer(s, &serverpb.CelServer{})
 	log.Println("Server calling Register")
-	reflection.Register(s)
+	reflectionpb.Register(s)
 	log.Println("Server calling Serve")
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)

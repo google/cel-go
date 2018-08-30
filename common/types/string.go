@@ -25,7 +25,7 @@ import (
 	ptypespb "github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	refpb "github.com/google/cel-go/common/types/ref"
-	pbpb "github.com/google/cel-go/common/types/pb"
+	traitspb "github.com/google/cel-go/common/types/traits"
 )
 
 // String type implementation which supports addition, comparison, matching,
@@ -35,10 +35,10 @@ type String string
 var (
 	// StringType singleton.
 	StringType = NewTypeValue("string",
-		pbpb.AdderType,
-		pbpb.ComparerType,
-		pbpb.MatcherType,
-		pbpb.SizerType)
+		traitspb.AdderType,
+		traitspb.ComparerType,
+		traitspb.MatcherType,
+		traitspb.SizerType)
 )
 
 func (s String) Add(other refpb.Value) refpb.Value {

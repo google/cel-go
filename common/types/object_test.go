@@ -22,7 +22,7 @@ import (
 	ptypespb "github.com/golang/protobuf/ptypes"
 	anypb "github.com/golang/protobuf/ptypes/any"
 	refpb "github.com/google/cel-go/common/types/ref"
-	pbpb "github.com/google/cel-go/common/types/pb"
+	traitspb "github.com/google/cel-go/common/types/traits"
 	testpb "github.com/google/cel-go/test"
 	exprpb "github.com/google/cel-spec/proto/v1/syntax"
 )
@@ -31,21 +31,21 @@ func TestNewProtoObject(t *testing.T) {
 	parsedExpr := &exprpb.ParsedExpr{
 		SourceInfo: &exprpb.SourceInfo{
 			LineOffsets: []int32{1, 2, 3}}}
-	obj := NewObject(parsedExpr).(pb.Indexer)
-	si := obj.Get(String("source_info")).(pb.Indexer)
-	lo := si.Get(String("line_offsets")).(pb.Indexer)
+	obj := NewObject(parsedExpr).(traitspb.Indexer)
+	si := obj.Get(String("source_info")).(traitspb.Indexer)
+	lo := si.Get(String("line_offsets")).(traitspb.Indexer)
 	if lo.Get(Int(2)).Equal(Int(3)) != True {
 		t.Errorf("Could not select fields by their proto type names")
 	}
-	expr := obj.Get(String("expr")).(pb.Indexer)
-	call := expr.Get(String("call_expr")).(pb.Indexer)
+	expr := obj.Get(String("expr")).(traitspb.Indexer)
+	call := expr.Get(String("call_expr")).(traitspb.Indexer)
 	if call.Get(String("function")).Equal(String("")) != True {
 		t.Errorf("Could not traverse through default values for unset fields")
 	}
 }
 
 func TestProtoObject_Iterator(t *testing.T) {
-	existsMsg := NewObject(testpb.Exists.Expr).(pb.Iterable)
+	existsMsg := NewObject(testpb.Exists.Expr).(traitspb.Iterable)
 	it := existsMsg.Iterator()
 	var fields []refpb.Value
 	for it.HasNext() == True {

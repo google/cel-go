@@ -105,7 +105,7 @@ func (s *CelServer) Eval(ctx context.Context, in *cspb.EvalRequest) (*cspb.EvalR
 		args[name] = refVal
 	}
 	// NOTE: the EvalState is currently discarded
-	result, _ := evalpb.Eval(interpreterpb.NewActivation(args))
+	result, _ := eval.Eval(interpreterpb.NewActivation(args))
 	resultExprVal, err := RefValueToExprValue(result)
 	if err != nil {
 		return nil, fmt.Errorf("con't convert result: %s", err)
