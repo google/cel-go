@@ -22,13 +22,13 @@ import (
 	ptypespb "github.com/golang/protobuf/ptypes"
 	traitspb "github.com/google/cel-go/common/types/traits"
 	refpb "github.com/google/cel-go/common/types/ref"
-	pbpb "github.com/google/cel-go/common/types/pb"
+	"github.com/google/cel-go/common/types/pb"
 )
 
 type protoObj struct {
 	value     protopb.Message
 	refValue  reflect.Value
-	typeDesc  *pbpb.TypeDescription
+	typeDesc  *pb.TypeDescription
 	typeValue *TypeValue
 	isAny     bool
 }
@@ -37,7 +37,7 @@ type protoObj struct {
 // conversion between protobuf type values and expression type values.
 // Objects support indexing and iteration.
 func NewObject(value protopb.Message) refpb.Value {
-	typeDesc, err := pbpb.DescribeValue(value)
+	typeDesc, err := pb.DescribeValue(value)
 	if err != nil {
 		panic(err)
 	}
@@ -123,7 +123,7 @@ func (o *protoObj) Value() interface{} {
 type msgIterator struct {
 	*baseIterator
 	refValue reflect.Value
-	typeDesc *pbpb.TypeDescription
+	typeDesc *pb.TypeDescription
 	cursor   int
 	len      int
 }
