@@ -15,11 +15,12 @@
 package types
 
 import (
+	"reflect"
+
 	protopb "github.com/golang/protobuf/proto"
 	ptypespb "github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	refpb "github.com/google/cel-go/common/types/ref"
-	"reflect"
 )
 
 // Null type implementation.

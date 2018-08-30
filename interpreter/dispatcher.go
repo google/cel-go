@@ -16,6 +16,7 @@ package interpreter
 
 import (
 	"fmt"
+
 	typespb "github.com/google/cel-go/common/types"
 	refpb "github.com/google/cel-go/common/types/ref"
 	traitspb "github.com/google/cel-go/common/types/traits"

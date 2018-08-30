@@ -15,12 +15,13 @@
 package types
 
 import (
+	"reflect"
+	"testing"
+
 	protopb "github.com/golang/protobuf/proto"
 	ptypespb "github.com/golang/protobuf/ptypes"
 	anypb "github.com/golang/protobuf/ptypes/any"
 	structpb "github.com/golang/protobuf/ptypes/struct"
-	"reflect"
-	"testing"
 )
 
 func TestNull_ConvertToNative(t *testing.T) {

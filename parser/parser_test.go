@@ -16,13 +16,13 @@ package parser
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 
 	commonpb "github.com/google/cel-go/common"
-	"github.com/google/cel-go/common/debug"
+	debugpb "github.com/google/cel-go/common/overloads"
 	testpb "github.com/google/cel-go/test"
 	exprpb "github.com/google/cel-spec/proto/v1/syntax"
-	"reflect"
 )
 
 var testCases = []testInfo{
@@ -766,13 +766,13 @@ func Test(t *testing.T) {
 				tt.Fatalf("Expected error not thrown: '%s'", tst.E)
 			}
 
-			actualWithKind := debug.ToAdornedDebugString(expression.Expr, &kindAndIdAdorner{})
+			actualWithKind := debugpb.ToAdornedDebugString(expression.Expr, &kindAndIdAdorner{})
 			if !testpb.Compare(actualWithKind, tst.P) {
 				tt.Fatal(testpb.DiffMessage("structure", actualWithKind, tst.P))
 			}
 
 			if tst.L != "" {
-				actualWithLocation := debug.ToAdornedDebugString(expression.Expr, &locationAdorner{expression.SourceInfo})
+				actualWithLocation := debugpb.ToAdornedDebugString(expression.Expr, &locationAdorner{expression.SourceInfo})
 				if !testpb.Compare(actualWithLocation, tst.L) {
 					tt.Fatal(testpb.DiffMessage("location", actualWithLocation, tst.L))
 				}

@@ -16,18 +16,18 @@ package types
 
 import (
 	"fmt"
+	"reflect"
+
 	protopb "github.com/golang/protobuf/proto"
 	ptypespb "github.com/golang/protobuf/ptypes"
-	"github.com/google/cel-go/common/types/pb"
+	pbpb "github.com/google/cel-go/common/types/pb"
 	refpb "github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/common/types/traits"
-	"reflect"
 )
 
 type protoObj struct {
 	value     protopb.Message
 	refValue  reflect.Value
-	typeDesc  *pb.TypeDescription
+	typeDesc  *pbpb.TypeDescription
 	typeValue *TypeValue
 	isAny     bool
 }
@@ -36,7 +36,7 @@ type protoObj struct {
 // conversion between protobuf type values and expression type values.
 // Objects support indexing and iteration.
 func NewObject(value protopb.Message) refpb.Value {
-	typeDesc, err := pb.DescribeValue(value)
+	typeDesc, err := pbpb.DescribeValue(value)
 	if err != nil {
 		panic(err)
 	}
@@ -103,7 +103,7 @@ func (o *protoObj) Get(index refpb.Value) refpb.Value {
 	return NewErr("no such field '%s'", index)
 }
 
-func (o *protoObj) Iterator() traits.Iterator {
+func (o *protoObj) Iterator() pbpb.Iterator {
 	return &msgIterator{
 		baseIterator: &baseIterator{},
 		refValue:     o.refValue,
@@ -122,7 +122,7 @@ func (o *protoObj) Value() interface{} {
 type msgIterator struct {
 	*baseIterator
 	refValue reflect.Value
-	typeDesc *pb.TypeDescription
+	typeDesc *pbpb.TypeDescription
 	cursor   int
 	len      int
 }

@@ -20,12 +20,12 @@ import (
 	"fmt"
 	"reflect"
 
-	protopb "github.com/golang/protobuf/proto"
-	declspb "github.com/google/cel-go/checker/decls"
-	commonpb "github.com/google/cel-go/common"
-	refpb "github.com/google/cel-go/common/types/ref"
 	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
+	commonpb "github.com/google/cel-go/common"
+	declspb "github.com/google/cel-go/checker/decls"
 	exprpb "github.com/google/cel-spec/proto/v1/syntax"
+	protopb "github.com/golang/protobuf/proto"
+	refpb "github.com/google/cel-go/common/types/ref"
 )
 
 type checker struct {

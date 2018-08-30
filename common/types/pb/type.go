@@ -16,11 +16,12 @@ package pb
 
 import (
 	"fmt"
-	protopb "github.com/golang/protobuf/proto"
-	descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
-	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
 	"reflect"
 	"strings"
+
+	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
+	descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
+	protopb "github.com/golang/protobuf/proto"
 )
 
 // TypeDescription is a collection of type metadata relevant to expression

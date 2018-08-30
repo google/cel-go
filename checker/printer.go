@@ -15,8 +15,8 @@
 package checker
 
 import (
-	debugpb "github.com/google/cel-go/common/debug"
 	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
+	debugpb "github.com/google/cel-go/common/debug"
 	exprpb "github.com/google/cel-spec/proto/v1/syntax"
 )
 

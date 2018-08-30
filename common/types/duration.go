@@ -16,14 +16,15 @@ package types
 
 import (
 	"fmt"
+	"reflect"
+	"time"
+
 	protopb "github.com/golang/protobuf/proto"
 	ptypespb "github.com/golang/protobuf/ptypes"
 	dpb "github.com/golang/protobuf/ptypes/duration"
 	overloadspb "github.com/google/cel-go/common/overloads"
 	refpb "github.com/google/cel-go/common/types/ref"
 	traitspb "github.com/google/cel-go/common/types/traits"
-	"reflect"
-	"time"
 )
 
 // Duration type that implements refpb.Value and supports add, compare, negate,

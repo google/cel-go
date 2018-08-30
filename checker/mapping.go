@@ -16,6 +16,7 @@ package checker
 
 import (
 	"fmt"
+
 	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
 )
 

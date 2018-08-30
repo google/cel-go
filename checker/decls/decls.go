@@ -2,10 +2,10 @@
 package decls
 
 import (
-	emptypb "github.com/golang/protobuf/ptypes/empty"
-	structpb "github.com/golang/protobuf/ptypes/struct"
 	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
+	emptypb "github.com/golang/protobuf/ptypes/empty"
 	exprpb "github.com/google/cel-spec/proto/v1/syntax"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 )
 
 var (

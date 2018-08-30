@@ -18,14 +18,14 @@ import (
 	"fmt"
 	"testing"
 
-	protopb "github.com/golang/protobuf/proto"
+	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
 	declspb "github.com/google/cel-go/checker/decls"
 	packagespb "github.com/google/cel-go/common/packages"
-	typespb "github.com/google/cel-go/common/types"
-	refpb "github.com/google/cel-go/common/types/ref"
 	parserpb "github.com/google/cel-go/parser"
+	protopb "github.com/golang/protobuf/proto"
+	refpb "github.com/google/cel-go/common/types/ref"
 	testpb "github.com/google/cel-go/test"
-	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
+	typespb "github.com/google/cel-go/common/types"
 )
 
 var testCases = []testInfo{

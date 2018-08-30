@@ -15,13 +15,14 @@
 package types
 
 import (
+	"reflect"
+	"testing"
+
 	"github.com/golang/protobuf/jsonpb"
 	protopb "github.com/golang/protobuf/proto"
 	dpb "github.com/golang/protobuf/ptypes/duration"
 	refpb "github.com/google/cel-go/common/types/ref"
 	traitspb "github.com/google/cel-go/common/types/traits"
-	"reflect"
-	"testing"
 )
 
 func TestBaseList_Add_Empty(t *testing.T) {

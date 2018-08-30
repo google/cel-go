@@ -16,10 +16,11 @@ package interpreter
 
 import (
 	"fmt"
+	"strings"
+
 	commonpb "github.com/google/cel-go/common"
 	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
 	exprpb "github.com/google/cel-spec/proto/v1/syntax"
-	"strings"
 )
 
 // Program contains instructions and related metadata.

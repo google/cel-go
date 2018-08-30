@@ -7,21 +7,21 @@ import (
 	"os/exec"
 	"testing"
 
-	"github.com/google/cel-go/checker/decls"
+	declspb "github.com/google/cel-go/checker/decls"
 	operatorspb "github.com/google/cel-go/common/operators"
 	testpb "github.com/google/cel-go/test"
 	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
 	"github.com/google/cel-spec/proto/v1/cel_service"
-	"github.com/google/cel-spec/proto/v1/eval"
-	"github.com/google/cel-spec/proto/v1/syntax"
-	"github.com/google/cel-spec/proto/v1/value"
+	evalpb "github.com/google/cel-spec/proto/v1/eval"
+	exprpb "github.com/google/cel-spec/proto/v1/syntax"
+	valuepb "github.com/google/cel-spec/proto/v1/value"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
 
 type serverTest struct {
 	cmd    *exec.Cmd
-	conn   *grpc.ClientConn
+	conn   *grpc..ClientConn
 	client cel_service.CelServiceClient
 }
 
@@ -94,11 +94,11 @@ func shutdown() {
 }
 
 var (
-	parsed = &syntax.ParsedExpr{
+	parsed = &exprpb.ParsedExpr{
 		Expr: testpb.ExprCall(1, operatorspb.Add,
 			testpb.ExprLiteral(2, int64(1)),
 			testpb.ExprLiteral(3, int64(1))),
-		SourceInfo: &syntax.SourceInfo{
+		SourceInfo: &exprpb.SourceInfo{
 			Location: "the location",
 			Positions: map[int64]int32{
 				1: 0,
@@ -131,7 +131,7 @@ func TestParse(t *testing.T) {
 		t.Fatal("Empty expression in result")
 	}
 	switch res.ParsedExpr.Expr.ExprKind.(type) {
-	case *syntax.Expr_CallExpr:
+	case *exprpb.Expr_CallExpr:
 		c := res.ParsedExpr.Expr.GetCallExpr()
 		if c.Target != nil {
 			t.Error("Call has target", c)
@@ -144,10 +144,10 @@ func TestParse(t *testing.T) {
 		}
 		for i, a := range c.Args {
 			switch a.ExprKind.(type) {
-			case *syntax.Expr_LiteralExpr:
+			case *exprpb.Expr_LiteralExpr:
 				l := a.GetLiteralExpr()
 				switch l.LiteralKind.(type) {
-				case *syntax.Literal_Int64Value:
+				case *exprpb.Literal_Int64Value:
 					if l.GetInt64Value() != int64(1) {
 						t.Errorf("Arg %d wrong value: %v", i, a)
 					}
@@ -206,10 +206,10 @@ func TestEval(t *testing.T) {
 		t.Fatal("Nil result")
 	}
 	switch res.Result.Kind.(type) {
-	case *eval.ExprValue_Value:
+	case *evalpb.ExprValue_Value:
 		v := res.Result.GetValue()
 		switch v.Kind.(type) {
-		case *value.Value_Int64Value:
+		case *valuepb.Value_Int64Value:
 			if v.GetInt64Value() != int64(2) {
 				t.Error("Wrong result for 1 + 1", v)
 			}
@@ -237,8 +237,8 @@ func TestFullUp(t *testing.T) {
 	creq := cel_service.CheckRequest{
 		ParsedExpr: parsedExpr,
 		TypeEnv: []*checkedpb.Decl{
-			decls.NewIdent("x", decls.Int, nil),
-			decls.NewIdent("y", decls.Int, nil),
+			declspb.NewIdent("x", declspb.Int, nil),
+			declspb.NewIdent("y", declspb.Int, nil),
 		},
 	}
 	cres, err := globals.client.Check(context.Background(), &creq)
@@ -267,7 +267,7 @@ func TestFullUp(t *testing.T) {
 
 	ereq := cel_service.EvalRequest{
 		ExprKind: &cel_service.EvalRequest_CheckedExpr{checkedExpr},
-		Bindings: map[string]*eval.ExprValue{
+		Bindings: map[string]*evalpb.ExprValue{
 			"x": exprValueInt64(1),
 			"y": exprValueInt64(2),
 		},
@@ -280,10 +280,10 @@ func TestFullUp(t *testing.T) {
 		t.Fatal("Nil result")
 	}
 	switch eres.Result.Kind.(type) {
-	case *eval.ExprValue_Value:
+	case *evalpb.ExprValue_Value:
 		v := eres.Result.GetValue()
 		switch v.Kind.(type) {
-		case *value.Value_Int64Value:
+		case *valuepb.Value_Int64Value:
 			if v.GetInt64Value() != int64(3) {
 				t.Error("Wrong result for 1 + 2", v)
 			}
@@ -295,11 +295,11 @@ func TestFullUp(t *testing.T) {
 	}
 }
 
-func exprValueInt64(x int64) *eval.ExprValue {
-	return &eval.ExprValue{
-		Kind: &eval.ExprValue_Value{
-			&value.Value{
-				Kind: &value.Value_Int64Value{x},
+func exprValueInt64(x int64) *evalpb.ExprValue {
+	return &evalpb.ExprValue{
+		Kind: &evalpb.ExprValue_Value{
+			&valuepb.Value{
+				Kind: &valuepb.Value_Int64Value{x},
 			},
 		},
 	}
@@ -368,10 +368,10 @@ func expectEvalTrue(t *testing.T, source string) {
 		t.Fatal("Nil result")
 	}
 	switch eres.Result.Kind.(type) {
-	case *eval.ExprValue_Value:
+	case *evalpb.ExprValue_Value:
 		v := eres.Result.GetValue()
 		switch v.Kind.(type) {
-		case *value.Value_BoolValue:
+		case *valuepb.Value_BoolValue:
 			if !v.GetBoolValue() {
 				t.Error("Wrong result", v)
 			}

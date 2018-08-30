@@ -15,14 +15,15 @@
 package pb
 
 import (
+	structpb "github.com/golang/protobuf/ptypes/struct"
+
+	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
 	descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
 	emptypb "github.com/golang/protobuf/ptypes/empty"
-	"github.com/golang/protobuf/ptypes/struct"
-	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
 )
 
 var (
-	// CheckedPrimitives map from proto field descriptor type to checked.Type.
+	// CheckedPrimitives map from proto field descriptor type to checkedpb.Type.
 	CheckedPrimitives = map[descpb.FieldDescriptorProto_Type]*checkedpb.Type{
 		descpb.FieldDescriptorProto_TYPE_BOOL:    checkedBool,
 		descpb.FieldDescriptorProto_TYPE_BYTES:   checkedBytes,
@@ -38,7 +39,7 @@ var (
 		descpb.FieldDescriptorProto_TYPE_FIXED64: checkedUint,
 		descpb.FieldDescriptorProto_TYPE_STRING:  checkedString}
 
-	// CheckedWellKnowns map from qualified proto type name to checked.Type for
+	// CheckedWellKnowns map from qualified proto type name to checkedpb.Type for
 	// well-known proto types.
 	CheckedWellKnowns = map[string]*checkedpb.Type{
 		"google.protobuf.DoubleValue": checkedWrap(checkedDouble),

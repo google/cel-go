@@ -15,6 +15,9 @@
 package interpreter
 
 import (
+	"reflect"
+	"testing"
+
 	protopb "github.com/golang/protobuf/proto"
 	checkerpb "github.com/google/cel-go/checker"
 	packagespb "github.com/google/cel-go/common/packages"
@@ -24,8 +27,6 @@ import (
 	parserpb "github.com/google/cel-go/parser"
 	testpb "github.com/google/cel-go/test"
 	exprpb "github.com/google/cel-spec/proto/v1/syntax"
-	"reflect"
-	"testing"
 )
 
 func TestInterpreter_CallExpr(t *testing.T) {

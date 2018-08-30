@@ -15,16 +15,17 @@
 package types
 
 import (
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/any"
-	"github.com/golang/protobuf/ptypes/duration"
-	"github.com/golang/protobuf/ptypes/struct"
-	"github.com/golang/protobuf/ptypes/timestamp"
-	"github.com/google/cel-go/common/types/pb"
-	refpb "github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-spec/proto/checked/v1/checked"
 	"reflect"
+
+	protopb "github.com/golang/protobuf/proto"
+	ptypespb "github.com/golang/protobuf/ptypes"
+	anypb "github.com/golang/protobuf/ptypes/any"
+	dpb "github.com/golang/protobuf/ptypes/duration"
+	structpb "github.com/golang/protobuf/ptypes/struct"
+	tpb "github.com/golang/protobuf/ptypes/timestamp"
+	pbpb "github.com/google/cel-go/common/types/pb"
+	refpb "github.com/google/cel-go/common/types/ref"
+	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
 )
 
 type protoTypeProvider struct {
@@ -34,7 +35,7 @@ type protoTypeProvider struct {
 // NewProvider accepts a list of proto message instances and returns a type
 // provider which can create new instances of the provided message or any
 // message that proto depends upon in its FileDescriptor.
-func NewProvider(types ...proto.Message) refpb.TypeProvider {
+func NewProvider(types ...protopb.Message) refpb.TypeProvider {
 	p := &protoTypeProvider{
 		revTypeMap: make(map[string]refpb.Type)}
 	p.RegisterType(
@@ -53,7 +54,7 @@ func NewProvider(types ...proto.Message) refpb.TypeProvider {
 		UintType)
 
 	for _, msgType := range types {
-		fd, err := pb.DescribeFile(msgType)
+		fd, err := pbpb.DescribeFile(msgType)
 		if err != nil {
 			panic(err)
 		}
@@ -65,20 +66,20 @@ func NewProvider(types ...proto.Message) refpb.TypeProvider {
 }
 
 func (p *protoTypeProvider) EnumValue(enumName string) refpb.Value {
-	enumVal, err := pb.DescribeEnum(enumName)
+	enumVal, err := pbpb.DescribeEnum(enumName)
 	if err != nil {
 		return NewErr("unknown enum name '%s'", enumName)
 	}
 	return Int(enumVal.Value())
 }
 
-func (p *protoTypeProvider) FindFieldType(t *checked.Type,
+func (p *protoTypeProvider) FindFieldType(t *checkedpb.Type,
 	fieldName string) (*refpb.FieldType, bool) {
 	switch t.TypeKind.(type) {
 	default:
 		return nil, false
-	case *checked.Type_MessageType:
-		msgType, err := pb.DescribeType(t.GetMessageType())
+	case *checkedpb.Type_MessageType:
+		msgType, err := pbpb.DescribeType(t.GetMessageType())
 		if err != nil {
 			return nil, false
 		}
@@ -97,14 +98,14 @@ func (p *protoTypeProvider) FindIdent(identName string) (refpb.Value, bool) {
 	if t, found := p.revTypeMap[identName]; found {
 		return t.(refpb.Value), true
 	}
-	if enumVal, err := pb.DescribeEnum(identName); err == nil {
+	if enumVal, err := pbpb.DescribeEnum(identName); err == nil {
 		return Int(enumVal.Value()), true
 	}
 	return nil, false
 }
 
-func (p *protoTypeProvider) FindType(typeName string) (*checked.Type, bool) {
-	if _, err := pb.DescribeType(typeName); err != nil {
+func (p *protoTypeProvider) FindType(typeName string) (*checkedpb.Type, bool) {
+	if _, err := pbpb.DescribeType(typeName); err != nil {
 		return nil, false
 	}
 
@@ -112,19 +113,19 @@ func (p *protoTypeProvider) FindType(typeName string) (*checked.Type, bool) {
 	if typeName != "" && typeName[0] == '.' {
 		typeName = typeName[1:]
 	}
-	if checkedType, found := pb.CheckedWellKnowns[typeName]; found {
+	if checkedType, found := pbpb.CheckedWellKnowns[typeName]; found {
 		return checkedType, true
 	}
-	return &checked.Type{
-		TypeKind: &checked.Type_Type{
-			Type: &checked.Type{
-				TypeKind: &checked.Type_MessageType{
+	return &checkedpb.Type{
+		TypeKind: &checkedpb.Type_Type{
+			Type: &checkedpb.Type{
+				TypeKind: &checkedpb.Type_MessageType{
 					MessageType: typeName}}}}, true
 }
 
 func (p *protoTypeProvider) NewValue(typeName string,
 	fields map[string]refpb.Value) refpb.Value {
-	td, err := pb.DescribeType(typeName)
+	td, err := pbpb.DescribeType(typeName)
 	if err != nil {
 		return NewErr("unknown type '%s'", typeName)
 	}
@@ -145,8 +146,8 @@ func (p *protoTypeProvider) NewValue(typeName string,
 		}
 
 		dstType := refField.Type()
-		// Oneof fields are defined with wrapper structs that have a single proto.Message
-		// field value. The oneof wrapper is not a proto.Message instance.
+		// Oneof fields are defined with wrapper structs that have a single protopb.Message
+		// field value. The oneof wrapper is not a protopb.Message instance.
 		if fd.IsOneof() {
 			oneofVal := reflect.New(fd.OneofType().Elem())
 			refField.Set(oneofVal)
@@ -159,7 +160,7 @@ func (p *protoTypeProvider) NewValue(typeName string,
 		}
 		refField.Set(reflect.ValueOf(fieldValue))
 	}
-	return NewObject(value.Interface().(proto.Message))
+	return NewObject(value.Interface().(protopb.Message))
 }
 
 func (p *protoTypeProvider) RegisterType(types ...refpb.Type) error {
@@ -198,8 +199,8 @@ func NativeToValue(value interface{}) refpb.Value {
 		return Bytes(value.([]byte))
 	case []string:
 		return NewStringList(value.([]string))
-	case *duration.Duration:
-		return Duration{value.(*duration.Duration)}
+	case *dpb.Duration:
+		return Duration{value.(*dpb.Duration)}
 	case *structpb.ListValue:
 		return NewJsonList(value.(*structpb.ListValue))
 	case structpb.NullValue:
@@ -222,17 +223,17 @@ func NativeToValue(value interface{}) refpb.Value {
 		case *structpb.Value_StructValue:
 			return NativeToValue(v.GetStructValue())
 		}
-	case *timestamp.Timestamp:
-		return Timestamp{value.(*timestamp.Timestamp)}
-	case *any.Any:
-		val := value.(*any.Any)
-		unpackedAny := ptypes.DynamicAny{}
-		if ptypes.UnmarshalAny(val, &unpackedAny) != nil {
+	case *tpb.Timestamp:
+		return Timestamp{value.(*tpb.Timestamp)}
+	case *anypb.Any:
+		val := value.(*anypb.Any)
+		unpackedAny := ptypespb.DynamicAny{}
+		if ptypespb.UnmarshalAny(val, &unpackedAny) != nil {
 			NewErr("Fail to unmarshal any.")
 		}
 		return NativeToValue(unpackedAny.Message)
-	case proto.Message:
-		return NewObject(value.(proto.Message))
+	case protopb.Message:
+		return NewObject(value.(protopb.Message))
 	default:
 		refValue := reflect.ValueOf(value)
 		if refValue.Kind() == reflect.Ptr {

@@ -16,10 +16,11 @@ package types
 
 import (
 	"fmt"
-	"github.com/golang/protobuf/ptypes/struct"
-	refpb "github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/common/types/traits"
 	"reflect"
+
+	structpb "github.com/golang/protobuf/ptypes/struct"
+	pbpb "github.com/google/cel-go/common/types/pb"
+	refpb "github.com/google/cel-go/common/types/ref"
 )
 
 // Uint type implementation which supports comparison and math operators.
@@ -28,12 +29,12 @@ type Uint uint64
 var (
 	// UintType singleton.
 	UintType = NewTypeValue("uint",
-		traits.AdderType,
-		traits.ComparerType,
-		traits.DividerType,
-		traits.ModderType,
-		traits.MultiplierType,
-		traits.SubtractorType)
+		pbpb.AdderType,
+		pbpb.ComparerType,
+		pbpb.DividerType,
+		pbpb.ModderType,
+		pbpb.MultiplierType,
+		pbpb.SubtractorType)
 )
 
 const (

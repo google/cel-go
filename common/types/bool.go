@@ -16,11 +16,12 @@ package types
 
 import (
 	"fmt"
-	structpb "github.com/golang/protobuf/ptypes/struct"
-	refpb "github.com/google/cel-go/common/types/ref"
-	traitspb "github.com/google/cel-go/common/types/traits"
 	"reflect"
 	"strconv"
+	
+	refpb "github.com/google/cel-go/common/types/ref"
+	structpb "github.com/golang/protobuf/ptypes/struct"
+	traitspb "github.com/google/cel-go/common/types/traits"
 )
 
 // Bool type that implements refpb.Value and supports comparison and negation.

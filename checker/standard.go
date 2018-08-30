@@ -15,10 +15,10 @@
 package checker
 
 import (
+	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
 	declspb "github.com/google/cel-go/checker/decls"
 	operatorspb "github.com/google/cel-go/common/operators"
 	overloadspb "github.com/google/cel-go/common/overloads"
-	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
 )
 
 func StandardDeclarations() []*checkedpb.Decl {

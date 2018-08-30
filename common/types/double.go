@@ -16,10 +16,11 @@ package types
 
 import (
 	"fmt"
+	"reflect"
+
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	refpb "github.com/google/cel-go/common/types/ref"
 	traitspb "github.com/google/cel-go/common/types/traits"
-	"reflect"
 )
 
 // Double type that implements refpb.Value, comparison, and mathematical

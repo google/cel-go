@@ -17,9 +17,10 @@ package types
 import (
 	"bytes"
 	"fmt"
+	"reflect"
+
 	refpb "github.com/google/cel-go/common/types/ref"
 	traitspb "github.com/google/cel-go/common/types/traits"
-	"reflect"
 )
 
 // Bytes type that implements refpb.Value and supports add, compare, and size

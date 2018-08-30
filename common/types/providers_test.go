@@ -16,14 +16,15 @@ package types
 
 import (
 	"bytes"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/struct"
-	refpb "github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/common/types/traits"
-	expr "github.com/google/cel-spec/proto/v1/syntax"
 	"reflect"
 	"testing"
+
+	protopb "github.com/golang/protobuf/proto"
+	ptypespb "github.com/golang/protobuf/ptypes"
+	structpb "github.com/golang/protobuf/ptypes/struct"
+	refpb "github.com/google/cel-go/common/types/ref"
+	pbpb "github.com/google/cel-go/common/types/pb"
+	expr "github.com/google/cel-spec/proto/v1/syntax"
 )
 
 func TestTypeProvider_NewValue(t *testing.T) {
@@ -73,7 +74,7 @@ func TestTypeProvider_Getters(t *testing.T) {
 		}); IsError(sourceInfo) {
 		t.Error(sourceInfo)
 	} else {
-		si := sourceInfo.(traits.Indexer)
+		si := sourceInfo.(pb.Indexer)
 		if loc := si.Get(String("location")); IsError(loc) {
 			t.Error(loc)
 		} else if loc.(String) != "TestTypeProvider_GetFieldValue" {
@@ -85,14 +86,14 @@ func TestTypeProvider_Getters(t *testing.T) {
 			t.Error(pos)
 		} else if pos.Equal(NewDynamicMap(map[int64]int32{1: 2, 2: 4})) != True {
 			t.Errorf("Expected map[int64]int32, got %v", pos)
-		} else if posKeyVal := pos.(traits.Indexer).Get(Int(1)); IsError(posKeyVal) {
+		} else if posKeyVal := pos.(pb.Indexer).Get(Int(1)); IsError(posKeyVal) {
 			t.Error(posKeyVal)
 		} else if posKeyVal.(Int) != 2 {
 			t.Error("Expected value to be int64, not int32")
 		}
 		if offsets := si.Get(String("line_offsets")); IsError(offsets) {
 			t.Error(offsets)
-		} else if offset1 := offsets.(traits.Lister).Get(Int(1)); IsError(offset1) {
+		} else if offset1 := offsets.(pb.Lister).Get(Int(1)); IsError(offset1) {
 			t.Error(offset1)
 		} else if offset1.(Int) != 2 {
 			t.Errorf("Expected index 1 to be value 2, was %v", offset1)
@@ -132,7 +133,7 @@ func TestNativeToValue_Any(t *testing.T) {
 	expectNativeToValue(t, anyValue, NullValue)
 
 	// Json Struct
-	anyValue, err = ptypes.MarshalAny(&structpb.Value{
+	anyValue, err = ptypespb.MarshalAny(&structpb.Value{
 		Kind: &structpb.Value_StructValue{
 			StructValue: &structpb.Struct{
 				Fields: map[string]*structpb.Value{
@@ -148,7 +149,7 @@ func TestNativeToValue_Any(t *testing.T) {
 	expectNativeToValue(t, anyValue, expected)
 
 	//Json List
-	anyValue, err = ptypes.MarshalAny(&structpb.Value{
+	anyValue, err = ptypespb.MarshalAny(&structpb.Value{
 		Kind: &structpb.Value_ListValue{
 			ListValue: &structpb.ListValue{
 				Values: []*structpb.Value{
@@ -167,7 +168,7 @@ func TestNativeToValue_Any(t *testing.T) {
 	pbMessage := expr.ParsedExpr{
 		SourceInfo: &expr.SourceInfo{
 			LineOffsets: []int32{1, 2, 3}}}
-	anyValue, err = ptypes.MarshalAny(&pbMessage)
+	anyValue, err = ptypespb.MarshalAny(&pbMessage)
 	if err != nil {
 		t.Error(err)
 	}
@@ -254,8 +255,8 @@ func expectValueToNative(t *testing.T, in refpb.Value, out interface{}) {
 		switch val.(type) {
 		case []byte:
 			equals = bytes.Equal(val.([]byte), out.([]byte))
-		case proto.Message:
-			equals = proto.Equal(val.(proto.Message), out.(proto.Message))
+		case protopb.Message:
+			equals = protopb.Equal(val.(protopb.Message), out.(protopb.Message))
 		case bool, int32, int64, uint32, uint64, float32, float64, string:
 			equals = val == out
 		default:

@@ -32,7 +32,7 @@ const (
 	kindWellKnown
 	kindWrapper
 	kindNull
-	kindAbstract // TODO: Update the checked.proto to include abstract
+	kindAbstract // TODO: Update the checkedpb.proto to include abstract
 	kindType
 	kindList
 	kindMap

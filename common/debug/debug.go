@@ -19,9 +19,10 @@ package debug
 import (
 	"bytes"
 	"fmt"
-	exprpb "github.com/google/cel-spec/proto/v1/syntax"
 	"strconv"
 	"strings"
+
+	exprpb "github.com/google/cel-spec/proto/v1/syntax"
 )
 
 // DebugAdorner returns debug metadata that will be tacked on to the string

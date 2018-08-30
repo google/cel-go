@@ -15,8 +15,8 @@
 package checker
 
 import (
-	commonpb "github.com/google/cel-go/common"
 	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
+	commonpb "github.com/google/cel-go/common"
 )
 
 // typeErrors is a specialization of Errors.

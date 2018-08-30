@@ -27,7 +27,7 @@ func main() {
 	log.Println("Server wrote address")
 
 	log.Println("Server registering service on port")
-	s := grpc.NewServer()
+	s := grpc..NewServer()
 	cel_service.RegisterCelServiceServer(s, &server.CelServer{})
 	log.Println("Server calling Register")
 	reflection.Register(s)

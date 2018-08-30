@@ -15,12 +15,13 @@
 package types
 
 import (
+	"reflect"
+	"testing"
+
 	protopb "github.com/golang/protobuf/proto"
 	dpb "github.com/golang/protobuf/ptypes/duration"
 	overloadspb "github.com/google/cel-go/common/overloads"
 	refpb "github.com/google/cel-go/common/types/ref"
-	"reflect"
-	"testing"
 )
 
 func TestDuration_Add(t *testing.T) {

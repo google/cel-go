@@ -16,6 +16,7 @@ package interpreter
 
 import (
 	"fmt"
+
 	operatorspb "github.com/google/cel-go/common/operators"
 	overloadspb "github.com/google/cel-go/common/overloads"
 	typespb "github.com/google/cel-go/common/types"

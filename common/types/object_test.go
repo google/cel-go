@@ -15,36 +15,37 @@
 package types
 
 import (
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/any"
-	refpb "github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/common/types/traits"
-	"github.com/google/cel-go/test"
-	"github.com/google/cel-spec/proto/v1/syntax"
 	"reflect"
 	"testing"
+
+	protopb "github.com/golang/protobuf/proto"
+	ptypespb "github.com/golang/protobuf/ptypes"
+	anypb "github.com/golang/protobuf/ptypes/any"
+	refpb "github.com/google/cel-go/common/types/ref"
+	pbpb "github.com/google/cel-go/common/types/pb"
+	testpb "github.com/google/cel-go/test"
+	exprpb "github.com/google/cel-spec/proto/v1/syntax"
 )
 
 func TestNewProtoObject(t *testing.T) {
-	parsedExpr := &syntax.ParsedExpr{
-		SourceInfo: &syntax.SourceInfo{
+	parsedExpr := &exprpb.ParsedExpr{
+		SourceInfo: &exprpb.SourceInfo{
 			LineOffsets: []int32{1, 2, 3}}}
-	obj := NewObject(parsedExpr).(traits.Indexer)
-	si := obj.Get(String("source_info")).(traits.Indexer)
-	lo := si.Get(String("line_offsets")).(traits.Indexer)
+	obj := NewObject(parsedExpr).(pb.Indexer)
+	si := obj.Get(String("source_info")).(pb.Indexer)
+	lo := si.Get(String("line_offsets")).(pb.Indexer)
 	if lo.Get(Int(2)).Equal(Int(3)) != True {
 		t.Errorf("Could not select fields by their proto type names")
 	}
-	expr := obj.Get(String("expr")).(traits.Indexer)
-	call := expr.Get(String("call_expr")).(traits.Indexer)
+	expr := obj.Get(String("expr")).(pb.Indexer)
+	call := expr.Get(String("call_expr")).(pb.Indexer)
 	if call.Get(String("function")).Equal(String("")) != True {
 		t.Errorf("Could not traverse through default values for unset fields")
 	}
 }
 
 func TestProtoObject_Iterator(t *testing.T) {
-	existsMsg := NewObject(test.Exists.Expr).(traits.Iterable)
+	existsMsg := NewObject(testpb.Exists.Expr).(pb.Iterable)
 	it := existsMsg.Iterator()
 	var fields []refpb.Value
 	for it.HasNext() == True {
@@ -56,17 +57,17 @@ func TestProtoObject_Iterator(t *testing.T) {
 }
 
 func TestProtoObj_ConvertToNative(t *testing.T) {
-	pbMessage := &syntax.ParsedExpr{
-		SourceInfo: &syntax.SourceInfo{
+	pbMessage := &exprpb.ParsedExpr{
+		SourceInfo: &exprpb.SourceInfo{
 			LineOffsets: []int32{1, 2, 3}}}
 	objVal := NewObject(pbMessage)
 
 	// Proto Message
-	val, err := objVal.ConvertToNative(reflect.TypeOf(&syntax.ParsedExpr{}))
+	val, err := objVal.ConvertToNative(reflect.TypeOf(&exprpb.ParsedExpr{}))
 	if err != nil {
 		t.Error(err)
 	}
-	if !proto.Equal(val.(proto.Message), pbMessage) {
+	if !protopb.Equal(val.(protopb.Message), pbMessage) {
 		t.Errorf("Messages were not equal, expect '%v', got '%v'", objVal.Value(), pbMessage)
 	}
 
@@ -75,11 +76,11 @@ func TestProtoObj_ConvertToNative(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	unpackedAny := ptypes.DynamicAny{}
-	if ptypes.UnmarshalAny(anyVal.(*any.Any), &unpackedAny) != nil {
+	unpackedAny := ptypespb.DynamicAny{}
+	if ptypespb.UnmarshalAny(anyVal.(*anypb.Any), &unpackedAny) != nil {
 		NewErr("Failed to unmarshal any")
 	}
-	if !proto.Equal(unpackedAny.Message, objVal.Value().(proto.Message)) {
+	if !protopb.Equal(unpackedAny.Message, objVal.Value().(protopb.Message)) {
 		t.Errorf("Messages were not equal, expect '%v', got '%v'", objVal.Value(), unpackedAny.Message)
 	}
 }

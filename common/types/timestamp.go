@@ -16,14 +16,15 @@ package types
 
 import (
 	"fmt"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
-	tpb "github.com/golang/protobuf/ptypes/timestamp"
-	"github.com/google/cel-go/common/overloads"
-	refpb "github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/common/types/traits"
 	"reflect"
 	"time"
+
+	protopb "github.com/golang/protobuf/proto"
+	ptypespb "github.com/golang/protobuf/ptypes"
+	tpb "github.com/golang/protobuf/ptypes/timestamp"
+	overloadspb "github.com/google/cel-go/common/overloads"
+	pbpb "github.com/google/cel-go/common/types/pb"
+	refpb "github.com/google/cel-go/common/types/ref"
 )
 
 // Timestamp type implementation which supports add, compare, and subtract
@@ -36,10 +37,10 @@ type Timestamp struct {
 var (
 	// TimestampType singleton.
 	TimestampType = NewTypeValue("google.protobuf.Timestamp",
-		traits.AdderType,
-		traits.ComparerType,
-		traits.ReceiverType,
-		traits.SubtractorType)
+		pbpb.AdderType,
+		pbpb.ComparerType,
+		pbpb.ReceiverType,
+		pbpb.SubtractorType)
 )
 
 func (t Timestamp) Add(other refpb.Value) refpb.Value {
@@ -54,11 +55,11 @@ func (t Timestamp) Compare(other refpb.Value) refpb.Value {
 	if TimestampType != other.Type() {
 		return NewErr("unsupported overload")
 	}
-	ts1, err := ptypes.Timestamp(t.Timestamp)
+	ts1, err := ptypespb.Timestamp(t.Timestamp)
 	if err != nil {
 		return &Err{err}
 	}
-	ts2, err := ptypes.Timestamp(other.(Timestamp).Timestamp)
+	ts2, err := ptypespb.Timestamp(other.(Timestamp).Timestamp)
 	if err != nil {
 		return &Err{err}
 	}
@@ -87,9 +88,9 @@ func (t Timestamp) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 func (t Timestamp) ConvertToType(typeVal refpb.Type) refpb.Value {
 	switch typeVal {
 	case StringType:
-		return String(ptypes.TimestampString(t.Timestamp))
+		return String(ptypespb.TimestampString(t.Timestamp))
 	case IntType:
-		if ts, err := ptypes.Timestamp(t.Timestamp); err == nil {
+		if ts, err := ptypespb.Timestamp(t.Timestamp); err == nil {
 			// Return the Unix time in seconds since 1970
 			return Int(ts.Unix())
 		}
@@ -103,12 +104,12 @@ func (t Timestamp) ConvertToType(typeVal refpb.Type) refpb.Value {
 
 func (t Timestamp) Equal(other refpb.Value) refpb.Value {
 	return Bool(TimestampType == other.Type() &&
-		proto.Equal(t.Timestamp, other.Value().(proto.Message)))
+		protopb.Equal(t.Timestamp, other.Value().(protopb.Message)))
 }
 
 func (t Timestamp) Receive(function string, overload string, args []refpb.Value) refpb.Value {
 	ts := t.Timestamp
-	tstamp, err := ptypes.Timestamp(ts)
+	tstamp, err := ptypespb.Timestamp(ts)
 	if err != nil {
 		return &Err{err}
 	}
@@ -128,29 +129,29 @@ func (t Timestamp) Receive(function string, overload string, args []refpb.Value)
 func (t Timestamp) Subtract(subtrahend refpb.Value) refpb.Value {
 	switch subtrahend.Type() {
 	case DurationType:
-		ts, err := ptypes.Timestamp(t.Timestamp)
+		ts, err := ptypespb.Timestamp(t.Timestamp)
 		if err != nil {
 			return &Err{err}
 		}
-		dur, err := ptypes.Duration(subtrahend.(Duration).Duration)
+		dur, err := ptypespb.Duration(subtrahend.(Duration).Duration)
 		if err != nil {
 			return &Err{err}
 		}
-		tstamp, err := ptypes.TimestampProto(ts.Add(-dur))
+		tstamp, err := ptypespb.TimestampProto(ts.Add(-dur))
 		if err != nil {
 			return &Err{err}
 		}
 		return Timestamp{tstamp}
 	case TimestampType:
-		ts1, err := ptypes.Timestamp(t.Timestamp)
+		ts1, err := ptypespb.Timestamp(t.Timestamp)
 		if err != nil {
 			return &Err{err}
 		}
-		ts2, err := ptypes.Timestamp(subtrahend.(Timestamp).Timestamp)
+		ts2, err := ptypespb.Timestamp(subtrahend.(Timestamp).Timestamp)
 		if err != nil {
 			return &Err{err}
 		}
-		return Duration{ptypes.DurationProto(ts1.Sub(ts2))}
+		return Duration{ptypespb.DurationProto(ts1.Sub(ts2))}
 	}
 	return NewErr("unsupported overload")
 }
@@ -167,28 +168,28 @@ var (
 	timestampValueType = reflect.TypeOf(&tpb.Timestamp{})
 
 	timestampZeroArgOverloads = map[string]func(time.Time) refpb.Value{
-		overloads.TimeGetFullYear:     timestampGetFullYear,
-		overloads.TimeGetMonth:        timestampGetMonth,
-		overloads.TimeGetDayOfYear:    timestampGetDayOfYear,
-		overloads.TimeGetDate:         timestampGetDayOfMonthOneBased,
-		overloads.TimeGetDayOfMonth:   timestampGetDayOfMonthZeroBased,
-		overloads.TimeGetDayOfWeek:    timestampGetDayOfWeek,
-		overloads.TimeGetHours:        timestampGetHours,
-		overloads.TimeGetMinutes:      timestampGetMinutes,
-		overloads.TimeGetSeconds:      timestampGetSeconds,
-		overloads.TimeGetMilliseconds: timestampGetMilliseconds}
+		overloadspb.TimeGetFullYear:     timestampGetFullYear,
+		overloadspb.TimeGetMonth:        timestampGetMonth,
+		overloadspb.TimeGetDayOfYear:    timestampGetDayOfYear,
+		overloadspb.TimeGetDate:         timestampGetDayOfMonthOneBased,
+		overloadspb.TimeGetDayOfMonth:   timestampGetDayOfMonthZeroBased,
+		overloadspb.TimeGetDayOfWeek:    timestampGetDayOfWeek,
+		overloadspb.TimeGetHours:        timestampGetHours,
+		overloadspb.TimeGetMinutes:      timestampGetMinutes,
+		overloadspb.TimeGetSeconds:      timestampGetSeconds,
+		overloadspb.TimeGetMilliseconds: timestampGetMilliseconds}
 
 	timestampOneArgOverloads = map[string]func(time.Time, refpb.Value) refpb.Value{
-		overloads.TimeGetFullYear:     timestampGetFullYearWithTz,
-		overloads.TimeGetMonth:        timestampGetMonthWithTz,
-		overloads.TimeGetDayOfYear:    timestampGetDayOfYearWithTz,
-		overloads.TimeGetDate:         timestampGetDayOfMonthOneBasedWithTz,
-		overloads.TimeGetDayOfMonth:   timestampGetDayOfMonthZeroBasedWithTz,
-		overloads.TimeGetDayOfWeek:    timestampGetDayOfWeekWithTz,
-		overloads.TimeGetHours:        timestampGetHoursWithTz,
-		overloads.TimeGetMinutes:      timestampGetMinutesWithTz,
-		overloads.TimeGetSeconds:      timestampGetSecondsWithTz,
-		overloads.TimeGetMilliseconds: timestampGetMillisecondsWithTz}
+		overloadspb.TimeGetFullYear:     timestampGetFullYearWithTz,
+		overloadspb.TimeGetMonth:        timestampGetMonthWithTz,
+		overloadspb.TimeGetDayOfYear:    timestampGetDayOfYearWithTz,
+		overloadspb.TimeGetDate:         timestampGetDayOfMonthOneBasedWithTz,
+		overloadspb.TimeGetDayOfMonth:   timestampGetDayOfMonthZeroBasedWithTz,
+		overloadspb.TimeGetDayOfWeek:    timestampGetDayOfWeekWithTz,
+		overloadspb.TimeGetHours:        timestampGetHoursWithTz,
+		overloadspb.TimeGetMinutes:      timestampGetMinutesWithTz,
+		overloadspb.TimeGetSeconds:      timestampGetSecondsWithTz,
+		overloadspb.TimeGetMilliseconds: timestampGetMillisecondsWithTz}
 )
 
 type timestampVisitor func(time.Time) refpb.Value

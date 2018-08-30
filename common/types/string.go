@@ -16,15 +16,16 @@ package types
 
 import (
 	"fmt"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/struct"
-	refpb "github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/common/types/traits"
 	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	ptypespb "github.com/golang/protobuf/ptypes"
+	structpb "github.com/golang/protobuf/ptypes/struct"
+	refpb "github.com/google/cel-go/common/types/ref"
+	pbpb "github.com/google/cel-go/common/types/pb"
 )
 
 // String type implementation which supports addition, comparison, matching,
@@ -34,10 +35,10 @@ type String string
 var (
 	// StringType singleton.
 	StringType = NewTypeValue("string",
-		traits.AdderType,
-		traits.ComparerType,
-		traits.MatcherType,
-		traits.SizerType)
+		pbpb.AdderType,
+		pbpb.ComparerType,
+		pbpb.MatcherType,
+		pbpb.SizerType)
 )
 
 func (s String) Add(other refpb.Value) refpb.Value {
@@ -99,11 +100,11 @@ func (s String) ConvertToType(typeVal refpb.Type) refpb.Value {
 		return Bytes(s)
 	case DurationType:
 		if d, err := time.ParseDuration(string(s)); err == nil {
-			return Duration{ptypes.DurationProto(d)}
+			return Duration{ptypespb.DurationProto(d)}
 		}
 	case TimestampType:
 		if t, err := time.Parse(time.RFC3339, string(s)); err == nil {
-			if ts, err := ptypes.TimestampProto(t); err == nil {
+			if ts, err := ptypespb.TimestampProto(t); err == nil {
 				return Timestamp{ts}
 			}
 		}

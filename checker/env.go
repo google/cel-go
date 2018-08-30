@@ -15,14 +15,14 @@
 package checker
 
 import (
-	declspb "github.com/google/cel-go/checker/decls"
-	commonpb "github.com/google/cel-go/common"
-	packagespb "github.com/google/cel-go/common/packages"
-	typespb "github.com/google/cel-go/common/types"
-	refpb "github.com/google/cel-go/common/types/ref"
-	parserpb "github.com/google/cel-go/parser"
 	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
+	commonpb "github.com/google/cel-go/common"
+	declspb "github.com/google/cel-go/checker/decls"
 	exprpb "github.com/google/cel-spec/proto/v1/syntax"
+	packagespb "github.com/google/cel-go/common/packages"
+	parserpb "github.com/google/cel-go/parser"
+	refpb "github.com/google/cel-go/common/types/ref"
+	typespb "github.com/google/cel-go/common/types"
 )
 
 type Env struct {

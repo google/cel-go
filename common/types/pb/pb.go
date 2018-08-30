@@ -20,10 +20,11 @@ import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
+	"io/ioutil"
+
+	descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
 	descriptorpb "github.com/golang/protobuf/descriptor"
 	protopb "github.com/golang/protobuf/proto"
-	descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
-	"io/ioutil"
 )
 
 // DescribeEnum takes a qualified enum name and returns an EnumDescription.

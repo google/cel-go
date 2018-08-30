@@ -1,10 +1,11 @@
 package pb
 
 import (
+	"testing"
+
+	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
 	protopb "github.com/golang/protobuf/proto"
 	testpb "github.com/google/cel-go/test"
-	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
-	"testing"
 )
 
 func TestTypeDescription_FieldCount(t *testing.T) {

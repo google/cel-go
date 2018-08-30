@@ -16,6 +16,7 @@ package pb
 
 import (
 	"fmt"
+
 	descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
 )
 

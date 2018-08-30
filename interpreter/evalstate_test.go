@@ -15,8 +15,9 @@
 package interpreter
 
 import (
-	typespb "github.com/google/cel-go/common/types"
 	"testing"
+
+	typespb "github.com/google/cel-go/common/types"
 )
 
 func TestGetterSetter(t *testing.T) {

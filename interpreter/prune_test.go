@@ -15,11 +15,12 @@
 package interpreter
 
 import (
-	"github.com/google/cel-go/common/debug"
+	"testing"
+
 	operatorspb "github.com/google/cel-go/common/operators"
+	debugpb "github.com/google/cel-go/common/overloads"
 	testpb "github.com/google/cel-go/test"
 	exprpb "github.com/google/cel-spec/proto/v1/syntax"
-	"testing"
 )
 
 type testInfo struct {
@@ -112,7 +113,7 @@ func Test(t *testing.T) {
 		_, state := interpretable.Eval(
 			NewActivation(map[string]interface{}{}))
 		newExpr := PruneAst(pExpr.Expr, state)
-		actual := debug.ToDebugString(newExpr)
+		actual := debugpb.ToDebugString(newExpr)
 		if !testpb.Compare(actual, tst.P) {
 			t.Fatal(testpb.DiffMessage("structure", actual, tst.P))
 		}

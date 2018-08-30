@@ -15,10 +15,11 @@
 package types
 
 import (
-	protopb "github.com/golang/protobuf/proto"
-	structpb "github.com/golang/protobuf/ptypes/struct"
 	"reflect"
 	"testing"
+
+	protopb "github.com/golang/protobuf/proto"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 )
 
 func TestDouble_Add(t *testing.T) {

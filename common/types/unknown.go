@@ -15,8 +15,9 @@
 package types
 
 import (
-	refpb "github.com/google/cel-go/common/types/ref"
 	"reflect"
+
+	refpb "github.com/google/cel-go/common/types/ref"
 )
 
 // Unknown type implementation which collects expression ids which caused the

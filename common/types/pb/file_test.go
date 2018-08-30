@@ -1,8 +1,9 @@
 package pb
 
 import (
-	testpb "github.com/google/cel-go/test"
 	"testing"
+
+	testpb "github.com/google/cel-go/test"
 )
 
 func TestFileDescription_GetTypes(t *testing.T) {
