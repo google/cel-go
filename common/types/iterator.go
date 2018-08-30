@@ -16,20 +16,21 @@ package types
 
 import (
 	"fmt"
-	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/common/types/traits"
 	"reflect"
+
+	refpb "github.com/google/cel-go/common/types/ref"
+	traitspb "github.com/google/cel-go/common/types/traits"
 )
 
 var (
 	// IteratorType singleton.
-	IteratorType = NewTypeValue("iterator", traits.IteratorType)
+	IteratorType = NewTypeValue("iterator", traitspb.IteratorType)
 )
 
 // baseIterator is the basis for list, map, and object iterators.
 //
 // An iterator in and of itself should not be a valid value for comparison, but
-// must implement the ref.Value methods in order to be well-supported within
+// must implement the refpb.Value methods in order to be well-supported within
 // instruction arguments processed by the interpreter.
 type baseIterator struct{}
 
@@ -37,15 +38,15 @@ func (it *baseIterator) ConvertToNative(typeDesc reflect.Type) (interface{}, err
 	return nil, fmt.Errorf("type conversion on iterators not supported")
 }
 
-func (it *baseIterator) ConvertToType(typeVal ref.Type) ref.Value {
+func (it *baseIterator) ConvertToType(typeVal refpb.Type) refpb.Value {
 	return NewErr("no such overload")
 }
 
-func (it *baseIterator) Equal(other ref.Value) ref.Value {
+func (it *baseIterator) Equal(other refpb.Value) refpb.Value {
 	return NewErr("no such overload")
 }
 
-func (it *baseIterator) Type() ref.Type {
+func (it *baseIterator) Type() refpb.Type {
 	return IteratorType
 }
 

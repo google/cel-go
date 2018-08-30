@@ -15,10 +15,11 @@
 package types
 
 import (
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/struct"
 	"reflect"
 	"testing"
+
+	protopb "github.com/golang/protobuf/proto"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 )
 
 func TestDouble_Add(t *testing.T) {
@@ -77,7 +78,7 @@ func TestDouble_ConvertToNative_Json(t *testing.T) {
 	pbVal := &structpb.Value{Kind: &structpb.Value_NumberValue{-1.4}}
 	if err != nil {
 		t.Error(err)
-	} else if !proto.Equal(val.(proto.Message), pbVal) {
+	} else if !protopb.Equal(val.(protopb.Message), pbVal) {
 		t.Errorf("Got '%v', expected -1.4", val)
 	}
 }

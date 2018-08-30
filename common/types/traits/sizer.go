@@ -15,11 +15,11 @@
 package traits
 
 import (
-	"github.com/google/cel-go/common/types/ref"
+	refpb "github.com/google/cel-go/common/types/ref"
 )
 
 // Sizer interface for supporting 'size()' overloads.
 type Sizer interface {
 	// Size returns the number of elements or length of the value.
-	Size() ref.Value
+	Size() refpb.Value
 }

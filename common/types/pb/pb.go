@@ -20,10 +20,11 @@ import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
-	"github.com/golang/protobuf/descriptor"
-	"github.com/golang/protobuf/proto"
-	descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"io/ioutil"
+
+	descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
+	descriptorpb "github.com/golang/protobuf/descriptor"
+	protopb "github.com/golang/protobuf/proto"
 )
 
 // DescribeEnum takes a qualified enum name and returns an EnumDescription.
@@ -37,11 +38,11 @@ func DescribeEnum(enumName string) (*EnumDescription, error) {
 
 // DescribeFile takes a protocol buffer message and indexes all of the message
 // types and enum values contained within the message's file descriptor.
-func DescribeFile(message proto.Message) (*FileDescription, error) {
-	if fd, found := revFileDescriptorMap[proto.MessageName(message)]; found {
+func DescribeFile(message protopb.Message) (*FileDescription, error) {
+	if fd, found := revFileDescriptorMap[protopb.MessageName(message)]; found {
 		return fd, nil
 	}
-	fileDesc, _ := descriptor.ForMessage(message.(descriptor.Message))
+	fileDesc, _ := descriptorpb.ForMessage(message.(descriptorpb.Message))
 	fd, err := describeFileInternal(fileDesc)
 	if err != nil {
 		return nil, err
@@ -63,12 +64,12 @@ func DescribeType(typeName string) (*TypeDescription, error) {
 
 // DescribeValue takes an instance of a protocol buffer message and returns
 // the associated TypeDescription.
-func DescribeValue(value proto.Message) (*TypeDescription, error) {
+func DescribeValue(value protopb.Message) (*TypeDescription, error) {
 	fd, err := DescribeFile(value)
 	if err != nil {
 		return nil, err
 	}
-	typeName := proto.MessageName(value)
+	typeName := protopb.MessageName(value)
 	return fd.GetTypeDescription(typeName)
 }
 
@@ -90,7 +91,6 @@ func describeFileInternal(fileDesc *descpb.FileDescriptorProto) (*FileDescriptio
 			nestedDesc, err := fileDescriptor(dep)
 			if err != nil {
 				panic(err)
-				return nil, err
 			}
 			describeFileInternal(nestedDesc)
 		}
@@ -100,7 +100,7 @@ func describeFileInternal(fileDesc *descpb.FileDescriptorProto) (*FileDescriptio
 }
 
 func fileDescriptor(protoFileName string) (*descpb.FileDescriptorProto, error) {
-	gzipped := proto.FileDescriptor(protoFileName)
+	gzipped := protopb.FileDescriptor(protoFileName)
 	r, err := gzip.NewReader(bytes.NewReader(gzipped))
 	if err != nil {
 		return nil, fmt.Errorf("bad gzipped descriptor: %v", err)
@@ -110,7 +110,7 @@ func fileDescriptor(protoFileName string) (*descpb.FileDescriptorProto, error) {
 		return nil, fmt.Errorf("bad gzipped descriptor: %v", err)
 	}
 	fd := &descpb.FileDescriptorProto{}
-	if err := proto.Unmarshal(unzipped, fd); err != nil {
+	if err := protopb.Unmarshal(unzipped, fd); err != nil {
 		return nil, fmt.Errorf("bad gzipped descriptor: %v", err)
 	}
 	return fd, nil

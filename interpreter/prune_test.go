@@ -15,106 +15,107 @@
 package interpreter
 
 import (
-	"github.com/google/cel-go/common/debug"
-	"github.com/google/cel-go/common/operators"
-	"github.com/google/cel-go/test"
-	expr "github.com/google/cel-spec/proto/v1/syntax"
 	"testing"
+
+	operatorspb "github.com/google/cel-go/common/operators"
+	debugpb "github.com/google/cel-go/common/debug"
+	testpb "github.com/google/cel-go/test"
+	exprpb "github.com/google/cel-spec/proto/v1/syntax"
 )
 
 type testInfo struct {
-	E *expr.Expr
+	E *exprpb.Expr
 	P string
 }
 
 var testCases = []testInfo{
 	{
-		E: test.ExprCall(2, operators.LogicalAnd,
-			test.ExprLiteral(1, true),
-			test.ExprLiteral(3, false)),
+		E: testpb.ExprCall(2, operatorspb.LogicalAnd,
+			testpb.ExprLiteral(1, true),
+			testpb.ExprLiteral(3, false)),
 		P: `false`,
 	},
 	{
-		E: test.ExprCall(4, operators.LogicalAnd,
-			test.ExprCall(2, operators.LogicalOr,
-				test.ExprLiteral(1, true),
-				test.ExprLiteral(3, false)),
-			test.ExprIdent(5, "x")),
+		E: testpb.ExprCall(4, operatorspb.LogicalAnd,
+			testpb.ExprCall(2, operatorspb.LogicalOr,
+				testpb.ExprLiteral(1, true),
+				testpb.ExprLiteral(3, false)),
+			testpb.ExprIdent(5, "x")),
 		P: `x`,
 	},
 	{
-		E: test.ExprCall(4, operators.LogicalAnd,
-			test.ExprCall(2, operators.LogicalOr,
-				test.ExprLiteral(1, false),
-				test.ExprLiteral(3, false)),
-			test.ExprIdent(5, "x")),
+		E: testpb.ExprCall(4, operatorspb.LogicalAnd,
+			testpb.ExprCall(2, operatorspb.LogicalOr,
+				testpb.ExprLiteral(1, false),
+				testpb.ExprLiteral(3, false)),
+			testpb.ExprIdent(5, "x")),
 		P: `false`,
 	},
 	{
-		E: test.ExprCall(2, operators.LogicalAnd,
-			test.ExprIdent(1, "a"),
-			test.ExprComprehension(3,
+		E: testpb.ExprCall(2, operatorspb.LogicalAnd,
+			testpb.ExprIdent(1, "a"),
+			testpb.ExprComprehension(3,
 				"x",
-				test.ExprList(7,
-					test.ExprLiteral(4, int64(1)),
-					test.ExprLiteral(5, uint64(1)),
-					test.ExprLiteral(6, float64(1.0))),
+				testpb.ExprList(7,
+					testpb.ExprLiteral(4, int64(1)),
+					testpb.ExprLiteral(5, uint64(1)),
+					testpb.ExprLiteral(6, float64(1.0))),
 				"_accu_",
-				test.ExprLiteral(8, false),
-				test.ExprCall(10,
-					operators.LogicalNot,
-					test.ExprIdent(9, "_accu_")),
-				test.ExprCall(13,
-					operators.Equals,
-					test.ExprCall(12, "type", test.ExprIdent(11, "x")),
-					test.ExprIdent(14, "uint")),
-				test.ExprIdent(15, "_accu_"))),
+				testpb.ExprLiteral(8, false),
+				testpb.ExprCall(10,
+					operatorspb.LogicalNot,
+					testpb.ExprIdent(9, "_accu_")),
+				testpb.ExprCall(13,
+					operatorspb.Equals,
+					testpb.ExprCall(12, "type", testpb.ExprIdent(11, "x")),
+					testpb.ExprIdent(14, "uint")),
+				testpb.ExprIdent(15, "_accu_"))),
 		P: `a`,
 	},
 	{
-		E: test.ExprMap(8,
-			test.ExprEntry(2,
-				test.ExprLiteral(1, "hello"),
-				test.ExprMemberCall(3,
+		E: testpb.ExprMap(8,
+			testpb.ExprEntry(2,
+				testpb.ExprLiteral(1, "hello"),
+				testpb.ExprMemberCall(3,
 					"size",
-					test.ExprLiteral(4, "world"))),
-			test.ExprEntry(6,
-				test.ExprLiteral(5, "bytes"),
-				test.ExprLiteral(7, []byte("bytes-string")))),
+					testpb.ExprLiteral(4, "world"))),
+			testpb.ExprEntry(6,
+				testpb.ExprLiteral(5, "bytes"),
+				testpb.ExprLiteral(7, []byte("bytes-string")))),
 		P: `{"hello":5, "bytes":b"bytes-string"}`,
 	},
 	{
-		E: test.ExprCall(1, operators.Less,
-			test.ExprLiteral(2, int64(2)),
-			test.ExprLiteral(3, int64(3))),
+		E: testpb.ExprCall(1, operatorspb.Less,
+			testpb.ExprLiteral(2, int64(2)),
+			testpb.ExprLiteral(3, int64(3))),
 		P: `true`,
 	},
 	{
-		E: test.ExprCall(8, operators.Conditional,
-			test.ExprLiteral(1, true),
-			test.ExprCall(3,
-				operators.Less,
-				test.ExprIdent(2, "b"),
-				test.ExprLiteral(4, 1.2)),
-			test.ExprCall(6,
-				operators.Equals,
-				test.ExprIdent(5, "c"),
-				test.ExprList(7, test.ExprLiteral(7, "hello")))),
+		E: testpb.ExprCall(8, operatorspb.Conditional,
+			testpb.ExprLiteral(1, true),
+			testpb.ExprCall(3,
+				operatorspb.Less,
+				testpb.ExprIdent(2, "b"),
+				testpb.ExprLiteral(4, 1.2)),
+			testpb.ExprCall(6,
+				operatorspb.Equals,
+				testpb.ExprIdent(5, "c"),
+				testpb.ExprList(7, testpb.ExprLiteral(7, "hello")))),
 		P: `_<_(b,1.2)`,
 	},
 }
 
 func Test(t *testing.T) {
 	for _, tst := range testCases {
-		pExpr := &expr.ParsedExpr{Expr: tst.E}
+		pExpr := &exprpb.ParsedExpr{Expr: tst.E}
 		program := NewProgram(pExpr.Expr, pExpr.SourceInfo)
 		interpretable := interpreter.NewInterpretable(program)
 		_, state := interpretable.Eval(
 			NewActivation(map[string]interface{}{}))
 		newExpr := PruneAst(pExpr.Expr, state)
-		actual := debug.ToDebugString(newExpr)
-		if !test.Compare(actual, tst.P) {
-			t.Fatal(test.DiffMessage("structure", actual, tst.P))
+		actual := debugpb.ToDebugString(newExpr)
+		if !testpb.Compare(actual, tst.P) {
+			t.Fatal(testpb.DiffMessage("structure", actual, tst.P))
 		}
 	}
 }

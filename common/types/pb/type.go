@@ -16,11 +16,12 @@ package pb
 
 import (
 	"fmt"
-	"github.com/golang/protobuf/proto"
-	descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
-	"github.com/google/cel-spec/proto/checked/v1/checked"
 	"reflect"
 	"strings"
+
+	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
+	descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
+	protopb "github.com/golang/protobuf/proto"
 )
 
 // TypeDescription is a collection of type metadata relevant to expression
@@ -31,7 +32,7 @@ type TypeDescription struct {
 	desc            *descpb.DescriptorProto
 	fields          map[string]*FieldDescription
 	fieldIndices    map[int][]*FieldDescription
-	fieldProperties *proto.StructProperties
+	fieldProperties *protopb.StructProperties
 	refType         *reflect.Type
 }
 
@@ -84,7 +85,7 @@ func (td *TypeDescription) Name() string {
 // ReflectType returns the reflected struct type of the generated proto struct.
 func (td *TypeDescription) ReflectType() reflect.Type {
 	if td.refType == nil {
-		refType := proto.MessageType(td.Name())
+		refType := protopb.MessageType(td.Name())
 		if refType == nil {
 			return nil
 		}
@@ -146,7 +147,7 @@ func (td *TypeDescription) getFieldsInfo() (map[string]*FieldDescription,
 	return td.fields, td.fieldIndices
 }
 
-func (td *TypeDescription) getFieldProperties() *proto.StructProperties {
+func (td *TypeDescription) getFieldProperties() *protopb.StructProperties {
 	if td.fieldProperties == nil {
 		refType := td.ReflectType()
 		if refType == nil {
@@ -156,7 +157,7 @@ func (td *TypeDescription) getFieldProperties() *proto.StructProperties {
 			refType = refType.Elem()
 		}
 		if refType.Kind() == reflect.Struct {
-			td.fieldProperties = proto.GetProperties(refType)
+			td.fieldProperties = protopb.GetProperties(refType)
 		}
 	}
 	return td.fieldProperties
@@ -171,27 +172,27 @@ func (td *TypeDescription) getFieldsAtIndex(i int) []*FieldDescription {
 type FieldDescription struct {
 	desc      *descpb.FieldDescriptorProto
 	index     int
-	prop      *proto.Properties
-	oneofProp *proto.OneofProperties
+	prop      *protopb.Properties
+	oneofProp *protopb.OneofProperties
 	proto3    bool
 }
 
 // CheckedType returns the type-definition used at type-check time.
-func (fd *FieldDescription) CheckedType() *checked.Type {
+func (fd *FieldDescription) CheckedType() *checkedpb.Type {
 	if fd.IsMap() {
 		td, _ := DescribeType(fd.TypeName())
 		key := td.getFieldsAtIndex(0)[0]
 		val := td.getFieldsAtIndex(1)[0]
-		return &checked.Type{
-			TypeKind: &checked.Type_MapType_{
-				MapType: &checked.Type_MapType{
+		return &checkedpb.Type{
+			TypeKind: &checkedpb.Type_MapType_{
+				MapType: &checkedpb.Type_MapType{
 					KeyType:   key.typeDefToType(),
 					ValueType: val.typeDefToType()}}}
 	}
 	if fd.IsRepeated() {
-		return &checked.Type{
-			TypeKind: &checked.Type_ListType_{
-				ListType: &checked.Type_ListType{
+		return &checkedpb.Type{
+			TypeKind: &checkedpb.Type_ListType_{
+				ListType: &checkedpb.Type_ListType{
 					ElemType: fd.typeDefToType()}}}
 	}
 	return fd.typeDefToType()
@@ -221,7 +222,7 @@ func (fd *FieldDescription) IsOneof() bool {
 // OneofType returns the reflect.Type value of a oneof field.
 //
 // Oneof field values are wrapped in a struct which contains one field whose
-// value is a proto.Message.
+// value is a protopb.Message.
 func (fd *FieldDescription) OneofType() reflect.Type {
 	return fd.oneofProp.Type
 }
@@ -278,7 +279,7 @@ func (fd *FieldDescription) TypeName() string {
 	return sanitizeProtoName(fd.desc.GetTypeName())
 }
 
-func (fd *FieldDescription) typeDefToType() *checked.Type {
+func (fd *FieldDescription) typeDefToType() *checkedpb.Type {
 	if fd.IsMessage() {
 		if wk, found := CheckedWellKnowns[fd.TypeName()]; found {
 			return wk
@@ -294,22 +295,22 @@ func (fd *FieldDescription) typeDefToType() *checked.Type {
 	return CheckedPrimitives[fd.desc.GetType()]
 }
 
-func checkedMessageType(name string) *checked.Type {
-	return &checked.Type{
-		TypeKind: &checked.Type_MessageType{MessageType: name}}
+func checkedMessageType(name string) *checkedpb.Type {
+	return &checkedpb.Type{
+		TypeKind: &checkedpb.Type_MessageType{MessageType: name}}
 }
 
-func checkedPrimitive(primitive checked.Type_PrimitiveType) *checked.Type {
-	return &checked.Type{
-		TypeKind: &checked.Type_Primitive{Primitive: primitive}}
+func checkedPrimitive(primitive checkedpb.Type_PrimitiveType) *checkedpb.Type {
+	return &checkedpb.Type{
+		TypeKind: &checkedpb.Type_Primitive{Primitive: primitive}}
 }
 
-func checkedWellKnown(wellKnown checked.Type_WellKnownType) *checked.Type {
-	return &checked.Type{
-		TypeKind: &checked.Type_WellKnown{WellKnown: wellKnown}}
+func checkedWellKnown(wellKnown checkedpb.Type_WellKnownType) *checkedpb.Type {
+	return &checkedpb.Type{
+		TypeKind: &checkedpb.Type_WellKnown{WellKnown: wellKnown}}
 }
 
-func checkedWrap(t *checked.Type) *checked.Type {
-	return &checked.Type{
-		TypeKind: &checked.Type_Wrapper{Wrapper: t.GetPrimitive()}}
+func checkedWrap(t *checkedpb.Type) *checkedpb.Type {
+	return &checkedpb.Type{
+		TypeKind: &checkedpb.Type_Wrapper{Wrapper: t.GetPrimitive()}}
 }

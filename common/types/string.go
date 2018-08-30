@@ -16,15 +16,16 @@ package types
 
 import (
 	"fmt"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/struct"
-	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/common/types/traits"
 	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	ptypespb "github.com/golang/protobuf/ptypes"
+	structpb "github.com/golang/protobuf/ptypes/struct"
+	refpb "github.com/google/cel-go/common/types/ref"
+	traitspb "github.com/google/cel-go/common/types/traits"
 )
 
 // String type implementation which supports addition, comparison, matching,
@@ -34,20 +35,20 @@ type String string
 var (
 	// StringType singleton.
 	StringType = NewTypeValue("string",
-		traits.AdderType,
-		traits.ComparerType,
-		traits.MatcherType,
-		traits.SizerType)
+		traitspb.AdderType,
+		traitspb.ComparerType,
+		traitspb.MatcherType,
+		traitspb.SizerType)
 )
 
-func (s String) Add(other ref.Value) ref.Value {
+func (s String) Add(other refpb.Value) refpb.Value {
 	if StringType != other.Type() {
 		return NewErr("unsupported overload")
 	}
 	return s + other.(String)
 }
 
-func (s String) Compare(other ref.Value) ref.Value {
+func (s String) Compare(other refpb.Value) refpb.Value {
 	if StringType != other.Type() {
 		return NewErr("unsupported overload")
 	}
@@ -77,7 +78,7 @@ func (s String) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		"unsupported native conversion from string to '%v'", typeDesc)
 }
 
-func (s String) ConvertToType(typeVal ref.Type) ref.Value {
+func (s String) ConvertToType(typeVal refpb.Type) refpb.Value {
 	switch typeVal {
 	case IntType:
 		if n, err := strconv.ParseInt(string(s), 10, 64); err == nil {
@@ -99,11 +100,11 @@ func (s String) ConvertToType(typeVal ref.Type) ref.Value {
 		return Bytes(s)
 	case DurationType:
 		if d, err := time.ParseDuration(string(s)); err == nil {
-			return Duration{ptypes.DurationProto(d)}
+			return Duration{ptypespb.DurationProto(d)}
 		}
 	case TimestampType:
 		if t, err := time.Parse(time.RFC3339, string(s)); err == nil {
-			if ts, err := ptypes.TimestampProto(t); err == nil {
+			if ts, err := ptypespb.TimestampProto(t); err == nil {
 				return Timestamp{ts}
 			}
 		}
@@ -115,11 +116,11 @@ func (s String) ConvertToType(typeVal ref.Type) ref.Value {
 	return NewErr("type conversion error from '%s' to '%s'", StringType, typeVal)
 }
 
-func (s String) Equal(other ref.Value) ref.Value {
+func (s String) Equal(other refpb.Value) refpb.Value {
 	return Bool(StringType == other.Type() && s.Value() == other.Value())
 }
 
-func (s String) Match(pattern ref.Value) ref.Value {
+func (s String) Match(pattern refpb.Value) refpb.Value {
 	if pattern.Type() != StringType {
 		return NewErr("unsupported overload")
 	}
@@ -130,11 +131,11 @@ func (s String) Match(pattern ref.Value) ref.Value {
 	return Bool(matched)
 }
 
-func (s String) Size() ref.Value {
+func (s String) Size() refpb.Value {
 	return Int(len(string(s)))
 }
 
-func (s String) Type() ref.Type {
+func (s String) Type() refpb.Type {
 	return StringType
 }
 

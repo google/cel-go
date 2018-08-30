@@ -16,26 +16,27 @@ package types
 
 import (
 	"fmt"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/google/cel-go/common/types/pb"
-	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/common/types/traits"
 	"reflect"
+
+	protopb "github.com/golang/protobuf/proto"
+	ptypespb "github.com/golang/protobuf/ptypes"
+	traitspb "github.com/google/cel-go/common/types/traits"
+	refpb "github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/common/types/pb"
 )
 
 type protoObj struct {
-	value     proto.Message
+	value     protopb.Message
 	refValue  reflect.Value
 	typeDesc  *pb.TypeDescription
 	typeValue *TypeValue
 	isAny     bool
 }
 
-// NewObject returns an object based on a proto.Message value which handles
+// NewObject returns an object based on a protopb.Message value which handles
 // conversion between protobuf type values and expression type values.
 // Objects support indexing and iteration.
-func NewObject(value proto.Message) ref.Value {
+func NewObject(value protopb.Message) refpb.Value {
 	typeDesc, err := pb.DescribeValue(value)
 	if err != nil {
 		panic(err)
@@ -52,7 +53,7 @@ func (o *protoObj) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		return o.value, nil
 	}
 	if typeDesc == anyValueType {
-		return ptypes.MarshalAny(o.Value().(proto.Message))
+		return ptypespb.MarshalAny(o.Value().(protopb.Message))
 	}
 	// If the object is already assignable to the desired type return it.
 	if reflect.TypeOf(o).AssignableTo(typeDesc) {
@@ -62,7 +63,7 @@ func (o *protoObj) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		o.refValue.Type(), typeDesc)
 }
 
-func (o *protoObj) ConvertToType(typeVal ref.Type) ref.Value {
+func (o *protoObj) ConvertToType(typeVal refpb.Type) refpb.Value {
 	switch typeVal {
 	default:
 		if o.Type().TypeName() == typeVal.TypeName() {
@@ -75,14 +76,14 @@ func (o *protoObj) ConvertToType(typeVal ref.Type) ref.Value {
 		o.typeDesc.Name(), typeVal)
 }
 
-func (o *protoObj) Equal(other ref.Value) ref.Value {
+func (o *protoObj) Equal(other refpb.Value) refpb.Value {
 	if o.typeDesc.Name() != other.Type().TypeName() {
 		return False
 	}
-	return Bool(proto.Equal(o.value, other.Value().(proto.Message)))
+	return Bool(protopb.Equal(o.value, other.Value().(protopb.Message)))
 }
 
-func (o *protoObj) Get(index ref.Value) ref.Value {
+func (o *protoObj) Get(index refpb.Value) refpb.Value {
 	if index.Type() != StringType {
 		return NewErr("illegal object field type '%s'", index.Type())
 	}
@@ -103,7 +104,7 @@ func (o *protoObj) Get(index ref.Value) ref.Value {
 	return NewErr("no such field '%s'", index)
 }
 
-func (o *protoObj) Iterator() traits.Iterator {
+func (o *protoObj) Iterator() traitspb.Iterator {
 	return &msgIterator{
 		baseIterator: &baseIterator{},
 		refValue:     o.refValue,
@@ -111,7 +112,7 @@ func (o *protoObj) Iterator() traits.Iterator {
 		cursor:       0}
 }
 
-func (o *protoObj) Type() ref.Type {
+func (o *protoObj) Type() refpb.Type {
 	return o.typeValue
 }
 
@@ -127,11 +128,11 @@ type msgIterator struct {
 	len      int
 }
 
-func (it *msgIterator) HasNext() ref.Value {
+func (it *msgIterator) HasNext() refpb.Value {
 	return Bool(it.cursor < it.typeDesc.FieldCount())
 }
 
-func (it *msgIterator) Next() ref.Value {
+func (it *msgIterator) Next() refpb.Value {
 	if it.HasNext() == False {
 		return nil
 	}
@@ -141,10 +142,10 @@ func (it *msgIterator) Next() ref.Value {
 }
 
 var (
-	protoDefaultInstanceMap = make(map[reflect.Type]ref.Value)
+	protoDefaultInstanceMap = make(map[reflect.Type]refpb.Value)
 )
 
-func getOrDefaultInstance(refVal reflect.Value) ref.Value {
+func getOrDefaultInstance(refVal reflect.Value) refpb.Value {
 	value := refVal.Interface()
 	if refVal.Kind() != reflect.Ptr || !refVal.IsNil() {
 		return NativeToValue(value)
@@ -152,7 +153,7 @@ func getOrDefaultInstance(refVal reflect.Value) ref.Value {
 	return getDefaultInstance(refVal.Type())
 }
 
-func getDefaultInstance(refType reflect.Type) ref.Value {
+func getDefaultInstance(refType reflect.Type) refpb.Value {
 	if refType.Kind() == reflect.Ptr {
 		refType = refType.Elem()
 	}

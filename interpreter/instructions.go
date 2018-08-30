@@ -16,9 +16,10 @@ package interpreter
 
 import (
 	"fmt"
-	"github.com/google/cel-go/common/operators"
-	"github.com/google/cel-go/common/types/ref"
 	"strings"
+
+	operatorspb "github.com/google/cel-go/common/operators"
+	refpb "github.com/google/cel-go/common/types/ref"
 )
 
 // Instruction represents a single step within a CEL program.
@@ -38,14 +39,14 @@ func (e *baseInstruction) GetId() int64 {
 // ConstExpr is a constant expression.
 type ConstExpr struct {
 	*baseInstruction
-	Value ref.Value
+	Value refpb.Value
 }
 
 func (e *ConstExpr) String() string {
 	return fmt.Sprintf("const %v, r%d", e.Value, e.GetId())
 }
 
-func NewLiteral(exprId int64, value ref.Value) *ConstExpr {
+func NewLiteral(exprId int64, value refpb.Value) *ConstExpr {
 	return &ConstExpr{&baseInstruction{exprId}, value}
 }
 
@@ -92,7 +93,7 @@ func NewCallOverload(exprId int64, function string, argIds []int64, overload str
 }
 
 func checkIsStrict(function string) bool {
-	if function != operators.LogicalAnd && function != operators.LogicalOr && function != operators.Conditional {
+	if function != operatorspb.LogicalAnd && function != operatorspb.LogicalOr && function != operatorspb.Conditional {
 		return true
 	}
 	return false

@@ -16,12 +16,13 @@ package types
 
 import (
 	"fmt"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/struct"
-	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/common/types/traits"
 	"reflect"
+
+	protopb "github.com/golang/protobuf/proto"
+	ptypespb "github.com/golang/protobuf/ptypes"
+	structpb "github.com/golang/protobuf/ptypes/struct"
+	refpb "github.com/google/cel-go/common/types/ref"
+	traitspb "github.com/google/cel-go/common/types/traits"
 )
 
 var (
@@ -32,11 +33,11 @@ type jsonStruct struct {
 	*structpb.Struct
 }
 
-func NewJsonStruct(st *structpb.Struct) traits.Mapper {
+func NewJsonStruct(st *structpb.Struct) traitspb.Mapper {
 	return &jsonStruct{st}
 }
 
-func (m *jsonStruct) Contains(index ref.Value) ref.Value {
+func (m *jsonStruct) Contains(index refpb.Value) refpb.Value {
 	return !Bool(IsError(m.Get(index)))
 }
 
@@ -74,7 +75,7 @@ func (m *jsonStruct) ConvertToNative(typeDesc reflect.Type) (interface{}, error)
 		case jsonStructType:
 			return m.Struct, nil
 		case anyValueType:
-			return ptypes.MarshalAny(m.Value().(proto.Message))
+			return ptypespb.MarshalAny(m.Value().(protopb.Message))
 		}
 
 	case reflect.Interface:
@@ -88,7 +89,7 @@ func (m *jsonStruct) ConvertToNative(typeDesc reflect.Type) (interface{}, error)
 			" map type: google.protobuf.Struct, native type: %v", typeDesc)
 }
 
-func (m *jsonStruct) ConvertToType(typeVal ref.Type) ref.Value {
+func (m *jsonStruct) ConvertToType(typeVal refpb.Type) refpb.Value {
 	switch typeVal {
 	case MapType:
 		return m
@@ -98,11 +99,11 @@ func (m *jsonStruct) ConvertToType(typeVal ref.Type) ref.Value {
 	return NewErr("type conversion error from '%s' to '%s'", MapType, typeVal)
 }
 
-func (m *jsonStruct) Equal(other ref.Value) ref.Value {
+func (m *jsonStruct) Equal(other refpb.Value) refpb.Value {
 	if MapType != other.Type() {
 		return False
 	}
-	otherMap := other.(traits.Mapper)
+	otherMap := other.(traitspb.Mapper)
 	if m.Size() != otherMap.Size() {
 		return False
 	}
@@ -120,7 +121,7 @@ func (m *jsonStruct) Equal(other ref.Value) ref.Value {
 	return True
 }
 
-func (m *jsonStruct) Get(key ref.Value) ref.Value {
+func (m *jsonStruct) Get(key refpb.Value) refpb.Value {
 	if StringType != key.Type() {
 		return NewErr("unsupported key type: '%v", key.Type())
 	}
@@ -132,7 +133,7 @@ func (m *jsonStruct) Get(key ref.Value) ref.Value {
 	return NativeToValue(value)
 }
 
-func (m *jsonStruct) Iterator() traits.Iterator {
+func (m *jsonStruct) Iterator() traitspb.Iterator {
 	f := m.GetFields()
 	keys := make([]string, len(m.GetFields()))
 	i := 0
@@ -146,11 +147,11 @@ func (m *jsonStruct) Iterator() traits.Iterator {
 		mapKeys:      keys}
 }
 
-func (m *jsonStruct) Size() ref.Value {
+func (m *jsonStruct) Size() refpb.Value {
 	return Int(len(m.GetFields()))
 }
 
-func (m *jsonStruct) Type() ref.Type {
+func (m *jsonStruct) Type() refpb.Type {
 	return MapType
 }
 
@@ -165,11 +166,11 @@ type jsonValueMapIterator struct {
 	mapKeys []string
 }
 
-func (it *jsonValueMapIterator) HasNext() ref.Value {
+func (it *jsonValueMapIterator) HasNext() refpb.Value {
 	return Bool(it.cursor < it.len)
 }
 
-func (it *jsonValueMapIterator) Next() ref.Value {
+func (it *jsonValueMapIterator) Next() refpb.Value {
 	if it.HasNext() == True {
 		index := it.cursor
 		it.cursor += 1

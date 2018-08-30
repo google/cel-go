@@ -14,11 +14,11 @@
 
 package traits
 
-import "github.com/google/cel-go/common/types/ref"
+import refpb "github.com/google/cel-go/common/types/ref"
 
 // Lister interface which aggregates the traits of a list.
 type Lister interface {
-	ref.Value
+	refpb.Value
 	Adder
 	Container
 	Indexer

@@ -15,12 +15,13 @@
 package types
 
 import (
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/any"
-	"github.com/golang/protobuf/ptypes/struct"
 	"reflect"
 	"testing"
+
+	protopb "github.com/golang/protobuf/proto"
+	ptypespb "github.com/golang/protobuf/ptypes"
+	anypb "github.com/golang/protobuf/ptypes/any"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 )
 
 func TestNull_ConvertToNative(t *testing.T) {
@@ -33,20 +34,20 @@ func TestNull_ConvertToNative(t *testing.T) {
 	if err != nil {
 		t.Error("Fail to convert Null to jsonValueType")
 	}
-	if !proto.Equal(expected, val.(proto.Message)) {
+	if !protopb.Equal(expected, val.(protopb.Message)) {
 		t.Errorf("Messages were not equal, got '%v'", val)
 	}
 
 	// google.protobuf.Any
 	val, err = NullValue.ConvertToNative(anyValueType)
 	if err != nil {
-		t.Error("Fail to convert Null to any.")
+		t.Error("Fail to convert Null to anypb.")
 	}
-	data := ptypes.DynamicAny{}
-	if ptypes.UnmarshalAny(val.(*any.Any), &data) != nil {
-		t.Error("Fail to unmarshal any.")
+	data := ptypespb.DynamicAny{}
+	if ptypespb.UnmarshalAny(val.(*anypb.Any), &data) != nil {
+		t.Error("Fail to unmarshal anypb.")
 	}
-	if !proto.Equal(expected, data.Message) {
+	if !protopb.Equal(expected, data.Message) {
 		t.Errorf("Messages were not equal, got '%v'", data.Message)
 	}
 

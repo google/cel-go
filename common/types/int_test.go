@@ -15,10 +15,11 @@
 package types
 
 import (
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/struct"
 	"reflect"
 	"testing"
+
+	protopb "github.com/golang/protobuf/proto"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 )
 
 func TestInt_Add(t *testing.T) {
@@ -77,7 +78,7 @@ func TestInt_ConvertToNative_Json(t *testing.T) {
 	val, err := Int(4147483648).ConvertToNative(jsonValueType)
 	if err != nil {
 		t.Error(err)
-	} else if !proto.Equal(val.(proto.Message),
+	} else if !protopb.Equal(val.(protopb.Message),
 		&structpb.Value{Kind: &structpb.Value_NumberValue{NumberValue: 4147483648}}) {
 		t.Errorf("Got '%v', expected a json number", val)
 	}

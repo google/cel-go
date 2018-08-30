@@ -15,75 +15,76 @@
 package interpreter
 
 import (
-	"github.com/google/cel-go/common/operators"
-	"github.com/google/cel-go/common/overloads"
-	"github.com/google/cel-go/common/types"
-	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/interpreter/functions"
 	"testing"
+
+	operatorspb "github.com/google/cel-go/common/operators"
+	overloadspb "github.com/google/cel-go/common/overloads"
+	typespb "github.com/google/cel-go/common/types"
+	refpb "github.com/google/cel-go/common/types/ref"
+	functionspb "github.com/google/cel-go/interpreter/functions"
 )
 
 func TestDefaultDispatcher_Dispatch(t *testing.T) {
 	dispatcher := NewDispatcher()
-	if err := dispatcher.Add(functions.StandardOverloads()...); err != nil {
+	if err := dispatcher.Add(functionspb.StandardOverloads()...); err != nil {
 		t.Error(err)
 	}
 	call := &CallContext{
 		call: NewCall(0,
-			operators.Equals,
+			operatorspb.Equals,
 			[]int64{1, 2}),
-		args: []ref.Value{types.Int(1), types.Int(2)}}
-	invokeCall(t, dispatcher, call, types.False)
+		args: []refpb.Value{typespb.Int(1), typespb.Int(2)}}
+	invokeCall(t, dispatcher, call, typespb.False)
 }
 
 func TestDefaultDispatcher_DispatchOverload(t *testing.T) {
 	dispatcher := NewDispatcher()
-	if err := dispatcher.Add(functions.StandardOverloads()...); err != nil {
+	if err := dispatcher.Add(functionspb.StandardOverloads()...); err != nil {
 		t.Error(err)
 	}
 	call := &CallContext{
 		call: NewCallOverload(0,
-			operators.Equals,
+			operatorspb.Equals,
 			[]int64{1, 2},
-			overloads.Equals),
-		args: []ref.Value{types.Int(100), types.Int(200)}}
-	invokeCall(t, dispatcher, call, types.False)
+			overloadspb.Equals),
+		args: []refpb.Value{typespb.Int(100), typespb.Int(200)}}
+	invokeCall(t, dispatcher, call, typespb.False)
 }
 
 func BenchmarkDefaultDispatcher_Dispatch(b *testing.B) {
 	dispatcher := NewDispatcher()
-	if err := dispatcher.Add(functions.StandardOverloads()...); err != nil {
+	if err := dispatcher.Add(functionspb.StandardOverloads()...); err != nil {
 		b.Error(err)
 	}
 	for i := 0; i < b.N; i++ {
 		call := &CallContext{
 			call: NewCall(0,
-				operators.Equals,
+				operatorspb.Equals,
 				[]int64{1, 2}),
-			args: []ref.Value{types.Int(1), types.Int(2)}}
+			args: []refpb.Value{typespb.Int(1), typespb.Int(2)}}
 		dispatcher.Dispatch(call)
 	}
 }
 
 func BenchmarkDefaultDispatcher_DispatchOverload(b *testing.B) {
 	dispatcher := NewDispatcher()
-	if err := dispatcher.Add(functions.StandardOverloads()...); err != nil {
+	if err := dispatcher.Add(functionspb.StandardOverloads()...); err != nil {
 		b.Error(err)
 	}
 	for i := 0; i < b.N; i++ {
 		call := &CallContext{
 			call: NewCallOverload(0,
-				operators.Equals,
+				operatorspb.Equals,
 				[]int64{1, 2},
-				operators.Equals),
-			args: []ref.Value{types.Int(2), types.Int(2)}}
+				operatorspb.Equals),
+			args: []refpb.Value{typespb.Int(2), typespb.Int(2)}}
 		dispatcher.Dispatch(call)
 	}
 }
 
-func invokeCall(t *testing.T, dispatcher Dispatcher, call *CallContext, expected ref.Value) {
+func invokeCall(t *testing.T, dispatcher Dispatcher, call *CallContext, expected refpb.Value) {
 	t.Helper()
-	if result := dispatcher.Dispatch(call); types.IsError(result) || types.IsUnknown(result) {
+	if result := dispatcher.Dispatch(call); typespb.IsError(result) || typespb.IsUnknown(result) {
 		t.Error(result)
 	} else {
 		if result != expected {

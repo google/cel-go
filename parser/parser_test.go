@@ -16,13 +16,13 @@ package parser
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 
-	"github.com/google/cel-go/common"
-	"github.com/google/cel-go/common/debug"
-	"github.com/google/cel-go/test"
-	expr "github.com/google/cel-spec/proto/v1/syntax"
-	"reflect"
+	commonpb "github.com/google/cel-go/common"
+	debugpb "github.com/google/cel-go/common/debug"
+	testpb "github.com/google/cel-go/test"
+	exprpb "github.com/google/cel-spec/proto/v1/syntax"
 )
 
 var testCases = []testInfo{
@@ -688,7 +688,7 @@ type testInfo struct {
 }
 
 type metadata interface {
-	GetLocation(exprId int64) (common.Location, bool)
+	GetLocation(exprId int64) (commonpb.Location, bool)
 }
 
 type kindAndIdAdorner struct {
@@ -696,28 +696,28 @@ type kindAndIdAdorner struct {
 
 func (k *kindAndIdAdorner) GetMetadata(elem interface{}) string {
 	switch elem.(type) {
-	case *expr.Expr:
-		e := elem.(*expr.Expr)
+	case *exprpb.Expr:
+		e := elem.(*exprpb.Expr)
 		var valType interface{} = e.ExprKind
 		switch valType.(type) {
-		case *expr.Expr_LiteralExpr:
+		case *exprpb.Expr_LiteralExpr:
 			valType = e.GetLiteralExpr().LiteralKind
 		}
 		return fmt.Sprintf("^#%d:%s#", e.Id, reflect.TypeOf(valType))
-	case *expr.Expr_CreateStruct_Entry:
-		entry := elem.(*expr.Expr_CreateStruct_Entry)
+	case *exprpb.Expr_CreateStruct_Entry:
+		entry := elem.(*exprpb.Expr_CreateStruct_Entry)
 		return fmt.Sprintf("^#%d:%s#", entry.Id, "*syntax.Expr_CreateStruct_Entry")
 	}
 	return ""
 }
 
 type locationAdorner struct {
-	sourceInfo *expr.SourceInfo
+	sourceInfo *exprpb.SourceInfo
 }
 
 var _ metadata = &locationAdorner{}
 
-func (l *locationAdorner) GetLocation(exprId int64) (common.Location, bool) {
+func (l *locationAdorner) GetLocation(exprId int64) (commonpb.Location, bool) {
 	if pos, found := l.sourceInfo.Positions[exprId]; found {
 		var line = 1
 		for _, lineOffset := range l.sourceInfo.LineOffsets {
@@ -731,18 +731,18 @@ func (l *locationAdorner) GetLocation(exprId int64) (common.Location, bool) {
 		if line > 1 {
 			column = pos - l.sourceInfo.LineOffsets[line-2]
 		}
-		return common.NewLocation(line, int(column)), true
+		return commonpb.NewLocation(line, int(column)), true
 	}
-	return common.NoLocation, false
+	return commonpb.NoLocation, false
 }
 
 func (l *locationAdorner) GetMetadata(elem interface{}) string {
 	var elemId int64 = 0
 	switch elem.(type) {
-	case *expr.Expr:
-		elemId = elem.(*expr.Expr).Id
-	case *expr.Expr_CreateStruct_Entry:
-		elemId = elem.(*expr.Expr_CreateStruct_Entry).Id
+	case *exprpb.Expr:
+		elemId = elem.(*exprpb.Expr).Id
+	case *exprpb.Expr_CreateStruct_Entry:
+		elemId = elem.(*exprpb.Expr_CreateStruct_Entry).Id
 	}
 	location, _ := l.GetLocation(elemId)
 	return fmt.Sprintf("^#%d[%d,%d]#", elemId, location.Line(), location.Column())
@@ -758,23 +758,23 @@ func Test(t *testing.T) {
 				actualErr := errors.ToDisplayString()
 				if tst.E == "" {
 					tt.Fatalf("Unexpected errors: %v", actualErr)
-				} else if !test.Compare(actualErr, tst.E) {
-					tt.Fatalf(test.DiffMessage("Error mismatch", actualErr, tst.E))
+				} else if !testpb.Compare(actualErr, tst.E) {
+					tt.Fatalf(testpb.DiffMessage("Error mismatch", actualErr, tst.E))
 				}
 				return
 			} else if tst.E != "" {
 				tt.Fatalf("Expected error not thrown: '%s'", tst.E)
 			}
 
-			actualWithKind := debug.ToAdornedDebugString(expression.Expr, &kindAndIdAdorner{})
-			if !test.Compare(actualWithKind, tst.P) {
-				tt.Fatal(test.DiffMessage("structure", actualWithKind, tst.P))
+			actualWithKind := debugpb.ToAdornedDebugString(expression.Expr, &kindAndIdAdorner{})
+			if !testpb.Compare(actualWithKind, tst.P) {
+				tt.Fatal(testpb.DiffMessage("structure", actualWithKind, tst.P))
 			}
 
 			if tst.L != "" {
-				actualWithLocation := debug.ToAdornedDebugString(expression.Expr, &locationAdorner{expression.SourceInfo})
-				if !test.Compare(actualWithLocation, tst.L) {
-					tt.Fatal(test.DiffMessage("location", actualWithLocation, tst.L))
+				actualWithLocation := debugpb.ToAdornedDebugString(expression.Expr, &locationAdorner{expression.SourceInfo})
+				if !testpb.Compare(actualWithLocation, tst.L) {
+					tt.Fatal(testpb.DiffMessage("location", actualWithLocation, tst.L))
 				}
 			}
 		})

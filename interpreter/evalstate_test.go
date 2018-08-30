@@ -15,8 +15,9 @@
 package interpreter
 
 import (
-	"github.com/google/cel-go/common/types"
 	"testing"
+
+	typespb "github.com/google/cel-go/common/types"
 )
 
 func TestGetterSetter(t *testing.T) {
@@ -25,8 +26,8 @@ func TestGetterSetter(t *testing.T) {
 		t.Error("Unexpected value found", val)
 	}
 	var mutableState = evalState.(MutableEvalState)
-	mutableState.SetValue(1, types.String("hello"))
-	if greeting, found := evalState.Value(1); !found || greeting != types.String("hello") {
+	mutableState.SetValue(1, typespb.String("hello"))
+	if greeting, found := evalState.Value(1); !found || greeting != typespb.String("hello") {
 		t.Error("Unexpected value found", greeting)
 	}
 }

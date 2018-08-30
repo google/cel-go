@@ -15,11 +15,11 @@
 package functions
 
 import (
-	"github.com/google/cel-go/common/operators"
-	"github.com/google/cel-go/common/overloads"
-	"github.com/google/cel-go/common/types"
-	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/common/types/traits"
+	operatorspb "github.com/google/cel-go/common/operators"
+	overloadspb "github.com/google/cel-go/common/overloads"
+	typespb "github.com/google/cel-go/common/types"
+	refpb "github.com/google/cel-go/common/types/ref"
+	traitspb "github.com/google/cel-go/common/types/traits"
 )
 
 // StandardOverloads returns the definitions of the built-in overloads.
@@ -27,91 +27,91 @@ func StandardOverloads() []*Overload {
 	return []*Overload{
 		// Logical not (!a)
 		{
-			Operator:     operators.LogicalNot,
-			OperandTrait: traits.NegatorType,
-			Unary: func(value ref.Value) ref.Value {
-				return value.(traits.Negater).Negate()
+			Operator:     operatorspb.LogicalNot,
+			OperandTrait: traitspb.NegatorType,
+			Unary: func(value refpb.Value) refpb.Value {
+				return value.(traitspb.Negater).Negate()
 			}},
 		// Logical and (a && b)
 		{
-			Operator: operators.LogicalAnd,
+			Operator: operatorspb.LogicalAnd,
 			Binary:   logicalAnd},
 		// Logical or (a || b)
 		{
-			Operator: operators.LogicalOr,
+			Operator: operatorspb.LogicalOr,
 			Binary:   logicalOr},
 		// Conditional operator (a ? b : c)
 		{
-			Operator: operators.Conditional,
+			Operator: operatorspb.Conditional,
 			Function: conditional},
 
 		// Equality overloads
-		{Operator: operators.Equals,
-			Binary: func(lhs ref.Value, rhs ref.Value) ref.Value {
+		{Operator: operatorspb.Equals,
+			Binary: func(lhs refpb.Value, rhs refpb.Value) refpb.Value {
 				return lhs.Equal(rhs)
 			}},
 
-		{Operator: operators.NotEquals,
-			Binary: func(lhs ref.Value, rhs ref.Value) ref.Value {
+		{Operator: operatorspb.NotEquals,
+			Binary: func(lhs refpb.Value, rhs refpb.Value) refpb.Value {
 				eq := lhs.Equal(rhs)
-				if types.IsBool(eq) {
-					return !eq.(types.Bool)
+				if typespb.IsBool(eq) {
+					return !eq.(typespb.Bool)
 				}
 				return eq
 			}},
 
 		// Less than operator
-		{Operator: operators.Less,
-			OperandTrait: traits.ComparerType,
-			Binary: func(lhs ref.Value, rhs ref.Value) ref.Value {
-				cmp := lhs.(traits.Comparer).Compare(rhs)
-				if cmp == types.IntNegOne {
-					return types.True
+		{Operator: operatorspb.Less,
+			OperandTrait: traitspb.ComparerType,
+			Binary: func(lhs refpb.Value, rhs refpb.Value) refpb.Value {
+				cmp := lhs.(traitspb.Comparer).Compare(rhs)
+				if cmp == typespb.IntNegOne {
+					return typespb.True
 				}
-				if cmp == types.IntOne || cmp == types.IntZero {
-					return types.False
+				if cmp == typespb.IntOne || cmp == typespb.IntZero {
+					return typespb.False
 				}
 				return cmp
 			}},
 
 		// Less than or equal operator
-		{Operator: operators.LessEquals,
-			OperandTrait: traits.ComparerType,
-			Binary: func(lhs ref.Value, rhs ref.Value) ref.Value {
-				cmp := lhs.(traits.Comparer).Compare(rhs)
-				if cmp == types.IntNegOne || cmp == types.IntZero {
-					return types.True
+		{Operator: operatorspb.LessEquals,
+			OperandTrait: traitspb.ComparerType,
+			Binary: func(lhs refpb.Value, rhs refpb.Value) refpb.Value {
+				cmp := lhs.(traitspb.Comparer).Compare(rhs)
+				if cmp == typespb.IntNegOne || cmp == typespb.IntZero {
+					return typespb.True
 				}
-				if cmp == types.IntOne {
-					return types.False
+				if cmp == typespb.IntOne {
+					return typespb.False
 				}
 				return cmp
 			}},
 
 		// Greater than operator
-		{Operator: operators.Greater,
-			OperandTrait: traits.ComparerType,
-			Binary: func(lhs ref.Value, rhs ref.Value) ref.Value {
-				cmp := lhs.(traits.Comparer).Compare(rhs)
-				if cmp == types.IntOne {
-					return types.True
+		{Operator: operatorspb.Greater,
+			OperandTrait: traitspb.ComparerType,
+			Binary: func(lhs refpb.Value, rhs refpb.Value) refpb.Value {
+				cmp := lhs.(traitspb.Comparer).Compare(rhs)
+				if cmp == typespb.IntOne {
+					return typespb.True
 				}
-				if cmp == types.IntNegOne || cmp == types.IntZero {
-					return types.False
+				if cmp == typespb.IntNegOne || cmp == typespb.IntZero {
+					return typespb.False
 				}
 				return cmp
 			}},
 
 		// Greater than equal operators
-		{Operator: operators.GreaterEquals,
-			OperandTrait: traits.ComparerType,
-			Binary: func(lhs ref.Value, rhs ref.Value) ref.Value {
-				cmp := lhs.(traits.Comparer).Compare(rhs)
-				if cmp == types.IntOne || cmp == types.IntZero {
-					return types.True
+		{Operator: operatorspb.GreaterEquals,
+			OperandTrait: traitspb.ComparerType,
+			Binary: func(lhs refpb.Value, rhs refpb.Value) refpb.Value {
+				cmp := lhs.(traitspb.Comparer).Compare(rhs)
+				if cmp == typespb.IntOne || cmp == typespb.IntZero {
+					return typespb.True
 				}
-				if cmp == types.IntNegOne {
-					return types.False
+				if cmp == typespb.IntNegOne {
+					return typespb.False
 				}
 				return cmp
 			}},
@@ -119,225 +119,225 @@ func StandardOverloads() []*Overload {
 		// TODO: Verify overflow, NaN, underflow cases for numeric values.
 
 		// Add operator
-		{Operator: operators.Add,
-			OperandTrait: traits.AdderType,
-			Binary: func(lhs ref.Value, rhs ref.Value) ref.Value {
-				return lhs.(traits.Adder).Add(rhs)
+		{Operator: operatorspb.Add,
+			OperandTrait: traitspb.AdderType,
+			Binary: func(lhs refpb.Value, rhs refpb.Value) refpb.Value {
+				return lhs.(traitspb.Adder).Add(rhs)
 			}},
 
 		// Subtract operators
-		{Operator: operators.Subtract,
-			OperandTrait: traits.SubtractorType,
-			Binary: func(lhs ref.Value, rhs ref.Value) ref.Value {
-				return lhs.(traits.Subtractor).Subtract(rhs)
+		{Operator: operatorspb.Subtract,
+			OperandTrait: traitspb.SubtractorType,
+			Binary: func(lhs refpb.Value, rhs refpb.Value) refpb.Value {
+				return lhs.(traitspb.Subtractor).Subtract(rhs)
 			}},
 
 		// Multiply operator
-		{Operator: operators.Multiply,
-			OperandTrait: traits.MultiplierType,
-			Binary: func(lhs ref.Value, rhs ref.Value) ref.Value {
-				return lhs.(traits.Multiplier).Multiply(rhs)
+		{Operator: operatorspb.Multiply,
+			OperandTrait: traitspb.MultiplierType,
+			Binary: func(lhs refpb.Value, rhs refpb.Value) refpb.Value {
+				return lhs.(traitspb.Multiplier).Multiply(rhs)
 			}},
 
 		// Divide operator
-		{Operator: operators.Divide,
-			OperandTrait: traits.DividerType,
-			Binary: func(lhs ref.Value, rhs ref.Value) ref.Value {
-				return lhs.(traits.Divider).Divide(rhs)
+		{Operator: operatorspb.Divide,
+			OperandTrait: traitspb.DividerType,
+			Binary: func(lhs refpb.Value, rhs refpb.Value) refpb.Value {
+				return lhs.(traitspb.Divider).Divide(rhs)
 			}},
 
 		// Modulo operator
-		{Operator: operators.Modulo,
-			OperandTrait: traits.ModderType,
-			Binary: func(lhs ref.Value, rhs ref.Value) ref.Value {
-				return lhs.(traits.Modder).Modulo(rhs)
+		{Operator: operatorspb.Modulo,
+			OperandTrait: traitspb.ModderType,
+			Binary: func(lhs refpb.Value, rhs refpb.Value) refpb.Value {
+				return lhs.(traitspb.Modder).Modulo(rhs)
 			}},
 
 		// Negate operator
-		{Operator: operators.Negate,
-			OperandTrait: traits.NegatorType,
-			Unary: func(value ref.Value) ref.Value {
-				return value.(traits.Negater).Negate()
+		{Operator: operatorspb.Negate,
+			OperandTrait: traitspb.NegatorType,
+			Unary: func(value refpb.Value) refpb.Value {
+				return value.(traitspb.Negater).Negate()
 			}},
 
 		// Index operator
-		{Operator: operators.Index,
-			OperandTrait: traits.IndexerType,
-			Binary: func(lhs ref.Value, rhs ref.Value) ref.Value {
-				return lhs.(traits.Indexer).Get(rhs)
+		{Operator: operatorspb.Index,
+			OperandTrait: traitspb.IndexerType,
+			Binary: func(lhs refpb.Value, rhs refpb.Value) refpb.Value {
+				return lhs.(traitspb.Indexer).Get(rhs)
 			}},
 
 		// Size function
-		{Operator: overloads.Size,
-			OperandTrait: traits.SizerType,
-			Unary: func(value ref.Value) ref.Value {
-				return value.(traits.Sizer).Size()
+		{Operator: overloadspb.Size,
+			OperandTrait: traitspb.SizerType,
+			Unary: func(value refpb.Value) refpb.Value {
+				return value.(traitspb.Sizer).Size()
 			}},
 
 		// In operator
-		{Operator: operators.In,
-			Binary: func(lhs ref.Value, rhs ref.Value) ref.Value {
-				if rhs.Type().HasTrait(traits.ContainerType) {
-					return rhs.(traits.Container).Contains(lhs)
+		{Operator: operatorspb.In,
+			Binary: func(lhs refpb.Value, rhs refpb.Value) refpb.Value {
+				if rhs.Type().HasTrait(traitspb.ContainerType) {
+					return rhs.(traitspb.Container).Contains(lhs)
 				}
-				return types.NewErr("no such overload")
+				return typespb.NewErr("no such overload")
 			}},
 
 		// Matches function
-		{Operator: overloads.MatchString,
-			OperandTrait: traits.MatcherType,
-			Binary: func(lhs ref.Value, rhs ref.Value) ref.Value {
-				return lhs.(traits.Matcher).Match(rhs)
+		{Operator: overloadspb.MatchString,
+			OperandTrait: traitspb.MatcherType,
+			Binary: func(lhs refpb.Value, rhs refpb.Value) refpb.Value {
+				return lhs.(traitspb.Matcher).Match(rhs)
 			}},
 
 		// Type conversion functions
 		// TODO: verify type conversion safety of numeric values.
 
 		// Int conversions.
-		{Operator: overloads.TypeConvertInt,
-			Unary: func(value ref.Value) ref.Value {
-				return value.ConvertToType(types.IntType)
+		{Operator: overloadspb.TypeConvertInt,
+			Unary: func(value refpb.Value) refpb.Value {
+				return value.ConvertToType(typespb.IntType)
 			}},
 
 		// Uint conversions.
-		{Operator: overloads.TypeConvertUint,
-			Unary: func(value ref.Value) ref.Value {
-				return value.ConvertToType(types.UintType)
+		{Operator: overloadspb.TypeConvertUint,
+			Unary: func(value refpb.Value) refpb.Value {
+				return value.ConvertToType(typespb.UintType)
 			}},
 
 		// Double conversions.
-		{Operator: overloads.TypeConvertDouble,
-			Unary: func(value ref.Value) ref.Value {
-				return value.ConvertToType(types.DoubleType)
+		{Operator: overloadspb.TypeConvertDouble,
+			Unary: func(value refpb.Value) refpb.Value {
+				return value.ConvertToType(typespb.DoubleType)
 			}},
 
 		// Bool conversions.
-		{Operator: overloads.TypeConvertBool,
-			Unary: func(value ref.Value) ref.Value {
-				return value.ConvertToType(types.BoolType)
+		{Operator: overloadspb.TypeConvertBool,
+			Unary: func(value refpb.Value) refpb.Value {
+				return value.ConvertToType(typespb.BoolType)
 			}},
 
 		// Bytes conversions.
-		{Operator: overloads.TypeConvertBytes,
-			Unary: func(value ref.Value) ref.Value {
-				return value.ConvertToType(types.BytesType)
+		{Operator: overloadspb.TypeConvertBytes,
+			Unary: func(value refpb.Value) refpb.Value {
+				return value.ConvertToType(typespb.BytesType)
 			}},
 
 		// String conversions.
-		{Operator: overloads.TypeConvertString,
-			Unary: func(value ref.Value) ref.Value {
-				return value.ConvertToType(types.StringType)
+		{Operator: overloadspb.TypeConvertString,
+			Unary: func(value refpb.Value) refpb.Value {
+				return value.ConvertToType(typespb.StringType)
 			}},
 
 		// Timestamp conversions.
-		{Operator: overloads.TypeConvertTimestamp,
-			Unary: func(value ref.Value) ref.Value {
-				return value.ConvertToType(types.TimestampType)
+		{Operator: overloadspb.TypeConvertTimestamp,
+			Unary: func(value refpb.Value) refpb.Value {
+				return value.ConvertToType(typespb.TimestampType)
 			}},
 
 		// Duration conversions.
-		{Operator: overloads.TypeConvertDuration,
-			Unary: func(value ref.Value) ref.Value {
-				return value.ConvertToType(types.DurationType)
+		{Operator: overloadspb.TypeConvertDuration,
+			Unary: func(value refpb.Value) refpb.Value {
+				return value.ConvertToType(typespb.DurationType)
 			}},
 
 		// Type operations.
-		{Operator: overloads.TypeConvertType,
-			Unary: func(value ref.Value) ref.Value {
-				return value.ConvertToType(types.TypeType)
+		{Operator: overloadspb.TypeConvertType,
+			Unary: func(value refpb.Value) refpb.Value {
+				return value.ConvertToType(typespb.TypeType)
 			}},
 
-		{Operator: overloads.Iterator,
-			OperandTrait: traits.IterableType,
-			Unary: func(value ref.Value) ref.Value {
-				return value.(traits.Iterable).Iterator()
+		{Operator: overloadspb.Iterator,
+			OperandTrait: traitspb.IterableType,
+			Unary: func(value refpb.Value) refpb.Value {
+				return value.(traitspb.Iterable).Iterator()
 			}},
 
-		{Operator: overloads.HasNext,
-			OperandTrait: traits.IteratorType,
-			Unary: func(value ref.Value) ref.Value {
-				return value.(traits.Iterator).HasNext()
+		{Operator: overloadspb.HasNext,
+			OperandTrait: traitspb.IteratorType,
+			Unary: func(value refpb.Value) refpb.Value {
+				return value.(traitspb.Iterator).HasNext()
 			}},
 
-		{Operator: overloads.Next,
-			OperandTrait: traits.IteratorType,
-			Unary: func(value ref.Value) ref.Value {
-				return value.(traits.Iterator).Next()
+		{Operator: overloadspb.Next,
+			OperandTrait: traitspb.IteratorType,
+			Unary: func(value refpb.Value) refpb.Value {
+				return value.(traitspb.Iterator).Next()
 			}},
 	}
 
 }
 
-func logicalAnd(lhs ref.Value, rhs ref.Value) ref.Value {
-	lhsIsBool := types.Bool(types.IsBool(lhs))
-	rhsIsBool := types.Bool(types.IsBool(rhs))
+func logicalAnd(lhs refpb.Value, rhs refpb.Value) refpb.Value {
+	lhsIsBool := typespb.Bool(typespb.IsBool(lhs))
+	rhsIsBool := typespb.Bool(typespb.IsBool(rhs))
 	// both are boolean use natural logic.
 	if lhsIsBool && rhsIsBool {
-		return lhs.(types.Bool) && rhs.(types.Bool)
+		return lhs.(typespb.Bool) && rhs.(typespb.Bool)
 	}
 	// one or the other is boolean and false, return false.
-	if lhsIsBool && !lhs.(types.Bool) ||
-		rhsIsBool && !rhs.(types.Bool) {
-		return types.False
+	if lhsIsBool && !lhs.(typespb.Bool) ||
+		rhsIsBool && !rhs.(typespb.Bool) {
+		return typespb.False
 	}
 
-	if types.IsUnknown(lhs) {
+	if typespb.IsUnknown(lhs) {
 		return lhs
 	}
 
-	if types.IsUnknown(rhs) {
+	if typespb.IsUnknown(rhs) {
 		return rhs
 	}
 
 	// if the left-hand side is non-boolean return it as the error.
 	if !lhsIsBool {
-		return types.NewErr("Got '%v', expected argument of type 'bool'", lhs)
+		return typespb.NewErr("Got '%v', expected argument of type 'bool'", lhs)
 	}
-	return types.NewErr("Got '%v', expected argument of type 'bool'", rhs)
+	return typespb.NewErr("Got '%v', expected argument of type 'bool'", rhs)
 }
 
-func logicalOr(lhs ref.Value, rhs ref.Value) ref.Value {
-	lhsIsBool := types.Bool(types.IsBool(lhs.Type()))
-	rhsIsBool := types.Bool(types.IsBool(rhs.Type()))
+func logicalOr(lhs refpb.Value, rhs refpb.Value) refpb.Value {
+	lhsIsBool := typespb.Bool(typespb.IsBool(lhs.Type()))
+	rhsIsBool := typespb.Bool(typespb.IsBool(rhs.Type()))
 	// both are boolean, use natural logic.
 	if lhsIsBool && rhsIsBool {
-		return lhs.(types.Bool) || rhs.(types.Bool)
+		return lhs.(typespb.Bool) || rhs.(typespb.Bool)
 	}
 	// one or the other is boolean and true, return true
-	if lhsIsBool && lhs.(types.Bool) ||
-		rhsIsBool && rhs.(types.Bool) {
-		return types.True
+	if lhsIsBool && lhs.(typespb.Bool) ||
+		rhsIsBool && rhs.(typespb.Bool) {
+		return typespb.True
 	}
 
-	if types.IsUnknown(lhs) {
+	if typespb.IsUnknown(lhs) {
 		return lhs
 	}
 
-	if types.IsUnknown(rhs) {
+	if typespb.IsUnknown(rhs) {
 		return rhs
 	}
 
 	// if the left-hand side is non-boolean return it as the error.
 	if !lhsIsBool {
-		return types.NewErr("Got '%v', expected argument of type 'bool'", lhs)
+		return typespb.NewErr("Got '%v', expected argument of type 'bool'", lhs)
 	}
-	return types.NewErr("Got '%v', expected argument of type 'bool'", rhs)
+	return typespb.NewErr("Got '%v', expected argument of type 'bool'", rhs)
 }
 
-func conditional(values ...ref.Value) ref.Value {
+func conditional(values ...refpb.Value) refpb.Value {
 	if len(values) != 3 {
-		return types.NewErr("no such overload")
+		return typespb.NewErr("no such overload")
 	}
 	cond := values[0]
 	condType := cond.Type()
-	if types.IsBool(condType) {
-		if cond == types.True {
+	if typespb.IsBool(condType) {
+		if cond == typespb.True {
 			return values[1]
 		}
 		return values[2]
-	} else if types.IsError(condType) || types.IsUnknown(condType) {
+	} else if typespb.IsError(condType) || typespb.IsUnknown(condType) {
 		return cond
 	} else {
-		return types.NewErr("no such overload")
+		return typespb.NewErr("no such overload")
 	}
 }

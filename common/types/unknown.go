@@ -15,8 +15,9 @@
 package types
 
 import (
-	"github.com/google/cel-go/common/types/ref"
 	"reflect"
+
+	refpb "github.com/google/cel-go/common/types/ref"
 )
 
 // Unknown type implementation which collects expression ids which caused the
@@ -32,15 +33,15 @@ func (u Unknown) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	return u.Value(), nil
 }
 
-func (u Unknown) ConvertToType(typeVal ref.Type) ref.Value {
+func (u Unknown) ConvertToType(typeVal refpb.Type) refpb.Value {
 	return u
 }
 
-func (u Unknown) Equal(other ref.Value) ref.Value {
+func (u Unknown) Equal(other refpb.Value) refpb.Value {
 	return u
 }
 
-func (u Unknown) Type() ref.Type {
+func (u Unknown) Type() refpb.Type {
 	return UnknownType
 }
 
@@ -48,14 +49,14 @@ func (u Unknown) Value() interface{} {
 	return []int64(u)
 }
 
-// IsUnknown returns whether the element ref.Type or ref.Value is equal to the
+// IsUnknown returns whether the element refpb.Type or refpb.Value is equal to the
 // UnknownType singleton.
 func IsUnknown(elem interface{}) bool {
 	switch elem.(type) {
-	case ref.Type:
+	case refpb.Type:
 		return elem == UnknownType
-	case ref.Value:
-		return IsUnknown(elem.(ref.Value).Type())
+	case refpb.Value:
+		return IsUnknown(elem.(refpb.Value).Type())
 	}
 	return false
 }

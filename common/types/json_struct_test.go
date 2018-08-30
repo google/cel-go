@@ -15,12 +15,13 @@
 package types
 
 import (
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/any"
-	"github.com/golang/protobuf/ptypes/struct"
 	"reflect"
 	"testing"
+
+	protopb "github.com/golang/protobuf/proto"
+	ptypespb "github.com/golang/protobuf/ptypes"
+	anypb "github.com/golang/protobuf/ptypes/any"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 )
 
 func TestJsonStruct_Contains(t *testing.T) {
@@ -52,17 +53,17 @@ func TestJsonStruct_ConvertToNative_Json(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if !proto.Equal(val.(proto.Message),
+	if !protopb.Equal(val.(protopb.Message),
 		&structpb.Value{Kind: &structpb.Value_StructValue{structVal}}) {
-		t.Error("Got '%v', expected '%v'", val, structVal)
+		t.Errorf("Got '%v', expected '%v'", val, structVal)
 	}
 
 	strVal, err := mapVal.ConvertToNative(jsonStructType)
 	if err != nil {
 		t.Error(err)
 	}
-	if !proto.Equal(strVal.(proto.Message), structVal) {
-		t.Error("Got '%v', expected '%v'", strVal, structVal)
+	if !protopb.Equal(strVal.(protopb.Message), structVal) {
+		t.Errorf("Got '%v', expected '%v'", strVal, structVal)
 	}
 }
 
@@ -76,12 +77,12 @@ func TestJsonStruct_ConvertToNative_Any(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	unpackedAny := ptypes.DynamicAny{}
-	if ptypes.UnmarshalAny(anyVal.(*any.Any), &unpackedAny) != nil {
+	unpackedAny := ptypespb.DynamicAny{}
+	if ptypespb.UnmarshalAny(anyVal.(*anypb.Any), &unpackedAny) != nil {
 		t.Error("Failed to unmarshal any")
 	}
-	if !proto.Equal(unpackedAny.Message, mapVal.Value().(proto.Message)) {
-		t.Error("Messages were not equal, got '%v'", unpackedAny.Message)
+	if !protopb.Equal(unpackedAny.Message, mapVal.Value().(protopb.Message)) {
+		t.Errorf("Messages were not equal, got '%v'", unpackedAny.Message)
 	}
 }
 

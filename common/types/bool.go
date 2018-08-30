@@ -16,27 +16,28 @@ package types
 
 import (
 	"fmt"
-	"github.com/golang/protobuf/ptypes/struct"
-	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/common/types/traits"
 	"reflect"
 	"strconv"
+	
+	refpb "github.com/google/cel-go/common/types/ref"
+	structpb "github.com/golang/protobuf/ptypes/struct"
+	traitspb "github.com/google/cel-go/common/types/traits"
 )
 
-// Bool type that implements ref.Value and supports comparison and negation.
+// Bool type that implements refpb.Value and supports comparison and negation.
 type Bool bool
 
 var (
 	// BoolType singleton.
 	BoolType = NewTypeValue("bool",
-		traits.ComparerType,
-		traits.NegatorType)
+		traitspb.ComparerType,
+		traitspb.NegatorType)
 
 	False = Bool(false)
 	True  = Bool(true)
 )
 
-func (b Bool) Compare(other ref.Value) ref.Value {
+func (b Bool) Compare(other refpb.Value) refpb.Value {
 	if BoolType != other.Type() {
 		return NewErr("unsupported overload")
 	}
@@ -72,7 +73,7 @@ func (b Bool) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	return nil, fmt.Errorf("type conversion error from bool to '%v'", typeDesc)
 }
 
-func (b Bool) ConvertToType(typeVal ref.Type) ref.Value {
+func (b Bool) ConvertToType(typeVal refpb.Type) refpb.Value {
 	switch typeVal {
 	case StringType:
 		return String(strconv.FormatBool(bool(b)))
@@ -84,15 +85,15 @@ func (b Bool) ConvertToType(typeVal ref.Type) ref.Value {
 	return NewErr("type conversion error from '%v' to '%v'", BoolType, typeVal)
 }
 
-func (b Bool) Equal(other ref.Value) ref.Value {
+func (b Bool) Equal(other refpb.Value) refpb.Value {
 	return Bool(BoolType == other.Type() && b.Value() == other.Value())
 }
 
-func (b Bool) Negate() ref.Value {
+func (b Bool) Negate() refpb.Value {
 	return !b
 }
 
-func (b Bool) Type() ref.Type {
+func (b Bool) Type() refpb.Type {
 	return BoolType
 }
 
@@ -100,13 +101,13 @@ func (b Bool) Value() interface{} {
 	return bool(b)
 }
 
-// IsBool returns whether the input ref.Value or ref.Type is equal to BoolType.
+// IsBool returns whether the input refpb.Value or refpb.Type is equal to BoolType.
 func IsBool(elem interface{}) bool {
 	switch elem.(type) {
-	case ref.Type:
+	case refpb.Type:
 		return elem == BoolType
-	case ref.Value:
-		return IsBool(elem.(ref.Value).Type())
+	case refpb.Value:
+		return IsBool(elem.(refpb.Value).Type())
 	}
 	return false
 }

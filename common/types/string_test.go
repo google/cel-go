@@ -15,12 +15,13 @@
 package types
 
 import (
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/duration"
-	"github.com/golang/protobuf/ptypes/struct"
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"reflect"
 	"testing"
+
+	protopb "github.com/golang/protobuf/proto"
+	dpb "github.com/golang/protobuf/ptypes/duration"
+	structpb "github.com/golang/protobuf/ptypes/struct"
+	tpb "github.com/golang/protobuf/ptypes/timestamp"
 )
 
 func TestString_Add(t *testing.T) {
@@ -53,7 +54,7 @@ func TestString_Compare(t *testing.T) {
 func TestString_ConvertToNative_Error(t *testing.T) {
 	val, err := String("hello").ConvertToNative(reflect.TypeOf(0))
 	if err == nil {
-		t.Error("Got '%v', expected error", val)
+		t.Errorf("Got '%v', expected error", val)
 	}
 }
 
@@ -62,7 +63,7 @@ func TestString_ConvertToNative_Json(t *testing.T) {
 	pbVal := &structpb.Value{Kind: &structpb.Value_StringValue{"hello"}}
 	if err != nil {
 		t.Error(err)
-	} else if !proto.Equal(val.(proto.Message), pbVal) {
+	} else if !protopb.Equal(val.(protopb.Message), pbVal) {
 		t.Errorf("Got '%v', expected json Value type", val)
 	}
 }
@@ -97,11 +98,11 @@ func TestString_ConvertToType(t *testing.T) {
 		t.Error("String could not be converted to uint")
 	}
 	if !String("2017-01-01T00:00:00Z").ConvertToType(TimestampType).
-		Equal(Timestamp{&timestamp.Timestamp{Seconds: 1483228800}}).(Bool) {
+		Equal(Timestamp{&tpb.Timestamp{Seconds: 1483228800}}).(Bool) {
 		t.Error("String could not be converted to timestamp")
 	}
 	if !String("1h5s").ConvertToType(DurationType).
-		Equal(Duration{&duration.Duration{Seconds: 3605}}).(Bool) {
+		Equal(Duration{&dpb.Duration{Seconds: 3605}}).(Bool) {
 		t.Error("String could not be converted to duration")
 	}
 	if !String("2.5").ConvertToType(DoubleType).Equal(Double(2.5)).(Bool) {

@@ -16,10 +16,11 @@ package types
 
 import (
 	"fmt"
-	"github.com/golang/protobuf/ptypes/struct"
-	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/common/types/traits"
 	"reflect"
+
+	structpb "github.com/golang/protobuf/ptypes/struct"
+	refpb "github.com/google/cel-go/common/types/ref"
+	traitspb "github.com/google/cel-go/common/types/traits"
 )
 
 type baseMap struct {
@@ -27,21 +28,21 @@ type baseMap struct {
 	refValue reflect.Value
 }
 
-// NewDynamicMap returns a traits.Mapper value with dynamic key, value pairs.
-func NewDynamicMap(value interface{}) traits.Mapper {
+// NewDynamicMap returns a traitspb.Mapper value with dynamic key, value pairs.
+func NewDynamicMap(value interface{}) traitspb.Mapper {
 	return &baseMap{value, reflect.ValueOf(value)}
 }
 
 var (
 	// MapType singleton.
 	MapType = NewTypeValue("map",
-		traits.ContainerType,
-		traits.IndexerType,
-		traits.IterableType,
-		traits.SizerType)
+		traitspb.ContainerType,
+		traitspb.IndexerType,
+		traitspb.IterableType,
+		traitspb.SizerType)
 )
 
-func (m *baseMap) Contains(index ref.Value) ref.Value {
+func (m *baseMap) Contains(index refpb.Value) refpb.Value {
 	return !Bool(IsError(m.Get(index).Type()))
 }
 
@@ -103,7 +104,7 @@ func (m *baseMap) ConvertToNative(refType reflect.Type) (interface{}, error) {
 	return nativeMap.Interface(), nil
 }
 
-func (m *baseMap) ConvertToType(typeVal ref.Type) ref.Value {
+func (m *baseMap) ConvertToType(typeVal refpb.Type) refpb.Value {
 	switch typeVal {
 	case MapType:
 		return m
@@ -113,11 +114,11 @@ func (m *baseMap) ConvertToType(typeVal ref.Type) ref.Value {
 	return NewErr("type conversion error from '%s' to '%s'", MapType, typeVal)
 }
 
-func (m *baseMap) Equal(other ref.Value) ref.Value {
+func (m *baseMap) Equal(other refpb.Value) refpb.Value {
 	if MapType != other.Type() {
 		return False
 	}
-	otherMap := other.(traits.Mapper)
+	otherMap := other.(traitspb.Mapper)
 	if m.Size() != otherMap.Size() {
 		return False
 	}
@@ -135,7 +136,7 @@ func (m *baseMap) Equal(other ref.Value) ref.Value {
 	return True
 }
 
-func (m *baseMap) Get(key ref.Value) ref.Value {
+func (m *baseMap) Get(key refpb.Value) refpb.Value {
 	thisKeyType := m.refValue.Type().Key()
 	nativeKey, err := key.ConvertToNative(thisKeyType)
 	if err != nil {
@@ -152,7 +153,7 @@ func (m *baseMap) Get(key ref.Value) ref.Value {
 	return NativeToValue(value.Interface())
 }
 
-func (m *baseMap) Iterator() traits.Iterator {
+func (m *baseMap) Iterator() traitspb.Iterator {
 	mapKeys := m.refValue.MapKeys()
 	return &mapIterator{
 		baseIterator: &baseIterator{},
@@ -162,11 +163,11 @@ func (m *baseMap) Iterator() traits.Iterator {
 		len:          int(m.Size().(Int))}
 }
 
-func (m *baseMap) Size() ref.Value {
+func (m *baseMap) Size() refpb.Value {
 	return Int(m.refValue.Len())
 }
 
-func (m *baseMap) Type() ref.Type {
+func (m *baseMap) Type() refpb.Type {
 	return MapType
 }
 
@@ -176,17 +177,17 @@ func (m *baseMap) Value() interface{} {
 
 type mapIterator struct {
 	*baseIterator
-	mapValue traits.Mapper
+	mapValue traitspb.Mapper
 	mapKeys  []reflect.Value
 	cursor   int
 	len      int
 }
 
-func (it *mapIterator) HasNext() ref.Value {
+func (it *mapIterator) HasNext() refpb.Value {
 	return Bool(it.cursor < it.len)
 }
 
-func (it *mapIterator) Next() ref.Value {
+func (it *mapIterator) Next() refpb.Value {
 	if it.HasNext() == True {
 		index := it.cursor
 		it.cursor += 1

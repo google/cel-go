@@ -1,14 +1,15 @@
 package pb
 
 import (
-	"github.com/golang/protobuf/proto"
-	"github.com/google/cel-go/test"
-	"github.com/google/cel-spec/proto/checked/v1/checked"
 	"testing"
+
+	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
+	protopb "github.com/golang/protobuf/proto"
+	testpb "github.com/google/cel-go/test"
 )
 
 func TestTypeDescription_FieldCount(t *testing.T) {
-	td, err := DescribeValue(&test.NestedTestAllTypes{})
+	td, err := DescribeValue(&testpb.NestedTestAllTypes{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -19,7 +20,7 @@ func TestTypeDescription_FieldCount(t *testing.T) {
 }
 
 func TestTypeDescription_Field(t *testing.T) {
-	td, err := DescribeValue(&test.NestedTestAllTypes{})
+	td, err := DescribeValue(&testpb.NestedTestAllTypes{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -54,8 +55,8 @@ func TestTypeDescription_Field(t *testing.T) {
 	if fd.Index() != 1 {
 		t.Error("Field 'payload' was fetched at index 1, but not listed there.")
 	}
-	if !proto.Equal(fd.CheckedType(), &checked.Type{
-		TypeKind: &checked.Type_MessageType{
+	if !protopb.Equal(fd.CheckedType(), &checkedpb.Type{
+		TypeKind: &checkedpb.Type_MessageType{
 			MessageType: "google.api.tools.expr.test.TestAllTypes"}}) {
 		t.Error("Field 'payload' had an unexpected checked type.")
 	}

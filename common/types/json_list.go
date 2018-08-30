@@ -16,12 +16,13 @@ package types
 
 import (
 	"fmt"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/struct"
-	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/common/types/traits"
 	"reflect"
+
+	protopb "github.com/golang/protobuf/proto"
+	ptypespb "github.com/golang/protobuf/ptypes"
+	structpb "github.com/golang/protobuf/ptypes/struct"
+	refpb "github.com/google/cel-go/common/types/ref"
+	traitspb "github.com/google/cel-go/common/types/traits"
 )
 
 var (
@@ -32,13 +33,13 @@ type jsonListValue struct {
 	*structpb.ListValue
 }
 
-// NewJsonList creates a traits.Lister implementation backed by a JSON list
+// NewJsonList creates a traitspb.Lister implementation backed by a JSON list
 // that has been encoded in protocol buffer form.
-func NewJsonList(l *structpb.ListValue) traits.Lister {
+func NewJsonList(l *structpb.ListValue) traitspb.Lister {
 	return &jsonListValue{l}
 }
 
-func (l *jsonListValue) Add(other ref.Value) ref.Value {
+func (l *jsonListValue) Add(other refpb.Value) refpb.Value {
 	if other.Type() != ListType {
 		return NewErr("no such overload")
 	}
@@ -50,10 +51,10 @@ func (l *jsonListValue) Add(other ref.Value) ref.Value {
 	}
 	return &concatList{
 		prevList: l,
-		nextList: other.(traits.Lister)}
+		nextList: other.(traitspb.Lister)}
 }
 
-func (l *jsonListValue) Contains(elem ref.Value) ref.Value {
+func (l *jsonListValue) Contains(elem refpb.Value) refpb.Value {
 	for i := Int(0); i < l.Size().(Int); i++ {
 		if l.Get(i).Equal(elem) == True {
 			return True
@@ -86,7 +87,7 @@ func (l *jsonListValue) ConvertToNative(typeDesc reflect.Type) (interface{}, err
 		case jsonListValueType:
 			return l.ListValue, nil
 		case anyValueType:
-			return ptypes.MarshalAny(l.Value().(proto.Message))
+			return ptypespb.MarshalAny(l.Value().(protopb.Message))
 		}
 
 	case reflect.Interface:
@@ -99,7 +100,7 @@ func (l *jsonListValue) ConvertToNative(typeDesc reflect.Type) (interface{}, err
 		" list elem: google.protobuf.Value, native type: %v", typeDesc)
 }
 
-func (l *jsonListValue) ConvertToType(typeVal ref.Type) ref.Value {
+func (l *jsonListValue) ConvertToType(typeVal refpb.Type) refpb.Value {
 	switch typeVal {
 	case ListType:
 		return l
@@ -109,11 +110,11 @@ func (l *jsonListValue) ConvertToType(typeVal ref.Type) ref.Value {
 	return NewErr("type conversion error from '%s' to '%s'", ListType, typeVal)
 }
 
-func (l *jsonListValue) Equal(other ref.Value) ref.Value {
+func (l *jsonListValue) Equal(other refpb.Value) refpb.Value {
 	if ListType != other.Type() {
 		return False
 	}
-	otherList := other.(traits.Lister)
+	otherList := other.(traitspb.Lister)
 	if l.Size() != otherList.Size() {
 		return False
 	}
@@ -127,7 +128,7 @@ func (l *jsonListValue) Equal(other ref.Value) ref.Value {
 	return True
 }
 
-func (l *jsonListValue) Get(index ref.Value) ref.Value {
+func (l *jsonListValue) Get(index refpb.Value) refpb.Value {
 	if IntType != index.Type() {
 		return NewErr("unsupported index type: '%v", index.Type())
 	}
@@ -139,18 +140,18 @@ func (l *jsonListValue) Get(index ref.Value) ref.Value {
 	return NativeToValue(elem)
 }
 
-func (l *jsonListValue) Iterator() traits.Iterator {
+func (l *jsonListValue) Iterator() traitspb.Iterator {
 	return &jsonValueListIterator{
 		baseIterator: &baseIterator{},
 		elems:        l.GetValues(),
 		len:          len(l.GetValues())}
 }
 
-func (l *jsonListValue) Size() ref.Value {
+func (l *jsonListValue) Size() refpb.Value {
 	return Int(len(l.GetValues()))
 }
 
-func (l *jsonListValue) Type() ref.Type {
+func (l *jsonListValue) Type() refpb.Type {
 	return ListType
 }
 
@@ -165,11 +166,11 @@ type jsonValueListIterator struct {
 	len    int
 }
 
-func (it *jsonValueListIterator) HasNext() ref.Value {
+func (it *jsonValueListIterator) HasNext() refpb.Value {
 	return Bool(it.cursor < it.len)
 }
 
-func (it *jsonValueListIterator) Next() ref.Value {
+func (it *jsonValueListIterator) Next() refpb.Value {
 	if it.HasNext() == True {
 		index := it.cursor
 		it.cursor += 1
