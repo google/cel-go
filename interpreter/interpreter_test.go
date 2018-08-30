@@ -131,7 +131,7 @@ func TestInterpreter_ConstantReturnValue(t *testing.T) {
 	i := interpreter.NewInterpretable(prg)
 	res, _ := i.Eval(NewActivation(map[string]interface{}{}))
 	if int64(res.(types.Int)) != int64(1) {
-		t.Error("Got '%v', wanted 1", res)
+		t.Errorf("Got '%v', wanted 1", res)
 	}
 }
 
