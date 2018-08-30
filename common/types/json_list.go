@@ -94,6 +94,9 @@ func (l *jsonListValue) ConvertToNative(typeDesc reflect.Type) (interface{}, err
 		if reflect.TypeOf(l).Implements(typeDesc) {
 			return l, nil
 		}
+		if refType == anyValueType {
+			return ptypes.MarshalAny(l.Value().(proto.Message))
+		}
 	}
 	return nil, fmt.Errorf("no conversion found from list type to native type."+
 		" list elem: google.protobuf.Value, native type: %v", typeDesc)

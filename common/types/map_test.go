@@ -39,7 +39,7 @@ func TestBaseMap_ConvertToNative_Error(t *testing.T) {
 		"nested": {"1": -1.0}})
 	val, err := mapValue.ConvertToNative(reflect.TypeOf(""))
 	if err == nil {
-		t.Error("Got '%v', expected error", val)
+		t.Errorf("Got '%v', expected error", val)
 	}
 }
 

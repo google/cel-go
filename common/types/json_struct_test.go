@@ -54,7 +54,7 @@ func TestJsonStruct_ConvertToNative_Json(t *testing.T) {
 	}
 	if !proto.Equal(val.(proto.Message),
 		&structpb.Value{Kind: &structpb.Value_StructValue{structVal}}) {
-		t.Error("Got '%v', expected '%v'", val, structVal)
+		t.Errorf("Got '%v', expected '%v'", val, structVal)
 	}
 
 	strVal, err := mapVal.ConvertToNative(jsonStructType)
@@ -62,7 +62,7 @@ func TestJsonStruct_ConvertToNative_Json(t *testing.T) {
 		t.Error(err)
 	}
 	if !proto.Equal(strVal.(proto.Message), structVal) {
-		t.Error("Got '%v', expected '%v'", strVal, structVal)
+		t.Errorf("Got '%v', expected '%v'", strVal, structVal)
 	}
 }
 
@@ -81,7 +81,7 @@ func TestJsonStruct_ConvertToNative_Any(t *testing.T) {
 		t.Error("Failed to unmarshal any")
 	}
 	if !proto.Equal(unpackedAny.Message, mapVal.Value().(proto.Message)) {
-		t.Error("Messages were not equal, got '%v'", unpackedAny.Message)
+		t.Errorf("Messages were not equal, got '%v'", unpackedAny.Message)
 	}
 }
 
