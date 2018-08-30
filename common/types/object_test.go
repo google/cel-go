@@ -67,7 +67,7 @@ func TestProtoObj_ConvertToNative(t *testing.T) {
 		t.Error(err)
 	}
 	if !proto.Equal(val.(proto.Message), pbMessage) {
-		t.Error("Messages were not equal, expect '%v', got '%v'", objVal.Value(), pbMessage)
+		t.Errorf("Messages were not equal, expect '%v', got '%v'", objVal.Value(), pbMessage)
 	}
 
 	// google.protobuf.Any
@@ -80,6 +80,6 @@ func TestProtoObj_ConvertToNative(t *testing.T) {
 		NewErr("Failed to unmarshal any")
 	}
 	if !proto.Equal(unpackedAny.Message, objVal.Value().(proto.Message)) {
-		t.Error("Messages were not equal, expect '%v', got '%v'", objVal.Value(), unpackedAny.Message)
+		t.Errorf("Messages were not equal, expect '%v', got '%v'", objVal.Value(), unpackedAny.Message)
 	}
 }

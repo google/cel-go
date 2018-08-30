@@ -275,7 +275,7 @@ func RefValueToValue(res ref.Value) (*value.Value, error) {
 		return &value.Value{
 			Kind: &value.Value_ObjectValue{any}}, nil
 	}
-	return nil, status.New(codes.InvalidArgument, "unknown ref.Value type").Err()
+	// return nil, status.New(codes.InvalidArgument, "unknown ref.Value type").Err()
 }
 
 func ExprValueToRefValue(ev *eval.ExprValue) (ref.Value, error) {

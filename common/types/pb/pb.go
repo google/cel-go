@@ -90,7 +90,6 @@ func describeFileInternal(fileDesc *descpb.FileDescriptorProto) (*FileDescriptio
 			nestedDesc, err := fileDescriptor(dep)
 			if err != nil {
 				panic(err)
-				return nil, err
 			}
 			describeFileInternal(nestedDesc)
 		}
