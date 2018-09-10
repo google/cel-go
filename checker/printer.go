@@ -16,12 +16,12 @@ package checker
 
 import (
 	"github.com/google/cel-go/common/debug"
-	"github.com/google/cel-spec/proto/checked/v1/checked"
+	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
 	expr "github.com/google/cel-spec/proto/v1/syntax"
 )
 
 type semanticAdorner struct {
-	checks *checked.CheckedExpr
+	checks *checkedpb.CheckedExpr
 }
 
 var _ debug.DebugAdorner = &semanticAdorner{}
@@ -62,7 +62,7 @@ func (a *semanticAdorner) GetMetadata(elem interface{}) string {
 	return result
 }
 
-func print(e *expr.Expr, checks *checked.CheckedExpr) string {
+func print(e *expr.Expr, checks *checkedpb.CheckedExpr) string {
 	a := &semanticAdorner{checks: checks}
 	return debug.ToAdornedDebugString(e, a)
 }

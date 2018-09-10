@@ -21,7 +21,7 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/parser"
-	"github.com/google/cel-spec/proto/checked/v1/checked"
+	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
 	expr "github.com/google/cel-spec/proto/v1/syntax"
 )
 
@@ -55,18 +55,18 @@ func NewStandardEnv(packager packages.Packager,
 	return e
 }
 
-func (e *Env) Add(decls ...*checked.Decl) {
+func (e *Env) Add(decls ...*checkedpb.Decl) {
 	for _, decl := range decls {
 		switch decl.DeclKind.(type) {
-		case *checked.Decl_Ident:
+		case *checkedpb.Decl_Ident:
 			e.addIdent(decl)
-		case *checked.Decl_Function:
+		case *checkedpb.Decl_Function:
 			e.addFunction(decl)
 		}
 	}
 }
 
-func (e *Env) addOverload(f *checked.Decl, overload *checked.Decl_FunctionDecl_Overload) {
+func (e *Env) addOverload(f *checkedpb.Decl, overload *checkedpb.Decl_FunctionDecl_Overload) {
 	function := f.GetFunction()
 	emptyMappings := newMapping()
 	overloadFunction := decls.NewFunctionType(overload.GetResultType(),
@@ -96,7 +96,7 @@ func (e *Env) addOverload(f *checked.Decl, overload *checked.Decl_FunctionDecl_O
 	function.Overloads = append(function.GetOverloads(), overload)
 }
 
-func (e *Env) addFunction(decl *checked.Decl) {
+func (e *Env) addFunction(decl *checkedpb.Decl) {
 	current := e.declarations.FindFunction(decl.Name)
 	if current == nil {
 		//Add the function declaration without overloads and check the overloads below.
@@ -109,7 +109,7 @@ func (e *Env) addFunction(decl *checked.Decl) {
 	}
 }
 
-func (e *Env) addIdent(decl *checked.Decl) {
+func (e *Env) addIdent(decl *checkedpb.Decl) {
 	current := e.declarations.FindIdentInScope(decl.Name)
 	if current != nil {
 		panic("ident already exists")
@@ -117,7 +117,7 @@ func (e *Env) addIdent(decl *checked.Decl) {
 	e.declarations.AddIdent(decl)
 }
 
-func (e *Env) LookupIdent(typeName string) *checked.Decl {
+func (e *Env) LookupIdent(typeName string) *checkedpb.Decl {
 	for _, candidate := range e.packager.ResolveCandidateNames(typeName) {
 		if ident := e.declarations.FindIdent(candidate); ident != nil {
 			return ident
@@ -147,7 +147,7 @@ func (e *Env) LookupIdent(typeName string) *checked.Decl {
 	return nil
 }
 
-func (e *Env) LookupFunction(typeName string) *checked.Decl {
+func (e *Env) LookupFunction(typeName string) *checkedpb.Decl {
 	for _, candidate := range e.packager.ResolveCandidateNames(typeName) {
 		if fn := e.declarations.FindFunction(candidate); fn != nil {
 			return fn
