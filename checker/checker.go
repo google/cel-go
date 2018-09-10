@@ -24,7 +24,7 @@ import (
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-spec/proto/checked/v1/checked"
+	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
 	expr "github.com/google/cel-spec/proto/v1/syntax"
 )
 
@@ -34,30 +34,30 @@ type checker struct {
 	freeTypeVarCounter int
 	sourceInfo         *expr.SourceInfo
 
-	types      map[int64]*checked.Type
-	references map[int64]*checked.Reference
+	types      map[int64]*checkedpb.Type
+	references map[int64]*checkedpb.Reference
 }
 
-func Check(parsedExpr *expr.ParsedExpr, env *Env) *checked.CheckedExpr {
+func Check(parsedExpr *expr.ParsedExpr, env *Env) *checkedpb.CheckedExpr {
 	c := checker{
 		env:                env,
 		mappings:           newMapping(),
 		freeTypeVarCounter: 0,
 		sourceInfo:         parsedExpr.GetSourceInfo(),
 
-		types:      make(map[int64]*checked.Type),
-		references: make(map[int64]*checked.Reference),
+		types:      make(map[int64]*checkedpb.Type),
+		references: make(map[int64]*checkedpb.Reference),
 	}
 	c.check(parsedExpr.GetExpr())
 
 	// Walk over the final type map substituting any type parameters either by their bound value or
 	// by DYN.
-	m := make(map[int64]*checked.Type)
+	m := make(map[int64]*checkedpb.Type)
 	for k, v := range c.types {
 		m[k] = substitute(c.mappings, v, true)
 	}
 
-	return &checked.CheckedExpr{
+	return &checkedpb.CheckedExpr{
 		Expr:         parsedExpr.GetExpr(),
 		SourceInfo:   parsedExpr.GetSourceInfo(),
 		TypeMap:      m,
@@ -248,9 +248,9 @@ func (c *checker) checkCall(e *expr.Expr) {
 
 func (c *checker) resolveOverload(
 	loc common.Location,
-	fn *checked.Decl, target *expr.Expr, args []*expr.Expr) *overloadResolution {
+	fn *checkedpb.Decl, target *expr.Expr, args []*expr.Expr) *overloadResolution {
 
-	var argTypes []*checked.Type
+	var argTypes []*checkedpb.Type
 	if target != nil {
 		argTypes = append(argTypes, c.getType(target))
 	}
@@ -258,8 +258,8 @@ func (c *checker) resolveOverload(
 		argTypes = append(argTypes, c.getType(arg))
 	}
 
-	var resultType *checked.Type = nil
-	var checkedRef *checked.Reference = nil
+	var resultType *checkedpb.Type = nil
+	var checkedRef *checkedpb.Reference = nil
 	for _, overload := range fn.GetFunction().Overloads {
 		if (target == nil && overload.IsInstanceFunction) ||
 			(target != nil && !overload.IsInstanceFunction) {
@@ -310,7 +310,7 @@ func (c *checker) resolveOverload(
 
 func (c *checker) checkCreateList(e *expr.Expr) {
 	create := e.GetListExpr()
-	var elemType *checked.Type = nil
+	var elemType *checkedpb.Type = nil
 	for _, e := range create.Elements {
 		c.check(e)
 		elemType = c.joinTypes(c.location(e), elemType, c.getType(e))
@@ -333,8 +333,8 @@ func (c *checker) checkCreateStruct(e *expr.Expr) {
 
 func (c *checker) checkCreateMap(e *expr.Expr) {
 	mapVal := e.GetStructExpr()
-	var keyType *checked.Type = nil
-	var valueType *checked.Type = nil
+	var keyType *checkedpb.Type = nil
+	var valueType *checkedpb.Type = nil
 	for _, ent := range mapVal.GetEntries() {
 		key := ent.GetMapKey()
 		c.check(key)
@@ -400,7 +400,7 @@ func (c *checker) checkComprehension(e *expr.Expr) {
 	c.check(comp.AccuInit)
 	accuType := c.getType(comp.AccuInit)
 	rangeType := c.getType(comp.IterRange)
-	var varType *checked.Type
+	var varType *checkedpb.Type
 
 	switch kindOf(rangeType) {
 	case kindList:
@@ -431,7 +431,7 @@ func (c *checker) checkComprehension(e *expr.Expr) {
 }
 
 // Checks compatibility of joined types, and returns the most general common type.
-func (c *checker) joinTypes(loc common.Location, previous *checked.Type, current *checked.Type) *checked.Type {
+func (c *checker) joinTypes(loc common.Location, previous *checkedpb.Type, current *checkedpb.Type) *checkedpb.Type {
 	if previous == nil {
 		return current
 	}
@@ -442,13 +442,13 @@ func (c *checker) joinTypes(loc common.Location, previous *checked.Type, current
 	return mostGeneral(previous, current)
 }
 
-func (c *checker) newTypeVar() *checked.Type {
+func (c *checker) newTypeVar() *checkedpb.Type {
 	id := c.freeTypeVarCounter
 	c.freeTypeVarCounter++
 	return decls.NewTypeParamType(fmt.Sprintf("_var%d", id))
 }
 
-func (c *checker) isAssignable(t1 *checked.Type, t2 *checked.Type) bool {
+func (c *checker) isAssignable(t1 *checkedpb.Type, t2 *checkedpb.Type) bool {
 	subs := isAssignable(c.mappings, t1, t2)
 	if subs != nil {
 		c.mappings = subs
@@ -458,7 +458,7 @@ func (c *checker) isAssignable(t1 *checked.Type, t2 *checked.Type) bool {
 	return false
 }
 
-func (c *checker) isAssignableList(l1 []*checked.Type, l2 []*checked.Type) bool {
+func (c *checker) isAssignableList(l1 []*checkedpb.Type, l2 []*checkedpb.Type) bool {
 	subs := isAssignableList(c.mappings, l1, l2)
 	if subs != nil {
 		c.mappings = subs
@@ -468,7 +468,7 @@ func (c *checker) isAssignableList(l1 []*checked.Type, l2 []*checked.Type) bool 
 	return false
 }
 
-func (c *checker) lookupFieldType(l common.Location, messageType *checked.Type, fieldName string) (*ref.FieldType, bool) {
+func (c *checker) lookupFieldType(l common.Location, messageType *checkedpb.Type, fieldName string) (*ref.FieldType, bool) {
 	if _, found := c.env.typeProvider.FindType(messageType.GetMessageType()); !found {
 		// This should not happen, anyway, report an error.
 		c.env.errors.unexpectedFailedResolution(l, messageType.GetMessageType())
@@ -483,36 +483,36 @@ func (c *checker) lookupFieldType(l common.Location, messageType *checked.Type, 
 	return nil, false
 }
 
-func (c *checker) setType(e *expr.Expr, t *checked.Type) {
+func (c *checker) setType(e *expr.Expr, t *checkedpb.Type) {
 	if old, found := c.types[e.Id]; found && !proto.Equal(old, t) {
 		panic(fmt.Sprintf("(Incompatible) Type already exists for expression: %v(%d) old:%v, new:%v", e, e.Id, old, t))
 	}
 	c.types[e.Id] = t
 }
 
-func (c *checker) getType(e *expr.Expr) *checked.Type {
+func (c *checker) getType(e *expr.Expr) *checkedpb.Type {
 	return c.types[e.Id]
 }
 
-func (c *checker) setReference(e *expr.Expr, r *checked.Reference) {
+func (c *checker) setReference(e *expr.Expr, r *checkedpb.Reference) {
 	if old, found := c.references[e.Id]; found && !proto.Equal(old, r) {
 		panic(fmt.Sprintf("Reference already exists for expression: %v(%d) old:%v, new:%v", e, e.Id, old, r))
 	}
 	c.references[e.Id] = r
 }
 
-func (c *checker) assertType(e *expr.Expr, t *checked.Type) {
+func (c *checker) assertType(e *expr.Expr, t *checkedpb.Type) {
 	if !c.isAssignable(t, c.getType(e)) {
 		c.env.errors.typeMismatch(c.location(e), t, c.getType(e))
 	}
 }
 
 type overloadResolution struct {
-	Reference *checked.Reference
-	Type      *checked.Type
+	Reference *checkedpb.Reference
+	Type      *checkedpb.Type
 }
 
-func newResolution(checkedRef *checked.Reference, t *checked.Type) *overloadResolution {
+func newResolution(checkedRef *checkedpb.Reference, t *checkedpb.Type) *overloadResolution {
 	return &overloadResolution{
 		Reference: checkedRef,
 		Type:      t,
@@ -542,12 +542,12 @@ func (c *checker) locationById(id int64) common.Location {
 	return common.NoLocation
 }
 
-func newIdentReference(name string, value *expr.Literal) *checked.Reference {
-	return &checked.Reference{Name: name, Value: value}
+func newIdentReference(name string, value *expr.Literal) *checkedpb.Reference {
+	return &checkedpb.Reference{Name: name, Value: value}
 }
 
-func newFunctionReference(overloads ...string) *checked.Reference {
-	return &checked.Reference{OverloadId: overloads}
+func newFunctionReference(overloads ...string) *checkedpb.Reference {
+	return &checkedpb.Reference{OverloadId: overloads}
 }
 
 // Attempt to interpret an expression as a qualified name. This traverses select and getIdent

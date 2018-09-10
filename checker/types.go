@@ -20,7 +20,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cel-go/checker/decls"
-	"github.com/google/cel-spec/proto/checked/v1/checked"
+	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
 )
 
 const (
@@ -32,7 +32,7 @@ const (
 	kindWellKnown
 	kindWrapper
 	kindNull
-	kindAbstract // TODO: Update the checked.proto to include abstract
+	kindAbstract // TODO: Update the checkedpb.proto to include abstract
 	kindType
 	kindList
 	kindMap
@@ -41,13 +41,13 @@ const (
 )
 
 // FormatCheckedType converts a type message into a string representation.
-func FormatCheckedType(t *checked.Type) string {
+func FormatCheckedType(t *checkedpb.Type) string {
 	switch kindOf(t) {
 	case kindPrimitive:
 		switch t.GetPrimitive() {
-		case checked.Type_UINT64:
+		case checkedpb.Type_UINT64:
 			return "uint"
-		case checked.Type_INT64:
+		case checkedpb.Type_INT64:
 			return "int"
 		}
 		return strings.Trim(strings.ToLower(t.GetPrimitive().String()), " ")
@@ -85,7 +85,7 @@ func FormatCheckedType(t *checked.Type) string {
  * Check whether one type is equal or less specific than the other one. A type is less specific if
  * it matches the other type using the DYN type.
  */
-func isEqualOrLessSpecific(t1 *checked.Type, t2 *checked.Type) bool {
+func isEqualOrLessSpecific(t1 *checkedpb.Type, t2 *checkedpb.Type) bool {
 	kind1, kind2 := kindOf(t1), kindOf(t2)
 	if kind1 == kindDyn || kind1 == kindTypeParam {
 		return true
@@ -127,7 +127,7 @@ func isEqualOrLessSpecific(t1 *checked.Type, t2 *checked.Type) bool {
 	}
 }
 
-func internalIsAssignableList(m *mapping, l1 []*checked.Type, l2 []*checked.Type) bool {
+func internalIsAssignableList(m *mapping, l1 []*checkedpb.Type, l2 []*checkedpb.Type) bool {
 	if len(l1) != len(l2) {
 		return false
 	}
@@ -139,7 +139,7 @@ func internalIsAssignableList(m *mapping, l1 []*checked.Type, l2 []*checked.Type
 	return true
 }
 
-func internalIsAssignable(m *mapping, t1 *checked.Type, t2 *checked.Type) bool {
+func internalIsAssignable(m *mapping, t1 *checkedpb.Type, t2 *checkedpb.Type) bool {
 	// Process type parameters.
 	kind1, kind2 := kindOf(t1), kindOf(t2)
 	if kind2 == kindTypeParam {
@@ -201,8 +201,8 @@ func internalIsAssignable(m *mapping, t1 *checked.Type, t2 *checked.Type) bool {
 		m1 := t1.GetMapType()
 		m2 := t2.GetMapType()
 		return internalIsAssignableList(m,
-			[]*checked.Type{m1.KeyType, m1.ValueType},
-			[]*checked.Type{m2.KeyType, m2.ValueType})
+			[]*checkedpb.Type{m1.KeyType, m1.ValueType},
+			[]*checkedpb.Type{m2.KeyType, m2.ValueType})
 	case kindFunction:
 		fn1 := t1.GetFunction()
 		fn2 := t2.GetFunction()
@@ -218,7 +218,7 @@ func internalIsAssignable(m *mapping, t1 *checked.Type, t2 *checked.Type) bool {
 	}
 }
 
-func isAssignable(m *mapping, t1 *checked.Type, t2 *checked.Type) *mapping {
+func isAssignable(m *mapping, t1 *checkedpb.Type, t2 *checkedpb.Type) *mapping {
 	mCopy := m.copy()
 	if internalIsAssignable(mCopy, t1, t2) {
 		return mCopy
@@ -226,7 +226,7 @@ func isAssignable(m *mapping, t1 *checked.Type, t2 *checked.Type) *mapping {
 	return nil
 }
 
-func isAssignableList(m *mapping, l1 []*checked.Type, l2 []*checked.Type) *mapping {
+func isAssignableList(m *mapping, l1 []*checkedpb.Type, l2 []*checkedpb.Type) *mapping {
 	mCopy := m.copy()
 	if internalIsAssignableList(mCopy, l1, l2) {
 		return mCopy
@@ -243,41 +243,41 @@ func isNullable(kind int) bool {
 	}
 }
 
-func kindOf(t *checked.Type) int {
+func kindOf(t *checkedpb.Type) int {
 	if t == nil || t.TypeKind == nil {
 		return kindUnknown
 	}
 	switch t.TypeKind.(type) {
-	case *checked.Type_Error:
+	case *checkedpb.Type_Error:
 		return kindError
-	case *checked.Type_Function:
+	case *checkedpb.Type_Function:
 		return kindFunction
-	case *checked.Type_Dyn:
+	case *checkedpb.Type_Dyn:
 		return kindDyn
-	case *checked.Type_Primitive:
+	case *checkedpb.Type_Primitive:
 		return kindPrimitive
-	case *checked.Type_WellKnown:
+	case *checkedpb.Type_WellKnown:
 		return kindWellKnown
-	case *checked.Type_Wrapper:
+	case *checkedpb.Type_Wrapper:
 		return kindWrapper
-	case *checked.Type_Null:
+	case *checkedpb.Type_Null:
 		return kindNull
-	case *checked.Type_Type:
+	case *checkedpb.Type_Type:
 		return kindType
-	case *checked.Type_ListType_:
+	case *checkedpb.Type_ListType_:
 		return kindList
-	case *checked.Type_MapType_:
+	case *checkedpb.Type_MapType_:
 		return kindMap
-	case *checked.Type_MessageType:
+	case *checkedpb.Type_MessageType:
 		return kindObject
-	case *checked.Type_TypeParam:
+	case *checkedpb.Type_TypeParam:
 		return kindTypeParam
 	}
 	return kindUnknown
 }
 
 /** Returns the more general of two types which are known to unify. */
-func mostGeneral(t1 *checked.Type, t2 *checked.Type) *checked.Type {
+func mostGeneral(t1 *checkedpb.Type, t2 *checkedpb.Type) *checkedpb.Type {
 	if isEqualOrLessSpecific(t1, t2) {
 		return t1
 	}
@@ -288,7 +288,7 @@ func mostGeneral(t1 *checked.Type, t2 *checked.Type) *checked.Type {
  * Apply substitution to given type, replacing all direct and indirect occurrences of bound type
  * parameters. Unbound type parameters are replaced by DYN if typeParamToDyn is true.
  */
-func substitute(m *mapping, t *checked.Type, typeParamToDyn bool) *checked.Type {
+func substitute(m *mapping, t *checkedpb.Type, typeParamToDyn bool) *checkedpb.Type {
 	if tSub, found := m.find(t); found {
 		return substitute(m, tSub, typeParamToDyn)
 	}
@@ -311,7 +311,7 @@ func substitute(m *mapping, t *checked.Type, typeParamToDyn bool) *checked.Type 
 	case kindFunction:
 		fn := t.GetFunction()
 		rt := substitute(m, fn.ResultType, typeParamToDyn)
-		args := make([]*checked.Type, len(fn.ArgTypes))
+		args := make([]*checkedpb.Type, len(fn.ArgTypes))
 		for i, a := range fn.ArgTypes {
 			args[i] = substitute(m, a, typeParamToDyn)
 		}
@@ -321,7 +321,7 @@ func substitute(m *mapping, t *checked.Type, typeParamToDyn bool) *checked.Type 
 	}
 }
 
-func notReferencedIn(t *checked.Type, withinType *checked.Type) bool {
+func notReferencedIn(t *checkedpb.Type, withinType *checkedpb.Type) bool {
 	if proto.Equal(t, withinType) {
 		return false
 	}
@@ -348,6 +348,6 @@ func notReferencedIn(t *checked.Type, withinType *checked.Type) bool {
 	}
 }
 
-func typeKey(t *checked.Type) string {
+func typeKey(t *checkedpb.Type) string {
 	return fmt.Sprintf("%v:%v", kindOf(t), t.String())
 }

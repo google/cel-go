@@ -10,7 +10,7 @@ import (
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/test"
-	"github.com/google/cel-spec/proto/checked/v1/checked"
+	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
 	"github.com/google/cel-spec/proto/v1/cel_service"
 	"github.com/google/cel-spec/proto/v1/eval"
 	"github.com/google/cel-spec/proto/v1/syntax"
@@ -185,8 +185,8 @@ func TestCheck(t *testing.T) {
 		t.Fatal("No type for top level expression", res)
 	}
 	switch tp.TypeKind.(type) {
-	case *checked.Type_Primitive:
-		if tp.GetPrimitive() != checked.Type_INT64 {
+	case *checkedpb.Type_Primitive:
+		if tp.GetPrimitive() != checkedpb.Type_INT64 {
 			t.Error("Bad top-level type", tp)
 		}
 	default:
@@ -236,7 +236,7 @@ func TestFullUp(t *testing.T) {
 
 	creq := cel_service.CheckRequest{
 		ParsedExpr: parsedExpr,
-		TypeEnv: []*checked.Decl{
+		TypeEnv: []*checkedpb.Decl{
 			decls.NewIdent("x", decls.Int, nil),
 			decls.NewIdent("y", decls.Int, nil),
 		},
@@ -257,8 +257,8 @@ func TestFullUp(t *testing.T) {
 		t.Fatal("No type for top level expression", cres)
 	}
 	switch tp.TypeKind.(type) {
-	case *checked.Type_Primitive:
-		if tp.GetPrimitive() != checked.Type_INT64 {
+	case *checkedpb.Type_Primitive:
+		if tp.GetPrimitive() != checkedpb.Type_INT64 {
 			t.Error("Bad top-level type", tp)
 		}
 	default:
@@ -348,8 +348,8 @@ func expectEvalTrue(t *testing.T, source string) {
 		t.Fatal("No type for top level expression", cres)
 	}
 	switch topType.TypeKind.(type) {
-	case *checked.Type_Primitive:
-		if topType.GetPrimitive() != checked.Type_BOOL {
+	case *checkedpb.Type_Primitive:
+		if topType.GetPrimitive() != checkedpb.Type_BOOL {
 			t.Error("Bad top-level type", topType)
 		}
 	default:

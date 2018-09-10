@@ -17,7 +17,7 @@ package interpreter
 import (
 	"fmt"
 	"github.com/google/cel-go/common"
-	"github.com/google/cel-spec/proto/checked/v1/checked"
+	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
 	expr "github.com/google/cel-spec/proto/v1/syntax"
 	"strings"
 )
@@ -70,7 +70,7 @@ type exprProgram struct {
 }
 
 // NewCheckedProgram creates a Program from a checked CEL expression.
-func NewCheckedProgram(c *checked.CheckedExpr) Program {
+func NewCheckedProgram(c *checkedpb.CheckedExpr) Program {
 	// TODO: take advantage of the type-check information.
 	return NewProgram(c.Expr, c.SourceInfo)
 }

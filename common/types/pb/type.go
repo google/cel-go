@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
-	"github.com/google/cel-spec/proto/checked/v1/checked"
+	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
 	"reflect"
 	"strings"
 )
@@ -177,21 +177,21 @@ type FieldDescription struct {
 }
 
 // CheckedType returns the type-definition used at type-check time.
-func (fd *FieldDescription) CheckedType() *checked.Type {
+func (fd *FieldDescription) CheckedType() *checkedpb.Type {
 	if fd.IsMap() {
 		td, _ := DescribeType(fd.TypeName())
 		key := td.getFieldsAtIndex(0)[0]
 		val := td.getFieldsAtIndex(1)[0]
-		return &checked.Type{
-			TypeKind: &checked.Type_MapType_{
-				MapType: &checked.Type_MapType{
+		return &checkedpb.Type{
+			TypeKind: &checkedpb.Type_MapType_{
+				MapType: &checkedpb.Type_MapType{
 					KeyType:   key.typeDefToType(),
 					ValueType: val.typeDefToType()}}}
 	}
 	if fd.IsRepeated() {
-		return &checked.Type{
-			TypeKind: &checked.Type_ListType_{
-				ListType: &checked.Type_ListType{
+		return &checkedpb.Type{
+			TypeKind: &checkedpb.Type_ListType_{
+				ListType: &checkedpb.Type_ListType{
 					ElemType: fd.typeDefToType()}}}
 	}
 	return fd.typeDefToType()
@@ -278,7 +278,7 @@ func (fd *FieldDescription) TypeName() string {
 	return sanitizeProtoName(fd.desc.GetTypeName())
 }
 
-func (fd *FieldDescription) typeDefToType() *checked.Type {
+func (fd *FieldDescription) typeDefToType() *checkedpb.Type {
 	if fd.IsMessage() {
 		if wk, found := CheckedWellKnowns[fd.TypeName()]; found {
 			return wk
@@ -294,22 +294,22 @@ func (fd *FieldDescription) typeDefToType() *checked.Type {
 	return CheckedPrimitives[fd.desc.GetType()]
 }
 
-func checkedMessageType(name string) *checked.Type {
-	return &checked.Type{
-		TypeKind: &checked.Type_MessageType{MessageType: name}}
+func checkedMessageType(name string) *checkedpb.Type {
+	return &checkedpb.Type{
+		TypeKind: &checkedpb.Type_MessageType{MessageType: name}}
 }
 
-func checkedPrimitive(primitive checked.Type_PrimitiveType) *checked.Type {
-	return &checked.Type{
-		TypeKind: &checked.Type_Primitive{Primitive: primitive}}
+func checkedPrimitive(primitive checkedpb.Type_PrimitiveType) *checkedpb.Type {
+	return &checkedpb.Type{
+		TypeKind: &checkedpb.Type_Primitive{Primitive: primitive}}
 }
 
-func checkedWellKnown(wellKnown checked.Type_WellKnownType) *checked.Type {
-	return &checked.Type{
-		TypeKind: &checked.Type_WellKnown{WellKnown: wellKnown}}
+func checkedWellKnown(wellKnown checkedpb.Type_WellKnownType) *checkedpb.Type {
+	return &checkedpb.Type{
+		TypeKind: &checkedpb.Type_WellKnown{WellKnown: wellKnown}}
 }
 
-func checkedWrap(t *checked.Type) *checked.Type {
-	return &checked.Type{
-		TypeKind: &checked.Type_Wrapper{Wrapper: t.GetPrimitive()}}
+func checkedWrap(t *checkedpb.Type) *checkedpb.Type {
+	return &checkedpb.Type{
+		TypeKind: &checkedpb.Type_Wrapper{Wrapper: t.GetPrimitive()}}
 }
