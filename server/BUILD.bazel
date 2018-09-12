@@ -30,7 +30,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = ["server_test.go"],
-    data = [":server_bin"],
+    data = [":cel_server"],
     deps = [
         ":go_default_library",
         "//checker/decls:go_default_library",
@@ -47,7 +47,7 @@ go_test(
 )
 
 go_binary(
-    name = "server_bin",
+    name = "cel_server",
     srcs = ["main.go"],
     deps = [
         "//server:go_default_library",
