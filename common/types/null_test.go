@@ -17,7 +17,7 @@ package types
 import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/any"
+	anypb "github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/struct"
 	"reflect"
 	"testing"
@@ -43,7 +43,7 @@ func TestNull_ConvertToNative(t *testing.T) {
 		t.Error("Fail to convert Null to any.")
 	}
 	data := ptypes.DynamicAny{}
-	if ptypes.UnmarshalAny(val.(*any.Any), &data) != nil {
+	if ptypes.UnmarshalAny(val.(*anypb.Any), &data) != nil {
 		t.Error("Fail to unmarshal any.")
 	}
 	if !proto.Equal(expected, data.Message) {

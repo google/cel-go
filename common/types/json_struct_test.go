@@ -17,7 +17,7 @@ package types
 import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/any"
+	anypb "github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/struct"
 	"reflect"
 	"testing"
@@ -77,7 +77,7 @@ func TestJsonStruct_ConvertToNative_Any(t *testing.T) {
 		t.Error(err)
 	}
 	unpackedAny := ptypes.DynamicAny{}
-	if ptypes.UnmarshalAny(anyVal.(*any.Any), &unpackedAny) != nil {
+	if ptypes.UnmarshalAny(anyVal.(*anypb.Any), &unpackedAny) != nil {
 		t.Error("Failed to unmarshal any")
 	}
 	if !proto.Equal(unpackedAny.Message, mapVal.Value().(proto.Message)) {

@@ -17,7 +17,7 @@ package types
 import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/any"
+	anypb "github.com/golang/protobuf/ptypes/any"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 	"github.com/google/cel-go/test"
@@ -76,7 +76,7 @@ func TestProtoObj_ConvertToNative(t *testing.T) {
 		t.Error(err)
 	}
 	unpackedAny := ptypes.DynamicAny{}
-	if ptypes.UnmarshalAny(anyVal.(*any.Any), &unpackedAny) != nil {
+	if ptypes.UnmarshalAny(anyVal.(*anypb.Any), &unpackedAny) != nil {
 		NewErr("Failed to unmarshal any")
 	}
 	if !proto.Equal(unpackedAny.Message, objVal.Value().(proto.Message)) {
