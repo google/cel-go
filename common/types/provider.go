@@ -18,7 +18,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	anypb "github.com/golang/protobuf/ptypes/any"
-	"github.com/golang/protobuf/ptypes/duration"
+	dpb "github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/google/cel-go/common/types/pb"
@@ -198,8 +198,8 @@ func NativeToValue(value interface{}) ref.Value {
 		return Bytes(value.([]byte))
 	case []string:
 		return NewStringList(value.([]string))
-	case *duration.Duration:
-		return Duration{value.(*duration.Duration)}
+	case *dpb.Duration:
+		return Duration{value.(*dpb.Duration)}
 	case *structpb.ListValue:
 		return NewJsonList(value.(*structpb.ListValue))
 	case structpb.NullValue:

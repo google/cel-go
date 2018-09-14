@@ -17,7 +17,7 @@ package types
 import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/duration"
+	dpb "github.com/golang/protobuf/ptypes/duration"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 	"reflect"
@@ -203,7 +203,7 @@ func TestConcatList_ConvertToNative_ElementConversionError(t *testing.T) {
 	// Duration is serializable to a string form of json, but there is no
 	// concept of a duration literal within CEL, so the serialization to string
 	// is not supported here which should cause the conversion to json to fail.
-	listB := NewDynamicList([]*duration.Duration{{Seconds: 100}})
+	listB := NewDynamicList([]*dpb.Duration{{Seconds: 100}})
 	listConcat := listA.Add(listB)
 	json, err := listConcat.ConvertToNative(jsonValueType)
 	if err == nil {
@@ -213,7 +213,7 @@ func TestConcatList_ConvertToNative_ElementConversionError(t *testing.T) {
 
 func TestConcatList_ConvertToType(t *testing.T) {
 	listA := NewDynamicList([]float32{1.0, 2.0})
-	listB := NewDynamicList([]*duration.Duration{{Seconds: 100}})
+	listB := NewDynamicList([]*dpb.Duration{{Seconds: 100}})
 	list := listA.Add(listB)
 	if list.ConvertToType(ListType) != list {
 		t.Error("List conversion to list failed.")
