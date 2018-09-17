@@ -16,7 +16,7 @@ package types
 
 import (
 	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/duration"
+	dpb "github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"reflect"
@@ -101,7 +101,7 @@ func TestString_ConvertToType(t *testing.T) {
 		t.Error("String could not be converted to timestamp")
 	}
 	if !String("1h5s").ConvertToType(DurationType).
-		Equal(Duration{&duration.Duration{Seconds: 3605}}).(Bool) {
+		Equal(Duration{&dpb.Duration{Seconds: 3605}}).(Bool) {
 		t.Error("String could not be converted to duration")
 	}
 	if !String("2.5").ConvertToType(DoubleType).Equal(Double(2.5)).(Bool) {

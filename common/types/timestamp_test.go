@@ -15,7 +15,7 @@
 package types
 
 import (
-	"github.com/golang/protobuf/ptypes/duration"
+	dpb "github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types/ref"
@@ -24,7 +24,7 @@ import (
 
 func TestTimestamp_Add(t *testing.T) {
 	ts := Timestamp{&timestamp.Timestamp{Seconds: 7506}}
-	val := ts.Add(Duration{&duration.Duration{Seconds: 3600, Nanos: 1000}})
+	val := ts.Add(Duration{&dpb.Duration{Seconds: 3600, Nanos: 1000}})
 	if val.ConvertToType(TypeType) != TimestampType {
 		t.Error("Could not add duration and timestamp")
 	}
@@ -39,7 +39,7 @@ func TestTimestamp_Add(t *testing.T) {
 
 func TestTimestamp_Subtract(t *testing.T) {
 	ts := Timestamp{&timestamp.Timestamp{Seconds: 7506}}
-	val := ts.Subtract(Duration{&duration.Duration{Seconds: 3600, Nanos: 1000}})
+	val := ts.Subtract(Duration{&dpb.Duration{Seconds: 3600, Nanos: 1000}})
 	if val.ConvertToType(TypeType) != TimestampType {
 		t.Error("Could not add duration and timestamp")
 	}
