@@ -20,7 +20,7 @@ import (
 	anypb "github.com/golang/protobuf/ptypes/any"
 	dpb "github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/struct"
-	"github.com/golang/protobuf/ptypes/timestamp"
+	tpb "github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/google/cel-go/common/types/pb"
 	"github.com/google/cel-go/common/types/ref"
 	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
@@ -222,8 +222,8 @@ func NativeToValue(value interface{}) ref.Value {
 		case *structpb.Value_StructValue:
 			return NativeToValue(v.GetStructValue())
 		}
-	case *timestamp.Timestamp:
-		return Timestamp{value.(*timestamp.Timestamp)}
+	case *tpb.Timestamp:
+		return Timestamp{value.(*tpb.Timestamp)}
 	case *anypb.Any:
 		val := value.(*anypb.Any)
 		unpackedAny := ptypes.DynamicAny{}
