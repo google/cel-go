@@ -18,7 +18,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	dpb "github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/struct"
-	"github.com/golang/protobuf/ptypes/timestamp"
+	tpb "github.com/golang/protobuf/ptypes/timestamp"
 	"reflect"
 	"testing"
 )
@@ -97,7 +97,7 @@ func TestString_ConvertToType(t *testing.T) {
 		t.Error("String could not be converted to uint")
 	}
 	if !String("2017-01-01T00:00:00Z").ConvertToType(TimestampType).
-		Equal(Timestamp{&timestamp.Timestamp{Seconds: 1483228800}}).(Bool) {
+		Equal(Timestamp{&tpb.Timestamp{Seconds: 1483228800}}).(Bool) {
 		t.Error("String could not be converted to timestamp")
 	}
 	if !String("1h5s").ConvertToType(DurationType).
