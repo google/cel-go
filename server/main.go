@@ -14,9 +14,12 @@ import (
 
 func main() {
 	log.Println("Server opening listening port")
-	lis, err := net.Listen("tcp", "127.0.0.1:")
+	lis, err := net.Listen("tcp4", "127.0.0.1:")
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		lis, err = net.Listen("tcp6", "[::1]:0")
+		if err != nil {
+			log.Fatalf("failed to listen: %v", err)
+		}
 	}
 	log.Println("Server opened port ", lis.Addr())
 
