@@ -47,7 +47,10 @@ func mainHelper(m *testing.M) int {
 }
 
 func setup() error {
-	globals.cmd = exec.Command("cel_server")
+	if len(os.Args) < 2 {
+		log.Fatalf("Expect binary path: %s <binary>\n", os.Args[0])
+	}
+	globals.cmd = exec.Command(os.Args[1])
 
 	out, err := globals.cmd.StdoutPipe()
 	if err != nil {

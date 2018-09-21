@@ -30,7 +30,9 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = ["server_test.go"],
+    args = ["$(location :cel_server)"],
     data = [":cel_server"],
+    rundir = ".",
     deps = [
         ":go_default_library",
         "//checker/decls:go_default_library",
