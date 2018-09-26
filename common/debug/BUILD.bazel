@@ -9,6 +9,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//common:go_default_library",
-        "@com_google_cel_spec//proto/v1:syntax_go_proto",
+        "@org_golang_google_genproto//googleapis/api/expr/v1alpha1:go_default_library",
     ],
 )

@@ -18,7 +18,7 @@ import (
 	"github.com/google/cel-go/common/debug"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/test"
-	expr "github.com/google/cel-spec/proto/v1/syntax"
+	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	"testing"
 )
 

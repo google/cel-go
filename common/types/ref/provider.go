@@ -15,7 +15,7 @@
 package ref
 
 import (
-	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
+	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 // TypeProvider specifies functions for creating new object instances and for
@@ -32,13 +32,13 @@ type TypeProvider interface {
 	// if not found.
 	//
 	// Used during type-checking only.
-	FindType(typeName string) (*checkedpb.Type, bool)
+	FindType(typeName string) (*expr.Type, bool)
 
 	// FieldFieldType returns the field type for a checked type value. Returns
 	// false if the field could not be found.
 	//
 	// Used during type-checking only.
-	FindFieldType(t *checkedpb.Type, fieldName string) (*FieldType, bool)
+	FindFieldType(t *expr.Type, fieldName string) (*FieldType, bool)
 
 	// NewValue creates a new type value from a qualified name and a map of
 	// field initializers.
@@ -59,5 +59,5 @@ type FieldType struct {
 	SupportsPresence bool
 
 	// Type of the field.
-	Type *checkedpb.Type
+	Type *expr.Type
 }

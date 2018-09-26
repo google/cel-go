@@ -18,7 +18,7 @@ import (
 	"fmt"
 
 	"github.com/google/cel-go/common/operators"
-	expr "github.com/google/cel-spec/proto/v1/syntax"
+	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 // TODO: Consider moving macros to common.

@@ -18,12 +18,12 @@ import (
 	descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/golang/protobuf/ptypes/struct"
-	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
+	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 var (
-	// CheckedPrimitives map from proto field descriptor type to checkedpb.Type.
-	CheckedPrimitives = map[descpb.FieldDescriptorProto_Type]*checkedpb.Type{
+	// CheckedPrimitives map from proto field descriptor type to expr.Type.
+	CheckedPrimitives = map[descpb.FieldDescriptorProto_Type]*expr.Type{
 		descpb.FieldDescriptorProto_TYPE_BOOL:    checkedBool,
 		descpb.FieldDescriptorProto_TYPE_BYTES:   checkedBytes,
 		descpb.FieldDescriptorProto_TYPE_DOUBLE:  checkedDouble,
@@ -38,9 +38,9 @@ var (
 		descpb.FieldDescriptorProto_TYPE_FIXED64: checkedUint,
 		descpb.FieldDescriptorProto_TYPE_STRING:  checkedString}
 
-	// CheckedWellKnowns map from qualified proto type name to checkedpb.Type for
+	// CheckedWellKnowns map from qualified proto type name to expr.Type for
 	// well-known proto types.
-	CheckedWellKnowns = map[string]*checkedpb.Type{
+	CheckedWellKnowns = map[string]*expr.Type{
 		"google.protobuf.DoubleValue": checkedWrap(checkedDouble),
 		"google.protobuf.FloatValue":  checkedWrap(checkedDouble),
 		"google.protobuf.Int64Value":  checkedWrap(checkedInt),
@@ -59,15 +59,15 @@ var (
 		"google.protobuf.Any":         checkedAny}
 
 	// common types
-	checkedBool      = checkedPrimitive(checkedpb.Type_BOOL)
-	checkedBytes     = checkedPrimitive(checkedpb.Type_BYTES)
-	checkedDouble    = checkedPrimitive(checkedpb.Type_DOUBLE)
-	checkedDyn       = &checkedpb.Type{TypeKind: &checkedpb.Type_Dyn{Dyn: &empty.Empty{}}}
-	checkedInt       = checkedPrimitive(checkedpb.Type_INT64)
-	checkedNull      = &checkedpb.Type{TypeKind: &checkedpb.Type_Null{Null: structpb.NullValue_NULL_VALUE}}
-	checkedString    = checkedPrimitive(checkedpb.Type_STRING)
-	checkedUint      = checkedPrimitive(checkedpb.Type_UINT64)
-	checkedAny       = checkedWellKnown(checkedpb.Type_ANY)
-	checkedDuration  = checkedWellKnown(checkedpb.Type_DURATION)
-	checkedTimestamp = checkedWellKnown(checkedpb.Type_TIMESTAMP)
+	checkedBool      = checkedPrimitive(expr.Type_BOOL)
+	checkedBytes     = checkedPrimitive(expr.Type_BYTES)
+	checkedDouble    = checkedPrimitive(expr.Type_DOUBLE)
+	checkedDyn       = &expr.Type{TypeKind: &expr.Type_Dyn{Dyn: &empty.Empty{}}}
+	checkedInt       = checkedPrimitive(expr.Type_INT64)
+	checkedNull      = &expr.Type{TypeKind: &expr.Type_Null{Null: structpb.NullValue_NULL_VALUE}}
+	checkedString    = checkedPrimitive(expr.Type_STRING)
+	checkedUint      = checkedPrimitive(expr.Type_UINT64)
+	checkedAny       = checkedWellKnown(expr.Type_ANY)
+	checkedDuration  = checkedWellKnown(expr.Type_DURATION)
+	checkedTimestamp = checkedWellKnown(expr.Type_TIMESTAMP)
 )

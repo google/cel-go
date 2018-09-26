@@ -22,11 +22,12 @@ import (
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/parser/gen"
-	expr "github.com/google/cel-spec/proto/v1/syntax"
+	//expr "github.com/google/cel-spec/proto/v1/syntax"
 
 	"fmt"
 	"github.com/antlr/antlr4/runtime/Go/antlr"
 	"github.com/golang/protobuf/ptypes/struct"
+	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	"reflect"
 )
 
@@ -439,8 +440,8 @@ func (p *parser) VisitBoolFalse(ctx *gen.BoolFalseContext) interface{} {
 // Visit a parse tree produced by CELParser#Null.
 func (p *parser) VisitNull(ctx *gen.NullContext) interface{} {
 	return p.helper.newLiteral(ctx,
-		&expr.Literal{
-			LiteralKind: &expr.Literal_NullValue{
+		&expr.Constant{
+			ConstantKind: &expr.Constant_NullValue{
 				NullValue: structpb.NullValue_NULL_VALUE}})
 }
 

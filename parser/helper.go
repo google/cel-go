@@ -3,7 +3,7 @@ package parser
 import (
 	"github.com/antlr/antlr4/runtime/Go/antlr"
 	"github.com/google/cel-go/common"
-	expr "github.com/google/cel-spec/proto/v1/syntax"
+	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 type parserHelper struct {
@@ -51,39 +51,39 @@ func (p *parserHelper) reportError(ctx interface{}, format string, args ...inter
 	return err
 }
 
-func (p *parserHelper) newLiteral(ctx interface{}, value *expr.Literal) *expr.Expr {
+func (p *parserHelper) newLiteral(ctx interface{}, value *expr.Constant) *expr.Expr {
 	exprNode := p.newExpr(ctx)
-	exprNode.ExprKind = &expr.Expr_LiteralExpr{LiteralExpr: value}
+	exprNode.ExprKind = &expr.Expr_ConstExpr{ConstExpr: value}
 	return exprNode
 }
 
 func (p *parserHelper) newLiteralBool(ctx interface{}, value bool) *expr.Expr {
 	return p.newLiteral(ctx,
-		&expr.Literal{LiteralKind: &expr.Literal_BoolValue{value}})
+		&expr.Constant{ConstantKind: &expr.Constant_BoolValue{value}})
 }
 
 func (p *parserHelper) newLiteralString(ctx interface{}, value string) *expr.Expr {
 	return p.newLiteral(ctx,
-		&expr.Literal{LiteralKind: &expr.Literal_StringValue{value}})
+		&expr.Constant{ConstantKind: &expr.Constant_StringValue{value}})
 }
 
 func (p *parserHelper) newLiteralBytes(ctx interface{}, value []byte) *expr.Expr {
 	return p.newLiteral(ctx,
-		&expr.Literal{LiteralKind: &expr.Literal_BytesValue{value}})
+		&expr.Constant{ConstantKind: &expr.Constant_BytesValue{value}})
 }
 
 func (p *parserHelper) newLiteralInt(ctx interface{}, value int64) *expr.Expr {
 	return p.newLiteral(ctx,
-		&expr.Literal{LiteralKind: &expr.Literal_Int64Value{value}})
+		&expr.Constant{ConstantKind: &expr.Constant_Int64Value{value}})
 }
 
 func (p *parserHelper) newLiteralUint(ctx interface{}, value uint64) *expr.Expr {
-	return p.newLiteral(ctx, &expr.Literal{LiteralKind: &expr.Literal_Uint64Value{value}})
+	return p.newLiteral(ctx, &expr.Constant{ConstantKind: &expr.Constant_Uint64Value{value}})
 }
 
 func (p *parserHelper) newLiteralDouble(ctx interface{}, value float64) *expr.Expr {
 	return p.newLiteral(ctx,
-		&expr.Literal{LiteralKind: &expr.Literal_DoubleValue{value}})
+		&expr.Constant{ConstantKind: &expr.Constant_DoubleValue{value}})
 }
 
 func (p *parserHelper) newIdent(ctx interface{}, name string) *expr.Expr {

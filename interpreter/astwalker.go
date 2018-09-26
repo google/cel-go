@@ -20,7 +20,7 @@ import (
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	expr "github.com/google/cel-spec/proto/v1/syntax"
+	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 const (
@@ -66,7 +66,7 @@ func (w *astWalker) walk(node *expr.Expr) []Instruction {
 		return w.walkIdent(node)
 	case *expr.Expr_SelectExpr:
 		return w.walkSelect(node)
-	case *expr.Expr_LiteralExpr:
+	case *expr.Expr_ConstExpr:
 		w.walkLiteral(node)
 		return []Instruction{}
 	case *expr.Expr_ListExpr:
@@ -80,22 +80,22 @@ func (w *astWalker) walk(node *expr.Expr) []Instruction {
 }
 
 func (w *astWalker) walkLiteral(node *expr.Expr) {
-	literal := node.GetLiteralExpr()
+	literal := node.GetConstExpr()
 	var value ref.Value = nil
-	switch literal.LiteralKind.(type) {
-	case *expr.Literal_BoolValue:
+	switch literal.ConstantKind.(type) {
+	case *expr.Constant_BoolValue:
 		value = types.Bool(literal.GetBoolValue())
-	case *expr.Literal_BytesValue:
+	case *expr.Constant_BytesValue:
 		value = types.Bytes(literal.GetBytesValue())
-	case *expr.Literal_DoubleValue:
+	case *expr.Constant_DoubleValue:
 		value = types.Double(literal.GetDoubleValue())
-	case *expr.Literal_Int64Value:
+	case *expr.Constant_Int64Value:
 		value = types.Int(literal.GetInt64Value())
-	case *expr.Literal_NullValue:
+	case *expr.Constant_NullValue:
 		value = types.Null(literal.GetNullValue())
-	case *expr.Literal_StringValue:
+	case *expr.Constant_StringValue:
 		value = types.String(literal.GetStringValue())
-	case *expr.Literal_Uint64Value:
+	case *expr.Constant_Uint64Value:
 		value = types.Uint(literal.GetUint64Value())
 	}
 	w.state.SetValue(node.Id, value)

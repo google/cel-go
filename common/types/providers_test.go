@@ -21,7 +21,7 @@ import (
 	"github.com/golang/protobuf/ptypes/struct"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
-	expr "github.com/google/cel-spec/proto/v1/syntax"
+	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	"reflect"
 	"testing"
 )
@@ -51,12 +51,12 @@ func TestTypeProvider_NewValue_OneofFields(t *testing.T) {
 	if exp := typeProvider.NewValue(
 		"google.api.expr.v1.Expr",
 		map[string]ref.Value{
-			"literal_expr": NewObject(&expr.Literal{LiteralKind: &expr.Literal_StringValue{StringValue: "oneof"}}),
+			"literal_expr": NewObject(&expr.Constant{ConstantKind: &expr.Constant_StringValue{StringValue: "oneof"}}),
 		}); IsError(exp) {
 		t.Error(exp)
 	} else {
 		e := exp.Value().(*expr.Expr)
-		if e.GetLiteralExpr().GetStringValue() != "oneof" {
+		if e.GetConstExpr().GetStringValue() != "oneof" {
 			t.Errorf("Expr with oneof could not be created: %v", e)
 		}
 	}

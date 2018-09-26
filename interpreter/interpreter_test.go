@@ -23,7 +23,7 @@ import (
 	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/parser"
 	"github.com/google/cel-go/test"
-	expr "github.com/google/cel-spec/proto/v1/syntax"
+	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	"reflect"
 	"testing"
 )
@@ -94,7 +94,7 @@ func TestInterpreter_ComprehensionExpr(t *testing.T) {
 
 func TestInterpreter_BuildObject(t *testing.T) {
 	parsed, errors := parser.ParseText("v1.Expr{id: 1, " +
-		"literal_expr: v1.Literal{string_value: \"oneof_test\"}}")
+		"const_expr: v1.Constant{string_value: \"oneof_test\"}}")
 	if len(errors.GetErrors()) != 0 {
 		t.Errorf(errors.ToDisplayString())
 	}
@@ -111,9 +111,9 @@ func TestInterpreter_BuildObject(t *testing.T) {
 	eval := i.NewInterpretable(NewCheckedProgram(checked))
 	result, _ := eval.Eval(NewActivation(map[string]interface{}{}))
 	expected := &expr.Expr{Id: 1,
-		ExprKind: &expr.Expr_LiteralExpr{
-			LiteralExpr: &expr.Literal{
-				LiteralKind: &expr.Literal_StringValue{
+		ExprKind: &expr.Expr_ConstExpr{
+			ConstExpr: &expr.Constant{
+				ConstantKind: &expr.Constant_StringValue{
 					StringValue: "oneof_test"}}}}
 	if !proto.Equal(result.(ref.Value).Value().(proto.Message), expected) {
 		t.Errorf("Could not build object properly. Got '%v', wanted '%v'",

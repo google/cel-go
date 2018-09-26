@@ -3,7 +3,7 @@ package pb
 import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cel-go/test"
-	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
+	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	"testing"
 )
 
@@ -54,8 +54,8 @@ func TestTypeDescription_Field(t *testing.T) {
 	if fd.Index() != 1 {
 		t.Error("Field 'payload' was fetched at index 1, but not listed there.")
 	}
-	if !proto.Equal(fd.CheckedType(), &checkedpb.Type{
-		TypeKind: &checkedpb.Type_MessageType{
+	if !proto.Equal(fd.CheckedType(), &expr.Type{
+		TypeKind: &expr.Type_MessageType{
 			MessageType: "google.api.tools.expr.test.TestAllTypes"}}) {
 		t.Error("Field 'payload' had an unexpected checked type.")
 	}
