@@ -29,7 +29,7 @@ import (
 func TestTypeProvider_NewValue(t *testing.T) {
 	typeProvider := NewProvider(&expr.ParsedExpr{})
 	if sourceInfo := typeProvider.NewValue(
-		"google.api.expr.v1.SourceInfo",
+		"google.api.expr.v1alpha1.SourceInfo",
 		map[string]ref.Value{
 			"location":     String("TestTypeProvider_NewValue"),
 			"line_offsets": NewDynamicList([]int64{0, 2}),
@@ -49,9 +49,9 @@ func TestTypeProvider_NewValue(t *testing.T) {
 func TestTypeProvider_NewValue_OneofFields(t *testing.T) {
 	typeProvider := NewProvider(&expr.ParsedExpr{})
 	if exp := typeProvider.NewValue(
-		"google.api.expr.v1.Expr",
+		"google.api.expr.v1alpha1.Expr",
 		map[string]ref.Value{
-			"literal_expr": NewObject(&expr.Constant{ConstantKind: &expr.Constant_StringValue{StringValue: "oneof"}}),
+			"const_expr": NewObject(&expr.Constant{ConstantKind: &expr.Constant_StringValue{StringValue: "oneof"}}),
 		}); IsError(exp) {
 		t.Error(exp)
 	} else {
@@ -65,7 +65,7 @@ func TestTypeProvider_NewValue_OneofFields(t *testing.T) {
 func TestTypeProvider_Getters(t *testing.T) {
 	typeProvider := NewProvider(&expr.ParsedExpr{})
 	if sourceInfo := typeProvider.NewValue(
-		"google.api.expr.v1.SourceInfo",
+		"google.api.expr.v1alpha1.SourceInfo",
 		map[string]ref.Value{
 			"location":     String("TestTypeProvider_GetFieldValue"),
 			"line_offsets": NewDynamicList([]int64{0, 2}),

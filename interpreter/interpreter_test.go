@@ -93,8 +93,8 @@ func TestInterpreter_ComprehensionExpr(t *testing.T) {
 }
 
 func TestInterpreter_BuildObject(t *testing.T) {
-	parsed, errors := parser.ParseText("v1.Expr{id: 1, " +
-		"const_expr: v1.Constant{string_value: \"oneof_test\"}}")
+	parsed, errors := parser.ParseText("v1alpha1.Expr{id: 1, " +
+		"const_expr: v1alpha1.Constant{string_value: \"oneof_test\"}}")
 	if len(errors.GetErrors()) != 0 {
 		t.Errorf(errors.ToDisplayString())
 	}

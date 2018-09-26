@@ -62,7 +62,7 @@ var testCases = []testInfo{
 		I: `-1`,
 		P: `-_(
     		  1^#1:*expr.Constant_Int64Value#
-			)^#2:*syntax.Expr_CallExpr#`,
+			)^#2:*expr.Expr_CallExpr#`,
 	},
 	{
 		I: `b"abc"`,
@@ -75,8 +75,8 @@ var testCases = []testInfo{
 	{
 		I: `!a`,
 		P: `!_(
-    		  a^#1:*syntax.Expr_IdentExpr#
-			)^#2:*syntax.Expr_CallExpr#`,
+    		  a^#1:*expr.Expr_IdentExpr#
+			)^#2:*expr.Expr_CallExpr#`,
 	},
 	{
 		I: `null`,
@@ -84,122 +84,122 @@ var testCases = []testInfo{
 	},
 	{
 		I: `a`,
-		P: `a^#1:*syntax.Expr_IdentExpr#`,
+		P: `a^#1:*expr.Expr_IdentExpr#`,
 	},
 	{
 		I: `a?b:c`,
 		P: `
 			_?_:_(
-    		  a^#1:*syntax.Expr_IdentExpr#,
-    		  b^#2:*syntax.Expr_IdentExpr#,
-    		  c^#3:*syntax.Expr_IdentExpr#
-			)^#4:*syntax.Expr_CallExpr#`,
+    		  a^#1:*expr.Expr_IdentExpr#,
+    		  b^#2:*expr.Expr_IdentExpr#,
+    		  c^#3:*expr.Expr_IdentExpr#
+			)^#4:*expr.Expr_CallExpr#`,
 	},
 	{
 		I: `a || b`,
 		P: `_||_(
-    		  a^#1:*syntax.Expr_IdentExpr#,
-    		  b^#2:*syntax.Expr_IdentExpr#
-			)^#3:*syntax.Expr_CallExpr#`,
+    		  a^#1:*expr.Expr_IdentExpr#,
+    		  b^#2:*expr.Expr_IdentExpr#
+			)^#3:*expr.Expr_CallExpr#`,
 	},
 	{
 		I: `a + b`,
 		P: `_+_(
-    		  a^#1:*syntax.Expr_IdentExpr#,
-    		  b^#2:*syntax.Expr_IdentExpr#
-			)^#3:*syntax.Expr_CallExpr#`,
+    		  a^#1:*expr.Expr_IdentExpr#,
+    		  b^#2:*expr.Expr_IdentExpr#
+			)^#3:*expr.Expr_CallExpr#`,
 	},
 	{
 		I: `a - b`,
 		P: `_-_(
-    		  a^#1:*syntax.Expr_IdentExpr#,
-    		  b^#2:*syntax.Expr_IdentExpr#
-			)^#3:*syntax.Expr_CallExpr#`,
+    		  a^#1:*expr.Expr_IdentExpr#,
+    		  b^#2:*expr.Expr_IdentExpr#
+			)^#3:*expr.Expr_CallExpr#`,
 	},
 	{
 		I: `a * b`,
 		P: `_*_(
-    		  a^#1:*syntax.Expr_IdentExpr#,
-    		  b^#2:*syntax.Expr_IdentExpr#
-			)^#3:*syntax.Expr_CallExpr#`,
+    		  a^#1:*expr.Expr_IdentExpr#,
+    		  b^#2:*expr.Expr_IdentExpr#
+			)^#3:*expr.Expr_CallExpr#`,
 	},
 	{
 		I: `a / b`,
 		P: `_/_(
-    		  a^#1:*syntax.Expr_IdentExpr#,
-    		  b^#2:*syntax.Expr_IdentExpr#
-			)^#3:*syntax.Expr_CallExpr#`,
+    		  a^#1:*expr.Expr_IdentExpr#,
+    		  b^#2:*expr.Expr_IdentExpr#
+			)^#3:*expr.Expr_CallExpr#`,
 	},
 	{
 		I: `a % b`,
 		P: `_%_(
-    		  a^#1:*syntax.Expr_IdentExpr#,
-    		  b^#2:*syntax.Expr_IdentExpr#
-			)^#3:*syntax.Expr_CallExpr#`,
+    		  a^#1:*expr.Expr_IdentExpr#,
+    		  b^#2:*expr.Expr_IdentExpr#
+			)^#3:*expr.Expr_CallExpr#`,
 	},
 	{
 		I: `a in b`,
 		P: `_in_(
-    		  a^#1:*syntax.Expr_IdentExpr#,
-    		  b^#2:*syntax.Expr_IdentExpr#
-			)^#3:*syntax.Expr_CallExpr#`,
+    		  a^#1:*expr.Expr_IdentExpr#,
+    		  b^#2:*expr.Expr_IdentExpr#
+			)^#3:*expr.Expr_CallExpr#`,
 	},
 	{
 		I: `a == b`,
 		P: `_==_(
-    		  a^#1:*syntax.Expr_IdentExpr#,
-    		  b^#2:*syntax.Expr_IdentExpr#
-			)^#3:*syntax.Expr_CallExpr#`,
+    		  a^#1:*expr.Expr_IdentExpr#,
+    		  b^#2:*expr.Expr_IdentExpr#
+			)^#3:*expr.Expr_CallExpr#`,
 	},
 	{
 		I: `a != b`,
 		P: `_!=_(
-    		  a^#1:*syntax.Expr_IdentExpr#,
-    		  b^#2:*syntax.Expr_IdentExpr#
-			)^#3:*syntax.Expr_CallExpr#`,
+    		  a^#1:*expr.Expr_IdentExpr#,
+    		  b^#2:*expr.Expr_IdentExpr#
+			)^#3:*expr.Expr_CallExpr#`,
 	},
 	{
 		I: `a > b`,
 		P: `_>_(
-    		  a^#1:*syntax.Expr_IdentExpr#,
-    		  b^#2:*syntax.Expr_IdentExpr#
-			)^#3:*syntax.Expr_CallExpr#`,
+    		  a^#1:*expr.Expr_IdentExpr#,
+    		  b^#2:*expr.Expr_IdentExpr#
+			)^#3:*expr.Expr_CallExpr#`,
 	},
 	{
 		I: `a >= b`,
 		P: `_>=_(
-    		  a^#1:*syntax.Expr_IdentExpr#,
-    		  b^#2:*syntax.Expr_IdentExpr#
-			)^#3:*syntax.Expr_CallExpr#`,
+    		  a^#1:*expr.Expr_IdentExpr#,
+    		  b^#2:*expr.Expr_IdentExpr#
+			)^#3:*expr.Expr_CallExpr#`,
 	},
 	{
 		I: `a < b`,
 		P: `_<_(
-    		  a^#1:*syntax.Expr_IdentExpr#,
-    		  b^#2:*syntax.Expr_IdentExpr#
-			)^#3:*syntax.Expr_CallExpr#`,
+    		  a^#1:*expr.Expr_IdentExpr#,
+    		  b^#2:*expr.Expr_IdentExpr#
+			)^#3:*expr.Expr_CallExpr#`,
 	},
 	{
 		I: `a <= b`,
 		P: `_<=_(
-    		  a^#1:*syntax.Expr_IdentExpr#,
-    		  b^#2:*syntax.Expr_IdentExpr#
-			)^#3:*syntax.Expr_CallExpr#`,
+    		  a^#1:*expr.Expr_IdentExpr#,
+    		  b^#2:*expr.Expr_IdentExpr#
+			)^#3:*expr.Expr_CallExpr#`,
 	},
 	{
 		I: `a.b`,
-		P: `a^#1:*syntax.Expr_IdentExpr#.b^#2:*syntax.Expr_SelectExpr#`,
+		P: `a^#1:*expr.Expr_IdentExpr#.b^#2:*expr.Expr_SelectExpr#`,
 	},
 	{
 		I: `a.b.c`,
-		P: `a^#1:*syntax.Expr_IdentExpr#.b^#2:*syntax.Expr_SelectExpr#.c^#3:*syntax.Expr_SelectExpr#`,
+		P: `a^#1:*expr.Expr_IdentExpr#.b^#2:*expr.Expr_SelectExpr#.c^#3:*expr.Expr_SelectExpr#`,
 	},
 	{
 		I: `a[b]`,
 		P: `_[_](
-    		  a^#1:*syntax.Expr_IdentExpr#,
-    		  b^#2:*syntax.Expr_IdentExpr#
-			)^#3:*syntax.Expr_CallExpr#`,
+    		  a^#1:*expr.Expr_IdentExpr#,
+    		  b^#2:*expr.Expr_IdentExpr#
+			)^#3:*expr.Expr_CallExpr#`,
 	},
 
 	// TODO: This is an error.
@@ -212,85 +212,85 @@ var testCases = []testInfo{
 
 	{
 		I: `foo{ }`,
-		P: `foo{}^#2:*syntax.Expr_StructExpr#`,
+		P: `foo{}^#2:*expr.Expr_StructExpr#`,
 	},
 	{
 		I: `foo{ a:b }`,
 		P: `foo{
-    		  a:b^#2:*syntax.Expr_IdentExpr#^#3:*syntax.Expr_CreateStruct_Entry#
-			}^#4:*syntax.Expr_StructExpr#`,
+    		  a:b^#2:*expr.Expr_IdentExpr#^#3:*expr.Expr_CreateStruct_Entry#
+			}^#4:*expr.Expr_StructExpr#`,
 	},
 	{
 		I: `foo{ a:b, c:d }`,
 		P: `foo{
-    		  a:b^#2:*syntax.Expr_IdentExpr#^#3:*syntax.Expr_CreateStruct_Entry#,
-    		  c:d^#4:*syntax.Expr_IdentExpr#^#5:*syntax.Expr_CreateStruct_Entry#
-			}^#6:*syntax.Expr_StructExpr#`,
+    		  a:b^#2:*expr.Expr_IdentExpr#^#3:*expr.Expr_CreateStruct_Entry#,
+    		  c:d^#4:*expr.Expr_IdentExpr#^#5:*expr.Expr_CreateStruct_Entry#
+			}^#6:*expr.Expr_StructExpr#`,
 	},
 	{
 		I: `{}`,
-		P: `{}^#1:*syntax.Expr_StructExpr#`,
+		P: `{}^#1:*expr.Expr_StructExpr#`,
 	},
 
 	{
 		I: `{a:b, c:d}`,
 		P: `{
-    		  a^#1:*syntax.Expr_IdentExpr#:b^#2:*syntax.Expr_IdentExpr#^#3:*syntax.Expr_CreateStruct_Entry#,
-    		  c^#4:*syntax.Expr_IdentExpr#:d^#5:*syntax.Expr_IdentExpr#^#6:*syntax.Expr_CreateStruct_Entry#
-			}^#7:*syntax.Expr_StructExpr#`,
+    		  a^#1:*expr.Expr_IdentExpr#:b^#2:*expr.Expr_IdentExpr#^#3:*expr.Expr_CreateStruct_Entry#,
+    		  c^#4:*expr.Expr_IdentExpr#:d^#5:*expr.Expr_IdentExpr#^#6:*expr.Expr_CreateStruct_Entry#
+			}^#7:*expr.Expr_StructExpr#`,
 	},
 	{
 		I: `[]`,
-		P: `[]^#1:*syntax.Expr_ListExpr#`,
+		P: `[]^#1:*expr.Expr_ListExpr#`,
 	},
 	{
 		I: `[a]`,
 		P: `[
-    		  a^#1:*syntax.Expr_IdentExpr#
-			]^#2:*syntax.Expr_ListExpr#`,
+    		  a^#1:*expr.Expr_IdentExpr#
+			]^#2:*expr.Expr_ListExpr#`,
 	},
 	{
 		I: `[a, b, c]`,
 		P: `[
-    		  a^#1:*syntax.Expr_IdentExpr#,
-    		  b^#2:*syntax.Expr_IdentExpr#,
-    		  c^#3:*syntax.Expr_IdentExpr#
-			]^#4:*syntax.Expr_ListExpr#`,
+    		  a^#1:*expr.Expr_IdentExpr#,
+    		  b^#2:*expr.Expr_IdentExpr#,
+    		  c^#3:*expr.Expr_IdentExpr#
+			]^#4:*expr.Expr_ListExpr#`,
 	},
 	{
 		I: `(a)`,
-		P: `a^#1:*syntax.Expr_IdentExpr#`,
+		P: `a^#1:*expr.Expr_IdentExpr#`,
 	},
 	{
 		I: `((a))`,
-		P: `a^#1:*syntax.Expr_IdentExpr#`,
+		P: `a^#1:*expr.Expr_IdentExpr#`,
 	},
 	{
 		I: `a()`,
-		P: `a()^#1:*syntax.Expr_CallExpr#`,
+		P: `a()^#1:*expr.Expr_CallExpr#`,
 	},
 
 	{
 		I: `a(b)`,
 		P: `a(
-    		  b^#1:*syntax.Expr_IdentExpr#)^#2:*syntax.Expr_CallExpr#`,
+    		  b^#1:*expr.Expr_IdentExpr#)^#2:*expr.Expr_CallExpr#`,
 	},
 
 	{
 		I: `a(b, c)`,
 		P: `a(
-    		  b^#1:*syntax.Expr_IdentExpr#,
-    		  c^#2:*syntax.Expr_IdentExpr#)^#3:*syntax.Expr_CallExpr#`,
+    		  b^#1:*expr.Expr_IdentExpr#,
+    		  c^#2:*expr.Expr_IdentExpr#)^#3:*expr.Expr_CallExpr#`,
 	},
 	{
 		I: `a.b()`,
-		P: `a^#1:*syntax.Expr_IdentExpr#.b()^#2:*syntax.Expr_CallExpr#`,
+		P: `a^#1:*expr.Expr_IdentExpr#.b()^#2:*expr.Expr_CallExpr#`,
 	},
 
 	{
 		I: `a.b(c)`,
-		P: `a^#1:*syntax.Expr_IdentExpr#.b(
-    		  c^#2:*syntax.Expr_IdentExpr#)^#3:*syntax.Expr_CallExpr#`,
+		P: `a^#1:*expr.Expr_IdentExpr#.b(
+    		  c^#2:*expr.Expr_IdentExpr#)^#3:*expr.Expr_CallExpr#`,
 		L: `a^#1[1,0]#.b(
     		  c^#2[1,4]#
     		)^#3[1,3]#`,
@@ -327,7 +327,7 @@ ERROR: <input>:1:5: Syntax error: extraneous input 'b' expecting <EOF>
 	// Macro tests
 	{
 		I: `has(m.f)`,
-		P: `m^#1:*syntax.Expr_IdentExpr#.f~test-only~^#3:*syntax.Expr_SelectExpr#`,
+		P: `m^#1:*expr.Expr_IdentExpr#.f~test-only~^#3:*expr.Expr_SelectExpr#`,
 		L: `m^#1[1,4]#.f~test-only~^#3[1,3]#`,
 	},
 	{
@@ -336,30 +336,30 @@ ERROR: <input>:1:5: Syntax error: extraneous input 'b' expecting <EOF>
     		  // Variable
     		  v,
     		  // Target
-    		  m^#1:*syntax.Expr_IdentExpr#,
+    		  m^#1:*expr.Expr_IdentExpr#,
     		  // Accumulator
     		  __result__,
     		  // Init
     		  0^#4:*expr.Constant_Int64Value#,
     		  // LoopCondition
     		  _<=_(
-    		    __result__^#6:*syntax.Expr_IdentExpr#,
+    		    __result__^#6:*expr.Expr_IdentExpr#,
     		    1^#5:*expr.Constant_Int64Value#
-  			  )^#7:*syntax.Expr_CallExpr#,
+  			  )^#7:*expr.Expr_CallExpr#,
     		  // LoopStep
     		  _?_:_(
-    		    f^#3:*syntax.Expr_IdentExpr#,
+    		    f^#3:*expr.Expr_IdentExpr#,
     		    _+_(
-    		      __result__^#8:*syntax.Expr_IdentExpr#,
+    		      __result__^#8:*expr.Expr_IdentExpr#,
     		      1^#5:*expr.Constant_Int64Value#
-				)^#9:*syntax.Expr_CallExpr#,
-    		    __result__^#10:*syntax.Expr_IdentExpr#
-			  )^#11:*syntax.Expr_CallExpr#,
+				)^#9:*expr.Expr_CallExpr#,
+    		    __result__^#10:*expr.Expr_IdentExpr#
+			  )^#11:*expr.Expr_CallExpr#,
     		  // Result
     		  _==_(
-    		    __result__^#12:*syntax.Expr_IdentExpr#,
+    		    __result__^#12:*expr.Expr_IdentExpr#,
     		    1^#5:*expr.Constant_Int64Value#
-		      )^#13:*syntax.Expr_CallExpr#)^#14:*syntax.Expr_ComprehensionExpr#`,
+		      )^#13:*expr.Expr_CallExpr#)^#14:*expr.Expr_ComprehensionExpr#`,
 	},
 	{
 		I: `m.map(v, f)`,
@@ -367,22 +367,22 @@ ERROR: <input>:1:5: Syntax error: extraneous input 'b' expecting <EOF>
     		  // Variable
     		  v,
     		  // Target
-    		  m^#1:*syntax.Expr_IdentExpr#,
+    		  m^#1:*expr.Expr_IdentExpr#,
     		  // Accumulator
     		  __result__,
     		  // Init
-    		  []^#5:*syntax.Expr_ListExpr#,
+    		  []^#5:*expr.Expr_ListExpr#,
     		  // LoopCondition
     		  true^#6:*expr.Constant_BoolValue#,
     		  // LoopStep
     		  _+_(
-    		    __result__^#4:*syntax.Expr_IdentExpr#,
+    		    __result__^#4:*expr.Expr_IdentExpr#,
     		    [
-    		      f^#3:*syntax.Expr_IdentExpr#
-				]^#7:*syntax.Expr_ListExpr#
- 			  )^#8:*syntax.Expr_CallExpr#,
+    		      f^#3:*expr.Expr_IdentExpr#
+				]^#7:*expr.Expr_ListExpr#
+ 			  )^#8:*expr.Expr_CallExpr#,
     		  // Result
-    		  __result__^#4:*syntax.Expr_IdentExpr#)^#9:*syntax.Expr_ComprehensionExpr#`,
+    		  __result__^#4:*expr.Expr_IdentExpr#)^#9:*expr.Expr_ComprehensionExpr#`,
 	},
 
 	{
@@ -391,27 +391,27 @@ ERROR: <input>:1:5: Syntax error: extraneous input 'b' expecting <EOF>
     		  // Variable
     		  v,
     		  // Target
-    		  m^#1:*syntax.Expr_IdentExpr#,
+    		  m^#1:*expr.Expr_IdentExpr#,
     		  // Accumulator
     		  __result__,
     		  // Init
-    		  []^#6:*syntax.Expr_ListExpr#,
+    		  []^#6:*expr.Expr_ListExpr#,
     		  // LoopCondition
     		  true^#7:*expr.Constant_BoolValue#,
     		  // LoopStep
     		  _?_:_(
-    		    p^#3:*syntax.Expr_IdentExpr#,
+    		    p^#3:*expr.Expr_IdentExpr#,
     		    _+_(
-    		      __result__^#5:*syntax.Expr_IdentExpr#,
+    		      __result__^#5:*expr.Expr_IdentExpr#,
     		      [
-    		        f^#4:*syntax.Expr_IdentExpr#
-				  ]^#8:*syntax.Expr_ListExpr#
-				)^#9:*syntax.Expr_CallExpr#,
-    		    __result__^#5:*syntax.Expr_IdentExpr#
-                )^#10:*syntax.Expr_CallExpr#,
+    		        f^#4:*expr.Expr_IdentExpr#
+				  ]^#8:*expr.Expr_ListExpr#
+				)^#9:*expr.Expr_CallExpr#,
+    		    __result__^#5:*expr.Expr_IdentExpr#
+                )^#10:*expr.Expr_CallExpr#,
     		    // Result
-    		    __result__^#5:*syntax.Expr_IdentExpr#
-				)^#11:*syntax.Expr_ComprehensionExpr#`,
+    		    __result__^#5:*expr.Expr_IdentExpr#
+				)^#11:*expr.Expr_ComprehensionExpr#`,
 	},
 
 	{
@@ -420,26 +420,26 @@ ERROR: <input>:1:5: Syntax error: extraneous input 'b' expecting <EOF>
     		  // Variable
     		  v,
     		  // Target
-    		  m^#1:*syntax.Expr_IdentExpr#,
+    		  m^#1:*expr.Expr_IdentExpr#,
     		  // Accumulator
     		  __result__,
     		  // Init
-    		  []^#5:*syntax.Expr_ListExpr#,
+    		  []^#5:*expr.Expr_ListExpr#,
     		  // LoopCondition
     		  true^#6:*expr.Constant_BoolValue#,
     		  // LoopStep
     		  _?_:_(
-    		    p^#3:*syntax.Expr_IdentExpr#,
+    		    p^#3:*expr.Expr_IdentExpr#,
     		    _+_(
-    		      __result__^#4:*syntax.Expr_IdentExpr#,
+    		      __result__^#4:*expr.Expr_IdentExpr#,
     		      [
-    		        v^#2:*syntax.Expr_IdentExpr#
-				  ]^#7:*syntax.Expr_ListExpr#
-				)^#8:*syntax.Expr_CallExpr#,
-    		    __result__^#4:*syntax.Expr_IdentExpr#
-  				)^#9:*syntax.Expr_CallExpr#,
+    		        v^#2:*expr.Expr_IdentExpr#
+				  ]^#7:*expr.Expr_ListExpr#
+				)^#8:*expr.Expr_CallExpr#,
+    		    __result__^#4:*expr.Expr_IdentExpr#
+  				)^#9:*expr.Expr_CallExpr#,
     		    // Result
-    		    __result__^#4:*syntax.Expr_IdentExpr#)^#10:*syntax.Expr_ComprehensionExpr#`,
+    		    __result__^#4:*expr.Expr_IdentExpr#)^#10:*expr.Expr_ComprehensionExpr#`,
 	},
 
 	// Tests from Java parser
@@ -447,31 +447,31 @@ ERROR: <input>:1:5: Syntax error: extraneous input 'b' expecting <EOF>
 		I: `[] + [1,2,3,] + [4]`,
 		P: `_+_(
     		  _+_(
-    		    []^#1:*syntax.Expr_ListExpr#,
+    		    []^#1:*expr.Expr_ListExpr#,
     		    [
     		      1^#2:*expr.Constant_Int64Value#,
     		      2^#3:*expr.Constant_Int64Value#,
     		      3^#4:*expr.Constant_Int64Value#
-    		    ]^#5:*syntax.Expr_ListExpr#
-    		  )^#6:*syntax.Expr_CallExpr#,
+    		    ]^#5:*expr.Expr_ListExpr#
+    		  )^#6:*expr.Expr_CallExpr#,
     		  [
     		    4^#7:*expr.Constant_Int64Value#
-    		  ]^#8:*syntax.Expr_ListExpr#
-    		)^#9:*syntax.Expr_CallExpr#`,
+    		  ]^#8:*expr.Expr_ListExpr#
+    		)^#9:*expr.Expr_CallExpr#`,
 	},
 	{
 		I: `{1:2u, 2:3u}`,
 		P: `{
-    		  1^#1:*expr.Constant_Int64Value#:2u^#2:*expr.Constant_Uint64Value#^#3:*syntax.Expr_CreateStruct_Entry#,
-    		  2^#4:*expr.Constant_Int64Value#:3u^#5:*expr.Constant_Uint64Value#^#6:*syntax.Expr_CreateStruct_Entry#
-    		}^#7:*syntax.Expr_StructExpr#`,
+    		  1^#1:*expr.Constant_Int64Value#:2u^#2:*expr.Constant_Uint64Value#^#3:*expr.Expr_CreateStruct_Entry#,
+    		  2^#4:*expr.Constant_Int64Value#:3u^#5:*expr.Constant_Uint64Value#^#6:*expr.Expr_CreateStruct_Entry#
+    		}^#7:*expr.Expr_StructExpr#`,
 	},
 	{
 		I: `TestAllTypes{single_int32: 1, single_int64: 2}`,
 		P: `TestAllTypes{
-    		  single_int32:1^#2:*expr.Constant_Int64Value#^#3:*syntax.Expr_CreateStruct_Entry#,
-    		  single_int64:2^#4:*expr.Constant_Int64Value#^#5:*syntax.Expr_CreateStruct_Entry#
-    		}^#6:*syntax.Expr_StructExpr#`,
+    		  single_int32:1^#2:*expr.Constant_Int64Value#^#3:*expr.Expr_CreateStruct_Entry#,
+    		  single_int64:2^#4:*expr.Constant_Int64Value#^#5:*expr.Expr_CreateStruct_Entry#
+    		}^#6:*expr.Expr_StructExpr#`,
 	},
 	{
 		I: `TestAllTypes(){single_int32: 1, single_int64: 2}`,
@@ -485,10 +485,10 @@ ERROR: <input>:1:13: expected a qualified name
 		I: `size(x) == x.size()`,
 		P: `_==_(
     		  size(
-    		    x^#1:*syntax.Expr_IdentExpr#
-    		  )^#2:*syntax.Expr_CallExpr#,
-    		  x^#3:*syntax.Expr_IdentExpr#.size()^#4:*syntax.Expr_CallExpr#
-    		)^#5:*syntax.Expr_CallExpr#`,
+    		    x^#1:*expr.Expr_IdentExpr#
+    		  )^#2:*expr.Expr_CallExpr#,
+    		  x^#3:*expr.Expr_IdentExpr#.size()^#4:*expr.Expr_CallExpr#
+    		)^#5:*expr.Expr_CallExpr#`,
 	},
 	{
 		I: `1 + $`,
@@ -521,9 +521,9 @@ ERROR: <input>:2:1: Syntax error: mismatched input '3' expecting <EOF>
     		    1^#1:*expr.Constant_Int64Value#,
     		    3^#2:*expr.Constant_Int64Value#,
     		    4^#3:*expr.Constant_Int64Value#
-    		  ]^#4:*syntax.Expr_ListExpr#,
+    		  ]^#4:*expr.Expr_ListExpr#,
     		  0^#5:*expr.Constant_Int64Value#
-    		)^#6:*syntax.Expr_CallExpr#`,
+    		)^#6:*expr.Expr_CallExpr#`,
 	},
 	{
 		I: `1.all(2, 3)`,
@@ -537,18 +537,18 @@ ERROR: <input>:1:7: argument must be a simple name
 		I: `x["a"].single_int32 == 23`,
 		P: `_==_(
     		  _[_](
-    		    x^#1:*syntax.Expr_IdentExpr#,
+    		    x^#1:*expr.Expr_IdentExpr#,
     		    "a"^#2:*expr.Constant_StringValue#
-    		  )^#3:*syntax.Expr_CallExpr#.single_int32^#4:*syntax.Expr_SelectExpr#,
+    		  )^#3:*expr.Expr_CallExpr#.single_int32^#4:*expr.Expr_SelectExpr#,
     		  23^#5:*expr.Constant_Int64Value#
-    		)^#6:*syntax.Expr_CallExpr#`,
+    		)^#6:*expr.Expr_CallExpr#`,
 	},
 	{
 		I: `x.single_nested_message != null`,
 		P: `_!=_(
-    		  x^#1:*syntax.Expr_IdentExpr#.single_nested_message^#2:*syntax.Expr_SelectExpr#,
+    		  x^#1:*expr.Expr_IdentExpr#.single_nested_message^#2:*expr.Expr_SelectExpr#,
     		  null^#3:*expr.Constant_NullValue#
-    		)^#4:*syntax.Expr_CallExpr#`,
+    		)^#4:*expr.Expr_CallExpr#`,
 	},
 	{
 		I: `false && !true || false ? 2 : 3`,
@@ -558,20 +558,20 @@ ERROR: <input>:1:7: argument must be a simple name
     		      false^#1:*expr.Constant_BoolValue#,
     		      !_(
     		        true^#2:*expr.Constant_BoolValue#
-    		      )^#3:*syntax.Expr_CallExpr#
-    		    )^#4:*syntax.Expr_CallExpr#,
+    		      )^#3:*expr.Expr_CallExpr#
+    		    )^#4:*expr.Expr_CallExpr#,
     		    false^#5:*expr.Constant_BoolValue#
-    		  )^#6:*syntax.Expr_CallExpr#,
+    		  )^#6:*expr.Expr_CallExpr#,
     		  2^#7:*expr.Constant_Int64Value#,
     		  3^#8:*expr.Constant_Int64Value#
-    		)^#9:*syntax.Expr_CallExpr#`,
+    		)^#9:*expr.Expr_CallExpr#`,
 	},
 	{
 		I: `b"abc" + B"def"`,
 		P: `_+_(
     		  b"abc"^#1:*expr.Constant_BytesValue#,
     		  b"def"^#2:*expr.Constant_BytesValue#
-    		)^#3:*syntax.Expr_CallExpr#`,
+    		)^#3:*expr.Expr_CallExpr#`,
 	},
 	{
 		I: `1 + 2 * 3 - 1 / 2 == 6 % 1`,
@@ -582,18 +582,18 @@ ERROR: <input>:1:7: argument must be a simple name
     		      _*_(
     		        2^#2:*expr.Constant_Int64Value#,
     		        3^#3:*expr.Constant_Int64Value#
-    		      )^#4:*syntax.Expr_CallExpr#
-    		    )^#5:*syntax.Expr_CallExpr#,
+    		      )^#4:*expr.Expr_CallExpr#
+    		    )^#5:*expr.Expr_CallExpr#,
     		    _/_(
     		      1^#6:*expr.Constant_Int64Value#,
     		      2^#7:*expr.Constant_Int64Value#
-    		    )^#8:*syntax.Expr_CallExpr#
-    		  )^#9:*syntax.Expr_CallExpr#,
+    		    )^#8:*expr.Expr_CallExpr#
+    		  )^#9:*expr.Expr_CallExpr#,
     		  _%_(
     		    6^#10:*expr.Constant_Int64Value#,
     		    1^#11:*expr.Constant_Int64Value#
-    		  )^#12:*syntax.Expr_CallExpr#
-    		)^#13:*syntax.Expr_CallExpr#`,
+    		  )^#12:*expr.Expr_CallExpr#
+    		)^#13:*expr.Expr_CallExpr#`,
 	},
 	{
 		I: `1 + +`,
@@ -611,7 +611,7 @@ ERROR: <input>:1:6: Syntax error: mismatched input '<EOF>' expecting {'[', '{', 
 		P: `_+_(
     		  "abc"^#1:*expr.Constant_StringValue#,
     		  "def"^#2:*expr.Constant_StringValue#
-    		)^#3:*syntax.Expr_CallExpr#`,
+    		)^#3:*expr.Expr_CallExpr#`,
 	},
 
 	{
@@ -706,7 +706,7 @@ func (k *kindAndIdAdorner) GetMetadata(elem interface{}) string {
 		return fmt.Sprintf("^#%d:%s#", e.Id, reflect.TypeOf(valType))
 	case *expr.Expr_CreateStruct_Entry:
 		entry := elem.(*expr.Expr_CreateStruct_Entry)
-		return fmt.Sprintf("^#%d:%s#", entry.Id, "*syntax.Expr_CreateStruct_Entry")
+		return fmt.Sprintf("^#%d:%s#", entry.Id, "*expr.Expr_CreateStruct_Entry")
 	}
 	return ""
 }
