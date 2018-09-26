@@ -14,8 +14,8 @@ import (
 	"github.com/google/cel-go/common/types/traits"
 	"github.com/google/cel-go/interpreter"
 	"github.com/google/cel-go/parser"
-	rpc "google.golang.org/genproto/googleapis/rpc/status"
 	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -124,9 +124,9 @@ func appendErrors(errs *common.Errors, issues *[]*rpc.Status) {
 func ErrToStatus(e common.Error, severity expr.IssueDetails_Severity) *rpc.Status {
 	detail := expr.IssueDetails{
 		Severity: severity,
-		Position: &expr.SourcePosition {
-			Line:     int32(e.Location.Line()),
-			Column:   int32(e.Location.Column()),
+		Position: &expr.SourcePosition{
+			Line:   int32(e.Location.Line()),
+			Column: int32(e.Location.Column()),
 		},
 	}
 	s := status.New(codes.InvalidArgument, e.Message)
@@ -161,16 +161,16 @@ func RefValueToExprValue(res ref.Value) (*expr.ExprValue, error) {
 
 var (
 	typeNameToTypeValue = map[string]*types.TypeValue{
-		"bool":		types.BoolType,
-		"bytes":	types.BytesType,
-		"double":	types.DoubleType,
-		"null_type":	types.NullType,
-		"int":		types.IntType,
-		"list":		types.ListType,
-		"map":		types.MapType,
-		"string":	types.StringType,
-		"type":		types.TypeType,
-		"uint":		types.UintType,
+		"bool":      types.BoolType,
+		"bytes":     types.BytesType,
+		"double":    types.DoubleType,
+		"null_type": types.NullType,
+		"int":       types.IntType,
+		"list":      types.ListType,
+		"map":       types.MapType,
+		"string":    types.StringType,
+		"type":      types.TypeType,
+		"uint":      types.UintType,
 	}
 )
 

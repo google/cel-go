@@ -10,8 +10,8 @@ import (
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/test"
-	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	"golang.org/x/net/context"
+	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	"google.golang.org/grpc"
 )
 
