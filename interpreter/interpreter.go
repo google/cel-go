@@ -59,7 +59,7 @@ func NewInterpreter(dispatcher Dispatcher,
 
 // StandardInterpreter builds a Dispatcher and TypeProvider with support
 // for all of the CEL builtins defined in the language definition.
-func NewStandardIntepreter(packager packages.Packager,
+func NewStandardInterpreter(packager packages.Packager,
 	typeProvider ref.TypeProvider) Interpreter {
 	dispatcher := NewDispatcher()
 	dispatcher.Add(functions.StandardOverloads()...)
