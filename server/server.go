@@ -129,18 +129,13 @@ func ErrToStatus(e common.Error, severity expr.IssueDetails_Severity) *rpc.Statu
 			Column:   int32(e.Location.Column()),
 		},
 	}
-	// TODO: simply use the following when we unify app-level
-	// and gRPC-level Status messages.
-	// return status.New(codes.InvalidArgument, e.message).WithDetails(detail).Proto()
-	s := rpc.Status{
-		Code:    int32(codes.InvalidArgument),
-		Message: e.Message,
-	}
-	any, err := ptypes.MarshalAny(&detail)
+	s := status.New(codes.InvalidArgument, e.Message)
+	sd, err := s.WithDetails(&detail)
 	if err == nil {
-		s.Details = append(s.Details, any)
+		return sd.Proto()
+	} else {
+		return s.Proto()
 	}
-	return &s
 }
 
 // TODO(jimlarson): The following conversion code should be moved to
