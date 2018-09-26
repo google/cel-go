@@ -17,18 +17,15 @@
 package parser
 
 import (
-	"strconv"
-
-	"github.com/google/cel-go/common"
-	"github.com/google/cel-go/common/operators"
-	"github.com/google/cel-go/parser/gen"
-	//expr "github.com/google/cel-spec/proto/v1/syntax"
-
 	"fmt"
 	"github.com/antlr/antlr4/runtime/Go/antlr"
 	"github.com/golang/protobuf/ptypes/struct"
+	"github.com/google/cel-go/common"
+	"github.com/google/cel-go/common/operators"
+	"github.com/google/cel-go/parser/gen"
 	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	"reflect"
+	"strconv"
 )
 
 // ParseText converts a text input into a parsed expression, if valid, as

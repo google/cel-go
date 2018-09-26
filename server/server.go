@@ -177,30 +177,6 @@ var (
 		"type":		types.TypeType,
 		"uint":		types.UintType,
 	}
-//	typeNameToBasicType = map[string]expr.TypeValue_BasicType{
-//		"bool":      expr.TypeValue_BOOL_TYPE,
-//		"bytes":     expr.TypeValue_BYTES_TYPE,
-//		"double":    expr.TypeValue_DOUBLE_TYPE,
-//		"null_type": expr.TypeValue_NULL_TYPE,
-//		"int":       expr.TypeValue_INT_TYPE,
-//		"list":      expr.TypeValue_LIST_TYPE,
-//		"map":       expr.TypeValue_MAP_TYPE,
-//		"string":    expr.TypeValue_STRING_TYPE,
-//		"type":      expr.TypeValue_TYPE_TYPE,
-//		"uint":      expr.TypeValue_UINT_TYPE,
-//	}
-//	basicTypeToTypeValue = map[expr.TypeValue_BasicType]*types.TypeValue{
-//		expr.TypeValue_NULL_TYPE:   types.NullType,
-//		expr.TypeValue_BOOL_TYPE:   types.BoolType,
-//		expr.TypeValue_INT_TYPE:    types.IntType,
-//		expr.TypeValue_UINT_TYPE:   types.UintType,
-//		expr.TypeValue_DOUBLE_TYPE: types.DoubleType,
-//		expr.TypeValue_STRING_TYPE: types.StringType,
-//		expr.TypeValue_BYTES_TYPE:  types.BytesType,
-//		expr.TypeValue_TYPE_TYPE:   types.TypeType,
-//		expr.TypeValue_MAP_TYPE:    types.MapType,
-//		expr.TypeValue_LIST_TYPE:   types.ListType,
-//	}
 )
 
 // Convert res, which must not be error or unknown, to a Value proto.
@@ -260,16 +236,6 @@ func RefValueToValue(res ref.Value) (*expr.Value, error) {
 			Kind: &expr.Value_StringValue{res.Value().(string)}}, nil
 	case types.TypeType:
 		typeName := res.(ref.Type).TypeName()
-//		var tv *expr.TypeValue
-//		if basicType, found := typeNameToBasicType[typeName]; found {
-//			// Names a basic type.
-//			tv = &expr.TypeValue{
-//				DesignatorKind: &expr.TypeValue_BasicType_{basicType}}
-//		} else {
-//			// Otherwise names a proto.
-//			tv = &expr.TypeValue{
-//				DesignatorKind: &expr.TypeValue_ObjectType{typeName}}
-//		}
 		return &expr.Value{Kind: &expr.Value_TypeValue{typeName}}, nil
 	case types.UintType:
 		return &expr.Value{
@@ -365,21 +331,6 @@ func ValueToRefValue(v *expr.Value) (ref.Value, error) {
 		} else {
 			return types.NewObjectTypeValue(typeName), nil
 		}
-//		var t *expr.TypeValue
-//		t = v.GetTypeValue()
-//		switch t.DesignatorKind.(type) {
-//		case *expr.TypeValue_BasicType_:
-//			bt := t.GetBasicType()
-//			tv, ok := basicTypeToTypeValue[bt]
-//			if ok {
-//				return tv, nil
-//			}
-//			return nil, status.New(codes.InvalidArgument, "unknown basic type").Err()
-//		case *expr.TypeValue_ObjectType:
-//			o := t.GetObjectType()
-//			return types.NewObjectTypeValue(o), nil
-//		}
-//		return nil, status.New(codes.InvalidArgument, "unknown type designator kind").Err()
 	}
 	return nil, status.New(codes.InvalidArgument, "unknown value").Err()
 }
