@@ -25,7 +25,7 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/parser"
 	"github.com/google/cel-go/test"
-	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
+	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 var testCases = []testInfo{
@@ -265,7 +265,7 @@ ERROR: <input>:1:11: type 'int' does not match previous type 'uint' in aggregate
 _==_(size(x~list(int)^x)~int^size_list, x~list(int)^x.size()~int^list_size)
   ~bool^equals`,
 		Env: env{
-			idents: []*checkedpb.Decl{
+			idents: []*expr.Decl{
 				decls.NewIdent("x", decls.NewListType(decls.Int), nil),
 			},
 		},
@@ -337,7 +337,7 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 	{
 		I: `x.single_int32 != null`,
 		Env: env{
-			idents: []*checkedpb.Decl{
+			idents: []*expr.Decl{
 				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.Proto2Message"), nil),
 			},
 		},
@@ -351,7 +351,7 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 	{
 		I: `x.single_value + 1 / x.single_struct == 23`,
 		Env: env{
-			idents: []*checkedpb.Decl{
+			idents: []*expr.Decl{
 				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
 			},
 		},
@@ -368,7 +368,7 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 	{
 		I: `x.single_value[23] + x.single_struct`,
 		Env: env{
-			idents: []*checkedpb.Decl{
+			idents: []*expr.Decl{
 				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
 			},
 		},
@@ -394,7 +394,7 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 		R:    `size(_+_([]~list(int), [1~int]~list(int))~list(int)^add_list)~int^size_list`,
 		Type: decls.Int,
 		Env: env{
-			idents: []*checkedpb.Decl{
+			idents: []*expr.Decl{
 				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
 			},
 		},
@@ -404,7 +404,7 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 		I: `x + y`,
 		R: ``,
 		Env: env{
-			idents: []*checkedpb.Decl{
+			idents: []*expr.Decl{
 				decls.NewIdent("x", decls.NewListType(decls.NewObjectType("google.api.tools.expr.test.TestAllTypes")), nil),
 				decls.NewIdent("y", decls.NewListType(decls.Int), nil),
 			},
@@ -419,7 +419,7 @@ ERROR: <input>:1:3: found no matching overload for '_+_' applied to '(list(googl
 	{
 		I: `x[1u]`,
 		Env: env{
-			idents: []*checkedpb.Decl{
+			idents: []*expr.Decl{
 				decls.NewIdent("x", decls.NewListType(decls.NewObjectType("google.api.tools.expr.test.TestAllTypes")), nil),
 			},
 		},
@@ -433,7 +433,7 @@ ERROR: <input>:1:2: found no matching overload for '_[_]' applied to '(list(goog
 	{
 		I: `(x + x)[1].single_int32 == size(x)`,
 		Env: env{
-			idents: []*checkedpb.Decl{
+			idents: []*expr.Decl{
 				decls.NewIdent("x", decls.NewListType(decls.NewObjectType("google.api.tools.expr.test.TestAllTypes")), nil),
 			},
 		},
@@ -455,7 +455,7 @@ _==_(_[_](_+_(x~list(google.api.tools.expr.test.TestAllTypes)^x,
 	{
 		I: `x.repeated_int64[x.single_int32] == 23`,
 		Env: env{
-			idents: []*checkedpb.Decl{
+			idents: []*expr.Decl{
 				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
 			},
 		},
@@ -471,7 +471,7 @@ _==_(_[_](x~google.api.tools.expr.test.TestAllTypes^x.repeated_int64~list(int),
 	{
 		I: `size(x.map_int64_nested_type) == 0`,
 		Env: env{
-			idents: []*checkedpb.Decl{
+			idents: []*expr.Decl{
 				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
 			},
 		},
@@ -488,7 +488,7 @@ _==_(size(x~google.api.tools.expr.test.TestAllTypes^x.map_int64_nested_type
 	{
 		I: `x.repeated_int64.map(x, double(x))`,
 		Env: env{
-			idents: []*checkedpb.Decl{
+			idents: []*expr.Decl{
 				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
 			},
 		},
@@ -522,7 +522,7 @@ _==_(size(x~google.api.tools.expr.test.TestAllTypes^x.map_int64_nested_type
 	{
 		I: `x.repeated_int64.map(x, x > 0, double(x))`,
 		Env: env{
-			idents: []*checkedpb.Decl{
+			idents: []*expr.Decl{
 				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
 			},
 		},
@@ -563,7 +563,7 @@ _==_(size(x~google.api.tools.expr.test.TestAllTypes^x.map_int64_nested_type
 	{
 		I: `x[2].single_int32 == 23`,
 		Env: env{
-			idents: []*checkedpb.Decl{
+			idents: []*expr.Decl{
 				decls.NewIdent("x",
 					decls.NewMapType(decls.String,
 						decls.NewObjectType("google.api.tools.expr.test.TestAllTypes")), nil),
@@ -579,7 +579,7 @@ ERROR: <input>:1:2: found no matching overload for '_[_]' applied to '(map(strin
 	{
 		I: `x["a"].single_int32 == 23`,
 		Env: env{
-			idents: []*checkedpb.Decl{
+			idents: []*expr.Decl{
 				decls.NewIdent("x",
 					decls.NewMapType(decls.String,
 						decls.NewObjectType("google.api.tools.expr.test.TestAllTypes")), nil),
@@ -599,7 +599,7 @@ ERROR: <input>:1:2: found no matching overload for '_[_]' applied to '(map(strin
 	{
 		I: `x.single_nested_message.bb == 43 && has(x.single_nested_message)`,
 		Env: env{
-			idents: []*checkedpb.Decl{
+			idents: []*expr.Decl{
 				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
 			},
 		},
@@ -618,7 +618,7 @@ ERROR: <input>:1:2: found no matching overload for '_[_]' applied to '(map(strin
 	{
 		I: `x.single_nested_message.undefined == x.undefined && has(x.single_int32) && has(x.repeated_int32)`,
 		Env: env{
-			idents: []*checkedpb.Decl{
+			idents: []*expr.Decl{
 				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
 			},
 		},
@@ -641,7 +641,7 @@ ERROR: <input>:1:79: field 'repeated_int32' does not support presence check
 	{
 		I: `x.single_nested_message != null`,
 		Env: env{
-			idents: []*checkedpb.Decl{
+			idents: []*expr.Decl{
 				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
 			},
 		},
@@ -657,7 +657,7 @@ ERROR: <input>:1:79: field 'repeated_int32' does not support presence check
 	{
 		I: `x.single_int64 != null`,
 		Env: env{
-			idents: []*checkedpb.Decl{
+			idents: []*expr.Decl{
 				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
 			},
 		},
@@ -671,7 +671,7 @@ ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, nul
 	{
 		I: `x.single_int64_wrapper == null`,
 		Env: env{
-			idents: []*checkedpb.Decl{
+			idents: []*expr.Decl{
 				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
 			},
 		},
@@ -686,7 +686,7 @@ ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, nul
 	{
 		I: `x.repeated_int64.all(e, e > 0) && x.repeated_int64.exists(e, e < 0) && x.repeated_int64.exists_one(e, e == 0)`,
 		Env: env{
-			idents: []*checkedpb.Decl{
+			idents: []*expr.Decl{
 				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
 			},
 		},
@@ -776,7 +776,7 @@ ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, nul
 	{
 		I: `x.all(e, 0)`,
 		Env: env{
-			idents: []*checkedpb.Decl{
+			idents: []*expr.Decl{
 				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
 			},
 		},
@@ -823,7 +823,7 @@ ERROR: <input>:1:5: undeclared reference to 'x' (in container '')
 		I:         `x`,
 		Container: "container",
 		Env: env{
-			idents: []*checkedpb.Decl{
+			idents: []*expr.Decl{
 				decls.NewIdent("container.x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
 			},
 		},
@@ -848,12 +848,12 @@ _&&_(_==_(list~type(list(dyn))^list,
 	{
 		I: `myfun(1, true, 3u) + 1.myfun(false, 3u).myfun(true, 42u)`,
 		Env: env{
-			functions: []*checkedpb.Decl{
+			functions: []*expr.Decl{
 				decls.NewFunction("myfun",
 					decls.NewInstanceOverload("myfun_instance",
-						[]*checkedpb.Type{decls.Int, decls.Bool, decls.Uint}, decls.Int),
+						[]*expr.Type{decls.Int, decls.Bool, decls.Uint}, decls.Int),
 					decls.NewOverload("myfun_static",
-						[]*checkedpb.Type{decls.Int, decls.Bool, decls.Uint}, decls.Int)),
+						[]*expr.Type{decls.Int, decls.Bool, decls.Uint}, decls.Int)),
 			},
 		},
 		R: `_+_(
@@ -876,9 +876,9 @@ _&&_(_==_(list~type(list(dyn))^list,
 	{
 		I: `false`,
 		Env: env{
-			functions: []*checkedpb.Decl{
+			functions: []*expr.Decl{
 				decls.NewFunction("has",
-					decls.NewOverload("has_id", []*checkedpb.Type{decls.Dyn}, decls.Dyn)),
+					decls.NewOverload("has_id", []*expr.Type{decls.Dyn}, decls.Dyn)),
 			},
 		},
 		Error: `ERROR: <input>:-1:0: overload for name 'has' with 1 argument(s) overlaps with predefined macro`,
@@ -887,10 +887,10 @@ _&&_(_==_(list~type(list(dyn))^list,
 	{
 		I: `false`,
 		Env: env{
-			functions: []*checkedpb.Decl{
+			functions: []*expr.Decl{
 				decls.NewFunction("myfunc",
-					decls.NewOverload("myfunc_id", []*checkedpb.Type{decls.Dyn}, decls.Dyn),
-					decls.NewOverload("yourfunc_id", []*checkedpb.Type{decls.Dyn}, decls.Dyn)),
+					decls.NewOverload("myfunc_id", []*expr.Type{decls.Dyn}, decls.Dyn),
+					decls.NewOverload("yourfunc_id", []*expr.Type{decls.Dyn}, decls.Dyn)),
 			},
 		},
 		Error: `ERROR: <input>:-1:0: overlapping overload for name 'myfunc' (type '(dyn) -> dyn' with overloadId: 'yourfunc_id' cannot be distinguished from '(dyn) -> dyn' with overloadId: 'myfunc_id')`,
@@ -899,13 +899,13 @@ _&&_(_==_(list~type(list(dyn))^list,
 	{
 		I: `size(x) > 4`,
 		Env: env{
-			idents: []*checkedpb.Decl{
+			idents: []*expr.Decl{
 				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
 			},
-			functions: []*checkedpb.Decl{
+			functions: []*expr.Decl{
 				decls.NewFunction("size",
 					decls.NewOverload("size_message",
-						[]*checkedpb.Type{decls.NewObjectType("google.api.tools.expr.test.TestAllTypes")},
+						[]*expr.Type{decls.NewObjectType("google.api.tools.expr.test.TestAllTypes")},
 						decls.Int)),
 			},
 		},
@@ -915,7 +915,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 	{
 		I: `x.single_int64_wrapper + 1 != 23`,
 		Env: env{
-			idents: []*checkedpb.Decl{
+			idents: []*expr.Decl{
 				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
 			},
 		},
@@ -974,14 +974,14 @@ func initTypeProvider() ref.TypeProvider {
 
 var testEnvs = map[string]env{
 	"default": {
-		functions: []*checkedpb.Decl{
+		functions: []*expr.Decl{
 			decls.NewFunction("fg_s",
-				decls.NewOverload("fg_s_0", []*checkedpb.Type{}, decls.String)),
+				decls.NewOverload("fg_s_0", []*expr.Type{}, decls.String)),
 			decls.NewFunction("fi_s_s",
 				decls.NewInstanceOverload("fi_s_s_0",
-					[]*checkedpb.Type{decls.String}, decls.String)),
+					[]*expr.Type{decls.String}, decls.String)),
 		},
-		idents: []*checkedpb.Decl{
+		idents: []*expr.Decl{
 			decls.NewIdent("is", decls.String, nil),
 			decls.NewIdent("ii", decls.Int, nil),
 			decls.NewIdent("iu", decls.Uint, nil),
@@ -1001,7 +1001,7 @@ type testInfo struct {
 	R string
 
 	// Type is the expected type of the expression
-	Type *checkedpb.Type
+	Type *expr.Type
 
 	// Container is the container name to use for test.
 	Container string
@@ -1014,8 +1014,8 @@ type testInfo struct {
 }
 
 type env struct {
-	idents    []*checkedpb.Decl
-	functions []*checkedpb.Decl
+	idents    []*expr.Decl
+	functions []*expr.Decl
 }
 
 func Test(t *testing.T) {

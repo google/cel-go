@@ -18,7 +18,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/struct"
 	"github.com/google/cel-go/common/operators"
-	expr "github.com/google/cel-spec/proto/v1/syntax"
+	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 type TestExpr struct {
@@ -218,32 +218,32 @@ func ExprSelect(id int64, operand *expr.Expr, field string) *expr.Expr {
 }
 
 func ExprLiteral(id int64, value interface{}) *expr.Expr {
-	var literal *expr.Literal
+	var literal *expr.Constant
 	switch value.(type) {
 	case bool:
-		literal = &expr.Literal{LiteralKind: &expr.Literal_BoolValue{value.(bool)}}
+		literal = &expr.Constant{ConstantKind: &expr.Constant_BoolValue{value.(bool)}}
 	case int64:
-		literal = &expr.Literal{LiteralKind: &expr.Literal_Int64Value{
+		literal = &expr.Constant{ConstantKind: &expr.Constant_Int64Value{
 			value.(int64)}}
 	case uint64:
-		literal = &expr.Literal{LiteralKind: &expr.Literal_Uint64Value{
+		literal = &expr.Constant{ConstantKind: &expr.Constant_Uint64Value{
 			value.(uint64)}}
 	case float64:
-		literal = &expr.Literal{LiteralKind: &expr.Literal_DoubleValue{
+		literal = &expr.Constant{ConstantKind: &expr.Constant_DoubleValue{
 			value.(float64)}}
 	case string:
-		literal = &expr.Literal{LiteralKind: &expr.Literal_StringValue{
+		literal = &expr.Constant{ConstantKind: &expr.Constant_StringValue{
 			value.(string)}}
 	case structpb.NullValue:
-		literal = &expr.Literal{LiteralKind: &expr.Literal_NullValue{
+		literal = &expr.Constant{ConstantKind: &expr.Constant_NullValue{
 			NullValue: value.(structpb.NullValue)}}
 	case []byte:
-		literal = &expr.Literal{LiteralKind: &expr.Literal_BytesValue{
+		literal = &expr.Constant{ConstantKind: &expr.Constant_BytesValue{
 			value.([]byte)}}
 	default:
 		panic("literal type not implemented")
 	}
-	return &expr.Expr{Id: id, ExprKind: &expr.Expr_LiteralExpr{LiteralExpr: literal}}
+	return &expr.Expr{Id: id, ExprKind: &expr.Expr_ConstExpr{ConstExpr: literal}}
 }
 
 func ExprCall(id int64, function string, args ...*expr.Expr) *expr.Expr {

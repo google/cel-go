@@ -19,7 +19,7 @@ import (
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	expr "github.com/google/cel-spec/proto/v1/syntax"
+	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 type astPruner struct {
@@ -64,9 +64,9 @@ func PruneAst(expr *expr.Expr, state EvalState) *expr.Expr {
 	return newExpr
 }
 
-func (p *astPruner) createLiteral(node *expr.Expr, val *expr.Literal) *expr.Expr {
+func (p *astPruner) createLiteral(node *expr.Expr, val *expr.Constant) *expr.Expr {
 	newExpr := *node
-	newExpr.ExprKind = &expr.Expr_LiteralExpr{LiteralExpr: val}
+	newExpr.ExprKind = &expr.Expr_ConstExpr{ConstExpr: val}
 	return &newExpr
 }
 
@@ -132,25 +132,25 @@ func (p *astPruner) prune(node *expr.Expr) (*expr.Expr, bool) {
 		switch val.Type() {
 		case types.BoolType:
 			return p.createLiteral(node,
-				&expr.Literal{LiteralKind: &expr.Literal_BoolValue{val.Value().(bool)}}), true
+				&expr.Constant{ConstantKind: &expr.Constant_BoolValue{val.Value().(bool)}}), true
 		case types.IntType:
 			return p.createLiteral(node,
-				&expr.Literal{LiteralKind: &expr.Literal_Int64Value{val.Value().(int64)}}), true
+				&expr.Constant{ConstantKind: &expr.Constant_Int64Value{val.Value().(int64)}}), true
 		case types.UintType:
 			return p.createLiteral(node,
-				&expr.Literal{LiteralKind: &expr.Literal_Uint64Value{val.Value().(uint64)}}), true
+				&expr.Constant{ConstantKind: &expr.Constant_Uint64Value{val.Value().(uint64)}}), true
 		case types.StringType:
 			return p.createLiteral(node,
-				&expr.Literal{LiteralKind: &expr.Literal_StringValue{val.Value().(string)}}), true
+				&expr.Constant{ConstantKind: &expr.Constant_StringValue{val.Value().(string)}}), true
 		case types.DoubleType:
 			return p.createLiteral(node,
-				&expr.Literal{LiteralKind: &expr.Literal_DoubleValue{val.Value().(float64)}}), true
+				&expr.Constant{ConstantKind: &expr.Constant_DoubleValue{val.Value().(float64)}}), true
 		case types.BytesType:
 			return p.createLiteral(node,
-				&expr.Literal{LiteralKind: &expr.Literal_BytesValue{val.Value().([]byte)}}), true
+				&expr.Constant{ConstantKind: &expr.Constant_BytesValue{val.Value().([]byte)}}), true
 		case types.NullType:
 			return p.createLiteral(node,
-				&expr.Literal{LiteralKind: &expr.Literal_NullValue{val.Value().(structpb.NullValue)}}), true
+				&expr.Constant{ConstantKind: &expr.Constant_NullValue{val.Value().(structpb.NullValue)}}), true
 		}
 	}
 

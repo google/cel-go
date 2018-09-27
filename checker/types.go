@@ -20,7 +20,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cel-go/checker/decls"
-	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
+	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 const (
@@ -32,7 +32,7 @@ const (
 	kindWellKnown
 	kindWrapper
 	kindNull
-	kindAbstract // TODO: Update the checkedpb.proto to include abstract
+	kindAbstract // TODO: Update the checker protos to include abstract
 	kindType
 	kindList
 	kindMap
@@ -41,13 +41,13 @@ const (
 )
 
 // FormatCheckedType converts a type message into a string representation.
-func FormatCheckedType(t *checkedpb.Type) string {
+func FormatCheckedType(t *expr.Type) string {
 	switch kindOf(t) {
 	case kindPrimitive:
 		switch t.GetPrimitive() {
-		case checkedpb.Type_UINT64:
+		case expr.Type_UINT64:
 			return "uint"
-		case checkedpb.Type_INT64:
+		case expr.Type_INT64:
 			return "int"
 		}
 		return strings.Trim(strings.ToLower(t.GetPrimitive().String()), " ")
@@ -85,7 +85,7 @@ func FormatCheckedType(t *checkedpb.Type) string {
  * Check whether one type is equal or less specific than the other one. A type is less specific if
  * it matches the other type using the DYN type.
  */
-func isEqualOrLessSpecific(t1 *checkedpb.Type, t2 *checkedpb.Type) bool {
+func isEqualOrLessSpecific(t1 *expr.Type, t2 *expr.Type) bool {
 	kind1, kind2 := kindOf(t1), kindOf(t2)
 	if kind1 == kindDyn || kind1 == kindTypeParam {
 		return true
@@ -127,7 +127,7 @@ func isEqualOrLessSpecific(t1 *checkedpb.Type, t2 *checkedpb.Type) bool {
 	}
 }
 
-func internalIsAssignableList(m *mapping, l1 []*checkedpb.Type, l2 []*checkedpb.Type) bool {
+func internalIsAssignableList(m *mapping, l1 []*expr.Type, l2 []*expr.Type) bool {
 	if len(l1) != len(l2) {
 		return false
 	}
@@ -139,7 +139,7 @@ func internalIsAssignableList(m *mapping, l1 []*checkedpb.Type, l2 []*checkedpb.
 	return true
 }
 
-func internalIsAssignable(m *mapping, t1 *checkedpb.Type, t2 *checkedpb.Type) bool {
+func internalIsAssignable(m *mapping, t1 *expr.Type, t2 *expr.Type) bool {
 	// Process type parameters.
 	kind1, kind2 := kindOf(t1), kindOf(t2)
 	if kind2 == kindTypeParam {
@@ -201,8 +201,8 @@ func internalIsAssignable(m *mapping, t1 *checkedpb.Type, t2 *checkedpb.Type) bo
 		m1 := t1.GetMapType()
 		m2 := t2.GetMapType()
 		return internalIsAssignableList(m,
-			[]*checkedpb.Type{m1.KeyType, m1.ValueType},
-			[]*checkedpb.Type{m2.KeyType, m2.ValueType})
+			[]*expr.Type{m1.KeyType, m1.ValueType},
+			[]*expr.Type{m2.KeyType, m2.ValueType})
 	case kindFunction:
 		fn1 := t1.GetFunction()
 		fn2 := t2.GetFunction()
@@ -218,7 +218,7 @@ func internalIsAssignable(m *mapping, t1 *checkedpb.Type, t2 *checkedpb.Type) bo
 	}
 }
 
-func isAssignable(m *mapping, t1 *checkedpb.Type, t2 *checkedpb.Type) *mapping {
+func isAssignable(m *mapping, t1 *expr.Type, t2 *expr.Type) *mapping {
 	mCopy := m.copy()
 	if internalIsAssignable(mCopy, t1, t2) {
 		return mCopy
@@ -226,7 +226,7 @@ func isAssignable(m *mapping, t1 *checkedpb.Type, t2 *checkedpb.Type) *mapping {
 	return nil
 }
 
-func isAssignableList(m *mapping, l1 []*checkedpb.Type, l2 []*checkedpb.Type) *mapping {
+func isAssignableList(m *mapping, l1 []*expr.Type, l2 []*expr.Type) *mapping {
 	mCopy := m.copy()
 	if internalIsAssignableList(mCopy, l1, l2) {
 		return mCopy
@@ -243,41 +243,41 @@ func isNullable(kind int) bool {
 	}
 }
 
-func kindOf(t *checkedpb.Type) int {
+func kindOf(t *expr.Type) int {
 	if t == nil || t.TypeKind == nil {
 		return kindUnknown
 	}
 	switch t.TypeKind.(type) {
-	case *checkedpb.Type_Error:
+	case *expr.Type_Error:
 		return kindError
-	case *checkedpb.Type_Function:
+	case *expr.Type_Function:
 		return kindFunction
-	case *checkedpb.Type_Dyn:
+	case *expr.Type_Dyn:
 		return kindDyn
-	case *checkedpb.Type_Primitive:
+	case *expr.Type_Primitive:
 		return kindPrimitive
-	case *checkedpb.Type_WellKnown:
+	case *expr.Type_WellKnown:
 		return kindWellKnown
-	case *checkedpb.Type_Wrapper:
+	case *expr.Type_Wrapper:
 		return kindWrapper
-	case *checkedpb.Type_Null:
+	case *expr.Type_Null:
 		return kindNull
-	case *checkedpb.Type_Type:
+	case *expr.Type_Type:
 		return kindType
-	case *checkedpb.Type_ListType_:
+	case *expr.Type_ListType_:
 		return kindList
-	case *checkedpb.Type_MapType_:
+	case *expr.Type_MapType_:
 		return kindMap
-	case *checkedpb.Type_MessageType:
+	case *expr.Type_MessageType:
 		return kindObject
-	case *checkedpb.Type_TypeParam:
+	case *expr.Type_TypeParam:
 		return kindTypeParam
 	}
 	return kindUnknown
 }
 
 /** Returns the more general of two types which are known to unify. */
-func mostGeneral(t1 *checkedpb.Type, t2 *checkedpb.Type) *checkedpb.Type {
+func mostGeneral(t1 *expr.Type, t2 *expr.Type) *expr.Type {
 	if isEqualOrLessSpecific(t1, t2) {
 		return t1
 	}
@@ -288,7 +288,7 @@ func mostGeneral(t1 *checkedpb.Type, t2 *checkedpb.Type) *checkedpb.Type {
  * Apply substitution to given type, replacing all direct and indirect occurrences of bound type
  * parameters. Unbound type parameters are replaced by DYN if typeParamToDyn is true.
  */
-func substitute(m *mapping, t *checkedpb.Type, typeParamToDyn bool) *checkedpb.Type {
+func substitute(m *mapping, t *expr.Type, typeParamToDyn bool) *expr.Type {
 	if tSub, found := m.find(t); found {
 		return substitute(m, tSub, typeParamToDyn)
 	}
@@ -311,7 +311,7 @@ func substitute(m *mapping, t *checkedpb.Type, typeParamToDyn bool) *checkedpb.T
 	case kindFunction:
 		fn := t.GetFunction()
 		rt := substitute(m, fn.ResultType, typeParamToDyn)
-		args := make([]*checkedpb.Type, len(fn.ArgTypes))
+		args := make([]*expr.Type, len(fn.ArgTypes))
 		for i, a := range fn.ArgTypes {
 			args[i] = substitute(m, a, typeParamToDyn)
 		}
@@ -321,7 +321,7 @@ func substitute(m *mapping, t *checkedpb.Type, typeParamToDyn bool) *checkedpb.T
 	}
 }
 
-func notReferencedIn(t *checkedpb.Type, withinType *checkedpb.Type) bool {
+func notReferencedIn(t *expr.Type, withinType *expr.Type) bool {
 	if proto.Equal(t, withinType) {
 		return false
 	}
@@ -348,6 +348,6 @@ func notReferencedIn(t *checkedpb.Type, withinType *checkedpb.Type) bool {
 	}
 }
 
-func typeKey(t *checkedpb.Type) string {
+func typeKey(t *expr.Type) string {
 	return fmt.Sprintf("%v:%v", kindOf(t), t.String())
 }

@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/google/cel-go/server"
-	"github.com/google/cel-spec/proto/v1/cel_service"
+	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
@@ -31,7 +31,7 @@ func main() {
 
 	log.Println("Server registering service on port")
 	s := grpc.NewServer()
-	cel_service.RegisterCelServiceServer(s, &server.CelServer{})
+	expr.RegisterCelServiceServer(s, &server.CelServer{})
 	log.Println("Server calling Register")
 	reflection.Register(s)
 	log.Println("Server calling Serve")

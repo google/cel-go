@@ -21,14 +21,14 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 	"github.com/google/cel-go/test"
-	"github.com/google/cel-spec/proto/v1/syntax"
+	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	"reflect"
 	"testing"
 )
 
 func TestNewProtoObject(t *testing.T) {
-	parsedExpr := &syntax.ParsedExpr{
-		SourceInfo: &syntax.SourceInfo{
+	parsedExpr := &expr.ParsedExpr{
+		SourceInfo: &expr.SourceInfo{
 			LineOffsets: []int32{1, 2, 3}}}
 	obj := NewObject(parsedExpr).(traits.Indexer)
 	si := obj.Get(String("source_info")).(traits.Indexer)
@@ -56,13 +56,13 @@ func TestProtoObject_Iterator(t *testing.T) {
 }
 
 func TestProtoObj_ConvertToNative(t *testing.T) {
-	pbMessage := &syntax.ParsedExpr{
-		SourceInfo: &syntax.SourceInfo{
+	pbMessage := &expr.ParsedExpr{
+		SourceInfo: &expr.SourceInfo{
 			LineOffsets: []int32{1, 2, 3}}}
 	objVal := NewObject(pbMessage)
 
 	// Proto Message
-	val, err := objVal.ConvertToNative(reflect.TypeOf(&syntax.ParsedExpr{}))
+	val, err := objVal.ConvertToNative(reflect.TypeOf(&expr.ParsedExpr{}))
 	if err != nil {
 		t.Error(err)
 	}

@@ -7,10 +7,9 @@ go_library(
         "scopes.go",
     ],
     deps = [
-        "@com_google_cel_spec//proto/checked/v1:checked_go_proto",
-        "@com_google_cel_spec//proto/v1:syntax_go_proto",
         "@io_bazel_rules_go//proto/wkt:empty_go_proto",
         "@io_bazel_rules_go//proto/wkt:struct_go_proto",
+        "@org_golang_google_genproto//googleapis/api/expr/v1alpha1:go_default_library",
     ],
     importpath = "github.com/google/cel-go/checker/decls",
     visibility = ["//visibility:public"],

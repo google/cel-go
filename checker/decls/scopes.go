@@ -14,7 +14,7 @@
 
 package decls
 
-import checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
+import expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 
 type Scopes struct {
 	scopes []*Group
@@ -35,11 +35,11 @@ func (s *Scopes) Pop() {
 	s.scopes = s.scopes[:len(s.scopes)-1]
 }
 
-func (s *Scopes) AddIdent(decl *checkedpb.Decl) {
+func (s *Scopes) AddIdent(decl *expr.Decl) {
 	s.scopes[0].idents[decl.Name] = decl
 }
 
-func (s *Scopes) FindIdent(name string) *checkedpb.Decl {
+func (s *Scopes) FindIdent(name string) *expr.Decl {
 	for i := len(s.scopes) - 1; i >= 0; i-- {
 		scope := s.scopes[i]
 		if ident, found := scope.idents[name]; found {
@@ -49,18 +49,18 @@ func (s *Scopes) FindIdent(name string) *checkedpb.Decl {
 	return nil
 }
 
-func (s *Scopes) FindIdentInScope(name string) *checkedpb.Decl {
+func (s *Scopes) FindIdentInScope(name string) *expr.Decl {
 	if ident, found := s.scopes[len(s.scopes)-1].idents[name]; found {
 		return ident
 	}
 	return nil
 }
 
-func (s *Scopes) AddFunction(fn *checkedpb.Decl) {
+func (s *Scopes) AddFunction(fn *expr.Decl) {
 	s.scopes[0].functions[fn.Name] = fn
 }
 
-func (s *Scopes) FindFunction(name string) *checkedpb.Decl {
+func (s *Scopes) FindFunction(name string) *expr.Decl {
 	for i := len(s.scopes) - 1; i >= 0; i-- {
 		scope := s.scopes[i]
 		if fn, found := scope.functions[name]; found {
@@ -71,13 +71,13 @@ func (s *Scopes) FindFunction(name string) *checkedpb.Decl {
 }
 
 type Group struct {
-	idents    map[string]*checkedpb.Decl
-	functions map[string]*checkedpb.Decl
+	idents    map[string]*expr.Decl
+	functions map[string]*expr.Decl
 }
 
 func newGroup() *Group {
 	return &Group{
-		idents:    make(map[string]*checkedpb.Decl),
-		functions: make(map[string]*checkedpb.Decl),
+		idents:    make(map[string]*expr.Decl),
+		functions: make(map[string]*expr.Decl),
 	}
 }
