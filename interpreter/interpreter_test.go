@@ -32,7 +32,7 @@ func TestInterpreter_CallExpr(t *testing.T) {
 	program := NewProgram(
 		test.Equality.Expr,
 		test.Equality.Info(t.Name()))
-	intr := NewStandardIntepreter(
+	intr := NewStandardInterpreter(
 		packages.NewPackage("google.api.expr"),
 		types.NewProvider(&expr.ParsedExpr{}))
 	interpretable := intr.NewInterpretable(program)
@@ -107,7 +107,7 @@ func TestInterpreter_BuildObject(t *testing.T) {
 		t.Errorf(errors.ToDisplayString())
 	}
 
-	i := NewStandardIntepreter(pkgr, provider)
+	i := NewStandardInterpreter(pkgr, provider)
 	eval := i.NewInterpretable(NewCheckedProgram(checked))
 	result, _ := eval.Eval(NewActivation(map[string]interface{}{}))
 	expected := &expr.Expr{Id: 1,
@@ -282,7 +282,7 @@ func BenchmarkInterpreter_ComprehensionExprWithInput(b *testing.B) {
 }
 
 var (
-	interpreter = NewStandardIntepreter(
+	interpreter = NewStandardInterpreter(
 		packages.DefaultPackage,
 		types.NewProvider(&expr.ParsedExpr{}))
 )
