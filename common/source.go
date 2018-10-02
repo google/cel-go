@@ -15,9 +15,8 @@
 package common
 
 import (
+	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	"strings"
-
-	"github.com/google/cel-spec/proto/v1/syntax"
 )
 
 // Source interface for filter source contents.
@@ -86,7 +85,7 @@ func NewStringSource(contents string, description string) Source {
 	}
 }
 
-func NewInfoSource(info *syntax.SourceInfo) Source {
+func NewInfoSource(info *expr.SourceInfo) Source {
 	return &sourceImpl{
 		contents:    "",
 		description: info.Location,

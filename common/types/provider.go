@@ -23,7 +23,7 @@ import (
 	tpb "github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/google/cel-go/common/types/pb"
 	"github.com/google/cel-go/common/types/ref"
-	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
+	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	"reflect"
 )
 
@@ -72,12 +72,12 @@ func (p *protoTypeProvider) EnumValue(enumName string) ref.Value {
 	return Int(enumVal.Value())
 }
 
-func (p *protoTypeProvider) FindFieldType(t *checkedpb.Type,
+func (p *protoTypeProvider) FindFieldType(t *expr.Type,
 	fieldName string) (*ref.FieldType, bool) {
 	switch t.TypeKind.(type) {
 	default:
 		return nil, false
-	case *checkedpb.Type_MessageType:
+	case *expr.Type_MessageType:
 		msgType, err := pb.DescribeType(t.GetMessageType())
 		if err != nil {
 			return nil, false
@@ -103,7 +103,7 @@ func (p *protoTypeProvider) FindIdent(identName string) (ref.Value, bool) {
 	return nil, false
 }
 
-func (p *protoTypeProvider) FindType(typeName string) (*checkedpb.Type, bool) {
+func (p *protoTypeProvider) FindType(typeName string) (*expr.Type, bool) {
 	if _, err := pb.DescribeType(typeName); err != nil {
 		return nil, false
 	}
@@ -115,10 +115,10 @@ func (p *protoTypeProvider) FindType(typeName string) (*checkedpb.Type, bool) {
 	if checkedType, found := pb.CheckedWellKnowns[typeName]; found {
 		return checkedType, true
 	}
-	return &checkedpb.Type{
-		TypeKind: &checkedpb.Type_Type{
-			Type: &checkedpb.Type{
-				TypeKind: &checkedpb.Type_MessageType{
+	return &expr.Type{
+		TypeKind: &expr.Type_Type{
+			Type: &expr.Type{
+				TypeKind: &expr.Type_MessageType{
 					MessageType: typeName}}}}, true
 }
 

@@ -16,24 +16,24 @@ package checker
 
 import (
 	"fmt"
-	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
+	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 type mapping struct {
-	mapping map[string]*checkedpb.Type
+	mapping map[string]*expr.Type
 }
 
 func newMapping() *mapping {
 	return &mapping{
-		mapping: make(map[string]*checkedpb.Type),
+		mapping: make(map[string]*expr.Type),
 	}
 }
 
-func (m *mapping) add(from *checkedpb.Type, to *checkedpb.Type) {
+func (m *mapping) add(from *expr.Type, to *expr.Type) {
 	m.mapping[typeKey(from)] = to
 }
 
-func (m *mapping) find(from *checkedpb.Type) (*checkedpb.Type, bool) {
+func (m *mapping) find(from *expr.Type) (*expr.Type, bool) {
 	if r, found := m.mapping[typeKey(from)]; found {
 		return r, found
 	}

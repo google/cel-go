@@ -19,7 +19,7 @@ package debug
 import (
 	"bytes"
 	"fmt"
-	expr "github.com/google/cel-spec/proto/v1/syntax"
+	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	"strconv"
 	"strings"
 )
@@ -80,8 +80,8 @@ func (w *debugWriter) Buffer(e *expr.Expr) {
 		return
 	}
 	switch e.ExprKind.(type) {
-	case *expr.Expr_LiteralExpr:
-		w.append(formatLiteral(e.GetLiteralExpr()))
+	case *expr.Expr_ConstExpr:
+		w.append(formatLiteral(e.GetConstExpr()))
 	case *expr.Expr_IdentExpr:
 		w.append(e.GetIdentExpr().Name)
 	case *expr.Expr_SelectExpr:
@@ -240,21 +240,21 @@ func (w *debugWriter) appendComprehension(comprehension *expr.Expr_Comprehension
 	w.removeIndent()
 }
 
-func formatLiteral(c *expr.Literal) string {
-	switch c.LiteralKind.(type) {
-	case *expr.Literal_BoolValue:
+func formatLiteral(c *expr.Constant) string {
+	switch c.ConstantKind.(type) {
+	case *expr.Constant_BoolValue:
 		return fmt.Sprintf("%t", c.GetBoolValue())
-	case *expr.Literal_BytesValue:
+	case *expr.Constant_BytesValue:
 		return fmt.Sprintf("b\"%s\"", string(c.GetBytesValue()))
-	case *expr.Literal_DoubleValue:
+	case *expr.Constant_DoubleValue:
 		return fmt.Sprintf("%v", c.GetDoubleValue())
-	case *expr.Literal_Int64Value:
+	case *expr.Constant_Int64Value:
 		return fmt.Sprintf("%d", c.GetInt64Value())
-	case *expr.Literal_StringValue:
+	case *expr.Constant_StringValue:
 		return strconv.Quote(c.GetStringValue())
-	case *expr.Literal_Uint64Value:
+	case *expr.Constant_Uint64Value:
 		return fmt.Sprintf("%du", c.GetUint64Value())
-	case *expr.Literal_NullValue:
+	case *expr.Constant_NullValue:
 		return "null"
 	default:
 		panic("Unknown constant type")

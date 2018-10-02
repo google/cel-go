@@ -21,7 +21,7 @@ import (
 	"github.com/golang/protobuf/ptypes/struct"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
-	expr "github.com/google/cel-spec/proto/v1/syntax"
+	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	"reflect"
 	"testing"
 )
@@ -29,7 +29,7 @@ import (
 func TestTypeProvider_NewValue(t *testing.T) {
 	typeProvider := NewProvider(&expr.ParsedExpr{})
 	if sourceInfo := typeProvider.NewValue(
-		"google.api.expr.v1.SourceInfo",
+		"google.api.expr.v1alpha1.SourceInfo",
 		map[string]ref.Value{
 			"location":     String("TestTypeProvider_NewValue"),
 			"line_offsets": NewDynamicList([]int64{0, 2}),
@@ -49,14 +49,14 @@ func TestTypeProvider_NewValue(t *testing.T) {
 func TestTypeProvider_NewValue_OneofFields(t *testing.T) {
 	typeProvider := NewProvider(&expr.ParsedExpr{})
 	if exp := typeProvider.NewValue(
-		"google.api.expr.v1.Expr",
+		"google.api.expr.v1alpha1.Expr",
 		map[string]ref.Value{
-			"literal_expr": NewObject(&expr.Literal{LiteralKind: &expr.Literal_StringValue{StringValue: "oneof"}}),
+			"const_expr": NewObject(&expr.Constant{ConstantKind: &expr.Constant_StringValue{StringValue: "oneof"}}),
 		}); IsError(exp) {
 		t.Error(exp)
 	} else {
 		e := exp.Value().(*expr.Expr)
-		if e.GetLiteralExpr().GetStringValue() != "oneof" {
+		if e.GetConstExpr().GetStringValue() != "oneof" {
 			t.Errorf("Expr with oneof could not be created: %v", e)
 		}
 	}
@@ -65,7 +65,7 @@ func TestTypeProvider_NewValue_OneofFields(t *testing.T) {
 func TestTypeProvider_Getters(t *testing.T) {
 	typeProvider := NewProvider(&expr.ParsedExpr{})
 	if sourceInfo := typeProvider.NewValue(
-		"google.api.expr.v1.SourceInfo",
+		"google.api.expr.v1alpha1.SourceInfo",
 		map[string]ref.Value{
 			"location":     String("TestTypeProvider_GetFieldValue"),
 			"line_offsets": NewDynamicList([]int64{0, 2}),

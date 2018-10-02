@@ -21,8 +21,7 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/parser"
-	checkedpb "github.com/google/cel-spec/proto/checked/v1/checked"
-	expr "github.com/google/cel-spec/proto/v1/syntax"
+	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 type Env struct {
@@ -55,18 +54,18 @@ func NewStandardEnv(packager packages.Packager,
 	return e
 }
 
-func (e *Env) Add(decls ...*checkedpb.Decl) {
+func (e *Env) Add(decls ...*expr.Decl) {
 	for _, decl := range decls {
 		switch decl.DeclKind.(type) {
-		case *checkedpb.Decl_Ident:
+		case *expr.Decl_Ident:
 			e.addIdent(decl)
-		case *checkedpb.Decl_Function:
+		case *expr.Decl_Function:
 			e.addFunction(decl)
 		}
 	}
 }
 
-func (e *Env) addOverload(f *checkedpb.Decl, overload *checkedpb.Decl_FunctionDecl_Overload) {
+func (e *Env) addOverload(f *expr.Decl, overload *expr.Decl_FunctionDecl_Overload) {
 	function := f.GetFunction()
 	emptyMappings := newMapping()
 	overloadFunction := decls.NewFunctionType(overload.GetResultType(),
@@ -96,7 +95,7 @@ func (e *Env) addOverload(f *checkedpb.Decl, overload *checkedpb.Decl_FunctionDe
 	function.Overloads = append(function.GetOverloads(), overload)
 }
 
-func (e *Env) addFunction(decl *checkedpb.Decl) {
+func (e *Env) addFunction(decl *expr.Decl) {
 	current := e.declarations.FindFunction(decl.Name)
 	if current == nil {
 		//Add the function declaration without overloads and check the overloads below.
@@ -109,7 +108,7 @@ func (e *Env) addFunction(decl *checkedpb.Decl) {
 	}
 }
 
-func (e *Env) addIdent(decl *checkedpb.Decl) {
+func (e *Env) addIdent(decl *expr.Decl) {
 	current := e.declarations.FindIdentInScope(decl.Name)
 	if current != nil {
 		panic("ident already exists")
@@ -117,7 +116,7 @@ func (e *Env) addIdent(decl *checkedpb.Decl) {
 	e.declarations.AddIdent(decl)
 }
 
-func (e *Env) LookupIdent(typeName string) *checkedpb.Decl {
+func (e *Env) LookupIdent(typeName string) *expr.Decl {
 	for _, candidate := range e.packager.ResolveCandidateNames(typeName) {
 		if ident := e.declarations.FindIdent(candidate); ident != nil {
 			return ident
@@ -137,8 +136,8 @@ func (e *Env) LookupIdent(typeName string) *checkedpb.Decl {
 		if enumValue := e.typeProvider.EnumValue(candidate); enumValue.Type() != types.ErrType {
 			decl := decls.NewIdent(candidate,
 				decls.Int,
-				&expr.Literal{
-					LiteralKind: &expr.Literal_Int64Value{
+				&expr.Constant{
+					ConstantKind: &expr.Constant_Int64Value{
 						Int64Value: int64(enumValue.(types.Int))}})
 			e.declarations.AddIdent(decl)
 			return decl
@@ -147,7 +146,7 @@ func (e *Env) LookupIdent(typeName string) *checkedpb.Decl {
 	return nil
 }
 
-func (e *Env) LookupFunction(typeName string) *checkedpb.Decl {
+func (e *Env) LookupFunction(typeName string) *expr.Decl {
 	for _, candidate := range e.packager.ResolveCandidateNames(typeName) {
 		if fn := e.declarations.FindFunction(candidate); fn != nil {
 			return fn
