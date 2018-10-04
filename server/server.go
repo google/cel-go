@@ -81,7 +81,7 @@ func (s *CelServer) Check(ctx context.Context, in *expr.CheckRequest) (*expr.Che
 func (s *CelServer) Eval(ctx context.Context, in *expr.EvalRequest) (*expr.EvalResponse, error) {
 	pkg := packages.NewPackage(in.Container)
 	typeProvider := types.NewProvider()
-	i := interpreter.NewStandardIntepreter(pkg, typeProvider)
+	i := interpreter.NewStandardInterpreter(pkg, typeProvider)
 	var prog interpreter.Program
 	switch in.ExprKind.(type) {
 	case *expr.EvalRequest_ParsedExpr:
