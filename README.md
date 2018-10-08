@@ -6,7 +6,7 @@ This repo contains the Go toolchain for the Common Expression Language (CEL).
 CEL is a non-Turing complete language designed to be portable and fast. It is
 best suited to  applications where sandboxing a full-fledged language like
 JavaScript or Lua would be too resource intensive, but side-effect free dynamic
-computations are strongly desired. 
+computations are strongly desired.
 
 ## Want to learn more?
 
@@ -18,7 +18,7 @@ computations are strongly desired.
 * See [GoDoc][6] to learn how to integrate CEL into services written in Go.
   [![GoDoc](https://godoc.org/github.com/google/cel-go?status.svg)][6]
 * See the [CEL C++][3] toolchain (under development) for information about how
-  to integrate CEL evaluation into other environments.  
+  to integrate CEL evaluation into other environments. 
 
 ## Want to contribute?
 

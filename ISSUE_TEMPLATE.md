@@ -2,7 +2,7 @@
 
 - [ ] There are no issues that match the desired change
 - [ ] The change is large enough it can't be addressed with a simple
-     [Pull Request](./PULL_REQUEST_TEMPLATE.md) 
+     [Pull Request](./PULL_REQUEST_TEMPLATE.md)
 - [ ] If this is a bug, there are a concrete set of repro steps
 
 ## Change
