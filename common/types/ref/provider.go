@@ -24,7 +24,7 @@ type TypeProvider interface {
 	// EnumValue returns the numeric value of the given enum value name.
 	EnumValue(enumName string) Value
 
-	// FindIdent takes a qualified identifer name and returns a Value if one
+	// FindIdent takes a qualified identifier name and returns a Value if one
 	// exists.
 	FindIdent(identName string) (Value, bool)
 
