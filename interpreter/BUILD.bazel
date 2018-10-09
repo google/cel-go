@@ -1,6 +1,8 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
-package(default_visibility = ["//visibility:public"])
+package(
+    licenses = ["notice"],  # Apache 2.0
+)
 
 go_library(
     name = "go_default_library",
@@ -16,6 +18,7 @@ go_library(
         "prune.go",
     ],
       importpath = "github.com/google/cel-go/interpreter",
+      visibility = ["//visibility:public"],
     deps = [
         "//common:go_default_library",
         "//common/operators:go_default_library",
