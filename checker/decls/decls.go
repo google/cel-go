@@ -2,7 +2,7 @@
 package decls
 
 import (
-	"github.com/golang/protobuf/ptypes/empty"
+	emptypb "github.com/golang/protobuf/ptypes/empty"
 	"github.com/golang/protobuf/ptypes/struct"
 	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
@@ -11,12 +11,12 @@ var (
 	// Error type used to communicate issues during type-checking.
 	Error = &expr.Type{
 		TypeKind: &expr.Type_Error{
-			Error: &empty.Empty{}}}
+			Error: &emptypb.Empty{}}}
 
 	// Dyn is a top-type used to represent any value.
 	Dyn = &expr.Type{
 		TypeKind: &expr.Type_Dyn{
-			Dyn: &empty.Empty{}}}
+			Dyn: &emptypb.Empty{}}}
 
 	// Commonly used types.
 	Bool   = NewPrimitiveType(expr.Type_BOOL)
