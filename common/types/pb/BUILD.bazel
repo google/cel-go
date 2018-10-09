@@ -1,6 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 package(
+    default_visibility = ["//visibility:public"],
     licenses = ["notice"],  # Apache 2.0
 )
 
@@ -14,7 +15,6 @@ go_library(
         "type.go",
     ],
     importpath = "github.com/google/cel-go/common/types/pb",
-    visibility = ["//visibility:public"],
     deps = [
         "@com_github_golang_protobuf//descriptor:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
