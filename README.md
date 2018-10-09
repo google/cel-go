@@ -18,7 +18,7 @@ computations are strongly desired.
 * See [GoDoc][6] to learn how to integrate CEL into services written in Go.
   [![GoDoc](https://godoc.org/github.com/google/cel-go?status.svg)][6]
 * See the [CEL C++][3] toolchain (under development) for information about how
-  to integrate CEL evaluation into other environments. 
+  to integrate CEL evaluation into other environments.
 
 ## Want to contribute?
 
