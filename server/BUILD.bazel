@@ -1,6 +1,11 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
 load("@org_pubref_rules_protobuf//go:rules.bzl", "GRPC_COMPILE_DEPS")
 
+package(
+    default_visibility = ["//visibility:public"],
+    licenses = ["notice"],  # Apache 2.0
+)
+
 go_library(
     name = "go_default_library",
     srcs = [
@@ -22,7 +27,6 @@ go_library(
         "@org_golang_google_grpc//codes:go_default_library",
         "@org_golang_google_grpc//status:go_default_library",
     ] + GRPC_COMPILE_DEPS,
-    visibility = ["//visibility:public"],
 )
 
 go_test(
@@ -39,7 +43,6 @@ go_test(
         "@org_golang_google_genproto//googleapis/api/expr/v1alpha1:go_default_library",
         "@org_golang_google_genproto//googleapis/rpc/status:go_default_library",
     ] + GRPC_COMPILE_DEPS,
-    visibility = ["//visibility:public"],
 )
 
 go_binary(
@@ -51,5 +54,4 @@ go_binary(
         "@org_golang_google_genproto//googleapis/api/expr/v1alpha1:go_default_library",
     ] + GRPC_COMPILE_DEPS,
     out = "cel_server",
-    visibility = ["//visibility:public"],
 )
