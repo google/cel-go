@@ -50,6 +50,7 @@ are any errors that need to be reported.
 ```go
 import(
     "fmt"
+
     "github.com/google/cel-go/checker"
     "github.com/google/cel-go/checker/decls"
     "github.com/google/cel-go/common/packages"
@@ -61,7 +62,7 @@ import(
 // Parse the expression and returns the accumulated errors.
 p, errors := parser.ParseText("a || b && c.exists(x, x > 2)")
 if len(errors.GetErrors()) != 0 {
-    return nil, fmt.Error(errors.ToDisplayString()))
+    return nil, fmt.Error(errors.ToDisplayString())
 }
 
 // Check the expression matches expectations given the declarations for
@@ -72,20 +73,23 @@ env := checker.NewStandardEnv(packages.DefaultPackage, typeProvider, errors)
 env.Add(decls.NewIdent("a", decls.Bool, nil),
     decls.NewIdent("b", decls.Bool, nil),
     decls.NewIdent("c", decls.NewListType(decls.Int), nil))
-c := checker.Check(p, env, "")
+c := checker.Check(p, env)
 if len(errors.GetErrors()) != 0 {
-    return nil, fmt.Error(errors.ToDisplayString()))
+    return nil, fmt.Error(errors.ToDisplayString())
 }
 
 // Interpret the checked expression using the standard overloads.
 i := interpreter.NewStandardInterpreter(packages.DefaultPackage, typeProvider)
 eval := i.NewInterpretable(interpreter.NewCheckedProgram(c))
-result, state := eval.Interpret(
+result, state := eval.Eval(
     interpreter.NewActivation(
         map[string]interface{}{
             "a": false,
             "b": true,
-            "c": [1, 2, 3, 4, 5]}))
+            "c": []int{1, 2, 3, 4, 5}}))
+
+fmt.Println(state)
+fmt.Println(result)
 ```
 
 More examples like these can be found within the unit tests which can be run
