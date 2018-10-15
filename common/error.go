@@ -25,7 +25,7 @@ type Error struct {
 	Message  string
 }
 
-// Stringer implementation that places errors in context with the source.
+// ToDisplayString decorates the error message with the source location.
 func (e *Error) ToDisplayString(source Source) string {
 	var result = fmt.Sprintf("ERROR: %s:%d:%d: %s",
 		source.Description(),

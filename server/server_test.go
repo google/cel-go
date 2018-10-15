@@ -25,6 +25,7 @@ var (
 	globals = serverTest{}
 )
 
+// TestMain performs setup for testing.
 func TestMain(m *testing.M) {
 	// Use a helper function to ensure we run shutdown()
 	// before calling os.Exit()
@@ -108,6 +109,7 @@ var (
 	}
 )
 
+// TestParse tests the Parse method.
 func TestParse(t *testing.T) {
 	req := expr.ParseRequest{
 		CelSource: "1 + 1",
@@ -162,6 +164,7 @@ func TestParse(t *testing.T) {
 	}
 }
 
+// TestCheck tests the Check method.
 func TestCheck(t *testing.T) {
 	// If TestParse() passes, it validates a good chunk
 	// of the server mechanisms for data conversion, so we
@@ -193,6 +196,7 @@ func TestCheck(t *testing.T) {
 	}
 }
 
+// TestEval tests the Eval method.
 func TestEval(t *testing.T) {
 	req := expr.EvalRequest{
 		ExprKind: &expr.EvalRequest_ParsedExpr{parsed},
@@ -220,6 +224,7 @@ func TestEval(t *testing.T) {
 	}
 }
 
+// TestFullUp tests Parse, Check, and Eval back-to-back.
 func TestFullUp(t *testing.T) {
 	preq := expr.ParseRequest{
 		CelSource: "x + y",
@@ -382,26 +387,32 @@ func expectEvalTrue(t *testing.T, source string) {
 	}
 }
 
+// TestCondTrue tests true conditional behavior.
 func TestCondTrue(t *testing.T) {
 	expectEvalTrue(t, "(true ? 'a' : 'b') == 'a'")
 }
 
+// TestCondFalse tests false conditional behavior.
 func TestCondFalse(t *testing.T) {
 	expectEvalTrue(t, "(false ? 'a' : 'b') == 'b'")
 }
 
+// TestMapOrderInsignificant tests that maps with different order are equal.
 func TestMapOrderInsignificant(t *testing.T) {
 	expectEvalTrue(t, "{1: 'a', 2: 'b'} == {2: 'b', 1: 'a'}")
 }
 
+// FailsTestOneMetaType tests that types of different types are equal.
 func FailsTestOneMetaType(t *testing.T) {
 	expectEvalTrue(t, "type(type(1)) == type(type('foo'))")
 }
 
+// FailsTestTypeType tests that the meta-type is its own type.
 func FailsTestTypeType(t *testing.T) {
 	expectEvalTrue(t, "type(type) == type")
 }
 
+// FailsTestNullTypeName checks that the type of null is "null_type".
 func FailsTestNullTypeName(t *testing.T) {
 	expectEvalTrue(t, "type(null) == null_type")
 }

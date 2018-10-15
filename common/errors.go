@@ -24,7 +24,7 @@ type Errors struct {
 	source Source
 }
 
-// Create a new instance of the Errors type.
+// NewErrors creates a new instance of the Errors type.
 func NewErrors(source Source) *Errors {
 	return &Errors{
 		errors: []Error{},

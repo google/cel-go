@@ -29,20 +29,23 @@ type SourceLocation struct {
 var (
 	// Ensure the SourceLocation implements the Location interface.
 	_          Location = &SourceLocation{}
+	// NoLocation is a particular illegal location.
 	NoLocation          = &SourceLocation{-1, -1}
 )
 
-// Create a new location.
+// NewLocation creates a new location.
 func NewLocation(line, column int) Location {
 	return &SourceLocation{
 		line:   line,
 		column: column}
 }
 
+// Line returns the 1-based line of the location.
 func (l *SourceLocation) Line() int {
 	return l.line
 }
 
+// Column returns the 0-based column number of the location.
 func (l *SourceLocation) Column() int {
 	return l.column
 }

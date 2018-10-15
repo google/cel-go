@@ -17,6 +17,7 @@
 // ALl operators in the expression language are modelled as function calls.
 package operators
 
+// String "names" for CEL operators.
 const (
 	Conditional   = "_?_:_"
 	LogicalAnd    = "_&&_"

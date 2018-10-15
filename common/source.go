@@ -21,28 +21,31 @@ import (
 
 // Source interface for filter source contents.
 type Source interface {
-	// The source content represented as a string, for example a single file,
-	// textbox field, or url parameter.
+	// Content returns the source content represented as a string.
+	// Examples contents are the single file contents, textbox field,
+	// or url parameter.
 	Content() string
 
-	// Brief description of the source, such as a file name or ui element.
+	// Description gives a brief description of the source.
+	// Example descriptions are a file name or ui element.
 	Description() string
 
-	// The character offsets at which lines occur. The zero-th entry should
-	// refer to the break between the first and second line, or EOF if there
-	// is only one line of source.
+	// LineOffsets gives the character offsets at which lines occur.
+	// The zero-th entry should refer to the break between the first
+	// and second line, or EOF if there is only one line of source.
 	LineOffsets() []int32
 
-	// The raw character offset at which the a location exists given the
-	// location line and column.
-	// Returns the line offset and whether the location was found.
+	// LocationOffset translates a Location to an offset.
+	// Given the line and column of the Location returns the
+	// Location's character offset in the Source, and a bool
+	// indicating whether the Location was found.
 	LocationOffset(location Location) (int32, bool)
 
 	// OffsetLocation translates a character offset to a Location, or
 	// false if the conversion was not feasible.
 	OffsetLocation(offset int32) (Location, bool)
 
-	// Return a line of content and whether the line was found.
+	// Snippet returns a line of content and whether the line was found.
 	Snippet(line int) (string, bool)
 
 	// IdOffset returns the raw character offset of an expression within
@@ -67,7 +70,7 @@ type sourceImpl struct {
 // within the UTF-8 encoded string.  It currently indexes bytes.
 // Can be accomplished by using rune[] instead of string for contents.
 
-// Create a new Source given the string contents and description.
+// NewStringSource creates a new Source from the given contents and description.
 func NewStringSource(contents string, description string) Source {
 	// Compute line offsets up front as they are referred to frequently.
 	lines := strings.Split(contents, "\n")
@@ -85,6 +88,7 @@ func NewStringSource(contents string, description string) Source {
 	}
 }
 
+// NewInfoSource creates a new Source from a SourceInfo.
 func NewInfoSource(info *expr.SourceInfo) Source {
 	return &sourceImpl{
 		contents:    "",

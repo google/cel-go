@@ -17,8 +17,10 @@ var (
 	Dyn = &expr.Type{
 		TypeKind: &expr.Type_Dyn{
 			Dyn: &emptypb.Empty{}}}
+)
 
-	// Commonly used types.
+// Commonly used types.
+var (
 	Bool   = NewPrimitiveType(expr.Type_BOOL)
 	Bytes  = NewPrimitiveType(expr.Type_BYTES)
 	Double = NewPrimitiveType(expr.Type_DOUBLE)
@@ -28,9 +30,11 @@ var (
 			Null: structpb.NullValue_NULL_VALUE}}
 	String = NewPrimitiveType(expr.Type_STRING)
 	Uint   = NewPrimitiveType(expr.Type_UINT64)
+)
 
-	// Well-known types.
-	// TODO: Replace with an abstract type registry.
+// Well-known types.
+// TODO: Replace with an abstract type registry.
+var (
 	Any       = NewWellKnownType(expr.Type_ANY)
 	Duration  = NewWellKnownType(expr.Type_DURATION)
 	Timestamp = NewWellKnownType(expr.Type_TIMESTAMP)
@@ -116,8 +120,7 @@ func NewOverload(id string, argTypes []*expr.Type,
 		IsInstanceFunction: false}
 }
 
-// NewParameterizedOverload creates a parametric function instance overload
-// type.
+// NewParameterizedInstanceOverload creates a parametric function instance overload type.
 func NewParameterizedInstanceOverload(id string,
 	argTypes []*expr.Type,
 	resultType *expr.Type,

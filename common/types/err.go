@@ -30,32 +30,39 @@ var (
 	ErrType = NewTypeValue("error")
 )
 
+// NewErr creates a new Err described by the format string and args.
 func NewErr(format string, args ...interface{}) *Err {
 	return &Err{fmt.Errorf(format, args...)}
 }
 
+// ConvertToNative implements ref.Value.ConvertToNative.
 func (e *Err) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	return nil, e.error
 }
 
+// ConvertToType implements ref.Value.ConvertToType.
 func (e *Err) ConvertToType(typeVal ref.Type) ref.Value {
 	// Errors are not convertible to other representations.
 	return e
 }
 
+// Equal implements ref.Value.Equal.
 func (e *Err) Equal(other ref.Value) ref.Value {
 	// An error cannot be equal to any other value, so it returns itself.
 	return e
 }
 
+// String implements fmt.Stringer.
 func (e *Err) String() string {
 	return e.error.Error()
 }
 
+// Type implements ref.Value.Type.
 func (e *Err) Type() ref.Type {
 	return ErrType
 }
 
+// Value implements ref.Value.Value.
 func (e *Err) Value() interface{} {
 	return e.error
 }
