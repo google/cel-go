@@ -94,7 +94,7 @@ func NewCall(exprId int64, function string, argIds []int64) *CallExpr {
 	return &CallExpr{&baseInstruction{exprId}, function, argIds, "", checkIsStrict(function)}
 }
 
-// NewCallOverlaod generates a CallExpr for overload calls.
+// NewCallOverload generates a CallExpr for overload calls.
 func NewCallOverload(exprId int64, function string, argIds []int64, overload string) *CallExpr {
 	return &CallExpr{&baseInstruction{exprId}, function, argIds, overload, checkIsStrict(function)}
 }
@@ -124,7 +124,7 @@ func NewSelect(exprId int64, operandId int64, field string) *SelectExpr {
 	return &SelectExpr{&baseInstruction{exprId}, operandId, field}
 }
 
-// CrateListExpr will create a new list from the elements referened by their ids.
+// CreateListExpr will create a new list from the elements referened by their ids.
 type CreateListExpr struct {
 	*baseInstruction
 	Elements []int64
