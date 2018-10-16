@@ -57,7 +57,7 @@ func NewInterpreter(dispatcher Dispatcher,
 		typeProvider: typeProvider}
 }
 
-// StandardInterpreter builds a Dispatcher and TypeProvider with support
+// NewStandardInterpreter builds a Dispatcher and TypeProvider with support
 // for all of the CEL builtins defined in the language definition.
 func NewStandardInterpreter(packager packages.Packager,
 	typeProvider ref.TypeProvider) Interpreter {
