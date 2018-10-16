@@ -37,6 +37,7 @@ var (
 		traits.SubtractorType)
 )
 
+// Add implements traits.Adder.Add.
 func (d Double) Add(other ref.Value) ref.Value {
 	if DoubleType != other.Type() {
 		return NewErr("unsupported overload")
@@ -44,6 +45,7 @@ func (d Double) Add(other ref.Value) ref.Value {
 	return d + other.(Double)
 }
 
+// Compare implements traits.Comparer.Compare.
 func (d Double) Compare(other ref.Value) ref.Value {
 	if DoubleType != other.Type() {
 		return NewErr("unsupported overload")
@@ -57,6 +59,7 @@ func (d Double) Compare(other ref.Value) ref.Value {
 	return IntZero
 }
 
+// ConvertToNative implements ref.Value.ConvertToNative.
 func (d Double) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	switch typeDesc.Kind() {
 	case reflect.Float32:
@@ -85,6 +88,7 @@ func (d Double) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	return nil, fmt.Errorf("type conversion error from Double to '%v'", typeDesc)
 }
 
+// ConvertToType implements ref.Value.ConvertToType.
 func (d Double) ConvertToType(typeVal ref.Type) ref.Value {
 	switch typeVal {
 	case IntType:
@@ -101,6 +105,7 @@ func (d Double) ConvertToType(typeVal ref.Type) ref.Value {
 	return NewErr("type conversion error from '%s' to '%s'", DoubleType, typeVal)
 }
 
+// Divide implements traits.Divider.Divide.
 func (d Double) Divide(other ref.Value) ref.Value {
 	if DoubleType != other.Type() {
 		return NewErr("unsupported overload")
@@ -111,10 +116,12 @@ func (d Double) Divide(other ref.Value) ref.Value {
 	return d / other.(Double)
 }
 
+// Equal implements ref.Value.Equal.
 func (d Double) Equal(other ref.Value) ref.Value {
 	return Bool(DoubleType == other.Type() && d == other)
 }
 
+// Multiply implements traits.Multiplier.Multiply.
 func (d Double) Multiply(other ref.Value) ref.Value {
 	if DoubleType != other.Type() {
 		return NewErr("unsupported overload")
@@ -122,10 +129,12 @@ func (d Double) Multiply(other ref.Value) ref.Value {
 	return d * other.(Double)
 }
 
+// Negate implements traits.Negater.Negate.
 func (d Double) Negate() ref.Value {
 	return -d
 }
 
+// Subtract implements traits.Subtractor.Subtract.
 func (d Double) Subtract(subtrahend ref.Value) ref.Value {
 	if DoubleType != subtrahend.Type() {
 		return NewErr("unsupported overload")
@@ -133,10 +142,12 @@ func (d Double) Subtract(subtrahend ref.Value) ref.Value {
 	return d - subtrahend.(Double)
 }
 
+// Type implements ref.Value.Type.
 func (d Double) Type() ref.Type {
 	return DoubleType
 }
 
+// Value implements ref.Value.Value.
 func (d Double) Value() interface{} {
 	return float64(d)
 }

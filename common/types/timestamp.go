@@ -42,6 +42,7 @@ var (
 		traits.SubtractorType)
 )
 
+// Add implements traits.Adder.Add.
 func (t Timestamp) Add(other ref.Value) ref.Value {
 	switch other.Type() {
 	case DurationType:
@@ -50,6 +51,7 @@ func (t Timestamp) Add(other ref.Value) ref.Value {
 	return NewErr("unsupported overload")
 }
 
+// Compare implements traits.Comparer.Compare.
 func (t Timestamp) Compare(other ref.Value) ref.Value {
 	if TimestampType != other.Type() {
 		return NewErr("unsupported overload")
@@ -72,6 +74,7 @@ func (t Timestamp) Compare(other ref.Value) ref.Value {
 	return IntZero
 }
 
+// ConvertToNative implements ref.Value.ConvertToNative.
 func (t Timestamp) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	if typeDesc == timestampValueType {
 		return t.Value(), nil
@@ -84,6 +87,7 @@ func (t Timestamp) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		"'google.protobuf.Duration' to '%v'", typeDesc)
 }
 
+// ConvertToType implements ref.Value.ConvertToType.
 func (t Timestamp) ConvertToType(typeVal ref.Type) ref.Value {
 	switch typeVal {
 	case StringType:
@@ -101,11 +105,13 @@ func (t Timestamp) ConvertToType(typeVal ref.Type) ref.Value {
 	return NewErr("type conversion error from '%s' to '%s'", TimestampType, typeVal)
 }
 
+// Equal implements ref.Value.Equal.
 func (t Timestamp) Equal(other ref.Value) ref.Value {
 	return Bool(TimestampType == other.Type() &&
 		proto.Equal(t.Timestamp, other.Value().(proto.Message)))
 }
 
+// Receive implements traits.Reciever.Receive.
 func (t Timestamp) Receive(function string, overload string, args []ref.Value) ref.Value {
 	ts := t.Timestamp
 	tstamp, err := ptypes.Timestamp(ts)
@@ -125,6 +131,7 @@ func (t Timestamp) Receive(function string, overload string, args []ref.Value) r
 	return NewErr("unsupported overload")
 }
 
+// Subtract implements traits.Subtractor.Subtract.
 func (t Timestamp) Subtract(subtrahend ref.Value) ref.Value {
 	switch subtrahend.Type() {
 	case DurationType:
@@ -155,10 +162,12 @@ func (t Timestamp) Subtract(subtrahend ref.Value) ref.Value {
 	return NewErr("unsupported overload")
 }
 
+// Type implements ref.Value.Type.
 func (t Timestamp) Type() ref.Type {
 	return TimestampType
 }
 
+// Value implements ref.Value.Value.
 func (t Timestamp) Value() interface{} {
 	return t.Timestamp
 }

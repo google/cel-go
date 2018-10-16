@@ -31,11 +31,15 @@ var (
 	BoolType = NewTypeValue("bool",
 		traits.ComparerType,
 		traits.NegatorType)
+)
 
+// Boolean constants
+var (
 	False = Bool(false)
 	True  = Bool(true)
 )
 
+// Compare implements traits.Comparer.Compare.
 func (b Bool) Compare(other ref.Value) ref.Value {
 	if BoolType != other.Type() {
 		return NewErr("unsupported overload")
@@ -50,6 +54,7 @@ func (b Bool) Compare(other ref.Value) ref.Value {
 	return IntOne
 }
 
+// ConvertToNative implements ref.Value.ConvertToNative.
 func (b Bool) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	switch typeDesc.Kind() {
 	case reflect.Bool:
@@ -72,6 +77,7 @@ func (b Bool) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	return nil, fmt.Errorf("type conversion error from bool to '%v'", typeDesc)
 }
 
+// ConvertToType implements ref.Value.ConvertToType.
 func (b Bool) ConvertToType(typeVal ref.Type) ref.Value {
 	switch typeVal {
 	case StringType:
@@ -84,18 +90,22 @@ func (b Bool) ConvertToType(typeVal ref.Type) ref.Value {
 	return NewErr("type conversion error from '%v' to '%v'", BoolType, typeVal)
 }
 
+// Equal implements ref.Value.Equal.
 func (b Bool) Equal(other ref.Value) ref.Value {
 	return Bool(BoolType == other.Type() && b.Value() == other.Value())
 }
 
+// Negate implements traits.Negater.Negate.
 func (b Bool) Negate() ref.Value {
 	return !b
 }
 
+// Type implements ref.Value.Type.
 func (b Bool) Type() ref.Type {
 	return BoolType
 }
 
+// Value implements ref.Value.Value.
 func (b Bool) Value() interface{} {
 	return bool(b)
 }
