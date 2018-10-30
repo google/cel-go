@@ -184,7 +184,7 @@ func StandardOverloads() []*Overload {
 			}},
 
 		// Matches function
-		{Operator: overloads.MatchString,
+		{Operator: overloads.Matches,
 			OperandTrait: traits.MatcherType,
 			Binary: func(lhs ref.Value, rhs ref.Value) ref.Value {
 				return lhs.(traits.Matcher).Match(rhs)
