@@ -18,6 +18,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/struct"
 	"github.com/google/cel-go/common/operators"
+
 	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 

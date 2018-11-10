@@ -16,6 +16,7 @@ package checker
 
 import (
 	"github.com/google/cel-go/common"
+
 	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 

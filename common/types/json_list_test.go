@@ -15,12 +15,14 @@
 package types
 
 import (
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
-	anypb "github.com/golang/protobuf/ptypes/any"
-	"github.com/golang/protobuf/ptypes/struct"
 	"reflect"
 	"testing"
+
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/struct"
+
+	anypb "github.com/golang/protobuf/ptypes/any"
 )
 
 func TestJsonListValue_Add(t *testing.T) {

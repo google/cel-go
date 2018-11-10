@@ -15,12 +15,14 @@
 package types
 
 import (
-	"github.com/golang/protobuf/proto"
-	dpb "github.com/golang/protobuf/ptypes/duration"
-	"github.com/golang/protobuf/ptypes/struct"
-	tpb "github.com/golang/protobuf/ptypes/timestamp"
 	"reflect"
 	"testing"
+
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/struct"
+
+	dpb "github.com/golang/protobuf/ptypes/duration"
+	tpb "github.com/golang/protobuf/ptypes/timestamp"
 )
 
 func TestString_Add(t *testing.T) {

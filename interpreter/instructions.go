@@ -16,9 +16,10 @@ package interpreter
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/types/ref"
-	"strings"
 )
 
 // Instruction represents a single step within a CEL program.

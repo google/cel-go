@@ -16,10 +16,11 @@ package types
 
 import (
 	"fmt"
+	"reflect"
+
 	"github.com/golang/protobuf/ptypes/struct"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
-	"reflect"
 )
 
 // Int type that implements ref.Value as well as comparison and math operators.

@@ -16,9 +16,10 @@ package interpreter
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/test"
-	"testing"
 )
 
 func TestNewProgram_Empty(t *testing.T) {

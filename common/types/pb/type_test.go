@@ -1,10 +1,12 @@
 package pb
 
 import (
+	"testing"
+
 	"github.com/golang/protobuf/proto"
+
 	testpb "github.com/google/cel-go/test"
 	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
-	"testing"
 )
 
 func TestTypeDescription_FieldCount(t *testing.T) {

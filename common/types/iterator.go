@@ -16,9 +16,10 @@ package types
 
 import (
 	"fmt"
+	"reflect"
+
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
-	"reflect"
 )
 
 var (

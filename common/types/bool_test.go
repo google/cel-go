@@ -15,10 +15,11 @@
 package types
 
 import (
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/struct"
 	"reflect"
 	"testing"
+
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/struct"
 )
 
 func TestBool_Compare(t *testing.T) {

@@ -15,8 +15,9 @@
 package interpreter
 
 import (
-	"github.com/google/cel-go/common/types"
 	"testing"
+
+	"github.com/google/cel-go/common/types"
 )
 
 func TestNewActivation(t *testing.T) {

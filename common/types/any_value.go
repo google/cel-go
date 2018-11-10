@@ -15,8 +15,9 @@
 package types
 
 import (
-	anypb "github.com/golang/protobuf/ptypes/any"
 	"reflect"
+
+	anypb "github.com/golang/protobuf/ptypes/any"
 )
 
 // anyValueType constant representing the reflected type of google.protobuf.Any.

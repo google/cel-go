@@ -15,9 +15,10 @@
 package types
 
 import (
-	"github.com/golang/protobuf/ptypes/struct"
 	"reflect"
 	"testing"
+
+	"github.com/golang/protobuf/ptypes/struct"
 )
 
 func TestUint_Add(t *testing.T) {

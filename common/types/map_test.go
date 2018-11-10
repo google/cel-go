@@ -15,11 +15,12 @@
 package types
 
 import (
+	"reflect"
+	"testing"
+
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cel-go/common/types/traits"
-	"reflect"
-	"testing"
 )
 
 func TestBaseMap_Contains(t *testing.T) {

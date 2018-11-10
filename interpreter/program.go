@@ -16,9 +16,11 @@ package interpreter
 
 import (
 	"fmt"
-	"github.com/google/cel-go/common"
-	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	"strings"
+
+	"github.com/google/cel-go/common"
+
+	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 // Program contains instructions and related metadata.

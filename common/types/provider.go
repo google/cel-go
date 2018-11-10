@@ -15,16 +15,18 @@
 package types
 
 import (
+	"reflect"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	anypb "github.com/golang/protobuf/ptypes/any"
-	dpb "github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/struct"
-	tpb "github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/google/cel-go/common/types/pb"
 	"github.com/google/cel-go/common/types/ref"
+
+	anypb "github.com/golang/protobuf/ptypes/any"
+	dpb "github.com/golang/protobuf/ptypes/duration"
+	tpb "github.com/golang/protobuf/ptypes/timestamp"
 	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
-	"reflect"
 )
 
 type protoTypeProvider struct {
