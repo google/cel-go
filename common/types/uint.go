@@ -36,10 +36,12 @@ var (
 		traits.SubtractorType)
 )
 
+// Int constants
 const (
 	uintZero = Uint(0)
 )
 
+// Add implements traits.Adder.Add.
 func (i Uint) Add(other ref.Value) ref.Value {
 	if UintType != other.Type() {
 		return NewErr("unsupported overload")
@@ -47,6 +49,7 @@ func (i Uint) Add(other ref.Value) ref.Value {
 	return i + other.(Uint)
 }
 
+// Compare implements traits.Comparer.Compare.
 func (i Uint) Compare(other ref.Value) ref.Value {
 	if UintType != other.Type() {
 		return NewErr("unsupported overload")
@@ -60,6 +63,7 @@ func (i Uint) Compare(other ref.Value) ref.Value {
 	return IntZero
 }
 
+// ConvertToNative implements ref.Value.ConvertToNative.
 func (i Uint) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	value := i.Value()
 	switch typeDesc.Kind() {
@@ -89,6 +93,7 @@ func (i Uint) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	return nil, fmt.Errorf("unsupported type conversion from 'uint' to %v", typeDesc)
 }
 
+// ConvertToType implements ref.Value.ConvertToType.
 func (i Uint) ConvertToType(typeVal ref.Type) ref.Value {
 	switch typeVal {
 	case IntType:
@@ -105,6 +110,7 @@ func (i Uint) ConvertToType(typeVal ref.Type) ref.Value {
 	return NewErr("type conversion error from '%s' to '%s'", UintType, typeVal)
 }
 
+// Divide implements traits.Divider.Divide.
 func (i Uint) Divide(other ref.Value) ref.Value {
 	if UintType != other.Type() {
 		return NewErr("unsupported overload")
@@ -116,11 +122,13 @@ func (i Uint) Divide(other ref.Value) ref.Value {
 	return i / otherUint
 }
 
+// Equal implements ref.Value.Equal.
 func (i Uint) Equal(other ref.Value) ref.Value {
 	return Bool(UintType == other.Type() &&
 		i.Value() == other.Value())
 }
 
+// Modulo implements traits.Modder.Modulo.
 func (i Uint) Modulo(other ref.Value) ref.Value {
 	if UintType != other.Type() {
 		return NewErr("unsupported overload")
@@ -132,6 +140,7 @@ func (i Uint) Modulo(other ref.Value) ref.Value {
 	return i % otherUint
 }
 
+// Multiply implements traits.Multiplier.Multiply.
 func (i Uint) Multiply(other ref.Value) ref.Value {
 	if UintType != other.Type() {
 		return NewErr("unsupported overload")
@@ -139,6 +148,7 @@ func (i Uint) Multiply(other ref.Value) ref.Value {
 	return i * other.(Uint)
 }
 
+// Subtract implements traits.Subtractor.Subtract.
 func (i Uint) Subtract(subtrahend ref.Value) ref.Value {
 	if UintType != subtrahend.Type() {
 		return NewErr("unsupported overload")
@@ -146,10 +156,12 @@ func (i Uint) Subtract(subtrahend ref.Value) ref.Value {
 	return i - subtrahend.(Uint)
 }
 
+// Type implements ref.Value.Type.
 func (i Uint) Type() ref.Type {
 	return UintType
 }
 
+// Value implements ref.Value.Value.
 func (i Uint) Value() interface{} {
 	return uint64(i)
 }

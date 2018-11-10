@@ -28,22 +28,27 @@ var (
 	UnknownType = NewTypeValue("unknown")
 )
 
+// ConvertToNative implements ref.Value.ConvertToNative.
 func (u Unknown) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	return u.Value(), nil
 }
 
+// ConvertToType implements ref.Value.ConvertToType.
 func (u Unknown) ConvertToType(typeVal ref.Type) ref.Value {
 	return u
 }
 
+// Equal implements ref.Value.Equal.
 func (u Unknown) Equal(other ref.Value) ref.Value {
 	return u
 }
 
+// Type implements ref.Value.Type.
 func (u Unknown) Type() ref.Type {
 	return UnknownType
 }
 
+// Value implements ref.Value.Value.
 func (u Unknown) Value() interface{} {
 	return []int64(u)
 }

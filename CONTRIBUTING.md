@@ -12,12 +12,12 @@ We currently welcome a wide variety of contributions:
 
 * Requests for bugs and features through issues.
 * Fixes of bugs and implementations of features.
-* Documentation and examples. 
+* Documentation and examples.
 
 The general guideline is that contributions must improve the user experience
 without significantly altering its semantics or performance characteristics.
 
-Learn more about CEL semantics in the [CEL Spec][1] repo. 
+Learn more about CEL semantics in the [CEL Spec][1] repo.
 
 # Contribution Process
 
@@ -61,7 +61,7 @@ If approval is given to a code change, commits should be squashed on merge.
 This makes it easier to triage issues related to a change, and makes the commit
 graph human-readable.
 
-For outstanding and ongoing issues and particularly for long-running pull 
+For outstanding and ongoing issues and particularly for long-running pull
 requests, expect the maintainers to review within a week of a contributor
 asking for a new review. There is no commitment to resolution -- merging
 or closing a pull request, or fixing or closing an issue -- because some

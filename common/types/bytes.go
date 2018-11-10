@@ -34,6 +34,7 @@ var (
 		traits.SizerType)
 )
 
+// Add implements traits.Adder.Add by concatenating byte sequences.
 func (b Bytes) Add(other ref.Value) ref.Value {
 	if BytesType != other.Type() {
 		return NewErr("unsupported overload")
@@ -41,6 +42,7 @@ func (b Bytes) Add(other ref.Value) ref.Value {
 	return append(b, other.(Bytes)...)
 }
 
+// Compare implments traits.Comparer.Compare by lexicographic ordering.
 func (b Bytes) Compare(other ref.Value) ref.Value {
 	if BytesType != other.Type() {
 		return NewErr("unsupported overload")
@@ -48,6 +50,7 @@ func (b Bytes) Compare(other ref.Value) ref.Value {
 	return Int(bytes.Compare(b, other.(Bytes)))
 }
 
+// ConvertToNative implements ref.Value.ConvertToNative.
 func (b Bytes) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	switch typeDesc.Kind() {
 	case reflect.Array, reflect.Slice:
@@ -62,6 +65,7 @@ func (b Bytes) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	return nil, fmt.Errorf("type conversion error from Bytes to '%v'", typeDesc)
 }
 
+// ConvertToType implements ref.Value.ConvertToType.
 func (b Bytes) ConvertToType(typeVal ref.Type) ref.Value {
 	switch typeVal {
 	case StringType:
@@ -74,19 +78,23 @@ func (b Bytes) ConvertToType(typeVal ref.Type) ref.Value {
 	return NewErr("type conversion error from '%s' to '%s'", BytesType, typeVal)
 }
 
+// Equal implements ref.Value.Equal.
 func (b Bytes) Equal(other ref.Value) ref.Value {
 	return Bool(BytesType == other.Type() &&
 		bytes.Equal([]byte(b), other.(Bytes)))
 }
 
+// Size implements traits.Sizer.Size.
 func (b Bytes) Size() ref.Value {
 	return Int(len(b))
 }
 
+// Type implements ref.Value.Type.
 func (b Bytes) Type() ref.Type {
 	return BytesType
 }
 
+// Value implements ref.Value.Value.
 func (b Bytes) Value() interface{} {
 	return []byte(b)
 }

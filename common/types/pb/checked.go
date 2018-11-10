@@ -16,7 +16,7 @@ package pb
 
 import (
 	descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
-	"github.com/golang/protobuf/ptypes/empty"
+	emptypb "github.com/golang/protobuf/ptypes/empty"
 	"github.com/golang/protobuf/ptypes/struct"
 	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
@@ -62,7 +62,7 @@ var (
 	checkedBool      = checkedPrimitive(expr.Type_BOOL)
 	checkedBytes     = checkedPrimitive(expr.Type_BYTES)
 	checkedDouble    = checkedPrimitive(expr.Type_DOUBLE)
-	checkedDyn       = &expr.Type{TypeKind: &expr.Type_Dyn{Dyn: &empty.Empty{}}}
+	checkedDyn       = &expr.Type{TypeKind: &expr.Type_Dyn{Dyn: &emptypb.Empty{}}}
 	checkedInt       = checkedPrimitive(expr.Type_INT64)
 	checkedNull      = &expr.Type{TypeKind: &expr.Type_Null{Null: structpb.NullValue_NULL_VALUE}}
 	checkedString    = checkedPrimitive(expr.Type_STRING)

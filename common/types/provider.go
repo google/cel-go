@@ -170,6 +170,8 @@ func (p *protoTypeProvider) RegisterType(types ...ref.Type) error {
 	return nil
 }
 
+// NativeToValue converts various "native" types to ref.Value.
+// It should be the inverse of ref.Value.ConvertToNative.
 func NativeToValue(value interface{}) ref.Value {
 	switch value.(type) {
 	case ref.Value:

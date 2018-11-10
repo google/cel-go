@@ -21,11 +21,13 @@ import (
 	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
+// TestExpr packages an Expr with SourceInfo, for testing.
 type TestExpr struct {
 	Expr       *expr.Expr
 	SourceInfo *expr.SourceInfo
 }
 
+// Info returns a copy of the SourceInfo with the given location.
 func (t *TestExpr) Info(location string) *expr.SourceInfo {
 	info := proto.Clone(t.SourceInfo).(*expr.SourceInfo)
 	info.Location = location
@@ -33,7 +35,7 @@ func (t *TestExpr) Info(location string) *expr.SourceInfo {
 }
 
 var (
-	// program with no instructions.
+	// Empty generates a program with no instructions.
 	Empty = &TestExpr{
 		Expr: &expr.Expr{},
 
@@ -41,7 +43,7 @@ var (
 			LineOffsets: []int32{},
 			Positions:   map[int64]int32{}}}
 
-	// [1, 1u, 1.0].exists(x, type(x) == uint)
+	// Exists generates "[1, 1u, 1.0].exists(x, type(x) == uint)".
 	Exists = &TestExpr{
 		Expr: ExprComprehension(1,
 			"x",
@@ -86,7 +88,7 @@ var (
 				15: 28,
 				16: 28}}}
 
-	// elems.exists(x, type(x) == uint)
+	// ExistsWithInput generates "elems.exists(x, type(x) == uint)".
 	ExistsWithInput = &TestExpr{
 		Expr: ExprComprehension(1,
 			"x",
@@ -119,6 +121,7 @@ var (
 				9:  18,
 				10: 18}}}
 
+	// DynMap generates a map literal:
 	// {"hello": "world".size(),
 	//  "dur": duration.Duration{10},
 	//  "ts": timestamp.Timestamp{1000},
@@ -142,7 +145,7 @@ var (
 			LineOffsets: []int32{},
 			Positions:   map[int64]int32{}}}
 
-	// a && TestProto{c: true}.c
+	// LogicalAnd generates "a && TestProto{c: true}.c".
 	LogicalAnd = &TestExpr{
 		ExprCall(2, operators.LogicalAnd,
 			ExprIdent(1, "a"),
@@ -154,7 +157,7 @@ var (
 			LineOffsets: []int32{},
 			Positions:   map[int64]int32{}}}
 
-	// a ? b < 1.0 : c == ["hello"]
+	// Conditional generates "a ? b < 1.0 : c == ["hello"]".
 	Conditional = &TestExpr{
 		Expr: ExprCall(9, operators.Conditional,
 			ExprIdent(1, "a"),
@@ -170,7 +173,7 @@ var (
 			LineOffsets: []int32{},
 			Positions:   map[int64]int32{}}}
 
-	// a.b.c
+	// Select generates "a.b.c".
 	Select = &TestExpr{
 		Expr: ExprSelect(3,
 			ExprSelect(2,
@@ -181,7 +184,7 @@ var (
 			LineOffsets: []int32{},
 			Positions:   map[int64]int32{}}}
 
-	// a == 42
+	// Equality generates "a == 42".
 	Equality = &TestExpr{
 		Expr: ExprCall(2,
 			operators.Equals,
@@ -191,7 +194,7 @@ var (
 			LineOffsets: []int32{},
 			Positions:   map[int64]int32{}}}
 
-	// a == 42
+	// TypeEquality generates "type(a) == uint".
 	TypeEquality = &TestExpr{
 		Expr: ExprCall(4,
 			operators.Equals,
@@ -203,11 +206,13 @@ var (
 			Positions:   map[int64]int32{}}}
 )
 
+// ExprIdent creates an ident (variable) Expr.
 func ExprIdent(id int64, name string) *expr.Expr {
 	return &expr.Expr{Id: id, ExprKind: &expr.Expr_IdentExpr{
 		IdentExpr: &expr.Expr_Ident{Name: name}}}
 }
 
+// ExprSelect creates a select Expr.
 func ExprSelect(id int64, operand *expr.Expr, field string) *expr.Expr {
 	return &expr.Expr{Id: id,
 		ExprKind: &expr.Expr_SelectExpr{
@@ -217,6 +222,7 @@ func ExprSelect(id int64, operand *expr.Expr, field string) *expr.Expr {
 				TestOnly: false}}}
 }
 
+// ExprLiteral creates a literal (constant) Expr.
 func ExprLiteral(id int64, value interface{}) *expr.Expr {
 	var literal *expr.Constant
 	switch value.(type) {
@@ -246,29 +252,34 @@ func ExprLiteral(id int64, value interface{}) *expr.Expr {
 	return &expr.Expr{Id: id, ExprKind: &expr.Expr_ConstExpr{ConstExpr: literal}}
 }
 
+// ExprCall creates a call Expr.
 func ExprCall(id int64, function string, args ...*expr.Expr) *expr.Expr {
 	return &expr.Expr{Id: id,
 		ExprKind: &expr.Expr_CallExpr{
 			CallExpr: &expr.Expr_Call{Target: nil, Function: function, Args: args}}}
 }
 
+// ExprMemberCall creates a receiver-style call Expr.
 func ExprMemberCall(id int64, function string, target *expr.Expr, args ...*expr.Expr) *expr.Expr {
 	return &expr.Expr{Id: id,
 		ExprKind: &expr.Expr_CallExpr{
 			CallExpr: &expr.Expr_Call{Target: target, Function: function, Args: args}}}
 }
 
+// ExprList creates a create list Expr.
 func ExprList(id int64, elements ...*expr.Expr) *expr.Expr {
 	return &expr.Expr{Id: id,
 		ExprKind: &expr.Expr_ListExpr{
 			ListExpr: &expr.Expr_CreateList{Elements: elements}}}
 }
 
+// ExprMap creates a create struct Expr for a map.
 func ExprMap(id int64, entries ...*expr.Expr_CreateStruct_Entry) *expr.Expr {
 	return &expr.Expr{Id: id, ExprKind: &expr.Expr_StructExpr{
 		StructExpr: &expr.Expr_CreateStruct{Entries: entries}}}
 }
 
+// ExprType creates creates a create struct Expr for a message.
 func ExprType(id int64, messageName string,
 	entries ...*expr.Expr_CreateStruct_Entry) *expr.Expr {
 	return &expr.Expr{Id: id, ExprKind: &expr.Expr_StructExpr{
@@ -276,6 +287,7 @@ func ExprType(id int64, messageName string,
 			MessageName: messageName, Entries: entries}}}
 }
 
+// ExprEntry creates a map entry for a create struct Expr.
 func ExprEntry(id int64, key *expr.Expr,
 	value *expr.Expr) *expr.Expr_CreateStruct_Entry {
 	return &expr.Expr_CreateStruct_Entry{Id: id,
@@ -283,6 +295,7 @@ func ExprEntry(id int64, key *expr.Expr,
 		Value:   value}
 }
 
+// ExprField creates a field entry for a create struct Expr.
 func ExprField(id int64, field string,
 	value *expr.Expr) *expr.Expr_CreateStruct_Entry {
 	return &expr.Expr_CreateStruct_Entry{Id: id,
@@ -290,6 +303,7 @@ func ExprField(id int64, field string,
 		Value:   value}
 }
 
+// ExprComprehension returns a comprehension Expr.
 func ExprComprehension(id int64,
 	iterVar string, iterRange *expr.Expr,
 	accuVar string, accuInit *expr.Expr,

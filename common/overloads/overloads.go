@@ -16,8 +16,8 @@
 // operator overloads.
 package overloads
 
+// Boolean logic overloads
 const (
-	// Boolean logic overloads
 	Conditional            = "conditional"
 	LogicalAnd             = "logical_and"
 	LogicalOr              = "logical_or"
@@ -56,8 +56,10 @@ const (
 	GreaterEqualsBytes     = "greater_equals_bytes"
 	GreaterEqualsTimestamp = "greater_equals_timestamp"
 	GreaterEqualsDuration  = "greater_equals_duration"
+)
 
-	// Math overloads
+// Math overloads
+const (
 	AddInt64                   = "add_int64"
 	AddUint64                  = "add_uint64"
 	AddDouble                  = "add_double"
@@ -83,19 +85,25 @@ const (
 	ModuloUint64               = "modulo_uint64"
 	NegateInt64                = "negate_int64"
 	NegateDouble               = "negate_double"
+)
 
-	// Index overloads
+// Index overloads
+const (
 	IndexList    = "index_list"
 	IndexMap     = "index_map"
 	IndexMessage = "index_message" // TODO: introduce concept of types.Message
+)
 
-	// In operators
+// In operators
+const (
 	DeprecatedIn = "in"
 	InList       = "in_list"
 	InMap        = "in_map"
 	InMessage    = "in_message" // TODO: introduce concept of types.Message
+)
 
-	// Size overloads
+// Size overloads
+const (
 	Size           = "size"
 	SizeString     = "size_string"
 	SizeBytes      = "size_bytes"
@@ -105,12 +113,16 @@ const (
 	SizeBytesInst  = "bytes_size"
 	SizeListInst   = "list_size"
 	SizeMapInst    = "map_size"
+)
 
-	// Matches function
+// Matches function
+const (
 	Matches     = "matches"
 	MatchString = "matches_string"
+)
 
-	// Time-based functions
+// Time-based functions
+const (
 	TimeGetFullYear     = "getFullYear"
 	TimeGetMonth        = "getMonth"
 	TimeGetDayOfYear    = "getDayOfYear"
@@ -121,8 +133,10 @@ const (
 	TimeGetMinutes      = "getMinutes"
 	TimeGetSeconds      = "getSeconds"
 	TimeGetMilliseconds = "getMilliseconds"
+)
 
-	// Timestamp overloads for time functions without timezones.
+// Timestamp overloads for time functions without timezones.
+const (
 	TimestampToYear                = "timestamp_to_year"
 	TimestampToMonth               = "timestamp_to_month"
 	TimestampToDayOfYear           = "timestamp_to_day_of_year"
@@ -133,8 +147,10 @@ const (
 	TimestampToMinutes             = "timestamp_to_minutes"
 	TimestampToSeconds             = "timestamp_to_seconds"
 	TimestampToMilliseconds        = "timestamp_to_milliseconds"
+)
 
-	// Timestamp overloads for time functions with timezones.
+// Timestamp overloads for time functions with timezones.
+const (
 	TimestampToYearWithTz                = "timestamp_to_year_with_tz"
 	TimestampToMonthWithTz               = "timestamp_to_month_with_tz"
 	TimestampToDayOfYearWithTz           = "timestamp_to_day_of_year_with_tz"
@@ -145,14 +161,18 @@ const (
 	TimestampToMinutesWithTz             = "timestamp_to_minutes_with_tz"
 	TimestampToSecondsWithTz             = "timestamp_to_seconds_tz"
 	TimestampToMillisecondsWithTz        = "timestamp_to_milliseconds_with_tz"
+)
 
-	// Duration overloads for time functions.
+// Duration overloads for time functions.
+const (
 	DurationToHours        = "duration_to_hours"
 	DurationToMinutes      = "duration_to_minutes"
 	DurationToSeconds      = "duration_to_seconds"
 	DurationToMilliseconds = "duration_to_milliseconds"
+)
 
-	// Type conversion methods and overloads
+// Type conversion methods and overloads
+const (
 	TypeConvertInt       = "int"
 	TypeConvertUint      = "uint"
 	TypeConvertDouble    = "double"
@@ -163,36 +183,48 @@ const (
 	TypeConvertDuration  = "duration"
 	TypeConvertType      = "type"
 	TypeConvertDyn       = "dyn"
+)
 
-	// Int conversion functions.
+// Int conversion functions.
+const (
 	IntToInt       = "int64_to_int64"
 	UintToInt      = "uint64_to_int64"
 	DoubleToInt    = "double_to_int64"
 	StringToInt    = "string_to_int64"
 	TimestampToInt = "timestamp_to_int64"
 	DurationToInt  = "duration_to_int64"
+)
 
-	// Uint conversion functions.
+// Uint conversion functions.
+const (
 	UintToUint   = "uint64_to_uint64"
 	IntToUint    = "int64_to_uint64"
 	DoubleToUint = "double_to_uint64"
 	StringToUint = "string_to_uint64"
+)
 
-	// Double conversion functions.
+// Double conversion functions.
+const (
 	DoubleToDouble = "double_to_double"
 	IntToDouble    = "int64_to_double"
 	UintToDouble   = "uint64_to_double"
 	StringToDouble = "string_to_double"
+)
 
-	// Bool conversion functions.
+// Bool conversion functions.
+const (
 	BoolToBool   = "bool_to_bool"
 	StringToBool = "string_to_bool"
+)
 
-	// Bytes conversion functions.
+// Bytes conversion functions.
+const (
 	BytesToBytes  = "bytes_to_bytes"
 	StringToBytes = "string_to_bytes"
+)
 
-	// String conversion functions.
+// String conversion functions.
+const (
 	StringToString    = "string_to_string"
 	BoolToString      = "bool_to_string"
 	IntToString       = "int64_to_string"
@@ -201,21 +233,29 @@ const (
 	BytesToString     = "bytes_to_string"
 	TimestampToString = "timestamp_to_string"
 	DurationToString  = "duration_to_string"
+)
 
-	// Timestamp conversion functions
+// Timestamp conversion functions
+const (
 	TimestampToTimestamp = "timestamp_to_timestamp"
 	StringToTimestamp    = "string_to_timestamp"
 	IntToTimestamp       = "int64_to_timestamp"
+)
 
-	// Convert duration from string
+// Convert duration from string
+const (
 	DurationToDuration = "duration_to_duration"
 	StringToDuration   = "string_to_duration"
 	IntToDuration      = "int64_to_duration"
+)
 
-	// Convert to dyn
+// Convert to dyn
+const (
 	ToDyn = "to_dyn"
+)
 
-	// Comprehensions helper methods, not directly accessible via a developer.
+// Comprehensions helper methods, not directly accessible via a developer.
+const (
 	Iterator = "@iterator"
 	HasNext  = "@hasNext"
 	Next     = "@next"

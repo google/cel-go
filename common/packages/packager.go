@@ -12,12 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/*
+Package packages defines types for interpreting qualified names.
+*/
 package packages
 
 import (
 	"strings"
 )
 
+// Packager helps interpret qualified names.
 type Packager interface {
 	// Package returns the qualified package name of the packager.
 	//
@@ -33,9 +37,11 @@ type Packager interface {
 }
 
 var (
+	// DefaultPackage has an empty package name.
 	DefaultPackage = NewPackage("")
 )
 
+// NewPackage creates a new Packager with the given qualified package name.
 func NewPackage(pkg string) Packager {
 	return &defaultPackage{pkg: pkg}
 }

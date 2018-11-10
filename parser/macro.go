@@ -96,14 +96,17 @@ var AllMacros = []Macro{
 // NoMacros list.
 var NoMacros = []Macro{}
 
+// GetName returns the macro's name (i.e. the function whose syntax it mimics).
 func (m *Macro) GetName() string {
 	return m.name
 }
 
+// GetArgCount returns the number of arguments the macro expects.
 func (m *Macro) GetArgCount() int {
 	return m.args
 }
 
+// GetIsInstanceStyle returns whether the macro is "instance" (reciever) style.
 func (m *Macro) GetIsInstanceStyle() bool {
 	return m.instanceStyle
 }

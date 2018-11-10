@@ -25,8 +25,8 @@ import (
 // Int type that implements ref.Value as well as comparison and math operators.
 type Int int64
 
+// Int constants used for comparison results.
 const (
-	// Int constants used for comparison results.
 	IntZero   = Int(0)
 	IntOne    = Int(1)
 	IntNegOne = Int(-1)
@@ -44,6 +44,7 @@ var (
 		traits.SubtractorType)
 )
 
+// Add implements traits.Adder.Add.
 func (i Int) Add(other ref.Value) ref.Value {
 	if IntType != other.Type() {
 		return NewErr("unsupported overload")
@@ -51,6 +52,7 @@ func (i Int) Add(other ref.Value) ref.Value {
 	return i + other.(Int)
 }
 
+// Compare implements traits.Comparer.Compare.
 func (i Int) Compare(other ref.Value) ref.Value {
 	if IntType != other.Type() {
 		return NewErr("unsupported overload")
@@ -64,6 +66,7 @@ func (i Int) Compare(other ref.Value) ref.Value {
 	return IntZero
 }
 
+// ConvertToNative implements ref.Value.ConvertToNative.
 func (i Int) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	switch typeDesc.Kind() {
 	case reflect.Int32:
@@ -92,6 +95,7 @@ func (i Int) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	return nil, fmt.Errorf("unsupported type conversion from 'int' to %v", typeDesc)
 }
 
+// ConvertToType implements ref.Value.ConvertToType.
 func (i Int) ConvertToType(typeVal ref.Type) ref.Value {
 	switch typeVal {
 	case IntType:
@@ -108,6 +112,7 @@ func (i Int) ConvertToType(typeVal ref.Type) ref.Value {
 	return NewErr("type conversion error from '%s' to '%s'", IntType, typeVal)
 }
 
+// Divide implements traits.Divider.Divide.
 func (i Int) Divide(other ref.Value) ref.Value {
 	if IntType != other.Type() {
 		return NewErr("unsupported overload")
@@ -119,10 +124,12 @@ func (i Int) Divide(other ref.Value) ref.Value {
 	return i / otherInt
 }
 
+// Equal implements ref.Value.Equal.
 func (i Int) Equal(other ref.Value) ref.Value {
 	return Bool(IntType == other.Type() && i.Value() == other.Value())
 }
 
+// Modulo implements traits.Modder.Modulo.
 func (i Int) Modulo(other ref.Value) ref.Value {
 	if IntType != other.Type() {
 		return NewErr("unsupported overload")
@@ -134,6 +141,7 @@ func (i Int) Modulo(other ref.Value) ref.Value {
 	return i % otherInt
 }
 
+// Multiply implements traits.Multiplier.Multiply.
 func (i Int) Multiply(other ref.Value) ref.Value {
 	if IntType != other.Type() {
 		return NewErr("unsupported overload")
@@ -141,10 +149,12 @@ func (i Int) Multiply(other ref.Value) ref.Value {
 	return i * other.(Int)
 }
 
+// Negate implements traits.Negater.Negate.
 func (i Int) Negate() ref.Value {
 	return -i
 }
 
+// Subtract implements traits.Subtractor.Subtract.
 func (i Int) Subtract(subtrahend ref.Value) ref.Value {
 	if IntType != subtrahend.Type() {
 		return NewErr("unsupported overload")
@@ -152,10 +162,12 @@ func (i Int) Subtract(subtrahend ref.Value) ref.Value {
 	return i - subtrahend.(Int)
 }
 
+// Type implements ref.Value.Type.
 func (i Int) Type() ref.Type {
 	return IntType
 }
 
+// Value implements ref.Value.Value.
 func (i Int) Value() interface{} {
 	return int64(i)
 }

@@ -163,8 +163,8 @@ func (td *TypeDescription) getFieldProperties() *proto.StructProperties {
 }
 
 func (td *TypeDescription) getFieldsAtIndex(i int) []*FieldDescription {
-	_, fieldIndicies := td.getFieldsInfo()
-	return fieldIndicies[i]
+	_, fieldIndices := td.getFieldsInfo()
+	return fieldIndices[i]
 }
 
 // FieldDescription holds metadata related to fields declared within a type.

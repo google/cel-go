@@ -48,7 +48,7 @@ type Multiplier interface {
 	Multiply(other ref.Value) ref.Value
 }
 
-// Negator interface to support unary '-' and '!' operator overloads.
+// Negater interface to support unary '-' and '!' operator overloads.
 type Negater interface {
 	// Negate returns the complement of the current value.
 	Negate() ref.Value

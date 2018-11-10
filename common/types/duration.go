@@ -43,6 +43,7 @@ var (
 		traits.SubtractorType)
 )
 
+// Add implements traits.Adder.Add.
 func (d Duration) Add(other ref.Value) ref.Value {
 	switch other.Type() {
 	case DurationType:
@@ -73,6 +74,7 @@ func (d Duration) Add(other ref.Value) ref.Value {
 	return NewErr("unsupported overload")
 }
 
+// Compare implements traits.Comparer.Compare.
 func (d Duration) Compare(other ref.Value) ref.Value {
 	if DurationType != other.Type() {
 		return NewErr("unsupported overload")
@@ -95,6 +97,7 @@ func (d Duration) Compare(other ref.Value) ref.Value {
 	return IntZero
 }
 
+// ConvertToNative implements ref.Value.ConvertToNative.
 func (d Duration) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	if typeDesc == durationValueType {
 		return d.Value(), nil
@@ -107,6 +110,7 @@ func (d Duration) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		"'google.protobuf.Duration' to '%v'", typeDesc)
 }
 
+// ConvertToType implements ref.Value.ConvertToType.
 func (d Duration) ConvertToType(typeVal ref.Type) ref.Value {
 	switch typeVal {
 	case StringType:
@@ -125,11 +129,13 @@ func (d Duration) ConvertToType(typeVal ref.Type) ref.Value {
 	return NewErr("type conversion error from '%s' to '%s'", DurationType, typeVal)
 }
 
+// Equal implements ref.Value.Equal.
 func (d Duration) Equal(other ref.Value) ref.Value {
 	return Bool(DurationType == other.Type() &&
 		proto.Equal(d.Duration, other.Value().(proto.Message)))
 }
 
+// Negate implements traits.Negater.Negate.
 func (d Duration) Negate() ref.Value {
 	dur, err := ptypes.Duration(d.Duration)
 	if err != nil {
@@ -138,6 +144,7 @@ func (d Duration) Negate() ref.Value {
 	return Duration{ptypes.DurationProto(-dur)}
 }
 
+// Receive implements traits.Receiver.Receive.
 func (d Duration) Receive(function string, overload string, args []ref.Value) ref.Value {
 	dur, err := ptypes.Duration(d.Duration)
 	if err != nil {
@@ -151,6 +158,7 @@ func (d Duration) Receive(function string, overload string, args []ref.Value) re
 	return NewErr("unsupported overload")
 }
 
+// Subtract implements traits.Subtractor.Subtract.
 func (d Duration) Subtract(subtrahend ref.Value) ref.Value {
 	if DurationType != subtrahend.Type() {
 		return NewErr("unsupported overload")
@@ -158,10 +166,12 @@ func (d Duration) Subtract(subtrahend ref.Value) ref.Value {
 	return d.Add(subtrahend.(Duration).Negate())
 }
 
+// Type implements ref.Value.Type.
 func (d Duration) Type() ref.Type {
 	return DurationType
 }
 
+// Value implements ref.Value.Value.
 func (d Duration) Value() interface{} {
 	return d.Duration
 }

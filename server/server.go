@@ -20,8 +20,10 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// CelServer contains the server state.
 type CelServer struct{}
 
+// Parse implements CelService.Parse.
 func (s *CelServer) Parse(ctx context.Context, in *expr.ParseRequest) (*expr.ParseResponse, error) {
 	if in.CelSource == "" {
 		st := status.New(codes.InvalidArgument, "No source code.")
@@ -47,6 +49,7 @@ func (s *CelServer) Parse(ctx context.Context, in *expr.ParseRequest) (*expr.Par
 	return &resp, nil
 }
 
+// Check implements CelService.Check.
 func (s *CelServer) Check(ctx context.Context, in *expr.CheckRequest) (*expr.CheckResponse, error) {
 	if in.ParsedExpr == nil {
 		st := status.New(codes.InvalidArgument, "No parsed expression.")
@@ -78,6 +81,7 @@ func (s *CelServer) Check(ctx context.Context, in *expr.CheckRequest) (*expr.Che
 	return &resp, nil
 }
 
+// Eval implements CelService.Eval.
 func (s *CelServer) Eval(ctx context.Context, in *expr.EvalRequest) (*expr.EvalResponse, error) {
 	pkg := packages.NewPackage(in.Container)
 	typeProvider := types.NewProvider()
@@ -142,6 +146,7 @@ func ErrToStatus(e common.Error, severity expr.IssueDetails_Severity) *rpc.Statu
 // common/types/provider.go and consolidated/refactored as appropriate.
 // In particular, make judicious use of types.NativeToValue().
 
+// RefValuetoExprValue converts between ref.Value and expr.ExprValue.
 func RefValueToExprValue(res ref.Value) (*expr.ExprValue, error) {
 	if types.IsError(res) {
 		return &expr.ExprValue{
@@ -174,7 +179,8 @@ var (
 	}
 )
 
-// Convert res, which must not be error or unknown, to a Value proto.
+// RefValueToValue converts between ref.Value and Value.
+// The ref.Value must not be error or unknown.
 func RefValueToValue(res ref.Value) (*expr.Value, error) {
 	switch res.Type() {
 	case types.BoolType:
@@ -250,6 +256,7 @@ func RefValueToValue(res ref.Value) (*expr.Value, error) {
 	}
 }
 
+// ExprValueToRefValue converts between expr.ExprValue and ref.Value.
 func ExprValueToRefValue(ev *expr.ExprValue) (ref.Value, error) {
 	switch ev.Kind.(type) {
 	case *expr.ExprValue_Value:
@@ -269,6 +276,7 @@ func ExprValueToRefValue(ev *expr.ExprValue) (ref.Value, error) {
 	return nil, status.New(codes.InvalidArgument, "unknown ExprValue kind").Err()
 }
 
+// ValueToRefValue converts between expr.Value and ref.Value.
 func ValueToRefValue(v *expr.Value) (ref.Value, error) {
 	switch v.Kind.(type) {
 	case *expr.Value_NullValue:

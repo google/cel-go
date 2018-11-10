@@ -21,6 +21,7 @@ import (
 	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
+// StandardDeclarations returns the Decls for all functions and constants in the evaluator.
 func StandardDeclarations() []*expr.Decl {
 	// Some shortcuts we use when building declarations.
 	paramA := decls.NewTypeParamType("A")

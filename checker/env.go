@@ -24,6 +24,9 @@ import (
 	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
+// Env is the environment for type checking.
+// It consists of a Packager, a Type Provider, declarations,
+// and collection of errors encountered during checking.
 type Env struct {
 	errors       *typeErrors
 	packager     packages.Packager
@@ -32,6 +35,7 @@ type Env struct {
 	declarations *decls.Scopes
 }
 
+// NewEnv returns a new *Env with the given parameters.
 func NewEnv(packager packages.Packager,
 	typeProvider ref.TypeProvider,
 	errors *common.Errors) *Env {
@@ -46,6 +50,7 @@ func NewEnv(packager packages.Packager,
 	}
 }
 
+// NewStandardEnv returns a new *Env with the given params plus standard declarations.
 func NewStandardEnv(packager packages.Packager,
 	typeProvider ref.TypeProvider,
 	errors *common.Errors) *Env {
@@ -54,6 +59,9 @@ func NewStandardEnv(packager packages.Packager,
 	return e
 }
 
+// Add adds new Decl protos to the Env.
+// Panics on identifiers already in the Env.
+// Adds to Env errors if there's an overlap with an existing overload.
 func (e *Env) Add(decls ...*expr.Decl) {
 	for _, decl := range decls {
 		switch decl.DeclKind.(type) {
@@ -65,6 +73,9 @@ func (e *Env) Add(decls ...*expr.Decl) {
 	}
 }
 
+// addOverload adds overload to function declaration f.
+// If overload overlaps with an existing overload, adds to the errors
+// in the Env instead.
 func (e *Env) addOverload(f *expr.Decl, overload *expr.Decl_FunctionDecl_Overload) {
 	function := f.GetFunction()
 	emptyMappings := newMapping()
@@ -95,6 +106,11 @@ func (e *Env) addOverload(f *expr.Decl, overload *expr.Decl_FunctionDecl_Overloa
 	function.Overloads = append(function.GetOverloads(), overload)
 }
 
+// addFunction adds the function Decl to the Env.
+// Adds a function decl if one doesn't already exist,
+// then adds all overloads from the Decl.
+// If overload overlaps with an existing overload, adds to the errors
+// in the Env instead.
 func (e *Env) addFunction(decl *expr.Decl) {
 	current := e.declarations.FindFunction(decl.Name)
 	if current == nil {
@@ -108,6 +124,8 @@ func (e *Env) addFunction(decl *expr.Decl) {
 	}
 }
 
+// addIdent adds the Decl to the declarations in the Env.
+// Panics if an identifier with the same name already exists.
 func (e *Env) addIdent(decl *expr.Decl) {
 	current := e.declarations.FindIdentInScope(decl.Name)
 	if current != nil {
@@ -116,6 +134,8 @@ func (e *Env) addIdent(decl *expr.Decl) {
 	e.declarations.AddIdent(decl)
 }
 
+// LookupIdent returns a Decl proto for typeName as an identifier in the Env.
+// Returns nil if no such identifier is found in the Env.
 func (e *Env) LookupIdent(typeName string) *expr.Decl {
 	for _, candidate := range e.packager.ResolveCandidateNames(typeName) {
 		if ident := e.declarations.FindIdent(candidate); ident != nil {
@@ -146,6 +166,8 @@ func (e *Env) LookupIdent(typeName string) *expr.Decl {
 	return nil
 }
 
+// LookupFunction returns a Decl proto for typeName as a function in env.
+// Returns nil if no such function is found in env.
 func (e *Env) LookupFunction(typeName string) *expr.Decl {
 	for _, candidate := range e.packager.ResolveCandidateNames(typeName) {
 		if fn := e.declarations.FindFunction(candidate); fn != nil {

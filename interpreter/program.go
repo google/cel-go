@@ -46,7 +46,7 @@ type Program interface {
 	Metadata() Metadata
 }
 
-// IntructionStepper steps through program instructions and provides an option
+// InstructionStepper steps through program instructions and provides an option
 // to jump a certain number of instructions forward or back.
 type InstructionStepper interface {
 	// Next returns the next instruction, or false if the end of the program

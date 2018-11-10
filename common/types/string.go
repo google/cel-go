@@ -40,6 +40,7 @@ var (
 		traits.SizerType)
 )
 
+// Add implements traits.Adder.Add.
 func (s String) Add(other ref.Value) ref.Value {
 	if StringType != other.Type() {
 		return NewErr("unsupported overload")
@@ -47,6 +48,7 @@ func (s String) Add(other ref.Value) ref.Value {
 	return s + other.(String)
 }
 
+// Compare implements traits.Comparer.Compare.
 func (s String) Compare(other ref.Value) ref.Value {
 	if StringType != other.Type() {
 		return NewErr("unsupported overload")
@@ -54,6 +56,7 @@ func (s String) Compare(other ref.Value) ref.Value {
 	return Int(strings.Compare(string(s), string(other.(String))))
 }
 
+// ConvertToNative implements ref.Value.ConvertToNative.
 func (s String) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	switch typeDesc.Kind() {
 	case reflect.String:
@@ -77,6 +80,7 @@ func (s String) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		"unsupported native conversion from string to '%v'", typeDesc)
 }
 
+// ConvertToType implements ref.Value.ConvertToType.
 func (s String) ConvertToType(typeVal ref.Type) ref.Value {
 	switch typeVal {
 	case IntType:
@@ -115,10 +119,12 @@ func (s String) ConvertToType(typeVal ref.Type) ref.Value {
 	return NewErr("type conversion error from '%s' to '%s'", StringType, typeVal)
 }
 
+// Equal implements ref.Value.Equal.
 func (s String) Equal(other ref.Value) ref.Value {
 	return Bool(StringType == other.Type() && s.Value() == other.Value())
 }
 
+// Match implements traits.Matcher.Match.
 func (s String) Match(pattern ref.Value) ref.Value {
 	if pattern.Type() != StringType {
 		return NewErr("unsupported overload")
@@ -130,14 +136,17 @@ func (s String) Match(pattern ref.Value) ref.Value {
 	return Bool(matched)
 }
 
+// Size implements traits.Sizer.Size.
 func (s String) Size() ref.Value {
 	return Int(len(string(s)))
 }
 
+// Type implements ref.Value.Type.
 func (s String) Type() ref.Type {
 	return StringType
 }
 
+// Value implements ref.Value.Value.
 func (s String) Value() interface{} {
 	return string(s)
 }

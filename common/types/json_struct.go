@@ -32,6 +32,8 @@ type jsonStruct struct {
 	*structpb.Struct
 }
 
+// NewJsonStruct creates a traits.Mapper implementation backed by a JSON struct
+// that has been encoded in protocol buffer form.
 func NewJsonStruct(st *structpb.Struct) traits.Mapper {
 	return &jsonStruct{st}
 }

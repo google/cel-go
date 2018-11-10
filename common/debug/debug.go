@@ -49,10 +49,12 @@ func (a *emptyDebugAdorner) GetMetadata(e interface{}) string {
 	return ""
 }
 
+// ToDebugString gives the unadorned string representation of the Expr.
 func ToDebugString(e *expr.Expr) string {
 	return ToAdornedDebugString(e, emptyAdorner)
 }
 
+// ToAdornedDebugString gives the adorned string representation of the Expr.
 func ToAdornedDebugString(e *expr.Expr, adorner DebugAdorner) string {
 	w := newDebugWriter(adorner)
 	w.Buffer(e)

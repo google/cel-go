@@ -240,7 +240,7 @@ func TestNativeToValue_Primitive(t *testing.T) {
 }
 
 func TestUnsupportedConversion(t *testing.T) {
-	if val := NativeToValue(nonConvertable{}); !IsError(val) {
+	if val := NativeToValue(nonConvertible{}); !IsError(val) {
 		t.Error("Expected error when converting non-proto struct to proto", val)
 	}
 }
@@ -280,7 +280,7 @@ func expectNativeToValue(t *testing.T, in interface{}, out ref.Value) {
 	}
 }
 
-type nonConvertable struct {
+type nonConvertible struct {
 	Field string
 }
 
