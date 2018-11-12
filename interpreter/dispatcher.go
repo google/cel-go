@@ -16,6 +16,7 @@ package interpreter
 
 import (
 	"fmt"
+
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"

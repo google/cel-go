@@ -16,8 +16,9 @@ package types
 
 import (
 	"fmt"
-	"github.com/google/cel-go/common/types/ref"
 	"reflect"
+
+	"github.com/google/cel-go/common/types/ref"
 )
 
 // Err type which extends the built-in go error and implements ref.Value.

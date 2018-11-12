@@ -16,14 +16,16 @@ package types
 
 import (
 	"bytes"
+	"reflect"
+	"testing"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/struct"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
+
 	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
-	"reflect"
-	"testing"
 )
 
 func TestTypeProvider_NewValue(t *testing.T) {

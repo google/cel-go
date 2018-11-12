@@ -15,11 +15,13 @@
 package types
 
 import (
-	dpb "github.com/golang/protobuf/ptypes/duration"
-	tpb "github.com/golang/protobuf/ptypes/timestamp"
+	"testing"
+
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types/ref"
-	"testing"
+
+	dpb "github.com/golang/protobuf/ptypes/duration"
+	tpb "github.com/golang/protobuf/ptypes/timestamp"
 )
 
 func TestTimestamp_Add(t *testing.T) {

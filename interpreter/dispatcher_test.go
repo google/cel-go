@@ -15,12 +15,13 @@
 package interpreter
 
 import (
+	"testing"
+
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter/functions"
-	"testing"
 )
 
 func TestDefaultDispatcher_Dispatch(t *testing.T) {

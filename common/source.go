@@ -15,8 +15,9 @@
 package common
 
 import (
-	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	"strings"
+
+	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 // Source interface for filter source contents.

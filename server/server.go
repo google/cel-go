@@ -14,10 +14,11 @@ import (
 	"github.com/google/cel-go/common/types/traits"
 	"github.com/google/cel-go/interpreter"
 	"github.com/google/cel-go/parser"
-	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
-	rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+        expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+        rpc "google.golang.org/genproto/googleapis/rpc/status"
 )
 
 // CelServer contains the server state.
@@ -146,7 +147,7 @@ func ErrToStatus(e common.Error, severity expr.IssueDetails_Severity) *rpc.Statu
 // common/types/provider.go and consolidated/refactored as appropriate.
 // In particular, make judicious use of types.NativeToValue().
 
-// RefValuetoExprValue converts between ref.Value and expr.ExprValue.
+// RefValueToExprValue converts between ref.Value and expr.ExprValue.
 func RefValueToExprValue(res ref.Value) (*expr.ExprValue, error) {
 	if types.IsError(res) {
 		return &expr.ExprValue{

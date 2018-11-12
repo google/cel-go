@@ -7,9 +7,10 @@ import (
 	"os"
 
 	"github.com/google/cel-go/server"
-	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+
+	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 func main() {

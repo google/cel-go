@@ -19,6 +19,7 @@ import (
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+
 	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 

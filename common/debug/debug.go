@@ -19,9 +19,10 @@ package debug
 import (
 	"bytes"
 	"fmt"
-	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	"strconv"
 	"strings"
+
+	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 // DebugAdorner returns debug metadata that will be tacked on to the string

@@ -3,6 +3,7 @@ package parser
 import (
 	"github.com/antlr/antlr4/runtime/Go/antlr"
 	"github.com/google/cel-go/common"
+
 	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 

@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"github.com/google/cel-go/common/operators"
+
 	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 

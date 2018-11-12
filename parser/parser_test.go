@@ -16,13 +16,14 @@ package parser
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/debug"
 	"github.com/google/cel-go/test"
+
 	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
-	"reflect"
 )
 
 var testCases = []testInfo{
