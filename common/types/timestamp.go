@@ -271,10 +271,10 @@ func timeZone(tz ref.Value, visitor timestampVisitor) timestampVisitor {
 		if StringType != tz.Type() {
 			return NewErr("unsupported overload")
 		}
-		if loc, err := time.LoadLocation(string(tz.(String))); err == nil {
+		loc, err := time.LoadLocation(string(tz.(String)))
+		if err == nil {
 			return visitor(t.In(loc))
-		} else {
-			return &Err{err}
 		}
+		return &Err{err}
 	}
 }

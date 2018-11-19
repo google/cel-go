@@ -75,7 +75,7 @@ func TestDouble_ConvertToNative_Float64(t *testing.T) {
 
 func TestDouble_ConvertToNative_Json(t *testing.T) {
 	val, err := Double(-1.4).ConvertToNative(jsonValueType)
-	pbVal := &structpb.Value{Kind: &structpb.Value_NumberValue{-1.4}}
+	pbVal := &structpb.Value{Kind: &structpb.Value_NumberValue{NumberValue: -1.4}}
 	if err != nil {
 		t.Error(err)
 	} else if !proto.Equal(val.(proto.Message), pbVal) {

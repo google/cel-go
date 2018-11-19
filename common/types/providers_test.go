@@ -143,7 +143,7 @@ func TestNativeToValue_Any(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	expected := NewJsonStruct(&structpb.Struct{
+	expected := NewJSONStruct(&structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			"a": {Kind: &structpb.Value_StringValue{StringValue: "world"}},
 			"b": {Kind: &structpb.Value_StringValue{StringValue: "five!"}}}})
@@ -159,7 +159,7 @@ func TestNativeToValue_Any(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	expected = NewJsonList(&structpb.ListValue{
+	expected = NewJSONList(&structpb.ListValue{
 		Values: []*structpb.Value{
 			{Kind: &structpb.Value_StringValue{StringValue: "world"}},
 			{Kind: &structpb.Value_StringValue{StringValue: "five!"}}}})
@@ -200,7 +200,7 @@ func TestNativeToValue_Json(t *testing.T) {
 					Values: []*structpb.Value{
 						{Kind: &structpb.Value_StringValue{StringValue: "world"}},
 						{Kind: &structpb.Value_StringValue{StringValue: "five!"}}}}}},
-		NewJsonList(&structpb.ListValue{
+		NewJSONList(&structpb.ListValue{
 			Values: []*structpb.Value{
 				{Kind: &structpb.Value_StringValue{StringValue: "world"}},
 				{Kind: &structpb.Value_StringValue{StringValue: "five!"}}}}))
@@ -213,7 +213,7 @@ func TestNativeToValue_Json(t *testing.T) {
 					Fields: map[string]*structpb.Value{
 						"a": {Kind: &structpb.Value_StringValue{StringValue: "world"}},
 						"b": {Kind: &structpb.Value_StringValue{StringValue: "five!"}}}}}},
-		NewJsonStruct(&structpb.Struct{
+		NewJSONStruct(&structpb.Struct{
 			Fields: map[string]*structpb.Value{
 				"a": {Kind: &structpb.Value_StringValue{StringValue: "world"}},
 				"b": {Kind: &structpb.Value_StringValue{StringValue: "five!"}}}}))

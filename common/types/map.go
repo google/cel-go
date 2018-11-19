@@ -190,7 +190,7 @@ func (it *mapIterator) HasNext() ref.Value {
 func (it *mapIterator) Next() ref.Value {
 	if it.HasNext() == True {
 		index := it.cursor
-		it.cursor += 1
+		it.cursor++
 		refKey := it.mapKeys[index]
 		return NativeToValue(refKey.Interface())
 	}

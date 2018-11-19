@@ -284,8 +284,8 @@ func BenchmarkInterpreter_EqualsDispatch(b *testing.B) {
 			args:       []ref.Value{xRef},
 			activation: activation,
 		}
-		evalState.SetValue(callTypeOf.GetId(), d.Dispatch(ctxType))
-		typeOfXRef, _ := evalState.Value(callTypeOf.GetId())
+		evalState.SetValue(callTypeOf.GetID(), d.Dispatch(ctxType))
+		typeOfXRef, _ := evalState.Value(callTypeOf.GetID())
 		// not-found here.
 		activation.ResolveName("uint")
 		uintType, _ := p.FindIdent("uint")
@@ -294,7 +294,7 @@ func BenchmarkInterpreter_EqualsDispatch(b *testing.B) {
 			args:       []ref.Value{typeOfXRef, uintType},
 			activation: activation,
 		}
-		evalState.SetValue(callEq.GetId(), d.Dispatch(ctxEq))
+		evalState.SetValue(callEq.GetID(), d.Dispatch(ctxEq))
 	}
 }
 

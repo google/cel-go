@@ -26,22 +26,22 @@ import (
 )
 
 func TestJsonListValue_Add(t *testing.T) {
-	listA := NewJsonList(&structpb.ListValue{Values: []*structpb.Value{
-		{Kind: &structpb.Value_StringValue{"hello"}},
-		{Kind: &structpb.Value_NumberValue{1}}}})
-	listB := NewJsonList(&structpb.ListValue{Values: []*structpb.Value{
-		{Kind: &structpb.Value_NumberValue{2}},
-		{Kind: &structpb.Value_NumberValue{3}}}})
+	listA := NewJSONList(&structpb.ListValue{Values: []*structpb.Value{
+		{Kind: &structpb.Value_StringValue{StringValue: "hello"}},
+		{Kind: &structpb.Value_NumberValue{NumberValue: 1}}}})
+	listB := NewJSONList(&structpb.ListValue{Values: []*structpb.Value{
+		{Kind: &structpb.Value_NumberValue{NumberValue: 2}},
+		{Kind: &structpb.Value_NumberValue{NumberValue: 3}}}})
 	list := listA.Add(listB)
 	nativeVal, err := list.ConvertToNative(jsonListValueType)
 	if err != nil {
 		t.Error(err)
 	}
 	expected := &structpb.ListValue{Values: []*structpb.Value{
-		{Kind: &structpb.Value_StringValue{"hello"}},
-		{Kind: &structpb.Value_NumberValue{1}},
-		{Kind: &structpb.Value_NumberValue{2}},
-		{Kind: &structpb.Value_NumberValue{3}}}}
+		{Kind: &structpb.Value_StringValue{StringValue: "hello"}},
+		{Kind: &structpb.Value_NumberValue{NumberValue: 1}},
+		{Kind: &structpb.Value_NumberValue{NumberValue: 2}},
+		{Kind: &structpb.Value_NumberValue{NumberValue: 3}}}}
 	if !proto.Equal(nativeVal.(proto.Message), expected) {
 		t.Errorf("Concatenated lists did not combine as expected."+
 			" Got '%v', expected '%v'", nativeVal, expected)
@@ -49,9 +49,9 @@ func TestJsonListValue_Add(t *testing.T) {
 }
 
 func TestJsonListValue_Contains(t *testing.T) {
-	list := NewJsonList(&structpb.ListValue{Values: []*structpb.Value{
-		{Kind: &structpb.Value_StringValue{"hello"}},
-		{Kind: &structpb.Value_NumberValue{1}}}})
+	list := NewJSONList(&structpb.ListValue{Values: []*structpb.Value{
+		{Kind: &structpb.Value_StringValue{StringValue: "hello"}},
+		{Kind: &structpb.Value_NumberValue{NumberValue: 1}}}})
 	if !list.Contains(Double(1)).(Bool) {
 		t.Error("Expected value list to contain number '1'", list)
 	}
@@ -61,9 +61,9 @@ func TestJsonListValue_Contains(t *testing.T) {
 }
 
 func TestJsonListValue_ConvertToNative_Json(t *testing.T) {
-	list := NewJsonList(&structpb.ListValue{Values: []*structpb.Value{
-		{Kind: &structpb.Value_StringValue{"hello"}},
-		{Kind: &structpb.Value_NumberValue{1}}}})
+	list := NewJSONList(&structpb.ListValue{Values: []*structpb.Value{
+		{Kind: &structpb.Value_StringValue{StringValue: "hello"}},
+		{Kind: &structpb.Value_NumberValue{NumberValue: 1}}}})
 	listVal, err := list.ConvertToNative(jsonListValueType)
 	if err != nil {
 		t.Error(err)
@@ -84,9 +84,9 @@ func TestJsonListValue_ConvertToNative_Json(t *testing.T) {
 }
 
 func TestJsonListValue_ConvertToNative_Slice(t *testing.T) {
-	list := NewJsonList(&structpb.ListValue{Values: []*structpb.Value{
-		{Kind: &structpb.Value_StringValue{"hello"}},
-		{Kind: &structpb.Value_NumberValue{1}}}})
+	list := NewJSONList(&structpb.ListValue{Values: []*structpb.Value{
+		{Kind: &structpb.Value_StringValue{StringValue: "hello"}},
+		{Kind: &structpb.Value_NumberValue{NumberValue: 1}}}})
 	listVal, err := list.ConvertToNative(reflect.TypeOf([]*structpb.Value{}))
 	if err != nil {
 		t.Error(err)
@@ -100,9 +100,9 @@ func TestJsonListValue_ConvertToNative_Slice(t *testing.T) {
 }
 
 func TestJsonListValue_ConvertToNative_Any(t *testing.T) {
-	list := NewJsonList(&structpb.ListValue{Values: []*structpb.Value{
-		{Kind: &structpb.Value_StringValue{"hello"}},
-		{Kind: &structpb.Value_NumberValue{1}}}})
+	list := NewJSONList(&structpb.ListValue{Values: []*structpb.Value{
+		{Kind: &structpb.Value_StringValue{StringValue: "hello"}},
+		{Kind: &structpb.Value_NumberValue{NumberValue: 1}}}})
 	anyVal, err := list.ConvertToNative(anyValueType)
 	if err != nil {
 		t.Error(err)
@@ -118,9 +118,9 @@ func TestJsonListValue_ConvertToNative_Any(t *testing.T) {
 }
 
 func TestJsonListValue_ConvertToType(t *testing.T) {
-	list := NewJsonList(&structpb.ListValue{Values: []*structpb.Value{
-		{Kind: &structpb.Value_StringValue{"hello"}},
-		{Kind: &structpb.Value_NumberValue{1}}}})
+	list := NewJSONList(&structpb.ListValue{Values: []*structpb.Value{
+		{Kind: &structpb.Value_StringValue{StringValue: "hello"}},
+		{Kind: &structpb.Value_NumberValue{NumberValue: 1}}}})
 	if list.ConvertToType(TypeType) != ListType {
 		t.Error("Json list type was not a list.")
 	}
@@ -133,12 +133,12 @@ func TestJsonListValue_ConvertToType(t *testing.T) {
 }
 
 func TestJsonListValue_Equal(t *testing.T) {
-	listA := NewJsonList(&structpb.ListValue{Values: []*structpb.Value{
-		{Kind: &structpb.Value_StringValue{"hello"}},
-		{Kind: &structpb.Value_NumberValue{1}}}})
-	listB := NewJsonList(&structpb.ListValue{Values: []*structpb.Value{
-		{Kind: &structpb.Value_NumberValue{2}},
-		{Kind: &structpb.Value_NumberValue{3}}}})
+	listA := NewJSONList(&structpb.ListValue{Values: []*structpb.Value{
+		{Kind: &structpb.Value_StringValue{StringValue: "hello"}},
+		{Kind: &structpb.Value_NumberValue{NumberValue: 1}}}})
+	listB := NewJSONList(&structpb.ListValue{Values: []*structpb.Value{
+		{Kind: &structpb.Value_NumberValue{NumberValue: 2}},
+		{Kind: &structpb.Value_NumberValue{NumberValue: 3}}}})
 	if listA.Equal(listB).(Bool) || listB.Equal(listA).(Bool) {
 		t.Error("Lists with different elements considered equal.")
 	}
@@ -154,9 +154,9 @@ func TestJsonListValue_Equal(t *testing.T) {
 }
 
 func TestJsonListValue_Get_OutOfRange(t *testing.T) {
-	list := NewJsonList(&structpb.ListValue{Values: []*structpb.Value{
-		{Kind: &structpb.Value_StringValue{"hello"}},
-		{Kind: &structpb.Value_NumberValue{1}}}})
+	list := NewJSONList(&structpb.ListValue{Values: []*structpb.Value{
+		{Kind: &structpb.Value_StringValue{StringValue: "hello"}},
+		{Kind: &structpb.Value_NumberValue{NumberValue: 1}}}})
 	if !IsError(list.Get(Int(-1))) {
 		t.Error("Negative index did not result in error.")
 	}
@@ -169,11 +169,11 @@ func TestJsonListValue_Get_OutOfRange(t *testing.T) {
 }
 
 func TestJsonListValue_Iterator(t *testing.T) {
-	list := NewJsonList(&structpb.ListValue{Values: []*structpb.Value{
-		{Kind: &structpb.Value_StringValue{"hello"}},
-		{Kind: &structpb.Value_NumberValue{1}},
-		{Kind: &structpb.Value_NumberValue{2}},
-		{Kind: &structpb.Value_NumberValue{3}}}})
+	list := NewJSONList(&structpb.ListValue{Values: []*structpb.Value{
+		{Kind: &structpb.Value_StringValue{StringValue: "hello"}},
+		{Kind: &structpb.Value_NumberValue{NumberValue: 1}},
+		{Kind: &structpb.Value_NumberValue{NumberValue: 2}},
+		{Kind: &structpb.Value_NumberValue{NumberValue: 3}}}})
 	it := list.Iterator()
 	for i := Int(0); it.HasNext() != False; i++ {
 		v := it.Next()

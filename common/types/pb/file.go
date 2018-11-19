@@ -16,6 +16,7 @@ package pb
 
 import (
 	"fmt"
+
 	descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
 )
 
@@ -42,7 +43,7 @@ func (fd *FileDescription) GetEnumNames() []string {
 	i := 0
 	for _, e := range fd.enums {
 		enumNames[i] = e.Name()
-		i += 1
+		i++
 	}
 	return enumNames
 }
@@ -62,7 +63,7 @@ func (fd *FileDescription) GetTypeNames() []string {
 	i := 0
 	for _, t := range fd.types {
 		typeNames[i] = t.Name()
-		i += 1
+		i++
 	}
 	return typeNames
 }

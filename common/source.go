@@ -51,12 +51,12 @@ type Source interface {
 
 	// IdOffset returns the raw character offset of an expression within
 	// the source, or false if the expression cannot be found.
-	IdOffset(exprId int64) (int32, bool)
+	IdOffset(exprID int64) (int32, bool)
 
 	// IdLocation returns a Location for the given expression id,
 	// or false if one cannot be found.  It behaves as the obvious
 	// composition of IdOffset() and OffsetLocation().
-	IdLocation(exprId int64) (Location, bool)
+	IdLocation(exprID int64) (Location, bool)
 }
 
 // The sourceImpl type implementation of the Source interface.
@@ -76,7 +76,7 @@ func NewStringSource(contents string, description string) Source {
 	// Compute line offsets up front as they are referred to frequently.
 	lines := strings.Split(contents, "\n")
 	offsets := make([]int32, len(lines))
-	var offset int32 = 0
+	var offset int32
 	for i, line := range lines {
 		offset = offset + int32(len(line)) + 1
 		offsets[int32(i)] = offset
@@ -173,7 +173,7 @@ func (s *sourceImpl) findLine(characterOffset int32) (int32, int32) {
 		if lineOffset > characterOffset {
 			break
 		} else {
-			line += 1
+			line++
 		}
 	}
 	if line == 1 {

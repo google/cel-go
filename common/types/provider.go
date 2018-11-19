@@ -205,11 +205,11 @@ func NativeToValue(value interface{}) ref.Value {
 	case *dpb.Duration:
 		return Duration{value.(*dpb.Duration)}
 	case *structpb.ListValue:
-		return NewJsonList(value.(*structpb.ListValue))
+		return NewJSONList(value.(*structpb.ListValue))
 	case structpb.NullValue:
 		return NullValue
 	case *structpb.Struct:
-		return NewJsonStruct(value.(*structpb.Struct))
+		return NewJSONStruct(value.(*structpb.Struct))
 	case *structpb.Value:
 		v := value.(*structpb.Value)
 		switch v.Kind.(type) {
