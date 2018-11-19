@@ -94,6 +94,36 @@ func TestInterpreter_ComprehensionExpr(t *testing.T) {
 	}
 }
 
+func TestInterpreter_LogicalAnd(t *testing.T) {
+	program := NewProgram(
+		test.LogicalAnd.Expr,
+		test.LogicalAnd.Info(t.Name()))
+
+	interpretable := interpreter.NewInterpretable(program)
+	// TODO: make the type identifiers part of the standard declaration set.
+	result, _ := interpretable.Eval(
+		NewActivation(map[string]interface{}{"a": true}))
+	if result != types.True {
+		t.Errorf("Expected true, got: %v", result)
+	}
+}
+
+func TestInterpreter_LogicalOr(t *testing.T) {
+	program := NewProgram(
+		test.LogicalOr.Expr,
+		test.LogicalOr.Info(t.Name()))
+
+	// TODO: make the type identifiers part of the standard declaration set.
+	provider := types.NewProvider(&expr.Expr{})
+	i := NewStandardInterpreter(packages.NewPackage("test"), provider)
+	interpretable := i.NewInterpretable(program)
+	result, _ := interpretable.Eval(
+		NewActivation(map[string]interface{}{"a": true}))
+	if result != types.True {
+		t.Errorf("Expected true, got: %v", result)
+	}
+}
+
 func TestInterpreter_BuildObject(t *testing.T) {
 	parsed, errors := parser.ParseText("v1alpha1.Expr{id: 1, " +
 		"const_expr: v1alpha1.Constant{string_value: \"oneof_test\"}}")
