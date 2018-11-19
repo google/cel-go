@@ -31,7 +31,7 @@ func (v *BaseCELVisitor) VisitCalc(ctx *CalcContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCELVisitor) VisitStatementExpr(ctx *StatementExprContext) interface{} {
+func (v *BaseCELVisitor) VisitMemberExpr(ctx *MemberExprContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

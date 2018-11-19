@@ -25,8 +25,8 @@ type CELVisitor interface {
 	// Visit a parse tree produced by CELParser#calc.
 	VisitCalc(ctx *CalcContext) interface{}
 
-	// Visit a parse tree produced by CELParser#StatementExpr.
-	VisitStatementExpr(ctx *StatementExprContext) interface{}
+	// Visit a parse tree produced by CELParser#MemberExpr.
+	VisitMemberExpr(ctx *MemberExprContext) interface{}
 
 	// Visit a parse tree produced by CELParser#LogicalNot.
 	VisitLogicalNot(ctx *LogicalNotContext) interface{}

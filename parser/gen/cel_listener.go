@@ -25,8 +25,8 @@ type CELListener interface {
 	// EnterCalc is called when entering the calc production.
 	EnterCalc(c *CalcContext)
 
-	// EnterStatementExpr is called when entering the StatementExpr production.
-	EnterStatementExpr(c *StatementExprContext)
+	// EnterMemberExpr is called when entering the MemberExpr production.
+	EnterMemberExpr(c *MemberExprContext)
 
 	// EnterLogicalNot is called when entering the LogicalNot production.
 	EnterLogicalNot(c *LogicalNotContext)
@@ -112,8 +112,8 @@ type CELListener interface {
 	// ExitCalc is called when exiting the calc production.
 	ExitCalc(c *CalcContext)
 
-	// ExitStatementExpr is called when exiting the StatementExpr production.
-	ExitStatementExpr(c *StatementExprContext)
+	// ExitMemberExpr is called when exiting the MemberExpr production.
+	ExitMemberExpr(c *MemberExprContext)
 
 	// ExitLogicalNot is called when exiting the LogicalNot production.
 	ExitLogicalNot(c *LogicalNotContext)
