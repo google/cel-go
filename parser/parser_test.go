@@ -71,6 +71,13 @@ var testCases = []testInfo{
 		  )^#3:*expr.Expr_CallExpr#`,
 	},
 	{
+		I: `4--4.1`,
+		P: `_-_(
+			4^#1:*expr.Constant_Int64Value#,
+			-4.1^#2:*expr.Constant_DoubleValue#
+		  )^#3:*expr.Expr_CallExpr#`,
+	},
+	{
 		I: `b"abc"`,
 		P: `b"abc"^#1:*expr.Constant_BytesValue#`,
 	},
