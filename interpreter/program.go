@@ -20,7 +20,7 @@ import (
 
 	"github.com/google/cel-go/common"
 
-	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 // Program contains instructions and related metadata.
@@ -64,21 +64,21 @@ type InstructionStepper interface {
 }
 
 type exprProgram struct {
-	expression      *expr.Expr
+	expression      *exprpb.Expr
 	instructions    []Instruction
 	metadata        Metadata
 	revInstructions map[int64]int
 }
 
 // NewCheckedProgram creates a Program from a checked CEL expression.
-func NewCheckedProgram(c *expr.CheckedExpr) Program {
+func NewCheckedProgram(c *exprpb.CheckedExpr) Program {
 	// TODO: take advantage of the type-check information.
 	return NewProgram(c.Expr, c.SourceInfo)
 }
 
 // NewProgram creates a Program from a CEL expression and source information.
-func NewProgram(expression *expr.Expr,
-	info *expr.SourceInfo) Program {
+func NewProgram(expression *exprpb.Expr,
+	info *exprpb.SourceInfo) Program {
 	revInstructions := make(map[int64]int)
 	return &exprProgram{
 		expression:      expression,
@@ -157,10 +157,10 @@ func (s *exprStepper) JumpCount(count int) bool {
 // locations in a human readable manner based on the data contained within
 // the expr.SourceInfo message.
 type exprMetadata struct {
-	info *expr.SourceInfo
+	info *exprpb.SourceInfo
 }
 
-func newExprMetadata(info *expr.SourceInfo) Metadata {
+func newExprMetadata(info *exprpb.SourceInfo) Metadata {
 	return &exprMetadata{info: info}
 }
 

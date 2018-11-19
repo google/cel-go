@@ -17,7 +17,7 @@ package common
 import (
 	"strings"
 
-	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 // Source interface for filter source contents.
@@ -90,7 +90,7 @@ func NewStringSource(contents string, description string) Source {
 }
 
 // NewInfoSource creates a new Source from a SourceInfo.
-func NewInfoSource(info *expr.SourceInfo) Source {
+func NewInfoSource(info *exprpb.SourceInfo) Source {
 	return &sourceImpl{
 		contents:    "",
 		description: info.Location,

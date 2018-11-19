@@ -17,7 +17,7 @@ package checker
 import (
 	"github.com/google/cel-go/common"
 
-	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 // typeErrors is a specialization of Errors.
@@ -33,7 +33,7 @@ func (e *typeErrors) expressionDoesNotSelectField(l common.Location) {
 	e.ReportError(l, "expression does not select a field")
 }
 
-func (e *typeErrors) typeDoesNotSupportFieldSelection(l common.Location, t *expr.Type) {
+func (e *typeErrors) typeDoesNotSupportFieldSelection(l common.Location, t *exprpb.Type) {
 	e.ReportError(l, "type '%s' does not support field selection", t)
 }
 
@@ -45,8 +45,8 @@ func (e *typeErrors) fieldDoesNotSupportPresenceCheck(l common.Location, field s
 	e.ReportError(l, "field '%s' does not support presence check", field)
 }
 
-func (e *typeErrors) overlappingOverload(l common.Location, name string, overloadID1 string, f1 *expr.Type,
-	overloadID2 string, f2 *expr.Type) {
+func (e *typeErrors) overlappingOverload(l common.Location, name string, overloadID1 string, f1 *exprpb.Type,
+	overloadID2 string, f2 *exprpb.Type) {
 	e.ReportError(l, "overlapping overload for name '%s' (type '%s' with overloadId: '%s' cannot be distinguished from '%s' with "+
 		"overloadId: '%s')", name, FormatCheckedType(f1), overloadID1, FormatCheckedType(f2), overloadID2)
 }
@@ -56,12 +56,12 @@ func (e *typeErrors) overlappingMacro(l common.Location, name string, args int) 
 		name, args)
 }
 
-func (e *typeErrors) noMatchingOverload(l common.Location, name string, args []*expr.Type, isInstance bool) {
+func (e *typeErrors) noMatchingOverload(l common.Location, name string, args []*exprpb.Type, isInstance bool) {
 	signature := formatFunction(nil, args, isInstance)
 	e.ReportError(l, "found no matching overload for '%s' applied to '%s'", name, signature)
 }
 
-func (e *typeErrors) aggregateTypeMismatch(l common.Location, aggregate *expr.Type, member *expr.Type) {
+func (e *typeErrors) aggregateTypeMismatch(l common.Location, aggregate *exprpb.Type, member *exprpb.Type) {
 	e.ReportError(
 		l,
 		"type '%s' does not match previous type '%s' in aggregate. Use 'dyn(x)' to make the aggregate dynamic.",
@@ -69,15 +69,15 @@ func (e *typeErrors) aggregateTypeMismatch(l common.Location, aggregate *expr.Ty
 		FormatCheckedType(aggregate))
 }
 
-func (e *typeErrors) notAType(l common.Location, t *expr.Type) {
+func (e *typeErrors) notAType(l common.Location, t *exprpb.Type) {
 	e.ReportError(l, "'%s(%v)' is not a type", FormatCheckedType(t), t)
 }
 
-func (e *typeErrors) notAMessageType(l common.Location, t *expr.Type) {
+func (e *typeErrors) notAMessageType(l common.Location, t *exprpb.Type) {
 	e.ReportError(l, "'%s' is not a message type", FormatCheckedType(t))
 }
 
-func (e *typeErrors) fieldTypeMismatch(l common.Location, name string, field *expr.Type, value *expr.Type) {
+func (e *typeErrors) fieldTypeMismatch(l common.Location, name string, field *exprpb.Type, value *exprpb.Type) {
 	e.ReportError(l, "expected type of field '%s' is '%s' but provided type is '%s'",
 		name, FormatCheckedType(field), FormatCheckedType(value))
 }
@@ -86,17 +86,17 @@ func (e *typeErrors) unexpectedFailedResolution(l common.Location, typeName stri
 	e.ReportError(l, "[internal] unexpected failed resolution of '%s'", typeName)
 }
 
-func (e *typeErrors) notAComprehensionRange(l common.Location, t *expr.Type) {
+func (e *typeErrors) notAComprehensionRange(l common.Location, t *exprpb.Type) {
 	e.ReportError(l, "expression of type '%s' cannot be range of a comprehension (must be list, map, or dynamic)",
 		FormatCheckedType(t))
 }
 
-func (e *typeErrors) typeMismatch(l common.Location, expected *expr.Type, actual *expr.Type) {
+func (e *typeErrors) typeMismatch(l common.Location, expected *exprpb.Type, actual *exprpb.Type) {
 	e.ReportError(l, "expected type '%s' but found '%s'",
 		FormatCheckedType(expected), FormatCheckedType(actual))
 }
 
-func formatFunction(resultType *expr.Type, argTypes []*expr.Type, isInstance bool) string {
+func formatFunction(resultType *exprpb.Type, argTypes []*exprpb.Type, isInstance bool) string {
 	result := ""
 	if isInstance {
 		target := argTypes[0]

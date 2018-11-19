@@ -17,18 +17,18 @@ package checker
 import (
 	"github.com/google/cel-go/common/debug"
 
-	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 type semanticAdorner struct {
-	checks *expr.CheckedExpr
+	checks *exprpb.CheckedExpr
 }
 
-var _ debug.DebugAdorner = &semanticAdorner{}
+var _ debug.Adorner = &semanticAdorner{}
 
 func (a *semanticAdorner) GetMetadata(elem interface{}) string {
 	result := ""
-	e, isExpr := elem.(*expr.Expr)
+	e, isExpr := elem.(*exprpb.Expr)
 	if !isExpr {
 		return result
 	}
@@ -39,10 +39,10 @@ func (a *semanticAdorner) GetMetadata(elem interface{}) string {
 	}
 
 	switch e.ExprKind.(type) {
-	case *expr.Expr_IdentExpr,
-		*expr.Expr_CallExpr,
-		*expr.Expr_StructExpr,
-		*expr.Expr_SelectExpr:
+	case *exprpb.Expr_IdentExpr,
+		*exprpb.Expr_CallExpr,
+		*exprpb.Expr_StructExpr,
+		*exprpb.Expr_SelectExpr:
 		if ref, found := a.checks.ReferenceMap[e.Id]; found {
 			if len(ref.GetOverloadId()) == 0 {
 				result += "^" + ref.Name
@@ -62,7 +62,7 @@ func (a *semanticAdorner) GetMetadata(elem interface{}) string {
 	return result
 }
 
-func print(e *expr.Expr, checks *expr.CheckedExpr) string {
+func print(e *exprpb.Expr, checks *exprpb.CheckedExpr) string {
 	a := &semanticAdorner{checks: checks}
 	return debug.ToAdornedDebugString(e, a)
 }

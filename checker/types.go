@@ -21,7 +21,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cel-go/checker/decls"
 
-	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 const (
@@ -42,13 +42,13 @@ const (
 )
 
 // FormatCheckedType converts a type message into a string representation.
-func FormatCheckedType(t *expr.Type) string {
+func FormatCheckedType(t *exprpb.Type) string {
 	switch kindOf(t) {
 	case kindPrimitive:
 		switch t.GetPrimitive() {
-		case expr.Type_UINT64:
+		case exprpb.Type_UINT64:
 			return "uint"
-		case expr.Type_INT64:
+		case exprpb.Type_INT64:
 			return "int"
 		}
 		return strings.Trim(strings.ToLower(t.GetPrimitive().String()), " ")
@@ -86,7 +86,7 @@ func FormatCheckedType(t *expr.Type) string {
  * Check whether one type is equal or less specific than the other one. A type is less specific if
  * it matches the other type using the DYN type.
  */
-func isEqualOrLessSpecific(t1 *expr.Type, t2 *expr.Type) bool {
+func isEqualOrLessSpecific(t1 *exprpb.Type, t2 *exprpb.Type) bool {
 	kind1, kind2 := kindOf(t1), kindOf(t2)
 	if kind1 == kindDyn || kind1 == kindTypeParam {
 		return true
@@ -128,7 +128,7 @@ func isEqualOrLessSpecific(t1 *expr.Type, t2 *expr.Type) bool {
 	}
 }
 
-func internalIsAssignableList(m *mapping, l1 []*expr.Type, l2 []*expr.Type) bool {
+func internalIsAssignableList(m *mapping, l1 []*exprpb.Type, l2 []*exprpb.Type) bool {
 	if len(l1) != len(l2) {
 		return false
 	}
@@ -140,7 +140,7 @@ func internalIsAssignableList(m *mapping, l1 []*expr.Type, l2 []*expr.Type) bool
 	return true
 }
 
-func internalIsAssignable(m *mapping, t1 *expr.Type, t2 *expr.Type) bool {
+func internalIsAssignable(m *mapping, t1 *exprpb.Type, t2 *exprpb.Type) bool {
 	// Process type parameters.
 	kind1, kind2 := kindOf(t1), kindOf(t2)
 	if kind2 == kindTypeParam {
@@ -202,8 +202,8 @@ func internalIsAssignable(m *mapping, t1 *expr.Type, t2 *expr.Type) bool {
 		m1 := t1.GetMapType()
 		m2 := t2.GetMapType()
 		return internalIsAssignableList(m,
-			[]*expr.Type{m1.KeyType, m1.ValueType},
-			[]*expr.Type{m2.KeyType, m2.ValueType})
+			[]*exprpb.Type{m1.KeyType, m1.ValueType},
+			[]*exprpb.Type{m2.KeyType, m2.ValueType})
 	case kindFunction:
 		fn1 := t1.GetFunction()
 		fn2 := t2.GetFunction()
@@ -219,7 +219,7 @@ func internalIsAssignable(m *mapping, t1 *expr.Type, t2 *expr.Type) bool {
 	}
 }
 
-func isAssignable(m *mapping, t1 *expr.Type, t2 *expr.Type) *mapping {
+func isAssignable(m *mapping, t1 *exprpb.Type, t2 *exprpb.Type) *mapping {
 	mCopy := m.copy()
 	if internalIsAssignable(mCopy, t1, t2) {
 		return mCopy
@@ -227,7 +227,7 @@ func isAssignable(m *mapping, t1 *expr.Type, t2 *expr.Type) *mapping {
 	return nil
 }
 
-func isAssignableList(m *mapping, l1 []*expr.Type, l2 []*expr.Type) *mapping {
+func isAssignableList(m *mapping, l1 []*exprpb.Type, l2 []*exprpb.Type) *mapping {
 	mCopy := m.copy()
 	if internalIsAssignableList(mCopy, l1, l2) {
 		return mCopy
@@ -244,41 +244,41 @@ func isNullable(kind int) bool {
 	}
 }
 
-func kindOf(t *expr.Type) int {
+func kindOf(t *exprpb.Type) int {
 	if t == nil || t.TypeKind == nil {
 		return kindUnknown
 	}
 	switch t.TypeKind.(type) {
-	case *expr.Type_Error:
+	case *exprpb.Type_Error:
 		return kindError
-	case *expr.Type_Function:
+	case *exprpb.Type_Function:
 		return kindFunction
-	case *expr.Type_Dyn:
+	case *exprpb.Type_Dyn:
 		return kindDyn
-	case *expr.Type_Primitive:
+	case *exprpb.Type_Primitive:
 		return kindPrimitive
-	case *expr.Type_WellKnown:
+	case *exprpb.Type_WellKnown:
 		return kindWellKnown
-	case *expr.Type_Wrapper:
+	case *exprpb.Type_Wrapper:
 		return kindWrapper
-	case *expr.Type_Null:
+	case *exprpb.Type_Null:
 		return kindNull
-	case *expr.Type_Type:
+	case *exprpb.Type_Type:
 		return kindType
-	case *expr.Type_ListType_:
+	case *exprpb.Type_ListType_:
 		return kindList
-	case *expr.Type_MapType_:
+	case *exprpb.Type_MapType_:
 		return kindMap
-	case *expr.Type_MessageType:
+	case *exprpb.Type_MessageType:
 		return kindObject
-	case *expr.Type_TypeParam:
+	case *exprpb.Type_TypeParam:
 		return kindTypeParam
 	}
 	return kindUnknown
 }
 
 /** Returns the more general of two types which are known to unify. */
-func mostGeneral(t1 *expr.Type, t2 *expr.Type) *expr.Type {
+func mostGeneral(t1 *exprpb.Type, t2 *exprpb.Type) *exprpb.Type {
 	if isEqualOrLessSpecific(t1, t2) {
 		return t1
 	}
@@ -289,7 +289,7 @@ func mostGeneral(t1 *expr.Type, t2 *expr.Type) *expr.Type {
  * Apply substitution to given type, replacing all direct and indirect occurrences of bound type
  * parameters. Unbound type parameters are replaced by DYN if typeParamToDyn is true.
  */
-func substitute(m *mapping, t *expr.Type, typeParamToDyn bool) *expr.Type {
+func substitute(m *mapping, t *exprpb.Type, typeParamToDyn bool) *exprpb.Type {
 	if tSub, found := m.find(t); found {
 		return substitute(m, tSub, typeParamToDyn)
 	}
@@ -312,7 +312,7 @@ func substitute(m *mapping, t *expr.Type, typeParamToDyn bool) *expr.Type {
 	case kindFunction:
 		fn := t.GetFunction()
 		rt := substitute(m, fn.ResultType, typeParamToDyn)
-		args := make([]*expr.Type, len(fn.ArgTypes))
+		args := make([]*exprpb.Type, len(fn.ArgTypes))
 		for i, a := range fn.ArgTypes {
 			args[i] = substitute(m, a, typeParamToDyn)
 		}
@@ -322,7 +322,7 @@ func substitute(m *mapping, t *expr.Type, typeParamToDyn bool) *expr.Type {
 	}
 }
 
-func notReferencedIn(t *expr.Type, withinType *expr.Type) bool {
+func notReferencedIn(t *exprpb.Type, withinType *exprpb.Type) bool {
 	if proto.Equal(t, withinType) {
 		return false
 	}
@@ -349,6 +349,6 @@ func notReferencedIn(t *expr.Type, withinType *expr.Type) bool {
 	}
 }
 
-func typeKey(t *expr.Type) string {
+func typeKey(t *exprpb.Type) string {
 	return fmt.Sprintf("%v:%v", kindOf(t), t.String())
 }

@@ -14,7 +14,7 @@
 
 package decls
 
-import expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+import exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 
 // Scopes represents nested Decl environments.
 // A Scopes structure is a stack of Groups (the highest array index
@@ -50,14 +50,14 @@ func (s *Scopes) Pop() {
 // AddIdent adds the ident Decl in the outermost scope.
 // Any previous entry for an ident of the same name is overwritten.
 // Scopes must have at least one group.
-func (s *Scopes) AddIdent(decl *expr.Decl) {
+func (s *Scopes) AddIdent(decl *exprpb.Decl) {
 	s.scopes[0].idents[decl.Name] = decl
 }
 
 // FindIdent finds the first ident Decl with a matching name in Scopes.
 // The search is performed from innermost to outermost.
 // Returns nil if not such ident in Scopes.
-func (s *Scopes) FindIdent(name string) *expr.Decl {
+func (s *Scopes) FindIdent(name string) *exprpb.Decl {
 	for i := len(s.scopes) - 1; i >= 0; i-- {
 		scope := s.scopes[i]
 		if ident, found := scope.idents[name]; found {
@@ -70,7 +70,7 @@ func (s *Scopes) FindIdent(name string) *expr.Decl {
 // FindIdentInScope returns the named ident binding in the innermost scope.
 // Returns nil if no such binding exists.
 // Scopes must have at least one group.
-func (s *Scopes) FindIdentInScope(name string) *expr.Decl {
+func (s *Scopes) FindIdentInScope(name string) *exprpb.Decl {
 	if ident, found := s.scopes[len(s.scopes)-1].idents[name]; found {
 		return ident
 	}
@@ -80,14 +80,14 @@ func (s *Scopes) FindIdentInScope(name string) *expr.Decl {
 // AddFunction adds the function Decl in the outermost scope.
 // Any previous entry for a function of the same name is overwritten.
 // Scopes must have at least one group.
-func (s *Scopes) AddFunction(fn *expr.Decl) {
+func (s *Scopes) AddFunction(fn *exprpb.Decl) {
 	s.scopes[0].functions[fn.Name] = fn
 }
 
 // FindFunction finds the first function Decl with a matching name in Scopes.
 // The search is performed from innermost to outermost.
 // Returns nil if no such function in Scopes.
-func (s *Scopes) FindFunction(name string) *expr.Decl {
+func (s *Scopes) FindFunction(name string) *exprpb.Decl {
 	for i := len(s.scopes) - 1; i >= 0; i-- {
 		scope := s.scopes[i]
 		if fn, found := scope.functions[name]; found {
@@ -101,13 +101,13 @@ func (s *Scopes) FindFunction(name string) *expr.Decl {
 // Contains separate namespaces for idenifier and function Decls.
 // (Should be named "Scope" perhaps?)
 type Group struct {
-	idents    map[string]*expr.Decl
-	functions map[string]*expr.Decl
+	idents    map[string]*exprpb.Decl
+	functions map[string]*exprpb.Decl
 }
 
 func newGroup() *Group {
 	return &Group{
-		idents:    make(map[string]*expr.Decl),
-		functions: make(map[string]*expr.Decl),
+		idents:    make(map[string]*exprpb.Decl),
+		functions: make(map[string]*exprpb.Decl),
 	}
 }

@@ -27,7 +27,7 @@ import (
 	"github.com/google/cel-go/parser"
 	"github.com/google/cel-go/test"
 
-	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 func TestInterpreter_CallExpr(t *testing.T) {
@@ -36,7 +36,7 @@ func TestInterpreter_CallExpr(t *testing.T) {
 		test.Equality.Info(t.Name()))
 	intr := NewStandardInterpreter(
 		packages.NewPackage("google.api.expr"),
-		types.NewProvider(&expr.ParsedExpr{}))
+		types.NewProvider(&exprpb.ParsedExpr{}))
 	interpretable := intr.NewInterpretable(program)
 	result, state := interpretable.Eval(
 		NewActivation(map[string]interface{}{"a": int64(41)}))
@@ -116,7 +116,7 @@ func TestInterpreter_LogicalOr(t *testing.T) {
 		test.LogicalOr.Info(t.Name()))
 
 	// TODO: make the type identifiers part of the standard declaration set.
-	provider := types.NewProvider(&expr.Expr{})
+	provider := types.NewProvider(&exprpb.Expr{})
 	i := NewStandardInterpreter(packages.NewPackage("test"), provider)
 	interpretable := i.NewInterpretable(program)
 	result, _ := interpretable.Eval(
@@ -133,7 +133,7 @@ func TestInterpreter_LogicalOrEquals(t *testing.T) {
 		test.LogicalOrEquals.Info(t.Name()))
 
 	// TODO: make the type identifiers part of the standard declaration set.
-	provider := types.NewProvider(&expr.Expr{})
+	provider := types.NewProvider(&exprpb.Expr{})
 	i := NewStandardInterpreter(packages.NewPackage("test"), provider)
 	interpretable := i.NewInterpretable(program)
 	result, _ := interpretable.Eval(
@@ -155,7 +155,7 @@ func TestInterpreter_BuildObject(t *testing.T) {
 	}
 
 	pkgr := packages.NewPackage("google.api.expr")
-	provider := types.NewProvider(&expr.Expr{})
+	provider := types.NewProvider(&exprpb.Expr{})
 	env := checker.NewStandardEnv(pkgr, provider, errors)
 	checked := checker.Check(parsed, env)
 	if len(errors.GetErrors()) != 0 {
@@ -165,10 +165,10 @@ func TestInterpreter_BuildObject(t *testing.T) {
 	i := NewStandardInterpreter(pkgr, provider)
 	eval := i.NewInterpretable(NewCheckedProgram(checked))
 	result, _ := eval.Eval(NewActivation(map[string]interface{}{}))
-	expected := &expr.Expr{Id: 1,
-		ExprKind: &expr.Expr_ConstExpr{
-			ConstExpr: &expr.Constant{
-				ConstantKind: &expr.Constant_StringValue{
+	expected := &exprpb.Expr{Id: 1,
+		ExprKind: &exprpb.Expr_ConstExpr{
+			ConstExpr: &exprpb.Constant{
+				ConstantKind: &exprpb.Constant_StringValue{
 					StringValue: "oneof_test"}}}}
 	if !proto.Equal(result.(ref.Value).Value().(proto.Message), expected) {
 		t.Errorf("Could not build object properly. Got '%v', wanted '%v'",
@@ -339,5 +339,5 @@ func BenchmarkInterpreter_ComprehensionExprWithInput(b *testing.B) {
 var (
 	interpreter = NewStandardInterpreter(
 		packages.DefaultPackage,
-		types.NewProvider(&expr.ParsedExpr{}))
+		types.NewProvider(&exprpb.ParsedExpr{}))
 )

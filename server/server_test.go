@@ -13,13 +13,13 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
-	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 type serverTest struct {
 	cmd    *exec.Cmd
 	conn   *grpc.ClientConn
-	client expr.CelServiceClient
+	client exprpb.CelServiceClient
 }
 
 var (
@@ -78,7 +78,7 @@ func setup() error {
 	globals.conn = conn
 
 	log.Println("Creating service client")
-	globals.client = expr.NewCelServiceClient(conn)
+	globals.client = exprpb.NewCelServiceClient(conn)
 	return nil
 }
 
@@ -95,11 +95,11 @@ func shutdown() {
 }
 
 var (
-	parsed = &expr.ParsedExpr{
+	parsed = &exprpb.ParsedExpr{
 		Expr: test.ExprCall(1, operators.Add,
 			test.ExprLiteral(2, int64(1)),
 			test.ExprLiteral(3, int64(1))),
-		SourceInfo: &expr.SourceInfo{
+		SourceInfo: &exprpb.SourceInfo{
 			Location: "the location",
 			Positions: map[int64]int32{
 				1: 0,
@@ -112,7 +112,7 @@ var (
 
 // TestParse tests the Parse method.
 func TestParse(t *testing.T) {
-	req := expr.ParseRequest{
+	req := exprpb.ParseRequest{
 		CelSource: "1 + 1",
 	}
 	res, err := globals.client.Parse(context.Background(), &req)
@@ -133,7 +133,7 @@ func TestParse(t *testing.T) {
 		t.Fatal("Empty expression in result")
 	}
 	switch res.ParsedExpr.Expr.ExprKind.(type) {
-	case *expr.Expr_CallExpr:
+	case *exprpb.Expr_CallExpr:
 		c := res.ParsedExpr.Expr.GetCallExpr()
 		if c.Target != nil {
 			t.Error("Call has target", c)
@@ -146,10 +146,10 @@ func TestParse(t *testing.T) {
 		}
 		for i, a := range c.Args {
 			switch a.ExprKind.(type) {
-			case *expr.Expr_ConstExpr:
+			case *exprpb.Expr_ConstExpr:
 				l := a.GetConstExpr()
 				switch l.ConstantKind.(type) {
-				case *expr.Constant_Int64Value:
+				case *exprpb.Constant_Int64Value:
 					if l.GetInt64Value() != int64(1) {
 						t.Errorf("Arg %d wrong value: %v", i, a)
 					}
@@ -170,7 +170,7 @@ func TestCheck(t *testing.T) {
 	// If TestParse() passes, it validates a good chunk
 	// of the server mechanisms for data conversion, so we
 	// won't be as fussy here..
-	req := expr.CheckRequest{
+	req := exprpb.CheckRequest{
 		ParsedExpr: parsed,
 	}
 	res, err := globals.client.Check(context.Background(), &req)
@@ -188,8 +188,8 @@ func TestCheck(t *testing.T) {
 		t.Fatal("No type for top level expression", res)
 	}
 	switch tp.TypeKind.(type) {
-	case *expr.Type_Primitive:
-		if tp.GetPrimitive() != expr.Type_INT64 {
+	case *exprpb.Type_Primitive:
+		if tp.GetPrimitive() != exprpb.Type_INT64 {
 			t.Error("Bad top-level type", tp)
 		}
 	default:
@@ -199,8 +199,8 @@ func TestCheck(t *testing.T) {
 
 // TestEval tests the Eval method.
 func TestEval(t *testing.T) {
-	req := expr.EvalRequest{
-		ExprKind: &expr.EvalRequest_ParsedExpr{parsed},
+	req := exprpb.EvalRequest{
+		ExprKind: &exprpb.EvalRequest_ParsedExpr{parsed},
 	}
 	res, err := globals.client.Eval(context.Background(), &req)
 	if err != nil {
@@ -210,10 +210,10 @@ func TestEval(t *testing.T) {
 		t.Fatal("Nil result")
 	}
 	switch res.Result.Kind.(type) {
-	case *expr.ExprValue_Value:
+	case *exprpb.ExprValue_Value:
 		v := res.Result.GetValue()
 		switch v.Kind.(type) {
-		case *expr.Value_Int64Value:
+		case *exprpb.Value_Int64Value:
 			if v.GetInt64Value() != int64(2) {
 				t.Error("Wrong result for 1 + 1", v)
 			}
@@ -227,7 +227,7 @@ func TestEval(t *testing.T) {
 
 // TestFullUp tests Parse, Check, and Eval back-to-back.
 func TestFullUp(t *testing.T) {
-	preq := expr.ParseRequest{
+	preq := exprpb.ParseRequest{
 		CelSource: "x + y",
 	}
 	pres, err := globals.client.Parse(context.Background(), &preq)
@@ -239,9 +239,9 @@ func TestFullUp(t *testing.T) {
 		t.Fatal("Empty parsed expression")
 	}
 
-	creq := expr.CheckRequest{
+	creq := exprpb.CheckRequest{
 		ParsedExpr: parsedExpr,
-		TypeEnv: []*expr.Decl{
+		TypeEnv: []*exprpb.Decl{
 			decls.NewIdent("x", decls.Int, nil),
 			decls.NewIdent("y", decls.Int, nil),
 		},
@@ -262,17 +262,17 @@ func TestFullUp(t *testing.T) {
 		t.Fatal("No type for top level expression", cres)
 	}
 	switch tp.TypeKind.(type) {
-	case *expr.Type_Primitive:
-		if tp.GetPrimitive() != expr.Type_INT64 {
+	case *exprpb.Type_Primitive:
+		if tp.GetPrimitive() != exprpb.Type_INT64 {
 			t.Error("Bad top-level type", tp)
 		}
 	default:
 		t.Error("Bad top-level type", tp)
 	}
 
-	ereq := expr.EvalRequest{
-		ExprKind: &expr.EvalRequest_CheckedExpr{checkedExpr},
-		Bindings: map[string]*expr.ExprValue{
+	ereq := exprpb.EvalRequest{
+		ExprKind: &exprpb.EvalRequest_CheckedExpr{checkedExpr},
+		Bindings: map[string]*exprpb.ExprValue{
 			"x": exprValueInt64(1),
 			"y": exprValueInt64(2),
 		},
@@ -285,10 +285,10 @@ func TestFullUp(t *testing.T) {
 		t.Fatal("Nil result")
 	}
 	switch eres.Result.Kind.(type) {
-	case *expr.ExprValue_Value:
+	case *exprpb.ExprValue_Value:
 		v := eres.Result.GetValue()
 		switch v.Kind.(type) {
-		case *expr.Value_Int64Value:
+		case *exprpb.Value_Int64Value:
 			if v.GetInt64Value() != int64(3) {
 				t.Error("Wrong result for 1 + 2", v)
 			}
@@ -300,11 +300,11 @@ func TestFullUp(t *testing.T) {
 	}
 }
 
-func exprValueInt64(x int64) *expr.ExprValue {
-	return &expr.ExprValue{
-		Kind: &expr.ExprValue_Value{
-			&expr.Value{
-				Kind: &expr.Value_Int64Value{x},
+func exprValueInt64(x int64) *exprpb.ExprValue {
+	return &exprpb.ExprValue{
+		Kind: &exprpb.ExprValue_Value{
+			&exprpb.Value{
+				Kind: &exprpb.Value_Int64Value{x},
 			},
 		},
 	}
@@ -314,7 +314,7 @@ func exprValueInt64(x int64) *expr.ExprValue {
 // and checks that the result is the boolean value 'true'.
 func expectEvalTrue(t *testing.T, source string) {
 	// Parse
-	preq := expr.ParseRequest{
+	preq := exprpb.ParseRequest{
 		CelSource: source,
 	}
 	pres, err := globals.client.Parse(context.Background(), &preq)
@@ -334,7 +334,7 @@ func expectEvalTrue(t *testing.T, source string) {
 	rootId := parsedExpr.Expr.Id
 
 	// Check
-	creq := expr.CheckRequest{
+	creq := exprpb.CheckRequest{
 		ParsedExpr: parsedExpr,
 	}
 	cres, err := globals.client.Check(context.Background(), &creq)
@@ -353,8 +353,8 @@ func expectEvalTrue(t *testing.T, source string) {
 		t.Fatal("No type for top level expression", cres)
 	}
 	switch topType.TypeKind.(type) {
-	case *expr.Type_Primitive:
-		if topType.GetPrimitive() != expr.Type_BOOL {
+	case *exprpb.Type_Primitive:
+		if topType.GetPrimitive() != exprpb.Type_BOOL {
 			t.Error("Bad top-level type", topType)
 		}
 	default:
@@ -362,8 +362,8 @@ func expectEvalTrue(t *testing.T, source string) {
 	}
 
 	// Eval
-	ereq := expr.EvalRequest{
-		ExprKind: &expr.EvalRequest_CheckedExpr{checkedExpr},
+	ereq := exprpb.EvalRequest{
+		ExprKind: &exprpb.EvalRequest_CheckedExpr{checkedExpr},
 	}
 	eres, err := globals.client.Eval(context.Background(), &ereq)
 	if err != nil {
@@ -373,10 +373,10 @@ func expectEvalTrue(t *testing.T, source string) {
 		t.Fatal("Nil result")
 	}
 	switch eres.Result.Kind.(type) {
-	case *expr.ExprValue_Value:
+	case *exprpb.ExprValue_Value:
 		v := eres.Result.GetValue()
 		switch v.Kind.(type) {
-		case *expr.Value_BoolValue:
+		case *exprpb.Value_BoolValue:
 			if !v.GetBoolValue() {
 				t.Error("Wrong result", v)
 			}

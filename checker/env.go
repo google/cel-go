@@ -22,7 +22,7 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/parser"
 
-	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 // Env is the environment for type checking.
@@ -63,12 +63,12 @@ func NewStandardEnv(packager packages.Packager,
 // Add adds new Decl protos to the Env.
 // Panics on identifiers already in the Env.
 // Adds to Env errors if there's an overlap with an existing overload.
-func (e *Env) Add(decls ...*expr.Decl) {
+func (e *Env) Add(decls ...*exprpb.Decl) {
 	for _, decl := range decls {
 		switch decl.DeclKind.(type) {
-		case *expr.Decl_Ident:
+		case *exprpb.Decl_Ident:
 			e.addIdent(decl)
-		case *expr.Decl_Function:
+		case *exprpb.Decl_Function:
 			e.addFunction(decl)
 		}
 	}
@@ -77,7 +77,7 @@ func (e *Env) Add(decls ...*expr.Decl) {
 // addOverload adds overload to function declaration f.
 // If overload overlaps with an existing overload, adds to the errors
 // in the Env instead.
-func (e *Env) addOverload(f *expr.Decl, overload *expr.Decl_FunctionDecl_Overload) {
+func (e *Env) addOverload(f *exprpb.Decl, overload *exprpb.Decl_FunctionDecl_Overload) {
 	function := f.GetFunction()
 	emptyMappings := newMapping()
 	overloadFunction := decls.NewFunctionType(overload.GetResultType(),
@@ -112,7 +112,7 @@ func (e *Env) addOverload(f *expr.Decl, overload *expr.Decl_FunctionDecl_Overloa
 // then adds all overloads from the Decl.
 // If overload overlaps with an existing overload, adds to the errors
 // in the Env instead.
-func (e *Env) addFunction(decl *expr.Decl) {
+func (e *Env) addFunction(decl *exprpb.Decl) {
 	current := e.declarations.FindFunction(decl.Name)
 	if current == nil {
 		//Add the function declaration without overloads and check the overloads below.
@@ -127,7 +127,7 @@ func (e *Env) addFunction(decl *expr.Decl) {
 
 // addIdent adds the Decl to the declarations in the Env.
 // Panics if an identifier with the same name already exists.
-func (e *Env) addIdent(decl *expr.Decl) {
+func (e *Env) addIdent(decl *exprpb.Decl) {
 	current := e.declarations.FindIdentInScope(decl.Name)
 	if current != nil {
 		panic("ident already exists")
@@ -137,7 +137,7 @@ func (e *Env) addIdent(decl *expr.Decl) {
 
 // LookupIdent returns a Decl proto for typeName as an identifier in the Env.
 // Returns nil if no such identifier is found in the Env.
-func (e *Env) LookupIdent(typeName string) *expr.Decl {
+func (e *Env) LookupIdent(typeName string) *exprpb.Decl {
 	for _, candidate := range e.packager.ResolveCandidateNames(typeName) {
 		if ident := e.declarations.FindIdent(candidate); ident != nil {
 			return ident
@@ -157,8 +157,8 @@ func (e *Env) LookupIdent(typeName string) *expr.Decl {
 		if enumValue := e.typeProvider.EnumValue(candidate); enumValue.Type() != types.ErrType {
 			decl := decls.NewIdent(candidate,
 				decls.Int,
-				&expr.Constant{
-					ConstantKind: &expr.Constant_Int64Value{
+				&exprpb.Constant{
+					ConstantKind: &exprpb.Constant_Int64Value{
 						Int64Value: int64(enumValue.(types.Int))}})
 			e.declarations.AddIdent(decl)
 			return decl
@@ -169,7 +169,7 @@ func (e *Env) LookupIdent(typeName string) *expr.Decl {
 
 // LookupFunction returns a Decl proto for typeName as a function in env.
 // Returns nil if no such function is found in env.
-func (e *Env) LookupFunction(typeName string) *expr.Decl {
+func (e *Env) LookupFunction(typeName string) *exprpb.Decl {
 	for _, candidate := range e.packager.ResolveCandidateNames(typeName) {
 		if fn := e.declarations.FindFunction(candidate); fn != nil {
 			return fn

@@ -17,24 +17,24 @@ package checker
 import (
 	"fmt"
 
-	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 type mapping struct {
-	mapping map[string]*expr.Type
+	mapping map[string]*exprpb.Type
 }
 
 func newMapping() *mapping {
 	return &mapping{
-		mapping: make(map[string]*expr.Type),
+		mapping: make(map[string]*exprpb.Type),
 	}
 }
 
-func (m *mapping) add(from *expr.Type, to *expr.Type) {
+func (m *mapping) add(from *exprpb.Type, to *exprpb.Type) {
 	m.mapping[typeKey(from)] = to
 }
 
-func (m *mapping) find(from *expr.Type) (*expr.Type, bool) {
+func (m *mapping) find(from *exprpb.Type) (*exprpb.Type, bool) {
 	if r, found := m.mapping[typeKey(from)]; found {
 		return r, found
 	}

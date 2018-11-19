@@ -16,11 +16,12 @@ package pb
 
 import (
 	"fmt"
-	"github.com/golang/protobuf/proto"
-	descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
-	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	"reflect"
 	"strings"
+
+	"github.com/golang/protobuf/proto"
+	descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 // TypeDescription is a collection of type metadata relevant to expression
@@ -177,21 +178,21 @@ type FieldDescription struct {
 }
 
 // CheckedType returns the type-definition used at type-check time.
-func (fd *FieldDescription) CheckedType() *expr.Type {
+func (fd *FieldDescription) CheckedType() *exprpb.Type {
 	if fd.IsMap() {
 		td, _ := DescribeType(fd.TypeName())
 		key := td.getFieldsAtIndex(0)[0]
 		val := td.getFieldsAtIndex(1)[0]
-		return &expr.Type{
-			TypeKind: &expr.Type_MapType_{
-				MapType: &expr.Type_MapType{
+		return &exprpb.Type{
+			TypeKind: &exprpb.Type_MapType_{
+				MapType: &exprpb.Type_MapType{
 					KeyType:   key.typeDefToType(),
 					ValueType: val.typeDefToType()}}}
 	}
 	if fd.IsRepeated() {
-		return &expr.Type{
-			TypeKind: &expr.Type_ListType_{
-				ListType: &expr.Type_ListType{
+		return &exprpb.Type{
+			TypeKind: &exprpb.Type_ListType_{
+				ListType: &exprpb.Type_ListType{
 					ElemType: fd.typeDefToType()}}}
 	}
 	return fd.typeDefToType()
@@ -278,7 +279,7 @@ func (fd *FieldDescription) TypeName() string {
 	return sanitizeProtoName(fd.desc.GetTypeName())
 }
 
-func (fd *FieldDescription) typeDefToType() *expr.Type {
+func (fd *FieldDescription) typeDefToType() *exprpb.Type {
 	if fd.IsMessage() {
 		if wk, found := CheckedWellKnowns[fd.TypeName()]; found {
 			return wk
@@ -294,22 +295,22 @@ func (fd *FieldDescription) typeDefToType() *expr.Type {
 	return CheckedPrimitives[fd.desc.GetType()]
 }
 
-func checkedMessageType(name string) *expr.Type {
-	return &expr.Type{
-		TypeKind: &expr.Type_MessageType{MessageType: name}}
+func checkedMessageType(name string) *exprpb.Type {
+	return &exprpb.Type{
+		TypeKind: &exprpb.Type_MessageType{MessageType: name}}
 }
 
-func checkedPrimitive(primitive expr.Type_PrimitiveType) *expr.Type {
-	return &expr.Type{
-		TypeKind: &expr.Type_Primitive{Primitive: primitive}}
+func checkedPrimitive(primitive exprpb.Type_PrimitiveType) *exprpb.Type {
+	return &exprpb.Type{
+		TypeKind: &exprpb.Type_Primitive{Primitive: primitive}}
 }
 
-func checkedWellKnown(wellKnown expr.Type_WellKnownType) *expr.Type {
-	return &expr.Type{
-		TypeKind: &expr.Type_WellKnown{WellKnown: wellKnown}}
+func checkedWellKnown(wellKnown exprpb.Type_WellKnownType) *exprpb.Type {
+	return &exprpb.Type{
+		TypeKind: &exprpb.Type_WellKnown{WellKnown: wellKnown}}
 }
 
-func checkedWrap(t *expr.Type) *expr.Type {
-	return &expr.Type{
-		TypeKind: &expr.Type_Wrapper{Wrapper: t.GetPrimitive()}}
+func checkedWrap(t *exprpb.Type) *exprpb.Type {
+	return &exprpb.Type{
+		TypeKind: &exprpb.Type_Wrapper{Wrapper: t.GetPrimitive()}}
 }
