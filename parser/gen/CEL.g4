@@ -45,16 +45,16 @@ calc
     ;
 
 unary
-    : statement                                                     # StatementExpr
-    | (ops+='!')+ statement                                         # LogicalNot
-    | (ops+='-')+ statement                                         # Negate
+    : member                                                        # MemberExpr
+    | (ops+='!')+ member                                            # LogicalNot
+    | (ops+='-')+ member                                            # Negate
     ;
 
-statement
+member
     : primary                                                       # PrimaryExpr
-    | statement op='.' id=IDENTIFIER (open='(' args=exprList? ')')? # SelectOrCall
-    | statement op='[' index=expr ']'                               # Index
-    | statement op='{' entries=fieldInitializerList? '}'            # CreateMessage
+    | member op='.' id=IDENTIFIER (open='(' args=exprList? ')')?    # SelectOrCall
+    | member op='[' index=expr ']'                                  # Index
+    | member op='{' entries=fieldInitializerList? '}'               # CreateMessage
     ;
 
 primary
@@ -78,9 +78,9 @@ mapInitializerList
     ;
 
 literal
-    : tok=NUM_INT   # Int
+    : sign=MINUS? tok=NUM_INT   # Int
     | tok=NUM_UINT  # Uint
-    | tok=NUM_FLOAT # Double
+    | sign=MINUS? tok=NUM_FLOAT # Double
     | tok=STRING    # String
     | tok=BYTES     # Bytes
     | tok='true'    # BoolTrue

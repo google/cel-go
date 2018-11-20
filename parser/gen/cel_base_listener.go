@@ -56,11 +56,11 @@ func (s *BaseCELListener) EnterCalc(ctx *CalcContext) {}
 // ExitCalc is called when production calc is exited.
 func (s *BaseCELListener) ExitCalc(ctx *CalcContext) {}
 
-// EnterStatementExpr is called when production StatementExpr is entered.
-func (s *BaseCELListener) EnterStatementExpr(ctx *StatementExprContext) {}
+// EnterMemberExpr is called when production MemberExpr is entered.
+func (s *BaseCELListener) EnterMemberExpr(ctx *MemberExprContext) {}
 
-// ExitStatementExpr is called when production StatementExpr is exited.
-func (s *BaseCELListener) ExitStatementExpr(ctx *StatementExprContext) {}
+// ExitMemberExpr is called when production MemberExpr is exited.
+func (s *BaseCELListener) ExitMemberExpr(ctx *MemberExprContext) {}
 
 // EnterLogicalNot is called when production LogicalNot is entered.
 func (s *BaseCELListener) EnterLogicalNot(ctx *LogicalNotContext) {}

@@ -61,9 +61,21 @@ var testCases = []testInfo{
 	},
 	{
 		I: `-1`,
-		P: `-_(
-    		  1^#1:*expr.Constant_Int64Value#
-			)^#2:*expr.Expr_CallExpr#`,
+		P: `-1^#1:*expr.Constant_Int64Value#`,
+	},
+	{
+		I: `4--4`,
+		P: `_-_(
+			4^#1:*expr.Constant_Int64Value#,
+			-4^#2:*expr.Constant_Int64Value#
+		  )^#3:*expr.Expr_CallExpr#`,
+	},
+	{
+		I: `4--4.1`,
+		P: `_-_(
+			4^#1:*expr.Constant_Int64Value#,
+			-4.1^#2:*expr.Constant_DoubleValue#
+		  )^#3:*expr.Expr_CallExpr#`,
 	},
 	{
 		I: `b"abc"`,
