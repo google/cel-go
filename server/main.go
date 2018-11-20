@@ -10,7 +10,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
-	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 func main() {
@@ -32,7 +32,7 @@ func main() {
 
 	log.Println("Server registering service on port")
 	s := grpc.NewServer()
-	expr.RegisterCelServiceServer(s, &server.CelServer{})
+	exprpb.RegisterCelServiceServer(s, &server.CelServer{})
 	log.Println("Server calling Register")
 	reflection.Register(s)
 	log.Println("Server calling Serve")

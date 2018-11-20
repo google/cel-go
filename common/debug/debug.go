@@ -22,41 +22,41 @@ import (
 	"strconv"
 	"strings"
 
-	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
-// DebugAdorner returns debug metadata that will be tacked on to the string
+// Adorner returns debug metadata that will be tacked on to the string
 // representation of an expression.
-type DebugAdorner interface {
+type Adorner interface {
 	// GetMetadata for the input context.
 	GetMetadata(ctx interface{}) string
 }
 
-// DebugWriter manages writing expressions to an internal string.
-type DebugWriter interface {
+// Writer manages writing expressions to an internal string.
+type Writer interface {
 	fmt.Stringer
 
 	// Buffer pushes an expression into an internal queue of expressions to
 	// write to a string.
-	Buffer(e *expr.Expr)
+	Buffer(e *exprpb.Expr)
 }
 
 type emptyDebugAdorner struct {
 }
 
-var emptyAdorner DebugAdorner = &emptyDebugAdorner{}
+var emptyAdorner Adorner = &emptyDebugAdorner{}
 
 func (a *emptyDebugAdorner) GetMetadata(e interface{}) string {
 	return ""
 }
 
 // ToDebugString gives the unadorned string representation of the Expr.
-func ToDebugString(e *expr.Expr) string {
+func ToDebugString(e *exprpb.Expr) string {
 	return ToAdornedDebugString(e, emptyAdorner)
 }
 
 // ToAdornedDebugString gives the adorned string representation of the Expr.
-func ToAdornedDebugString(e *expr.Expr, adorner DebugAdorner) string {
+func ToAdornedDebugString(e *exprpb.Expr, adorner Adorner) string {
 	w := newDebugWriter(adorner)
 	w.Buffer(e)
 	return w.String()
@@ -64,13 +64,13 @@ func ToAdornedDebugString(e *expr.Expr, adorner DebugAdorner) string {
 
 // debugWriter is used to print out pretty-printed debug strings.
 type debugWriter struct {
-	adorner   DebugAdorner
+	adorner   Adorner
 	buffer    bytes.Buffer
 	indent    int
 	lineStart bool
 }
 
-func newDebugWriter(a DebugAdorner) *debugWriter {
+func newDebugWriter(a Adorner) *debugWriter {
 	return &debugWriter{
 		adorner:   a,
 		indent:    0,
@@ -78,30 +78,30 @@ func newDebugWriter(a DebugAdorner) *debugWriter {
 	}
 }
 
-func (w *debugWriter) Buffer(e *expr.Expr) {
+func (w *debugWriter) Buffer(e *exprpb.Expr) {
 	if e == nil {
 		return
 	}
 	switch e.ExprKind.(type) {
-	case *expr.Expr_ConstExpr:
+	case *exprpb.Expr_ConstExpr:
 		w.append(formatLiteral(e.GetConstExpr()))
-	case *expr.Expr_IdentExpr:
+	case *exprpb.Expr_IdentExpr:
 		w.append(e.GetIdentExpr().Name)
-	case *expr.Expr_SelectExpr:
+	case *exprpb.Expr_SelectExpr:
 		w.appendSelect(e.GetSelectExpr())
-	case *expr.Expr_CallExpr:
+	case *exprpb.Expr_CallExpr:
 		w.appendCall(e.GetCallExpr())
-	case *expr.Expr_ListExpr:
+	case *exprpb.Expr_ListExpr:
 		w.appendList(e.GetListExpr())
-	case *expr.Expr_StructExpr:
+	case *exprpb.Expr_StructExpr:
 		w.appendStruct(e.GetStructExpr())
-	case *expr.Expr_ComprehensionExpr:
+	case *exprpb.Expr_ComprehensionExpr:
 		w.appendComprehension(e.GetComprehensionExpr())
 	}
 	w.adorn(e)
 }
 
-func (w *debugWriter) appendSelect(sel *expr.Expr_Select) {
+func (w *debugWriter) appendSelect(sel *exprpb.Expr_Select) {
 	w.Buffer(sel.Operand)
 	w.append(".")
 	w.append(sel.Field)
@@ -110,7 +110,7 @@ func (w *debugWriter) appendSelect(sel *expr.Expr_Select) {
 	}
 }
 
-func (w *debugWriter) appendCall(call *expr.Expr_Call) {
+func (w *debugWriter) appendCall(call *exprpb.Expr_Call) {
 	if call.Target != nil {
 		w.Buffer(call.Target)
 		w.append(".")
@@ -133,7 +133,7 @@ func (w *debugWriter) appendCall(call *expr.Expr_Call) {
 	w.append(")")
 }
 
-func (w *debugWriter) appendList(list *expr.Expr_CreateList) {
+func (w *debugWriter) appendList(list *exprpb.Expr_CreateList) {
 	w.append("[")
 	if len(list.GetElements()) > 0 {
 		w.appendLine()
@@ -151,7 +151,7 @@ func (w *debugWriter) appendList(list *expr.Expr_CreateList) {
 	w.append("]")
 }
 
-func (w *debugWriter) appendStruct(obj *expr.Expr_CreateStruct) {
+func (w *debugWriter) appendStruct(obj *exprpb.Expr_CreateStruct) {
 	if obj.MessageName != "" {
 		w.appendObject(obj)
 	} else {
@@ -159,7 +159,7 @@ func (w *debugWriter) appendStruct(obj *expr.Expr_CreateStruct) {
 	}
 }
 
-func (w *debugWriter) appendObject(obj *expr.Expr_CreateStruct) {
+func (w *debugWriter) appendObject(obj *exprpb.Expr_CreateStruct) {
 	w.append(obj.MessageName)
 	w.append("{")
 	if len(obj.Entries) > 0 {
@@ -181,7 +181,7 @@ func (w *debugWriter) appendObject(obj *expr.Expr_CreateStruct) {
 	w.append("}")
 }
 
-func (w *debugWriter) appendMap(obj *expr.Expr_CreateStruct) {
+func (w *debugWriter) appendMap(obj *exprpb.Expr_CreateStruct) {
 	w.append("{")
 	if len(obj.Entries) > 0 {
 		w.appendLine()
@@ -202,7 +202,7 @@ func (w *debugWriter) appendMap(obj *expr.Expr_CreateStruct) {
 	w.append("}")
 }
 
-func (w *debugWriter) appendComprehension(comprehension *expr.Expr_Comprehension) {
+func (w *debugWriter) appendComprehension(comprehension *exprpb.Expr_Comprehension) {
 	w.append("__comprehension__(")
 	w.addIndent()
 	w.appendLine()
@@ -243,21 +243,21 @@ func (w *debugWriter) appendComprehension(comprehension *expr.Expr_Comprehension
 	w.removeIndent()
 }
 
-func formatLiteral(c *expr.Constant) string {
+func formatLiteral(c *exprpb.Constant) string {
 	switch c.ConstantKind.(type) {
-	case *expr.Constant_BoolValue:
+	case *exprpb.Constant_BoolValue:
 		return fmt.Sprintf("%t", c.GetBoolValue())
-	case *expr.Constant_BytesValue:
+	case *exprpb.Constant_BytesValue:
 		return fmt.Sprintf("b\"%s\"", string(c.GetBytesValue()))
-	case *expr.Constant_DoubleValue:
+	case *exprpb.Constant_DoubleValue:
 		return fmt.Sprintf("%v", c.GetDoubleValue())
-	case *expr.Constant_Int64Value:
+	case *exprpb.Constant_Int64Value:
 		return fmt.Sprintf("%d", c.GetInt64Value())
-	case *expr.Constant_StringValue:
+	case *exprpb.Constant_StringValue:
 		return strconv.Quote(c.GetStringValue())
-	case *expr.Constant_Uint64Value:
+	case *exprpb.Constant_Uint64Value:
 		return fmt.Sprintf("%du", c.GetUint64Value())
-	case *expr.Constant_NullValue:
+	case *exprpb.Constant_NullValue:
 		return "null"
 	default:
 		panic("Unknown constant type")

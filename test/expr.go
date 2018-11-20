@@ -19,18 +19,18 @@ import (
 	"github.com/golang/protobuf/ptypes/struct"
 	"github.com/google/cel-go/common/operators"
 
-	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 // TestExpr packages an Expr with SourceInfo, for testing.
 type TestExpr struct {
-	Expr       *expr.Expr
-	SourceInfo *expr.SourceInfo
+	Expr       *exprpb.Expr
+	SourceInfo *exprpb.SourceInfo
 }
 
 // Info returns a copy of the SourceInfo with the given location.
-func (t *TestExpr) Info(location string) *expr.SourceInfo {
-	info := proto.Clone(t.SourceInfo).(*expr.SourceInfo)
+func (t *TestExpr) Info(location string) *exprpb.SourceInfo {
+	info := proto.Clone(t.SourceInfo).(*exprpb.SourceInfo)
 	info.Location = location
 	return info
 }
@@ -38,9 +38,9 @@ func (t *TestExpr) Info(location string) *expr.SourceInfo {
 var (
 	// Empty generates a program with no instructions.
 	Empty = &TestExpr{
-		Expr: &expr.Expr{},
+		Expr: &exprpb.Expr{},
 
-		SourceInfo: &expr.SourceInfo{
+		SourceInfo: &exprpb.SourceInfo{
 			LineOffsets: []int32{},
 			Positions:   map[int64]int32{}}}
 
@@ -68,7 +68,7 @@ var (
 				ExprIdent(15, "uint")),
 			ExprIdent(16, "_accu_")),
 
-		SourceInfo: &expr.SourceInfo{
+		SourceInfo: &exprpb.SourceInfo{
 			LineOffsets: []int32{0},
 			Positions: map[int64]int32{
 				0:  12,
@@ -107,7 +107,7 @@ var (
 				ExprIdent(9, "uint")),
 			ExprIdent(10, "_accu_")),
 
-		SourceInfo: &expr.SourceInfo{
+		SourceInfo: &exprpb.SourceInfo{
 			LineOffsets: []int32{0},
 			Positions: map[int64]int32{
 				0:  12,
@@ -142,7 +142,7 @@ var (
 				ExprLiteral(14, "bytes"),
 				ExprLiteral(16, []byte("bytes-string")))),
 
-		SourceInfo: &expr.SourceInfo{
+		SourceInfo: &exprpb.SourceInfo{
 			LineOffsets: []int32{},
 			Positions:   map[int64]int32{}}}
 
@@ -154,7 +154,7 @@ var (
 				ExprMap(5,
 					ExprEntry(4, ExprLiteral(6, "c"), ExprLiteral(7, true))),
 				"c")),
-		&expr.SourceInfo{
+		&exprpb.SourceInfo{
 			LineOffsets: []int32{},
 			Positions:   map[int64]int32{}}}
 
@@ -166,7 +166,7 @@ var (
 					ExprEntry(4, ExprLiteral(6, "c"), ExprLiteral(7, false))),
 				"c"),
 			ExprIdent(1, "a")),
-		&expr.SourceInfo{
+		&exprpb.SourceInfo{
 			LineOffsets: []int32{},
 			Positions:   map[int64]int32{}}}
 
@@ -177,7 +177,7 @@ var (
 			ExprCall(4, operators.Equals,
 				ExprIdent(2, "b"),
 				ExprLiteral(3, "b"))),
-		&expr.SourceInfo{
+		&exprpb.SourceInfo{
 			LineOffsets: []int32{},
 			Positions:   map[int64]int32{}}}
 
@@ -193,7 +193,7 @@ var (
 				operators.Equals,
 				ExprIdent(5, "c"),
 				ExprList(8, ExprLiteral(7, "hello")))),
-		SourceInfo: &expr.SourceInfo{
+		SourceInfo: &exprpb.SourceInfo{
 			LineOffsets: []int32{},
 			Positions:   map[int64]int32{}}}
 
@@ -204,7 +204,7 @@ var (
 				ExprIdent(1, "a"),
 				"b"),
 			"c"),
-		SourceInfo: &expr.SourceInfo{
+		SourceInfo: &exprpb.SourceInfo{
 			LineOffsets: []int32{},
 			Positions:   map[int64]int32{}}}
 
@@ -214,7 +214,7 @@ var (
 			operators.Equals,
 			ExprIdent(1, "a"),
 			ExprLiteral(3, int64(42))),
-		SourceInfo: &expr.SourceInfo{
+		SourceInfo: &exprpb.SourceInfo{
 			LineOffsets: []int32{},
 			Positions:   map[int64]int32{}}}
 
@@ -225,117 +225,117 @@ var (
 			ExprCall(1, "type",
 				ExprIdent(2, "a")),
 			ExprIdent(3, "uint")),
-		SourceInfo: &expr.SourceInfo{
+		SourceInfo: &exprpb.SourceInfo{
 			LineOffsets: []int32{},
 			Positions:   map[int64]int32{}}}
 )
 
 // ExprIdent creates an ident (variable) Expr.
-func ExprIdent(id int64, name string) *expr.Expr {
-	return &expr.Expr{Id: id, ExprKind: &expr.Expr_IdentExpr{
-		IdentExpr: &expr.Expr_Ident{Name: name}}}
+func ExprIdent(id int64, name string) *exprpb.Expr {
+	return &exprpb.Expr{Id: id, ExprKind: &exprpb.Expr_IdentExpr{
+		IdentExpr: &exprpb.Expr_Ident{Name: name}}}
 }
 
 // ExprSelect creates a select Expr.
-func ExprSelect(id int64, operand *expr.Expr, field string) *expr.Expr {
-	return &expr.Expr{Id: id,
-		ExprKind: &expr.Expr_SelectExpr{
-			SelectExpr: &expr.Expr_Select{
+func ExprSelect(id int64, operand *exprpb.Expr, field string) *exprpb.Expr {
+	return &exprpb.Expr{Id: id,
+		ExprKind: &exprpb.Expr_SelectExpr{
+			SelectExpr: &exprpb.Expr_Select{
 				Operand:  operand,
 				Field:    field,
 				TestOnly: false}}}
 }
 
 // ExprLiteral creates a literal (constant) Expr.
-func ExprLiteral(id int64, value interface{}) *expr.Expr {
-	var literal *expr.Constant
+func ExprLiteral(id int64, value interface{}) *exprpb.Expr {
+	var literal *exprpb.Constant
 	switch value.(type) {
 	case bool:
-		literal = &expr.Constant{ConstantKind: &expr.Constant_BoolValue{value.(bool)}}
+		literal = &exprpb.Constant{ConstantKind: &exprpb.Constant_BoolValue{value.(bool)}}
 	case int64:
-		literal = &expr.Constant{ConstantKind: &expr.Constant_Int64Value{
+		literal = &exprpb.Constant{ConstantKind: &exprpb.Constant_Int64Value{
 			value.(int64)}}
 	case uint64:
-		literal = &expr.Constant{ConstantKind: &expr.Constant_Uint64Value{
+		literal = &exprpb.Constant{ConstantKind: &exprpb.Constant_Uint64Value{
 			value.(uint64)}}
 	case float64:
-		literal = &expr.Constant{ConstantKind: &expr.Constant_DoubleValue{
+		literal = &exprpb.Constant{ConstantKind: &exprpb.Constant_DoubleValue{
 			value.(float64)}}
 	case string:
-		literal = &expr.Constant{ConstantKind: &expr.Constant_StringValue{
+		literal = &exprpb.Constant{ConstantKind: &exprpb.Constant_StringValue{
 			value.(string)}}
 	case structpb.NullValue:
-		literal = &expr.Constant{ConstantKind: &expr.Constant_NullValue{
+		literal = &exprpb.Constant{ConstantKind: &exprpb.Constant_NullValue{
 			NullValue: value.(structpb.NullValue)}}
 	case []byte:
-		literal = &expr.Constant{ConstantKind: &expr.Constant_BytesValue{
+		literal = &exprpb.Constant{ConstantKind: &exprpb.Constant_BytesValue{
 			value.([]byte)}}
 	default:
 		panic("literal type not implemented")
 	}
-	return &expr.Expr{Id: id, ExprKind: &expr.Expr_ConstExpr{ConstExpr: literal}}
+	return &exprpb.Expr{Id: id, ExprKind: &exprpb.Expr_ConstExpr{ConstExpr: literal}}
 }
 
 // ExprCall creates a call Expr.
-func ExprCall(id int64, function string, args ...*expr.Expr) *expr.Expr {
-	return &expr.Expr{Id: id,
-		ExprKind: &expr.Expr_CallExpr{
-			CallExpr: &expr.Expr_Call{Target: nil, Function: function, Args: args}}}
+func ExprCall(id int64, function string, args ...*exprpb.Expr) *exprpb.Expr {
+	return &exprpb.Expr{Id: id,
+		ExprKind: &exprpb.Expr_CallExpr{
+			CallExpr: &exprpb.Expr_Call{Target: nil, Function: function, Args: args}}}
 }
 
 // ExprMemberCall creates a receiver-style call Expr.
-func ExprMemberCall(id int64, function string, target *expr.Expr, args ...*expr.Expr) *expr.Expr {
-	return &expr.Expr{Id: id,
-		ExprKind: &expr.Expr_CallExpr{
-			CallExpr: &expr.Expr_Call{Target: target, Function: function, Args: args}}}
+func ExprMemberCall(id int64, function string, target *exprpb.Expr, args ...*exprpb.Expr) *exprpb.Expr {
+	return &exprpb.Expr{Id: id,
+		ExprKind: &exprpb.Expr_CallExpr{
+			CallExpr: &exprpb.Expr_Call{Target: target, Function: function, Args: args}}}
 }
 
 // ExprList creates a create list Expr.
-func ExprList(id int64, elements ...*expr.Expr) *expr.Expr {
-	return &expr.Expr{Id: id,
-		ExprKind: &expr.Expr_ListExpr{
-			ListExpr: &expr.Expr_CreateList{Elements: elements}}}
+func ExprList(id int64, elements ...*exprpb.Expr) *exprpb.Expr {
+	return &exprpb.Expr{Id: id,
+		ExprKind: &exprpb.Expr_ListExpr{
+			ListExpr: &exprpb.Expr_CreateList{Elements: elements}}}
 }
 
 // ExprMap creates a create struct Expr for a map.
-func ExprMap(id int64, entries ...*expr.Expr_CreateStruct_Entry) *expr.Expr {
-	return &expr.Expr{Id: id, ExprKind: &expr.Expr_StructExpr{
-		StructExpr: &expr.Expr_CreateStruct{Entries: entries}}}
+func ExprMap(id int64, entries ...*exprpb.Expr_CreateStruct_Entry) *exprpb.Expr {
+	return &exprpb.Expr{Id: id, ExprKind: &exprpb.Expr_StructExpr{
+		StructExpr: &exprpb.Expr_CreateStruct{Entries: entries}}}
 }
 
 // ExprType creates creates a create struct Expr for a message.
 func ExprType(id int64, messageName string,
-	entries ...*expr.Expr_CreateStruct_Entry) *expr.Expr {
-	return &expr.Expr{Id: id, ExprKind: &expr.Expr_StructExpr{
-		StructExpr: &expr.Expr_CreateStruct{
+	entries ...*exprpb.Expr_CreateStruct_Entry) *exprpb.Expr {
+	return &exprpb.Expr{Id: id, ExprKind: &exprpb.Expr_StructExpr{
+		StructExpr: &exprpb.Expr_CreateStruct{
 			MessageName: messageName, Entries: entries}}}
 }
 
 // ExprEntry creates a map entry for a create struct Expr.
-func ExprEntry(id int64, key *expr.Expr,
-	value *expr.Expr) *expr.Expr_CreateStruct_Entry {
-	return &expr.Expr_CreateStruct_Entry{Id: id,
-		KeyKind: &expr.Expr_CreateStruct_Entry_MapKey{MapKey: key},
+func ExprEntry(id int64, key *exprpb.Expr,
+	value *exprpb.Expr) *exprpb.Expr_CreateStruct_Entry {
+	return &exprpb.Expr_CreateStruct_Entry{Id: id,
+		KeyKind: &exprpb.Expr_CreateStruct_Entry_MapKey{MapKey: key},
 		Value:   value}
 }
 
 // ExprField creates a field entry for a create struct Expr.
 func ExprField(id int64, field string,
-	value *expr.Expr) *expr.Expr_CreateStruct_Entry {
-	return &expr.Expr_CreateStruct_Entry{Id: id,
-		KeyKind: &expr.Expr_CreateStruct_Entry_FieldKey{FieldKey: field},
+	value *exprpb.Expr) *exprpb.Expr_CreateStruct_Entry {
+	return &exprpb.Expr_CreateStruct_Entry{Id: id,
+		KeyKind: &exprpb.Expr_CreateStruct_Entry_FieldKey{FieldKey: field},
 		Value:   value}
 }
 
 // ExprComprehension returns a comprehension Expr.
 func ExprComprehension(id int64,
-	iterVar string, iterRange *expr.Expr,
-	accuVar string, accuInit *expr.Expr,
-	loopCondition *expr.Expr, loopStep *expr.Expr,
-	resultExpr *expr.Expr) *expr.Expr {
-	return &expr.Expr{Id: id,
-		ExprKind: &expr.Expr_ComprehensionExpr{
-			ComprehensionExpr: &expr.Expr_Comprehension{
+	iterVar string, iterRange *exprpb.Expr,
+	accuVar string, accuInit *exprpb.Expr,
+	loopCondition *exprpb.Expr, loopStep *exprpb.Expr,
+	resultExpr *exprpb.Expr) *exprpb.Expr {
+	return &exprpb.Expr{Id: id,
+		ExprKind: &exprpb.Expr_ComprehensionExpr{
+			ComprehensionExpr: &exprpb.Expr_Comprehension{
 				IterVar:       iterVar,
 				IterRange:     iterRange,
 				AccuVar:       accuVar,

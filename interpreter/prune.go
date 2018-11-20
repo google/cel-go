@@ -20,11 +20,11 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 
-	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 type astPruner struct {
-	expr  *expr.Expr
+	expr  *exprpb.Expr
 	state EvalState
 }
 
@@ -57,7 +57,7 @@ type astPruner struct {
 // compiled and constant folded expressions, but is not willing to constant
 // fold(and thus cache results of) some external calls, then they can prepare
 // the overloads accordingly.
-func PruneAst(expr *expr.Expr, state EvalState) *expr.Expr {
+func PruneAst(expr *exprpb.Expr, state EvalState) *exprpb.Expr {
 	pruner := &astPruner{
 		expr:  expr,
 		state: state}
@@ -65,13 +65,13 @@ func PruneAst(expr *expr.Expr, state EvalState) *expr.Expr {
 	return newExpr
 }
 
-func (p *astPruner) createLiteral(node *expr.Expr, val *expr.Constant) *expr.Expr {
+func (p *astPruner) createLiteral(node *exprpb.Expr, val *exprpb.Constant) *exprpb.Expr {
 	newExpr := *node
-	newExpr.ExprKind = &expr.Expr_ConstExpr{ConstExpr: val}
+	newExpr.ExprKind = &exprpb.Expr_ConstExpr{ConstExpr: val}
 	return &newExpr
 }
 
-func (p *astPruner) maybePruneAndOr(node *expr.Expr) (*expr.Expr, bool) {
+func (p *astPruner) maybePruneAndOr(node *exprpb.Expr) (*exprpb.Expr, bool) {
 	if !p.existsWithUnknownValue(node.GetId()) {
 		return nil, false
 	}
@@ -90,7 +90,7 @@ func (p *astPruner) maybePruneAndOr(node *expr.Expr) (*expr.Expr, bool) {
 	return nil, false
 }
 
-func (p *astPruner) maybePruneConditional(node *expr.Expr) (*expr.Expr, bool) {
+func (p *astPruner) maybePruneConditional(node *exprpb.Expr) (*exprpb.Expr, bool) {
 	if !p.existsWithUnknownValue(node.GetId()) {
 		return nil, false
 	}
@@ -107,7 +107,7 @@ func (p *astPruner) maybePruneConditional(node *expr.Expr) (*expr.Expr, bool) {
 	return call.Args[2], true
 }
 
-func (p *astPruner) maybePruneFunction(node *expr.Expr) (*expr.Expr, bool) {
+func (p *astPruner) maybePruneFunction(node *exprpb.Expr) (*exprpb.Expr, bool) {
 	call := node.GetCallExpr()
 	if call.Function == operators.LogicalOr || call.Function == operators.LogicalAnd {
 		return p.maybePruneAndOr(node)
@@ -119,7 +119,7 @@ func (p *astPruner) maybePruneFunction(node *expr.Expr) (*expr.Expr, bool) {
 	return nil, false
 }
 
-func (p *astPruner) prune(node *expr.Expr) (*expr.Expr, bool) {
+func (p *astPruner) prune(node *exprpb.Expr) (*exprpb.Expr, bool) {
 	if node == nil {
 		return node, false
 	}
@@ -132,25 +132,25 @@ func (p *astPruner) prune(node *expr.Expr) (*expr.Expr, bool) {
 		switch val.Type() {
 		case types.BoolType:
 			return p.createLiteral(node,
-				&expr.Constant{ConstantKind: &expr.Constant_BoolValue{BoolValue: val.Value().(bool)}}), true
+				&exprpb.Constant{ConstantKind: &exprpb.Constant_BoolValue{BoolValue: val.Value().(bool)}}), true
 		case types.IntType:
 			return p.createLiteral(node,
-				&expr.Constant{ConstantKind: &expr.Constant_Int64Value{Int64Value: val.Value().(int64)}}), true
+				&exprpb.Constant{ConstantKind: &exprpb.Constant_Int64Value{Int64Value: val.Value().(int64)}}), true
 		case types.UintType:
 			return p.createLiteral(node,
-				&expr.Constant{ConstantKind: &expr.Constant_Uint64Value{Uint64Value: val.Value().(uint64)}}), true
+				&exprpb.Constant{ConstantKind: &exprpb.Constant_Uint64Value{Uint64Value: val.Value().(uint64)}}), true
 		case types.StringType:
 			return p.createLiteral(node,
-				&expr.Constant{ConstantKind: &expr.Constant_StringValue{StringValue: val.Value().(string)}}), true
+				&exprpb.Constant{ConstantKind: &exprpb.Constant_StringValue{StringValue: val.Value().(string)}}), true
 		case types.DoubleType:
 			return p.createLiteral(node,
-				&expr.Constant{ConstantKind: &expr.Constant_DoubleValue{DoubleValue: val.Value().(float64)}}), true
+				&exprpb.Constant{ConstantKind: &exprpb.Constant_DoubleValue{DoubleValue: val.Value().(float64)}}), true
 		case types.BytesType:
 			return p.createLiteral(node,
-				&expr.Constant{ConstantKind: &expr.Constant_BytesValue{BytesValue: val.Value().([]byte)}}), true
+				&exprpb.Constant{ConstantKind: &exprpb.Constant_BytesValue{BytesValue: val.Value().([]byte)}}), true
 		case types.NullType:
 			return p.createLiteral(node,
-				&expr.Constant{ConstantKind: &expr.Constant_NullValue{NullValue: val.Value().(structpb.NullValue)}}), true
+				&exprpb.Constant{ConstantKind: &exprpb.Constant_NullValue{NullValue: val.Value().(structpb.NullValue)}}), true
 		}
 	}
 
@@ -159,15 +159,15 @@ func (p *astPruner) prune(node *expr.Expr) (*expr.Expr, bool) {
 	// more.
 
 	switch node.ExprKind.(type) {
-	case *expr.Expr_SelectExpr:
+	case *exprpb.Expr_SelectExpr:
 		if operand, pruned := p.prune(node.GetSelectExpr().Operand); pruned {
 			newExpr := *node
 			newSelect := *newExpr.GetSelectExpr()
 			newSelect.Operand = operand
-			newExpr.GetExprKind().(*expr.Expr_SelectExpr).SelectExpr = &newSelect
+			newExpr.GetExprKind().(*exprpb.Expr_SelectExpr).SelectExpr = &newSelect
 			return &newExpr, true
 		}
-	case *expr.Expr_CallExpr:
+	case *exprpb.Expr_CallExpr:
 		if newExpr, pruned := p.maybePruneFunction(node); pruned {
 			newExpr, _ = p.prune(newExpr)
 			return newExpr, true
@@ -186,10 +186,10 @@ func (p *astPruner) prune(node *expr.Expr) (*expr.Expr, bool) {
 		}
 		if prunedCall {
 			newExpr := *node
-			newExpr.GetExprKind().(*expr.Expr_CallExpr).CallExpr = &newCall
+			newExpr.GetExprKind().(*exprpb.Expr_CallExpr).CallExpr = &newCall
 			return &newExpr, true
 		}
-	case *expr.Expr_ListExpr:
+	case *exprpb.Expr_ListExpr:
 		newList := *node.GetListExpr()
 		var prunedList bool
 		var prunedElem bool
@@ -200,10 +200,10 @@ func (p *astPruner) prune(node *expr.Expr) (*expr.Expr, bool) {
 		}
 		if prunedList {
 			newExpr := *node
-			newExpr.GetExprKind().(*expr.Expr_ListExpr).ListExpr = &newList
+			newExpr.GetExprKind().(*exprpb.Expr_ListExpr).ListExpr = &newList
 			return &newExpr, true
 		}
-	case *expr.Expr_StructExpr:
+	case *exprpb.Expr_StructExpr:
 		newStruct := *node.GetStructExpr()
 		var prunedStruct bool
 		var prunedEntry bool
@@ -211,7 +211,7 @@ func (p *astPruner) prune(node *expr.Expr) (*expr.Expr, bool) {
 			newEntry := *entry
 			if newKey, pruned := p.prune(entry.GetMapKey()); pruned {
 				prunedEntry = true
-				newEntry.GetKeyKind().(*expr.Expr_CreateStruct_Entry_MapKey).MapKey = newKey
+				newEntry.GetKeyKind().(*exprpb.Expr_CreateStruct_Entry_MapKey).MapKey = newKey
 			}
 			if newValue, pruned := p.prune(entry.Value); pruned {
 				prunedEntry = true
@@ -224,15 +224,15 @@ func (p *astPruner) prune(node *expr.Expr) (*expr.Expr, bool) {
 		}
 		if prunedStruct {
 			newExpr := *node
-			newExpr.GetExprKind().(*expr.Expr_StructExpr).StructExpr = &newStruct
+			newExpr.GetExprKind().(*exprpb.Expr_StructExpr).StructExpr = &newStruct
 			return &newExpr, true
 		}
-	case *expr.Expr_ComprehensionExpr:
+	case *exprpb.Expr_ComprehensionExpr:
 		if newIterRange, pruned := p.prune(node.GetComprehensionExpr().IterRange); pruned {
 			newExpr := *node
 			newCompre := *newExpr.GetComprehensionExpr()
 			newCompre.IterRange = newIterRange
-			newExpr.GetExprKind().(*expr.Expr_ComprehensionExpr).ComprehensionExpr = &newCompre
+			newExpr.GetExprKind().(*exprpb.Expr_ComprehensionExpr).ComprehensionExpr = &newCompre
 			return &newExpr, true
 		}
 	}

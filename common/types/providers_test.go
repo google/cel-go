@@ -25,11 +25,11 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 
-	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 func TestTypeProvider_NewValue(t *testing.T) {
-	typeProvider := NewProvider(&expr.ParsedExpr{})
+	typeProvider := NewProvider(&exprpb.ParsedExpr{})
 	if sourceInfo := typeProvider.NewValue(
 		"google.api.expr.v1alpha1.SourceInfo",
 		map[string]ref.Value{
@@ -39,7 +39,7 @@ func TestTypeProvider_NewValue(t *testing.T) {
 		}); IsError(sourceInfo) {
 		t.Error(sourceInfo)
 	} else {
-		info := sourceInfo.Value().(*expr.SourceInfo)
+		info := sourceInfo.Value().(*exprpb.SourceInfo)
 		if info.Location != "TestTypeProvider_NewValue" ||
 			!reflect.DeepEqual(info.LineOffsets, []int32{0, 2}) ||
 			!reflect.DeepEqual(info.Positions, map[int64]int32{1: 2, 2: 4}) {
@@ -49,15 +49,15 @@ func TestTypeProvider_NewValue(t *testing.T) {
 }
 
 func TestTypeProvider_NewValue_OneofFields(t *testing.T) {
-	typeProvider := NewProvider(&expr.ParsedExpr{})
+	typeProvider := NewProvider(&exprpb.ParsedExpr{})
 	if exp := typeProvider.NewValue(
 		"google.api.expr.v1alpha1.Expr",
 		map[string]ref.Value{
-			"const_expr": NewObject(&expr.Constant{ConstantKind: &expr.Constant_StringValue{StringValue: "oneof"}}),
+			"const_expr": NewObject(&exprpb.Constant{ConstantKind: &exprpb.Constant_StringValue{StringValue: "oneof"}}),
 		}); IsError(exp) {
 		t.Error(exp)
 	} else {
-		e := exp.Value().(*expr.Expr)
+		e := exp.Value().(*exprpb.Expr)
 		if e.GetConstExpr().GetStringValue() != "oneof" {
 			t.Errorf("Expr with oneof could not be created: %v", e)
 		}
@@ -65,7 +65,7 @@ func TestTypeProvider_NewValue_OneofFields(t *testing.T) {
 }
 
 func TestTypeProvider_Getters(t *testing.T) {
-	typeProvider := NewProvider(&expr.ParsedExpr{})
+	typeProvider := NewProvider(&exprpb.ParsedExpr{})
 	if sourceInfo := typeProvider.NewValue(
 		"google.api.expr.v1alpha1.SourceInfo",
 		map[string]ref.Value{
@@ -121,7 +121,7 @@ func TestValue_ConvertToNative(t *testing.T) {
 	expectValueToNative(t, Null(structpb.NullValue_NULL_VALUE), structpb.NullValue_NULL_VALUE)
 
 	// Proto conversion tests.
-	parsedExpr := &expr.ParsedExpr{}
+	parsedExpr := &exprpb.ParsedExpr{}
 	expectValueToNative(t, NewObject(parsedExpr), parsedExpr)
 }
 
@@ -166,8 +166,8 @@ func TestNativeToValue_Any(t *testing.T) {
 	expectNativeToValue(t, anyValue, expected)
 
 	// Object
-	pbMessage := expr.ParsedExpr{
-		SourceInfo: &expr.SourceInfo{
+	pbMessage := exprpb.ParsedExpr{
+		SourceInfo: &exprpb.SourceInfo{
 			LineOffsets: []int32{1, 2, 3}}}
 	anyValue, err = ptypes.MarshalAny(&pbMessage)
 	if err != nil {
@@ -219,7 +219,7 @@ func TestNativeToValue_Json(t *testing.T) {
 				"b": {Kind: &structpb.Value_StringValue{StringValue: "five!"}}}}))
 
 	// Proto conversion test.
-	parsedExpr := &expr.ParsedExpr{}
+	parsedExpr := &exprpb.ParsedExpr{}
 	expectNativeToValue(t, parsedExpr, NewObject(parsedExpr))
 }
 
@@ -287,7 +287,7 @@ type nonConvertible struct {
 }
 
 func BenchmarkTypeProvider_NewValue(b *testing.B) {
-	typeProvider := NewProvider(&expr.ParsedExpr{})
+	typeProvider := NewProvider(&exprpb.ParsedExpr{})
 	for i := 0; i < b.N; i++ {
 		typeProvider.NewValue(
 			"google.api.expr.v1.SourceInfo",

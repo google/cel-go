@@ -23,7 +23,7 @@ import (
 	"github.com/google/cel-go/common/debug"
 	"github.com/google/cel-go/test"
 
-	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 var testCases = []testInfo{
@@ -709,23 +709,23 @@ type kindAndIDAdorner struct {
 
 func (k *kindAndIDAdorner) GetMetadata(elem interface{}) string {
 	switch elem.(type) {
-	case *expr.Expr:
-		e := elem.(*expr.Expr)
+	case *exprpb.Expr:
+		e := elem.(*exprpb.Expr)
 		var valType interface{} = e.ExprKind
 		switch valType.(type) {
-		case *expr.Expr_ConstExpr:
+		case *exprpb.Expr_ConstExpr:
 			valType = e.GetConstExpr().ConstantKind
 		}
 		return fmt.Sprintf("^#%d:%s#", e.Id, reflect.TypeOf(valType))
-	case *expr.Expr_CreateStruct_Entry:
-		entry := elem.(*expr.Expr_CreateStruct_Entry)
+	case *exprpb.Expr_CreateStruct_Entry:
+		entry := elem.(*exprpb.Expr_CreateStruct_Entry)
 		return fmt.Sprintf("^#%d:%s#", entry.Id, "*expr.Expr_CreateStruct_Entry")
 	}
 	return ""
 }
 
 type locationAdorner struct {
-	sourceInfo *expr.SourceInfo
+	sourceInfo *exprpb.SourceInfo
 }
 
 var _ metadata = &locationAdorner{}
@@ -752,10 +752,10 @@ func (l *locationAdorner) GetLocation(exprID int64) (common.Location, bool) {
 func (l *locationAdorner) GetMetadata(elem interface{}) string {
 	var elemID int64
 	switch elem.(type) {
-	case *expr.Expr:
-		elemID = elem.(*expr.Expr).Id
-	case *expr.Expr_CreateStruct_Entry:
-		elemID = elem.(*expr.Expr_CreateStruct_Entry).Id
+	case *exprpb.Expr:
+		elemID = elem.(*exprpb.Expr).Id
+	case *exprpb.Expr_CreateStruct_Entry:
+		elemID = elem.(*exprpb.Expr_CreateStruct_Entry).Id
 	}
 	location, _ := l.GetLocation(elemID)
 	return fmt.Sprintf("^#%d[%d,%d]#", elemID, location.Line(), location.Column())

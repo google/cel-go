@@ -21,11 +21,11 @@ import (
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/test"
 
-	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 type testInfo struct {
-	E *expr.Expr
+	E *exprpb.Expr
 	P string
 }
 
@@ -108,7 +108,7 @@ var testCases = []testInfo{
 
 func Test(t *testing.T) {
 	for _, tst := range testCases {
-		pExpr := &expr.ParsedExpr{Expr: tst.E}
+		pExpr := &exprpb.ParsedExpr{Expr: tst.E}
 		program := NewProgram(pExpr.Expr, pExpr.SourceInfo)
 		interpretable := interpreter.NewInterpretable(program)
 		_, state := interpretable.Eval(

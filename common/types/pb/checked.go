@@ -18,12 +18,12 @@ import (
 	descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
 	emptypb "github.com/golang/protobuf/ptypes/empty"
 	"github.com/golang/protobuf/ptypes/struct"
-	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 var (
 	// CheckedPrimitives map from proto field descriptor type to expr.Type.
-	CheckedPrimitives = map[descpb.FieldDescriptorProto_Type]*expr.Type{
+	CheckedPrimitives = map[descpb.FieldDescriptorProto_Type]*exprpb.Type{
 		descpb.FieldDescriptorProto_TYPE_BOOL:    checkedBool,
 		descpb.FieldDescriptorProto_TYPE_BYTES:   checkedBytes,
 		descpb.FieldDescriptorProto_TYPE_DOUBLE:  checkedDouble,
@@ -40,7 +40,7 @@ var (
 
 	// CheckedWellKnowns map from qualified proto type name to expr.Type for
 	// well-known proto types.
-	CheckedWellKnowns = map[string]*expr.Type{
+	CheckedWellKnowns = map[string]*exprpb.Type{
 		"google.protobuf.DoubleValue": checkedWrap(checkedDouble),
 		"google.protobuf.FloatValue":  checkedWrap(checkedDouble),
 		"google.protobuf.Int64Value":  checkedWrap(checkedInt),
@@ -59,15 +59,15 @@ var (
 		"google.protobuf.Any":         checkedAny}
 
 	// common types
-	checkedBool      = checkedPrimitive(expr.Type_BOOL)
-	checkedBytes     = checkedPrimitive(expr.Type_BYTES)
-	checkedDouble    = checkedPrimitive(expr.Type_DOUBLE)
-	checkedDyn       = &expr.Type{TypeKind: &expr.Type_Dyn{Dyn: &emptypb.Empty{}}}
-	checkedInt       = checkedPrimitive(expr.Type_INT64)
-	checkedNull      = &expr.Type{TypeKind: &expr.Type_Null{Null: structpb.NullValue_NULL_VALUE}}
-	checkedString    = checkedPrimitive(expr.Type_STRING)
-	checkedUint      = checkedPrimitive(expr.Type_UINT64)
-	checkedAny       = checkedWellKnown(expr.Type_ANY)
-	checkedDuration  = checkedWellKnown(expr.Type_DURATION)
-	checkedTimestamp = checkedWellKnown(expr.Type_TIMESTAMP)
+	checkedBool      = checkedPrimitive(exprpb.Type_BOOL)
+	checkedBytes     = checkedPrimitive(exprpb.Type_BYTES)
+	checkedDouble    = checkedPrimitive(exprpb.Type_DOUBLE)
+	checkedDyn       = &exprpb.Type{TypeKind: &exprpb.Type_Dyn{Dyn: &emptypb.Empty{}}}
+	checkedInt       = checkedPrimitive(exprpb.Type_INT64)
+	checkedNull      = &exprpb.Type{TypeKind: &exprpb.Type_Null{Null: structpb.NullValue_NULL_VALUE}}
+	checkedString    = checkedPrimitive(exprpb.Type_STRING)
+	checkedUint      = checkedPrimitive(exprpb.Type_UINT64)
+	checkedAny       = checkedWellKnown(exprpb.Type_ANY)
+	checkedDuration  = checkedWellKnown(exprpb.Type_DURATION)
+	checkedTimestamp = checkedWellKnown(exprpb.Type_TIMESTAMP)
 )

@@ -19,7 +19,7 @@ import (
 
 	"github.com/google/cel-go/common/operators"
 
-	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 // TODO: Consider moving macros to common.
@@ -33,7 +33,7 @@ type Macro struct {
 	name          string
 	instanceStyle bool
 	args          int
-	expander      func(*parserHelper, interface{}, *expr.Expr, []*expr.Expr) *expr.Expr
+	expander      func(*parserHelper, interface{}, *exprpb.Expr, []*exprpb.Expr) *exprpb.Expr
 }
 
 // AllMacros includes the list of all spec-supported macros.
@@ -112,8 +112,8 @@ func (m *Macro) GetIsInstanceStyle() bool {
 	return m.instanceStyle
 }
 
-func makeHas(p *parserHelper, ctx interface{}, target *expr.Expr, args []*expr.Expr) *expr.Expr {
-	if s, ok := args[0].ExprKind.(*expr.Expr_SelectExpr); ok {
+func makeHas(p *parserHelper, ctx interface{}, target *exprpb.Expr, args []*exprpb.Expr) *exprpb.Expr {
+	if s, ok := args[0].ExprKind.(*exprpb.Expr_SelectExpr); ok {
 		return p.newPresenceTest(ctx, s.SelectExpr.Operand, s.SelectExpr.Field)
 	}
 	return p.reportError(ctx, "invalid argument to has() macro")
@@ -129,33 +129,33 @@ const (
 	quantifierExistsOne
 )
 
-func makeAll(p *parserHelper, ctx interface{}, target *expr.Expr, args []*expr.Expr) *expr.Expr {
+func makeAll(p *parserHelper, ctx interface{}, target *exprpb.Expr, args []*exprpb.Expr) *exprpb.Expr {
 	return makeQuantifier(quantifierAll, p, ctx, target, args)
 }
 
-func makeExists(p *parserHelper, ctx interface{}, target *expr.Expr, args []*expr.Expr) *expr.Expr {
+func makeExists(p *parserHelper, ctx interface{}, target *exprpb.Expr, args []*exprpb.Expr) *exprpb.Expr {
 	return makeQuantifier(quantifierExists, p, ctx, target, args)
 }
 
-func makeExistsOne(p *parserHelper, ctx interface{}, target *expr.Expr, args []*expr.Expr) *expr.Expr {
+func makeExistsOne(p *parserHelper, ctx interface{}, target *exprpb.Expr, args []*exprpb.Expr) *exprpb.Expr {
 	return makeQuantifier(quantifierExistsOne, p, ctx, target, args)
 }
 
-func makeQuantifier(kind quantifierKind, p *parserHelper, ctx interface{}, target *expr.Expr, args []*expr.Expr) *expr.Expr {
+func makeQuantifier(kind quantifierKind, p *parserHelper, ctx interface{}, target *exprpb.Expr, args []*exprpb.Expr) *exprpb.Expr {
 	v, found := extractIdent(args[0])
 	if !found {
 		offset := p.positions[args[0].Id]
 		location, _ := p.source.OffsetLocation(offset)
 		return p.reportError(location, "argument must be a simple name")
 	}
-	accuIdent := func() *expr.Expr {
+	accuIdent := func() *exprpb.Expr {
 		return p.newIdent(ctx, accumulatorName)
 	}
 
-	var init *expr.Expr
-	var condition *expr.Expr
-	var step *expr.Expr
-	var result *expr.Expr
+	var init *exprpb.Expr
+	var condition *exprpb.Expr
+	var step *exprpb.Expr
+	var result *exprpb.Expr
 	switch kind {
 	case quantifierAll:
 		init = p.newLiteralBool(ctx, true)
@@ -182,14 +182,14 @@ func makeQuantifier(kind quantifierKind, p *parserHelper, ctx interface{}, targe
 	return p.newComprehension(ctx, v, target, accumulatorName, init, condition, step, result)
 }
 
-func makeMap(p *parserHelper, ctx interface{}, target *expr.Expr, args []*expr.Expr) *expr.Expr {
+func makeMap(p *parserHelper, ctx interface{}, target *exprpb.Expr, args []*exprpb.Expr) *exprpb.Expr {
 	v, found := extractIdent(args[0])
 	if !found {
 		return p.reportError(ctx, "argument is not an identifier")
 	}
 
-	var fn *expr.Expr
-	var filter *expr.Expr
+	var fn *exprpb.Expr
+	var filter *exprpb.Expr
 
 	if len(args) == 3 {
 		filter = args[1]
@@ -211,7 +211,7 @@ func makeMap(p *parserHelper, ctx interface{}, target *expr.Expr, args []*expr.E
 	return p.newComprehension(ctx, v, target, accumulatorName, init, condition, step, accuExpr)
 }
 
-func makeFilter(p *parserHelper, ctx interface{}, target *expr.Expr, args []*expr.Expr) *expr.Expr {
+func makeFilter(p *parserHelper, ctx interface{}, target *exprpb.Expr, args []*exprpb.Expr) *exprpb.Expr {
 	v, found := extractIdent(args[0])
 	if !found {
 		return p.reportError(ctx, "argument is not an identifier")
@@ -227,9 +227,9 @@ func makeFilter(p *parserHelper, ctx interface{}, target *expr.Expr, args []*exp
 	return p.newComprehension(ctx, v, target, accumulatorName, init, condition, step, accuExpr)
 }
 
-func extractIdent(e *expr.Expr) (string, bool) {
+func extractIdent(e *exprpb.Expr) (string, bool) {
 	switch e.ExprKind.(type) {
-	case *expr.Expr_IdentExpr:
+	case *exprpb.Expr_IdentExpr:
 		return e.GetIdentExpr().Name, true
 	}
 	return "", false
