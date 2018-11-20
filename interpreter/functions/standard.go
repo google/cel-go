@@ -297,8 +297,8 @@ func logicalAnd(lhs ref.Value, rhs ref.Value) ref.Value {
 }
 
 func logicalOr(lhs ref.Value, rhs ref.Value) ref.Value {
-	lhsIsBool := types.Bool(types.IsBool(lhs.Type()))
-	rhsIsBool := types.Bool(types.IsBool(rhs.Type()))
+	lhsIsBool := types.Bool(types.IsBool(lhs))
+	rhsIsBool := types.Bool(types.IsBool(rhs))
 	// both are boolean, use natural logic.
 	if lhsIsBool && rhsIsBool {
 		return lhs.(types.Bool) || rhs.(types.Bool)

@@ -170,6 +170,17 @@ var (
 			LineOffsets: []int32{},
 			Positions:   map[int64]int32{}}}
 
+	// LogicalOrEquals generates "a || b == 'b'".
+	LogicalOrEquals = &TestExpr{
+		ExprCall(5, operators.LogicalOr,
+			ExprIdent(1, "a"),
+			ExprCall(4, operators.Equals,
+				ExprIdent(2, "b"),
+				ExprLiteral(3, "b"))),
+		&expr.SourceInfo{
+			LineOffsets: []int32{},
+			Positions:   map[int64]int32{}}}
+
 	// Conditional generates "a ? b < 1.0 : c == ["hello"]".
 	Conditional = &TestExpr{
 		Expr: ExprCall(9, operators.Conditional,

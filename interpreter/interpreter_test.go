@@ -95,6 +95,7 @@ func TestInterpreter_ComprehensionExpr(t *testing.T) {
 }
 
 func TestInterpreter_LogicalAnd(t *testing.T) {
+	// a && {c: true}.c
 	program := NewProgram(
 		test.LogicalAnd.Expr,
 		test.LogicalAnd.Info(t.Name()))
@@ -109,6 +110,7 @@ func TestInterpreter_LogicalAnd(t *testing.T) {
 }
 
 func TestInterpreter_LogicalOr(t *testing.T) {
+	// {c: false}.c || a
 	program := NewProgram(
 		test.LogicalOr.Expr,
 		test.LogicalOr.Info(t.Name()))
@@ -122,6 +124,27 @@ func TestInterpreter_LogicalOr(t *testing.T) {
 	if result != types.True {
 		t.Errorf("Expected true, got: %v", result)
 	}
+}
+
+func TestInterpreter_LogicalOrEquals(t *testing.T) {
+	// a || b == "b"
+	program := NewProgram(
+		test.LogicalOrEquals.Expr,
+		test.LogicalOrEquals.Info(t.Name()))
+
+	// TODO: make the type identifiers part of the standard declaration set.
+	provider := types.NewProvider(&expr.Expr{})
+	i := NewStandardInterpreter(packages.NewPackage("test"), provider)
+	interpretable := i.NewInterpretable(program)
+	result, _ := interpretable.Eval(
+		NewActivation(map[string]interface{}{
+			"a": true,
+			"b": "b",
+		}))
+	if result != types.True {
+		t.Errorf("Expected true, got: %v", result)
+	}
+
 }
 
 func TestInterpreter_BuildObject(t *testing.T) {
