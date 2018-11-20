@@ -146,14 +146,26 @@ var (
 			LineOffsets: []int32{},
 			Positions:   map[int64]int32{}}}
 
-	// LogicalAnd generates "a && TestProto{c: true}.c".
+	// LogicalAnd generates "a && {c: true}.c".
 	LogicalAnd = &TestExpr{
 		ExprCall(2, operators.LogicalAnd,
 			ExprIdent(1, "a"),
-			ExprSelect(6,
-				ExprType(5, "TestProto",
-					ExprField(4, "c", ExprLiteral(5, true))),
+			ExprSelect(8,
+				ExprMap(5,
+					ExprEntry(4, ExprLiteral(6, "c"), ExprLiteral(7, true))),
 				"c")),
+		&expr.SourceInfo{
+			LineOffsets: []int32{},
+			Positions:   map[int64]int32{}}}
+
+	// LogicalOr generates "{c: false}.c || a".
+	LogicalOr = &TestExpr{
+		ExprCall(2, operators.LogicalOr,
+			ExprSelect(8,
+				ExprMap(5,
+					ExprEntry(4, ExprLiteral(6, "c"), ExprLiteral(7, false))),
+				"c"),
+			ExprIdent(1, "a")),
 		&expr.SourceInfo{
 			LineOffsets: []int32{},
 			Positions:   map[int64]int32{}}}

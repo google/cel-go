@@ -477,7 +477,7 @@ func breakIfEnd(conditionId int64) func(EvalState) bool {
 func jumpIfEqual(exprId int64, value ref.Value) func(EvalState) bool {
 	return func(s EvalState) bool {
 		if val, found := s.Value(exprId); found {
-			if types.IsBool(val.Type()) {
+			if types.IsBool(val) {
 				return bool(val.Equal(value).(types.Bool))
 			}
 		}
