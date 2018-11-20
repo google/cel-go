@@ -124,7 +124,8 @@ func (i *exprInterpretable) Eval(activation Activation) (ref.Value, EvalState) {
 					return i.value(declID)
 				}
 			}
-			currActivation = NewHierarchicalActivation(currActivation, NewActivation(childActivaton))
+			currActivation =
+				NewHierarchicalActivation(currActivation, NewActivation(childActivaton))
 		case *PopScopeInst:
 			currActivation = currActivation.Parent()
 		}
@@ -154,10 +155,13 @@ func (i *exprInterpretable) evalIdent(idExpr *IdentExpr, currActivation Activati
 func (i *exprInterpretable) evalSelect(selExpr *SelectExpr, currActivation Activation) {
 	operand := i.value(selExpr.Operand)
 	if !operand.Type().HasTrait(traits.IndexerType) {
-		if types.IsUnknown(operand) {
-			i.resolveUnknown(operand.(types.Unknown), selExpr, currActivation)
-		} else {
-			i.setValue(selExpr.Operand, types.NewErr("invalid operand in select"))
+		if types.IsError(operand) {
+			i.setValue(selExpr.GetID(), operand)
+			return
+		}
+		if !types.IsUnknown(operand) ||
+			!i.resolveUnknown(operand.(types.Unknown), selExpr, currActivation) {
+			i.setValue(selExpr.GetID(), types.NewErr("invalid operand in select"))
 		}
 		return
 	}
@@ -171,10 +175,10 @@ func (i *exprInterpretable) evalSelect(selExpr *SelectExpr, currActivation Activ
 // qualified identifier name instead of a series of field selections.
 func (i *exprInterpretable) resolveUnknown(unknown types.Unknown,
 	selExpr *SelectExpr,
-	currActivation Activation) {
+	currActivation Activation) bool {
 	if object, found := currActivation.ResolveReference(selExpr.ID); found {
 		i.setValue(selExpr.ID, object)
-		return
+		return true
 	}
 	validIdent := true
 	identifier := selExpr.Field
@@ -196,28 +200,29 @@ func (i *exprInterpretable) resolveUnknown(unknown types.Unknown,
 		}
 	}
 	if !validIdent {
-		return
+		return false
 	}
 	pkg := i.interpreter.packager
 	tp := i.interpreter.typeProvider
 	for _, id := range pkg.ResolveCandidateNames(identifier) {
 		if object, found := currActivation.ResolveName(id); found {
 			i.setValue(selExpr.ID, object)
-			return
+			return true
 		}
 		if identVal, found := tp.FindIdent(id); found {
 			i.setValue(selExpr.ID, identVal)
-			return
+			return true
 		}
 	}
 	i.setValue(selExpr.ID, append(types.Unknown{selExpr.ID}, unknown...))
+	return false
 }
 
 func (i *exprInterpretable) evalCall(callExpr *CallExpr, currActivation Activation) {
 	argVals := make([]ref.Value, len(callExpr.Args), len(callExpr.Args))
 	for idx, argID := range callExpr.Args {
 		argVals[idx] = i.value(argID)
-		if callExpr.Strict && (types.IsError(argVals[idx]) || types.IsUnknown(argVals[idx])) {
+		if callExpr.Strict && types.IsUnknownOrError(argVals[idx]) {
 			i.setValue(callExpr.GetID(), argVals[idx])
 			return
 		}
@@ -235,7 +240,7 @@ func (i *exprInterpretable) evalCreateList(listExpr *CreateListExpr) {
 	elements := make([]ref.Value, len(listExpr.Elements))
 	for idx, elementID := range listExpr.Elements {
 		elem := i.value(elementID)
-		if types.IsError(elem.Type()) || types.IsUnknown(elem.Type()) {
+		if types.IsUnknownOrError(elem) {
 			i.setValue(listExpr.GetID(), elem)
 			return
 		}
@@ -249,12 +254,12 @@ func (i *exprInterpretable) evalCreateMap(mapExpr *CreateMapExpr) {
 	entries := make(map[ref.Value]ref.Value)
 	for keyID, valueID := range mapExpr.KeyValues {
 		key := i.value(keyID)
-		if types.IsError(key.Type()) || types.IsUnknown(key.Type()) {
+		if types.IsUnknownOrError(key) {
 			i.setValue(mapExpr.GetID(), key)
 			return
 		}
 		val := i.value(valueID)
-		if types.IsError(val.Type()) || types.IsUnknown(val.Type()) {
+		if types.IsUnknownOrError(val) {
 			i.setValue(mapExpr.GetID(), val)
 			return
 		}
@@ -268,7 +273,7 @@ func (i *exprInterpretable) evalCreateType(objExpr *CreateObjectExpr) {
 	fields := make(map[string]ref.Value)
 	for field, valueID := range objExpr.FieldValues {
 		val := i.value(valueID)
-		if types.IsError(val) || types.IsUnknown(val) {
+		if types.IsUnknownOrError(val) {
 			i.setValue(objExpr.GetID(), val)
 			return
 		}

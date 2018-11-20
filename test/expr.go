@@ -181,6 +181,19 @@ var (
 			LineOffsets: []int32{},
 			Positions:   map[int64]int32{}}}
 
+	// LogicalAndMissingType generates "a && TestProto{c: true}.c" where the
+	// type 'TestProto' is undefined.
+	LogicalAndMissingType = &TestExpr{
+		ExprCall(2, operators.LogicalAnd,
+			ExprIdent(1, "a"),
+			ExprSelect(7,
+				ExprType(5, "TestProto",
+					ExprField(4, "c", ExprLiteral(6, true))),
+				"c")),
+		&exprpb.SourceInfo{
+			LineOffsets: []int32{},
+			Positions:   map[int64]int32{}}}
+
 	// Conditional generates "a ? b < 1.0 : c == ["hello"]".
 	Conditional = &TestExpr{
 		Expr: ExprCall(9, operators.Conditional,
@@ -251,25 +264,26 @@ func ExprLiteral(id int64, value interface{}) *exprpb.Expr {
 	var literal *exprpb.Constant
 	switch value.(type) {
 	case bool:
-		literal = &exprpb.Constant{ConstantKind: &exprpb.Constant_BoolValue{value.(bool)}}
+		literal = &exprpb.Constant{ConstantKind: &exprpb.Constant_BoolValue{
+			BoolValue: value.(bool)}}
 	case int64:
 		literal = &exprpb.Constant{ConstantKind: &exprpb.Constant_Int64Value{
-			value.(int64)}}
+			Int64Value: value.(int64)}}
 	case uint64:
 		literal = &exprpb.Constant{ConstantKind: &exprpb.Constant_Uint64Value{
-			value.(uint64)}}
+			Uint64Value: value.(uint64)}}
 	case float64:
 		literal = &exprpb.Constant{ConstantKind: &exprpb.Constant_DoubleValue{
-			value.(float64)}}
+			DoubleValue: value.(float64)}}
 	case string:
 		literal = &exprpb.Constant{ConstantKind: &exprpb.Constant_StringValue{
-			value.(string)}}
+			StringValue: value.(string)}}
 	case structpb.NullValue:
 		literal = &exprpb.Constant{ConstantKind: &exprpb.Constant_NullValue{
 			NullValue: value.(structpb.NullValue)}}
 	case []byte:
 		literal = &exprpb.Constant{ConstantKind: &exprpb.Constant_BytesValue{
-			value.([]byte)}}
+			BytesValue: value.([]byte)}}
 	default:
 		panic("literal type not implemented")
 	}
