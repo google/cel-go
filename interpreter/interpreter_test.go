@@ -109,6 +109,25 @@ func TestInterpreter_LogicalAnd(t *testing.T) {
 	}
 }
 
+func TestInterpreter_LogicalAndMissingType(t *testing.T) {
+	// a && {c: true}.c
+	program := NewProgram(
+		test.LogicalAndMissingType.Expr,
+		test.LogicalAndMissingType.Info(t.Name()))
+
+	interpretable := interpreter.NewInterpretable(program)
+	result, _ := interpretable.Eval(
+		NewActivation(map[string]interface{}{"a": false}))
+	if result != types.False {
+		t.Errorf("Got: %v, wanted true", result)
+	}
+	result, _ = interpretable.Eval(
+		NewActivation(map[string]interface{}{"a": true}))
+	if !types.IsError(result) {
+		t.Errorf("Got: %v, wanted error", result)
+	}
+}
+
 func TestInterpreter_LogicalOr(t *testing.T) {
 	// {c: false}.c || a
 	program := NewProgram(
