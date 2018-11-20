@@ -54,7 +54,7 @@ func unescape(value string) (string, error) {
 				return value, fmt.Errorf("unable to unescape string")
 			}
 			value = "\"" + value[3:n-3] + "\""
-		} else if strings.HasPrefix(value,`"""`) {
+		} else if strings.HasPrefix(value, `"""`) {
 			if !strings.HasSuffix(value, `"""`) {
 				return value, fmt.Errorf("unable to unescape string")
 			}
@@ -110,7 +110,7 @@ func unescapeChar(s string) (value rune, multibyte bool, tail string, err error)
 
 	// 2. Last character is the start of an escape sequence.
 	if len(s) <= 1 {
-		err = fmt.Errorf("unable to unescape string, found '\\' as last character.")
+		err = fmt.Errorf("unable to unescape string, found '\\' as last character")
 		return
 	}
 

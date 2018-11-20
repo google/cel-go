@@ -33,16 +33,16 @@ type Program interface {
 	Begin() InstructionStepper
 
 	// GetInstruction returns the instruction at the given runtime expression id.
-	GetInstruction(runtimeId int64) Instruction
+	GetInstruction(runtimeID int64) Instruction
 
 	// Init ensures that instructions have been properly initialized prior to
 	// beginning the execution of a program. The init step may optimize the
 	// instruction set.
 	Init(dispatcher Dispatcher, state MutableEvalState)
 
-	// MaxInstructionId returns the identifier of the last expression in the
+	// MaxInstructionID returns the identifier of the last expression in the
 	// program.
-	MaxInstructionId() int64
+	MaxInstructionID() int64
 
 	// Metadata used to determine source locations of sub-expressions.
 	Metadata() Metadata
@@ -93,25 +93,25 @@ func (p *exprProgram) Begin() InstructionStepper {
 	return &exprStepper{p, 0}
 }
 
-func (p *exprProgram) GetInstruction(runtimeId int64) Instruction {
-	return p.instructions[p.revInstructions[runtimeId]]
+func (p *exprProgram) GetInstruction(runtimeID int64) Instruction {
+	return p.instructions[p.revInstructions[runtimeID]]
 }
 
 func (p *exprProgram) Init(dispatcher Dispatcher, state MutableEvalState) {
 	if p.instructions == nil {
 		p.instructions = WalkExpr(p.expression, p.metadata, dispatcher, state)
 		for i, inst := range p.instructions {
-			p.revInstructions[inst.GetId()] = i
+			p.revInstructions[inst.GetID()] = i
 		}
 	}
 }
 
-func (p *exprProgram) MaxInstructionId() int64 {
+func (p *exprProgram) MaxInstructionID() int64 {
 	// The max instruction id is computed as the highest expression id + 1
 	// combined with the number of comprehensions times two. Each comprehension
 	// introduces two generated ids (one for an iterator and one for current
 	// iterator value) once the program is initialized.
-	return maxId(p.expression) + comprehensionCount(p.expression)*2
+	return maxID(p.expression) + comprehensionCount(p.expression)*2
 }
 
 func (p *exprProgram) Metadata() Metadata {
@@ -136,7 +136,7 @@ type exprStepper struct {
 func (s *exprStepper) Next() (Instruction, bool) {
 	if s.instruction < len(s.program.instructions) {
 		inst := s.instruction
-		s.instruction += 1
+		s.instruction++
 		return s.program.instructions[inst], true
 	}
 	return nil, false
@@ -164,11 +164,11 @@ func newExprMetadata(info *expr.SourceInfo) Metadata {
 	return &exprMetadata{info: info}
 }
 
-func (m *exprMetadata) IdLocation(exprId int64) (common.Location, bool) {
-	if exprOffset, found := m.IdOffset(exprId); found {
+func (m *exprMetadata) IDLocation(exprID int64) (common.Location, bool) {
+	if exprOffset, found := m.IDOffset(exprID); found {
 		var index = 0
 		var lineIndex = 0
-		var lineOffset int32 = 0
+		var lineOffset int32
 		for index, lineOffset = range m.info.LineOffsets {
 			if lineOffset > exprOffset {
 				break
@@ -182,7 +182,7 @@ func (m *exprMetadata) IdLocation(exprId int64) (common.Location, bool) {
 	return nil, false
 }
 
-func (m *exprMetadata) IdOffset(exprId int64) (int32, bool) {
-	position, found := m.info.Positions[exprId]
+func (m *exprMetadata) IDOffset(exprID int64) (int32, bool) {
+	position, found := m.info.Positions[exprID]
 	return position, found
 }

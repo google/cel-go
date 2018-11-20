@@ -701,13 +701,13 @@ type testInfo struct {
 }
 
 type metadata interface {
-	GetLocation(exprId int64) (common.Location, bool)
+	GetLocation(exprID int64) (common.Location, bool)
 }
 
-type kindAndIdAdorner struct {
+type kindAndIDAdorner struct {
 }
 
-func (k *kindAndIdAdorner) GetMetadata(elem interface{}) string {
+func (k *kindAndIDAdorner) GetMetadata(elem interface{}) string {
 	switch elem.(type) {
 	case *expr.Expr:
 		e := elem.(*expr.Expr)
@@ -730,14 +730,14 @@ type locationAdorner struct {
 
 var _ metadata = &locationAdorner{}
 
-func (l *locationAdorner) GetLocation(exprId int64) (common.Location, bool) {
-	if pos, found := l.sourceInfo.Positions[exprId]; found {
+func (l *locationAdorner) GetLocation(exprID int64) (common.Location, bool) {
+	if pos, found := l.sourceInfo.Positions[exprID]; found {
 		var line = 1
 		for _, lineOffset := range l.sourceInfo.LineOffsets {
 			if lineOffset > pos {
 				break
 			} else {
-				line += 1
+				line++
 			}
 		}
 		var column = pos
@@ -750,15 +750,15 @@ func (l *locationAdorner) GetLocation(exprId int64) (common.Location, bool) {
 }
 
 func (l *locationAdorner) GetMetadata(elem interface{}) string {
-	var elemId int64 = 0
+	var elemID int64
 	switch elem.(type) {
 	case *expr.Expr:
-		elemId = elem.(*expr.Expr).Id
+		elemID = elem.(*expr.Expr).Id
 	case *expr.Expr_CreateStruct_Entry:
-		elemId = elem.(*expr.Expr_CreateStruct_Entry).Id
+		elemID = elem.(*expr.Expr_CreateStruct_Entry).Id
 	}
-	location, _ := l.GetLocation(elemId)
-	return fmt.Sprintf("^#%d[%d,%d]#", elemId, location.Line(), location.Column())
+	location, _ := l.GetLocation(elemID)
+	return fmt.Sprintf("^#%d[%d,%d]#", elemID, location.Line(), location.Column())
 }
 
 func Test(t *testing.T) {
@@ -779,7 +779,7 @@ func Test(t *testing.T) {
 				tt.Fatalf("Expected error not thrown: '%s'", tst.E)
 			}
 
-			actualWithKind := debug.ToAdornedDebugString(expression.Expr, &kindAndIdAdorner{})
+			actualWithKind := debug.ToAdornedDebugString(expression.Expr, &kindAndIDAdorner{})
 			if !test.Compare(actualWithKind, tst.P) {
 				tt.Fatal(test.DiffMessage("structure", actualWithKind, tst.P))
 			}

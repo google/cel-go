@@ -55,13 +55,13 @@ func TestString_Compare(t *testing.T) {
 func TestString_ConvertToNative_Error(t *testing.T) {
 	val, err := String("hello").ConvertToNative(reflect.TypeOf(0))
 	if err == nil {
-		t.Error("Got '%v', expected error", val)
+		t.Errorf("Got '%v', expected error", val)
 	}
 }
 
 func TestString_ConvertToNative_Json(t *testing.T) {
 	val, err := String("hello").ConvertToNative(jsonValueType)
-	pbVal := &structpb.Value{Kind: &structpb.Value_StringValue{"hello"}}
+	pbVal := &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "hello"}}
 	if err != nil {
 		t.Error(err)
 	} else if !proto.Equal(val.(proto.Message), pbVal) {

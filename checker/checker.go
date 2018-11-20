@@ -264,8 +264,8 @@ func (c *checker) resolveOverload(
 		argTypes = append(argTypes, c.getType(arg))
 	}
 
-	var resultType *expr.Type = nil
-	var checkedRef *expr.Reference = nil
+	var resultType *expr.Type
+	var checkedRef *expr.Reference
 	for _, overload := range fn.GetFunction().Overloads {
 		if (target == nil && overload.IsInstanceFunction) ||
 			(target != nil && !overload.IsInstanceFunction) {
@@ -316,7 +316,7 @@ func (c *checker) resolveOverload(
 
 func (c *checker) checkCreateList(e *expr.Expr) {
 	create := e.GetListExpr()
-	var elemType *expr.Type = nil
+	var elemType *expr.Type
 	for _, e := range create.Elements {
 		c.check(e)
 		elemType = c.joinTypes(c.location(e), elemType, c.getType(e))
@@ -339,8 +339,8 @@ func (c *checker) checkCreateStruct(e *expr.Expr) {
 
 func (c *checker) checkCreateMap(e *expr.Expr) {
 	mapVal := e.GetStructExpr()
-	var keyType *expr.Type = nil
-	var valueType *expr.Type = nil
+	var keyType *expr.Type
+	var valueType *expr.Type
 	for _, ent := range mapVal.GetEntries() {
 		key := ent.GetMapKey()
 		c.check(key)
@@ -391,11 +391,11 @@ func (c *checker) checkCreateMessage(e *expr.Expr) {
 		c.check(value)
 
 		fieldType := decls.Error
-		if t, found := c.lookupFieldType(c.locationById(ent.Id), messageType, field); found {
+		if t, found := c.lookupFieldType(c.locationByID(ent.Id), messageType, field); found {
 			fieldType = t.Type
 		}
 		if !c.isAssignable(fieldType, c.getType(value)) {
-			c.env.errors.fieldTypeMismatch(c.locationById(ent.Id), field, fieldType, c.getType(value))
+			c.env.errors.fieldTypeMismatch(c.locationByID(ent.Id), field, fieldType, c.getType(value))
 		}
 	}
 }
@@ -526,10 +526,10 @@ func newResolution(checkedRef *expr.Reference, t *expr.Type) *overloadResolution
 }
 
 func (c *checker) location(e *expr.Expr) common.Location {
-	return c.locationById(e.Id)
+	return c.locationByID(e.Id)
 }
 
-func (c *checker) locationById(id int64) common.Location {
+func (c *checker) locationByID(id int64) common.Location {
 	positions := c.sourceInfo.GetPositions()
 	var line = 1
 	var col = 0
@@ -537,7 +537,7 @@ func (c *checker) locationById(id int64) common.Location {
 		col = int(offset)
 		for _, lineOffset := range c.sourceInfo.LineOffsets {
 			if lineOffset < offset {
-				line += 1
+				line++
 				col = int(offset - lineOffset)
 			} else {
 				break

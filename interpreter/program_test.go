@@ -26,10 +26,10 @@ func TestNewProgram_Empty(t *testing.T) {
 	program := NewProgram(
 		test.Empty.Expr,
 		test.Empty.Info(t.Name()))
-	if loc, found := program.Metadata().IdLocation(0); found {
+	if loc, found := program.Metadata().IDLocation(0); found {
 		t.Errorf("Unexpected location found: %v", loc)
 	}
-	state := NewEvalState(program.MaxInstructionId() + 1)
+	state := NewEvalState(program.MaxInstructionID() + 1)
 	program.Init(dispatcher(), state)
 	if step, hasNext := program.Begin().Next(); hasNext {
 		t.Errorf("Unexpected step in empty program: %v", step)
@@ -40,10 +40,10 @@ func TestNewProgram_LogicalAnd(t *testing.T) {
 	program := NewProgram(
 		test.LogicalAnd.Expr,
 		test.LogicalAnd.Info(t.Name()))
-	if loc, found := program.Metadata().IdLocation(1); found {
+	if loc, found := program.Metadata().IDLocation(1); found {
 		t.Errorf("Unexpected location found: %v", loc)
 	}
-	state := NewEvalState(program.MaxInstructionId() + 1)
+	state := NewEvalState(program.MaxInstructionID() + 1)
 	program.Init(dispatcher(), state)
 	if _, hasNext := program.Begin().Next(); !hasNext {
 		t.Error("Expected a step in program, but found none")
@@ -55,10 +55,10 @@ func TestNewProgram_LogicalOr(t *testing.T) {
 	program := NewProgram(
 		test.LogicalOr.Expr,
 		test.LogicalOr.Info(t.Name()))
-	if loc, found := program.Metadata().IdLocation(1); found {
+	if loc, found := program.Metadata().IDLocation(1); found {
 		t.Errorf("Unexpected location found: %v", loc)
 	}
-	state := NewEvalState(program.MaxInstructionId() + 1)
+	state := NewEvalState(program.MaxInstructionID() + 1)
 	program.Init(dispatcher(), state)
 	if _, hasNext := program.Begin().Next(); !hasNext {
 		t.Error("Expected a step in program, but found none")
@@ -66,15 +66,14 @@ func TestNewProgram_LogicalOr(t *testing.T) {
 	fmt.Printf("%s\n%s\n\n", t.Name(), program)
 }
 
-
 func TestNewProgram_Conditional(t *testing.T) {
 	program := NewProgram(
 		test.Conditional.Expr,
 		test.Conditional.Info(t.Name()))
-	if loc, found := program.Metadata().IdLocation(1); found {
+	if loc, found := program.Metadata().IDLocation(1); found {
 		t.Errorf("Unexpected location found: %v", loc)
 	}
-	state := NewEvalState(program.MaxInstructionId() + 1)
+	state := NewEvalState(program.MaxInstructionID() + 1)
 	program.Init(dispatcher(), state)
 	if _, hasNext := program.Begin().Next(); !hasNext {
 		t.Error("Expected a step in program, but found none")
@@ -102,10 +101,10 @@ func TestNewProgram_Comprehension(t *testing.T) {
 	program := NewProgram(
 		test.Exists.Expr,
 		test.Exists.Info(t.Name()))
-	if loc, found := program.Metadata().IdLocation(1); !found {
+	if loc, found := program.Metadata().IDLocation(1); !found {
 		t.Errorf("Unexpected location found: %v", loc)
 	}
-	state := NewEvalState(program.MaxInstructionId() + 1)
+	state := NewEvalState(program.MaxInstructionID() + 1)
 	program.Init(dispatcher(), state)
 	if _, hasNext := program.Begin().Next(); !hasNext {
 		t.Error("Expected a step in program, but found none")
@@ -117,10 +116,10 @@ func TestNewProgram_DynMap(t *testing.T) {
 	program := NewProgram(
 		test.DynMap.Expr,
 		test.DynMap.Info(t.Name()))
-	if loc, found := program.Metadata().IdLocation(1); found {
+	if loc, found := program.Metadata().IDLocation(1); found {
 		t.Errorf("Unexpected location found: %v", loc)
 	}
-	state := NewEvalState(program.MaxInstructionId() + 1)
+	state := NewEvalState(program.MaxInstructionID() + 1)
 	program.Init(dispatcher(), state)
 	if _, hasNext := program.Begin().Next(); !hasNext {
 		t.Error("Expected a step in program, but found none")

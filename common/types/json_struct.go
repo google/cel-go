@@ -33,9 +33,9 @@ type jsonStruct struct {
 	*structpb.Struct
 }
 
-// NewJsonStruct creates a traits.Mapper implementation backed by a JSON struct
+// NewJSONStruct creates a traits.Mapper implementation backed by a JSON struct
 // that has been encoded in protocol buffer form.
-func NewJsonStruct(st *structpb.Struct) traits.Mapper {
+func NewJSONStruct(st *structpb.Struct) traits.Mapper {
 	return &jsonStruct{st}
 }
 
@@ -139,7 +139,7 @@ func (m *jsonStruct) Iterator() traits.Iterator {
 	f := m.GetFields()
 	keys := make([]string, len(m.GetFields()))
 	i := 0
-	for k, _ := range f {
+	for k := range f {
 		keys[i] = k
 		i++
 	}
@@ -175,7 +175,7 @@ func (it *jsonValueMapIterator) HasNext() ref.Value {
 func (it *jsonValueMapIterator) Next() ref.Value {
 	if it.HasNext() == True {
 		index := it.cursor
-		it.cursor += 1
+		it.cursor++
 		return String(it.mapKeys[index])
 	}
 	return nil

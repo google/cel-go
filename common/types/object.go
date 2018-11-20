@@ -137,7 +137,7 @@ func (it *msgIterator) Next() ref.Value {
 		return nil
 	}
 	fieldName, _ := it.typeDesc.FieldNameAtIndex(it.cursor, it.refValue)
-	it.cursor += 1
+	it.cursor++
 	return String(fieldName)
 }
 

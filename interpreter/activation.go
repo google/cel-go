@@ -27,7 +27,7 @@ type Activation interface {
 
 	// ResolveReference returns a value from the activation by expression id,
 	// or false if the id-based reference could not be found.
-	ResolveReference(exprId int64) (ref.Value, bool)
+	ResolveReference(exprID int64) (ref.Value, bool)
 
 	// ResolveName returns a value from the activation by qualified name, or
 	// false if the name could not be found.
@@ -76,8 +76,8 @@ func (a *mapActivation) ResolveName(name string) (ref.Value, bool) {
 	return nil, false
 }
 
-func (a *mapActivation) ResolveReference(exprId int64) (ref.Value, bool) {
-	object, found := a.references[exprId]
+func (a *mapActivation) ResolveReference(exprID int64) (ref.Value, bool) {
+	object, found := a.references[exprID]
 	return object, found
 }
 
@@ -99,11 +99,11 @@ func (a *hierarchicalActivation) ResolveName(name string) (ref.Value, bool) {
 	return a.parent.ResolveName(name)
 }
 
-func (a *hierarchicalActivation) ResolveReference(exprId int64) (ref.Value, bool) {
-	if object, found := a.child.ResolveReference(exprId); found {
+func (a *hierarchicalActivation) ResolveReference(exprID int64) (ref.Value, bool) {
+	if object, found := a.child.ResolveReference(exprID); found {
 		return object, found
 	}
-	return a.parent.ResolveReference(exprId)
+	return a.parent.ResolveReference(exprID)
 }
 
 // NewHierarchicalActivation takes two activations and produces a new one which prioritizes

@@ -21,12 +21,12 @@ import (
 // Metadata interface for accessing position information about expressions.
 // TODO(jimlarson) Replace with common.Source.
 type Metadata interface {
-	// IdOffset returns raw character offset of an expression within
+	// IDOffset returns raw character offset of an expression within
 	// Source, or false if the expression cannot be found.
-	IdOffset(exprId int64) (int32, bool)
+	IDOffset(exprID int64) (int32, bool)
 
-	// IdLocation returns a common.Location for the given expression id,
+	// IDLocation returns a common.Location for the given expression id,
 	// or false if one cannot be found.  It behaves as the obvious
 	// composition of IdOffset() and OffsetLocation().
-	IdLocation(exprId int64) (common.Location, bool)
+	IDLocation(exprID int64) (common.Location, bool)
 }

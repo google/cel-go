@@ -389,10 +389,10 @@ func TestStringList_Get_OutOfRange(t *testing.T) {
 
 func getElem(t *testing.T, list traits.Indexer, index Int) interface{} {
 	t.Helper()
-	if val := list.Get(index); IsError(val) {
+	val := list.Get(index)
+	if IsError(val) {
 		t.Errorf("Error reading list index %d, %v", index, val)
 		return nil
-	} else {
-		return val
 	}
+	return val
 }

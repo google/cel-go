@@ -92,7 +92,7 @@ func (d *defaultDispatcher) Add(overloads ...*functions.Overload) error {
 }
 
 func (d *defaultDispatcher) Dispatch(ctx *CallContext) ref.Value {
-	function, overloadId := ctx.Function()
+	function, overloadID := ctx.Function()
 	operand := ctx.args[0]
 	if overload, found := d.overloads[function]; found {
 		if !operand.Type().HasTrait(overload.OperandTrait) {
@@ -111,7 +111,7 @@ func (d *defaultDispatcher) Dispatch(ctx *CallContext) ref.Value {
 	}
 	// Special dispatch for member functions.
 	if operand.Type().HasTrait(traits.ReceiverType) {
-		operand.(traits.Receiver).Receive(function, overloadId, ctx.args[1:])
+		operand.(traits.Receiver).Receive(function, overloadID, ctx.args[1:])
 	}
 	return types.NewErr("no such overload")
 }

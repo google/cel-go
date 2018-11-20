@@ -33,9 +33,9 @@ type jsonListValue struct {
 	*structpb.ListValue
 }
 
-// NewJsonList creates a traits.Lister implementation backed by a JSON list
+// NewJSONList creates a traits.Lister implementation backed by a JSON list
 // that has been encoded in protocol buffer form.
-func NewJsonList(l *structpb.ListValue) traits.Lister {
+func NewJSONList(l *structpb.ListValue) traits.Lister {
 	return &jsonListValue{l}
 }
 
@@ -47,7 +47,7 @@ func (l *jsonListValue) Add(other ref.Value) ref.Value {
 	case *jsonListValue:
 		otherList := other.(*jsonListValue)
 		concatElems := append(l.GetValues(), otherList.GetValues()...)
-		return NewJsonList(&structpb.ListValue{Values: concatElems})
+		return NewJSONList(&structpb.ListValue{Values: concatElems})
 	}
 	return &concatList{
 		prevList: l,
@@ -173,7 +173,7 @@ func (it *jsonValueListIterator) HasNext() ref.Value {
 func (it *jsonValueListIterator) Next() ref.Value {
 	if it.HasNext() == True {
 		index := it.cursor
-		it.cursor += 1
+		it.cursor++
 		return NativeToValue(it.elems[index])
 	}
 	return nil

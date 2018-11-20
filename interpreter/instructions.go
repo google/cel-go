@@ -25,16 +25,16 @@ import (
 // Instruction represents a single step within a CEL program.
 type Instruction interface {
 	fmt.Stringer
-	GetId() int64
+	GetID() int64
 }
 
 type baseInstruction struct {
-	Id int64
+	ID int64
 }
 
-// GetId returns the Expr id for the instruction.
-func (e *baseInstruction) GetId() int64 {
-	return e.Id
+// GetID returns the Expr id for the instruction.
+func (e *baseInstruction) GetID() int64 {
+	return e.ID
 }
 
 // ConstExpr is a constant expression.
@@ -45,12 +45,12 @@ type ConstExpr struct {
 
 // String generates pseudo-assembly for the instruction.
 func (e *ConstExpr) String() string {
-	return fmt.Sprintf("const %v, r%d", e.Value, e.GetId())
+	return fmt.Sprintf("const %v, r%d", e.Value, e.GetID())
 }
 
 // NewLiteral generates a ConstExpr.
-func NewLiteral(exprId int64, value ref.Value) *ConstExpr {
-	return &ConstExpr{&baseInstruction{exprId}, value}
+func NewLiteral(exprID int64, value ref.Value) *ConstExpr {
+	return &ConstExpr{&baseInstruction{exprID}, value}
 }
 
 // IdentExpr is an identifier expression.
@@ -61,12 +61,12 @@ type IdentExpr struct {
 
 // String generates pseudo-assembly for the instruction.
 func (e *IdentExpr) String() string {
-	return fmt.Sprintf("local '%s', r%d", e.Name, e.GetId())
+	return fmt.Sprintf("local '%s', r%d", e.Name, e.GetID())
 }
 
 // NewIdent generates an IdentExpr.
-func NewIdent(exprId int64, name string) *IdentExpr {
-	return &IdentExpr{&baseInstruction{exprId}, name}
+func NewIdent(exprID int64, name string) *IdentExpr {
+	return &IdentExpr{&baseInstruction{exprID}, name}
 }
 
 // CallExpr is a call expression where the args are referenced by id.
@@ -87,17 +87,17 @@ func (e *CallExpr) String() string {
 	return fmt.Sprintf("call  %s(%v), r%d",
 		e.Function,
 		strings.Join(argRegs, ", "),
-		e.GetId())
+		e.GetID())
 }
 
 // NewCall generates a CallExpr for non-overload calls.
-func NewCall(exprId int64, function string, argIds []int64) *CallExpr {
-	return &CallExpr{&baseInstruction{exprId}, function, argIds, "", checkIsStrict(function)}
+func NewCall(exprID int64, function string, argIDs []int64) *CallExpr {
+	return &CallExpr{&baseInstruction{exprID}, function, argIDs, "", checkIsStrict(function)}
 }
 
 // NewCallOverload generates a CallExpr for overload calls.
-func NewCallOverload(exprId int64, function string, argIds []int64, overload string) *CallExpr {
-	return &CallExpr{&baseInstruction{exprId}, function, argIds, overload, checkIsStrict(function)}
+func NewCallOverload(exprID int64, function string, argIDs []int64, overload string) *CallExpr {
+	return &CallExpr{&baseInstruction{exprID}, function, argIDs, overload, checkIsStrict(function)}
 }
 
 func checkIsStrict(function string) bool {
@@ -117,12 +117,12 @@ type SelectExpr struct {
 // String generates pseudo-assembly for the instruction.
 func (e *SelectExpr) String() string {
 	return fmt.Sprintf("call  select(%d, '%s'), r%d",
-		e.Operand, e.Field, e.GetId())
+		e.Operand, e.Field, e.GetID())
 }
 
 // NewSelect generates a SelectExpr.
-func NewSelect(exprId int64, operandId int64, field string) *SelectExpr {
-	return &SelectExpr{&baseInstruction{exprId}, operandId, field}
+func NewSelect(exprID int64, operandID int64, field string) *SelectExpr {
+	return &SelectExpr{&baseInstruction{exprID}, operandID, field}
 }
 
 // CreateListExpr will create a new list from the elements referened by their ids.
@@ -133,12 +133,12 @@ type CreateListExpr struct {
 
 // String generates pseudo-assembly for the instruction.
 func (e *CreateListExpr) String() string {
-	return fmt.Sprintf("mov   list(%v), r%d", e.Elements, e.GetId())
+	return fmt.Sprintf("mov   list(%v), r%d", e.Elements, e.GetID())
 }
 
 // NewList generates a CreateListExpr.
-func NewList(exprId int64, elements []int64) *CreateListExpr {
-	return &CreateListExpr{&baseInstruction{exprId}, elements}
+func NewList(exprID int64, elements []int64) *CreateListExpr {
+	return &CreateListExpr{&baseInstruction{exprID}, elements}
 }
 
 // CreateMapExpr will create a map from the key value pairs where each key and
@@ -150,12 +150,12 @@ type CreateMapExpr struct {
 
 // String generates pseudo-assembly for the instruction.
 func (e *CreateMapExpr) String() string {
-	return fmt.Sprintf("mov   map(%v), r%d", e.KeyValues, e.GetId())
+	return fmt.Sprintf("mov   map(%v), r%d", e.KeyValues, e.GetID())
 }
 
 // NewMap generates a CreateMapExpr.
-func NewMap(exprId int64, keyValues map[int64]int64) *CreateMapExpr {
-	return &CreateMapExpr{&baseInstruction{exprId}, keyValues}
+func NewMap(exprID int64, keyValues map[int64]int64) *CreateMapExpr {
+	return &CreateMapExpr{&baseInstruction{exprID}, keyValues}
 }
 
 // CreateObjectExpr generates a new typed object with field values referenced
@@ -168,13 +168,13 @@ type CreateObjectExpr struct {
 
 // String generates pseudo-assembly for the instruction.
 func (e *CreateObjectExpr) String() string {
-	return fmt.Sprintf("mov   type(%s%v), r%d", e.Name, e.FieldValues, e.GetId())
+	return fmt.Sprintf("mov   type(%s%v), r%d", e.Name, e.FieldValues, e.GetID())
 }
 
 // NewObject generates a CreateObjectExpr.
-func NewObject(exprId int64, name string,
+func NewObject(exprID int64, name string,
 	fieldValues map[string]int64) *CreateObjectExpr {
-	return &CreateObjectExpr{&baseInstruction{exprId}, name, fieldValues}
+	return &CreateObjectExpr{&baseInstruction{exprID}, name, fieldValues}
 }
 
 // JumpInst represents an conditional jump to an instruction offset.
@@ -186,13 +186,13 @@ type JumpInst struct {
 
 // String generates pseudo-assembly for the instruction.
 func (e *JumpInst) String() string {
-	return fmt.Sprintf("jump  %d if cond<r%d>", e.Count, e.GetId())
+	return fmt.Sprintf("jump  %d if cond<r%d>", e.Count, e.GetID())
 }
 
 // NewJump generates a JumpInst.
-func NewJump(exprId int64, instructionCount int, cond func(EvalState) bool) *JumpInst {
+func NewJump(exprID int64, instructionCount int, cond func(EvalState) bool) *JumpInst {
 	return &JumpInst{
-		baseInstruction: &baseInstruction{exprId},
+		baseInstruction: &baseInstruction{exprID},
 		Count:           instructionCount,
 		OnCondition:     cond}
 }
@@ -200,17 +200,17 @@ func NewJump(exprId int64, instructionCount int, cond func(EvalState) bool) *Jum
 // MovInst assigns the value of one expression id to another.
 type MovInst struct {
 	*baseInstruction
-	ToExprId int64
+	ToExprID int64
 }
 
 // String generates pseudo-assembly for the instruction.
 func (e *MovInst) String() string {
-	return fmt.Sprintf("mov   r%d, r%d", e.GetId(), e.ToExprId)
+	return fmt.Sprintf("mov   r%d, r%d", e.GetID(), e.ToExprID)
 }
 
 // NewMov generates a MovInst.
-func NewMov(exprId int64, toExprId int64) *MovInst {
-	return &MovInst{&baseInstruction{exprId}, toExprId}
+func NewMov(exprID int64, toExprID int64) *MovInst {
+	return &MovInst{&baseInstruction{exprID}, toExprID}
 }
 
 // PushScopeInst results in the generation of a new Activation containing the values
@@ -226,8 +226,8 @@ func (e *PushScopeInst) String() string {
 }
 
 // NewPushScope generates a PushScopeInst.
-func NewPushScope(exprId int64, declarations map[string]int64) *PushScopeInst {
-	return &PushScopeInst{&baseInstruction{exprId}, declarations}
+func NewPushScope(exprID int64, declarations map[string]int64) *PushScopeInst {
+	return &PushScopeInst{&baseInstruction{exprID}, declarations}
 }
 
 // PopScopeInst resets the current activation to the Activation#Parent() of the
@@ -242,6 +242,6 @@ func (e *PopScopeInst) String() string {
 }
 
 // NewPopScope generates a PopScopeInst.
-func NewPopScope(exprId int64) *PopScopeInst {
-	return &PopScopeInst{&baseInstruction{exprId}}
+func NewPopScope(exprID int64) *PopScopeInst {
+	return &PopScopeInst{&baseInstruction{exprID}}
 }

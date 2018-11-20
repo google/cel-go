@@ -60,7 +60,7 @@ func TestBool_ConvertToNative_Error(t *testing.T) {
 
 func TestBool_ConvertToNative_Json(t *testing.T) {
 	val, err := True.ConvertToNative(jsonValueType)
-	pbVal := &structpb.Value{Kind: &structpb.Value_BoolValue{true}}
+	pbVal := &structpb.Value{Kind: &structpb.Value_BoolValue{BoolValue: true}}
 	if err != nil {
 		t.Error(err)
 	} else if !proto.Equal(val.(proto.Message), pbVal) {

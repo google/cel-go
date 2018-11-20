@@ -341,7 +341,8 @@ func (l *stringList) ConvertToNative(typeDesc reflect.Type) (interface{}, error)
 			elemCount := len(l.elems)
 			listVals := make([]*structpb.Value, elemCount, elemCount)
 			for i := 0; i < elemCount; i++ {
-				listVals[i] = &structpb.Value{Kind: &structpb.Value_StringValue{l.elems[i]}}
+				listVals[i] = &structpb.Value{
+					Kind: &structpb.Value_StringValue{StringValue: l.elems[i]}}
 			}
 			jsonList := &structpb.ListValue{Values: listVals}
 			if typeDesc == jsonListValueType {
@@ -393,11 +394,11 @@ func (l *valueList) Add(other ref.Value) ref.Value {
 func (l *valueList) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	natives := make([]interface{}, len(l.elems))
 	for _, v := range l.elems {
-		if n, e := v.ConvertToNative(typeDesc); e != nil {
+		n, e := v.ConvertToNative(typeDesc)
+		if e != nil {
 			return nil, e
-		} else {
-			natives = append(natives, n)
 		}
+		natives = append(natives, n)
 	}
 	return natives, nil
 }
@@ -431,7 +432,7 @@ func (it *listIterator) HasNext() ref.Value {
 func (it *listIterator) Next() ref.Value {
 	if it.HasNext() == True {
 		index := it.cursor
-		it.cursor += 1
+		it.cursor++
 		return it.listValue.Get(index)
 	}
 	return nil

@@ -11,7 +11,7 @@ type parserHelper struct {
 	source    common.Source
 	errors    *parseErrors
 	macros    map[string]Macro
-	nextId    int64
+	nextID    int64
 	positions map[int64]int32
 }
 
@@ -25,7 +25,7 @@ func newParserHelper(source common.Source, macros Macros) *parserHelper {
 		errors:    &parseErrors{common.NewErrors(source)},
 		source:    source,
 		macros:    macroMap,
-		nextId:    1,
+		nextID:    1,
 		positions: make(map[int64]int32),
 	}
 }
@@ -60,31 +60,31 @@ func (p *parserHelper) newLiteral(ctx interface{}, value *expr.Constant) *expr.E
 
 func (p *parserHelper) newLiteralBool(ctx interface{}, value bool) *expr.Expr {
 	return p.newLiteral(ctx,
-		&expr.Constant{ConstantKind: &expr.Constant_BoolValue{value}})
+		&expr.Constant{ConstantKind: &expr.Constant_BoolValue{BoolValue: value}})
 }
 
 func (p *parserHelper) newLiteralString(ctx interface{}, value string) *expr.Expr {
 	return p.newLiteral(ctx,
-		&expr.Constant{ConstantKind: &expr.Constant_StringValue{value}})
+		&expr.Constant{ConstantKind: &expr.Constant_StringValue{StringValue: value}})
 }
 
 func (p *parserHelper) newLiteralBytes(ctx interface{}, value []byte) *expr.Expr {
 	return p.newLiteral(ctx,
-		&expr.Constant{ConstantKind: &expr.Constant_BytesValue{value}})
+		&expr.Constant{ConstantKind: &expr.Constant_BytesValue{BytesValue: value}})
 }
 
 func (p *parserHelper) newLiteralInt(ctx interface{}, value int64) *expr.Expr {
 	return p.newLiteral(ctx,
-		&expr.Constant{ConstantKind: &expr.Constant_Int64Value{value}})
+		&expr.Constant{ConstantKind: &expr.Constant_Int64Value{Int64Value: value}})
 }
 
 func (p *parserHelper) newLiteralUint(ctx interface{}, value uint64) *expr.Expr {
-	return p.newLiteral(ctx, &expr.Constant{ConstantKind: &expr.Constant_Uint64Value{value}})
+	return p.newLiteral(ctx, &expr.Constant{ConstantKind: &expr.Constant_Uint64Value{Uint64Value: value}})
 }
 
 func (p *parserHelper) newLiteralDouble(ctx interface{}, value float64) *expr.Expr {
 	return p.newLiteral(ctx,
-		&expr.Constant{ConstantKind: &expr.Constant_DoubleValue{value}})
+		&expr.Constant{ConstantKind: &expr.Constant_DoubleValue{DoubleValue: value}})
 }
 
 func (p *parserHelper) newIdent(ctx interface{}, name string) *expr.Expr {
@@ -191,7 +191,7 @@ func (p *parserHelper) newExpr(ctx interface{}) *expr.Expr {
 }
 
 func (p *parserHelper) id(ctx interface{}) int64 {
-	var token antlr.Token = nil
+	var token antlr.Token
 	switch ctx.(type) {
 	case antlr.ParserRuleContext:
 		token = (ctx.(antlr.ParserRuleContext)).GetStart()
@@ -202,9 +202,9 @@ func (p *parserHelper) id(ctx interface{}) int64 {
 		return -1
 	}
 	location := common.NewLocation(token.GetLine(), token.GetColumn())
-	id := p.nextId
+	id := p.nextID
 	p.positions[id], _ = p.source.LocationOffset(location)
-	p.nextId++
+	p.nextID++
 	return id
 }
 

@@ -103,9 +103,8 @@ func (p *astPruner) maybePruneConditional(node *expr.Expr) (*expr.Expr, bool) {
 
 	if condVal.Value().(bool) {
 		return call.Args[1], true
-	} else {
-		return call.Args[2], true
 	}
+	return call.Args[2], true
 }
 
 func (p *astPruner) maybePruneFunction(node *expr.Expr) (*expr.Expr, bool) {
@@ -133,25 +132,25 @@ func (p *astPruner) prune(node *expr.Expr) (*expr.Expr, bool) {
 		switch val.Type() {
 		case types.BoolType:
 			return p.createLiteral(node,
-				&expr.Constant{ConstantKind: &expr.Constant_BoolValue{val.Value().(bool)}}), true
+				&expr.Constant{ConstantKind: &expr.Constant_BoolValue{BoolValue: val.Value().(bool)}}), true
 		case types.IntType:
 			return p.createLiteral(node,
-				&expr.Constant{ConstantKind: &expr.Constant_Int64Value{val.Value().(int64)}}), true
+				&expr.Constant{ConstantKind: &expr.Constant_Int64Value{Int64Value: val.Value().(int64)}}), true
 		case types.UintType:
 			return p.createLiteral(node,
-				&expr.Constant{ConstantKind: &expr.Constant_Uint64Value{val.Value().(uint64)}}), true
+				&expr.Constant{ConstantKind: &expr.Constant_Uint64Value{Uint64Value: val.Value().(uint64)}}), true
 		case types.StringType:
 			return p.createLiteral(node,
-				&expr.Constant{ConstantKind: &expr.Constant_StringValue{val.Value().(string)}}), true
+				&expr.Constant{ConstantKind: &expr.Constant_StringValue{StringValue: val.Value().(string)}}), true
 		case types.DoubleType:
 			return p.createLiteral(node,
-				&expr.Constant{ConstantKind: &expr.Constant_DoubleValue{val.Value().(float64)}}), true
+				&expr.Constant{ConstantKind: &expr.Constant_DoubleValue{DoubleValue: val.Value().(float64)}}), true
 		case types.BytesType:
 			return p.createLiteral(node,
-				&expr.Constant{ConstantKind: &expr.Constant_BytesValue{val.Value().([]byte)}}), true
+				&expr.Constant{ConstantKind: &expr.Constant_BytesValue{BytesValue: val.Value().([]byte)}}), true
 		case types.NullType:
 			return p.createLiteral(node,
-				&expr.Constant{ConstantKind: &expr.Constant_NullValue{val.Value().(structpb.NullValue)}}), true
+				&expr.Constant{ConstantKind: &expr.Constant_NullValue{NullValue: val.Value().(structpb.NullValue)}}), true
 		}
 	}
 
@@ -241,7 +240,7 @@ func (p *astPruner) prune(node *expr.Expr) (*expr.Expr, bool) {
 }
 
 func (p *astPruner) value(id int64) (ref.Value, bool) {
-	val, found := p.state.Value(p.state.GetRuntimeExpressionId(id))
+	val, found := p.state.Value(p.state.GetRuntimeExpressionID(id))
 	return val, (found && val != nil)
 }
 
