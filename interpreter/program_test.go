@@ -55,17 +55,16 @@ func TestNewProgram_LogicalOr(t *testing.T) {
 	program := NewProgram(
 		test.LogicalOr.Expr,
 		test.LogicalOr.Info(t.Name()))
-	if loc, found := program.Metadata().IdLocation(1); found {
+	if loc, found := program.Metadata().IDLocation(1); found {
 		t.Errorf("Unexpected location found: %v", loc)
 	}
-	state := NewEvalState(program.MaxInstructionId() + 1)
+	state := NewEvalState(program.MaxInstructionID() + 1)
 	program.Init(dispatcher(), state)
 	if _, hasNext := program.Begin().Next(); !hasNext {
 		t.Error("Expected a step in program, but found none")
 	}
 	fmt.Printf("%s\n%s\n\n", t.Name(), program)
 }
-
 
 func TestNewProgram_Conditional(t *testing.T) {
 	program := NewProgram(
