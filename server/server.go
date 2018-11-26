@@ -199,7 +199,7 @@ func RefValueToValue(res ref.Value) (*exprpb.Value, error) {
 	case types.ListType:
 		l := res.(traits.Lister)
 		sz := l.Size().(types.Int)
-		elts := make([]*exprpb.Value, int64(sz))
+		elts := make([]*exprpb.Value, 0, int64(sz))
 		for i := types.Int(0); i < sz; i++ {
 			v, err := RefValueToValue(l.Get(i))
 			if err != nil {
@@ -213,7 +213,7 @@ func RefValueToValue(res ref.Value) (*exprpb.Value, error) {
 	case types.MapType:
 		mapper := res.(traits.Mapper)
 		sz := mapper.Size().(types.Int)
-		entries := make([]*exprpb.MapValue_Entry, int64(sz))
+		entries := make([]*exprpb.MapValue_Entry, 0, int64(sz))
 		for it := mapper.Iterator(); it.HasNext().(types.Bool); {
 			k := it.Next()
 			v := mapper.Get(k)
