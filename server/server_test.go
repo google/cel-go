@@ -19,7 +19,7 @@ import (
 type serverTest struct {
 	cmd    *exec.Cmd
 	conn   *grpc.ClientConn
-	client exprpb.CelServiceClient
+	client exprpb.ConformanceServiceClient
 }
 
 var (
@@ -78,7 +78,7 @@ func setup() error {
 	globals.conn = conn
 
 	log.Println("Creating service client")
-	globals.client = exprpb.NewCelServiceClient(conn)
+	globals.client = exprpb.NewConformanceServiceClient(conn)
 	return nil
 }
 
