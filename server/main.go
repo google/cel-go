@@ -32,7 +32,7 @@ func main() {
 
 	log.Println("Server registering service on port")
 	s := grpc.NewServer()
-	exprpb.RegisterCelServiceServer(s, &server.CelServer{})
+	exprpb.RegisterConformanceServiceServer(s, &server.ConformanceServer{})
 	log.Println("Server calling Register")
 	reflection.Register(s)
 	log.Println("Server calling Serve")

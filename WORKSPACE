@@ -22,7 +22,7 @@ gazelle_dependencies()
 go_repository(
   name = "org_golang_google_genproto",
   build_file_proto_mode = "disable",
-  commit = "221a8d4f74948678f06caaa13c9d41d22e069ae8",
+  commit = "b69ba1387ce2108ac9bc8e8e5e5a46e7d5c72313",
   importpath = "google.golang.org/genproto",
 )
 

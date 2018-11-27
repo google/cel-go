@@ -21,11 +21,11 @@ import (
 	rpc "google.golang.org/genproto/googleapis/rpc/status"
 )
 
-// CelServer contains the server state.
-type CelServer struct{}
+// ConformanceServer contains the server state.
+type ConformanceServer struct{}
 
-// Parse implements CelService.Parse.
-func (s *CelServer) Parse(ctx context.Context, in *exprpb.ParseRequest) (*exprpb.ParseResponse, error) {
+// Parse implements ConformanceService.Parse.
+func (s *ConformanceServer) Parse(ctx context.Context, in *exprpb.ParseRequest) (*exprpb.ParseResponse, error) {
 	if in.CelSource == "" {
 		st := status.New(codes.InvalidArgument, "No source code.")
 		return nil, st.Err()
@@ -50,8 +50,8 @@ func (s *CelServer) Parse(ctx context.Context, in *exprpb.ParseRequest) (*exprpb
 	return &resp, nil
 }
 
-// Check implements CelService.Check.
-func (s *CelServer) Check(ctx context.Context, in *exprpb.CheckRequest) (*exprpb.CheckResponse, error) {
+// Check implements ConformanceService.Check.
+func (s *ConformanceServer) Check(ctx context.Context, in *exprpb.CheckRequest) (*exprpb.CheckResponse, error) {
 	if in.ParsedExpr == nil {
 		st := status.New(codes.InvalidArgument, "No parsed expression.")
 		return nil, st.Err()
@@ -82,8 +82,8 @@ func (s *CelServer) Check(ctx context.Context, in *exprpb.CheckRequest) (*exprpb
 	return &resp, nil
 }
 
-// Eval implements CelService.Eval.
-func (s *CelServer) Eval(ctx context.Context, in *exprpb.EvalRequest) (*exprpb.EvalResponse, error) {
+// Eval implements ConformanceService.Eval.
+func (s *ConformanceServer) Eval(ctx context.Context, in *exprpb.EvalRequest) (*exprpb.EvalResponse, error) {
 	pkg := packages.NewPackage(in.Container)
 	typeProvider := types.NewProvider()
 	i := interpreter.NewStandardInterpreter(pkg, typeProvider)
