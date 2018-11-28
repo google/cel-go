@@ -15,8 +15,10 @@
 package checker
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/google/cel-go/checker/decls"
-	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/packages"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
@@ -29,7 +31,6 @@ import (
 // It consists of a Packager, a Type Provider, declarations,
 // and collection of errors encountered during checking.
 type Env struct {
-	errors       *typeErrors
 	packager     packages.Packager
 	typeProvider ref.TypeProvider
 
@@ -38,13 +39,11 @@ type Env struct {
 
 // NewEnv returns a new *Env with the given parameters.
 func NewEnv(packager packages.Packager,
-	typeProvider ref.TypeProvider,
-	errors *common.Errors) *Env {
+	typeProvider ref.TypeProvider) *Env {
 	declarations := decls.NewScopes()
 	declarations.Push()
 
 	return &Env{
-		errors:       &typeErrors{errors},
 		packager:     packager,
 		typeProvider: typeProvider,
 		declarations: declarations,
@@ -53,31 +52,45 @@ func NewEnv(packager packages.Packager,
 
 // NewStandardEnv returns a new *Env with the given params plus standard declarations.
 func NewStandardEnv(packager packages.Packager,
-	typeProvider ref.TypeProvider,
-	errors *common.Errors) *Env {
-	e := NewEnv(packager, typeProvider, errors)
-	e.Add(StandardDeclarations()...)
+	typeProvider ref.TypeProvider) *Env {
+	e := NewEnv(packager, typeProvider)
+	if err := e.Add(StandardDeclarations()...); err != nil {
+		// The standard declaration set should never have duplicate declarations.
+		panic(err)
+	}
 	return e
 }
 
 // Add adds new Decl protos to the Env.
 // Panics on identifiers already in the Env.
 // Adds to Env errors if there's an overlap with an existing overload.
-func (e *Env) Add(decls ...*exprpb.Decl) {
+func (e *Env) Add(decls ...*exprpb.Decl) error {
+	errMsgs := make([]errorMsg, 0)
 	for _, decl := range decls {
 		switch decl.DeclKind.(type) {
 		case *exprpb.Decl_Ident:
-			e.addIdent(decl)
+			if errMsg := e.addIdent(decl); errMsg != "" {
+				errMsgs = append(errMsgs, errMsg)
+			}
 		case *exprpb.Decl_Function:
-			e.addFunction(decl)
+			errMsgs = append(errMsgs, e.addFunction(decl)...)
 		}
 	}
+	if len(errMsgs) > 0 {
+		errStrs := make([]string, len(errMsgs))
+		for i := 0; i < len(errMsgs); i++ {
+			errStrs[i] = string(errMsgs[i])
+		}
+		return fmt.Errorf("%s", strings.Join(errStrs, "\n"))
+	}
+	return nil
 }
 
 // addOverload adds overload to function declaration f.
 // If overload overlaps with an existing overload, adds to the errors
 // in the Env instead.
-func (e *Env) addOverload(f *exprpb.Decl, overload *exprpb.Decl_FunctionDecl_Overload) {
+func (e *Env) addOverload(f *exprpb.Decl, overload *exprpb.Decl_FunctionDecl_Overload) []errorMsg {
+	errMsgs := make([]errorMsg, 0)
 	function := f.GetFunction()
 	emptyMappings := newMapping()
 	overloadFunction := decls.NewFunctionType(overload.GetResultType(),
@@ -91,20 +104,24 @@ func (e *Env) addOverload(f *exprpb.Decl, overload *exprpb.Decl_FunctionDecl_Ove
 			isAssignable(emptyMappings, existingErased, overloadErased) != nil
 		if overlap &&
 			overload.GetIsInstanceFunction() == existing.GetIsInstanceFunction() {
-			e.errors.overlappingOverload(common.NoLocation, f.Name, overload.GetOverloadId(), overloadFunction,
-				existing.GetOverloadId(), existingFunction)
-			return
+			errMsgs = append(errMsgs,
+				overlappingOverloadError(f.Name,
+					overload.GetOverloadId(), overloadFunction,
+					existing.GetOverloadId(), existingFunction))
 		}
 	}
 
 	for _, macro := range parser.AllMacros {
 		if macro.GetName() == f.Name && macro.GetIsInstanceStyle() == overload.GetIsInstanceFunction() &&
 			macro.GetArgCount() == len(overload.GetParams()) {
-			e.errors.overlappingMacro(common.NoLocation, f.Name, macro.GetArgCount())
-			return
+			errMsgs = append(errMsgs, overlappingMacroError(f.Name, macro.GetArgCount()))
 		}
 	}
+	if len(errMsgs) > 0 {
+		return errMsgs
+	}
 	function.Overloads = append(function.GetOverloads(), overload)
+	return errMsgs
 }
 
 // addFunction adds the function Decl to the Env.
@@ -112,7 +129,7 @@ func (e *Env) addOverload(f *exprpb.Decl, overload *exprpb.Decl_FunctionDecl_Ove
 // then adds all overloads from the Decl.
 // If overload overlaps with an existing overload, adds to the errors
 // in the Env instead.
-func (e *Env) addFunction(decl *exprpb.Decl) {
+func (e *Env) addFunction(decl *exprpb.Decl) []errorMsg {
 	current := e.declarations.FindFunction(decl.Name)
 	if current == nil {
 		//Add the function declaration without overloads and check the overloads below.
@@ -120,19 +137,22 @@ func (e *Env) addFunction(decl *exprpb.Decl) {
 		e.declarations.AddFunction(current)
 	}
 
+	errorMsgs := make([]errorMsg, 0)
 	for _, overload := range decl.GetFunction().GetOverloads() {
-		e.addOverload(current, overload)
+		errorMsgs = append(errorMsgs, e.addOverload(current, overload)...)
 	}
+	return errorMsgs
 }
 
 // addIdent adds the Decl to the declarations in the Env.
 // Panics if an identifier with the same name already exists.
-func (e *Env) addIdent(decl *exprpb.Decl) {
+func (e *Env) addIdent(decl *exprpb.Decl) errorMsg {
 	current := e.declarations.FindIdentInScope(decl.Name)
 	if current != nil {
-		panic("ident already exists")
+		return overlappingIdentifierError(decl.Name)
 	}
 	e.declarations.AddIdent(decl)
+	return ""
 }
 
 // LookupIdent returns a Decl proto for typeName as an identifier in the Env.
@@ -184,4 +204,28 @@ func (e *Env) enterScope() {
 
 func (e *Env) exitScope() {
 	e.declarations.Pop()
+}
+
+type errorMsg string
+
+func overlappingIdentifierError(name string) errorMsg {
+	return errorMsg(fmt.Sprintf("overlapping identifier for name '%s'", name))
+}
+
+func overlappingOverloadError(name string,
+	overloadID1 string, f1 *exprpb.Type,
+	overloadID2 string, f2 *exprpb.Type) errorMsg {
+	return errorMsg(fmt.Sprintf(
+		"overlapping overload for name '%s' (type '%s' with overloadId: '%s' "+
+			"cannot be distinguished from '%s' with overloadId: '%s')",
+		name,
+		FormatCheckedType(f1),
+		overloadID1,
+		FormatCheckedType(f2),
+		overloadID2))
+}
+
+func overlappingMacroError(name string, argCount int) errorMsg {
+	return errorMsg(fmt.Sprintf(
+		"overlapping macro for name '%s' with %d args", name, argCount))
 }

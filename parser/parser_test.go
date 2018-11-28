@@ -761,12 +761,13 @@ func (l *locationAdorner) GetMetadata(elem interface{}) string {
 	return fmt.Sprintf("^#%d[%d,%d]#", elemID, location.Line(), location.Column())
 }
 
-func Test(t *testing.T) {
+func TestParse(t *testing.T) {
 	for i, tst := range testCases {
 		name := fmt.Sprintf("%d %s", i, tst.I)
 		t.Run(name, func(tt *testing.T) {
 
-			expression, errors := ParseText(tst.I)
+			src := common.NewStringSource(tst.I, "<input>")
+			expression, errors := Parse(src, AllMacros)
 			if len(errors.GetErrors()) > 0 {
 				actualErr := errors.ToDisplayString()
 				if tst.E == "" {

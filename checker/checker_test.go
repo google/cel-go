@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/google/cel-go/common"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/packages"
@@ -875,29 +877,6 @@ _&&_(_==_(list~type(list(dyn))^list,
 	},
 
 	{
-		I: `false`,
-		Env: env{
-			functions: []*exprpb.Decl{
-				decls.NewFunction("has",
-					decls.NewOverload("has_id", []*exprpb.Type{decls.Dyn}, decls.Dyn)),
-			},
-		},
-		Error: `ERROR: <input>:-1:0: overload for name 'has' with 1 argument(s) overlaps with predefined macro`,
-	},
-
-	{
-		I: `false`,
-		Env: env{
-			functions: []*exprpb.Decl{
-				decls.NewFunction("myfunc",
-					decls.NewOverload("myfunc_id", []*exprpb.Type{decls.Dyn}, decls.Dyn),
-					decls.NewOverload("yourfunc_id", []*exprpb.Type{decls.Dyn}, decls.Dyn)),
-			},
-		},
-		Error: `ERROR: <input>:-1:0: overlapping overload for name 'myfunc' (type '(dyn) -> dyn' with overloadId: 'yourfunc_id' cannot be distinguished from '(dyn) -> dyn' with overloadId: 'myfunc_id')`,
-	},
-
-	{
 		I: `size(x) > 4`,
 		Env: env{
 			idents: []*exprpb.Decl{
@@ -1019,12 +998,13 @@ type env struct {
 	functions []*exprpb.Decl
 }
 
-func Test(t *testing.T) {
+func TestCheck(t *testing.T) {
 	for i, tst := range testCases {
 		name := fmt.Sprintf("%d %s", i, tst.I)
 		t.Run(name, func(tt *testing.T) {
 
-			expression, errors := parser.ParseText(tst.I)
+			src := common.NewStringSource(tst.I, "<input>")
+			expression, errors := parser.Parse(src, parser.AllMacros)
 			if len(errors.GetErrors()) > 0 {
 				tt.Fatalf("Unexpected parse errors: %v",
 					errors.ToDisplayString())
@@ -1032,9 +1012,7 @@ func Test(t *testing.T) {
 			}
 
 			pkg := packages.NewPackage(tst.Container)
-			env := NewEnv(pkg, typeProvider, errors)
-			env.Add(StandardDeclarations()...)
-
+			env := NewStandardEnv(pkg, typeProvider)
 			if tst.Env.idents != nil {
 				for _, ident := range tst.Env.idents {
 					env.Add(ident)
@@ -1046,7 +1024,7 @@ func Test(t *testing.T) {
 				}
 			}
 
-			semantics := Check(expression, env)
+			semantics, errors := Check(expression, src, env)
 			if len(errors.GetErrors()) > 0 {
 				errorString := errors.ToDisplayString()
 				if tst.Error != "" {

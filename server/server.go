@@ -62,15 +62,15 @@ func (s *CelServer) Check(ctx context.Context, in *exprpb.CheckRequest) (*exprpb
 	}
 	pkg := packages.NewPackage(in.Container)
 	typeProvider := types.NewProvider()
-	errs := common.NewErrors(common.NewInfoSource(in.ParsedExpr.SourceInfo))
+	srcInfo := common.NewInfoSource(in.ParsedExpr.SourceInfo)
 	var env *checker.Env
 	if in.NoStdEnv {
-		env = checker.NewEnv(pkg, typeProvider, errs)
+		env = checker.NewEnv(pkg, typeProvider)
 	} else {
-		env = checker.NewStandardEnv(pkg, typeProvider, errs)
+		env = checker.NewStandardEnv(pkg, typeProvider)
 	}
 	env.Add(in.TypeEnv...)
-	c := checker.Check(in.ParsedExpr, env)
+	c, errs := checker.Check(in.ParsedExpr, srcInfo, env)
 	resp := exprpb.CheckResponse{}
 	if len(errs.GetErrors()) == 0 {
 		// Success

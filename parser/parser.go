@@ -30,21 +30,6 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
-// ParseText converts a text input into a parsed expression, if valid, as
-// well as a list of syntax errors encountered.
-//
-// By default all macros are enabled. For customization of the input data
-// or for customization of the macro set see Parse.
-//
-// Note: syntax errors may produce parse trees of unusual shape which could
-// in segfaults at parse-time. While the code attempts to account for all
-// such cases, it is possible a few still remain. These should be fixed by
-// adding a repro case to the parser_test.go and appropriate defensive coding
-// within the parser.
-func ParseText(text string) (*exprpb.ParsedExpr, *common.Errors) {
-	return Parse(common.NewStringSource(text, "<input>"), AllMacros)
-}
-
 // Parse converts a source input and macros set to a parsed expression.
 func Parse(source common.Source, macros Macros) (*exprpb.ParsedExpr, *common.Errors) {
 	p := parser{helper: newParserHelper(source, macros)}
