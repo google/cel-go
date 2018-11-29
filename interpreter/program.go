@@ -68,6 +68,7 @@ type exprProgram struct {
 	instructions    []Instruction
 	metadata        Metadata
 	revInstructions map[int64]int
+	forceEval       bool
 }
 
 // NewCheckedProgram creates a Program from a checked CEL expression.
@@ -83,7 +84,22 @@ func NewProgram(expression *exprpb.Expr,
 	return &exprProgram{
 		expression:      expression,
 		revInstructions: revInstructions,
-		metadata:        newExprMetadata(info)}
+		metadata:        newExprMetadata(info),
+		forceEval:       false,
+	}
+}
+
+// NewCompleteProgram creates a Program from a CEL expression and source
+// information which force evaluating all branches of the expression.
+func NewCompleteProgram(expression *exprpb.Expr,
+	info *exprpb.SourceInfo) Program {
+	revInstructions := make(map[int64]int)
+	return &exprProgram{
+		expression:      expression,
+		revInstructions: revInstructions,
+		metadata:        newExprMetadata(info),
+		forceEval:       true,
+	}
 }
 
 func (p *exprProgram) Begin() InstructionStepper {
@@ -99,7 +115,7 @@ func (p *exprProgram) GetInstruction(runtimeID int64) Instruction {
 
 func (p *exprProgram) Init(dispatcher Dispatcher, state MutableEvalState) {
 	if p.instructions == nil {
-		p.instructions = WalkExpr(p.expression, p.metadata, dispatcher, state)
+		p.instructions = WalkExpr(p.expression, p.metadata, dispatcher, state, p.forceEval)
 		for i, inst := range p.instructions {
 			p.revInstructions[inst.GetID()] = i
 		}

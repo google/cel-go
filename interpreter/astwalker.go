@@ -38,7 +38,8 @@ const (
 func WalkExpr(expression *exprpb.Expr,
 	metadata Metadata,
 	dispatcher Dispatcher,
-	state MutableEvalState) []Instruction {
+	state MutableEvalState,
+	forceEval bool) []Instruction {
 	nextID := maxID(expression)
 	walker := &astWalker{
 		dispatcher: dispatcher,
@@ -46,7 +47,8 @@ func WalkExpr(expression *exprpb.Expr,
 		genExprID:  nextID,
 		metadata:   metadata,
 		scope:      newScope(),
-		state:      state}
+		state:      state,
+		forceEval:  forceEval}
 	return walker.walk(expression)
 }
 
@@ -58,6 +60,7 @@ type astWalker struct {
 	metadata   Metadata
 	scope      *blockScope
 	state      MutableEvalState
+	forceEval  bool
 }
 
 func (w *astWalker) walk(node *exprpb.Expr) []Instruction {
@@ -152,11 +155,13 @@ func (w *astWalker) walkCall(node *exprpb.Expr) []Instruction {
 			evalCount += argGroupLens[i]
 			instructions = append(instructions, argGroup...)
 			if i != argCount-1 {
-				instructions = append(instructions,
-					NewJump(
-						argIDs[i],
-						instructionCount-evalCount,
-						jumpIfEqual(argIDs[i], types.Bool(function == operators.LogicalOr))))
+				if w.forceEval{
+					instructions = append(instructions, NewNoOp())
+				} else {
+					instructions = append(instructions,
+						NewJump(argIDs[i], instructionCount-evalCount,
+							jumpIfEqual(argIDs[i], types.Bool(function == operators.LogicalOr))))
+				}
 			}
 			evalCount++
 		}
@@ -185,14 +190,22 @@ func (w *astWalker) walkCall(node *exprpb.Expr) []Instruction {
 			NewJump(conditionID, len(trueVal)+len(falseVal)+3,
 				jumpIfUnknownOrError(conditionID)))
 		// 2: jump to <ELSE> on false.
-		instructions = append(instructions,
-			NewJump(conditionID, len(trueVal)+2,
-				jumpIfEqual(conditionID, types.False)))
+		if w.forceEval {
+			instructions = append(instructions, NewNoOp())
+		} else {
+			instructions = append(instructions,
+				NewJump(conditionID, len(trueVal)+2,
+					jumpIfEqual(conditionID, types.False)))
+		}
 		// 3: <IF> expr
 		instructions = append(instructions, trueVal...)
 		// 4: jump to <END>
-		instructions = append(instructions,
-			NewJump(trueID, len(falseVal)+1, jumpAlways))
+		if w.forceEval {
+			instructions = append(instructions, NewNoOp())
+		} else {
+			instructions = append(instructions,
+				NewJump(trueID, len(falseVal)+1, jumpAlways))
+		}
 		// 5: <ELSE> expr
 		instructions = append(instructions, falseVal...)
 		// 6: <END> ternary

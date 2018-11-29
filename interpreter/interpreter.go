@@ -114,6 +114,8 @@ func (i *exprInterpretable) Eval(activation Activation) (ref.Value, EvalState) {
 					panic("jumped too far")
 				}
 			}
+		case *NoOp:
+			continue
 			// Special instructions for modifying the activation stack
 		case *PushScopeInst:
 			pushScope := step.(*PushScopeInst)

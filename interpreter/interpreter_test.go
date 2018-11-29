@@ -30,6 +30,51 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
+func TestCompleteInterpreter_ConditionalExpr(t *testing.T) {
+	// a ? b < 1.0 : c == ["hello"]
+	program := NewCompleteProgram(
+		test.Conditional.Expr,
+		test.Conditional.Info(t.Name()))
+
+	interpretable := interpreter.NewInterpretable(program)
+	result, state := interpretable.Eval(
+		NewActivation(map[string]interface{}{
+			"a": true,
+			"b": 0.999,
+			"c": types.NewStringList([]string{"hello"})}))
+	ev, _ := state.Value(6)
+	if ev != types.True {
+		t.Errorf("Else expression expected to be true, got: %v", ev)
+	}
+	if result != types.True {
+		t.Errorf("Expected true, got: %v", result)
+	}
+}
+
+func TestCompleteInterpreter_LogicalOrEquals(t *testing.T) {
+	// a || b == "b"
+	program := NewCompleteProgram(
+		test.LogicalOrEquals.Expr,
+		test.LogicalOrEquals.Info(t.Name()))
+
+	// TODO: make the type identifiers part of the standard declaration set.
+	provider := types.NewProvider(&exprpb.Expr{})
+	i := NewStandardInterpreter(packages.NewPackage("test"), provider)
+	interpretable := i.NewInterpretable(program)
+	result, state := interpretable.Eval(
+		NewActivation(map[string]interface{}{
+			"a": true,
+			"b": "b",
+		}))
+	rhv, _ := state.Value(4)
+	if rhv != types.True {
+		t.Errorf("Right hand side expression expected to be true, got: %v", rhv)
+	}
+	if result != types.True {
+		t.Errorf("Expected true, got: %v", result)
+	}
+}
+
 func TestInterpreter_CallExpr(t *testing.T) {
 	program := NewProgram(
 		test.Equality.Expr,
@@ -70,10 +115,15 @@ func TestInterpreter_ConditionalExpr(t *testing.T) {
 		test.Conditional.Info(t.Name()))
 
 	interpretable := interpreter.NewInterpretable(program)
-	result, _ := interpretable.Eval(
+	result, state := interpretable.Eval(
 		NewActivation(map[string]interface{}{
 			"a": true,
-			"b": 0.999}))
+			"b": 0.999,
+			"c": types.NewStringList([]string{"hello"})}))
+	ev, _ := state.Value(6)
+	if ev != nil {
+		t.Errorf("Else expression expected to be nil, got: %v", ev)
+	}
 	if result != types.True {
 		t.Errorf("Expected true, got: %v", result)
 	}
@@ -155,15 +205,18 @@ func TestInterpreter_LogicalOrEquals(t *testing.T) {
 	provider := types.NewProvider(&exprpb.Expr{})
 	i := NewStandardInterpreter(packages.NewPackage("test"), provider)
 	interpretable := i.NewInterpretable(program)
-	result, _ := interpretable.Eval(
+	result, state := interpretable.Eval(
 		NewActivation(map[string]interface{}{
 			"a": true,
 			"b": "b",
 		}))
+	rhv, _ := state.Value(4)
+	if rhv != nil {
+		t.Errorf("Right hand side expression expected to be nil, got: %v", rhv)
+	}
 	if result != types.True {
 		t.Errorf("Expected true, got: %v", result)
 	}
-
 }
 
 func TestInterpreter_BuildObject(t *testing.T) {
