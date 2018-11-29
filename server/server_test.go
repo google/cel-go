@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -10,7 +11,6 @@ import (
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/test"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
