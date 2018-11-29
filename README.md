@@ -60,7 +60,8 @@ import(
 )
 
 // Parse the expression and returns the accumulated errors.
-p, errors := parser.ParseText("a || b && c.exists(x, x > 2)")
+src := common.NewTextSource("a || b && c.exists(x, x > 2)")
+expr, errors := parser.Parse(src)
 if len(errors.GetErrors()) != 0 {
     return nil, fmt.Error(errors.ToDisplayString())
 }
@@ -69,11 +70,11 @@ if len(errors.GetErrors()) != 0 {
 // the identifiers a, b, c where the identifiers are scoped to the default
 // package (empty string):
 typeProvider := types.NewProvider()
-env := checker.NewStandardEnv(packages.DefaultPackage, typeProvider, errors)
+env := checker.NewStandardEnv(packages.DefaultPackage, typeProvider)
 env.Add(decls.NewIdent("a", decls.Bool, nil),
     decls.NewIdent("b", decls.Bool, nil),
     decls.NewIdent("c", decls.NewListType(decls.Int), nil))
-c := checker.Check(p, env)
+c, errors := checker.Check(expr, src, env)
 if len(errors.GetErrors()) != 0 {
     return nil, fmt.Error(errors.ToDisplayString())
 }
