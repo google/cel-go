@@ -17,6 +17,7 @@ package parser
 import (
 	"fmt"
 
+	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/operators"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
@@ -33,7 +34,7 @@ type Macro struct {
 	name          string
 	instanceStyle bool
 	args          int
-	expander      func(*parserHelper, interface{}, *exprpb.Expr, []*exprpb.Expr) *exprpb.Expr
+	expander      func(*parserHelper, interface{}, *exprpb.Expr, []*exprpb.Expr) (*exprpb.Expr, *common.Error)
 }
 
 // AllMacros includes the list of all spec-supported macros.
@@ -112,11 +113,11 @@ func (m *Macro) GetIsInstanceStyle() bool {
 	return m.instanceStyle
 }
 
-func makeHas(p *parserHelper, ctx interface{}, target *exprpb.Expr, args []*exprpb.Expr) *exprpb.Expr {
+func makeHas(p *parserHelper, ctx interface{}, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
 	if s, ok := args[0].ExprKind.(*exprpb.Expr_SelectExpr); ok {
-		return p.newPresenceTest(ctx, s.SelectExpr.Operand, s.SelectExpr.Field)
+		return p.newPresenceTest(ctx, s.SelectExpr.Operand, s.SelectExpr.Field), nil
 	}
-	return p.reportError(ctx, "invalid argument to has() macro")
+	return nil, &common.Error{Message: "invalid argument to has() macro"}
 }
 
 const accumulatorName = "__result__"
@@ -129,24 +130,26 @@ const (
 	quantifierExistsOne
 )
 
-func makeAll(p *parserHelper, ctx interface{}, target *exprpb.Expr, args []*exprpb.Expr) *exprpb.Expr {
+func makeAll(p *parserHelper, ctx interface{}, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
 	return makeQuantifier(quantifierAll, p, ctx, target, args)
 }
 
-func makeExists(p *parserHelper, ctx interface{}, target *exprpb.Expr, args []*exprpb.Expr) *exprpb.Expr {
+func makeExists(p *parserHelper, ctx interface{}, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
 	return makeQuantifier(quantifierExists, p, ctx, target, args)
 }
 
-func makeExistsOne(p *parserHelper, ctx interface{}, target *exprpb.Expr, args []*exprpb.Expr) *exprpb.Expr {
+func makeExistsOne(p *parserHelper, ctx interface{}, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
 	return makeQuantifier(quantifierExistsOne, p, ctx, target, args)
 }
 
-func makeQuantifier(kind quantifierKind, p *parserHelper, ctx interface{}, target *exprpb.Expr, args []*exprpb.Expr) *exprpb.Expr {
+func makeQuantifier(kind quantifierKind, p *parserHelper, ctx interface{}, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
 	v, found := extractIdent(args[0])
 	if !found {
 		offset := p.positions[args[0].Id]
 		location, _ := p.source.OffsetLocation(offset)
-		return p.reportError(location, "argument must be a simple name")
+		return nil, &common.Error{
+			Message:  "argument must be a simple name",
+			Location: location}
 	}
 	accuIdent := func() *exprpb.Expr {
 		return p.newIdent(ctx, accumulatorName)
@@ -177,15 +180,15 @@ func makeQuantifier(kind quantifierKind, p *parserHelper, ctx interface{}, targe
 			p.newGlobalCall(ctx, operators.Add, accuIdent(), oneExpr), accuIdent())
 		result = p.newGlobalCall(ctx, operators.Equals, accuIdent(), oneExpr)
 	default:
-		panic("unrecognized quantifier")
+		return nil, &common.Error{Message: fmt.Sprintf("unrecognized quantifier '%v'", kind)}
 	}
-	return p.newComprehension(ctx, v, target, accumulatorName, init, condition, step, result)
+	return p.newComprehension(ctx, v, target, accumulatorName, init, condition, step, result), nil
 }
 
-func makeMap(p *parserHelper, ctx interface{}, target *exprpb.Expr, args []*exprpb.Expr) *exprpb.Expr {
+func makeMap(p *parserHelper, ctx interface{}, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
 	v, found := extractIdent(args[0])
 	if !found {
-		return p.reportError(ctx, "argument is not an identifier")
+		return nil, &common.Error{Message: "argument is not an identifier"}
 	}
 
 	var fn *exprpb.Expr
@@ -208,13 +211,13 @@ func makeMap(p *parserHelper, ctx interface{}, target *exprpb.Expr, args []*expr
 	if filter != nil {
 		step = p.newGlobalCall(ctx, operators.Conditional, filter, step, accuExpr)
 	}
-	return p.newComprehension(ctx, v, target, accumulatorName, init, condition, step, accuExpr)
+	return p.newComprehension(ctx, v, target, accumulatorName, init, condition, step, accuExpr), nil
 }
 
-func makeFilter(p *parserHelper, ctx interface{}, target *exprpb.Expr, args []*exprpb.Expr) *exprpb.Expr {
+func makeFilter(p *parserHelper, ctx interface{}, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
 	v, found := extractIdent(args[0])
 	if !found {
-		return p.reportError(ctx, "argument is not an identifier")
+		return nil, &common.Error{Message: "argument is not an identifier"}
 	}
 
 	filter := args[1]
@@ -224,7 +227,7 @@ func makeFilter(p *parserHelper, ctx interface{}, target *exprpb.Expr, args []*e
 	// TODO: use compiler internal method for faster, stateful add.
 	step := p.newGlobalCall(ctx, operators.Add, accuExpr, p.newList(ctx, args[0]))
 	step = p.newGlobalCall(ctx, operators.Conditional, filter, step, accuExpr)
-	return p.newComprehension(ctx, v, target, accumulatorName, init, condition, step, accuExpr)
+	return p.newComprehension(ctx, v, target, accumulatorName, init, condition, step, accuExpr), nil
 }
 
 func extractIdent(e *exprpb.Expr) (string, bool) {
@@ -233,8 +236,4 @@ func extractIdent(e *exprpb.Expr) (string, bool) {
 		return e.GetIdentExpr().Name, true
 	}
 	return "", false
-}
-
-func makeMacroKey(name string, args int, instanceStyle bool) string {
-	return fmt.Sprintf("%s:%d:%v", name, args, instanceStyle)
 }

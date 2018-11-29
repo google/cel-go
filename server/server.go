@@ -38,7 +38,7 @@ func (s *CelServer) Parse(ctx context.Context, in *exprpb.ParseRequest) (*exprpb
 	} else {
 		macs = parser.AllMacros
 	}
-	pexpr, errs := parser.Parse(src, macs)
+	pexpr, errs := parser.ParseWithMacros(src, macs)
 	resp := exprpb.ParseResponse{}
 	if len(errs.GetErrors()) == 0 {
 		// Success

@@ -18,10 +18,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/google/cel-go/common"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cel-go/checker/decls"
+	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/packages"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
@@ -1003,8 +1002,8 @@ func TestCheck(t *testing.T) {
 		name := fmt.Sprintf("%d %s", i, tst.I)
 		t.Run(name, func(tt *testing.T) {
 
-			src := common.NewStringSource(tst.I, "<input>")
-			expression, errors := parser.Parse(src, parser.AllMacros)
+			src := common.NewTextSource(tst.I)
+			expression, errors := parser.Parse(src)
 			if len(errors.GetErrors()) > 0 {
 				tt.Fatalf("Unexpected parse errors: %v",
 					errors.ToDisplayString())

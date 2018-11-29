@@ -169,12 +169,11 @@ func TestInterpreter_LogicalOrEquals(t *testing.T) {
 }
 
 func TestInterpreter_BuildObject(t *testing.T) {
-	src := common.NewStringSource(
-		"v1alpha1.Expr{id: 1, "+
-			"const_expr: v1alpha1.Constant{ "+
-			"string_value: \"oneof_test\"}}",
-		"<input>")
-	parsed, errors := parser.Parse(src, parser.AllMacros)
+	src := common.NewTextSource(
+		"v1alpha1.Expr{id: 1, " +
+			"const_expr: v1alpha1.Constant{ " +
+			"string_value: \"oneof_test\"}}")
+	parsed, errors := parser.Parse(src)
 	if len(errors.GetErrors()) != 0 {
 		t.Errorf(errors.ToDisplayString())
 	}
@@ -203,9 +202,7 @@ func TestInterpreter_BuildObject(t *testing.T) {
 }
 
 func TestInterpreter_ConstantReturnValue(t *testing.T) {
-	parsed, err := parser.Parse(
-		common.NewStringSource("1", "<input>"),
-		parser.AllMacros)
+	parsed, err := parser.Parse(common.NewTextSource("1"))
 	if len(err.GetErrors()) != 0 {
 		t.Error(err)
 	}
@@ -218,9 +215,7 @@ func TestInterpreter_ConstantReturnValue(t *testing.T) {
 }
 
 func TestInterpreter_InList(t *testing.T) {
-	parsed, err := parser.Parse(
-		common.NewStringSource("1 in [1, 2, 3]", "<input>"),
-		parser.AllMacros)
+	parsed, err := parser.Parse(common.NewTextSource("1 in [1, 2, 3]"))
 	if len(err.GetErrors()) != 0 {
 		t.Error(err)
 	}
@@ -233,9 +228,7 @@ func TestInterpreter_InList(t *testing.T) {
 }
 
 func TestInterpreter_BuildMap(t *testing.T) {
-	parsed, err := parser.Parse(
-		common.NewStringSource("{'b': '''hi''', 'c': name}", "<input>"),
-		parser.AllMacros)
+	parsed, err := parser.Parse(common.NewTextSource("{'b': '''hi''', 'c': name}"))
 	if len(err.GetErrors()) != 0 {
 		t.Error(err)
 	}
@@ -251,9 +244,7 @@ func TestInterpreter_BuildMap(t *testing.T) {
 }
 
 func TestInterpreter_MapIndex(t *testing.T) {
-	parsed, err := parser.Parse(
-		common.NewStringSource("{'a':1}['a']", "<input>"),
-		parser.AllMacros)
+	parsed, err := parser.Parse(common.NewTextSource("{'a':1}['a']"))
 	if len(err.GetErrors()) != 0 {
 		t.Error(err)
 	}

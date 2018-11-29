@@ -62,33 +62,22 @@ func NewStandardEnv(packager packages.Packager,
 }
 
 // Add adds new Decl protos to the Env.
-// Panics on identifiers already in the Env.
-// Adds to Env errors if there's an overlap with an existing overload.
+// Returns an error for identifier redeclarations.
 func (e *Env) Add(decls ...*exprpb.Decl) error {
 	errMsgs := make([]errorMsg, 0)
 	for _, decl := range decls {
 		switch decl.DeclKind.(type) {
 		case *exprpb.Decl_Ident:
-			if errMsg := e.addIdent(decl); errMsg != "" {
-				errMsgs = append(errMsgs, errMsg)
-			}
+			errMsgs = append(errMsgs, e.addIdent(decl))
 		case *exprpb.Decl_Function:
 			errMsgs = append(errMsgs, e.addFunction(decl)...)
 		}
 	}
-	if len(errMsgs) > 0 {
-		errStrs := make([]string, len(errMsgs))
-		for i := 0; i < len(errMsgs); i++ {
-			errStrs[i] = string(errMsgs[i])
-		}
-		return fmt.Errorf("%s", strings.Join(errStrs, "\n"))
-	}
-	return nil
+	return formatError(errMsgs)
 }
 
 // addOverload adds overload to function declaration f.
-// If overload overlaps with an existing overload, adds to the errors
-// in the Env instead.
+// Returns one or more errorMsg values if the overload overlaps with an existing overload or macro.
 func (e *Env) addOverload(f *exprpb.Decl, overload *exprpb.Decl_FunctionDecl_Overload) []errorMsg {
 	errMsgs := make([]errorMsg, 0)
 	function := f.GetFunction()
@@ -125,10 +114,8 @@ func (e *Env) addOverload(f *exprpb.Decl, overload *exprpb.Decl_FunctionDecl_Ove
 }
 
 // addFunction adds the function Decl to the Env.
-// Adds a function decl if one doesn't already exist,
-// then adds all overloads from the Decl.
-// If overload overlaps with an existing overload, adds to the errors
-// in the Env instead.
+// Adds a function decl if one doesn't already exist, then adds all overloads from the Decl.
+// If overload overlaps with an existing overload, adds to the errors  in the Env instead.
 func (e *Env) addFunction(decl *exprpb.Decl) []errorMsg {
 	current := e.declarations.FindFunction(decl.Name)
 	if current == nil {
@@ -145,7 +132,7 @@ func (e *Env) addFunction(decl *exprpb.Decl) []errorMsg {
 }
 
 // addIdent adds the Decl to the declarations in the Env.
-// Panics if an identifier with the same name already exists.
+// Returns a non-empty errorMsg if the identifier is already declared in the scope.
 func (e *Env) addIdent(decl *exprpb.Decl) errorMsg {
 	current := e.declarations.FindIdentInScope(decl.Name)
 	if current != nil {
@@ -228,4 +215,19 @@ func overlappingOverloadError(name string,
 func overlappingMacroError(name string, argCount int) errorMsg {
 	return errorMsg(fmt.Sprintf(
 		"overlapping macro for name '%s' with %d args", name, argCount))
+}
+
+func formatError(errMsgs []errorMsg) error {
+	errStrs := make([]string, 0)
+	if len(errMsgs) > 0 {
+		for i := 0; i < len(errMsgs); i++ {
+			if errMsgs[i] != "" {
+				errStrs = append(errStrs, string(errMsgs[i]))
+			}
+		}
+	}
+	if len(errStrs) > 0 {
+		return fmt.Errorf("%s", strings.Join(errStrs, "\n"))
+	}
+	return nil
 }

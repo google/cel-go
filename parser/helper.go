@@ -9,22 +9,13 @@ import (
 
 type parserHelper struct {
 	source    common.Source
-	errors    *parseErrors
-	macros    map[string]Macro
 	nextID    int64
 	positions map[int64]int32
 }
 
-func newParserHelper(source common.Source, macros Macros) *parserHelper {
-	macroMap := make(map[string]Macro)
-	for _, m := range macros {
-		macroMap[makeMacroKey(m.name, m.args, m.instanceStyle)] = m
-	}
-
+func newParserHelper(source common.Source) *parserHelper {
 	return &parserHelper{
-		errors:    &parseErrors{common.NewErrors(source)},
 		source:    source,
-		macros:    macroMap,
 		nextID:    1,
 		positions: make(map[int64]int32),
 	}
@@ -35,21 +26,6 @@ func (p *parserHelper) getSourceInfo() *exprpb.SourceInfo {
 		Location:    p.source.Description(),
 		Positions:   p.positions,
 		LineOffsets: p.source.LineOffsets()}
-}
-
-func (p *parserHelper) reportError(ctx interface{}, format string, args ...interface{}) *exprpb.Expr {
-	var location common.Location
-	switch ctx.(type) {
-	case common.Location:
-		location = ctx.(common.Location)
-	case antlr.Token, antlr.ParserRuleContext:
-		err := p.newExpr(ctx)
-		location = p.getLocation(err.Id)
-	}
-	err := p.newExpr(ctx)
-	// Provide arguments to the report error.
-	p.errors.ReportError(location, format, args...)
-	return err
 }
 
 func (p *parserHelper) newLiteral(ctx interface{}, value *exprpb.Constant) *exprpb.Expr {
@@ -108,9 +84,6 @@ func (p *parserHelper) newPresenceTest(ctx interface{}, operand *exprpb.Expr, fi
 }
 
 func (p *parserHelper) newGlobalCall(ctx interface{}, function string, args ...*exprpb.Expr) *exprpb.Expr {
-	if macro, found := p.macros[makeMacroKey(function, len(args), false)]; found {
-		return macro.expander(p, ctx, nil, args)
-	}
 	exprNode := p.newExpr(ctx)
 	exprNode.ExprKind = &exprpb.Expr_CallExpr{
 		CallExpr: &exprpb.Expr_Call{Function: function, Args: args}}
@@ -118,9 +91,6 @@ func (p *parserHelper) newGlobalCall(ctx interface{}, function string, args ...*
 }
 
 func (p *parserHelper) newMemberCall(ctx interface{}, function string, target *exprpb.Expr, args ...*exprpb.Expr) *exprpb.Expr {
-	if macro, found := p.macros[makeMacroKey(function, len(args), true)]; found {
-		return macro.expander(p, ctx, target, args)
-	}
 	exprNode := p.newExpr(ctx)
 	exprNode.ExprKind = &exprpb.Expr_CallExpr{
 		CallExpr: &exprpb.Expr_Call{Function: function, Target: target, Args: args}}
@@ -212,23 +182,4 @@ func (p *parserHelper) getLocation(id int64) common.Location {
 	characterOffset := p.positions[id]
 	location, _ := p.source.OffsetLocation(characterOffset)
 	return location
-}
-
-// ANTLR Parse listener implementations
-func (p *parserHelper) SyntaxError(recognizer antlr.Recognizer, offendingSymbol interface{}, line, column int, msg string, e antlr.RecognitionException) {
-	// TODO: Snippet
-	l := common.NewLocation(line, column)
-	p.errors.syntaxError(l, msg)
-}
-
-func (p *parserHelper) ReportAmbiguity(recognizer antlr.Parser, dfa *antlr.DFA, startIndex, stopIndex int, exact bool, ambigAlts *antlr.BitSet, configs antlr.ATNConfigSet) {
-	// Intentional
-}
-
-func (p *parserHelper) ReportAttemptingFullContext(recognizer antlr.Parser, dfa *antlr.DFA, startIndex, stopIndex int, conflictingAlts *antlr.BitSet, configs antlr.ATNConfigSet) {
-	// Intentional
-}
-
-func (p *parserHelper) ReportContextSensitivity(recognizer antlr.Parser, dfa *antlr.DFA, startIndex, stopIndex, prediction int, configs antlr.ATNConfigSet) {
-	// Intentional
 }

@@ -71,6 +71,11 @@ type sourceImpl struct {
 // within the UTF-8 encoded string.  It currently indexes bytes.
 // Can be accomplished by using rune[] instead of string for contents.
 
+// NewTextSource creates a new Source from the input text string.
+func NewTextSource(text string) Source {
+	return NewStringSource(text, "<input>")
+}
+
 // NewStringSource creates a new Source from the given contents and description.
 func NewStringSource(contents string, description string) Source {
 	// Compute line offsets up front as they are referred to frequently.

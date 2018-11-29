@@ -766,8 +766,8 @@ func TestParse(t *testing.T) {
 		name := fmt.Sprintf("%d %s", i, tst.I)
 		t.Run(name, func(tt *testing.T) {
 
-			src := common.NewStringSource(tst.I, "<input>")
-			expression, errors := Parse(src, AllMacros)
+			src := common.NewTextSource(tst.I)
+			expression, errors := Parse(src)
 			if len(errors.GetErrors()) > 0 {
 				actualErr := errors.ToDisplayString()
 				if tst.E == "" {
