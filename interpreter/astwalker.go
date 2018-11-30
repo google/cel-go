@@ -39,28 +39,28 @@ func WalkExpr(expression *exprpb.Expr,
 	metadata Metadata,
 	dispatcher Dispatcher,
 	state MutableEvalState,
-	forceEval bool) []Instruction {
+	shortCircuit bool) []Instruction {
 	nextID := maxID(expression)
 	walker := &astWalker{
-		dispatcher: dispatcher,
-		genSymID:   nextID,
-		genExprID:  nextID,
-		metadata:   metadata,
-		scope:      newScope(),
-		state:      state,
-		forceEval:  forceEval}
+		dispatcher:   dispatcher,
+		genSymID:     nextID,
+		genExprID:    nextID,
+		metadata:     metadata,
+		scope:        newScope(),
+		state:        state,
+		shortCircuit: shortCircuit}
 	return walker.walk(expression)
 }
 
 // astWalker implementation of the AST walking logic.
 type astWalker struct {
-	dispatcher Dispatcher
-	genExprID  int64
-	genSymID   int64
-	metadata   Metadata
-	scope      *blockScope
-	state      MutableEvalState
-	forceEval  bool
+	dispatcher   Dispatcher
+	genExprID    int64
+	genSymID     int64
+	metadata     Metadata
+	scope        *blockScope
+	state        MutableEvalState
+	shortCircuit bool
 }
 
 func (w *astWalker) walk(node *exprpb.Expr) []Instruction {
@@ -154,16 +154,12 @@ func (w *astWalker) walkCall(node *exprpb.Expr) []Instruction {
 		for i, argGroup := range argGroups {
 			evalCount += argGroupLens[i]
 			instructions = append(instructions, argGroup...)
-			if i != argCount-1 {
-				if w.forceEval{
-					instructions = append(instructions, NewNoOp())
-				} else {
-					instructions = append(instructions,
-						NewJump(argIDs[i], instructionCount-evalCount,
-							jumpIfEqual(argIDs[i], types.Bool(function == operators.LogicalOr))))
-				}
+			if i != argCount-1 && w.shortCircuit {
+				instructions = append(instructions,
+					NewJump(argIDs[i], instructionCount-evalCount,
+						jumpIfEqual(argIDs[i], types.Bool(function == operators.LogicalOr))))
+				evalCount++
 			}
-			evalCount++
 		}
 		return append(instructions, NewCall(node.Id, call.Function, argIDs))
 
@@ -186,13 +182,13 @@ func (w *astWalker) walkCall(node *exprpb.Expr) []Instruction {
 		// 0: condition
 		instructions = append(instructions, condition...)
 		// 1: jump to <END> on undefined/error
-		instructions = append(instructions,
-			NewJump(conditionID, len(trueVal)+len(falseVal)+3,
-				jumpIfUnknownOrError(conditionID)))
+		if w.shortCircuit {
+			instructions = append(instructions,
+				NewJump(conditionID, len(trueVal)+len(falseVal)+3,
+					jumpIfUnknownOrError(conditionID)))
+		}
 		// 2: jump to <ELSE> on false.
-		if w.forceEval {
-			instructions = append(instructions, NewNoOp())
-		} else {
+		if w.shortCircuit {
 			instructions = append(instructions,
 				NewJump(conditionID, len(trueVal)+2,
 					jumpIfEqual(conditionID, types.False)))
@@ -200,9 +196,7 @@ func (w *astWalker) walkCall(node *exprpb.Expr) []Instruction {
 		// 3: <IF> expr
 		instructions = append(instructions, trueVal...)
 		// 4: jump to <END>
-		if w.forceEval {
-			instructions = append(instructions, NewNoOp())
-		} else {
+		if w.shortCircuit {
 			instructions = append(instructions,
 				NewJump(trueID, len(falseVal)+1, jumpAlways))
 		}

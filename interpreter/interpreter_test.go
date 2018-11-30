@@ -30,9 +30,11 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
-func TestCompleteInterpreter_ConditionalExpr(t *testing.T) {
+func TestExhaustiveInterpreter_ConditionalExpr(t *testing.T) {
 	// a ? b < 1.0 : c == ["hello"]
-	program := NewCompleteProgram(
+	// Operator "_==_" is at Expr 6, should be evaluated in exhaustive mode
+	// even though "a" is true
+	program := NewExhaustiveProgram(
 		test.Conditional.Expr,
 		test.Conditional.Info(t.Name()))
 
@@ -43,6 +45,7 @@ func TestCompleteInterpreter_ConditionalExpr(t *testing.T) {
 			"b": 0.999,
 			"c": types.NewStringList([]string{"hello"})}))
 	ev, _ := state.Value(6)
+	// "==" should be evaluated in exhaustive mode though unnecessary
 	if ev != types.True {
 		t.Errorf("Else expression expected to be true, got: %v", ev)
 	}
@@ -51,9 +54,38 @@ func TestCompleteInterpreter_ConditionalExpr(t *testing.T) {
 	}
 }
 
-func TestCompleteInterpreter_LogicalOrEquals(t *testing.T) {
+func TestExhaustiveInterpreter_ConditionalExprErr(t *testing.T) {
+	// a ? b < 1.0 : c == ["hello"]
+	// Operator "<" is at Expr 3, "_==_" is at Expr 6.
+	// Both should be evaluated in exhaustive mode though a is not provided
+        program := NewExhaustiveProgram(
+                test.Conditional.Expr,
+                test.Conditional.Info(t.Name()))
+
+        interpretable := interpreter.NewInterpretable(program)
+        result, state := interpretable.Eval(
+                NewActivation(map[string]interface{}{
+                        "b": 1.001,
+                        "c": types.NewStringList([]string{"hello"})}))
+	iv, _ := state.Value(3)
+	// "<" should be evaluated in exhaustive mode though unnecessary
+	if iv != types.False {
+		t.Errorf("If expression expected to be false, got: %v", iv)
+	}
+        ev, _ := state.Value(6)
+	// "==" should be evaluated in exhaustive mode though unnecessary
+        if ev != types.True {
+                t.Errorf("Else expression expected to be true, got: %v", ev)
+        }
+        if result.Type() != types.UnknownType {
+                t.Errorf("Expected unknown result, got: %v", result)
+        }
+}
+
+func TestExhaustiveInterpreter_LogicalOrEquals(t *testing.T) {
 	// a || b == "b"
-	program := NewCompleteProgram(
+	// Operator "==" is at Expr 4, should be evaluated though "a" is true
+	program := NewExhaustiveProgram(
 		test.LogicalOrEquals.Expr,
 		test.LogicalOrEquals.Info(t.Name()))
 
@@ -67,6 +99,7 @@ func TestCompleteInterpreter_LogicalOrEquals(t *testing.T) {
 			"b": "b",
 		}))
 	rhv, _ := state.Value(4)
+	// "==" should be evaluated in exhaustive mode though unnecessary
 	if rhv != types.True {
 		t.Errorf("Right hand side expression expected to be true, got: %v", rhv)
 	}
@@ -110,6 +143,7 @@ func TestInterpreter_SelectExpr(t *testing.T) {
 
 func TestInterpreter_ConditionalExpr(t *testing.T) {
 	// a ? b < 1.0 : c == ["hello"]
+	// Operator "<" is at Expr 3, "_==_" is at Expr 6.
 	program := NewProgram(
 		test.Conditional.Expr,
 		test.Conditional.Info(t.Name()))
@@ -121,6 +155,7 @@ func TestInterpreter_ConditionalExpr(t *testing.T) {
 			"b": 0.999,
 			"c": types.NewStringList([]string{"hello"})}))
 	ev, _ := state.Value(6)
+	// "_==_" should not be evaluated in normal mode since a is true
 	if ev != nil {
 		t.Errorf("Else expression expected to be nil, got: %v", ev)
 	}
@@ -197,6 +232,7 @@ func TestInterpreter_LogicalOr(t *testing.T) {
 
 func TestInterpreter_LogicalOrEquals(t *testing.T) {
 	// a || b == "b"
+	// Operator "==" is at Expr 4, should not be evaluated since "a" is true
 	program := NewProgram(
 		test.LogicalOrEquals.Expr,
 		test.LogicalOrEquals.Info(t.Name()))
@@ -211,6 +247,7 @@ func TestInterpreter_LogicalOrEquals(t *testing.T) {
 			"b": "b",
 		}))
 	rhv, _ := state.Value(4)
+	// "==" should not be evaluated in normal mode since it is unnecessary
 	if rhv != nil {
 		t.Errorf("Right hand side expression expected to be nil, got: %v", rhv)
 	}

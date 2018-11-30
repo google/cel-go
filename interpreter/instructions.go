@@ -197,21 +197,6 @@ func NewJump(exprID int64, instructionCount int, cond func(EvalState) bool) *Jum
 		OnCondition:     cond}
 }
 
-// NoOp represents a no operational placeholder.
-type NoOp struct {
-	*baseInstruction
-}
-
-// String generates pseudo-assembly for the instruction.
-func (e *NoOp) String() string {
-	return fmt.Sprintf("no-op")
-}
-
-// NewNoOp generates a NoOp.
-func NewNoOp() *NoOp {
-	return &NoOp{&baseInstruction{}}
-}
-
 // MovInst assigns the value of one expression id to another.
 type MovInst struct {
 	*baseInstruction
