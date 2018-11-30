@@ -44,6 +44,16 @@ func StandardOverloads() []*Overload {
 		{
 			Operator: operators.Conditional,
 			Function: conditional},
+		// Not strictly false: IsBool(a) ? true : true
+		{
+			Operator: operators.NotStrictlyFalse,
+			Unary: func(value ref.Value) ref.Value {
+				if types.IsBool(value) {
+					return value
+				}
+				return types.True
+			},
+		},
 
 		// Equality overloads
 		{Operator: operators.Equals,
@@ -312,7 +322,6 @@ func logicalOr(lhs ref.Value, rhs ref.Value) ref.Value {
 	if types.IsUnknown(lhs) {
 		return lhs
 	}
-
 	if types.IsUnknown(rhs) {
 		return rhs
 	}
