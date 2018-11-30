@@ -135,13 +135,8 @@ var testCases = []testInfo{
 
 	{
 		I:    `[1, "A"]`,
-		R:    `[1~int, "A"~string]~list(int)`,
-		Type: decls.NewListType(decls.Int),
-		Error: `
-ERROR: <input>:1:5: type 'string' does not match previous type 'int' in aggregate. Use 'dyn(x)' to make the aggregate dynamic.
- | [1, "A"]
- | ....^
-		`,
+		R:    `[1~int, "A"~string]~list(dyn)`,
+		Type: decls.NewListType(decls.Dyn),
 	},
 	{
 		I:    `foo`,
@@ -200,13 +195,15 @@ ERROR: <input>:1:1: undeclared reference to 'foo' (in container '')
 	},
 
 	{
-		I:    `[1, 2u] + []`,
-		Type: decls.NewListType(decls.Int),
-		Error: `
-ERROR: <input>:1:5: type 'uint' does not match previous type 'int' in aggregate. Use 'dyn(x)' to make the aggregate dynamic.
-  | [1, 2u] + []
-  | ....^
-		`,
+		I: `[1, 2u] + []`,
+		R: `_+_(
+			[
+				1~int,
+				2u~uint
+			]~list(dyn),
+			[]~list(dyn)
+		)~list(dyn)^add_list`,
+		Type: decls.NewListType(decls.Dyn),
 	},
 
 	{
@@ -221,17 +218,10 @@ ERROR: <input>:1:5: type 'uint' does not match previous type 'int' in aggregate.
 		R:    `{"a"~string : 1~int, "b"~string : 2~int}~map(string, int).a~int`,
 	},
 	{
-		I: `{1:2u, 2u:3}`,
-		Error: `
-ERROR: <input>:1:8: type 'uint' does not match previous type 'int' in aggregate. Use 'dyn(x)' to make the aggregate dynamic.
- | {1:2u, 2u:3}
- | .......^
-ERROR: <input>:1:11: type 'int' does not match previous type 'uint' in aggregate. Use 'dyn(x)' to make the aggregate dynamic.
-| {1:2u, 2u:3}
-| ..........^
-	`,
+		I:    `{1:2u, 2u:3}`,
+		Type: decls.NewMapType(decls.Dyn, decls.Dyn),
+		R:    `{1~int : 2u~uint, 2u~uint : 3~int}~map(dyn, dyn)`,
 	},
-
 	{
 		I:         `TestAllTypes{single_int32: 1, single_int64: 2}`,
 		Container: "google.api.tools.expr.test",
