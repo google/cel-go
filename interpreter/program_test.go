@@ -150,7 +150,6 @@ func TestNewProgram_Conditional(t *testing.T) {
 }
 
 func TestNewProgram_Comprehension(t *testing.T) {
-
 	program := NewProgram(
 		test.Exists.Expr,
 		test.Exists.Info(t.Name()))
