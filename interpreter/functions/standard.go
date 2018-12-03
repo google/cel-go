@@ -44,7 +44,7 @@ func StandardOverloads() []*Overload {
 		{
 			Operator: operators.Conditional,
 			Function: conditional},
-		// Not strictly false: IsBool(a) ? true : true
+		// Not strictly false: IsBool(a) ? a : true
 		{
 			Operator: operators.NotStrictlyFalse,
 			Unary: func(value ref.Value) ref.Value {

@@ -266,9 +266,9 @@ func (w *astWalker) walkComprehension(node *exprpb.Expr) []Instruction {
 	// 4: hasNext = it.hasNext()          # hasNext()?
 	// 5: jump <END> if !hasNext
 	// 6: iterVar = it.next()             # it.next()
-	// 7: loop = eval(accu, iterVar)      # loopCondition
+	// 7: loop = not_strictly_false(accu) # loopCondition
 	// 8: jump <END> if !loop
-	// 9: accu = accu && x < 10           # loopStep
+	// 9: accu = accu && iterVar < 10 # loopStep
 	// 10: jump <LOOP>
 	// <END>
 	// 11: result = accu                   # result

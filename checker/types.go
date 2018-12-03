@@ -88,6 +88,7 @@ func FormatCheckedType(t *exprpb.Type) string {
  */
 func isEqualOrLessSpecific(t1 *exprpb.Type, t2 *exprpb.Type) bool {
 	kind1, kind2 := kindOf(t1), kindOf(t2)
+	// The first type is less specific.
 	if kind1 == kindDyn || kind1 == kindTypeParam {
 		return true
 	}

@@ -62,22 +62,22 @@ var testCases = []testInfo{
 					test.ExprLiteral(5, uint64(1)),
 					test.ExprLiteral(6, float64(1.0))),
 				"__result__",
-				test.ExprLiteral(9, false),
-				test.ExprCall(12,
+				test.ExprLiteral(8, false),
+				test.ExprCall(11,
 					operators.NotStrictlyFalse,
-					test.ExprCall(10,
+					test.ExprCall(9,
 						operators.LogicalNot,
-						test.ExprIdent(11, "__result__"))),
-				test.ExprCall(13,
+						test.ExprIdent(10, "__result__"))),
+				test.ExprCall(12,
 					operators.LogicalOr,
-					test.ExprIdent(14, "__result__"),
-					test.ExprCall(15,
+					test.ExprIdent(13, "__result__"),
+					test.ExprCall(14,
 						operators.Equals,
-						test.ExprCall(16,
+						test.ExprCall(15,
 							"type",
-							test.ExprIdent(17, "x")),
-						test.ExprIdent(18, "uint"))),
-				test.ExprIdent(19, "__result__"))),
+							test.ExprIdent(16, "x")),
+						test.ExprIdent(17, "uint"))),
+				test.ExprIdent(18, "__result__"))),
 		P: `a`,
 	},
 	{
@@ -113,7 +113,7 @@ var testCases = []testInfo{
 	},
 }
 
-func Test(t *testing.T) {
+func TestPrune(t *testing.T) {
 	for _, tst := range testCases {
 		pExpr := &exprpb.ParsedExpr{Expr: tst.E}
 		program := NewProgram(pExpr.Expr, pExpr.SourceInfo)

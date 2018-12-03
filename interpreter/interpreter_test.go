@@ -167,79 +167,42 @@ func TestInterpreter_ConditionalExpr(t *testing.T) {
 }
 
 func TestInterpreter_ComprehensionExpr(t *testing.T) {
-	parsed, errors := parser.ParseText("[1, 1u, 1.0].exists(x, type(x) == uint)")
-	if len(errors.GetErrors()) != 0 {
-		t.Errorf(errors.ToDisplayString())
-	}
-	pgrm := NewProgram(parsed.Expr, parsed.SourceInfo)
-	eval := interpreter.NewInterpretable(pgrm)
-	// TODO: make the type identifiers part of the standard declaration set.
-	result, _ := eval.Eval(emptyActivation)
+	result, _ := evalExpr(t, "[1, 1u, 1.0].exists(x, type(x) == uint)")
 	if result != types.True {
 		t.Errorf("Got %v, wanted true", result)
 	}
 }
 
 func TestInterpreter_NonStrictExistsComprehension(t *testing.T) {
-	parsed, errors := parser.ParseText("[0, 2, 4].exists(x, 4/x == 2 && 4/(4-x) == 2)")
-	if len(errors.GetErrors()) != 0 {
-		t.Errorf(errors.ToDisplayString())
-	}
-	pgrm := NewProgram(parsed.Expr, parsed.SourceInfo)
-	eval := interpreter.NewInterpretable(pgrm)
-	result, _ := eval.Eval(emptyActivation)
+	result, _ := evalExpr(t, "[0, 2, 4].exists(x, 4/x == 2 && 4/(4-x) == 2)")
 	if result != types.True {
 		t.Errorf("Got %v, wanted true", result)
 	}
 }
 
 func TestInterpreter_NonStrictAllComprehension(t *testing.T) {
-	parsed, errors := parser.ParseText("![0, 2, 4].all(x, 4/x != 2 && 4/(4-x) != 2)")
-	if len(errors.GetErrors()) != 0 {
-		t.Errorf(errors.ToDisplayString())
-	}
-	pgrm := NewProgram(parsed.Expr, parsed.SourceInfo)
-	eval := interpreter.NewInterpretable(pgrm)
-	result, _ := eval.Eval(emptyActivation)
+	result, _ := evalExpr(t, "![0, 2, 4].all(x, 4/x != 2 && 4/(4-x) != 2)")
 	if result != types.True {
 		t.Errorf("Got %v, wanted true", result)
 	}
 }
 
 func TestInterpreter_ExistsOne(t *testing.T) {
-	parsed, errors := parser.ParseText("[1, 2, 3].exists_one(x, x % 2 == 0)")
-	if len(errors.GetErrors()) != 0 {
-		t.Errorf(errors.ToDisplayString())
-	}
-	pgrm := NewProgram(parsed.Expr, parsed.SourceInfo)
-	eval := interpreter.NewInterpretable(pgrm)
-	result, _ := eval.Eval(emptyActivation)
+	result, _ := evalExpr(t, "[1, 2, 3].exists_one(x, x % 2 == 0)")
 	if result != types.True {
 		t.Errorf("Got %v, wanted true", result)
 	}
 }
 
 func TestInterpreter_Map(t *testing.T) {
-	parsed, errors := parser.ParseText("[1, 2, 3].map(x, x * 2) == [2, 4, 6]")
-	if len(errors.GetErrors()) != 0 {
-		t.Errorf(errors.ToDisplayString())
-	}
-	pgrm := NewProgram(parsed.Expr, parsed.SourceInfo)
-	eval := interpreter.NewInterpretable(pgrm)
-	result, _ := eval.Eval(emptyActivation)
+	result, _ := evalExpr(t, "[1, 2, 3].map(x, x * 2) == [2, 4, 6]")
 	if result != types.True {
 		t.Errorf("Got %v, wanted true", result)
 	}
 }
 
 func TestInterpreter_Filter(t *testing.T) {
-	parsed, errors := parser.ParseText("[1, 2, 3].filter(x, x > 2) == [3]")
-	if len(errors.GetErrors()) != 0 {
-		t.Errorf(errors.ToDisplayString())
-	}
-	pgrm := NewProgram(parsed.Expr, parsed.SourceInfo)
-	eval := interpreter.NewInterpretable(pgrm)
-	result, _ := eval.Eval(emptyActivation)
+	result, _ := evalExpr(t, "[1, 2, 3].filter(x, x > 2) == [3]")
 	if result != types.True {
 		t.Errorf("Got %v, wanted true", result)
 	}
@@ -519,3 +482,14 @@ var (
 		types.NewProvider(&exprpb.ParsedExpr{}))
 	emptyActivation = NewActivation(map[string]interface{}{})
 )
+
+func evalExpr(t *testing.T, src string) (ref.Value, EvalState) {
+	t.Helper()
+	parsed, errors := parser.ParseText(src)
+	if len(errors.GetErrors()) != 0 {
+		t.Errorf(errors.ToDisplayString())
+	}
+	pgrm := NewProgram(parsed.Expr, parsed.SourceInfo)
+	eval := interpreter.NewInterpretable(pgrm)
+	return eval.Eval(emptyActivation)
+}
