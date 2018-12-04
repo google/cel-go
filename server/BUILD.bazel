@@ -32,8 +32,8 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = ["server_test.go"],
-    args = ["$(location :cel_server)"],
-    data = [":cel_server"],
+    args = ["$(location //server/agent:agent)"],
+    data = ["//server/agent:agent"],
     rundir = ".",
     deps = [
         ":go_default_library",
@@ -43,15 +43,4 @@ go_test(
         "@org_golang_google_genproto//googleapis/api/expr/v1alpha1:go_default_library",
         "@org_golang_google_genproto//googleapis/rpc/status:go_default_library",
     ] + GRPC_COMPILE_DEPS,
-)
-
-go_binary(
-    name = "cel_server",
-    srcs = ["main.go"],
-    deps = [
-        "//server:go_default_library",
-        "@org_golang_google_grpc//reflection:go_default_library",
-        "@org_golang_google_genproto//googleapis/api/expr/v1alpha1:go_default_library",
-    ] + GRPC_COMPILE_DEPS,
-    out = "cel_server",
 )
