@@ -92,6 +92,7 @@ func NewProgram(expression *exprpb.Expr,
 // NewExhaustiveProgram creates a Program from a CEL expression and source
 // information which force evaluating all branches of the expression.
 func NewExhaustiveProgram(expression *exprpb.Expr,
+	// TODO: also disable short circuit in comprehensions.
 	info *exprpb.SourceInfo) Program {
 	revInstructions := make(map[int64]int)
 	return &exprProgram{
