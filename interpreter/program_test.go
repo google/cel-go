@@ -22,6 +22,59 @@ import (
 	"github.com/google/cel-go/test"
 )
 
+func TestNewExhaustiveProgram_LogicalOr(t *testing.T) {
+	program := NewExhaustiveProgram(
+		test.LogicalOr.Expr,
+		test.LogicalOr.Info(t.Name()))
+	if loc, found := program.Metadata().IDLocation(1); found {
+		t.Errorf("Unexpected location found: %v", loc)
+	}
+	state := NewEvalState(program.MaxInstructionID() + 1)
+	program.Init(dispatcher(), state)
+	if _, hasNext := program.Begin().Next(); !hasNext {
+		t.Error("Expected a step in program, but found none")
+	}
+	fmt.Printf("%s\n%s\n\n", t.Name(), program)
+
+	expected := "TestNewExhaustiveProgram_LogicalOr\n" +
+		"0: mov   map(map[6:7]), r5\n" +
+		"1: call  select(5, 'c'), r8\n" +
+		"2: local 'a', r1\n" +
+		"3: call  _||_(r8, r1), r2\n\n"
+	actual := fmt.Sprintf("%s\n%s\n\n", t.Name(), program)
+	if actual != expected {
+		t.Errorf("program did not compile as expected. actual: %v\nexpected: %v",
+			actual, expected)
+	}
+}
+
+func TestNewExhaustiveProgram_Conditional(t *testing.T) {
+	program := NewExhaustiveProgram(
+		test.Conditional.Expr,
+		test.Conditional.Info(t.Name()))
+	if loc, found := program.Metadata().IDLocation(1); found {
+		t.Errorf("Unexpected location found: %v", loc)
+	}
+	state := NewEvalState(program.MaxInstructionID() + 1)
+	program.Init(dispatcher(), state)
+	if _, hasNext := program.Begin().Next(); !hasNext {
+		t.Error("Expected a step in program, but found none")
+	}
+	expected := "TestNewExhaustiveProgram_Conditional\n" +
+		"0: local 'a', r1\n" +
+		"1: local 'b', r2\n" +
+		"2: call  _<_(r2, r4), r3\n" +
+		"3: local 'c', r5\n" +
+		"4: mov   list([7]), r8\n" +
+		"5: call  _==_(r5, r8), r6\n" +
+		"6: call  _?_:_(r1, r3, r6), r9\n\n"
+	actual := fmt.Sprintf("%s\n%s\n\n", t.Name(), program)
+	if actual != expected {
+		t.Errorf("program did not compile as expected. actual: %v\nexpected: %v",
+			actual, expected)
+	}
+}
+
 func TestNewProgram_Empty(t *testing.T) {
 	program := NewProgram(
 		test.Empty.Expr,

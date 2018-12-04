@@ -30,6 +30,84 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
+func TestExhaustiveInterpreter_ConditionalExpr(t *testing.T) {
+	// a ? b < 1.0 : c == ["hello"]
+	// Operator "_==_" is at Expr 6, should be evaluated in exhaustive mode
+	// even though "a" is true
+	program := NewExhaustiveProgram(
+		test.Conditional.Expr,
+		test.Conditional.Info(t.Name()))
+
+	interpretable := interpreter.NewInterpretable(program)
+	result, state := interpretable.Eval(
+		NewActivation(map[string]interface{}{
+			"a": true,
+			"b": 0.999,
+			"c": types.NewStringList([]string{"hello"})}))
+	ev, _ := state.Value(6)
+	// "==" should be evaluated in exhaustive mode though unnecessary
+	if ev != types.True {
+		t.Errorf("Else expression expected to be true, got: %v", ev)
+	}
+	if result != types.True {
+		t.Errorf("Expected true, got: %v", result)
+	}
+}
+
+func TestExhaustiveInterpreter_ConditionalExprErr(t *testing.T) {
+	// a ? b < 1.0 : c == ["hello"]
+	// Operator "<" is at Expr 3, "_==_" is at Expr 6.
+	// Both should be evaluated in exhaustive mode though a is not provided
+        program := NewExhaustiveProgram(
+                test.Conditional.Expr,
+                test.Conditional.Info(t.Name()))
+
+        interpretable := interpreter.NewInterpretable(program)
+        result, state := interpretable.Eval(
+                NewActivation(map[string]interface{}{
+                        "b": 1.001,
+                        "c": types.NewStringList([]string{"hello"})}))
+	iv, _ := state.Value(3)
+	// "<" should be evaluated in exhaustive mode though unnecessary
+	if iv != types.False {
+		t.Errorf("If expression expected to be false, got: %v", iv)
+	}
+        ev, _ := state.Value(6)
+	// "==" should be evaluated in exhaustive mode though unnecessary
+        if ev != types.True {
+                t.Errorf("Else expression expected to be true, got: %v", ev)
+        }
+        if result.Type() != types.UnknownType {
+                t.Errorf("Expected unknown result, got: %v", result)
+        }
+}
+
+func TestExhaustiveInterpreter_LogicalOrEquals(t *testing.T) {
+	// a || b == "b"
+	// Operator "==" is at Expr 4, should be evaluated though "a" is true
+	program := NewExhaustiveProgram(
+		test.LogicalOrEquals.Expr,
+		test.LogicalOrEquals.Info(t.Name()))
+
+	// TODO: make the type identifiers part of the standard declaration set.
+	provider := types.NewProvider(&exprpb.Expr{})
+	i := NewStandardInterpreter(packages.NewPackage("test"), provider)
+	interpretable := i.NewInterpretable(program)
+	result, state := interpretable.Eval(
+		NewActivation(map[string]interface{}{
+			"a": true,
+			"b": "b",
+		}))
+	rhv, _ := state.Value(4)
+	// "==" should be evaluated in exhaustive mode though unnecessary
+	if rhv != types.True {
+		t.Errorf("Right hand side expression expected to be true, got: %v", rhv)
+	}
+	if result != types.True {
+		t.Errorf("Expected true, got: %v", result)
+	}
+}
+
 func TestInterpreter_CallExpr(t *testing.T) {
 	program := NewProgram(
 		test.Equality.Expr,
@@ -65,15 +143,22 @@ func TestInterpreter_SelectExpr(t *testing.T) {
 
 func TestInterpreter_ConditionalExpr(t *testing.T) {
 	// a ? b < 1.0 : c == ["hello"]
+	// Operator "<" is at Expr 3, "_==_" is at Expr 6.
 	program := NewProgram(
 		test.Conditional.Expr,
 		test.Conditional.Info(t.Name()))
 
 	interpretable := interpreter.NewInterpretable(program)
-	result, _ := interpretable.Eval(
+	result, state := interpretable.Eval(
 		NewActivation(map[string]interface{}{
 			"a": true,
-			"b": 0.999}))
+			"b": 0.999,
+			"c": types.NewStringList([]string{"hello"})}))
+	ev, _ := state.Value(6)
+	// "_==_" should not be evaluated in normal mode since a is true
+	if ev != nil {
+		t.Errorf("Else expression expected to be nil, got: %v", ev)
+	}
 	if result != types.True {
 		t.Errorf("Expected true, got: %v", result)
 	}
@@ -147,6 +232,7 @@ func TestInterpreter_LogicalOr(t *testing.T) {
 
 func TestInterpreter_LogicalOrEquals(t *testing.T) {
 	// a || b == "b"
+	// Operator "==" is at Expr 4, should not be evaluated since "a" is true
 	program := NewProgram(
 		test.LogicalOrEquals.Expr,
 		test.LogicalOrEquals.Info(t.Name()))
@@ -155,15 +241,19 @@ func TestInterpreter_LogicalOrEquals(t *testing.T) {
 	provider := types.NewProvider(&exprpb.Expr{})
 	i := NewStandardInterpreter(packages.NewPackage("test"), provider)
 	interpretable := i.NewInterpretable(program)
-	result, _ := interpretable.Eval(
+	result, state := interpretable.Eval(
 		NewActivation(map[string]interface{}{
 			"a": true,
 			"b": "b",
 		}))
+	rhv, _ := state.Value(4)
+	// "==" should not be evaluated in normal mode since it is unnecessary
+	if rhv != nil {
+		t.Errorf("Right hand side expression expected to be nil, got: %v", rhv)
+	}
 	if result != types.True {
 		t.Errorf("Expected true, got: %v", result)
 	}
-
 }
 
 func TestInterpreter_BuildObject(t *testing.T) {
