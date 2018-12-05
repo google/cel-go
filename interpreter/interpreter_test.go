@@ -60,28 +60,28 @@ func TestExhaustiveInterpreter_ConditionalExprErr(t *testing.T) {
 	// a ? b < 1.0 : c == ["hello"]
 	// Operator "<" is at Expr 3, "_==_" is at Expr 6.
 	// Both should be evaluated in exhaustive mode though a is not provided
-        program := NewExhaustiveProgram(
-                test.Conditional.Expr,
-                test.Conditional.Info(t.Name()))
+	program := NewExhaustiveProgram(
+		test.Conditional.Expr,
+		test.Conditional.Info(t.Name()))
 
-        interpretable := interpreter.NewInterpretable(program)
-        result, state := interpretable.Eval(
-                NewActivation(map[string]interface{}{
-                        "b": 1.001,
-                        "c": types.NewStringList([]string{"hello"})}))
+	interpretable := interpreter.NewInterpretable(program)
+	result, state := interpretable.Eval(
+		NewActivation(map[string]interface{}{
+			"b": 1.001,
+			"c": types.NewStringList([]string{"hello"})}))
 	iv, _ := state.Value(3)
 	// "<" should be evaluated in exhaustive mode though unnecessary
 	if iv != types.False {
 		t.Errorf("If expression expected to be false, got: %v", iv)
 	}
-        ev, _ := state.Value(6)
+	ev, _ := state.Value(6)
 	// "==" should be evaluated in exhaustive mode though unnecessary
-        if ev != types.True {
-                t.Errorf("Else expression expected to be true, got: %v", ev)
-        }
-        if result.Type() != types.UnknownType {
-                t.Errorf("Expected unknown result, got: %v", result)
-        }
+	if ev != types.True {
+		t.Errorf("Else expression expected to be true, got: %v", ev)
+	}
+	if result.Type() != types.UnknownType {
+		t.Errorf("Expected unknown result, got: %v", result)
+	}
 }
 
 func TestExhaustiveInterpreter_LogicalOrEquals(t *testing.T) {
@@ -485,7 +485,8 @@ var (
 
 func evalExpr(t *testing.T, src string) (ref.Value, EvalState) {
 	t.Helper()
-	parsed, errors := parser.ParseText(src)
+	s := common.NewTextSource(src)
+	parsed, errors := parser.Parse(s)
 	if len(errors.GetErrors()) != 0 {
 		t.Errorf(errors.ToDisplayString())
 	}
