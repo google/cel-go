@@ -48,7 +48,7 @@ func StandardOverloads() []*Overload {
 		{
 			Operator: operators.NotStrictlyFalse,
 			Unary:    notStrictlyFalse},
-		// Deprecated: not strictly false, may be overriden in the environment.
+		// Deprecated: not strictly false, may be overridden in the environment.
 		{
 			Operator: operators.OldNotStrictlyFalse,
 			Unary:    notStrictlyFalse},
@@ -184,7 +184,7 @@ func StandardOverloads() []*Overload {
 
 		// In operator
 		{Operator: operators.In, Binary: inAggregate},
-		// Deprecated: in operator, may be overriden in the environment.
+		// Deprecated: in operator, may be overridden in the environment.
 		{Operator: operators.OldIn, Binary: inAggregate},
 
 		// Matches function
