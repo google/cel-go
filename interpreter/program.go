@@ -124,11 +124,16 @@ func (p *exprProgram) Init(dispatcher Dispatcher, state MutableEvalState) {
 }
 
 func (p *exprProgram) MaxInstructionID() int64 {
-	// The max instruction id is computed as the highest expression id + 1
-	// combined with the number of comprehensions times two. Each comprehension
-	// introduces two generated ids (one for an iterator and one for current
-	// iterator value) once the program is initialized.
-	return maxID(p.expression) + comprehensionCount(p.expression)*2
+	// The max instruction id is the highest expression id in the program,
+	// plus the count of the internal variables allocated for comprehensions.
+	//
+	// A comprehension allocates an id for each of the following:
+	// - iterator
+	// - hasNext() result
+	// - iterVar
+	//
+	// The maxID is thus, the max input id + comprehension count * 3
+	return maxID(p.expression) + comprehensionCount(p.expression)*3
 }
 
 func (p *exprProgram) Metadata() Metadata {
