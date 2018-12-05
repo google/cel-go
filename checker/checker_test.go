@@ -692,86 +692,89 @@ ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, nul
 				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
 			},
 		},
-		R: `
-		_&&_(
-    		  _&&_(
-    		    __comprehension__(
-    		      // Variable
-    		      e,
-    		      // Target
-    		      x~google.api.tools.expr.test.TestAllTypes^x.repeated_int64~list(int),
-    		      // Accumulator
-    		      __result__,
-    		      // Init
-    		      true~bool,
-    		      // LoopCondition
-    		      __result__~bool^__result__,
-    		      // LoopStep
-    		      _&&_(
-    		        __result__~bool^__result__,
-    		        _>_(
-    		          e~int^e,
-    		          0~int
-    		        )~bool^greater_int64
-    		      )~bool^logical_and,
-    		      // Result
-    		      __result__~bool^__result__)~bool,
-    		    __comprehension__(
-    		      // Variable
-    		      e,
-    		      // Target
-    		      x~google.api.tools.expr.test.TestAllTypes^x.repeated_int64~list(int),
-    		      // Accumulator
-    		      __result__,
-    		      // Init
-    		      false~bool,
-    		      // LoopCondition
-    		      !_(
-    		        __result__~bool^__result__
-    		      )~bool^logical_not,
-    		      // LoopStep
-    		      _||_(
-    		        __result__~bool^__result__,
-    		        _<_(
-    		          e~int^e,
-    		          0~int
-    		        )~bool^less_int64
-    		      )~bool^logical_or,
-    		      // Result
-    		      __result__~bool^__result__)~bool
-    		  )~bool^logical_and,
-    		  __comprehension__(
-    		    // Variable
-    		    e,
-    		    // Target
-    		    x~google.api.tools.expr.test.TestAllTypes^x.repeated_int64~list(int),
-    		    // Accumulator
-    		    __result__,
-    		    // Init
-    		    0~int,
-    		    // LoopCondition
-    		    _<=_(
-    		      __result__~int^__result__,
-    		      1~int
-    		    )~bool^less_equals_int64,
-    		    // LoopStep
-    		    _?_:_(
-    		      _==_(
-    		        e~int^e,
-    		        0~int
-    		      )~bool^equals,
-    		      _+_(
-    		        __result__~int^__result__,
-    		        1~int
-    		      )~int^add_int64,
-    		      __result__~int^__result__
-    		    )~int^conditional,
-    		    // Result
-    		    _==_(
-    		      __result__~int^__result__,
-    		      1~int
-    		    )~bool^equals)~bool
-    		)~bool^logical_and`,
+		R: `_&&_(
+			_&&_(
+			  __comprehension__(
+				// Variable
+				e,
+				// Target
+				x~google.api.tools.expr.test.TestAllTypes^x.repeated_int64~list(int),
+				// Accumulator
+				__result__,
+				// Init
+				true~bool,
+				// LoopCondition
+				@not_strictly_false(
+				  __result__~bool^__result__
+				)~bool^not_strictly_false,
+				// LoopStep
+				_&&_(
+				  __result__~bool^__result__,
+				  _>_(
+					e~int^e,
+					0~int
+				  )~bool^greater_int64
+				)~bool^logical_and,
+				// Result
+				__result__~bool^__result__)~bool,
+			  __comprehension__(
+				// Variable
+				e,
+				// Target
+				x~google.api.tools.expr.test.TestAllTypes^x.repeated_int64~list(int),
+				// Accumulator
+				__result__,
+				// Init
+				false~bool,
+				// LoopCondition
+				@not_strictly_false(
+				  !_(
+					__result__~bool^__result__
+				  )~bool^logical_not
+				)~bool^not_strictly_false,
+				// LoopStep
+				_||_(
+				  __result__~bool^__result__,
+				  _<_(
+					e~int^e,
+					0~int
+				  )~bool^less_int64
+				)~bool^logical_or,
+				// Result
+				__result__~bool^__result__)~bool
+			)~bool^logical_and,
+			__comprehension__(
+			  // Variable
+			  e,
+			  // Target
+			  x~google.api.tools.expr.test.TestAllTypes^x.repeated_int64~list(int),
+			  // Accumulator
+			  __result__,
+			  // Init
+			  0~int,
+			  // LoopCondition
+			  _<=_(
+				__result__~int^__result__,
+				1~int
+			  )~bool^less_equals_int64,
+			  // LoopStep
+			  _?_:_(
+				_==_(
+				  e~int^e,
+				  0~int
+				)~bool^equals,
+				_+_(
+				  __result__~int^__result__,
+				  1~int
+				)~int^add_int64,
+				__result__~int^__result__
+			  )~int^conditional,
+			  // Result
+			  _==_(
+				__result__~int^__result__,
+				1~int
+			  )~bool^equals)~bool
+		  )~bool^logical_and`,
 		Type: decls.Bool,
 	},
 
@@ -911,7 +914,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 
 	{
 		I: `1 in [1, 2, 3]`,
-		R: `_in_(
+		R: `@in(
     		  1~int,
     		  [
     		    1~int,

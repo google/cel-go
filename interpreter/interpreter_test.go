@@ -60,28 +60,28 @@ func TestExhaustiveInterpreter_ConditionalExprErr(t *testing.T) {
 	// a ? b < 1.0 : c == ["hello"]
 	// Operator "<" is at Expr 3, "_==_" is at Expr 6.
 	// Both should be evaluated in exhaustive mode though a is not provided
-        program := NewExhaustiveProgram(
-                test.Conditional.Expr,
-                test.Conditional.Info(t.Name()))
+	program := NewExhaustiveProgram(
+		test.Conditional.Expr,
+		test.Conditional.Info(t.Name()))
 
-        interpretable := interpreter.NewInterpretable(program)
-        result, state := interpretable.Eval(
-                NewActivation(map[string]interface{}{
-                        "b": 1.001,
-                        "c": types.NewStringList([]string{"hello"})}))
+	interpretable := interpreter.NewInterpretable(program)
+	result, state := interpretable.Eval(
+		NewActivation(map[string]interface{}{
+			"b": 1.001,
+			"c": types.NewStringList([]string{"hello"})}))
 	iv, _ := state.Value(3)
 	// "<" should be evaluated in exhaustive mode though unnecessary
 	if iv != types.False {
 		t.Errorf("If expression expected to be false, got: %v", iv)
 	}
-        ev, _ := state.Value(6)
+	ev, _ := state.Value(6)
 	// "==" should be evaluated in exhaustive mode though unnecessary
-        if ev != types.True {
-                t.Errorf("Else expression expected to be true, got: %v", ev)
-        }
-        if result.Type() != types.UnknownType {
-                t.Errorf("Expected unknown result, got: %v", result)
-        }
+	if ev != types.True {
+		t.Errorf("Else expression expected to be true, got: %v", ev)
+	}
+	if result.Type() != types.UnknownType {
+		t.Errorf("Expected unknown result, got: %v", result)
+	}
 }
 
 func TestExhaustiveInterpreter_LogicalOrEquals(t *testing.T) {
@@ -167,17 +167,44 @@ func TestInterpreter_ConditionalExpr(t *testing.T) {
 }
 
 func TestInterpreter_ComprehensionExpr(t *testing.T) {
-	// [1, 1u, 1.0].exists(x, type(x) == uint)
-	program := NewProgram(
-		test.Exists.Expr,
-		test.Exists.Info(t.Name()))
-
-	interpretable := interpreter.NewInterpretable(program)
-	// TODO: make the type identifiers part of the standard declaration set.
-	result, _ := interpretable.Eval(
-		NewActivation(map[string]interface{}{}))
+	result, _ := evalExpr(t, "[1, 1u, 1.0].exists(x, type(x) == uint)")
 	if result != types.True {
-		t.Errorf("Expected true, got: %v", result)
+		t.Errorf("Got %v, wanted true", result)
+	}
+}
+
+func TestInterpreter_NonStrictExistsComprehension(t *testing.T) {
+	result, _ := evalExpr(t, "[0, 2, 4].exists(x, 4/x == 2 && 4/(4-x) == 2)")
+	if result != types.True {
+		t.Errorf("Got %v, wanted true", result)
+	}
+}
+
+func TestInterpreter_NonStrictAllComprehension(t *testing.T) {
+	result, _ := evalExpr(t, "![0, 2, 4].all(x, 4/x != 2 && 4/(4-x) != 2)")
+	if result != types.True {
+		t.Errorf("Got %v, wanted true", result)
+	}
+}
+
+func TestInterpreter_ExistsOne(t *testing.T) {
+	result, _ := evalExpr(t, "[1, 2, 3].exists_one(x, x % 2 == 0)")
+	if result != types.True {
+		t.Errorf("Got %v, wanted true", result)
+	}
+}
+
+func TestInterpreter_Map(t *testing.T) {
+	result, _ := evalExpr(t, "[1, 2, 3].map(x, x * 2) == [2, 4, 6]")
+	if result != types.True {
+		t.Errorf("Got %v, wanted true", result)
+	}
+}
+
+func TestInterpreter_Filter(t *testing.T) {
+	result, _ := evalExpr(t, "[1, 2, 3].filter(x, x > 2) == [3]")
+	if result != types.True {
+		t.Errorf("Got %v, wanted true", result)
 	}
 }
 
@@ -278,7 +305,7 @@ func TestInterpreter_BuildObject(t *testing.T) {
 
 	i := NewStandardInterpreter(pkgr, provider)
 	eval := i.NewInterpretable(NewCheckedProgram(checked))
-	result, _ := eval.Eval(NewActivation(map[string]interface{}{}))
+	result, _ := eval.Eval(emptyActivation)
 	expected := &exprpb.Expr{Id: 1,
 		ExprKind: &exprpb.Expr_ConstExpr{
 			ConstExpr: &exprpb.Constant{
@@ -298,7 +325,7 @@ func TestInterpreter_ConstantReturnValue(t *testing.T) {
 	}
 	prg := NewProgram(parsed.GetExpr(), parsed.GetSourceInfo())
 	i := interpreter.NewInterpretable(prg)
-	res, _ := i.Eval(NewActivation(map[string]interface{}{}))
+	res, _ := i.Eval(emptyActivation)
 	if int64(res.(types.Int)) != int64(1) {
 		t.Errorf("Got '%v', wanted 1", res)
 	}
@@ -311,7 +338,7 @@ func TestInterpreter_InList(t *testing.T) {
 	}
 	prg := NewProgram(parsed.GetExpr(), parsed.GetSourceInfo())
 	i := interpreter.NewInterpretable(prg)
-	res, _ := i.Eval(NewActivation(map[string]interface{}{}))
+	res, _ := i.Eval(emptyActivation)
 	if res != types.True {
 		t.Errorf("Got '%v', wanted 'true'", res)
 	}
@@ -340,7 +367,7 @@ func TestInterpreter_MapIndex(t *testing.T) {
 	}
 	prg := NewProgram(parsed.GetExpr(), parsed.GetSourceInfo())
 	i := interpreter.NewInterpretable(prg)
-	res, _ := i.Eval(NewActivation(map[string]interface{}{}))
+	res, _ := i.Eval(emptyActivation)
 	if res != types.Int(1) {
 		t.Errorf("Got '%v', wanted 1", res)
 	}
@@ -431,9 +458,8 @@ func BenchmarkInterpreter_ComprehensionExpr(b *testing.B) {
 		test.Exists.Expr,
 		test.Exists.Info(b.Name()))
 	interpretable := interpreter.NewInterpretable(program)
-	activation := NewActivation(map[string]interface{}{})
 	for i := 0; i < b.N; i++ {
-		interpretable.Eval(activation)
+		interpretable.Eval(emptyActivation)
 	}
 }
 
@@ -454,4 +480,17 @@ var (
 	interpreter = NewStandardInterpreter(
 		packages.DefaultPackage,
 		types.NewProvider(&exprpb.ParsedExpr{}))
+	emptyActivation = NewActivation(map[string]interface{}{})
 )
+
+func evalExpr(t *testing.T, src string) (ref.Value, EvalState) {
+	t.Helper()
+	s := common.NewTextSource(src)
+	parsed, errors := parser.Parse(s)
+	if len(errors.GetErrors()) != 0 {
+		t.Errorf(errors.ToDisplayString())
+	}
+	pgrm := NewProgram(parsed.Expr, parsed.SourceInfo)
+	eval := interpreter.NewInterpretable(pgrm)
+	return eval.Eval(emptyActivation)
+}

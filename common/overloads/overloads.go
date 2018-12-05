@@ -22,6 +22,7 @@ const (
 	LogicalAnd             = "logical_and"
 	LogicalOr              = "logical_or"
 	LogicalNot             = "logical_not"
+	NotStrictlyFalse       = "not_strictly_false"
 	Equals                 = "equals"
 	NotEquals              = "not_equals"
 	LessBool               = "less_bool"

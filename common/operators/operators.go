@@ -19,11 +19,11 @@ package operators
 
 // String "names" for CEL operators.
 const (
+	// Symbolic operators.
 	Conditional   = "_?_:_"
 	LogicalAnd    = "_&&_"
 	LogicalOr     = "_||_"
 	LogicalNot    = "!_"
-	In            = "_in_"
 	Equals        = "_==_"
 	NotEquals     = "_!=_"
 	Less          = "_<_"
@@ -37,12 +37,22 @@ const (
 	Modulo        = "_%_"
 	Negate        = "-_"
 	Index         = "_[_]"
-	Has           = "has"
-	All           = "all"
-	Exists        = "exists"
-	ExistsOne     = "exists_one"
-	Map           = "map"
-	Filter        = "filter"
+
+	// Macros, must have a valid identifier.
+	Has       = "has"
+	All       = "all"
+	Exists    = "exists"
+	ExistsOne = "exists_one"
+	Map       = "map"
+	Filter    = "filter"
+
+	// Named operators, must not have be valid identifiers.
+	NotStrictlyFalse = "@not_strictly_false"
+	In               = "@in"
+
+	// Deprecated: named operators with valid identifiers.
+	OldNotStrictlyFalse = "__not_strictly_false__"
+	OldIn               = "_in_"
 )
 
 var operators = map[string]string{

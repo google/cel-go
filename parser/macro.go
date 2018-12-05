@@ -162,12 +162,14 @@ func makeQuantifier(kind quantifierKind, p *parserHelper, ctx interface{}, targe
 	switch kind {
 	case quantifierAll:
 		init = p.newLiteralBool(ctx, true)
-		condition = accuIdent()
+		condition = p.newGlobalCall(ctx, operators.NotStrictlyFalse, accuIdent())
 		step = p.newGlobalCall(ctx, operators.LogicalAnd, accuIdent(), args[1])
 		result = accuIdent()
 	case quantifierExists:
 		init = p.newLiteralBool(ctx, false)
-		condition = p.newGlobalCall(ctx, operators.LogicalNot, accuIdent())
+		condition = p.newGlobalCall(ctx,
+			operators.NotStrictlyFalse,
+			p.newGlobalCall(ctx, operators.LogicalNot, accuIdent()))
 		step = p.newGlobalCall(ctx, operators.LogicalOr, accuIdent(), args[1])
 		result = accuIdent()
 	case quantifierExistsOne:

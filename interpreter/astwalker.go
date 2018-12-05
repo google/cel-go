@@ -262,14 +262,18 @@ func (w *astWalker) walkComprehension(node *exprpb.Expr) []Instruction {
 	// 1: push-scope accu, iterVar, it
 	// 2: accu = true                     # init
 	// 3: it = list.iterator()            # iterator()
-	// 4: iterVar = it.next()             # it.next()
-	// 5: <LOOP> accu                     # loopCondition
-	// 6: jump <END> if !accu
-	// 7: accu = accu && x < 10           # loopStep
-	// 8: jump <LOOP>
-	// 9: result = accu                   # result
-	// 10: comp = result
-	// 11: pop-scope
+	// <LOOP>
+	// 4: hasNext = it.hasNext()          # hasNext()?
+	// 5: jump <END> if !hasNext
+	// 6: iterVar = it.next()             # it.next()
+	// 7: loop = not_strictly_false(accu) # loopCondition
+	// 8: jump <END> if !loop
+	// 9: accu = accu && iterVar < 10 # loopStep
+	// 10: jump <LOOP>
+	// <END>
+	// 11: result = accu                   # result
+	// 12: comp = result
+	// 13: pop-scope
 	comprehensionExpr := node.GetComprehensionExpr()
 	comprehensionRange := comprehensionExpr.GetIterRange()
 	comprehensionAccu := comprehensionExpr.GetAccuInit()
@@ -309,7 +313,7 @@ func (w *astWalker) walkComprehension(node *exprpb.Expr) []Instruction {
 	// Loop instruction breakdown
 	// 1:                       <LOOP> it.hasNext()
 	// 2:                       jmpif false, <END>
-	// 3+len(cond):             x = it.next()
+	// 3:                       x = it.next()
 	// 3+len(cond):             <cond>
 	// 4+len(cond):             jmpif false, <END>
 	// 4+len(cond)+len(step):   <step>
@@ -317,10 +321,16 @@ func (w *astWalker) walkComprehension(node *exprpb.Expr) []Instruction {
 	// 6+len(cond)+len(step):   jmp LOOP
 	// 7+len(cond)+len(step)    <result>
 	// <END>
-	// loop-condition and step, +len(condSteps), +len(stepSteps)
 	loopConditionSteps := w.walk(comprehensionLoop)
-	loopStepSteps := w.walk(comprehensionStep)
-	loopInstructionCount := 7 + len(loopConditionSteps) + len(loopStepSteps)
+	loopBodySteps := w.walk(comprehensionStep)
+	// Add 4 steps to the loopBody to account for:
+	// - fetching the next item from the range
+	// - conditional jump to terminate the loop based on __result__
+	// - update of the __result__ based on the loop step.
+	// - jump to repeat the loop
+	loopBodyInstructionCount := 4 + len(loopBodySteps)
+	// Add 1 step to account for the jump computation based on the condition.
+	loopInstructionCount := 1 + len(loopConditionSteps) + loopBodyInstructionCount
 
 	// iter-hasNext
 	iterHasNextID := w.nextExprID()
@@ -328,19 +338,19 @@ func (w *astWalker) walkComprehension(node *exprpb.Expr) []Instruction {
 		NewCall(iterHasNextID, overloads.HasNext, []int64{iteratorID})
 	// jump <END> if !it.hasNext()
 	jumpIterEndStep :=
-		NewJump(iterHasNextID, loopInstructionCount-2, breakIfEnd(iterHasNextID))
+		NewJump(iterHasNextID, loopInstructionCount, breakIfEnd(iterHasNextID))
 	// eval x = it.next()
 	// eval <cond>
 	// jump <END> if condition false
 	jumpConditionFalseStep :=
-		NewJump(loopID, loopInstructionCount-4, jumpIfEqual(loopID, types.False))
+		NewJump(loopID, loopBodyInstructionCount, jumpIfEqual(loopID, types.False))
 
 	// iter-next
 	nextIterVarStep := NewCall(iterNextID, overloads.Next, []int64{iteratorID})
 	// assign the loop-step to the accu var
 	accuUpdateStep := NewMov(stepID, accuID)
 	// jump <LOOP>
-	jumpCondStep := NewJump(stepID, -(loopInstructionCount - 2), jumpAlways)
+	jumpCondStep := NewJump(stepID, -loopInstructionCount, jumpAlways)
 
 	// <END> result
 	resultSteps := w.walk(result)
@@ -355,7 +365,7 @@ func (w *astWalker) walkComprehension(node *exprpb.Expr) []Instruction {
 	instructions = append(instructions, iterInitStep, iterHasNextStep, jumpIterEndStep)
 	instructions = append(instructions, loopConditionSteps...)
 	instructions = append(instructions, jumpConditionFalseStep, nextIterVarStep)
-	instructions = append(instructions, loopStepSteps...)
+	instructions = append(instructions, loopBodySteps...)
 	instructions = append(instructions, accuUpdateStep, jumpCondStep)
 	instructions = append(instructions, resultSteps...)
 	instructions = append(instructions, compResultUpdateStep, popScopeStep)

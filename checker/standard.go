@@ -65,6 +65,10 @@ func StandardDeclarations() []*exprpb.Decl {
 			decls.NewOverload(overloads.LogicalNot,
 				[]*exprpb.Type{decls.Bool}, decls.Bool)),
 
+		decls.NewFunction(operators.NotStrictlyFalse,
+			decls.NewOverload(overloads.NotStrictlyFalse,
+				[]*exprpb.Type{decls.Bool}, decls.Bool)),
+
 		decls.NewFunction(overloads.Matches,
 			decls.NewInstanceOverload(overloads.MatchString,
 				[]*exprpb.Type{decls.String, decls.String}, decls.Bool)),
