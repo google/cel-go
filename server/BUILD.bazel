@@ -32,8 +32,8 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = ["server_test.go"],
-    args = ["$(location //server/agent:agent)"],
-    data = ["//server/agent:agent"],
+    args = ["$(location //server/main:cel_server)"],
+    data = ["//server/main:cel_server"],
     rundir = ".",
     deps = [
         ":go_default_library",

@@ -7,12 +7,12 @@ package(
 )
 
 go_binary(
-    name = "agent",
-    srcs = ["agent.go"],
+    name = "cel_server",
+    srcs = ["main.go"],
     deps = [
         "//server:go_default_library",
         "@org_golang_google_grpc//reflection:go_default_library",
         "@org_golang_google_genproto//googleapis/api/expr/v1alpha1:go_default_library",
     ] + GRPC_COMPILE_DEPS,
-    out = "agent",
+    out = "cel_server",
 )
