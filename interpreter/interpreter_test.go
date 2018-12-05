@@ -187,6 +187,21 @@ func TestInterpreter_NonStrictAllComprehension(t *testing.T) {
 	}
 }
 
+func TestInterpreter_NonStrictAllWithInput(t *testing.T) {
+	parsed := parseExpr(t,
+		`code == "111" && ["a", "b"].all(x, x in tags)
+		|| code == "222" && ["a", "b"].all(x, x in tags)`)
+	pgrm := NewProgram(parsed.Expr, parsed.SourceInfo)
+	i := interpreter.NewInterpretable(pgrm)
+	result, _ := i.Eval(NewActivation(map[string]interface{}{
+		"code": "222",
+		"tags": []string{"a", "b"},
+	}))
+	if result != types.True {
+		t.Errorf("Got %v, wanted true", result)
+	}
+}
+
 func TestInterpreter_ExistsOne(t *testing.T) {
 	result, _ := evalExpr(t, "[1, 2, 3].exists_one(x, x % 2 == 0)")
 	if result != types.True {
@@ -483,13 +498,19 @@ var (
 	emptyActivation = NewActivation(map[string]interface{}{})
 )
 
-func evalExpr(t *testing.T, src string) (ref.Value, EvalState) {
+func parseExpr(t *testing.T, src string) *exprpb.ParsedExpr {
 	t.Helper()
 	s := common.NewTextSource(src)
 	parsed, errors := parser.Parse(s)
 	if len(errors.GetErrors()) != 0 {
 		t.Errorf(errors.ToDisplayString())
 	}
+	return parsed
+}
+
+func evalExpr(t *testing.T, src string) (ref.Value, EvalState) {
+	t.Helper()
+	parsed := parseExpr(t, src)
 	pgrm := NewProgram(parsed.Expr, parsed.SourceInfo)
 	eval := interpreter.NewInterpretable(pgrm)
 	return eval.Eval(emptyActivation)
