@@ -446,8 +446,7 @@ func (c *checker) joinTypes(loc common.Location, previous *exprpb.Type, current 
 		return current
 	}
 	if !c.isAssignable(previous, current) {
-		c.errors.aggregateTypeMismatch(loc, previous, current)
-		return previous
+		return decls.Dyn
 	}
 	return mostGeneral(previous, current)
 }
