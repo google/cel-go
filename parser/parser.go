@@ -30,34 +30,35 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
-// ParseText converts a text input into a parsed expression, if valid, as
-// well as a list of syntax errors encountered.
-//
-// By default all macros are enabled. For customization of the input data
-// or for customization of the macro set see Parse.
-//
-// Note: syntax errors may produce parse trees of unusual shape which could
-// in segfaults at parse-time. While the code attempts to account for all
-// such cases, it is possible a few still remain. These should be fixed by
-// adding a repro case to the parser_test.go and appropriate defensive coding
-// within the parser.
-func ParseText(text string) (*exprpb.ParsedExpr, *common.Errors) {
-	return Parse(common.NewStringSource(text, "<input>"), AllMacros)
+// Parse converts a source input a parsed expression.
+// This function calls ParseWithMacros with AllMacros.
+func Parse(source common.Source) (*exprpb.ParsedExpr, *common.Errors) {
+	return ParseWithMacros(source, AllMacros)
 }
 
-// Parse converts a source input and macros set to a parsed expression.
-func Parse(source common.Source, macros Macros) (*exprpb.ParsedExpr, *common.Errors) {
-	p := parser{helper: newParserHelper(source, macros)}
+// ParseWithMacros converts a source input and macros set to a parsed expression.
+func ParseWithMacros(source common.Source, macros Macros) (*exprpb.ParsedExpr, *common.Errors) {
+	macroMap := make(map[string]Macro)
+	for _, m := range macros {
+		macroMap[makeMacroKey(m.name, m.args, m.instanceStyle)] = m
+	}
+	p := parser{
+		errors: &parseErrors{common.NewErrors(source)},
+		helper: newParserHelper(source),
+		macros: macroMap,
+	}
 	e := p.parse(source.Content())
 	return &exprpb.ParsedExpr{
 		Expr:       e,
 		SourceInfo: p.helper.getSourceInfo(),
-	}, p.helper.errors.Errors
+	}, p.errors.Errors
 }
 
 type parser struct {
 	gen.BaseCELVisitor
+	errors *parseErrors
 	helper *parserHelper
+	macros map[string]Macro
 }
 
 var _ gen.CELVisitor = (*parser)(nil)
@@ -69,15 +70,14 @@ func (p *parser) parse(expression string) *exprpb.Expr {
 
 	lexer.RemoveErrorListeners()
 	prsr.RemoveErrorListeners()
-	lexer.AddErrorListener(p.helper)
-	prsr.AddErrorListener(p.helper)
+	lexer.AddErrorListener(p)
+	prsr.AddErrorListener(p)
 
 	return p.Visit(prsr.Start()).(*exprpb.Expr)
 }
 
 // Visitor implementations.
 func (p *parser) Visit(tree antlr.ParseTree) interface{} {
-
 	switch tree.(type) {
 	case *gen.StartContext:
 		return p.VisitStart(tree.(*gen.StartContext))
@@ -130,7 +130,7 @@ func (p *parser) VisitExpr(ctx *gen.ExprContext) interface{} {
 
 	ifTrue := p.Visit(ctx.GetE1()).(*exprpb.Expr)
 	ifFalse := p.Visit(ctx.GetE2()).(*exprpb.Expr)
-	return p.helper.newGlobalCall(ctx.GetOp(), operators.Conditional, result, ifTrue, ifFalse)
+	return p.globalCallOrMacro(ctx.GetOp(), operators.Conditional, result, ifTrue, ifFalse)
 }
 
 // Visit a parse tree produced by CELParser#conditionalOr.
@@ -141,7 +141,7 @@ func (p *parser) VisitConditionalOr(ctx *gen.ConditionalOrContext) interface{} {
 	}
 	for i, op := range ctx.GetOps() {
 		next := p.Visit(ctx.GetE1()[i]).(*exprpb.Expr)
-		result = p.helper.newGlobalCall(op, operators.LogicalOr, result, next)
+		result = p.globalCallOrMacro(op, operators.LogicalOr, result, next)
 	}
 	return result
 }
@@ -154,7 +154,7 @@ func (p *parser) VisitConditionalAnd(ctx *gen.ConditionalAndContext) interface{}
 	}
 	for i, op := range ctx.GetOps() {
 		next := p.Visit(ctx.GetE1()[i]).(*exprpb.Expr)
-		result = p.helper.newGlobalCall(op, operators.LogicalAnd, result, next)
+		result = p.globalCallOrMacro(op, operators.LogicalAnd, result, next)
 	}
 	return result
 }
@@ -172,9 +172,9 @@ func (p *parser) VisitRelation(ctx *gen.RelationContext) interface{} {
 	if op, found := operators.Find(opText); found {
 		lhs := p.Visit(ctx.Relation(0)).(*exprpb.Expr)
 		rhs := p.Visit(ctx.Relation(1)).(*exprpb.Expr)
-		return p.helper.newGlobalCall(ctx.GetOp(), op, lhs, rhs)
+		return p.globalCallOrMacro(ctx.GetOp(), op, lhs, rhs)
 	}
-	return p.helper.reportError(ctx, "operator not found")
+	return p.reportError(ctx, "operator not found")
 }
 
 // Visit a parse tree produced by CELParser#calc.
@@ -189,9 +189,9 @@ func (p *parser) VisitCalc(ctx *gen.CalcContext) interface{} {
 	if op, found := operators.Find(opText); found {
 		lhs := p.Visit(ctx.Calc(0)).(*exprpb.Expr)
 		rhs := p.Visit(ctx.Calc(1)).(*exprpb.Expr)
-		return p.helper.newGlobalCall(ctx.GetOp(), op, lhs, rhs)
+		return p.globalCallOrMacro(ctx.GetOp(), op, lhs, rhs)
 	}
-	return p.helper.reportError(ctx, "operator not found")
+	return p.reportError(ctx, "operator not found")
 }
 
 func (p *parser) VisitUnary(ctx *gen.UnaryContext) interface{} {
@@ -210,7 +210,7 @@ func (p *parser) VisitMemberExpr(ctx *gen.MemberExprContext) interface{} {
 	case *gen.CreateMessageContext:
 		return p.VisitCreateMessage(ctx.Member().(*gen.CreateMessageContext))
 	}
-	return p.helper.reportError(ctx, "unsupported simple expression")
+	return p.reportError(ctx, "unsupported simple expression")
 }
 
 // Visit a parse tree produced by CELParser#LogicalNot.
@@ -219,7 +219,7 @@ func (p *parser) VisitLogicalNot(ctx *gen.LogicalNotContext) interface{} {
 		return p.Visit(ctx.Member())
 	}
 	target := p.Visit(ctx.Member()).(*exprpb.Expr)
-	return p.helper.newGlobalCall(ctx.GetOps()[0], operators.LogicalNot, target)
+	return p.globalCallOrMacro(ctx.GetOps()[0], operators.LogicalNot, target)
 }
 
 func (p *parser) VisitNegate(ctx *gen.NegateContext) interface{} {
@@ -227,7 +227,7 @@ func (p *parser) VisitNegate(ctx *gen.NegateContext) interface{} {
 		return p.Visit(ctx.Member())
 	}
 	target := p.Visit(ctx.Member()).(*exprpb.Expr)
-	return p.helper.newGlobalCall(ctx.GetOps()[0], operators.Negate, target)
+	return p.globalCallOrMacro(ctx.GetOps()[0], operators.Negate, target)
 }
 
 // Visit a parse tree produced by CELParser#SelectOrCall.
@@ -239,7 +239,7 @@ func (p *parser) VisitSelectOrCall(ctx *gen.SelectOrCallContext) interface{} {
 	}
 	id := ctx.GetId().GetText()
 	if ctx.GetOpen() != nil {
-		return p.helper.newMemberCall(ctx.GetOpen(), id, operand, p.visitList(ctx.GetArgs())...)
+		return p.memberCallOrMacro(ctx.GetOpen(), id, operand, p.visitList(ctx.GetArgs())...)
 	}
 	return p.helper.newSelect(ctx.GetOp(), operand, id)
 }
@@ -259,14 +259,14 @@ func (p *parser) VisitPrimaryExpr(ctx *gen.PrimaryExprContext) interface{} {
 		return p.VisitConstantLiteral(ctx.Primary().(*gen.ConstantLiteralContext))
 	}
 
-	return p.helper.reportError(ctx, "invalid primary expression")
+	return p.reportError(ctx, "invalid primary expression")
 }
 
 // Visit a parse tree produced by CELParser#Index.
 func (p *parser) VisitIndex(ctx *gen.IndexContext) interface{} {
 	target := p.Visit(ctx.Member()).(*exprpb.Expr)
 	index := p.Visit(ctx.GetIndex()).(*exprpb.Expr)
-	return p.helper.newGlobalCall(ctx.GetOp(), operators.Index, target, index)
+	return p.globalCallOrMacro(ctx.GetOp(), operators.Index, target, index)
 }
 
 // Visit a parse tree produced by CELParser#CreateMessage.
@@ -306,7 +306,7 @@ func (p *parser) VisitIdentOrGlobalCall(ctx *gen.IdentOrGlobalCallContext) inter
 	identName += ctx.GetId().GetText()
 
 	if ctx.GetOp() != nil {
-		return p.helper.newGlobalCall(ctx.GetOp(), identName, p.visitList(ctx.GetArgs())...)
+		return p.globalCallOrMacro(ctx.GetOp(), identName, p.visitList(ctx.GetArgs())...)
 	}
 	return p.helper.newIdent(ctx.GetId(), identName)
 }
@@ -350,7 +350,7 @@ func (p *parser) VisitConstantLiteral(ctx *gen.ConstantLiteralContext) interface
 	case *gen.NullContext:
 		return p.VisitNull(ctx.Literal().(*gen.NullContext))
 	}
-	return p.helper.reportError(ctx, "invalid literal")
+	return p.reportError(ctx, "invalid literal")
 }
 
 // Visit a parse tree produced by CELParser#exprList.
@@ -391,7 +391,7 @@ func (p *parser) VisitInt(ctx *gen.IntContext) interface{} {
 	}
 	i, err := strconv.ParseInt(text, 10, 64)
 	if err != nil {
-		return p.helper.reportError(ctx, "invalid int literal")
+		return p.reportError(ctx, "invalid int literal")
 	}
 	return p.helper.newLiteralInt(ctx, i)
 }
@@ -403,7 +403,7 @@ func (p *parser) VisitUint(ctx *gen.UintContext) interface{} {
 	text = text[:len(text)-1]
 	i, err := strconv.ParseUint(text, 10, 64)
 	if err != nil {
-		return p.helper.reportError(ctx, "invalid uint literal")
+		return p.reportError(ctx, "invalid uint literal")
 	}
 	return p.helper.newLiteralUint(ctx, i)
 }
@@ -416,7 +416,7 @@ func (p *parser) VisitDouble(ctx *gen.DoubleContext) interface{} {
 	}
 	f, err := strconv.ParseFloat(txt, 64)
 	if err != nil {
-		return p.helper.reportError(ctx, "invalid double literal")
+		return p.reportError(ctx, "invalid double literal")
 	}
 	return p.helper.newLiteralDouble(ctx, f)
 
@@ -487,15 +487,81 @@ func (p *parser) extractQualifiedName(e *exprpb.Expr) (string, bool) {
 	}
 	// TODO: Add a method to Source to get location from character offset.
 	location := p.helper.getLocation(e.Id)
-	p.helper.reportError(location, "expected a qualified name")
+	p.reportError(location, "expected a qualified name")
 	return "", false
 }
 
 func (p *parser) unquote(ctx interface{}, value string) string {
 	text, err := unescape(value)
 	if err != nil {
-		p.helper.reportError(ctx, err.Error())
+		p.reportError(ctx, err.Error())
 		return value
 	}
 	return text
+}
+
+func (p *parser) reportError(ctx interface{}, format string, args ...interface{}) *exprpb.Expr {
+	var location common.Location
+	switch ctx.(type) {
+	case common.Location:
+		location = ctx.(common.Location)
+	case antlr.Token, antlr.ParserRuleContext:
+		err := p.helper.newExpr(ctx)
+		location = p.helper.getLocation(err.Id)
+	}
+	err := p.helper.newExpr(ctx)
+	// Provide arguments to the report error.
+	p.errors.ReportError(location, format, args...)
+	return err
+}
+
+// ANTLR Parse listener implementations
+func (p *parser) SyntaxError(recognizer antlr.Recognizer, offendingSymbol interface{}, line, column int, msg string, e antlr.RecognitionException) {
+	// TODO: Snippet
+	l := common.NewLocation(line, column)
+	p.errors.syntaxError(l, msg)
+}
+
+func (p *parser) ReportAmbiguity(recognizer antlr.Parser, dfa *antlr.DFA, startIndex, stopIndex int, exact bool, ambigAlts *antlr.BitSet, configs antlr.ATNConfigSet) {
+	// Intentional
+}
+
+func (p *parser) ReportAttemptingFullContext(recognizer antlr.Parser, dfa *antlr.DFA, startIndex, stopIndex int, conflictingAlts *antlr.BitSet, configs antlr.ATNConfigSet) {
+	// Intentional
+}
+
+func (p *parser) ReportContextSensitivity(recognizer antlr.Parser, dfa *antlr.DFA, startIndex, stopIndex, prediction int, configs antlr.ATNConfigSet) {
+	// Intentional
+}
+
+func (p *parser) globalCallOrMacro(ctx interface{}, function string, args ...*exprpb.Expr) *exprpb.Expr {
+	if expr, found := p.expandMacro(ctx, function, nil, args...); found {
+		return expr
+	}
+	return p.helper.newGlobalCall(ctx, function, args...)
+}
+
+func (p *parser) memberCallOrMacro(ctx interface{}, function string, target *exprpb.Expr, args ...*exprpb.Expr) *exprpb.Expr {
+	if expr, found := p.expandMacro(ctx, function, target, args...); found {
+		return expr
+	}
+	return p.helper.newMemberCall(ctx, function, target, args...)
+}
+
+func (p *parser) expandMacro(ctx interface{}, function string, target *exprpb.Expr, args ...*exprpb.Expr) (*exprpb.Expr, bool) {
+	if macro, found := p.macros[makeMacroKey(function, len(args), target != nil)]; found {
+		expr, err := macro.expander(p.helper, ctx, target, args)
+		if err != nil {
+			if err.Location != nil {
+				return p.reportError(err.Location, err.Message), true
+			}
+			return p.reportError(ctx, err.Message), true
+		}
+		return expr, true
+	}
+	return nil, false
+}
+
+func makeMacroKey(name string, args int, instanceStyle bool) string {
+	return fmt.Sprintf("%s:%d:%v", name, args, instanceStyle)
 }

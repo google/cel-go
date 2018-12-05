@@ -40,6 +40,7 @@ go_test(
     size = "small",
     srcs = [
         "checker_test.go",
+        "env_test.go",
     ],
     embed = [
         ":go_default_library",

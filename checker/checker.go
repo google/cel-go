@@ -30,6 +30,7 @@ import (
 
 type checker struct {
 	env                *Env
+	errors             *typeErrors
 	mappings           *mapping
 	freeTypeVarCounter int
 	sourceInfo         *exprpb.SourceInfo
@@ -44,9 +45,12 @@ type checker struct {
 // descriptions of protocol buffers, and a registry for errors.
 // Returns a CheckedExpr proto, which might not be usable if
 // there are errors in the error registry.
-func Check(parsedExpr *exprpb.ParsedExpr, env *Env) *exprpb.CheckedExpr {
+func Check(parsedExpr *exprpb.ParsedExpr,
+	source common.Source,
+	env *Env) (*exprpb.CheckedExpr, *common.Errors) {
 	c := checker{
 		env:                env,
+		errors:             &typeErrors{common.NewErrors(source)},
 		mappings:           newMapping(),
 		freeTypeVarCounter: 0,
 		sourceInfo:         parsedExpr.GetSourceInfo(),
@@ -68,7 +72,7 @@ func Check(parsedExpr *exprpb.ParsedExpr, env *Env) *exprpb.CheckedExpr {
 		SourceInfo:   parsedExpr.GetSourceInfo(),
 		TypeMap:      m,
 		ReferenceMap: c.references,
-	}
+	}, c.errors.Errors
 }
 
 func (c *checker) check(e *exprpb.Expr) {
@@ -149,7 +153,7 @@ func (c *checker) checkIdent(e *exprpb.Expr) {
 	}
 
 	c.setType(e, decls.Error)
-	c.env.errors.undeclaredReference(
+	c.errors.undeclaredReference(
 		c.location(e), c.env.packager.Package(), identExpr.Name)
 }
 
@@ -161,7 +165,7 @@ func (c *checker) checkSelect(e *exprpb.Expr) {
 		ident := c.env.LookupIdent(qname)
 		if ident != nil {
 			if sel.TestOnly {
-				c.env.errors.expressionDoesNotSelectField(c.location(e))
+				c.errors.expressionDoesNotSelectField(c.location(e))
 				c.setType(e, decls.Bool)
 			} else {
 				c.setType(e, ident.GetIdent().Type)
@@ -186,7 +190,7 @@ func (c *checker) checkSelect(e *exprpb.Expr) {
 		if fieldType, found := c.lookupFieldType(c.location(e), messageType, sel.Field); found {
 			resultType = fieldType.Type
 			if sel.TestOnly && !fieldType.SupportsPresence {
-				c.env.errors.fieldDoesNotSupportPresenceCheck(c.location(e), sel.Field)
+				c.errors.fieldDoesNotSupportPresenceCheck(c.location(e), sel.Field)
 			}
 		}
 
@@ -195,7 +199,7 @@ func (c *checker) checkSelect(e *exprpb.Expr) {
 		resultType = mapType.ValueType
 
 	default:
-		c.env.errors.typeDoesNotSupportFieldSelection(c.location(e), targetType)
+		c.errors.typeDoesNotSupportFieldSelection(c.location(e), targetType)
 	}
 
 	if sel.TestOnly {
@@ -219,7 +223,7 @@ func (c *checker) checkCall(e *exprpb.Expr) {
 		if fn := c.env.LookupFunction(call.Function); fn != nil {
 			resolution = c.resolveOverload(c.location(e), fn, nil, call.Args)
 		} else {
-			c.env.errors.undeclaredReference(
+			c.errors.undeclaredReference(
 				c.location(e), c.env.packager.Package(), call.Function)
 		}
 	} else {
@@ -238,7 +242,7 @@ func (c *checker) checkCall(e *exprpb.Expr) {
 			if fn := c.env.LookupFunction(call.Function); fn != nil {
 				resolution = c.resolveOverload(c.location(e), fn, call.Target, call.Args)
 			} else {
-				c.env.errors.undeclaredReference(
+				c.errors.undeclaredReference(
 					c.location(e), c.env.packager.Package(), call.Function)
 			}
 		}
@@ -306,7 +310,7 @@ func (c *checker) resolveOverload(
 	}
 
 	if resultType == nil {
-		c.env.errors.noMatchingOverload(loc, fn.Name, argTypes, target != nil)
+		c.errors.noMatchingOverload(loc, fn.Name, argTypes, target != nil)
 		resultType = decls.Error
 		return nil
 	}
@@ -363,7 +367,7 @@ func (c *checker) checkCreateMessage(e *exprpb.Expr) {
 	messageType := decls.Error
 	decl := c.env.LookupIdent(msgVal.MessageName)
 	if decl == nil {
-		c.env.errors.undeclaredReference(
+		c.errors.undeclaredReference(
 			c.location(e), c.env.packager.Package(), msgVal.MessageName)
 		return
 	}
@@ -373,11 +377,11 @@ func (c *checker) checkCreateMessage(e *exprpb.Expr) {
 	identKind := kindOf(ident.Type)
 	if identKind != kindError {
 		if identKind != kindType {
-			c.env.errors.notAType(c.location(e), ident.Type)
+			c.errors.notAType(c.location(e), ident.Type)
 		} else {
 			messageType = ident.Type.GetType()
 			if kindOf(messageType) != kindObject {
-				c.env.errors.notAMessageType(c.location(e), messageType)
+				c.errors.notAMessageType(c.location(e), messageType)
 				messageType = decls.Error
 			}
 		}
@@ -395,7 +399,7 @@ func (c *checker) checkCreateMessage(e *exprpb.Expr) {
 			fieldType = t.Type
 		}
 		if !c.isAssignable(fieldType, c.getType(value)) {
-			c.env.errors.fieldTypeMismatch(c.locationByID(ent.Id), field, fieldType, c.getType(value))
+			c.errors.fieldTypeMismatch(c.locationByID(ent.Id), field, fieldType, c.getType(value))
 		}
 	}
 }
@@ -417,7 +421,7 @@ func (c *checker) checkComprehension(e *exprpb.Expr) {
 	case kindDyn, kindError:
 		varType = decls.Dyn
 	default:
-		c.env.errors.notAComprehensionRange(c.location(comp.IterRange), rangeType)
+		c.errors.notAComprehensionRange(c.location(comp.IterRange), rangeType)
 	}
 
 	c.env.enterScope()
@@ -442,7 +446,7 @@ func (c *checker) joinTypes(loc common.Location, previous *exprpb.Type, current 
 		return current
 	}
 	if !c.isAssignable(previous, current) {
-		c.env.errors.aggregateTypeMismatch(loc, previous, current)
+		c.errors.aggregateTypeMismatch(loc, previous, current)
 		return previous
 	}
 	return mostGeneral(previous, current)
@@ -477,7 +481,7 @@ func (c *checker) isAssignableList(l1 []*exprpb.Type, l2 []*exprpb.Type) bool {
 func (c *checker) lookupFieldType(l common.Location, messageType *exprpb.Type, fieldName string) (*ref.FieldType, bool) {
 	if _, found := c.env.typeProvider.FindType(messageType.GetMessageType()); !found {
 		// This should not happen, anyway, report an error.
-		c.env.errors.unexpectedFailedResolution(l, messageType.GetMessageType())
+		c.errors.unexpectedFailedResolution(l, messageType.GetMessageType())
 		return nil, false
 	}
 
@@ -485,7 +489,7 @@ func (c *checker) lookupFieldType(l common.Location, messageType *exprpb.Type, f
 		return ft, found
 	}
 
-	c.env.errors.undefinedField(l, fieldName)
+	c.errors.undefinedField(l, fieldName)
 	return nil, false
 }
 
@@ -509,7 +513,7 @@ func (c *checker) setReference(e *exprpb.Expr, r *exprpb.Reference) {
 
 func (c *checker) assertType(e *exprpb.Expr, t *exprpb.Type) {
 	if !c.isAssignable(t, c.getType(e)) {
-		c.env.errors.typeMismatch(c.location(e), t, c.getType(e))
+		c.errors.typeMismatch(c.location(e), t, c.getType(e))
 	}
 }
 

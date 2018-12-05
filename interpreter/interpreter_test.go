@@ -18,6 +18,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/google/cel-go/common"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/common/packages"
@@ -257,16 +259,19 @@ func TestInterpreter_LogicalOrEquals(t *testing.T) {
 }
 
 func TestInterpreter_BuildObject(t *testing.T) {
-	parsed, errors := parser.ParseText("v1alpha1.Expr{id: 1, " +
-		"const_expr: v1alpha1.Constant{string_value: \"oneof_test\"}}")
+	src := common.NewTextSource(
+		"v1alpha1.Expr{id: 1, " +
+			"const_expr: v1alpha1.Constant{ " +
+			"string_value: \"oneof_test\"}}")
+	parsed, errors := parser.Parse(src)
 	if len(errors.GetErrors()) != 0 {
 		t.Errorf(errors.ToDisplayString())
 	}
 
 	pkgr := packages.NewPackage("google.api.expr")
 	provider := types.NewProvider(&exprpb.Expr{})
-	env := checker.NewStandardEnv(pkgr, provider, errors)
-	checked := checker.Check(parsed, env)
+	env := checker.NewStandardEnv(pkgr, provider)
+	checked, errors := checker.Check(parsed, src, env)
 	if len(errors.GetErrors()) != 0 {
 		t.Errorf(errors.ToDisplayString())
 	}
@@ -287,7 +292,7 @@ func TestInterpreter_BuildObject(t *testing.T) {
 }
 
 func TestInterpreter_ConstantReturnValue(t *testing.T) {
-	parsed, err := parser.ParseText("1")
+	parsed, err := parser.Parse(common.NewTextSource("1"))
 	if len(err.GetErrors()) != 0 {
 		t.Error(err)
 	}
@@ -300,7 +305,7 @@ func TestInterpreter_ConstantReturnValue(t *testing.T) {
 }
 
 func TestInterpreter_InList(t *testing.T) {
-	parsed, err := parser.ParseText("1 in [1, 2, 3]")
+	parsed, err := parser.Parse(common.NewTextSource("1 in [1, 2, 3]"))
 	if len(err.GetErrors()) != 0 {
 		t.Error(err)
 	}
@@ -313,7 +318,7 @@ func TestInterpreter_InList(t *testing.T) {
 }
 
 func TestInterpreter_BuildMap(t *testing.T) {
-	parsed, err := parser.ParseText("{'b': '''hi''', 'c': name}")
+	parsed, err := parser.Parse(common.NewTextSource("{'b': '''hi''', 'c': name}"))
 	if len(err.GetErrors()) != 0 {
 		t.Error(err)
 	}
@@ -329,7 +334,7 @@ func TestInterpreter_BuildMap(t *testing.T) {
 }
 
 func TestInterpreter_MapIndex(t *testing.T) {
-	parsed, err := parser.ParseText("{'a':1}['a']")
+	parsed, err := parser.Parse(common.NewTextSource("{'a':1}['a']"))
 	if len(err.GetErrors()) != 0 {
 		t.Error(err)
 	}
