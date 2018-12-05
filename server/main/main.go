@@ -1,3 +1,4 @@
+// Package main declares the executable entry point for the CEL server.
 package main
 
 import (
