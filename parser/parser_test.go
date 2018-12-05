@@ -152,7 +152,7 @@ var testCases = []testInfo{
 	},
 	{
 		I: `a in b`,
-		P: `_in_(
+		P: `@in(
     		  a^#1:*expr.Expr_IdentExpr#,
     		  b^#2:*expr.Expr_IdentExpr#
 			)^#3:*expr.Expr_CallExpr#`,

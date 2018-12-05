@@ -19,31 +19,40 @@ package operators
 
 // String "names" for CEL operators.
 const (
-	Conditional      = "_?_:_"
-	LogicalAnd       = "_&&_"
-	LogicalOr        = "_||_"
-	LogicalNot       = "!_"
-	NotStrictlyFalse = "__not_strictly_false__"
-	In               = "_in_"
-	Equals           = "_==_"
-	NotEquals        = "_!=_"
-	Less             = "_<_"
-	LessEquals       = "_<=_"
-	Greater          = "_>_"
-	GreaterEquals    = "_>=_"
-	Add              = "_+_"
-	Subtract         = "_-_"
-	Multiply         = "_*_"
-	Divide           = "_/_"
-	Modulo           = "_%_"
-	Negate           = "-_"
-	Index            = "_[_]"
-	Has              = "has"
-	All              = "all"
-	Exists           = "exists"
-	ExistsOne        = "exists_one"
-	Map              = "map"
-	Filter           = "filter"
+	// Symbolic operators.
+	Conditional   = "_?_:_"
+	LogicalAnd    = "_&&_"
+	LogicalOr     = "_||_"
+	LogicalNot    = "!_"
+	Equals        = "_==_"
+	NotEquals     = "_!=_"
+	Less          = "_<_"
+	LessEquals    = "_<=_"
+	Greater       = "_>_"
+	GreaterEquals = "_>=_"
+	Add           = "_+_"
+	Subtract      = "_-_"
+	Multiply      = "_*_"
+	Divide        = "_/_"
+	Modulo        = "_%_"
+	Negate        = "-_"
+	Index         = "_[_]"
+
+	// Macros, must have a valid identifier.
+	Has       = "has"
+	All       = "all"
+	Exists    = "exists"
+	ExistsOne = "exists_one"
+	Map       = "map"
+	Filter    = "filter"
+
+	// Named operators, must not have be valid identifiers.
+	NotStrictlyFalse = "@not_strictly_false"
+	In               = "@in"
+
+	// Deprecated: named operators with valid identifiers.
+	OldNotStrictlyFalse = "__not_strictly_false__"
+	OldIn               = "_in_"
 )
 
 var operators = map[string]string{

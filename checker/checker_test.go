@@ -704,7 +704,7 @@ ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, nul
 				// Init
 				true~bool,
 				// LoopCondition
-				__not_strictly_false__(
+				@not_strictly_false(
 				  __result__~bool^__result__
 				)~bool^not_strictly_false,
 				// LoopStep
@@ -727,7 +727,7 @@ ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, nul
 				// Init
 				false~bool,
 				// LoopCondition
-				__not_strictly_false__(
+				@not_strictly_false(
 				  !_(
 					__result__~bool^__result__
 				  )~bool^logical_not
@@ -914,7 +914,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 
 	{
 		I: `1 in [1, 2, 3]`,
-		R: `_in_(
+		R: `@in(
     		  1~int,
     		  [
     		    1~int,

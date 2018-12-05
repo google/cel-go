@@ -47,13 +47,11 @@ func StandardOverloads() []*Overload {
 		// Not strictly false: IsBool(a) ? a : true
 		{
 			Operator: operators.NotStrictlyFalse,
-			Unary: func(value ref.Value) ref.Value {
-				if types.IsBool(value) {
-					return value
-				}
-				return types.True
-			},
-		},
+			Unary:    notStrictlyFalse},
+		// Deprecated: not strictly false, may be overriden in the environment.
+		{
+			Operator: operators.OldNotStrictlyFalse,
+			Unary:    notStrictlyFalse},
 
 		// Equality overloads
 		{Operator: operators.Equals,
@@ -185,13 +183,9 @@ func StandardOverloads() []*Overload {
 			}},
 
 		// In operator
-		{Operator: operators.In,
-			Binary: func(lhs ref.Value, rhs ref.Value) ref.Value {
-				if rhs.Type().HasTrait(traits.ContainerType) {
-					return rhs.(traits.Container).Contains(lhs)
-				}
-				return types.NewErr("no such overload")
-			}},
+		{Operator: operators.In, Binary: inAggregate},
+		// Deprecated: in operator, may be overriden in the environment.
+		{Operator: operators.OldIn, Binary: inAggregate},
 
 		// Matches function
 		{Operator: overloads.Matches,
@@ -349,4 +343,18 @@ func conditional(values ...ref.Value) ref.Value {
 	} else {
 		return types.NewErr("no such overload")
 	}
+}
+
+func notStrictlyFalse(value ref.Value) ref.Value {
+	if types.IsBool(value) {
+		return value
+	}
+	return types.True
+}
+
+func inAggregate(lhs ref.Value, rhs ref.Value) ref.Value {
+	if rhs.Type().HasTrait(traits.ContainerType) {
+		return rhs.(traits.Container).Contains(lhs)
+	}
+	return types.NewErr("no such overload")
 }
