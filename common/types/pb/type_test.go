@@ -20,6 +20,41 @@ func TestTypeDescription_FieldCount(t *testing.T) {
 	}
 }
 
+func TestTypeDescription_Any(t *testing.T) {
+	_, err := DescribeType(".google.protobuf.Any")
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func TestTypeDescription_Json(t *testing.T) {
+	_, err := DescribeType(".google.protobuf.Value")
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func TestTypeDescription_JsonNotInTypeInit(t *testing.T) {
+	_, err := DescribeType(".google.protobuf.ListValue")
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func TestTypeDescription_Wrapper(t *testing.T) {
+	_, err := DescribeType(".google.protobuf.BoolValue")
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func TestTypeDescription_WrapperNotInTypeInit(t *testing.T) {
+	_, err := DescribeType(".google.protobuf.BytesValue")
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func TestTypeDescription_Field(t *testing.T) {
 	td, err := DescribeValue(&testpb.NestedTestAllTypes{})
 	if err != nil {

@@ -341,33 +341,43 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 	},
 
 	{
-		I: `x.single_value + 1 / x.single_struct == 23`,
+		I: `x.single_value + 1 / x.single_struct.y == 23`,
 		Env: env{
 			idents: []*exprpb.Decl{
 				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
 			},
 		},
-		R: `_==_(_+_(x~google.api.tools.expr.test.TestAllTypes^x.single_value~dyn,
-	         _/_(1~int,
-	               x~google.api.tools.expr.test.TestAllTypes^x.single_struct~dyn)
-	           ~int^divide_int64)
-	     ~int^add_int64,
-	    23~int)
-	~bool^equals`,
+		R: `_==_(
+			_+_(
+			  x~google.api.tools.expr.test.TestAllTypes^x.single_value~dyn,
+			  _/_(
+				1~int,
+				x~google.api.tools.expr.test.TestAllTypes^x.single_struct~map(string, dyn).y~dyn
+			  )~int^divide_int64
+			)~int^add_int64,
+			23~int
+		  )~bool^equals`,
 		Type: decls.Bool,
 	},
 
 	{
-		I: `x.single_value[23] + x.single_struct`,
+		I: `x.single_value[23] + x.single_struct['y']`,
 		Env: env{
 			idents: []*exprpb.Decl{
 				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
 			},
 		},
-		R: `_+_(_[_](x~google.api.tools.expr.test.TestAllTypes^x.single_value~dyn, 23~int)
-	    ~dyn^index_list|index_map,
-	    x~google.api.tools.expr.test.TestAllTypes^x.single_struct~dyn)
-	~dyn^add_int64|add_uint64|add_double|add_string|add_bytes|add_list|add_timestamp_duration|add_duration_timestamp|add_duration_duration`,
+		R: `_+_(
+			_[_](
+			  x~google.api.tools.expr.test.TestAllTypes^x.single_value~dyn,
+			  23~int
+			)~dyn^index_list|index_map,
+			_[_](
+			  x~google.api.tools.expr.test.TestAllTypes^x.single_struct~map(string, dyn),
+			  "y"~string
+			)~dyn^index_map
+		  )~dyn^add_int64|add_uint64|add_double|add_string|add_bytes|add_list|add_timestamp_duration|add_duration_timestamp|add_duration_duration
+		  `,
 		Type: decls.Dyn,
 	},
 
@@ -390,6 +400,60 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
 			},
 		},
+	},
+
+	{
+		I: `x["claims"]["groups"][0].name == "dummy"
+		&& x.claims["exp"] == y[1].time
+		&& x.claims.structured == {'key': z}
+		&& z == 1.0`,
+		R: `_&&_(
+			_&&_(
+			  _&&_(
+				_==_(
+				  _[_](
+					_[_](
+					  _[_](
+						x~map(string, dyn)^x,
+						"claims"~string
+					  )~dyn^index_map,
+					  "groups"~string
+					)~list(string)^index_map,
+					0~int
+				  )~string^index_list.name~string,
+				  "dummy"~string
+				)~bool^equals,
+				_==_(
+				  _[_](
+					x~map(string, dyn)^x.claims~dyn,
+					"exp"~string
+				  )~dyn^index_map,
+				  _[_](
+					y~list(dyn)^y,
+					1~int
+				  )~dyn^index_list.time~dyn
+				)~bool^equals
+			  )~bool^logical_and,
+			  _==_(
+				x~map(string, dyn)^x.claims~dyn.structured~dyn,
+				{
+				  "key"~string:z~dyn^z
+				}~map(string, dyn)
+			  )~bool^equals
+			)~bool^logical_and,
+			_==_(
+			  z~dyn^z,
+			  1~double
+			)~bool^equals
+		  )~bool^logical_and`,
+		Env: env{
+			idents: []*exprpb.Decl{
+				decls.NewIdent("x", decls.NewObjectType("google.protobuf.Struct"), nil),
+				decls.NewIdent("y", decls.NewObjectType("google.protobuf.ListValue"), nil),
+				decls.NewIdent("z", decls.NewObjectType("google.protobuf.Value"), nil),
+			},
+		},
+		Type: decls.Bool,
 	},
 
 	{
@@ -815,6 +879,54 @@ ERROR: <input>:1:5: undeclared reference to 'x' (in container '')
 	},
 
 	{
+		I: `x == google.protobuf.Any{
+				type_url:'types.googleapis.com/google.api.tools.expr.test.TestAllTypes'
+			} && x.single_nested_message.bb == 43
+			|| x == google.api.tools.expr.test.TestAllTypes{}
+			|| y < x
+			|| x >= x`,
+		Env: env{
+			idents: []*exprpb.Decl{
+				decls.NewIdent("x", decls.Any, nil),
+				decls.NewIdent("y", decls.NewWrapperType(decls.Int), nil),
+			},
+		},
+		R: `
+		_||_(
+			_||_(
+			  _||_(
+				_&&_(
+				  _==_(
+					x~any^x,
+					google.protobuf.Any{
+					  type_url:"types.googleapis.com/google.api.tools.expr.test.TestAllTypes"~string
+					}~google.protobuf.Any^google.protobuf.Any
+				  )~bool^equals,
+				  _==_(
+					x~any^x.single_nested_message~dyn.bb~dyn,
+					43~int
+				  )~bool^equals
+				)~bool^logical_and,
+				_==_(
+				  x~any^x,
+				  google.api.tools.expr.test.TestAllTypes{}~google.api.tools.expr.test.TestAllTypes^google.api.tools.expr.test.TestAllTypes
+				)~bool^equals
+			  )~bool^logical_or,
+			  _<_(
+				y~wrapper(int)^y,
+				x~any^x
+			  )~bool^less_int64
+			)~bool^logical_or,
+			_>=_(
+			  x~any^x,
+			  x~any^x
+			)~dyn^greater_equals_bool|greater_equals_int64|greater_equals_uint64|greater_equals_double|greater_equals_string|greater_equals_bytes|greater_equals_timestamp|greater_equals_duration
+		  )~bool^logical_or
+		`,
+		Type: decls.Bool,
+	},
+
+	{
 		I:         `x`,
 		Container: "container",
 		Env: env{
@@ -898,6 +1010,26 @@ _&&_(_==_(list~type(list(dyn))^list,
 		~int^add_int64,
 		23~int)
 		~bool^not_equals
+		`,
+		Type: decls.Bool,
+	},
+
+	{
+		I: `x.single_int64_wrapper + y != 23`,
+		Env: env{
+			idents: []*exprpb.Decl{
+				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
+				decls.NewIdent("y", decls.NewObjectType("google.protobuf.Int32Value"), nil),
+			},
+		},
+		R: `
+		_!=_(
+			_+_(
+			  x~google.api.tools.expr.test.TestAllTypes^x.single_int64_wrapper~wrapper(int),
+			  y~wrapper(int)^y
+			)~int^add_int64,
+			23~int
+		  )~bool^not_equals
 		`,
 		Type: decls.Bool,
 	},

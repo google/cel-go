@@ -19,7 +19,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/struct"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/google/cel-go/common/types/pb"
 	"github.com/google/cel-go/common/types/ref"
 
@@ -109,13 +109,8 @@ func (p *protoTypeProvider) FindType(typeName string) (*exprpb.Type, bool) {
 	if _, err := pb.DescribeType(typeName); err != nil {
 		return nil, false
 	}
-
-	// TODO: verify that well-known message types are handled correctly
 	if typeName != "" && typeName[0] == '.' {
 		typeName = typeName[1:]
-	}
-	if checkedType, found := pb.CheckedWellKnowns[typeName]; found {
-		return checkedType, true
 	}
 	return &exprpb.Type{
 		TypeKind: &exprpb.Type_Type{

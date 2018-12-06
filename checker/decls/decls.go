@@ -2,7 +2,7 @@
 package decls
 
 import (
-	"github.com/golang/protobuf/ptypes/struct"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	emptypb "github.com/golang/protobuf/ptypes/empty"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
@@ -40,6 +40,16 @@ var (
 	Duration  = NewWellKnownType(exprpb.Type_DURATION)
 	Timestamp = NewWellKnownType(exprpb.Type_TIMESTAMP)
 )
+
+// NewAbstractType creates an abstract type declaration which references a proto
+// message name and may also include type parameters.
+func NewAbstractType(name string, paramTypes ...*exprpb.Type) *exprpb.Type {
+	return &exprpb.Type{
+		TypeKind: &exprpb.Type_AbstractType_{
+			AbstractType: &exprpb.Type_AbstractType{
+				Name:           name,
+				ParameterTypes: paramTypes}}}
+}
 
 // NewFunctionType creates a function invocation contract, typically only used
 // by type-checking steps after overload resolution.

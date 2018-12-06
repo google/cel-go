@@ -17,7 +17,7 @@ package pb
 import (
 	descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
 	emptypb "github.com/golang/protobuf/ptypes/empty"
-	"github.com/golang/protobuf/ptypes/struct"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
@@ -41,33 +41,50 @@ var (
 	// CheckedWellKnowns map from qualified proto type name to expr.Type for
 	// well-known proto types.
 	CheckedWellKnowns = map[string]*exprpb.Type{
+		// Wrapper types.
+		"google.protobuf.BoolValue":   checkedWrap(checkedBool),
+		"google.protobuf.BytesValue":  checkedWrap(checkedBytes),
 		"google.protobuf.DoubleValue": checkedWrap(checkedDouble),
 		"google.protobuf.FloatValue":  checkedWrap(checkedDouble),
 		"google.protobuf.Int64Value":  checkedWrap(checkedInt),
 		"google.protobuf.Int32Value":  checkedWrap(checkedInt),
 		"google.protobuf.UInt64Value": checkedWrap(checkedUint),
 		"google.protobuf.UInt32Value": checkedWrap(checkedUint),
-		"google.protobuf.BoolValue":   checkedWrap(checkedBool),
 		"google.protobuf.StringValue": checkedWrap(checkedString),
-		"google.protobuf.BytesValue":  checkedWrap(checkedBytes),
-		"google.protobuf.NullValue":   checkedNull,
-		"google.protobuf.Timestamp":   checkedTimestamp,
-		"google.protobuf.Duration":    checkedDuration,
-		"google.protobuf.Struct":      checkedDyn,
-		"google.protobuf.Value":       checkedDyn,
-		"google.protobuf.ListValue":   checkedDyn,
-		"google.protobuf.Any":         checkedAny}
+		// Well-known types.
+		"google.protobuf.Any":       checkedAny,
+		"google.protobuf.Duration":  checkedDuration,
+		"google.protobuf.Timestamp": checkedTimestamp,
+		// Json types.
+		"google.protobuf.ListValue": checkedListDyn,
+		"google.protobuf.NullValue": checkedNull,
+		"google.protobuf.Struct":    checkedMapStringDyn,
+		"google.protobuf.Value":     checkedDyn,
+	}
 
 	// common types
-	checkedBool      = checkedPrimitive(exprpb.Type_BOOL)
-	checkedBytes     = checkedPrimitive(exprpb.Type_BYTES)
-	checkedDouble    = checkedPrimitive(exprpb.Type_DOUBLE)
-	checkedDyn       = &exprpb.Type{TypeKind: &exprpb.Type_Dyn{Dyn: &emptypb.Empty{}}}
-	checkedInt       = checkedPrimitive(exprpb.Type_INT64)
-	checkedNull      = &exprpb.Type{TypeKind: &exprpb.Type_Null{Null: structpb.NullValue_NULL_VALUE}}
-	checkedString    = checkedPrimitive(exprpb.Type_STRING)
-	checkedUint      = checkedPrimitive(exprpb.Type_UINT64)
+	checkedDyn = &exprpb.Type{TypeKind: &exprpb.Type_Dyn{Dyn: &emptypb.Empty{}}}
+	// Wrapper and primitive types.
+	checkedBool   = checkedPrimitive(exprpb.Type_BOOL)
+	checkedBytes  = checkedPrimitive(exprpb.Type_BYTES)
+	checkedDouble = checkedPrimitive(exprpb.Type_DOUBLE)
+	checkedInt    = checkedPrimitive(exprpb.Type_INT64)
+	checkedString = checkedPrimitive(exprpb.Type_STRING)
+	checkedUint   = checkedPrimitive(exprpb.Type_UINT64)
+	// Well-known type equivalents.
 	checkedAny       = checkedWellKnown(exprpb.Type_ANY)
 	checkedDuration  = checkedWellKnown(exprpb.Type_DURATION)
 	checkedTimestamp = checkedWellKnown(exprpb.Type_TIMESTAMP)
+	// Json-based type equivalents.
+	checkedNull = &exprpb.Type{
+		TypeKind: &exprpb.Type_Null{
+			Null: structpb.NullValue_NULL_VALUE}}
+	checkedListDyn = &exprpb.Type{
+		TypeKind: &exprpb.Type_ListType_{
+			ListType: &exprpb.Type_ListType{ElemType: checkedDyn}}}
+	checkedMapStringDyn = &exprpb.Type{
+		TypeKind: &exprpb.Type_MapType_{
+			MapType: &exprpb.Type_MapType{
+				KeyType:   checkedString,
+				ValueType: checkedDyn}}}
 )
