@@ -237,8 +237,8 @@ func sanitizeFunction(decl *exprpb.Decl) *exprpb.Decl {
 				overloads[i] =
 					decls.NewOverload(o.GetOverloadId(), params, rt)
 			}
-			// Otherwise, preserve the original overload.
 		} else {
+			// Otherwise, preserve the original overload.
 			overloads[i] = o
 		}
 	}
