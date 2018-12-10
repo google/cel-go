@@ -20,10 +20,16 @@ import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
+	"io/ioutil"
+
 	"github.com/golang/protobuf/descriptor"
 	"github.com/golang/protobuf/proto"
 	descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
-	"io/ioutil"
+	anypb "github.com/golang/protobuf/ptypes/any"
+	durpb "github.com/golang/protobuf/ptypes/duration"
+	structpb "github.com/golang/protobuf/ptypes/struct"
+	tspb "github.com/golang/protobuf/ptypes/timestamp"
+	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
 )
 
 // DescribeEnum takes a qualified enum name and returns an EnumDescription.
@@ -113,4 +119,18 @@ func fileDescriptor(protoFileName string) (*descpb.FileDescriptorProto, error) {
 		return nil, fmt.Errorf("bad gzipped descriptor: %v", err)
 	}
 	return fd, nil
+}
+
+func init() {
+	// Describe well-known types to ensure they can always be resolved by the check and interpret
+	// execution phases.
+	//
+	// The following subset of message types is enough to ensure that all well-known types can
+	// resolved in the runtime, since describing the value results in describing the whole file
+	// where the message is declared.
+	DescribeValue(&anypb.Any{})
+	DescribeValue(&durpb.Duration{})
+	DescribeValue(&tspb.Timestamp{})
+	DescribeValue(&structpb.Value{})
+	DescribeValue(&wrapperspb.BoolValue{})
 }

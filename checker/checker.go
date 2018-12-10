@@ -179,33 +179,40 @@ func (c *checker) checkSelect(e *exprpb.Expr) {
 	// Interpret as field selection, first traversing down the operand.
 	c.check(sel.Operand)
 	targetType := c.getType(sel.Operand)
+	// Assume error type by default as most types do not support field selection.
 	resultType := decls.Error
-
 	switch kindOf(targetType) {
-	case kindError, kindDyn:
-		resultType = decls.Dyn
-
+	case kindMap:
+		// Maps yeild their value type as the selection result type.
+		mapType := targetType.GetMapType()
+		resultType = mapType.ValueType
 	case kindObject:
+		// Objects yield their field type declaration as the selection result type, but only if
+		// the field is defined.
 		messageType := targetType
 		if fieldType, found := c.lookupFieldType(c.location(e), messageType, sel.Field); found {
 			resultType = fieldType.Type
+			// In proto3, primitive field types can't support presence testing, so the has()
+			// style operation would be invalid in this instance.
 			if sel.TestOnly && !fieldType.SupportsPresence {
 				c.errors.fieldDoesNotSupportPresenceCheck(c.location(e), sel.Field)
 			}
 		}
-
-	case kindMap:
-		mapType := targetType.GetMapType()
-		resultType = mapType.ValueType
-
+	case kindTypeParam:
+		// Type params are expected to be the same type as the target.
+		resultType = targetType
 	default:
-		c.errors.typeDoesNotSupportFieldSelection(c.location(e), targetType)
+		// Dynamic / error values are treated as DYN type. Errors are handled this way as well
+		// in order to allow forward progress on the check.
+		if isDynOrError(targetType) {
+			resultType = decls.Dyn
+		} else {
+			c.errors.typeDoesNotSupportFieldSelection(c.location(e), targetType)
+		}
 	}
-
 	if sel.TestOnly {
 		resultType = decls.Bool
 	}
-
 	c.setType(e, resultType)
 }
 
