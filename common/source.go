@@ -16,6 +16,7 @@ package common
 
 import (
 	"strings"
+	"unicode/utf8"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
@@ -61,7 +62,7 @@ type Source interface {
 
 // The sourceImpl type implementation of the Source interface.
 type sourceImpl struct {
-	contents    string
+	contents    []rune
 	description string
 	lineOffsets []int32
 	idOffsets   map[int64]int32
@@ -83,11 +84,11 @@ func NewStringSource(contents string, description string) Source {
 	offsets := make([]int32, len(lines))
 	var offset int32
 	for i, line := range lines {
-		offset = offset + int32(len(line)) + 1
+		offset = offset + int32(utf8.RuneCountInString(line)) + 1
 		offsets[int32(i)] = offset
 	}
 	return &sourceImpl{
-		contents:    contents,
+		contents:    []rune(contents),
 		description: description,
 		lineOffsets: offsets,
 		idOffsets:   map[int64]int32{},
@@ -97,7 +98,7 @@ func NewStringSource(contents string, description string) Source {
 // NewInfoSource creates a new Source from a SourceInfo.
 func NewInfoSource(info *exprpb.SourceInfo) Source {
 	return &sourceImpl{
-		contents:    "",
+		contents:    []rune(""),
 		description: info.Location,
 		lineOffsets: info.LineOffsets,
 		idOffsets:   info.Positions,
@@ -105,7 +106,7 @@ func NewInfoSource(info *exprpb.SourceInfo) Source {
 }
 
 func (s *sourceImpl) Content() string {
-	return s.contents
+	return string(s.contents)
 }
 
 func (s *sourceImpl) Description() string {
@@ -135,9 +136,9 @@ func (s *sourceImpl) Snippet(line int) (string, bool) {
 	}
 	charEnd, found := s.findLineOffset(line + 1)
 	if found {
-		return s.contents[charStart : charEnd-1], true
+		return string(s.contents[charStart : charEnd-1]), true
 	}
-	return s.contents[charStart:], true
+	return string(s.contents[charStart:]), true
 }
 
 func (s *sourceImpl) IDOffset(exprID int64) (int32, bool) {
