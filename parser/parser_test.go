@@ -693,7 +693,7 @@ ERROR: <input>:1:6: Syntax error: mismatched input '<EOF>' expecting {'[', '{', 
 		| ......^
 	   ERROR: <input>:2:10: Syntax error: token recognition error at: '😁'
 		|    && in.😁
-		| .........^
+		| .........＾
 	   ERROR: <input>:2:11: Syntax error: missing IDENTIFIER at '<EOF>'
 		|    && in.😁
 		| .........．^`,

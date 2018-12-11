@@ -66,9 +66,15 @@ func TestErrors_WideAndNarrowCharacters_Emojis(t *testing.T) {
 	errors.ReportError(NewLocation(1, 35), "Syntax error: token recognition error at: '😁'")
 	errors.ReportError(NewLocation(1, 36), "Syntax error: missing IDENTIFIER at '<EOF>'")
 	got := errors.ToDisplayString()
-	want := "ERROR: errors-test:3:9: No such field '️😊️'\n" +
-		" | 	 &&	 in.️😊️\n" +
-		" | ........^"
+	want := "ERROR: errors-test:1:33: Syntax error: extraneous input 'in' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}\n" +
+		" |       '😁' in ['😁', '😑', '😦'] && in.😁\n" +
+		" | .......．.......．....．....．......^\n" +
+		"ERROR: errors-test:1:36: Syntax error: token recognition error at: '😁'\n" +
+		" |       '😁' in ['😁', '😑', '😦'] && in.😁\n" +
+		" | .......．.......．....．....．.........＾\n" +
+		"ERROR: errors-test:1:37: Syntax error: missing IDENTIFIER at '<EOF>'\n" +
+		" |       '😁' in ['😁', '😑', '😦'] && in.😁\n" +
+		" | .......．.......．....．....．.........．^"
 	if got != want {
 		t.Errorf("%s got %s, wanted %s", t.Name(), got, want)
 	}

@@ -59,7 +59,11 @@ func (e *Error) ToDisplayString(source Source) string {
 				indLine += dot
 			}
 		}
-		indLine += ind
+		if _, sz := utf8.DecodeRune(bytes); sz > 1 {
+			indLine += wideInd
+		} else {
+			indLine += ind
+		}
 		result += srcLine + indLine
 	}
 	return result
