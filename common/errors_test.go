@@ -32,15 +32,50 @@ func TestErrors(t *testing.T) {
 	if len(errors.GetErrors()) != 2 {
 		t.Errorf("%s second error not recorded", t.Name())
 	}
-	expected :=
+	got := errors.ToDisplayString()
+	want :=
 		"ERROR: errors-test:1:2: No such field\n" +
 			" | a.b\n" +
 			" | .^\n" +
 			"ERROR: errors-test:2:21: Syntax error, missing paren\n" +
 			" | &&arg(missing, paren\n" +
 			" | ....................^"
-	actual := errors.ToDisplayString()
-	if actual != expected {
-		t.Errorf("%s got %s, wanted %s", t.Name(), actual, expected)
+	if got != want {
+		t.Errorf("%s got %s, wanted %s", t.Name(), got, want)
+	}
+}
+
+func TestErrors_WideAndNarrowCharacters(t *testing.T) {
+	source := NewStringSource("你好吗\n我b很好\n", "errors-test")
+	errors := NewErrors(source)
+	errors.ReportError(NewLocation(2, 3), "Unexpected character '好'")
+
+	got := errors.ToDisplayString()
+	want := "ERROR: errors-test:2:4: Unexpected character '好'\n" +
+		" | 我b很好\n" +
+		" | ．.．＾"
+	if got != want {
+		t.Errorf("%s got %s, wanted %s", t.Name(), got, want)
+	}
+}
+
+func TestErrors_WideAndNarrowCharacters_Emojis(t *testing.T) {
+	source := NewStringSource("      '😁' in ['😁', '😑', '😦'] && in.😁", "errors-test")
+	errors := NewErrors(source)
+	errors.ReportError(NewLocation(1, 32), "Syntax error: extraneous input 'in' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}")
+	errors.ReportError(NewLocation(1, 35), "Syntax error: token recognition error at: '😁'")
+	errors.ReportError(NewLocation(1, 36), "Syntax error: missing IDENTIFIER at '<EOF>'")
+	got := errors.ToDisplayString()
+	want := "ERROR: errors-test:1:33: Syntax error: extraneous input 'in' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}\n" +
+		" |       '😁' in ['😁', '😑', '😦'] && in.😁\n" +
+		" | .......．.......．....．....．......^\n" +
+		"ERROR: errors-test:1:36: Syntax error: token recognition error at: '😁'\n" +
+		" |       '😁' in ['😁', '😑', '😦'] && in.😁\n" +
+		" | .......．.......．....．....．.........＾\n" +
+		"ERROR: errors-test:1:37: Syntax error: missing IDENTIFIER at '<EOF>'\n" +
+		" |       '😁' in ['😁', '😑', '😦'] && in.😁\n" +
+		" | .......．.......．....．....．.........．^"
+	if got != want {
+		t.Errorf("%s got %s, wanted %s", t.Name(), got, want)
 	}
 }

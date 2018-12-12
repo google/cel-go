@@ -684,6 +684,20 @@ ERROR: <input>:1:6: Syntax error: mismatched input '<EOF>' expecting {'[', '{', 
     		 | "\a\b\f\n\r\t\v\'\"\\\? Illegal escape \>"
     		 | ..........................................^`,
 	},
+
+	{
+		I: `      '😁' in ['😁', '😑', '😦'] 
+			&& in.😁`,
+		E: `ERROR: <input>:2:7: Syntax error: extraneous input 'in' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
+		|    && in.😁
+		| ......^
+	   ERROR: <input>:2:10: Syntax error: token recognition error at: '😁'
+		|    && in.😁
+		| .........＾
+	   ERROR: <input>:2:11: Syntax error: missing IDENTIFIER at '<EOF>'
+		|    && in.😁
+		| .........．^`,
+	},
 }
 
 type testInfo struct {

@@ -57,3 +57,10 @@ go_repository(
   tag = "v1.11.3",
   remote = "https://github.com/grpc/grpc-go.git",
 )
+
+go_repository(
+  name = "org_golang_x_text",
+  importpath = "golang.org/x/text",
+  tag = "v0.3.0",
+  remote = "https://github.com/golang/text",
+)
