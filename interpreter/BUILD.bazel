@@ -51,6 +51,7 @@ go_test(
     ],
     deps = [
         "//checker:go_default_library",
+        "//checker/decls:go_default_library",
         "//common/debug:go_default_library",
         "//common/operators:go_default_library",
         "//common/packages:go_default_library",
