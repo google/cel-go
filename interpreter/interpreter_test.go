@@ -22,6 +22,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cel-go/checker"
+	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/packages"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
@@ -388,6 +389,27 @@ func TestInterpreter_MapIndex(t *testing.T) {
 	}
 }
 
+func TestInterpreter_Matches(t *testing.T) {
+	expression := "input.matches('k.*')"
+	expr := compileExpr(t, expression, decls.NewIdent("input", decls.String, nil))
+	prog := NewCheckedProgram(expr)
+	eval := interpreter.NewInterpretable(prog)
+
+	for input, expectedResult := range map[string]bool{
+		"kathmandu":   true,
+		"foo":         false,
+		"bar":         false,
+		"kilimanjaro": true,
+	} {
+		result, _ := eval.Eval(NewActivation(map[string]interface{}{
+			"input": input,
+		}))
+		if v, ok := result.Value().(bool); !ok || v != expectedResult {
+			t.Errorf("Got %v, wanted %v for expr %s with input %s", result.Value(), expectedResult, expression, input)
+		}
+	}
+}
+
 func BenchmarkInterpreter_ConditionalExpr(b *testing.B) {
 	// a ? b < 1.0 : c == ["hello"]
 	program := NewProgram(
@@ -514,4 +536,22 @@ func evalExpr(t *testing.T, src string) (ref.Value, EvalState) {
 	pgrm := NewProgram(parsed.Expr, parsed.SourceInfo)
 	eval := interpreter.NewInterpretable(pgrm)
 	return eval.Eval(emptyActivation)
+}
+
+func compileExpr(t *testing.T, src string, decls ...*exprpb.Decl) *exprpb.CheckedExpr {
+	t.Helper()
+	s := common.NewTextSource(src)
+	parsed, errors := parser.Parse(s)
+	if len(errors.GetErrors()) != 0 {
+		t.Error(errors.ToDisplayString())
+		return nil
+	}
+	env := checker.NewStandardEnv(packages.DefaultPackage, types.NewProvider())
+	env.Add(decls...)
+	checked, errors := checker.Check(parsed, s, env)
+	if len(errors.GetErrors()) != 0 {
+		t.Error(errors.ToDisplayString())
+		return nil
+	}
+	return checked
 }
