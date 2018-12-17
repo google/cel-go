@@ -3,32 +3,29 @@ workspace(name = "cel_go")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
-  name = "io_bazel_rules_go",
-  sha256 = "8b68d0630d63d95dacc0016c3bb4b76154fe34fca93efd65d1c366de3fcb4294",
-  urls = ["https://github.com/bazelbuild/rules_go/releases/download/0.12.1/rules_go-0.12.1.tar.gz"],
+    name = "io_bazel_rules_go",
+    urls = ["https://github.com/bazelbuild/rules_go/releases/download/0.16.3/rules_go-0.16.3.tar.gz"],
+    sha256 = "b7a62250a3a73277ade0ce306d22f122365b513f5402222403e507f2f997d421",
 )
 
 http_archive(
-  name = "bazel_gazelle",
-  sha256 = "ddedc7aaeb61f2654d7d7d4fd7940052ea992ccdb031b8f9797ed143ac7e8d43",
-  urls = ["https://github.com/bazelbuild/bazel-gazelle/releases/download/0.12.0/bazel-gazelle-0.12.0.tar.gz"],
+    name = "bazel_gazelle",
+    urls = ["https://github.com/bazelbuild/bazel-gazelle/releases/download/0.15.0/bazel-gazelle-0.15.0.tar.gz"],
+    sha256 = "6e875ab4b6bf64a38c352887760f21203ab054676d9c1b274963907e0768740d",
 )
 
-load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies", "go_repository")
+load("@io_bazel_rules_go//go:def.bzl", "go_rules_dependencies", "go_register_toolchains")
+load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies")
+load("@bazel_gazelle//:deps.bzl", "go_repository")
 
-gazelle_dependencies()
+# Do *not* call *_dependencies(), etc, yet.  See comment at the end.
 
-# Must come before go_rules_dependencies()
 go_repository(
   name = "org_golang_google_genproto",
   build_file_proto_mode = "disable",
-  commit = "b69ba1387ce2108ac9bc8e8e5e5a46e7d5c72313",
+  commit = "bd91e49a0898e27abb88c339b432fa53d7497ac0",
   importpath = "google.golang.org/genproto",
 )
-
-load("@io_bazel_rules_go//go:def.bzl", "go_register_toolchains", "go_rules_dependencies")
-go_rules_dependencies()
-go_register_toolchains()
 
 go_repository(
   name = "com_github_antlr",
@@ -36,26 +33,12 @@ go_repository(
   importpath = "github.com/antlr/antlr4",
 )
 
-git_repository(
-  name = "com_google_cel_spec",
-  commit = "3c25c4d4ffb504e2c24c1d84196c78ba3ac9e612",
-  remote = "https://github.com/google/cel-spec.git",
-)
-
-git_repository(
-  name = "org_pubref_rules_protobuf",
-  remote = "https://github.com/pubref/rules_protobuf",
-  tag = "v0.8.2",
-)
-
-load("@org_pubref_rules_protobuf//go:rules.bzl", "go_proto_repositories")
-go_proto_repositories()
-
 go_repository(
   name = "org_golang_google_grpc",
   importpath = "google.golang.org/grpc",
   tag = "v1.11.3",
   remote = "https://github.com/grpc/grpc-go.git",
+  vcs = "git",
 )
 
 go_repository(
@@ -63,4 +46,11 @@ go_repository(
   importpath = "golang.org/x/text",
   tag = "v0.3.0",
   remote = "https://github.com/golang/text",
+  vcs = "git",
 )
+
+# Run the dependencies at the end.  These will silently try to import some
+# of the above repositories but at different versions, so ours must come first.
+go_rules_dependencies()
+go_register_toolchains()
+gazelle_dependencies()
