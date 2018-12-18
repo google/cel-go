@@ -1170,7 +1170,7 @@ func TestCheck(t *testing.T) {
 			}
 
 			if tst.R != "" {
-				actualStr := print(expression.Expr, semantics)
+				actualStr := Print(expression.Expr, semantics)
 				if !test.Compare(actualStr, tst.R) {
 					tt.Error(test.DiffMessage("Structure error", actualStr, tst.R))
 				}
