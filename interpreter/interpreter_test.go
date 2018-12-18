@@ -224,6 +224,13 @@ func TestInterpreter_Filter(t *testing.T) {
 	}
 }
 
+func TestInterpreter_Timestamp(t *testing.T) {
+	result, _ := evalExpr(t, "timestamp('2001-01-01T01:23:45Z').getDayOfWeek() == 1")
+	if result != types.True {
+		t.Errorf("Got %v, wanted true", result)
+	}
+}
+
 func TestInterpreter_LogicalAnd(t *testing.T) {
 	// a && {c: true}.c
 	program := NewProgram(
