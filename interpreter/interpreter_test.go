@@ -231,6 +231,13 @@ func TestInterpreter_Timestamp(t *testing.T) {
 	}
 }
 
+func TestInterpreter_HasTest(t *testing.T) {
+	result, _ := evalExpr(t, "has({'a':1}.a) && !has({}.a)")
+	if result != types.True {
+		t.Errorf("Got %v, wanted true", result)
+	}
+}
+
 func TestInterpreter_LogicalAnd(t *testing.T) {
 	// a && {c: true}.c
 	program := NewProgram(

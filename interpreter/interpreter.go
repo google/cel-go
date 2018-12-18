@@ -166,6 +166,10 @@ func (i *exprInterpretable) evalSelect(selExpr *SelectExpr, currActivation Activ
 		return
 	}
 	fieldValue := operand.(traits.Indexer).Get(types.String(selExpr.Field))
+	if selExpr.TestOnly {
+		i.setValue(selExpr.GetID(), !types.Bool(types.IsUnknownOrError(fieldValue)))
+		return
+	}
 	i.setValue(selExpr.GetID(), fieldValue)
 }
 
