@@ -160,4 +160,7 @@ func TestString_Size(t *testing.T) {
 	if String("hello world").Size().(Int) != 11 {
 		t.Error("String with eleven characters had incorrect size")
 	}
+	if String("\u65e5\u672c\u8a9e").Size().(Int) != 3 {
+		t.Error("String size must be code points, not UTF8 bytes")
+	}
 }
