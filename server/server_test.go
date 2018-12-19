@@ -2,24 +2,20 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
-	"os/exec"
 	"testing"
 
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/test"
-	"google.golang.org/grpc"
+	"github.com/google/cel-spec/tools/celrpc"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 type serverTest struct {
-	cmd    *exec.Cmd
-	conn   *grpc.ClientConn
-	client exprpb.ConformanceServiceClient
+        client *celrpc.ConfClient
 }
 
 var (
@@ -34,64 +30,15 @@ func TestMain(m *testing.M) {
 }
 
 func mainHelper(m *testing.M) int {
-	err := setup()
-	defer shutdown()
+	client, err := celrpc.NewClientFromPath(os.Args[1])
+	globals.client = client
+	defer client.Shutdown()
 	if err != nil {
 		// testing.M doesn't have a logging method.  hmm...
 		log.Fatal(err)
 		return 1
 	}
 	return m.Run()
-}
-
-func setup() error {
-	if len(os.Args) < 2 {
-		log.Fatalf("Expect binary path: %s <binary>\n", os.Args[0])
-	}
-	globals.cmd = exec.Command(os.Args[1])
-
-	out, err := globals.cmd.StdoutPipe()
-	if err != nil {
-		return err
-	}
-	globals.cmd.Stderr = os.Stderr // share our error stream
-
-	log.Println("Starting server")
-	err = globals.cmd.Start()
-	if err != nil {
-		return err
-	}
-
-	log.Println("Getting server's address")
-	var addr string
-	_, err = fmt.Fscanf(out, "Listening on %s\n", &addr)
-	out.Close()
-	if err != nil {
-		return err
-	}
-
-	log.Println("Connecting to ", addr)
-	conn, err := grpc.Dial(addr, grpc.WithInsecure())
-	if err != nil {
-		return err
-	}
-	globals.conn = conn
-
-	log.Println("Creating service client")
-	globals.client = exprpb.NewConformanceServiceClient(conn)
-	return nil
-}
-
-func shutdown() {
-	if globals.conn != nil {
-		globals.conn.Close()
-		globals.conn = nil
-	}
-	if globals.cmd != nil {
-		globals.cmd.Process.Kill()
-		globals.cmd.Wait()
-		globals.cmd = nil
-	}
 }
 
 var (
