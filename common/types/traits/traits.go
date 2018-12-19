@@ -39,6 +39,8 @@ const (
 	MultiplierType
 	// NegatorType types support either negation via '!' or '-'
 	NegatorType
+	// FieldDefinerType types support the detection of field value presence.
+	FieldDefinerType
 	// ReceiverType types support dynamic dispatch to instance methods.
 	ReceiverType
 	// SizerType types support the size() method.

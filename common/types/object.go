@@ -83,6 +83,27 @@ func (o *protoObj) Equal(other ref.Value) ref.Value {
 	return Bool(proto.Equal(o.value, other.Value().(proto.Message)))
 }
 
+func (o *protoObj) IsSet(field ref.Value) ref.Value {
+	if field.Type() != StringType {
+		return NewErr("illegal object field type '%s'", field.Type())
+	}
+	protoFieldName := string(field.(String))
+	if f, found := o.typeDesc.FieldByName(protoFieldName); found {
+		if !f.IsOneof() {
+			return isFieldSet(o.refValue.Elem().Field(f.Index()))
+		}
+
+		getter := o.refValue.MethodByName(f.GetterName())
+		if getter.IsValid() {
+			refField := getter.Call([]reflect.Value{})[0]
+			if refField.IsValid() {
+				return isFieldSet(refField)
+			}
+		}
+	}
+	return NewErr("no such field '%s'", field)
+}
+
 func (o *protoObj) Get(index ref.Value) ref.Value {
 	if index.Type() != StringType {
 		return NewErr("illegal object field type '%s'", index.Type())
@@ -145,9 +166,16 @@ var (
 	protoDefaultInstanceMap = make(map[reflect.Type]ref.Value)
 )
 
-func getOrDefaultInstance(refVal reflect.Value) ref.Value {
-	value := refVal.Interface()
+func isFieldSet(refVal reflect.Value) ref.Value {
 	if refVal.Kind() != reflect.Ptr || !refVal.IsNil() {
+		return True
+	}
+	return False
+}
+
+func getOrDefaultInstance(refVal reflect.Value) ref.Value {
+	if isFieldSet(refVal) == True {
+		value := refVal.Interface()
 		return NativeToValue(value)
 	}
 	return getDefaultInstance(refVal.Type())
