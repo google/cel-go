@@ -83,6 +83,7 @@ func (o *protoObj) Equal(other ref.Value) ref.Value {
 	return Bool(proto.Equal(o.value, other.Value().(proto.Message)))
 }
 
+// IsSet tests whether a field which is defined is set to a non-default value.
 func (o *protoObj) IsSet(field ref.Value) ref.Value {
 	if field.Type() != StringType {
 		return NewErr("illegal object field type '%s'", field.Type())
@@ -167,10 +168,10 @@ var (
 )
 
 func isFieldSet(refVal reflect.Value) ref.Value {
-	if refVal.Kind() != reflect.Ptr || !refVal.IsNil() {
-		return True
+	if refVal.Kind() == reflect.Ptr && refVal.IsNil() {
+		return False
 	}
-	return False
+	return True
 }
 
 func getOrDefaultInstance(refVal reflect.Value) ref.Value {

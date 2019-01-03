@@ -19,12 +19,14 @@ package traits
 const (
 	// AdderType types provide a '+' operator overload.
 	AdderType = 1 << iota
-	// ComparerType types support ordering comparisons '<', '<=', '>', '>='.
+	// CompFarerType types support ordering comparisons '<', '<=', '>', '>='.
 	ComparerType
 	// ContainerType types support 'in' operations.
 	ContainerType
 	// DividerType types support '/' operations.
 	DividerType
+	// FieldTesterType types support the detection of field value presence.
+	FieldTesterType
 	// IndexerType types support index access with dynamic values.
 	IndexerType
 	// IterableType types can be iterated over in comprehensions.
@@ -39,8 +41,6 @@ const (
 	MultiplierType
 	// NegatorType types support either negation via '!' or '-'
 	NegatorType
-	// FieldDefinerType types support the detection of field value presence.
-	FieldDefinerType
 	// ReceiverType types support dynamic dispatch to instance methods.
 	ReceiverType
 	// SizerType types support the size() method.

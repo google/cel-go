@@ -18,13 +18,13 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 )
 
-// FieldDefiner indicates if a defined field on an objec type is set to a
+// FieldTester indicates if a defined field on an object type is set to a
 // non-default value.
 //
 // For use with the `has()` macro.
-type FieldDefiner interface {
+type FieldTester interface {
 	// IsSet returns true if the field is defined and set to a non-default
-	// value. The method will return false if defiend and not set, and an error
+	// value. The method will return false if defined and not set, and an error
 	// if the field is not defined.
 	IsSet(field ref.Value) ref.Value
 }

@@ -171,8 +171,8 @@ func (i *exprInterpretable) evalSelect(selExpr *SelectExpr, currActivation Activ
 			i.setValue(selExpr.GetID(), operand.(traits.Container).Contains(field))
 			return
 		}
-		if operand.Type().HasTrait(traits.FieldDefinerType) {
-			i.setValue(selExpr.GetID(), operand.(traits.FieldDefiner).IsSet(field))
+		if operand.Type().HasTrait(traits.FieldTesterType) {
+			i.setValue(selExpr.GetID(), operand.(traits.FieldTester).IsSet(field))
 			return
 		}
 		i.setValue(selExpr.GetID(), types.NewErr("invalid operand in select"))
