@@ -231,6 +231,21 @@ func TestInterpreter_Timestamp(t *testing.T) {
 	}
 }
 
+func TestInterpreter_HasTest(t *testing.T) {
+	result, _ := evalExpr(t,
+		`has({'a':1}.a) &&
+		 !has({}.a) &&
+		 has(google.api.expr.v1alpha1.ParsedExpr{
+			expr:google.api.expr.v1alpha1.Expr{id: 1}}
+			.expr) &&
+		 !has(google.api.expr.v1alpha1.ParsedExpr{
+			expr:google.api.expr.v1alpha1.Expr{id: 1}}
+			.source_info)`)
+	if result != types.True {
+		t.Errorf("Got %v, wanted true", result)
+	}
+}
+
 func TestInterpreter_LogicalAnd(t *testing.T) {
 	// a && {c: true}.c
 	program := NewProgram(
