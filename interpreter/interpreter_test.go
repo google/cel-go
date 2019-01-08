@@ -203,6 +203,34 @@ func TestInterpreter_NonStrictAllWithInput(t *testing.T) {
 	}
 }
 
+func TestInterpreter_LongQualifiedIdent(t *testing.T) {
+	parsed := parseExpr(t, `a.b.c.d == 10`)
+	pgrm := NewProgram(parsed.Expr, parsed.SourceInfo)
+	i := interpreter.NewInterpretable(pgrm)
+	result, _ := i.Eval(NewActivation(map[string]interface{}{
+		"a.b.c.d": 10,
+	}))
+	if result != types.True {
+		t.Errorf("Got %v, wanted true", result)
+	}
+}
+
+func TestInterpreter_FieldAccess(t *testing.T) {
+	parsed := parseExpr(t, `val.input.expr.id == 10`)
+	pgrm := NewProgram(parsed.Expr, parsed.SourceInfo)
+	i := interpreter.NewInterpretable(pgrm)
+	unk, _ := i.Eval(NewActivation(map[string]interface{}{}))
+	if !types.IsUnknown(unk) {
+		t.Errorf("Got %v, wanted unknown", unk)
+	}
+	result, _ := i.Eval(NewActivation(map[string]interface{}{
+		"val.input": &exprpb.ParsedExpr{Expr: &exprpb.Expr{Id: 10}},
+	}))
+	if result != types.True {
+		t.Errorf("Got %v, wanted true", result)
+	}
+}
+
 func TestInterpreter_ExistsOne(t *testing.T) {
 	result, _ := evalExpr(t, "[1, 2, 3].exists_one(x, x % 2 == 0)")
 	if result != types.True {
