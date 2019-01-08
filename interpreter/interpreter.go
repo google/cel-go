@@ -161,13 +161,13 @@ func (i *exprInterpretable) evalSelect(selExpr *SelectExpr, currActivation Activ
 			i.setValue(selExpr.GetID(), resVal)
 			return
 		}
+		// If the operand is an error, early return.
 		if types.IsError(operand) {
 			i.setValue(selExpr.GetID(), operand)
-		} else {
-			i.setValue(
-				selExpr.GetID(),
-				types.NewErr("Invalid operand for select expression."))
+			return
 		}
+		// Otherwise, create an error.
+		i.setValue(selExpr.GetID(), types.NewErr("invalid operand in select"))
 		return
 	}
 	field := types.String(selExpr.Field)
@@ -191,6 +191,11 @@ func (i *exprInterpretable) evalSelect(selExpr *SelectExpr, currActivation Activ
 // which may have generated unknown values during the course of execution if
 // the expression was not type-checked and the select, in fact, refers to a
 // qualified identifier name instead of a series of field selections.
+//
+// Returns one of the following:
+// - The resolved identifier value from the activation
+// - An unknown value if the expression is a valid identifier, but was not found.
+// - Otherwise, an error.
 func (i *exprInterpretable) resolveUnknown(unknown types.Unknown,
 	selExpr *SelectExpr,
 	currActivation Activation) ref.Value {
@@ -217,7 +222,7 @@ func (i *exprInterpretable) resolveUnknown(unknown types.Unknown,
 		}
 	}
 	if !validIdent {
-		return types.NewErr("Invalid identifier encountered.")
+		return types.NewErr("invalid identifier encountered: %v", selExpr)
 	}
 	pkg := i.interpreter.packager
 	tp := i.interpreter.typeProvider
