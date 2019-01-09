@@ -31,51 +31,45 @@ type Dispatcher interface {
 
 	// Dispatch a call to its appropriate Overload and return the result or
 	// error.
-	Dispatch(ctx *CallContext) ref.Value
+	Dispatch(call *CallExpr)
 
 	// FindOverload returns an Overload definition matching the provided
 	// name.
 	FindOverload(overload string) (*functions.Overload, bool)
+
+	// Init clones the configuration of the current Dispatcher and returns
+	// a new one with its own MutableEvalState.
+	Init(state MutableEvalState) Dispatcher
 }
 
-// CallContext provides a description of a function call invocation.
-type CallContext struct {
-	call       *CallExpr
-	args       []ref.Value
-	activation Activation
-	metadata   Metadata
-}
-
-// Function name to be invoked as it is written in an expression.
-func (ctx *CallContext) Function() (string, string) {
-	return ctx.call.Function, ctx.call.Overload
-}
-
-// Args to provide on the overload dispatch.
-func (ctx *CallContext) Args() []ref.Value {
-	return ctx.args
-}
-
-func (ctx *CallContext) String() string {
-	return fmt.Sprintf("%s with %v", ctx.call.String(), ctx.args)
-}
-
-// NewDispatcher returns an empty Dispatcher.
+// NewDispatcher returns an empty Dispatcher instance.
 //
-// Typically this call would be used with functions#StandardOverloads:
-//
-//     dispatcher := NewDispatcher()
-//     dispatcher.add(functions.StandardOverloads())
+// Functions may be added to the Dispatcher via the Add() call. At the
+// creation of a new Interpretable, the Dispatcher is cloned and given an
+// instance of a MutableEvalState for the purpose of gathering call args
+// and recording call responses in-place.
 func NewDispatcher() Dispatcher {
 	return &defaultDispatcher{
 		overloads: make(map[string]*functions.Overload)}
 }
 
-// Helper types for tracking overloads by various dimensions.
+// overloadMap helper type for indexing overloads by function name.
 type overloadMap map[string]*functions.Overload
 
+// defaultDispatcher struct which contains an overload map and a state
+// instance used to track call args and return values.
 type defaultDispatcher struct {
 	overloads overloadMap
+	state     MutableEvalState
+}
+
+// Init clones the configuration of the current Dispatcher and returns
+// a new one with its own MutableEvalState.
+func (d *defaultDispatcher) Init(state MutableEvalState) Dispatcher {
+	return &defaultDispatcher{
+		overloads: d.overloads,
+		state:     state,
+	}
 }
 
 func (d *defaultDispatcher) Add(overloads ...*functions.Overload) error {
@@ -91,29 +85,54 @@ func (d *defaultDispatcher) Add(overloads ...*functions.Overload) error {
 	return nil
 }
 
-func (d *defaultDispatcher) Dispatch(ctx *CallContext) ref.Value {
-	function, overloadID := ctx.Function()
-	operand := ctx.args[0]
+func (d *defaultDispatcher) Dispatch(call *CallExpr) {
+	s := d.state
+	function := call.Function
+	argCount := len(call.Args)
+	arg0, _ := s.Value(call.Args[0])
 	if overload, found := d.overloads[function]; found {
-		if !operand.Type().HasTrait(overload.OperandTrait) {
-			return types.NewErr("no such overload")
+		if !arg0.Type().HasTrait(overload.OperandTrait) {
+			s.SetValue(call.ID, types.NewErr("no such overload"))
+			return
 		}
-		argCount := len(ctx.args)
-		if argCount == 2 && overload.Binary != nil {
-			return overload.Binary(ctx.args[0], ctx.args[1])
-		}
-		if argCount == 1 && overload.Unary != nil {
-			return overload.Unary(ctx.args[0])
-		}
-		if overload.Function != nil {
-			return overload.Function(ctx.args...)
+		switch argCount {
+		case 1:
+			s.SetValue(call.ID, overload.Unary(arg0))
+			return
+		case 2:
+			arg1, _ := s.Value(call.Args[1])
+			s.SetValue(call.ID, overload.Binary(arg0, arg1))
+			return
+		case 3:
+			arg1, _ := s.Value(call.Args[1])
+			arg2, _ := s.Value(call.Args[2])
+			s.SetValue(call.ID, overload.Function(arg0, arg1, arg2))
+			return
+		default:
+			args := make([]ref.Value, argCount, argCount)
+			for i, argID := range call.Args {
+				val, _ := s.Value(argID)
+				args[i] = val
+			}
+			s.SetValue(call.ID, overload.Function(args...))
+			return
 		}
 	}
 	// Special dispatch for member functions.
-	if operand.Type().HasTrait(traits.ReceiverType) {
-		return operand.(traits.Receiver).Receive(function, overloadID, ctx.args[1:])
+	if arg0.Type().HasTrait(traits.ReceiverType) {
+		overload := call.Overload
+		args := make([]ref.Value, argCount-1, argCount-1)
+		for i, argID := range call.Args {
+			if i == 0 {
+				continue
+			}
+			val, _ := s.Value(argID)
+			args[i] = val
+		}
+		s.SetValue(call.ID, arg0.(traits.Receiver).Receive(function, overload, args))
+		return
 	}
-	return types.NewErr("no such overload")
+	s.SetValue(call.ID, types.NewErr("no such overload"))
 }
 
 func (d *defaultDispatcher) FindOverload(overload string) (*functions.Overload, bool) {

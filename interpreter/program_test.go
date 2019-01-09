@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/test"
 )
 
@@ -30,10 +29,7 @@ func TestNewExhaustiveProgram_LogicalOr(t *testing.T) {
 		t.Errorf("Unexpected location found: %v", loc)
 	}
 	state := NewEvalState(program.MaxInstructionID() + 1)
-	program.Init(dispatcher(), state)
-	if _, hasNext := program.Begin().Next(); !hasNext {
-		t.Error("Expected a step in program, but found none")
-	}
+	program.Init(state)
 	fmt.Printf("%s\n%s\n\n", t.Name(), program)
 
 	expected := "TestNewExhaustiveProgram_LogicalOr\n" +
@@ -56,10 +52,7 @@ func TestNewExhaustiveProgram_Conditional(t *testing.T) {
 		t.Errorf("Unexpected location found: %v", loc)
 	}
 	state := NewEvalState(program.MaxInstructionID() + 1)
-	program.Init(dispatcher(), state)
-	if _, hasNext := program.Begin().Next(); !hasNext {
-		t.Error("Expected a step in program, but found none")
-	}
+	program.Init(state)
 	expected := "TestNewExhaustiveProgram_Conditional\n" +
 		"0: local 'a', r1\n" +
 		"1: local 'b', r2\n" +
@@ -83,10 +76,7 @@ func TestNewProgram_Empty(t *testing.T) {
 		t.Errorf("Unexpected location found: %v", loc)
 	}
 	state := NewEvalState(program.MaxInstructionID() + 1)
-	program.Init(dispatcher(), state)
-	if step, hasNext := program.Begin().Next(); hasNext {
-		t.Errorf("Unexpected step in empty program: %v", step)
-	}
+	program.Init(state)
 }
 
 func TestNewProgram_LogicalAnd(t *testing.T) {
@@ -97,10 +87,7 @@ func TestNewProgram_LogicalAnd(t *testing.T) {
 		t.Errorf("Unexpected location found: %v", loc)
 	}
 	state := NewEvalState(program.MaxInstructionID() + 1)
-	program.Init(dispatcher(), state)
-	if _, hasNext := program.Begin().Next(); !hasNext {
-		t.Error("Expected a step in program, but found none")
-	}
+	program.Init(state)
 	fmt.Printf("%s\n%s\n\n", t.Name(), program)
 }
 
@@ -112,10 +99,7 @@ func TestNewProgram_LogicalOr(t *testing.T) {
 		t.Errorf("Unexpected location found: %v", loc)
 	}
 	state := NewEvalState(program.MaxInstructionID() + 1)
-	program.Init(dispatcher(), state)
-	if _, hasNext := program.Begin().Next(); !hasNext {
-		t.Error("Expected a step in program, but found none")
-	}
+	program.Init(state)
 	fmt.Printf("%s\n%s\n\n", t.Name(), program)
 }
 
@@ -127,10 +111,7 @@ func TestNewProgram_Conditional(t *testing.T) {
 		t.Errorf("Unexpected location found: %v", loc)
 	}
 	state := NewEvalState(program.MaxInstructionID() + 1)
-	program.Init(dispatcher(), state)
-	if _, hasNext := program.Begin().Next(); !hasNext {
-		t.Error("Expected a step in program, but found none")
-	}
+	program.Init(state)
 	expected := "TestNewProgram_Conditional\n" +
 		"0: local 'a', r1\n" +
 		"1: jump  8 if cond<r1>\n" +
@@ -157,10 +138,7 @@ func TestNewProgram_Comprehension(t *testing.T) {
 		t.Errorf("Unexpected location found: %v", loc)
 	}
 	state := NewEvalState(program.MaxInstructionID() + 1)
-	program.Init(dispatcher(), state)
-	if _, hasNext := program.Begin().Next(); !hasNext {
-		t.Error("Expected a step in program, but found none")
-	}
+	program.Init(state)
 	fmt.Printf("%s\n%s\n\n", t.Name(), program)
 }
 
@@ -172,15 +150,6 @@ func TestNewProgram_DynMap(t *testing.T) {
 		t.Errorf("Unexpected location found: %v", loc)
 	}
 	state := NewEvalState(program.MaxInstructionID() + 1)
-	program.Init(dispatcher(), state)
-	if _, hasNext := program.Begin().Next(); !hasNext {
-		t.Error("Expected a step in program, but found none")
-	}
+	program.Init(state)
 	fmt.Printf("%s\n%s\n\n", t.Name(), program)
-}
-
-func dispatcher() Dispatcher {
-	dispatcher := NewDispatcher()
-	dispatcher.Add(functions.StandardOverloads()...)
-	return dispatcher
 }

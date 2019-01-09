@@ -87,7 +87,7 @@ func (s *ConformanceServer) Eval(ctx context.Context, in *exprpb.EvalRequest) (*
 	pkg := packages.NewPackage(in.Container)
 	typeProvider := types.NewProvider()
 	i := interpreter.NewStandardInterpreter(pkg, typeProvider)
-	var prog interpreter.Program
+	var prog *interpreter.Program
 	switch in.ExprKind.(type) {
 	case *exprpb.EvalRequest_ParsedExpr:
 		parsed := in.GetParsedExpr()
