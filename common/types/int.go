@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/golang/protobuf/ptypes/struct"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 )
@@ -71,7 +71,7 @@ func (i Int) Compare(other ref.Value) ref.Value {
 func (i Int) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	switch typeDesc.Kind() {
 	case reflect.Int32:
-		return int32(i), nil
+		return reflect.ValueOf(i).Convert(typeDesc).Interface(), nil
 	case reflect.Int64:
 		return int64(i), nil
 	case reflect.Ptr:
