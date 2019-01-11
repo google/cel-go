@@ -155,14 +155,19 @@ func (i *exprInterpretable) evalIdent(idExpr *IdentExpr, currActivation Activati
 func (i *exprInterpretable) evalSelect(selExpr *SelectExpr, currActivation Activation) {
 	operand := i.value(selExpr.Operand)
 	if !operand.Type().HasTrait(traits.IndexerType) {
+		// If the operand is unknown, this could be an identifer.
+		if types.IsUnknown(operand) {
+			resVal := i.resolveUnknown(operand.(types.Unknown), selExpr, currActivation)
+			i.setValue(selExpr.GetID(), resVal)
+			return
+		}
+		// If the operand is an error, early return.
 		if types.IsError(operand) {
 			i.setValue(selExpr.GetID(), operand)
 			return
 		}
-		if !types.IsUnknown(operand) ||
-			!i.resolveUnknown(operand.(types.Unknown), selExpr, currActivation) {
-			i.setValue(selExpr.GetID(), types.NewErr("invalid operand in select"))
-		}
+		// Otherwise, create an error.
+		i.setValue(selExpr.GetID(), types.NewErr("invalid operand in select"))
 		return
 	}
 	field := types.String(selExpr.Field)
@@ -186,12 +191,16 @@ func (i *exprInterpretable) evalSelect(selExpr *SelectExpr, currActivation Activ
 // which may have generated unknown values during the course of execution if
 // the expression was not type-checked and the select, in fact, refers to a
 // qualified identifier name instead of a series of field selections.
+//
+// Returns one of the following:
+// - The resolved identifier value from the activation
+// - An unknown value if the expression is a valid identifier, but was not found.
+// - Otherwise, an error.
 func (i *exprInterpretable) resolveUnknown(unknown types.Unknown,
 	selExpr *SelectExpr,
-	currActivation Activation) bool {
+	currActivation Activation) ref.Value {
 	if object, found := currActivation.ResolveReference(selExpr.ID); found {
-		i.setValue(selExpr.ID, object)
-		return true
+		return object
 	}
 	validIdent := true
 	identifier := selExpr.Field
@@ -213,22 +222,19 @@ func (i *exprInterpretable) resolveUnknown(unknown types.Unknown,
 		}
 	}
 	if !validIdent {
-		return false
+		return types.NewErr("invalid identifier encountered: %v", selExpr)
 	}
 	pkg := i.interpreter.packager
 	tp := i.interpreter.typeProvider
 	for _, id := range pkg.ResolveCandidateNames(identifier) {
 		if object, found := currActivation.ResolveName(id); found {
-			i.setValue(selExpr.ID, object)
-			return true
+			return object
 		}
 		if identVal, found := tp.FindIdent(id); found {
-			i.setValue(selExpr.ID, identVal)
-			return true
+			return identVal
 		}
 	}
-	i.setValue(selExpr.ID, append(types.Unknown{selExpr.ID}, unknown...))
-	return false
+	return append(types.Unknown{selExpr.ID}, unknown...)
 }
 
 func (i *exprInterpretable) evalCall(callExpr *CallExpr, currActivation Activation) {
