@@ -29,8 +29,8 @@ type Dispatcher interface {
 	// same Overload#Name.
 	Add(overloads ...*functions.Overload) error
 
-	// Dispatch a call to its appropriate Overload and return the result or
-	// error.
+	// Dispatch a call to its appropriate Overload and set the evaluation
+	// state for the call to the return value.
 	Dispatch(call *CallExpr)
 
 	// FindOverload returns an Overload definition matching the provided
@@ -38,7 +38,8 @@ type Dispatcher interface {
 	FindOverload(overload string) (*functions.Overload, bool)
 
 	// Init clones the configuration of the current Dispatcher and returns
-	// a new one with its own MutableEvalState.
+	// a new one with its own MutableEvalState sharing the current Dispatcher's
+	// overload map.
 	Init(state MutableEvalState) Dispatcher
 }
 
@@ -63,8 +64,7 @@ type defaultDispatcher struct {
 	state     MutableEvalState
 }
 
-// Init clones the configuration of the current Dispatcher and returns
-// a new one with its own MutableEvalState.
+// Init implements the Dispatcher.Init interface method.
 func (d *defaultDispatcher) Init(state MutableEvalState) Dispatcher {
 	return &defaultDispatcher{
 		overloads: d.overloads,
@@ -72,6 +72,7 @@ func (d *defaultDispatcher) Init(state MutableEvalState) Dispatcher {
 	}
 }
 
+// Add implements the Dispatcher.Add interface method.
 func (d *defaultDispatcher) Add(overloads ...*functions.Overload) error {
 	for _, o := range overloads {
 		// add the overload unless an overload of the same name has already
@@ -85,12 +86,17 @@ func (d *defaultDispatcher) Add(overloads ...*functions.Overload) error {
 	return nil
 }
 
+// Dispatcher implements the Dispatcher.Dispatch interface method.
 func (d *defaultDispatcher) Dispatch(call *CallExpr) {
 	s := d.state
 	function := call.Function
 	argCount := len(call.Args)
-	arg0, _ := s.Value(call.Args[0])
 	if overload, found := d.overloads[function]; found {
+		if argCount == 0 {
+			s.SetValue(call.ID, overload.Function())
+			return
+		}
+		arg0, _ := s.Value(call.Args[0])
 		if !arg0.Type().HasTrait(overload.OperandTrait) {
 			s.SetValue(call.ID, types.NewErr("no such overload"))
 			return
@@ -118,7 +124,14 @@ func (d *defaultDispatcher) Dispatch(call *CallExpr) {
 			return
 		}
 	}
-	// Special dispatch for member functions.
+	// Special dispatch for type-specific extension functions.
+	if argCount == 0 {
+		// If we're here, then there wasn't a zero-arg global function,
+		// and there's definitely no member function without an operand.
+		s.SetValue(call.ID, types.NewErr("no such overload"))
+		return
+	}
+	arg0, _ := s.Value(call.Args[0])
 	if arg0.Type().HasTrait(traits.ReceiverType) {
 		overload := call.Overload
 		args := make([]ref.Value, argCount-1, argCount-1)
@@ -135,6 +148,7 @@ func (d *defaultDispatcher) Dispatch(call *CallExpr) {
 	s.SetValue(call.ID, types.NewErr("no such overload"))
 }
 
+// FindOverload implements the Dispatcher.FindOverload interface method.
 func (d *defaultDispatcher) FindOverload(overload string) (*functions.Overload, bool) {
 	o, found := d.overloads[overload]
 	return o, found
