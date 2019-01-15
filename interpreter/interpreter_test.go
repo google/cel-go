@@ -18,11 +18,10 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/google/cel-go/common"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/checker/decls"
+	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/packages"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
@@ -32,6 +31,12 @@ import (
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
+
+type testCase struct {
+	name string
+	E    string
+	I    map[string]interface{}
+}
 
 func TestExhaustiveInterpreter_ConditionalExpr(t *testing.T) {
 	// a ? b < 1.0 : c == ["hello"]
@@ -564,14 +569,15 @@ func BenchmarkInterpreter_ConditionalExpr(b *testing.B) {
 }
 
 func BenchmarkInterpreter_EqualsCall(b *testing.B) {
-	// type(x) == uint
+	// type(a) == uint
 	activation := NewActivation(map[string]interface{}{
-		"x": types.Uint(20)})
+		"a": types.Uint(20)})
 	d := NewDispatcher()
 	d.Add(functions.StandardOverloads()...)
 	evalState := NewEvalState(4)
+	d = d.Init(evalState)
 	for i := 0; i < b.N; i++ {
-		xRef, _ := activation.ResolveName("x")
+		xRef, _ := activation.ResolveName("a")
 		evalState.SetValue(1, xRef)
 		xRef, _ = evalState.Value(1)
 		typeOfXRef := xRef.ConvertToType(types.TypeType)
@@ -582,46 +588,36 @@ func BenchmarkInterpreter_EqualsCall(b *testing.B) {
 }
 
 func BenchmarkInterpreter_EqualsDispatch(b *testing.B) {
-	// type(x) == uint
+	// type(a) == uint
 	activation := NewActivation(map[string]interface{}{
-		"x": types.Uint(20)})
+		"a": types.Uint(20)})
+	evalState := NewEvalState(4)
 	d := NewDispatcher()
 	d.Add(functions.StandardOverloads()...)
+	d = d.Init(evalState)
 	p := types.NewProvider()
+	uintType, _ := p.FindIdent("uint")
 	callTypeOf := NewCall(2, "type", []int64{1})
 	callEq := NewCall(3, "_==_", []int64{1, 2})
-	evalState := NewEvalState(4)
 	for i := 0; i < b.N; i++ {
-		xRef, _ := activation.ResolveName("x")
+		xRef, _ := activation.ResolveName("a")
 		evalState.SetValue(1, xRef)
-		xRef, _ = evalState.Value(1)
-		ctxType := &CallContext{
-			call:       callTypeOf,
-			args:       []ref.Value{xRef},
-			activation: activation,
-		}
-		evalState.SetValue(callTypeOf.GetID(), d.Dispatch(ctxType))
-		typeOfXRef, _ := evalState.Value(callTypeOf.GetID())
+		d.Dispatch(callTypeOf)
 		// not-found here.
 		activation.ResolveName("uint")
-		uintType, _ := p.FindIdent("uint")
-		ctxEq := &CallContext{
-			call:       callEq,
-			args:       []ref.Value{typeOfXRef, uintType},
-			activation: activation,
-		}
-		evalState.SetValue(callEq.GetID(), d.Dispatch(ctxEq))
+		evalState.SetValue(3, uintType)
+		d.Dispatch(callEq)
 	}
 }
 
 func BenchmarkInterpreter_EqualInstructions(b *testing.B) {
-	// type(x) == uint
+	// type(a) == uint
 	program := NewProgram(
 		test.TypeEquality.Expr,
 		test.TypeEquality.Info(b.Name()))
 	interpretable := interpreter.NewInterpretable(program)
 	activation := NewActivation(map[string]interface{}{
-		"x": types.Uint(20)})
+		"a": types.Uint(20)})
 	for i := 0; i < b.N; i++ {
 		interpretable.Eval(activation)
 	}
@@ -651,11 +647,70 @@ func BenchmarkInterpreter_ComprehensionExprWithInput(b *testing.B) {
 	}
 }
 
+func BenchmarkInterpreter_CanonicalExpressions(b *testing.B) {
+	for _, tst := range testData {
+		s := common.NewTextSource(tst.E)
+		parsed, errors := parser.Parse(s)
+		if len(errors.GetErrors()) != 0 {
+			b.Errorf(errors.ToDisplayString())
+		}
+		program := NewProgram(parsed.GetExpr(), parsed.GetSourceInfo())
+		interpretable := interpreter.NewInterpretable(program)
+		activation := NewActivation(tst.I)
+		b.Run(tst.name, func(bb *testing.B) {
+			b.ResetTimer()
+			b.ReportAllocs()
+			for i := 0; i < bb.N; i++ {
+				interpretable.Eval(activation)
+			}
+		})
+	}
+}
+
 var (
 	interpreter = NewStandardInterpreter(
 		packages.DefaultPackage,
 		types.NewProvider(&exprpb.ParsedExpr{}))
+
 	emptyActivation = NewActivation(map[string]interface{}{})
+
+	testData = []testCase{
+		{
+			name: `ExprBench/ok_1st`,
+			E:    `ai == 20 || ar["foo"] == "bar"`,
+			I: map[string]interface{}{
+				"ai": 20,
+				"ar": map[string]string{
+					"foo": "bar",
+				},
+			},
+		},
+		{
+			name: `ExprBench/ok_2nd`,
+			E:    `ai == 20 || ar["foo"] == "bar"`,
+			I: map[string]interface{}{
+				"ai": 2,
+				"ar": map[string]string{
+					"foo": "bar",
+				},
+			},
+		},
+		{
+			name: `ExprBench/not_found`,
+			E:    `ai == 20 || ar["foo"] == "bar"`,
+			I: map[string]interface{}{
+				"ai": 2,
+				"ar": map[string]string{
+					"foo": "baz",
+				},
+			},
+		},
+		{
+			name: `ExprBench/false_2nd`,
+			E:    `true && false`,
+			I:    map[string]interface{}{},
+		},
+	}
 )
 
 func parseExpr(t *testing.T, src string) *exprpb.ParsedExpr {

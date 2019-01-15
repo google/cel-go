@@ -20,77 +20,63 @@ import (
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types"
-	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter/functions"
 )
 
 func TestDefaultDispatcher_Dispatch(t *testing.T) {
-	dispatcher := NewDispatcher()
-	if err := dispatcher.Add(functions.StandardOverloads()...); err != nil {
-		t.Error(err)
+	state := NewEvalState(3)
+	state.SetValue(1, types.Int(2))
+	state.SetValue(2, types.Int(2))
+	call := NewCall(0, operators.Equals, []int64{1, 2})
+	disp(state).Dispatch(call)
+	res, _ := state.Value(0)
+	if res != types.True {
+		t.Errorf("Got '%v', wanted 'true'", res)
 	}
-	call := &CallContext{
-		call: NewCall(0,
-			operators.Equals,
-			[]int64{1, 2}),
-		args: []ref.Value{types.Int(1), types.Int(2)}}
-	invokeCall(t, dispatcher, call, types.False)
 }
 
 func TestDefaultDispatcher_DispatchOverload(t *testing.T) {
-	dispatcher := NewDispatcher()
-	if err := dispatcher.Add(functions.StandardOverloads()...); err != nil {
-		t.Error(err)
+	state := NewEvalState(3)
+	state.SetValue(1, types.Int(100))
+	state.SetValue(2, types.Int(200))
+	call := NewCallOverload(0,
+		operators.Equals,
+		[]int64{1, 2},
+		overloads.Equals)
+	disp(state).Dispatch(call)
+	res, _ := state.Value(0)
+	if res != types.False {
+		t.Errorf("Got '%v', wanted 'false'", res)
 	}
-	call := &CallContext{
-		call: NewCallOverload(0,
-			operators.Equals,
-			[]int64{1, 2},
-			overloads.Equals),
-		args: []ref.Value{types.Int(100), types.Int(200)}}
-	invokeCall(t, dispatcher, call, types.False)
 }
 
 func BenchmarkDefaultDispatcher_Dispatch(b *testing.B) {
-	dispatcher := NewDispatcher()
-	if err := dispatcher.Add(functions.StandardOverloads()...); err != nil {
-		b.Error(err)
-	}
+	call := NewCall(0, operators.NotEquals, []int64{1, 2})
+	state := NewEvalState(3)
+	state.SetValue(1, types.Int(1))
+	state.SetValue(2, types.Int(2))
+	d := disp(state)
 	for i := 0; i < b.N; i++ {
-		call := &CallContext{
-			call: NewCall(0,
-				operators.Equals,
-				[]int64{1, 2}),
-			args: []ref.Value{types.Int(1), types.Int(2)}}
-		dispatcher.Dispatch(call)
+		d.Dispatch(call)
 	}
 }
 
 func BenchmarkDefaultDispatcher_DispatchOverload(b *testing.B) {
-	dispatcher := NewDispatcher()
-	if err := dispatcher.Add(functions.StandardOverloads()...); err != nil {
-		b.Error(err)
-	}
+	call := NewCallOverload(0,
+		operators.NotEquals,
+		[]int64{1, 2},
+		overloads.NotEquals)
+	state := NewEvalState(3)
+	state.SetValue(1, types.Int(2))
+	state.SetValue(2, types.Int(2))
+	d := disp(state)
 	for i := 0; i < b.N; i++ {
-		call := &CallContext{
-			call: NewCallOverload(0,
-				operators.Equals,
-				[]int64{1, 2},
-				operators.Equals),
-			args: []ref.Value{types.Int(2), types.Int(2)}}
-		dispatcher.Dispatch(call)
+		d.Dispatch(call)
 	}
 }
 
-func invokeCall(t *testing.T, dispatcher Dispatcher, call *CallContext, expected ref.Value) {
-	t.Helper()
-	if result := dispatcher.Dispatch(call); types.IsError(result) || types.IsUnknown(result) {
-		t.Error(result)
-	} else {
-		if result != expected {
-			t.Errorf(
-				"Unexpected result. expected: %v, got: %v in dispatcher: %v",
-				expected, result, dispatcher)
-		}
-	}
+func disp(state MutableEvalState) Dispatcher {
+	dispatcher := NewDispatcher()
+	dispatcher.Add(functions.StandardOverloads()...)
+	return dispatcher.Init(state)
 }
