@@ -389,6 +389,94 @@ func TestInterpreter_BuildObject(t *testing.T) {
 	}
 }
 
+func TestInterpreter_GetObjectEnumField(t *testing.T) {
+	src := common.NewTextSource("a.repeated_nested_enum[0]")
+	parsed, errors := parser.Parse(src)
+	if len(errors.GetErrors()) != 0 {
+		t.Errorf(errors.ToDisplayString())
+	}
+
+	pkgr := packages.NewPackage("google.api.tools.expr.test")
+	provider := types.NewProvider(&test.TestAllTypes{})
+	env := checker.NewStandardEnv(pkgr, provider)
+	env.Add(decls.NewIdent("a", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil))
+	checked, errors := checker.Check(parsed, src, env)
+	if len(errors.GetErrors()) != 0 {
+		t.Errorf(errors.ToDisplayString())
+	}
+
+	i := NewStandardInterpreter(pkgr, provider)
+	eval := i.NewInterpretable(NewCheckedProgram(checked))
+	a := &test.TestAllTypes{
+		RepeatedNestedEnum: []test.TestAllTypes_NestedEnum{
+			test.TestAllTypes_BAR,
+		},
+	}
+	result, state := eval.Eval(NewActivation(map[string]interface{}{
+		"a": types.NewObject(a),
+	}))
+	expected := int64(1)
+	got, ok := result.(ref.Value).Value().(int64)
+	if !ok {
+		t.Fatalf("cannot cast result to int64: result=%v state=%v", result, state)
+	}
+	if !reflect.DeepEqual(got, expected) {
+		t.Errorf("Could not build object properly. Got '%v', wanted '%v'",
+			result.(ref.Value).Value(),
+			expected)
+	}
+}
+
+func TestInterpreter_SetObjectEnumField(t *testing.T) {
+	// Test the use of enums within object construction, and their equivalence
+	// int values within CEL.
+	src := common.NewTextSource(
+		`TestAllTypes{
+			repeated_nested_enum: [
+				0,
+				TestAllTypes.NestedEnum.BAZ,
+				TestAllTypes.NestedEnum.BAR],
+			repeated_int32: [
+				TestAllTypes.NestedEnum.FOO,
+				TestAllTypes.NestedEnum.BAZ]}`)
+	parsed, errors := parser.Parse(src)
+	if len(errors.GetErrors()) != 0 {
+		t.Errorf(errors.ToDisplayString())
+	}
+
+	pkgr := packages.NewPackage("google.api.tools.expr.test")
+	provider := types.NewProvider(&test.TestAllTypes{})
+	env := checker.NewStandardEnv(pkgr, provider)
+	checked, errors := checker.Check(parsed, src, env)
+	if len(errors.GetErrors()) != 0 {
+		t.Errorf(errors.ToDisplayString())
+	}
+
+	i := NewStandardInterpreter(pkgr, provider)
+	eval := i.NewInterpretable(NewCheckedProgram(checked))
+	expected := &test.TestAllTypes{
+		RepeatedNestedEnum: []test.TestAllTypes_NestedEnum{
+			test.TestAllTypes_FOO,
+			test.TestAllTypes_BAZ,
+			test.TestAllTypes_BAR,
+		},
+		RepeatedInt32: []int32{
+			int32(0),
+			int32(2),
+		},
+	}
+	result, state := eval.Eval(NewActivation(map[string]interface{}{}))
+	got, ok := result.(ref.Value).Value().(*test.TestAllTypes)
+	if !ok {
+		t.Fatalf("cannot cast result to int64: result=%v state=%v", result, state)
+	}
+	if !reflect.DeepEqual(got, expected) {
+		t.Errorf("Could not build object properly. Got '%v', wanted '%v'",
+			result.(ref.Value).Value(),
+			expected)
+	}
+}
+
 func TestInterpreter_ConstantReturnValue(t *testing.T) {
 	parsed, err := parser.Parse(common.NewTextSource("1"))
 	if len(err.GetErrors()) != 0 {
