@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_binary")
 
 package(
     default_visibility = ["//visibility:public"],
@@ -10,9 +10,7 @@ go_binary(
     srcs = ["main.go"],
     deps = [
         "//server:go_default_library",
-        "@org_golang_google_grpc//:go_default_library",
-        "@org_golang_google_grpc//reflection:go_default_library",
-        "@org_golang_google_genproto//googleapis/api/expr/v1alpha1:go_default_library",
+        "@com_google_cel_spec//tools/celrpc:go_default_library",
     ],
     out = "cel_server",
 )
