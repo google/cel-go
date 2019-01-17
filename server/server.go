@@ -150,12 +150,23 @@ func ErrToStatus(e common.Error, severity exprpb.IssueDetails_Severity) *rpc.Sta
 // RefValueToExprValue converts between ref.Value and exprpb.ExprValue.
 func RefValueToExprValue(res ref.Value) (*exprpb.ExprValue, error) {
 	if types.IsError(res) {
+		e := res.Value().(error)
+		s := status.Convert(e).Proto()
 		return &exprpb.ExprValue{
-			Kind: &exprpb.ExprValue_Error{}}, nil
+			Kind: &exprpb.ExprValue_Error{
+				&exprpb.ErrorSet{
+					Errors: []*rpc.Status{s},
+				},
+			},
+		}, nil
 	}
 	if types.IsUnknown(res) {
 		return &exprpb.ExprValue{
-			Kind: &exprpb.ExprValue_Unknown{}}, nil
+			Kind: &exprpb.ExprValue_Unknown{
+				&exprpb.UnknownSet{
+					Exprs: res.Value().([]int64),
+				},
+			}}, nil
 	}
 	v, err := RefValueToValue(res)
 	if err != nil {
