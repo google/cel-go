@@ -117,7 +117,7 @@ func TestExhaustiveInterpreter_LogicalOrEquals(t *testing.T) {
 }
 
 func TestInterpreter_CallExpr(t *testing.T) {
-	program := NewProgram(
+	program := NewExhaustiveProgram(
 		test.Equality.Expr,
 		test.Equality.Info(t.Name()))
 	intr := NewStandardInterpreter(
@@ -157,16 +157,11 @@ func TestInterpreter_ConditionalExpr(t *testing.T) {
 		test.Conditional.Info(t.Name()))
 
 	interpretable := interpreter.NewInterpretable(program)
-	result, state := interpretable.Eval(
+	result, _ := interpretable.Eval(
 		NewActivation(map[string]interface{}{
 			"a": true,
 			"b": 0.999,
 			"c": types.NewStringList([]string{"hello"})}))
-	ev, _ := state.Value(6)
-	// "_==_" should not be evaluated in normal mode since a is true
-	if ev != nil {
-		t.Errorf("Else expression expected to be nil, got: %v", ev)
-	}
 	if result != types.True {
 		t.Errorf("Expected true, got: %v", result)
 	}
@@ -341,16 +336,11 @@ func TestInterpreter_LogicalOrEquals(t *testing.T) {
 	provider := types.NewProvider(&exprpb.Expr{})
 	i := NewStandardInterpreter(packages.NewPackage("test"), provider)
 	interpretable := i.NewInterpretable(program)
-	result, state := interpretable.Eval(
+	result, _ := interpretable.Eval(
 		NewActivation(map[string]interface{}{
 			"a": true,
 			"b": "b",
 		}))
-	rhv, _ := state.Value(4)
-	// "==" should not be evaluated in normal mode since it is unnecessary
-	if rhv != nil {
-		t.Errorf("Right hand side expression expected to be nil, got: %v", rhv)
-	}
 	if result != types.True {
 		t.Errorf("Expected true, got: %v", result)
 	}
@@ -478,14 +468,14 @@ func TestInterpreter_SetObjectEnumField(t *testing.T) {
 }
 
 func TestInterpreter_ConstantReturnValue(t *testing.T) {
-	parsed, err := parser.Parse(common.NewTextSource("1"))
+	parsed, err := parser.Parse(common.NewTextSource("42"))
 	if len(err.GetErrors()) != 0 {
 		t.Error(err)
 	}
 	prg := NewProgram(parsed.GetExpr(), parsed.GetSourceInfo())
 	i := interpreter.NewInterpretable(prg)
 	res, _ := i.Eval(emptyActivation)
-	if int64(res.(types.Int)) != int64(1) {
+	if int64(res.(types.Int)) != int64(42) {
 		t.Errorf("Got '%v', wanted 1", res)
 	}
 }
@@ -574,16 +564,15 @@ func BenchmarkInterpreter_EqualsCall(b *testing.B) {
 		"a": types.Uint(20)})
 	d := NewDispatcher()
 	d.Add(functions.StandardOverloads()...)
-	evalState := NewEvalState(4)
-	d = d.Init(evalState)
+	evalState := newEvalState(4)
 	for i := 0; i < b.N; i++ {
 		xRef, _ := activation.ResolveName("a")
-		evalState.SetValue(1, xRef)
+		evalState.values[1] = xRef
 		xRef, _ = evalState.Value(1)
 		typeOfXRef := xRef.ConvertToType(types.TypeType)
-		evalState.SetValue(2, typeOfXRef)
+		evalState.values[2] = typeOfXRef
 		typeOfXRef, _ = evalState.Value(2)
-		evalState.SetValue(3, typeOfXRef.Equal(types.UintType))
+		evalState.values[3] = typeOfXRef.Equal(types.UintType)
 	}
 }
 
@@ -591,22 +580,21 @@ func BenchmarkInterpreter_EqualsDispatch(b *testing.B) {
 	// type(a) == uint
 	activation := NewActivation(map[string]interface{}{
 		"a": types.Uint(20)})
-	evalState := NewEvalState(4)
+	evalState := newEvalState(4)
 	d := NewDispatcher()
 	d.Add(functions.StandardOverloads()...)
-	d = d.Init(evalState)
 	p := types.NewProvider()
 	uintType, _ := p.FindIdent("uint")
 	callTypeOf := NewCall(2, "type", []int64{1})
 	callEq := NewCall(3, "_==_", []int64{1, 2})
 	for i := 0; i < b.N; i++ {
 		xRef, _ := activation.ResolveName("a")
-		evalState.SetValue(1, xRef)
-		d.Dispatch(callTypeOf)
+		evalState.values[1] = xRef
+		d.Dispatch(evalState.values, callTypeOf)
 		// not-found here.
 		activation.ResolveName("uint")
-		evalState.SetValue(3, uintType)
-		d.Dispatch(callEq)
+		evalState.values[3] = uintType
+		d.Dispatch(evalState.values, callEq)
 	}
 }
 

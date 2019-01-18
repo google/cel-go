@@ -37,7 +37,7 @@ const (
 // a recursive execution pattern.
 func WalkExpr(expression *exprpb.Expr,
 	metadata Metadata,
-	state MutableEvalState,
+	state *evalState,
 	shortCircuit bool) []Instruction {
 	nextID := maxID(expression)
 	walker := &astWalker{
@@ -56,7 +56,7 @@ type astWalker struct {
 	genSymID     int64
 	metadata     Metadata
 	scope        *blockScope
-	state        MutableEvalState
+	state        *evalState
 	shortCircuit bool
 }
 
@@ -100,7 +100,7 @@ func (w *astWalker) walkLiteral(node *exprpb.Expr) {
 	case *exprpb.Constant_Uint64Value:
 		value = types.Uint(literal.GetUint64Value())
 	}
-	w.state.SetValue(node.Id, value)
+	w.state.values[node.Id] = value
 }
 
 func (w *astWalker) walkIdent(node *exprpb.Expr) []Instruction {
@@ -468,18 +468,18 @@ func (b *blockScope) setRef(ident string, exprID int64) {
 	b.references[ident] = exprID
 }
 
-func jumpIfUnknownOrError(exprID int64) func(EvalState) bool {
-	return func(s EvalState) bool {
-		if val, found := s.Value(exprID); found {
+func jumpIfUnknownOrError(exprID int64) func([]ref.Value) bool {
+	return func(s []ref.Value) bool {
+		if val := s[exprID]; val != nil {
 			return types.IsUnknown(val) || types.IsError(val)
 		}
 		return false
 	}
 }
 
-func breakIfEnd(conditionID int64) func(EvalState) bool {
-	return func(s EvalState) bool {
-		if val, found := s.Value(conditionID); found {
+func breakIfEnd(conditionID int64) func([]ref.Value) bool {
+	return func(s []ref.Value) bool {
+		if val := s[conditionID]; val != nil {
 			return val == types.False ||
 				types.IsUnknown(val) ||
 				types.IsError(val)
@@ -488,9 +488,9 @@ func breakIfEnd(conditionID int64) func(EvalState) bool {
 	}
 }
 
-func jumpIfEqual(exprID int64, value ref.Value) func(EvalState) bool {
-	return func(s EvalState) bool {
-		if val, found := s.Value(exprID); found {
+func jumpIfEqual(exprID int64, value ref.Value) func([]ref.Value) bool {
+	return func(s []ref.Value) bool {
+		if val := s[exprID]; val != nil {
 			if types.IsBool(val) {
 				return bool(val.Equal(value).(types.Bool))
 			}
@@ -499,7 +499,7 @@ func jumpIfEqual(exprID int64, value ref.Value) func(EvalState) bool {
 	}
 }
 
-func jumpAlways(_ EvalState) bool {
+func jumpAlways(_ []ref.Value) bool {
 	return true
 }
 
