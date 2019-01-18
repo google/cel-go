@@ -28,8 +28,8 @@ func TestNewExhaustiveProgram_LogicalOr(t *testing.T) {
 	if loc, found := program.Metadata().IDLocation(1); found {
 		t.Errorf("Unexpected location found: %v", loc)
 	}
-	state := NewEvalState(program.MaxInstructionID() + 1)
-	program.Init(state)
+	state := newEvalState(program.MaxInstructionID() + 1)
+	program.plan(state)
 	fmt.Printf("%s\n%s\n\n", t.Name(), program)
 
 	expected := "TestNewExhaustiveProgram_LogicalOr\n" +
@@ -51,8 +51,8 @@ func TestNewExhaustiveProgram_Conditional(t *testing.T) {
 	if loc, found := program.Metadata().IDLocation(1); found {
 		t.Errorf("Unexpected location found: %v", loc)
 	}
-	state := NewEvalState(program.MaxInstructionID() + 1)
-	program.Init(state)
+	state := newEvalState(program.MaxInstructionID() + 1)
+	program.plan(state)
 	expected := "TestNewExhaustiveProgram_Conditional\n" +
 		"0: local 'a', r1\n" +
 		"1: local 'b', r2\n" +
@@ -75,8 +75,8 @@ func TestNewProgram_Empty(t *testing.T) {
 	if loc, found := program.Metadata().IDLocation(0); found {
 		t.Errorf("Unexpected location found: %v", loc)
 	}
-	state := NewEvalState(program.MaxInstructionID() + 1)
-	program.Init(state)
+	state := newEvalState(program.MaxInstructionID() + 1)
+	program.plan(state)
 }
 
 func TestNewProgram_LogicalAnd(t *testing.T) {
@@ -86,8 +86,8 @@ func TestNewProgram_LogicalAnd(t *testing.T) {
 	if loc, found := program.Metadata().IDLocation(1); found {
 		t.Errorf("Unexpected location found: %v", loc)
 	}
-	state := NewEvalState(program.MaxInstructionID() + 1)
-	program.Init(state)
+	state := newEvalState(program.MaxInstructionID() + 1)
+	program.plan(state)
 	fmt.Printf("%s\n%s\n\n", t.Name(), program)
 }
 
@@ -98,8 +98,8 @@ func TestNewProgram_LogicalOr(t *testing.T) {
 	if loc, found := program.Metadata().IDLocation(1); found {
 		t.Errorf("Unexpected location found: %v", loc)
 	}
-	state := NewEvalState(program.MaxInstructionID() + 1)
-	program.Init(state)
+	state := newEvalState(program.MaxInstructionID() + 1)
+	program.plan(state)
 	fmt.Printf("%s\n%s\n\n", t.Name(), program)
 }
 
@@ -110,8 +110,8 @@ func TestNewProgram_Conditional(t *testing.T) {
 	if loc, found := program.Metadata().IDLocation(1); found {
 		t.Errorf("Unexpected location found: %v", loc)
 	}
-	state := NewEvalState(program.MaxInstructionID() + 1)
-	program.Init(state)
+	state := newEvalState(program.MaxInstructionID() + 1)
+	program.plan(state)
 	expected := "TestNewProgram_Conditional\n" +
 		"0: local 'a', r1\n" +
 		"1: jump  8 if cond<r1>\n" +
@@ -137,8 +137,8 @@ func TestNewProgram_Comprehension(t *testing.T) {
 	if loc, found := program.Metadata().IDLocation(1); !found {
 		t.Errorf("Unexpected location found: %v", loc)
 	}
-	state := NewEvalState(program.MaxInstructionID() + 1)
-	program.Init(state)
+	state := newEvalState(program.MaxInstructionID() + 1)
+	program.plan(state)
 	fmt.Printf("%s\n%s\n\n", t.Name(), program)
 }
 
@@ -149,7 +149,7 @@ func TestNewProgram_DynMap(t *testing.T) {
 	if loc, found := program.Metadata().IDLocation(1); found {
 		t.Errorf("Unexpected location found: %v", loc)
 	}
-	state := NewEvalState(program.MaxInstructionID() + 1)
-	program.Init(state)
+	state := newEvalState(program.MaxInstructionID() + 1)
+	program.plan(state)
 	fmt.Printf("%s\n%s\n\n", t.Name(), program)
 }

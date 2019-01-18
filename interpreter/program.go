@@ -23,13 +23,22 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
+type programFlag int64
+
+const (
+	programFlagTrackState     programFlag = 1
+	programFlagNoShortCircuit             = 2
+	programFlagExhaustive                 = programFlagTrackState | programFlagNoShortCircuit
+)
+
 // Program contains instructions and related metadata.
 type Program struct {
 	expression      *exprpb.Expr
 	Instructions    []Instruction
 	metadata        Metadata
+	refMap          map[int64]*exprpb.Reference
 	revInstructions map[int64]int
-	shortCircuit    bool
+	flags           programFlag
 }
 
 // NewCheckedProgram creates a Program from a checked CEL expression.
@@ -46,7 +55,6 @@ func NewProgram(expression *exprpb.Expr,
 		expression:      expression,
 		revInstructions: revInstructions,
 		metadata:        newExprMetadata(info),
-		shortCircuit:    true,
 	}
 }
 
@@ -60,7 +68,7 @@ func NewExhaustiveProgram(expression *exprpb.Expr,
 		expression:      expression,
 		revInstructions: revInstructions,
 		metadata:        newExprMetadata(info),
-		shortCircuit:    false,
+		flags:           programFlagExhaustive,
 	}
 }
 
@@ -70,11 +78,12 @@ func (p *Program) GetInstruction(runtimeID int64) Instruction {
 }
 
 // Init ensures that instructions have been properly initialized prior to
-// beginning the execution of a program. The init step may optimize the
+// beginning the execution of a program. The plan step may optimize the
 // instruction set.
-func (p *Program) Init(state MutableEvalState) {
+func (p *Program) plan(state *evalState) {
 	if p.Instructions == nil {
-		p.Instructions = WalkExpr(p.expression, p.metadata, state, p.shortCircuit)
+		shortcircuit := p.flags&programFlagNoShortCircuit == 0
+		p.Instructions = WalkExpr(p.expression, p.metadata, state, shortcircuit)
 		for i, inst := range p.Instructions {
 			p.revInstructions[inst.GetID()] = i
 		}

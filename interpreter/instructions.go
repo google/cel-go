@@ -186,7 +186,7 @@ func NewObject(exprID int64, name string,
 type JumpInst struct {
 	*baseInstruction
 	Count       int
-	OnCondition func(EvalState) bool
+	OnCondition func([]ref.Value) bool
 }
 
 // String generates pseudo-assembly for the instruction.
@@ -195,7 +195,7 @@ func (e *JumpInst) String() string {
 }
 
 // NewJump generates a JumpInst.
-func NewJump(exprID int64, instructionCount int, cond func(EvalState) bool) *JumpInst {
+func NewJump(exprID int64, instructionCount int, cond func([]ref.Value) bool) *JumpInst {
 	return &JumpInst{
 		baseInstruction: &baseInstruction{exprID},
 		Count:           instructionCount,

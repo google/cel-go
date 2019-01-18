@@ -18,6 +18,8 @@
 package interpreter
 
 import (
+	"sync"
+
 	"github.com/google/cel-go/common/packages"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
@@ -68,22 +70,52 @@ func NewStandardInterpreter(packager packages.Packager,
 
 func (i *exprInterpreter) NewInterpretable(program *Program) Interpretable {
 	// program needs to be pruned with the TypeProvider
-	evalState := NewEvalState(program.MaxInstructionID() + 1)
+	staticState := newEvalState(program.MaxInstructionID() + 1)
 	intr := &exprInterpreter{
-		dispatcher:   i.dispatcher.Init(evalState),
+		dispatcher:   i.dispatcher,
 		packager:     i.packager,
 		typeProvider: i.typeProvider}
-	program.Init(evalState)
+	program.plan(staticState)
+	statePool := &sync.Pool{
+		New: func() interface{} {
+			runtimeState := make([]ref.Value, staticState.exprCount, staticState.exprCount)
+			copy(runtimeState, staticState.values)
+			return runtimeState
+		},
+	}
 	return &exprInterpretable{
 		interpreter: intr,
 		program:     program,
-		state:       evalState}
+		staticState: staticState,
+		statePool:   statePool,
+	}
 }
 
 type exprInterpretable struct {
 	interpreter *exprInterpreter
 	program     *Program
-	state       MutableEvalState
+	staticState *evalState
+	statePool   *sync.Pool
+}
+
+func (i *exprInterpretable) allocState() []ref.Value {
+	if i.program.flags&programFlagTrackState == programFlagTrackState {
+		rawState := make([]ref.Value, i.staticState.exprCount, i.staticState.exprCount)
+		copy(rawState, i.staticState.values)
+		return rawState
+	}
+	return i.statePool.Get().([]ref.Value)
+}
+
+func (i *exprInterpretable) finalizeState(state []ref.Value) *evalState {
+	if i.program.flags&programFlagTrackState == programFlagTrackState {
+		finalState := newEvalState(i.staticState.exprCount)
+		finalState.exprIDMap = i.staticState.exprIDMap
+		finalState.values = state
+		return finalState
+	}
+	i.statePool.Put(state)
+	return nil
 }
 
 func (i *exprInterpretable) Eval(activation Activation) (ref.Value, EvalState) {
@@ -93,29 +125,31 @@ func (i *exprInterpretable) Eval(activation Activation) (ref.Value, EvalState) {
 	pc := 0
 	end := len(i.program.Instructions)
 	steps := i.program.Instructions
-	var resultID int64
+	state := i.allocState()
+
+	var resultID int64 = 1
 	for pc < end {
 		step := steps[pc]
 		resultID = step.GetID()
 		switch step.(type) {
 		case *IdentExpr:
-			i.evalIdent(step.(*IdentExpr), currActivation)
+			i.evalIdent(state, step.(*IdentExpr), currActivation)
 		case *SelectExpr:
-			i.evalSelect(step.(*SelectExpr), currActivation)
+			i.evalSelect(state, step.(*SelectExpr), currActivation)
 		case *CallExpr:
-			i.evalCall(step.(*CallExpr), currActivation)
+			i.evalCall(state, step.(*CallExpr), currActivation)
 		case *CreateListExpr:
-			i.evalCreateList(step.(*CreateListExpr))
+			i.evalCreateList(state, step.(*CreateListExpr))
 		case *CreateMapExpr:
-			i.evalCreateMap(step.(*CreateMapExpr))
+			i.evalCreateMap(state, step.(*CreateMapExpr))
 		case *CreateObjectExpr:
-			i.evalCreateType(step.(*CreateObjectExpr))
+			i.evalCreateType(state, step.(*CreateObjectExpr))
 		case *MovInst:
-			i.evalMov(step.(*MovInst))
+			i.evalMov(state, step.(*MovInst))
 			// Special instruction for modifying the program cursor
 		case *JumpInst:
 			jmpExpr := step.(*JumpInst)
-			if jmpExpr.OnCondition(i.state) {
+			if jmpExpr.OnCondition(state) {
 				jmpPc := pc + jmpExpr.Count
 				if jmpPc < 0 || jmpPc >= end {
 					// TODO: Error, the jump count should never exceed the
@@ -132,7 +166,7 @@ func (i *exprInterpretable) Eval(activation Activation) (ref.Value, EvalState) {
 			childActivaton := make(map[string]interface{})
 			for key, declID := range scopeDecls {
 				childActivaton[key] = func() interface{} {
-					return i.value(declID)
+					return i.value(state, declID)
 				}
 			}
 			currActivation =
@@ -142,61 +176,72 @@ func (i *exprInterpretable) Eval(activation Activation) (ref.Value, EvalState) {
 		}
 		pc++
 	}
-	result := i.value(resultID)
+	result := i.value(state, resultID)
 	if result == nil {
-		result, _ = i.state.OnlyValue()
+		cnt := 0
+		var only ref.Value
+		for _, v := range state {
+			if v != nil {
+				only = v
+				cnt++
+			}
+		}
+		if cnt == 1 {
+			result = only
+		}
 	}
-	return result, i.state
+	return result, i.finalizeState(state)
 }
 
-func (i *exprInterpretable) evalConst(constExpr *ConstExpr) {
-	i.setValue(constExpr.GetID(), constExpr.Value)
-}
-
-func (i *exprInterpretable) evalIdent(idExpr *IdentExpr, currActivation Activation) {
+func (i *exprInterpretable) evalIdent(state []ref.Value,
+	idExpr *IdentExpr,
+	currActivation Activation) {
 	// TODO: Refactor this code for sharing.
 	if result, found := currActivation.ResolveName(idExpr.Name); found {
-		i.setValue(idExpr.GetID(), result)
+		state[idExpr.GetID()] = result
 	} else if idVal, found := i.interpreter.typeProvider.FindIdent(idExpr.Name); found {
-		i.setValue(idExpr.GetID(), idVal)
+		state[idExpr.GetID()] = idVal
 	} else {
-		i.setValue(idExpr.GetID(), types.Unknown{idExpr.ID})
+		state[idExpr.GetID()] = types.Unknown{idExpr.ID}
 	}
 }
 
-func (i *exprInterpretable) evalSelect(selExpr *SelectExpr, currActivation Activation) {
-	operand := i.value(selExpr.Operand)
+func (i *exprInterpretable) evalSelect(state []ref.Value,
+	selExpr *SelectExpr,
+	currActivation Activation) {
+	operand := i.value(state, selExpr.Operand)
 	if !operand.Type().HasTrait(traits.IndexerType) {
 		// If the operand is unknown, this could be an identifer.
 		if types.IsUnknown(operand) {
-			resVal := i.resolveUnknown(operand.(types.Unknown), selExpr, currActivation)
-			i.setValue(selExpr.GetID(), resVal)
+			resVal := i.resolveUnknown(
+				state, operand.(types.Unknown), selExpr, currActivation)
+			state[selExpr.GetID()] = resVal
 			return
 		}
 		// If the operand is an error, early return.
 		if types.IsError(operand) {
-			i.setValue(selExpr.GetID(), operand)
+			state[selExpr.GetID()] = operand
 			return
 		}
 		// Otherwise, create an error.
-		i.setValue(selExpr.GetID(), types.NewErr("invalid operand in select"))
+		state[selExpr.GetID()] = types.NewErr("invalid operand in select")
 		return
 	}
 	field := types.String(selExpr.Field)
 	if selExpr.TestOnly {
 		if operand.Type() == types.MapType {
-			i.setValue(selExpr.GetID(), operand.(traits.Container).Contains(field))
+			state[selExpr.GetID()] = operand.(traits.Container).Contains(field)
 			return
 		}
 		if operand.Type().HasTrait(traits.FieldTesterType) {
-			i.setValue(selExpr.GetID(), operand.(traits.FieldTester).IsSet(field))
+			state[selExpr.GetID()] = operand.(traits.FieldTester).IsSet(field)
 			return
 		}
-		i.setValue(selExpr.GetID(), types.NewErr("invalid operand in select"))
+		state[selExpr.GetID()] = types.NewErr("invalid operand in select")
 		return
 	}
 	fieldValue := operand.(traits.Indexer).Get(field)
-	i.setValue(selExpr.GetID(), fieldValue)
+	state[selExpr.GetID()] = fieldValue
 }
 
 // resolveUnknown attempts to resolve a qualified name from a select expression
@@ -208,7 +253,8 @@ func (i *exprInterpretable) evalSelect(selExpr *SelectExpr, currActivation Activ
 // - The resolved identifier value from the activation
 // - An unknown value if the expression is a valid identifier, but was not found.
 // - Otherwise, an error.
-func (i *exprInterpretable) resolveUnknown(unknown types.Unknown,
+func (i *exprInterpretable) resolveUnknown(state []ref.Value,
+	unknown types.Unknown,
 	selExpr *SelectExpr,
 	currActivation Activation) ref.Value {
 	if object, found := currActivation.ResolveReference(selExpr.ID); found {
@@ -224,7 +270,7 @@ func (i *exprInterpretable) resolveUnknown(unknown types.Unknown,
 		case *SelectExpr:
 			identifier = inst.(*SelectExpr).Field + "." + identifier
 		default:
-			argVal := i.value(arg)
+			argVal := i.value(state, arg)
 			if argVal.Type() == types.StringType {
 				identifier = string(argVal.(types.String)) + "." + identifier
 			} else {
@@ -249,79 +295,81 @@ func (i *exprInterpretable) resolveUnknown(unknown types.Unknown,
 	return append(types.Unknown{selExpr.ID}, unknown...)
 }
 
-func (i *exprInterpretable) evalCall(callExpr *CallExpr, currActivation Activation) {
+func (i *exprInterpretable) evalCall(
+	state []ref.Value,
+	callExpr *CallExpr,
+	currActivation Activation) {
 	if callExpr.Strict {
 		for _, argID := range callExpr.Args {
-			argVal := i.value(argID)
+			argVal := i.value(state, argID)
 			argType := argVal.Type()
 			if types.IsUnknownOrError(argType) {
-				i.setValue(callExpr.GetID(), argVal)
+				state[callExpr.GetID()] = argVal
 				return
 			}
 		}
 	}
-	i.interpreter.dispatcher.Dispatch(callExpr)
+	i.interpreter.dispatcher.Dispatch(state, callExpr)
 }
 
-func (i *exprInterpretable) evalCreateList(listExpr *CreateListExpr) {
+func (i *exprInterpretable) evalCreateList(state []ref.Value,
+	listExpr *CreateListExpr) {
 	elements := make([]ref.Value, len(listExpr.Elements))
 	for idx, elementID := range listExpr.Elements {
-		elem := i.value(elementID)
+		elem := i.value(state, elementID)
 		if types.IsUnknownOrError(elem) {
-			i.setValue(listExpr.GetID(), elem)
+			state[listExpr.GetID()] = elem
 			return
 		}
-		elements[idx] = i.value(elementID)
+		elements[idx] = i.value(state, elementID)
 	}
 	adaptingList := types.NewDynamicList(elements)
-	i.setValue(listExpr.GetID(), adaptingList)
+	state[listExpr.GetID()] = adaptingList
 }
 
-func (i *exprInterpretable) evalCreateMap(mapExpr *CreateMapExpr) {
+func (i *exprInterpretable) evalCreateMap(state []ref.Value,
+	mapExpr *CreateMapExpr) {
 	entries := make(map[ref.Value]ref.Value)
 	for keyID, valueID := range mapExpr.KeyValues {
-		key := i.value(keyID)
+		key := i.value(state, keyID)
 		if types.IsUnknownOrError(key) {
-			i.setValue(mapExpr.GetID(), key)
+			state[mapExpr.GetID()] = key
 			return
 		}
-		val := i.value(valueID)
+		val := i.value(state, valueID)
 		if types.IsUnknownOrError(val) {
-			i.setValue(mapExpr.GetID(), val)
+			state[mapExpr.GetID()] = val
 			return
 		}
 		entries[key] = val
 	}
 	adaptingMap := types.NewDynamicMap(entries)
-	i.setValue(mapExpr.GetID(), adaptingMap)
+	state[mapExpr.GetID()] = adaptingMap
 }
 
-func (i *exprInterpretable) evalCreateType(objExpr *CreateObjectExpr) {
+func (i *exprInterpretable) evalCreateType(state []ref.Value,
+	objExpr *CreateObjectExpr) {
 	fields := make(map[string]ref.Value)
 	for field, valueID := range objExpr.FieldValues {
-		val := i.value(valueID)
+		val := i.value(state, valueID)
 		if types.IsUnknownOrError(val) {
-			i.setValue(objExpr.GetID(), val)
+			state[objExpr.GetID()] = val
 			return
 		}
 		fields[field] = val
 	}
-	i.setValue(objExpr.GetID(), i.newValue(objExpr.Name, fields))
+	state[objExpr.GetID()] = i.newValue(objExpr.Name, fields)
 }
 
-func (i *exprInterpretable) evalMov(movExpr *MovInst) {
-	i.setValue(movExpr.ToExprID, i.value(movExpr.GetID()))
+func (i *exprInterpretable) evalMov(state []ref.Value, movExpr *MovInst) {
+	state[movExpr.ToExprID] = i.value(state, movExpr.GetID())
 }
 
-func (i *exprInterpretable) value(id int64) ref.Value {
-	if object, found := i.state.Value(id); found {
+func (i *exprInterpretable) value(state []ref.Value, id int64) ref.Value {
+	if object := state[id]; object != nil {
 		return object
 	}
 	return types.Unknown{id}
-}
-
-func (i *exprInterpretable) setValue(id int64, value ref.Value) {
-	i.state.SetValue(id, value)
 }
 
 func (i *exprInterpretable) newValue(typeName string,

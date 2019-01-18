@@ -117,6 +117,7 @@ func TestPrune(t *testing.T) {
 	for _, tst := range testCases {
 		pExpr := &exprpb.ParsedExpr{Expr: tst.E}
 		program := NewProgram(pExpr.Expr, pExpr.SourceInfo)
+		program.flags = programFlagTrackState
 		interpretable := interpreter.NewInterpretable(program)
 		_, state := interpretable.Eval(
 			NewActivation(map[string]interface{}{}))
