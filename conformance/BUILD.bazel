@@ -4,11 +4,13 @@ sh_test(
     args = [
         "$(location @com_google_cel_spec//tests/simple:simple_test)",
         "--server=$(location //server/main:cel_server)",
+        "$(location @com_google_cel_spec//tests/simple:testdata/plumbing.textproto)",
         "$(location @com_google_cel_spec//tests/simple:testdata/basic.textproto)",
     ],
     data = [
         "@com_google_cel_spec//tests/simple:simple_test",
         "//server/main:cel_server",
+        "@com_google_cel_spec//tests/simple:testdata/plumbing.textproto",
         "@com_google_cel_spec//tests/simple:testdata/basic.textproto",
     ],
 )

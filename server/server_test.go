@@ -15,7 +15,7 @@ import (
 )
 
 type serverTest struct {
-        client *celrpc.ConfClient
+	client *celrpc.ConfClient
 }
 
 var (
@@ -257,9 +257,11 @@ func exprValueInt64(x int64) *exprpb.ExprValue {
 	}
 }
 
-// expectEvalTrue parses, checks, and evaluates the CEL expression in source
-// and checks that the result is the boolean value 'true'.
-func expectEvalTrue(t *testing.T, source string) {
+// fullPipeline parses, checks, and evaluates the CEL expression in source
+// and returns the result from the Eval call.
+func fullPipeline(t *testing.T, source string) (*exprpb.ParseResponse, *exprpb.CheckResponse, *exprpb.EvalResponse) {
+	t.Helper()
+
 	// Parse
 	preq := exprpb.ParseRequest{
 		CelSource: source,
@@ -278,7 +280,6 @@ func expectEvalTrue(t *testing.T, source string) {
 	if parsedExpr.Expr == nil {
 		t.Fatal("Empty root expression")
 	}
-	rootId := parsedExpr.Expr.Id
 
 	// Check
 	creq := exprpb.CheckRequest{
@@ -295,18 +296,6 @@ func expectEvalTrue(t *testing.T, source string) {
 	if checkedExpr == nil {
 		t.Fatal("No checked expression")
 	}
-	topType, present := checkedExpr.TypeMap[rootId]
-	if !present {
-		t.Fatal("No type for top level expression", cres)
-	}
-	switch topType.TypeKind.(type) {
-	case *exprpb.Type_Primitive:
-		if topType.GetPrimitive() != exprpb.Type_BOOL {
-			t.Error("Bad top-level type", topType)
-		}
-	default:
-		t.Error("Bad top-level type", topType)
-	}
 
 	// Eval
 	ereq := exprpb.EvalRequest{
@@ -319,6 +308,29 @@ func expectEvalTrue(t *testing.T, source string) {
 	if eres == nil || eres.Result == nil {
 		t.Fatal("Nil result")
 	}
+	return pres, cres, eres
+}
+
+// expectEvalTrue parses, checks, and evaluates the CEL expression in source
+// and checks that the result is the boolean value 'true'.
+func expectEvalTrue(t *testing.T, source string) {
+	t.Helper()
+	pres, cres, eres := fullPipeline(t, source)
+
+	rootId := pres.ParsedExpr.Expr.Id
+	topType, present := cres.CheckedExpr.TypeMap[rootId]
+	if !present {
+		t.Fatal("No type for top level expression", cres)
+	}
+	switch topType.TypeKind.(type) {
+	case *exprpb.Type_Primitive:
+		if topType.GetPrimitive() != exprpb.Type_BOOL {
+			t.Error("Bad top-level type", topType)
+		}
+	default:
+		t.Error("Bad top-level type", topType)
+	}
+
 	switch eres.Result.Kind.(type) {
 	case *exprpb.ExprValue_Value:
 		v := eres.Result.GetValue()
@@ -363,4 +375,14 @@ func FailsTestTypeType(t *testing.T) {
 // FailsTestNullTypeName checks that the type of null is "null_type".
 func FailsTestNullTypeName(t *testing.T) {
 	expectEvalTrue(t, "type(null) == null_type")
+}
+
+// TestError ensures that errors are properly transmitted.
+func TestError(t *testing.T) {
+	_, _, eres := fullPipeline(t, "1 / 0")
+	switch eres.Result.Kind.(type) {
+	case *exprpb.ExprValue_Error:
+		return
+	}
+	t.Fatal("got %v, want division by zero error", eres.Result)
 }
