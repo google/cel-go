@@ -23,12 +23,21 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
+// programFlag represents a program execution mode which is optionally enabled.
 type programFlag int64
 
 const (
-	programFlagTrackState     programFlag = 1
-	programFlagNoShortCircuit             = 2
-	programFlagExhaustive                 = programFlagTrackState | programFlagNoShortCircuit
+	// programFlagTrackState will ensure that a hermetic evaluation state is returned on
+	// eval completion.
+	programFlagTrackState programFlag = 1
+
+	// programFlagNoShortCircuit disables short-circuit jumps to ensure all branches are
+	// evaluated during program execution.
+	programFlagNoShortCircuit programFlag = 2
+
+	// programFlagExhaustive combines the state tracking and no-short-curcuit flags.
+	programFlagExhaustive programFlag = programFlagTrackState |
+		programFlagNoShortCircuit
 )
 
 // Program contains instructions and related metadata.
@@ -77,9 +86,8 @@ func (p *Program) GetInstruction(runtimeID int64) Instruction {
 	return p.Instructions[p.revInstructions[runtimeID]]
 }
 
-// Init ensures that instructions have been properly initialized prior to
-// beginning the execution of a program. The plan step may optimize the
-// instruction set.
+// plan ensures that instructions have been properly initialized prior to beginning the execution
+// of a program. The plan step may optimize the instruction set if it chooses.
 func (p *Program) plan(state *evalState) {
 	if p.Instructions == nil {
 		shortcircuit := p.flags&programFlagNoShortCircuit == 0

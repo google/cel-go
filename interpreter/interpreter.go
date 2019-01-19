@@ -98,6 +98,14 @@ type exprInterpretable struct {
 	statePool   *sync.Pool
 }
 
+// allocState will return an array suitable for tracking runtime state. The static state derived
+// at program plan time will be copied into the runtime state.
+//
+// By default, state arrays are pooled within a thread-safe sync.Pool; however, when state
+// tracking is enabled via programFlag, a new array is allocated. Pooled state objects may be
+// dirty in the sense that they will contain fragments of state from previous executions against
+// potentially different inputs; this is safe when the state does not need to be exposed, as the
+// expression result will always overwrite the state values relevant to the current computation.
 func (i *exprInterpretable) allocState() []ref.Value {
 	if i.program.flags&programFlagTrackState == programFlagTrackState {
 		rawState := make([]ref.Value, i.staticState.exprCount, i.staticState.exprCount)
@@ -107,6 +115,9 @@ func (i *exprInterpretable) allocState() []ref.Value {
 	return i.statePool.Get().([]ref.Value)
 }
 
+// finalizeState will either release the current runtime state back to a sync.Pool, or copy it
+// into a new hermetic evalState instance suitable for sharing with external callers. When state
+// tracking is enabled the result will be non-nil; otherwise the result will be nil by default.
 func (i *exprInterpretable) finalizeState(state []ref.Value) *evalState {
 	if i.program.flags&programFlagTrackState == programFlagTrackState {
 		finalState := newEvalState(i.staticState.exprCount)
@@ -118,10 +129,12 @@ func (i *exprInterpretable) finalizeState(state []ref.Value) *evalState {
 	return nil
 }
 
+// Eval is an implementation of the Interpretable interface method.
 func (i *exprInterpretable) Eval(activation Activation) (ref.Value, EvalState) {
 	// register machine-like evaluation of the program with the given activation.
 	currActivation := activation
-	// program counter
+
+	// program counter, and execution state.
 	pc := 0
 	end := len(i.program.Instructions)
 	steps := i.program.Instructions
@@ -177,19 +190,6 @@ func (i *exprInterpretable) Eval(activation Activation) (ref.Value, EvalState) {
 		pc++
 	}
 	result := i.value(state, resultID)
-	if result == nil {
-		cnt := 0
-		var only ref.Value
-		for _, v := range state {
-			if v != nil {
-				only = v
-				cnt++
-			}
-		}
-		if cnt == 1 {
-			result = only
-		}
-	}
 	return result, i.finalizeState(state)
 }
 
