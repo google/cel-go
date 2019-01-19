@@ -436,7 +436,7 @@ func (w *astWalker) getID(expr *exprpb.Expr) int64 {
 	id := expr.GetId()
 	if ident := expr.GetIdentExpr(); ident != nil {
 		if altID, found := w.scope.ref(ident.Name); found {
-			w.state.SetRuntimeExpressionID(id, altID)
+			w.state.setRuntimeExpressionID(id, altID)
 			return altID
 		}
 	}

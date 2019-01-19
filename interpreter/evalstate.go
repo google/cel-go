@@ -20,12 +20,9 @@ import (
 
 // EvalState tracks the values associated with expression ids during execution.
 type EvalState interface {
-	// GetRuntimeExpressionID returns the runtime id corresponding to the
-	// expression id from the AST.
+	// GetRuntimeExpressionID returns the runtime id corresponding to the expression id from the
+	// AST.
 	GetRuntimeExpressionID(exprID int64) int64
-
-	// OnlyValue returns the value in the eval state, if only one exists.
-	OnlyValue() (ref.Value, bool)
 
 	// Value of the given expression id, false if not found.
 	Value(int64) (ref.Value, bool)
@@ -46,6 +43,7 @@ func newEvalState(instructionCount int64) *evalState {
 		values:    make([]ref.Value, instructionCount, instructionCount)}
 }
 
+// GetRuntimeExpressionID is an implementation fo the EvalState interface method.
 func (s *evalState) GetRuntimeExpressionID(exprID int64) int64 {
 	if val, ok := s.exprIDMap[exprID]; ok {
 		return val
@@ -53,25 +51,7 @@ func (s *evalState) GetRuntimeExpressionID(exprID int64) int64 {
 	return exprID
 }
 
-func (s *evalState) OnlyValue() (ref.Value, bool) {
-	var result ref.Value
-	i := 0
-	for _, val := range s.values {
-		if val != nil {
-			result = val
-			i++
-		}
-	}
-	if i == 1 {
-		return result, true
-	}
-	return nil, false
-}
-
-func (s *evalState) SetRuntimeExpressionID(exprID int64, runtimeID int64) {
-	s.exprIDMap[exprID] = runtimeID
-}
-
+// Value is an implementation of the EvalState interface method.
 func (s *evalState) Value(exprID int64) (ref.Value, bool) {
 	// TODO: The eval state assumes a dense progrma expression id space. While
 	// this is true of how the cel-go parser generates identifiers, it may not
@@ -83,6 +63,13 @@ func (s *evalState) Value(exprID int64) (ref.Value, bool) {
 	return nil, false
 }
 
+// setRuntimeExpressionID establishes the mapping between an expression id and another equivalent
+// expression with a different id elsewhere in the AST.
+func (s *evalState) setRuntimeExpressionID(exprID int64, runtimeID int64) {
+	s.exprIDMap[exprID] = runtimeID
+}
+
+// copy sets the internal `values` of this eval state instance to the values of the input `src`.
 func (s *evalState) copy(src *evalState) bool {
 	if s.exprCount != src.exprCount {
 		return false
