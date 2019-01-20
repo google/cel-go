@@ -38,6 +38,6 @@ go_test(
     size = "small",
     embed = [":go_default_library"],
     deps = [
-        "//test:test_all_types_go_proto",
+        "//test/proto3pb:test_all_types_go_proto",
     ],
 )

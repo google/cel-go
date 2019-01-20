@@ -1,7 +1,7 @@
 package pb
 
 import (
-	testpb "github.com/google/cel-go/test"
+	testpb "github.com/google/cel-go/test/proto3pb"
 	"testing"
 )
 
@@ -11,11 +11,11 @@ func TestFileDescription_GetTypes(t *testing.T) {
 		t.Error(err)
 	}
 	expected := []string{
-		"google.api.tools.expr.test.TestAllTypes",
-		"google.api.tools.expr.test.TestAllTypes.NestedMessage",
-		"google.api.tools.expr.test.TestAllTypes.MapStringStringEntry",
-		"google.api.tools.expr.test.TestAllTypes.MapInt64NestedTypeEntry",
-		"google.api.tools.expr.test.NestedTestAllTypes"}
+		"google.expr.proto3.test.TestAllTypes",
+		"google.expr.proto3.test.TestAllTypes.NestedMessage",
+		"google.expr.proto3.test.TestAllTypes.MapStringStringEntry",
+		"google.expr.proto3.test.TestAllTypes.MapInt64NestedTypeEntry",
+		"google.expr.proto3.test.NestedTestAllTypes"}
 	if len(fd.GetTypeNames()) != len(expected) {
 		t.Errorf("got '%v', wanted '%v'", fd.GetTypeNames(), expected)
 	}
@@ -51,12 +51,12 @@ func TestFileDescription_GetEnumNames(t *testing.T) {
 		t.Error(err)
 	}
 	expected := map[string]int32{
-		"google.api.tools.expr.test.TestAllTypes.NestedEnum.FOO": 0,
-		"google.api.tools.expr.test.TestAllTypes.NestedEnum.BAR": 1,
-		"google.api.tools.expr.test.TestAllTypes.NestedEnum.BAZ": 2,
-		"google.api.tools.expr.test.GlobalEnum.GOO":              0,
-		"google.api.tools.expr.test.GlobalEnum.GAR":              1,
-		"google.api.tools.expr.test.GlobalEnum.GAZ":              2}
+		"google.expr.proto3.test.TestAllTypes.NestedEnum.FOO": 0,
+		"google.expr.proto3.test.TestAllTypes.NestedEnum.BAR": 1,
+		"google.expr.proto3.test.TestAllTypes.NestedEnum.BAZ": 2,
+		"google.expr.proto3.test.GlobalEnum.GOO":              0,
+		"google.expr.proto3.test.GlobalEnum.GAR":              1,
+		"google.expr.proto3.test.GlobalEnum.GAZ":              2}
 	if len(expected) != len(fd.GetEnumNames()) {
 		t.Error("Count of enum names does not match expected'",
 			fd.GetEnumNames(), expected)
