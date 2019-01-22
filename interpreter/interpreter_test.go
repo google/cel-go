@@ -760,6 +760,41 @@ func BenchmarkInterpreter_ComprehensionExprWithInput(b *testing.B) {
 	}
 }
 
+func BenchmarkInterpreter_Recursive(b *testing.B) {
+	// ai == 20 || ar["foo"] == "bar"
+	activation := NewActivation(map[string]interface{}{
+		"ai": 2,
+		"ar": map[string]string{
+			"foo": "bar",
+		}})
+
+	s := common.NewTextSource(`ai == 20 || ar["foo"] == "bar"`)
+	types := types.NewProvider()
+	pkg := packages.DefaultPackage
+	env := checker.NewStandardEnv(pkg, types)
+	env.Add(
+		decls.NewIdent("ai", decls.Int, nil),
+		decls.NewIdent("ar", decls.NewMapType(decls.String, decls.String), nil))
+	parsed, _ := parser.Parse(s)
+	checked, _ := checker.Check(parsed, s, env)
+	disp := NewDispatcher()
+	disp.Add(functions.StandardOverloads()...)
+	planner := &planner{
+		disp:         disp,
+		pkg:          pkg,
+		types:        types,
+		identMap:     make(map[string]inst),
+		refMap:       checked.GetReferenceMap(),
+		typeMap:      checked.GetTypeMap(),
+		shortcircuit: true,
+	}
+	prg, _ := planner.plan(checked.GetExpr())
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		prg.eval(activation)
+	}
+}
+
 func BenchmarkInterpreter_CanonicalExpressions(b *testing.B) {
 	for _, tst := range testData {
 		s := common.NewTextSource(tst.E)
@@ -767,17 +802,32 @@ func BenchmarkInterpreter_CanonicalExpressions(b *testing.B) {
 		if len(errors.GetErrors()) != 0 {
 			b.Errorf(errors.ToDisplayString())
 		}
-		program, _ := NewProgram(
-			parsed.GetExpr(),
-			parsed.GetSourceInfo(),
-			OptimizeProgram(true))
-		interpretable := interpreter.NewInterpretable(program)
+
+		types := types.NewProvider()
+		pkg := packages.DefaultPackage
+		env := checker.NewStandardEnv(pkg, types)
+		env.Add(
+			decls.NewIdent("ai", decls.Int, nil),
+			decls.NewIdent("ar", decls.NewMapType(decls.String, decls.String), nil))
+		checked, _ := checker.Check(parsed, s, env)
+		disp := NewDispatcher()
+		disp.Add(functions.StandardOverloads()...)
+		planner := &planner{
+			disp:         disp,
+			pkg:          pkg,
+			types:        types,
+			identMap:     make(map[string]inst),
+			refMap:       checked.GetReferenceMap(),
+			typeMap:      checked.GetTypeMap(),
+			shortcircuit: true,
+		}
+		program, _ := planner.plan(checked.GetExpr())
 		activation := NewActivation(tst.I)
 		b.Run(tst.name, func(bb *testing.B) {
 			b.ResetTimer()
 			b.ReportAllocs()
 			for i := 0; i < bb.N; i++ {
-				interpretable.Eval(activation)
+				program.eval(activation)
 			}
 		})
 	}

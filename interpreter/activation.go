@@ -111,3 +111,31 @@ func (a *hierarchicalActivation) ResolveReference(exprID int64) (ref.Value, bool
 func NewHierarchicalActivation(parent Activation, child Activation) Activation {
 	return &hierarchicalActivation{parent, child}
 }
+
+func newVarActivation(parent Activation, name string) *varActivation {
+	return &varActivation{
+		parent: parent,
+		name:   name,
+	}
+}
+
+type varActivation struct {
+	parent Activation
+	name   string
+	val    ref.Value
+}
+
+func (v *varActivation) ResolveName(name string) (ref.Value, bool) {
+	if name == v.name {
+		return v.val, true
+	}
+	return v.parent.ResolveName(name)
+}
+
+func (v *varActivation) ResolveReference(id int64) (ref.Value, bool) {
+	return v.parent.ResolveReference(id)
+}
+
+func (v *varActivation) Parent() Activation {
+	return v.parent
+}
