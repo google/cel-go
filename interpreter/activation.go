@@ -15,6 +15,8 @@
 package interpreter
 
 import (
+	"sync"
+
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 )
@@ -139,3 +141,11 @@ func (v *varActivation) ResolveReference(id int64) (ref.Value, bool) {
 func (v *varActivation) Parent() Activation {
 	return v.parent
 }
+
+var (
+	varActivationPool = &sync.Pool{
+		New: func() interface{} {
+			return &varActivation{}
+		},
+	}
+)

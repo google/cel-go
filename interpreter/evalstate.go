@@ -20,27 +20,34 @@ import (
 
 // EvalState tracks the values associated with expression ids during execution.
 type EvalState interface {
-	// GetRuntimeExpressionID returns the runtime id corresponding to the expression id from the
-	// AST.
+	// GetRuntimeExpressionID returns the runtime id corresponding to the expression id from
+	// the AST.
 	GetRuntimeExpressionID(exprID int64) int64
 
-	// Value of the given expression id, false if not found.
+	// Value returns the observed value of the given expression id if found, and a nil false
+	// result if not.
 	Value(int64) (ref.Value, bool)
+
+	// SetValue sets the observed value of the expression id.
+	SetValue(int64, ref.Value)
+
+	// Reset clears the previously recorded expression values.
+	Reset()
 }
 
 // evalState permits the mutation of evaluation state for a given expression id.
 type evalState struct {
-	exprCount int64
 	exprIDMap map[int64]int64
-	values    []ref.Value
+	values    map[int64]ref.Value
 }
 
-// newEvalState returns a heap allocated evalState.
-func newEvalState(instructionCount int64) *evalState {
+// NewEvalState returns an EvalState instanced used to observe the intermediate
+// evaluations of an expression.
+func NewEvalState() EvalState {
 	return &evalState{
-		exprCount: instructionCount,
 		exprIDMap: make(map[int64]int64),
-		values:    make([]ref.Value, instructionCount, instructionCount)}
+		values:    make(map[int64]ref.Value),
+	}
 }
 
 // GetRuntimeExpressionID is an implementation fo the EvalState interface method.
@@ -57,27 +64,21 @@ func (s *evalState) Value(exprID int64) (ref.Value, bool) {
 	// this is true of how the cel-go parser generates identifiers, it may not
 	// be true for all implementations or for the long term. Replace the use of
 	// parse-time generated expression ids with a dense runtiem identifier.
-	if exprID >= 0 && exprID < s.exprCount {
-		return s.values[exprID], true
-	}
-	return nil, false
+	val, found := s.values[exprID]
+	return val, found
+}
+
+// SetValue is an implementation of the EvalState interface method.
+func (s *evalState) SetValue(exprID int64, val ref.Value) {
+	s.values[exprID] = val
+}
+
+func (s *evalState) Reset() {
+	s.values = map[int64]ref.Value{}
 }
 
 // setRuntimeExpressionID establishes the mapping between an expression id and another equivalent
 // expression with a different id elsewhere in the AST.
 func (s *evalState) setRuntimeExpressionID(exprID int64, runtimeID int64) {
 	s.exprIDMap[exprID] = runtimeID
-}
-
-// copy sets the internal `values` of this eval state instance to the values of the input `src`.
-func (s *evalState) copy(src *evalState) bool {
-	if s.exprCount != src.exprCount {
-		return false
-	}
-	// ID mappings are immutable and should be preserved.
-	s.exprIDMap = src.exprIDMap
-	for i, v := range src.values {
-		s.values[i] = v
-	}
-	return true
 }

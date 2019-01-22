@@ -17,9 +17,6 @@ package interpreter
 import (
 	"fmt"
 
-	"github.com/google/cel-go/common/types"
-	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/common/types/traits"
 	"github.com/google/cel-go/interpreter/functions"
 )
 
@@ -28,14 +25,6 @@ type Dispatcher interface {
 	// Add one or more overloads, returning an error if any Overload has the
 	// same Overload#Name.
 	Add(overloads ...*functions.Overload) error
-
-	// Dispatch a call to its appropriate Overload and set the evaluation
-	// state for the call to the return value. The input state slice is
-	// expected to contain the values indexed by expression id relevant to
-	// the call args and the storage of the result.
-	//
-	// See: evalstate.go
-	Dispatch(state []ref.Value, call *CallExpr)
 
 	// FindOverload returns an Overload definition matching the provided
 	// name.
@@ -69,74 +58,6 @@ func (d *defaultDispatcher) Add(overloads ...*functions.Overload) error {
 		d.overloads[o.Operator] = o
 	}
 	return nil
-}
-
-// Dispatcher implements the Dispatcher.Dispatch interface method.
-func (d *defaultDispatcher) Dispatch(state []ref.Value, call *CallExpr) {
-	function := call.Function
-	impl := call.Impl
-	if impl == nil {
-		impl = d.overloads[function]
-	}
-	argCount := len(call.Args)
-
-	// Attempt to resolve the function as a receiver method.
-	if impl == nil {
-		// Special dispatch for type-specific extension functions.
-		if argCount == 0 {
-			// If we're here, then there wasn't a zero-arg global function,
-			// and there's definitely no member function without an operand.
-			state[call.ID] = types.NewErr("no such overload")
-			return
-		}
-		arg0 := state[call.Args[0]]
-		if arg0.Type().HasTrait(traits.ReceiverType) {
-			overload := call.Overload
-			args := make([]ref.Value, argCount-1, argCount-1)
-			for i, argID := range call.Args {
-				if i == 0 {
-					continue
-				}
-				args[i] = state[argID]
-			}
-			state[call.ID] = arg0.(traits.Receiver).Receive(function, overload, args)
-			return
-		}
-		state[call.ID] = types.ValOrErr(arg0, "no such overload")
-		return
-	}
-
-	// Attempt to invoke a global overload.
-	if argCount == 0 {
-		state[call.ID] = impl.Function()
-		return
-	}
-	arg0 := state[call.Args[0]]
-	if impl.OperandTrait != 0 && !arg0.Type().HasTrait(impl.OperandTrait) {
-		state[call.ID] = types.ValOrErr(arg0, "no such overload")
-		return
-	}
-	switch argCount {
-	case 1:
-		state[call.ID] = impl.Unary(arg0)
-		return
-	case 2:
-		arg1 := state[call.Args[1]]
-		state[call.ID] = impl.Binary(arg0, arg1)
-		return
-	case 3:
-		arg1 := state[call.Args[1]]
-		arg2 := state[call.Args[2]]
-		state[call.ID] = impl.Function(arg0, arg1, arg2)
-		return
-	default:
-		args := make([]ref.Value, argCount, argCount)
-		for i, argID := range call.Args {
-			args[i] = state[argID]
-		}
-		state[call.ID] = impl.Function(args...)
-		return
-	}
 }
 
 // FindOverload implements the Dispatcher.FindOverload interface method.
