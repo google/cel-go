@@ -32,18 +32,6 @@ func StandardOverloads() []*Overload {
 			Unary: func(value ref.Value) ref.Value {
 				return value.(traits.Negater).Negate()
 			}},
-		// Logical and (a && b)
-		{
-			Operator: operators.LogicalAnd,
-			Binary:   logicalAnd},
-		// Logical or (a || b)
-		{
-			Operator: operators.LogicalOr,
-			Binary:   logicalOr},
-		// Conditional operator (a ? b : c)
-		{
-			Operator: operators.Conditional,
-			Function: conditional},
 		// Not strictly false: IsBool(a) ? a : true
 		{
 			Operator: operators.NotStrictlyFalse,
@@ -52,22 +40,6 @@ func StandardOverloads() []*Overload {
 		{
 			Operator: operators.OldNotStrictlyFalse,
 			Unary:    notStrictlyFalse},
-
-		// Equality overloads
-		{Operator: operators.Equals,
-			Binary: func(lhs ref.Value, rhs ref.Value) ref.Value {
-				return lhs.Equal(rhs)
-			}},
-
-		{Operator: operators.NotEquals,
-			Binary: func(lhs ref.Value, rhs ref.Value) ref.Value {
-				eq := lhs.Equal(rhs)
-				eqBool, isbool := eq.(types.Bool)
-				if isbool {
-					return !eqBool
-				}
-				return eq
-			}},
 
 		// Less than operator
 		{Operator: operators.Less,
@@ -271,72 +243,6 @@ func StandardOverloads() []*Overload {
 			}},
 	}
 
-}
-
-func logicalAnd(lhs ref.Value, rhs ref.Value) ref.Value {
-	lBool, lhsIsBool := lhs.(types.Bool)
-	// short-circuit lhs.
-	if lhsIsBool && !bool(lBool) {
-		return lBool
-	}
-	rBool, rhsIsBool := rhs.(types.Bool)
-	// short-circuit on rhs.
-	if rhsIsBool && !bool(rBool) {
-		return rBool
-	}
-	// return if both sides are bool true.
-	if lhsIsBool && rhsIsBool {
-		return types.True
-	}
-	// prefer left unknown to right unknown.
-	if types.IsUnknown(lhs) {
-		return lhs
-	}
-	if types.IsUnknown(rhs) {
-		return rhs
-	}
-	// if the left-hand side is non-boolean return it as the error.
-	return types.ValOrErr(lhs, "Got '%v', expected argument of type 'bool'", lhs)
-}
-
-func logicalOr(lhs ref.Value, rhs ref.Value) ref.Value {
-	lBool, lhsIsBool := lhs.(types.Bool)
-	// short-circuit lhs.
-	if lhsIsBool && bool(lBool) {
-		return lBool
-	}
-	rBool, rhsIsBool := rhs.(types.Bool)
-	// short-circuit on rhs.
-	if rhsIsBool && bool(rBool) {
-		return rBool
-	}
-	// return if both sides are bool false.
-	if lhsIsBool && rhsIsBool {
-		return types.False
-	}
-	// prefer left unknown to right unknown.
-	if types.IsUnknown(lhs) {
-		return lhs
-	}
-	if types.IsUnknown(rhs) {
-		return rhs
-	}
-	// if the left-hand side is non-boolean return it as the error.
-	return types.ValOrErr(lhs, "Got '%v', expected argument of type 'bool'", lhs)
-}
-
-func conditional(values ...ref.Value) ref.Value {
-	if len(values) != 3 {
-		return types.NewErr("no such overload")
-	}
-	cond, ok := values[0].(types.Bool)
-	if !ok {
-		return types.ValOrErr(values[0], "no such overload")
-	}
-	if cond {
-		return values[1]
-	}
-	return values[2]
 }
 
 func notStrictlyFalse(value ref.Value) ref.Value {

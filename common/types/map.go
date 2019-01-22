@@ -213,6 +213,10 @@ func (m *baseMap) Size() ref.Value {
 	return Int(m.refValue.Len())
 }
 
+func (m *stringMap) Size() ref.Value {
+	return Int(len(m.mapStrStr))
+}
+
 func (m *baseMap) Type() ref.Type {
 	return MapType
 }

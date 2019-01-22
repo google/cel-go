@@ -20,10 +20,6 @@ import (
 
 // EvalState tracks the values associated with expression ids during execution.
 type EvalState interface {
-	// GetRuntimeExpressionID returns the runtime id corresponding to the expression id from
-	// the AST.
-	GetRuntimeExpressionID(exprID int64) int64
-
 	// Value returns the observed value of the given expression id if found, and a nil false
 	// result if not.
 	Value(int64) (ref.Value, bool)
@@ -37,25 +33,15 @@ type EvalState interface {
 
 // evalState permits the mutation of evaluation state for a given expression id.
 type evalState struct {
-	exprIDMap map[int64]int64
-	values    map[int64]ref.Value
+	values map[int64]ref.Value
 }
 
 // NewEvalState returns an EvalState instanced used to observe the intermediate
 // evaluations of an expression.
 func NewEvalState() EvalState {
 	return &evalState{
-		exprIDMap: make(map[int64]int64),
-		values:    make(map[int64]ref.Value),
+		values: make(map[int64]ref.Value),
 	}
-}
-
-// GetRuntimeExpressionID is an implementation fo the EvalState interface method.
-func (s *evalState) GetRuntimeExpressionID(exprID int64) int64 {
-	if val, ok := s.exprIDMap[exprID]; ok {
-		return val
-	}
-	return exprID
 }
 
 // Value is an implementation of the EvalState interface method.
@@ -75,10 +61,4 @@ func (s *evalState) SetValue(exprID int64, val ref.Value) {
 
 func (s *evalState) Reset() {
 	s.values = map[int64]ref.Value{}
-}
-
-// setRuntimeExpressionID establishes the mapping between an expression id and another equivalent
-// expression with a different id elsewhere in the AST.
-func (s *evalState) setRuntimeExpressionID(exprID int64, runtimeID int64) {
-	s.exprIDMap[exprID] = runtimeID
 }

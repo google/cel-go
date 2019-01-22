@@ -26,11 +26,6 @@ import (
 // An Activation is the primary mechanism by which a caller supplies input
 // into a CEL program.
 type Activation interface {
-
-	// ResolveReference returns a value from the activation by expression id,
-	// or false if the id-based reference could not be found.
-	ResolveReference(exprID int64) (ref.Value, bool)
-
 	// ResolveName returns a value from the activation by qualified name, or
 	// false if the name could not be found.
 	ResolveName(name string) (ref.Value, bool)
@@ -101,13 +96,6 @@ func (a *hierarchicalActivation) ResolveName(name string) (ref.Value, bool) {
 	return a.parent.ResolveName(name)
 }
 
-func (a *hierarchicalActivation) ResolveReference(exprID int64) (ref.Value, bool) {
-	if object, found := a.child.ResolveReference(exprID); found {
-		return object, found
-	}
-	return a.parent.ResolveReference(exprID)
-}
-
 // NewHierarchicalActivation takes two activations and produces a new one which prioritizes
 // resolution in the child first and parent(s) second.
 func NewHierarchicalActivation(parent Activation, child Activation) Activation {
@@ -132,10 +120,6 @@ func (v *varActivation) ResolveName(name string) (ref.Value, bool) {
 		return v.val, true
 	}
 	return v.parent.ResolveName(name)
-}
-
-func (v *varActivation) ResolveReference(id int64) (ref.Value, bool) {
-	return v.parent.ResolveReference(id)
 }
 
 func (v *varActivation) Parent() Activation {

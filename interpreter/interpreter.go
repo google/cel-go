@@ -61,7 +61,7 @@ func TrackState(state EvalState) InterpretableDecorator {
 	observer := func(id int64, val ref.Value) {
 		state.SetValue(id, val)
 	}
-	return observeEval(observer)
+	return decObserveEval(observer)
 }
 
 // ExhaustiveEval replaces operations that short-circuit with versions that evaluate
@@ -70,7 +70,7 @@ func TrackState(state EvalState) InterpretableDecorator {
 // provided to the decorator. This decorator is not thread-safe, and the EvalState
 // must be reset between Eval() calls.
 func ExhaustiveEval(state EvalState) InterpretableDecorator {
-	ex := exhaustiveEval()
+	ex := decDisableShortcircuits()
 	obs := TrackState(state)
 	return func(i Interpretable) (Interpretable, error) {
 		var err error
@@ -80,6 +80,12 @@ func ExhaustiveEval(state EvalState) InterpretableDecorator {
 		}
 		return obs(i)
 	}
+}
+
+// FoldConstants will pre-compute list and map literals comprised entirely of constant entries.
+// This optimization will increase the set of constant fold operations over time.
+func FoldConstants() InterpretableDecorator {
+	return decFoldConstants()
 }
 
 type exprInterpreter struct {

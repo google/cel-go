@@ -18,6 +18,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/google/cel-go/common/types/traits"
+
 	"github.com/golang/protobuf/proto"
 
 	"github.com/google/cel-go/checker"
@@ -251,6 +253,51 @@ func TestInterpreter_Timestamp(t *testing.T) {
 	result := evalExpr(t, "timestamp('2001-01-01T01:23:45Z').getDayOfWeek() == 1")
 	if result != types.True {
 		t.Errorf("Got %v, wanted true", result)
+	}
+}
+
+func TestInterpreter_ZeroArityCall(t *testing.T) {
+	p := parseExpr(t, `zero()`)
+	disp := NewDispatcher()
+	disp.Add(&functions.Overload{
+		Operator: "zero",
+		Function: func(args ...ref.Value) ref.Value {
+			return types.IntZero
+		},
+	})
+	interp := NewInterpreter(disp, packages.DefaultPackage, types.NewProvider())
+	i, _ := interp.NewUncheckedInterpretable(p.Expr)
+	result := i.Eval(emptyActivation)
+	if result != types.IntZero {
+		t.Errorf("Got '%v', wanted zero", result)
+	}
+}
+
+func TestInterpreter_VarArgsCall(t *testing.T) {
+	p := parseExpr(t, `addall(a, b, c, d)`)
+	disp := NewDispatcher()
+	disp.Add(&functions.Overload{
+		Operator:     "addall",
+		OperandTrait: traits.AdderType,
+		Function: func(args ...ref.Value) ref.Value {
+			val := types.Int(0)
+			for _, arg := range args {
+				val += arg.(types.Int)
+			}
+			return val
+		},
+	})
+	interp := NewInterpreter(disp, packages.DefaultPackage, types.NewProvider())
+	i, _ := interp.NewUncheckedInterpretable(p.Expr)
+	result := i.Eval(NewActivation(
+		map[string]interface{}{
+			"a": 1,
+			"b": 2,
+			"c": 3,
+			"d": 4,
+		}))
+	if result != types.Int(10) {
+		t.Errorf("Got '%v', wanted 10", result)
 	}
 }
 
@@ -516,7 +563,7 @@ func TestInterpreter_SetObjectEnumField(t *testing.T) {
 	}
 
 	i := NewStandardInterpreter(pkgr, provider)
-	eval, _ := i.NewInterpretable(checked)
+	eval, _ := i.NewInterpretable(checked, FoldConstants())
 	expected := &proto3pb.TestAllTypes{
 		RepeatedNestedEnum: []proto3pb.TestAllTypes_NestedEnum{
 			proto3pb.TestAllTypes_FOO,
@@ -569,7 +616,7 @@ func TestInterpreter_BuildMap(t *testing.T) {
 	if len(err.GetErrors()) != 0 {
 		t.Error(err)
 	}
-	i, _ := interpreter.NewUncheckedInterpretable(parsed.GetExpr())
+	i, _ := interpreter.NewUncheckedInterpretable(parsed.GetExpr(), FoldConstants())
 	res := i.Eval(NewActivation(map[string]interface{}{"name": "tristan"}))
 	value, _ := res.(ref.Value).ConvertToNative(
 		reflect.TypeOf(map[string]string{}))
@@ -580,14 +627,14 @@ func TestInterpreter_BuildMap(t *testing.T) {
 }
 
 func TestInterpreter_MapIndex(t *testing.T) {
-	parsed, err := parser.Parse(common.NewTextSource("{'a':1}['a']"))
+	parsed, err := parser.Parse(common.NewTextSource("{'a':null}['a']"))
 	if len(err.GetErrors()) != 0 {
 		t.Error(err)
 	}
 	i, _ := interpreter.NewUncheckedInterpretable(parsed.GetExpr())
 	res := i.Eval(emptyActivation)
-	if res != types.Int(1) {
-		t.Errorf("Got '%v', wanted 1", res)
+	if res != types.NullValue {
+		t.Errorf("Got '%v', wanted null", res)
 	}
 }
 
@@ -625,7 +672,9 @@ func BenchmarkInterpreter_ConditionalExpr(b *testing.B) {
 
 func BenchmarkInterpreter_ComprehensionExpr(b *testing.B) {
 	// [1, 1u, 1.0].exists(x, type(x) == uint)
-	interpretable, _ := interpreter.NewUncheckedInterpretable(test.Exists.Expr)
+	interpretable, _ := interpreter.NewUncheckedInterpretable(
+		test.Exists.Expr,
+		FoldConstants())
 	for i := 0; i < b.N; i++ {
 		interpretable.Eval(emptyActivation)
 	}
@@ -633,7 +682,8 @@ func BenchmarkInterpreter_ComprehensionExpr(b *testing.B) {
 
 func BenchmarkInterpreter_ComprehensionExprWithInput(b *testing.B) {
 	// elems.exists(x, type(x) == uint)
-	interpretable, _ := interpreter.NewUncheckedInterpretable(test.ExistsWithInput.Expr)
+	interpretable, _ := interpreter.NewUncheckedInterpretable(
+		test.ExistsWithInput.Expr)
 	activation := NewActivation(map[string]interface{}{
 		"elems": types.NativeToValue([]interface{}{0, 1, 2, 3, 4, uint(5), 6})})
 	for i := 0; i < b.N; i++ {
@@ -675,8 +725,6 @@ var (
 		packages.DefaultPackage,
 		types.NewProvider(&exprpb.ParsedExpr{}))
 
-	emptyActivation = NewActivation(map[string]interface{}{})
-
 	testData = []testCase{
 		{
 			name: `ExprBench/ok_1st`,
@@ -717,26 +765,6 @@ var (
 			name: `ExprBench/false_2nd`,
 			E:    `true && false`,
 			I:    map[string]interface{}{},
-		},
-		{
-			name: `ExprBench/ok_lhs`,
-			E:    `ai == 20 `,
-			I: map[string]interface{}{
-				"ai": 20,
-				"ar": map[string]string{
-					"foo": "bar",
-				},
-			},
-		},
-		{
-			name: `ExprBench/ok_rhs`,
-			E:    `ar["foo"] == "bar"`,
-			I: map[string]interface{}{
-				"ai": 2,
-				"ar": map[string]string{
-					"foo": "baz",
-				},
-			},
 		},
 	}
 )

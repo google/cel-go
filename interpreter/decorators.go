@@ -23,8 +23,8 @@ import (
 // evalObserver is a functional interface that accepts an expression id and an observed value.
 type evalObserver func(int64, ref.Value)
 
-// observeEval records evaluation state into an EvalState object.
-func observeEval(observer evalObserver) InterpretableDecorator {
+// decObserveEval records evaluation state into an EvalState object.
+func decObserveEval(observer evalObserver) InterpretableDecorator {
 	return func(i Interpretable) (Interpretable, error) {
 		return &evalWatch{
 			inst:     i,
@@ -33,8 +33,8 @@ func observeEval(observer evalObserver) InterpretableDecorator {
 	}
 }
 
-// exhaustiveEval ensures that all branches of an expression will be evaluated, no short-circuiting.
-func exhaustiveEval() InterpretableDecorator {
+// decDisableShortcircuits ensures that all branches of an expression will be evaluated, no short-circuiting.
+func decDisableShortcircuits() InterpretableDecorator {
 	return func(i Interpretable) (Interpretable, error) {
 		switch i.(type) {
 		case *evalOr:
@@ -70,6 +70,47 @@ func exhaustiveEval() InterpretableDecorator {
 				cond:      fold.cond,
 				step:      fold.step,
 				result:    fold.result,
+			}, nil
+		}
+		return i, nil
+	}
+}
+
+// decFoldConstants checks whether the arguments the create list and map operations are all
+// constant values and constructs a new aggregate value. Future improvements to this method will
+// also do the same for typed object creations and functions whose arguments are constant.
+func decFoldConstants() InterpretableDecorator {
+	return func(i Interpretable) (Interpretable, error) {
+		switch i.(type) {
+		case *evalList:
+			l := i.(*evalList)
+			for _, elem := range l.elems {
+				_, isConst := elem.(*evalConst)
+				if !isConst {
+					return i, nil
+				}
+			}
+			val := l.Eval(emptyActivation)
+			return &evalConst{
+				id:  l.id,
+				val: val,
+			}, nil
+		case *evalMap:
+			mp := i.(*evalMap)
+			for idx, key := range mp.keys {
+				_, isConst := key.(*evalConst)
+				if !isConst {
+					return i, nil
+				}
+				_, isConst = mp.vals[idx].(*evalConst)
+				if !isConst {
+					return i, nil
+				}
+			}
+			val := mp.Eval(emptyActivation)
+			return &evalConst{
+				id:  mp.id,
+				val: val,
 			}, nil
 		}
 		return i, nil
@@ -244,3 +285,7 @@ func (fold *evalExhaustiveFold) Eval(ctx Activation) ref.Value {
 	varActivationPool.Put(accuCtx)
 	return res
 }
+
+var (
+	emptyActivation = NewActivation(map[string]interface{}{})
+)
