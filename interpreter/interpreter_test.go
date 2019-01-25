@@ -392,6 +392,8 @@ func TestInterpreter_BuildObject(t *testing.T) {
 }
 
 func TestInterpreter_GetProto2PrimitiveFields(t *testing.T) {
+	// In proto, 32-bit types are widened to 64-bit types, so these fields should be equal
+	// in CEL even if they're not equal in proto.
 	src := common.NewTextSource(`
 	a.single_int32 == a.single_int64 &&
 	a.single_uint32 == a.single_uint64 &&
@@ -415,13 +417,13 @@ func TestInterpreter_GetProto2PrimitiveFields(t *testing.T) {
 	i := NewStandardInterpreter(pkgr, provider)
 	eval := i.NewInterpretable(NewCheckedProgram(checked))
 	a := &proto2pb.TestAllTypes{}
-	result, state := eval.Eval(NewActivation(map[string]interface{}{
+	result, _ := eval.Eval(NewActivation(map[string]interface{}{
 		"a": types.NewObject(a),
 	}))
 	expected := true
 	got, ok := result.(ref.Value).Value().(bool)
 	if !ok {
-		t.Fatalf("cannot cast result to int64: result=%v state=%v", result, state)
+		t.Fatalf("Got '%v', wanted 'true'.", result)
 	}
 	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("Could not build object properly. Got '%v', wanted '%v'",
@@ -477,12 +479,12 @@ func TestInterpreter_SetProto2PrimitiveFields(t *testing.T) {
 		SingleString: &str,
 		SingleBool:   &truth,
 	}
-	result, state := eval.Eval(NewActivation(map[string]interface{}{
+	result, _ := eval.Eval(NewActivation(map[string]interface{}{
 		"input": input,
 	}))
 	got, ok := result.(ref.Value).Value().(bool)
 	if !ok {
-		t.Fatalf("cannot cast result to int64: result=%v state=%v", result, state)
+		t.Fatalf("Got '%v', wanted 'true'.", result)
 	}
 	expected := true
 	if !reflect.DeepEqual(got, expected) {
