@@ -149,8 +149,11 @@ func (m *baseMap) Equal(other ref.Value) ref.Value {
 			return False
 		} else if thisVal := m.Get(key); IsError(thisVal) {
 			return False
-		} else if thisVal.Equal(otherVal) != True {
-			return False
+		} else {
+			valEq := thisVal.Equal(otherVal)
+			if valEq == False || IsUnknownOrError(valEq) {
+				return valEq
+			}
 		}
 	}
 	return True

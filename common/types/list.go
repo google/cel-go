@@ -158,10 +158,7 @@ func (l *baseList) Equal(other ref.Value) ref.Value {
 		thisElem := l.Get(i)
 		otherElem := otherList.Get(i)
 		elemEq := thisElem.Equal(otherElem)
-		if elemEq == False {
-			return False
-		}
-		if IsUnknownOrError(elemEq) {
+		if elemEq == False || IsUnknownOrError(elemEq) {
 			return elemEq
 		}
 	}
