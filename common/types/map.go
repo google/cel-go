@@ -136,7 +136,7 @@ func (m *baseMap) ConvertToType(typeVal ref.Type) ref.Value {
 
 func (m *baseMap) Equal(other ref.Value) ref.Value {
 	if MapType != other.Type() {
-		return False
+		return ValOrErr(other, "no such overload")
 	}
 	otherMap := other.(traits.Mapper)
 	if m.Size() != otherMap.Size() {

@@ -801,12 +801,6 @@ func (eq *evalEq) ID() int64 {
 func (eq *evalEq) Eval(ctx Activation) ref.Value {
 	lVal := eq.lhs.Eval(ctx)
 	rVal := eq.rhs.Eval(ctx)
-	if lVal.Type() != rVal.Type() {
-		if types.IsUnknownOrError(lVal) {
-			return lVal
-		}
-		return types.ValOrErr(rVal, "no such overload: %T == %T", lVal, rVal)
-	}
 	return lVal.Equal(rVal)
 }
 
@@ -825,16 +819,13 @@ func (ne *evalNe) ID() int64 {
 func (ne *evalNe) Eval(ctx Activation) ref.Value {
 	lVal := ne.lhs.Eval(ctx)
 	rVal := ne.rhs.Eval(ctx)
-	if lVal.Type() != rVal.Type() {
-		if types.IsUnknownOrError(lVal) {
-			return lVal
-		}
-		return types.ValOrErr(rVal, "no such overload: %T != %T", lVal, rVal)
-	}
 	eqVal := lVal.Equal(rVal)
 	eqBool, ok := eqVal.(types.Bool)
 	if !ok {
-		return types.ValOrErr(eqVal, "no such overload: _!=_")
+		if types.IsUnknown(eqVal) {
+			return eqVal
+		}
+		return types.NewErr("no such overload: _!=_")
 	}
 	return !eqBool
 }

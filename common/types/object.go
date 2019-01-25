@@ -78,7 +78,7 @@ func (o *protoObj) ConvertToType(typeVal ref.Type) ref.Value {
 
 func (o *protoObj) Equal(other ref.Value) ref.Value {
 	if o.typeDesc.Name() != other.Type().TypeName() {
-		return False
+		return ValOrErr(other, "no such overload")
 	}
 	return Bool(proto.Equal(o.value, other.Value().(proto.Message)))
 }

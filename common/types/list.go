@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/golang/protobuf/ptypes/struct"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 )
@@ -148,7 +148,7 @@ func (l *baseList) ConvertToType(typeVal ref.Type) ref.Value {
 
 func (l *baseList) Equal(other ref.Value) ref.Value {
 	if ListType != other.Type() {
-		return False
+		return ValOrErr(other, "no such overload")
 	}
 	otherList := other.(traits.Lister)
 	if l.Size() != otherList.Size() {
@@ -157,8 +157,12 @@ func (l *baseList) Equal(other ref.Value) ref.Value {
 	for i := IntZero; i < l.Size().(Int); i++ {
 		thisElem := l.Get(i)
 		otherElem := otherList.Get(i)
-		if thisElem.Equal(otherElem) != True {
+		elemEq := thisElem.Equal(otherElem)
+		if elemEq == False {
 			return False
+		}
+		if IsUnknownOrError(elemEq) {
+			return elemEq
 		}
 	}
 	return True

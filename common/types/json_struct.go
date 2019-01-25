@@ -103,7 +103,7 @@ func (m *jsonStruct) ConvertToType(typeVal ref.Type) ref.Value {
 
 func (m *jsonStruct) Equal(other ref.Value) ref.Value {
 	if MapType != other.Type() {
-		return False
+		return ValOrErr(other, "no such overload")
 	}
 	otherMap := other.(traits.Mapper)
 	if m.Size() != otherMap.Size() {
@@ -116,8 +116,11 @@ func (m *jsonStruct) Equal(other ref.Value) ref.Value {
 			return False
 		} else if thisVal := m.Get(key); IsError(thisVal) {
 			return False
-		} else if thisVal.Equal(otherVal) != True {
-			return False
+		} else {
+			valEq := thisVal.Equal(otherVal)
+			if valEq == False || IsUnknownOrError(valEq) {
+				return valEq
+			}
 		}
 	}
 	return True
