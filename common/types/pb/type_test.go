@@ -5,7 +5,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	testpb "github.com/google/cel-go/test"
+	testpb "github.com/google/cel-go/test/proto3pb"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
@@ -93,7 +93,7 @@ func TestTypeDescription_Field(t *testing.T) {
 	}
 	if !proto.Equal(fd.CheckedType(), &exprpb.Type{
 		TypeKind: &exprpb.Type_MessageType{
-			MessageType: "google.api.tools.expr.test.TestAllTypes"}}) {
+			MessageType: "google.expr.proto3.test.TestAllTypes"}}) {
 		t.Error("Field 'payload' had an unexpected checked type.")
 	}
 }

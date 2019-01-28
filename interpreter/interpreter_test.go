@@ -28,6 +28,8 @@ import (
 	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/parser"
 	"github.com/google/cel-go/test"
+	"github.com/google/cel-go/test/proto2pb"
+	"github.com/google/cel-go/test/proto3pb"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
@@ -389,17 +391,24 @@ func TestInterpreter_BuildObject(t *testing.T) {
 	}
 }
 
-func TestInterpreter_GetObjectEnumField(t *testing.T) {
-	src := common.NewTextSource("a.repeated_nested_enum[0]")
+func TestInterpreter_GetProto2PrimitiveFields(t *testing.T) {
+	// In proto, 32-bit types are widened to 64-bit types, so these fields should be equal
+	// in CEL even if they're not equal in proto.
+	src := common.NewTextSource(`
+	a.single_int32 == a.single_int64 &&
+	a.single_uint32 == a.single_uint64 &&
+	a.single_float == a.single_double &&
+	!a.single_bool &&
+	a.single_string == ""`)
 	parsed, errors := parser.Parse(src)
 	if len(errors.GetErrors()) != 0 {
 		t.Errorf(errors.ToDisplayString())
 	}
 
-	pkgr := packages.NewPackage("google.api.tools.expr.test")
-	provider := types.NewProvider(&test.TestAllTypes{})
+	pkgr := packages.NewPackage("google.expr.proto2.test")
+	provider := types.NewProvider(&proto2pb.TestAllTypes{})
 	env := checker.NewStandardEnv(pkgr, provider)
-	env.Add(decls.NewIdent("a", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil))
+	env.Add(decls.NewIdent("a", decls.NewObjectType("google.expr.proto2.test.TestAllTypes"), nil))
 	checked, errors := checker.Check(parsed, src, env)
 	if len(errors.GetErrors()) != 0 {
 		t.Errorf(errors.ToDisplayString())
@@ -407,9 +416,105 @@ func TestInterpreter_GetObjectEnumField(t *testing.T) {
 
 	i := NewStandardInterpreter(pkgr, provider)
 	eval := i.NewInterpretable(NewCheckedProgram(checked))
-	a := &test.TestAllTypes{
-		RepeatedNestedEnum: []test.TestAllTypes_NestedEnum{
-			test.TestAllTypes_BAR,
+	a := &proto2pb.TestAllTypes{}
+	result, _ := eval.Eval(NewActivation(map[string]interface{}{
+		"a": types.NewObject(a),
+	}))
+	expected := true
+	got, ok := result.(ref.Value).Value().(bool)
+	if !ok {
+		t.Fatalf("Got '%v', wanted 'true'.", result)
+	}
+	if !reflect.DeepEqual(got, expected) {
+		t.Errorf("Could not build object properly. Got '%v', wanted '%v'",
+			result.(ref.Value).Value(),
+			expected)
+	}
+}
+
+func TestInterpreter_SetProto2PrimitiveFields(t *testing.T) {
+	// Test the use of proto2 primitives within object construction.
+	src := common.NewTextSource(
+		`input == TestAllTypes{
+			single_int32: 1,
+			single_int64: 2,
+			single_uint32: 3u,
+			single_uint64: 4u,
+			single_float: -3.3,
+			single_double: -2.2,
+			single_string: "hello world",
+			single_bool: true
+		}`)
+	parsed, errors := parser.Parse(src)
+	if len(errors.GetErrors()) != 0 {
+		t.Errorf(errors.ToDisplayString())
+	}
+
+	pkgr := packages.NewPackage("google.expr.proto2.test")
+	provider := types.NewProvider(&proto2pb.TestAllTypes{})
+	env := checker.NewStandardEnv(pkgr, provider)
+	env.Add(decls.NewIdent("input", decls.NewObjectType("google.expr.proto2.test.TestAllTypes"), nil))
+	checked, errors := checker.Check(parsed, src, env)
+	if len(errors.GetErrors()) != 0 {
+		t.Errorf(errors.ToDisplayString())
+	}
+
+	i := NewStandardInterpreter(pkgr, provider)
+	eval := i.NewInterpretable(NewCheckedProgram(checked))
+	one := int32(1)
+	two := int64(2)
+	three := uint32(3)
+	four := uint64(4)
+	five := float32(-3.3)
+	six := float64(-2.2)
+	str := "hello world"
+	truth := true
+	input := &proto2pb.TestAllTypes{
+		SingleInt32:  &one,
+		SingleInt64:  &two,
+		SingleUint32: &three,
+		SingleUint64: &four,
+		SingleFloat:  &five,
+		SingleDouble: &six,
+		SingleString: &str,
+		SingleBool:   &truth,
+	}
+	result, _ := eval.Eval(NewActivation(map[string]interface{}{
+		"input": input,
+	}))
+	got, ok := result.(ref.Value).Value().(bool)
+	if !ok {
+		t.Fatalf("Got '%v', wanted 'true'.", result)
+	}
+	expected := true
+	if !reflect.DeepEqual(got, expected) {
+		t.Errorf("Could not build object properly. Got '%v', wanted '%v'",
+			result.(ref.Value).Value(),
+			expected)
+	}
+}
+
+func TestInterpreter_GetObjectEnumField(t *testing.T) {
+	src := common.NewTextSource("a.repeated_nested_enum[0]")
+	parsed, errors := parser.Parse(src)
+	if len(errors.GetErrors()) != 0 {
+		t.Errorf(errors.ToDisplayString())
+	}
+
+	pkgr := packages.NewPackage("google.expr.proto3.test")
+	provider := types.NewProvider(&proto3pb.TestAllTypes{})
+	env := checker.NewStandardEnv(pkgr, provider)
+	env.Add(decls.NewIdent("a", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil))
+	checked, errors := checker.Check(parsed, src, env)
+	if len(errors.GetErrors()) != 0 {
+		t.Errorf(errors.ToDisplayString())
+	}
+
+	i := NewStandardInterpreter(pkgr, provider)
+	eval := i.NewInterpretable(NewCheckedProgram(checked))
+	a := &proto3pb.TestAllTypes{
+		RepeatedNestedEnum: []proto3pb.TestAllTypes_NestedEnum{
+			proto3pb.TestAllTypes_BAR,
 		},
 	}
 	result, state := eval.Eval(NewActivation(map[string]interface{}{
@@ -444,8 +549,8 @@ func TestInterpreter_SetObjectEnumField(t *testing.T) {
 		t.Errorf(errors.ToDisplayString())
 	}
 
-	pkgr := packages.NewPackage("google.api.tools.expr.test")
-	provider := types.NewProvider(&test.TestAllTypes{})
+	pkgr := packages.NewPackage("google.expr.proto3.test")
+	provider := types.NewProvider(&proto3pb.TestAllTypes{})
 	env := checker.NewStandardEnv(pkgr, provider)
 	checked, errors := checker.Check(parsed, src, env)
 	if len(errors.GetErrors()) != 0 {
@@ -454,11 +559,11 @@ func TestInterpreter_SetObjectEnumField(t *testing.T) {
 
 	i := NewStandardInterpreter(pkgr, provider)
 	eval := i.NewInterpretable(NewCheckedProgram(checked))
-	expected := &test.TestAllTypes{
-		RepeatedNestedEnum: []test.TestAllTypes_NestedEnum{
-			test.TestAllTypes_FOO,
-			test.TestAllTypes_BAZ,
-			test.TestAllTypes_BAR,
+	expected := &proto3pb.TestAllTypes{
+		RepeatedNestedEnum: []proto3pb.TestAllTypes_NestedEnum{
+			proto3pb.TestAllTypes_FOO,
+			proto3pb.TestAllTypes_BAZ,
+			proto3pb.TestAllTypes_BAR,
 		},
 		RepeatedInt32: []int32{
 			int32(0),
@@ -466,7 +571,7 @@ func TestInterpreter_SetObjectEnumField(t *testing.T) {
 		},
 	}
 	result, state := eval.Eval(NewActivation(map[string]interface{}{}))
-	got, ok := result.(ref.Value).Value().(*test.TestAllTypes)
+	got, ok := result.(ref.Value).Value().(*proto3pb.TestAllTypes)
 	if !ok {
 		t.Fatalf("cannot cast result to int64: result=%v state=%v", result, state)
 	}
