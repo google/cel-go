@@ -410,43 +410,43 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 		&& z == 1.0`,
 		R: `_&&_(
 			_&&_(
-			  _&&_(
 				_==_(
-				  _[_](
 					_[_](
-					  _[_](
-						x~map(string, dyn)^x,
-						"claims"~string
-					  )~dyn^index_map,
-					  "groups"~string
-					)~list(string)^index_map,
-					0~int
-				  )~string^index_list.name~string,
-				  "dummy"~string
+						_[_](
+							_[_](
+								x~map(string, dyn)^x,
+								"claims"~string
+							)~dyn^index_map,
+							"groups"~string
+						)~list(string)^index_map,
+						0~int
+					)~string^index_list.name~string,
+					"dummy"~string
 				)~bool^equals,
 				_==_(
-				  _[_](
-					x~map(string, dyn)^x.claims~dyn,
-					"exp"~string
-				  )~dyn^index_map,
-				  _[_](
-					y~list(dyn)^y,
-					1~int
-				  )~dyn^index_list.time~dyn
+					_[_](
+						x~map(string, dyn)^x.claims~dyn,
+						"exp"~string
+					)~dyn^index_map,
+					_[_](
+						y~list(dyn)^y,
+						1~int
+					)~dyn^index_list.time~dyn
 				)~bool^equals
-			  )~bool^logical_and,
-			  _==_(
-				x~map(string, dyn)^x.claims~dyn.structured~dyn,
-				{
-				  "key"~string:z~dyn^z
-				}~map(string, dyn)
-			  )~bool^equals
 			)~bool^logical_and,
-			_==_(
-			  z~dyn^z,
-			  1~double
-			)~bool^equals
-		  )~bool^logical_and`,
+			_&&_(
+				_==_(
+					x~map(string, dyn)^x.claims~dyn.structured~dyn,
+					{
+						"key"~string:z~dyn^z
+					}~map(string, dyn)
+				)~bool^equals,
+				_==_(
+					z~dyn^z,
+					1~double
+				)~bool^equals
+			)~bool^logical_and
+		)~bool^logical_and`,
 		Env: env{
 			idents: []*exprpb.Decl{
 				decls.NewIdent("x", decls.NewObjectType("google.protobuf.Struct"), nil),
@@ -895,34 +895,34 @@ ERROR: <input>:1:5: undeclared reference to 'x' (in container '')
 		R: `
 		_||_(
 			_||_(
-			  _||_(
 				_&&_(
-				  _==_(
-					x~any^x,
-					google.protobuf.Any{
-					  type_url:"types.googleapis.com/google.expr.proto3.test.TestAllTypes"~string
-					}~google.protobuf.Any^google.protobuf.Any
-				  )~bool^equals,
-				  _==_(
-					x~any^x.single_nested_message~dyn.bb~dyn,
-					43~int
-				  )~bool^equals
+					_==_(
+						x~any^x,
+						google.protobuf.Any{
+							type_url:"types.googleapis.com/google.expr.proto3.test.TestAllTypes"~string
+						}~google.protobuf.Any^google.protobuf.Any
+					)~bool^equals,
+					_==_(
+						x~any^x.single_nested_message~dyn.bb~dyn,
+						43~int
+					)~bool^equals
 				)~bool^logical_and,
 				_==_(
-				  x~any^x,
-				  google.expr.proto3.test.TestAllTypes{}~google.expr.proto3.test.TestAllTypes^google.expr.proto3.test.TestAllTypes
+					x~any^x,
+					google.expr.proto3.test.TestAllTypes{}~google.expr.proto3.test.TestAllTypes^google.expr.proto3.test.TestAllTypes
 				)~bool^equals
-			  )~bool^logical_or,
-			  _<_(
-				y~wrapper(int)^y,
-				x~any^x
-			  )~bool^less_int64
 			)~bool^logical_or,
-			_>=_(
-			  x~any^x,
-			  x~any^x
-			)~dyn^greater_equals_bool|greater_equals_int64|greater_equals_uint64|greater_equals_double|greater_equals_string|greater_equals_bytes|greater_equals_timestamp|greater_equals_duration
-		  )~bool^logical_or
+			_||_(
+				_<_(
+					y~wrapper(int)^y,
+					x~any^x
+				)~bool^less_int64,
+				_>=_(
+					x~any^x,
+					x~any^x
+				)~dyn^greater_equals_bool|greater_equals_int64|greater_equals_uint64|greater_equals_double|greater_equals_string|greater_equals_bytes|greater_equals_timestamp|greater_equals_duration
+			)~bool^logical_or
+		)~bool^logical_or
 		`,
 		Type: decls.Bool,
 	},
