@@ -147,11 +147,30 @@ func (p *planner) planIdent(expr *exprpb.Expr) (Interpretable, error) {
 func (p *planner) planSelect(expr *exprpb.Expr) (Interpretable, error) {
 	sel := expr.GetSelectExpr()
 	// If the Select was marked TestOnly, this is a presence test.
+	//
+	// Note: presence tests are defined for structured (e.g. proto) and dynamic values (map, json)
+	// as follows:
+	//  - True if the object field has a non-default value, e.g. obj.str != ""
+	//  - True if the dynamic value has the field defined, e.g. key in map
+	//
+	// However, presence tests are not defined for qualified identifier names with primitive types.
+	// If a string named 'a.b.c' is declared in the environment and referenced within `has(a.b.c)`,
+	// it is not clear whether has should error or follow the convention defined for structured
+	// values.
 	if sel.TestOnly {
-		return p.planTestOnly(expr)
+		op, err := p.Plan(sel.GetOperand())
+		if err != nil {
+			return nil, err
+		}
+		return &evalTestOnly{
+			id:    expr.Id,
+			field: types.String(sel.Field),
+			op:    op,
+		}, nil
 	}
-	// If the Select id appears in the reference map from the CheckedExpr proto
-	// then it is either a namespaced identifier or enum value.
+
+	// If the Select id appears in the reference map from the CheckedExpr proto then it is either
+	// a namespaced identifier or enum value.
 	idRef, found := p.refMap[expr.Id]
 	if found {
 		idName := idRef.Name
@@ -162,8 +181,7 @@ func (p *planner) planSelect(expr *exprpb.Expr) (Interpretable, error) {
 					ConstExpr: idRef.Value,
 				}})
 		}
-		// If the identifier has already been encountered before, return the
-		// previous Iterable.
+		// If the identifier has already been encountered before, return the previous Iterable.
 		i, found := p.identMap[idName]
 		if found {
 			return i, nil
@@ -187,20 +205,6 @@ func (p *planner) planSelect(expr *exprpb.Expr) (Interpretable, error) {
 		field:     types.String(sel.Field),
 		op:        op,
 		resolveID: p.idResolver(sel),
-	}, nil
-}
-
-// planTestOnly creates a field presence test consistent with the has() macro definition.
-func (p *planner) planTestOnly(expr *exprpb.Expr) (Interpretable, error) {
-	sel := expr.GetSelectExpr()
-	op, err := p.Plan(sel.GetOperand())
-	if err != nil {
-		return nil, err
-	}
-	return &evalTestOnly{
-		id:    expr.Id,
-		field: types.String(sel.Field),
-		op:    op,
 	}, nil
 }
 
@@ -558,6 +562,8 @@ func (p *planner) constValue(c *exprpb.Constant) (ref.Value, error) {
 // idResolver returns a function that resolves a Select expression to an identifier or field
 // selection based on the operand being of Unknown type.
 func (p *planner) idResolver(sel *exprpb.Expr_Select) func(Activation) (ref.Value, bool) {
+	// TODO: ensure id resolution prefers the most specific identifier rather than the least
+	// specific to be consistent with the check id resolution.
 	validIdent := true
 	resolvedIdent := false
 	ident := sel.Field
@@ -710,6 +716,7 @@ func (or *evalOr) Eval(ctx Activation) ref.Value {
 	if lok && rok {
 		return types.False
 	}
+	// TODO: return both values as a set if both are unknown or error.
 	// prefer left unknown to right unknown.
 	if types.IsUnknown(lVal) {
 		return lVal
@@ -718,7 +725,7 @@ func (or *evalOr) Eval(ctx Activation) ref.Value {
 		return rVal
 	}
 	// if the left-hand side is non-boolean return it as the error.
-	return types.ValOrErr(lVal, "Got '%v', expected argument of type 'bool'", lVal)
+	return types.ValOrErr(lVal, "no such overload")
 }
 
 type evalAnd struct {
@@ -750,6 +757,7 @@ func (and *evalAnd) Eval(ctx Activation) ref.Value {
 	if lok && rok {
 		return types.True
 	}
+	// TODO: return both values as a set if both are unknown or error.
 	// prefer left unknown to right unknown.
 	if types.IsUnknown(lVal) {
 		return lVal
@@ -758,7 +766,7 @@ func (and *evalAnd) Eval(ctx Activation) ref.Value {
 		return rVal
 	}
 	// if the left-hand side is non-boolean return it as the error.
-	return types.ValOrErr(lVal, "Got '%v', expected argument of type 'bool'", lVal)
+	return types.ValOrErr(lVal, "no such overload")
 }
 
 type evalConditional struct {

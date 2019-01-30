@@ -53,10 +53,12 @@ type mapActivation struct {
 	bindings   map[string]interface{}
 }
 
+// Parent implements the Activation imterface method.
 func (a *mapActivation) Parent() Activation {
 	return nil
 }
 
+// ResolveName implements the Activation imterface method.
 func (a *mapActivation) ResolveName(name string) (ref.Value, bool) {
 	if object, found := a.bindings[name]; found {
 		switch object.(type) {
@@ -73,11 +75,6 @@ func (a *mapActivation) ResolveName(name string) (ref.Value, bool) {
 	return nil, false
 }
 
-func (a *mapActivation) ResolveReference(exprID int64) (ref.Value, bool) {
-	object, found := a.references[exprID]
-	return object, found
-}
-
 // hierarchicalActivation which implements Activation and contains a parent and
 // child activation.
 type hierarchicalActivation struct {
@@ -85,10 +82,12 @@ type hierarchicalActivation struct {
 	child  Activation
 }
 
+// Parent implements the Activation imterface method.
 func (a *hierarchicalActivation) Parent() Activation {
 	return a.parent
 }
 
+// ResolveName implements the Activation imterface method.
 func (a *hierarchicalActivation) ResolveName(name string) (ref.Value, bool) {
 	if object, found := a.child.ResolveName(name); found {
 		return object, found
@@ -109,12 +108,22 @@ func newVarActivation(parent Activation, name string) *varActivation {
 	}
 }
 
+// varActivation represents a single mutable variable binding.
+//
+// This activation type should only be used within folds as the fold loop controls the object
+// life-cycle.
 type varActivation struct {
 	parent Activation
 	name   string
 	val    ref.Value
 }
 
+// Parent implements the Activation imterface method.
+func (v *varActivation) Parent() Activation {
+	return v.parent
+}
+
+// ResolveName implements the Activation imterface method.
 func (v *varActivation) ResolveName(name string) (ref.Value, bool) {
 	if name == v.name {
 		return v.val, true
@@ -122,11 +131,8 @@ func (v *varActivation) ResolveName(name string) (ref.Value, bool) {
 	return v.parent.ResolveName(name)
 }
 
-func (v *varActivation) Parent() Activation {
-	return v.parent
-}
-
 var (
+	// pool of var activations to reduce allocations during folds.
 	varActivationPool = &sync.Pool{
 		New: func() interface{} {
 			return &varActivation{}

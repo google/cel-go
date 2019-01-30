@@ -32,11 +32,13 @@ var (
 )
 
 // NewErr creates a new Err described by the format string and args.
+// TODO: Audit the use of this function and standardize the error messages and codes.
 func NewErr(format string, args ...interface{}) ref.Value {
 	return &Err{fmt.Errorf(format, args...)}
 }
 
 // ValOrErr either returns the existing error or create a new one.
+// TODO: Audit the use of this function and standardize the error messages and codes.
 func ValOrErr(val ref.Value, format string, args ...interface{}) ref.Value {
 	switch val.Type() {
 	case ErrType, UnknownType:

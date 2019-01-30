@@ -40,7 +40,7 @@ func NewJSONStruct(st *structpb.Struct) traits.Mapper {
 }
 
 func (m *jsonStruct) Contains(index ref.Value) ref.Value {
-	return Bool(m.Get(index).Type() != ErrType)
+	return Bool(!IsError(m.Get(index)))
 }
 
 func (m *jsonStruct) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {

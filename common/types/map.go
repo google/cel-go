@@ -23,11 +23,14 @@ import (
 	"github.com/google/cel-go/common/types/traits"
 )
 
+// baseMap is a reflection based map implementation designed to handle a variety of map-like types.
 type baseMap struct {
 	value    interface{}
 	refValue reflect.Value
 }
 
+// stringMap is a specialization to improve the performance of simple key, value pair lookups by
+// string as this is the most common usage of maps.
 type stringMap struct {
 	*baseMap
 	mapStrStr map[string]string
@@ -167,6 +170,9 @@ func (m *stringMap) Equal(other ref.Value) ref.Value {
 }
 
 func (m *baseMap) Get(key ref.Value) ref.Value {
+	// TODO: There are multiple reasons why a Get could fail. Typically, this is because the key
+	// does not exist in the map; however, it's possible that the value cannot be converted to
+	// the desired type. Refine this strategy to disambiguate these cases.
 	thisKeyType := m.refValue.Type().Key()
 	nativeKey, err := key.ConvertToNative(thisKeyType)
 	if err != nil {

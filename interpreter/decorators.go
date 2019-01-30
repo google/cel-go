@@ -273,7 +273,7 @@ func (fold *evalExhaustiveFold) Eval(ctx Activation) ref.Value {
 		// Modify the iter var in the fold activation.
 		iterCtx.val = it.Next()
 
-		// Evaluate the condition, terminate the loop if false.
+		// Evaluate the condition, but don't terminate the loop as this is exhaustive eval!
 		fold.cond.Eval(iterCtx)
 
 		// Evalute the evaluation step into accu var.

@@ -46,10 +46,6 @@ func NewEvalState() EvalState {
 
 // Value is an implementation of the EvalState interface method.
 func (s *evalState) Value(exprID int64) (ref.Value, bool) {
-	// TODO: The eval state assumes a dense progrma expression id space. While
-	// this is true of how the cel-go parser generates identifiers, it may not
-	// be true for all implementations or for the long term. Replace the use of
-	// parse-time generated expression ids with a dense runtiem identifier.
 	val, found := s.values[exprID]
 	return val, found
 }

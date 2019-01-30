@@ -122,6 +122,7 @@ func (d Double) Equal(other ref.Value) ref.Value {
 	if DoubleType != other.Type() {
 		return ValOrErr(other, "no such overload")
 	}
+	// TODO: Handle NaNs properly.
 	return Bool(d == other.(Double))
 }
 
