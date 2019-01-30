@@ -53,12 +53,12 @@ type mapActivation struct {
 	bindings   map[string]interface{}
 }
 
-// Parent implements the Activation imterface method.
+// Parent implements the Activation interface method.
 func (a *mapActivation) Parent() Activation {
 	return nil
 }
 
-// ResolveName implements the Activation imterface method.
+// ResolveName implements the Activation interface method.
 func (a *mapActivation) ResolveName(name string) (ref.Value, bool) {
 	if object, found := a.bindings[name]; found {
 		switch object.(type) {
@@ -82,12 +82,12 @@ type hierarchicalActivation struct {
 	child  Activation
 }
 
-// Parent implements the Activation imterface method.
+// Parent implements the Activation interface method.
 func (a *hierarchicalActivation) Parent() Activation {
 	return a.parent
 }
 
-// ResolveName implements the Activation imterface method.
+// ResolveName implements the Activation interface method.
 func (a *hierarchicalActivation) ResolveName(name string) (ref.Value, bool) {
 	if object, found := a.child.ResolveName(name); found {
 		return object, found
@@ -118,12 +118,12 @@ type varActivation struct {
 	val    ref.Value
 }
 
-// Parent implements the Activation imterface method.
+// Parent implements the Activation interface method.
 func (v *varActivation) Parent() Activation {
 	return v.parent
 }
 
-// ResolveName implements the Activation imterface method.
+// ResolveName implements the Activation interface method.
 func (v *varActivation) ResolveName(name string) (ref.Value, bool) {
 	if name == v.name {
 		return v.val, true
