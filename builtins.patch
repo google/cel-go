@@ -1,0 +1,344 @@
+diff --git a/checker/standard.go b/checker/standard.go
+index b9c334c..773ab44 100644
+--- a/checker/standard.go
++++ b/checker/standard.go
+@@ -69,11 +69,7 @@ func StandardDeclarations() []*exprpb.Decl {
+ 			decls.NewOverload(overloads.NotStrictlyFalse,
+ 				[]*exprpb.Type{decls.Bool}, decls.Bool)),
+ 
+-		decls.NewFunction(overloads.Matches,
+-			decls.NewInstanceOverload(overloads.MatchString,
+-				[]*exprpb.Type{decls.String, decls.String}, decls.Bool)),
+-
+-		// Relations
++		// Relations.
+ 
+ 		decls.NewFunction(operators.Less,
+ 			decls.NewOverload(overloads.LessBool,
+@@ -157,7 +153,7 @@ func StandardDeclarations() []*exprpb.Decl {
+ 				[]*exprpb.Type{paramA, paramA}, decls.Bool,
+ 				typeParamAList)),
+ 
+-		// Algebra
++		// Algebra.
+ 
+ 		decls.NewFunction(operators.Subtract,
+ 			decls.NewOverload(overloads.SubtractInt64,
+@@ -222,7 +218,7 @@ func StandardDeclarations() []*exprpb.Decl {
+ 			decls.NewOverload(overloads.NegateDouble,
+ 				[]*exprpb.Type{decls.Double}, decls.Double)),
+ 
+-		// Index
++		// Index.
+ 
+ 		decls.NewFunction(operators.Index,
+ 			decls.NewParameterizedOverload(overloads.IndexList,
+@@ -234,7 +230,7 @@ func StandardDeclarations() []*exprpb.Decl {
+ 		//decls.NewOverload(overloads.IndexMessage,
+ 		//	[]*expr.Type{decls.Dyn, decls.String}, decls.Dyn)),
+ 
+-		// Collections
++		// Collections.
+ 
+ 		decls.NewFunction(overloads.Size,
+ 			decls.NewInstanceOverload(overloads.SizeStringInst,
+@@ -262,7 +258,7 @@ func StandardDeclarations() []*exprpb.Decl {
+ 				[]*exprpb.Type{paramA, mapOfAB}, decls.Bool,
+ 				typeParamABList)),
+ 
+-		// Deprecated 'in()' function
++		// Deprecated 'in()' function.
+ 
+ 		decls.NewFunction(overloads.DeprecatedIn,
+ 			decls.NewParameterizedOverload(overloads.InList,
+@@ -274,13 +270,13 @@ func StandardDeclarations() []*exprpb.Decl {
+ 		//decls.NewOverload(overloads.InMessage,
+ 		//	[]*expr.Type{Dyn, decls.String},decls.Bool)),
+ 
+-		// Conversions to type
++		// Conversions to type.
+ 
+ 		decls.NewFunction(overloads.TypeConvertType,
+ 			decls.NewParameterizedOverload(overloads.TypeConvertType,
+ 				[]*exprpb.Type{paramA}, decls.NewTypeType(paramA), typeParamAList)),
+ 
+-		// Conversions to int
++		// Conversions to int.
+ 
+ 		decls.NewFunction(overloads.TypeConvertInt,
+ 			decls.NewOverload(overloads.IntToInt, []*exprpb.Type{decls.Int}, decls.Int),
+@@ -290,7 +286,7 @@ func StandardDeclarations() []*exprpb.Decl {
+ 			decls.NewOverload(overloads.TimestampToInt, []*exprpb.Type{decls.Timestamp}, decls.Int),
+ 			decls.NewOverload(overloads.DurationToInt, []*exprpb.Type{decls.Duration}, decls.Int)),
+ 
+-		// Conversions to uint
++		// Conversions to uint.
+ 
+ 		decls.NewFunction(overloads.TypeConvertUint,
+ 			decls.NewOverload(overloads.UintToUint, []*exprpb.Type{decls.Uint}, decls.Uint),
+@@ -298,7 +294,7 @@ func StandardDeclarations() []*exprpb.Decl {
+ 			decls.NewOverload(overloads.DoubleToUint, []*exprpb.Type{decls.Double}, decls.Uint),
+ 			decls.NewOverload(overloads.StringToUint, []*exprpb.Type{decls.String}, decls.Uint)),
+ 
+-		// Conversions to double
++		// Conversions to double.
+ 
+ 		decls.NewFunction(overloads.TypeConvertDouble,
+ 			decls.NewOverload(overloads.DoubleToDouble, []*exprpb.Type{decls.Double}, decls.Double),
+@@ -306,13 +302,13 @@ func StandardDeclarations() []*exprpb.Decl {
+ 			decls.NewOverload(overloads.UintToDouble, []*exprpb.Type{decls.Uint}, decls.Double),
+ 			decls.NewOverload(overloads.StringToDouble, []*exprpb.Type{decls.String}, decls.Double)),
+ 
+-		// Conversions to bool
++		// Conversions to bool.
+ 
+ 		decls.NewFunction(overloads.TypeConvertBool,
+ 			decls.NewOverload(overloads.BoolToBool, []*exprpb.Type{decls.Bool}, decls.Bool),
+ 			decls.NewOverload(overloads.StringToBool, []*exprpb.Type{decls.String}, decls.Bool)),
+ 
+-		// Conversions to string
++		// Conversions to string.
+ 
+ 		decls.NewFunction(overloads.TypeConvertString,
+ 			decls.NewOverload(overloads.StringToString, []*exprpb.Type{decls.String}, decls.String),
+@@ -324,13 +320,13 @@ func StandardDeclarations() []*exprpb.Decl {
+ 			decls.NewOverload(overloads.TimestampToString, []*exprpb.Type{decls.Timestamp}, decls.String),
+ 			decls.NewOverload(overloads.DurationToString, []*exprpb.Type{decls.Duration}, decls.String)),
+ 
+-		// Conversions to bytes
++		// Conversions to bytes.
+ 
+ 		decls.NewFunction(overloads.TypeConvertBytes,
+ 			decls.NewOverload(overloads.BytesToBytes, []*exprpb.Type{decls.Bytes}, decls.Bytes),
+ 			decls.NewOverload(overloads.StringToBytes, []*exprpb.Type{decls.String}, decls.Bytes)),
+ 
+-		// Conversions to timestamps
++		// Conversions to timestamps.
+ 
+ 		decls.NewFunction(overloads.TypeConvertTimestamp,
+ 			decls.NewOverload(overloads.TimestampToTimestamp,
+@@ -340,7 +336,7 @@ func StandardDeclarations() []*exprpb.Decl {
+ 			decls.NewOverload(overloads.IntToTimestamp,
+ 				[]*exprpb.Type{decls.Int}, decls.Timestamp)),
+ 
+-		// Conversions to durations
++		// Conversions to durations.
+ 
+ 		decls.NewFunction(overloads.TypeConvertDuration,
+ 			decls.NewOverload(overloads.DurationToDuration,
+@@ -350,14 +346,29 @@ func StandardDeclarations() []*exprpb.Decl {
+ 			decls.NewOverload(overloads.IntToDuration,
+ 				[]*exprpb.Type{decls.Int}, decls.Duration)),
+ 
+-		// Conversions to Dyn
++		// Conversions to Dyn.
+ 
+ 		decls.NewFunction(overloads.TypeConvertDyn,
+ 			decls.NewParameterizedOverload(overloads.ToDyn,
+ 				[]*exprpb.Type{paramA}, decls.Dyn,
+ 				typeParamAList)),
+ 
+-		// Date/time functions
++		// String functions.
++
++		decls.NewFunction(overloads.Contains,
++			decls.NewInstanceOverload(overloads.ContainsString,
++				[]*exprpb.Type{decls.String, decls.String}, decls.Bool)),
++		decls.NewFunction(overloads.EndsWith,
++			decls.NewInstanceOverload(overloads.EndsWithString,
++				[]*exprpb.Type{decls.String, decls.String}, decls.Bool)),
++		decls.NewFunction(overloads.Matches,
++			decls.NewInstanceOverload(overloads.MatchString,
++				[]*exprpb.Type{decls.String, decls.String}, decls.Bool)),
++		decls.NewFunction(overloads.StartsWith,
++			decls.NewInstanceOverload(overloads.StartsWithString,
++				[]*exprpb.Type{decls.String, decls.String}, decls.Bool)),
++
++		// Date/time functions.
+ 
+ 		decls.NewFunction(overloads.TimeGetFullYear,
+ 			decls.NewInstanceOverload(overloads.TimestampToYear,
+diff --git a/common/overloads/overloads.go b/common/overloads/overloads.go
+index d95deb7..5ec4ef9 100644
+--- a/common/overloads/overloads.go
++++ b/common/overloads/overloads.go
+@@ -116,13 +116,23 @@ const (
+ 	SizeMapInst    = "map_size"
+ )
+ 
+-// Matches function
++// String function names.
+ const (
+-	Matches     = "matches"
+-	MatchString = "matches_string"
++	Contains   = "contains"
++	EndsWith   = "endsWith"
++	Matches    = "matches"
++	StartsWith = "startsWith"
+ )
+ 
+-// Time-based functions
++// String function overload names.
++const (
++	ContainsString   = "contains_string"
++	EndsWithString   = "ends_with_string"
++	MatchString      = "matches_string"
++	StartsWithString = "starts_with_string"
++)
++
++// Time-based functions.
+ const (
+ 	TimeGetFullYear     = "getFullYear"
+ 	TimeGetMonth        = "getMonth"
+diff --git a/common/types/string.go b/common/types/string.go
+index 1e5016d..d71a4d3 100644
+--- a/common/types/string.go
++++ b/common/types/string.go
+@@ -22,10 +22,12 @@ import (
+ 	"strings"
+ 	"time"
+ 
+-	"github.com/golang/protobuf/ptypes"
+-	structpb "github.com/golang/protobuf/ptypes/struct"
++	"github.com/google/cel-go/common/overloads"
+ 	"github.com/google/cel-go/common/types/ref"
+ 	"github.com/google/cel-go/common/types/traits"
++
++	"github.com/golang/protobuf/ptypes"
++	structpb "github.com/golang/protobuf/ptypes/struct"
+ )
+ 
+ // String type implementation which supports addition, comparison, matching,
+@@ -38,7 +40,14 @@ var (
+ 		traits.AdderType,
+ 		traits.ComparerType,
+ 		traits.MatcherType,
++		traits.ReceiverType,
+ 		traits.SizerType)
++
++	stringOneArgOverloads = map[string]func(String, ref.Value) ref.Value{
++		overloads.Contains:   stringContains,
++		overloads.EndsWith:   stringEndsWith,
++		overloads.StartsWith: stringStartsWith,
++	}
+ )
+ 
+ // Add implements traits.Adder.Add.
+@@ -140,6 +149,17 @@ func (s String) Match(pattern ref.Value) ref.Value {
+ 	return Bool(matched)
+ }
+ 
++// Receive implements traits.Reciever.Receive.
++func (s String) Receive(function string, overload string, args []ref.Value) ref.Value {
++	switch len(args) {
++	case 1:
++		if f, found := stringOneArgOverloads[function]; found {
++			return f(s, args[0])
++		}
++	}
++	return NewErr("no such overload")
++}
++
+ // Size implements traits.Sizer.Size.
+ func (s String) Size() ref.Value {
+ 	return Int(len([]rune(s.Value().(string))))
+@@ -154,3 +174,27 @@ func (s String) Type() ref.Type {
+ func (s String) Value() interface{} {
+ 	return string(s)
+ }
++
++func stringContains(s String, sub ref.Value) ref.Value {
++	subStr, ok := sub.(String)
++	if !ok {
++		return ValOrErr(sub, "no such overload")
++	}
++	return Bool(strings.Contains(string(s), string(subStr)))
++}
++
++func stringEndsWith(s String, suf ref.Value) ref.Value {
++	sufStr, ok := suf.(String)
++	if !ok {
++		return ValOrErr(suf, "no such overload")
++	}
++	return Bool(strings.HasSuffix(string(s), string(sufStr)))
++}
++
++func stringStartsWith(s String, pre ref.Value) ref.Value {
++	preStr, ok := pre.(String)
++	if !ok {
++		return ValOrErr(pre, "no such overload")
++	}
++	return Bool(strings.HasPrefix(string(s), string(preStr)))
++}
+diff --git a/common/types/string_test.go b/common/types/string_test.go
+index b804a6e..629c388 100644
+--- a/common/types/string_test.go
++++ b/common/types/string_test.go
+@@ -18,6 +18,9 @@ import (
+ 	"reflect"
+ 	"testing"
+ 
++	"github.com/google/cel-go/common/overloads"
++	"github.com/google/cel-go/common/types/ref"
++
+ 	"github.com/golang/protobuf/proto"
+ 	structpb "github.com/golang/protobuf/ptypes/struct"
+ 
+@@ -153,6 +156,57 @@ func TestString_Match(t *testing.T) {
+ 	}
+ }
+ 
++func TestString_Contains(t *testing.T) {
++	y := String("goodbye").Receive(
++		overloads.Contains,
++		overloads.ContainsString,
++		[]ref.Value{String("db")})
++	if y != True {
++		t.Errorf("Got '%v', expected 'true'", y)
++	}
++	n := String("goodbye").Receive(
++		overloads.Contains,
++		overloads.ContainsString,
++		[]ref.Value{String("ggood")})
++	if n == True {
++		t.Errorf("Got '%v', expected 'true'", n)
++	}
++}
++
++func TestString_EndsWith(t *testing.T) {
++	y := String("goodbye").Receive(
++		overloads.EndsWith,
++		overloads.EndsWithString,
++		[]ref.Value{String("bye")})
++	if y == False {
++		t.Errorf("Got '%v', expected 'true'", y)
++	}
++	n := String("goodbye").Receive(
++		overloads.EndsWith,
++		overloads.EndsWithString,
++		[]ref.Value{String("good")})
++	if n == True {
++		t.Errorf("Got '%v', expected 'true'", n)
++	}
++}
++
++func TestString_StartsWith(t *testing.T) {
++	y := String("goodbye").Receive(
++		overloads.StartsWith,
++		overloads.StartsWithString,
++		[]ref.Value{String("good")})
++	if y != True {
++		t.Errorf("Got '%v', expected 'true'", y)
++	}
++	n := String("goodbye").Receive(
++		overloads.StartsWith,
++		overloads.StartsWithString,
++		[]ref.Value{String("db")})
++	if n == True {
++		t.Errorf("Got '%v', expected 'true'", n)
++	}
++}
++
+ func TestString_Size(t *testing.T) {
+ 	if String("").Size().(Int) != 0 {
+ 		t.Error("Empty string had a non-zero size")
