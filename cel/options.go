@@ -58,6 +58,16 @@ func ClearMacros() EnvOption {
 	}
 }
 
+// CustomTypeProvider swaps the default ref.TypeProvider implementation with a custom one.
+//
+// Note: This option must be specified before the Types option when used together.
+func CustomTypeProvider(provider ref.TypeProvider) EnvOption {
+	return func(e *env) (*env, error) {
+		e.types = provider
+		return e, nil
+	}
+}
+
 // Declarations option extends the declaration set configured in the environment.
 //
 // Note: This option must be specified after ClearBuiltIns if both are used together.
@@ -100,6 +110,8 @@ func Package(pkg string) EnvOption {
 //
 // Well-known protobuf types within the `google.protobuf.*` package are included in the standard
 // environment by default.
+//
+// Note: This option must be specified after the CustomTypeProvider option when used together.
 func Types(addTypes ...interface{}) EnvOption {
 	return func(e *env) (*env, error) {
 		for _, t := range addTypes {

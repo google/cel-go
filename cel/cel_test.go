@@ -286,7 +286,7 @@ func Test_EvalOptions(t *testing.T) {
 	// Test to see whether 'v != false' was resolved to a value.
 	// With short-circuiting it normally wouldn't be.
 	s := out.State()
-	rhsVal, found := s.Value(p.Value().GetCallExpr().GetArgs()[1].Id)
+	rhsVal, found := s.Value(p.Expr().GetCallExpr().GetArgs()[1].Id)
 	if !found {
 		t.Error("Got not found, wanted evaluation of right hand side expression.")
 		return

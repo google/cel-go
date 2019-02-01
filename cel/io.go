@@ -41,7 +41,7 @@ func AstToCheckedExpr(a Ast) (*exprpb.CheckedExpr, error) {
 		return nil, fmt.Errorf("cannot convert unchecked ast")
 	}
 	return &exprpb.CheckedExpr{
-		Expr:         a.Value(),
+		Expr:         a.Expr(),
 		SourceInfo:   a.Metadata(),
 		ReferenceMap: a.(*astValue).refMap,
 		TypeMap:      a.(*astValue).typeMap,
@@ -60,7 +60,7 @@ func ParsedExprToAst(parsedExpr *exprpb.ParsedExpr) Ast {
 // AstToParsedExpr converts an Ast to an protobuf ParsedExpr value.
 func AstToParsedExpr(a Ast) (*exprpb.ParsedExpr, error) {
 	return &exprpb.ParsedExpr{
-		Expr:       a.Value(),
+		Expr:       a.Expr(),
 		SourceInfo: a.Metadata(),
 	}, nil
 }

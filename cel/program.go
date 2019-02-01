@@ -159,7 +159,7 @@ func initInterpretable(
 	// slower to execute than their checked counterparts.
 	if !ast.IsChecked() {
 		p.interpretable, err =
-			p.interpreter.NewUncheckedInterpretable(ast.Value(), decorators...)
+			p.interpreter.NewUncheckedInterpretable(ast.Expr(), decorators...)
 		if err != nil {
 			return nil, err
 		}

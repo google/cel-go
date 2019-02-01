@@ -42,6 +42,24 @@ func NewMemberMacro(function string, argCount int, expander MacroExpander) Macro
 		instanceStyle: true}
 }
 
+// NewGlobalVarArgMacro creates a Macro for a global function with a variable arg count.
+func NewGlobalVarArgMacro(function string, expander MacroExpander) Macro {
+	return &macro{
+		function:    function,
+		expander:    expander,
+		varArgStyle: true}
+}
+
+// NewMemberVarArgMacro creates a Macro for a receiver/member function matching a variable arg
+// count.
+func NewMemberVarArgMacro(function string, expander MacroExpander) Macro {
+	return &macro{
+		function:      function,
+		expander:      expander,
+		instanceStyle: true,
+		varArgStyle:   true}
+}
+
 // Macro interface for describing the function signature to match and the MacroExpander to apply.
 //
 // Note: when a Macro should apply to multiple overloads (based on arg count) of a given function,
@@ -56,6 +74,9 @@ type Macro interface {
 	// IsReceiverStyle returns true if the macro matches a receiver style call.
 	IsReceiverStyle() bool
 
+	// MacroKey returns the macro signatures accepted by this macro.
+	MacroKey() string
+
 	// Expander returns the MacroExpander to apply when the macro key matches the parsed call
 	// signature.
 	Expander() MacroExpander
@@ -66,6 +87,7 @@ type Macro interface {
 type macro struct {
 	function      string
 	instanceStyle bool
+	varArgStyle   bool
 	argCount      int
 	expander      MacroExpander
 }
@@ -85,8 +107,24 @@ func (m *macro) IsReceiverStyle() bool {
 	return m.instanceStyle
 }
 
+// Expander implements the Macro interface method.
 func (m *macro) Expander() MacroExpander {
 	return m.expander
+}
+
+func (m *macro) MacroKey() string {
+	if m.varArgStyle {
+		return makeVarArgMacroKey(m.function, m.instanceStyle)
+	}
+	return makeMacroKey(m.function, m.argCount, m.instanceStyle)
+}
+
+func makeMacroKey(name string, args int, instanceStyle bool) string {
+	return fmt.Sprintf("%s:%d:%v", name, args, instanceStyle)
+}
+
+func makeVarArgMacroKey(name string, instanceStyle bool) string {
+	return fmt.Sprintf("%s:*:%v", name, instanceStyle)
 }
 
 // MacroExpander converts the target and args of a function call that matches a Macro.

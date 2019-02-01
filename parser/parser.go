@@ -41,7 +41,7 @@ func Parse(source common.Source) (*exprpb.ParsedExpr, *common.Errors) {
 func ParseWithMacros(source common.Source, macros []Macro) (*exprpb.ParsedExpr, *common.Errors) {
 	macroMap := make(map[string]Macro)
 	for _, m := range macros {
-		macroMap[makeMacroKey(m.Function(), m.ArgCount(), m.IsReceiverStyle())] = m
+		macroMap[m.MacroKey()] = m
 	}
 	p := parser{
 		errors: &parseErrors{common.NewErrors(source)},
@@ -562,7 +562,10 @@ func (p *parser) memberCallOrMacro(ctx interface{}, function string, target *exp
 func (p *parser) expandMacro(ctx interface{}, function string, target *exprpb.Expr, args ...*exprpb.Expr) (*exprpb.Expr, bool) {
 	macro, found := p.macros[makeMacroKey(function, len(args), target != nil)]
 	if !found {
-		return nil, false
+		macro, found = p.macros[makeVarArgMacroKey(function, target != nil)]
+		if !found {
+			return nil, false
+		}
 	}
 	eh := exprHelperPool.Get().(*exprHelper)
 	defer exprHelperPool.Put(eh)
@@ -576,8 +579,4 @@ func (p *parser) expandMacro(ctx interface{}, function string, target *exprpb.Ex
 		return p.reportError(ctx, err.Message), true
 	}
 	return expr, true
-}
-
-func makeMacroKey(name string, args int, instanceStyle bool) string {
-	return fmt.Sprintf("%s:%d:%v", name, args, instanceStyle)
 }

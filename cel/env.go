@@ -32,18 +32,21 @@ import (
 // Ast interface representing the checked or unchecked expression, its source, and related metadata
 // such as source position information.
 type Ast interface {
+	// Expr returns the proto serializable instance of the parsed/checked expression.
+	Expr() *exprpb.Expr
+
 	// IsChecked returns whether the Ast value has been successfully type-checked.
 	IsChecked() bool
 
 	// Metadata returns debug information about the expression, such as source position.
 	Metadata() *exprpb.SourceInfo
 
+	// ResultType returns the output type of the expression, or error if the IsChecked() == false.
+	ResultType() (*exprpb.Type, error)
+
 	// Source returns a view of the input used to create the Ast. This source may be complete or
 	// constructed from the Metadata.
 	Source() common.Source
-
-	// Value returns the proto serializable instance of the parsed/checked expression.
-	Value() *exprpb.Expr
 }
 
 // Env defines functions for parsing and type-checking expressions against a set of user-defined
@@ -115,6 +118,11 @@ type astValue struct {
 	typeMap map[int64]*exprpb.Type
 }
 
+// Expr implements the Ast interface method.
+func (ast *astValue) Expr() *exprpb.Expr {
+	return ast.expr
+}
+
 // IsChecked implements the Ast interface method.
 func (ast *astValue) IsChecked() bool {
 	return ast.refMap != nil && ast.typeMap != nil
@@ -125,14 +133,17 @@ func (ast *astValue) Metadata() *exprpb.SourceInfo {
 	return ast.info
 }
 
+// ResultType implements the Ast interface method.
+func (ast *astValue) ResultType() (*exprpb.Type, error) {
+	if !ast.IsChecked() {
+		return nil, errors.New("ast has not been type-checked")
+	}
+	return ast.typeMap[ast.expr.Id], nil
+}
+
 // Source implements the Ast interface method.
 func (ast *astValue) Source() common.Source {
 	return ast.source
-}
-
-// Value implements the Ast interface method.
-func (ast *astValue) Value() *exprpb.Expr {
-	return ast.expr
 }
 
 // env is the internal implementation of the Env interface.
@@ -150,7 +161,7 @@ func (e *env) Check(ast Ast) (Ast, Issues) {
 	ce.Add(e.declarations...)
 	res, errs := checker.Check(
 		&exprpb.ParsedExpr{
-			Expr:       ast.Value(),
+			Expr:       ast.Expr(),
 			SourceInfo: ast.Metadata()},
 		ast.Source(),
 		ce)
