@@ -1,4 +1,4 @@
-// Copyright 2018 Google LLC
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/google/cel-go/checker/decls"
+
 	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/packages"
@@ -29,6 +31,11 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
+// Source interface representing a user-provided expression.
+type Source interface {
+	common.Source
+}
+
 // Ast interface representing the checked or unchecked expression, its source, and related metadata
 // such as source position information.
 type Ast interface {
@@ -38,15 +45,17 @@ type Ast interface {
 	// IsChecked returns whether the Ast value has been successfully type-checked.
 	IsChecked() bool
 
-	// Metadata returns debug information about the expression, such as source position.
-	Metadata() *exprpb.SourceInfo
-
-	// ResultType returns the output type of the expression, or error if the IsChecked() == false.
-	ResultType() (*exprpb.Type, error)
+	// ResultType returns the output type of the expression if the Ast has been type-checked,
+	// else returns decls.Dyn as the parse step cannot infer the type.
+	ResultType() *exprpb.Type
 
 	// Source returns a view of the input used to create the Ast. This source may be complete or
-	// constructed from the Metadata.
-	Source() common.Source
+	// constructed from the SourceInfo.
+	Source() Source
+
+	// SourceInfo returns character offset and newling position information about expression
+	// elements.
+	SourceInfo() *exprpb.SourceInfo
 }
 
 // Env defines functions for parsing and type-checking expressions against a set of user-defined
@@ -56,15 +65,19 @@ type Env interface {
 	// Check performs type-checking on the input Ast and yields a checked Ast and/or set of Issues.
 	//
 	// Checking has failed if the returned Issues value and its Issues.Err() value is non-nil.
-	// In general Issues should be inspected if they are non-nil, but may not represent a fatal
-	// error.
+	// Issues should be inspected if they are non-nil, but may not represent a fatal error.
+	//
+	// It is possible to have both non-nil Ast and Issues values returned from this call: however,
+	// the mere presence of an Ast does not imply that it is valid for use.
 	Check(ast Ast) (Ast, Issues)
 
-	// Parse parses the input txt to a Ast and/or a set of Issues.
+	// Parse parses the input expression value `txt` to a Ast and/or a set of Issues.
 	//
 	// Parsing has failed if the returned Issues value and its Issues.Err() value is non-nil.
-	// In general Issues should be inspected if they are non-nil, but may not represent a fatal
-	// error.
+	// Issues should be inspected if they are non-nil, but may not represent a fatal error.
+	//
+	// It is possible to have both non-nil Ast and Issues values returned from this call; however,
+	// the mere presence of an Ast does not imply that it is valid for use.
 	Parse(txt string) (Ast, Issues)
 
 	// Program generates an evaluable instance of the Ast within the environment (Env).
@@ -85,11 +98,11 @@ type Issues interface {
 }
 
 // NewEnv creates an Env instance suitable for parsing and checking expressions against a set of
-// user-defined constants, variables, and functions.
+// user-defined constants, variables, and functions. Macros and the standard built-ins are enabled
+// by default.
 //
 // See the EnvOptions for the options that can be used to configure the environment.
 func NewEnv(opts ...EnvOption) (Env, error) {
-	// Macros and the standard built-ins are enabled by default.
 	e := &env{
 		declarations:   checker.StandardDeclarations(),
 		enableBuiltins: true,
@@ -113,7 +126,7 @@ func NewEnv(opts ...EnvOption) (Env, error) {
 type astValue struct {
 	expr    *exprpb.Expr
 	info    *exprpb.SourceInfo
-	source  common.Source
+	source  Source
 	refMap  map[int64]*exprpb.Reference
 	typeMap map[int64]*exprpb.Type
 }
@@ -128,21 +141,21 @@ func (ast *astValue) IsChecked() bool {
 	return ast.refMap != nil && ast.typeMap != nil
 }
 
-// Metadata implements the Ast interface method.
-func (ast *astValue) Metadata() *exprpb.SourceInfo {
+// SourceInfo implements the Ast interface method.
+func (ast *astValue) SourceInfo() *exprpb.SourceInfo {
 	return ast.info
 }
 
 // ResultType implements the Ast interface method.
-func (ast *astValue) ResultType() (*exprpb.Type, error) {
+func (ast *astValue) ResultType() *exprpb.Type {
 	if !ast.IsChecked() {
-		return nil, errors.New("ast has not been type-checked")
+		return decls.Dyn
 	}
-	return ast.typeMap[ast.expr.Id], nil
+	return ast.typeMap[ast.expr.Id]
 }
 
 // Source implements the Ast interface method.
-func (ast *astValue) Source() common.Source {
+func (ast *astValue) Source() Source {
 	return ast.source
 }
 
@@ -159,21 +172,24 @@ type env struct {
 func (e *env) Check(ast Ast) (Ast, Issues) {
 	ce := checker.NewEnv(e.pkg, e.types)
 	ce.Add(e.declarations...)
-	res, errs := checker.Check(
-		&exprpb.ParsedExpr{
-			Expr:       ast.Expr(),
-			SourceInfo: ast.Metadata()},
-		ast.Source(),
-		ce)
+	pe, err := AstToParsedExpr(ast)
+	if err != nil {
+		errs := common.NewErrors(ast.Source())
+		errs.ReportError(common.NoLocation, err.Error())
+		return nil, &issues{errs: errs}
+	}
+	res, errs := checker.Check(pe, ast.Source(), ce)
 	if len(errs.GetErrors()) > 0 {
 		return nil, &issues{errs: errs}
 	}
+	// Manually create the Ast to ensure that the Ast source information (which may be more
+	// detailed than the information provided by Check), is returned to the caller.
 	return &astValue{
 		source:  ast.Source(),
 		expr:    res.GetExpr(),
 		info:    res.GetSourceInfo(),
-		typeMap: res.GetTypeMap(),
-		refMap:  res.GetReferenceMap()}, nil
+		refMap:  res.GetReferenceMap(),
+		typeMap: res.GetTypeMap()}, nil
 }
 
 // Parse implements the Env interface method.
@@ -183,8 +199,10 @@ func (e *env) Parse(txt string) (Ast, Issues) {
 	if len(errs.GetErrors()) > 0 {
 		return nil, &issues{errs: errs}
 	}
+	// Manually create the Ast to ensure that the text source information is propagated on
+	// subsequent calls to Check.
 	return &astValue{
-		source: src,
+		source: Source(src),
 		expr:   res.GetExpr(),
 		info:   res.GetSourceInfo()}, nil
 }

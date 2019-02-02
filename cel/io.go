@@ -1,4 +1,4 @@
-// Copyright 2018 Google LLC
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ func AstToCheckedExpr(a Ast) (*exprpb.CheckedExpr, error) {
 	}
 	return &exprpb.CheckedExpr{
 		Expr:         a.Expr(),
-		SourceInfo:   a.Metadata(),
+		SourceInfo:   a.SourceInfo(),
 		ReferenceMap: a.(*astValue).refMap,
 		TypeMap:      a.(*astValue).typeMap,
 	}, nil
@@ -61,6 +61,6 @@ func ParsedExprToAst(parsedExpr *exprpb.ParsedExpr) Ast {
 func AstToParsedExpr(a Ast) (*exprpb.ParsedExpr, error) {
 	return &exprpb.ParsedExpr{
 		Expr:       a.Expr(),
-		SourceInfo: a.Metadata(),
+		SourceInfo: a.SourceInfo(),
 	}, nil
 }

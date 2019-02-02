@@ -33,13 +33,13 @@ func NewGlobalMacro(function string, argCount int, expander MacroExpander) Macro
 		expander: expander}
 }
 
-// NewMemberMacro creates a Macro for a receiver/member function matching the specified arg count.
-func NewMemberMacro(function string, argCount int, expander MacroExpander) Macro {
+// NewReceiverMacro creates a Macro for a receiver function matching the specified arg count.
+func NewReceiverMacro(function string, argCount int, expander MacroExpander) Macro {
 	return &macro{
 		function:      function,
 		argCount:      argCount,
 		expander:      expander,
-		instanceStyle: true}
+		receiverStyle: true}
 }
 
 // NewGlobalVarArgMacro creates a Macro for a global function with a variable arg count.
@@ -50,13 +50,13 @@ func NewGlobalVarArgMacro(function string, expander MacroExpander) Macro {
 		varArgStyle: true}
 }
 
-// NewMemberVarArgMacro creates a Macro for a receiver/member function matching a variable arg
+// NewReceiverVarArgMacro creates a Macro for a receiver function matching a variable arg
 // count.
-func NewMemberVarArgMacro(function string, expander MacroExpander) Macro {
+func NewReceiverVarArgMacro(function string, expander MacroExpander) Macro {
 	return &macro{
 		function:      function,
 		expander:      expander,
-		instanceStyle: true,
+		receiverStyle: true,
 		varArgStyle:   true}
 }
 
@@ -69,12 +69,19 @@ type Macro interface {
 	Function() string
 
 	// ArgCount for the function call.
+	//
+	// When the macro is a var-arg style macro, the return value will be zero, but the MacroKey
+	// will contain a `*` where the arg count would have been.
 	ArgCount() int
 
 	// IsReceiverStyle returns true if the macro matches a receiver style call.
 	IsReceiverStyle() bool
 
 	// MacroKey returns the macro signatures accepted by this macro.
+	//
+	// Format: `<function>:<arg-count>:<is-receiver>`.
+	//
+	// When the macros is a var-arg style macro, the `arg-count` value is represented as a `*`.
 	MacroKey() string
 
 	// Expander returns the MacroExpander to apply when the macro key matches the parsed call
@@ -86,7 +93,7 @@ type Macro interface {
 // macro, as well as a macro expansion function.
 type macro struct {
 	function      string
-	instanceStyle bool
+	receiverStyle bool
 	varArgStyle   bool
 	argCount      int
 	expander      MacroExpander
@@ -102,9 +109,9 @@ func (m *macro) ArgCount() int {
 	return m.argCount
 }
 
-// IsInstanceStyle returns whether the macro is "instance" (reciever) style.
+// IsReceiverStyle returns whether the macro is receiver style.
 func (m *macro) IsReceiverStyle() bool {
-	return m.instanceStyle
+	return m.receiverStyle
 }
 
 // Expander implements the Macro interface method.
@@ -112,19 +119,20 @@ func (m *macro) Expander() MacroExpander {
 	return m.expander
 }
 
+// MacroKey implements the Macro interface method.
 func (m *macro) MacroKey() string {
 	if m.varArgStyle {
-		return makeVarArgMacroKey(m.function, m.instanceStyle)
+		return makeVarArgMacroKey(m.function, m.receiverStyle)
 	}
-	return makeMacroKey(m.function, m.argCount, m.instanceStyle)
+	return makeMacroKey(m.function, m.argCount, m.receiverStyle)
 }
 
-func makeMacroKey(name string, args int, instanceStyle bool) string {
-	return fmt.Sprintf("%s:%d:%v", name, args, instanceStyle)
+func makeMacroKey(name string, args int, receiverStyle bool) string {
+	return fmt.Sprintf("%s:%d:%v", name, args, receiverStyle)
 }
 
-func makeVarArgMacroKey(name string, instanceStyle bool) string {
-	return fmt.Sprintf("%s:*:%v", name, instanceStyle)
+func makeVarArgMacroKey(name string, receiverStyle bool) string {
+	return fmt.Sprintf("%s:*:%v", name, receiverStyle)
 }
 
 // MacroExpander converts the target and args of a function call that matches a Macro.
@@ -185,6 +193,10 @@ type ExprHelper interface {
 	// - condition is the expression to test to determine whether to continue folding.
 	// - step is the expression to evaluation at the conclusion of a single fold iteration.
 	// - result is the computation to evaluate at the conclusion of the fold.
+	//
+	// The accuVar should not shadow variable names that you would like to reference within the
+	// environment in the step and condition expressions. Presently, the name __result__ is commonly
+	// used by built-in macros but this may change in the future.
 	Fold(iterVar string,
 		iterRange *exprpb.Expr,
 		accuVar string,
@@ -199,8 +211,8 @@ type ExprHelper interface {
 	// GlobalCall creates a function call Expr value for a global (free) function.
 	GlobalCall(function string, args ...*exprpb.Expr) *exprpb.Expr
 
-	// MemberCall creates a member call Expr value for a receiver-style function.
-	MemberCall(function string, target *exprpb.Expr, args ...*exprpb.Expr) *exprpb.Expr
+	// ReceiverCall creates a function call Expr value for a receiver-style function.
+	ReceiverCall(function string, target *exprpb.Expr, args ...*exprpb.Expr) *exprpb.Expr
 
 	// PresenceTest creates a Select TestOnly Expr value for modelling has() semantics.
 	PresenceTest(operand *exprpb.Expr, field string) *exprpb.Expr
@@ -221,26 +233,26 @@ var (
 
 		// The macro "range.all(var, predicate)", which is true if for all elements in range the
 		// predicate holds.
-		NewMemberMacro(operators.All, 2, makeAll),
+		NewReceiverMacro(operators.All, 2, makeAll),
 
 		// The macro "range.exists(var, predicate)", which is true if for at least one element in
 		// range the predicate holds.
-		NewMemberMacro(operators.Exists, 2, makeExists),
+		NewReceiverMacro(operators.Exists, 2, makeExists),
 
 		// The macro "range.exists_one(var, predicate)", which is true if for exactly one element
 		// in range the predicate holds.
-		NewMemberMacro(operators.ExistsOne, 2, makeExistsOne),
+		NewReceiverMacro(operators.ExistsOne, 2, makeExistsOne),
 
 		// The macro "range.map(var, function)", applies the function to the vars in the range.
-		NewMemberMacro(operators.Map, 2, makeMap),
+		NewReceiverMacro(operators.Map, 2, makeMap),
 
 		// The macro "range.map(var, predicate, function)", applies the function to the vars in
 		// the range for which the predicate holds true. The other variables are filtered out.
-		NewMemberMacro(operators.Map, 3, makeMap),
+		NewReceiverMacro(operators.Map, 3, makeMap),
 
 		// The macro "range.filter(var, predicate)", filters out the variables for which the
 		// predicate is false.
-		NewMemberMacro(operators.Filter, 2, makeFilter),
+		NewReceiverMacro(operators.Filter, 2, makeFilter),
 	}
 
 	// NoMacros list.

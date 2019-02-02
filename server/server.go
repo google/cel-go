@@ -74,7 +74,7 @@ func (s *ConformanceServer) Check(ctx context.Context, in *exprpb.CheckRequest) 
 	if in.NoStdEnv {
 		checkOptions = append(checkOptions, cel.ClearBuiltIns())
 	}
-	checkOptions = append(checkOptions, cel.Package(in.Container))
+	checkOptions = append(checkOptions, cel.Container(in.Container))
 	checkOptions = append(checkOptions, cel.Declarations(in.TypeEnv...))
 	env, _ := cel.NewEnv(checkOptions...)
 
@@ -93,7 +93,7 @@ func (s *ConformanceServer) Check(ctx context.Context, in *exprpb.CheckRequest) 
 
 // Eval implements ConformanceService.Eval.
 func (s *ConformanceServer) Eval(ctx context.Context, in *exprpb.EvalRequest) (*exprpb.EvalResponse, error) {
-	env, _ := cel.NewEnv(cel.Package(in.Container))
+	env, _ := cel.NewEnv(cel.Container(in.Container))
 	var prg cel.Program
 	var err error
 	switch in.ExprKind.(type) {

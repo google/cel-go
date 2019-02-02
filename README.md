@@ -72,11 +72,11 @@ func main() {
 	// found within the `iss`, but a non-nil `iss.Err()` value will contain a
 	// detailed error string in human-readable form.
 	p, iss := env.Parse(`"Hello " + you + "! I'm " + i + "."`)
-	if iss != nil && iss.Err() {
+	if iss != nil && iss.Err() != nil {
 		log.Fatalln(iss.Err())
 	}
 	c, iss := env.Check(p)
-	if iss != nil && iss.Err() {
+	if iss != nil && iss.Err() != nil {
 		log.Fatalln(iss.Err())
 	}
 

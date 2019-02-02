@@ -250,7 +250,7 @@ func (p *parser) VisitSelectOrCall(ctx *gen.SelectOrCallContext) interface{} {
 	}
 	id := ctx.GetId().GetText()
 	if ctx.GetOpen() != nil {
-		return p.memberCallOrMacro(ctx.GetOpen(), id, operand, p.visitList(ctx.GetArgs())...)
+		return p.receiverCallOrMacro(ctx.GetOpen(), id, operand, p.visitList(ctx.GetArgs())...)
 	}
 	return p.helper.newSelect(ctx.GetOp(), operand, id)
 }
@@ -290,6 +290,7 @@ func (p *parser) VisitCreateMessage(ctx *gen.CreateMessageContext) interface{} {
 	return p.helper.newExpr(ctx)
 }
 
+// Visit a parse tree of field initializers.
 func (p *parser) VisitIFieldInitializerList(ctx gen.IFieldInitializerListContext) interface{} {
 	if ctx == nil || ctx.GetFields() == nil {
 		return []*exprpb.Expr_CreateStruct_Entry{}
@@ -552,11 +553,11 @@ func (p *parser) globalCallOrMacro(ctx interface{}, function string, args ...*ex
 	return p.helper.newGlobalCall(ctx, function, args...)
 }
 
-func (p *parser) memberCallOrMacro(ctx interface{}, function string, target *exprpb.Expr, args ...*exprpb.Expr) *exprpb.Expr {
+func (p *parser) receiverCallOrMacro(ctx interface{}, function string, target *exprpb.Expr, args ...*exprpb.Expr) *exprpb.Expr {
 	if expr, found := p.expandMacro(ctx, function, target, args...); found {
 		return expr
 	}
-	return p.helper.newMemberCall(ctx, function, target, args...)
+	return p.helper.newReceiverCall(ctx, function, target, args...)
 }
 
 func (p *parser) expandMacro(ctx interface{}, function string, target *exprpb.Expr, args ...*exprpb.Expr) (*exprpb.Expr, bool) {

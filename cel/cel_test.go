@@ -1,4 +1,4 @@
-// Copyright 2018 Google LLC
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -149,7 +149,7 @@ func Test_DisableStandardEnv(t *testing.T) {
 
 func Test_CustomTypes(t *testing.T) {
 	e, _ := NewEnv(
-		Package("google.api.expr.v1alpha1"),
+		Container("google.api.expr.v1alpha1"),
 		Types(&exprpb.Expr{}),
 		Declarations(
 			decls.NewIdent("expr",
@@ -233,6 +233,8 @@ func Test_GlobalVars(t *testing.T) {
 				}
 				return defVal
 			}})
+
+	// Global variables can be configured as a ProgramOption and optionally overridden on Eval.
 	prg, _ := e.Program(c, funcs, Globals(Vars(map[string]interface{}{
 		"default": "third",
 	})))
@@ -286,6 +288,14 @@ func Test_EvalOptions(t *testing.T) {
 	// Test to see whether 'v != false' was resolved to a value.
 	// With short-circuiting it normally wouldn't be.
 	s := out.State()
+	lhsVal, found := s.Value(p.Expr().GetCallExpr().GetArgs()[0].Id)
+	if !found {
+		t.Error("Got not found, wanted evaluation of left hand side expression.")
+		return
+	}
+	if lhsVal.Equal(types.True) != types.True {
+		t.Errorf("Got '%v', expected 'true'", lhsVal)
+	}
 	rhsVal, found := s.Value(p.Expr().GetCallExpr().GetArgs()[1].Id)
 	if !found {
 		t.Error("Got not found, wanted evaluation of right hand side expression.")

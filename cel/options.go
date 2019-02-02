@@ -1,4 +1,4 @@
-// Copyright 2018 Google LLC
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -90,12 +90,12 @@ func Macros(macros ...parser.Macro) EnvOption {
 	}
 }
 
-// Package sets the container for resolving variable names. Defaults to an empty package.
+// Container sets the container for resolving variable names. Defaults to an empty container.
 //
 // If all references within an expression are relative to a protocol buffer package, then
-// specifying a package of `google.type` would make it possible to write expressions such as
+// specifying a container of `google.type` would make it possible to write expressions such as
 // `Expr{expression: 'a < b'}` instead of having to write `google.type.Expr{...}`.
-func Package(pkg string) EnvOption {
+func Container(pkg string) EnvOption {
 	return func(e *env) (*env, error) {
 		e.pkg = packages.NewPackage(pkg)
 		return e, nil
