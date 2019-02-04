@@ -26,6 +26,7 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/parser"
 	"github.com/google/cel-go/test"
+	"github.com/google/cel-go/test/proto3pb"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
@@ -225,17 +226,17 @@ ERROR: <input>:1:1: undeclared reference to 'foo' (in container '')
 	},
 	{
 		I:         `TestAllTypes{single_int32: 1, single_int64: 2}`,
-		Container: "google.api.tools.expr.test",
+		Container: "google.expr.proto3.test",
 		R: `
 	TestAllTypes{single_int32 : 1~int, single_int64 : 2~int}
-	  ~google.api.tools.expr.test.TestAllTypes
-	    ^google.api.tools.expr.test.TestAllTypes`,
-		Type: decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"),
+	  ~google.expr.proto3.test.TestAllTypes
+	    ^google.expr.proto3.test.TestAllTypes`,
+		Type: decls.NewObjectType("google.expr.proto3.test.TestAllTypes"),
 	},
 
 	{
 		I:         `TestAllTypes{single_int32: 1u}`,
-		Container: "google.api.tools.expr.test",
+		Container: "google.expr.proto3.test",
 		Error: `
 	ERROR: <input>:1:26: expected type of field 'single_int32' is 'int' but provided type is 'uint'
 	  | TestAllTypes{single_int32: 1u}
@@ -244,7 +245,7 @@ ERROR: <input>:1:1: undeclared reference to 'foo' (in container '')
 
 	{
 		I:         `TestAllTypes{single_int32: 1, undefined: 2}`,
-		Container: "google.api.tools.expr.test",
+		Container: "google.expr.proto3.test",
 		Error: `
 	ERROR: <input>:1:40: undefined field 'undefined'
 	  | TestAllTypes{single_int32: 1, undefined: 2}
@@ -330,11 +331,11 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 		I: `x.single_int32 != null`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.Proto2Message"), nil),
+				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.Proto2Message"), nil),
 			},
 		},
 		Error: `
-	ERROR: <input>:1:2: [internal] unexpected failed resolution of 'google.api.tools.expr.test.Proto2Message'
+	ERROR: <input>:1:2: [internal] unexpected failed resolution of 'google.expr.proto3.test.Proto2Message'
 	  | x.single_int32 != null
 	  | .^
 	`,
@@ -344,15 +345,15 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 		I: `x.single_value + 1 / x.single_struct.y == 23`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
+				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
 			},
 		},
 		R: `_==_(
 			_+_(
-			  x~google.api.tools.expr.test.TestAllTypes^x.single_value~dyn,
+			  x~google.expr.proto3.test.TestAllTypes^x.single_value~dyn,
 			  _/_(
 				1~int,
-				x~google.api.tools.expr.test.TestAllTypes^x.single_struct~map(string, dyn).y~dyn
+				x~google.expr.proto3.test.TestAllTypes^x.single_struct~map(string, dyn).y~dyn
 			  )~int^divide_int64
 			)~int^add_int64,
 			23~int
@@ -364,16 +365,16 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 		I: `x.single_value[23] + x.single_struct['y']`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
+				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
 			},
 		},
 		R: `_+_(
 			_[_](
-			  x~google.api.tools.expr.test.TestAllTypes^x.single_value~dyn,
+			  x~google.expr.proto3.test.TestAllTypes^x.single_value~dyn,
 			  23~int
 			)~dyn^index_list|index_map,
 			_[_](
-			  x~google.api.tools.expr.test.TestAllTypes^x.single_struct~map(string, dyn),
+			  x~google.expr.proto3.test.TestAllTypes^x.single_struct~map(string, dyn),
 			  "y"~string
 			)~dyn^index_map
 		  )~dyn^add_int64|add_uint64|add_double|add_string|add_bytes|add_list|add_timestamp_duration|add_duration_timestamp|add_duration_duration
@@ -383,9 +384,9 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 
 	{
 		I:         `TestAllTypes.NestedEnum.BAR != 99`,
-		Container: "google.api.tools.expr.test",
+		Container: "google.expr.proto3.test",
 		R: `_!=_(TestAllTypes.NestedEnum.BAR
-	     ~int^google.api.tools.expr.test.TestAllTypes.NestedEnum.BAR,
+	     ~int^google.expr.proto3.test.TestAllTypes.NestedEnum.BAR,
 	    99~int)
 	~bool^not_equals`,
 		Type: decls.Bool,
@@ -397,7 +398,7 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 		Type: decls.Int,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
+				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
 			},
 		},
 	},
@@ -409,43 +410,43 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 		&& z == 1.0`,
 		R: `_&&_(
 			_&&_(
-			  _&&_(
 				_==_(
-				  _[_](
 					_[_](
-					  _[_](
-						x~map(string, dyn)^x,
-						"claims"~string
-					  )~dyn^index_map,
-					  "groups"~string
-					)~list(string)^index_map,
-					0~int
-				  )~string^index_list.name~string,
-				  "dummy"~string
+						_[_](
+							_[_](
+								x~map(string, dyn)^x,
+								"claims"~string
+							)~dyn^index_map,
+							"groups"~string
+						)~list(string)^index_map,
+						0~int
+					)~string^index_list.name~string,
+					"dummy"~string
 				)~bool^equals,
 				_==_(
-				  _[_](
-					x~map(string, dyn)^x.claims~dyn,
-					"exp"~string
-				  )~dyn^index_map,
-				  _[_](
-					y~list(dyn)^y,
-					1~int
-				  )~dyn^index_list.time~dyn
+					_[_](
+						x~map(string, dyn)^x.claims~dyn,
+						"exp"~string
+					)~dyn^index_map,
+					_[_](
+						y~list(dyn)^y,
+						1~int
+					)~dyn^index_list.time~dyn
 				)~bool^equals
-			  )~bool^logical_and,
-			  _==_(
-				x~map(string, dyn)^x.claims~dyn.structured~dyn,
-				{
-				  "key"~string:z~dyn^z
-				}~map(string, dyn)
-			  )~bool^equals
 			)~bool^logical_and,
-			_==_(
-			  z~dyn^z,
-			  1~double
-			)~bool^equals
-		  )~bool^logical_and`,
+			_&&_(
+				_==_(
+					x~map(string, dyn)^x.claims~dyn.structured~dyn,
+					{
+						"key"~string:z~dyn^z
+					}~map(string, dyn)
+				)~bool^equals,
+				_==_(
+					z~dyn^z,
+					1~double
+				)~bool^equals
+			)~bool^logical_and
+		)~bool^logical_and`,
 		Env: env{
 			idents: []*exprpb.Decl{
 				decls.NewIdent("x", decls.NewObjectType("google.protobuf.Struct"), nil),
@@ -461,12 +462,12 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 		R: ``,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewListType(decls.NewObjectType("google.api.tools.expr.test.TestAllTypes")), nil),
+				decls.NewIdent("x", decls.NewListType(decls.NewObjectType("google.expr.proto3.test.TestAllTypes")), nil),
 				decls.NewIdent("y", decls.NewListType(decls.Int), nil),
 			},
 		},
 		Error: `
-ERROR: <input>:1:3: found no matching overload for '_+_' applied to '(list(google.api.tools.expr.test.TestAllTypes), list(int))'
+ERROR: <input>:1:3: found no matching overload for '_+_' applied to '(list(google.expr.proto3.test.TestAllTypes), list(int))'
   | x + y
   | ..^
 		`,
@@ -476,11 +477,11 @@ ERROR: <input>:1:3: found no matching overload for '_+_' applied to '(list(googl
 		I: `x[1u]`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewListType(decls.NewObjectType("google.api.tools.expr.test.TestAllTypes")), nil),
+				decls.NewIdent("x", decls.NewListType(decls.NewObjectType("google.expr.proto3.test.TestAllTypes")), nil),
 			},
 		},
 		Error: `
-ERROR: <input>:1:2: found no matching overload for '_[_]' applied to '(list(google.api.tools.expr.test.TestAllTypes), uint)'
+ERROR: <input>:1:2: found no matching overload for '_[_]' applied to '(list(google.expr.proto3.test.TestAllTypes), uint)'
   | x[1u]
   | .^
 `,
@@ -490,19 +491,19 @@ ERROR: <input>:1:2: found no matching overload for '_[_]' applied to '(list(goog
 		I: `(x + x)[1].single_int32 == size(x)`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewListType(decls.NewObjectType("google.api.tools.expr.test.TestAllTypes")), nil),
+				decls.NewIdent("x", decls.NewListType(decls.NewObjectType("google.expr.proto3.test.TestAllTypes")), nil),
 			},
 		},
 		R: `
-_==_(_[_](_+_(x~list(google.api.tools.expr.test.TestAllTypes)^x,
-                x~list(google.api.tools.expr.test.TestAllTypes)^x)
-            ~list(google.api.tools.expr.test.TestAllTypes)^add_list,
+_==_(_[_](_+_(x~list(google.expr.proto3.test.TestAllTypes)^x,
+                x~list(google.expr.proto3.test.TestAllTypes)^x)
+            ~list(google.expr.proto3.test.TestAllTypes)^add_list,
            1~int)
-       ~google.api.tools.expr.test.TestAllTypes^index_list
+       ~google.expr.proto3.test.TestAllTypes^index_list
        .
        single_int32
        ~int,
-      size(x~list(google.api.tools.expr.test.TestAllTypes)^x)~int^size_list)
+      size(x~list(google.expr.proto3.test.TestAllTypes)^x)~int^size_list)
   ~bool^equals
 	`,
 		Type: decls.Bool,
@@ -512,12 +513,12 @@ _==_(_[_](_+_(x~list(google.api.tools.expr.test.TestAllTypes)^x,
 		I: `x.repeated_int64[x.single_int32] == 23`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
+				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
 			},
 		},
 		R: `
-_==_(_[_](x~google.api.tools.expr.test.TestAllTypes^x.repeated_int64~list(int),
-           x~google.api.tools.expr.test.TestAllTypes^x.single_int32~int)
+_==_(_[_](x~google.expr.proto3.test.TestAllTypes^x.repeated_int64~list(int),
+           x~google.expr.proto3.test.TestAllTypes^x.single_int32~int)
        ~int^index_list,
       23~int)
   ~bool^equals`,
@@ -528,12 +529,12 @@ _==_(_[_](x~google.api.tools.expr.test.TestAllTypes^x.repeated_int64~list(int),
 		I: `size(x.map_int64_nested_type) == 0`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
+				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
 			},
 		},
 		R: `
-_==_(size(x~google.api.tools.expr.test.TestAllTypes^x.map_int64_nested_type
-            ~map(int, google.api.tools.expr.test.NestedTestAllTypes))
+_==_(size(x~google.expr.proto3.test.TestAllTypes^x.map_int64_nested_type
+            ~map(int, google.expr.proto3.test.NestedTestAllTypes))
        ~int^size_map,
       0~int)
   ~bool^equals
@@ -545,7 +546,7 @@ _==_(size(x~google.api.tools.expr.test.TestAllTypes^x.map_int64_nested_type
 		I: `x.repeated_int64.map(x, double(x))`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
+				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
 			},
 		},
 		R: `
@@ -553,7 +554,7 @@ _==_(size(x~google.api.tools.expr.test.TestAllTypes^x.map_int64_nested_type
     		  // Variable
     		  x,
     		  // Target
-    		  x~google.api.tools.expr.test.TestAllTypes^x.repeated_int64~list(int),
+    		  x~google.expr.proto3.test.TestAllTypes^x.repeated_int64~list(int),
     		  // Accumulator
     		  __result__,
     		  // Init
@@ -579,7 +580,7 @@ _==_(size(x~google.api.tools.expr.test.TestAllTypes^x.map_int64_nested_type
 		I: `x.repeated_int64.map(x, x > 0, double(x))`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
+				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
 			},
 		},
 		R: `
@@ -587,7 +588,7 @@ _==_(size(x~google.api.tools.expr.test.TestAllTypes^x.map_int64_nested_type
     		  // Variable
     		  x,
     		  // Target
-    		  x~google.api.tools.expr.test.TestAllTypes^x.repeated_int64~list(int),
+    		  x~google.expr.proto3.test.TestAllTypes^x.repeated_int64~list(int),
     		  // Accumulator
     		  __result__,
     		  // Init
@@ -622,11 +623,11 @@ _==_(size(x~google.api.tools.expr.test.TestAllTypes^x.map_int64_nested_type
 			idents: []*exprpb.Decl{
 				decls.NewIdent("x",
 					decls.NewMapType(decls.String,
-						decls.NewObjectType("google.api.tools.expr.test.TestAllTypes")), nil),
+						decls.NewObjectType("google.expr.proto3.test.TestAllTypes")), nil),
 			},
 		},
 		Error: `
-ERROR: <input>:1:2: found no matching overload for '_[_]' applied to '(map(string, google.api.tools.expr.test.TestAllTypes), int)'
+ERROR: <input>:1:2: found no matching overload for '_[_]' applied to '(map(string, google.expr.proto3.test.TestAllTypes), int)'
   | x[2].single_int32 == 23
   | .^
 		`,
@@ -638,12 +639,12 @@ ERROR: <input>:1:2: found no matching overload for '_[_]' applied to '(map(strin
 			idents: []*exprpb.Decl{
 				decls.NewIdent("x",
 					decls.NewMapType(decls.String,
-						decls.NewObjectType("google.api.tools.expr.test.TestAllTypes")), nil),
+						decls.NewObjectType("google.expr.proto3.test.TestAllTypes")), nil),
 			},
 		},
 		R: `
-		_==_(_[_](x~map(string, google.api.tools.expr.test.TestAllTypes)^x, "a"~string)
-		~google.api.tools.expr.test.TestAllTypes^index_map
+		_==_(_[_](x~map(string, google.expr.proto3.test.TestAllTypes)^x, "a"~string)
+		~google.expr.proto3.test.TestAllTypes^index_map
 		.
 		single_int32
 		~int,
@@ -656,17 +657,17 @@ ERROR: <input>:1:2: found no matching overload for '_[_]' applied to '(map(strin
 		I: `x.single_nested_message.bb == 43 && has(x.single_nested_message)`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
+				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
 			},
 		},
 
 		// Our implementation code is expanding the macro
 		R: `_&&_(
     		  _==_(
-    		    x~google.api.tools.expr.test.TestAllTypes^x.single_nested_message~google.api.tools.expr.test.TestAllTypes.NestedMessage.bb~int,
+    		    x~google.expr.proto3.test.TestAllTypes^x.single_nested_message~google.expr.proto3.test.TestAllTypes.NestedMessage.bb~int,
     		    43~int
     		  )~bool^equals,
-    		  x~google.api.tools.expr.test.TestAllTypes^x.single_nested_message~test-only~~bool
+    		  x~google.expr.proto3.test.TestAllTypes^x.single_nested_message~test-only~~bool
     		)~bool^logical_and`,
 		Type: decls.Bool,
 	},
@@ -675,7 +676,7 @@ ERROR: <input>:1:2: found no matching overload for '_[_]' applied to '(map(strin
 		I: `x.single_nested_message.undefined == x.undefined && has(x.single_int32) && has(x.repeated_int32)`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
+				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
 			},
 		},
 		Error: `
@@ -698,12 +699,12 @@ ERROR: <input>:1:79: field 'repeated_int32' does not support presence check
 		I: `x.single_nested_message != null`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
+				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
 			},
 		},
 		R: `
-		_!=_(x~google.api.tools.expr.test.TestAllTypes^x.single_nested_message
-		~google.api.tools.expr.test.TestAllTypes.NestedMessage,
+		_!=_(x~google.expr.proto3.test.TestAllTypes^x.single_nested_message
+		~google.expr.proto3.test.TestAllTypes.NestedMessage,
 		null~null)
 		~bool^not_equals
 		`,
@@ -714,7 +715,7 @@ ERROR: <input>:1:79: field 'repeated_int32' does not support presence check
 		I: `x.single_int64 != null`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
+				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
 			},
 		},
 		Error: `
@@ -728,11 +729,11 @@ ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, nul
 		I: `x.single_int64_wrapper == null`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
+				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
 			},
 		},
 		R: `
-		_==_(x~google.api.tools.expr.test.TestAllTypes^x.single_int64_wrapper
+		_==_(x~google.expr.proto3.test.TestAllTypes^x.single_int64_wrapper
 		~wrapper(int),
 		null~null)
 		~bool^equals
@@ -743,7 +744,7 @@ ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, nul
 		I: `x.repeated_int64.all(e, e > 0) && x.repeated_int64.exists(e, e < 0) && x.repeated_int64.exists_one(e, e == 0)`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
+				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
 			},
 		},
 		R: `_&&_(
@@ -752,7 +753,7 @@ ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, nul
 				// Variable
 				e,
 				// Target
-				x~google.api.tools.expr.test.TestAllTypes^x.repeated_int64~list(int),
+				x~google.expr.proto3.test.TestAllTypes^x.repeated_int64~list(int),
 				// Accumulator
 				__result__,
 				// Init
@@ -775,7 +776,7 @@ ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, nul
 				// Variable
 				e,
 				// Target
-				x~google.api.tools.expr.test.TestAllTypes^x.repeated_int64~list(int),
+				x~google.expr.proto3.test.TestAllTypes^x.repeated_int64~list(int),
 				// Accumulator
 				__result__,
 				// Init
@@ -801,7 +802,7 @@ ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, nul
 			  // Variable
 			  e,
 			  // Target
-			  x~google.api.tools.expr.test.TestAllTypes^x.repeated_int64~list(int),
+			  x~google.expr.proto3.test.TestAllTypes^x.repeated_int64~list(int),
 			  // Accumulator
 			  __result__,
 			  // Init
@@ -836,11 +837,11 @@ ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, nul
 		I: `x.all(e, 0)`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
+				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
 			},
 		},
 		Error: `
-ERROR: <input>:1:1: expression of type 'google.api.tools.expr.test.TestAllTypes' cannot be range of a comprehension (must be list, map, or dynamic)
+ERROR: <input>:1:1: expression of type 'google.expr.proto3.test.TestAllTypes' cannot be range of a comprehension (must be list, map, or dynamic)
  | x.all(e, 0)
  | ^
 ERROR: <input>:1:6: found no matching overload for '_&&_' applied to '(bool, int)'
@@ -850,24 +851,24 @@ ERROR: <input>:1:6: found no matching overload for '_&&_' applied to '(bool, int
 	},
 
 	{
-		I: `.google.api.tools.expr.test.TestAllTypes`,
-		R: `	.google.api.tools.expr.test.TestAllTypes
-	~type(google.api.tools.expr.test.TestAllTypes)
-	^google.api.tools.expr.test.TestAllTypes`,
+		I: `.google.expr.proto3.test.TestAllTypes`,
+		R: `	.google.expr.proto3.test.TestAllTypes
+	~type(google.expr.proto3.test.TestAllTypes)
+	^google.expr.proto3.test.TestAllTypes`,
 		Type: decls.NewTypeType(
-			decls.NewObjectType("google.api.tools.expr.test.TestAllTypes")),
+			decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 	},
 
 	{
 		I:         `test.TestAllTypes`,
-		Container: "google.api.tools.expr",
+		Container: "google.expr.proto3",
 		R: `
 	test.TestAllTypes
-	~type(google.api.tools.expr.test.TestAllTypes)
-	^google.api.tools.expr.test.TestAllTypes
+	~type(google.expr.proto3.test.TestAllTypes)
+	^google.expr.proto3.test.TestAllTypes
 		`,
 		Type: decls.NewTypeType(
-			decls.NewObjectType("google.api.tools.expr.test.TestAllTypes")),
+			decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 	},
 
 	{
@@ -880,9 +881,9 @@ ERROR: <input>:1:5: undeclared reference to 'x' (in container '')
 
 	{
 		I: `x == google.protobuf.Any{
-				type_url:'types.googleapis.com/google.api.tools.expr.test.TestAllTypes'
+				type_url:'types.googleapis.com/google.expr.proto3.test.TestAllTypes'
 			} && x.single_nested_message.bb == 43
-			|| x == google.api.tools.expr.test.TestAllTypes{}
+			|| x == google.expr.proto3.test.TestAllTypes{}
 			|| y < x
 			|| x >= x`,
 		Env: env{
@@ -894,34 +895,34 @@ ERROR: <input>:1:5: undeclared reference to 'x' (in container '')
 		R: `
 		_||_(
 			_||_(
-			  _||_(
 				_&&_(
-				  _==_(
-					x~any^x,
-					google.protobuf.Any{
-					  type_url:"types.googleapis.com/google.api.tools.expr.test.TestAllTypes"~string
-					}~google.protobuf.Any^google.protobuf.Any
-				  )~bool^equals,
-				  _==_(
-					x~any^x.single_nested_message~dyn.bb~dyn,
-					43~int
-				  )~bool^equals
+					_==_(
+						x~any^x,
+						google.protobuf.Any{
+							type_url:"types.googleapis.com/google.expr.proto3.test.TestAllTypes"~string
+						}~google.protobuf.Any^google.protobuf.Any
+					)~bool^equals,
+					_==_(
+						x~any^x.single_nested_message~dyn.bb~dyn,
+						43~int
+					)~bool^equals
 				)~bool^logical_and,
 				_==_(
-				  x~any^x,
-				  google.api.tools.expr.test.TestAllTypes{}~google.api.tools.expr.test.TestAllTypes^google.api.tools.expr.test.TestAllTypes
+					x~any^x,
+					google.expr.proto3.test.TestAllTypes{}~google.expr.proto3.test.TestAllTypes^google.expr.proto3.test.TestAllTypes
 				)~bool^equals
-			  )~bool^logical_or,
-			  _<_(
-				y~wrapper(int)^y,
-				x~any^x
-			  )~bool^less_int64
 			)~bool^logical_or,
-			_>=_(
-			  x~any^x,
-			  x~any^x
-			)~dyn^greater_equals_bool|greater_equals_int64|greater_equals_uint64|greater_equals_double|greater_equals_string|greater_equals_bytes|greater_equals_timestamp|greater_equals_duration
-		  )~bool^logical_or
+			_||_(
+				_<_(
+					y~wrapper(int)^y,
+					x~any^x
+				)~bool^less_int64,
+				_>=_(
+					x~any^x,
+					x~any^x
+				)~dyn^greater_equals_bool|greater_equals_int64|greater_equals_uint64|greater_equals_double|greater_equals_string|greater_equals_bytes|greater_equals_timestamp|greater_equals_duration
+			)~bool^logical_or
+		)~bool^logical_or
 		`,
 		Type: decls.Bool,
 	},
@@ -931,11 +932,11 @@ ERROR: <input>:1:5: undeclared reference to 'x' (in container '')
 		Container: "container",
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("container.x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
+				decls.NewIdent("container.x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
 			},
 		},
-		R:    `x~google.api.tools.expr.test.TestAllTypes^container.x`,
-		Type: decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"),
+		R:    `x~google.expr.proto3.test.TestAllTypes^container.x`,
+		Type: decls.NewObjectType("google.expr.proto3.test.TestAllTypes"),
 	},
 
 	{
@@ -984,12 +985,12 @@ _&&_(_==_(list~type(list(dyn))^list,
 		I: `size(x) > 4`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
+				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
 			},
 			functions: []*exprpb.Decl{
 				decls.NewFunction("size",
 					decls.NewOverload("size_message",
-						[]*exprpb.Type{decls.NewObjectType("google.api.tools.expr.test.TestAllTypes")},
+						[]*exprpb.Type{decls.NewObjectType("google.expr.proto3.test.TestAllTypes")},
 						decls.Int)),
 			},
 		},
@@ -1000,11 +1001,11 @@ _&&_(_==_(list~type(list(dyn))^list,
 		I: `x.single_int64_wrapper + 1 != 23`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
+				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
 			},
 		},
 		R: `
-		_!=_(_+_(x~google.api.tools.expr.test.TestAllTypes^x.single_int64_wrapper
+		_!=_(_+_(x~google.expr.proto3.test.TestAllTypes^x.single_int64_wrapper
 		~wrapper(int),
 		1~int)
 		~int^add_int64,
@@ -1018,14 +1019,14 @@ _&&_(_==_(list~type(list(dyn))^list,
 		I: `x.single_int64_wrapper + y != 23`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.api.tools.expr.test.TestAllTypes"), nil),
+				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
 				decls.NewIdent("y", decls.NewObjectType("google.protobuf.Int32Value"), nil),
 			},
 		},
 		R: `
 		_!=_(
 			_+_(
-			  x~google.api.tools.expr.test.TestAllTypes^x.single_int64_wrapper~wrapper(int),
+			  x~google.expr.proto3.test.TestAllTypes^x.single_int64_wrapper~wrapper(int),
 			  y~wrapper(int)^y
 			)~int^add_int64,
 			23~int
@@ -1073,7 +1074,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 var typeProvider = initTypeProvider()
 
 func initTypeProvider() ref.TypeProvider {
-	return types.NewProvider(&test.NestedTestAllTypes{}, &test.TestAllTypes{})
+	return types.NewProvider(&proto3pb.NestedTestAllTypes{}, &proto3pb.TestAllTypes{})
 }
 
 var testEnvs = map[string]env{

@@ -116,6 +116,79 @@ var testCases = []testInfo{
 			)^#3:*expr.Expr_CallExpr#`,
 	},
 	{
+		I: `a || b || c || d || e || f `,
+		P: ` _||_(
+			_||_(
+			  _||_(
+				a^#1:*expr.Expr_IdentExpr#,
+				b^#2:*expr.Expr_IdentExpr#
+			  )^#3:*expr.Expr_CallExpr#,
+			  c^#4:*expr.Expr_IdentExpr#
+			)^#5:*expr.Expr_CallExpr#,
+			_||_(
+			  _||_(
+				d^#6:*expr.Expr_IdentExpr#,
+				e^#8:*expr.Expr_IdentExpr#
+			  )^#9:*expr.Expr_CallExpr#,
+			  f^#10:*expr.Expr_IdentExpr#
+			)^#11:*expr.Expr_CallExpr#
+		  )^#7:*expr.Expr_CallExpr#`,
+	},
+	{
+		I: `a && b`,
+		P: `_&&_(
+    		  a^#1:*expr.Expr_IdentExpr#,
+    		  b^#2:*expr.Expr_IdentExpr#
+			)^#3:*expr.Expr_CallExpr#`,
+	},
+	{
+		I: `a && b && c && d && e && f && g`,
+		P: `_&&_(
+			_&&_(
+			  _&&_(
+				a^#1:*expr.Expr_IdentExpr#,
+				b^#2:*expr.Expr_IdentExpr#
+			  )^#3:*expr.Expr_CallExpr#,
+			  _&&_(
+				c^#4:*expr.Expr_IdentExpr#,
+				d^#6:*expr.Expr_IdentExpr#
+			  )^#7:*expr.Expr_CallExpr#
+			)^#5:*expr.Expr_CallExpr#,
+			_&&_(
+			  _&&_(
+				e^#8:*expr.Expr_IdentExpr#,
+				f^#10:*expr.Expr_IdentExpr#
+			  )^#11:*expr.Expr_CallExpr#,
+			  g^#12:*expr.Expr_IdentExpr#
+			)^#13:*expr.Expr_CallExpr#
+		  )^#9:*expr.Expr_CallExpr#`,
+	},
+	{
+		I: `a && b && c && d || e && f && g && h`,
+		P: `_||_(
+			_&&_(
+			  _&&_(
+				a^#1:*expr.Expr_IdentExpr#,
+				b^#2:*expr.Expr_IdentExpr#
+			  )^#3:*expr.Expr_CallExpr#,
+			  _&&_(
+				c^#4:*expr.Expr_IdentExpr#,
+				d^#6:*expr.Expr_IdentExpr#
+			  )^#7:*expr.Expr_CallExpr#
+			)^#5:*expr.Expr_CallExpr#,
+			_&&_(
+			  _&&_(
+				e^#8:*expr.Expr_IdentExpr#,
+				f^#9:*expr.Expr_IdentExpr#
+			  )^#10:*expr.Expr_CallExpr#,
+			  _&&_(
+				g^#11:*expr.Expr_IdentExpr#,
+				h^#13:*expr.Expr_IdentExpr#
+			  )^#14:*expr.Expr_CallExpr#
+			)^#12:*expr.Expr_CallExpr#
+		  )^#15:*expr.Expr_CallExpr#`,
+	},
+	{
 		I: `a + b`,
 		P: `_+_(
     		  a^#1:*expr.Expr_IdentExpr#,

@@ -2,17 +2,13 @@
 
 syntax = "proto3";
 
-option java_outer_classname = "TestAllTypesProto";
-option java_package = "com.google.api.tools.expr.test";
-option java_multiple_files = true;
-
 import "google/protobuf/any.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
 
-package google.api.tools.expr.test;
+package google.expr.proto3.test;
 
 // This proto includes every type of field in both singular and repeated
 // forms.
