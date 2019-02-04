@@ -7,6 +7,9 @@ sh_test(
         "$(location @com_google_cel_spec//tests/simple:testdata/plumbing.textproto)",
         "$(location @com_google_cel_spec//tests/simple:testdata/basic.textproto)",
         "$(location @com_google_cel_spec//tests/simple:testdata/comparisons.textproto)",
+        "$(location @com_google_cel_spec//tests/simple:testdata/fields.textproto)",
+        "$(location @com_google_cel_spec//tests/simple:testdata/integer_math.textproto)",
+        "$(location @com_google_cel_spec//tests/simple:testdata/fp_math.textproto)",
     ],
     data = [
         "@com_google_cel_spec//tests/simple:simple_test",
@@ -14,5 +17,8 @@ sh_test(
         "@com_google_cel_spec//tests/simple:testdata/plumbing.textproto",
         "@com_google_cel_spec//tests/simple:testdata/basic.textproto",
         "@com_google_cel_spec//tests/simple:testdata/comparisons.textproto",
+        "@com_google_cel_spec//tests/simple:testdata/fields.textproto",
+        "@com_google_cel_spec//tests/simple:testdata/integer_math.textproto",
+        "@com_google_cel_spec//tests/simple:testdata/fp_math.textproto",
     ],
 )
