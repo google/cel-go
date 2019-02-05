@@ -178,9 +178,9 @@ type FieldDescription struct {
 }
 
 // CheckedType returns the type-definition used at type-check time.
-func (fd *FieldDescription) CheckedType() *exprpb.Type {
-	if fd.IsMap() {
-		td, _ := DescribeType(fd.TypeName())
+func (pbdb *PbDb) CheckedType(fd *FieldDescription) *exprpb.Type {
+	if pbdb.IsMap(fd) {
+		td, _ := pbdb.DescribeType(fd.TypeName())
 		key := td.getFieldsAtIndex(0)[0]
 		val := td.getFieldsAtIndex(1)[0]
 		return &exprpb.Type{
@@ -228,11 +228,11 @@ func (fd *FieldDescription) OneofType() reflect.Type {
 }
 
 // IsMap returns true if the field is of map type.
-func (fd *FieldDescription) IsMap() bool {
+func (pbdb *PbDb) IsMap(fd *FieldDescription) bool {
 	if !fd.IsRepeated() || !fd.IsMessage() {
 		return false
 	}
-	td, err := DescribeType(fd.TypeName())
+	td, err := pbdb.DescribeType(fd.TypeName())
 	if err != nil {
 		return false
 	}

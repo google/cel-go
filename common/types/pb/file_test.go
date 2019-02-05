@@ -6,7 +6,8 @@ import (
 )
 
 func TestFileDescription_GetTypes(t *testing.T) {
-	fd, err := DescribeFile(&testpb.TestAllTypes{})
+	pbdb := NewPbDb()
+	fd, err := pbdb.DescribeFile(&testpb.TestAllTypes{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -46,7 +47,8 @@ func TestFileDescription_GetTypes(t *testing.T) {
 }
 
 func TestFileDescription_GetEnumNames(t *testing.T) {
-	fd, err := DescribeFile(&testpb.TestAllTypes{})
+	pbdb := NewPbDb()
+	fd, err := pbdb.DescribeFile(&testpb.TestAllTypes{})
 	if err != nil {
 		t.Error(err)
 	}

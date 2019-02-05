@@ -73,7 +73,7 @@ func (fd *FileDescription) Package() string {
 	return fd.desc.GetPackage()
 }
 
-func (fd *FileDescription) indexEnums(pkg string, enumTypes []*descpb.EnumDescriptorProto) {
+func (pbdb *PbDb) indexEnums(fd *FileDescription, pkg string, enumTypes []*descpb.EnumDescriptorProto) {
 	for _, enumType := range enumTypes {
 		for _, enumValue := range enumType.Value {
 			enumValueName := fmt.Sprintf(
@@ -82,12 +82,12 @@ func (fd *FileDescription) indexEnums(pkg string, enumTypes []*descpb.EnumDescri
 				enumName: enumValueName,
 				file:     fd,
 				desc:     enumValue}
-			revFileDescriptorMap[enumValueName] = fd
+			pbdb.revFileDescriptorMap[enumValueName] = fd
 		}
 	}
 }
 
-func (fd *FileDescription) indexTypes(pkg string, msgTypes []*descpb.DescriptorProto) {
+func (pbdb *PbDb) indexTypes(fd *FileDescription, pkg string, msgTypes []*descpb.DescriptorProto) {
 	for _, msgType := range msgTypes {
 		msgName := fmt.Sprintf("%s.%s", pkg, msgType.GetName())
 		td := &TypeDescription{
@@ -97,9 +97,9 @@ func (fd *FileDescription) indexTypes(pkg string, msgTypes []*descpb.DescriptorP
 			fields:       make(map[string]*FieldDescription),
 			fieldIndices: make(map[int][]*FieldDescription)}
 		fd.types[msgName] = td
-		fd.indexTypes(msgName, msgType.NestedType)
-		fd.indexEnums(msgName, msgType.EnumType)
-		revFileDescriptorMap[msgName] = fd
+		pbdb.indexTypes(fd, msgName, msgType.NestedType)
+		pbdb.indexEnums(fd, msgName, msgType.EnumType)
+		pbdb.revFileDescriptorMap[msgName] = fd
 	}
 }
 

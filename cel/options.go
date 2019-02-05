@@ -117,7 +117,7 @@ func Types(addTypes ...interface{}) EnvOption {
 		for _, t := range addTypes {
 			switch t.(type) {
 			case proto.Message:
-				fd, err := pb.DescribeFile(t.(proto.Message))
+				fd, err := e.types.pbdb.DescribeFile(t.(proto.Message))
 				if err != nil {
 					return nil, err
 				}

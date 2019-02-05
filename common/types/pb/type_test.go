@@ -10,7 +10,8 @@ import (
 )
 
 func TestTypeDescription_FieldCount(t *testing.T) {
-	td, err := DescribeValue(&testpb.NestedTestAllTypes{})
+	pbdb := NewPbDb()
+	td, err := pbdb.DescribeValue(&testpb.NestedTestAllTypes{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -21,42 +22,48 @@ func TestTypeDescription_FieldCount(t *testing.T) {
 }
 
 func TestTypeDescription_Any(t *testing.T) {
-	_, err := DescribeType(".google.protobuf.Any")
+	pbdb := NewPbDb()
+	_, err := pbdb.DescribeType(".google.protobuf.Any")
 	if err != nil {
 		t.Error(err)
 	}
 }
 
 func TestTypeDescription_Json(t *testing.T) {
-	_, err := DescribeType(".google.protobuf.Value")
+	pbdb := NewPbDb()
+	_, err := pbdb.DescribeType(".google.protobuf.Value")
 	if err != nil {
 		t.Error(err)
 	}
 }
 
 func TestTypeDescription_JsonNotInTypeInit(t *testing.T) {
-	_, err := DescribeType(".google.protobuf.ListValue")
+	pbdb := NewPbDb()
+	_, err := pbdb.DescribeType(".google.protobuf.ListValue")
 	if err != nil {
 		t.Error(err)
 	}
 }
 
 func TestTypeDescription_Wrapper(t *testing.T) {
-	_, err := DescribeType(".google.protobuf.BoolValue")
+	pbdb := NewPbDb()
+	_, err := pbdb.DescribeType(".google.protobuf.BoolValue")
 	if err != nil {
 		t.Error(err)
 	}
 }
 
 func TestTypeDescription_WrapperNotInTypeInit(t *testing.T) {
-	_, err := DescribeType(".google.protobuf.BytesValue")
+	pbdb := NewPbDb()
+	_, err := pbdb.DescribeType(".google.protobuf.BytesValue")
 	if err != nil {
 		t.Error(err)
 	}
 }
 
 func TestTypeDescription_Field(t *testing.T) {
-	td, err := DescribeValue(&testpb.NestedTestAllTypes{})
+	pbdb := NewPbDb()
+	td, err := pbdb.DescribeValue(&testpb.NestedTestAllTypes{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -76,7 +83,7 @@ func TestTypeDescription_Field(t *testing.T) {
 	if fd.IsOneof() {
 		t.Error("Field payload is listed as a oneof and it is not.")
 	}
-	if fd.IsMap() {
+	if pbdb.IsMap(fd) {
 		t.Error("Field 'payload' is listed as a map and it is not.")
 	}
 	if !fd.IsMessage() {
@@ -91,7 +98,7 @@ func TestTypeDescription_Field(t *testing.T) {
 	if fd.Index() != 1 {
 		t.Error("Field 'payload' was fetched at index 1, but not listed there.")
 	}
-	if !proto.Equal(fd.CheckedType(), &exprpb.Type{
+	if !proto.Equal(pbdb.CheckedType(fd), &exprpb.Type{
 		TypeKind: &exprpb.Type_MessageType{
 			MessageType: "google.expr.proto3.test.TestAllTypes"}}) {
 		t.Error("Field 'payload' had an unexpected checked type.")
