@@ -28,15 +28,12 @@ type Program interface {
 	//
 	// If the evaluation is an error, the result will be nil with a non-nil error.
 	//
-	// If the OptTrackState or OptExhaustiveEval is used, the Result `state` field will be non-nil.
-	Eval(vars interpreter.Activation) (Result, error)
+	// If the OptTrackState or OptExhaustiveEval is used, the EvalDetails response will be non-nil.
+	Eval(vars interpreter.Activation) (ref.Val, EvalDetails, error)
 }
 
-// Result holds the ref.Val and interpreter EvalState returned from the Eval() call.
-type Result interface {
-	// Value returns the underlying result value.
-	Value() ref.Val
-
+// EvalDetails holds additional information observed during the Eval() call.
+type EvalDetails interface {
 	// State of the evaluation, non-nil if the OptTrackState or OptExhaustiveEval is specified
 	// within EvalOptions.
 	State() interpreter.EvalState
@@ -52,20 +49,14 @@ func NoVars() interpreter.Activation {
 	return interpreter.NewActivation(map[string]interface{}{})
 }
 
-// evalResult is the internal implementation of the Result interface.
-type evalResult struct {
-	val   ref.Val
+// evalDetails is the internal implementation of the EvalDetails interface.
+type evalDetails struct {
 	state interpreter.EvalState
 }
 
 // State implements the Result interface method.
-func (er *evalResult) State() interpreter.EvalState {
-	return er.state
-}
-
-// Value implements the Result interface method.
-func (er *evalResult) Value() ref.Val {
-	return er.val
+func (ed *evalDetails) State() interpreter.EvalState {
+	return ed.state
 }
 
 // prog is the internal implementation of the Program interface.
@@ -181,7 +172,7 @@ func initInterpretable(
 }
 
 // Eval implements the Program interface method.
-func (p *prog) Eval(vars interpreter.Activation) (Result, error) {
+func (p *prog) Eval(vars interpreter.Activation) (ref.Val, EvalDetails, error) {
 	// Build a hierarchical activation if there are default vars set.
 	if p.defaultVars != nil {
 		vars = interpreter.NewHierarchicalActivation(p.defaultVars, vars)
@@ -191,13 +182,13 @@ func (p *prog) Eval(vars interpreter.Activation) (Result, error) {
 	// translates the CEL value to a Go error response. This interface does not quite match the
 	// RPC signature which allows for multiple errors to be returned, but should be sufficient.
 	if types.IsError(v) {
-		return nil, v.Value().(error)
+		return nil, nil, v.Value().(error)
 	}
-	return &evalResult{val: v}, nil
+	return v, nil, nil
 }
 
 // Eval implements the Program interface method.
-func (gen *progGen) Eval(vars interpreter.Activation) (Result, error) {
+func (gen *progGen) Eval(vars interpreter.Activation) (ref.Val, EvalDetails, error) {
 	// The factory based Eval() differs from the standard evaluation model in that it generates a
 	// new EvalState instance for each call to ensure that unique evaluations yield unique stateful
 	// results.
@@ -207,18 +198,13 @@ func (gen *progGen) Eval(vars interpreter.Activation) (Result, error) {
 	// newProgram().
 	p, err := gen.factory(state)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	// Evaluate the input and modify the result to include the 'state' value if needed.
-	res, err := p.Eval(vars)
+	// Evaluate the input, returning the result and the 'state' as EvalDetails.
+	v, _, err := p.Eval(vars)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	er, ok := res.(*evalResult)
-	if !ok {
-		return er, nil
-	}
-	er.state = state
-	return er, nil
+	return v, &evalDetails{state: state}, nil
 }

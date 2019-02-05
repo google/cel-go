@@ -122,7 +122,8 @@ func (s *ConformanceServer) Eval(ctx context.Context, in *exprpb.EvalRequest) (*
 		args[name] = refVal
 	}
 	// NOTE: the EvalState is currently discarded
-	resultExprVal, err := RefValueToExprValue(prg.Eval(cel.Vars(args)))
+	res, _, err := prg.Eval(cel.Vars(args))
+	resultExprVal, err := RefValueToExprValue(res, err)
 	if err != nil {
 		return nil, fmt.Errorf("con't convert result: %s", err)
 	}
@@ -160,7 +161,7 @@ func ErrToStatus(e common.Error, severity exprpb.IssueDetails_Severity) *rpc.Sta
 // In particular, make judicious use of types.NativeToValue().
 
 // RefValueToExprValue converts between ref.Val and exprpb.ExprValue.
-func RefValueToExprValue(res cel.Result, err error) (*exprpb.ExprValue, error) {
+func RefValueToExprValue(res ref.Val, err error) (*exprpb.ExprValue, error) {
 	if err != nil {
 		s := status.Convert(err).Proto()
 		return &exprpb.ExprValue{
@@ -171,16 +172,15 @@ func RefValueToExprValue(res cel.Result, err error) (*exprpb.ExprValue, error) {
 			},
 		}, nil
 	}
-	resVal := res.Value()
-	if types.IsUnknown(resVal) {
+	if types.IsUnknown(res) {
 		return &exprpb.ExprValue{
 			Kind: &exprpb.ExprValue_Unknown{
 				Unknown: &exprpb.UnknownSet{
-					Exprs: resVal.Value().([]int64),
+					Exprs: res.Value().([]int64),
 				},
 			}}, nil
 	}
-	v, err := RefValueToValue(resVal)
+	v, err := RefValueToValue(res)
 	if err != nil {
 		return nil, err
 	}

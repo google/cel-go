@@ -86,7 +86,11 @@ func main() {
 		log.Fatalf("program creation error: %s\n", err)
 	}
 
-	out, err := prg.Eval(cel.Vars(map[string]interface{}{
+	// Note, the second result, the EvalDetails will be non-nil when using
+	// either cel.OptTrackState or cel.OptExhaustiveEval (not shown). The
+	// details value holds information about the evaluation, rather than the
+	// output of the evaluation itself.
+	out, _, err := prg.Eval(cel.Vars(map[string]interface{}{
 		"i": "CEL",
 		"you": "world"}))
 	if err != nil {
@@ -94,7 +98,7 @@ func main() {
 	}
 
 	// Hello world! I'm CEL.
-	fmt.Println(out.Value())
+	fmt.Println(out)
 }
 ```
 
