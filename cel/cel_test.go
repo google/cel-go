@@ -156,7 +156,7 @@ func Test_CustomTypes(t *testing.T) {
 				decls.NewObjectType("google.api.expr.v1alpha1.Expr"), nil)))
 
 	p, _ := e.Parse(`
-		expr == Expr{id: 2, 
+		expr == Expr{id: 2,
 			call_expr: Expr.Call{
 				function: "_==_",
 				args: [
@@ -304,4 +304,46 @@ func Test_EvalOptions(t *testing.T) {
 	if rhsVal.Equal(types.True) != types.True {
 		t.Errorf("Got '%v', expected 'true'", rhsVal)
 	}
+}
+
+func Benchmark_EvalOptions(b *testing.B) {
+	e, _ := NewEnv(
+		Declarations(
+			decls.NewIdent("ai", decls.Int, nil),
+			decls.NewIdent("ar", decls.NewMapType(decls.String, decls.String), nil),
+		),
+	)
+	past, _ := e.Parse("ai == 20 || ar['foo'] == 'bar'")
+	cast, _ := e.Check(past)
+	vars := Vars(map[string]interface{}{
+		"ai": 2,
+		"ar": map[string]string{
+			"foo": "bar",
+		},
+	})
+
+	b.Run("track-state", func(bb *testing.B) {
+		prg, _ := e.Program(cast, EvalOptions(OptTrackState))
+		b.ResetTimer()
+		b.ReportAllocs()
+		for i := 0; i < bb.N; i++ {
+			prg.Eval(vars)
+		}
+	})
+	b.Run("exhaustive-eval", func(bb *testing.B) {
+		prg, _ := e.Program(cast, EvalOptions(OptExhaustiveEval))
+		b.ResetTimer()
+		b.ReportAllocs()
+		for i := 0; i < bb.N; i++ {
+			prg.Eval(vars)
+		}
+	})
+	b.Run("fold-constants", func(bb *testing.B) {
+		prg, _ := e.Program(cast, EvalOptions(OptFoldConstants))
+		b.ResetTimer()
+		b.ReportAllocs()
+		for i := 0; i < bb.N; i++ {
+			prg.Eval(vars)
+		}
+	})
 }

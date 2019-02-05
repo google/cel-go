@@ -119,14 +119,14 @@ func newProgram(e *env, ast Ast, opts ...ProgramOption) (Program, error) {
 		// State tracking requires that each Eval() call operate on an isolated EvalState
 		// object; hence, the presence of the factory.
 		factory := func(state interpreter.EvalState) (Program, error) {
-			decorators = append(decorators, interpreter.ExhaustiveEval(state))
+			decs := append(decorators, interpreter.ExhaustiveEval(state))
 			clone := &prog{
 				evalOpts:    p.evalOpts,
 				defaultVars: p.defaultVars,
 				env:         e,
 				dispatcher:  disp,
 				interpreter: interp}
-			return initInterpretable(clone, ast, decorators)
+			return initInterpretable(clone, ast, decs)
 		}
 		return &progGen{factory: factory}, nil
 	}
@@ -134,14 +134,14 @@ func newProgram(e *env, ast Ast, opts ...ProgramOption) (Program, error) {
 	// featured than the ExhaustiveEval decorator.
 	if p.evalOpts&OptTrackState == OptTrackState {
 		factory := func(state interpreter.EvalState) (Program, error) {
-			decorators = append(decorators, interpreter.TrackState(state))
+			decs := append(decorators, interpreter.TrackState(state))
 			clone := &prog{
 				evalOpts:    p.evalOpts,
 				defaultVars: p.defaultVars,
 				env:         e,
 				dispatcher:  disp,
 				interpreter: interp}
-			return initInterpretable(clone, ast, decorators)
+			return initInterpretable(clone, ast, decs)
 		}
 		return &progGen{factory: factory}, nil
 	}
