@@ -110,8 +110,9 @@ func Test_ExampleWithBuiltins(t *testing.T) {
 	if err != nil {
 		t.Fatalf("program creation error: %s\n", err)
 	}
+
 	// If the Eval() call were provided with cel.EvalOptions(OptTrackState) the details response
-	// (2nd return) would be non-nill
+	// (2nd return) would be non-nil.
 	out, _, err := prg.Eval(Vars(map[string]interface{}{
 		"i":   "CEL",
 		"you": "world"}))
@@ -143,7 +144,7 @@ func Test_DisableStandardEnv(t *testing.T) {
 		c, _ := e.Check(p)
 		prg, _ := e.Program(c)
 		out, _, _ := prg.Eval(Vars(map[string]interface{}{"a.b.c": true}))
-		if !out.Equal(types.True).(types.Bool) {
+		if out != types.True {
 			t.Errorf("Got '%v', wanted 'true'", out.Value())
 		}
 	})
@@ -189,7 +190,7 @@ func Test_CustomTypes(t *testing.T) {
 			},
 		},
 	}}))
-	if !out.Equal(types.True).(types.Bool) {
+	if out != types.True {
 		t.Errorf("Got '%v', wanted 'true'", out.Value())
 	}
 }
@@ -283,7 +284,7 @@ func Test_EvalOptions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("runtime error: %s\n", err)
 	}
-	if out.Equal(types.True) != types.True {
+	if out != types.True {
 		t.Errorf("Got '%v', expected 'true'", out.Value())
 	}
 
@@ -295,7 +296,7 @@ func Test_EvalOptions(t *testing.T) {
 		t.Error("Got not found, wanted evaluation of left hand side expression.")
 		return
 	}
-	if lhsVal.Equal(types.True) != types.True {
+	if lhsVal != types.True {
 		t.Errorf("Got '%v', expected 'true'", lhsVal)
 	}
 	rhsVal, found := s.Value(p.Expr().GetCallExpr().GetArgs()[1].Id)
@@ -303,7 +304,7 @@ func Test_EvalOptions(t *testing.T) {
 		t.Error("Got not found, wanted evaluation of right hand side expression.")
 		return
 	}
-	if rhsVal.Equal(types.True) != types.True {
+	if rhsVal != types.True {
 		t.Errorf("Got '%v', expected 'true'", rhsVal)
 	}
 }
@@ -324,28 +325,19 @@ func Benchmark_EvalOptions(b *testing.B) {
 		},
 	})
 
-	b.Run("track-state", func(bb *testing.B) {
-		prg, _ := e.Program(cast, EvalOptions(OptTrackState))
-		b.ResetTimer()
-		b.ReportAllocs()
-		for i := 0; i < bb.N; i++ {
-			prg.Eval(vars)
-		}
-	})
-	b.Run("exhaustive-eval", func(bb *testing.B) {
-		prg, _ := e.Program(cast, EvalOptions(OptExhaustiveEval))
-		b.ResetTimer()
-		b.ReportAllocs()
-		for i := 0; i < bb.N; i++ {
-			prg.Eval(vars)
-		}
-	})
-	b.Run("fold-constants", func(bb *testing.B) {
-		prg, _ := e.Program(cast, EvalOptions(OptFoldConstants))
-		b.ResetTimer()
-		b.ReportAllocs()
-		for i := 0; i < bb.N; i++ {
-			prg.Eval(vars)
-		}
-	})
+	opts := map[string]EvalOption{
+		"track-state":     OptTrackState,
+		"exhaustive-eval": OptExhaustiveEval,
+		"fold-constants":  OptFoldConstants,
+	}
+	for k, opt := range opts {
+		b.Run(k, func(bb *testing.B) {
+			prg, _ := e.Program(cast, EvalOptions(opt))
+			b.ResetTimer()
+			b.ReportAllocs()
+			for i := 0; i < bb.N; i++ {
+				prg.Eval(vars)
+			}
+		})
+	}
 }

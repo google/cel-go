@@ -168,15 +168,15 @@ type EvalOption int
 
 const (
 	// OptTrackState will cause the runtime to return an immutable EvalState value in the Result.
-	OptTrackState EvalOption = iota + 1
+	OptTrackState EvalOption = 1 << iota
 
 	// OptExhaustiveEval causes the runtime to disable short-circuits and track state.
-	OptExhaustiveEval EvalOption = OptTrackState | iota<<1
+	OptExhaustiveEval EvalOption = 1<<iota | OptTrackState
 
 	// OptFoldConstants evaluates functions and operators with constants as arguments at program
 	// creation time. This flag is useful when the expression will be evaluated repeatedly against
 	// a series of different inputs.
-	OptFoldConstants EvalOption = iota << 1
+	OptFoldConstants EvalOption = 1 << iota
 )
 
 // EvalOptions sets one or more evaluation options which may affect the evaluation or Result.
