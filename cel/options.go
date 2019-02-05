@@ -168,7 +168,7 @@ type EvalOption int
 
 const (
 	// OptTrackState will cause the runtime to return an immutable EvalState value in the Result.
-	OptTrackState EvalOption = iota << 1
+	OptTrackState EvalOption = iota + 1
 
 	// OptExhaustiveEval causes the runtime to disable short-circuits and track state.
 	OptExhaustiveEval EvalOption = OptTrackState | iota<<1
