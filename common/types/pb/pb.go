@@ -34,24 +34,18 @@ import (
 
 // map from file / message / enum name to file description.
 type PbDb struct {
-	fileDescriptorMap    map[string]*FileDescription
 	revFileDescriptorMap map[string]*FileDescription
 }
 
 var (
 	DefaultPbDb = &PbDb{
-		fileDescriptorMap:	make(map[string]*FileDescription),
 		revFileDescriptorMap:	make(map[string]*FileDescription),
 	}
 )
 
 func NewPbDb() *PbDb {
 	pbdb := &PbDb{
-		fileDescriptorMap:	make(map[string]*FileDescription),
 		revFileDescriptorMap:	make(map[string]*FileDescription),
-	}
-	for k,v := range DefaultPbDb.fileDescriptorMap {
-		pbdb.fileDescriptorMap[k] = v
 	}
 	for k,v := range DefaultPbDb.revFileDescriptorMap {
 		pbdb.revFileDescriptorMap[k] = v
@@ -111,18 +105,6 @@ func (pbdb *PbDb) describeFileInternal(fileDesc *descpb.FileDescriptorProto) (*F
 		desc:  fileDesc,
 		types: make(map[string]*TypeDescription),
 		enums: make(map[string]*EnumDescription)}
-	pbdb.fileDescriptorMap[fileDesc.GetName()] = fd
-
-	for _, dep := range fileDesc.Dependency {
-		if _, found := pbdb.fileDescriptorMap[dep]; !found {
-			nestedDesc, err := fileDescriptor(dep)
-			if err != nil {
-				panic(err)
-			}
-			pbdb.describeFileInternal(nestedDesc)
-		}
-	}
-
 	return fd, nil
 }
 
