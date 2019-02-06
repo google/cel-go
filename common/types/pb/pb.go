@@ -80,8 +80,8 @@ func (pbdb *PbDb) DescribeFile(message proto.Message) (*FileDescription, error) 
 		return nil, err
 	}
 	pkg := fd.Package()
-	pbdb.indexTypes(fd, pkg, fileDesc.MessageType)
-	pbdb.indexEnums(fd, pkg, fileDesc.EnumType)
+	fd.indexTypes(pkg, fileDesc.MessageType)
+	fd.indexEnums(pkg, fileDesc.EnumType)
 	return fd, nil
 }
 
@@ -107,6 +107,7 @@ func (pbdb *PbDb) DescribeValue(value proto.Message) (*TypeDescription, error) {
 
 func (pbdb *PbDb) describeFileInternal(fileDesc *descpb.FileDescriptorProto) (*FileDescription, error) {
 	fd := &FileDescription{
+		pbdb:  pbdb,
 		desc:  fileDesc,
 		types: make(map[string]*TypeDescription),
 		enums: make(map[string]*EnumDescription)}

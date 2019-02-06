@@ -23,6 +23,7 @@ import (
 // FileDescription holds a map of all types and enums declared within a .proto
 // file.
 type FileDescription struct {
+	pbdb  *PbDb
 	desc  *descpb.FileDescriptorProto
 	types map[string]*TypeDescription
 	enums map[string]*EnumDescription
@@ -73,7 +74,7 @@ func (fd *FileDescription) Package() string {
 	return fd.desc.GetPackage()
 }
 
-func (pbdb *PbDb) indexEnums(fd *FileDescription, pkg string, enumTypes []*descpb.EnumDescriptorProto) {
+func (fd *FileDescription) indexEnums(pkg string, enumTypes []*descpb.EnumDescriptorProto) {
 	for _, enumType := range enumTypes {
 		for _, enumValue := range enumType.Value {
 			enumValueName := fmt.Sprintf(
@@ -82,12 +83,12 @@ func (pbdb *PbDb) indexEnums(fd *FileDescription, pkg string, enumTypes []*descp
 				enumName: enumValueName,
 				file:     fd,
 				desc:     enumValue}
-			pbdb.revFileDescriptorMap[enumValueName] = fd
+			fd.pbdb.revFileDescriptorMap[enumValueName] = fd
 		}
 	}
 }
 
-func (pbdb *PbDb) indexTypes(fd *FileDescription, pkg string, msgTypes []*descpb.DescriptorProto) {
+func (fd *FileDescription) indexTypes(pkg string, msgTypes []*descpb.DescriptorProto) {
 	for _, msgType := range msgTypes {
 		msgName := fmt.Sprintf("%s.%s", pkg, msgType.GetName())
 		td := &TypeDescription{
@@ -97,9 +98,9 @@ func (pbdb *PbDb) indexTypes(fd *FileDescription, pkg string, msgTypes []*descpb
 			fields:       make(map[string]*FieldDescription),
 			fieldIndices: make(map[int][]*FieldDescription)}
 		fd.types[msgName] = td
-		pbdb.indexTypes(fd, msgName, msgType.NestedType)
-		pbdb.indexEnums(fd, msgName, msgType.EnumType)
-		pbdb.revFileDescriptorMap[msgName] = fd
+		fd.indexTypes(msgName, msgType.NestedType)
+		fd.indexEnums(msgName, msgType.EnumType)
+		fd.pbdb.revFileDescriptorMap[msgName] = fd
 	}
 }
 

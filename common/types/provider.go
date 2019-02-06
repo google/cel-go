@@ -92,7 +92,7 @@ func (p *protoTypeProvider) FindFieldType(t *exprpb.Type,
 			return nil, false
 		}
 		return &ref.FieldType{
-				Type:             p.pbdb.CheckedType(field),
+				Type:             field.CheckedType(),
 				SupportsPresence: field.SupportsPresence()},
 			true
 	}

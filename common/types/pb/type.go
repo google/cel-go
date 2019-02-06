@@ -114,7 +114,8 @@ func (td *TypeDescription) getFieldsInfo() (map[string]*FieldDescription,
 				}
 				desc := fieldDescMap[prop.OrigName]
 				fd := &FieldDescription{
-					desc:   desc,
+					tdesc:	td,
+					desc:	desc,
 					index:  i,
 					prop:   prop,
 					proto3: isProto3}
@@ -170,6 +171,7 @@ func (td *TypeDescription) getFieldsAtIndex(i int) []*FieldDescription {
 
 // FieldDescription holds metadata related to fields declared within a type.
 type FieldDescription struct {
+	tdesc     *TypeDescription
 	desc      *descpb.FieldDescriptorProto
 	index     int
 	prop      *proto.Properties
@@ -178,9 +180,9 @@ type FieldDescription struct {
 }
 
 // CheckedType returns the type-definition used at type-check time.
-func (pbdb *PbDb) CheckedType(fd *FieldDescription) *exprpb.Type {
-	if pbdb.IsMap(fd) {
-		td, _ := pbdb.DescribeType(fd.TypeName())
+func (fd *FieldDescription) CheckedType() *exprpb.Type {
+	if fd.IsMap() {
+		td, _ := fd.tdesc.file.pbdb.DescribeType(fd.TypeName())
 		key := td.getFieldsAtIndex(0)[0]
 		val := td.getFieldsAtIndex(1)[0]
 		return &exprpb.Type{
@@ -228,11 +230,11 @@ func (fd *FieldDescription) OneofType() reflect.Type {
 }
 
 // IsMap returns true if the field is of map type.
-func (pbdb *PbDb) IsMap(fd *FieldDescription) bool {
+func (fd *FieldDescription) IsMap() bool {
 	if !fd.IsRepeated() || !fd.IsMessage() {
 		return false
 	}
-	td, err := pbdb.DescribeType(fd.TypeName())
+	td, err := fd.tdesc.file.pbdb.DescribeType(fd.TypeName())
 	if err != nil {
 		return false
 	}

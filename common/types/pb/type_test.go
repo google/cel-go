@@ -83,7 +83,7 @@ func TestTypeDescription_Field(t *testing.T) {
 	if fd.IsOneof() {
 		t.Error("Field payload is listed as a oneof and it is not.")
 	}
-	if pbdb.IsMap(fd) {
+	if fd.IsMap() {
 		t.Error("Field 'payload' is listed as a map and it is not.")
 	}
 	if !fd.IsMessage() {
@@ -98,7 +98,7 @@ func TestTypeDescription_Field(t *testing.T) {
 	if fd.Index() != 1 {
 		t.Error("Field 'payload' was fetched at index 1, but not listed there.")
 	}
-	if !proto.Equal(pbdb.CheckedType(fd), &exprpb.Type{
+	if !proto.Equal(fd.CheckedType(), &exprpb.Type{
 		TypeKind: &exprpb.Type_MessageType{
 			MessageType: "google.expr.proto3.test.TestAllTypes"}}) {
 		t.Error("Field 'payload' had an unexpected checked type.")
