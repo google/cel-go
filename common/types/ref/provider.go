@@ -56,6 +56,10 @@ type TypeProvider interface {
 	// buffer FileDescriptor.
 	RegisterDescriptor(fileDesc *descpb.FileDescriptorProto) error
 
+	// RegisterMessage registers a protocol buffer message
+	// and its dependencies.
+	RegisterMessage(message proto.Message) error
+
 	// RegisterType registers a type value with the provider which ensures the
 	// provider is aware of how to map the type to an identifier.
 	//

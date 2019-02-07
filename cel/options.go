@@ -19,8 +19,6 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cel-go/common/packages"
-	"github.com/google/cel-go/common/types"
-	"github.com/google/cel-go/common/types/pb"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter"
 	"github.com/google/cel-go/interpreter/functions"
@@ -117,15 +115,9 @@ func Types(addTypes ...interface{}) EnvOption {
 		for _, t := range addTypes {
 			switch t.(type) {
 			case proto.Message:
-				fd, err := e.types.pbdb.DescribeFile(t.(proto.Message))
+				err := e.types.RegisterMessage(t.(proto.Message))
 				if err != nil {
 					return nil, err
-				}
-				for _, typeName := range fd.GetTypeNames() {
-					err := e.types.RegisterType(types.NewObjectTypeValue(typeName))
-					if err != nil {
-						return nil, err
-					}
 				}
 			case ref.Type:
 				err := e.types.RegisterType(t.(ref.Type))

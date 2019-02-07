@@ -167,8 +167,29 @@ func (p *protoTypeProvider) NewValue(typeName string, fields map[string]ref.Val)
 }
 
 func (p *protoTypeProvider) RegisterDescriptor(fileDesc *descpb.FileDescriptorProto) error {
-	_, err := p.pbdb.DescribeDescriptor(fileDesc)
-	return err
+	fd, err := p.pbdb.DescribeDescriptor(fileDesc)
+	if err != nil {
+		return err
+	}
+	return p.registerAllTypes(fd)
+}
+
+func (p *protoTypeProvider) RegisterMessage(message proto.Message) error {
+	fd, err := p.pbdb.DescribeFile(message)
+	if err != nil {
+		return err
+	}
+	return p.registerAllTypes(fd)
+}
+
+func (p *protoTypeProvider) registerAllTypes(fd *pb.FileDescription) error {
+	for _, typeName := range fd.GetTypeNames() {
+		err := p.RegisterType(NewObjectTypeValue(typeName))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (p *protoTypeProvider) RegisterType(types ...ref.Type) error {
