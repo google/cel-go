@@ -19,12 +19,13 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/google/cel-go/common/types/pb"
 	"github.com/google/cel-go/common/types/ref"
 
+	descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
 	anypb "github.com/golang/protobuf/ptypes/any"
 	dpb "github.com/golang/protobuf/ptypes/duration"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 	tpb "github.com/golang/protobuf/ptypes/timestamp"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
@@ -122,6 +123,10 @@ func (p *protoTypeProvider) FindType(typeName string) (*exprpb.Type, bool) {
 					MessageType: typeName}}}}, true
 }
 
+func (p *protoTypeProvider) NewObject(value proto.Message) ref.Val {
+	return newObjectFromPbDb(value, p.pbdb)
+}
+
 func (p *protoTypeProvider) NewValue(typeName string, fields map[string]ref.Val) ref.Val {
 	td, err := p.pbdb.DescribeType(typeName)
 	if err != nil {
@@ -159,6 +164,11 @@ func (p *protoTypeProvider) NewValue(typeName string, fields map[string]ref.Val)
 		refField.Set(reflect.ValueOf(fieldValue))
 	}
 	return NewObject(value.Interface().(proto.Message))
+}
+
+func (p *protoTypeProvider) RegisterDescriptor(fileDesc *descpb.FileDescriptorProto) error {
+	_, err := p.pbdb.DescribeDescriptor(fileDesc)
+	return err
 }
 
 func (p *protoTypeProvider) RegisterType(types ...ref.Type) error {

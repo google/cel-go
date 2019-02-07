@@ -15,6 +15,9 @@
 package ref
 
 import (
+	"github.com/golang/protobuf/proto"
+
+	descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
@@ -40,9 +43,18 @@ type TypeProvider interface {
 	// Used during type-checking only.
 	FindFieldType(t *exprpb.Type, fieldName string) (*FieldType, bool)
 
+	// NewObject returns an object based on a proto.Message value which
+	// handles conversion between protobuf type values and expression
+	// type values.  Objects support indexing and iteration.
+	NewObject(value proto.Message) Val
+
 	// NewValue creates a new type value from a qualified name and a map of
 	// field initializers.
 	NewValue(typeName string, fields map[string]Val) Val
+
+	// RegisterDescriptor registers the contents of a protocol
+	// buffer FileDescriptor.
+	RegisterDescriptor(fileDesc *descpb.FileDescriptorProto) error
 
 	// RegisterType registers a type value with the provider which ensures the
 	// provider is aware of how to map the type to an identifier.

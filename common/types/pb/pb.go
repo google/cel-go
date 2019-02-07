@@ -62,13 +62,7 @@ func (pbdb *PbDb) DescribeEnum(enumName string) (*EnumDescription, error) {
 	return nil, fmt.Errorf("unrecognized enum '%s'", enumName)
 }
 
-// DescribeFile takes a protocol buffer message and indexes all of the message
-// types and enum values contained within the message's file descriptor.
-func (pbdb *PbDb) DescribeFile(message proto.Message) (*FileDescription, error) {
-	if fd, found := pbdb.revFileDescriptorMap[proto.MessageName(message)]; found {
-		return fd, nil
-	}
-	fileDesc, _ := descriptor.ForMessage(message.(descriptor.Message))
+func (pbdb *PbDb) DescribeDescriptor(fileDesc *descpb.FileDescriptorProto) (*FileDescription, error) {
 	fd, err := pbdb.describeFileInternal(fileDesc)
 	if err != nil {
 		return nil, err
@@ -77,6 +71,16 @@ func (pbdb *PbDb) DescribeFile(message proto.Message) (*FileDescription, error) 
 	fd.indexTypes(pkg, fileDesc.MessageType)
 	fd.indexEnums(pkg, fileDesc.EnumType)
 	return fd, nil
+}
+
+// DescribeFile takes a protocol buffer message and indexes all of the message
+// types and enum values contained within the message's file descriptor.
+func (pbdb *PbDb) DescribeFile(message proto.Message) (*FileDescription, error) {
+	if fd, found := pbdb.revFileDescriptorMap[proto.MessageName(message)]; found {
+		return fd, nil
+	}
+	fileDesc, _ := descriptor.ForMessage(message.(descriptor.Message))
+	return pbdb.DescribeDescriptor(fileDesc)
 }
 
 // DescribeType provides a TypeDescription given a qualified type name.
