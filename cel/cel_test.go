@@ -15,16 +15,21 @@
 package cel
 
 import (
+	"bytes"
+	"compress/gzip"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"testing"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 	"github.com/google/cel-go/interpreter/functions"
 
+	descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
@@ -192,6 +197,57 @@ func Test_CustomTypes(t *testing.T) {
 	}}))
 	if out != types.True {
 		t.Errorf("Got '%v', wanted 'true'", out.Value())
+	}
+}
+
+func Test_IsolatedTypes(t *testing.T) {
+	src := `expr == Expr{id: 2,
+		call_expr: Expr.Call{
+			function: "_==_",
+			args: [
+				Expr{id: 1, ident_expr: Expr.Ident{ name: "a" }},
+				Expr{id: 3, ident_expr: Expr.Ident{ name: "b" }}]
+		}}`
+	gzipped := proto.FileDescriptor("google/api/expr/v1alpha1/syntax.proto")
+	r, err := gzip.NewReader(bytes.NewReader(gzipped))
+	if err != nil {
+		t.Fatal(err)
+	}
+	unzipped, err := ioutil.ReadAll(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fd := &descpb.FileDescriptorProto{}
+	if err := proto.Unmarshal(unzipped, fd); err != nil {
+		t.Fatalf("bad gzipped descriptor: %v", err)
+	}
+
+	e, err := NewEnv(
+		Container("google.api.expr.v1alpha1"),
+		IsolateTypes(),
+		Types(fd),
+		Declarations(
+			decls.NewIdent("expr",
+				decls.NewObjectType("google.api.expr.v1alpha1.Expr"), nil)))
+	if err != nil {
+		t.Error(err)
+	}
+
+	p, _ := e.Parse(src)
+	_, iss := e.Check(p)
+	if iss != nil && iss.Err() != nil {
+		t.Error(iss.Err())
+	}
+
+	// Ensure that isolated types don't leak through.
+	e2, _ := NewEnv(
+		Declarations(
+			decls.NewIdent("expr",
+				decls.NewObjectType("google.api.expr.v1alpha1.Expr"), nil)))
+	p2, _ := e2.Parse(src)
+	_, iss = e2.Check(p2)
+	if iss == nil || iss.Err() == nil {
+		t.Errorf("Wanted check failure for unknown message.")
 	}
 }
 
