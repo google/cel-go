@@ -32,7 +32,7 @@ import (
 
 type protoTypeProvider struct {
 	revTypeMap map[string]ref.Type
-	pbdb *pb.PbDb
+	pbdb       *pb.PbDb
 }
 
 // NewProvider accepts a list of proto message instances and returns a type
@@ -40,8 +40,8 @@ type protoTypeProvider struct {
 // message that proto depends upon in its FileDescriptor.
 func NewProvider(types ...proto.Message) ref.TypeProvider {
 	p := &protoTypeProvider{
-		revTypeMap:	make(map[string]ref.Type),
-		pbdb:		pb.DefaultPbDb,
+		revTypeMap: make(map[string]ref.Type),
+		pbdb:       pb.DefaultPbDb,
 	}
 	p.RegisterType(
 		BoolType,

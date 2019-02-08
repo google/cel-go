@@ -209,18 +209,18 @@ func Test_IsolatedTypes(t *testing.T) {
 				Expr{id: 3, ident_expr: Expr.Ident{ name: "b" }}]
 		}}`
 	gzipped := proto.FileDescriptor("google/api/expr/v1alpha1/syntax.proto")
-        r, err := gzip.NewReader(bytes.NewReader(gzipped))
-        if err != nil {
-                t.Fatal(err)
-        }
-        unzipped, err := ioutil.ReadAll(r)
-        if err != nil {
-                t.Fatal(err)
-        }
-        fd := &descpb.FileDescriptorProto{}
-        if err := proto.Unmarshal(unzipped, fd); err != nil {
-                t.Fatalf("bad gzipped descriptor: %v", err)
-        }
+	r, err := gzip.NewReader(bytes.NewReader(gzipped))
+	if err != nil {
+		t.Fatal(err)
+	}
+	unzipped, err := ioutil.ReadAll(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fd := &descpb.FileDescriptorProto{}
+	if err := proto.Unmarshal(unzipped, fd); err != nil {
+		t.Fatalf("bad gzipped descriptor: %v", err)
+	}
 
 	e, err := NewEnv(
 		Container("google.api.expr.v1alpha1"),
@@ -244,7 +244,7 @@ func Test_IsolatedTypes(t *testing.T) {
 		Declarations(
 			decls.NewIdent("expr",
 				decls.NewObjectType("google.api.expr.v1alpha1.Expr"), nil)))
-	p2, _ :=  e2.Parse(src)
+	p2, _ := e2.Parse(src)
 	_, iss = e2.Check(p2)
 	if iss == nil || iss.Err() == nil {
 		t.Errorf("Wanted check failure for unknown message.")

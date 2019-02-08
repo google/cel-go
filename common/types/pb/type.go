@@ -114,8 +114,8 @@ func (td *TypeDescription) getFieldsInfo() (map[string]*FieldDescription,
 				}
 				desc := fieldDescMap[prop.OrigName]
 				fd := &FieldDescription{
-					tdesc:	td,
-					desc:	desc,
+					tdesc:  td,
+					desc:   desc,
 					index:  i,
 					prop:   prop,
 					proto3: isProto3}

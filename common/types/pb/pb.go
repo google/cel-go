@@ -39,15 +39,15 @@ type PbDb struct {
 
 var (
 	DefaultPbDb = &PbDb{
-		revFileDescriptorMap:	make(map[string]*FileDescription),
+		revFileDescriptorMap: make(map[string]*FileDescription),
 	}
 )
 
 func NewPbDb() *PbDb {
 	pbdb := &PbDb{
-		revFileDescriptorMap:	make(map[string]*FileDescription),
+		revFileDescriptorMap: make(map[string]*FileDescription),
 	}
-	for k,v := range DefaultPbDb.revFileDescriptorMap {
+	for k, v := range DefaultPbDb.revFileDescriptorMap {
 		pbdb.revFileDescriptorMap[k] = v
 	}
 	return pbdb
