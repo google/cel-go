@@ -195,6 +195,43 @@ func Test_CustomTypes(t *testing.T) {
 	}
 }
 
+func Test_IsolatedTypes(t *testing.T) {
+	src := `expr == Expr{id: 2,
+		call_expr: Expr.Call{
+			function: "_==_",
+			args: [
+				Expr{id: 1, ident_expr: Expr.Ident{ name: "a" }},
+				Expr{id: 3, ident_expr: Expr.Ident{ name: "b" }}]
+		}}`
+	e, err := NewEnv(
+		Container("google.api.expr.v1alpha1"),
+		IsolateTypes(),
+		Types(&exprpb.Expr{}),
+		Declarations(
+			decls.NewIdent("expr",
+				decls.NewObjectType("google.api.expr.v1alpha1.Expr"), nil)))
+	if err != nil {
+		t.Error(err)
+	}
+
+	p, _ := e.Parse(src)
+	_, iss := e.Check(p)
+	if iss != nil && iss.Err() != nil {
+		t.Error(iss.Err())
+	}
+
+	// Ensure that isolated types don't leak through.
+	e2, _ := NewEnv(
+		Declarations(
+			decls.NewIdent("expr",
+				decls.NewObjectType("google.api.expr.v1alpha1.Expr"), nil)))
+	p2, _ :=  e2.Parse(src)
+	_, iss = e2.Check(p2)
+	if iss == nil || iss.Err() == nil {
+		t.Errorf("Wanted check failure for unknown message.")
+	}
+}
+
 func Test_GlobalVars(t *testing.T) {
 	mapStrDyn := decls.NewMapType(decls.String, decls.Dyn)
 	e, _ := NewEnv(

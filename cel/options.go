@@ -100,6 +100,17 @@ func Container(pkg string) EnvOption {
 	}
 }
 
+// IsolateTypes copies the global protobuf registry into a copy private
+// to this Env.  Subsequent Type() calls will modify the protobuf registry
+// in this Env only.  Note that privately-registered protobufs cannot
+// be instantiated with types.NewObject().
+func IsolateTypes() EnvOption {
+	return func(e *env) (*env, error) {
+		e.types.IsolateTypes()
+		return e, nil
+	}
+}
+
 // Types adds one or more type declarations to the environment, allowing for construction of
 // type-literals whose definitions are included in the common expression built-in set.
 //

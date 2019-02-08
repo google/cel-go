@@ -36,21 +36,9 @@ type protoObj struct {
 // NewObject returns an object based on a proto.Message value which handles
 // conversion between protobuf type values and expression type values.
 // Objects support indexing and iteration.
-// DEPRECATED: use ref.TypeProvider.NewObject() instead.
+// Note:  only uses default PbDb.
 func NewObject(value proto.Message) ref.Val {
 	typeDesc, err := pb.DefaultPbDb.DescribeValue(value)
-	if err != nil {
-		panic(err)
-	}
-	return &protoObj{
-		value:     value,
-		refValue:  reflect.ValueOf(value),
-		typeDesc:  typeDesc,
-		typeValue: NewObjectTypeValue(typeDesc.Name())}
-}
-
-func newObjectFromPbDb(value proto.Message, pbdb *pb.PbDb) ref.Val {
-	typeDesc, err := pbdb.DescribeValue(value)
 	if err != nil {
 		panic(err)
 	}

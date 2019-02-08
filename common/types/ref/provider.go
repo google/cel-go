@@ -43,10 +43,12 @@ type TypeProvider interface {
 	// Used during type-checking only.
 	FindFieldType(t *exprpb.Type, fieldName string) (*FieldType, bool)
 
-	// NewObject returns an object based on a proto.Message value which
-	// handles conversion between protobuf type values and expression
-	// type values.  Objects support indexing and iteration.
-	NewObject(value proto.Message) Val
+	// IsolateTypes copies the global protobuf registry into a copy
+	// private to this TypeProvider.  Subsequent Describe*() calls
+	// will modify the protobuf registry only in this TypeProvider.
+	// Note that privately-registered protobufs cannot be instantiated
+	// with types.NewObject().
+	IsolateTypes()
 
 	// NewValue creates a new type value from a qualified name and a map of
 	// field initializers.
