@@ -5,13 +5,13 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	testpb "github.com/google/cel-go/test/proto3pb"
+	"github.com/google/cel-go/test/proto3pb"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 func TestTypeDescription_FieldCount(t *testing.T) {
 	pbdb := NewDb()
-	td, err := pbdb.DescribeValue(&testpb.NestedTestAllTypes{})
+	td, err := pbdb.DescribeValue(&proto3pb.NestedTestAllTypes{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -63,7 +63,7 @@ func TestTypeDescription_WrapperNotInTypeInit(t *testing.T) {
 
 func TestTypeDescription_Field(t *testing.T) {
 	pbdb := NewDb()
-	td, err := pbdb.DescribeValue(&testpb.NestedTestAllTypes{})
+	td, err := pbdb.DescribeValue(&proto3pb.NestedTestAllTypes{})
 	if err != nil {
 		t.Error(err)
 	}
