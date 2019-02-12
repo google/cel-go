@@ -49,56 +49,56 @@ are any errors that need to be reported.
 
 ```go
 import(
-	"fmt"
-	"log"
+    "fmt"
+    "log"
 
-	"github.com/google/cel-go/cel"
-	"github.com/google/cel-go/checker/decls"
+    "github.com/google/cel-go/cel"
+    "github.com/google/cel-go/checker/decls"
 )
 
 func main() {
-	// Variables used within this expression environment.
-	decls := cel.Declarations(
-		decls.NewIdent("i", decls.String, nil),
-		decls.NewIdent("you", decls.String, nil))
-	env, err := cel.NewEnv(decls)
-	if err != nil {
-		log.Fatalf("environment creation error: %s\n", err)
-	}
+    // Variables used within this expression environment.
+    decls := cel.Declarations(
+        decls.NewIdent("i", decls.String, nil),
+        decls.NewIdent("you", decls.String, nil))
+    env, err := cel.NewEnv(decls)
+    if err != nil {
+        log.Fatalf("environment creation error: %s\n", err)
+    }
 
-	// Parse and type-check the expression.
-	//
-	// Detailed information about which issues/errors were encountered may be
-	// found within the `iss`, but a non-nil `iss.Err()` value will contain a
-	// detailed error string in human-readable form.
-	p, iss := env.Parse(`"Hello " + you + "! I'm " + i + "."`)
-	if iss != nil && iss.Err() != nil {
-		log.Fatalln(iss.Err())
-	}
-	c, iss := env.Check(p)
-	if iss != nil && iss.Err() != nil {
-		log.Fatalln(iss.Err())
-	}
+    // Parse and type-check the expression.
+    //
+    // Detailed information about which issues/errors were encountered may be
+    // found within the `iss`, but a non-nil `iss.Err()` value will contain a
+    // detailed error string in human-readable form.
+    p, iss := env.Parse(`"Hello " + you + "! I'm " + i + "."`)
+    if iss != nil && iss.Err() != nil {
+        log.Fatalln(iss.Err())
+    }
+    c, iss := env.Check(p)
+    if iss != nil && iss.Err() != nil {
+        log.Fatalln(iss.Err())
+    }
 
-	// Create the program, and evaluate it against some input.
-	prg, err := env.Program(c)
-	if err != nil {
-		log.Fatalf("program creation error: %s\n", err)
-	}
+    // Create the program, and evaluate it against some input.
+    prg, err := env.Program(c)
+    if err != nil {
+        log.Fatalf("program creation error: %s\n", err)
+    }
 
-	// Note, the second result, the EvalDetails will be non-nil when using
-	// either cel.OptTrackState or cel.OptExhaustiveEval (not shown). The
-	// details value holds information about the evaluation, rather than the
-	// output of the evaluation itself.
-	out, _, err := prg.Eval(cel.Vars(map[string]interface{}{
-		"i": "CEL",
-		"you": "world"}))
-	if err != nil {
-		log.Fatalf("runtime error: %s\n", err)
-	}
+    // Note, the second result, the EvalDetails will be non-nil when using
+    // either cel.OptTrackState or cel.OptExhaustiveEval (not shown). The
+    // details value holds information about the evaluation, rather than the
+    // output of the evaluation itself.
+    out, _, err := prg.Eval(cel.Vars(map[string]interface{}{
+        "i": "CEL",
+        "you": "world"}))
+    if err != nil {
+        log.Fatalf("runtime error: %s\n", err)
+    }
 
-	// Hello world! I'm CEL.
-	fmt.Println(out)
+    // Hello world! I'm CEL.
+    fmt.Println(out)
 }
 ```
 

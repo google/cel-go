@@ -32,29 +32,31 @@ import (
 	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
 )
 
-// map from file / message / enum name to file description.
-type PbDb struct {
+// Db maps from file / message / enum name to file description.
+type Db struct {
 	revFileDescriptorMap map[string]*FileDescription
 }
 
 var (
-	DefaultPbDb = &PbDb{
+	// DefaultDb used at evaluation time or unless overridden at check time.
+	DefaultDb = &Db{
 		revFileDescriptorMap: make(map[string]*FileDescription),
 	}
 )
 
-func NewPbDb() *PbDb {
-	pbdb := &PbDb{
+// NewDb creates a new Db with an empty type name to file description map.
+func NewDb() *Db {
+	pbdb := &Db{
 		revFileDescriptorMap: make(map[string]*FileDescription),
 	}
-	for k, v := range DefaultPbDb.revFileDescriptorMap {
+	for k, v := range DefaultDb.revFileDescriptorMap {
 		pbdb.revFileDescriptorMap[k] = v
 	}
 	return pbdb
 }
 
 // DescribeEnum takes a qualified enum name and returns an EnumDescription.
-func (pbdb *PbDb) DescribeEnum(enumName string) (*EnumDescription, error) {
+func (pbdb *Db) DescribeEnum(enumName string) (*EnumDescription, error) {
 	enumName = sanitizeProtoName(enumName)
 	if fd, found := pbdb.revFileDescriptorMap[enumName]; found {
 		return fd.GetEnumDescription(enumName)
@@ -62,7 +64,8 @@ func (pbdb *PbDb) DescribeEnum(enumName string) (*EnumDescription, error) {
 	return nil, fmt.Errorf("unrecognized enum '%s'", enumName)
 }
 
-func (pbdb *PbDb) DescribeDescriptor(fileDesc *descpb.FileDescriptorProto) (*FileDescription, error) {
+// DescribeDescriptor produces a FileDescription from a FileDescriptorProto.
+func (pbdb *Db) DescribeDescriptor(fileDesc *descpb.FileDescriptorProto) (*FileDescription, error) {
 	fd, err := pbdb.describeFileInternal(fileDesc)
 	if err != nil {
 		return nil, err
@@ -75,7 +78,7 @@ func (pbdb *PbDb) DescribeDescriptor(fileDesc *descpb.FileDescriptorProto) (*Fil
 
 // DescribeFile takes a protocol buffer message and indexes all of the message
 // types and enum values contained within the message's file descriptor.
-func (pbdb *PbDb) DescribeFile(message proto.Message) (*FileDescription, error) {
+func (pbdb *Db) DescribeFile(message proto.Message) (*FileDescription, error) {
 	if fd, found := pbdb.revFileDescriptorMap[proto.MessageName(message)]; found {
 		return fd, nil
 	}
@@ -84,7 +87,7 @@ func (pbdb *PbDb) DescribeFile(message proto.Message) (*FileDescription, error) 
 }
 
 // DescribeType provides a TypeDescription given a qualified type name.
-func (pbdb *PbDb) DescribeType(typeName string) (*TypeDescription, error) {
+func (pbdb *Db) DescribeType(typeName string) (*TypeDescription, error) {
 	typeName = sanitizeProtoName(typeName)
 	if fd, found := pbdb.revFileDescriptorMap[typeName]; found {
 		return fd.GetTypeDescription(typeName)
@@ -94,7 +97,7 @@ func (pbdb *PbDb) DescribeType(typeName string) (*TypeDescription, error) {
 
 // DescribeValue takes an instance of a protocol buffer message and returns
 // the associated TypeDescription.
-func (pbdb *PbDb) DescribeValue(value proto.Message) (*TypeDescription, error) {
+func (pbdb *Db) DescribeValue(value proto.Message) (*TypeDescription, error) {
 	fd, err := pbdb.DescribeFile(value)
 	if err != nil {
 		return nil, err
@@ -103,7 +106,7 @@ func (pbdb *PbDb) DescribeValue(value proto.Message) (*TypeDescription, error) {
 	return fd.GetTypeDescription(typeName)
 }
 
-func (pbdb *PbDb) describeFileInternal(fileDesc *descpb.FileDescriptorProto) (*FileDescription, error) {
+func (pbdb *Db) describeFileInternal(fileDesc *descpb.FileDescriptorProto) (*FileDescription, error) {
 	fd := &FileDescription{
 		pbdb:  pbdb,
 		desc:  fileDesc,
@@ -136,9 +139,9 @@ func init() {
 	// The following subset of message types is enough to ensure that all well-known types can
 	// resolved in the runtime, since describing the value results in describing the whole file
 	// where the message is declared.
-	DefaultPbDb.DescribeValue(&anypb.Any{})
-	DefaultPbDb.DescribeValue(&durpb.Duration{})
-	DefaultPbDb.DescribeValue(&tspb.Timestamp{})
-	DefaultPbDb.DescribeValue(&structpb.Value{})
-	DefaultPbDb.DescribeValue(&wrapperspb.BoolValue{})
+	DefaultDb.DescribeValue(&anypb.Any{})
+	DefaultDb.DescribeValue(&durpb.Duration{})
+	DefaultDb.DescribeValue(&tspb.Timestamp{})
+	DefaultDb.DescribeValue(&structpb.Value{})
+	DefaultDb.DescribeValue(&wrapperspb.BoolValue{})
 }

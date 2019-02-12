@@ -23,7 +23,7 @@ import (
 // FileDescription holds a map of all types and enums declared within a .proto
 // file.
 type FileDescription struct {
-	pbdb  *PbDb
+	pbdb  *Db
 	desc  *descpb.FileDescriptorProto
 	types map[string]*TypeDescription
 	enums map[string]*EnumDescription
