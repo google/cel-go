@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package server defines the gRPC conformance test server for CEL Go.
 package server
 
 import (

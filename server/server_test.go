@@ -161,7 +161,7 @@ func TestCheck(t *testing.T) {
 // TestEval tests the Eval method.
 func TestEval(t *testing.T) {
 	req := exprpb.EvalRequest{
-		ExprKind: &exprpb.EvalRequest_ParsedExpr{parsed},
+		ExprKind: &exprpb.EvalRequest_ParsedExpr{ParsedExpr: parsed},
 	}
 	res, err := globals.client.Eval(context.Background(), &req)
 	if err != nil {
@@ -232,7 +232,7 @@ func TestFullUp(t *testing.T) {
 	}
 
 	ereq := exprpb.EvalRequest{
-		ExprKind: &exprpb.EvalRequest_CheckedExpr{checkedExpr},
+		ExprKind: &exprpb.EvalRequest_CheckedExpr{CheckedExpr: checkedExpr},
 		Bindings: map[string]*exprpb.ExprValue{
 			"x": exprValueInt64(1),
 			"y": exprValueInt64(2),
@@ -264,8 +264,8 @@ func TestFullUp(t *testing.T) {
 func exprValueInt64(x int64) *exprpb.ExprValue {
 	return &exprpb.ExprValue{
 		Kind: &exprpb.ExprValue_Value{
-			&exprpb.Value{
-				Kind: &exprpb.Value_Int64Value{x},
+			Value: &exprpb.Value{
+				Kind: &exprpb.Value_Int64Value{Int64Value: x},
 			},
 		},
 	}
@@ -313,7 +313,7 @@ func fullPipeline(t *testing.T, source string) (*exprpb.ParseResponse, *exprpb.C
 
 	// Eval
 	ereq := exprpb.EvalRequest{
-		ExprKind: &exprpb.EvalRequest_CheckedExpr{checkedExpr},
+		ExprKind: &exprpb.EvalRequest_CheckedExpr{CheckedExpr: checkedExpr},
 	}
 	eres, err := globals.client.Eval(context.Background(), &ereq)
 	if err != nil {

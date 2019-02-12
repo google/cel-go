@@ -10,7 +10,7 @@ import (
 )
 
 func TestTypeDescription_FieldCount(t *testing.T) {
-	pbdb := NewPbDb()
+	pbdb := NewDb()
 	td, err := pbdb.DescribeValue(&testpb.NestedTestAllTypes{})
 	if err != nil {
 		t.Error(err)
@@ -22,7 +22,7 @@ func TestTypeDescription_FieldCount(t *testing.T) {
 }
 
 func TestTypeDescription_Any(t *testing.T) {
-	pbdb := NewPbDb()
+	pbdb := NewDb()
 	_, err := pbdb.DescribeType(".google.protobuf.Any")
 	if err != nil {
 		t.Error(err)
@@ -30,7 +30,7 @@ func TestTypeDescription_Any(t *testing.T) {
 }
 
 func TestTypeDescription_Json(t *testing.T) {
-	pbdb := NewPbDb()
+	pbdb := NewDb()
 	_, err := pbdb.DescribeType(".google.protobuf.Value")
 	if err != nil {
 		t.Error(err)
@@ -38,7 +38,7 @@ func TestTypeDescription_Json(t *testing.T) {
 }
 
 func TestTypeDescription_JsonNotInTypeInit(t *testing.T) {
-	pbdb := NewPbDb()
+	pbdb := NewDb()
 	_, err := pbdb.DescribeType(".google.protobuf.ListValue")
 	if err != nil {
 		t.Error(err)
@@ -46,7 +46,7 @@ func TestTypeDescription_JsonNotInTypeInit(t *testing.T) {
 }
 
 func TestTypeDescription_Wrapper(t *testing.T) {
-	pbdb := NewPbDb()
+	pbdb := NewDb()
 	_, err := pbdb.DescribeType(".google.protobuf.BoolValue")
 	if err != nil {
 		t.Error(err)
@@ -54,7 +54,7 @@ func TestTypeDescription_Wrapper(t *testing.T) {
 }
 
 func TestTypeDescription_WrapperNotInTypeInit(t *testing.T) {
-	pbdb := NewPbDb()
+	pbdb := NewDb()
 	_, err := pbdb.DescribeType(".google.protobuf.BytesValue")
 	if err != nil {
 		t.Error(err)
@@ -62,7 +62,7 @@ func TestTypeDescription_WrapperNotInTypeInit(t *testing.T) {
 }
 
 func TestTypeDescription_Field(t *testing.T) {
-	pbdb := NewPbDb()
+	pbdb := NewDb()
 	td, err := pbdb.DescribeValue(&testpb.NestedTestAllTypes{})
 	if err != nil {
 		t.Error(err)

@@ -32,7 +32,7 @@ import (
 
 type protoTypeProvider struct {
 	revTypeMap map[string]ref.Type
-	pbdb       *pb.PbDb
+	pbdb       *pb.Db
 }
 
 // NewProvider accepts a list of proto message instances and returns a type
@@ -41,7 +41,7 @@ type protoTypeProvider struct {
 func NewProvider(types ...proto.Message) ref.TypeProvider {
 	p := &protoTypeProvider{
 		revTypeMap: make(map[string]ref.Type),
-		pbdb:       pb.DefaultPbDb,
+		pbdb:       pb.DefaultDb,
 	}
 	p.RegisterType(
 		BoolType,
@@ -124,7 +124,7 @@ func (p *protoTypeProvider) FindType(typeName string) (*exprpb.Type, bool) {
 }
 
 func (p *protoTypeProvider) IsolateTypes() {
-	p.pbdb = pb.NewPbDb()
+	p.pbdb = pb.NewDb()
 }
 
 func (p *protoTypeProvider) NewValue(typeName string, fields map[string]ref.Val) ref.Val {
