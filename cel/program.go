@@ -203,8 +203,9 @@ func (gen *progGen) Eval(vars interpreter.Activation) (ref.Val, EvalDetails, err
 
 	// Evaluate the input, returning the result and the 'state' as EvalDetails.
 	v, _, err := p.Eval(vars)
+	det := &evalDetails{state: state}
 	if err != nil {
-		return nil, nil, err
+		return nil, det, err
 	}
-	return v, &evalDetails{state: state}, nil
+	return v, det, nil
 }
