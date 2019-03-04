@@ -24,6 +24,7 @@ import (
 	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/parser"
 
+        descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
@@ -137,6 +138,35 @@ func Types(addTypes ...interface{}) EnvOption {
 				}
 			default:
 				return nil, fmt.Errorf("unsupported type: %T", t)
+			}
+		}
+		return e, nil
+	}
+}
+
+// TypeDescs adds type declarations for one or more protocol buffer
+// FileDescriptorProtos or FileDescriptorSets.  Note that types added
+// via descriptor will not be able to instantiate messages, and so are
+// only useful for Check() operations.
+func TypeDescs(descs ...interface{}) EnvOption {
+	return func(e *env) (*env, error) {
+		for _, d := range descs {
+			switch p := d.(type) {
+			case *descpb.FileDescriptorSet:
+				for _, fd := range p.File {
+					fmt.Println("Registering file %s", *fd.Name)
+					err := e.types.RegisterDescriptor(fd)
+					if err != nil {
+						return nil, err
+					}
+				}
+			case *descpb.FileDescriptorProto:
+				err := e.types.RegisterDescriptor(p)
+				if err != nil {
+					return nil, err
+				}
+			default:
+				return nil, fmt.Errorf("unsupported type descriptor: %T", d)
 			}
 		}
 		return e, nil
