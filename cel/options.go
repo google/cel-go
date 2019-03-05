@@ -154,7 +154,6 @@ func TypeDescs(descs ...interface{}) EnvOption {
 			switch p := d.(type) {
 			case *descpb.FileDescriptorSet:
 				for _, fd := range p.File {
-					fmt.Println("Registering file %s", *fd.Name)
 					err := e.types.RegisterDescriptor(fd)
 					if err != nil {
 						return nil, err
