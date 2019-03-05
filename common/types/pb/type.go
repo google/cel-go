@@ -125,7 +125,7 @@ func (td *TypeDescription) getFieldsInfo() (map[string]*FieldDescription,
 			for _, oneofProp := range fieldProps.OneofTypes {
 				desc := fieldDescMap[oneofProp.Prop.OrigName]
 				fd := &FieldDescription{
-					tdesc:  td,
+					tdesc:     td,
 					desc:      desc,
 					index:     oneofProp.Field,
 					prop:      oneofProp.Prop,

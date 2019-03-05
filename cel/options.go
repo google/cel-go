@@ -24,7 +24,7 @@ import (
 	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/parser"
 
-        descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
+	descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
