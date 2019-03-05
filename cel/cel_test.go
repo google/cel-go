@@ -15,8 +15,6 @@
 package cel
 
 import (
-	"bytes"
-	"compress/gzip"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -200,39 +198,28 @@ func Test_CustomTypes(t *testing.T) {
 	}
 }
 
-func Test_IsolatedTypes(t *testing.T) {
-	src := `expr == Expr{id: 2,
-		call_expr: Expr.Call{
-			function: "_==_",
-			args: [
-				Expr{id: 1, ident_expr: Expr.Ident{ name: "a" }},
-				Expr{id: 3, ident_expr: Expr.Ident{ name: "b" }}]
-		}}`
-	gzipped := proto.FileDescriptor("google/api/expr/v1alpha1/syntax.proto")
-	r, err := gzip.NewReader(bytes.NewReader(gzipped))
+func TestIsolatedTypes(t *testing.T) {
+	b, err := ioutil.ReadFile("testdata/team.fds")
 	if err != nil {
-		t.Fatal(err)
+		t.Fatal("Can't read fds file: ", err)
 	}
-	unzipped, err := ioutil.ReadAll(r)
-	if err != nil {
-		t.Fatal(err)
-	}
-	fd := &descpb.FileDescriptorProto{}
-	if err := proto.Unmarshal(unzipped, fd); err != nil {
-		t.Fatalf("bad gzipped descriptor: %v", err)
+	var fds descpb.FileDescriptorSet
+	if err = proto.Unmarshal(b, &fds); err != nil {
+		t.Fatal("Can't unmarshal descriptor data: ", err)
 	}
 
 	e, err := NewEnv(
-		Container("google.api.expr.v1alpha1"),
 		IsolateTypes(),
-		Types(fd),
+		TypeDescs(&fds),
 		Declarations(
-			decls.NewIdent("expr",
-				decls.NewObjectType("google.api.expr.v1alpha1.Expr"), nil)))
+			decls.NewIdent("myteam",
+				decls.NewObjectType("cel.testdata.Team"),
+				nil)))
 	if err != nil {
-		t.Error(err)
+		t.Fatal("Can't create env: ", err)
 	}
 
+	src := "myteam.members[0].name == 'Cyclops'"
 	p, _ := e.Parse(src)
 	_, iss := e.Check(p)
 	if iss != nil && iss.Err() != nil {
@@ -242,8 +229,9 @@ func Test_IsolatedTypes(t *testing.T) {
 	// Ensure that isolated types don't leak through.
 	e2, _ := NewEnv(
 		Declarations(
-			decls.NewIdent("expr",
-				decls.NewObjectType("google.api.expr.v1alpha1.Expr"), nil)))
+			decls.NewIdent("myteam",
+				decls.NewObjectType("cel.testdata.Team"),
+				nil)))
 	p2, _ := e2.Parse(src)
 	_, iss = e2.Check(p2)
 	if iss == nil || iss.Err() == nil {
