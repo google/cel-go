@@ -759,7 +759,7 @@ ERROR: <input>:1:6: Syntax error: mismatched input '<EOF>' expecting {'[', '{', 
 	},
 
 	{
-		I: `      '😁' in ['😁', '😑', '😦'] 
+		I: `      '😁' in ['😁', '😑', '😦']
 			&& in.😁`,
 		E: `ERROR: <input>:2:7: Syntax error: extraneous input 'in' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
 		|    && in.😁
@@ -852,6 +852,9 @@ func TestParse(t *testing.T) {
 	for i, tst := range testCases {
 		name := fmt.Sprintf("%d %s", i, tst.I)
 		t.Run(name, func(tt *testing.T) {
+			// Runs the tests in parallel to ensure that there are no data races
+			// due to shared mutable state across tests.
+			tt.Parallel()
 
 			src := common.NewTextSource(tst.I)
 			expression, errors := Parse(src)

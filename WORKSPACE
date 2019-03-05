@@ -30,7 +30,7 @@ go_repository(
 
 go_repository(
   name = "com_github_antlr",
-  commit = "763a1242b7f5fca2c7a06f671ebe757580dacfb2",
+  tag = "4.7.2",
   importpath = "github.com/antlr/antlr4",
 )
 
