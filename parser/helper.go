@@ -173,10 +173,6 @@ func (p *parserHelper) newComprehension(ctx interface{}, iterVar string,
 }
 
 func (p *parserHelper) newExpr(ctx interface{}) *exprpb.Expr {
-	exp, isExpr := ctx.(*exprpb.Expr)
-	if isExpr {
-		return exp
-	}
 	id, isID := ctx.(int64)
 	if isID {
 		return &exprpb.Expr{Id: id}
