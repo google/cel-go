@@ -120,7 +120,11 @@ func Container(pkg string) EnvOption {
 // be instantiated with types.NewObject().
 func IsolateTypes() EnvOption {
 	return func(e *env) (*env, error) {
-		e.types.IsolateTypes()
+		reg, isReg := e.types.(ref.TypeRegistry)
+		if !isReg {
+			return nil, fmt.Errorf("Type provider does not accept custom types: %T", e.types)
+		}
+		reg.IsolateTypes()
 		return e, nil
 	}
 }
@@ -137,15 +141,19 @@ func IsolateTypes() EnvOption {
 // Note: This option must be specified after the CustomTypeProvider option when used together.
 func Types(addTypes ...interface{}) EnvOption {
 	return func(e *env) (*env, error) {
+		reg, isReg := e.types.(ref.TypeRegistry)
+		if !isReg {
+			return nil, fmt.Errorf("Type provider does not accept custom types: %T", e.types)
+		}
 		for _, t := range addTypes {
 			switch t.(type) {
 			case proto.Message:
-				err := e.types.RegisterMessage(t.(proto.Message))
+				err := reg.RegisterMessage(t.(proto.Message))
 				if err != nil {
 					return nil, err
 				}
 			case ref.Type:
-				err := e.types.RegisterType(t.(ref.Type))
+				err := reg.RegisterType(t.(ref.Type))
 				if err != nil {
 					return nil, err
 				}
@@ -163,17 +171,21 @@ func Types(addTypes ...interface{}) EnvOption {
 // only useful for Check() operations.
 func TypeDescs(descs ...interface{}) EnvOption {
 	return func(e *env) (*env, error) {
+		reg, isReg := e.types.(ref.TypeRegistry)
+		if !isReg {
+			return nil, fmt.Errorf("Type provider does not accept custom types: %T", e.types)
+		}
 		for _, d := range descs {
 			switch p := d.(type) {
 			case *descpb.FileDescriptorSet:
 				for _, fd := range p.File {
-					err := e.types.RegisterDescriptor(fd)
+					err := reg.RegisterDescriptor(fd)
 					if err != nil {
 						return nil, err
 					}
 				}
 			case *descpb.FileDescriptorProto:
-				err := e.types.RegisterDescriptor(p)
+				err := reg.RegisterDescriptor(p)
 				if err != nil {
 					return nil, err
 				}

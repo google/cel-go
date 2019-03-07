@@ -11,7 +11,8 @@ import (
 
 func TestTypeDescription_FieldCount(t *testing.T) {
 	pbdb := NewDb()
-	td, err := pbdb.DescribeValue(&proto3pb.NestedTestAllTypes{})
+	pbdb.RegisterMessage(&proto3pb.NestedTestAllTypes{})
+	td, err := pbdb.DescribeType(proto.MessageName(&proto3pb.NestedTestAllTypes{}))
 	if err != nil {
 		t.Error(err)
 	}
@@ -63,10 +64,11 @@ func TestTypeDescription_WrapperNotInTypeInit(t *testing.T) {
 
 func TestTypeDescription_Field(t *testing.T) {
 	pbdb := NewDb()
-	td, err := pbdb.DescribeValue(&proto3pb.NestedTestAllTypes{})
+	_, err := pbdb.RegisterMessage(&proto3pb.NestedTestAllTypes{})
 	if err != nil {
 		t.Error(err)
 	}
+	td, err := pbdb.DescribeType(proto.MessageName(&proto3pb.NestedTestAllTypes{}))
 	fd, found := td.FieldByName("payload")
 	if !found {
 		t.Error("Field 'payload' not found")

@@ -8,7 +8,7 @@ import (
 
 func TestFileDescription_GetTypes(t *testing.T) {
 	pbdb := NewDb()
-	fd, err := pbdb.DescribeFile(&proto3pb.TestAllTypes{})
+	fd, err := pbdb.RegisterMessage(&proto3pb.TestAllTypes{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -49,7 +49,7 @@ func TestFileDescription_GetTypes(t *testing.T) {
 
 func TestFileDescription_GetEnumNames(t *testing.T) {
 	pbdb := NewDb()
-	fd, err := pbdb.DescribeFile(&proto3pb.TestAllTypes{})
+	fd, err := pbdb.RegisterMessage(&proto3pb.TestAllTypes{})
 	if err != nil {
 		t.Error(err)
 	}

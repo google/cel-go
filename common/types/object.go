@@ -38,9 +38,10 @@ type protoObj struct {
 // Objects support indexing and iteration.
 // Note:  only uses default Db.
 func NewObject(value proto.Message) ref.Val {
-	typeDesc, err := pb.DefaultDb.DescribeValue(value)
+	typeName := proto.MessageName(value)
+	typeDesc, err := pb.DefaultDb.DescribeType(typeName)
 	if err != nil {
-		panic(err)
+		return NewErr("unknown type: %s", typeName)
 	}
 	return &protoObj{
 		value:     value,

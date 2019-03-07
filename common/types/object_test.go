@@ -20,6 +20,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/google/cel-go/common/types/pb"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 	"github.com/google/cel-go/test"
@@ -32,6 +33,7 @@ func TestNewProtoObject(t *testing.T) {
 	parsedExpr := &exprpb.ParsedExpr{
 		SourceInfo: &exprpb.SourceInfo{
 			LineOffsets: []int32{1, 2, 3}}}
+	pb.DefaultDb.RegisterMessage(parsedExpr)
 	obj := NewObject(parsedExpr).(traits.Indexer)
 	si := obj.Get(String("source_info")).(traits.Indexer)
 	lo := si.Get(String("line_offsets")).(traits.Indexer)

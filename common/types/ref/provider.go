@@ -43,23 +43,24 @@ type TypeProvider interface {
 	// Used during type-checking only.
 	FindFieldType(t *exprpb.Type, fieldName string) (*FieldType, bool)
 
-	// IsolateTypes copies the global protobuf registry into a copy
-	// private to this TypeProvider.  Subsequent Describe*() calls
-	// will modify the protobuf registry only in this TypeProvider.
-	// Note that privately-registered protobufs cannot be instantiated
-	// with types.NewObject().
-	IsolateTypes()
-
 	// NewValue creates a new type value from a qualified name and a map of
 	// field initializers.
 	NewValue(typeName string, fields map[string]Val) Val
+}
 
-	// RegisterDescriptor registers the contents of a protocol
-	// buffer FileDescriptor.
+// TypeRegistry allows third-parties to registry custom types. Not all TypeProvider
+// implementations support type-customization, so these features are optional.
+type TypeRegistry interface {
+	// IsolateTypes copies the global protobuf registry into a copy private to this
+	// TypeProvider. Subsequent Describe*() calls will modify the protobuf registry
+	// only in this TypeProvider. Note that privately-registered protobufs cannot be
+	// instantiated with types.NewObject().
+	IsolateTypes()
+
+	// RegisterDescriptor registers the contents of a protocol buffer FileDescriptor.
 	RegisterDescriptor(fileDesc *descpb.FileDescriptorProto) error
 
-	// RegisterMessage registers a protocol buffer message
-	// and its dependencies.
+	// RegisterMessage registers a protocol buffer message and its dependencies.
 	RegisterMessage(message proto.Message) error
 
 	// RegisterType registers a type value with the provider which ensures the

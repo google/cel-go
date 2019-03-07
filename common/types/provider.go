@@ -59,7 +59,7 @@ func NewProvider(types ...proto.Message) ref.TypeProvider {
 		UintType)
 
 	for _, msgType := range types {
-		fd, err := p.pbdb.DescribeFile(msgType)
+		fd, err := p.pbdb.RegisterMessage(msgType)
 		if err != nil {
 			panic(err)
 		}
@@ -167,7 +167,7 @@ func (p *protoTypeProvider) NewValue(typeName string, fields map[string]ref.Val)
 }
 
 func (p *protoTypeProvider) RegisterDescriptor(fileDesc *descpb.FileDescriptorProto) error {
-	fd, err := p.pbdb.DescribeDescriptor(fileDesc)
+	fd, err := p.pbdb.RegisterDescriptor(fileDesc)
 	if err != nil {
 		return err
 	}
@@ -175,11 +175,19 @@ func (p *protoTypeProvider) RegisterDescriptor(fileDesc *descpb.FileDescriptorPr
 }
 
 func (p *protoTypeProvider) RegisterMessage(message proto.Message) error {
-	fd, err := p.pbdb.DescribeFile(message)
+	fd, err := p.pbdb.RegisterMessage(message)
 	if err != nil {
 		return err
 	}
 	return p.registerAllTypes(fd)
+}
+
+func (p *protoTypeProvider) RegisterType(types ...ref.Type) error {
+	for _, t := range types {
+		p.revTypeMap[t.TypeName()] = t
+	}
+	// TODO: generate an error when the type name is registered more than once.
+	return nil
 }
 
 func (p *protoTypeProvider) registerAllTypes(fd *pb.FileDescription) error {
@@ -189,14 +197,6 @@ func (p *protoTypeProvider) registerAllTypes(fd *pb.FileDescription) error {
 			return err
 		}
 	}
-	return nil
-}
-
-func (p *protoTypeProvider) RegisterType(types ...ref.Type) error {
-	for _, t := range types {
-		p.revTypeMap[t.TypeName()] = t
-	}
-	// TODO: generate an error when the type name is registered more than once.
 	return nil
 }
 

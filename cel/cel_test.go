@@ -278,7 +278,7 @@ func Test_CustomTypes(t *testing.T) {
 	}
 }
 
-func TestIsolatedTypes(t *testing.T) {
+func Test_IsolatedTypes(t *testing.T) {
 	b, err := ioutil.ReadFile("testdata/team.fds")
 	if err != nil {
 		t.Fatal("Can't read fds file: ", err)
