@@ -34,8 +34,10 @@ type jsonStruct struct {
 	*structpb.Struct
 }
 
-// NewJSONStruct creates a traits.Mapper implementation backed by a JSON struct
-// that has been encoded in protocol buffer form.
+// NewJSONStruct creates a traits.Mapper implementation backed by a JSON struct that has been
+// encoded in protocol buffer form.
+//
+// The `adapter` argument provides type adaptation capabilities from proto to CEL.
 func NewJSONStruct(adapter ref.TypeAdapter, st *structpb.Struct) traits.Mapper {
 	return &jsonStruct{TypeAdapter: adapter, Struct: st}
 }
@@ -148,7 +150,7 @@ func (m *jsonStruct) Iterator() traits.Iterator {
 		i++
 	}
 	return &jsonValueMapIterator{
-		baseIterator: &baseIterator{m.TypeAdapter},
+		baseIterator: &baseIterator{},
 		len:          len(keys),
 		mapKeys:      keys}
 }

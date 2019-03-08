@@ -39,13 +39,14 @@ type interpretablePlanner interface {
 // needs to be done once and may be semi-expensive to compute.
 func newPlanner(disp Dispatcher,
 	types ref.TypeProvider,
+	adapter ref.TypeAdapter,
 	pkg packages.Packager,
 	checked *exprpb.CheckedExpr,
 	decorators ...InterpretableDecorator) interpretablePlanner {
 	return &planner{
 		disp:       disp,
 		types:      types,
-		adapter:    types.(ref.TypeAdapter),
+		adapter:    adapter,
 		pkg:        pkg,
 		identMap:   make(map[string]Interpretable),
 		refMap:     checked.GetReferenceMap(),
@@ -59,12 +60,13 @@ func newPlanner(disp Dispatcher,
 // present in Select expressions are resolved lazily at evaluation time.
 func newUncheckedPlanner(disp Dispatcher,
 	types ref.TypeProvider,
+	adapter ref.TypeAdapter,
 	pkg packages.Packager,
 	decorators ...InterpretableDecorator) interpretablePlanner {
 	return &planner{
 		disp:       disp,
 		types:      types,
-		adapter:    types.(ref.TypeAdapter),
+		adapter:    adapter,
 		pkg:        pkg,
 		identMap:   make(map[string]Interpretable),
 		refMap:     make(map[int64]*exprpb.Reference),

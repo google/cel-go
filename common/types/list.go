@@ -58,7 +58,8 @@ func NewValueList(adapter ref.TypeAdapter, elems []ref.Val) traits.Lister {
 }
 
 // baseList points to a list containing elements of any type.
-// value is an array of native values, and refValue is its reflection object.
+// The `value` is an array of native values, and refValue is its reflection object.
+// The `ref.TypeAdapter` enables native type to CEL type conversions.
 type baseList struct {
 	ref.TypeAdapter
 	value    interface{}
@@ -91,8 +92,7 @@ func (l *baseList) Contains(elem ref.Val) ref.Val {
 }
 
 func (l *baseList) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
-	// JSON conversions are a special case since the 'native' type in this case
-	// actually a protocol buffer message rather than a list.
+	// JSON conversions are a special case since the 'native' type is a proto message.
 	if typeDesc == jsonValueType || typeDesc == jsonListValueType {
 		jsonValues, err :=
 			l.ConvertToNative(reflect.TypeOf([]*structpb.Value{}))
@@ -126,8 +126,7 @@ func (l *baseList) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	if otherElemKind == thisElemKind {
 		return l.value, nil
 	}
-	// Allow the element ConvertToNative() function to determine whether
-	// conversion is possible.
+	// Allow the element ConvertToNative() function to determine whether conversion is possible.
 	elemCount := int(l.Size().(Int))
 	nativeList := reflect.MakeSlice(typeDesc, elemCount, elemCount)
 	for i := 0; i < elemCount; i++ {
@@ -184,7 +183,7 @@ func (l *baseList) Get(index ref.Val) ref.Val {
 
 func (l *baseList) Iterator() traits.Iterator {
 	return &listIterator{
-		baseIterator: &baseIterator{l.TypeAdapter},
+		baseIterator: &baseIterator{},
 		listValue:    l,
 		cursor:       0,
 		len:          l.Size().(Int)}
@@ -203,6 +202,7 @@ func (l *baseList) Value() interface{} {
 }
 
 // concatList combines two list implementations together into a view.
+// The `ref.TypeAdapter` enables native type to CEL type conversions.
 type concatList struct {
 	ref.TypeAdapter
 	value    interface{}
@@ -281,7 +281,7 @@ func (l *concatList) Get(index ref.Val) ref.Val {
 
 func (l *concatList) Iterator() traits.Iterator {
 	return &listIterator{
-		baseIterator: &baseIterator{l.TypeAdapter},
+		baseIterator: &baseIterator{},
 		listValue:    l,
 		cursor:       0,
 		len:          l.Size().(Int)}

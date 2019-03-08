@@ -1225,7 +1225,7 @@ func TestCheck(t *testing.T) {
 		t.Run(name, func(tt *testing.T) {
 			// Runs the tests in parallel to ensure that there are no data races
 			// due to shared mutable state across tests.
-			// tt.Parallel()
+			tt.Parallel()
 
 			src := common.NewTextSource(tc.I)
 			expression, errors := parser.Parse(src)

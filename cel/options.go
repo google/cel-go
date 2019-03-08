@@ -63,6 +63,13 @@ func ClearMacros() EnvOption {
 func CustomTypeProvider(provider ref.TypeProvider) EnvOption {
 	return func(e *env) (*env, error) {
 		e.types = provider
+		adapter, isAdapter := provider.(ref.TypeAdapter)
+		if isAdapter {
+			e.adapter = adapter
+		} else {
+			// TODO: implement GoTypeAdapter.
+			e.adapter = nil // types.GoTypeAdapter
+		}
 		return e, nil
 	}
 }
@@ -128,7 +135,7 @@ func Types(addTypes ...interface{}) EnvOption {
 	return func(e *env) (*env, error) {
 		reg, isReg := e.types.(ref.TypeRegistry)
 		if !isReg {
-			return nil, fmt.Errorf("Type provider does not accept custom types: %T", e.types)
+			return nil, fmt.Errorf("custom types not supported by provider: %T", e.types)
 		}
 		for _, t := range addTypes {
 			switch t.(type) {
@@ -158,7 +165,7 @@ func TypeDescs(descs ...interface{}) EnvOption {
 	return func(e *env) (*env, error) {
 		reg, isReg := e.types.(ref.TypeRegistry)
 		if !isReg {
-			return nil, fmt.Errorf("Type provider does not accept custom types: %T", e.types)
+			return nil, fmt.Errorf("custom types not supported by provider: %T", e.types)
 		}
 		for _, d := range descs {
 			switch p := d.(type) {
@@ -195,12 +202,14 @@ func Functions(funcs ...*functions.Overload) ProgramOption {
 	}
 }
 
-// Globals sets the global variable values for a given program. These values may be shadowed within
-// the Activation value provided to the Eval() function.
+// Globals sets the global variable values for a given program. These values may be shadowed by
+// variables with the same name provided to the Eval() call.
+//
+// The vars value may either be an `interpreter.Activation` instance or a `map[string]interface{}`.
 func Globals(vars interface{}) ProgramOption {
 	return func(p *prog) (*prog, error) {
 		defaultVars, err :=
-			interpreter.NewAdaptingActivation(p.types, vars)
+			interpreter.NewAdaptingActivation(p.adapter, vars)
 		if err != nil {
 			return nil, err
 		}

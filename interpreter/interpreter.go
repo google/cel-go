@@ -92,6 +92,7 @@ type exprInterpreter struct {
 	dispatcher   Dispatcher
 	packager     packages.Packager
 	typeProvider ref.TypeProvider
+	adapter      ref.TypeAdapter
 }
 
 // NewInterpreter builds an Interpreter from a Dispatcher and TypeProvider
@@ -99,27 +100,36 @@ type exprInterpreter struct {
 // gerenated from it.
 func NewInterpreter(dispatcher Dispatcher,
 	packager packages.Packager,
-	typeProvider ref.TypeProvider) Interpreter {
+	typeProvider ref.TypeProvider,
+	adapter ref.TypeAdapter) Interpreter {
 	return &exprInterpreter{
 		dispatcher:   dispatcher,
 		packager:     packager,
-		typeProvider: typeProvider}
+		typeProvider: typeProvider,
+		adapter:      adapter}
 }
 
 // NewStandardInterpreter builds a Dispatcher and TypeProvider with support
 // for all of the CEL builtins defined in the language definition.
 func NewStandardInterpreter(packager packages.Packager,
-	typeProvider ref.TypeProvider) Interpreter {
+	typeProvider ref.TypeProvider,
+	adapter ref.TypeAdapter) Interpreter {
 	dispatcher := NewDispatcher()
 	dispatcher.Add(functions.StandardOverloads()...)
-	return NewInterpreter(dispatcher, packager, typeProvider)
+	return NewInterpreter(dispatcher, packager, typeProvider, adapter)
 }
 
 // NewIntepretable implements the Interpreter interface method.
 func (i *exprInterpreter) NewInterpretable(
 	checked *exprpb.CheckedExpr,
 	decorators ...InterpretableDecorator) (Interpretable, error) {
-	p := newPlanner(i.dispatcher, i.typeProvider, i.packager, checked, decorators...)
+	p := newPlanner(
+		i.dispatcher,
+		i.typeProvider,
+		i.adapter,
+		i.packager,
+		checked,
+		decorators...)
 	return p.Plan(checked.GetExpr())
 }
 
@@ -127,6 +137,11 @@ func (i *exprInterpreter) NewInterpretable(
 func (i *exprInterpreter) NewUncheckedInterpretable(
 	expr *exprpb.Expr,
 	decorators ...InterpretableDecorator) (Interpretable, error) {
-	p := newUncheckedPlanner(i.dispatcher, i.typeProvider, i.packager, decorators...)
+	p := newUncheckedPlanner(
+		i.dispatcher,
+		i.typeProvider,
+		i.adapter,
+		i.packager,
+		decorators...)
 	return p.Plan(expr)
 }

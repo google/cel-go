@@ -208,7 +208,8 @@ func (m *stringMap) Get(key ref.Val) ref.Val {
 func (m *baseMap) Iterator() traits.Iterator {
 	mapKeys := m.refValue.MapKeys()
 	return &mapIterator{
-		baseIterator: &baseIterator{TypeAdapter: m.TypeAdapter},
+		baseIterator: &baseIterator{},
+		TypeAdapter:  m.TypeAdapter,
 		mapValue:     m,
 		mapKeys:      mapKeys,
 		cursor:       0,
@@ -240,6 +241,7 @@ func (m *baseMap) Value() interface{} {
 
 type mapIterator struct {
 	*baseIterator
+	ref.TypeAdapter
 	mapValue traits.Mapper
 	mapKeys  []reflect.Value
 	cursor   int

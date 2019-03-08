@@ -26,8 +26,10 @@ import (
 type Program interface {
 	// Eval returns the result of an evaluation of the Ast and environment against the input vars.
 	//
+	// The vars value may either be an `interpreter.Activation` or a `map[string]interface{}`.
+	//
 	// If the `OptTrackState` or `OptExhaustiveEval` flags are used, the `details` response will
-	/// be non-nil. Given this caveat on `details`, the return state from evaluation will be:
+	// be non-nil. Given this caveat on `details`, the return state from evaluation will be:
 	//
 	// *  `val`, `details`, `nil` - Successful evaluation of a non-error result.
 	// *  `val`, `details`, `err` - Successful evaluation to an error result.
@@ -86,7 +88,7 @@ type progGen struct {
 func newProgram(e *env, ast Ast, opts ...ProgramOption) (Program, error) {
 	// Build the dispatcher, interpreter, and default program value.
 	disp := interpreter.NewDispatcher()
-	interp := interpreter.NewInterpreter(disp, e.pkg, e.types)
+	interp := interpreter.NewInterpreter(disp, e.pkg, e.types, e.adapter)
 	p := &prog{
 		env:         e,
 		dispatcher:  disp,
@@ -187,7 +189,7 @@ func initInterpretable(
 // Eval implements the Program interface method.
 func (p *prog) Eval(input interface{}) (ref.Val, EvalDetails, error) {
 	// Build a hierarchical activation if there are default vars set.
-	vars, err := interpreter.NewAdaptingActivation(p.types, input)
+	vars, err := interpreter.NewAdaptingActivation(p.adapter, input)
 	if err != nil {
 		return nil, nil, err
 	}

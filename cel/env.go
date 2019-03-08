@@ -103,11 +103,14 @@ type Issues interface {
 //
 // See the EnvOptions for the options that can be used to configure the environment.
 func NewEnv(opts ...EnvOption) (Env, error) {
+	types := types.NewProvider()
+	adapter := types
 	e := &env{
 		declarations:                   checker.StandardDeclarations(),
 		macros:                         parser.AllMacros,
 		pkg:                            packages.DefaultPackage,
-		types:                          types.NewProvider(),
+		types:                          types,
+		adapter:                        adapter,
 		enableBuiltins:                 true,
 		enableDynamicAggregateLiterals: true,
 	}
@@ -166,6 +169,7 @@ type env struct {
 	macros       []parser.Macro
 	pkg          packages.Packager
 	types        ref.TypeProvider
+	adapter      ref.TypeAdapter
 	// environment options, true by default.
 	enableBuiltins                 bool
 	enableDynamicAggregateLiterals bool
@@ -219,14 +223,6 @@ func (e *env) Program(ast Ast, opts ...ProgramOption) (Program, error) {
 			opts...)
 	}
 	return newProgram(e, ast, opts...)
-}
-
-func (e *env) TypeAdapter() ref.TypeAdapter {
-	adapter, isAdapter := e.types.(ref.TypeAdapter)
-	if isAdapter {
-		return adapter
-	}
-	return nil
 }
 
 // issues is the internal implementation of the Issues interface.

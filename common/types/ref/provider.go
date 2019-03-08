@@ -65,7 +65,9 @@ type TypeRegistry interface {
 	RegisterType(types ...Type) error
 }
 
+// TypeAdapter converts native Go values of varying type and complexity to equivalent CEL values.
 type TypeAdapter interface {
+	// NativeToValue converts the input `value` to a CEL `ref.Val`.
 	NativeToValue(value interface{}) Val
 }
 

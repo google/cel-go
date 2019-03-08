@@ -78,8 +78,8 @@ func Example() {
 
 	// Evaluate the program against some inputs. Note: the details return is not used.
 	out, _, err := prg.Eval(map[string]interface{}{
-		// CEL values may be supplied directly.
-		"i": types.String("CEL"),
+		// Native values are converted to CEL values under the covers.
+		"i": "CEL",
 		// Values may also be lazily supplied.
 		"you": func() ref.Val { return types.String("world") },
 	})
@@ -120,8 +120,8 @@ func Test_ExampleWithBuiltins(t *testing.T) {
 	// If the Eval() call were provided with cel.EvalOptions(OptTrackState) the details response
 	// (2nd return) would be non-nil.
 	out, _, err := prg.Eval(map[string]interface{}{
-		"i":   types.String("CEL"),
-		"you": types.String("world")})
+		"i":   "CEL",
+		"you": "world"})
 	if err != nil {
 		t.Fatalf("runtime error: %s\n", err)
 	}
@@ -149,7 +149,7 @@ func Test_DisableStandardEnv(t *testing.T) {
 		p, _ := e.Parse("a.b.c")
 		c, _ := e.Check(p)
 		prg, _ := e.Program(c)
-		out, _, _ := prg.Eval(map[string]interface{}{"a.b.c": types.True})
+		out, _, _ := prg.Eval(map[string]interface{}{"a.b.c": true})
 		if out != types.True {
 			t.Errorf("Got '%v', wanted 'true'", out.Value())
 		}
@@ -208,7 +208,7 @@ func Test_HomogeneousAggregateLiterals(t *testing.T) {
 			t.Fatalf("Got issue: %v, expected successful check.", iss.Err())
 		}
 		prg, _ := e.Program(c, funcs)
-		out, _, err := prg.Eval(Vars(map[string]interface{}{"name": "world"}))
+		out, _, err := prg.Eval(map[string]interface{}{"name": "world"})
 		if err != nil {
 			t.Fatalf("Got err: %v, wanted result", err)
 		}
@@ -223,7 +223,7 @@ func Test_HomogeneousAggregateLiterals(t *testing.T) {
 			t.Fatalf("Got issue: %v, expected successful check.", iss.Err())
 		}
 		prg, _ := e.Program(c, funcs)
-		out, _, err := prg.Eval(Vars(map[string]interface{}{"name": "world"}))
+		out, _, err := prg.Eval(map[string]interface{}{"name": "world"})
 		if err != nil {
 			t.Fatalf("Got err: %v, wanted result", err)
 		}
@@ -363,7 +363,7 @@ func Test_GlobalVars(t *testing.T) {
 
 	// Global variables can be configured as a ProgramOption and optionally overridden on Eval.
 	prg, _ := e.Program(c, funcs, Globals(map[string]interface{}{
-		"default": types.String("third"),
+		"default": "third",
 	}))
 
 	t.Run("global_default", func(t *testing.T) {
@@ -409,8 +409,8 @@ func Test_EvalOptions(t *testing.T) {
 	}
 	out, details, err := prg.Eval(
 		map[string]interface{}{
-			"k": types.String("key"),
-			"v": types.True})
+			"k": "key",
+			"v": true})
 	if err != nil {
 		t.Fatalf("runtime error: %s\n", err)
 	}

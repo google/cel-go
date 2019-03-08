@@ -34,6 +34,7 @@ type Activation interface {
 	Parent() Activation
 }
 
+// EmptyActivation returns a variable free activation.
 func EmptyActivation() Activation {
 	// This call cannot fail.
 	a, _ := NewActivation(map[string]interface{}{})
@@ -42,11 +43,26 @@ func EmptyActivation() Activation {
 
 // NewActivation returns an activation based on a map-based binding where the map keys are
 // expected to be qualified names used with ResolveName calls.
+//
+// The input `bindings` may either be of type `Activation` or `map[string]interface{}`.
+//
+// When the bindings are a `map` form whose values are not of `ref.Val` type, the values will be
+// converted to CEL values (if possible) using the `types.GoTypeAdapter`.
 func NewActivation(bindings interface{}) (Activation, error) {
+	// TODO: implement types.GoTypeAdapter.
 	return NewAdaptingActivation(nil, bindings)
 }
 
-func NewAdaptingActivation(types ref.TypeProvider,
+// NewAdaptingActivation returns an actvation which is capable of adapting `bindings` from native
+// Go values to equivalent CEL `ref.Val` objects.
+//
+// The input `bindings` may either be of type `Activation` or `map[string]interface{}`.
+//
+// When the bindings are a `map` the values may be one of the following types:
+//   - `ref.Val`: a CEL value instance.
+//   - `func() ref.Val`: a CEL value supplier.
+//   - other: a native value which must be converted to a CEL `ref.Val` by the `adapter`.
+func NewAdaptingActivation(adapter ref.TypeAdapter,
 	bindings interface{}) (Activation, error) {
 	a, isActivation := bindings.(Activation)
 	if isActivation {
@@ -58,22 +74,16 @@ func NewAdaptingActivation(types ref.TypeProvider,
 			"activation input must be an activation or map[string]interface: got %T",
 			bindings)
 	}
-	var allVals = true
+	var allRefVals = true
 	for _, v := range m {
 		_, isVal := v.(ref.Val)
 		if !isVal {
-			allVals = false
+			allRefVals = false
 			break
 		}
 	}
-	if allVals {
+	if allRefVals {
 		return &mapActivation{bindings: m}, nil
-	}
-	adapter, isAdapting := types.(ref.TypeAdapter)
-	if !isAdapting {
-		return nil, fmt.Errorf(
-			"type provider must implement ref.TypeAdapter to support non-CEL types: got %T",
-			types)
 	}
 	return &mapActivation{adapter: adapter, bindings: m}, nil
 }

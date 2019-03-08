@@ -129,7 +129,7 @@ func (o *protoObj) Get(index ref.Val) ref.Val {
 
 func (o *protoObj) Iterator() traits.Iterator {
 	return &msgIterator{
-		baseIterator: &baseIterator{TypeAdapter: o.TypeAdapter},
+		baseIterator: &baseIterator{},
 		refValue:     o.refValue,
 		typeDesc:     o.typeDesc,
 		cursor:       0}
