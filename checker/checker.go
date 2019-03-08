@@ -190,7 +190,10 @@ func (c *checker) checkSelect(e *exprpb.Expr) {
 		// Objects yield their field type declaration as the selection result type, but only if
 		// the field is defined.
 		messageType := targetType
-		if fieldType, found := c.lookupFieldType(c.location(e), messageType, sel.Field); found {
+		if fieldType, found := c.lookupFieldType(
+			c.location(e),
+			messageType.GetMessageType(),
+			sel.Field); found {
 			resultType = fieldType.Type
 			// In proto3, primitive field types can't support presence testing, so the has()
 			// style operation would be invalid in this instance.
@@ -402,11 +405,15 @@ func (c *checker) checkCreateMessage(e *exprpb.Expr) {
 		c.check(value)
 
 		fieldType := decls.Error
-		if t, found := c.lookupFieldType(c.locationByID(ent.Id), messageType, field); found {
+		if t, found := c.lookupFieldType(
+			c.locationByID(ent.Id),
+			messageType.GetMessageType(),
+			field); found {
 			fieldType = t.Type
 		}
 		if !c.isAssignable(fieldType, c.getType(value)) {
-			c.errors.fieldTypeMismatch(c.locationByID(ent.Id), field, fieldType, c.getType(value))
+			c.errors.fieldTypeMismatch(
+				c.locationByID(ent.Id), field, fieldType, c.getType(value))
 		}
 	}
 }
@@ -494,10 +501,10 @@ func (c *checker) isAssignableList(l1 []*exprpb.Type, l2 []*exprpb.Type) bool {
 	return false
 }
 
-func (c *checker) lookupFieldType(l common.Location, messageType *exprpb.Type, fieldName string) (*ref.FieldType, bool) {
-	if _, found := c.env.typeProvider.FindType(messageType.GetMessageType()); !found {
+func (c *checker) lookupFieldType(l common.Location, messageType string, fieldName string) (*ref.FieldType, bool) {
+	if _, found := c.env.typeProvider.FindType(messageType); !found {
 		// This should not happen, anyway, report an error.
-		c.errors.unexpectedFailedResolution(l, messageType.GetMessageType())
+		c.errors.unexpectedFailedResolution(l, messageType)
 		return nil, false
 	}
 

@@ -41,7 +41,7 @@ type TypeProvider interface {
 	// false if the field could not be found.
 	//
 	// Used during type-checking only.
-	FindFieldType(t *exprpb.Type, fieldName string) (*FieldType, bool)
+	FindFieldType(messageType string, fieldName string) (*FieldType, bool)
 
 	// NewValue creates a new type value from a qualified name and a map of
 	// field initializers.
@@ -51,12 +51,6 @@ type TypeProvider interface {
 // TypeRegistry allows third-parties to registry custom types. Not all TypeProvider
 // implementations support type-customization, so these features are optional.
 type TypeRegistry interface {
-	// IsolateTypes copies the global protobuf registry into a copy private to this
-	// TypeProvider. Subsequent Describe*() calls will modify the protobuf registry
-	// only in this TypeProvider. Note that privately-registered protobufs cannot be
-	// instantiated with types.NewObject().
-	IsolateTypes()
-
 	// RegisterDescriptor registers the contents of a protocol buffer FileDescriptor.
 	RegisterDescriptor(fileDesc *descpb.FileDescriptorProto) error
 
@@ -69,6 +63,10 @@ type TypeRegistry interface {
 	// If a type is provided more than once with an alternative definition, the
 	// call will result in an error.
 	RegisterType(types ...Type) error
+}
+
+type TypeAdapter interface {
+	NativeToValue(value interface{}) Val
 }
 
 // FieldType represents a field's type value and whether that field supports

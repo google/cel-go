@@ -20,7 +20,6 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/google/cel-go/common/types/pb"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 	"github.com/google/cel-go/test"
@@ -30,11 +29,13 @@ import (
 )
 
 func TestNewProtoObject(t *testing.T) {
+	p := NewProvider()
 	parsedExpr := &exprpb.ParsedExpr{
 		SourceInfo: &exprpb.SourceInfo{
 			LineOffsets: []int32{1, 2, 3}}}
-	pb.DefaultDb.RegisterMessage(parsedExpr)
-	obj := NewObject(parsedExpr).(traits.Indexer)
+	p.RegisterMessage(parsedExpr)
+	td, _ := p.pbdb.DescribeType(proto.MessageName(parsedExpr))
+	obj := NewObject(p, td, parsedExpr).(traits.Indexer)
 	si := obj.Get(String("source_info")).(traits.Indexer)
 	lo := si.Get(String("line_offsets")).(traits.Indexer)
 	if lo.Get(Int(2)).Equal(Int(3)) != True {
@@ -48,7 +49,9 @@ func TestNewProtoObject(t *testing.T) {
 }
 
 func TestProtoObject_Iterator(t *testing.T) {
-	existsMsg := NewObject(test.Exists.Expr).(traits.Iterable)
+	p := NewProvider(&exprpb.Expr{})
+	td, _ := p.pbdb.DescribeType(proto.MessageName(test.Exists.Expr))
+	existsMsg := NewObject(p, td, test.Exists.Expr).(traits.Iterable)
 	it := existsMsg.Iterator()
 	var fields []ref.Val
 	for it.HasNext() == True {
@@ -60,10 +63,12 @@ func TestProtoObject_Iterator(t *testing.T) {
 }
 
 func TestProtoObj_ConvertToNative(t *testing.T) {
+	p := NewProvider(&exprpb.Expr{})
 	pbMessage := &exprpb.ParsedExpr{
 		SourceInfo: &exprpb.SourceInfo{
 			LineOffsets: []int32{1, 2, 3}}}
-	objVal := NewObject(pbMessage)
+	td, _ := p.pbdb.DescribeType(proto.MessageName(pbMessage))
+	objVal := NewObject(p, td, pbMessage)
 
 	// Proto Message
 	val, err := objVal.ConvertToNative(reflect.TypeOf(&exprpb.ParsedExpr{}))

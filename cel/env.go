@@ -221,6 +221,14 @@ func (e *env) Program(ast Ast, opts ...ProgramOption) (Program, error) {
 	return newProgram(e, ast, opts...)
 }
 
+func (e *env) TypeAdapter() ref.TypeAdapter {
+	adapter, isAdapter := e.types.(ref.TypeAdapter)
+	if isAdapter {
+		return adapter
+	}
+	return nil
+}
+
 // issues is the internal implementation of the Issues interface.
 type issues struct {
 	errs *common.Errors

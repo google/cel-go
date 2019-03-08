@@ -120,7 +120,7 @@ func TestPrune(t *testing.T) {
 		interpretable, _ := interpreter.NewUncheckedInterpretable(
 			pExpr.Expr,
 			ExhaustiveEval(state))
-		interpretable.Eval(NewActivation(map[string]interface{}{}))
+		interpretable.Eval(EmptyActivation())
 		newExpr := PruneAst(pExpr.Expr, state)
 		actual := debug.ToDebugString(newExpr)
 		if !test.Compare(actual, tst.P) {

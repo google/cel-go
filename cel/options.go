@@ -114,21 +114,6 @@ func Container(pkg string) EnvOption {
 	}
 }
 
-// IsolateTypes copies the global protobuf registry into a copy private
-// to this Env.  Subsequent Type() calls will modify the protobuf registry
-// in this Env only.  Note that privately-registered protobufs cannot
-// be instantiated with types.NewObject().
-func IsolateTypes() EnvOption {
-	return func(e *env) (*env, error) {
-		reg, isReg := e.types.(ref.TypeRegistry)
-		if !isReg {
-			return nil, fmt.Errorf("Type provider does not accept custom types: %T", e.types)
-		}
-		reg.IsolateTypes()
-		return e, nil
-	}
-}
-
 // Types adds one or more type declarations to the environment, allowing for construction of
 // type-literals whose definitions are included in the common expression built-in set.
 //
@@ -212,9 +197,14 @@ func Functions(funcs ...*functions.Overload) ProgramOption {
 
 // Globals sets the global variable values for a given program. These values may be shadowed within
 // the Activation value provided to the Eval() function.
-func Globals(vars interpreter.Activation) ProgramOption {
+func Globals(vars interface{}) ProgramOption {
 	return func(p *prog) (*prog, error) {
-		p.defaultVars = vars
+		defaultVars, err :=
+			interpreter.NewAdaptingActivation(p.types, vars)
+		if err != nil {
+			return nil, err
+		}
+		p.defaultVars = defaultVars
 		return p, nil
 	}
 }

@@ -21,7 +21,7 @@ import (
 )
 
 func TestNewActivation(t *testing.T) {
-	activation := NewActivation(map[string]interface{}{"a": true})
+	activation, _ := NewActivation(map[string]interface{}{"a": types.True})
 	if val, found := activation.ResolveName("a"); !found || val != types.True {
 		t.Error("Activation failed to resolve 'a'")
 	}
@@ -29,9 +29,15 @@ func TestNewActivation(t *testing.T) {
 
 func TestHierarchicalActivation(t *testing.T) {
 	// compose a parent with more properties than the child
-	parent := NewActivation(map[string]interface{}{"a": "world", "b": -42})
+	parent, _ := NewActivation(map[string]interface{}{
+		"a": types.String("world"),
+		"b": types.Int(-42),
+	})
 	// compose the child such that it shadows the parent
-	child := NewActivation(map[string]interface{}{"a": true, "c": "universe"})
+	child, _ := NewActivation(map[string]interface{}{
+		"a": types.True,
+		"c": types.String("universe"),
+	})
 	combined := NewHierarchicalActivation(parent, child)
 
 	// Resolve the shadowed child value.

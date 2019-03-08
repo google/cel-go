@@ -48,17 +48,16 @@ func TestExhaustiveInterpreter_ConditionalExpr(t *testing.T) {
 	// Operator "_==_" is at Expr 6, should be evaluated in exhaustive mode
 	// even though "a" is true
 	state := NewEvalState()
-	intr := NewStandardInterpreter(
-		packages.DefaultPackage,
-		types.NewProvider(&exprpb.ParsedExpr{}))
+	tp := types.NewProvider(&exprpb.ParsedExpr{})
+	intr := NewStandardInterpreter(packages.DefaultPackage, tp)
 	interpretable, _ := intr.NewUncheckedInterpretable(
 		test.Conditional.Expr,
 		ExhaustiveEval(state))
-	result := interpretable.Eval(
-		NewActivation(map[string]interface{}{
-			"a": true,
-			"b": 0.999,
-			"c": types.NewStringList([]string{"hello"})}))
+	vars, _ := NewActivation(map[string]interface{}{
+		"a": types.True,
+		"b": types.Double(0.999),
+		"c": types.NewStringList(tp, []string{"hello"})})
+	result := interpretable.Eval(vars)
 	ev, _ := state.Value(6)
 	// "==" should be evaluated in exhaustive mode though unnecessary
 	if ev != types.True {
@@ -80,11 +79,10 @@ func TestExhaustiveInterpreter_ConditionalExprErr(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	result := i.Eval(
-		NewActivation(map[string]interface{}{
-			"b": 1.001,
-			"c": types.NewStringList([]string{"hello"})}))
+	vars, _ := NewActivation(map[string]interface{}{
+		"b": types.Double(1.001),
+		"c": types.NewStringList(tp, []string{"hello"})})
+	result := i.Eval(vars)
 	iv, _ := state.Value(3)
 	// "<" should be evaluated in exhaustive mode though unnecessary
 	if iv != types.False {
@@ -110,11 +108,11 @@ func TestExhaustiveInterpreter_LogicalOrEquals(t *testing.T) {
 	interp := NewStandardInterpreter(packages.NewPackage("test"), provider)
 	i, _ := interp.NewUncheckedInterpretable(test.LogicalOrEquals.Expr,
 		ExhaustiveEval(state))
-	result := i.Eval(
-		NewActivation(map[string]interface{}{
-			"a": true,
-			"b": "b",
-		}))
+	vars, _ := NewAdaptingActivation(provider, map[string]interface{}{
+		"a": true,
+		"b": "b",
+	})
+	result := i.Eval(vars)
 	rhv, _ := state.Value(4)
 	// "==" should be evaluated in exhaustive mode though unnecessary
 	if rhv != types.True {
@@ -132,8 +130,8 @@ func TestInterpreter_CallExpr(t *testing.T) {
 	state := NewEvalState()
 	interpretable, _ := intr.NewUncheckedInterpretable(test.Equality.Expr,
 		TrackState(state))
-	result := interpretable.Eval(
-		NewActivation(map[string]interface{}{"a": int64(41)}))
+	vars, _ := NewActivation(map[string]interface{}{"a": types.Int(41)})
+	result := interpretable.Eval(vars)
 	if result != types.False {
 		t.Errorf("Expected false, got: %v", result)
 	}
@@ -144,10 +142,10 @@ func TestInterpreter_CallExpr(t *testing.T) {
 
 func TestInterpreter_SelectExpr(t *testing.T) {
 	i, _ := interpreter.NewUncheckedInterpretable(test.Select.Expr)
-	result := i.Eval(
-		NewActivation(map[string]interface{}{
-			"a.b": types.NewDynamicMap(map[string]bool{"c": true}),
-		}))
+	vars, _ := NewActivation(map[string]interface{}{
+		"a.b": types.NewDynamicMap(tp, map[string]bool{"c": true}),
+	})
+	result := i.Eval(vars)
 	if result != types.True {
 		t.Errorf("Expected true, got: %v", result)
 	}
@@ -157,11 +155,11 @@ func TestInterpreter_ConditionalExpr(t *testing.T) {
 	// a ? b < 1.0 : c == ["hello"]
 	// Operator "<" is at Expr 3, "_==_" is at Expr 6.
 	i, _ := interpreter.NewUncheckedInterpretable(test.Conditional.Expr)
-	result := i.Eval(
-		NewActivation(map[string]interface{}{
-			"a": true,
-			"b": 0.999,
-			"c": types.NewStringList([]string{"hello"})}))
+	vars, _ := NewAdaptingActivation(tp, map[string]interface{}{
+		"a": true,
+		"b": 0.999,
+		"c": types.NewStringList(tp, []string{"hello"})})
+	result := i.Eval(vars)
 	if result != types.True {
 		t.Errorf("Expected true, got: %v", result)
 	}
@@ -193,10 +191,11 @@ func TestInterpreter_NonStrictAllWithInput(t *testing.T) {
 		`code == "111" && ["a", "b"].all(x, x in tags)
 		|| code == "222" && ["a", "b"].all(x, x in tags)`)
 	i, _ := interpreter.NewUncheckedInterpretable(parsed.GetExpr())
-	result := i.Eval(NewActivation(map[string]interface{}{
-		"code": "222",
-		"tags": []string{"a", "b"},
-	}))
+	vars, _ := NewActivation(map[string]interface{}{
+		"code": types.String("222"),
+		"tags": tp.NativeToValue([]string{"a", "b"}),
+	})
+	result := i.Eval(vars)
 	if result != types.True {
 		t.Errorf("Got %v, wanted true", result)
 	}
@@ -205,9 +204,10 @@ func TestInterpreter_NonStrictAllWithInput(t *testing.T) {
 func TestInterpreter_LongQualifiedIdent(t *testing.T) {
 	parsed := parseExpr(t, `a.b.c.d == 10`)
 	i, _ := interpreter.NewUncheckedInterpretable(parsed.GetExpr())
-	result := i.Eval(NewActivation(map[string]interface{}{
-		"a.b.c.d": 10,
-	}))
+	vars, _ := NewActivation(map[string]interface{}{
+		"a.b.c.d": types.Int(10),
+	})
+	result := i.Eval(vars)
 	if result != types.True {
 		t.Errorf("Got %v, wanted true", result)
 	}
@@ -216,13 +216,15 @@ func TestInterpreter_LongQualifiedIdent(t *testing.T) {
 func TestInterpreter_FieldAccess(t *testing.T) {
 	parsed := parseExpr(t, `val.input.expr.id == 10`)
 	i, _ := interpreter.NewUncheckedInterpretable(parsed.GetExpr())
-	unk := i.Eval(NewActivation(map[string]interface{}{}))
+	unk := i.Eval(EmptyActivation())
 	if !types.IsUnknown(unk) {
 		t.Errorf("Got %v, wanted unknown", unk)
 	}
-	result := i.Eval(NewActivation(map[string]interface{}{
-		"val.input": &exprpb.ParsedExpr{Expr: &exprpb.Expr{Id: 10}},
-	}))
+	vars, _ := NewActivation(map[string]interface{}{
+		"val.input": tp.NativeToValue(
+			&exprpb.ParsedExpr{Expr: &exprpb.Expr{Id: 10}}),
+	})
+	result := i.Eval(vars)
 	if result != types.True {
 		t.Errorf("Got %v, wanted true", result)
 	}
@@ -290,7 +292,7 @@ func TestInterpreter_ZeroArityCall(t *testing.T) {
 	})
 	interp := NewInterpreter(disp, packages.DefaultPackage, types.NewProvider())
 	i, _ := interp.NewUncheckedInterpretable(p.Expr)
-	result := i.Eval(emptyActivation)
+	result := i.Eval(EmptyActivation())
 	if result != types.IntZero {
 		t.Errorf("Got '%v', wanted zero", result)
 	}
@@ -312,13 +314,14 @@ func TestInterpreter_VarArgsCall(t *testing.T) {
 	})
 	interp := NewInterpreter(disp, packages.DefaultPackage, types.NewProvider())
 	i, _ := interp.NewUncheckedInterpretable(p.Expr)
-	result := i.Eval(NewActivation(
+	vars, _ := NewActivation(
 		map[string]interface{}{
-			"a": 1,
-			"b": 2,
-			"c": 3,
-			"d": 4,
-		}))
+			"a": types.Int(1),
+			"b": types.Int(2),
+			"c": types.Int(3),
+			"d": types.Int(4),
+		})
+	result := i.Eval(vars)
 	if result != types.Int(10) {
 		t.Errorf("Got '%v', wanted 10", result)
 	}
@@ -342,8 +345,8 @@ func TestInterpreter_LogicalAnd(t *testing.T) {
 	// a && {c: true}.c
 	interpretable, _ := interpreter.NewUncheckedInterpretable(test.LogicalAnd.Expr)
 	// TODO: make the type identifiers part of the standard declaration set.
-	result := interpretable.Eval(
-		NewActivation(map[string]interface{}{"a": true}))
+	vars, _ := NewActivation(map[string]interface{}{"a": types.True})
+	result := interpretable.Eval(vars)
 	if result != types.True {
 		t.Errorf("Expected true, got: %v", result)
 	}
@@ -362,8 +365,8 @@ func TestInterpreter_LogicalOr(t *testing.T) {
 	provider := types.NewProvider(&exprpb.Expr{})
 	intr := NewStandardInterpreter(packages.NewPackage("test"), provider)
 	i, _ := intr.NewUncheckedInterpretable(test.LogicalOr.Expr)
-	result := i.Eval(
-		NewActivation(map[string]interface{}{"a": true}))
+	vars, _ := NewActivation(map[string]interface{}{"a": types.True})
+	result := i.Eval(vars)
 	if result != types.True {
 		t.Errorf("Expected true, got: %v", result)
 	}
@@ -376,11 +379,11 @@ func TestInterpreter_LogicalOrEquals(t *testing.T) {
 	provider := types.NewProvider(&exprpb.Expr{})
 	i := NewStandardInterpreter(packages.NewPackage("test"), provider)
 	interpretable, _ := i.NewUncheckedInterpretable(test.LogicalOrEquals.Expr)
-	result := interpretable.Eval(
-		NewActivation(map[string]interface{}{
-			"a": true,
-			"b": "b",
-		}))
+	vars, _ := NewActivation(map[string]interface{}{
+		"a": types.True,
+		"b": types.String("b"),
+	})
+	result := interpretable.Eval(vars)
 	if result != types.True {
 		t.Errorf("Expected true, got: %v", result)
 	}
@@ -406,7 +409,7 @@ func TestInterpreter_BuildObject(t *testing.T) {
 
 	i := NewStandardInterpreter(pkgr, provider)
 	eval, _ := i.NewInterpretable(checked)
-	result := eval.Eval(emptyActivation)
+	result := eval.Eval(EmptyActivation())
 	expected := &exprpb.Expr{Id: 1,
 		ExprKind: &exprpb.Expr_ConstExpr{
 			ConstExpr: &exprpb.Constant{
@@ -445,9 +448,10 @@ func TestInterpreter_GetProto2PrimitiveFields(t *testing.T) {
 	i := NewStandardInterpreter(pkgr, provider)
 	eval, _ := i.NewInterpretable(checked)
 	a := &proto2pb.TestAllTypes{}
-	result := eval.Eval(NewActivation(map[string]interface{}{
-		"a": types.NewObject(a),
-	}))
+	vars, _ := NewActivation(map[string]interface{}{
+		"a": provider.NativeToValue(a),
+	})
+	result := eval.Eval(vars)
 	expected := true
 	got, ok := result.(ref.Val).Value().(bool)
 	if !ok {
@@ -507,9 +511,10 @@ func TestInterpreter_SetProto2PrimitiveFields(t *testing.T) {
 		SingleString: &str,
 		SingleBool:   &truth,
 	}
-	result := eval.Eval(NewActivation(map[string]interface{}{
-		"input": input,
-	}))
+	vars, _ := NewActivation(map[string]interface{}{
+		"input": provider.NativeToValue(input),
+	})
+	result := eval.Eval(vars)
 	got, ok := result.(ref.Val).Value().(bool)
 	if !ok {
 		t.Fatalf("Got '%v', wanted 'true'.", result)
@@ -545,9 +550,10 @@ func TestInterpreter_GetObjectEnumField(t *testing.T) {
 			proto3pb.TestAllTypes_BAR,
 		},
 	}
-	result := eval.Eval(NewActivation(map[string]interface{}{
-		"a": types.NewObject(a),
-	}))
+	vars, _ := NewActivation(map[string]interface{}{
+		"a": provider.NativeToValue(a),
+	})
+	result := eval.Eval(vars)
 	expected := int64(1)
 	got, ok := result.(ref.Val).Value().(int64)
 	if !ok {
@@ -598,7 +604,7 @@ func TestInterpreter_SetObjectEnumField(t *testing.T) {
 			int32(2),
 		},
 	}
-	result := eval.Eval(NewActivation(map[string]interface{}{}))
+	result := eval.Eval(EmptyActivation())
 	got, ok := result.(ref.Val).Value().(*proto3pb.TestAllTypes)
 	if !ok {
 		t.Fatalf("cannot cast result to int64: result=%v", result)
@@ -616,7 +622,7 @@ func TestInterpreter_ConstantReturnValue(t *testing.T) {
 		t.Error(err)
 	}
 	i, _ := interpreter.NewUncheckedInterpretable(parsed.GetExpr())
-	res := i.Eval(emptyActivation)
+	res := i.Eval(EmptyActivation())
 	if int64(res.(types.Int)) != int64(42) {
 		t.Errorf("Got '%v', wanted 1", res)
 	}
@@ -628,7 +634,7 @@ func TestInterpreter_InList(t *testing.T) {
 		t.Error(err)
 	}
 	i, _ := interpreter.NewUncheckedInterpretable(parsed.GetExpr())
-	res := i.Eval(emptyActivation)
+	res := i.Eval(EmptyActivation())
 	if res != types.True {
 		t.Errorf("Got '%v', wanted 'true'", res)
 	}
@@ -640,7 +646,9 @@ func TestInterpreter_BuildMap(t *testing.T) {
 		t.Error(err)
 	}
 	i, _ := interpreter.NewUncheckedInterpretable(parsed.GetExpr(), FoldConstants())
-	res := i.Eval(NewActivation(map[string]interface{}{"name": "tristan"}))
+	vars, _ := NewActivation(map[string]interface{}{
+		"name": types.String("tristan")})
+	res := i.Eval(vars)
 	value, _ := res.(ref.Val).ConvertToNative(
 		reflect.TypeOf(map[string]string{}))
 	mapVal := value.(map[string]string)
@@ -655,7 +663,7 @@ func TestInterpreter_MapIndex(t *testing.T) {
 		t.Error(err)
 	}
 	i, _ := interpreter.NewUncheckedInterpretable(parsed.GetExpr())
-	res := i.Eval(emptyActivation)
+	res := i.Eval(EmptyActivation())
 	if res != types.NullValue {
 		t.Errorf("Got '%v', wanted null", res)
 	}
@@ -672,9 +680,10 @@ func TestInterpreter_Matches(t *testing.T) {
 		"bar":         false,
 		"kilimanjaro": true,
 	} {
-		result := eval.Eval(NewActivation(map[string]interface{}{
-			"input": input,
-		}))
+		vars, _ := NewActivation(map[string]interface{}{
+			"input": tp.NativeToValue(input),
+		})
+		result := eval.Eval(vars)
 		if v, ok := result.Value().(bool); !ok || v != expectedResult {
 			t.Errorf("Got %v, wanted %v for expr %s with input %s", result.Value(), expectedResult, expression, input)
 		}
@@ -684,10 +693,10 @@ func TestInterpreter_Matches(t *testing.T) {
 func BenchmarkInterpreter_ConditionalExpr(b *testing.B) {
 	// a ? b < 1.0 : c == ["hello"]
 	interpretable, _ := interpreter.NewUncheckedInterpretable(test.Conditional.Expr)
-	activation := NewActivation(map[string]interface{}{
+	activation, _ := NewActivation(map[string]interface{}{
 		"a": types.False,
 		"b": types.Double(0.999),
-		"c": types.NativeToValue([]string{"hello"})})
+		"c": tp.NativeToValue([]string{"hello"})})
 	for i := 0; i < b.N; i++ {
 		interpretable.Eval(activation)
 	}
@@ -698,8 +707,9 @@ func BenchmarkInterpreter_ComprehensionExpr(b *testing.B) {
 	interpretable, _ := interpreter.NewUncheckedInterpretable(
 		test.Exists.Expr,
 		FoldConstants())
+	noargs := EmptyActivation()
 	for i := 0; i < b.N; i++ {
-		interpretable.Eval(emptyActivation)
+		interpretable.Eval(noargs)
 	}
 }
 
@@ -707,8 +717,8 @@ func BenchmarkInterpreter_ComprehensionExprWithInput(b *testing.B) {
 	// elems.exists(x, type(x) == uint)
 	interpretable, _ := interpreter.NewUncheckedInterpretable(
 		test.ExistsWithInput.Expr)
-	activation := NewActivation(map[string]interface{}{
-		"elems": types.NativeToValue([]interface{}{0, 1, 2, 3, 4, uint(5), 6})})
+	activation, _ := NewActivation(map[string]interface{}{
+		"elems": tp.NativeToValue([]interface{}{0, 1, 2, 3, 4, uint(5), 6})})
 	for i := 0; i < b.N; i++ {
 		interpretable.Eval(activation)
 	}
@@ -732,7 +742,7 @@ func BenchmarkInterpreter_CanonicalExpressions(b *testing.B) {
 		disp := NewDispatcher()
 		disp.Add(functions.StandardOverloads()...)
 		prg, _ := interpreter.NewInterpretable(checked)
-		activation := NewActivation(tst.I)
+		activation, _ := NewActivation(tst.I)
 		b.Run(tst.name, func(bb *testing.B) {
 			b.ResetTimer()
 			b.ReportAllocs()
@@ -744,9 +754,8 @@ func BenchmarkInterpreter_CanonicalExpressions(b *testing.B) {
 }
 
 var (
-	interpreter = NewStandardInterpreter(
-		packages.DefaultPackage,
-		types.NewProvider(&exprpb.ParsedExpr{}))
+	tp          = types.NewProvider(&exprpb.ParsedExpr{})
+	interpreter = NewStandardInterpreter(packages.DefaultPackage, tp)
 
 	testData = []testCase{
 		{
@@ -806,7 +815,7 @@ func evalExpr(t *testing.T, src string) ref.Val {
 	t.Helper()
 	parsed := parseExpr(t, src)
 	eval, _ := interpreter.NewUncheckedInterpretable(parsed.GetExpr())
-	return eval.Eval(emptyActivation)
+	return eval.Eval(EmptyActivation())
 }
 
 func compileExpr(t *testing.T, src string, decls ...*exprpb.Decl) *exprpb.CheckedExpr {

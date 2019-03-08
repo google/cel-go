@@ -31,12 +31,13 @@ var (
 
 type jsonListValue struct {
 	*structpb.ListValue
+	ref.TypeAdapter
 }
 
 // NewJSONList creates a traits.Lister implementation backed by a JSON list
 // that has been encoded in protocol buffer form.
-func NewJSONList(l *structpb.ListValue) traits.Lister {
-	return &jsonListValue{l}
+func NewJSONList(adapter ref.TypeAdapter, l *structpb.ListValue) traits.Lister {
+	return &jsonListValue{TypeAdapter: adapter, ListValue: l}
 }
 
 func (l *jsonListValue) Add(other ref.Val) ref.Val {
@@ -47,7 +48,7 @@ func (l *jsonListValue) Add(other ref.Val) ref.Val {
 	case *jsonListValue:
 		otherList := other.(*jsonListValue)
 		concatElems := append(l.GetValues(), otherList.GetValues()...)
-		return NewJSONList(&structpb.ListValue{Values: concatElems})
+		return NewJSONList(l.TypeAdapter, &structpb.ListValue{Values: concatElems})
 	}
 	return &concatList{
 		prevList: l,
@@ -138,12 +139,12 @@ func (l *jsonListValue) Get(index ref.Val) ref.Val {
 		return NewErr("index '%d' out of range in list size '%d'", i, l.Size())
 	}
 	elem := l.GetValues()[i]
-	return NativeToValue(elem)
+	return l.NativeToValue(elem)
 }
 
 func (l *jsonListValue) Iterator() traits.Iterator {
 	return &jsonValueListIterator{
-		baseIterator: &baseIterator{},
+		baseIterator: &baseIterator{TypeAdapter: l.TypeAdapter},
 		elems:        l.GetValues(),
 		len:          len(l.GetValues())}
 }
@@ -175,7 +176,7 @@ func (it *jsonValueListIterator) Next() ref.Val {
 	if it.HasNext() == True {
 		index := it.cursor
 		it.cursor++
-		return NativeToValue(it.elems[index])
+		return it.NativeToValue(it.elems[index])
 	}
 	return nil
 }

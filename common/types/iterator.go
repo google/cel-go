@@ -32,7 +32,9 @@ var (
 // An iterator in and of itself should not be a valid value for comparison, but
 // must implement the ref.Val methods in order to be well-supported within
 // instruction arguments processed by the interpreter.
-type baseIterator struct{}
+type baseIterator struct {
+	ref.TypeAdapter
+}
 
 func (it *baseIterator) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	return nil, fmt.Errorf("type conversion on iterators not supported")

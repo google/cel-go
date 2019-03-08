@@ -94,7 +94,10 @@ func (s *ConformanceServer) Check(ctx context.Context, in *exprpb.CheckRequest) 
 
 // Eval implements ConformanceService.Eval.
 func (s *ConformanceServer) Eval(ctx context.Context, in *exprpb.EvalRequest) (*exprpb.EvalResponse, error) {
-	env, _ := cel.NewEnv(cel.Container(in.Container))
+	tp := types.NewProvider()
+	env, _ := cel.NewEnv(
+		cel.Container(in.Container),
+		cel.CustomTypeProvider(tp))
 	var prg cel.Program
 	var err error
 	switch in.ExprKind.(type) {
@@ -116,14 +119,14 @@ func (s *ConformanceServer) Eval(ctx context.Context, in *exprpb.EvalRequest) (*
 	}
 	args := make(map[string]interface{})
 	for name, exprValue := range in.Bindings {
-		refVal, err := ExprValueToRefValue(exprValue)
+		refVal, err := ExprValueToRefValue(tp, exprValue)
 		if err != nil {
 			return nil, fmt.Errorf("can't convert binding %s: %s", name, err)
 		}
 		args[name] = refVal
 	}
 	// NOTE: the EvalState is currently discarded
-	res, _, err := prg.Eval(cel.Vars(args))
+	res, _, err := prg.Eval(args)
 	resultExprVal, err := RefValueToExprValue(res, err)
 	if err != nil {
 		return nil, fmt.Errorf("con't convert result: %s", err)
@@ -282,10 +285,10 @@ func RefValueToValue(res ref.Val) (*exprpb.Value, error) {
 }
 
 // ExprValueToRefValue converts between exprpb.ExprValue and ref.Val.
-func ExprValueToRefValue(ev *exprpb.ExprValue) (ref.Val, error) {
+func ExprValueToRefValue(adapter ref.TypeAdapter, ev *exprpb.ExprValue) (ref.Val, error) {
 	switch ev.Kind.(type) {
 	case *exprpb.ExprValue_Value:
-		return ValueToRefValue(ev.GetValue())
+		return ValueToRefValue(adapter, ev.GetValue())
 	case *exprpb.ExprValue_Error:
 		// An error ExprValue is a repeated set of rpc.Status
 		// messages, with no convention for the status details.
@@ -302,7 +305,7 @@ func ExprValueToRefValue(ev *exprpb.ExprValue) (ref.Val, error) {
 }
 
 // ValueToRefValue converts between exprpb.Value and ref.Val.
-func ValueToRefValue(v *exprpb.Value) (ref.Val, error) {
+func ValueToRefValue(adapter ref.TypeAdapter, v *exprpb.Value) (ref.Val, error) {
 	switch v.Kind.(type) {
 	case *exprpb.Value_NullValue:
 		return types.NullValue, nil
@@ -324,33 +327,33 @@ func ValueToRefValue(v *exprpb.Value) (ref.Val, error) {
 		if err := ptypes.UnmarshalAny(any, &msg); err != nil {
 			return nil, err
 		}
-		return types.NewObject(msg.Message), nil
+		return adapter.NativeToValue(msg.Message), nil
 	case *exprpb.Value_MapValue:
 		m := v.GetMapValue()
 		entries := make(map[ref.Val]ref.Val)
 		for _, entry := range m.Entries {
-			key, err := ValueToRefValue(entry.Key)
+			key, err := ValueToRefValue(adapter, entry.Key)
 			if err != nil {
 				return nil, err
 			}
-			pb, err := ValueToRefValue(entry.Value)
+			pb, err := ValueToRefValue(adapter, entry.Value)
 			if err != nil {
 				return nil, err
 			}
 			entries[key] = pb
 		}
-		return types.NewDynamicMap(entries), nil
+		return adapter.NativeToValue(entries), nil
 	case *exprpb.Value_ListValue:
 		l := v.GetListValue()
 		elts := make([]ref.Val, len(l.Values))
 		for i, e := range l.Values {
-			rv, err := ValueToRefValue(e)
+			rv, err := ValueToRefValue(adapter, e)
 			if err != nil {
 				return nil, err
 			}
 			elts[i] = rv
 		}
-		return types.NewValueList(elts), nil
+		return adapter.NativeToValue(elts), nil
 	case *exprpb.Value_TypeValue:
 		typeName := v.GetTypeValue()
 		tv, ok := typeNameToTypeValue[typeName]

@@ -15,9 +15,9 @@
 package interpreter
 
 import (
+	"fmt"
 	"sync"
 
-	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 )
 
@@ -34,10 +34,48 @@ type Activation interface {
 	Parent() Activation
 }
 
+func EmptyActivation() Activation {
+	// This call cannot fail.
+	a, _ := NewActivation(map[string]interface{}{})
+	return a
+}
+
 // NewActivation returns an activation based on a map-based binding where the map keys are
 // expected to be qualified names used with ResolveName calls.
-func NewActivation(bindings map[string]interface{}) Activation {
-	return &mapActivation{bindings: bindings}
+func NewActivation(bindings interface{}) (Activation, error) {
+	return NewAdaptingActivation(nil, bindings)
+}
+
+func NewAdaptingActivation(types ref.TypeProvider,
+	bindings interface{}) (Activation, error) {
+	a, isActivation := bindings.(Activation)
+	if isActivation {
+		return a, nil
+	}
+	m, isMap := bindings.(map[string]interface{})
+	if !isMap {
+		return nil, fmt.Errorf(
+			"activation input must be an activation or map[string]interface: got %T",
+			bindings)
+	}
+	var allVals = true
+	for _, v := range m {
+		_, isVal := v.(ref.Val)
+		if !isVal {
+			allVals = false
+			break
+		}
+	}
+	if allVals {
+		return &mapActivation{bindings: m}, nil
+	}
+	adapter, isAdapting := types.(ref.TypeAdapter)
+	if !isAdapting {
+		return nil, fmt.Errorf(
+			"type provider must implement ref.TypeAdapter to support non-CEL types: got %T",
+			types)
+	}
+	return &mapActivation{adapter: adapter, bindings: m}, nil
 }
 
 // mapActivation which implements Activation and maps of named values.
@@ -45,6 +83,7 @@ func NewActivation(bindings map[string]interface{}) Activation {
 // Named bindings may lazily supply values by providing a function which accepts no arguments and
 // produces an interface value.
 type mapActivation struct {
+	adapter  ref.TypeAdapter
 	bindings map[string]interface{}
 }
 
@@ -66,7 +105,9 @@ func (a *mapActivation) ResolveName(name string) (ref.Val, bool) {
 		case ref.Val:
 			return object.(ref.Val), true
 		default:
-			return types.NativeToValue(object), true
+			if a.adapter != nil {
+				return a.adapter.NativeToValue(object), true
+			}
 		}
 	}
 	return nil, false

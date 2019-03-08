@@ -45,6 +45,7 @@ func newPlanner(disp Dispatcher,
 	return &planner{
 		disp:       disp,
 		types:      types,
+		adapter:    types.(ref.TypeAdapter),
 		pkg:        pkg,
 		identMap:   make(map[string]Interpretable),
 		refMap:     checked.GetReferenceMap(),
@@ -63,6 +64,7 @@ func newUncheckedPlanner(disp Dispatcher,
 	return &planner{
 		disp:       disp,
 		types:      types,
+		adapter:    types.(ref.TypeAdapter),
 		pkg:        pkg,
 		identMap:   make(map[string]Interpretable),
 		refMap:     make(map[int64]*exprpb.Reference),
@@ -75,6 +77,7 @@ func newUncheckedPlanner(disp Dispatcher,
 type planner struct {
 	disp       Dispatcher
 	types      ref.TypeProvider
+	adapter    ref.TypeAdapter
 	pkg        packages.Packager
 	identMap   map[string]Interpretable
 	refMap     map[int64]*exprpb.Reference
@@ -422,8 +425,9 @@ func (p *planner) planCreateList(expr *exprpb.Expr) (Interpretable, error) {
 		elems[i] = elemVal
 	}
 	return &evalList{
-		id:    expr.Id,
-		elems: elems,
+		id:      expr.Id,
+		elems:   elems,
+		adapter: p.adapter,
 	}, nil
 }
 
@@ -450,9 +454,10 @@ func (p *planner) planCreateStruct(expr *exprpb.Expr) (Interpretable, error) {
 		vals[i] = valVal
 	}
 	return &evalMap{
-		id:   expr.Id,
-		keys: keys,
-		vals: vals,
+		id:      expr.Id,
+		keys:    keys,
+		vals:    vals,
+		adapter: p.adapter,
 	}, nil
 }
 
@@ -965,8 +970,9 @@ func (fn *evalVarArgs) Eval(ctx Activation) ref.Val {
 }
 
 type evalList struct {
-	id    int64
-	elems []Interpretable
+	id      int64
+	elems   []Interpretable
+	adapter ref.TypeAdapter
 }
 
 // ID implements the Interpretable interface method.
@@ -985,13 +991,14 @@ func (l *evalList) Eval(ctx Activation) ref.Val {
 		}
 		elemVals[i] = elemVal
 	}
-	return types.NewDynamicList(elemVals)
+	return types.NewDynamicList(l.adapter, elemVals)
 }
 
 type evalMap struct {
-	id   int64
-	keys []Interpretable
-	vals []Interpretable
+	id      int64
+	keys    []Interpretable
+	vals    []Interpretable
+	adapter ref.TypeAdapter
 }
 
 // ID implements the Interpretable interface method.
@@ -1014,7 +1021,7 @@ func (m *evalMap) Eval(ctx Activation) ref.Val {
 		}
 		entries[keyVal] = valVal
 	}
-	return types.NewDynamicMap(entries)
+	return types.NewDynamicMap(m.adapter, entries)
 }
 
 type evalObj struct {

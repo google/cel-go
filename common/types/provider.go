@@ -38,10 +38,10 @@ type protoTypeProvider struct {
 // NewProvider accepts a list of proto message instances and returns a type
 // provider which can create new instances of the provided message or any
 // message that proto depends upon in its FileDescriptor.
-func NewProvider(types ...proto.Message) ref.TypeProvider {
+func NewProvider(types ...proto.Message) *protoTypeProvider {
 	p := &protoTypeProvider{
 		revTypeMap: make(map[string]ref.Type),
-		pbdb:       pb.DefaultDb,
+		pbdb:       pb.NewDb(),
 	}
 	p.RegisterType(
 		BoolType,
@@ -78,25 +78,20 @@ func (p *protoTypeProvider) EnumValue(enumName string) ref.Val {
 	return Int(enumVal.Value())
 }
 
-func (p *protoTypeProvider) FindFieldType(t *exprpb.Type,
+func (p *protoTypeProvider) FindFieldType(messageType string,
 	fieldName string) (*ref.FieldType, bool) {
-	switch t.TypeKind.(type) {
-	default:
+	msgType, err := p.pbdb.DescribeType(messageType)
+	if err != nil {
 		return nil, false
-	case *exprpb.Type_MessageType:
-		msgType, err := p.pbdb.DescribeType(t.GetMessageType())
-		if err != nil {
-			return nil, false
-		}
-		field, found := msgType.FieldByName(fieldName)
-		if !found {
-			return nil, false
-		}
-		return &ref.FieldType{
-				Type:             field.CheckedType(),
-				SupportsPresence: field.SupportsPresence()},
-			true
 	}
+	field, found := msgType.FieldByName(fieldName)
+	if !found {
+		return nil, false
+	}
+	return &ref.FieldType{
+			Type:             field.CheckedType(),
+			SupportsPresence: field.SupportsPresence()},
+		true
 }
 
 func (p *protoTypeProvider) FindIdent(identName string) (ref.Val, bool) {
@@ -121,10 +116,6 @@ func (p *protoTypeProvider) FindType(typeName string) (*exprpb.Type, bool) {
 			Type: &exprpb.Type{
 				TypeKind: &exprpb.Type_MessageType{
 					MessageType: typeName}}}}, true
-}
-
-func (p *protoTypeProvider) IsolateTypes() {
-	p.pbdb = pb.NewDb()
 }
 
 func (p *protoTypeProvider) NewValue(typeName string, fields map[string]ref.Val) ref.Val {
@@ -163,7 +154,7 @@ func (p *protoTypeProvider) NewValue(typeName string, fields map[string]ref.Val)
 		}
 		refField.Set(reflect.ValueOf(fieldValue))
 	}
-	return NewObject(value.Interface().(proto.Message))
+	return NewObject(p, td, value.Interface().(proto.Message))
 }
 
 func (p *protoTypeProvider) RegisterDescriptor(fileDesc *descpb.FileDescriptorProto) error {
@@ -202,7 +193,7 @@ func (p *protoTypeProvider) registerAllTypes(fd *pb.FileDescription) error {
 
 // NativeToValue converts various "native" types to ref.Val.
 // It should be the inverse of ref.Val.ConvertToNative.
-func NativeToValue(value interface{}) ref.Val {
+func (p *protoTypeProvider) NativeToValue(value interface{}) ref.Val {
 	switch value.(type) {
 	case ref.Val:
 		return value.(ref.Val)
@@ -249,32 +240,32 @@ func NativeToValue(value interface{}) ref.Val {
 	case []byte:
 		return Bytes(value.([]byte))
 	case []string:
-		return NewStringList(value.([]string))
+		return NewStringList(p, value.([]string))
 	case map[string]string:
 		return NewStringStringMap(value.(map[string]string))
 	case *dpb.Duration:
 		return Duration{value.(*dpb.Duration)}
 	case *structpb.ListValue:
-		return NewJSONList(value.(*structpb.ListValue))
+		return NewJSONList(p, value.(*structpb.ListValue))
 	case structpb.NullValue:
 		return NullValue
 	case *structpb.Struct:
-		return NewJSONStruct(value.(*structpb.Struct))
+		return NewJSONStruct(p, value.(*structpb.Struct))
 	case *structpb.Value:
 		v := value.(*structpb.Value)
 		switch v.Kind.(type) {
 		case *structpb.Value_BoolValue:
-			return NativeToValue(v.GetBoolValue())
+			return p.NativeToValue(v.GetBoolValue())
 		case *structpb.Value_ListValue:
-			return NativeToValue(v.GetListValue())
+			return p.NativeToValue(v.GetListValue())
 		case *structpb.Value_NullValue:
 			return NullValue
 		case *structpb.Value_NumberValue:
-			return NativeToValue(v.GetNumberValue())
+			return p.NativeToValue(v.GetNumberValue())
 		case *structpb.Value_StringValue:
-			return NativeToValue(v.GetStringValue())
+			return p.NativeToValue(v.GetStringValue())
 		case *structpb.Value_StructValue:
-			return NativeToValue(v.GetStructValue())
+			return p.NativeToValue(v.GetStructValue())
 		}
 	case *tpb.Timestamp:
 		return Timestamp{value.(*tpb.Timestamp)}
@@ -284,9 +275,15 @@ func NativeToValue(value interface{}) ref.Val {
 		if ptypes.UnmarshalAny(val, &unpackedAny) != nil {
 			NewErr("Fail to unmarshal any.")
 		}
-		return NativeToValue(unpackedAny.Message)
+		return p.NativeToValue(unpackedAny.Message)
 	case proto.Message:
-		return NewObject(value.(proto.Message))
+		pbVal := value.(proto.Message)
+		typeName := proto.MessageName(pbVal)
+		td, err := p.pbdb.DescribeType(typeName)
+		if err != nil {
+			return NewErr("unknown type '%s'", typeName)
+		}
+		return NewObject(p, td, pbVal)
 	default:
 		refValue := reflect.ValueOf(value)
 		if refValue.Kind() == reflect.Ptr {
@@ -295,9 +292,9 @@ func NativeToValue(value interface{}) ref.Val {
 		refKind := refValue.Kind()
 		switch refKind {
 		case reflect.Array, reflect.Slice:
-			return NewDynamicList(value)
+			return NewDynamicList(p, value)
 		case reflect.Map:
-			return NewDynamicMap(value)
+			return NewDynamicMap(p, value)
 		// Enums are a type alias of int32, so they cannot be asserted as an
 		// int32 value, but rather need to be downcast to int32 before being
 		// converted to an Int representation.
