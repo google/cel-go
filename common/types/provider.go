@@ -191,9 +191,79 @@ func (p *protoTypeProvider) registerAllTypes(fd *pb.FileDescription) error {
 	return nil
 }
 
-// NativeToValue converts various "native" types to ref.Val.
-// It should be the inverse of ref.Val.ConvertToNative.
+// NativeToValue converts various "native" types to ref.Val with this specific implementation
+// providing support for custom proto-based types.
+//
+// This method should be the inverse of ref.Val.ConvertToNative.
 func (p *protoTypeProvider) NativeToValue(value interface{}) ref.Val {
+	switch value.(type) {
+	case ref.Val:
+		return value.(ref.Val)
+	// Adapt common types and aggregate specializations using the DefaultTypeAdapter.
+	case bool, *bool,
+		float32, *float32, float64, *float64,
+		int, *int, int32, *int32, int64, *int64,		
+		string, *string,
+		uint, *uint, uint32, *uint32, uint64, *uint64,
+		[]byte,
+		[]string,
+		map[string]string:
+		return DefaultTypeAdapter.NativeToValue(value)
+	// Adapt well-known proto-types using the DefaultTypeAdapter.
+	case *dpb.Duration,
+		*tpb.Timestamp,
+		*structpb.ListValue,
+		structpb.NullValue,
+		*structpb.Struct,
+		*structpb.Value:
+		return DefaultTypeAdapter.NativeToValue(value)
+	// Override the Any type by ensuring that custom proto-types are considered on recursive calls.
+	case *anypb.Any:
+		val := value.(*anypb.Any)
+		unpackedAny := ptypes.DynamicAny{}
+		if ptypes.UnmarshalAny(val, &unpackedAny) != nil {
+			NewErr("Fail to unmarshal any.")
+		}
+		return p.NativeToValue(unpackedAny.Message)
+	// Convert custom proto types to CEL values based on type's presence within the pb.Db.
+	case proto.Message:
+		pbVal := value.(proto.Message)
+		typeName := proto.MessageName(pbVal)
+		td, err := p.pbdb.DescribeType(typeName)
+		if err != nil {
+			return NewErr("unknown type '%s'", typeName)
+		}
+		return NewObject(p, td, pbVal)
+	// Override default handling for list and maps to ensure that blends of Go + proto types
+	// are appropriately adapted on recursive calls or subsequent inspection of the aggregate
+	// value.
+	default:
+		refValue := reflect.ValueOf(value)
+		if refValue.Kind() == reflect.Ptr {
+			refValue = refValue.Elem()
+		}
+		refKind := refValue.Kind()
+		switch refKind {
+		case reflect.Array, reflect.Slice:
+			return NewDynamicList(p, value)
+		case reflect.Map:
+			return NewDynamicMap(p, value)
+		}
+	}
+	// By default return the default type adapter's conversion to CEL.
+	return DefaultTypeAdapter.NativeToValue(value)
+}
+
+// defaultTypeAdapter converts go native types to CEL values.
+type defaultTypeAdapter struct{}
+
+var (
+	// DefaultTypeAdapter adapts canonical CEL types from their equivalent Go values.
+	DefaultTypeAdapter = &defaultTypeAdapter{}
+)
+
+// NativeToValue implements the ref.TypeAdapter interface.
+func (a *defaultTypeAdapter) NativeToValue(value interface{}) ref.Val {
 	switch value.(type) {
 	case ref.Val:
 		return value.(ref.Val)
@@ -240,32 +310,32 @@ func (p *protoTypeProvider) NativeToValue(value interface{}) ref.Val {
 	case []byte:
 		return Bytes(value.([]byte))
 	case []string:
-		return NewStringList(p, value.([]string))
+		return NewStringList(a, value.([]string))
 	case map[string]string:
 		return NewStringStringMap(value.(map[string]string))
 	case *dpb.Duration:
 		return Duration{value.(*dpb.Duration)}
 	case *structpb.ListValue:
-		return NewJSONList(p, value.(*structpb.ListValue))
+		return NewJSONList(a, value.(*structpb.ListValue))
 	case structpb.NullValue:
 		return NullValue
 	case *structpb.Struct:
-		return NewJSONStruct(p, value.(*structpb.Struct))
+		return NewJSONStruct(a, value.(*structpb.Struct))
 	case *structpb.Value:
 		v := value.(*structpb.Value)
 		switch v.Kind.(type) {
 		case *structpb.Value_BoolValue:
-			return p.NativeToValue(v.GetBoolValue())
+			return a.NativeToValue(v.GetBoolValue())
 		case *structpb.Value_ListValue:
-			return p.NativeToValue(v.GetListValue())
+			return a.NativeToValue(v.GetListValue())
 		case *structpb.Value_NullValue:
 			return NullValue
 		case *structpb.Value_NumberValue:
-			return p.NativeToValue(v.GetNumberValue())
+			return a.NativeToValue(v.GetNumberValue())
 		case *structpb.Value_StringValue:
-			return p.NativeToValue(v.GetStringValue())
+			return a.NativeToValue(v.GetStringValue())
 		case *structpb.Value_StructValue:
-			return p.NativeToValue(v.GetStructValue())
+			return a.NativeToValue(v.GetStructValue())
 		}
 	case *tpb.Timestamp:
 		return Timestamp{value.(*tpb.Timestamp)}
@@ -275,15 +345,7 @@ func (p *protoTypeProvider) NativeToValue(value interface{}) ref.Val {
 		if ptypes.UnmarshalAny(val, &unpackedAny) != nil {
 			NewErr("Fail to unmarshal any.")
 		}
-		return p.NativeToValue(unpackedAny.Message)
-	case proto.Message:
-		pbVal := value.(proto.Message)
-		typeName := proto.MessageName(pbVal)
-		td, err := p.pbdb.DescribeType(typeName)
-		if err != nil {
-			return NewErr("unknown type '%s'", typeName)
-		}
-		return NewObject(p, td, pbVal)
+		return a.NativeToValue(unpackedAny.Message)
 	default:
 		refValue := reflect.ValueOf(value)
 		if refValue.Kind() == reflect.Ptr {
@@ -292,15 +354,29 @@ func (p *protoTypeProvider) NativeToValue(value interface{}) ref.Val {
 		refKind := refValue.Kind()
 		switch refKind {
 		case reflect.Array, reflect.Slice:
-			return NewDynamicList(p, value)
+			return NewDynamicList(a, value)
 		case reflect.Map:
-			return NewDynamicMap(p, value)
-		// Enums are a type alias of int32, so they cannot be asserted as an
-		// int32 value, but rather need to be downcast to int32 before being
-		// converted to an Int representation.
+			return NewDynamicMap(a, value)
+		// type aliases of primitive types cannot be asserted as that type, but rather need
+		// to be downcast to int32 before being converted to a CEL representation.
 		case reflect.Int32:
 			intType := reflect.TypeOf(int32(0))
 			return Int(refValue.Convert(intType).Interface().(int32))
+		case reflect.Int64:
+			intType := reflect.TypeOf(int64(0))
+			return Int(refValue.Convert(intType).Interface().(int64))
+		case reflect.Uint32:
+			uintType := reflect.TypeOf(uint32(0))
+			return Uint(refValue.Convert(uintType).Interface().(uint32))
+		case reflect.Uint64:
+			uintType := reflect.TypeOf(uint64(0))
+			return Uint(refValue.Convert(uintType).Interface().(uint64))
+		case reflect.Float32:
+			doubleType := reflect.TypeOf(float32(0))
+			return Double(refValue.Convert(doubleType).Interface().(float32))
+		case reflect.Float64:
+			doubleType := reflect.TypeOf(float64(0))
+			return Double(refValue.Convert(doubleType).Interface().(float64))
 		}
 	}
 	return NewErr("unsupported type conversion for value '%v'", value)

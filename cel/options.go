@@ -19,6 +19,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cel-go/common/packages"
+	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter"
 	"github.com/google/cel-go/interpreter/functions"
@@ -63,13 +64,11 @@ func ClearMacros() EnvOption {
 func CustomTypeProvider(provider ref.TypeProvider) EnvOption {
 	return func(e *env) (*env, error) {
 		e.types = provider
+		e.adapter = types.DefaultTypeAdapter
 		adapter, isAdapter := provider.(ref.TypeAdapter)
 		if isAdapter {
 			e.adapter = adapter
-		} else {
-			// TODO: implement GoTypeAdapter.
-			e.adapter = nil // types.GoTypeAdapter
-		}
+		} 
 		return e, nil
 	}
 }

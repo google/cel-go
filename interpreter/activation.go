@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 )
 
@@ -47,10 +48,9 @@ func EmptyActivation() Activation {
 // The input `bindings` may either be of type `Activation` or `map[string]interface{}`.
 //
 // When the bindings are a `map` form whose values are not of `ref.Val` type, the values will be
-// converted to CEL values (if possible) using the `types.GoTypeAdapter`.
+// converted to CEL values (if possible) using the `types.DefaultTypeAdapter`.
 func NewActivation(bindings interface{}) (Activation, error) {
-	// TODO: implement types.GoTypeAdapter.
-	return NewAdaptingActivation(nil, bindings)
+	return NewAdaptingActivation(types.DefaultTypeAdapter, bindings)
 }
 
 // NewAdaptingActivation returns an actvation which is capable of adapting `bindings` from native
