@@ -448,14 +448,24 @@ func (c *checker) checkComprehension(e *exprpb.Expr) {
 }
 
 // Checks compatibility of joined types, and returns the most general common type.
-func (c *checker) joinTypes(loc common.Location, previous *exprpb.Type, current *exprpb.Type) *exprpb.Type {
+func (c *checker) joinTypes(loc common.Location,
+	previous *exprpb.Type,
+	current *exprpb.Type) *exprpb.Type {
 	if previous == nil {
 		return current
 	}
-	if !c.isAssignable(previous, current) {
+	if c.isAssignable(previous, current) {
+		return mostGeneral(previous, current)
+	}
+	if c.dynAggregateLiteralElementTypesEnabled() {
 		return decls.Dyn
 	}
-	return mostGeneral(previous, current)
+	c.errors.typeMismatch(loc, previous, current)
+	return decls.Error
+}
+
+func (c *checker) dynAggregateLiteralElementTypesEnabled() bool {
+	return c.env.aggLitElemType == dynElementType
 }
 
 func (c *checker) newTypeVar() *exprpb.Type {
