@@ -26,9 +26,16 @@ import (
 type Program interface {
 	// Eval returns the result of an evaluation of the Ast and environment against the input vars.
 	//
-	// If the evaluation is an error, the result will be nil with a non-nil error.
+	// If the OptTrackState or OptExhaustiveEval is used, the `details` response will be non-nil.
+	// The return state from evaluation will be:
 	//
-	// If the OptTrackState or OptExhaustiveEval is used, the EvalDetails response will be non-nil.
+	// *  `val`, `details`, `nil` - Successful evaluation of a non-error result.
+	// *  `val`, `details`, `err` - Successful evaluation to an error result.
+	// *  `nil`, `details`, `err` - Unsuccessful evaluation.
+	//
+	// An unsuccessful evaluation is typically the result of a series of incompatible `EnvOption`
+	// or `ProgramOption` values used in the creation of the evaluation environment or executable
+	// program.
 	Eval(vars interpreter.Activation) (ref.Val, EvalDetails, error)
 }
 
@@ -193,7 +200,7 @@ func (p *prog) Eval(vars interpreter.Activation) (ref.Val, EvalDetails, error) {
 	// translates the CEL value to a Go error response. This interface does not quite match the
 	// RPC signature which allows for multiple errors to be returned, but should be sufficient.
 	if types.IsError(v) {
-		return nil, nil, v.Value().(error)
+		return v, nil, v.Value().(error)
 	}
 	return v, nil, nil
 }
@@ -217,7 +224,7 @@ func (gen *progGen) Eval(vars interpreter.Activation) (ref.Val, EvalDetails, err
 	// Evaluate the input, returning the result and the 'state' within EvalDetails.
 	v, _, err := p.Eval(vars)
 	if err != nil {
-		return nil, det, err
+		return v, det, err
 	}
 	return v, det, nil
 }
