@@ -210,7 +210,7 @@ func timestampGetFullYear(t time.Time) ref.Val {
 	return Int(t.Year())
 }
 func timestampGetMonth(t time.Time) ref.Val {
-	return Int(t.Month())
+	return Int(t.Month() - 1)
 }
 func timestampGetDayOfYear(t time.Time) ref.Val {
 	return Int(t.YearDay())
