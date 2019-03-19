@@ -4,19 +4,27 @@
 [![GoDoc](https://godoc.org/github.com/google/cel-go?status.svg)][6]
 
 The Common Expression Language (CEL) is a non-Turing complete language designed
-for simplicity, speed, safety, and portability. CEL's C-like syntax looks nearly
-identical to equivalent expressions in C++, Go, Java, and TypeScript. e.g.
+for simplicity, speed, safety, and portability. CEL's C-like [syntax][1] looks
+nearly identical to equivalent expressions in C++, Go, Java, and TypeScript.
 
-```javascript
+```java
 // Check whether a resource name starts with a group name.
-resource.name.startsWith('/groups/' + auth.claims.group)
+resource.name.startsWith("/groups/" + auth.claims.group)
+```
 
+```go
 // Determine whether the request is in the permitted time window.
-request.time - resource.age < duration('24h')
+request.time - resource.age < duration("24h")
+```
 
+```typescript
 // Check whether all resource names in a list match a given filter.
 auth.claims.email_verified && resources.all(r, r.startsWith(auth.claims.email))
 ```
+
+A CEL "program" is a single expression. The examples have been tagged as
+`java`, `go`, and `typescript` within the markdown to showcase the commonality
+of the syntax.
 
 CEL is ideal for lightweight expression evaluation when a fully sandboxed
 scripting language is too resource intensive.
@@ -29,8 +37,7 @@ the output AST against some input.
 
 ### Environment Setup
 
-Let's expose `resource.name` and  `auth.claims` variables to CEL using the
-standard builtins:
+Let's expose `name` and  `group` variables to CEL using the standard builtins:
 
 ```go
 import(
@@ -40,15 +47,13 @@ import(
 
 env, err := cel.NewEnv(
     cel.Declarations(
-        decls.NewIdent("resource.name", decls.String, nil),
-        decls.NewIdent("auth.claims",
-            decls.NewMapType(decls.String, decls.Dyn), nil)))
+        decls.NewIdent("name", decls.String, nil),
+        decls.NewIdent("group", decls.String, nil))
 ```
 
 That's it, the environment is ready to be use for parsing and type-checking.
-Note, the `auth.claims` variable is exposed as a map with `string` keys and
-`dyn` values. The `dyn` in this case represents JSON input as the
-`auth.claims` could originate from a JSON Web Token (JWT).
+CEL supports all the usual primitive types in addition to lists, maps, as well
+as first-class support for JSON and Protocol Buffers.
 
 ### Parse and Check
 
@@ -58,8 +63,7 @@ more computationally expensive than evaluation, and it is recommended that
 expressions be parsed and checked ahead of time.
 
 ```go
-parsed, issues := env.Parse(
-    `resource.name.startsWith("/groups/" + auth.claims.group)`)
+parsed, issues := env.Parse(`name.startsWith("/groups/" + group)`)
 if issues != nil && issues.Err() != nil {
     log.Fatalf("parse error: %s", issues.Err())
 }
@@ -84,7 +88,8 @@ field selection at evaluation-time.
 #### Macros
 
 Macros are enabled by default and may be disabled. The comprehension macros
-`all`, `exists`, `exists_one`, `filter`, and `map` are particularly useful for evaluating a single predicate against list and map values.
+`all`, `exists`, `exists_one`, `filter`, and `map` are particularly useful for
+evaluating a single predicate against list and map values.
 
 ### Evaluate
 
@@ -99,10 +104,8 @@ ignored.
 // a cel.ProgramOption. This can be useful for visualizing how the `out` value
 // was arrive at.
 out, details, err := prg.Eval(map[string]interface{}{
-    "resource.name": "/groups/acme.co/documents/secret-stuff",
-    "auth.claims": map[string]interface{}{
-        "sub": "alice@acme.co",
-        "group": "acme.co"}})
+    "name": "/groups/acme.co/documents/secret-stuff",
+    "group": "acme.co"}})
 fmt.Println(out) // 'true'
 ```
 
@@ -110,20 +113,46 @@ For more examples of how to use CEL, see [cel_test.go](https://github.com/google
 
 #### Partial State
 
-What if the `auth.claims` hadn't been supplied? Well, CEL is designed for this.
-When some of the input is unknown, the `out` value will contain a list of the
-unknown expressions encountered during evaluation if they were relevant to the
-outcome. In cases where an alternative conditional branch can produce a
-definitive result, CEL takes this branch and skips right over the unknowns.
+What if `name` hadn't been supplied? CEL is designed for this case. In 
+distributed apps it is not uncommon to have edge caches and central services.
+If possible, evaluation should happen at the edge, but it isn't always possible
+to know the full state required for all values and functions present in the
+CEL expression.
 
-In the cases where unknowns are expected, state tracking should be enabled. The
-`details` field will contain all of the intermediate evaluation values and can
-be provided to the `interpreter.Prune` function to generate a residual
-expression. e.g.:
+To handle this case, CEL relies on commutative logical operators `&&`, `||`.
+If an error or unknown value (not the same thing) is encountered on the
+left-hand side, the right hand side is evaluated also to determine the outcome.
 
-```javascript
-// Residual when `resource.name` omitted:
-resource.name.startsWith("/groups/acme.co")
+In the following truth-table, the symbols `<x>` and `<y>` represent error or
+unknown values, with the `?` indicating that the branch is not taken due to
+short-circuiting. When the result is `<x, y>` this means that the both args
+are possibly relevant to the result.
+
+| Expression          | Result   |
+|---------------------|----------|
+| `false && ?`        | `false`  |
+| `true && false`     | `false`  |
+| `<x> && false`      | `false`  |
+| `true && true`      | `true`   |
+| `true && <x>`       | `<x>`    |
+| `<x> && true`       | `<x>`    |
+| `<x> && <y>`        | `<x, y>` |
+| `true \|\| ?`       | `true`   |
+| `false \|\| true`   | `true`   |
+| `<x> \|\| true`     | `true`   |
+| `false \|\| false`  | `false`  |
+| `false \|\| <x>`    | `<x>`    |
+| `<x> \|\| false`    | `<x>`    |
+| `<x> \|\| <y>`      | `<x, y>` |
+
+In the cases where unknowns are expected, `cel.EvalOptions(cel.OptTrackState)`
+should be enabled. The `details` value returned by `Eval()` will contain the
+intermediate evaluation values and can be provided to the `interpreter.Prune`
+function to generate a residual expression. e.g.:
+
+```cpp
+// Residual when `name` omitted:
+name.startsWith("/groups/acme.co")
 ```
 
 This technique can be useful when there are attributes that are expensive to
@@ -147,7 +176,7 @@ to determine error locations at evaluation time as well.
 
 ## Performance
 
-CEL evaluates very quickly. When the expression set does not change frequently,
+CEL evaluates very quickly. When the expression does not change frequently,
 or is easily cached, the evaluation speed is the more important factor when
 considering an expression language.
 
@@ -156,9 +185,9 @@ Go expression language libraries, namely https://github.com/antonmedv/expr
 and https://github.com/Knetic/govaluate:
 
 ```javascript
-resource.name.startsWith("/groups/" + auth.claims)  // CEL
-startsWith(resource_name, concat("/groups/", auth_claims)) // Govaluate
-StartsWith(resource.name, Concat("/groups/", auth.claims)) // Expr
+name.startsWith("/groups/" + group)  // CEL
+startsWith(name, concat("/groups/", group)) // Govaluate
+StartsWith(name, Concat("/groups/", group)) // Expr
 ```
 
 The syntax varies slightly between the examples based on the features and
@@ -203,9 +232,10 @@ evaluate?" question heavily when the answer is anything more than O(n)
 complexity.
 
 CEL evaluates linearly with respect to the size of the expression and the input
-being evaluated. The only functions beyond the built-ins that may be invoked
-are provided by the host environment. While extension functions may be more
-complex, this is a choice by the application embedding CEL.
+being evaluated when macros are disabled. The only functions beyond the
+built-ins that may be invoked are provided by the host environment. While
+extension functions may be more complex, this is a choice by the application
+embedding CEL.
 
 But, why not WASM? WASM is an excellent choice for certain applications and
 is far superior to embedded JavaScript and Lua, but it does not have support
