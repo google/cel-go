@@ -26,8 +26,8 @@ import (
 type Program interface {
 	// Eval returns the result of an evaluation of the Ast and environment against the input vars.
 	//
-	// If the OptTrackState or OptExhaustiveEval is used, the `details` response will be non-nil.
-	// The return state from evaluation will be:
+	// If the `OptTrackState` or `OptExhaustiveEval` flags are used, the `details` response will
+	/// be non-nil. Given this caveat on `details`, the return state from evaluation will be:
 	//
 	// *  `val`, `details`, `nil` - Successful evaluation of a non-error result.
 	// *  `val`, `details`, `err` - Successful evaluation to an error result.
