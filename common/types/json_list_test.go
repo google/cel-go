@@ -84,8 +84,8 @@ func TestJsonListValue_ConvertToNative_Json(t *testing.T) {
 }
 
 func TestJsonListValue_ConvertToNative_Slice(t *testing.T) {
-	p := NewRegistry()
-	list := NewJSONList(p, &structpb.ListValue{Values: []*structpb.Value{
+	reg := NewRegistry()
+	list := NewJSONList(reg, &structpb.ListValue{Values: []*structpb.Value{
 		{Kind: &structpb.Value_StringValue{StringValue: "hello"}},
 		{Kind: &structpb.Value_NumberValue{NumberValue: 1}}}})
 	listVal, err := list.ConvertToNative(reflect.TypeOf([]*structpb.Value{}))
@@ -93,7 +93,7 @@ func TestJsonListValue_ConvertToNative_Slice(t *testing.T) {
 		t.Error(err)
 	}
 	for i, v := range listVal.([]*structpb.Value) {
-		if !list.Get(Int(i)).Equal(p.NativeToValue(v)).(Bool) {
+		if !list.Get(Int(i)).Equal(reg.NativeToValue(v)).(Bool) {
 			t.Errorf("elem[%d] Got '%v', expected '%v'",
 				i, v, list.Get(Int(i)))
 		}

@@ -502,13 +502,13 @@ func (c *checker) isAssignableList(l1 []*exprpb.Type, l2 []*exprpb.Type) bool {
 }
 
 func (c *checker) lookupFieldType(l common.Location, messageType string, fieldName string) (*ref.FieldType, bool) {
-	if _, found := c.env.typeProvider.FindType(messageType); !found {
+	if _, found := c.env.provider.FindType(messageType); !found {
 		// This should not happen, anyway, report an error.
 		c.errors.unexpectedFailedResolution(l, messageType)
 		return nil, false
 	}
 
-	if ft, found := c.env.typeProvider.FindFieldType(messageType, fieldName); found {
+	if ft, found := c.env.provider.FindFieldType(messageType, fieldName); found {
 		return ft, found
 	}
 

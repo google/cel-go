@@ -27,12 +27,12 @@ import (
 )
 
 func TestBaseList_Add_Empty(t *testing.T) {
-	p := NewRegistry()
-	list := NewDynamicList(p, []bool{true})
-	if list.Add(NewDynamicList(p, []bool{})) != list {
+	reg := NewRegistry()
+	list := NewDynamicList(reg, []bool{true})
+	if list.Add(NewDynamicList(reg, []bool{})) != list {
 		t.Error("Adding an empty list created new list.")
 	}
-	if NewDynamicList(p, []string{}).Add(list) != list {
+	if NewDynamicList(reg, []string{}).Add(list) != list {
 		t.Error("Adding list to empty created a new list.")
 	}
 }
@@ -137,24 +137,24 @@ func validateIterator123(t *testing.T, list traits.Lister) {
 }
 
 func TestBaseList_NestedList(t *testing.T) {
-	p := NewRegistry()
+	reg := NewRegistry()
 	listUint32 := []uint32{1, 2}
-	nestedUint32 := NewDynamicList(p, []interface{}{listUint32})
+	nestedUint32 := NewDynamicList(reg, []interface{}{listUint32})
 	listUint64 := []uint64{1, 2}
-	nestedUint64 := NewDynamicList(p, []interface{}{listUint64})
+	nestedUint64 := NewDynamicList(reg, []interface{}{listUint64})
 	if nestedUint32.Equal(nestedUint64) != True {
 		t.Error("Could not find nested list")
 	}
-	if nestedUint32.Contains(NewDynamicList(p, listUint64)) != True ||
-		nestedUint64.Contains(NewDynamicList(p, listUint32)) != True {
+	if nestedUint32.Contains(NewDynamicList(reg, listUint64)) != True ||
+		nestedUint64.Contains(NewDynamicList(reg, listUint32)) != True {
 		t.Error("Could not find type compatible nested lists")
 	}
 }
 
 func TestBaseList_Size(t *testing.T) {
-	p := NewRegistry()
+	reg := NewRegistry()
 	listUint32 := []uint32{1, 2}
-	nestedUint32 := NewDynamicList(p, []interface{}{listUint32})
+	nestedUint32 := NewDynamicList(reg, []interface{}{listUint32})
 	if nestedUint32.Size() != IntOne {
 		t.Error("List indicates the incorrect size.")
 	}
@@ -164,9 +164,9 @@ func TestBaseList_Size(t *testing.T) {
 }
 
 func TestConcatList_Add(t *testing.T) {
-	p := NewRegistry()
-	listA := NewDynamicList(p, []float32{1.0, 2.0})
-	listB := NewStringList(p, []string{"3"})
+	reg := NewRegistry()
+	listA := NewDynamicList(reg, []float32{1.0, 2.0})
+	listB := NewStringList(reg, []string{"3"})
 	list := listA.Add(listB).(traits.Lister).Add(listA).
 		Value().([]interface{})
 	expected := []interface{}{
@@ -188,9 +188,9 @@ func TestConcatList_Add(t *testing.T) {
 }
 
 func TestConcatList_ConvertToNative_Json(t *testing.T) {
-	p := NewRegistry()
-	listA := NewDynamicList(p, []float32{1.0, 2.0})
-	listB := NewDynamicList(p, []string{"3"})
+	reg := NewRegistry()
+	listA := NewDynamicList(reg, []float32{1.0, 2.0})
+	listB := NewDynamicList(reg, []string{"3"})
 	list := listA.Add(listB)
 	json, err := list.ConvertToNative(jsonValueType)
 	if err != nil {
@@ -206,12 +206,12 @@ func TestConcatList_ConvertToNative_Json(t *testing.T) {
 }
 
 func TestConcatList_ConvertToNative_ElementConversionError(t *testing.T) {
-	p := NewRegistry()
-	listA := NewDynamicList(p, []float32{1.0, 2.0})
+	reg := NewRegistry()
+	listA := NewDynamicList(reg, []float32{1.0, 2.0})
 	// Duration is serializable to a string form of json, but there is no
 	// concept of a duration literal within CEL, so the serialization to string
 	// is not supported here which should cause the conversion to json to fail.
-	listB := NewDynamicList(p, []*dpb.Duration{{Seconds: 100}})
+	listB := NewDynamicList(reg, []*dpb.Duration{{Seconds: 100}})
 	listConcat := listA.Add(listB)
 	json, err := listConcat.ConvertToNative(jsonValueType)
 	if err == nil {
@@ -220,9 +220,9 @@ func TestConcatList_ConvertToNative_ElementConversionError(t *testing.T) {
 }
 
 func TestConcatList_ConvertToType(t *testing.T) {
-	p := NewRegistry()
-	listA := NewDynamicList(p, []float32{1.0, 2.0})
-	listB := NewDynamicList(p, []*dpb.Duration{{Seconds: 100}})
+	reg := NewRegistry()
+	listA := NewDynamicList(reg, []float32{1.0, 2.0})
+	listB := NewDynamicList(reg, []*dpb.Duration{{Seconds: 100}})
 	list := listA.Add(listB)
 	if list.ConvertToType(ListType) != list {
 		t.Error("List conversion to list failed.")
@@ -236,12 +236,12 @@ func TestConcatList_ConvertToType(t *testing.T) {
 }
 
 func TestConcatListValue_Equal(t *testing.T) {
-	p := NewRegistry()
-	listA := NewDynamicList(p, []float32{1.0, 2.0})
-	listB := NewDynamicList(p, []float64{3.0})
+	reg := NewRegistry()
+	listA := NewDynamicList(reg, []float32{1.0, 2.0})
+	listB := NewDynamicList(reg, []float64{3.0})
 	list := listA.Add(listB)
 	// Note the internal type of list raw and concat list are slightly different.
-	listRaw := NewDynamicList(p, []interface{}{
+	listRaw := NewDynamicList(reg, []interface{}{
 		float32(1.0), float64(2.0), float64(3.0)})
 	if listRaw.Equal(list) != True ||
 		list.Equal(listRaw) != True {
@@ -256,9 +256,9 @@ func TestConcatListValue_Equal(t *testing.T) {
 }
 
 func TestConcatListValue_Get(t *testing.T) {
-	p := NewRegistry()
-	listA := NewDynamicList(p, []float32{1.0, 2.0})
-	listB := NewDynamicList(p, []float64{3.0})
+	reg := NewRegistry()
+	listA := NewDynamicList(reg, []float32{1.0, 2.0})
+	listB := NewDynamicList(reg, []float64{3.0})
 	list := listA.Add(listB).(traits.Lister)
 	if getElem(t, list, 0) != Double(1.0) ||
 		getElem(t, list, 1) != Double(2.0) ||
@@ -274,9 +274,9 @@ func TestConcatListValue_Get(t *testing.T) {
 }
 
 func TestConcatListValue_Iterator(t *testing.T) {
-	p := NewRegistry()
-	listA := NewDynamicList(p, []float32{1.0, 2.0})
-	listB := NewDynamicList(p, []float64{3.0})
+	reg := NewRegistry()
+	listA := NewDynamicList(reg, []float32{1.0, 2.0})
+	listB := NewDynamicList(reg, []float64{3.0})
 	list := listA.Add(listB).(traits.Lister)
 	it := list.Iterator()
 	var i = int64(0)
@@ -296,27 +296,27 @@ func TestConcatListValue_Iterator(t *testing.T) {
 }
 
 func TestStringList_Add_Empty(t *testing.T) {
-	p := NewRegistry()
-	list := NewStringList(p, []string{"hello"})
-	if list.Add(NewStringList(p, []string{})) != list {
+	reg := NewRegistry()
+	list := NewStringList(reg, []string{"hello"})
+	if list.Add(NewStringList(reg, []string{})) != list {
 		t.Error("Adding empty lists resulted in new list creation.")
 	}
-	if NewStringList(p, []string{}).Add(list) != list {
+	if NewStringList(reg, []string{}).Add(list) != list {
 		t.Error("Adding empty lists resulted in new list creation.")
 	}
 }
 
 func TestStringList_Add_Error(t *testing.T) {
-	p := NewRegistry()
-	if !IsError(NewStringList(p, []string{}).Add(True)) {
+	reg := NewRegistry()
+	if !IsError(NewStringList(reg, []string{}).Add(True)) {
 		t.Error("Got list, expected error.")
 	}
 }
 
 func TestStringList_Add_Heterogenous(t *testing.T) {
-	p := NewRegistry()
-	listA := NewStringList(p, []string{"hello"})
-	listB := NewDynamicList(p, []int32{1, 2, 3})
+	reg := NewRegistry()
+	listA := NewStringList(reg, []string{"hello"})
+	listB := NewDynamicList(reg, []int32{1, 2, 3})
 	list := listA.Add(listB).(traits.Lister).Value().([]interface{})
 	expected := []interface{}{"hello", int32(1), int32(2), int32(3)}
 	if len(list) != len(expected) {
@@ -330,9 +330,9 @@ func TestStringList_Add_Heterogenous(t *testing.T) {
 }
 
 func TestStringList_Add_StringLists(t *testing.T) {
-	p := NewRegistry()
-	listA := NewStringList(p, []string{"hello"})
-	listB := NewStringList(p, []string{"world", "!"})
+	reg := NewRegistry()
+	listA := NewStringList(reg, []string{"hello"})
+	listB := NewStringList(reg, []string{"world", "!"})
 	list := listA.Add(listB).(traits.Lister)
 	if list.Size() != Int(3) {
 		t.Error("Combined list did not have correct size.")
@@ -346,8 +346,8 @@ func TestStringList_Add_StringLists(t *testing.T) {
 }
 
 func TestStringList_ConvertToNative(t *testing.T) {
-	p := NewRegistry()
-	list := NewStringList(p, []string{"h", "e", "l", "p"})
+	reg := NewRegistry()
+	list := NewStringList(reg, []string{"h", "e", "l", "p"})
 	val, err := list.ConvertToNative(reflect.TypeOf([]string{}))
 	if err != nil {
 		t.Error("Unable to convert string list to itself.")
@@ -358,8 +358,8 @@ func TestStringList_ConvertToNative(t *testing.T) {
 }
 
 func TestStringList_ConvertToNative_Error(t *testing.T) {
-	p := NewRegistry()
-	list := NewStringList(p, []string{"h", "e", "l", "p"})
+	reg := NewRegistry()
+	list := NewStringList(reg, []string{"h", "e", "l", "p"})
 	_, err := list.ConvertToNative(jsonStructType)
 	if err == nil {
 		t.Error("Conversion of list to unsupported type did not error.")
@@ -367,8 +367,8 @@ func TestStringList_ConvertToNative_Error(t *testing.T) {
 }
 
 func TestStringList_ConvertToNative_Json(t *testing.T) {
-	p := NewRegistry()
-	list := NewStringList(p, []string{"h", "e", "l", "p"})
+	reg := NewRegistry()
+	list := NewStringList(reg, []string{"h", "e", "l", "p"})
 	json, err := list.ConvertToNative(jsonValueType)
 	if err != nil {
 		t.Errorf("Got '%v', expected '%v'", err, json)
@@ -392,8 +392,8 @@ func TestStringList_ConvertToNative_Json(t *testing.T) {
 }
 
 func TestStringList_Get_OutOfRange(t *testing.T) {
-	p := NewRegistry()
-	list := NewStringList(p, []string{"hello", "world"})
+	reg := NewRegistry()
+	list := NewStringList(reg, []string{"hello", "world"})
 	if !IsError(list.Get(Int(-1))) {
 		t.Error("Negative index did not return error.")
 	}

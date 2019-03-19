@@ -118,13 +118,13 @@ func TestJsonStruct_ConvertToType(t *testing.T) {
 }
 
 func TestJsonStruct_Equal(t *testing.T) {
-	p := NewRegistry()
-	mapVal := NewJSONStruct(p,
+	reg := NewRegistry()
+	mapVal := NewJSONStruct(reg,
 		&structpb.Struct{Fields: map[string]*structpb.Value{
 			"first":  {Kind: &structpb.Value_StringValue{StringValue: "hello"}},
 			"second": {Kind: &structpb.Value_NumberValue{NumberValue: 4}}}})
 
-	otherVal := NewJSONStruct(p,
+	otherVal := NewJSONStruct(reg,
 		&structpb.Struct{Fields: map[string]*structpb.Value{
 			"first":  {Kind: &structpb.Value_StringValue{StringValue: "hello"}},
 			"second": {Kind: &structpb.Value_NumberValue{NumberValue: 1}}}})
@@ -135,7 +135,7 @@ func TestJsonStruct_Equal(t *testing.T) {
 	if mapVal.Equal(mapVal) != True {
 		t.Error("Map was not equal to itself.")
 	}
-	if mapVal.Equal(NewJSONStruct(p, &structpb.Struct{})) != False {
+	if mapVal.Equal(NewJSONStruct(reg, &structpb.Struct{})) != False {
 		t.Error("Map with key-value pairs was equal to empty map")
 	}
 	if !IsError(mapVal.Equal(String(""))) {

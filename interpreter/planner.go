@@ -34,18 +34,18 @@ type interpretablePlanner interface {
 }
 
 // newPlanner creates an interpretablePlanner which references a Dispatcher, TypeProvider,
-// Packager, and CheckedExpr value. These pieces of data are used to resolve functions,
-// types, and namespaced identifiers at plan time rather than at runtime since it only
-// needs to be done once and may be semi-expensive to compute.
+// TypeAdapter, Packager, and CheckedExpr value. These pieces of data are used to resolve
+// functions, types, and namespaced identifiers at plan time rather than at runtime since
+// it only needs to be done once and may be semi-expensive to compute.
 func newPlanner(disp Dispatcher,
-	types ref.TypeProvider,
+	provider ref.TypeProvider,
 	adapter ref.TypeAdapter,
 	pkg packages.Packager,
 	checked *exprpb.CheckedExpr,
 	decorators ...InterpretableDecorator) interpretablePlanner {
 	return &planner{
 		disp:       disp,
-		types:      types,
+		provider:   provider,
 		adapter:    adapter,
 		pkg:        pkg,
 		identMap:   make(map[string]Interpretable),
@@ -55,17 +55,17 @@ func newPlanner(disp Dispatcher,
 	}
 }
 
-// newUncheckedPlanner creates an interpretablePlanner which references a Dispatcher,
-// TypeProvider, and Packager to resolve functions and types at plan time. Namespaced isa
-// present in Select expressions are resolved lazily at evaluation time.
+// newUncheckedPlanner creates an interpretablePlanner which references a Dispatcher, TypeProvider,
+// TypeAdapter, and Packager to resolve functions and types at plan time. Namespaces present in
+// Select expressions are resolved lazily at evaluation time.
 func newUncheckedPlanner(disp Dispatcher,
-	types ref.TypeProvider,
+	provider ref.TypeProvider,
 	adapter ref.TypeAdapter,
 	pkg packages.Packager,
 	decorators ...InterpretableDecorator) interpretablePlanner {
 	return &planner{
 		disp:       disp,
-		types:      types,
+		provider:   provider,
 		adapter:    adapter,
 		pkg:        pkg,
 		identMap:   make(map[string]Interpretable),
@@ -78,7 +78,7 @@ func newUncheckedPlanner(disp Dispatcher,
 // planner is an implementatio of the interpretablePlanner interface.
 type planner struct {
 	disp       Dispatcher
-	types      ref.TypeProvider
+	provider   ref.TypeProvider
 	adapter    ref.TypeAdapter
 	pkg        packages.Packager
 	identMap   map[string]Interpretable
@@ -137,9 +137,9 @@ func (p *planner) planIdent(expr *exprpb.Expr) (Interpretable, error) {
 		return i, nil
 	}
 	i = &evalIdent{
-		id:    expr.Id,
-		name:  idName,
-		types: p.types,
+		id:       expr.Id,
+		name:     idName,
+		provider: p.provider,
 	}
 	p.identMap[idName] = i
 	return i, nil
@@ -469,7 +469,7 @@ func (p *planner) planCreateObj(expr *exprpb.Expr) (Interpretable, error) {
 	typeName := obj.MessageName
 	var defined bool
 	for _, qualifiedTypeName := range p.pkg.ResolveCandidateNames(typeName) {
-		if _, found := p.types.FindType(qualifiedTypeName); found {
+		if _, found := p.provider.FindType(qualifiedTypeName); found {
 			typeName = qualifiedTypeName
 			defined = true
 			break
@@ -494,7 +494,7 @@ func (p *planner) planCreateObj(expr *exprpb.Expr) (Interpretable, error) {
 		typeName: typeName,
 		fields:   fields,
 		vals:     vals,
-		types:    p.types,
+		provider: p.provider,
 	}, nil
 }
 
@@ -593,7 +593,7 @@ func (p *planner) idResolver(sel *exprpb.Expr_Select) func(Activation) (ref.Val,
 			if object, found := ctx.ResolveName(id); found {
 				return object, found
 			}
-			if typeIdent, found := p.types.FindIdent(id); found {
+			if typeIdent, found := p.provider.FindIdent(id); found {
 				return typeIdent, found
 			}
 		}
@@ -602,9 +602,9 @@ func (p *planner) idResolver(sel *exprpb.Expr_Select) func(Activation) (ref.Val,
 }
 
 type evalIdent struct {
-	id    int64
-	name  string
-	types ref.TypeProvider
+	id       int64
+	name     string
+	provider ref.TypeProvider
 }
 
 // ID implements the Interpretable interface method.
@@ -618,7 +618,7 @@ func (id *evalIdent) Eval(ctx Activation) ref.Val {
 	if found {
 		return val
 	}
-	typeVal, found := id.types.FindIdent(id.name)
+	typeVal, found := id.provider.FindIdent(id.name)
 	if found {
 		return typeVal
 	}
@@ -1031,7 +1031,7 @@ type evalObj struct {
 	typeName string
 	fields   []string
 	vals     []Interpretable
-	types    ref.TypeProvider
+	provider ref.TypeProvider
 }
 
 // ID implements the Interpretable interface method.
@@ -1050,7 +1050,7 @@ func (o *evalObj) Eval(ctx Activation) ref.Val {
 		}
 		fieldVals[field] = val
 	}
-	return o.types.NewValue(o.typeName, fieldVals)
+	return o.provider.NewValue(o.typeName, fieldVals)
 }
 
 type evalFold struct {

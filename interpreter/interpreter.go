@@ -89,34 +89,31 @@ func FoldConstants() InterpretableDecorator {
 }
 
 type exprInterpreter struct {
-	dispatcher   Dispatcher
-	packager     packages.Packager
-	typeProvider ref.TypeProvider
-	adapter      ref.TypeAdapter
+	dispatcher Dispatcher
+	packager   packages.Packager
+	provider   ref.TypeProvider
+	adapter    ref.TypeAdapter
 }
 
-// NewInterpreter builds an Interpreter from a Dispatcher and TypeProvider
-// which will be used throughout the Eval of all Interpretable instances
-// gerenated from it.
-func NewInterpreter(dispatcher Dispatcher,
-	packager packages.Packager,
-	typeProvider ref.TypeProvider,
+// NewInterpreter builds an Interpreter from a Dispatcher and TypeProvider which will be used
+// throughout the Eval of all Interpretable instances gerenated from it.
+func NewInterpreter(dispatcher Dispatcher, packager packages.Packager,
+	provider ref.TypeProvider,
 	adapter ref.TypeAdapter) Interpreter {
 	return &exprInterpreter{
-		dispatcher:   dispatcher,
-		packager:     packager,
-		typeProvider: typeProvider,
-		adapter:      adapter}
+		dispatcher: dispatcher,
+		packager:   packager,
+		provider:   provider,
+		adapter:    adapter}
 }
 
-// NewStandardInterpreter builds a Dispatcher and TypeProvider with support
-// for all of the CEL builtins defined in the language definition.
-func NewStandardInterpreter(packager packages.Packager,
-	typeProvider ref.TypeProvider,
+// NewStandardInterpreter builds a Dispatcher and TypeProvider with support for all of the CEL
+// builtins defined in the language definition.
+func NewStandardInterpreter(packager packages.Packager, provider ref.TypeProvider,
 	adapter ref.TypeAdapter) Interpreter {
 	dispatcher := NewDispatcher()
 	dispatcher.Add(functions.StandardOverloads()...)
-	return NewInterpreter(dispatcher, packager, typeProvider, adapter)
+	return NewInterpreter(dispatcher, packager, provider, adapter)
 }
 
 // NewIntepretable implements the Interpreter interface method.
@@ -125,7 +122,7 @@ func (i *exprInterpreter) NewInterpretable(
 	decorators ...InterpretableDecorator) (Interpretable, error) {
 	p := newPlanner(
 		i.dispatcher,
-		i.typeProvider,
+		i.provider,
 		i.adapter,
 		i.packager,
 		checked,
@@ -139,7 +136,7 @@ func (i *exprInterpreter) NewUncheckedInterpretable(
 	decorators ...InterpretableDecorator) (Interpretable, error) {
 	p := newUncheckedPlanner(
 		i.dispatcher,
-		i.typeProvider,
+		i.provider,
 		i.adapter,
 		i.packager,
 		decorators...)
