@@ -48,7 +48,7 @@ func TestExhaustiveInterpreter_ConditionalExpr(t *testing.T) {
 	// Operator "_==_" is at Expr 6, should be evaluated in exhaustive mode
 	// even though "a" is true
 	state := NewEvalState()
-	tp := types.NewProvider(&exprpb.ParsedExpr{})
+	tp := types.NewRegistry(&exprpb.ParsedExpr{})
 	intr := NewStandardInterpreter(packages.DefaultPackage, tp, tp)
 	interpretable, _ := intr.NewUncheckedInterpretable(
 		test.Conditional.Expr,
@@ -104,7 +104,7 @@ func TestExhaustiveInterpreter_LogicalOrEquals(t *testing.T) {
 
 	// TODO: make the type identifiers part of the standard declaration set.
 	state := NewEvalState()
-	tp := types.NewProvider(&exprpb.Expr{})
+	tp := types.NewRegistry(&exprpb.Expr{})
 	interp := NewStandardInterpreter(packages.NewPackage("test"), tp, tp)
 	i, _ := interp.NewUncheckedInterpretable(test.LogicalOrEquals.Expr,
 		ExhaustiveEval(state))
@@ -124,7 +124,7 @@ func TestExhaustiveInterpreter_LogicalOrEquals(t *testing.T) {
 }
 
 func TestInterpreter_CallExpr(t *testing.T) {
-	tp := types.NewProvider(&exprpb.ParsedExpr{})
+	tp := types.NewRegistry(&exprpb.ParsedExpr{})
 	intr := NewStandardInterpreter(packages.NewPackage("google.api.expr"), tp, tp)
 	state := NewEvalState()
 	interpretable, _ := intr.NewUncheckedInterpretable(test.Equality.Expr,
@@ -289,7 +289,7 @@ func TestInterpreter_ZeroArityCall(t *testing.T) {
 			return types.IntZero
 		},
 	})
-	tp := types.NewProvider()
+	tp := types.NewRegistry()
 	interp := NewInterpreter(disp, packages.DefaultPackage, tp, tp)
 	i, _ := interp.NewUncheckedInterpretable(p.Expr)
 	result := i.Eval(EmptyActivation())
@@ -312,7 +312,7 @@ func TestInterpreter_VarArgsCall(t *testing.T) {
 			return val
 		},
 	})
-	tp := types.NewProvider()
+	tp := types.NewRegistry()
 	interp := NewInterpreter(disp, packages.DefaultPackage, tp, tp)
 	i, _ := interp.NewUncheckedInterpretable(p.Expr)
 	vars, _ := NewActivation(
@@ -363,7 +363,7 @@ func TestInterpreter_LogicalAndMissingType(t *testing.T) {
 
 func TestInterpreter_LogicalOr(t *testing.T) {
 	// {c: false}.c || a
-	tp := types.NewProvider(&exprpb.Expr{})
+	tp := types.NewRegistry(&exprpb.Expr{})
 	intr := NewStandardInterpreter(packages.NewPackage("test"), tp, tp)
 	i, _ := intr.NewUncheckedInterpretable(test.LogicalOr.Expr)
 	vars, _ := NewActivation(map[string]interface{}{"a": types.True})
@@ -377,7 +377,7 @@ func TestInterpreter_LogicalOrEquals(t *testing.T) {
 	// a || b == "b"
 	// Operator "==" is at Expr 4, should not be evaluated since "a" is true)
 	// TODO: make the type identifiers part of the standard declaration set.
-	tp := types.NewProvider(&exprpb.Expr{})
+	tp := types.NewRegistry(&exprpb.Expr{})
 	i := NewStandardInterpreter(packages.NewPackage("test"), tp, tp)
 	interpretable, _ := i.NewUncheckedInterpretable(test.LogicalOrEquals.Expr)
 	vars, _ := NewActivation(map[string]interface{}{
@@ -401,7 +401,7 @@ func TestInterpreter_BuildObject(t *testing.T) {
 	}
 
 	pkgr := packages.NewPackage("google.api.expr")
-	tp := types.NewProvider(&exprpb.Expr{})
+	tp := types.NewRegistry(&exprpb.Expr{})
 	env := checker.NewStandardEnv(pkgr, tp)
 	checked, errors := checker.Check(parsed, src, env)
 	if len(errors.GetErrors()) != 0 {
@@ -438,7 +438,7 @@ func TestInterpreter_GetProto2PrimitiveFields(t *testing.T) {
 	}
 
 	pkgr := packages.NewPackage("google.expr.proto2.test")
-	tp := types.NewProvider(&proto2pb.TestAllTypes{})
+	tp := types.NewRegistry(&proto2pb.TestAllTypes{})
 	env := checker.NewStandardEnv(pkgr, tp)
 	env.Add(decls.NewIdent("a", decls.NewObjectType("google.expr.proto2.test.TestAllTypes"), nil))
 	checked, errors := checker.Check(parsed, src, env)
@@ -484,7 +484,7 @@ func TestInterpreter_SetProto2PrimitiveFields(t *testing.T) {
 	}
 
 	pkgr := packages.NewPackage("google.expr.proto2.test")
-	tp := types.NewProvider(&proto2pb.TestAllTypes{})
+	tp := types.NewRegistry(&proto2pb.TestAllTypes{})
 	env := checker.NewStandardEnv(pkgr, tp)
 	env.Add(decls.NewIdent("input", decls.NewObjectType("google.expr.proto2.test.TestAllTypes"), nil))
 	checked, errors := checker.Check(parsed, src, env)
@@ -536,7 +536,7 @@ func TestInterpreter_GetObjectEnumField(t *testing.T) {
 	}
 
 	pkgr := packages.NewPackage("google.expr.proto3.test")
-	tp := types.NewProvider(&proto3pb.TestAllTypes{})
+	tp := types.NewRegistry(&proto3pb.TestAllTypes{})
 	env := checker.NewStandardEnv(pkgr, tp)
 	env.Add(decls.NewIdent("a", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil))
 	checked, errors := checker.Check(parsed, src, env)
@@ -585,7 +585,7 @@ func TestInterpreter_SetObjectEnumField(t *testing.T) {
 	}
 
 	pkgr := packages.NewPackage("google.expr.proto3.test")
-	tp := types.NewProvider(&proto3pb.TestAllTypes{})
+	tp := types.NewRegistry(&proto3pb.TestAllTypes{})
 	env := checker.NewStandardEnv(pkgr, tp)
 	checked, errors := checker.Check(parsed, src, env)
 	if len(errors.GetErrors()) != 0 {
@@ -733,7 +733,7 @@ func BenchmarkInterpreter_CanonicalExpressions(b *testing.B) {
 			b.Errorf(errors.ToDisplayString())
 		}
 
-		types := types.NewProvider()
+		types := types.NewRegistry()
 		pkg := packages.DefaultPackage
 		env := checker.NewStandardEnv(pkg, types)
 		env.Add(
@@ -755,9 +755,9 @@ func BenchmarkInterpreter_CanonicalExpressions(b *testing.B) {
 }
 
 var (
-	tp          = types.NewProvider(&exprpb.ParsedExpr{})
+	tp          = types.NewRegistry(&exprpb.ParsedExpr{})
 	interpreter = NewStandardInterpreter(packages.DefaultPackage, tp, tp)
-	testData = []testCase{
+	testData    = []testCase{
 		{
 			name: `ExprBench/ok_1st`,
 			E:    `ai == 20 || ar["foo"] == "bar"`,
@@ -826,7 +826,7 @@ func compileExpr(t *testing.T, src string, decls ...*exprpb.Decl) *exprpb.Checke
 		t.Error(errors.ToDisplayString())
 		return nil
 	}
-	env := checker.NewStandardEnv(packages.DefaultPackage, types.NewProvider())
+	env := checker.NewStandardEnv(packages.DefaultPackage, types.NewRegistry())
 	env.Add(decls...)
 	checked, errors := checker.Check(parsed, s, env)
 	if len(errors.GetErrors()) != 0 {

@@ -24,7 +24,7 @@ import (
 )
 
 func TestBaseMap_Contains(t *testing.T) {
-	p := NewProvider()
+	p := NewRegistry()
 	mapValue := NewDynamicMap(p, map[string]map[int32]float32{
 		"nested": {1: -1.0, 2: 2.0},
 		"empty":  {}}).(traits.Mapper)
@@ -37,7 +37,7 @@ func TestBaseMap_Contains(t *testing.T) {
 }
 
 func TestBaseMap_ConvertToNative_Error(t *testing.T) {
-	p := NewProvider()
+	p := NewRegistry()
 	mapValue := NewDynamicMap(p, map[string]map[string]float32{
 		"nested": {"1": -1.0}})
 	val, err := mapValue.ConvertToNative(reflect.TypeOf(""))
@@ -47,7 +47,7 @@ func TestBaseMap_ConvertToNative_Error(t *testing.T) {
 }
 
 func TestBaseMap_ConvertToNative_Json(t *testing.T) {
-	p := NewProvider()
+	p := NewRegistry()
 	mapValue := NewDynamicMap(p, map[string]map[string]float32{
 		"nested": {"1": -1.0}})
 	json, err := mapValue.ConvertToNative(jsonValueType)
@@ -61,7 +61,7 @@ func TestBaseMap_ConvertToNative_Json(t *testing.T) {
 }
 
 func TestBaseMap_ConvertToType(t *testing.T) {
-	p := NewProvider()
+	p := NewRegistry()
 	mapValue := NewDynamicMap(p, map[string]string{"key": "value"})
 	if mapValue.ConvertToType(MapType) != mapValue {
 		t.Error("Map could not be converted to a map.")
@@ -75,7 +75,7 @@ func TestBaseMap_ConvertToType(t *testing.T) {
 }
 
 func TestBaseMap_Equal_True(t *testing.T) {
-	p := NewProvider()
+	p := NewRegistry()
 	mapValue := NewDynamicMap(p, map[string]map[int32]float32{
 		"nested": {1: -1.0, 2: 2.0},
 		"empty":  {}})
@@ -91,7 +91,7 @@ func TestBaseMap_Equal_True(t *testing.T) {
 }
 
 func TestBaseMap_Equal_False(t *testing.T) {
-	p := NewProvider()
+	p := NewRegistry()
 	mapValue := NewDynamicMap(p, map[string]map[int32]float32{
 		"nested": {1: -1.0, 2: 2.0},
 		"empty":  {}})
@@ -104,7 +104,7 @@ func TestBaseMap_Equal_False(t *testing.T) {
 }
 
 func TestBaseMap_Get(t *testing.T) {
-	p := NewProvider()
+	p := NewRegistry()
 	mapValue := NewDynamicMap(p, map[string]map[int32]float32{
 		"nested": {1: -1.0, 2: 2.0},
 		"empty":  {}}).(traits.Mapper)
@@ -118,7 +118,7 @@ func TestBaseMap_Get(t *testing.T) {
 }
 
 func TestBaseMap_Iterator(t *testing.T) {
-	p := NewProvider()
+	p := NewRegistry()
 	mapValue := NewDynamicMap(p, map[string]map[int32]float32{
 		"nested": {1: -1.0, 2: 2.0},
 		"empty":  {}}).(traits.Mapper)

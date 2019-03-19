@@ -82,6 +82,12 @@ type Env interface {
 
 	// Program generates an evaluable instance of the Ast within the environment (Env).
 	Program(ast Ast, opts ...ProgramOption) (Program, error)
+
+	// TypeAdapter returns the `ref.TypeAdapter` configured for the environment.
+	TypeAdapter() ref.TypeAdapter
+
+	// TypeProvider returns the `ref.TypeProvider` configured for the environment.
+	TypeProvider() ref.TypeProvider
 }
 
 // Issues defines methods for inspecting the error details of parse and check calls.
@@ -103,14 +109,13 @@ type Issues interface {
 //
 // See the EnvOptions for the options that can be used to configure the environment.
 func NewEnv(opts ...EnvOption) (Env, error) {
-	types := types.NewProvider()
-	adapter := types
+	registry := types.NewRegistry()
 	e := &env{
 		declarations:                   checker.StandardDeclarations(),
 		macros:                         parser.AllMacros,
 		pkg:                            packages.DefaultPackage,
-		types:                          types,
-		adapter:                        adapter,
+		provider:                       registry,
+		adapter:                        registry,
 		enableBuiltins:                 true,
 		enableDynamicAggregateLiterals: true,
 	}
@@ -168,7 +173,7 @@ type env struct {
 	declarations []*exprpb.Decl
 	macros       []parser.Macro
 	pkg          packages.Packager
-	types        ref.TypeProvider
+	provider     ref.TypeProvider
 	adapter      ref.TypeAdapter
 	// environment options, true by default.
 	enableBuiltins                 bool
@@ -177,7 +182,7 @@ type env struct {
 
 // Check implements the Env interface method.
 func (e *env) Check(ast Ast) (Ast, Issues) {
-	ce := checker.NewEnv(e.pkg, e.types)
+	ce := checker.NewEnv(e.pkg, e.provider)
 	ce.EnableDynamicAggregateLiterals(e.enableDynamicAggregateLiterals)
 	ce.Add(e.declarations...)
 	pe, err := AstToParsedExpr(ast)
@@ -223,6 +228,16 @@ func (e *env) Program(ast Ast, opts ...ProgramOption) (Program, error) {
 			opts...)
 	}
 	return newProgram(e, ast, opts...)
+}
+
+// TypeAdapter implements the Env interface method.
+func (e *env) TypeAdapter() ref.TypeAdapter {
+	return e.adapter
+}
+
+// TypeProvider implements the Env interface method.
+func (e *env) TypeProvider() ref.TypeProvider {
+	return e.provider
 }
 
 // issues is the internal implementation of the Issues interface.

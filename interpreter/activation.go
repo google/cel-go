@@ -62,8 +62,7 @@ func NewActivation(bindings interface{}) (Activation, error) {
 //   - `ref.Val`: a CEL value instance.
 //   - `func() ref.Val`: a CEL value supplier.
 //   - other: a native value which must be converted to a CEL `ref.Val` by the `adapter`.
-func NewAdaptingActivation(adapter ref.TypeAdapter,
-	bindings interface{}) (Activation, error) {
+func NewAdaptingActivation(adapter ref.TypeAdapter, bindings interface{}) (Activation, error) {
 	a, isActivation := bindings.(Activation)
 	if isActivation {
 		return a, nil

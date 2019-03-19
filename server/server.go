@@ -94,10 +94,7 @@ func (s *ConformanceServer) Check(ctx context.Context, in *exprpb.CheckRequest) 
 
 // Eval implements ConformanceService.Eval.
 func (s *ConformanceServer) Eval(ctx context.Context, in *exprpb.EvalRequest) (*exprpb.EvalResponse, error) {
-	tp := types.NewProvider()
-	env, _ := cel.NewEnv(
-		cel.Container(in.Container),
-		cel.CustomTypeProvider(tp))
+	env, _ := cel.NewEnv(cel.Container(in.Container))
 	var prg cel.Program
 	var err error
 	switch in.ExprKind.(type) {
@@ -119,7 +116,7 @@ func (s *ConformanceServer) Eval(ctx context.Context, in *exprpb.EvalRequest) (*
 	}
 	args := make(map[string]interface{})
 	for name, exprValue := range in.Bindings {
-		refVal, err := ExprValueToRefValue(tp, exprValue)
+		refVal, err := ExprValueToRefValue(env.TypeAdapter(), exprValue)
 		if err != nil {
 			return nil, fmt.Errorf("can't convert binding %s: %s", name, err)
 		}

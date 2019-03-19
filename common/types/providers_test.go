@@ -21,7 +21,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/struct"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 
@@ -29,13 +29,13 @@ import (
 )
 
 func TestTypeProvider_NewValue(t *testing.T) {
-	typeProvider := NewProvider(&exprpb.ParsedExpr{})
-	if sourceInfo := typeProvider.NewValue(
+	tp := NewRegistry(&exprpb.ParsedExpr{})
+	if sourceInfo := tp.NewValue(
 		"google.api.expr.v1alpha1.SourceInfo",
 		map[string]ref.Val{
 			"location":     String("TestTypeProvider_NewValue"),
-			"line_offsets": NewDynamicList(typeProvider, []int64{0, 2}),
-			"positions":    NewDynamicMap(typeProvider, map[int64]int64{1: 2, 2: 4}),
+			"line_offsets": NewDynamicList(tp, []int64{0, 2}),
+			"positions":    NewDynamicMap(tp, map[int64]int64{1: 2, 2: 4}),
 		}); IsError(sourceInfo) {
 		t.Error(sourceInfo)
 	} else {
@@ -49,7 +49,7 @@ func TestTypeProvider_NewValue(t *testing.T) {
 }
 
 func TestTypeProvider_NewValue_OneofFields(t *testing.T) {
-	tp := NewProvider(&exprpb.ParsedExpr{})
+	tp := NewRegistry(&exprpb.ParsedExpr{})
 	if exp := tp.NewValue(
 		"google.api.expr.v1alpha1.Expr",
 		map[string]ref.Val{
@@ -68,7 +68,7 @@ func TestTypeProvider_NewValue_OneofFields(t *testing.T) {
 }
 
 func TestTypeProvider_Getters(t *testing.T) {
-	typeProvider := NewProvider(&exprpb.ParsedExpr{})
+	typeProvider := NewRegistry(&exprpb.ParsedExpr{})
 	if sourceInfo := typeProvider.NewValue(
 		"google.api.expr.v1alpha1.SourceInfo",
 		map[string]ref.Val{
@@ -106,7 +106,7 @@ func TestTypeProvider_Getters(t *testing.T) {
 }
 
 func TestValue_ConvertToNative(t *testing.T) {
-	p := NewProvider(&exprpb.ParsedExpr{})
+	p := NewRegistry(&exprpb.ParsedExpr{})
 	// Core type conversion tests.
 	expectValueToNative(t, True, true)
 	expectValueToNative(t, Int(-1), int32(-1))
@@ -132,7 +132,7 @@ func TestValue_ConvertToNative(t *testing.T) {
 }
 
 func TestNativeToValue_Any(t *testing.T) {
-	p := NewProvider(&exprpb.ParsedExpr{})
+	p := NewRegistry(&exprpb.ParsedExpr{})
 	// NullValue
 	anyValue, err := NullValue.ConvertToNative(anyValueType)
 	if err != nil {
@@ -184,7 +184,7 @@ func TestNativeToValue_Any(t *testing.T) {
 }
 
 func TestNativeToValue_Json(t *testing.T) {
-	p := NewProvider(&exprpb.ParsedExpr{})
+	p := NewRegistry(&exprpb.ParsedExpr{})
 	// Json primitive conversion test.
 	expectNativeToValue(t,
 		&structpb.Value{Kind: &structpb.Value_BoolValue{}},
@@ -232,7 +232,7 @@ func TestNativeToValue_Json(t *testing.T) {
 }
 
 func TestNativeToValue_Primitive(t *testing.T) {
-	p := NewProvider()
+	p := NewRegistry()
 	// Core type conversions.
 	expectNativeToValue(t, true, True)
 	expectNativeToValue(t, int32(-1), Int(-1))
@@ -251,7 +251,7 @@ func TestNativeToValue_Primitive(t *testing.T) {
 }
 
 func TestUnsupportedConversion(t *testing.T) {
-	p := NewProvider()
+	p := NewRegistry()
 	if val := p.NativeToValue(nonConvertible{}); !IsError(val) {
 		t.Error("Expected error when converting non-proto struct to proto", val)
 	}
@@ -282,7 +282,7 @@ func expectValueToNative(t *testing.T, in ref.Val, out interface{}) {
 
 func expectNativeToValue(t *testing.T, in interface{}, out ref.Val) {
 	t.Helper()
-	p := NewProvider(&exprpb.ParsedExpr{})
+	p := NewRegistry(&exprpb.ParsedExpr{})
 	if val := p.NativeToValue(in); IsError(val) {
 		t.Error(val)
 	} else {
@@ -298,14 +298,14 @@ type nonConvertible struct {
 }
 
 func BenchmarkTypeProvider_NewValue(b *testing.B) {
-	typeProvider := NewProvider(&exprpb.ParsedExpr{})
+	p := NewRegistry(&exprpb.ParsedExpr{})
 	for i := 0; i < b.N; i++ {
-		typeProvider.NewValue(
+		p.NewValue(
 			"google.api.expr.v1.SourceInfo",
 			map[string]ref.Val{
 				"Location":    String("BenchmarkTypeProvider_NewValue"),
-				"LineOffsets": NewDynamicList(typeProvider, []int64{0, 2}),
-				"Positions":   NewDynamicMap(typeProvider, map[int64]int64{1: 2, 2: 4}),
+				"LineOffsets": NewDynamicList(p, []int64{0, 2}),
+				"Positions":   NewDynamicMap(p, map[int64]int64{1: 2, 2: 4}),
 			})
 	}
 }

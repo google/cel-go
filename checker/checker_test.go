@@ -1159,10 +1159,10 @@ _&&_(_==_(list~type(list(dyn))^list,
 	},
 }
 
-var typeProvider = initTypeProvider()
+var reg = initTypeRegistry()
 
-func initTypeProvider() ref.TypeProvider {
-	return types.NewProvider(&proto3pb.NestedTestAllTypes{}, &proto3pb.TestAllTypes{})
+func initTypeRegistry() ref.TypeRegistry {
+	return types.NewRegistry(&proto3pb.NestedTestAllTypes{}, &proto3pb.TestAllTypes{})
 }
 
 var testEnvs = map[string]env{
@@ -1235,6 +1235,7 @@ func TestCheck(t *testing.T) {
 				return
 			}
 
+<<<<<<< HEAD
 			pkg := packages.NewPackage(tc.Container)
 			env := NewStandardEnv(pkg, typeProvider)
 			if tc.DisableStdEnv {
@@ -1245,6 +1246,12 @@ func TestCheck(t *testing.T) {
 			}
 			if tc.Env.idents != nil {
 				for _, ident := range tc.Env.idents {
+=======
+			pkg := packages.NewPackage(tst.Container)
+			env := NewStandardEnv(pkg, reg)
+			if tst.Env.idents != nil {
+				for _, ident := range tst.Env.idents {
+>>>>>>> Updates to the review feedback.
 					env.Add(ident)
 				}
 			}

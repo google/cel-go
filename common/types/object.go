@@ -49,19 +49,19 @@ func NewObject(adapter ref.TypeAdapter,
 		typeValue:   NewObjectTypeValue(typeDesc.Name())}
 }
 
-func (o *protoObj) ConvertToNative(refType reflect.Type) (interface{}, error) {
-	if refType.AssignableTo(o.refValue.Type()) {
+func (o *protoObj) ConvertToNative(refl reflect.Type) (interface{}, error) {
+	if refl.AssignableTo(o.refValue.Type()) {
 		return o.value, nil
 	}
-	if refType == anyValueType {
+	if refl == anyValueType {
 		return ptypes.MarshalAny(o.Value().(proto.Message))
 	}
 	// If the object is already assignable to the desired type return it.
-	if reflect.TypeOf(o).AssignableTo(refType) {
+	if reflect.TypeOf(o).AssignableTo(refl) {
 		return o, nil
 	}
 	return nil, fmt.Errorf("type conversion error from '%v' to '%v'",
-		o.refValue.Type(), refType)
+		o.refValue.Type(), refl)
 }
 
 func (o *protoObj) ConvertToType(typeVal ref.Type) ref.Val {

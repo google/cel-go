@@ -26,10 +26,10 @@ import (
 )
 
 func TestJsonListValue_Add(t *testing.T) {
-	listA := NewJSONList(NewProvider(), &structpb.ListValue{Values: []*structpb.Value{
+	listA := NewJSONList(NewRegistry(), &structpb.ListValue{Values: []*structpb.Value{
 		{Kind: &structpb.Value_StringValue{StringValue: "hello"}},
 		{Kind: &structpb.Value_NumberValue{NumberValue: 1}}}})
-	listB := NewJSONList(NewProvider(), &structpb.ListValue{Values: []*structpb.Value{
+	listB := NewJSONList(NewRegistry(), &structpb.ListValue{Values: []*structpb.Value{
 		{Kind: &structpb.Value_NumberValue{NumberValue: 2}},
 		{Kind: &structpb.Value_NumberValue{NumberValue: 3}}}})
 	list := listA.Add(listB)
@@ -49,7 +49,7 @@ func TestJsonListValue_Add(t *testing.T) {
 }
 
 func TestJsonListValue_Contains(t *testing.T) {
-	list := NewJSONList(NewProvider(), &structpb.ListValue{Values: []*structpb.Value{
+	list := NewJSONList(NewRegistry(), &structpb.ListValue{Values: []*structpb.Value{
 		{Kind: &structpb.Value_StringValue{StringValue: "hello"}},
 		{Kind: &structpb.Value_NumberValue{NumberValue: 1}}}})
 	if !list.Contains(Double(1)).(Bool) {
@@ -61,7 +61,7 @@ func TestJsonListValue_Contains(t *testing.T) {
 }
 
 func TestJsonListValue_ConvertToNative_Json(t *testing.T) {
-	list := NewJSONList(NewProvider(), &structpb.ListValue{Values: []*structpb.Value{
+	list := NewJSONList(NewRegistry(), &structpb.ListValue{Values: []*structpb.Value{
 		{Kind: &structpb.Value_StringValue{StringValue: "hello"}},
 		{Kind: &structpb.Value_NumberValue{NumberValue: 1}}}})
 	listVal, err := list.ConvertToNative(jsonListValueType)
@@ -84,7 +84,7 @@ func TestJsonListValue_ConvertToNative_Json(t *testing.T) {
 }
 
 func TestJsonListValue_ConvertToNative_Slice(t *testing.T) {
-	p := NewProvider()
+	p := NewRegistry()
 	list := NewJSONList(p, &structpb.ListValue{Values: []*structpb.Value{
 		{Kind: &structpb.Value_StringValue{StringValue: "hello"}},
 		{Kind: &structpb.Value_NumberValue{NumberValue: 1}}}})
@@ -101,7 +101,7 @@ func TestJsonListValue_ConvertToNative_Slice(t *testing.T) {
 }
 
 func TestJsonListValue_ConvertToNative_Any(t *testing.T) {
-	list := NewJSONList(NewProvider(), &structpb.ListValue{Values: []*structpb.Value{
+	list := NewJSONList(NewRegistry(), &structpb.ListValue{Values: []*structpb.Value{
 		{Kind: &structpb.Value_StringValue{StringValue: "hello"}},
 		{Kind: &structpb.Value_NumberValue{NumberValue: 1}}}})
 	anyVal, err := list.ConvertToNative(anyValueType)
@@ -119,7 +119,7 @@ func TestJsonListValue_ConvertToNative_Any(t *testing.T) {
 }
 
 func TestJsonListValue_ConvertToType(t *testing.T) {
-	list := NewJSONList(NewProvider(), &structpb.ListValue{Values: []*structpb.Value{
+	list := NewJSONList(NewRegistry(), &structpb.ListValue{Values: []*structpb.Value{
 		{Kind: &structpb.Value_StringValue{StringValue: "hello"}},
 		{Kind: &structpb.Value_NumberValue{NumberValue: 1}}}})
 	if list.ConvertToType(TypeType) != ListType {
@@ -134,10 +134,10 @@ func TestJsonListValue_ConvertToType(t *testing.T) {
 }
 
 func TestJsonListValue_Equal(t *testing.T) {
-	listA := NewJSONList(NewProvider(), &structpb.ListValue{Values: []*structpb.Value{
+	listA := NewJSONList(NewRegistry(), &structpb.ListValue{Values: []*structpb.Value{
 		{Kind: &structpb.Value_NumberValue{NumberValue: -3}},
 		{Kind: &structpb.Value_StringValue{StringValue: "hello"}}}})
-	listB := NewJSONList(NewProvider(), &structpb.ListValue{Values: []*structpb.Value{
+	listB := NewJSONList(NewRegistry(), &structpb.ListValue{Values: []*structpb.Value{
 		{Kind: &structpb.Value_NumberValue{NumberValue: 2}},
 		{Kind: &structpb.Value_StringValue{StringValue: "hello"}}}})
 	if listA.Equal(listB).(Bool) || listB.Equal(listA).(Bool) {
@@ -155,7 +155,7 @@ func TestJsonListValue_Equal(t *testing.T) {
 }
 
 func TestJsonListValue_Get_OutOfRange(t *testing.T) {
-	list := NewJSONList(NewProvider(), &structpb.ListValue{Values: []*structpb.Value{
+	list := NewJSONList(NewRegistry(), &structpb.ListValue{Values: []*structpb.Value{
 		{Kind: &structpb.Value_StringValue{StringValue: "hello"}},
 		{Kind: &structpb.Value_NumberValue{NumberValue: 1}}}})
 	if !IsError(list.Get(Int(-1))) {
@@ -170,7 +170,7 @@ func TestJsonListValue_Get_OutOfRange(t *testing.T) {
 }
 
 func TestJsonListValue_Iterator(t *testing.T) {
-	list := NewJSONList(NewProvider(), &structpb.ListValue{Values: []*structpb.Value{
+	list := NewJSONList(NewRegistry(), &structpb.ListValue{Values: []*structpb.Value{
 		{Kind: &structpb.Value_StringValue{StringValue: "hello"}},
 		{Kind: &structpb.Value_NumberValue{NumberValue: 1}},
 		{Kind: &structpb.Value_NumberValue{NumberValue: 2}},

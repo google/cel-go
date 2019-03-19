@@ -19,7 +19,6 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cel-go/common/packages"
-	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter"
 	"github.com/google/cel-go/interpreter/functions"
@@ -58,17 +57,22 @@ func ClearMacros() EnvOption {
 	}
 }
 
+// CustomTypeAdapter swaps the default ref.TypeAdapter implementation with a custom one.
+//
+// Note: This option must be specified before the Types option when used together.
+func CustomTypeAdapter(adapter ref.TypeAdapter) EnvOption {
+	return func(e *env) (*env, error) {
+		e.adapter = adapter
+		return e, nil
+	}
+}
+
 // CustomTypeProvider swaps the default ref.TypeProvider implementation with a custom one.
 //
 // Note: This option must be specified before the Types option when used together.
 func CustomTypeProvider(provider ref.TypeProvider) EnvOption {
 	return func(e *env) (*env, error) {
-		e.types = provider
-		e.adapter = types.DefaultTypeAdapter
-		adapter, isAdapter := provider.(ref.TypeAdapter)
-		if isAdapter {
-			e.adapter = adapter
-		} 
+		e.provider = provider
 		return e, nil
 	}
 }
@@ -132,9 +136,9 @@ func Container(pkg string) EnvOption {
 // Note: This option must be specified after the CustomTypeProvider option when used together.
 func Types(addTypes ...interface{}) EnvOption {
 	return func(e *env) (*env, error) {
-		reg, isReg := e.types.(ref.TypeRegistry)
+		reg, isReg := e.provider.(ref.TypeRegistry)
 		if !isReg {
-			return nil, fmt.Errorf("custom types not supported by provider: %T", e.types)
+			return nil, fmt.Errorf("custom types not supported by provider: %T", e.provider)
 		}
 		for _, t := range addTypes {
 			switch t.(type) {
@@ -162,9 +166,9 @@ func Types(addTypes ...interface{}) EnvOption {
 // only useful for Check() operations.
 func TypeDescs(descs ...interface{}) EnvOption {
 	return func(e *env) (*env, error) {
-		reg, isReg := e.types.(ref.TypeRegistry)
+		reg, isReg := e.provider.(ref.TypeRegistry)
 		if !isReg {
-			return nil, fmt.Errorf("custom types not supported by provider: %T", e.types)
+			return nil, fmt.Errorf("custom types not supported by provider: %T", e.provider)
 		}
 		for _, d := range descs {
 			switch p := d.(type) {

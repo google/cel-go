@@ -88,7 +88,7 @@ type progGen struct {
 func newProgram(e *env, ast Ast, opts ...ProgramOption) (Program, error) {
 	// Build the dispatcher, interpreter, and default program value.
 	disp := interpreter.NewDispatcher()
-	interp := interpreter.NewInterpreter(disp, e.pkg, e.types, e.adapter)
+	interp := interpreter.NewInterpreter(disp, e.pkg, e.provider, e.adapter)
 	p := &prog{
 		env:         e,
 		dispatcher:  disp,

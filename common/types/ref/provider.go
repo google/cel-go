@@ -48,10 +48,21 @@ type TypeProvider interface {
 	NewValue(typeName string, fields map[string]Val) Val
 }
 
-// TypeRegistry allows third-parties to registry custom types. Not all TypeProvider
-// implementations support type-customization, so these features are optional.
+// TypeAdapter converts native Go values of varying type and complexity to equivalent CEL values.
+type TypeAdapter interface {
+	// NativeToValue converts the input `value` to a CEL `ref.Val`.
+	NativeToValue(value interface{}) Val
+}
+
+// TypeRegistry allows third-parties to registry custom types. Not all `TypeProvider`
+// implementations support type-customization, so these features are optional. However, a
+// `TypeRegistry` should be a `TypeProvider` and a `TypeAdapter` to ensure that types
+// which are registered can be converted to CEL representations.
 type TypeRegistry interface {
-	// RegisterDescriptor registers the contents of a protocol buffer FileDescriptor.
+	TypeAdapter
+	TypeProvider
+
+	// RegisterDescriptor registers the contents of a protocol buffer `FileDescriptor`.
 	RegisterDescriptor(fileDesc *descpb.FileDescriptorProto) error
 
 	// RegisterMessage registers a protocol buffer message and its dependencies.
@@ -63,12 +74,6 @@ type TypeRegistry interface {
 	// If a type is provided more than once with an alternative definition, the
 	// call will result in an error.
 	RegisterType(types ...Type) error
-}
-
-// TypeAdapter converts native Go values of varying type and complexity to equivalent CEL values.
-type TypeAdapter interface {
-	// NativeToValue converts the input `value` to a CEL `ref.Val`.
-	NativeToValue(value interface{}) Val
 }
 
 // FieldType represents a field's type value and whether that field supports

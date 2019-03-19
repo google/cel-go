@@ -30,16 +30,16 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
-type protoTypeProvider struct {
+type protoTypeRegistry struct {
 	revTypeMap map[string]ref.Type
 	pbdb       *pb.Db
 }
 
-// NewProvider accepts a list of proto message instances and returns a type
+// NewRegistry accepts a list of proto message instances and returns a type
 // provider which can create new instances of the provided message or any
 // message that proto depends upon in its FileDescriptor.
-func NewProvider(types ...proto.Message) *protoTypeProvider {
-	p := &protoTypeProvider{
+func NewRegistry(types ...proto.Message) ref.TypeRegistry {
+	p := &protoTypeRegistry{
 		revTypeMap: make(map[string]ref.Type),
 		pbdb:       pb.NewDb(),
 	}
@@ -70,7 +70,7 @@ func NewProvider(types ...proto.Message) *protoTypeProvider {
 	return p
 }
 
-func (p *protoTypeProvider) EnumValue(enumName string) ref.Val {
+func (p *protoTypeRegistry) EnumValue(enumName string) ref.Val {
 	enumVal, err := p.pbdb.DescribeEnum(enumName)
 	if err != nil {
 		return NewErr("unknown enum name '%s'", enumName)
@@ -78,7 +78,7 @@ func (p *protoTypeProvider) EnumValue(enumName string) ref.Val {
 	return Int(enumVal.Value())
 }
 
-func (p *protoTypeProvider) FindFieldType(messageType string,
+func (p *protoTypeRegistry) FindFieldType(messageType string,
 	fieldName string) (*ref.FieldType, bool) {
 	msgType, err := p.pbdb.DescribeType(messageType)
 	if err != nil {
@@ -94,7 +94,7 @@ func (p *protoTypeProvider) FindFieldType(messageType string,
 		true
 }
 
-func (p *protoTypeProvider) FindIdent(identName string) (ref.Val, bool) {
+func (p *protoTypeRegistry) FindIdent(identName string) (ref.Val, bool) {
 	if t, found := p.revTypeMap[identName]; found {
 		return t.(ref.Val), true
 	}
@@ -104,7 +104,7 @@ func (p *protoTypeProvider) FindIdent(identName string) (ref.Val, bool) {
 	return nil, false
 }
 
-func (p *protoTypeProvider) FindType(typeName string) (*exprpb.Type, bool) {
+func (p *protoTypeRegistry) FindType(typeName string) (*exprpb.Type, bool) {
 	if _, err := p.pbdb.DescribeType(typeName); err != nil {
 		return nil, false
 	}
@@ -118,7 +118,7 @@ func (p *protoTypeProvider) FindType(typeName string) (*exprpb.Type, bool) {
 					MessageType: typeName}}}}, true
 }
 
-func (p *protoTypeProvider) NewValue(typeName string, fields map[string]ref.Val) ref.Val {
+func (p *protoTypeRegistry) NewValue(typeName string, fields map[string]ref.Val) ref.Val {
 	td, err := p.pbdb.DescribeType(typeName)
 	if err != nil {
 		return NewErr("unknown type '%s'", typeName)
@@ -157,7 +157,7 @@ func (p *protoTypeProvider) NewValue(typeName string, fields map[string]ref.Val)
 	return NewObject(p, td, value.Interface().(proto.Message))
 }
 
-func (p *protoTypeProvider) RegisterDescriptor(fileDesc *descpb.FileDescriptorProto) error {
+func (p *protoTypeRegistry) RegisterDescriptor(fileDesc *descpb.FileDescriptorProto) error {
 	fd, err := p.pbdb.RegisterDescriptor(fileDesc)
 	if err != nil {
 		return err
@@ -165,7 +165,7 @@ func (p *protoTypeProvider) RegisterDescriptor(fileDesc *descpb.FileDescriptorPr
 	return p.registerAllTypes(fd)
 }
 
-func (p *protoTypeProvider) RegisterMessage(message proto.Message) error {
+func (p *protoTypeRegistry) RegisterMessage(message proto.Message) error {
 	fd, err := p.pbdb.RegisterMessage(message)
 	if err != nil {
 		return err
@@ -173,7 +173,7 @@ func (p *protoTypeProvider) RegisterMessage(message proto.Message) error {
 	return p.registerAllTypes(fd)
 }
 
-func (p *protoTypeProvider) RegisterType(types ...ref.Type) error {
+func (p *protoTypeRegistry) RegisterType(types ...ref.Type) error {
 	for _, t := range types {
 		p.revTypeMap[t.TypeName()] = t
 	}
@@ -181,7 +181,7 @@ func (p *protoTypeProvider) RegisterType(types ...ref.Type) error {
 	return nil
 }
 
-func (p *protoTypeProvider) registerAllTypes(fd *pb.FileDescription) error {
+func (p *protoTypeRegistry) registerAllTypes(fd *pb.FileDescription) error {
 	for _, typeName := range fd.GetTypeNames() {
 		err := p.RegisterType(NewObjectTypeValue(typeName))
 		if err != nil {
@@ -195,14 +195,14 @@ func (p *protoTypeProvider) registerAllTypes(fd *pb.FileDescription) error {
 // providing support for custom proto-based types.
 //
 // This method should be the inverse of ref.Val.ConvertToNative.
-func (p *protoTypeProvider) NativeToValue(value interface{}) ref.Val {
+func (p *protoTypeRegistry) NativeToValue(value interface{}) ref.Val {
 	switch value.(type) {
 	case ref.Val:
 		return value.(ref.Val)
 	// Adapt common types and aggregate specializations using the DefaultTypeAdapter.
 	case bool, *bool,
 		float32, *float32, float64, *float64,
-		int, *int, int32, *int32, int64, *int64,		
+		int, *int, int32, *int32, int64, *int64,
 		string, *string,
 		uint, *uint, uint32, *uint32, uint64, *uint64,
 		[]byte,

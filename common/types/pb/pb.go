@@ -44,7 +44,7 @@ var (
 	}
 )
 
-// NewDb creates a new Db with an empty type name to file description map.
+// NewDb creates a new `pb.Db` with an empty type name to file description map.
 func NewDb() *Db {
 	pbdb := &Db{
 		revFileDescriptorMap: make(map[string]*FileDescription),
@@ -55,7 +55,8 @@ func NewDb() *Db {
 	return pbdb
 }
 
-// RegisterDescriptor produces a FileDescription from a FileDescriptorProto.
+// RegisterDescriptor produces a `FileDescription` from a `FileDescriptorProto` and registers the
+// message and enum types into the `pb.Db`.
 func (pbdb *Db) RegisterDescriptor(fileDesc *descpb.FileDescriptorProto) (*FileDescription, error) {
 	fd, err := pbdb.describeFileInternal(fileDesc)
 	if err != nil {
@@ -67,6 +68,8 @@ func (pbdb *Db) RegisterDescriptor(fileDesc *descpb.FileDescriptorProto) (*FileD
 	return fd, nil
 }
 
+// RegisterMessage produces a `FileDescription` from a `message` and registers the message and all
+// other definitions within the message file into the `pb.Db`.
 func (pbdb *Db) RegisterMessage(message proto.Message) (*FileDescription, error) {
 	typeName := sanitizeProtoName(proto.MessageName(message))
 	if fd, found := pbdb.revFileDescriptorMap[typeName]; found {
@@ -76,8 +79,7 @@ func (pbdb *Db) RegisterMessage(message proto.Message) (*FileDescription, error)
 	return pbdb.RegisterDescriptor(fileDesc)
 }
 
-// DescribeFile takes a protocol buffer message and indexes all of the message
-// types and enum values contained within the message's file descriptor.
+// DescribeFile gets the `FileDescription` for the `message` type if it exists in the `pb.Db`.
 func (pbdb *Db) DescribeFile(message proto.Message) (*FileDescription, error) {
 	typeName := sanitizeProtoName(proto.MessageName(message))
 	if fd, found := pbdb.revFileDescriptorMap[typeName]; found {
@@ -86,7 +88,8 @@ func (pbdb *Db) DescribeFile(message proto.Message) (*FileDescription, error) {
 	return nil, fmt.Errorf("unrecognized proto type name '%s'", typeName)
 }
 
-// DescribeEnum takes a qualified enum name and returns an EnumDescription.
+// DescribeEnum takes a qualified enum name and returns an `EnumDescription` if it exists in the
+// `pb.Db`.
 func (pbdb *Db) DescribeEnum(enumName string) (*EnumDescription, error) {
 	enumName = sanitizeProtoName(enumName)
 	if fd, found := pbdb.revFileDescriptorMap[enumName]; found {
@@ -95,7 +98,7 @@ func (pbdb *Db) DescribeEnum(enumName string) (*EnumDescription, error) {
 	return nil, fmt.Errorf("unrecognized enum '%s'", enumName)
 }
 
-// DescribeType provides a TypeDescription given a qualified type name.
+// DescribeType returns a `TypeDescription` for the `typeName` if it exists in the `pb.Db`.
 func (pbdb *Db) DescribeType(typeName string) (*TypeDescription, error) {
 	typeName = sanitizeProtoName(typeName)
 	if fd, found := pbdb.revFileDescriptorMap[typeName]; found {
