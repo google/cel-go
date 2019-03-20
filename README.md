@@ -119,9 +119,13 @@ If possible, evaluation should happen at the edge, but it isn't always possible
 to know the full state required for all values and functions present in the
 CEL expression.
 
-To handle this case, CEL relies on commutative logical operators `&&`, `||`.
-If an error or unknown value (not the same thing) is encountered on the
-left-hand side, the right hand side is evaluated also to determine the outcome.
+To improve the odds of successful evaluation with partial state, CEL uses
+commutative logical operators `&&`, `||`. If an error or unknown value (not the
+same thing) is encountered on the left-hand side, the right hand side is
+evaluated also to determine the outcome. While it is possible to implement
+evaluation with partial state without this feature, this method was chosen
+because it aligns with the semantics of SQL evaluation and because it's more
+robust to evaluation against dynamic data types such as JSON inputs.
 
 In the following truth-table, the symbols `<x>` and `<y>` represent error or
 unknown values, with the `?` indicating that the branch is not taken due to
@@ -243,6 +247,12 @@ for garbage collection and non-primitive object types require semi-expensive
 calls across modules. In most cases CEL will be faster and just as portable
 for its intended use case, though for node.js and web-based execution CEL
 too may offer a WASM evaluator with direct to WASM compilation.
+
+### Do I need to Parse _and_ Check?
+
+Checking is an optional, but strongly suggested, step in CEL expression
+validation. It is sufficient in some cases to simply Parse and rely on the
+runtime bindings and error handling to do the right thing.
 
 ### Where can I learn more about the language?
 
