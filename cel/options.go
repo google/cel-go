@@ -83,7 +83,8 @@ func Declarations(decls ...*exprpb.Decl) EnvOption {
 // during type-checking.
 //
 // Note, it is still possible to have heterogeneous aggregates when provided as variables to the
-// expression or with unchecked expressions.
+// expression, as well as via conversion of well-known dynamic types, or with unchecked
+// expressions.
 func HomogeneousAggregateLiterals() EnvOption {
 	return func(e *env) (*env, error) {
 		e.enableDynamicAggregateLiterals = false
