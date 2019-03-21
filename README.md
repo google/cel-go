@@ -31,13 +31,14 @@ scripting language is too resource intensive.
 
 ## Overview
 
-Determine the attribute names and functions you want to provide to the CEL
-stack. Parse and check an expression to make sure it's valid. Then evaluate
-the output AST against some input.
+Determine the variables and functions you want to provide to CEL. Parse and
+check an expression to make sure it's valid. Then evaluate the output AST
+against some input. Checking is optional, but strongly encouraged.
 
 ### Environment Setup
 
-Let's expose `name` and  `group` variables to CEL using the standard builtins:
+Let's expose `name` and  `group` variables to CEL using the `cel.Declarations`
+environment option:
 
 ```go
 import(
@@ -87,9 +88,33 @@ field selection at evaluation-time.
 
 #### Macros
 
-Macros are enabled by default and may be disabled. The comprehension macros
-`all`, `exists`, `exists_one`, `filter`, and `map` are particularly useful for
-evaluating a single predicate against list and map values.
+Macros are enabled by default and may be disabled. Macros were introduced to
+support optional CEL features that might not be desired in all use cases
+without the syntactic burden and complexity such features might desire if
+they were part of the core CEL syntax. Macros are expanded at parse time and
+their expansions are type-checked at check time.
+
+For example, when macros are enabled it is possible to support bounded
+iteration / fold operators. The macros `all`, `exists`, `exists_one`, `filter`,
+and `map` are particularly useful for evaluating a single predicate against
+list and map values.
+
+```javascript
+// Ensure all tweets are less than 140 chars
+tweets.all(t, t.size() <= 140)
+```
+
+The `has` macro is useful for unifying field presence testing logic across
+protobuf types and dynamic (JSON-like) types.
+
+```javascript
+// Test whether the field is a non-default value if proto-based, or defined
+// in the JSON case.
+has(message.field)
+```
+
+Both cases traditionally require special syntax at the language level, but
+these features are exposed via macros in CEL.
 
 ### Evaluate
 
@@ -113,7 +138,7 @@ For more examples of how to use CEL, see [cel_test.go](https://github.com/google
 
 #### Partial State
 
-What if `name` hadn't been supplied? CEL is designed for this case. In 
+What if `name` hadn't been supplied? CEL is designed for this case. In
 distributed apps it is not uncommon to have edge caches and central services.
 If possible, evaluation should happen at the edge, but it isn't always possible
 to know the full state required for all values and functions present in the
@@ -159,7 +184,7 @@ function to generate a residual expression. e.g.:
 name.startsWith("/groups/acme.co")
 ```
 
-This technique can be useful when there are attributes that are expensive to
+This technique can be useful when there are variables that are expensive to
 compute unless they are absolutely needed. This functionality will be the
 focus of many future improvements, so keep an eye out for more goodness here!
 
