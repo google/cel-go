@@ -104,11 +104,12 @@ type Issues interface {
 // See the EnvOptions for the options that can be used to configure the environment.
 func NewEnv(opts ...EnvOption) (Env, error) {
 	e := &env{
-		declarations:   checker.StandardDeclarations(),
-		enableBuiltins: true,
-		macros:         parser.AllMacros,
-		pkg:            packages.DefaultPackage,
-		types:          types.NewProvider(),
+		declarations:                   checker.StandardDeclarations(),
+		macros:                         parser.AllMacros,
+		pkg:                            packages.DefaultPackage,
+		types:                          types.NewProvider(),
+		enableBuiltins:                 true,
+		enableDynamicAggregateLiterals: true,
 	}
 	// Customized the environment using the provided EnvOption values. If an error is
 	// generated at any step this, will be returned as a nil Env with a non-nil error.
@@ -161,16 +162,19 @@ func (ast *astValue) Source() Source {
 
 // env is the internal implementation of the Env interface.
 type env struct {
-	declarations   []*exprpb.Decl
-	enableBuiltins bool
-	macros         []parser.Macro
-	pkg            packages.Packager
-	types          ref.TypeProvider
+	declarations []*exprpb.Decl
+	macros       []parser.Macro
+	pkg          packages.Packager
+	types        ref.TypeProvider
+	// environment options, true by default.
+	enableBuiltins                 bool
+	enableDynamicAggregateLiterals bool
 }
 
 // Check implements the Env interface method.
 func (e *env) Check(ast Ast) (Ast, Issues) {
 	ce := checker.NewEnv(e.pkg, e.types)
+	ce.EnableDynamicAggregateLiterals(e.enableDynamicAggregateLiterals)
 	ce.Add(e.declarations...)
 	pe, err := AstToParsedExpr(ast)
 	if err != nil {

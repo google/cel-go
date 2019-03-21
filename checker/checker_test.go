@@ -21,6 +21,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common"
+	"github.com/google/cel-go/common/operators"
+	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/packages"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
@@ -1069,6 +1071,92 @@ _&&_(_==_(list~type(list(dyn))^list,
     		)~bool^equals`,
 		Type: decls.Bool,
 	},
+	// Homogeneous aggregate type restriction tests.
+	{
+		I: `name in [1, 2u, 'string']`,
+		Env: env{
+			idents: []*exprpb.Decl{
+				decls.NewIdent("name", decls.String, nil),
+			},
+			functions: []*exprpb.Decl{
+				decls.NewFunction(operators.In,
+					decls.NewOverload(overloads.InList,
+						[]*exprpb.Type{
+							decls.String,
+							decls.NewListType(decls.String),
+						}, decls.Bool)),
+			},
+		},
+		HomogeneousAggregateLiterals: true,
+		DisableStdEnv:                true,
+		R: `@in(
+			name~string^name,
+			[
+				1~int,
+				2u~uint,
+				"string"~string
+			]~list(string)
+		)~bool^in_list`,
+		Error: `ERROR: <input>:1:13: expected type 'int' but found 'uint'
+		| name in [1, 2u, 'string']
+		| ............^`,
+	},
+	{
+		I: `name in [1, 2, 3]`,
+		Env: env{
+			idents: []*exprpb.Decl{
+				decls.NewIdent("name", decls.String, nil),
+			},
+			functions: []*exprpb.Decl{
+				decls.NewFunction(operators.In,
+					decls.NewOverload(overloads.InList,
+						[]*exprpb.Type{
+							decls.String,
+							decls.NewListType(decls.String),
+						}, decls.Bool)),
+			},
+		},
+		HomogeneousAggregateLiterals: true,
+		DisableStdEnv:                true,
+		R: `@in(
+			name~string^name,
+			[
+				1~int,
+				2~int,
+				3~int
+			]~list(int)
+		)~!error!`,
+		Error: `ERROR: <input>:1:6: found no matching overload for '@in' applied to '(string, list(int))'
+		| name in [1, 2, 3]
+		| .....^`,
+	},
+	{
+		I: `name in ["1", "2", "3"]`,
+		Env: env{
+			idents: []*exprpb.Decl{
+				decls.NewIdent("name", decls.String, nil),
+			},
+			functions: []*exprpb.Decl{
+				decls.NewFunction(operators.In,
+					decls.NewOverload(overloads.InList,
+						[]*exprpb.Type{
+							decls.String,
+							decls.NewListType(decls.String),
+						}, decls.Bool)),
+			},
+		},
+		HomogeneousAggregateLiterals: true,
+		DisableStdEnv:                true,
+		R: `@in(
+			name~string^name,
+			[
+				"1"~string,
+				"2"~string,
+				"3"~string
+			]~list(string)
+		)~bool^in_list`,
+		Type: decls.Bool,
+	},
 }
 
 var typeProvider = initTypeProvider()
@@ -1116,6 +1204,13 @@ type testInfo struct {
 
 	// Error is the expected error for negative test cases.
 	Error string
+
+	// DisableStdEnv indicates whether the standard functions should be disabled.
+	DisableStdEnv bool
+
+	// HomogeneousAggregateLiterals indicates whether list and map literals must have
+	// homogeneous element types, false by default.
+	HomogeneousAggregateLiterals bool
 }
 
 type env struct {
@@ -1126,12 +1221,13 @@ type env struct {
 func TestCheck(t *testing.T) {
 	for i, tst := range testCases {
 		name := fmt.Sprintf("%d %s", i, tst.I)
+		tc := tst
 		t.Run(name, func(tt *testing.T) {
 			// Runs the tests in parallel to ensure that there are no data races
 			// due to shared mutable state across tests.
 			tt.Parallel()
 
-			src := common.NewTextSource(tst.I)
+			src := common.NewTextSource(tc.I)
 			expression, errors := parser.Parse(src)
 			if len(errors.GetErrors()) > 0 {
 				tt.Fatalf("Unexpected parse errors: %v",
@@ -1139,15 +1235,21 @@ func TestCheck(t *testing.T) {
 				return
 			}
 
-			pkg := packages.NewPackage(tst.Container)
+			pkg := packages.NewPackage(tc.Container)
 			env := NewStandardEnv(pkg, typeProvider)
-			if tst.Env.idents != nil {
-				for _, ident := range tst.Env.idents {
+			if tc.DisableStdEnv {
+				env = NewEnv(pkg, typeProvider)
+			}
+			if tc.HomogeneousAggregateLiterals {
+				env.EnableDynamicAggregateLiterals(!tc.HomogeneousAggregateLiterals)
+			}
+			if tc.Env.idents != nil {
+				for _, ident := range tc.Env.idents {
 					env.Add(ident)
 				}
 			}
-			if tst.Env.functions != nil {
-				for _, fn := range tst.Env.functions {
+			if tc.Env.functions != nil {
+				for _, fn := range tc.Env.functions {
 					env.Add(fn)
 				}
 			}
@@ -1155,28 +1257,28 @@ func TestCheck(t *testing.T) {
 			semantics, errors := Check(expression, src, env)
 			if len(errors.GetErrors()) > 0 {
 				errorString := errors.ToDisplayString()
-				if tst.Error != "" {
-					if !test.Compare(errorString, tst.Error) {
-						tt.Error(test.DiffMessage("Error mismatch", errorString, tst.Error))
+				if tc.Error != "" {
+					if !test.Compare(errorString, tc.Error) {
+						tt.Error(test.DiffMessage("Error mismatch", errorString, tc.Error))
 					}
 				} else {
 					tt.Errorf("Unexpected type-check errors: %v", errorString)
 				}
-			} else if tst.Error != "" {
-				tt.Errorf("Expected error not thrown: %s", tst.Error)
+			} else if tc.Error != "" {
+				tt.Errorf("Expected error not thrown: %s", tc.Error)
 			}
 
 			actual := semantics.TypeMap[expression.Expr.Id]
-			if tst.Error == "" {
-				if actual == nil || !proto.Equal(actual, tst.Type) {
-					tt.Error(test.DiffMessage("Type Error", actual, tst.Type))
+			if tc.Error == "" {
+				if actual == nil || !proto.Equal(actual, tc.Type) {
+					tt.Error(test.DiffMessage("Type Error", actual, tc.Type))
 				}
 			}
 
-			if tst.R != "" {
+			if tc.R != "" {
 				actualStr := Print(expression.Expr, semantics)
-				if !test.Compare(actualStr, tst.R) {
-					tt.Error(test.DiffMessage("Structure error", actualStr, tst.R))
+				if !test.Compare(actualStr, tc.R) {
+					tt.Error(test.DiffMessage("Structure error", actualStr, tc.R))
 				}
 			}
 		})

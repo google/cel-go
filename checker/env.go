@@ -28,6 +28,13 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
+type aggregateLiteralElementType int
+
+const (
+	dynElementType aggregateLiteralElementType = iota
+	homogenousElementType aggregateLiteralElementType = 1 << iota
+)
+
 // Env is the environment for type checking.
 // It consists of a Packager, a Type Provider, declarations, and collection of errors encountered
 // during checking.
@@ -36,6 +43,7 @@ type Env struct {
 	typeProvider ref.TypeProvider
 
 	declarations *decls.Scopes
+	aggLitElemType aggregateLiteralElementType
 }
 
 // NewEnv returns a new *Env with the given parameters.
@@ -58,6 +66,15 @@ func NewStandardEnv(packager packages.Packager,
 	if err := e.Add(StandardDeclarations()...); err != nil {
 		// The standard declaration set should never have duplicate declarations.
 		panic(err)
+	}
+	// TODO: isolate standard declarations from the custom set which may be provided layer.
+	return e
+}
+
+func (e *Env) EnableDynamicAggregateLiterals(enabled bool) *Env {
+	e.aggLitElemType = dynElementType
+	if !enabled {
+		e.aggLitElemType = homogenousElementType
 	}
 	return e
 }

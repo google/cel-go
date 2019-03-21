@@ -45,6 +45,8 @@ go_test(
     ],
     deps = [
         "//checker/decls:go_default_library",
+        "//common/operators:go_default_library",
+        "//common/overloads:go_default_library",
         "//common/types:go_default_library",
         "//common/types/ref:go_default_library",
         "//common/types/traits:go_default_library",

@@ -79,6 +79,19 @@ func Declarations(decls ...*exprpb.Decl) EnvOption {
 	}
 }
 
+// HomogeneousAggregateLiterals option ensures that list and map literal entry types must agree
+// during type-checking.
+//
+// Note, it is still possible to have heterogeneous aggregates when provided as variables to the
+// expression, as well as via conversion of well-known dynamic types, or with unchecked
+// expressions.
+func HomogeneousAggregateLiterals() EnvOption {
+	return func(e *env) (*env, error) {
+		e.enableDynamicAggregateLiterals = false
+		return e, nil
+	}
+}
+
 // Macros option extends the macro set configured in the environment.
 //
 // Note: This option must be specified after ClearBuiltIns and/or ClearMacros if used together.

@@ -20,6 +20,9 @@ import (
 	"log"
 	"testing"
 
+	"github.com/google/cel-go/common/operators"
+	"github.com/google/cel-go/common/overloads"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/types"
@@ -149,6 +152,83 @@ func Test_DisableStandardEnv(t *testing.T) {
 		out, _, _ := prg.Eval(Vars(map[string]interface{}{"a.b.c": true}))
 		if out != types.True {
 			t.Errorf("Got '%v', wanted 'true'", out.Value())
+		}
+	})
+}
+
+func Test_HomogeneousAggregateLiterals(t *testing.T) {
+	e, _ := NewEnv(
+		ClearBuiltIns(),
+		Declarations(
+			decls.NewIdent("name", decls.String, nil),
+			decls.NewFunction(
+				operators.In,
+				decls.NewOverload(overloads.InList, []*exprpb.Type{
+					decls.String, decls.NewListType(decls.String),
+				}, decls.Bool),
+				decls.NewOverload(overloads.InMap, []*exprpb.Type{
+					decls.String, decls.NewMapType(decls.String, decls.Bool),
+				}, decls.Bool))),
+		HomogeneousAggregateLiterals())
+
+	t.Run("err_list", func(t *testing.T) {
+		p, _ := e.Parse("name in ['hello', 0]")
+		_, iss := e.Check(p)
+		if iss == nil || iss.Err() == nil {
+			t.Error("Got successful check, expected error for mixed list entry types.")
+		}
+	})
+	t.Run("err_map_key", func(t *testing.T) {
+		p, _ := e.Parse("name in {'hello':'world', 1:'!'}")
+		_, iss := e.Check(p)
+		if iss == nil || iss.Err() == nil {
+			t.Error("Got successful check, expected error for mixed map key types.")
+		}
+	})
+	t.Run("err_map_val", func(t *testing.T) {
+		p, _ := e.Parse("name in {'hello':'world', 'goodbye':true}")
+		_, iss := e.Check(p)
+		if iss == nil || iss.Err() == nil {
+			t.Error("Got successful check, expected error for mixed map value types.")
+		}
+	})
+	funcs := Functions(&functions.Overload{
+		Operator: operators.In,
+		Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
+			if rhs.Type().HasTrait(traits.ContainerType) {
+				return rhs.(traits.Container).Contains(lhs)
+			}
+			return types.ValOrErr(rhs, "no such overload")
+		},
+	})
+	t.Run("ok_list", func(t *testing.T) {
+		p, _ := e.Parse("name in ['hello', 'world']")
+		c, iss := e.Check(p)
+		if iss != nil && iss.Err() != nil {
+			t.Fatalf("Got issue: %v, expected successful check.", iss.Err())
+		}
+		prg, _ := e.Program(c, funcs)
+		out, _, err := prg.Eval(Vars(map[string]interface{}{"name": "world"}))
+		if err != nil {
+			t.Fatalf("Got err: %v, wanted result", err)
+		}
+		if out != types.True {
+			t.Errorf("Got '%v', wanted 'true'", out)
+		}
+	})
+	t.Run("ok_map", func(t *testing.T) {
+		p, _ := e.Parse("name in {'hello': false, 'world': true}")
+		c, iss := e.Check(p)
+		if iss != nil && iss.Err() != nil {
+			t.Fatalf("Got issue: %v, expected successful check.", iss.Err())
+		}
+		prg, _ := e.Program(c, funcs)
+		out, _, err := prg.Eval(Vars(map[string]interface{}{"name": "world"}))
+		if err != nil {
+			t.Fatalf("Got err: %v, wanted result", err)
+		}
+		if out != types.True {
+			t.Errorf("Got '%v', wanted 'true'", out)
 		}
 	})
 }
