@@ -230,7 +230,7 @@ func TestInterpreter_FieldAccess(t *testing.T) {
 }
 
 func TestInterpreter_SubsumedFieldAccess(t *testing.T) {
-	vars := NewActivation(map[string]interface{}{
+	vars, _ := NewActivation(map[string]interface{}{
 		"a.b":   map[string]types.Int{"c": types.Int(9)},
 		"a.b.c": types.Int(10),
 	})

@@ -1235,23 +1235,16 @@ func TestCheck(t *testing.T) {
 				return
 			}
 
-<<<<<<< HEAD
 			pkg := packages.NewPackage(tc.Container)
-			env := NewStandardEnv(pkg, typeProvider)
+			env := NewStandardEnv(pkg, reg)
 			if tc.DisableStdEnv {
-				env = NewEnv(pkg, typeProvider)
+				env = NewEnv(pkg, reg)
 			}
 			if tc.HomogeneousAggregateLiterals {
 				env.EnableDynamicAggregateLiterals(!tc.HomogeneousAggregateLiterals)
 			}
 			if tc.Env.idents != nil {
 				for _, ident := range tc.Env.idents {
-=======
-			pkg := packages.NewPackage(tst.Container)
-			env := NewStandardEnv(pkg, reg)
-			if tst.Env.idents != nil {
-				for _, ident := range tst.Env.idents {
->>>>>>> Updates to the review feedback.
 					env.Add(ident)
 				}
 			}

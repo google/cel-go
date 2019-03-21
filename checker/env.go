@@ -31,7 +31,7 @@ import (
 type aggregateLiteralElementType int
 
 const (
-	dynElementType aggregateLiteralElementType = iota
+	dynElementType        aggregateLiteralElementType = iota
 	homogenousElementType aggregateLiteralElementType = 1 << iota
 )
 
@@ -42,7 +42,7 @@ type Env struct {
 	packager packages.Packager
 	provider ref.TypeProvider
 
-	declarations *decls.Scopes
+	declarations   *decls.Scopes
 	aggLitElemType aggregateLiteralElementType
 }
 
@@ -69,6 +69,9 @@ func NewStandardEnv(packager packages.Packager, provider ref.TypeProvider) *Env 
 	return e
 }
 
+// EnableDynamicAggregateLiterals detmerines whether list and map literals may support mixed
+// element types at check-time. This does not preclude the presence of a dynamic list or map
+// somewhere in the CEL evaluation process.
 func (e *Env) EnableDynamicAggregateLiterals(enabled bool) *Env {
 	e.aggLitElemType = dynElementType
 	if !enabled {
