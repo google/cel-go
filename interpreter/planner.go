@@ -633,14 +633,15 @@ func (sel *evalSelect) ID() int64 {
 
 // Eval implements the Interpretable interface method.
 func (sel *evalSelect) Eval(ctx Activation) ref.Val {
+	// If the select is actually a qualified identifier return.
+	if resolve, found := sel.resolveID(ctx); found {
+		return resolve
+	}
+	// Otherwise, evaluate the operand and select the field.
 	obj := sel.op.Eval(ctx)
 	indexer, ok := obj.(traits.Indexer)
 	if !ok {
-		resolve, ok := sel.resolveID(ctx)
-		if !ok {
-			return types.ValOrErr(obj, "invalid type for field selection.")
-		}
-		return resolve
+		return types.ValOrErr(obj, "invalid type for field selection.")
 	}
 	return indexer.Get(sel.field)
 }

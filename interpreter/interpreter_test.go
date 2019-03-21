@@ -228,6 +228,29 @@ func TestInterpreter_FieldAccess(t *testing.T) {
 	}
 }
 
+func TestInterpreter_SubsumedFieldAccess(t *testing.T) {
+	vars := NewActivation(map[string]interface{}{
+		"a.b":   map[string]types.Int{"c": types.Int(9)},
+		"a.b.c": types.Int(10),
+	})
+
+	parsed := parseExpr(t, `a.b.c == 10`)
+	i, _ := interpreter.NewUncheckedInterpretable(parsed.GetExpr())
+	result := i.Eval(vars)
+	if result != types.True {
+		t.Errorf("Got %v, wanted true", result)
+	}
+
+	checked := compileExpr(t, `a.b.c == 10`,
+		decls.NewIdent("a.b.c", decls.Int, nil),
+		decls.NewIdent("a.b", decls.NewMapType(decls.String, decls.Int), nil))
+	i, _ = interpreter.NewInterpretable(checked)
+	result = i.Eval(vars)
+	if result != types.True {
+		t.Errorf("Got %v, wanted true", result)
+	}
+}
+
 func TestInterpreter_ExistsOne(t *testing.T) {
 	result := evalExpr(t, "[1, 2, 3].exists_one(x, (x % 2) == 0)")
 	if result != types.True {
