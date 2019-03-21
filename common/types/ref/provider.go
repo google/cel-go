@@ -54,7 +54,7 @@ type TypeAdapter interface {
 	NativeToValue(value interface{}) Val
 }
 
-// TypeRegistry allows third-parties to registry custom types. Not all `TypeProvider`
+// TypeRegistry allows third-parties to add custom types to CEL. Not all `TypeProvider`
 // implementations support type-customization, so these features are optional. However, a
 // `TypeRegistry` should be a `TypeProvider` and a `TypeAdapter` to ensure that types
 // which are registered can be converted to CEL representations.
