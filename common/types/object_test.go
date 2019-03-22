@@ -29,10 +29,12 @@ import (
 )
 
 func TestNewProtoObject(t *testing.T) {
+	reg := NewRegistry()
 	parsedExpr := &exprpb.ParsedExpr{
 		SourceInfo: &exprpb.SourceInfo{
 			LineOffsets: []int32{1, 2, 3}}}
-	obj := NewObject(parsedExpr).(traits.Indexer)
+	reg.RegisterMessage(parsedExpr)
+	obj := reg.NativeToValue(parsedExpr).(traits.Indexer)
 	si := obj.Get(String("source_info")).(traits.Indexer)
 	lo := si.Get(String("line_offsets")).(traits.Indexer)
 	if lo.Get(Int(2)).Equal(Int(3)) != True {
@@ -46,7 +48,8 @@ func TestNewProtoObject(t *testing.T) {
 }
 
 func TestProtoObject_Iterator(t *testing.T) {
-	existsMsg := NewObject(test.Exists.Expr).(traits.Iterable)
+	reg := NewRegistry(&exprpb.Expr{})
+	existsMsg := reg.NativeToValue(test.Exists.Expr).(traits.Iterable)
 	it := existsMsg.Iterator()
 	var fields []ref.Val
 	for it.HasNext() == True {
@@ -58,10 +61,11 @@ func TestProtoObject_Iterator(t *testing.T) {
 }
 
 func TestProtoObj_ConvertToNative(t *testing.T) {
+	reg := NewRegistry(&exprpb.Expr{})
 	pbMessage := &exprpb.ParsedExpr{
 		SourceInfo: &exprpb.SourceInfo{
 			LineOffsets: []int32{1, 2, 3}}}
-	objVal := NewObject(pbMessage)
+	objVal := reg.NativeToValue(pbMessage)
 
 	// Proto Message
 	val, err := objVal.ConvertToNative(reflect.TypeOf(&exprpb.ParsedExpr{}))

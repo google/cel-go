@@ -31,7 +31,7 @@ import (
 type aggregateLiteralElementType int
 
 const (
-	dynElementType aggregateLiteralElementType = iota
+	dynElementType        aggregateLiteralElementType = iota
 	homogenousElementType aggregateLiteralElementType = 1 << iota
 )
 
@@ -39,30 +39,28 @@ const (
 // It consists of a Packager, a Type Provider, declarations, and collection of errors encountered
 // during checking.
 type Env struct {
-	packager     packages.Packager
-	typeProvider ref.TypeProvider
+	packager packages.Packager
+	provider ref.TypeProvider
 
-	declarations *decls.Scopes
+	declarations   *decls.Scopes
 	aggLitElemType aggregateLiteralElementType
 }
 
 // NewEnv returns a new *Env with the given parameters.
-func NewEnv(packager packages.Packager,
-	typeProvider ref.TypeProvider) *Env {
+func NewEnv(packager packages.Packager, provider ref.TypeProvider) *Env {
 	declarations := decls.NewScopes()
 	declarations.Push()
 
 	return &Env{
 		packager:     packager,
-		typeProvider: typeProvider,
+		provider:     provider,
 		declarations: declarations,
 	}
 }
 
 // NewStandardEnv returns a new *Env with the given params plus standard declarations.
-func NewStandardEnv(packager packages.Packager,
-	typeProvider ref.TypeProvider) *Env {
-	e := NewEnv(packager, typeProvider)
+func NewStandardEnv(packager packages.Packager, provider ref.TypeProvider) *Env {
+	e := NewEnv(packager, provider)
 	if err := e.Add(StandardDeclarations()...); err != nil {
 		// The standard declaration set should never have duplicate declarations.
 		panic(err)
@@ -71,6 +69,9 @@ func NewStandardEnv(packager packages.Packager,
 	return e
 }
 
+// EnableDynamicAggregateLiterals detmerines whether list and map literals may support mixed
+// element types at check-time. This does not preclude the presence of a dynamic list or map
+// somewhere in the CEL evaluation process.
 func (e *Env) EnableDynamicAggregateLiterals(enabled bool) *Env {
 	e.aggLitElemType = dynElementType
 	if !enabled {
@@ -105,7 +106,7 @@ func (e *Env) LookupIdent(typeName string) *exprpb.Decl {
 		// Next try to import the name as a reference to a message type. If found,
 		// the declaration is added to the outest (global) scope of the
 		// environment, so next time we can access it faster.
-		if t, found := e.typeProvider.FindType(candidate); found {
+		if t, found := e.provider.FindType(candidate); found {
 			decl := decls.NewIdent(candidate, t, nil)
 			e.declarations.AddIdent(decl)
 			return decl
@@ -113,7 +114,7 @@ func (e *Env) LookupIdent(typeName string) *exprpb.Decl {
 
 		// Next try to import this as an enum value by splitting the name in a type prefix and
 		// the enum inside.
-		if enumValue := e.typeProvider.EnumValue(candidate); enumValue.Type() != types.ErrType {
+		if enumValue := e.provider.EnumValue(candidate); enumValue.Type() != types.ErrType {
 			decl := decls.NewIdent(candidate,
 				decls.Int,
 				&exprpb.Constant{

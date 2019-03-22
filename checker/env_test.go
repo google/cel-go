@@ -26,7 +26,7 @@ import (
 )
 
 func TestOverlappingIdentifier(t *testing.T) {
-	env := NewStandardEnv(packages.DefaultPackage, types.NewProvider())
+	env := NewStandardEnv(packages.DefaultPackage, types.NewRegistry())
 	err := env.Add(
 		decls.NewIdent("int", decls.NewTypeType(nil), nil))
 	if err == nil {
@@ -37,7 +37,7 @@ func TestOverlappingIdentifier(t *testing.T) {
 }
 
 func TestOverlappingMacro(t *testing.T) {
-	env := NewStandardEnv(packages.DefaultPackage, types.NewProvider())
+	env := NewStandardEnv(packages.DefaultPackage, types.NewRegistry())
 	err := env.Add(decls.NewFunction("has",
 		decls.NewOverload("has", []*exprpb.Type{decls.String}, decls.Bool)))
 	if err == nil {
@@ -48,7 +48,7 @@ func TestOverlappingMacro(t *testing.T) {
 }
 
 func TestOverlappingOverload(t *testing.T) {
-	env := NewStandardEnv(packages.DefaultPackage, types.NewProvider())
+	env := NewStandardEnv(packages.DefaultPackage, types.NewRegistry())
 	paramA := decls.NewTypeParamType("A")
 	typeParamAList := []string{"A"}
 	err := env.Add(decls.NewFunction(overloads.TypeConvertDyn,

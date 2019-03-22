@@ -77,12 +77,12 @@ func Example() {
 	}
 
 	// Evaluate the program against some inputs. Note: the details return is not used.
-	out, _, err := prg.Eval(Vars(map[string]interface{}{
+	out, _, err := prg.Eval(map[string]interface{}{
 		// Native values are converted to CEL values under the covers.
 		"i": "CEL",
 		// Values may also be lazily supplied.
 		"you": func() ref.Val { return types.String("world") },
-	}))
+	})
 	if err != nil {
 		log.Fatalf("runtime error: %s\n", err)
 	}
@@ -119,9 +119,9 @@ func Test_ExampleWithBuiltins(t *testing.T) {
 
 	// If the Eval() call were provided with cel.EvalOptions(OptTrackState) the details response
 	// (2nd return) would be non-nil.
-	out, _, err := prg.Eval(Vars(map[string]interface{}{
+	out, _, err := prg.Eval(map[string]interface{}{
 		"i":   "CEL",
-		"you": "world"}))
+		"you": "world"})
 	if err != nil {
 		t.Fatalf("runtime error: %s\n", err)
 	}
@@ -149,7 +149,7 @@ func Test_DisableStandardEnv(t *testing.T) {
 		p, _ := e.Parse("a.b.c")
 		c, _ := e.Check(p)
 		prg, _ := e.Program(c)
-		out, _, _ := prg.Eval(Vars(map[string]interface{}{"a.b.c": true}))
+		out, _, _ := prg.Eval(map[string]interface{}{"a.b.c": true})
 		if out != types.True {
 			t.Errorf("Got '%v', wanted 'true'", out.Value())
 		}
@@ -208,7 +208,7 @@ func Test_HomogeneousAggregateLiterals(t *testing.T) {
 			t.Fatalf("Got issue: %v, expected successful check.", iss.Err())
 		}
 		prg, _ := e.Program(c, funcs)
-		out, _, err := prg.Eval(Vars(map[string]interface{}{"name": "world"}))
+		out, _, err := prg.Eval(map[string]interface{}{"name": "world"})
 		if err != nil {
 			t.Fatalf("Got err: %v, wanted result", err)
 		}
@@ -223,7 +223,7 @@ func Test_HomogeneousAggregateLiterals(t *testing.T) {
 			t.Fatalf("Got issue: %v, expected successful check.", iss.Err())
 		}
 		prg, _ := e.Program(c, funcs)
-		out, _, err := prg.Eval(Vars(map[string]interface{}{"name": "world"}))
+		out, _, err := prg.Eval(map[string]interface{}{"name": "world"})
 		if err != nil {
 			t.Fatalf("Got err: %v, wanted result", err)
 		}
@@ -251,7 +251,7 @@ func Test_CustomTypes(t *testing.T) {
 			}}`)
 	c, _ := e.Check(p)
 	prg, _ := e.Program(c)
-	out, _, _ := prg.Eval(Vars(map[string]interface{}{"expr": &exprpb.Expr{
+	vars := map[string]interface{}{"expr": &exprpb.Expr{
 		Id: 2,
 		ExprKind: &exprpb.Expr_CallExpr{
 			CallExpr: &exprpb.Expr_Call{
@@ -272,13 +272,14 @@ func Test_CustomTypes(t *testing.T) {
 				},
 			},
 		},
-	}}))
+	}}
+	out, _, _ := prg.Eval(vars)
 	if out != types.True {
 		t.Errorf("Got '%v', wanted 'true'", out.Value())
 	}
 }
 
-func TestIsolatedTypes(t *testing.T) {
+func Test_TypeIsolation(t *testing.T) {
 	b, err := ioutil.ReadFile("testdata/team.fds")
 	if err != nil {
 		t.Fatal("Can't read fds file: ", err)
@@ -289,7 +290,6 @@ func TestIsolatedTypes(t *testing.T) {
 	}
 
 	e, err := NewEnv(
-		IsolateTypes(),
 		TypeDescs(&fds),
 		Declarations(
 			decls.NewIdent("myteam",
@@ -362,30 +362,33 @@ func Test_GlobalVars(t *testing.T) {
 			}})
 
 	// Global variables can be configured as a ProgramOption and optionally overridden on Eval.
-	prg, _ := e.Program(c, funcs, Globals(Vars(map[string]interface{}{
+	prg, _ := e.Program(c, funcs, Globals(map[string]interface{}{
 		"default": "third",
-	})))
+	}))
 
 	t.Run("global_default", func(t *testing.T) {
-		out, _, _ := prg.Eval(Vars(map[string]interface{}{
-			"attrs": map[string]interface{}{}}))
+		vars := map[string]interface{}{
+			"attrs": map[string]interface{}{}}
+		out, _, _ := prg.Eval(vars)
 		if out.Equal(types.String("third")) != types.True {
 			t.Errorf("Got '%v', expected 'third'.", out.Value())
 		}
 	})
 
 	t.Run("attrs_alt", func(t *testing.T) {
-		out, _, _ := prg.Eval(Vars(map[string]interface{}{
-			"attrs": map[string]interface{}{"second": "yep"}}))
+		vars := map[string]interface{}{
+			"attrs": map[string]interface{}{"second": "yep"}}
+		out, _, _ := prg.Eval(vars)
 		if out.Equal(types.String("yep")) != types.True {
 			t.Errorf("Got '%v', expected 'yep'.", out.Value())
 		}
 	})
 
 	t.Run("local_default", func(t *testing.T) {
-		out, _, _ := prg.Eval(Vars(map[string]interface{}{
+		vars := map[string]interface{}{
 			"attrs":   map[string]interface{}{},
-			"default": "fourth"}))
+			"default": "fourth"}
+		out, _, _ := prg.Eval(vars)
 		if out.Equal(types.String("fourth")) != types.True {
 			t.Errorf("Got '%v', expected 'fourth'.", out.Value())
 		}
@@ -404,7 +407,10 @@ func Test_EvalOptions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("program creation error: %s\n", err)
 	}
-	out, details, err := prg.Eval(Vars(map[string]interface{}{"k": "key", "v": true}))
+	out, details, err := prg.Eval(
+		map[string]interface{}{
+			"k": "key",
+			"v": true})
 	if err != nil {
 		t.Fatalf("runtime error: %s\n", err)
 	}
@@ -442,12 +448,12 @@ func Benchmark_EvalOptions(b *testing.B) {
 	)
 	past, _ := e.Parse("ai == 20 || ar['foo'] == 'bar'")
 	cast, _ := e.Check(past)
-	vars := Vars(map[string]interface{}{
+	vars := map[string]interface{}{
 		"ai": 2,
 		"ar": map[string]string{
 			"foo": "bar",
 		},
-	})
+	}
 
 	opts := map[string]EvalOption{
 		"track-state":     OptTrackState,

@@ -57,12 +57,22 @@ func ClearMacros() EnvOption {
 	}
 }
 
+// CustomTypeAdapter swaps the default ref.TypeAdapter implementation with a custom one.
+//
+// Note: This option must be specified before the Types and TypeDescs options when used together.
+func CustomTypeAdapter(adapter ref.TypeAdapter) EnvOption {
+	return func(e *env) (*env, error) {
+		e.adapter = adapter
+		return e, nil
+	}
+}
+
 // CustomTypeProvider swaps the default ref.TypeProvider implementation with a custom one.
 //
-// Note: This option must be specified before the Types option when used together.
+// Note: This option must be specified before the Types and TypeDescs options when used together.
 func CustomTypeProvider(provider ref.TypeProvider) EnvOption {
 	return func(e *env) (*env, error) {
-		e.types = provider
+		e.provider = provider
 		return e, nil
 	}
 }
@@ -114,17 +124,6 @@ func Container(pkg string) EnvOption {
 	}
 }
 
-// IsolateTypes copies the global protobuf registry into a copy private
-// to this Env.  Subsequent Type() calls will modify the protobuf registry
-// in this Env only.  Note that privately-registered protobufs cannot
-// be instantiated with types.NewObject().
-func IsolateTypes() EnvOption {
-	return func(e *env) (*env, error) {
-		e.types.IsolateTypes()
-		return e, nil
-	}
-}
-
 // Types adds one or more type declarations to the environment, allowing for construction of
 // type-literals whose definitions are included in the common expression built-in set.
 //
@@ -137,15 +136,19 @@ func IsolateTypes() EnvOption {
 // Note: This option must be specified after the CustomTypeProvider option when used together.
 func Types(addTypes ...interface{}) EnvOption {
 	return func(e *env) (*env, error) {
+		reg, isReg := e.provider.(ref.TypeRegistry)
+		if !isReg {
+			return nil, fmt.Errorf("custom types not supported by provider: %T", e.provider)
+		}
 		for _, t := range addTypes {
 			switch t.(type) {
 			case proto.Message:
-				err := e.types.RegisterMessage(t.(proto.Message))
+				err := reg.RegisterMessage(t.(proto.Message))
 				if err != nil {
 					return nil, err
 				}
 			case ref.Type:
-				err := e.types.RegisterType(t.(ref.Type))
+				err := reg.RegisterType(t.(ref.Type))
 				if err != nil {
 					return nil, err
 				}
@@ -163,17 +166,21 @@ func Types(addTypes ...interface{}) EnvOption {
 // only useful for Check() operations.
 func TypeDescs(descs ...interface{}) EnvOption {
 	return func(e *env) (*env, error) {
+		reg, isReg := e.provider.(ref.TypeRegistry)
+		if !isReg {
+			return nil, fmt.Errorf("custom types not supported by provider: %T", e.provider)
+		}
 		for _, d := range descs {
 			switch p := d.(type) {
 			case *descpb.FileDescriptorSet:
 				for _, fd := range p.File {
-					err := e.types.RegisterDescriptor(fd)
+					err := reg.RegisterDescriptor(fd)
 					if err != nil {
 						return nil, err
 					}
 				}
 			case *descpb.FileDescriptorProto:
-				err := e.types.RegisterDescriptor(p)
+				err := reg.RegisterDescriptor(p)
 				if err != nil {
 					return nil, err
 				}
@@ -198,11 +205,18 @@ func Functions(funcs ...*functions.Overload) ProgramOption {
 	}
 }
 
-// Globals sets the global variable values for a given program. These values may be shadowed within
-// the Activation value provided to the Eval() function.
-func Globals(vars interpreter.Activation) ProgramOption {
+// Globals sets the global variable values for a given program. These values may be shadowed by
+// variables with the same name provided to the Eval() call.
+//
+// The vars value may either be an `interpreter.Activation` instance or a `map[string]interface{}`.
+func Globals(vars interface{}) ProgramOption {
 	return func(p *prog) (*prog, error) {
-		p.defaultVars = vars
+		defaultVars, err :=
+			interpreter.NewAdaptingActivation(p.adapter, vars)
+		if err != nil {
+			return nil, err
+		}
+		p.defaultVars = defaultVars
 		return p, nil
 	}
 }

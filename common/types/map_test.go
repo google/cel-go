@@ -24,7 +24,8 @@ import (
 )
 
 func TestBaseMap_Contains(t *testing.T) {
-	mapValue := NewDynamicMap(map[string]map[int32]float32{
+	reg := NewRegistry()
+	mapValue := NewDynamicMap(reg, map[string]map[int32]float32{
 		"nested": {1: -1.0, 2: 2.0},
 		"empty":  {}}).(traits.Mapper)
 	if mapValue.Contains(String("nested")) != True {
@@ -36,7 +37,8 @@ func TestBaseMap_Contains(t *testing.T) {
 }
 
 func TestBaseMap_ConvertToNative_Error(t *testing.T) {
-	mapValue := NewDynamicMap(map[string]map[string]float32{
+	reg := NewRegistry()
+	mapValue := NewDynamicMap(reg, map[string]map[string]float32{
 		"nested": {"1": -1.0}})
 	val, err := mapValue.ConvertToNative(reflect.TypeOf(""))
 	if err == nil {
@@ -45,7 +47,8 @@ func TestBaseMap_ConvertToNative_Error(t *testing.T) {
 }
 
 func TestBaseMap_ConvertToNative_Json(t *testing.T) {
-	mapValue := NewDynamicMap(map[string]map[string]float32{
+	reg := NewRegistry()
+	mapValue := NewDynamicMap(reg, map[string]map[string]float32{
 		"nested": {"1": -1.0}})
 	json, err := mapValue.ConvertToNative(jsonValueType)
 	if err != nil {
@@ -58,7 +61,8 @@ func TestBaseMap_ConvertToNative_Json(t *testing.T) {
 }
 
 func TestBaseMap_ConvertToType(t *testing.T) {
-	mapValue := NewDynamicMap(map[string]string{"key": "value"})
+	reg := NewRegistry()
+	mapValue := NewDynamicMap(reg, map[string]string{"key": "value"})
 	if mapValue.ConvertToType(MapType) != mapValue {
 		t.Error("Map could not be converted to a map.")
 	}
@@ -71,7 +75,8 @@ func TestBaseMap_ConvertToType(t *testing.T) {
 }
 
 func TestBaseMap_Equal_True(t *testing.T) {
-	mapValue := NewDynamicMap(map[string]map[int32]float32{
+	reg := NewRegistry()
+	mapValue := NewDynamicMap(reg, map[string]map[int32]float32{
 		"nested": {1: -1.0, 2: 2.0},
 		"empty":  {}})
 	if mapValue.Equal(mapValue) != True {
@@ -86,10 +91,11 @@ func TestBaseMap_Equal_True(t *testing.T) {
 }
 
 func TestBaseMap_Equal_False(t *testing.T) {
-	mapValue := NewDynamicMap(map[string]map[int32]float32{
+	reg := NewRegistry()
+	mapValue := NewDynamicMap(reg, map[string]map[int32]float32{
 		"nested": {1: -1.0, 2: 2.0},
 		"empty":  {}})
-	otherValue := NewDynamicMap(map[string]map[int64]float64{
+	otherValue := NewDynamicMap(reg, map[string]map[int64]float64{
 		"nested": {1: -1.0, 2: 2.0, 3: 3.14},
 		"empty":  {}})
 	if mapValue.Equal(otherValue) != False {
@@ -98,7 +104,8 @@ func TestBaseMap_Equal_False(t *testing.T) {
 }
 
 func TestBaseMap_Get(t *testing.T) {
-	mapValue := NewDynamicMap(map[string]map[int32]float32{
+	reg := NewRegistry()
+	mapValue := NewDynamicMap(reg, map[string]map[int32]float32{
 		"nested": {1: -1.0, 2: 2.0},
 		"empty":  {}}).(traits.Mapper)
 	if nestedVal := mapValue.Get(String("nested")); IsError(nestedVal) {
@@ -111,7 +118,8 @@ func TestBaseMap_Get(t *testing.T) {
 }
 
 func TestBaseMap_Iterator(t *testing.T) {
-	mapValue := NewDynamicMap(map[string]map[int32]float32{
+	reg := NewRegistry()
+	mapValue := NewDynamicMap(reg, map[string]map[int32]float32{
 		"nested": {1: -1.0, 2: 2.0},
 		"empty":  {}}).(traits.Mapper)
 	it := mapValue.Iterator()

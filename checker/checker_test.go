@@ -1159,10 +1159,10 @@ _&&_(_==_(list~type(list(dyn))^list,
 	},
 }
 
-var typeProvider = initTypeProvider()
+var reg = initTypeRegistry()
 
-func initTypeProvider() ref.TypeProvider {
-	return types.NewProvider(&proto3pb.NestedTestAllTypes{}, &proto3pb.TestAllTypes{})
+func initTypeRegistry() ref.TypeRegistry {
+	return types.NewRegistry(&proto3pb.NestedTestAllTypes{}, &proto3pb.TestAllTypes{})
 }
 
 var testEnvs = map[string]env{
@@ -1236,9 +1236,9 @@ func TestCheck(t *testing.T) {
 			}
 
 			pkg := packages.NewPackage(tc.Container)
-			env := NewStandardEnv(pkg, typeProvider)
+			env := NewStandardEnv(pkg, reg)
 			if tc.DisableStdEnv {
-				env = NewEnv(pkg, typeProvider)
+				env = NewEnv(pkg, reg)
 			}
 			if tc.HomogeneousAggregateLiterals {
 				env.EnableDynamicAggregateLiterals(!tc.HomogeneousAggregateLiterals)

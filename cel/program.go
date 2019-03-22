@@ -26,8 +26,10 @@ import (
 type Program interface {
 	// Eval returns the result of an evaluation of the Ast and environment against the input vars.
 	//
+	// The vars value may either be an `interpreter.Activation` or a `map[string]interface{}`.
+	//
 	// If the `OptTrackState` or `OptExhaustiveEval` flags are used, the `details` response will
-	/// be non-nil. Given this caveat on `details`, the return state from evaluation will be:
+	// be non-nil. Given this caveat on `details`, the return state from evaluation will be:
 	//
 	// *  `val`, `details`, `nil` - Successful evaluation of a non-error result.
 	// *  `val`, `details`, `err` - Successful evaluation to an error result.
@@ -36,7 +38,7 @@ type Program interface {
 	// An unsuccessful evaluation is typically the result of a series of incompatible `EnvOption`
 	// or `ProgramOption` values used in the creation of the evaluation environment or executable
 	// program.
-	Eval(vars interpreter.Activation) (ref.Val, EvalDetails, error)
+	Eval(vars interface{}) (ref.Val, EvalDetails, error)
 }
 
 // EvalDetails holds additional information observed during the Eval() call.
@@ -46,14 +48,9 @@ type EvalDetails interface {
 	State() interpreter.EvalState
 }
 
-// Vars takes an input map of variables and returns an Activation.
-func Vars(vars map[string]interface{}) interpreter.Activation {
-	return interpreter.NewActivation(vars)
-}
-
 // NoVars returns an empty Activation.
 func NoVars() interpreter.Activation {
-	return interpreter.NewActivation(map[string]interface{}{})
+	return interpreter.EmptyActivation()
 }
 
 // evalDetails is the internal implementation of the EvalDetails interface.
@@ -91,7 +88,7 @@ type progGen struct {
 func newProgram(e *env, ast Ast, opts ...ProgramOption) (Program, error) {
 	// Build the dispatcher, interpreter, and default program value.
 	disp := interpreter.NewDispatcher()
-	interp := interpreter.NewInterpreter(disp, e.pkg, e.types)
+	interp := interpreter.NewInterpreter(disp, e.pkg, e.provider, e.adapter)
 	p := &prog{
 		env:         e,
 		dispatcher:  disp,
@@ -190,8 +187,12 @@ func initInterpretable(
 }
 
 // Eval implements the Program interface method.
-func (p *prog) Eval(vars interpreter.Activation) (ref.Val, EvalDetails, error) {
+func (p *prog) Eval(input interface{}) (ref.Val, EvalDetails, error) {
 	// Build a hierarchical activation if there are default vars set.
+	vars, err := interpreter.NewAdaptingActivation(p.adapter, input)
+	if err != nil {
+		return nil, nil, err
+	}
 	if p.defaultVars != nil {
 		vars = interpreter.NewHierarchicalActivation(p.defaultVars, vars)
 	}
@@ -206,7 +207,7 @@ func (p *prog) Eval(vars interpreter.Activation) (ref.Val, EvalDetails, error) {
 }
 
 // Eval implements the Program interface method.
-func (gen *progGen) Eval(vars interpreter.Activation) (ref.Val, EvalDetails, error) {
+func (gen *progGen) Eval(input interface{}) (ref.Val, EvalDetails, error) {
 	// The factory based Eval() differs from the standard evaluation model in that it generates a
 	// new EvalState instance for each call to ensure that unique evaluations yield unique stateful
 	// results.
@@ -222,7 +223,7 @@ func (gen *progGen) Eval(vars interpreter.Activation) (ref.Val, EvalDetails, err
 	}
 
 	// Evaluate the input, returning the result and the 'state' within EvalDetails.
-	v, _, err := p.Eval(vars)
+	v, _, err := p.Eval(input)
 	if err != nil {
 		return v, det, err
 	}

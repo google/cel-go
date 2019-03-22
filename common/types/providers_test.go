@@ -21,26 +21,26 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/struct"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
-func TestTypeProvider_NewValue(t *testing.T) {
-	typeProvider := NewProvider(&exprpb.ParsedExpr{})
-	if sourceInfo := typeProvider.NewValue(
+func TestTypeRegistry_NewValue(t *testing.T) {
+	reg := NewRegistry(&exprpb.ParsedExpr{})
+	if sourceInfo := reg.NewValue(
 		"google.api.expr.v1alpha1.SourceInfo",
 		map[string]ref.Val{
-			"location":     String("TestTypeProvider_NewValue"),
-			"line_offsets": NewDynamicList([]int64{0, 2}),
-			"positions":    NewDynamicMap(map[int64]int64{1: 2, 2: 4}),
+			"location":     String("TestTypeRegistry_NewValue"),
+			"line_offsets": NewDynamicList(reg, []int64{0, 2}),
+			"positions":    NewDynamicMap(reg, map[int64]int64{1: 2, 2: 4}),
 		}); IsError(sourceInfo) {
 		t.Error(sourceInfo)
 	} else {
 		info := sourceInfo.Value().(*exprpb.SourceInfo)
-		if info.Location != "TestTypeProvider_NewValue" ||
+		if info.Location != "TestTypeRegistry_NewValue" ||
 			!reflect.DeepEqual(info.LineOffsets, []int32{0, 2}) ||
 			!reflect.DeepEqual(info.Positions, map[int64]int32{1: 2, 2: 4}) {
 			t.Errorf("Source info not properly configured: %v", info)
@@ -48,12 +48,15 @@ func TestTypeProvider_NewValue(t *testing.T) {
 	}
 }
 
-func TestTypeProvider_NewValue_OneofFields(t *testing.T) {
-	typeProvider := NewProvider(&exprpb.ParsedExpr{})
-	if exp := typeProvider.NewValue(
+func TestTypeRegistry_NewValue_OneofFields(t *testing.T) {
+	reg := NewRegistry(&exprpb.ParsedExpr{})
+	if exp := reg.NewValue(
 		"google.api.expr.v1alpha1.Expr",
 		map[string]ref.Val{
-			"const_expr": NewObject(&exprpb.Constant{ConstantKind: &exprpb.Constant_StringValue{StringValue: "oneof"}}),
+			"const_expr": reg.NativeToValue(
+				&exprpb.Constant{
+					ConstantKind: &exprpb.Constant_StringValue{
+						StringValue: "oneof"}}),
 		}); IsError(exp) {
 		t.Error(exp)
 	} else {
@@ -64,28 +67,28 @@ func TestTypeProvider_NewValue_OneofFields(t *testing.T) {
 	}
 }
 
-func TestTypeProvider_Getters(t *testing.T) {
-	typeProvider := NewProvider(&exprpb.ParsedExpr{})
-	if sourceInfo := typeProvider.NewValue(
+func TestTypeRegistry_Getters(t *testing.T) {
+	reg := NewRegistry(&exprpb.ParsedExpr{})
+	if sourceInfo := reg.NewValue(
 		"google.api.expr.v1alpha1.SourceInfo",
 		map[string]ref.Val{
-			"location":     String("TestTypeProvider_GetFieldValue"),
-			"line_offsets": NewDynamicList([]int64{0, 2}),
-			"positions":    NewDynamicMap(map[int64]int64{1: 2, 2: 4}),
+			"location":     String("TestTypeRegistry_GetFieldValue"),
+			"line_offsets": NewDynamicList(reg, []int64{0, 2}),
+			"positions":    NewDynamicMap(reg, map[int64]int64{1: 2, 2: 4}),
 		}); IsError(sourceInfo) {
 		t.Error(sourceInfo)
 	} else {
 		si := sourceInfo.(traits.Indexer)
 		if loc := si.Get(String("location")); IsError(loc) {
 			t.Error(loc)
-		} else if loc.(String) != "TestTypeProvider_GetFieldValue" {
+		} else if loc.(String) != "TestTypeRegistry_GetFieldValue" {
 			t.Errorf("Expected %s, got %s",
-				"TestTypeProvider_GetFieldValue",
+				"TestTypeRegistry_GetFieldValue",
 				loc)
 		}
 		if pos := si.Get(String("positions")); IsError(pos) {
 			t.Error(pos)
-		} else if pos.Equal(NewDynamicMap(map[int64]int32{1: 2, 2: 4})) != True {
+		} else if pos.Equal(NewDynamicMap(reg, map[int64]int32{1: 2, 2: 4})) != True {
 			t.Errorf("Expected map[int64]int32, got %v", pos)
 		} else if posKeyVal := pos.(traits.Indexer).Get(Int(1)); IsError(posKeyVal) {
 			t.Error(posKeyVal)
@@ -103,6 +106,7 @@ func TestTypeProvider_Getters(t *testing.T) {
 }
 
 func TestValue_ConvertToNative(t *testing.T) {
+	reg := NewRegistry(&exprpb.ParsedExpr{})
 	// Core type conversion tests.
 	expectValueToNative(t, True, true)
 	expectValueToNative(t, Int(-1), int32(-1))
@@ -113,8 +117,10 @@ func TestValue_ConvertToNative(t *testing.T) {
 	expectValueToNative(t, Double(-5.5), float64(-5.5))
 	expectValueToNative(t, String("hello"), "hello")
 	expectValueToNative(t, Bytes("world"), []byte("world"))
-	expectValueToNative(t, NewDynamicList([]int64{1, 2, 3}), []int32{1, 2, 3})
-	expectValueToNative(t, NewDynamicMap(map[int64]int64{1: 1, 2: 1, 3: 1}),
+	expectValueToNative(t, NewDynamicList(reg,
+		[]int64{1, 2, 3}), []int32{1, 2, 3})
+	expectValueToNative(t, NewDynamicMap(reg,
+		map[int64]int64{1: 1, 2: 1, 3: 1}),
 		map[int32]int32{1: 1, 2: 1, 3: 1})
 
 	// Null conversion tests.
@@ -122,10 +128,11 @@ func TestValue_ConvertToNative(t *testing.T) {
 
 	// Proto conversion tests.
 	parsedExpr := &exprpb.ParsedExpr{}
-	expectValueToNative(t, NewObject(parsedExpr), parsedExpr)
+	expectValueToNative(t, reg.NativeToValue(parsedExpr), parsedExpr)
 }
 
 func TestNativeToValue_Any(t *testing.T) {
+	reg := NewRegistry(&exprpb.ParsedExpr{})
 	// NullValue
 	anyValue, err := NullValue.ConvertToNative(anyValueType)
 	if err != nil {
@@ -143,7 +150,7 @@ func TestNativeToValue_Any(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	expected := NewJSONStruct(&structpb.Struct{
+	expected := NewJSONStruct(reg, &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			"a": {Kind: &structpb.Value_StringValue{StringValue: "world"}},
 			"b": {Kind: &structpb.Value_StringValue{StringValue: "five!"}}}})
@@ -159,7 +166,7 @@ func TestNativeToValue_Any(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	expected = NewJSONList(&structpb.ListValue{
+	expected = NewJSONList(reg, &structpb.ListValue{
 		Values: []*structpb.Value{
 			{Kind: &structpb.Value_StringValue{StringValue: "world"}},
 			{Kind: &structpb.Value_StringValue{StringValue: "five!"}}}})
@@ -173,10 +180,11 @@ func TestNativeToValue_Any(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	expectNativeToValue(t, anyValue, NewObject(&pbMessage))
+	expectNativeToValue(t, anyValue, reg.NativeToValue(&pbMessage))
 }
 
 func TestNativeToValue_Json(t *testing.T) {
+	reg := NewRegistry(&exprpb.ParsedExpr{})
 	// Json primitive conversion test.
 	expectNativeToValue(t,
 		&structpb.Value{Kind: &structpb.Value_BoolValue{}},
@@ -200,7 +208,7 @@ func TestNativeToValue_Json(t *testing.T) {
 					Values: []*structpb.Value{
 						{Kind: &structpb.Value_StringValue{StringValue: "world"}},
 						{Kind: &structpb.Value_StringValue{StringValue: "five!"}}}}}},
-		NewJSONList(&structpb.ListValue{
+		NewJSONList(reg, &structpb.ListValue{
 			Values: []*structpb.Value{
 				{Kind: &structpb.Value_StringValue{StringValue: "world"}},
 				{Kind: &structpb.Value_StringValue{StringValue: "five!"}}}}))
@@ -213,17 +221,18 @@ func TestNativeToValue_Json(t *testing.T) {
 					Fields: map[string]*structpb.Value{
 						"a": {Kind: &structpb.Value_StringValue{StringValue: "world"}},
 						"b": {Kind: &structpb.Value_StringValue{StringValue: "five!"}}}}}},
-		NewJSONStruct(&structpb.Struct{
+		NewJSONStruct(reg, &structpb.Struct{
 			Fields: map[string]*structpb.Value{
 				"a": {Kind: &structpb.Value_StringValue{StringValue: "world"}},
 				"b": {Kind: &structpb.Value_StringValue{StringValue: "five!"}}}}))
 
 	// Proto conversion test.
 	parsedExpr := &exprpb.ParsedExpr{}
-	expectNativeToValue(t, parsedExpr, NewObject(parsedExpr))
+	expectNativeToValue(t, parsedExpr, reg.NativeToValue(parsedExpr))
 }
 
 func TestNativeToValue_Primitive(t *testing.T) {
+	reg := NewRegistry()
 	// Core type conversions.
 	expectNativeToValue(t, true, True)
 	expectNativeToValue(t, int32(-1), Int(-1))
@@ -234,15 +243,16 @@ func TestNativeToValue_Primitive(t *testing.T) {
 	expectNativeToValue(t, float64(-5.5), Double(-5.5))
 	expectNativeToValue(t, "hello", String("hello"))
 	expectNativeToValue(t, []byte("world"), Bytes("world"))
-	expectNativeToValue(t, []int32{1, 2, 3}, NewDynamicList([]int32{1, 2, 3}))
+	expectNativeToValue(t, []int32{1, 2, 3}, NewDynamicList(reg, []int32{1, 2, 3}))
 	expectNativeToValue(t, map[int32]int32{1: 1, 2: 1, 3: 1},
-		NewDynamicMap(map[int32]int32{1: 1, 2: 1, 3: 1}))
+		NewDynamicMap(reg, map[int32]int32{1: 1, 2: 1, 3: 1}))
 	// Null conversion test.
 	expectNativeToValue(t, structpb.NullValue_NULL_VALUE, Null(structpb.NullValue_NULL_VALUE))
 }
 
 func TestUnsupportedConversion(t *testing.T) {
-	if val := NativeToValue(nonConvertible{}); !IsError(val) {
+	reg := NewRegistry()
+	if val := reg.NativeToValue(nonConvertible{}); !IsError(val) {
 		t.Error("Expected error when converting non-proto struct to proto", val)
 	}
 }
@@ -272,7 +282,8 @@ func expectValueToNative(t *testing.T, in ref.Val, out interface{}) {
 
 func expectNativeToValue(t *testing.T, in interface{}, out ref.Val) {
 	t.Helper()
-	if val := NativeToValue(in); IsError(val) {
+	reg := NewRegistry(&exprpb.ParsedExpr{})
+	if val := reg.NativeToValue(in); IsError(val) {
 		t.Error(val)
 	} else {
 		if val.Equal(out) != True {
@@ -287,14 +298,14 @@ type nonConvertible struct {
 }
 
 func BenchmarkTypeProvider_NewValue(b *testing.B) {
-	typeProvider := NewProvider(&exprpb.ParsedExpr{})
+	reg := NewRegistry(&exprpb.ParsedExpr{})
 	for i := 0; i < b.N; i++ {
-		typeProvider.NewValue(
+		reg.NewValue(
 			"google.api.expr.v1.SourceInfo",
 			map[string]ref.Val{
 				"Location":    String("BenchmarkTypeProvider_NewValue"),
-				"LineOffsets": NewDynamicList([]int64{0, 2}),
-				"Positions":   NewDynamicMap(map[int64]int64{1: 2, 2: 4}),
+				"LineOffsets": NewDynamicList(reg, []int64{0, 2}),
+				"Positions":   NewDynamicMap(reg, map[int64]int64{1: 2, 2: 4}),
 			})
 	}
 }
