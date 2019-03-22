@@ -59,7 +59,7 @@ func ClearMacros() EnvOption {
 
 // CustomTypeAdapter swaps the default ref.TypeAdapter implementation with a custom one.
 //
-// Note: This option must be specified before the Types option when used together.
+// Note: This option must be specified before the Types and TypeDescs options when used together.
 func CustomTypeAdapter(adapter ref.TypeAdapter) EnvOption {
 	return func(e *env) (*env, error) {
 		e.adapter = adapter
@@ -69,7 +69,7 @@ func CustomTypeAdapter(adapter ref.TypeAdapter) EnvOption {
 
 // CustomTypeProvider swaps the default ref.TypeProvider implementation with a custom one.
 //
-// Note: This option must be specified before the Types option when used together.
+// Note: This option must be specified before the Types and TypeDescs options when used together.
 func CustomTypeProvider(provider ref.TypeProvider) EnvOption {
 	return func(e *env) (*env, error) {
 		e.provider = provider
