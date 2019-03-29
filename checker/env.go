@@ -39,9 +39,8 @@ const (
 // It consists of a Packager, a Type Provider, declarations, and collection of errors encountered
 // during checking.
 type Env struct {
-	packager packages.Packager
-	provider ref.TypeProvider
-
+	packager       packages.Packager
+	provider       ref.TypeProvider
 	declarations   *decls.Scopes
 	aggLitElemType aggregateLiteralElementType
 }
@@ -289,15 +288,26 @@ func getObjectWellKnownType(t *exprpb.Type) *exprpb.Type {
 	return pb.CheckedWellKnowns[t.GetMessageType()]
 }
 
-// enterScope pushes a new declaration set onto the stack, to ensure variables
-// and function identifiers are appropriately shadowed / enclosed as needed.
-func (e *Env) enterScope() {
-	e.declarations.Push()
+// enterScope creates a new Env instance with a new innermost declaration scope.
+func (e *Env) enterScope() *Env {
+	childDecls := e.declarations.Push()
+	return &Env{
+		declarations:   childDecls,
+		packager:       e.packager,
+		provider:       e.provider,
+		aggLitElemType: e.aggLitElemType,
+	}
 }
 
-// exitScope pops the local declarations of the current frame.
-func (e *Env) exitScope() {
-	e.declarations.Pop()
+// exitScope creates a new Env instance with the nearest outer declaration scope.
+func (e *Env) exitScope() *Env {
+	parentDecls := e.declarations.Pop()
+	return &Env{
+		declarations:   parentDecls,
+		packager:       e.packager,
+		provider:       e.provider,
+		aggLitElemType: e.aggLitElemType,
+	}
 }
 
 // errorMsg is a type alias meant to represent error-based return values which

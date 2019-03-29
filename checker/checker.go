@@ -34,9 +34,8 @@ type checker struct {
 	mappings           *mapping
 	freeTypeVarCounter int
 	sourceInfo         *exprpb.SourceInfo
-
-	types      map[int64]*exprpb.Type
-	references map[int64]*exprpb.Reference
+	types              map[int64]*exprpb.Type
+	references         map[int64]*exprpb.Reference
 }
 
 // Check performs type checking, giving a typed AST.
@@ -54,9 +53,8 @@ func Check(parsedExpr *exprpb.ParsedExpr,
 		mappings:           newMapping(),
 		freeTypeVarCounter: 0,
 		sourceInfo:         parsedExpr.GetSourceInfo(),
-
-		types:      make(map[int64]*exprpb.Type),
-		references: make(map[int64]*exprpb.Reference),
+		types:              make(map[int64]*exprpb.Type),
+		references:         make(map[int64]*exprpb.Reference),
 	}
 	c.check(parsedExpr.GetExpr())
 
@@ -438,19 +436,23 @@ func (c *checker) checkComprehension(e *exprpb.Expr) {
 		c.errors.notAComprehensionRange(c.location(comp.IterRange), rangeType)
 	}
 
-	c.env.enterScope()
+	// Create a scope for the comprehension since it has a local accumulation variable.
+	// This scope will contain the accumulation variable used to compute the result.
+	c.env = c.env.enterScope()
 	c.env.Add(decls.NewIdent(comp.AccuVar, accuType, nil))
-	// Declare iteration variable on inner scope.
-	c.env.enterScope()
+	// Create a block scope for the loop.
+	c.env = c.env.enterScope()
 	c.env.Add(decls.NewIdent(comp.IterVar, varType, nil))
+	// Check the variable references in the condition and step.
 	c.check(comp.LoopCondition)
 	c.assertType(comp.LoopCondition, decls.Bool)
 	c.check(comp.LoopStep)
 	c.assertType(comp.LoopStep, accuType)
-	// Forget iteration variable, as result expression must only depend on accu.
-	c.env.exitScope()
+	// Exit the loop's block scope before checking the result.
+	c.env = c.env.exitScope()
 	c.check(comp.Result)
-	c.env.exitScope()
+	// Exit the comprehension scope.
+	c.env = c.env.exitScope()
 	c.setType(e, c.getType(comp.Result))
 }
 

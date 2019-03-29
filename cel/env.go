@@ -128,6 +128,7 @@ func NewEnv(opts ...EnvOption) (Env, error) {
 			return nil, err
 		}
 	}
+	// Construct the internal checker env, erroring if there is an issue adding the declarations.
 	ce := checker.NewEnv(e.pkg, e.provider)
 	ce.EnableDynamicAggregateLiterals(e.enableDynamicAggregateLiterals)
 	err = ce.Add(e.declarations...)
