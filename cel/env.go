@@ -128,6 +128,14 @@ func NewEnv(opts ...EnvOption) (Env, error) {
 			return nil, err
 		}
 	}
+	// Construct the internal checker env, erroring if there is an issue adding the declarations.
+	ce := checker.NewEnv(e.pkg, e.provider)
+	ce.EnableDynamicAggregateLiterals(e.enableDynamicAggregateLiterals)
+	err = ce.Add(e.declarations...)
+	if err != nil {
+		return nil, err
+	}
+	e.chk = ce
 	return e, nil
 }
 
@@ -175,6 +183,7 @@ type env struct {
 	pkg          packages.Packager
 	provider     ref.TypeProvider
 	adapter      ref.TypeAdapter
+	chk          *checker.Env
 	// environment options, true by default.
 	enableBuiltins                 bool
 	enableDynamicAggregateLiterals bool
@@ -182,16 +191,13 @@ type env struct {
 
 // Check implements the Env interface method.
 func (e *env) Check(ast Ast) (Ast, Issues) {
-	ce := checker.NewEnv(e.pkg, e.provider)
-	ce.EnableDynamicAggregateLiterals(e.enableDynamicAggregateLiterals)
-	ce.Add(e.declarations...)
 	pe, err := AstToParsedExpr(ast)
 	if err != nil {
 		errs := common.NewErrors(ast.Source())
 		errs.ReportError(common.NoLocation, err.Error())
 		return nil, &issues{errs: errs}
 	}
-	res, errs := checker.Check(pe, ast.Source(), ce)
+	res, errs := checker.Check(pe, ast.Source(), e.chk)
 	if len(errs.GetErrors()) > 0 {
 		return nil, &issues{errs: errs}
 	}
