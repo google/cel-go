@@ -59,7 +59,7 @@ func (s *Scopes) AddIdent(decl *exprpb.Decl) {
 
 // FindIdent finds the first ident Decl with a matching name in Scopes, or nil if one cannot be
 // found.
-// Note: the search is performed from innermost to outermost.
+// Note: The search is performed from innermost to outermost.
 func (s *Scopes) FindIdent(name string) *exprpb.Decl {
 	if ident, found := s.scopes.idents[name]; found {
 		return ident
@@ -70,8 +70,18 @@ func (s *Scopes) FindIdent(name string) *exprpb.Decl {
 	return nil
 }
 
+// FindIdentInScope finds the first ident Decl with a matching name in the current Scopes value, or
+// nil if one does not exist.
+// Note: The search is only performed on the current scope and does not search outer scopes.
+func (s *Scopes) FindIdentInScope(name string) *exprpb.Decl {
+	if ident, found := s.scopes.idents[name]; found {
+		return ident
+	}
+	return nil
+}
+
 // AddFunction adds the function Decl to the current scope.
-// Note: any previous entry for a function in the current scope with the same name is overwritten.
+// Note: Any previous entry for a function in the current scope with the same name is overwritten.
 func (s *Scopes) AddFunction(fn *exprpb.Decl) {
 	s.scopes.functions[fn.Name] = fn
 }

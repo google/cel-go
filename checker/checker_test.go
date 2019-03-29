@@ -743,6 +743,17 @@ ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, nul
 		Type: decls.Bool,
 	},
 	{
+		I: `x.repeated_int64.exists(y, y > 10) && y < 5`,
+		Env: env{
+			idents: []*exprpb.Decl{
+				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
+			},
+		},
+		Error: `ERROR: <input>:1:39: undeclared reference to 'y' (in container '')
+		| x.repeated_int64.exists(y, y > 10) && y < 5
+		| ......................................^`,
+	},
+	{
 		I: `x.repeated_int64.all(e, e > 0) && x.repeated_int64.exists(e, e < 0) && x.repeated_int64.exists_one(e, e == 0)`,
 		Env: env{
 			idents: []*exprpb.Decl{
