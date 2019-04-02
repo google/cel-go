@@ -10,3 +10,6 @@ require (
 	google.golang.org/genproto v0.0.0-20190227213309-4f5b463f9597
 	google.golang.org/grpc v1.19.0
 )
+
+// Fix for https://github.com/golang/lint/issues/436
+replace github.com/golang/lint => github.com/golang/lint v0.0.0-20190227174305-8f45f776aaf1
