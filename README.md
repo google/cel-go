@@ -236,18 +236,8 @@ Benchmark setup forthcoming in an upcoming wiki.
 
 ## Install
 
-CEL-Go supports `modules` and may be installed using either the `get` or
-`build` commands depending on your preference. Since CEL uses semantic
-versioning prefer using the new go `modules`:
-
-```sh
-go mod init <my-cel-app>
-go build ./...
-```
-
-```sh
-go get github.com/google/cel-go/...
-```
+CEL-Go supports `modules` and uses semantic versioning. For more info
+see the [Go Modules](https://github.com/golang/go/wiki/Modules) docs.
 
 And of course, there is always the option to build from source directly.
 
