@@ -1,6 +1,7 @@
 package pb
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
@@ -64,11 +65,12 @@ func TestTypeDescription_WrapperNotInTypeInit(t *testing.T) {
 
 func TestTypeDescription_Field(t *testing.T) {
 	pbdb := NewDb()
-	_, err := pbdb.RegisterMessage(&proto3pb.NestedTestAllTypes{})
+	msg := proto3pb.NestedTestAllTypes{}
+	_, err := pbdb.RegisterMessage(&msg)
 	if err != nil {
 		t.Error(err)
 	}
-	td, err := pbdb.DescribeType(proto.MessageName(&proto3pb.NestedTestAllTypes{}))
+	td, err := pbdb.DescribeType(proto.MessageName(&msg))
 	fd, found := td.FieldByName("payload")
 	if !found {
 		t.Error("Field 'payload' not found")
@@ -97,8 +99,13 @@ func TestTypeDescription_Field(t *testing.T) {
 	if fd.IsRepeated() {
 		t.Error("Field 'payload' is marked as repeated.")
 	}
-	if fd.Index() != 1 {
-		t.Error("Field 'payload' was fetched at index 1, but not listed there.")
+	// Access the field by its Go struct name and check to see that it's index
+	// matches the one determined by the TypeDescription utils.
+	field, _ := reflect.TypeOf(msg).FieldByName("Payload")
+	if fd.Index() != field.Index[0] {
+		t.Errorf("Field 'payload' was declared at index %d, but wanted %d.",
+			field.Index[0],
+			fd.Index())
 	}
 	if !proto.Equal(fd.CheckedType(), &exprpb.Type{
 		TypeKind: &exprpb.Type_MessageType{
