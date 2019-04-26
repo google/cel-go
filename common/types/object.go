@@ -22,7 +22,6 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/cel-go/common/types/pb"
 	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/common/types/traits"
 )
 
 type protoObj struct {
@@ -127,41 +126,12 @@ func (o *protoObj) Get(index ref.Val) ref.Val {
 	return NewErr("no such field '%s'", index)
 }
 
-func (o *protoObj) Iterator() traits.Iterator {
-	return &msgIterator{
-		baseIterator: &baseIterator{},
-		refValue:     o.refValue,
-		typeDesc:     o.typeDesc,
-		cursor:       0}
-}
-
 func (o *protoObj) Type() ref.Type {
 	return o.typeValue
 }
 
 func (o *protoObj) Value() interface{} {
 	return o.value
-}
-
-type msgIterator struct {
-	*baseIterator
-	refValue reflect.Value
-	typeDesc *pb.TypeDescription
-	cursor   int
-	len      int
-}
-
-func (it *msgIterator) HasNext() ref.Val {
-	return Bool(it.cursor < it.typeDesc.FieldCount())
-}
-
-func (it *msgIterator) Next() ref.Val {
-	if it.HasNext() == False {
-		return nil
-	}
-	fieldName, _ := it.typeDesc.FieldNameAtIndex(it.cursor, it.refValue)
-	it.cursor++
-	return String(fieldName)
 }
 
 var (

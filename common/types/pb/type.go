@@ -52,31 +52,6 @@ func (td *TypeDescription) FieldByName(name string) (*FieldDescription, bool) {
 	return fd, found
 }
 
-// FieldNameAtIndex returns the field name at the specified index.
-//
-// For oneof field values, multiple fields may exist at the same index, so the
-// appropriate oneof getter's must be invoked in order to determine which of
-// oneof fields is currently set at the index.
-func (td *TypeDescription) FieldNameAtIndex(index int, refObj reflect.Value) (string, bool) {
-	fields := td.getFieldsAtIndex(index)
-	if len(fields) == 1 {
-		return fields[0].OrigName(), true
-	}
-	for _, fd := range fields {
-		if fd.IsOneof() {
-			getter := refObj.MethodByName(fd.GetterName())
-			if !getter.IsValid() {
-				continue
-			}
-			refField := getter.Call([]reflect.Value{})[0]
-			if refField.IsValid() && !refField.IsNil() {
-				return fd.OrigName(), true
-			}
-		}
-	}
-	return "", false
-}
-
 // Name of the type.
 func (td *TypeDescription) Name() string {
 	return td.typeName
@@ -166,11 +141,6 @@ func (td *TypeDescription) getFieldProperties() *proto.StructProperties {
 	return td.fieldProperties
 }
 
-func (td *TypeDescription) getFieldsAtIndex(i int) []*FieldDescription {
-	_, fieldIndices := td.getFieldsInfo()
-	return fieldIndices[i]
-}
-
 // FieldDescription holds metadata related to fields declared within a type.
 type FieldDescription struct {
 	tdesc     *TypeDescription
@@ -185,8 +155,12 @@ type FieldDescription struct {
 func (fd *FieldDescription) CheckedType() *exprpb.Type {
 	if fd.IsMap() {
 		td, _ := fd.tdesc.file.pbdb.DescribeType(fd.TypeName())
-		key := td.getFieldsAtIndex(0)[0]
-		val := td.getFieldsAtIndex(1)[0]
+		// Get the FieldDescriptors for the type arranged by their index within the
+		// generated Go struct.
+		_, fieldIndices := td.getFieldsInfo()
+		// Map keys and values are represented as repeated entries in a list.
+		key := fieldIndices[0][0]
+		val := fieldIndices[1][0]
 		return &exprpb.Type{
 			TypeKind: &exprpb.Type_MapType_{
 				MapType: &exprpb.Type_MapType{
@@ -278,10 +252,10 @@ func (fd *FieldDescription) SupportsPresence() bool {
 	return !fd.IsRepeated() && (fd.IsMessage() || !fd.proto3)
 }
 
-// String returns a proto-like field definition string.
+// String returns a struct-like field definition string.
 func (fd *FieldDescription) String() string {
-	return fmt.Sprintf("%s %s = %d `oneof=%t`",
-		fd.TypeName(), fd.OrigName(), fd.Index(), fd.IsOneof())
+	return fmt.Sprintf("%s %s `oneof=%t`",
+		fd.TypeName(), fd.OrigName(), fd.IsOneof())
 }
 
 // TypeName returns the type name of the field.

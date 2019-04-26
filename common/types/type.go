@@ -49,8 +49,7 @@ func NewTypeValue(name string, traits ...int) *TypeValue {
 func NewObjectTypeValue(name string) *TypeValue {
 	return NewTypeValue(name,
 		traits.FieldTesterType,
-		traits.IndexerType,
-		traits.IterableType)
+		traits.IndexerType)
 }
 
 // ConvertToNative implements ref.Val.ConvertToNative.

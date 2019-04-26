@@ -20,9 +20,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
-	"github.com/google/cel-go/test"
 
 	anypb "github.com/golang/protobuf/ptypes/any"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
@@ -44,19 +42,6 @@ func TestNewProtoObject(t *testing.T) {
 	call := expr.Get(String("call_expr")).(traits.Indexer)
 	if call.Get(String("function")).Equal(String("")) != True {
 		t.Errorf("Could not traverse through default values for unset fields")
-	}
-}
-
-func TestProtoObject_Iterator(t *testing.T) {
-	reg := NewRegistry(&exprpb.Expr{})
-	existsMsg := reg.NativeToValue(test.Exists.Expr).(traits.Iterable)
-	it := existsMsg.Iterator()
-	var fields []ref.Val
-	for it.HasNext() == True {
-		fields = append(fields, it.Next())
-	}
-	if !reflect.DeepEqual(fields, []ref.Val{String("id"), String("comprehension_expr")}) {
-		t.Errorf("Got %v, wanted %v", fields, []interface{}{"id", "comprehension_expr"})
 	}
 }
 
