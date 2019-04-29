@@ -46,9 +46,9 @@ func NewDynamicMap(adapter ref.TypeAdapter, value interface{}) traits.Mapper {
 }
 
 // NewStringStringMap returns a specialized traits.Mapper with string keys and values.
-func NewStringStringMap(value map[string]string) traits.Mapper {
+func NewStringStringMap(adapter ref.TypeAdapter, value map[string]string) traits.Mapper {
 	return &stringMap{
-		baseMap:   &baseMap{value: value},
+		baseMap:   &baseMap{TypeAdapter: adapter, value: value},
 		mapStrStr: value,
 	}
 }
@@ -63,7 +63,7 @@ var (
 )
 
 func (m *baseMap) Contains(index ref.Val) ref.Val {
-	val, found := m.find(index)
+	val, found := m.Find(index)
 	if !found && val != nil && IsUnknownOrError(val) {
 		return val
 	}
@@ -71,11 +71,10 @@ func (m *baseMap) Contains(index ref.Val) ref.Val {
 }
 
 func (m *stringMap) Contains(index ref.Val) ref.Val {
-	strKey, ok := index.(String)
-	if !ok {
-		return ValOrErr(index, "no such overload")
+	val, found := m.Find(index)
+	if !found && val != nil && IsUnknownOrError(val) {
+		return val
 	}
-	_, found := m.mapStrStr[string(strKey)]
 	return Bool(found)
 }
 
@@ -154,6 +153,15 @@ func (m *baseMap) ConvertToType(typeVal ref.Type) ref.Val {
 	return NewErr("type conversion error from '%s' to '%s'", MapType, typeVal)
 }
 
+func (m *stringMap) ConvertToType(typeVal ref.Type) ref.Val {
+	switch typeVal {
+	case MapType:
+		return m
+	default:
+		return m.baseMap.ConvertToType(typeVal)
+	}
+}
+
 func (m *baseMap) Equal(other ref.Val) ref.Val {
 	if MapType != other.Type() {
 		return ValOrErr(other, "no such overload")
@@ -165,15 +173,17 @@ func (m *baseMap) Equal(other ref.Val) ref.Val {
 	it := m.Iterator()
 	for it.HasNext() == True {
 		key := it.Next()
-		if otherVal := otherMap.Get(key); IsError(otherVal) {
-			return False
-		} else if thisVal := m.Get(key); IsError(thisVal) {
-			return False
-		} else {
-			valEq := thisVal.Equal(otherVal)
-			if valEq == False || IsUnknownOrError(valEq) {
-				return valEq
+		thisVal, _ := m.Find(key)
+		otherVal, found := otherMap.Find(key)
+		if !found {
+			if otherVal == nil {
+				return False
 			}
+			return ValOrErr(otherVal, "no such overload")
+		}
+		valEq := thisVal.Equal(otherVal)
+		if valEq == False || IsUnknownOrError(valEq) {
+			return valEq
 		}
 	}
 	return True
@@ -186,27 +196,7 @@ func (m *stringMap) Equal(other ref.Val) ref.Val {
 	return m.baseMap.Equal(other)
 }
 
-func (m *baseMap) Get(key ref.Val) ref.Val {
-	v, found := m.find(key)
-	if !found {
-		return ValOrErr(v, "no such key: %v", v)
-	}
-	return v
-}
-
-func (m *stringMap) Get(key ref.Val) ref.Val {
-	strKey, ok := key.(String)
-	if !ok {
-		return ValOrErr(key, "no such overload")
-	}
-	val, found := m.mapStrStr[string(strKey)]
-	if !found {
-		return NewErr("no such key: %s", key)
-	}
-	return String(val)
-}
-
-func (m *baseMap) find(key ref.Val) (ref.Val, bool) {
+func (m *baseMap) Find(key ref.Val) (ref.Val, bool) {
 	// TODO: There are multiple reasons why a Get could fail. Typically, this is because the key
 	// does not exist in the map; however, it's possible that the value cannot be converted to
 	// the desired type. Refine this strategy to disambiguate these cases.
@@ -219,14 +209,39 @@ func (m *baseMap) find(key ref.Val) (ref.Val, bool) {
 		return &Err{err}, false
 	}
 	nativeKeyVal := reflect.ValueOf(nativeKey)
-	if !nativeKeyVal.Type().AssignableTo(thisKeyType) {
-		return NewErr("no such overload"), false
-	}
 	value := m.refValue.MapIndex(nativeKeyVal)
 	if !value.IsValid() {
 		return nil, false
 	}
 	return m.NativeToValue(value.Interface()), true
+}
+
+func (m *stringMap) Find(key ref.Val) (ref.Val, bool) {
+	strKey, ok := key.(String)
+	if !ok {
+		return ValOrErr(key, "no such overload"), false
+	}
+	val, found := m.mapStrStr[string(strKey)]
+	if !found {
+		return nil, false
+	}
+	return String(val), true
+}
+
+func (m *baseMap) Get(key ref.Val) ref.Val {
+	v, found := m.Find(key)
+	if !found {
+		return ValOrErr(v, "no such key: %v", v)
+	}
+	return v
+}
+
+func (m *stringMap) Get(key ref.Val) ref.Val {
+	v, found := m.Find(key)
+	if !found {
+		return ValOrErr(v, "no such key: %v", v)
+	}
+	return v
 }
 
 func (m *baseMap) Iterator() traits.Iterator {

@@ -20,6 +20,8 @@ import (
 
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
+	structpb "github.com/golang/protobuf/ptypes/struct"
+
 	"github.com/google/cel-go/common/types/traits"
 )
 
@@ -33,6 +35,25 @@ func TestBaseMap_Contains(t *testing.T) {
 	}
 	if mapValue.Contains(String("unknown")) != False {
 		t.Error("Expected key 'unknown' not contained in map.")
+	}
+	if !IsError(mapValue.Contains(Int(123))) {
+		t.Error("Expected key of Int type would error with 'no such overload'.")
+	}
+	if !reflect.DeepEqual(mapValue.Contains(Unknown{1}), Unknown{1}) {
+		t.Error("Expected Unknown key in would yield Unknown key out.")
+	}
+}
+
+func TestStringMap_Contains(t *testing.T) {
+	reg := NewRegistry()
+	mapValue := NewStringStringMap(reg, map[string]string{
+		"first":  "hello",
+		"second": "world"}).(traits.Mapper)
+	if mapValue.Contains(String("first")) != True {
+		t.Error("Expected key 'first' contained in map.")
+	}
+	if mapValue.Contains(String("third")) != False {
+		t.Error("Expected key 'third' not contained in map.")
 	}
 	if !IsError(mapValue.Contains(Int(123))) {
 		t.Error("Expected key of Int type would error with 'no such overload'.")
@@ -61,7 +82,22 @@ func TestBaseMap_ConvertToNative_Json(t *testing.T) {
 		t.Error(err)
 	}
 	jsonTxt, err := (&jsonpb.Marshaler{}).MarshalToString(json.(proto.Message))
-	if jsonTxt != "{\"nested\":{\"1\":-1}}" {
+	if jsonTxt != `{"nested":{"1":-1}}` {
+		t.Error(jsonTxt)
+	}
+}
+
+func TestStringMap_ConvertToNative_Json(t *testing.T) {
+	reg := NewRegistry()
+	mapValue := NewStringStringMap(reg, map[string]string{
+		"first":  "hello",
+		"second": "world"}).(traits.Mapper)
+	json, err := mapValue.ConvertToNative(jsonStructType)
+	if err != nil {
+		t.Error(err)
+	}
+	jsonTxt, err := (&jsonpb.Marshaler{}).MarshalToString(json.(proto.Message))
+	if jsonTxt != `{"first":"hello","second":"world"}` {
 		t.Error(jsonTxt)
 	}
 }
@@ -69,6 +105,20 @@ func TestBaseMap_ConvertToNative_Json(t *testing.T) {
 func TestBaseMap_ConvertToType(t *testing.T) {
 	reg := NewRegistry()
 	mapValue := NewDynamicMap(reg, map[string]string{"key": "value"})
+	if mapValue.ConvertToType(MapType) != mapValue {
+		t.Error("Map could not be converted to a map.")
+	}
+	if mapValue.ConvertToType(TypeType) != MapType {
+		t.Error("Map type was not listed as a map.")
+	}
+	if !IsError(mapValue.ConvertToType(ListType)) {
+		t.Error("Map conversion to unsupported type was not an error.")
+	}
+}
+
+func TestStringMap_ConvertToType(t *testing.T) {
+	reg := NewRegistry()
+	mapValue := reg.NativeToValue(map[string]string{"key": "value"})
 	if mapValue.ConvertToType(MapType) != mapValue {
 		t.Error("Map could not be converted to a map.")
 	}
@@ -92,20 +142,83 @@ func TestBaseMap_Equal_True(t *testing.T) {
 		t.Error(nestedVal)
 	} else if mapValue.Equal(nestedVal) == True ||
 		nestedVal.Equal(mapValue) == True {
-		t.Error("Same length, but different key names")
+		t.Error("Same length, but different key names did not result in error")
 	}
 }
 
-func TestBaseMap_Equal_False(t *testing.T) {
+func TestStringMap_Equal_True(t *testing.T) {
+	reg := NewRegistry()
+	mapValue := NewStringStringMap(reg, map[string]string{
+		"first":  "hello",
+		"second": "world"})
+	if mapValue.Equal(mapValue) != True {
+		t.Error("Map value was not equal to itself")
+	}
+	equivDyn := NewDynamicMap(reg, map[string]string{
+		"second": "world",
+		"first":  "hello"})
+	if mapValue.Equal(equivDyn) != True {
+		t.Error("Map value equality was key-order dependent")
+	}
+	equivJSON := NewJSONStruct(reg, &structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"first":  {Kind: &structpb.Value_StringValue{StringValue: "hello"}},
+			"second": {Kind: &structpb.Value_StringValue{StringValue: "world"}},
+		}})
+	if mapValue.Equal(equivJSON) != True && equivJSON.Equal(mapValue) != True {
+		t.Error("Map value was not equivalent to json struct")
+	}
+}
+
+func TestBaseMap_Equal_NotTrue(t *testing.T) {
 	reg := NewRegistry()
 	mapValue := NewDynamicMap(reg, map[string]map[int32]float32{
 		"nested": {1: -1.0, 2: 2.0},
 		"empty":  {}})
-	otherValue := NewDynamicMap(reg, map[string]map[int64]float64{
+	other := NewDynamicMap(reg, map[string]map[int64]float64{
 		"nested": {1: -1.0, 2: 2.0, 3: 3.14},
 		"empty":  {}})
-	if mapValue.Equal(otherValue) != False {
-		t.Error("Inequal maps were deemed equal.")
+	if mapValue.Equal(other) != False {
+		t.Error("Inequal map values were deemed equal.")
+	}
+	other = NewDynamicMap(reg, map[string]map[int64]float64{
+		"nested": {1: -1.0, 2: 2.0, 3: 3.14},
+		"absent": {}})
+	if mapValue.Equal(other) != False {
+		t.Error("Inequal map keys were deemed equal.")
+	}
+}
+
+func TestStringMap_Equal_NotTrue(t *testing.T) {
+	reg := NewRegistry()
+	mapValue := NewStringStringMap(reg, map[string]string{
+		"first":  "hello",
+		"second": "world"})
+	if mapValue.Equal(mapValue) != True {
+		t.Error("Map value was not equal to itself")
+	}
+	other := NewStringStringMap(reg, map[string]string{
+		"second": "world",
+		"first":  "goodbye"})
+	if mapValue.Equal(other) != False {
+		t.Error("Map of same size with same keys and different values not false")
+	}
+	other = NewStringStringMap(reg, map[string]string{
+		"first": "hello"})
+	if mapValue.Equal(other) != False {
+		t.Error("Equality between maps of different size did not return false")
+	}
+	other = NewStringStringMap(reg, map[string]string{
+		"first": "hello",
+		"third": "goodbye"})
+	if mapValue.Equal(other) != False {
+		t.Error("Equality between maps of different size did not return false")
+	}
+	other = NewDynamicMap(reg, map[string]interface{}{
+		"first":  "hello",
+		"second": 1})
+	if !IsError(mapValue.Equal(other)) {
+		t.Error("Equality between maps of different value types did not error")
 	}
 }
 
@@ -121,6 +234,26 @@ func TestBaseMap_Get(t *testing.T) {
 	} else if floatVal.Equal(Double(-1.0)) != True {
 		t.Error("Nested map access of float property not float64")
 	}
+	if !IsError(mapValue.Get(String("absent"))) {
+		t.Error("Got valid result, wanted no such key error.")
+	}
+}
+
+func TestStringMap_Get(t *testing.T) {
+	reg := NewRegistry()
+	mapValue := NewStringStringMap(reg, map[string]string{
+		"first":  "hello",
+		"second": "world"}).(traits.Mapper)
+	val := mapValue.Get(String("first"))
+	if val.Equal(String("hello")) != True {
+		t.Errorf("Got '%v', wanted 'hello'", val)
+	}
+	if !IsError(mapValue.Get(Int(1))) {
+		t.Error("Got real value, wanted error")
+	}
+	if !IsError(mapValue.Get(String("third"))) {
+		t.Error("Got real value, wanted error")
+	}
 }
 
 func TestBaseMap_Iterator(t *testing.T) {
@@ -132,10 +265,11 @@ func TestBaseMap_Iterator(t *testing.T) {
 	var i = 0
 	var fieldNames []interface{}
 	for ; it.HasNext() == True; i++ {
-		if value := mapValue.Get(it.Next()); IsError(value) {
+		fieldName := it.Next()
+		if value := mapValue.Get(fieldName); IsError(value) {
 			t.Error(value)
 		} else {
-			fieldNames = append(fieldNames, value)
+			fieldNames = append(fieldNames, fieldName)
 		}
 	}
 	if len(fieldNames) != 2 {
@@ -143,5 +277,66 @@ func TestBaseMap_Iterator(t *testing.T) {
 	}
 	if it.Next() != nil {
 		t.Error("Iterator ran off the end of the field names")
+	}
+}
+
+func TestStringMap_Iterator(t *testing.T) {
+	reg := NewRegistry()
+	mapValue := NewStringStringMap(reg, map[string]string{
+		"first":  "hello",
+		"second": "world"}).(traits.Mapper)
+	it := mapValue.Iterator()
+	var i = 0
+	var fieldNames []interface{}
+	for ; it.HasNext() == True; i++ {
+		fieldName := it.Next()
+		if value := mapValue.Get(fieldName); IsError(value) {
+			t.Error(value)
+		} else {
+			fieldNames = append(fieldNames, fieldName)
+		}
+	}
+	if len(fieldNames) != 2 {
+		t.Errorf("Did not find the correct number of fields: %v", fieldNames)
+	}
+	fieldsMap := map[string]bool{
+		"first":  false,
+		"second": false,
+	}
+	expectedMap := map[string]bool{
+		"first":  true,
+		"second": true,
+	}
+	for _, fieldName := range fieldNames {
+		key := string(fieldName.(String))
+		if _, found := fieldsMap[key]; found {
+			fieldsMap[key] = true
+		}
+	}
+	if !reflect.DeepEqual(fieldsMap, expectedMap) {
+		t.Errorf("Got '%v', wanted '%v'", fieldsMap, expectedMap)
+	}
+	if it.Next() != nil {
+		t.Error("Iterator ran off the end of the field names")
+	}
+}
+
+func TestBaseMap_Size(t *testing.T) {
+	reg := NewRegistry()
+	mapValue := NewDynamicMap(reg, map[string]int{
+		"first":  1,
+		"second": 2}).(traits.Mapper)
+	if mapValue.Size() != Int(2) {
+		t.Errorf("Got '%v', expected 2", mapValue.Size())
+	}
+}
+
+func TestStringMap_Size(t *testing.T) {
+	reg := NewRegistry()
+	mapValue := NewStringStringMap(reg, map[string]string{
+		"first":  "hello",
+		"second": "world"}).(traits.Mapper)
+	if mapValue.Size() != Int(2) {
+		t.Errorf("Got '%v', expected 2", mapValue.Size())
 	}
 }

@@ -21,6 +21,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
+
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 )
@@ -44,7 +45,11 @@ func NewJSONStruct(adapter ref.TypeAdapter, st *structpb.Struct) traits.Mapper {
 
 func (m *jsonStruct) Contains(index ref.Val) ref.Val {
 	// FIXME: This is broken.
-	return Bool(!IsError(m.Get(index)))
+	val, found := m.Find(index)
+	if !found && val != nil && IsUnknownOrError(val) {
+		return val
+	}
+	return Bool(found)
 }
 
 func (m *jsonStruct) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
@@ -116,30 +121,41 @@ func (m *jsonStruct) Equal(other ref.Val) ref.Val {
 	it := m.Iterator()
 	for it.HasNext() == True {
 		key := it.Next()
-		if otherVal := otherMap.Get(key); IsError(otherVal) {
-			return False
-		} else if thisVal := m.Get(key); IsError(thisVal) {
-			return False
-		} else {
-			valEq := thisVal.Equal(otherVal)
-			if valEq == False || IsUnknownOrError(valEq) {
-				return valEq
+		thisVal, _ := m.Find(key)
+		otherVal, found := otherMap.Find(key)
+		if !found {
+			if otherVal == nil {
+				return False
 			}
+			return ValOrErr(otherVal, "no such overload")
+		}
+		valEq := thisVal.Equal(otherVal)
+		if valEq == False || IsUnknownOrError(valEq) {
+			return valEq
 		}
 	}
 	return True
 }
 
-func (m *jsonStruct) Get(key ref.Val) ref.Val {
-	if StringType != key.Type() {
-		return ValOrErr(key, "unsupported key type: '%v", key.Type())
+func (m *jsonStruct) Find(key ref.Val) (ref.Val, bool) {
+	strKey, ok := key.(String)
+	if !ok {
+		return ValOrErr(key, "unsupported key type: '%v", key.Type()), false
 	}
 	fields := m.Struct.GetFields()
-	value, found := fields[string(key.(String))]
+	value, found := fields[string(strKey)]
 	if !found {
-		return NewErr("no such key: '%v'", key)
+		return nil, found
 	}
-	return m.NativeToValue(value)
+	return m.NativeToValue(value), found
+}
+
+func (m *jsonStruct) Get(key ref.Val) ref.Val {
+	v, found := m.Find(key)
+	if !found {
+		return ValOrErr(v, "no such key: %v", v)
+	}
+	return v
 }
 
 func (m *jsonStruct) Iterator() traits.Iterator {

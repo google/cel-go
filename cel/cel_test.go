@@ -446,8 +446,8 @@ func Benchmark_EvalOptions(b *testing.B) {
 			decls.NewIdent("ar", decls.NewMapType(decls.String, decls.String), nil),
 		),
 	)
-	past, _ := e.Parse("ai == 20 || ar['foo'] == 'bar'")
-	cast, _ := e.Check(past)
+	pAst, _ := e.Parse("ai == 20 || ar['foo'] == 'bar'")
+	cAst, _ := e.Check(pAst)
 	vars := map[string]interface{}{
 		"ai": 2,
 		"ar": map[string]string{
@@ -462,7 +462,7 @@ func Benchmark_EvalOptions(b *testing.B) {
 	}
 	for k, opt := range opts {
 		b.Run(k, func(bb *testing.B) {
-			prg, _ := e.Program(cast, EvalOptions(opt))
+			prg, _ := e.Program(cAst, EvalOptions(opt))
 			b.ResetTimer()
 			b.ReportAllocs()
 			for i := 0; i < bb.N; i++ {
