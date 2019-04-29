@@ -85,11 +85,12 @@ func (o *protoObj) Equal(other ref.Val) ref.Val {
 
 // IsSet tests whether a field which is defined is set to a non-default value.
 func (o *protoObj) IsSet(field ref.Val) ref.Val {
-	if field.Type() != StringType {
-		return ValOrErr(field, "illegal object field type '%s'", field.Type())
+	protoFieldName, ok := field.(String)
+	if !ok {
+		return ValOrErr(field, "no such overload")
 	}
-	protoFieldName := string(field.(String))
-	if f, found := o.typeDesc.FieldByName(protoFieldName); found {
+	protoFieldStr := string(protoFieldName)
+	if f, found := o.typeDesc.FieldByName(protoFieldStr); found {
 		if !f.IsOneof() {
 			return isFieldSet(o.refValue.Elem().Field(f.Index()))
 		}
@@ -106,11 +107,12 @@ func (o *protoObj) IsSet(field ref.Val) ref.Val {
 }
 
 func (o *protoObj) Get(index ref.Val) ref.Val {
-	if index.Type() != StringType {
-		return ValOrErr(index, "illegal object field type '%s'", index.Type())
+	protoFieldName, ok := index.(String)
+	if !ok {
+		return ValOrErr(index, "no such overload")
 	}
-	protoFieldName := string(index.(String))
-	if f, found := o.typeDesc.FieldByName(protoFieldName); found {
+	protoFieldStr := string(protoFieldName)
+	if f, found := o.typeDesc.FieldByName(protoFieldStr); found {
 		if !f.IsOneof() {
 			return getOrDefaultInstance(o.TypeAdapter, o.refValue.Elem().Field(f.Index()))
 		}
