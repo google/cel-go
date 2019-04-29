@@ -83,10 +83,23 @@ func (l *baseList) Add(other ref.Val) ref.Val {
 }
 
 func (l *baseList) Contains(elem ref.Val) ref.Val {
+	if IsUnknownOrError(elem) {
+		return elem
+	}
+	var err ref.Val
 	for i := Int(0); i < l.Size().(Int); i++ {
-		if l.Get(i).Equal(elem) == True {
+		val := l.Get(i)
+		cmp := elem.Equal(val)
+		b, ok := cmp.(Bool)
+		if !ok && err == nil {
+			err = ValOrErr(cmp, "no such overload")
+		}
+		if b == True {
 			return True
 		}
+	}
+	if err != nil {
+		return err
 	}
 	return False
 }
@@ -170,10 +183,10 @@ func (l *baseList) Equal(other ref.Val) ref.Val {
 }
 
 func (l *baseList) Get(index ref.Val) ref.Val {
-	if index.Type() != IntType {
+	i, ok := index.(Int)
+	if !ok {
 		return ValOrErr(index, "unsupported index type '%s' in list", index.Type())
 	}
-	i := index.(Int)
 	if i < 0 || i >= l.Size().(Int) {
 		return NewErr("index '%d' out of range in list size '%d'", i, l.Size())
 	}

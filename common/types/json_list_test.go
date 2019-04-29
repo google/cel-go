@@ -48,15 +48,32 @@ func TestJsonListValue_Add(t *testing.T) {
 	}
 }
 
-func TestJsonListValue_Contains(t *testing.T) {
+func TestJsonListValue_Contains_SingleElemType(t *testing.T) {
+	list := NewJSONList(NewRegistry(), &structpb.ListValue{Values: []*structpb.Value{
+		{Kind: &structpb.Value_NumberValue{NumberValue: 3.3}},
+		{Kind: &structpb.Value_NumberValue{NumberValue: 1}}}})
+	if !list.Contains(Double(1)).(Bool) {
+		t.Error("Expected value list to contain number '1'")
+	}
+	if list.Contains(Double(2)).(Bool) {
+		t.Error("Expected value list to not contain number '2'")
+	}
+}
+
+func TestJsonListValue_Contains_MixedElemType(t *testing.T) {
 	list := NewJSONList(NewRegistry(), &structpb.ListValue{Values: []*structpb.Value{
 		{Kind: &structpb.Value_StringValue{StringValue: "hello"}},
 		{Kind: &structpb.Value_NumberValue{NumberValue: 1}}}})
 	if !list.Contains(Double(1)).(Bool) {
 		t.Error("Expected value list to contain number '1'", list)
 	}
-	if list.Contains(Double(2)).(Bool) {
-		t.Error("Expected value list to not contain number '2'", list)
+	// Contains is semantically equivalent to unrolling the list and
+	// applying a series of logical ORs between the first input value
+	// each element in the list. When the value is present, the result
+	// can be True. When the value is not present and the list is of
+	// mixed element type, the result is an error.
+	if !IsError(list.Contains(Double(2))) {
+		t.Error("Expected value list to not contain number '2' and error", list)
 	}
 }
 

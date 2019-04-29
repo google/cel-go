@@ -32,7 +32,13 @@ func TestBaseMap_Contains(t *testing.T) {
 		t.Error("Expected key 'nested' contained in map.")
 	}
 	if mapValue.Contains(String("unknown")) != False {
-		t.Error("Expected key 'unknown' contained in map.")
+		t.Error("Expected key 'unknown' not contained in map.")
+	}
+	if !IsError(mapValue.Contains(Int(123))) {
+		t.Error("Expected key of Int type would error with 'no such overload'.")
+	}
+	if !reflect.DeepEqual(mapValue.Contains(Unknown{1}), Unknown{1}) {
+		t.Error("Expected Unknown key in would yield Unknown key out.")
 	}
 }
 

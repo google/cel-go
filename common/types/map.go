@@ -63,7 +63,20 @@ var (
 )
 
 func (m *baseMap) Contains(index ref.Val) ref.Val {
-	return Bool(m.Get(index).Type() != ErrType)
+	val, found := m.find(index)
+	if !found && val != nil && IsUnknownOrError(val) {
+		return val
+	}
+	return Bool(found)
+}
+
+func (m *stringMap) Contains(index ref.Val) ref.Val {
+	strKey, ok := index.(String)
+	if !ok {
+		return ValOrErr(index, "no such overload")
+	}
+	_, found := m.mapStrStr[string(strKey)]
+	return Bool(found)
 }
 
 func (m *baseMap) ConvertToNative(refType reflect.Type) (interface{}, error) {
@@ -174,35 +187,46 @@ func (m *stringMap) Equal(other ref.Val) ref.Val {
 }
 
 func (m *baseMap) Get(key ref.Val) ref.Val {
-	// TODO: There are multiple reasons why a Get could fail. Typically, this is because the key
-	// does not exist in the map; however, it's possible that the value cannot be converted to
-	// the desired type. Refine this strategy to disambiguate these cases.
-	thisKeyType := m.refValue.Type().Key()
-	nativeKey, err := key.ConvertToNative(thisKeyType)
-	if err != nil {
-		return &Err{err}
+	v, found := m.find(key)
+	if !found {
+		return ValOrErr(v, "no such key: %v", v)
 	}
-	nativeKeyVal := reflect.ValueOf(nativeKey)
-	if !nativeKeyVal.Type().AssignableTo(thisKeyType) {
-		return NewErr("no such key: '%v'", nativeKey)
-	}
-	value := m.refValue.MapIndex(nativeKeyVal)
-	if !value.IsValid() {
-		return NewErr("no such key: '%v'", nativeKey)
-	}
-	return m.NativeToValue(value.Interface())
+	return v
 }
 
 func (m *stringMap) Get(key ref.Val) ref.Val {
 	strKey, ok := key.(String)
 	if !ok {
-		return ValOrErr(key, "no such key: %v", key)
+		return ValOrErr(key, "no such overload")
 	}
 	val, found := m.mapStrStr[string(strKey)]
 	if !found {
 		return NewErr("no such key: %s", key)
 	}
 	return String(val)
+}
+
+func (m *baseMap) find(key ref.Val) (ref.Val, bool) {
+	// TODO: There are multiple reasons why a Get could fail. Typically, this is because the key
+	// does not exist in the map; however, it's possible that the value cannot be converted to
+	// the desired type. Refine this strategy to disambiguate these cases.
+	if IsUnknownOrError(key) {
+		return key, false
+	}
+	thisKeyType := m.refValue.Type().Key()
+	nativeKey, err := key.ConvertToNative(thisKeyType)
+	if err != nil {
+		return &Err{err}, false
+	}
+	nativeKeyVal := reflect.ValueOf(nativeKey)
+	if !nativeKeyVal.Type().AssignableTo(thisKeyType) {
+		return NewErr("no such overload"), false
+	}
+	value := m.refValue.MapIndex(nativeKeyVal)
+	if !value.IsValid() {
+		return nil, false
+	}
+	return m.NativeToValue(value.Interface()), true
 }
 
 func (m *baseMap) Iterator() traits.Iterator {

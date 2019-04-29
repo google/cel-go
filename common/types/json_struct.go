@@ -43,6 +43,7 @@ func NewJSONStruct(adapter ref.TypeAdapter, st *structpb.Struct) traits.Mapper {
 }
 
 func (m *jsonStruct) Contains(index ref.Val) ref.Val {
+	// FIXME: This is broken.
 	return Bool(!IsError(m.Get(index)))
 }
 

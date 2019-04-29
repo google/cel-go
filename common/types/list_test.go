@@ -45,8 +45,11 @@ func TestBaseList_Add_Error(t *testing.T) {
 
 func TestBaseList_Contains(t *testing.T) {
 	list := NewDynamicList(NewRegistry(), []float32{1.0, 2.0, 3.0})
-	if list.Contains(Int(3)) == True {
+	if !IsError(list.Contains(Int(3))) {
 		t.Error("List contains succeeded with wrong type")
+	}
+	if list.Contains(Double(5)) != False {
+		t.Error("List contains did not return false")
 	}
 	if list.Contains(Double(3)) != True {
 		t.Error("List contains did not succeed")
