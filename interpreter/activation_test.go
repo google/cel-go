@@ -53,3 +53,17 @@ func TestHierarchicalActivation(t *testing.T) {
 		t.Error("Activation failed to resolve child value of 'c'")
 	}
 }
+
+func TestActivation_NilValue(t *testing.T) {
+	a, _ := NewActivation(map[string]interface{}{"nil": nil})
+	if v, found := a.ResolveName("nil"); !found || v != types.NullValue {
+		t.Errorf("Got '%v', expected 'null'", v)
+	}
+}
+
+func TestAdaptingActivation_NilValue(t *testing.T) {
+	a, _ := NewAdaptingActivation(types.NewRegistry(), map[string]interface{}{"nil": nil})
+	if v, found := a.ResolveName("nil"); !found || v != types.NullValue {
+		t.Errorf("Got '%v', expected 'null'", v)
+	}
+}

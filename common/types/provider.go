@@ -265,6 +265,8 @@ var (
 // NativeToValue implements the ref.TypeAdapter interface.
 func (a *defaultTypeAdapter) NativeToValue(value interface{}) ref.Val {
 	switch value.(type) {
+	case nil:
+		return NullValue
 	case ref.Val:
 		return value.(ref.Val)
 	case bool:
