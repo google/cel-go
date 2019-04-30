@@ -66,6 +66,7 @@ type baseList struct {
 	refValue reflect.Value
 }
 
+// Add implements the traits.Adder interface method.
 func (l *baseList) Add(other ref.Val) ref.Val {
 	if other.Type() != ListType {
 		return ValOrErr(other, "no such overload")
@@ -82,6 +83,7 @@ func (l *baseList) Add(other ref.Val) ref.Val {
 		nextList:    other.(traits.Lister)}
 }
 
+// Contains implements the traits.Container interface method.
 func (l *baseList) Contains(elem ref.Val) ref.Val {
 	if IsUnknownOrError(elem) {
 		return elem
@@ -91,6 +93,10 @@ func (l *baseList) Contains(elem ref.Val) ref.Val {
 		val := l.Get(i)
 		cmp := elem.Equal(val)
 		b, ok := cmp.(Bool)
+		// When there is an error on the contain check, this is not necessarily terminal.
+		// The contains call could find the element and return True, just as though the user
+		// had written a per-element comparison in an exists() macro or logical ||, e.g.
+		//    list.exists(e, e == elem)
 		if !ok && err == nil {
 			err = ValOrErr(cmp, "no such overload")
 		}
@@ -104,6 +110,7 @@ func (l *baseList) Contains(elem ref.Val) ref.Val {
 	return False
 }
 
+// ConvertToNative implements the ref.Val interface method.
 func (l *baseList) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	// JSON conversions are a special case since the 'native' type is a proto message.
 	if typeDesc == jsonValueType || typeDesc == jsonListValueType {
@@ -153,6 +160,7 @@ func (l *baseList) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	return nativeList.Interface(), nil
 }
 
+// ConvertToType implements the ref.Val interface method.
 func (l *baseList) ConvertToType(typeVal ref.Type) ref.Val {
 	switch typeVal {
 	case ListType:
@@ -163,6 +171,7 @@ func (l *baseList) ConvertToType(typeVal ref.Type) ref.Val {
 	return NewErr("type conversion error from '%s' to '%s'", ListType, typeVal)
 }
 
+// Equal implements the ref.Val interface method.
 func (l *baseList) Equal(other ref.Val) ref.Val {
 	if ListType != other.Type() {
 		return ValOrErr(other, "no such overload")
@@ -182,6 +191,7 @@ func (l *baseList) Equal(other ref.Val) ref.Val {
 	return True
 }
 
+// Get implements the traits.Indexer interface method.
 func (l *baseList) Get(index ref.Val) ref.Val {
 	i, ok := index.(Int)
 	if !ok {
@@ -194,6 +204,7 @@ func (l *baseList) Get(index ref.Val) ref.Val {
 	return l.NativeToValue(elem)
 }
 
+// Iterator implements the traits.Iterable interface method.
 func (l *baseList) Iterator() traits.Iterator {
 	return &listIterator{
 		baseIterator: &baseIterator{},
@@ -202,14 +213,17 @@ func (l *baseList) Iterator() traits.Iterator {
 		len:          l.Size().(Int)}
 }
 
+// Size implements the traits.Sizer interface method.
 func (l *baseList) Size() ref.Val {
 	return Int(l.refValue.Len())
 }
 
+// Type implements the ref.Val interface method.
 func (l *baseList) Type() ref.Type {
 	return ListType
 }
 
+// Value implements the ref.Val interface method.
 func (l *baseList) Value() interface{} {
 	return l.value
 }

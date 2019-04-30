@@ -44,8 +44,8 @@ func NewJSONStruct(adapter ref.TypeAdapter, st *structpb.Struct) traits.Mapper {
 }
 
 func (m *jsonStruct) Contains(index ref.Val) ref.Val {
-	// FIXME: This is broken.
 	val, found := m.Find(index)
+	// When the index is not found and val is non-nil, this is an error or unknown value.
 	if !found && val != nil && IsUnknownOrError(val) {
 		return val
 	}
@@ -140,7 +140,7 @@ func (m *jsonStruct) Equal(other ref.Val) ref.Val {
 func (m *jsonStruct) Find(key ref.Val) (ref.Val, bool) {
 	strKey, ok := key.(String)
 	if !ok {
-		return ValOrErr(key, "unsupported key type: '%v", key.Type()), false
+		return ValOrErr(key, "no such overload"), false
 	}
 	fields := m.Struct.GetFields()
 	value, found := fields[string(strKey)]

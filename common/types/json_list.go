@@ -21,6 +21,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
+
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 )
@@ -66,6 +67,10 @@ func (l *jsonListValue) Contains(elem ref.Val) ref.Val {
 		val := l.Get(i)
 		cmp := elem.Equal(val)
 		b, ok := cmp.(Bool)
+		// When there is an error on the contain check, this is not necessarily terminal.
+		// The contains call could find the element and return True, just as though the user
+		// had written a per-element comparison in an exists() macro or logical ||, e.g.
+		//    list.exists(e, e == elem)
 		if !ok && err == nil {
 			err = ValOrErr(cmp, "no such overload")
 		}

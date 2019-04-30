@@ -64,6 +64,7 @@ var (
 
 func (m *baseMap) Contains(index ref.Val) ref.Val {
 	val, found := m.Find(index)
+	// When the index is not found and val is non-nil, this is an error or unknown value.
 	if !found && val != nil && IsUnknownOrError(val) {
 		return val
 	}
@@ -72,6 +73,7 @@ func (m *baseMap) Contains(index ref.Val) ref.Val {
 
 func (m *stringMap) Contains(index ref.Val) ref.Val {
 	val, found := m.Find(index)
+	// When the index is not found and val is non-nil, this is an error or unknown value.
 	if !found && val != nil && IsUnknownOrError(val) {
 		return val
 	}
