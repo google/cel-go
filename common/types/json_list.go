@@ -35,8 +35,8 @@ type jsonListValue struct {
 }
 
 // NewJSONList creates a traits.Lister implementation backed by a JSON list that has been encoded
-// in protocol buffer form. 
-// 
+// in protocol buffer form.
+//
 // The `adapter` argument provides type adaptation capabilities from proto to CEL.
 func NewJSONList(adapter ref.TypeAdapter, l *structpb.ListValue) traits.Lister {
 	return &jsonListValue{TypeAdapter: adapter, ListValue: l}
@@ -147,7 +147,7 @@ func (l *jsonListValue) Get(index ref.Val) ref.Val {
 func (l *jsonListValue) Iterator() traits.Iterator {
 	return &jsonValueListIterator{
 		baseIterator: &baseIterator{},
-		TypeAdapter: l.TypeAdapter,
+		TypeAdapter:  l.TypeAdapter,
 		elems:        l.GetValues(),
 		len:          len(l.GetValues())}
 }

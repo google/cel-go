@@ -42,6 +42,9 @@ var (
 		traits.ComparerType,
 		traits.ReceiverType,
 		traits.SubtractorType)
+
+	// TimestampZero is the zero-value for Timestamp.
+	TimestampZero = Timestamp{&tpb.Timestamp{}}
 )
 
 // Add implements traits.Adder.Add.

@@ -220,9 +220,12 @@ func (p *protoTypeRegistry) NativeToValue(value interface{}) ref.Val {
 	// Override the Any type by ensuring that custom proto-types are considered on recursive calls.
 	case *anypb.Any:
 		val := value.(*anypb.Any)
+		if val == nil {
+			return NewErr("unsupported type conversion: '%T'", value)
+		}
 		unpackedAny := ptypes.DynamicAny{}
 		if ptypes.UnmarshalAny(val, &unpackedAny) != nil {
-			NewErr("Fail to unmarshal any.")
+			NewErr("unknown type: '%s'", val.GetTypeUrl())
 		}
 		return p.NativeToValue(unpackedAny.Message)
 	// Convert custom proto types to CEL values based on type's presence within the pb.Db.
@@ -231,7 +234,7 @@ func (p *protoTypeRegistry) NativeToValue(value interface{}) ref.Val {
 		typeName := proto.MessageName(pbVal)
 		td, err := p.pbdb.DescribeType(typeName)
 		if err != nil {
-			return NewErr("unknown type '%s'", typeName)
+			return NewErr("unknown type: '%s'", typeName)
 		}
 		return NewObject(p, td, pbVal)
 	// Override default handling for list and maps to ensure that blends of Go + proto types
@@ -240,6 +243,9 @@ func (p *protoTypeRegistry) NativeToValue(value interface{}) ref.Val {
 	default:
 		refValue := reflect.ValueOf(value)
 		if refValue.Kind() == reflect.Ptr {
+			if refValue.IsNil() {
+				return NewErr("unsupported type conversion: '%T'", value)
+			}
 			refValue = refValue.Elem()
 		}
 		refKind := refValue.Kind()
@@ -271,44 +277,75 @@ func (a *defaultTypeAdapter) NativeToValue(value interface{}) ref.Val {
 		return value.(ref.Val)
 	case bool:
 		return Bool(value.(bool))
-	case *bool:
-		return Bool(*value.(*bool))
 	case int:
 		return Int(value.(int))
 	case int32:
 		return Int(value.(int32))
 	case int64:
 		return Int(value.(int64))
-	case *int:
-		return Int(*value.(*int))
-	case *int32:
-		return Int(*value.(*int32))
-	case *int64:
-		return Int(*value.(*int64))
 	case uint:
 		return Uint(value.(uint))
 	case uint32:
 		return Uint(value.(uint32))
 	case uint64:
 		return Uint(value.(uint64))
-	case *uint:
-		return Uint(*value.(*uint))
-	case *uint32:
-		return Uint(*value.(*uint32))
-	case *uint64:
-		return Uint(*value.(*uint64))
 	case float32:
 		return Double(value.(float32))
 	case float64:
 		return Double(value.(float64))
-	case *float32:
-		return Double(*value.(*float32))
-	case *float64:
-		return Double(*value.(*float64))
 	case string:
 		return String(value.(string))
+	case *bool:
+		ptr := value.(*bool)
+		if ptr == nil {
+			return False
+		}
+		return Bool(*ptr)
+	case *float32:
+		if ptr := value.(*float32); ptr != nil {
+			return Double(*ptr)
+		}
+		return DoubleZero
+	case *float64:
+		if ptr := value.(*float64); ptr != nil {
+			return Double(*ptr)
+		}
+		return DoubleZero
+	case *int:
+		if ptr := value.(*int); ptr != nil {
+			return Int(*ptr)
+		}
+		return IntZero
+	case *int32:
+		if ptr := value.(*int32); ptr != nil {
+			return Int(*ptr)
+		}
+		return IntZero
+	case *int64:
+		if ptr := value.(*int64); ptr != nil {
+			return Int(*ptr)
+		}
+		return IntZero
 	case *string:
-		return String(*value.(*string))
+		if ptr := value.(*string); ptr != nil {
+			return String(*ptr)
+		}
+		return EmptyString
+	case *uint:
+		if ptr := value.(*uint); ptr != nil {
+			return Uint(*ptr)
+		}
+		return UintZero
+	case *uint32:
+		if ptr := value.(*uint32); ptr != nil {
+			return Uint(*ptr)
+		}
+		return UintZero
+	case *uint64:
+		if ptr := value.(*uint64); ptr != nil {
+			return Uint(*ptr)
+		}
+		return UintZero
 	case []byte:
 		return Bytes(value.([]byte))
 	case []string:
@@ -316,15 +353,27 @@ func (a *defaultTypeAdapter) NativeToValue(value interface{}) ref.Val {
 	case map[string]string:
 		return NewStringStringMap(value.(map[string]string))
 	case *dpb.Duration:
-		return Duration{value.(*dpb.Duration)}
+		if ptr := value.(*dpb.Duration); ptr != nil {
+			return Duration{ptr}
+		}
+		return DurationZero
 	case *structpb.ListValue:
-		return NewJSONList(a, value.(*structpb.ListValue))
-	case structpb.NullValue:
+		if ptr := value.(*structpb.ListValue); ptr != nil {
+			return NewJSONList(a, ptr)
+		}
+		return NewErr("unsupported type conversion: '%T'", value)
+	case structpb.NullValue, *structpb.NullValue:
 		return NullValue
 	case *structpb.Struct:
-		return NewJSONStruct(a, value.(*structpb.Struct))
+		if ptr := value.(*structpb.Struct); ptr != nil {
+			return NewJSONStruct(a, ptr)
+		}
+		return NewErr("unsupported type conversion: '%T'", value)
 	case *structpb.Value:
 		v := value.(*structpb.Value)
+		if v == nil {
+			return NullValue
+		}
 		switch v.Kind.(type) {
 		case *structpb.Value_BoolValue:
 			return a.NativeToValue(v.GetBoolValue())
@@ -340,17 +389,26 @@ func (a *defaultTypeAdapter) NativeToValue(value interface{}) ref.Val {
 			return a.NativeToValue(v.GetStructValue())
 		}
 	case *tpb.Timestamp:
-		return Timestamp{value.(*tpb.Timestamp)}
+		if ptr := value.(*tpb.Timestamp); ptr != nil {
+			return Timestamp{ptr}
+		}
+		return TimestampZero
 	case *anypb.Any:
 		val := value.(*anypb.Any)
+		if val == nil {
+			return NewErr("unsupported type conversion")
+		}
 		unpackedAny := ptypes.DynamicAny{}
 		if ptypes.UnmarshalAny(val, &unpackedAny) != nil {
-			NewErr("Fail to unmarshal any.")
+			NewErr("unknown type: %s", val.GetTypeUrl())
 		}
 		return a.NativeToValue(unpackedAny.Message)
 	default:
 		refValue := reflect.ValueOf(value)
 		if refValue.Kind() == reflect.Ptr {
+			if refValue.IsNil() {
+				return NewErr("unsupported type conversion: '%T'", value)
+			}
 			refValue = refValue.Elem()
 		}
 		refKind := refValue.Kind()
@@ -381,5 +439,5 @@ func (a *defaultTypeAdapter) NativeToValue(value interface{}) ref.Val {
 			return Double(refValue.Convert(doubleType).Interface().(float64))
 		}
 	}
-	return NewErr("unsupported type conversion for value '%v'", value)
+	return NewErr("unsupported type conversion: '%T'", value)
 }

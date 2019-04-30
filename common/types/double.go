@@ -38,6 +38,12 @@ var (
 		traits.SubtractorType)
 )
 
+// Double constants
+const (
+	// DoubleZero is the zero-value for Double.
+	DoubleZero = Double(0.0)
+)
+
 // Add implements traits.Adder.Add.
 func (d Double) Add(other ref.Val) ref.Val {
 	if DoubleType != other.Type() {

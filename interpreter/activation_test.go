@@ -55,9 +55,20 @@ func TestHierarchicalActivation(t *testing.T) {
 }
 
 func TestActivation_NilValue(t *testing.T) {
-	a, _ := NewActivation(map[string]interface{}{"nil": nil})
+	var ptr *string
+	var fun *func()
+	a, _ := NewActivation(map[string]interface{}{
+		"nil": nil,  // plain old nil
+		"ptr": ptr,  // nil pointer to a supported type
+		"fun": fun}) // nil pointer to an unknown type
 	if v, found := a.ResolveName("nil"); !found || v != types.NullValue {
-		t.Errorf("Got '%v', expected 'null'", v)
+		t.Errorf("Got '%v', wanted 'null'", v)
+	}
+	if v, found := a.ResolveName("ptr"); !found || v != types.EmptyString {
+		t.Errorf("Got '%v', wanted 'null'", v)
+	}
+	if v, _ := a.ResolveName("fun"); !types.IsError(v) {
+		t.Errorf("Got '%v', wanted error", v)
 	}
 }
 

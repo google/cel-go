@@ -151,7 +151,7 @@ func TestInt_Modulo(t *testing.T) {
 	if !IsError(Int(21).Modulo(IntZero)) {
 		t.Error("Modulus by zero did not cause error.")
 	}
-	if !IsError(Int(21).Modulo(uintZero)) {
+	if !IsError(Int(21).Modulo(UintZero)) {
 		t.Error("Modulus permitted between different types without type conversion.")
 	}
 }

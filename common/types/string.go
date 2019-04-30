@@ -50,6 +50,11 @@ var (
 	}
 )
 
+const (
+	// EmptyString is the zero-value for String.
+	EmptyString = String("")
+)
+
 // Add implements traits.Adder.Add.
 func (s String) Add(other ref.Val) ref.Val {
 	if StringType != other.Type() {

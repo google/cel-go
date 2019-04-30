@@ -29,6 +29,7 @@ type Int int64
 
 // Int constants used for comparison results.
 const (
+	// IntZero is the zero-value for Int
 	IntZero   = Int(0)
 	IntOne    = Int(1)
 	IntNegOne = Int(-1)

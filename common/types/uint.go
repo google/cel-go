@@ -37,9 +37,10 @@ var (
 		traits.SubtractorType)
 )
 
-// Int constants
+// Uint constants
 const (
-	uintZero = Uint(0)
+	// UintZero is the zero-value for Uint.
+	UintZero = Uint(0)
 )
 
 // Add implements traits.Adder.Add.
@@ -117,7 +118,7 @@ func (i Uint) Divide(other ref.Val) ref.Val {
 		return ValOrErr(other, "no such overload")
 	}
 	otherUint := other.(Uint)
-	if otherUint == uintZero {
+	if otherUint == UintZero {
 		return NewErr("divide by zero")
 	}
 	return i / otherUint
@@ -137,7 +138,7 @@ func (i Uint) Modulo(other ref.Val) ref.Val {
 		return ValOrErr(other, "no such overload")
 	}
 	otherUint := other.(Uint)
-	if otherUint == uintZero {
+	if otherUint == UintZero {
 		return NewErr("modulus by zero")
 	}
 	return i % otherUint
