@@ -64,8 +64,8 @@ func TestActivation_NilValue(t *testing.T) {
 	if v, found := a.ResolveName("nil"); !found || v != types.NullValue {
 		t.Errorf("Got '%v', wanted 'null'", v)
 	}
-	if v, found := a.ResolveName("ptr"); !found || v != types.EmptyString {
-		t.Errorf("Got '%v', wanted 'null'", v)
+	if v, _ := a.ResolveName("ptr"); !types.IsError(v) {
+		t.Errorf("Got '%v', wanted error", v)
 	}
 	if v, _ := a.ResolveName("fun"); !types.IsError(v) {
 		t.Errorf("Got '%v', wanted error", v)
@@ -73,8 +73,17 @@ func TestActivation_NilValue(t *testing.T) {
 }
 
 func TestAdaptingActivation_NilValue(t *testing.T) {
-	a, _ := NewAdaptingActivation(types.NewRegistry(), map[string]interface{}{"nil": nil})
+	var ptr *types.String
+	a, _ := NewAdaptingActivation(types.NewRegistry(), map[string]interface{}{
+		"nil": nil,
+		"ptr": ptr})
 	if v, found := a.ResolveName("nil"); !found || v != types.NullValue {
-		t.Errorf("Got '%v', expected 'null'", v)
+		t.Errorf("Got '%v', wanted 'null'", v)
+	}
+	if v, _ := a.ResolveName("ptr"); !types.IsError(v) {
+		t.Errorf("Got '%v', wanted error", v)
+	}
+	if v, found := a.ResolveName("missing"); found {
+		t.Errorf("Got '%v', wanted not found", v)
 	}
 }

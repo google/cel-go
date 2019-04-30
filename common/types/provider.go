@@ -198,7 +198,7 @@ func (p *protoTypeRegistry) registerAllTypes(fd *pb.FileDescription) error {
 func (p *protoTypeRegistry) NativeToValue(value interface{}) ref.Val {
 	switch value.(type) {
 	case ref.Val:
-		return value.(ref.Val)
+		return DefaultTypeAdapter.NativeToValue(value)
 	// Adapt common types and aggregate specializations using the DefaultTypeAdapter.
 	case bool, *bool,
 		float32, *float32, float64, *float64,
@@ -273,6 +273,30 @@ func (a *defaultTypeAdapter) NativeToValue(value interface{}) ref.Val {
 	switch value.(type) {
 	case nil:
 		return NullValue
+	case *Bool:
+		if ptr := value.(*Bool); ptr != nil {
+			return ptr
+		}
+	case *Bytes:
+		if ptr := value.(*Bytes); ptr != nil {
+			return ptr
+		}
+	case *Double:
+		if ptr := value.(*Double); ptr != nil {
+			return ptr
+		}
+	case *Int:
+		if ptr := value.(*Int); ptr != nil {
+			return ptr
+		}
+	case *String:
+		if ptr := value.(*String); ptr != nil {
+			return ptr
+		}
+	case *Uint:
+		if ptr := value.(*Uint); ptr != nil {
+			return ptr
+		}
 	case ref.Val:
 		return value.(ref.Val)
 	case bool:
@@ -296,56 +320,45 @@ func (a *defaultTypeAdapter) NativeToValue(value interface{}) ref.Val {
 	case string:
 		return String(value.(string))
 	case *bool:
-		ptr := value.(*bool)
-		if ptr == nil {
-			return False
+		if ptr := value.(*bool); ptr != nil {
+			return Bool(*ptr)
 		}
-		return Bool(*ptr)
 	case *float32:
 		if ptr := value.(*float32); ptr != nil {
 			return Double(*ptr)
 		}
-		return DoubleZero
 	case *float64:
 		if ptr := value.(*float64); ptr != nil {
 			return Double(*ptr)
 		}
-		return DoubleZero
 	case *int:
 		if ptr := value.(*int); ptr != nil {
 			return Int(*ptr)
 		}
-		return IntZero
 	case *int32:
 		if ptr := value.(*int32); ptr != nil {
 			return Int(*ptr)
 		}
-		return IntZero
 	case *int64:
 		if ptr := value.(*int64); ptr != nil {
 			return Int(*ptr)
 		}
-		return IntZero
 	case *string:
 		if ptr := value.(*string); ptr != nil {
 			return String(*ptr)
 		}
-		return EmptyString
 	case *uint:
 		if ptr := value.(*uint); ptr != nil {
 			return Uint(*ptr)
 		}
-		return UintZero
 	case *uint32:
 		if ptr := value.(*uint32); ptr != nil {
 			return Uint(*ptr)
 		}
-		return UintZero
 	case *uint64:
 		if ptr := value.(*uint64); ptr != nil {
 			return Uint(*ptr)
 		}
-		return UintZero
 	case []byte:
 		return Bytes(value.([]byte))
 	case []string:
@@ -356,19 +369,16 @@ func (a *defaultTypeAdapter) NativeToValue(value interface{}) ref.Val {
 		if ptr := value.(*dpb.Duration); ptr != nil {
 			return Duration{ptr}
 		}
-		return DurationZero
 	case *structpb.ListValue:
 		if ptr := value.(*structpb.ListValue); ptr != nil {
 			return NewJSONList(a, ptr)
 		}
-		return NewErr("unsupported type conversion: '%T'", value)
 	case structpb.NullValue, *structpb.NullValue:
 		return NullValue
 	case *structpb.Struct:
 		if ptr := value.(*structpb.Struct); ptr != nil {
 			return NewJSONStruct(a, ptr)
 		}
-		return NewErr("unsupported type conversion: '%T'", value)
 	case *structpb.Value:
 		v := value.(*structpb.Value)
 		if v == nil {
@@ -392,7 +402,6 @@ func (a *defaultTypeAdapter) NativeToValue(value interface{}) ref.Val {
 		if ptr := value.(*tpb.Timestamp); ptr != nil {
 			return Timestamp{ptr}
 		}
-		return TimestampZero
 	case *anypb.Any:
 		val := value.(*anypb.Any)
 		if val == nil {

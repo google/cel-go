@@ -73,17 +73,6 @@ func NewAdaptingActivation(adapter ref.TypeAdapter, bindings interface{}) (Activ
 			"activation input must be an activation or map[string]interface: got %T",
 			bindings)
 	}
-	var allRefVals = true
-	for _, v := range m {
-		_, isVal := v.(ref.Val)
-		if !isVal {
-			allRefVals = false
-			break
-		}
-	}
-	if allRefVals {
-		return &mapActivation{bindings: m}, nil
-	}
 	return &mapActivation{adapter: adapter, bindings: m}, nil
 }
 
@@ -108,15 +97,12 @@ func (a *mapActivation) ResolveName(name string) (ref.Val, bool) {
 		// Resolve a lazily bound value.
 		case func() ref.Val:
 			val := object.(func() ref.Val)()
+			val = a.adapter.NativeToValue(val)
 			a.bindings[name] = val
 			return val, true
 		// Otherwise, return the bound value.
-		case ref.Val:
-			return object.(ref.Val), true
 		default:
-			if a.adapter != nil {
-				return a.adapter.NativeToValue(object), true
-			}
+			return a.adapter.NativeToValue(object), true
 		}
 	}
 	return nil, false

@@ -43,9 +43,6 @@ var (
 		traits.NegatorType,
 		traits.ReceiverType,
 		traits.SubtractorType)
-
-	// DurationZero is the zero value for Duration.
-	DurationZero = Duration{&dpb.Duration{}}
 )
 
 // Add implements traits.Adder.Add.
