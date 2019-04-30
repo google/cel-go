@@ -225,7 +225,7 @@ func (p *protoTypeRegistry) NativeToValue(value interface{}) ref.Val {
 		}
 		unpackedAny := ptypes.DynamicAny{}
 		if ptypes.UnmarshalAny(val, &unpackedAny) != nil {
-			NewErr("unknown type: '%s'", val.GetTypeUrl())
+			return NewErr("unknown type: '%s'", val.GetTypeUrl())
 		}
 		return p.NativeToValue(unpackedAny.Message)
 	// Convert custom proto types to CEL values based on type's presence within the pb.Db.
@@ -400,7 +400,7 @@ func (a *defaultTypeAdapter) NativeToValue(value interface{}) ref.Val {
 		}
 		unpackedAny := ptypes.DynamicAny{}
 		if ptypes.UnmarshalAny(val, &unpackedAny) != nil {
-			NewErr("unknown type: %s", val.GetTypeUrl())
+			return NewErr("unknown type: %s", val.GetTypeUrl())
 		}
 		return a.NativeToValue(unpackedAny.Message)
 	default:
