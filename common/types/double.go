@@ -40,21 +40,23 @@ var (
 
 // Add implements traits.Adder.Add.
 func (d Double) Add(other ref.Val) ref.Val {
-	if DoubleType != other.Type() {
+	otherDouble, ok := other.(Double)
+	if !ok {
 		return ValOrErr(other, "no such overload")
 	}
-	return d + other.(Double)
+	return d + otherDouble
 }
 
 // Compare implements traits.Comparer.Compare.
 func (d Double) Compare(other ref.Val) ref.Val {
-	if DoubleType != other.Type() {
+	otherDouble, ok := other.(Double)
+	if !ok {
 		return ValOrErr(other, "no such overload")
 	}
-	if d < other.(Double) {
+	if d < otherDouble {
 		return IntNegOne
 	}
-	if d > other.(Double) {
+	if d > otherDouble {
 		return IntOne
 	}
 	return IntZero
@@ -108,27 +110,30 @@ func (d Double) ConvertToType(typeVal ref.Type) ref.Val {
 
 // Divide implements traits.Divider.Divide.
 func (d Double) Divide(other ref.Val) ref.Val {
-	if DoubleType != other.Type() {
+	otherDouble, ok := other.(Double)
+	if !ok {
 		return ValOrErr(other, "no such overload")
 	}
-	return d / other.(Double)
+	return d / otherDouble
 }
 
 // Equal implements ref.Val.Equal.
 func (d Double) Equal(other ref.Val) ref.Val {
-	if DoubleType != other.Type() {
+	otherDouble, ok := other.(Double)
+	if !ok {
 		return ValOrErr(other, "no such overload")
 	}
 	// TODO: Handle NaNs properly.
-	return Bool(d == other.(Double))
+	return Bool(d == otherDouble)
 }
 
 // Multiply implements traits.Multiplier.Multiply.
 func (d Double) Multiply(other ref.Val) ref.Val {
-	if DoubleType != other.Type() {
+	otherDouble, ok := other.(Double)
+	if !ok {
 		return ValOrErr(other, "no such overload")
 	}
-	return d * other.(Double)
+	return d * otherDouble
 }
 
 // Negate implements traits.Negater.Negate.
@@ -138,10 +143,11 @@ func (d Double) Negate() ref.Val {
 
 // Subtract implements traits.Subtractor.Subtract.
 func (d Double) Subtract(subtrahend ref.Val) ref.Val {
-	if DoubleType != subtrahend.Type() {
+	subtraDouble, ok := subtrahend.(Double)
+	if !ok {
 		return ValOrErr(subtrahend, "no such overload")
 	}
-	return d - subtrahend.(Double)
+	return d - subtraDouble
 }
 
 // Type implements ref.Val.Type.

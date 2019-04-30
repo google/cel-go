@@ -18,11 +18,11 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
 	dpb "github.com/golang/protobuf/ptypes/duration"
 )
 
@@ -45,14 +45,28 @@ func TestBaseList_Add_Error(t *testing.T) {
 
 func TestBaseList_Contains(t *testing.T) {
 	list := NewDynamicList(NewRegistry(), []float32{1.0, 2.0, 3.0})
-	if !IsError(list.Contains(Int(3))) {
-		t.Error("List contains succeeded with wrong type")
-	}
 	if list.Contains(Double(5)) != False {
 		t.Error("List contains did not return false")
 	}
 	if list.Contains(Double(3)) != True {
 		t.Error("List contains did not succeed")
+	}
+	list = NewDynamicList(NewRegistry(), []interface{}{1.0, 2, 3.0})
+	if list.Contains(Int(2)) != True {
+		t.Error("List contains did not succeed")
+	}
+	if list.Contains(Double(3)) != True {
+		t.Error("List contains did not succeed")
+	}
+}
+
+func TestBaseList_Contains_NonBool(t *testing.T) {
+	list := NewDynamicList(NewRegistry(), []interface{}{1.0, 2, 3.0})
+	if !IsError(list.Contains(Int(3))) {
+		t.Error("List contains succeeded with wrong type")
+	}
+	if !reflect.DeepEqual(list.Contains(Unknown{1}), Unknown{1}) {
+		t.Error("List ")
 	}
 }
 
@@ -102,43 +116,6 @@ func TestValueListValue_Iterator(t *testing.T) {
 	validateIterator123(t, NewValueList(NewRegistry(), []ref.Val{Int(1), Int(2), Int(3)}))
 }
 
-func validateList123(t *testing.T, list traits.Lister) {
-	t.Helper()
-	if getElem(t, list, 0) != Int(1) ||
-		getElem(t, list, 1) != Int(2) ||
-		getElem(t, list, 2) != Int(3) {
-		t.Errorf("List values by index did not match expectations")
-	}
-	if val := list.Get(Int(-1)); !IsError(val) {
-		t.Errorf("Should not have been able to read a negative index")
-	}
-	if val := list.Get(Int(3)); !IsError(val) {
-		t.Errorf("Should not have been able to read beyond end of list")
-	}
-	if !IsError(list.Get(Uint(3))) {
-		t.Error("Invalid index type did not result in error")
-	}
-}
-
-func validateIterator123(t *testing.T, list traits.Lister) {
-	t.Helper()
-	it := list.Iterator()
-	var i = int64(0)
-	for ; it.HasNext() == True; i++ {
-		elem := it.Next()
-		if getElem(t, list, Int(i)) != elem {
-			t.Errorf(
-				"List iterator returned incorrect value: list[%d]: %v", i, elem)
-		}
-	}
-	if it.Next() != nil {
-		t.Errorf("List iterator attempted to continue beyond list size")
-	}
-	if i != 3 {
-		t.Errorf("Iterator did not iterate until last value")
-	}
-}
-
 func TestBaseList_NestedList(t *testing.T) {
 	reg := NewRegistry()
 	listUint32 := []uint32{1, 2}
@@ -173,11 +150,11 @@ func TestConcatList_Add(t *testing.T) {
 	list := listA.Add(listB).(traits.Lister).Add(listA).
 		Value().([]interface{})
 	expected := []interface{}{
-		float32(1.0),
-		float32(2.0),
+		float64(1.0),
+		float64(2.0),
 		string("3"),
-		float32(1.0),
-		float32(2.0)}
+		float64(1.0),
+		float64(2.0)}
 	if len(list) != len(expected) {
 		t.Errorf("Got '%v', expected '%v'", list, expected)
 	} else {
@@ -187,6 +164,17 @@ func TestConcatList_Add(t *testing.T) {
 					i, list[i], expected[i])
 			}
 		}
+	}
+	// Zero length input list
+	listConcat := listA.Add(listB).(traits.Lister)
+	same := listConcat.Add(NewStringList(reg, []string{}))
+	if !reflect.DeepEqual(listConcat, same) {
+		t.Error("Adding an empty list to a concat list did not return the concat list")
+	}
+	// Zero length operand list
+	same = NewDynamicList(reg, []bool{}).Add(listConcat)
+	if !reflect.DeepEqual(listConcat, same) {
+		t.Error("Adding a concat list to an empty list did not return the concat list")
 	}
 }
 
@@ -235,6 +223,34 @@ func TestConcatList_ConvertToType(t *testing.T) {
 	}
 	if !IsError(list.ConvertToType(MapType)) {
 		t.Error("List conversion to map unexpectedly succeeded.")
+	}
+}
+
+func TestConcatList_Contains(t *testing.T) {
+	reg := NewRegistry()
+	listA := NewDynamicList(reg, []float32{1.0, 2.0})
+	listB := NewDynamicList(reg, []string{"3"})
+	listConcat := listA.Add(listB).(traits.Lister)
+	if listConcat.Contains(String("3")) != True {
+		t.Error("Concatenated list did not contain value in 'next' list.")
+	}
+	if listConcat.Contains(Double(2.0)) != True {
+		t.Error("Concatenated list did not contain value in 'prev' list.")
+	}
+	homogList := NewDynamicList(reg, []string{"3"}).Add(
+		NewStringList(reg, []string{"2", "1"})).(traits.Lister)
+	if homogList.Contains(String("4")) != False {
+		t.Error("Concatenated homogeneous list did not return false.")
+	}
+}
+
+func TestConcatList_Contains_NonBool(t *testing.T) {
+	reg := NewRegistry()
+	listA := NewDynamicList(reg, []float32{1.0, 2.0})
+	listB := NewDynamicList(reg, []string{"3"})
+	listConcat := listA.Add(listB).(traits.Lister)
+	if !IsError(listConcat.Contains(String("4"))) {
+		t.Error("Contains did not error with list of mixed types an not found input.")
 	}
 }
 
@@ -321,7 +337,7 @@ func TestStringList_Add_Heterogenous(t *testing.T) {
 	listA := NewStringList(reg, []string{"hello"})
 	listB := NewDynamicList(reg, []int32{1, 2, 3})
 	list := listA.Add(listB).(traits.Lister).Value().([]interface{})
-	expected := []interface{}{"hello", int32(1), int32(2), int32(3)}
+	expected := []interface{}{"hello", int64(1), int64(2), int64(3)}
 	if len(list) != len(expected) {
 		t.Errorf("Unexpected list size. Got '%d', expected 4", len(list))
 	}
@@ -408,6 +424,35 @@ func TestStringList_Get_OutOfRange(t *testing.T) {
 	}
 }
 
+func TestValueList_Add(t *testing.T) {
+	reg := NewRegistry()
+	listA := NewValueList(reg, []ref.Val{String("hello")})
+	listB := NewValueList(reg, []ref.Val{String("world")})
+	listConcat := listA.Add(listB).(traits.Lister)
+	if listConcat.Contains(String("goodbye")) != False {
+		t.Error("Homogeneous concatenated value list did not return false on missing input")
+	}
+	if listConcat.Contains(String("hello")) != True {
+		t.Error("Homogeneous concatenated value list did not return true on valid input")
+	}
+}
+
+func TestValueList_ConvertToNative_Json(t *testing.T) {
+	reg := NewRegistry()
+	list := NewValueList(reg, []ref.Val{String("hello"), String("world")})
+	json, err := list.ConvertToNative(jsonListValueType)
+	if err != nil {
+		t.Errorf("Got '%v', expected '%v'", err, json)
+	}
+	jsonTxt, err := (&jsonpb.Marshaler{}).MarshalToString(json.(proto.Message))
+	if err != nil {
+		t.Error(err)
+	}
+	if jsonTxt != `["hello","world"]` {
+		t.Errorf(`Got '%v', expected ["hello","world"]`, jsonTxt)
+	}
+}
+
 func getElem(t *testing.T, list traits.Indexer, index Int) interface{} {
 	t.Helper()
 	val := list.Get(index)
@@ -416,4 +461,41 @@ func getElem(t *testing.T, list traits.Indexer, index Int) interface{} {
 		return nil
 	}
 	return val
+}
+
+func validateList123(t *testing.T, list traits.Lister) {
+	t.Helper()
+	if getElem(t, list, 0) != Int(1) ||
+		getElem(t, list, 1) != Int(2) ||
+		getElem(t, list, 2) != Int(3) {
+		t.Errorf("List values by index did not match expectations")
+	}
+	if val := list.Get(Int(-1)); !IsError(val) {
+		t.Errorf("Should not have been able to read a negative index")
+	}
+	if val := list.Get(Int(3)); !IsError(val) {
+		t.Errorf("Should not have been able to read beyond end of list")
+	}
+	if !IsError(list.Get(Uint(3))) {
+		t.Error("Invalid index type did not result in error")
+	}
+}
+
+func validateIterator123(t *testing.T, list traits.Lister) {
+	t.Helper()
+	it := list.Iterator()
+	var i = int64(0)
+	for ; it.HasNext() == True; i++ {
+		elem := it.Next()
+		if getElem(t, list, Int(i)) != elem {
+			t.Errorf(
+				"List iterator returned incorrect value: list[%d]: %v", i, elem)
+		}
+	}
+	if it.Next() != nil {
+		t.Errorf("List iterator attempted to continue beyond list size")
+	}
+	if i != 3 {
+		t.Errorf("Iterator did not iterate until last value")
+	}
 }

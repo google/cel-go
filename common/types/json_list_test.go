@@ -15,6 +15,7 @@
 package types
 
 import (
+	"github.com/google/cel-go/common/types/traits"
 	"reflect"
 	"testing"
 
@@ -25,13 +26,14 @@ import (
 )
 
 func TestJsonListValue_Add(t *testing.T) {
-	listA := NewJSONList(NewRegistry(), &structpb.ListValue{Values: []*structpb.Value{
+	reg := NewRegistry()
+	listA := NewJSONList(reg, &structpb.ListValue{Values: []*structpb.Value{
 		{Kind: &structpb.Value_StringValue{StringValue: "hello"}},
 		{Kind: &structpb.Value_NumberValue{NumberValue: 1}}}})
-	listB := NewJSONList(NewRegistry(), &structpb.ListValue{Values: []*structpb.Value{
+	listB := NewJSONList(reg, &structpb.ListValue{Values: []*structpb.Value{
 		{Kind: &structpb.Value_NumberValue{NumberValue: 2}},
 		{Kind: &structpb.Value_NumberValue{NumberValue: 3}}}})
-	list := listA.Add(listB)
+	list := listA.Add(listB).(traits.Lister)
 	nativeVal, err := list.ConvertToNative(jsonListValueType)
 	if err != nil {
 		t.Error(err)
@@ -41,6 +43,23 @@ func TestJsonListValue_Add(t *testing.T) {
 		{Kind: &structpb.Value_NumberValue{NumberValue: 1}},
 		{Kind: &structpb.Value_NumberValue{NumberValue: 2}},
 		{Kind: &structpb.Value_NumberValue{NumberValue: 3}}}}
+	if !proto.Equal(nativeVal.(proto.Message), expected) {
+		t.Errorf("Concatenated lists did not combine as expected."+
+			" Got '%v', expected '%v'", nativeVal, expected)
+	}
+	listC := NewStringList(reg, []string{"goodbye", "world"})
+	list = list.Add(listC).(traits.Lister)
+	nativeVal, err = list.ConvertToNative(jsonListValueType)
+	if err != nil {
+		t.Error(err)
+	}
+	expected = &structpb.ListValue{Values: []*structpb.Value{
+		{Kind: &structpb.Value_StringValue{StringValue: "hello"}},
+		{Kind: &structpb.Value_NumberValue{NumberValue: 1}},
+		{Kind: &structpb.Value_NumberValue{NumberValue: 2}},
+		{Kind: &structpb.Value_NumberValue{NumberValue: 3}},
+		{Kind: &structpb.Value_StringValue{StringValue: "goodbye"}},
+		{Kind: &structpb.Value_StringValue{StringValue: "world"}}}}
 	if !proto.Equal(nativeVal.(proto.Message), expected) {
 		t.Errorf("Concatenated lists did not combine as expected."+
 			" Got '%v', expected '%v'", nativeVal, expected)

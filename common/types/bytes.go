@@ -35,23 +35,25 @@ var (
 		traits.SizerType)
 )
 
-// Add implements traits.Adder.Add by concatenating byte sequences.
+// Add implements traits.Adder interface method by concatenating byte sequences.
 func (b Bytes) Add(other ref.Val) ref.Val {
-	if BytesType != other.Type() {
+	otherBytes, ok := other.(Bytes)
+	if !ok {
 		return ValOrErr(other, "no such overload")
 	}
-	return append(b, other.(Bytes)...)
+	return append(b, otherBytes...)
 }
 
-// Compare implments traits.Comparer.Compare by lexicographic ordering.
+// Compare implments traits.Comparer interface method by lexicographic ordering.
 func (b Bytes) Compare(other ref.Val) ref.Val {
-	if BytesType != other.Type() {
+	otherBytes, ok := other.(Bytes)
+	if !ok {
 		return ValOrErr(other, "no such overload")
 	}
-	return Int(bytes.Compare(b, other.(Bytes)))
+	return Int(bytes.Compare(b, otherBytes))
 }
 
-// ConvertToNative implements ref.Val.ConvertToNative.
+// ConvertToNative implements the ref.Val interface method.
 func (b Bytes) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	switch typeDesc.Kind() {
 	case reflect.Array, reflect.Slice:
@@ -66,7 +68,7 @@ func (b Bytes) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	return nil, fmt.Errorf("type conversion error from Bytes to '%v'", typeDesc)
 }
 
-// ConvertToType implements ref.Val.ConvertToType.
+// ConvertToType implements the ref.Val interface method.
 func (b Bytes) ConvertToType(typeVal ref.Type) ref.Val {
 	switch typeVal {
 	case StringType:
@@ -79,25 +81,26 @@ func (b Bytes) ConvertToType(typeVal ref.Type) ref.Val {
 	return NewErr("type conversion error from '%s' to '%s'", BytesType, typeVal)
 }
 
-// Equal implements ref.Val.Equal.
+// Equal implements the ref.Val interface method.
 func (b Bytes) Equal(other ref.Val) ref.Val {
-	if BytesType != other.Type() {
+	otherBytes, ok := other.(Bytes)
+	if !ok {
 		return ValOrErr(other, "no such overload")
 	}
-	return Bool(bytes.Equal(b, other.(Bytes)))
+	return Bool(bytes.Equal(b, otherBytes))
 }
 
-// Size implements traits.Sizer.Size.
+// Size implements the traits.Sizer interface method.
 func (b Bytes) Size() ref.Val {
 	return Int(len(b))
 }
 
-// Type implements ref.Val.Type.
+// Type implements the ref.Val interface method.
 func (b Bytes) Type() ref.Type {
 	return BytesType
 }
 
-// Value implements ref.Val.Value.
+// Value implements the ref.Val interface method.
 func (b Bytes) Value() interface{} {
 	return []byte(b)
 }

@@ -22,12 +22,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/protobuf/ptypes"
+	structpb "github.com/golang/protobuf/ptypes/struct"
+
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
-
-	"github.com/golang/protobuf/ptypes"
-	structpb "github.com/golang/protobuf/ptypes/struct"
 )
 
 // String type implementation which supports addition, comparison, matching,
@@ -52,18 +52,20 @@ var (
 
 // Add implements traits.Adder.Add.
 func (s String) Add(other ref.Val) ref.Val {
-	if StringType != other.Type() {
+	otherString, ok := other.(String)
+	if !ok {
 		return ValOrErr(other, "no such overload")
 	}
-	return s + other.(String)
+	return s + otherString
 }
 
 // Compare implements traits.Comparer.Compare.
 func (s String) Compare(other ref.Val) ref.Val {
-	if StringType != other.Type() {
+	otherString, ok := other.(String)
+	if !ok {
 		return ValOrErr(other, "no such overload")
 	}
-	return Int(strings.Compare(s.Value().(string), other.Value().(string)))
+	return Int(strings.Compare(s.Value().(string), otherString.Value().(string)))
 }
 
 // ConvertToNative implements ref.Val.ConvertToNative.
@@ -131,18 +133,20 @@ func (s String) ConvertToType(typeVal ref.Type) ref.Val {
 
 // Equal implements ref.Val.Equal.
 func (s String) Equal(other ref.Val) ref.Val {
-	if StringType != other.Type() {
+	otherString, ok := other.(String)
+	if !ok {
 		return ValOrErr(other, "no such overload")
 	}
-	return Bool(s == other.(String))
+	return Bool(s == otherString)
 }
 
 // Match implements traits.Matcher.Match.
 func (s String) Match(pattern ref.Val) ref.Val {
-	if pattern.Type() != StringType {
+	pat, ok := pattern.(String)
+	if !ok {
 		return ValOrErr(pattern, "no such overload")
 	}
-	matched, err := regexp.MatchString(pattern.Value().(string), s.Value().(string))
+	matched, err := regexp.MatchString(pat.Value().(string), s.Value().(string))
 	if err != nil {
 		return &Err{err}
 	}

@@ -43,6 +43,7 @@ func NewJSONList(adapter ref.TypeAdapter, l *structpb.ListValue) traits.Lister {
 	return &jsonListValue{TypeAdapter: adapter, ListValue: l}
 }
 
+// Add implements the traits.Adder interface method.
 func (l *jsonListValue) Add(other ref.Val) ref.Val {
 	if other.Type() != ListType {
 		return ValOrErr(other, "no such overload")
@@ -54,10 +55,12 @@ func (l *jsonListValue) Add(other ref.Val) ref.Val {
 		return NewJSONList(l.TypeAdapter, &structpb.ListValue{Values: concatElems})
 	}
 	return &concatList{
-		prevList: l,
-		nextList: other.(traits.Lister)}
+		TypeAdapter: l.TypeAdapter,
+		prevList:    l,
+		nextList:    other.(traits.Lister)}
 }
 
+// Contains implements the traits.Container interface method.
 func (l *jsonListValue) Contains(elem ref.Val) ref.Val {
 	if IsUnknownOrError(elem) {
 		return elem
@@ -84,6 +87,7 @@ func (l *jsonListValue) Contains(elem ref.Val) ref.Val {
 	return False
 }
 
+// ConvertToNative implements the ref.Val interface method.
 func (l *jsonListValue) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	switch typeDesc.Kind() {
 	case reflect.Array, reflect.Slice:
@@ -121,6 +125,7 @@ func (l *jsonListValue) ConvertToNative(typeDesc reflect.Type) (interface{}, err
 		" list elem: google.protobuf.Value, native type: %v", typeDesc)
 }
 
+// ConvertToType implements the ref.Val interface method.
 func (l *jsonListValue) ConvertToType(typeVal ref.Type) ref.Val {
 	switch typeVal {
 	case ListType:
@@ -131,11 +136,12 @@ func (l *jsonListValue) ConvertToType(typeVal ref.Type) ref.Val {
 	return NewErr("type conversion error from '%s' to '%s'", ListType, typeVal)
 }
 
+// Equal implements the ref.Val interface method.
 func (l *jsonListValue) Equal(other ref.Val) ref.Val {
-	if ListType != other.Type() {
+	otherList, ok := other.(traits.Lister)
+	if !ok {
 		return ValOrErr(other, "no such overload")
 	}
-	otherList := other.(traits.Lister)
 	if l.Size() != otherList.Size() {
 		return False
 	}
@@ -143,13 +149,14 @@ func (l *jsonListValue) Equal(other ref.Val) ref.Val {
 		thisElem := l.Get(i)
 		otherElem := otherList.Get(i)
 		elemEq := thisElem.Equal(otherElem)
-		if elemEq == False || IsUnknownOrError(elemEq) {
+		if elemEq != True {
 			return elemEq
 		}
 	}
 	return True
 }
 
+// Get implements the traits.Indexer interface method.
 func (l *jsonListValue) Get(index ref.Val) ref.Val {
 	i, ok := index.(Int)
 	if !ok {
@@ -162,6 +169,7 @@ func (l *jsonListValue) Get(index ref.Val) ref.Val {
 	return l.NativeToValue(elem)
 }
 
+// Iterator implements the traits.Iterable interface method.
 func (l *jsonListValue) Iterator() traits.Iterator {
 	return &jsonValueListIterator{
 		baseIterator: &baseIterator{},
@@ -170,14 +178,17 @@ func (l *jsonListValue) Iterator() traits.Iterator {
 		len:          len(l.GetValues())}
 }
 
+// Size implements the traits.Sizer interface method.
 func (l *jsonListValue) Size() ref.Val {
 	return Int(len(l.GetValues()))
 }
 
+// Type implements the ref.Val interface method.
 func (l *jsonListValue) Type() ref.Type {
 	return ListType
 }
 
+// Value implements the ref.Val interface method.
 func (l *jsonListValue) Value() interface{} {
 	return l.ListValue
 }
@@ -190,10 +201,12 @@ type jsonValueListIterator struct {
 	len    int
 }
 
+// HasNext implements the traits.Iterator interface method.
 func (it *jsonValueListIterator) HasNext() ref.Val {
 	return Bool(it.cursor < it.len)
 }
 
+// Next implements the traits.Iterator interface method.
 func (it *jsonValueListIterator) Next() ref.Val {
 	if it.HasNext() == True {
 		index := it.cursor
