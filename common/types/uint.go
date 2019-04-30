@@ -19,6 +19,7 @@ import (
 	"reflect"
 
 	structpb "github.com/golang/protobuf/ptypes/struct"
+
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 )
@@ -39,8 +40,7 @@ var (
 
 // Uint constants
 const (
-	// UintZero is the zero-value for Uint.
-	UintZero = Uint(0)
+	uintZero = Uint(0)
 )
 
 // Add implements traits.Adder.Add.
@@ -118,7 +118,7 @@ func (i Uint) Divide(other ref.Val) ref.Val {
 		return ValOrErr(other, "no such overload")
 	}
 	otherUint := other.(Uint)
-	if otherUint == UintZero {
+	if otherUint == uintZero {
 		return NewErr("divide by zero")
 	}
 	return i / otherUint
@@ -138,7 +138,7 @@ func (i Uint) Modulo(other ref.Val) ref.Val {
 		return ValOrErr(other, "no such overload")
 	}
 	otherUint := other.(Uint)
-	if otherUint == UintZero {
+	if otherUint == uintZero {
 		return NewErr("modulus by zero")
 	}
 	return i % otherUint

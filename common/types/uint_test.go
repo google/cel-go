@@ -108,7 +108,7 @@ func TestUint_Divide(t *testing.T) {
 	if !Uint(3).Divide(Uint(2)).Equal(Uint(1)).(Bool) {
 		t.Error("Dividing two uints did not match expectations.")
 	}
-	if !IsError(UintZero.Divide(UintZero)) {
+	if !IsError(uintZero.Divide(uintZero)) {
 		t.Error("Divide by zero did not cause error.")
 	}
 	if !IsError(Uint(1).Divide(Double(-1))) {
@@ -126,7 +126,7 @@ func TestUint_Modulo(t *testing.T) {
 	if !Uint(21).Modulo(Uint(2)).Equal(Uint(1)).(Bool) {
 		t.Error("Unexpected result from modulus operator.")
 	}
-	if !IsError(Uint(21).Modulo(UintZero)) {
+	if !IsError(Uint(21).Modulo(uintZero)) {
 		t.Error("Modulus by zero did not cause error.")
 	}
 	if !IsError(Uint(21).Modulo(IntOne)) {
