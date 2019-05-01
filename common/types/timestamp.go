@@ -21,11 +21,11 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+	tpb "github.com/golang/protobuf/ptypes/timestamp"
+
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
-
-	tpb "github.com/golang/protobuf/ptypes/timestamp"
 )
 
 // Timestamp type implementation which supports add, compare, and subtract

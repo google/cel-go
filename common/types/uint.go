@@ -45,21 +45,23 @@ const (
 
 // Add implements traits.Adder.Add.
 func (i Uint) Add(other ref.Val) ref.Val {
-	if UintType != other.Type() {
+	otherUint, ok := other.(Uint)
+	if !ok {
 		return ValOrErr(other, "no such overload")
 	}
-	return i + other.(Uint)
+	return i + otherUint
 }
 
 // Compare implements traits.Comparer.Compare.
 func (i Uint) Compare(other ref.Val) ref.Val {
-	if UintType != other.Type() {
+	otherUint, ok := other.(Uint)
+	if !ok {
 		return ValOrErr(other, "no such overload")
 	}
-	if i < other.(Uint) {
+	if i < otherUint {
 		return IntNegOne
 	}
-	if i > other.(Uint) {
+	if i > otherUint {
 		return IntOne
 	}
 	return IntZero
@@ -114,10 +116,10 @@ func (i Uint) ConvertToType(typeVal ref.Type) ref.Val {
 
 // Divide implements traits.Divider.Divide.
 func (i Uint) Divide(other ref.Val) ref.Val {
-	if UintType != other.Type() {
+	otherUint, ok := other.(Uint)
+	if !ok {
 		return ValOrErr(other, "no such overload")
 	}
-	otherUint := other.(Uint)
 	if otherUint == uintZero {
 		return NewErr("divide by zero")
 	}
@@ -126,18 +128,19 @@ func (i Uint) Divide(other ref.Val) ref.Val {
 
 // Equal implements ref.Val.Equal.
 func (i Uint) Equal(other ref.Val) ref.Val {
-	if UintType != other.Type() {
+	otherUint, ok := other.(Uint)
+	if !ok {
 		return ValOrErr(other, "no such overload")
 	}
-	return Bool(i == other.(Uint))
+	return Bool(i == otherUint)
 }
 
 // Modulo implements traits.Modder.Modulo.
 func (i Uint) Modulo(other ref.Val) ref.Val {
-	if UintType != other.Type() {
+	otherUint, ok := other.(Uint)
+	if !ok {
 		return ValOrErr(other, "no such overload")
 	}
-	otherUint := other.(Uint)
 	if otherUint == uintZero {
 		return NewErr("modulus by zero")
 	}
@@ -146,18 +149,20 @@ func (i Uint) Modulo(other ref.Val) ref.Val {
 
 // Multiply implements traits.Multiplier.Multiply.
 func (i Uint) Multiply(other ref.Val) ref.Val {
-	if UintType != other.Type() {
+	otherUint, ok := other.(Uint)
+	if !ok {
 		return ValOrErr(other, "no such overload")
 	}
-	return i * other.(Uint)
+	return i * otherUint
 }
 
 // Subtract implements traits.Subtractor.Subtract.
 func (i Uint) Subtract(subtrahend ref.Val) ref.Val {
-	if UintType != subtrahend.Type() {
+	subtraUint, ok := subtrahend.(Uint)
+	if !ok {
 		return ValOrErr(subtrahend, "no such overload")
 	}
-	return i - subtrahend.(Uint)
+	return i - subtraUint
 }
 
 // Type implements ref.Val.Type.

@@ -49,21 +49,23 @@ var (
 
 // Add implements traits.Adder.Add.
 func (i Int) Add(other ref.Val) ref.Val {
-	if IntType != other.Type() {
+	otherInt, ok := other.(Int)
+	if !ok {
 		return ValOrErr(other, "no such overload")
 	}
-	return i + other.(Int)
+	return i + otherInt
 }
 
 // Compare implements traits.Comparer.Compare.
 func (i Int) Compare(other ref.Val) ref.Val {
-	if IntType != other.Type() {
+	otherInt, ok := other.(Int)
+	if !ok {
 		return ValOrErr(other, "no such overload")
 	}
-	if i < other.(Int) {
+	if i < otherInt {
 		return IntNegOne
 	}
-	if i > other.(Int) {
+	if i > otherInt {
 		return IntOne
 	}
 	return IntZero
@@ -117,10 +119,10 @@ func (i Int) ConvertToType(typeVal ref.Type) ref.Val {
 
 // Divide implements traits.Divider.Divide.
 func (i Int) Divide(other ref.Val) ref.Val {
-	if IntType != other.Type() {
+	otherInt, ok := other.(Int)
+	if !ok {
 		return ValOrErr(other, "no such overload")
 	}
-	otherInt := other.(Int)
 	if otherInt == IntZero {
 		return NewErr("divide by zero")
 	}
@@ -129,18 +131,19 @@ func (i Int) Divide(other ref.Val) ref.Val {
 
 // Equal implements ref.Val.Equal.
 func (i Int) Equal(other ref.Val) ref.Val {
-	if IntType != other.Type() {
+	otherInt, ok := other.(Int)
+	if !ok {
 		return ValOrErr(other, "no such overload")
 	}
-	return Bool(i == other.(Int))
+	return Bool(i == otherInt)
 }
 
 // Modulo implements traits.Modder.Modulo.
 func (i Int) Modulo(other ref.Val) ref.Val {
-	if IntType != other.Type() {
+	otherInt, ok := other.(Int)
+	if !ok {
 		return ValOrErr(other, "no such overload")
 	}
-	otherInt := other.(Int)
 	if otherInt == IntZero {
 		return NewErr("modulus by zero")
 	}
@@ -149,10 +152,11 @@ func (i Int) Modulo(other ref.Val) ref.Val {
 
 // Multiply implements traits.Multiplier.Multiply.
 func (i Int) Multiply(other ref.Val) ref.Val {
-	if IntType != other.Type() {
+	otherInt, ok := other.(Int)
+	if !ok {
 		return ValOrErr(other, "no such overload")
 	}
-	return i * other.(Int)
+	return i * otherInt
 }
 
 // Negate implements traits.Negater.Negate.
@@ -162,10 +166,11 @@ func (i Int) Negate() ref.Val {
 
 // Subtract implements traits.Subtractor.Subtract.
 func (i Int) Subtract(subtrahend ref.Val) ref.Val {
-	if IntType != subtrahend.Type() {
+	subtraInt, ok := subtrahend.(Int)
+	if !ok {
 		return ValOrErr(subtrahend, "no such overload")
 	}
-	return i - subtrahend.(Int)
+	return i - subtraInt
 }
 
 // Type implements ref.Val.Type.

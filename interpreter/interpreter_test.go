@@ -18,8 +18,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/google/cel-go/common/types/traits"
-
 	"github.com/golang/protobuf/proto"
 
 	"github.com/google/cel-go/checker"
@@ -28,6 +26,7 @@ import (
 	"github.com/google/cel-go/common/packages"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/common/types/traits"
 	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/parser"
 	"github.com/google/cel-go/test"

@@ -167,11 +167,11 @@ func TestNativeToValue_Any(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	expected = NewJSONList(reg, &structpb.ListValue{
+	expectedList := NewJSONList(reg, &structpb.ListValue{
 		Values: []*structpb.Value{
 			{Kind: &structpb.Value_StringValue{StringValue: "world"}},
 			{Kind: &structpb.Value_StringValue{StringValue: "five!"}}}})
-	expectNativeToValue(t, anyValue, expected)
+	expectNativeToValue(t, anyValue, expectedList)
 
 	// Object
 	pbMessage := exprpb.ParsedExpr{

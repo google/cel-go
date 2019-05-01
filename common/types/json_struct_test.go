@@ -20,9 +20,8 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	structpb "github.com/golang/protobuf/ptypes/struct"
-
 	anypb "github.com/golang/protobuf/ptypes/any"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 )
 
 func TestJsonStruct_Contains(t *testing.T) {
@@ -123,15 +122,6 @@ func TestJsonStruct_Equal(t *testing.T) {
 		&structpb.Struct{Fields: map[string]*structpb.Value{
 			"first":  {Kind: &structpb.Value_StringValue{StringValue: "hello"}},
 			"second": {Kind: &structpb.Value_NumberValue{NumberValue: 4}}}})
-
-	otherVal := NewJSONStruct(reg,
-		&structpb.Struct{Fields: map[string]*structpb.Value{
-			"first":  {Kind: &structpb.Value_StringValue{StringValue: "hello"}},
-			"second": {Kind: &structpb.Value_NumberValue{NumberValue: 1}}}})
-	if mapVal.Equal(otherVal) != False {
-		t.Errorf("Got equals 'true', expected 'false' for '%v' == '%v'",
-			mapVal, otherVal)
-	}
 	if mapVal.Equal(mapVal) != True {
 		t.Error("Map was not equal to itself.")
 	}
@@ -140,6 +130,30 @@ func TestJsonStruct_Equal(t *testing.T) {
 	}
 	if !IsError(mapVal.Equal(String(""))) {
 		t.Error("Map equal to a non-map type returned non-error.")
+	}
+
+	other := NewJSONStruct(reg,
+		&structpb.Struct{Fields: map[string]*structpb.Value{
+			"first":  {Kind: &structpb.Value_StringValue{StringValue: "hello"}},
+			"second": {Kind: &structpb.Value_NumberValue{NumberValue: 1}}}})
+	if mapVal.Equal(other) != False {
+		t.Errorf("Got equals 'true', expected 'false' for '%v' == '%v'",
+			mapVal, other)
+	}
+	other = NewJSONStruct(reg,
+		&structpb.Struct{Fields: map[string]*structpb.Value{
+			"first": {Kind: &structpb.Value_StringValue{StringValue: "hello"}},
+			"third": {Kind: &structpb.Value_NumberValue{NumberValue: 4}}}})
+	if mapVal.Equal(other) != False {
+		t.Errorf("Got equals 'true', expected 'false' for '%v' == '%v'",
+			mapVal, other)
+	}
+	mismatch := NewDynamicMap(reg,
+		map[int]interface{}{
+			1: "hello",
+			2: "world"})
+	if !IsError(mapVal.Equal(mismatch)) {
+		t.Error("Key type mismatch did not result in error")
 	}
 }
 

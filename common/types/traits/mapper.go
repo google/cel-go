@@ -23,4 +23,11 @@ type Mapper interface {
 	Indexer
 	Iterable
 	Sizer
+
+	// Find a value by key if it exists.
+	//
+	// When the value exists, the result will be non-nil, true. When the value does not exist,
+	// the result will be nil, false. When an error occurs, the value will be non-nil and the
+	// found result false.
+	Find(key ref.Val) (ref.Val, bool)
 }

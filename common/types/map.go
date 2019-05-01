@@ -46,9 +46,9 @@ func NewDynamicMap(adapter ref.TypeAdapter, value interface{}) traits.Mapper {
 }
 
 // NewStringStringMap returns a specialized traits.Mapper with string keys and values.
-func NewStringStringMap(value map[string]string) traits.Mapper {
+func NewStringStringMap(adapter ref.TypeAdapter, value map[string]string) traits.Mapper {
 	return &stringMap{
-		baseMap:   &baseMap{value: value},
+		baseMap:   &baseMap{TypeAdapter: adapter, value: value},
 		mapStrStr: value,
 	}
 }
@@ -62,10 +62,27 @@ var (
 		traits.SizerType)
 )
 
+// Contains implements the traits.Container interface method.
 func (m *baseMap) Contains(index ref.Val) ref.Val {
-	return Bool(m.Get(index).Type() != ErrType)
+	val, found := m.Find(index)
+	// When the index is not found and val is non-nil, this is an error or unknown value.
+	if !found && val != nil && IsUnknownOrError(val) {
+		return val
+	}
+	return Bool(found)
 }
 
+// Contains implements the traits.Container interface method.
+func (m *stringMap) Contains(index ref.Val) ref.Val {
+	val, found := m.Find(index)
+	// When the index is not found and val is non-nil, this is an error or unknown value.
+	if !found && val != nil && IsUnknownOrError(val) {
+		return val
+	}
+	return Bool(found)
+}
+
+// ConvertToNative implements the ref.Val interface method.
 func (m *baseMap) ConvertToNative(refType reflect.Type) (interface{}, error) {
 	// JSON conversion.
 	if refType == jsonValueType || refType == jsonStructType {
@@ -124,6 +141,7 @@ func (m *baseMap) ConvertToNative(refType reflect.Type) (interface{}, error) {
 	return nativeMap.Interface(), nil
 }
 
+// ConvertToNative implements the ref.Val interface method.
 func (m *stringMap) ConvertToNative(refType reflect.Type) (interface{}, error) {
 	if !m.baseMap.refValue.IsValid() {
 		m.baseMap.refValue = reflect.ValueOf(m.value)
@@ -131,6 +149,7 @@ func (m *stringMap) ConvertToNative(refType reflect.Type) (interface{}, error) {
 	return m.baseMap.ConvertToNative(refType)
 }
 
+// ConvertToType implements the ref.Val interface method.
 func (m *baseMap) ConvertToType(typeVal ref.Type) ref.Val {
 	switch typeVal {
 	case MapType:
@@ -141,6 +160,17 @@ func (m *baseMap) ConvertToType(typeVal ref.Type) ref.Val {
 	return NewErr("type conversion error from '%s' to '%s'", MapType, typeVal)
 }
 
+// ConvertToType implements the ref.Val interface method.
+func (m *stringMap) ConvertToType(typeVal ref.Type) ref.Val {
+	switch typeVal {
+	case MapType:
+		return m
+	default:
+		return m.baseMap.ConvertToType(typeVal)
+	}
+}
+
+// Equal implements the ref.Val interface method.
 func (m *baseMap) Equal(other ref.Val) ref.Val {
 	if MapType != other.Type() {
 		return ValOrErr(other, "no such overload")
@@ -152,20 +182,23 @@ func (m *baseMap) Equal(other ref.Val) ref.Val {
 	it := m.Iterator()
 	for it.HasNext() == True {
 		key := it.Next()
-		if otherVal := otherMap.Get(key); IsError(otherVal) {
-			return False
-		} else if thisVal := m.Get(key); IsError(thisVal) {
-			return False
-		} else {
-			valEq := thisVal.Equal(otherVal)
-			if valEq == False || IsUnknownOrError(valEq) {
-				return valEq
+		thisVal, _ := m.Find(key)
+		otherVal, found := otherMap.Find(key)
+		if !found {
+			if otherVal == nil {
+				return False
 			}
+			return ValOrErr(otherVal, "no such overload")
+		}
+		valEq := thisVal.Equal(otherVal)
+		if valEq != True {
+			return valEq
 		}
 	}
 	return True
 }
 
+// Equal implements the ref.Val interface method.
 func (m *stringMap) Equal(other ref.Val) ref.Val {
 	if !m.baseMap.refValue.IsValid() {
 		m.baseMap.refValue = reflect.ValueOf(m.value)
@@ -173,38 +206,59 @@ func (m *stringMap) Equal(other ref.Val) ref.Val {
 	return m.baseMap.Equal(other)
 }
 
-func (m *baseMap) Get(key ref.Val) ref.Val {
+// Find implements the traits.Mapper interface method.
+func (m *baseMap) Find(key ref.Val) (ref.Val, bool) {
 	// TODO: There are multiple reasons why a Get could fail. Typically, this is because the key
 	// does not exist in the map; however, it's possible that the value cannot be converted to
 	// the desired type. Refine this strategy to disambiguate these cases.
+	if IsUnknownOrError(key) {
+		return key, false
+	}
 	thisKeyType := m.refValue.Type().Key()
 	nativeKey, err := key.ConvertToNative(thisKeyType)
 	if err != nil {
-		return &Err{err}
+		return &Err{err}, false
 	}
 	nativeKeyVal := reflect.ValueOf(nativeKey)
-	if !nativeKeyVal.Type().AssignableTo(thisKeyType) {
-		return NewErr("no such key: '%v'", nativeKey)
-	}
 	value := m.refValue.MapIndex(nativeKeyVal)
 	if !value.IsValid() {
-		return NewErr("no such key: '%v'", nativeKey)
+		return nil, false
 	}
-	return m.NativeToValue(value.Interface())
+	return m.NativeToValue(value.Interface()), true
 }
 
-func (m *stringMap) Get(key ref.Val) ref.Val {
+// Find implements the traits.Mapper interface method.
+func (m *stringMap) Find(key ref.Val) (ref.Val, bool) {
 	strKey, ok := key.(String)
 	if !ok {
-		return ValOrErr(key, "no such key: %v", key)
+		return ValOrErr(key, "no such overload"), false
 	}
 	val, found := m.mapStrStr[string(strKey)]
 	if !found {
-		return NewErr("no such key: %s", key)
+		return nil, false
 	}
-	return String(val)
+	return String(val), true
 }
 
+// Get implements the traits.Indexer interface method.
+func (m *baseMap) Get(key ref.Val) ref.Val {
+	v, found := m.Find(key)
+	if !found {
+		return ValOrErr(v, "no such key: %v", v)
+	}
+	return v
+}
+
+// Get implements the traits.Indexer interface method.
+func (m *stringMap) Get(key ref.Val) ref.Val {
+	v, found := m.Find(key)
+	if !found {
+		return ValOrErr(v, "no such key: %v", v)
+	}
+	return v
+}
+
+// Iterator implements the traits.Iterable interface method.
 func (m *baseMap) Iterator() traits.Iterator {
 	mapKeys := m.refValue.MapKeys()
 	return &mapIterator{
@@ -216,6 +270,7 @@ func (m *baseMap) Iterator() traits.Iterator {
 		len:          int(m.Size().(Int))}
 }
 
+// Iterator implements the traits.Iterable interface method.
 func (m *stringMap) Iterator() traits.Iterator {
 	if !m.baseMap.refValue.IsValid() {
 		m.baseMap.refValue = reflect.ValueOf(m.value)
@@ -223,18 +278,22 @@ func (m *stringMap) Iterator() traits.Iterator {
 	return m.baseMap.Iterator()
 }
 
+// Size implements the traits.Sizer interface method.
 func (m *baseMap) Size() ref.Val {
 	return Int(m.refValue.Len())
 }
 
+// Size implements the traits.Sizer interface method.
 func (m *stringMap) Size() ref.Val {
 	return Int(len(m.mapStrStr))
 }
 
+// Type implements the ref.Val interface method.
 func (m *baseMap) Type() ref.Type {
 	return MapType
 }
 
+// Value implements the ref.Val interface method.
 func (m *baseMap) Value() interface{} {
 	return m.value
 }
@@ -248,10 +307,12 @@ type mapIterator struct {
 	len      int
 }
 
+// HasNext implements the traits.Iterator interface method.
 func (it *mapIterator) HasNext() ref.Val {
 	return Bool(it.cursor < it.len)
 }
 
+// Next implements the traits.Iterator interface method.
 func (it *mapIterator) Next() ref.Val {
 	if it.HasNext() == True {
 		index := it.cursor

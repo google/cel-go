@@ -15,24 +15,25 @@
 package types
 
 import (
+	"github.com/google/cel-go/common/types/traits"
 	"reflect"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	structpb "github.com/golang/protobuf/ptypes/struct"
-
 	anypb "github.com/golang/protobuf/ptypes/any"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 )
 
 func TestJsonListValue_Add(t *testing.T) {
-	listA := NewJSONList(NewRegistry(), &structpb.ListValue{Values: []*structpb.Value{
+	reg := NewRegistry()
+	listA := NewJSONList(reg, &structpb.ListValue{Values: []*structpb.Value{
 		{Kind: &structpb.Value_StringValue{StringValue: "hello"}},
 		{Kind: &structpb.Value_NumberValue{NumberValue: 1}}}})
-	listB := NewJSONList(NewRegistry(), &structpb.ListValue{Values: []*structpb.Value{
+	listB := NewJSONList(reg, &structpb.ListValue{Values: []*structpb.Value{
 		{Kind: &structpb.Value_NumberValue{NumberValue: 2}},
 		{Kind: &structpb.Value_NumberValue{NumberValue: 3}}}})
-	list := listA.Add(listB)
+	list := listA.Add(listB).(traits.Lister)
 	nativeVal, err := list.ConvertToNative(jsonListValueType)
 	if err != nil {
 		t.Error(err)
@@ -46,17 +47,51 @@ func TestJsonListValue_Add(t *testing.T) {
 		t.Errorf("Concatenated lists did not combine as expected."+
 			" Got '%v', expected '%v'", nativeVal, expected)
 	}
+	listC := NewStringList(reg, []string{"goodbye", "world"})
+	list = list.Add(listC).(traits.Lister)
+	nativeVal, err = list.ConvertToNative(jsonListValueType)
+	if err != nil {
+		t.Error(err)
+	}
+	expected = &structpb.ListValue{Values: []*structpb.Value{
+		{Kind: &structpb.Value_StringValue{StringValue: "hello"}},
+		{Kind: &structpb.Value_NumberValue{NumberValue: 1}},
+		{Kind: &structpb.Value_NumberValue{NumberValue: 2}},
+		{Kind: &structpb.Value_NumberValue{NumberValue: 3}},
+		{Kind: &structpb.Value_StringValue{StringValue: "goodbye"}},
+		{Kind: &structpb.Value_StringValue{StringValue: "world"}}}}
+	if !proto.Equal(nativeVal.(proto.Message), expected) {
+		t.Errorf("Concatenated lists did not combine as expected."+
+			" Got '%v', expected '%v'", nativeVal, expected)
+	}
 }
 
-func TestJsonListValue_Contains(t *testing.T) {
+func TestJsonListValue_Contains_SingleElemType(t *testing.T) {
+	list := NewJSONList(NewRegistry(), &structpb.ListValue{Values: []*structpb.Value{
+		{Kind: &structpb.Value_NumberValue{NumberValue: 3.3}},
+		{Kind: &structpb.Value_NumberValue{NumberValue: 1}}}})
+	if !list.Contains(Double(1)).(Bool) {
+		t.Error("Expected value list to contain number '1'")
+	}
+	if list.Contains(Double(2)).(Bool) {
+		t.Error("Expected value list to not contain number '2'")
+	}
+}
+
+func TestJsonListValue_Contains_MixedElemType(t *testing.T) {
 	list := NewJSONList(NewRegistry(), &structpb.ListValue{Values: []*structpb.Value{
 		{Kind: &structpb.Value_StringValue{StringValue: "hello"}},
 		{Kind: &structpb.Value_NumberValue{NumberValue: 1}}}})
 	if !list.Contains(Double(1)).(Bool) {
 		t.Error("Expected value list to contain number '1'", list)
 	}
-	if list.Contains(Double(2)).(Bool) {
-		t.Error("Expected value list to not contain number '2'", list)
+	// Contains is semantically equivalent to unrolling the list and
+	// applying a series of logical ORs between the first input value
+	// each element in the list. When the value is present, the result
+	// can be True. When the value is not present and the list is of
+	// mixed element type, the result is an error.
+	if !IsError(list.Contains(Double(2))) {
+		t.Error("Expected value list to not contain number '2' and error", list)
 	}
 }
 

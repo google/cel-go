@@ -21,6 +21,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
+
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 )
@@ -42,10 +43,17 @@ func NewJSONStruct(adapter ref.TypeAdapter, st *structpb.Struct) traits.Mapper {
 	return &jsonStruct{TypeAdapter: adapter, Struct: st}
 }
 
+// Contains implements the traits.Container interface method.
 func (m *jsonStruct) Contains(index ref.Val) ref.Val {
-	return Bool(!IsError(m.Get(index)))
+	val, found := m.Find(index)
+	// When the index is not found and val is non-nil, this is an error or unknown value.
+	if !found && val != nil && IsUnknownOrError(val) {
+		return val
+	}
+	return Bool(found)
 }
 
+// ConvertToNative implements the ref.Val interface method.
 func (m *jsonStruct) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	switch typeDesc.Kind() {
 	case reflect.Map:
@@ -94,6 +102,7 @@ func (m *jsonStruct) ConvertToNative(typeDesc reflect.Type) (interface{}, error)
 			" map type: google.protobuf.Struct, native type: %v", typeDesc)
 }
 
+// ConvertToType implements the ref.Val interface method.
 func (m *jsonStruct) ConvertToType(typeVal ref.Type) ref.Val {
 	switch typeVal {
 	case MapType:
@@ -104,6 +113,7 @@ func (m *jsonStruct) ConvertToType(typeVal ref.Type) ref.Val {
 	return NewErr("type conversion error from '%s' to '%s'", MapType, typeVal)
 }
 
+// Equal implements the ref.Val interface method.
 func (m *jsonStruct) Equal(other ref.Val) ref.Val {
 	if MapType != other.Type() {
 		return ValOrErr(other, "no such overload")
@@ -115,32 +125,46 @@ func (m *jsonStruct) Equal(other ref.Val) ref.Val {
 	it := m.Iterator()
 	for it.HasNext() == True {
 		key := it.Next()
-		if otherVal := otherMap.Get(key); IsError(otherVal) {
-			return False
-		} else if thisVal := m.Get(key); IsError(thisVal) {
-			return False
-		} else {
-			valEq := thisVal.Equal(otherVal)
-			if valEq == False || IsUnknownOrError(valEq) {
-				return valEq
+		thisVal, _ := m.Find(key)
+		otherVal, found := otherMap.Find(key)
+		if !found {
+			if otherVal == nil {
+				return False
 			}
+			return ValOrErr(otherVal, "no such overload")
+		}
+		valEq := thisVal.Equal(otherVal)
+		if valEq != True {
+			return valEq
 		}
 	}
 	return True
 }
 
-func (m *jsonStruct) Get(key ref.Val) ref.Val {
-	if StringType != key.Type() {
-		return ValOrErr(key, "unsupported key type: '%v", key.Type())
+// Find implements the traits.Mapper interface method.
+func (m *jsonStruct) Find(key ref.Val) (ref.Val, bool) {
+	strKey, ok := key.(String)
+	if !ok {
+		return ValOrErr(key, "no such overload"), false
 	}
 	fields := m.Struct.GetFields()
-	value, found := fields[string(key.(String))]
+	value, found := fields[string(strKey)]
 	if !found {
-		return NewErr("no such key: '%v'", key)
+		return nil, found
 	}
-	return m.NativeToValue(value)
+	return m.NativeToValue(value), found
 }
 
+// Get implements the traits.Indexer interface method.
+func (m *jsonStruct) Get(key ref.Val) ref.Val {
+	v, found := m.Find(key)
+	if !found {
+		return ValOrErr(v, "no such key: %v", v)
+	}
+	return v
+}
+
+// Iterator implements the traits.Iterable interface method.
 func (m *jsonStruct) Iterator() traits.Iterator {
 	f := m.GetFields()
 	keys := make([]string, len(m.GetFields()))
@@ -155,14 +179,17 @@ func (m *jsonStruct) Iterator() traits.Iterator {
 		mapKeys:      keys}
 }
 
+// Size implements the traits.Sizer interface method.
 func (m *jsonStruct) Size() ref.Val {
 	return Int(len(m.GetFields()))
 }
 
+// Type implements the ref.Val interface method.
 func (m *jsonStruct) Type() ref.Type {
 	return MapType
 }
 
+// Value implements the ref.Val interface method.
 func (m *jsonStruct) Value() interface{} {
 	return m.Struct
 }
@@ -174,10 +201,12 @@ type jsonValueMapIterator struct {
 	mapKeys []string
 }
 
+// HasNext implements the traits.Iterator interface method.
 func (it *jsonValueMapIterator) HasNext() ref.Val {
 	return Bool(it.cursor < it.len)
 }
 
+// Next implements the traits.Iterator interface method.
 func (it *jsonValueMapIterator) Next() ref.Val {
 	if it.HasNext() == True {
 		index := it.cursor

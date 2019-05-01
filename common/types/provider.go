@@ -364,7 +364,7 @@ func (a *defaultTypeAdapter) NativeToValue(value interface{}) ref.Val {
 	case []string:
 		return NewStringList(a, value.([]string))
 	case map[string]string:
-		return NewStringStringMap(value.(map[string]string))
+		return NewStringStringMap(a, value.(map[string]string))
 	case *dpb.Duration:
 		if ptr := value.(*dpb.Duration); ptr != nil {
 			return Duration{ptr}

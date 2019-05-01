@@ -40,6 +40,9 @@ func NewErr(format string, args ...interface{}) ref.Val {
 // ValOrErr either returns the existing error or create a new one.
 // TODO: Audit the use of this function and standardize the error messages and codes.
 func ValOrErr(val ref.Val, format string, args ...interface{}) ref.Val {
+	if val == nil {
+		return NewErr(format, args...)
+	}
 	switch val.Type() {
 	case ErrType, UnknownType:
 		return val
