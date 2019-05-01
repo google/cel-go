@@ -192,23 +192,31 @@ func initInterpretable(
 }
 
 // Eval implements the Program interface method.
-func (p *prog) Eval(input interface{}) (ref.Val, EvalDetails, error) {
+func (p *prog) Eval(input interface{}) (v ref.Val, det EvalDetails, err error) {
+	// Configure error recovery for unexpected panics during evaluation. Note, the use of named
+	// return values makes it possible to modify the error response during the recovery
+	// function.
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("internal error: %v", r)
+		}
+	}()
 	// Build a hierarchical activation if there are default vars set.
 	vars, err := interpreter.NewAdaptingActivation(p.adapter, input)
 	if err != nil {
-		return nil, nil, err
+		return
 	}
 	if p.defaultVars != nil {
 		vars = interpreter.NewHierarchicalActivation(p.defaultVars, vars)
 	}
-	v := p.interpretable.Eval(vars)
+	v = p.interpretable.Eval(vars)
 	// The output of an internal Eval may have a value (`v`) that is a types.Err. This step
 	// translates the CEL value to a Go error response. This interface does not quite match the
 	// RPC signature which allows for multiple errors to be returned, but should be sufficient.
 	if types.IsError(v) {
-		return v, nil, v.Value().(error)
+		err = v.Value().(error)
 	}
-	return v, nil, nil
+	return
 }
 
 // Eval implements the Program interface method.
