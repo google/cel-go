@@ -15,6 +15,7 @@
 package interpreter
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 
@@ -63,6 +64,12 @@ func NewActivation(bindings interface{}) (Activation, error) {
 //   - `func() ref.Val`: a CEL value supplier.
 //   - other: a native value which must be converted to a CEL `ref.Val` by the `adapter`.
 func NewAdaptingActivation(adapter ref.TypeAdapter, bindings interface{}) (Activation, error) {
+	if adapter == nil {
+		return nil, errors.New("adapter must be non-nil")
+	}
+	if bindings == nil {
+		return nil, errors.New("bindings must be non-nil")
+	}
 	a, isActivation := bindings.(Activation)
 	if isActivation {
 		return a, nil
@@ -72,17 +79,6 @@ func NewAdaptingActivation(adapter ref.TypeAdapter, bindings interface{}) (Activ
 		return nil, fmt.Errorf(
 			"activation input must be an activation or map[string]interface: got %T",
 			bindings)
-	}
-	var allRefVals = true
-	for _, v := range m {
-		_, isVal := v.(ref.Val)
-		if !isVal {
-			allRefVals = false
-			break
-		}
-	}
-	if allRefVals {
-		return &mapActivation{bindings: m}, nil
 	}
 	return &mapActivation{adapter: adapter, bindings: m}, nil
 }
@@ -108,15 +104,12 @@ func (a *mapActivation) ResolveName(name string) (ref.Val, bool) {
 		// Resolve a lazily bound value.
 		case func() ref.Val:
 			val := object.(func() ref.Val)()
+			val = a.adapter.NativeToValue(val)
 			a.bindings[name] = val
 			return val, true
 		// Otherwise, return the bound value.
-		case ref.Val:
-			return object.(ref.Val), true
 		default:
-			if a.adapter != nil {
-				return a.adapter.NativeToValue(object), true
-			}
+			return a.adapter.NativeToValue(object), true
 		}
 	}
 	return nil, false

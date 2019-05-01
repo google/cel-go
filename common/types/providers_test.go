@@ -22,6 +22,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
+
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 
@@ -233,10 +234,13 @@ func TestNativeToValue_Json(t *testing.T) {
 
 func TestNativeToValue_Primitive(t *testing.T) {
 	reg := NewRegistry()
+
 	// Core type conversions.
 	expectNativeToValue(t, true, True)
+	expectNativeToValue(t, int(-10), Int(-10))
 	expectNativeToValue(t, int32(-1), Int(-1))
 	expectNativeToValue(t, int64(2), Int(2))
+	expectNativeToValue(t, uint(6), Uint(6))
 	expectNativeToValue(t, uint32(3), Uint(3))
 	expectNativeToValue(t, uint64(4), Uint(4))
 	expectNativeToValue(t, float32(5.5), Double(5.5))
@@ -246,7 +250,53 @@ func TestNativeToValue_Primitive(t *testing.T) {
 	expectNativeToValue(t, []int32{1, 2, 3}, NewDynamicList(reg, []int32{1, 2, 3}))
 	expectNativeToValue(t, map[int32]int32{1: 1, 2: 1, 3: 1},
 		NewDynamicMap(reg, map[int32]int32{1: 1, 2: 1, 3: 1}))
+
+	// Pointers to core types.
+	pBool := true
+	expectNativeToValue(t, &pBool, True)
+	pDub32 := float32(2.5)
+	pDub64 := float64(-1000.2)
+	expectNativeToValue(t, &pDub32, Double(2.5))
+	expectNativeToValue(t, &pDub64, Double(-1000.2))
+	pInt := int(1)
+	pInt32 := int32(2)
+	pInt64 := int64(-1000)
+	expectNativeToValue(t, &pInt, Int(1))
+	expectNativeToValue(t, &pInt32, Int(2))
+	expectNativeToValue(t, &pInt64, Int(-1000))
+	pStr := "hello"
+	expectNativeToValue(t, &pStr, String("hello"))
+	pUint := uint(1)
+	pUint32 := uint32(2)
+	pUint64 := uint64(1000)
+	expectNativeToValue(t, &pUint, Uint(1))
+	expectNativeToValue(t, &pUint32, Uint(2))
+	expectNativeToValue(t, &pUint64, Uint(1000))
+
+	// Pointers to ref.Val extensions of core types.
+	rBool := True
+	expectNativeToValue(t, &rBool, True)
+	rDub := Double(32.1)
+	expectNativeToValue(t, &rDub, rDub)
+	rInt := Int(-12)
+	expectNativeToValue(t, &rInt, rInt)
+	rStr := String("hello")
+	expectNativeToValue(t, &rStr, rStr)
+	rUint := Uint(12405)
+	expectNativeToValue(t, &rUint, rUint)
+	rBytes := Bytes([]byte("hello"))
+	expectNativeToValue(t, &rBytes, rBytes)
+
+	// Extensions to core types.
+	expectNativeToValue(t, testInt32(1), Int(1))
+	expectNativeToValue(t, testInt64(-100), Int(-100))
+	expectNativeToValue(t, testUint32(2), Uint(2))
+	expectNativeToValue(t, testUint64(3), Uint(3))
+	expectNativeToValue(t, testFloat32(4.5), Double(4.5))
+	expectNativeToValue(t, testFloat64(-5.1), Double(-5.1))
+
 	// Null conversion test.
+	expectNativeToValue(t, nil, NullValue)
 	expectNativeToValue(t, structpb.NullValue_NULL_VALUE, Null(structpb.NullValue_NULL_VALUE))
 }
 
@@ -293,10 +343,6 @@ func expectNativeToValue(t *testing.T, in interface{}, out ref.Val) {
 	}
 }
 
-type nonConvertible struct {
-	Field string
-}
-
 func BenchmarkTypeProvider_NewValue(b *testing.B) {
 	reg := NewRegistry(&exprpb.ParsedExpr{})
 	for i := 0; i < b.N; i++ {
@@ -309,3 +355,14 @@ func BenchmarkTypeProvider_NewValue(b *testing.B) {
 			})
 	}
 }
+
+// Helper types useful for testing extensions of primitive types.
+type nonConvertible struct {
+	Field string
+}
+type testInt32 int32
+type testInt64 int64
+type testUint32 uint32
+type testUint64 uint64
+type testFloat32 float32
+type testFloat64 float64

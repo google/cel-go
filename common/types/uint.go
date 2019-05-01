@@ -19,6 +19,7 @@ import (
 	"reflect"
 
 	structpb "github.com/golang/protobuf/ptypes/struct"
+
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 )
@@ -37,7 +38,7 @@ var (
 		traits.SubtractorType)
 )
 
-// Int constants
+// Uint constants
 const (
 	uintZero = Uint(0)
 )
