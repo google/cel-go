@@ -15,6 +15,7 @@
 package interpreter
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 
@@ -63,6 +64,12 @@ func NewActivation(bindings interface{}) (Activation, error) {
 //   - `func() ref.Val`: a CEL value supplier.
 //   - other: a native value which must be converted to a CEL `ref.Val` by the `adapter`.
 func NewAdaptingActivation(adapter ref.TypeAdapter, bindings interface{}) (Activation, error) {
+	if adapter == nil {
+		return nil, errors.New("adapter must be non-nil")
+	}
+	if bindings == nil {
+		return nil, errors.New("bindings must be non-nil")
+	}
 	a, isActivation := bindings.(Activation)
 	if isActivation {
 		return a, nil
