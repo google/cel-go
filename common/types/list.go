@@ -260,17 +260,23 @@ func (l *concatList) Add(other ref.Val) ref.Val {
 
 // Contains implments the traits.Container interface method.
 func (l *concatList) Contains(elem ref.Val) ref.Val {
+	// The concat list relies on the IsErrorOrUnknown checks against the input element to be
+	// performed by the `prevList` and/or `nextList`.
 	prev := l.prevList.Contains(elem)
+	// Short-circuit the return if the elem was found in the prev list.
 	if prev == True {
 		return prev
 	}
+	// Return if the elem was found in the next list.
 	next := l.nextList.Contains(elem)
 	if next == True {
 		return next
 	}
+	// Handle the case where an error or unknown was encountered before checking next.
 	if IsUnknownOrError(prev) {
 		return prev
 	}
+	// Otherwise, rely on the next value as the representative result.
 	return next
 }
 
