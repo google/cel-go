@@ -136,10 +136,15 @@ func (p *planner) planIdent(expr *exprpb.Expr) (Interpretable, error) {
 	if found {
 		return i, nil
 	}
+	var resolver func(Activation) (ref.Val, bool)
+	if p.pkg.Package() != "" {
+		resolver = p.idResolver(idName)
+	}
 	i = &evalIdent{
-		id:       expr.Id,
-		name:     idName,
-		provider: p.provider,
+		id:        expr.Id,
+		name:      idName,
+		provider:  p.provider,
+		resolveID: resolver,
 	}
 	p.identMap[idName] = i
 	return i, nil
@@ -205,11 +210,15 @@ func (p *planner) planSelect(expr *exprpb.Expr) (Interpretable, error) {
 	if err != nil {
 		return nil, err
 	}
+	var resolver func(Activation) (ref.Val, bool)
+	if qualID, isID := p.getQualifiedID(sel); isID {
+		resolver = p.idResolver(qualID)
+	}
 	return &evalSelect{
 		id:        expr.Id,
 		field:     types.String(sel.Field),
 		op:        op,
-		resolveID: p.idResolver(sel),
+		resolveID: resolver,
 	}, nil
 }
 
@@ -566,11 +575,9 @@ func (p *planner) constValue(c *exprpb.Constant) (ref.Val, error) {
 	return nil, fmt.Errorf("unknown constant type: %v", c)
 }
 
-// idResolver returns a function that resolves a Select expression to an identifier or field
-// selection based on the operand being of Unknown type.
-func (p *planner) idResolver(sel *exprpb.Expr_Select) func(Activation) (ref.Val, bool) {
-	// TODO: ensure id resolution prefers the most specific identifier rather than the least
-	// specific to be consistent with the check id resolution.
+// getQualifiedId converts a Select expression to a qualified identifier suitable for identifier
+// resolution. If the expression is not an identifier, the second return will be false.
+func (p *planner) getQualifiedID(sel *exprpb.Expr_Select) (string, bool) {
 	validIdent := true
 	resolvedIdent := false
 	ident := sel.Field
@@ -588,6 +595,11 @@ func (p *planner) idResolver(sel *exprpb.Expr_Select) func(Activation) (ref.Val,
 			validIdent = false
 		}
 	}
+	return ident, validIdent
+}
+
+// idResolver returns a function that resolves an identifier to its appropriate namespace.
+func (p *planner) idResolver(ident string) func(Activation) (ref.Val, bool) {
 	return func(ctx Activation) (ref.Val, bool) {
 		for _, id := range p.pkg.ResolveCandidateNames(ident) {
 			if object, found := ctx.ResolveName(id); found {
@@ -602,9 +614,10 @@ func (p *planner) idResolver(sel *exprpb.Expr_Select) func(Activation) (ref.Val,
 }
 
 type evalIdent struct {
-	id       int64
-	name     string
-	provider ref.TypeProvider
+	id        int64
+	name      string
+	provider  ref.TypeProvider
+	resolveID func(Activation) (ref.Val, bool)
 }
 
 // ID implements the Interpretable interface method.
@@ -614,13 +627,23 @@ func (id *evalIdent) ID() int64 {
 
 // Eval implements the Interpretable interface method.
 func (id *evalIdent) Eval(ctx Activation) ref.Val {
-	val, found := ctx.ResolveName(id.name)
-	if found {
-		return val
-	}
-	typeVal, found := id.provider.FindIdent(id.name)
-	if found {
-		return typeVal
+	idName := id.name
+	if id.resolveID != nil {
+		// When the resolveID function is non-nil, the name could be relative
+		// to the container.
+		if val, found := id.resolveID(ctx); found {
+			return val
+		}
+	} else {
+		// Resolve the simple name directly as a type or ident.
+		val, found := ctx.ResolveName(idName)
+		if found {
+			return val
+		}
+		typeVal, found := id.provider.FindIdent(idName)
+		if found {
+			return typeVal
+		}
 	}
 	return types.Unknown{id.id}
 
@@ -641,8 +664,10 @@ func (sel *evalSelect) ID() int64 {
 // Eval implements the Interpretable interface method.
 func (sel *evalSelect) Eval(ctx Activation) ref.Val {
 	// If the select is actually a qualified identifier return.
-	if resolve, found := sel.resolveID(ctx); found {
-		return resolve
+	if sel.resolveID != nil {
+		if resolve, found := sel.resolveID(ctx); found {
+			return resolve
+		}
 	}
 	// Otherwise, evaluate the operand and select the field.
 	obj := sel.op.Eval(ctx)
