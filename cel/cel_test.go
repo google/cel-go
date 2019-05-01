@@ -439,6 +439,33 @@ func Test_EvalOptions(t *testing.T) {
 	}
 }
 
+func Test_EvalRecover(t *testing.T) {
+	e, _ := NewEnv(
+		Declarations(
+			decls.NewFunction("panic",
+				decls.NewOverload("panic", []*exprpb.Type{}, decls.Bool)),
+		))
+	funcs := Functions(&functions.Overload{
+		Operator: "panic",
+		Function: func(args ...ref.Val) ref.Val {
+			panic("watch me recover")
+		},
+	})
+	// Test standard evaluation.
+	pAst, _ := e.Parse("panic()")
+	prgm, _ := e.Program(pAst, funcs)
+	_, _, err := prgm.Eval(map[string]interface{}{})
+	if err.Error() != "internal error: watch me recover" {
+		t.Errorf("Got '%v', wanted 'internal error: watch me recover'", err)
+	}
+	// Test the factory-based evaluation.
+	prgm, _ = e.Program(pAst, funcs, EvalOptions(OptTrackState))
+	_, _, err = prgm.Eval(map[string]interface{}{})
+	if err.Error() != "internal error: watch me recover" {
+		t.Errorf("Got '%v', wanted 'internal error: watch me recover'", err)
+	}
+}
+
 func Benchmark_EvalOptions(b *testing.B) {
 	e, _ := NewEnv(
 		Declarations(
