@@ -54,7 +54,49 @@ env, err := cel.NewEnv(
 
 That's it, the environment is ready to be use for parsing and type-checking.
 CEL supports all the usual primitive types in addition to lists, maps, as well
-as first-class support for JSON and Protocol Buffers.
+as first-class support for JSON and Protocol Buffers. More details on adding
+Protocol Buffers are below.
+
+#### Support for Protocol Buffers
+
+There are several methods that can be used to add a protocol buffer message to
+the environment.
+
+A single protocol buffer message type can be defined like so:
+```go
+import(
+    "github.com/google/cel-go/cel"
+    "github.com/google/cel-go/checker/decls"
+
+    pb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+)
+
+	env, err := cel.NewEnv(
+		cel.Container("google.api.expr.v1alpha1"),
+		cel.Types(&exprpb.Expr{}),
+		cel.Declarations(
+			decls.NewIdent("expr", decls.NewObjectType("google.api.expr.v1alpha1.Expr"), nil)))
+```
+
+Alternatively, a `.pb.go` file can be specified like so (this will add every
+type defined in the file):
+```go
+import(
+    "github.com/google/cel-go/cel"
+    "github.com/google/cel-go/checker/decls"
+
+    pb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+)
+
+	env, err := cel.NewEnv(
+		cel.Container("google.api.expr.v1alpha1"),
+        cel.VariablesFromMessageFields(&exprpb))
+```
+
+NOTES: The names of the types will be the same as the names in the protobuf
+file, expect all lowercase, with words separated by underscores.
+
+TODO? How to then use these - does this need doccing?
 
 ### Parse and Check
 

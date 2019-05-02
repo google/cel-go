@@ -234,13 +234,30 @@ func Test_HomogeneousAggregateLiterals(t *testing.T) {
 }
 
 func Test_CustomTypes(t *testing.T) {
-	e, _ := NewEnv(
+	env, _ := NewEnv(
 		Container("google.api.expr.v1alpha1"),
 		Types(&exprpb.Expr{}),
 		Declarations(
 			decls.NewIdent("expr",
 				decls.NewObjectType("google.api.expr.v1alpha1.Expr"), nil)))
 
+	checkExprAdded(t, env)
+}
+
+func Test_UsingProtoMessageForDeclarations(t *testing.T) {
+	// Define the variables using a proto message
+	env, _ := NewEnv(
+		Container("google.api.expr.v1alpha1"),
+		VariablesFromMessageFields(&exprpb.Expr{}))
+
+	checkExprAdded(t, env)
+}
+
+// As well as basic check that this still works, may also want another test to
+// check that it works WITH other declarations as well!
+
+// checkExprAdded checks that the custom type (Expr) has been added correctly.
+func checkExprAdded(t *testing.T, e Env) {
 	p, _ := e.Parse(`
 		expr == Expr{id: 2,
 			call_expr: Expr.Call{
@@ -251,6 +268,7 @@ func Test_CustomTypes(t *testing.T) {
 			}}`)
 	c, _ := e.Check(p)
 	prg, _ := e.Program(c)
+
 	vars := map[string]interface{}{"expr": &exprpb.Expr{
 		Id: 2,
 		ExprKind: &exprpb.Expr_CallExpr{
@@ -277,6 +295,7 @@ func Test_CustomTypes(t *testing.T) {
 	if out != types.True {
 		t.Errorf("Got '%v', wanted 'true'", out.Value())
 	}
+
 }
 
 func Test_TypeIsolation(t *testing.T) {
