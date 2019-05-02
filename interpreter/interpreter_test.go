@@ -731,17 +731,20 @@ func BenchmarkInterpreter_CanonicalExpressions(b *testing.B) {
 		if len(errors.GetErrors()) != 0 {
 			b.Errorf(errors.ToDisplayString())
 		}
-
 		reg := types.NewRegistry()
 		pkg := packages.DefaultPackage
 		env := checker.NewStandardEnv(pkg, reg)
 		env.Add(
 			decls.NewIdent("ai", decls.Int, nil),
-			decls.NewIdent("ar", decls.NewMapType(decls.String, decls.String), nil))
+			decls.NewIdent("ar", decls.NewMapType(decls.String, decls.String), nil),
+			decls.NewIdent("headers.ip", decls.String, nil),
+			decls.NewIdent("headers.path", decls.String, nil),
+			decls.NewIdent("headers.token", decls.String, nil),
+		)
 		checked, _ := checker.Check(parsed, s, env)
 		disp := NewDispatcher()
 		disp.Add(functions.StandardOverloads()...)
-		prg, _ := interpreter.NewInterpretable(checked)
+		prg, _ := interpreter.NewInterpretable(checked, FoldConstants())
 		activation, _ := NewActivation(tst.I)
 		b.Run(tst.name, func(bb *testing.B) {
 			b.ResetTimer()
@@ -796,6 +799,20 @@ var (
 			name: `ExprBench/false_2nd`,
 			E:    `true && false`,
 			I:    map[string]interface{}{},
+		},
+		{
+			name: `ExprBench/complex`,
+			E: `
+			!(headers.ip in ["10.0.1.4", "10.0.1.5"]) &&
+			  ((headers.path.startsWith("v1") && headers.token in ["v1", "v2", "admin"]) ||
+			   (headers.path.startsWith("v2") && headers.token in ["v2", "admin"]) ||
+			   (headers.path.startsWith("/admin") && headers.token == "admin" && headers.ip in ["10.0.1.2", "10.0.1.2", "10.0.1.2"]))
+			`,
+			I: map[string]interface{}{
+				"headers.ip":    "10.0.1.2",
+				"headers.path":  "/admin/edit",
+				"headers.token": "admin",
+			},
 		},
 	}
 )

@@ -15,6 +15,7 @@
 package interpreter
 
 import (
+	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
@@ -112,9 +113,80 @@ func decFoldConstants() InterpretableDecorator {
 				id:  mp.id,
 				val: val,
 			}, nil
+		case *evalBinary:
+			return optimizeSetMembership(i)
 		}
 		return i, nil
 	}
+}
+
+func optimizeSetMembership(i Interpretable) (Interpretable, error) {
+	switch i.(type) {
+	case *evalBinary:
+		call := i.(*evalBinary)
+		if call.overload != overloads.InList {
+			return i, nil
+		}
+		l, isConst := call.rhs.(*evalConst)
+		if !isConst {
+			return i, nil
+		}
+		list := l.val.(traits.Lister)
+		if list.Size() == types.IntZero {
+			return &evalConst{
+				id:  call.id,
+				val: types.False,
+			}, nil
+		}
+		it := list.Iterator()
+		var typ ref.Type
+		valueSet := make(map[ref.Val]ref.Val)
+		for it.HasNext() == types.True {
+			elem := it.Next()
+			elemType := elem.Type()
+			if elemType != types.BytesType &&
+				elemType != types.StringType &&
+				elemType != types.IntType &&
+				elemType != types.UintType {
+				return i, nil
+			}
+			if typ == nil {
+				typ = elemType
+			} else if typ.TypeName() != elemType.TypeName() {
+				return i, nil
+			}
+			valueSet[elem] = types.True
+		}
+		return &evalSetMembership{
+			inst:        call,
+			arg:         call.lhs,
+			argTypeName: typ.TypeName(),
+			valueSet:    valueSet,
+		}, nil
+	}
+	return i, nil
+}
+
+type evalSetMembership struct {
+	inst        Interpretable
+	arg         Interpretable
+	argTypeName string
+	valueSet    map[ref.Val]ref.Val
+}
+
+func (e *evalSetMembership) ID() int64 {
+	return e.inst.ID()
+}
+
+func (e *evalSetMembership) Eval(ctx Activation) ref.Val {
+	val := e.arg.Eval(ctx)
+	if val.Type().TypeName() != e.argTypeName {
+		return types.ValOrErr(val, "no such overload")
+	}
+	if ret, found := e.valueSet[val]; found {
+		return ret
+	}
+	return types.False
 }
 
 // evalWatch is an Interpretable implementation that wraps the execution of a given
