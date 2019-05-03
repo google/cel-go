@@ -16,6 +16,8 @@ package cel
 
 import (
 	"fmt"
+	"reflect"
+	"strings"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cel-go/common/packages"
@@ -23,6 +25,7 @@ import (
 	"github.com/google/cel-go/interpreter"
 	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/parser"
+	"github.com/google/cel-go/checker/decls"
 
 	descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
@@ -73,6 +76,34 @@ func CustomTypeAdapter(adapter ref.TypeAdapter) EnvOption {
 func CustomTypeProvider(provider ref.TypeProvider) EnvOption {
 	return func(e *env) (*env, error) {
 		e.provider = provider
+		return e, nil
+	}
+}
+
+// MUST COME AFTER CONTAINER DEFINITION
+// Container definition must give full path -different from current behaviour?
+// Add a docstring
+// currently I've passed in one message type, and I'm dealing with that.
+// actually, we want to pass in the entire .pb.go file, and just get all
+// messages out of that
+func VariablesFromMessageFields(msgType interface{}) EnvOption {
+	return func(e *env) (*env, error) {
+		reg, isReg := e.provider.(ref.TypeRegistry)
+		if !isReg {
+			return nil, fmt.Errorf("custom types not supported by provider: %T", e.provider)
+		}
+
+		err := reg.RegisterMessage(msgType.(proto.Message))
+		if err != nil {
+			return nil, err
+		}
+
+		packageName := e.pkg.Package()
+		msgName := reflect.TypeOf(msgType).Elem().Name()
+		name := packageName + "." + msgName
+		decls := decls.NewIdent(strings.ToLower(msgName), decls.NewObjectType(name), nil)
+		e.declarations = append(e.declarations, decls)
+
 		return e, nil
 	}
 }
