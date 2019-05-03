@@ -16,6 +16,7 @@ package cel
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
@@ -193,6 +194,7 @@ func initInterpretable(
 
 // Eval implements the Program interface method.
 func (p *prog) Eval(input interface{}) (ref.Val, EvalDetails, error) {
+	
 	// Build a hierarchical activation if there are default vars set.
 	vars, err := interpreter.NewAdaptingActivation(p.adapter, input)
 	if err != nil {
@@ -201,6 +203,7 @@ func (p *prog) Eval(input interface{}) (ref.Val, EvalDetails, error) {
 	if p.defaultVars != nil {
 		vars = interpreter.NewHierarchicalActivation(p.defaultVars, vars)
 	}
+	log.Printf("HERE!!!! vals are: %v", vars)
 	v := p.interpretable.Eval(vars)
 	// The output of an internal Eval may have a value (`v`) that is a types.Err. This step
 	// translates the CEL value to a Go error response. This interface does not quite match the
@@ -216,6 +219,7 @@ func (gen *progGen) Eval(input interface{}) (ref.Val, EvalDetails, error) {
 	// The factory based Eval() differs from the standard evaluation model in that it generates a
 	// new EvalState instance for each call to ensure that unique evaluations yield unique stateful
 	// results.
+	log.Printf("HERE??")
 	state := interpreter.NewEvalState()
 	det := &evalDetails{state: state}
 

@@ -234,30 +234,12 @@ func Test_HomogeneousAggregateLiterals(t *testing.T) {
 }
 
 func Test_CustomTypes(t *testing.T) {
-	env, _ := NewEnv(
+	e, _ := NewEnv(
 		Container("google.api.expr.v1alpha1"),
 		Types(&exprpb.Expr{}),
 		Declarations(
 			decls.NewIdent("expr",
 				decls.NewObjectType("google.api.expr.v1alpha1.Expr"), nil)))
-
-	checkExprAdded(t, env)
-}
-
-func Test_UsingProtoMessageForDeclarations(t *testing.T) {
-	// Define the variables using a proto message
-	env, _ := NewEnv(
-		Container("google.api.expr.v1alpha1"),
-		VariablesFromMessageFields(&exprpb.Expr{}))
-
-	checkExprAdded(t, env)
-}
-
-// As well as basic check that this still works, may also want another test to
-// check that it works WITH other declarations as well!
-
-// checkExprAdded checks that the custom type (Expr) has been added correctly.
-func checkExprAdded(t *testing.T, e Env) {
 	p, _ := e.Parse(`
 		expr == Expr{id: 2,
 			call_expr: Expr.Call{
@@ -268,7 +250,6 @@ func checkExprAdded(t *testing.T, e Env) {
 			}}`)
 	c, _ := e.Check(p)
 	prg, _ := e.Program(c)
-
 	vars := map[string]interface{}{"expr": &exprpb.Expr{
 		Id: 2,
 		ExprKind: &exprpb.Expr_CallExpr{
@@ -295,8 +276,31 @@ func checkExprAdded(t *testing.T, e Env) {
 	if out != types.True {
 		t.Errorf("Got '%v', wanted 'true'", out.Value())
 	}
-
 }
+
+func Test_VariablesFromMessageFields(t *testing.T) {
+	e, _ := NewEnv(
+		Container("google.api.expr.v1alpha1"),
+		VariablesFromMessageFields(&exprpb.Expr{}))
+	p, _ := e.Parse(`
+		ident == Expr.Ident{name: "a"}`)
+	// TODO - Add other conditions! (Checking other types in Expr
+	// THAT AREN'T MESSAGES.) E.g.:
+	// message_name = "three"
+	// This might need to be split out into its own test?
+	c, _ := e.Check(p)	
+	prg, _ := e.Program(c)
+
+	vars := map[string]interface{}{"ident": &exprpb.Expr_Ident{
+			Name: "a"}}
+	out, _, _ := prg.Eval(vars)
+	if out != types.True {
+		t.Errorf("Got '%v', wanted 'true'", out.Value())
+	}
+}
+
+// TODO - Add another test which checks that the above declaration plays nicely
+// with other declarations?
 
 func Test_TypeIsolation(t *testing.T) {
 	b, err := ioutil.ReadFile("testdata/team.fds")

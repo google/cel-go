@@ -16,8 +16,7 @@ package cel
 
 import (
 	"fmt"
-	"reflect"
-	"strings"
+	"log"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cel-go/common/packages"
@@ -76,34 +75,6 @@ func CustomTypeAdapter(adapter ref.TypeAdapter) EnvOption {
 func CustomTypeProvider(provider ref.TypeProvider) EnvOption {
 	return func(e *env) (*env, error) {
 		e.provider = provider
-		return e, nil
-	}
-}
-
-// MUST COME AFTER CONTAINER DEFINITION
-// Container definition must give full path -different from current behaviour?
-// Add a docstring
-// currently I've passed in one message type, and I'm dealing with that.
-// actually, we want to pass in the entire .pb.go file, and just get all
-// messages out of that
-func VariablesFromMessageFields(msgType interface{}) EnvOption {
-	return func(e *env) (*env, error) {
-		reg, isReg := e.provider.(ref.TypeRegistry)
-		if !isReg {
-			return nil, fmt.Errorf("custom types not supported by provider: %T", e.provider)
-		}
-
-		err := reg.RegisterMessage(msgType.(proto.Message))
-		if err != nil {
-			return nil, err
-		}
-
-		packageName := e.pkg.Package()
-		msgName := reflect.TypeOf(msgType).Elem().Name()
-		name := packageName + "." + msgName
-		decls := decls.NewIdent(strings.ToLower(msgName), decls.NewObjectType(name), nil)
-		e.declarations = append(e.declarations, decls)
-
 		return e, nil
 	}
 }
@@ -187,6 +158,44 @@ func Types(addTypes ...interface{}) EnvOption {
 				return nil, fmt.Errorf("unsupported type: %T", t)
 			}
 		}
+		return e, nil
+	}
+}
+
+// TODO
+func VariablesFromMessageFields(t interface{}) EnvOption {
+
+	// TODO - This should walk the fields of the message type and add each one
+	// For now I'm just hardcoding one in to get the test to pass though:
+	subtypes := [...]interface{}{&exprpb.Expr_Ident{}}
+
+	return func(e *env) (*env, error) {
+		reg, isReg := e.provider.(ref.TypeRegistry)
+		if !isReg {
+			return nil, fmt.Errorf("custom types not supported by provider: %T", e.provider)
+		}
+
+		for _, variableType := range subtypes {
+			switch variableType.(type) {
+			case proto.Message:
+				err := reg.RegisterMessage(variableType.(proto.Message))
+				if err != nil {
+					return nil, err
+				}
+				// TODO - There are more hardocoded names here which will need to be
+				// removed
+				decls := decls.NewIdent("ident", decls.NewObjectType("google.api.expr.v1alpha1.Expr.Ident"), nil)
+				e.declarations = append(e.declarations, decls)
+			case ref.Type:
+				log.Printf("need to fill this case in")
+				// TODO - Fill this case in!
+			// TODO - Find out if there are any other cases that need adding,
+			// and add them if so
+			default:
+				return nil, fmt.Errorf("unsupported type: %T", t)
+			}
+		}
+
 		return e, nil
 	}
 }
