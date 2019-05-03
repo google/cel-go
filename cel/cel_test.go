@@ -278,17 +278,13 @@ func Test_CustomTypes(t *testing.T) {
 	}
 }
 
-func Test_VariablesFromMessageFields(t *testing.T) {
+func Test_VariablesFromMessageFieldsMsg(t *testing.T) {
 	e, _ := NewEnv(
 		Container("google.api.expr.v1alpha1"),
 		VariablesFromMessageFields(&exprpb.Expr{}))
 	p, _ := e.Parse(`
 		ident == Expr.Ident{name: "a"}`)
-	// TODO - Add other conditions! (Checking other types in Expr
-	// THAT AREN'T MESSAGES.) E.g.:
-	// message_name = "three"
-	// This might need to be split out into its own test?
-	c, _ := e.Check(p)	
+	c, _ := e.Check(p)
 	prg, _ := e.Program(c)
 
 	vars := map[string]interface{}{"ident": &exprpb.Expr_Ident{
@@ -298,6 +294,26 @@ func Test_VariablesFromMessageFields(t *testing.T) {
 		t.Errorf("Got '%v', wanted 'true'", out.Value())
 	}
 }
+
+// TODO - Get this test to pass
+// The above test checks that fields with custom types are added correctly. This
+// test will check that fields with non-custom types are also added correctly.
+// func Test_VariablesFromMessageFieldsType(t *testing.T) {
+// 	e, _ := NewEnv(
+// 		Container("google.api.expr.v1alpha1"),
+// 		VariablesFromMessageFields(&exprpb.Expr{}))
+// 	p, _ := e.Parse(`
+// 		id == 3`)
+// 	c, _ := e.Check(p)
+// 	prg, _ := e.Program(c)
+
+// 	vars := map[string]interface{}{"id": 3}
+// 	out, _, _ := prg.Eval(vars)
+// 	if out != types.True {
+// 		t.Errorf("Got '%v', wanted 'true'", out.Value())
+// 	}
+// }
+
 
 // TODO - Add another test which checks that the above declaration plays nicely
 // with other declarations?
