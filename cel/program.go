@@ -16,6 +16,7 @@ package cel
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
@@ -224,6 +225,7 @@ func (gen *progGen) Eval(input interface{}) (ref.Val, EvalDetails, error) {
 	// The factory based Eval() differs from the standard evaluation model in that it generates a
 	// new EvalState instance for each call to ensure that unique evaluations yield unique stateful
 	// results.
+	log.Printf("HERE??")
 	state := interpreter.NewEvalState()
 	det := &evalDetails{state: state}
 

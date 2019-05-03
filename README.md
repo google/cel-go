@@ -78,8 +78,8 @@ import(
 			decls.NewIdent("expr", decls.NewObjectType("google.api.expr.v1alpha1.Expr"), nil)))
 ```
 
-Alternatively, a `.pb.go` file can be specified like so (this will add every
-type defined in the file):
+Alternatively, a message type can be specified, and all the fields of that type
+will be defined, like so:
 ```go
 import(
     "github.com/google/cel-go/cel"
@@ -90,13 +90,15 @@ import(
 
 	env, err := cel.NewEnv(
 		cel.Container("google.api.expr.v1alpha1"),
-        cel.VariablesFromMessageFields(&exprpb))
+        cel.VariablesFromMessageFields(&exprpb.Expr))
 ```
+The above would add all the fields from the Expr type as variables, with names
+that matched the schema, but in lower case.
+For example, the type Ident (which is one of the feilds in Expr as seen in the
+schema [here](https://github.com/googleapis/googleapis/blob/07244bb797ddd6e0c1c15b02b4467a9a5729299f/google/api/expr/v1alpha1/syntax.proto#L60)) would be added with the name "ident".
 
-NOTES: The names of the types will be the same as the names in the protobuf
-file, expect all lowercase, with words separated by underscores.
-
-TODO? How to then use these - does this need doccing?
+TODO: What if the names are two words (e.g. HiThere)?
+TODO: Document how these can then be used?
 
 ### Parse and Check
 
