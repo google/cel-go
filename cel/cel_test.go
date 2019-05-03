@@ -485,7 +485,7 @@ func Benchmark_EvalOptions(b *testing.B) {
 	opts := map[string]EvalOption{
 		"track-state":     OptTrackState,
 		"exhaustive-eval": OptExhaustiveEval,
-		"fold-constants":  OptFoldConstants,
+		"optimize":        OptOptimize,
 	}
 	for k, opt := range opts {
 		b.Run(k, func(bb *testing.B) {

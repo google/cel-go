@@ -232,10 +232,10 @@ const (
 	// OptExhaustiveEval causes the runtime to disable short-circuits and track state.
 	OptExhaustiveEval EvalOption = 1<<iota | OptTrackState
 
-	// OptFoldConstants evaluates functions and operators with constants as arguments at program
+	// OptOptimize precomputes functions and operators with constants as arguments at program
 	// creation time. This flag is useful when the expression will be evaluated repeatedly against
 	// a series of different inputs.
-	OptFoldConstants EvalOption = 1 << iota
+	OptOptimize EvalOption = 1 << iota
 )
 
 // EvalOptions sets one or more evaluation options which may affect the evaluation or Result.

@@ -77,94 +77,104 @@ func decDisableShortcircuits() InterpretableDecorator {
 	}
 }
 
-// decFoldConstants checks whether the arguments the create list and map operations are all
-// constant values and constructs a new aggregate value. Future improvements to this method will
-// also do the same for typed object creations and functions whose arguments are constant.
-func decFoldConstants() InterpretableDecorator {
+// decOptimize optimizes the program plan by looking for common evaluation patterns and
+// conditionally precomputating the result.
+// - build list and map values with constant elements.
+// - convert 'in' operations to set membership tests if possible.
+func decOptimize() InterpretableDecorator {
 	return func(i Interpretable) (Interpretable, error) {
 		switch i.(type) {
 		case *evalList:
-			l := i.(*evalList)
-			for _, elem := range l.elems {
-				_, isConst := elem.(*evalConst)
-				if !isConst {
-					return i, nil
-				}
-			}
-			val := l.Eval(EmptyActivation())
-			return &evalConst{
-				id:  l.id,
-				val: val,
-			}, nil
+			return maybeBuildListLiteral(i)
 		case *evalMap:
-			mp := i.(*evalMap)
-			for idx, key := range mp.keys {
-				_, isConst := key.(*evalConst)
-				if !isConst {
-					return i, nil
-				}
-				_, isConst = mp.vals[idx].(*evalConst)
-				if !isConst {
-					return i, nil
-				}
-			}
-			val := mp.Eval(EmptyActivation())
-			return &evalConst{
-				id:  mp.id,
-				val: val,
-			}, nil
+			return maybeBuildMapLiteral(i)
 		case *evalBinary:
-			return optimizeSetMembership(i)
+			call := i.(*evalBinary)
+			if call.overload == overloads.InList {
+				return maybeOptimizeSetMembership(i)
+			}
 		}
 		return i, nil
 	}
 }
 
-func optimizeSetMembership(i Interpretable) (Interpretable, error) {
-	switch i.(type) {
-	case *evalBinary:
-		call := i.(*evalBinary)
-		if call.overload != overloads.InList {
-			return i, nil
-		}
-		l, isConst := call.rhs.(*evalConst)
+func maybeBuildListLiteral(i Interpretable) (Interpretable, error) {
+	l := i.(*evalList)
+	for _, elem := range l.elems {
+		_, isConst := elem.(*evalConst)
 		if !isConst {
 			return i, nil
 		}
-		list := l.val.(traits.Lister)
-		if list.Size() == types.IntZero {
-			return &evalConst{
-				id:  call.id,
-				val: types.False,
-			}, nil
+	}
+	val := l.Eval(EmptyActivation())
+	return &evalConst{
+		id:  l.id,
+		val: val,
+	}, nil
+}
+
+func maybeBuildMapLiteral(i Interpretable) (Interpretable, error) {
+	mp := i.(*evalMap)
+	for idx, key := range mp.keys {
+		_, isConst := key.(*evalConst)
+		if !isConst {
+			return i, nil
 		}
-		it := list.Iterator()
-		var typ ref.Type
-		valueSet := make(map[ref.Val]ref.Val)
-		for it.HasNext() == types.True {
-			elem := it.Next()
-			elemType := elem.Type()
-			if elemType != types.BytesType &&
-				elemType != types.StringType &&
-				elemType != types.IntType &&
-				elemType != types.UintType {
-				return i, nil
-			}
-			if typ == nil {
-				typ = elemType
-			} else if typ.TypeName() != elemType.TypeName() {
-				return i, nil
-			}
-			valueSet[elem] = types.True
+		_, isConst = mp.vals[idx].(*evalConst)
+		if !isConst {
+			return i, nil
 		}
-		return &evalSetMembership{
-			inst:        call,
-			arg:         call.lhs,
-			argTypeName: typ.TypeName(),
-			valueSet:    valueSet,
+	}
+	val := mp.Eval(EmptyActivation())
+	return &evalConst{
+		id:  mp.id,
+		val: val,
+	}, nil
+}
+
+func maybeOptimizeSetMembership(i Interpretable) (Interpretable, error) {
+	call := i.(*evalBinary)
+	if call.overload != overloads.InList {
+		return i, nil
+	}
+	l, isConst := call.rhs.(*evalConst)
+	if !isConst {
+		return i, nil
+	}
+	list := l.val.(traits.Lister)
+	if list.Size() == types.IntZero {
+		return &evalConst{
+			id:  call.id,
+			val: types.False,
 		}, nil
 	}
-	return i, nil
+	it := list.Iterator()
+	var typ ref.Type
+	valueSet := make(map[ref.Val]ref.Val)
+	for it.HasNext() == types.True {
+		elem := it.Next()
+		elemType := elem.Type()
+		if elemType != types.BoolType &&
+			elemType != types.BytesType &&
+			elemType != types.DoubleType &&
+			elemType != types.StringType &&
+			elemType != types.IntType &&
+			elemType != types.UintType {
+			return i, nil
+		}
+		if typ == nil {
+			typ = elemType
+		} else if typ.TypeName() != elemType.TypeName() {
+			return i, nil
+		}
+		valueSet[elem] = types.True
+	}
+	return &evalSetMembership{
+		inst:        call,
+		arg:         call.lhs,
+		argTypeName: typ.TypeName(),
+		valueSet:    valueSet,
+	}, nil
 }
 
 type evalSetMembership struct {

@@ -592,7 +592,7 @@ func TestInterpreter_SetObjectEnumField(t *testing.T) {
 	}
 
 	i := NewStandardInterpreter(pkgr, reg, reg)
-	eval, _ := i.NewInterpretable(checked, FoldConstants())
+	eval, _ := i.NewInterpretable(checked, Optimize())
 	expected := &proto3pb.TestAllTypes{
 		RepeatedNestedEnum: []proto3pb.TestAllTypes_NestedEnum{
 			proto3pb.TestAllTypes_FOO,
@@ -645,7 +645,7 @@ func TestInterpreter_BuildMap(t *testing.T) {
 	if len(err.GetErrors()) != 0 {
 		t.Error(err)
 	}
-	i, _ := interpreter.NewUncheckedInterpretable(parsed.GetExpr(), FoldConstants())
+	i, _ := interpreter.NewUncheckedInterpretable(parsed.GetExpr(), Optimize())
 	vars, _ := NewActivation(map[string]interface{}{
 		"name": types.String("tristan")})
 	res := i.Eval(vars)
@@ -706,7 +706,7 @@ func BenchmarkInterpreter_ComprehensionExpr(b *testing.B) {
 	// [1, 1u, 1.0].exists(x, type(x) == uint)
 	interpretable, _ := interpreter.NewUncheckedInterpretable(
 		test.Exists.Expr,
-		FoldConstants())
+		Optimize())
 	noargs := EmptyActivation()
 	for i := 0; i < b.N; i++ {
 		interpretable.Eval(noargs)
@@ -744,7 +744,7 @@ func BenchmarkInterpreter_CanonicalExpressions(b *testing.B) {
 		checked, _ := checker.Check(parsed, s, env)
 		disp := NewDispatcher()
 		disp.Add(functions.StandardOverloads()...)
-		prg, _ := interpreter.NewInterpretable(checked, FoldConstants())
+		prg, _ := interpreter.NewInterpretable(checked, Optimize())
 		activation, _ := NewActivation(tst.I)
 		b.Run(tst.name, func(bb *testing.B) {
 			b.ResetTimer()
