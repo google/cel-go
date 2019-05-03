@@ -85,21 +85,20 @@ func decOptimize() InterpretableDecorator {
 	return func(i Interpretable) (Interpretable, error) {
 		switch i.(type) {
 		case *evalList:
-			return maybeBuildListLiteral(i)
+			return maybeBuildListLiteral(i, i.(*evalList))
 		case *evalMap:
-			return maybeBuildMapLiteral(i)
+			return maybeBuildMapLiteral(i, i.(*evalMap))
 		case *evalBinary:
 			call := i.(*evalBinary)
 			if call.overload == overloads.InList {
-				return maybeOptimizeSetMembership(i)
+				return maybeOptimizeSetMembership(i, call)
 			}
 		}
 		return i, nil
 	}
 }
 
-func maybeBuildListLiteral(i Interpretable) (Interpretable, error) {
-	l := i.(*evalList)
+func maybeBuildListLiteral(i Interpretable, l *evalList) (Interpretable, error) {
 	for _, elem := range l.elems {
 		_, isConst := elem.(*evalConst)
 		if !isConst {
@@ -113,8 +112,7 @@ func maybeBuildListLiteral(i Interpretable) (Interpretable, error) {
 	}, nil
 }
 
-func maybeBuildMapLiteral(i Interpretable) (Interpretable, error) {
-	mp := i.(*evalMap)
+func maybeBuildMapLiteral(i Interpretable, mp *evalMap) (Interpretable, error) {
 	for idx, key := range mp.keys {
 		_, isConst := key.(*evalConst)
 		if !isConst {
@@ -132,19 +130,21 @@ func maybeBuildMapLiteral(i Interpretable) (Interpretable, error) {
 	}, nil
 }
 
-func maybeOptimizeSetMembership(i Interpretable) (Interpretable, error) {
-	call := i.(*evalBinary)
-	if call.overload != overloads.InList {
-		return i, nil
-	}
-	l, isConst := call.rhs.(*evalConst)
+// maybeOptimizeSetMembership may convert an 'in' operation against a list to map key membership
+// test if the following conditions are true:
+// - the list is a constant with homogeneous element types.
+// - the elements are all of primitive type.
+func maybeOptimizeSetMembership(i Interpretable, inlist *evalBinary) (Interpretable, error) {
+	l, isConst := inlist.rhs.(*evalConst)
 	if !isConst {
 		return i, nil
 	}
+	// When the incoming binary call is flagged with as the InList overload, the value will
+	// always be convertible to a `traits.Lister` type.
 	list := l.val.(traits.Lister)
 	if list.Size() == types.IntZero {
 		return &evalConst{
-			id:  call.id,
+			id:  inlist.id,
 			val: types.False,
 		}, nil
 	}
@@ -153,30 +153,27 @@ func maybeOptimizeSetMembership(i Interpretable) (Interpretable, error) {
 	valueSet := make(map[ref.Val]ref.Val)
 	for it.HasNext() == types.True {
 		elem := it.Next()
-		elemType := elem.Type()
-		if elemType != types.BoolType &&
-			elemType != types.BytesType &&
-			elemType != types.DoubleType &&
-			elemType != types.StringType &&
-			elemType != types.IntType &&
-			elemType != types.UintType {
+		if !types.IsPrimitiveType(elem) {
+			// Note, non-primitive type are not yet supported.
 			return i, nil
 		}
 		if typ == nil {
-			typ = elemType
-		} else if typ.TypeName() != elemType.TypeName() {
+			typ = elem.Type()
+		} else if typ.TypeName() != elem.Type().TypeName() {
 			return i, nil
 		}
 		valueSet[elem] = types.True
 	}
 	return &evalSetMembership{
-		inst:        call,
-		arg:         call.lhs,
+		inst:        inlist,
+		arg:         inlist.lhs,
 		argTypeName: typ.TypeName(),
 		valueSet:    valueSet,
 	}, nil
 }
 
+// evalSetMembership is an Interpretable implementation which tests whether an input value
+// exists within the set of map keys used to model a set.
 type evalSetMembership struct {
 	inst        Interpretable
 	arg         Interpretable
@@ -184,10 +181,12 @@ type evalSetMembership struct {
 	valueSet    map[ref.Val]ref.Val
 }
 
+// ID implements the Interpretable interface method.
 func (e *evalSetMembership) ID() int64 {
 	return e.inst.ID()
 }
 
+// Eval implements the Interpretable interface method.
 func (e *evalSetMembership) Eval(ctx Activation) ref.Val {
 	val := e.arg.Eval(ctx)
 	if val.Type().TypeName() != e.argTypeName {
