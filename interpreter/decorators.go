@@ -15,6 +15,7 @@
 package interpreter
 
 import (
+	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
@@ -76,45 +77,125 @@ func decDisableShortcircuits() InterpretableDecorator {
 	}
 }
 
-// decFoldConstants checks whether the arguments the create list and map operations are all
-// constant values and constructs a new aggregate value. Future improvements to this method will
-// also do the same for typed object creations and functions whose arguments are constant.
-func decFoldConstants() InterpretableDecorator {
+// decOptimize optimizes the program plan by looking for common evaluation patterns and
+// conditionally precomputating the result.
+// - build list and map values with constant elements.
+// - convert 'in' operations to set membership tests if possible.
+func decOptimize() InterpretableDecorator {
 	return func(i Interpretable) (Interpretable, error) {
 		switch i.(type) {
 		case *evalList:
-			l := i.(*evalList)
-			for _, elem := range l.elems {
-				_, isConst := elem.(*evalConst)
-				if !isConst {
-					return i, nil
-				}
-			}
-			val := l.Eval(EmptyActivation())
-			return &evalConst{
-				id:  l.id,
-				val: val,
-			}, nil
+			return maybeBuildListLiteral(i, i.(*evalList))
 		case *evalMap:
-			mp := i.(*evalMap)
-			for idx, key := range mp.keys {
-				_, isConst := key.(*evalConst)
-				if !isConst {
-					return i, nil
-				}
-				_, isConst = mp.vals[idx].(*evalConst)
-				if !isConst {
-					return i, nil
-				}
+			return maybeBuildMapLiteral(i, i.(*evalMap))
+		case *evalBinary:
+			call := i.(*evalBinary)
+			if call.overload == overloads.InList {
+				return maybeOptimizeSetMembership(i, call)
 			}
-			val := mp.Eval(EmptyActivation())
-			return &evalConst{
-				id:  mp.id,
-				val: val,
-			}, nil
 		}
 		return i, nil
 	}
+}
+
+func maybeBuildListLiteral(i Interpretable, l *evalList) (Interpretable, error) {
+	for _, elem := range l.elems {
+		_, isConst := elem.(*evalConst)
+		if !isConst {
+			return i, nil
+		}
+	}
+	val := l.Eval(EmptyActivation())
+	return &evalConst{
+		id:  l.id,
+		val: val,
+	}, nil
+}
+
+func maybeBuildMapLiteral(i Interpretable, mp *evalMap) (Interpretable, error) {
+	for idx, key := range mp.keys {
+		_, isConst := key.(*evalConst)
+		if !isConst {
+			return i, nil
+		}
+		_, isConst = mp.vals[idx].(*evalConst)
+		if !isConst {
+			return i, nil
+		}
+	}
+	val := mp.Eval(EmptyActivation())
+	return &evalConst{
+		id:  mp.id,
+		val: val,
+	}, nil
+}
+
+// maybeOptimizeSetMembership may convert an 'in' operation against a list to map key membership
+// test if the following conditions are true:
+// - the list is a constant with homogeneous element types.
+// - the elements are all of primitive type.
+func maybeOptimizeSetMembership(i Interpretable, inlist *evalBinary) (Interpretable, error) {
+	l, isConst := inlist.rhs.(*evalConst)
+	if !isConst {
+		return i, nil
+	}
+	// When the incoming binary call is flagged with as the InList overload, the value will
+	// always be convertible to a `traits.Lister` type.
+	list := l.val.(traits.Lister)
+	if list.Size() == types.IntZero {
+		return &evalConst{
+			id:  inlist.id,
+			val: types.False,
+		}, nil
+	}
+	it := list.Iterator()
+	var typ ref.Type
+	valueSet := make(map[ref.Val]ref.Val)
+	for it.HasNext() == types.True {
+		elem := it.Next()
+		if !types.IsPrimitiveType(elem) {
+			// Note, non-primitive type are not yet supported.
+			return i, nil
+		}
+		if typ == nil {
+			typ = elem.Type()
+		} else if typ.TypeName() != elem.Type().TypeName() {
+			return i, nil
+		}
+		valueSet[elem] = types.True
+	}
+	return &evalSetMembership{
+		inst:        inlist,
+		arg:         inlist.lhs,
+		argTypeName: typ.TypeName(),
+		valueSet:    valueSet,
+	}, nil
+}
+
+// evalSetMembership is an Interpretable implementation which tests whether an input value
+// exists within the set of map keys used to model a set.
+type evalSetMembership struct {
+	inst        Interpretable
+	arg         Interpretable
+	argTypeName string
+	valueSet    map[ref.Val]ref.Val
+}
+
+// ID implements the Interpretable interface method.
+func (e *evalSetMembership) ID() int64 {
+	return e.inst.ID()
+}
+
+// Eval implements the Interpretable interface method.
+func (e *evalSetMembership) Eval(ctx Activation) ref.Val {
+	val := e.arg.Eval(ctx)
+	if val.Type().TypeName() != e.argTypeName {
+		return types.ValOrErr(val, "no such overload")
+	}
+	if ret, found := e.valueSet[val]; found {
+		return ret
+	}
+	return types.False
 }
 
 // evalWatch is an Interpretable implementation that wraps the execution of a given

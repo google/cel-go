@@ -111,8 +111,8 @@ func newProgram(e *env, ast Ast, opts ...ProgramOption) (Program, error) {
 	// Translate the EvalOption flags into InterpretableDecorator instances.
 	decorators := []interpreter.InterpretableDecorator{}
 	// Enable constant folding first.
-	if p.evalOpts&OptFoldConstants == OptFoldConstants {
-		decorators = append(decorators, interpreter.FoldConstants())
+	if p.evalOpts&OptOptimize == OptOptimize {
+		decorators = append(decorators, interpreter.Optimize())
 	}
 	// Enable exhaustive eval over state tracking since it offers a superset of features.
 	if p.evalOpts&OptExhaustiveEval == OptExhaustiveEval {

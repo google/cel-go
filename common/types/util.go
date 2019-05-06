@@ -18,11 +18,20 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 )
 
-// IsUnknownOrError returns whether the input element ref.Type or ref.Val is an ErrType or
-// UnknonwType.
+// IsUnknownOrError returns whether the input element ref.Val is an ErrType or UnknonwType.
 func IsUnknownOrError(val ref.Val) bool {
 	switch val.Type() {
 	case UnknownType, ErrType:
+		return true
+	}
+	return false
+}
+
+// IsPrimitiveType returns whether the input element ref.Val is a primitive type.
+// Note, primitive types do not include well-known types such as Duration and Timestamp.
+func IsPrimitiveType(val ref.Val) bool {
+	switch val.Type() {
+	case BoolType, BytesType, DoubleType, IntType, StringType, UintType:
 		return true
 	}
 	return false

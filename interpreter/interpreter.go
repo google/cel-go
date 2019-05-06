@@ -82,10 +82,10 @@ func ExhaustiveEval(state EvalState) InterpretableDecorator {
 	}
 }
 
-// FoldConstants will pre-compute list and map literals comprised entirely of constant entries.
-// This optimization will increase the set of constant fold operations over time.
-func FoldConstants() InterpretableDecorator {
-	return decFoldConstants()
+// Optimize will pre-compute operations such as list and map construction and optimize
+// call arguments to set membership tests. The set of optimizations will increase over time.
+func Optimize() InterpretableDecorator {
+	return decOptimize()
 }
 
 type exprInterpreter struct {
