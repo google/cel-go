@@ -50,11 +50,12 @@ func Example_globalOverload() {
 			Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
 				s1, ok := lhs.(types.String)
 				if !ok {
-					return types.NewErr("unexpected type '%v' passed to shake_hands", lhs.Type())
+					return types.ValOrErr(lhs, "unexpected type '%v' passed to shake_hands", lhs.Type())
 				}
-				// If expression was type checked and dynamic data is not used (JSON, maps),
-				// type checking can be skipped.
-				s2 := rhs.(types.String)
+				s2, ok := rhs.(types.String)
+				if !ok {
+					return types.ValOrErr(rhs, "unexpected type '%v' passed to shake_hands", rhs.Type())
+				}
 				return types.String(
 					fmt.Sprintf("%s and %s are shaking hands.\n", s1, s2))
 			}})
