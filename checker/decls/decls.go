@@ -18,7 +18,6 @@ package decls
 import (
 	emptypb "github.com/golang/protobuf/ptypes/empty"
 	structpb "github.com/golang/protobuf/ptypes/struct"
-
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
@@ -100,6 +99,7 @@ func NewIdent(name string, t *exprpb.Type, v *exprpb.Constant) *exprpb.Decl {
 }
 
 // NewInstanceOverload creates a instance function overload contract.
+// First element of argTypes is instance.
 func NewInstanceOverload(id string, argTypes []*exprpb.Type,
 	resultType *exprpb.Type) *exprpb.Decl_FunctionDecl_Overload {
 	return &exprpb.Decl_FunctionDecl_Overload{
