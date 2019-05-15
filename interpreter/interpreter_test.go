@@ -39,7 +39,8 @@ import (
 type testCase struct {
 	name string
 	E    string
-	I    map[string]interface{}
+	Env  []*exprpb.Decl
+	I    interface{}
 }
 
 func TestExhaustiveInterpreter_ConditionalExpr(t *testing.T) {
@@ -690,41 +691,7 @@ func TestInterpreter_Matches(t *testing.T) {
 	}
 }
 
-func BenchmarkInterpreter_ConditionalExpr(b *testing.B) {
-	// a ? b < 1.0 : c == ["hello"]
-	interpretable, _ := interpreter.NewUncheckedInterpretable(test.Conditional.Expr)
-	activation, _ := NewActivation(map[string]interface{}{
-		"a": types.False,
-		"b": types.Double(0.999),
-		"c": reg.NativeToValue([]string{"hello"})})
-	for i := 0; i < b.N; i++ {
-		interpretable.Eval(activation)
-	}
-}
-
-func BenchmarkInterpreter_ComprehensionExpr(b *testing.B) {
-	// [1, 1u, 1.0].exists(x, type(x) == uint)
-	interpretable, _ := interpreter.NewUncheckedInterpretable(
-		test.Exists.Expr,
-		Optimize())
-	noargs := EmptyActivation()
-	for i := 0; i < b.N; i++ {
-		interpretable.Eval(noargs)
-	}
-}
-
-func BenchmarkInterpreter_ComprehensionExprWithInput(b *testing.B) {
-	// elems.exists(x, type(x) == uint)
-	interpretable, _ := interpreter.NewUncheckedInterpretable(
-		test.ExistsWithInput.Expr)
-	activation, _ := NewActivation(map[string]interface{}{
-		"elems": reg.NativeToValue([]interface{}{0, 1, 2, 3, 4, uint(5), 6})})
-	for i := 0; i < b.N; i++ {
-		interpretable.Eval(activation)
-	}
-}
-
-func BenchmarkInterpreter_CanonicalExpressions(b *testing.B) {
+func BenchmarkInterpreter(b *testing.B) {
 	for _, tst := range testData {
 		s := common.NewTextSource(tst.E)
 		parsed, errors := parser.Parse(s)
@@ -734,13 +701,9 @@ func BenchmarkInterpreter_CanonicalExpressions(b *testing.B) {
 		reg := types.NewRegistry()
 		pkg := packages.DefaultPackage
 		env := checker.NewStandardEnv(pkg, reg)
-		env.Add(
-			decls.NewIdent("ai", decls.Int, nil),
-			decls.NewIdent("ar", decls.NewMapType(decls.String, decls.String), nil),
-			decls.NewIdent("headers.ip", decls.String, nil),
-			decls.NewIdent("headers.path", decls.String, nil),
-			decls.NewIdent("headers.token", decls.String, nil),
-		)
+		if tst.Env != nil {
+			env.Add(tst.Env...)
+		}
 		checked, _ := checker.Check(parsed, s, env)
 		disp := NewDispatcher()
 		disp.Add(functions.StandardOverloads()...)
@@ -761,8 +724,12 @@ var (
 	interpreter = NewStandardInterpreter(packages.DefaultPackage, reg, reg)
 	testData    = []testCase{
 		{
-			name: `ExprBench/ok_1st`,
+			name: `ok_1st`,
 			E:    `ai == 20 || ar["foo"] == "bar"`,
+			Env: []*exprpb.Decl{
+				decls.NewIdent("ai", decls.Int, nil),
+				decls.NewIdent("ar", decls.NewMapType(decls.String, decls.String), nil),
+			},
 			I: map[string]interface{}{
 				"ai": 20,
 				"ar": map[string]string{
@@ -771,8 +738,12 @@ var (
 			},
 		},
 		{
-			name: `ExprBench/ok_2nd`,
+			name: `ok_2nd`,
 			E:    `ai == 20 || ar["foo"] == "bar"`,
+			Env: []*exprpb.Decl{
+				decls.NewIdent("ai", decls.Int, nil),
+				decls.NewIdent("ar", decls.NewMapType(decls.String, decls.String), nil),
+			},
 			I: map[string]interface{}{
 				"ai": 2,
 				"ar": map[string]string{
@@ -781,8 +752,12 @@ var (
 			},
 		},
 		{
-			name: `ExprBench/not_found`,
+			name: `not_found`,
 			E:    `ai == 20 || ar["foo"] == "bar"`,
+			Env: []*exprpb.Decl{
+				decls.NewIdent("ai", decls.Int, nil),
+				decls.NewIdent("ar", decls.NewMapType(decls.String, decls.String), nil),
+			},
 			I: map[string]interface{}{
 				"ai": 2,
 				"ar": map[string]string{
@@ -791,23 +766,57 @@ var (
 			},
 		},
 		{
-			name: `ExprBench/false_1st`,
+			name: `false_1st`,
 			E:    `false && true`,
-			I:    map[string]interface{}{},
+			I:    EmptyActivation(),
 		},
 		{
-			name: `ExprBench/false_2nd`,
+			name: `false_2nd`,
 			E:    `true && false`,
-			I:    map[string]interface{}{},
+			I:    EmptyActivation(),
 		},
 		{
-			name: `ExprBench/complex`,
+			name: "conditional",
+			E:    `a ? b < 1.2 : c == ['hello']`,
+			Env: []*exprpb.Decl{
+				decls.NewIdent("a", decls.Bool, nil),
+				decls.NewIdent("b", decls.Double, nil),
+				decls.NewIdent("c", decls.NewListType(decls.String), nil),
+			},
+			I: map[string]interface{}{
+				"a": false,
+				"b": 2.0,
+				"c": []string{"hello"},
+			},
+		},
+		{
+			name: "exists_literal",
+			E:    `[1, 2, 3, 4, 5u, 1.0].exists(e, type(e) == uint)`,
+			I:    EmptyActivation(),
+		},
+		{
+			name: "exists_variable",
+			E:    `elems.exists(e, type(e) == uint)`,
+			Env: []*exprpb.Decl{
+				decls.NewIdent("elems", decls.NewListType(decls.Dyn), nil),
+			},
+			I: map[string]interface{}{
+				"elems": []interface{}{0, 1, 2, 3, 4, uint(5), 6},
+			},
+		},
+		{
+			name: `complex`,
 			E: `
 			!(headers.ip in ["10.0.1.4", "10.0.1.5"]) &&
 			  ((headers.path.startsWith("v1") && headers.token in ["v1", "v2", "admin"]) ||
 			   (headers.path.startsWith("v2") && headers.token in ["v2", "admin"]) ||
 			   (headers.path.startsWith("/admin") && headers.token == "admin" && headers.ip in ["10.0.1.2", "10.0.1.2", "10.0.1.2"]))
 			`,
+			Env: []*exprpb.Decl{
+				decls.NewIdent("headers.ip", decls.String, nil),
+				decls.NewIdent("headers.path", decls.String, nil),
+				decls.NewIdent("headers.token", decls.String, nil),
+			},
 			I: map[string]interface{}{
 				"headers.ip":    "10.0.1.2",
 				"headers.path":  "/admin/edit",
