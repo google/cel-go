@@ -852,6 +852,8 @@ func (l *locationAdorner) GetMetadata(elem interface{}) string {
 func TestParse(t *testing.T) {
 	for i, tst := range testCases {
 		name := fmt.Sprintf("%d %s", i, tst.I)
+		// Local variable required as the closure will reference the value for the last
+		// 'tst' value rather than the local 'tc' instance declared within the loop.
 		tc := tst
 		t.Run(name, func(tt *testing.T) {
 			// Runs the tests in parallel to ensure that there are no data races
