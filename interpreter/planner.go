@@ -46,8 +46,8 @@ func newPlanner(disp Dispatcher,
 		disp:       disp,
 		provider:   provider,
 		adapter:    adapter,
+		resolver:    &DefaultResolver{adapter: adapter, provider: provider},
 		pkg:        pkg,
-		identMap:   make(map[string]Interpretable),
 		refMap:     checked.GetReferenceMap(),
 		typeMap:    checked.GetTypeMap(),
 		decorators: decorators,
@@ -66,8 +66,8 @@ func newUncheckedPlanner(disp Dispatcher,
 		disp:       disp,
 		provider:   provider,
 		adapter:    adapter,
+		resolver:    &DefaultResolver{adapter: adapter, provider: provider},
 		pkg:        pkg,
-		identMap:   make(map[string]Interpretable),
 		refMap:     make(map[int64]*exprpb.Reference),
 		typeMap:    make(map[int64]*exprpb.Type),
 		decorators: decorators,
@@ -79,8 +79,8 @@ type planner struct {
 	disp       Dispatcher
 	provider   ref.TypeProvider
 	adapter    ref.TypeAdapter
+	resolver   Resolver
 	pkg        packages.Packager
-	identMap   map[string]Interpretable
 	refMap     map[int64]*exprpb.Reference
 	typeMap    map[int64]*exprpb.Type
 	decorators []InterpretableDecorator
@@ -129,24 +129,41 @@ func (p *planner) decorate(i Interpretable, err error) (Interpretable, error) {
 
 // planIdent creates an Interpretable that resolves an identifier from an Activation.
 func (p *planner) planIdent(expr *exprpb.Expr) (Interpretable, error) {
+	// Establish whether the identifier is in the reference map.
+	if identRef, found := p.refMap[expr.Id]; found {
+		return p.planCheckedIdent(expr.Id, identRef)
+	}
+	// Create the possible attribute list for the unresolved reference.
 	ident := expr.GetIdentExpr()
-	idName := ident.Name
-	i, found := p.identMap[idName]
-	if found {
-		return i, nil
+	names := p.pkg.ResolveCandidateNames(ident.Name)
+	attrs := make([]Attribute, len(names), len(names))
+	for i, name := range names {
+		attrs[i] = NewAttribute(expr.Id, name)
 	}
-	var resolver func(Activation) (ref.Val, bool)
-	if p.pkg.Package() != "" {
-		resolver = p.idResolver(idName)
+	// Return a oneof attribute which will attempt to resolve the identifier in the
+	// same order as the namespace resolution rules require.
+	return &evalOneofAttr{
+		id: expr.Id,
+		adapter: p.adapter,
+		resolver: p.resolver,
+		attrs: attrs,
+	}, nil
+}
+
+func (p *planner) planCheckedIdent(id int64, identRef *exprpb.Reference) (Interpretable, error) {
+	// Plan a constant reference if this is the case for this simple identifier.
+	if identRef.Value != nil {
+		return p.Plan(&exprpb.Expr{Id: id,
+			ExprKind: &exprpb.Expr_ConstExpr{
+				ConstExpr: identRef.Value,
+			}})
 	}
-	i = &evalIdent{
-		id:        expr.Id,
-		name:      idName,
-		provider:  p.provider,
-		resolveID: resolver,
-	}
-	p.identMap[idName] = i
-	return i, nil
+	// Return the attribute for the resolved identifier name.
+	return &evalAttr{
+		adapter: p.adapter,
+		resolver: p.resolver,
+		attr: NewAttribute(id, identRef.Name),
+	}, nil
 }
 
 // planSelect creates an Interpretable with either:
@@ -180,44 +197,30 @@ func (p *planner) planSelect(expr *exprpb.Expr) (Interpretable, error) {
 
 	// If the Select id appears in the reference map from the CheckedExpr proto then it is either
 	// a namespaced identifier or enum value.
-	idRef, found := p.refMap[expr.Id]
-	if found {
-		idName := idRef.Name
-		// If the reference has a value, this id represents an enum.
-		if idRef.Value != nil {
-			return p.Plan(&exprpb.Expr{Id: expr.Id,
-				ExprKind: &exprpb.Expr_ConstExpr{
-					ConstExpr: idRef.Value,
-				}})
-		}
-		// If the identifier has already been encountered before, return the previous Iterable.
-		i, found := p.identMap[idName]
-		if found {
-			return i, nil
-		}
-		// Otherwise, generate an evalIdent Interpretable.
-		i = &evalIdent{
-			id:   expr.Id,
-			name: idName,
-		}
-		p.identMap[idName] = i
-		return i, nil
+	if identRef, found := p.refMap[expr.Id]; found {
+		return p.planCheckedIdent(expr.Id, identRef)
 	}
 
-	// Lastly, create a field selection Interpretable.
+	// Plan the operand for field selection.
 	op, err := p.Plan(sel.GetOperand())
 	if err != nil {
 		return nil, err
 	}
-	var resolver func(Activation) (ref.Val, bool)
-	if qualID, isID := p.getQualifiedID(sel); isID {
-		resolver = p.idResolver(qualID)
+	// When the operand is an attribute, augment it.
+	attr, ok := op.(attrInst)
+	field := types.String(sel.Field)
+	if ok {
+		attr.addField(expr.Id, field)
+		return attr, nil
 	}
-	return &evalSelect{
-		id:        expr.Id,
-		field:     types.String(sel.Field),
-		op:        op,
-		resolveID: resolver,
+	// Otherwise, this is an attribute relative to a call return value.
+	relAttr := NewRelativeAttribute(newPathElem(expr.Id, field))
+	return &evalRelAttr{
+		id: expr.Id,
+		adapter: p.adapter,
+		resolver: p.resolver,
+		op: op,
+		attr: relAttr,
 	}, nil
 }
 
@@ -267,6 +270,8 @@ func (p *planner) planCall(expr *exprpb.Expr) (Interpretable, error) {
 		return p.planCallEqual(expr, args)
 	case operators.NotEquals:
 		return p.planCallNotEqual(expr, args)
+	case operators.Index:
+		return p.planCallIndex(expr, args)
 	}
 
 	// Otherwise, generate Interpretable calls specialized by argument count.
@@ -423,6 +428,26 @@ func (p *planner) planCallConditional(expr *exprpb.Expr,
 	}, nil
 }
 
+func (p *planner) planCallIndex(expr *exprpb.Expr,
+	args []Interpretable) (Interpretable, error) {
+	relAttr := &PathElem{
+		ID: expr.Id,
+		ToValue: args[1].Eval,
+	}
+	attr, ok := args[0].(attrInst)
+	if ok {
+		attr.addIndex(relAttr)
+		return attr, nil
+	}
+	return &evalRelAttr{
+		id:      expr.Id,
+		adapter: p.adapter,
+		resolver: p.resolver,
+		op: args[0],
+		attr: NewRelativeAttribute(relAttr),
+	}, nil
+}
+
 // planCreateList generates a list construction Interpretable.
 func (p *planner) planCreateList(expr *exprpb.Expr) (Interpretable, error) {
 	list := expr.GetListExpr()
@@ -572,42 +597,4 @@ func (p *planner) constValue(c *exprpb.Constant) (ref.Val, error) {
 		return types.Uint(c.GetUint64Value()), nil
 	}
 	return nil, fmt.Errorf("unknown constant type: %v", c)
-}
-
-// getQualifiedId converts a Select expression to a qualified identifier suitable for identifier
-// resolution. If the expression is not an identifier, the second return will be false.
-func (p *planner) getQualifiedID(sel *exprpb.Expr_Select) (string, bool) {
-	validIdent := true
-	resolvedIdent := false
-	ident := sel.Field
-	op := sel.Operand
-	for validIdent && !resolvedIdent {
-		switch op.ExprKind.(type) {
-		case *exprpb.Expr_IdentExpr:
-			ident = op.GetIdentExpr().Name + "." + ident
-			resolvedIdent = true
-		case *exprpb.Expr_SelectExpr:
-			nested := op.GetSelectExpr()
-			ident = nested.GetField() + "." + ident
-			op = nested.Operand
-		default:
-			validIdent = false
-		}
-	}
-	return ident, validIdent
-}
-
-// idResolver returns a function that resolves an identifier to its appropriate namespace.
-func (p *planner) idResolver(ident string) func(Activation) (ref.Val, bool) {
-	return func(ctx Activation) (ref.Val, bool) {
-		for _, id := range p.pkg.ResolveCandidateNames(ident) {
-			if object, found := ctx.ResolveName(id); found {
-				return object, found
-			}
-			if typeIdent, found := p.provider.FindIdent(id); found {
-				return typeIdent, found
-			}
-		}
-		return nil, false
-	}
 }

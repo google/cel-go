@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 )
 
@@ -27,9 +26,9 @@ import (
 //
 // An Activation is the primary mechanism by which a caller supplies input into a CEL program.
 type Activation interface {
-	// ResolveName returns a value from the activation by qualified name, or false if the name
+	// Find returns a value from the activation by qualified name, or false if the name
 	// could not be found.
-	ResolveName(name string) (ref.Val, bool)
+	Find(name string) (interface{}, bool)
 
 	// Parent returns the parent of the current activation, may be nil.
 	// If non-nil, the parent will be searched during resolve calls.
@@ -51,22 +50,6 @@ func EmptyActivation() Activation {
 // When the bindings are a `map` form whose values are not of `ref.Val` type, the values will be
 // converted to CEL values (if possible) using the `types.DefaultTypeAdapter`.
 func NewActivation(bindings interface{}) (Activation, error) {
-	return NewAdaptingActivation(types.DefaultTypeAdapter, bindings)
-}
-
-// NewAdaptingActivation returns an actvation which is capable of adapting `bindings` from native
-// Go values to equivalent CEL `ref.Val` objects.
-//
-// The input `bindings` may either be of type `Activation` or `map[string]interface{}`.
-//
-// When the bindings are a `map` the values may be one of the following types:
-//   - `ref.Val`: a CEL value instance.
-//   - `func() ref.Val`: a CEL value supplier.
-//   - other: a native value which must be converted to a CEL `ref.Val` by the `adapter`.
-func NewAdaptingActivation(adapter ref.TypeAdapter, bindings interface{}) (Activation, error) {
-	if adapter == nil {
-		return nil, errors.New("adapter must be non-nil")
-	}
 	if bindings == nil {
 		return nil, errors.New("bindings must be non-nil")
 	}
@@ -80,7 +63,7 @@ func NewAdaptingActivation(adapter ref.TypeAdapter, bindings interface{}) (Activ
 			"activation input must be an activation or map[string]interface: got %T",
 			bindings)
 	}
-	return &mapActivation{adapter: adapter, bindings: m}, nil
+	return &mapActivation{bindings: m}, nil
 }
 
 // mapActivation which implements Activation and maps of named values.
@@ -88,7 +71,6 @@ func NewAdaptingActivation(adapter ref.TypeAdapter, bindings interface{}) (Activ
 // Named bindings may lazily supply values by providing a function which accepts no arguments and
 // produces an interface value.
 type mapActivation struct {
-	adapter  ref.TypeAdapter
 	bindings map[string]interface{}
 }
 
@@ -97,19 +79,16 @@ func (a *mapActivation) Parent() Activation {
 	return nil
 }
 
-// ResolveName implements the Activation interface method.
-func (a *mapActivation) ResolveName(name string) (ref.Val, bool) {
+// Find implements the Activation interface method.
+func (a *mapActivation) Find(name string) (interface{}, bool) {
 	if object, found := a.bindings[name]; found {
 		switch object.(type) {
 		// Resolve a lazily bound value.
 		case func() ref.Val:
-			val := object.(func() ref.Val)()
-			val = a.adapter.NativeToValue(val)
-			a.bindings[name] = val
-			return val, true
+			return object.(func() ref.Val)(), true
 		// Otherwise, return the bound value.
 		default:
-			return a.adapter.NativeToValue(object), true
+			return object, true
 		}
 	}
 	return nil, false
@@ -128,11 +107,11 @@ func (a *hierarchicalActivation) Parent() Activation {
 }
 
 // ResolveName implements the Activation interface method.
-func (a *hierarchicalActivation) ResolveName(name string) (ref.Val, bool) {
-	if object, found := a.child.ResolveName(name); found {
+func (a *hierarchicalActivation) Find(name string) (interface{}, bool) {
+	if object, found := a.child.Find(name); found {
 		return object, found
 	}
-	return a.parent.ResolveName(name)
+	return a.parent.Find(name)
 }
 
 // NewHierarchicalActivation takes two activations and produces a new one which prioritizes
@@ -165,11 +144,11 @@ func (v *varActivation) Parent() Activation {
 }
 
 // ResolveName implements the Activation interface method.
-func (v *varActivation) ResolveName(name string) (ref.Val, bool) {
+func (v *varActivation) Find(name string) (interface{}, bool) {
 	if name == v.name {
 		return v.val, true
 	}
-	return v.parent.ResolveName(name)
+	return v.parent.Find(name)
 }
 
 var (

@@ -25,6 +25,7 @@ import (
 	"github.com/google/cel-go/common/packages"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/interpreter"
 	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/parser"
 
@@ -83,6 +84,9 @@ type Env interface {
 	// Program generates an evaluable instance of the Ast within the environment (Env).
 	Program(ast Ast, opts ...ProgramOption) (Program, error)
 
+	// Resolver returns the `interpreter.Resolver` used to resolve attribute references.
+	Resolver() interpreter.Resolver
+
 	// TypeAdapter returns the `ref.TypeAdapter` configured for the environment.
 	TypeAdapter() ref.TypeAdapter
 
@@ -116,6 +120,7 @@ func NewEnv(opts ...EnvOption) (Env, error) {
 		pkg:                            packages.DefaultPackage,
 		provider:                       registry,
 		adapter:                        registry,
+		resolver:                       &interpreter.DefaultResolver{adapter: registry, provider: registry},
 		enableBuiltins:                 true,
 		enableDynamicAggregateLiterals: true,
 	}
@@ -183,6 +188,7 @@ type env struct {
 	pkg          packages.Packager
 	provider     ref.TypeProvider
 	adapter      ref.TypeAdapter
+	resolver     interpreter.Resolver
 	chk          *checker.Env
 	// environment options, true by default.
 	enableBuiltins                 bool
@@ -234,6 +240,10 @@ func (e *env) Program(ast Ast, opts ...ProgramOption) (Program, error) {
 			opts...)
 	}
 	return newProgram(e, ast, opts...)
+}
+
+func (e *env) Resolver() interpreter.Resolver {
+	return e.resolver
 }
 
 // TypeAdapter implements the Env interface method.
