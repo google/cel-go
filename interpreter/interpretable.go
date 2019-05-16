@@ -15,6 +15,8 @@
 package interpreter
 
 import (
+	"fmt"
+
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
@@ -33,71 +35,6 @@ type Interpretable interface {
 }
 
 // Core Interpretable implementations used during the program planning phase.
-
-type evalIdent struct {
-	id        int64
-	name      string
-	provider  ref.TypeProvider
-	resolveID func(Activation) (ref.Val, bool)
-}
-
-// ID implements the Interpretable interface method.
-func (id *evalIdent) ID() int64 {
-	return id.id
-}
-
-// Eval implements the Interpretable interface method.
-func (id *evalIdent) Eval(ctx Activation) ref.Val {
-	idName := id.name
-	if id.resolveID != nil {
-		// When the resolveID function is non-nil, the name could be relative
-		// to the container.
-		if val, found := id.resolveID(ctx); found {
-			return val
-		}
-	} else {
-		// Resolve the simple name directly as a type or ident.
-		val, found := ctx.ResolveName(idName)
-		if found {
-			return val
-		}
-		typeVal, found := id.provider.FindIdent(idName)
-		if found {
-			return typeVal
-		}
-	}
-	return types.Unknown{id.id}
-
-}
-
-type evalSelect struct {
-	id        int64
-	op        Interpretable
-	field     types.String
-	resolveID func(Activation) (ref.Val, bool)
-}
-
-// ID implements the Interpretable interface method.
-func (sel *evalSelect) ID() int64 {
-	return sel.id
-}
-
-// Eval implements the Interpretable interface method.
-func (sel *evalSelect) Eval(ctx Activation) ref.Val {
-	// If the select is actually a qualified identifier return.
-	if sel.resolveID != nil {
-		if resolve, found := sel.resolveID(ctx); found {
-			return resolve
-		}
-	}
-	// Otherwise, evaluate the operand and select the field.
-	obj := sel.op.Eval(ctx)
-	indexer, ok := obj.(traits.Indexer)
-	if !ok {
-		return types.ValOrErr(obj, "invalid type for field selection.")
-	}
-	return indexer.Get(sel.field)
-}
 
 type evalTestOnly struct {
 	id    int64
@@ -286,7 +223,7 @@ func (ne *evalNe) Eval(ctx Activation) ref.Val {
 		if types.IsUnknown(eqVal) {
 			return eqVal
 		}
-		return types.NewErr("no such overload: _!=_")
+		return types.NewErr("no such overload")
 	}
 	return !eqBool
 }
@@ -747,4 +684,215 @@ func (fold *evalExhaustiveFold) Eval(ctx Activation) ref.Val {
 	varActivationPool.Put(iterCtx)
 	varActivationPool.Put(accuCtx)
 	return res
+}
+
+type attrInst interface{
+	Interpretable
+	addField(int64, types.String)
+	addIndex(*PathElem)
+	getResolver() Resolver
+	getAttrs() []Attribute
+}
+
+type evalAttr struct {
+	adapter  ref.TypeAdapter
+	resolver Resolver
+	attr     Attribute
+}
+
+func (e *evalAttr) ID() int64 {
+	return e.attr.Variable().ID()
+}
+
+func (e *evalAttr) Eval(vars Activation) ref.Val {
+	v, found := e.resolver.Resolve(vars, e.attr)
+	if found {
+		return e.adapter.NativeToValue(v)
+	}
+	return types.NewErr("no such attribute")
+}
+
+func (e *evalAttr) addField(id int64, name types.String) {
+	e.addIndex(newPathElem(id, name))
+}
+
+func (e *evalAttr) addIndex(pe *PathElem) {
+	e.attr = e.attr.Select(pe)
+}
+
+func (e *evalAttr) getResolver() Resolver {
+	return e.resolver
+}
+
+func (e *evalAttr) getAttrs() []Attribute {
+	return []Attribute{e.attr}
+}
+
+type evalOneofAttr struct {
+	id       int64
+	adapter  ref.TypeAdapter
+	resolver Resolver
+	attrs    []Attribute
+}
+
+func (e *evalOneofAttr) ID() int64 {
+	return e.id
+}
+
+func (e *evalOneofAttr) Eval(vars Activation) ref.Val {
+	for _, attr := range e.attrs {
+		v, found := e.resolver.Resolve(vars, attr)
+		if found {
+			return e.adapter.NativeToValue(v)
+		}
+	}
+	return types.NewErr("no such attribute")
+}
+
+func (e *evalOneofAttr) addField(id int64, name types.String) {
+	// start at id, basically an empty variable
+	modAttrs := make([]Attribute, 0, len(e.attrs))
+	pe := newPathElem(id, name)
+	for _, attr := range e.attrs {
+		if len(attr.Path()) != 0 {
+			continue
+		}
+		v := attr.Variable()
+		modName := fmt.Sprintf("%s.%s", v.Name(), name)
+		modAttrs = append(modAttrs, NewAttribute(id, modName))
+	}
+	for _, attr := range e.attrs {
+		modAttrs = append(modAttrs, attr.Select(pe))
+	}
+	e.attrs = modAttrs
+}
+
+func (e *evalOneofAttr) addIndex(pe *PathElem) {
+	// start at id, basically an empty variable
+	modAttrs := make([]Attribute, len(e.attrs), len(e.attrs))
+	for i, attr := range e.attrs {
+		modAttrs[i] = attr.Select(pe)
+	}
+	e.attrs = modAttrs
+}
+
+func (e *evalOneofAttr) getResolver() Resolver {
+	return e.resolver
+}
+
+func (e *evalOneofAttr) getAttrs() []Attribute {
+	return e.attrs
+}
+
+type evalRelAttr struct {
+	id       int64
+	adapter  ref.TypeAdapter
+	resolver Resolver
+	op       Interpretable
+	attr     Attribute
+}
+
+func (e *evalRelAttr) ID() int64 {
+	return e.id
+}
+
+func (e *evalRelAttr) Eval(vars Activation) ref.Val {
+	obj := e.op.Eval(vars)
+	val := e.resolver.ResolveRelative(obj, vars, e.attr)
+	return e.adapter.NativeToValue(val)
+}
+
+func (e *evalRelAttr) addField(id int64, name types.String) {
+	e.attr = e.attr.Select(newPathElem(id, name))
+}
+
+func (e *evalRelAttr) addIndex(pe *PathElem) {
+	e.attr = e.attr.Select(pe)
+}
+
+func (e *evalRelAttr) getResolver() Resolver {
+	return e.resolver
+}
+
+func (e *evalRelAttr) getAttrs() []Attribute {
+	return []Attribute{e.attr}
+}
+
+type evalConstEq struct {
+	id       int64
+	attr     Attribute
+	resolver Resolver
+	val      ref.Val
+}
+
+func (e *evalConstEq) ID() int64 {
+	return e.id
+}
+
+func (e *evalConstEq) Eval(vars Activation) ref.Val {
+	attrVal, found := e.resolver.Resolve(vars, e.attr)
+	if !found {
+		return types.NewErr("no such attribute")
+	}
+	return attrEqConst(attrVal, e.val)
+}
+
+type evalConstNe struct {
+	id int64
+	attr Attribute
+	resolver Resolver
+	val ref.Val
+}
+
+func (e *evalConstNe) ID() int64 {
+	return e.id
+}
+
+func (e *evalConstNe) Eval(vars Activation) ref.Val {
+	attrVal, found := e.resolver.Resolve(vars, e.attr)
+	if !found {
+		return types.NewErr("no such attribute")
+	}
+	eq := attrEqConst(attrVal, e.val)
+	eqBool, ok := eq.(types.Bool)
+	if !ok {
+		return eq
+	}
+	return !eqBool
+}
+
+func attrEqConst(attr interface{}, val ref.Val) ref.Val {
+	switch attr.(type) {
+	case ref.Val:
+		return val.Equal(attr.(ref.Val))
+	case string:
+		attrStr := attr.(string)
+		constStr, ok := val.(types.String)
+		if !ok {
+			return types.ValOrErr(val, "no such overload")
+		}
+		return types.Bool(attrStr == string(constStr))
+	case int:
+		attrInt := attr.(int)
+		constInt, ok := val.(types.Int)
+		if !ok {
+			return types.ValOrErr(val, "no such overload")
+		}
+		return types.Bool(int64(attrInt) == int64(constInt))
+	case int32:
+		attrInt := attr.(int32)
+		constInt, ok := val.(types.Int)
+		if !ok {
+			return types.ValOrErr(val, "no such overload")
+		}
+		return types.Bool(int64(attrInt) == int64(constInt))
+	case int64:
+		attrInt := attr.(int64)
+		constInt, ok := val.(types.Int)
+		if !ok {
+			return types.ValOrErr(val, "no such overload")
+		}
+		return types.Bool(attrInt == int64(constInt))
+	}
+	return types.NewErr("no such overload")
 }

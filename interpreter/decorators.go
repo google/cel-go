@@ -88,6 +88,10 @@ func decDisableShortcircuits() InterpretableDecorator {
 func decOptimize() InterpretableDecorator {
 	return func(i Interpretable) (Interpretable, error) {
 		switch i.(type) {
+		case *evalEq:
+			return maybeConstEq(i, i.(*evalEq))
+		case *evalNe:
+			return maybeConstNe(i, i.(*evalNe))
 		case *evalList:
 			return maybeBuildListLiteral(i, i.(*evalList))
 		case *evalMap:
@@ -100,6 +104,54 @@ func decOptimize() InterpretableDecorator {
 		}
 		return i, nil
 	}
+}
+
+func maybeConstEq(i Interpretable, eq *evalEq) (Interpretable, error) {
+	lhsAttr, lAttr := eq.lhs.(attrInst)
+	rhsConst, rConst := eq.rhs.(*evalConst)
+	if lAttr && len(lhsAttr.getAttrs()) == 1 && rConst {
+		return &evalConstEq{
+			id: eq.id,
+			attr: lhsAttr.getAttrs()[0],
+			resolver: lhsAttr.getResolver(),
+			val: rhsConst.val,
+		}, nil
+	}
+	rhsAttr, rAttr := eq.rhs.(attrInst)
+	lhsConst, lConst := eq.lhs.(*evalConst)
+	if rAttr && len(rhsAttr.getAttrs()) == 1 && lConst {
+		return &evalConstEq{
+			id: eq.id,
+			attr: rhsAttr.getAttrs()[0],
+			resolver: rhsAttr.getResolver(),
+			val: lhsConst.val,
+		}, nil
+	}
+	return i, nil
+}
+
+func maybeConstNe(i Interpretable, ne *evalNe) (Interpretable, error) {
+	lhsAttr, lAttr := ne.lhs.(attrInst)
+	rhsConst, rConst := ne.rhs.(*evalConst)
+	if lAttr && len(lhsAttr.getAttrs()) == 1 && rConst {
+		return &evalConstNe{
+			id: ne.id,
+			attr: lhsAttr.getAttrs()[0],
+			resolver: lhsAttr.getResolver(),
+			val: rhsConst.val,
+		}, nil
+	}
+	rhsAttr, rAttr := ne.rhs.(attrInst)
+	lhsConst, lConst := ne.lhs.(*evalConst)
+	if rAttr && len(rhsAttr.getAttrs()) == 1 && lConst {
+		return &evalConstNe{
+			id: ne.id,
+			attr: rhsAttr.getAttrs()[0],
+			resolver: rhsAttr.getResolver(),
+			val: lhsConst.val,
+		}, nil
+	}
+	return i, nil
 }
 
 func maybeBuildListLiteral(i Interpretable, l *evalList) (Interpretable, error) {
