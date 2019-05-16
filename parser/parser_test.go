@@ -852,34 +852,37 @@ func (l *locationAdorner) GetMetadata(elem interface{}) string {
 func TestParse(t *testing.T) {
 	for i, tst := range testCases {
 		name := fmt.Sprintf("%d %s", i, tst.I)
+		// Local variable required as the closure will reference the value for the last
+		// 'tst' value rather than the local 'tc' instance declared within the loop.
+		tc := tst
 		t.Run(name, func(tt *testing.T) {
 			// Runs the tests in parallel to ensure that there are no data races
 			// due to shared mutable state across tests.
 			tt.Parallel()
 
-			src := common.NewTextSource(tst.I)
+			src := common.NewTextSource(tc.I)
 			expression, errors := Parse(src)
 			if len(errors.GetErrors()) > 0 {
 				actualErr := errors.ToDisplayString()
-				if tst.E == "" {
+				if tc.E == "" {
 					tt.Fatalf("Unexpected errors: %v", actualErr)
-				} else if !test.Compare(actualErr, tst.E) {
-					tt.Fatalf(test.DiffMessage("Error mismatch", actualErr, tst.E))
+				} else if !test.Compare(actualErr, tc.E) {
+					tt.Fatalf(test.DiffMessage("Error mismatch", actualErr, tc.E))
 				}
 				return
-			} else if tst.E != "" {
-				tt.Fatalf("Expected error not thrown: '%s'", tst.E)
+			} else if tc.E != "" {
+				tt.Fatalf("Expected error not thrown: '%s'", tc.E)
 			}
 
 			actualWithKind := debug.ToAdornedDebugString(expression.Expr, &kindAndIDAdorner{})
-			if !test.Compare(actualWithKind, tst.P) {
-				tt.Fatal(test.DiffMessage("structure", actualWithKind, tst.P))
+			if !test.Compare(actualWithKind, tc.P) {
+				tt.Fatal(test.DiffMessage("structure", actualWithKind, tc.P))
 			}
 
-			if tst.L != "" {
+			if tc.L != "" {
 				actualWithLocation := debug.ToAdornedDebugString(expression.Expr, &locationAdorner{expression.SourceInfo})
-				if !test.Compare(actualWithLocation, tst.L) {
-					tt.Fatal(test.DiffMessage("location", actualWithLocation, tst.L))
+				if !test.Compare(actualWithLocation, tc.L) {
+					tt.Fatal(test.DiffMessage("location", actualWithLocation, tc.L))
 				}
 			}
 		})
