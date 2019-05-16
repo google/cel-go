@@ -891,3 +891,151 @@ func program(tst *testCase, opts ...InterpretableDecorator) (Interpretable, Acti
 	}
 	return prg, vars, nil
 }
+
+type PathElem func() ref.Val
+
+type Attribute interface {
+	ID() int64
+	PathElems() []PathElem
+}
+
+type Selector interface {
+	Attribute
+	Select(int64, PathElem)
+}
+
+type Ctx struct {
+	vars interface{}
+	adapter ref.TypeAdapter
+	provider ref.TypeProvider
+}
+
+func (ctx *Ctx) Resolve(attr Attribute) (ref.Val, bool) {
+	target := ctx.vars
+	for _, elem := range attr.PathElems() {
+		ctx.getElem(&target, elem)
+	}
+	return ctx.adapter.NativeToValue(target), true
+}
+
+func (ctx *Ctx) getElem(target *interface{}, elem PathElem) {
+	obj := *target
+	switch obj.(type) {
+	case map[string]interface{}:
+		m := obj.(map[string]interface{})
+		k := elem()
+		key, ok := k.(types.String)
+		if ok {
+			*target = m[string(key)]
+		} else {
+			*target = types.ValOrErr(k, "no such overload")
+		}
+	case map[string]string:
+		m := obj.(map[string]string)
+		k := elem()
+		key, ok := k.(types.String)
+		if ok {
+			v := m[string(key)]
+			*target = v
+		} else {
+			*target = types.ValOrErr(k, "no such overload")
+		}
+	case traits.Indexer:
+		indexer := obj.(traits.Indexer)
+		*target = indexer.Get(elem())
+	default:
+		val := ctx.adapter.NativeToValue(target)
+		indexer, ok := val.(traits.Indexer)
+		if !ok {
+			*target = indexer.Get(elem())
+		} else {
+			*target = types.ValOrErr(val, "no such overload")
+		}
+	}
+}
+
+type attrImpl struct {
+	id int64
+	pathElems []PathElem
+}
+
+func (a *attrImpl) ID() int64 {
+	return a.id
+}
+
+func (a *attrImpl) PathElems() []PathElem {
+	return a.pathElems
+}
+
+func BenchmarkInterpreter_Types(b *testing.B) {
+	var m interface{} = map[string]interface{}{
+		"hello": "world",
+		"nested": map[string]int {
+			"one": 1,
+		}}
+	/*b.Run("ref-value", func(bb *testing.B) {
+		for i := 0; i < bb.N; i++ {
+			reflect.ValueOf(m)
+		}
+	})
+	b.Run("ref-value-type", func(bb *testing.B) {
+		for i := 0; i < bb.N; i++ {
+			reflect.ValueOf(m).Type()
+		}
+	})
+	b.Run("ref-value-iface", func(bb *testing.B) {
+		for i := 0; i < bb.N; i++ {
+			reflect.ValueOf(m).Interface()
+		}
+	})
+	b.Run("ref-value-index", func(bb *testing.B) {
+		for i := 0; i < bb.N; i++ {
+			reflect.ValueOf(m).MapIndex(reflect.ValueOf("hello")).Interface()
+		}
+	})
+	b.Run("ref-type", func(bb *testing.B) {
+		for i := 0; i < bb.N; i++ {
+			reflect.TypeOf(m).Kind()
+		}
+	})
+	b.Run("cast-type", func(bb *testing.B) {
+		for i := 0; i < bb.N; i++ {
+			_, _ = m.(map[string]interface{})
+			_, _ = m.(map[string]string)
+		}
+	})
+	b.Run("assert-type", func(bb *testing.B) {
+		for i := 0; i < bb.N; i++ {
+			switch m.(type) {
+			case map[string]string:
+				_ = m.(map[string]string)
+			case map[string]interface{}:
+				_ = m.(map[string]interface{})
+			}
+		}
+	})
+	b.Run("adapt-type", func(bb *testing.B) {
+		for i := 0; i < bb.N; i++ {
+			types.DefaultTypeAdapter.NativeToValue(m)
+		}
+	})*/
+	b.Run("ptr-unwrap", func(bb *testing.B) {
+		ctx := &Ctx{
+			vars: m,
+			adapter: types.DefaultTypeAdapter,
+		}
+		attr := &attrImpl{
+			pathElems: []PathElem{
+				func () ref.Val {
+					return types.String("nested")
+				},
+				func () ref.Val {
+					return types.String("one")
+				},
+			},
+		}
+		for i := 0; i < bb.N; i++ {
+			ctx.Resolve(attr)
+		}
+	})
+}
