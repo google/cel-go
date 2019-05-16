@@ -724,7 +724,7 @@ var (
 	interpreter = NewStandardInterpreter(packages.DefaultPackage, reg, reg)
 	testData    = []testCase{
 		{
-			name: `ok_1st`,
+			name: "or_true_1st",
 			E:    `ai == 20 || ar["foo"] == "bar"`,
 			Env: []*exprpb.Decl{
 				decls.NewIdent("ai", decls.Int, nil),
@@ -738,7 +738,7 @@ var (
 			},
 		},
 		{
-			name: `ok_2nd`,
+			name: "or_true_2nd",
 			E:    `ai == 20 || ar["foo"] == "bar"`,
 			Env: []*exprpb.Decl{
 				decls.NewIdent("ai", decls.Int, nil),
@@ -752,7 +752,7 @@ var (
 			},
 		},
 		{
-			name: `not_found`,
+			name: "or_false",
 			E:    `ai == 20 || ar["foo"] == "bar"`,
 			Env: []*exprpb.Decl{
 				decls.NewIdent("ai", decls.Int, nil),
@@ -766,12 +766,12 @@ var (
 			},
 		},
 		{
-			name: `false_1st`,
+			name: "and_false_1st",
 			E:    `false && true`,
 			I:    EmptyActivation(),
 		},
 		{
-			name: `false_2nd`,
+			name: "and_false_2nd",
 			E:    `true && false`,
 			I:    EmptyActivation(),
 		},
@@ -805,7 +805,7 @@ var (
 			},
 		},
 		{
-			name: `complex`,
+			name: "complex",
 			E: `
 			!(headers.ip in ["10.0.1.4", "10.0.1.5"]) &&
 			  ((headers.path.startsWith("v1") && headers.token in ["v1", "v2", "admin"]) ||
