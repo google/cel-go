@@ -15,6 +15,7 @@
 package interpreter
 
 import (
+	"fmt"
 	"reflect"
 
 	"github.com/golang/protobuf/proto"
@@ -34,28 +35,68 @@ type Resolver interface {
 	ResolveRelative(interface{}, Activation, Attribute) interface{}
 }
 
-type DefaultResolver struct {
+func NewResolver(adapter ref.TypeAdapter, provider ref.TypeProvider) Resolver {
+	return &defaultResolver{adapter: adapter, provider: provider}
+}
+
+func NewUnknownResolver(adapter ref.TypeAdapter,
+	provider ref.TypeProvider,
+	unknowns []Attribute) Resolver {
+	unknownMap := make(map[string][]Attribute)
+	for _, unk := range unknowns {
+		varName := unk.Variable().Name()
+		unks, found := unknownMap[varName]
+		if found {
+			unks = append(unks, unk)
+		} else {
+			unks = []Attribute{unk}
+		}
+		unknownMap[varName] = unks
+	}
+	return &unknownResolver{
+		defaultResolver: &defaultResolver{adapter: adapter, provider: provider},
+		unknowns:        unknownMap,
+	}
+}
+
+type defaultResolver struct {
 	adapter  ref.TypeAdapter
 	provider ref.TypeProvider
 }
 
-func (res *DefaultResolver) Resolve(vars Activation, attr Attribute) (interface{}, bool) {
+func (res *defaultResolver) Resolve(vars Activation, attr Attribute) (interface{}, bool) {
 	varName := attr.Variable().Name()
+	attrPath := attr.Path()
 	obj, found := vars.Find(varName)
 	if found {
-		for _, elem := range attr.Path() {
+		for _, elem := range attrPath {
 			obj = res.getElem(obj, elem.ToValue(vars))
 		}
 		return obj, true
 	}
-	obj, found = res.provider.FindIdent(varName)
+	typ, found := res.provider.FindIdent(varName)
 	if found {
+		return typ, true
+	}
+	if !found && len(attrPath) > 0 {
+		for _, elem := range attrPath {
+			elemVal := elem.ToValue(vars)
+			elemStr, ok := elemVal.(types.String)
+			if !ok {
+				return nil, false
+			}
+			varName = fmt.Sprintf("%s.%s", varName, elemStr)
+			typ, found = res.provider.FindIdent(varName)
+			if found {
+				return typ, true
+			}
+		}
 		return obj, true
 	}
 	return nil, false
 }
 
-func (res *DefaultResolver) ResolveRelative(
+func (res *defaultResolver) ResolveRelative(
 	obj interface{},
 	vars Activation,
 	attr Attribute) interface{} {
@@ -65,7 +106,7 @@ func (res *DefaultResolver) ResolveRelative(
 	return obj
 }
 
-func (res *DefaultResolver) getElem(obj interface{}, elem ref.Val) interface{} {
+func (res *defaultResolver) getElem(obj interface{}, elem ref.Val) interface{} {
 	switch obj.(type) {
 	case map[string]interface{}:
 		m := obj.(map[string]interface{})
@@ -120,7 +161,7 @@ func (res *DefaultResolver) getElem(obj interface{}, elem ref.Val) interface{} {
 	}
 }
 
-func (res *DefaultResolver) getMapStrVal(obj interface{}, k ref.Val) interface{} {
+func (res *defaultResolver) getMapStrVal(obj interface{}, k ref.Val) interface{} {
 	m := obj.(map[string]string)
 	key, ok := k.(types.String)
 	if !ok {
@@ -133,7 +174,7 @@ func (res *DefaultResolver) getMapStrVal(obj interface{}, k ref.Val) interface{}
 	return v
 }
 
-func (res *DefaultResolver) getMapIntVal(obj interface{}, k ref.Val) interface{} {
+func (res *defaultResolver) getMapIntVal(obj interface{}, k ref.Val) interface{} {
 	m := obj.(map[string]int)
 	key, ok := k.(types.String)
 	if !ok {
@@ -146,7 +187,7 @@ func (res *DefaultResolver) getMapIntVal(obj interface{}, k ref.Val) interface{}
 	return v
 }
 
-func (res *DefaultResolver) getMapInt32Val(obj interface{}, k ref.Val) interface{} {
+func (res *defaultResolver) getMapInt32Val(obj interface{}, k ref.Val) interface{} {
 	m := obj.(map[string]int32)
 	key, ok := k.(types.String)
 	if !ok {
@@ -159,7 +200,7 @@ func (res *DefaultResolver) getMapInt32Val(obj interface{}, k ref.Val) interface
 	return v
 }
 
-func (res *DefaultResolver) getMapInt64Val(obj interface{}, k ref.Val) interface{} {
+func (res *defaultResolver) getMapInt64Val(obj interface{}, k ref.Val) interface{} {
 	m := obj.(map[string]int64)
 	key, ok := k.(types.String)
 	if !ok {
@@ -172,7 +213,7 @@ func (res *DefaultResolver) getMapInt64Val(obj interface{}, k ref.Val) interface
 	return v
 }
 
-func (res *DefaultResolver) getListIFaceVal(obj interface{}, i ref.Val) interface{} {
+func (res *defaultResolver) getListIFaceVal(obj interface{}, i ref.Val) interface{} {
 	l := obj.([]interface{})
 	idx, ok := i.(types.Int)
 	if !ok {
@@ -185,7 +226,7 @@ func (res *DefaultResolver) getListIFaceVal(obj interface{}, i ref.Val) interfac
 	return l[index]
 }
 
-func (res *DefaultResolver) getListStrVal(obj interface{}, i ref.Val) interface{} {
+func (res *defaultResolver) getListStrVal(obj interface{}, i ref.Val) interface{} {
 	l := obj.([]string)
 	idx, ok := i.(types.Int)
 	if !ok {
@@ -198,7 +239,7 @@ func (res *DefaultResolver) getListStrVal(obj interface{}, i ref.Val) interface{
 	return types.String(l[index])
 }
 
-func (res *DefaultResolver) getListIntVal(obj interface{}, i ref.Val) interface{} {
+func (res *defaultResolver) getListIntVal(obj interface{}, i ref.Val) interface{} {
 	l := obj.([]int)
 	idx, ok := i.(types.Int)
 	if !ok {
@@ -211,7 +252,7 @@ func (res *DefaultResolver) getListIntVal(obj interface{}, i ref.Val) interface{
 	return types.Int(l[index])
 }
 
-func (res *DefaultResolver) getListInt32Val(obj interface{}, i ref.Val) interface{} {
+func (res *defaultResolver) getListInt32Val(obj interface{}, i ref.Val) interface{} {
 	l := obj.([]int32)
 	idx, ok := i.(types.Int)
 	if !ok {
@@ -224,7 +265,7 @@ func (res *DefaultResolver) getListInt32Val(obj interface{}, i ref.Val) interfac
 	return types.Int(l[index])
 }
 
-func (res *DefaultResolver) getListInt64Val(obj interface{}, i ref.Val) interface{} {
+func (res *defaultResolver) getListInt64Val(obj interface{}, i ref.Val) interface{} {
 	l := obj.([]int64)
 	idx, ok := i.(types.Int)
 	if !ok {
@@ -237,7 +278,7 @@ func (res *DefaultResolver) getListInt64Val(obj interface{}, i ref.Val) interfac
 	return types.Int(l[index])
 }
 
-func (res *DefaultResolver) getStructField(m *structpb.Struct, k ref.Val) interface{} {
+func (res *defaultResolver) getStructField(m *structpb.Struct, k ref.Val) interface{} {
 	fields := m.GetFields()
 	key, ok := k.(types.String)
 	if !ok {
@@ -250,7 +291,7 @@ func (res *DefaultResolver) getStructField(m *structpb.Struct, k ref.Val) interf
 	return value
 }
 
-func (res *DefaultResolver) getListValueElem(l *structpb.ListValue, i ref.Val) interface{} {
+func (res *defaultResolver) getListValueElem(l *structpb.ListValue, i ref.Val) interface{} {
 	idx, ok := i.(types.Int)
 	if !ok {
 		return types.ValOrErr(i, "no such overload")
@@ -263,7 +304,7 @@ func (res *DefaultResolver) getListValueElem(l *structpb.ListValue, i ref.Val) i
 	return elems[index]
 }
 
-func (res *DefaultResolver) getProtoField(obj interface{}, elem ref.Val) interface{} {
+func (res *defaultResolver) getProtoField(obj interface{}, elem ref.Val) interface{} {
 	switch obj.(type) {
 	case *anypb.Any:
 		val := obj.(*anypb.Any)
@@ -302,51 +343,40 @@ func (res *DefaultResolver) getProtoField(obj interface{}, elem ref.Val) interfa
 	}
 }
 
-type UnknownResolver struct {
-	*DefaultResolver
-	unknowns map[string]Attribute
-	listener func(types.Unknown, Attribute)
+type unknownResolver struct {
+	*defaultResolver
+	unknowns map[string][]Attribute
 }
 
-func (r *UnknownResolver) Find(vars Activation, attr Attribute) (interface{}, bool) {
-	// Determine whether the variable is marked as unknown.
-	varName := attr.Variable().Name()
-	unkAttr, found := r.unknowns[varName]
+func (res *unknownResolver) Resolve(vars Activation, attr Attribute) (interface{}, bool) {
+	v, found := res.defaultResolver.Resolve(vars, attr)
 	if found {
-		unkVal := types.Unknown{attr.Variable().ID()}
-		r.listener(unkVal, unkAttr)
-		return unkVal, true
-	}
-	varVal, found := vars.Find(varName)
-	if !found {
-		return nil, false
-	}
-
-	// Determine the possible set of attribute references which could apply to this access.
-	attrPath := attr.Path()
-	attrPathLen := len(attrPath)
-	candUnknowns := []Attribute{}
-	for unkVar, unkAttr := range r.unknowns {
-		if unkVar == varName && len(unkAttr.Path()) <= attrPathLen {
-			candUnknowns = append(candUnknowns, unkAttr)
+		val, ok := v.(ref.Val)
+		if !ok || !types.IsError(val) {
+			return val, true
 		}
 	}
-
-	// Iterate through the attribute path to either resolve the value or unknown.
-	for i, elem := range attrPath {
-		elemName := elem.ToValue(vars)
-		for j, candUnk := range candUnknowns {
-			candUnkPath := candUnk.Path()
-			unkElemName := candUnkPath[i].ToValue(vars)
-			if elemName.Equal(unkElemName) != types.True {
-				candUnknowns = append(candUnknowns[:j], candUnknowns[j+1:]...)
-			} else if len(candUnkPath) == i {
-				unkVal := types.Unknown{elem.ID}
-				r.listener(unkVal, candUnk)
-				return unkVal, true
+	varName := attr.Variable().Name()
+	varPath := attr.Path()
+	candUnknowns, found := res.unknowns[varName]
+	for _, cand := range candUnknowns {
+		candPath := cand.Path()
+		if len(candPath) > len(varPath) {
+			continue
+		}
+		isMatch := true
+		for j, candElem := range candPath {
+			candElemVal := candElem.ToValue(vars)
+			varElem := varPath[j]
+			varElemVal := varElem.ToValue(vars)
+			if candElemVal.Equal(varElemVal) != types.True {
+				isMatch = false
+				break
 			}
 		}
-		varVal = r.getElem(varVal, elemName)
+		if isMatch {
+			return types.Unknown{attr.Variable().ID()}, true
+		}
 	}
-	return varVal, true
+	return nil, false
 }

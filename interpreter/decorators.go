@@ -111,20 +111,22 @@ func maybeConstEq(i Interpretable, eq *evalEq) (Interpretable, error) {
 	rhsConst, rConst := eq.rhs.(*evalConst)
 	if lAttr && len(lhsAttr.getAttrs()) == 1 && rConst {
 		return &evalConstEq{
-			id: eq.id,
-			attr: lhsAttr.getAttrs()[0],
+			id:       eq.id,
+			attr:     lhsAttr.getAttrs()[0],
+			adapter:  lhsAttr.getAdapter(),
 			resolver: lhsAttr.getResolver(),
-			val: rhsConst.val,
+			val:      rhsConst.val,
 		}, nil
 	}
 	rhsAttr, rAttr := eq.rhs.(attrInst)
 	lhsConst, lConst := eq.lhs.(*evalConst)
 	if rAttr && len(rhsAttr.getAttrs()) == 1 && lConst {
 		return &evalConstEq{
-			id: eq.id,
-			attr: rhsAttr.getAttrs()[0],
+			id:       eq.id,
+			attr:     rhsAttr.getAttrs()[0],
+			adapter:  rhsAttr.getAdapter(),
 			resolver: rhsAttr.getResolver(),
-			val: lhsConst.val,
+			val:      lhsConst.val,
 		}, nil
 	}
 	return i, nil
@@ -135,20 +137,22 @@ func maybeConstNe(i Interpretable, ne *evalNe) (Interpretable, error) {
 	rhsConst, rConst := ne.rhs.(*evalConst)
 	if lAttr && len(lhsAttr.getAttrs()) == 1 && rConst {
 		return &evalConstNe{
-			id: ne.id,
-			attr: lhsAttr.getAttrs()[0],
+			id:       ne.id,
+			attr:     lhsAttr.getAttrs()[0],
+			adapter:  lhsAttr.getAdapter(),
 			resolver: lhsAttr.getResolver(),
-			val: rhsConst.val,
+			val:      rhsConst.val,
 		}, nil
 	}
 	rhsAttr, rAttr := ne.rhs.(attrInst)
 	lhsConst, lConst := ne.lhs.(*evalConst)
 	if rAttr && len(rhsAttr.getAttrs()) == 1 && lConst {
 		return &evalConstNe{
-			id: ne.id,
-			attr: rhsAttr.getAttrs()[0],
+			id:       ne.id,
+			attr:     rhsAttr.getAttrs()[0],
+			adapter:  rhsAttr.getAdapter(),
 			resolver: rhsAttr.getResolver(),
-			val: lhsConst.val,
+			val:      lhsConst.val,
 		}, nil
 	}
 	return i, nil
