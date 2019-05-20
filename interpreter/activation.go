@@ -22,9 +22,7 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 )
 
-// Activation used to resolve identifiers by name and references by id.
-//
-// An Activation is the primary mechanism by which a caller supplies input into a CEL program.
+// Activation describes the variables available to an evaluation scope.
 type Activation interface {
 	// Find returns a value from the activation by qualified name, or false if the name
 	// could not be found.
@@ -35,15 +33,29 @@ type Activation interface {
 	Parent() Activation
 }
 
-// EmptyActivation returns a variable free activation.
+// PartialActivation describes a mix of variables and unknown attributes within an evaluation
+// scope.
+//
+// A variable or some portion of its attributes may be treated as known-unknowns by CEL when the
+// FindUnknowns function returns a non-empty Attribute set.
+//
+// Note: PartialActivation must be used in conjunction with an interpreter.UnknownResolver to work.
+// Otherwise, the unknowns will be treated as errors.
+type PartialActivation interface {
+	Activation
+
+	// FindUnknowns returns the collection of unknown Attribute values associated with the
+	// variable name provided in the input, if present.
+	FindUnknowns(name string) ([]Attribute, bool)
+}
+
+// EmptyActivation is an evaluation context with no variables.
 func EmptyActivation() Activation {
-	// This call cannot fail.
-	a, _ := NewActivation(map[string]interface{}{})
-	return a
+	return emptyActivation
 }
 
 // NewActivation returns an activation based on a map-based binding where the map keys are
-// expected to be qualified names used with ResolveName calls.
+// expected to be qualified names used with Find calls.
 //
 // The input `bindings` may either be of type `Activation` or `map[string]interface{}`.
 //
@@ -64,6 +76,38 @@ func NewActivation(bindings interface{}) (Activation, error) {
 			bindings)
 	}
 	return &mapActivation{bindings: m}, nil
+}
+
+// NewPartialActivation creates a PartialActivation containing a mix of variables and unknown
+// attributes.
+func NewPartialActivation(bindings interface{}, unknowns []Attribute) (PartialActivation, error) {
+	act, err := NewActivation(bindings)
+	if err != nil {
+		return nil, err
+	}
+	unknownMap := make(map[string][]Attribute)
+	for _, unk := range unknowns {
+		varName := unk.Variable().Name()
+		attrs, found := unknownMap[varName]
+		if !found {
+			unknownMap[varName] = []Attribute{unk}
+		} else {
+			unknownMap[varName] = append(attrs, unk)
+		}
+	}
+	return &partialActivation{Activation: act, unknowns: unknownMap}, nil
+}
+
+// UnknownActivation returns a PartialActivation which treats all variables and their attributes
+// as unknown.
+func UnknownActivation() PartialActivation {
+	return unkActivation
+}
+
+// NewHierarchicalActivation takes two activations and produces a new one which prioritizes
+// resolution in the child first and parent(s) second.
+func NewHierarchicalActivation(parent Activation, child Activation) Activation {
+	return &hierarchicalActivation{parent, child}
 }
 
 // mapActivation which implements Activation and maps of named values.
@@ -106,7 +150,7 @@ func (a *hierarchicalActivation) Parent() Activation {
 	return a.parent
 }
 
-// ResolveName implements the Activation interface method.
+// Find implements the Activation interface method.
 func (a *hierarchicalActivation) Find(name string) (interface{}, bool) {
 	if object, found := a.child.Find(name); found {
 		return object, found
@@ -114,10 +158,26 @@ func (a *hierarchicalActivation) Find(name string) (interface{}, bool) {
 	return a.parent.Find(name)
 }
 
-// NewHierarchicalActivation takes two activations and produces a new one which prioritizes
-// resolution in the child first and parent(s) second.
-func NewHierarchicalActivation(parent Activation, child Activation) Activation {
-	return &hierarchicalActivation{parent, child}
+// partialActivation implements the PartialActivation interface.
+type partialActivation struct {
+	Activation
+	unknowns map[string][]Attribute
+}
+
+// FindUnknowns implements the PartialActivation interface method.
+func (a *partialActivation) FindUnknowns(name string) ([]Attribute, bool) {
+	unk, found := a.unknowns[name]
+	return unk, found
+}
+
+// unknownActivation implements the PartialActivation interface.
+type unknownActivation struct {
+	Activation
+}
+
+// FindUnknowns implements the interpreter.PartialActivation interface method.
+func (un *unknownActivation) FindUnknowns(name string) ([]Attribute, bool) {
+	return emptyAttrs, true
 }
 
 // newVarActivation returns a new varActivation instance.
@@ -143,7 +203,7 @@ func (v *varActivation) Parent() Activation {
 	return v.parent
 }
 
-// ResolveName implements the Activation interface method.
+// Find implements the Activation interface method.
 func (v *varActivation) Find(name string) (interface{}, bool) {
 	if name == v.name {
 		return v.val, true
@@ -152,10 +212,19 @@ func (v *varActivation) Find(name string) (interface{}, bool) {
 }
 
 var (
+	// empty attribute set used to treat all attributes as unknown.
+	emptyAttrs = []Attribute{newExprVarAttribute(1, "")}
+
 	// pool of var activations to reduce allocations during folds.
 	varActivationPool = &sync.Pool{
 		New: func() interface{} {
 			return &varActivation{}
 		},
 	}
+
+	// static empty activation instance.
+	emptyActivation = &mapActivation{bindings: map[string]interface{}{}}
+
+	// static unknown activation instance.
+	unkActivation = &unknownActivation{Activation: emptyActivation}
 )

@@ -39,6 +39,7 @@ type interpretablePlanner interface {
 func newPlanner(disp Dispatcher,
 	provider ref.TypeProvider,
 	adapter ref.TypeAdapter,
+	resolver Resolver,
 	pkg packages.Packager,
 	checked *exprpb.CheckedExpr,
 	decorators ...InterpretableDecorator) interpretablePlanner {
@@ -46,7 +47,7 @@ func newPlanner(disp Dispatcher,
 		disp:       disp,
 		provider:   provider,
 		adapter:    adapter,
-		resolver:   &defaultResolver{adapter: adapter, provider: provider},
+		resolver:   resolver,
 		pkg:        pkg,
 		refMap:     checked.GetReferenceMap(),
 		typeMap:    checked.GetTypeMap(),
@@ -60,13 +61,14 @@ func newPlanner(disp Dispatcher,
 func newUncheckedPlanner(disp Dispatcher,
 	provider ref.TypeProvider,
 	adapter ref.TypeAdapter,
+	resolver Resolver,
 	pkg packages.Packager,
 	decorators ...InterpretableDecorator) interpretablePlanner {
 	return &planner{
 		disp:       disp,
 		provider:   provider,
 		adapter:    adapter,
-		resolver:   &defaultResolver{adapter: adapter, provider: provider},
+		resolver:   resolver,
 		pkg:        pkg,
 		refMap:     make(map[int64]*exprpb.Reference),
 		typeMap:    make(map[int64]*exprpb.Type),
@@ -138,15 +140,22 @@ func (p *planner) planIdent(expr *exprpb.Expr) (Interpretable, error) {
 	names := p.pkg.ResolveCandidateNames(ident.Name)
 	attrs := make([]Attribute, len(names), len(names))
 	for i, name := range names {
-		attrs[i] = NewAttribute(expr.Id, name)
+		typeID, found := p.provider.FindIdent(name)
+		if found {
+			return &evalConst{
+				id:  expr.Id,
+				val: typeID,
+			}, nil
+		}
+		attrs[i] = newExprVarAttribute(expr.Id, name)
 	}
 	// Return a oneof attribute which will attempt to resolve the identifier in the
 	// same order as the namespace resolution rules require.
 	return &evalOneofAttr{
 		id:       expr.Id,
 		adapter:  p.adapter,
-		resolver: p.resolver,
 		attrs:    attrs,
+		resolver: p.resolver,
 	}, nil
 }
 
@@ -158,11 +167,19 @@ func (p *planner) planCheckedIdent(id int64, identRef *exprpb.Reference) (Interp
 				ConstExpr: identRef.Value,
 			}})
 	}
+	// Check whether the identifier is a type name.
+	typeID, found := p.provider.FindIdent(identRef.Name)
+	if found {
+		return &evalConst{
+			id:  id,
+			val: typeID,
+		}, nil
+	}
 	// Return the attribute for the resolved identifier name.
 	return &evalAttr{
 		adapter:  p.adapter,
 		resolver: p.resolver,
-		attr:     NewAttribute(id, identRef.Name),
+		attr:     newExprVarAttribute(id, identRef.Name),
 	}, nil
 }
 
@@ -210,11 +227,27 @@ func (p *planner) planSelect(expr *exprpb.Expr) (Interpretable, error) {
 	attr, ok := op.(attrInst)
 	field := types.String(sel.Field)
 	if ok {
-		attr.addField(expr.Id, field)
-		return attr, nil
+		selAttr := attr.addField(expr.Id, field)
+		if selOneof, ok := selAttr.(*evalOneofAttr); ok {
+			for _, attr := range selOneof.getAttrs() {
+				if len(attr.Path()) != 0 {
+					continue
+				}
+				varName := attr.Variable().Name()
+				typeID, found := p.provider.FindIdent(varName)
+				if !found {
+					continue
+				}
+				return &evalConst{
+					id:  expr.Id,
+					val: typeID,
+				}, nil
+			}
+		}
+		return selAttr, nil
 	}
 	// Otherwise, this is an attribute relative to a call return value.
-	relAttr := NewRelativeAttribute(newPathElem(expr.Id, field))
+	relAttr := newExprRelAttribute(newExprPathElem(expr.Id, field))
 	return &evalRelAttr{
 		id:       expr.Id,
 		adapter:  p.adapter,
@@ -436,15 +469,14 @@ func (p *planner) planCallIndex(expr *exprpb.Expr,
 	}
 	attr, ok := args[0].(attrInst)
 	if ok {
-		attr.addIndex(relAttr)
-		return attr, nil
+		return attr.addIndex(relAttr), nil
 	}
 	return &evalRelAttr{
 		id:       expr.Id,
 		adapter:  p.adapter,
 		resolver: p.resolver,
 		op:       args[0],
-		attr:     NewRelativeAttribute(relAttr),
+		attr:     newExprRelAttribute(relAttr),
 	}, nil
 }
 

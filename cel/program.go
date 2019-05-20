@@ -50,9 +50,41 @@ type EvalDetails interface {
 	State() interpreter.EvalState
 }
 
+// NoKnownVars returns an activation that indicates all attributes are unknown.
+func NoKnownVars() interpreter.Activation {
+	return interpreter.UnknownActivation()
+}
+
 // NoVars returns an empty Activation.
 func NoVars() interpreter.Activation {
 	return interpreter.EmptyActivation()
+}
+
+// Vars returns an Activation containing the program input and an optional list of attributes which
+// are known at evaluation time to be unknown.
+func Vars(input interface{}, unknowns ...interpreter.Attribute) (interpreter.Activation, error) {
+	vars, err := interpreter.NewActivation(input)
+	if err != nil {
+		return nil, err
+	}
+	if len(unknowns) == 0 {
+		return vars, nil
+	}
+	return interpreter.NewPartialActivation(vars, unknowns)
+}
+
+// Unknown specifies an Attribute whose value is not known at runtime.
+//
+// Not all inputs are created equal, some are cheap to provide and others require I/O or heavy
+// computation to resolve. Marking expensive attributes as unknown can be a useful tool for
+// improving the operational efficiency of expression evaluation, as it allows the cheap data to
+// be evaluated quickly and often conclusively while the expensive data is often I/O bound and
+// is computed with minimal overhead and only when needed.
+//
+// Unknowns are treated like recoverable errors within CEL and take precedence over types.Err
+// values.
+func Unknown(varName string, pathElems ...interface{}) (interpreter.Attribute, error) {
+	return interpreter.NewUnknownAttribute(varName, pathElems...)
 }
 
 // evalDetails is the internal implementation of the EvalDetails interface.
@@ -73,7 +105,6 @@ type prog struct {
 	dispatcher    interpreter.Dispatcher
 	interpreter   interpreter.Interpreter
 	interpretable interpreter.Interpretable
-	resolver      interpreter.Resolver
 }
 
 // progFactory is a helper alias for marking a program creation factory function.
@@ -89,13 +120,9 @@ type progGen struct {
 //
 // If the program cannot be configured the prog will be nil, with a non-nil error response.
 func newProgram(e *env, ast Ast, opts ...ProgramOption) (Program, error) {
-	// Build the dispatcher, interpreter, and default program value.
+	// Build the dispatcher and default program value.
 	disp := interpreter.NewDispatcher()
-	interp := interpreter.NewInterpreter(disp, e.pkg, e.provider, e.adapter)
-	p := &prog{
-		env:         e,
-		dispatcher:  disp,
-		interpreter: interp}
+	p := &prog{env: e, dispatcher:  disp}
 
 	// Configure the program via the ProgramOption values.
 	var err error
@@ -108,6 +135,15 @@ func newProgram(e *env, ast Ast, opts ...ProgramOption) (Program, error) {
 			return nil, err
 		}
 	}
+
+	// Configure the resolver to support unknown attributes if the eval option is set.
+	resolver := interpreter.NewResolver(e.adapter)
+	if p.evalOpts&OptUnknownAttributes == OptUnknownAttributes {
+		resolver = interpreter.NewUnknownResolver(resolver)
+	}
+	interp := interpreter.NewInterpreter(
+		disp, e.pkg, e.provider, e.adapter, resolver)
+	p.interpreter = interp
 
 	// Translate the EvalOption flags into InterpretableDecorator instances.
 	decorators := []interpreter.InterpretableDecorator{}

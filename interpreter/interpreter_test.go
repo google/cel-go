@@ -50,7 +50,7 @@ type testCase struct {
 	funcs     []*functions.Overload
 	unchecked bool
 
-	in  map[string]interface{}
+	in  interface{}
 	out interface{}
 }
 
@@ -183,6 +183,40 @@ var (
 				"c": []string{"hello"},
 			},
 			out: types.False,
+		},
+		{
+			name: "cond_falsy_partial",
+			expr: `a ? b < 1.2 : c == ['hello']`,
+			env: []*exprpb.Decl{
+				decls.NewIdent("a", decls.Bool, nil),
+				decls.NewIdent("b", decls.Double, nil),
+				decls.NewIdent("c", decls.NewListType(decls.String), nil),
+			},
+			in: partialInput(
+				map[string]interface{}{
+					"a": false,
+					"c": []string{"hello"},
+				},
+				[]Attribute{unknownAttr("b")},
+			),
+			out: types.True,
+		},
+		{
+			name: "cond_falsy_unknown",
+			expr: `a ? b < 1.2 : c == ['hello']`,
+			env: []*exprpb.Decl{
+				decls.NewIdent("a", decls.Bool, nil),
+				decls.NewIdent("b", decls.Double, nil),
+				decls.NewIdent("c", decls.NewListType(decls.String), nil),
+			},
+			in: partialInput(
+				map[string]interface{}{
+					"a": false,
+					"b": 2.0,
+				},
+				[]Attribute{unknownAttr("c")},
+			),
+			out: types.Unknown{6},
 		},
 		{
 			name: "in_list",
@@ -690,21 +724,6 @@ func TestInterpreter(t *testing.T) {
 	}
 }
 
-func TestInterpreter_LogicalAndMissingType(t *testing.T) {
-	src := common.NewTextSource(`a && TestProto{c: true}.c`)
-	parsed, errors := parser.Parse(src)
-	if len(errors.GetErrors()) != 0 {
-		t.Errorf(errors.ToDisplayString())
-	}
-
-	reg := types.NewRegistry()
-	intr := NewStandardInterpreter(packages.DefaultPackage, reg, reg)
-	i, err := intr.NewUncheckedInterpretable(parsed.GetExpr())
-	if err == nil {
-		t.Errorf("Got '%v', wanted error", i)
-	}
-}
-
 func TestInterpreter_ExhaustiveConditionalExpr(t *testing.T) {
 	src := common.NewTextSource(`a ? b < 1.0 : c == ['hello']`)
 	parsed, errors := parser.Parse(src)
@@ -714,7 +733,7 @@ func TestInterpreter_ExhaustiveConditionalExpr(t *testing.T) {
 
 	state := NewEvalState()
 	reg := types.NewRegistry(&exprpb.ParsedExpr{})
-	intr := NewStandardInterpreter(packages.DefaultPackage, reg, reg)
+	intr := NewStandardInterpreter(packages.DefaultPackage, reg, reg, NewResolver(reg))
 	interpretable, _ := intr.NewUncheckedInterpretable(
 		parsed.GetExpr(),
 		ExhaustiveEval(state))
@@ -735,6 +754,52 @@ func TestInterpreter_ExhaustiveConditionalExpr(t *testing.T) {
 	}
 }
 
+func TestInterpreter_ExhaustiveConditionalExprErr(t *testing.T) {
+	// a ? b < 1.0 : c == ["hello"]
+	// Operator "<" is at Expr 3, "_==_" is at Expr 6.
+	// Both should be evaluated in exhaustive mode though a is not provided
+	src := common.NewTextSource(`a ? b < 1.0 : c == ['hello']`)
+	parsed, errors := parser.Parse(src)
+	if len(errors.GetErrors()) != 0 {
+		t.Errorf(errors.ToDisplayString())
+	}
+
+	state := NewEvalState()
+	dispatcher := NewDispatcher()
+	dispatcher.Add(functions.StandardOverloads()...)
+	reg := types.NewRegistry()
+	unkInterp := NewInterpreter(
+		dispatcher, packages.NewPackage("test"),
+		reg, reg, NewUnknownResolver(NewResolver(reg)))
+	i, err := unkInterp.NewUncheckedInterpretable(
+		parsed.GetExpr(),
+		ExhaustiveEval(state))
+	if err != nil {
+		t.Fatal(err)
+	}
+	vars := partialInput(
+		map[string]interface{}{
+			"b": types.Double(1.001),
+			"c": types.NewStringList(reg, []string{"hello"}),
+		},
+		[]Attribute{unknownAttr("a")},
+	)
+	result := i.Eval(vars)
+	// "<" (expr 4) should be evaluated in exhaustive mode though unnecessary
+	iv, _ := state.Value(4)
+	if iv != types.False {
+		t.Errorf("If expression expected to be false, got: %v", iv)
+	}
+	// "==" (expr 7) should be evaluated in exhaustive mode though unnecessary
+	ev, _ := state.Value(7)
+	if ev != types.True {
+		t.Errorf("Else expression expected to be true, got: %v", ev)
+	}
+	if result.Type() != types.UnknownType {
+		t.Errorf("Expected unknown result, got: %v", result)
+	}
+}
+
 func TestInterpreter_ExhaustiveLogicalOrEquals(t *testing.T) {
 	// a || b == "b"
 	// Operator "==" is at Expr 4, should be evaluated though "a" is true
@@ -746,7 +811,7 @@ func TestInterpreter_ExhaustiveLogicalOrEquals(t *testing.T) {
 
 	state := NewEvalState()
 	reg := types.NewRegistry(&exprpb.Expr{})
-	interp := NewStandardInterpreter(packages.NewPackage("test"), reg, reg)
+	interp := NewStandardInterpreter(packages.NewPackage("test"), reg, reg, NewResolver(reg))
 	i, _ := interp.NewUncheckedInterpretable(
 		parsed.GetExpr(),
 		ExhaustiveEval(state))
@@ -792,7 +857,7 @@ func TestInterpreter_SetProto2PrimitiveFields(t *testing.T) {
 		t.Errorf(errors.ToDisplayString())
 	}
 
-	i := NewStandardInterpreter(pkgr, reg, reg)
+	i := NewStandardInterpreter(pkgr, reg, reg, NewResolver(reg))
 	eval, _ := i.NewInterpretable(checked)
 	one := int32(1)
 	two := int64(2)
@@ -828,6 +893,16 @@ func TestInterpreter_SetProto2PrimitiveFields(t *testing.T) {
 	}
 }
 
+func unknownAttr(varName string, pathElems ...interface{}) Attribute {
+	attr, _ := NewUnknownAttribute(varName, pathElems...)
+	return attr
+}
+
+func partialInput(bindings interface{}, unknowns []Attribute) Activation {
+	pa, _ := NewPartialActivation(bindings, unknowns)
+	return pa
+}
+
 func program(tst *testCase, opts ...InterpretableDecorator) (Interpretable, Activation, error) {
 	// Configure the package.
 	pkg := packages.DefaultPackage
@@ -846,23 +921,25 @@ func program(tst *testCase, opts ...InterpretableDecorator) (Interpretable, Acti
 	// Configure the program input.
 	vars := EmptyActivation()
 	if tst.in != nil {
-		input := map[string]interface{}{}
-		for k, v := range tst.in {
-			input[k] = reg.NativeToValue(v)
-		}
-		vars, _ = NewActivation(input)
+		vars, _ = NewActivation(tst.in)
 	}
+	_, isPartial := vars.(PartialActivation)
 	// Adapt the test output, if needed.
 	if tst.out != nil {
 		tst.out = reg.NativeToValue(tst.out)
 	}
 
+	// Configure the interpreter.
+	resolver := NewResolver(reg)
+	if isPartial {
+		resolver = NewUnknownResolver(resolver)
+	}
 	disp := NewDispatcher()
 	disp.Add(functions.StandardOverloads()...)
 	if tst.funcs != nil {
 		disp.Add(tst.funcs...)
 	}
-	interp := NewInterpreter(disp, pkg, reg, reg)
+	interp := NewInterpreter(disp, pkg, reg, reg, resolver)
 
 	// Parse the expression.
 	s := common.NewTextSource(tst.expr)

@@ -31,6 +31,13 @@ type evalObserver func(int64, ref.Val)
 // decObserveEval records evaluation state into an EvalState object.
 func decObserveEval(observer evalObserver) InterpretableDecorator {
 	return func(i Interpretable) (Interpretable, error) {
+		attr, isAttr := i.(attrInst)
+		if isAttr {
+			return &evalWatchAttr{
+				inst:     attr,
+				observer: observer,
+			}, nil
+		}
 		return &evalWatch{
 			inst:     i,
 			observer: observer,
@@ -106,8 +113,12 @@ func decOptimize() InterpretableDecorator {
 	}
 }
 
+// maybeConstEq tests whether the arguments to equals operator are an attribute and a constant.
+//
+// Such equality tests can be performed against the native Go types and do not typically require
+// conversion to CEL types first, which can vastly improve performance.
 func maybeConstEq(i Interpretable, eq *evalEq) (Interpretable, error) {
-	lhsAttr, lAttr := eq.lhs.(attrInst)
+	lhsAttr, lAttr := eq.lhs.(*evalAttr)
 	rhsConst, rConst := eq.rhs.(*evalConst)
 	if lAttr && len(lhsAttr.getAttrs()) == 1 && rConst {
 		return &evalConstEq{
@@ -118,7 +129,7 @@ func maybeConstEq(i Interpretable, eq *evalEq) (Interpretable, error) {
 			val:      rhsConst.val,
 		}, nil
 	}
-	rhsAttr, rAttr := eq.rhs.(attrInst)
+	rhsAttr, rAttr := eq.rhs.(*evalAttr)
 	lhsConst, lConst := eq.lhs.(*evalConst)
 	if rAttr && len(rhsAttr.getAttrs()) == 1 && lConst {
 		return &evalConstEq{
@@ -132,8 +143,12 @@ func maybeConstEq(i Interpretable, eq *evalEq) (Interpretable, error) {
 	return i, nil
 }
 
+// maybeConstNe tests whether the arguments to not equals operator are an attribute and a constant.
+//
+// Such inequality tests can be performed against the native Go types and do not typically require
+// conversion to CEL types first, which can vastly improve performance.
 func maybeConstNe(i Interpretable, ne *evalNe) (Interpretable, error) {
-	lhsAttr, lAttr := ne.lhs.(attrInst)
+	lhsAttr, lAttr := ne.lhs.(*evalAttr)
 	rhsConst, rConst := ne.rhs.(*evalConst)
 	if lAttr && len(lhsAttr.getAttrs()) == 1 && rConst {
 		return &evalConstNe{
@@ -144,7 +159,7 @@ func maybeConstNe(i Interpretable, ne *evalNe) (Interpretable, error) {
 			val:      rhsConst.val,
 		}, nil
 	}
-	rhsAttr, rAttr := ne.rhs.(attrInst)
+	rhsAttr, rAttr := ne.rhs.(*evalAttr)
 	lhsConst, lConst := ne.lhs.(*evalConst)
 	if rAttr && len(rhsAttr.getAttrs()) == 1 && lConst {
 		return &evalConstNe{

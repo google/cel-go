@@ -235,6 +235,12 @@ const (
 	// creation time. This flag is useful when the expression will be evaluated repeatedly against
 	// a series of different inputs.
 	OptOptimize EvalOption = 1 << iota
+
+	// OptUnknownAttributes indicates to the program that the input may only be partially known at
+	// evaluation time.
+	//
+	// See interpreter.PartialActivation and interpreter.NewUnknownAttribute for more details.
+	OptUnknownAttributes EvalOption = 1 << iota
 )
 
 // EvalOptions sets one or more evaluation options which may affect the evaluation or Result.
