@@ -815,6 +815,25 @@ var (
 			   (headers.path.startsWith("/admin") && headers.token == "admin" && headers.ip in ["10.0.1.2", "10.0.1.2", "10.0.1.2"]))
 			`,
 			Env: []*exprpb.Decl{
+				decls.NewIdent("headers", decls.NewMapType(decls.String, decls.String), nil),
+			},
+			I: map[string]interface{}{
+				"headers": map[string]interface{}{
+					"ip":    "10.0.1.2",
+					"path":  "/admin/edit",
+					"token": "admin",
+				},
+			},
+		},
+		{
+			name: "complex_flat",
+			E: `
+			!(headers.ip in ["10.0.1.4", "10.0.1.5"]) &&
+			  ((headers.path.startsWith("v1") && headers.token in ["v1", "v2", "admin"]) ||
+			   (headers.path.startsWith("v2") && headers.token in ["v2", "admin"]) ||
+			   (headers.path.startsWith("/admin") && headers.token == "admin" && headers.ip in ["10.0.1.2", "10.0.1.2", "10.0.1.2"]))
+			`,
+			Env: []*exprpb.Decl{
 				decls.NewIdent("headers.ip", decls.String, nil),
 				decls.NewIdent("headers.path", decls.String, nil),
 				decls.NewIdent("headers.token", decls.String, nil),

@@ -77,13 +77,6 @@ func CustomTypeProvider(provider ref.TypeProvider) EnvOption {
 	}
 }
 
-func CustomResolver(resolver interpreter.Resolver) EnvOption {
-	return func(e *env) (*env, error) {
-		e.resolver = resolver
-		return e, nil
-	}
-}
-
 // Declarations option extends the declaration set configured in the environment.
 //
 // Note: This option must be specified after ClearBuiltIns if both are used together.

@@ -686,10 +686,11 @@ func (fold *evalExhaustiveFold) Eval(ctx Activation) ref.Val {
 	return res
 }
 
-type attrInst interface{
+type attrInst interface {
 	Interpretable
 	addField(int64, types.String)
 	addIndex(*PathElem)
+	getAdapter() ref.TypeAdapter
 	getResolver() Resolver
 	getAttrs() []Attribute
 }
@@ -718,6 +719,10 @@ func (e *evalAttr) addField(id int64, name types.String) {
 
 func (e *evalAttr) addIndex(pe *PathElem) {
 	e.attr = e.attr.Select(pe)
+}
+
+func (e *evalAttr) getAdapter() ref.TypeAdapter {
+	return e.adapter
 }
 
 func (e *evalAttr) getResolver() Resolver {
@@ -776,6 +781,10 @@ func (e *evalOneofAttr) addIndex(pe *PathElem) {
 	e.attrs = modAttrs
 }
 
+func (e *evalOneofAttr) getAdapter() ref.TypeAdapter {
+	return e.adapter
+}
+
 func (e *evalOneofAttr) getResolver() Resolver {
 	return e.resolver
 }
@@ -810,6 +819,10 @@ func (e *evalRelAttr) addIndex(pe *PathElem) {
 	e.attr = e.attr.Select(pe)
 }
 
+func (e *evalRelAttr) getAdapter() ref.TypeAdapter {
+	return e.adapter
+}
+
 func (e *evalRelAttr) getResolver() Resolver {
 	return e.resolver
 }
@@ -821,6 +834,7 @@ func (e *evalRelAttr) getAttrs() []Attribute {
 type evalConstEq struct {
 	id       int64
 	attr     Attribute
+	adapter  ref.TypeAdapter
 	resolver Resolver
 	val      ref.Val
 }
@@ -834,14 +848,15 @@ func (e *evalConstEq) Eval(vars Activation) ref.Val {
 	if !found {
 		return types.NewErr("no such attribute")
 	}
-	return attrEqConst(attrVal, e.val)
+	return attrEqConst(attrVal, e.val, e.adapter)
 }
 
 type evalConstNe struct {
-	id int64
-	attr Attribute
+	id       int64
+	attr     Attribute
+	adapter  ref.TypeAdapter
 	resolver Resolver
-	val ref.Val
+	val      ref.Val
 }
 
 func (e *evalConstNe) ID() int64 {
@@ -853,7 +868,7 @@ func (e *evalConstNe) Eval(vars Activation) ref.Val {
 	if !found {
 		return types.NewErr("no such attribute")
 	}
-	eq := attrEqConst(attrVal, e.val)
+	eq := attrEqConst(attrVal, e.val, e.adapter)
 	eqBool, ok := eq.(types.Bool)
 	if !ok {
 		return eq
@@ -861,7 +876,8 @@ func (e *evalConstNe) Eval(vars Activation) ref.Val {
 	return !eqBool
 }
 
-func attrEqConst(attr interface{}, val ref.Val) ref.Val {
+// TODO: generalize this to other boolean comparison operators.
+func attrEqConst(attr interface{}, val ref.Val, adapter ref.TypeAdapter) ref.Val {
 	switch attr.(type) {
 	case ref.Val:
 		return val.Equal(attr.(ref.Val))
@@ -872,6 +888,20 @@ func attrEqConst(attr interface{}, val ref.Val) ref.Val {
 			return types.ValOrErr(val, "no such overload")
 		}
 		return types.Bool(attrStr == string(constStr))
+	case float32:
+		attrDbl := attr.(float32)
+		constDbl, ok := val.(types.Double)
+		if !ok {
+			return types.ValOrErr(val, "no such overload")
+		}
+		return types.Bool(float64(attrDbl) == float64(constDbl))
+	case float64:
+		attrDbl := attr.(float64)
+		constDbl, ok := val.(types.Double)
+		if !ok {
+			return types.ValOrErr(val, "no such overload")
+		}
+		return types.Bool(attrDbl == float64(constDbl))
 	case int:
 		attrInt := attr.(int)
 		constInt, ok := val.(types.Int)
@@ -893,6 +923,57 @@ func attrEqConst(attr interface{}, val ref.Val) ref.Val {
 			return types.ValOrErr(val, "no such overload")
 		}
 		return types.Bool(attrInt == int64(constInt))
+	case uint:
+		attrUint := attr.(uint)
+		constUint, ok := val.(types.Uint)
+		if !ok {
+			return types.ValOrErr(val, "no such overload")
+		}
+		return types.Bool(uint64(attrUint) == uint64(constUint))
+	case uint32:
+		attrUint := attr.(uint32)
+		constUint, ok := val.(types.Uint)
+		if !ok {
+			return types.ValOrErr(val, "no such overload")
+		}
+		return types.Bool(uint64(attrUint) == uint64(constUint))
+	case uint64:
+		attrUint := attr.(uint64)
+		constUint, ok := val.(types.Uint)
+		if !ok {
+			return types.ValOrErr(val, "no such overload")
+		}
+		return types.Bool(attrUint == uint64(constUint))
+	case bool:
+		attrBool := attr.(bool)
+		constBool, ok := val.(types.Bool)
+		if !ok {
+			return types.ValOrErr(val, "no such overload")
+		}
+		return types.Bool(attrBool == bool(constBool))
+	case []string:
+		attrListStr := attr.([]string)
+		constList, ok := val.(traits.Lister)
+		if !ok {
+			return types.ValOrErr(val, "no such overload")
+		}
+		constListVal, ok := constList.Value().([]ref.Val)
+		if !ok {
+			return types.ValOrErr(val, "no such overload")
+		}
+		if len(constListVal) != len(attrListStr) {
+			return types.False
+		}
+		for i, str := range attrListStr {
+			v := constListVal[i]
+			elemEq := attrEqConst(str, v, adapter)
+			if elemEq != types.True {
+				return elemEq
+			}
+		}
+		return types.True
+	default:
+		attrVal := adapter.NativeToValue(attr)
+		return attrVal.Equal(val)
 	}
-	return types.NewErr("no such overload")
 }

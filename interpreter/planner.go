@@ -46,7 +46,7 @@ func newPlanner(disp Dispatcher,
 		disp:       disp,
 		provider:   provider,
 		adapter:    adapter,
-		resolver:    &DefaultResolver{adapter: adapter, provider: provider},
+		resolver:   &defaultResolver{adapter: adapter, provider: provider},
 		pkg:        pkg,
 		refMap:     checked.GetReferenceMap(),
 		typeMap:    checked.GetTypeMap(),
@@ -66,7 +66,7 @@ func newUncheckedPlanner(disp Dispatcher,
 		disp:       disp,
 		provider:   provider,
 		adapter:    adapter,
-		resolver:    &DefaultResolver{adapter: adapter, provider: provider},
+		resolver:   &defaultResolver{adapter: adapter, provider: provider},
 		pkg:        pkg,
 		refMap:     make(map[int64]*exprpb.Reference),
 		typeMap:    make(map[int64]*exprpb.Type),
@@ -143,10 +143,10 @@ func (p *planner) planIdent(expr *exprpb.Expr) (Interpretable, error) {
 	// Return a oneof attribute which will attempt to resolve the identifier in the
 	// same order as the namespace resolution rules require.
 	return &evalOneofAttr{
-		id: expr.Id,
-		adapter: p.adapter,
+		id:       expr.Id,
+		adapter:  p.adapter,
 		resolver: p.resolver,
-		attrs: attrs,
+		attrs:    attrs,
 	}, nil
 }
 
@@ -160,9 +160,9 @@ func (p *planner) planCheckedIdent(id int64, identRef *exprpb.Reference) (Interp
 	}
 	// Return the attribute for the resolved identifier name.
 	return &evalAttr{
-		adapter: p.adapter,
+		adapter:  p.adapter,
 		resolver: p.resolver,
-		attr: NewAttribute(id, identRef.Name),
+		attr:     NewAttribute(id, identRef.Name),
 	}, nil
 }
 
@@ -216,11 +216,11 @@ func (p *planner) planSelect(expr *exprpb.Expr) (Interpretable, error) {
 	// Otherwise, this is an attribute relative to a call return value.
 	relAttr := NewRelativeAttribute(newPathElem(expr.Id, field))
 	return &evalRelAttr{
-		id: expr.Id,
-		adapter: p.adapter,
+		id:       expr.Id,
+		adapter:  p.adapter,
 		resolver: p.resolver,
-		op: op,
-		attr: relAttr,
+		op:       op,
+		attr:     relAttr,
 	}, nil
 }
 
@@ -431,7 +431,7 @@ func (p *planner) planCallConditional(expr *exprpb.Expr,
 func (p *planner) planCallIndex(expr *exprpb.Expr,
 	args []Interpretable) (Interpretable, error) {
 	relAttr := &PathElem{
-		ID: expr.Id,
+		ID:      expr.Id,
 		ToValue: args[1].Eval,
 	}
 	attr, ok := args[0].(attrInst)
@@ -440,11 +440,11 @@ func (p *planner) planCallIndex(expr *exprpb.Expr,
 		return attr, nil
 	}
 	return &evalRelAttr{
-		id:      expr.Id,
-		adapter: p.adapter,
+		id:       expr.Id,
+		adapter:  p.adapter,
 		resolver: p.resolver,
-		op: args[0],
-		attr: NewRelativeAttribute(relAttr),
+		op:       args[0],
+		attr:     NewRelativeAttribute(relAttr),
 	}, nil
 }
 
