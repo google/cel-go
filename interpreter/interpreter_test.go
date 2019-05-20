@@ -15,6 +15,8 @@
 package interpreter
 
 import (
+	"encoding/json"
+	"errors"
 	"reflect"
 	"testing"
 
@@ -29,36 +31,720 @@ import (
 	"github.com/google/cel-go/common/types/traits"
 	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/parser"
-	"github.com/google/cel-go/test"
 	"github.com/google/cel-go/test/proto2pb"
 	"github.com/google/cel-go/test/proto3pb"
 
+	structpb "github.com/golang/protobuf/ptypes/struct"
+	tpb "github.com/golang/protobuf/ptypes/timestamp"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 type testCase struct {
-	name string
-	E    string
-	Env  []*exprpb.Decl
-	I    interface{}
+	name      string
+	expr      string
+	pkg       string
+	env       []*exprpb.Decl
+	types     []proto.Message
+	funcs     []*functions.Overload
+	unchecked bool
+
+	in  interface{}
+	out interface{}
 }
 
-func TestExhaustiveInterpreter_ConditionalExpr(t *testing.T) {
-	// a ? b < 1.0 : c == ["hello"]
-	// Operator "_==_" is at Expr 6, should be evaluated in exhaustive mode
-	// even though "a" is true
+var (
+	testData = []testCase{
+		{
+			name: "and_false_1st",
+			expr: `false && true`,
+			out:  types.False,
+		},
+		{
+			name: "and_false_2nd",
+			expr: `true && false`,
+			out:  types.False,
+		},
+		{
+			name:      "call_no_args",
+			expr:      `zero()`,
+			unchecked: true,
+			funcs: []*functions.Overload{
+				&functions.Overload{
+					Operator: "zero",
+					Function: func(args ...ref.Val) ref.Val {
+						return types.IntZero
+					},
+				},
+			},
+			out: types.IntZero,
+		},
+		{
+			name:      "call_one_arg",
+			expr:      `neg(1)`,
+			unchecked: true,
+			funcs: []*functions.Overload{
+				&functions.Overload{
+					Operator:     "neg",
+					OperandTrait: traits.NegatorType,
+					Unary: func(arg ref.Val) ref.Val {
+						return arg.(traits.Negater).Negate()
+					},
+				},
+			},
+			out: types.IntNegOne,
+		},
+		{
+			name:      "call_two_arg",
+			expr:      `b'abc'.concat(b'def')`,
+			unchecked: true,
+			funcs: []*functions.Overload{
+				&functions.Overload{
+					Operator:     "concat",
+					OperandTrait: traits.AdderType,
+					Binary: func(lhs, rhs ref.Val) ref.Val {
+						return lhs.(traits.Adder).Add(rhs)
+					},
+				},
+			},
+			out: []byte{'a', 'b', 'c', 'd', 'e', 'f'},
+		},
+		{
+			name:      "call_varargs",
+			expr:      `addall(a, b, c, d) == 10`,
+			unchecked: true,
+			funcs: []*functions.Overload{
+				&functions.Overload{
+					Operator:     "addall",
+					OperandTrait: traits.AdderType,
+					Function: func(args ...ref.Val) ref.Val {
+						val := types.Int(0)
+						for _, arg := range args {
+							val += arg.(types.Int)
+						}
+						return val
+					},
+				},
+			},
+			in: map[string]interface{}{
+				"a": 1, "b": 2, "c": 3, "d": 4,
+			},
+		},
+		{
+			name: "complex",
+			expr: `
+			!(headers.ip in ["10.0.1.4", "10.0.1.5"]) &&
+			  ((headers.path.startsWith("v1") && headers.token in ["v1", "v2", "admin"]) ||
+			   (headers.path.startsWith("v2") && headers.token in ["v2", "admin"]) ||
+			   (headers.path.startsWith("/admin") && headers.token == "admin" && headers.ip in ["10.0.1.2", "10.0.1.2", "10.0.1.2"]))
+			`,
+			env: []*exprpb.Decl{
+				decls.NewIdent("headers", decls.NewMapType(decls.String, decls.String), nil),
+			},
+			in: map[string]interface{}{
+				"headers": map[string]interface{}{
+					"ip":    "10.0.1.2",
+					"path":  "/admin/edit",
+					"token": "admin",
+				},
+			},
+		},
+		{
+			name: "complex_qual_vars",
+			expr: `
+			!(headers.ip in ["10.0.1.4", "10.0.1.5"]) &&
+			  ((headers.path.startsWith("v1") && headers.token in ["v1", "v2", "admin"]) ||
+			   (headers.path.startsWith("v2") && headers.token in ["v2", "admin"]) ||
+			   (headers.path.startsWith("/admin") && headers.token == "admin" && headers.ip in ["10.0.1.2", "10.0.1.2", "10.0.1.2"]))
+			`,
+			env: []*exprpb.Decl{
+				decls.NewIdent("headers.ip", decls.String, nil),
+				decls.NewIdent("headers.path", decls.String, nil),
+				decls.NewIdent("headers.token", decls.String, nil),
+			},
+			in: map[string]interface{}{
+				"headers.ip":    "10.0.1.2",
+				"headers.path":  "/admin/edit",
+				"headers.token": "admin",
+			},
+		},
+		{
+			name: "cond",
+			expr: `a ? b < 1.2 : c == ['hello']`,
+			env: []*exprpb.Decl{
+				decls.NewIdent("a", decls.Bool, nil),
+				decls.NewIdent("b", decls.Double, nil),
+				decls.NewIdent("c", decls.NewListType(decls.String), nil),
+			},
+			in: map[string]interface{}{
+				"a": true,
+				"b": 2.0,
+				"c": []string{"hello"},
+			},
+			out: types.False,
+		},
+		{
+			name: "cond_falsy_partial",
+			expr: `a ? b < 1.2 : c == ['hello']`,
+			env: []*exprpb.Decl{
+				decls.NewIdent("a", decls.Bool, nil),
+				decls.NewIdent("b", decls.Double, nil),
+				decls.NewIdent("c", decls.NewListType(decls.String), nil),
+			},
+			in: partialInput(
+				map[string]interface{}{
+					"a": false,
+					"c": []string{"hello"},
+				},
+				[]Attribute{unknownAttr("b")},
+			),
+			out: types.True,
+		},
+		{
+			name: "cond_falsy_unknown",
+			expr: `a ? b < 1.2 : c == ['hello']`,
+			env: []*exprpb.Decl{
+				decls.NewIdent("a", decls.Bool, nil),
+				decls.NewIdent("b", decls.Double, nil),
+				decls.NewIdent("c", decls.NewListType(decls.String), nil),
+			},
+			in: partialInput(
+				map[string]interface{}{
+					"a": false,
+					"b": 2.0,
+				},
+				[]Attribute{unknownAttr("c")},
+			),
+			out: types.Unknown{6},
+		},
+		{
+			name: "in_list",
+			expr: `6 in [2, 12, 6]`,
+		},
+		{
+			name: "in_map",
+			expr: `'other-key' in {'key': null, 'other-key': 42}`,
+		},
+		{
+			name: "index",
+			expr: `m['key'][1] == 42u && m['null'] == null`,
+			env: []*exprpb.Decl{
+				decls.NewIdent("m", decls.NewMapType(decls.String, decls.Dyn), nil),
+			},
+			in: map[string]interface{}{
+				"m": map[string]interface{}{
+					"key":  []uint{21, 42},
+					"null": nil,
+				},
+			},
+		},
+		{
+			name: "index_relative",
+			expr: `([[[1]], [[2]], [[3]]][0][0] + [2, 3, {'four': {'five': 'six'}}])[3].four.five == 'six'`,
+		},
+		{
+			name: "literal_bool_false",
+			expr: `false`,
+			out:  types.False,
+		},
+		{
+			name: "literal_bool_true",
+			expr: `true`,
+		},
+		{
+			name: "literal_null",
+			expr: `null`,
+			out:  types.NullValue,
+		},
+		{
+			name: "literal_list",
+			expr: `[1, 2, 3]`,
+			out:  []int64{1, 2, 3},
+		},
+		{
+			name: "literal_map",
+			expr: `{'hi': 21, 'world': 42u}`,
+			out: map[string]interface{}{
+				"hi":    21,
+				"world": uint(42),
+			},
+		},
+		{
+			name:  "literal_pb3_msg",
+			pkg:   "google.api.expr",
+			types: []proto.Message{&exprpb.Expr{}},
+			expr: `v1alpha1.Expr{
+				id: 1,
+				const_expr: v1alpha1.Constant{
+					string_value: "oneof_test"
+				}
+			}`,
+			out: &exprpb.Expr{Id: 1,
+				ExprKind: &exprpb.Expr_ConstExpr{
+					ConstExpr: &exprpb.Constant{
+						ConstantKind: &exprpb.Constant_StringValue{
+							StringValue: "oneof_test"}}}},
+		},
+		{
+			name:  "literal_pb_enum",
+			pkg:   "google.expr.proto3.test",
+			types: []proto.Message{&proto3pb.TestAllTypes{}},
+			expr: `TestAllTypes{
+				repeated_nested_enum: [
+					0,
+					TestAllTypes.NestedEnum.BAZ,
+					TestAllTypes.NestedEnum.BAR],
+				repeated_int32: [
+					TestAllTypes.NestedEnum.FOO,
+					TestAllTypes.NestedEnum.BAZ]}`,
+			out: &proto3pb.TestAllTypes{
+				RepeatedNestedEnum: []proto3pb.TestAllTypes_NestedEnum{
+					proto3pb.TestAllTypes_FOO,
+					proto3pb.TestAllTypes_BAZ,
+					proto3pb.TestAllTypes_BAR,
+				},
+				RepeatedInt32: []int32{0, 2},
+			},
+		},
+		{
+			name: "string_to_timestamp",
+			expr: `timestamp('1986-04-26T01:23:40Z')`,
+			out:  &tpb.Timestamp{Seconds: 514862620},
+		},
+		{
+			name: "macro_all_non_strict",
+			expr: `![0, 2, 4].all(x, 4/x != 2 && 4/(4-x) != 2)`,
+		},
+		{
+			name: "macro_all_non_strict_var",
+			expr: `code == "111" && ["a", "b"].all(x, x in tags)
+				|| code == "222" && ["a", "b"].all(x, x in tags)`,
+			env: []*exprpb.Decl{
+				decls.NewIdent("code", decls.String, nil),
+				decls.NewIdent("tags", decls.NewListType(decls.String), nil),
+			},
+			in: map[string]interface{}{
+				"code": "222",
+				"tags": []string{"a", "b"},
+			},
+		},
+		{
+			name: "macro_exists_lit",
+			expr: `[1, 2, 3, 4, 5u, 1.0].exists(e, type(e) == uint)`,
+		},
+		{
+			name: "macro_exists_nonstrict",
+			expr: `[0, 2, 4].exists(x, 4/x == 2 && 4/(4-x) == 2)`,
+		},
+		{
+			name: "macro_exists_var",
+			expr: `elems.exists(e, type(e) == uint)`,
+			env: []*exprpb.Decl{
+				decls.NewIdent("elems", decls.NewListType(decls.Dyn), nil),
+			},
+			in: map[string]interface{}{
+				"elems": []interface{}{0, 1, 2, 3, 4, uint(5), 6},
+			},
+		},
+		{
+			name: "macro_exists_one",
+			expr: `[1, 2, 3].exists_one(x, (x % 2) == 0)`,
+		},
+		{
+			name: "macro_filter",
+			expr: `[1, 2, 3].filter(x, x > 2) == [3]`,
+		},
+		{
+			name: "macro_has_map_key",
+			expr: `has({'a':1}.a) && !has({}.a)`,
+		},
+		{
+			name:  "macro_has_pb3_msg_field",
+			types: []proto.Message{&exprpb.ParsedExpr{}},
+			pkg:   "google.api.expr.v1alpha1",
+			expr: `has(v1alpha1.ParsedExpr{expr:Expr{id: 1}}.expr)
+				&& !has(expr.v1alpha1.ParsedExpr{expr:Expr{id: 1}}.source_info)`,
+		},
+		{
+			name: "macro_map",
+			expr: `[1, 2, 3].map(x, x * 2) == [2, 4, 6]`,
+		},
+		{
+			name: "matches",
+			expr: `input.matches('k.*')
+				&& !'foo'.matches('k.*')
+				&& !'bar'.matches('k.*')
+				&& 'kilimanjaro'.matches('.*ro')`,
+			env: []*exprpb.Decl{
+				decls.NewIdent("input", decls.String, nil),
+			},
+			in: map[string]interface{}{
+				"input": "kathmandu",
+			},
+		},
+		{
+			name: "or_true_1st",
+			expr: `ai == 20 || ar["foo"] == "bar"`,
+			env: []*exprpb.Decl{
+				decls.NewIdent("ai", decls.Int, nil),
+				decls.NewIdent("ar", decls.NewMapType(decls.String, decls.String), nil),
+			},
+			in: map[string]interface{}{
+				"ai": 20,
+				"ar": map[string]string{
+					"foo": "bar",
+				},
+			},
+		},
+		{
+			name: "or_true_2nd",
+			expr: `ai == 20 || ar["foo"] == "bar"`,
+			env: []*exprpb.Decl{
+				decls.NewIdent("ai", decls.Int, nil),
+				decls.NewIdent("ar", decls.NewMapType(decls.String, decls.String), nil),
+			},
+			in: map[string]interface{}{
+				"ai": 2,
+				"ar": map[string]string{
+					"foo": "bar",
+				},
+			},
+		},
+		{
+			name: "or_false",
+			expr: `ai == 20 || ar["foo"] == "bar"`,
+			env: []*exprpb.Decl{
+				decls.NewIdent("ai", decls.Int, nil),
+				decls.NewIdent("ar", decls.NewMapType(decls.String, decls.String), nil),
+			},
+			in: map[string]interface{}{
+				"ai": 2,
+				"ar": map[string]string{
+					"foo": "baz",
+				},
+			},
+			out: types.False,
+		},
+		{
+			name: "pkg_qualified_id",
+			expr: `b.c.d != 10`,
+			pkg:  "a.b",
+			env: []*exprpb.Decl{
+				decls.NewIdent("a.b.c.d", decls.Int, nil),
+			},
+			in: map[string]interface{}{
+				"a.b.c.d": 9,
+			},
+		},
+		{
+			name:      "pkg_qualified_id_unchecked",
+			expr:      `b.c.d != 10`,
+			unchecked: true,
+			pkg:       "a.b",
+			in: map[string]interface{}{
+				"a.b.c.d": 9,
+			},
+		},
+		{
+			name:      "pkg_qualified_index_unchecked",
+			expr:      `b.c['d'] == 10`,
+			unchecked: true,
+			pkg:       "a.b",
+			in: map[string]interface{}{
+				"a.b.c": map[string]int{
+					"d": 10,
+				},
+			},
+		},
+		{
+			name: "select_key",
+			expr: `m.strMap['val'] == 'string' 
+				&& m.floatMap['val'] == 1.5
+				&& m.doubleMap['val'] == -2.0
+				&& m.intMap['val'] == -3
+				&& m.int32Map['val'] == 4
+				&& m.int64Map['val'] == -5
+				&& m.uintMap['val'] == 6u
+				&& m.uint32Map['val'] == 7u
+				&& m.uint64Map['val'] == 8u
+				&& m.boolMap['val'] == true
+				&& m.boolMap['val'] != false`,
+			env: []*exprpb.Decl{
+				decls.NewIdent("m", decls.NewMapType(decls.String, decls.Dyn), nil),
+			},
+			in: map[string]interface{}{
+				"m": map[string]interface{}{
+					"strMap":    map[string]string{"val": "string"},
+					"floatMap":  map[string]float32{"val": 1.5},
+					"doubleMap": map[string]float64{"val": -2.0},
+					"intMap":    map[string]int{"val": -3},
+					"int32Map":  map[string]int32{"val": 4},
+					"int64Map":  map[string]int64{"val": -5},
+					"uintMap":   map[string]uint{"val": 6},
+					"uint32Map": map[string]uint32{"val": 7},
+					"uint64Map": map[string]uint64{"val": 8},
+					"boolMap":   map[string]bool{"val": true},
+				},
+			},
+		},
+		{
+			name: "select_index",
+			expr: `m.strList[0] == 'string' 
+				&& m.floatList[0] == 1.5
+				&& m.doubleList[0] == -2.0
+				&& m.intList[0] == -3
+				&& m.int32List[0] == 4
+				&& m.int64List[0] == -5
+				&& m.uintList[0] == 6u
+				&& m.uint32List[0] == 7u
+				&& m.uint64List[0] == 8u
+				&& m.boolList[0] == true
+				&& m.boolList[1] != true
+				&& m.ifaceList[0] == {}`,
+			env: []*exprpb.Decl{
+				decls.NewIdent("m", decls.NewMapType(decls.String, decls.Dyn), nil),
+			},
+			in: map[string]interface{}{
+				"m": map[string]interface{}{
+					"strList":    []string{"string"},
+					"floatList":  []float32{1.5},
+					"doubleList": []float64{-2.0},
+					"intList":    []int{-3},
+					"int32List":  []int32{4},
+					"int64List":  []int64{-5},
+					"uintList":   []uint{6},
+					"uint32List": []uint32{7},
+					"uint64List": []uint64{8},
+					"boolList":   []bool{true, false},
+					"ifaceList":  []interface{}{map[string]string{}},
+				},
+			},
+		},
+		{
+			name: "select_field",
+			expr: `a.b.c 
+				&& pb3.repeated_nested_enum[0] == test.TestAllTypes.NestedEnum.BAR 
+				&& json.list[0] == 'world'`,
+			pkg:   "google.expr.proto3",
+			types: []proto.Message{&proto3pb.TestAllTypes{}},
+			env: []*exprpb.Decl{
+				decls.NewIdent("a.b", decls.NewMapType(decls.String, decls.Bool), nil),
+				decls.NewIdent("pb3", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
+				decls.NewIdent("json", decls.NewMapType(decls.String, decls.Dyn), nil),
+			},
+			in: map[string]interface{}{
+				"a.b": map[string]bool{
+					"c": true,
+				},
+				"pb3": &proto3pb.TestAllTypes{
+					RepeatedNestedEnum: []proto3pb.TestAllTypes_NestedEnum{proto3pb.TestAllTypes_BAR},
+				},
+				"json": &structpb.Value{
+					Kind: &structpb.Value_StructValue{
+						StructValue: &structpb.Struct{
+							Fields: map[string]*structpb.Value{
+								"list": {Kind: &structpb.Value_ListValue{
+									ListValue: &structpb.ListValue{
+										Values: []*structpb.Value{
+											&structpb.Value{Kind: &structpb.Value_StringValue{
+												StringValue: "world",
+											}},
+										},
+									},
+								}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "select_pb2_primitive_fields",
+			expr: `a.single_int32 == a.single_int64 &&
+				a.single_uint32 == a.single_uint64 &&
+				a.single_float == a.single_double &&
+				!a.single_bool &&
+				"" == a.single_string`,
+			pkg:   "google.expr.proto2.test",
+			types: []proto.Message{&proto2pb.TestAllTypes{}},
+			env: []*exprpb.Decl{
+				decls.NewIdent("a", decls.NewObjectType("google.expr.proto2.test.TestAllTypes"), nil),
+			},
+			in: map[string]interface{}{
+				"a": &proto2pb.TestAllTypes{},
+			},
+		},
+		{
+			name:  "select_pb3_enum_field",
+			expr:  `a.repeated_nested_enum[0]`,
+			pkg:   "google.expr.proto3.test",
+			types: []proto.Message{&proto3pb.TestAllTypes{}},
+			env: []*exprpb.Decl{
+				decls.NewIdent("a", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
+			},
+			in: map[string]interface{}{
+				"a": &proto3pb.TestAllTypes{
+					RepeatedNestedEnum: []proto3pb.TestAllTypes_NestedEnum{
+						proto3pb.TestAllTypes_BAR,
+					},
+				},
+			},
+			out: int64(1),
+		},
+		{
+			name: "select_relative",
+			expr: `json('{"hi":"world"}').hi == 'world'`,
+			env: []*exprpb.Decl{
+				decls.NewFunction("json",
+					decls.NewOverload("string_to_json",
+						[]*exprpb.Type{decls.String}, decls.Dyn)),
+			},
+			funcs: []*functions.Overload{
+				&functions.Overload{
+					Operator: "json",
+					Unary: func(val ref.Val) ref.Val {
+						str, ok := val.(types.String)
+						if !ok {
+							return types.ValOrErr(val, "no such overload")
+						}
+						m := make(map[string]interface{})
+						err := json.Unmarshal([]byte(str), &m)
+						if err != nil {
+							return types.NewErr("invalid json: %v", err)
+						}
+						return types.DefaultTypeAdapter.NativeToValue(m)
+					},
+				},
+			},
+		},
+		{
+			name: "select_subsumed_field",
+			expr: `a.b.c`,
+			env: []*exprpb.Decl{
+				decls.NewIdent("a.b.c", decls.Int, nil),
+				decls.NewIdent("a.b", decls.NewMapType(decls.String, decls.String), nil),
+			},
+			in: map[string]interface{}{
+				"a.b.c": 10,
+				"a.b": map[string]string{
+					"c": "ten",
+				},
+			},
+			out: types.Int(10),
+		},
+		{
+			name:      "select_unknown_attribute",
+			expr:      `val.input.expr.id == 10 && 9 != val.input.expr.id`,
+			pkg:       "test",
+			unchecked: true,
+			in: partialInput(
+				map[string]interface{}{},
+				[]Attribute{unknownAttr("val.input")},
+			),
+			out: types.Unknown{2},
+		},
+		{
+			name:      "select_resolved_attribute",
+			expr:      `val.input.expr.call_expr.function != 'one' || val.input.expr.id == 10`,
+			types:     []proto.Message{&exprpb.ParsedExpr{}},
+			unchecked: true,
+			in: partialInput(
+				map[string]interface{}{
+					"val.input": &exprpb.ParsedExpr{Expr: &exprpb.Expr{Id: 10}},
+				},
+				[]Attribute{unknownAttr("val.input", "expr", "call_expr")},
+			),
+		},
+	}
+)
+
+func BenchmarkInterpreter(b *testing.B) {
+	for _, tst := range testData {
+		prg, vars, err := program(&tst, Optimize())
+		if err != nil {
+			b.Fatal(err)
+		}
+		// Benchmark the eval.
+		b.Run(tst.name, func(bb *testing.B) {
+			b.ResetTimer()
+			b.ReportAllocs()
+			for i := 0; i < bb.N; i++ {
+				prg.Eval(vars)
+			}
+		})
+	}
+}
+
+func TestInterpreter(t *testing.T) {
+	for _, tst := range testData {
+		tc := tst
+		prg, vars, err := program(&tc)
+		if err != nil {
+			t.Fatalf("%s: %v", tc.name, err)
+		}
+		t.Run(tc.name, func(tt *testing.T) {
+			var want ref.Val = types.True
+			if tc.out != nil {
+				want = tc.out.(ref.Val)
+			}
+			got := prg.Eval(vars)
+			gotUnk, isUnk := got.(types.Unknown)
+			wantUnk, expectUnk := want.(types.Unknown)
+			if isUnk && expectUnk {
+				if !reflect.DeepEqual(gotUnk, wantUnk) {
+					tt.Errorf("Got %v, wanted %v", got, want)
+					return
+				}
+			} else if got.Equal(want) != types.True {
+				tt.Errorf("Got %v, wanted %v", got, want)
+				return
+			}
+			state := NewEvalState()
+			opts := map[string]InterpretableDecorator{
+				"optimize":   Optimize(),
+				"exhaustive": ExhaustiveEval(state),
+				"track":      TrackState(state),
+			}
+			for mode, opt := range opts {
+				prg, vars, _ = program(&tc, opt)
+				tt.Run(mode, func(ttt *testing.T) {
+					got := prg.Eval(vars)
+					gotUnk, isUnk := got.(types.Unknown)
+					wantUnk, expectUnk := want.(types.Unknown)
+					if isUnk && expectUnk {
+						if !reflect.DeepEqual(gotUnk, wantUnk) {
+							ttt.Errorf("Got %v, wanted %v", got, want)
+						}
+					} else if got.Equal(want) != types.True {
+						ttt.Errorf("Got %v, wanted %v", got, want)
+					}
+					state.Reset()
+				})
+			}
+		})
+	}
+}
+
+func TestInterpreter_ExhaustiveConditionalExpr(t *testing.T) {
+	src := common.NewTextSource(`a ? b < 1.0 : c == ['hello']`)
+	parsed, errors := parser.Parse(src)
+	if len(errors.GetErrors()) != 0 {
+		t.Errorf(errors.ToDisplayString())
+	}
+
 	state := NewEvalState()
 	reg := types.NewRegistry(&exprpb.ParsedExpr{})
-	intr := NewStandardInterpreter(packages.DefaultPackage, reg, reg)
+	intr := NewStandardInterpreter(packages.DefaultPackage, reg, reg, NewResolver(reg))
 	interpretable, _ := intr.NewUncheckedInterpretable(
-		test.Conditional.Expr,
+		parsed.GetExpr(),
 		ExhaustiveEval(state))
 	vars, _ := NewActivation(map[string]interface{}{
 		"a": types.True,
 		"b": types.Double(0.999),
 		"c": types.NewStringList(reg, []string{"hello"})})
 	result := interpretable.Eval(vars)
-	ev, _ := state.Value(6)
+	// Operator "_==_" is at Expr 7, should be evaluated in exhaustive mode
+	// even though "a" is true
+	ev, _ := state.Value(7)
 	// "==" should be evaluated in exhaustive mode though unnecessary
 	if ev != types.True {
 		t.Errorf("Else expression expected to be true, got: %v", ev)
@@ -68,29 +754,44 @@ func TestExhaustiveInterpreter_ConditionalExpr(t *testing.T) {
 	}
 }
 
-/*
-func TestExhaustiveInterpreter_ConditionalExprErr(t *testing.T) {
+func TestInterpreter_ExhaustiveConditionalExprErr(t *testing.T) {
 	// a ? b < 1.0 : c == ["hello"]
 	// Operator "<" is at Expr 3, "_==_" is at Expr 6.
 	// Both should be evaluated in exhaustive mode though a is not provided
+	src := common.NewTextSource(`a ? b < 1.0 : c == ['hello']`)
+	parsed, errors := parser.Parse(src)
+	if len(errors.GetErrors()) != 0 {
+		t.Errorf(errors.ToDisplayString())
+	}
+
 	state := NewEvalState()
-	i, err := interpreter.NewUncheckedInterpretable(
-		test.Conditional.Expr,
+	dispatcher := NewDispatcher()
+	dispatcher.Add(functions.StandardOverloads()...)
+	reg := types.NewRegistry()
+	unkInterp := NewInterpreter(
+		dispatcher, packages.NewPackage("test"),
+		reg, reg, NewUnknownResolver(NewResolver(reg)))
+	i, err := unkInterp.NewUncheckedInterpretable(
+		parsed.GetExpr(),
 		ExhaustiveEval(state))
 	if err != nil {
 		t.Fatal(err)
 	}
-	vars, _ := NewActivation(map[string]interface{}{
-		"b": types.Double(1.001),
-		"c": types.NewStringList(reg, []string{"hello"})})
+	vars := partialInput(
+		map[string]interface{}{
+			"b": types.Double(1.001),
+			"c": types.NewStringList(reg, []string{"hello"}),
+		},
+		[]Attribute{unknownAttr("a")},
+	)
 	result := i.Eval(vars)
-	iv, _ := state.Value(3)
-	// "<" should be evaluated in exhaustive mode though unnecessary
+	// "<" (expr 4) should be evaluated in exhaustive mode though unnecessary
+	iv, _ := state.Value(4)
 	if iv != types.False {
 		t.Errorf("If expression expected to be false, got: %v", iv)
 	}
-	ev, _ := state.Value(6)
-	// "==" should be evaluated in exhaustive mode though unnecessary
+	// "==" (expr 7) should be evaluated in exhaustive mode though unnecessary
+	ev, _ := state.Value(7)
 	if ev != types.True {
 		t.Errorf("Else expression expected to be true, got: %v", ev)
 	}
@@ -98,372 +799,34 @@ func TestExhaustiveInterpreter_ConditionalExprErr(t *testing.T) {
 		t.Errorf("Expected unknown result, got: %v", result)
 	}
 }
-*/
 
-func TestExhaustiveInterpreter_LogicalOrEquals(t *testing.T) {
+func TestInterpreter_ExhaustiveLogicalOrEquals(t *testing.T) {
 	// a || b == "b"
 	// Operator "==" is at Expr 4, should be evaluated though "a" is true
+	src := common.NewTextSource(`a || b == "b"`)
+	parsed, errors := parser.Parse(src)
+	if len(errors.GetErrors()) != 0 {
+		t.Errorf(errors.ToDisplayString())
+	}
 
-	// TODO: make the type identifiers part of the standard declaration set.
 	state := NewEvalState()
 	reg := types.NewRegistry(&exprpb.Expr{})
-	interp := NewStandardInterpreter(packages.NewPackage("test"), reg, reg)
-	i, _ := interp.NewUncheckedInterpretable(test.LogicalOrEquals.Expr,
+	interp := NewStandardInterpreter(packages.NewPackage("test"), reg, reg, NewResolver(reg))
+	i, _ := interp.NewUncheckedInterpretable(
+		parsed.GetExpr(),
 		ExhaustiveEval(state))
 	vars, _ := NewActivation(map[string]interface{}{
 		"a": true,
 		"b": "b",
 	})
 	result := i.Eval(vars)
-	rhv, _ := state.Value(4)
+	rhv, _ := state.Value(3)
 	// "==" should be evaluated in exhaustive mode though unnecessary
 	if rhv != types.True {
 		t.Errorf("Right hand side expression expected to be true, got: %v", rhv)
 	}
 	if result != types.True {
 		t.Errorf("Expected true, got: %v", result)
-	}
-}
-
-func TestInterpreter_CallExpr(t *testing.T) {
-	reg := types.NewRegistry(&exprpb.ParsedExpr{})
-	intr := NewStandardInterpreter(packages.NewPackage("google.api.expr"), reg, reg)
-	state := NewEvalState()
-	interpretable, _ := intr.NewUncheckedInterpretable(test.Equality.Expr,
-		TrackState(state))
-	vars, _ := NewActivation(map[string]interface{}{"a": types.Int(41)})
-	result := interpretable.Eval(vars)
-	if result != types.False {
-		t.Errorf("Expected false, got: %v", result)
-	}
-	if ident, found := state.Value(1); !found || ident != types.Int(41) {
-		t.Errorf("State of ident 'a' != 41, got: %v", ident)
-	}
-}
-
-func TestInterpreter_SelectExpr(t *testing.T) {
-	i, _ := interpreter.NewUncheckedInterpretable(test.Select.Expr)
-	vars, _ := NewActivation(map[string]interface{}{
-		"a.b": types.NewDynamicMap(reg, map[string]bool{"c": true}),
-	})
-	result := i.Eval(vars)
-	if result != types.True {
-		t.Errorf("Expected true, got: %v", result)
-	}
-}
-
-func TestInterpreter_ConditionalExpr(t *testing.T) {
-	// a ? b < 1.0 : c == ["hello"]
-	// Operator "<" is at Expr 3, "_==_" is at Expr 6.
-	i, _ := interpreter.NewUncheckedInterpretable(test.Conditional.Expr)
-	vars, _ := NewActivation(map[string]interface{}{
-		"a": true,
-		"b": 0.999,
-		"c": types.NewStringList(reg, []string{"hello"})})
-	result := i.Eval(vars)
-	if result != types.True {
-		t.Errorf("Expected true, got: %v", result)
-	}
-}
-
-func TestInterpreter_ComprehensionExpr(t *testing.T) {
-	result := evalExpr(t, "[1, 1u, 1.0].exists(x, type(x) == uint)")
-	if result != types.True {
-		t.Errorf("Got %v, wanted true", result)
-	}
-}
-
-func TestInterpreter_NonStrictExistsComprehension(t *testing.T) {
-	result := evalExpr(t, "[0, 2, 4].exists(x, 4/x == 2 && 4/(4-x) == 2)")
-	if result != types.True {
-		t.Errorf("Got %v, wanted true", result)
-	}
-}
-
-func TestInterpreter_NonStrictAllComprehension(t *testing.T) {
-	result := evalExpr(t, "![0, 2, 4].all(x, 4/x != 2 && 4/(4-x) != 2)")
-	if result != types.True {
-		t.Errorf("Got %v, wanted true", result)
-	}
-}
-
-func TestInterpreter_NonStrictAllWithInput(t *testing.T) {
-	parsed := parseExpr(t,
-		`code == "111" && ["a", "b"].all(x, x in tags)
-		|| code == "222" && ["a", "b"].all(x, x in tags)`)
-	i, _ := interpreter.NewUncheckedInterpretable(parsed.GetExpr())
-	vars, _ := NewActivation(map[string]interface{}{
-		"code": types.String("222"),
-		"tags": reg.NativeToValue([]string{"a", "b"}),
-	})
-	result := i.Eval(vars)
-	if result != types.True {
-		t.Errorf("Got %v, wanted true", result)
-	}
-}
-
-func TestInterpreter_LongQualifiedIdent(t *testing.T) {
-	parsed := parseExpr(t, `a.b.c.d == 10`)
-	i, _ := interpreter.NewUncheckedInterpretable(parsed.GetExpr())
-	vars, _ := NewActivation(map[string]interface{}{
-		"a.b.c.d": types.Int(10),
-	})
-	result := i.Eval(vars)
-	if result != types.True {
-		t.Errorf("Got %v, wanted true", result)
-	}
-}
-
-func TestInterpreter_FieldAccess(t *testing.T) {
-	/*parsed := parseExpr(t, `val.input.expr.id == 10`)
-	i, _ := interpreter.NewUncheckedInterpretable(parsed.GetExpr())
-	unk := i.Eval(EmptyActivation())
-	if !types.IsUnknown(unk) {
-		t.Errorf("Got %v, wanted unknown", unk)
-	}
-	vars, _ := NewActivation(map[string]interface{}{
-		"val.input": reg.NativeToValue(
-			&exprpb.ParsedExpr{Expr: &exprpb.Expr{Id: 10}}),
-	})
-	result := i.Eval(vars)
-	if result != types.True {
-		t.Errorf("Got %v, wanted true", result)
-	}*/
-}
-
-func TestInterpreter_SubsumedFieldAccess(t *testing.T) {
-	vars, _ := NewActivation(map[string]interface{}{
-		"a.b":   map[string]types.Int{"c": types.Int(9)},
-		"a.b.c": types.Int(10),
-	})
-
-	parsed := parseExpr(t, `a.b.c == 10`)
-	i, _ := interpreter.NewUncheckedInterpretable(parsed.GetExpr())
-	result := i.Eval(vars)
-	if result != types.True {
-		t.Errorf("Got %v, wanted true", result)
-	}
-
-	checked := compileExpr(t, `a.b.c == 10`,
-		decls.NewIdent("a.b.c", decls.Int, nil),
-		decls.NewIdent("a.b", decls.NewMapType(decls.String, decls.Int), nil))
-	i, _ = interpreter.NewInterpretable(checked)
-	result = i.Eval(vars)
-	if result != types.True {
-		t.Errorf("Got %v, wanted true", result)
-	}
-}
-
-func TestInterpreter_ExistsOne(t *testing.T) {
-	result := evalExpr(t, "[1, 2, 3].exists_one(x, (x % 2) == 0)")
-	if result != types.True {
-		t.Errorf("Got %v, wanted true", result)
-	}
-}
-
-func TestInterpreter_Map(t *testing.T) {
-	result := evalExpr(t, "[1, 2, 3].map(x, x * 2) == [2, 4, 6]")
-	if result != types.True {
-		t.Errorf("Got %v, wanted true", result)
-	}
-}
-
-func TestInterpreter_Filter(t *testing.T) {
-	result := evalExpr(t, "[1, 2, 3].filter(x, x > 2) == [3]")
-	if result != types.True {
-		t.Errorf("Got %v, wanted true", result)
-	}
-}
-
-func TestInterpreter_Timestamp(t *testing.T) {
-	result := evalExpr(t, "timestamp('2001-01-01T01:23:45Z').getDayOfWeek() == 1")
-	if result != types.True {
-		t.Errorf("Got %v, wanted true", result)
-	}
-}
-
-func TestInterpreter_ZeroArityCall(t *testing.T) {
-	p := parseExpr(t, `zero()`)
-	disp := NewDispatcher()
-	disp.Add(&functions.Overload{
-		Operator: "zero",
-		Function: func(args ...ref.Val) ref.Val {
-			return types.IntZero
-		},
-	})
-	reg := types.NewRegistry()
-	interp := NewInterpreter(disp, packages.DefaultPackage, reg, reg)
-	i, _ := interp.NewUncheckedInterpretable(p.Expr)
-	result := i.Eval(EmptyActivation())
-	if result != types.IntZero {
-		t.Errorf("Got '%v', wanted zero", result)
-	}
-}
-
-func TestInterpreter_VarArgsCall(t *testing.T) {
-	p := parseExpr(t, `addall(a, b, c, d)`)
-	disp := NewDispatcher()
-	disp.Add(&functions.Overload{
-		Operator:     "addall",
-		OperandTrait: traits.AdderType,
-		Function: func(args ...ref.Val) ref.Val {
-			val := types.Int(0)
-			for _, arg := range args {
-				val += arg.(types.Int)
-			}
-			return val
-		},
-	})
-	reg := types.NewRegistry()
-	interp := NewInterpreter(disp, packages.DefaultPackage, reg, reg)
-	i, _ := interp.NewUncheckedInterpretable(p.Expr)
-	vars, _ := NewActivation(
-		map[string]interface{}{
-			"a": types.Int(1),
-			"b": types.Int(2),
-			"c": types.Int(3),
-			"d": types.Int(4),
-		})
-	result := i.Eval(vars)
-	if result != types.Int(10) {
-		t.Errorf("Got '%v', wanted 10", result)
-	}
-}
-
-func TestInterpreter_HasTest(t *testing.T) {
-	result := evalExpr(t,
-		`has({'a':1}.a) &&
-		 !has({}.a) &&
-		 has(google.api.expr.v1alpha1.ParsedExpr{
-			expr:google.api.expr.v1alpha1.Expr{id: 1}}
-			.expr) &&
-		 !has(google.api.expr.v1alpha1.ParsedExpr{
-			expr:google.api.expr.v1alpha1.Expr{id: 1}}
-			.source_info)`)
-	if result != types.True {
-		t.Errorf("Got %v, wanted true", result)
-	}
-}
-func TestInterpreter_LogicalAnd(t *testing.T) {
-	// a && {c: true}.c
-	interpretable, _ := interpreter.NewUncheckedInterpretable(test.LogicalAnd.Expr)
-	// TODO: make the type identifiers part of the standard declaration set.
-	vars, _ := NewActivation(map[string]interface{}{"a": types.True})
-	result := interpretable.Eval(vars)
-	if result != types.True {
-		t.Errorf("Expected true, got: %v", result)
-	}
-}
-
-func TestInterpreter_LogicalAndMissingType(t *testing.T) {
-	// a && TestProto{c: true}.c
-	i, err := interpreter.NewUncheckedInterpretable(test.LogicalAndMissingType.Expr)
-	if err == nil {
-		t.Errorf("Got '%v', wanted error", i)
-	}
-}
-
-func TestInterpreter_LogicalOr(t *testing.T) {
-	// {c: false}.c || a
-	reg := types.NewRegistry(&exprpb.Expr{})
-	intr := NewStandardInterpreter(packages.NewPackage("test"), reg, reg)
-	i, _ := intr.NewUncheckedInterpretable(test.LogicalOr.Expr)
-	vars, _ := NewActivation(map[string]interface{}{"a": types.True})
-	result := i.Eval(vars)
-	if result != types.True {
-		t.Errorf("Expected true, got: %v", result)
-	}
-}
-
-func TestInterpreter_LogicalOrEquals(t *testing.T) {
-	// a || b == "b"
-	// Operator "==" is at Expr 4, should not be evaluated since "a" is true)
-	// TODO: make the type identifiers part of the standard declaration set.
-	reg := types.NewRegistry(&exprpb.Expr{})
-	i := NewStandardInterpreter(packages.NewPackage("test"), reg, reg)
-	interpretable, _ := i.NewUncheckedInterpretable(test.LogicalOrEquals.Expr)
-	vars, _ := NewActivation(map[string]interface{}{
-		"a": types.True,
-		"b": types.String("b"),
-	})
-	result := interpretable.Eval(vars)
-	if result != types.True {
-		t.Errorf("Expected true, got: %v", result)
-	}
-}
-
-func TestInterpreter_BuildObject(t *testing.T) {
-	src := common.NewTextSource(
-		"v1alpha1.Expr{id: 1, " +
-			"const_expr: v1alpha1.Constant{ " +
-			"string_value: \"oneof_test\"}}")
-	parsed, errors := parser.Parse(src)
-	if len(errors.GetErrors()) != 0 {
-		t.Errorf(errors.ToDisplayString())
-	}
-
-	pkgr := packages.NewPackage("google.api.expr")
-	reg := types.NewRegistry(&exprpb.Expr{})
-	env := checker.NewStandardEnv(pkgr, reg)
-	checked, errors := checker.Check(parsed, src, env)
-	if len(errors.GetErrors()) != 0 {
-		t.Errorf(errors.ToDisplayString())
-	}
-
-	i := NewStandardInterpreter(pkgr, reg, reg)
-	eval, _ := i.NewInterpretable(checked)
-	result := eval.Eval(EmptyActivation())
-	expected := &exprpb.Expr{Id: 1,
-		ExprKind: &exprpb.Expr_ConstExpr{
-			ConstExpr: &exprpb.Constant{
-				ConstantKind: &exprpb.Constant_StringValue{
-					StringValue: "oneof_test"}}}}
-	if !proto.Equal(result.(ref.Val).Value().(proto.Message), expected) {
-		t.Errorf("Could not build object properly. Got '%v', wanted '%v'",
-			result.(ref.Val).Value(),
-			expected)
-	}
-}
-
-func TestInterpreter_GetProto2PrimitiveFields(t *testing.T) {
-	// In proto, 32-bit types are widened to 64-bit types, so these fields should be equal
-	// in CEL even if they're not equal in proto.
-	src := common.NewTextSource(`
-	a.single_int32 == a.single_int64 &&
-	a.single_uint32 == a.single_uint64 &&
-	a.single_float == a.single_double &&
-	!a.single_bool &&
-	a.single_string == ""`)
-	parsed, errors := parser.Parse(src)
-	if len(errors.GetErrors()) != 0 {
-		t.Errorf(errors.ToDisplayString())
-	}
-
-	pkgr := packages.NewPackage("google.expr.proto2.test")
-	reg := types.NewRegistry(&proto2pb.TestAllTypes{})
-	env := checker.NewStandardEnv(pkgr, reg)
-	env.Add(decls.NewIdent("a", decls.NewObjectType("google.expr.proto2.test.TestAllTypes"), nil))
-	checked, errors := checker.Check(parsed, src, env)
-	if len(errors.GetErrors()) != 0 {
-		t.Errorf(errors.ToDisplayString())
-	}
-
-	i := NewStandardInterpreter(pkgr, reg, reg)
-	eval, _ := i.NewInterpretable(checked)
-	a := &proto2pb.TestAllTypes{}
-	vars, _ := NewActivation(map[string]interface{}{
-		"a": reg.NativeToValue(a),
-	})
-	result := eval.Eval(vars)
-	expected := true
-	got, ok := result.(ref.Val).Value().(bool)
-	if !ok {
-		t.Fatalf("Got '%v', wanted 'true'.", result)
-	}
-	if !reflect.DeepEqual(got, expected) {
-		t.Errorf("Could not build object properly. Got '%v', wanted '%v'",
-			result.(ref.Val).Value(),
-			expected)
 	}
 }
 
@@ -494,7 +857,7 @@ func TestInterpreter_SetProto2PrimitiveFields(t *testing.T) {
 		t.Errorf(errors.ToDisplayString())
 	}
 
-	i := NewStandardInterpreter(pkgr, reg, reg)
+	i := NewStandardInterpreter(pkgr, reg, reg, NewResolver(reg))
 	eval, _ := i.NewInterpretable(checked)
 	one := int32(1)
 	two := int64(2)
@@ -530,354 +893,78 @@ func TestInterpreter_SetProto2PrimitiveFields(t *testing.T) {
 	}
 }
 
-func TestInterpreter_GetObjectEnumField(t *testing.T) {
-	src := common.NewTextSource("a.repeated_nested_enum[0]")
-	parsed, errors := parser.Parse(src)
-	if len(errors.GetErrors()) != 0 {
-		t.Errorf(errors.ToDisplayString())
-	}
-
-	pkgr := packages.NewPackage("google.expr.proto3.test")
-	reg := types.NewRegistry(&proto3pb.TestAllTypes{})
-	env := checker.NewStandardEnv(pkgr, reg)
-	env.Add(decls.NewIdent("a", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil))
-	checked, errors := checker.Check(parsed, src, env)
-	if len(errors.GetErrors()) != 0 {
-		t.Errorf(errors.ToDisplayString())
-	}
-
-	i := NewStandardInterpreter(pkgr, reg, reg)
-	eval, _ := i.NewInterpretable(checked)
-	a := &proto3pb.TestAllTypes{
-		RepeatedNestedEnum: []proto3pb.TestAllTypes_NestedEnum{
-			proto3pb.TestAllTypes_BAR,
-		},
-	}
-	vars, _ := NewActivation(map[string]interface{}{
-		"a": reg.NativeToValue(a),
-	})
-	result := eval.Eval(vars)
-	expected := int64(1)
-	got, ok := result.(ref.Val).Value().(int64)
-	if !ok {
-		t.Fatalf("cannot cast result to int64: result=%v", result)
-	}
-	if !reflect.DeepEqual(got, expected) {
-		t.Errorf("Could not build object properly. Got '%v', wanted '%v'",
-			result.(ref.Val).Value(),
-			expected)
-	}
+func unknownAttr(varName string, pathElems ...interface{}) Attribute {
+	attr, _ := NewUnknownAttribute(varName, pathElems...)
+	return attr
 }
 
-func TestInterpreter_SetObjectEnumField(t *testing.T) {
-	// Test the use of enums within object construction, and their equivalence
-	// int values within CEL.
-	src := common.NewTextSource(
-		`TestAllTypes{
-			repeated_nested_enum: [
-				0,
-				TestAllTypes.NestedEnum.BAZ,
-				TestAllTypes.NestedEnum.BAR],
-			repeated_int32: [
-				TestAllTypes.NestedEnum.FOO,
-				TestAllTypes.NestedEnum.BAZ]}`)
-	parsed, errors := parser.Parse(src)
-	if len(errors.GetErrors()) != 0 {
-		t.Errorf(errors.ToDisplayString())
-	}
-
-	pkgr := packages.NewPackage("google.expr.proto3.test")
-	reg := types.NewRegistry(&proto3pb.TestAllTypes{})
-	env := checker.NewStandardEnv(pkgr, reg)
-	checked, errors := checker.Check(parsed, src, env)
-	if len(errors.GetErrors()) != 0 {
-		t.Errorf(errors.ToDisplayString())
-	}
-
-	i := NewStandardInterpreter(pkgr, reg, reg)
-	eval, _ := i.NewInterpretable(checked, Optimize())
-	expected := &proto3pb.TestAllTypes{
-		RepeatedNestedEnum: []proto3pb.TestAllTypes_NestedEnum{
-			proto3pb.TestAllTypes_FOO,
-			proto3pb.TestAllTypes_BAZ,
-			proto3pb.TestAllTypes_BAR,
-		},
-		RepeatedInt32: []int32{
-			int32(0),
-			int32(2),
-		},
-	}
-	result := eval.Eval(EmptyActivation())
-	got, ok := result.(ref.Val).Value().(*proto3pb.TestAllTypes)
-	if !ok {
-		t.Fatalf("cannot cast result to int64: result=%v", result)
-	}
-	if !reflect.DeepEqual(got, expected) {
-		t.Errorf("Could not build object properly. Got '%v', wanted '%v'",
-			result.(ref.Val).Value(),
-			expected)
-	}
+func partialInput(bindings interface{}, unknowns []Attribute) Activation {
+	pa, _ := NewPartialActivation(bindings, unknowns)
+	return pa
 }
 
-func TestInterpreter_ConstantReturnValue(t *testing.T) {
-	parsed, err := parser.Parse(common.NewTextSource("42"))
-	if len(err.GetErrors()) != 0 {
-		t.Error(err)
+func program(tst *testCase, opts ...InterpretableDecorator) (Interpretable, Activation, error) {
+	// Configure the package.
+	pkg := packages.DefaultPackage
+	if tst.pkg != "" {
+		pkg = packages.NewPackage(tst.pkg)
 	}
-	i, _ := interpreter.NewUncheckedInterpretable(parsed.GetExpr())
-	res := i.Eval(EmptyActivation())
-	if int64(res.(types.Int)) != int64(42) {
-		t.Errorf("Got '%v', wanted 1", res)
+	reg := types.NewRegistry()
+	if tst.types != nil {
+		reg = types.NewRegistry(tst.types...)
 	}
-}
+	// Configure the environment.
+	env := checker.NewStandardEnv(pkg, reg)
+	if tst.env != nil {
+		env.Add(tst.env...)
+	}
+	// Configure the program input.
+	vars := EmptyActivation()
+	if tst.in != nil {
+		vars, _ = NewActivation(tst.in)
+	}
+	_, isPartial := vars.(PartialActivation)
+	// Adapt the test output, if needed.
+	if tst.out != nil {
+		tst.out = reg.NativeToValue(tst.out)
+	}
 
-func TestInterpreter_InList(t *testing.T) {
-	parsed, err := parser.Parse(common.NewTextSource("1 in [1, 2, 3]"))
-	if len(err.GetErrors()) != 0 {
-		t.Error(err)
+	// Configure the interpreter.
+	resolver := NewResolver(reg)
+	if isPartial {
+		resolver = NewUnknownResolver(resolver)
 	}
-	i, _ := interpreter.NewUncheckedInterpretable(parsed.GetExpr())
-	res := i.Eval(EmptyActivation())
-	if res != types.True {
-		t.Errorf("Got '%v', wanted 'true'", res)
+	disp := NewDispatcher()
+	disp.Add(functions.StandardOverloads()...)
+	if tst.funcs != nil {
+		disp.Add(tst.funcs...)
 	}
-}
+	interp := NewInterpreter(disp, pkg, reg, reg, resolver)
 
-func TestInterpreter_BuildMap(t *testing.T) {
-	parsed, err := parser.Parse(common.NewTextSource("{'b': '''hi''', 'c': name}"))
-	if len(err.GetErrors()) != 0 {
-		t.Error(err)
+	// Parse the expression.
+	s := common.NewTextSource(tst.expr)
+	parsed, errs := parser.Parse(s)
+	if len(errs.GetErrors()) != 0 {
+		return nil, nil, errors.New(errs.ToDisplayString())
 	}
-	i, _ := interpreter.NewUncheckedInterpretable(parsed.GetExpr(), Optimize())
-	vars, _ := NewActivation(map[string]interface{}{
-		"name": types.String("tristan")})
-	res := i.Eval(vars)
-	value, _ := res.(ref.Val).ConvertToNative(
-		reflect.TypeOf(map[string]string{}))
-	mapVal := value.(map[string]string)
-	if mapVal["b"] != "hi" || mapVal["c"] != "tristan" {
-		t.Errorf("Got '%v', expected map[b:hi c:tristan]", value)
-	}
-}
-
-func TestInterpreter_MapIndex(t *testing.T) {
-	parsed, err := parser.Parse(common.NewTextSource("{'a':null}['a']"))
-	if len(err.GetErrors()) != 0 {
-		t.Error(err)
-	}
-	i, _ := interpreter.NewUncheckedInterpretable(parsed.GetExpr())
-	res := i.Eval(EmptyActivation())
-	if res != types.NullValue {
-		t.Errorf("Got '%v', wanted null", res)
-	}
-}
-
-func TestInterpreter_Matches(t *testing.T) {
-	expression := "input.matches('k.*')"
-	expr := compileExpr(t, expression, decls.NewIdent("input", decls.String, nil))
-	eval, _ := interpreter.NewInterpretable(expr)
-
-	for input, expectedResult := range map[string]bool{
-		"kathmandu":   true,
-		"foo":         false,
-		"bar":         false,
-		"kilimanjaro": true,
-	} {
-		vars, _ := NewActivation(map[string]interface{}{
-			"input": reg.NativeToValue(input),
-		})
-		result := eval.Eval(vars)
-		if v, ok := result.Value().(bool); !ok || v != expectedResult {
-			t.Errorf("Got %v, wanted %v for expr %s with input %s", result.Value(), expectedResult, expression, input)
+	if tst.unchecked {
+		// Build the program plan.
+		prg, err := interp.NewUncheckedInterpretable(
+			parsed.GetExpr(), opts...)
+		if err != nil {
+			return nil, nil, err
 		}
+		return prg, vars, nil
 	}
-}
-
-func BenchmarkInterpreter(b *testing.B) {
-	for _, tst := range testData {
-		s := common.NewTextSource(tst.E)
-		parsed, errors := parser.Parse(s)
-		if len(errors.GetErrors()) != 0 {
-			b.Errorf(errors.ToDisplayString())
-		}
-		reg := types.NewRegistry()
-		pkg := packages.DefaultPackage
-		env := checker.NewStandardEnv(pkg, reg)
-		if tst.Env != nil {
-			env.Add(tst.Env...)
-		}
-		checked, _ := checker.Check(parsed, s, env)
-		disp := NewDispatcher()
-		disp.Add(functions.StandardOverloads()...)
-		prg, _ := interpreter.NewInterpretable(checked, Optimize())
-		activation, _ := NewActivation(tst.I)
-		b.Run(tst.name, func(bb *testing.B) {
-			b.ResetTimer()
-			b.ReportAllocs()
-			for i := 0; i < bb.N; i++ {
-				prg.Eval(activation)
-			}
-		})
+	// Check the expression.
+	checked, errs := checker.Check(parsed, s, env)
+	if len(errs.GetErrors()) != 0 {
+		return nil, nil, errors.New(errs.ToDisplayString())
 	}
-}
-
-var (
-	reg         = types.NewRegistry(&exprpb.ParsedExpr{})
-	interpreter = NewStandardInterpreter(packages.DefaultPackage, reg, reg)
-	testData    = []testCase{
-		{
-			name: "or_true_1st",
-			E:    `ai == 20 || ar["foo"] == "bar"`,
-			Env: []*exprpb.Decl{
-				decls.NewIdent("ai", decls.Int, nil),
-				decls.NewIdent("ar", decls.NewMapType(decls.String, decls.String), nil),
-			},
-			I: map[string]interface{}{
-				"ai": 20,
-				"ar": map[string]string{
-					"foo": "bar",
-				},
-			},
-		},
-		{
-			name: "or_true_2nd",
-			E:    `ai == 20 || ar["foo"] == "bar"`,
-			Env: []*exprpb.Decl{
-				decls.NewIdent("ai", decls.Int, nil),
-				decls.NewIdent("ar", decls.NewMapType(decls.String, decls.String), nil),
-			},
-			I: map[string]interface{}{
-				"ai": 2,
-				"ar": map[string]string{
-					"foo": "bar",
-				},
-			},
-		},
-		{
-			name: "or_false",
-			E:    `ai == 20 || ar["foo"] == "bar"`,
-			Env: []*exprpb.Decl{
-				decls.NewIdent("ai", decls.Int, nil),
-				decls.NewIdent("ar", decls.NewMapType(decls.String, decls.String), nil),
-			},
-			I: map[string]interface{}{
-				"ai": 2,
-				"ar": map[string]string{
-					"foo": "baz",
-				},
-			},
-		},
-		{
-			name: "and_false_1st",
-			E:    `false && true`,
-			I:    EmptyActivation(),
-		},
-		{
-			name: "and_false_2nd",
-			E:    `true && false`,
-			I:    EmptyActivation(),
-		},
-		{
-			name: "conditional",
-			E:    `a ? b < 1.2 : c == ['hello']`,
-			Env: []*exprpb.Decl{
-				decls.NewIdent("a", decls.Bool, nil),
-				decls.NewIdent("b", decls.Double, nil),
-				decls.NewIdent("c", decls.NewListType(decls.String), nil),
-			},
-			I: map[string]interface{}{
-				"a": false,
-				"b": 2.0,
-				"c": []string{"hello"},
-			},
-		},
-		{
-			name: "exists_literal",
-			E:    `[1, 2, 3, 4, 5u, 1.0].exists(e, type(e) == uint)`,
-			I:    EmptyActivation(),
-		},
-		{
-			name: "exists_variable",
-			E:    `elems.exists(e, type(e) == uint)`,
-			Env: []*exprpb.Decl{
-				decls.NewIdent("elems", decls.NewListType(decls.Dyn), nil),
-			},
-			I: map[string]interface{}{
-				"elems": []interface{}{0, 1, 2, 3, 4, uint(5), 6},
-			},
-		},
-		{
-			name: "complex",
-			E: `
-			!(headers.ip in ["10.0.1.4", "10.0.1.5"]) &&
-			  ((headers.path.startsWith("v1") && headers.token in ["v1", "v2", "admin"]) ||
-			   (headers.path.startsWith("v2") && headers.token in ["v2", "admin"]) ||
-			   (headers.path.startsWith("/admin") && headers.token == "admin" && headers.ip in ["10.0.1.2", "10.0.1.2", "10.0.1.2"]))
-			`,
-			Env: []*exprpb.Decl{
-				decls.NewIdent("headers", decls.NewMapType(decls.String, decls.String), nil),
-			},
-			I: map[string]interface{}{
-				"headers": map[string]interface{}{
-					"ip":    "10.0.1.2",
-					"path":  "/admin/edit",
-					"token": "admin",
-				},
-			},
-		},
-		{
-			name: "complex_flat",
-			E: `
-			!(headers.ip in ["10.0.1.4", "10.0.1.5"]) &&
-			  ((headers.path.startsWith("v1") && headers.token in ["v1", "v2", "admin"]) ||
-			   (headers.path.startsWith("v2") && headers.token in ["v2", "admin"]) ||
-			   (headers.path.startsWith("/admin") && headers.token == "admin" && headers.ip in ["10.0.1.2", "10.0.1.2", "10.0.1.2"]))
-			`,
-			Env: []*exprpb.Decl{
-				decls.NewIdent("headers.ip", decls.String, nil),
-				decls.NewIdent("headers.path", decls.String, nil),
-				decls.NewIdent("headers.token", decls.String, nil),
-			},
-			I: map[string]interface{}{
-				"headers.ip":    "10.0.1.2",
-				"headers.path":  "/admin/edit",
-				"headers.token": "admin",
-			},
-		},
+	// Build the program plan.
+	prg, err := interp.NewInterpretable(checked, opts...)
+	if err != nil {
+		return nil, nil, err
 	}
-)
-
-func parseExpr(t *testing.T, src string) *exprpb.ParsedExpr {
-	t.Helper()
-	s := common.NewTextSource(src)
-	parsed, errors := parser.Parse(s)
-	if len(errors.GetErrors()) != 0 {
-		t.Errorf(errors.ToDisplayString())
-	}
-	return parsed
-}
-
-func evalExpr(t *testing.T, src string) ref.Val {
-	t.Helper()
-	parsed := parseExpr(t, src)
-	eval, _ := interpreter.NewUncheckedInterpretable(parsed.GetExpr())
-	return eval.Eval(EmptyActivation())
-}
-
-func compileExpr(t *testing.T, src string, decls ...*exprpb.Decl) *exprpb.CheckedExpr {
-	t.Helper()
-	s := common.NewTextSource(src)
-	parsed, errors := parser.Parse(s)
-	if len(errors.GetErrors()) != 0 {
-		t.Error(errors.ToDisplayString())
-		return nil
-	}
-	env := checker.NewStandardEnv(packages.DefaultPackage, types.NewRegistry())
-	env.Add(decls...)
-	checked, errors := checker.Check(parsed, s, env)
-	if len(errors.GetErrors()) != 0 {
-		t.Error(errors.ToDisplayString())
-		return nil
-	}
-	return checked
+	return prg, vars, nil
 }

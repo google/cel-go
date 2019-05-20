@@ -31,7 +31,7 @@ type Interpretable interface {
 	ID() int64
 
 	// Eval an Activation to produce an output.
-	Eval(activation Activation) ref.Val
+	Eval(vars Activation) ref.Val
 }
 
 // Core Interpretable implementations used during the program planning phase.
@@ -48,8 +48,8 @@ func (test *evalTestOnly) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (test *evalTestOnly) Eval(ctx Activation) ref.Val {
-	obj := test.op.Eval(ctx)
+func (test *evalTestOnly) Eval(vars Activation) ref.Val {
+	obj := test.op.Eval(vars)
 	tester, ok := obj.(traits.FieldTester)
 	if ok {
 		return tester.IsSet(test.field)
@@ -73,7 +73,7 @@ func (cons *evalConst) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (cons *evalConst) Eval(ctx Activation) ref.Val {
+func (cons *evalConst) Eval(vars Activation) ref.Val {
 	return cons.val
 }
 
@@ -89,15 +89,15 @@ func (or *evalOr) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (or *evalOr) Eval(ctx Activation) ref.Val {
+func (or *evalOr) Eval(vars Activation) ref.Val {
 	// short-circuit lhs.
-	lVal := or.lhs.Eval(ctx)
+	lVal := or.lhs.Eval(vars)
 	lBool, lok := lVal.(types.Bool)
 	if lok && lBool == types.True {
 		return types.True
 	}
 	// short-circuit on rhs.
-	rVal := or.rhs.Eval(ctx)
+	rVal := or.rhs.Eval(vars)
 	rBool, rok := rVal.(types.Bool)
 	if rok && rBool == types.True {
 		return types.True
@@ -130,15 +130,15 @@ func (and *evalAnd) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (and *evalAnd) Eval(ctx Activation) ref.Val {
+func (and *evalAnd) Eval(vars Activation) ref.Val {
 	// short-circuit lhs.
-	lVal := and.lhs.Eval(ctx)
+	lVal := and.lhs.Eval(vars)
 	lBool, lok := lVal.(types.Bool)
 	if lok && lBool == types.False {
 		return types.False
 	}
 	// short-circuit on rhs.
-	rVal := and.rhs.Eval(ctx)
+	rVal := and.rhs.Eval(vars)
 	rBool, rok := rVal.(types.Bool)
 	if rok && rBool == types.False {
 		return types.False
@@ -172,16 +172,16 @@ func (cond *evalConditional) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (cond *evalConditional) Eval(ctx Activation) ref.Val {
-	condVal := cond.expr.Eval(ctx)
+func (cond *evalConditional) Eval(vars Activation) ref.Val {
+	condVal := cond.expr.Eval(vars)
 	condBool, ok := condVal.(types.Bool)
 	if !ok {
 		return types.ValOrErr(condVal, "no such overload")
 	}
 	if condBool {
-		return cond.truthy.Eval(ctx)
+		return cond.truthy.Eval(vars)
 	}
-	return cond.falsy.Eval(ctx)
+	return cond.falsy.Eval(vars)
 }
 
 type evalEq struct {
@@ -196,9 +196,9 @@ func (eq *evalEq) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (eq *evalEq) Eval(ctx Activation) ref.Val {
-	lVal := eq.lhs.Eval(ctx)
-	rVal := eq.rhs.Eval(ctx)
+func (eq *evalEq) Eval(vars Activation) ref.Val {
+	lVal := eq.lhs.Eval(vars)
+	rVal := eq.rhs.Eval(vars)
 	return lVal.Equal(rVal)
 }
 
@@ -214,9 +214,9 @@ func (ne *evalNe) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (ne *evalNe) Eval(ctx Activation) ref.Val {
-	lVal := ne.lhs.Eval(ctx)
-	rVal := ne.rhs.Eval(ctx)
+func (ne *evalNe) Eval(vars Activation) ref.Val {
+	lVal := ne.lhs.Eval(vars)
+	rVal := ne.rhs.Eval(vars)
 	eqVal := lVal.Equal(rVal)
 	eqBool, ok := eqVal.(types.Bool)
 	if !ok {
@@ -239,7 +239,7 @@ func (zero *evalZeroArity) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (zero *evalZeroArity) Eval(ctx Activation) ref.Val {
+func (zero *evalZeroArity) Eval(vars Activation) ref.Val {
 	return zero.impl()
 }
 
@@ -258,8 +258,8 @@ func (un *evalUnary) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (un *evalUnary) Eval(ctx Activation) ref.Val {
-	argVal := un.arg.Eval(ctx)
+func (un *evalUnary) Eval(vars Activation) ref.Val {
+	argVal := un.arg.Eval(vars)
 	// Early return if the argument to the function is unknown or error.
 	if types.IsUnknownOrError(argVal) {
 		return argVal
@@ -293,9 +293,9 @@ func (bin *evalBinary) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (bin *evalBinary) Eval(ctx Activation) ref.Val {
-	lVal := bin.lhs.Eval(ctx)
-	rVal := bin.rhs.Eval(ctx)
+func (bin *evalBinary) Eval(vars Activation) ref.Val {
+	lVal := bin.lhs.Eval(vars)
+	rVal := bin.rhs.Eval(vars)
 	// Early return if any argument to the function is unknown or error.
 	if types.IsUnknownOrError(lVal) {
 		return lVal
@@ -331,11 +331,11 @@ func (fn *evalVarArgs) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (fn *evalVarArgs) Eval(ctx Activation) ref.Val {
+func (fn *evalVarArgs) Eval(vars Activation) ref.Val {
 	argVals := make([]ref.Val, len(fn.args), len(fn.args))
 	// Early return if any argument to the function is unknown or error.
 	for i, arg := range fn.args {
-		argVals[i] = arg.Eval(ctx)
+		argVals[i] = arg.Eval(vars)
 		if types.IsUnknownOrError(argVals[i]) {
 			return argVals[i]
 		}
@@ -366,11 +366,11 @@ func (l *evalList) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (l *evalList) Eval(ctx Activation) ref.Val {
+func (l *evalList) Eval(vars Activation) ref.Val {
 	elemVals := make([]ref.Val, len(l.elems), len(l.elems))
 	// If any argument is unknown or error early terminate.
 	for i, elem := range l.elems {
-		elemVal := elem.Eval(ctx)
+		elemVal := elem.Eval(vars)
 		if types.IsUnknownOrError(elemVal) {
 			return elemVal
 		}
@@ -392,15 +392,15 @@ func (m *evalMap) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (m *evalMap) Eval(ctx Activation) ref.Val {
+func (m *evalMap) Eval(vars Activation) ref.Val {
 	entries := make(map[ref.Val]ref.Val)
 	// If any argument is unknown or error early terminate.
 	for i, key := range m.keys {
-		keyVal := key.Eval(ctx)
+		keyVal := key.Eval(vars)
 		if types.IsUnknownOrError(keyVal) {
 			return keyVal
 		}
-		valVal := m.vals[i].Eval(ctx)
+		valVal := m.vals[i].Eval(vars)
 		if types.IsUnknownOrError(valVal) {
 			return valVal
 		}
@@ -423,11 +423,11 @@ func (o *evalObj) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (o *evalObj) Eval(ctx Activation) ref.Val {
+func (o *evalObj) Eval(vars Activation) ref.Val {
 	fieldVals := make(map[string]ref.Val)
 	// If any argument is unknown or error early terminate.
 	for i, field := range o.fields {
-		val := o.vals[i].Eval(ctx)
+		val := o.vals[i].Eval(vars)
 		if types.IsUnknownOrError(val) {
 			return val
 		}
@@ -453,16 +453,16 @@ func (fold *evalFold) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (fold *evalFold) Eval(ctx Activation) ref.Val {
-	foldRange := fold.iterRange.Eval(ctx)
+func (fold *evalFold) Eval(vars Activation) ref.Val {
+	foldRange := fold.iterRange.Eval(vars)
 	if !foldRange.Type().HasTrait(traits.IterableType) {
 		return types.ValOrErr(foldRange, "got '%T', expected iterable type", foldRange)
 	}
 	// Configure the fold activation with the accumulator initial value.
 	accuCtx := varActivationPool.Get().(*varActivation)
-	accuCtx.parent = ctx
+	accuCtx.parent = vars
 	accuCtx.name = fold.accuVar
-	accuCtx.val = fold.accu.Eval(ctx)
+	accuCtx.val = fold.accu.Eval(vars)
 	iterCtx := varActivationPool.Get().(*varActivation)
 	iterCtx.parent = accuCtx
 	iterCtx.name = fold.iterVar
@@ -506,8 +506,8 @@ func (e *evalSetMembership) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (e *evalSetMembership) Eval(ctx Activation) ref.Val {
-	val := e.arg.Eval(ctx)
+func (e *evalSetMembership) Eval(vars Activation) ref.Val {
+	val := e.arg.Eval(vars)
 	if val.Type().TypeName() != e.argTypeName {
 		return types.ValOrErr(val, "no such overload")
 	}
@@ -530,10 +530,51 @@ func (e *evalWatch) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (e *evalWatch) Eval(ctx Activation) ref.Val {
-	val := e.inst.Eval(ctx)
+func (e *evalWatch) Eval(vars Activation) ref.Val {
+	val := e.inst.Eval(vars)
 	e.observer(e.inst.ID(), val)
 	return val
+}
+
+// evalWatchAttr describes a watcher of an attrInst interpretable.
+//
+// Since the watcher may be selected against at a later stage in program planning, the watcher
+// must implement the attrInst interface by proxy.
+type evalWatchAttr struct {
+	inst     attrInst
+	observer evalObserver
+}
+
+// ID implements the Interpretable interface method.
+func (e *evalWatchAttr) ID() int64 {
+	return e.inst.ID()
+}
+
+// Eval implements the Interpretable interface method.
+func (e *evalWatchAttr) Eval(vars Activation) ref.Val {
+	val := e.inst.Eval(vars)
+	e.observer(e.inst.ID(), val)
+	return val
+}
+
+func (e *evalWatchAttr) addField(id int64, name types.String) attrInst {
+	return e.inst.addField(id, name)
+}
+
+func (e *evalWatchAttr) addIndex(pe *PathElem) attrInst {
+	return e.inst.addIndex(pe)
+}
+
+func (e *evalWatchAttr) getAttrs() []Attribute {
+	return e.inst.getAttrs()
+}
+
+func (e *evalWatchAttr) getAdapter() ref.TypeAdapter {
+	return e.inst.getAdapter()
+}
+
+func (e *evalWatchAttr) getResolver() Resolver {
+	return e.inst.getResolver()
 }
 
 // evalExhaustiveOr is just like evalOr, but does not short-circuit argument evaluation.
@@ -549,9 +590,9 @@ func (or *evalExhaustiveOr) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (or *evalExhaustiveOr) Eval(ctx Activation) ref.Val {
-	lVal := or.lhs.Eval(ctx)
-	rVal := or.rhs.Eval(ctx)
+func (or *evalExhaustiveOr) Eval(vars Activation) ref.Val {
+	lVal := or.lhs.Eval(vars)
+	rVal := or.rhs.Eval(vars)
 	lBool, lok := lVal.(types.Bool)
 	if lok && lBool == types.True {
 		return types.True
@@ -585,9 +626,9 @@ func (and *evalExhaustiveAnd) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (and *evalExhaustiveAnd) Eval(ctx Activation) ref.Val {
-	lVal := and.lhs.Eval(ctx)
-	rVal := and.rhs.Eval(ctx)
+func (and *evalExhaustiveAnd) Eval(vars Activation) ref.Val {
+	lVal := and.lhs.Eval(vars)
+	rVal := and.rhs.Eval(vars)
 	lBool, lok := lVal.(types.Bool)
 	if lok && lBool == types.False {
 		return types.False
@@ -623,10 +664,10 @@ func (cond *evalExhaustiveConditional) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (cond *evalExhaustiveConditional) Eval(ctx Activation) ref.Val {
-	cVal := cond.expr.Eval(ctx)
-	tVal := cond.truthy.Eval(ctx)
-	fVal := cond.falsy.Eval(ctx)
+func (cond *evalExhaustiveConditional) Eval(vars Activation) ref.Val {
+	cVal := cond.expr.Eval(vars)
+	tVal := cond.truthy.Eval(vars)
+	fVal := cond.falsy.Eval(vars)
 	cBool, ok := cVal.(types.Bool)
 	if !ok {
 		return types.ValOrErr(cVal, "no such overload")
@@ -655,16 +696,16 @@ func (fold *evalExhaustiveFold) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (fold *evalExhaustiveFold) Eval(ctx Activation) ref.Val {
-	foldRange := fold.iterRange.Eval(ctx)
+func (fold *evalExhaustiveFold) Eval(vars Activation) ref.Val {
+	foldRange := fold.iterRange.Eval(vars)
 	if !foldRange.Type().HasTrait(traits.IterableType) {
 		return types.ValOrErr(foldRange, "got '%T', expected iterable type", foldRange)
 	}
 	// Configure the fold activation with the accumulator initial value.
 	accuCtx := varActivationPool.Get().(*varActivation)
-	accuCtx.parent = ctx
+	accuCtx.parent = vars
 	accuCtx.name = fold.accuVar
-	accuCtx.val = fold.accu.Eval(ctx)
+	accuCtx.val = fold.accu.Eval(vars)
 	iterCtx := varActivationPool.Get().(*varActivation)
 	iterCtx.parent = accuCtx
 	iterCtx.name = fold.iterVar
@@ -686,26 +727,48 @@ func (fold *evalExhaustiveFold) Eval(ctx Activation) ref.Val {
 	return res
 }
 
+// attrInst is a private interface which is used to mark attribute evaluation steps.
+//
+// The attribute selection process varies significantly between checked and unchecked expressions
+// as well as between straight field-selection and index operations on for absoluate and relative
+// attributes.
 type attrInst interface {
 	Interpretable
-	addField(int64, types.String)
-	addIndex(*PathElem)
+
+	// addField takes an expression id and string field to produce a more qualified attrInst
+	addField(int64, types.String) attrInst
+
+	// addIndex takes a PathElem value to produce a more qualified attrInst
+	addIndex(*PathElem) attrInst
+
+	// getAdapter returns the type adapter associated with the attrInst.
 	getAdapter() ref.TypeAdapter
+
+	// getResolver returns the Resolver associated with the attrInst.
 	getResolver() Resolver
+
+	// getAttrs returns the collection of Attribute values represented by this attrInst
 	getAttrs() []Attribute
 }
 
+// evalAttr describes attribute evaluation on top-level variables within checked expressions.
 type evalAttr struct {
 	adapter  ref.TypeAdapter
 	resolver Resolver
 	attr     Attribute
 }
 
+// ID implements the Interpretable interface method.
 func (e *evalAttr) ID() int64 {
 	return e.attr.Variable().ID()
 }
 
+// Eval implements the Interpretable interface method.
 func (e *evalAttr) Eval(vars Activation) ref.Val {
+	// Attempt to resolve the attribute name.
+	// When the variable cannot be located, the no such attribute error is returned.
+	// When the variable exists, but a field selection does not resolve to a concrete value,
+	// the expectation is that the Resolver will return an error.
 	v, found := e.resolver.Resolve(vars, e.attr)
 	if found {
 		return e.adapter.NativeToValue(v)
@@ -713,12 +776,17 @@ func (e *evalAttr) Eval(vars Activation) ref.Val {
 	return types.NewErr("no such attribute")
 }
 
-func (e *evalAttr) addField(id int64, name types.String) {
-	e.addIndex(newPathElem(id, name))
+func (e *evalAttr) addField(id int64, name types.String) attrInst {
+	// treat field and index selection the same way for absoluate attributes.
+	return e.addIndex(newExprPathElem(id, name))
 }
 
-func (e *evalAttr) addIndex(pe *PathElem) {
-	e.attr = e.attr.Select(pe)
+func (e *evalAttr) addIndex(pe *PathElem) attrInst {
+	return &evalAttr{
+		adapter:  e.adapter,
+		attr:     e.attr.Select(pe),
+		resolver: e.resolver,
+	}
 }
 
 func (e *evalAttr) getAdapter() ref.TypeAdapter {
@@ -733,6 +801,8 @@ func (e *evalAttr) getAttrs() []Attribute {
 	return []Attribute{e.attr}
 }
 
+// evalOneofAttr is used to represent the possible Attribute values associated with
+// an ident, select, or index operation within an unchecked expression.
 type evalOneofAttr struct {
 	id       int64
 	adapter  ref.TypeAdapter
@@ -740,10 +810,12 @@ type evalOneofAttr struct {
 	attrs    []Attribute
 }
 
+// ID implements the Interpretable interface method.
 func (e *evalOneofAttr) ID() int64 {
 	return e.id
 }
 
+// Eval implements the Interpretable interface method.
 func (e *evalOneofAttr) Eval(vars Activation) ref.Val {
 	for _, attr := range e.attrs {
 		v, found := e.resolver.Resolve(vars, attr)
@@ -754,31 +826,44 @@ func (e *evalOneofAttr) Eval(vars Activation) ref.Val {
 	return types.NewErr("no such attribute")
 }
 
-func (e *evalOneofAttr) addField(id int64, name types.String) {
-	// start at id, basically an empty variable
+func (e *evalOneofAttr) addField(id int64, name types.String) attrInst {
+	// When a field is added to a oneof attribute, it should be appended to the name of the
+	// top-most variable as a possible namespaced identifier, and then as a possible field
+	// on all less-specified attributes.
 	modAttrs := make([]Attribute, 0, len(e.attrs))
-	pe := newPathElem(id, name)
+	pe := newExprPathElem(id, name)
 	for _, attr := range e.attrs {
 		if len(attr.Path()) != 0 {
 			continue
 		}
 		v := attr.Variable()
 		modName := fmt.Sprintf("%s.%s", v.Name(), name)
-		modAttrs = append(modAttrs, NewAttribute(id, modName))
+		modAttrs = append(modAttrs, newExprVarAttribute(id, modName))
 	}
 	for _, attr := range e.attrs {
 		modAttrs = append(modAttrs, attr.Select(pe))
 	}
-	e.attrs = modAttrs
+	return &evalOneofAttr{
+		id:       e.id,
+		adapter:  e.adapter,
+		attrs:    modAttrs,
+		resolver: e.resolver,
+	}
 }
 
-func (e *evalOneofAttr) addIndex(pe *PathElem) {
-	// start at id, basically an empty variable
+func (e *evalOneofAttr) addIndex(pe *PathElem) attrInst {
+	// adding an index is not the same as adding a field since the index cannot possibly be an
+	// identifier, so the selection behavior differs here.
 	modAttrs := make([]Attribute, len(e.attrs), len(e.attrs))
 	for i, attr := range e.attrs {
 		modAttrs[i] = attr.Select(pe)
 	}
-	e.attrs = modAttrs
+	return &evalOneofAttr{
+		id:       e.id,
+		adapter:  e.adapter,
+		attrs:    modAttrs,
+		resolver: e.resolver,
+	}
 }
 
 func (e *evalOneofAttr) getAdapter() ref.TypeAdapter {
@@ -793,6 +878,7 @@ func (e *evalOneofAttr) getAttrs() []Attribute {
 	return e.attrs
 }
 
+// evalRelAttr specifies relative attribute selection against a computed value.
 type evalRelAttr struct {
 	id       int64
 	adapter  ref.TypeAdapter
@@ -801,22 +887,31 @@ type evalRelAttr struct {
 	attr     Attribute
 }
 
+// ID implements the Interpretable interface method.
 func (e *evalRelAttr) ID() int64 {
 	return e.id
 }
 
+// Eval implements the Interpretable interface method.
 func (e *evalRelAttr) Eval(vars Activation) ref.Val {
 	obj := e.op.Eval(vars)
 	val := e.resolver.ResolveRelative(obj, vars, e.attr)
 	return e.adapter.NativeToValue(val)
 }
 
-func (e *evalRelAttr) addField(id int64, name types.String) {
-	e.attr = e.attr.Select(newPathElem(id, name))
+func (e *evalRelAttr) addField(id int64, name types.String) attrInst {
+	// treat field selection as identical to index operations.
+	return e.addIndex(newExprPathElem(id, name))
 }
 
-func (e *evalRelAttr) addIndex(pe *PathElem) {
-	e.attr = e.attr.Select(pe)
+func (e *evalRelAttr) addIndex(pe *PathElem) attrInst {
+	return &evalRelAttr{
+		id:       e.id,
+		adapter:  e.adapter,
+		attr:     e.attr.Select(pe),
+		op:       e.op,
+		resolver: e.resolver,
+	}
 }
 
 func (e *evalRelAttr) getAdapter() ref.TypeAdapter {
@@ -831,6 +926,14 @@ func (e *evalRelAttr) getAttrs() []Attribute {
 	return []Attribute{e.attr}
 }
 
+// evalConstEq describe the case where an attribute is compared against a constant value.
+//
+// When the evalConstEq is produced, this implies that the attribute value may be comparable in
+// its Go native form without conversion first to a CEL representation.
+//
+// Note, the following implementation replicates some or all of the equality logic defined on a
+// per-type basis within the CEL common types. This logic should be refactored to be shared
+// between types and specialized comparison operations.
 type evalConstEq struct {
 	id       int64
 	attr     Attribute
@@ -839,10 +942,12 @@ type evalConstEq struct {
 	val      ref.Val
 }
 
+// ID implements the Interpretable interface method.
 func (e *evalConstEq) ID() int64 {
 	return e.id
 }
 
+// Eval implements the Interpretable interface method.
 func (e *evalConstEq) Eval(vars Activation) ref.Val {
 	attrVal, found := e.resolver.Resolve(vars, e.attr)
 	if !found {
@@ -851,6 +956,14 @@ func (e *evalConstEq) Eval(vars Activation) ref.Val {
 	return attrEqConst(attrVal, e.val, e.adapter)
 }
 
+// evalConstNe describe the case where an attribute is compared against a constant value.
+//
+// When the evalConstNe is produced, this implies that the attribute value may be comparable in
+// its Go native form without conversion first to a CEL representation.
+//
+// Note, the following implementation replicates some or all of the equality logic defined on a
+// per-type basis within the CEL common types. This logic should be refactored to be shared
+// between types and specialized comparison operations.
 type evalConstNe struct {
 	id       int64
 	attr     Attribute
@@ -876,7 +989,6 @@ func (e *evalConstNe) Eval(vars Activation) ref.Val {
 	return !eqBool
 }
 
-// TODO: generalize this to other boolean comparison operators.
 func attrEqConst(attr interface{}, val ref.Val, adapter ref.TypeAdapter) ref.Val {
 	switch attr.(type) {
 	case ref.Val:
@@ -923,27 +1035,6 @@ func attrEqConst(attr interface{}, val ref.Val, adapter ref.TypeAdapter) ref.Val
 			return types.ValOrErr(val, "no such overload")
 		}
 		return types.Bool(attrInt == int64(constInt))
-	case uint:
-		attrUint := attr.(uint)
-		constUint, ok := val.(types.Uint)
-		if !ok {
-			return types.ValOrErr(val, "no such overload")
-		}
-		return types.Bool(uint64(attrUint) == uint64(constUint))
-	case uint32:
-		attrUint := attr.(uint32)
-		constUint, ok := val.(types.Uint)
-		if !ok {
-			return types.ValOrErr(val, "no such overload")
-		}
-		return types.Bool(uint64(attrUint) == uint64(constUint))
-	case uint64:
-		attrUint := attr.(uint64)
-		constUint, ok := val.(types.Uint)
-		if !ok {
-			return types.ValOrErr(val, "no such overload")
-		}
-		return types.Bool(attrUint == uint64(constUint))
 	case bool:
 		attrBool := attr.(bool)
 		constBool, ok := val.(types.Bool)

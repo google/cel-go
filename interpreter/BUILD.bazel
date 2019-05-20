@@ -45,6 +45,7 @@ go_test(
         "activation_test.go",
         "interpreter_test.go",
         "prune_test.go",
+        "resolver_test.go",
     ],
     embed = [
         ":go_default_library",
