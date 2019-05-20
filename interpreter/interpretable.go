@@ -793,6 +793,10 @@ func (e *evalAttr) getAdapter() ref.TypeAdapter {
 	return e.adapter
 }
 
+func (e *evalAttr) getAdapter() ref.TypeAdapter {
+	return e.adapter
+}
+
 func (e *evalAttr) getResolver() Resolver {
 	return e.resolver
 }
@@ -870,6 +874,10 @@ func (e *evalOneofAttr) getAdapter() ref.TypeAdapter {
 	return e.adapter
 }
 
+func (e *evalOneofAttr) getAdapter() ref.TypeAdapter {
+	return e.adapter
+}
+
 func (e *evalOneofAttr) getResolver() Resolver {
 	return e.resolver
 }
@@ -912,6 +920,10 @@ func (e *evalRelAttr) addIndex(pe *PathElem) attrInst {
 		op:       e.op,
 		resolver: e.resolver,
 	}
+}
+
+func (e *evalRelAttr) getAdapter() ref.TypeAdapter {
+	return e.adapter
 }
 
 func (e *evalRelAttr) getAdapter() ref.TypeAdapter {
@@ -995,6 +1007,7 @@ func (e *evalConstNe) Eval(vars Activation) ref.Val {
 	return !eqBool
 }
 
+// TODO: generalize this to other boolean comparison operators.
 func attrEqConst(attr interface{}, val ref.Val, adapter ref.TypeAdapter) ref.Val {
 	switch attr.(type) {
 	case ref.Val:
@@ -1041,6 +1054,27 @@ func attrEqConst(attr interface{}, val ref.Val, adapter ref.TypeAdapter) ref.Val
 			return types.ValOrErr(val, "no such overload")
 		}
 		return types.Bool(attrInt == int64(constInt))
+	case uint:
+		attrUint := attr.(uint)
+		constUint, ok := val.(types.Uint)
+		if !ok {
+			return types.ValOrErr(val, "no such overload")
+		}
+		return types.Bool(uint64(attrUint) == uint64(constUint))
+	case uint32:
+		attrUint := attr.(uint32)
+		constUint, ok := val.(types.Uint)
+		if !ok {
+			return types.ValOrErr(val, "no such overload")
+		}
+		return types.Bool(uint64(attrUint) == uint64(constUint))
+	case uint64:
+		attrUint := attr.(uint64)
+		constUint, ok := val.(types.Uint)
+		if !ok {
+			return types.ValOrErr(val, "no such overload")
+		}
+		return types.Bool(attrUint == uint64(constUint))
 	case bool:
 		attrBool := attr.(bool)
 		constBool, ok := val.(types.Bool)
