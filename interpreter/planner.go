@@ -461,6 +461,8 @@ func (p *planner) planCallConditional(expr *exprpb.Expr,
 	}, nil
 }
 
+// planCallIndex either extends an attribute with the argument to the index operation, or creates
+// a relative attribute based on the return of a function call or operation.
 func (p *planner) planCallIndex(expr *exprpb.Expr,
 	args []Interpretable) (Interpretable, error) {
 	relAttr := &PathElem{

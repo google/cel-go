@@ -105,6 +105,7 @@ type defaultResolver struct {
 	adapter ref.TypeAdapter
 }
 
+// Resolve implements the Resolver interface method.
 func (res *defaultResolver) Resolve(vars Activation, attr Attribute) (interface{}, bool) {
 	varName := attr.Variable().Name()
 	attrPath := attr.Path()
@@ -118,6 +119,7 @@ func (res *defaultResolver) Resolve(vars Activation, attr Attribute) (interface{
 	return nil, false
 }
 
+// ResolveRelative implements the Resolver interface method.
 func (res *defaultResolver) ResolveRelative(
 	obj interface{},
 	vars Activation,
@@ -128,6 +130,9 @@ func (res *defaultResolver) ResolveRelative(
 	return obj
 }
 
+// getElem attempts to get the next 'elem' from the target 'obj' either by using native golang
+// method appropriate for the 'obj' type or by converting the obj to a ref.Val and using the CEL
+// functions.
 func (res *defaultResolver) getElem(obj interface{}, elem ref.Val) interface{} {
 	switch obj.(type) {
 	case map[string]interface{}:
@@ -440,6 +445,8 @@ func (res *defaultResolver) getProtoField(obj interface{}, elem ref.Val) interfa
 	}
 }
 
+// maybeUnwrapValue will unwrap bool, null, number, and string JSON values to their go-native
+// representations.
 func maybeUnwrapValue(v *structpb.Value) interface{} {
 	switch v.Kind.(type) {
 	case *structpb.Value_BoolValue:
@@ -461,8 +468,8 @@ type listeningResolver struct {
 	listener ResolveListener
 }
 
-// Resolve intercepts the Resolver.Resolve interface method and emits resolution status for the
-// attribute provided.
+// Resolve intercepts the Resolver interface method and emits resolution status for the attribute
+// provided.
 func (res *listeningResolver) Resolve(vars Activation, attr Attribute) (interface{}, bool) {
 	v, found := res.Resolver.Resolve(vars, attr)
 	// Return no such variable if the top-level variable could not be found.
@@ -489,6 +496,8 @@ func (res *listeningResolver) Resolve(vars Activation, attr Attribute) (interfac
 	return v, found
 }
 
+// ancestorAttr attempts to determine Attribute or the nearest ancestor that matches the given
+// ancestorID.
 func ancestorAttr(attr Attribute, ancestorID int64) Attribute {
 	aVar := attr.Variable()
 	if aVar.ID() == ancestorID {
@@ -508,6 +517,8 @@ type unknownResolver struct {
 	Resolver
 }
 
+// Resolve implements the Resovler interface method and tests whether the incoming Attribute or
+// any Attribute above or below it was marked as unknown.
 func (res *unknownResolver) Resolve(vars Activation, attr Attribute) (interface{}, bool) {
 	partial, ok := vars.(PartialActivation)
 	if !ok {
