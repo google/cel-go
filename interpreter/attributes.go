@@ -151,10 +151,12 @@ type variable struct {
 	name string
 }
 
+// ID implements the Variable interface method.
 func (v *variable) ID() int64 {
 	return v.id
 }
 
+// Name implements the Variable interface method.
 func (v *variable) Name() string {
 	return v.name
 }
@@ -165,14 +167,17 @@ type attribute struct {
 	path     []*PathElem
 }
 
+// Variable implements the Attribute interface method.
 func (a *attribute) Variable() Variable {
 	return a.variable
 }
 
+// Path implements the Attribute interface method.
 func (a *attribute) Path() []*PathElem {
 	return a.path
 }
 
+// Select implements the Attribute interface method.
 func (a *attribute) Select(pe *PathElem) Attribute {
 	return &attribute{
 		variable: a.variable,
