@@ -55,23 +55,82 @@ const (
 	OldIn               = "_in_"
 )
 
-var operators = map[string]string{
-	"+":  Add,
-	"-":  Subtract,
-	"*":  Multiply,
-	"/":  Divide,
-	"%":  Modulo,
-	"in": In,
-	"==": Equals,
-	"!=": NotEquals,
-	"<":  Less,
-	"<=": LessEquals,
-	">":  Greater,
-	">=": GreaterEquals,
-}
+var (
+	operators = map[string]string{
+		"+":  Add,
+		"/":  Divide,
+		"==": Equals,
+		">":  Greater,
+		">=": GreaterEquals,
+		"in": In,
+		"<":  Less,
+		"<=": LessEquals,
+		"%":  Modulo,
+		"*":  Multiply,
+		"!=": NotEquals,
+		"-":  Subtract,
+	}
+	reverseOperators = map[string]string{
+		Add:           "+",
+		Divide:        "/",
+		Equals:        "==",
+		Greater:       ">",
+		GreaterEquals: ">=",
+		In:            "in",
+		Less:          "<",
+		LessEquals:    "<=",
+		LogicalAnd:    "&&",
+		LogicalNot:    "!",
+		LogicalOr:     "||",
+		Modulo:        "%",
+		Multiply:      "*",
+		Negate:        "-",
+		NotEquals:     "!=",
+		OldIn:         "in",
+		Subtract:      "-",
+	}
+	// precedence of the operator, where the higher value means higher.
+	precedence = map[string]int{
+		Conditional:   8,
+		LogicalOr:     7,
+		LogicalAnd:    6,
+		Equals:        5,
+		Greater:       5,
+		GreaterEquals: 5,
+		In:            5,
+		Less:          5,
+		LessEquals:    5,
+		NotEquals:     5,
+		OldIn:         5,
+		Add:           4,
+		Subtract:      4,
+		Divide:        3,
+		Modulo:        3,
+		Multiply:      3,
+		LogicalNot:    2,
+		Negate:        2,
+		Index:         1,
+	}
+)
 
 // Find the internal function name for an operator, if the input text is one.
 func Find(text string) (string, bool) {
 	op, found := operators[text]
 	return op, found
+}
+
+// FindReverse returns the unmangled, text representation of the operator.
+func FindReverse(op string) (string, bool) {
+	txt, found := reverseOperators[op]
+	return txt, found
+}
+
+// Precedence returns the operator precedence, where the higher the number indicates
+// higher precedence operations.
+func Precedence(op string) int {
+	p, found := precedence[op]
+	if found {
+		return p
+	}
+	return 0
 }
