@@ -730,7 +730,7 @@ func (fold *evalExhaustiveFold) Eval(vars Activation) ref.Val {
 // attrInst is a private interface which is used to mark attribute evaluation steps.
 //
 // The attribute selection process varies significantly between checked and unchecked expressions
-// as well as between straight field-selection and index operations on for absoluate and relative
+// as well as between straight field-selection and index operations on for absolute and relative
 // attributes.
 type attrInst interface {
 	Interpretable
@@ -928,12 +928,15 @@ func (e *evalRelAttr) getAttrs() []Attribute {
 
 // evalConstEq describe the case where an attribute is compared against a constant value.
 //
-// When the evalConstEq is produced, this implies that the attribute value may be comparable in
+// When an evalConstEq is produced, this implies that the attribute value may be comparable in
 // its Go native form without conversion first to a CEL representation.
 //
 // Note, the following implementation replicates some or all of the equality logic defined on a
 // per-type basis within the CEL common types. This logic should be refactored to be shared
 // between types and specialized comparison operations.
+//
+// TODO: replace the specialized equality with a general purpose invocation against a function
+// table associated with the operand types.
 type evalConstEq struct {
 	id       int64
 	attr     Attribute
@@ -964,6 +967,9 @@ func (e *evalConstEq) Eval(vars Activation) ref.Val {
 // Note, the following implementation replicates some or all of the equality logic defined on a
 // per-type basis within the CEL common types. This logic should be refactored to be shared
 // between types and specialized comparison operations.
+//
+// TODO: replace the specialized inequality with a general purpose invocation against a function
+// table associated with the operand types.
 type evalConstNe struct {
 	id       int64
 	attr     Attribute
