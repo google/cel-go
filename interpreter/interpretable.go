@@ -961,7 +961,7 @@ func (e *evalConstEq) Eval(vars Activation) ref.Val {
 
 // evalConstNe describe the case where an attribute is compared against a constant value.
 //
-// When the evalConstNe is produced, this implies that the attribute value may be comparable in
+// When an evalConstNe is produced, this implies that the attribute value may be comparable in
 // its Go native form without conversion first to a CEL representation.
 //
 // Note, the following implementation replicates some or all of the equality logic defined on a
