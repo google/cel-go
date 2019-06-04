@@ -75,11 +75,12 @@ func Vars(input interface{}, unknowns ...interpreter.Attribute) (interpreter.Act
 
 // Unknown specifies an Attribute whose value is not known at runtime.
 //
-// Not all inputs are created equal, some are cheap to provide and others require I/O or heavy
-// computation to resolve. Marking expensive attributes as unknown can be a useful tool for
-// improving the operational efficiency of expression evaluation, as it allows the cheap data to
-// be evaluated quickly and often conclusively while the expensive data is often I/O bound and
-// is computed with minimal overhead and only when needed.
+// Not all inputs to an expression have the same cost. Some are cheap to provide and others
+// require I/O or heavy compute to resolve. Marking expensive attributes as unknown can be a
+// useful tool for improving the operational efficiency of expression evaluation, as it allows
+// the cheap data to be evaluated quickly and often conclusively. When the expression result
+// cannot be computed, the result will be a types.Unknown value containing the ids of the
+// sub-expressions that resulted in the Unknown value.
 //
 // Unknowns are treated like recoverable errors within CEL and take precedence over types.Err
 // values.
@@ -97,24 +98,6 @@ func (ed *evalDetails) State() interpreter.EvalState {
 	return ed.state
 }
 
-// prog is the internal implementation of the Program interface.
-type prog struct {
-	*env
-	evalOpts      EvalOption
-	defaultVars   interpreter.Activation
-	dispatcher    interpreter.Dispatcher
-	interpreter   interpreter.Interpreter
-	interpretable interpreter.Interpretable
-}
-
-// progFactory is a helper alias for marking a program creation factory function.
-type progFactory func(interpreter.EvalState) (Program, error)
-
-// progGen holds a reference to a progFactory instance and implements the Program interface.
-type progGen struct {
-	factory progFactory
-}
-
 // newProgram creates a program instance with an environment, an ast, and an optional list of
 // ProgramOption values.
 //
@@ -122,7 +105,7 @@ type progGen struct {
 func newProgram(e *env, ast Ast, opts ...ProgramOption) (Program, error) {
 	// Build the dispatcher and default program value.
 	disp := interpreter.NewDispatcher()
-	p := &prog{env: e, dispatcher:  disp}
+	p := &prog{env: e, dispatcher: disp}
 
 	// Configure the program via the ProgramOption values.
 	var err error
@@ -141,9 +124,8 @@ func newProgram(e *env, ast Ast, opts ...ProgramOption) (Program, error) {
 	if p.evalOpts&OptUnknownAttributes == OptUnknownAttributes {
 		resolver = interpreter.NewUnknownResolver(resolver)
 	}
-	interp := interpreter.NewInterpreter(
+	p.interpreter = interpreter.NewInterpreter(
 		disp, e.pkg, e.provider, e.adapter, resolver)
-	p.interpreter = interp
 
 	// Translate the EvalOption flags into InterpretableDecorator instances.
 	decorators := []interpreter.InterpretableDecorator{}
@@ -157,13 +139,7 @@ func newProgram(e *env, ast Ast, opts ...ProgramOption) (Program, error) {
 		// object; hence, the presence of the factory.
 		factory := func(state interpreter.EvalState) (Program, error) {
 			decs := append(decorators, interpreter.ExhaustiveEval(state))
-			clone := &prog{
-				evalOpts:    p.evalOpts,
-				defaultVars: p.defaultVars,
-				env:         e,
-				dispatcher:  disp,
-				interpreter: interp}
-			return initInterpretable(clone, ast, decs)
+			return p.reset(ast, decs)
 		}
 		return initProgGen(factory)
 	}
@@ -172,60 +148,21 @@ func newProgram(e *env, ast Ast, opts ...ProgramOption) (Program, error) {
 	if p.evalOpts&OptTrackState == OptTrackState {
 		factory := func(state interpreter.EvalState) (Program, error) {
 			decs := append(decorators, interpreter.TrackState(state))
-			clone := &prog{
-				evalOpts:    p.evalOpts,
-				defaultVars: p.defaultVars,
-				env:         e,
-				dispatcher:  disp,
-				interpreter: interp}
-			return initInterpretable(clone, ast, decs)
+			return p.reset(ast, decs)
 		}
 		return initProgGen(factory)
 	}
-	return initInterpretable(p, ast, decorators)
+	return p.init(ast, decorators)
 }
 
-// initProgGen tests the factory object by calling it once and returns a factory-based Program if
-// the test is successful.
-func initProgGen(factory progFactory) (Program, error) {
-	// Test the factory to make sure that configuration errors are spotted at config
-	_, err := factory(interpreter.NewEvalState())
-	if err != nil {
-		return nil, err
-	}
-	return &progGen{factory: factory}, nil
-}
-
-// initIterpretable creates a checked or unchecked interpretable depending on whether the Ast
-// has been run through the type-checker.
-func initInterpretable(
-	p *prog,
-	ast Ast,
-	decorators []interpreter.InterpretableDecorator) (Program, error) {
-	var err error
-	// Unchecked programs do not contain type and reference information and may be
-	// slower to execute than their checked counterparts.
-	if !ast.IsChecked() {
-		p.interpretable, err =
-			p.interpreter.NewUncheckedInterpretable(ast.Expr(), decorators...)
-		if err != nil {
-			return nil, err
-		}
-		return p, nil
-	}
-	// When the AST has been checked it contains metadata that can be used to speed up program
-	// execution.
-	var checked *exprpb.CheckedExpr
-	checked, err = AstToCheckedExpr(ast)
-	if err != nil {
-		return nil, err
-	}
-	p.interpretable, err = p.interpreter.NewInterpretable(checked, decorators...)
-	if err != nil {
-		return nil, err
-	}
-
-	return p, nil
+// prog is the internal implementation of the Program interface.
+type prog struct {
+	*env
+	evalOpts      EvalOption
+	defaultVars   interpreter.Activation
+	dispatcher    interpreter.Dispatcher
+	interpreter   interpreter.Interpreter
+	interpretable interpreter.Interpretable
 }
 
 // Eval implements the Program interface method.
@@ -256,6 +193,46 @@ func (p *prog) Eval(input interface{}) (v ref.Val, det EvalDetails, err error) {
 	return
 }
 
+// init builds a checked or unchecked interpretable plan based on whether the Ast is type-checked.
+func (p *prog) init(ast Ast, decorators []interpreter.InterpretableDecorator) (Program, error) {
+	var err error
+	// Unchecked programs do not contain type and reference information and may be
+	// slower to execute than their checked counterparts.
+	if !ast.IsChecked() {
+		p.interpretable, err =
+			p.interpreter.NewUncheckedInterpretable(ast.Expr(), decorators...)
+		if err != nil {
+			return nil, err
+		}
+		return p, nil
+	}
+	// When the AST has been checked it contains metadata that can be used to speed up program
+	// execution.
+	var checked *exprpb.CheckedExpr
+	checked, err = AstToCheckedExpr(ast)
+	if err != nil {
+		return nil, err
+	}
+	p.interpretable, err = p.interpreter.NewInterpretable(checked, decorators...)
+	if err != nil {
+		return nil, err
+	}
+
+	return p, nil
+}
+
+// reset clones the current program and regenerates the interpretable plan using the input Ast
+// and decorators.
+func (p *prog) reset(ast Ast, decorators []interpreter.InterpretableDecorator) (Program, error) {
+	return (&prog{
+		evalOpts:    p.evalOpts,
+		defaultVars: p.defaultVars,
+		env:         p.env,
+		dispatcher:  p.dispatcher,
+		interpreter: p.interpreter,
+	}).init(ast, decorators)
+}
+
 // Eval implements the Program interface method.
 func (gen *progGen) Eval(input interface{}) (ref.Val, EvalDetails, error) {
 	// The factory based Eval() differs from the standard evaluation model in that it generates a
@@ -278,4 +255,23 @@ func (gen *progGen) Eval(input interface{}) (ref.Val, EvalDetails, error) {
 		return v, det, err
 	}
 	return v, det, nil
+}
+
+// progFactory is a helper alias for marking a program creation factory function.
+type progFactory func(interpreter.EvalState) (Program, error)
+
+// progGen holds a reference to a progFactory instance and implements the Program interface.
+type progGen struct {
+	factory progFactory
+}
+
+// initProgGen tests the factory object by calling it once and returns a factory-based Program if
+// the test is successful.
+func initProgGen(factory progFactory) (Program, error) {
+	// Test the factory to make sure that configuration errors are spotted at config
+	_, err := factory(interpreter.NewEvalState())
+	if err != nil {
+		return nil, err
+	}
+	return &progGen{factory: factory}, nil
 }
