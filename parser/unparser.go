@@ -435,5 +435,5 @@ func isLowerPrecedence(op string, expr *exprpb.Expr) bool {
 	}
 	c := expr.GetCallExpr()
 	other := c.GetFunction()
-	return operators.Precedence(op) >= operators.Precedence(other)
+	return operators.Precedence(op) < operators.Precedence(other)
 }
