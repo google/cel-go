@@ -17,6 +17,8 @@ package types
 import (
 	"fmt"
 	"reflect"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -272,12 +274,31 @@ func timestampGetMillisecondsWithTz(t time.Time, tz ref.Val) ref.Val {
 
 func timeZone(tz ref.Val, visitor timestampVisitor) timestampVisitor {
 	return func(t time.Time) ref.Val {
+		var err error
 		if StringType != tz.Type() {
 			return ValOrErr(tz, "no such overload")
 		}
-		loc, err := time.LoadLocation(string(tz.(String)))
-		if err == nil {
-			return visitor(t.In(loc))
+		val := string(tz.(String))
+		_, interr := strconv.Atoi(string(val[len(val)-1]))
+		if interr != nil {
+			loc, err := time.LoadLocation(val)
+			if err == nil {
+				return visitor(t.In(loc))
+			}
+		} else {
+			ind := strings.Index(val, ":")
+			if ind != -1 {
+				hr, err := strconv.Atoi(string(val[0:ind]))
+				min, err2 := strconv.Atoi(string(val[ind+1]))
+				if err == nil && err2 == nil {
+					offset :=(hr+(min/60))
+					secondsEastOfUTC := int((time.Duration(hr+(min/60)) * time.Hour).Seconds())
+					timezone := time.FixedZone("Time Zone", secondsEastOfUTC)
+					curr_time := time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), timezone)
+					update := curr_time.Add(time.Hour * time.Duration(offset))
+					return visitor(update)
+				}
+			}
 		}
 		return &Err{err}
 	}
