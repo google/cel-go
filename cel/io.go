@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"github.com/google/cel-go/common"
+	"github.com/google/cel-go/parser"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
@@ -63,4 +64,14 @@ func AstToParsedExpr(a Ast) (*exprpb.ParsedExpr, error) {
 		Expr:       a.Expr(),
 		SourceInfo: a.SourceInfo(),
 	}, nil
+}
+
+// AstToString converts an Ast back to a string if possible.
+//
+// Note, the conversion may not be an exact replica of the original expression, but will produce
+// a string that is semantically equivalent.
+func AstToString(a Ast) (string, error) {
+	expr := a.Expr()
+	info := a.SourceInfo()
+	return parser.Unparse(expr, info)
 }
