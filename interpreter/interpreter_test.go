@@ -437,11 +437,11 @@ var (
 		},
 		{
 			name:      "pkg_qualified_id_unchecked",
-			expr:      `b.c.d != 10`,
+			expr:      `c.d != 10`,
 			unchecked: true,
 			pkg:       "a.b",
 			in: map[string]interface{}{
-				"a.b.c.d": 9,
+				"a.c.d": 9,
 			},
 		},
 		{
@@ -457,7 +457,7 @@ var (
 		},
 		{
 			name: "select_key",
-			expr: `m.strMap['val'] == 'string' 
+			expr: `m.strMap['val'] == 'string'
 				&& m.floatMap['val'] == 1.5
 				&& m.doubleMap['val'] == -2.0
 				&& m.intMap['val'] == -3
@@ -488,7 +488,7 @@ var (
 		},
 		{
 			name: "select_index",
-			expr: `m.strList[0] == 'string' 
+			expr: `m.strList[0] == 'string'
 				&& m.floatList[0] == 1.5
 				&& m.doubleList[0] == -2.0
 				&& m.intList[0] == -3
@@ -521,8 +521,8 @@ var (
 		},
 		{
 			name: "select_field",
-			expr: `a.b.c 
-				&& pb3.repeated_nested_enum[0] == test.TestAllTypes.NestedEnum.BAR 
+			expr: `a.b.c
+				&& pb3.repeated_nested_enum[0] == test.TestAllTypes.NestedEnum.BAR
 				&& json.list[0] == 'world'`,
 			pkg:   "google.expr.proto3",
 			types: []proto.Message{&proto3pb.TestAllTypes{}},
