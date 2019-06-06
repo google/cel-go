@@ -51,7 +51,7 @@ type Variable interface {
 	// for use with partial state evaluation.
 	ID() int64
 
-	// Name of the variable, may be simple or namespaced, e.g. 'in' or 'cloud.iam.resource'.
+	// Name of the variable, may be simple or namespaced, e.g. 'data' or 'cloud.iam.resource'.
 	Name() string
 }
 
