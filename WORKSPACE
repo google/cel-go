@@ -34,7 +34,7 @@ go_repository(
   importpath = "github.com/antlr/antlr4",
 )
 
-local_repository(
+git_repository(
   name = "com_google_cel_spec",
   commit = "4df43cd7c60b816eb29301d2f93dbf336808799c", # PR #67
   remote = "https://github.com/google/cel-spec.git",
