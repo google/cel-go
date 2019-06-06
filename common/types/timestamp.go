@@ -274,8 +274,6 @@ func timestampGetMillisecondsWithTz(t time.Time, tz ref.Val) ref.Val {
 
 func timeZone(tz ref.Val, visitor timestampVisitor) timestampVisitor {
 	return func(t time.Time) ref.Val {
-		var err error
-		var offset int
 		if StringType != tz.Type() {
 			return ValOrErr(tz, "no such overload")
 		}
@@ -283,25 +281,31 @@ func timeZone(tz ref.Val, visitor timestampVisitor) timestampVisitor {
 		ind := strings.Index(val, ":")
 		if ind == -1 {
 			loc, err := time.LoadLocation(val)
-			if err == nil {
-				return visitor(t.In(loc))
+			if err != nil {
+				return &Err{err}
 			}
-		} else {
-			hr, err := strconv.Atoi(string(val[0:ind]))
-			min, err2 := strconv.Atoi(string(val[ind+1]))
-			if err == nil && err2 == nil {
-				if string(val[0]) == "-" {
-					offset = hr*60 - min
-				} else {
-					offset = hr*60 + min
-				}
-				secondsEastOfUTC := int((time.Duration(offset) * time.Minute).Seconds())
-				timezone := time.FixedZone("Time Zone", secondsEastOfUTC)
-				curr_time := time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), timezone)
-				update := curr_time.Add(time.Minute * time.Duration(offset))
-				return visitor(update)
-			}
+			return visitor(t.In(loc))
 		}
-		return &Err{err}
+
+		// If the input is not the name of a timezone (for example, 'US/Central'), it should be a numerical offset from UTC
+		// in the format ^(+|-)(0[0-9]|1[0-4]):[0-5][0-9]$. The numerical input is parsed in terms of hours and minutes.
+
+		hr, err := strconv.Atoi(string(val[0:ind]))
+		if err != nil {
+			return &Err{err}
+		}
+		min, err := strconv.Atoi(string(val[ind+1]))
+		if err != nil {
+			return &Err{err}
+		}
+		var offset int
+		if string(val[0]) == "-" {
+			offset = hr*60 - min
+		} else {
+			offset = hr*60 + min
+		}
+		secondsEastOfUTC := int((time.Duration(offset) * time.Minute).Seconds())
+		timezone := time.FixedZone("", secondsEastOfUTC)
+		return visitor(t.In(timezone))
 	}
 }
