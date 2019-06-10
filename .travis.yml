@@ -1,16 +1,21 @@
 dist: trusty
-
 addons:
   apt:
     sources:
-      - ubuntu-toolchain-r-test
+    - ubuntu-toolchain-r-test
     packages:
-      - wget
-      - pkg-config
-
+    - wget
+    - pkg-config
 before_install:
-  - wget https://github.com/bazelbuild/bazel/releases/download/0.20.0/bazel_0.20.0-linux-x86_64.deb
-  - sudo dpkg -i bazel_0.20.0-linux-x86_64.deb
-
+- wget https://github.com/bazelbuild/bazel/releases/download/0.20.0/bazel_0.20.0-linux-x86_64.deb
+- sudo dpkg -i bazel_0.20.0-linux-x86_64.deb
 script:
-  - bazel test --test_output=errors ...
+- bazel test --test_output=errors ...
+deploy:
+  provider: gcs
+  access_key_id: 577380756900-dnqilvqmgi8uldebrl7ub9smn5ehvnfr.apps.googleusercontent.com
+  secret_access_key:
+    secure: rJsvrf/XfnYB/T0q6Rr4PuylHckLICSNQD5gLjOJ5qUAmZbqI5U5aQW8Flq3ys0EQXLjwzCLdMfRycXbOj4BXFqwJmdobb5q/nzUjqQEGo63BiT8u34Pp5bDleLfrEHimmYXop1VioVRvzYmJGQ630XeVpOuDjOwywTDSu/SzkjsCYEHXF/ckEB749AkgalZc1CN0fXgGvjGzJbYNTA6UD/hBqZbzRTdIq4MHbo1WBAy5avF+SNKxKXrBoymdu29lg5ihWP3ffe6n//QsAHOo//ZDzjq2HCwqW9PLkswhdQjIyRhtZ38bIndwiRxPLoKQjOl7nRjNFqTt2Ci5yOwoYHRcoZhJweOIvWp77v9/YdK2Qy9nkJNhMAmcjT3Ls9UofWqx80pMSoR/t9dq6chs5AJd6cYaD1pGnVodYf5YrhZH+Slb8FJ3haqcNH4Ovp5m92Mi39oz7yTuO3EzijL+4J6ixr7jIELb63urRBWjnb9psS+yLKg+SjeWSCd+E7yU57VC++3OblDlh5NF5yVcplSEbxZRNCmDD06EmgLxrqCeSNWbGDD7O6eAu5zY9VzJGF8TKRPh0Up+il3RTC31b3gzBQDsPqXIYKyRHQhsLJR1hCQ0752R+V+Ggw/3GhnWUFtDMg4ckMUmQo6Kb96fol062m+D7SFka7VXVNkEzk=
+  bucket: travis-content
+  on:
+    repo: victoriajyang/cel-go
