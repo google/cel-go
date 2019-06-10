@@ -1,4 +1,4 @@
-# Contributing Info
+# Contributing
 
 Thank you for your interest in contributing to the Go implementation of CEL!
 
