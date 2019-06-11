@@ -23,8 +23,8 @@ deploy:
 apply plugin: 'java'
 test {
     testLogging {
-        events "failed"
-        exceptionFormat "short"
+        events "passed", "skipped","failed"
+        exceptionFormat "full"
     }
 }
 
