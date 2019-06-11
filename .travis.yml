@@ -20,3 +20,12 @@ deploy:
   skip_cleanup: true
   on:
     repo: victoriajyang/cel-go
+apply plugin: 'java'
+test {
+    testLogging {
+        events "failed"
+        exceptionFormat "short"
+    }
+}
+
+
