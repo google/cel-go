@@ -19,3 +19,11 @@ deploy:
   bucket: travis-content
   on:
     repo: victoriajyang/cel-go
+apply plugin: 'java'
+test {
+    testLogging {
+        events "failed"
+        exceptionFormat "short"
+    }
+}
+
