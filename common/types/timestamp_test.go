@@ -15,7 +15,6 @@
 package types
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/google/cel-go/common/overloads"
