@@ -1,5 +1,5 @@
 steps:
-        #        - name: 'gcr.io/cloud-builders/bazel'
-        #  args: ['build', '...']
+        - name: 'gcr.io/cloud-builders/go'
+          args: ['install', '.']
         - name: 'gcr.io/cloud-builders/bazel'
           args: ['test', '--test_output=errors', '...']
