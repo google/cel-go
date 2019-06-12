@@ -14,7 +14,7 @@ sh_test(
         "$(location @com_google_cel_spec//tests/simple:testdata/logic.textproto)",
         "$(location @com_google_cel_spec//tests/simple:testdata/macros.textproto)",
         "$(location @com_google_cel_spec//tests/simple:testdata/string.textproto)",
-        "$(location @com_google_cel_spec//tests/simple:testdata/timestamps.textproto)",
+#        "$(location @com_google_cel_spec//tests/simple:testdata/timestamps.textproto)",
     ],
     data = [
         "@com_google_cel_spec//tests/simple:simple_test",
@@ -29,6 +29,6 @@ sh_test(
         "@com_google_cel_spec//tests/simple:testdata/logic.textproto",
         "@com_google_cel_spec//tests/simple:testdata/macros.textproto",
         "@com_google_cel_spec//tests/simple:testdata/string.textproto",
-        "@com_google_cel_spec//tests/simple:testdata/timestamps.textproto",
+#        "@com_google_cel_spec//tests/simple:testdata/timestamps.textproto",
     ],
 )

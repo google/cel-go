@@ -1,5 +1,3 @@
 steps:
         - name: 'gcr.io/cloud-builders/bazel'
           args: ['test', '--test_output=errors', '...']
-          env:
-                  - 'GOROOT=.'
