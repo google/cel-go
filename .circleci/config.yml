@@ -22,6 +22,10 @@ jobs:
       - checkout
 
       # specify any bash command here prefixed with `run: `
-      - run: wget https://github.com/bazelbuild/bazel/releases/download/0.20.0/bazel_0.20.0-linux-x86_64.deb
-      - run: sudo dpkg -i bazel_0.20.0-linux-x86_64.deb
-      - run: bazel test --test_output=errors ...
+      #      - run: wget https://github.com/bazelbuild/bazel/releases/download/0.20.0/bazel_0.20.0-linux-x86_64.deb
+      #- run: sudo dpkg -i bazel_0.20.0-linux-x86_64.deb
+      #- run: bazel test --test_output=errors ...
+      - run: go get -v -t -d ./...
+      - run: go test -v ./...
+store_test_results:
+        path: test-results
