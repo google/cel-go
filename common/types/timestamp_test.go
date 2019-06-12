@@ -55,7 +55,7 @@ func TestTimestamp_ReceiveGetMonth(t *testing.T) {
 	// 1970-01-01T02:05:05Z
 	ts := Timestamp{&tpb.Timestamp{Seconds: 7506}}
 	hr := ts.Receive(overloads.TimeGetMonth, overloads.TimestampToMonth, []ref.Val{})
-	if hr.(*types.Err) {
+	if hr !=nil {
 		t.Error(hr)
 	}
 	if !hr.Equal(Int(0)).(Bool) {
