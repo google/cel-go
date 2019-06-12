@@ -1,9 +1,5 @@
 steps:
-        - name: 'gcr.io/cloud-builders/go'
-          args: ['install', '.']
-          env: ['PROJECT_ROOT=hello']
-        - name: 'gcr.io/cloud-builders/go'
-          args: ['build', 'hello']
-          env: ['PROJECT_ROOT=hello']
         - name: 'gcr.io/cloud-builders/bazel'
           args: ['test', '--test_output=errors', '...']
+          env:
+                  - 'GOROOT=.'
