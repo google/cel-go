@@ -6,7 +6,7 @@ jobs:
   build:
     docker:
       # specify the version
-        - image: circleci/golang:1:9
+      - image: circleci/golang:1.9
 
       # Specify service dependencies here if necessary
       # CircleCI maintains a library of pre-built images
@@ -22,10 +22,5 @@ jobs:
       - checkout
 
       # specify any bash command here prefixed with `run: `
-      #      - run: wget https://github.com/bazelbuild/bazel/releases/download/0.20.0/bazel_0.20.0-linux-x86_64.deb
-      #- run: sudo dpkg -i bazel_0.20.0-linux-x86_64.deb
-      #- run: bazel test --test_output=errors ...
       - run: go get -v -t -d ./cel/...
       - run: go test -v ./cel/...
-        #store_test_results:
-        #path: test-results
