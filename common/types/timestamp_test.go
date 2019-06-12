@@ -15,6 +15,7 @@
 package types
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/google/cel-go/common/overloads"
@@ -56,7 +57,7 @@ func TestTimestamp_ReceiveGetMonth(t *testing.T) {
 	ts := Timestamp{&tpb.Timestamp{Seconds: 7506}}
 	hr := ts.Receive(overloads.TimeGetMonth, overloads.TimestampToMonth, []ref.Val{})
 	if hr !=nil {
-		t.Error(hr)
+		t.Error(reflect.TypeOf(hr))
 	}
 	if !hr.Equal(Int(0)).(Bool) {
 		t.Error("Expected 0, got", hr)
