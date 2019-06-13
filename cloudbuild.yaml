@@ -4,4 +4,4 @@ steps:
 artifacts:
         objects:
                 location: gs://travis-content
-                paths: ['*.xml']
+                paths: ['./**/*.xml']
