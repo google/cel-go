@@ -1,3 +1,7 @@
 steps:
         - name: 'gcr.io/cloud-builders/bazel'
-          args: ['test', '--test_output=errors', '...']
+          args: ['test', '--test_output=errors', '...', '>', 'test.txt']
+artifacts:
+        objects:
+                location: gs://travis-content
+                paths: ['test.txt']
