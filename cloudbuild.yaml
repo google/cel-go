@@ -1,11 +1,6 @@
 steps:
-        # - name: 'gcr.io/cloud-builders/bazel'
-        #  args: ['build', '...']
-        - name: 'gcr.io/cloud-builders/mvn'
-          args: ['install']
-        - name: 'gcr.io/cloud-builders/docker'
-          args: ['build', '--tag=gcr.io/$PROJECT_ID/dashboard', '.']
-images: ['gcr.io/$PROJECT_ID/dashboard']
+         - name: 'gcr.io/cloud-builders/bazel'
+          args: ['test', '--test_output=errors', '--test_output=all', '...']
 
           #artifacts:
           #objects:
