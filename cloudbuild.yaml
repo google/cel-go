@@ -5,4 +5,4 @@ steps:
           #artifacts:
           #objects:
           #      location: gs://travis-content
-          #      paths: ['tests.tar.gz']
+          #      paths: ['tests.zip']
