@@ -5,7 +5,7 @@ steps:
           args: ['install']
         - name: 'gcr.io/cloud-builders/docker'
           args: ['build', '--tag=gcr.io/$PROJECT_ID/dashboard', '.']
-          images: ['gcr.io/$PROJECT_ID/dashboard']
+images: ['gcr.io/$PROJECT_ID/dashboard']
 
           #artifacts:
           #objects:
