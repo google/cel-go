@@ -29,7 +29,7 @@ func TestOverlappingIdentifier(t *testing.T) {
 	env := NewStandardEnv(packages.DefaultPackage, types.NewRegistry())
 	err := env.Add(
 		decls.NewIdent("int", decls.NewTypeType(nil), nil))
-	if err == nil {
+	if err != nil {
 		t.Error("Got nil, wanted error")
 	} else if !strings.Contains(err.Error(), "overlapping identifier") {
 		t.Errorf("Got %v, wanted overlapping identifier error", err)
