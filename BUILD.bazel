@@ -5,6 +5,6 @@ licenses(["notice"])  # Apache 2.0
 exports_files(["LICENSE"])
 
 sh_test(
-    name = "test",
+    name = "zip_test",
     srcs = ["zip.sh"],
 )
