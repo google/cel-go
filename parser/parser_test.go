@@ -772,6 +772,132 @@ ERROR: <input>:1:6: Syntax error: mismatched input '<EOF>' expecting {'[', '{', 
 		|    && in.😁
 		| .........．^`,
 	},
+	{
+		I: "as",
+		E: `ERROR: <input>:1:1: reserved identifier: as
+             | as
+             | ^`,
+	},
+	{
+		I: "break",
+		E: `ERROR: <input>:1:1: reserved identifier: break
+             | break
+             | ^`,
+	},
+	{
+		I: "const",
+		E: `ERROR: <input>:1:1: reserved identifier: const
+             | const
+             | ^`,
+	},
+	{
+		I: "continue",
+		E: `ERROR: <input>:1:1: reserved identifier: continue
+             | continue
+             | ^`,
+	},
+	{
+		I: "else",
+		E: `ERROR: <input>:1:1: reserved identifier: else
+             | else
+             | ^`,
+	},
+	{
+		I: "for",
+		E: `ERROR: <input>:1:1: reserved identifier: for
+             | for
+             | ^`,
+	},
+	{
+		I: "function",
+		E: `ERROR: <input>:1:1: reserved identifier: function
+             | function
+             | ^`,
+	},
+	{
+		I: "if",
+		E: `ERROR: <input>:1:1: reserved identifier: if
+             | if
+             | ^`,
+	},
+	{
+		I: "import",
+		E: `ERROR: <input>:1:1: reserved identifier: import
+             | import
+             | ^`,
+	},
+	{
+		I: "in",
+		E: `ERROR: <input>:1:1: Syntax error: mismatched input 'in' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
+             | in
+             | ^
+            ERROR: <input>:1:3: Syntax error: mismatched input '<EOF>' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
+             | in
+             | ..^`,
+	},
+	{
+		I: "let",
+		E: `ERROR: <input>:1:1: reserved identifier: let
+             | let
+             | ^`,
+	},
+	{
+		I: "loop",
+		E: `ERROR: <input>:1:1: reserved identifier: loop
+             | loop
+             | ^`,
+	},
+	{
+		I: "package",
+		E: `ERROR: <input>:1:1: reserved identifier: package
+             | package
+             | ^`,
+	},
+	{
+		I: "namespace",
+		E: `ERROR: <input>:1:1: reserved identifier: namespace
+             | namespace
+             | ^`,
+	},
+	{
+		I: "return",
+		E: `ERROR: <input>:1:1: reserved identifier: return
+             | return
+             | ^`,
+	},
+	{
+		I: "var",
+		E: `ERROR: <input>:1:1: reserved identifier: var
+             | var
+             | ^`,
+	},
+	{
+		I: "void",
+		E: `ERROR: <input>:1:1: reserved identifier: void
+             | void
+             | ^`,
+	},
+	{
+		I: "while",
+		E: `ERROR: <input>:1:1: reserved identifier: while
+             | while
+             | ^`,
+	},
+	{
+		I: "[1, 2, 3].map(var, var * var)",
+		E: `ERROR: <input>:1:15: reserved identifier: var
+             | [1, 2, 3].map(var, var * var)
+             | ..............^
+            ERROR: <input>:1:20: reserved identifier: var
+             | [1, 2, 3].map(var, var * var)
+             | ...................^
+            ERROR: <input>:1:26: reserved identifier: var
+             | [1, 2, 3].map(var, var * var)
+             | .........................^
+            ERROR: <input>:1:14: argument is not an identifier
+             | [1, 2, 3].map(var, var * var)
+             | .............^`,
+	},
 }
 
 type testInfo struct {

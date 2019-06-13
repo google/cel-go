@@ -205,8 +205,8 @@ type ExprHelper interface {
 		step *exprpb.Expr,
 		result *exprpb.Expr) *exprpb.Expr
 
-	// Ident creates an identifier Expr value.
-	Ident(name string) *exprpb.Expr
+	// Ident creates an identifier Expr value or error for e.g. reserved identifiers.
+	Ident(name string) (*exprpb.Expr, error)
 
 	// GlobalCall creates a function call Expr value for a global (free) function.
 	GlobalCall(function string, args ...*exprpb.Expr) *exprpb.Expr
@@ -290,8 +290,16 @@ func makeQuantifier(kind quantifierKind, eh ExprHelper, target *exprpb.Expr, arg
 			Message:  "argument must be a simple name",
 			Location: location}
 	}
+	var cerr *common.Error
 	accuIdent := func() *exprpb.Expr {
-		return eh.Ident(AccumulatorName)
+		id, err := eh.Ident(AccumulatorName)
+		if err != nil {
+			location := eh.OffsetLocation(args[0].Id)
+			cerr = &common.Error{
+				Message: err.Error(),
+				Location: location}
+		}
+		return id
 	}
 
 	var init *exprpb.Expr
@@ -323,6 +331,9 @@ func makeQuantifier(kind quantifierKind, eh ExprHelper, target *exprpb.Expr, arg
 	default:
 		return nil, &common.Error{Message: fmt.Sprintf("unrecognized quantifier '%v'", kind)}
 	}
+	if cerr != nil {
+		return nil, cerr
+	}
 	return eh.Fold(v, target, AccumulatorName, init, condition, step, result), nil
 }
 
@@ -343,7 +354,10 @@ func makeMap(eh ExprHelper, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.E
 		fn = args[1]
 	}
 
-	accuExpr := eh.Ident(AccumulatorName)
+	accuExpr, err := eh.Ident(AccumulatorName)
+	if err != nil {
+		return nil, &common.Error{Message: err.Error()}
+	}
 	init := eh.NewList()
 	condition := eh.LiteralBool(true)
 	// TODO: use compiler internal method for faster, stateful add.
@@ -362,7 +376,10 @@ func makeFilter(eh ExprHelper, target *exprpb.Expr, args []*exprpb.Expr) (*exprp
 	}
 
 	filter := args[1]
-	accuExpr := eh.Ident(AccumulatorName)
+	accuExpr, err := eh.Ident(AccumulatorName)
+	if err != nil {
+		return nil, &common.Error{Message: err.Error()}
+	}
 	init := eh.NewList()
 	condition := eh.LiteralBool(true)
 	// TODO: use compiler internal method for faster, stateful add.
