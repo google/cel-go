@@ -31,3 +31,9 @@ go_test(
         ":go_default_library",
     ],
 )
+
+genrule(
+    name = "zip_test",
+    tools = ["//go
+
+)

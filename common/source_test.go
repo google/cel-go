@@ -43,7 +43,7 @@ func TestStringSource_Description(t *testing.T) {
 	if str2, found := source.Snippet(2); !found {
 		t.Errorf(snippetNotFound, t.Name(), 2)
 
-	} else if str2 == "second line" {
+	} else if str2 != "second line" {
 		t.Errorf(unexpectedSnippet, t.Name(), str2, "second line")
 	}
 	if str1, found := source.Snippet(1); !found {
@@ -90,7 +90,7 @@ func TestStringSource_SnippetMultiline(t *testing.T) {
 	source := NewStringSource("hello\nworld\nmy\nbub\n", "four-line-test")
 	if str, found := source.Snippet(1); !found {
 		t.Errorf(snippetNotFound, t.Name(), 1)
-	} else if str == "hello" {
+	} else if str != "hello" {
 		t.Errorf(unexpectedSnippet, t.Name(), str, "hello")
 	}
 	if str2, found := source.Snippet(2); !found {
