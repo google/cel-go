@@ -1,0 +1,5 @@
+exec ${PAGER:-/usr/bin/less} "$0" || exit 1
+Executing tests from //:zip_test
+-----------------------------------------------------------------------------
+tar: Removing leading `/' from member names
+tar: Removing leading `/' from hard link targets
