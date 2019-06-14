@@ -50,8 +50,8 @@ type EvalDetails interface {
 	State() interpreter.EvalState
 }
 
-// NoKnownVars returns an activation that indicates all attributes are unknown.
-func NoKnownVars() interpreter.Activation {
+// AllVarsUnknown returns an activation that indicates all attributes are unknown.
+func AllVarsUnknown() interpreter.Activation {
 	return interpreter.UnknownActivation()
 }
 
@@ -61,7 +61,19 @@ func NoVars() interpreter.Activation {
 }
 
 // Vars returns an Activation containing the program input and an optional list of attributes which
-// are known at evaluation time to be unknown.
+// are declared at evaluation time to be unknown.
+//
+// The input may either be a map[string]interface{} or interpreter.Activation. If the input is not
+// one of these types an error will be returned.
+//
+// An Attribute is any sequence of a variable, field selection, or key / index lookup. Attributes
+// that exist within an expression are determined during the cel.Program call. To declare an
+// attribute unknown on the input the caller may supply a set of Attribute values created using
+// the cel.Unknown() function. An unknown is treated like a recoverable error that will be returned
+// to the caller to indicate additional processing is required.
+//
+// When unknown values are supplied, the cel.OptUnknownAttributes flag must be provided as an
+// EvalOption.
 func Vars(input interface{}, unknowns ...interpreter.Attribute) (interpreter.Activation, error) {
 	vars, err := interpreter.NewActivation(input)
 	if err != nil {
@@ -75,15 +87,29 @@ func Vars(input interface{}, unknowns ...interpreter.Attribute) (interpreter.Act
 
 // Unknown specifies an Attribute whose value is not known at runtime.
 //
-// Not all inputs to an expression have the same cost. Some are cheap to provide and others
-// require I/O or heavy compute to resolve. Marking expensive attributes as unknown can be a
-// useful tool for improving the operational efficiency of expression evaluation, as it allows
-// the cheap data to be evaluated quickly and often conclusively. When the expression result
-// cannot be computed, the result will be a types.Unknown value containing the ids of the
-// sub-expressions that resulted in the Unknown value.
+// An Attribute is any sequence of a variable, field selection, or key / index lookup. Attributes
+// that exist within an expression are determined during the cel.Program call. An Unknown indicates
+// that some or all of the declared Attributes in a Program will not yet have a value. An Unknown
+// is composed of the following parts:
 //
-// Unknowns are treated like recoverable errors within CEL and take precedence over types.Err
-// values.
+//   varName - the name of the top-level identifier in the program
+//   pathElems - optional list of scalar values matching the field and index lookup calls.
+//
+// The path element may only be of string, int, uint, and bool type. The special case '*' indicates
+// that the path element should match all inputs. If the path element is not of the correct type,
+// the call will result in an error.
+//
+// Note, any Attribute that overlaps with the Unknown attribute will be treated as Unknown. For
+// example, cel.Unknown("a", "b") will cause the Attributes 'a.b.c' and 'a' to be marked unknown.
+//
+// Not all inputs to an expression have the same cost. Some are cheap to provide and others require
+// I/O or heavy compute to resolve. Marking expensive attributes as unknown can be a useful tool
+// for improving the operational efficiency of expression evaluation, as it allows the cheap data
+// to be evaluated quickly and often conclusively. When the expression result cannot be computed,
+// the result will be a types.Unknown value containing the ids of the sub-expressions that resulted
+// in the Unknown value.
+//
+// Unknowns are treated like recoverable errors and take precedence over types.Err values.
 func Unknown(varName string, pathElems ...interface{}) (interpreter.Attribute, error) {
 	return interpreter.NewUnknownAttribute(varName, pathElems...)
 }

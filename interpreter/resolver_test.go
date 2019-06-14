@@ -16,6 +16,7 @@ package interpreter
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
@@ -31,7 +32,7 @@ import (
 func TestResolver(t *testing.T) {
 	vars, _ := NewActivation(map[string]interface{}{
 		"a": []interface{}{
-			map[string]string{"b": "c"},
+			map[string]interface{}{"b": []string{"c", "d"}},
 			map[string]bool{"b": true},
 		}})
 	res := NewResolver(types.DefaultTypeAdapter)
@@ -42,8 +43,22 @@ func TestResolver(t *testing.T) {
 	if !found {
 		t.Error("Got not found, wanted found")
 	}
-	if val != "c" {
-		t.Errorf("Got %v, wanted 'c'", val)
+	if !reflect.DeepEqual(val, []string{"c", "d"}) {
+		t.Errorf("Got %v, wanted ['c', 'd']", val)
+	}
+
+	// Pretend that the 'val' found earlier was the result of a function call, select element 1.
+	elem := res.ResolveRelative(val, vars,
+		newExprRelAttribute(newExprPathElem(4, types.Int(1))))
+	if elem != "d" {
+		t.Errorf("Got %v, wanted 'd'", elem)
+	}
+
+	// Attempt to select element 2. This should error.
+	elem = res.ResolveRelative(val, vars,
+		newExprRelAttribute(newExprPathElem(5, types.Int(2))))
+	if !types.IsError(elem.(ref.Val)) {
+		t.Errorf("Got %v, wanted error", elem)
 	}
 }
 
@@ -150,123 +165,105 @@ func TestListeningResolver(t *testing.T) {
 			map[string]int{"int": 42},
 		},
 	})
-	resolvedAttrs := make(map[int64]string)
-	resolvedStatus := make(map[int64]ResolveStatus)
+	resolvedAttrs := make(map[string]ResolveStatus)
 	statusListener := func(attr Attribute, status ResolveStatus) {
-		exprID := attr.Variable().ID()
 		attrName := attr.Variable().Name()
 		for _, elem := range attr.Path() {
-			exprID = elem.ID
 			elemName := elem.ToValue(vars)
 			attrName += fmt.Sprintf(".%v", elemName)
 		}
-		resolvedAttrs[exprID] = attrName
-		resolvedStatus[exprID] = status
+		if _, found := resolvedAttrs[attrName]; found {
+			t.Errorf("Attribute %s previously resolved.", attrName)
+		}
+		resolvedAttrs[attrName] = status
 	}
 
 	res := NewListeningResolver(NewResolver(types.DefaultTypeAdapter), statusListener)
 	res.Resolve(vars, newExprVarAttribute(1, "elems"))
-	if resolvedAttrs[1] != "elems" {
-		t.Errorf("Got %v, wanted 'elems'", resolvedAttrs)
-	}
-	if resolvedStatus[1] != FoundAttribute {
-		t.Errorf("Got %v, wanted FoundAttribute", resolvedStatus)
+	if resolvedAttrs["elems"] != FoundAttribute {
+		t.Errorf("Got %v, wanted 'elems' == FoundAttribute", resolvedAttrs)
 	}
 
 	res.Resolve(vars, newExprVarAttribute(1, "elems", newExprPathElem(2, types.Int(1))))
-	if resolvedAttrs[2] != "elems.1" {
-		t.Errorf("Got %v, wanted 'elems.1'", resolvedAttrs)
-	}
-	if resolvedStatus[2] != FoundAttribute {
-		t.Errorf("Got %v, wanted FoundAttribute", resolvedStatus)
+	if resolvedAttrs["elems.1"] != FoundAttribute {
+		t.Errorf("Got %v, wanted 'elems.1' == FoundAttribute", resolvedAttrs)
 	}
 
 	res.Resolve(vars, newExprVarAttribute(1, "elems",
 		newExprPathElem(3, types.Int(3)),
 		newExprPathElem(4, types.String("int"))))
-	if resolvedAttrs[4] != "elems.3.int" {
-		t.Errorf("Got %v, wanted 'elems.3.int'", resolvedAttrs)
-	}
-	if resolvedStatus[4] != FoundAttribute {
-		t.Errorf("Got %v, wanted FoundAttribute", resolvedStatus)
+	if resolvedAttrs["elems.3.int"] != FoundAttribute {
+		t.Errorf("Got %v, wanted 'elems.3.int' == FoundAttribute", resolvedAttrs)
 	}
 
 	res.Resolve(vars, newExprVarAttribute(404, "not_found"))
-	if resolvedAttrs[404] != "not_found" {
-		t.Errorf("Got %v, wanted 'not_found", resolvedAttrs)
-	}
-	if resolvedStatus[404] != NoSuchVariable {
-		t.Errorf("Got %v, wanted NoSuchVariable", resolvedStatus)
+	if resolvedAttrs["not_found"] != NoSuchVariable {
+		t.Errorf("Got %v, wanted 'not_found' == NoSuchVariable", resolvedAttrs)
 	}
 
 	res.Resolve(vars, newExprVarAttribute(1, "elems",
 		newExprPathElem(400, types.String("no_such_key"))))
-	if resolvedAttrs[400] != "elems.no_such_key" {
-		t.Errorf("Got %v, wanted 'elems.no_such_key", resolvedAttrs)
-	}
-	if resolvedStatus[400] != NoSuchAttribute {
-		t.Errorf("Got %v, wanted NoSuchAttribute", resolvedStatus)
+	if resolvedAttrs["elems.no_such_key"] != NoSuchAttribute {
+		t.Errorf("Got %v, wanted 'elems.no_such_key' == NoSuchAttribute", resolvedAttrs)
 	}
 }
 
 func TestUnknownResolver(t *testing.T) {
-	unkAttr, _ := NewUnknownAttribute("vars", "stop")
+	unkVarsStop, _ := NewUnknownAttribute("vars", "stop")
+	unkVarsAlso, _ := NewUnknownAttribute("vars", "also")
 	vars, _ := NewPartialActivation(
 		map[string]interface{}{
 			"vars": map[string]string{
 				"start": "beginning",
 			},
 		},
-		[]Attribute{unkAttr},
+		[]Attribute{unkVarsStop, unkVarsAlso},
 	)
 
-	resolvedAttrs := make(map[int64]string)
-	resolvedStatus := make(map[int64]ResolveStatus)
+	resolvedAttrs := make(map[string]ResolveStatus)
 	statusListener := func(attr Attribute, status ResolveStatus) {
-		exprID := attr.Variable().ID()
 		attrName := attr.Variable().Name()
 		for _, elem := range attr.Path() {
-			exprID = elem.ID
 			elemName := elem.ToValue(vars)
 			attrName += fmt.Sprintf(".%v", elemName)
 		}
-		resolvedAttrs[exprID] = attrName
-		resolvedStatus[exprID] = status
+		if _, found := resolvedAttrs[attrName]; found {
+			t.Errorf("Attribute %s previously resolved.", attrName)
+		}
+		resolvedAttrs[attrName] = status
 	}
 	res := NewListeningResolver(
-		NewUnknownResolver(
-			NewResolver(types.DefaultTypeAdapter)),
+		NewUnknownResolver(NewResolver(types.DefaultTypeAdapter)),
 		statusListener)
 
-	// When a top-level variable contains an unknown attribute, then it too becomes
-	// unknown. Otherwise, the use of this value in comparisons might yield invalid
-	// results.
+	// When a top-level variable contains an unknown attribute, then it too becomes unknown.
+	// Otherwise, the use of this value in comparisons might yield invalid results.
 	res.Resolve(vars, newExprVarAttribute(1, "vars"))
-	if resolvedAttrs[1] != "vars" {
-		t.Errorf("Got %v, wanted 'vars'", resolvedAttrs)
-	}
-	if resolvedStatus[1] != UnknownAttribute {
-		t.Errorf("Got %v, wanted UnknownAttribute", resolvedStatus)
+	if resolvedAttrs["vars"] != UnknownAttribute {
+		t.Errorf("Got %v, wanted 'vars' == UnknownAttribute", resolvedAttrs)
 	}
 
 	// Fully qualified attributes with known concrete values are still known however.
 	res.Resolve(vars, newExprVarAttribute(1, "vars",
 		newExprPathElem(2, types.String("start"))))
-	if resolvedAttrs[2] != "vars.start" {
-		t.Errorf("Got %v, wanted 'vars.start'", resolvedAttrs)
-	}
-	if resolvedStatus[2] != FoundAttribute {
-		t.Errorf("Got %v, wanted FoundAttribute", resolvedStatus)
+	if resolvedAttrs["vars.start"] != FoundAttribute {
+		t.Errorf("Got %v, wanted 'vars.start' == FoundAttribute", resolvedAttrs)
 	}
 
 	// Note, a partially known map potentially poses problems with respect to map equality and
 	// containment tests. At present only top-level unknown variables are recommended.
 	res.Resolve(vars, newExprVarAttribute(1, "vars",
 		newExprPathElem(3, types.String("stop"))))
-	if resolvedAttrs[3] != "vars.stop" {
-		t.Errorf("Got %v, wanted 'vars.stop'", resolvedAttrs)
+	if resolvedAttrs["vars.stop"] != UnknownAttribute {
+		t.Errorf("Got %v, wanted 'vars.stop' == UnknownAttribute", resolvedAttrs)
 	}
-	if resolvedStatus[3] != UnknownAttribute {
-		t.Errorf("Got %v, wanted UnknownAttribute", resolvedStatus)
+
+	// Selecting below where an unknown is declared should also result in an unknown attribute
+	// which extends only as far as the path where the first unknown occurs.
+	res.Resolve(vars, newExprVarAttribute(1, "vars",
+		newExprPathElem(4, types.String("also")),
+		newExprPathElem(5, types.Int(12))))
+	if resolvedAttrs["vars.also"] != UnknownAttribute {
+		t.Errorf("Got %v, wanted 'vars.also' == UnknownAttribute", resolvedAttrs)
 	}
 }

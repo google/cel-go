@@ -43,15 +43,21 @@ type Resolver interface {
 	// Resolve finds a top-level Attribute from the given Activation, returning the value
 	// if present.
 	//
-	// When the resolver cannot find the Attribute in the activation it must return nil, false.
-	// The resolution of attributes within checked expressions is relatively simple, but for
-	// unchecked expressions, there may be many alternative Attribute representations to resolve
-	// among.
+	// When the resolver cannot find the Attribute's variable in the activation it must return
+	// nil, false since the resolution of attributes within unchecked expressions may be many
+	// alternative Attribute representations, and disambiguation must be error free.
+	//
+	// When the resolver finds an Attribute's variable, but the Attribute's path is not defined,
+	// the resolve must return types.Err, true where the error corresponds to either 'no_such_key',
+	// or 'no_such_field'.
 	Resolve(Activation, Attribute) (interface{}, bool)
 
 	// ResolveRelative finds a relative Attribute from the input object and Activation.
 	//
 	// If the Attribute cannot be found, the return value must be a types.Err value.
+	//
+	// Unlike the Resolve call which always operates on attributes of top-level variables, the
+	// relative call always operates on a function result.
 	ResolveRelative(interface{}, Activation, Attribute) interface{}
 }
 
@@ -110,13 +116,13 @@ func (res *defaultResolver) Resolve(vars Activation, attr Attribute) (interface{
 	varName := attr.Variable().Name()
 	attrPath := attr.Path()
 	obj, found := vars.Find(varName)
-	if found {
-		for _, elem := range attrPath {
-			obj = res.getElem(obj, elem.ToValue(vars))
-		}
-		return obj, true
+	if !found {
+		return nil, false
 	}
-	return nil, false
+	for _, elem := range attrPath {
+		obj = res.getElem(obj, elem.ToValue(vars))
+	}
+	return obj, true
 }
 
 // ResolveRelative implements the Resolver interface method.
@@ -134,55 +140,60 @@ func (res *defaultResolver) ResolveRelative(
 // method appropriate for the 'obj' type or by converting the obj to a ref.Val and using the CEL
 // functions.
 func (res *defaultResolver) getElem(obj interface{}, elem ref.Val) interface{} {
-	switch obj.(type) {
+	switch o := obj.(type) {
 	case map[string]interface{}:
-		m := obj.(map[string]interface{})
 		key, ok := elem.(types.String)
 		if !ok {
 			return types.ValOrErr(elem, "no such overload")
 		}
-		v, found := m[string(key)]
+		v, found := o[string(key)]
 		if !found {
 			return types.NewErr("no such key")
 		}
 		return v
 	case map[string]string:
-		return res.getMapStrVal(obj, elem)
+		return res.getMapStrVal(o, elem)
 	case map[string]float32:
-		return res.getMapFloat32Val(obj, elem)
+		return res.getMapFloat32Val(o, elem)
 	case map[string]float64:
-		return res.getMapFloat64Val(obj, elem)
+		return res.getMapFloat64Val(o, elem)
 	case map[string]int:
-		return res.getMapIntVal(obj, elem)
+		return res.getMapIntVal(o, elem)
 	case map[string]int32:
-		return res.getMapInt32Val(obj, elem)
+		return res.getMapInt32Val(o, elem)
 	case map[string]int64:
-		return res.getMapInt64Val(obj, elem)
+		return res.getMapInt64Val(o, elem)
 	case map[string]bool:
-		return res.getMapBoolVal(obj, elem)
+		return res.getMapBoolVal(o, elem)
 	case []interface{}:
-		return res.getListIFaceVal(obj, elem)
+		return res.getListIFaceVal(o, elem)
 	case []string:
-		return res.getListStrVal(obj, elem)
+		return res.getListStrVal(o, elem)
 	case []float32:
-		return res.getListFloat32Val(obj, elem)
+		return res.getListFloat32Val(o, elem)
 	case []float64:
-		return res.getListFloat64Val(obj, elem)
+		return res.getListFloat64Val(o, elem)
 	case []int:
-		return res.getListIntVal(obj, elem)
+		return res.getListIntVal(o, elem)
 	case []int32:
-		return res.getListInt32Val(obj, elem)
+		return res.getListInt32Val(o, elem)
 	case []int64:
-		return res.getListInt64Val(obj, elem)
+		return res.getListInt64Val(o, elem)
 	case proto.Message:
-		return res.getProtoField(obj, elem)
+		return res.getProtoField(o, elem)
 	case traits.Indexer:
-		indexer := obj.(traits.Indexer)
-		return indexer.Get(elem)
+		return o.Get(elem)
+	case *types.Err, types.Unknown:
+		// It is safe to continue evaluation after an error or unknown, since the first value of
+		// either type will be preserved throughout the evaluation of the attribute. This may
+		// appear sub-optimal, but these cases are the exception and not the rule, and checking
+		// whether the value is an error or unknown is an expense that should not be incurred in
+		// the happy path.
+		return o
 	case ref.Val:
-		return types.ValOrErr(obj.(ref.Val), "no such overload")
+		return types.ValOrErr(o, "no such overload")
 	default:
-		objType := reflect.TypeOf(obj)
+		objType := reflect.TypeOf(o)
 		objKind := objType.Kind()
 		if objKind == reflect.Map ||
 			objKind == reflect.Array ||
@@ -198,8 +209,7 @@ func (res *defaultResolver) getElem(obj interface{}, elem ref.Val) interface{} {
 	}
 }
 
-func (res *defaultResolver) getMapStrVal(obj interface{}, k ref.Val) interface{} {
-	m := obj.(map[string]string)
+func (res *defaultResolver) getMapStrVal(m map[string]string, k ref.Val) interface{} {
 	key, ok := k.(types.String)
 	if !ok {
 		return types.ValOrErr(k, "no such overload")
@@ -211,8 +221,7 @@ func (res *defaultResolver) getMapStrVal(obj interface{}, k ref.Val) interface{}
 	return v
 }
 
-func (res *defaultResolver) getMapFloat32Val(obj interface{}, k ref.Val) interface{} {
-	m := obj.(map[string]float32)
+func (res *defaultResolver) getMapFloat32Val(m map[string]float32, k ref.Val) interface{} {
 	key, ok := k.(types.String)
 	if !ok {
 		types.ValOrErr(k, "no such overload")
@@ -224,8 +233,7 @@ func (res *defaultResolver) getMapFloat32Val(obj interface{}, k ref.Val) interfa
 	return v
 }
 
-func (res *defaultResolver) getMapFloat64Val(obj interface{}, k ref.Val) interface{} {
-	m := obj.(map[string]float64)
+func (res *defaultResolver) getMapFloat64Val(m map[string]float64, k ref.Val) interface{} {
 	key, ok := k.(types.String)
 	if !ok {
 		types.ValOrErr(k, "no such overload")
@@ -237,8 +245,7 @@ func (res *defaultResolver) getMapFloat64Val(obj interface{}, k ref.Val) interfa
 	return v
 }
 
-func (res *defaultResolver) getMapIntVal(obj interface{}, k ref.Val) interface{} {
-	m := obj.(map[string]int)
+func (res *defaultResolver) getMapIntVal(m map[string]int, k ref.Val) interface{} {
 	key, ok := k.(types.String)
 	if !ok {
 		types.ValOrErr(k, "no such overload")
@@ -250,8 +257,7 @@ func (res *defaultResolver) getMapIntVal(obj interface{}, k ref.Val) interface{}
 	return v
 }
 
-func (res *defaultResolver) getMapInt32Val(obj interface{}, k ref.Val) interface{} {
-	m := obj.(map[string]int32)
+func (res *defaultResolver) getMapInt32Val(m map[string]int32, k ref.Val) interface{} {
 	key, ok := k.(types.String)
 	if !ok {
 		types.ValOrErr(k, "no such overload")
@@ -263,8 +269,7 @@ func (res *defaultResolver) getMapInt32Val(obj interface{}, k ref.Val) interface
 	return v
 }
 
-func (res *defaultResolver) getMapInt64Val(obj interface{}, k ref.Val) interface{} {
-	m := obj.(map[string]int64)
+func (res *defaultResolver) getMapInt64Val(m map[string]int64, k ref.Val) interface{} {
 	key, ok := k.(types.String)
 	if !ok {
 		types.ValOrErr(k, "no such overload")
@@ -276,8 +281,7 @@ func (res *defaultResolver) getMapInt64Val(obj interface{}, k ref.Val) interface
 	return v
 }
 
-func (res *defaultResolver) getMapBoolVal(obj interface{}, k ref.Val) interface{} {
-	m := obj.(map[string]bool)
+func (res *defaultResolver) getMapBoolVal(m map[string]bool, k ref.Val) interface{} {
 	key, ok := k.(types.String)
 	if !ok {
 		types.ValOrErr(k, "no such overload")
@@ -289,8 +293,7 @@ func (res *defaultResolver) getMapBoolVal(obj interface{}, k ref.Val) interface{
 	return v
 }
 
-func (res *defaultResolver) getListIFaceVal(obj interface{}, i ref.Val) interface{} {
-	l := obj.([]interface{})
+func (res *defaultResolver) getListIFaceVal(l []interface{}, i ref.Val) interface{} {
 	idx, ok := i.(types.Int)
 	if !ok {
 		return types.ValOrErr(i, "no such overload")
@@ -302,8 +305,7 @@ func (res *defaultResolver) getListIFaceVal(obj interface{}, i ref.Val) interfac
 	return l[index]
 }
 
-func (res *defaultResolver) getListStrVal(obj interface{}, i ref.Val) interface{} {
-	l := obj.([]string)
+func (res *defaultResolver) getListStrVal(l []string, i ref.Val) interface{} {
 	idx, ok := i.(types.Int)
 	if !ok {
 		return types.ValOrErr(i, "no such overload")
@@ -315,8 +317,7 @@ func (res *defaultResolver) getListStrVal(obj interface{}, i ref.Val) interface{
 	return l[index]
 }
 
-func (res *defaultResolver) getListFloat32Val(obj interface{}, i ref.Val) interface{} {
-	l := obj.([]float32)
+func (res *defaultResolver) getListFloat32Val(l []float32, i ref.Val) interface{} {
 	idx, ok := i.(types.Int)
 	if !ok {
 		return types.ValOrErr(i, "no such overload")
@@ -328,8 +329,7 @@ func (res *defaultResolver) getListFloat32Val(obj interface{}, i ref.Val) interf
 	return l[index]
 }
 
-func (res *defaultResolver) getListFloat64Val(obj interface{}, i ref.Val) interface{} {
-	l := obj.([]float64)
+func (res *defaultResolver) getListFloat64Val(l []float64, i ref.Val) interface{} {
 	idx, ok := i.(types.Int)
 	if !ok {
 		return types.ValOrErr(i, "no such overload")
@@ -341,8 +341,7 @@ func (res *defaultResolver) getListFloat64Val(obj interface{}, i ref.Val) interf
 	return l[index]
 }
 
-func (res *defaultResolver) getListIntVal(obj interface{}, i ref.Val) interface{} {
-	l := obj.([]int)
+func (res *defaultResolver) getListIntVal(l []int, i ref.Val) interface{} {
 	idx, ok := i.(types.Int)
 	if !ok {
 		return types.ValOrErr(i, "no such overload")
@@ -354,8 +353,7 @@ func (res *defaultResolver) getListIntVal(obj interface{}, i ref.Val) interface{
 	return l[index]
 }
 
-func (res *defaultResolver) getListInt32Val(obj interface{}, i ref.Val) interface{} {
-	l := obj.([]int32)
+func (res *defaultResolver) getListInt32Val(l []int32, i ref.Val) interface{} {
 	idx, ok := i.(types.Int)
 	if !ok {
 		return types.ValOrErr(i, "no such overload")
@@ -367,8 +365,7 @@ func (res *defaultResolver) getListInt32Val(obj interface{}, i ref.Val) interfac
 	return l[index]
 }
 
-func (res *defaultResolver) getListInt64Val(obj interface{}, i ref.Val) interface{} {
-	l := obj.([]int64)
+func (res *defaultResolver) getListInt64Val(l []int64, i ref.Val) interface{} {
 	idx, ok := i.(types.Int)
 	if !ok {
 		return types.ValOrErr(i, "no such overload")
@@ -406,37 +403,35 @@ func (res *defaultResolver) getListValueElem(l *structpb.ListValue, i ref.Val) i
 	return maybeUnwrapValue(elems[index])
 }
 
-func (res *defaultResolver) getProtoField(obj interface{}, elem ref.Val) interface{} {
-	switch obj.(type) {
+func (res *defaultResolver) getProtoField(obj proto.Message, elem ref.Val) interface{} {
+	switch o := obj.(type) {
 	case *anypb.Any:
-		val := obj.(*anypb.Any)
-		if val == nil {
+		if o == nil {
 			return types.NewErr("unsupported type conversion: '%T'", obj)
 		}
 		unpackedAny := ptypes.DynamicAny{}
-		if ptypes.UnmarshalAny(val, &unpackedAny) != nil {
-			return types.NewErr("unknown type: '%s'", val.GetTypeUrl())
+		if ptypes.UnmarshalAny(o, &unpackedAny) != nil {
+			return types.NewErr("unknown type: '%s'", o.GetTypeUrl())
 		}
 		return res.getProtoField(unpackedAny.Message, elem)
 	case *structpb.Value:
-		val := obj.(*structpb.Value)
-		if val == nil {
+		if o == nil {
 			return types.NewErr("no such overload")
 		}
-		switch val.Kind.(type) {
+		switch o.Kind.(type) {
 		case *structpb.Value_StructValue:
-			return res.getProtoField(val.GetStructValue(), elem)
+			return res.getProtoField(o.GetStructValue(), elem)
 		case *structpb.Value_ListValue:
-			return res.getProtoField(val.GetListValue(), elem)
+			return res.getProtoField(o.GetListValue(), elem)
 		default:
 			return types.NewErr("no such overload")
 		}
 	case *structpb.Struct:
-		return res.getStructField(obj.(*structpb.Struct), elem)
+		return res.getStructField(o, elem)
 	case *structpb.ListValue:
-		return res.getListValueElem(obj.(*structpb.ListValue), elem)
+		return res.getListValueElem(o, elem)
 	default:
-		pb := res.adapter.NativeToValue(obj)
+		pb := res.adapter.NativeToValue(o)
 		indexer, ok := pb.(traits.Indexer)
 		if !ok {
 			return types.ValOrErr(pb, "no such overload")
@@ -512,7 +507,7 @@ func ancestorAttr(attr Attribute, ancestorID int64) Attribute {
 }
 
 // unknownResolver acts as an interceptor that inspects whether top-level Attribute values
-// have been marked as known-unknowns.
+// have been marked as declared but as-yet unknown.
 type unknownResolver struct {
 	Resolver
 }

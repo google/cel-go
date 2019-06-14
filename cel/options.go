@@ -239,6 +239,14 @@ const (
 	// OptUnknownAttributes indicates to the program that the input may only be partially known at
 	// evaluation time.
 	//
+	// An Attribute is any sequence of a variable, field selection, or key / index lookup.
+	// Attributes that exist within an expression are constructed during the cel.Program call.
+	// To declare an attribute unknown on the input the caller may supply a set of Attribute
+	// values created using the cel.Unknown() function.
+	//
+	// Unknowns are treated like recoverable errors that will be returned to the caller to indicate
+	// additional processing is required.
+	//
 	// See interpreter.PartialActivation and interpreter.NewUnknownAttribute for more details.
 	OptUnknownAttributes EvalOption = 1 << iota
 )

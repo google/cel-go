@@ -47,8 +47,7 @@ type Variable interface {
 	//
 	// Non-zero when the Variable is identified during program plan time.
 	//
-	// Zero-ish when the Variable is provided as part of a user-provided Attribute specification
-	// for use with partial state evaluation.
+	// Zero-ish when the Variable is provided as part of a user-provided Attribute.
 	ID() int64
 
 	// Name of the variable, may be simple or namespaced, e.g. 'data' or 'cloud.iam.resource'.
@@ -83,32 +82,35 @@ type PathElem struct {
 // The string path element '*' is treated as a wildcard match against any path element value.
 //
 // As absolute Attribute references within an expression are being resolved, the attribute path
-// is compared to the set of known-unknowns which refer to the same top-level variable. When the
-// unknown Attribute matches any part of the resolved attribute, a types.Unknown value is
-// generated. The types.Unknown value refers to the expression id of the last resolved path
-// element that matches the unknown.
+// is compared to the set of declared unknowns which refer to the same top-level variable. When
+// the unknown Attribute matches any part of the resolved attribute, a types.Unknown value is
+// generated. For example, when a top-level variable contains an unknown attribute, then it too
+// becomes unknown. Otherwise, the use of this value in comparisons might yield invalid results.
+//
+// All types.Unknown values generated as a result of encountering unknown attributes refer to the
+// expression id of the last resolved path element that matches the unknown.
 func NewUnknownAttribute(varName string, pathElems ...interface{}) (Attribute, error) {
 	v := &variable{name: varName}
 	p := make([]*PathElem, len(pathElems), len(pathElems))
 	for i, elem := range pathElems {
 		var e ref.Val
-		switch elem.(type) {
+		switch et := elem.(type) {
 		case bool:
-			e = types.Bool(elem.(bool))
+			e = types.Bool(et)
 		case int:
-			e = types.Int(elem.(int))
+			e = types.Int(et)
 		case int32:
-			e = types.Int(elem.(int32))
+			e = types.Int(et)
 		case int64:
-			e = types.Int(elem.(int64))
+			e = types.Int(et)
 		case string:
-			e = types.String(elem.(string))
+			e = types.String(et)
 		case uint:
-			e = types.Uint(elem.(uint))
+			e = types.Uint(et)
 		case uint32:
-			e = types.Uint(elem.(uint32))
+			e = types.Uint(et)
 		case uint64:
-			e = types.Uint(elem.(uint64))
+			e = types.Uint(et)
 		case types.Bool, types.Int, types.String, types.Uint:
 			e = elem.(ref.Val)
 		default:
