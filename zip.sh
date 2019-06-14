@@ -8,7 +8,7 @@ for folder in ./bazel-out/k8-fastbuild/testlogs/*;do
 done
 echo $PWD
 cd $TEST_UNDECLARED_OUTPUTS_DIR
-tar -czf ./tests.tar.gz ./testlogs
-echo $PWD
+tar -czf ~/tests.tar.gz ./testlogs
+echo ~
 #cp tests.tar.gz ~/.cache/bazel/_bazel_$USER
 #rm -r testlogs
