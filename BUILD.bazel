@@ -4,9 +4,9 @@ licenses(["notice"])  # Apache 2.0
 
 exports_files(["LICENSE"])
 
-sh_test(
-    name = "zip_test",
-    srcs = ["zip.sh"],
+#sh_test(
+#    name = "zip_test",
+#    srcs = ["zip.sh"],
 #    deps = [":cel_go"],
 
 )

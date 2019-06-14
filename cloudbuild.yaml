@@ -1,9 +1,11 @@
 steps:
         - name: 'gcr.io/cloud-builders/bazel'
           args: ['test', '--test_output=errors', '--test_output=all', '...']
+        - name: 'ubuntu'
+          args: ['bash', './zip.sh']
           #args: ['build', '...']
-artifacts:
-          objects:
-                location: gs://travis-content
-                paths: ['~/.cache/bazel/_bazel_root/tests.tar.gz']
+          #artifacts:
+          #objects:
+          #      location: gs://travis-content
+          #      paths: ['~/.cache/bazel/_bazel_root/tests.tar.gz']
 
