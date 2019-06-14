@@ -10,5 +10,5 @@ echo $PWD
 cd $TEST_UNDECLARED_OUTPUTS_DIR
 tar -czf ./tests.tar.gz ./testlogs
 echo $PWD
-cp tests.tar.gz ~/.cache/bazel/_bazel_$USER
+#cp tests.tar.gz ~/.cache/bazel/_bazel_$USER
 #rm -r testlogs
