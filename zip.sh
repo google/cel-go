@@ -1,6 +1,6 @@
 #!/bin/bash
-#cd ../../../../../../../../../../
-#cd ./execroot/cel_go/
+cd ../../../../../../../../../../
+cd ./execroot/cel_go/
 echo $PWD
 mkdir -p $TEST_UNDECLARED_OUTPUTS_DIR/testlogs
 for folder in ./bazel-out/k8-fastbuild/testlogs/*;do
