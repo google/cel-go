@@ -1,6 +1,6 @@
 #!/bin/bash
-#zip -r ./tests.zip ~/go/src/github.com/google/cel-go/bazel-testlogs/*
 mkdir -p testlogs
+echo $PWD
 for folder in ./bazel-out/k8-fastbuild/testlogs/*;do
   cp -r "$folder" ./testlogs
 done
