@@ -2,7 +2,7 @@
 echo $PWD
 cd bazel-output
 ls
-cd k8-testbuild
+cd k8-fastbuild
 ls
 cd testlogs
 ls
