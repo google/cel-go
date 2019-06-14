@@ -5,4 +5,4 @@ steps:
 artifacts:
           objects:
                 location: gs://travis-content
-                paths: ['~/.cache/bazel/_bazel_$USER/eab0d61a99b6696edb3d2aff87b585e8/execroot/cel_go/bazel-out/k8-fastbuild/testlogs/k8-fastbuild/testlogs/zip_test/test.outputs/tests.tar.gz']
+                paths: ['$PWD']
