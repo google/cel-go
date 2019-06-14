@@ -7,12 +7,14 @@ for folder in ./bazel-out/k8-fastbuild/testlogs/*;do
   cp -r "$folder" $TEST_UNDECLARED_OUTPUTS_DIR/testlogs
 done
 echo $PWD
-cd ../../../../../../../
+cd ../../../../../../
 echo $PWD
-ls
-cd ..
+cd .cache
 echo $PWD
-ls
+cd bazel
+echo $PWD
+cd _bazel_root
+echo $PWD
 tar -czf ./tests.tar.gz $TEST_UNDECLARED_OUTPUTS_DIR/testlogs
 #cp tests.tar.gz ~/.cache/bazel/_bazel_$USER
 #rm -r testlogs
