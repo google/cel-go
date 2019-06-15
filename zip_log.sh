@@ -1,6 +1,6 @@
 #!/bin/bash
 echo $PWD
-cd bazel-output
+cd bazel-out
 ls
 cd k8-fastbuild
 ls
