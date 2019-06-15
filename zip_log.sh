@@ -1,18 +1,18 @@
 #!/bin/bash
 echo workspace
-ls
+ls -la
 echo bazel-out
 cd bazel-out
-ls
+ls -la
 echo k8
 cd k8-fastbuild
-ls
+ls -la
 echo tests
 cd testlogs
-ls
+ls -la
 echo zip
 cd zip_test
-ls
+ls -la
 cd test.outputs
-ls
+ls -la
 
