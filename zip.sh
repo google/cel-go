@@ -1,7 +1,14 @@
 #!/bin/bash
-mkdir -p testlogs
+touch tests.xml
 for folder in ./bazel-out/k8-fastbuild/testlogs/*;do
-  cp -r "$folder" testlogs
+  for folder2 in "$folder";do
+    for file in "$folder2";do
+      if ["$file" = "test.xml"]
+      then
+          cat "$file" >> tests.xml
+      fi
+    done
+  done
 done
-ls -la
-tar -czf ./tests.tar.gz ./testlogs
+#ls -la
+#tar -czf ./tests.tar.gz ./testlogs
