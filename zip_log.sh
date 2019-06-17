@@ -10,4 +10,4 @@ ls -la
 #ls -la
 #cd test.outputs
 #ls -la
-cat ./bazel-out/k8-fastbuild/testlogs/zip_test/test.xml
+cp ./bazel-out/k8-fastbuild/testlogs/zip_test/test.xml .
