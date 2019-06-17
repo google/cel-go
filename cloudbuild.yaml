@@ -4,4 +4,4 @@ steps:
         - name: 'ubuntu'
           args: ['bash', 'zip_log.sh']
         - name: 'gcr.io/cloud-builders/gsutil'
-          args: ['cp', './bazel-out/k8-fastbuild/testlogs/zip_test/text.xml', 'gs://travis-content']
+          args: ['cp', './bazel-out/k8-fastbuild/testlogs/zip_test/test.xml', 'gs://travis-content']
