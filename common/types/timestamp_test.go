@@ -61,9 +61,6 @@ func TestTimestamp_ReceiveGetMonth(t *testing.T) {
 	// 1969-12-31T19:05:05Z
 	hrTz := ts.Receive(overloads.TimeGetMonth, overloads.TimestampToMonthWithTz,
 		[]ref.Val{String("America/Phoenix")})
-	if hrTz !=nil{
-		t.Error(hrTz)
-	}
 	if !hrTz.Equal(Int(11)).(Bool) {
 		t.Error("Expected 11, got", hrTz)
 	}
