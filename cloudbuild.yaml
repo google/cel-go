@@ -7,5 +7,5 @@ steps:
 artifacts:
         objects:
                 location: gs://travis-content
-                paths: ['./bazel-out/k8-fastbuild/testlogs/zip_test/test.outputs/outputs.zip']
+                paths: ['./bazel-out/k8-fastbuild/testlogs/*/test.xml']
 
