@@ -7,5 +7,5 @@ steps:
 artifacts:
         objects:
                 location: gs://travis-content
-                paths: ['./zip_log.sh']
+                paths: ['./bazel-out']
 
