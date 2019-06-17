@@ -2,7 +2,7 @@ steps:
         - name: 'gcr.io/cloud-builders/bazel'
           args: ['test', '--test_output=errors', '--test_output=all', '...']
         - name: 'gcr.io/cloud-builders/gsutil'
-          args: ['cp -R', './bazel-out', 'gs://travis-content']
+          args: ['cp', './bazel-out/k8-fastbuild/testlogs/zip_test/text.xml', 'gs://travis-content']
           #   - name: 'ubuntu'
           #  args: ['bash', './zip_log.sh']
           #artifacts:
