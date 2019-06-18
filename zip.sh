@@ -1,6 +1,6 @@
 #!/bin/bash
-touch tests.xml
-echo "<?xml version="1.0" encoding="UTF-8"?>" > tests.xml
+#touch tests.xml
+echo "<?xml version="1.0" encoding="UTF-8"?>" >> tests.xml
 echo "<testsuites>" >> tests.xml
 cat tests.xml
 echo "hello"
