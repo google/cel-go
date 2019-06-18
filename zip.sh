@@ -1,11 +1,12 @@
 #!/bin/bash
 touch tests.xml
 for folder in ./bazel-out/k8-fastbuild/testlogs/*;do
-  echo $PWD
+  echo "$folder"
   for folder2 in "$folder"/*;do
-    echo $PWD
+    echo "$folder2"
     for file in "$folder2";do
-      if ["$file" = "test.xml"]
+      echo "$file"
+      if [ "$file" = "test.xml" ]
       then
           cat "$file" >> tests.xml
       fi
