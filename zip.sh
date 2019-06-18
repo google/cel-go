@@ -1,4 +1,6 @@
 #!/bin/bash
+wget https://github.com/bazelbuild/bazel/releases/download/0.26.1/bazel_0.26.1-linux-x86_64.deb
+sudo dpkg -i bazel_0.26.1-linux-x86_64.deb
 bazel test --test_output=errors --test_output=all ...
 touch tests.xml
 echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" > tests.xml
