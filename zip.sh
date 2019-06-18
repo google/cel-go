@@ -8,7 +8,7 @@ for folder in ./bazel-out/k8-fastbuild/testlogs/*;do
       echo "${file##*/}"
       if [ "${file##*/}" = "test.xml" ]
       then
-          sed -e'2d' "$file" >> tests.xml
+          sed -e'1d;2d;$d' "$file" >> tests.xml
           cat tests.xml
       fi
     done
