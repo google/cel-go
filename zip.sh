@@ -2,7 +2,7 @@
 touch tests.xml
 echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" > tests.xml
 echo "<testsuites>" >> tests.xml
-for file in $(find ./bazel-out/k8-fastbuild/testlogs -name '*.log');do
+for file in $(find ./bazel-out/k8-fastbuild/testlogs -name '*.xml');do
   echo "$file"
   sed -e'1d;2d;$d' $file >> tests.xml
 done
