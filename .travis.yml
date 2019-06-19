@@ -11,13 +11,3 @@ before_install:
 - sudo dpkg -i bazel_0.20.0-linux-x86_64.deb
 script:
 - bazel test --test_output=errors ...
-deploy:
-  provider: gcs
-  access_key_id: GOOGK2H6LNUHQKSLSHUXFW7J
-  secret_access_key:
-    secure: jAC2g1/j1iIGbgczB6PRhgmCCPZUB0hy2aYRcqJZUu8qGTuuW+gzvXEHObdpVC/DCMQJkLFmrD6OJi6YafCLoY4rBPx6Iz5voG881IkhTV2redVPXR9Va1pkDTmx4xyXMzGHTxiVCpgR1Je/Br1E9bu8jAqzGzys2WItANwexf6imF8bogglh7flKEQUlXnOxXsq/9WQiOxv6KmKFdkeJjKwdVmCSqxpd0bfMe133I2Z65054dF+p+iIYqD+FwdOnLhie+uTDJoht+yQH9Pn4PJWWnJrDRgCDrSG+2ZJTg9CdYQNzkQu/JFJm7Twtf6X1MAe0xTQFPGBseONuA88aBAdw8JkCiMgda7K2bNhqonK2XCwXHHtkn90XJNBovzSU4Xg63SPkcSFVqLOyGWrRFea4RW/lkbs4JV8yoPlQmLqjO5Qy+3tHnfYYhSNlZ9bn3g8llDpC+CBIEkyibwqizMigB28smDmfZj72tT+CGKNvmltKIP8nOX6TUE3S99zjr3q47VQfDgU654+aoAJAm7ScJvj+zMSD+HcKnDugy84qnqr1i6reKTm16eWGUlt6MeBU3Pmm2KOEx31xlxKNU1p1jh7ZwlZaHrpqE3TzQH74Zr0q5yjhnORcbhi9XHwfxko8YCWTf8bwuTTztjMmVqH/SEAaJrcJqsjfO1odgY=
-  bucket: travis-content
-  skip_cleanup: true
-  on:
-    repo: victoriajyang/cel-go
-
