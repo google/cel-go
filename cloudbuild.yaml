@@ -1,7 +1,7 @@
 steps:
         - name: 'gcr.io/cloud-builders/bazel'
           entrypoint: '/bin/bash'
-          args: [ '-c', 'bazel test --test_output=errors --test_output=all ...' || true ]
+          args: [ 'bazel test --test_output=errors --test_output=all ...' || true ]
         - name: 'ubuntu'
           args: ['bash', 'zip.sh']
 artifacts:
