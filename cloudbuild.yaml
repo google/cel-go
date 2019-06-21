@@ -1,5 +1,4 @@
 steps:
-        #
         - name: 'gcr.io/cloud-builders/bazel'
           entrypoint: '/bin/bash'
           args: [ '-c', 'bazel test --test_output=errors --test_output=all ...' || true ]
