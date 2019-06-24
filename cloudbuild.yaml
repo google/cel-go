@@ -4,7 +4,6 @@ steps:
         - name: 'ubuntu'
           args: ['bash', 't.sh']
           # args: ['test', '--test_output=errors', '--test_output=all', 'conformance/ct']
-          AllowFailure: true
         - name: 'ubuntu'
           args: ['bash', 'zip.sh']
 artifacts:
