@@ -1,9 +1,7 @@
 steps:
         - name: 'gcr.io/cloud-builders/bazel'
-          args: ['build']
-        - name: 'ubuntu'
-          args: ['bash', 't.sh']
-          #          args: ['test', '--test_output=errors', '--test_output=all', 'conformance/ct']
+          args: ['test', '--test_output=errors', '--test_output=all', 'conformance/ct']
+          AllowFailure: true
         - name: 'ubuntu'
           args: ['bash', 'zip.sh']
 artifacts:
