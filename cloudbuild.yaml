@@ -2,6 +2,7 @@ steps:
         - name: 'ubuntu'
           args: ['bash', 'date+%s', '>', 'build-log.txt']
           args: ['bash', '-c', 'echo', '"$COMMIT_SHA"', '>>', 'build-log.txt']
+          args: ['bash', 'ls']
           #        - name: 'gcr.io/cloud-builders/bazel'
           #  args: ['test', '--test_output=all', 'conformance/ct']
           #  - name: 'ubuntu'
@@ -9,4 +10,4 @@ steps:
 artifacts:
         objects:
                 location: gs://travis-content
-                paths: ['build-log.txt']
+                paths: ['tests.xml', 'build-log.txt']
