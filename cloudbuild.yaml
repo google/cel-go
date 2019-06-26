@@ -1,18 +1,11 @@
 steps:
         - name: 'ubuntu'
-          args: ['bash', 'start.sh']
-        - name: 'ubuntu'
-          args: ['bash', '-c', 'echo', '"hello"']
-          # args: ['bash', 'date +%s', '>', 'build-log.txt']
-        - name: 'ubuntu'
-          args: ['bash', '-c', 'echo', '"$COMMIT_SHA"', '>>', 'build-log.txt']
+          args: ['bash', 'start.sh', '"$COMMIT_SHA"']
         #  args: ['bash', '-c', 'ls']
           #        - name: 'gcr.io/cloud-builders/bazel'
           #  args: ['test', '--test_output=all', 'conformance/ct']
           #  - name: 'ubuntu'
           #  args: ['bash', 'zip.sh']
-        - name: 'ubuntu'
-          args: ['bash', '-c', 'ls']
 artifacts:
         objects:
                 location: gs://travis-content
