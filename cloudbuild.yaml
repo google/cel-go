@@ -8,7 +8,7 @@ steps:
           #  args: ['test', '--test_output=all', 'conformance/ct']
           #  - name: 'ubuntu'
           args: ['bash', 'zip.sh']
-          args: ['bash', 'c', 'ls']
+          args: ['bash', '-c', 'ls']
 artifacts:
         objects:
                 location: gs://travis-content
