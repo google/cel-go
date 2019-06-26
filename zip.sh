@@ -8,4 +8,3 @@ for file in $(find ./bazel-out/k8-fastbuild/testlogs -name '*.xml');do
 done
 echo "</testsuites>" >> tests.xml
 date +%s >> build-log.txt
-$COMMIT_SHA >> build-log.txt
