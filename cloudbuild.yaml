@@ -1,13 +1,16 @@
 steps:
         - name: 'ubuntu'
-          #          args: ['bash', 'touch', 'build-log.txt']
-          #  args: ['bash', 'date+%s', '>', 'build-log.txt']
-          #  args: ['bash', '-c', 'echo', '"$COMMIT_SHA"', '>>', 'build-log.txt']
-          #  args: ['bash', '-c', 'ls']
+          args: ['bash', 'touch', 'build-log.txt']
+        - name: 'ubuntu'
+          args: ['bash', 'date+%s', '>', 'build-log.txt']
+        - name: 'ubuntu'
+          args: ['bash', '-c', 'echo', '"$COMMIT_SHA"', '>>', 'build-log.txt']
+        #  args: ['bash', '-c', 'ls']
           #        - name: 'gcr.io/cloud-builders/bazel'
           #  args: ['test', '--test_output=all', 'conformance/ct']
           #  - name: 'ubuntu'
-          args: ['bash', 'zip.sh']
+          #  args: ['bash', 'zip.sh']
+        - name: 'ubuntu'
           args: ['bash', '-c', 'ls']
 artifacts:
         objects:
