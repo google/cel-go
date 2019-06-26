@@ -2,7 +2,7 @@ steps:
         - name: 'ubuntu'
           args: ['bash', 'start.sh']
         - name: 'ubuntu'
-          args: ['bash', '-c', 'ls']
+          args: ['bash', '-c', 'echo', '"hello"', '>>', 'build-log.txt']
           # args: ['bash', 'date +%s', '>', 'build-log.txt']
         - name: 'ubuntu'
           args: ['bash', '-c', 'echo', '"$COMMIT_SHA"', '>>', 'build-log.txt']
