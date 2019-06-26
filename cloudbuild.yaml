@@ -2,7 +2,7 @@ steps:
         - name: 'ubuntu'
           args: ['bash', 'date+%s', '>', 'build-log.txt']
           args: ['bash', '-c', 'echo', '"$COMMIT_SHA"', '>>', 'build-log.txt']
-          args: ['bash', 'ls']
+          args: ['bash', '-c', 'ls']
           #        - name: 'gcr.io/cloud-builders/bazel'
           #  args: ['test', '--test_output=all', 'conformance/ct']
           #  - name: 'ubuntu'
