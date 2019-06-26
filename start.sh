@@ -1,3 +1,3 @@
 #!/bin/bash
 date +%s > build-log.txt
-echo $START_SHA
+file $START_SHA
