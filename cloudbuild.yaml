@@ -1,4 +1,6 @@
 steps:
+        - name: 'ubuntu'
+          args: ['bash', 'start.sh']
         - name: 'gcr.io/cloud-builders/bazel'
           args: ['test', '--test_output=all', 'conformance/ct']
         - name: 'ubuntu'
@@ -6,4 +8,4 @@ steps:
 artifacts:
         objects:
                 location: gs://travis-content
-                paths: ['tests.xml']
+                paths: ['tests.xml', 'build-log.txt']

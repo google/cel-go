@@ -7,3 +7,5 @@ for file in $(find ./bazel-out/k8-fastbuild/testlogs -name '*.xml');do
   sed -e'1d;2d;$d' $file >> tests.xml
 done
 echo "</testsuites>" >> tests.xml
+date +%s >> build-log.txt
+$COMMIT_SHA >> build-log.txt
