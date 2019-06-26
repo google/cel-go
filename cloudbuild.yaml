@@ -1,7 +1,7 @@
 steps:
         - name: 'ubuntu'
           args: ['bash', 'date+%s', '>', 'build-log.txt']
-          args: ['bash', 'echo', '"hello"', '>>', 'build-log.txt']
+          args: ['bash', '-c', 'echo', '"hello"', '>>', 'build-log.txt']
           #          args: ['bash', 'echo', '"74e2442924889b6864d2ee5084d37e1258602c7d"', '>>', 'build-log.txt']
           #          args: ['bash', 'echo', '"$COMMIT_SHA commit"', '>>', 'build-log.txt']
           #        - name: 'gcr.io/cloud-builders/bazel'
