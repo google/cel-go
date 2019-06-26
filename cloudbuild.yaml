@@ -1,8 +1,8 @@
 steps:
         - name: 'ubuntu'
           args: ['bash', 'start.sh']
-        - name: 'ubuntu'
-          args: ['bash', 'date +%s', '>', 'build-log.txt']
+          # - name: 'ubuntu'
+          # args: ['bash', 'date +%s', '>', 'build-log.txt']
         - name: 'ubuntu'
           args: ['bash', '-c', 'echo', '"$COMMIT_SHA"', '>>', 'build-log.txt']
         #  args: ['bash', '-c', 'ls']
@@ -15,4 +15,4 @@ steps:
 artifacts:
         objects:
                 location: gs://travis-content
-                paths: ['tests.xml', 'build-log.txt']
+                paths: ['build-log.txt']
