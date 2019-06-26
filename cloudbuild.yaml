@@ -2,10 +2,10 @@ steps:
         - name: 'ubuntu'
           args: ['bash', 'start.sh']
           #          args: ['bash', 'echo', '${COMMIT_SHA}', '>>', 'build-log.txt']
-        - name: 'gcr.io/cloud-builders/bazel'
-          args: ['test', '--test_output=all', 'conformance/ct']
-        - name: 'ubuntu'
-          args: ['bash', 'zip.sh']
+          #        - name: 'gcr.io/cloud-builders/bazel'
+          #  args: ['test', '--test_output=all', 'conformance/ct']
+          #  - name: 'ubuntu'
+          #  args: ['bash', 'zip.sh']
 artifacts:
         objects:
                 location: gs://travis-content
