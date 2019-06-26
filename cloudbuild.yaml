@@ -1,5 +1,6 @@
 steps:
         - name: 'ubuntu'
+          args: ['bash', 'touch', 'build-log.txt']
           args: ['bash', 'date+%s', '>', 'build-log.txt']
           args: ['bash', '-c', 'echo', '"$COMMIT_SHA"', '>>', 'build-log.txt']
           args: ['bash', '-c', 'ls']
