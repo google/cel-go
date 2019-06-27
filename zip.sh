@@ -1,4 +1,5 @@
 #!/bin/bash
+mkdir -p artifacts
 touch artifacts/junit_01.xml
 cat ./bazel-out/k8-fastbuild/testlogs/conformance/ct/test.xml > artifacts/junit_01.xml
 
