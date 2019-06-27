@@ -18,6 +18,8 @@ time_string="$timestamp$startdate$comma"
 result='"result": "'
 test_string=$(tail -n 4 artifacts/junit_01.xml | head -n 1 | cut -c1-4)
 
+echo $test_string
+
 if [ $test_string = "PASS" ]
 then
   test="SUCCESS"
