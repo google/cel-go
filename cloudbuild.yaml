@@ -1,8 +1,8 @@
 steps:
         - name: 'ubuntu'
           args: ['bash', 'start.sh', '$COMMIT_SHA']
-          #  - name: 'gcr.io/cloud-builders/bazel'
-          #    args: ['test', '--test_output=all', 'conformance/ct']
+        - name: 'gcr.io/cloud-builders/bazel'
+          args: ['test', '--test_output=all', 'conformance/ct']
         - name: 'ubuntu'
           args: ['bash', 'zip.sh', '$BUILD_ID']
         - name: 'gcr.io/cloud-builders/gsutil'
