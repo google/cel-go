@@ -1,11 +1,12 @@
 #!/bin/bash
-comma='",'
+quote='"'
+comma=","
 startdate=$(date +%s)
 timestamp='"timestamp": "'
-time_string="$timestamp$startdate$comma"
+time_string="$timestamp$startdate$quote$comma"
 
 pull='"pull": "'
-pull_string="$pull$1$comma"
+pull_string="$pull$1$quote"
 
 echo "{" > started.json
 echo "$time_string" >> started.json

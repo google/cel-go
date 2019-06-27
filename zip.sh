@@ -1,19 +1,12 @@
 #!/bin/bash
-#ls
-#touch tests.xml
-#echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" > tests.xml
-#echo "<testsuites>" >> tests.xml
-#for file in $(find ./bazel-out/k8-fastbuild/testlogs -name '*.xml');do
-#  cat $file
-mkdir -p artifacts
 touch artifacts/junit_01.xml
 cat ./bazel-out/k8-fastbuild/testlogs/conformance/ct/test.xml > artifacts/junit_01.xml
-#done
-#echo "</testsuites>" >> tests.xml
-comma='",'
+
+quote='"'
+comma=","
 startdate=$(date +%s)
 timestamp='"timestamp": "'
-time_string="$timestamp$startdate$comma"
+time_string="$timestamp$startdate$quote$comma"
 
 result='"result": "'
 test_string=$(tail -n 4 artifacts/junit_01.xml | head -n 1 | cut -c1-4)
@@ -26,7 +19,7 @@ then
 else
   test="FAILURE"
 fi
-result_string="$result$test$comma"
+result_string="$result$test$quote"
 
 echo "{" > finished.json
 echo "$time_string" >> finished.json
