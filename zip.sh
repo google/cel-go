@@ -35,8 +35,8 @@ echo "}" >> finished.json
 
 touch build-log.txt
 
-mkdir -p test-logs/$1
-mv started.json ./test-logs/$1/started.json
-mv finished.json ./test-logs/$1/finished.json
-mv build-log.txt ./test-logs/$1/build-log.txt
-mv artifacts ./test-logs/$1/artifacts
+mkdir -p $1
+mv started.json ./$1/started.json
+mv finished.json ./$1/finished.json
+mv build-log.txt ./$1/build-log.txt
+mv artifacts ./$1/artifacts
