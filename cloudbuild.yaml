@@ -6,4 +6,4 @@ steps:
         - name: 'ubuntu'
           args: ['bash', 'zip.sh', '$BUILD_ID']
         - name: 'gcr.io/cloud-builders/gsutil'
-          args: ['cp', '-r', '$BUILD_ID', 'gs://travis-content/test-logs/$BUILD_ID']
+          args: ['cp', '-r', '$BUILD_ID', 'gs://travis-content/test-logs/1111111']
