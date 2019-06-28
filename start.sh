@@ -2,8 +2,8 @@
 quote='"'
 comma=","
 startdate=$(date +%s)
-timestamp='"timestamp": "'
-time_string="$timestamp$startdate$quote$comma"
+timestamp='"timestamp": '
+time_string="$timestamp$startdate$comma"
 
 pull='"pull": "'
 pull_string="$pull$1$quote"
