@@ -12,4 +12,5 @@ steps:
         - name: 'ubuntu'
           args: ['bash', 'zip.sh']
         - name: 'gcr.io/cloud-builders/gsutil'
-          args: ['cp', '-r', 'cat', 'gs://travis-content/_DATE', 'gs://travis-content/test-logs']
+          entrypoint: sh
+          args: ['-c', 'cp -r $(cat _DATE) gs://travis-content/test-logs']
