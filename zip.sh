@@ -4,7 +4,8 @@ touch artifacts/junit_01.xml
 
 input="./bazel-out/k8-fastbuild/testlogs/conformance/ct/test.xml"
 
-head -3 $input > artifacts/junit_01.xml
+head -2 $input > artifacts/junit_01.xml
+echo "<testsuite>" >> artifacts/junit_01.xml
 while IFS= read -r line
 do
   testline=$(echo $line | cut -c1-3)
