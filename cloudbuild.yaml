@@ -3,7 +3,7 @@ steps:
           args: ['bash', 'start.sh', '$COMMIT_SHA']
         - name: 'ubuntu'
           args: ['bash', '-c', 'date +%s > _DATE' ]
-        - name: 'ubunut'
+        - name: 'ubuntu'
           args: ['ls']
           #        - name: 'gcr.io/cloud-builders/bazel'
           #   args: ['test', '--test_output=all', 'conformance/ct']
