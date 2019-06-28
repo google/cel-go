@@ -1,7 +1,31 @@
 #!/bin/bash
 mkdir -p artifacts
 touch artifacts/junit_01.xml
-cat ./bazel-out/k8-fastbuild/testlogs/conformance/ct/test.xml > artifacts/junit_01.xml
+
+input="./bazel-out/k8-fastbuild/testlogs/conformance/ct/test.xml"
+while IFS= read -r line
+do
+  testline=$(echo $line | cut -c1-3)
+  testcase='<testcase name="'
+  testend='">'
+  close_testcase="</testcase>"
+
+  if [ $testline = "---" ]
+  then
+    status=$(echo $line | cut -c4-8)
+    name=$(echo $line | tail -c +11 | head -c -9)
+    echo "$testcase$name$testend"
+    echo $status
+    if [ $status = "FAIL" ]
+    then
+      read line1
+      echo $line1
+    fi
+    echo $close_testcase
+  fi
+done < "$input"
+
+#cat ./bazel-out/k8-fastbuild/testlogs/conformance/ct/test.xml > artifacts/junit_01.xml
 comma=","
 quote='"'
 startdate=$(date +%s)

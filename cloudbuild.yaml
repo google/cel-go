@@ -1,9 +1,11 @@
 steps:
         - name: 'ubuntu'
           args: ['bash', 'start.sh', '$COMMIT_SHA']
+        - name: 'ubuntu'
+          args: ['bash', '-c', 'date +%s > _DATE' ]
         - name: 'gcr.io/cloud-builders/bazel'
           args: ['test', '--test_output=all', 'conformance/ct']
         - name: 'ubuntu'
-          args: ['bash', 'zip.sh', '$BUILD_ID']
+          args: ['bash', 'zip.sh', '$(cat _DATE)']
         - name: 'gcr.io/cloud-builders/gsutil'
-          args: ['cp', '-r', '$BUILD_ID', 'gs://travis-content/test-logs/1112111']
+          args: ['cp', '-r', '$(cat _DATE)', 'gs://travis-content/test-logs']
