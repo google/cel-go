@@ -5,7 +5,7 @@ touch artifacts/junit_01.xml
 input="./bazel-out/k8-fastbuild/testlogs/conformance/ct/test.xml"
 
 head -2 $input > artifacts/junit_01.xml
-echo "<testsuite>"
+echo "<testsuite>" >> artifacts/junit_01.xml
 
 while IFS= read -r line
 do
@@ -48,17 +48,15 @@ else
 fi
 result_string="$result$test$quote"
 
-echo "{" > finished.json
-echo "$time_string" >> finished.json
-echo "$result_string" >> finished.json
-echo "}" >> finished.json
-
-touch build-log.txt
-
 filedir=$(cat _DATE)
-
 mkdir -p $filedir
+
+touch ./$filedir/build-log.txt
+
+echo "{" > ./$filedir/finished.json
+echo "$time_string" >> ./$filedir/finished.json
+echo "$result_string" >> ./$filedir/finished.json
+echo "}" >> ./$filedir/finished.json
+
 mv started.json ./$filedir/started.json
-mv finished.json ./$filedir/finished.json
-mv build-log.txt ./$filedir/build-log.txt
 mv artifacts ./$filedir/artifacts
