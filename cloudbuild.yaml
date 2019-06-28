@@ -3,9 +3,9 @@ steps:
           args: ['bash', 'start.sh', '$COMMIT_SHA']
         - name: 'ubuntu'
           args: ['bash', '-c', 'date +%s > _DATE' ]
-        - name: 'gcr.io/cloud-builders/bazel'
-          args: ['test', '--test_output=all', 'conformance/ct']
+          #        - name: 'gcr.io/cloud-builders/bazel'
+          #   args: ['test', '--test_output=all', 'conformance/ct']
         - name: 'ubuntu'
-          args: ['bash', 'zip.sh', '$(cat _DATE)']
+          args: ['bash', 'zip.sh']
         - name: 'gcr.io/cloud-builders/gsutil'
           args: ['cp', '-r', '$(cat _DATE)', 'gs://travis-content/test-logs']

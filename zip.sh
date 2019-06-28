@@ -14,14 +14,10 @@ do
   then
     status=$(echo $line | cut -c4-8)
     name=$(echo $line | tail -c +11 | head -c -9)
-    echo "$testcase$name$testend"
-    echo $status
     if [ $status = "FAIL" ]
     then
       read line1
-      echo $line1
     fi
-    echo $close_testcase
   fi
 done < "$input"
 
@@ -34,8 +30,6 @@ time_string="$timestamp$startdate$comma"
 
 result='"result": "'
 test_string=$(tail -n 4 artifacts/junit_01.xml | head -n 1 | cut -c1-4)
-
-echo $test_string
 
 if [ $test_string = "PASS" ]
 then
@@ -52,8 +46,10 @@ echo "}" >> finished.json
 
 touch build-log.txt
 
-mkdir -p $1
-mv started.json ./$1/started.json
-mv finished.json ./$1/finished.json
-mv build-log.txt ./$1/build-log.txt
-mv artifacts ./$1/artifacts
+filedir=$(cat _DATE)
+
+mkdir -p $filedir
+mv started.json ./$filedir/started.json
+mv finished.json ./$filedir/finished.json
+mv build-log.txt ./$filedir/build-log.txt
+mv artifacts ./$filedir/artifacts
