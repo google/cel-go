@@ -55,6 +55,12 @@ git_repository(
 )
 
 git_repository(
+    name = "io_bazel_rules_k8s",
+    commit = "94e92d11da6fa178d035cedf9041bae9a104b948",
+    remote = "https://github.com/bazelbuild/rules_k8s.git",
+)
+
+git_repository(
     name = "k8s",
     remote = "http://github.com/kubernetes/test-infra.git",
     commit = "f56e8904a7430e907f03fb4d0236511fe9d36ee6",  # HEAD as of 5/7/2019
