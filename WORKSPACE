@@ -47,6 +47,12 @@ git_repository(
     tag = "v1.21.0",
 )
 
+git_repository(
+    name = "k8s",
+    remote = "http://github.com/kubernetes/test-infra.git",
+    commit = "f56e8904a7430e907f03fb4d0236511fe9d36ee6",  # HEAD as of 5/7/2019
+)
+
 new_git_repository(
     name = "com_google_googleapis",
     remote = "https://github.com/googleapis/googleapis.git",
