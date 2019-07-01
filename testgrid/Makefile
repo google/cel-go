@@ -15,8 +15,14 @@
 TESTGRID_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
 update-config:
+
+# If recieving GOOGLE_APPLICATION_CREDENTIALS error, 
+# run "export GOOGLE_APPLICATION_CREDENTIALS="path/to/google/application/credentials/json/file".
+# This needs to be run during every session.
+
 ifndef GOOGLE_APPLICATION_CREDENTIALS
 	$(error GOOGLE_APPLICATION_CREDENTIALS not set)
+
 endif
 	bazel run @k8s//testgrid/cmd/configurator -- \
 		--yaml=$(TESTGRID_DIR)/config.yaml \
