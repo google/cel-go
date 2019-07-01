@@ -17,8 +17,7 @@ default_test_group:
   tests_name_policy: 2           # Replace the name of the test
   ignore_pending: false          # Show in-progress tests
   column_header:
-  - configuration_value: Commit  # Shows the commit number on column header
-  - configuration_value: infra-commit
+  - configuration_value: Commit  # Shows the commit number on column heade
   num_columns_recent: 10         # The number of columns to consider "recent" for a variety of purposes
   use_kubernetes_client: true    # ** This field is deprecated and should always be true **
   is_external: true              # ** This field is deprecated and should always be true **
@@ -51,7 +50,7 @@ default_dashboard_tab:
     alert_mail_to_addresses: "victoriajyang@google.com"
 test_groups:
 - name: cel-conformance-tests
-  gcs_prefix: travis-content/test-logs
+  gcs_prefix: travis-content/test-logs/
 dashboards:
 - name: cel
   dashboard_tab:
