@@ -1,6 +1,6 @@
 sh_test(
     name = "ct",
-    srcs = ["@com_google_cel_spec//tests:conftest.sh"],
+    srcs = ["@com_google_cel_spec//tests:conftest-nofail.sh"],
     args = [
         "$(location @com_google_cel_spec//tests/simple:simple_test)",
         "--server=$(location //server/main:cel_server)",

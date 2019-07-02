@@ -43,8 +43,8 @@ go_repository(
 
 git_repository(
   name = "com_google_cel_spec",
-  commit = "4df43cd7c60b816eb29301d2f93dbf336808799c", # PR #67
-  remote = "https://github.com/google/cel-spec.git",
+  commit = "4e5245e9efd70b5d380feac6750012a3de0ffa6a", # PR #97
+  remote = "https://github.com/victoriajyang/cel-spec.git",
 )
 
 # Required to use embedded BUILD.bazel file in googleapis/google/rpc
