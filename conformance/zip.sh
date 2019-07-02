@@ -23,11 +23,12 @@ do
   then
     status=$(echo $line | cut -c4-8)
     name=$(echo $line | tail -c +11 | head -c -9)
-    echo "$testcase$name$testend" >> artifacts/junit_01.xml
+    echo "$testcase$name$end" >> artifacts/junit_01.xml
     if [ $status = "FAIL" ]
     then
       read line1
-      echo "$failure$line1$end$close_failure" >> artifacts/junit_01.xml
+      message=$(echo "$line1" | sed 's/</ /g; s/>/ /g; s/"//g')
+      echo "$failure$message$end$close_failure" >> artifacts/junit_01.xml
     else
       echo $status >> artifacts/junit_01.xml
     fi
