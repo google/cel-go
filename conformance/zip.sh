@@ -48,7 +48,7 @@ else
 fi
 result_string="$result$test$quote"
 
-filedir=$(cat _DATE)
+filedir=$(cat ../_DATE)
 mkdir -p $filedir
 
 touch ./$filedir/build-log.txt
