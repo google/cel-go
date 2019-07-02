@@ -35,6 +35,7 @@ do
     echo $close_testcase >> artifacts/junit_01.xml
   fi
 done < "$input"
+error on line 1 at column 12: Extra content at the end of the document
 tail -2 $input >> artifacts/junit_01.xml
 
 comma=","
@@ -53,6 +54,8 @@ else
   test="FAILURE"
 fi
 result_string="$result$test$quote"
+
+cat artifacts/junit_01.xml
 
 filedir=$(cat _DATE)
 mkdir -p $filedir
