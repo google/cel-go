@@ -54,8 +54,6 @@ else
 fi
 result_string="$result$test$quote"
 
-cat artifacts/junit_01.xml
-
 filedir=$(cat _DATE)
 mkdir -p $filedir
 

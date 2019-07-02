@@ -15,13 +15,6 @@ http_archive(
     sha256 = "3c681998538231a2d24d0c07ed5a7658cb72bfb5fd4bf9911157c0e9ac6a2687",
 )
 
-http_archive(
-    name = "io_bazel_rules_docker",
-    sha256 = "aed1c249d4ec8f703edddf35cbe9dfaca0b5f5ea6e4cd9e83e99f3b0d1136c3d",
-    strip_prefix = "rules_docker-0.7.0",
-    urls = ["https://github.com/bazelbuild/rules_docker/archive/v0.7.0.tar.gz"],
-)
-
 load("@io_bazel_rules_go//go:deps.bzl", "go_rules_dependencies", "go_register_toolchains")
 load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies")
 load("@bazel_gazelle//:deps.bzl", "go_repository")
@@ -52,18 +45,6 @@ git_repository(
     name = "io_grpc_grpc_java",
     remote = "https://github.com/grpc/grpc-java.git",
     tag = "v1.21.0",
-)
-
-git_repository(
-    name = "io_bazel_rules_k8s",
-    commit = "94e92d11da6fa178d035cedf9041bae9a104b948",
-    remote = "https://github.com/bazelbuild/rules_k8s.git",
-)
-
-git_repository(
-    name = "k8s",
-    remote = "http://github.com/kubernetes/test-infra.git",
-    commit = "f56e8904a7430e907f03fb4d0236511fe9d36ee6",  # HEAD as of 5/7/2019
 )
 
 new_git_repository(
