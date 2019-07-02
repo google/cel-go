@@ -51,12 +51,12 @@ result_string="$result$test$quote"
 filedir=$(cat _DATE)
 mkdir -p $filedir
 
-touch ./$filedir/build-log.txt
+touch $filedir/build-log.txt
 
-echo "{" > ./$filedir/finished.json
-echo "$time_string" >> ./$filedir/finished.json
-echo "$result_string" >> ./$filedir/finished.json
-echo "}" >> ./$filedir/finished.json
+echo "{" > $filedir/finished.json
+echo "$time_string" >> $filedir/finished.json
+echo "$result_string" >> $filedir/finished.json
+echo "}" >> $filedir/finished.json
 
-mv started.json ./$filedir/started.json
-mv artifacts ./$filedir/artifacts
+mv started.json $filedir/started.json
+mv artifacts $filedir/artifacts
