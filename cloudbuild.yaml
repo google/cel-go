@@ -9,6 +9,8 @@ steps:
           args: ['test', '--test_output=all', 'conformance/ct']
         - name: 'ubuntu'
           args: ['bash', 'conformance/zip.sh']
+        - name: 'ubuntu'
+          args: ['bash', 'ls']
         - name: 'gcr.io/cloud-builders/gsutil'
           entrypoint: sh
-          args: ['-c', 'gsutil cp -r conformance/$(cat _DATE) gs://cel-conformance/test-logs/']
+          args: ['-c', 'gsutil cp -r $(cat _DATE) gs://cel-conformance/test-logs/']
