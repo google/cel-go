@@ -2,7 +2,7 @@
 mkdir -p artifacts
 touch artifacts/junit_01.xml
 
-input="../bazel-out/k8-fastbuild/testlogs/conformance/ct/test.xml"
+input="./bazel-out/k8-fastbuild/testlogs/conformance/ct/test.xml"
 
 head -2 $input > artifacts/junit_01.xml
 echo "<testsuite>" >> artifacts/junit_01.xml
@@ -48,7 +48,7 @@ else
 fi
 result_string="$result$test$quote"
 
-filedir=$(cat ../_DATE)
+filedir=$(cat _DATE)
 mkdir -p $filedir
 
 touch ./$filedir/build-log.txt
