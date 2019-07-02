@@ -68,4 +68,4 @@ or closing a pull request, or fixing or closing an issue -- because some
 issues will require more discussion than others.
 
 [1]:  https://github.com/google/cel-spec
-[2]:  https://groups.google.com/forum/#!forum/cel-go-discuss
+[2]:  https://groups.google.com/forum/#!forum/cel-go-discuss 

@@ -4,11 +4,11 @@ steps:
         - name: 'ubuntu'
           args: ['bash', '-c', 'date +%s > _DATE' ]
         - name: 'gcr.io/cloud-builders/gsutil'
-          args: ['cp', '-r', '_DATE', 'gs://travis-content']
+          args: ['cp', '-r', '_DATE', 'gs://cel-conformance']
         - name: 'gcr.io/cloud-builders/bazel'
           args: ['test', '--test_output=all', 'conformance/ct']
         - name: 'ubuntu'
           args: ['bash', 'conformance/zip.sh']
         - name: 'gcr.io/cloud-builders/gsutil'
           entrypoint: sh
-          args: ['-c', 'gsutil cp -r $(cat _DATE) gs://travis-content/test-logs/']
+          args: ['-c', 'gsutil cp -r $(cat _DATE) gs://cel-conformance/test-logs/']
