@@ -1,6 +1,6 @@
 steps:
         - name: 'ubuntu'
-          args: ['bash', 'start.sh', '$COMMIT_SHA']
+          args: ['bash', 'conformance/start.sh', '$COMMIT_SHA']
         - name: 'ubuntu'
           args: ['bash', '-c', 'date +%s > _DATE' ]
         - name: 'gcr.io/cloud-builders/gsutil'
@@ -8,7 +8,7 @@ steps:
         - name: 'gcr.io/cloud-builders/bazel'
           args: ['test', '--test_output=all', 'conformance/ct']
         - name: 'ubuntu'
-          args: ['bash', 'zip.sh']
+          args: ['bash', 'conformance/zip.sh']
         - name: 'gcr.io/cloud-builders/gsutil'
           entrypoint: sh
           args: ['-c', 'gsutil cp -r $(cat _DATE) gs://cel-conformance/test-logs/']
