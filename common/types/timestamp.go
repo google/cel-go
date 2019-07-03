@@ -281,17 +281,17 @@ func timeZone(tz ref.Val, visitor timestampVisitor) timestampVisitor {
 		val := string(tz.(String))
 		ind := strings.Index(val, ":")
 		if ind == -1 {
-			var loc *Location
-			loc, err = time.LoadLocation(val)
+			loc, err := time.LoadLocation(val)
 			if err != nil {
 				data, err := ioutil.ReadFile("zoneinfo.zip")
 				if err != nil {
 					return &Err{err}
 				}
-				loc, err = time.LoadLocationFromTZData(val, data)
+				loc, err := time.LoadLocationFromTZData(val, data)
 				if err != nil {
 					return &Err{err}
 				}
+				return visitor(t.In(loc))
 			}
 			return visitor(t.In(loc))
 		}
