@@ -16,7 +16,6 @@ package types
 
 import (
 	"fmt"
-	"io"
 	"io/ioutil"
 	"reflect"
 	"strconv"
