@@ -282,7 +282,10 @@ func timeZone(tz ref.Val, visitor timestampVisitor) timestampVisitor {
 		if ind == -1 {
 			loc, err := time.LoadLocation(val)
 			if err != nil {
-				return &Err{err}
+				loc, err := time.LoadLocationFromTZData(val, zoneinfo.zip)
+				if err != nil {
+					return &Err{err}
+				}
 			}
 			return visitor(t.In(loc))
 		}
