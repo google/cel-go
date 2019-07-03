@@ -16,6 +16,8 @@ package types
 
 import (
 	"fmt"
+	"io"
+	"io/ioutil"
 	"reflect"
 	"strconv"
 	"strings"
@@ -282,7 +284,11 @@ func timeZone(tz ref.Val, visitor timestampVisitor) timestampVisitor {
 		if ind == -1 {
 			loc, err := time.LoadLocation(val)
 			if err != nil {
-				loc, err := time.LoadLocationFromTZData(val, zoneinfo.zip)
+				data, err := ioutil.ReadFile("zoneinfo.zip")
+				if err != nil {
+					return &Err{err}
+				}
+				loc, err := time.LoadLocationFromTZData(val, data)
 				if err != nil {
 					return &Err{err}
 				}
