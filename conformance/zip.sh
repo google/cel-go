@@ -46,9 +46,10 @@ result='"result": "'
 test_string=$(tail -n 5 $input)
 
 echo $test_string
-if [ $test_string = *"FAIL"* ]
+if [[ $test_string = *"FAIL"* ]]
 then
   test="FAILURE"
+  echo $test
 else
   test="SUCCESS"
 fi
