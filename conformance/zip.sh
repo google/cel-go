@@ -45,8 +45,6 @@ time_string="$timestamp$startdate$comma"
 result='"result": "'
 test_string=$(tail -n 5 $input)
 
-echo $test_string
-
 if [ $test_string = *"FAIL"* ]
 then
   test="FAILURE"
