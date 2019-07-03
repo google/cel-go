@@ -43,15 +43,15 @@ timestamp='"timestamp": '
 time_string="$timestamp$startdate$comma"
 
 result='"result": "'
-test_string=$(tail -n 5 $input | head -n 1 )
+test_string=$(tail -n 5 $input)
 
 echo $test_string
 
-if [ $test_string = *"PASS"* ]
+if [ $test_string = *"FAIL"* ]
 then
-  test="SUCCESS"
-else
   test="FAILURE"
+else
+  test="SUCCESS"
 fi
 result_string="$result$test$quote"
 
