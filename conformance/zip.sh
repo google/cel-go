@@ -45,7 +45,7 @@ time_string="$timestamp$startdate$comma"
 result='"result": "'
 test_string=$(tail -n 5 $input | head -n 1 | cut -c1-6)
 
-echo $test_string >> hello.txt
+echo $test_string
 
 if [ $test_string = "PASS" ]
 then
