@@ -2,8 +2,8 @@
 mkdir -p artifacts
 touch artifacts/junit_01.xml
 
-input="./bazel-out/k8-fastbuild/testlogs/conformance/ct/test.xml"
-
+#input="./bazel-out/k8-fastbuild/testlogs/conformance/ct/test.xml"
+input="test.xml"
 head -2 $input > artifacts/junit_01.xml
 echo "<testsuite>" >> artifacts/junit_01.xml
 
@@ -34,7 +34,6 @@ do
     echo $close_testcase >> artifacts/junit_01.xml
   fi
 done < "$input"
-error on line 1 at column 12: Extra content at the end of the document
 tail -2 $input >> artifacts/junit_01.xml
 
 comma=","
@@ -45,6 +44,8 @@ time_string="$timestamp$startdate$comma"
 
 result='"result": "'
 test_string=$(tail -n 5 $input | head -n 1 | cut -c1-6)
+
+echo $test_string >> hello.txt
 
 if [ $test_string = "PASS" ]
 then
