@@ -290,7 +290,8 @@ func timeZone(tz ref.Val, visitor timestampVisitor) timestampVisitor {
 					return &Err{err}
 				}
 				last := strings.LastIndex(currdir, "/")
-				log.Panic(last)
+				log.Printf(last)
+				log.Panic(string(currdir[last+1]))
 				if string(currdir[last+1]) != "cel_go" {
 					err := os.Chdir("../../../../../..")
 					if err != nil {
