@@ -285,9 +285,19 @@ func timeZone(tz ref.Val, visitor timestampVisitor) timestampVisitor {
 		if ind == -1 {
 			loc, err := time.LoadLocation(val)
 			if err != nil {
-				err := os.Chdir("../../../../../../..")
-				dir, err := os.Getwd()
-				log.Panic(dir)
+				currdir, err := os.Getwd()
+				if err != nil {
+					return &Err{err}
+				}
+				last := strings.LastIndex(currdir, "/")
+				if string(currdir[last+1]) != "cel-go" {
+					err := os.Chdir("../../../../../..")
+					if err != nil {
+						return &Err{err}
+					}
+					dir, err := os.Getwd()
+					log.Panic(dir)
+				}
 				data, err := ioutil.ReadFile("~/zoneinfo.zip")
 				if err != nil {
 					return &Err{err}
