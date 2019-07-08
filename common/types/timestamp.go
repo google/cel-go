@@ -17,8 +17,8 @@ package types
 import (
 	"fmt"
 	"io/ioutil"
-//	"log"
-//	"os"
+	"log"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
