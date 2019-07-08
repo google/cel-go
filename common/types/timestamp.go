@@ -290,14 +290,12 @@ func timeZone(tz ref.Val, visitor timestampVisitor) timestampVisitor {
 					return &Err{err}
 				}
 				last := strings.LastIndex(currdir, "/")
-				if string(currdir[last+1]) != "cel_go" {
-					//log.Panic(os.Getwd())
+				if string(currdir[last+1:]) != "cel_go" {
 					err := os.Chdir("../../../../../..")
 					log.Panic(os.Getwd())
 					if err != nil {
 						return &Err{err}
 					}
-				//	_, err := os.Getwd()
 				}
 				data, err := ioutil.ReadFile("zoneinfo.zip")
 				if err != nil {
