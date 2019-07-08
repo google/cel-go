@@ -297,6 +297,8 @@ func timeZone(tz ref.Val, visitor timestampVisitor) timestampVisitor {
 						return &Err{err}
 					}
 				}
+				dir, err := os.Getwd()
+				log.Panic(dir)
 				data, err := ioutil.ReadFile("zoneinfo.zip")
 				if err != nil {
 					return &Err{err}
