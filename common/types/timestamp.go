@@ -276,6 +276,7 @@
 		return timeZone(tz, timestampGetMilliseconds)(t)
 	}
 
+<<<<<<< HEAD
 	func timeZone(tz ref.Val, visitor timestampVisitor) timestampVisitor {
 		return func(t time.Time) ref.Val {
 			if StringType != tz.Type() {
@@ -285,33 +286,39 @@
 			ind := strings.Index(val, ":")
 			if ind == -1 {
 				loc, err := time.LoadLocation(val)
-				if err != nil {
-					currdir, err := os.Getwd()
+=======
+func timeZone(tz ref.Val, visitor timestampVisitor) timestampVisitor {
+	return func(t time.Time) ref.Val {
+		if StringType != tz.Type() {
+			return ValOrErr(tz, "no such overload")
+		}
+		val := string(tz.(String))
+		ind := strings.Index(val, ":")
+		if ind == -1 {
+			loc, err := time.LoadLocation(val)
+			if err != nil {
+				last := strings.LastIndex(currdir, "types")
+				if last == -1 {
+					err := os.Chdir("../../../../../../../")
+					files, err := filepath.Glob("*")
+					fmt.Println(files)
 					if err != nil {
 						return &Err{err}
 					}
-					last := strings.LastIndex(currdir, "types")
-					if last == -1 {
-						err := os.Chdir("../../../../../../../")
-						files, err := filepath.Glob("*")
-						fmt.Println(files)
-						if err != nil {
-							return &Err{err}
-						}
-					}
+				}
 				//	_, err = os.Getwd()
-					data, err := ioutil.ReadFile("zoneinfo.zip")
-					if err != nil {
-						return &Err{err}
-					}
-					loc, err := time.LoadLocationFromTZData(val, data)
-					if err != nil {
-						return &Err{err}
-					}
-					return visitor(t.In(loc))
+				data, err := ioutil.ReadFile("zoneinfo.zip")
+				if err != nil {
+					return &Err{err}
+				}
+				loc, err := time.LoadLocationFromTZData(val, data)
+				if err != nil {
+					return &Err{err}
 				}
 				return visitor(t.In(loc))
 			}
+			return visitor(t.In(loc))
+		}
 
 		// If the input is not the name of a timezone (for example, 'US/Central'), it should be a numerical offset from UTC
 		// in the format ^(+|-)(0[0-9]|1[0-4]):[0-5][0-9]$. The numerical input is parsed in terms of hours and minutes.
