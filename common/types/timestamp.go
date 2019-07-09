@@ -17,9 +17,9 @@
 	import (
 		"fmt"
 		"io/ioutil"
-		"log"
+	//	"log"
 		"os"
-		"path/filepath"
+	//	"path/filepath"
 		"reflect"
 		"strconv"
 		"strings"
