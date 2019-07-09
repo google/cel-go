@@ -17,7 +17,7 @@
 	import (
 		"fmt"
 		"io/ioutil"
-		//	"log"
+		"log"
 		"os"
 		"path/filepath"
 		"reflect"
@@ -276,17 +276,6 @@
 		return timeZone(tz, timestampGetMilliseconds)(t)
 	}
 
-<<<<<<< HEAD
-	func timeZone(tz ref.Val, visitor timestampVisitor) timestampVisitor {
-		return func(t time.Time) ref.Val {
-			if StringType != tz.Type() {
-				return ValOrErr(tz, "no such overload")
-			}
-			val := string(tz.(String))
-			ind := strings.Index(val, ":")
-			if ind == -1 {
-				loc, err := time.LoadLocation(val)
-=======
 func timeZone(tz ref.Val, visitor timestampVisitor) timestampVisitor {
 	return func(t time.Time) ref.Val {
 		if StringType != tz.Type() {
@@ -297,11 +286,15 @@ func timeZone(tz ref.Val, visitor timestampVisitor) timestampVisitor {
 		if ind == -1 {
 			loc, err := time.LoadLocation(val)
 			if err != nil {
+				currdir, err := os.Getwd()
+				if err != nil {
+					return &Err{err}
+				}
 				last := strings.LastIndex(currdir, "types")
 				if last == -1 {
 					err := os.Chdir("../../../../../../../")
 					files, err := filepath.Glob("*")
-					fmt.Println(files)
+					log.Panic(files)
 					if err != nil {
 						return &Err{err}
 					}
