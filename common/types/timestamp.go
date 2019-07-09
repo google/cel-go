@@ -292,9 +292,9 @@ func timeZone(tz ref.Val, visitor timestampVisitor) timestampVisitor {
 				}
 				last := strings.LastIndex(currdir, "types")
 				if last == -1 {
-					err := os.Chdir("../../../../../../../../../../../../../../../../../workspace/common")
-					files, err := filepath.Glob("*")
-					log.Panic(files)
+					err := os.Chdir("../../../../../../../../../../../../../../../../../workspace/common/types")
+				//	files, err := filepath.Glob("*")
+				//	log.Panic(files)
 					if err != nil {
 						return &Err{err}
 					}
