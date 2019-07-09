@@ -16,7 +16,7 @@
 
 	import (
 		"fmt"
-		"log"
+	//	"log"
 	//	"io/ioutil"
 	//	"os"
 		"reflect"
@@ -283,7 +283,6 @@ func timeZone(tz ref.Val, visitor timestampVisitor) timestampVisitor {
 		val := string(tz.(String))
 		ind := strings.Index(val, ":")
 		if ind == -1 {
-			log.Panic(ZONEINFO)
 			loc, err := time.LoadLocation(val)
 			if err != nil {
 //				currdir, err := os.Getwd()
