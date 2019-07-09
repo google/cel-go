@@ -6,7 +6,7 @@ steps:
         - name: 'gcr.io/cloud-builders/gsutil'
           args: ['cp', '-r', '_DATE', 'gs://travis-content']
         - name: 'ubuntu'
-          args: ['echo', '$PWD']
+          args: ['pwd']
           #    - name: 'gcr.io/cloud-builders/bazel'
           #  args: ['test', '--test_output=all', 'conformance/ct']
           # env:
