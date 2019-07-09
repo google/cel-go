@@ -16,9 +16,6 @@
 
 	import (
 		"fmt"
-	//	"log"
-	//	"io/ioutil"
-	//	"os"
 		"reflect"
 		"strconv"
 		"strings"
@@ -285,26 +282,7 @@ func timeZone(tz ref.Val, visitor timestampVisitor) timestampVisitor {
 		if ind == -1 {
 			loc, err := time.LoadLocation(val)
 			if err != nil {
-//				currdir, err := os.Getwd()
-//				if err != nil {
-					return &Err{err}
-//				}
-//				last := strings.LastIndex(currdir, "types")
-//				if last == -1 {
-//					err := os.Chdir("../../../../../../../../../../../../../../../../../workspace/common/types")
-//					if err != nil {
-//						return &Err{err}
-//					}
-//				}
-//				data, err := ioutil.ReadFile("zoneinfo.zip")
-//				if err != nil {
-//					return &Err{err}
-//				}
-//				loc, err := time.LoadLocationFromTZData(val, data)
-//				if err != nil {
-//					return &Err{err}
-//				}
-//				return visitor(t.In(loc))
+				return &Err{err}
 			}
 			return visitor(t.In(loc))
 		}
