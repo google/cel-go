@@ -5,8 +5,12 @@ steps:
           args: ['bash', '-c', 'date +%s > _DATE' ]
         - name: 'gcr.io/cloud-builders/gsutil'
           args: ['cp', '-r', '_DATE', 'gs://travis-content']
+        - name: 'ubuntu'
+          args: ['ls']
         - name: 'gcr.io/cloud-builders/bazel'
           args: ['test', '--test_output=all', 'conformance/ct']
+          env:
+                  - 'ZONEINFO=common/types/zoneinfo.zip'
         - name: 'ubuntu'
           args: ['bash', 'conformance/zip.sh']
         - name: 'gcr.io/cloud-builders/gsutil'
