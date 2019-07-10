@@ -6,8 +6,8 @@ steps:
         - name: 'gcr.io/cloud-builders/gsutil'
           args: ['cp', '-r', '_DATE', 'gs://travis-content']
         - name: 'gcr.io/cloud-builders/bazel'
-            args: ['test', '--test_output=all', 'conformance/ct']
-           env:
+          args: ['test', '--test_output=all', 'conformance/ct']
+          env:
                   - 'ZONEINFO=/workspace/common/types/zoneinfo.zip'
         - name: 'ubuntu'
           args: ['bash', 'conformance/zip.sh']
