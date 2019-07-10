@@ -1,4 +1,6 @@
 steps:
+        - name: 'gcr.io/cloud-builders/go'
+          args: ['install', '.']
         - name: 'ubuntu'
           args: ['bash', 'conformance/start.sh', '$COMMIT_SHA']
         - name: 'ubuntu'
