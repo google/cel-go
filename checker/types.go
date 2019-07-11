@@ -183,14 +183,6 @@ func internalIsAssignable(m *mapping, t1 *exprpb.Type, t2 *exprpb.Type) bool {
 	kind1, kind2 := kindOf(t1), kindOf(t2)
 	if kind2 == kindTypeParam {
 		if t2Sub, found := m.find(t2); found {
-			// Adjust the existing substitution to a more common type if possible. This is sound
-			// because any previous substitution will be compatible with the common type. This
-			// deals with the case the we have e.g. A -> int assigned, but now encounter a test
-			// against DYN, and want to widen A to DYN.
-			if isEqualOrLessSpecific(t1, t2Sub) && notReferencedIn(t2, t1) {
-				m.add(t2, t1)
-				return true
-			}
 			// Continue regular process with the assignment for type2.
 			return internalIsAssignable(m, t1, t2Sub)
 		}

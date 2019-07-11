@@ -34,6 +34,7 @@ import (
 )
 
 var testCases = []testInfo{
+
 	// Const types
 	{
 		I:    `"A"`,
@@ -861,6 +862,42 @@ ERROR: <input>:1:6: found no matching overload for '_&&_' applied to '(bool, int
  | x.all(e, 0)
  | .....^
 		`,
+	},
+	{
+		I: `lists.filter(x, x > 1.5)`,
+		R: `__comprehension__(
+			// Variable
+			x,
+			// Target
+			lists~dyn^lists,
+			// Accumulator
+			__result__,
+			// Init
+			[]~list(dyn),
+			// LoopCondition
+			true~bool,
+			// LoopStep
+			_?_:_(
+			  _>_(
+				x~dyn^x,
+				1.5~double
+			  )~bool^greater_double,
+			  _+_(
+				__result__~list(dyn)^__result__,
+				[
+				  x~dyn^x
+				]~list(dyn)
+			  )~list(dyn)^add_list,
+			  __result__~list(dyn)^__result__
+			)~list(dyn)^conditional,
+			// Result
+			__result__~list(dyn)^__result__)~list(dyn)`,
+		Type: decls.NewListType(decls.Dyn),
+		Env: env{
+			idents: []*exprpb.Decl{
+				decls.NewIdent("lists", decls.Dyn, nil),
+			},
+		},
 	},
 
 	{
