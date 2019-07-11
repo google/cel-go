@@ -422,7 +422,6 @@ func (c *checker) checkComprehension(e *exprpb.Expr) {
 	c.check(comp.AccuInit)
 	accuType := c.getType(comp.AccuInit)
 	rangeType := c.getType(comp.IterRange)
-	rangeType = substitute(c.mappings, rangeType, false)
 	var varType *exprpb.Type
 
 	switch kindOf(rangeType) {

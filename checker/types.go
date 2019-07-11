@@ -306,7 +306,7 @@ func internalIsAssignableMap(m *mapping, m1 *exprpb.Type_MapType, m2 *exprpb.Typ
 // internalIsAssignableNull returns true if the type is nullable.
 func internalIsAssignableNull(t *exprpb.Type) bool {
 	switch kindOf(t) {
-	case kindAbstract, kindObject, kindWellKnown, kindWrapper:
+	case kindAbstract, kindObject, kindNull, kindWellKnown, kindWrapper:
 		return true
 	default:
 		return false
