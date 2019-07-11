@@ -307,6 +307,36 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 	},
 
 	{
+		I: `null == null && null != null`,
+		R: `
+		_&&_(
+			_==_(
+				null~null,
+				null~null
+			)~bool^equals,
+			_!=_(
+				null~null,
+				null~null
+			)~bool^not_equals
+		)~bool^logical_and`,
+		Type: decls.Bool,
+	},
+	{
+		I: `1 == 1 && 2 != 1`,
+		R: `
+		_&&_(
+			_==_(
+				1~int,
+				1~int
+			)~bool^equals,
+			_!=_(
+				2~int,
+				1~int
+			)~bool^not_equals
+		)~bool^logical_and`,
+		Type: decls.Bool,
+	},
+	{
 		I:    `1 + 2 * 3 - 1 / 2 == 6 % 1`,
 		R:    ` _==_(_-_(_+_(1~int, _*_(2~int, 3~int)~int^multiply_int64)~int^add_int64, _/_(1~int, 2~int)~int^divide_int64)~int^subtract_int64, _%_(6~int, 1~int)~int^modulo_int64)~bool^equals`,
 		Type: decls.Bool,
@@ -861,6 +891,42 @@ ERROR: <input>:1:6: found no matching overload for '_&&_' applied to '(bool, int
  | x.all(e, 0)
  | .....^
 		`,
+	},
+	{
+		I: `lists.filter(x, x > 1.5)`,
+		R: `__comprehension__(
+			// Variable
+			x,
+			// Target
+			lists~dyn^lists,
+			// Accumulator
+			__result__,
+			// Init
+			[]~list(dyn),
+			// LoopCondition
+			true~bool,
+			// LoopStep
+			_?_:_(
+			  _>_(
+				x~dyn^x,
+				1.5~double
+			  )~bool^greater_double,
+			  _+_(
+				__result__~list(dyn)^__result__,
+				[
+				  x~dyn^x
+				]~list(dyn)
+			  )~list(dyn)^add_list,
+			  __result__~list(dyn)^__result__
+			)~list(dyn)^conditional,
+			// Result
+			__result__~list(dyn)^__result__)~list(dyn)`,
+		Type: decls.NewListType(decls.Dyn),
+		Env: env{
+			idents: []*exprpb.Decl{
+				decls.NewIdent("lists", decls.Dyn, nil),
+			},
+		},
 	},
 
 	{
