@@ -44,7 +44,7 @@ git_repository(
 git_repository(
     name = "io_grpc_grpc_java",
     remote = "https://github.com/grpc/grpc-java.git",
-    tag = "v1.21.0",
+    tag = "v1.22.1",
 )
 
 new_git_repository(
