@@ -5,8 +5,8 @@ load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository", "new_git_r
 
 http_archive(
     name = "io_bazel_rules_go",
-    urls = ["https://github.com/bazelbuild/rules_go/releases/download/0.16.3/rules_go-0.16.3.tar.gz"],
-    sha256 = "b7a62250a3a73277ade0ce306d22f122365b513f5402222403e507f2f997d421",
+    urls = ["https://github.com/bazelbuild/rules_go/releases/download/0.18.6/rules_go-0.18.6.tar.gz"],
+    sha256 = "f04d2373bcaf8aa09bccb08a98a57e721306c8f6043a2a0ee610fd6853dcde3d"
 )
 
 http_archive(
@@ -15,7 +15,7 @@ http_archive(
     sha256 = "3c681998538231a2d24d0c07ed5a7658cb72bfb5fd4bf9911157c0e9ac6a2687",
 )
 
-load("@io_bazel_rules_go//go:def.bzl", "go_rules_dependencies", "go_register_toolchains")
+load("@io_bazel_rules_go//go:deps.bzl", "go_rules_dependencies", "go_register_toolchains")
 load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies")
 load("@bazel_gazelle//:deps.bzl", "go_repository")
 
@@ -35,16 +35,22 @@ go_repository(
 )
 
 git_repository(
+  name = "com_google_cel_go",
+  commit = "90d955e31333205ff7490ea9baa727765e9b848f", # PR #98
+  remote = "https://github.com/google/cel-go.git",
+)
+
+git_repository(
   name = "com_google_cel_spec",
-  commit = "9cdb3682ba04109d2e03d9b048986bae113bf36f", # PR #58
-  remote = "https://github.com/google/cel-spec.git",
+  commit = "bc2305251fb99c31045650d6ad6ba7caa6a7b68c", # PR #98
+  remote = "https://github.com/victoriajyang/cel-spec.git",
 )
 
 # Required to use embedded BUILD.bazel file in googleapis/google/rpc
 git_repository(
     name = "io_grpc_grpc_java",
     remote = "https://github.com/grpc/grpc-java.git",
-    tag = "v1.13.1",
+    tag = "v1.21.0",
 )
 
 new_git_repository(
