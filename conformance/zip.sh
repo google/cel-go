@@ -28,7 +28,7 @@ do
     if [ $status = "FAIL" ]
     then
       read line1
-      message=$(echo "$line1" | sed 's/&lt;/ /g; s/&gt;/ /g; s/&quot;/g') # $message is the failure message excluding <, >, ", which cause the xml file to fail
+      message=$(echo "$line1" | sed 's/</ /g; s/>/ /g; s/"//g') # $message is the failure message excluding <, >, ", which cause the xml file to fail
       echo "$failure$message$end$close_failure" >> artifacts/junit_01.xml
     else
       echo $status >> artifacts/junit_01.xml
