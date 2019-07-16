@@ -1,7 +1,8 @@
 steps:
         - name: 'ubuntu'
           args: ['bash', 'conformance/start.sh', '$COMMIT_SHA']
-        # Because testgrid uses monotonically increasing, numerical ids as folder names and GCB generates random ids, the timestamp        # at start is recorded and written to a file, then read at the end to ensure monotonically increasing numbers.
+        # Because testgrid uses monotonically increasing, numerical ids as folder names and GCB generates random ids, the timestamp
+        # at start is recorded and written to a file, then read at the end to ensure monotonically increasing numbers.
         - name: 'ubuntu'
           args: ['bash', '-c', 'date +%s > _DATE' ]
         - name: 'gcr.io/cloud-builders/gsutil'
