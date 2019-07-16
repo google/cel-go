@@ -4,7 +4,7 @@ touch artifacts/junit_01.xml
 
 input="./bazel-out/k8-fastbuild/testlogs/conformance/ct_dashboard/test.xml"
 
-echo "<?xml version="1.0" encoding="UTF-8"?>" > artifacts/junit_01.xml
+echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" > artifacts/junit_01.xml
 echo "<testsuites>" >> artifacts/junit_01.xml
 echo "<testsuite>" >> artifacts/junit_01.xml
 
