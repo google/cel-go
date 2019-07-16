@@ -2,14 +2,14 @@
 mkdir -p artifacts
 touch artifacts/junit_01.xml
 
-input="./bazel-out/k8-fastbuild/testlogs/conformance/ct/test.xml"
+input="./bazel-out/k8-fastbuild/testlogs/conformance/ct_dashboard/test.xml"
 
 head -2 $input > artifacts/junit_01.xml # This appends the XML header and <testsuites> to junit_01.xml
 echo "<testsuite>" >> artifacts/junit_01.xml
 
 while IFS= read -r line
 do
-  testline=$(echo $line | cut -c1-3) 
+  testline=$(echo $line | cut -c1-3)
   extendline=$(echo $line | cut -c1-4)
   testcase='<testcase name="'
   end='">'
