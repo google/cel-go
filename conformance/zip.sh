@@ -4,7 +4,8 @@ touch artifacts/junit_01.xml
 
 input="./bazel-out/k8-fastbuild/testlogs/conformance/ct_dashboard/test.xml"
 
-head -2 $input > artifacts/junit_01.xml # This appends the XML header and <testsuites> to junit_01.xml
+echo "<?xml version="1.0" encoding="UTF-8"?>" > artifacts/junit_01.xml
+echo "<testsuites" >> artifacts/junit_01.xml
 echo "<testsuite>" >> artifacts/junit_01.xml
 
 while IFS= read -r line
@@ -18,7 +19,8 @@ do
   failure='<failure message="'
   close_failure="</failure>"
 
-  if [ $testline = "---" ] && [ $extendline != '----' ] # This checks if the line is a test line (starts with --- but not ----)
+  # This checks if the line is a test line (starts with --- but not ----)
+  if [ $testline = "---" ] && [ $extendline != '----' ]
   then
     status=$(echo $line | cut -c4-8) # The first four characters after --- are the pass/fail status of the test)
     name=$(echo $line | tail -c +11 | head -c -9) # The next string excluding the time is the name of the test
@@ -26,7 +28,7 @@ do
     if [ $status = "FAIL" ]
     then
       read line1
-      message=$(echo "$line1" | sed 's/</ /g; s/>/ /g; s/"//g') # $message is the failure message excluding <, >, ", which cause the xml file to fail
+      message=$(echo "$line1" | sed 's/&lt;/ /g; s/&gt;/ /g; s/&quot;/g') # $message is the failure message excluding <, >, ", which cause the xml file to fail
       echo "$failure$message$end$close_failure" >> artifacts/junit_01.xml
     else
       echo $status >> artifacts/junit_01.xml
@@ -43,7 +45,7 @@ timestamp='"timestamp": '
 time_string="$timestamp$startdate$comma"
 
 result='"result": "'
-test_string=$(tail -n 5 $input) 
+test_string=$(tail -n 5 $input)
 
 if [[ $test_string = *"FAIL"* ]] # This operates under the assumption that the overall pass/fail message will be found in the last five lines
 then
