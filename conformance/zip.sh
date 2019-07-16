@@ -5,7 +5,7 @@ touch artifacts/junit_01.xml
 input="./bazel-out/k8-fastbuild/testlogs/conformance/ct_dashboard/test.xml"
 
 echo "<?xml version="1.0" encoding="UTF-8"?>" > artifacts/junit_01.xml
-echo "<testsuites" >> artifacts/junit_01.xml
+echo "<testsuites>" >> artifacts/junit_01.xml
 echo "<testsuite>" >> artifacts/junit_01.xml
 
 while IFS= read -r line
@@ -28,7 +28,7 @@ do
     if [ $status = "FAIL" ]
     then
       read line1
-      message=$(echo "$line1" | sed 's/</ /g; s/>/ /g; s/"//g') # $message is the failure message excluding <, >, ", which cause the xml file to fail
+      message=$(echo "$line1" | sed 's/</&lt;/g; s/>/&gt;/g; s/"/&quot;/g; s/&/&amp;/g;') # Quote the characters in the failure message that XML might interpret
       echo "$failure$message$end$close_failure" >> artifacts/junit_01.xml
     else
       echo $status >> artifacts/junit_01.xml
