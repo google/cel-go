@@ -28,7 +28,7 @@ do
     if [ $status = "FAIL" ]
     then
       read line1
-      message=$(echo "$line1" | sed 's/</&lt;/g; s/>/&gt;/g; ;s/\"/&quot;/g; s/&/&amp;/g;') # Quote the characters in the failure message that XML might interpret
+      message=$(echo "$line1" | sed 's/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/&/\&amp;/g') # Quote the characters in the failure message that XML might interpret
       echo "$failure$message$end$close_failure" >> artifacts/junit_01.xml
     else
       echo $status >> artifacts/junit_01.xml
