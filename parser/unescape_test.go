@@ -199,21 +199,7 @@ func TestUnescapeBytesHexMax(t *testing.T) {
 
 func TestUnescapeBytesUnicodeEscape(t *testing.T) {
 	bs, err := unescape(`"\u00ff"`, true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := "\xc3\xbf"
-	if bs != want {
-		t.Errorf("Got '%v', wanted '%v'", bs, want)
-	}
-}
-func TestUnescapeBytesMaxRune(t *testing.T) {
-	bs, err := unescape(`"\U0010FFFF"`, true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := "\xf4\x8f\xbf\xbf"
-	if bs != want {
-		t.Errorf("Got '%v', wanted '%v'", bs, want)
+	if err == nil {
+		t.Errorf("Got '%v', expected error", bs)
 	}
 }

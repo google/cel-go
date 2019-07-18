@@ -156,8 +156,16 @@ func unescapeChar(s string, is_bytes bool) (value rune, encode bool, tail string
 			encode = !is_bytes
 		case 'u':
 			n = 4
+			if is_bytes {
+				err = fmt.Errorf("unable to unescape string")
+				return
+			}
 		case 'U':
 			n = 8
+			if is_bytes {
+				err = fmt.Errorf("unable to unescape string")
+				return
+			}
 		}
 		var v rune
 		if len(s) < n {
