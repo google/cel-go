@@ -446,14 +446,13 @@ func (p *parser) VisitDouble(ctx *gen.DoubleContext) interface{} {
 
 // Visit a parse tree produced by CELParser#String.
 func (p *parser) VisitString(ctx *gen.StringContext) interface{} {
-	s := p.unquote(ctx, ctx.GetText())
+	s := p.unquote(ctx, ctx.GetText(), false)
 	return p.helper.newLiteralString(ctx, s)
 }
 
 // Visit a parse tree produced by CELParser#Bytes.
 func (p *parser) VisitBytes(ctx *gen.BytesContext) interface{} {
-	// TODO(ozben): Not sure if this is the right encoding.
-	b := []byte(p.unquote(ctx, ctx.GetTok().GetText()[1:]))
+	b := []byte(p.unquote(ctx, ctx.GetTok().GetText()[1:], true))
 	return p.helper.newLiteralBytes(ctx, b)
 }
 
@@ -513,8 +512,8 @@ func (p *parser) extractQualifiedName(e *exprpb.Expr) (string, bool) {
 	return "", false
 }
 
-func (p *parser) unquote(ctx interface{}, value string) string {
-	text, err := unescape(value)
+func (p *parser) unquote(ctx interface{}, value string, is_bytes bool) string {
+	text, err := unescape(value, is_bytes)
 	if err != nil {
 		p.reportError(ctx, err.Error())
 		return value
