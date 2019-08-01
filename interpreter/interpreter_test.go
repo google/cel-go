@@ -667,6 +667,21 @@ func TestInterpreter(t *testing.T) {
 	}
 }
 
+func TestInterpreter_LogicalAndMissingType(t *testing.T) {
+	src := common.NewTextSource(`a && TestProto{c: true}.c`)
+	parsed, errors := parser.Parse(src)
+	if len(errors.GetErrors()) != 0 {
+		t.Errorf(errors.ToDisplayString())
+	}
+
+	reg := types.NewRegistry()
+	intr := NewStandardInterpreter(packages.DefaultPackage, reg, reg)
+	i, err := intr.NewUncheckedInterpretable(parsed.GetExpr())
+	if err == nil {
+		t.Errorf("Got '%v', wanted error", i)
+	}
+}
+
 func TestInterpreter_ExhaustiveConditionalExpr(t *testing.T) {
 	src := common.NewTextSource(`a ? b < 1.0 : c == ['hello']`)
 	parsed, errors := parser.Parse(src)
