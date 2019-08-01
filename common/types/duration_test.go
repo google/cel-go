@@ -69,8 +69,8 @@ func TestDuration_ConvertToNative_Error(t *testing.T) {
 func TestDuration_ConvertToType_Identity(t *testing.T) {
 	d := Duration{&dpb.Duration{Seconds: 7506, Nanos: 1000}}
 	str := d.ConvertToType(StringType).(String)
-	if str != "2h5m6.000001s" {
-		t.Errorf("Got '%v', wanted 2h5m6.000001s", str)
+	if str != "7506.000001s" {
+		t.Errorf("Got '%v', wanted 7506.000001s", str)
 	}
 	i := d.ConvertToType(IntType).(Int)
 	if i != Int(7506000001000) {
