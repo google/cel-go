@@ -1234,6 +1234,75 @@ _&&_(_==_(list~type(list(dyn))^list,
 		)~bool^in_list`,
 		Type: decls.Bool,
 	},
+	{
+		I: `([[[1]], [[2]], [[3]]][0][0] + [2, 3, {'four': {'five': 'six'}}])[3]`,
+		R: `_[_](
+			_+_(
+				_[_](
+					_[_](
+						[
+							[
+								[
+									1~int
+								]~list(int)
+							]~list(list(int)),
+							[
+								[
+									2~int
+								]~list(int)
+							]~list(list(int)),
+							[
+								[
+									3~int
+								]~list(int)
+							]~list(list(int))
+						]~list(list(list(int))),
+						0~int
+					)~list(list(int))^index_list,
+					0~int
+				)~list(int)^index_list,
+				[
+					2~int,
+					3~int,
+					{
+						"four"~string:{
+							"five"~string:"six"~string
+						}~map(string, string)
+					}~map(string, map(string, string))
+				]~list(dyn)
+			)~list(dyn)^add_list,
+			3~int
+		)~dyn^index_list`,
+		Type: decls.Dyn,
+	},
+	{
+		I: `[1] + [dyn('string')]`,
+		R: `_+_(
+			[
+				1~int
+			]~list(int),
+			[
+				dyn(
+					"string"~string
+				)~dyn^to_dyn
+			]~list(dyn)
+		)~list(dyn)^add_list`,
+		Type: decls.NewListType(decls.Dyn),
+	},
+	{
+		I: `[dyn('string')] + [1]`,
+		R: `_+_(
+			[
+				dyn(
+					"string"~string
+				)~dyn^to_dyn
+			]~list(dyn),
+			[
+				1~int
+			]~list(int)
+		)~list(dyn)^add_list`,
+		Type: decls.NewListType(decls.Dyn),
+	},
 }
 
 var reg = initTypeRegistry()
