@@ -183,8 +183,12 @@ func internalIsAssignable(m *mapping, t1 *exprpb.Type, t2 *exprpb.Type) bool {
 	kind1, kind2 := kindOf(t1), kindOf(t2)
 	if kind2 == kindTypeParam {
 		if t2Sub, found := m.find(t2); found {
-			// Continue regular process with the assignment for type2.
-			return internalIsAssignable(m, t1, t2Sub)
+			// If the types are compatible, pick the more general type and return true
+			if internalIsAssignable(m, t1, t2Sub) {
+				m.add(t2, mostGeneral(t1, t2Sub))
+				return true
+			}
+			return false
 		}
 		if notReferencedIn(t2, t1) {
 			m.add(t2, t1)
@@ -196,7 +200,12 @@ func internalIsAssignable(m *mapping, t1 *exprpb.Type, t2 *exprpb.Type) bool {
 		// way we use type parameters in lower type bounds, it is not necessary, but may
 		// become if we generalize type unification.
 		if t1Sub, found := m.find(t1); found {
-			return internalIsAssignable(m, t1Sub, t2)
+			// If the types are compatible, pick the more general type and return true
+			if internalIsAssignable(m, t1Sub, t2) {
+				m.add(t1, mostGeneral(t1Sub, t2))
+				return true
+			}
+			return false
 		}
 		if notReferencedIn(t1, t2) {
 			m.add(t1, t2)

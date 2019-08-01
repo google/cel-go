@@ -289,8 +289,12 @@ func (c *checker) resolveOverload(
 		if len(overload.TypeParams) > 0 {
 			// Instantiate overload's type with fresh type variables.
 			substitutions := newMapping()
+			uniqueParams := map[string]bool{}
 			for _, typePar := range overload.TypeParams {
-				substitutions.add(decls.NewTypeParamType(typePar), c.newTypeVar())
+				if _, found := uniqueParams[typePar]; !found {
+					substitutions.add(decls.NewTypeParamType(typePar), c.newTypeVar())
+					uniqueParams[typePar] = true
+				}
 			}
 
 			overloadType = substitute(substitutions, overloadType, false)
