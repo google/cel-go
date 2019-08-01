@@ -147,9 +147,9 @@ var testCases = []testInfo{
 		R:    `foo~!error!`,
 		Type: decls.Error,
 		Error: `
-	ERROR: <input>:1:1: undeclared reference to 'foo' (in container '')
-	| foo
-	| ^`,
+ERROR: <input>:1:1: undeclared reference to 'foo' (in container '')
+| foo
+| ^`,
 	},
 
 	// Call resolution
@@ -189,24 +189,24 @@ var testCases = []testInfo{
 		I:    `[] + [1,2,3,] + [4]`,
 		Type: decls.NewListType(decls.Int),
 		R: `
+	_+_(
 		_+_(
-			_+_(
-				[]~list(int),
-				[1~int, 2~int, 3~int]~list(int))~list(int)^add_list,
-				[4~int]~list(int))
-		~list(int)^add_list
-		`,
+			[]~list(int),
+			[1~int, 2~int, 3~int]~list(int))~list(int)^add_list,
+			[4~int]~list(int))
+	~list(int)^add_list
+	`,
 	},
 
 	{
 		I: `[1, 2u] + []`,
 		R: `_+_(
-				[
-					1~int,
-					2u~uint
-				]~list(dyn),
-				[]~list(dyn)
-			)~list(dyn)^add_list`,
+			[
+				1~int,
+				2u~uint
+			]~list(dyn),
+			[]~list(dyn)
+		)~list(dyn)^add_list`,
 		Type: decls.NewListType(decls.Dyn),
 	},
 
@@ -230,9 +230,9 @@ var testCases = []testInfo{
 		I:         `TestAllTypes{single_int32: 1, single_int64: 2}`,
 		Container: "google.expr.proto3.test",
 		R: `
-		TestAllTypes{single_int32 : 1~int, single_int64 : 2~int}
-		  ~google.expr.proto3.test.TestAllTypes
-		    ^google.expr.proto3.test.TestAllTypes`,
+	TestAllTypes{single_int32 : 1~int, single_int64 : 2~int}
+	  ~google.expr.proto3.test.TestAllTypes
+	    ^google.expr.proto3.test.TestAllTypes`,
 		Type: decls.NewObjectType("google.expr.proto3.test.TestAllTypes"),
 	},
 
@@ -240,25 +240,25 @@ var testCases = []testInfo{
 		I:         `TestAllTypes{single_int32: 1u}`,
 		Container: "google.expr.proto3.test",
 		Error: `
-		ERROR: <input>:1:26: expected type of field 'single_int32' is 'int' but provided type is 'uint'
-		  | TestAllTypes{single_int32: 1u}
-		  | .........................^`,
+	ERROR: <input>:1:26: expected type of field 'single_int32' is 'int' but provided type is 'uint'
+	  | TestAllTypes{single_int32: 1u}
+	  | .........................^`,
 	},
 
 	{
 		I:         `TestAllTypes{single_int32: 1, undefined: 2}`,
 		Container: "google.expr.proto3.test",
 		Error: `
-		ERROR: <input>:1:40: undefined field 'undefined'
-		  | TestAllTypes{single_int32: 1, undefined: 2}
-		  | .......................................^`,
+	ERROR: <input>:1:40: undefined field 'undefined'
+	  | TestAllTypes{single_int32: 1, undefined: 2}
+	  | .......................................^`,
 	},
 
 	{
 		I: `size(x) == x.size()`,
 		R: `
-	_==_(size(x~list(int)^x)~int^size_list, x~list(int)^x.size()~int^list_size)
-	  ~bool^equals`,
+_==_(size(x~list(int)^x)~int^size_list, x~list(int)^x.size()~int^list_size)
+  ~bool^equals`,
 		Env: env{
 			idents: []*exprpb.Decl{
 				decls.NewIdent("x", decls.NewListType(decls.Int), nil),
@@ -269,22 +269,22 @@ var testCases = []testInfo{
 	{
 		I: `int(1u) + int(uint("1"))`,
 		R: `
-	_+_(int(1u~uint)~int^uint64_to_int64,
-	      int(uint("1"~string)~uint^string_to_uint64)~int^uint64_to_int64)
-	  ~int^add_int64`,
+_+_(int(1u~uint)~int^uint64_to_int64,
+      int(uint("1"~string)~uint^string_to_uint64)~int^uint64_to_int64)
+  ~int^add_int64`,
 		Type: decls.Int,
 	},
 
 	{
 		I: `false && !true || false ? 2 : 3`,
 		R: `
-	_?_:_(_||_(_&&_(false~bool, !_(true~bool)~bool^logical_not)~bool^logical_and,
-	            false~bool)
-	        ~bool^logical_or,
-	      2~int,
-	      3~int)
-	  ~int^conditional
-	`,
+_?_:_(_||_(_&&_(false~bool, !_(true~bool)~bool^logical_not)~bool^logical_and,
+            false~bool)
+        ~bool^logical_or,
+      2~int,
+      3~int)
+  ~int^conditional
+`,
 		Type: decls.Int,
 	},
 
@@ -297,43 +297,43 @@ var testCases = []testInfo{
 	{
 		I: `1.0 + 2.0 * 3.0 - 1.0 / 2.20202 != 66.6`,
 		R: `
-	_!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
-	           ~double^add_double,
-	           _/_(1~double, 2.20202~double)~double^divide_double)
-	       ~double^subtract_double,
-	      66.6~double)
-	  ~bool^not_equals`,
+_!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
+           ~double^add_double,
+           _/_(1~double, 2.20202~double)~double^divide_double)
+       ~double^subtract_double,
+      66.6~double)
+  ~bool^not_equals`,
 		Type: decls.Bool,
 	},
 
 	{
 		I: `null == null && null != null`,
 		R: `
-			_&&_(
-				_==_(
-					null~null,
-					null~null
-				)~bool^equals,
-				_!=_(
-					null~null,
-					null~null
-				)~bool^not_equals
-			)~bool^logical_and`,
+		_&&_(
+			_==_(
+				null~null,
+				null~null
+			)~bool^equals,
+			_!=_(
+				null~null,
+				null~null
+			)~bool^not_equals
+		)~bool^logical_and`,
 		Type: decls.Bool,
 	},
 	{
 		I: `1 == 1 && 2 != 1`,
 		R: `
-			_&&_(
-				_==_(
-					1~int,
-					1~int
-				)~bool^equals,
-				_!=_(
-					2~int,
-					1~int
-				)~bool^not_equals
-			)~bool^logical_and`,
+		_&&_(
+			_==_(
+				1~int,
+				1~int
+			)~bool^equals,
+			_!=_(
+				2~int,
+				1~int
+			)~bool^not_equals
+		)~bool^logical_and`,
 		Type: decls.Bool,
 	},
 	{
@@ -351,11 +351,11 @@ var testCases = []testInfo{
 	{
 		I: `1u + 2u * 3u - 1u / 2u == 6u % 1u`,
 		R: `_==_(_-_(_+_(1u~uint, _*_(2u~uint, 3u~uint)~uint^multiply_uint64)
-		         ~uint^add_uint64,
-		         _/_(1u~uint, 2u~uint)~uint^divide_uint64)
-		     ~uint^subtract_uint64,
-		    _%_(6u~uint, 1u~uint)~uint^modulo_uint64)
-		~bool^equals`,
+	         ~uint^add_uint64,
+	         _/_(1u~uint, 2u~uint)~uint^divide_uint64)
+	     ~uint^subtract_uint64,
+	    _%_(6u~uint, 1u~uint)~uint^modulo_uint64)
+	~bool^equals`,
 		Type: decls.Bool,
 	},
 
@@ -367,10 +367,10 @@ var testCases = []testInfo{
 			},
 		},
 		Error: `
-		ERROR: <input>:1:2: [internal] unexpected failed resolution of 'google.expr.proto3.test.Proto2Message'
-		  | x.single_int32 != null
-		  | .^
-		`,
+	ERROR: <input>:1:2: [internal] unexpected failed resolution of 'google.expr.proto3.test.Proto2Message'
+	  | x.single_int32 != null
+	  | .^
+	`,
 	},
 
 	{
@@ -381,15 +381,15 @@ var testCases = []testInfo{
 			},
 		},
 		R: `_==_(
-				_+_(
-				  x~google.expr.proto3.test.TestAllTypes^x.single_value~dyn,
-				  _/_(
-					1~int,
-					x~google.expr.proto3.test.TestAllTypes^x.single_struct~map(string, dyn).y~dyn
-				  )~int^divide_int64
-				)~int^add_int64,
-				23~int
-			  )~bool^equals`,
+			_+_(
+			  x~google.expr.proto3.test.TestAllTypes^x.single_value~dyn,
+			  _/_(
+				1~int,
+				x~google.expr.proto3.test.TestAllTypes^x.single_struct~map(string, dyn).y~dyn
+			  )~int^divide_int64
+			)~int^add_int64,
+			23~int
+		  )~bool^equals`,
 		Type: decls.Bool,
 	},
 
@@ -401,16 +401,16 @@ var testCases = []testInfo{
 			},
 		},
 		R: `_+_(
-				_[_](
-				  x~google.expr.proto3.test.TestAllTypes^x.single_value~dyn,
-				  23~int
-				)~dyn^index_list|index_map,
-				_[_](
-				  x~google.expr.proto3.test.TestAllTypes^x.single_struct~map(string, dyn),
-				  "y"~string
-				)~dyn^index_map
-			  )~dyn^add_int64|add_uint64|add_double|add_string|add_bytes|add_list|add_timestamp_duration|add_duration_timestamp|add_duration_duration
-			  `,
+			_[_](
+			  x~google.expr.proto3.test.TestAllTypes^x.single_value~dyn,
+			  23~int
+			)~dyn^index_list|index_map,
+			_[_](
+			  x~google.expr.proto3.test.TestAllTypes^x.single_struct~map(string, dyn),
+			  "y"~string
+			)~dyn^index_map
+		  )~dyn^add_int64|add_uint64|add_double|add_string|add_bytes|add_list|add_timestamp_duration|add_duration_timestamp|add_duration_duration
+		  `,
 		Type: decls.Dyn,
 	},
 
@@ -418,9 +418,9 @@ var testCases = []testInfo{
 		I:         `TestAllTypes.NestedEnum.BAR != 99`,
 		Container: "google.expr.proto3.test",
 		R: `_!=_(TestAllTypes.NestedEnum.BAR
-		     ~int^google.expr.proto3.test.TestAllTypes.NestedEnum.BAR,
-		    99~int)
-		~bool^not_equals`,
+	     ~int^google.expr.proto3.test.TestAllTypes.NestedEnum.BAR,
+	    99~int)
+	~bool^not_equals`,
 		Type: decls.Bool,
 	},
 
@@ -437,48 +437,48 @@ var testCases = []testInfo{
 
 	{
 		I: `x["claims"]["groups"][0].name == "dummy"
-			&& x.claims["exp"] == y[1].time
-			&& x.claims.structured == {'key': z}
-			&& z == 1.0`,
+		&& x.claims["exp"] == y[1].time
+		&& x.claims.structured == {'key': z}
+		&& z == 1.0`,
 		R: `_&&_(
-				_&&_(
-					_==_(
+			_&&_(
+				_==_(
+					_[_](
 						_[_](
 							_[_](
-								_[_](
-									x~map(string, dyn)^x,
-									"claims"~string
-								)~dyn^index_map,
-								"groups"~string
-							)~list(string)^index_map,
-							0~int
-						)~string^index_list.name~string,
-						"dummy"~string
-					)~bool^equals,
-					_==_(
-						_[_](
-							x~map(string, dyn)^x.claims~dyn,
-							"exp"~string
-						)~dyn^index_map,
-						_[_](
-							y~list(dyn)^y,
-							1~int
-						)~dyn^index_list.time~dyn
-					)~bool^equals
-				)~bool^logical_and,
-				_&&_(
-					_==_(
-						x~map(string, dyn)^x.claims~dyn.structured~dyn,
-						{
-							"key"~string:z~dyn^z
-						}~map(string, dyn)
-					)~bool^equals,
-					_==_(
-						z~dyn^z,
-						1~double
-					)~bool^equals
-				)~bool^logical_and
-			)~bool^logical_and`,
+								x~map(string, dyn)^x,
+								"claims"~string
+							)~dyn^index_map,
+							"groups"~string
+						)~list(string)^index_map,
+						0~int
+					)~string^index_list.name~string,
+					"dummy"~string
+				)~bool^equals,
+				_==_(
+					_[_](
+						x~map(string, dyn)^x.claims~dyn,
+						"exp"~string
+					)~dyn^index_map,
+					_[_](
+						y~list(dyn)^y,
+						1~int
+					)~dyn^index_list.time~dyn
+				)~bool^equals
+			)~bool^logical_and,
+			_&&_(
+				_==_(
+					x~map(string, dyn)^x.claims~dyn.structured~dyn,
+					{
+						"key"~string:z~dyn^z
+					}~map(string, dyn)
+				)~bool^equals,
+				_==_(
+					z~dyn^z,
+					1~double
+				)~bool^equals
+			)~bool^logical_and
+		)~bool^logical_and`,
 		Env: env{
 			idents: []*exprpb.Decl{
 				decls.NewIdent("x", decls.NewObjectType("google.protobuf.Struct"), nil),
@@ -499,10 +499,10 @@ var testCases = []testInfo{
 			},
 		},
 		Error: `
-	ERROR: <input>:1:3: found no matching overload for '_+_' applied to '(list(google.expr.proto3.test.TestAllTypes), list(int))'
-	  | x + y
-	  | ..^
-			`,
+ERROR: <input>:1:3: found no matching overload for '_+_' applied to '(list(google.expr.proto3.test.TestAllTypes), list(int))'
+  | x + y
+  | ..^
+		`,
 	},
 
 	{
@@ -513,10 +513,10 @@ var testCases = []testInfo{
 			},
 		},
 		Error: `
-	ERROR: <input>:1:2: found no matching overload for '_[_]' applied to '(list(google.expr.proto3.test.TestAllTypes), uint)'
-	  | x[1u]
-	  | .^
-	`,
+ERROR: <input>:1:2: found no matching overload for '_[_]' applied to '(list(google.expr.proto3.test.TestAllTypes), uint)'
+  | x[1u]
+  | .^
+`,
 	},
 
 	{
@@ -527,17 +527,17 @@ var testCases = []testInfo{
 			},
 		},
 		R: `
-	_==_(_[_](_+_(x~list(google.expr.proto3.test.TestAllTypes)^x,
-	                x~list(google.expr.proto3.test.TestAllTypes)^x)
-	            ~list(google.expr.proto3.test.TestAllTypes)^add_list,
-	           1~int)
-	       ~google.expr.proto3.test.TestAllTypes^index_list
-	       .
-	       single_int32
-	       ~int,
-	      size(x~list(google.expr.proto3.test.TestAllTypes)^x)~int^size_list)
-	  ~bool^equals
-		`,
+_==_(_[_](_+_(x~list(google.expr.proto3.test.TestAllTypes)^x,
+                x~list(google.expr.proto3.test.TestAllTypes)^x)
+            ~list(google.expr.proto3.test.TestAllTypes)^add_list,
+           1~int)
+       ~google.expr.proto3.test.TestAllTypes^index_list
+       .
+       single_int32
+       ~int,
+      size(x~list(google.expr.proto3.test.TestAllTypes)^x)~int^size_list)
+  ~bool^equals
+	`,
 		Type: decls.Bool,
 	},
 
@@ -549,11 +549,11 @@ var testCases = []testInfo{
 			},
 		},
 		R: `
-	_==_(_[_](x~google.expr.proto3.test.TestAllTypes^x.repeated_int64~list(int),
-	           x~google.expr.proto3.test.TestAllTypes^x.single_int32~int)
-	       ~int^index_list,
-	      23~int)
-	  ~bool^equals`,
+_==_(_[_](x~google.expr.proto3.test.TestAllTypes^x.repeated_int64~list(int),
+           x~google.expr.proto3.test.TestAllTypes^x.single_int32~int)
+       ~int^index_list,
+      23~int)
+  ~bool^equals`,
 		Type: decls.Bool,
 	},
 
@@ -565,12 +565,12 @@ var testCases = []testInfo{
 			},
 		},
 		R: `
-	_==_(size(x~google.expr.proto3.test.TestAllTypes^x.map_int64_nested_type
-	            ~map(int, google.expr.proto3.test.NestedTestAllTypes))
-	       ~int^size_map,
-	      0~int)
-	  ~bool^equals
-			`,
+_==_(size(x~google.expr.proto3.test.TestAllTypes^x.map_int64_nested_type
+            ~map(int, google.expr.proto3.test.NestedTestAllTypes))
+       ~int^size_map,
+      0~int)
+  ~bool^equals
+		`,
 		Type: decls.Bool,
 	},
 
@@ -582,29 +582,29 @@ var testCases = []testInfo{
 			},
 		},
 		R: `
-			__comprehension__(
-	    		  // Variable
-	    		  x,
-	    		  // Target
-	    		  x~google.expr.proto3.test.TestAllTypes^x.repeated_int64~list(int),
-	    		  // Accumulator
-	    		  __result__,
-	    		  // Init
-	    		  []~list(double),
-	    		  // LoopCondition
-	    		  true~bool,
-	    		  // LoopStep
-	    		  _+_(
-	    		    __result__~list(double)^__result__,
-	    		    [
-	    		      double(
-	    		        x~int^x
-	    		      )~double^int64_to_double
-	    		    ]~list(double)
-	    		  )~list(double)^add_list,
-	    		  // Result
-	    		  __result__~list(double)^__result__)~list(double)
-			`,
+		__comprehension__(
+    		  // Variable
+    		  x,
+    		  // Target
+    		  x~google.expr.proto3.test.TestAllTypes^x.repeated_int64~list(int),
+    		  // Accumulator
+    		  __result__,
+    		  // Init
+    		  []~list(double),
+    		  // LoopCondition
+    		  true~bool,
+    		  // LoopStep
+    		  _+_(
+    		    __result__~list(double)^__result__,
+    		    [
+    		      double(
+    		        x~int^x
+    		      )~double^int64_to_double
+    		    ]~list(double)
+    		  )~list(double)^add_list,
+    		  // Result
+    		  __result__~list(double)^__result__)~list(double)
+		`,
 		Type: decls.NewListType(decls.Double),
 	},
 
@@ -616,36 +616,36 @@ var testCases = []testInfo{
 			},
 		},
 		R: `
-		__comprehension__(
-	    		  // Variable
-	    		  x,
-	    		  // Target
-	    		  x~google.expr.proto3.test.TestAllTypes^x.repeated_int64~list(int),
-	    		  // Accumulator
-	    		  __result__,
-	    		  // Init
-	    		  []~list(double),
-	    		  // LoopCondition
-	    		  true~bool,
-	    		  // LoopStep
-	    		  _?_:_(
-	    		    _>_(
-	    		      x~int^x,
-	    		      0~int
-	    		    )~bool^greater_int64,
-	    		    _+_(
-	    		      __result__~list(double)^__result__,
-	    		      [
-	    		        double(
-	    		          x~int^x
-	    		        )~double^int64_to_double
-	    		      ]~list(double)
-	    		    )~list(double)^add_list,
-	    		    __result__~list(double)^__result__
-	    		  )~list(double)^conditional,
-	    		  // Result
-	    		  __result__~list(double)^__result__)~list(double)
-			`,
+	__comprehension__(
+    		  // Variable
+    		  x,
+    		  // Target
+    		  x~google.expr.proto3.test.TestAllTypes^x.repeated_int64~list(int),
+    		  // Accumulator
+    		  __result__,
+    		  // Init
+    		  []~list(double),
+    		  // LoopCondition
+    		  true~bool,
+    		  // LoopStep
+    		  _?_:_(
+    		    _>_(
+    		      x~int^x,
+    		      0~int
+    		    )~bool^greater_int64,
+    		    _+_(
+    		      __result__~list(double)^__result__,
+    		      [
+    		        double(
+    		          x~int^x
+    		        )~double^int64_to_double
+    		      ]~list(double)
+    		    )~list(double)^add_list,
+    		    __result__~list(double)^__result__
+    		  )~list(double)^conditional,
+    		  // Result
+    		  __result__~list(double)^__result__)~list(double)
+		`,
 		Type: decls.NewListType(decls.Double),
 	},
 
@@ -659,10 +659,10 @@ var testCases = []testInfo{
 			},
 		},
 		Error: `
-	ERROR: <input>:1:2: found no matching overload for '_[_]' applied to '(map(string, google.expr.proto3.test.TestAllTypes), int)'
-	  | x[2].single_int32 == 23
-	  | .^
-			`,
+ERROR: <input>:1:2: found no matching overload for '_[_]' applied to '(map(string, google.expr.proto3.test.TestAllTypes), int)'
+  | x[2].single_int32 == 23
+  | .^
+		`,
 	},
 
 	{
@@ -675,13 +675,13 @@ var testCases = []testInfo{
 			},
 		},
 		R: `
-			_==_(_[_](x~map(string, google.expr.proto3.test.TestAllTypes)^x, "a"~string)
-			~google.expr.proto3.test.TestAllTypes^index_map
-			.
-			single_int32
-			~int,
-			23~int)
-			~bool^equals`,
+		_==_(_[_](x~map(string, google.expr.proto3.test.TestAllTypes)^x, "a"~string)
+		~google.expr.proto3.test.TestAllTypes^index_map
+		.
+		single_int32
+		~int,
+		23~int)
+		~bool^equals`,
 		Type: decls.Bool,
 	},
 
@@ -695,12 +695,12 @@ var testCases = []testInfo{
 
 		// Our implementation code is expanding the macro
 		R: `_&&_(
-	    		  _==_(
-	    		    x~google.expr.proto3.test.TestAllTypes^x.single_nested_message~google.expr.proto3.test.TestAllTypes.NestedMessage.bb~int,
-	    		    43~int
-	    		  )~bool^equals,
-	    		  x~google.expr.proto3.test.TestAllTypes^x.single_nested_message~test-only~~bool
-	    		)~bool^logical_and`,
+    		  _==_(
+    		    x~google.expr.proto3.test.TestAllTypes^x.single_nested_message~google.expr.proto3.test.TestAllTypes.NestedMessage.bb~int,
+    		    43~int
+    		  )~bool^equals,
+    		  x~google.expr.proto3.test.TestAllTypes^x.single_nested_message~test-only~~bool
+    		)~bool^logical_and`,
 		Type: decls.Bool,
 	},
 
@@ -712,19 +712,19 @@ var testCases = []testInfo{
 			},
 		},
 		Error: `
-	ERROR: <input>:1:24: undefined field 'undefined'
-	 | x.single_nested_message.undefined == x.undefined && has(x.single_int32) && has(x.repeated_int32)
-	 | .......................^
-	ERROR: <input>:1:39: undefined field 'undefined'
-	 | x.single_nested_message.undefined == x.undefined && has(x.single_int32) && has(x.repeated_int32)
-	 | ......................................^
-	ERROR: <input>:1:56: field 'single_int32' does not support presence check
-	 | x.single_nested_message.undefined == x.undefined && has(x.single_int32) && has(x.repeated_int32)
-	 | .......................................................^
-	ERROR: <input>:1:79: field 'repeated_int32' does not support presence check
-	 | x.single_nested_message.undefined == x.undefined && has(x.single_int32) && has(x.repeated_int32)
-	 | ..............................................................................^
-			`,
+ERROR: <input>:1:24: undefined field 'undefined'
+ | x.single_nested_message.undefined == x.undefined && has(x.single_int32) && has(x.repeated_int32)
+ | .......................^
+ERROR: <input>:1:39: undefined field 'undefined'
+ | x.single_nested_message.undefined == x.undefined && has(x.single_int32) && has(x.repeated_int32)
+ | ......................................^
+ERROR: <input>:1:56: field 'single_int32' does not support presence check
+ | x.single_nested_message.undefined == x.undefined && has(x.single_int32) && has(x.repeated_int32)
+ | .......................................................^
+ERROR: <input>:1:79: field 'repeated_int32' does not support presence check
+ | x.single_nested_message.undefined == x.undefined && has(x.single_int32) && has(x.repeated_int32)
+ | ..............................................................................^
+		`,
 	},
 
 	{
@@ -735,11 +735,11 @@ var testCases = []testInfo{
 			},
 		},
 		R: `
-			_!=_(x~google.expr.proto3.test.TestAllTypes^x.single_nested_message
-			~google.expr.proto3.test.TestAllTypes.NestedMessage,
-			null~null)
-			~bool^not_equals
-			`,
+		_!=_(x~google.expr.proto3.test.TestAllTypes^x.single_nested_message
+		~google.expr.proto3.test.TestAllTypes.NestedMessage,
+		null~null)
+		~bool^not_equals
+		`,
 		Type: decls.Bool,
 	},
 
@@ -751,10 +751,10 @@ var testCases = []testInfo{
 			},
 		},
 		Error: `
-	ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, null)'
-	 | x.single_int64 != null
-	 | ...............^
-			`,
+ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, null)'
+ | x.single_int64 != null
+ | ...............^
+		`,
 	},
 
 	{
@@ -765,11 +765,11 @@ var testCases = []testInfo{
 			},
 		},
 		R: `
-			_==_(x~google.expr.proto3.test.TestAllTypes^x.single_int64_wrapper
-			~wrapper(int),
-			null~null)
-			~bool^equals
-			`,
+		_==_(x~google.expr.proto3.test.TestAllTypes^x.single_int64_wrapper
+		~wrapper(int),
+		null~null)
+		~bool^equals
+		`,
 		Type: decls.Bool,
 	},
 	{
@@ -780,8 +780,8 @@ var testCases = []testInfo{
 			},
 		},
 		Error: `ERROR: <input>:1:39: undeclared reference to 'y' (in container '')
-			| x.repeated_int64.exists(y, y > 10) && y < 5
-			| ......................................^`,
+		| x.repeated_int64.exists(y, y > 10) && y < 5
+		| ......................................^`,
 	},
 	{
 		I: `x.repeated_int64.all(e, e > 0) && x.repeated_int64.exists(e, e < 0) && x.repeated_int64.exists_one(e, e == 0)`,
@@ -791,88 +791,88 @@ var testCases = []testInfo{
 			},
 		},
 		R: `_&&_(
+			_&&_(
+			  __comprehension__(
+				// Variable
+				e,
+				// Target
+				x~google.expr.proto3.test.TestAllTypes^x.repeated_int64~list(int),
+				// Accumulator
+				__result__,
+				// Init
+				true~bool,
+				// LoopCondition
+				@not_strictly_false(
+				  __result__~bool^__result__
+				)~bool^not_strictly_false,
+				// LoopStep
 				_&&_(
-				  __comprehension__(
-					// Variable
-					e,
-					// Target
-					x~google.expr.proto3.test.TestAllTypes^x.repeated_int64~list(int),
-					// Accumulator
-					__result__,
-					// Init
-					true~bool,
-					// LoopCondition
-					@not_strictly_false(
-					  __result__~bool^__result__
-					)~bool^not_strictly_false,
-					// LoopStep
-					_&&_(
-					  __result__~bool^__result__,
-					  _>_(
-						e~int^e,
-						0~int
-					  )~bool^greater_int64
-					)~bool^logical_and,
-					// Result
-					__result__~bool^__result__)~bool,
-				  __comprehension__(
-					// Variable
-					e,
-					// Target
-					x~google.expr.proto3.test.TestAllTypes^x.repeated_int64~list(int),
-					// Accumulator
-					__result__,
-					// Init
-					false~bool,
-					// LoopCondition
-					@not_strictly_false(
-					  !_(
-						__result__~bool^__result__
-					  )~bool^logical_not
-					)~bool^not_strictly_false,
-					// LoopStep
-					_||_(
-					  __result__~bool^__result__,
-					  _<_(
-						e~int^e,
-						0~int
-					  )~bool^less_int64
-					)~bool^logical_or,
-					// Result
-					__result__~bool^__result__)~bool
+				  __result__~bool^__result__,
+				  _>_(
+					e~int^e,
+					0~int
+				  )~bool^greater_int64
 				)~bool^logical_and,
-				__comprehension__(
-				  // Variable
-				  e,
-				  // Target
-				  x~google.expr.proto3.test.TestAllTypes^x.repeated_int64~list(int),
-				  // Accumulator
-				  __result__,
-				  // Init
-				  0~int,
-				  // LoopCondition
-				  _<=_(
-					__result__~int^__result__,
-					1~int
-				  )~bool^less_equals_int64,
-				  // LoopStep
-				  _?_:_(
-					_==_(
-					  e~int^e,
-					  0~int
-					)~bool^equals,
-					_+_(
-					  __result__~int^__result__,
-					  1~int
-					)~int^add_int64,
-					__result__~int^__result__
-				  )~int^conditional,
-				  // Result
-				  _==_(
-					__result__~int^__result__,
-					1~int
-				  )~bool^equals)~bool
-			  )~bool^logical_and`,
+				// Result
+				__result__~bool^__result__)~bool,
+			  __comprehension__(
+				// Variable
+				e,
+				// Target
+				x~google.expr.proto3.test.TestAllTypes^x.repeated_int64~list(int),
+				// Accumulator
+				__result__,
+				// Init
+				false~bool,
+				// LoopCondition
+				@not_strictly_false(
+				  !_(
+					__result__~bool^__result__
+				  )~bool^logical_not
+				)~bool^not_strictly_false,
+				// LoopStep
+				_||_(
+				  __result__~bool^__result__,
+				  _<_(
+					e~int^e,
+					0~int
+				  )~bool^less_int64
+				)~bool^logical_or,
+				// Result
+				__result__~bool^__result__)~bool
+			)~bool^logical_and,
+			__comprehension__(
+			  // Variable
+			  e,
+			  // Target
+			  x~google.expr.proto3.test.TestAllTypes^x.repeated_int64~list(int),
+			  // Accumulator
+			  __result__,
+			  // Init
+			  0~int,
+			  // LoopCondition
+			  _<=_(
+				__result__~int^__result__,
+				1~int
+			  )~bool^less_equals_int64,
+			  // LoopStep
+			  _?_:_(
+				_==_(
+				  e~int^e,
+				  0~int
+				)~bool^equals,
+				_+_(
+				  __result__~int^__result__,
+				  1~int
+				)~int^add_int64,
+				__result__~int^__result__
+			  )~int^conditional,
+			  // Result
+			  _==_(
+				__result__~int^__result__,
+				1~int
+			  )~bool^equals)~bool
+		  )~bool^logical_and`,
 		Type: decls.Bool,
 	},
 
@@ -884,43 +884,43 @@ var testCases = []testInfo{
 			},
 		},
 		Error: `
-	ERROR: <input>:1:1: expression of type 'google.expr.proto3.test.TestAllTypes' cannot be range of a comprehension (must be list, map, or dynamic)
-	 | x.all(e, 0)
-	 | ^
-	ERROR: <input>:1:6: found no matching overload for '_&&_' applied to '(bool, int)'
-	 | x.all(e, 0)
-	 | .....^
-			`,
+ERROR: <input>:1:1: expression of type 'google.expr.proto3.test.TestAllTypes' cannot be range of a comprehension (must be list, map, or dynamic)
+ | x.all(e, 0)
+ | ^
+ERROR: <input>:1:6: found no matching overload for '_&&_' applied to '(bool, int)'
+ | x.all(e, 0)
+ | .....^
+		`,
 	},
 	{
 		I: `lists.filter(x, x > 1.5)`,
 		R: `__comprehension__(
-				// Variable
-				x,
-				// Target
-				lists~dyn^lists,
-				// Accumulator
-				__result__,
-				// Init
-				[]~list(dyn),
-				// LoopCondition
-				true~bool,
-				// LoopStep
-				_?_:_(
-				  _>_(
-					x~dyn^x,
-					1.5~double
-				  )~bool^greater_double,
-				  _+_(
-					__result__~list(dyn)^__result__,
-					[
-					  x~dyn^x
-					]~list(dyn)
-				  )~list(dyn)^add_list,
-				  __result__~list(dyn)^__result__
-				)~list(dyn)^conditional,
-				// Result
-				__result__~list(dyn)^__result__)~list(dyn)`,
+			// Variable
+			x,
+			// Target
+			lists~dyn^lists,
+			// Accumulator
+			__result__,
+			// Init
+			[]~list(dyn),
+			// LoopCondition
+			true~bool,
+			// LoopStep
+			_?_:_(
+			  _>_(
+				x~dyn^x,
+				1.5~double
+			  )~bool^greater_double,
+			  _+_(
+				__result__~list(dyn)^__result__,
+				[
+				  x~dyn^x
+				]~list(dyn)
+			  )~list(dyn)^add_list,
+			  __result__~list(dyn)^__result__
+			)~list(dyn)^conditional,
+			// Result
+			__result__~list(dyn)^__result__)~list(dyn)`,
 		Type: decls.NewListType(decls.Dyn),
 		Env: env{
 			idents: []*exprpb.Decl{
@@ -932,8 +932,8 @@ var testCases = []testInfo{
 	{
 		I: `.google.expr.proto3.test.TestAllTypes`,
 		R: `	.google.expr.proto3.test.TestAllTypes
-		~type(google.expr.proto3.test.TestAllTypes)
-		^google.expr.proto3.test.TestAllTypes`,
+	~type(google.expr.proto3.test.TestAllTypes)
+	^google.expr.proto3.test.TestAllTypes`,
 		Type: decls.NewTypeType(
 			decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 	},
@@ -942,10 +942,10 @@ var testCases = []testInfo{
 		I:         `test.TestAllTypes`,
 		Container: "google.expr.proto3",
 		R: `
-		test.TestAllTypes
-		~type(google.expr.proto3.test.TestAllTypes)
-		^google.expr.proto3.test.TestAllTypes
-			`,
+	test.TestAllTypes
+	~type(google.expr.proto3.test.TestAllTypes)
+	^google.expr.proto3.test.TestAllTypes
+		`,
 		Type: decls.NewTypeType(
 			decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 	},
@@ -953,18 +953,18 @@ var testCases = []testInfo{
 	{
 		I: `1 + x`,
 		Error: `
-	ERROR: <input>:1:5: undeclared reference to 'x' (in container '')
-	 | 1 + x
-	 | ....^`,
+ERROR: <input>:1:5: undeclared reference to 'x' (in container '')
+ | 1 + x
+ | ....^`,
 	},
 
 	{
 		I: `x == google.protobuf.Any{
-					type_url:'types.googleapis.com/google.expr.proto3.test.TestAllTypes'
-				} && x.single_nested_message.bb == 43
-				|| x == google.expr.proto3.test.TestAllTypes{}
-				|| y < x
-				|| x >= x`,
+				type_url:'types.googleapis.com/google.expr.proto3.test.TestAllTypes'
+			} && x.single_nested_message.bb == 43
+			|| x == google.expr.proto3.test.TestAllTypes{}
+			|| y < x
+			|| x >= x`,
 		Env: env{
 			idents: []*exprpb.Decl{
 				decls.NewIdent("x", decls.Any, nil),
@@ -972,37 +972,37 @@ var testCases = []testInfo{
 			},
 		},
 		R: `
+		_||_(
 			_||_(
-				_||_(
-					_&&_(
-						_==_(
-							x~any^x,
-							google.protobuf.Any{
-								type_url:"types.googleapis.com/google.expr.proto3.test.TestAllTypes"~string
-							}~google.protobuf.Any^google.protobuf.Any
-						)~bool^equals,
-						_==_(
-							x~any^x.single_nested_message~dyn.bb~dyn,
-							43~int
-						)~bool^equals
-					)~bool^logical_and,
+				_&&_(
 					_==_(
 						x~any^x,
-						google.expr.proto3.test.TestAllTypes{}~google.expr.proto3.test.TestAllTypes^google.expr.proto3.test.TestAllTypes
+						google.protobuf.Any{
+							type_url:"types.googleapis.com/google.expr.proto3.test.TestAllTypes"~string
+						}~google.protobuf.Any^google.protobuf.Any
+					)~bool^equals,
+					_==_(
+						x~any^x.single_nested_message~dyn.bb~dyn,
+						43~int
 					)~bool^equals
-				)~bool^logical_or,
-				_||_(
-					_<_(
-						y~wrapper(int)^y,
-						x~any^x
-					)~bool^less_int64,
-					_>=_(
-						x~any^x,
-						x~any^x
-					)~dyn^greater_equals_bool|greater_equals_int64|greater_equals_uint64|greater_equals_double|greater_equals_string|greater_equals_bytes|greater_equals_timestamp|greater_equals_duration
-				)~bool^logical_or
+				)~bool^logical_and,
+				_==_(
+					x~any^x,
+					google.expr.proto3.test.TestAllTypes{}~google.expr.proto3.test.TestAllTypes^google.expr.proto3.test.TestAllTypes
+				)~bool^equals
+			)~bool^logical_or,
+			_||_(
+				_<_(
+					y~wrapper(int)^y,
+					x~any^x
+				)~bool^less_int64,
+				_>=_(
+					x~any^x,
+					x~any^x
+				)~dyn^greater_equals_bool|greater_equals_int64|greater_equals_uint64|greater_equals_double|greater_equals_string|greater_equals_bytes|greater_equals_timestamp|greater_equals_duration
 			)~bool^logical_or
-			`,
+		)~bool^logical_or
+		`,
 		Type: decls.Bool,
 	},
 
@@ -1021,14 +1021,14 @@ var testCases = []testInfo{
 	{
 		I: `list == type([1]) && map == type({1:2u})`,
 		R: `
-	_&&_(_==_(list~type(list(dyn))^list,
-	           type([1~int]~list(int))~type(list(int))^type)
-	       ~bool^equals,
-	      _==_(map~type(map(dyn, dyn))^map,
-	            type({1~int : 2u~uint}~map(int, uint))~type(map(int, uint))^type)
-	        ~bool^equals)
-	  ~bool^logical_and
-		`,
+_&&_(_==_(list~type(list(dyn))^list,
+           type([1~int]~list(int))~type(list(int))^type)
+       ~bool^equals,
+      _==_(map~type(map(dyn, dyn))^map,
+            type({1~int : 2u~uint}~map(int, uint))~type(map(int, uint))^type)
+        ~bool^equals)
+  ~bool^logical_and
+	`,
 		Type: decls.Bool,
 	},
 
@@ -1044,19 +1044,19 @@ var testCases = []testInfo{
 			},
 		},
 		R: `_+_(
-	    		  myfun(
-	    		    1~int,
-	    		    true~bool,
-	    		    3u~uint
-	    		  )~int^myfun_static,
-	    		  1~int.myfun(
-	    		    false~bool,
-	    		    3u~uint
-	    		  )~int^myfun_instance.myfun(
-	    		    true~bool,
-	    		    42u~uint
-	    		  )~int^myfun_instance
-	    		)~int^add_int64`,
+    		  myfun(
+    		    1~int,
+    		    true~bool,
+    		    3u~uint
+    		  )~int^myfun_static,
+    		  1~int.myfun(
+    		    false~bool,
+    		    3u~uint
+    		  )~int^myfun_instance.myfun(
+    		    true~bool,
+    		    42u~uint
+    		  )~int^myfun_instance
+    		)~int^add_int64`,
 		Type: decls.Int,
 	},
 
@@ -1084,13 +1084,13 @@ var testCases = []testInfo{
 			},
 		},
 		R: `
-			_!=_(_+_(x~google.expr.proto3.test.TestAllTypes^x.single_int64_wrapper
-			~wrapper(int),
-			1~int)
-			~int^add_int64,
-			23~int)
-			~bool^not_equals
-			`,
+		_!=_(_+_(x~google.expr.proto3.test.TestAllTypes^x.single_int64_wrapper
+		~wrapper(int),
+		1~int)
+		~int^add_int64,
+		23~int)
+		~bool^not_equals
+		`,
 		Type: decls.Bool,
 	},
 
@@ -1103,49 +1103,49 @@ var testCases = []testInfo{
 			},
 		},
 		R: `
-			_!=_(
-				_+_(
-				  x~google.expr.proto3.test.TestAllTypes^x.single_int64_wrapper~wrapper(int),
-				  y~wrapper(int)^y
-				)~int^add_int64,
-				23~int
-			  )~bool^not_equals
-			`,
+		_!=_(
+			_+_(
+			  x~google.expr.proto3.test.TestAllTypes^x.single_int64_wrapper~wrapper(int),
+			  y~wrapper(int)^y
+			)~int^add_int64,
+			23~int
+		  )~bool^not_equals
+		`,
 		Type: decls.Bool,
 	},
 
 	{
 		I: `1 in [1, 2, 3]`,
 		R: `@in(
-	    		  1~int,
-	    		  [
-	    		    1~int,
-	    		    2~int,
-	    		    3~int
-	    		  ]~list(int)
-	    		)~bool^in_list`,
+    		  1~int,
+    		  [
+    		    1~int,
+    		    2~int,
+    		    3~int
+    		  ]~list(int)
+    		)~bool^in_list`,
 		Type: decls.Bool,
 	},
 
 	{
 		I: `type(null) == null_type`,
 		R: `_==_(
-	    		  type(
-	    		    null~null
-	    		  )~type(null)^type,
-	    		  null_type~type(null)^null_type
-	    		)~bool^equals`,
+    		  type(
+    		    null~null
+    		  )~type(null)^type,
+    		  null_type~type(null)^null_type
+    		)~bool^equals`,
 		Type: decls.Bool,
 	},
 
 	{
 		I: `type(type) == type`,
 		R: `_==_(
-	    		  type(
-	    		    type~type(type)^type
-	    		  )~type(type(type))^type,
-	    		  type~type(type)^type
-	    		)~bool^equals`,
+    		  type(
+    		    type~type(type)^type
+    		  )~type(type(type))^type,
+    		  type~type(type)^type
+    		)~bool^equals`,
 		Type: decls.Bool,
 	},
 	// Homogeneous aggregate type restriction tests.
@@ -1167,16 +1167,16 @@ var testCases = []testInfo{
 		HomogeneousAggregateLiterals: true,
 		DisableStdEnv:                true,
 		R: `@in(
-				name~string^name,
-				[
-					1~int,
-					2u~uint,
-					"string"~string
-				]~list(string)
-			)~bool^in_list`,
+			name~string^name,
+			[
+				1~int,
+				2u~uint,
+				"string"~string
+			]~list(string)
+		)~bool^in_list`,
 		Error: `ERROR: <input>:1:13: expected type 'int' but found 'uint'
-			| name in [1, 2u, 'string']
-			| ............^`,
+		| name in [1, 2u, 'string']
+		| ............^`,
 	},
 	{
 		I: `name in [1, 2, 3]`,
@@ -1196,16 +1196,16 @@ var testCases = []testInfo{
 		HomogeneousAggregateLiterals: true,
 		DisableStdEnv:                true,
 		R: `@in(
-				name~string^name,
-				[
-					1~int,
-					2~int,
-					3~int
-				]~list(int)
-			)~!error!`,
+			name~string^name,
+			[
+				1~int,
+				2~int,
+				3~int
+			]~list(int)
+		)~!error!`,
 		Error: `ERROR: <input>:1:6: found no matching overload for '@in' applied to '(string, list(int))'
-			| name in [1, 2, 3]
-			| .....^`,
+		| name in [1, 2, 3]
+		| .....^`,
 	},
 	{
 		I: `name in ["1", "2", "3"]`,
@@ -1225,13 +1225,13 @@ var testCases = []testInfo{
 		HomogeneousAggregateLiterals: true,
 		DisableStdEnv:                true,
 		R: `@in(
-				name~string^name,
-				[
-					"1"~string,
-					"2"~string,
-					"3"~string
-				]~list(string)
-			)~bool^in_list`,
+			name~string^name,
+			[
+				"1"~string,
+				"2"~string,
+				"3"~string
+			]~list(string)
+		)~bool^in_list`,
 		Type: decls.Bool,
 	},
 	{
