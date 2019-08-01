@@ -19,6 +19,8 @@ import (
 
 	"github.com/google/cel-go/common/debug"
 	"github.com/google/cel-go/common/operators"
+	"github.com/google/cel-go/common/packages"
+	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/test"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
@@ -117,7 +119,9 @@ func TestPrune(t *testing.T) {
 	for i, tst := range testCases {
 		pExpr := &exprpb.ParsedExpr{Expr: tst.E}
 		state := NewEvalState()
-		interpretable, _ := interpreter.NewUncheckedInterpretable(
+		reg := types.NewRegistry()
+		interp := NewStandardInterpreter(packages.DefaultPackage, reg, reg)
+		interpretable, _ := interp.NewUncheckedInterpretable(
 			pExpr.Expr,
 			ExhaustiveEval(state))
 		interpretable.Eval(EmptyActivation())
