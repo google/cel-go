@@ -17,6 +17,7 @@ package types
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -118,7 +119,7 @@ func (d Duration) ConvertToType(typeVal ref.Type) ref.Val {
 	switch typeVal {
 	case StringType:
 		if dur, err := ptypes.Duration(d.Duration); err == nil {
-			return String(dur.String())
+			return String(strconv.FormatFloat(dur.Seconds(), 'f', -1, 64) + "s")
 		}
 	case IntType:
 		if dur, err := ptypes.Duration(d.Duration); err == nil {
