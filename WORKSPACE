@@ -34,10 +34,11 @@ go_repository(
   importpath = "github.com/antlr/antlr4",
 )
 
-git_repository(
+local_repository(
   name = "com_google_cel_spec",
-  commit = "eff3d1b97f585251a72ecf7bb53ec2731ab6e17e", #PR #77
-  remote = "https://github.com/google/cel-spec.git",
+  path = "../cel-spec",
+#  commit = "eff3d1b97f585251a72ecf7bb53ec2731ab6e17e", #PR #77
+# remote = "https://github.com/victoriajyang/cel-go.git",
 )
 
 # Required to use embedded BUILD.bazel file in googleapis/google/rpc
