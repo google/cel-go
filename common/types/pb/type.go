@@ -34,6 +34,7 @@ type TypeDescription struct {
 	fieldsInfo      *atomic.Value
 	fieldProperties *proto.StructProperties
 	refType         *reflect.Type
+	refVal          *reflect.Value
 }
 
 type fieldsInfo struct {
@@ -74,6 +75,25 @@ func (td *TypeDescription) ReflectType() reflect.Type {
 	return *td.refType
 }
 
+// DefaultValue returns an empty instance of the proto message associated with the type.
+func (td *TypeDescription) DefaultValue() proto.Message {
+	if td.refVal == nil {
+		refType := td.ReflectType()
+		if refType == nil {
+			return nil
+		}
+		if refType.Kind() == reflect.Ptr {
+			refType = refType.Elem()
+		}
+		refVal := reflect.New(refType)
+		td.refVal = &refVal
+	}
+	if td.refVal == nil {
+		return nil
+	}
+	return (*td.refVal).Interface().(proto.Message)
+}
+
 func (td *TypeDescription) getFieldsInfo() (map[string]*FieldDescription,
 	map[int][]*FieldDescription) {
 	fi, ok := td.fieldsInfo.Load().(fieldsInfo)
@@ -91,7 +111,6 @@ func (td *TypeDescription) makeFieldsInfo() fieldsInfo {
 		fieldIndices: make(map[int][]*FieldDescription),
 	}
 
-	isProto3 := td.file.desc.GetSyntax() == "proto3"
 	fieldIndexMap := make(map[string]int)
 	fieldDescMap := make(map[string]*descpb.FieldDescriptorProto)
 	for i, f := range td.desc.Field {
@@ -107,34 +126,19 @@ func (td *TypeDescription) makeFieldsInfo() fieldsInfo {
 				continue
 			}
 			desc := fieldDescMap[prop.OrigName]
-			fd := &FieldDescription{
-				tdesc:  td,
-				desc:   desc,
-				index:  i,
-				prop:   prop,
-				proto3: isProto3}
+			fd := td.newFieldDesc(desc, prop, i)
 			fi.fields[prop.OrigName] = fd
 			fi.fieldIndices[i] = append(fi.fieldIndices[i], fd)
 		}
 		for _, oneofProp := range fieldProps.OneofTypes {
 			desc := fieldDescMap[oneofProp.Prop.OrigName]
-			fd := &FieldDescription{
-				tdesc:     td,
-				desc:      desc,
-				index:     oneofProp.Field,
-				prop:      oneofProp.Prop,
-				oneofProp: oneofProp,
-				proto3:    isProto3}
+			fd := td.newOneofFieldDesc(desc, oneofProp, oneofProp.Field)
 			fi.fields[oneofProp.Prop.OrigName] = fd
 			fi.fieldIndices[oneofProp.Field] = append(fi.fieldIndices[oneofProp.Field], fd)
 		}
 	} else {
 		for fieldName, desc := range fieldDescMap {
-			fd := &FieldDescription{
-				tdesc:  td,
-				desc:   desc,
-				index:  int(desc.GetNumber()),
-				proto3: isProto3}
+			fd := td.newMapFieldDesc(desc)
 			fi.fields[fieldName] = fd
 			index := fieldIndexMap[fieldName]
 			fi.fieldIndices[index] = append(fi.fieldIndices[index], fd)
@@ -159,23 +163,88 @@ func (td *TypeDescription) getFieldProperties() *proto.StructProperties {
 	return td.fieldProperties
 }
 
+func (td *TypeDescription) newFieldDesc(
+	desc *descpb.FieldDescriptorProto,
+	prop *proto.Properties,
+	index int) *FieldDescription {
+	fieldDesc := &FieldDescription{
+		desc:      desc,
+		index:     index,
+		getter:    fmt.Sprintf("Get%s", prop.Name),
+		prop:      prop,
+		isProto3:  td.file.desc.GetSyntax() == "proto3",
+		isWrapper: isWrapperType(desc),
+	}
+	if desc.GetType() == descpb.FieldDescriptorProto_TYPE_MESSAGE {
+		typeName := sanitizeProtoName(desc.GetTypeName())
+		fieldType, _ := td.file.pbdb.DescribeType(typeName)
+		fieldDesc.td = fieldType
+		return fieldDesc
+	}
+	return fieldDesc
+}
+
+func (td *TypeDescription) newOneofFieldDesc(
+	desc *descpb.FieldDescriptorProto,
+	oneofProp *proto.OneofProperties,
+	index int) *FieldDescription {
+	fieldDesc := td.newFieldDesc(desc, oneofProp.Prop, index)
+	fieldDesc.oneofProp = oneofProp
+	return fieldDesc
+}
+
+func (td *TypeDescription) newMapFieldDesc(desc *descpb.FieldDescriptorProto) *FieldDescription {
+	return &FieldDescription{
+		desc:     desc,
+		index:    int(desc.GetNumber()),
+		isProto3: td.file.desc.GetSyntax() == "proto3",
+	}
+}
+
+func isWrapperType(desc *descpb.FieldDescriptorProto) bool {
+	if desc.GetType() != descpb.FieldDescriptorProto_TYPE_MESSAGE {
+		return false
+	}
+	switch sanitizeProtoName(desc.GetTypeName()) {
+	case "google.protobuf.BoolValue",
+		"google.protobuf.BytesValue",
+		"google.protobuf.DoubleValue",
+		"google.protobuf.FloatValue",
+		"google.protobuf.Int32Value",
+		"google.protobuf.Int64Value",
+		"google.protobuf.StringValue",
+		"google.protobuf.UInt32Value",
+		"google.protobuf.UInt64Value":
+		return true
+	}
+	return false
+}
+
 // FieldDescription holds metadata related to fields declared within a type.
 type FieldDescription struct {
-	tdesc     *TypeDescription
+	// getter is the name of the accessor method to obtain the field value.
+	getter string
+	// isProto3 indicates whether the field is defined in a proto3 syntax.
+	isProto3 bool
+	// isWrapper indicates whether the field is a wrapper type.
+	isWrapper bool
+
+	// td is the type description for message typed fields.
+	td *TypeDescription
+
+	// proto descriptor data.
 	desc      *descpb.FieldDescriptorProto
 	index     int
 	prop      *proto.Properties
 	oneofProp *proto.OneofProperties
-	proto3    bool
 }
 
 // CheckedType returns the type-definition used at type-check time.
 func (fd *FieldDescription) CheckedType() *exprpb.Type {
 	if fd.IsMap() {
-		td, _ := fd.tdesc.file.pbdb.DescribeType(fd.TypeName())
 		// Get the FieldDescriptors for the type arranged by their index within the
 		// generated Go struct.
-		_, fieldIndices := td.getFieldsInfo()
+		_, fieldIndices := fd.td.getFieldsInfo()
 		// Map keys and values are represented as repeated entries in a list.
 		key := fieldIndices[0][0]
 		val := fieldIndices[1][0]
@@ -197,7 +266,7 @@ func (fd *FieldDescription) CheckedType() *exprpb.Type {
 // GetterName returns the accessor method name associated with the field
 // on the proto generated struct.
 func (fd *FieldDescription) GetterName() string {
-	return fmt.Sprintf("Get%s", fd.prop.Name)
+	return fd.getter
 }
 
 // Index returns the field index within a reflected value.
@@ -210,6 +279,22 @@ func (fd *FieldDescription) IsEnum() bool {
 	return fd.desc.GetType() == descpb.FieldDescriptorProto_TYPE_ENUM
 }
 
+// IsMap returns true if the field is of map type.
+func (fd *FieldDescription) IsMap() bool {
+	if !fd.IsRepeated() || !fd.IsMessage() {
+		return false
+	}
+	if fd.td == nil {
+		return false
+	}
+	return fd.td.desc.GetOptions().GetMapEntry()
+}
+
+// IsMessage returns true if the field is of message type.
+func (fd *FieldDescription) IsMessage() bool {
+	return fd.desc.GetType() == descpb.FieldDescriptorProto_TYPE_MESSAGE
+}
+
 // IsOneof returns true if the field is declared within a oneof block.
 func (fd *FieldDescription) IsOneof() bool {
 	if fd.desc != nil {
@@ -218,37 +303,25 @@ func (fd *FieldDescription) IsOneof() bool {
 	return fd.oneofProp != nil
 }
 
-// OneofType returns the reflect.Type value of a oneof field.
-//
-// Oneof field values are wrapped in a struct which contains one field whose
-// value is a proto.Message.
-func (fd *FieldDescription) OneofType() reflect.Type {
-	return fd.oneofProp.Type
-}
-
-// IsMap returns true if the field is of map type.
-func (fd *FieldDescription) IsMap() bool {
-	if !fd.IsRepeated() || !fd.IsMessage() {
-		return false
-	}
-	td, err := fd.tdesc.file.pbdb.DescribeType(fd.TypeName())
-	if err != nil {
-		return false
-	}
-	return td.desc.GetOptions().GetMapEntry()
-}
-
-// IsMessage returns true if the field is of message type.
-func (fd *FieldDescription) IsMessage() bool {
-	return fd.desc.GetType() == descpb.FieldDescriptorProto_TYPE_MESSAGE
-}
-
 // IsRepeated returns true if the field is a repeated value.
 //
 // This method will also return true for map values, so check whether the
 // field is also a map.
 func (fd *FieldDescription) IsRepeated() bool {
 	return *fd.desc.Label == descpb.FieldDescriptorProto_LABEL_REPEATED
+}
+
+// IsWrapper returns true if the field type is a primitive wrapper type.
+func (fd *FieldDescription) IsWrapper() bool {
+	return fd.isWrapper
+}
+
+// OneofType returns the reflect.Type value of a oneof field.
+//
+// Oneof field values are wrapped in a struct which contains one field whose
+// value is a proto.Message.
+func (fd *FieldDescription) OneofType() reflect.Type {
+	return fd.oneofProp.Type
 }
 
 // OrigName returns the snake_case name of the field as it was declared within
@@ -267,13 +340,18 @@ func (fd *FieldDescription) Name() string {
 
 // SupportsPresence returns true if the field supports presence detection.
 func (fd *FieldDescription) SupportsPresence() bool {
-	return !fd.IsRepeated() && (fd.IsMessage() || !fd.proto3)
+	return !fd.IsRepeated() && (fd.IsMessage() || !fd.isProto3)
 }
 
 // String returns a struct-like field definition string.
 func (fd *FieldDescription) String() string {
 	return fmt.Sprintf("%s %s `oneof=%t`",
 		fd.TypeName(), fd.OrigName(), fd.IsOneof())
+}
+
+// Type returns the TypeDescription for the field.
+func (fd *FieldDescription) Type() *TypeDescription {
+	return fd.td
 }
 
 // TypeName returns the type name of the field.
