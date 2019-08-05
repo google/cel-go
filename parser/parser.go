@@ -34,7 +34,7 @@ import (
 // reservedIds are not legal to use as variables.  We exclude them post-parse, as they *are* valid
 // field names for protos, and it would complicate the grammar to distinguish the cases.
 var reservedIds = []string{
-	"as",  "break", "const", "continue", "else", "false", "for", "function", "if",
+	"as", "break", "const", "continue", "else", "false", "for", "function", "if",
 	"import", "in", "let", "loop", "package", "namespace", "null", "return",
 	"true", "var", "void", "while",
 }
@@ -330,16 +330,19 @@ func (p *parser) VisitIdentOrGlobalCall(ctx *gen.IdentOrGlobalCallContext) inter
 	if ctx.GetId() == nil {
 		return p.helper.newExpr(ctx)
 	}
-	identName += ctx.GetId().GetText()
+	// Handle reserved identifiers.
+	id := ctx.GetId().GetText()
+	for _, r := range reservedIds {
+		if r == id {
+			return p.reportError(ctx, "reserved identifier: %s", r)
+		}
+	}
+	identName += id
 	if ctx.GetOp() != nil {
 		opID := p.helper.id(ctx.GetOp())
 		return p.globalCallOrMacro(opID, identName, p.visitList(ctx.GetArgs())...)
 	}
-	id, err := p.helper.newIdent(ctx.GetId(), identName)
-	if err != nil {
-		return p.reportError(ctx, "%s", err.Error())
-	}
-	return id
+	return p.helper.newIdent(ctx.GetId(), identName)
 }
 
 // Visit a parse tree produced by CELParser#Nested.

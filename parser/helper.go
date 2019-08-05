@@ -15,7 +15,6 @@
 package parser
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/antlr/antlr4/runtime/Go/antlr"
@@ -80,15 +79,10 @@ func (p *parserHelper) newLiteralDouble(ctx interface{}, value float64) *exprpb.
 		&exprpb.Constant{ConstantKind: &exprpb.Constant_DoubleValue{DoubleValue: value}})
 }
 
-func (p *parserHelper) newIdent(ctx interface{}, name string) (*exprpb.Expr, error) {
-	for _, r := range reservedIds {
-		if r == name {
-			return nil, fmt.Errorf("reserved identifier: %s", name)
-		}
-	}
+func (p *parserHelper) newIdent(ctx interface{}, name string) *exprpb.Expr {
 	exprNode := p.newExpr(ctx)
 	exprNode.ExprKind = &exprpb.Expr_IdentExpr{IdentExpr: &exprpb.Expr_Ident{Name: name}}
-	return exprNode, nil
+	return exprNode
 }
 
 func (p *parserHelper) newSelect(ctx interface{}, operand *exprpb.Expr, field string) *exprpb.Expr {
@@ -356,7 +350,7 @@ func (e *exprHelper) Fold(iterVar string,
 }
 
 // Ident implements the ExprHelper interface method.
-func (e *exprHelper) Ident(name string) (*exprpb.Expr, error) {
+func (e *exprHelper) Ident(name string) *exprpb.Expr {
 	return e.parserHelper.newIdent(e.nextMacroID(), name)
 }
 
