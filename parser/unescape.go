@@ -23,7 +23,7 @@ import (
 // Unescape takes a quoted string, unquotes, and unescapes it.
 //
 // This function performs escaping compatible with GoogleSQL.
-func unescape(value string) (string, error) {
+func unescape(value string, is_bytes bool) (string, error) {
 	// All strings normalize newlines to the \n representation.
 	value = newlineNormalizer.Replace(value)
 	n := len(value)
@@ -73,12 +73,12 @@ func unescape(value string) (string, error) {
 	var runeTmp [utf8.UTFMax]byte
 	buf := make([]byte, 0, 3*n/2)
 	for len(value) > 0 {
-		c, multibyte, rest, err := unescapeChar(value)
+		c, encode, rest, err := unescapeChar(value, is_bytes)
 		if err != nil {
 			return "", err
 		}
 		value = rest
-		if c < utf8.RuneSelf || !multibyte {
+		if c < utf8.RuneSelf || !encode {
 			buf = append(buf, byte(c))
 		} else {
 			n := utf8.EncodeRune(runeTmp[:], c)
@@ -91,14 +91,17 @@ func unescape(value string) (string, error) {
 // unescapeChar takes a string input and returns the following info:
 //
 //   value - the escaped unicode rune at the front of the string.
-//   multibyte - whether the rune value might require multiple bytes to represent.
+//   encode - the value should be unicode-encoded
 //   tail - the remainder of the input string.
 //   err - error value, if the character could not be unescaped.
 //
-// When multibyte is true the return value may still fit within a single byte,
-// but a multibyte conversion is attempted which is more expensive than when the
-// value is known to fit within one byte.
-func unescapeChar(s string) (value rune, multibyte bool, tail string, err error) {
+// When encode is true the return value may still fit within a single byte,
+// but unicode encoding is attempted which is more expensive than when the
+// value is known to self-represent as a single byte.
+//
+// If is_bytes is set, unescape as a bytes literal so octal and hex escapes
+// represent byte values, not unicode code points.
+func unescapeChar(s string, is_bytes bool) (value rune, encode bool, tail string, err error) {
 	// 1. Character is not an escape sequence.
 	switch c := s[0]; {
 	case c >= utf8.RuneSelf:
@@ -146,13 +149,23 @@ func unescapeChar(s string) (value rune, multibyte bool, tail string, err error)
 	// 4. Unicode escape sequences, reproduced from `strconv/quote.go`
 	case 'x', 'X', 'u', 'U':
 		n := 0
+		encode = true
 		switch c {
 		case 'x', 'X':
 			n = 2
+			encode = !is_bytes
 		case 'u':
 			n = 4
+			if is_bytes {
+				err = fmt.Errorf("unable to unescape string")
+				return
+			}
 		case 'U':
 			n = 8
+			if is_bytes {
+				err = fmt.Errorf("unable to unescape string")
+				return
+			}
 		}
 		var v rune
 		if len(s) < n {
@@ -168,12 +181,11 @@ func unescapeChar(s string) (value rune, multibyte bool, tail string, err error)
 			v = v<<4 | x
 		}
 		s = s[n:]
-		if v > utf8.MaxRune {
+		if !is_bytes && v > utf8.MaxRune {
 			err = fmt.Errorf("unable to unescape string")
 			return
 		}
 		value = v
-		multibyte = true
 
 	// 5. Octal escape sequences, must be three digits \[0-3][0-7][0-7]
 	case '0', '1', '2', '3':
@@ -190,13 +202,13 @@ func unescapeChar(s string) (value rune, multibyte bool, tail string, err error)
 			}
 			v = v*8 + rune(x-'0')
 		}
-		if v > utf8.MaxRune {
+		if !is_bytes && v > utf8.MaxRune {
 			err = fmt.Errorf("unable to unescape string")
 			return
 		}
 		value = v
 		s = s[2:]
-		multibyte = true
+		encode = !is_bytes
 
 		// Unknown escape sequence.
 	default:

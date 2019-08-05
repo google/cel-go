@@ -3,7 +3,7 @@ package pb
 import (
 	"testing"
 
-	"github.com/google/cel-go/test/proto3pb"
+	proto3pb "github.com/google/cel-go/test/proto3pb"
 )
 
 func TestFileDescription_GetTypes(t *testing.T) {

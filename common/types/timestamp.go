@@ -17,6 +17,8 @@ package types
 import (
 	"fmt"
 	"reflect"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -215,7 +217,7 @@ func timestampGetMonth(t time.Time) ref.Val {
 	return Int(t.Month() - 1)
 }
 func timestampGetDayOfYear(t time.Time) ref.Val {
-	return Int(t.YearDay())
+	return Int(t.YearDay() - 1)
 }
 func timestampGetDayOfMonthZeroBased(t time.Time) ref.Val {
 	return Int(t.Day() - 1)
@@ -275,10 +277,35 @@ func timeZone(tz ref.Val, visitor timestampVisitor) timestampVisitor {
 		if StringType != tz.Type() {
 			return ValOrErr(tz, "no such overload")
 		}
-		loc, err := time.LoadLocation(string(tz.(String)))
-		if err == nil {
+		val := string(tz.(String))
+		ind := strings.Index(val, ":")
+		if ind == -1 {
+			loc, err := time.LoadLocation(val)
+			if err != nil {
+				return &Err{err}
+			}
 			return visitor(t.In(loc))
 		}
-		return &Err{err}
+
+		// If the input is not the name of a timezone (for example, 'US/Central'), it should be a numerical offset from UTC
+		// in the format ^(+|-)(0[0-9]|1[0-4]):[0-5][0-9]$. The numerical input is parsed in terms of hours and minutes.
+
+		hr, err := strconv.Atoi(string(val[0:ind]))
+		if err != nil {
+			return &Err{err}
+		}
+		min, err := strconv.Atoi(string(val[ind+1]))
+		if err != nil {
+			return &Err{err}
+		}
+		var offset int
+		if string(val[0]) == "-" {
+			offset = hr*60 - min
+		} else {
+			offset = hr*60 + min
+		}
+		secondsEastOfUTC := int((time.Duration(offset) * time.Minute).Seconds())
+		timezone := time.FixedZone("", secondsEastOfUTC)
+		return visitor(t.In(timezone))
 	}
 }

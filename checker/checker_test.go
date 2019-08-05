@@ -75,7 +75,6 @@ var testCases = []testInfo{
 		R:    `b"ABC"~bytes`,
 		Type: decls.Bytes,
 	},
-
 	// Ident types
 	{
 		I:    `is`,
@@ -125,7 +124,6 @@ var testCases = []testInfo{
 		Type: decls.Double,
 		Env:  testEnvs["default"],
 	},
-
 	{
 		I:    `[]`,
 		R:    `[]~list(dyn)`,
@@ -136,7 +134,6 @@ var testCases = []testInfo{
 		R:    `[1~int]~list(int)`,
 		Type: decls.NewListType(decls.Int),
 	},
-
 	{
 		I:    `[1, "A"]`,
 		R:    `[1~int, "A"~string]~list(dyn)`,
@@ -151,7 +148,6 @@ ERROR: <input>:1:1: undeclared reference to 'foo' (in container '')
 | foo
 | ^`,
 	},
-
 	// Call resolution
 	{
 		I:    `fg_s()`,
@@ -183,8 +179,6 @@ ERROR: <input>:1:1: undeclared reference to 'foo' (in container '')
 		Type: decls.NewListType(decls.Int),
 		Env:  testEnvs["default"],
 	},
-
-	// Tests from Java implementation
 	{
 		I:    `[] + [1,2,3,] + [4]`,
 		Type: decls.NewListType(decls.Int),
@@ -197,7 +191,6 @@ ERROR: <input>:1:1: undeclared reference to 'foo' (in container '')
 	~list(int)^add_list
 	`,
 	},
-
 	{
 		I: `[1, 2u] + []`,
 		R: `_+_(
@@ -209,13 +202,11 @@ ERROR: <input>:1:1: undeclared reference to 'foo' (in container '')
 		)~list(dyn)^add_list`,
 		Type: decls.NewListType(decls.Dyn),
 	},
-
 	{
 		I:    `{1:2u, 2:3u}`,
 		Type: decls.NewMapType(decls.Int, decls.Uint),
 		R:    `{1~int : 2u~uint, 2~int : 3u~uint}~map(int, uint)`,
 	},
-
 	{
 		I:    `{"a":1, "b":2}.a`,
 		Type: decls.Int,
@@ -235,7 +226,6 @@ ERROR: <input>:1:1: undeclared reference to 'foo' (in container '')
 	    ^google.expr.proto3.test.TestAllTypes`,
 		Type: decls.NewObjectType("google.expr.proto3.test.TestAllTypes"),
 	},
-
 	{
 		I:         `TestAllTypes{single_int32: 1u}`,
 		Container: "google.expr.proto3.test",
@@ -244,7 +234,6 @@ ERROR: <input>:1:1: undeclared reference to 'foo' (in container '')
 	  | TestAllTypes{single_int32: 1u}
 	  | .........................^`,
 	},
-
 	{
 		I:         `TestAllTypes{single_int32: 1, undefined: 2}`,
 		Container: "google.expr.proto3.test",
@@ -253,7 +242,6 @@ ERROR: <input>:1:1: undeclared reference to 'foo' (in container '')
 	  | TestAllTypes{single_int32: 1, undefined: 2}
 	  | .......................................^`,
 	},
-
 	{
 		I: `size(x) == x.size()`,
 		R: `
@@ -274,7 +262,6 @@ _+_(int(1u~uint)~int^uint64_to_int64,
   ~int^add_int64`,
 		Type: decls.Int,
 	},
-
 	{
 		I: `false && !true || false ? 2 : 3`,
 		R: `
@@ -287,13 +274,11 @@ _?_:_(_||_(_&&_(false~bool, !_(true~bool)~bool^logical_not)~bool^logical_and,
 `,
 		Type: decls.Int,
 	},
-
 	{
 		I:    `b"abc" + b"def"`,
 		R:    `_+_(b"abc"~bytes, b"def"~bytes)~bytes^add_bytes`,
 		Type: decls.Bytes,
 	},
-
 	{
 		I: `1.0 + 2.0 * 3.0 - 1.0 / 2.20202 != 66.6`,
 		R: `
@@ -305,19 +290,46 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
   ~bool^not_equals`,
 		Type: decls.Bool,
 	},
-
+	{
+		I: `null == null && null != null`,
+		R: `
+		_&&_(
+			_==_(
+				null~null,
+				null~null
+			)~bool^equals,
+			_!=_(
+				null~null,
+				null~null
+			)~bool^not_equals
+		)~bool^logical_and`,
+		Type: decls.Bool,
+	},
+	{
+		I: `1 == 1 && 2 != 1`,
+		R: `
+		_&&_(
+			_==_(
+				1~int,
+				1~int
+			)~bool^equals,
+			_!=_(
+				2~int,
+				1~int
+			)~bool^not_equals
+		)~bool^logical_and`,
+		Type: decls.Bool,
+	},
 	{
 		I:    `1 + 2 * 3 - 1 / 2 == 6 % 1`,
 		R:    ` _==_(_-_(_+_(1~int, _*_(2~int, 3~int)~int^multiply_int64)~int^add_int64, _/_(1~int, 2~int)~int^divide_int64)~int^subtract_int64, _%_(6~int, 1~int)~int^modulo_int64)~bool^equals`,
 		Type: decls.Bool,
 	},
-
 	{
 		I:    `"abc" + "def"`,
 		R:    `_+_("abc"~string, "def"~string)~string^add_string`,
 		Type: decls.String,
 	},
-
 	{
 		I: `1u + 2u * 3u - 1u / 2u == 6u % 1u`,
 		R: `_==_(_-_(_+_(1u~uint, _*_(2u~uint, 3u~uint)~uint^multiply_uint64)
@@ -328,7 +340,6 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 	~bool^equals`,
 		Type: decls.Bool,
 	},
-
 	{
 		I: `x.single_int32 != null`,
 		Env: env{
@@ -342,7 +353,6 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 	  | .^
 	`,
 	},
-
 	{
 		I: `x.single_value + 1 / x.single_struct.y == 23`,
 		Env: env{
@@ -362,7 +372,6 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 		  )~bool^equals`,
 		Type: decls.Bool,
 	},
-
 	{
 		I: `x.single_value[23] + x.single_struct['y']`,
 		Env: env{
@@ -383,7 +392,6 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 		  `,
 		Type: decls.Dyn,
 	},
-
 	{
 		I:         `TestAllTypes.NestedEnum.BAR != 99`,
 		Container: "google.expr.proto3.test",
@@ -393,7 +401,6 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 	~bool^not_equals`,
 		Type: decls.Bool,
 	},
-
 	{
 		I:    `size([] + [1])`,
 		R:    `size(_+_([]~list(int), [1~int]~list(int))~list(int)^add_list)~int^size_list`,
@@ -404,7 +411,6 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 			},
 		},
 	},
-
 	{
 		I: `x["claims"]["groups"][0].name == "dummy"
 		&& x.claims["exp"] == y[1].time
@@ -458,7 +464,6 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 		},
 		Type: decls.Bool,
 	},
-
 	{
 		I: `x + y`,
 		R: ``,
@@ -474,7 +479,6 @@ ERROR: <input>:1:3: found no matching overload for '_+_' applied to '(list(googl
   | ..^
 		`,
 	},
-
 	{
 		I: `x[1u]`,
 		Env: env{
@@ -488,7 +492,6 @@ ERROR: <input>:1:2: found no matching overload for '_[_]' applied to '(list(goog
   | .^
 `,
 	},
-
 	{
 		I: `(x + x)[1].single_int32 == size(x)`,
 		Env: env{
@@ -510,7 +513,6 @@ _==_(_[_](_+_(x~list(google.expr.proto3.test.TestAllTypes)^x,
 	`,
 		Type: decls.Bool,
 	},
-
 	{
 		I: `x.repeated_int64[x.single_int32] == 23`,
 		Env: env{
@@ -526,7 +528,6 @@ _==_(_[_](x~google.expr.proto3.test.TestAllTypes^x.repeated_int64~list(int),
   ~bool^equals`,
 		Type: decls.Bool,
 	},
-
 	{
 		I: `size(x.map_int64_nested_type) == 0`,
 		Env: env{
@@ -543,7 +544,6 @@ _==_(size(x~google.expr.proto3.test.TestAllTypes^x.map_int64_nested_type
 		`,
 		Type: decls.Bool,
 	},
-
 	{
 		I: `x.repeated_int64.map(x, double(x))`,
 		Env: env{
@@ -577,7 +577,6 @@ _==_(size(x~google.expr.proto3.test.TestAllTypes^x.map_int64_nested_type
 		`,
 		Type: decls.NewListType(decls.Double),
 	},
-
 	{
 		I: `x.repeated_int64.map(x, x > 0, double(x))`,
 		Env: env{
@@ -618,7 +617,6 @@ _==_(size(x~google.expr.proto3.test.TestAllTypes^x.map_int64_nested_type
 		`,
 		Type: decls.NewListType(decls.Double),
 	},
-
 	{
 		I: `x[2].single_int32 == 23`,
 		Env: env{
@@ -634,7 +632,6 @@ ERROR: <input>:1:2: found no matching overload for '_[_]' applied to '(map(strin
   | .^
 		`,
 	},
-
 	{
 		I: `x["a"].single_int32 == 23`,
 		Env: env{
@@ -654,7 +651,6 @@ ERROR: <input>:1:2: found no matching overload for '_[_]' applied to '(map(strin
 		~bool^equals`,
 		Type: decls.Bool,
 	},
-
 	{
 		I: `x.single_nested_message.bb == 43 && has(x.single_nested_message)`,
 		Env: env{
@@ -673,7 +669,6 @@ ERROR: <input>:1:2: found no matching overload for '_[_]' applied to '(map(strin
     		)~bool^logical_and`,
 		Type: decls.Bool,
 	},
-
 	{
 		I: `x.single_nested_message.undefined == x.undefined && has(x.single_int32) && has(x.repeated_int32)`,
 		Env: env{
@@ -696,7 +691,6 @@ ERROR: <input>:1:79: field 'repeated_int32' does not support presence check
  | ..............................................................................^
 		`,
 	},
-
 	{
 		I: `x.single_nested_message != null`,
 		Env: env{
@@ -712,7 +706,6 @@ ERROR: <input>:1:79: field 'repeated_int32' does not support presence check
 		`,
 		Type: decls.Bool,
 	},
-
 	{
 		I: `x.single_int64 != null`,
 		Env: env{
@@ -726,7 +719,6 @@ ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, nul
  | ...............^
 		`,
 	},
-
 	{
 		I: `x.single_int64_wrapper == null`,
 		Env: env{
@@ -740,6 +732,91 @@ ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, nul
 		null~null)
 		~bool^equals
 		`,
+		Type: decls.Bool,
+	},
+	{
+		I: `x.single_bool_wrapper
+		&& x.single_bytes_wrapper == b'hi'
+		&& x.single_double_wrapper != 2.0
+		&& x.single_float_wrapper == 1.0
+		&& x.single_int32_wrapper != 2
+		&& x.single_int64_wrapper == 1
+		&& x.single_string_wrapper == 'hi'
+		&& x.single_uint32_wrapper == 1u
+		&& x.single_uint64_wrapper != 42u`,
+		Env: env{
+			idents: []*exprpb.Decl{
+				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
+			},
+		},
+		R: `
+		_&&_(
+			_&&_(
+				_&&_(
+				_&&_(
+					x~google.expr.proto3.test.TestAllTypes^x.single_bool_wrapper~wrapper(bool),
+					_==_(
+					x~google.expr.proto3.test.TestAllTypes^x.single_bytes_wrapper~wrapper(bytes),
+					b"hi"~bytes
+					)~bool^equals
+				)~bool^logical_and,
+				_!=_(
+					x~google.expr.proto3.test.TestAllTypes^x.single_double_wrapper~wrapper(double),
+					2~double
+				)~bool^not_equals
+				)~bool^logical_and,
+				_&&_(
+				_==_(
+					x~google.expr.proto3.test.TestAllTypes^x.single_float_wrapper~wrapper(double),
+					1~double
+				)~bool^equals,
+				_!=_(
+					x~google.expr.proto3.test.TestAllTypes^x.single_int32_wrapper~wrapper(int),
+					2~int
+				)~bool^not_equals
+				)~bool^logical_and
+			)~bool^logical_and,
+			_&&_(
+				_&&_(
+				_==_(
+					x~google.expr.proto3.test.TestAllTypes^x.single_int64_wrapper~wrapper(int),
+					1~int
+				)~bool^equals,
+				_==_(
+					x~google.expr.proto3.test.TestAllTypes^x.single_string_wrapper~wrapper(string),
+					"hi"~string
+				)~bool^equals
+				)~bool^logical_and,
+				_&&_(
+				_==_(
+					x~google.expr.proto3.test.TestAllTypes^x.single_uint32_wrapper~wrapper(uint),
+					1u~uint
+				)~bool^equals,
+				_!=_(
+					x~google.expr.proto3.test.TestAllTypes^x.single_uint64_wrapper~wrapper(uint),
+					42u~uint
+				)~bool^not_equals
+				)~bool^logical_and
+			)~bool^logical_and
+		)~bool^logical_and`,
+		Type: decls.Bool,
+	},
+	{
+		I: `x.single_bool_wrapper == google.protobuf.BoolValue{value: true}
+			&& x.single_bytes_wrapper == google.protobuf.BytesValue{value: b'hi'}
+			&& x.single_double_wrapper != google.protobuf.DoubleValue{value: 2.0}
+			&& x.single_float_wrapper == google.protobuf.FloatValue{value: 1.0}
+			&& x.single_int32_wrapper != google.protobuf.Int32Value{value: -2}
+			&& x.single_int64_wrapper == google.protobuf.Int64Value{value: 1}
+			&& x.single_string_wrapper == google.protobuf.StringValue{value: 'hi'}
+			&& x.single_string_wrapper == google.protobuf.Value{string_value: 'hi'}
+			&& x.single_uint32_wrapper == google.protobuf.UInt32Value{value: 1u}
+			&& x.single_uint64_wrapper != google.protobuf.UInt64Value{value: 42u}`,
+		Env: env{
+			idents: []*exprpb.Decl{
+				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
+			},
+		},
 		Type: decls.Bool,
 	},
 	{
@@ -862,6 +939,42 @@ ERROR: <input>:1:6: found no matching overload for '_&&_' applied to '(bool, int
  | .....^
 		`,
 	},
+	{
+		I: `lists.filter(x, x > 1.5)`,
+		R: `__comprehension__(
+			// Variable
+			x,
+			// Target
+			lists~dyn^lists,
+			// Accumulator
+			__result__,
+			// Init
+			[]~list(dyn),
+			// LoopCondition
+			true~bool,
+			// LoopStep
+			_?_:_(
+			  _>_(
+				x~dyn^x,
+				1.5~double
+			  )~bool^greater_double,
+			  _+_(
+				__result__~list(dyn)^__result__,
+				[
+				  x~dyn^x
+				]~list(dyn)
+			  )~list(dyn)^add_list,
+			  __result__~list(dyn)^__result__
+			)~list(dyn)^conditional,
+			// Result
+			__result__~list(dyn)^__result__)~list(dyn)`,
+		Type: decls.NewListType(decls.Dyn),
+		Env: env{
+			idents: []*exprpb.Decl{
+				decls.NewIdent("lists", decls.Dyn, nil),
+			},
+		},
+	},
 
 	{
 		I: `.google.expr.proto3.test.TestAllTypes`,
@@ -913,7 +1026,7 @@ ERROR: <input>:1:5: undeclared reference to 'x' (in container '')
 						x~any^x,
 						google.protobuf.Any{
 							type_url:"types.googleapis.com/google.expr.proto3.test.TestAllTypes"~string
-						}~google.protobuf.Any^google.protobuf.Any
+						}~any^google.protobuf.Any
 					)~bool^equals,
 					_==_(
 						x~any^x.single_nested_message~dyn.bb~dyn,
@@ -1167,6 +1280,75 @@ _&&_(_==_(list~type(list(dyn))^list,
 			]~list(string)
 		)~bool^in_list`,
 		Type: decls.Bool,
+	},
+	{
+		I: `([[[1]], [[2]], [[3]]][0][0] + [2, 3, {'four': {'five': 'six'}}])[3]`,
+		R: `_[_](
+			_+_(
+				_[_](
+					_[_](
+						[
+							[
+								[
+									1~int
+								]~list(int)
+							]~list(list(int)),
+							[
+								[
+									2~int
+								]~list(int)
+							]~list(list(int)),
+							[
+								[
+									3~int
+								]~list(int)
+							]~list(list(int))
+						]~list(list(list(int))),
+						0~int
+					)~list(list(int))^index_list,
+					0~int
+				)~list(int)^index_list,
+				[
+					2~int,
+					3~int,
+					{
+						"four"~string:{
+							"five"~string:"six"~string
+						}~map(string, string)
+					}~map(string, map(string, string))
+				]~list(dyn)
+			)~list(dyn)^add_list,
+			3~int
+		)~dyn^index_list`,
+		Type: decls.Dyn,
+	},
+	{
+		I: `[1] + [dyn('string')]`,
+		R: `_+_(
+			[
+				1~int
+			]~list(int),
+			[
+				dyn(
+					"string"~string
+				)~dyn^to_dyn
+			]~list(dyn)
+		)~list(dyn)^add_list`,
+		Type: decls.NewListType(decls.Dyn),
+	},
+	{
+		I: `[dyn('string')] + [1]`,
+		R: `_+_(
+			[
+				dyn(
+					"string"~string
+				)~dyn^to_dyn
+			]~list(dyn),
+			[
+				1~int
+			]~list(int)
+		)~list(dyn)^add_list`,
+		Type: decls.NewListType(decls.Dyn),
 	},
 }
 

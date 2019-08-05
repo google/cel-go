@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"sync"
 	"testing"
 
 	"github.com/google/cel-go/common/operators"
@@ -321,13 +322,13 @@ func Test_CustomTypes(t *testing.T) {
 			CallExpr: &exprpb.Expr_Call{
 				Function: "_==_",
 				Args: []*exprpb.Expr{
-					&exprpb.Expr{
+					{
 						Id: 1,
 						ExprKind: &exprpb.Expr_IdentExpr{
 							IdentExpr: &exprpb.Expr_Ident{Name: "a"},
 						},
 					},
-					&exprpb.Expr{
+					{
 						Id: 3,
 						ExprKind: &exprpb.Expr_IdentExpr{
 							IdentExpr: &exprpb.Expr_Ident{Name: "b"},
@@ -561,4 +562,38 @@ func Benchmark_EvalOptions(b *testing.B) {
 			}
 		})
 	}
+}
+
+func Test_ParseAndCheckConcurrently(t *testing.T) {
+	e, _ := NewEnv(
+		Container("google.api.expr.v1alpha1"),
+		Types(&exprpb.Expr{}),
+		Declarations(
+			decls.NewIdent("expr",
+				decls.NewObjectType("google.api.expr.v1alpha1.Expr"), nil),
+		),
+	)
+
+	parseAndCheck := func(expr string) {
+		p, iss := e.Parse(expr)
+		if iss != nil && iss.Err() != nil {
+			t.Fatalf("Failed to parse '%s': %v", expr, iss.Err())
+		}
+		_, iss = e.Check(p)
+		if iss != nil && iss.Err() != nil {
+			t.Fatalf("Failed to check '%s': %v", expr, iss.Err())
+		}
+	}
+
+	const concurrency = 10
+	wgDone := sync.WaitGroup{}
+	wgDone.Add(concurrency)
+
+	for i := 0; i < concurrency; i++ {
+		go func(i int) {
+			defer wgDone.Done()
+			parseAndCheck(fmt.Sprintf("expr.id + %d", i))
+		}(i)
+	}
+	wgDone.Wait()
 }

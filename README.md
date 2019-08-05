@@ -49,7 +49,7 @@ import(
 env, err := cel.NewEnv(
     cel.Declarations(
         decls.NewIdent("name", decls.String, nil),
-        decls.NewIdent("group", decls.String, nil))
+        decls.NewIdent("group", decls.String, nil)))
 ```
 
 That's it, the environment is ready to be use for parsing and type-checking.
@@ -130,7 +130,7 @@ ignored.
 // was arrive at.
 out, details, err := prg.Eval(map[string]interface{}{
     "name": "/groups/acme.co/documents/secret-stuff",
-    "group": "acme.co"}})
+    "group": "acme.co"})
 fmt.Println(out) // 'true'
 ```
 
