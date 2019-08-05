@@ -793,10 +793,6 @@ func (e *evalAttr) getAdapter() ref.TypeAdapter {
 	return e.adapter
 }
 
-func (e *evalAttr) getAdapter() ref.TypeAdapter {
-	return e.adapter
-}
-
 func (e *evalAttr) getResolver() Resolver {
 	return e.resolver
 }
@@ -874,10 +870,6 @@ func (e *evalOneofAttr) getAdapter() ref.TypeAdapter {
 	return e.adapter
 }
 
-func (e *evalOneofAttr) getAdapter() ref.TypeAdapter {
-	return e.adapter
-}
-
 func (e *evalOneofAttr) getResolver() Resolver {
 	return e.resolver
 }
@@ -920,10 +912,6 @@ func (e *evalRelAttr) addIndex(pe *PathElem) attrInst {
 		op:       e.op,
 		resolver: e.resolver,
 	}
-}
-
-func (e *evalRelAttr) getAdapter() ref.TypeAdapter {
-	return e.adapter
 }
 
 func (e *evalRelAttr) getAdapter() ref.TypeAdapter {
