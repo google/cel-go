@@ -93,10 +93,10 @@ func (fd *FileDescription) indexTypes(pkg string, msgTypes []*descpb.DescriptorP
 	for _, msgType := range msgTypes {
 		msgName := fmt.Sprintf("%s.%s", pkg, msgType.GetName())
 		td := &TypeDescription{
-			typeName:   msgName,
-			file:       fd,
-			desc:       msgType,
-			fieldsInfo: &atomic.Value{},
+			typeName: msgName,
+			file:     fd,
+			desc:     msgType,
+			metadata: &atomic.Value{},
 		}
 		fd.types[msgName] = td
 		fd.indexTypes(msgName, msgType.NestedType)
