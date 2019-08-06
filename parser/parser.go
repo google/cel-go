@@ -31,6 +31,14 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
+// reservedIds are not legal to use as variables.  We exclude them post-parse, as they *are* valid
+// field names for protos, and it would complicate the grammar to distinguish the cases.
+var reservedIds = []string{
+	"as", "break", "const", "continue", "else", "false", "for", "function", "if",
+	"import", "in", "let", "loop", "package", "namespace", "null", "return",
+	"true", "var", "void", "while",
+}
+
 // Parse converts a source input a parsed expression.
 // This function calls ParseWithMacros with AllMacros.
 func Parse(source common.Source) (*exprpb.ParsedExpr, *common.Errors) {
@@ -322,7 +330,14 @@ func (p *parser) VisitIdentOrGlobalCall(ctx *gen.IdentOrGlobalCallContext) inter
 	if ctx.GetId() == nil {
 		return p.helper.newExpr(ctx)
 	}
-	identName += ctx.GetId().GetText()
+	// Handle reserved identifiers.
+	id := ctx.GetId().GetText()
+	for _, r := range reservedIds {
+		if r == id {
+			return p.reportError(ctx, "reserved identifier: %s", r)
+		}
+	}
+	identName += id
 	if ctx.GetOp() != nil {
 		opID := p.helper.id(ctx.GetOp())
 		return p.globalCallOrMacro(opID, identName, p.visitList(ctx.GetArgs())...)
@@ -515,7 +530,7 @@ func (p *parser) extractQualifiedName(e *exprpb.Expr) (string, bool) {
 func (p *parser) unquote(ctx interface{}, value string, is_bytes bool) string {
 	text, err := unescape(value, is_bytes)
 	if err != nil {
-		p.reportError(ctx, err.Error())
+		p.reportError(ctx, "%s", err.Error())
 		return value
 	}
 	return text
