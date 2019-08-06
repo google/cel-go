@@ -181,7 +181,7 @@ func (c *checker) checkSelect(e *exprpb.Expr) {
 	resultType := decls.Error
 	switch kindOf(targetType) {
 	case kindMap:
-		// Maps yeild their value type as the selection result type.
+		// Maps yield their value type as the selection result type.
 		mapType := targetType.GetMapType()
 		resultType = mapType.ValueType
 	case kindObject:

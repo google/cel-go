@@ -70,8 +70,7 @@ func TestTypeDescription_Wrapper(t *testing.T) {
 
 func TestTypeDescription_WrapperNotInTypeInit(t *testing.T) {
 	pbdb := NewDb()
-	_, err := pbdb.DescribeType(".google.protobuf.BytesValue")
-	if err != nil {
+	if _, err := pbdb.DescribeType(".google.protobuf.BytesValue"); err != nil {
 		t.Error(err)
 	}
 }
