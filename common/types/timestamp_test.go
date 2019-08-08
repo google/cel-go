@@ -51,6 +51,21 @@ func TestTimestamp_Subtract(t *testing.T) {
 	}
 }
 
+func TestTimestamp_RecieveGetDayOfYear(t *testing.T) {
+	// 1970-01-01T02:05:05Z
+	ts := Timestamp{&tpb.Timestamp{Seconds: 7506}}
+	hr := ts.Receive(overloads.TimeGetDayOfYear, overloads.TimestampToDayOfYear, []ref.Val{})
+	if !hr.Equal(Int(0)).(Bool) {
+		t.Error("Expected 0, got", hr)
+	}
+	// 1969-12-31T19:05:05Z
+	hrTz := ts.Receive(overloads.TimeGetDayOfYear, overloads.TimestampToDayOfYearWithTz,
+		[]ref.Val{String("America/Phoenix")})
+	if !hrTz.Equal(Int(364)).(Bool) {
+		t.Error("Expected 364, got", hrTz)
+	}
+}
+
 func TestTimestamp_ReceiveGetMonth(t *testing.T) {
 	// 1970-01-01T02:05:05Z
 	ts := Timestamp{&tpb.Timestamp{Seconds: 7506}}
