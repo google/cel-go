@@ -7,7 +7,7 @@ steps:
         # at start is recorded and written to a file, then read at the end to ensure monotonically increasing numbers.
         - name: 'ubuntu'
           # stores timestamp in _DATE to use as build id
-          args: ['bash', '-c', 'date +%y%m%d%H%M%S > _DATE' ]
+          args: ['bash', '-c', 'date +%Y%M%D%H%M%S > _DATE' ]
         - name: 'gcr.io/cloud-builders/gsutil'
           # writes _DATE to GCS bucket so it can be used as GCS folder name
           args: ['cp', '-r', '_DATE', 'gs://cel-conformance']
