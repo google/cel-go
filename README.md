@@ -2,7 +2,6 @@
 
 [![Build Status](https://travis-ci.org/google/cel-go.svg?branch=master)](https://travis-ci.org/google/cel-go) [![Go Report Card](https://goreportcard.com/badge/github.com/google/cel-go)](https://goreportcard.com/report/github.com/google/cel-go)
 [![GoDoc](https://godoc.org/github.com/google/cel-go?status.svg)][6]
-[![google-cel/cel-go](https://testgrid.k8s.io/q/summary/google-cel/cel-go/tests_status?style=svg)](https://testgrid.k8s.io/google-cel#cel-go)
 
 The Common Expression Language (CEL) is a non-Turing complete language designed
 for simplicity, speed, safety, and portability. CEL's C-like [syntax][1] looks
@@ -29,6 +28,9 @@ of the syntax.
 
 CEL is ideal for lightweight expression evaluation when a fully sandboxed
 scripting language is too resource intensive.
+
+A dashboard that shows results of cel-go conformance tests can be found
+[here](https://k8s-testgrid.appspot.com/google-cel#cel-go).
 
 ## Overview
 
