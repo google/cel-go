@@ -81,7 +81,7 @@ func TestBaseMap_ConvertToNative_Json(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	jsonTxt, err := (&jsonpb.Marshaler{}).MarshalToString(json.(proto.Message))
+	jsonTxt, _ := (&jsonpb.Marshaler{}).MarshalToString(json.(proto.Message))
 	if jsonTxt != `{"nested":{"1":-1}}` {
 		t.Error(jsonTxt)
 	}
@@ -96,7 +96,7 @@ func TestStringMap_ConvertToNative_Json(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	jsonTxt, err := (&jsonpb.Marshaler{}).MarshalToString(json.(proto.Message))
+	jsonTxt, _ := (&jsonpb.Marshaler{}).MarshalToString(json.(proto.Message))
 	if jsonTxt != `{"first":"hello","second":"world"}` {
 		t.Error(jsonTxt)
 	}

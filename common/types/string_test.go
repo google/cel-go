@@ -96,7 +96,7 @@ func TestString_ConvertToType(t *testing.T) {
 		t.Error("String could not be converted to int")
 	}
 	if !String("false").ConvertToType(BoolType).Equal(False).(Bool) {
-		t.Error("String could not be coverted to bool")
+		t.Error("String could not be converted to bool")
 	}
 	if !String("1").ConvertToType(UintType).Equal(Uint(1)).(Bool) {
 		t.Error("String could not be converted to uint")

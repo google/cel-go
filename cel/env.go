@@ -18,9 +18,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/google/cel-go/checker/decls"
-
 	"github.com/google/cel-go/checker"
+	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/packages"
 	"github.com/google/cel-go/common/types"

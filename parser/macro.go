@@ -186,7 +186,7 @@ type ExprHelper interface {
 	//
 	// - iterVar is the iteration variable name.
 	// - iterRange represents the expression that resolves to a list or map where the elements or
-	//   keys (repsectively) will be iterated over.
+	//   keys (respectively) will be iterated over.
 	// - accuVar is the accumulation variable name, typically parser.AccumulatorName.
 	// - accuInit is the initial expression whose value will be set for the accuVar prior to
 	//   folding.
