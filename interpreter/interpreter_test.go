@@ -828,7 +828,7 @@ func TestInterpreter_SetProto2PrimitiveFields(t *testing.T) {
 	}
 }
 
-func TestInterpreter_CustomTypeProvider(t *testing.T) {
+func TestInterpreter_MissingIdentInSelect(t *testing.T) {
 	src := common.NewTextSource(`a.b.c`)
 	parsed, errors := parser.Parse(src)
 	if len(errors.GetErrors()) != 0 {
@@ -847,7 +847,7 @@ func TestInterpreter_CustomTypeProvider(t *testing.T) {
 	i, _ := interp.NewInterpretable(checked)
 	vars := EmptyActivation()
 	result := i.Eval(vars)
-	if !types.IsUnknownOrError(result) {
+	if !types.IsUnknown(result) {
 		t.Errorf("Got %v, wanted unknown", result)
 	}
 }
