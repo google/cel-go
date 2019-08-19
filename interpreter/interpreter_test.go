@@ -847,6 +847,7 @@ func TestInterpreter_MissingIdentInSelect(t *testing.T) {
 	i, _ := interp.NewInterpretable(checked)
 	vars := EmptyActivation()
 	result := i.Eval(vars)
+	// TODO: When Issue #190 is fixed, this result should be an error.
 	if !types.IsUnknown(result) {
 		t.Errorf("Got %v, wanted unknown", result)
 	}
