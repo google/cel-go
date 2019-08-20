@@ -828,6 +828,31 @@ func TestInterpreter_SetProto2PrimitiveFields(t *testing.T) {
 	}
 }
 
+func TestInterpreter_MissingIdentInSelect(t *testing.T) {
+	src := common.NewTextSource(`a.b.c`)
+	parsed, errors := parser.Parse(src)
+	if len(errors.GetErrors()) != 0 {
+		t.Fatalf(errors.ToDisplayString())
+	}
+
+	reg := types.NewRegistry()
+	env := checker.NewStandardEnv(packages.DefaultPackage, reg)
+	env.Add(decls.NewIdent("a.b", decls.Dyn, nil))
+	checked, errors := checker.Check(parsed, src, env)
+	if len(errors.GetErrors()) != 0 {
+		t.Fatalf(errors.ToDisplayString())
+	}
+
+	interp := NewStandardInterpreter(packages.NewPackage("test"), reg, reg)
+	i, _ := interp.NewInterpretable(checked)
+	vars := EmptyActivation()
+	result := i.Eval(vars)
+	// TODO: When Issue #190 is fixed, this result should be an error.
+	if !types.IsUnknown(result) {
+		t.Errorf("Got %v, wanted unknown", result)
+	}
+}
+
 func program(tst *testCase, opts ...InterpretableDecorator) (Interpretable, Activation, error) {
 	// Configure the package.
 	pkg := packages.DefaultPackage
