@@ -177,8 +177,11 @@ func (or *evalOr) Eval(ctx Activation) ref.Val {
 	if types.IsUnknown(rVal) {
 		return rVal
 	}
-	// if the left-hand side is non-boolean return it as the error.
-	return types.ValOrErr(lVal, "no such overload")
+	// If the left-hand side is non-boolean return it as the error.
+	if types.IsError(lVal) {
+		return types.ValOrErr(lVal, "no such overload")
+	}
+	return types.ValOrErr(rVal, "no such overload")
 }
 
 type evalAnd struct {
@@ -218,8 +221,11 @@ func (and *evalAnd) Eval(ctx Activation) ref.Val {
 	if types.IsUnknown(rVal) {
 		return rVal
 	}
-	// if the left-hand side is non-boolean return it as the error.
-	return types.ValOrErr(lVal, "no such overload")
+	// If the left-hand side is non-boolean return it as the error.
+	if types.IsError(lVal) {
+		return types.ValOrErr(lVal, "no such overload")
+	}
+	return types.ValOrErr(rVal, "no such overload")
 }
 
 type evalConditional struct {
@@ -632,7 +638,11 @@ func (or *evalExhaustiveOr) Eval(ctx Activation) ref.Val {
 	if types.IsUnknown(rVal) {
 		return rVal
 	}
-	return types.ValOrErr(lVal, "no such overload")
+	// If the left-hand side is non-boolean return it as the error.
+	if types.IsError(lVal) {
+		return types.ValOrErr(lVal, "no such overload")
+	}
+	return types.ValOrErr(rVal, "no such overload")
 }
 
 // evalExhaustiveAnd is just like evalAnd, but does not short-circuit argument evaluation.
@@ -668,7 +678,11 @@ func (and *evalExhaustiveAnd) Eval(ctx Activation) ref.Val {
 	if types.IsUnknown(rVal) {
 		return rVal
 	}
-	return types.ValOrErr(lVal, "no such overload")
+	// If the left-hand side is non-boolean return it as the error.
+	if types.IsError(lVal) {
+		return types.ValOrErr(lVal, "no such overload")
+	}
+	return types.ValOrErr(rVal, "no such overload")
 }
 
 // evalExhaustiveConditional is like evalConditional, but does not short-circuit argument
