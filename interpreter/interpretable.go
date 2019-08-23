@@ -179,7 +179,7 @@ func (or *evalOr) Eval(ctx Activation) ref.Val {
 	}
 	// If the left-hand side is non-boolean return it as the error.
 	if types.IsError(lVal) {
-		return types.ValOrErr(lVal, "no such overload")
+		return lVal
 	}
 	return types.ValOrErr(rVal, "no such overload")
 }
@@ -223,7 +223,7 @@ func (and *evalAnd) Eval(ctx Activation) ref.Val {
 	}
 	// If the left-hand side is non-boolean return it as the error.
 	if types.IsError(lVal) {
-		return types.ValOrErr(lVal, "no such overload")
+		return lVal
 	}
 	return types.ValOrErr(rVal, "no such overload")
 }
@@ -638,9 +638,10 @@ func (or *evalExhaustiveOr) Eval(ctx Activation) ref.Val {
 	if types.IsUnknown(rVal) {
 		return rVal
 	}
+	// TODO: Combine the errors into a set in the future.
 	// If the left-hand side is non-boolean return it as the error.
 	if types.IsError(lVal) {
-		return types.ValOrErr(lVal, "no such overload")
+		return lVal
 	}
 	return types.ValOrErr(rVal, "no such overload")
 }
@@ -678,9 +679,10 @@ func (and *evalExhaustiveAnd) Eval(ctx Activation) ref.Val {
 	if types.IsUnknown(rVal) {
 		return rVal
 	}
+	// TODO: Combine the errors into a set in the future.
 	// If the left-hand side is non-boolean return it as the error.
 	if types.IsError(lVal) {
-		return types.ValOrErr(lVal, "no such overload")
+		return lVal
 	}
 	return types.ValOrErr(rVal, "no such overload")
 }
