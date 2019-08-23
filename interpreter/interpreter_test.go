@@ -52,6 +52,7 @@ type testCase struct {
 
 	in  map[string]interface{}
 	out interface{}
+	err bool
 }
 
 var (
@@ -65,6 +66,26 @@ var (
 			name: "and_false_2nd",
 			expr: `true && false`,
 			out:  types.False,
+		},
+		{
+			name: "and_error_1st_false",
+			expr: `1/0 != 0 && false`,
+			out:  types.False,
+		},
+		{
+			name: "and_error_2nd_false",
+			expr: `false && 1/0 != 0`,
+			out:  types.False,
+		},
+		{
+			name: "and_error_1st_error",
+			expr: `1/0 != 0 && true`,
+			err:  true,
+		},
+		{
+			name: "and_error_2nd_error",
+			expr: `true && 1/0 != 0`,
+			err:  true,
 		},
 		{
 			name:      "call_no_args",
@@ -393,6 +414,26 @@ var (
 			out: types.False,
 		},
 		{
+			name: "or_error_1st_error",
+			expr: `1/0 != 0 || false`,
+			err:  true,
+		},
+		{
+			name: "or_error_2nd_error",
+			expr: `false || 1/0 != 0`,
+			err:  true,
+		},
+		{
+			name: "or_error_1st_true",
+			expr: `1/0 != 0 || true`,
+			out:  types.True,
+		},
+		{
+			name: "or_error_2nd_true",
+			expr: `true || 1/0 != 0`,
+			out:  types.True,
+		},
+		{
 			name: "pkg_qualified_id",
 			expr: `b.c.d != 10`,
 			pkg:  "a.b",
@@ -653,11 +694,15 @@ func TestInterpreter(t *testing.T) {
 				want = tc.out.(ref.Val)
 			}
 			got := prg.Eval(vars)
-			gotUnk, isUnk := got.(types.Unknown)
-			wantUnk, expectUnk := want.(types.Unknown)
-			if isUnk && expectUnk {
-				if !reflect.DeepEqual(gotUnk, wantUnk) {
+			_, expectUnk := want.(types.Unknown)
+			if expectUnk {
+				if !reflect.DeepEqual(got, want) {
 					tt.Errorf("Got %v, wanted %v", got, want)
+					return
+				}
+			} else if tc.err {
+				if !types.IsError(got) {
+					tt.Errorf("Got %v, wanted error", got)
 					return
 				}
 			} else if got.Equal(want) != types.True {
@@ -674,11 +719,14 @@ func TestInterpreter(t *testing.T) {
 				prg, vars, _ = program(&tc, opt)
 				tt.Run(mode, func(ttt *testing.T) {
 					got := prg.Eval(vars)
-					gotUnk, isUnk := got.(types.Unknown)
-					wantUnk, expectUnk := want.(types.Unknown)
-					if isUnk && expectUnk {
-						if !reflect.DeepEqual(gotUnk, wantUnk) {
+					_, expectUnk := want.(types.Unknown)
+					if expectUnk {
+						if !reflect.DeepEqual(got, want) {
 							ttt.Errorf("Got %v, wanted %v", got, want)
+						}
+					} else if tc.err {
+						if !types.IsError(got) {
+							ttt.Errorf("Got %v, wanted error", got)
 						}
 					} else if got.Equal(want) != types.True {
 						ttt.Errorf("Got %v, wanted %v", got, want)
