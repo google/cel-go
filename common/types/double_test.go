@@ -128,7 +128,7 @@ func TestDouble_Divide(t *testing.T) {
 	if !Double(3).Divide(Double(1.5)).Equal(Double(2)).(Bool) {
 		t.Error("Dividing two doubles did not match expectations.")
 	}
-	var z float64	// Avoid 0.0 since const div by zero is an error.
+	var z float64 // Avoid 0.0 since const div by zero is an error.
 	if !Double(1.1).Divide(Double(0)).Equal(Double(1.1 / z)).(Bool) {
 		t.Error("Division by zero did not match infinity.")
 	}

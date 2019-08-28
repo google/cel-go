@@ -29,6 +29,9 @@ of the syntax.
 CEL is ideal for lightweight expression evaluation when a fully sandboxed
 scripting language is too resource intensive.
 
+A dashboard that shows results of cel-go conformance tests can be found
+[here](https://k8s-testgrid.appspot.com/google-cel#cel-go).
+
 ## Overview
 
 Determine the variables and functions you want to provide to CEL. Parse and

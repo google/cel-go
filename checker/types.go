@@ -179,6 +179,11 @@ func isEqualOrLessSpecific(t1 *exprpb.Type, t2 *exprpb.Type) bool {
 
 /// internalIsAssignable returns true if t1 is assignable to t2.
 func internalIsAssignable(m *mapping, t1 *exprpb.Type, t2 *exprpb.Type) bool {
+	// A type is always assignable to itself.
+	// Early terminate the call to avoid cases of infinite recursion.
+	if proto.Equal(t1, t2) {
+		return true
+	}
 	// Process type parameters.
 	kind1, kind2 := kindOf(t1), kindOf(t2)
 	if kind2 == kindTypeParam {

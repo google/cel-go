@@ -197,8 +197,9 @@ func (p *planner) planSelect(expr *exprpb.Expr) (Interpretable, error) {
 		}
 		// Otherwise, generate an evalIdent Interpretable.
 		i = &evalIdent{
-			id:   expr.Id,
-			name: idName,
+			id:       expr.Id,
+			name:     idName,
+			provider: p.provider,
 		}
 		p.identMap[idName] = i
 		return i, nil

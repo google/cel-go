@@ -404,7 +404,7 @@ func TestStringList_ConvertToNative_Json(t *testing.T) {
 	if err != nil {
 		t.Errorf("Got '%v', expected '%v'", err, jsonList)
 	}
-	jsonListTxt, err := (&jsonpb.Marshaler{}).MarshalToString(jsonList.(proto.Message))
+	jsonListTxt, _ := (&jsonpb.Marshaler{}).MarshalToString(jsonList.(proto.Message))
 	if jsonTxt != jsonListTxt {
 		t.Errorf("Json value and list value not equal.")
 	}
