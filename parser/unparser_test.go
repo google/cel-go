@@ -81,7 +81,7 @@ func TestUnparse_Identical(t *testing.T) {
 			if out != in {
 				tt.Errorf("Got '%s', wanted '%s'", out, in)
 			}
-			p2, iss := Parse(common.NewTextSource(out))
+			p2, _ := Parse(common.NewTextSource(out))
 			before := p.GetExpr()
 			after := p2.GetExpr()
 			if !proto.Equal(before, after) {
@@ -113,7 +113,7 @@ func TestUnparse_Equivalent(t *testing.T) {
 			if out != in[1] {
 				tt.Errorf("Got '%s', wanted '%s'", out, in[1])
 			}
-			p2, iss := Parse(common.NewTextSource(out))
+			p2, _ := Parse(common.NewTextSource(out))
 			before := p.GetExpr()
 			after := p2.GetExpr()
 			if !proto.Equal(before, after) {
