@@ -23,7 +23,7 @@ import (
 // Unescape takes a quoted string, unquotes, and unescapes it.
 //
 // This function performs escaping compatible with GoogleSQL.
-func unescape(value string, is_bytes bool) (string, error) {
+func unescape(value string, isBytes bool) (string, error) {
 	// All strings normalize newlines to the \n representation.
 	value = newlineNormalizer.Replace(value)
 	n := len(value)
@@ -73,7 +73,7 @@ func unescape(value string, is_bytes bool) (string, error) {
 	var runeTmp [utf8.UTFMax]byte
 	buf := make([]byte, 0, 3*n/2)
 	for len(value) > 0 {
-		c, encode, rest, err := unescapeChar(value, is_bytes)
+		c, encode, rest, err := unescapeChar(value, isBytes)
 		if err != nil {
 			return "", err
 		}
@@ -99,9 +99,9 @@ func unescape(value string, is_bytes bool) (string, error) {
 // but unicode encoding is attempted which is more expensive than when the
 // value is known to self-represent as a single byte.
 //
-// If is_bytes is set, unescape as a bytes literal so octal and hex escapes
+// If isBytes is set, unescape as a bytes literal so octal and hex escapes
 // represent byte values, not unicode code points.
-func unescapeChar(s string, is_bytes bool) (value rune, encode bool, tail string, err error) {
+func unescapeChar(s string, isBytes bool) (value rune, encode bool, tail string, err error) {
 	// 1. Character is not an escape sequence.
 	switch c := s[0]; {
 	case c >= utf8.RuneSelf:
@@ -153,16 +153,16 @@ func unescapeChar(s string, is_bytes bool) (value rune, encode bool, tail string
 		switch c {
 		case 'x', 'X':
 			n = 2
-			encode = !is_bytes
+			encode = !isBytes
 		case 'u':
 			n = 4
-			if is_bytes {
+			if isBytes {
 				err = fmt.Errorf("unable to unescape string")
 				return
 			}
 		case 'U':
 			n = 8
-			if is_bytes {
+			if isBytes {
 				err = fmt.Errorf("unable to unescape string")
 				return
 			}
@@ -181,7 +181,7 @@ func unescapeChar(s string, is_bytes bool) (value rune, encode bool, tail string
 			v = v<<4 | x
 		}
 		s = s[n:]
-		if !is_bytes && v > utf8.MaxRune {
+		if !isBytes && v > utf8.MaxRune {
 			err = fmt.Errorf("unable to unescape string")
 			return
 		}
@@ -202,13 +202,13 @@ func unescapeChar(s string, is_bytes bool) (value rune, encode bool, tail string
 			}
 			v = v*8 + rune(x-'0')
 		}
-		if !is_bytes && v > utf8.MaxRune {
+		if !isBytes && v > utf8.MaxRune {
 			err = fmt.Errorf("unable to unescape string")
 			return
 		}
 		value = v
 		s = s[2:]
-		encode = !is_bytes
+		encode = !isBytes
 
 		// Unknown escape sequence.
 	default:
