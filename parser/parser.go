@@ -527,8 +527,8 @@ func (p *parser) extractQualifiedName(e *exprpb.Expr) (string, bool) {
 	return "", false
 }
 
-func (p *parser) unquote(ctx interface{}, value string, is_bytes bool) string {
-	text, err := unescape(value, is_bytes)
+func (p *parser) unquote(ctx interface{}, value string, isBytes bool) string {
+	text, err := unescape(value, isBytes)
 	if err != nil {
 		p.reportError(ctx, "%s", err.Error())
 		return value
