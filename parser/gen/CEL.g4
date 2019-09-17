@@ -93,6 +93,7 @@ literal
 
 EQUALS : '==';
 NOT_EQUALS : '!=';
+IN: 'in';
 LESS : '<';
 LESS_EQUALS : '<=';
 GREATER_EQUALS : '>=';
