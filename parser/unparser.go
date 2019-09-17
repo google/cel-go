@@ -157,23 +157,39 @@ func (un *unparser) visitCallConditional(expr *exprpb.Expr) error {
 	c := expr.GetCallExpr()
 	args := c.GetArgs()
 	// add parens if operand is a conditional itself.
+	// otherwise defer decision to visitMaybeParenExpr.
 	nested := isSamePrecedence(operators.Conditional, args[0])
-	err := un.visitMaybeNested(args[0], nested)
+	var err error = nil
+	if nested {
+		err = un.visitMaybeNested(args[0], nested)
+	} else {
+		err = un.visitMaybeParenExpr(args[0])
+	}
 	if err != nil {
 		return err
 	}
 	un.pad(expr.GetId())
 	un.str.WriteString("? ")
 	// add parens if operand is a conditional itself.
+	// otherwise defer decision to visitMaybeParenExpr.
 	nested = isSamePrecedence(operators.Conditional, args[1])
-	err = un.visitMaybeNested(args[1], nested)
+	if nested {
+		err = un.visitMaybeNested(args[1], nested)
+	} else {
+		err = un.visitMaybeParenExpr(args[1])
+	}
 	if err != nil {
 		return err
 	}
 	un.str.WriteString(" : ")
 	// add parens if operand is a conditional itself.
+	// otherwise defer decision to visitMaybeParenExpr.
 	nested = isSamePrecedence(operators.Conditional, args[2])
-	return un.visitMaybeNested(args[2], nested)
+	if nested {
+		return un.visitMaybeNested(args[2], nested)
+	} else {
+		return un.visitMaybeParenExpr(args[2])
+	}
 }
 
 func (un *unparser) visitCallFunc(expr *exprpb.Expr) error {
@@ -230,7 +246,7 @@ func (un *unparser) visitCallUnary(expr *exprpb.Expr) error {
 		return fmt.Errorf("cannot unmangle operator: %s", fun)
 	}
 	un.str.WriteString(unmangled)
-	return un.visit(args[0])
+	return un.visitMaybeParenExpr(args[0])
 }
 
 func (un *unparser) visitComprehension(expr *exprpb.Expr) error {
@@ -389,6 +405,17 @@ func (un *unparser) visitMaybeNested(expr *exprpb.Expr, nested bool) error {
 		un.str.WriteString(")")
 	}
 	return nil
+}
+
+func (un *unparser) visitMaybeParenExpr(expr *exprpb.Expr) error {
+	gen_paren := (expr.GetConstExpr() == nil &&
+		expr.GetIdentExpr() == nil && expr.GetListExpr() == nil &&
+		expr.GetStructExpr() == nil) &&
+		(expr.GetCallExpr() == nil ||
+			(expr.GetCallExpr().GetFunction() != operators.LogicalNot &&
+				expr.GetCallExpr().GetFunction() != operators.Negate))
+
+	return un.visitMaybeNested(expr, gen_paren)
 }
 
 // pos returns the source character offset of the expression id.
