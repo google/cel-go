@@ -529,6 +529,116 @@ ERROR: <input>:1:5: Syntax error: extraneous input 'b' expecting <EOF>
 			__result__^#5:*expr.Expr_IdentExpr#)^#11:*expr.Expr_ComprehensionExpr#`,
 	},
 
+	// Tests from C++ parser
+	{
+		I: "x * 2",
+		P: `_*_(
+			x^#1:*expr.Expr_IdentExpr#,
+			2^#3:*expr.Constant_Int64Value#
+		)^#2:*expr.Expr_CallExpr#`,
+	},
+	{
+		I: "x * 2u",
+		P: `_*_(
+			x^#1:*expr.Expr_IdentExpr#,
+			2u^#3:*expr.Constant_Uint64Value#
+		)^#2:*expr.Expr_CallExpr#`,
+	},
+	{
+		I: "x * 2.0",
+		P: `_*_(
+			x^#1:*expr.Expr_IdentExpr#,
+			2^#3:*expr.Constant_DoubleValue#
+		)^#2:*expr.Expr_CallExpr#`,
+	},
+	{
+		I: `"\u2764"`,
+		P: "\"\u2764\"^#1:*expr.Constant_StringValue#",
+	},
+	{
+		I: "\"\u2764\"",
+		P: "\"\u2764\"^#1:*expr.Constant_StringValue#",
+	},
+	{
+		I: `! false`,
+		P: `!_(
+			false^#2:*expr.Constant_BoolValue#
+		)^#1:*expr.Expr_CallExpr#`,
+	},
+	{
+		I: `-a`,
+		P: `-_(
+			a^#2:*expr.Expr_IdentExpr#
+		)^#1:*expr.Expr_CallExpr#`,
+	},
+	{
+		I: `a.b(5)`,
+		P: `a^#1:*expr.Expr_IdentExpr#.b(
+			5^#3:*expr.Constant_Int64Value#
+		)^#2:*expr.Expr_CallExpr#`,
+	},
+	{
+		I: `a[3]`,
+		P: `_[_](
+			a^#1:*expr.Expr_IdentExpr#,
+			3^#3:*expr.Constant_Int64Value#
+		)^#2:*expr.Expr_CallExpr#`,
+	},
+	{
+		I: `SomeMessage{foo: 5, bar: "xyz"}`,
+		P: `SomeMessage{
+			foo:5^#4:*expr.Constant_Int64Value#^#3:*expr.Expr_CreateStruct_Entry#,
+			bar:"xyz"^#6:*expr.Constant_StringValue#^#5:*expr.Expr_CreateStruct_Entry#
+		}^#2:*expr.Expr_StructExpr#`,
+	},
+	{
+		I: `[3, 4, 5]`,
+		P: `[
+			3^#2:*expr.Constant_Int64Value#,
+			4^#3:*expr.Constant_Int64Value#,
+			5^#4:*expr.Constant_Int64Value#
+		]^#1:*expr.Expr_ListExpr#`,
+	},
+	{
+		I: `{foo: 5, bar: "xyz"}`,
+		P: `{
+			foo^#3:*expr.Expr_IdentExpr#:5^#4:*expr.Constant_Int64Value#^#2:*expr.Expr_CreateStruct_Entry#,
+			bar^#6:*expr.Expr_IdentExpr#:"xyz"^#7:*expr.Constant_StringValue#^#5:*expr.Expr_CreateStruct_Entry#
+		}^#1:*expr.Expr_StructExpr#`,
+	},
+	{
+		I: `a > 5 && a < 10`,
+		P: `_&&_(
+			_>_(
+			  a^#1:*expr.Expr_IdentExpr#,
+			  5^#3:*expr.Constant_Int64Value#
+			)^#2:*expr.Expr_CallExpr#,
+			_<_(
+			  a^#4:*expr.Expr_IdentExpr#,
+			  10^#6:*expr.Constant_Int64Value#
+			)^#5:*expr.Expr_CallExpr#
+		)^#7:*expr.Expr_CallExpr#`,
+	},
+	{
+		I: `a < 5 || a > 10`,
+		P: `_||_(
+			_<_(
+			  a^#1:*expr.Expr_IdentExpr#,
+			  5^#3:*expr.Constant_Int64Value#
+			)^#2:*expr.Expr_CallExpr#,
+			_>_(
+			  a^#4:*expr.Expr_IdentExpr#,
+			  10^#6:*expr.Constant_Int64Value#
+			)^#5:*expr.Expr_CallExpr#
+		)^#7:*expr.Expr_CallExpr#`,
+	},
+	{
+		I: `{`,
+		E: `ERROR: <input>:1:2: Syntax error: mismatched input '<EOF>' expecting {'[', '{', '}', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
+		 | {
+		 | .^`,
+	},
+
 	// Tests from Java parser
 	{
 		I: `[] + [1,2,3,] + [4]`,
@@ -759,6 +869,17 @@ ERROR: <input>:1:6: Syntax error: mismatched input '<EOF>' expecting {'[', '{', 
     		 | ..........................................^`,
 	},
 
+	{
+		I: `"😁" in ["😁", "😑", "😦"]`,
+		P: `@in(
+			"😁"^#1:*expr.Constant_StringValue#,
+			[
+				"😁"^#4:*expr.Constant_StringValue#,
+				"😑"^#5:*expr.Constant_StringValue#,
+				"😦"^#6:*expr.Constant_StringValue#
+			]^#3:*expr.Expr_ListExpr#
+		)^#2:*expr.Expr_CallExpr#`,
+	},
 	{
 		I: `      '😁' in ['😁', '😑', '😦']
 			&& in.😁`,
