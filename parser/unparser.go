@@ -157,39 +157,27 @@ func (un *unparser) visitCallConditional(expr *exprpb.Expr) error {
 	c := expr.GetCallExpr()
 	args := c.GetArgs()
 	// add parens if operand is a conditional itself.
-	// otherwise defer decision to visitMaybeParenExpr.
-	nested := isSamePrecedence(operators.Conditional, args[0])
-	var err error = nil
-	if nested {
-		err = un.visitMaybeNested(args[0], nested)
-	} else {
-		err = un.visitMaybeParenExpr(args[0])
-	}
+	nested := isComplexOperator(args[0]) ||
+		isSamePrecedence(operators.Conditional, args[0])
+	err := un.visitMaybeNested(args[0], nested)
 	if err != nil {
 		return err
 	}
 	un.pad(expr.GetId())
 	un.str.WriteString("? ")
 	// add parens if operand is a conditional itself.
-	// otherwise defer decision to visitMaybeParenExpr.
-	nested = isSamePrecedence(operators.Conditional, args[1])
-	if nested {
-		err = un.visitMaybeNested(args[1], nested)
-	} else {
-		err = un.visitMaybeParenExpr(args[1])
-	}
+	nested = isComplexOperator(args[1]) ||
+		isSamePrecedence(operators.Conditional, args[1])
+	err = un.visitMaybeNested(args[1], nested)
 	if err != nil {
 		return err
 	}
 	un.str.WriteString(" : ")
 	// add parens if operand is a conditional itself.
-	// otherwise defer decision to visitMaybeParenExpr.
-	nested = isSamePrecedence(operators.Conditional, args[2])
-	if nested {
-		return un.visitMaybeNested(args[2], nested)
-	} else {
-		return un.visitMaybeParenExpr(args[2])
-	}
+	nested = isComplexOperator(args[2]) ||
+		isSamePrecedence(operators.Conditional, args[2])
+
+	return un.visitMaybeNested(args[2], nested)
 }
 
 func (un *unparser) visitCallFunc(expr *exprpb.Expr) error {
@@ -463,4 +451,20 @@ func isLowerPrecedence(op string, expr *exprpb.Expr) bool {
 	c := expr.GetCallExpr()
 	other := c.GetFunction()
 	return operators.Precedence(op) < operators.Precedence(other)
+}
+
+func isComplexOperator(expr *exprpb.Expr) bool {
+	if expr.GetConstExpr() != nil || expr.GetIdentExpr() != nil ||
+		expr.GetListExpr() != nil || expr.GetStructExpr() != nil {
+		return false
+	}
+
+	call := expr.GetCallExpr()
+	// If the arg is not a call with more than one arg, return false.
+	if call == nil || len(call.GetArgs()) < 2 {
+		return false
+	}
+	// Otherwise, return whether the function name is listed as an operator.
+	_, isOp := operators.FindReverse(call.GetFunction())
+	return isOp
 }
