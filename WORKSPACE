@@ -36,7 +36,7 @@ go_repository(
 
 git_repository(
   name = "com_google_cel_spec",
-  commit = "10be1715ff8a8eceb5963fd541807b00775398f5", #PR #88
+  commit = "3b60de55642175d0ccb2095bff193a3aea29afc6", #PR #90
   remote = "https://github.com/google/cel-spec.git",
 )
 
