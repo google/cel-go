@@ -254,6 +254,15 @@ func (p *planner) planCall(expr *exprpb.Expr) (Interpretable, error) {
 		len(oRef.GetOverloadId()) == 1 {
 		oName = oRef.GetOverloadId()[0]
 	}
+	// Try to find the specific function by overload id.
+	var fnDef *functions.Overload
+	if oName != "" {
+		fnDef, _ = p.disp.FindOverload(oName)
+	}
+	// If the overload id couldn't resolve the function, try the simple function name.
+	if fnDef == nil {
+		fnDef, _ = p.disp.FindOverload(fnName)
+	}
 
 	// Generate specialized Interpretable operators by function name if possible.
 	switch fnName {
