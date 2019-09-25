@@ -159,7 +159,7 @@ func (m *jsonStruct) Find(key ref.Val) (ref.Val, bool) {
 func (m *jsonStruct) Get(key ref.Val) ref.Val {
 	v, found := m.Find(key)
 	if !found {
-		return ValOrErr(v, "no such key: %v", v)
+		return ValOrErr(v, "no such key: %v", key)
 	}
 	return v
 }

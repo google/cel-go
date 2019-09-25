@@ -234,8 +234,9 @@ func TestBaseMap_Get(t *testing.T) {
 	} else if floatVal.Equal(Double(-1.0)) != True {
 		t.Error("Nested map access of float property not float64")
 	}
-	if !IsError(mapValue.Get(String("absent"))) {
-		t.Error("Got valid result, wanted no such key error.")
+	e, isError := mapValue.Get(String("absent")).(*Err)
+	if !isError || e.Error() != "no such key: absent" {
+		t.Errorf("Got %v, wanted no such key: absent.", e)
 	}
 }
 

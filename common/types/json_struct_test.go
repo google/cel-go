@@ -161,4 +161,25 @@ func TestJsonStruct_Get(t *testing.T) {
 	if !IsError(NewJSONStruct(NewRegistry(), &structpb.Struct{}).Get(Int(1))) {
 		t.Error("Structs may only have string keys.")
 	}
+
+	reg := NewRegistry()
+	mapVal := NewJSONStruct(reg,
+		&structpb.Struct{Fields: map[string]*structpb.Value{
+			"first":  {Kind: &structpb.Value_StringValue{StringValue: "hello"}},
+			"second": {Kind: &structpb.Value_NumberValue{NumberValue: 4}}}})
+
+	s := mapVal.Get(String("first"))
+	if s.Equal(String("hello")) != True {
+		t.Errorf("Got %v, wanted 'hello'", s)
+	}
+
+	d := mapVal.Get(String("second"))
+	if d.Equal(Double(4.0)) != True {
+		t.Errorf("Got %v, wanted '4.0'", d)
+	}
+
+	e, isError := mapVal.Get(String("third")).(*Err)
+	if !isError || e.Error() != "no such key: third" {
+		t.Errorf("Got %v, wanted no such key: third", e)
+	}
 }
