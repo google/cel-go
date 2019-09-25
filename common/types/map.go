@@ -244,7 +244,7 @@ func (m *stringMap) Find(key ref.Val) (ref.Val, bool) {
 func (m *baseMap) Get(key ref.Val) ref.Val {
 	v, found := m.Find(key)
 	if !found {
-		return ValOrErr(v, "no such key: %v", v)
+		return ValOrErr(v, "no such key: %v", key)
 	}
 	return v
 }
@@ -253,7 +253,7 @@ func (m *baseMap) Get(key ref.Val) ref.Val {
 func (m *stringMap) Get(key ref.Val) ref.Val {
 	v, found := m.Find(key)
 	if !found {
-		return ValOrErr(v, "no such key: %v", v)
+		return ValOrErr(v, "no such key: %v", key)
 	}
 	return v
 }
