@@ -46,7 +46,7 @@ func Example() {
 		// Function to generate a greeting from one person to another.
 		//    i.greet(you)
 		decls.NewFunction("greet",
-			decls.NewInstanceOverload("greet_string_string",
+			decls.NewInstanceOverload("string_greet_string",
 				[]*exprpb.Type{decls.String, decls.String},
 				decls.String)))
 	e, err := NewEnv(decls)
@@ -67,7 +67,7 @@ func Example() {
 	// Create the program.
 	funcs := Functions(
 		&functions.Overload{
-			Operator: "greet",
+			Operator: "string_greet_string",
 			Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
 				return types.String(
 					fmt.Sprintf("Hello %s! Nice to meet you, I'm %s.\n", rhs, lhs))
@@ -104,7 +104,7 @@ func Example_globalOverload() {
 		// Function to generate shake_hands between two people.
 		//    shake_hands(i,you)
 		decls.NewFunction("shake_hands",
-			decls.NewOverload("greet_string_string",
+			decls.NewOverload("shake_hands_string_string",
 				[]*exprpb.Type{decls.String, decls.String},
 				decls.String)))
 	e, err := NewEnv(decls)
@@ -125,7 +125,7 @@ func Example_globalOverload() {
 	// Create the program.
 	funcs := Functions(
 		&functions.Overload{
-			Operator: "shake_hands",
+			Operator: "shake_hands_string_string",
 			Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
 				s1, ok := lhs.(types.String)
 				if !ok {

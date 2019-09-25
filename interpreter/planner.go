@@ -228,7 +228,6 @@ func (p *planner) planSelect(expr *exprpb.Expr) (Interpretable, error) {
 func (p *planner) planCall(expr *exprpb.Expr) (Interpretable, error) {
 	call := expr.GetCallExpr()
 	fnName := call.Function
-	fnDef, _ := p.disp.FindOverload(fnName)
 	argCount := len(call.GetArgs())
 	var offset int
 	if call.Target != nil {
@@ -254,6 +253,15 @@ func (p *planner) planCall(expr *exprpb.Expr) (Interpretable, error) {
 	if oRef, found := p.refMap[expr.Id]; found &&
 		len(oRef.GetOverloadId()) == 1 {
 		oName = oRef.GetOverloadId()[0]
+	}
+	// Try to find the specific function by overload id.
+	var fnDef *functions.Overload
+	if oName != "" {
+		fnDef, _ = p.disp.FindOverload(oName)
+	}
+	// If the overload id couldn't resolve the function, try the simple function name.
+	if fnDef == nil {
+		fnDef, _ = p.disp.FindOverload(fnName)
 	}
 
 	// Generate specialized Interpretable operators by function name if possible.
