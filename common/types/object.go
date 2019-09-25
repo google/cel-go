@@ -20,6 +20,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+
 	"github.com/google/cel-go/common/types/pb"
 	"github.com/google/cel-go/common/types/ref"
 )
@@ -48,19 +49,20 @@ func NewObject(adapter ref.TypeAdapter,
 		typeValue:   NewObjectTypeValue(typeDesc.Name())}
 }
 
-func (o *protoObj) ConvertToNative(refl reflect.Type) (interface{}, error) {
-	if refl.AssignableTo(o.refValue.Type()) {
+func (o *protoObj) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
+	// TODO: Add support for conversion to JSON
+	if typeDesc.AssignableTo(o.refValue.Type()) {
 		return o.value, nil
 	}
-	if refl == anyValueType {
+	if typeDesc == anyValueType {
 		return ptypes.MarshalAny(o.Value().(proto.Message))
 	}
 	// If the object is already assignable to the desired type return it.
-	if reflect.TypeOf(o).AssignableTo(refl) {
+	if reflect.TypeOf(o).AssignableTo(typeDesc) {
 		return o, nil
 	}
 	return nil, fmt.Errorf("type conversion error from '%v' to '%v'",
-		o.refValue.Type(), refl)
+		o.refValue.Type(), typeDesc)
 }
 
 func (o *protoObj) ConvertToType(typeVal ref.Type) ref.Val {

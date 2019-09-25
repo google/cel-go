@@ -23,11 +23,13 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	tpb "github.com/golang/protobuf/ptypes/timestamp"
 
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
+
+	structpb "github.com/golang/protobuf/ptypes/struct"
+	tpb "github.com/golang/protobuf/ptypes/timestamp"
 )
 
 // Timestamp type implementation which supports add, compare, and subtract
@@ -80,7 +82,21 @@ func (t Timestamp) Compare(other ref.Val) ref.Val {
 
 // ConvertToNative implements ref.Val.ConvertToNative.
 func (t Timestamp) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
-	if typeDesc == timestampValueType {
+	switch typeDesc {
+	case anyValueType:
+		return ptypes.MarshalAny(t.Value().(proto.Message))
+	case jsonValueType:
+		// proto3 to JSON conversion requires string-formatted timestamps.
+		v := t.ConvertToType(StringType)
+		if IsError(v) {
+			return nil, v.(*Err)
+		}
+		return &structpb.Value{
+			Kind: &structpb.Value_StringValue{
+				StringValue: string(v.(String)),
+			},
+		}, nil
+	case timestampValueType:
 		return t.Value(), nil
 	}
 	// If the timestamp is already assignable to the desired type return it.

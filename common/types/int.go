@@ -16,12 +16,16 @@ package types
 
 import (
 	"fmt"
+	"math"
 	"reflect"
+	"strconv"
 
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 
+	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
+	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
 )
 
 // Int type that implements ref.Val as well as comparison and math operators.
@@ -45,6 +49,12 @@ var (
 		traits.MultiplierType,
 		traits.NegatorType,
 		traits.SubtractorType)
+
+	// int32WrapperType reflected type for protobuf int32 wrapper type.
+	int32WrapperType = reflect.TypeOf(&wrapperspb.Int32Value{})
+
+	// int64WrapperType reflected type for protobuf int64 wrapper type.
+	int64WrapperType = reflect.TypeOf(&wrapperspb.Int64Value{})
 )
 
 // Add implements traits.Adder.Add.
@@ -75,14 +85,32 @@ func (i Int) Compare(other ref.Val) ref.Val {
 func (i Int) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	switch typeDesc.Kind() {
 	case reflect.Int32:
+		// Enums are also mapped as int32 derivations.
 		return reflect.ValueOf(i).Convert(typeDesc).Interface(), nil
 	case reflect.Int64:
 		return int64(i), nil
 	case reflect.Ptr:
-		if typeDesc == jsonValueType {
+		switch typeDesc {
+		case anyValueType:
+			return ptypes.MarshalAny(&wrapperspb.Int64Value{Value: int64(i)})
+		case int32WrapperType:
+			return &wrapperspb.Int32Value{Value: int32(i)}, nil
+		case int64WrapperType:
+			return &wrapperspb.Int64Value{Value: int64(i)}, nil
+		case jsonValueType:
+			if i.isInt32() {
+				return &structpb.Value{
+					Kind: &structpb.Value_NumberValue{
+						NumberValue: float64(i),
+					},
+				}, nil
+			}
+			// proto3 to JSON conversion requires string-formatted int64 values.
 			return &structpb.Value{
-				Kind: &structpb.Value_NumberValue{
-					NumberValue: float64(i)}}, nil
+				Kind: &structpb.Value_StringValue{
+					StringValue: strconv.FormatInt(int64(i), 10),
+				},
+			}, nil
 		}
 		switch typeDesc.Elem().Kind() {
 		case reflect.Int32:
@@ -181,4 +209,8 @@ func (i Int) Type() ref.Type {
 // Value implements ref.Val.Value.
 func (i Int) Value() interface{} {
 	return int64(i)
+}
+
+func (i Int) isInt32() bool {
+	return math.MaxInt32 >= i && i >= math.MinInt32
 }

@@ -16,11 +16,17 @@ package types
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"reflect"
 
+	"github.com/golang/protobuf/ptypes"
+
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
+
+	structpb "github.com/golang/protobuf/ptypes/struct"
+	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
 )
 
 // Bytes type that implements ref.Val and supports add, compare, and size
@@ -33,6 +39,9 @@ var (
 		traits.AdderType,
 		traits.ComparerType,
 		traits.SizerType)
+
+	// byteWrapperType golang reflected type for protobuf bytes wrapper type.
+	byteWrapperType = reflect.TypeOf(&wrapperspb.BytesValue{})
 )
 
 // Add implements traits.Adder interface method by concatenating byte sequences.
@@ -59,6 +68,21 @@ func (b Bytes) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	case reflect.Array, reflect.Slice:
 		if typeDesc.Elem().Kind() == reflect.Uint8 {
 			return b.Value(), nil
+		}
+	case reflect.Ptr:
+		switch typeDesc {
+		case anyValueType:
+			return ptypes.MarshalAny(&wrapperspb.BytesValue{Value: []byte(b)})
+		case byteWrapperType:
+			return &wrapperspb.BytesValue{Value: []byte(b)}, nil
+		case jsonValueType:
+			// proto3 to JSON conversion requires base64 encoding of bytes.
+			str := base64.StdEncoding.EncodeToString([]byte(b))
+			return &structpb.Value{
+				Kind: &structpb.Value_StringValue{
+					StringValue: str,
+				},
+			}, nil
 		}
 	case reflect.Interface:
 		if reflect.TypeOf(b).Implements(typeDesc) {

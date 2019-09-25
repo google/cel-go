@@ -75,6 +75,7 @@ func TestInt_ConvertToNative_Int64(t *testing.T) {
 }
 
 func TestInt_ConvertToNative_Json(t *testing.T) {
+	// Value greater than max int32.
 	val, err := Int(4147483648).ConvertToNative(jsonValueType)
 	if err != nil {
 		t.Error(err)

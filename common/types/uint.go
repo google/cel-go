@@ -16,12 +16,16 @@ package types
 
 import (
 	"fmt"
+	"math"
 	"reflect"
-
-	structpb "github.com/golang/protobuf/ptypes/struct"
+	"strconv"
 
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
+
+	"github.com/golang/protobuf/ptypes"
+	structpb "github.com/golang/protobuf/ptypes/struct"
+	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
 )
 
 // Uint type implementation which supports comparison and math operators.
@@ -36,6 +40,10 @@ var (
 		traits.ModderType,
 		traits.MultiplierType,
 		traits.SubtractorType)
+
+	uint32WrapperType = reflect.TypeOf(&wrapperspb.UInt32Value{})
+
+	uint64WrapperType = reflect.TypeOf(&wrapperspb.UInt64Value{})
 )
 
 // Uint constants
@@ -69,17 +77,33 @@ func (i Uint) Compare(other ref.Val) ref.Val {
 
 // ConvertToNative implements ref.Val.ConvertToNative.
 func (i Uint) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
-	value := i.Value()
 	switch typeDesc.Kind() {
 	case reflect.Uint32:
-		return uint32(value.(uint64)), nil
+		return uint32(i), nil
 	case reflect.Uint64:
-		return value, nil
+		return uint64(i), nil
 	case reflect.Ptr:
-		if typeDesc == jsonValueType {
+		switch typeDesc {
+		case anyValueType:
+			return ptypes.MarshalAny(&wrapperspb.UInt64Value{Value: uint64(i)})
+		case jsonValueType:
+			if i.isUint32() {
+				return &structpb.Value{
+					Kind: &structpb.Value_NumberValue{
+						NumberValue: float64(i),
+					},
+				}, nil
+			}
+			// proto3 to JSON conversion requires string-formatted int64 values.
 			return &structpb.Value{
-				Kind: &structpb.Value_NumberValue{
-					NumberValue: float64(i)}}, nil
+				Kind: &structpb.Value_StringValue{
+					StringValue: strconv.FormatUint(uint64(i), 10),
+				},
+			}, nil
+		case uint32WrapperType:
+			return &wrapperspb.UInt32Value{Value: uint32(i)}, nil
+		case uint64WrapperType:
+			return &wrapperspb.UInt64Value{Value: uint64(i)}, nil
 		}
 		switch typeDesc.Elem().Kind() {
 		case reflect.Uint32:
@@ -173,4 +197,8 @@ func (i Uint) Type() ref.Type {
 // Value implements ref.Val.Value.
 func (i Uint) Value() interface{} {
 	return uint64(i)
+}
+
+func (i Uint) isUint32() bool {
+	return math.MaxUint32 >= i
 }

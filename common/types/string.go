@@ -23,11 +23,13 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
-	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
+
+	structpb "github.com/golang/protobuf/ptypes/struct"
+	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
 )
 
 // String type implementation which supports addition, comparison, matching,
@@ -48,6 +50,8 @@ var (
 		overloads.EndsWith:   stringEndsWith,
 		overloads.StartsWith: stringStartsWith,
 	}
+
+	stringWrapperType = reflect.TypeOf(&wrapperspb.StringValue{})
 )
 
 // Add implements traits.Adder.Add.
@@ -74,10 +78,17 @@ func (s String) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	case reflect.String:
 		return s.Value(), nil
 	case reflect.Ptr:
-		if typeDesc == jsonValueType {
+		switch typeDesc {
+		case anyValueType:
+			return ptypes.MarshalAny(&wrapperspb.StringValue{Value: string(s)})
+		case jsonValueType:
 			return &structpb.Value{
 				Kind: &structpb.Value_StringValue{
-					StringValue: s.Value().(string)}}, nil
+					StringValue: string(s),
+				},
+			}, nil
+		case stringWrapperType:
+			return &wrapperspb.StringValue{Value: string(s)}, nil
 		}
 		if typeDesc.Elem().Kind() == reflect.String {
 			p := s.Value().(string)

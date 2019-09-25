@@ -19,8 +19,10 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	structpb "github.com/golang/protobuf/ptypes/struct"
+
 	"github.com/google/cel-go/common/types/ref"
+
+	structpb "github.com/golang/protobuf/ptypes/struct"
 )
 
 // Null type implementation.
@@ -38,16 +40,18 @@ func (n Null) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	switch typeDesc.Kind() {
 	case reflect.Ptr:
 		switch typeDesc {
-		case jsonValueType:
-			return &structpb.Value{
-				Kind: &structpb.Value_NullValue{
-					NullValue: structpb.NullValue_NULL_VALUE}}, nil
 		case anyValueType:
 			pb, err := n.ConvertToNative(jsonValueType)
 			if err != nil {
 				return nil, err
 			}
 			return ptypes.MarshalAny(pb.(proto.Message))
+		case jsonValueType:
+			return &structpb.Value{
+				Kind: &structpb.Value_NullValue{
+					NullValue: structpb.NullValue_NULL_VALUE,
+				},
+			}, nil
 		}
 	case reflect.Interface:
 		if reflect.TypeOf(n).Implements(typeDesc) {

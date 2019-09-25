@@ -18,10 +18,10 @@ import (
 	"fmt"
 	"reflect"
 
-	structpb "github.com/golang/protobuf/ptypes/struct"
-
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
+
+	structpb "github.com/golang/protobuf/ptypes/struct"
 )
 
 var (
@@ -115,6 +115,7 @@ func (l *baseList) Contains(elem ref.Val) ref.Val {
 
 // ConvertToNative implements the ref.Val interface method.
 func (l *baseList) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
+	// TODO: Add support for conversion to Any
 	// JSON conversions are a special case since the 'native' type is a proto message.
 	if typeDesc == jsonValueType || typeDesc == jsonListValueType {
 		jsonValues, err :=
