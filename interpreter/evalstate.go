@@ -20,7 +20,7 @@ import (
 
 // EvalState tracks the values associated with expression ids during execution.
 type EvalState interface {
-	// Values returns the list of ids with recorded values.
+	// IDs returns the list of ids with recorded values.
 	IDs() []int64
 
 	// Value returns the observed value of the given expression id if found, and a nil false
@@ -47,7 +47,7 @@ func NewEvalState() EvalState {
 	}
 }
 
-// Ids implements the EvalState interface method.
+// IDs implements the EvalState interface method.
 func (s *evalState) IDs() []int64 {
 	var ids []int64
 	for k, v := range s.values {
