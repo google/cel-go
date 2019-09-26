@@ -75,4 +75,11 @@ func TestProtoObj_ConvertToNative(t *testing.T) {
 	if !proto.Equal(unpackedAny.Message, objVal.Value().(proto.Message)) {
 		t.Errorf("Messages were not equal, expect '%v', got '%v'", objVal.Value(), unpackedAny.Message)
 	}
+
+	// JSON
+	json, err := objVal.ConvertToNative(jsonValueType)
+	if err != nil {
+		t.Error(err)
+	}
+	t.Error(json)
 }

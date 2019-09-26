@@ -21,6 +21,8 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 )
 
@@ -117,7 +119,14 @@ func (l *baseList) Contains(elem ref.Val) ref.Val {
 func (l *baseList) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	// TODO: Add support for conversion to Any
 	// JSON conversions are a special case since the 'native' type is a proto message.
-	if typeDesc == jsonValueType || typeDesc == jsonListValueType {
+	switch typeDesc {
+	case anyValueType:
+		json, err := l.ConvertToNative(jsonValueType)
+		if err != nil {
+			return nil, err
+		}
+		return ptypes.MarshalAny(json.(proto.Message))
+	case jsonValueType, jsonListValueType:
 		jsonValues, err :=
 			l.ConvertToNative(reflect.TypeOf([]*structpb.Value{}))
 		if err != nil {
@@ -130,14 +139,14 @@ func (l *baseList) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		return &structpb.Value{Kind: &structpb.Value_ListValue{ListValue: jsonList}}, nil
 	}
 
-	// If the list is already assignable to the desired type return it.
-	if reflect.TypeOf(l).AssignableTo(typeDesc) {
-		return l, nil
-	}
-
 	// Non-list conversion.
 	if typeDesc.Kind() != reflect.Slice && typeDesc.Kind() != reflect.Array {
 		return nil, fmt.Errorf("type conversion error from list to '%v'", typeDesc)
+	}
+
+	// If the list is already assignable to the desired type return it.
+	if reflect.TypeOf(l).AssignableTo(typeDesc) {
+		return l, nil
 	}
 
 	// List conversion.
@@ -407,7 +416,14 @@ func (l *stringList) ConvertToNative(typeDesc reflect.Type) (interface{}, error)
 			return l.elems, nil
 		}
 	case reflect.Ptr:
-		if typeDesc == jsonValueType || typeDesc == jsonListValueType {
+		switch typeDesc {
+		case anyValueType:
+			json, err := l.ConvertToNative(jsonValueType)
+			if err != nil {
+				return nil, err
+			}
+			return ptypes.MarshalAny(json.(proto.Message))
+		case jsonValueType, jsonListValueType:
 			elemCount := len(l.elems)
 			listVals := make([]*structpb.Value, elemCount, elemCount)
 			for i := 0; i < elemCount; i++ {

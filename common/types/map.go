@@ -21,6 +21,9 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
+
 	structpb "github.com/golang/protobuf/ptypes/struct"
 )
 
@@ -85,9 +88,14 @@ func (m *stringMap) Contains(index ref.Val) ref.Val {
 
 // ConvertToNative implements the ref.Val interface method.
 func (m *baseMap) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
-	// TODO: Add support for Any conversion.
-	// JSON conversion.
-	if typeDesc == jsonValueType || typeDesc == jsonStructType {
+	switch typeDesc {
+	case anyValueType:
+		json, err := m.ConvertToNative(jsonValueType)
+		if err != nil {
+			return nil, err
+		}
+		return ptypes.MarshalAny(json.(proto.Message))
+	case jsonValueType, jsonStructType:
 		jsonEntries, err :=
 			m.ConvertToNative(reflect.TypeOf(map[string]*structpb.Value{}))
 		if err != nil {
@@ -106,6 +114,11 @@ func (m *baseMap) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	// Non-map conversion.
 	if typeDesc.Kind() != reflect.Map {
 		return nil, fmt.Errorf("type conversion error from map to '%v'", typeDesc)
+	}
+
+	// If the list is already assignable to the desired type return it.
+	if reflect.TypeOf(m).AssignableTo(typeDesc) {
+		return m, nil
 	}
 
 	// Map conversion.

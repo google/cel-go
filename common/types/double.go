@@ -16,6 +16,7 @@ package types
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 
 	"github.com/google/cel-go/common/types/ref"
@@ -87,6 +88,23 @@ func (d Double) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		case floatWrapperType:
 			return &wrapperspb.FloatValue{Value: float32(d)}, nil
 		case jsonValueType:
+			// Handle special cases for proto3 to json conversion.
+			f := float64(d)
+			str := ""
+			if math.IsNaN(f) {
+				str = "NaN"
+			} else if math.IsInf(f, -1) {
+				str = "-Infinity"
+			} else if math.IsInf(f, 0) || math.IsInf(f, 1) {
+				str = "Infinity"
+			}
+			if str != "" {
+				return &structpb.Value{
+					Kind: &structpb.Value_StringValue{
+						StringValue: str,
+					},
+				}, nil
+			}
 			return &structpb.Value{
 				Kind: &structpb.Value_NumberValue{
 					NumberValue: float64(d),
