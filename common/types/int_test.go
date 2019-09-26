@@ -15,11 +15,15 @@
 package types
 
 import (
+	"math"
 	"reflect"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
+
 	structpb "github.com/golang/protobuf/ptypes/struct"
+	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
 )
 
 func TestInt_Add(t *testing.T) {
@@ -45,6 +49,20 @@ func TestInt_Compare(t *testing.T) {
 	}
 	if !IsError(gt.Compare(TypeType)) {
 		t.Error("Got comparison value, expected error.")
+	}
+}
+
+func TestInt_ConvertToNative_Any(t *testing.T) {
+	val, err := Int(math.MaxInt64).ConvertToNative(anyValueType)
+	if err != nil {
+		t.Error(err)
+	}
+	want, err := ptypes.MarshalAny(&wrapperspb.Int64Value{Value: math.MaxInt64})
+	if err != nil {
+		t.Error(err)
+	}
+	if !proto.Equal(val.(proto.Message), want) {
+		t.Errorf("Got '%v', wanted %v", val, want)
 	}
 }
 
@@ -75,13 +93,22 @@ func TestInt_ConvertToNative_Int64(t *testing.T) {
 }
 
 func TestInt_ConvertToNative_Json(t *testing.T) {
-	// Value greater than max int32.
-	val, err := Int(4147483648).ConvertToNative(jsonValueType)
+	// Value less than int32.
+	val, err := Int(math.MaxInt32 - 1).ConvertToNative(jsonValueType)
 	if err != nil {
 		t.Error(err)
 	} else if !proto.Equal(val.(proto.Message),
-		&structpb.Value{Kind: &structpb.Value_NumberValue{NumberValue: 4147483648}}) {
-		t.Errorf("Got '%v', expected a json number", val)
+		&structpb.Value{Kind: &structpb.Value_NumberValue{NumberValue: 2147483646.0}}) {
+		t.Errorf("Got '%v', expected a json number for a 32-bit int", val)
+	}
+
+	// Value greater than max int32.
+	val, err = Int(math.MaxInt32 + 1).ConvertToNative(jsonValueType)
+	if err != nil {
+		t.Error(err)
+	} else if !proto.Equal(val.(proto.Message),
+		&structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "2147483648"}}) {
+		t.Errorf("Got '%v', expected a json string for a 64-bit int", val)
 	}
 }
 
@@ -103,6 +130,32 @@ func TestInt_ConvertToNative_Ptr_Int64(t *testing.T) {
 		t.Error(err)
 	} else if *val.(*int64) != 4147483648 {
 		t.Errorf("Got '%v', expected 4147483648", val)
+	}
+}
+
+func TestInt_ConvertToNative_Wrapper(t *testing.T) {
+	val, err := Int(math.MinInt32).ConvertToNative(int32WrapperType)
+	if err != nil {
+		t.Error(err)
+	}
+	want := &wrapperspb.Int32Value{Value: math.MinInt32}
+	if err != nil {
+		t.Error(err)
+	}
+	if !proto.Equal(val.(proto.Message), want) {
+		t.Errorf("Got '%v', wanted %v", val, want)
+	}
+
+	val, err = Int(math.MinInt64).ConvertToNative(int64WrapperType)
+	if err != nil {
+		t.Error(err)
+	}
+	want2 := &wrapperspb.Int64Value{Value: math.MinInt64}
+	if err != nil {
+		t.Error(err)
+	}
+	if !proto.Equal(val.(proto.Message), want2) {
+		t.Errorf("Got '%v', wanted %v", val, want2)
 	}
 }
 

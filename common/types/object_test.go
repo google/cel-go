@@ -18,6 +18,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 
@@ -81,5 +82,12 @@ func TestProtoObj_ConvertToNative(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	t.Error(json)
+	jsonTxt, err := (&jsonpb.Marshaler{}).MarshalToString(json.(proto.Message))
+	if err != nil {
+		t.Error(err)
+	}
+	wantTxt := `{"sourceInfo":{"lineOffsets":[1,2,3]}}`
+	if jsonTxt != wantTxt {
+		t.Errorf("Got %v, wanted %v", jsonTxt, wantTxt)
+	}
 }

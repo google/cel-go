@@ -19,7 +19,9 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
+	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
 )
 
 func TestBool_Compare(t *testing.T) {
@@ -37,6 +39,20 @@ func TestBool_Compare(t *testing.T) {
 	}
 	if !IsError(True.Compare(Uint(0))) {
 		t.Error("Was able to compare uncomparable types.")
+	}
+}
+
+func TestBool_ConvertToNative_Any(t *testing.T) {
+	val, err := True.ConvertToNative(anyValueType)
+	if err != nil {
+		t.Error(err)
+	}
+	pbVal, err := ptypes.MarshalAny(&wrapperspb.BoolValue{Value: true})
+	if err != nil {
+		t.Error(err)
+	}
+	if !proto.Equal(val.(proto.Message), pbVal) {
+		t.Error("Error during conversion to protobuf.Any", val)
 	}
 }
 
@@ -76,6 +92,16 @@ func TestBool_ConvertToNative_Ptr(t *testing.T) {
 		t.Error(err)
 	} else if !*val.(*bool) {
 		t.Error("Error during conversion to *bool", val)
+	}
+}
+
+func TestBool_ConvertToNative_Wrapper(t *testing.T) {
+	val, err := True.ConvertToNative(boolWrapperType)
+	pbVal := &wrapperspb.BoolValue{Value: true}
+	if err != nil {
+		t.Error(err)
+	} else if !proto.Equal(val.(proto.Message), pbVal) {
+		t.Error("Error during conversion to wrapper value type", val)
 	}
 }
 

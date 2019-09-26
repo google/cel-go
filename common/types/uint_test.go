@@ -15,10 +15,14 @@
 package types
 
 import (
+	"math"
 	"reflect"
 	"testing"
 
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
+	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
 )
 
 func TestUint_Add(t *testing.T) {
@@ -47,6 +51,20 @@ func TestUint_Compare(t *testing.T) {
 	}
 }
 
+func TestUint_ConvertToNative_Any(t *testing.T) {
+	val, err := Uint(math.MaxUint64).ConvertToNative(anyValueType)
+	if err != nil {
+		t.Error(err)
+	}
+	want, err := ptypes.MarshalAny(&wrapperspb.UInt64Value{Value: math.MaxUint64})
+	if err != nil {
+		t.Error(err)
+	}
+	if !proto.Equal(val.(proto.Message), want) {
+		t.Errorf("Got %v, wanted %v", val, want)
+	}
+}
+
 func TestUint_ConvertToNative_Error(t *testing.T) {
 	val, err := Uint(10000).ConvertToNative(reflect.TypeOf(int(0)))
 	if err == nil {
@@ -55,11 +73,22 @@ func TestUint_ConvertToNative_Error(t *testing.T) {
 }
 
 func TestUint_ConvertToNative_Json(t *testing.T) {
-	val, err := Uint(10000).ConvertToNative(jsonValueType)
+	// Value less than uint32.
+	val, err := Uint(math.MaxUint32 - 1).ConvertToNative(jsonValueType)
 	if err != nil {
 		t.Error(err)
-	} else if val.(*structpb.Value).GetNumberValue() != 10000. {
-		t.Errorf("Error converting uint to json number. Got '%v', expected 10000.", val)
+	} else if !proto.Equal(val.(proto.Message),
+		&structpb.Value{Kind: &structpb.Value_NumberValue{NumberValue: 4294967294.0}}) {
+		t.Errorf("Got '%v', expected a json number for a 32-bit uint", val)
+	}
+
+	// Value greater than max uint32.
+	val, err = Int(math.MaxUint32 + 1).ConvertToNative(jsonValueType)
+	if err != nil {
+		t.Error(err)
+	} else if !proto.Equal(val.(proto.Message),
+		&structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "4294967296"}}) {
+		t.Errorf("Got '%v', expected a json string for a 64-bit uint", val)
 	}
 }
 
@@ -80,6 +109,26 @@ func TestUint_ConvertToNative_Ptr_Uint64(t *testing.T) {
 		t.Error(err)
 	} else if *val.(*uint64) != uint64(18446744073709551612) {
 		t.Errorf("Error converting uint to *uint64. Got '%v', expected 18446744073709551612.", val)
+	}
+}
+
+func TestUint_ConvertToNative_Wrapper(t *testing.T) {
+	val, err := Uint(math.MaxUint32).ConvertToNative(uint32WrapperType)
+	if err != nil {
+		t.Error(err)
+	}
+	want := &wrapperspb.UInt32Value{Value: math.MaxUint32}
+	if !proto.Equal(val.(proto.Message), want) {
+		t.Errorf("Got %v, wanted %v", val, want)
+	}
+
+	val, err = Uint(math.MaxUint64).ConvertToNative(uint64WrapperType)
+	if err != nil {
+		t.Error(err)
+	}
+	want2 := &wrapperspb.UInt64Value{Value: math.MaxUint64}
+	if !proto.Equal(val.(proto.Message), want2) {
+		t.Errorf("Got %v, wanted %v", val, want2)
 	}
 }
 

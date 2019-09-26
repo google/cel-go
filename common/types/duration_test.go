@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types/ref"
 
@@ -59,6 +60,21 @@ func TestDuration_ConvertToNative(t *testing.T) {
 	}
 }
 
+func TestDuration_ConvertToNative_Any(t *testing.T) {
+	pb := &dpb.Duration{Seconds: 7506, Nanos: 1000}
+	val, err := Duration{pb}.ConvertToNative(anyValueType)
+	if err != nil {
+		t.Error(err)
+	}
+	want, err := ptypes.MarshalAny(pb)
+	if err != nil {
+		t.Error(err)
+	}
+	if !proto.Equal(val.(proto.Message), want) {
+		t.Errorf("Got '%v', wanted %v", val, want)
+	}
+}
+
 func TestDuration_ConvertToNative_Error(t *testing.T) {
 	val, err := Duration{&dpb.Duration{Seconds: 7506, Nanos: 1000}}.
 		ConvertToNative(jsonValueType)
@@ -73,6 +89,17 @@ func TestDuration_ConvertToNative_Error(t *testing.T) {
 	}
 	if !proto.Equal(json, want) {
 		t.Errorf("Got %v, wanted %v", json, want)
+	}
+}
+
+func TestDuration_ConvertToNative_Json(t *testing.T) {
+	val, err := Duration{&dpb.Duration{Seconds: 7506, Nanos: 1000}}.ConvertToNative(jsonValueType)
+	if err != nil {
+		t.Error(err)
+	}
+	want := &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "7506.000001s"}}
+	if !proto.Equal(val.(proto.Message), want) {
+		t.Errorf("Got '%v', wanted %v", val, want)
 	}
 }
 

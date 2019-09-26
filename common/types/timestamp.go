@@ -84,9 +84,9 @@ func (t Timestamp) Compare(other ref.Val) ref.Val {
 func (t Timestamp) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	switch typeDesc {
 	case anyValueType:
-		return ptypes.MarshalAny(t.Value().(proto.Message))
+		return ptypes.MarshalAny(t.Timestamp)
 	case jsonValueType:
-		// proto3 to JSON conversion requires string-formatted timestamps.
+		// proto3 to JSON conversion requires string-formatted timestamps
 		v := t.ConvertToType(StringType)
 		if IsError(v) {
 			return nil, v.(*Err)
@@ -104,7 +104,7 @@ func (t Timestamp) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		return t, nil
 	}
 	return nil, fmt.Errorf("type conversion error from "+
-		"'google.protobuf.Duration' to '%v'", typeDesc)
+		"'google.protobuf.Timestamp' to '%v'", typeDesc)
 }
 
 // ConvertToType implements ref.Val.ConvertToType.

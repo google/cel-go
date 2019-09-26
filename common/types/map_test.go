@@ -20,6 +20,7 @@ import (
 
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 
 	"github.com/google/cel-go/common/types/traits"
 
@@ -61,6 +62,27 @@ func TestStringMap_Contains(t *testing.T) {
 	}
 	if !reflect.DeepEqual(mapValue.Contains(Unknown{1}), Unknown{1}) {
 		t.Error("Expected Unknown key in would yield Unknown key out.")
+	}
+}
+
+func TestBaseMap_ConvertToNative_Any(t *testing.T) {
+	reg := NewRegistry()
+	mapValue := NewDynamicMap(reg, map[string]map[string]float32{
+		"nested": {"1": -1.0}})
+	val, err := mapValue.ConvertToNative(anyValueType)
+	if err != nil {
+		t.Error(err)
+	}
+	jsonMap := &structpb.Value{}
+	if jsonpb.UnmarshalString(`{"nested":{"1":-1}}`, jsonMap) != nil {
+		t.Error("Unable to unmarshal json to protobuf.Value")
+	}
+	want, err := ptypes.MarshalAny(jsonMap)
+	if err != nil {
+		t.Error(err)
+	}
+	if !proto.Equal(val.(proto.Message), want) {
+		t.Errorf("Got %v, wanted %v", val, want)
 	}
 }
 

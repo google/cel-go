@@ -15,11 +15,14 @@
 package types
 
 import (
+	"math"
 	"reflect"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
+	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
 )
 
 func TestDouble_Add(t *testing.T) {
@@ -45,6 +48,20 @@ func TestDouble_Compare(t *testing.T) {
 	}
 	if !IsError(gt.Compare(TypeType)) {
 		t.Error("Types not comparable")
+	}
+}
+
+func TestDouble_ConvertToNative_Any(t *testing.T) {
+	val, err := Double(math.MaxFloat64).ConvertToNative(anyValueType)
+	if err != nil {
+		t.Error(err)
+	}
+	want, err := ptypes.MarshalAny(&wrapperspb.DoubleValue{Value: 1.7976931348623157e+308})
+	if err != nil {
+		t.Error(err)
+	}
+	if !proto.Equal(val.(proto.Message), want) {
+		t.Errorf("Got '%v', wanted %v", val, want)
 	}
 }
 
@@ -81,6 +98,36 @@ func TestDouble_ConvertToNative_Json(t *testing.T) {
 	} else if !proto.Equal(val.(proto.Message), pbVal) {
 		t.Errorf("Got '%v', expected -1.4", val)
 	}
+
+	val, err = Double(math.NaN()).ConvertToNative(jsonValueType)
+	pbVal = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "NaN"}}
+	if err != nil {
+		t.Error(err)
+	} else if !proto.Equal(val.(proto.Message), pbVal) {
+		t.Errorf("Got '%v', expected NaN", val)
+	}
+
+	val, err = Double(math.Inf(-1)).ConvertToNative(jsonValueType)
+	pbVal = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "-Infinity"}}
+	if err != nil {
+		t.Error(err)
+	} else if !proto.Equal(val.(proto.Message), pbVal) {
+		t.Errorf("Got '%v', expected -Infinity", val)
+	}
+	val, err = Double(math.Inf(0)).ConvertToNative(jsonValueType)
+	pbVal = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "Infinity"}}
+	if err != nil {
+		t.Error(err)
+	} else if !proto.Equal(val.(proto.Message), pbVal) {
+		t.Errorf("Got '%v', expected -Infinity", val)
+	}
+	val, err = Double(math.Inf(1)).ConvertToNative(jsonValueType)
+	pbVal = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "Infinity"}}
+	if err != nil {
+		t.Error(err)
+	} else if !proto.Equal(val.(proto.Message), pbVal) {
+		t.Errorf("Got '%v', expected -Infinity", val)
+	}
 }
 
 func TestDouble_ConvertToNative_Ptr_Float32(t *testing.T) {
@@ -100,6 +147,26 @@ func TestDouble_ConvertToNative_Ptr_Float64(t *testing.T) {
 		t.Error(err)
 	} else if *val.(*float64) != 30000000.1 {
 		t.Errorf("Got '%v', wanted 330000000.1", val)
+	}
+}
+
+func TestDouble_ConvertToNative_Wrapper(t *testing.T) {
+	val, err := Double(3.1415).ConvertToNative(floatWrapperType)
+	if err != nil {
+		t.Error(err)
+	}
+	want := &wrapperspb.FloatValue{Value: 3.1415}
+	if !proto.Equal(val.(proto.Message), want) {
+		t.Errorf("Got '%v', wanted %v", val, want)
+	}
+
+	val, err = Double(math.MaxFloat64).ConvertToNative(doubleWrapperType)
+	if err != nil {
+		t.Error(err)
+	}
+	want2 := &wrapperspb.DoubleValue{Value: 1.7976931348623157e+308}
+	if !proto.Equal(val.(proto.Message), want2) {
+		t.Errorf("Got '%v', wanted %v", val, want2)
 	}
 }
 
