@@ -21,10 +21,11 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	"github.com/google/cel-go/common/types/pb"
 	"github.com/google/cel-go/common/types/ref"
+
+	structpb "github.com/golang/protobuf/ptypes/struct"
 )
 
 type protoObj struct {
@@ -35,8 +36,6 @@ type protoObj struct {
 	typeValue *TypeValue
 	isAny     bool
 }
-
-const ()
 
 // NewObject returns an object based on a proto.Message value which handles
 // conversion between protobuf type values and expression type values.
