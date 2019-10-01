@@ -80,14 +80,15 @@ func (s String) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	case reflect.Ptr:
 		switch typeDesc {
 		case anyValueType:
+			// Primitives must be wrapped before being set on an Any field.
 			return ptypes.MarshalAny(&wrapperspb.StringValue{Value: string(s)})
 		case jsonValueType:
+			// Convert to a protobuf representation of a JSON String.
 			return &structpb.Value{
-				Kind: &structpb.Value_StringValue{
-					StringValue: string(s),
-				},
+				Kind: &structpb.Value_StringValue{StringValue: string(s)},
 			}, nil
 		case stringWrapperType:
+			// Convert to a protobuf.StringValue.
 			return &wrapperspb.StringValue{Value: string(s)}, nil
 		}
 		if typeDesc.Elem().Kind() == reflect.String {

@@ -107,19 +107,19 @@ func (d Duration) Compare(other ref.Val) ref.Val {
 func (d Duration) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	switch typeDesc {
 	case anyValueType:
+		// Pack the underlying proto value into an Any value.
 		return ptypes.MarshalAny(d.Value().(*dpb.Duration))
 	case durationValueType:
+		// Unwrap the CEL value to its underlying proto value.
 		return d.Value(), nil
 	case jsonValueType:
-		// proto3 to JSON conversion requires string-formatted durations
+		// Proto3 to JSON conversion requires string-formatted durations.
 		v := d.ConvertToType(StringType)
 		if IsError(v) {
 			return nil, v.(*Err)
 		}
 		return &structpb.Value{
-			Kind: &structpb.Value_StringValue{
-				StringValue: string(v.(String)),
-			},
+			Kind: &structpb.Value_StringValue{StringValue: string(v.(String))},
 		}, nil
 	}
 	// If the duration is already assignable to the desired type return it.

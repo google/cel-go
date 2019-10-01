@@ -93,20 +93,23 @@ func (i Int) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	case reflect.Ptr:
 		switch typeDesc {
 		case anyValueType:
+			// Primitives must be wrapped before being set on an Any field.
 			return ptypes.MarshalAny(&wrapperspb.Int64Value{Value: int64(i)})
 		case int32WrapperType:
+			// Convert the value to a protobuf.Int32Value (with truncation).
 			return &wrapperspb.Int32Value{Value: int32(i)}, nil
 		case int64WrapperType:
+			// Convert the value to a protobuf.Int64Value.
 			return &wrapperspb.Int64Value{Value: int64(i)}, nil
 		case jsonValueType:
+			// JSON can accurately represent 32-bit ints as floating point values.
 			if i.isInt32() {
 				return &structpb.Value{
-					Kind: &structpb.Value_NumberValue{
-						NumberValue: float64(i),
-					},
+					Kind: &structpb.Value_NumberValue{NumberValue: float64(i)},
 				}, nil
 			}
-			// proto3 to JSON conversion requires string-formatted int64 values.
+			// Proto3 to JSON conversion requires string-formatted int64 values
+			// since the conversion to floating point would result in truncation.
 			return &structpb.Value{
 				Kind: &structpb.Value_StringValue{
 					StringValue: strconv.FormatInt(int64(i), 10),

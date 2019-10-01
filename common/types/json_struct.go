@@ -86,8 +86,8 @@ func (m *jsonStruct) ConvertToNative(typeDesc reflect.Type) (interface{}, error)
 			return ptypes.MarshalAny(m.Value().(proto.Message))
 		case jsonValueType:
 			return &structpb.Value{
-				Kind: &structpb.Value_StructValue{
-					StructValue: m.Struct}}, nil
+				Kind: &structpb.Value_StructValue{StructValue: m.Struct},
+			}, nil
 		case jsonStructType:
 			return m.Struct, nil
 		}

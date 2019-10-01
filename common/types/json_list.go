@@ -109,8 +109,8 @@ func (l *jsonListValue) ConvertToNative(typeDesc reflect.Type) (interface{}, err
 			return ptypes.MarshalAny(l.Value().(proto.Message))
 		case jsonValueType:
 			return &structpb.Value{
-				Kind: &structpb.Value_ListValue{
-					ListValue: l.ListValue}}, nil
+				Kind: &structpb.Value_ListValue{ListValue: l.ListValue},
+			}, nil
 		case jsonListValueType:
 			return l.ListValue, nil
 		}

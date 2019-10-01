@@ -84,19 +84,19 @@ func (t Timestamp) Compare(other ref.Val) ref.Val {
 func (t Timestamp) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	switch typeDesc {
 	case anyValueType:
+		// Pack the underlying protobuf.Timestamp to an Any value.
 		return ptypes.MarshalAny(t.Timestamp)
 	case jsonValueType:
-		// proto3 to JSON conversion requires string-formatted timestamps
+		// Proto3 to JSON conversion requires string-formatted timestamps
 		v := t.ConvertToType(StringType)
 		if IsError(v) {
 			return nil, v.(*Err)
 		}
 		return &structpb.Value{
-			Kind: &structpb.Value_StringValue{
-				StringValue: string(v.(String)),
-			},
+			Kind: &structpb.Value_StringValue{StringValue: string(v.(String))},
 		}, nil
 	case timestampValueType:
+		// Unwrap the underlying protobuf.Timestamp.
 		return t.Value(), nil
 	}
 	// If the timestamp is already assignable to the desired type return it.

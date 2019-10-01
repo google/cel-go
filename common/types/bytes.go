@@ -72,16 +72,16 @@ func (b Bytes) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	case reflect.Ptr:
 		switch typeDesc {
 		case anyValueType:
+			// Primitives must be wrapped before being set on an Any field.
 			return ptypes.MarshalAny(&wrapperspb.BytesValue{Value: []byte(b)})
 		case byteWrapperType:
+			// Convert the bytes to a protobuf.BytesValue.
 			return &wrapperspb.BytesValue{Value: []byte(b)}, nil
 		case jsonValueType:
 			// proto3 to JSON conversion requires base64 encoding of bytes.
 			str := base64.StdEncoding.EncodeToString([]byte(b))
 			return &structpb.Value{
-				Kind: &structpb.Value_StringValue{
-					StringValue: str,
-				},
+				Kind: &structpb.Value_StringValue{StringValue: str},
 			}, nil
 		}
 	case reflect.Interface:

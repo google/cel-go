@@ -100,33 +100,35 @@ func TestDouble_ConvertToNative_Json(t *testing.T) {
 	}
 
 	val, err = Double(math.NaN()).ConvertToNative(jsonValueType)
-	pbVal = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "NaN"}}
 	if err != nil {
 		t.Error(err)
-	} else if !proto.Equal(val.(proto.Message), pbVal) {
-		t.Errorf("Got '%v', expected NaN", val)
+	} else {
+		v := val.(*structpb.Value)
+		if !math.IsNaN(v.GetNumberValue()) {
+			t.Errorf("Got '%v', expected NaN", val)
+		}
 	}
 
 	val, err = Double(math.Inf(-1)).ConvertToNative(jsonValueType)
-	pbVal = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "-Infinity"}}
+	pbVal = &structpb.Value{Kind: &structpb.Value_NumberValue{NumberValue: math.Inf(-1)}}
 	if err != nil {
 		t.Error(err)
 	} else if !proto.Equal(val.(proto.Message), pbVal) {
 		t.Errorf("Got '%v', expected -Infinity", val)
 	}
 	val, err = Double(math.Inf(0)).ConvertToNative(jsonValueType)
-	pbVal = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "Infinity"}}
+	pbVal = &structpb.Value{Kind: &structpb.Value_NumberValue{NumberValue: math.Inf(0)}}
 	if err != nil {
 		t.Error(err)
 	} else if !proto.Equal(val.(proto.Message), pbVal) {
-		t.Errorf("Got '%v', expected -Infinity", val)
+		t.Errorf("Got '%v', expected Infinity", val)
 	}
 	val, err = Double(math.Inf(1)).ConvertToNative(jsonValueType)
-	pbVal = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "Infinity"}}
+	pbVal = &structpb.Value{Kind: &structpb.Value_NumberValue{NumberValue: math.Inf(1)}}
 	if err != nil {
 		t.Error(err)
 	} else if !proto.Equal(val.(proto.Message), pbVal) {
-		t.Errorf("Got '%v', expected -Infinity", val)
+		t.Errorf("Got '%v', expected Infinity", val)
 	}
 }
 

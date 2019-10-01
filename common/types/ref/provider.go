@@ -43,8 +43,12 @@ type TypeProvider interface {
 	// Used during type-checking only.
 	FindFieldType(messageType string, fieldName string) (*FieldType, bool)
 
-	// NewValue creates a new type value from a qualified name and a map of
-	// field initializers.
+	// NewValue creates a new type value from a qualified name and map of field
+	// name to value.
+	//
+	// Note, for each value, the Val.ConvertToNative function will be invoked
+	// to convert the Val to the field's native type. If an error occurs during
+	// conversion, the NewValue will be a types.Err.
 	NewValue(typeName string, fields map[string]Val) Val
 }
 

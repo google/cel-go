@@ -16,7 +16,6 @@ package types
 
 import (
 	"fmt"
-	"math"
 	"reflect"
 
 	"github.com/google/cel-go/common/types/ref"
@@ -83,33 +82,21 @@ func (d Double) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	case reflect.Ptr:
 		switch typeDesc {
 		case anyValueType:
+			// Primitives must be wrapped before being set on an Any field.
 			return ptypes.MarshalAny(&wrapperspb.DoubleValue{Value: float64(d)})
 		case doubleWrapperType:
+			// Convert to a protobuf.DoubleValue
 			return &wrapperspb.DoubleValue{Value: float64(d)}, nil
 		case floatWrapperType:
+			// Convert to a protobuf.FloatValue (with truncation).
 			return &wrapperspb.FloatValue{Value: float32(d)}, nil
 		case jsonValueType:
-			// Handle special cases for proto3 to json conversion.
-			f := float64(d)
-			str := ""
-			if math.IsNaN(f) {
-				str = "NaN"
-			} else if math.IsInf(f, -1) {
-				str = "-Infinity"
-			} else if math.IsInf(f, 0) || math.IsInf(f, 1) {
-				str = "Infinity"
-			}
-			if str != "" {
-				return &structpb.Value{
-					Kind: &structpb.Value_StringValue{
-						StringValue: str,
-					},
-				}, nil
-			}
+			// Note, there are special cases for proto3 to json conversion that
+			// expect the floating point value to be converted to a NaN,
+			// Infinity, or -Infinity string values, but the jsonpb string
+			// marshaling of the protobuf.Value will handle this conversion.
 			return &structpb.Value{
-				Kind: &structpb.Value_NumberValue{
-					NumberValue: float64(d),
-				},
+				Kind: &structpb.Value_NumberValue{NumberValue: float64(d)},
 			}, nil
 		}
 		switch typeDesc.Elem().Kind() {
