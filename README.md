@@ -128,7 +128,7 @@ ignored.
 
 ```go
 // The `out` var contains the output of a successful evaluation.
-// The `details' var would contain intermediate evalaution state if enabled as
+// The `details' var would contain intermediate evaluation state if enabled as
 // a cel.ProgramOption. This can be useful for visualizing how the `out` value
 // was arrive at.
 out, details, err := prg.Eval(map[string]interface{}{
