@@ -130,11 +130,11 @@ func (un *unparser) visitCallBinary(expr *exprpb.Expr) error {
 	args := c.GetArgs()
 	lhs := args[0]
 	// add parens if the current operator is lower precedence than the lhs expr operator.
-	lhsParen := isLowerPrecedence(fun, lhs)
+	lhsParen := isComplexOperatorWithRespectTo(fun, lhs)
 	rhs := args[1]
 	// add parens if the current operator is lower precedence than the rhs expr operator,
 	// or the same precedence and the operator is left recursive.
-	rhsParen := isLowerPrecedence(fun, rhs)
+	rhsParen := isComplexOperatorWithRespectTo(fun, rhs)
 	if !rhsParen && isLeftRecursive(fun) {
 		rhsParen = isSamePrecedence(fun, rhs)
 	}
@@ -142,7 +142,7 @@ func (un *unparser) visitCallBinary(expr *exprpb.Expr) error {
 	if err != nil {
 		return err
 	}
-	unmangled, found := operators.FindReverse(fun)
+	unmangled, found := operators.FindReverseBinaryOperator(fun)
 	if !found {
 		return fmt.Errorf("cannot unmangle operator: %s", fun)
 	}
@@ -157,8 +157,8 @@ func (un *unparser) visitCallConditional(expr *exprpb.Expr) error {
 	c := expr.GetCallExpr()
 	args := c.GetArgs()
 	// add parens if operand is a conditional itself.
-	nested := isComplexOperator(args[0]) ||
-		isSamePrecedence(operators.Conditional, args[0])
+	nested := isSamePrecedence(operators.Conditional, args[0]) ||
+		isComplexOperator(args[0])
 	err := un.visitMaybeNested(args[0], nested)
 	if err != nil {
 		return err
@@ -166,16 +166,16 @@ func (un *unparser) visitCallConditional(expr *exprpb.Expr) error {
 	un.pad(expr.GetId())
 	un.str.WriteString("? ")
 	// add parens if operand is a conditional itself.
-	nested = isComplexOperator(args[1]) ||
-		isSamePrecedence(operators.Conditional, args[1])
+	nested = isSamePrecedence(operators.Conditional, args[1]) ||
+		isComplexOperator(args[1])
 	err = un.visitMaybeNested(args[1], nested)
 	if err != nil {
 		return err
 	}
 	un.str.WriteString(" : ")
 	// add parens if operand is a conditional itself.
-	nested = isComplexOperator(args[2]) ||
-		isSamePrecedence(operators.Conditional, args[2])
+	nested = isSamePrecedence(operators.Conditional, args[2]) ||
+		isComplexOperator(args[2])
 
 	return un.visitMaybeNested(args[2], nested)
 }
@@ -185,7 +185,8 @@ func (un *unparser) visitCallFunc(expr *exprpb.Expr) error {
 	fun := c.GetFunction()
 	args := c.GetArgs()
 	if c.GetTarget() != nil {
-		err := un.visit(c.GetTarget())
+		nested := isBinaryOrTernaryOperator(c.GetTarget())
+		err := un.visitMaybeNested(c.GetTarget(), nested)
 		if err != nil {
 			return err
 		}
@@ -210,7 +211,8 @@ func (un *unparser) visitCallFunc(expr *exprpb.Expr) error {
 func (un *unparser) visitCallIndex(expr *exprpb.Expr) error {
 	c := expr.GetCallExpr()
 	args := c.GetArgs()
-	err := un.visit(args[0])
+	nested := isBinaryOrTernaryOperator(args[0])
+	err := un.visitMaybeNested(args[0], nested)
 	if err != nil {
 		return err
 	}
@@ -234,7 +236,8 @@ func (un *unparser) visitCallUnary(expr *exprpb.Expr) error {
 		return fmt.Errorf("cannot unmangle operator: %s", fun)
 	}
 	un.str.WriteString(unmangled)
-	return un.visitMaybeParenExpr(args[0])
+	nested := isComplexOperator(args[0])
+	return un.visitMaybeNested(args[0], nested)
 }
 
 func (un *unparser) visitComprehension(expr *exprpb.Expr) error {
@@ -308,7 +311,8 @@ func (un *unparser) visitSelect(expr *exprpb.Expr) error {
 	if sel.GetTestOnly() {
 		un.str.WriteString("has(")
 	}
-	err := un.visit(sel.GetOperand())
+	nested := !sel.GetTestOnly() && isBinaryOrTernaryOperator(sel.GetOperand())
+	err := un.visitMaybeNested(sel.GetOperand(), nested)
 	if err != nil {
 		return err
 	}
@@ -395,17 +399,6 @@ func (un *unparser) visitMaybeNested(expr *exprpb.Expr, nested bool) error {
 	return nil
 }
 
-func (un *unparser) visitMaybeParenExpr(expr *exprpb.Expr) error {
-	gen_paren := (expr.GetConstExpr() == nil &&
-		expr.GetIdentExpr() == nil && expr.GetListExpr() == nil &&
-		expr.GetStructExpr() == nil) &&
-		(expr.GetCallExpr() == nil ||
-			(expr.GetCallExpr().GetFunction() != operators.LogicalNot &&
-				expr.GetCallExpr().GetFunction() != operators.Negate))
-
-	return un.visitMaybeNested(expr, gen_paren)
-}
-
 // pos returns the source character offset of the expression id.
 func (un *unparser) pos(id int64) int32 {
 	return un.info.GetPositions()[id]
@@ -453,18 +446,30 @@ func isLowerPrecedence(op string, expr *exprpb.Expr) bool {
 	return operators.Precedence(op) < operators.Precedence(other)
 }
 
+// Indicates whether the expr is a complex operator, i.e., a call expression
+// with 2 or more arguments.
 func isComplexOperator(expr *exprpb.Expr) bool {
-	if expr.GetConstExpr() != nil || expr.GetIdentExpr() != nil ||
-		expr.GetListExpr() != nil || expr.GetStructExpr() != nil {
-		return false
+	if expr.GetCallExpr() != nil || len(expr.GetCallExpr().GetArgs()) >= 2 {
+		return true
 	}
+	return false
+}
 
-	call := expr.GetCallExpr()
-	// If the arg is not a call with more than one arg, return false.
-	if call == nil || len(call.GetArgs()) < 2 {
+// Indicates whether it is a complex operation compared to another.
+// expr is *not* considered complex if it is not a call expression or has
+// less than two arguments, or if it has a higher precedence than op.
+func isComplexOperatorWithRespectTo(op string, expr *exprpb.Expr) bool {
+	if expr.GetCallExpr() == nil || len(expr.GetCallExpr().GetArgs()) < 2 {
 		return false
 	}
-	// Otherwise, return whether the function name is listed as an operator.
-	_, isOp := operators.FindReverse(call.GetFunction())
-	return isOp
+	return isLowerPrecedence(op, expr)
+}
+
+// Indicate whether this is a binary or ternary operator.
+func isBinaryOrTernaryOperator(expr *exprpb.Expr) bool {
+	if expr.GetCallExpr() == nil || len(expr.GetCallExpr().GetArgs()) < 2 {
+		return false
+	}
+	_, isBinaryOp := operators.FindReverseBinaryOperator(expr.GetCallExpr().GetFunction())
+	return isBinaryOp || isSamePrecedence(operators.Conditional, expr)
 }
