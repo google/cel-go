@@ -125,7 +125,7 @@ func FindReverse(op string) (string, bool) {
 	return txt, found
 }
 
-// FindReverse returns the unmangled, text representation of a binary operator.
+// FindReverseBinaryOperator returns the unmangled, text representation of a binary operator.
 func FindReverseBinaryOperator(op string) (string, bool) {
 	if op == LogicalNot || op == Negate {
 		return "", false

@@ -565,9 +565,8 @@ func (c *checker) location(e *exprpb.Expr) common.Location {
 func (c *checker) locationByID(id int64) common.Location {
 	positions := c.sourceInfo.GetPositions()
 	var line = 1
-	var col = 0
 	if offset, found := positions[id]; found {
-		col = int(offset)
+		col := int(offset)
 		for _, lineOffset := range c.sourceInfo.LineOffsets {
 			if lineOffset < offset {
 				line++
