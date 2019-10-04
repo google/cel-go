@@ -83,6 +83,9 @@ func TestTypeDescription_Field(t *testing.T) {
 		t.Error(err)
 	}
 	td, err := pbdb.DescribeType(proto.MessageName(&msg))
+	if err != nil {
+		t.Error(err)
+	}
 	fd, found := td.FieldByName("payload")
 	if !found {
 		t.Error("Field 'payload' not found")
