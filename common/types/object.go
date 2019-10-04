@@ -61,6 +61,8 @@ func (o *protoObj) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		}
 		return ptypes.MarshalAny(pb)
 	case jsonValueType:
+		// Marshal the proto to JSON first, and then rehydrate as protobuf.Value as there is no
+		// support for direct conversion from proto.Message to protobuf.Value.
 		jsonTxt, err := (&jsonpb.Marshaler{}).MarshalToString(pb)
 		if err != nil {
 			return nil, err

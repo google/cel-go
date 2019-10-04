@@ -94,20 +94,20 @@ func TestInt_ConvertToNative_Int64(t *testing.T) {
 
 func TestInt_ConvertToNative_Json(t *testing.T) {
 	// Value less than int32.
-	val, err := Int(math.MaxInt32 - 1).ConvertToNative(jsonValueType)
+	val, err := Int(maxIntJSON).ConvertToNative(jsonValueType)
 	if err != nil {
 		t.Error(err)
 	} else if !proto.Equal(val.(proto.Message),
-		&structpb.Value{Kind: &structpb.Value_NumberValue{NumberValue: 2147483646.0}}) {
+		&structpb.Value{Kind: &structpb.Value_NumberValue{NumberValue: 9007199254740991.0}}) {
 		t.Errorf("Got '%v', expected a json number for a 32-bit int", val)
 	}
 
 	// Value greater than max int32.
-	val, err = Int(math.MaxInt32 + 1).ConvertToNative(jsonValueType)
+	val, err = Int(maxIntJSON + 1).ConvertToNative(jsonValueType)
 	if err != nil {
 		t.Error(err)
 	} else if !proto.Equal(val.(proto.Message),
-		&structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "2147483648"}}) {
+		&structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "9007199254740992"}}) {
 		t.Errorf("Got '%v', expected a json string for a 64-bit int", val)
 	}
 }
@@ -125,11 +125,11 @@ func TestInt_ConvertToNative_Ptr_Int32(t *testing.T) {
 func TestInt_ConvertToNative_Ptr_Int64(t *testing.T) {
 	// Value greater than max int32.
 	ptrType := int64(0)
-	val, err := Int(4147483648).ConvertToNative(reflect.TypeOf(&ptrType))
+	val, err := Int(math.MaxInt32 + 1).ConvertToNative(reflect.TypeOf(&ptrType))
 	if err != nil {
 		t.Error(err)
-	} else if *val.(*int64) != 4147483648 {
-		t.Errorf("Got '%v', expected 4147483648", val)
+	} else if *val.(*int64) != math.MaxInt32+1 {
+		t.Errorf("Got '%v', expected MaxInt32 + 1", val)
 	}
 }
 

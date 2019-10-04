@@ -16,7 +16,6 @@ package types
 
 import (
 	"fmt"
-	"math"
 	"reflect"
 	"strconv"
 
@@ -87,6 +86,9 @@ func (i Int) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	switch typeDesc.Kind() {
 	case reflect.Int32:
 		// Enums are also mapped as int32 derivations.
+		// Note, the code doesn't convert to the enum value directly since this is not known, but
+		// the net effect with respect to proto-assignment is handled correctly by the reflection
+		// Convert method.
 		return reflect.ValueOf(i).Convert(typeDesc).Interface(), nil
 	case reflect.Int64:
 		return int64(i), nil
@@ -102,8 +104,8 @@ func (i Int) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 			// Convert the value to a protobuf.Int64Value.
 			return &wrapperspb.Int64Value{Value: int64(i)}, nil
 		case jsonValueType:
-			// JSON can accurately represent 32-bit ints as floating point values.
-			if i.isInt32() {
+			// JSON can accurately represent 53-bit ints as floating point values.
+			if i.isJSONSafe() {
 				return &structpb.Value{
 					Kind: &structpb.Value_NumberValue{NumberValue: float64(i)},
 				}, nil
@@ -215,6 +217,14 @@ func (i Int) Value() interface{} {
 	return int64(i)
 }
 
-func (i Int) isInt32() bool {
-	return math.MaxInt32 >= i && i >= math.MinInt32
+// isJSONSafe indicates whether the int is safely representable as a floating point value in JSON.
+func (i Int) isJSONSafe() bool {
+	return i >= minIntJSON && i <= maxIntJSON
 }
+
+const (
+	// maxIntJSON is defined as the Number.MAX_SAFE_INTEGER value per EcmaScript 6.
+	maxIntJSON = 1<<53 - 1
+	// minIntJSON is defined as the Number.MIN_SAFE_INTEGER value per EcmaScript 6.
+	minIntJSON = -maxIntJSON
+)

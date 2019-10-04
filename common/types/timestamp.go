@@ -87,7 +87,8 @@ func (t Timestamp) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		// Pack the underlying protobuf.Timestamp to an Any value.
 		return ptypes.MarshalAny(t.Timestamp)
 	case jsonValueType:
-		// Proto3 to JSON conversion requires string-formatted timestamps
+		// CEL follows the proto3 to JSON conversion which formats as an RFC 3339 encoded JSON
+		// string.
 		v := t.ConvertToType(StringType)
 		if IsError(v) {
 			return nil, v.(*Err)

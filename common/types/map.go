@@ -90,7 +90,7 @@ func (m *stringMap) Contains(index ref.Val) ref.Val {
 func (m *baseMap) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	switch typeDesc {
 	case anyValueType:
-		json, err := m.ConvertToNative(jsonValueType)
+		json, err := m.ConvertToNative(jsonStructType)
 		if err != nil {
 			return nil, err
 		}
@@ -116,7 +116,7 @@ func (m *baseMap) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		return nil, fmt.Errorf("type conversion error from map to '%v'", typeDesc)
 	}
 
-	// If the list is already assignable to the desired type return it.
+	// If the map is already assignable to the desired type return it.
 	if reflect.TypeOf(m).AssignableTo(typeDesc) {
 		return m, nil
 	}

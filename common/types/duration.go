@@ -113,7 +113,8 @@ func (d Duration) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		// Unwrap the CEL value to its underlying proto value.
 		return d.Value(), nil
 	case jsonValueType:
-		// Proto3 to JSON conversion requires string-formatted durations.
+		// CEL follows the proto3 to JSON conversion.
+		// Note, using jsonpb would wrap the result in extra double quotes.
 		v := d.ConvertToType(StringType)
 		if IsError(v) {
 			return nil, v.(*Err)

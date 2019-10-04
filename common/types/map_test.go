@@ -73,7 +73,7 @@ func TestBaseMap_ConvertToNative_Any(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	jsonMap := &structpb.Value{}
+	jsonMap := &structpb.Struct{}
 	if jsonpb.UnmarshalString(`{"nested":{"1":-1}}`, jsonMap) != nil {
 		t.Error("Unable to unmarshal json to protobuf.Value")
 	}

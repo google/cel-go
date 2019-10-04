@@ -122,7 +122,7 @@ func (l *baseList) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	// JSON conversions are a special case since the 'native' type is a proto message.
 	switch typeDesc {
 	case anyValueType:
-		json, err := l.ConvertToNative(jsonValueType)
+		json, err := l.ConvertToNative(jsonListValueType)
 		if err != nil {
 			return nil, err
 		}
@@ -419,7 +419,7 @@ func (l *stringList) ConvertToNative(typeDesc reflect.Type) (interface{}, error)
 	case reflect.Ptr:
 		switch typeDesc {
 		case anyValueType:
-			json, err := l.ConvertToNative(jsonValueType)
+			json, err := l.ConvertToNative(jsonListValueType)
 			if err != nil {
 				return nil, err
 			}

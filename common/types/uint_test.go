@@ -75,20 +75,20 @@ func TestUint_ConvertToNative_Error(t *testing.T) {
 
 func TestUint_ConvertToNative_Json(t *testing.T) {
 	// Value less than uint32.
-	val, err := Uint(math.MaxUint32 - 1).ConvertToNative(jsonValueType)
+	val, err := Uint(maxIntJSON).ConvertToNative(jsonValueType)
 	if err != nil {
 		t.Error(err)
 	} else if !proto.Equal(val.(proto.Message),
-		&structpb.Value{Kind: &structpb.Value_NumberValue{NumberValue: 4294967294.0}}) {
+		&structpb.Value{Kind: &structpb.Value_NumberValue{NumberValue: 9007199254740991.0}}) {
 		t.Errorf("Got '%v', expected a json number for a 32-bit uint", val)
 	}
 
 	// Value greater than max uint32.
-	val, err = Int(math.MaxUint32 + 1).ConvertToNative(jsonValueType)
+	val, err = Int(maxIntJSON + 1).ConvertToNative(jsonValueType)
 	if err != nil {
 		t.Error(err)
 	} else if !proto.Equal(val.(proto.Message),
-		&structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "4294967296"}}) {
+		&structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "9007199254740992"}}) {
 		t.Errorf("Got '%v', expected a json string for a 64-bit uint", val)
 	}
 }

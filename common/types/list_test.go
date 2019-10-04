@@ -88,7 +88,7 @@ func TestBaseList_ConvertToNative_Any(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	jsonVal := &structpb.Value{}
+	jsonVal := &structpb.ListValue{}
 	if jsonpb.UnmarshalString("[1.0, 2.0]", jsonVal) != nil {
 		t.Error("Unable to unmarshal json")
 	}

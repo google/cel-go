@@ -16,7 +16,6 @@ package types
 
 import (
 	"fmt"
-	"math"
 	"reflect"
 	"strconv"
 
@@ -90,7 +89,7 @@ func (i Uint) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 			return ptypes.MarshalAny(&wrapperspb.UInt64Value{Value: uint64(i)})
 		case jsonValueType:
 			// JSON can accurately represent 32-bit uints as floating point values.
-			if i.isUint32() {
+			if i.isJSONSafe() {
 				return &structpb.Value{
 					Kind: &structpb.Value_NumberValue{
 						NumberValue: float64(i),
@@ -205,6 +204,7 @@ func (i Uint) Value() interface{} {
 	return uint64(i)
 }
 
-func (i Uint) isUint32() bool {
-	return math.MaxUint32 >= i
+// isJSONSafe indicates whether the uint is safely representable as a floating point value in JSON.
+func (i Uint) isJSONSafe() bool {
+	return i <= maxIntJSON
 }
