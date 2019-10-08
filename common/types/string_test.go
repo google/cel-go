@@ -18,14 +18,16 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
+
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types/ref"
 
-	"github.com/golang/protobuf/proto"
-	structpb "github.com/golang/protobuf/ptypes/struct"
-
 	dpb "github.com/golang/protobuf/ptypes/duration"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 	tpb "github.com/golang/protobuf/ptypes/timestamp"
+	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
 )
 
 func TestString_Add(t *testing.T) {
@@ -52,6 +54,20 @@ func TestString_Compare(t *testing.T) {
 	}
 	if !IsError(a.Compare(True)) {
 		t.Error("Comparison to a non-string type did not generate an error.")
+	}
+}
+
+func TestString_ConvertToNative_Any(t *testing.T) {
+	val, err := String("hello").ConvertToNative(anyValueType)
+	if err != nil {
+		t.Error(err)
+	}
+	want, err := ptypes.MarshalAny(&wrapperspb.StringValue{Value: "hello"})
+	if err != nil {
+		t.Error(err)
+	}
+	if !proto.Equal(val.(proto.Message), want) {
+		t.Errorf("Got '%v', expected '%v'", val, want)
 	}
 }
 
@@ -88,6 +104,17 @@ func TestString_ConvertToNative_String(t *testing.T) {
 		t.Error(err)
 	} else if val.(string) != "hello" {
 		t.Errorf("Got '%v', expected 'hello'", val)
+	}
+}
+
+func TestString_ConvertToNative_Wrapper(t *testing.T) {
+	val, err := String("hello").ConvertToNative(stringWrapperType)
+	if err != nil {
+		t.Error(err)
+	}
+	want := &wrapperspb.StringValue{Value: "hello"}
+	if !proto.Equal(val.(proto.Message), want) {
+		t.Errorf("Got '%v', expected '%v'", val, want)
 	}
 }
 

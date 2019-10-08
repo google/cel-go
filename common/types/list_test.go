@@ -18,12 +18,15 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
+
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
 	dpb "github.com/golang/protobuf/ptypes/duration"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 )
 
 func TestBaseList_Add_Empty(t *testing.T) {
@@ -76,6 +79,40 @@ func TestBaseList_ConvertToNative(t *testing.T) {
 		t.Error(err)
 	} else if !reflect.DeepEqual(protoList, []float32{1.0, 2.0}) {
 		t.Errorf("Could not convert to []float32: %v", protoList)
+	}
+}
+
+func TestBaseList_ConvertToNative_Any(t *testing.T) {
+	list := NewDynamicList(NewRegistry(), []float64{1.0, 2.0})
+	val, err := list.ConvertToNative(anyValueType)
+	if err != nil {
+		t.Error(err)
+	}
+	jsonVal := &structpb.ListValue{}
+	if jsonpb.UnmarshalString("[1.0, 2.0]", jsonVal) != nil {
+		t.Error("Unable to unmarshal json")
+	}
+	want, err := ptypes.MarshalAny(jsonVal)
+	if err != nil {
+		t.Error(err)
+	}
+	if !proto.Equal(val.(proto.Message), want) {
+		t.Errorf("Got %v, wanted %v", val, want)
+	}
+}
+
+func TestBaseList_ConvertToNative_Json(t *testing.T) {
+	list := NewDynamicList(NewRegistry(), []float64{1.0, 2.0})
+	val, err := list.ConvertToNative(jsonListValueType)
+	if err != nil {
+		t.Error(err)
+	}
+	want := &structpb.ListValue{}
+	if jsonpb.UnmarshalString("[1.0, 2.0]", want) != nil {
+		t.Error("Unable to unmarshal json")
+	}
+	if !proto.Equal(val.(proto.Message), want) {
+		t.Errorf("Got %v, wanted %v", val, want)
 	}
 }
 
@@ -194,19 +231,16 @@ func TestConcatList_ConvertToNative_Json(t *testing.T) {
 	if jsonTxt != "[1,2,\"3\"]" {
 		t.Errorf("Got '%v', expected [1,2,\"3\"]", jsonTxt)
 	}
-}
-
-func TestConcatList_ConvertToNative_ElementConversionError(t *testing.T) {
-	reg := NewRegistry()
-	listA := NewDynamicList(reg, []float32{1.0, 2.0})
-	// Duration is serializable to a string form of json, but there is no
-	// concept of a duration literal within CEL, so the serialization to string
-	// is not supported here which should cause the conversion to json to fail.
-	listB := NewDynamicList(reg, []*dpb.Duration{{Seconds: 100}})
-	listConcat := listA.Add(listB)
-	json, err := listConcat.ConvertToNative(jsonValueType)
-	if err == nil {
-		t.Errorf("Got '%v', expected error", json)
+	// Test proto3 to JSON conversion.
+	listC := NewDynamicList(reg, []*dpb.Duration{{Seconds: 100}})
+	listConcat := listA.Add(listC)
+	json, err = listConcat.ConvertToNative(jsonValueType)
+	jsonTxt, err = (&jsonpb.Marshaler{}).MarshalToString(json.(proto.Message))
+	if err != nil {
+		t.Error(err)
+	}
+	if jsonTxt != "[1,2,\"100s\"]" {
+		t.Errorf("Got '%v', expected [1,2,\"100s\"]", jsonTxt)
 	}
 }
 

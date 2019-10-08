@@ -105,14 +105,14 @@ func (l *jsonListValue) ConvertToNative(typeDesc reflect.Type) (interface{}, err
 
 	case reflect.Ptr:
 		switch typeDesc {
-		case jsonValueType:
-			return &structpb.Value{
-				Kind: &structpb.Value_ListValue{
-					ListValue: l.ListValue}}, nil
-		case jsonListValueType:
-			return l.ListValue, nil
 		case anyValueType:
 			return ptypes.MarshalAny(l.Value().(proto.Message))
+		case jsonValueType:
+			return &structpb.Value{
+				Kind: &structpb.Value_ListValue{ListValue: l.ListValue},
+			}, nil
+		case jsonListValueType:
+			return l.ListValue, nil
 		}
 
 	case reflect.Interface:

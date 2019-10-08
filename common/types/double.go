@@ -18,9 +18,13 @@ import (
 	"fmt"
 	"reflect"
 
-	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
+
+	"github.com/golang/protobuf/ptypes"
+
+	structpb "github.com/golang/protobuf/ptypes/struct"
+	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
 )
 
 // Double type that implements ref.Val, comparison, and mathematical
@@ -36,6 +40,12 @@ var (
 		traits.MultiplierType,
 		traits.NegatorType,
 		traits.SubtractorType)
+
+	// doubleWrapperType reflected type for protobuf double wrapper type.
+	doubleWrapperType = reflect.TypeOf(&wrapperspb.DoubleValue{})
+
+	// floatWrapperType reflected type for protobuf float wrapper type.
+	floatWrapperType = reflect.TypeOf(&wrapperspb.FloatValue{})
 )
 
 // Add implements traits.Adder.Add.
@@ -70,10 +80,24 @@ func (d Double) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	case reflect.Float64:
 		return float64(d), nil
 	case reflect.Ptr:
-		if typeDesc == jsonValueType {
+		switch typeDesc {
+		case anyValueType:
+			// Primitives must be wrapped before being set on an Any field.
+			return ptypes.MarshalAny(&wrapperspb.DoubleValue{Value: float64(d)})
+		case doubleWrapperType:
+			// Convert to a protobuf.DoubleValue
+			return &wrapperspb.DoubleValue{Value: float64(d)}, nil
+		case floatWrapperType:
+			// Convert to a protobuf.FloatValue (with truncation).
+			return &wrapperspb.FloatValue{Value: float32(d)}, nil
+		case jsonValueType:
+			// Note, there are special cases for proto3 to json conversion that
+			// expect the floating point value to be converted to a NaN,
+			// Infinity, or -Infinity string values, but the jsonpb string
+			// marshaling of the protobuf.Value will handle this conversion.
 			return &structpb.Value{
-				Kind: &structpb.Value_NumberValue{
-					NumberValue: float64(d)}}, nil
+				Kind: &structpb.Value_NumberValue{NumberValue: float64(d)},
+			}, nil
 		}
 		switch typeDesc.Elem().Kind() {
 		case reflect.Float32:

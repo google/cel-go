@@ -18,9 +18,13 @@ import (
 	"fmt"
 	"reflect"
 
-	structpb "github.com/golang/protobuf/ptypes/struct"
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
+
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
+
+	structpb "github.com/golang/protobuf/ptypes/struct"
 )
 
 // baseMap is a reflection based map implementation designed to handle a variety of map-like types.
@@ -83,9 +87,15 @@ func (m *stringMap) Contains(index ref.Val) ref.Val {
 }
 
 // ConvertToNative implements the ref.Val interface method.
-func (m *baseMap) ConvertToNative(refType reflect.Type) (interface{}, error) {
-	// JSON conversion.
-	if refType == jsonValueType || refType == jsonStructType {
+func (m *baseMap) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
+	switch typeDesc {
+	case anyValueType:
+		json, err := m.ConvertToNative(jsonStructType)
+		if err != nil {
+			return nil, err
+		}
+		return ptypes.MarshalAny(json.(proto.Message))
+	case jsonValueType, jsonStructType:
 		jsonEntries, err :=
 			m.ConvertToNative(reflect.TypeOf(map[string]*structpb.Value{}))
 		if err != nil {
@@ -93,7 +103,7 @@ func (m *baseMap) ConvertToNative(refType reflect.Type) (interface{}, error) {
 		}
 		jsonMap := &structpb.Struct{
 			Fields: jsonEntries.(map[string]*structpb.Value)}
-		if refType == jsonStructType {
+		if typeDesc == jsonStructType {
 			return jsonMap, nil
 		}
 		return &structpb.Value{
@@ -102,8 +112,13 @@ func (m *baseMap) ConvertToNative(refType reflect.Type) (interface{}, error) {
 	}
 
 	// Non-map conversion.
-	if refType.Kind() != reflect.Map {
-		return nil, fmt.Errorf("type conversion error from map to '%v'", refType)
+	if typeDesc.Kind() != reflect.Map {
+		return nil, fmt.Errorf("type conversion error from map to '%v'", typeDesc)
+	}
+
+	// If the map is already assignable to the desired type return it.
+	if reflect.TypeOf(m).AssignableTo(typeDesc) {
+		return m, nil
 	}
 
 	// Map conversion.
@@ -113,16 +128,16 @@ func (m *baseMap) ConvertToNative(refType reflect.Type) (interface{}, error) {
 	thisElem := thisType.Elem()
 	thisElemKind := thisElem.Kind()
 
-	otherKey := refType.Key()
+	otherKey := typeDesc.Key()
 	otherKeyKind := otherKey.Kind()
-	otherElem := refType.Elem()
+	otherElem := typeDesc.Elem()
 	otherElemKind := otherElem.Kind()
 
 	if otherKeyKind == thisKeyKind && otherElemKind == thisElemKind {
 		return m.value, nil
 	}
 	elemCount := m.Size().(Int)
-	nativeMap := reflect.MakeMapWithSize(refType, int(elemCount))
+	nativeMap := reflect.MakeMapWithSize(typeDesc, int(elemCount))
 	it := m.Iterator()
 	for it.HasNext() == True {
 		key := it.Next()

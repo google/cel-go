@@ -19,9 +19,13 @@ import (
 	"reflect"
 	"strconv"
 
-	structpb "github.com/golang/protobuf/ptypes/struct"
+	"github.com/golang/protobuf/ptypes"
+
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
+
+	structpb "github.com/golang/protobuf/ptypes/struct"
+	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
 )
 
 // Bool type that implements ref.Val and supports comparison and negation.
@@ -32,6 +36,9 @@ var (
 	BoolType = NewTypeValue("bool",
 		traits.ComparerType,
 		traits.NegatorType)
+
+	// boolWrapperType golang reflected type for protobuf bool wrapper type.
+	boolWrapperType = reflect.TypeOf(&wrapperspb.BoolValue{})
 )
 
 // Boolean constants
@@ -61,14 +68,22 @@ func (b Bool) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	case reflect.Bool:
 		return bool(b), nil
 	case reflect.Ptr:
-		if typeDesc == jsonValueType {
+		switch typeDesc {
+		case anyValueType:
+			// Primitives must be wrapped before being set on an Any field.
+			return ptypes.MarshalAny(&wrapperspb.BoolValue{Value: bool(b)})
+		case boolWrapperType:
+			// Convert the bool to a protobuf.BoolValue.
+			return &wrapperspb.BoolValue{Value: bool(b)}, nil
+		case jsonValueType:
 			return &structpb.Value{
-				Kind: &structpb.Value_BoolValue{
-					BoolValue: b.Value().(bool)}}, nil
-		}
-		if typeDesc.Elem().Kind() == reflect.Bool {
-			p := bool(b)
-			return &p, nil
+				Kind: &structpb.Value_BoolValue{BoolValue: bool(b)},
+			}, nil
+		default:
+			if typeDesc.Elem().Kind() == reflect.Bool {
+				p := bool(b)
+				return &p, nil
+			}
 		}
 	case reflect.Interface:
 		if reflect.TypeOf(b).Implements(typeDesc) {

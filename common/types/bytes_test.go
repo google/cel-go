@@ -18,6 +18,12 @@ import (
 	"bytes"
 	"reflect"
 	"testing"
+
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
+
+	structpb "github.com/golang/protobuf/ptypes/struct"
+	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
 )
 
 func TestBytes_Add(t *testing.T) {
@@ -44,6 +50,20 @@ func TestBytes_Compare(t *testing.T) {
 	}
 }
 
+func TestBytes_ConvertToNative_Any(t *testing.T) {
+	val, err := Bytes("123").ConvertToNative(anyValueType)
+	if err != nil {
+		t.Error(err)
+	}
+	want, err := ptypes.MarshalAny(&wrapperspb.BytesValue{Value: []byte("123")})
+	if err != nil {
+		t.Error(err)
+	}
+	if !proto.Equal(val.(proto.Message), want) {
+		t.Errorf("Got %v, wanted %v", val, want)
+	}
+}
+
 func TestBytes_ConvertToNative_ByteSlice(t *testing.T) {
 	val, err := Bytes("123").ConvertToNative(reflect.TypeOf([]byte{}))
 	if err != nil || !bytes.Equal(val.([]byte), []byte{49, 50, 51}) {
@@ -55,6 +75,28 @@ func TestBytes_ConvertToNative_Error(t *testing.T) {
 	val, err := Bytes("123").ConvertToNative(reflect.TypeOf(""))
 	if err == nil {
 		t.Errorf("Got '%v', expected error", val)
+	}
+}
+
+func TestBytes_ConvertToNative_Json(t *testing.T) {
+	val, err := Bytes("123").ConvertToNative(jsonValueType)
+	if err != nil {
+		t.Error(err)
+	}
+	want := &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "MTIz"}}
+	if !proto.Equal(val.(proto.Message), want) {
+		t.Errorf("Got %v, wanted %v", val, want)
+	}
+}
+
+func TestBytes_ConvertToNative_Wrapper(t *testing.T) {
+	val, err := Bytes("123").ConvertToNative(byteWrapperType)
+	if err != nil {
+		t.Error(err)
+	}
+	want := &wrapperspb.BytesValue{Value: []byte("123")}
+	if !proto.Equal(val.(proto.Message), want) {
+		t.Errorf("Got %v, wanted %v", val, want)
 	}
 }
 

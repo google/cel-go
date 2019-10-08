@@ -22,11 +22,13 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 
 	dpb "github.com/golang/protobuf/ptypes/duration"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 )
 
 // Duration type that implements ref.Val and supports add, compare, negate,
@@ -103,8 +105,23 @@ func (d Duration) Compare(other ref.Val) ref.Val {
 
 // ConvertToNative implements ref.Val.ConvertToNative.
 func (d Duration) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
-	if typeDesc == durationValueType {
+	switch typeDesc {
+	case anyValueType:
+		// Pack the underlying proto value into an Any value.
+		return ptypes.MarshalAny(d.Value().(*dpb.Duration))
+	case durationValueType:
+		// Unwrap the CEL value to its underlying proto value.
 		return d.Value(), nil
+	case jsonValueType:
+		// CEL follows the proto3 to JSON conversion.
+		// Note, using jsonpb would wrap the result in extra double quotes.
+		v := d.ConvertToType(StringType)
+		if IsError(v) {
+			return nil, v.(*Err)
+		}
+		return &structpb.Value{
+			Kind: &structpb.Value_StringValue{StringValue: string(v.(String))},
+		}, nil
 	}
 	// If the duration is already assignable to the desired type return it.
 	if reflect.TypeOf(d).AssignableTo(typeDesc) {

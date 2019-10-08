@@ -15,12 +15,15 @@
 package types
 
 import (
+	"fmt"
 	"reflect"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	structpb "github.com/golang/protobuf/ptypes/struct"
+
 	"github.com/google/cel-go/common/types/ref"
+
+	structpb "github.com/golang/protobuf/ptypes/struct"
 )
 
 // Null type implementation.
@@ -31,32 +34,41 @@ var (
 	NullType = NewTypeValue("null_type")
 	// NullValue singleton.
 	NullValue = Null(structpb.NullValue_NULL_VALUE)
+
+	jsonNullType = reflect.TypeOf(structpb.NullValue_NULL_VALUE)
 )
 
 // ConvertToNative implements ref.Val.ConvertToNative.
 func (n Null) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	switch typeDesc.Kind() {
+	case reflect.Int32:
+		if typeDesc == jsonNullType {
+			return structpb.NullValue_NULL_VALUE, nil
+		}
 	case reflect.Ptr:
 		switch typeDesc {
-		case jsonValueType:
-			return &structpb.Value{
-				Kind: &structpb.Value_NullValue{
-					NullValue: structpb.NullValue_NULL_VALUE}}, nil
 		case anyValueType:
+			// Convert to a JSON-null before packing to an Any field since the enum value for JSON
+			// null cannot be packed directly.
 			pb, err := n.ConvertToNative(jsonValueType)
 			if err != nil {
 				return nil, err
 			}
 			return ptypes.MarshalAny(pb.(proto.Message))
+		case jsonValueType:
+			return &structpb.Value{
+				Kind: &structpb.Value_NullValue{
+					NullValue: structpb.NullValue_NULL_VALUE,
+				},
+			}, nil
 		}
 	case reflect.Interface:
 		if reflect.TypeOf(n).Implements(typeDesc) {
 			return n, nil
 		}
 	}
-	// By default return 'null'.
-	// TODO: determine whether there are other valid conversions for `null`.
-	return structpb.NullValue_NULL_VALUE, nil
+	// If the type conversion isn't supported return an error.
+	return nil, fmt.Errorf("type conversion error from '%v' to '%v'", NullType, typeDesc)
 }
 
 // ConvertToType implements ref.Val.ConvertToType.

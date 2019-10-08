@@ -18,10 +18,14 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+
 	"github.com/google/cel-go/common/types/pb"
 	"github.com/google/cel-go/common/types/ref"
+
+	structpb "github.com/golang/protobuf/ptypes/struct"
 )
 
 type protoObj struct {
@@ -48,19 +52,33 @@ func NewObject(adapter ref.TypeAdapter,
 		typeValue:   NewObjectTypeValue(typeDesc.Name())}
 }
 
-func (o *protoObj) ConvertToNative(refl reflect.Type) (interface{}, error) {
-	if refl.AssignableTo(o.refValue.Type()) {
-		return o.value, nil
+func (o *protoObj) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
+	pb := o.Value().(proto.Message)
+	switch typeDesc {
+	case anyValueType:
+		if o.isAny {
+			return pb, nil
+		}
+		return ptypes.MarshalAny(pb)
+	case jsonValueType:
+		// Marshal the proto to JSON first, and then rehydrate as protobuf.Value as there is no
+		// support for direct conversion from proto.Message to protobuf.Value.
+		jsonTxt, err := (&jsonpb.Marshaler{}).MarshalToString(pb)
+		if err != nil {
+			return nil, err
+		}
+		json := &structpb.Value{}
+		err = jsonpb.UnmarshalString(jsonTxt, json)
+		if err != nil {
+			return nil, err
+		}
+		return json, nil
 	}
-	if refl == anyValueType {
-		return ptypes.MarshalAny(o.Value().(proto.Message))
-	}
-	// If the object is already assignable to the desired type return it.
-	if reflect.TypeOf(o).AssignableTo(refl) {
-		return o, nil
+	if o.refValue.Type().AssignableTo(typeDesc) {
+		return pb, nil
 	}
 	return nil, fmt.Errorf("type conversion error from '%v' to '%v'",
-		o.refValue.Type(), refl)
+		o.refValue.Type(), typeDesc)
 }
 
 func (o *protoObj) ConvertToType(typeVal ref.Type) ref.Val {

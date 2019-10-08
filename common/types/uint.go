@@ -17,11 +17,15 @@ package types
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 
-	structpb "github.com/golang/protobuf/ptypes/struct"
+	"github.com/golang/protobuf/ptypes"
 
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
+
+	structpb "github.com/golang/protobuf/ptypes/struct"
+	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
 )
 
 // Uint type implementation which supports comparison and math operators.
@@ -36,6 +40,10 @@ var (
 		traits.ModderType,
 		traits.MultiplierType,
 		traits.SubtractorType)
+
+	uint32WrapperType = reflect.TypeOf(&wrapperspb.UInt32Value{})
+
+	uint64WrapperType = reflect.TypeOf(&wrapperspb.UInt64Value{})
 )
 
 // Uint constants
@@ -69,17 +77,38 @@ func (i Uint) Compare(other ref.Val) ref.Val {
 
 // ConvertToNative implements ref.Val.ConvertToNative.
 func (i Uint) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
-	value := i.Value()
 	switch typeDesc.Kind() {
 	case reflect.Uint32:
-		return uint32(value.(uint64)), nil
+		return uint32(i), nil
 	case reflect.Uint64:
-		return value, nil
+		return uint64(i), nil
 	case reflect.Ptr:
-		if typeDesc == jsonValueType {
+		switch typeDesc {
+		case anyValueType:
+			// Primitives must be wrapped before being set on an Any field.
+			return ptypes.MarshalAny(&wrapperspb.UInt64Value{Value: uint64(i)})
+		case jsonValueType:
+			// JSON can accurately represent 32-bit uints as floating point values.
+			if i.isJSONSafe() {
+				return &structpb.Value{
+					Kind: &structpb.Value_NumberValue{
+						NumberValue: float64(i),
+					},
+				}, nil
+			}
+			// Proto3 to JSON conversion requires string-formatted uint64 values
+			// since the conversion to floating point would result in truncation.
 			return &structpb.Value{
-				Kind: &structpb.Value_NumberValue{
-					NumberValue: float64(i)}}, nil
+				Kind: &structpb.Value_StringValue{
+					StringValue: strconv.FormatUint(uint64(i), 10),
+				},
+			}, nil
+		case uint32WrapperType:
+			// Convert the value to a protobuf.UInt32Value (with truncation).
+			return &wrapperspb.UInt32Value{Value: uint32(i)}, nil
+		case uint64WrapperType:
+			// Convert the value to a protobuf.UInt64Value.
+			return &wrapperspb.UInt64Value{Value: uint64(i)}, nil
 		}
 		switch typeDesc.Elem().Kind() {
 		case reflect.Uint32:
@@ -173,4 +202,9 @@ func (i Uint) Type() ref.Type {
 // Value implements ref.Val.Value.
 func (i Uint) Value() interface{} {
 	return uint64(i)
+}
+
+// isJSONSafe indicates whether the uint is safely representable as a floating point value in JSON.
+func (i Uint) isJSONSafe() bool {
+	return i <= maxIntJSON
 }

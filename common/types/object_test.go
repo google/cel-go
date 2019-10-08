@@ -18,11 +18,14 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+
 	"github.com/google/cel-go/common/types/traits"
 
 	anypb "github.com/golang/protobuf/ptypes/any"
+
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
@@ -72,5 +75,19 @@ func TestProtoObj_ConvertToNative(t *testing.T) {
 	}
 	if !proto.Equal(unpackedAny.Message, objVal.Value().(proto.Message)) {
 		t.Errorf("Messages were not equal, expect '%v', got '%v'", objVal.Value(), unpackedAny.Message)
+	}
+
+	// JSON
+	json, err := objVal.ConvertToNative(jsonValueType)
+	if err != nil {
+		t.Error(err)
+	}
+	jsonTxt, err := (&jsonpb.Marshaler{}).MarshalToString(json.(proto.Message))
+	if err != nil {
+		t.Error(err)
+	}
+	wantTxt := `{"sourceInfo":{"lineOffsets":[1,2,3]}}`
+	if jsonTxt != wantTxt {
+		t.Errorf("Got %v, wanted %v", jsonTxt, wantTxt)
 	}
 }
