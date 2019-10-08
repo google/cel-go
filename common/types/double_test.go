@@ -21,6 +21,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
 )
@@ -118,13 +119,6 @@ func TestDouble_ConvertToNative_Json(t *testing.T) {
 	}
 	val, err = Double(math.Inf(0)).ConvertToNative(jsonValueType)
 	pbVal = &structpb.Value{Kind: &structpb.Value_NumberValue{NumberValue: math.Inf(0)}}
-	if err != nil {
-		t.Error(err)
-	} else if !proto.Equal(val.(proto.Message), pbVal) {
-		t.Errorf("Got '%v', expected Infinity", val)
-	}
-	val, err = Double(math.Inf(1)).ConvertToNative(jsonValueType)
-	pbVal = &structpb.Value{Kind: &structpb.Value_NumberValue{NumberValue: math.Inf(1)}}
 	if err != nil {
 		t.Error(err)
 	} else if !proto.Equal(val.(proto.Message), pbVal) {

@@ -104,7 +104,20 @@ func (i Int) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 			// Convert the value to a protobuf.Int64Value.
 			return &wrapperspb.Int64Value{Value: int64(i)}, nil
 		case jsonValueType:
-			// JSON can accurately represent 53-bit ints as floating point values.
+			// The proto-to-JSON conversion rules would convert all 64-bit integer values to JSON
+			// decimal strings. Because CEL ints might come from the automatic widening of 32-bit
+			// values in protos, the JSON type is chosen dynamically based on the value.
+			//
+			// - Integers -2^53-1 < n < 2^53-1 are encoded as JSON numbers.
+			// - Integers outside this range are encoded as JSON strings.
+			//
+			// The integer to float range represents the largest interval where such a conversion
+			// can round-trip accurately. Thus, conversions from a 32-bit source can expect a JSON
+			// number as with protobuf. Those consuming JSON from a 64-bit source must be able to
+			// handle either a JSON number or a JSON decimal string. To handle these cases safely
+			// the string values must be explicitly converted to int() within a CEL expression;
+			// however, it is best to simply stay within the JSON number range when building JSON
+			// objects in CEL.
 			if i.isJSONSafe() {
 				return &structpb.Value{
 					Kind: &structpb.Value_NumberValue{NumberValue: float64(i)},

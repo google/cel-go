@@ -74,7 +74,7 @@ func TestUint_ConvertToNative_Error(t *testing.T) {
 }
 
 func TestUint_ConvertToNative_Json(t *testing.T) {
-	// Value less than uint32.
+	// Value can be represented accurately as a JSON number.
 	val, err := Uint(maxIntJSON).ConvertToNative(jsonValueType)
 	if err != nil {
 		t.Error(err)
@@ -83,7 +83,7 @@ func TestUint_ConvertToNative_Json(t *testing.T) {
 		t.Errorf("Got '%v', expected a json number for a 32-bit uint", val)
 	}
 
-	// Value greater than max uint32.
+	// Value converts to a JSON decimal string
 	val, err = Int(maxIntJSON + 1).ConvertToNative(jsonValueType)
 	if err != nil {
 		t.Error(err)

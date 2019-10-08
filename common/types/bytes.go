@@ -78,7 +78,9 @@ func (b Bytes) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 			// Convert the bytes to a protobuf.BytesValue.
 			return &wrapperspb.BytesValue{Value: []byte(b)}, nil
 		case jsonValueType:
-			// proto3 to JSON conversion requires base64 encoding of bytes.
+			// CEL follows the proto3 to JSON conversion by encoding bytes to a string via base64.
+			// The encoding below matches the golang 'encoding/json' behavior during marshaling,
+			// which uses base64.StdEncoding.
 			str := base64.StdEncoding.EncodeToString([]byte(b))
 			return &structpb.Value{
 				Kind: &structpb.Value_StringValue{StringValue: str},

@@ -93,7 +93,7 @@ func TestInt_ConvertToNative_Int64(t *testing.T) {
 }
 
 func TestInt_ConvertToNative_Json(t *testing.T) {
-	// Value less than int32.
+	// Value can be represented accurately as a JSON number.
 	val, err := Int(maxIntJSON).ConvertToNative(jsonValueType)
 	if err != nil {
 		t.Error(err)
@@ -102,7 +102,7 @@ func TestInt_ConvertToNative_Json(t *testing.T) {
 		t.Errorf("Got '%v', expected a json number for a 32-bit int", val)
 	}
 
-	// Value greater than max int32.
+	// Value converts to a JSON decimal string.
 	val, err = Int(maxIntJSON + 1).ConvertToNative(jsonValueType)
 	if err != nil {
 		t.Error(err)
