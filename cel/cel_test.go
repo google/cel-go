@@ -564,6 +564,21 @@ func Benchmark_EvalOptions(b *testing.B) {
 	}
 }
 
+func Test_EnvExtension(t *testing.T) {
+	e, _ := NewEnv(
+		Container("google.api.expr.v1alpha1"),
+		Types(&exprpb.Expr{}),
+		Declarations(
+			decls.NewIdent("expr",
+				decls.NewObjectType("google.api.expr.v1alpha1.Expr"), nil),
+		),
+	)
+	e2, _ := e.Extend()
+	if e == e2 {
+		t.Error("Got object equality, wanted separate objects")
+	}
+}
+
 func Test_ParseAndCheckConcurrently(t *testing.T) {
 	e, _ := NewEnv(
 		Container("google.api.expr.v1alpha1"),
