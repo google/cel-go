@@ -112,7 +112,7 @@ type Issues interface {
 // See the EnvOptions for the options that can be used to configure the environment.
 func NewEnv(opts ...EnvOption) (Env, error) {
 	registry := types.NewRegistry()
-	e := &env{
+	return (&env{
 		declarations:                   checker.StandardDeclarations(),
 		macros:                         parser.AllMacros,
 		pkg:                            packages.DefaultPackage,
@@ -120,13 +120,12 @@ func NewEnv(opts ...EnvOption) (Env, error) {
 		adapter:                        registry,
 		enableBuiltins:                 true,
 		enableDynamicAggregateLiterals: true,
-	}
-	return e.configure(opts...)
+	}).configure(opts...)
 }
 
 // Extend the current environment with additional options to produce a new Env.
 func (e *env) Extend(opts ...EnvOption) (Env, error) {
-	ext := &env{
+	return (&env{
 		declarations:                   e.declarations,
 		macros:                         e.macros,
 		pkg:                            e.pkg,
@@ -134,8 +133,7 @@ func (e *env) Extend(opts ...EnvOption) (Env, error) {
 		adapter:                        e.adapter,
 		enableBuiltins:                 e.enableBuiltins,
 		enableDynamicAggregateLiterals: e.enableDynamicAggregateLiterals,
-	}
-	return ext.configure(opts...)
+	}).configure(opts...)
 }
 
 // configure applies a series of EnvOptions to the current environment.
