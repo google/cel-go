@@ -235,6 +235,9 @@ func TestConcatList_ConvertToNative_Json(t *testing.T) {
 	listC := NewDynamicList(reg, []*dpb.Duration{{Seconds: 100}})
 	listConcat := listA.Add(listC)
 	json, err = listConcat.ConvertToNative(jsonValueType)
+	if err != nil {
+		t.Error(err)
+	}
 	jsonTxt, err = (&jsonpb.Marshaler{}).MarshalToString(json.(proto.Message))
 	if err != nil {
 		t.Error(err)

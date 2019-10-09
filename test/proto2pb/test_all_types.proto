@@ -2,13 +2,13 @@
 
 syntax = "proto2";
 
+package google.expr.proto2.test;
+
 import "google/protobuf/any.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
-
-package google.expr.proto2.test;
 
 // This proto includes every type of field in both singular and repeated
 // forms.
@@ -27,21 +27,21 @@ message TestAllTypes {
   }
 
   // Singular
-  optional int32 single_int32 = 1 [ default = -32 ];
-  optional int64 single_int64 = 2 [ default = -64 ];
-  optional uint32 single_uint32 = 3 [ default = 32 ];
-  optional uint64 single_uint64 = 4 [ default = 64 ];
+  optional int32 single_int32 = 1 [default = -32];
+  optional int64 single_int64 = 2 [default = -64];
+  optional uint32 single_uint32 = 3 [default = 32];
+  optional uint64 single_uint64 = 4 [default = 64];
   optional sint32 single_sint32 = 5;
   optional sint64 single_sint64 = 6;
   optional fixed32 single_fixed32 = 7;
   optional fixed64 single_fixed64 = 8;
   optional sfixed32 single_sfixed32 = 9;
   optional sfixed64 single_sfixed64 = 10;
-  optional float single_float = 11 [ default = 3.0 ];
-  optional double single_double = 12 [ default = 6.4 ];
-  optional bool single_bool = 13 [ default = true ];
-  optional string single_string = 14 [ default = "empty" ];
-  optional bytes single_bytes = 15 [ default = "none" ];
+  optional float single_float = 11 [default = 3.0];
+  optional double single_double = 12 [default = 6.4];
+  optional bool single_bool = 13 [default = true];
+  optional string single_string = 14 [default = "empty"];
+  optional bytes single_bytes = 15 [default = "none"];
 
   // Wellknown.
   optional google.protobuf.Any single_any = 100;
@@ -62,7 +62,7 @@ message TestAllTypes {
   // Nested messages
   oneof nested_type {
     NestedMessage single_nested_message = 18;
-    NestedEnum single_nested_enum = 21 [ default = BAR ];
+    NestedEnum single_nested_enum = 21 [default = BAR];
   }
 
   // Repeated
