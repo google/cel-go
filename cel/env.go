@@ -61,6 +61,9 @@ type Ast interface {
 // constants, variables, and functions. The Env interface also defines a method for generating
 // evaluable programs from parsed and checked Asts.
 type Env interface {
+	// Extend the current environment with additional options to produce a new Env.
+	Extend(opts ...EnvOption) (Env, error)
+
 	// Check performs type-checking on the input Ast and yields a checked Ast and/or set of Issues.
 	//
 	// Checking has failed if the returned Issues value and its Issues.Err() value is non-nil.
@@ -118,6 +121,25 @@ func NewEnv(opts ...EnvOption) (Env, error) {
 		enableBuiltins:                 true,
 		enableDynamicAggregateLiterals: true,
 	}
+	return e.configure(opts...)
+}
+
+// Extend the current environment with additional options to produce a new Env.
+func (e *env) Extend(opts ...EnvOption) (Env, error) {
+	ext := &env{
+		declarations:                   e.declarations,
+		macros:                         e.macros,
+		pkg:                            e.pkg,
+		provider:                       e.provider,
+		adapter:                        e.adapter,
+		enableBuiltins:                 e.enableBuiltins,
+		enableDynamicAggregateLiterals: e.enableDynamicAggregateLiterals,
+	}
+	return ext.configure(opts...)
+}
+
+// configure applies a series of EnvOptions to the current environment.
+func (e *env) configure(opts ...EnvOption) (Env, error) {
 	// Customized the environment using the provided EnvOption values. If an error is
 	// generated at any step this, will be returned as a nil Env with a non-nil error.
 	var err error
