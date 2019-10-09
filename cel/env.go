@@ -125,15 +125,9 @@ func NewEnv(opts ...EnvOption) (Env, error) {
 
 // Extend the current environment with additional options to produce a new Env.
 func (e *env) Extend(opts ...EnvOption) (Env, error) {
-	return (&env{
-		declarations:                   e.declarations,
-		macros:                         e.macros,
-		pkg:                            e.pkg,
-		provider:                       e.provider,
-		adapter:                        e.adapter,
-		enableBuiltins:                 e.enableBuiltins,
-		enableDynamicAggregateLiterals: e.enableDynamicAggregateLiterals,
-	}).configure(opts...)
+	ext := &env{}
+	*ext = *e
+	return ext.configure(opts...)
 }
 
 // configure applies a series of EnvOptions to the current environment.
