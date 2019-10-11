@@ -93,7 +93,7 @@ var (
 			expr:      `zero()`,
 			unchecked: true,
 			funcs: []*functions.Overload{
-				&functions.Overload{
+				{
 					Operator: "zero",
 					Function: func(args ...ref.Val) ref.Val {
 						return types.IntZero
@@ -107,7 +107,7 @@ var (
 			expr:      `neg(1)`,
 			unchecked: true,
 			funcs: []*functions.Overload{
-				&functions.Overload{
+				{
 					Operator:     "neg",
 					OperandTrait: traits.NegatorType,
 					Unary: func(arg ref.Val) ref.Val {
@@ -122,7 +122,7 @@ var (
 			expr:      `b'abc'.concat(b'def')`,
 			unchecked: true,
 			funcs: []*functions.Overload{
-				&functions.Overload{
+				{
 					Operator:     "concat",
 					OperandTrait: traits.AdderType,
 					Binary: func(lhs, rhs ref.Val) ref.Val {
@@ -137,7 +137,7 @@ var (
 			expr:      `addall(a, b, c, d) == 10`,
 			unchecked: true,
 			funcs: []*functions.Overload{
-				&functions.Overload{
+				{
 					Operator:     "addall",
 					OperandTrait: traits.AdderType,
 					Function: func(args ...ref.Val) ref.Val {
@@ -555,7 +555,7 @@ var (
 								"list": {Kind: &structpb.Value_ListValue{
 									ListValue: &structpb.ListValue{
 										Values: []*structpb.Value{
-											&structpb.Value{Kind: &structpb.Value_StringValue{
+											{Kind: &structpb.Value_StringValue{
 												StringValue: "world",
 											}},
 										},
@@ -630,7 +630,7 @@ var (
 						[]*exprpb.Type{decls.String}, decls.Dyn)),
 			},
 			funcs: []*functions.Overload{
-				&functions.Overload{
+				{
 					Operator: "json",
 					Unary: func(val ref.Val) ref.Val {
 						str, ok := val.(types.String)
