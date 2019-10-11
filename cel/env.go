@@ -204,12 +204,8 @@ type env struct {
 
 // Check implements the Env interface method.
 func (e *env) Check(ast Ast) (Ast, Issues) {
-	pe, err := AstToParsedExpr(ast)
-	if err != nil {
-		errs := common.NewErrors(ast.Source())
-		errs.ReportError(common.NoLocation, err.Error())
-		return nil, &issues{errs: errs}
-	}
+	// Note, errors aren't currently possible on the Ast to ParsedExpr conversion.
+	pe, _ := AstToParsedExpr(ast)
 	res, errs := checker.Check(pe, ast.Source(), e.chk)
 	if len(errs.GetErrors()) > 0 {
 		return nil, &issues{errs: errs}

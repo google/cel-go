@@ -21,8 +21,10 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/overloads"
+	"github.com/google/cel-go/parser"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cel-go/checker/decls"
@@ -199,6 +201,7 @@ func Test_ExampleWithBuiltins(t *testing.T) {
 
 func Test_DisableStandardEnv(t *testing.T) {
 	e, _ := NewEnv(
+		ClearMacros(),
 		ClearBuiltIns(),
 		Declarations(decls.NewIdent("a.b.c", decls.Bool, nil)))
 
@@ -299,12 +302,19 @@ func Test_HomogeneousAggregateLiterals(t *testing.T) {
 }
 
 func Test_CustomTypes(t *testing.T) {
+	exprType := decls.NewObjectType("google.api.expr.v1alpha1.Expr")
+	reg := types.NewEmptyRegistry()
 	e, _ := NewEnv(
+		CustomTypeAdapter(reg),
+		CustomTypeProvider(reg),
 		Container("google.api.expr.v1alpha1"),
-		Types(&exprpb.Expr{}),
+		Types(
+			&exprpb.Expr{},
+			types.BoolType,
+			types.IntType,
+			types.StringType),
 		Declarations(
-			decls.NewIdent("expr",
-				decls.NewObjectType("google.api.expr.v1alpha1.Expr"), nil)))
+			decls.NewIdent("expr", exprType, nil)))
 
 	p, _ := e.Parse(`
 		expr == Expr{id: 2,
@@ -315,6 +325,9 @@ func Test_CustomTypes(t *testing.T) {
 					Expr{id: 3, ident_expr: Expr.Ident{ name: "b" }}]
 			}}`)
 	c, _ := e.Check(p)
+	if !proto.Equal(c.ResultType(), decls.Bool) {
+		t.Fatalf("Got %v, wanted type bool", c.ResultType())
+	}
 	prg, _ := e.Program(c)
 	vars := map[string]interface{}{"expr": &exprpb.Expr{
 		Id: 2,
@@ -458,6 +471,62 @@ func Test_GlobalVars(t *testing.T) {
 			t.Errorf("Got '%v', expected 'fourth'.", out.Value())
 		}
 	})
+}
+
+func Test_CustomMacro(t *testing.T) {
+	joinMacro := parser.NewReceiverMacro("join", 1,
+		func(eh parser.ExprHelper,
+			target *exprpb.Expr,
+			args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
+			delim := args[0]
+			iterIdent := eh.Ident("__iter__")
+			accuIdent := eh.Ident("__result__")
+			init := eh.LiteralString("")
+			condition := eh.LiteralBool(true)
+			step := eh.GlobalCall(
+				operators.Conditional,
+				eh.GlobalCall(operators.Greater,
+					eh.ReceiverCall("size", accuIdent),
+					eh.LiteralInt(0)),
+				eh.GlobalCall(
+					operators.Add,
+					eh.GlobalCall(
+						operators.Add,
+						accuIdent,
+						delim),
+					iterIdent),
+				iterIdent)
+			return eh.Fold(
+				"__iter__",
+				target,
+				"__result__",
+				init,
+				condition,
+				step,
+				accuIdent), nil
+		})
+	e, _ := NewEnv(
+		Macros(joinMacro),
+	)
+	p, iss := e.Parse(`['hello', 'cel', 'friend'].join(',')`)
+	if iss != nil && iss.Err() != nil {
+		t.Fatal(iss.Err())
+	}
+	c, iss := e.Check(p)
+	if iss != nil && iss.Err() != nil {
+		t.Fatal(iss.Err())
+	}
+	prg, err := e.Program(c, EvalOptions(OptExhaustiveEval))
+	if err != nil {
+		t.Fatalf("program creation error: %s\n", err)
+	}
+	out, _, err := prg.Eval(NoVars())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Equal(types.String("hello,cel,friend")) != types.True {
+		t.Errorf("Got %v, wanted 'hello,cel,friend'", out)
+	}
 }
 
 func Test_EvalOptions(t *testing.T) {
