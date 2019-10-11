@@ -508,7 +508,7 @@ func Test_CustomMacro(t *testing.T) {
 	e, _ := NewEnv(
 		Macros(joinMacro),
 	)
-	p, iss := e.Parse(`['hello', 'friend'].join(',')`)
+	p, iss := e.Parse(`['hello', 'cel', 'friend'].join(',')`)
 	if iss != nil && iss.Err() != nil {
 		t.Fatal(iss.Err())
 	}
@@ -524,8 +524,8 @@ func Test_CustomMacro(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if out.Equal(types.String("hello,friend")) != types.True {
-		t.Errorf("Got %v, wanted 'hello,friend'", out)
+	if out.Equal(types.String("hello,cel,friend")) != types.True {
+		t.Errorf("Got %v, wanted 'hello,cel,friend'", out)
 	}
 }
 
