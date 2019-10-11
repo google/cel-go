@@ -62,15 +62,20 @@ func NewRegistry(types ...proto.Message) ref.TypeRegistry {
 		UintType)
 
 	for _, msgType := range types {
-		fd, err := p.pbdb.RegisterMessage(msgType)
+		err := p.RegisterMessage(msgType)
 		if err != nil {
 			panic(err)
 		}
-		for _, typeName := range fd.GetTypeNames() {
-			p.RegisterType(NewObjectTypeValue(typeName))
-		}
 	}
 	return p
+}
+
+// NewEmptyRegistry returns a registry which is completely unconfigured.
+func NewEmptyRegistry() ref.TypeRegistry {
+	return &protoTypeRegistry{
+		revTypeMap: make(map[string]ref.Type),
+		pbdb:       pb.NewDb(),
+	}
 }
 
 func (p *protoTypeRegistry) EnumValue(enumName string) ref.Val {
