@@ -53,7 +53,6 @@ func TestIO_AstToProto(t *testing.T) {
 	if !proto.Equal(ast3.Expr(), ast.Expr()) {
 		t.Fatalf("Got %v, wanted %v", ast3, ast)
 	}
-
 }
 
 func TestIO_AstToString(t *testing.T) {
