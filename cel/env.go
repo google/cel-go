@@ -75,12 +75,18 @@ type Env interface {
 
 	// Parse parses the input expression value `txt` to a Ast and/or a set of Issues.
 	//
+	// This form of Parse creates a common.Source value for the input `txt` and forwards to the
+	// ParseSource method.
+	Parse(txt string) (Ast, Issues)
+
+	// Parse parses the input source to an Ast and/or set of Issues.
+	//
 	// Parsing has failed if the returned Issues value and its Issues.Err() value is non-nil.
 	// Issues should be inspected if they are non-nil, but may not represent a fatal error.
 	//
 	// It is possible to have both non-nil Ast and Issues values returned from this call; however,
 	// the mere presence of an Ast does not imply that it is valid for use.
-	Parse(txt string) (Ast, Issues)
+	ParseSource(src common.Source) (Ast, Issues)
 
 	// Program generates an evaluable instance of the Ast within the environment (Env).
 	Program(ast Ast, opts ...ProgramOption) (Program, error)
@@ -223,6 +229,11 @@ func (e *env) Check(ast Ast) (Ast, Issues) {
 // Parse implements the Env interface method.
 func (e *env) Parse(txt string) (Ast, Issues) {
 	src := common.NewTextSource(txt)
+	return e.ParseSource(src)
+}
+
+// ParseSource implements the Env interface method.
+func (e *env) ParseSource(src common.Source) (Ast, Issues) {
 	res, errs := parser.ParseWithMacros(src, e.macros)
 	if len(errs.GetErrors()) > 0 {
 		return nil, &issues{errs: errs}

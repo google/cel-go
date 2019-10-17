@@ -49,15 +49,6 @@ type Source interface {
 
 	// Snippet returns a line of content and whether the line was found.
 	Snippet(line int) (string, bool)
-
-	// IDOffset returns the raw character offset of an expression within
-	// the source, or false if the expression cannot be found.
-	IDOffset(exprID int64) (int32, bool)
-
-	// IDLocation returns a Location for the given expression id,
-	// or false if one cannot be found.  It behaves as the obvious
-	// composition of IdOffset() and OffsetLocation().
-	IDLocation(exprID int64) (Location, bool)
 }
 
 // The sourceImpl type implementation of the Source interface.
@@ -141,22 +132,6 @@ func (s *sourceImpl) Snippet(line int) (string, bool) {
 	return string(s.contents[charStart:]), true
 }
 
-func (s *sourceImpl) IDOffset(exprID int64) (int32, bool) {
-	if offset, found := s.idOffsets[exprID]; found {
-		return offset, true
-	}
-	return -1, false
-}
-
-func (s *sourceImpl) IDLocation(exprID int64) (Location, bool) {
-	if offset, found := s.IDOffset(exprID); found {
-		if location, found := s.OffsetLocation(offset); found {
-			return location, true
-		}
-	}
-	return NewLocation(1, 0), false
-}
-
 // findLineOffset returns the offset where the (1-indexed) line begins,
 // or false if line doesn't exist.
 func (s *sourceImpl) findLineOffset(line int) (int32, bool) {
@@ -186,4 +161,20 @@ func (s *sourceImpl) findLine(characterOffset int32) (int32, int32) {
 		return line, 0
 	}
 	return line, s.lineOffsets[line-2]
+}
+
+func (s *sourceImpl) idOffset(exprID int64) (int32, bool) {
+	if offset, found := s.idOffsets[exprID]; found {
+		return offset, true
+	}
+	return -1, false
+}
+
+func (s *sourceImpl) idLocation(exprID int64) (Location, bool) {
+	if offset, found := s.idOffset(exprID); found {
+		if location, found := s.OffsetLocation(offset); found {
+			return location, true
+		}
+	}
+	return NewLocation(1, 0), false
 }
