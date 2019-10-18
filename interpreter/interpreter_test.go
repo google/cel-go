@@ -53,7 +53,7 @@ type testCase struct {
 
 	in  map[string]interface{}
 	out interface{}
-	err bool
+	err string
 }
 
 var (
@@ -81,12 +81,12 @@ var (
 		{
 			name: "and_error_1st_error",
 			expr: `1/0 != 0 && true`,
-			err:  true,
+			err:  "divide by zero",
 		},
 		{
 			name: "and_error_2nd_error",
 			expr: `true && 1/0 != 0`,
-			err:  true,
+			err:  "divide by zero",
 		},
 		{
 			name:      "call_no_args",
@@ -417,12 +417,12 @@ var (
 		{
 			name: "or_error_1st_error",
 			expr: `1/0 != 0 || false`,
-			err:  true,
+			err:  "divide by zero",
 		},
 		{
 			name: "or_error_2nd_error",
 			expr: `false || 1/0 != 0`,
-			err:  true,
+			err:  "divide by zero",
 		},
 		{
 			name: "or_error_1st_true",
@@ -701,9 +701,9 @@ func TestInterpreter(t *testing.T) {
 					tt.Errorf("Got %v, wanted %v", got, want)
 					return
 				}
-			} else if tc.err {
-				if !types.IsError(got) {
-					tt.Errorf("Got %v, wanted error", got)
+			} else if tc.err != "" {
+				if !types.IsError(got) || got.(*types.Err).String() != tc.err {
+					tt.Errorf("Got %v (%T), wanted error: %s", got, got, tc.err)
 					return
 				}
 			} else if got.Equal(want) != types.True {
@@ -725,9 +725,9 @@ func TestInterpreter(t *testing.T) {
 						if !reflect.DeepEqual(got, want) {
 							ttt.Errorf("Got %v, wanted %v", got, want)
 						}
-					} else if tc.err {
-						if !types.IsError(got) {
-							ttt.Errorf("Got %v, wanted error", got)
+					} else if tc.err != "" {
+						if !types.IsError(got) || got.(*types.Err).String() != tc.err {
+							ttt.Errorf("Got %v (%T), wanted error: %s", got, got, tc.err)
 						}
 					} else if got.Equal(want) != types.True {
 						ttt.Errorf("Got %v, wanted %v", got, want)
