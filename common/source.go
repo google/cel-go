@@ -47,6 +47,12 @@ type Source interface {
 	// false if the conversion was not feasible.
 	OffsetLocation(offset int32) (Location, bool)
 
+	// NewLocation takes an input line and column and produces a Location.
+	// The default behavior is to treat the line and column as absolute,
+	// but concrete derivations may use this method to convert a relative
+	// line and column position into an absolute location.
+	NewLocation(line, col int) Location
+
 	// Snippet returns a line of content and whether the line was found.
 	Snippet(line int) (string, bool)
 }
@@ -96,18 +102,22 @@ func NewInfoSource(info *exprpb.SourceInfo) Source {
 	}
 }
 
+// Content implements the Source interface method.
 func (s *sourceImpl) Content() string {
 	return string(s.contents)
 }
 
+// Description implements the Source interface method.
 func (s *sourceImpl) Description() string {
 	return s.description
 }
 
+// LineOffsets implements the Source interface method.
 func (s *sourceImpl) LineOffsets() []int32 {
 	return s.lineOffsets
 }
 
+// LocationOffset implements the Source interface method.
 func (s *sourceImpl) LocationOffset(location Location) (int32, bool) {
 	if lineOffset, found := s.findLineOffset(location.Line()); found {
 		return lineOffset + int32(location.Column()), true
@@ -115,11 +125,18 @@ func (s *sourceImpl) LocationOffset(location Location) (int32, bool) {
 	return -1, false
 }
 
+// NewLocation implements the Source interface method.
+func (s *sourceImpl) NewLocation(line, col int) Location {
+	return NewLocation(line, col)
+}
+
+// OffsetLocation implements the Source interface method.
 func (s *sourceImpl) OffsetLocation(offset int32) (Location, bool) {
 	line, lineOffset := s.findLine(offset)
 	return NewLocation(int(line), int(offset-lineOffset)), true
 }
 
+// Snippet implements the Source interface method.
 func (s *sourceImpl) Snippet(line int) (string, bool) {
 	charStart, found := s.findLineOffset(line)
 	if !found || len(s.contents) == 0 {
