@@ -289,10 +289,7 @@ func (ne *evalNe) Eval(ctx Activation) ref.Val {
 	eqVal := lVal.Equal(rVal)
 	eqBool, ok := eqVal.(types.Bool)
 	if !ok {
-		if types.IsUnknown(eqVal) {
-			return eqVal
-		}
-		return types.NewErr("no such overload: _!=_")
+		return types.ValOrErr(eqVal, "no such overload: _!=_")
 	}
 	return !eqBool
 }
