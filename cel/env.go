@@ -78,7 +78,7 @@ type Env interface {
 	// ParseSource method.
 	Parse(txt string) (Ast, *Issues)
 
-	// Parse parses the input source to an Ast and/or set of Issues.
+	// ParseSource parses the input source to an Ast and/or set of Issues.
 	//
 	// Parsing has failed if the returned Issues value and its Issues.Err() value is non-nil.
 	// Issues should be inspected if they are non-nil, but may not represent a fatal error.
@@ -259,10 +259,10 @@ type Issues struct {
 	errs *common.Errors
 }
 
-// NewIssues returns an Issues struct from a common.Source.
-func NewIssues(src common.Source) *Issues {
+// NewIssues returns an Issues struct from a common.Errors object.
+func NewIssues(errs *common.Errors) *Issues {
 	return &Issues{
-		errs: common.NewErrors(src),
+		errs: errs,
 	}
 }
 
