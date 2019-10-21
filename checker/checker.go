@@ -438,6 +438,7 @@ func (c *checker) checkComprehension(e *exprpb.Expr) {
 		varType = decls.Dyn
 	default:
 		c.errors.notAComprehensionRange(c.location(comp.IterRange), rangeType)
+		varType = decls.Dyn
 	}
 
 	// Create a scope for the comprehension since it has a local accumulation variable.
