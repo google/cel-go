@@ -16,7 +16,6 @@ package cel
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/checker/decls"
@@ -71,16 +70,22 @@ type Env interface {
 	//
 	// It is possible to have both non-nil Ast and Issues values returned from this call: however,
 	// the mere presence of an Ast does not imply that it is valid for use.
-	Check(ast Ast) (Ast, Issues)
+	Check(ast Ast) (Ast, *Issues)
 
 	// Parse parses the input expression value `txt` to a Ast and/or a set of Issues.
+	//
+	// This form of Parse creates a common.Source value for the input `txt` and forwards to the
+	// ParseSource method.
+	Parse(txt string) (Ast, *Issues)
+
+	// ParseSource parses the input source to an Ast and/or set of Issues.
 	//
 	// Parsing has failed if the returned Issues value and its Issues.Err() value is non-nil.
 	// Issues should be inspected if they are non-nil, but may not represent a fatal error.
 	//
 	// It is possible to have both non-nil Ast and Issues values returned from this call; however,
 	// the mere presence of an Ast does not imply that it is valid for use.
-	Parse(txt string) (Ast, Issues)
+	ParseSource(src common.Source) (Ast, *Issues)
 
 	// Program generates an evaluable instance of the Ast within the environment (Env).
 	Program(ast Ast, opts ...ProgramOption) (Program, error)
@@ -90,19 +95,6 @@ type Env interface {
 
 	// TypeProvider returns the `ref.TypeProvider` configured for the environment.
 	TypeProvider() ref.TypeProvider
-}
-
-// Issues defines methods for inspecting the error details of parse and check calls.
-//
-// Note: in the future, non-fatal warnings and notices may be inspectable via the Issues interface.
-type Issues interface {
-	fmt.Stringer
-
-	// Err returns an error value if the issues list contains one or more errors.
-	Err() error
-
-	// Errors returns the collection of errors encountered in more granular detail.
-	Errors() []common.Error
 }
 
 // NewEnv creates an Env instance suitable for parsing and checking expressions against a set of
@@ -203,12 +195,12 @@ type env struct {
 }
 
 // Check implements the Env interface method.
-func (e *env) Check(ast Ast) (Ast, Issues) {
+func (e *env) Check(ast Ast) (Ast, *Issues) {
 	// Note, errors aren't currently possible on the Ast to ParsedExpr conversion.
 	pe, _ := AstToParsedExpr(ast)
 	res, errs := checker.Check(pe, ast.Source(), e.chk)
 	if len(errs.GetErrors()) > 0 {
-		return nil, &issues{errs: errs}
+		return nil, &Issues{errs: errs}
 	}
 	// Manually create the Ast to ensure that the Ast source information (which may be more
 	// detailed than the information provided by Check), is returned to the caller.
@@ -221,11 +213,16 @@ func (e *env) Check(ast Ast) (Ast, Issues) {
 }
 
 // Parse implements the Env interface method.
-func (e *env) Parse(txt string) (Ast, Issues) {
+func (e *env) Parse(txt string) (Ast, *Issues) {
 	src := common.NewTextSource(txt)
+	return e.ParseSource(src)
+}
+
+// ParseSource implements the Env interface method.
+func (e *env) ParseSource(src common.Source) (Ast, *Issues) {
 	res, errs := parser.ParseWithMacros(src, e.macros)
 	if len(errs.GetErrors()) > 0 {
-		return nil, &issues{errs: errs}
+		return nil, &Issues{errs: errs}
 	}
 	// Manually create the Ast to ensure that the text source information is propagated on
 	// subsequent calls to Check.
@@ -255,25 +252,39 @@ func (e *env) TypeProvider() ref.TypeProvider {
 	return e.provider
 }
 
-// issues is the internal implementation of the Issues interface.
-type issues struct {
+// Issues defines methods for inspecting the error details of parse and check calls.
+//
+// Note: in the future, non-fatal warnings and notices may be inspectable via the Issues struct.
+type Issues struct {
 	errs *common.Errors
 }
 
-// Err implements the Issues interface method.
-func (i *issues) Err() error {
+// NewIssues returns an Issues struct from a common.Errors object.
+func NewIssues(errs *common.Errors) *Issues {
+	return &Issues{
+		errs: errs,
+	}
+}
+
+// Err returns an error value if the issues list contains one or more errors.
+func (i *Issues) Err() error {
 	if len(i.errs.GetErrors()) > 0 {
 		return errors.New(i.errs.ToDisplayString())
 	}
 	return nil
 }
 
-// Errors implements the Issues interface method.
-func (i *issues) Errors() []common.Error {
+// Errors returns the collection of errors encountered in more granular detail.
+func (i *Issues) Errors() []common.Error {
 	return i.errs.GetErrors()
 }
 
+// Append collects the issues from another Issues struct into the current object.
+func (i *Issues) Append(other *Issues) {
+	i.errs.Append(other.errs.GetErrors())
+}
+
 // String converts the issues to a suitable display string.
-func (i *issues) String() string {
+func (i *Issues) String() string {
 	return i.errs.ToDisplayString()
 }

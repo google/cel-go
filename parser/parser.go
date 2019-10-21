@@ -554,7 +554,7 @@ func (p *parser) reportError(ctx interface{}, format string, args ...interface{}
 // ANTLR Parse listener implementations
 func (p *parser) SyntaxError(recognizer antlr.Recognizer, offendingSymbol interface{}, line, column int, msg string, e antlr.RecognitionException) {
 	// TODO: Snippet
-	l := common.NewLocation(line, column)
+	l := p.helper.source.NewLocation(line, column)
 	p.errors.syntaxError(l, msg)
 }
 
