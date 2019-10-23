@@ -546,6 +546,42 @@ _==_(size(x~google.expr.proto3.test.TestAllTypes^x.map_int64_nested_type
 		Type: decls.Bool,
 	},
 	{
+		I: `x.all(y, y == true)`,
+		Env: env{
+			idents: []*exprpb.Decl{
+				decls.NewIdent("x", decls.Bool, nil),
+			},
+		},
+		R: `
+		__comprehension__(
+		// Variable
+		y,
+		// Target
+		x~bool^x,
+		// Accumulator
+		__result__,
+		// Init
+		true~bool,
+		// LoopCondition
+		@not_strictly_false(
+			__result__~bool^__result__
+		)~bool^not_strictly_false,
+		// LoopStep
+		_&&_(
+			__result__~bool^__result__,
+			_==_(
+			y~!error!^y,
+			true~bool
+			)~bool^equals
+		)~bool^logical_and,
+		// Result
+		__result__~bool^__result__)~bool
+		`,
+		Error: `ERROR: <input>:1:1: expression of type 'bool' cannot be range of a comprehension (must be list, map, or dynamic)
+		| x.all(y, y == true)
+		| ^`,
+	},
+	{
 		I: `x.repeated_int64.map(x, double(x))`,
 		Env: env{
 			idents: []*exprpb.Decl{
