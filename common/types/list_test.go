@@ -423,7 +423,7 @@ func TestStringList_ConvertToNative(t *testing.T) {
 		t.Error("Unable to convert string list to itself.")
 	}
 	if !reflect.DeepEqual(val, []string{"h", "e", "l", "p"}) {
-		t.Errorf("Got %v, expected ['h', 'e', 'l', 'p']", val)
+		t.Errorf(`Got %v, expected ["h", "e", "l", "p"]`, val)
 	}
 }
 
@@ -435,7 +435,7 @@ func TestStringList_ConvertToNative_ListInterface(t *testing.T) {
 		t.Error("Unable to convert string list to itself.")
 	}
 	if !reflect.DeepEqual(val, []interface{}{"h", "e", "l", "p"}) {
-		t.Errorf("Got %v, expected ['h', 'e', 'l', 'p']", val)
+		t.Errorf(`Got %v, expected ["h", "e", "l", "p"]`, val)
 	}
 }
 

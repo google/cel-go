@@ -148,6 +148,19 @@ func TestBaseMap_ConvertToNative_StructPtr(t *testing.T) {
 	}
 }
 
+func TestBaseMap_ConvertToNative_StructPtrPtr(t *testing.T) {
+	reg := NewRegistry()
+	mapValue := NewDynamicMap(reg, map[string]interface{}{
+		"m":       "hello",
+		"details": []string{"world", "universe"},
+	})
+	ptr := &testStruct{}
+	ts, err := mapValue.ConvertToNative(reflect.TypeOf(&ptr))
+	if err == nil {
+		t.Errorf("Got %v, wanted error", ts)
+	}
+}
+
 func TestBaseMap_ConvertToNative_Struct_InvalidFieldError(t *testing.T) {
 	reg := NewRegistry()
 	mapValue := NewDynamicMap(reg, map[string]interface{}{

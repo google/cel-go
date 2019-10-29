@@ -116,13 +116,12 @@ func (m *baseMap) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	// Unwrap pointers, but track their use.
 	isPtr := false
 	if typeDesc.Kind() == reflect.Ptr {
+		tk := typeDesc
 		typeDesc = typeDesc.Elem()
+		if typeDesc.Kind() == reflect.Ptr {
+			return nil, fmt.Errorf("unsupported type conversion to '%v'", tk)
+		}
 		isPtr = true
-	}
-
-	// Non-map conversion.
-	if typeDesc.Kind() != reflect.Map && typeDesc.Kind() != reflect.Struct {
-		return nil, fmt.Errorf("type conversion error from map to '%v'", typeDesc)
 	}
 
 	// If the map is already assignable to the desired type return it, e.g. interfaces and
