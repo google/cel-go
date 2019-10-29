@@ -27,6 +27,12 @@ import (
 	structpb "github.com/golang/protobuf/ptypes/struct"
 )
 
+type testStruct struct {
+	Message string
+	Details []string
+	private string
+}
+
 func TestBaseMap_Contains(t *testing.T) {
 	reg := NewRegistry()
 	mapValue := NewDynamicMap(reg, map[string]map[int32]float32{
@@ -107,6 +113,64 @@ func TestBaseMap_ConvertToNative_Json(t *testing.T) {
 	jsonTxt, _ := (&jsonpb.Marshaler{}).MarshalToString(json.(proto.Message))
 	if jsonTxt != `{"nested":{"1":-1}}` {
 		t.Error(jsonTxt)
+	}
+}
+
+func TestBaseMap_ConvertToNative_Struct(t *testing.T) {
+	reg := NewRegistry()
+	mapValue := NewDynamicMap(reg, map[string]interface{}{
+		"message": "hello",
+		"details": []string{"world", "universe"},
+	})
+	ts, err := mapValue.ConvertToNative(reflect.TypeOf(testStruct{}))
+	if err != nil {
+		t.Error(err)
+	}
+	want := testStruct{Message: "hello", Details: []string{"world", "universe"}}
+	if !reflect.DeepEqual(ts, want) {
+		t.Errorf("Got %v, wanted %v", ts, want)
+	}
+}
+
+func TestBaseMap_ConvertToNative_StructPtr(t *testing.T) {
+	reg := NewRegistry()
+	mapValue := NewDynamicMap(reg, map[string]interface{}{
+		"message": "hello",
+		"details": []string{"world", "universe"},
+	})
+	ts, err := mapValue.ConvertToNative(reflect.TypeOf(&testStruct{}))
+	if err != nil {
+		t.Error(err)
+	}
+	want := &testStruct{Message: "hello", Details: []string{"world", "universe"}}
+	if !reflect.DeepEqual(ts, want) {
+		t.Errorf("Got %v, wanted %v", ts, want)
+	}
+}
+
+func TestBaseMap_ConvertToNative_Struct_InvalidFieldError(t *testing.T) {
+	reg := NewRegistry()
+	mapValue := NewDynamicMap(reg, map[string]interface{}{
+		"message": "hello",
+		"details": []string{"world", "universe"},
+		"invalid": "invalid field",
+	})
+	ts, err := mapValue.ConvertToNative(reflect.TypeOf(&testStruct{}))
+	if err == nil {
+		t.Errorf("Got %v, wanted error", ts)
+	}
+}
+
+func TestBaseMap_ConvertToNative_Struct_PrivateFieldError(t *testing.T) {
+	reg := NewRegistry()
+	mapValue := NewDynamicMap(reg, map[string]interface{}{
+		"message": "hello",
+		"details": []string{"world", "universe"},
+		"private": "private field",
+	})
+	ts, err := mapValue.ConvertToNative(reflect.TypeOf(&testStruct{}))
+	if err == nil {
+		t.Errorf("Got %v, wanted error", ts)
 	}
 }
 
