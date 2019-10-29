@@ -15,6 +15,7 @@
 package types
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -176,7 +177,14 @@ func (m *baseMap) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 			key := it.Next()
 			// Ensure the field name being referenced is exported.
 			fieldName := string(key.ConvertToType(StringType).(String))
-			fieldName = strings.ToUpper(fieldName[0:1]) + fieldName[1:]
+			switch len(fieldName) {
+			case 0:
+				return nil, errors.New("type conversion error, unsupported empty field")
+			case 1:
+				fieldName = strings.ToUpper(fieldName)
+			default:
+				fieldName = strings.ToUpper(fieldName[0:1]) + fieldName[1:]
+			}
 			fieldRef := nativeStruct.FieldByName(fieldName)
 			if !fieldRef.IsValid() {
 				return nil, fmt.Errorf(

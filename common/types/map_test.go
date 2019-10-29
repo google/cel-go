@@ -28,7 +28,7 @@ import (
 )
 
 type testStruct struct {
-	Message string
+	M       string
 	Details []string
 	private string
 }
@@ -119,14 +119,14 @@ func TestBaseMap_ConvertToNative_Json(t *testing.T) {
 func TestBaseMap_ConvertToNative_Struct(t *testing.T) {
 	reg := NewRegistry()
 	mapValue := NewDynamicMap(reg, map[string]interface{}{
-		"message": "hello",
+		"m":       "hello",
 		"details": []string{"world", "universe"},
 	})
 	ts, err := mapValue.ConvertToNative(reflect.TypeOf(testStruct{}))
 	if err != nil {
 		t.Error(err)
 	}
-	want := testStruct{Message: "hello", Details: []string{"world", "universe"}}
+	want := testStruct{M: "hello", Details: []string{"world", "universe"}}
 	if !reflect.DeepEqual(ts, want) {
 		t.Errorf("Got %v, wanted %v", ts, want)
 	}
@@ -135,14 +135,14 @@ func TestBaseMap_ConvertToNative_Struct(t *testing.T) {
 func TestBaseMap_ConvertToNative_StructPtr(t *testing.T) {
 	reg := NewRegistry()
 	mapValue := NewDynamicMap(reg, map[string]interface{}{
-		"message": "hello",
+		"m":       "hello",
 		"details": []string{"world", "universe"},
 	})
 	ts, err := mapValue.ConvertToNative(reflect.TypeOf(&testStruct{}))
 	if err != nil {
 		t.Error(err)
 	}
-	want := &testStruct{Message: "hello", Details: []string{"world", "universe"}}
+	want := &testStruct{M: "hello", Details: []string{"world", "universe"}}
 	if !reflect.DeepEqual(ts, want) {
 		t.Errorf("Got %v, wanted %v", ts, want)
 	}
@@ -151,9 +151,22 @@ func TestBaseMap_ConvertToNative_StructPtr(t *testing.T) {
 func TestBaseMap_ConvertToNative_Struct_InvalidFieldError(t *testing.T) {
 	reg := NewRegistry()
 	mapValue := NewDynamicMap(reg, map[string]interface{}{
-		"message": "hello",
+		"m":       "hello",
 		"details": []string{"world", "universe"},
 		"invalid": "invalid field",
+	})
+	ts, err := mapValue.ConvertToNative(reflect.TypeOf(&testStruct{}))
+	if err == nil {
+		t.Errorf("Got %v, wanted error", ts)
+	}
+}
+
+func TestBaseMap_ConvertToNative_Struct_EmptyFieldError(t *testing.T) {
+	reg := NewRegistry()
+	mapValue := NewDynamicMap(reg, map[string]interface{}{
+		"m":       "hello",
+		"details": []string{"world", "universe"},
+		"":        "empty field",
 	})
 	ts, err := mapValue.ConvertToNative(reflect.TypeOf(&testStruct{}))
 	if err == nil {
