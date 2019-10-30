@@ -247,6 +247,20 @@ func TestConcatList_ConvertToNative_Json(t *testing.T) {
 	}
 }
 
+func TestConcatList_ConvertToNative_ListInterface(t *testing.T) {
+	reg := NewRegistry()
+	listA := NewDynamicList(reg, []float32{1.0, 2.0})
+	listB := NewStringList(reg, []string{"3.0"})
+	list := listA.Add(listB)
+	iface, err := list.ConvertToNative(reflect.TypeOf([]interface{}{}))
+	if err != nil {
+		t.Errorf("Got '%v', expected '%v'", err, list)
+	}
+	if !reflect.DeepEqual(iface, []interface{}{1.0, 2.0, "3.0"}) {
+		t.Errorf("Got '%v', expected '%v'", iface, []interface{}{1.0, 2.0, "3.0"})
+	}
+}
+
 func TestConcatList_ConvertToType(t *testing.T) {
 	reg := NewRegistry()
 	listA := NewDynamicList(reg, []float32{1.0, 2.0})
@@ -409,7 +423,19 @@ func TestStringList_ConvertToNative(t *testing.T) {
 		t.Error("Unable to convert string list to itself.")
 	}
 	if !reflect.DeepEqual(val, []string{"h", "e", "l", "p"}) {
-		t.Errorf("Got %v, expected ['h', 'e', 'l', 'p']", val)
+		t.Errorf(`Got %v, expected ["h", "e", "l", "p"]`, val)
+	}
+}
+
+func TestStringList_ConvertToNative_ListInterface(t *testing.T) {
+	reg := NewRegistry()
+	list := NewStringList(reg, []string{"h", "e", "l", "p"})
+	val, err := list.ConvertToNative(reflect.TypeOf([]interface{}{}))
+	if err != nil {
+		t.Error("Unable to convert string list to itself.")
+	}
+	if !reflect.DeepEqual(val, []interface{}{"h", "e", "l", "p"}) {
+		t.Errorf(`Got %v, expected ["h", "e", "l", "p"]`, val)
 	}
 }
 
