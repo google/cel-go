@@ -175,6 +175,8 @@ func (m *baseMap) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		for it.HasNext() == True {
 			key := it.Next()
 			// Ensure the field name being referenced is exported.
+			// Only exported (public) field names can be set by reflection, where the name
+			// must be at least one character in length and start with an upper-case letter.
 			fieldName := string(key.ConvertToType(StringType).(String))
 			switch len(fieldName) {
 			case 0:
