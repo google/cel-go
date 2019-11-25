@@ -31,7 +31,7 @@ import (
 // formatting may be lost in translation, notably:
 //
 // - All quoted literals are doubled quoted.
-// - Byte literals are represented as utf8-string rather than byte, octal, or unicode escapes.
+// - Byte literals are represented as octal escapes (same as Google SQL).
 // - Floating point values are converted to the small number of digits needed to represent the value.
 // - Spacing around punctuation marks may be lost.
 // - Parentheses will only be applied when they affect operator precedence.
