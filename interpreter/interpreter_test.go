@@ -259,6 +259,11 @@ var (
 			},
 		},
 		{
+			name: "literal_bytes_string",
+			expr: `string(b'aaa"bbb')`,
+			out:  `aaa"bbb`,
+		},
+		{
 			name:  "literal_pb3_msg",
 			pkg:   "google.api.expr",
 			types: []proto.Message{&exprpb.Expr{}},
