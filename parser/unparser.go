@@ -35,34 +35,17 @@ import (
 // - Floating point values are converted to the small number of digits needed to represent the value.
 // - Spacing around punctuation marks may be lost.
 // - Parentheses will only be applied when they affect operator precedence.
-func Unparse(expr *exprpb.Expr, info *exprpb.SourceInfo) (string, error) {
-	un := &unparser{info: info}
+func Unparse(expr *exprpb.Expr) (string, error) {
+	un := &unparser{}
 	err := un.visit(expr)
 	if err != nil {
 		return "", err
 	}
-	// Test whether newlines need to be applied.
-	breaks := info.GetLineOffsets()
-	if len(breaks) <= 1 {
-		return un.str.String(), nil
-	}
-	// Apply the newlines.
-	txt := []rune(un.str.String())
-	sz := int32(len(txt))
-	for _, br := range breaks {
-		for ; br-1 < sz; br++ {
-			if txt[br-1] == rune(' ') {
-				txt[br-1] = rune('\n')
-				break
-			}
-		}
-	}
-	return string(txt), nil
+	return un.str.String(), nil
 }
 
 // unparser visits an expression to reconstruct a human-readable string from an AST.
 type unparser struct {
-	info   *exprpb.SourceInfo
 	str    strings.Builder
 	offset int32
 }
@@ -147,7 +130,6 @@ func (un *unparser) visitCallBinary(expr *exprpb.Expr) error {
 		return fmt.Errorf("cannot unmangle operator: %s", fun)
 	}
 	un.str.WriteString(" ")
-	un.pad(expr.GetId())
 	un.str.WriteString(unmangled)
 	un.str.WriteString(" ")
 	return un.visitMaybeNested(rhs, rhsParen)
@@ -163,8 +145,7 @@ func (un *unparser) visitCallConditional(expr *exprpb.Expr) error {
 	if err != nil {
 		return err
 	}
-	un.pad(expr.GetId())
-	un.str.WriteString("? ")
+	un.str.WriteString(" ? ")
 	// add parens if operand is a conditional itself.
 	nested = isSamePrecedence(operators.Conditional, args[1]) ||
 		isComplexOperator(args[1])
@@ -193,7 +174,6 @@ func (un *unparser) visitCallFunc(expr *exprpb.Expr) error {
 		un.str.WriteString(".")
 	}
 	un.str.WriteString(fun)
-	un.pad(expr.GetId())
 	un.str.WriteString("(")
 	for i, arg := range args {
 		err := un.visit(arg)
@@ -201,7 +181,7 @@ func (un *unparser) visitCallFunc(expr *exprpb.Expr) error {
 			return err
 		}
 		if i < len(args)-1 {
-			un.str.WriteString(",")
+			un.str.WriteString(", ")
 		}
 	}
 	un.str.WriteString(")")
@@ -216,7 +196,6 @@ func (un *unparser) visitCallIndex(expr *exprpb.Expr) error {
 	if err != nil {
 		return err
 	}
-	un.pad(expr.GetId())
 	un.str.WriteString("[")
 	err = un.visit(args[1])
 	if err != nil {
@@ -227,7 +206,6 @@ func (un *unparser) visitCallIndex(expr *exprpb.Expr) error {
 }
 
 func (un *unparser) visitCallUnary(expr *exprpb.Expr) error {
-	un.pad(expr.GetId())
 	c := expr.GetCallExpr()
 	fun := c.GetFunction()
 	args := c.GetArgs()
@@ -247,7 +225,6 @@ func (un *unparser) visitComprehension(expr *exprpb.Expr) error {
 }
 
 func (un *unparser) visitConst(expr *exprpb.Expr) error {
-	un.pad(expr.GetId())
 	c := expr.GetConstExpr()
 	switch c.ConstantKind.(type) {
 	case *exprpb.Constant_BoolValue:
@@ -282,7 +259,6 @@ func (un *unparser) visitConst(expr *exprpb.Expr) error {
 }
 
 func (un *unparser) visitIdent(expr *exprpb.Expr) error {
-	un.pad(expr.GetId())
 	un.str.WriteString(expr.GetIdentExpr().GetName())
 	return nil
 }
@@ -290,7 +266,6 @@ func (un *unparser) visitIdent(expr *exprpb.Expr) error {
 func (un *unparser) visitList(expr *exprpb.Expr) error {
 	l := expr.GetListExpr()
 	elems := l.GetElements()
-	un.pad(expr.GetId())
 	un.str.WriteString("[")
 	for i, elem := range elems {
 		err := un.visit(elem)
@@ -298,7 +273,7 @@ func (un *unparser) visitList(expr *exprpb.Expr) error {
 			return err
 		}
 		if i < len(elems)-1 {
-			un.str.WriteString(",")
+			un.str.WriteString(", ")
 		}
 	}
 	un.str.WriteString("]")
@@ -316,7 +291,6 @@ func (un *unparser) visitSelect(expr *exprpb.Expr) error {
 	if err != nil {
 		return err
 	}
-	un.pad(expr.GetId())
 	un.str.WriteString(".")
 	un.str.WriteString(sel.GetField())
 	if sel.GetTestOnly() {
@@ -339,12 +313,10 @@ func (un *unparser) visitStructMsg(expr *exprpb.Expr) error {
 	m := expr.GetStructExpr()
 	entries := m.GetEntries()
 	un.str.WriteString(m.GetMessageName())
-	un.pad(expr.GetId())
 	un.str.WriteString("{")
 	for i, entry := range entries {
 		f := entry.GetFieldKey()
 		un.str.WriteString(f)
-		un.pad(entry.GetId())
 		un.str.WriteString(": ")
 		v := entry.GetValue()
 		err := un.visit(v)
@@ -362,7 +334,6 @@ func (un *unparser) visitStructMsg(expr *exprpb.Expr) error {
 func (un *unparser) visitStructMap(expr *exprpb.Expr) error {
 	m := expr.GetStructExpr()
 	entries := m.GetEntries()
-	un.pad(expr.GetId())
 	un.str.WriteString("{")
 	for i, entry := range entries {
 		k := entry.GetMapKey()
@@ -370,7 +341,6 @@ func (un *unparser) visitStructMap(expr *exprpb.Expr) error {
 		if err != nil {
 			return err
 		}
-		un.pad(entry.GetId())
 		un.str.WriteString(": ")
 		v := entry.GetValue()
 		err = un.visit(v)
@@ -397,21 +367,6 @@ func (un *unparser) visitMaybeNested(expr *exprpb.Expr, nested bool) error {
 		un.str.WriteString(")")
 	}
 	return nil
-}
-
-// pos returns the source character offset of the expression id.
-func (un *unparser) pos(id int64) int32 {
-	return un.info.GetPositions()[id]
-}
-
-// pad potentially adds spaces from the current string builder position to the original position
-// of the input expression id.
-func (un *unparser) pad(id int64) {
-	last := int32(un.str.Len())
-	next := un.pos(id)
-	for ; last < next; last++ {
-		un.str.WriteString(" ")
-	}
 }
 
 // isLeftRecursive indicates whether the parser resolves the call in a left-recursive manner as
@@ -449,7 +404,7 @@ func isLowerPrecedence(op string, expr *exprpb.Expr) bool {
 // Indicates whether the expr is a complex operator, i.e., a call expression
 // with 2 or more arguments.
 func isComplexOperator(expr *exprpb.Expr) bool {
-	if expr.GetCallExpr() != nil || len(expr.GetCallExpr().GetArgs()) >= 2 {
+	if expr.GetCallExpr() != nil && len(expr.GetCallExpr().GetArgs()) >= 2 {
 		return true
 	}
 	return false

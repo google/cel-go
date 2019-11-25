@@ -42,6 +42,8 @@ func TestUnparse_Identical(t *testing.T) {
 		"calc_distr_paren":    `(1 + 2) * 3`,
 		"calc_distr_noparen":  `1 + 2 * 3`,
 		"cond_tern_simple":    `(x > 5) ? (x - 5) : 0`,
+		"cond_tern_neg_expr":  `-((x > 5) ? (x - 5) : 0)`,
+		"cond_tern_neg_term":  `-x ? (x - 5) : 0`,
 		"func_global":         `size(a ? (b ? c : d) : e)`,
 		"func_member":         `a.hello("world")`,
 		"func_no_arg":         `zero()`,
@@ -94,7 +96,7 @@ func TestUnparse_Identical(t *testing.T) {
 			if len(iss.GetErrors()) > 0 {
 				tt.Fatal(iss.ToDisplayString())
 			}
-			out, err := Unparse(p.GetExpr(), p.GetSourceInfo())
+			out, err := Unparse(p.GetExpr())
 			if err != nil {
 				tt.Error(err)
 			}
@@ -114,14 +116,13 @@ func TestUnparse_Identical(t *testing.T) {
 
 func TestUnparse_Equivalent(t *testing.T) {
 	tests := map[string][]string{
-		"call_add":   {`a+b-c`, `a + b - c`},
-		"call_cond":  {`a ? b          : c`, `a ? b :          c`},
-		"call_index": {`a[  1  ]["b"]`, `a[  1]  ["b"]`},
-		"call_or_and": {`(false && !true) || false`,
-			` false && !true  || false`},
-		"call_not_not":    {`!!true`, `  true`},
+		"call_add":        {`a+b-c`, `a + b - c`},
+		"call_cond":       {`a ? b          : c`, `a ? b : c`},
+		"call_index":      {`a[  1  ]["b"]`, `a[1]["b"]`},
+		"call_or_and":     {`(false && !true) || false`, `false && !true || false`},
+		"call_not_not":    {`!!true`, `true`},
 		"lit_quote_bytes": {`b'aaa"bbb'`, `b"\141\141\141\042\142\142\142"`},
-		"select":          {`a . b . c`, `a .b  .c`},
+		"select":          {`a . b . c`, `a.b.c`},
 	}
 
 	for name, in := range tests {
@@ -130,7 +131,7 @@ func TestUnparse_Equivalent(t *testing.T) {
 			if len(iss.GetErrors()) > 0 {
 				tt.Fatal(iss.ToDisplayString())
 			}
-			out, err := Unparse(p.GetExpr(), p.GetSourceInfo())
+			out, err := Unparse(p.GetExpr())
 			if err != nil {
 				tt.Error(err)
 			}
