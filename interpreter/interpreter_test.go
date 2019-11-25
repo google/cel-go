@@ -264,6 +264,11 @@ var (
 			out:  `aaa"bbb`,
 		},
 		{
+			name: "literal_bytes_string2",
+			expr: `string(b"""Kim\t""")`,
+			out: `Kim	`,
+		},
+		{
 			name:  "literal_pb3_msg",
 			pkg:   "google.api.expr",
 			types: []proto.Message{&exprpb.Expr{}},
