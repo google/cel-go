@@ -256,7 +256,7 @@ func (un *unparser) visitConst(expr *exprpb.Expr) error {
 		// bytes constants are surrounded with b"<bytes>"
 		b := c.GetBytesValue()
 		un.str.WriteString(`b"`)
-		un.str.WriteString(hexBytes(b))
+		un.str.WriteString(bytesToOctets(b))
 		un.str.WriteString(`"`)
 	case *exprpb.Constant_DoubleValue:
 		// represent the float using the minimum required digits
@@ -474,11 +474,12 @@ func isBinaryOrTernaryOperator(expr *exprpb.Expr) bool {
 	return isBinaryOp || isSamePrecedence(operators.Conditional, expr)
 }
 
-// hexBytes returns the byte values as a two character hex encoded prefixed with \x.
-func hexBytes(byteVal []byte) string {
+// bytesToOctets converts byte sequences to a string using a three digit octal encoded value
+// per byte.
+func bytesToOctets(byteVal []byte) string {
 	var b strings.Builder
 	for _, c := range byteVal {
-		fmt.Fprintf(&b, "\\x%02x", c)
+		fmt.Fprintf(&b, "\\%03o", c)
 	}
 	return b.String()
 }
