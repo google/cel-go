@@ -96,7 +96,7 @@ func TestUnparse_Identical(t *testing.T) {
 			if len(iss.GetErrors()) > 0 {
 				tt.Fatal(iss.ToDisplayString())
 			}
-			out, err := Unparse(p.GetExpr())
+			out, err := Unparse(p.GetExpr(), p.GetSourceInfo())
 			if err != nil {
 				tt.Error(err)
 			}
@@ -131,7 +131,7 @@ func TestUnparse_Equivalent(t *testing.T) {
 			if len(iss.GetErrors()) > 0 {
 				tt.Fatal(iss.ToDisplayString())
 			}
-			out, err := Unparse(p.GetExpr())
+			out, err := Unparse(p.GetExpr(), p.GetSourceInfo())
 			if err != nil {
 				tt.Error(err)
 			}

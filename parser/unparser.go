@@ -36,7 +36,7 @@ import (
 // - Spacing around punctuation marks may be lost.
 // - Parentheses will only be applied when they affect operator precedence.
 func Unparse(expr *exprpb.Expr, info *exprpb.SourceInfo) (string, error) {
-	un := &unparser{}
+	un := &unparser{info: info}
 	err := un.visit(expr)
 	if err != nil {
 		return "", err
@@ -48,6 +48,8 @@ func Unparse(expr *exprpb.Expr, info *exprpb.SourceInfo) (string, error) {
 type unparser struct {
 	str    strings.Builder
 	offset int32
+	// TODO: use the source info to rescontruct macros into function calls.
+	info *exprpb.SourceInfo
 }
 
 func (un *unparser) visit(expr *exprpb.Expr) error {
