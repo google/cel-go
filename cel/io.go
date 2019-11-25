@@ -72,6 +72,5 @@ func AstToParsedExpr(a Ast) (*exprpb.ParsedExpr, error) {
 // a string that is semantically equivalent.
 func AstToString(a Ast) (string, error) {
 	expr := a.Expr()
-	info := a.SourceInfo()
-	return parser.Unparse(expr, info)
+	return parser.Unparse(expr)
 }
