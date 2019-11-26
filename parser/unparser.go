@@ -35,7 +35,7 @@ import (
 // - Floating point values are converted to the small number of digits needed to represent the value.
 // - Spacing around punctuation marks may be lost.
 // - Parentheses will only be applied when they affect operator precedence.
-func Unparse(expr *exprpb.Expr) (string, error) {
+func Unparse(expr *exprpb.Expr, info *exprpb.SourceInfo) (string, error) {
 	un := &unparser{}
 	err := un.visit(expr)
 	if err != nil {
