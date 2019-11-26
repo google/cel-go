@@ -323,11 +323,7 @@ func (p *parser) VisitIFieldInitializerList(ctx gen.IFieldInitializerListContext
 	cols := ctx.GetCols()
 	vals := ctx.GetValues()
 	for i, f := range ctx.GetFields() {
-		if i >= len(cols) {
-			// This is the result of a syntax error detected elsewhere.
-			return []*exprpb.Expr_CreateStruct_Entry{}
-		}
-		if i >= len(vals) {
+		if i >= len(cols) || i >= len(vals) {
 			// This is the result of a syntax error detected elsewhere.
 			return []*exprpb.Expr_CreateStruct_Entry{}
 		}
@@ -420,11 +416,7 @@ func (p *parser) VisitMapInitializerList(ctx *gen.MapInitializerListContext) int
 	vals := ctx.GetValues()
 	for i, col := range ctx.GetCols() {
 		colID := p.helper.id(col)
-		if i >= len(keys) {
-			// This is the result of a syntax error detected elsewhere.
-			return []*exprpb.Expr_CreateStruct_Entry{}
-		}
-		if i >= len(vals) {
+		if i >= len(keys) || i >= len(vals) {
 			// This is the result of a syntax error detected elsewhere.
 			return []*exprpb.Expr_CreateStruct_Entry{}
 		}
