@@ -49,7 +49,7 @@ type testCase struct {
 	env       []*exprpb.Decl
 	types     []proto.Message
 	funcs     []*functions.Overload
-	res       Resolver
+	attrs     AttributeFactory
 	unchecked bool
 
 	in  map[string]interface{}
@@ -701,8 +701,8 @@ var (
 				decls.NewIdent("a",
 					decls.NewObjectType("google.expr.proto3.test.TestAllTypes.NestedMessage"), nil),
 			},
-			res: &custResolver{
-				Resolver: NewResolver(
+			attrs: &custAttrFactory{
+				AttributeFactory: NewAttributeFactory(
 					packages.NewPackage("google.expr.proto3.test"),
 					types.NewRegistry(),
 					types.NewRegistry(),
@@ -863,8 +863,8 @@ func TestInterpreter_LogicalAndMissingType(t *testing.T) {
 
 	reg := types.NewRegistry()
 	pkg := packages.DefaultPackage
-	res := NewResolver(pkg, reg, reg)
-	intr := NewStandardInterpreter(pkg, reg, reg, res)
+	attrs := NewAttributeFactory(pkg, reg, reg)
+	intr := NewStandardInterpreter(pkg, reg, reg, attrs)
 	i, err := intr.NewUncheckedInterpretable(parsed.GetExpr())
 	if err == nil {
 		t.Errorf("Got '%v', wanted error", i)
@@ -881,8 +881,8 @@ func TestInterpreter_ExhaustiveConditionalExpr(t *testing.T) {
 	state := NewEvalState()
 	pkg := packages.DefaultPackage
 	reg := types.NewRegistry(&exprpb.ParsedExpr{})
-	res := NewResolver(pkg, reg, reg)
-	intr := NewStandardInterpreter(pkg, reg, reg, res)
+	attrs := NewAttributeFactory(pkg, reg, reg)
+	intr := NewStandardInterpreter(pkg, reg, reg, attrs)
 	interpretable, _ := intr.NewUncheckedInterpretable(
 		parsed.GetExpr(),
 		ExhaustiveEval(state))
@@ -915,8 +915,8 @@ func TestInterpreter_ExhaustiveLogicalOrEquals(t *testing.T) {
 	state := NewEvalState()
 	reg := types.NewRegistry(&exprpb.Expr{})
 	pkg := packages.NewPackage("test")
-	res := NewResolver(pkg, reg, reg)
-	interp := NewStandardInterpreter(pkg, reg, reg, res)
+	attrs := NewAttributeFactory(pkg, reg, reg)
+	interp := NewStandardInterpreter(pkg, reg, reg, attrs)
 	i, _ := interp.NewUncheckedInterpretable(
 		parsed.GetExpr(),
 		ExhaustiveEval(state))
@@ -962,8 +962,8 @@ func TestInterpreter_SetProto2PrimitiveFields(t *testing.T) {
 		t.Errorf(errors.ToDisplayString())
 	}
 
-	res := NewResolver(pkg, reg, reg)
-	i := NewStandardInterpreter(pkg, reg, reg, res)
+	attrs := NewAttributeFactory(pkg, reg, reg)
+	i := NewStandardInterpreter(pkg, reg, reg, attrs)
 	eval, _ := i.NewInterpretable(checked)
 	one := int32(1)
 	two := int64(2)
@@ -1015,8 +1015,8 @@ func TestInterpreter_MissingIdentInSelect(t *testing.T) {
 		t.Fatalf(errors.ToDisplayString())
 	}
 
-	res := NewResolver(pkg, reg, reg)
-	interp := NewStandardInterpreter(pkg, reg, reg, res)
+	attrs := NewAttributeFactory(pkg, reg, reg)
+	interp := NewStandardInterpreter(pkg, reg, reg, attrs)
 	i, _ := interp.NewInterpretable(checked)
 	vars := UnknownActivation()
 	result := i.Eval(vars)
@@ -1041,9 +1041,9 @@ func program(tst *testCase, opts ...InterpretableDecorator) (Interpretable, Acti
 	if tst.types != nil {
 		reg = types.NewRegistry(tst.types...)
 	}
-	res := NewResolver(pkg, reg, reg)
-	if tst.res != nil {
-		res = tst.res
+	attrs := NewAttributeFactory(pkg, reg, reg)
+	if tst.attrs != nil {
+		attrs = tst.attrs
 	}
 
 	// Configure the environment.
@@ -1066,7 +1066,7 @@ func program(tst *testCase, opts ...InterpretableDecorator) (Interpretable, Acti
 	if tst.funcs != nil {
 		disp.Add(tst.funcs...)
 	}
-	interp := NewInterpreter(disp, pkg, reg, reg, res)
+	interp := NewInterpreter(disp, pkg, reg, reg, attrs)
 
 	// Parse the expression.
 	s := common.NewTextSource(tst.expr)
