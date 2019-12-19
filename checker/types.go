@@ -195,7 +195,7 @@ func internalIsAssignable(m *mapping, t1 *exprpb.Type, t2 *exprpb.Type) bool {
 			}
 			return false
 		}
-		if notReferencedIn(t2, t1) {
+		if notReferencedIn(m, t2, t1) {
 			m.add(t2, t1)
 			return true
 		}
@@ -212,7 +212,7 @@ func internalIsAssignable(m *mapping, t1 *exprpb.Type, t2 *exprpb.Type) bool {
 			}
 			return false
 		}
-		if notReferencedIn(t1, t2) {
+		if notReferencedIn(m, t1, t2) {
 			m.add(t1, t2)
 			return true
 		}
@@ -403,15 +403,21 @@ func mostGeneral(t1 *exprpb.Type, t2 *exprpb.Type) *exprpb.Type {
 // notReferencedIn checks whether the type doesn't appear directly or transitively within the other
 // type. This is a standard requirement for type unification, commonly referred to as the "occurs
 // check".
-func notReferencedIn(t *exprpb.Type, withinType *exprpb.Type) bool {
+func notReferencedIn(m *mapping, t *exprpb.Type, withinType *exprpb.Type) bool {
 	if proto.Equal(t, withinType) {
 		return false
 	}
 	withinKind := kindOf(withinType)
 	switch withinKind {
+	case kindTypeParam:
+		wtSub, found := m.find(withinType)
+		if !found {
+			return true
+		}
+		return notReferencedIn(m, t, wtSub)
 	case kindAbstract:
 		for _, pt := range withinType.GetAbstractType().GetParameterTypes() {
-			if !notReferencedIn(t, pt) {
+			if !notReferencedIn(m, t, pt) {
 				return false
 			}
 		}
@@ -420,18 +426,18 @@ func notReferencedIn(t *exprpb.Type, withinType *exprpb.Type) bool {
 		fn := withinType.GetFunction()
 		types := append(fn.ArgTypes, fn.ResultType)
 		for _, a := range types {
-			if !notReferencedIn(t, a) {
+			if !notReferencedIn(m, t, a) {
 				return false
 			}
 		}
 		return true
 	case kindList:
-		return notReferencedIn(t, withinType.GetListType().ElemType)
+		return notReferencedIn(m, t, withinType.GetListType().ElemType)
 	case kindMap:
-		m := withinType.GetMapType()
-		return notReferencedIn(t, m.KeyType) && notReferencedIn(t, m.ValueType)
+		mt := withinType.GetMapType()
+		return notReferencedIn(m, t, mt.KeyType) && notReferencedIn(m, t, mt.ValueType)
 	case kindWrapper:
-		return notReferencedIn(t, decls.NewPrimitiveType(withinType.GetWrapper()))
+		return notReferencedIn(m, t, decls.NewPrimitiveType(withinType.GetWrapper()))
 	default:
 		return true
 	}
