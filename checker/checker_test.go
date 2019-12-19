@@ -1387,6 +1387,13 @@ _&&_(_==_(list~type(list(dyn))^list,
 		)~list(dyn)^add_list`,
 		Type: decls.NewListType(decls.Dyn),
 	},
+	{
+		I: `[].map(x, [].map(y, x in y && y in x))`,
+		Error: `
+		ERROR: <input>:1:33: found no matching overload for '@in' applied to '(type_param:"_var2" , type_param:"_var0" )'
+		| [].map(x, [].map(y, x in y && y in x))
+		| ................................^`,
+	},
 }
 
 var reg = initTypeRegistry()
