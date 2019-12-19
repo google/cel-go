@@ -59,13 +59,32 @@ func NewDb() *Db {
 // RegisterDescriptor produces a `FileDescription` from a `FileDescriptorProto` and registers the
 // message and enum types into the `pb.Db`.
 func (pbdb *Db) RegisterDescriptor(fileDesc *descpb.FileDescriptorProto) (*FileDescription, error) {
+	fd, found := pbdb.revFileDescriptorMap[fileDesc.GetName()]
+	if found {
+		return fd, nil
+	}
 	fd, err := pbdb.describeFileInternal(fileDesc)
 	if err != nil {
 		return nil, err
 	}
+	pbdb.revFileDescriptorMap[fileDesc.GetName()] = fd
 	pkg := fd.Package()
 	fd.indexTypes(pkg, fileDesc.MessageType)
 	fd.indexEnums(pkg, fileDesc.EnumType)
+
+	// Recursively include the dependencies for this descriptor
+	for _, dep := range fileDesc.GetDependency() {
+		depDesc, err := fileDescriptor(dep)
+		if err != nil {
+			return nil, err
+		}
+		_, err = pbdb.RegisterDescriptor(depDesc)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Return the specific file descriptor registered.
 	return fd, nil
 }
 
