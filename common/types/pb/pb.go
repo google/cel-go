@@ -59,13 +59,20 @@ func NewDb() *Db {
 // RegisterDescriptor produces a `FileDescription` from a `FileDescriptorProto` and registers the
 // message and enum types into the `pb.Db`.
 func (pbdb *Db) RegisterDescriptor(fileDesc *descpb.FileDescriptorProto) (*FileDescription, error) {
+	fd, found := pbdb.revFileDescriptorMap[fileDesc.GetName()]
+	if found {
+		return fd, nil
+	}
 	fd, err := pbdb.describeFileInternal(fileDesc)
 	if err != nil {
 		return nil, err
 	}
+	pbdb.revFileDescriptorMap[fileDesc.GetName()] = fd
 	pkg := fd.Package()
 	fd.indexTypes(pkg, fileDesc.MessageType)
 	fd.indexEnums(pkg, fileDesc.EnumType)
+
+	// Return the specific file descriptor registered.
 	return fd, nil
 }
 
@@ -106,6 +113,37 @@ func (pbdb *Db) DescribeType(typeName string) (*TypeDescription, error) {
 		return fd.GetTypeDescription(typeName)
 	}
 	return nil, fmt.Errorf("unrecognized type '%s'", typeName)
+}
+
+// CollectFileDescriptorSet builds a file descriptor set associated with the file where the input
+// message is declared.
+func CollectFileDescriptorSet(message proto.Message) (*descpb.FileDescriptorSet, error) {
+	fdMap := map[string]*descpb.FileDescriptorProto{}
+	fd, _ := descriptor.ForMessage(message.(descriptor.Message))
+	fdMap[fd.GetName()] = fd
+	deps := fd.GetDependency()
+	for i := 0; i < len(deps); i++ {
+		dep := deps[i]
+		if _, found := fdMap[dep]; found {
+			continue
+		}
+		depDesc, err := fileDescriptor(dep)
+		if err != nil {
+			return nil, err
+		}
+		fdMap[dep] = depDesc
+		deps = append(deps, depDesc.GetDependency()...)
+	}
+
+	fds := make([]*descpb.FileDescriptorProto, len(fdMap), len(fdMap))
+	i := 0
+	for _, fd = range fdMap {
+		fds[i] = fd
+		i++
+	}
+	return &descpb.FileDescriptorSet{
+		File: fds,
+	}, nil
 }
 
 func (pbdb *Db) describeFileInternal(fileDesc *descpb.FileDescriptorProto) (*FileDescription, error) {

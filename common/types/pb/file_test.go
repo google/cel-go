@@ -51,7 +51,7 @@ func TestFileDescription_GetEnumNames(t *testing.T) {
 	pbdb := NewDb()
 	fd, err := pbdb.RegisterMessage(&proto3pb.TestAllTypes{})
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	expected := map[string]int32{
 		"google.expr.proto3.test.TestAllTypes.NestedEnum.FOO": 0,
@@ -75,6 +75,34 @@ func TestFileDescription_GetEnumNames(t *testing.T) {
 			}
 		} else {
 			t.Errorf("Enum value not found for: %s", enumName)
+		}
+	}
+}
+
+func TestFileDescription_GetImportedEnumNames(t *testing.T) {
+	pbdb := NewDb()
+	fds, err := CollectFileDescriptorSet(&proto3pb.TestAllTypes{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, fd := range fds.GetFile() {
+		_, err = pbdb.RegisterDescriptor(fd)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	imported := map[string]int32{
+		"google.expr.proto3.test.ImportedGlobalEnum.IMPORT_FOO": 0,
+		"google.expr.proto3.test.ImportedGlobalEnum.IMPORT_BAR": 1,
+		"google.expr.proto3.test.ImportedGlobalEnum.IMPORT_BAZ": 2,
+	}
+	for enumName, value := range imported {
+		ed, err := pbdb.DescribeEnum(enumName)
+		if err != nil {
+			t.Error(err)
+		}
+		if ed.Value() != value {
+			t.Errorf("Got %v, wanted %v for enum %s", ed, value, enumName)
 		}
 	}
 }

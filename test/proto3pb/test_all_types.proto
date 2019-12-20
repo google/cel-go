@@ -4,11 +4,16 @@ syntax = "proto3";
 
 package google.expr.proto3.test;
 
+option go_package = "github.com/google/cel-go/test/proto3pb";
+
 import "google/protobuf/any.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
+
+// Imported message dependency test.
+import "test/proto3pb/test_import.proto";
 
 // This proto includes every type of field in both singular and repeated
 // forms.
@@ -94,6 +99,9 @@ message TestAllTypes {
   // Map
   map<string, string> map_string_string = 58;
   map<int64, NestedTestAllTypes> map_int64_nested_type = 59;
+
+  // Imports
+  repeated ImportedGlobalEnum imported_enums = 60;
 }
 
 // This proto includes a recursively nested message.

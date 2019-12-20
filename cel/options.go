@@ -19,6 +19,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cel-go/common/packages"
+	"github.com/google/cel-go/common/types/pb"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter"
 	"github.com/google/cel-go/interpreter/functions"
@@ -141,14 +142,20 @@ func Types(addTypes ...interface{}) EnvOption {
 			return nil, fmt.Errorf("custom types not supported by provider: %T", e.provider)
 		}
 		for _, t := range addTypes {
-			switch t.(type) {
+			switch v := t.(type) {
 			case proto.Message:
-				err := reg.RegisterMessage(t.(proto.Message))
+				fds, err := pb.CollectFileDescriptorSet(v)
 				if err != nil {
 					return nil, err
 				}
+				for _, fd := range fds.GetFile() {
+					err = reg.RegisterDescriptor(fd)
+					if err != nil {
+						return nil, err
+					}
+				}
 			case ref.Type:
-				err := reg.RegisterType(t.(ref.Type))
+				err := reg.RegisterType(v)
 				if err != nil {
 					return nil, err
 				}
