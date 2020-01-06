@@ -30,6 +30,9 @@ func StandardOverloads() []*Overload {
 			Operator:     operators.LogicalNot,
 			OperandTrait: traits.NegatorType,
 			Unary: func(value ref.Val) ref.Val {
+				if !types.IsBool(value) {
+					return types.ValOrErr(value, "no such overload")
+				}
 				return value.(traits.Negater).Negate()
 			}},
 		// Not strictly false: IsBool(a) ? a : true
@@ -138,6 +141,9 @@ func StandardOverloads() []*Overload {
 		{Operator: operators.Negate,
 			OperandTrait: traits.NegatorType,
 			Unary: func(value ref.Val) ref.Val {
+				if types.IsBool(value) {
+					return types.ValOrErr(value, "no such overload")
+				}
 				return value.(traits.Negater).Negate()
 			}},
 

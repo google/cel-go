@@ -163,8 +163,8 @@ func TestInt_ConvertToType(t *testing.T) {
 	if !Int(-4).ConvertToType(IntType).Equal(Int(-4)).(Bool) {
 		t.Error("Unsuccessful type conversion to int")
 	}
-	if !Int(-4).ConvertToType(UintType).Equal(Uint(18446744073709551612)).(Bool) {
-		t.Error("Unsuccessful type conversion to uint")
+	if !IsError(Int(-4).ConvertToType(UintType)) {
+		t.Error("Got uint, expected error.")
 	}
 	if !Int(-4).ConvertToType(DoubleType).Equal(Double(-4)).(Bool) {
 		t.Error("Unsuccessful type conversion to double")

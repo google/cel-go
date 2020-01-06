@@ -134,7 +134,10 @@ func TestUint_ConvertToNative_Wrapper(t *testing.T) {
 }
 
 func TestUint_ConvertToType(t *testing.T) {
-	if !Uint(18446744073709551612).ConvertToType(IntType).Equal(Int(-4)).(Bool) {
+	if !IsError(Uint(18446744073709551612).ConvertToType(IntType)) {
+		t.Error("Got int, expected error")
+	}
+	if !Uint(4).ConvertToType(IntType).Equal(Int(4)).(Bool) {
 		t.Error("Unsuccessful type conversion to int")
 	}
 	if !Uint(4).ConvertToType(UintType).Equal(Uint(4)).(Bool) {

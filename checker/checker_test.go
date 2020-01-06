@@ -1225,11 +1225,11 @@ _&&_(_==_(list~type(list(dyn))^list,
 	{
 		I: `type(type) == type`,
 		R: `_==_(
-    		  type(
-    		    type~type(type)^type
-    		  )~type(type(type))^type,
-    		  type~type(type)^type
-    		)~bool^equals`,
+		  type(
+		    type~type(type())^type
+		  )~type(type(type()))^type,
+		  type~type(type())^type
+		)~bool^equals`,
 		Type: decls.Bool,
 	},
 	// Homogeneous aggregate type restriction tests.

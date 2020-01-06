@@ -16,6 +16,7 @@ package types
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 
 	"github.com/google/cel-go/common/types/ref"
@@ -119,9 +120,17 @@ func (d Double) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 func (d Double) ConvertToType(typeVal ref.Type) ref.Val {
 	switch typeVal {
 	case IntType:
-		return Int(float64(d))
+		i := math.Round(float64(d))
+		if i > math.MaxInt64 || i < math.MinInt64 {
+			return NewErr("range error converting %g to int", float64(d));
+		}
+		return Int(float64(i))
 	case UintType:
-		return Uint(float64(d))
+		i := math.Round(float64(d))
+		if i > math.MaxUint64 || i < 0 {
+			return NewErr("range error converting %g to int", float64(d));
+		}
+		return Uint(float64(i))
 	case DoubleType:
 		return d
 	case StringType:
