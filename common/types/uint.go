@@ -16,6 +16,7 @@ package types
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"strconv"
 
@@ -130,6 +131,9 @@ func (i Uint) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 func (i Uint) ConvertToType(typeVal ref.Type) ref.Val {
 	switch typeVal {
 	case IntType:
+		if i > math.MaxInt64 {
+			return NewErr("range error converting %d to int", i)
+		}
 		return Int(i)
 	case UintType:
 		return i

@@ -167,11 +167,11 @@ func TestDouble_ConvertToNative_Wrapper(t *testing.T) {
 }
 
 func TestDouble_ConvertToType(t *testing.T) {
-	if !Double(-4.5).ConvertToType(IntType).Equal(Int(-4)).(Bool) {
+	if !Double(-4.5).ConvertToType(IntType).Equal(Int(-5)).(Bool) {
 		t.Error("Unsuccessful type conversion to int")
 	}
-	if !Double(-4.5).ConvertToType(UintType).Equal(Uint(18446744073709551612)).(Bool) {
-		t.Error("Unsuccessful type conversion to uint")
+	if !IsError(Double(-4.5).ConvertToType(UintType)) {
+		t.Error("Got uint, expected error")
 	}
 	if !Double(-4.5).ConvertToType(DoubleType).Equal(Double(-4.5)).(Bool) {
 		t.Error("Unsuccessful type conversion to double")

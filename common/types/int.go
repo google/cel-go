@@ -153,6 +153,9 @@ func (i Int) ConvertToType(typeVal ref.Type) ref.Val {
 	case IntType:
 		return i
 	case UintType:
+		if i < 0 {
+			return NewErr("range error converting %d to uint", i)
+		}
 		return Uint(i)
 	case DoubleType:
 		return Double(i)
