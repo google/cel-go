@@ -233,7 +233,7 @@ func StandardOverloads() []*Overload {
 		// Dyn conversion (identity function).
 		{Operator: overloads.TypeConvertDyn,
 			Unary: func(value ref.Val) ref.Val {
-				return value;
+				return value
 			}},
 
 		{Operator: overloads.Iterator,

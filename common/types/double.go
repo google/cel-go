@@ -122,13 +122,13 @@ func (d Double) ConvertToType(typeVal ref.Type) ref.Val {
 	case IntType:
 		i := math.Round(float64(d))
 		if i > math.MaxInt64 || i < math.MinInt64 {
-			return NewErr("range error converting %g to int", float64(d));
+			return NewErr("range error converting %g to int", float64(d))
 		}
 		return Int(float64(i))
 	case UintType:
 		i := math.Round(float64(d))
 		if i > math.MaxUint64 || i < 0 {
-			return NewErr("range error converting %g to int", float64(d));
+			return NewErr("range error converting %g to int", float64(d))
 		}
 		return Uint(float64(i))
 	case DoubleType:
