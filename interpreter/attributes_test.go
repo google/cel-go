@@ -228,6 +228,8 @@ func TestAttributes_RelativeAttr_Relative(t *testing.T) {
 	//       "first": 1u,
 	//       "second": 2u,
 	//       "third": 3u,
+	//     }
+	//   },
 	//   b: 2u,
 	// }
 	//

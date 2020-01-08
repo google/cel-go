@@ -170,8 +170,6 @@ func (td *TypeDescription) newFieldDesc(
 	f, found := tdType.FieldByName(prop.Name)
 	if found {
 		field = &f
-		// The field will be not found for oneofs, but this is accounted for
-		// by checking the 'desc' value which provides this information.
 	}
 	fieldDesc := &FieldDescription{
 		desc:      desc,
@@ -233,6 +231,8 @@ type FieldDescription struct {
 	// getter is the reflected accessor method that obtains the field value.
 	getter reflect.Value
 	// field is the field location in a refValue
+	// The field will be not found for oneofs, but this is accounted for
+	// by checking the 'desc' value which provides this information.
 	field *reflect.StructField
 	// isProto3 indicates whether the field is defined in a proto3 syntax.
 	isProto3 bool

@@ -342,18 +342,23 @@ func (a *maybeAttribute) ID() int64 {
 //
 // The algorithm for building the maybe attribute is as follows:
 //
-// 1. mb = NewMaybeAttribute(Attribute{[]string{"ns.a", "a"}})
-//    -- produces --
-//    maybe([]Attribute{
-//	      {[]string{"ns.a", "a"}, []qualifier{}},
-//    })
+// 1. Create a maybe attribute from a simple identifier when it occurs in a parsed-only expression
 //
-// 2. mb.AddQualifier("b")
-//    -- updates the state --
-//    maybe([]Attribute{
-//	     {[]string{"ns.a.b", "a.b"}, []qualifier{}}
-//       {[]string{"ns.a", "a"}, []qualifier{"b"}}
-//    })
+//    mb = MaybeAttribute(<id>, "a")
+//
+//    Initializing the maybe attribute creates an absolute attribute internally which includes the
+//    possible namespaced names of the attribute. In this example, let's assume we are in namespace
+//    'ns', then the maybe is either one of the following variable names:
+//
+//    possible variables names -- ns.a, a
+//
+// 2. Adding a qualifier to the maybe means that the variable name could be a longer qualified
+//    name, or a field selection on one of the possible variable names produced earlier:
+//
+//    mb.AddQualifier("b")
+//
+//    possible variables names -- ns.a.b, a.b
+//    possible field selection -- ns.a['b'], a['b']
 //
 // If none of the attributes within the maybe resolves a value, the result is an error.
 func (a *maybeAttribute) AddQualifier(qual Qualifier) (Attribute, error) {
@@ -394,8 +399,9 @@ func (a *maybeAttribute) Resolve(vars Activation) (interface{}, error) {
 			// If the variable is found, process it. Otherwise, wait until the checks to
 			// determine whether the type is unknown before returning.
 			unk, isUnk := op.(types.Unknown)
-			// TODO: when there is a way to specify unknown attributes with fine granularity,
-			// consider moving the unknown handling within 'found' block below.
+			// TODO: Update the way that the unknown activation is produced to avoid accidental
+			// masking by types. Suggested method: make unknown activation creation a method on
+			// the environment which only includes unknown values for declared identifiers.
 			if found && !isUnk {
 				var err error
 				for _, qual := range attr.qualifiers {
