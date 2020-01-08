@@ -51,7 +51,6 @@ func NewRegistry(types ...proto.Message) ref.TypeRegistry {
 		BytesType,
 		DoubleType,
 		DurationType,
-		DynType,
 		IntType,
 		ListType,
 		MapType,

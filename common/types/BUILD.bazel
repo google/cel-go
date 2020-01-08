@@ -13,7 +13,6 @@ go_library(
         "bytes.go",
         "double.go",
         "duration.go",
-        "dyn.go",
         "err.go",
         "int.go",
         "iterator.go",

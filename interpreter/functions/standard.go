@@ -230,6 +230,12 @@ func StandardOverloads() []*Overload {
 				return value.ConvertToType(types.TypeType)
 			}},
 
+		// Dyn conversion (identity function).
+		{Operator: overloads.TypeConvertDyn,
+			Unary: func(value ref.Val) ref.Val {
+				return value;
+			}},
+
 		{Operator: overloads.Iterator,
 			OperandTrait: traits.IterableType,
 			Unary: func(value ref.Val) ref.Val {
