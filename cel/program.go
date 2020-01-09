@@ -73,6 +73,7 @@ type prog struct {
 	dispatcher    interpreter.Dispatcher
 	interpreter   interpreter.Interpreter
 	interpretable interpreter.Interpretable
+	attrFactory   interpreter.AttributeFactory
 }
 
 // progFactory is a helper alias for marking a program creation factory function.
@@ -90,11 +91,14 @@ type progGen struct {
 func newProgram(e *env, ast Ast, opts ...ProgramOption) (Program, error) {
 	// Build the dispatcher, interpreter, and default program value.
 	disp := interpreter.NewDispatcher()
-	interp := interpreter.NewInterpreter(disp, e.pkg, e.provider, e.adapter)
+
+	// Ensure the default attribute factory is set after the adapter and provider are
+	// configured. The attribute factory may be overriden by using the CustomAttributeFactory.
+	attrFactory := interpreter.NewAttributeFactory(e.pkg, e.adapter, e.provider)
 	p := &prog{
 		env:         e,
 		dispatcher:  disp,
-		interpreter: interp}
+		attrFactory: attrFactory}
 
 	// Configure the program via the ProgramOption values.
 	var err error
@@ -107,6 +111,9 @@ func newProgram(e *env, ast Ast, opts ...ProgramOption) (Program, error) {
 			return nil, err
 		}
 	}
+
+	interp := interpreter.NewInterpreter(disp, e.pkg, e.provider, e.adapter, p.attrFactory)
+	p.interpreter = interp
 
 	// Translate the EvalOption flags into InterpretableDecorator instances.
 	decorators := []interpreter.InterpretableDecorator{}
@@ -202,7 +209,7 @@ func (p *prog) Eval(input interface{}) (v ref.Val, det EvalDetails, err error) {
 		}
 	}()
 	// Build a hierarchical activation if there are default vars set.
-	vars, err := interpreter.NewAdaptingActivation(p.adapter, input)
+	vars, err := interpreter.NewActivation(input)
 	if err != nil {
 		return
 	}

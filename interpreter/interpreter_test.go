@@ -49,6 +49,7 @@ type testCase struct {
 	env       []*exprpb.Decl
 	types     []proto.Message
 	funcs     []*functions.Overload
+	attrs     AttributeFactory
 	unchecked bool
 
 	in  map[string]interface{}
@@ -157,9 +158,9 @@ var (
 			name: "complex",
 			expr: `
 			!(headers.ip in ["10.0.1.4", "10.0.1.5"]) &&
-			  ((headers.path.startsWith("v1") && headers.token in ["v1", "v2", "admin"]) ||
-			   (headers.path.startsWith("v2") && headers.token in ["v2", "admin"]) ||
-			   (headers.path.startsWith("/admin") && headers.token == "admin" && headers.ip in ["10.0.1.2", "10.0.1.2", "10.0.1.2"]))
+				((headers.path.startsWith("v1") && headers.token in ["v1", "v2", "admin"]) ||
+				(headers.path.startsWith("v2") && headers.token in ["v2", "admin"]) ||
+				(headers.path.startsWith("/admin") && headers.token == "admin" && headers.ip in ["10.0.1.2", "10.0.1.2", "10.0.1.2"]))
 			`,
 			env: []*exprpb.Decl{
 				decls.NewIdent("headers", decls.NewMapType(decls.String, decls.String), nil),
@@ -176,9 +177,9 @@ var (
 			name: "complex_qual_vars",
 			expr: `
 			!(headers.ip in ["10.0.1.4", "10.0.1.5"]) &&
-			  ((headers.path.startsWith("v1") && headers.token in ["v1", "v2", "admin"]) ||
-			   (headers.path.startsWith("v2") && headers.token in ["v2", "admin"]) ||
-			   (headers.path.startsWith("/admin") && headers.token == "admin" && headers.ip in ["10.0.1.2", "10.0.1.2", "10.0.1.2"]))
+				((headers.path.startsWith("v1") && headers.token in ["v1", "v2", "admin"]) ||
+				(headers.path.startsWith("v2") && headers.token in ["v2", "admin"]) ||
+				(headers.path.startsWith("/admin") && headers.token == "admin" && headers.ip in ["10.0.1.2", "10.0.1.2", "10.0.1.2"]))
 			`,
 			env: []*exprpb.Decl{
 				decls.NewIdent("headers.ip", decls.String, nil),
@@ -519,6 +520,56 @@ var (
 			},
 		},
 		{
+			name: "select_bool_key",
+			expr: `m.boolStr[true] == 'string'
+				&& m.boolFloat32[true] == 1.5
+				&& m.boolFloat64[false] == -2.1
+				&& m.boolInt[false] == -3
+				&& m.boolInt32[false] == 0
+				&& m.boolInt64[true] == 4
+				&& m.boolUint[true] == 5u
+				&& m.boolUint32[true] == 6u
+				&& m.boolUint64[false] == 7u
+				&& m.boolBool[true]
+				&& m.boolIface[false] == true`,
+			env: []*exprpb.Decl{
+				decls.NewIdent("m", decls.NewMapType(decls.String, decls.Dyn), nil),
+			},
+			in: map[string]interface{}{
+				"m": map[string]interface{}{
+					"boolStr":     map[bool]string{true: "string"},
+					"boolFloat32": map[bool]float32{true: 1.5},
+					"boolFloat64": map[bool]float64{false: -2.1},
+					"boolInt":     map[bool]int{false: -3},
+					"boolInt32":   map[bool]int32{false: 0},
+					"boolInt64":   map[bool]int64{true: 4},
+					"boolUint":    map[bool]uint{true: 5},
+					"boolUint32":  map[bool]uint32{true: 6},
+					"boolUint64":  map[bool]uint64{false: 7},
+					"boolBool":    map[bool]bool{true: true},
+					"boolIface":   map[bool]interface{}{false: true},
+				},
+			},
+		},
+		{
+			name: "select_uint_key",
+			expr: `m.uintIface[1u] == 'string'
+				&& m.uint32Iface[2u] == 1.5
+				&& m.uint64Iface[3u] == -2.1
+				&& m.uint64String[4u] == 'three'`,
+			env: []*exprpb.Decl{
+				decls.NewIdent("m", decls.NewMapType(decls.String, decls.Dyn), nil),
+			},
+			in: map[string]interface{}{
+				"m": map[string]interface{}{
+					"uintIface":    map[uint]interface{}{1: "string"},
+					"uint32Iface":  map[uint32]interface{}{2: 1.5},
+					"uint64Iface":  map[uint64]interface{}{3: -2.1},
+					"uint64String": map[uint64]string{4: "three"},
+				},
+			},
+		},
+		{
 			name: "select_index",
 			expr: `m.strList[0] == 'string'
 				&& m.floatList[0] == 1.5
@@ -592,7 +643,8 @@ var (
 		// pb2 primitive fields may have default values set.
 		{
 			name: "select_pb2_primitive_fields",
-			expr: `a.single_int32 == -32
+			expr: `!has(a.single_int32)
+			&& a.single_int32 == -32
 			&& a.single_int64 == -64
 			&& a.single_uint32 == 32u
 			&& a.single_uint64 == 64u
@@ -627,8 +679,8 @@ var (
 			},
 		},
 		{
-			name:  "select_pb3_enum_field",
-			expr:  `a.repeated_nested_enum[0]`,
+			name:  "select_pb3_compare",
+			expr:  `a.single_uint64 > 3u`,
 			pkg:   "google.expr.proto3.test",
 			types: []proto.Message{&proto3pb.TestAllTypes{}},
 			env: []*exprpb.Decl{
@@ -636,12 +688,33 @@ var (
 			},
 			in: map[string]interface{}{
 				"a": &proto3pb.TestAllTypes{
-					RepeatedNestedEnum: []proto3pb.TestAllTypes_NestedEnum{
-						proto3pb.TestAllTypes_BAR,
-					},
+					SingleUint64: 10,
 				},
 			},
-			out: int64(1),
+			out: types.True,
+		},
+		{
+			name:  "select_custom_pb3_compare",
+			expr:  `a.bb > 100`,
+			pkg:   "google.expr.proto3.test",
+			types: []proto.Message{&proto3pb.TestAllTypes_NestedMessage{}},
+			env: []*exprpb.Decl{
+				decls.NewIdent("a",
+					decls.NewObjectType("google.expr.proto3.test.TestAllTypes.NestedMessage"), nil),
+			},
+			attrs: &custAttrFactory{
+				AttributeFactory: NewAttributeFactory(
+					packages.NewPackage("google.expr.proto3.test"),
+					types.NewRegistry(),
+					types.NewRegistry(),
+				),
+			},
+			in: map[string]interface{}{
+				"a": &proto3pb.TestAllTypes_NestedMessage{
+					Bb: 101,
+				},
+			},
+			out: types.True,
 		},
 		{
 			name: "select_relative",
@@ -704,6 +777,24 @@ func BenchmarkInterpreter(b *testing.B) {
 	}
 }
 
+func BenchmarkInterpreter_Parallel(b *testing.B) {
+	for _, tst := range testData {
+		prg, vars, err := program(&tst, Optimize())
+		if err != nil {
+			b.Fatal(err)
+		}
+		b.ResetTimer()
+		b.Run(tst.name,
+			func(bb *testing.B) {
+				bb.RunParallel(func(pb *testing.PB) {
+					for pb.Next() {
+						prg.Eval(vars)
+					}
+				})
+			})
+	}
+}
+
 func TestInterpreter(t *testing.T) {
 	for _, tst := range testData {
 		tc := tst
@@ -739,7 +830,10 @@ func TestInterpreter(t *testing.T) {
 				"track":      TrackState(state),
 			}
 			for mode, opt := range opts {
-				prg, vars, _ = program(&tc, opt)
+				prg, vars, err = program(&tc, opt)
+				if err != nil {
+					tt.Fatal(err)
+				}
 				tt.Run(mode, func(ttt *testing.T) {
 					got := prg.Eval(vars)
 					_, expectUnk := want.(types.Unknown)
@@ -769,7 +863,9 @@ func TestInterpreter_LogicalAndMissingType(t *testing.T) {
 	}
 
 	reg := types.NewRegistry()
-	intr := NewStandardInterpreter(packages.DefaultPackage, reg, reg)
+	pkg := packages.DefaultPackage
+	attrs := NewAttributeFactory(pkg, reg, reg)
+	intr := NewStandardInterpreter(pkg, reg, reg, attrs)
 	i, err := intr.NewUncheckedInterpretable(parsed.GetExpr())
 	if err == nil {
 		t.Errorf("Got '%v', wanted error", i)
@@ -784,8 +880,10 @@ func TestInterpreter_ExhaustiveConditionalExpr(t *testing.T) {
 	}
 
 	state := NewEvalState()
+	pkg := packages.DefaultPackage
 	reg := types.NewRegistry(&exprpb.ParsedExpr{})
-	intr := NewStandardInterpreter(packages.DefaultPackage, reg, reg)
+	attrs := NewAttributeFactory(pkg, reg, reg)
+	intr := NewStandardInterpreter(pkg, reg, reg, attrs)
 	interpretable, _ := intr.NewUncheckedInterpretable(
 		parsed.GetExpr(),
 		ExhaustiveEval(state))
@@ -817,7 +915,9 @@ func TestInterpreter_ExhaustiveLogicalOrEquals(t *testing.T) {
 
 	state := NewEvalState()
 	reg := types.NewRegistry(&exprpb.Expr{})
-	interp := NewStandardInterpreter(packages.NewPackage("test"), reg, reg)
+	pkg := packages.NewPackage("test")
+	attrs := NewAttributeFactory(pkg, reg, reg)
+	interp := NewStandardInterpreter(pkg, reg, reg, attrs)
 	i, _ := interp.NewUncheckedInterpretable(
 		parsed.GetExpr(),
 		ExhaustiveEval(state))
@@ -854,16 +954,17 @@ func TestInterpreter_SetProto2PrimitiveFields(t *testing.T) {
 		t.Errorf(errors.ToDisplayString())
 	}
 
-	pkgr := packages.NewPackage("google.expr.proto2.test")
+	pkg := packages.NewPackage("google.expr.proto2.test")
 	reg := types.NewRegistry(&proto2pb.TestAllTypes{})
-	env := checker.NewStandardEnv(pkgr, reg)
+	env := checker.NewStandardEnv(pkg, reg)
 	env.Add(decls.NewIdent("input", decls.NewObjectType("google.expr.proto2.test.TestAllTypes"), nil))
 	checked, errors := checker.Check(parsed, src, env)
 	if len(errors.GetErrors()) != 0 {
 		t.Errorf(errors.ToDisplayString())
 	}
 
-	i := NewStandardInterpreter(pkgr, reg, reg)
+	attrs := NewAttributeFactory(pkg, reg, reg)
+	i := NewStandardInterpreter(pkg, reg, reg, attrs)
 	eval, _ := i.NewInterpretable(checked)
 	one := int32(1)
 	two := int64(2)
@@ -906,21 +1007,28 @@ func TestInterpreter_MissingIdentInSelect(t *testing.T) {
 		t.Fatalf(errors.ToDisplayString())
 	}
 
+	pkg := packages.NewPackage("test")
 	reg := types.NewRegistry()
-	env := checker.NewStandardEnv(packages.DefaultPackage, reg)
+	env := checker.NewStandardEnv(pkg, reg)
 	env.Add(decls.NewIdent("a.b", decls.Dyn, nil))
 	checked, errors := checker.Check(parsed, src, env)
 	if len(errors.GetErrors()) != 0 {
 		t.Fatalf(errors.ToDisplayString())
 	}
 
-	interp := NewStandardInterpreter(packages.NewPackage("test"), reg, reg)
+	attrs := NewAttributeFactory(pkg, reg, reg)
+	interp := NewStandardInterpreter(pkg, reg, reg, attrs)
 	i, _ := interp.NewInterpretable(checked)
-	vars := EmptyActivation()
+	vars := UnknownActivation()
 	result := i.Eval(vars)
-	// TODO: When Issue #190 is fixed, this result should be an error.
 	if !types.IsUnknown(result) {
 		t.Errorf("Got %v, wanted unknown", result)
+	}
+
+	vars = EmptyActivation()
+	result = i.Eval(vars)
+	if !types.IsError(result) {
+		t.Errorf("Got %v, wanted error", result)
 	}
 }
 
@@ -934,6 +1042,11 @@ func program(tst *testCase, opts ...InterpretableDecorator) (Interpretable, Acti
 	if tst.types != nil {
 		reg = types.NewRegistry(tst.types...)
 	}
+	attrs := NewAttributeFactory(pkg, reg, reg)
+	if tst.attrs != nil {
+		attrs = tst.attrs
+	}
+
 	// Configure the environment.
 	env := checker.NewStandardEnv(pkg, reg)
 	if tst.env != nil {
@@ -942,11 +1055,7 @@ func program(tst *testCase, opts ...InterpretableDecorator) (Interpretable, Acti
 	// Configure the program input.
 	vars := EmptyActivation()
 	if tst.in != nil {
-		input := map[string]interface{}{}
-		for k, v := range tst.in {
-			input[k] = reg.NativeToValue(v)
-		}
-		vars, _ = NewActivation(input)
+		vars, _ = NewActivation(tst.in)
 	}
 	// Adapt the test output, if needed.
 	if tst.out != nil {
@@ -958,7 +1067,7 @@ func program(tst *testCase, opts ...InterpretableDecorator) (Interpretable, Acti
 	if tst.funcs != nil {
 		disp.Add(tst.funcs...)
 	}
-	interp := NewInterpreter(disp, pkg, reg, reg)
+	interp := NewInterpreter(disp, pkg, reg, reg, attrs)
 
 	// Parse the expression.
 	s := common.NewTextSource(tst.expr)

@@ -16,14 +16,50 @@ package interpreter
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
 )
 
-func TestNewActivation(t *testing.T) {
+func TestActivation(t *testing.T) {
+	act, err := NewActivation(map[string]interface{}{"a": types.True})
+	if err != nil {
+		t.Fatalf("Got err: %v, wanted activation", err)
+	}
+	_, err = NewActivation(act)
+	if err != nil {
+		t.Fatalf("Got err: %v, wanted activation", err)
+	}
+	act3, err := NewActivation("")
+	if err == nil {
+		t.Fatalf("Got %v, wanted err", act3)
+	}
+}
+
+func TestActivation_Resolve(t *testing.T) {
 	activation, _ := NewActivation(map[string]interface{}{"a": types.True})
 	if val, found := activation.ResolveName("a"); !found || val != types.True {
 		t.Error("Activation failed to resolve 'a'")
+	}
+}
+
+func TestActivation_ResolveLazy(t *testing.T) {
+	var v ref.Val
+	now := func() ref.Val {
+		if v == nil {
+			v = types.DefaultTypeAdapter.NativeToValue(time.Now().Unix())
+		}
+		return v
+	}
+	a, _ := NewActivation(map[string]interface{}{
+		"now": now,
+	})
+	first, _ := a.ResolveName("now")
+	second, _ := a.ResolveName("now")
+	if first != second {
+		t.Errorf("Got different second, "+
+			"expected same as first: 1:%v 2:%v", first, second)
 	}
 }
 
@@ -51,39 +87,5 @@ func TestHierarchicalActivation(t *testing.T) {
 	// Resolve the child only value.
 	if val, found := combined.ResolveName("c"); !found || val.(types.String) != "universe" {
 		t.Error("Activation failed to resolve child value of 'c'")
-	}
-}
-
-func TestActivation_NilValue(t *testing.T) {
-	var ptr *string
-	var fun *func()
-	a, _ := NewActivation(map[string]interface{}{
-		"nil": nil,  // plain old nil
-		"ptr": ptr,  // nil pointer to a supported type
-		"fun": fun}) // nil pointer to an unknown type
-	if v, found := a.ResolveName("nil"); !found || v != types.NullValue {
-		t.Errorf("Got '%v', wanted 'null'", v)
-	}
-	if v, _ := a.ResolveName("ptr"); !types.IsError(v) {
-		t.Errorf("Got '%v', wanted error", v)
-	}
-	if v, _ := a.ResolveName("fun"); !types.IsError(v) {
-		t.Errorf("Got '%v', wanted error", v)
-	}
-}
-
-func TestAdaptingActivation_NilValue(t *testing.T) {
-	var ptr *types.String
-	a, _ := NewAdaptingActivation(types.NewRegistry(), map[string]interface{}{
-		"nil": nil,
-		"ptr": ptr})
-	if v, found := a.ResolveName("nil"); !found || v != types.NullValue {
-		t.Errorf("Got '%v', wanted 'null'", v)
-	}
-	if v, _ := a.ResolveName("ptr"); !types.IsError(v) {
-		t.Errorf("Got '%v', wanted error", v)
-	}
-	if v, found := a.ResolveName("missing"); found {
-		t.Errorf("Got '%v', wanted not found", v)
 	}
 }

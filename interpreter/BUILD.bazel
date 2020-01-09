@@ -9,6 +9,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "activation.go",
+        "attributes.go",
         "decorators.go",
         "dispatcher.go",
         "evalstate.go",
@@ -40,6 +41,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "activation_test.go",
+        "attributes_test.go",
         "interpreter_test.go",
         "prune_test.go",
     ],

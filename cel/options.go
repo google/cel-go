@@ -219,11 +219,28 @@ func Functions(funcs ...*functions.Overload) ProgramOption {
 func Globals(vars interface{}) ProgramOption {
 	return func(p *prog) (*prog, error) {
 		defaultVars, err :=
-			interpreter.NewAdaptingActivation(p.adapter, vars)
+			interpreter.NewActivation(vars)
 		if err != nil {
 			return nil, err
 		}
 		p.defaultVars = defaultVars
+		return p, nil
+	}
+}
+
+// CustomAttributeFactory adjusts the variable and field resolution behavior of the Program.
+//
+// An expression containing a field references and/or indexing expressions is considered an
+// Attribute. An Attribute is a variable or object reference with zero or more Qualifier that
+// values determine which piece of data is relevant to the computation. When an Attribute
+// expression is encountered, the runtime resolves the Attribute to a concrete value.
+//
+// An AttributeFactory may be generic or it may be deeply aware of the objects which can appear
+// within CEL expressions. By default a generic AttributeFactory is created if a custom one is not
+// set.
+func CustomAttributeFactory(attrs interpreter.AttributeFactory) ProgramOption {
+	return func(p *prog) (*prog, error) {
+		p.attrFactory = attrs
 		return p, nil
 	}
 }
