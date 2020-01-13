@@ -430,24 +430,21 @@ ERROR: <input>:1:5: Syntax error: extraneous input 'b' expecting <EOF>
 			// Init
 			0^#5:*expr.Constant_Int64Value#,
 			// LoopCondition
-			_<=_(
-				__result__^#7:*expr.Expr_IdentExpr#,
-				1^#6:*expr.Constant_Int64Value#
-			)^#8:*expr.Expr_CallExpr#,
+			true^#7:*expr.Constant_BoolValue#,
 			// LoopStep
 			_?_:_(
 				f^#4:*expr.Expr_IdentExpr#,
 				_+_(
-					__result__^#9:*expr.Expr_IdentExpr#,
-					1^#6:*expr.Constant_Int64Value#
-				)^#10:*expr.Expr_CallExpr#,
-				__result__^#11:*expr.Expr_IdentExpr#
-			)^#12:*expr.Expr_CallExpr#,
+					  __result__^#8:*expr.Expr_IdentExpr#,
+				  1^#6:*expr.Constant_Int64Value#
+				)^#9:*expr.Expr_CallExpr#,
+				__result__^#10:*expr.Expr_IdentExpr#
+			)^#11:*expr.Expr_CallExpr#,
 			// Result
 			_==_(
-				__result__^#13:*expr.Expr_IdentExpr#,
+				__result__^#12:*expr.Expr_IdentExpr#,
 				1^#6:*expr.Constant_Int64Value#
-			)^#14:*expr.Expr_CallExpr#)^#15:*expr.Expr_ComprehensionExpr#`,
+			)^#13:*expr.Expr_CallExpr#)^#14:*expr.Expr_ComprehensionExpr#`,
 	},
 	{
 		I: `m.map(v, f)`,
