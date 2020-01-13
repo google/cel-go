@@ -32,6 +32,21 @@ scripting language is too resource intensive.
 A dashboard that shows results of cel-go conformance tests can be found
 [here](https://k8s-testgrid.appspot.com/google-cel#cel-go).
 
+---
+
+* [Overview](#overview)
+  * [Environment Setup](#environment-setup)
+  * [Parse and Check](#parse-and-check)
+  * [Macros](#macros)
+  * [Evaluate](#evaluate)
+  * [Errors](#Errors)
+* [Examples](examples/README.md)
+* [Install](#install)
+* [Common Questions](#common-questions)
+* [License](#license)
+
+---
+
 ## Overview
 
 Determine the variables and functions you want to provide to CEL. Parse and
@@ -136,8 +151,6 @@ out, details, err := prg.Eval(map[string]interface{}{
     "group": "acme.co"})
 fmt.Println(out) // 'true'
 ```
-
-For more examples of how to use CEL, see [cel_test.go](https://github.com/google/cel-go/tree/master/cel/cel_test.go).
 
 #### Partial State
 
