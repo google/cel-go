@@ -74,9 +74,8 @@ func (ast *Ast) Source() Source {
 	return ast.source
 }
 
-// Env defines functions for parsing and type-checking expressions against a set of user-defined
-// constants, variables, and functions. The Env interface also defines a method for generating
-// evaluable programs from parsed and checked Asts.
+// Env encapsulates the context necessary to perform parsing, type checking, or generation of
+// evaluable programs for different expressions.
 type Env struct {
 	declarations []*exprpb.Decl
 	macros       []parser.Macro
@@ -116,7 +115,7 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 
 // Check performs type-checking on the input Ast and yields a checked Ast and/or set of Issues.
 //
-// Checking has failed if the returned Issues value and its Issues.Err() value is non-nil.
+// Checking has failed if the returned Issues value and its Issues.Err() value are non-nil.
 // Issues should be inspected if they are non-nil, but may not represent a fatal error.
 //
 // It is possible to have both non-nil Ast and Issues values returned from this call: however,
