@@ -935,10 +935,7 @@ ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, nul
 			  // Init
 			  0~int,
 			  // LoopCondition
-			  _<=_(
-				__result__~int^__result__,
-				1~int
-			  )~bool^less_equals_int64,
+			  true~bool,
 			  // LoopStep
 			  _?_:_(
 				_==_(
