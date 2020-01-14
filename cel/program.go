@@ -67,7 +67,7 @@ func (ed *evalDetails) State() interpreter.EvalState {
 
 // prog is the internal implementation of the Program interface.
 type prog struct {
-	*env
+	*Env
 	evalOpts      EvalOption
 	defaultVars   interpreter.Activation
 	dispatcher    interpreter.Dispatcher
@@ -88,7 +88,7 @@ type progGen struct {
 // ProgramOption values.
 //
 // If the program cannot be configured the prog will be nil, with a non-nil error response.
-func newProgram(e *env, ast Ast, opts ...ProgramOption) (Program, error) {
+func newProgram(e *Env, ast *Ast, opts ...ProgramOption) (Program, error) {
 	// Build the dispatcher, interpreter, and default program value.
 	disp := interpreter.NewDispatcher()
 
@@ -96,7 +96,7 @@ func newProgram(e *env, ast Ast, opts ...ProgramOption) (Program, error) {
 	// configured. The attribute factory may be overriden by using the CustomAttributeFactory.
 	attrFactory := interpreter.NewAttributeFactory(e.pkg, e.adapter, e.provider)
 	p := &prog{
-		env:         e,
+		Env:         e,
 		dispatcher:  disp,
 		attrFactory: attrFactory}
 
@@ -130,7 +130,7 @@ func newProgram(e *env, ast Ast, opts ...ProgramOption) (Program, error) {
 			clone := &prog{
 				evalOpts:    p.evalOpts,
 				defaultVars: p.defaultVars,
-				env:         e,
+				Env:         e,
 				dispatcher:  disp,
 				interpreter: interp}
 			return initInterpretable(clone, ast, decs)
@@ -145,7 +145,7 @@ func newProgram(e *env, ast Ast, opts ...ProgramOption) (Program, error) {
 			clone := &prog{
 				evalOpts:    p.evalOpts,
 				defaultVars: p.defaultVars,
-				env:         e,
+				Env:         e,
 				dispatcher:  disp,
 				interpreter: interp}
 			return initInterpretable(clone, ast, decs)
@@ -170,7 +170,7 @@ func initProgGen(factory progFactory) (Program, error) {
 // has been run through the type-checker.
 func initInterpretable(
 	p *prog,
-	ast Ast,
+	ast *Ast,
 	decorators []interpreter.InterpretableDecorator) (Program, error) {
 	var err error
 	// Unchecked programs do not contain type and reference information and may be
