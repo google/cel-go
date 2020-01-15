@@ -40,14 +40,7 @@ type Program interface {
 	// An unsuccessful evaluation is typically the result of a series of incompatible `EnvOption`
 	// or `ProgramOption` values used in the creation of the evaluation environment or executable
 	// program.
-	Eval(vars interface{}) (ref.Val, EvalDetails, error)
-}
-
-// EvalDetails holds additional information observed during the Eval() call.
-type EvalDetails interface {
-	// State of the evaluation, non-nil if the OptTrackState or OptExhaustiveEval is specified
-	// within EvalOptions.
-	State() interpreter.EvalState
+	Eval(vars interface{}) (ref.Val, *EvalDetails, error)
 }
 
 // NoVars returns an empty Activation.
@@ -55,19 +48,20 @@ func NoVars() interpreter.Activation {
 	return interpreter.EmptyActivation()
 }
 
-// evalDetails is the internal implementation of the EvalDetails interface.
-type evalDetails struct {
+// EvalDetails holds additional information observed during the Eval() call.
+type EvalDetails struct {
 	state interpreter.EvalState
 }
 
-// State implements the Result interface method.
-func (ed *evalDetails) State() interpreter.EvalState {
+// State of the evaluation, non-nil if the OptTrackState or OptExhaustiveEval is specified
+// within EvalOptions.
+func (ed *EvalDetails) State() interpreter.EvalState {
 	return ed.state
 }
 
 // prog is the internal implementation of the Program interface.
 type prog struct {
-	*env
+	*Env
 	evalOpts      EvalOption
 	defaultVars   interpreter.Activation
 	dispatcher    interpreter.Dispatcher
@@ -88,7 +82,7 @@ type progGen struct {
 // ProgramOption values.
 //
 // If the program cannot be configured the prog will be nil, with a non-nil error response.
-func newProgram(e *env, ast Ast, opts ...ProgramOption) (Program, error) {
+func newProgram(e *Env, ast *Ast, opts ...ProgramOption) (Program, error) {
 	// Build the dispatcher, interpreter, and default program value.
 	disp := interpreter.NewDispatcher()
 
@@ -96,7 +90,7 @@ func newProgram(e *env, ast Ast, opts ...ProgramOption) (Program, error) {
 	// configured. The attribute factory may be overriden by using the CustomAttributeFactory.
 	attrFactory := interpreter.NewAttributeFactory(e.pkg, e.adapter, e.provider)
 	p := &prog{
-		env:         e,
+		Env:         e,
 		dispatcher:  disp,
 		attrFactory: attrFactory}
 
@@ -130,7 +124,7 @@ func newProgram(e *env, ast Ast, opts ...ProgramOption) (Program, error) {
 			clone := &prog{
 				evalOpts:    p.evalOpts,
 				defaultVars: p.defaultVars,
-				env:         e,
+				Env:         e,
 				dispatcher:  disp,
 				interpreter: interp}
 			return initInterpretable(clone, ast, decs)
@@ -145,7 +139,7 @@ func newProgram(e *env, ast Ast, opts ...ProgramOption) (Program, error) {
 			clone := &prog{
 				evalOpts:    p.evalOpts,
 				defaultVars: p.defaultVars,
-				env:         e,
+				Env:         e,
 				dispatcher:  disp,
 				interpreter: interp}
 			return initInterpretable(clone, ast, decs)
@@ -170,7 +164,7 @@ func initProgGen(factory progFactory) (Program, error) {
 // has been run through the type-checker.
 func initInterpretable(
 	p *prog,
-	ast Ast,
+	ast *Ast,
 	decorators []interpreter.InterpretableDecorator) (Program, error) {
 	var err error
 	// Unchecked programs do not contain type and reference information and may be
@@ -199,7 +193,7 @@ func initInterpretable(
 }
 
 // Eval implements the Program interface method.
-func (p *prog) Eval(input interface{}) (v ref.Val, det EvalDetails, err error) {
+func (p *prog) Eval(input interface{}) (v ref.Val, det *EvalDetails, err error) {
 	// Configure error recovery for unexpected panics during evaluation. Note, the use of named
 	// return values makes it possible to modify the error response during the recovery
 	// function.
@@ -227,12 +221,12 @@ func (p *prog) Eval(input interface{}) (v ref.Val, det EvalDetails, err error) {
 }
 
 // Eval implements the Program interface method.
-func (gen *progGen) Eval(input interface{}) (ref.Val, EvalDetails, error) {
+func (gen *progGen) Eval(input interface{}) (ref.Val, *EvalDetails, error) {
 	// The factory based Eval() differs from the standard evaluation model in that it generates a
 	// new EvalState instance for each call to ensure that unique evaluations yield unique stateful
 	// results.
 	state := interpreter.NewEvalState()
-	det := &evalDetails{state: state}
+	det := &EvalDetails{state: state}
 
 	// Generate a new instance of the interpretable using the factory configured during the call to
 	// newProgram(). It is incredibly unlikely that the factory call will generate an error given

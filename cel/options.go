@@ -30,13 +30,13 @@ import (
 )
 
 // EnvOption is a functional interface for configuring the environment.
-type EnvOption func(e *env) (*env, error)
+type EnvOption func(e *Env) (*Env, error)
 
 // ClearBuiltIns option removes all standard types, operators, and macros from the environment.
 //
 // Note: This option must be specified before Declarations and/or Macros if used together.
 func ClearBuiltIns() EnvOption {
-	return func(e *env) (*env, error) {
+	return func(e *Env) (*Env, error) {
 		e.declarations = []*exprpb.Decl{}
 		e.macros = parser.NoMacros
 		e.enableBuiltins = false
@@ -52,7 +52,7 @@ func ClearBuiltIns() EnvOption {
 // Note: This option is a no-op when used with ClearBuiltIns, and must be used before Macros
 // if used together.
 func ClearMacros() EnvOption {
-	return func(e *env) (*env, error) {
+	return func(e *Env) (*Env, error) {
 		e.macros = parser.NoMacros
 		return e, nil
 	}
@@ -62,7 +62,7 @@ func ClearMacros() EnvOption {
 //
 // Note: This option must be specified before the Types and TypeDescs options when used together.
 func CustomTypeAdapter(adapter ref.TypeAdapter) EnvOption {
-	return func(e *env) (*env, error) {
+	return func(e *Env) (*Env, error) {
 		e.adapter = adapter
 		return e, nil
 	}
@@ -72,7 +72,7 @@ func CustomTypeAdapter(adapter ref.TypeAdapter) EnvOption {
 //
 // Note: This option must be specified before the Types and TypeDescs options when used together.
 func CustomTypeProvider(provider ref.TypeProvider) EnvOption {
-	return func(e *env) (*env, error) {
+	return func(e *Env) (*Env, error) {
 		e.provider = provider
 		return e, nil
 	}
@@ -84,7 +84,7 @@ func CustomTypeProvider(provider ref.TypeProvider) EnvOption {
 func Declarations(decls ...*exprpb.Decl) EnvOption {
 	// TODO: provide an alternative means of specifying declarations that doesn't refer
 	// to the underlying proto implementations.
-	return func(e *env) (*env, error) {
+	return func(e *Env) (*Env, error) {
 		e.declarations = append(e.declarations, decls...)
 		return e, nil
 	}
@@ -97,7 +97,7 @@ func Declarations(decls ...*exprpb.Decl) EnvOption {
 // expression, as well as via conversion of well-known dynamic types, or with unchecked
 // expressions.
 func HomogeneousAggregateLiterals() EnvOption {
-	return func(e *env) (*env, error) {
+	return func(e *Env) (*Env, error) {
 		e.enableDynamicAggregateLiterals = false
 		return e, nil
 	}
@@ -107,7 +107,7 @@ func HomogeneousAggregateLiterals() EnvOption {
 //
 // Note: This option must be specified after ClearBuiltIns and/or ClearMacros if used together.
 func Macros(macros ...parser.Macro) EnvOption {
-	return func(e *env) (*env, error) {
+	return func(e *Env) (*Env, error) {
 		e.macros = append(e.macros, macros...)
 		return e, nil
 	}
@@ -119,7 +119,7 @@ func Macros(macros ...parser.Macro) EnvOption {
 // specifying a container of `google.type` would make it possible to write expressions such as
 // `Expr{expression: 'a < b'}` instead of having to write `google.type.Expr{...}`.
 func Container(pkg string) EnvOption {
-	return func(e *env) (*env, error) {
+	return func(e *Env) (*Env, error) {
 		e.pkg = packages.NewPackage(pkg)
 		return e, nil
 	}
@@ -136,7 +136,7 @@ func Container(pkg string) EnvOption {
 //
 // Note: This option must be specified after the CustomTypeProvider option when used together.
 func Types(addTypes ...interface{}) EnvOption {
-	return func(e *env) (*env, error) {
+	return func(e *Env) (*Env, error) {
 		reg, isReg := e.provider.(ref.TypeRegistry)
 		if !isReg {
 			return nil, fmt.Errorf("custom types not supported by provider: %T", e.provider)
@@ -172,7 +172,7 @@ func Types(addTypes ...interface{}) EnvOption {
 // via descriptor will not be able to instantiate messages, and so are
 // only useful for Check() operations.
 func TypeDescs(descs ...interface{}) EnvOption {
-	return func(e *env) (*env, error) {
+	return func(e *Env) (*Env, error) {
 		reg, isReg := e.provider.(ref.TypeRegistry)
 		if !isReg {
 			return nil, fmt.Errorf("custom types not supported by provider: %T", e.provider)
