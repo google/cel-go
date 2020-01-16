@@ -434,7 +434,7 @@ func (c *checker) checkComprehension(e *exprpb.Expr) {
 	case kindMap:
 		// Ranges over the keys.
 		varType = rangeType.GetMapType().KeyType
-	case kindDyn, kindError:
+	case kindDyn, kindError, kindTypeParam:
 		varType = decls.Dyn
 	default:
 		c.errors.notAComprehensionRange(c.location(comp.IterRange), rangeType)

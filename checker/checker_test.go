@@ -1391,6 +1391,45 @@ _&&_(_==_(list~type(list(dyn))^list,
 		| [].map(x, [].map(y, x in y && y in x))
 		| ................................^`,
 	},
+	{
+		I: `args.user["myextension"].customAttributes.filter(x, x.name == "hobbies")`,
+		R: `__comprehension__(
+			// Variable
+			x,
+			// Target
+			_[_](
+			  args~map(string, dyn)^args.user~dyn,
+			  "myextension"~string
+			)~dyn^index_map.customAttributes~dyn,
+			// Accumulator
+			__result__,
+			// Init
+			[]~list(dyn),
+			// LoopCondition
+			true~bool,
+			// LoopStep
+			_?_:_(
+			  _==_(
+				x~dyn^x.name~dyn,
+				"hobbies"~string
+			  )~bool^equals,
+			  _+_(
+				__result__~list(dyn)^__result__,
+				[
+				  x~dyn^x
+				]~list(dyn)
+			  )~list(dyn)^add_list,
+			  __result__~list(dyn)^__result__
+			)~list(dyn)^conditional,
+			// Result
+			__result__~list(dyn)^__result__)~list(dyn)`,
+		Env: env{
+			idents: []*exprpb.Decl{
+				decls.NewIdent("args", decls.NewMapType(decls.String, decls.Dyn), nil),
+			},
+		},
+		Type: decls.NewListType(decls.Dyn),
+	},
 }
 
 var reg = initTypeRegistry()
