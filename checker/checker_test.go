@@ -455,7 +455,7 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 					1~double
 				)~bool^equals
 			)~bool^logical_and
-		  )~bool^logical_and`,
+		)~bool^logical_and`,
 		Env: env{
 			idents: []*exprpb.Decl{
 				decls.NewIdent("x", decls.NewObjectType("google.protobuf.Struct"), nil),
