@@ -419,41 +419,41 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 		&& z == 1.0`,
 		R: `_&&_(
 			_&&_(
-			  _==_(
-				_[_](
-				  _[_](
+				_==_(
 					_[_](
-					  x~map(string, dyn)^x,
-					  "claims"~string
+						_[_](
+							_[_](
+								x~map(string, dyn)^x,
+								"claims"~string
+							)~dyn^index_map,
+							"groups"~string
+						)~list(dyn)^index_map,
+						0~int
+					)~dyn^index_list.name~string,
+					"dummy"~string
+				)~bool^equals,
+				_==_(
+					_[_](
+						x~map(string, dyn)^x.claims~dyn,
+						"exp"~string
 					)~dyn^index_map,
-					"groups"~string
-				  )~list(dyn)^index_map,
-				  0~int
-				)~dyn^index_list.name~string,
-				"dummy"~string
-			  )~bool^equals,
-			  _==_(
-				_[_](
-				  x~map(string, dyn)^x.claims~dyn,
-				  "exp"~string
-				)~dyn^index_map,
-				_[_](
-				  y~list(dyn)^y,
-				  1~int
-				)~dyn^index_list.time~dyn
-			  )~bool^equals
+					_[_](
+						y~list(dyn)^y,
+						1~int
+					)~dyn^index_list.time~dyn
+				)~bool^equals
 			)~bool^logical_and,
 			_&&_(
-			  _==_(
-				x~map(string, dyn)^x.claims~dyn.structured~dyn,
-				{
-				  "key"~string:z~dyn^z
-				}~map(string, dyn)
-			  )~bool^equals,
-			  _==_(
-				z~dyn^z,
-				1~double
-			  )~bool^equals
+				_==_(
+					x~map(string, dyn)^x.claims~dyn.structured~dyn,
+					{
+						"key"~string:z~dyn^z
+					}~map(string, dyn)
+				)~bool^equals,
+				_==_(
+					z~dyn^z,
+					1~double
+				)~bool^equals
 			)~bool^logical_and
 		  )~bool^logical_and`,
 		Env: env{
