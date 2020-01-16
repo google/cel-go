@@ -419,43 +419,43 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 		&& z == 1.0`,
 		R: `_&&_(
 			_&&_(
-				_==_(
+			  _==_(
+				_[_](
+				  _[_](
 					_[_](
-						_[_](
-							_[_](
-								x~map(string, dyn)^x,
-								"claims"~string
-							)~dyn^index_map,
-							"groups"~string
-						)~list(string)^index_map,
-						0~int
-					)~string^index_list.name~string,
-					"dummy"~string
-				)~bool^equals,
-				_==_(
-					_[_](
-						x~map(string, dyn)^x.claims~dyn,
-						"exp"~string
+					  x~map(string, dyn)^x,
+					  "claims"~string
 					)~dyn^index_map,
-					_[_](
-						y~list(dyn)^y,
-						1~int
-					)~dyn^index_list.time~dyn
-				)~bool^equals
+					"groups"~string
+				  )~list(dyn)^index_map,
+				  0~int
+				)~dyn^index_list.name~string,
+				"dummy"~string
+			  )~bool^equals,
+			  _==_(
+				_[_](
+				  x~map(string, dyn)^x.claims~dyn,
+				  "exp"~string
+				)~dyn^index_map,
+				_[_](
+				  y~list(dyn)^y,
+				  1~int
+				)~dyn^index_list.time~dyn
+			  )~bool^equals
 			)~bool^logical_and,
 			_&&_(
-				_==_(
-					x~map(string, dyn)^x.claims~dyn.structured~dyn,
-					{
-						"key"~string:z~dyn^z
-					}~map(string, dyn)
-				)~bool^equals,
-				_==_(
-					z~dyn^z,
-					1~double
-				)~bool^equals
+			  _==_(
+				x~map(string, dyn)^x.claims~dyn.structured~dyn,
+				{
+				  "key"~string:z~dyn^z
+				}~map(string, dyn)
+			  )~bool^equals,
+			  _==_(
+				z~dyn^z,
+				1~double
+			  )~bool^equals
 			)~bool^logical_and
-		)~bool^logical_and`,
+		  )~bool^logical_and`,
 		Env: env{
 			idents: []*exprpb.Decl{
 				decls.NewIdent("x", decls.NewObjectType("google.protobuf.Struct"), nil),
@@ -1398,8 +1398,8 @@ _&&_(_==_(list~type(list(dyn))^list,
 			x,
 			// Target
 			_[_](
-			  args~map(string, dyn)^args.user~dyn,
-			  "myextension"~string
+			args~map(string, dyn)^args.user~dyn,
+			"myextension"~string
 			)~dyn^index_map.customAttributes~dyn,
 			// Accumulator
 			__result__,
@@ -1409,17 +1409,17 @@ _&&_(_==_(list~type(list(dyn))^list,
 			true~bool,
 			// LoopStep
 			_?_:_(
-			  _==_(
-				x~dyn^x.name~dyn,
+			_==_(
+				x~dyn^x.name~string,
 				"hobbies"~string
-			  )~bool^equals,
-			  _+_(
+			)~bool^equals,
+			_+_(
 				__result__~list(dyn)^__result__,
 				[
-				  x~dyn^x
+				x~dyn^x
 				]~list(dyn)
-			  )~list(dyn)^add_list,
-			  __result__~list(dyn)^__result__
+			)~list(dyn)^add_list,
+			__result__~list(dyn)^__result__
 			)~list(dyn)^conditional,
 			// Result
 			__result__~list(dyn)^__result__)~list(dyn)`,
