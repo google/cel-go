@@ -201,7 +201,7 @@ func (c *checker) checkSelect(e *exprpb.Expr) {
 		}
 	case kindTypeParam:
 		// Type params are expected to be the same type as the target.
-		resultType = targetType
+		resultType = c.newTypeVar()
 	default:
 		// Dynamic / error values are treated as DYN type. Errors are handled this way as well
 		// in order to allow forward progress on the check.
@@ -436,6 +436,8 @@ func (c *checker) checkComprehension(e *exprpb.Expr) {
 		varType = rangeType.GetMapType().KeyType
 	case kindDyn, kindError:
 		varType = decls.Dyn
+	case kindTypeParam:
+		varType = c.newTypeVar()
 	default:
 		c.errors.notAComprehensionRange(c.location(comp.IterRange), rangeType)
 		varType = decls.Error

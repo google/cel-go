@@ -427,9 +427,9 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 								"claims"~string
 							)~dyn^index_map,
 							"groups"~string
-						)~list(string)^index_map,
+						)~list(dyn)^index_map,
 						0~int
-					)~string^index_list.name~string,
+					)~dyn^index_list.name~string,
 					"dummy"~string
 				)~bool^equals,
 				_==_(
@@ -1390,6 +1390,45 @@ _&&_(_==_(list~type(list(dyn))^list,
 		ERROR: <input>:1:33: found no matching overload for '@in' applied to '(type_param:"_var2" , type_param:"_var0" )'
 		| [].map(x, [].map(y, x in y && y in x))
 		| ................................^`,
+	},
+	{
+		I: `args.user["myextension"].customAttributes.filter(x, x.name == "hobbies")`,
+		R: `__comprehension__(
+			// Variable
+			x,
+			// Target
+			_[_](
+			args~map(string, dyn)^args.user~dyn,
+			"myextension"~string
+			)~dyn^index_map.customAttributes~dyn,
+			// Accumulator
+			__result__,
+			// Init
+			[]~list(dyn),
+			// LoopCondition
+			true~bool,
+			// LoopStep
+			_?_:_(
+			_==_(
+				x~dyn^x.name~string,
+				"hobbies"~string
+			)~bool^equals,
+			_+_(
+				__result__~list(dyn)^__result__,
+				[
+				x~dyn^x
+				]~list(dyn)
+			)~list(dyn)^add_list,
+			__result__~list(dyn)^__result__
+			)~list(dyn)^conditional,
+			// Result
+			__result__~list(dyn)^__result__)~list(dyn)`,
+		Env: env{
+			idents: []*exprpb.Decl{
+				decls.NewIdent("args", decls.NewMapType(decls.String, decls.Dyn), nil),
+			},
+		},
+		Type: decls.NewListType(decls.Dyn),
 	},
 }
 
