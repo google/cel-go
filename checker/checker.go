@@ -533,10 +533,6 @@ func (c *checker) setType(e *exprpb.Expr, t *exprpb.Type) {
 	c.types[e.Id] = t
 }
 
-func (c *checker) setDynType(e *exprpb.Expr) {
-	c.types[e.Id] = decls.Dyn
-}
-
 func (c *checker) getType(e *exprpb.Expr) *exprpb.Type {
 	return c.types[e.Id]
 }
