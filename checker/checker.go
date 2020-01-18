@@ -200,8 +200,11 @@ func (c *checker) checkSelect(e *exprpb.Expr) {
 			}
 		}
 	case kindTypeParam:
-		// Type params are expected to be the same type as the target.
-		resultType = c.newTypeVar()
+		// Attempting to pick a type for the field might result in an impossible type
+		// assigment and overload selection for both the operand and the item being selected.
+		// Assign both to DYN to be safe.
+		c.mappings.add(targetType, decls.Dyn)
+		resultType = decls.Dyn
 	default:
 		// Dynamic / error values are treated as DYN type. Errors are handled this way as well
 		// in order to allow forward progress on the check.
@@ -434,10 +437,8 @@ func (c *checker) checkComprehension(e *exprpb.Expr) {
 	case kindMap:
 		// Ranges over the keys.
 		varType = rangeType.GetMapType().KeyType
-	case kindDyn, kindError:
+	case kindDyn, kindError, kindTypeParam:
 		varType = decls.Dyn
-	case kindTypeParam:
-		varType = c.newTypeVar()
 	default:
 		c.errors.notAComprehensionRange(c.location(comp.IterRange), rangeType)
 		varType = decls.Error
@@ -530,6 +531,10 @@ func (c *checker) setType(e *exprpb.Expr, t *exprpb.Type) {
 		panic(fmt.Sprintf("(Incompatible) Type already exists for expression: %v(%d) old:%v, new:%v", e, e.Id, old, t))
 	}
 	c.types[e.Id] = t
+}
+
+func (c *checker) setDynType(e *exprpb.Expr) {
+	c.types[e.Id] = decls.Dyn
 }
 
 func (c *checker) getType(e *exprpb.Expr) *exprpb.Type {
