@@ -137,7 +137,7 @@ func NewHierarchicalActivation(parent Activation, child Activation) Activation {
 func UnknownActivation() Activation {
 	// TODO: consider removing unknown activation if there is a way to specify fine-grained
 	// unknown attributes.
-	a, _ := PartialActivation(EmptyActivation())
+	a, _ := NewPartialActivation(EmptyActivation())
 	return a
 }
 
@@ -154,12 +154,17 @@ func UnknownActivation() Activation {
 //
 // Values which are not represented as ref.Val types on input may be adapted to a ref.Val using
 // the ref.TypeAdapter configured in the environment.
-func PartialActivation(bindings interface{}) (Activation, error) {
+func NewPartialActivation(bindings interface{}) (PartialActivation, error) {
 	a, err := NewActivation(bindings)
 	if err != nil {
 		return nil, err
 	}
 	return &partActivation{known: a}, nil
+}
+
+type PartialActivation interface {
+	Activation
+	UnknownAttributePatterns() []AttributePattern
 }
 
 type partActivation struct {
@@ -178,6 +183,10 @@ func (a *partActivation) ResolveName(name string) (interface{}, bool) {
 // Parent implements the Activation interface method.
 func (a *partActivation) Parent() Activation {
 	return a.known.Parent()
+}
+
+func (a *partActivation) UnknownAttributePatterns() []AttributePattern {
+	return []AttributePattern{}
 }
 
 // newVarActivation returns a new varActivation instance.

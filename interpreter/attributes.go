@@ -31,7 +31,7 @@ type AttributeFactory interface {
 	// AbsoluteAttribute creates an attribute that refers to a top-level variable name.
 	//
 	// Only type-checked expressions generate absolute attributes.
-	AbsoluteAttribute(id int64, name string) Attribute
+	AbsoluteAttribute(id int64, names ...string) NamespacedAttribute
 
 	// ConditionalAttribute creates an attribute with two Attribute branches, where the Attribute
 	// that is resolved depends on the boolean evaluation of the input 'expr'.
@@ -81,131 +81,14 @@ type Attribute interface {
 	Resolve(Activation) (interface{}, error)
 }
 
-type AttributeMatcher struct {
-	attr       Attribute
-	variable   string
-	qualifiers []Qualifier
-	patterns   []AttributePattern
-	fac        AttributeFactory
-}
+type NamespacedAttribute interface {
+	Attribute
 
-func (am *AttributeMatcher) ID() int64 {
-	return am.attr.ID()
-}
+	CandidateVariableNames() []string
 
-func (am *AttributeMatcher) AddQualifier(q Qualifier) (Attribute, error) {
-	attr, err := am.attr.AddQualifier(q)
-	if err != nil {
-		return nil, err
-	}
-	am.attr = attr
-	am.qualifiers = append(am.qualifiers, q)
-	// update the set of applicable patterns if possible.
-	qualIdx := len(am.qualifiers) - 1
-	newPatterns := []AttributePattern{}
-	for _, pat := range am.patterns {
-		qualPats := pat.Qualifiers()
-		if len(qualPats) < qualIdx {
-			newPatterns = append(newPatterns, pat)
-			continue
-		}
-		qualPat := qualPats[qualIdx]
-		_, isAttr := q.(Attribute)
-		if isAttr || qualPat.Matches(q) {
-			newPatterns = append(newPatterns, pat)
-		}
-	}
-	if len(newPatterns) == 0 {
-		return attr, nil
-	}
-	am.patterns = newPatterns
-	return am, nil
-}
+	HasQualifiers() bool
 
-func (am *AttributeMatcher) Resolve(vars Activation) (interface{}, error) {
-	// Determine whether to return early if there are no qualifiers.
-	quals := am.qualifiers
-	if len(quals) == 0 {
-		return types.Unknown{am.ID()}, nil
-	}
-
-	// Resolve the attribute qualifiers into a static set.
-	newQuals := make([]Qualifier, len(quals), len(quals))
-	for i, qual := range quals {
-		attr, isAttr := qual.(Attribute)
-		if isAttr {
-			val, err := attr.Resolve(vars)
-			if err != nil {
-				return nil, err
-			}
-			qual, err = am.fac.NewQualifier(nil, qual.ID(), val)
-			if err != nil {
-				return nil, err
-			}
-		}
-		newQuals[i] = qual
-	}
-
-	// Determine whether any of the unknown patterns match.
-	for _, pat := range am.patterns {
-		isUnk := true
-		lastIdx := 0
-		qualPats := pat.Qualifiers()
-		for i, qual := range newQuals {
-			lastIdx = i
-			if i >= len(qualPats) {
-				break
-			}
-			qualPat := qualPats[i]
-			if !qualPat.Matches(qual) {
-				isUnk = false
-				break
-			}
-		}
-		if isUnk {
-			return types.Unknown{int64(lastIdx)}, nil
-		}
-	}
-
-	obj, found := vars.ResolveName(am.variable)
-	if !found {
-		// try to figure out if the variable is a type.
-	}
-
-	// Handle the normal resolution logic here.
-	var err error
-	for _, qual := range newQuals {
-		obj, err = qual.Qualify(vars, obj)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return obj, nil
-}
-
-func (am *AttributeMatcher) Qualify(vars Activation, obj interface{}) (interface{}, error) {
-	obj, err := am.Resolve(vars)
-	if err != nil {
-		return nil, err
-	}
-	unk, isUnk := obj.(types.Unknown)
-	if isUnk {
-		return unk, nil
-	}
-	q, err := am.fac.NewQualifier(nil, am.attr.ID(), obj)
-	if err != nil {
-		return nil, err
-	}
-	return q.Qualify(vars, obj)
-}
-
-type AttributePattern interface {
-	Matches(string) bool
-	Qualifiers() []AttributeQualifierPattern
-}
-
-type AttributeQualifierPattern interface {
-	Matches(Qualifier) bool
+	TryResolve(Activation) (interface{}, error)
 }
 
 // NewAttributeFactory returns a default AttributeFactory which is produces Attribute values
@@ -231,10 +114,10 @@ type attrFactory struct {
 //
 // The namespaceNames represent the names the variable could have based on namespace
 // resolution rules.
-func (r *attrFactory) AbsoluteAttribute(id int64, name string) Attribute {
+func (r *attrFactory) AbsoluteAttribute(id int64, names ...string) NamespacedAttribute {
 	return &absoluteAttribute{
 		id:             id,
-		namespaceNames: []string{name},
+		namespaceNames: names,
 		qualifiers:     []Qualifier{},
 		adapter:        r.adapter,
 		provider:       r.provider,
@@ -260,15 +143,8 @@ func (r *attrFactory) ConditionalAttribute(id int64, expr Interpretable, t, f At
 func (r *attrFactory) MaybeAttribute(id int64, name string) Attribute {
 	return &maybeAttribute{
 		id: id,
-		attrs: []*absoluteAttribute{
-			&absoluteAttribute{
-				id:             id,
-				namespaceNames: r.pkg.ResolveCandidateNames(name),
-				qualifiers:     []Qualifier{},
-				provider:       r.provider,
-				adapter:        r.adapter,
-				res:            r,
-			},
+		attrs: []NamespacedAttribute{
+			r.AbsoluteAttribute(id, r.pkg.ResolveCandidateNames(name)...),
 		},
 		adapter:  r.adapter,
 		provider: r.provider,
@@ -331,19 +207,35 @@ func (a *absoluteAttribute) AddQualifier(qual Qualifier) (Attribute, error) {
 	return a, nil
 }
 
+func (a *absoluteAttribute) HasQualifiers() bool {
+	return len(a.qualifiers) != 0
+}
+
+func (a *absoluteAttribute) CandidateVariableNames() []string {
+	return a.namespaceNames
+}
+
 // Resolve iterates through the namespaced variable names until one is found in the Activation,
 // and the the standard qualifier resolution logic is applied.
 //
 // If the variable name is not found an error is returned.
 func (a *absoluteAttribute) Resolve(vars Activation) (interface{}, error) {
+	obj, err := a.TryResolve(vars)
+	if err != nil {
+		return nil, err
+	}
+	if obj != nil {
+		return obj, nil
+	}
+	return nil, fmt.Errorf("no such attribute: %v", a)
+}
+
+func (a *absoluteAttribute) TryResolve(vars Activation) (interface{}, error) {
 	for _, nm := range a.namespaceNames {
 		// If the variable is found, process it. Otherwise, wait until the checks to
 		// determine whether the type is unknown before returning.
 		op, found := vars.ResolveName(nm)
-		// TODO: when there is a way to specify unknown attributes with fine granularity,
-		// consider moving the unknown handling within 'found' block below.
-		unk, isUnk := op.(types.Unknown)
-		if found && !isUnk {
+		if found {
 			var err error
 			for _, qual := range a.qualifiers {
 				op, err = qual.Qualify(vars, op)
@@ -361,14 +253,8 @@ func (a *absoluteAttribute) Resolve(vars Activation) (interface{}, error) {
 			}
 			return nil, fmt.Errorf("no such attribute: %v", typ)
 		}
-		// If the variable was unknown, ensure it has a proper id associated with it before
-		// returning.
-		// Note, unknown types are not supported.
-		if isUnk {
-			return fmtUnknown(unk, a), nil
-		}
 	}
-	return nil, fmt.Errorf("no such attribute: %v", a)
+	return nil, nil
 }
 
 // Qualify is an implementation of the Qualifier interface method.
@@ -453,7 +339,7 @@ func (a *conditionalAttribute) Qualify(vars Activation, obj interface{}) (interf
 
 type maybeAttribute struct {
 	id       int64
-	attrs    []*absoluteAttribute
+	attrs    []NamespacedAttribute
 	adapter  ref.TypeAdapter
 	provider ref.TypeProvider
 	res      AttributeFactory
@@ -493,26 +379,20 @@ func (a *maybeAttribute) AddQualifier(qual Qualifier) (Attribute, error) {
 	var augmentedNames []string
 	// First add the qualifier to all existing attributes in the oneof.
 	for _, attr := range a.attrs {
-		if isStr && len(attr.qualifiers) == 0 {
+		if isStr && !attr.HasQualifiers() {
+			candidateVars := attr.CandidateVariableNames()
 			augmentedNames = make([]string,
-				len(attr.namespaceNames),
-				len(attr.namespaceNames))
-			for i, name := range attr.namespaceNames {
+				len(candidateVars),
+				len(candidateVars))
+			for i, name := range candidateVars {
 				augmentedNames[i] = fmt.Sprintf("%s.%s", name, str.value)
 			}
 		}
 		attr.AddQualifier(qual)
 	}
 	// Next, ensure the most specific variable / type reference is searched first.
-	a.attrs = append([]*absoluteAttribute{
-		&absoluteAttribute{
-			id:             qual.ID(),
-			namespaceNames: augmentedNames,
-			qualifiers:     []Qualifier{},
-			adapter:        a.adapter,
-			provider:       a.provider,
-			res:            a.res,
-		},
+	a.attrs = append([]NamespacedAttribute{
+		a.res.AbsoluteAttribute(qual.ID(), augmentedNames...),
 	}, a.attrs...)
 	return a, nil
 }
@@ -521,38 +401,12 @@ func (a *maybeAttribute) AddQualifier(qual Qualifier) (Attribute, error) {
 // or a field selection.
 func (a *maybeAttribute) Resolve(vars Activation) (interface{}, error) {
 	for _, attr := range a.attrs {
-		for _, nm := range attr.namespaceNames {
-			op, found := vars.ResolveName(nm)
-			// If the variable is found, process it. Otherwise, wait until the checks to
-			// determine whether the type is unknown before returning.
-			unk, isUnk := op.(types.Unknown)
-			// TODO: Update the way that the unknown activation is produced to avoid accidental
-			// masking by types. Suggested method: make unknown activation creation a method on
-			// the environment which only includes unknown values for declared identifiers.
-			if found && !isUnk {
-				var err error
-				for _, qual := range attr.qualifiers {
-					op, err = qual.Qualify(vars, op)
-					if err != nil {
-						return nil, err
-					}
-				}
-				return op, nil
-			}
-			// Attempt to resolve the qualified type name if the name is not a variable identifier.
-			typ, found := a.provider.FindIdent(nm)
-			if found {
-				if len(attr.qualifiers) == 0 {
-					return typ, nil
-				}
-				return nil, fmt.Errorf("no such attribute: %v", typ)
-			}
-			// If the variable was unknown, ensure it has a proper id associated with it before
-			// returning.
-			// Note, unknown types are not supported.
-			if isUnk {
-				return fmtUnknown(unk, attr), nil
-			}
+		obj, err := attr.TryResolve(vars)
+		if err != nil {
+			return nil, err
+		}
+		if obj != nil {
+			return obj, nil
 		}
 	}
 	return nil, fmt.Errorf("no such attribute: %v", a)
