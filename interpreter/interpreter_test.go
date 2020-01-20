@@ -1019,7 +1019,7 @@ func TestInterpreter_MissingIdentInSelect(t *testing.T) {
 	attrs := NewAttributeFactory(pkg, reg, reg)
 	interp := NewStandardInterpreter(pkg, reg, reg, attrs)
 	i, _ := interp.NewInterpretable(checked)
-	vars := UnknownActivation()
+	vars := EmptyActivation()
 	result := i.Eval(vars)
 	if !types.IsUnknown(result) {
 		t.Errorf("Got %v, wanted unknown", result)

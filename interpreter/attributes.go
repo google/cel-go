@@ -88,7 +88,7 @@ type NamespacedAttribute interface {
 
 	HasQualifiers() bool
 
-	TryResolve(Activation) (interface{}, error)
+	TryResolve(Activation) (interface{}, bool, error)
 }
 
 // NewAttributeFactory returns a default AttributeFactory which is produces Attribute values
@@ -220,17 +220,17 @@ func (a *absoluteAttribute) CandidateVariableNames() []string {
 //
 // If the variable name is not found an error is returned.
 func (a *absoluteAttribute) Resolve(vars Activation) (interface{}, error) {
-	obj, err := a.TryResolve(vars)
+	obj, found, err := a.TryResolve(vars)
 	if err != nil {
 		return nil, err
 	}
-	if obj != nil {
+	if found {
 		return obj, nil
 	}
 	return nil, fmt.Errorf("no such attribute: %v", a)
 }
 
-func (a *absoluteAttribute) TryResolve(vars Activation) (interface{}, error) {
+func (a *absoluteAttribute) TryResolve(vars Activation) (interface{}, bool, error) {
 	for _, nm := range a.namespaceNames {
 		// If the variable is found, process it. Otherwise, wait until the checks to
 		// determine whether the type is unknown before returning.
@@ -240,21 +240,21 @@ func (a *absoluteAttribute) TryResolve(vars Activation) (interface{}, error) {
 			for _, qual := range a.qualifiers {
 				op, err = qual.Qualify(vars, op)
 				if err != nil {
-					return nil, err
+					return nil, true, err
 				}
 			}
-			return op, nil
+			return op, true, nil
 		}
 		// Attempt to resolve the qualified type name if the name is not a variable identifier.
 		typ, found := a.provider.FindIdent(nm)
 		if found {
 			if len(a.qualifiers) == 0 {
-				return typ, nil
+				return typ, true, nil
 			}
-			return nil, fmt.Errorf("no such attribute: %v", typ)
+			return nil, true, fmt.Errorf("no such attribute: %v", typ)
 		}
 	}
-	return nil, nil
+	return nil, false, nil
 }
 
 // Qualify is an implementation of the Qualifier interface method.
@@ -401,11 +401,11 @@ func (a *maybeAttribute) AddQualifier(qual Qualifier) (Attribute, error) {
 // or a field selection.
 func (a *maybeAttribute) Resolve(vars Activation) (interface{}, error) {
 	for _, attr := range a.attrs {
-		obj, err := attr.TryResolve(vars)
+		obj, found, err := attr.TryResolve(vars)
 		if err != nil {
 			return nil, err
 		}
-		if obj != nil {
+		if found {
 			return obj, nil
 		}
 	}

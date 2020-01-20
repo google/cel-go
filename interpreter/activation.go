@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 )
 
@@ -132,15 +131,6 @@ func NewHierarchicalActivation(parent Activation, child Activation) Activation {
 	return &hierarchicalActivation{parent, child}
 }
 
-// UnknownActivation returns an Activation that returns a 'types.Unknown' value for all requests
-// to ResolveName.
-func UnknownActivation() Activation {
-	// TODO: consider removing unknown activation if there is a way to specify fine-grained
-	// unknown attributes.
-	a, _ := NewPartialActivation(EmptyActivation())
-	return a
-}
-
 // PartialActivation returns an Activation that will resolve identifier names if present, otherwise
 // will return 'types.Unknown'.
 //
@@ -154,21 +144,23 @@ func UnknownActivation() Activation {
 //
 // Values which are not represented as ref.Val types on input may be adapted to a ref.Val using
 // the ref.TypeAdapter configured in the environment.
-func NewPartialActivation(bindings interface{}) (PartialActivation, error) {
+func NewPartialActivation(bindings interface{},
+	unknowns ...*AttributePattern) (PartialActivation, error) {
 	a, err := NewActivation(bindings)
 	if err != nil {
 		return nil, err
 	}
-	return &partActivation{known: a}, nil
+	return &partActivation{known: a, unknowns: unknowns}, nil
 }
 
 type PartialActivation interface {
 	Activation
-	UnknownAttributePatterns() []AttributePattern
+	UnknownAttributePatterns() []*AttributePattern
 }
 
 type partActivation struct {
-	known Activation
+	known    Activation
+	unknowns []*AttributePattern
 }
 
 // ResolveName implements the Activation interface method.
@@ -177,7 +169,7 @@ func (a *partActivation) ResolveName(name string) (interface{}, bool) {
 	if found {
 		return obj, true
 	}
-	return types.Unknown{}, true
+	return nil, false
 }
 
 // Parent implements the Activation interface method.
@@ -185,8 +177,8 @@ func (a *partActivation) Parent() Activation {
 	return a.known.Parent()
 }
 
-func (a *partActivation) UnknownAttributePatterns() []AttributePattern {
-	return []AttributePattern{}
+func (a *partActivation) UnknownAttributePatterns() []*AttributePattern {
+	return a.unknowns
 }
 
 // newVarActivation returns a new varActivation instance.
