@@ -203,7 +203,7 @@ func (c *checker) checkSelect(e *exprpb.Expr) {
 		// Attempting to pick a type for the field might result in an impossible type
 		// assigment and overload selection for both the operand and the item being selected.
 		// Assign both to DYN to be safe.
-		c.mappings.add(targetType, decls.Dyn)
+		c.isAssignable(targetType, decls.Dyn)
 		resultType = decls.Dyn
 	default:
 		// Dynamic / error values are treated as DYN type. Errors are handled this way as well
