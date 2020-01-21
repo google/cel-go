@@ -200,10 +200,11 @@ func (c *checker) checkSelect(e *exprpb.Expr) {
 			}
 		}
 	case kindTypeParam:
-		// Attempting to pick a type for the field might result in an impossible type
-		// assigment and overload selection for both the operand and the item being selected.
-		// Assign both to DYN to be safe.
-		c.isAssignable(targetType, decls.Dyn)
+		// Set the operand type to DYN to prevent assignment to a potentionally incorrect type
+		// at a later point in type-checking. The isAssignable call will update the type
+		// substitutions for the type param under the covers.
+		c.isAssignable(decls.Dyn, targetType)
+		// Also, set the result type to DYN.
 		resultType = decls.Dyn
 	default:
 		// Dynamic / error values are treated as DYN type. Errors are handled this way as well
@@ -438,6 +439,11 @@ func (c *checker) checkComprehension(e *exprpb.Expr) {
 		// Ranges over the keys.
 		varType = rangeType.GetMapType().KeyType
 	case kindDyn, kindError, kindTypeParam:
+		// Set the range type to DYN to prevent assignment to a potentionally incorrect type
+		// at a later point in type-checking. The isAssignable call will update the type
+		// substitutions for the type param under the covers.
+		c.isAssignable(decls.Dyn, rangeType)
+		// Set the range iteration variable to type DYN as well.
 		varType = decls.Dyn
 	default:
 		c.errors.notAComprehensionRange(c.location(comp.IterRange), rangeType)
