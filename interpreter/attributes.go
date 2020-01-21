@@ -280,7 +280,7 @@ func (a *absoluteAttribute) Qualify(vars Activation, obj interface{}) (interface
 	}
 	unk, isUnk := val.(types.Unknown)
 	if isUnk {
-		return fmtUnknown(unk, a), nil
+		return unk, nil
 	}
 	qual, err := a.fac.NewQualifier(nil, a.id, val)
 	if err != nil {
@@ -330,7 +330,7 @@ func (a *conditionalAttribute) Resolve(vars Activation) (interface{}, error) {
 		return a.falsy.Resolve(vars)
 	}
 	if types.IsUnknown(val) {
-		return fmtUnknown(val, a), nil
+		return val, nil
 	}
 	return nil, types.ValOrErr(val, "no such overload").Value().(error)
 }
@@ -343,7 +343,7 @@ func (a *conditionalAttribute) Qualify(vars Activation, obj interface{}) (interf
 	}
 	unk, isUnk := val.(types.Unknown)
 	if isUnk {
-		return fmtUnknown(unk, a), nil
+		return unk, nil
 	}
 	qual, err := a.fac.NewQualifier(nil, a.id, val)
 	if err != nil {
@@ -438,7 +438,7 @@ func (a *maybeAttribute) Qualify(vars Activation, obj interface{}) (interface{},
 	}
 	unk, isUnk := val.(types.Unknown)
 	if isUnk {
-		return fmtUnknown(unk, a), nil
+		return unk, nil
 	}
 	qual, err := a.fac.NewQualifier(nil, a.id, val)
 	if err != nil {
@@ -474,7 +474,7 @@ func (a *relativeAttribute) Resolve(vars Activation) (interface{}, error) {
 		return nil, v.Value().(error)
 	}
 	if types.IsUnknown(v) {
-		return fmtUnknown(v, a), nil
+		return v, nil
 	}
 	// Next, qualify it. Qualification handles unkonwns as well, so there's no need to recheck.
 	var err error
@@ -496,7 +496,7 @@ func (a *relativeAttribute) Qualify(vars Activation, obj interface{}) (interface
 	}
 	unk, isUnk := val.(types.Unknown)
 	if isUnk {
-		return fmtUnknown(unk, a), nil
+		return unk, nil
 	}
 	qual, err := a.fac.NewQualifier(nil, a.id, val)
 	if err != nil {
@@ -599,7 +599,7 @@ func (q *stringQualifier) Qualify(vars Activation, obj interface{}) (interface{}
 			return nil, err
 		}
 		if types.IsUnknown(elem) {
-			return fmtUnknown(elem, q), nil
+			return elem, nil
 		}
 		return elem, nil
 	}
@@ -704,7 +704,7 @@ func (q *intQualifier) Qualify(vars Activation, obj interface{}) (interface{}, e
 			return nil, err
 		}
 		if types.IsUnknown(elem) {
-			return fmtUnknown(elem, q), nil
+			return elem, nil
 		}
 		return elem, nil
 	}
@@ -756,7 +756,7 @@ func (q *uintQualifier) Qualify(vars Activation, obj interface{}) (interface{}, 
 			return nil, err
 		}
 		if types.IsUnknown(elem) {
-			return fmtUnknown(elem, q), nil
+			return elem, nil
 		}
 		return elem, nil
 	}
@@ -797,7 +797,7 @@ func (q *boolQualifier) Qualify(vars Activation, obj interface{}) (interface{}, 
 			return nil, err
 		}
 		if types.IsUnknown(elem) {
-			return fmtUnknown(elem, q), nil
+			return elem, nil
 		}
 		return elem, nil
 	}
@@ -828,16 +828,6 @@ func (q *fieldQualifier) Qualify(vars Activation, obj interface{}) (interface{},
 		obj = rv.Value()
 	}
 	return q.FieldType.GetFrom(obj)
-}
-
-// fmtUnknown ensure that unknown values are annotated with the qualifier id where they are
-// detected if an id is not already set.
-func fmtUnknown(elem ref.Val, qual Qualifier) ref.Val {
-	unk := elem.(types.Unknown)
-	if len(unk) == 0 {
-		return types.Unknown{qual.ID()}
-	}
-	return unk
 }
 
 // refResolve attempts to convert the value to a CEL value and then uses reflection methods

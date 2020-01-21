@@ -211,8 +211,9 @@ func (fac *partialAttributeFactory) MaybeAttribute(id int64, name string) Attrib
 // patterns on the given PartialActivation.
 func (fac *partialAttributeFactory) matchesUnknownPatterns(
 	vars PartialActivation,
+	attrID int64,
 	variableNames []string,
-	qualifiers []Qualifier) (bool, error) {
+	qualifiers []Qualifier) (attributeMatch, error) {
 	patterns := vars.UnknownAttributePatterns()
 	candIndices := map[int]struct{}{}
 	for _, variable := range variableNames {
@@ -224,11 +225,15 @@ func (fac *partialAttributeFactory) matchesUnknownPatterns(
 	}
 	// Determine whether to return early if there are no candidate unknown patterns.
 	if len(candIndices) == 0 {
-		return false, nil
+		return noMatchFound, nil
 	}
 	// Determine whether to return early if there are no qualifiers.
 	if len(qualifiers) == 0 {
-		return true, nil
+		return attributeMatch{
+			exprID:    attrID,
+			matchType: fullMatch,
+			pattern:   patterns[0],
+		}, nil
 	}
 	// Resolve the attribute qualifiers into a static set. This prevents more dynamic
 	// Attribute resolutions than necessary when there are multiple unknown patterns
@@ -239,11 +244,11 @@ func (fac *partialAttributeFactory) matchesUnknownPatterns(
 		if isAttr {
 			val, err := attr.Resolve(vars)
 			if err != nil {
-				return false, err
+				return noMatchFound, err
 			}
 			qual, err = fac.NewQualifier(nil, qual.ID(), val)
 			if err != nil {
-				return false, err
+				return noMatchFound, err
 			}
 		}
 		newQuals[i] = qual
@@ -252,13 +257,15 @@ func (fac *partialAttributeFactory) matchesUnknownPatterns(
 	for patIdx := range candIndices {
 		pat := patterns[patIdx]
 		isUnk := true
-		// lastIdx := 0
+		matchExprID := attrID
+		matchType := fullMatch
 		qualPats := pat.QualifierPatterns()
 		for i, qual := range newQuals {
-			//lastIdx = i
 			if i >= len(qualPats) {
+				matchType = partialMatch
 				break
 			}
+			matchExprID = qual.ID()
 			qualPat := qualPats[i]
 			if !qualPat.Matches(qual) {
 				isUnk = false
@@ -266,11 +273,15 @@ func (fac *partialAttributeFactory) matchesUnknownPatterns(
 			}
 		}
 		if isUnk {
-			return true, nil
+			return attributeMatch{
+				exprID:    matchExprID,
+				matchType: matchType,
+				pattern:   pat,
+			}, nil
 			// return match type, attribute trail, and unknown pattern
 		}
 	}
-	return false, nil
+	return noMatchFound, nil
 }
 
 type attributeMatcher struct {
@@ -313,15 +324,16 @@ func (m *attributeMatcher) TryResolve(vars Activation) (interface{}, bool, error
 	id := m.NamespacedAttribute.ID()
 	partial, isPartial := vars.(PartialActivation)
 	if isPartial {
-		isUnk, err := m.fac.matchesUnknownPatterns(
+		match, err := m.fac.matchesUnknownPatterns(
 			partial,
+			id,
 			m.CandidateVariableNames(),
 			m.qualifiers)
 		if err != nil {
 			return nil, true, err
 		}
-		if isUnk {
-			return types.Unknown{id}, true, nil
+		if match != noMatchFound {
+			return types.Unknown{match.exprID}, true, nil
 		}
 	}
 	return m.NamespacedAttribute.TryResolve(vars)
@@ -335,7 +347,7 @@ func (m *attributeMatcher) Qualify(vars Activation, obj interface{}) (interface{
 	}
 	unk, isUnk := val.(types.Unknown)
 	if isUnk {
-		return fmtUnknown(unk, m.NamespacedAttribute), nil
+		return unk, nil
 	}
 	qual, err := m.fac.NewQualifier(nil, m.ID(), val)
 	if err != nil {
@@ -343,3 +355,20 @@ func (m *attributeMatcher) Qualify(vars Activation, obj interface{}) (interface{
 	}
 	return qual.Qualify(vars, obj)
 }
+
+type attributeMatch struct {
+	exprID    int64
+	matchType attributeMatchType
+	pattern   *AttributePattern
+}
+
+type attributeMatchType int
+
+const (
+	partialMatch attributeMatchType = iota + 1
+	fullMatch
+)
+
+var (
+	noMatchFound = attributeMatch{}
+)
