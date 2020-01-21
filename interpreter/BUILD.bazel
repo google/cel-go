@@ -10,6 +10,7 @@ go_library(
     srcs = [
         "activation.go",
         "attributes.go",
+        "attribute_patterns.go",
         "decorators.go",
         "dispatcher.go",
         "evalstate.go",

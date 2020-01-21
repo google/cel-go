@@ -81,13 +81,23 @@ type Attribute interface {
 	Resolve(Activation) (interface{}, error)
 }
 
+// NamespacedAttribute values are a variable within a namespace, and an optional set of qualifiers
+// such as field, key, or index accesses.
 type NamespacedAttribute interface {
 	Attribute
 
+	// CandidateVariableNames returns the possible namespaced variable names for this Attribute in
+	// the CEL namespace resolution order.
 	CandidateVariableNames() []string
 
+	// HasQualifiers indicates whether the attribute has any qualifiers. An attribute without
+	// qualifiers is just a variable.
 	HasQualifiers() bool
 
+	// TryResolve attempts to return the value of the attribute given the current Activation.
+	// If an error is encountered during attribute resolution, it will be returned immediately.
+	// If the attribute cannot be resolved within the Activation, the result must be: `nil`,
+	// `false`, `nil`.
 	TryResolve(Activation) (interface{}, bool, error)
 }
 
@@ -121,7 +131,7 @@ func (r *attrFactory) AbsoluteAttribute(id int64, names ...string) NamespacedAtt
 		qualifiers:     []Qualifier{},
 		adapter:        r.adapter,
 		provider:       r.provider,
-		res:            r,
+		fac:            r,
 	}
 }
 
@@ -134,7 +144,7 @@ func (r *attrFactory) ConditionalAttribute(id int64, expr Interpretable, t, f At
 		truthy:  t,
 		falsy:   f,
 		adapter: r.adapter,
-		res:     r,
+		fac:     r,
 	}
 }
 
@@ -148,7 +158,7 @@ func (r *attrFactory) MaybeAttribute(id int64, name string) Attribute {
 		},
 		adapter:  r.adapter,
 		provider: r.provider,
-		res:      r,
+		fac:      r,
 	}
 }
 
@@ -159,7 +169,7 @@ func (r *attrFactory) RelativeAttribute(id int64, operand Interpretable) Attribu
 		operand:    operand,
 		qualifiers: []Qualifier{},
 		adapter:    r.adapter,
-		res:        r,
+		fac:        r,
 	}
 }
 
@@ -193,7 +203,7 @@ type absoluteAttribute struct {
 	qualifiers     []Qualifier
 	adapter        ref.TypeAdapter
 	provider       ref.TypeProvider
-	res            AttributeFactory
+	fac            AttributeFactory
 }
 
 // ID implements the Attribute interface method.
@@ -207,18 +217,18 @@ func (a *absoluteAttribute) AddQualifier(qual Qualifier) (Attribute, error) {
 	return a, nil
 }
 
+// HasQualifiers implements the NamespaceAttribute interface method.
 func (a *absoluteAttribute) HasQualifiers() bool {
 	return len(a.qualifiers) != 0
 }
 
+// CandidateVariableNames implements the NamespaceAttribute interface method.
 func (a *absoluteAttribute) CandidateVariableNames() []string {
 	return a.namespaceNames
 }
 
-// Resolve iterates through the namespaced variable names until one is found in the Activation,
-// and the the standard qualifier resolution logic is applied.
-//
-// If the variable name is not found an error is returned.
+// Resolve returns the resolved Attribute value given the Activation, or error if the Attribute
+// variable is not found, or if its Qualifiers cannot be applied successfully.
 func (a *absoluteAttribute) Resolve(vars Activation) (interface{}, error) {
 	obj, found, err := a.TryResolve(vars)
 	if err != nil {
@@ -230,6 +240,11 @@ func (a *absoluteAttribute) Resolve(vars Activation) (interface{}, error) {
 	return nil, fmt.Errorf("no such attribute: %v", a)
 }
 
+// TryResolve iterates through the namespaced variable names until one is found within the
+// Activation or TypeProvider.
+//
+// If the variable name cannot be found as an Activation variable or in the TypeProvider as
+// a type, then the result is `nil`, `false`, `nil` per the interface requirement.
 func (a *absoluteAttribute) TryResolve(vars Activation) (interface{}, bool, error) {
 	for _, nm := range a.namespaceNames {
 		// If the variable is found, process it. Otherwise, wait until the checks to
@@ -267,7 +282,7 @@ func (a *absoluteAttribute) Qualify(vars Activation, obj interface{}) (interface
 	if isUnk {
 		return fmtUnknown(unk, a), nil
 	}
-	qual, err := a.res.NewQualifier(nil, a.id, val)
+	qual, err := a.fac.NewQualifier(nil, a.id, val)
 	if err != nil {
 		return nil, err
 	}
@@ -280,7 +295,7 @@ type conditionalAttribute struct {
 	truthy  Attribute
 	falsy   Attribute
 	adapter ref.TypeAdapter
-	res     AttributeFactory
+	fac     AttributeFactory
 }
 
 // ID is an implementation of the Attribute interface method.
@@ -330,7 +345,7 @@ func (a *conditionalAttribute) Qualify(vars Activation, obj interface{}) (interf
 	if isUnk {
 		return fmtUnknown(unk, a), nil
 	}
-	qual, err := a.res.NewQualifier(nil, a.id, val)
+	qual, err := a.fac.NewQualifier(nil, a.id, val)
 	if err != nil {
 		return nil, err
 	}
@@ -342,7 +357,7 @@ type maybeAttribute struct {
 	attrs    []NamespacedAttribute
 	adapter  ref.TypeAdapter
 	provider ref.TypeProvider
-	res      AttributeFactory
+	fac      AttributeFactory
 }
 
 // ID is an implementation of the Attribute interface method.
@@ -392,7 +407,7 @@ func (a *maybeAttribute) AddQualifier(qual Qualifier) (Attribute, error) {
 	}
 	// Next, ensure the most specific variable / type reference is searched first.
 	a.attrs = append([]NamespacedAttribute{
-		a.res.AbsoluteAttribute(qual.ID(), augmentedNames...),
+		a.fac.AbsoluteAttribute(qual.ID(), augmentedNames...),
 	}, a.attrs...)
 	return a, nil
 }
@@ -402,13 +417,16 @@ func (a *maybeAttribute) AddQualifier(qual Qualifier) (Attribute, error) {
 func (a *maybeAttribute) Resolve(vars Activation) (interface{}, error) {
 	for _, attr := range a.attrs {
 		obj, found, err := attr.TryResolve(vars)
+		// Return an error if one is encountered.
 		if err != nil {
 			return nil, err
 		}
+		// If the object was found, return it.
 		if found {
 			return obj, nil
 		}
 	}
+	// Else, produce a no such attribute error.
 	return nil, fmt.Errorf("no such attribute: %v", a)
 }
 
@@ -422,7 +440,7 @@ func (a *maybeAttribute) Qualify(vars Activation, obj interface{}) (interface{},
 	if isUnk {
 		return fmtUnknown(unk, a), nil
 	}
-	qual, err := a.res.NewQualifier(nil, a.id, val)
+	qual, err := a.fac.NewQualifier(nil, a.id, val)
 	if err != nil {
 		return nil, err
 	}
@@ -434,7 +452,7 @@ type relativeAttribute struct {
 	operand    Interpretable
 	qualifiers []Qualifier
 	adapter    ref.TypeAdapter
-	res        AttributeFactory
+	fac        AttributeFactory
 }
 
 // ID is an implementation of the Attribute interface method.
@@ -480,7 +498,7 @@ func (a *relativeAttribute) Qualify(vars Activation, obj interface{}) (interface
 	if isUnk {
 		return fmtUnknown(unk, a), nil
 	}
-	qual, err := a.res.NewQualifier(nil, a.id, val)
+	qual, err := a.fac.NewQualifier(nil, a.id, val)
 	if err != nil {
 		return nil, err
 	}

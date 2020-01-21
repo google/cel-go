@@ -23,6 +23,7 @@ import (
 	"github.com/google/cel-go/common/packages"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/interpreter"
 	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/parser"
 
@@ -184,6 +185,23 @@ func (e *Env) TypeAdapter() ref.TypeAdapter {
 // TypeProvider returns the `ref.TypeProvider` configured for the environment.
 func (e *Env) TypeProvider() ref.TypeProvider {
 	return e.provider
+}
+
+// UnknownActivation returns an interpreter.PartialActivation which marks all variables
+// declared in the Env as unknown AttributePattern values.
+func (e *Env) UnknownActivation() interpreter.PartialActivation {
+	var unknownPatterns []*interpreter.AttributePattern
+	for _, d := range e.declarations {
+		switch d.GetDeclKind().(type) {
+		case *exprpb.Decl_Ident:
+			unknownPatterns = append(unknownPatterns,
+				interpreter.NewAttributePattern(d.GetName()))
+		}
+	}
+	part, _ := interpreter.NewPartialActivation(
+		interpreter.EmptyActivation(),
+		unknownPatterns...)
+	return part
 }
 
 // configure applies a series of EnvOptions to the current environment.

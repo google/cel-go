@@ -127,13 +127,7 @@ func TestPrune(t *testing.T) {
 		pExpr := &exprpb.ParsedExpr{Expr: tst.E}
 		state := NewEvalState()
 		reg := types.NewRegistry()
-		attrs := NewAttributeFactory(packages.DefaultPackage, reg, reg)
-		attrs = &partialAttributeFactory{
-			AttributeFactory: attrs,
-			pkg:              packages.DefaultPackage,
-			adapter:          reg,
-			provider:         reg,
-		}
+		attrs := NewPartialAttributeFactory(packages.DefaultPackage, reg, reg)
 		interp := NewStandardInterpreter(packages.DefaultPackage, reg, reg, attrs)
 		interpretable, _ := interp.NewUncheckedInterpretable(
 			pExpr.Expr,

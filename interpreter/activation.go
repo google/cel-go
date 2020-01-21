@@ -131,10 +131,14 @@ func NewHierarchicalActivation(parent Activation, child Activation) Activation {
 	return &hierarchicalActivation{parent, child}
 }
 
-// PartialActivation returns an Activation that will resolve identifier names if present, otherwise
-// will return 'types.Unknown'.
+// NewPartialActivation returns an Activation which contains a list of AttributePattern values
+// representing field and index operations that should result in a 'types.Unknown' result.
 //
-// The input `bindings` may either be of type `Activation` or `map[string]interface{}`.
+// The input `bindings` may either be of type `Activation` or `map[string]interface{}`. The
+// input `unknowns` are a set of AttributePattern values which represent unknown attribute paths
+// in the input `bindings`. The bindings in this case are partial data. Some data objects support
+// safe field traversal, so the patterns are useful in identifying when the value is safe or
+// simply incomplete.
 //
 // Lazy bindings may be supplied in either of the following forms:
 // - func() interface{}
@@ -150,33 +154,25 @@ func NewPartialActivation(bindings interface{},
 	if err != nil {
 		return nil, err
 	}
-	return &partActivation{known: a, unknowns: unknowns}, nil
+	return &partActivation{Activation: a, unknowns: unknowns}, nil
 }
 
+// PartialActivation extends the Activation interface with a set of UnknownAttributePatterns.
 type PartialActivation interface {
 	Activation
+
+	// UnknownAttributePaths returns a set of AttributePattern values which match Attribute
+	// expressions for data accesses whose values are not yet known.
 	UnknownAttributePatterns() []*AttributePattern
 }
 
+// partActivation is the default implementations of the PartialActivation interface.
 type partActivation struct {
-	known    Activation
+	Activation
 	unknowns []*AttributePattern
 }
 
-// ResolveName implements the Activation interface method.
-func (a *partActivation) ResolveName(name string) (interface{}, bool) {
-	obj, found := a.known.ResolveName(name)
-	if found {
-		return obj, true
-	}
-	return nil, false
-}
-
-// Parent implements the Activation interface method.
-func (a *partActivation) Parent() Activation {
-	return a.known.Parent()
-}
-
+// UnknownAttributePatterns implements the PartialActivation interface method.
 func (a *partActivation) UnknownAttributePatterns() []*AttributePattern {
 	return a.unknowns
 }
