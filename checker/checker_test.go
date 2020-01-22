@@ -429,7 +429,7 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 							"groups"~string
 						)~list(dyn)^index_map,
 						0~int
-					)~dyn^index_list.name~string,
+					)~dyn^index_list.name~dyn,
 					"dummy"~string
 				)~bool^equals,
 				_==_(
@@ -1410,7 +1410,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 			// LoopStep
 			_?_:_(
 			_==_(
-				x~dyn^x.name~string,
+				x~dyn^x.name~dyn,
 				"hobbies"~string
 			)~bool^equals,
 			_+_(
@@ -1429,6 +1429,25 @@ _&&_(_==_(list~type(list(dyn))^list,
 			},
 		},
 		Type: decls.NewListType(decls.Dyn),
+	},
+	{
+		I: `a.b + 1 == a[0]`,
+		R: `_==_(
+			_+_(
+			  a~dyn^a.b~dyn,
+			  1~int
+			)~int^add_int64,
+			_[_](
+			  a~dyn^a,
+			  0~int
+			)~dyn^index_list|index_map
+		  )~bool^equals`,
+		Env: env{
+			idents: []*exprpb.Decl{
+				decls.NewIdent("a", decls.NewTypeParamType("T"), nil),
+			},
+		},
+		Type: decls.Bool,
 	},
 }
 
