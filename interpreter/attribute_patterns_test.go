@@ -16,6 +16,7 @@ package interpreter
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/google/cel-go/common/packages"
@@ -46,22 +47,106 @@ var patternTests = map[string]patternTest{
 			{name: "ns.var"},
 		},
 	},
-	"ns.var": {
+	"var_namespace": {
 		pattern: NewAttributePattern("ns.app.var"),
 		pkg:     "ns.app",
 		matches: []attr{
 			{name: "ns.app.var"},
 			{name: "ns.app.var", quals: []interface{}{int64(0)}},
-			{name: "ns", quals: []interface{}{"app", "var"}, maybe: true},
+			{name: "ns", quals: []interface{}{"app", "var", "foo"}, maybe: true},
 		},
 		misses: []attr{
 			{name: "ns.var"},
 			{name: "ns", quals: []interface{}{"var"}, maybe: true},
 		},
 	},
+	"var_field": {
+		pattern: NewAttributePattern("var").Field("field"),
+		matches: []attr{
+			{name: "var"},
+			{name: "var", quals: []interface{}{"field"}},
+			{name: "var", quals: []interface{}{"field"}, maybe: true},
+			{name: "var", quals: []interface{}{"field", uint64(1)}},
+		},
+		misses: []attr{
+			{name: "var", quals: []interface{}{"other"}},
+		},
+	},
+	"var_index": {
+		pattern: NewAttributePattern("var").Index(0),
+		matches: []attr{
+			{name: "var"},
+			{name: "var", quals: []interface{}{int64(0)}},
+			{name: "var", quals: []interface{}{int64(0), false}},
+		},
+		misses: []attr{
+			{name: "var", quals: []interface{}{uint64(0)}},
+			{name: "var", quals: []interface{}{int64(1), false}},
+		},
+	},
+	"var_index_uint": {
+		pattern: NewAttributePattern("var").IndexUint(1),
+		matches: []attr{
+			{name: "var"},
+			{name: "var", quals: []interface{}{uint64(1)}},
+			{name: "var", quals: []interface{}{uint64(1), true}},
+		},
+		misses: []attr{
+			{name: "var", quals: []interface{}{uint64(0)}},
+			{name: "var", quals: []interface{}{int64(1), false}},
+		},
+	},
+	"var_index_bool": {
+		pattern: NewAttributePattern("var").IndexBool(true),
+		matches: []attr{
+			{name: "var"},
+			{name: "var", quals: []interface{}{true}},
+			{name: "var", quals: []interface{}{true, "name"}},
+		},
+		misses: []attr{
+			{name: "var", quals: []interface{}{false}},
+			{name: "none"},
+		},
+	},
+	"var_wildcard": {
+		pattern: NewAttributePattern("ns.var").Wildcard(),
+		pkg:     "ns",
+		matches: []attr{
+			{name: "ns.var"},
+			{name: "var", quals: []interface{}{true}, maybe: true},
+			{name: "var", quals: []interface{}{"name"}, maybe: true},
+			{name: "var", quals: []interface{}{"name"}, maybe: true},
+		},
+		misses: []attr{
+			{name: "var", quals: []interface{}{false}},
+			{name: "none"},
+		},
+	},
+	"var_wildcard_field": {
+		pattern: NewAttributePattern("var").Wildcard().Field("field"),
+		matches: []attr{
+			{name: "var"},
+			{name: "var", quals: []interface{}{true}},
+			{name: "var", quals: []interface{}{int64(10), "field"}},
+		},
+		misses: []attr{
+			{name: "var", quals: []interface{}{int64(10), "other"}},
+		},
+	},
+	"var_wildcard_wildcard": {
+		pattern: NewAttributePattern("var").Wildcard().Wildcard(),
+		matches: []attr{
+			{name: "var"},
+			{name: "var", quals: []interface{}{true}},
+			{name: "var", quals: []interface{}{int64(10), "field"}},
+		},
+		misses: []attr{
+			{name: "none"},
+		},
+	},
 }
 
-func TestAttributePattern(t *testing.T) {
+func TestAttributePattern_UnknownResolution(t *testing.T) {
 	reg := types.NewRegistry()
 	for nm, tc := range patternTests {
 		tst := tc
@@ -73,30 +158,98 @@ func TestAttributePattern(t *testing.T) {
 			fac := NewPartialAttributeFactory(pkg, reg, reg)
 			for i, match := range tst.matches {
 				m := match
-				tt.Run(fmt.Sprintf("[%d]", i), func(ttt *testing.T) {
-					id := int64(1)
-					var attr Attribute
-					if m.maybe {
-						attr = fac.MaybeAttribute(1, m.name)
-					} else {
-						attr = fac.AbsoluteAttribute(1, m.name)
-					}
-					for _, q := range m.quals {
-						qual, _ := fac.NewQualifier(nil, id, q)
-						attr.AddQualifier(qual)
-						id++
-					}
+				tt.Run(fmt.Sprintf("match[%d]", i), func(ttt *testing.T) {
+					attr := genAttr(fac, m)
 					partVars, _ := NewPartialActivation(EmptyActivation(), tst.pattern)
 					val, err := attr.Resolve(partVars)
 					if err != nil {
-						t.Fatalf("Got error: %s, wanted unknown", err)
+						ttt.Fatalf("Got error: %s, wanted unknown", err)
 					}
 					_, isUnk := val.(types.Unknown)
 					if !isUnk {
-						t.Fatalf("Got value %v, wanted unknown", val)
+						ttt.Fatalf("Got value %v, wanted unknown", val)
+					}
+				})
+			}
+			for i, miss := range tst.misses {
+				m := miss
+				tt.Run(fmt.Sprintf("miss[%d]", i), func(ttt *testing.T) {
+					attr := genAttr(fac, m)
+					partVars, _ := NewPartialActivation(EmptyActivation(), tst.pattern)
+					val, err := attr.Resolve(partVars)
+					if err == nil {
+						ttt.Fatalf("Got value: %s, wanted error", val)
 					}
 				})
 			}
 		})
 	}
+}
+
+func TestAttributePattern_CrossReference(t *testing.T) {
+	reg := types.NewRegistry()
+	fac := NewPartialAttributeFactory(packages.DefaultPackage, reg, reg)
+	a := fac.AbsoluteAttribute(1, "a")
+	b := fac.AbsoluteAttribute(2, "b")
+	a.AddQualifier(b)
+
+	partVars, _ := NewPartialActivation(
+		map[string]interface{}{"a": []int64{1, 2}},
+		NewAttributePattern("b"))
+	val, err := a.Resolve(partVars)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(val, types.Unknown{2}) {
+		t.Fatalf("Got %v, wanted unknown attribute id for 'b' (2)", val)
+	}
+
+	partVars, _ = NewPartialActivation(
+		map[string]interface{}{"a": []int64{1, 2}},
+		NewAttributePattern("a").Index(0),
+		NewAttributePattern("b"))
+	val, err = a.Resolve(partVars)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(val, types.Unknown{2}) {
+		t.Fatalf("Got %v, wanted unknown attribute id for 'b' (2)", val)
+	}
+
+	partVars, _ = NewPartialActivation(
+		map[string]interface{}{"a": []int64{1, 2}, "b": 0},
+		NewAttributePattern("a").Index(0).Field("c"))
+	val, err = a.Resolve(partVars)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(val, types.Unknown{2}) {
+		t.Fatalf("Got %v, wanted unknown attribute id for 'b' (2)", val)
+	}
+
+	partVars, _ = NewPartialActivation(
+		map[string]interface{}{"a": []int64{1, 2}, "b": 0})
+	val, err = a.Resolve(partVars)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if val != int64(1) {
+		t.Fatalf("Got %v, wanted 1 for a[b]", val)
+	}
+}
+
+func genAttr(fac AttributeFactory, a attr) Attribute {
+	id := int64(1)
+	var attr Attribute
+	if a.maybe {
+		attr = fac.MaybeAttribute(1, a.name)
+	} else {
+		attr = fac.AbsoluteAttribute(1, a.name)
+	}
+	for _, q := range a.quals {
+		qual, _ := fac.NewQualifier(nil, id, q)
+		attr.AddQualifier(qual)
+		id++
+	}
+	return attr
 }
