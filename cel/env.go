@@ -187,13 +187,12 @@ func (e *Env) TypeProvider() ref.TypeProvider {
 	return e.provider
 }
 
-// UnknownActivation returns an interpreter.PartialActivation which marks all variables
+// UnknownVars returns an interpreter.PartialActivation which marks all variables
 // declared in the Env as unknown AttributePattern values.
 //
-// Note, the UnknownActivation() will behave the same as an interpreter.EmptyActivation()
-// unless the cel.CustomAttributeFactory option is set to a PartialAttributeFactory
-// implementation.
-func (e *Env) UnknownActivation() interpreter.PartialActivation {
+// Note, the UnknownVars will behave the same as an interpreter.EmptyActivation
+// unless the PartialAttributes option is provided as a ProgramOption.
+func (e *Env) UnknownVars() interpreter.PartialActivation {
 	var unknownPatterns []*interpreter.AttributePattern
 	for _, d := range e.declarations {
 		switch d.GetDeclKind().(type) {
@@ -202,10 +201,46 @@ func (e *Env) UnknownActivation() interpreter.PartialActivation {
 				interpreter.NewAttributePattern(d.GetName()))
 		}
 	}
-	part, _ := interpreter.NewPartialActivation(
+	part, _ := PartialVars(
 		interpreter.EmptyActivation(),
 		unknownPatterns...)
 	return part
+}
+
+// ResidualAst takes an Ast and its EvalDetails to produce a new Ast which only contains the
+// attribute references which are unknown.
+//
+// Residual expressions are beneficial in a few scenarios:
+//
+// - Optimizing constant expression evaluations away.
+// - Indexing and pruning expressions based on known input arguments.
+// - Surfacing additional requirements that are needed in order to complete an evaluation.
+// - Sharing the evaluation of an expression across multiple processes
+//
+// For example, if an expression targets a 'resource' and 'request' attribute and the possible
+// values for the resource are known, a PartialActivation could mark the 'request' as an unknown
+// interpreter.AttributePattern and the resulting ResidualAst would be reduced to only the parts
+// of the expression that reference the 'request'.
+//
+// See the PartialVars helper for how to construct a PartialActivation.
+func (e *Env) ResidualAst(a *Ast, details *EvalDetails) (*Ast, error) {
+	pruned := interpreter.PruneAst(a.Expr(), details.State())
+	expr, err := AstToString(ParsedExprToAst(&exprpb.ParsedExpr{Expr: pruned}))
+	if err != nil {
+		return nil, err
+	}
+	parsed, iss := e.Parse(expr)
+	if iss != nil && iss.Err() != nil {
+		return nil, iss.Err()
+	}
+	if !a.IsChecked() {
+		return parsed, nil
+	}
+	checked, iss := e.Check(parsed)
+	if iss != nil && iss.Err() != nil {
+		return nil, iss.Err()
+	}
+	return checked, nil
 }
 
 // configure applies a series of EnvOptions to the current environment.

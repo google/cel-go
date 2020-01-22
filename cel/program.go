@@ -48,6 +48,37 @@ func NoVars() interpreter.Activation {
 	return interpreter.EmptyActivation()
 }
 
+// PartialVars returns a PartialActivation which contains variables and a set of AttributePattern
+// values that indicate variables or parts of variables whose value are not yet known.
+func PartialVars(vars interface{},
+	unknowns ...*interpreter.AttributePattern) (interpreter.PartialActivation, error) {
+	return interpreter.NewPartialActivation(vars, unknowns...)
+}
+
+// AttributePattern represents a top-level variable with an optional set of qualifier patterns.
+//
+// The variable name must always be a string, and may be a qualified name according to the CEL
+// namespacing conventions, e.g. 'ns.app.a'.
+//
+// The qualifier patterns for attribute matching must be one of the following:
+//
+//   - valid map key type: string, int, uint, bool
+//   - wildcard (*)
+//
+// Examples:
+//
+//   1. ns.myvar["complex-value"]
+//   2. ns.myvar["complex-value"][0]
+//   3. ns.myvar["complex-value"].*.name
+//
+// The first example is simple: match an attribute where the variable is 'ns.myvar' with a
+// field access on 'complex-value'. The second example expands the match to indicate that only
+// a specific index `0` should match. And lastly, the third example matches any indexed access
+// that later selects the 'name' field.
+func AttributePattern(varName string) *interpreter.AttributePattern {
+	return interpreter.NewAttributePattern(varName)
+}
+
 // EvalDetails holds additional information observed during the Eval() call.
 type EvalDetails struct {
 	state interpreter.EvalState
@@ -87,12 +118,8 @@ func newProgram(e *Env, ast *Ast, opts ...ProgramOption) (Program, error) {
 	disp := interpreter.NewDispatcher()
 
 	// Ensure the default attribute factory is set after the adapter and provider are
-	// configured. The attribute factory may be overriden by using the CustomAttributeFactory.
-	attrFactory := interpreter.NewAttributeFactory(e.pkg, e.adapter, e.provider)
-	p := &prog{
-		Env:         e,
-		dispatcher:  disp,
-		attrFactory: attrFactory}
+	// configured.
+	p := &prog{Env: e, dispatcher: disp}
 
 	// Configure the program via the ProgramOption values.
 	var err error
@@ -104,6 +131,13 @@ func newProgram(e *Env, ast *Ast, opts ...ProgramOption) (Program, error) {
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	// Set the attribute factory after the options have been set.
+	if p.evalOpts&OptPartialEval == OptPartialEval {
+		p.attrFactory = interpreter.NewPartialAttributeFactory(e.pkg, e.adapter, e.provider)
+	} else {
+		p.attrFactory = interpreter.NewAttributeFactory(e.pkg, e.adapter, e.provider)
 	}
 
 	interp := interpreter.NewInterpreter(disp, e.pkg, e.provider, e.adapter, p.attrFactory)

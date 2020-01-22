@@ -228,34 +228,6 @@ func Globals(vars interface{}) ProgramOption {
 	}
 }
 
-// CustomAttributeFactory adjusts the variable and field resolution behavior of the Program.
-//
-// An expression containing a field references and/or indexing expressions is considered an
-// Attribute. An Attribute is a variable or object reference with zero or more Qualifier that
-// values determine which piece of data is relevant to the computation. When an Attribute
-// expression is encountered, the runtime resolves the Attribute to a concrete value.
-//
-// An AttributeFactory may be generic or it may be deeply aware of the objects which can appear
-// within CEL expressions. By default a generic AttributeFactory is created if a custom one is not
-// set.
-func CustomAttributeFactory(attrs interpreter.AttributeFactory) ProgramOption {
-	return func(p *prog) (*prog, error) {
-		p.attrFactory = attrs
-		return p, nil
-	}
-}
-
-// PartialAttributes enables the evaluation of a PartialActivation which contains data that may be
-// known to be missing, either as top-level variables, or somewhere within a variables object
-// member graph.
-func PartialAttributes() ProgramOption {
-	return func(p *prog) (*prog, error) {
-		attrFac := interpreter.NewPartialAttributeFactory(p.Env.pkg, p.Env.adapter, p.Env.provider)
-		p.attrFactory = attrFac
-		return p, nil
-	}
-}
-
 // EvalOption indicates an evaluation option that may affect the evaluation behavior or information
 // in the output result.
 type EvalOption int
@@ -271,6 +243,14 @@ const (
 	// creation time. This flag is useful when the expression will be evaluated repeatedly against
 	// a series of different inputs.
 	OptOptimize EvalOption = 1 << iota
+
+	// OptPartialEval enables the evaluation of a partial state where the input data that may be
+	// known to be missing, either as top-level variables, or somewhere within a variable's object
+	// member graph.
+	//
+	// By itself, OptPartialEval does not change evaluation behavior unless the input to the
+	// Program Eval is an PartialVars.
+	OptPartialEval EvalOption = 1 << iota
 )
 
 // EvalOptions sets one or more evaluation options which may affect the evaluation or Result.

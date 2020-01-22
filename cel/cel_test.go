@@ -29,7 +29,6 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
-	"github.com/google/cel-go/interpreter"
 	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/parser"
 
@@ -600,18 +599,17 @@ func Test_EvalRecover(t *testing.T) {
 	}
 }
 
-func Test_Pruning(t *testing.T) {
+func Test_ResidualAst(t *testing.T) {
 	e, _ := NewEnv(
 		Declarations(
 			decls.NewIdent("x", decls.Int, nil),
 			decls.NewIdent("y", decls.Int, nil),
 		),
 	)
-	unkVars := e.UnknownActivation()
+	unkVars := e.UnknownVars()
 	ast, _ := e.Parse(`x < 10 && (y == 0 || 'hello' != 'goodbye')`)
 	prg, _ := e.Program(ast,
-		EvalOptions(OptTrackState),
-		PartialAttributes(),
+		EvalOptions(OptTrackState, OptPartialEval),
 	)
 	out, det, err := prg.Eval(unkVars)
 	if !types.IsUnknown(out) {
@@ -620,13 +618,67 @@ func Test_Pruning(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pruned := interpreter.PruneAst(ast.Expr(), det.State())
-	ast2 := &exprpb.ParsedExpr{Expr: pruned}
-	expr, err := AstToString(ParsedExprToAst(ast2))
+	residual, err := e.ResidualAst(ast, det)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expr, err := AstToString(residual)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if expr != "x < 10" {
+		t.Errorf("Got expr: %s, wanted x < 10", expr)
+	}
+}
+
+func Test_ResidualAst_Complex(t *testing.T) {
+	e, _ := NewEnv(
+		Declarations(
+			decls.NewIdent("resource.name", decls.String, nil),
+			decls.NewIdent("request.time", decls.Timestamp, nil),
+			decls.NewIdent("request.auth.claims",
+				decls.NewMapType(decls.String, decls.String), nil),
+		),
+	)
+	unkVars, _ := PartialVars(
+		map[string]interface{}{
+			"resource.name": "bucket/my-bucket/objects/private",
+			"request.auth.claims": map[string]string{
+				"email_verified": "true",
+			},
+		},
+		AttributePattern("request.auth.claims").Field("email"),
+	)
+	ast, iss := e.Parse(
+		`resource.name.startsWith("bucket/my-bucket") &&
+		 bool(request.auth.claims.email_verified) == true &&
+		 request.auth.claims.email == "wiley@acme.co"`)
+	if iss != nil && iss.Err() != nil {
+		t.Fatal(iss.Err())
+	}
+	ast, iss = e.Check(ast)
+	if iss != nil && iss.Err() != nil {
+		t.Fatal(iss.Err())
+	}
+	prg, _ := e.Program(ast,
+		EvalOptions(OptTrackState, OptPartialEval),
+	)
+	out, det, err := prg.Eval(unkVars)
+	if !types.IsUnknown(out) {
+		t.Fatalf("Got %v, expected unknown", out)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	residual, err := e.ResidualAst(ast, det)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expr, err := AstToString(residual)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if expr != `request.auth.claims.email == "wiley@acme.co"` {
 		t.Errorf("Got expr: %s, wanted x < 10", expr)
 	}
 }
