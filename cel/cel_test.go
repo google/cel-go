@@ -21,17 +21,17 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/golang/protobuf/proto"
+	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/overloads"
-	"github.com/google/cel-go/parser"
-
-	"github.com/golang/protobuf/proto"
-	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
+	"github.com/google/cel-go/interpreter"
 	"github.com/google/cel-go/interpreter/functions"
+	"github.com/google/cel-go/parser"
 
 	descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
@@ -597,6 +597,37 @@ func Test_EvalRecover(t *testing.T) {
 	_, _, err = prgm.Eval(map[string]interface{}{})
 	if err.Error() != "internal error: watch me recover" {
 		t.Errorf("Got '%v', wanted 'internal error: watch me recover'", err)
+	}
+}
+
+func Test_Pruning(t *testing.T) {
+	e, _ := NewEnv(
+		Declarations(
+			decls.NewIdent("x", decls.Int, nil),
+			decls.NewIdent("y", decls.Int, nil),
+		),
+	)
+	unkVars := e.UnknownActivation()
+	ast, _ := e.Parse(`x < 10 && (y == 0 || 'hello' != 'goodbye')`)
+	prg, _ := e.Program(ast,
+		EvalOptions(OptTrackState),
+		PartialAttributes(),
+	)
+	out, det, err := prg.Eval(unkVars)
+	if !types.IsUnknown(out) {
+		t.Fatalf("Got %v, expected unknown", out)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	pruned := interpreter.PruneAst(ast.Expr(), det.State())
+	ast2 := &exprpb.ParsedExpr{Expr: pruned}
+	expr, err := AstToString(ParsedExprToAst(ast2))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if expr != "x < 10" {
+		t.Errorf("Got expr: %s, wanted x < 10", expr)
 	}
 }
 

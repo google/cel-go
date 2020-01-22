@@ -113,6 +113,8 @@ var patternTests = map[string]patternTest{
 		pkg:     "ns",
 		matches: []attr{
 			{name: "ns.var"},
+			// The maybe attributes consider potential namespacing and field selection
+			// when testing variable names.
 			{name: "var", quals: []interface{}{true}, maybe: true},
 			{name: "var", quals: []interface{}{"name"}, maybe: true},
 			{name: "var", quals: []interface{}{"name"}, maybe: true},
@@ -193,6 +195,8 @@ func TestAttributePattern_CrossReference(t *testing.T) {
 	b := fac.AbsoluteAttribute(2, "b")
 	a.AddQualifier(b)
 
+	// Ensure that var a[b], the dynamic index into var 'a' is the unknown value
+	// returned from attribute resolution.
 	partVars, _ := NewPartialActivation(
 		map[string]interface{}{"a": []int64{1, 2}},
 		NewAttributePattern("b"))
@@ -204,6 +208,10 @@ func TestAttributePattern_CrossReference(t *testing.T) {
 		t.Fatalf("Got %v, wanted unknown attribute id for 'b' (2)", val)
 	}
 
+	// Ensure that a[b], the dynamic index into var 'a' is the unknown value
+	// returned from attribute resolution. Note, both 'a' and 'b' have unknown attribute
+	// patterns specified. This changes the evaluation behavior slightly, but the end
+	// result is the same.
 	partVars, _ = NewPartialActivation(
 		map[string]interface{}{"a": []int64{1, 2}},
 		NewAttributePattern("a").Index(0),
@@ -216,6 +224,9 @@ func TestAttributePattern_CrossReference(t *testing.T) {
 		t.Fatalf("Got %v, wanted unknown attribute id for 'b' (2)", val)
 	}
 
+	// Note, that only 'a[0].c' will result in an unknown result since both 'a' and 'b'
+	// have values. However, since the attribute being pattern matched is just 'a.b',
+	// the outcome will indicate that 'a[b]' is unknown.
 	partVars, _ = NewPartialActivation(
 		map[string]interface{}{"a": []int64{1, 2}, "b": 0},
 		NewAttributePattern("a").Index(0).Field("c"))
@@ -227,6 +238,8 @@ func TestAttributePattern_CrossReference(t *testing.T) {
 		t.Fatalf("Got %v, wanted unknown attribute id for 'b' (2)", val)
 	}
 
+	// Test a positive case that returns a valid value even though the attribugte factory
+	// is the partial attribute factory.
 	partVars, _ = NewPartialActivation(
 		map[string]interface{}{"a": []int64{1, 2}, "b": 0})
 	val, err = a.Resolve(partVars)
@@ -235,6 +248,22 @@ func TestAttributePattern_CrossReference(t *testing.T) {
 	}
 	if val != int64(1) {
 		t.Fatalf("Got %v, wanted 1 for a[b]", val)
+	}
+
+	// Ensure the unknown attribute id moves when the attribute becomes more specific.
+	partVars, _ = NewPartialActivation(
+		map[string]interface{}{"a": []int64{1, 2}, "b": 0},
+		NewAttributePattern("a").Index(0).Field("c"))
+	// Qualify a[b] with 'c', a[b].c
+	c, _ := fac.NewQualifier(nil, 3, "c")
+	a.AddQualifier(c)
+	// The resolve step should return unkonwn
+	val, err = a.Resolve(partVars)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(val, types.Unknown{3}) {
+		t.Fatalf("Got %v, wanted unknown attribute id for a[b].c (3)", val)
 	}
 }
 

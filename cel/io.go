@@ -51,10 +51,14 @@ func AstToCheckedExpr(a *Ast) (*exprpb.CheckedExpr, error) {
 
 // ParsedExprToAst converts a parsed expression proto message to an Ast.
 func ParsedExprToAst(parsedExpr *exprpb.ParsedExpr) *Ast {
+	si := parsedExpr.GetSourceInfo()
+	if si == nil {
+		si = &exprpb.SourceInfo{}
+	}
 	return &Ast{
 		expr:   parsedExpr.GetExpr(),
-		info:   parsedExpr.GetSourceInfo(),
-		source: common.NewInfoSource(parsedExpr.GetSourceInfo()),
+		info:   si,
+		source: common.NewInfoSource(si),
 	}
 }
 

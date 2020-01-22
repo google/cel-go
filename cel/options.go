@@ -245,6 +245,17 @@ func CustomAttributeFactory(attrs interpreter.AttributeFactory) ProgramOption {
 	}
 }
 
+// PartialAttributes enables the evaluation of a PartialActivation which contains data that may be
+// known to be missing, either as top-level variables, or somewhere within a variables object
+// member graph.
+func PartialAttributes() ProgramOption {
+	return func(p *prog) (*prog, error) {
+		attrFac := interpreter.NewPartialAttributeFactory(p.Env.pkg, p.Env.adapter, p.Env.provider)
+		p.attrFactory = attrFac
+		return p, nil
+	}
+}
+
 // EvalOption indicates an evaluation option that may affect the evaluation behavior or information
 // in the output result.
 type EvalOption int

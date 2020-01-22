@@ -189,6 +189,10 @@ func (e *Env) TypeProvider() ref.TypeProvider {
 
 // UnknownActivation returns an interpreter.PartialActivation which marks all variables
 // declared in the Env as unknown AttributePattern values.
+//
+// Note, the UnknownActivation() will behave the same as an interpreter.EmptyActivation()
+// unless the cel.CustomAttributeFactory option is set to a PartialAttributeFactory
+// implementation.
 func (e *Env) UnknownActivation() interpreter.PartialActivation {
 	var unknownPatterns []*interpreter.AttributePattern
 	for _, d := range e.declarations {
