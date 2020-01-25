@@ -30,10 +30,10 @@ type attr struct {
 }
 
 type patternTest struct {
-	pattern *AttributePattern
-	pkg     string
-	matches []attr
-	misses  []attr
+	pattern   *AttributePattern
+	container string
+	matches   []attr
+	misses    []attr
 }
 
 var patternTests = map[string]patternTest{
@@ -48,8 +48,8 @@ var patternTests = map[string]patternTest{
 		},
 	},
 	"var_namespace": {
-		pattern: NewAttributePattern("ns.app.var"),
-		pkg:     "ns.app",
+		pattern:   NewAttributePattern("ns.app.var"),
+		container: "ns.app",
 		matches: []attr{
 			{name: "ns.app.var"},
 			{name: "ns.app.var", quals: []interface{}{int64(0)}},
@@ -61,7 +61,7 @@ var patternTests = map[string]patternTest{
 		},
 	},
 	"var_field": {
-		pattern: NewAttributePattern("var").Field("field"),
+		pattern: NewAttributePattern("var").QualString("field"),
 		matches: []attr{
 			{name: "var"},
 			{name: "var", quals: []interface{}{"field"}},
@@ -73,7 +73,7 @@ var patternTests = map[string]patternTest{
 		},
 	},
 	"var_index": {
-		pattern: NewAttributePattern("var").Index(0),
+		pattern: NewAttributePattern("var").QualInt(0),
 		matches: []attr{
 			{name: "var"},
 			{name: "var", quals: []interface{}{int64(0)}},
@@ -85,7 +85,7 @@ var patternTests = map[string]patternTest{
 		},
 	},
 	"var_index_uint": {
-		pattern: NewAttributePattern("var").IndexUint(1),
+		pattern: NewAttributePattern("var").QualUint(1),
 		matches: []attr{
 			{name: "var"},
 			{name: "var", quals: []interface{}{uint64(1)}},
@@ -97,7 +97,7 @@ var patternTests = map[string]patternTest{
 		},
 	},
 	"var_index_bool": {
-		pattern: NewAttributePattern("var").IndexBool(true),
+		pattern: NewAttributePattern("var").QualBool(true),
 		matches: []attr{
 			{name: "var"},
 			{name: "var", quals: []interface{}{true}},
@@ -109,8 +109,8 @@ var patternTests = map[string]patternTest{
 		},
 	},
 	"var_wildcard": {
-		pattern: NewAttributePattern("ns.var").Wildcard(),
-		pkg:     "ns",
+		pattern:   NewAttributePattern("ns.var").Wildcard(),
+		container: "ns",
 		matches: []attr{
 			{name: "ns.var"},
 			// The maybe attributes consider potential namespacing and field selection
@@ -125,7 +125,7 @@ var patternTests = map[string]patternTest{
 		},
 	},
 	"var_wildcard_field": {
-		pattern: NewAttributePattern("var").Wildcard().Field("field"),
+		pattern: NewAttributePattern("var").Wildcard().QualString("field"),
 		matches: []attr{
 			{name: "var"},
 			{name: "var", quals: []interface{}{true}},
@@ -154,8 +154,8 @@ func TestAttributePattern_UnknownResolution(t *testing.T) {
 		tst := tc
 		t.Run(nm, func(tt *testing.T) {
 			pkg := packages.DefaultPackage
-			if tst.pkg != "" {
-				pkg = packages.NewPackage(tst.pkg)
+			if tst.container != "" {
+				pkg = packages.NewPackage(tst.container)
 			}
 			fac := NewPartialAttributeFactory(pkg, reg, reg)
 			for i, match := range tst.matches {
@@ -214,7 +214,7 @@ func TestAttributePattern_CrossReference(t *testing.T) {
 	// result is the same.
 	partVars, _ = NewPartialActivation(
 		map[string]interface{}{"a": []int64{1, 2}},
-		NewAttributePattern("a").Index(0),
+		NewAttributePattern("a").QualInt(0),
 		NewAttributePattern("b"))
 	val, err = a.Resolve(partVars)
 	if err != nil {
@@ -229,7 +229,7 @@ func TestAttributePattern_CrossReference(t *testing.T) {
 	// the outcome will indicate that 'a[b]' is unknown.
 	partVars, _ = NewPartialActivation(
 		map[string]interface{}{"a": []int64{1, 2}, "b": 0},
-		NewAttributePattern("a").Index(0).Field("c"))
+		NewAttributePattern("a").QualInt(0).QualString("c"))
 	val, err = a.Resolve(partVars)
 	if err != nil {
 		t.Fatal(err)
@@ -253,7 +253,7 @@ func TestAttributePattern_CrossReference(t *testing.T) {
 	// Ensure the unknown attribute id moves when the attribute becomes more specific.
 	partVars, _ = NewPartialActivation(
 		map[string]interface{}{"a": []int64{1, 2}, "b": 0},
-		NewAttributePattern("a").Index(0).Field("c"))
+		NewAttributePattern("a").QualInt(0).QualString("c"))
 	// Qualify a[b] with 'c', a[b].c
 	c, _ := fac.NewQualifier(nil, 3, "c")
 	a.AddQualifier(c)

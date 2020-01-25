@@ -47,7 +47,7 @@ func EmptyActivation() Activation {
 //
 // The input `bindings` may either be of type `Activation` or `map[string]interface{}`.
 //
-// Lazy bindings may be supplied in either of the following forms:
+// Lazy bindings may be supplied within the map-based input in either of the following forms:
 // - func() interface{}
 // - func() ref.Val
 //
@@ -134,20 +134,8 @@ func NewHierarchicalActivation(parent Activation, child Activation) Activation {
 // NewPartialActivation returns an Activation which contains a list of AttributePattern values
 // representing field and index operations that should result in a 'types.Unknown' result.
 //
-// The input `bindings` may either be of type `Activation` or `map[string]interface{}`. The
-// input `unknowns` are a set of AttributePattern values which represent unknown attribute paths
-// in the input `bindings`. The bindings in this case are partial data. Some data objects support
-// safe field traversal, so the patterns are useful in identifying when the value is safe or
-// simply incomplete.
-//
-// Lazy bindings may be supplied in either of the following forms:
-// - func() interface{}
-// - func() ref.Val
-//
-// The output of the lazy binding will overwrite the variable reference in the internal map.
-//
-// Values which are not represented as ref.Val types on input may be adapted to a ref.Val using
-// the ref.TypeAdapter configured in the environment.
+// The `vars` value may be any value type supported by the interpreter.NewActivation call,
+// but is typically either an existing Activation or map[string]interface{}.
 func NewPartialActivation(bindings interface{},
 	unknowns ...*AttributePattern) (PartialActivation, error) {
 	a, err := NewActivation(bindings)

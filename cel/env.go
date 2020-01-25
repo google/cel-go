@@ -215,12 +215,15 @@ func (e *Env) UnknownVars() interpreter.PartialActivation {
 // - Optimizing constant expression evaluations away.
 // - Indexing and pruning expressions based on known input arguments.
 // - Surfacing additional requirements that are needed in order to complete an evaluation.
-// - Sharing the evaluation of an expression across multiple processes
+// - Sharing the evaluation of an expression across multiple machines/nodes.
 //
 // For example, if an expression targets a 'resource' and 'request' attribute and the possible
 // values for the resource are known, a PartialActivation could mark the 'request' as an unknown
 // interpreter.AttributePattern and the resulting ResidualAst would be reduced to only the parts
 // of the expression that reference the 'request'.
+//
+// Note, the expression ids within the residual AST generated through this method have no
+// correlation to the expression ids of the original AST.
 //
 // See the PartialVars helper for how to construct a PartialActivation.
 func (e *Env) ResidualAst(a *Ast, details *EvalDetails) (*Ast, error) {

@@ -30,7 +30,14 @@ import (
 type AttributeFactory interface {
 	// AbsoluteAttribute creates an attribute that refers to a top-level variable name.
 	//
-	// Only type-checked expressions generate absolute attributes.
+	// Checked expressions generate absolute attribute with a single name.
+	// Parse-only expressions may have more than one possible absolute identifier when the
+	// expression is created within a container, e.g. package or namespace.
+	//
+	// When there is more than one name supplied to the AbsoluteAttribute call, the names
+	// must be in CEL's namespace resolution order. The name arguments provided here are
+	// returned in the same order as they were provided by the NamespacedAttribute
+	// CandidateVariableNames method.
 	AbsoluteAttribute(id int64, names ...string) NamespacedAttribute
 
 	// ConditionalAttribute creates an attribute with two Attribute branches, where the Attribute

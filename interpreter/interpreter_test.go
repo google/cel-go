@@ -1025,7 +1025,7 @@ func TestInterpreter_MissingIdentInSelect(t *testing.T) {
 				"d": "hello",
 			},
 		},
-		NewAttributePattern("a.b").Field("c"))
+		NewAttributePattern("a.b").QualString("c"))
 	result := i.Eval(vars)
 	if !types.IsUnknown(result) {
 		t.Errorf("Got %v, wanted unknown", result)

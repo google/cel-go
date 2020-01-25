@@ -24,8 +24,11 @@ import (
 
 // AttributePattern represents a top-level variable with an optional set of qualifier patterns.
 //
-// The variable name must always be a string, and may be a qualified name according to the CEL
-// namespacing conventions, e.g. 'ns.app.a'.
+// When using a CEL expression within a container, e.g. a package or namespace, the variable name
+// in the pattern must match the qualified name produced during the variable namespace resolution.
+// Variable names provided on input to the AttributePattern are taken at face value. For example,
+// if variable `c` appears in an expression whose container is `a.b`, the variable name supplied
+// to the pattern must be `a.b.c`
 //
 // The qualifier patterns for attribute matching must be one of the following:
 //
@@ -55,46 +58,45 @@ func NewAttributePattern(variable string) *AttributePattern {
 	}
 }
 
-// Field adds a string qualifier pattern to the AttributePattern. The string may be a valid
+// QualString adds a string qualifier pattern to the AttributePattern. The string may be a valid
 // identifier, or string map key including empty string.
-func (apat *AttributePattern) Field(pattern string) *AttributePattern {
+func (apat *AttributePattern) QualString(pattern string) *AttributePattern {
 	apat.qualifierPatterns = append(apat.qualifierPatterns,
 		&AttributeQualifierPattern{value: pattern})
 	return apat
 }
 
-// Index adds an int qualifier pattern to the AttributePattern. The index may be either a map or
+// QualInt adds an int qualifier pattern to the AttributePattern. The index may be either a map or
 // list index.
-func (apat *AttributePattern) Index(pattern int64) *AttributePattern {
+func (apat *AttributePattern) QualInt(pattern int64) *AttributePattern {
 	apat.qualifierPatterns = append(apat.qualifierPatterns,
 		&AttributeQualifierPattern{value: pattern})
 	return apat
 }
 
-// IndexUint adds an uint qualifier pattern for a map index operation to the AttributePattern.
-func (apat *AttributePattern) IndexUint(pattern uint64) *AttributePattern {
+// QualUint adds an uint qualifier pattern for a map index operation to the AttributePattern.
+func (apat *AttributePattern) QualUint(pattern uint64) *AttributePattern {
 	apat.qualifierPatterns = append(apat.qualifierPatterns,
 		&AttributeQualifierPattern{value: pattern})
 	return apat
 }
 
-// IndexBool adds a bool qualifier pattern for a map index operation to the AttributePattern.
-func (apat *AttributePattern) IndexBool(pattern bool) *AttributePattern {
+// QualBool adds a bool qualifier pattern for a map index operation to the AttributePattern.
+func (apat *AttributePattern) QualBool(pattern bool) *AttributePattern {
 	apat.qualifierPatterns = append(apat.qualifierPatterns,
 		&AttributeQualifierPattern{value: pattern})
 	return apat
 }
 
-// Wildcard adds a special sentinel qualifier pattern that indicates any value will yeild a
-// qualifier match.
+// Wildcard adds a special sentinel qualifier pattern that will match any single qualifier.
 func (apat *AttributePattern) Wildcard() *AttributePattern {
 	apat.qualifierPatterns = append(apat.qualifierPatterns,
 		&AttributeQualifierPattern{wildcard: true})
 	return apat
 }
 
-// Matches returns true if the variable matches the AttributePattern variable.
-func (apat *AttributePattern) Matches(variable string) bool {
+// VariableMatches returns true if the variable matches the AttributePattern variable.
+func (apat *AttributePattern) VariableMatches(variable string) bool {
 	return apat.variable == variable
 }
 
@@ -125,7 +127,10 @@ func (qpat *AttributeQualifierPattern) Matches(q Qualifier) bool {
 //
 // Note: Attribute values are also Qualifier values; however, Attriutes are resolved before
 // qualification happens. This is an implementation detail, but one relevant to why the Attribute
-// types do no surface in the list of implementations.
+// types do not surface in the list of implementations.
+//
+// See: partialAttributeFactory.matchesUnknownPatterns for more details on how this interface is
+// used.
 type qualifierValueEquator interface {
 	// QualifierValueEquals returns true if the input value is equal to the value held in the
 	// Qualifier.
@@ -209,22 +214,24 @@ func (fac *partialAttributeFactory) MaybeAttribute(id int64, name string) Attrib
 // matchesUnknownPatterns returns true if the variable names and qualifiers for a given
 // Attribute value match any of the ActivationPattern objects in the set of unknown activation
 // patterns on the given PartialActivation.
+//
+// TODO: example.
 func (fac *partialAttributeFactory) matchesUnknownPatterns(
 	vars PartialActivation,
 	attrID int64,
 	variableNames []string,
 	qualifiers []Qualifier) (types.Unknown, error) {
 	patterns := vars.UnknownAttributePatterns()
-	candIndices := map[int]struct{}{}
+	candidateIndices := map[int]struct{}{}
 	for _, variable := range variableNames {
 		for i, pat := range patterns {
-			if pat.Matches(variable) {
-				candIndices[i] = struct{}{}
+			if pat.VariableMatches(variable) {
+				candidateIndices[i] = struct{}{}
 			}
 		}
 	}
 	// Determine whether to return early if there are no candidate unknown patterns.
-	if len(candIndices) == 0 {
+	if len(candidateIndices) == 0 {
 		return nil, nil
 	}
 	// Determine whether to return early if there are no qualifiers.
@@ -246,6 +253,8 @@ func (fac *partialAttributeFactory) matchesUnknownPatterns(
 			if isUnk {
 				return unk, nil
 			}
+			// If this resolution behavior ever changes, new implementations of the
+			// qualifierValueEquator may be required to handle proper resolution.
 			qual, err = fac.NewQualifier(nil, qual.ID(), val)
 			if err != nil {
 				return nil, err
@@ -254,7 +263,7 @@ func (fac *partialAttributeFactory) matchesUnknownPatterns(
 		newQuals[i] = qual
 	}
 	// Determine whether any of the unknown patterns match.
-	for patIdx := range candIndices {
+	for patIdx := range candidateIndices {
 		pat := patterns[patIdx]
 		isUnk := true
 		matchExprID := attrID
@@ -277,6 +286,9 @@ func (fac *partialAttributeFactory) matchesUnknownPatterns(
 	return nil, nil
 }
 
+// attributeMatcher embeds the NamespacedAttribute interface which allows it to participate in
+// AttributePattern matching against Attribute values without having to modify the code paths that
+// identify Attributes in expressions.
 type attributeMatcher struct {
 	NamespacedAttribute
 	qualifiers []Qualifier
@@ -287,6 +299,8 @@ type attributeMatcher struct {
 // underlying NamespacedAttribute as well as tracks the Qualifier in internal storage. The
 // double accounting for the Qualifier values is to assist with AttributePattern matching in
 // the TryResolve call.
+//
+// TODO: example.
 func (m *attributeMatcher) AddQualifier(qual Qualifier) (Attribute, error) {
 	_, err := m.NamespacedAttribute.AddQualifier(qual)
 	if err != nil {
@@ -304,10 +318,10 @@ func (m *attributeMatcher) Resolve(vars Activation) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	if found {
-		return obj, nil
+	if !found {
+		return nil, fmt.Errorf("no such attribute: %v", m.NamespacedAttribute)
 	}
-	return nil, fmt.Errorf("no such attribute: %v", m.NamespacedAttribute)
+	return obj, nil
 }
 
 // TryResolve is an implementation of the NamespacedAttribute interface method which tests

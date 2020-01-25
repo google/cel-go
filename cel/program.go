@@ -50,31 +50,24 @@ func NoVars() interpreter.Activation {
 
 // PartialVars returns a PartialActivation which contains variables and a set of AttributePattern
 // values that indicate variables or parts of variables whose value are not yet known.
+//
+// The `vars` value may either be an interpreter.Activation or any valid input to the
+// interpreter.NewActivation call.
 func PartialVars(vars interface{},
 	unknowns ...*interpreter.AttributePattern) (interpreter.PartialActivation, error) {
 	return interpreter.NewPartialActivation(vars, unknowns...)
 }
 
-// AttributePattern represents a top-level variable with an optional set of qualifier patterns.
+// AttributePattern returns an AttributePattern that matches a top-level variable. The pattern is
+// mutable, and its methods support the specification of one or more qualifier patterns.
 //
-// The variable name must always be a string, and may be a qualified name according to the CEL
-// namespacing conventions, e.g. 'ns.app.a'.
+// When using a CEL expression within a container, e.g. a package or namespace, the variable name
+// in the pattern must match the qualified name produced during the variable namespace resolution.
 //
-// The qualifier patterns for attribute matching must be one of the following:
+// TODO: example pattern show a.b matching a, a.b, but not a.c.
 //
-//   - valid map key type: string, int, uint, bool
-//   - wildcard (*)
-//
-// Examples:
-//
-//   1. ns.myvar["complex-value"]
-//   2. ns.myvar["complex-value"][0]
-//   3. ns.myvar["complex-value"].*.name
-//
-// The first example is simple: match an attribute where the variable is 'ns.myvar' with a
-// field access on 'complex-value'. The second example expands the match to indicate that only
-// a specific index `0` should match. And lastly, the third example matches any indexed access
-// that later selects the 'name' field.
+// See the interpreter.AttributePattern and interpreter.AttributeQualifierPattern for more info
+// about how to create and manipulate AttributePattern values.
 func AttributePattern(varName string) *interpreter.AttributePattern {
 	return interpreter.NewAttributePattern(varName)
 }
