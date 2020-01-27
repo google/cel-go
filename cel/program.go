@@ -61,10 +61,16 @@ func PartialVars(vars interface{},
 // AttributePattern returns an AttributePattern that matches a top-level variable. The pattern is
 // mutable, and its methods support the specification of one or more qualifier patterns.
 //
+// For example, the AttributePattern(`a`).QualString(`b`) represents a variable access `a` with a
+// string field or index qualification `b`. This pattern will match Attributes `a`, and `a.b`,
+// but not `a.c`.
+//
 // When using a CEL expression within a container, e.g. a package or namespace, the variable name
 // in the pattern must match the qualified name produced during the variable namespace resolution.
-//
-// TODO: example pattern show a.b matching a, a.b, but not a.c.
+// For example, when variable `a` is declared within an expression whose container is `ns.app`, the
+// fully qualified variable name may be `ns.app.a`, `ns.a`, or `a` per the CEL namespace resolution
+// rules. Pick the qualified variable name that makes sense within the container as the
+// AttributePattern `varName` argument.
 //
 // See the interpreter.AttributePattern and interpreter.AttributeQualifierPattern for more info
 // about how to create and manipulate AttributePattern values.

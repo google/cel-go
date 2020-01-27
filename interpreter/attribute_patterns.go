@@ -215,7 +215,21 @@ func (fac *partialAttributeFactory) MaybeAttribute(id int64, name string) Attrib
 // Attribute value match any of the ActivationPattern objects in the set of unknown activation
 // patterns on the given PartialActivation.
 //
-// TODO: example.
+// For example, in the expression `a.b`, the Attribute is composed of variable `a`, with string
+// qualifier `b`. When a PartialActivation is supplied, it indicates that some or all of the data
+// provided in the input is unknown by specifying unknown AttributePatterns. An AttributePattern
+// that refers to variable `a` with a string qualifier of `c` will not match `a.b`; however, any
+// of the following patterns will match Attribute `a.b`:
+//
+// - `AttributePattern("a")`
+// - `AttributePattern("a").Wildcard()`
+// - `AttributePattern("a").QualString("b")`
+// - `AttributePattern("a").QualString("b").QualInt(0)`
+//
+// Any AttributePattern which overlaps an Attribute or vice-versa will produce an Unknown result
+// for the last pattern matched variable or qualifier in the Attribute. In the first matching
+// example, the expression id representing variable `a` would be listed in the Unknown result,
+// whereas in the other pattern examples, the qualifier `b` would be returned as the Unknown.
 func (fac *partialAttributeFactory) matchesUnknownPatterns(
 	vars PartialActivation,
 	attrID int64,
@@ -295,17 +309,19 @@ type attributeMatcher struct {
 	fac        *partialAttributeFactory
 }
 
-// AddQualifier implements the Attribute interface method which adds the Qualifier onto the
-// underlying NamespacedAttribute as well as tracks the Qualifier in internal storage. The
-// double accounting for the Qualifier values is to assist with AttributePattern matching in
-// the TryResolve call.
-//
-// TODO: example.
+// AddQualifier implements the Attribute interface method.
 func (m *attributeMatcher) AddQualifier(qual Qualifier) (Attribute, error) {
+	// Add the qualifier to the embedded NamespacedAttribute. If the input to the Resolve
+	// method is not a PartialActivation, or does not match an unknown attribute pattern, the
+	// Resolve method is directly invoked on the underlying NamespacedAttribute.
 	_, err := m.NamespacedAttribute.AddQualifier(qual)
 	if err != nil {
 		return nil, err
 	}
+	// The attributeMatcher overloads TryResolve and will attempt to match unknown patterns against
+	// the variable name and qualifier set contained within the Attribute. These values are not
+	// directly inspectable on the top-level NamespacedAttribute interface and so are tracked within
+	// the attributeMatcher.
 	m.qualifiers = append(m.qualifiers, qual)
 	return m, nil
 }

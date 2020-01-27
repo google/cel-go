@@ -647,12 +647,12 @@ func Test_ResidualAst_Complex(t *testing.T) {
 				"email_verified": "true",
 			},
 		},
-		AttributePattern("request.auth.claims").Field("email"),
+		AttributePattern("request.auth.claims").QualString("email"),
 	)
 	ast, iss := e.Parse(
-		`resource.name.startsWith('bucket/my-bucket') &&
+		`resource.name.startsWith("bucket/my-bucket") &&
 		 bool(request.auth.claims.email_verified) == true &&
-		 request.auth.claims.email == 'wiley@acme.co'`)
+		 request.auth.claims.email == "wiley@acme.co"`)
 	if iss != nil && iss.Err() != nil {
 		t.Fatal(iss.Err())
 	}
@@ -678,8 +678,8 @@ func Test_ResidualAst_Complex(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if expr != `request.auth.claims.email == 'wiley@acme.co'` {
-		t.Errorf("Got expr: %s, wanted request.auth.claims.email == 'wiley@acme.co'", expr)
+	if expr != `request.auth.claims.email == "wiley@acme.co"` {
+		t.Errorf("Got expr: %s, wanted request.auth.claims.email == \"wiley@acme.co\"", expr)
 	}
 }
 
