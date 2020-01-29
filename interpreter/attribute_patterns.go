@@ -288,6 +288,9 @@ func (fac *partialAttributeFactory) matchesUnknownPatterns(
 			}
 			matchExprID = qual.ID()
 			qualPat := qualPats[i]
+			// Note, the AttributeQualifierPattern relies on the input Qualifier not being an
+			// Attribute, since there is no way to resolve the Attribute with the information
+			// provided to the Matches call.
 			if !qualPat.Matches(qual) {
 				isUnk = false
 				break
