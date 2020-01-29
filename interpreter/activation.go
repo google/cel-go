@@ -134,7 +134,7 @@ func NewHierarchicalActivation(parent Activation, child Activation) Activation {
 // NewPartialActivation returns an Activation which contains a list of AttributePattern values
 // representing field and index operations that should result in a 'types.Unknown' result.
 //
-// The `vars` value may be any value type supported by the interpreter.NewActivation call,
+// The `bindings` value may be any value type supported by the interpreter.NewActivation call,
 // but is typically either an existing Activation or map[string]interface{}.
 func NewPartialActivation(bindings interface{},
 	unknowns ...*AttributePattern) (PartialActivation, error) {

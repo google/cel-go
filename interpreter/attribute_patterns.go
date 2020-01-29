@@ -26,9 +26,8 @@ import (
 //
 // When using a CEL expression within a container, e.g. a package or namespace, the variable name
 // in the pattern must match the qualified name produced during the variable namespace resolution.
-// Variable names provided on input to the AttributePattern are taken at face value. For example,
-// if variable `c` appears in an expression whose container is `a.b`, the variable name supplied
-// to the pattern must be `a.b.c`
+// For example, if variable `c` appears in an expression whose container is `a.b`, the variable
+// name supplied to the pattern must be `a.b.c`
 //
 // The qualifier patterns for attribute matching must be one of the following:
 //
