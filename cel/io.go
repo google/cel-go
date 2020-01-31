@@ -51,10 +51,14 @@ func AstToCheckedExpr(a *Ast) (*exprpb.CheckedExpr, error) {
 
 // ParsedExprToAst converts a parsed expression proto message to an Ast.
 func ParsedExprToAst(parsedExpr *exprpb.ParsedExpr) *Ast {
+	si := parsedExpr.GetSourceInfo()
+	if si == nil {
+		si = &exprpb.SourceInfo{}
+	}
 	return &Ast{
 		expr:   parsedExpr.GetExpr(),
-		info:   parsedExpr.GetSourceInfo(),
-		source: common.NewInfoSource(parsedExpr.GetSourceInfo()),
+		info:   si,
+		source: common.NewInfoSource(si),
 	}
 }
 
@@ -69,7 +73,7 @@ func AstToParsedExpr(a *Ast) (*exprpb.ParsedExpr, error) {
 // AstToString converts an Ast back to a string if possible.
 //
 // Note, the conversion may not be an exact replica of the original expression, but will produce
-// a string that is semantically equivalent.
+// a string that is semantically equivalent and whose textual representation is stable.
 func AstToString(a *Ast) (string, error) {
 	expr := a.Expr()
 	info := a.SourceInfo()

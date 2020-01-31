@@ -27,18 +27,21 @@ import (
 )
 
 type testInfo struct {
+	A Activation
 	E *exprpb.Expr
 	P string
 }
 
 var testCases = []testInfo{
 	{
+		A: unknownActivation(),
 		E: test.ExprCall(2, operators.LogicalAnd,
 			test.ExprLiteral(1, true),
 			test.ExprLiteral(3, false)),
 		P: `false`,
 	},
 	{
+		A: unknownActivation("x"),
 		E: test.ExprCall(4, operators.LogicalAnd,
 			test.ExprCall(2, operators.LogicalOr,
 				test.ExprLiteral(1, true),
@@ -47,6 +50,7 @@ var testCases = []testInfo{
 		P: `x`,
 	},
 	{
+		A: unknownActivation("x"),
 		E: test.ExprCall(4, operators.LogicalAnd,
 			test.ExprCall(2, operators.LogicalOr,
 				test.ExprLiteral(1, false),
@@ -55,6 +59,7 @@ var testCases = []testInfo{
 		P: `false`,
 	},
 	{
+		A: unknownActivation("a"),
 		E: test.ExprCall(2, operators.LogicalAnd,
 			test.ExprIdent(1, "a"),
 			test.ExprComprehension(3,
@@ -83,6 +88,7 @@ var testCases = []testInfo{
 		P: `a`,
 	},
 	{
+		A: unknownActivation(),
 		E: test.ExprMap(8,
 			test.ExprEntry(2,
 				test.ExprLiteral(1, "hello"),
@@ -101,6 +107,7 @@ var testCases = []testInfo{
 		P: `true`,
 	},
 	{
+		A: unknownActivation("b", "c"),
 		E: test.ExprCall(8, operators.Conditional,
 			test.ExprLiteral(1, true),
 			test.ExprCall(3,
@@ -120,16 +127,25 @@ func TestPrune(t *testing.T) {
 		pExpr := &exprpb.ParsedExpr{Expr: tst.E}
 		state := NewEvalState()
 		reg := types.NewRegistry()
-		attrs := NewAttributeFactory(packages.DefaultPackage, reg, reg)
+		attrs := NewPartialAttributeFactory(packages.DefaultPackage, reg, reg)
 		interp := NewStandardInterpreter(packages.DefaultPackage, reg, reg, attrs)
 		interpretable, _ := interp.NewUncheckedInterpretable(
 			pExpr.Expr,
 			ExhaustiveEval(state))
-		interpretable.Eval(UnknownActivation())
+		interpretable.Eval(tst.A)
 		newExpr := PruneAst(pExpr.Expr, state)
 		actual := debug.ToDebugString(newExpr)
 		if !test.Compare(actual, tst.P) {
 			t.Errorf("prune[%d], diff: %s", i, test.DiffMessage("structure", actual, tst.P))
 		}
 	}
+}
+
+func unknownActivation(vars ...string) PartialActivation {
+	pats := make([]*AttributePattern, len(vars), len(vars))
+	for i, v := range vars {
+		pats[i] = NewAttributePattern(v)
+	}
+	a, _ := NewPartialActivation(map[string]interface{}{}, pats...)
+	return a
 }

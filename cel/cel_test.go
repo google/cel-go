@@ -21,17 +21,16 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/golang/protobuf/proto"
+	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/overloads"
-	"github.com/google/cel-go/parser"
-
-	"github.com/golang/protobuf/proto"
-	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 	"github.com/google/cel-go/interpreter/functions"
+	"github.com/google/cel-go/parser"
 
 	descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
@@ -597,6 +596,90 @@ func Test_EvalRecover(t *testing.T) {
 	_, _, err = prgm.Eval(map[string]interface{}{})
 	if err.Error() != "internal error: watch me recover" {
 		t.Errorf("Got '%v', wanted 'internal error: watch me recover'", err)
+	}
+}
+
+func Test_ResidualAst(t *testing.T) {
+	e, _ := NewEnv(
+		Declarations(
+			decls.NewIdent("x", decls.Int, nil),
+			decls.NewIdent("y", decls.Int, nil),
+		),
+	)
+	unkVars := e.UnknownVars()
+	ast, _ := e.Parse(`x < 10 && (y == 0 || 'hello' != 'goodbye')`)
+	prg, _ := e.Program(ast,
+		EvalOptions(OptTrackState, OptPartialEval),
+	)
+	out, det, err := prg.Eval(unkVars)
+	if !types.IsUnknown(out) {
+		t.Fatalf("Got %v, expected unknown", out)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	residual, err := e.ResidualAst(ast, det)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expr, err := AstToString(residual)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if expr != "x < 10" {
+		t.Errorf("Got expr: %s, wanted x < 10", expr)
+	}
+}
+
+func Test_ResidualAst_Complex(t *testing.T) {
+	e, _ := NewEnv(
+		Declarations(
+			decls.NewIdent("resource.name", decls.String, nil),
+			decls.NewIdent("request.time", decls.Timestamp, nil),
+			decls.NewIdent("request.auth.claims",
+				decls.NewMapType(decls.String, decls.String), nil),
+		),
+	)
+	unkVars, _ := PartialVars(
+		map[string]interface{}{
+			"resource.name": "bucket/my-bucket/objects/private",
+			"request.auth.claims": map[string]string{
+				"email_verified": "true",
+			},
+		},
+		AttributePattern("request.auth.claims").QualString("email"),
+	)
+	ast, iss := e.Parse(
+		`resource.name.startsWith("bucket/my-bucket") &&
+		 bool(request.auth.claims.email_verified) == true &&
+		 request.auth.claims.email == "wiley@acme.co"`)
+	if iss != nil && iss.Err() != nil {
+		t.Fatal(iss.Err())
+	}
+	ast, iss = e.Check(ast)
+	if iss != nil && iss.Err() != nil {
+		t.Fatal(iss.Err())
+	}
+	prg, _ := e.Program(ast,
+		EvalOptions(OptTrackState, OptPartialEval),
+	)
+	out, det, err := prg.Eval(unkVars)
+	if !types.IsUnknown(out) {
+		t.Fatalf("Got %v, expected unknown", out)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	residual, err := e.ResidualAst(ast, det)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expr, err := AstToString(residual)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if expr != `request.auth.claims.email == "wiley@acme.co"` {
+		t.Errorf("Got expr: %s, wanted request.auth.claims.email == \"wiley@acme.co\"", expr)
 	}
 }
 

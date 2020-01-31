@@ -48,6 +48,36 @@ func NoVars() interpreter.Activation {
 	return interpreter.EmptyActivation()
 }
 
+// PartialVars returns a PartialActivation which contains variables and a set of AttributePattern
+// values that indicate variables or parts of variables whose value are not yet known.
+//
+// The `vars` value may either be an interpreter.Activation or any valid input to the
+// interpreter.NewActivation call.
+func PartialVars(vars interface{},
+	unknowns ...*interpreter.AttributePattern) (interpreter.PartialActivation, error) {
+	return interpreter.NewPartialActivation(vars, unknowns...)
+}
+
+// AttributePattern returns an AttributePattern that matches a top-level variable. The pattern is
+// mutable, and its methods support the specification of one or more qualifier patterns.
+//
+// For example, the AttributePattern(`a`).QualString(`b`) represents a variable access `a` with a
+// string field or index qualification `b`. This pattern will match Attributes `a`, and `a.b`,
+// but not `a.c`.
+//
+// When using a CEL expression within a container, e.g. a package or namespace, the variable name
+// in the pattern must match the qualified name produced during the variable namespace resolution.
+// For example, when variable `a` is declared within an expression whose container is `ns.app`, the
+// fully qualified variable name may be `ns.app.a`, `ns.a`, or `a` per the CEL namespace resolution
+// rules. Pick the fully qualified variable name that makes sense within the container as the
+// AttributePattern `varName` argument.
+//
+// See the interpreter.AttributePattern and interpreter.AttributeQualifierPattern for more info
+// about how to create and manipulate AttributePattern values.
+func AttributePattern(varName string) *interpreter.AttributePattern {
+	return interpreter.NewAttributePattern(varName)
+}
+
 // EvalDetails holds additional information observed during the Eval() call.
 type EvalDetails struct {
 	state interpreter.EvalState
@@ -87,12 +117,8 @@ func newProgram(e *Env, ast *Ast, opts ...ProgramOption) (Program, error) {
 	disp := interpreter.NewDispatcher()
 
 	// Ensure the default attribute factory is set after the adapter and provider are
-	// configured. The attribute factory may be overriden by using the CustomAttributeFactory.
-	attrFactory := interpreter.NewAttributeFactory(e.pkg, e.adapter, e.provider)
-	p := &prog{
-		Env:         e,
-		dispatcher:  disp,
-		attrFactory: attrFactory}
+	// configured.
+	p := &prog{Env: e, dispatcher: disp}
 
 	// Configure the program via the ProgramOption values.
 	var err error
@@ -104,6 +130,13 @@ func newProgram(e *Env, ast *Ast, opts ...ProgramOption) (Program, error) {
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	// Set the attribute factory after the options have been set.
+	if p.evalOpts&OptPartialEval == OptPartialEval {
+		p.attrFactory = interpreter.NewPartialAttributeFactory(e.pkg, e.adapter, e.provider)
+	} else {
+		p.attrFactory = interpreter.NewAttributeFactory(e.pkg, e.adapter, e.provider)
 	}
 
 	interp := interpreter.NewInterpreter(disp, e.pkg, e.provider, e.adapter, p.attrFactory)

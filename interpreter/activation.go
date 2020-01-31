@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 )
 
@@ -48,7 +47,7 @@ func EmptyActivation() Activation {
 //
 // The input `bindings` may either be of type `Activation` or `map[string]interface{}`.
 //
-// Lazy bindings may be supplied in either of the following forms:
+// Lazy bindings may be supplied within the map-based input in either of the following forms:
 // - func() interface{}
 // - func() ref.Val
 //
@@ -132,52 +131,38 @@ func NewHierarchicalActivation(parent Activation, child Activation) Activation {
 	return &hierarchicalActivation{parent, child}
 }
 
-// UnknownActivation returns an Activation that returns a 'types.Unknown' value for all requests
-// to ResolveName.
-func UnknownActivation() Activation {
-	// TODO: consider removing unknown activation if there is a way to specify fine-grained
-	// unknown attributes.
-	a, _ := PartialActivation(EmptyActivation())
-	return a
-}
-
-// PartialActivation returns an Activation that will resolve identifier names if present, otherwise
-// will return 'types.Unknown'.
+// NewPartialActivation returns an Activation which contains a list of AttributePattern values
+// representing field and index operations that should result in a 'types.Unknown' result.
 //
-// The input `bindings` may either be of type `Activation` or `map[string]interface{}`.
-//
-// Lazy bindings may be supplied in either of the following forms:
-// - func() interface{}
-// - func() ref.Val
-//
-// The output of the lazy binding will overwrite the variable reference in the internal map.
-//
-// Values which are not represented as ref.Val types on input may be adapted to a ref.Val using
-// the ref.TypeAdapter configured in the environment.
-func PartialActivation(bindings interface{}) (Activation, error) {
+// The `bindings` value may be any value type supported by the interpreter.NewActivation call,
+// but is typically either an existing Activation or map[string]interface{}.
+func NewPartialActivation(bindings interface{},
+	unknowns ...*AttributePattern) (PartialActivation, error) {
 	a, err := NewActivation(bindings)
 	if err != nil {
 		return nil, err
 	}
-	return &partActivation{known: a}, nil
+	return &partActivation{Activation: a, unknowns: unknowns}, nil
 }
 
+// PartialActivation extends the Activation interface with a set of UnknownAttributePatterns.
+type PartialActivation interface {
+	Activation
+
+	// UnknownAttributePaths returns a set of AttributePattern values which match Attribute
+	// expressions for data accesses whose values are not yet known.
+	UnknownAttributePatterns() []*AttributePattern
+}
+
+// partActivation is the default implementations of the PartialActivation interface.
 type partActivation struct {
-	known Activation
+	Activation
+	unknowns []*AttributePattern
 }
 
-// ResolveName implements the Activation interface method.
-func (a *partActivation) ResolveName(name string) (interface{}, bool) {
-	obj, found := a.known.ResolveName(name)
-	if found {
-		return obj, true
-	}
-	return types.Unknown{}, true
-}
-
-// Parent implements the Activation interface method.
-func (a *partActivation) Parent() Activation {
-	return a.known.Parent()
+// UnknownAttributePatterns implements the PartialActivation interface method.
+func (a *partActivation) UnknownAttributePatterns() []*AttributePattern {
+	return a.unknowns
 }
 
 // newVarActivation returns a new varActivation instance.

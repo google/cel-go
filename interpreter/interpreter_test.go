@@ -1016,17 +1016,22 @@ func TestInterpreter_MissingIdentInSelect(t *testing.T) {
 		t.Fatalf(errors.ToDisplayString())
 	}
 
-	attrs := NewAttributeFactory(pkg, reg, reg)
+	attrs := NewPartialAttributeFactory(pkg, reg, reg)
 	interp := NewStandardInterpreter(pkg, reg, reg, attrs)
 	i, _ := interp.NewInterpretable(checked)
-	vars := UnknownActivation()
+	vars, _ := NewPartialActivation(
+		map[string]interface{}{
+			"a.b": map[string]interface{}{
+				"d": "hello",
+			},
+		},
+		NewAttributePattern("a.b").QualString("c"))
 	result := i.Eval(vars)
 	if !types.IsUnknown(result) {
 		t.Errorf("Got %v, wanted unknown", result)
 	}
 
-	vars = EmptyActivation()
-	result = i.Eval(vars)
+	result = i.Eval(EmptyActivation())
 	if !types.IsError(result) {
 		t.Errorf("Got %v, wanted error", result)
 	}
