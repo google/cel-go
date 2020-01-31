@@ -310,7 +310,7 @@ func genAttr(fac AttributeFactory, a attr) Attribute {
 	id := int64(1)
 	var attr Attribute
 	if a.unchecked {
-		attr = fac.uncheckedAttribute(1, a.name)
+		attr = fac.MaybeAttribute(1, a.name)
 	} else {
 		attr = fac.AbsoluteAttribute(1, a.name)
 	}
