@@ -69,7 +69,7 @@ func PartialVars(vars interface{},
 // in the pattern must match the qualified name produced during the variable namespace resolution.
 // For example, when variable `a` is declared within an expression whose container is `ns.app`, the
 // fully qualified variable name may be `ns.app.a`, `ns.a`, or `a` per the CEL namespace resolution
-// rules. Pick the qualified variable name that makes sense within the container as the
+// rules. Pick the fully qualified variable name that makes sense within the container as the
 // AttributePattern `varName` argument.
 //
 // See the interpreter.AttributePattern and interpreter.AttributeQualifierPattern for more info

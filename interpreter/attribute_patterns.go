@@ -94,7 +94,8 @@ func (apat *AttributePattern) Wildcard() *AttributePattern {
 	return apat
 }
 
-// VariableMatches returns true if the variable matches the AttributePattern variable.
+// VariableMatches returns true if the fully qualified variable matches the AttributePattern
+// fully qualified variable name.
 func (apat *AttributePattern) VariableMatches(variable string) bool {
 	return apat.variable == variable
 }

@@ -23,17 +23,28 @@ import (
 	"github.com/google/cel-go/common/types"
 )
 
+// attr describes a simplified format for specifying common Attribute and Qualifier values for
+// use in pattern matching tests.
 type attr struct {
-	maybe bool
-	name  string
+	// unchecked indicates whether the attribute has not been type-checked and thus not gone
+	// the variable and function resolution step.
+	unchecked bool
+	// container simulates the expression container and is only relevant on 'unchecked' test inputs
+	// as the container is used to resolve the potential fully qualified variable names represented
+	// by an identifier or select expression.
+	container string
+	// variable name, fully qualified unless the attr is marked as unchecked=true
+	name string
+	// quals contains a list of static qualifiers.
 	quals []interface{}
 }
 
+// patternTest describes a pattern, and a set of matches and misses for the pattern to highlight
+// what the pattern will and will not match.
 type patternTest struct {
-	pattern   *AttributePattern
-	container string
-	matches   []attr
-	misses    []attr
+	pattern *AttributePattern
+	matches []attr
+	misses  []attr
 }
 
 var patternTests = map[string]patternTest{
@@ -48,16 +59,25 @@ var patternTests = map[string]patternTest{
 		},
 	},
 	"var_namespace": {
-		pattern:   NewAttributePattern("ns.app.var"),
-		container: "ns.app",
+		pattern: NewAttributePattern("ns.app.var"),
 		matches: []attr{
 			{name: "ns.app.var"},
 			{name: "ns.app.var", quals: []interface{}{int64(0)}},
-			{name: "ns", quals: []interface{}{"app", "var", "foo"}, maybe: true},
+			{
+				name:      "ns",
+				quals:     []interface{}{"app", "var", "foo"},
+				container: "ns.app",
+				unchecked: true,
+			},
 		},
 		misses: []attr{
 			{name: "ns.var"},
-			{name: "ns", quals: []interface{}{"var"}, maybe: true},
+			{
+				name:      "ns",
+				quals:     []interface{}{"var"},
+				container: "ns.app",
+				unchecked: true,
+			},
 		},
 	},
 	"var_field": {
@@ -65,7 +85,7 @@ var patternTests = map[string]patternTest{
 		matches: []attr{
 			{name: "var"},
 			{name: "var", quals: []interface{}{"field"}},
-			{name: "var", quals: []interface{}{"field"}, maybe: true},
+			{name: "var", quals: []interface{}{"field"}, unchecked: true},
 			{name: "var", quals: []interface{}{"field", uint64(1)}},
 		},
 		misses: []attr{
@@ -109,15 +129,29 @@ var patternTests = map[string]patternTest{
 		},
 	},
 	"var_wildcard": {
-		pattern:   NewAttributePattern("ns.var").Wildcard(),
-		container: "ns",
+		pattern: NewAttributePattern("ns.var").Wildcard(),
 		matches: []attr{
 			{name: "ns.var"},
-			// The maybe attributes consider potential namespacing and field selection
+			// The unchecked attributes consider potential namespacing and field selection
 			// when testing variable names.
-			{name: "var", quals: []interface{}{true}, maybe: true},
-			{name: "var", quals: []interface{}{"name"}, maybe: true},
-			{name: "var", quals: []interface{}{"name"}, maybe: true},
+			{
+				name:      "var",
+				quals:     []interface{}{true},
+				container: "ns",
+				unchecked: true,
+			},
+			{
+				name:      "var",
+				quals:     []interface{}{"name"},
+				container: "ns",
+				unchecked: true,
+			},
+			{
+				name:      "var",
+				quals:     []interface{}{"name"},
+				container: "ns",
+				unchecked: true,
+			},
 		},
 		misses: []attr{
 			{name: "var", quals: []interface{}{false}},
@@ -153,14 +187,14 @@ func TestAttributePattern_UnknownResolution(t *testing.T) {
 	for nm, tc := range patternTests {
 		tst := tc
 		t.Run(nm, func(tt *testing.T) {
-			pkg := packages.DefaultPackage
-			if tst.container != "" {
-				pkg = packages.NewPackage(tst.container)
-			}
-			fac := NewPartialAttributeFactory(pkg, reg, reg)
 			for i, match := range tst.matches {
 				m := match
 				tt.Run(fmt.Sprintf("match[%d]", i), func(ttt *testing.T) {
+					pkg := packages.DefaultPackage
+					if m.unchecked {
+						pkg = packages.NewPackage(m.container)
+					}
+					fac := NewPartialAttributeFactory(pkg, reg, reg)
 					attr := genAttr(fac, m)
 					partVars, _ := NewPartialActivation(EmptyActivation(), tst.pattern)
 					val, err := attr.Resolve(partVars)
@@ -176,6 +210,11 @@ func TestAttributePattern_UnknownResolution(t *testing.T) {
 			for i, miss := range tst.misses {
 				m := miss
 				tt.Run(fmt.Sprintf("miss[%d]", i), func(ttt *testing.T) {
+					pkg := packages.DefaultPackage
+					if m.unchecked {
+						pkg = packages.NewPackage(m.container)
+					}
+					fac := NewPartialAttributeFactory(pkg, reg, reg)
 					attr := genAttr(fac, m)
 					partVars, _ := NewPartialActivation(EmptyActivation(), tst.pattern)
 					val, err := attr.Resolve(partVars)
@@ -270,8 +309,8 @@ func TestAttributePattern_CrossReference(t *testing.T) {
 func genAttr(fac AttributeFactory, a attr) Attribute {
 	id := int64(1)
 	var attr Attribute
-	if a.maybe {
-		attr = fac.MaybeAttribute(1, a.name)
+	if a.unchecked {
+		attr = fac.uncheckedAttribute(1, a.name)
 	} else {
 		attr = fac.AbsoluteAttribute(1, a.name)
 	}
