@@ -16,7 +16,6 @@ package cel
 
 import (
 	"errors"
-	"log"
 	"sync"
 
 	"github.com/google/cel-go/checker"
@@ -90,8 +89,9 @@ type Env struct {
 	enableDynamicAggregateLiterals bool
 
 	// Internal checker representation
-	chk  *checker.Env
-	once sync.Once
+	chk    *checker.Env
+	chkErr error
+	once   sync.Once
 }
 
 // NewEnv creates a program environment configured with the standard library of CEL functions and
@@ -145,10 +145,17 @@ func (e *Env) Check(ast *Ast) (*Ast, *Issues) {
 		ce.EnableDynamicAggregateLiterals(e.enableDynamicAggregateLiterals)
 		err := ce.Add(e.declarations...)
 		if err != nil {
-			log.Panic(err)
+			e.chkErr = err
+		} else {
+			e.chk = ce
 		}
-		e.chk = ce
 	})
+	// The once call will ensure that this value is set or nil for all invocations.
+	if e.chkErr != nil {
+		errs := common.NewErrors(ast.Source())
+		errs.ReportError(common.NoLocation, e.chkErr.Error())
+		return nil, &Issues{errs: errs}
+	}
 
 	res, errs := checker.Check(pe, ast.Source(), e.chk)
 	if len(errs.GetErrors()) > 0 {

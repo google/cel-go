@@ -198,7 +198,10 @@ func Test_CustomEnv(t *testing.T) {
 	})
 
 	t.Run("ok", func(t *testing.T) {
-		ast, _ := e.Compile("a.b.c")
+		ast, iss := e.Compile("a.b.c")
+		if iss != nil && iss.Err() != nil {
+			t.Fatal(iss.Err())
+		}
 		prg, _ := e.Program(ast)
 		out, _, _ := prg.Eval(map[string]interface{}{"a.b.c": true})
 		if out != types.True {
