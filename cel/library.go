@@ -27,9 +27,9 @@ import (
 // between calls to Env.Program(). If there is a need for such dynamic configuration, prefer to
 // configure these options outside the Library and within the Env.Program() call directly.
 type Library interface {
-	// EnvOptions returns a collection of funcitional options for configuring the Parse / Check
+	// CompileOptions returns a collection of funcitional options for configuring the Parse / Check
 	// environment.
-	EnvOptions() []EnvOption
+	CompileOptions() []EnvOption
 
 	// ProgramOptions returns a collection of functional options which should be included in every
 	// Program generated from the Env.Program() call.
@@ -41,7 +41,7 @@ type Library interface {
 func Lib(l Library) EnvOption {
 	return func(e *Env) (*Env, error) {
 		var err error
-		for _, opt := range l.EnvOptions() {
+		for _, opt := range l.CompileOptions() {
 			e, err = opt(e)
 			if err != nil {
 				return nil, err
@@ -62,7 +62,7 @@ func StdLib() EnvOption {
 type stdLibrary struct{}
 
 // EnvOptions returns options for the standard CEL function declarations and macros.
-func (stdLibrary) EnvOptions() []EnvOption {
+func (stdLibrary) CompileOptions() []EnvOption {
 	return []EnvOption{
 		Declarations(checker.StandardDeclarations()...),
 		Macros(parser.AllMacros...),

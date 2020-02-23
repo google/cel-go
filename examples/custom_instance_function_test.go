@@ -42,7 +42,7 @@ func ExampleCustomInstanceFunction() {
 
 type customLib struct{}
 
-func (customLib) EnvOptions() []cel.EnvOption {
+func (customLib) CompileOptions() []cel.EnvOption {
 	return []cel.EnvOption{
 		cel.Declarations(
 			decls.NewIdent("i", decls.String, nil),
