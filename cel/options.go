@@ -32,32 +32,6 @@ import (
 // EnvOption is a functional interface for configuring the environment.
 type EnvOption func(e *Env) (*Env, error)
 
-// ClearBuiltIns option removes all standard types, operators, and macros from the environment.
-//
-// Note: This option must be specified before Declarations and/or Macros if used together.
-func ClearBuiltIns() EnvOption {
-	return func(e *Env) (*Env, error) {
-		e.declarations = []*exprpb.Decl{}
-		e.macros = parser.NoMacros
-		e.enableBuiltins = false
-		return e, nil
-	}
-}
-
-// ClearMacros options clears all parser macros.
-//
-// Clearing macros will ensure CEL expressions can only contain linear evaluation paths, as
-// comprehensions such as `all` and `exists` are enabled only via macros.
-//
-// Note: This option is a no-op when used with ClearBuiltIns, and must be used before Macros
-// if used together.
-func ClearMacros() EnvOption {
-	return func(e *Env) (*Env, error) {
-		e.macros = parser.NoMacros
-		return e, nil
-	}
-}
-
 // CustomTypeAdapter swaps the default ref.TypeAdapter implementation with a custom one.
 //
 // Note: This option must be specified before the Types and TypeDescs options when used together.

@@ -14,32 +14,16 @@ import (
 )
 
 func ExampleCustomInstanceFunction() {
-	d := cel.Declarations(decls.NewIdent("i", decls.String, nil),
-		decls.NewIdent("you", decls.String, nil),
-		decls.NewFunction("greet",
-			decls.NewInstanceOverload("string_greet_string",
-				[]*exprpb.Type{decls.String, decls.String},
-				decls.String)))
-	env, err := cel.NewEnv(d)
+	env, err := cel.NewEnv(cel.Lib(customLib{}))
 	if err != nil {
 		log.Fatalf("environment creation error: %v\n", err)
 	}
 	// Check iss for error in both Parse and Check.
-	p, iss := env.Parse(`i.greet(you)`)
+	ast, iss := env.Compile(`i.greet(you)`)
 	if iss != nil && iss.Err() != nil {
 		log.Fatalln(iss.Err())
 	}
-	c, iss := env.Check(p)
-	if iss != nil && iss.Err() != nil {
-		log.Fatalln(iss.Err())
-	}
-	greetFunc := &functions.Overload{
-		Operator: "string_greet_string",
-		Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
-			return types.String(
-				fmt.Sprintf("Hello %s! Nice to meet you, I'm %s.\n", rhs, lhs))
-		}}
-	prg, err := env.Program(c, cel.Functions(greetFunc))
+	prg, err := env.Program(ast)
 	if err != nil {
 		log.Fatalf("Program creation error: %v\n", err)
 	}
@@ -54,4 +38,32 @@ func ExampleCustomInstanceFunction() {
 
 	fmt.Println(out)
 	// Output:Hello world! Nice to meet you, I'm CEL.
+}
+
+type customLib struct{}
+
+func (customLib) EnvOptions() []cel.EnvOption {
+	return []cel.EnvOption{
+		cel.Declarations(
+			decls.NewIdent("i", decls.String, nil),
+			decls.NewIdent("you", decls.String, nil),
+			decls.NewFunction("greet",
+				decls.NewInstanceOverload("string_greet_string",
+					[]*exprpb.Type{decls.String, decls.String},
+					decls.String))),
+	}
+}
+
+func (customLib) ProgramOptions() []cel.ProgramOption {
+	return []cel.ProgramOption{
+		cel.Functions(
+			&functions.Overload{
+				Operator: "string_greet_string",
+				Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
+					return types.String(
+						fmt.Sprintf("Hello %s! Nice to meet you, I'm %s.\n", rhs, lhs))
+				},
+			},
+		),
+	}
 }

@@ -56,11 +56,7 @@ func Example() {
 	}
 
 	// Parse and check the expression.
-	p, iss := e.Parse("i.greet(you)")
-	if iss != nil && iss.Err() != nil {
-		log.Fatalln(iss.Err())
-	}
-	c, iss := e.Check(p)
+	ast, iss := e.Compile("i.greet(you)")
 	if iss != nil && iss.Err() != nil {
 		log.Fatalln(iss.Err())
 	}
@@ -73,7 +69,7 @@ func Example() {
 				return types.String(
 					fmt.Sprintf("Hello %s! Nice to meet you, I'm %s.\n", rhs, lhs))
 			}})
-	prg, err := e.Program(c, funcs)
+	prg, err := e.Program(ast, funcs)
 	if err != nil {
 		log.Fatalf("program creation error: %s\n", err)
 	}
@@ -114,11 +110,7 @@ func Example_globalOverload() {
 	}
 
 	// Parse and check the expression.
-	p, iss := e.Parse(`shake_hands(i,you)`)
-	if iss != nil && iss.Err() != nil {
-		log.Fatalln(iss.Err())
-	}
-	c, iss := e.Check(p)
+	ast, iss := e.Compile(`shake_hands(i,you)`)
 	if iss != nil && iss.Err() != nil {
 		log.Fatalln(iss.Err())
 	}
@@ -139,7 +131,7 @@ func Example_globalOverload() {
 				return types.String(
 					fmt.Sprintf("%s and %s are shaking hands.\n", s1, s2))
 			}})
-	prg, err := e.Program(c, funcs)
+	prg, err := e.Program(ast, funcs)
 	if err != nil {
 		log.Fatalf("program creation error: %s\n", err)
 	}
@@ -168,17 +160,13 @@ func Test_ExampleWithBuiltins(t *testing.T) {
 	}
 
 	// Parse and type-check the expression.
-	p, iss := env.Parse(`"Hello " + you + "! I'm " + i + "."`)
-	if iss != nil && iss.Err() != nil {
-		t.Fatal(iss.Err())
-	}
-	c, iss := env.Check(p)
+	ast, iss := env.Compile(`"Hello " + you + "! I'm " + i + "."`)
 	if iss != nil && iss.Err() != nil {
 		t.Fatal(iss.Err())
 	}
 
 	// Create the program, and evaluate it against some input.
-	prg, err := env.Program(c)
+	prg, err := env.Program(ast)
 	if err != nil {
 		t.Fatalf("program creation error: %s\n", err)
 	}
@@ -198,24 +186,20 @@ func Test_ExampleWithBuiltins(t *testing.T) {
 	}
 }
 
-func Test_DisableStandardEnv(t *testing.T) {
-	e, _ := NewEnv(
-		ClearMacros(),
-		ClearBuiltIns(),
+func Test_CustomEnv(t *testing.T) {
+	e, _ := NewCustomEnv(
 		Declarations(decls.NewIdent("a.b.c", decls.Bool, nil)))
 
 	t.Run("err", func(t *testing.T) {
-		p, _ := e.Parse("a.b.c == true")
-		_, iss := e.Check(p)
+		_, iss := e.Compile("a.b.c == true")
 		if iss == nil || iss.Err() == nil {
 			t.Error("Got successful check, expected error for missing operator '_==_'")
 		}
 	})
 
 	t.Run("ok", func(t *testing.T) {
-		p, _ := e.Parse("a.b.c")
-		c, _ := e.Check(p)
-		prg, _ := e.Program(c)
+		ast, _ := e.Compile("a.b.c")
+		prg, _ := e.Program(ast)
 		out, _, _ := prg.Eval(map[string]interface{}{"a.b.c": true})
 		if out != types.True {
 			t.Errorf("Got '%v', wanted 'true'", out.Value())
@@ -224,8 +208,7 @@ func Test_DisableStandardEnv(t *testing.T) {
 }
 
 func Test_HomogeneousAggregateLiterals(t *testing.T) {
-	e, _ := NewEnv(
-		ClearBuiltIns(),
+	e, _ := NewCustomEnv(
 		Declarations(
 			decls.NewIdent("name", decls.String, nil),
 			decls.NewFunction(
@@ -239,22 +222,19 @@ func Test_HomogeneousAggregateLiterals(t *testing.T) {
 		HomogeneousAggregateLiterals())
 
 	t.Run("err_list", func(t *testing.T) {
-		p, _ := e.Parse("name in ['hello', 0]")
-		_, iss := e.Check(p)
+		_, iss := e.Compile("name in ['hello', 0]")
 		if iss == nil || iss.Err() == nil {
 			t.Error("Got successful check, expected error for mixed list entry types.")
 		}
 	})
 	t.Run("err_map_key", func(t *testing.T) {
-		p, _ := e.Parse("name in {'hello':'world', 1:'!'}")
-		_, iss := e.Check(p)
+		_, iss := e.Compile("name in {'hello':'world', 1:'!'}")
 		if iss == nil || iss.Err() == nil {
 			t.Error("Got successful check, expected error for mixed map key types.")
 		}
 	})
 	t.Run("err_map_val", func(t *testing.T) {
-		p, _ := e.Parse("name in {'hello':'world', 'goodbye':true}")
-		_, iss := e.Check(p)
+		_, iss := e.Compile("name in {'hello':'world', 'goodbye':true}")
 		if iss == nil || iss.Err() == nil {
 			t.Error("Got successful check, expected error for mixed map value types.")
 		}
@@ -269,12 +249,11 @@ func Test_HomogeneousAggregateLiterals(t *testing.T) {
 		},
 	})
 	t.Run("ok_list", func(t *testing.T) {
-		p, _ := e.Parse("name in ['hello', 'world']")
-		c, iss := e.Check(p)
+		ast, iss := e.Compile("name in ['hello', 'world']")
 		if iss != nil && iss.Err() != nil {
 			t.Fatalf("Got issue: %v, expected successful check.", iss.Err())
 		}
-		prg, _ := e.Program(c, funcs)
+		prg, _ := e.Program(ast, funcs)
 		out, _, err := prg.Eval(map[string]interface{}{"name": "world"})
 		if err != nil {
 			t.Fatalf("Got err: %v, wanted result", err)
@@ -284,12 +263,11 @@ func Test_HomogeneousAggregateLiterals(t *testing.T) {
 		}
 	})
 	t.Run("ok_map", func(t *testing.T) {
-		p, _ := e.Parse("name in {'hello': false, 'world': true}")
-		c, iss := e.Check(p)
+		ast, iss := e.Compile("name in {'hello': false, 'world': true}")
 		if iss != nil && iss.Err() != nil {
 			t.Fatalf("Got issue: %v, expected successful check.", iss.Err())
 		}
-		prg, _ := e.Program(c, funcs)
+		prg, _ := e.Program(ast, funcs)
 		out, _, err := prg.Eval(map[string]interface{}{"name": "world"})
 		if err != nil {
 			t.Fatalf("Got err: %v, wanted result", err)
@@ -315,7 +293,7 @@ func Test_CustomTypes(t *testing.T) {
 		Declarations(
 			decls.NewIdent("expr", exprType, nil)))
 
-	p, _ := e.Parse(`
+	ast, _ := e.Compile(`
 		expr == Expr{id: 2,
 			call_expr: Expr.Call{
 				function: "_==_",
@@ -323,11 +301,10 @@ func Test_CustomTypes(t *testing.T) {
 					Expr{id: 1, ident_expr: Expr.Ident{ name: "a" }},
 					Expr{id: 3, ident_expr: Expr.Ident{ name: "b" }}]
 			}}`)
-	c, _ := e.Check(p)
-	if !proto.Equal(c.ResultType(), decls.Bool) {
-		t.Fatalf("Got %v, wanted type bool", c.ResultType())
+	if !proto.Equal(ast.ResultType(), decls.Bool) {
+		t.Fatalf("Got %v, wanted type bool", ast.ResultType())
 	}
-	prg, _ := e.Program(c)
+	prg, _ := e.Program(ast)
 	vars := map[string]interface{}{"expr": &exprpb.Expr{
 		Id: 2,
 		ExprKind: &exprpb.Expr_CallExpr{
@@ -377,8 +354,7 @@ func Test_TypeIsolation(t *testing.T) {
 	}
 
 	src := "myteam.members[0].name == 'Cyclops'"
-	p, _ := e.Parse(src)
-	_, iss := e.Check(p)
+	_, iss := e.Compile(src)
 	if iss != nil && iss.Err() != nil {
 		t.Error(iss.Err())
 	}
@@ -389,8 +365,7 @@ func Test_TypeIsolation(t *testing.T) {
 			decls.NewIdent("myteam",
 				decls.NewObjectType("cel.testdata.Team"),
 				nil)))
-	p2, _ := e2.Parse(src)
-	_, iss = e2.Check(p2)
+	_, iss = e2.Compile(src)
 	if iss == nil || iss.Err() == nil {
 		t.Errorf("Wanted check failure for unknown message.")
 	}
@@ -408,8 +383,7 @@ func Test_GlobalVars(t *testing.T) {
 					"get_map",
 					[]*exprpb.Type{mapStrDyn, decls.String, decls.Dyn},
 					decls.Dyn))))
-	p, _ := e.Parse(`attrs.get("first", attrs.get("second", default))`)
-	c, _ := e.Check(p)
+	ast, _ := e.Compile(`attrs.get("first", attrs.get("second", default))`)
 
 	// Create the program.
 	funcs := Functions(
@@ -439,7 +413,7 @@ func Test_GlobalVars(t *testing.T) {
 			}})
 
 	// Global variables can be configured as a ProgramOption and optionally overridden on Eval.
-	prg, _ := e.Program(c, funcs, Globals(map[string]interface{}{
+	prg, _ := e.Program(ast, funcs, Globals(map[string]interface{}{
 		"default": "third",
 	}))
 
@@ -507,15 +481,11 @@ func Test_CustomMacro(t *testing.T) {
 	e, _ := NewEnv(
 		Macros(joinMacro),
 	)
-	p, iss := e.Parse(`['hello', 'cel', 'friend'].join(',')`)
+	ast, iss := e.Compile(`['hello', 'cel', 'friend'].join(',')`)
 	if iss != nil && iss.Err() != nil {
 		t.Fatal(iss.Err())
 	}
-	c, iss := e.Check(p)
-	if iss != nil && iss.Err() != nil {
-		t.Fatal(iss.Err())
-	}
-	prg, err := e.Program(c, EvalOptions(OptExhaustiveEval))
+	prg, err := e.Program(ast, EvalOptions(OptExhaustiveEval))
 	if err != nil {
 		t.Fatalf("program creation error: %s\n", err)
 	}
@@ -533,10 +503,9 @@ func Test_EvalOptions(t *testing.T) {
 		Declarations(
 			decls.NewIdent("k", decls.String, nil),
 			decls.NewIdent("v", decls.Bool, nil)))
-	p, _ := e.Parse(`{k: true}[k] || v != false`)
-	c, _ := e.Check(p)
+	ast, _ := e.Compile(`{k: true}[k] || v != false`)
 
-	prg, err := e.Program(c, EvalOptions(OptExhaustiveEval))
+	prg, err := e.Program(ast, EvalOptions(OptExhaustiveEval))
 	if err != nil {
 		t.Fatalf("program creation error: %s\n", err)
 	}
@@ -554,7 +523,7 @@ func Test_EvalOptions(t *testing.T) {
 	// Test to see whether 'v != false' was resolved to a value.
 	// With short-circuiting it normally wouldn't be.
 	s := details.State()
-	lhsVal, found := s.Value(p.Expr().GetCallExpr().GetArgs()[0].Id)
+	lhsVal, found := s.Value(ast.Expr().GetCallExpr().GetArgs()[0].Id)
 	if !found {
 		t.Error("Got not found, wanted evaluation of left hand side expression.")
 		return
@@ -562,7 +531,7 @@ func Test_EvalOptions(t *testing.T) {
 	if lhsVal != types.True {
 		t.Errorf("Got '%v', expected 'true'", lhsVal)
 	}
-	rhsVal, found := s.Value(p.Expr().GetCallExpr().GetArgs()[1].Id)
+	rhsVal, found := s.Value(ast.Expr().GetCallExpr().GetArgs()[1].Id)
 	if !found {
 		t.Error("Got not found, wanted evaluation of right hand side expression.")
 		return
@@ -649,14 +618,10 @@ func Test_ResidualAst_Complex(t *testing.T) {
 		},
 		AttributePattern("request.auth.claims").QualString("email"),
 	)
-	ast, iss := e.Parse(
+	ast, iss := e.Compile(
 		`resource.name.startsWith("bucket/my-bucket") &&
 		 bool(request.auth.claims.email_verified) == true &&
 		 request.auth.claims.email == "wiley@acme.co"`)
-	if iss != nil && iss.Err() != nil {
-		t.Fatal(iss.Err())
-	}
-	ast, iss = e.Check(ast)
 	if iss != nil && iss.Err() != nil {
 		t.Fatal(iss.Err())
 	}
@@ -690,8 +655,7 @@ func Benchmark_EvalOptions(b *testing.B) {
 			decls.NewIdent("ar", decls.NewMapType(decls.String, decls.String), nil),
 		),
 	)
-	pAst, _ := e.Parse("ai == 20 || ar['foo'] == 'bar'")
-	cAst, _ := e.Check(pAst)
+	ast, _ := e.Compile("ai == 20 || ar['foo'] == 'bar'")
 	vars := map[string]interface{}{
 		"ai": 2,
 		"ar": map[string]string{
@@ -706,7 +670,7 @@ func Benchmark_EvalOptions(b *testing.B) {
 	}
 	for k, opt := range opts {
 		b.Run(k, func(bb *testing.B) {
-			prg, _ := e.Program(cAst, EvalOptions(opt))
+			prg, _ := e.Program(ast, EvalOptions(opt))
 			b.ResetTimer()
 			b.ReportAllocs()
 			for i := 0; i < bb.N; i++ {
@@ -742,13 +706,9 @@ func Test_ParseAndCheckConcurrently(t *testing.T) {
 	)
 
 	parseAndCheck := func(expr string) {
-		p, iss := e.Parse(expr)
+		_, iss := e.Compile(expr)
 		if iss != nil && iss.Err() != nil {
 			t.Fatalf("Failed to parse '%s': %v", expr, iss.Err())
-		}
-		_, iss = e.Check(p)
-		if iss != nil && iss.Err() != nil {
-			t.Fatalf("Failed to check '%s': %v", expr, iss.Err())
 		}
 	}
 
