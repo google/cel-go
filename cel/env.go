@@ -16,6 +16,7 @@ package cel
 
 import (
 	"errors"
+	"sync"
 
 	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/checker/decls"
@@ -24,7 +25,6 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter"
-	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/parser"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
@@ -81,37 +81,51 @@ type Env struct {
 	declarations []*exprpb.Decl
 	macros       []parser.Macro
 	pkg          packages.Packager
-	provider     ref.TypeProvider
 	adapter      ref.TypeAdapter
-	chk          *checker.Env
+	provider     ref.TypeProvider
+	// program options tied to the environment.
+	progOpts []ProgramOption
 	// environment options, true by default.
-	enableBuiltins                 bool
 	enableDynamicAggregateLiterals bool
+
+	// Internal checker representation
+	chk    *checker.Env
+	chkErr error
+	once   sync.Once
 }
 
-// NewEnv creates an Env instance suitable for parsing and checking expressions against a set of
-// user-defined constants, variables, and functions. Macros and the standard built-ins are enabled
-// by default.
+// NewEnv creates a program environment configured with the standard library of CEL functions and
+// macros. The Env value returned can parse and check any CEL program which builds upon the core
+// features documented in the CEL specification.
 //
-// See the EnvOptions for the options that can be used to configure the environment.
+// See the EnvOption helper functions for the options that can be used to configure the
+// environment.
 func NewEnv(opts ...EnvOption) (*Env, error) {
+	stdOpts := append([]EnvOption{StdLib()}, opts...)
+	return NewCustomEnv(stdOpts...)
+}
+
+// NewCustomEnv creates a custom program enviroment which is not automatically configured with the
+// standard library of functions and macros documented in the CEL spec.
+//
+// The purpose for using a custom environment might be for subsetting the standard library produced
+// by the cel.StdLib() function. Subsetting CEL is a core aspect of its design that allows users to
+// limit the compute and memory impact of a CEL program by controlling the functions and macros
+// that may appear in a given expression.
+//
+// See the EnvOption helper functions for the options that can be used to configure the
+// environment.
+func NewCustomEnv(opts ...EnvOption) (*Env, error) {
 	registry := types.NewRegistry()
 	return (&Env{
-		declarations:                   checker.StandardDeclarations(),
-		macros:                         parser.AllMacros,
+		declarations:                   []*exprpb.Decl{},
+		macros:                         []parser.Macro{},
 		pkg:                            packages.DefaultPackage,
-		provider:                       registry,
 		adapter:                        registry,
-		enableBuiltins:                 true,
+		provider:                       registry,
 		enableDynamicAggregateLiterals: true,
-	}).configure(opts...)
-}
-
-// Extend the current environment with additional options to produce a new Env.
-func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
-	ext := &Env{}
-	*ext = *e
-	return ext.configure(opts...)
+		progOpts:                       []ProgramOption{},
+	}).configure(opts)
 }
 
 // Check performs type-checking on the input Ast and yields a checked Ast and/or set of Issues.
@@ -124,6 +138,25 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 func (e *Env) Check(ast *Ast) (*Ast, *Issues) {
 	// Note, errors aren't currently possible on the Ast to ParsedExpr conversion.
 	pe, _ := AstToParsedExpr(ast)
+
+	// Construct the internal checker env, erroring if there is an issue adding the declarations.
+	e.once.Do(func() {
+		ce := checker.NewEnv(e.pkg, e.provider)
+		ce.EnableDynamicAggregateLiterals(e.enableDynamicAggregateLiterals)
+		err := ce.Add(e.declarations...)
+		if err != nil {
+			e.chkErr = err
+		} else {
+			e.chk = ce
+		}
+	})
+	// The once call will ensure that this value is set or nil for all invocations.
+	if e.chkErr != nil {
+		errs := common.NewErrors(ast.Source())
+		errs.ReportError(common.NoLocation, e.chkErr.Error())
+		return nil, &Issues{errs: errs}
+	}
+
 	res, errs := checker.Check(pe, ast.Source(), e.chk)
 	if len(errs.GetErrors()) > 0 {
 		return nil, &Issues{errs: errs}
@@ -136,6 +169,57 @@ func (e *Env) Check(ast *Ast) (*Ast, *Issues) {
 		info:    res.GetSourceInfo(),
 		refMap:  res.GetReferenceMap(),
 		typeMap: res.GetTypeMap()}, nil
+}
+
+// Compile combines the Parse and Check phases CEL program compilation to produce an Ast and
+// associated issues.
+//
+// If an error is encountered during parsing the Compile step will not continue with the Check
+// phase. If non-error issues are encountered during Parse, they may be combined with any issues
+// discovered during Check.
+//
+// Note, for parse-only uses of CEL use Parse.
+func (e *Env) Compile(txt string) (*Ast, *Issues) {
+	return e.CompileSource(common.NewTextSource(txt))
+}
+
+// CompileSource combines the Parse and Check phases CEL program compilation to produce an Ast and
+// associated issues.
+//
+// If an error is encountered during parsing the CompileSource step will not continue with the
+// Check phase. If non-error issues are encountered during Parse, they may be combined with any
+// issues discovered during Check.
+//
+// Note, for parse-only uses of CEL use Parse.
+func (e *Env) CompileSource(src common.Source) (*Ast, *Issues) {
+	ast, iss := e.ParseSource(src)
+	if iss != nil && iss.Err() != nil {
+		return nil, iss
+	}
+	checked, iss2 := e.Check(ast)
+	if iss != nil && iss2 != nil {
+		iss.Append(iss2)
+	} else if iss2 != nil {
+		iss = iss2
+	}
+	return checked, iss
+}
+
+// Extend the current environment with additional options to produce a new Env.
+func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
+	if e.chkErr != nil {
+		return nil, e.chkErr
+	}
+	ext := &Env{
+		declarations:                   e.declarations,
+		adapter:                        e.adapter,
+		enableDynamicAggregateLiterals: e.enableDynamicAggregateLiterals,
+		macros:                         e.macros,
+		pkg:                            e.pkg,
+		progOpts:                       e.progOpts,
+		provider:                       e.provider,
+	}
+	return ext.configure(opts)
 }
 
 // Parse parses the input expression value `txt` to a Ast and/or a set of Issues.
@@ -169,12 +253,14 @@ func (e *Env) ParseSource(src common.Source) (*Ast, *Issues) {
 
 // Program generates an evaluable instance of the Ast within the environment (Env).
 func (e *Env) Program(ast *Ast, opts ...ProgramOption) (Program, error) {
-	if e.enableBuiltins {
-		opts = append(
-			[]ProgramOption{Functions(functions.StandardOverloads()...)},
-			opts...)
+	optSet := e.progOpts
+	if len(opts) != 0 {
+		mergedOpts := []ProgramOption{}
+		mergedOpts = append(mergedOpts, e.progOpts...)
+		mergedOpts = append(mergedOpts, opts...)
+		optSet = mergedOpts
 	}
-	return newProgram(e, ast, opts...)
+	return newProgram(e, ast, optSet)
 }
 
 // TypeAdapter returns the `ref.TypeAdapter` configured for the environment.
@@ -250,7 +336,7 @@ func (e *Env) ResidualAst(a *Ast, details *EvalDetails) (*Ast, error) {
 }
 
 // configure applies a series of EnvOptions to the current environment.
-func (e *Env) configure(opts ...EnvOption) (*Env, error) {
+func (e *Env) configure(opts []EnvOption) (*Env, error) {
 	// Customized the environment using the provided EnvOption values. If an error is
 	// generated at any step this, will be returned as a nil Env with a non-nil error.
 	var err error
@@ -260,15 +346,6 @@ func (e *Env) configure(opts ...EnvOption) (*Env, error) {
 			return nil, err
 		}
 	}
-
-	// Construct the internal checker env, erroring if there is an issue adding the declarations.
-	ce := checker.NewEnv(e.pkg, e.provider)
-	ce.EnableDynamicAggregateLiterals(e.enableDynamicAggregateLiterals)
-	err = ce.Add(e.declarations...)
-	if err != nil {
-		return nil, err
-	}
-	e.chk = ce
 	return e, nil
 }
 

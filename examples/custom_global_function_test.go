@@ -25,11 +25,7 @@ func ExampleCustomGlobalFunction() {
 		log.Fatalf("environment creation error: %v\n", err)
 	}
 	// Check iss for error in both Parse and Check.
-	p, iss := env.Parse(`shake_hands(i,you)`)
-	if iss != nil && iss.Err() != nil {
-		log.Fatalln(iss.Err())
-	}
-	c, iss := env.Check(p)
+	ast, iss := env.Compile(`shake_hands(i,you)`)
 	if iss != nil && iss.Err() != nil {
 		log.Fatalln(iss.Err())
 	}
@@ -39,7 +35,7 @@ func ExampleCustomGlobalFunction() {
 			return types.String(
 				fmt.Sprintf("%s and %s are shaking hands.\n", lhs, rhs))
 		}}
-	prg, err := env.Program(c, cel.Functions(shakeFunc))
+	prg, err := env.Program(ast, cel.Functions(shakeFunc))
 	if err != nil {
 		log.Fatalf("Program creation error: %v\n", err)
 	}

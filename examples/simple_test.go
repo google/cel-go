@@ -15,15 +15,11 @@ func ExampleSimple() {
 		log.Fatalf("environment creation error: %v\n", err)
 	}
 	// Check iss for error in both Parse and Check.
-	p, iss := env.Parse(`"Hello world! I'm " + name + "."`)
+	ast, iss := env.Compile(`"Hello world! I'm " + name + "."`)
 	if iss != nil && iss.Err() != nil {
 		log.Fatalln(iss.Err())
 	}
-	c, iss := env.Check(p)
-	if iss != nil && iss.Err() != nil {
-		log.Fatalln(iss.Err())
-	}
-	prg, err := env.Program(c)
+	prg, err := env.Program(ast)
 
 	out, _, err := prg.Eval(map[string]interface{}{
 		"name": "CEL",

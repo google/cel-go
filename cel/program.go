@@ -112,7 +112,7 @@ type progGen struct {
 // ProgramOption values.
 //
 // If the program cannot be configured the prog will be nil, with a non-nil error response.
-func newProgram(e *Env, ast *Ast, opts ...ProgramOption) (Program, error) {
+func newProgram(e *Env, ast *Ast, opts []ProgramOption) (Program, error) {
 	// Build the dispatcher, interpreter, and default program value.
 	disp := interpreter.NewDispatcher()
 

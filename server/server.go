@@ -73,15 +73,15 @@ func (s *ConformanceServer) Check(ctx context.Context, in *exprpb.CheckRequest) 
 		return nil, st.Err()
 	}
 	// Build the environment.
-	var checkOptions []cel.EnvOption
+	var checkOptions []cel.EnvOption = []cel.EnvOption{cel.StdLib()}
 	if in.NoStdEnv {
-		checkOptions = append(checkOptions, cel.ClearBuiltIns())
+		checkOptions = []cel.EnvOption{}
 	}
 	checkOptions = append(checkOptions, cel.Container(in.Container))
 	checkOptions = append(checkOptions, cel.Declarations(in.TypeEnv...))
 	checkOptions = append(checkOptions, cel.Types(&test2pb.TestAllTypes{}))
 	checkOptions = append(checkOptions, cel.Types(&test3pb.TestAllTypes{}))
-	env, _ := cel.NewEnv(checkOptions...)
+	env, _ := cel.NewCustomEnv(checkOptions...)
 
 	// Check the expression.
 	cast, iss := env.Check(cel.ParsedExprToAst(in.ParsedExpr))
