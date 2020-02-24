@@ -207,8 +207,18 @@ func (e *Env) CompileSource(src common.Source) (*Ast, *Issues) {
 
 // Extend the current environment with additional options to produce a new Env.
 func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
-	ext := &Env{}
-	*ext = *e
+	if e.chkErr != nil {
+		return nil, e.chkErr
+	}
+	ext := &Env{
+		declarations:                   e.declarations,
+		adapter:                        e.adapter,
+		enableDynamicAggregateLiterals: e.enableDynamicAggregateLiterals,
+		macros:                         e.macros,
+		pkg:                            e.pkg,
+		progOpts:                       e.progOpts,
+		provider:                       e.provider,
+	}
 	return ext.configure(opts)
 }
 

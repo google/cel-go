@@ -55,7 +55,7 @@ func Example() {
 		log.Fatalf("environment creation error: %s\n", err)
 	}
 
-	// Parse and check the expression.
+	// Compile the expression.
 	ast, iss := e.Compile("i.greet(you)")
 	if iss != nil && iss.Err() != nil {
 		log.Fatalln(iss.Err())
@@ -109,7 +109,7 @@ func Example_globalOverload() {
 		log.Fatalf("environment creation error: %s\n", err)
 	}
 
-	// Parse and check the expression.
+	// Compile the expression.
 	ast, iss := e.Compile(`shake_hands(i,you)`)
 	if iss != nil && iss.Err() != nil {
 		log.Fatalln(iss.Err())
@@ -159,7 +159,7 @@ func Test_ExampleWithBuiltins(t *testing.T) {
 		t.Fatalf("environment creation error: %s\n", err)
 	}
 
-	// Parse and type-check the expression.
+	// Compile the expression.
 	ast, iss := env.Compile(`"Hello " + you + "! I'm " + i + "."`)
 	if iss != nil && iss.Err() != nil {
 		t.Fatal(iss.Err())
@@ -182,7 +182,7 @@ func Test_ExampleWithBuiltins(t *testing.T) {
 
 	// Hello world! I'm CEL.
 	if out.Equal(types.String("Hello world! I'm CEL.")) != types.True {
-		t.Errorf(`Got '%v', wanted "Hello world! I'm CEL."`, out.Value())
+		t.Errorf(`got '%v', wanted "Hello world! I'm CEL."`, out.Value())
 	}
 }
 
@@ -193,7 +193,7 @@ func Test_CustomEnv(t *testing.T) {
 	t.Run("err", func(t *testing.T) {
 		_, iss := e.Compile("a.b.c == true")
 		if iss == nil || iss.Err() == nil {
-			t.Error("Got successful check, expected error for missing operator '_==_'")
+			t.Error("got successful compile, expected error for missing operator '_==_'")
 		}
 	})
 
@@ -205,7 +205,7 @@ func Test_CustomEnv(t *testing.T) {
 		prg, _ := e.Program(ast)
 		out, _, _ := prg.Eval(map[string]interface{}{"a.b.c": true})
 		if out != types.True {
-			t.Errorf("Got '%v', wanted 'true'", out.Value())
+			t.Errorf("got '%v', wanted 'true'", out.Value())
 		}
 	})
 }
@@ -227,19 +227,19 @@ func Test_HomogeneousAggregateLiterals(t *testing.T) {
 	t.Run("err_list", func(t *testing.T) {
 		_, iss := e.Compile("name in ['hello', 0]")
 		if iss == nil || iss.Err() == nil {
-			t.Error("Got successful check, expected error for mixed list entry types.")
+			t.Error("got successful compile, expected error for mixed list entry types.")
 		}
 	})
 	t.Run("err_map_key", func(t *testing.T) {
 		_, iss := e.Compile("name in {'hello':'world', 1:'!'}")
 		if iss == nil || iss.Err() == nil {
-			t.Error("Got successful check, expected error for mixed map key types.")
+			t.Error("got successful compile, expected error for mixed map key types.")
 		}
 	})
 	t.Run("err_map_val", func(t *testing.T) {
 		_, iss := e.Compile("name in {'hello':'world', 'goodbye':true}")
 		if iss == nil || iss.Err() == nil {
-			t.Error("Got successful check, expected error for mixed map value types.")
+			t.Error("got successful compile, expected error for mixed map value types.")
 		}
 	})
 	funcs := Functions(&functions.Overload{
@@ -254,29 +254,29 @@ func Test_HomogeneousAggregateLiterals(t *testing.T) {
 	t.Run("ok_list", func(t *testing.T) {
 		ast, iss := e.Compile("name in ['hello', 'world']")
 		if iss != nil && iss.Err() != nil {
-			t.Fatalf("Got issue: %v, expected successful check.", iss.Err())
+			t.Fatalf("got issue: %v, expected successful compile.", iss.Err())
 		}
 		prg, _ := e.Program(ast, funcs)
 		out, _, err := prg.Eval(map[string]interface{}{"name": "world"})
 		if err != nil {
-			t.Fatalf("Got err: %v, wanted result", err)
+			t.Fatalf("got err: %v, wanted result", err)
 		}
 		if out != types.True {
-			t.Errorf("Got '%v', wanted 'true'", out)
+			t.Errorf("got '%v', wanted 'true'", out)
 		}
 	})
 	t.Run("ok_map", func(t *testing.T) {
 		ast, iss := e.Compile("name in {'hello': false, 'world': true}")
 		if iss != nil && iss.Err() != nil {
-			t.Fatalf("Got issue: %v, expected successful check.", iss.Err())
+			t.Fatalf("got issue: %v, expected successful compile.", iss.Err())
 		}
 		prg, _ := e.Program(ast, funcs)
 		out, _, err := prg.Eval(map[string]interface{}{"name": "world"})
 		if err != nil {
-			t.Fatalf("Got err: %v, wanted result", err)
+			t.Fatalf("got err: %v, wanted result", err)
 		}
 		if out != types.True {
-			t.Errorf("Got '%v', wanted 'true'", out)
+			t.Errorf("got '%v', wanted 'true'", out)
 		}
 	})
 }
@@ -305,7 +305,7 @@ func Test_CustomTypes(t *testing.T) {
 					Expr{id: 3, ident_expr: Expr.Ident{ name: "b" }}]
 			}}`)
 	if !proto.Equal(ast.ResultType(), decls.Bool) {
-		t.Fatalf("Got %v, wanted type bool", ast.ResultType())
+		t.Fatalf("got %v, wanted type bool", ast.ResultType())
 	}
 	prg, _ := e.Program(ast)
 	vars := map[string]interface{}{"expr": &exprpb.Expr{
@@ -332,18 +332,18 @@ func Test_CustomTypes(t *testing.T) {
 	}}
 	out, _, _ := prg.Eval(vars)
 	if out != types.True {
-		t.Errorf("Got '%v', wanted 'true'", out.Value())
+		t.Errorf("got '%v', wanted 'true'", out.Value())
 	}
 }
 
 func Test_TypeIsolation(t *testing.T) {
 	b, err := ioutil.ReadFile("testdata/team.fds")
 	if err != nil {
-		t.Fatal("Can't read fds file: ", err)
+		t.Fatal("can't read fds file: ", err)
 	}
 	var fds descpb.FileDescriptorSet
 	if err = proto.Unmarshal(b, &fds); err != nil {
-		t.Fatal("Can't unmarshal descriptor data: ", err)
+		t.Fatal("can't unmarshal descriptor data: ", err)
 	}
 
 	e, err := NewEnv(
@@ -353,7 +353,7 @@ func Test_TypeIsolation(t *testing.T) {
 				decls.NewObjectType("cel.testdata.Team"),
 				nil)))
 	if err != nil {
-		t.Fatal("Can't create env: ", err)
+		t.Fatal("can't create env: ", err)
 	}
 
 	src := "myteam.members[0].name == 'Cyclops'"
@@ -370,7 +370,7 @@ func Test_TypeIsolation(t *testing.T) {
 				nil)))
 	_, iss = e2.Compile(src)
 	if iss == nil || iss.Err() == nil {
-		t.Errorf("Wanted check failure for unknown message.")
+		t.Errorf("wanted compile failure for unknown message.")
 	}
 }
 
@@ -425,7 +425,7 @@ func Test_GlobalVars(t *testing.T) {
 			"attrs": map[string]interface{}{}}
 		out, _, _ := prg.Eval(vars)
 		if out.Equal(types.String("third")) != types.True {
-			t.Errorf("Got '%v', expected 'third'.", out.Value())
+			t.Errorf("got '%v', expected 'third'.", out.Value())
 		}
 	})
 
@@ -434,7 +434,7 @@ func Test_GlobalVars(t *testing.T) {
 			"attrs": map[string]interface{}{"second": "yep"}}
 		out, _, _ := prg.Eval(vars)
 		if out.Equal(types.String("yep")) != types.True {
-			t.Errorf("Got '%v', expected 'yep'.", out.Value())
+			t.Errorf("got '%v', expected 'yep'.", out.Value())
 		}
 	})
 
@@ -444,7 +444,7 @@ func Test_GlobalVars(t *testing.T) {
 			"default": "fourth"}
 		out, _, _ := prg.Eval(vars)
 		if out.Equal(types.String("fourth")) != types.True {
-			t.Errorf("Got '%v', expected 'fourth'.", out.Value())
+			t.Errorf("got '%v', expected 'fourth'.", out.Value())
 		}
 	})
 }
@@ -497,7 +497,7 @@ func Test_CustomMacro(t *testing.T) {
 		t.Fatal(err)
 	}
 	if out.Equal(types.String("hello,cel,friend")) != types.True {
-		t.Errorf("Got %v, wanted 'hello,cel,friend'", out)
+		t.Errorf("got %v, wanted 'hello,cel,friend'", out)
 	}
 }
 
@@ -520,7 +520,7 @@ func Test_EvalOptions(t *testing.T) {
 		t.Fatalf("runtime error: %s\n", err)
 	}
 	if out != types.True {
-		t.Errorf("Got '%v', expected 'true'", out.Value())
+		t.Errorf("got '%v', expected 'true'", out.Value())
 	}
 
 	// Test to see whether 'v != false' was resolved to a value.
@@ -528,19 +528,19 @@ func Test_EvalOptions(t *testing.T) {
 	s := details.State()
 	lhsVal, found := s.Value(ast.Expr().GetCallExpr().GetArgs()[0].Id)
 	if !found {
-		t.Error("Got not found, wanted evaluation of left hand side expression.")
+		t.Error("got not found, wanted evaluation of left hand side expression.")
 		return
 	}
 	if lhsVal != types.True {
-		t.Errorf("Got '%v', expected 'true'", lhsVal)
+		t.Errorf("got '%v', expected 'true'", lhsVal)
 	}
 	rhsVal, found := s.Value(ast.Expr().GetCallExpr().GetArgs()[1].Id)
 	if !found {
-		t.Error("Got not found, wanted evaluation of right hand side expression.")
+		t.Error("got not found, wanted evaluation of right hand side expression.")
 		return
 	}
 	if rhsVal != types.True {
-		t.Errorf("Got '%v', expected 'true'", rhsVal)
+		t.Errorf("got '%v', expected 'true'", rhsVal)
 	}
 }
 
@@ -561,13 +561,13 @@ func Test_EvalRecover(t *testing.T) {
 	prgm, _ := e.Program(pAst, funcs)
 	_, _, err := prgm.Eval(map[string]interface{}{})
 	if err.Error() != "internal error: watch me recover" {
-		t.Errorf("Got '%v', wanted 'internal error: watch me recover'", err)
+		t.Errorf("got '%v', wanted 'internal error: watch me recover'", err)
 	}
 	// Test the factory-based evaluation.
 	prgm, _ = e.Program(pAst, funcs, EvalOptions(OptTrackState))
 	_, _, err = prgm.Eval(map[string]interface{}{})
 	if err.Error() != "internal error: watch me recover" {
-		t.Errorf("Got '%v', wanted 'internal error: watch me recover'", err)
+		t.Errorf("got '%v', wanted 'internal error: watch me recover'", err)
 	}
 }
 
@@ -585,7 +585,7 @@ func Test_ResidualAst(t *testing.T) {
 	)
 	out, det, err := prg.Eval(unkVars)
 	if !types.IsUnknown(out) {
-		t.Fatalf("Got %v, expected unknown", out)
+		t.Fatalf("got %v, expected unknown", out)
 	}
 	if err != nil {
 		t.Fatal(err)
@@ -599,7 +599,7 @@ func Test_ResidualAst(t *testing.T) {
 		t.Fatal(err)
 	}
 	if expr != "x < 10" {
-		t.Errorf("Got expr: %s, wanted x < 10", expr)
+		t.Errorf("got expr: %s, wanted x < 10", expr)
 	}
 }
 
@@ -633,7 +633,7 @@ func Test_ResidualAst_Complex(t *testing.T) {
 	)
 	out, det, err := prg.Eval(unkVars)
 	if !types.IsUnknown(out) {
-		t.Fatalf("Got %v, expected unknown", out)
+		t.Fatalf("got %v, expected unknown", out)
 	}
 	if err != nil {
 		t.Fatal(err)
@@ -647,7 +647,7 @@ func Test_ResidualAst_Complex(t *testing.T) {
 		t.Fatal(err)
 	}
 	if expr != `request.auth.claims.email == "wiley@acme.co"` {
-		t.Errorf("Got expr: %s, wanted request.auth.claims.email == \"wiley@acme.co\"", expr)
+		t.Errorf("got expr: %s, wanted request.auth.claims.email == \"wiley@acme.co\"", expr)
 	}
 }
 
@@ -694,7 +694,7 @@ func Test_EnvExtension(t *testing.T) {
 	)
 	e2, _ := e.Extend()
 	if e == e2 {
-		t.Error("Got object equality, wanted separate objects")
+		t.Error("got object equality, wanted separate objects")
 	}
 }
 
@@ -711,7 +711,7 @@ func Test_ParseAndCheckConcurrently(t *testing.T) {
 	parseAndCheck := func(expr string) {
 		_, iss := e.Compile(expr)
 		if iss != nil && iss.Err() != nil {
-			t.Fatalf("Failed to parse '%s': %v", expr, iss.Err())
+			t.Fatalf("failed to parse '%s': %v", expr, iss.Err())
 		}
 	}
 
