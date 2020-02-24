@@ -10,6 +10,7 @@ go_library(
         "cel.go",
         "env.go",
         "io.go",
+        "library.go",
         "options.go",
         "program.go",
     ],
