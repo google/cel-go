@@ -14,8 +14,11 @@ import (
     d := cel.Declarations(decls.NewIdent("name", decls.String, nil))
     env, err := cel.NewEnv(d)
 
-    // Check iss for error in both Parse and Check.
     ast, iss := env.Compile(`"Hello world! I'm " + name + "."`)
+    // Check iss for compilation errors.
+	if iss.Err() != nil {
+		log.Fatalln(iss.Err())
+	}
     prg, err := env.Program(ast)
     out, _, err := prg.Eval(map[string]interface{}{
         "name":   "CEL",

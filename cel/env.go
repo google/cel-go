@@ -168,7 +168,7 @@ func (e *Env) Check(ast *Ast) (*Ast, *Issues) {
 		expr:    res.GetExpr(),
 		info:    res.GetSourceInfo(),
 		refMap:  res.GetReferenceMap(),
-		typeMap: res.GetTypeMap()}, noIssues
+		typeMap: res.GetTypeMap()}, nil
 }
 
 // Compile combines the Parse and Check phases CEL program compilation to produce an Ast and
@@ -197,10 +197,9 @@ func (e *Env) CompileSource(src common.Source) (*Ast, *Issues) {
 		return nil, iss
 	}
 	checked, iss2 := e.Check(ast)
-	if iss2.Err() != nil {
-		iss = iss.Append(iss2)
-	} else if iss2 != nil {
-		iss = iss2
+	iss = iss.Append(iss2)
+	if iss.Err() != nil {
+		return nil, iss
 	}
 	return checked, iss
 }
@@ -248,7 +247,7 @@ func (e *Env) ParseSource(src common.Source) (*Ast, *Issues) {
 	return &Ast{
 		source: Source(src),
 		expr:   res.GetExpr(),
-		info:   res.GetSourceInfo()}, noIssues
+		info:   res.GetSourceInfo()}, nil
 }
 
 // Program generates an evaluable instance of the Ast within the environment (Env).
@@ -365,7 +364,10 @@ func NewIssues(errs *common.Errors) *Issues {
 
 // Err returns an error value if the issues list contains one or more errors.
 func (i *Issues) Err() error {
-	if i.errs != nil && len(i.errs.GetErrors()) > 0 {
+	if i == nil {
+		return nil
+	}
+	if len(i.errs.GetErrors()) > 0 {
 		return errors.New(i.errs.ToDisplayString())
 	}
 	return nil
@@ -373,28 +375,26 @@ func (i *Issues) Err() error {
 
 // Errors returns the collection of errors encountered in more granular detail.
 func (i *Issues) Errors() []common.Error {
-	if i.errs != nil {
-		return i.errs.GetErrors()
+	if i == nil {
+		return []common.Error{}
 	}
-	return []common.Error{}
+	return i.errs.GetErrors()
 }
 
 // Append collects the issues from another Issues struct into a new Issues object.
 func (i *Issues) Append(other *Issues) *Issues {
-	if i.errs != nil {
-		return &Issues{
-			errs: i.errs.Append(other.errs.GetErrors()),
-		}
+	if i == nil {
+		return other
 	}
-	return other
+	return &Issues{
+		errs: i.errs.Append(other.errs.GetErrors()),
+	}
 }
 
 // String converts the issues to a suitable display string.
 func (i *Issues) String() string {
-	if i.errs != nil {
-		return i.errs.ToDisplayString()
+	if i == nil {
+		return ""
 	}
-	return ""
+	return i.errs.ToDisplayString()
 }
-
-var noIssues *Issues = &Issues{}
