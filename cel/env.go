@@ -150,7 +150,7 @@ func (e *Env) Check(ast *Ast) (*Ast, *Issues) {
 			e.chk = ce
 		}
 	})
-	// The once call will ensure that this value is set or
+	// The once call will ensure that this value is set or nil for all invocations.
 	if e.chkErr != nil {
 		errs := common.NewErrors(ast.Source())
 		errs.ReportError(common.NoLocation, e.chkErr.Error())
@@ -207,8 +207,8 @@ func (e *Env) CompileSource(src common.Source) (*Ast, *Issues) {
 
 // Extend the current environment with additional options to produce a new Env.
 func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
-	if e.chkErr != nil {		ext := &Env{}
-		return nil, e.chkErr		*ext = *e
+	if e.chkErr != nil {
+		return nil, e.chkErr
 	}
 	ext := &Env{
 		declarations:                   e.declarations,
