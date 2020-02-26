@@ -57,8 +57,8 @@ func Example() {
 
 	// Compile the expression.
 	ast, iss := e.Compile("i.greet(you)")
-	if err := iss.Err(); err != nil {
-		log.Fatalln(err)
+	if iss.Err() != nil {
+		log.Fatalln(iss.Err())
 	}
 
 	// Create the program.
@@ -111,8 +111,8 @@ func Example_globalOverload() {
 
 	// Compile the expression.
 	ast, iss := e.Compile(`shake_hands(i,you)`)
-	if err := iss.Err(); err != nil {
-		log.Fatalln(err)
+	if iss.Err() != nil {
+		log.Fatalln(iss.Err())
 	}
 
 	// Create the program.
