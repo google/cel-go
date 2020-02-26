@@ -57,8 +57,8 @@ func Example() {
 
 	// Compile the expression.
 	ast, iss := e.Compile("i.greet(you)")
-	if iss != nil && iss.Err() != nil {
-		log.Fatalln(iss.Err())
+	if err := iss.Err(); err != nil {
+		log.Fatalln(err)
 	}
 
 	// Create the program.
@@ -111,8 +111,8 @@ func Example_globalOverload() {
 
 	// Compile the expression.
 	ast, iss := e.Compile(`shake_hands(i,you)`)
-	if iss != nil && iss.Err() != nil {
-		log.Fatalln(iss.Err())
+	if err := iss.Err(); err != nil {
+		log.Fatalln(err)
 	}
 
 	// Create the program.
@@ -161,7 +161,7 @@ func Test_ExampleWithBuiltins(t *testing.T) {
 
 	// Compile the expression.
 	ast, iss := env.Compile(`"Hello " + you + "! I'm " + i + "."`)
-	if iss != nil && iss.Err() != nil {
+	if iss.Err() != nil {
 		t.Fatal(iss.Err())
 	}
 
@@ -186,20 +186,31 @@ func Test_ExampleWithBuiltins(t *testing.T) {
 	}
 }
 
+func Test_CustomEnvError(t *testing.T) {
+	e, err := NewCustomEnv(StdLib(), StdLib())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, iss := e.Compile("a.b.c == true")
+	if iss.Err() == nil {
+		t.Error("got successful compile, expected error for duplicate function declarations.")
+	}
+}
+
 func Test_CustomEnv(t *testing.T) {
 	e, _ := NewCustomEnv(
 		Declarations(decls.NewIdent("a.b.c", decls.Bool, nil)))
 
 	t.Run("err", func(t *testing.T) {
 		_, iss := e.Compile("a.b.c == true")
-		if iss == nil || iss.Err() == nil {
+		if iss.Err() == nil {
 			t.Error("got successful compile, expected error for missing operator '_==_'")
 		}
 	})
 
 	t.Run("ok", func(t *testing.T) {
 		ast, iss := e.Compile("a.b.c")
-		if iss != nil && iss.Err() != nil {
+		if iss.Err() != nil {
 			t.Fatal(iss.Err())
 		}
 		prg, _ := e.Program(ast)
@@ -253,7 +264,7 @@ func Test_HomogeneousAggregateLiterals(t *testing.T) {
 	})
 	t.Run("ok_list", func(t *testing.T) {
 		ast, iss := e.Compile("name in ['hello', 'world']")
-		if iss != nil && iss.Err() != nil {
+		if iss.Err() != nil {
 			t.Fatalf("got issue: %v, expected successful compile.", iss.Err())
 		}
 		prg, _ := e.Program(ast, funcs)
@@ -267,7 +278,7 @@ func Test_HomogeneousAggregateLiterals(t *testing.T) {
 	})
 	t.Run("ok_map", func(t *testing.T) {
 		ast, iss := e.Compile("name in {'hello': false, 'world': true}")
-		if iss != nil && iss.Err() != nil {
+		if iss.Err() != nil {
 			t.Fatalf("got issue: %v, expected successful compile.", iss.Err())
 		}
 		prg, _ := e.Program(ast, funcs)
@@ -358,7 +369,7 @@ func Test_TypeIsolation(t *testing.T) {
 
 	src := "myteam.members[0].name == 'Cyclops'"
 	_, iss := e.Compile(src)
-	if iss != nil && iss.Err() != nil {
+	if iss.Err() != nil {
 		t.Error(iss.Err())
 	}
 
@@ -485,7 +496,7 @@ func Test_CustomMacro(t *testing.T) {
 		Macros(joinMacro),
 	)
 	ast, iss := e.Compile(`['hello', 'cel', 'friend'].join(',')`)
-	if iss != nil && iss.Err() != nil {
+	if iss.Err() != nil {
 		t.Fatal(iss.Err())
 	}
 	prg, err := e.Program(ast, EvalOptions(OptExhaustiveEval))
@@ -625,7 +636,7 @@ func Test_ResidualAst_Complex(t *testing.T) {
 		`resource.name.startsWith("bucket/my-bucket") &&
 		 bool(request.auth.claims.email_verified) == true &&
 		 request.auth.claims.email == "wiley@acme.co"`)
-	if iss != nil && iss.Err() != nil {
+	if iss.Err() != nil {
 		t.Fatal(iss.Err())
 	}
 	prg, _ := e.Program(ast,
@@ -710,7 +721,7 @@ func Test_ParseAndCheckConcurrently(t *testing.T) {
 
 	parseAndCheck := func(expr string) {
 		_, iss := e.Compile(expr)
-		if iss != nil && iss.Err() != nil {
+		if iss.Err() != nil {
 			t.Fatalf("failed to parse '%s': %v", expr, iss.Err())
 		}
 	}

@@ -150,7 +150,7 @@ func (e *Env) Check(ast *Ast) (*Ast, *Issues) {
 			e.chk = ce
 		}
 	})
-	// The once call will ensure that this value is set or nil for all invocations.
+	// The once call will ensure that this value is set or
 	if e.chkErr != nil {
 		errs := common.NewErrors(ast.Source())
 		errs.ReportError(common.NoLocation, e.chkErr.Error())
@@ -168,7 +168,7 @@ func (e *Env) Check(ast *Ast) (*Ast, *Issues) {
 		expr:    res.GetExpr(),
 		info:    res.GetSourceInfo(),
 		refMap:  res.GetReferenceMap(),
-		typeMap: res.GetTypeMap()}, nil
+		typeMap: res.GetTypeMap()}, noIssues
 }
 
 // Compile combines the Parse and Check phases CEL program compilation to produce an Ast and
@@ -193,12 +193,12 @@ func (e *Env) Compile(txt string) (*Ast, *Issues) {
 // Note, for parse-only uses of CEL use Parse.
 func (e *Env) CompileSource(src common.Source) (*Ast, *Issues) {
 	ast, iss := e.ParseSource(src)
-	if iss != nil && iss.Err() != nil {
+	if iss.Err() != nil {
 		return nil, iss
 	}
 	checked, iss2 := e.Check(ast)
-	if iss != nil && iss2 != nil {
-		iss.Append(iss2)
+	if iss2.Err() != nil {
+		iss = iss.Append(iss2)
 	} else if iss2 != nil {
 		iss = iss2
 	}
@@ -207,18 +207,8 @@ func (e *Env) CompileSource(src common.Source) (*Ast, *Issues) {
 
 // Extend the current environment with additional options to produce a new Env.
 func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
-	if e.chkErr != nil {
-		return nil, e.chkErr
-	}
-	ext := &Env{
-		declarations:                   e.declarations,
-		adapter:                        e.adapter,
-		enableDynamicAggregateLiterals: e.enableDynamicAggregateLiterals,
-		macros:                         e.macros,
-		pkg:                            e.pkg,
-		progOpts:                       e.progOpts,
-		provider:                       e.provider,
-	}
+	ext := &Env{}
+	*ext = *e
 	return ext.configure(opts)
 }
 
@@ -248,7 +238,7 @@ func (e *Env) ParseSource(src common.Source) (*Ast, *Issues) {
 	return &Ast{
 		source: Source(src),
 		expr:   res.GetExpr(),
-		info:   res.GetSourceInfo()}, nil
+		info:   res.GetSourceInfo()}, noIssues
 }
 
 // Program generates an evaluable instance of the Ast within the environment (Env).
@@ -365,7 +355,7 @@ func NewIssues(errs *common.Errors) *Issues {
 
 // Err returns an error value if the issues list contains one or more errors.
 func (i *Issues) Err() error {
-	if len(i.errs.GetErrors()) > 0 {
+	if i.errs != nil && len(i.errs.GetErrors()) > 0 {
 		return errors.New(i.errs.ToDisplayString())
 	}
 	return nil
@@ -373,15 +363,28 @@ func (i *Issues) Err() error {
 
 // Errors returns the collection of errors encountered in more granular detail.
 func (i *Issues) Errors() []common.Error {
-	return i.errs.GetErrors()
+	if i.errs != nil {
+		return i.errs.GetErrors()
+	}
+	return []common.Error{}
 }
 
-// Append collects the issues from another Issues struct into the current object.
-func (i *Issues) Append(other *Issues) {
-	i.errs.Append(other.errs.GetErrors())
+// Append collects the issues from another Issues struct into a new Issues object.
+func (i *Issues) Append(other *Issues) *Issues {
+	if i.errs != nil {
+		return &Issues{
+			errs: i.errs.Append(other.errs.GetErrors()),
+		}
+	}
+	return other
 }
 
 // String converts the issues to a suitable display string.
 func (i *Issues) String() string {
-	return i.errs.ToDisplayString()
+	if i.errs != nil {
+		return i.errs.ToDisplayString()
+	}
+	return ""
 }
+
+var noIssues *Issues = &Issues{}

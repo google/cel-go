@@ -45,9 +45,13 @@ func (e *Errors) GetErrors() []Error {
 	return e.errors[:]
 }
 
-// Append takes an Errors object as input and appends its errors to the current Errors object.
-func (e *Errors) Append(errs []Error) {
-	e.errors = append(e.errors, errs...)
+// Append takes an Errors object as input creates a new Errors object with the current and input
+// errors.
+func (e *Errors) Append(errs []Error) *Errors {
+	return &Errors{
+		errors: append(e.errors, errs...),
+		source: e.source,
+	}
 }
 
 // ToDisplayString returns the error set to a newline delimited string.
