@@ -7,20 +7,20 @@ name.
 
 ```go
 import (
-	"github.com/google/cel-go/cel"
-	"github.com/google/cel-go/checker/decls"
+    "github.com/google/cel-go/cel"
+    "github.com/google/cel-go/checker/decls"
 )
 
-	d := cel.Declarations(decls.NewIdent("name", decls.String, nil))
-	env, err := cel.NewEnv(d)
+    d := cel.Declarations(decls.NewIdent("name", decls.String, nil))
+    env, err := cel.NewEnv(d)
 
-    // Check iss for error in both Parse and Check.
-	p, iss := env.Parse(`"Hello world! I'm " + name + "."`)
-	c, iss := env.Check(p)
-
-	prg, err := env.Program(c)
-
-	out, _, err := prg.Eval(map[string]interface{}{
+    ast, iss := env.Compile(`"Hello world! I'm " + name + "."`)
+    // Check iss for compilation errors.
+    if iss.Err() != nil {
+        log.Fatalln(iss.Err())
+    }
+    prg, err := env.Program(ast)
+    out, _, err := prg.Eval(map[string]interface{}{
         "name":   "CEL",
     })
     fmt.Println(out)
@@ -47,12 +47,12 @@ parameters of function.
 
 ```go
     decls.NewIdent("i", decls.String, nil),
-	decls.NewIdent("you", decls.String, nil),
-	decls.NewFunction("greet",
-		decls.NewInstanceOverload("string_greet_string",
-			[]*exprpb.Type{decls.String, decls.String},
-			decls.String))
-	... // Create env and parse and check.
+    decls.NewIdent("you", decls.String, nil),
+    decls.NewFunction("greet",
+        decls.NewInstanceOverload("string_greet_string",
+            []*exprpb.Type{decls.String, decls.String},
+            decls.String))
+    ... // Create env and compile
 ```
 
 Let's implement `greet` function and pass it to `program`. We will be using
@@ -61,19 +61,19 @@ function parameter).
 
 ```go
     greetFunc := &functions.Overload{
-		Operator: "string_greet_string",
-		Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
-			return types.String(
-				fmt.Sprintf("Hello %s! Nice to meet you, I'm %s.\n", rhs, lhs))
+        Operator: "string_greet_string",
+        Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
+            return types.String(
+                fmt.Sprintf("Hello %s! Nice to meet you, I'm %s.\n", rhs, lhs))
             }}
     prg, err := env.Program(c, cel.Functions(greetFunc))
 
     out, _, err := prg.Eval(map[string]interface{}{
-		"i": "CEL",
-		"you": "world",
-	})
-	fmt.Println(out)
-	// Output:Hello world! Nice to meet you, I'm CEL.
+        "i": "CEL",
+        "you": "world",
+    })
+    fmt.Println(out)
+    // Output:Hello world! Nice to meet you, I'm CEL.
 ```
 [Source code](custom_instance_function_test.go)
 
@@ -91,27 +91,27 @@ In order to declare global function we need to use `NewOverload`:
 
 ```go
     decls.NewIdent("i", decls.String, nil),
-	decls.NewIdent("you", decls.String, nil),
-	decls.NewFunction("shake_hands",
-		decls.NewOverload("shake_hands_string_string",
-			[]*exprpb.Type{decls.String, decls.String},
-			decls.String))
-    ... // Create env and parse and check.
+    decls.NewIdent("you", decls.String, nil),
+    decls.NewFunction("shake_hands",
+        decls.NewOverload("shake_hands_string_string",
+            []*exprpb.Type{decls.String, decls.String},
+            decls.String))
+    ... // Create env and compile.
 
     shakeFunc := &functions.Overload{
-		Operator: "shake_hands_string_string",
-		Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
-			return types.String(
-				fmt.Sprintf("%s and %s are shaking hands.\n", lhs, rhs))
+        Operator: "shake_hands_string_string",
+        Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
+            return types.String(
+                fmt.Sprintf("%s and %s are shaking hands.\n", lhs, rhs))
             }}
     prg, err := env.Program(c, cel.Functions(shakeFunc))
 
     out, _, err := prg.Eval(map[string]interface{}{
-		"i": "CEL",
-		"you": "world",
-	})
-	fmt.Println(out)
-	// Output:CEL and world are shaking hands.
+        "i": "CEL",
+        "you": "world",
+    })
+    fmt.Println(out)
+    // Output:CEL and world are shaking hands.
 ```
 
 [Source code](custom_global_function_test.go)

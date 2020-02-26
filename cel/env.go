@@ -193,14 +193,13 @@ func (e *Env) Compile(txt string) (*Ast, *Issues) {
 // Note, for parse-only uses of CEL use Parse.
 func (e *Env) CompileSource(src common.Source) (*Ast, *Issues) {
 	ast, iss := e.ParseSource(src)
-	if iss != nil && iss.Err() != nil {
+	if iss.Err() != nil {
 		return nil, iss
 	}
 	checked, iss2 := e.Check(ast)
-	if iss != nil && iss2 != nil {
-		iss.Append(iss2)
-	} else if iss2 != nil {
-		iss = iss2
+	iss = iss.Append(iss2)
+	if iss.Err() != nil {
+		return nil, iss
 	}
 	return checked, iss
 }
@@ -365,6 +364,9 @@ func NewIssues(errs *common.Errors) *Issues {
 
 // Err returns an error value if the issues list contains one or more errors.
 func (i *Issues) Err() error {
+	if i == nil {
+		return nil
+	}
 	if len(i.errs.GetErrors()) > 0 {
 		return errors.New(i.errs.ToDisplayString())
 	}
@@ -373,15 +375,26 @@ func (i *Issues) Err() error {
 
 // Errors returns the collection of errors encountered in more granular detail.
 func (i *Issues) Errors() []common.Error {
+	if i == nil {
+		return []common.Error{}
+	}
 	return i.errs.GetErrors()
 }
 
-// Append collects the issues from another Issues struct into the current object.
-func (i *Issues) Append(other *Issues) {
-	i.errs.Append(other.errs.GetErrors())
+// Append collects the issues from another Issues struct into a new Issues object.
+func (i *Issues) Append(other *Issues) *Issues {
+	if i == nil {
+		return other
+	}
+	return &Issues{
+		errs: i.errs.Append(other.errs.GetErrors()),
+	}
 }
 
 // String converts the issues to a suitable display string.
 func (i *Issues) String() string {
+	if i == nil {
+		return ""
+	}
 	return i.errs.ToDisplayString()
 }
