@@ -97,6 +97,7 @@ type prog struct {
 	dispatcher    interpreter.Dispatcher
 	interpreter   interpreter.Interpreter
 	interpretable interpreter.Interpretable
+	decorators    []interpreter.InterpretableDecorator
 	attrFactory   interpreter.AttributeFactory
 }
 
@@ -147,6 +148,12 @@ func newProgram(e *Env, ast *Ast, opts []ProgramOption) (Program, error) {
 	// Enable constant folding first.
 	if p.evalOpts&OptOptimize == OptOptimize {
 		decorators = append(decorators, interpreter.Optimize())
+	}
+	// Add decorators from options
+	if len(p.decorators) != 0 {
+		for _, decorator := range p.decorators {
+			decorators = append(decorators, decorator)
+		}
 	}
 	// Enable exhaustive eval over state tracking since it offers a superset of features.
 	if p.evalOpts&OptExhaustiveEval == OptExhaustiveEval {

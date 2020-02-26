@@ -250,3 +250,15 @@ func EvalOptions(opts ...EvalOption) ProgramOption {
 		return p, nil
 	}
 }
+
+// Decorators sets the decorator options which may affect the evaluation or Result.
+func Decorators(opts ...interpreter.InterpretableDecorator) ProgramOption {
+	return func(p *prog) (*prog, error) {
+		var decorators []interpreter.InterpretableDecorator
+		for _, opt := range opts {
+			decorators = append(decorators, opt)
+		}
+		p.decorators = decorators
+		return p, nil
+	}
+}
