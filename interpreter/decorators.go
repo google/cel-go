@@ -32,7 +32,7 @@ type evalObserver func(int64, ref.Val)
 func decObserveEval(observer evalObserver) InterpretableDecorator {
 	return func(i Interpretable) (Interpretable, error) {
 		switch inst := i.(type) {
-		case *evalWatch, *evalWatchAttr, *evalWatchConst:
+		case *EvalWatch, *evalWatchAttr, *evalWatchConst:
 			// these instruction are already watching, return straight-away.
 			return i, nil
 		case instAttr:
@@ -46,7 +46,7 @@ func decObserveEval(observer evalObserver) InterpretableDecorator {
 				observer:  observer,
 			}, nil
 		default:
-			return &evalWatch{
+			return &EvalWatch{
 				inst:     i,
 				observer: observer,
 			}, nil
@@ -106,8 +106,8 @@ func decOptimize() InterpretableDecorator {
 			return maybeBuildListLiteral(i, i.(*evalList))
 		case *evalMap:
 			return maybeBuildMapLiteral(i, i.(*evalMap))
-		case *evalBinary:
-			call := i.(*evalBinary)
+		case *EvalBinary:
+			call := i.(*EvalBinary)
 			if call.overload == overloads.InList {
 				return maybeOptimizeSetMembership(i, call)
 			}
@@ -118,33 +118,33 @@ func decOptimize() InterpretableDecorator {
 
 func maybeBuildListLiteral(i Interpretable, l *evalList) (Interpretable, error) {
 	for _, elem := range l.elems {
-		_, isConst := elem.(*evalConst)
+		_, isConst := elem.(*EvalConst)
 		if !isConst {
 			return i, nil
 		}
 	}
 	val := l.Eval(EmptyActivation())
-	return &evalConst{
-		id:  l.id,
-		val: val,
+	return &EvalConst{
+		Id:  l.id,
+		Val: val,
 	}, nil
 }
 
 func maybeBuildMapLiteral(i Interpretable, mp *evalMap) (Interpretable, error) {
 	for idx, key := range mp.keys {
-		_, isConst := key.(*evalConst)
+		_, isConst := key.(*EvalConst)
 		if !isConst {
 			return i, nil
 		}
-		_, isConst = mp.vals[idx].(*evalConst)
+		_, isConst = mp.vals[idx].(*EvalConst)
 		if !isConst {
 			return i, nil
 		}
 	}
 	val := mp.Eval(EmptyActivation())
-	return &evalConst{
-		id:  mp.id,
-		val: val,
+	return &EvalConst{
+		Id:  mp.id,
+		Val: val,
 	}, nil
 }
 
@@ -152,18 +152,18 @@ func maybeBuildMapLiteral(i Interpretable, mp *evalMap) (Interpretable, error) {
 // test if the following conditions are true:
 // - the list is a constant with homogeneous element types.
 // - the elements are all of primitive type.
-func maybeOptimizeSetMembership(i Interpretable, inlist *evalBinary) (Interpretable, error) {
-	l, isConst := inlist.rhs.(*evalConst)
+func maybeOptimizeSetMembership(i Interpretable, inlist *EvalBinary) (Interpretable, error) {
+	l, isConst := inlist.rhs.(*EvalConst)
 	if !isConst {
 		return i, nil
 	}
 	// When the incoming binary call is flagged with as the InList overload, the value will
 	// always be convertible to a `traits.Lister` type.
-	list := l.val.(traits.Lister)
+	list := l.Val.(traits.Lister)
 	if list.Size() == types.IntZero {
-		return &evalConst{
-			id:  inlist.id,
-			val: types.False,
+		return &EvalConst{
+			Id:  inlist.id,
+			Val: types.False,
 		}, nil
 	}
 	it := list.Iterator()

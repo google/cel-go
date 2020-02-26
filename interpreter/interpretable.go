@@ -81,23 +81,23 @@ func (test *evalTestOnly) Eval(ctx Activation) ref.Val {
 
 }
 
-type evalConst struct {
-	id  int64
-	val ref.Val
+type EvalConst struct {
+	Id  int64
+	Val ref.Val
 }
 
 // ID implements the Interpretable interface method.
-func (cons *evalConst) ID() int64 {
-	return cons.id
+func (cons *EvalConst) ID() int64 {
+	return cons.Id
 }
 
 // Eval implements the Interpretable interface method.
-func (cons *evalConst) Eval(ctx Activation) ref.Val {
-	return cons.val
+func (cons *EvalConst) Eval(ctx Activation) ref.Val {
+	return cons.Val
 }
 
-func (cons *evalConst) Value() ref.Val {
-	return cons.val
+func (cons *EvalConst) Value() ref.Val {
+	return cons.Val
 }
 
 type evalOr struct {
@@ -278,7 +278,7 @@ func (un *evalUnary) Eval(ctx Activation) ref.Val {
 	return types.NewErr("no such overload: %s", un.function)
 }
 
-type evalBinary struct {
+type EvalBinary struct {
 	id       int64
 	function string
 	overload string
@@ -289,12 +289,12 @@ type evalBinary struct {
 }
 
 // ID implements the Interpretable interface method.
-func (bin *evalBinary) ID() int64 {
+func (bin *EvalBinary) ID() int64 {
 	return bin.id
 }
 
 // Eval implements the Interpretable interface method.
-func (bin *evalBinary) Eval(ctx Activation) ref.Val {
+func (bin *EvalBinary) Eval(ctx Activation) ref.Val {
 	lVal := bin.lhs.Eval(ctx)
 	rVal := bin.rhs.Eval(ctx)
 	// Early return if any argument to the function is unknown or error.
@@ -315,6 +315,21 @@ func (bin *evalBinary) Eval(ctx Activation) ref.Val {
 		return lVal.(traits.Receiver).Receive(bin.function, bin.overload, []ref.Val{rVal})
 	}
 	return types.NewErr("no such overload: %s", bin.function)
+}
+
+// Function returns the Binary Interpretable function.
+func (bin *EvalBinary) Function() string {
+	return bin.function
+}
+
+// Lhs returns the Binary Interpretable lhs.
+func (bin *EvalBinary) Lhs() Interpretable {
+	return bin.lhs
+}
+
+// Rhs returns the Binary Interpretable rhs.
+func (bin *EvalBinary) Rhs() Interpretable {
+	return bin.rhs
 }
 
 type evalVarArgs struct {
@@ -518,23 +533,28 @@ func (e *evalSetMembership) Eval(ctx Activation) ref.Val {
 	return types.False
 }
 
-// evalWatch is an Interpretable implementation that wraps the execution of a given
+// EvalWatch is an Interpretable implementation that wraps the execution of a given
 // expression so that it may observe the computed value and send it to an observer.
-type evalWatch struct {
+type EvalWatch struct {
 	inst     Interpretable
 	observer evalObserver
 }
 
 // ID implements the Interpretable interface method.
-func (e *evalWatch) ID() int64 {
+func (e *EvalWatch) ID() int64 {
 	return e.inst.ID()
 }
 
 // Eval implements the Interpretable interface method.
-func (e *evalWatch) Eval(ctx Activation) ref.Val {
+func (e *EvalWatch) Eval(ctx Activation) ref.Val {
 	val := e.inst.Eval(ctx)
 	e.observer(e.inst.ID(), val)
 	return val
+}
+
+// Inst implements the EvalWatch Interpretable.
+func (e *EvalWatch) Inst() Interpretable {
+	return e.inst
 }
 
 // evalWatchAttr describes a watcher of an instAttr Interpretable.

@@ -490,32 +490,32 @@ var (
 		},
 		{
 			name: "select_key",
-			expr: `m.strMap['val'] == 'string'
-				&& m.floatMap['val'] == 1.5
-				&& m.doubleMap['val'] == -2.0
-				&& m.intMap['val'] == -3
-				&& m.int32Map['val'] == 4
-				&& m.int64Map['val'] == -5
-				&& m.uintMap['val'] == 6u
-				&& m.uint32Map['val'] == 7u
-				&& m.uint64Map['val'] == 8u
-				&& m.boolMap['val'] == true
-				&& m.boolMap['val'] != false`,
+			expr: `m.strMap['Val'] == 'string'
+				&& m.floatMap['Val'] == 1.5
+				&& m.doubleMap['Val'] == -2.0
+				&& m.intMap['Val'] == -3
+				&& m.int32Map['Val'] == 4
+				&& m.int64Map['Val'] == -5
+				&& m.uintMap['Val'] == 6u
+				&& m.uint32Map['Val'] == 7u
+				&& m.uint64Map['Val'] == 8u
+				&& m.boolMap['Val'] == true
+				&& m.boolMap['Val'] != false`,
 			env: []*exprpb.Decl{
 				decls.NewIdent("m", decls.NewMapType(decls.String, decls.Dyn), nil),
 			},
 			in: map[string]interface{}{
 				"m": map[string]interface{}{
-					"strMap":    map[string]string{"val": "string"},
-					"floatMap":  map[string]float32{"val": 1.5},
-					"doubleMap": map[string]float64{"val": -2.0},
-					"intMap":    map[string]int{"val": -3},
-					"int32Map":  map[string]int32{"val": 4},
-					"int64Map":  map[string]int64{"val": -5},
-					"uintMap":   map[string]uint{"val": 6},
-					"uint32Map": map[string]uint32{"val": 7},
-					"uint64Map": map[string]uint64{"val": 8},
-					"boolMap":   map[string]bool{"val": true},
+					"strMap":    map[string]string{"Val": "string"},
+					"floatMap":  map[string]float32{"Val": 1.5},
+					"doubleMap": map[string]float64{"Val": -2.0},
+					"intMap":    map[string]int{"Val": -3},
+					"int32Map":  map[string]int32{"Val": 4},
+					"int64Map":  map[string]int64{"Val": -5},
+					"uintMap":   map[string]uint{"Val": 6},
+					"uint32Map": map[string]uint32{"Val": 7},
+					"uint64Map": map[string]uint64{"Val": 8},
+					"boolMap":   map[string]bool{"Val": true},
 				},
 			},
 		},

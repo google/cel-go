@@ -160,9 +160,9 @@ func (p *planner) planCheckedIdent(id int64, identRef *exprpb.Reference) (Interp
 		if !found {
 			return nil, fmt.Errorf("reference to undefined type: %s", identRef.Name)
 		}
-		return &evalConst{
-			id:  id,
-			val: cVal,
+		return &EvalConst{
+			Id:  id,
+			Val: cVal,
 		}, nil
 	}
 
@@ -369,7 +369,7 @@ func (p *planner) planCallBinary(expr *exprpb.Expr,
 		fn = impl.Binary
 		trait = impl.OperandTrait
 	}
-	return &evalBinary{
+	return &EvalBinary{
 		id:       expr.Id,
 		function: function,
 		overload: overload,
@@ -628,9 +628,9 @@ func (p *planner) planConst(expr *exprpb.Expr) (Interpretable, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &evalConst{
-		id:  expr.Id,
-		val: val,
+	return &EvalConst{
+		Id:  expr.Id,
+		Val: val,
 	}, nil
 }
 

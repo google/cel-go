@@ -89,9 +89,9 @@ func TestAttributes_RelativeAttr(t *testing.T) {
 	// }
 	//
 	// The expression being evaluated is: <map-literal>.a[-1][b] -> 42
-	op := &evalConst{
-		id:  1,
-		val: reg.NativeToValue(data),
+	op := &EvalConst{
+		Id:  1,
+		Val: reg.NativeToValue(data),
 	}
 	attr := attrs.RelativeAttribute(1, op)
 	qualA, _ := attrs.NewQualifier(nil, 2, "a")
@@ -134,9 +134,9 @@ func TestAttributes_RelativeAttr_OneOf(t *testing.T) {
 	// - <map-literal>.a[-1][acme.b]
 	//
 	// The correct behavior should yield the value of the last alternative.
-	op := &evalConst{
-		id:  1,
-		val: reg.NativeToValue(data),
+	op := &EvalConst{
+		Id:  1,
+		Val: reg.NativeToValue(data),
 	}
 	attr := attrs.RelativeAttribute(1, op)
 	qualA, _ := attrs.NewQualifier(nil, 2, "a")
@@ -176,9 +176,9 @@ func TestAttributes_RelativeAttr_Conditional(t *testing.T) {
 	// <map-literal>.a[-1][(false ? b : c)[0]] -> 42
 	//
 	// Effectively the same as saying <map-literal>.a[-1][c[0]]
-	cond := &evalConst{
-		id:  2,
-		val: types.False,
+	cond := &EvalConst{
+		Id:  2,
+		Val: types.False,
 	}
 	condAttr := attrs.ConditionalAttribute(4, cond,
 		attrs.AbsoluteAttribute(5, "b"),
@@ -186,9 +186,9 @@ func TestAttributes_RelativeAttr_Conditional(t *testing.T) {
 	qual0, _ := attrs.NewQualifier(nil, 7, 0)
 	condAttr.AddQualifier(qual0)
 
-	obj := &evalConst{
-		id:  1,
-		val: reg.NativeToValue(data),
+	obj := &EvalConst{
+		Id:  1,
+		Val: reg.NativeToValue(data),
 	}
 	attr := attrs.RelativeAttribute(1, obj)
 	qualA, _ := attrs.NewQualifier(nil, 2, "a")
@@ -247,13 +247,13 @@ func TestAttributes_RelativeAttr_Relative(t *testing.T) {
 	//
 	// This is equivalent to:
 	//   <obj>.a[-1]["second"] -> 2u
-	obj := &evalConst{
-		id:  1,
-		val: reg.NativeToValue(data),
+	obj := &EvalConst{
+		Id:  1,
+		Val: reg.NativeToValue(data),
 	}
-	mp := &evalConst{
-		id: 1,
-		val: reg.NativeToValue(map[uint32]interface{}{
+	mp := &EvalConst{
+		Id: 1,
+		Val: reg.NativeToValue(map[uint32]interface{}{
 			1: "first",
 			2: "second",
 			3: "third",
@@ -324,7 +324,7 @@ func TestAttributes_ConditionalAttr_TrueBranch(t *testing.T) {
 	fv := attrs.MaybeAttribute(3, "b")
 	qualC, _ := attrs.NewQualifier(nil, 4, "c")
 	fv.AddQualifier(qualC)
-	cond := attrs.ConditionalAttribute(1, &evalConst{val: types.True}, tv, fv)
+	cond := attrs.ConditionalAttribute(1, &EvalConst{Val: types.True}, tv, fv)
 	qualNeg1, _ := attrs.NewQualifier(nil, 5, int64(-1))
 	qual1, _ := attrs.NewQualifier(nil, 6, int64(1))
 	cond.AddQualifier(qualNeg1)
@@ -358,7 +358,7 @@ func TestAttributes_ConditionalAttr_FalseBranch(t *testing.T) {
 	fv := attrs.MaybeAttribute(3, "b")
 	qualC, _ := attrs.NewQualifier(nil, 4, "c")
 	fv.AddQualifier(qualC)
-	cond := attrs.ConditionalAttribute(1, &evalConst{val: types.False}, tv, fv)
+	cond := attrs.ConditionalAttribute(1, &EvalConst{Val: types.False}, tv, fv)
 	qualNeg1, _ := attrs.NewQualifier(nil, 5, int64(-1))
 	qual1, _ := attrs.NewQualifier(nil, 6, int64(1))
 	cond.AddQualifier(qualNeg1)
@@ -379,14 +379,14 @@ func TestAttributes_ConditionalAttr_ErrorUnknown(t *testing.T) {
 	// err ? a : b
 	tv := attrs.AbsoluteAttribute(2, "a")
 	fv := attrs.MaybeAttribute(3, "b")
-	cond := attrs.ConditionalAttribute(1, &evalConst{val: types.NewErr("test error")}, tv, fv)
+	cond := attrs.ConditionalAttribute(1, &EvalConst{Val: types.NewErr("test error")}, tv, fv)
 	out, err := cond.Resolve(EmptyActivation())
 	if err == nil {
 		t.Errorf("Got %v, wanted error", out)
 	}
 
 	// unk ? a : b
-	condUnk := attrs.ConditionalAttribute(1, &evalConst{val: types.Unknown{1}}, tv, fv)
+	condUnk := attrs.ConditionalAttribute(1, &EvalConst{Val: types.Unknown{1}}, tv, fv)
 	out, err = condUnk.Resolve(EmptyActivation())
 	if err != nil {
 		t.Fatal(err)
