@@ -447,7 +447,7 @@ func TestAttributes_MissingMsg(t *testing.T) {
 	}
 }
 
-func TestAttributes_MissingMsg__UnknownField(t *testing.T) {
+func TestAttributes_MissingMsg_UnknownField(t *testing.T) {
 	reg := types.NewRegistry()
 	attrs := NewPartialAttributeFactory(packages.DefaultPackage, reg, reg)
 	any, _ := ptypes.MarshalAny(&proto3pb.TestAllTypes{})
