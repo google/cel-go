@@ -17,6 +17,8 @@ package interpreter
 import (
 	"testing"
 
+	"github.com/golang/protobuf/ptypes"
+
 	"github.com/google/cel-go/common/packages"
 	"github.com/google/cel-go/common/types"
 
@@ -421,6 +423,49 @@ func TestResolver_CustomQualifier(t *testing.T) {
 	}
 	if out != int32(123) {
 		t.Errorf("Got %v, wanted 123", out)
+	}
+}
+
+func TestAttributes_MissingMsg(t *testing.T) {
+	reg := types.NewRegistry()
+	attrs := NewAttributeFactory(packages.DefaultPackage, reg, reg)
+	any, _ := ptypes.MarshalAny(&proto3pb.TestAllTypes{})
+	vars, _ := NewActivation(map[string]interface{}{
+		"missing_msg": any,
+	})
+
+	// missing_msg.field
+	attr := attrs.AbsoluteAttribute(1, "missing_msg")
+	field, _ := attrs.NewQualifier(nil, 2, "field")
+	attr.AddQualifier(field)
+	out, err := attr.Resolve(vars)
+	if err == nil {
+		t.Fatalf("got %v, wanted error", out)
+	}
+	if err.Error() != "unknown type: 'google.expr.proto3.test.TestAllTypes'" {
+		t.Fatalf("got %v, wanted unknown type: 'google.expr.proto3.test.TestAllTypes'", err)
+	}
+}
+
+func TestAttributes_MissingMsg_UnknownField(t *testing.T) {
+	reg := types.NewRegistry()
+	attrs := NewPartialAttributeFactory(packages.DefaultPackage, reg, reg)
+	any, _ := ptypes.MarshalAny(&proto3pb.TestAllTypes{})
+	vars, _ := NewPartialActivation(map[string]interface{}{
+		"missing_msg": any,
+	}, NewAttributePattern("missing_msg").QualString("field"))
+
+	// missing_msg.field
+	attr := attrs.AbsoluteAttribute(1, "missing_msg")
+	field, _ := attrs.NewQualifier(nil, 2, "field")
+	attr.AddQualifier(field)
+	out, err := attr.Resolve(vars)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, isUnk := out.(types.Unknown)
+	if !isUnk {
+		t.Errorf("got %v, wanted unknown value", out)
 	}
 }
 
