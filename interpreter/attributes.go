@@ -863,6 +863,9 @@ func refResolve(adapter ref.TypeAdapter, idx ref.Val, obj interface{}) (ref.Val,
 	if types.IsUnknown(celVal) {
 		return celVal, nil
 	}
+	// TODO: If the types.Err value contains more than just an error message at some point in the
+	// future, then it would be reasonable to return error values as ref.Val types rather than
+	// simple go error types.
 	if types.IsError(celVal) {
 		return nil, celVal.Value().(error)
 	}
