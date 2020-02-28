@@ -860,5 +860,11 @@ func refResolve(adapter ref.TypeAdapter, idx ref.Val, obj interface{}) (ref.Val,
 		}
 		return elem, nil
 	}
+	if types.IsUnknown(celVal) {
+		return celVal, nil
+	}
+	if types.IsError(celVal) {
+		return nil, celVal.Value().(error)
+	}
 	return nil, errors.New("no such overload")
 }
