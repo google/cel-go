@@ -169,7 +169,7 @@ func isEqualOrLessSpecific(t1 *exprpb.Type, t2 *exprpb.Type) bool {
 		m1 := t1.GetMapType()
 		m2 := t2.GetMapType()
 		return isEqualOrLessSpecific(m1.KeyType, m2.KeyType) &&
-			isEqualOrLessSpecific(m1.KeyType, m2.KeyType)
+			isEqualOrLessSpecific(m1.ValueType, m2.ValueType)
 	case kindType:
 		return true
 	default:
