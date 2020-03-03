@@ -152,11 +152,11 @@ func (stringLib) ProgramOptions() []cel.ProgramOption {
 			},
 			&functions.Overload{
 				Operator: "lower",
-				Unary:    callInStrOutStr(lower),
+				Unary:    callInStrOutStr(strings.ToLower),
 			},
 			&functions.Overload{
 				Operator: "string_lower",
-				Unary:    callInStrOutStr(lower),
+				Unary:    callInStrOutStr(strings.ToLower),
 			},
 			&functions.Overload{
 				Operator: "replace",
@@ -206,19 +206,19 @@ func (stringLib) ProgramOptions() []cel.ProgramOption {
 			},
 			&functions.Overload{
 				Operator: "trim",
-				Unary:    callInStrOutStr(trim),
+				Unary:    callInStrOutStr(strings.TrimSpace),
 			},
 			&functions.Overload{
 				Operator: "string_trim",
-				Unary:    callInStrOutStr(trim),
+				Unary:    callInStrOutStr(strings.TrimSpace),
 			},
 			&functions.Overload{
 				Operator: "upper",
-				Unary:    callInStrOutStr(upper),
+				Unary:    callInStrOutStr(strings.ToUpper),
 			},
 			&functions.Overload{
 				Operator: "string_upper",
-				Unary:    callInStrOutStr(upper),
+				Unary:    callInStrOutStr(strings.ToUpper),
 			},
 		),
 	}
@@ -234,7 +234,7 @@ func after(str, sub string) (string, error) {
 
 func afterOffset(str, sub string, ind int64) (string, error) {
 	i := int(ind)
-	if i >= len(str) {
+	if i < 0 || i >= len(str) {
 		return "", fmt.Errorf("index out of range: %d", ind)
 	}
 	return after(str[i:], sub)
@@ -250,7 +250,7 @@ func before(str, sub string) (string, error) {
 
 func beforeOffset(str, sub string, ind int64) (string, error) {
 	i := int(ind)
-	if i >= len(str) {
+	if i < 0 || i >= len(str) {
 		return "", fmt.Errorf("index out of range: %d", ind)
 	}
 	out, err := before(str[i:], sub)
@@ -262,7 +262,7 @@ func beforeOffset(str, sub string, ind int64) (string, error) {
 
 func charAt(str string, ind int64) (string, error) {
 	i := int(ind)
-	if i >= len(str) {
+	if i < 0 || i >= len(str) {
 		return "", fmt.Errorf("index out of range: %d", ind)
 	}
 	return str[i : i+1], nil
@@ -274,14 +274,10 @@ func indexOf(str, substr string) (int64, error) {
 
 func indexOfOffset(str, substr string, offset int64) (int64, error) {
 	off := int(offset)
-	if off >= len(str) {
+	if off < 0 || off >= len(str) {
 		return -1, fmt.Errorf("index out of range: %d", off)
 	}
 	return offset + int64(strings.Index(str[offset:], substr)), nil
-}
-
-func lower(str string) (string, error) {
-	return strings.ToLower(str), nil
 }
 
 func replace(str, old, new string) (string, error) {
@@ -301,7 +297,7 @@ func splitN(str, sep string, n int64) ([]string, error) {
 }
 
 func substr(str string, start int64) (string, error) {
-	if int(start) >= len(str) {
+	if int(start) < 0 || int(start) >= len(str) {
 		return "", fmt.Errorf("index out of range: %d", start)
 	}
 	return str[int(start):], nil
@@ -312,34 +308,22 @@ func substrRange(str string, start, end int64) (string, error) {
 	if start > end {
 		return "", fmt.Errorf("invalid substring range. start: %d, end: %d", start, end)
 	}
-	if int(start) >= l {
+	if int(start) < 0 || int(start) >= l {
 		return "", fmt.Errorf("index out of range: %d", start)
 	}
-	if int(end) >= l {
+	if int(end) < 0 || int(end) >= l {
 		return "", fmt.Errorf("index out of range: %d", end)
 	}
 	return str[int(start):int(end)], nil
 }
 
-func trim(str string) (string, error) {
-	return strings.TrimSpace(str), nil
-}
-
-func upper(str string) (string, error) {
-	return strings.ToUpper(str), nil
-}
-
-func callInStrOutStr(fn func(string) (string, error)) functions.UnaryOp {
+func callInStrOutStr(fn func(string) string) functions.UnaryOp {
 	return func(val ref.Val) ref.Val {
 		vVal, ok := val.(types.String)
 		if !ok {
 			return types.ValOrErr(val, "no such overload")
 		}
-		out, err := fn(string(vVal))
-		if err != nil {
-			return types.NewErr(err.Error())
-		}
-		return types.String(out)
+		return types.String(fn(string(vVal)))
 	}
 }
 
