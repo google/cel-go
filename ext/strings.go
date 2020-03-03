@@ -27,6 +27,12 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
+// Strings returns a cel.EnvOption to configure extended string functions.
+//
+//
+//
+//
+//
 func Strings() cel.EnvOption {
 	return cel.Lib(stringLib{})
 }

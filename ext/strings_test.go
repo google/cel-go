@@ -49,7 +49,7 @@ var stringTests = []struct {
 	{expr: `"tacocat".substring(0, 4) == "taco"`},
 	{expr: `"tacocat".substring(4, 4) == ""`},
 	{expr: `"   trim   ".trim() == "trim"`},
-	// Error test cases.
+	// Error test cases based on checked expression usage.
 	{
 		expr: `'hello'.after('l', 30) == 'o'`,
 		err:  "index out of range: 30",
@@ -86,8 +86,34 @@ var stringTests = []struct {
 		expr: `"tacocat".substring(4, 3) == ""`,
 		err:  "invalid substring range. start: 4, end: 3",
 	},
+	// Valid parse-only expressions which should generate runtime errors.
 	{
-		expr:      `42.lower() == ""`,
+		expr:      `42.after("4") == "2"`,
+		err:       "no such overload",
+		parseOnly: true,
+	},
+	{
+		expr:      `"42".after(4) == "2"`,
+		err:       "no such overload",
+		parseOnly: true,
+	},
+	{
+		expr:      `42.after("4", 1) == ""`,
+		err:       "no such overload",
+		parseOnly: true,
+	},
+	{
+		expr:      `"42".after(4, 1) == ""`,
+		err:       "no such overload",
+		parseOnly: true,
+	},
+	{
+		expr:      `"42".after("4", "1") == ""`,
+		err:       "no such overload",
+		parseOnly: true,
+	},
+	{
+		expr:      `"42".after("4", 1, 1) == ""`,
 		err:       "no such overload",
 		parseOnly: true,
 	},
@@ -98,6 +124,116 @@ var stringTests = []struct {
 	},
 	{
 		expr:      `'hello'.charAt(true) == ""`,
+		err:       "no such overload",
+		parseOnly: true,
+	},
+	{
+		expr:      `24.indexOf('2') == 0`,
+		err:       "no such overload",
+		parseOnly: true,
+	},
+	{
+		expr:      `'hello'.indexOf(true) == 1`,
+		err:       "no such overload",
+		parseOnly: true,
+	},
+	{
+		expr:      `42.indexOf('4', 0) == 0`,
+		err:       "no such overload",
+		parseOnly: true,
+	},
+	{
+		expr:      `'42'.indexOf(4, 0) == 0`,
+		err:       "no such overload",
+		parseOnly: true,
+	},
+	{
+		expr:      `'42'.indexOf('4', '0') == 0`,
+		err:       "no such overload",
+		parseOnly: true,
+	},
+	{
+		expr:      `'42'.indexOf('4', 0, 1) == 0`,
+		err:       "no such overload",
+		parseOnly: true,
+	},
+	{
+		expr:      `42.lower() == ""`,
+		err:       "no such overload",
+		parseOnly: true,
+	},
+	{
+		expr:      `42.split("2") == ["4"]`,
+		err:       "no such overload",
+		parseOnly: true,
+	},
+	{
+		expr:      `42.replace(2, 1) == "41"`,
+		err:       "no such overload",
+		parseOnly: true,
+	},
+	{
+		expr:      `"42".replace(2, 1) == "41"`,
+		err:       "no such overload",
+		parseOnly: true,
+	},
+	{
+		expr:      `"42".replace("2", 1) == "41"`,
+		err:       "no such overload",
+		parseOnly: true,
+	},
+	{
+		expr:      `42.replace("2", "1", 1) == "41"`,
+		err:       "no such overload",
+		parseOnly: true,
+	},
+	{
+		expr:      `"42".replace(2, "1", 1) == "41"`,
+		err:       "no such overload",
+		parseOnly: true,
+	},
+	{
+		expr:      `"42".replace("2", 1, 1) == "41"`,
+		err:       "no such overload",
+		parseOnly: true,
+	},
+	{
+		expr:      `"42".replace("2", "1", "1") == "41"`,
+		err:       "no such overload",
+		parseOnly: true,
+	},
+	{
+		expr:      `"42".replace("2", "1", 1, false) == "41"`,
+		err:       "no such overload",
+		parseOnly: true,
+	},
+	{
+		expr:      `42.split("") == ["4", "2"]`,
+		err:       "no such overload",
+		parseOnly: true,
+	},
+	{
+		expr:      `"42".split(2) == ["4"]`,
+		err:       "no such overload",
+		parseOnly: true,
+	},
+	{
+		expr:      `42.split("2", "1") == ["4"]`,
+		err:       "no such overload",
+		parseOnly: true,
+	},
+	{
+		expr:      `"42".split(2, 1) == ["4"]`,
+		err:       "no such overload",
+		parseOnly: true,
+	},
+	{
+		expr:      `"42".split("2", "1") == ["4"]`,
+		err:       "no such overload",
+		parseOnly: true,
+	},
+	{
+		expr:      `"42".split("2", 1, 1) == ["4"]`,
 		err:       "no such overload",
 		parseOnly: true,
 	},
