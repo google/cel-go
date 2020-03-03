@@ -28,10 +28,8 @@ var stringTests = []struct {
 }{
 	// Success test cases.
 	{expr: `'hello'.after('l') == 'lo'`},
-	{expr: `'hello'.after('l', 3) == 'o'`},
 	{expr: `'hello'.after('none') == ''`},
 	{expr: `'tacocat'.before('c') == 'ta'`},
-	{expr: `'tacocat'.before('c', 3) == 'taco'`},
 	{expr: `'tacocat'.before('none') == 'tacocat'`},
 	{expr: `'tacocat'.charAt(3) == 'o'`},
 	{expr: `'tacocat'.indexOf('a') == 1`},
@@ -43,6 +41,7 @@ var stringTests = []struct {
 	{expr: `"{0} days {0} hours".replace("{0}", "2") == "2 days 2 hours"`},
 	{expr: `"{0} days {0} hours".replace("{0}", "2", 1).replace("{0}", "23") == "2 days 23 hours"`},
 	{expr: `"hello world".split(" ") == ["hello", "world"]`},
+	{expr: `"hello world events!".split(" ", 0) == []`},
 	{expr: `"hello world events!".split(" ", 1) == ["hello world events!"]`},
 	{expr: `"hello world events!".split(" ", 2) == ["hello", "world events!"]`},
 	{expr: `"tacocat".substring(4) == "cat"`},
@@ -50,14 +49,6 @@ var stringTests = []struct {
 	{expr: `"tacocat".substring(4, 4) == ""`},
 	{expr: `"   trim   ".trim() == "trim"`},
 	// Error test cases based on checked expression usage.
-	{
-		expr: `'hello'.after('l', 30) == 'o'`,
-		err:  "index out of range: 30",
-	},
-	{
-		expr: `'tacocat'.before('c', 30) == 'taco'`,
-		err:  "index out of range: 30",
-	},
 	{
 		expr: `'tacocat'.charAt(30) == ''`,
 		err:  "index out of range: 30",
@@ -94,26 +85,6 @@ var stringTests = []struct {
 	},
 	{
 		expr:      `"42".after(4) == "2"`,
-		err:       "no such overload",
-		parseOnly: true,
-	},
-	{
-		expr:      `42.after("4", 1) == ""`,
-		err:       "no such overload",
-		parseOnly: true,
-	},
-	{
-		expr:      `"42".after(4, 1) == ""`,
-		err:       "no such overload",
-		parseOnly: true,
-	},
-	{
-		expr:      `"42".after("4", "1") == ""`,
-		err:       "no such overload",
-		parseOnly: true,
-	},
-	{
-		expr:      `"42".after("4", 1, 1) == ""`,
 		err:       "no such overload",
 		parseOnly: true,
 	},

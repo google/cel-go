@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package ext contains CEL extension libraries where each library defines a related set of
+// constants, functions, macros, or other configuration settings which may not be covered by
+// the core CEL spec.
 package ext
 
 import (
@@ -27,12 +30,138 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
-// Strings returns a cel.EnvOption to configure extended string functions.
+// Strings returns a cel.EnvOption to configure extended functions for string manipulation.
 //
+// After
 //
+// Given the target string and a search string, return the substring that occurs after the search
+// string, or empty string if no match is found:
 //
+//		<string>.after(<string>) -> <string>
 //
+// Examples:
 //
+//      'dragon'.after('taco')  // returns ''
+//      'tacocat'.after('taco') // returns 'cat'
+//
+// Before
+//
+// Given the target string and a search string, return the substring that occurs before the search
+// string, or the target string if no match is found:
+//
+//		<string>.before(<string>) -> <string>
+//
+// Examples:
+//
+// 		'dragon'.before('taco') // returns 'dragon'
+//		'tacocat'.before('cat') // returns 'taco'
+//
+// CharAt
+//
+// Returns the character at the given position. If the position is less than 0 or greater than the
+// length of the string, the function will produce an error. CharAt is an instance method with the
+// following signature:
+//
+//		<string>.charAt(<int>) -> <string>
+//
+// Examples:
+//
+//		'hello'.charAt(4)  // return 'o'
+//      'hello'.charAt(-1) // error
+//      'hello'.charAt(5)  // error
+//
+// IndexOf
+//
+// Returns the integer index of the search string if found, or -1 if not found. Accepts an optional
+// index from which to start the search:
+//
+//		<string>.indexOf(<string>) -> <int>
+//		<string>.indexOf(<string>, <int>) -> <int>
+//
+// Examples:
+//
+//		'hello mellow'.indexOf('ello')     // returns 1
+//		'hello mellow'.indexOf('jello')    // returns -1
+//		'hello mellow'.indexOf('ello', 2)  // returns 7
+//		'hello mellow'.indexOf('ello', 20) // error
+//
+// Lower
+//
+// Return a new lowercase version of the target string:
+//
+//		<string>.lower() -> <string>
+//
+// Examples:
+//
+//		'User-Agent'.lower() // returns 'user-agent'
+//
+// Replace
+//
+// Produces a new string based on the target, which replaces the occurrences of a search string
+// with a replacement string if present. Accepts an optional argument specifying a limit on the
+// number of substring replacements to be made:
+//
+//		<string>.replace(<string>, <string>) -> <string>
+//		<string>.replace(<string>, <string>, <int>) -> <string>
+//
+// Examples:
+//
+//		'hello hello'.replace('he', 'we')    // returns 'wello wello'
+//		'hello hello'.replace('he', 'we', 1) // returns 'wello hello'
+//		'hello hello'.replace('he', 'we', 0) // returns 'hello wello'
+//		'hello hello'.replace('he', 'we', -1) // returns 'wello wello'
+//
+// Split
+//
+// Produces a list of strings which were split from the input by the given seperator. Accepts an
+// optional argument specifying a limit on the number of substrings produced by the split:
+//
+// 		<string>.split(<string>) -> <list<string>>
+// 		<string>.split(<string>, <int>) -> <list<string>>
+//
+// Examples:
+//
+//		'hello hello hello'.split(' ')     // returns ['hello', 'hello', 'hello']
+//		'hello hello hello'.split(' ', 0)  // returns []
+//		'hello hello hello'.split(' ', 1)  // returns ['hello hello hello']
+//		'hello hello hello'.split(' ', 2)  // returns ['hello', 'hello hello']
+//		'hello hello hello'.split(' ', -1) // returns ['hello', 'hello', 'hello']
+//
+// Substring
+//
+// Returns the substring given a numeric range corresponding to character positions. Optionally
+// may omit the trailing range for a substring from a given character position until the end of
+// a string:
+//
+// 		<string>.substring(<int>) -> <string>
+//		<string>.substring(<int>, <int>) -> <string>
+//
+// Examples:
+//
+// 		'tacocat'.substring(4)    // returns 'cat'
+//		'tacocat'.substring(0, 4) // returns 'taco'
+//		'tacocat'.substring(-1)   // error
+//		'tacocat'.substring(2, 1) // error
+//
+// Trim
+//
+// Returns a new string which trims the whitespace before and after the target string:
+//
+//      <string>.trim() -> <string>
+//
+// Examples:
+//
+//		'    trim    '.trim() // returns 'trim'
+//
+// Upper
+//
+// Returns a new uppercase version of the target string:
+//
+//		<string>.upper() -> <string>
+//
+// Examples:
+//
+//		'Constant'.upper() // returns 'CONSTANT'
 func Strings() cel.EnvOption {
 	return cel.Lib(stringLib{})
 }
@@ -45,16 +174,10 @@ func (stringLib) CompileOptions() []cel.EnvOption {
 			decls.NewFunction("after",
 				decls.NewInstanceOverload("string_after_string",
 					[]*exprpb.Type{decls.String, decls.String},
-					decls.String),
-				decls.NewInstanceOverload("string_after_string_int",
-					[]*exprpb.Type{decls.String, decls.String, decls.Int},
 					decls.String)),
 			decls.NewFunction("before",
 				decls.NewInstanceOverload("string_before_string",
 					[]*exprpb.Type{decls.String, decls.String},
-					decls.String),
-				decls.NewInstanceOverload("string_before_string_int",
-					[]*exprpb.Type{decls.String, decls.String, decls.Int},
 					decls.String)),
 			decls.NewFunction("charAt",
 				decls.NewInstanceOverload("string_char_at_int",
@@ -112,28 +235,18 @@ func (stringLib) ProgramOptions() []cel.ProgramOption {
 			&functions.Overload{
 				Operator: "after",
 				Binary:   callInStrStrOutStr(after),
-				Function: callInStrStrIntOutStr(afterOffset),
 			},
 			&functions.Overload{
 				Operator: "string_after_stirng",
 				Binary:   callInStrStrOutStr(after),
 			},
 			&functions.Overload{
-				Operator: "string_after_string_int",
-				Function: callInStrStrIntOutStr(afterOffset),
-			},
-			&functions.Overload{
 				Operator: "before",
 				Binary:   callInStrStrOutStr(before),
-				Function: callInStrStrIntOutStr(beforeOffset),
 			},
 			&functions.Overload{
 				Operator: "string_before_string",
 				Binary:   callInStrStrOutStr(before),
-			},
-			&functions.Overload{
-				Operator: "string_before_string_int",
-				Function: callInStrStrIntOutStr(beforeOffset),
 			},
 			&functions.Overload{
 				Operator: "charAt",
@@ -238,32 +351,12 @@ func after(str, sub string) (string, error) {
 	return str[ind+len(sub):], nil
 }
 
-func afterOffset(str, sub string, ind int64) (string, error) {
-	i := int(ind)
-	if i < 0 || i >= len(str) {
-		return "", fmt.Errorf("index out of range: %d", ind)
-	}
-	return after(str[i:], sub)
-}
-
 func before(str, sub string) (string, error) {
 	ind := strings.Index(str, sub)
 	if ind < 0 {
 		return str, nil
 	}
 	return str[:ind], nil
-}
-
-func beforeOffset(str, sub string, ind int64) (string, error) {
-	i := int(ind)
-	if i < 0 || i >= len(str) {
-		return "", fmt.Errorf("index out of range: %d", ind)
-	}
-	out, err := before(str[i:], sub)
-	if err != nil {
-		return "", err
-	}
-	return str[:i] + out, nil
 }
 
 func charAt(str string, ind int64) (string, error) {
@@ -423,31 +516,6 @@ func callInStrIntIntOutStr(fn func(string, int64, int64) (string, error)) functi
 			return types.ValOrErr(args[2], "no such overload")
 		}
 		out, err := fn(string(vVal), int64(arg1Val), int64(arg2Val))
-		if err != nil {
-			return types.NewErr(err.Error())
-		}
-		return types.String(out)
-	}
-}
-
-func callInStrStrIntOutStr(fn func(string, string, int64) (string, error)) functions.FunctionOp {
-	return func(args ...ref.Val) ref.Val {
-		if len(args) != 3 {
-			return types.NewErr("no such overload")
-		}
-		vVal, ok := args[0].(types.String)
-		if !ok {
-			return types.ValOrErr(args[0], "no such overload")
-		}
-		arg1Val, ok := args[1].(types.String)
-		if !ok {
-			return types.ValOrErr(args[1], "no such overload")
-		}
-		arg2Val, ok := args[2].(types.Int)
-		if !ok {
-			return types.ValOrErr(args[2], "no such overload")
-		}
-		out, err := fn(string(vVal), string(arg1Val), int64(arg2Val))
 		if err != nil {
 			return types.NewErr(err.Error())
 		}
