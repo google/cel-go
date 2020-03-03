@@ -37,24 +37,24 @@ import (
 // Given the target string and a search string, return the substring that occurs after the search
 // string, or empty string if no match is found:
 //
-//		<string>.after(<string>) -> <string>
+//     <string>.after(<string>) -> <string>
 //
 // Examples:
 //
-//      'dragon'.after('taco')  // returns ''
-//      'tacocat'.after('taco') // returns 'cat'
+//     'dragon'.after('taco')  // returns ''
+//     'tacocat'.after('taco') // returns 'cat'
 //
 // Before
 //
 // Given the target string and a search string, return the substring that occurs before the search
 // string, or the target string if no match is found:
 //
-//		<string>.before(<string>) -> <string>
+//     <string>.before(<string>) -> <string>
 //
 // Examples:
 //
-// 		'dragon'.before('taco') // returns 'dragon'
-//		'tacocat'.before('cat') // returns 'taco'
+//     'dragon'.before('taco') // returns 'dragon'
+//     'tacocat'.before('cat') // returns 'taco'
 //
 // CharAt
 //
@@ -62,38 +62,38 @@ import (
 // length of the string, the function will produce an error. CharAt is an instance method with the
 // following signature:
 //
-//		<string>.charAt(<int>) -> <string>
+//     <string>.charAt(<int>) -> <string>
 //
 // Examples:
 //
-//		'hello'.charAt(4)  // return 'o'
-//      'hello'.charAt(-1) // error
-//      'hello'.charAt(5)  // error
+//     'hello'.charAt(4)  // return 'o'
+//     'hello'.charAt(-1) // error
+//     'hello'.charAt(5)  // error
 //
 // IndexOf
 //
 // Returns the integer index of the search string if found, or -1 if not found. Accepts an optional
 // index from which to start the search:
 //
-//		<string>.indexOf(<string>) -> <int>
-//		<string>.indexOf(<string>, <int>) -> <int>
+//     <string>.indexOf(<string>) -> <int>
+//     <string>.indexOf(<string>, <int>) -> <int>
 //
 // Examples:
 //
-//		'hello mellow'.indexOf('ello')     // returns 1
-//		'hello mellow'.indexOf('jello')    // returns -1
-//		'hello mellow'.indexOf('ello', 2)  // returns 7
-//		'hello mellow'.indexOf('ello', 20) // error
+//     'hello mellow'.indexOf('ello')     // returns 1
+//     'hello mellow'.indexOf('jello')    // returns -1
+//     'hello mellow'.indexOf('ello', 2)  // returns 7
+//     'hello mellow'.indexOf('ello', 20) // error
 //
 // Lower
 //
 // Return a new lowercase version of the target string:
 //
-//		<string>.lower() -> <string>
+//     <string>.lower() -> <string>
 //
 // Examples:
 //
-//		'User-Agent'.lower() // returns 'user-agent'
+//     'User-Agent'.lower() // returns 'user-agent'
 //
 // Replace
 //
@@ -101,31 +101,31 @@ import (
 // with a replacement string if present. Accepts an optional argument specifying a limit on the
 // number of substring replacements to be made:
 //
-//		<string>.replace(<string>, <string>) -> <string>
-//		<string>.replace(<string>, <string>, <int>) -> <string>
+//     <string>.replace(<string>, <string>) -> <string>
+//     <string>.replace(<string>, <string>, <int>) -> <string>
 //
 // Examples:
 //
-//		'hello hello'.replace('he', 'we')    // returns 'wello wello'
-//		'hello hello'.replace('he', 'we', 1) // returns 'wello hello'
-//		'hello hello'.replace('he', 'we', 0) // returns 'hello wello'
-//		'hello hello'.replace('he', 'we', -1) // returns 'wello wello'
+//     'hello hello'.replace('he', 'we')    // returns 'wello wello'
+//     'hello hello'.replace('he', 'we', 1) // returns 'wello hello'
+//     'hello hello'.replace('he', 'we', 0) // returns 'hello wello'
+//     'hello hello'.replace('he', 'we', -1) // returns 'wello wello'
 //
 // Split
 //
 // Produces a list of strings which were split from the input by the given seperator. Accepts an
 // optional argument specifying a limit on the number of substrings produced by the split:
 //
-// 		<string>.split(<string>) -> <list<string>>
-// 		<string>.split(<string>, <int>) -> <list<string>>
+//     <string>.split(<string>) -> <list<string>>
+//     <string>.split(<string>, <int>) -> <list<string>>
 //
 // Examples:
 //
-//		'hello hello hello'.split(' ')     // returns ['hello', 'hello', 'hello']
-//		'hello hello hello'.split(' ', 0)  // returns []
-//		'hello hello hello'.split(' ', 1)  // returns ['hello hello hello']
-//		'hello hello hello'.split(' ', 2)  // returns ['hello', 'hello hello']
-//		'hello hello hello'.split(' ', -1) // returns ['hello', 'hello', 'hello']
+//     'hello hello hello'.split(' ')     // returns ['hello', 'hello', 'hello']
+//     'hello hello hello'.split(' ', 0)  // returns []
+//     'hello hello hello'.split(' ', 1)  // returns ['hello hello hello']
+//     'hello hello hello'.split(' ', 2)  // returns ['hello', 'hello hello']
+//     'hello hello hello'.split(' ', -1) // returns ['hello', 'hello', 'hello']
 //
 // Substring
 //
@@ -133,15 +133,15 @@ import (
 // may omit the trailing range for a substring from a given character position until the end of
 // a string:
 //
-// 		<string>.substring(<int>) -> <string>
-//		<string>.substring(<int>, <int>) -> <string>
+//     <string>.substring(<int>) -> <string>
+//     <string>.substring(<int>, <int>) -> <string>
 //
 // Examples:
 //
-// 		'tacocat'.substring(4)    // returns 'cat'
-//		'tacocat'.substring(0, 4) // returns 'taco'
-//		'tacocat'.substring(-1)   // error
-//		'tacocat'.substring(2, 1) // error
+//     'tacocat'.substring(4)    // returns 'cat'
+//     'tacocat'.substring(0, 4) // returns 'taco'
+//     'tacocat'.substring(-1)   // error
+//     'tacocat'.substring(2, 1) // error
 //
 // Trim
 //
@@ -151,17 +151,17 @@ import (
 //
 // Examples:
 //
-//		'    trim    '.trim() // returns 'trim'
+//     '    trim    '.trim() // returns 'trim'
 //
 // Upper
 //
 // Returns a new uppercase version of the target string:
 //
-//		<string>.upper() -> <string>
+//     <string>.upper() -> <string>
 //
 // Examples:
 //
-//		'Constant'.upper() // returns 'CONSTANT'
+//     'Constant'.upper() // returns 'CONSTANT'
 func Strings() cel.EnvOption {
 	return cel.Lib(stringLib{})
 }
