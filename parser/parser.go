@@ -123,7 +123,8 @@ func (p *parser) Visit(tree antlr.ParseTree) interface{} {
 		return p.VisitCreateStruct(tree.(*gen.CreateStructContext))
 	}
 
-	// The code only gets to this point if there is an error produced earlier.
+	// Report at least one error if the parser reaches an unknown parse element.
+	// Typically, this happens if the parser has already encountered a syntax error elsewhere.
 	if len(p.errors.GetErrors()) == 0 {
 		txt := "<<nil>>"
 		if tree != nil {
