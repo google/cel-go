@@ -17,6 +17,7 @@
 package parser
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/antlr/antlr4/runtime/Go/antlr"
@@ -123,6 +124,13 @@ func (p *parser) Visit(tree antlr.ParseTree) interface{} {
 	}
 
 	// The code only gets to this point if there is an error produced earlier.
+	if len(p.errors.GetErrors()) == 0 {
+		txt := "<<nil>>"
+		if tree != nil {
+			txt = fmt.Sprintf("<<%T>>", tree)
+		}
+		return p.reportError(common.NoLocation, "unknown parse element encountered: %s", txt)
+	}
 	return p.helper.newExpr(common.NoLocation)
 
 }
