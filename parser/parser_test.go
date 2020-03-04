@@ -1058,6 +1058,26 @@ ERROR: <input>:1:14: argument is not an identifier
 		| ind[a{b}]
 		| .......^`,
 	},
+	{
+		I: `--`,
+		E: `
+	   ERROR: <input>:1:3: Syntax error: no viable alternative at input '-'
+		| --
+		| ..^
+	   ERROR: <input>:1:3: Syntax error: mismatched input '<EOF>' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
+		| --
+		| ..^`,
+	},
+	{
+		I: `?`,
+		E: `
+	   ERROR: <input>:1:1: Syntax error: mismatched input '?' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
+		| ?
+		| ^
+	   ERROR: <input>:1:2: Syntax error: mismatched input '<EOF>' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
+		| ?
+		| .^`,
+	},
 }
 
 type testInfo struct {

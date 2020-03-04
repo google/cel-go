@@ -18,7 +18,6 @@ package parser
 
 import (
 	"fmt"
-	"reflect"
 	"strconv"
 
 	"github.com/antlr/antlr4/runtime/Go/antlr"
@@ -124,11 +123,17 @@ func (p *parser) Visit(tree antlr.ParseTree) interface{} {
 		return p.VisitCreateStruct(tree.(*gen.CreateStructContext))
 	}
 
-	text := "<<nil>>"
-	if tree != nil {
-		text = tree.GetText()
+	// Report at least one error if the parser reaches an unknown parse element.
+	// Typically, this happens if the parser has already encountered a syntax error elsewhere.
+	if len(p.errors.GetErrors()) == 0 {
+		txt := "<<nil>>"
+		if tree != nil {
+			txt = fmt.Sprintf("<<%T>>", tree)
+		}
+		return p.reportError(common.NoLocation, "unknown parse element encountered: %s", txt)
 	}
-	panic(fmt.Sprintf("unknown parsetree type: '%+v': %+v [%s]", reflect.TypeOf(tree), tree, text))
+	return p.helper.newExpr(common.NoLocation)
+
 }
 
 // Visit a parse tree produced by CELParser#start.
