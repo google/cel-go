@@ -17,8 +17,6 @@
 package parser
 
 import (
-	"fmt"
-	"reflect"
 	"strconv"
 
 	"github.com/antlr/antlr4/runtime/Go/antlr"
@@ -124,11 +122,9 @@ func (p *parser) Visit(tree antlr.ParseTree) interface{} {
 		return p.VisitCreateStruct(tree.(*gen.CreateStructContext))
 	}
 
-	text := "<<nil>>"
-	if tree != nil {
-		text = tree.GetText()
-	}
-	panic(fmt.Sprintf("unknown parsetree type: '%+v': %+v [%s]", reflect.TypeOf(tree), tree, text))
+	// The code only gets to this point if there is an error produced earlier.
+	return p.helper.newExpr(common.NoLocation)
+
 }
 
 // Visit a parse tree produced by CELParser#start.
