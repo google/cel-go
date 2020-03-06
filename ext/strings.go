@@ -32,30 +32,6 @@ import (
 
 // Strings returns a cel.EnvOption to configure extended functions for string manipulation.
 //
-// After
-//
-// Given the target string and a search string, return the substring that occurs after the search
-// string, or empty string if no match is found:
-//
-//     <string>.after(<string>) -> <string>
-//
-// Examples:
-//
-//     'dragon'.after('taco')  // returns ''
-//     'tacocat'.after('taco') // returns 'cat'
-//
-// Before
-//
-// Given the target string and a search string, return the substring that occurs before the search
-// string, or the target string if no match is found:
-//
-//     <string>.before(<string>) -> <string>
-//
-// Examples:
-//
-//     'dragon'.before('taco') // returns 'dragon'
-//     'tacocat'.before('cat') // returns 'taco'
-//
 // CharAt
 //
 // Returns the character at the given position. If the position is less than 0 or greater than the
@@ -72,8 +48,9 @@ import (
 //
 // IndexOf
 //
-// Returns the integer index of the search string if found, or -1 if not found. Accepts an optional
-// index from which to start the search:
+// Returns the integer index of the first occurrence of the search string. If the search string is
+// not found the function returns -1. The function also accepts an optional index from which to
+// begin the substring search:
 //
 //     <string>.indexOf(<string>) -> <int>
 //     <string>.indexOf(<string>, <int>) -> <int>
@@ -85,15 +62,21 @@ import (
 //     'hello mellow'.indexOf('ello', 2)  // returns 7
 //     'hello mellow'.indexOf('ello', 20) // error
 //
-// Lower
+// LastIndexOf
 //
-// Return a new lowercase version of the target string:
+// Returns the integer index of the last occurrence of the search string. If the search string is
+// not found the function returns -1. The function also accepts an optional index which represents
+// where to end the search.
 //
-//     <string>.lower() -> <string>
+//     <string>.lastIndexOf(<string>) -> <int>
+//     <string>.lastIndexOf(<string>, <int>) -> <int>
 //
 // Examples:
 //
-//     'User-Agent'.lower() // returns 'user-agent'
+//     'hello mellow'.lastIndexOf('ello')     // returns 7
+//     'hello mellow'.lastIndexOf('jello')    // returns -1
+//     'hello mellow'.lastIndexOf('ello', 8)  // returns 2
+//     'hello mellow'.lastIndexOf('ello', -1) // error
 //
 // Replace
 //
@@ -106,15 +89,19 @@ import (
 //
 // Examples:
 //
-//     'hello hello'.replace('he', 'we')    // returns 'wello wello'
-//     'hello hello'.replace('he', 'we', 1) // returns 'wello hello'
-//     'hello hello'.replace('he', 'we', 0) // returns 'hello wello'
+//     'hello hello'.replace('he', 'we')     // returns 'wello wello'
 //     'hello hello'.replace('he', 'we', -1) // returns 'wello wello'
+//     'hello hello'.replace('he', 'we', 1)  // returns 'wello hello'
+//     'hello hello'.replace('he', 'we', 0)  // returns 'hello hello'
 //
 // Split
 //
-// Produces a list of strings which were split from the input by the given seperator. Accepts an
-// optional argument specifying a limit on the number of substrings produced by the split:
+// Produces a list of strings which were split from the input by the given seperator. The function
+// accepts an optional argument specifying a limit on the number of substrings produced by the
+// split.
+//
+// When the split limit is 0, the result is an empty list. When the limit is 1, the result is the
+// target string to split. When the limit is -1, the function behaves the same as split all.
 //
 //     <string>.split(<string>) -> <list<string>>
 //     <string>.split(<string>, <int>) -> <list<string>>
@@ -131,7 +118,11 @@ import (
 //
 // Returns the substring given a numeric range corresponding to character positions. Optionally
 // may omit the trailing range for a substring from a given character position until the end of
-// a string:
+// a string.
+//
+// Character offsets are 0-based with an inclusive start range and exclusive end range. It is an
+// error to specify an end range that is lower than the start range, or for either the start or end
+// index to be negative or exceed the string length.
 //
 //     <string>.substring(<int>) -> <string>
 //     <string>.substring(<int>, <int>) -> <string>
@@ -145,23 +136,15 @@ import (
 //
 // Trim
 //
-// Returns a new string which trims the whitespace before and after the target string:
+// Returns a new string which removes the leading and trailing whitespace in the target string.
+// The trim function uses the Unicode definition of whitespace which does not include the
+// zero-width spaces. See: https://en.wikipedia.org/wiki/Whitespace_character#Unicode
 //
 //      <string>.trim() -> <string>
 //
 // Examples:
 //
-//     '    trim    '.trim() // returns 'trim'
-//
-// Upper
-//
-// Returns a new uppercase version of the target string:
-//
-//     <string>.upper() -> <string>
-//
-// Examples:
-//
-//     'Constant'.upper() // returns 'CONSTANT'
+//     '  \ttrim\n    '.trim() // returns 'trim'
 func Strings() cel.EnvOption {
 	return cel.Lib(stringLib{})
 }
@@ -171,14 +154,6 @@ type stringLib struct{}
 func (stringLib) CompileOptions() []cel.EnvOption {
 	return []cel.EnvOption{
 		cel.Declarations(
-			decls.NewFunction("after",
-				decls.NewInstanceOverload("string_after_string",
-					[]*exprpb.Type{decls.String, decls.String},
-					decls.String)),
-			decls.NewFunction("before",
-				decls.NewInstanceOverload("string_before_string",
-					[]*exprpb.Type{decls.String, decls.String},
-					decls.String)),
 			decls.NewFunction("charAt",
 				decls.NewInstanceOverload("string_char_at_int",
 					[]*exprpb.Type{decls.String, decls.Int},
@@ -190,10 +165,13 @@ func (stringLib) CompileOptions() []cel.EnvOption {
 				decls.NewInstanceOverload("string_index_of_string_int",
 					[]*exprpb.Type{decls.String, decls.String, decls.Int},
 					decls.Int)),
-			decls.NewFunction("lower",
-				decls.NewInstanceOverload("string_lower",
-					[]*exprpb.Type{decls.String},
-					decls.String)),
+			decls.NewFunction("lastIndexOf",
+				decls.NewInstanceOverload("string_last_index_of_string",
+					[]*exprpb.Type{decls.String, decls.String},
+					decls.Int),
+				decls.NewInstanceOverload("string_last_index_of_string_int",
+					[]*exprpb.Type{decls.String, decls.String, decls.Int},
+					decls.Int)),
 			decls.NewFunction("replace",
 				decls.NewInstanceOverload("string_replace_string_string",
 					[]*exprpb.Type{decls.String, decls.String, decls.String},
@@ -219,10 +197,6 @@ func (stringLib) CompileOptions() []cel.EnvOption {
 				decls.NewInstanceOverload("string_trim",
 					[]*exprpb.Type{decls.String},
 					decls.String)),
-			decls.NewFunction("upper",
-				decls.NewInstanceOverload("string_upper",
-					[]*exprpb.Type{decls.String},
-					decls.String)),
 		),
 	}
 }
@@ -233,27 +207,11 @@ func (stringLib) ProgramOptions() []cel.ProgramOption {
 	return []cel.ProgramOption{
 		cel.Functions(
 			&functions.Overload{
-				Operator: "after",
-				Binary:   callInStrStrOutStr(after),
-			},
-			&functions.Overload{
-				Operator: "string_after_stirng",
-				Binary:   callInStrStrOutStr(after),
-			},
-			&functions.Overload{
-				Operator: "before",
-				Binary:   callInStrStrOutStr(before),
-			},
-			&functions.Overload{
-				Operator: "string_before_string",
-				Binary:   callInStrStrOutStr(before),
-			},
-			&functions.Overload{
 				Operator: "charAt",
 				Binary:   callInStrIntOutStr(charAt),
 			},
 			&functions.Overload{
-				Operator: "string_chat_at_int",
+				Operator: "string_char_at_int",
 				Binary:   callInStrIntOutStr(charAt),
 			},
 			&functions.Overload{
@@ -270,12 +228,17 @@ func (stringLib) ProgramOptions() []cel.ProgramOption {
 				Function: callInStrStrIntOutInt(indexOfOffset),
 			},
 			&functions.Overload{
-				Operator: "lower",
-				Unary:    callInStrOutStr(strings.ToLower),
+				Operator: "lastIndexOf",
+				Binary:   callInStrStrOutInt(lastIndexOf),
+				Function: callInStrStrIntOutInt(lastIndexOfOffset),
 			},
 			&functions.Overload{
-				Operator: "string_lower",
-				Unary:    callInStrOutStr(strings.ToLower),
+				Operator: "string_last_index_of_string",
+				Binary:   callInStrStrOutInt(lastIndexOf),
+			},
+			&functions.Overload{
+				Operator: "string_last_index_of_string_int",
+				Function: callInStrStrIntOutInt(lastIndexOfOffset),
 			},
 			&functions.Overload{
 				Operator: "replace",
@@ -331,32 +294,8 @@ func (stringLib) ProgramOptions() []cel.ProgramOption {
 				Operator: "string_trim",
 				Unary:    callInStrOutStr(strings.TrimSpace),
 			},
-			&functions.Overload{
-				Operator: "upper",
-				Unary:    callInStrOutStr(strings.ToUpper),
-			},
-			&functions.Overload{
-				Operator: "string_upper",
-				Unary:    callInStrOutStr(strings.ToUpper),
-			},
 		),
 	}
-}
-
-func after(str, sub string) (string, error) {
-	ind := strings.Index(str, sub)
-	if ind < 0 {
-		return "", nil
-	}
-	return str[ind+len(sub):], nil
-}
-
-func before(str, sub string) (string, error) {
-	ind := strings.Index(str, sub)
-	if ind < 0 {
-		return str, nil
-	}
-	return str[:ind], nil
 }
 
 func charAt(str string, ind int64) (string, error) {
@@ -377,6 +316,18 @@ func indexOfOffset(str, substr string, offset int64) (int64, error) {
 		return -1, fmt.Errorf("index out of range: %d", off)
 	}
 	return offset + int64(strings.Index(str[offset:], substr)), nil
+}
+
+func lastIndexOf(str, substr string) (int64, error) {
+	return int64(strings.LastIndex(str, substr)), nil
+}
+
+func lastIndexOfOffset(str, substr string, offset int64) (int64, error) {
+	off := int(offset)
+	if off < 0 || off >= len(str) {
+		return -1, fmt.Errorf("index out of range: %d", off)
+	}
+	return int64(strings.Index(str[:off], substr)), nil
 }
 
 func replace(str, old, new string) (string, error) {
@@ -459,24 +410,6 @@ func callInStrStrOutInt(fn func(string, string) (int64, error)) functions.Binary
 			return types.NewErr(err.Error())
 		}
 		return types.Int(out)
-	}
-}
-
-func callInStrStrOutStr(fn func(string, string) (string, error)) functions.BinaryOp {
-	return func(val, arg ref.Val) ref.Val {
-		vVal, ok := val.(types.String)
-		if !ok {
-			return types.ValOrErr(val, "no such overload")
-		}
-		argVal, ok := arg.(types.String)
-		if !ok {
-			return types.ValOrErr(arg, "no such overload")
-		}
-		out, err := fn(string(vVal), string(argVal))
-		if err != nil {
-			return types.NewErr(err.Error())
-		}
-		return types.String(out)
 	}
 }
 

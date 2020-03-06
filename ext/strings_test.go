@@ -21,33 +21,42 @@ import (
 	"github.com/google/cel-go/cel"
 )
 
+// TODO: move these tests to a conformance test.
 var stringTests = []struct {
 	expr      string
 	err       string
 	parseOnly bool
 }{
-	// Success test cases.
-	{expr: `'hello'.after('l') == 'lo'`},
-	{expr: `'hello'.after('none') == ''`},
-	{expr: `'tacocat'.before('c') == 'ta'`},
-	{expr: `'tacocat'.before('none') == 'tacocat'`},
+	// CharAt test.
 	{expr: `'tacocat'.charAt(3) == 'o'`},
+	// Indext of search string tests.
 	{expr: `'tacocat'.indexOf('a') == 1`},
 	{expr: `'tacocat'.indexOf('a', 3) == 5`},
 	{expr: `'tacocat'.indexOf('none') == -1`},
-	{expr: `'MixedCase'.lower().after('mixed') == 'case'`},
-	{expr: `'MixedCase'.upper().after('MIXED') == 'CASE'`},
+	{expr: `'tacocat'.lastIndexOf('a') == 5`},
+	{expr: `'tacocat'.lastIndexOf('a', 3) == 1`},
+	{expr: `'tacocat'.lastIndexOf('none') == -1`},
+	// Replace tests
 	{expr: `"12 days 12 hours".replace("{0}", "2") == "12 days 12 hours"`},
 	{expr: `"{0} days {0} hours".replace("{0}", "2") == "2 days 2 hours"`},
 	{expr: `"{0} days {0} hours".replace("{0}", "2", 1).replace("{0}", "23") == "2 days 23 hours"`},
+	// Split tests.
 	{expr: `"hello world".split(" ") == ["hello", "world"]`},
 	{expr: `"hello world events!".split(" ", 0) == []`},
 	{expr: `"hello world events!".split(" ", 1) == ["hello world events!"]`},
 	{expr: `"hello world events!".split(" ", 2) == ["hello", "world events!"]`},
+	// Substring tests.
 	{expr: `"tacocat".substring(4) == "cat"`},
 	{expr: `"tacocat".substring(0, 4) == "taco"`},
 	{expr: `"tacocat".substring(4, 4) == ""`},
-	{expr: `"   trim   ".trim() == "trim"`},
+	// Trim tests using the unicode standard for whitespace.
+	{expr: `" \f\n\r\t\vtext  ".trim() == "text"`},
+	{expr: `"\u0085\u00a0\u1680text".trim() == "text"`},
+	{expr: `"text\u2000\u2001\u2002\u2003\u2004\u2004\u2006\u2007\u2008\u2009".trim() == "text"`},
+	{expr: `"\u200atext\u2028\u2029\u202F\u205F\u3000".trim() == "text"`},
+	// Trim test with whitespace-like characters not included.
+	{expr: `"\u180etext\u200b\u200c\u200d\u2060\ufeff".trim()
+				== "\u180etext\u200b\u200c\u200d\u2060\ufeff"`},
 	// Error test cases based on checked expression usage.
 	{
 		expr: `'tacocat'.charAt(30) == ''`,
@@ -78,16 +87,6 @@ var stringTests = []struct {
 		err:  "invalid substring range. start: 4, end: 3",
 	},
 	// Valid parse-only expressions which should generate runtime errors.
-	{
-		expr:      `42.after("4") == "2"`,
-		err:       "no such overload",
-		parseOnly: true,
-	},
-	{
-		expr:      `"42".after(4) == "2"`,
-		err:       "no such overload",
-		parseOnly: true,
-	},
 	{
 		expr:      `42.charAt(2) == ""`,
 		err:       "no such overload",
@@ -125,11 +124,6 @@ var stringTests = []struct {
 	},
 	{
 		expr:      `'42'.indexOf('4', 0, 1) == 0`,
-		err:       "no such overload",
-		parseOnly: true,
-	},
-	{
-		expr:      `42.lower() == ""`,
 		err:       "no such overload",
 		parseOnly: true,
 	},
