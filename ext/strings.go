@@ -249,7 +249,7 @@ func (stringLib) ProgramOptions() []cel.ProgramOption {
 					if len(values) == 4 {
 						return wrappedReplaceN(values...)
 					}
-					return types.NewErr("no such overload")
+					return types.NoSuchOverloadErr()
 				},
 			},
 			&functions.Overload{
@@ -371,7 +371,7 @@ func callInStrOutStr(fn func(string) string) functions.UnaryOp {
 	return func(val ref.Val) ref.Val {
 		vVal, ok := val.(types.String)
 		if !ok {
-			return types.ValOrErr(val, "no such overload")
+			return types.MaybeNoSuchOverloadErr(val)
 		}
 		return types.String(fn(string(vVal)))
 	}
@@ -381,11 +381,11 @@ func callInStrIntOutStr(fn func(string, int64) (string, error)) functions.Binary
 	return func(val, arg ref.Val) ref.Val {
 		vVal, ok := val.(types.String)
 		if !ok {
-			return types.ValOrErr(val, "no such overload")
+			return types.MaybeNoSuchOverloadErr(val)
 		}
 		argVal, ok := arg.(types.Int)
 		if !ok {
-			return types.ValOrErr(arg, "no such overload")
+			return types.MaybeNoSuchOverloadErr(arg)
 		}
 		out, err := fn(string(vVal), int64(argVal))
 		if err != nil {
@@ -399,11 +399,11 @@ func callInStrStrOutInt(fn func(string, string) (int64, error)) functions.Binary
 	return func(val, arg ref.Val) ref.Val {
 		vVal, ok := val.(types.String)
 		if !ok {
-			return types.ValOrErr(val, "no such overload")
+			return types.MaybeNoSuchOverloadErr(val)
 		}
 		argVal, ok := arg.(types.String)
 		if !ok {
-			return types.ValOrErr(arg, "no such overload")
+			return types.MaybeNoSuchOverloadErr(arg)
 		}
 		out, err := fn(string(vVal), string(argVal))
 		if err != nil {
@@ -417,11 +417,11 @@ func callInStrStrOutListStr(fn func(string, string) ([]string, error)) functions
 	return func(val, arg ref.Val) ref.Val {
 		vVal, ok := val.(types.String)
 		if !ok {
-			return types.ValOrErr(val, "no such overload")
+			return types.MaybeNoSuchOverloadErr(val)
 		}
 		argVal, ok := arg.(types.String)
 		if !ok {
-			return types.ValOrErr(arg, "no such overload")
+			return types.MaybeNoSuchOverloadErr(arg)
 		}
 		out, err := fn(string(vVal), string(argVal))
 		if err != nil {
@@ -434,19 +434,19 @@ func callInStrStrOutListStr(fn func(string, string) ([]string, error)) functions
 func callInStrIntIntOutStr(fn func(string, int64, int64) (string, error)) functions.FunctionOp {
 	return func(args ...ref.Val) ref.Val {
 		if len(args) != 3 {
-			return types.NewErr("no such overload")
+			return types.NoSuchOverloadErr()
 		}
 		vVal, ok := args[0].(types.String)
 		if !ok {
-			return types.ValOrErr(args[0], "no such overload")
+			return types.MaybeNoSuchOverloadErr(args[0])
 		}
 		arg1Val, ok := args[1].(types.Int)
 		if !ok {
-			return types.ValOrErr(args[1], "no such overload")
+			return types.MaybeNoSuchOverloadErr(args[1])
 		}
 		arg2Val, ok := args[2].(types.Int)
 		if !ok {
-			return types.ValOrErr(args[2], "no such overload")
+			return types.MaybeNoSuchOverloadErr(args[2])
 		}
 		out, err := fn(string(vVal), int64(arg1Val), int64(arg2Val))
 		if err != nil {
@@ -459,19 +459,19 @@ func callInStrIntIntOutStr(fn func(string, int64, int64) (string, error)) functi
 func callInStrStrStrOutStr(fn func(string, string, string) (string, error)) functions.FunctionOp {
 	return func(args ...ref.Val) ref.Val {
 		if len(args) != 3 {
-			return types.NewErr("no such overload")
+			return types.NoSuchOverloadErr()
 		}
 		vVal, ok := args[0].(types.String)
 		if !ok {
-			return types.ValOrErr(args[0], "no such overload")
+			return types.MaybeNoSuchOverloadErr(args[0])
 		}
 		arg1Val, ok := args[1].(types.String)
 		if !ok {
-			return types.ValOrErr(args[1], "no such overload")
+			return types.MaybeNoSuchOverloadErr(args[1])
 		}
 		arg2Val, ok := args[2].(types.String)
 		if !ok {
-			return types.ValOrErr(args[2], "no such overload")
+			return types.MaybeNoSuchOverloadErr(args[2])
 		}
 		out, err := fn(string(vVal), string(arg1Val), string(arg2Val))
 		if err != nil {
@@ -484,19 +484,19 @@ func callInStrStrStrOutStr(fn func(string, string, string) (string, error)) func
 func callInStrStrIntOutInt(fn func(string, string, int64) (int64, error)) functions.FunctionOp {
 	return func(args ...ref.Val) ref.Val {
 		if len(args) != 3 {
-			return types.NewErr("no such overload")
+			return types.NoSuchOverloadErr()
 		}
 		vVal, ok := args[0].(types.String)
 		if !ok {
-			return types.ValOrErr(args[0], "no such overload")
+			return types.MaybeNoSuchOverloadErr(args[0])
 		}
 		arg1Val, ok := args[1].(types.String)
 		if !ok {
-			return types.ValOrErr(args[1], "no such overload")
+			return types.MaybeNoSuchOverloadErr(args[1])
 		}
 		arg2Val, ok := args[2].(types.Int)
 		if !ok {
-			return types.ValOrErr(args[2], "no such overload")
+			return types.MaybeNoSuchOverloadErr(args[2])
 		}
 		out, err := fn(string(vVal), string(arg1Val), int64(arg2Val))
 		if err != nil {
@@ -509,19 +509,19 @@ func callInStrStrIntOutInt(fn func(string, string, int64) (int64, error)) functi
 func callInStrStrIntOutListStr(fn func(string, string, int64) ([]string, error)) functions.FunctionOp {
 	return func(args ...ref.Val) ref.Val {
 		if len(args) != 3 {
-			return types.NewErr("no such overload")
+			return types.NoSuchOverloadErr()
 		}
 		vVal, ok := args[0].(types.String)
 		if !ok {
-			return types.ValOrErr(args[0], "no such overload")
+			return types.MaybeNoSuchOverloadErr(args[0])
 		}
 		arg1Val, ok := args[1].(types.String)
 		if !ok {
-			return types.ValOrErr(args[1], "no such overload")
+			return types.MaybeNoSuchOverloadErr(args[1])
 		}
 		arg2Val, ok := args[2].(types.Int)
 		if !ok {
-			return types.ValOrErr(args[2], "no such overload")
+			return types.MaybeNoSuchOverloadErr(args[2])
 		}
 		out, err := fn(string(vVal), string(arg1Val), int64(arg2Val))
 		if err != nil {
@@ -534,23 +534,23 @@ func callInStrStrIntOutListStr(fn func(string, string, int64) ([]string, error))
 func callInStrStrStrIntOutStr(fn func(string, string, string, int64) (string, error)) functions.FunctionOp {
 	return func(args ...ref.Val) ref.Val {
 		if len(args) != 4 {
-			return types.NewErr("no such overload")
+			return types.NoSuchOverloadErr()
 		}
 		vVal, ok := args[0].(types.String)
 		if !ok {
-			return types.ValOrErr(args[0], "no such overload")
+			return types.MaybeNoSuchOverloadErr(args[0])
 		}
 		arg1Val, ok := args[1].(types.String)
 		if !ok {
-			return types.ValOrErr(args[1], "no such overload")
+			return types.MaybeNoSuchOverloadErr(args[1])
 		}
 		arg2Val, ok := args[2].(types.String)
 		if !ok {
-			return types.ValOrErr(args[2], "no such overload")
+			return types.MaybeNoSuchOverloadErr(args[2])
 		}
 		arg3Val, ok := args[3].(types.Int)
 		if !ok {
-			return types.ValOrErr(args[3], "no such overload")
+			return types.MaybeNoSuchOverloadErr(args[3])
 		}
 		out, err := fn(string(vVal), string(arg1Val), string(arg2Val), int64(arg3Val))
 		if err != nil {
