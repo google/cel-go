@@ -48,30 +48,38 @@ import (
 // IndexOf
 //
 // Returns the integer index of the first occurrence of the search string. If the search string is
-// not found the function returns -1. The function also accepts an optional index from which to
-// begin the substring search:
+// not found the function returns -1.
+//
+// The function also accepts an optional index from which to begin the substring search. If the
+// substring is the empty string, the index where the search starts is returned (zero or custom).
 //
 //     <string>.indexOf(<string>) -> <int>
 //     <string>.indexOf(<string>, <int>) -> <int>
 //
 // Examples:
 //
+//     'hello mellow'.indexOf('')         // returns 0
 //     'hello mellow'.indexOf('ello')     // returns 1
 //     'hello mellow'.indexOf('jello')    // returns -1
+//     'hello mellow'.indexOf('', 2)      // returns 2
 //     'hello mellow'.indexOf('ello', 2)  // returns 7
 //     'hello mellow'.indexOf('ello', 20) // error
 //
 // LastIndexOf
 //
 // Returns the integer index of the last occurrence of the search string. If the search string is
-// not found the function returns -1. The function also accepts an optional index which represents
-// where to end the search.
+// not found the function returns -1.
+//
+// The function also accepts an optional index which represents where to begin the search in
+// through the string. If the substring is the empty string, the index where the search starts
+// is returned (string length or custom).
 //
 //     <string>.lastIndexOf(<string>) -> <int>
 //     <string>.lastIndexOf(<string>, <int>) -> <int>
 //
 // Examples:
 //
+//     'hello mellow'.lastIndexOf('')         // returns 12
 //     'hello mellow'.lastIndexOf('ello')     // returns 7
 //     'hello mellow'.lastIndexOf('jello')    // returns -1
 //     'hello mellow'.lastIndexOf('ello', 8)  // returns 2
