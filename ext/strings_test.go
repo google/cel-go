@@ -29,13 +29,27 @@ var stringTests = []struct {
 }{
 	// CharAt test.
 	{expr: `'tacocat'.charAt(3) == 'o'`},
-	// Indext of search string tests.
-	{expr: `'tacocat'.indexOf('a') == 1`},
-	{expr: `'tacocat'.indexOf('a', 3) == 5`},
+	{expr: `'tacocat'.charAt(7) == ''`},
+	{expr: `'©αT'.charAt(0) == '©' && '©αT'.charAt(1) == 'α' && '©αT'.charAt(2) == 'T'`},
+	// Index of search string tests.
+	{expr: `'tacocat'.indexOf('') == 0`},
+	{expr: `'tacocat'.indexOf('ac') == 1`},
 	{expr: `'tacocat'.indexOf('none') == -1`},
-	{expr: `'tacocat'.lastIndexOf('a') == 5`},
-	{expr: `'tacocat'.lastIndexOf('a', 3) == 1`},
+	{expr: `'tacocat'.indexOf('', 3) == 3`},
+	{expr: `'tacocat'.indexOf('a', 3) == 5`},
+	{expr: `'tacocat'.indexOf('at', 3) == 5`},
+	{expr: `'ta©o©αT'.indexOf('©') == 2`},
+	{expr: `'ta©o©αT'.indexOf('©', 3) == 4`},
+	{expr: `'ta©o©αT'.indexOf('©αT', 3) == 4`},
+	{expr: `'ta©o©αT'.indexOf('©α', 5) == -1`},
+	{expr: `'tacocat'.lastIndexOf('') == 7`},
+	{expr: `'tacocat'.lastIndexOf('at') == 5`},
 	{expr: `'tacocat'.lastIndexOf('none') == -1`},
+	{expr: `'tacocat'.lastIndexOf('', 3) == 3`},
+	{expr: `'tacocat'.lastIndexOf('a', 3) == 1`},
+	{expr: `'ta©o©αT'.lastIndexOf('©') == 4`},
+	{expr: `'ta©o©αT'.lastIndexOf('©', 3) == 2`},
+	{expr: `'ta©o©αT'.lastIndexOf('©α', 4) == 4`},
 	// Replace tests
 	{expr: `"12 days 12 hours".replace("{0}", "2") == "12 days 12 hours"`},
 	{expr: `"{0} days {0} hours".replace("{0}", "2") == "2 days 2 hours"`},
@@ -47,8 +61,11 @@ var stringTests = []struct {
 	{expr: `"hello world events!".split(" ", 2) == ["hello", "world events!"]`},
 	// Substring tests.
 	{expr: `"tacocat".substring(4) == "cat"`},
+	{expr: `"tacocat".substring(7) == ""`},
 	{expr: `"tacocat".substring(0, 4) == "taco"`},
 	{expr: `"tacocat".substring(4, 4) == ""`},
+	{expr: `'ta©o©αT'.substring(2, 6) == "©o©α"`},
+	{expr: `'ta©o©αT'.substring(7, 7) == ""`},
 	// Trim tests using the unicode standard for whitespace.
 	{expr: `" \f\n\r\t\vtext  ".trim() == "text"`},
 	{expr: `"\u0085\u00a0\u1680text".trim() == "text"`},
@@ -64,6 +81,14 @@ var stringTests = []struct {
 	},
 	{
 		expr: `'tacocat'.indexOf('a', 30) == -1`,
+		err:  "index out of range: 30",
+	},
+	{
+		expr: `'tacocat'.lastIndexOf('a', -1) == -1`,
+		err:  "index out of range: -1",
+	},
+	{
+		expr: `'tacocat'.lastIndexOf('a', 30) == -1`,
 		err:  "index out of range: 30",
 	},
 	{

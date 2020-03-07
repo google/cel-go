@@ -34,17 +34,16 @@ import (
 //
 // CharAt
 //
-// Returns the character at the given position. If the position is less than 0 or greater than the
-// length of the string, the function will produce an error. CharAt is an instance method with the
-// following signature:
+// Returns the character at the given position. If the position is negative, or greater than
+// the length of the string, the function will produce an error:
 //
 //     <string>.charAt(<int>) -> <string>
 //
 // Examples:
 //
 //     'hello'.charAt(4)  // return 'o'
+//     'hello'.charAt(5)  // return ''
 //     'hello'.charAt(-1) // error
-//     'hello'.charAt(5)  // error
 //
 // IndexOf
 //
@@ -81,8 +80,11 @@ import (
 // Replace
 //
 // Produces a new string based on the target, which replaces the occurrences of a search string
-// with a replacement string if present. Accepts an optional argument specifying a limit on the
-// number of substring replacements to be made:
+// with a replacement string if present. The function accepts an optional limit on the number of
+// substring replacements to be made.
+//
+// When the replacement limit is 0, the result is the original string. When the limit is a negative
+// number, the function behaves the same as replace all.
 //
 //     <string>.replace(<string>, <string>) -> <string>
 //     <string>.replace(<string>, <string>, <int>) -> <string>
@@ -96,12 +98,12 @@ import (
 //
 // Split
 //
-// Produces a list of strings which were split from the input by the given seperator. The function
-// accepts an optional argument specifying a limit on the number of substrings produced by the
-// split.
+// Produces a list of strings split from the input by the given separator. The function accepts
+// an optional argument specifying a limit on the number of substrings produced by the split.
 //
 // When the split limit is 0, the result is an empty list. When the limit is 1, the result is the
-// target string to split. When the limit is -1, the function behaves the same as split all.
+// target string to split. When the limit is a negative number, the function behaves the same as
+// split all.
 //
 //     <string>.split(<string>) -> <list<string>>
 //     <string>.split(<string>, <int>) -> <list<string>>
@@ -300,34 +302,76 @@ func (stringLib) ProgramOptions() []cel.ProgramOption {
 
 func charAt(str string, ind int64) (string, error) {
 	i := int(ind)
-	if i < 0 || i >= len(str) {
+	runes := []rune(str)
+	if i < 0 || i > len(runes) {
 		return "", fmt.Errorf("index out of range: %d", ind)
 	}
-	return str[i : i+1], nil
+	if i == len(runes) {
+		return "", nil
+	}
+	return string(runes[i]), nil
 }
 
 func indexOf(str, substr string) (int64, error) {
-	return int64(strings.Index(str, substr)), nil
+	return indexOfOffset(str, substr, int64(0))
 }
 
 func indexOfOffset(str, substr string, offset int64) (int64, error) {
+	if substr == "" {
+		return offset, nil
+	}
 	off := int(offset)
-	if off < 0 || off >= len(str) {
+	runes := []rune(str)
+	subrunes := []rune(substr)
+	if off < 0 || off >= len(runes) {
 		return -1, fmt.Errorf("index out of range: %d", off)
 	}
-	return offset + int64(strings.Index(str[offset:], substr)), nil
+	for i := off; i < len(runes)-(len(subrunes)-1); i++ {
+		found := true
+		for j := 0; j < len(subrunes); j++ {
+			if runes[i+j] != subrunes[j] {
+				found = false
+				break
+			}
+		}
+		if found {
+			return int64(i), nil
+		}
+	}
+	return -1, nil
 }
 
 func lastIndexOf(str, substr string) (int64, error) {
-	return int64(strings.LastIndex(str, substr)), nil
+	runes := []rune(str)
+	if substr == "" {
+		return int64(len(runes)), nil
+	}
+	return lastIndexOfOffset(str, substr, int64(len(runes)-1))
 }
 
 func lastIndexOfOffset(str, substr string, offset int64) (int64, error) {
+	if substr == "" {
+		return offset, nil
+	}
 	off := int(offset)
-	if off < 0 || off >= len(str) {
+	runes := []rune(str)
+	subrunes := []rune(substr)
+	if off < 0 || off >= len(runes) {
 		return -1, fmt.Errorf("index out of range: %d", off)
 	}
-	return int64(strings.Index(str[:off], substr)), nil
+	for i := off; i >= len(subrunes)-1; i-- {
+		found := true
+		for j := 0; j < len(subrunes); j++ {
+			if runes[i+j] != subrunes[j] {
+				found = false
+				break
+			}
+		}
+		if found {
+			return int64(i), nil
+		}
+	}
+	return -1, nil
 }
 
 func replace(str, old, new string) (string, error) {
@@ -347,24 +391,26 @@ func splitN(str, sep string, n int64) ([]string, error) {
 }
 
 func substr(str string, start int64) (string, error) {
-	if int(start) < 0 || int(start) >= len(str) {
+	runes := []rune(str)
+	if int(start) < 0 || int(start) > len(runes) {
 		return "", fmt.Errorf("index out of range: %d", start)
 	}
-	return str[int(start):], nil
+	return string(runes[start:]), nil
 }
 
 func substrRange(str string, start, end int64) (string, error) {
-	l := len(str)
+	runes := []rune(str)
+	l := len(runes)
 	if start > end {
 		return "", fmt.Errorf("invalid substring range. start: %d, end: %d", start, end)
 	}
-	if int(start) < 0 || int(start) >= l {
+	if int(start) < 0 || int(start) > l {
 		return "", fmt.Errorf("index out of range: %d", start)
 	}
-	if int(end) < 0 || int(end) >= l {
+	if int(end) < 0 || int(end) > l {
 		return "", fmt.Errorf("index out of range: %d", end)
 	}
-	return str[int(start):int(end)], nil
+	return string(runes[int(start):int(end)]), nil
 }
 
 func callInStrOutStr(fn func(string) string) functions.UnaryOp {
