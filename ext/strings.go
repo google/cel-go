@@ -31,6 +31,7 @@ import (
 )
 
 // Strings returns a cel.EnvOption to configure extended functions for string manipulation.
+// As a general note, all indices are zero-based.
 //
 // CharAt
 //
