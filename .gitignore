@@ -1,5 +1,6 @@
 .DS_Store
 .idea
+.vscode
 bazel-bin
 bazel-cel-go
 bazel-genfiles
