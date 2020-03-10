@@ -83,7 +83,7 @@ import (
 //     'hello mellow'.lastIndexOf('')         // returns 12
 //     'hello mellow'.lastIndexOf('ello')     // returns 7
 //     'hello mellow'.lastIndexOf('jello')    // returns -1
-//     'hello mellow'.lastIndexOf('ello', 8)  // returns 2
+//     'hello mellow'.lastIndexOf('ello', 6)  // returns 2
 //     'hello mellow'.lastIndexOf('ello', -1) // error
 //
 // Replace
@@ -368,7 +368,7 @@ func lastIndexOfOffset(str, substr string, offset int64) (int64, error) {
 	if off < 0 || off >= len(runes) {
 		return -1, fmt.Errorf("index out of range: %d", off)
 	}
-	for i := off; i >= len(subrunes)-1; i-- {
+	for i := off; i >= 0; i-- {
 		found := true
 		for j := 0; j < len(subrunes); j++ {
 			if runes[i+j] != subrunes[j] {

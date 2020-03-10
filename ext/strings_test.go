@@ -42,6 +42,7 @@ var stringTests = []struct {
 	{expr: `'ta©o©αT'.indexOf('©', 3) == 4`},
 	{expr: `'ta©o©αT'.indexOf('©αT', 3) == 4`},
 	{expr: `'ta©o©αT'.indexOf('©α', 5) == -1`},
+	{expr: `'hello wello'.indexOf('ello', 6) == 7`},
 	{expr: `'tacocat'.lastIndexOf('') == 7`},
 	{expr: `'tacocat'.lastIndexOf('at') == 5`},
 	{expr: `'tacocat'.lastIndexOf('none') == -1`},
@@ -50,6 +51,7 @@ var stringTests = []struct {
 	{expr: `'ta©o©αT'.lastIndexOf('©') == 4`},
 	{expr: `'ta©o©αT'.lastIndexOf('©', 3) == 2`},
 	{expr: `'ta©o©αT'.lastIndexOf('©α', 4) == 4`},
+	{expr: `'hello wello'.lastIndexOf('ello', 6) == 1`},
 	// Replace tests
 	{expr: `"12 days 12 hours".replace("{0}", "2") == "12 days 12 hours"`},
 	{expr: `"{0} days {0} hours".replace("{0}", "2") == "2 days 2 hours"`},
