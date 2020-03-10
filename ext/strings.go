@@ -83,7 +83,7 @@ import (
 //     'hello mellow'.lastIndexOf('')         // returns 12
 //     'hello mellow'.lastIndexOf('ello')     // returns 7
 //     'hello mellow'.lastIndexOf('jello')    // returns -1
-//     'hello mellow'.lastIndexOf('ello', 6)  // returns 2
+//     'hello mellow'.lastIndexOf('ello', 6)  // returns 1
 //     'hello mellow'.lastIndexOf('ello', -1) // error
 //
 // Replace
