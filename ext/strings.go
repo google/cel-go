@@ -68,12 +68,12 @@ import (
 //
 // LastIndexOf
 //
-// Returns the integer index of the last occurrence of the search string. If the search string is
-// not found the function returns -1.
+// Returns the integer index at the start of the last occurrence of the search string. If the
+// search string is not found the function returns -1.
 //
-// The function also accepts an optional index which represents where to begin the search in
-// through the string. If the substring is the empty string, the index where the search starts
-// is returned (string length or custom).
+// The function also accepts an optional index which represents where to begin the substring
+// search starting from the end of the string. If the substring is the empty string, the index
+// where the search starts is returned (string length or custom).
 //
 //     <string>.lastIndexOf(<string>) -> <int>
 //     <string>.lastIndexOf(<string>, <int>) -> <int>
@@ -83,7 +83,7 @@ import (
 //     'hello mellow'.lastIndexOf('')         // returns 12
 //     'hello mellow'.lastIndexOf('ello')     // returns 7
 //     'hello mellow'.lastIndexOf('jello')    // returns -1
-//     'hello mellow'.lastIndexOf('ello', 8)  // returns 2
+//     'hello mellow'.lastIndexOf('ello', 6)  // returns 1
 //     'hello mellow'.lastIndexOf('ello', -1) // error
 //
 // Replace
@@ -368,7 +368,10 @@ func lastIndexOfOffset(str, substr string, offset int64) (int64, error) {
 	if off < 0 || off >= len(runes) {
 		return -1, fmt.Errorf("index out of range: %d", off)
 	}
-	for i := off; i >= len(subrunes)-1; i-- {
+	if off > len(runes)-len(subrunes) {
+		off = len(runes) - len(subrunes)
+	}
+	for i := off; i >= 0; i-- {
 		found := true
 		for j := 0; j < len(subrunes); j++ {
 			if runes[i+j] != subrunes[j] {
