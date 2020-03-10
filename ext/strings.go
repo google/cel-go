@@ -368,6 +368,9 @@ func lastIndexOfOffset(str, substr string, offset int64) (int64, error) {
 	if off < 0 || off >= len(runes) {
 		return -1, fmt.Errorf("index out of range: %d", off)
 	}
+	if off > len(runes)-len(subrunes) {
+		off = len(runes) - len(subrunes)
+	}
 	for i := off; i >= 0; i-- {
 		found := true
 		for j := 0; j < len(subrunes); j++ {
