@@ -60,6 +60,7 @@ var stringTests = []struct {
 	{expr: `'hello wello'.lastIndexOf('elbo room!!') == -1`},
 	{expr: `'hello wello'.lastIndexOf('elbo room!!!') == -1`},
 	{expr: `'hello wello'.lastIndexOf('hello wello') == 0`},
+	{expr: `'bananananana'.lastIndexOf('nana', 7) == 6`},
 	// Replace tests
 	{expr: `"12 days 12 hours".replace("{0}", "2") == "12 days 12 hours"`},
 	{expr: `"{0} days {0} hours".replace("{0}", "2") == "2 days 2 hours"`},
