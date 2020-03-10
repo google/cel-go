@@ -49,8 +49,9 @@ Returns the integer index of the last occurrence of the search string. If the
 search string is not found the function returns -1.
 
 The function also accepts an optional index which represents where to begin the
-search in through the string. If the substring is the empty string, the index
-where the search starts is returned (string length or custom).
+substring search starting from the end of the string. If the substring is the
+empty string, the index where the search starts is returned (string length or
+custom).
 
     <string>.lastIndexOf(<string>) -> <int>
     <string>.lastIndexOf(<string>, <int>) -> <int>
