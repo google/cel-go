@@ -25,7 +25,6 @@ import (
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/packages"
 	"github.com/google/cel-go/common/types"
-	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/parser"
 	"github.com/google/cel-go/test"
 
@@ -1451,12 +1450,6 @@ _&&_(_==_(list~type(list(dyn))^list,
 	},
 }
 
-var reg = initTypeRegistry()
-
-func initTypeRegistry() ref.TypeRegistry {
-	return types.NewRegistry(&proto3pb.NestedTestAllTypes{}, &proto3pb.TestAllTypes{})
-}
-
 var testEnvs = map[string]env{
 	"default": {
 		functions: []*exprpb.Decl{
@@ -1522,11 +1515,12 @@ func TestCheck(t *testing.T) {
 			src := common.NewTextSource(tc.I)
 			expression, errors := parser.Parse(src)
 			if len(errors.GetErrors()) > 0 {
-				tt.Fatalf("Unexpected parse errors: %v",
-					errors.ToDisplayString())
-				return
+				tt.Fatalf("Unexpected parse errors: %v", errors.ToDisplayString())
 			}
 
+			reg := types.NewRegistry()
+			reg.RegisterMessage(&proto3pb.NestedTestAllTypes{})
+			reg.RegisterMessage(&proto3pb.TestAllTypes{})
 			pkg := packages.NewPackage(tc.Container)
 			env := NewStandardEnv(pkg, reg)
 			if tc.DisableStdEnv {

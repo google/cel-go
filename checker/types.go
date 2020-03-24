@@ -284,9 +284,9 @@ func internalIsAssignableAbstractType(m *mapping,
 func internalIsAssignableFunction(m *mapping,
 	f1 *exprpb.Type_FunctionType,
 	f2 *exprpb.Type_FunctionType) bool {
-	if internalIsAssignableList(m,
-		append(f1.GetArgTypes(), f1.GetResultType()),
-		append(f2.GetArgTypes(), f2.GetResultType())) {
+	f1ArgTypes := flattenFunctionTypes(f1)
+	f2ArgTypes := flattenFunctionTypes(f2)
+	if internalIsAssignableList(m, f1ArgTypes, f2ArgTypes) {
 		return true
 	}
 	return false
@@ -424,7 +424,7 @@ func notReferencedIn(m *mapping, t *exprpb.Type, withinType *exprpb.Type) bool {
 		return true
 	case kindFunction:
 		fn := withinType.GetFunction()
-		types := append(fn.ArgTypes, fn.ResultType)
+		types := flattenFunctionTypes(fn)
 		for _, a := range types {
 			if !notReferencedIn(m, t, a) {
 				return false
@@ -488,4 +488,19 @@ func substitute(m *mapping, t *exprpb.Type, typeParamToDyn bool) *exprpb.Type {
 
 func typeKey(t *exprpb.Type) string {
 	return FormatCheckedType(t)
+}
+
+// flattenFunctionTypes takes a function with arg types T1, T2, ..., TN and result type TR
+// and returns a slice containing {T1, T2, ..., TN, TR}.
+func flattenFunctionTypes(f *exprpb.Type_FunctionType) []*exprpb.Type {
+	argTypes := f.GetArgTypes()
+	if len(argTypes) == 0 {
+		return []*exprpb.Type{f.GetResultType()}
+	}
+	flattend := make([]*exprpb.Type, len(argTypes)+1, len(argTypes)+1)
+	for i, at := range argTypes {
+		flattend[i] = at
+	}
+	flattend[len(argTypes)] = f.GetResultType()
+	return flattend
 }
