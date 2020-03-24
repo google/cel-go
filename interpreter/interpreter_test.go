@@ -803,6 +803,8 @@ func TestInterpreter(t *testing.T) {
 			t.Fatalf("%s: %v", tc.name, err)
 		}
 		t.Run(tc.name, func(tt *testing.T) {
+			tt.Parallel()
+
 			var want ref.Val = types.True
 			if tc.out != nil {
 				want = tc.out.(ref.Val)
@@ -811,17 +813,14 @@ func TestInterpreter(t *testing.T) {
 			_, expectUnk := want.(types.Unknown)
 			if expectUnk {
 				if !reflect.DeepEqual(got, want) {
-					tt.Errorf("Got %v, wanted %v", got, want)
-					return
+					tt.Fatalf("Got %v, wanted %v", got, want)
 				}
 			} else if tc.err != "" {
 				if !types.IsError(got) || got.(*types.Err).String() != tc.err {
-					tt.Errorf("Got %v (%T), wanted error: %s", got, got, tc.err)
-					return
+					tt.Fatalf("Got %v (%T), wanted error: %s", got, got, tc.err)
 				}
 			} else if got.Equal(want) != types.True {
-				tt.Errorf("Got %v, wanted %v", got, want)
-				return
+				tt.Fatalf("Got %v, wanted %v", got, want)
 			}
 			state := NewEvalState()
 			opts := map[string]InterpretableDecorator{
