@@ -284,8 +284,8 @@ func internalIsAssignableAbstractType(m *mapping,
 func internalIsAssignableFunction(m *mapping,
 	f1 *exprpb.Type_FunctionType,
 	f2 *exprpb.Type_FunctionType) bool {
-	f1ArgTypes := mergeFunctionTypes(f1)
-	f2ArgTypes := mergeFunctionTypes(f2)
+	f1ArgTypes := flattenFunctionTypes(f1)
+	f2ArgTypes := flattenFunctionTypes(f2)
 	if internalIsAssignableList(m, f1ArgTypes, f2ArgTypes) {
 		return true
 	}
@@ -424,7 +424,7 @@ func notReferencedIn(m *mapping, t *exprpb.Type, withinType *exprpb.Type) bool {
 		return true
 	case kindFunction:
 		fn := withinType.GetFunction()
-		types := mergeFunctionTypes(fn)
+		types := flattenFunctionTypes(fn)
 		for _, a := range types {
 			if !notReferencedIn(m, t, a) {
 				return false
@@ -490,7 +490,9 @@ func typeKey(t *exprpb.Type) string {
 	return FormatCheckedType(t)
 }
 
-func mergeFunctionTypes(f *exprpb.Type_FunctionType) []*exprpb.Type {
+// flattenFunctionTypes takes a function with arg types T1, T2, ..., TN and result type TR
+// and returns a slice containing {T1, T2, ..., TN, TR}.
+func flattenFunctionTypes(f *exprpb.Type_FunctionType) []*exprpb.Type {
 	argTypes := f.GetArgTypes()
 	if len(argTypes) == 0 {
 		return []*exprpb.Type{f.GetResultType()}
