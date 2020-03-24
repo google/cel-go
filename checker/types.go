@@ -497,10 +497,10 @@ func flattenFunctionTypes(f *exprpb.Type_FunctionType) []*exprpb.Type {
 	if len(argTypes) == 0 {
 		return []*exprpb.Type{f.GetResultType()}
 	}
-	merged := make([]*exprpb.Type, len(argTypes)+1, len(argTypes)+1)
+	flattend := make([]*exprpb.Type, len(argTypes)+1, len(argTypes)+1)
 	for i, at := range argTypes {
-		merged[i] = at
+		flattend[i] = at
 	}
-	merged[len(argTypes)] = f.GetResultType()
-	return merged
+	flattend[len(argTypes)] = f.GetResultType()
+	return flattend
 }
