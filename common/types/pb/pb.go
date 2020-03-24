@@ -122,10 +122,9 @@ func CollectFileDescriptorSet(message proto.Message) (*descpb.FileDescriptorSet,
 	fd, _ := descriptor.ForMessage(message.(descriptor.Message))
 	fdMap[fd.GetName()] = fd
 	// Initialize list of dependencies
-	deps := []string{}
-	for _, dep := range fd.GetDependency() {
-		deps = append(deps, dep)
-	}
+	fileDeps := fd.GetDependency()
+	deps := make([]string, len(fileDeps))
+	copy(deps, fileDeps)
 	// Expand list for new dependencies
 	for i := 0; i < len(deps); i++ {
 		dep := deps[i]
