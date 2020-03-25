@@ -41,9 +41,6 @@ func TestFileDescription_GetTypes(t *testing.T) {
 		if td.Name() != typeName {
 			t.Error("Indexed type name not equal to descriptor type name", td, typeName)
 		}
-		if td.file != fd {
-			t.Error("Indexed type does not refer to current file", td)
-		}
 	}
 }
 
