@@ -217,7 +217,7 @@ var (
 		},
 		{
 			name: "index",
-			expr: `m['key'][1] == 42u && m['null'] == null`,
+			expr: `m['key'][1] == 42u && m['null'] == null && m[string(0)] == 10`,
 			env: []*exprpb.Decl{
 				decls.NewIdent("m", decls.NewMapType(decls.String, decls.Dyn), nil),
 			},
@@ -225,6 +225,7 @@ var (
 				"m": map[string]interface{}{
 					"key":  []uint{21, 42},
 					"null": nil,
+					"0":    10,
 				},
 			},
 		},

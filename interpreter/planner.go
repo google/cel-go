@@ -501,7 +501,7 @@ func (p *planner) planCallIndex(expr *exprpb.Expr,
 	if isIndAttr {
 		return opAttr.AddQualifier(indAttr.Attr())
 	}
-	return nil, fmt.Errorf("unsupported index expression: %v", expr)
+	return opAttr.AddQualifier(p.attrFactory.RelativeAttribute(ind.ID(), ind))
 }
 
 // planCreateList generates a list construction Interpretable.
