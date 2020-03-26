@@ -26,8 +26,8 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
-// NewTypeDescription produces a TypeDescription value for the proto type name with a given
-// descriptor.
+// NewTypeDescription produces a TypeDescription value for the fully-qualified proto type name
+// with a given descriptor.
 //
 // The type description creation method also expects the type to be marked clearly as a proto2 or
 // proto3 type, and accepts a typeResolver reference for resolving field TypeDescription during

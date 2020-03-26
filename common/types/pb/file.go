@@ -93,9 +93,11 @@ func sanitizeProtoName(name string) string {
 	return name
 }
 
-// fileMetadata is a flattened view of  message types and enum values within a file descriptor.
+// fileMetadata is a flattened view of message types and enum values within a file descriptor.
 type fileMetadata struct {
-	msgTypes   map[string]*descpb.DescriptorProto
+	// msgTypes maps from fully-qualified message name to descriptor.
+	msgTypes map[string]*descpb.DescriptorProto
+	// enumValues maps from fully-qualified enum value to enum value descriptor.
 	enumValues map[string]*descpb.EnumValueDescriptorProto
 }
 
@@ -103,17 +105,16 @@ type fileMetadata struct {
 // values and index them by their fully qualified names.
 func collectFileMetadata(fileDesc *descpb.FileDescriptorProto) *fileMetadata {
 	pkg := fileDesc.GetPackage()
-	msgTypes := collectMsgTypes(pkg, fileDesc.GetMessageType())
-	enumValues := collectEnumValues(pkg, fileDesc.GetEnumType())
+	msgTypes := make(map[string]*descpb.DescriptorProto)
+	collectMsgTypes(pkg, fileDesc.GetMessageType(), msgTypes)
+	enumValues := make(map[string]*descpb.EnumValueDescriptorProto)
+	collectEnumValues(pkg, fileDesc.GetEnumType(), enumValues)
 	for container, msgType := range msgTypes {
 		nestedEnums := msgType.GetEnumType()
 		if len(nestedEnums) == 0 {
 			continue
 		}
-		nestedEnumValues := collectEnumValues(container, nestedEnums)
-		for name, enumVal := range nestedEnumValues {
-			enumValues[name] = enumVal
-		}
+		collectEnumValues(container, nestedEnums, enumValues)
 	}
 	return &fileMetadata{
 		msgTypes:   msgTypes,
@@ -124,8 +125,8 @@ func collectFileMetadata(fileDesc *descpb.FileDescriptorProto) *fileMetadata {
 // collectMsgTypes recursively collects messages and nested messages into a map of fully
 // qualified message names to message descriptors.
 func collectMsgTypes(container string,
-	msgTypes []*descpb.DescriptorProto) map[string]*descpb.DescriptorProto {
-	msgTypeMap := make(map[string]*descpb.DescriptorProto)
+	msgTypes []*descpb.DescriptorProto,
+	msgTypeMap map[string]*descpb.DescriptorProto) {
 	for _, msgType := range msgTypes {
 		msgName := fmt.Sprintf("%s.%s", container, msgType.GetName())
 		msgTypeMap[msgName] = msgType
@@ -133,23 +134,18 @@ func collectMsgTypes(container string,
 		if len(nestedTypes) == 0 {
 			continue
 		}
-		nestedTypeMap := collectMsgTypes(msgName, nestedTypes)
-		for k, v := range nestedTypeMap {
-			msgTypeMap[k] = v
-		}
+		collectMsgTypes(msgName, nestedTypes, msgTypeMap)
 	}
-	return msgTypeMap
 }
 
 // collectEnumValues accumulates the enum values within an enum declaration.
 func collectEnumValues(container string,
-	enumTypes []*descpb.EnumDescriptorProto) map[string]*descpb.EnumValueDescriptorProto {
-	enumValueMap := make(map[string]*descpb.EnumValueDescriptorProto)
+	enumTypes []*descpb.EnumDescriptorProto,
+	enumValueMap map[string]*descpb.EnumValueDescriptorProto) {
 	for _, enumType := range enumTypes {
 		for _, enumValue := range enumType.GetValue() {
 			name := fmt.Sprintf("%s.%s.%s", container, enumType.GetName(), enumValue.GetName())
 			enumValueMap[name] = enumValue
 		}
 	}
-	return enumValueMap
 }

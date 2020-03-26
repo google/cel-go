@@ -18,7 +18,8 @@ import (
 	descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
 )
 
-// NewEnumValueDescription produces a new named enum value description.
+// NewEnumValueDescription produces an enum value description with the fully qualified enum value
+// name and the enum value descriptor.
 func NewEnumValueDescription(name string,
 	desc *descpb.EnumValueDescriptorProto) *EnumValueDescription {
 	return &EnumValueDescription{
@@ -27,13 +28,13 @@ func NewEnumValueDescription(name string,
 	}
 }
 
-// EnumValueDescription maps a qualified enum name to its numeric value.
+// EnumValueDescription maps a fully-qualified enum value name to its numeric value.
 type EnumValueDescription struct {
 	enumValueName string
 	desc          *descpb.EnumValueDescriptorProto
 }
 
-// Name returns the human-readable identifier name for the enum value.
+// Name returns the fully-qualified identifier name for the enum value.
 func (ed *EnumValueDescription) Name() string {
 	return ed.enumValueName
 }
