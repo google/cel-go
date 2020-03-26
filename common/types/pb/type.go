@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	"sync/atomic"
+	"sync"
 
 	"github.com/golang/protobuf/proto"
 	descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
@@ -26,14 +26,41 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
+// NewTypeDescription produces a TypeDescription value for the fully-qualified proto type name
+// with a given descriptor.
+//
+// The type description creation method also expects the type to be marked clearly as a proto2 or
+// proto3 type, and accepts a typeResolver reference for resolving field TypeDescription during
+// lazily initialization of the type which is done atomically.
+func NewTypeDescription(typeName string, desc *descpb.DescriptorProto,
+	isProto3 bool, resolveType typeResolver) *TypeDescription {
+	return &TypeDescription{
+		typeName:    typeName,
+		isProto3:    isProto3,
+		desc:        desc,
+		resolveType: resolveType,
+	}
+}
+
 // TypeDescription is a collection of type metadata relevant to expression
 // checking and evaluation.
 type TypeDescription struct {
 	typeName string
-	file     *FileDescription
+	isProto3 bool
 	desc     *descpb.DescriptorProto
-	metadata *atomic.Value
+
+	// resolveType is used to lookup field types during type initialization.
+	// The resolver may point to shared state; however, this state is guaranteed to be computed at
+	// most one time.
+	resolveType typeResolver
+	init        sync.Once
+	metadata    *typeMetadata
 }
+
+// typeResolver accepts a type name and returns a TypeDescription.
+// The typeResolver is used to resolve field types during lazily initialization of the type
+// description metadata.
+type typeResolver func(typeName string) (*TypeDescription, error)
 
 type typeMetadata struct {
 	fields          map[string]*FieldDescription // fields by name (proto)
@@ -80,14 +107,14 @@ func (td *TypeDescription) DefaultValue() proto.Message {
 	return val.(proto.Message)
 }
 
+// getMetadata computes the type field metadata used for determining field types and default
+// values. The call to makeMetadata within this method is guaranteed to be invoked exactly
+// once.
 func (td *TypeDescription) getMetadata() *typeMetadata {
-	meta, ok := td.metadata.Load().(*typeMetadata)
-	if ok {
-		return meta
-	}
-	meta = td.makeMetadata()
-	td.metadata.Store(meta)
-	return meta
+	td.init.Do(func() {
+		td.metadata = td.makeMetadata()
+	})
+	return td.metadata
 }
 
 func (td *TypeDescription) makeMetadata() *typeMetadata {
@@ -162,7 +189,6 @@ func (td *TypeDescription) newFieldDesc(
 	index int) *FieldDescription {
 	getterName := fmt.Sprintf("Get%s", prop.Name)
 	getter, _ := tdType.MethodByName(getterName)
-	isProto3 := td.file.desc.GetSyntax() == "proto3"
 	var field *reflect.StructField
 	if tdType.Kind() == reflect.Ptr {
 		tdType = tdType.Elem()
@@ -177,12 +203,12 @@ func (td *TypeDescription) newFieldDesc(
 		getter:    getter.Func,
 		field:     field,
 		prop:      prop,
-		isProto3:  isProto3,
+		isProto3:  td.isProto3,
 		isWrapper: isWrapperType(desc),
 	}
 	if desc.GetType() == descpb.FieldDescriptorProto_TYPE_MESSAGE {
 		typeName := sanitizeProtoName(desc.GetTypeName())
-		fieldType, _ := td.file.pbdb.DescribeType(typeName)
+		fieldType, _ := td.resolveType(typeName)
 		fieldDesc.td = fieldType
 		return fieldDesc
 	}
@@ -203,7 +229,7 @@ func (td *TypeDescription) newMapFieldDesc(desc *descpb.FieldDescriptorProto) *F
 	return &FieldDescription{
 		desc:     desc,
 		index:    int(desc.GetNumber()),
-		isProto3: td.file.desc.GetSyntax() == "proto3",
+		isProto3: td.isProto3,
 	}
 }
 

@@ -50,6 +50,11 @@ func NewDb() *Db {
 	pbdb := &Db{
 		revFileDescriptorMap: make(map[string]*FileDescription),
 	}
+	// The FileDescription objects in the default db contain lazily initialized TypeDescription
+	// values which may point to the state contained in the DefaultDb irrespective of this shallow
+	// copy; however, the type graph for a field is idempotently computed, and is guaranteed to
+	// only be initialized once thanks to atomic values within the TypeDescription objects, so it
+	// is safe to share these values across instances.
 	for k, v := range DefaultDb.revFileDescriptorMap {
 		pbdb.revFileDescriptorMap[k] = v
 	}
@@ -63,14 +68,14 @@ func (pbdb *Db) RegisterDescriptor(fileDesc *descpb.FileDescriptorProto) (*FileD
 	if found {
 		return fd, nil
 	}
-	fd, err := pbdb.describeFileInternal(fileDesc)
-	if err != nil {
-		return nil, err
+	fd = NewFileDescription(fileDesc, pbdb)
+	for _, enumValName := range fd.GetEnumNames() {
+		pbdb.revFileDescriptorMap[enumValName] = fd
+	}
+	for _, msgTypeName := range fd.GetTypeNames() {
+		pbdb.revFileDescriptorMap[msgTypeName] = fd
 	}
 	pbdb.revFileDescriptorMap[fileDesc.GetName()] = fd
-	pkg := fd.Package()
-	fd.indexTypes(pkg, fileDesc.MessageType)
-	fd.indexEnums(pkg, fileDesc.EnumType)
 
 	// Return the specific file descriptor registered.
 	return fd, nil
@@ -98,7 +103,7 @@ func (pbdb *Db) DescribeFile(message proto.Message) (*FileDescription, error) {
 
 // DescribeEnum takes a qualified enum name and returns an `EnumDescription` if it exists in the
 // `pb.Db`.
-func (pbdb *Db) DescribeEnum(enumName string) (*EnumDescription, error) {
+func (pbdb *Db) DescribeEnum(enumName string) (*EnumValueDescription, error) {
 	enumName = sanitizeProtoName(enumName)
 	if fd, found := pbdb.revFileDescriptorMap[enumName]; found {
 		return fd.GetEnumDescription(enumName)
@@ -131,7 +136,7 @@ func CollectFileDescriptorSet(message proto.Message) (*descpb.FileDescriptorSet,
 		if _, found := fdMap[dep]; found {
 			continue
 		}
-		depDesc, err := fileDescriptor(dep)
+		depDesc, err := readFileDescriptor(dep)
 		if err != nil {
 			return nil, err
 		}
@@ -150,16 +155,11 @@ func CollectFileDescriptorSet(message proto.Message) (*descpb.FileDescriptorSet,
 	}, nil
 }
 
-func (pbdb *Db) describeFileInternal(fileDesc *descpb.FileDescriptorProto) (*FileDescription, error) {
-	fd := &FileDescription{
-		pbdb:  pbdb,
-		desc:  fileDesc,
-		types: make(map[string]*TypeDescription),
-		enums: make(map[string]*EnumDescription)}
-	return fd, nil
-}
-
-func fileDescriptor(protoFileName string) (*descpb.FileDescriptorProto, error) {
+// readFileDescriptor will read the gzipped file descriptor for a given proto file and return the
+// hydrated FileDescriptorProto.
+//
+// If the file name is not found or there is an error during deserialization an error is returned.
+func readFileDescriptor(protoFileName string) (*descpb.FileDescriptorProto, error) {
 	gzipped := proto.FileDescriptor(protoFileName)
 	r, err := gzip.NewReader(bytes.NewReader(gzipped))
 	if err != nil {
