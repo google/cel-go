@@ -313,12 +313,7 @@ func (c *checker) resolveOverload(
 				false)
 			if resultType == nil {
 				resultType = fnResultType
-			} else if !isDyn(resultType) &&
-				!isTypeParam(resultType) &&
-				!isTypeParam(fnResultType) &&
-				c.isAssignable(fnResultType, resultType) {
-				resultType = mostGeneral(fnResultType, resultType)
-			} else {
+			} else if !isDyn(resultType) && !proto.Equal(fnResultType, resultType) {
 				resultType = decls.Dyn
 			}
 		}
