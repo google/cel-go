@@ -308,14 +308,16 @@ func (c *checker) resolveOverload(
 				checkedRef.OverloadId = append(checkedRef.OverloadId, overload.OverloadId)
 			}
 
+			// First matching overload, determines result type.
+			fnResultType := substitute(c.mappings,
+				overloadType.GetFunction().ResultType,
+				false)
 			if resultType == nil {
-				// First matching overload, determines result type.
-				resultType = substitute(c.mappings,
-					overloadType.GetFunction().ResultType,
-					false)
-			} else {
-				// More than one matching overload, narrow result type to DYN.
-				resultType = decls.Dyn
+				resultType = fnResultType
+			} else if !isDyn(resultType) {
+				if !proto.Equal(fnResultType, resultType) {
+					resultType = decls.Dyn
+				}
 			}
 
 		}

@@ -1208,6 +1208,21 @@ _&&_(_==_(list~type(list(dyn))^list,
 	},
 
 	{
+		I: `1 in dyn([1, 2, 3])`,
+		R: `@in(
+			1~int,
+			dyn(
+			  [
+				1~int,
+				2~int,
+				3~int
+			  ]~list(int)
+			)~dyn^to_dyn
+		  )~bool^in_list|in_map`,
+		Type: decls.Bool,
+	},
+
+	{
 		I: `type(null) == null_type`,
 		R: `_==_(
     		  type(
