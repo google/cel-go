@@ -1079,7 +1079,7 @@ ERROR: <input>:1:5: undeclared reference to 'x' (in container '')
 				_>=_(
 					x~any^x,
 					x~any^x
-				)~dyn^greater_equals_bool|greater_equals_int64|greater_equals_uint64|greater_equals_double|greater_equals_string|greater_equals_bytes|greater_equals_timestamp|greater_equals_duration
+				)~bool^greater_equals_bool|greater_equals_int64|greater_equals_uint64|greater_equals_double|greater_equals_string|greater_equals_bytes|greater_equals_timestamp|greater_equals_duration
 			)~bool^logical_or
 		)~bool^logical_or
 		`,
@@ -1204,6 +1204,21 @@ _&&_(_==_(list~type(list(dyn))^list,
     		    3~int
     		  ]~list(int)
     		)~bool^in_list`,
+		Type: decls.Bool,
+	},
+
+	{
+		I: `1 in dyn([1, 2, 3])`,
+		R: `@in(
+			1~int,
+			dyn(
+			  [
+				1~int,
+				2~int,
+				3~int
+			  ]~list(int)
+			)~dyn^to_dyn
+		  )~bool^in_list|in_map`,
 		Type: decls.Bool,
 	},
 

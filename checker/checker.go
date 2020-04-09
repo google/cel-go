@@ -296,7 +296,6 @@ func (c *checker) resolveOverload(
 			for _, typePar := range overload.TypeParams {
 				substitutions.add(decls.NewTypeParamType(typePar), c.newTypeVar())
 			}
-
 			overloadType = substitute(substitutions, overloadType, false)
 		}
 
@@ -308,16 +307,15 @@ func (c *checker) resolveOverload(
 				checkedRef.OverloadId = append(checkedRef.OverloadId, overload.OverloadId)
 			}
 
+			// First matching overload, determines result type.
+			fnResultType := substitute(c.mappings,
+				overloadType.GetFunction().ResultType,
+				false)
 			if resultType == nil {
-				// First matching overload, determines result type.
-				resultType = substitute(c.mappings,
-					overloadType.GetFunction().ResultType,
-					false)
-			} else {
-				// More than one matching overload, narrow result type to DYN.
+				resultType = fnResultType
+			} else if !isDyn(resultType) && !proto.Equal(fnResultType, resultType) {
 				resultType = decls.Dyn
 			}
-
 		}
 	}
 
