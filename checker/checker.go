@@ -296,7 +296,6 @@ func (c *checker) resolveOverload(
 			for _, typePar := range overload.TypeParams {
 				substitutions.add(decls.NewTypeParamType(typePar), c.newTypeVar())
 			}
-
 			overloadType = substitute(substitutions, overloadType, false)
 		}
 
@@ -314,12 +313,14 @@ func (c *checker) resolveOverload(
 				false)
 			if resultType == nil {
 				resultType = fnResultType
-			} else if !isDyn(resultType) {
-				if !proto.Equal(fnResultType, resultType) {
-					resultType = decls.Dyn
-				}
+			} else if !isDyn(resultType) &&
+				!isTypeParam(resultType) &&
+				!isTypeParam(fnResultType) &&
+				c.isAssignable(fnResultType, resultType) {
+				resultType = mostGeneral(fnResultType, resultType)
+			} else {
+				resultType = decls.Dyn
 			}
-
 		}
 	}
 

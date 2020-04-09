@@ -91,6 +91,11 @@ func FormatCheckedType(t *exprpb.Type) string {
 	return t.String()
 }
 
+// isTypeParam returns whether the type value is a TYPE_PARAM type.
+func isTypeParam(t *exprpb.Type) bool {
+	return kindOf(t) == kindTypeParam
+}
+
 // isDyn returns true if the input t is either type DYN or a well-known ANY message.
 func isDyn(t *exprpb.Type) bool {
 	// Note: object type values that are well-known and map to a DYN value in practice

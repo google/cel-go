@@ -1079,7 +1079,7 @@ ERROR: <input>:1:5: undeclared reference to 'x' (in container '')
 				_>=_(
 					x~any^x,
 					x~any^x
-				)~dyn^greater_equals_bool|greater_equals_int64|greater_equals_uint64|greater_equals_double|greater_equals_string|greater_equals_bytes|greater_equals_timestamp|greater_equals_duration
+				)~bool^greater_equals_bool|greater_equals_int64|greater_equals_uint64|greater_equals_double|greater_equals_string|greater_equals_bytes|greater_equals_timestamp|greater_equals_duration
 			)~bool^logical_or
 		)~bool^logical_or
 		`,
