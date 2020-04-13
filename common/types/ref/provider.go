@@ -83,9 +83,6 @@ type TypeRegistry interface {
 // FieldType represents a field's type value and whether that field supports
 // presence detection.
 type FieldType struct {
-	// SupportsPresence indicates if the field having been set can be detected.
-	SupportsPresence bool
-
 	// Type of the field.
 	Type *exprpb.Type
 

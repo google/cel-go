@@ -28,6 +28,7 @@ import (
 	"github.com/google/cel-go/parser"
 	"github.com/google/cel-go/test"
 
+	proto2pb "github.com/google/cel-go/test/proto2pb"
 	proto3pb "github.com/google/cel-go/test/proto3pb"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
@@ -714,18 +715,11 @@ ERROR: <input>:1:2: found no matching overload for '_[_]' applied to '(map(strin
 		},
 		Error: `
 ERROR: <input>:1:24: undefined field 'undefined'
- | x.single_nested_message.undefined == x.undefined && has(x.single_int32) && has(x.repeated_int32)
- | .......................^
+| x.single_nested_message.undefined == x.undefined && has(x.single_int32) && has(x.repeated_int32)
+| .......................^
 ERROR: <input>:1:39: undefined field 'undefined'
- | x.single_nested_message.undefined == x.undefined && has(x.single_int32) && has(x.repeated_int32)
- | ......................................^
-ERROR: <input>:1:56: field 'single_int32' does not support presence check
- | x.single_nested_message.undefined == x.undefined && has(x.single_int32) && has(x.repeated_int32)
- | .......................................................^
-ERROR: <input>:1:79: field 'repeated_int32' does not support presence check
- | x.single_nested_message.undefined == x.undefined && has(x.single_int32) && has(x.repeated_int32)
- | ..............................................................................^
-		`,
+| x.single_nested_message.undefined == x.undefined && has(x.single_int32) && has(x.repeated_int32)
+| ......................................^`,
 	},
 	{
 		I: `x.single_nested_message != null`,
@@ -1448,6 +1442,50 @@ _&&_(_==_(list~type(list(dyn))^list,
 		},
 		Type: decls.Bool,
 	},
+	{
+		I: `!has(pb2.single_int64)
+		&& !has(pb2.repeated_int32)
+		&& !has(pb2.map_string_string)
+		&& !has(pb3.single_int64)
+		&& !has(pb3.repeated_int32)
+		&& !has(pb3.map_string_string)`,
+		Env: env{
+			idents: []*exprpb.Decl{
+				decls.NewIdent("pb2", decls.NewObjectType("google.expr.proto2.test.TestAllTypes"), nil),
+				decls.NewIdent("pb3", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
+			},
+		},
+		R: `
+		_&&_(
+			_&&_(
+			  _&&_(
+				!_(
+				  pb2~google.expr.proto2.test.TestAllTypes^pb2.single_int64~test-only~~bool
+				)~bool^logical_not,
+				!_(
+				  pb2~google.expr.proto2.test.TestAllTypes^pb2.repeated_int32~test-only~~bool
+				)~bool^logical_not
+			  )~bool^logical_and,
+			  !_(
+				pb2~google.expr.proto2.test.TestAllTypes^pb2.map_string_string~test-only~~bool
+			  )~bool^logical_not
+			)~bool^logical_and,
+			_&&_(
+			  _&&_(
+				!_(
+				  pb3~google.expr.proto3.test.TestAllTypes^pb3.single_int64~test-only~~bool
+				)~bool^logical_not,
+				!_(
+				  pb3~google.expr.proto3.test.TestAllTypes^pb3.repeated_int32~test-only~~bool
+				)~bool^logical_not
+			  )~bool^logical_and,
+			  !_(
+				pb3~google.expr.proto3.test.TestAllTypes^pb3.map_string_string~test-only~~bool
+			  )~bool^logical_not
+			)~bool^logical_and
+		  )~bool^logical_and`,
+		Type: decls.Bool,
+	},
 }
 
 var testEnvs = map[string]env{
@@ -1519,7 +1557,7 @@ func TestCheck(t *testing.T) {
 			}
 
 			reg := types.NewRegistry()
-			reg.RegisterMessage(&proto3pb.NestedTestAllTypes{})
+			reg.RegisterMessage(&proto2pb.TestAllTypes{})
 			reg.RegisterMessage(&proto3pb.TestAllTypes{})
 			pkg := packages.NewPackage(tc.Container)
 			env := NewStandardEnv(pkg, reg)

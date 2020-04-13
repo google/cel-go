@@ -193,11 +193,6 @@ func (c *checker) checkSelect(e *exprpb.Expr) {
 			messageType.GetMessageType(),
 			sel.Field); found {
 			resultType = fieldType.Type
-			// In proto3, primitive field types can't support presence testing, so the has()
-			// style operation would be invalid in this instance.
-			if sel.TestOnly && !fieldType.SupportsPresence {
-				c.errors.fieldDoesNotSupportPresenceCheck(c.location(e), sel.Field)
-			}
 		}
 	case kindTypeParam:
 		// Set the operand type to DYN to prevent assignment to a potentionally incorrect type

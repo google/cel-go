@@ -96,10 +96,9 @@ func (p *protoTypeRegistry) FindFieldType(messageType string,
 		return nil, false
 	}
 	return &ref.FieldType{
-			Type:             field.CheckedType(),
-			SupportsPresence: field.SupportsPresence(),
-			IsSet:            field.IsSet,
-			GetFrom:          field.GetFrom},
+			Type:    field.CheckedType(),
+			IsSet:   field.IsSet,
+			GetFrom: field.GetFrom},
 		true
 }
 

@@ -372,10 +372,34 @@ var (
 			expr: `has({'a':1}.a) && !has({}.a)`,
 		},
 		{
-			name:  "macro_has_pb3_msg_field",
+			name:  "macro_has_pb2_field",
+			types: []proto.Message{&proto2pb.TestAllTypes{}},
+			env: []*exprpb.Decl{
+				decls.NewIdent("pb2", decls.NewObjectType("google.expr.proto2.test.TestAllTypes"), nil),
+			},
+			in: map[string]interface{}{
+				"pb2": &proto2pb.TestAllTypes{
+					RepeatedBool: []bool{false},
+					MapInt64NestedType: map[int64]*proto2pb.NestedTestAllTypes{
+						1: &proto2pb.NestedTestAllTypes{},
+					},
+					MapStringString: map[string]string{},
+				},
+			},
+			expr: `!has(pb2.single_int64)
+			&& has(pb2.repeated_bool)
+			&& !has(pb2.repeated_int32)
+			&& has(pb2.map_int64_nested_type)
+			&& !has(pb2.map_string_string)`,
+		},
+		{
+			name:  "macro_has_pb3_field",
 			types: []proto.Message{&exprpb.ParsedExpr{}},
 			pkg:   "google.api.expr.v1alpha1",
 			expr: `has(v1alpha1.ParsedExpr{expr:Expr{id: 1}}.expr)
+				&& !has(ParsedExpr{expr:Expr{}}.expr.id)
+				&& has(SourceInfo{positions:{1:1}}.positions)
+				&& !has(SourceInfo{positions:{}}.positions)
 				&& !has(expr.v1alpha1.ParsedExpr{expr:Expr{id: 1}}.source_info)`,
 		},
 		{

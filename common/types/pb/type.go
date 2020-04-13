@@ -315,9 +315,6 @@ func (fd *FieldDescription) IsSet(target interface{}) bool {
 	// - empty for primitive typed fields in proto3
 	if fd.field != nil && !fd.IsOneof() {
 		t = reflect.Indirect(t)
-		if t.Kind() != reflect.Struct {
-			return false
-		}
 		return isFieldSet(t.FieldByIndex(fd.field.Index))
 	}
 	// When the field is nil or when the field is a oneof, call the accessor
@@ -351,20 +348,21 @@ func (fd *FieldDescription) GetFrom(target interface{}) (interface{}, error) {
 		// Additionally, proto3 oneofs require the use of the accessor to get the proper value.
 		fieldVal = fd.getter.Call([]reflect.Value{t})[0]
 	}
-	if isFieldSet(fieldVal) {
-		// Return the field value assuming it is set. For proto3 the value may be a zero value.
-		if fieldVal.CanInterface() {
-			return fieldVal.Interface(), nil
+
+	// If the field is a message and it's not set, return its proper default value.
+	if fd.IsMessage() && !isFieldSet(fieldVal) {
+		// Well known wrapper types default to null if not set.
+		if fd.IsWrapper() {
+			return structpb.NullValue_NULL_VALUE, nil
 		}
-		return reflect.Zero(fieldVal.Type()).Interface(), nil
-	}
-	if fd.IsWrapper() {
-		return structpb.NullValue_NULL_VALUE, nil
-	}
-	if fd.IsMessage() {
+		// Otherwise, return an empty message.
 		return fd.Type().DefaultValue(), nil
 	}
-	return nil, fmt.Errorf("no default value for field: %s", fd.Name())
+	// Otherwise, return the field value or the zero value for its type.
+	if fieldVal.CanInterface() {
+		return fieldVal.Interface(), nil
+	}
+	return reflect.Zero(fieldVal.Type()).Interface(), nil
 }
 
 // Index returns the field index within a reflected value.
@@ -436,11 +434,6 @@ func (fd *FieldDescription) Name() string {
 	return fd.prop.Name
 }
 
-// SupportsPresence returns true if the field supports presence detection.
-func (fd *FieldDescription) SupportsPresence() bool {
-	return !fd.IsRepeated() && (fd.IsMessage() || !fd.isProto3)
-}
-
 // String returns a struct-like field definition string.
 func (fd *FieldDescription) String() string {
 	return fmt.Sprintf("%s %s `oneof=%t`",
@@ -498,5 +491,23 @@ func checkedWrap(t *exprpb.Type) *exprpb.Type {
 }
 
 func isFieldSet(refVal reflect.Value) bool {
-	return refVal.Kind() != reflect.Ptr || !refVal.IsNil()
+	switch refVal.Kind() {
+	case reflect.Ptr:
+		// proto2 represents all non-repeated fields as pointers.
+		// proto3 represents message fields as pointers.
+		// if the value is non-nil, it is set.
+		return !refVal.IsNil()
+	case reflect.Array, reflect.Slice, reflect.Map:
+		// proto2 and proto3 repeated and map types are considered set if not empty.
+		return refVal.Len() > 0
+	default:
+		// proto3 represents simple types by their zero value when they are not set.
+		// return whether the value is something other than the zero value.
+		zeroVal := reflect.Zero(refVal.Type()).Interface()
+		if refVal.CanInterface() {
+			val := refVal.Interface()
+			return !reflect.DeepEqual(val, zeroVal)
+		}
+		return false
+	}
 }
