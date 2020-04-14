@@ -348,7 +348,9 @@ func (fd *FieldDescription) GetFrom(target interface{}) (interface{}, error) {
 		// Additionally, proto3 oneofs require the use of the accessor to get the proper value.
 		fieldVal = fd.getter.Call([]reflect.Value{t})[0]
 	}
-	// If the field is a message and it's not set, return its proper default value.
+	// If the field is a non-repeated message, and it's not set, return its default value.
+	// Note, repeated fields should have default values of empty list or empty map, so the checks
+	// for whether to return a default proto message don't really apply.
 	if fd.IsMessage() && !fd.IsRepeated() && !isFieldSet(fieldVal) {
 		// Well known wrapper types default to null if not set.
 		if fd.IsWrapper() {
