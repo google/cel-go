@@ -116,9 +116,6 @@ func (o *protoObj) IsSet(field ref.Val) ref.Val {
 	if !found {
 		return NewErr("no such field '%s'", field)
 	}
-	if !fd.SupportsPresence() {
-		return NewErr("field does not support presence testing.")
-	}
 	if fd.IsSet(o.refValue) {
 		return True
 	}

@@ -60,8 +60,7 @@ func (test *evalTestOnly) Eval(ctx Activation) ref.Val {
 			if ok {
 				opVal = refVal.Value()
 			}
-			isSet := test.fieldType.IsSet(opVal)
-			if isSet {
+			if test.fieldType.IsSet(opVal) {
 				return types.True
 			}
 			return types.False
