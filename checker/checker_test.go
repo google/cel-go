@@ -1486,6 +1486,26 @@ _&&_(_==_(list~type(list(dyn))^list,
 		  )~bool^logical_and`,
 		Type: decls.Bool,
 	},
+	{
+		I:         `TestAllTypes{}.repeated_nested_message`,
+		Container: "google.expr.proto2.test",
+		R:         `TestAllTypes{}~google.expr.proto2.test.TestAllTypes^google.expr.proto2.test.TestAllTypes.repeated_nested_message~list(google.expr.proto2.test.TestAllTypes.NestedMessage)`,
+		Type: decls.NewListType(
+			decls.NewObjectType(
+				"google.expr.proto2.test.TestAllTypes.NestedMessage",
+			),
+		),
+	},
+	{
+		I:         `TestAllTypes{}.repeated_nested_message`,
+		Container: "google.expr.proto3.test",
+		R:         `TestAllTypes{}~google.expr.proto3.test.TestAllTypes^google.expr.proto3.test.TestAllTypes.repeated_nested_message~list(google.expr.proto3.test.TestAllTypes.NestedMessage)`,
+		Type: decls.NewListType(
+			decls.NewObjectType(
+				"google.expr.proto3.test.TestAllTypes.NestedMessage",
+			),
+		),
+	},
 }
 
 var testEnvs = map[string]env{

@@ -50,6 +50,7 @@ go_test(
         "//common/types:go_default_library",
         "//parser:go_default_library",
         "//test:go_default_library",
+        "//test/proto2pb:go_default_library",
         "//test/proto3pb:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_antlr//runtime/Go/antlr:go_default_library",

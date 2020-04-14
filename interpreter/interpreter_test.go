@@ -782,6 +782,13 @@ var (
 			},
 			out: types.Int(10),
 		},
+		{
+			name:  "select_empty_repeated_nested",
+			expr:  `TestAllTypes{}.repeated_nested_message.size() == 0`,
+			types: []proto.Message{&proto3pb.TestAllTypes{}},
+			pkg:   "google.expr.proto3.test",
+			out:   types.True,
+		},
 	}
 )
 

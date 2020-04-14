@@ -348,9 +348,8 @@ func (fd *FieldDescription) GetFrom(target interface{}) (interface{}, error) {
 		// Additionally, proto3 oneofs require the use of the accessor to get the proper value.
 		fieldVal = fd.getter.Call([]reflect.Value{t})[0]
 	}
-
 	// If the field is a message and it's not set, return its proper default value.
-	if fd.IsMessage() && !isFieldSet(fieldVal) {
+	if fd.IsMessage() && !fd.IsRepeated() && !isFieldSet(fieldVal) {
 		// Well known wrapper types default to null if not set.
 		if fd.IsWrapper() {
 			return structpb.NullValue_NULL_VALUE, nil
