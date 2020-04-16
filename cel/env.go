@@ -209,13 +209,20 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 	if e.chkErr != nil {
 		return nil, e.chkErr
 	}
+	decsCopy := make([]*exprpb.Decl, len(e.declarations))
+	macsCopy := make([]parser.Macro, len(e.macros))
+	progOptsCopy := make([]ProgramOption, len(e.progOpts))
+	copy(decsCopy, e.declarations)
+	copy(macsCopy, e.macros)
+	copy(progOptsCopy, e.progOpts)
+
 	ext := &Env{
-		declarations:                   e.declarations,
+		declarations:                   decsCopy,
+		macros:                         macsCopy,
+		progOpts:                       progOptsCopy,
 		adapter:                        e.adapter,
 		enableDynamicAggregateLiterals: e.enableDynamicAggregateLiterals,
-		macros:                         e.macros,
 		pkg:                            e.pkg,
-		progOpts:                       e.progOpts,
 		provider:                       e.provider,
 	}
 	return ext.configure(opts)

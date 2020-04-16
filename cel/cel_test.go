@@ -709,6 +709,33 @@ func Test_EnvExtension(t *testing.T) {
 	}
 }
 
+func Test_EnvExtensionIsolation(t *testing.T) {
+	baseEnv, err := NewEnv(Declarations(
+		decls.NewIdent("age", decls.Int, nil),
+		decls.NewIdent("gender", decls.String, nil),
+		decls.NewIdent("country", decls.String, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	env1, err := baseEnv.Extend(Declarations(
+		decls.NewIdent("name", decls.String, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	env2, err := baseEnv.Extend(Declarations(
+		decls.NewIdent("group", decls.String, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, issues := env2.Compile("size(group) > 10"); issues.Err() != nil {
+		t.Fatal(issues.Err())
+	}
+	// I expect this to work but env1 now has "group" instead of "name"
+	if _, issues := env1.Compile("size(name) > 10"); issues.Err() != nil {
+		t.Fatal(issues.Err())
+	}
+}
+
 func Test_ParseAndCheckConcurrently(t *testing.T) {
 	e, _ := NewEnv(
 		Container("google.api.expr.v1alpha1"),
