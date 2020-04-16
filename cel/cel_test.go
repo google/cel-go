@@ -730,9 +730,14 @@ func Test_EnvExtensionIsolation(t *testing.T) {
 	if _, issues := env2.Compile("size(group) > 10"); issues.Err() != nil {
 		t.Fatal(issues.Err())
 	}
-	// I expect this to work but env1 now has "group" instead of "name"
+	if _, issues := env2.Compile("size(name) > 10"); issues.Err() == nil {
+		t.Fatal("env2 contains 'name', but should not")
+	}
 	if _, issues := env1.Compile("size(name) > 10"); issues.Err() != nil {
 		t.Fatal(issues.Err())
+	}
+	if _, issues := env1.Compile("size(group) > 10"); issues.Err() == nil {
+		t.Fatal("env1 contains 'group', but should not")
 	}
 }
 
