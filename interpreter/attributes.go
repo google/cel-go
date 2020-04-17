@@ -220,7 +220,7 @@ func (a *absoluteAttribute) ID() int64 {
 
 // String implements the Stringer interface method.
 func (a *absoluteAttribute) String() string {
-	return fmt.Sprintf("id: %v , names: %v", a.id, a.namespaceNames)
+	return fmt.Sprintf("id: %v, names: %v", a.id, a.namespaceNames)
 }
 
 // AddQualifier implements the Attribute interface method.
@@ -317,7 +317,7 @@ func (a *conditionalAttribute) ID() int64 {
 
 // String is an implementation of the Stringer interface method.
 func (a *conditionalAttribute) String() string {
-	return fmt.Sprintf("id: %v , truthy attribute: %v, falsy attribute: %v", a.id, a.truthy, a.falsy)
+	return fmt.Sprintf("id: %v, truthy attribute: %v, falsy attribute: %v", a.id, a.truthy, a.falsy)
 }
 
 // AddQualifier appends the same qualifier to both sides of the conditional, in effect managing
@@ -384,7 +384,7 @@ func (a *maybeAttribute) ID() int64 {
 
 // String is an implementation of the Stringer interface method.
 func (a *maybeAttribute) String() string {
-	return fmt.Sprintf("id: %v , attributes: %v", a.id, a.attrs)
+	return fmt.Sprintf("id: %v, attributes: %v", a.id, a.attrs)
 }
 
 // AddQualifier adds a qualifier to each possible attribute variant, and also creates
@@ -484,7 +484,7 @@ func (a *relativeAttribute) ID() int64 {
 
 // String is an implementation of the Stringer interface method.
 func (a *relativeAttribute) String() string {
-	return fmt.Sprintf("id: %v , operand: %v", a.id, a.operand)
+	return fmt.Sprintf("id: %v, operand: %v", a.id, a.operand)
 }
 
 // AddQualifier implements the Attribute interface method.

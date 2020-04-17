@@ -10,28 +10,25 @@ import (
 	"strings"
 	"time"
 
-	"google3/base/go/google"
-	"google3/base/go/log"
-	"google3/net/proto2/go/jsonpb"
-	"google3/net/proto2/go/proto"
-	"google3/third_party/cel/go/cel/cel"
-	"google3/third_party/cel/go/checker/decls/decls"
-	"google3/third_party/cel/go/common/types/ref/ref"
-	"google3/third_party/cel/go/common/types/traits/traits"
-	"google3/third_party/cel/go/common/types/types"
-	"google3/third_party/cel/go/interpreter/functions/functions"
-	"google3/third_party/cel/go/interpreter/interpreter"
-	"google3/third_party/cel/go/parser/parser"
+	"github.com/golang/glog"
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
 
-	exprpb "google3/google/api/expr/v1alpha1/expr_go_proto"
-	structpb "google3/google/protobuf/struct_go_proto"
-	tpb "google3/google/protobuf/timestamp_go_proto"
-	rpcpb "google3/google/rpc/context/attribute_context_go_proto"
+	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/checker/decls"
+	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/common/types/traits"
+	"github.com/google/cel-go/interpreter/functions"
+
+	structpb "github.com/golang/protobuf/ptypes/struct"
+	tpb "github.com/golang/protobuf/ptypes/timestamp"
+
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	rpcpb "google.golang.org/genproto/googleapis/rpc/context/attribute_context"
 )
 
 func main() {
-	google.Init()
-
 	exercise1()
 	exercise2()
 	exercise3()
@@ -50,30 +47,30 @@ func exercise1() {
 	// Create the standard environment.
 	env, err := cel.NewEnv()
 	if err != nil {
-		log.Exitf("env error: %v", err)
+		glog.Exitf("env error: %v", err)
 	}
 	// Check that the expression compiles and returns a String.
 	ast, iss := env.Parse(`"Hello, World!"`)
 	// Report syntactic errors, if present.
 	if iss != nil && iss.Err() != nil {
-		log.Exit(iss.Err())
+		glog.Exit(iss.Err())
 	}
 	// Type-check the expression for correctness.
 	checked, iss := env.Check(ast)
 	// Report semantic errors, if present.
 	if iss != nil && iss.Err() != nil {
-		log.Exit(iss.Err())
+		glog.Exit(iss.Err())
 	}
 	// Check the result type is a string.
 	if !proto.Equal(checked.ResultType(), decls.String) {
-		log.Exitf(
+		glog.Exitf(
 			"Got %v, wanted %v result type",
 			checked.ResultType(), decls.String)
 	}
 	// Plan the program.
 	program, err := env.Program(checked)
 	if err != nil {
-		log.Exitf("program error: %v", err)
+		glog.Exitf("program error: %v", err)
 	}
 	// Evaluate the program without any additional arguments.
 	eval(program, cel.NoVars())
@@ -97,7 +94,7 @@ func exercise2() {
 		),
 	)
 	if err != nil {
-		log.Exit(err)
+		glog.Exit(err)
 	}
 	ast := compile(env, `request.auth.claims.group == 'admin'`, decls.Bool)
 	program, _ := env.Program(ast)
@@ -193,7 +190,7 @@ func exercise4() {
 			}),
 	)
 	if err != nil {
-		log.Exit(err)
+		glog.Exit(err)
 	}
 
 	eval(program, request(auth("user:me@acme.co", emptyClaims), time.Now()))
@@ -350,9 +347,6 @@ func exercise7() {
 //
 // Turn on the optimization, exhaustive eval, and state tracking
 // `cel.ProgramOption` flags to see the impact on evaluation behavior.
-//
-// Also, turn on the homogeneous aggregate literals flag to disable
-// heterogeneous list and map literals.
 func exercise8() {
 	fmt.Println("=== Exercise 8: Tuning ===\n")
 	// Declare the `x` and 'y' variables as input into the expression.
@@ -381,14 +375,15 @@ func exercise8() {
 	// Turn on optimization and state tracking to see the typical eval
 	// behavior, but with partial input.
 	xVar := map[string]interface{}{"x": int64(3)}
+	partialVars, _ := cel.PartialVars(xVar, cel.AttributePattern("y"))
 	program, _ = env.Program(ast,
-		cel.EvalOptions(cel.OptOptimize, cel.OptTrackState))
-	_, details, _ := eval(program, xVar)
+		cel.EvalOptions(cel.OptPartialEval, cel.OptOptimize, cel.OptTrackState))
+	_, details, _ := eval(program, partialVars)
 
 	// Convert the unknown parts of the expression to a new AST and format it back
 	// to a human-readable expression.
-	residualAst := interpreter.PruneAst(ast.Expr(), details.State())
-	residual, _ := parser.Unparse(residualAst, &exprpb.SourceInfo{})
+	residualAst, _ := env.ResidualAst(ast, details)
+	residual, _ := cel.AstToString(residualAst)
 	fmt.Printf("------ residual ------\n%s\n", residual)
 
 	fmt.Println()
@@ -399,34 +394,30 @@ func exercise8() {
 // compile will parse and check an expression `expr` against a given
 // environment `env` and determine whether the resulting type of the expression
 // matches the `exprType` provided as input.
-func compile(env cel.Env, expr string, exprType *exprpb.Type) cel.Ast {
-	ast, iss := env.Parse(expr)
+func compile(env *cel.Env, expr string, exprType *exprpb.Type) *cel.Ast {
+	ast, iss := env.Compile(expr)
 	if iss != nil && iss.Err() != nil {
-		log.Exit(iss.Err())
+		glog.Exit(iss.Err())
 	}
-	checked, iss := env.Check(ast)
-	if iss != nil && iss.Err() != nil {
-		log.Exit(iss.Err())
-	}
-	if !proto.Equal(checked.ResultType(), exprType) {
-		log.Exitf(
+	if !proto.Equal(ast.ResultType(), exprType) {
+		glog.Exitf(
 			"Got %v, wanted %v result type",
-			checked.ResultType(),
+			ast.ResultType(),
 			exprType)
 	}
 	fmt.Printf("%s\n\n", strings.ReplaceAll(expr, "\t", " "))
-	return checked
+	return ast
 }
 
 // eval will evaluate a given program `prg` against a set of variables `vars`
 // and return the output, eval details (optional), or error that results from
 // evaluation.
 func eval(prg cel.Program,
-	vars interface{}) (out ref.Val, det cel.EvalDetails, err error) {
+	vars interface{}) (out ref.Val, det *cel.EvalDetails, err error) {
 	varMap, isMap := vars.(map[string]interface{})
 	fmt.Println("------ input ------")
 	if !isMap {
-		fmt.Println("n/a")
+		fmt.Printf("(%T)\n", vars)
 	} else {
 		for k, v := range varMap {
 			switch val := v.(type) {
@@ -450,7 +441,7 @@ func eval(prg cel.Program,
 }
 
 // report prints out the result of evaluation in human-friendly terms.
-func report(result ref.Val, details cel.EvalDetails, err error) {
+func report(result ref.Val, details *cel.EvalDetails, err error) {
 	fmt.Println("------ result ------")
 	if err != nil {
 		fmt.Printf("error: %s\n", err)
@@ -546,12 +537,12 @@ func request(auth *rpcpb.AttributeContext_Auth, t time.Time) map[string]interfac
 func valueToJSON(val ref.Val) string {
 	v, err := val.ConvertToNative(reflect.TypeOf(&structpb.Value{}))
 	if err != nil {
-		log.Exit(err)
+		glog.Exit(err)
 	}
 	marshaller := &jsonpb.Marshaler{Indent: "    "}
 	str, err := marshaller.MarshalToString(v.(proto.Message))
 	if err != nil {
-		log.Exit(err)
+		glog.Exit(err)
 	}
 	return str
 }
