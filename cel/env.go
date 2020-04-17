@@ -233,10 +233,17 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 	// be immutable. Since it is possible to set the TypeProvider separately
 	// from the TypeAdapter, the possible configurations which could use a
 	// TypeRegistry as the base implementation are captured below.
-	if isAdapterReg && isProviderReg && adapterReg == providerReg {
+	if isAdapterReg && isProviderReg {
 		reg := providerReg.Copy()
-		adapter = reg
 		provider = reg
+		// If the adapter and provider are the same object, set the adapter
+		// to the same ref.TypeRegistry as the provider.
+		if adapterReg == providerReg {
+			adapter = reg
+		} else {
+			// Otherwise, make a copy of the adapter.
+			adapter = adapterReg.Copy()
+		}
 	} else if isProviderReg {
 		provider = providerReg.Copy()
 	} else if isAdapterReg {
