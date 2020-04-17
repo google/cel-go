@@ -224,8 +224,8 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 	copy(progOptsCopy, e.progOpts)
 
 	// Copy the adapter / provider if they appear to be mutable.
-	var adapter ref.TypeAdapter
-	var provider ref.TypeProvider
+	adapter := e.adapter
+	provider := e.provider
 	adapterReg, isAdapterReg := e.adapter.(ref.TypeRegistry)
 	providerReg, isProviderReg := e.provider.(ref.TypeRegistry)
 	// In most cases the provider and adapter will be a ref.TypeRegistry;

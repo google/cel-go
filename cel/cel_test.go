@@ -705,9 +705,25 @@ func Test_EnvExtension(t *testing.T) {
 				decls.NewObjectType("google.api.expr.v1alpha1.Expr"), nil),
 		),
 	)
-	e2, _ := e.Extend()
+	e2, _ := e.Extend(
+		CustomTypeAdapter(types.DefaultTypeAdapter),
+		Types(&proto3pb.TestAllTypes{}),
+	)
 	if e == e2 {
 		t.Error("got object equality, wanted separate objects")
+	}
+	if e.TypeAdapter() == e2.TypeAdapter() {
+		t.Error("got the same type adapter, wanted isolated instances.")
+	}
+	if e.TypeProvider() == e2.TypeProvider() {
+		t.Error("got the same type provider, wanted isolated instances.")
+	}
+	e3, _ := e2.Extend()
+	if e2.TypeAdapter() != e3.TypeAdapter() {
+		t.Error("got different type adapters, wanted immutable adapter reference")
+	}
+	if e2.TypeProvider() == e3.TypeProvider() {
+		t.Error("got the same type provider, wanted isolated instances.")
 	}
 }
 
