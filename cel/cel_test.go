@@ -33,6 +33,8 @@ import (
 	"github.com/google/cel-go/parser"
 
 	descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
+	proto2pb "github.com/google/cel-go/test/proto2pb"
+	proto3pb "github.com/google/cel-go/test/proto3pb"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
@@ -710,34 +712,55 @@ func Test_EnvExtension(t *testing.T) {
 }
 
 func Test_EnvExtensionIsolation(t *testing.T) {
-	baseEnv, err := NewEnv(Declarations(
-		decls.NewIdent("age", decls.Int, nil),
-		decls.NewIdent("gender", decls.String, nil),
-		decls.NewIdent("country", decls.String, nil)))
+	baseEnv, err := NewEnv(
+		Container("google.expr"),
+		Declarations(
+			decls.NewIdent("age", decls.Int, nil),
+			decls.NewIdent("gender", decls.String, nil),
+			decls.NewIdent("country", decls.String, nil),
+		),
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	env1, err := baseEnv.Extend(Declarations(
-		decls.NewIdent("name", decls.String, nil)))
+	env1, err := baseEnv.Extend(
+		Types(&proto2pb.TestAllTypes{}),
+		Declarations(decls.NewIdent("name", decls.String, nil)))
 	if err != nil {
 		t.Fatal(err)
 	}
-	env2, err := baseEnv.Extend(Declarations(
-		decls.NewIdent("group", decls.String, nil)))
+	env2, err := baseEnv.Extend(
+		Types(&proto3pb.TestAllTypes{}),
+		Declarations(decls.NewIdent("group", decls.String, nil)))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, issues := env2.Compile("size(group) > 10"); issues.Err() != nil {
+	_, issues := env2.Compile(`size(group) > 10
+		&& !has(proto3.test.TestAllTypes{}.single_int32)`)
+	if issues.Err() != nil {
 		t.Fatal(issues.Err())
 	}
-	if _, issues := env2.Compile("size(name) > 10"); issues.Err() == nil {
+	_, issues = env2.Compile(`size(name) > 10`)
+	if issues.Err() == nil {
 		t.Fatal("env2 contains 'name', but should not")
 	}
-	if _, issues := env1.Compile("size(name) > 10"); issues.Err() != nil {
+	_, issues = env2.Compile(`!has(proto2.test.TestAllTypes{}.single_int32)`)
+	if issues.Err() == nil {
+		t.Fatal("env2 contains 'proto2.test.TestAllTypes', but should not")
+	}
+
+	_, issues = env1.Compile(`size(name) > 10
+		&& !has(proto2.test.TestAllTypes{}.single_int32)`)
+	if issues.Err() != nil {
 		t.Fatal(issues.Err())
 	}
-	if _, issues := env1.Compile("size(group) > 10"); issues.Err() == nil {
+	_, issues = env1.Compile("size(group) > 10")
+	if issues.Err() == nil {
 		t.Fatal("env1 contains 'group', but should not")
+	}
+	_, issues = env1.Compile(`!has(proto3.test.TestAllTypes{}.single_int32)`)
+	if issues.Err() == nil {
+		t.Fatal("env1 contains 'proto3.test.TestAllTypes', but should not")
 	}
 }
 

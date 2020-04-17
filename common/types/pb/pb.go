@@ -61,6 +61,15 @@ func NewDb() *Db {
 	return pbdb
 }
 
+// Copy creates a copy of the current database with its own internal descriptor mapping.
+func (pbdb *Db) Copy() *Db {
+	copy := NewDb()
+	for k, v := range pbdb.revFileDescriptorMap {
+		copy.revFileDescriptorMap[k] = v
+	}
+	return copy
+}
+
 // RegisterDescriptor produces a `FileDescription` from a `FileDescriptorProto` and registers the
 // message and enum types into the `pb.Db`.
 func (pbdb *Db) RegisterDescriptor(fileDesc *descpb.FileDescriptorProto) (*FileDescription, error) {

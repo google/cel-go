@@ -209,6 +209,7 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 	if e.chkErr != nil {
 		return nil, e.chkErr
 	}
+	// Copy slices.
 	decsCopy := make([]*exprpb.Decl, len(e.declarations))
 	macsCopy := make([]parser.Macro, len(e.macros))
 	progOptsCopy := make([]ProgramOption, len(e.progOpts))
@@ -216,14 +217,29 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 	copy(macsCopy, e.macros)
 	copy(progOptsCopy, e.progOpts)
 
+	// Copy the adapter / provider if they appear to be mutable.
+	var adapter ref.TypeAdapter
+	var provider ref.TypeProvider
+	adapterReg, isAdapterReg := e.adapter.(ref.TypeRegistry)
+	providerReg, isProviderReg := e.provider.(ref.TypeRegistry)
+	if isAdapterReg && isProviderReg && adapterReg == providerReg {
+		reg := providerReg.Copy()
+		adapter = reg
+		provider = reg
+	} else if isProviderReg {
+		provider = providerReg.Copy()
+	} else if isAdapterReg {
+		adapter = adapterReg.Copy()
+	}
+
 	ext := &Env{
 		declarations:                   decsCopy,
 		macros:                         macsCopy,
 		progOpts:                       progOptsCopy,
-		adapter:                        e.adapter,
+		adapter:                        adapter,
 		enableDynamicAggregateLiterals: e.enableDynamicAggregateLiterals,
 		pkg:                            e.pkg,
-		provider:                       e.provider,
+		provider:                       provider,
 	}
 	return ext.configure(opts)
 }

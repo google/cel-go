@@ -77,6 +77,19 @@ func NewEmptyRegistry() ref.TypeRegistry {
 	}
 }
 
+// Copy implements the ref.TypeRegistry interface method which copies the current state of the
+// registry into its own memory space.
+func (p *protoTypeRegistry) Copy() ref.TypeRegistry {
+	copy := &protoTypeRegistry{
+		revTypeMap: make(map[string]ref.Type),
+		pbdb:       p.pbdb.Copy(),
+	}
+	for k, v := range p.revTypeMap {
+		copy.revTypeMap[k] = v
+	}
+	return copy
+}
+
 func (p *protoTypeRegistry) EnumValue(enumName string) ref.Val {
 	enumVal, err := p.pbdb.DescribeEnum(enumName)
 	if err != nil {
