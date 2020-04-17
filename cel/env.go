@@ -205,6 +205,12 @@ func (e *Env) CompileSource(src common.Source) (*Ast, *Issues) {
 }
 
 // Extend the current environment with additional options to produce a new Env.
+//
+// Note, the extended Env value should not share memory with the original. It is possible, however,
+// that a CustomTypeAdapter or CustomTypeProvider options could provide values which are mutable.
+// To ensure separation of state between extended environments either make sure the TypeAdapter and
+// TypeProvider are immutable, or that their underlying implementations are based on the
+// ref.TypeRegistry which provides a Copy method which will be invoked by this method.
 func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 	if e.chkErr != nil {
 		return nil, e.chkErr
@@ -222,6 +228,11 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 	var provider ref.TypeProvider
 	adapterReg, isAdapterReg := e.adapter.(ref.TypeRegistry)
 	providerReg, isProviderReg := e.provider.(ref.TypeRegistry)
+	// In most cases the provider and adapter will be a ref.TypeRegistry;
+	// however, in the rare cases where they are not, they are assumed to
+	// be immutable. Since it is possible to set the TypeProvider separately
+	// from the TypeAdapter, the possible configurations which could use a
+	// TypeRegistry as the base implementation are captured below.
 	if isAdapterReg && isProviderReg && adapterReg == providerReg {
 		reg := providerReg.Copy()
 		adapter = reg
