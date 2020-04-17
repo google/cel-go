@@ -373,6 +373,7 @@ var (
 		},
 		{
 			name:  "macro_has_pb2_field",
+			pkg:   "google.expr.proto2.test",
 			types: []proto.Message{&proto2pb.TestAllTypes{}},
 			env: []*exprpb.Decl{
 				decls.NewIdent("pb2", decls.NewObjectType("google.expr.proto2.test.TestAllTypes"), nil),
@@ -386,7 +387,10 @@ var (
 					MapStringString: map[string]string{},
 				},
 			},
-			expr: `!has(pb2.single_int64)
+			expr: `has(TestAllTypes{standalone_enum: TestAllTypes.NestedEnum.BAR}.standalone_enum)
+			&& has(TestAllTypes{standalone_enum: TestAllTypes.NestedEnum.FOO}.standalone_enum)
+			&& !has(TestAllTypes{}.standalone_enum)
+			&& !has(pb2.single_int64)
 			&& has(pb2.repeated_bool)
 			&& !has(pb2.repeated_int32)
 			&& has(pb2.map_int64_nested_type)
@@ -394,13 +398,28 @@ var (
 		},
 		{
 			name:  "macro_has_pb3_field",
-			types: []proto.Message{&exprpb.ParsedExpr{}},
-			pkg:   "google.api.expr.v1alpha1",
-			expr: `has(v1alpha1.ParsedExpr{expr:Expr{id: 1}}.expr)
-				&& !has(ParsedExpr{expr:Expr{}}.expr.id)
-				&& has(SourceInfo{positions:{1:1}}.positions)
-				&& !has(SourceInfo{positions:{}}.positions)
-				&& !has(expr.v1alpha1.ParsedExpr{expr:Expr{id: 1}}.source_info)`,
+			types: []proto.Message{&proto3pb.TestAllTypes{}},
+			env: []*exprpb.Decl{
+				decls.NewIdent("pb3", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
+			},
+			pkg: "google.expr.proto3.test",
+			in: map[string]interface{}{
+				"pb3": &proto3pb.TestAllTypes{
+					RepeatedBool: []bool{false},
+					MapInt64NestedType: map[int64]*proto3pb.NestedTestAllTypes{
+						1: &proto3pb.NestedTestAllTypes{},
+					},
+					MapStringString: map[string]string{},
+				},
+			},
+			expr: `has(TestAllTypes{standalone_enum: TestAllTypes.NestedEnum.BAR}.standalone_enum)
+			&& !has(TestAllTypes{standalone_enum: TestAllTypes.NestedEnum.FOO}.standalone_enum)
+			&& !has(TestAllTypes{}.standalone_enum)
+			&& !has(pb3.single_int64)
+			&& has(pb3.repeated_bool)
+			&& !has(pb3.repeated_int32)
+			&& has(pb3.map_int64_nested_type)
+			&& !has(pb3.map_string_string)`,
 		},
 		{
 			name: "macro_map",

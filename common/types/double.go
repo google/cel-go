@@ -77,9 +77,11 @@ func (d Double) Compare(other ref.Val) ref.Val {
 func (d Double) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	switch typeDesc.Kind() {
 	case reflect.Float32:
-		return float32(d), nil
+		v := float32(d)
+		return reflect.ValueOf(v).Convert(typeDesc).Interface(), nil
 	case reflect.Float64:
-		return float64(d), nil
+		v := float64(d)
+		return reflect.ValueOf(v).Convert(typeDesc).Interface(), nil
 	case reflect.Ptr:
 		switch typeDesc {
 		case anyValueType:
@@ -102,11 +104,15 @@ func (d Double) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		}
 		switch typeDesc.Elem().Kind() {
 		case reflect.Float32:
-			p := float32(d)
-			return &p, nil
+			v := float32(d)
+			p := reflect.New(typeDesc.Elem())
+			p.Elem().Set(reflect.ValueOf(v).Convert(typeDesc.Elem()))
+			return p.Interface(), nil
 		case reflect.Float64:
-			p := float64(d)
-			return &p, nil
+			v := float64(d)
+			p := reflect.New(typeDesc.Elem())
+			p.Elem().Set(reflect.ValueOf(v).Convert(typeDesc.Elem()))
+			return p.Interface(), nil
 		}
 	case reflect.Interface:
 		if reflect.TypeOf(d).Implements(typeDesc) {

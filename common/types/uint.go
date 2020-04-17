@@ -111,11 +111,15 @@ func (i Uint) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		}
 		switch typeDesc.Elem().Kind() {
 		case reflect.Uint32:
-			p := uint32(i)
-			return &p, nil
+			v := uint32(i)
+			p := reflect.New(typeDesc.Elem())
+			p.Elem().Set(reflect.ValueOf(v).Convert(typeDesc.Elem()))
+			return p.Interface(), nil
 		case reflect.Uint64:
-			p := uint64(i)
-			return &p, nil
+			v := uint64(i)
+			p := reflect.New(typeDesc.Elem())
+			p.Elem().Set(reflect.ValueOf(v).Convert(typeDesc.Elem()))
+			return p.Interface(), nil
 		}
 	case reflect.Interface:
 		if reflect.TypeOf(i).Implements(typeDesc) {

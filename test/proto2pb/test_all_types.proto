@@ -42,6 +42,7 @@ message TestAllTypes {
   optional bool single_bool = 13 [default = true];
   optional string single_string = 14 [default = "empty"];
   optional bytes single_bytes = 15 [default = "none"];
+  optional NestedEnum standalone_enum = 22;
 
   // Wellknown.
   optional google.protobuf.Any single_any = 100;
