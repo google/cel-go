@@ -205,18 +205,52 @@ func (e *Env) CompileSource(src common.Source) (*Ast, *Issues) {
 }
 
 // Extend the current environment with additional options to produce a new Env.
+//
+// Note, the extended Env value should not share memory with the original. It is possible, however,
+// that a CustomTypeAdapter or CustomTypeProvider options could provide values which are mutable.
+// To ensure separation of state between extended environments either make sure the TypeAdapter and
+// TypeProvider are immutable, or that their underlying implementations are based on the
+// ref.TypeRegistry which provides a Copy method which will be invoked by this method.
 func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 	if e.chkErr != nil {
 		return nil, e.chkErr
 	}
+	// Copy slices.
+	decsCopy := make([]*exprpb.Decl, len(e.declarations))
+	macsCopy := make([]parser.Macro, len(e.macros))
+	progOptsCopy := make([]ProgramOption, len(e.progOpts))
+	copy(decsCopy, e.declarations)
+	copy(macsCopy, e.macros)
+	copy(progOptsCopy, e.progOpts)
+
+	// Copy the adapter / provider if they appear to be mutable.
+	adapter := e.adapter
+	provider := e.provider
+	adapterReg, isAdapterReg := e.adapter.(ref.TypeRegistry)
+	providerReg, isProviderReg := e.provider.(ref.TypeRegistry)
+	// In most cases the provider and adapter will be a ref.TypeRegistry;
+	// however, in the rare cases where they are not, they are assumed to
+	// be immutable. Since it is possible to set the TypeProvider separately
+	// from the TypeAdapter, the possible configurations which could use a
+	// TypeRegistry as the base implementation are captured below.
+	if isAdapterReg && isProviderReg && adapterReg == providerReg {
+		reg := providerReg.Copy()
+		adapter = reg
+		provider = reg
+	} else if isProviderReg {
+		provider = providerReg.Copy()
+	} else if isAdapterReg {
+		adapter = adapterReg.Copy()
+	}
+
 	ext := &Env{
-		declarations:                   e.declarations,
-		adapter:                        e.adapter,
+		declarations:                   decsCopy,
+		macros:                         macsCopy,
+		progOpts:                       progOptsCopy,
+		adapter:                        adapter,
 		enableDynamicAggregateLiterals: e.enableDynamicAggregateLiterals,
-		macros:                         e.macros,
 		pkg:                            e.pkg,
-		progOpts:                       e.progOpts,
-		provider:                       e.provider,
+		provider:                       provider,
 	}
 	return ext.configure(opts)
 }

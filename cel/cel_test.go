@@ -33,6 +33,8 @@ import (
 	"github.com/google/cel-go/parser"
 
 	descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
+	proto2pb "github.com/google/cel-go/test/proto2pb"
+	proto3pb "github.com/google/cel-go/test/proto3pb"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
@@ -703,9 +705,78 @@ func Test_EnvExtension(t *testing.T) {
 				decls.NewObjectType("google.api.expr.v1alpha1.Expr"), nil),
 		),
 	)
-	e2, _ := e.Extend()
+	e2, _ := e.Extend(
+		CustomTypeAdapter(types.DefaultTypeAdapter),
+		Types(&proto3pb.TestAllTypes{}),
+	)
 	if e == e2 {
 		t.Error("got object equality, wanted separate objects")
+	}
+	if e.TypeAdapter() == e2.TypeAdapter() {
+		t.Error("got the same type adapter, wanted isolated instances.")
+	}
+	if e.TypeProvider() == e2.TypeProvider() {
+		t.Error("got the same type provider, wanted isolated instances.")
+	}
+	e3, _ := e2.Extend()
+	if e2.TypeAdapter() != e3.TypeAdapter() {
+		t.Error("got different type adapters, wanted immutable adapter reference")
+	}
+	if e2.TypeProvider() == e3.TypeProvider() {
+		t.Error("got the same type provider, wanted isolated instances.")
+	}
+}
+
+func Test_EnvExtensionIsolation(t *testing.T) {
+	baseEnv, err := NewEnv(
+		Container("google.expr"),
+		Declarations(
+			decls.NewIdent("age", decls.Int, nil),
+			decls.NewIdent("gender", decls.String, nil),
+			decls.NewIdent("country", decls.String, nil),
+		),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	env1, err := baseEnv.Extend(
+		Types(&proto2pb.TestAllTypes{}),
+		Declarations(decls.NewIdent("name", decls.String, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	env2, err := baseEnv.Extend(
+		Types(&proto3pb.TestAllTypes{}),
+		Declarations(decls.NewIdent("group", decls.String, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, issues := env2.Compile(`size(group) > 10
+		&& !has(proto3.test.TestAllTypes{}.single_int32)`)
+	if issues.Err() != nil {
+		t.Fatal(issues.Err())
+	}
+	_, issues = env2.Compile(`size(name) > 10`)
+	if issues.Err() == nil {
+		t.Fatal("env2 contains 'name', but should not")
+	}
+	_, issues = env2.Compile(`!has(proto2.test.TestAllTypes{}.single_int32)`)
+	if issues.Err() == nil {
+		t.Fatal("env2 contains 'proto2.test.TestAllTypes', but should not")
+	}
+
+	_, issues = env1.Compile(`size(name) > 10
+		&& !has(proto2.test.TestAllTypes{}.single_int32)`)
+	if issues.Err() != nil {
+		t.Fatal(issues.Err())
+	}
+	_, issues = env1.Compile("size(group) > 10")
+	if issues.Err() == nil {
+		t.Fatal("env1 contains 'group', but should not")
+	}
+	_, issues = env1.Compile(`!has(proto3.test.TestAllTypes{}.single_int32)`)
+	if issues.Err() == nil {
+		t.Fatal("env1 contains 'proto3.test.TestAllTypes', but should not")
 	}
 }
 

@@ -78,6 +78,9 @@ type TypeRegistry interface {
 	// If a type is provided more than once with an alternative definition, the
 	// call will result in an error.
 	RegisterType(types ...Type) error
+
+	// Copy the TypeRegistry and return a new registry whose mutable state is isolated.
+	Copy() TypeRegistry
 }
 
 // FieldType represents a field's type value and whether that field supports
