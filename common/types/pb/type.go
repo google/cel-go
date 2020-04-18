@@ -317,6 +317,17 @@ func (fd *FieldDescription) IsSet(target interface{}) bool {
 		t = reflect.Indirect(t)
 		return isFieldSet(t.FieldByIndex(fd.field.Index))
 	}
+	// Oneof fields must consider two pieces of information:
+	// - whether the oneof is set to any value at all
+	// - whether the field in the oneof is the same as the field under test.
+	//
+	// In go protobuf libraries, oneofs result in the creation of special oneof type messages
+	// which contain a reference to the actual field type. The creation of these special message
+	// types makes it possible to test for presence of primitive field values in proto3.
+	//
+	// The logic below performs a get on the oneof to obtain the field reference and then checks
+	// the type of the field reference against the known oneof type determined FieldDescription
+	// initialization.
 	if fd.IsOneof() {
 		t = reflect.Indirect(t)
 		oneof := t.Field(fd.Index())
