@@ -317,6 +317,17 @@ func (fd *FieldDescription) IsSet(target interface{}) bool {
 		t = reflect.Indirect(t)
 		return isFieldSet(t.FieldByIndex(fd.field.Index))
 	}
+	if fd.IsOneof() {
+		t = reflect.Indirect(t)
+		oneof := t.Field(fd.Index())
+		if !isFieldSet(oneof) {
+			return false
+		}
+		oneofVal := oneof.Interface()
+		oneofType := reflect.TypeOf(oneofVal)
+		return oneofType == fd.OneofType()
+	}
+
 	// When the field is nil or when the field is a oneof, call the accessor
 	// associated with this field name to determine whether the field value is
 	// the default.
