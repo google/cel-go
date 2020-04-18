@@ -389,6 +389,8 @@ var (
 			},
 			expr: `has(TestAllTypes{standalone_enum: TestAllTypes.NestedEnum.BAR}.standalone_enum)
 			&& has(TestAllTypes{standalone_enum: TestAllTypes.NestedEnum.FOO}.standalone_enum)
+			&& !has(TestAllTypes{single_nested_enum: TestAllTypes.NestedEnum.FOO}.single_nested_message)
+			&& has(TestAllTypes{single_nested_enum: TestAllTypes.NestedEnum.FOO}.single_nested_enum)
 			&& !has(TestAllTypes{}.standalone_enum)
 			&& !has(pb2.single_int64)
 			&& has(pb2.repeated_bool)
@@ -414,6 +416,10 @@ var (
 			},
 			expr: `has(TestAllTypes{standalone_enum: TestAllTypes.NestedEnum.BAR}.standalone_enum)
 			&& !has(TestAllTypes{standalone_enum: TestAllTypes.NestedEnum.FOO}.standalone_enum)
+			&& !has(TestAllTypes{single_nested_enum: TestAllTypes.NestedEnum.FOO}.single_nested_message)
+			&& has(TestAllTypes{single_nested_enum: TestAllTypes.NestedEnum.FOO}.single_nested_enum)
+			&& !has(TestAllTypes{}.single_nested_message)
+			&& has(TestAllTypes{single_nested_message: TestAllTypes.NestedMessage{}}.single_nested_message)
 			&& !has(TestAllTypes{}.standalone_enum)
 			&& !has(pb3.single_int64)
 			&& has(pb3.repeated_bool)
