@@ -30,11 +30,11 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"github.com/google/cel-go/cel"
+	_ "github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/types"
-	 _ "github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
-	_ "github.com/google/cel-go/interprester/functions"
+	_ "github.com/google/cel-go/interpreter/functions"
 
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	tpb "github.com/golang/protobuf/ptypes/timestamp"
