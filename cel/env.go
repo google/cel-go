@@ -105,7 +105,7 @@ func NewEnv(opts ...EnvOption) (*Env, error) {
 	return NewCustomEnv(stdOpts...)
 }
 
-// NewCustomEnv creates a custom program enviroment which is not automatically configured with the
+// NewCustomEnv creates a custom program environment which is not automatically configured with the
 // standard library of functions and macros documented in the CEL spec.
 //
 // The purpose for using a custom environment might be for subsetting the standard library produced

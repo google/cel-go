@@ -34,9 +34,15 @@ func ExampleSimple() {
 		log.Fatalln(iss.Err())
 	}
 	prg, err := env.Program(ast)
+	if err != nil {
+		log.Fatalln(err)
+	}
 	out, _, err := prg.Eval(map[string]interface{}{
 		"name": "CEL",
 	})
+	if err != nil {
+		log.Fatalln(err)
+	}
 	fmt.Println(out)
 	// Output:Hello world! I'm CEL.
 }
