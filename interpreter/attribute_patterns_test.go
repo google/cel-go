@@ -296,7 +296,7 @@ func TestAttributePattern_CrossReference(t *testing.T) {
 	// Qualify a[b] with 'c', a[b].c
 	c, _ := fac.NewQualifier(nil, 3, "c")
 	a.AddQualifier(c)
-	// The resolve step should return unkonwn
+	// The resolve step should return unknown
 	val, err = a.Resolve(partVars)
 	if err != nil {
 		t.Fatal(err)

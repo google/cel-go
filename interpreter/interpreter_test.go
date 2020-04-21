@@ -382,7 +382,7 @@ var (
 				"pb2": &proto2pb.TestAllTypes{
 					RepeatedBool: []bool{false},
 					MapInt64NestedType: map[int64]*proto2pb.NestedTestAllTypes{
-						1: &proto2pb.NestedTestAllTypes{},
+						1: {},
 					},
 					MapStringString: map[string]string{},
 				},
@@ -409,7 +409,7 @@ var (
 				"pb3": &proto3pb.TestAllTypes{
 					RepeatedBool: []bool{false},
 					MapInt64NestedType: map[int64]*proto3pb.NestedTestAllTypes{
-						1: &proto3pb.NestedTestAllTypes{},
+						1: {},
 					},
 					MapStringString: map[string]string{},
 				},
