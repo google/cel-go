@@ -1538,6 +1538,24 @@ _&&_(_==_(list~type(list(dyn))^list,
 		)~string^base64_encode_string`,
 		Type: decls.String,
 	},
+	{
+		I:         `encode('hello')`,
+		Container: `base64`,
+		Env: env{
+			functions: []*exprpb.Decl{
+				decls.NewFunction("base64.encode",
+					decls.NewOverload(
+						"base64_encode_string",
+						[]*exprpb.Type{decls.String},
+						decls.String)),
+			},
+		},
+		R: `
+		encode(
+			"hello"~string
+		)~string^base64_encode_string`,
+		Type: decls.String,
+	},
 }
 
 var testEnvs = map[string]env{

@@ -198,6 +198,50 @@ var (
 			out: "aGVsbG8=",
 		},
 		{
+			name: `call_ns_func_in_pkg`,
+			expr: `encode('hello')`,
+			pkg:  `base64`,
+			env: []*exprpb.Decl{
+				decls.NewFunction("base64.encode",
+					decls.NewOverload("base64_encode_string",
+						[]*exprpb.Type{decls.String},
+						decls.String),
+				),
+			},
+			funcs: []*functions.Overload{
+				{
+					Operator: "base64.encode",
+					Unary: func(val ref.Val) ref.Val {
+						str, ok := val.(types.String)
+						if !ok {
+							return types.MaybeNoSuchOverloadErr(val)
+						}
+						return types.String(base64.StdEncoding.EncodeToString([]byte(str)))
+					},
+				},
+			},
+			out: "aGVsbG8=",
+		},
+		{
+			name:      `call_ns_func_unchecked_in_pkg`,
+			expr:      `encode('hello')`,
+			pkg:       `base64`,
+			unchecked: true,
+			funcs: []*functions.Overload{
+				{
+					Operator: "base64.encode",
+					Unary: func(val ref.Val) ref.Val {
+						str, ok := val.(types.String)
+						if !ok {
+							return types.MaybeNoSuchOverloadErr(val)
+						}
+						return types.String(base64.StdEncoding.EncodeToString([]byte(str)))
+					},
+				},
+			},
+			out: "aGVsbG8=",
+		},
+		{
 			name: "complex",
 			expr: `
 			!(headers.ip in ["10.0.1.4", "10.0.1.5"]) &&
