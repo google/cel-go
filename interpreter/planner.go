@@ -643,6 +643,8 @@ func (p *planner) constValue(c *exprpb.Constant) (ref.Val, error) {
 	return nil, fmt.Errorf("unknown constant type: %v", c)
 }
 
+// resolveTypeName takes a qualified string constructed at parse time, applies the proto
+// namespace resolution rules to it in a scan over possible matching types in the TypeProvider.
 func (p *planner) resolveTypeName(typeName string) (string, bool) {
 	for _, qualifiedTypeName := range p.pkg.ResolveCandidateNames(typeName) {
 		if _, found := p.provider.FindType(qualifiedTypeName); found {
@@ -652,45 +654,90 @@ func (p *planner) resolveTypeName(typeName string) (string, bool) {
 	return "", false
 }
 
-func (p *planner) resolveFunction(expr *exprpb.Expr) (
-	target *exprpb.Expr, fnName, oName string) {
+// resolveFunction determines the call target, function name, and overload name from a given Expr
+// value.
+//
+// The resolveFunction resolves ambiguities where a function may either be a receiver-style
+// invocation or a qualified global function name.
+// - The target expression may only consist of ident and select expressions.
+// - The function is declared in the environment using its fully-qualified name.
+// - The fully-qualified function name matches the string serialized target value.
+func (p *planner) resolveFunction(expr *exprpb.Expr) (*exprpb.Expr, string, string) {
 	call := expr.GetCallExpr()
-	target = call.GetTarget()
-	fnName = call.GetFunction()
+	target := call.GetTarget()
+	fnName := call.GetFunction()
+	oName := ""
 	oRef, hasOverload := p.refMap[expr.Id]
 	if hasOverload && len(oRef.GetOverloadId()) == 1 {
 		oName = oRef.GetOverloadId()[0]
 	}
-	// Handle the situation where the function target is really a qualified name.
-	if target != nil {
-		qualifiedPrefix, maybeQualified := p.toQualifiedName(target)
-		if maybeQualified {
-			maybeQualifiedName := qualifiedPrefix + "." + fnName
-			for _, qualifiedName := range p.pkg.ResolveCandidateNames(maybeQualifiedName) {
-				_, found := p.disp.FindOverload(qualifiedName)
-				if found {
-					fnName = qualifiedName
-					// Make sure to clear the target so function resolution works.
-					target = nil
-					return
-				}
+	// When the target is nil, check whether the simple global function name reference is actually
+	// declared within a namespace.
+	if target == nil {
+		// TODO: Env construction is incredibly expensive since it validates that declarations must
+		// be non-overlapping. This can takes on the order of milliseconds to do. In the future it
+		// should be possible to add declarations without validating whether they overlap until
+		// expression-check time. Once such a refactor takes place the following check can be
+		// uncommented.
+		//
+		// In a checked environment the function must already have been declared in the environment
+		// using its fully qualified name, even if the function name reference is not fully
+		// qualified.
+		// fnDecl := p.env.LookupFunction(fnName)
+		// if fnDecl != nil {
+		// 	return nil, fnDecl.GetName(), oName
+		// }
+
+		// If the user has a parse-only expression, then it should have been configured as such in
+		// the interpreter dispatcher as it may have been omitted from the checker environment.
+		for _, qualifiedName := range p.pkg.ResolveCandidateNames(fnName) {
+			_, found := p.disp.FindOverload(qualifiedName)
+			if found {
+				return nil, qualifiedName, oName
+			}
+		}
+		// It's possible that the overload was not found, but this situation is accounted for in
+		// the planCall phase.
+		return target, fnName, oName
+	}
+
+	// Handle the situation where the function target actually indicates a fully-qualified name.
+	qualifiedPrefix, maybeQualified := p.toQualifiedName(target)
+	if maybeQualified {
+		maybeQualifiedName := qualifiedPrefix + "." + fnName
+		// TODO: Env construction is incredibly expensive since it validates that declarations must
+		// be non-overlapping. This can takes on the order of milliseconds to do. In the future it
+		// should be possible to add declarations without validating whether they overlap until
+		// expression-check time. Once such a refactor takes place the following check can be
+		// uncommented.
+		//
+		// In a checked environment the function must already have been declared in the environment
+		// using its fully qualified name, even if the function name reference is not fully
+		// qualified.
+		// fnDecl := p.env.LookupFunction(maybeQualifiedName)
+		// if fnDecl != nil {
+		// 	// Clear the target to ensure the proper arity is used for finding the implementation.
+		// 	return nil, fnDecl.GetName(), oName
+		// }
+		// In the parse-only case, the qualified name may only be defined within the interpreter
+		// dispatcher.
+		for _, qualifiedName := range p.pkg.ResolveCandidateNames(maybeQualifiedName) {
+			_, found := p.disp.FindOverload(qualifiedName)
+			if found {
+				// Clear the target to ensure the proper arity is used for finding the
+				// implementation.
+				return nil, qualifiedName, oName
 			}
 		}
 	}
-	// If function is found using the target as a qualified name, or there is no target.
-	for _, qualifiedName := range p.pkg.ResolveCandidateNames(fnName) {
-		_, found := p.disp.FindOverload(qualifiedName)
-		if found {
-			fnName = qualifiedName
-			return
-		}
-	}
-	return
+	// In the default case, the function is exactly as it was advertised: a receiver call on with
+	// an expression-based target with the given simple function name.
+	return target, fnName, oName
 }
 
 func (p *planner) toQualifiedName(operand *exprpb.Expr) (string, bool) {
-	// If the checker identified the expression as an attribute, then it can't possibly be part of
-	// qualified name in a namespace.
+	// If the checker identified the expression as an attribute by the type-checker, then it can't
+	// possibly be part of qualified name in a namespace.
 	_, isAttr := p.refMap[operand.Id]
 	if isAttr {
 		return "", false

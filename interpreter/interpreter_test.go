@@ -168,13 +168,11 @@ var (
 			funcs: []*functions.Overload{
 				{
 					Operator: "base64.encode",
-					Unary: func(val ref.Val) ref.Val {
-						str, ok := val.(types.String)
-						if !ok {
-							return types.MaybeNoSuchOverloadErr(val)
-						}
-						return types.String(base64.StdEncoding.EncodeToString([]byte(str)))
-					},
+					Unary:    base64_encode,
+				},
+				{
+					Operator: "base64_decode_string",
+					Unary:    base64_encode,
 				},
 			},
 			out: "aGVsbG8=",
@@ -186,13 +184,7 @@ var (
 			funcs: []*functions.Overload{
 				{
 					Operator: "base64.encode",
-					Unary: func(val ref.Val) ref.Val {
-						str, ok := val.(types.String)
-						if !ok {
-							return types.MaybeNoSuchOverloadErr(val)
-						}
-						return types.String(base64.StdEncoding.EncodeToString([]byte(str)))
-					},
+					Unary:    base64_encode,
 				},
 			},
 			out: "aGVsbG8=",
@@ -211,13 +203,11 @@ var (
 			funcs: []*functions.Overload{
 				{
 					Operator: "base64.encode",
-					Unary: func(val ref.Val) ref.Val {
-						str, ok := val.(types.String)
-						if !ok {
-							return types.MaybeNoSuchOverloadErr(val)
-						}
-						return types.String(base64.StdEncoding.EncodeToString([]byte(str)))
-					},
+					Unary:    base64_encode,
+				},
+				{
+					Operator: "base64_decode_string",
+					Unary:    base64_encode,
 				},
 			},
 			out: "aGVsbG8=",
@@ -230,13 +220,7 @@ var (
 			funcs: []*functions.Overload{
 				{
 					Operator: "base64.encode",
-					Unary: func(val ref.Val) ref.Val {
-						str, ok := val.(types.String)
-						if !ok {
-							return types.MaybeNoSuchOverloadErr(val)
-						}
-						return types.String(base64.StdEncoding.EncodeToString([]byte(str)))
-					},
+					Unary:    base64_encode,
 				},
 			},
 			out: "aGVsbG8=",
@@ -1243,4 +1227,12 @@ func program(tst *testCase, opts ...InterpretableDecorator) (Interpretable, Acti
 		return nil, nil, err
 	}
 	return prg, vars, nil
+}
+
+func base64_encode(val ref.Val) ref.Val {
+	str, ok := val.(types.String)
+	if !ok {
+		return types.MaybeNoSuchOverloadErr(val)
+	}
+	return types.String(base64.StdEncoding.EncodeToString([]byte(str)))
 }
