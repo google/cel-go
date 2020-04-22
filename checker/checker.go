@@ -597,12 +597,12 @@ func newFunctionReference(overloads ...string) *exprpb.Reference {
 func toQualifiedName(e *exprpb.Expr) (string, bool) {
 	switch e.ExprKind.(type) {
 	case *exprpb.Expr_IdentExpr:
-		i := e.GetIdentExpr()
-		return i.Name, true
+		id := e.GetIdentExpr()
+		return id.Name, true
 	case *exprpb.Expr_SelectExpr:
-		s := e.GetSelectExpr()
-		if qname, found := toQualifiedName(s.Operand); found {
-			return qname + "." + s.Field, true
+		sel := e.GetSelectExpr()
+		if qual, found := toQualifiedName(sel.Operand); found {
+			return qual + "." + sel.Field, true
 		}
 	}
 	return "", false

@@ -249,16 +249,17 @@ func (p *planner) planSelect(expr *exprpb.Expr) (Interpretable, error) {
 // optimized Interpretable values.
 func (p *planner) planCall(expr *exprpb.Expr) (Interpretable, error) {
 	call := expr.GetCallExpr()
-	fnName := call.Function
+	target, fnName, oName := p.resolveFunction(expr)
 	argCount := len(call.GetArgs())
 	var offset int
-	if call.Target != nil {
+	if target != nil {
 		argCount++
 		offset++
 	}
+
 	args := make([]Interpretable, argCount, argCount)
-	if call.Target != nil {
-		arg, err := p.Plan(call.Target)
+	if target != nil {
+		arg, err := p.Plan(target)
 		if err != nil {
 			return nil, err
 		}
@@ -270,11 +271,6 @@ func (p *planner) planCall(expr *exprpb.Expr) (Interpretable, error) {
 			return nil, err
 		}
 		args[i+offset] = arg
-	}
-	var oName string
-	if oRef, found := p.refMap[expr.Id]; found &&
-		len(oRef.GetOverloadId()) == 1 {
-		oName = oRef.GetOverloadId()[0]
 	}
 
 	// Generate specialized Interpretable operators by function name if possible.
@@ -555,15 +551,7 @@ func (p *planner) planCreateStruct(expr *exprpb.Expr) (Interpretable, error) {
 // planCreateObj generates an object construction Interpretable.
 func (p *planner) planCreateObj(expr *exprpb.Expr) (Interpretable, error) {
 	obj := expr.GetStructExpr()
-	typeName := obj.MessageName
-	var defined bool
-	for _, qualifiedTypeName := range p.pkg.ResolveCandidateNames(typeName) {
-		if _, found := p.provider.FindType(qualifiedTypeName); found {
-			typeName = qualifiedTypeName
-			defined = true
-			break
-		}
-	}
+	typeName, defined := p.resolveTypeName(obj.MessageName)
 	if !defined {
 		return nil, fmt.Errorf("unknown type: %s", typeName)
 	}
@@ -653,4 +641,70 @@ func (p *planner) constValue(c *exprpb.Constant) (ref.Val, error) {
 		return types.Uint(c.GetUint64Value()), nil
 	}
 	return nil, fmt.Errorf("unknown constant type: %v", c)
+}
+
+func (p *planner) resolveTypeName(typeName string) (string, bool) {
+	for _, qualifiedTypeName := range p.pkg.ResolveCandidateNames(typeName) {
+		if _, found := p.provider.FindType(qualifiedTypeName); found {
+			return qualifiedTypeName, true
+		}
+	}
+	return "", false
+}
+
+func (p *planner) resolveFunction(expr *exprpb.Expr) (
+	target *exprpb.Expr, fnName, oName string) {
+	call := expr.GetCallExpr()
+	target = call.GetTarget()
+	fnName = call.GetFunction()
+	oRef, hasOverload := p.refMap[expr.Id]
+	if hasOverload && len(oRef.GetOverloadId()) == 1 {
+		oName = oRef.GetOverloadId()[0]
+	}
+	// Handle the situation where the function target is really a qualified name.
+	if target != nil {
+		qualifiedPrefix, maybeQualified := p.toQualifiedName(target)
+		if maybeQualified {
+			maybeQualifiedName := qualifiedPrefix + "." + fnName
+			for _, qualifiedName := range p.pkg.ResolveCandidateNames(maybeQualifiedName) {
+				_, found := p.disp.FindOverload(qualifiedName)
+				if found {
+					fnName = qualifiedName
+					// Make sure to clear the target so function resolution works.
+					target = nil
+					return
+				}
+			}
+		}
+	}
+	// If function is found using the target as a qualified name, or there is no target.
+	for _, qualifiedName := range p.pkg.ResolveCandidateNames(fnName) {
+		_, found := p.disp.FindOverload(qualifiedName)
+		if found {
+			fnName = qualifiedName
+			return
+		}
+	}
+	return
+}
+
+func (p *planner) toQualifiedName(operand *exprpb.Expr) (string, bool) {
+	// If the checker identified the expression as an attribute, then it can't possibly be part of
+	// qualified name in a namespace.
+	_, isAttr := p.refMap[operand.Id]
+	if isAttr {
+		return "", false
+	}
+	switch operand.ExprKind.(type) {
+	case *exprpb.Expr_IdentExpr:
+		id := operand.GetIdentExpr()
+		return id.Name, true
+	case *exprpb.Expr_SelectExpr:
+		sel := operand.GetSelectExpr()
+		qual, found := p.toQualifiedName(sel.GetOperand())
+		if found {
+			return qual + "." + sel.Field, true
+		}
+	}
+	return "", false
 }
