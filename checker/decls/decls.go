@@ -89,6 +89,8 @@ func NewFunction(name string,
 // value.
 //
 // Literal values are typically only associated with enum identifiers.
+//
+// Deprecated: Use NewVar or NewConst instead.
 func NewIdent(name string, t *exprpb.Type, v *exprpb.Constant) *exprpb.Decl {
 	return &exprpb.Decl{
 		Name: name,
