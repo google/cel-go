@@ -59,8 +59,8 @@ type customLib struct{}
 func (customLib) CompileOptions() []cel.EnvOption {
 	return []cel.EnvOption{
 		cel.Declarations(
-			decls.NewIdent("i", decls.String, nil),
-			decls.NewIdent("you", decls.String, nil),
+			decls.NewVar("i", decls.String),
+			decls.NewVar("you", decls.String),
 			decls.NewFunction("greet",
 				decls.NewInstanceOverload("string_greet_string",
 					[]*exprpb.Type{decls.String, decls.String},

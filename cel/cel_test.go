@@ -44,8 +44,8 @@ func Example() {
 	// be present in a built-in function.
 	decls := Declarations(
 		// Identifiers used within this expression.
-		decls.NewIdent("i", decls.String, nil),
-		decls.NewIdent("you", decls.String, nil),
+		decls.NewVar("i", decls.String),
+		decls.NewVar("you", decls.String),
 		// Function to generate a greeting from one person to another.
 		//    i.greet(you)
 		decls.NewFunction("greet",
@@ -98,8 +98,8 @@ func Example_globalOverload() {
 	// be present in a built-in function.
 	decls := Declarations(
 		// Identifiers used within this expression.
-		decls.NewIdent("i", decls.String, nil),
-		decls.NewIdent("you", decls.String, nil),
+		decls.NewVar("i", decls.String),
+		decls.NewVar("you", decls.String),
 		// Function to generate shake_hands between two people.
 		//    shake_hands(i,you)
 		decls.NewFunction("shake_hands",
@@ -154,8 +154,8 @@ func Example_globalOverload() {
 func Test_ExampleWithBuiltins(t *testing.T) {
 	// Variables used within this expression environment.
 	decls := Declarations(
-		decls.NewIdent("i", decls.String, nil),
-		decls.NewIdent("you", decls.String, nil))
+		decls.NewVar("i", decls.String),
+		decls.NewVar("you", decls.String))
 	env, err := NewEnv(decls)
 	if err != nil {
 		t.Fatalf("environment creation error: %s\n", err)
@@ -201,7 +201,7 @@ func Test_CustomEnvError(t *testing.T) {
 
 func Test_CustomEnv(t *testing.T) {
 	e, _ := NewCustomEnv(
-		Declarations(decls.NewIdent("a.b.c", decls.Bool, nil)))
+		Declarations(decls.NewVar("a.b.c", decls.Bool)))
 
 	t.Run("err", func(t *testing.T) {
 		_, iss := e.Compile("a.b.c == true")
@@ -226,7 +226,7 @@ func Test_CustomEnv(t *testing.T) {
 func Test_HomogeneousAggregateLiterals(t *testing.T) {
 	e, _ := NewCustomEnv(
 		Declarations(
-			decls.NewIdent("name", decls.String, nil),
+			decls.NewVar("name", decls.String),
 			decls.NewFunction(
 				operators.In,
 				decls.NewOverload(overloads.InList, []*exprpb.Type{
@@ -307,7 +307,7 @@ func Test_CustomTypes(t *testing.T) {
 			types.IntType,
 			types.StringType),
 		Declarations(
-			decls.NewIdent("expr", exprType, nil)))
+			decls.NewVar("expr", exprType)))
 
 	ast, _ := e.Compile(`
 		expr == Expr{id: 2,
@@ -362,9 +362,8 @@ func Test_TypeIsolation(t *testing.T) {
 	e, err := NewEnv(
 		TypeDescs(&fds),
 		Declarations(
-			decls.NewIdent("myteam",
-				decls.NewObjectType("cel.testdata.Team"),
-				nil)))
+			decls.NewVar("myteam",
+				decls.NewObjectType("cel.testdata.Team"))))
 	if err != nil {
 		t.Fatal("can't create env: ", err)
 	}
@@ -378,9 +377,8 @@ func Test_TypeIsolation(t *testing.T) {
 	// Ensure that isolated types don't leak through.
 	e2, _ := NewEnv(
 		Declarations(
-			decls.NewIdent("myteam",
-				decls.NewObjectType("cel.testdata.Team"),
-				nil)))
+			decls.NewVar("myteam",
+				decls.NewObjectType("cel.testdata.Team"))))
 	_, iss = e2.Compile(src)
 	if iss == nil || iss.Err() == nil {
 		t.Errorf("wanted compile failure for unknown message.")
@@ -391,8 +389,8 @@ func Test_GlobalVars(t *testing.T) {
 	mapStrDyn := decls.NewMapType(decls.String, decls.Dyn)
 	e, _ := NewEnv(
 		Declarations(
-			decls.NewIdent("attrs", mapStrDyn, nil),
-			decls.NewIdent("default", decls.Dyn, nil),
+			decls.NewVar("attrs", mapStrDyn),
+			decls.NewVar("default", decls.Dyn),
 			decls.NewFunction(
 				"get",
 				decls.NewInstanceOverload(
@@ -517,8 +515,8 @@ func Test_CustomMacro(t *testing.T) {
 func Test_EvalOptions(t *testing.T) {
 	e, _ := NewEnv(
 		Declarations(
-			decls.NewIdent("k", decls.String, nil),
-			decls.NewIdent("v", decls.Bool, nil)))
+			decls.NewVar("k", decls.String),
+			decls.NewVar("v", decls.Bool)))
 	ast, _ := e.Compile(`{k: true}[k] || v != false`)
 
 	prg, err := e.Program(ast, EvalOptions(OptExhaustiveEval))
@@ -587,8 +585,8 @@ func Test_EvalRecover(t *testing.T) {
 func Test_ResidualAst(t *testing.T) {
 	e, _ := NewEnv(
 		Declarations(
-			decls.NewIdent("x", decls.Int, nil),
-			decls.NewIdent("y", decls.Int, nil),
+			decls.NewVar("x", decls.Int),
+			decls.NewVar("y", decls.Int),
 		),
 	)
 	unkVars := e.UnknownVars()
@@ -619,10 +617,10 @@ func Test_ResidualAst(t *testing.T) {
 func Test_ResidualAst_Complex(t *testing.T) {
 	e, _ := NewEnv(
 		Declarations(
-			decls.NewIdent("resource.name", decls.String, nil),
-			decls.NewIdent("request.time", decls.Timestamp, nil),
-			decls.NewIdent("request.auth.claims",
-				decls.NewMapType(decls.String, decls.String), nil),
+			decls.NewVar("resource.name", decls.String),
+			decls.NewVar("request.time", decls.Timestamp),
+			decls.NewVar("request.auth.claims",
+				decls.NewMapType(decls.String, decls.String)),
 		),
 	)
 	unkVars, _ := PartialVars(
@@ -667,8 +665,8 @@ func Test_ResidualAst_Complex(t *testing.T) {
 func Benchmark_EvalOptions(b *testing.B) {
 	e, _ := NewEnv(
 		Declarations(
-			decls.NewIdent("ai", decls.Int, nil),
-			decls.NewIdent("ar", decls.NewMapType(decls.String, decls.String), nil),
+			decls.NewVar("ai", decls.Int),
+			decls.NewVar("ar", decls.NewMapType(decls.String, decls.String)),
 		),
 	)
 	ast, _ := e.Compile("ai == 20 || ar['foo'] == 'bar'")
@@ -701,8 +699,8 @@ func Test_EnvExtension(t *testing.T) {
 		Container("google.api.expr.v1alpha1"),
 		Types(&exprpb.Expr{}),
 		Declarations(
-			decls.NewIdent("expr",
-				decls.NewObjectType("google.api.expr.v1alpha1.Expr"), nil),
+			decls.NewVar("expr",
+				decls.NewObjectType("google.api.expr.v1alpha1.Expr")),
 		),
 	)
 	e2, _ := e.Extend(
@@ -731,9 +729,9 @@ func Test_EnvExtensionIsolation(t *testing.T) {
 	baseEnv, err := NewEnv(
 		Container("google.expr"),
 		Declarations(
-			decls.NewIdent("age", decls.Int, nil),
-			decls.NewIdent("gender", decls.String, nil),
-			decls.NewIdent("country", decls.String, nil),
+			decls.NewVar("age", decls.Int),
+			decls.NewVar("gender", decls.String),
+			decls.NewVar("country", decls.String),
 		),
 	)
 	if err != nil {
@@ -741,13 +739,13 @@ func Test_EnvExtensionIsolation(t *testing.T) {
 	}
 	env1, err := baseEnv.Extend(
 		Types(&proto2pb.TestAllTypes{}),
-		Declarations(decls.NewIdent("name", decls.String, nil)))
+		Declarations(decls.NewVar("name", decls.String)))
 	if err != nil {
 		t.Fatal(err)
 	}
 	env2, err := baseEnv.Extend(
 		Types(&proto3pb.TestAllTypes{}),
-		Declarations(decls.NewIdent("group", decls.String, nil)))
+		Declarations(decls.NewVar("group", decls.String)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -785,8 +783,8 @@ func Test_ParseAndCheckConcurrently(t *testing.T) {
 		Container("google.api.expr.v1alpha1"),
 		Types(&exprpb.Expr{}),
 		Declarations(
-			decls.NewIdent("expr",
-				decls.NewObjectType("google.api.expr.v1alpha1.Expr"), nil),
+			decls.NewVar("expr",
+				decls.NewObjectType("google.api.expr.v1alpha1.Expr")),
 		),
 	)
 
