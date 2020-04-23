@@ -98,6 +98,16 @@ func NewIdent(name string, t *exprpb.Type, v *exprpb.Constant) *exprpb.Decl {
 				Value: v}}}
 }
 
+// NewConst creates a constant identifier with a CEL constant literal value.
+func NewConst(name string, t *exprpb.Type, v *exprpb.Constant) *exprpb.Decl {
+	return NewIdent(name, t, v)
+}
+
+// NewVar creates a variable identifier.
+func NewVar(name string, t *exprpb.Type) *exprpb.Decl {
+	return NewIdent(name, t, nil)
+}
+
 // NewInstanceOverload creates a instance function overload contract.
 // First element of argTypes is instance.
 func NewInstanceOverload(id string, argTypes []*exprpb.Type,

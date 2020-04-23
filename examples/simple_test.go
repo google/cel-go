@@ -23,7 +23,7 @@ import (
 )
 
 func ExampleSimple() {
-	d := cel.Declarations(decls.NewIdent("name", decls.String, nil))
+	d := cel.Declarations(decls.NewVar("name", decls.String))
 	env, err := cel.NewEnv(d)
 	if err != nil {
 		log.Fatalf("environment creation error: %v\n", err)

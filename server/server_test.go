@@ -203,8 +203,8 @@ func TestFullUp(t *testing.T) {
 	creq := exprpb.CheckRequest{
 		ParsedExpr: parsedExpr,
 		TypeEnv: []*exprpb.Decl{
-			decls.NewIdent("x", decls.Int, nil),
-			decls.NewIdent("y", decls.Int, nil),
+			decls.NewVar("x", decls.Int),
+			decls.NewVar("y", decls.Int),
 		},
 	}
 	cres, err := globals.client.Check(context.Background(), &creq)

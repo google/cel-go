@@ -250,7 +250,7 @@ _==_(size(x~list(int)^x)~int^size_list, x~list(int)^x.size()~int^list_size)
   ~bool^equals`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewListType(decls.Int), nil),
+				decls.NewVar("x", decls.NewListType(decls.Int)),
 			},
 		},
 		Type: decls.Bool,
@@ -345,7 +345,7 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 		I: `x.single_int32 != null`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.Proto2Message"), nil),
+				decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.Proto2Message")),
 			},
 		},
 		Error: `
@@ -358,7 +358,7 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 		I: `x.single_value + 1 / x.single_struct.y == 23`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
+				decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
 		},
 		R: `_==_(
@@ -377,7 +377,7 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 		I: `x.single_value[23] + x.single_struct['y']`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
+				decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
 		},
 		R: `_+_(
@@ -408,7 +408,7 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 		Type: decls.Int,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
+				decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
 		},
 	},
@@ -458,9 +458,9 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 		)~bool^logical_and`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.protobuf.Struct"), nil),
-				decls.NewIdent("y", decls.NewObjectType("google.protobuf.ListValue"), nil),
-				decls.NewIdent("z", decls.NewObjectType("google.protobuf.Value"), nil),
+				decls.NewVar("x", decls.NewObjectType("google.protobuf.Struct")),
+				decls.NewVar("y", decls.NewObjectType("google.protobuf.ListValue")),
+				decls.NewVar("z", decls.NewObjectType("google.protobuf.Value")),
 			},
 		},
 		Type: decls.Bool,
@@ -470,8 +470,8 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 		R: ``,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewListType(decls.NewObjectType("google.expr.proto3.test.TestAllTypes")), nil),
-				decls.NewIdent("y", decls.NewListType(decls.Int), nil),
+				decls.NewVar("x", decls.NewListType(decls.NewObjectType("google.expr.proto3.test.TestAllTypes"))),
+				decls.NewVar("y", decls.NewListType(decls.Int)),
 			},
 		},
 		Error: `
@@ -484,7 +484,7 @@ ERROR: <input>:1:3: found no matching overload for '_+_' applied to '(list(googl
 		I: `x[1u]`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewListType(decls.NewObjectType("google.expr.proto3.test.TestAllTypes")), nil),
+				decls.NewVar("x", decls.NewListType(decls.NewObjectType("google.expr.proto3.test.TestAllTypes"))),
 			},
 		},
 		Error: `
@@ -497,7 +497,7 @@ ERROR: <input>:1:2: found no matching overload for '_[_]' applied to '(list(goog
 		I: `(x + x)[1].single_int32 == size(x)`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewListType(decls.NewObjectType("google.expr.proto3.test.TestAllTypes")), nil),
+				decls.NewVar("x", decls.NewListType(decls.NewObjectType("google.expr.proto3.test.TestAllTypes"))),
 			},
 		},
 		R: `
@@ -518,7 +518,7 @@ _==_(_[_](_+_(x~list(google.expr.proto3.test.TestAllTypes)^x,
 		I: `x.repeated_int64[x.single_int32] == 23`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
+				decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
 		},
 		R: `
@@ -533,7 +533,7 @@ _==_(_[_](x~google.expr.proto3.test.TestAllTypes^x.repeated_int64~list(int),
 		I: `size(x.map_int64_nested_type) == 0`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
+				decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
 		},
 		R: `
@@ -549,7 +549,7 @@ _==_(size(x~google.expr.proto3.test.TestAllTypes^x.map_int64_nested_type
 		I: `x.all(y, y == true)`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.Bool, nil),
+				decls.NewVar("x", decls.Bool),
 			},
 		},
 		R: `
@@ -585,7 +585,7 @@ _==_(size(x~google.expr.proto3.test.TestAllTypes^x.map_int64_nested_type
 		I: `x.repeated_int64.map(x, double(x))`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
+				decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
 		},
 		R: `
@@ -618,7 +618,7 @@ _==_(size(x~google.expr.proto3.test.TestAllTypes^x.map_int64_nested_type
 		I: `x.repeated_int64.map(x, x > 0, double(x))`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
+				decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
 		},
 		R: `
@@ -658,9 +658,9 @@ _==_(size(x~google.expr.proto3.test.TestAllTypes^x.map_int64_nested_type
 		I: `x[2].single_int32 == 23`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x",
+				decls.NewVar("x",
 					decls.NewMapType(decls.String,
-						decls.NewObjectType("google.expr.proto3.test.TestAllTypes")), nil),
+						decls.NewObjectType("google.expr.proto3.test.TestAllTypes"))),
 			},
 		},
 		Error: `
@@ -673,9 +673,9 @@ ERROR: <input>:1:2: found no matching overload for '_[_]' applied to '(map(strin
 		I: `x["a"].single_int32 == 23`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x",
+				decls.NewVar("x",
 					decls.NewMapType(decls.String,
-						decls.NewObjectType("google.expr.proto3.test.TestAllTypes")), nil),
+						decls.NewObjectType("google.expr.proto3.test.TestAllTypes"))),
 			},
 		},
 		R: `
@@ -692,7 +692,7 @@ ERROR: <input>:1:2: found no matching overload for '_[_]' applied to '(map(strin
 		I: `x.single_nested_message.bb == 43 && has(x.single_nested_message)`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
+				decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
 		},
 
@@ -710,7 +710,7 @@ ERROR: <input>:1:2: found no matching overload for '_[_]' applied to '(map(strin
 		I: `x.single_nested_message.undefined == x.undefined && has(x.single_int32) && has(x.repeated_int32)`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
+				decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
 		},
 		Error: `
@@ -725,7 +725,7 @@ ERROR: <input>:1:39: undefined field 'undefined'
 		I: `x.single_nested_message != null`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
+				decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
 		},
 		R: `
@@ -740,7 +740,7 @@ ERROR: <input>:1:39: undefined field 'undefined'
 		I: `x.single_int64 != null`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
+				decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
 		},
 		Error: `
@@ -753,7 +753,7 @@ ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, nul
 		I: `x.single_int64_wrapper == null`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
+				decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
 		},
 		R: `
@@ -776,7 +776,7 @@ ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, nul
 		&& x.single_uint64_wrapper != 42u`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
+				decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
 		},
 		R: `
@@ -844,7 +844,7 @@ ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, nul
 			&& x.single_uint64_wrapper != google.protobuf.UInt64Value{value: 42u}`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
+				decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
 		},
 		Type: decls.Bool,
@@ -853,7 +853,7 @@ ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, nul
 		I: `x.repeated_int64.exists(y, y > 10) && y < 5`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
+				decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
 		},
 		Error: `ERROR: <input>:1:39: undeclared reference to 'y' (in container '')
@@ -864,7 +864,7 @@ ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, nul
 		I: `x.repeated_int64.all(e, e > 0) && x.repeated_int64.exists(e, e < 0) && x.repeated_int64.exists_one(e, e == 0)`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
+				decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
 		},
 		R: `_&&_(
@@ -954,7 +954,7 @@ ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, nul
 		I: `x.all(e, 0)`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
+				decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
 		},
 		Error: `
@@ -998,7 +998,7 @@ ERROR: <input>:1:6: found no matching overload for '_&&_' applied to '(bool, int
 		Type: decls.NewListType(decls.Dyn),
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("lists", decls.Dyn, nil),
+				decls.NewVar("lists", decls.Dyn),
 			},
 		},
 	},
@@ -1041,8 +1041,8 @@ ERROR: <input>:1:5: undeclared reference to 'x' (in container '')
 			|| x >= x`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.Any, nil),
-				decls.NewIdent("y", decls.NewWrapperType(decls.Int), nil),
+				decls.NewVar("x", decls.Any),
+				decls.NewVar("y", decls.NewWrapperType(decls.Int)),
 			},
 		},
 		R: `
@@ -1085,7 +1085,7 @@ ERROR: <input>:1:5: undeclared reference to 'x' (in container '')
 		Container: "container",
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("container.x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
+				decls.NewVar("container.x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
 		},
 		R:    `x~google.expr.proto3.test.TestAllTypes^container.x`,
@@ -1138,7 +1138,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 		I: `size(x) > 4`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
+				decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
 			functions: []*exprpb.Decl{
 				decls.NewFunction("size",
@@ -1154,7 +1154,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 		I: `x.single_int64_wrapper + 1 != 23`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
+				decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
 		},
 		R: `
@@ -1172,8 +1172,8 @@ _&&_(_==_(list~type(list(dyn))^list,
 		I: `x.single_int64_wrapper + y != 23`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
-				decls.NewIdent("y", decls.NewObjectType("google.protobuf.Int32Value"), nil),
+				decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
+				decls.NewVar("y", decls.NewObjectType("google.protobuf.Int32Value")),
 			},
 		},
 		R: `
@@ -1242,7 +1242,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 		I: `name in [1, 2u, 'string']`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("name", decls.String, nil),
+				decls.NewVar("name", decls.String),
 			},
 			functions: []*exprpb.Decl{
 				decls.NewFunction(operators.In,
@@ -1271,7 +1271,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 		I: `name in [1, 2, 3]`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("name", decls.String, nil),
+				decls.NewVar("name", decls.String),
 			},
 			functions: []*exprpb.Decl{
 				decls.NewFunction(operators.In,
@@ -1300,7 +1300,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 		I: `name in ["1", "2", "3"]`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("name", decls.String, nil),
+				decls.NewVar("name", decls.String),
 			},
 			functions: []*exprpb.Decl{
 				decls.NewFunction(operators.In,
@@ -1433,7 +1433,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 			__result__~list(dyn)^__result__)~list(dyn)`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("args", decls.NewMapType(decls.String, decls.Dyn), nil),
+				decls.NewVar("args", decls.NewMapType(decls.String, decls.Dyn)),
 			},
 		},
 		Type: decls.NewListType(decls.Dyn),
@@ -1452,7 +1452,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 		  )~bool^equals`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("a", decls.NewTypeParamType("T"), nil),
+				decls.NewVar("a", decls.NewTypeParamType("T")),
 			},
 		},
 		Type: decls.Bool,
@@ -1466,8 +1466,8 @@ _&&_(_==_(list~type(list(dyn))^list,
 		&& !has(pb3.map_string_string)`,
 		Env: env{
 			idents: []*exprpb.Decl{
-				decls.NewIdent("pb2", decls.NewObjectType("google.expr.proto2.test.TestAllTypes"), nil),
-				decls.NewIdent("pb3", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
+				decls.NewVar("pb2", decls.NewObjectType("google.expr.proto2.test.TestAllTypes")),
+				decls.NewVar("pb3", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
 		},
 		R: `
@@ -1533,13 +1533,13 @@ var testEnvs = map[string]env{
 					[]*exprpb.Type{decls.String}, decls.String)),
 		},
 		idents: []*exprpb.Decl{
-			decls.NewIdent("is", decls.String, nil),
-			decls.NewIdent("ii", decls.Int, nil),
-			decls.NewIdent("iu", decls.Uint, nil),
-			decls.NewIdent("iz", decls.Bool, nil),
-			decls.NewIdent("ib", decls.Bytes, nil),
-			decls.NewIdent("id", decls.Double, nil),
-			decls.NewIdent("ix", decls.Null, nil),
+			decls.NewVar("is", decls.String),
+			decls.NewVar("ii", decls.Int),
+			decls.NewVar("iu", decls.Uint),
+			decls.NewVar("iz", decls.Bool),
+			decls.NewVar("ib", decls.Bytes),
+			decls.NewVar("id", decls.Double),
+			decls.NewVar("ix", decls.Null),
 		},
 	},
 }

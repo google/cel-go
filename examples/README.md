@@ -11,7 +11,7 @@ import (
     "github.com/google/cel-go/checker/decls"
 )
 
-    d := cel.Declarations(decls.NewIdent("name", decls.String, nil))
+    d := cel.Declarations(decls.NewVar("name", decls.String))
     env, err := cel.NewEnv(d)
 
     ast, iss := env.Compile(`"Hello world! I'm " + name + "."`)
@@ -46,8 +46,8 @@ operate on a type. First element of slice passed as `argTypes` into
 parameters of function.
 
 ```go
-    decls.NewIdent("i", decls.String, nil),
-    decls.NewIdent("you", decls.String, nil),
+    decls.NewVar("i", decls.String),
+    decls.NewVar("you", decls.String),
     decls.NewFunction("greet",
         decls.NewInstanceOverload("string_greet_string",
             []*exprpb.Type{decls.String, decls.String},
@@ -90,8 +90,8 @@ Evaluate expression `shake_hands(i,you)` with:
 In order to declare global function we need to use `NewOverload`:
 
 ```go
-    decls.NewIdent("i", decls.String, nil),
-    decls.NewIdent("you", decls.String, nil),
+    decls.NewVar("i", decls.String),
+    decls.NewVar("you", decls.String),
     decls.NewFunction("shake_hands",
         decls.NewOverload("shake_hands_string_string",
             []*exprpb.Type{decls.String, decls.String},

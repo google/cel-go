@@ -66,8 +66,8 @@ import(
 
 env, err := cel.NewEnv(
     cel.Declarations(
-        decls.NewIdent("name", decls.String, nil),
-        decls.NewIdent("group", decls.String, nil)))
+        decls.NewVar("name", decls.String),
+        decls.NewVar("group", decls.String)))
 ```
 
 That's it. The environment is ready to be use for parsing and type-checking.
@@ -81,16 +81,15 @@ expands any macros present within the environment. Parsing and checking are
 more computationally expensive than evaluation, and it is recommended that
 expressions be parsed and checked ahead of time.
 
+The parse and check phases are combined for convenience into the `Compile`
+step:
+
 ```go
-parsed, issues := env.Parse(`name.startsWith("/groups/" + group)`)
-if issues != nil && issues.Err() != nil {
-    log.Fatalf("parse error: %s", issues.Err())
-}
-checked, issues := env.Check(parsed)
+ast, issues := env.Compile(`name.startsWith("/groups/" + group)`)
 if issues != nil && issues.Err() != nil {
     log.Fatalf("type-check error: %s", issues.Err())
 }
-prg, err := env.Program(checked)
+prg, err := env.Program(ast)
 if err != nil {
     log.Fatalf("program construction error: %s", err)
 }

@@ -28,8 +28,9 @@ import (
 )
 
 func ExampleCustomGlobalFunction() {
-	d := cel.Declarations(decls.NewIdent("i", decls.String, nil),
-		decls.NewIdent("you", decls.String, nil),
+	d := cel.Declarations(
+		decls.NewVar("i", decls.String),
+		decls.NewVar("you", decls.String),
 		decls.NewFunction("shake_hands",
 			decls.NewOverload("shake_hands_string_string",
 				[]*exprpb.Type{decls.String, decls.String},
