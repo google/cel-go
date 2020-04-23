@@ -147,6 +147,11 @@ func (c *checker) checkIdent(e *exprpb.Expr) {
 	if ident := c.env.LookupIdent(identExpr.Name); ident != nil {
 		c.setType(e, ident.GetIdent().Type)
 		c.setReference(e, newIdentReference(ident.Name, ident.GetIdent().Value))
+		e.ExprKind = &exprpb.Expr_IdentExpr{
+			IdentExpr: &exprpb.Expr_Ident{
+				Name: ident.Name,
+			},
+		}
 		return
 	}
 
@@ -169,6 +174,12 @@ func (c *checker) checkSelect(e *exprpb.Expr) {
 				c.setType(e, ident.GetIdent().Type)
 				c.setReference(e,
 					newIdentReference(ident.Name, ident.GetIdent().Value))
+				identName := ident.Name
+				e.ExprKind = &exprpb.Expr_IdentExpr{
+					IdentExpr: &exprpb.Expr_Ident{
+						Name: identName,
+					},
+				}
 			}
 			return
 		}
@@ -228,6 +239,7 @@ func (c *checker) checkCall(e *exprpb.Expr) {
 	if call.Target == nil {
 		// Regular static call with simple name.
 		if fn := c.env.LookupFunction(call.Function); fn != nil {
+			call.Function = fn.Name
 			resolution = c.resolveOverload(c.location(e), fn, nil, call.Args)
 		} else {
 			c.errors.undeclaredReference(
@@ -238,6 +250,10 @@ func (c *checker) checkCall(e *exprpb.Expr) {
 		if qname, found := toQualifiedName(call.Target); found {
 			fn := c.env.LookupFunction(qname + "." + call.Function)
 			if fn != nil {
+				// The function name is actually namespaced and so the target operand would
+				// be an inaccurate representation of the desired evaluation behavior.
+				call.Target = nil
+				call.Function = fn.GetName()
 				resolution = c.resolveOverload(c.location(e), fn, nil, call.Args)
 			}
 		}
@@ -245,7 +261,6 @@ func (c *checker) checkCall(e *exprpb.Expr) {
 		if resolution == nil {
 			// Regular instance call.
 			c.check(call.Target)
-
 			if fn := c.env.LookupFunction(call.Function); fn != nil {
 				resolution = c.resolveOverload(c.location(e), fn, call.Target, call.Args)
 			} else {

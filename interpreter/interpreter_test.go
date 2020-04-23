@@ -171,7 +171,7 @@ var (
 					Unary:    base64_encode,
 				},
 				{
-					Operator: "base64_decode_string",
+					Operator: "base64_encode_string",
 					Unary:    base64_encode,
 				},
 			},
@@ -191,8 +191,8 @@ var (
 		},
 		{
 			name: `call_ns_func_in_pkg`,
-			expr: `encode('hello')`,
 			pkg:  `base64`,
+			expr: `encode('hello')`,
 			env: []*exprpb.Decl{
 				decls.NewFunction("base64.encode",
 					decls.NewOverload("base64_encode_string",
@@ -206,7 +206,7 @@ var (
 					Unary:    base64_encode,
 				},
 				{
-					Operator: "base64_decode_string",
+					Operator: "base64_encode_string",
 					Unary:    base64_encode,
 				},
 			},

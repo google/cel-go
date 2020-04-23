@@ -396,7 +396,7 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 	{
 		I:         `TestAllTypes.NestedEnum.BAR != 99`,
 		Container: "google.expr.proto3.test",
-		R: `_!=_(TestAllTypes.NestedEnum.BAR
+		R: `_!=_(google.expr.proto3.test.TestAllTypes.NestedEnum.BAR
 	     ~int^google.expr.proto3.test.TestAllTypes.NestedEnum.BAR,
 	    99~int)
 	~bool^not_equals`,
@@ -1005,7 +1005,7 @@ ERROR: <input>:1:6: found no matching overload for '_&&_' applied to '(bool, int
 
 	{
 		I: `.google.expr.proto3.test.TestAllTypes`,
-		R: `	.google.expr.proto3.test.TestAllTypes
+		R: `google.expr.proto3.test.TestAllTypes
 	~type(google.expr.proto3.test.TestAllTypes)
 	^google.expr.proto3.test.TestAllTypes`,
 		Type: decls.NewTypeType(
@@ -1016,7 +1016,7 @@ ERROR: <input>:1:6: found no matching overload for '_&&_' applied to '(bool, int
 		I:         `test.TestAllTypes`,
 		Container: "google.expr.proto3",
 		R: `
-	test.TestAllTypes
+	google.expr.proto3.test.TestAllTypes
 	~type(google.expr.proto3.test.TestAllTypes)
 	^google.expr.proto3.test.TestAllTypes
 		`,
@@ -1088,7 +1088,7 @@ ERROR: <input>:1:5: undeclared reference to 'x' (in container '')
 				decls.NewIdent("container.x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
 			},
 		},
-		R:    `x~google.expr.proto3.test.TestAllTypes^container.x`,
+		R:    `container.x~google.expr.proto3.test.TestAllTypes^container.x`,
 		Type: decls.NewObjectType("google.expr.proto3.test.TestAllTypes"),
 	},
 
@@ -1551,7 +1551,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 			},
 		},
 		R: `
-		encode(
+		base64.encode(
 			"hello"~string
 		)~string^base64_encode_string`,
 		Type: decls.String,
