@@ -24,8 +24,8 @@ import (
 
 func TestIO_AstToProto(t *testing.T) {
 	stdEnv, _ := NewEnv(Declarations(
-		decls.NewIdent("a", decls.Dyn, nil),
-		decls.NewIdent("b", decls.Dyn, nil),
+		decls.NewVar("a", decls.Dyn),
+		decls.NewVar("b", decls.Dyn),
 	))
 	ast, _ := stdEnv.Parse("a + b")
 	parsed, err := AstToParsedExpr(ast)

@@ -163,7 +163,7 @@ var (
 				(headers.path.startsWith("/admin") && headers.token == "admin" && headers.ip in ["10.0.1.2", "10.0.1.2", "10.0.1.2"]))
 			`,
 			env: []*exprpb.Decl{
-				decls.NewIdent("headers", decls.NewMapType(decls.String, decls.String), nil),
+				decls.NewVar("headers", decls.NewMapType(decls.String, decls.String)),
 			},
 			in: map[string]interface{}{
 				"headers": map[string]interface{}{
@@ -182,9 +182,9 @@ var (
 				(headers.path.startsWith("/admin") && headers.token == "admin" && headers.ip in ["10.0.1.2", "10.0.1.2", "10.0.1.2"]))
 			`,
 			env: []*exprpb.Decl{
-				decls.NewIdent("headers.ip", decls.String, nil),
-				decls.NewIdent("headers.path", decls.String, nil),
-				decls.NewIdent("headers.token", decls.String, nil),
+				decls.NewVar("headers.ip", decls.String),
+				decls.NewVar("headers.path", decls.String),
+				decls.NewVar("headers.token", decls.String),
 			},
 			in: map[string]interface{}{
 				"headers.ip":    "10.0.1.2",
@@ -196,9 +196,9 @@ var (
 			name: "cond",
 			expr: `a ? b < 1.2 : c == ['hello']`,
 			env: []*exprpb.Decl{
-				decls.NewIdent("a", decls.Bool, nil),
-				decls.NewIdent("b", decls.Double, nil),
-				decls.NewIdent("c", decls.NewListType(decls.String), nil),
+				decls.NewVar("a", decls.Bool),
+				decls.NewVar("b", decls.Double),
+				decls.NewVar("c", decls.NewListType(decls.String)),
 			},
 			in: map[string]interface{}{
 				"a": true,
@@ -219,7 +219,7 @@ var (
 			name: "index",
 			expr: `m['key'][1] == 42u && m['null'] == null && m[string(0)] == 10`,
 			env: []*exprpb.Decl{
-				decls.NewIdent("m", decls.NewMapType(decls.String, decls.Dyn), nil),
+				decls.NewVar("m", decls.NewMapType(decls.String, decls.Dyn)),
 			},
 			in: map[string]interface{}{
 				"m": map[string]interface{}{
@@ -333,8 +333,8 @@ var (
 			expr: `code == "111" && ["a", "b"].all(x, x in tags)
 				|| code == "222" && ["a", "b"].all(x, x in tags)`,
 			env: []*exprpb.Decl{
-				decls.NewIdent("code", decls.String, nil),
-				decls.NewIdent("tags", decls.NewListType(decls.String), nil),
+				decls.NewVar("code", decls.String),
+				decls.NewVar("tags", decls.NewListType(decls.String)),
 			},
 			in: map[string]interface{}{
 				"code": "222",
@@ -353,7 +353,7 @@ var (
 			name: "macro_exists_var",
 			expr: `elems.exists(e, type(e) == uint)`,
 			env: []*exprpb.Decl{
-				decls.NewIdent("elems", decls.NewListType(decls.Dyn), nil),
+				decls.NewVar("elems", decls.NewListType(decls.Dyn)),
 			},
 			in: map[string]interface{}{
 				"elems": []interface{}{0, 1, 2, 3, 4, uint(5), 6},
@@ -376,7 +376,7 @@ var (
 			pkg:   "google.expr.proto2.test",
 			types: []proto.Message{&proto2pb.TestAllTypes{}},
 			env: []*exprpb.Decl{
-				decls.NewIdent("pb2", decls.NewObjectType("google.expr.proto2.test.TestAllTypes"), nil),
+				decls.NewVar("pb2", decls.NewObjectType("google.expr.proto2.test.TestAllTypes")),
 			},
 			in: map[string]interface{}{
 				"pb2": &proto2pb.TestAllTypes{
@@ -402,7 +402,7 @@ var (
 			name:  "macro_has_pb3_field",
 			types: []proto.Message{&proto3pb.TestAllTypes{}},
 			env: []*exprpb.Decl{
-				decls.NewIdent("pb3", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
+				decls.NewVar("pb3", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
 			pkg: "google.expr.proto3.test",
 			in: map[string]interface{}{
@@ -438,7 +438,7 @@ var (
 				&& !'bar'.matches('k.*')
 				&& 'kilimanjaro'.matches('.*ro')`,
 			env: []*exprpb.Decl{
-				decls.NewIdent("input", decls.String, nil),
+				decls.NewVar("input", decls.String),
 			},
 			in: map[string]interface{}{
 				"input": "kathmandu",
@@ -448,8 +448,8 @@ var (
 			name: "or_true_1st",
 			expr: `ai == 20 || ar["foo"] == "bar"`,
 			env: []*exprpb.Decl{
-				decls.NewIdent("ai", decls.Int, nil),
-				decls.NewIdent("ar", decls.NewMapType(decls.String, decls.String), nil),
+				decls.NewVar("ai", decls.Int),
+				decls.NewVar("ar", decls.NewMapType(decls.String, decls.String)),
 			},
 			in: map[string]interface{}{
 				"ai": 20,
@@ -462,8 +462,8 @@ var (
 			name: "or_true_2nd",
 			expr: `ai == 20 || ar["foo"] == "bar"`,
 			env: []*exprpb.Decl{
-				decls.NewIdent("ai", decls.Int, nil),
-				decls.NewIdent("ar", decls.NewMapType(decls.String, decls.String), nil),
+				decls.NewVar("ai", decls.Int),
+				decls.NewVar("ar", decls.NewMapType(decls.String, decls.String)),
 			},
 			in: map[string]interface{}{
 				"ai": 2,
@@ -476,8 +476,8 @@ var (
 			name: "or_false",
 			expr: `ai == 20 || ar["foo"] == "bar"`,
 			env: []*exprpb.Decl{
-				decls.NewIdent("ai", decls.Int, nil),
-				decls.NewIdent("ar", decls.NewMapType(decls.String, decls.String), nil),
+				decls.NewVar("ai", decls.Int),
+				decls.NewVar("ar", decls.NewMapType(decls.String, decls.String)),
 			},
 			in: map[string]interface{}{
 				"ai": 2,
@@ -512,7 +512,7 @@ var (
 			expr: `b.c.d != 10`,
 			pkg:  "a.b",
 			env: []*exprpb.Decl{
-				decls.NewIdent("a.b.c.d", decls.Int, nil),
+				decls.NewVar("a.b.c.d", decls.Int),
 			},
 			in: map[string]interface{}{
 				"a.b.c.d": 9,
@@ -552,7 +552,7 @@ var (
 				&& m.boolMap['val'] == true
 				&& m.boolMap['val'] != false`,
 			env: []*exprpb.Decl{
-				decls.NewIdent("m", decls.NewMapType(decls.String, decls.Dyn), nil),
+				decls.NewVar("m", decls.NewMapType(decls.String, decls.Dyn)),
 			},
 			in: map[string]interface{}{
 				"m": map[string]interface{}{
@@ -583,7 +583,7 @@ var (
 				&& m.boolBool[true]
 				&& m.boolIface[false] == true`,
 			env: []*exprpb.Decl{
-				decls.NewIdent("m", decls.NewMapType(decls.String, decls.Dyn), nil),
+				decls.NewVar("m", decls.NewMapType(decls.String, decls.Dyn)),
 			},
 			in: map[string]interface{}{
 				"m": map[string]interface{}{
@@ -608,7 +608,7 @@ var (
 				&& m.uint64Iface[3u] == -2.1
 				&& m.uint64String[4u] == 'three'`,
 			env: []*exprpb.Decl{
-				decls.NewIdent("m", decls.NewMapType(decls.String, decls.Dyn), nil),
+				decls.NewVar("m", decls.NewMapType(decls.String, decls.Dyn)),
 			},
 			in: map[string]interface{}{
 				"m": map[string]interface{}{
@@ -634,7 +634,7 @@ var (
 				&& m.boolList[1] != true
 				&& m.ifaceList[0] == {}`,
 			env: []*exprpb.Decl{
-				decls.NewIdent("m", decls.NewMapType(decls.String, decls.Dyn), nil),
+				decls.NewVar("m", decls.NewMapType(decls.String, decls.Dyn)),
 			},
 			in: map[string]interface{}{
 				"m": map[string]interface{}{
@@ -660,9 +660,9 @@ var (
 			pkg:   "google.expr.proto3",
 			types: []proto.Message{&proto3pb.TestAllTypes{}},
 			env: []*exprpb.Decl{
-				decls.NewIdent("a.b", decls.NewMapType(decls.String, decls.Bool), nil),
-				decls.NewIdent("pb3", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
-				decls.NewIdent("json", decls.NewMapType(decls.String, decls.Dyn), nil),
+				decls.NewVar("a.b", decls.NewMapType(decls.String, decls.Bool)),
+				decls.NewVar("pb3", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
+				decls.NewVar("json", decls.NewMapType(decls.String, decls.Dyn)),
 			},
 			in: map[string]interface{}{
 				"a.b": map[string]bool{
@@ -707,7 +707,7 @@ var (
 				"a": &proto2pb.TestAllTypes{},
 			},
 			env: []*exprpb.Decl{
-				decls.NewIdent("a", decls.NewObjectType("google.expr.proto2.test.TestAllTypes"), nil),
+				decls.NewVar("a", decls.NewObjectType("google.expr.proto2.test.TestAllTypes")),
 			},
 		},
 		// Wrapper type nil or value test.
@@ -719,7 +719,7 @@ var (
 				&& a.single_int64_wrapper == google.protobuf.Int32Value{value: 0}`,
 			types: []proto.Message{&proto3pb.TestAllTypes{}},
 			env: []*exprpb.Decl{
-				decls.NewIdent("a", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
+				decls.NewVar("a", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
 			in: map[string]interface{}{
 				"a": &proto3pb.TestAllTypes{
@@ -734,7 +734,7 @@ var (
 			pkg:   "google.expr.proto3.test",
 			types: []proto.Message{&proto3pb.TestAllTypes{}},
 			env: []*exprpb.Decl{
-				decls.NewIdent("a", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"), nil),
+				decls.NewVar("a", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
 			in: map[string]interface{}{
 				"a": &proto3pb.TestAllTypes{
@@ -749,8 +749,8 @@ var (
 			pkg:   "google.expr.proto3.test",
 			types: []proto.Message{&proto3pb.TestAllTypes_NestedMessage{}},
 			env: []*exprpb.Decl{
-				decls.NewIdent("a",
-					decls.NewObjectType("google.expr.proto3.test.TestAllTypes.NestedMessage"), nil),
+				decls.NewVar("a",
+					decls.NewObjectType("google.expr.proto3.test.TestAllTypes.NestedMessage")),
 			},
 			attrs: &custAttrFactory{
 				AttributeFactory: NewAttributeFactory(
@@ -796,8 +796,8 @@ var (
 			name: "select_subsumed_field",
 			expr: `a.b.c`,
 			env: []*exprpb.Decl{
-				decls.NewIdent("a.b.c", decls.Int, nil),
-				decls.NewIdent("a.b", decls.NewMapType(decls.String, decls.String), nil),
+				decls.NewVar("a.b.c", decls.Int),
+				decls.NewVar("a.b", decls.NewMapType(decls.String, decls.String)),
 			},
 			in: map[string]interface{}{
 				"a.b.c": 10,
@@ -1013,7 +1013,7 @@ func TestInterpreter_SetProto2PrimitiveFields(t *testing.T) {
 	pkg := packages.NewPackage("google.expr.proto2.test")
 	reg := types.NewRegistry(&proto2pb.TestAllTypes{})
 	env := checker.NewStandardEnv(pkg, reg)
-	env.Add(decls.NewIdent("input", decls.NewObjectType("google.expr.proto2.test.TestAllTypes"), nil))
+	env.Add(decls.NewVar("input", decls.NewObjectType("google.expr.proto2.test.TestAllTypes")))
 	checked, errors := checker.Check(parsed, src, env)
 	if len(errors.GetErrors()) != 0 {
 		t.Errorf(errors.ToDisplayString())
@@ -1066,7 +1066,7 @@ func TestInterpreter_MissingIdentInSelect(t *testing.T) {
 	pkg := packages.NewPackage("test")
 	reg := types.NewRegistry()
 	env := checker.NewStandardEnv(pkg, reg)
-	env.Add(decls.NewIdent("a.b", decls.Dyn, nil))
+	env.Add(decls.NewVar("a.b", decls.Dyn))
 	checked, errors := checker.Check(parsed, src, env)
 	if len(errors.GetErrors()) != 0 {
 		t.Fatalf(errors.ToDisplayString())

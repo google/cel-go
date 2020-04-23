@@ -446,10 +446,10 @@ func (c *checker) checkComprehension(e *exprpb.Expr) {
 	// Create a scope for the comprehension since it has a local accumulation variable.
 	// This scope will contain the accumulation variable used to compute the result.
 	c.env = c.env.enterScope()
-	c.env.Add(decls.NewIdent(comp.AccuVar, accuType, nil))
+	c.env.Add(decls.NewVar(comp.AccuVar, accuType))
 	// Create a block scope for the loop.
 	c.env = c.env.enterScope()
-	c.env.Add(decls.NewIdent(comp.IterVar, varType, nil))
+	c.env.Add(decls.NewVar(comp.IterVar, varType))
 	// Check the variable references in the condition and step.
 	c.check(comp.LoopCondition)
 	c.assertType(comp.LoopCondition, decls.Bool)
