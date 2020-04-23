@@ -222,9 +222,10 @@ ERROR: <input>:1:1: undeclared reference to 'foo' (in container '')
 		I:         `TestAllTypes{single_int32: 1, single_int64: 2}`,
 		Container: "google.expr.proto3.test",
 		R: `
-	TestAllTypes{single_int32 : 1~int, single_int64 : 2~int}
-	  ~google.expr.proto3.test.TestAllTypes
-	    ^google.expr.proto3.test.TestAllTypes`,
+		google.expr.proto3.test.TestAllTypes{
+			single_int32 : 1~int,
+			single_int64 : 2~int
+		}~google.expr.proto3.test.TestAllTypes^google.expr.proto3.test.TestAllTypes`,
 		Type: decls.NewObjectType("google.expr.proto3.test.TestAllTypes"),
 	},
 	{
@@ -1504,7 +1505,10 @@ _&&_(_==_(list~type(list(dyn))^list,
 	{
 		I:         `TestAllTypes{}.repeated_nested_message`,
 		Container: "google.expr.proto2.test",
-		R:         `TestAllTypes{}~google.expr.proto2.test.TestAllTypes^google.expr.proto2.test.TestAllTypes.repeated_nested_message~list(google.expr.proto2.test.TestAllTypes.NestedMessage)`,
+		R: `
+		google.expr.proto2.test.TestAllTypes{}~google.expr.proto2.test.TestAllTypes^
+		google.expr.proto2.test.TestAllTypes.repeated_nested_message
+		~list(google.expr.proto2.test.TestAllTypes.NestedMessage)`,
 		Type: decls.NewListType(
 			decls.NewObjectType(
 				"google.expr.proto2.test.TestAllTypes.NestedMessage",
@@ -1514,7 +1518,10 @@ _&&_(_==_(list~type(list(dyn))^list,
 	{
 		I:         `TestAllTypes{}.repeated_nested_message`,
 		Container: "google.expr.proto3.test",
-		R:         `TestAllTypes{}~google.expr.proto3.test.TestAllTypes^google.expr.proto3.test.TestAllTypes.repeated_nested_message~list(google.expr.proto3.test.TestAllTypes.NestedMessage)`,
+		R: `
+		google.expr.proto3.test.TestAllTypes{}~google.expr.proto3.test.TestAllTypes^
+		google.expr.proto3.test.TestAllTypes.repeated_nested_message
+		~list(google.expr.proto3.test.TestAllTypes.NestedMessage)`,
 		Type: decls.NewListType(
 			decls.NewObjectType(
 				"google.expr.proto3.test.TestAllTypes.NestedMessage",

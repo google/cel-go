@@ -391,7 +391,8 @@ func (c *checker) checkCreateMessage(e *exprpb.Expr) {
 			c.location(e), c.env.packager.Package(), msgVal.MessageName)
 		return
 	}
-
+	// Ensure the type name is fully qualified in the AST.
+	msgVal.MessageName = decl.Name
 	c.setReference(e, newIdentReference(decl.Name, nil))
 	ident := decl.GetIdent()
 	identKind := kindOf(ident.Type)
