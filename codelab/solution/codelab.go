@@ -88,9 +88,8 @@ func exercise2() {
 	env, err := cel.NewEnv(
 		cel.Types(&rpcpb.AttributeContext_Request{}),
 		cel.Declarations(
-			decls.NewIdent("request",
-				decls.NewObjectType("google.rpc.context.AttributeContext.Request"),
-				nil),
+			decls.NewVar("request",
+				decls.NewObjectType("google.rpc.context.AttributeContext.Request")),
 		),
 	)
 	if err != nil {
@@ -120,9 +119,9 @@ func exercise3() {
 	env, _ := cel.NewEnv(
 		cel.Types(&rpcpb.AttributeContext_Request{}),
 		cel.Declarations(
-			decls.NewIdent("request",
+			decls.NewVar("request",
 				decls.NewObjectType("google.rpc.context.AttributeContext.Request"),
-				nil),
+			),
 		),
 	)
 	ast := compile(env,
@@ -162,9 +161,9 @@ func exercise4() {
 		cel.Types(&rpcpb.AttributeContext_Request{}),
 		cel.Declarations(
 			// Declare the request.
-			decls.NewIdent("request",
+			decls.NewVar("request",
 				decls.NewObjectType("google.rpc.context.AttributeContext.Request"),
-				nil),
+			),
 			// Declare the custom contains function.
 			decls.NewFunction("contains",
 				decls.NewParameterizedInstanceOverload(
@@ -208,7 +207,7 @@ func exercise5() {
 	// field names are unquoted as they represent well-defined identifiers.
 	env, _ := cel.NewEnv(
 		cel.Declarations(
-			decls.NewIdent("now", decls.Timestamp, nil),
+			decls.NewVar("now", decls.Timestamp),
 		),
 	)
 	ast := compile(env, `
@@ -251,8 +250,8 @@ func exercise6() {
 		cel.Container("google.rpc.context.AttributeContext"),
 		cel.Types(&rpcpb.AttributeContext_Request{}),
 		cel.Declarations(
-			decls.NewIdent("jwt", decls.NewMapType(decls.String, decls.Dyn), nil),
-			decls.NewIdent("now", decls.Timestamp, nil),
+			decls.NewVar("jwt", decls.NewMapType(decls.String, decls.Dyn)),
+			decls.NewVar("now", decls.Timestamp),
 		),
 	)
 
@@ -312,7 +311,7 @@ func exercise6() {
 func exercise7() {
 	fmt.Println("=== Exercise 7: Macros ===\n")
 	env, _ := cel.NewEnv(
-		cel.Declarations(decls.NewIdent("jwt", decls.Dyn, nil)),
+		cel.Declarations(decls.NewVar("jwt", decls.Dyn)),
 	)
 	ast := compile(env,
 		`jwt.extra_claims.exists(c, c.startsWith('group'))
@@ -352,8 +351,8 @@ func exercise8() {
 	// Declare the `x` and 'y' variables as input into the expression.
 	env, _ := cel.NewEnv(
 		cel.Declarations(
-			decls.NewIdent("x", decls.Int, nil),
-			decls.NewIdent("y", decls.Uint, nil),
+			decls.NewVar("x", decls.Int),
+			decls.NewVar("y", decls.Uint),
 		),
 	)
 	ast := compile(env,
