@@ -59,11 +59,10 @@ func (e *Errors) Append(errs []Error) *Errors {
 func (e *Errors) ToDisplayString() string {
 	var result = ""
 	sort.SliceStable(e.errors, func(i, j int) bool {
-		ei := e.errors[i]
-		ej := e.errors[j]
-		eiOff, _ := e.source.LocationOffset(ei.Location)
-		ejOff, _ := e.source.LocationOffset(ej.Location)
-		return eiOff < ejOff
+		ei := e.errors[i].Location
+		ej := e.errors[j].Location
+		return ei.Line() < ej.Line() ||
+			(ei.Line() == ej.Line() && ei.Column() < ej.Column())
 	})
 	for i, err := range e.errors {
 		if i >= 1 {
