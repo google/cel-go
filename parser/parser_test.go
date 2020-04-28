@@ -388,12 +388,12 @@ var testCases = []testInfo{
 	{
 		I: `*@a | b`,
 		E: `
-ERROR: <input>:1:2: Syntax error: token recognition error at: '@'
- | *@a | b
- | .^
 ERROR: <input>:1:1: Syntax error: extraneous input '*' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
  | *@a | b
  | ^
+ERROR: <input>:1:2: Syntax error: token recognition error at: '@'
+ | *@a | b
+ | .^
 ERROR: <input>:1:5: Syntax error: token recognition error at: '| '
  | *@a | b
  | ....^
@@ -1003,7 +1003,10 @@ ERROR: <input>:1:6: Syntax error: mismatched input '<EOF>' expecting {'[', '{', 
 	},
 	{
 		I: "[1, 2, 3].map(var, var * var)",
-		E: `ERROR: <input>:1:15: reserved identifier: var
+		E: `ERROR: <input>:1:14: argument is not an identifier
+ | [1, 2, 3].map(var, var * var)
+ | .............^
+ERROR: <input>:1:15: reserved identifier: var
  | [1, 2, 3].map(var, var * var)
  | ..............^
 ERROR: <input>:1:20: reserved identifier: var
@@ -1011,10 +1014,7 @@ ERROR: <input>:1:20: reserved identifier: var
  | ...................^
 ERROR: <input>:1:26: reserved identifier: var
  | [1, 2, 3].map(var, var * var)
- | .........................^
-ERROR: <input>:1:14: argument is not an identifier
- | [1, 2, 3].map(var, var * var)
- | .............^`,
+ | .........................^`,
 	},
 	{
 		I: "func{{a}}",
