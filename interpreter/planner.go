@@ -670,6 +670,7 @@ func (p *planner) resolveFunction(expr *exprpb.Expr) (*exprpb.Expr, string, stri
 	call := expr.GetCallExpr()
 	target := call.GetTarget()
 	fnName := call.GetFunction()
+
 	// Checked expressions always have a reference map entry, and _should_ have the fully qualified
 	// function name as the fnName value.
 	oRef, hasOverload := p.refMap[expr.Id]
