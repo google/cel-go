@@ -664,6 +664,9 @@ func (p *planner) resolveTypeName(typeName string) (string, bool) {
 // - The function is declared in the environment using its fully-qualified name.
 // - The fully-qualified function name matches the string serialized target value.
 func (p *planner) resolveFunction(expr *exprpb.Expr) (*exprpb.Expr, string, string) {
+	// Note: similar logic exists within the `checker/checker.go`. If making changes here
+	// please consider the impact on checker.go and consolidate implementations or mirror code
+	// as appropriate.
 	call := expr.GetCallExpr()
 	target := call.GetTarget()
 	fnName := call.GetFunction()

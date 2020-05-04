@@ -228,6 +228,9 @@ func (c *checker) checkSelect(e *exprpb.Expr) {
 }
 
 func (c *checker) checkCall(e *exprpb.Expr) {
+	// Note: similar logic exists within the `interpreter/planner.go`. If making changes here
+	// please consider the impact on planner.go and consolidate implementations or mirror code
+	// as appropriate.
 	call := e.GetCallExpr()
 	target := call.GetTarget()
 	args := call.GetArgs()
