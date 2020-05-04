@@ -718,6 +718,8 @@ func (p *planner) resolveFunction(expr *exprpb.Expr) (*exprpb.Expr, string, stri
 	return target, fnName, ""
 }
 
+// toQualifiedName converts an expression AST into a qualified name if possible, with a boolean
+// 'found' value that indicates if the conversion is successful.
 func (p *planner) toQualifiedName(operand *exprpb.Expr) (string, bool) {
 	// If the checker identified the expression as an attribute by the type-checker, then it can't
 	// possibly be part of qualified name in a namespace.
@@ -725,18 +727,9 @@ func (p *planner) toQualifiedName(operand *exprpb.Expr) (string, bool) {
 	if isAttr {
 		return "", false
 	}
-	switch operand.ExprKind.(type) {
-	case *exprpb.Expr_IdentExpr:
-		id := operand.GetIdentExpr()
-		return id.Name, true
-	case *exprpb.Expr_SelectExpr:
-		sel := operand.GetSelectExpr()
-		qual, found := p.toQualifiedName(sel.GetOperand())
-		if found {
-			return qual + "." + sel.Field, true
-		}
-	}
-	return "", false
+	// Since functions cannot be both namespaced and receiver functions, if the operand is not an
+	// qualified variable name, return the (possibly) qualified name given the expressions.
+	return packages.ToQualifiedName(operand)
 }
 
 func stripLeadingDot(name string) string {
