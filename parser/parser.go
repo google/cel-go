@@ -73,6 +73,12 @@ type parser struct {
 var (
 	_ gen.CELVisitor = (*parser)(nil)
 
+	lexerPool *sync.Pool = &sync.Pool{
+		New: func() interface{} {
+			return gen.NewCELLexer(nil)
+		},
+	}
+
 	parserPool *sync.Pool = &sync.Pool{
 		New: func() interface{} {
 			return gen.NewCELParser(nil)
@@ -81,8 +87,10 @@ var (
 )
 
 func (p *parser) parse(expression string) *exprpb.Expr {
-	stream := antlr.NewInputStream(expression)
-	lexer := gen.NewCELLexer(stream)
+	lexer := lexerPool.Get().(*gen.CELLexer)
+	lexer.SetInputStream(antlr.NewInputStream(expression))
+	defer lexerPool.Put(lexer)
+
 	prsr := parserPool.Get().(*gen.CELParser)
 	prsr.SetInputStream(antlr.NewCommonTokenStream(lexer, 0))
 	defer parserPool.Put(prsr)
