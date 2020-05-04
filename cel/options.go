@@ -36,9 +36,6 @@ type EnvOption func(e *Env) (*Env, error)
 //
 // Clearing macros will ensure CEL expressions can only contain linear evaluation paths, as
 // comprehensions such as `all` and `exists` are enabled only via macros.
-//
-// Note: This option is a no-op when used with ClearBuiltIns, and must be used before Macros
-// if used together.
 func ClearMacros() EnvOption {
 	return func(e *Env) (*Env, error) {
 		e.macros = parser.NoMacros
@@ -68,7 +65,9 @@ func CustomTypeProvider(provider ref.TypeProvider) EnvOption {
 
 // Declarations option extends the declaration set configured in the environment.
 //
-// Note: This option must be specified after ClearBuiltIns if both are used together.
+// Note: Declarations will by default be appended to the pre-existing declaration set configured
+// for the environment. The NewEnv call builds on top of the standard CEL declarations. For a
+// purely custom set of declarations use NewCustomEnv.
 func Declarations(decls ...*exprpb.Decl) EnvOption {
 	// TODO: provide an alternative means of specifying declarations that doesn't refer
 	// to the underlying proto implementations.
@@ -93,7 +92,7 @@ func HomogeneousAggregateLiterals() EnvOption {
 
 // Macros option extends the macro set configured in the environment.
 //
-// Note: This option must be specified after ClearBuiltIns and/or ClearMacros if used together.
+// Note: This option must be specified after ClearMacros if used together.
 func Macros(macros ...parser.Macro) EnvOption {
 	return func(e *Env) (*Env, error) {
 		e.macros = append(e.macros, macros...)
