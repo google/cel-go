@@ -15,6 +15,7 @@
 package interpreter
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"reflect"
@@ -153,6 +154,76 @@ var (
 			in: map[string]interface{}{
 				"a": 1, "b": 2, "c": 3, "d": 4,
 			},
+		},
+		{
+			name: `call_ns_func`,
+			expr: `base64.encode('hello')`,
+			env: []*exprpb.Decl{
+				decls.NewFunction("base64.encode",
+					decls.NewOverload("base64_encode_string",
+						[]*exprpb.Type{decls.String},
+						decls.String),
+				),
+			},
+			funcs: []*functions.Overload{
+				{
+					Operator: "base64.encode",
+					Unary:    base64_encode,
+				},
+				{
+					Operator: "base64_encode_string",
+					Unary:    base64_encode,
+				},
+			},
+			out: "aGVsbG8=",
+		},
+		{
+			name:      `call_ns_func_unchecked`,
+			expr:      `base64.encode('hello')`,
+			unchecked: true,
+			funcs: []*functions.Overload{
+				{
+					Operator: "base64.encode",
+					Unary:    base64_encode,
+				},
+			},
+			out: "aGVsbG8=",
+		},
+		{
+			name: `call_ns_func_in_pkg`,
+			pkg:  `base64`,
+			expr: `encode('hello')`,
+			env: []*exprpb.Decl{
+				decls.NewFunction("base64.encode",
+					decls.NewOverload("base64_encode_string",
+						[]*exprpb.Type{decls.String},
+						decls.String),
+				),
+			},
+			funcs: []*functions.Overload{
+				{
+					Operator: "base64.encode",
+					Unary:    base64_encode,
+				},
+				{
+					Operator: "base64_encode_string",
+					Unary:    base64_encode,
+				},
+			},
+			out: "aGVsbG8=",
+		},
+		{
+			name:      `call_ns_func_unchecked_in_pkg`,
+			expr:      `encode('hello')`,
+			pkg:       `base64`,
+			unchecked: true,
+			funcs: []*functions.Overload{
+				{
+					Operator: "base64.encode",
+					Unary:    base64_encode,
+				},
+			},
+			out: "aGVsbG8=",
 		},
 		{
 			name: "complex",
@@ -1156,4 +1227,12 @@ func program(tst *testCase, opts ...InterpretableDecorator) (Interpretable, Acti
 		return nil, nil, err
 	}
 	return prg, vars, nil
+}
+
+func base64_encode(val ref.Val) ref.Val {
+	str, ok := val.(types.String)
+	if !ok {
+		return types.MaybeNoSuchOverloadErr(val)
+	}
+	return types.String(base64.StdEncoding.EncodeToString([]byte(str)))
 }
