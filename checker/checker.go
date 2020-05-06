@@ -144,11 +144,12 @@ func (c *checker) checkNullLiteral(e *exprpb.Expr) {
 }
 
 func (c *checker) checkIdent(e *exprpb.Expr) {
-	// Rewrite the identifier to its fully qualified name.
 	identExpr := e.GetIdentExpr()
+	// Check to see if the identifier is declared.
 	if ident := c.env.LookupIdent(identExpr.GetName()); ident != nil {
 		c.setType(e, ident.GetIdent().Type)
 		c.setReference(e, newIdentReference(ident.GetName(), ident.GetIdent().Value))
+		// Overwrite the identifier with its fully qualified name.
 		identExpr.Name = ident.GetName()
 		return
 	}
@@ -250,8 +251,9 @@ func (c *checker) checkCall(e *exprpb.Expr) {
 			c.setType(e, decls.Error)
 			return
 		}
-		// Check to see whether the overload resolves.
+		// Overwrite the function name with its fully qualified resolved name.
 		call.Function = fn.GetName()
+		// Check to see whether the overload resolves.
 		c.resolveOverloadOrError(c.location(e), e, fn, nil, args)
 		return
 	}
