@@ -3,7 +3,7 @@ module github.com/google/cel-go
 go 1.12
 
 require (
-	github.com/antlr/antlr4 v0.0.0-20190819145818-b43a4c3a8015
+	github.com/antlr/antlr4 v0.0.0-20200503195918-621b933c7a7f
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/protobuf v1.3.4
 	github.com/google/cel-spec v0.4.0
