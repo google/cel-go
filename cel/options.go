@@ -29,6 +29,20 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
+// These constants beginning with FEATURE_ enable optional behavior in
+// the library.  See the documentation for each constant to see its
+// effects, compatibility restrictions, and standard conformance.
+const (
+	_ = iota
+
+	// Disallow heterogeneous aggregate (list, map) literals.
+	// Note, it is still possible to have heterogeneous aggregates when
+	// provided as variables to the expression, as well as via conversion
+	// of well-known dynamic types, or with unchecked expressions.
+	// Affects checking.  Provides a subset of standard behavior.
+	FEATURE_DISABLE_DYNAMIC_AGGREGATE_LITERALS
+)
+
 // EnvOption is a functional interface for configuring the environment.
 type EnvOption func(e *Env) (*Env, error)
 
@@ -77,6 +91,16 @@ func Declarations(decls ...*exprpb.Decl) EnvOption {
 	}
 }
 
+// Features sets the given feature flags.  See list of FEATURE constants above.
+func Features(flags ...int) EnvOption {
+	return func(e *Env) (*Env, error) {
+		for _, flag := range flags {
+			e.SetFeature(flag)
+		}
+		return e, nil
+	}
+}
+
 // HomogeneousAggregateLiterals option ensures that list and map literal entry types must agree
 // during type-checking.
 //
@@ -84,10 +108,7 @@ func Declarations(decls ...*exprpb.Decl) EnvOption {
 // expression, as well as via conversion of well-known dynamic types, or with unchecked
 // expressions.
 func HomogeneousAggregateLiterals() EnvOption {
-	return func(e *Env) (*Env, error) {
-		e.enableDynamicAggregateLiterals = false
-		return e, nil
-	}
+	return Features(FEATURE_DISABLE_DYNAMIC_AGGREGATE_LITERALS)
 }
 
 // Macros option extends the macro set configured in the environment.
