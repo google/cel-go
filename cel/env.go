@@ -142,7 +142,7 @@ func (e *Env) Check(ast *Ast) (*Ast, *Issues) {
 	e.once.Do(func() {
 		ce := checker.NewEnv(e.pkg, e.provider)
 		ce.EnableDynamicAggregateLiterals(true)
-		if e.HasFeature(FEATURE_DISABLE_DYNAMIC_AGGREGATE_LITERALS) {
+		if e.HasFeature(FeatureDisableDynamicAggregateLiterals) {
 			ce.EnableDynamicAggregateLiterals(false)
 		}
 		err := ce.Add(e.declarations...)

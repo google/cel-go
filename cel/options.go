@@ -29,7 +29,7 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
-// These constants beginning with FEATURE_ enable optional behavior in
+// These constants beginning with "Feature" enable optional behavior in
 // the library.  See the documentation for each constant to see its
 // effects, compatibility restrictions, and standard conformance.
 const (
@@ -40,7 +40,7 @@ const (
 	// provided as variables to the expression, as well as via conversion
 	// of well-known dynamic types, or with unchecked expressions.
 	// Affects checking.  Provides a subset of standard behavior.
-	FEATURE_DISABLE_DYNAMIC_AGGREGATE_LITERALS
+	FeatureDisableDynamicAggregateLiterals
 )
 
 // EnvOption is a functional interface for configuring the environment.
@@ -91,7 +91,7 @@ func Declarations(decls ...*exprpb.Decl) EnvOption {
 	}
 }
 
-// Features sets the given feature flags.  See list of FEATURE constants above.
+// Features sets the given feature flags.  See list of Feature constants above.
 func Features(flags ...int) EnvOption {
 	return func(e *Env) (*Env, error) {
 		for _, flag := range flags {
@@ -108,7 +108,7 @@ func Features(flags ...int) EnvOption {
 // expression, as well as via conversion of well-known dynamic types, or with unchecked
 // expressions.
 func HomogeneousAggregateLiterals() EnvOption {
-	return Features(FEATURE_DISABLE_DYNAMIC_AGGREGATE_LITERALS)
+	return Features(FeatureDisableDynamicAggregateLiterals)
 }
 
 // Macros option extends the macro set configured in the environment.
