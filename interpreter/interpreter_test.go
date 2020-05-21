@@ -391,6 +391,30 @@ var (
 			},
 		},
 		{
+			name: "timestamp_eq_timestamp",
+			expr: `timestamp(0) == timestamp(0)`,
+		},
+		{
+			name: "timestamp_eq_timestamp",
+			expr: `timestamp(1) != timestamp(2)`,
+		},
+		{
+			name: "timestamp_lt_timestamp",
+			expr: `timestamp(0) < timestamp(1)`,
+		},
+		{
+			name: "timestamp_le_timestamp",
+			expr: `timestamp(2) <= timestamp(2)`,
+		},
+		{
+			name: "timestamp_gt_timestamp",
+			expr: `timestamp(1) > timestamp(0)`,
+		},
+		{
+			name: "timestamp_ge_timestamp",
+			expr: `timestamp(2) >= timestamp(2)`,
+		},
+		{
 			name: "string_to_timestamp",
 			expr: `timestamp('1986-04-26T01:23:40Z')`,
 			out:  &tpb.Timestamp{Seconds: 514862620},
