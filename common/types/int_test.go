@@ -18,6 +18,7 @@ import (
 	"math"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -177,6 +178,12 @@ func TestInt_ConvertToType(t *testing.T) {
 	}
 	if !IsError(Int(-4).ConvertToType(DurationType)) {
 		t.Error("Got duration, expected error.")
+	}
+	tm := time.Unix(946684800, 0)
+	ts, _ := ptypes.TimestampProto(tm)
+	celts := Timestamp{Timestamp: ts}
+	if !Int(946684800).ConvertToType(TimestampType).Equal(celts).(Bool) {
+		t.Error("unsuccessful type conversion to timestamp")
 	}
 }
 
