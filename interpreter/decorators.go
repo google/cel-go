@@ -110,9 +110,33 @@ func decOptimize() InterpretableDecorator {
 			if inst.OverloadID() == overloads.InList {
 				return maybeOptimizeSetMembership(i, inst)
 			}
+			if overloads.IsTypeConversionFunction(inst.Function()) {
+				return maybeOptimizeConstUnary(i, inst)
+			}
+		case *evalUnary:
+			return maybeOptimizeConstUnary(i, inst)
+		case *evalBinary:
+			if inst.overload == overloads.InList {
+			}
 		}
 		return i, nil
 	}
+}
+
+func maybeOptimizeConstUnary(i Interpretable, call InterpretableCall) (Interpretable, error) {
+	args := call.Args()
+	if len(args) != 1 {
+		return i, nil
+	}
+	_, isConst := args[0].(InterpretableConst)
+	if !isConst {
+		return i, nil
+	}
+	val := call.Eval(EmptyActivation())
+	if types.IsError(val) {
+		return nil, val.(*types.Err)
+	}
+	return NewConstValue(call.ID(), val), nil
 }
 
 func maybeBuildListLiteral(i Interpretable, l *evalList) (Interpretable, error) {
