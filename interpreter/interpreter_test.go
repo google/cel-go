@@ -540,6 +540,25 @@ var (
 			},
 		},
 		{
+			name:  "nested_proto_field",
+			expr:  `pb3.single_nested_message.bb`,
+			types: []proto.Message{&proto3pb.TestAllTypes{}},
+			env: []*exprpb.Decl{
+				decls.NewVar("pb3",
+					decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
+			},
+			in: map[string]interface{}{
+				"pb3": &proto3pb.TestAllTypes{
+					NestedType: &proto3pb.TestAllTypes_SingleNestedMessage{
+						SingleNestedMessage: &proto3pb.TestAllTypes_NestedMessage{
+							Bb: 1234,
+						},
+					},
+				},
+			},
+			out: types.Int(1234),
+		},
+		{
 			name: "or_true_1st",
 			expr: `ai == 20 || ar["foo"] == "bar"`,
 			env: []*exprpb.Decl{
