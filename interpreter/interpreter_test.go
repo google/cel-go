@@ -279,6 +279,11 @@ var (
 			out: types.False,
 		},
 		{
+			name: "in_empty_list",
+			expr: `6 in []`,
+			out:  types.False,
+		},
+		{
 			name: "in_list",
 			expr: `6 in [2, 12, 6]`,
 		},
@@ -1185,6 +1190,49 @@ func TestInterpreter_MissingIdentInSelect(t *testing.T) {
 	result = i.Eval(EmptyActivation())
 	if !types.IsError(result) {
 		t.Errorf("Got %v, wanted error", result)
+	}
+}
+
+func TestInterpreter_TypeConversionOpt_Errors(t *testing.T) {
+	tests := []struct {
+		expr string
+	}{
+		{`bool('tru')`},
+		{`int('11l')`},
+		{`duration('12hh3')`},
+		{`timestamp('123')`},
+	}
+	for _, tc := range tests {
+		src := common.NewTextSource(tc.expr)
+		parsed, errors := parser.Parse(src)
+		if len(errors.GetErrors()) != 0 {
+			t.Fatalf(errors.ToDisplayString())
+		}
+		pkg := packages.DefaultPackage
+		reg := types.NewRegistry()
+		env := checker.NewStandardEnv(pkg, reg)
+		checked, errors := checker.Check(parsed, src, env)
+		if len(errors.GetErrors()) != 0 {
+			t.Fatalf(errors.ToDisplayString())
+		}
+		attrs := NewAttributeFactory(pkg, reg, reg)
+		interp := NewStandardInterpreter(pkg, reg, reg, attrs)
+		// Show that program planning will now produce an error.
+		i, err := interp.NewInterpretable(checked, Optimize())
+		if err == nil {
+			t.Errorf("got %v, expected error", i)
+		}
+		// Show how the error returned during program planning is the same as the runtime
+		// error which would be produced normally.
+		i2, err2 := interp.NewInterpretable(checked)
+		if err2 != nil {
+			t.Errorf("got error, wanted interpretable: %v", i2)
+		}
+		errVal := i2.Eval(EmptyActivation())
+		errValStr := errVal.(*types.Err).Error()
+		if errValStr != err.Error() {
+			t.Errorf("got error %s, wanted error %s", errValStr, err.Error())
+		}
 	}
 }
 
