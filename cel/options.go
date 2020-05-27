@@ -189,6 +189,16 @@ func TypeDescs(descs ...interface{}) EnvOption {
 // ProgramOption is a functional interface for configuring evaluation bindings and behaviors.
 type ProgramOption func(p *prog) (*prog, error)
 
+// CustomDecorator appends an InterpreterDecorator to the program.
+//
+// InterpretableDecorators can be used to inspect, alter, or replace the Program plan.
+func CustomDecorator(dec interpreter.InterpretableDecorator) ProgramOption {
+	return func(p *prog) (*prog, error) {
+		p.decorators = append(p.decorators, dec)
+		return p, nil
+	}
+}
+
 // Functions adds function overloads that extend or override the set of CEL built-ins.
 func Functions(funcs ...*functions.Overload) ProgramOption {
 	return func(p *prog) (*prog, error) {

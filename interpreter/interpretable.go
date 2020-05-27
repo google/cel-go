@@ -53,8 +53,11 @@ type InterpretableAttribute interface {
 	Adapter() ref.TypeAdapter
 
 	// AddQualifier proxies the Attribute.AddQualifier method.
-	// Note, this method will mutate the current attribute state. If the desire is to clone the
-	// Attribute, then alte
+	//
+	// Note, this method may mutate the current attribute state. If the desire is to clone the
+	// Attribute, the Attribute should first be copied before adding the qualifier. Attributes
+	// are not copyable by default, so this is a capable that would need to be added to the
+	// AttributeFactory or specifically to the underlying Attribute implementation.
 	AddQualifier(Qualifier) (InterpretableAttribute, error)
 }
 

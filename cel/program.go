@@ -93,6 +93,7 @@ func (ed *EvalDetails) State() interpreter.EvalState {
 type prog struct {
 	*Env
 	evalOpts      EvalOption
+	decorators    []interpreter.InterpretableDecorator
 	defaultVars   interpreter.Activation
 	dispatcher    interpreter.Dispatcher
 	interpreter   interpreter.Interpreter
@@ -118,7 +119,11 @@ func newProgram(e *Env, ast *Ast, opts []ProgramOption) (Program, error) {
 
 	// Ensure the default attribute factory is set after the adapter and provider are
 	// configured.
-	p := &prog{Env: e, dispatcher: disp}
+	p := &prog{
+		Env:        e,
+		decorators: []interpreter.InterpretableDecorator{},
+		dispatcher: disp,
+	}
 
 	// Configure the program via the ProgramOption values.
 	var err error
@@ -143,7 +148,9 @@ func newProgram(e *Env, ast *Ast, opts []ProgramOption) (Program, error) {
 	p.interpreter = interp
 
 	// Translate the EvalOption flags into InterpretableDecorator instances.
-	decorators := []interpreter.InterpretableDecorator{}
+	decorators := make([]interpreter.InterpretableDecorator, len(p.decorators))
+	copy(decorators, p.decorators)
+
 	// Enable constant folding first.
 	if p.evalOpts&OptOptimize == OptOptimize {
 		decorators = append(decorators, interpreter.Optimize())
