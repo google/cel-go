@@ -559,6 +559,28 @@ var (
 			out: types.Int(1234),
 		},
 		{
+			name:  "nested_proto_field_with_index",
+			expr:  `pb3.map_int64_nested_type[0].child.payload.single_int32 == 1`,
+			types: []proto.Message{&proto3pb.TestAllTypes{}},
+			env: []*exprpb.Decl{
+				decls.NewVar("pb3",
+					decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
+			},
+			in: map[string]interface{}{
+				"pb3": &proto3pb.TestAllTypes{
+					MapInt64NestedType: map[int64]*proto3pb.NestedTestAllTypes{
+						0: &proto3pb.NestedTestAllTypes{
+							Child: &proto3pb.NestedTestAllTypes{
+								Payload: &proto3pb.TestAllTypes{
+									SingleInt32: 1,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "or_true_1st",
 			expr: `ai == 20 || ar["foo"] == "bar"`,
 			env: []*exprpb.Decl{
@@ -1025,6 +1047,53 @@ func TestInterpreter(t *testing.T) {
 	}
 }
 
+func TestInterpreter_ProtoAttributeOpt(t *testing.T) {
+	inst, _, err := program(&testCase{
+		name:  "nested_proto_field_with_index",
+		expr:  `pb3.map_int64_nested_type[0].child.payload.single_int32`,
+		types: []proto.Message{&proto3pb.TestAllTypes{}},
+		env: []*exprpb.Decl{
+			decls.NewVar("pb3",
+				decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
+		},
+		in: map[string]interface{}{
+			"pb3": &proto3pb.TestAllTypes{
+				MapInt64NestedType: map[int64]*proto3pb.NestedTestAllTypes{
+					0: &proto3pb.NestedTestAllTypes{
+						Child: &proto3pb.NestedTestAllTypes{
+							Payload: &proto3pb.TestAllTypes{
+								SingleInt32: 1,
+							},
+						},
+					},
+				},
+			},
+		},
+	}, Optimize())
+	if err != nil {
+		t.Fatal(err)
+	}
+	attr, ok := inst.(InterpretableAttribute)
+	if !ok {
+		t.Fatalf("got %v, expected attribute value", inst)
+	}
+	absAttr, ok := attr.Attr().(NamespacedAttribute)
+	if !ok {
+		t.Fatalf("got %v, expected global attribute", attr.Attr())
+	}
+	quals := absAttr.Qualifiers()
+	if len(quals) != 5 {
+		t.Errorf("got %d qualifiers, wanted 5", len(quals))
+	}
+	if !isFieldQual(quals[0], "map_int64_nested_type") ||
+		!isConstQual(quals[1], types.IntZero) ||
+		!isFieldQual(quals[2], "child") ||
+		!isFieldQual(quals[3], "payload") ||
+		!isFieldQual(quals[4], "single_int32") {
+		t.Error("unoptimized qualifier types present in optimized attribute")
+	}
+}
+
 func TestInterpreter_LogicalAndMissingType(t *testing.T) {
 	src := common.NewTextSource(`a && TestProto{c: true}.c`)
 	parsed, errors := parser.Parse(src)
@@ -1278,4 +1347,20 @@ func base64_encode(val ref.Val) ref.Val {
 		return types.MaybeNoSuchOverloadErr(val)
 	}
 	return types.String(base64.StdEncoding.EncodeToString([]byte(str)))
+}
+
+func isConstQual(q Qualifier, val ref.Val) bool {
+	c, ok := q.(ConstantQualifier)
+	if !ok {
+		return false
+	}
+	return c.Value().Equal(val) == types.True
+}
+
+func isFieldQual(q Qualifier, fieldName string) bool {
+	f, ok := q.(*fieldQualifier)
+	if !ok {
+		return false
+	}
+	return f.Name == fieldName
 }
