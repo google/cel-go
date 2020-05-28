@@ -33,6 +33,7 @@ import (
 	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/parser"
 
+	dpb "github.com/golang/protobuf/ptypes/duration"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	tpb "github.com/golang/protobuf/ptypes/timestamp"
 	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
@@ -277,11 +278,6 @@ var (
 				"c": []string{"hello"},
 			},
 			out: types.False,
-		},
-		{
-			name: "in_empty_list",
-			expr: `6 in []`,
-			out:  types.False,
 		},
 		{
 			name: "in_list",
@@ -1193,17 +1189,32 @@ func TestInterpreter_MissingIdentInSelect(t *testing.T) {
 	}
 }
 
-func TestInterpreter_TypeConversionOpt_Errors(t *testing.T) {
+func TestInterpreter_TypeConversionOpt(t *testing.T) {
 	tests := []struct {
-		expr string
+		in  string
+		out ref.Val
+		err bool
 	}{
-		{`bool('tru')`},
-		{`int('11l')`},
-		{`duration('12hh3')`},
-		{`timestamp('123')`},
+		{in: `bool('tru')`, err: true},
+		{in: `bool("true")`, out: types.True},
+		{in: `bytes("hello")`, out: types.Bytes("hello")},
+		{in: `double("_123")`, err: true},
+		{in: `double("123.0")`, out: types.Double(123.0)},
+		{in: `duration('12hh3')`, err: true},
+		{in: `duration('12s')`, out: types.Duration{Duration: &dpb.Duration{Seconds: 12}}},
+		{in: `dyn(1u)`, out: types.Uint(1)},
+		{in: `int('11l')`, err: true},
+		{in: `int('11')`, out: types.Int(11)},
+		{in: `string('11')`, out: types.String("11")},
+		{in: `timestamp('123')`, err: true},
+		{in: `timestamp(123)`, out: types.Timestamp{Timestamp: &tpb.Timestamp{Seconds: 123}}},
+		{in: `type(null)`, out: types.NullType},
+		{in: `type(timestamp(int('123')))`, out: types.TimestampType},
+		{in: `uint(-1)`, err: true},
+		{in: `uint(1)`, out: types.Uint(1)},
 	}
 	for _, tc := range tests {
-		src := common.NewTextSource(tc.expr)
+		src := common.NewTextSource(tc.in)
 		parsed, errors := parser.Parse(src)
 		if len(errors.GetErrors()) != 0 {
 			t.Fatalf(errors.ToDisplayString())
@@ -1219,19 +1230,33 @@ func TestInterpreter_TypeConversionOpt_Errors(t *testing.T) {
 		interp := NewStandardInterpreter(pkg, reg, reg, attrs)
 		// Show that program planning will now produce an error.
 		i, err := interp.NewInterpretable(checked, Optimize())
-		if err == nil {
-			t.Errorf("got %v, expected error", i)
+		if tc.err && err == nil {
+			t.Fatalf("got %v, expected error", i)
+		}
+		if tc.out != nil {
+			if err != nil {
+				t.Fatal(err)
+			}
+			ic, isConst := i.(InterpretableConst)
+			if !isConst {
+				t.Fatalf("got %v, expected constant", ic)
+			}
+			if tc.out.Equal(ic.Value()) != types.True {
+				t.Errorf("got %v, wanted %v", ic.Value(), tc.out)
+			}
 		}
 		// Show how the error returned during program planning is the same as the runtime
 		// error which would be produced normally.
-		i2, err2 := interp.NewInterpretable(checked)
-		if err2 != nil {
-			t.Errorf("got error, wanted interpretable: %v", i2)
-		}
-		errVal := i2.Eval(EmptyActivation())
-		errValStr := errVal.(*types.Err).Error()
-		if errValStr != err.Error() {
-			t.Errorf("got error %s, wanted error %s", errValStr, err.Error())
+		if tc.err {
+			i2, err2 := interp.NewInterpretable(checked)
+			if err2 != nil {
+				t.Fatalf("got error, wanted interpretable: %v", i2)
+			}
+			errVal := i2.Eval(EmptyActivation())
+			errValStr := errVal.(*types.Err).Error()
+			if errValStr != err.Error() {
+				t.Errorf("got error %s, wanted error %s", errValStr, err.Error())
+			}
 		}
 	}
 }

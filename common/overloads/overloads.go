@@ -280,6 +280,7 @@ func IsTypeConversionFunction(function string) bool {
 		TypeConvertBytes,
 		TypeConvertDouble,
 		TypeConvertDuration,
+		TypeConvertDyn,
 		TypeConvertInt,
 		TypeConvertString,
 		TypeConvertTimestamp,
