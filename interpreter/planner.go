@@ -133,14 +133,14 @@ func (p *planner) decorate(i Interpretable, err error) (Interpretable, error) {
 // planIdent creates an Interpretable that resolves an identifier from an Activation.
 func (p *planner) planIdent(expr *exprpb.Expr) (Interpretable, error) {
 	// Establish whether the identifier is in the reference map.
-	if identRef, found := p.refMap[expr.Id]; found {
-		return p.planCheckedIdent(expr.Id, identRef)
+	if identRef, found := p.refMap[expr.GetId()]; found {
+		return p.planCheckedIdent(expr.GetId(), identRef)
 	}
 	// Create the possible attribute list for the unresolved reference.
 	ident := expr.GetIdentExpr()
 	return &evalAttr{
 		adapter: p.adapter,
-		attr:    p.attrFactory.MaybeAttribute(expr.Id, ident.Name),
+		attr:    p.attrFactory.MaybeAttribute(expr.GetId(), ident.Name),
 	}, nil
 }
 
@@ -178,8 +178,8 @@ func (p *planner) planCheckedIdent(id int64, identRef *exprpb.Reference) (Interp
 func (p *planner) planSelect(expr *exprpb.Expr) (Interpretable, error) {
 	// If the Select id appears in the reference map from the CheckedExpr proto then it is either
 	// a namespaced identifier or enum value.
-	if identRef, found := p.refMap[expr.Id]; found {
-		return p.planCheckedIdent(expr.Id, identRef)
+	if identRef, found := p.refMap[expr.GetId()]; found {
+		return p.planCheckedIdent(expr.GetId(), identRef)
 	}
 
 	sel := expr.GetSelectExpr()
@@ -191,7 +191,7 @@ func (p *planner) planSelect(expr *exprpb.Expr) (Interpretable, error) {
 
 	// Determine the field type if this is a proto message type.
 	var fieldType *ref.FieldType
-	opType := p.typeMap[op.ID()]
+	opType := p.typeMap[sel.GetOperand().GetId()]
 	if opType.GetMessageType() != "" {
 		ft, found := p.provider.FindFieldType(opType.GetMessageType(), sel.Field)
 		if found && ft.IsSet != nil && ft.GetFrom != nil {
@@ -485,7 +485,7 @@ func (p *planner) planCallIndex(expr *exprpb.Expr,
 	}
 	indConst, isIndConst := ind.(InterpretableConst)
 	if isIndConst {
-		opType := p.typeMap[op.ID()]
+		opType := p.typeMap[expr.GetCallExpr().GetTarget().GetId()]
 		qual, err := p.attrFactory.NewQualifier(
 			opType, indConst.ID(), indConst.Value())
 		if err != nil {
@@ -673,7 +673,7 @@ func (p *planner) resolveFunction(expr *exprpb.Expr) (*exprpb.Expr, string, stri
 
 	// Checked expressions always have a reference map entry, and _should_ have the fully qualified
 	// function name as the fnName value.
-	oRef, hasOverload := p.refMap[expr.Id]
+	oRef, hasOverload := p.refMap[expr.GetId()]
 	if hasOverload {
 		if len(oRef.GetOverloadId()) == 1 {
 			return target, fnName, oRef.GetOverloadId()[0]
@@ -727,7 +727,7 @@ func (p *planner) resolveFunction(expr *exprpb.Expr) (*exprpb.Expr, string, stri
 func (p *planner) toQualifiedName(operand *exprpb.Expr) (string, bool) {
 	// If the checker identified the expression as an attribute by the type-checker, then it can't
 	// possibly be part of qualified name in a namespace.
-	_, isAttr := p.refMap[operand.Id]
+	_, isAttr := p.refMap[operand.GetId()]
 	if isAttr {
 		return "", false
 	}
