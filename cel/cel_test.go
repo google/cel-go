@@ -29,6 +29,7 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
+	"github.com/google/cel-go/interpreter"
 	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/parser"
 
@@ -806,4 +807,72 @@ func Test_ParseAndCheckConcurrently(t *testing.T) {
 		}(i)
 	}
 	wgDone.Wait()
+}
+
+func Test_CustomInterpreterDecorator(t *testing.T) {
+	var lastInstruction interpreter.Interpretable
+	optimizeArith := func(i interpreter.Interpretable) (interpreter.Interpretable, error) {
+		lastInstruction = i
+		// Only optimize the instruction if it is a call.
+		call, ok := i.(interpreter.InterpretableCall)
+		if !ok {
+			return i, nil
+		}
+		// Only optimize the math functions when they have constant arguments.
+		switch call.Function() {
+		case operators.Add,
+			operators.Subtract,
+			operators.Multiply,
+			operators.Divide:
+			// These are all binary operators so they should have to arguments
+			args := call.Args()
+			_, lhsIsConst := args[0].(interpreter.InterpretableConst)
+			_, rhsIsConst := args[1].(interpreter.InterpretableConst)
+			// When the values are constant then the call can be evaluated with
+			// an empty activation and the value returns as a constant.
+			if !lhsIsConst || !rhsIsConst {
+				return i, nil
+			}
+			val := call.Eval(interpreter.EmptyActivation())
+			if types.IsError(val) {
+				return nil, val.Value().(error)
+			}
+			return interpreter.NewConstValue(call.ID(), val), nil
+		default:
+			return i, nil
+		}
+	}
+
+	env, _ := NewEnv(Declarations(decls.NewVar("foo", decls.Int)))
+	ast, _ := env.Compile(`foo == -1 + 2 * 3 / 3`)
+	_, err := env.Program(ast,
+		EvalOptions(OptPartialEval),
+		CustomDecorator(optimizeArith))
+	if err != nil {
+		t.Fatal(err)
+	}
+	call, ok := lastInstruction.(interpreter.InterpretableCall)
+	if !ok {
+		t.Errorf("got %v, expected call", lastInstruction)
+	}
+	args := call.Args()
+	lhs := args[0]
+	lastAttr, ok := lhs.(interpreter.InterpretableAttribute)
+	if !ok {
+		t.Errorf("got %v, wanted attribute", lhs)
+	}
+	absAttr := lastAttr.Attr().(interpreter.NamespacedAttribute)
+	varNames := absAttr.CandidateVariableNames()
+	if len(varNames) != 1 || varNames[0] != "foo" {
+		t.Errorf("got variables %v, wanted foo", varNames)
+	}
+	rhs := args[1]
+	lastConst, ok := rhs.(interpreter.InterpretableConst)
+	if !ok {
+		t.Errorf("got %v, wanted constant", rhs)
+	}
+	// This is the last number produced by the optimization.
+	if lastConst.Value().Equal(types.IntOne) == types.False {
+		t.Errorf("got %v as the last observed constant, wanted 1", lastConst)
+	}
 }

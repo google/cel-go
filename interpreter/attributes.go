@@ -75,6 +75,16 @@ type Qualifier interface {
 	Qualify(vars Activation, obj interface{}) (interface{}, error)
 }
 
+// ConstantQualifier interface embeds the Qualifier interface and provides an option to inspect the
+// qualifier's constant value.
+//
+// Non-constant qualifiers are of Attribute type.
+type ConstantQualifier interface {
+	Qualifier
+
+	Value() ref.Val
+}
+
 // Attribute values are a variable or value with an optional set of qualifiers, such as field, key,
 // or index accesses.
 type Attribute interface {
@@ -97,9 +107,8 @@ type NamespacedAttribute interface {
 	// the CEL namespace resolution order.
 	CandidateVariableNames() []string
 
-	// HasQualifiers indicates whether the attribute has any qualifiers. An attribute without
-	// qualifiers is just a variable.
-	HasQualifiers() bool
+	// Qualifiers returns the list of qualifiers associated with the Attribute.s
+	Qualifiers() []Qualifier
 
 	// TryResolve attempts to return the value of the attribute given the current Activation.
 	// If an error is encountered during attribute resolution, it will be returned immediately.
@@ -229,14 +238,31 @@ func (a *absoluteAttribute) AddQualifier(qual Qualifier) (Attribute, error) {
 	return a, nil
 }
 
-// HasQualifiers implements the NamespaceAttribute interface method.
-func (a *absoluteAttribute) HasQualifiers() bool {
-	return len(a.qualifiers) != 0
-}
-
 // CandidateVariableNames implements the NamespaceAttribute interface method.
 func (a *absoluteAttribute) CandidateVariableNames() []string {
 	return a.namespaceNames
+}
+
+// Qualifiers returns the list of Qualifier instances associated with the namespaced attribute.
+func (a *absoluteAttribute) Qualifiers() []Qualifier {
+	return a.qualifiers
+}
+
+// Qualify is an implementation of the Qualifier interface method.
+func (a *absoluteAttribute) Qualify(vars Activation, obj interface{}) (interface{}, error) {
+	val, err := a.Resolve(vars)
+	if err != nil {
+		return nil, err
+	}
+	unk, isUnk := val.(types.Unknown)
+	if isUnk {
+		return unk, nil
+	}
+	qual, err := a.fac.NewQualifier(nil, a.id, val)
+	if err != nil {
+		return nil, err
+	}
+	return qual.Qualify(vars, obj)
 }
 
 // Resolve returns the resolved Attribute value given the Activation, or error if the Attribute
@@ -250,6 +276,11 @@ func (a *absoluteAttribute) Resolve(vars Activation) (interface{}, error) {
 		return obj, nil
 	}
 	return nil, fmt.Errorf("no such attribute: %v", a)
+}
+
+// String implements the Stringer interface method.
+func (a *absoluteAttribute) String() string {
+	return fmt.Sprintf("id: %v, names: %v", a.id, a.namespaceNames)
 }
 
 // TryResolve iterates through the namespaced variable names until one is found within the
@@ -282,23 +313,6 @@ func (a *absoluteAttribute) TryResolve(vars Activation) (interface{}, bool, erro
 		}
 	}
 	return nil, false, nil
-}
-
-// Qualify is an implementation of the Qualifier interface method.
-func (a *absoluteAttribute) Qualify(vars Activation, obj interface{}) (interface{}, error) {
-	val, err := a.Resolve(vars)
-	if err != nil {
-		return nil, err
-	}
-	unk, isUnk := val.(types.Unknown)
-	if isUnk {
-		return unk, nil
-	}
-	qual, err := a.fac.NewQualifier(nil, a.id, val)
-	if err != nil {
-		return nil, err
-	}
-	return qual.Qualify(vars, obj)
 }
 
 type conditionalAttribute struct {
@@ -334,6 +348,23 @@ func (a *conditionalAttribute) AddQualifier(qual Qualifier) (Attribute, error) {
 	return a, nil
 }
 
+// Qualify is an implementation of the Qualifier interface method.
+func (a *conditionalAttribute) Qualify(vars Activation, obj interface{}) (interface{}, error) {
+	val, err := a.Resolve(vars)
+	if err != nil {
+		return nil, err
+	}
+	unk, isUnk := val.(types.Unknown)
+	if isUnk {
+		return unk, nil
+	}
+	qual, err := a.fac.NewQualifier(nil, a.id, val)
+	if err != nil {
+		return nil, err
+	}
+	return qual.Qualify(vars, obj)
+}
+
 // Resolve evaluates the condition, and then resolves the truthy or falsy branch accordingly.
 func (a *conditionalAttribute) Resolve(vars Activation) (interface{}, error) {
 	val := a.expr.Eval(vars)
@@ -352,21 +383,9 @@ func (a *conditionalAttribute) Resolve(vars Activation) (interface{}, error) {
 	return nil, types.ValOrErr(val, "no such overload").Value().(error)
 }
 
-// Qualify is an implementation of the Qualifier interface method.
-func (a *conditionalAttribute) Qualify(vars Activation, obj interface{}) (interface{}, error) {
-	val, err := a.Resolve(vars)
-	if err != nil {
-		return nil, err
-	}
-	unk, isUnk := val.(types.Unknown)
-	if isUnk {
-		return unk, nil
-	}
-	qual, err := a.fac.NewQualifier(nil, a.id, val)
-	if err != nil {
-		return nil, err
-	}
-	return qual.Qualify(vars, obj)
+// String is an implementation of the Stringer interface method.
+func (a *conditionalAttribute) String() string {
+	return fmt.Sprintf("id: %v, truthy attribute: %v, falsy attribute: %v", a.id, a.truthy, a.falsy)
 }
 
 type maybeAttribute struct {
@@ -416,7 +435,7 @@ func (a *maybeAttribute) AddQualifier(qual Qualifier) (Attribute, error) {
 	var augmentedNames []string
 	// First add the qualifier to all existing attributes in the oneof.
 	for _, attr := range a.attrs {
-		if isStr && !attr.HasQualifiers() {
+		if isStr && len(attr.Qualifiers()) == 0 {
 			candidateVars := attr.CandidateVariableNames()
 			augmentedNames = make([]string,
 				len(candidateVars),
@@ -432,6 +451,23 @@ func (a *maybeAttribute) AddQualifier(qual Qualifier) (Attribute, error) {
 		a.fac.AbsoluteAttribute(qual.ID(), augmentedNames...),
 	}, a.attrs...)
 	return a, nil
+}
+
+// Qualify is an implementation of the Qualifier interface method.
+func (a *maybeAttribute) Qualify(vars Activation, obj interface{}) (interface{}, error) {
+	val, err := a.Resolve(vars)
+	if err != nil {
+		return nil, err
+	}
+	unk, isUnk := val.(types.Unknown)
+	if isUnk {
+		return unk, nil
+	}
+	qual, err := a.fac.NewQualifier(nil, a.id, val)
+	if err != nil {
+		return nil, err
+	}
+	return qual.Qualify(vars, obj)
 }
 
 // Resolve follows the variable resolution rules to determine whether the attribute is a variable
@@ -452,21 +488,9 @@ func (a *maybeAttribute) Resolve(vars Activation) (interface{}, error) {
 	return nil, fmt.Errorf("no such attribute: %v", a)
 }
 
-// Qualify is an implementation of the Qualifier interface method.
-func (a *maybeAttribute) Qualify(vars Activation, obj interface{}) (interface{}, error) {
-	val, err := a.Resolve(vars)
-	if err != nil {
-		return nil, err
-	}
-	unk, isUnk := val.(types.Unknown)
-	if isUnk {
-		return unk, nil
-	}
-	qual, err := a.fac.NewQualifier(nil, a.id, val)
-	if err != nil {
-		return nil, err
-	}
-	return qual.Qualify(vars, obj)
+// String is an implementation of the Stringer interface method.
+func (a *maybeAttribute) String() string {
+	return fmt.Sprintf("id: %v, attributes: %v", a.id, a.attrs)
 }
 
 type relativeAttribute struct {
@@ -493,6 +517,23 @@ func (a *relativeAttribute) AddQualifier(qual Qualifier) (Attribute, error) {
 	return a, nil
 }
 
+// Qualify is an implementation of the Qualifier interface method.
+func (a *relativeAttribute) Qualify(vars Activation, obj interface{}) (interface{}, error) {
+	val, err := a.Resolve(vars)
+	if err != nil {
+		return nil, err
+	}
+	unk, isUnk := val.(types.Unknown)
+	if isUnk {
+		return unk, nil
+	}
+	qual, err := a.fac.NewQualifier(nil, a.id, val)
+	if err != nil {
+		return nil, err
+	}
+	return qual.Qualify(vars, obj)
+}
+
 // Resolve expression value and qualifier relative to the expression result.
 func (a *relativeAttribute) Resolve(vars Activation) (interface{}, error) {
 	// First, evaluate the operand.
@@ -515,21 +556,9 @@ func (a *relativeAttribute) Resolve(vars Activation) (interface{}, error) {
 	return obj, nil
 }
 
-// Qualify is an implementation of the Qualifier interface method.
-func (a *relativeAttribute) Qualify(vars Activation, obj interface{}) (interface{}, error) {
-	val, err := a.Resolve(vars)
-	if err != nil {
-		return nil, err
-	}
-	unk, isUnk := val.(types.Unknown)
-	if isUnk {
-		return unk, nil
-	}
-	qual, err := a.fac.NewQualifier(nil, a.id, val)
-	if err != nil {
-		return nil, err
-	}
-	return qual.Qualify(vars, obj)
+// String is an implementation of the Stringer interface method.
+func (a *relativeAttribute) String() string {
+	return fmt.Sprintf("id: %v, operand: %v", a.id, a.operand)
 }
 
 func newQualifier(adapter ref.TypeAdapter, id int64, v interface{}) (Qualifier, error) {
@@ -634,6 +663,11 @@ func (q *stringQualifier) Qualify(vars Activation, obj interface{}) (interface{}
 		return nil, fmt.Errorf("no such key: %v", s)
 	}
 	return obj, nil
+}
+
+// Value implements the ConstantQualifier interface
+func (q *stringQualifier) Value() ref.Val {
+	return q.celValue
 }
 
 type intQualifier struct {
@@ -744,6 +778,11 @@ func (q *intQualifier) Qualify(vars Activation, obj interface{}) (interface{}, e
 	return obj, nil
 }
 
+// Value implements the ConstantQualifier interface
+func (q *intQualifier) Value() ref.Val {
+	return q.celValue
+}
+
 type uintQualifier struct {
 	id       int64
 	value    uint64
@@ -793,6 +832,11 @@ func (q *uintQualifier) Qualify(vars Activation, obj interface{}) (interface{}, 
 	return obj, nil
 }
 
+// Value implements the ConstantQualifier interface
+func (q *uintQualifier) Value() ref.Val {
+	return q.celValue
+}
+
 type boolQualifier struct {
 	id       int64
 	value    bool
@@ -834,6 +878,11 @@ func (q *boolQualifier) Qualify(vars Activation, obj interface{}) (interface{}, 
 	return obj, nil
 }
 
+// Value implements the ConstantQualifier interface
+func (q *boolQualifier) Value() ref.Val {
+	return q.celValue
+}
+
 // fieldQualifier indicates that the qualification is a well-defined field with a known
 // field type. When the field type is known this can be used to improve the speed and
 // efficiency of field resolution.
@@ -855,6 +904,11 @@ func (q *fieldQualifier) Qualify(vars Activation, obj interface{}) (interface{},
 		obj = rv.Value()
 	}
 	return q.FieldType.GetFrom(obj)
+}
+
+// Value implements the ConstantQualifier interface
+func (q *fieldQualifier) Value() ref.Val {
+	return types.String(q.Name)
 }
 
 // refResolve attempts to convert the value to a CEL value and then uses reflection methods
