@@ -161,10 +161,7 @@ func (p *planner) planCheckedIdent(id int64, identRef *exprpb.Reference) (Interp
 		if !found {
 			return nil, fmt.Errorf("reference to undefined type: %s", identRef.Name)
 		}
-		return &evalConst{
-			id:  id,
-			val: cVal,
-		}, nil
+		return NewConstValue(id, cVal), nil
 	}
 
 	// Otherwise, return the attribute for the resolved identifier name.
@@ -229,7 +226,7 @@ func (p *planner) planSelect(expr *exprpb.Expr) (Interpretable, error) {
 		return nil, err
 	}
 	// Lastly, create a field selection Interpretable.
-	attr, isAttr := op.(instAttr)
+	attr, isAttr := op.(InterpretableAttribute)
 	if isAttr {
 		return attr.AddQualifier(qual)
 	}
@@ -321,8 +318,10 @@ func (p *planner) planCallZero(expr *exprpb.Expr,
 		return nil, fmt.Errorf("no such overload: %s()", function)
 	}
 	return &evalZeroArity{
-		id:   expr.Id,
-		impl: impl.Function,
+		id:       expr.Id,
+		function: function,
+		overload: overload,
+		impl:     impl.Function,
 	}, nil
 }
 
@@ -449,7 +448,7 @@ func (p *planner) planCallConditional(expr *exprpb.Expr,
 
 	t := args[1]
 	var tAttr Attribute
-	truthyAttr, isTruthyAttr := t.(instAttr)
+	truthyAttr, isTruthyAttr := t.(InterpretableAttribute)
 	if isTruthyAttr {
 		tAttr = truthyAttr.Attr()
 	} else {
@@ -458,7 +457,7 @@ func (p *planner) planCallConditional(expr *exprpb.Expr,
 
 	f := args[2]
 	var fAttr Attribute
-	falsyAttr, isFalsyAttr := f.(instAttr)
+	falsyAttr, isFalsyAttr := f.(InterpretableAttribute)
 	if isFalsyAttr {
 		fAttr = falsyAttr.Attr()
 	} else {
@@ -477,14 +476,14 @@ func (p *planner) planCallIndex(expr *exprpb.Expr,
 	args []Interpretable) (Interpretable, error) {
 	op := args[0]
 	ind := args[1]
-	opAttr, isOpAttr := op.(instAttr)
+	opAttr, isOpAttr := op.(InterpretableAttribute)
 	if !isOpAttr {
 		opAttr = &evalAttr{
 			adapter: p.adapter,
 			attr:    p.attrFactory.RelativeAttribute(expr.Id, op),
 		}
 	}
-	indConst, isIndConst := ind.(instConst)
+	indConst, isIndConst := ind.(InterpretableConst)
 	if isIndConst {
 		opType := p.typeMap[op.ID()]
 		qual, err := p.attrFactory.NewQualifier(
@@ -494,7 +493,7 @@ func (p *planner) planCallIndex(expr *exprpb.Expr,
 		}
 		return opAttr.AddQualifier(qual)
 	}
-	indAttr, isIndAttr := ind.(instAttr)
+	indAttr, isIndAttr := ind.(InterpretableAttribute)
 	if isIndAttr {
 		return opAttr.AddQualifier(indAttr.Attr())
 	}
@@ -617,10 +616,7 @@ func (p *planner) planConst(expr *exprpb.Expr) (Interpretable, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &evalConst{
-		id:  expr.Id,
-		val: val,
-	}, nil
+	return NewConstValue(expr.Id, val), nil
 }
 
 // constValue converts a proto Constant value to a ref.Val.
@@ -632,12 +628,16 @@ func (p *planner) constValue(c *exprpb.Constant) (ref.Val, error) {
 		return types.Bytes(c.GetBytesValue()), nil
 	case *exprpb.Constant_DoubleValue:
 		return types.Double(c.GetDoubleValue()), nil
+	case *exprpb.Constant_DurationValue:
+		return types.Duration{Duration: c.GetDurationValue()}, nil
 	case *exprpb.Constant_Int64Value:
 		return types.Int(c.GetInt64Value()), nil
 	case *exprpb.Constant_NullValue:
 		return types.Null(c.GetNullValue()), nil
 	case *exprpb.Constant_StringValue:
 		return types.String(c.GetStringValue()), nil
+	case *exprpb.Constant_TimestampValue:
+		return types.Timestamp{Timestamp: c.GetTimestampValue()}, nil
 	case *exprpb.Constant_Uint64Value:
 		return types.Uint(c.GetUint64Value()), nil
 	}
