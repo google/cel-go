@@ -75,7 +75,7 @@ func Optimize() InterpretableDecorator {
 
 type exprInterpreter struct {
 	dispatcher  Dispatcher
-	packager    *containers.Container
+	container   *containers.Container
 	provider    ref.TypeProvider
 	adapter     ref.TypeAdapter
 	attrFactory AttributeFactory
@@ -84,13 +84,13 @@ type exprInterpreter struct {
 // NewInterpreter builds an Interpreter from a Dispatcher and TypeProvider which will be used
 // throughout the Eval of all Interpretable instances gerenated from it.
 func NewInterpreter(dispatcher Dispatcher,
-	packager *containers.Container,
+	container *containers.Container,
 	provider ref.TypeProvider,
 	adapter ref.TypeAdapter,
 	attrFactory AttributeFactory) Interpreter {
 	return &exprInterpreter{
 		dispatcher:  dispatcher,
-		packager:    packager,
+		container:   container,
 		provider:    provider,
 		adapter:     adapter,
 		attrFactory: attrFactory}
@@ -98,13 +98,13 @@ func NewInterpreter(dispatcher Dispatcher,
 
 // NewStandardInterpreter builds a Dispatcher and TypeProvider with support for all of the CEL
 // builtins defined in the language definition.
-func NewStandardInterpreter(packager *containers.Container,
+func NewStandardInterpreter(container *containers.Container,
 	provider ref.TypeProvider,
 	adapter ref.TypeAdapter,
 	resolver AttributeFactory) Interpreter {
 	dispatcher := NewDispatcher()
 	dispatcher.Add(functions.StandardOverloads()...)
-	return NewInterpreter(dispatcher, packager, provider, adapter, resolver)
+	return NewInterpreter(dispatcher, container, provider, adapter, resolver)
 }
 
 // NewIntepretable implements the Interpreter interface method.
@@ -116,7 +116,7 @@ func (i *exprInterpreter) NewInterpretable(
 		i.provider,
 		i.adapter,
 		i.attrFactory,
-		i.packager,
+		i.container,
 		checked,
 		decorators...)
 	return p.Plan(checked.GetExpr())
@@ -131,7 +131,7 @@ func (i *exprInterpreter) NewUncheckedInterpretable(
 		i.provider,
 		i.adapter,
 		i.attrFactory,
-		i.packager,
+		i.container,
 		decorators...)
 	return p.Plan(expr)
 }

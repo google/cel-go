@@ -156,7 +156,7 @@ func (c *checker) checkIdent(e *exprpb.Expr) {
 
 	c.setType(e, decls.Error)
 	c.errors.undeclaredReference(
-		c.location(e), c.env.packager.Name(), identExpr.GetName())
+		c.location(e), c.env.container.Name(), identExpr.GetName())
 }
 
 func (c *checker) checkSelect(e *exprpb.Expr) {
@@ -247,7 +247,7 @@ func (c *checker) checkCall(e *exprpb.Expr) {
 		fn := c.env.LookupFunction(fnName)
 		if fn == nil {
 			c.errors.undeclaredReference(
-				c.location(e), c.env.packager.Name(), fnName)
+				c.location(e), c.env.container.Name(), fnName)
 			c.setType(e, decls.Error)
 			return
 		}
@@ -287,7 +287,7 @@ func (c *checker) checkCall(e *exprpb.Expr) {
 		return
 	}
 	// Function name not declared, record error.
-	c.errors.undeclaredReference(c.location(e), c.env.packager.Name(), fnName)
+	c.errors.undeclaredReference(c.location(e), c.env.container.Name(), fnName)
 }
 
 func (c *checker) resolveOverloadOrError(
@@ -416,7 +416,7 @@ func (c *checker) checkCreateMessage(e *exprpb.Expr) {
 	decl := c.env.LookupIdent(msgVal.MessageName)
 	if decl == nil {
 		c.errors.undeclaredReference(
-			c.location(e), c.env.packager.Name(), msgVal.MessageName)
+			c.location(e), c.env.container.Name(), msgVal.MessageName)
 		return
 	}
 	// Ensure the type name is fully qualified in the AST.

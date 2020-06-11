@@ -34,7 +34,7 @@ type interpretablePlanner interface {
 }
 
 // newPlanner creates an interpretablePlanner which references a Dispatcher, TypeProvider,
-// TypeAdapter, Packager, and CheckedExpr value. These pieces of data are used to resolve
+// TypeAdapter, Container, and CheckedExpr value. These pieces of data are used to resolve
 // functions, types, and namespaced identifiers at plan time rather than at runtime since
 // it only needs to be done once and may be semi-expensive to compute.
 func newPlanner(disp Dispatcher,
@@ -57,7 +57,7 @@ func newPlanner(disp Dispatcher,
 }
 
 // newUncheckedPlanner creates an interpretablePlanner which references a Dispatcher, TypeProvider,
-// TypeAdapter, and Packager to resolve functions and types at plan time. Namespaces present in
+// TypeAdapter, and Container to resolve functions and types at plan time. Namespaces present in
 // Select expressions are resolved lazily at evaluation time.
 func newUncheckedPlanner(disp Dispatcher,
 	provider ref.TypeProvider,
