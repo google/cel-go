@@ -18,7 +18,7 @@ import (
 	"fmt"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/google/cel-go/common/packages"
+	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/types/pb"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter"
@@ -126,9 +126,73 @@ func Macros(macros ...parser.Macro) EnvOption {
 // If all references within an expression are relative to a protocol buffer package, then
 // specifying a container of `google.type` would make it possible to write expressions such as
 // `Expr{expression: 'a < b'}` instead of having to write `google.type.Expr{...}`.
-func Container(pkg string) EnvOption {
+func Container(name string) EnvOption {
 	return func(e *Env) (*Env, error) {
-		e.pkg = packages.NewPackage(pkg)
+		aliasSet := e.Container.AliasSet()
+		var containerOpts []containers.ContainerOption
+		for alias, qualifiedName := range aliasSet {
+			containerOpts = append(containerOpts, containers.AliasAs(qualifiedName, alias))
+		}
+		cont, err := containers.NewContainer(name, containerOpts...)
+		if err != nil {
+			return nil, err
+		}
+		e.Container = cont
+		return e, nil
+	}
+}
+
+// Aliases configures a set of simple names as aliases for fully-qualified names.
+//
+// An alias can be useful when working with variables, functions, and especially types from
+// multiple namespaces:
+//
+//    // CEL object construction
+//    qual.pkg.version.ObjTypeName{
+//       field: alt.container.ver.FieldTypeName{value: ...}
+//    }
+//
+// Only one qualified path may be used as CEL container, so at least one of these references is
+// a long qualified name within an otherwise short CEL program. Using the following aliases, the
+// program becomes much simpler:
+//
+//    // CEL Go option
+//    Aliases("qual.pkg.version.ObjTypeName", "alt.container.ver.FieldTypeName")
+//    // Simplified Object construction
+//    ObjTypeName{field: FieldTypeName{value: ...}}
+//
+// There are a few rules for the qualified names and the simple name aliases generated from them:
+// - Qualified names must be dot-delimited, e.g. `package.subpkg.name`.
+// - The last element in the qualified name is the simple name used as an alias.
+// - Alias names must not collide with each other.
+// - The alias name must not collide with the root-level container name.
+//
+// Aliases are distinct from container-based references in the following important ways:
+// - Containers follow C++ namespace resolution rules with searches from the most qualified name
+//   to the least qualified name.
+// - Container references within the CEL program may be relative, and are resolved to fully
+//   qualified names at either type-check time or program plan time, whichever comes first.
+// - Alias simple names must resolve to a fully-qualified name.
+// - Resolved aliases do not participate in namespace resolution.
+// - Resolved aliases are searched after container names, including container names in the global
+//   scope.
+//
+// If there is ever a case where an identifier could be in both the container and in the alias,
+// the container wins as the container will continue to evolve over time and the program must be
+// forward compatible with changes in the container.
+func Aliases(qualifiedNames ...string) EnvOption {
+	return func(e *Env) (*Env, error) {
+		aliasSet := e.Container.AliasSet()
+		var containerOpts []containers.ContainerOption
+		for alias, qualifiedName := range aliasSet {
+			containerOpts = append(containerOpts, containers.AliasAs(qualifiedName, alias))
+		}
+		containerOpts = append(containerOpts, containers.Aliases(qualifiedNames...))
+		cont, err := containers.NewContainer(e.Container.Name(), containerOpts...)
+		if err != nil {
+			return nil, err
+		}
+		e.Container = cont
 		return e, nil
 	}
 }

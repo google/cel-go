@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"reflect"
 	"sync"
 	"testing"
 
@@ -186,6 +187,119 @@ func Test_ExampleWithBuiltins(t *testing.T) {
 	// Hello world! I'm CEL.
 	if out.Equal(types.String("Hello world! I'm CEL.")) != types.True {
 		t.Errorf(`got '%v', wanted "Hello world! I'm CEL."`, out.Value())
+	}
+}
+
+func Test_Aliases_Compiled(t *testing.T) {
+	// Test whether aliases successfully resolve at type-check time (compile time).
+	env, err := NewEnv(
+		Aliases("qualified.identifier.name"),
+		Declarations(
+			decls.NewVar("qualified.identifier.name", decls.String),
+		),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ast, iss := env.Compile(`"hello "+ name`) // alias resolved here.
+	if iss.Err() != nil {
+		t.Fatal(iss.Err())
+	}
+	prg, err := env.Program(ast)
+	if err != nil {
+		t.Fatal(err)
+	}
+    out, _, err := prg.Eval(
+		map[string]interface{}{
+			"qualified.identifier.name": "Jim",
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Value() != "hello Jim" {
+		t.Errorf("got %v, wanted 'hello Jim'", out)
+	}
+}
+
+func Test_Aliases_Parsed(t *testing.T) {
+	// Test whether aliases are resolved properly at evaluation time.
+	env, err := NewEnv(
+		Aliases("qualified.identifier.name"),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ast, iss := env.Parse(`"hello "+ name`)
+	if iss.Err() != nil {
+		t.Fatal(iss.Err())
+	}
+	prg, err := env.Program(ast) // alias resolved here.
+	if err != nil {
+		t.Fatal(err)
+	}
+    out, _, err := prg.Eval(
+		map[string]interface{}{
+			"qualified.identifier.name": "Jim",
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Value() != "hello Jim" {
+		t.Errorf("got %v, wanted 'hello Jim'", out)
+	}
+}
+
+func Test_Aliases_Disambiguation(t *testing.T) {
+	env, err := NewEnv(
+		Aliases("external.Expr"),
+		Container("google.api.expr.v1alpha1"),
+		Types(&exprpb.Expr{}),
+		Declarations(
+			decls.NewVar("test", decls.Bool),
+			decls.NewVar("external.Expr", decls.String),
+		),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// This expression will return either a string or a protobuf Expr value depending on the value
+	// of the 'test' argument. Here the '.' is used to indicate that the aliased Expr should be
+	// used rather than the protobuf type Expr in the container `google.api.expr.v1alpha1`.
+	ast, iss := env.Compile(`test ? dyn(.Expr) : Expr{id: 1}`)
+	if iss.Err() != nil {
+		t.Fatal(iss.Err())
+	}
+	prg, err := env.Program(ast)
+	if err != nil {
+		t.Fatal(err)
+	}
+    out, _, err := prg.Eval(
+		map[string]interface{}{
+			"test": true,
+			"external.Expr": "string expr",
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Value() != "string expr" {
+		t.Errorf("got %v, wanted 'string expr'", out)
+	}
+	out, _, err = prg.Eval(
+		map[string]interface{}{
+			"test": false,
+			"external.Expr": "wrong expr",
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := &exprpb.Expr{Id: 1}
+	got, _ := out.ConvertToNative(reflect.TypeOf(want))
+	if !proto.Equal(got.(*exprpb.Expr), want) {
+		t.Errorf("got %v, wanted 'string expr'", out)
 	}
 }
 

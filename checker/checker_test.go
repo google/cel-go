@@ -21,9 +21,9 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common"
+	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/overloads"
-	"github.com/google/cel-go/common/packages"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/parser"
 	"github.com/google/cel-go/test"
@@ -1636,10 +1636,13 @@ func TestCheck(t *testing.T) {
 			reg := types.NewRegistry()
 			reg.RegisterMessage(&proto2pb.TestAllTypes{})
 			reg.RegisterMessage(&proto3pb.TestAllTypes{})
-			pkg := packages.NewPackage(tc.Container)
-			env := NewStandardEnv(pkg, reg)
+			cont, err := containers.NewContainer(tc.Container)
+			if err != nil {
+				tt.Fatal(err)
+			}
+			env := NewStandardEnv(cont, reg)
 			if tc.DisableStdEnv {
-				env = NewEnv(pkg, reg)
+				env = NewEnv(cont, reg)
 			}
 			if tc.HomogeneousAggregateLiterals {
 				env.EnableDynamicAggregateLiterals(!tc.HomogeneousAggregateLiterals)

@@ -26,7 +26,7 @@ import (
 	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common"
-	"github.com/google/cel-go/common/packages"
+	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
@@ -47,10 +47,11 @@ import (
 type testCase struct {
 	name           string
 	expr           string
+	container      string
 	cost           []int64
 	exhaustiveCost []int64
 	optimizedCost  []int64
-	pkg            string
+	aliases        []string
 	env            []*exprpb.Decl
 	types          []proto.Message
 	funcs          []*functions.Overload
@@ -189,11 +190,11 @@ var (
 			funcs: []*functions.Overload{
 				{
 					Operator: "base64.encode",
-					Unary:    base64_encode,
+					Unary:    base64Encode,
 				},
 				{
 					Operator: "base64_encode_string",
-					Unary:    base64_encode,
+					Unary:    base64Encode,
 				},
 			},
 			out: "aGVsbG8=",
@@ -206,16 +207,16 @@ var (
 			funcs: []*functions.Overload{
 				{
 					Operator: "base64.encode",
-					Unary:    base64_encode,
+					Unary:    base64Encode,
 				},
 			},
 			out: "aGVsbG8=",
 		},
 		{
-			name: `call_ns_func_in_pkg`,
-			pkg:  `base64`,
-			expr: `encode('hello')`,
-			cost: []int64{1, 1},
+			name:      `call_ns_func_in_pkg`,
+			container: `base64`,
+			expr:      `encode('hello')`,
+			cost:      []int64{1, 1},
 			env: []*exprpb.Decl{
 				decls.NewFunction("base64.encode",
 					decls.NewOverload("base64_encode_string",
@@ -226,11 +227,11 @@ var (
 			funcs: []*functions.Overload{
 				{
 					Operator: "base64.encode",
-					Unary:    base64_encode,
+					Unary:    base64Encode,
 				},
 				{
 					Operator: "base64_encode_string",
-					Unary:    base64_encode,
+					Unary:    base64Encode,
 				},
 			},
 			out: "aGVsbG8=",
@@ -239,12 +240,12 @@ var (
 			name:      `call_ns_func_unchecked_in_pkg`,
 			expr:      `encode('hello')`,
 			cost:      []int64{1, 1},
-			pkg:       `base64`,
+			container: `base64`,
 			unchecked: true,
 			funcs: []*functions.Overload{
 				{
 					Operator: "base64.encode",
-					Unary:    base64_encode,
+					Unary:    base64Encode,
 				},
 			},
 			out: "aGVsbG8=",
@@ -407,9 +408,9 @@ var (
 			out: `Kim	`,
 		},
 		{
-			name:  "literal_pb3_msg",
-			pkg:   "google.api.expr",
-			types: []proto.Message{&exprpb.Expr{}},
+			name:      "literal_pb3_msg",
+			container: "google.api.expr",
+			types:     []proto.Message{&exprpb.Expr{}},
 			expr: `v1alpha1.Expr{
 				id: 1,
 				const_expr: v1alpha1.Constant{
@@ -424,9 +425,9 @@ var (
 							StringValue: "oneof_test"}}}},
 		},
 		{
-			name:  "literal_pb_enum",
-			pkg:   "google.expr.proto3.test",
-			types: []proto.Message{&proto3pb.TestAllTypes{}},
+			name:      "literal_pb_enum",
+			container: "google.expr.proto3.test",
+			types:     []proto.Message{&proto3pb.TestAllTypes{}},
 			expr: `TestAllTypes{
 				repeated_nested_enum: [
 					0,
@@ -542,9 +543,9 @@ var (
 			exhaustiveCost: []int64{4, 4},
 		},
 		{
-			name:  "macro_has_pb2_field",
-			pkg:   "google.expr.proto2.test",
-			types: []proto.Message{&proto2pb.TestAllTypes{}},
+			name:      "macro_has_pb2_field",
+			container: "google.expr.proto2.test",
+			types:     []proto.Message{&proto2pb.TestAllTypes{}},
 			env: []*exprpb.Decl{
 				decls.NewVar("pb2", decls.NewObjectType("google.expr.proto2.test.TestAllTypes")),
 			},
@@ -576,7 +577,7 @@ var (
 			env: []*exprpb.Decl{
 				decls.NewVar("pb3", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
-			pkg: "google.expr.proto3.test",
+			container: "google.expr.proto3.test",
 			in: map[string]interface{}{
 				"pb3": &proto3pb.TestAllTypes{
 					RepeatedBool: []bool{false},
@@ -743,10 +744,10 @@ var (
 			out:            types.True,
 		},
 		{
-			name: "pkg_qualified_id",
-			expr: `b.c.d != 10`,
-			cost: []int64{2, 2},
-			pkg:  "a.b",
+			name:      "pkg_qualified_id",
+			expr:      `b.c.d != 10`,
+			cost:      []int64{2, 2},
+			container: "a.b",
 			env: []*exprpb.Decl{
 				decls.NewVar("a.b.c.d", decls.Int),
 			},
@@ -759,7 +760,7 @@ var (
 			expr:      `c.d != 10`,
 			cost:      []int64{2, 2},
 			unchecked: true,
-			pkg:       "a.b",
+			container: "a.b",
 			in: map[string]interface{}{
 				"a.c.d": 9,
 			},
@@ -769,7 +770,7 @@ var (
 			expr:      `b.c['d'] == 10`,
 			cost:      []int64{2, 2},
 			unchecked: true,
-			pkg:       "a.b",
+			container: "a.b",
 			in: map[string]interface{}{
 				"a.b.c": map[string]int{
 					"d": 10,
@@ -905,7 +906,7 @@ var (
 				&& json.list[0] == 'world'`,
 			cost:           []int64{1, 7},
 			exhaustiveCost: []int64{7, 7},
-			pkg:            "google.expr.proto3",
+			container:      "google.expr.proto3",
 			types:          []proto.Message{&proto3pb.TestAllTypes{}},
 			env: []*exprpb.Decl{
 				decls.NewVar("a.b", decls.NewMapType(decls.String, decls.Bool)),
@@ -966,10 +967,11 @@ var (
 			expr: `!has(a.single_int32_wrapper) && a.single_int32_wrapper == null
 				&& has(a.single_int64_wrapper) && a.single_int64_wrapper == 0
 				&& has(a.single_string_wrapper) && a.single_string_wrapper == "hello"
-				&& a.single_int64_wrapper == google.protobuf.Int32Value{value: 0}`,
+				&& a.single_int64_wrapper == Int32Value{value: 0}`,
 			cost:           []int64{3, 21},
 			exhaustiveCost: []int64{21, 21},
 			types:          []proto.Message{&proto3pb.TestAllTypes{}},
+			aliases:        []string{"google.protobuf.Int32Value"},
 			env: []*exprpb.Decl{
 				decls.NewVar("a", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
@@ -981,11 +983,11 @@ var (
 			},
 		},
 		{
-			name:  "select_pb3_compare",
-			expr:  `a.single_uint64 > 3u`,
-			cost:  []int64{2, 2},
-			pkg:   "google.expr.proto3.test",
-			types: []proto.Message{&proto3pb.TestAllTypes{}},
+			name:      "select_pb3_compare",
+			expr:      `a.single_uint64 > 3u`,
+			cost:      []int64{2, 2},
+			container: "google.expr.proto3.test",
+			types:     []proto.Message{&proto3pb.TestAllTypes{}},
 			env: []*exprpb.Decl{
 				decls.NewVar("a", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
@@ -997,18 +999,18 @@ var (
 			out: types.True,
 		},
 		{
-			name:  "select_custom_pb3_compare",
-			expr:  `a.bb > 100`,
-			cost:  []int64{2, 2},
-			pkg:   "google.expr.proto3.test",
-			types: []proto.Message{&proto3pb.TestAllTypes_NestedMessage{}},
+			name:      "select_custom_pb3_compare",
+			expr:      `a.bb > 100`,
+			cost:      []int64{2, 2},
+			container: "google.expr.proto3.test",
+			types:     []proto.Message{&proto3pb.TestAllTypes_NestedMessage{}},
 			env: []*exprpb.Decl{
 				decls.NewVar("a",
 					decls.NewObjectType("google.expr.proto3.test.TestAllTypes.NestedMessage")),
 			},
 			attrs: &custAttrFactory{
 				AttributeFactory: NewAttributeFactory(
-					packages.NewPackage("google.expr.proto3.test"),
+					safeContainer("google.expr.proto3.test"),
 					types.NewRegistry(),
 					types.NewRegistry(),
 				),
@@ -1064,12 +1066,12 @@ var (
 			out: types.Int(10),
 		},
 		{
-			name:  "select_empty_repeated_nested",
-			expr:  `TestAllTypes{}.repeated_nested_message.size() == 0`,
-			cost:  []int64{2, 2},
-			types: []proto.Message{&proto3pb.TestAllTypes{}},
-			pkg:   "google.expr.proto3.test",
-			out:   types.True,
+			name:      "select_empty_repeated_nested",
+			expr:      `TestAllTypes{}.repeated_nested_message.size() == 0`,
+			cost:      []int64{2, 2},
+			types:     []proto.Message{&proto3pb.TestAllTypes{}},
+			container: "google.expr.proto3.test",
+			out:       types.True,
 		},
 	}
 )
@@ -1251,9 +1253,9 @@ func TestInterpreter_LogicalAndMissingType(t *testing.T) {
 	}
 
 	reg := types.NewRegistry()
-	pkg := packages.DefaultPackage
-	attrs := NewAttributeFactory(pkg, reg, reg)
-	intr := NewStandardInterpreter(pkg, reg, reg, attrs)
+	cont := containers.DefaultContainer
+	attrs := NewAttributeFactory(cont, reg, reg)
+	intr := NewStandardInterpreter(cont, reg, reg, attrs)
 	i, err := intr.NewUncheckedInterpretable(parsed.GetExpr())
 	if err == nil {
 		t.Errorf("Got '%v', wanted error", i)
@@ -1268,10 +1270,10 @@ func TestInterpreter_ExhaustiveConditionalExpr(t *testing.T) {
 	}
 
 	state := NewEvalState()
-	pkg := packages.DefaultPackage
+	cont := containers.DefaultContainer
 	reg := types.NewRegistry(&exprpb.ParsedExpr{})
-	attrs := NewAttributeFactory(pkg, reg, reg)
-	intr := NewStandardInterpreter(pkg, reg, reg, attrs)
+	attrs := NewAttributeFactory(cont, reg, reg)
+	intr := NewStandardInterpreter(cont, reg, reg, attrs)
 	interpretable, _ := intr.NewUncheckedInterpretable(
 		parsed.GetExpr(),
 		ExhaustiveEval(state))
@@ -1303,9 +1305,9 @@ func TestInterpreter_ExhaustiveLogicalOrEquals(t *testing.T) {
 
 	state := NewEvalState()
 	reg := types.NewRegistry(&exprpb.Expr{})
-	pkg := packages.NewPackage("test")
-	attrs := NewAttributeFactory(pkg, reg, reg)
-	interp := NewStandardInterpreter(pkg, reg, reg, attrs)
+	cont := safeContainer("test")
+	attrs := NewAttributeFactory(cont, reg, reg)
+	interp := NewStandardInterpreter(cont, reg, reg, attrs)
 	i, _ := interp.NewUncheckedInterpretable(
 		parsed.GetExpr(),
 		ExhaustiveEval(state))
@@ -1342,17 +1344,17 @@ func TestInterpreter_SetProto2PrimitiveFields(t *testing.T) {
 		t.Errorf(errors.ToDisplayString())
 	}
 
-	pkg := packages.NewPackage("google.expr.proto2.test")
+	cont := safeContainer("google.expr.proto2.test")
 	reg := types.NewRegistry(&proto2pb.TestAllTypes{})
-	env := checker.NewStandardEnv(pkg, reg)
+	env := checker.NewStandardEnv(cont, reg)
 	env.Add(decls.NewVar("input", decls.NewObjectType("google.expr.proto2.test.TestAllTypes")))
 	checked, errors := checker.Check(parsed, src, env)
 	if len(errors.GetErrors()) != 0 {
 		t.Errorf(errors.ToDisplayString())
 	}
 
-	attrs := NewAttributeFactory(pkg, reg, reg)
-	i := NewStandardInterpreter(pkg, reg, reg, attrs)
+	attrs := NewAttributeFactory(cont, reg, reg)
+	i := NewStandardInterpreter(cont, reg, reg, attrs)
 	eval, _ := i.NewInterpretable(checked)
 	one := int32(1)
 	two := int64(2)
@@ -1395,17 +1397,17 @@ func TestInterpreter_MissingIdentInSelect(t *testing.T) {
 		t.Fatalf(errors.ToDisplayString())
 	}
 
-	pkg := packages.NewPackage("test")
+	cont := safeContainer("test")
 	reg := types.NewRegistry()
-	env := checker.NewStandardEnv(pkg, reg)
+	env := checker.NewStandardEnv(cont, reg)
 	env.Add(decls.NewVar("a.b", decls.Dyn))
 	checked, errors := checker.Check(parsed, src, env)
 	if len(errors.GetErrors()) != 0 {
 		t.Fatalf(errors.ToDisplayString())
 	}
 
-	attrs := NewPartialAttributeFactory(pkg, reg, reg)
-	interp := NewStandardInterpreter(pkg, reg, reg, attrs)
+	attrs := NewPartialAttributeFactory(cont, reg, reg)
+	interp := NewStandardInterpreter(cont, reg, reg, attrs)
 	i, _ := interp.NewInterpretable(checked)
 	vars, _ := NewPartialActivation(
 		map[string]interface{}{
@@ -1455,15 +1457,15 @@ func TestInterpreter_TypeConversionOpt(t *testing.T) {
 		if len(errors.GetErrors()) != 0 {
 			t.Fatalf(errors.ToDisplayString())
 		}
-		pkg := packages.DefaultPackage
+		cont := containers.DefaultContainer
 		reg := types.NewRegistry()
-		env := checker.NewStandardEnv(pkg, reg)
+		env := checker.NewStandardEnv(cont, reg)
 		checked, errors := checker.Check(parsed, src, env)
 		if len(errors.GetErrors()) != 0 {
 			t.Fatalf(errors.ToDisplayString())
 		}
-		attrs := NewAttributeFactory(pkg, reg, reg)
-		interp := NewStandardInterpreter(pkg, reg, reg, attrs)
+		attrs := NewAttributeFactory(cont, reg, reg)
+		interp := NewStandardInterpreter(cont, reg, reg, attrs)
 		// Show that program planning will now produce an error.
 		i, err := interp.NewInterpretable(checked, Optimize())
 		if tc.err && err == nil {
@@ -1497,23 +1499,38 @@ func TestInterpreter_TypeConversionOpt(t *testing.T) {
 	}
 }
 
-func program(tst *testCase, opts ...InterpretableDecorator) (Interpretable, Activation, error) {
+func safeContainer(name string) *containers.Container {
+	cont, _ := containers.NewContainer(name)
+	return cont
+}
+
+func program(tst *testCase,
+	opts ...InterpretableDecorator) (Interpretable, Activation, error) {
 	// Configure the package.
-	pkg := packages.DefaultPackage
-	if tst.pkg != "" {
-		pkg = packages.NewPackage(tst.pkg)
+	cont := containers.DefaultContainer
+	if tst.container != "" {
+		cont = safeContainer(tst.container)
+	}
+	var err error
+	if tst.aliases != nil {
+		cont, err = containers.NewContainer(
+			cont.Name(),
+			containers.Aliases(tst.aliases...))
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 	reg := types.NewRegistry()
 	if tst.types != nil {
 		reg = types.NewRegistry(tst.types...)
 	}
-	attrs := NewAttributeFactory(pkg, reg, reg)
+	attrs := NewAttributeFactory(cont, reg, reg)
 	if tst.attrs != nil {
 		attrs = tst.attrs
 	}
 
 	// Configure the environment.
-	env := checker.NewStandardEnv(pkg, reg)
+	env := checker.NewStandardEnv(cont, reg)
 	if tst.env != nil {
 		env.Add(tst.env...)
 	}
@@ -1532,7 +1549,7 @@ func program(tst *testCase, opts ...InterpretableDecorator) (Interpretable, Acti
 	if tst.funcs != nil {
 		disp.Add(tst.funcs...)
 	}
-	interp := NewInterpreter(disp, pkg, reg, reg, attrs)
+	interp := NewInterpreter(disp, cont, reg, reg, attrs)
 
 	// Parse the expression.
 	s := common.NewTextSource(tst.expr)
@@ -1562,7 +1579,7 @@ func program(tst *testCase, opts ...InterpretableDecorator) (Interpretable, Acti
 	return prg, vars, nil
 }
 
-func base64_encode(val ref.Val) ref.Val {
+func base64Encode(val ref.Val) ref.Val {
 	str, ok := val.(types.String)
 	if !ok {
 		return types.MaybeNoSuchOverloadErr(val)

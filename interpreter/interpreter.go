@@ -18,7 +18,7 @@
 package interpreter
 
 import (
-	"github.com/google/cel-go/common/packages"
+	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter/functions"
 
@@ -75,7 +75,7 @@ func Optimize() InterpretableDecorator {
 
 type exprInterpreter struct {
 	dispatcher  Dispatcher
-	packager    packages.Packager
+	packager    *containers.Container
 	provider    ref.TypeProvider
 	adapter     ref.TypeAdapter
 	attrFactory AttributeFactory
@@ -83,7 +83,8 @@ type exprInterpreter struct {
 
 // NewInterpreter builds an Interpreter from a Dispatcher and TypeProvider which will be used
 // throughout the Eval of all Interpretable instances gerenated from it.
-func NewInterpreter(dispatcher Dispatcher, packager packages.Packager,
+func NewInterpreter(dispatcher Dispatcher,
+	packager *containers.Container,
 	provider ref.TypeProvider,
 	adapter ref.TypeAdapter,
 	attrFactory AttributeFactory) Interpreter {
@@ -97,7 +98,7 @@ func NewInterpreter(dispatcher Dispatcher, packager packages.Packager,
 
 // NewStandardInterpreter builds a Dispatcher and TypeProvider with support for all of the CEL
 // builtins defined in the language definition.
-func NewStandardInterpreter(packager packages.Packager,
+func NewStandardInterpreter(packager *containers.Container,
 	provider ref.TypeProvider,
 	adapter ref.TypeAdapter,
 	resolver AttributeFactory) Interpreter {

@@ -19,7 +19,7 @@ import (
 	"strings"
 
 	"github.com/google/cel-go/checker/decls"
-	"github.com/google/cel-go/common/packages"
+	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/pb"
 	"github.com/google/cel-go/common/types/ref"
@@ -39,14 +39,14 @@ const (
 // It consists of a Packager, a Type Provider, declarations, and collection of errors encountered
 // during checking.
 type Env struct {
-	packager       packages.Packager
+	packager       *containers.Container
 	provider       ref.TypeProvider
 	declarations   *decls.Scopes
 	aggLitElemType aggregateLiteralElementType
 }
 
 // NewEnv returns a new *Env with the given parameters.
-func NewEnv(packager packages.Packager, provider ref.TypeProvider) *Env {
+func NewEnv(packager *containers.Container, provider ref.TypeProvider) *Env {
 	declarations := decls.NewScopes()
 	declarations.Push()
 
@@ -58,7 +58,7 @@ func NewEnv(packager packages.Packager, provider ref.TypeProvider) *Env {
 }
 
 // NewStandardEnv returns a new *Env with the given params plus standard declarations.
-func NewStandardEnv(packager packages.Packager, provider ref.TypeProvider) *Env {
+func NewStandardEnv(packager *containers.Container, provider ref.TypeProvider) *Env {
 	e := NewEnv(packager, provider)
 	if err := e.Add(StandardDeclarations()...); err != nil {
 		// The standard declaration set should never have duplicate declarations.
