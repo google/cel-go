@@ -16,10 +16,10 @@ import (
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
-	// "github.com/google/cel-go/checker/decls"
+	 _ "github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
-	// "github.com/google/cel-go/interprester/functions"
+	_ "github.com/google/cel-go/interprester/functions"
 
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	tpb "github.com/golang/protobuf/ptypes/timestamp"
