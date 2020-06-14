@@ -193,7 +193,7 @@ func TestAttributePattern_UnknownResolution(t *testing.T) {
 					var err error
 					cont := containers.DefaultContainer
 					if m.unchecked {
-						cont, err = containers.NewContainer(m.container)
+						cont, err = containers.NewContainer(containers.Name(m.container))
 						if err != nil {
 							ttt.Fatal(err)
 						}
@@ -217,7 +217,7 @@ func TestAttributePattern_UnknownResolution(t *testing.T) {
 					cont := containers.DefaultContainer
 					if m.unchecked {
 						var err error
-						cont, err = containers.NewContainer(m.container)
+						cont, err = containers.NewContainer(containers.Name(m.container))
 						if err != nil {
 							ttt.Fatal(err)
 						}

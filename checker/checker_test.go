@@ -1636,7 +1636,7 @@ func TestCheck(t *testing.T) {
 			reg := types.NewRegistry()
 			reg.RegisterMessage(&proto2pb.TestAllTypes{})
 			reg.RegisterMessage(&proto3pb.TestAllTypes{})
-			cont, err := containers.NewContainer(tc.Container)
+			cont, err := containers.NewContainer(containers.Name(tc.Container))
 			if err != nil {
 				tt.Fatal(err)
 			}

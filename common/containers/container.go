@@ -25,15 +25,15 @@ import (
 
 var (
 	// DefaultContainer has an empty container name.
-	DefaultContainer = &Container{aliases: make(map[string]string)}
+	DefaultContainer *Container = nil
+
+	// Empty map to search for aliases when needed.
+	noAliases = make(map[string]string)
 )
 
 // NewContainer creates a new Container with the fully-qualified name.
-func NewContainer(name string, opts ...ContainerOption) (*Container, error) {
-	c := &Container{
-		name:    name,
-		aliases: make(map[string]string),
-	}
+func NewContainer(opts ...ContainerOption) (*Container, error) {
+	var c *Container
 	var err error
 	for _, opt := range opts {
 		c, err = opt(c)
@@ -54,15 +54,39 @@ type Container struct {
 	aliases map[string]string
 }
 
-// AliasSet returns the alias -> fully-qualified name mapping stored in the container.
-func (c *Container) AliasSet() map[string]string {
-	return c.aliases
+// Extend creates a new Container with the existing settings and applies a series of
+// ContainerOptions to further configure the new container.
+func (c *Container) Extend(opts ...ContainerOption) (*Container, error) {
+	if c == nil {
+		return NewContainer(opts...)
+	}
+	// Copy the name and aliases of the existing container.
+	ext := &Container{name: c.Name()}
+	if len(c.aliasSet()) > 0 {
+		aliasSet := make(map[string]string, len(c.aliasSet()))
+		for k, v := range c.aliasSet() {
+			aliasSet[k] = v
+		}
+		ext.aliases = aliasSet
+	}
+	// Apply the new options to the container.
+	var err error
+	for _, opt := range opts {
+		ext, err = opt(ext)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return ext, nil
 }
 
 // Name returns the fully-qualified name of the container.
 //
 // The name may conceptually be a namespace, package, or type.
 func (c *Container) Name() string {
+	if c == nil {
+		return ""
+	}
 	return c.name
 }
 
@@ -88,7 +112,7 @@ func (c *Container) ResolveCandidateNames(name string) []string {
 		qn := name[1:]
 		return c.candidatesWithAlias([]string{qn}, qn)
 	}
-	if c.name == "" {
+	if c.Name() == "" {
 		return c.candidatesWithAlias([]string{name}, name)
 	}
 
@@ -102,12 +126,22 @@ func (c *Container) ResolveCandidateNames(name string) []string {
 	return c.candidatesWithAlias(candidates, name)
 }
 
+// aliasSet returns the alias -> fully-qualified name mapping stored in the container.
+func (c *Container) aliasSet() map[string]string {
+	if c == nil || c.aliases == nil {
+		return noAliases
+	}
+	return c.aliases
+}
+
+// candidatesWithAliases returns the resolved candidates from the container with any applicable
+// aliases appended on the end of the list.
 func (c *Container) candidatesWithAlias(candidates []string, name string) []string {
-	if len(c.aliases) == 0 {
+	if len(c.aliasSet()) == 0 {
 		return candidates
 	}
 	// If an alias exists for the name, ensure it is searched last.
-	alias, found := c.aliases[name]
+	alias, found := c.aliasSet()[name]
 	if found {
 		return append(candidates, alias)
 	}
@@ -158,12 +192,15 @@ type ContainerOption func(*Container) (*Container, error)
 func Aliases(qualifiedNames ...string) ContainerOption {
 	return func(c *Container) (*Container, error) {
 		for _, qn := range qualifiedNames {
-			ind := strings.LastIndex(qn, ".")
 			alias := qn
-			if ind > 0 || ind < len(qn)-1 {
-				alias = qn[ind+1:]
+			ind := strings.LastIndex(qn, ".")
+			if ind <= 0 || ind >= len(qn)-1 {
+				return nil, fmt.Errorf(
+					"invalid qualified name: %s, wanted name of the form 'qualified.name'", qn)
 			}
-			_, err := AliasAs(qn, alias)(c)
+			alias = qn[ind+1:]
+			var err error
+			c, err = AliasAs(qn, alias)(c)
 			if err != nil {
 				return nil, err
 			}
@@ -184,14 +221,14 @@ func AliasAs(qualifiedName, alias string) ContainerOption {
 	return func(c *Container) (*Container, error) {
 		if len(alias) <= 0 || strings.Contains(alias, ".") {
 			return nil, fmt.Errorf(
-				"alias names must non-empty and simple (not qualified): alias=%s", alias)
+				"alias names must be non-empty and simple (not qualified): alias=%s", alias)
 		}
 		ind := strings.LastIndex(qualifiedName, ".")
 		if ind <= 0 || ind == len(qualifiedName)-1 {
 			return nil, fmt.Errorf("aliases must refer to qualified names: %s",
 				qualifiedName)
 		}
-		aliasRef, found := c.aliases[alias]
+		aliasRef, found := c.aliasSet()[alias]
 		if found {
 			return nil, fmt.Errorf(
 				"alias collides with existing reference: name=%s, alias=%s, existing=%s",
@@ -202,7 +239,27 @@ func AliasAs(qualifiedName, alias string) ContainerOption {
 				"alias collides with container name: name=%s, alias=%s, container=%s",
 				qualifiedName, alias, c.Name())
 		}
+		if c == nil {
+			c = &Container{}
+		}
+		if c.aliases == nil {
+			c.aliases = make(map[string]string)
+		}
 		c.aliases[alias] = qualifiedName
+		return c, nil
+	}
+}
+
+// Name sets the fully-qualified name of the Container.
+func Name(name string) ContainerOption {
+	return func(c *Container) (*Container, error) {
+		if c.Name() == name {
+			return c, nil
+		}
+		if c == nil {
+			return &Container{name: name}, nil
+		}
+		c.name = name
 		return c, nil
 	}
 }

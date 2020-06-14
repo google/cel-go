@@ -29,7 +29,7 @@ import (
 
 func TestAttributes_AbsoluteAttr(t *testing.T) {
 	reg := types.NewRegistry()
-	cont, err := containers.NewContainer("acme.ns")
+	cont, err := containers.NewContainer(containers.Name("acme.ns"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +124,7 @@ func TestAttributes_RelativeAttr(t *testing.T) {
 
 func TestAttributes_RelativeAttr_OneOf(t *testing.T) {
 	reg := types.NewRegistry()
-	cont, err := containers.NewContainer("acme.ns")
+	cont, err := containers.NewContainer(containers.Name("acme.ns"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -222,7 +222,7 @@ func TestAttributes_RelativeAttr_Conditional(t *testing.T) {
 }
 
 func TestAttributes_RelativeAttr_Relative(t *testing.T) {
-	cont, err := containers.NewContainer("acme.ns")
+	cont, err := containers.NewContainer(containers.Name("acme.ns"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -297,7 +297,7 @@ func TestAttributes_RelativeAttr_Relative(t *testing.T) {
 
 func TestAttributes_OneofAttr(t *testing.T) {
 	reg := types.NewRegistry()
-	cont, err := containers.NewContainer("acme.ns")
+	cont, err := containers.NewContainer(containers.Name("acme.ns"))
 	if err != nil {
 		t.Fatal(err)
 	}

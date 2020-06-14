@@ -1500,7 +1500,7 @@ func TestInterpreter_TypeConversionOpt(t *testing.T) {
 }
 
 func safeContainer(name string) *containers.Container {
-	cont, _ := containers.NewContainer(name)
+	cont, _ := containers.NewContainer(containers.Name(name))
 	return cont
 }
 
@@ -1514,7 +1514,7 @@ func program(tst *testCase,
 	var err error
 	if tst.aliases != nil {
 		cont, err = containers.NewContainer(
-			cont.Name(),
+			containers.Name(cont.Name()),
 			containers.Aliases(tst.aliases...))
 		if err != nil {
 			return nil, nil, err

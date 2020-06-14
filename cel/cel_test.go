@@ -209,7 +209,7 @@ func Test_Aliases_Compiled(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-    out, _, err := prg.Eval(
+	out, _, err := prg.Eval(
 		map[string]interface{}{
 			"qualified.identifier.name": "Jim",
 		},
@@ -238,7 +238,7 @@ func Test_Aliases_Parsed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-    out, _, err := prg.Eval(
+	out, _, err := prg.Eval(
 		map[string]interface{}{
 			"qualified.identifier.name": "Jim",
 		},
@@ -275,9 +275,9 @@ func Test_Aliases_Disambiguation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-    out, _, err := prg.Eval(
+	out, _, err := prg.Eval(
 		map[string]interface{}{
-			"test": true,
+			"test":          true,
 			"external.Expr": "string expr",
 		},
 	)
@@ -289,7 +289,7 @@ func Test_Aliases_Disambiguation(t *testing.T) {
 	}
 	out, _, err = prg.Eval(
 		map[string]interface{}{
-			"test": false,
+			"test":          false,
 			"external.Expr": "wrong expr",
 		},
 	)

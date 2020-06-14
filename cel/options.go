@@ -128,12 +128,7 @@ func Macros(macros ...parser.Macro) EnvOption {
 // `Expr{expression: 'a < b'}` instead of having to write `google.type.Expr{...}`.
 func Container(name string) EnvOption {
 	return func(e *Env) (*Env, error) {
-		aliasSet := e.Container.AliasSet()
-		var containerOpts []containers.ContainerOption
-		for alias, qualifiedName := range aliasSet {
-			containerOpts = append(containerOpts, containers.AliasAs(qualifiedName, alias))
-		}
-		cont, err := containers.NewContainer(name, containerOpts...)
+		cont, err := e.Container.Extend(containers.Name(name))
 		if err != nil {
 			return nil, err
 		}
@@ -182,13 +177,7 @@ func Container(name string) EnvOption {
 // forward compatible with changes in the container.
 func Aliases(qualifiedNames ...string) EnvOption {
 	return func(e *Env) (*Env, error) {
-		aliasSet := e.Container.AliasSet()
-		var containerOpts []containers.ContainerOption
-		for alias, qualifiedName := range aliasSet {
-			containerOpts = append(containerOpts, containers.AliasAs(qualifiedName, alias))
-		}
-		containerOpts = append(containerOpts, containers.Aliases(qualifiedNames...))
-		cont, err := containers.NewContainer(e.Container.Name(), containerOpts...)
+		cont, err := e.Container.Extend(containers.Aliases(qualifiedNames...))
 		if err != nil {
 			return nil, err
 		}
