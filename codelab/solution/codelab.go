@@ -67,13 +67,13 @@ func exercise1() {
 	// Check that the expression compiles and returns a String.
 	ast, iss := env.Parse(`"Hello, World!"`)
 	// Report syntactic errors, if present.
-	if iss != nil && iss.Err() != nil {
+	if iss.Err() != nil {
 		glog.Exit(iss.Err())
 	}
 	// Type-check the expression for correctness.
 	checked, iss := env.Check(ast)
 	// Report semantic errors, if present.
-	if iss != nil && iss.Err() != nil {
+	if iss.Err() != nil {
 		glog.Exit(iss.Err())
 	}
 	// Check the result type is a string.
@@ -410,7 +410,7 @@ func exercise8() {
 // matches the `exprType` provided as input.
 func compile(env *cel.Env, expr string, exprType *exprpb.Type) *cel.Ast {
 	ast, iss := env.Compile(expr)
-	if iss != nil && iss.Err() != nil {
+	if iss.Err() != nil {
 		glog.Exit(iss.Err())
 	}
 	if !proto.Equal(ast.ResultType(), exprType) {
