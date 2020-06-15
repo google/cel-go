@@ -150,7 +150,7 @@ func exercise8() {
 // matches the `exprType` provided as input.
 func compile(env *cel.Env, expr string, exprType *exprpb.Type) *cel.Ast {
 	ast, iss := env.Compile(expr)
-	if iss != nil && iss.Err() != nil {
+	if iss.Err() != nil {
 		glog.Exit(iss.Err())
 	}
 	if !proto.Equal(ast.ResultType(), exprType) {
