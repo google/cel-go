@@ -15,11 +15,13 @@
 package cel
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/cel-go/checker/decls"
@@ -32,6 +34,7 @@ import (
 	"github.com/google/cel-go/interpreter"
 	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/parser"
+	"github.com/google/cel-go/test"
 
 	descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
 	proto2pb "github.com/google/cel-go/test/proto2pb"
@@ -875,4 +878,99 @@ func Test_CustomInterpreterDecorator(t *testing.T) {
 	if lastConst.Value().Equal(types.IntOne) == types.False {
 		t.Errorf("got %v as the last observed constant, wanted 1", lastConst)
 	}
+}
+
+func Test_AsyncExtension(t *testing.T) {
+	env, err := NewEnv(
+		Declarations(
+			decls.NewVar("x", decls.String),
+			decls.NewFunction("asyncEcho",
+				decls.NewOverload(
+					"async_echo_string",
+					[]*exprpb.Type{decls.String},
+					decls.String)),
+		),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	funcs := Functions(
+		&functions.Overload{
+			Operator: "asyncEcho",
+			Async:    test.FakeRPC(25 * time.Millisecond),
+		},
+		&functions.Overload{
+			Operator: "async_echo_string",
+			Async:    test.FakeRPC(25 * time.Millisecond),
+		},
+	)
+
+	tests := []struct {
+		expr      string
+		parseOnly bool
+		evalOpts  EvalOption
+		out       ref.Val
+	}{
+		{
+			expr: `asyncEcho(x)`,
+			out:  types.String("async echo success!"),
+		},
+		{
+			expr:      `asyncEcho(x)`,
+			parseOnly: true,
+			out:       types.String("async echo success!"),
+		},
+		{
+			expr:     `asyncEcho(x)`,
+			evalOpts: OptOptimize,
+			out:      types.String("async echo success!"),
+		},
+		{
+			expr:     `asyncEcho(x) == 'async echo success!'`,
+			evalOpts: OptOptimize | OptTrackState,
+			out:      types.True,
+		},
+		{
+			expr:     `asyncEcho(x) == 'async echo success!' || true`,
+			evalOpts: OptOptimize | OptTrackState,
+			out:      types.True,
+		},
+	}
+	for i, tst := range tests {
+		tc := tst
+		t.Run(fmt.Sprintf("%d", i), func(tt *testing.T) {
+			var ast *Ast
+			var iss *Issues
+			if tc.parseOnly {
+				ast, iss = env.Parse(tc.expr)
+			} else {
+				ast, iss = env.Compile(tc.expr)
+			}
+			if iss.Err() != nil {
+				tt.Fatal(iss.Err())
+			}
+			opts := []ProgramOption{funcs}
+			if tc.evalOpts != 0 {
+				opts = append(opts, EvalOptions(tc.evalOpts))
+			}
+			prg, err := env.AsyncProgram(ast, opts...)
+			if err != nil {
+				tt.Fatal(err)
+			}
+			ctx := context.TODO()
+			out, det, err := prg.AsyncEval(ctx, map[string]interface{}{
+				"x": "async echo",
+			})
+			if err != nil {
+				tt.Fatal(err)
+			}
+			if out.Equal(tc.out) != types.True {
+				tt.Errorf("got %v, wanted %v", out, tc.out)
+			}
+			if tc.evalOpts&OptTrackState == OptTrackState && det == nil {
+				tt.Error("details was nil, expected non-nil")
+			}
+		})
+	}
+
 }

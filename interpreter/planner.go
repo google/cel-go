@@ -27,23 +27,17 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
-// interpretablePlanner creates an Interpretable evaluation plan from a proto Expr value.
-type interpretablePlanner interface {
-	// Plan generates an Interpretable value (or error) from the input proto Expr.
-	Plan(expr *exprpb.Expr) (Interpretable, error)
-}
-
-// newPlanner creates an interpretablePlanner which references a Dispatcher, TypeProvider,
-// TypeAdapter, Packager, and CheckedExpr value. These pieces of data are used to resolve
-// functions, types, and namespaced identifiers at plan time rather than at runtime since
-// it only needs to be done once and may be semi-expensive to compute.
+// newPlanner creates a planner which references a Dispatcher, TypeProvider, TypeAdapter,
+// Packager, and CheckedExpr value. These pieces of data are used to resolve functions,
+// types, and namespaced identifiers at plan time rather than at runtime since it only
+// needs to be done once and may be semi-expensive to compute.
 func newPlanner(disp Dispatcher,
 	provider ref.TypeProvider,
 	adapter ref.TypeAdapter,
 	attrFactory AttributeFactory,
 	pkg packages.Packager,
 	checked *exprpb.CheckedExpr,
-	decorators ...InterpretableDecorator) interpretablePlanner {
+	decorators ...InterpretableDecorator) *planner {
 	return &planner{
 		disp:        disp,
 		provider:    provider,
@@ -56,15 +50,15 @@ func newPlanner(disp Dispatcher,
 	}
 }
 
-// newUncheckedPlanner creates an interpretablePlanner which references a Dispatcher, TypeProvider,
-// TypeAdapter, and Packager to resolve functions and types at plan time. Namespaces present in
-// Select expressions are resolved lazily at evaluation time.
+// newUncheckedPlanner creates a planner which references a Dispatcher, TypeProvider, TypeAdapter,
+// and Packager to resolve functions and types at plan time. Namespaces present in Select
+// expressions are resolved lazily at evaluation time.
 func newUncheckedPlanner(disp Dispatcher,
 	provider ref.TypeProvider,
 	adapter ref.TypeAdapter,
 	attrFactory AttributeFactory,
 	pkg packages.Packager,
-	decorators ...InterpretableDecorator) interpretablePlanner {
+	decorators ...InterpretableDecorator) *planner {
 	return &planner{
 		disp:        disp,
 		provider:    provider,
@@ -77,7 +71,7 @@ func newUncheckedPlanner(disp Dispatcher,
 	}
 }
 
-// planner is an implementatio of the interpretablePlanner interface.
+// planner generates an Interpretable execution plan from a CEL Ast.
 type planner struct {
 	disp        Dispatcher
 	provider    ref.TypeProvider
@@ -87,6 +81,20 @@ type planner struct {
 	refMap      map[int64]*exprpb.Reference
 	typeMap     map[int64]*exprpb.Type
 	decorators  []InterpretableDecorator
+}
+
+// AsyncPlan wraps an Interpretable CEL program in an async evaluation driver.
+//
+// Async evaluation will stub calls to asynchronous functions, capturing arguments, deduping
+// argument sets, and evaluating synchronously if possible. If the synchronous evaluation returns a
+// types.Unknown value implicating one or more unresolved async calls, the calls are progressively
+// invoked until the evaluation resolves into an error or value.
+func (p *planner) AsyncPlan(expr *exprpb.Expr) (AsyncInterpretable, error) {
+	interp, err := p.Plan(expr)
+	if err != nil {
+		return nil, err
+	}
+	return &asyncEval{Interpretable: interp}, nil
 }
 
 // Plan implements the interpretablePlanner interface. This implementation of the Plan method also
@@ -297,6 +305,9 @@ func (p *planner) planCall(expr *exprpb.Expr) (Interpretable, error) {
 	if fnDef == nil {
 		fnDef, _ = p.disp.FindOverload(fnName)
 	}
+	if fnDef != nil && fnDef.Async != nil {
+		return p.planCallAsync(expr, fnName, oName, fnDef, args)
+	}
 	switch argCount {
 	case 0:
 		return p.planCallZero(expr, fnName, oName, fnDef)
@@ -309,6 +320,21 @@ func (p *planner) planCall(expr *exprpb.Expr) (Interpretable, error) {
 	}
 }
 
+// planCallAsync returns an evaluable object which supports asynchronous evaluation.
+func (p *planner) planCallAsync(expr *exprpb.Expr,
+	function string,
+	overload string,
+	impl *functions.Overload,
+	args []Interpretable) (Interpretable, error) {
+	return &evalAsyncCall{
+		id:       expr.GetId(),
+		function: function,
+		overload: overload,
+		impl:     impl.Async,
+		args:     args,
+	}, nil
+}
+
 // planCallZero generates a zero-arity callable Interpretable.
 func (p *planner) planCallZero(expr *exprpb.Expr,
 	function string,
@@ -318,7 +344,7 @@ func (p *planner) planCallZero(expr *exprpb.Expr,
 		return nil, fmt.Errorf("no such overload: %s()", function)
 	}
 	return &evalZeroArity{
-		id:       expr.Id,
+		id:       expr.GetId(),
 		function: function,
 		overload: overload,
 		impl:     impl.Function,

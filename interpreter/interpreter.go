@@ -25,19 +25,6 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
-// Interpreter generates a new Interpretable from a checked or unchecked expression.
-type Interpreter interface {
-	// NewInterpretable creates an Interpretable from a checked expression and an
-	// optional list of InterpretableDecorator values.
-	NewInterpretable(checked *exprpb.CheckedExpr,
-		decorators ...InterpretableDecorator) (Interpretable, error)
-
-	// NewUncheckedInterpretable returns an Interpretable from a parsed expression
-	// and an optional list of InterpretableDecorator values.
-	NewUncheckedInterpretable(expr *exprpb.Expr,
-		decorators ...InterpretableDecorator) (Interpretable, error)
-}
-
 // TrackState decorates each expression node with an observer which records the value
 // associated with the given expression id. EvalState must be provided to the decorator.
 // This decorator is not thread-safe, and the EvalState must be reset between Eval()
@@ -73,7 +60,8 @@ func Optimize() InterpretableDecorator {
 	return decOptimize()
 }
 
-type exprInterpreter struct {
+// Interpreter generates a new Interpretable from a checked or unchecked expression.
+type Interpreter struct {
 	dispatcher  Dispatcher
 	packager    packages.Packager
 	provider    ref.TypeProvider
@@ -86,8 +74,8 @@ type exprInterpreter struct {
 func NewInterpreter(dispatcher Dispatcher, packager packages.Packager,
 	provider ref.TypeProvider,
 	adapter ref.TypeAdapter,
-	attrFactory AttributeFactory) Interpreter {
-	return &exprInterpreter{
+	attrFactory AttributeFactory) *Interpreter {
+	return &Interpreter{
 		dispatcher:  dispatcher,
 		packager:    packager,
 		provider:    provider,
@@ -100,14 +88,15 @@ func NewInterpreter(dispatcher Dispatcher, packager packages.Packager,
 func NewStandardInterpreter(packager packages.Packager,
 	provider ref.TypeProvider,
 	adapter ref.TypeAdapter,
-	resolver AttributeFactory) Interpreter {
+	resolver AttributeFactory) *Interpreter {
 	dispatcher := NewDispatcher()
 	dispatcher.Add(functions.StandardOverloads()...)
 	return NewInterpreter(dispatcher, packager, provider, adapter, resolver)
 }
 
-// NewIntepretable implements the Interpreter interface method.
-func (i *exprInterpreter) NewInterpretable(
+// NewInterpretable creates an Interpretable from a checked expression and an
+// optional list of InterpretableDecorator values.
+func (i *Interpreter) NewInterpretable(
 	checked *exprpb.CheckedExpr,
 	decorators ...InterpretableDecorator) (Interpretable, error) {
 	p := newPlanner(
@@ -121,8 +110,25 @@ func (i *exprInterpreter) NewInterpretable(
 	return p.Plan(checked.GetExpr())
 }
 
-// NewUncheckedIntepretable implements the Interpreter interface method.
-func (i *exprInterpreter) NewUncheckedInterpretable(
+// NewAsyncInterpretable creates an CEL program from a type-checked expression which
+// supports asynchronous extension functions.
+func (i *Interpreter) NewAsyncInterpretable(
+	checked *exprpb.CheckedExpr,
+	decorators ...InterpretableDecorator) (AsyncInterpretable, error) {
+	p := newPlanner(
+		i.dispatcher,
+		i.provider,
+		i.adapter,
+		i.attrFactory,
+		i.packager,
+		checked,
+		decorators...)
+	return p.AsyncPlan(checked.GetExpr())
+}
+
+// NewUncheckedInterpretable returns an Interpretable from a parsed expression
+// and an optional list of InterpretableDecorator values.
+func (i *Interpreter) NewUncheckedInterpretable(
 	expr *exprpb.Expr,
 	decorators ...InterpretableDecorator) (Interpretable, error) {
 	p := newUncheckedPlanner(
@@ -133,4 +139,19 @@ func (i *exprInterpreter) NewUncheckedInterpretable(
 		i.packager,
 		decorators...)
 	return p.Plan(expr)
+}
+
+// NewAsyncUncheckedInterpretable creates an CEL program from a parse-only expression which
+// supports asynchronous extension functions.
+func (i *Interpreter) NewAsyncUncheckedInterpretable(
+	expr *exprpb.Expr,
+	decorators ...InterpretableDecorator) (AsyncInterpretable, error) {
+	p := newUncheckedPlanner(
+		i.dispatcher,
+		i.provider,
+		i.adapter,
+		i.attrFactory,
+		i.packager,
+		decorators...)
+	return p.AsyncPlan(expr)
 }

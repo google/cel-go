@@ -52,6 +52,7 @@ go_test(
         "//common/types/ref:go_default_library",
         "//common/types/traits:go_default_library",
         "//interpreter/functions:go_default_library",
+        "//test:go_default_library",
         "//test/proto2pb:go_default_library",
         "//test/proto3pb:go_default_library",
         "@io_bazel_rules_go//proto/wkt:descriptor_go_proto",
