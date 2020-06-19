@@ -101,3 +101,11 @@ type FieldTester func(target interface{}) bool
 
 // FieldGetter is used to get the field value from an input object, if set.
 type FieldGetter func(target interface{}) (interface{}, error)
+
+// Resolver abstracts variable and type identifier resolution behind a single interface
+// method.
+type Resolver interface {
+	// ResolveName returns the value associated with the given fully qualified name, if
+	// present.
+	ResolveName(name string) (interface{}, bool)
+}

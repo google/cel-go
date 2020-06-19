@@ -9,6 +9,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "activation.go",
+        "async.go",
         "attributes.go",
         "attribute_patterns.go",
         "decorators.go",
@@ -42,6 +43,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "activation_test.go",
+        "async_test.go",
         "attributes_test.go",
         "attribute_patterns_test.go",
         "interpreter_test.go",

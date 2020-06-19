@@ -31,7 +31,7 @@ type Interpretable interface {
 	ID() int64
 
 	// Eval an Activation to produce an output.
-	Eval(activation Activation) ref.Val
+	Eval(Activation) ref.Val
 }
 
 // InterpretableConst interface for tracking whether the Interpretable is a constant value.
@@ -184,19 +184,7 @@ func (or *evalOr) Eval(ctx Activation) ref.Val {
 	if lok && rok {
 		return types.False
 	}
-	// TODO: return both values as a set if both are unknown or error.
-	// prefer left unknown to right unknown.
-	if types.IsUnknown(lVal) {
-		return lVal
-	}
-	if types.IsUnknown(rVal) {
-		return rVal
-	}
-	// If the left-hand side is non-boolean return it as the error.
-	if types.IsError(lVal) {
-		return lVal
-	}
-	return types.ValOrErr(rVal, "no such overload")
+	return logicallyMergeUnkErr("||", lVal, rVal)
 }
 
 type evalAnd struct {
@@ -228,19 +216,7 @@ func (and *evalAnd) Eval(ctx Activation) ref.Val {
 	if lok && rok {
 		return types.True
 	}
-	// TODO: return both values as a set if both are unknown or error.
-	// prefer left unknown to right unknown.
-	if types.IsUnknown(lVal) {
-		return lVal
-	}
-	if types.IsUnknown(rVal) {
-		return rVal
-	}
-	// If the left-hand side is non-boolean return it as the error.
-	if types.IsError(lVal) {
-		return lVal
-	}
-	return types.ValOrErr(rVal, "no such overload")
+	return logicallyMergeUnkErr("&&", lVal, rVal)
 }
 
 type evalEq struct {
@@ -735,18 +711,7 @@ func (or *evalExhaustiveOr) Eval(ctx Activation) ref.Val {
 	if lok && rok {
 		return types.False
 	}
-	if types.IsUnknown(lVal) {
-		return lVal
-	}
-	if types.IsUnknown(rVal) {
-		return rVal
-	}
-	// TODO: Combine the errors into a set in the future.
-	// If the left-hand side is non-boolean return it as the error.
-	if types.IsError(lVal) {
-		return lVal
-	}
-	return types.ValOrErr(rVal, "no such overload")
+	return logicallyMergeUnkErr("||", lVal, rVal)
 }
 
 // evalExhaustiveAnd is just like evalAnd, but does not short-circuit argument evaluation.
@@ -776,18 +741,7 @@ func (and *evalExhaustiveAnd) Eval(ctx Activation) ref.Val {
 	if lok && rok {
 		return types.True
 	}
-	if types.IsUnknown(lVal) {
-		return lVal
-	}
-	if types.IsUnknown(rVal) {
-		return rVal
-	}
-	// TODO: Combine the errors into a set in the future.
-	// If the left-hand side is non-boolean return it as the error.
-	if types.IsError(lVal) {
-		return lVal
-	}
-	return types.ValOrErr(rVal, "no such overload")
+	return logicallyMergeUnkErr("&&", lVal, rVal)
 }
 
 // evalExhaustiveConditional is like evalConditional, but does not short-circuit argument
@@ -906,4 +860,25 @@ func (a *evalAttr) Eval(ctx Activation) ref.Val {
 func (a *evalAttr) AddQualifier(qual Qualifier) (InterpretableAttribute, error) {
 	_, err := a.attr.AddQualifier(qual)
 	return a, err
+}
+
+func logicallyMergeUnkErr(op string, value, other ref.Val) ref.Val {
+	vUnk, vIsUnk := value.(types.Unknown)
+	oUnk, oIsUnk := other.(types.Unknown)
+	if vIsUnk && oIsUnk {
+		return append(vUnk, oUnk...)
+	}
+	if vIsUnk {
+		return vUnk
+	}
+	if oIsUnk {
+		return oUnk
+	}
+	if types.IsError(value) {
+		return value
+	}
+	if types.IsError(other) {
+		return other
+	}
+	return types.NewErr("no such overload: %v %s %v", value, op, other)
 }

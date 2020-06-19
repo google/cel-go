@@ -37,9 +37,7 @@ type Activation interface {
 
 // EmptyActivation returns a variable free activation.
 func EmptyActivation() Activation {
-	// This call cannot fail.
-	a, _ := NewActivation(map[string]interface{}{})
-	return a
+	return emptyActivation
 }
 
 // NewActivation returns an activation based on a map-based binding where the map keys are
@@ -197,6 +195,9 @@ func (v *varActivation) ResolveName(name string) (interface{}, bool) {
 }
 
 var (
+	// emptyActivation is a singleton activation which provides no input
+	emptyActivation = &mapActivation{bindings: map[string]interface{}{}}
+
 	// pool of var activations to reduce allocations during folds.
 	varActivationPool = &sync.Pool{
 		New: func() interface{} {

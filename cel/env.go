@@ -307,14 +307,13 @@ func (e *Env) ParseSource(src common.Source) (*Ast, *Issues) {
 
 // Program generates an evaluable instance of the Ast within the environment (Env).
 func (e *Env) Program(ast *Ast, opts ...ProgramOption) (Program, error) {
-	optSet := e.progOpts
-	if len(opts) != 0 {
-		mergedOpts := []ProgramOption{}
-		mergedOpts = append(mergedOpts, e.progOpts...)
-		mergedOpts = append(mergedOpts, opts...)
-		optSet = mergedOpts
-	}
-	return newProgram(e, ast, optSet)
+	return e.newProgram(ast, opts /* async= */, false)
+}
+
+// AsyncProgram generates an evaluable instance of the Ast with support for asynchronous extension
+// functions.
+func (e *Env) AsyncProgram(ast *Ast, opts ...ProgramOption) (AsyncProgram, error) {
+	return e.newProgram(ast, opts /* async= */, true)
 }
 
 // SetFeature sets the given feature flag, as enumerated in options.go.
@@ -427,8 +426,8 @@ func (i *Issues) Err() error {
 	if i == nil {
 		return nil
 	}
-	if len(i.errs.GetErrors()) > 0 {
-		return errors.New(i.errs.ToDisplayString())
+	if len(i.Errors()) > 0 {
+		return errors.New(i.String())
 	}
 	return nil
 }
