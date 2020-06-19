@@ -17,6 +17,7 @@ package interpreter
 import (
 	"errors"
 	"fmt"
+	"math"
 
 	"github.com/google/cel-go/common/packages"
 	"github.com/google/cel-go/common/types"
@@ -227,6 +228,18 @@ func (a *absoluteAttribute) ID() int64 {
 	return a.id
 }
 
+// Cost implements the Coster interface method.
+func (a *absoluteAttribute) Cost() (min, max int64) {
+	for _, q := range a.qualifiers {
+		minQ, maxQ := estimateCost(q)
+		min += minQ
+		max += maxQ
+	}
+	min++ // For object retrieval.
+	max++
+	return
+}
+
 // AddQualifier implements the Attribute interface method.
 func (a *absoluteAttribute) AddQualifier(qual Qualifier) (Attribute, error) {
 	a.qualifiers = append(a.qualifiers, qual)
@@ -324,6 +337,16 @@ func (a *conditionalAttribute) ID() int64 {
 	return a.id
 }
 
+// Cost provides the heuristic cost of a ternary operation <expr> ? <t> : <f>.
+// The cost is computed as cost(expr) plus the min/max costs of evaluating either
+// `t` or `f`.
+func (a *conditionalAttribute) Cost() (min, max int64) {
+	tMin, tMax := estimateCost(a.truthy)
+	fMin, fMax := estimateCost(a.falsy)
+	eMin, eMax := estimateCost(a.expr)
+	return eMin + findMin(tMin, fMin), eMax + findMax(tMax, fMax)
+}
+
 // AddQualifier appends the same qualifier to both sides of the conditional, in effect managing
 // the qualification of alternate attributes.
 func (a *conditionalAttribute) AddQualifier(qual Qualifier) (Attribute, error) {
@@ -389,6 +412,32 @@ type maybeAttribute struct {
 // ID is an implementation of the Attribute interface method.
 func (a *maybeAttribute) ID() int64 {
 	return a.id
+}
+
+// Cost implements the Coster interface method. The min cost is computed as the minimal cost among
+// all the possible attributes, the max cost ditto.
+func (a *maybeAttribute) Cost() (min, max int64) {
+	min, max = math.MaxInt64, 0
+	for _, a := range a.attrs {
+		minA, maxA := estimateCost(a)
+		min = findMin(min, minA)
+		max = findMax(max, maxA)
+	}
+	return
+}
+
+func findMin(x, y int64) int64 {
+	if x < y {
+		return x
+	}
+	return y
+}
+
+func findMax(x, y int64) int64 {
+	if x > y {
+		return x
+	}
+	return y
 }
 
 // AddQualifier adds a qualifier to each possible attribute variant, and also creates
@@ -489,6 +538,17 @@ type relativeAttribute struct {
 // ID is an implementation of the Attribute interface method.
 func (a *relativeAttribute) ID() int64 {
 	return a.id
+}
+
+// Cost implements the Coster interface method.
+func (a *relativeAttribute) Cost() (min, max int64) {
+	min, max = estimateCost(a.operand)
+	for _, qual := range a.qualifiers {
+		minQ, maxQ := estimateCost(qual)
+		min += minQ
+		max += maxQ
+	}
+	return
 }
 
 // AddQualifier implements the Attribute interface method.
@@ -650,6 +710,11 @@ func (q *stringQualifier) Value() ref.Val {
 	return q.celValue
 }
 
+// Cost returns zero for constant field qualifiers
+func (q *stringQualifier) Cost() (min, max int64) {
+	return 0, 0
+}
+
 type intQualifier struct {
 	id       int64
 	value    int64
@@ -763,6 +828,11 @@ func (q *intQualifier) Value() ref.Val {
 	return q.celValue
 }
 
+// Cost returns zero for constant field qualifiers
+func (q *intQualifier) Cost() (min, max int64) {
+	return 0, 0
+}
+
 type uintQualifier struct {
 	id       int64
 	value    uint64
@@ -817,6 +887,11 @@ func (q *uintQualifier) Value() ref.Val {
 	return q.celValue
 }
 
+// Cost returns zero for constant field qualifiers
+func (q *uintQualifier) Cost() (min, max int64) {
+	return 0, 0
+}
+
 type boolQualifier struct {
 	id       int64
 	value    bool
@@ -863,6 +938,11 @@ func (q *boolQualifier) Value() ref.Val {
 	return q.celValue
 }
 
+// Cost returns zero for constant field qualifiers
+func (q *boolQualifier) Cost() (min, max int64) {
+	return 0, 0
+}
+
 // fieldQualifier indicates that the qualification is a well-defined field with a known
 // field type. When the field type is known this can be used to improve the speed and
 // efficiency of field resolution.
@@ -889,6 +969,11 @@ func (q *fieldQualifier) Qualify(vars Activation, obj interface{}) (interface{},
 // Value implements the ConstantQualifier interface
 func (q *fieldQualifier) Value() ref.Val {
 	return types.String(q.Name)
+}
+
+// Cost returns zero for constant field qualifiers
+func (q *fieldQualifier) Cost() (min, max int64) {
+	return 0, 0
 }
 
 // refResolve attempts to convert the value to a CEL value and then uses reflection methods

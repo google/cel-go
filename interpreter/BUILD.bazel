@@ -11,6 +11,7 @@ go_library(
         "activation.go",
         "attributes.go",
         "attribute_patterns.go",
+        "coster.go",
         "decorators.go",
         "dispatcher.go",
         "evalstate.go",
