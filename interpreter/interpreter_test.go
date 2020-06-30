@@ -45,14 +45,17 @@ import (
 )
 
 type testCase struct {
-	name      string
-	expr      string
-	pkg       string
-	env       []*exprpb.Decl
-	types     []proto.Message
-	funcs     []*functions.Overload
-	attrs     AttributeFactory
-	unchecked bool
+	name           string
+	expr           string
+	cost           []int64
+	exhaustiveCost []int64
+	optimizedCost  []int64
+	pkg            string
+	env            []*exprpb.Decl
+	types          []proto.Message
+	funcs          []*functions.Overload
+	attrs          AttributeFactory
+	unchecked      bool
 
 	in  map[string]interface{}
 	out interface{}
@@ -62,38 +65,51 @@ type testCase struct {
 var (
 	testData = []testCase{
 		{
-			name: "and_false_1st",
-			expr: `false && true`,
-			out:  types.False,
+			name:           "and_false_1st",
+			expr:           `false && true`,
+			cost:           []int64{0, 1},
+			exhaustiveCost: []int64{1, 1},
+			out:            types.False,
 		},
 		{
-			name: "and_false_2nd",
-			expr: `true && false`,
-			out:  types.False,
+			name:           "and_false_2nd",
+			expr:           `true && false`,
+			cost:           []int64{0, 1},
+			exhaustiveCost: []int64{1, 1},
+			out:            types.False,
 		},
 		{
-			name: "and_error_1st_false",
-			expr: `1/0 != 0 && false`,
-			out:  types.False,
+			name:           "and_error_1st_false",
+			expr:           `1/0 != 0 && false`,
+			cost:           []int64{2, 3},
+			exhaustiveCost: []int64{3, 3},
+			out:            types.False,
 		},
 		{
-			name: "and_error_2nd_false",
-			expr: `false && 1/0 != 0`,
-			out:  types.False,
+			name:           "and_error_2nd_false",
+			expr:           `false && 1/0 != 0`,
+			cost:           []int64{0, 3},
+			exhaustiveCost: []int64{3, 3},
+			out:            types.False,
 		},
 		{
-			name: "and_error_1st_error",
-			expr: `1/0 != 0 && true`,
-			err:  "divide by zero",
+			name:           "and_error_1st_error",
+			expr:           `1/0 != 0 && true`,
+			cost:           []int64{2, 3},
+			exhaustiveCost: []int64{3, 3},
+			err:            "divide by zero",
 		},
 		{
-			name: "and_error_2nd_error",
-			expr: `true && 1/0 != 0`,
-			err:  "divide by zero",
+			name:           "and_error_2nd_error",
+			expr:           `true && 1/0 != 0`,
+			cost:           []int64{0, 3},
+			exhaustiveCost: []int64{3, 3},
+			err:            "divide by zero",
 		},
 		{
 			name:      "call_no_args",
 			expr:      `zero()`,
+			cost:      []int64{1, 1},
 			unchecked: true,
 			funcs: []*functions.Overload{
 				{
@@ -108,6 +124,7 @@ var (
 		{
 			name:      "call_one_arg",
 			expr:      `neg(1)`,
+			cost:      []int64{1, 1},
 			unchecked: true,
 			funcs: []*functions.Overload{
 				{
@@ -123,6 +140,7 @@ var (
 		{
 			name:      "call_two_arg",
 			expr:      `b'abc'.concat(b'def')`,
+			cost:      []int64{1, 1},
 			unchecked: true,
 			funcs: []*functions.Overload{
 				{
@@ -138,6 +156,7 @@ var (
 		{
 			name:      "call_varargs",
 			expr:      `addall(a, b, c, d) == 10`,
+			cost:      []int64{6, 6},
 			unchecked: true,
 			funcs: []*functions.Overload{
 				{
@@ -159,6 +178,7 @@ var (
 		{
 			name: `call_ns_func`,
 			expr: `base64.encode('hello')`,
+			cost: []int64{1, 1},
 			env: []*exprpb.Decl{
 				decls.NewFunction("base64.encode",
 					decls.NewOverload("base64_encode_string",
@@ -181,6 +201,7 @@ var (
 		{
 			name:      `call_ns_func_unchecked`,
 			expr:      `base64.encode('hello')`,
+			cost:      []int64{1, 1},
 			unchecked: true,
 			funcs: []*functions.Overload{
 				{
@@ -194,6 +215,7 @@ var (
 			name: `call_ns_func_in_pkg`,
 			pkg:  `base64`,
 			expr: `encode('hello')`,
+			cost: []int64{1, 1},
 			env: []*exprpb.Decl{
 				decls.NewFunction("base64.encode",
 					decls.NewOverload("base64_encode_string",
@@ -216,6 +238,7 @@ var (
 		{
 			name:      `call_ns_func_unchecked_in_pkg`,
 			expr:      `encode('hello')`,
+			cost:      []int64{1, 1},
 			pkg:       `base64`,
 			unchecked: true,
 			funcs: []*functions.Overload{
@@ -234,6 +257,9 @@ var (
 				(headers.path.startsWith("v2") && headers.token in ["v2", "admin"]) ||
 				(headers.path.startsWith("/admin") && headers.token == "admin" && headers.ip in ["10.0.1.2", "10.0.1.2", "10.0.1.2"]))
 			`,
+			cost:           []int64{3, 24},
+			exhaustiveCost: []int64{24, 24},
+			optimizedCost:  []int64{2, 20},
 			env: []*exprpb.Decl{
 				decls.NewVar("headers", decls.NewMapType(decls.String, decls.String)),
 			},
@@ -253,6 +279,9 @@ var (
 				(headers.path.startsWith("v2") && headers.token in ["v2", "admin"]) ||
 				(headers.path.startsWith("/admin") && headers.token == "admin" && headers.ip in ["10.0.1.2", "10.0.1.2", "10.0.1.2"]))
 			`,
+			cost:           []int64{3, 24},
+			exhaustiveCost: []int64{24, 24},
+			optimizedCost:  []int64{2, 20},
 			env: []*exprpb.Decl{
 				decls.NewVar("headers.ip", decls.String),
 				decls.NewVar("headers.path", decls.String),
@@ -267,6 +296,7 @@ var (
 		{
 			name: "cond",
 			expr: `a ? b < 1.2 : c == ['hello']`,
+			cost: []int64{3, 3},
 			env: []*exprpb.Decl{
 				decls.NewVar("a", decls.Bool),
 				decls.NewVar("b", decls.Double),
@@ -280,16 +310,22 @@ var (
 			out: types.False,
 		},
 		{
-			name: "in_list",
-			expr: `6 in [2, 12, 6]`,
+			name:          "in_list",
+			expr:          `6 in [2, 12, 6]`,
+			cost:          []int64{1, 1},
+			optimizedCost: []int64{0, 0},
 		},
 		{
 			name: "in_map",
 			expr: `'other-key' in {'key': null, 'other-key': 42}`,
+			cost: []int64{1, 1},
 		},
 		{
-			name: "index",
-			expr: `m['key'][1] == 42u && m['null'] == null && m[string(0)] == 10`,
+			name:           "index",
+			expr:           `m['key'][1] == 42u && m['null'] == null && m[string(0)] == 10`,
+			cost:           []int64{2, 9},
+			exhaustiveCost: []int64{9, 9},
+			optimizedCost:  []int64{2, 8},
 			env: []*exprpb.Decl{
 				decls.NewVar("m", decls.NewMapType(decls.String, decls.Dyn)),
 			},
@@ -304,54 +340,70 @@ var (
 		{
 			name: "index_relative",
 			expr: `([[[1]], [[2]], [[3]]][0][0] + [2, 3, {'four': {'five': 'six'}}])[3].four.five == 'six'`,
+			cost: []int64{2, 2},
 		},
 		{
 			name: "literal_bool_false",
 			expr: `false`,
+			cost: []int64{0, 0},
 			out:  types.False,
 		},
 		{
 			name: "literal_bool_true",
 			expr: `true`,
+			cost: []int64{0, 0},
 		},
 		{
 			name: "literal_null",
 			expr: `null`,
+			cost: []int64{0, 0},
 			out:  types.NullValue,
 		},
 		{
 			name: "literal_list",
 			expr: `[1, 2, 3]`,
+			cost: []int64{0, 0},
 			out:  []int64{1, 2, 3},
 		},
 		{
 			name: "literal_map",
 			expr: `{'hi': 21, 'world': 42u}`,
+			cost: []int64{0, 0},
 			out: map[string]interface{}{
 				"hi":    21,
 				"world": uint(42),
 			},
 		},
 		{
-			name: "literal_equiv_string_bytes",
-			expr: `string(bytes("\303\277")) == '''\303\277'''`,
+			name:          "literal_equiv_string_bytes",
+			expr:          `string(bytes("\303\277")) == '''\303\277'''`,
+			cost:          []int64{3, 3},
+			optimizedCost: []int64{1, 1},
 		},
 		{
-			name: "literal_not_equiv_string_bytes",
-			expr: `string(b"\303\277") != '''\303\277'''`,
+			name:          "literal_not_equiv_string_bytes",
+			expr:          `string(b"\303\277") != '''\303\277'''`,
+			cost:          []int64{2, 2},
+			optimizedCost: []int64{1, 1},
 		},
 		{
-			name: "literal_equiv_bytes_string",
-			expr: `string(b"\303\277") == 'ÿ'`,
+			name:          "literal_equiv_bytes_string",
+			expr:          `string(b"\303\277") == 'ÿ'`,
+			cost:          []int64{2, 2},
+			optimizedCost: []int64{1, 1},
 		},
 		{
-			name: "literal_bytes_string",
-			expr: `string(b'aaa"bbb')`,
-			out:  `aaa"bbb`,
+			name:          "literal_bytes_string",
+			expr:          `string(b'aaa"bbb')`,
+			cost:          []int64{1, 1},
+			optimizedCost: []int64{0, 0},
+			out:           `aaa"bbb`,
 		},
 		{
-			name: "literal_bytes_string2",
-			expr: `string(b"""Kim\t""")`,
+			name:          "literal_bytes_string2",
+			expr:          `string(b"""Kim\t""")`,
+			cost:          []int64{1, 1},
+			optimizedCost: []int64{0, 0},
 			out: `Kim	`,
 		},
 		{
@@ -364,6 +416,7 @@ var (
 					string_value: "oneof_test"
 				}
 			}`,
+			cost: []int64{0, 0},
 			out: &exprpb.Expr{Id: 1,
 				ExprKind: &exprpb.Expr_ConstExpr{
 					ConstExpr: &exprpb.Constant{
@@ -382,6 +435,7 @@ var (
 				repeated_int32: [
 					TestAllTypes.NestedEnum.FOO,
 					TestAllTypes.NestedEnum.BAZ]}`,
+			cost: []int64{0, 0},
 			out: &proto3pb.TestAllTypes{
 				RepeatedNestedEnum: []proto3pb.TestAllTypes_NestedEnum{
 					proto3pb.TestAllTypes_FOO,
@@ -392,37 +446,53 @@ var (
 			},
 		},
 		{
-			name: "timestamp_eq_timestamp",
-			expr: `timestamp(0) == timestamp(0)`,
+			name:          "timestamp_eq_timestamp",
+			expr:          `timestamp(0) == timestamp(0)`,
+			cost:          []int64{3, 3},
+			optimizedCost: []int64{1, 1},
 		},
 		{
-			name: "timestamp_eq_timestamp",
-			expr: `timestamp(1) != timestamp(2)`,
+			name:          "timestamp_eq_timestamp",
+			expr:          `timestamp(1) != timestamp(2)`,
+			cost:          []int64{3, 3},
+			optimizedCost: []int64{1, 1},
 		},
 		{
-			name: "timestamp_lt_timestamp",
-			expr: `timestamp(0) < timestamp(1)`,
+			name:          "timestamp_lt_timestamp",
+			expr:          `timestamp(0) < timestamp(1)`,
+			cost:          []int64{3, 3},
+			optimizedCost: []int64{1, 1},
 		},
 		{
-			name: "timestamp_le_timestamp",
-			expr: `timestamp(2) <= timestamp(2)`,
+			name:          "timestamp_le_timestamp",
+			expr:          `timestamp(2) <= timestamp(2)`,
+			cost:          []int64{3, 3},
+			optimizedCost: []int64{1, 1},
 		},
 		{
-			name: "timestamp_gt_timestamp",
-			expr: `timestamp(1) > timestamp(0)`,
+			name:          "timestamp_gt_timestamp",
+			expr:          `timestamp(1) > timestamp(0)`,
+			cost:          []int64{3, 3},
+			optimizedCost: []int64{1, 1},
 		},
 		{
-			name: "timestamp_ge_timestamp",
-			expr: `timestamp(2) >= timestamp(2)`,
+			name:          "timestamp_ge_timestamp",
+			expr:          `timestamp(2) >= timestamp(2)`,
+			cost:          []int64{3, 3},
+			optimizedCost: []int64{1, 1},
 		},
 		{
-			name: "string_to_timestamp",
-			expr: `timestamp('1986-04-26T01:23:40Z')`,
-			out:  &tpb.Timestamp{Seconds: 514862620},
+			name:          "string_to_timestamp",
+			expr:          `timestamp('1986-04-26T01:23:40Z')`,
+			cost:          []int64{1, 1},
+			optimizedCost: []int64{0, 0},
+			out:           &tpb.Timestamp{Seconds: 514862620},
 		},
 		{
-			name: "macro_all_non_strict",
-			expr: `![0, 2, 4].all(x, 4/x != 2 && 4/(4-x) != 2)`,
+			name:           "macro_all_non_strict",
+			expr:           `![0, 2, 4].all(x, 4/x != 2 && 4/(4-x) != 2)`,
+			cost:           []int64{5, 38},
+			exhaustiveCost: []int64{38, 38},
 		},
 		{
 			name: "macro_all_non_strict_var",
@@ -446,8 +516,10 @@ var (
 			expr: `[0, 2, 4].exists(x, 4/x == 2 && 4/(4-x) == 2)`,
 		},
 		{
-			name: "macro_exists_var",
-			expr: `elems.exists(e, type(e) == uint)`,
+			name:           "macro_exists_var",
+			expr:           `elems.exists(e, type(e) == uint)`,
+			cost:           []int64{0, 9223372036854775807},
+			exhaustiveCost: []int64{0, 9223372036854775807},
 			env: []*exprpb.Decl{
 				decls.NewVar("elems", decls.NewListType(decls.Dyn)),
 			},
@@ -464,8 +536,10 @@ var (
 			expr: `[1, 2, 3].filter(x, x > 2) == [3]`,
 		},
 		{
-			name: "macro_has_map_key",
-			expr: `has({'a':1}.a) && !has({}.a)`,
+			name:           "macro_has_map_key",
+			expr:           `has({'a':1}.a) && !has({}.a)`,
+			cost:           []int64{1, 4},
+			exhaustiveCost: []int64{4, 4},
 		},
 		{
 			name:  "macro_has_pb2_field",
@@ -493,6 +567,8 @@ var (
 			&& !has(pb2.repeated_int32)
 			&& has(pb2.map_int64_nested_type)
 			&& !has(pb2.map_string_string)`,
+			cost:           []int64{1, 29},
+			exhaustiveCost: []int64{29, 29},
 		},
 		{
 			name:  "macro_has_pb3_field",
@@ -522,10 +598,14 @@ var (
 			&& !has(pb3.repeated_int32)
 			&& has(pb3.map_int64_nested_type)
 			&& !has(pb3.map_string_string)`,
+			cost:           []int64{1, 35},
+			exhaustiveCost: []int64{35, 35},
 		},
 		{
-			name: "macro_map",
-			expr: `[1, 2, 3].map(x, x * 2) == [2, 4, 6]`,
+			name:           "macro_map",
+			expr:           `[1, 2, 3].map(x, x * 2) == [2, 4, 6]`,
+			cost:           []int64{6, 14},
+			exhaustiveCost: []int64{14, 14},
 		},
 		{
 			name: "matches",
@@ -533,6 +613,8 @@ var (
 				&& !'foo'.matches('k.*')
 				&& !'bar'.matches('k.*')
 				&& 'kilimanjaro'.matches('.*ro')`,
+			cost:           []int64{2, 10},
+			exhaustiveCost: []int64{10, 10},
 			env: []*exprpb.Decl{
 				decls.NewVar("input", decls.String),
 			},
@@ -543,6 +625,7 @@ var (
 		{
 			name:  "nested_proto_field",
 			expr:  `pb3.single_nested_message.bb`,
+			cost:  []int64{1, 1},
 			types: []proto.Message{&proto3pb.TestAllTypes{}},
 			env: []*exprpb.Decl{
 				decls.NewVar("pb3",
@@ -562,6 +645,7 @@ var (
 		{
 			name:  "nested_proto_field_with_index",
 			expr:  `pb3.map_int64_nested_type[0].child.payload.single_int32 == 1`,
+			cost:  []int64{2, 2},
 			types: []proto.Message{&proto3pb.TestAllTypes{}},
 			env: []*exprpb.Decl{
 				decls.NewVar("pb3",
@@ -570,7 +654,7 @@ var (
 			in: map[string]interface{}{
 				"pb3": &proto3pb.TestAllTypes{
 					MapInt64NestedType: map[int64]*proto3pb.NestedTestAllTypes{
-						0: &proto3pb.NestedTestAllTypes{
+						0: {
 							Child: &proto3pb.NestedTestAllTypes{
 								Payload: &proto3pb.TestAllTypes{
 									SingleInt32: 1,
@@ -582,8 +666,10 @@ var (
 			},
 		},
 		{
-			name: "or_true_1st",
-			expr: `ai == 20 || ar["foo"] == "bar"`,
+			name:           "or_true_1st",
+			expr:           `ai == 20 || ar["foo"] == "bar"`,
+			cost:           []int64{2, 5},
+			exhaustiveCost: []int64{5, 5},
 			env: []*exprpb.Decl{
 				decls.NewVar("ai", decls.Int),
 				decls.NewVar("ar", decls.NewMapType(decls.String, decls.String)),
@@ -596,8 +682,10 @@ var (
 			},
 		},
 		{
-			name: "or_true_2nd",
-			expr: `ai == 20 || ar["foo"] == "bar"`,
+			name:           "or_true_2nd",
+			expr:           `ai == 20 || ar["foo"] == "bar"`,
+			cost:           []int64{2, 5},
+			exhaustiveCost: []int64{5, 5},
 			env: []*exprpb.Decl{
 				decls.NewVar("ai", decls.Int),
 				decls.NewVar("ar", decls.NewMapType(decls.String, decls.String)),
@@ -610,8 +698,10 @@ var (
 			},
 		},
 		{
-			name: "or_false",
-			expr: `ai == 20 || ar["foo"] == "bar"`,
+			name:           "or_false",
+			expr:           `ai == 20 || ar["foo"] == "bar"`,
+			cost:           []int64{2, 5},
+			exhaustiveCost: []int64{5, 5},
 			env: []*exprpb.Decl{
 				decls.NewVar("ai", decls.Int),
 				decls.NewVar("ar", decls.NewMapType(decls.String, decls.String)),
@@ -625,28 +715,37 @@ var (
 			out: types.False,
 		},
 		{
-			name: "or_error_1st_error",
-			expr: `1/0 != 0 || false`,
-			err:  "divide by zero",
+			name:           "or_error_1st_error",
+			expr:           `1/0 != 0 || false`,
+			cost:           []int64{2, 3},
+			exhaustiveCost: []int64{3, 3},
+			err:            "divide by zero",
 		},
 		{
-			name: "or_error_2nd_error",
-			expr: `false || 1/0 != 0`,
-			err:  "divide by zero",
+			name:           "or_error_2nd_error",
+			expr:           `false || 1/0 != 0`,
+			cost:           []int64{0, 3},
+			exhaustiveCost: []int64{3, 3},
+			err:            "divide by zero",
 		},
 		{
-			name: "or_error_1st_true",
-			expr: `1/0 != 0 || true`,
-			out:  types.True,
+			name:           "or_error_1st_true",
+			expr:           `1/0 != 0 || true`,
+			cost:           []int64{2, 3},
+			exhaustiveCost: []int64{3, 3},
+			out:            types.True,
 		},
 		{
-			name: "or_error_2nd_true",
-			expr: `true || 1/0 != 0`,
-			out:  types.True,
+			name:           "or_error_2nd_true",
+			expr:           `true || 1/0 != 0`,
+			cost:           []int64{0, 3},
+			exhaustiveCost: []int64{3, 3},
+			out:            types.True,
 		},
 		{
 			name: "pkg_qualified_id",
 			expr: `b.c.d != 10`,
+			cost: []int64{2, 2},
 			pkg:  "a.b",
 			env: []*exprpb.Decl{
 				decls.NewVar("a.b.c.d", decls.Int),
@@ -658,6 +757,7 @@ var (
 		{
 			name:      "pkg_qualified_id_unchecked",
 			expr:      `c.d != 10`,
+			cost:      []int64{2, 2},
 			unchecked: true,
 			pkg:       "a.b",
 			in: map[string]interface{}{
@@ -667,6 +767,7 @@ var (
 		{
 			name:      "pkg_qualified_index_unchecked",
 			expr:      `b.c['d'] == 10`,
+			cost:      []int64{2, 2},
 			unchecked: true,
 			pkg:       "a.b",
 			in: map[string]interface{}{
@@ -688,6 +789,8 @@ var (
 				&& m.uint64Map['val'] == 8u
 				&& m.boolMap['val'] == true
 				&& m.boolMap['val'] != false`,
+			cost:           []int64{2, 32},
+			exhaustiveCost: []int64{32, 32},
 			env: []*exprpb.Decl{
 				decls.NewVar("m", decls.NewMapType(decls.String, decls.Dyn)),
 			},
@@ -719,6 +822,8 @@ var (
 				&& m.boolUint64[false] == 7u
 				&& m.boolBool[true]
 				&& m.boolIface[false] == true`,
+			cost:           []int64{2, 31},
+			exhaustiveCost: []int64{31, 31},
 			env: []*exprpb.Decl{
 				decls.NewVar("m", decls.NewMapType(decls.String, decls.Dyn)),
 			},
@@ -744,6 +849,8 @@ var (
 				&& m.uint32Iface[2u] == 1.5
 				&& m.uint64Iface[3u] == -2.1
 				&& m.uint64String[4u] == 'three'`,
+			cost:           []int64{2, 11},
+			exhaustiveCost: []int64{11, 11},
 			env: []*exprpb.Decl{
 				decls.NewVar("m", decls.NewMapType(decls.String, decls.Dyn)),
 			},
@@ -770,6 +877,8 @@ var (
 				&& m.boolList[0] == true
 				&& m.boolList[1] != true
 				&& m.ifaceList[0] == {}`,
+			cost:           []int64{2, 35},
+			exhaustiveCost: []int64{35, 35},
 			env: []*exprpb.Decl{
 				decls.NewVar("m", decls.NewMapType(decls.String, decls.Dyn)),
 			},
@@ -794,8 +903,10 @@ var (
 			expr: `a.b.c
 				&& pb3.repeated_nested_enum[0] == test.TestAllTypes.NestedEnum.BAR
 				&& json.list[0] == 'world'`,
-			pkg:   "google.expr.proto3",
-			types: []proto.Message{&proto3pb.TestAllTypes{}},
+			cost:           []int64{1, 7},
+			exhaustiveCost: []int64{7, 7},
+			pkg:            "google.expr.proto3",
+			types:          []proto.Message{&proto3pb.TestAllTypes{}},
 			env: []*exprpb.Decl{
 				decls.NewVar("a.b", decls.NewMapType(decls.String, decls.Bool)),
 				decls.NewVar("pb3", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
@@ -839,7 +950,9 @@ var (
 			&& a.single_double == 6.4
 			&& a.single_bool
 			&& "empty" == a.single_string`,
-			types: []proto.Message{&proto2pb.TestAllTypes{}},
+			cost:           []int64{3, 26},
+			exhaustiveCost: []int64{26, 26},
+			types:          []proto.Message{&proto2pb.TestAllTypes{}},
 			in: map[string]interface{}{
 				"a": &proto2pb.TestAllTypes{},
 			},
@@ -854,7 +967,9 @@ var (
 				&& has(a.single_int64_wrapper) && a.single_int64_wrapper == 0
 				&& has(a.single_string_wrapper) && a.single_string_wrapper == "hello"
 				&& a.single_int64_wrapper == google.protobuf.Int32Value{value: 0}`,
-			types: []proto.Message{&proto3pb.TestAllTypes{}},
+			cost:           []int64{3, 21},
+			exhaustiveCost: []int64{21, 21},
+			types:          []proto.Message{&proto3pb.TestAllTypes{}},
 			env: []*exprpb.Decl{
 				decls.NewVar("a", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
@@ -868,6 +983,7 @@ var (
 		{
 			name:  "select_pb3_compare",
 			expr:  `a.single_uint64 > 3u`,
+			cost:  []int64{2, 2},
 			pkg:   "google.expr.proto3.test",
 			types: []proto.Message{&proto3pb.TestAllTypes{}},
 			env: []*exprpb.Decl{
@@ -883,6 +999,7 @@ var (
 		{
 			name:  "select_custom_pb3_compare",
 			expr:  `a.bb > 100`,
+			cost:  []int64{2, 2},
 			pkg:   "google.expr.proto3.test",
 			types: []proto.Message{&proto3pb.TestAllTypes_NestedMessage{}},
 			env: []*exprpb.Decl{
@@ -906,6 +1023,7 @@ var (
 		{
 			name: "select_relative",
 			expr: `json('{"hi":"world"}').hi == 'world'`,
+			cost: []int64{2, 2},
 			env: []*exprpb.Decl{
 				decls.NewFunction("json",
 					decls.NewOverload("string_to_json",
@@ -932,6 +1050,7 @@ var (
 		{
 			name: "select_subsumed_field",
 			expr: `a.b.c`,
+			cost: []int64{1, 1},
 			env: []*exprpb.Decl{
 				decls.NewVar("a.b.c", decls.Int),
 				decls.NewVar("a.b", decls.NewMapType(decls.String, decls.String)),
@@ -947,6 +1066,7 @@ var (
 		{
 			name:  "select_empty_repeated_nested",
 			expr:  `TestAllTypes{}.repeated_nested_message.size() == 0`,
+			cost:  []int64{2, 2},
 			types: []proto.Message{&proto3pb.TestAllTypes{}},
 			pkg:   "google.expr.proto3.test",
 			out:   types.True,
@@ -1016,6 +1136,13 @@ func TestInterpreter(t *testing.T) {
 			} else if got.Equal(want) != types.True {
 				tt.Fatalf("Got %v, wanted %v", got, want)
 			}
+
+			if tc.cost != nil {
+				minCost, maxCost := estimateCost(prg)
+				if minCost != tc.cost[0] || maxCost != tc.cost[1] {
+					t.Errorf("Got cost interval [%v, %v], wanted %v", minCost, maxCost, tc.cost)
+				}
+			}
 			state := NewEvalState()
 			opts := map[string]InterpretableDecorator{
 				"optimize":   Optimize(),
@@ -1040,6 +1167,27 @@ func TestInterpreter(t *testing.T) {
 						}
 					} else if got.Equal(want) != types.True {
 						ttt.Errorf("Got %v, wanted %v", got, want)
+					}
+					if mode == "exhaustive" && tc.cost != nil {
+						wantedCost := tc.cost
+						if tc.exhaustiveCost != nil {
+							wantedCost = tc.exhaustiveCost
+						}
+						minCost, maxCost := estimateCost(prg)
+						if minCost != wantedCost[0] || maxCost != wantedCost[1] {
+							t.Errorf("Got exhaustive cost interval [%v, %v], wanted %v",
+								minCost, maxCost, tc.cost)
+						}
+					}
+					if mode == "optimize" && tc.cost != nil {
+						wantedCost := tc.cost
+						if tc.optimizedCost != nil {
+							wantedCost = tc.optimizedCost
+						}
+						minCost, maxCost := estimateCost(prg)
+						if minCost != wantedCost[0] || maxCost != wantedCost[1] {
+							t.Errorf("Got optimize cost interval [%v, %v], wanted %v", minCost, maxCost, tc.cost)
+						}
 					}
 					state.Reset()
 				})

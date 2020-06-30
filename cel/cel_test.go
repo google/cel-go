@@ -876,3 +876,38 @@ func Test_CustomInterpreterDecorator(t *testing.T) {
 		t.Errorf("got %v as the last observed constant, wanted 1", lastConst)
 	}
 }
+
+func Test_Cost(t *testing.T) {
+	e, err := NewEnv()
+	if err != nil {
+		log.Fatalf("environment creation error: %s\n", err)
+	}
+	ast, iss := e.Compile(`"Hello, World!"`)
+	if iss.Err() != nil {
+		log.Fatalln(iss.Err())
+	}
+
+	wantedCost := []int64{0, 0}
+
+	// Test standard evaluation cost.
+	prg, err := e.Program(ast)
+	if err != nil {
+		log.Fatalf("program creation error: %s\n", err)
+	}
+	min, max := EstimateCost(prg)
+	if min != wantedCost[0] || max != wantedCost[1] {
+		log.Fatalf("Got cost interval [%v, %v], wanted %v",
+			min, max, wantedCost)
+	}
+
+	// Test the factory-based evaluation cost.
+	prg, err = e.Program(ast, EvalOptions(OptExhaustiveEval))
+	if err != nil {
+		t.Fatalf("program creation error: %s\n", err)
+	}
+	min, max = EstimateCost(prg)
+	if min != wantedCost[0] || max != wantedCost[1] {
+		log.Fatalf("Got cost interval [%v, %v], wanted %v",
+			min, max, wantedCost)
+	}
+}

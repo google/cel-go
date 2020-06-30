@@ -16,6 +16,7 @@ package cel
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
@@ -260,6 +261,11 @@ func (p *prog) Eval(input interface{}) (v ref.Val, det *EvalDetails, err error) 
 	return
 }
 
+// Cost implements the Coster interface method.
+func (p *prog) Cost() (min, max int64) {
+	return estimateCost(p.interpretable)
+}
+
 // Eval implements the Program interface method.
 func (gen *progGen) Eval(input interface{}) (ref.Val, *EvalDetails, error) {
 	// The factory based Eval() differs from the standard evaluation model in that it generates a
@@ -282,4 +288,31 @@ func (gen *progGen) Eval(input interface{}) (ref.Val, *EvalDetails, error) {
 		return v, det, err
 	}
 	return v, det, nil
+}
+
+// Cost implements the Coster interface method.
+func (gen *progGen) Cost() (min, max int64) {
+	// Use an empty state value since no evaluation is performed.
+	p, err := gen.factory(emptyEvalState)
+	if err != nil {
+		return 0, math.MaxInt64
+	}
+	return estimateCost(p)
+}
+
+var (
+	emptyEvalState = interpreter.NewEvalState()
+)
+
+// EstimateCost returns the heuristic cost interval for the program.
+func EstimateCost(p Program) (min, max int64) {
+	return estimateCost(p)
+}
+
+func estimateCost(i interface{}) (min, max int64) {
+	c, ok := i.(interpreter.Coster)
+	if !ok {
+		return 0, math.MaxInt64
+	}
+	return c.Cost()
 }
