@@ -105,8 +105,8 @@ func (c *Container) Name() string {
 //     a.R.s
 //     R.s
 //
-// If aliases are configured for the container, then alias names appear after the potential set
-// of container-based names.
+// If aliases or abbreviations are configured for the container, then alias names appear after
+// the potential set of container-based names.
 func (c *Container) ResolveCandidateNames(name string) []string {
 	if strings.HasPrefix(name, ".") {
 		qn := name[1:]
@@ -116,7 +116,7 @@ func (c *Container) ResolveCandidateNames(name string) []string {
 		return c.candidatesWithAlias([]string{name}, name)
 	}
 
-	nextCont := c.name
+	nextCont := c.Name()
 	candidates := []string{nextCont + "." + name}
 	for i := strings.LastIndex(nextCont, "."); i >= 0; i = strings.LastIndex(nextCont, ".") {
 		nextCont = nextCont[:i]
@@ -126,7 +126,7 @@ func (c *Container) ResolveCandidateNames(name string) []string {
 	return c.candidatesWithAlias(candidates, name)
 }
 
-// aliasSet returns the alias -> fully-qualified name mapping stored in the container.
+// aliasSet returns the alias to fully-qualified name mapping stored in the container.
 func (c *Container) aliasSet() map[string]string {
 	if c == nil || c.aliases == nil {
 		return noAliases
@@ -134,12 +134,9 @@ func (c *Container) aliasSet() map[string]string {
 	return c.aliases
 }
 
-// candidatesWithAliases returns the resolved candidates from the container with any applicable
-// aliases appended on the end of the list.
+// candidatesWithAlias returns the resolved candidates from the container with any applicable
+// alias appended on the end of the list.
 func (c *Container) candidatesWithAlias(candidates []string, name string) []string {
-	if len(c.aliasSet()) == 0 {
-		return candidates
-	}
 	// If an alias exists for the name, ensure it is searched last.
 	alias, found := c.aliasSet()[name]
 	if found {
@@ -149,9 +146,11 @@ func (c *Container) candidatesWithAlias(candidates []string, name string) []stri
 }
 
 // ContainerOption specifies a functional configuration option for a Container.
+//
+// Note, ContainerOption implementations must be able to handle nil container inputs.
 type ContainerOption func(*Container) (*Container, error)
 
-// Aliases configures a set of simple names as aliases for fully-qualified names.
+// Abbrevs configures a set of simple names as abbreviations for fully-qualified names.
 //
 // An alias can be useful when working with variables, functions, and especially types from
 // multiple namespaces:
@@ -162,34 +161,34 @@ type ContainerOption func(*Container) (*Container, error)
 //    }
 //
 // Only one qualified path may be used as CEL container, so at least one of these references is
-// a long qualified name within an otherwise short CEL program. Using the following aliases, the
-// program becomes much simpler:
+// a long qualified name within an otherwise short CEL program. Using the following abbreviations,
+// the program becomes much simpler:
 //
 //    // CEL Go option
-//    Aliases("qual.pkg.version.ObjTypeName", "alt.container.ver.FieldTypeName")
+//    Abbrevs("qual.pkg.version.ObjTypeName", "alt.container.ver.FieldTypeName")
 //    // Simplified Object construction
 //    ObjTypeName{field: FieldTypeName{value: ...}}
 //
-// There are a few rules for the qualified names and the simple name aliases generated from them:
+// There are a few rules for the qualified names and the simple abbreviations generated from them:
 // - Qualified names must be dot-delimited, e.g. `package.subpkg.name`.
-// - The last element in the qualified name is the simple name used as an alias.
-// - Alias names must not collide with each other.
-// - The alias name must not collide with the root-level container name.
+// - The last element in the qualified name is the simple name used as the abbreviation.
+// - Abbreviations names must not collide with each other.
+// - The abbreviation name must not collide with the root-level container name.
 //
-// Aliases are distinct from container-based references in the following important ways:
+// Abbrevs are distinct from container-based references in the following important ways:
 // - Containers follow C++ namespace resolution rules with searches from the most qualified name
 //   to the least qualified name.
 // - Container references within the CEL program may be relative, and are resolved to fully
 //   qualified names at either type-check time or program plan time, whichever comes first.
-// - Alias simple names must resolve to a fully-qualified name.
-// - Resolved aliases do not participate in namespace resolution.
-// - Resolved aliases are searched after container names, including container names in the global
-//   scope.
+// - Abbreviations must resolve to a fully-qualified name.
+// - Resolved abbreviations do not participate in namespace resolution.
+// - Resolved abbreviations are searched after container names, including container names in the
+//   global scope.
 //
 // If there is ever a case where an identifier could be in both the container and in the alias,
 // the container wins as the container will continue to evolve over time and the program must be
 // forward compatible with changes in the container.
-func Aliases(qualifiedNames ...string) ContainerOption {
+func Abbrevs(qualifiedNames ...string) ContainerOption {
 	return func(c *Container) (*Container, error) {
 		for _, qn := range qualifiedNames {
 			alias := qn
@@ -200,7 +199,7 @@ func Aliases(qualifiedNames ...string) ContainerOption {
 			}
 			alias = qn[ind+1:]
 			var err error
-			c, err = AliasAs(qn, alias)(c)
+			c, err = aliasAs("abbreviation", qn, alias)(c)
 			if err != nil {
 				return nil, err
 			}
@@ -209,35 +208,44 @@ func Aliases(qualifiedNames ...string) ContainerOption {
 	}
 }
 
-// AliasAs associates a fully-qualified name with a user-defined alias.
+// Alias associates a fully-qualified name with a user-defined alias.
 //
-// In general, Aliases is preferred to AliasAs since the names generated from the Aliases option
-// are more easily traced back to source code. The AliasAs option is useful for propagating alias
+// In general, Abbrevs is preferred to Alias since the names generated from the Abbrevs option
+// are more easily traced back to source code. The Alias option is useful for propagating alias
 // configuration from one Container instance to another, and may also be useful for remapping
 // poorly chosen protobuf message / package names.
 //
-// Note: all of the rules that apply to Aliases also apply to AliasAs.
-func AliasAs(qualifiedName, alias string) ContainerOption {
+// Note: all of the rules that apply to Abbrevs also apply to Alias.
+func Alias(qualifiedName, alias string) ContainerOption {
+	return aliasAs("alias", qualifiedName, alias)
+}
+
+func aliasAs(kind, qualifiedName, alias string) ContainerOption {
 	return func(c *Container) (*Container, error) {
-		if len(alias) <= 0 || strings.Contains(alias, ".") {
+		if len(alias) == 0 || strings.Contains(alias, ".") {
 			return nil, fmt.Errorf(
-				"alias names must be non-empty and simple (not qualified): alias=%s", alias)
+				"%s must be non-empty and simple (not qualified): %s=%s", kind, kind, alias)
+		}
+
+		if qualifiedName[0:1] == "." {
+			return nil, fmt.Errorf("qualified name must not begin with a leading '.': %s",
+				qualifiedName)
 		}
 		ind := strings.LastIndex(qualifiedName, ".")
 		if ind <= 0 || ind == len(qualifiedName)-1 {
-			return nil, fmt.Errorf("aliases must refer to qualified names: %s",
-				qualifiedName)
+			return nil, fmt.Errorf("%s must refer to a valid qualified name: %s",
+				kind, qualifiedName)
 		}
 		aliasRef, found := c.aliasSet()[alias]
 		if found {
 			return nil, fmt.Errorf(
-				"alias collides with existing reference: name=%s, alias=%s, existing=%s",
-				qualifiedName, alias, aliasRef)
+				"%s collides with existing reference: name=%s, %s=%s, existing=%s",
+				kind, qualifiedName, kind, alias, aliasRef)
 		}
 		if strings.HasPrefix(c.Name(), alias+".") || c.Name() == alias {
 			return nil, fmt.Errorf(
-				"alias collides with container name: name=%s, alias=%s, container=%s",
-				qualifiedName, alias, c.Name())
+				"%s collides with container name: name=%s, %s=%s, container=%s",
+				kind, qualifiedName, kind, alias, c.Name())
 		}
 		if c == nil {
 			c = &Container{}
@@ -253,6 +261,9 @@ func AliasAs(qualifiedName, alias string) ContainerOption {
 // Name sets the fully-qualified name of the Container.
 func Name(name string) ContainerOption {
 	return func(c *Container) (*Container, error) {
+		if len(name) > 0 && name[0:1] == "." {
+			return nil, fmt.Errorf("container name must not contain a leading '.': %s", name)
+		}
 		if c.Name() == name {
 			return c, nil
 		}
@@ -273,6 +284,10 @@ func ToQualifiedName(e *exprpb.Expr) (string, bool) {
 		return id.Name, true
 	case *exprpb.Expr_SelectExpr:
 		sel := e.GetSelectExpr()
+		// Test only expressions are not valid as qualified names.
+		if sel.GetTestOnly() {
+			return "", false
+		}
 		if qual, found := ToQualifiedName(sel.Operand); found {
 			return qual + "." + sel.Field, true
 		}

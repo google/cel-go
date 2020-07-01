@@ -190,10 +190,10 @@ func Test_ExampleWithBuiltins(t *testing.T) {
 	}
 }
 
-func Test_Aliases_Compiled(t *testing.T) {
-	// Test whether aliases successfully resolve at type-check time (compile time).
+func Test_Abbrevs_Compiled(t *testing.T) {
+	// Test whether abbreviations successfully resolve at type-check time (compile time).
 	env, err := NewEnv(
-		Aliases("qualified.identifier.name"),
+		Abbrevs("qualified.identifier.name"),
 		Declarations(
 			decls.NewVar("qualified.identifier.name", decls.String),
 		),
@@ -201,7 +201,7 @@ func Test_Aliases_Compiled(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ast, iss := env.Compile(`"hello "+ name`) // alias resolved here.
+	ast, iss := env.Compile(`"hello "+ name`) // abbreviation resolved here.
 	if iss.Err() != nil {
 		t.Fatal(iss.Err())
 	}
@@ -222,10 +222,10 @@ func Test_Aliases_Compiled(t *testing.T) {
 	}
 }
 
-func Test_Aliases_Parsed(t *testing.T) {
-	// Test whether aliases are resolved properly at evaluation time.
+func Test_Abbrevs_Parsed(t *testing.T) {
+	// Test whether abbreviations are resolved properly at evaluation time.
 	env, err := NewEnv(
-		Aliases("qualified.identifier.name"),
+		Abbrevs("qualified.identifier.name"),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -234,7 +234,7 @@ func Test_Aliases_Parsed(t *testing.T) {
 	if iss.Err() != nil {
 		t.Fatal(iss.Err())
 	}
-	prg, err := env.Program(ast) // alias resolved here.
+	prg, err := env.Program(ast) // abbreviation resolved here.
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -251,9 +251,9 @@ func Test_Aliases_Parsed(t *testing.T) {
 	}
 }
 
-func Test_Aliases_Disambiguation(t *testing.T) {
+func Test_Abbrevs_Disambiguation(t *testing.T) {
 	env, err := NewEnv(
-		Aliases("external.Expr"),
+		Abbrevs("external.Expr"),
 		Container("google.api.expr.v1alpha1"),
 		Types(&exprpb.Expr{}),
 		Declarations(
@@ -265,7 +265,7 @@ func Test_Aliases_Disambiguation(t *testing.T) {
 		t.Fatal(err)
 	}
 	// This expression will return either a string or a protobuf Expr value depending on the value
-	// of the 'test' argument. Here the '.' is used to indicate that the aliased Expr should be
+	// of the 'test' argument. Here the '.' is used to indicate that the abbreviated Expr should be
 	// used rather than the protobuf type Expr in the container `google.api.expr.v1alpha1`.
 	ast, iss := env.Compile(`test ? dyn(.Expr) : Expr{id: 1}`)
 	if iss.Err() != nil {

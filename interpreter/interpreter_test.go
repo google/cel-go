@@ -51,7 +51,7 @@ type testCase struct {
 	cost           []int64
 	exhaustiveCost []int64
 	optimizedCost  []int64
-	aliases        []string
+	abbrevs        []string
 	env            []*exprpb.Decl
 	types          []proto.Message
 	funcs          []*functions.Overload
@@ -971,7 +971,7 @@ var (
 			cost:           []int64{3, 21},
 			exhaustiveCost: []int64{21, 21},
 			types:          []proto.Message{&proto3pb.TestAllTypes{}},
-			aliases:        []string{"google.protobuf.Int32Value"},
+			abbrevs:        []string{"google.protobuf.Int32Value"},
 			env: []*exprpb.Decl{
 				decls.NewVar("a", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
@@ -1512,10 +1512,10 @@ func program(tst *testCase,
 		cont = safeContainer(tst.container)
 	}
 	var err error
-	if tst.aliases != nil {
+	if tst.abbrevs != nil {
 		cont, err = containers.NewContainer(
 			containers.Name(cont.Name()),
-			containers.Aliases(tst.aliases...))
+			containers.Abbrevs(tst.abbrevs...))
 		if err != nil {
 			return nil, nil, err
 		}

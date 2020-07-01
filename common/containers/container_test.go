@@ -21,7 +21,7 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
-func TestContainer_ResolveCandidateNames(t *testing.T) {
+func TestContainers_ResolveCandidateNames(t *testing.T) {
 	c, err := NewContainer(Name("a.b.c.M.N"))
 	if err != nil {
 		t.Fatal(err)
@@ -40,7 +40,7 @@ func TestContainer_ResolveCandidateNames(t *testing.T) {
 	}
 }
 
-func TestContainer_ResolveCandidateNames_FullyQualifiedName(t *testing.T) {
+func TestContainers_ResolveCandidateNames_FullyQualifiedName(t *testing.T) {
 	c, err := NewContainer(Name("a.b.c.M.N"))
 	if err != nil {
 		t.Fatal(err)
@@ -53,7 +53,7 @@ func TestContainer_ResolveCandidateNames_FullyQualifiedName(t *testing.T) {
 	}
 }
 
-func TestContainer_ResolveCandidateNames_EmptyContainer(t *testing.T) {
+func TestContainers_ResolveCandidateNames_EmptyContainer(t *testing.T) {
 	names := DefaultContainer.ResolveCandidateNames("R.s")
 	want := []string{"R.s"}
 	if !reflect.DeepEqual(names, want) {
@@ -61,13 +61,22 @@ func TestContainer_ResolveCandidateNames_EmptyContainer(t *testing.T) {
 	}
 }
 
-func TestContainer_Aliases(t *testing.T) {
-	c, err := NewContainer(Name("a.b.c"), Aliases("my.alias.R"))
+func TestContainers_Abbrevs(t *testing.T) {
+	abbr, err := DefaultContainer.Extend(Abbrevs("my.alias.R"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	names := c.ResolveCandidateNames("R")
+	names := abbr.ResolveCandidateNames("R")
 	want := []string{
+		"R",
+		"my.alias.R",
+	}
+	c, err := NewContainer(Name("a.b.c"), Abbrevs("my.alias.R"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	names = c.ResolveCandidateNames("R")
+	want = []string{
 		"a.b.c.R",
 		"a.b.R",
 		"a.R",
@@ -89,47 +98,60 @@ func TestContainer_Aliases(t *testing.T) {
 	}
 }
 
-func TestContainer_Aliases_Errors(t *testing.T) {
-	_, err := NewContainer(Name("a.b.c.M.N"), Aliases("my.alias.R", "yer.other.R"))
-	wantErr := "alias collides with existing reference: " +
-		"name=yer.other.R, alias=R, existing=my.alias.R"
+func TestContainers_Aliasing_Errors(t *testing.T) {
+	_, err := NewContainer(Abbrevs("my.alias.R", "yer.other.R"))
+	wantErr := "abbreviation collides with existing reference: " +
+		"name=yer.other.R, abbreviation=R, existing=my.alias.R"
 	if err == nil || err.Error() != wantErr {
 		t.Errorf("got error %v, expected %s.", err, wantErr)
 	}
 
-	_, err = NewContainer(Name("a.b.c.M.N"), Aliases("my.alias.a", "yer.other.b"))
-	wantErr = "alias collides with container name: name=my.alias.a, alias=a, container=a.b.c.M.N"
+	_, err = NewContainer(Name("a.b.c.M.N"), Abbrevs("my.alias.a", "yer.other.b"))
+	wantErr = "abbreviation collides with container name: name=my.alias.a, " +
+		"abbreviation=a, container=a.b.c.M.N"
 	if err == nil || err.Error() != wantErr {
 		t.Errorf("got error %v, expected %s.", err, wantErr)
 	}
 
-	_, err = NewContainer(Name("a.b.c.M.N"), Aliases(".bad"))
+	_, err = NewContainer(Abbrevs(".bad"))
 	wantErr = "invalid qualified name: .bad, wanted name of the form 'qualified.name'"
 	if err == nil || err.Error() != wantErr {
 		t.Errorf("got error %v, expected %s.", err, wantErr)
 	}
 
-	_, err = NewContainer(Name("a.b.c.M.N"), Aliases("bad.alias."))
+	_, err = NewContainer(Abbrevs("bad.alias."))
 	wantErr = "invalid qualified name: bad.alias., wanted name of the form 'qualified.name'"
 	if err == nil || err.Error() != wantErr {
 		t.Errorf("got error %v, expected %s.", err, wantErr)
 	}
 
-	_, err = NewContainer(Name("a.b.c.M.N"), AliasAs("a", "b"))
-	wantErr = "aliases must refer to qualified names: a"
+	_, err = NewContainer(Alias("a", "b"))
+	wantErr = "alias must refer to a valid qualified name: a"
 	if err == nil || err.Error() != wantErr {
 		t.Errorf("got error %v, expected %s.", err, wantErr)
 	}
 
-	_, err = NewContainer(Name("a.b.c.M.N"), AliasAs("my.alias", "b.c"))
-	wantErr = "alias names must be non-empty and simple (not qualified): alias=b.c"
+	_, err = NewContainer(Alias("my.alias", "b.c"))
+	wantErr = "alias must be non-empty and simple (not qualified): alias=b.c"
+	if err == nil || err.Error() != wantErr {
+		t.Errorf("got error %v, expected %s.", err, wantErr)
+	}
+
+	_, err = NewContainer(Alias(".my.qual.name", "a"))
+	wantErr = "qualified name must not begin with a leading '.': .my.qual.name"
+	if err == nil || err.Error() != wantErr {
+		t.Errorf("got error %v, expected %s.", err, wantErr)
+	}
+
+	_, err = NewContainer(Alias(".my.qual.name", "a"))
+	wantErr = "qualified name must not begin with a leading '.': .my.qual.name"
 	if err == nil || err.Error() != wantErr {
 		t.Errorf("got error %v, expected %s.", err, wantErr)
 	}
 }
 
 func TestContainers_Extend_Alias(t *testing.T) {
-	c, err := DefaultContainer.Extend(AliasAs("test.alias", "alias"))
+	c, err := DefaultContainer.Extend(Alias("test.alias", "alias"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +163,7 @@ func TestContainers_Extend_Alias(t *testing.T) {
 		t.Fatal(err)
 	}
 	if c.Name() != "with.container" {
-		t.Errorf("got container name %s, wanted 'goodbye.container'", c.Name())
+		t.Errorf("got container name %s, wanted 'with.container'", c.Name())
 	}
 	if c.aliasSet()["alias"] != "test.alias" {
 		t.Errorf("got alias %v wanted 'test.alias'", c.aliasSet())
@@ -153,8 +175,8 @@ func TestContainers_Extend_Name(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c != nil {
-		t.Error("got non-nil container, wanted nil")
+	if c.Name() != "" {
+		t.Errorf("got %v, wanted empty name", c.Name())
 	}
 	c, err = DefaultContainer.Extend(Name("hello.container"))
 	if err != nil {
@@ -169,6 +191,10 @@ func TestContainers_Extend_Name(t *testing.T) {
 	}
 	if c.Name() != "goodbye.container" {
 		t.Errorf("got container name %s, wanted 'goodbye.container'", c.Name())
+	}
+	c, err = c.Extend(Name(".bad.container"))
+	if err == nil {
+		t.Errorf("got %v, wanted error", c.Name())
 	}
 }
 
@@ -202,6 +228,13 @@ func TestContainers_ToQualifiedName(t *testing.T) {
 	if qualName != "var.qualifier" {
 		t.Errorf("got %v, wanted 'var.qualifier'", qualName)
 	}
+
+	sel.GetSelectExpr().TestOnly = true
+	_, found = ToQualifiedName(sel)
+	if found {
+		t.Error("got found, wanted not found for test-only expression")
+	}
+
 	unary := &exprpb.Expr{
 		ExprKind: &exprpb.Expr_CallExpr{
 			CallExpr: &exprpb.Expr_Call{
@@ -210,6 +243,7 @@ func TestContainers_ToQualifiedName(t *testing.T) {
 			},
 		},
 	}
+	sel.GetSelectExpr().TestOnly = false
 	sel.GetSelectExpr().Operand = unary
 	_, found = ToQualifiedName(sel)
 	if found {
