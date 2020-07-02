@@ -21,7 +21,6 @@ Examples:
     'hello'.charAt(5)  // return ''
     'hello'.charAt(-1) // error
 
-
 ### IndexOf
 
 Returns the integer index of the first occurrence of the search string. If the
@@ -63,6 +62,20 @@ Examples:
     'hello mellow'.lastIndexOf('jello')    // returns -1
     'hello mellow'.lastIndexOf('ello', 6)  // returns 1
     'hello mellow'.lastIndexOf('ello', -1) // error
+
+### LowerAscii
+
+Produces a new string where all ASCII characters are lower-cased.
+
+This function does not perform Unicode case-mapping for characters outside the
+ASCII range.
+
+     <string>.lowerAscii() -> <string>
+
+Examples:
+
+     'TacoCat'.lowerAscii()      // returns 'tacocat'
+     'TacoCÆt Xii'.lowerAscii()  // returns 'tacocÆt xii'
 
 ### Replace
 
@@ -137,3 +150,17 @@ https://en.wikipedia.org/wiki/Whitespace_character#Unicode
 Examples:
 
     '  \ttrim\n    '.trim() // returns 'trim'
+
+### UpperAscii
+
+Produces a new string where all ASCII characters are upper-cased.
+
+This function does not perform Unicode case-mapping for characters outside the
+ASCII range.
+
+    <string>.upperAscii() -> <string>
+
+Examples:
+
+     'TacoCat'.upperAscii()      // returns 'TACOCAT'
+     'TacoCÆt Xii'.upperAscii()  // returns 'TACOCÆT XII'
