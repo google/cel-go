@@ -3,6 +3,35 @@
 CEL extensions are a related set of constants, functions, macros, or other
 features which may not be covered by the core CEL spec.
 
+## Encoders
+
+Encoding utilies for marshalling data into standardized representations.
+
+### Base64.Decode
+
+Decodes a base64-encoded string to an unencoded string value.
+
+This function will return an error if the input string is not base64-encoded.
+
+    base64.decode(<string>) -> <string>
+
+Examples:
+
+    base64.decode('aGVsbG8=')  // return 'hello'
+    base64.decode('aGVsbG8')   // error
+
+### Base64.Encode
+
+Encodes a bytes or string input to a base64-encoded string.
+
+    base64.encode(<bytes>) -> <string>
+    base64.encode(<string>) -> <string>
+
+Examples:
+
+    base64.encode('hello')  // return 'aGVsbG8='
+    base64.encode(b'hello') // return 'aGVsbG8='
+
 ## Strings
 
 Extended functions for string manipulation. As a general note, all indices are
