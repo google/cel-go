@@ -299,7 +299,7 @@ func Test_Abbrevs_Disambiguation(t *testing.T) {
 	want := &exprpb.Expr{Id: 1}
 	got, _ := out.ConvertToNative(reflect.TypeOf(want))
 	if !proto.Equal(got.(*exprpb.Expr), want) {
-		t.Errorf("got %v, wanted 'string expr'", out)
+		t.Errorf("got %v, wanted '%v'", out, want)
 	}
 }
 

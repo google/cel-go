@@ -161,7 +161,7 @@ func Container(name string) EnvOption {
 // - Qualified names must be dot-delimited, e.g. `package.subpkg.name`.
 // - The last element in the qualified name is the simple name used as an abbreviation.
 // - Abbreviations must not collide with each other.
-// - The abbreviation must not collide with the root-level container name.
+// - The abbreviation must not collide with the first component of a qualified container name.
 //
 // Abbreviations are distinct from container-based references in the following important ways:
 // - Containers follow C++ namespace resolution rules with searches from the most qualified name

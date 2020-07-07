@@ -152,8 +152,8 @@ type ContainerOption func(*Container) (*Container, error)
 
 // Abbrevs configures a set of simple names as abbreviations for fully-qualified names.
 //
-// An alias can be useful when working with variables, functions, and especially types from
-// multiple namespaces:
+// An abbreviation (abbrev for short) can be useful when working with variables, functions, and
+// especially types from multiple namespaces:
 //
 //    // CEL object construction
 //    qual.pkg.version.ObjTypeName{
@@ -173,7 +173,7 @@ type ContainerOption func(*Container) (*Container, error)
 // - Qualified names must be dot-delimited, e.g. `package.subpkg.name`.
 // - The last element in the qualified name is the simple name used as the abbreviation.
 // - Abbreviations names must not collide with each other.
-// - The abbreviation name must not collide with the root-level container name.
+// - The abbreviation must not collide with unqualified names in use.
 //
 // Abbrevs are distinct from container-based references in the following important ways:
 // - Containers follow C++ namespace resolution rules with searches from the most qualified name
@@ -182,8 +182,8 @@ type ContainerOption func(*Container) (*Container, error)
 //   qualified names at either type-check time or program plan time, whichever comes first.
 // - Abbreviations must resolve to a fully-qualified name.
 // - Resolved abbreviations do not participate in namespace resolution.
-// - Resolved abbreviations are searched after container names, including container names in the
-//   global scope.
+// - Abbreviation resolution happens after the container path has been searched for matching
+//   identifiers, including the global scope.
 //
 // If there is ever a case where an identifier could be in both the container and in the alias,
 // the container wins as the container will continue to evolve over time and the program must be
@@ -191,13 +191,12 @@ type ContainerOption func(*Container) (*Container, error)
 func Abbrevs(qualifiedNames ...string) ContainerOption {
 	return func(c *Container) (*Container, error) {
 		for _, qn := range qualifiedNames {
-			alias := qn
 			ind := strings.LastIndex(qn, ".")
 			if ind <= 0 || ind >= len(qn)-1 {
 				return nil, fmt.Errorf(
 					"invalid qualified name: %s, wanted name of the form 'qualified.name'", qn)
 			}
-			alias = qn[ind+1:]
+			alias := qn[ind+1:]
 			var err error
 			c, err = aliasAs("abbreviation", qn, alias)(c)
 			if err != nil {
