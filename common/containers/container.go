@@ -204,12 +204,12 @@ type ContainerOption func(*Container) (*Container, error)
 //   qualified names at either type-check time or program plan time, whichever comes first.
 // - Abbreviations must resolve to a fully-qualified name.
 // - Resolved abbreviations do not participate in namespace resolution.
-// - Abbreviation resolution happens after the container path has been searched for matching
-//   identifiers, including the global scope.
+// - Abbreviation resolution happens before the container path has been searched for matching
+//   identifiers.
 //
 // If there is ever a case where an identifier could be in both the container and in the alias,
-// the container wins as the container will continue to evolve over time and the program must be
-// forward compatible with changes in the container.
+// the alias wins as this will ensure that the meaning of a program is preserved between
+// compilations even as the container evolves.
 func Abbrevs(qualifiedNames ...string) ContainerOption {
 	return func(c *Container) (*Container, error) {
 		for _, qn := range qualifiedNames {

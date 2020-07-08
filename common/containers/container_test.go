@@ -68,8 +68,10 @@ func TestContainers_Abbrevs(t *testing.T) {
 	}
 	names := abbr.ResolveCandidateNames("R")
 	want := []string{
-		"R",
 		"my.alias.R",
+	}
+	if !reflect.DeepEqual(names, want) {
+		t.Errorf("got %v, wanted %v", names, want)
 	}
 	c, err := NewContainer(Name("a.b.c"), Abbrevs("my.alias.R"))
 	if err != nil {
