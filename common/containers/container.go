@@ -105,25 +105,31 @@ func (c *Container) Name() string {
 //     a.R.s
 //     R.s
 //
-// If aliases or abbreviations are configured for the container, then alias names appear after
-// the potential set of container-based names.
+// If aliases or abbreviations are configured for the container, then alias names will take
+// precedence over containerized names.
 func (c *Container) ResolveCandidateNames(name string) []string {
 	if strings.HasPrefix(name, ".") {
 		qn := name[1:]
-		return c.candidatesWithAlias([]string{qn}, qn)
+		alias, isAlias := c.findAlias(qn)
+		if isAlias {
+			return []string{alias}
+		}
+		return []string{qn}
+	}
+	alias, isAlias := c.findAlias(name)
+	if isAlias {
+		return []string{alias}
 	}
 	if c.Name() == "" {
-		return c.candidatesWithAlias([]string{name}, name)
+		return []string{name}
 	}
-
 	nextCont := c.Name()
 	candidates := []string{nextCont + "." + name}
 	for i := strings.LastIndex(nextCont, "."); i >= 0; i = strings.LastIndex(nextCont, ".") {
 		nextCont = nextCont[:i]
 		candidates = append(candidates, nextCont+"."+name)
 	}
-	candidates = append(candidates, name)
-	return c.candidatesWithAlias(candidates, name)
+	return append(candidates, name)
 }
 
 // aliasSet returns the alias to fully-qualified name mapping stored in the container.
@@ -134,15 +140,31 @@ func (c *Container) aliasSet() map[string]string {
 	return c.aliases
 }
 
-// candidatesWithAlias returns the resolved candidates from the container with any applicable
-// alias appended on the end of the list.
-func (c *Container) candidatesWithAlias(candidates []string, name string) []string {
+// findAlias takes a name as input and returns an aliased name if one exists.
+//
+// If the name is qualified, the first component of the qualified name is checked against known
+// aliases. Any alias that is found in a qualified name is expanded in the result:
+//
+//     alias: R -> my.alias.R
+//     name: R.S.T
+//     output: my.alias.R.S.T
+func (c *Container) findAlias(name string) (string, bool) {
 	// If an alias exists for the name, ensure it is searched last.
-	alias, found := c.aliasSet()[name]
-	if found {
-		return append(candidates, alias)
+	simple := name
+	qualifier := ""
+	dot := strings.Index(name, ".")
+	if dot >= 0 {
+		simple = name[0:dot]
+		qualifier = name[dot:]
 	}
-	return candidates
+	alias, found := c.aliasSet()[simple]
+	if found {
+		if qualifier != "" {
+			alias = alias + qualifier
+		}
+		return alias, true
+	}
+	return "", false
 }
 
 // ContainerOption specifies a functional configuration option for a Container.

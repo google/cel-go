@@ -77,11 +77,14 @@ func TestContainers_Abbrevs(t *testing.T) {
 	}
 	names = c.ResolveCandidateNames("R")
 	want = []string{
-		"a.b.c.R",
-		"a.b.R",
-		"a.R",
-		"R",
 		"my.alias.R",
+	}
+	if !reflect.DeepEqual(names, want) {
+		t.Errorf("got %v, wanted %v", names, want)
+	}
+	names = c.ResolveCandidateNames("R.S.T")
+	want = []string{
+		"my.alias.R.S.T",
 	}
 	if !reflect.DeepEqual(names, want) {
 		t.Errorf("got %v, wanted %v", names, want)

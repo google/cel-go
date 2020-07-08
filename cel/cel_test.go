@@ -195,13 +195,13 @@ func Test_Abbrevs_Compiled(t *testing.T) {
 	env, err := NewEnv(
 		Abbrevs("qualified.identifier.name"),
 		Declarations(
-			decls.NewVar("qualified.identifier.name", decls.String),
+			decls.NewVar("qualified.identifier.name.first", decls.String),
 		),
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	ast, iss := env.Compile(`"hello "+ name`) // abbreviation resolved here.
+	ast, iss := env.Compile(`"hello "+ name.first`) // abbreviation resolved here.
 	if iss.Err() != nil {
 		t.Fatal(iss.Err())
 	}
@@ -211,7 +211,7 @@ func Test_Abbrevs_Compiled(t *testing.T) {
 	}
 	out, _, err := prg.Eval(
 		map[string]interface{}{
-			"qualified.identifier.name": "Jim",
+			"qualified.identifier.name.first": "Jim",
 		},
 	)
 	if err != nil {
@@ -230,7 +230,7 @@ func Test_Abbrevs_Parsed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ast, iss := env.Parse(`"hello "+ name`)
+	ast, iss := env.Parse(`"hello " + name.first`)
 	if iss.Err() != nil {
 		t.Fatal(iss.Err())
 	}
@@ -240,7 +240,9 @@ func Test_Abbrevs_Parsed(t *testing.T) {
 	}
 	out, _, err := prg.Eval(
 		map[string]interface{}{
-			"qualified.identifier.name": "Jim",
+			"qualified.identifier.name": map[string]string{
+				"first": "Jim",
+			},
 		},
 	)
 	if err != nil {
@@ -265,9 +267,9 @@ func Test_Abbrevs_Disambiguation(t *testing.T) {
 		t.Fatal(err)
 	}
 	// This expression will return either a string or a protobuf Expr value depending on the value
-	// of the 'test' argument. Here the '.' is used to indicate that the abbreviated Expr should be
-	// used rather than the protobuf type Expr in the container `google.api.expr.v1alpha1`.
-	ast, iss := env.Compile(`test ? dyn(.Expr) : Expr{id: 1}`)
+	// of the 'test' argument. The fully qualified type name is used indicate that the protobuf
+	// typed 'Expr' should be used rather than the abbreviatation for 'external.Expr'.
+	ast, iss := env.Compile(`test ? dyn(Expr) : google.api.expr.v1alpha1.Expr{id: 1}`)
 	if iss.Err() != nil {
 		t.Fatal(iss.Err())
 	}

@@ -156,26 +156,25 @@ func Container(name string) EnvOption {
 //    // Simplified Object construction
 //    ObjTypeName{field: FieldTypeName{value: ...}}
 //
-// There are a few rules for the qualified names and the simple name abbreviations generated from
-// them:
+// There are a few rules for the qualified names and the simple abbreviations generated from them:
 // - Qualified names must be dot-delimited, e.g. `package.subpkg.name`.
-// - The last element in the qualified name is the simple name used as an abbreviation.
-// - Abbreviations must not collide with each other.
-// - The abbreviation must not collide with the first component of a qualified container name.
+// - The last element in the qualified name is the simple name used as the abbreviation.
+// - Abbreviations names must not collide with each other.
+// - The abbreviation must not collide with unqualified names in use.
 //
-// Abbreviations are distinct from container-based references in the following important ways:
+// Abbrevs are distinct from container-based references in the following important ways:
 // - Containers follow C++ namespace resolution rules with searches from the most qualified name
 //   to the least qualified name.
 // - Container references within the CEL program may be relative, and are resolved to fully
 //   qualified names at either type-check time or program plan time, whichever comes first.
-// - Abbreviaations must resolve to a fully-qualified name.
+// - Abbreviations must resolve to a fully-qualified name.
 // - Resolved abbreviations do not participate in namespace resolution.
-// - Resolved abbreviations are searched after container names, including container names in the
-//   global scope.
+// - Abbreviation resolution happens before the container path has been searched for matching
+//   identifiers.
 //
-// If there is ever a case where an identifier could be in both the container and in the
-// abbreviation, the container wins as the container will continue to evolve over time and the
-// program must be forward compatible with changes in the container.
+// If there is ever a case where an identifier could be in both the container and in the alias,
+// the alias wins as this will ensure that the meaning of a program is preserved between
+// compilations even as the container evolves.
 func Abbrevs(qualifiedNames ...string) EnvOption {
 	return func(e *Env) (*Env, error) {
 		cont, err := e.Container.Extend(containers.Abbrevs(qualifiedNames...))
