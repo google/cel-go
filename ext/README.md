@@ -21,7 +21,6 @@ Examples:
     'hello'.charAt(5)  // return ''
     'hello'.charAt(-1) // error
 
-
 ### IndexOf
 
 Returns the integer index of the first occurrence of the search string. If the
@@ -64,9 +63,23 @@ Examples:
     'hello mellow'.lastIndexOf('ello', 6)  // returns 1
     'hello mellow'.lastIndexOf('ello', -1) // error
 
+### LowerAscii
+
+Returns a new string where all ASCII characters are lower-cased.
+
+This function does not perform Unicode case-mapping for characters outside the
+ASCII range.
+
+     <string>.lowerAscii() -> <string>
+
+Examples:
+
+     'TacoCat'.lowerAscii()      // returns 'tacocat'
+     'TacoCÆt Xii'.lowerAscii()  // returns 'tacocÆt xii'
+
 ### Replace
 
-Produces a new string based on the target, which replaces the occurrences of a
+Returns a new string based on the target, which replaces the occurrences of a
 search string with a replacement string if present. The function accepts an
 optional limit on the number of substring replacements to be made.
 
@@ -85,7 +98,7 @@ Examples:
 
 ### Split
 
-Produces a list of strings split from the input by the given separator. The
+Returns a list of strings split from the input by the given separator. The
 function accepts an optional argument specifying a limit on the number of
 substrings produced by the split.
 
@@ -137,3 +150,17 @@ https://en.wikipedia.org/wiki/Whitespace_character#Unicode
 Examples:
 
     '  \ttrim\n    '.trim() // returns 'trim'
+
+### UpperAscii
+
+Returns a new string where all ASCII characters are upper-cased.
+
+This function does not perform Unicode case-mapping for characters outside the
+ASCII range.
+
+    <string>.upperAscii() -> <string>
+
+Examples:
+
+     'TacoCat'.upperAscii()      // returns 'TACOCAT'
+     'TacoCÆt Xii'.upperAscii()  // returns 'TACOCÆT XII'

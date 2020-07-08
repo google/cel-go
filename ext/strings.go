@@ -20,6 +20,7 @@ package ext
 import (
 	"fmt"
 	"strings"
+	"unicode"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/checker/decls"
@@ -86,9 +87,22 @@ import (
 //     'hello mellow'.lastIndexOf('ello', 6)  // returns 1
 //     'hello mellow'.lastIndexOf('ello', -1) // error
 //
+// LowerAscii
+//
+// Returns a new string where all ASCII characters are lower-cased.
+//
+// This function does not perform Unicode case-mapping for characters outside the ASCII range.
+//
+//     <string>.lowerAscii() -> <string>
+//
+// Examples:
+//
+//     'TacoCat'.lowerAscii()      // returns 'tacocat'
+//     'TacoCÆt Xii'.lowerAscii()  // returns 'tacocÆt xii'
+//
 // Replace
 //
-// Produces a new string based on the target, which replaces the occurrences of a search string
+// Returns a new string based on the target, which replaces the occurrences of a search string
 // with a replacement string if present. The function accepts an optional limit on the number of
 // substring replacements to be made.
 //
@@ -107,7 +121,7 @@ import (
 //
 // Split
 //
-// Produces a list of strings split from the input by the given separator. The function accepts
+// Returns a list of strings split from the input by the given separator. The function accepts
 // an optional argument specifying a limit on the number of substrings produced by the split.
 //
 // When the split limit is 0, the result is an empty list. When the limit is 1, the result is the
@@ -156,6 +170,19 @@ import (
 // Examples:
 //
 //     '  \ttrim\n    '.trim() // returns 'trim'
+//
+// UpperAscii
+//
+// Returns a new string where all ASCII characters are upper-cased.
+//
+// This function does not perform Unicode case-mapping for characters outside the ASCII range.
+//
+//    <string>.upperAscii() -> <string>
+//
+// Examples:
+//
+//     'TacoCat'.upperAscii()      // returns 'TACOCAT'
+//     'TacoCÆt Xii'.upperAscii()  // returns 'TACOCÆT XII'
 func Strings() cel.EnvOption {
 	return cel.Lib(stringLib{})
 }
@@ -183,6 +210,10 @@ func (stringLib) CompileOptions() []cel.EnvOption {
 				decls.NewInstanceOverload("string_last_index_of_string_int",
 					[]*exprpb.Type{decls.String, decls.String, decls.Int},
 					decls.Int)),
+			decls.NewFunction("lowerAscii",
+				decls.NewInstanceOverload("string_lower_ascii",
+					[]*exprpb.Type{decls.String},
+					decls.String)),
 			decls.NewFunction("replace",
 				decls.NewInstanceOverload("string_replace_string_string",
 					[]*exprpb.Type{decls.String, decls.String, decls.String},
@@ -206,6 +237,10 @@ func (stringLib) CompileOptions() []cel.EnvOption {
 					decls.String)),
 			decls.NewFunction("trim",
 				decls.NewInstanceOverload("string_trim",
+					[]*exprpb.Type{decls.String},
+					decls.String)),
+			decls.NewFunction("upperAscii",
+				decls.NewInstanceOverload("string_upper_ascii",
 					[]*exprpb.Type{decls.String},
 					decls.String)),
 		),
@@ -250,6 +285,14 @@ func (stringLib) ProgramOptions() []cel.ProgramOption {
 			&functions.Overload{
 				Operator: "string_last_index_of_string_int",
 				Function: callInStrStrIntOutInt(lastIndexOfOffset),
+			},
+			&functions.Overload{
+				Operator: "lowerAscii",
+				Unary:    callInStrOutStr(lowerASCII),
+			},
+			&functions.Overload{
+				Operator: "string_lower_ascii",
+				Unary:    callInStrOutStr(lowerASCII),
 			},
 			&functions.Overload{
 				Operator: "replace",
@@ -304,6 +347,14 @@ func (stringLib) ProgramOptions() []cel.ProgramOption {
 			&functions.Overload{
 				Operator: "string_trim",
 				Unary:    callInStrOutStr(strings.TrimSpace),
+			},
+			&functions.Overload{
+				Operator: "upperAscii",
+				Unary:    callInStrOutStr(upperASCII),
+			},
+			&functions.Overload{
+				Operator: "string_upper_ascii",
+				Unary:    callInStrOutStr(upperASCII),
 			},
 		),
 	}
@@ -386,6 +437,17 @@ func lastIndexOfOffset(str, substr string, offset int64) (int64, error) {
 	return -1, nil
 }
 
+func lowerASCII(str string) string {
+	runes := []rune(str)
+	for i, r := range runes {
+		if r <= unicode.MaxASCII {
+			r = unicode.ToLower(r)
+			runes[i] = r
+		}
+	}
+	return string(runes)
+}
+
 func replace(str, old, new string) (string, error) {
 	return strings.ReplaceAll(str, old, new), nil
 }
@@ -423,6 +485,17 @@ func substrRange(str string, start, end int64) (string, error) {
 		return "", fmt.Errorf("index out of range: %d", end)
 	}
 	return string(runes[int(start):int(end)]), nil
+}
+
+func upperASCII(str string) string {
+	runes := []rune(str)
+	for i, r := range runes {
+		if r <= unicode.MaxASCII {
+			r = unicode.ToUpper(r)
+			runes[i] = r
+		}
+	}
+	return string(runes)
 }
 
 func callInStrOutStr(fn func(string) string) functions.UnaryOp {

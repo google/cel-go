@@ -61,6 +61,10 @@ var stringTests = []struct {
 	{expr: `'hello wello'.lastIndexOf('elbo room!!!') == -1`},
 	{expr: `'hello wello'.lastIndexOf('hello wello') == 0`},
 	{expr: `'bananananana'.lastIndexOf('nana', 7) == 6`},
+	// Lower ASCII tests.
+	{expr: `'TacoCat'.lowerAscii() == 'tacocat'`},
+	{expr: `'TacoCÆt'.lowerAscii() == 'tacocÆt'`},
+	{expr: `'TacoCÆt Xii'.lowerAscii() == 'tacocÆt xii'`},
 	// Replace tests
 	{expr: `"12 days 12 hours".replace("{0}", "2") == "12 days 12 hours"`},
 	{expr: `"{0} days {0} hours".replace("{0}", "2") == "2 days 2 hours"`},
@@ -86,6 +90,9 @@ var stringTests = []struct {
 	// Trim test with whitespace-like characters not included.
 	{expr: `"\u180etext\u200b\u200c\u200d\u2060\ufeff".trim()
 				== "\u180etext\u200b\u200c\u200d\u2060\ufeff"`},
+	// Upper ASCII tests.
+	{expr: `'tacoCat'.upperAscii() == 'TACOCAT'`},
+	{expr: `'tacoCαt'.upperAscii() == 'TACOCαT'`},
 	// Error test cases based on checked expression usage.
 	{
 		expr: `'tacocat'.charAt(30) == ''`,
