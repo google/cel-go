@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"reflect"
 	"sync"
 	"testing"
 
@@ -186,6 +187,121 @@ func Test_ExampleWithBuiltins(t *testing.T) {
 	// Hello world! I'm CEL.
 	if out.Equal(types.String("Hello world! I'm CEL.")) != types.True {
 		t.Errorf(`got '%v', wanted "Hello world! I'm CEL."`, out.Value())
+	}
+}
+
+func Test_Abbrevs_Compiled(t *testing.T) {
+	// Test whether abbreviations successfully resolve at type-check time (compile time).
+	env, err := NewEnv(
+		Abbrevs("qualified.identifier.name"),
+		Declarations(
+			decls.NewVar("qualified.identifier.name.first", decls.String),
+		),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ast, iss := env.Compile(`"hello "+ name.first`) // abbreviation resolved here.
+	if iss.Err() != nil {
+		t.Fatal(iss.Err())
+	}
+	prg, err := env.Program(ast)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, _, err := prg.Eval(
+		map[string]interface{}{
+			"qualified.identifier.name.first": "Jim",
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Value() != "hello Jim" {
+		t.Errorf("got %v, wanted 'hello Jim'", out)
+	}
+}
+
+func Test_Abbrevs_Parsed(t *testing.T) {
+	// Test whether abbreviations are resolved properly at evaluation time.
+	env, err := NewEnv(
+		Abbrevs("qualified.identifier.name"),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ast, iss := env.Parse(`"hello " + name.first`)
+	if iss.Err() != nil {
+		t.Fatal(iss.Err())
+	}
+	prg, err := env.Program(ast) // abbreviation resolved here.
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, _, err := prg.Eval(
+		map[string]interface{}{
+			"qualified.identifier.name": map[string]string{
+				"first": "Jim",
+			},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Value() != "hello Jim" {
+		t.Errorf("got %v, wanted 'hello Jim'", out)
+	}
+}
+
+func Test_Abbrevs_Disambiguation(t *testing.T) {
+	env, err := NewEnv(
+		Abbrevs("external.Expr"),
+		Container("google.api.expr.v1alpha1"),
+		Types(&exprpb.Expr{}),
+		Declarations(
+			decls.NewVar("test", decls.Bool),
+			decls.NewVar("external.Expr", decls.String),
+		),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// This expression will return either a string or a protobuf Expr value depending on the value
+	// of the 'test' argument. The fully qualified type name is used indicate that the protobuf
+	// typed 'Expr' should be used rather than the abbreviatation for 'external.Expr'.
+	ast, iss := env.Compile(`test ? dyn(Expr) : google.api.expr.v1alpha1.Expr{id: 1}`)
+	if iss.Err() != nil {
+		t.Fatal(iss.Err())
+	}
+	prg, err := env.Program(ast)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, _, err := prg.Eval(
+		map[string]interface{}{
+			"test":          true,
+			"external.Expr": "string expr",
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Value() != "string expr" {
+		t.Errorf("got %v, wanted 'string expr'", out)
+	}
+	out, _, err = prg.Eval(
+		map[string]interface{}{
+			"test":          false,
+			"external.Expr": "wrong expr",
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := &exprpb.Expr{Id: 1}
+	got, _ := out.ConvertToNative(reflect.TypeOf(want))
+	if !proto.Equal(got.(*exprpb.Expr), want) {
+		t.Errorf("got %v, wanted '%v'", out, want)
 	}
 }
 

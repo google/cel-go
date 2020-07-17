@@ -19,7 +19,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/google/cel-go/common/packages"
+	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/types"
 )
 
@@ -190,11 +190,15 @@ func TestAttributePattern_UnknownResolution(t *testing.T) {
 			for i, match := range tst.matches {
 				m := match
 				tt.Run(fmt.Sprintf("match[%d]", i), func(ttt *testing.T) {
-					pkg := packages.DefaultPackage
+					var err error
+					cont := containers.DefaultContainer
 					if m.unchecked {
-						pkg = packages.NewPackage(m.container)
+						cont, err = containers.NewContainer(containers.Name(m.container))
+						if err != nil {
+							ttt.Fatal(err)
+						}
 					}
-					fac := NewPartialAttributeFactory(pkg, reg, reg)
+					fac := NewPartialAttributeFactory(cont, reg, reg)
 					attr := genAttr(fac, m)
 					partVars, _ := NewPartialActivation(EmptyActivation(), tst.pattern)
 					val, err := attr.Resolve(partVars)
@@ -210,11 +214,15 @@ func TestAttributePattern_UnknownResolution(t *testing.T) {
 			for i, miss := range tst.misses {
 				m := miss
 				tt.Run(fmt.Sprintf("miss[%d]", i), func(ttt *testing.T) {
-					pkg := packages.DefaultPackage
+					cont := containers.DefaultContainer
 					if m.unchecked {
-						pkg = packages.NewPackage(m.container)
+						var err error
+						cont, err = containers.NewContainer(containers.Name(m.container))
+						if err != nil {
+							ttt.Fatal(err)
+						}
 					}
-					fac := NewPartialAttributeFactory(pkg, reg, reg)
+					fac := NewPartialAttributeFactory(cont, reg, reg)
 					attr := genAttr(fac, m)
 					partVars, _ := NewPartialActivation(EmptyActivation(), tst.pattern)
 					val, err := attr.Resolve(partVars)
@@ -229,7 +237,7 @@ func TestAttributePattern_UnknownResolution(t *testing.T) {
 
 func TestAttributePattern_CrossReference(t *testing.T) {
 	reg := types.NewRegistry()
-	fac := NewPartialAttributeFactory(packages.DefaultPackage, reg, reg)
+	fac := NewPartialAttributeFactory(containers.DefaultContainer, reg, reg)
 	a := fac.AbsoluteAttribute(1, "a")
 	b := fac.AbsoluteAttribute(2, "b")
 	a.AddQualifier(b)

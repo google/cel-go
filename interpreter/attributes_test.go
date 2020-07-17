@@ -19,7 +19,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 
-	"github.com/google/cel-go/common/packages"
+	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/types"
 
 	proto3pb "github.com/google/cel-go/test/proto3pb"
@@ -29,8 +29,11 @@ import (
 
 func TestAttributes_AbsoluteAttr(t *testing.T) {
 	reg := types.NewRegistry()
-	pkg := packages.NewPackage("acme.ns")
-	attrs := NewAttributeFactory(pkg, reg, reg)
+	cont, err := containers.NewContainer(containers.Name("acme.ns"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	attrs := NewAttributeFactory(cont, reg, reg)
 	vars, _ := NewActivation(map[string]interface{}{
 		"acme.a": map[string]interface{}{
 			"b": map[uint]interface{}{
@@ -64,7 +67,7 @@ func TestAttributes_AbsoluteAttr(t *testing.T) {
 
 func TestAttributes_AbsoluteAttr_Type(t *testing.T) {
 	reg := types.NewRegistry()
-	attrs := NewAttributeFactory(packages.DefaultPackage, reg, reg)
+	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
 
 	// int
 	attr := attrs.AbsoluteAttribute(1, "int")
@@ -83,7 +86,7 @@ func TestAttributes_AbsoluteAttr_Type(t *testing.T) {
 
 func TestAttributes_RelativeAttr(t *testing.T) {
 	reg := types.NewRegistry()
-	attrs := NewAttributeFactory(packages.DefaultPackage, reg, reg)
+	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
 	data := map[string]interface{}{
 		"a": map[int]interface{}{
 			-1: []int32{2, 42},
@@ -121,8 +124,11 @@ func TestAttributes_RelativeAttr(t *testing.T) {
 
 func TestAttributes_RelativeAttr_OneOf(t *testing.T) {
 	reg := types.NewRegistry()
-	pkg := packages.NewPackage("acme.ns")
-	attrs := NewAttributeFactory(pkg, reg, reg)
+	cont, err := containers.NewContainer(containers.Name("acme.ns"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	attrs := NewAttributeFactory(cont, reg, reg)
 	data := map[string]interface{}{
 		"a": map[int]interface{}{
 			-1: []int32{2, 42},
@@ -167,7 +173,7 @@ func TestAttributes_RelativeAttr_OneOf(t *testing.T) {
 
 func TestAttributes_RelativeAttr_Conditional(t *testing.T) {
 	reg := types.NewRegistry()
-	attrs := NewAttributeFactory(packages.DefaultPackage, reg, reg)
+	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
 	data := map[string]interface{}{
 		"a": map[int]interface{}{
 			-1: []int32{2, 42},
@@ -216,9 +222,12 @@ func TestAttributes_RelativeAttr_Conditional(t *testing.T) {
 }
 
 func TestAttributes_RelativeAttr_Relative(t *testing.T) {
-	pkg := packages.NewPackage("acme.ns")
+	cont, err := containers.NewContainer(containers.Name("acme.ns"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	reg := types.NewRegistry()
-	attrs := NewAttributeFactory(pkg, reg, reg)
+	attrs := NewAttributeFactory(cont, reg, reg)
 	data := map[string]interface{}{
 		"a": map[int]interface{}{
 			-1: map[string]interface{}{
@@ -288,8 +297,11 @@ func TestAttributes_RelativeAttr_Relative(t *testing.T) {
 
 func TestAttributes_OneofAttr(t *testing.T) {
 	reg := types.NewRegistry()
-	pkg := packages.NewPackage("acme.ns")
-	attrs := NewAttributeFactory(pkg, reg, reg)
+	cont, err := containers.NewContainer(containers.Name("acme.ns"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	attrs := NewAttributeFactory(cont, reg, reg)
 	data := map[string]interface{}{
 		"a": map[string]interface{}{
 			"b": []int32{2, 42},
@@ -318,7 +330,7 @@ func TestAttributes_OneofAttr(t *testing.T) {
 
 func TestAttributes_ConditionalAttr_TrueBranch(t *testing.T) {
 	reg := types.NewRegistry()
-	attrs := NewAttributeFactory(packages.DefaultPackage, reg, reg)
+	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
 	data := map[string]interface{}{
 		"a": map[int]interface{}{
 			-1: []int32{2, 42},
@@ -356,7 +368,7 @@ func TestAttributes_ConditionalAttr_TrueBranch(t *testing.T) {
 
 func TestAttributes_ConditionalAttr_FalseBranch(t *testing.T) {
 	reg := types.NewRegistry()
-	attrs := NewAttributeFactory(packages.DefaultPackage, reg, reg)
+	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
 	data := map[string]interface{}{
 		"a": map[int]interface{}{
 			-1: []int32{2, 42},
@@ -394,7 +406,7 @@ func TestAttributes_ConditionalAttr_FalseBranch(t *testing.T) {
 
 func TestAttributes_ConditionalAttr_ErrorUnknown(t *testing.T) {
 	reg := types.NewRegistry()
-	attrs := NewAttributeFactory(packages.DefaultPackage, reg, reg)
+	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
 
 	// err ? a : b
 	tv := attrs.AbsoluteAttribute(2, "a")
@@ -428,7 +440,7 @@ func TestAttributes_ConditionalAttr_ErrorUnknown(t *testing.T) {
 func TestResolver_CustomQualifier(t *testing.T) {
 	reg := types.NewRegistry()
 	attrs := &custAttrFactory{
-		AttributeFactory: NewAttributeFactory(packages.DefaultPackage, reg, reg),
+		AttributeFactory: NewAttributeFactory(containers.DefaultContainer, reg, reg),
 	}
 	msg := &proto3pb.TestAllTypes_NestedMessage{
 		Bb: 123,
@@ -458,7 +470,7 @@ func TestResolver_CustomQualifier(t *testing.T) {
 
 func TestAttributes_MissingMsg(t *testing.T) {
 	reg := types.NewRegistry()
-	attrs := NewAttributeFactory(packages.DefaultPackage, reg, reg)
+	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
 	any, _ := ptypes.MarshalAny(&proto3pb.TestAllTypes{})
 	vars, _ := NewActivation(map[string]interface{}{
 		"missing_msg": any,
@@ -479,7 +491,7 @@ func TestAttributes_MissingMsg(t *testing.T) {
 
 func TestAttributes_MissingMsg_UnknownField(t *testing.T) {
 	reg := types.NewRegistry()
-	attrs := NewPartialAttributeFactory(packages.DefaultPackage, reg, reg)
+	attrs := NewPartialAttributeFactory(containers.DefaultContainer, reg, reg)
 	any, _ := ptypes.MarshalAny(&proto3pb.TestAllTypes{})
 	vars, _ := NewPartialActivation(map[string]interface{}{
 		"missing_msg": any,
@@ -502,7 +514,7 @@ func TestAttributes_MissingMsg_UnknownField(t *testing.T) {
 func BenchmarkResolver_CustomQualifier(b *testing.B) {
 	reg := types.NewRegistry()
 	attrs := &custAttrFactory{
-		AttributeFactory: NewAttributeFactory(packages.DefaultPackage, reg, reg),
+		AttributeFactory: NewAttributeFactory(containers.DefaultContainer, reg, reg),
 	}
 	msg := &proto3pb.TestAllTypes_NestedMessage{
 		Bb: 123,

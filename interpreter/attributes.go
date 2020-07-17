@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/google/cel-go/common/packages"
+	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
@@ -121,20 +121,20 @@ type NamespacedAttribute interface {
 // NewAttributeFactory returns a default AttributeFactory which is produces Attribute values
 // capable of resolving types by simple names and qualify the values using the supported qualifier
 // types: bool, int, string, and uint.
-func NewAttributeFactory(pkg packages.Packager,
+func NewAttributeFactory(cont *containers.Container,
 	a ref.TypeAdapter,
 	p ref.TypeProvider) AttributeFactory {
 	return &attrFactory{
-		pkg:      pkg,
-		adapter:  a,
-		provider: p,
+		container: cont,
+		adapter:   a,
+		provider:  p,
 	}
 }
 
 type attrFactory struct {
-	pkg      packages.Packager
-	adapter  ref.TypeAdapter
-	provider ref.TypeProvider
+	container *containers.Container
+	adapter   ref.TypeAdapter
+	provider  ref.TypeProvider
 }
 
 // AbsoluteAttribute refers to a variable value and an optional qualifier path.
@@ -171,7 +171,7 @@ func (r *attrFactory) MaybeAttribute(id int64, name string) Attribute {
 	return &maybeAttribute{
 		id: id,
 		attrs: []NamespacedAttribute{
-			r.AbsoluteAttribute(id, r.pkg.ResolveCandidateNames(name)...),
+			r.AbsoluteAttribute(id, r.container.ResolveCandidateNames(name)...),
 		},
 		adapter:  r.adapter,
 		provider: r.provider,

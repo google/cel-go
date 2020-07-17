@@ -19,7 +19,7 @@ import (
 
 	"github.com/google/cel-go/common/debug"
 	"github.com/google/cel-go/common/operators"
-	"github.com/google/cel-go/common/packages"
+	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/test"
 
@@ -127,8 +127,8 @@ func TestPrune(t *testing.T) {
 		pExpr := &exprpb.ParsedExpr{Expr: tst.E}
 		state := NewEvalState()
 		reg := types.NewRegistry()
-		attrs := NewPartialAttributeFactory(packages.DefaultPackage, reg, reg)
-		interp := NewStandardInterpreter(packages.DefaultPackage, reg, reg, attrs)
+		attrs := NewPartialAttributeFactory(containers.DefaultContainer, reg, reg)
+		interp := NewStandardInterpreter(containers.DefaultContainer, reg, reg, attrs)
 		interpretable, _ := interp.NewUncheckedInterpretable(
 			pExpr.Expr,
 			ExhaustiveEval(state))

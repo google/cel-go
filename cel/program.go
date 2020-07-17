@@ -140,12 +140,12 @@ func newProgram(e *Env, ast *Ast, opts []ProgramOption) (Program, error) {
 
 	// Set the attribute factory after the options have been set.
 	if p.evalOpts&OptPartialEval == OptPartialEval {
-		p.attrFactory = interpreter.NewPartialAttributeFactory(e.pkg, e.adapter, e.provider)
+		p.attrFactory = interpreter.NewPartialAttributeFactory(e.Container, e.adapter, e.provider)
 	} else {
-		p.attrFactory = interpreter.NewAttributeFactory(e.pkg, e.adapter, e.provider)
+		p.attrFactory = interpreter.NewAttributeFactory(e.Container, e.adapter, e.provider)
 	}
 
-	interp := interpreter.NewInterpreter(disp, e.pkg, e.provider, e.adapter, p.attrFactory)
+	interp := interpreter.NewInterpreter(disp, e.Container, e.provider, e.adapter, p.attrFactory)
 	p.interpreter = interp
 
 	// Translate the EvalOption flags into InterpretableDecorator instances.

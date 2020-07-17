@@ -18,8 +18,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/operators"
-	"github.com/google/cel-go/common/packages"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter/functions"
@@ -34,14 +34,14 @@ type interpretablePlanner interface {
 }
 
 // newPlanner creates an interpretablePlanner which references a Dispatcher, TypeProvider,
-// TypeAdapter, Packager, and CheckedExpr value. These pieces of data are used to resolve
+// TypeAdapter, Container, and CheckedExpr value. These pieces of data are used to resolve
 // functions, types, and namespaced identifiers at plan time rather than at runtime since
 // it only needs to be done once and may be semi-expensive to compute.
 func newPlanner(disp Dispatcher,
 	provider ref.TypeProvider,
 	adapter ref.TypeAdapter,
 	attrFactory AttributeFactory,
-	pkg packages.Packager,
+	cont *containers.Container,
 	checked *exprpb.CheckedExpr,
 	decorators ...InterpretableDecorator) interpretablePlanner {
 	return &planner{
@@ -49,7 +49,7 @@ func newPlanner(disp Dispatcher,
 		provider:    provider,
 		adapter:     adapter,
 		attrFactory: attrFactory,
-		pkg:         pkg,
+		container:   cont,
 		refMap:      checked.GetReferenceMap(),
 		typeMap:     checked.GetTypeMap(),
 		decorators:  decorators,
@@ -57,20 +57,20 @@ func newPlanner(disp Dispatcher,
 }
 
 // newUncheckedPlanner creates an interpretablePlanner which references a Dispatcher, TypeProvider,
-// TypeAdapter, and Packager to resolve functions and types at plan time. Namespaces present in
+// TypeAdapter, and Container to resolve functions and types at plan time. Namespaces present in
 // Select expressions are resolved lazily at evaluation time.
 func newUncheckedPlanner(disp Dispatcher,
 	provider ref.TypeProvider,
 	adapter ref.TypeAdapter,
 	attrFactory AttributeFactory,
-	pkg packages.Packager,
+	cont *containers.Container,
 	decorators ...InterpretableDecorator) interpretablePlanner {
 	return &planner{
 		disp:        disp,
 		provider:    provider,
 		adapter:     adapter,
 		attrFactory: attrFactory,
-		pkg:         pkg,
+		container:   cont,
 		refMap:      make(map[int64]*exprpb.Reference),
 		typeMap:     make(map[int64]*exprpb.Type),
 		decorators:  decorators,
@@ -83,7 +83,7 @@ type planner struct {
 	provider    ref.TypeProvider
 	adapter     ref.TypeAdapter
 	attrFactory AttributeFactory
-	pkg         packages.Packager
+	container   *containers.Container
 	refMap      map[int64]*exprpb.Reference
 	typeMap     map[int64]*exprpb.Type
 	decorators  []InterpretableDecorator
@@ -647,7 +647,7 @@ func (p *planner) constValue(c *exprpb.Constant) (ref.Val, error) {
 // resolveTypeName takes a qualified string constructed at parse time, applies the proto
 // namespace resolution rules to it in a scan over possible matching types in the TypeProvider.
 func (p *planner) resolveTypeName(typeName string) (string, bool) {
-	for _, qualifiedTypeName := range p.pkg.ResolveCandidateNames(typeName) {
+	for _, qualifiedTypeName := range p.container.ResolveCandidateNames(typeName) {
 		if _, found := p.provider.FindType(qualifiedTypeName); found {
 			return qualifiedTypeName, true
 		}
@@ -690,7 +690,7 @@ func (p *planner) resolveFunction(expr *exprpb.Expr) (*exprpb.Expr, string, stri
 	if target == nil {
 		// If the user has a parse-only expression, then it should have been configured as such in
 		// the interpreter dispatcher as it may have been omitted from the checker environment.
-		for _, qualifiedName := range p.pkg.ResolveCandidateNames(fnName) {
+		for _, qualifiedName := range p.container.ResolveCandidateNames(fnName) {
 			_, found := p.disp.FindOverload(qualifiedName)
 			if found {
 				return nil, qualifiedName, ""
@@ -708,7 +708,7 @@ func (p *planner) resolveFunction(expr *exprpb.Expr) (*exprpb.Expr, string, stri
 	qualifiedPrefix, maybeQualified := p.toQualifiedName(target)
 	if maybeQualified {
 		maybeQualifiedName := qualifiedPrefix + "." + fnName
-		for _, qualifiedName := range p.pkg.ResolveCandidateNames(maybeQualifiedName) {
+		for _, qualifiedName := range p.container.ResolveCandidateNames(maybeQualifiedName) {
 			_, found := p.disp.FindOverload(qualifiedName)
 			if found {
 				// Clear the target to ensure the proper arity is used for finding the
@@ -733,7 +733,7 @@ func (p *planner) toQualifiedName(operand *exprpb.Expr) (string, bool) {
 	}
 	// Since functions cannot be both namespaced and receiver functions, if the operand is not an
 	// qualified variable name, return the (possibly) qualified name given the expressions.
-	return packages.ToQualifiedName(operand)
+	return containers.ToQualifiedName(operand)
 }
 
 func stripLeadingDot(name string) string {
