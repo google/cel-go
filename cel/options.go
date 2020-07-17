@@ -139,17 +139,18 @@ func Container(name string) EnvOption {
 
 // Abbrevs configures a set of simple names as abbreviations for fully-qualified names.
 //
-// An abbreviation (abbrev for short) can be useful when working with variables, functions, and
-// especially types from multiple namespaces:
+// An abbreviation (abbrev for short) is a simple name that expands to a fully-qualified name.
+// Abbreviations can be useful when working with variables, functions, and especially types from
+// multiple namespaces:
 //
 //    // CEL object construction
 //    qual.pkg.version.ObjTypeName{
 //       field: alt.container.ver.FieldTypeName{value: ...}
 //    }
 //
-// Only one qualified path may be used as CEL container, so at least one of these references is
-// a long qualified name within an otherwise short CEL program. Using the following abbreviations,
-// the program becomes much simpler:
+// Only one the qualified names above may be used as the CEL container, so at least one of these
+// references must be a long qualified name within an otherwise short CEL program. Using the
+// following abbreviations, the program becomes much simpler:
 //
 //    // CEL Go option
 //    Abbrevs("qual.pkg.version.ObjTypeName", "alt.container.ver.FieldTypeName")
@@ -158,23 +159,22 @@ func Container(name string) EnvOption {
 //
 // There are a few rules for the qualified names and the simple abbreviations generated from them:
 // - Qualified names must be dot-delimited, e.g. `package.subpkg.name`.
-// - The last element in the qualified name is the simple name used as the abbreviation.
-// - Abbreviations names must not collide with each other.
+// - The last element in the qualified name is the abbreviation.
+// - Abbreviations must not collide with each other.
 // - The abbreviation must not collide with unqualified names in use.
 //
-// Abbrevs are distinct from container-based references in the following important ways:
+// Abbreviations are distinct from container-based references in the following important ways:
+// - Abbreviations must expand to a fully-qualified name.
+// - Expanded abbreviations do not participate in namespace resolution.
+// - Abbreviation expansion is done instead of the container search for a matching identifier.
 // - Containers follow C++ namespace resolution rules with searches from the most qualified name
 //   to the least qualified name.
 // - Container references within the CEL program may be relative, and are resolved to fully
 //   qualified names at either type-check time or program plan time, whichever comes first.
-// - Abbreviations must resolve to a fully-qualified name.
-// - Resolved abbreviations do not participate in namespace resolution.
-// - Abbreviation resolution happens before the container path has been searched for matching
-//   identifiers.
 //
-// If there is ever a case where an identifier could be in both the container and in the alias,
-// the alias wins as this will ensure that the meaning of a program is preserved between
-// compilations even as the container evolves.
+// If there is ever a case where an identifier could be in both the container and as an
+// abbreviation, the abbreviation wins as this will ensure that the meaning of a program is
+// preserved between compilations even as the container evolves.
 func Abbrevs(qualifiedNames ...string) EnvOption {
 	return func(e *Env) (*Env, error) {
 		cont, err := e.Container.Extend(containers.Abbrevs(qualifiedNames...))

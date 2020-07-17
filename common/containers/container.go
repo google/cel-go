@@ -140,7 +140,7 @@ func (c *Container) aliasSet() map[string]string {
 	return c.aliases
 }
 
-// findAlias takes a name as input and returns an aliased name if one exists.
+// findAlias takes a name as input and returns an alias expansion if one exists.
 //
 // If the name is qualified, the first component of the qualified name is checked against known
 // aliases. Any alias that is found in a qualified name is expanded in the result:
@@ -148,6 +148,8 @@ func (c *Container) aliasSet() map[string]string {
 //     alias: R -> my.alias.R
 //     name: R.S.T
 //     output: my.alias.R.S.T
+//
+// Note, the name must not have a leading dot.
 func (c *Container) findAlias(name string) (string, bool) {
 	// If an alias exists for the name, ensure it is searched last.
 	simple := name
@@ -158,13 +160,10 @@ func (c *Container) findAlias(name string) (string, bool) {
 		qualifier = name[dot:]
 	}
 	alias, found := c.aliasSet()[simple]
-	if found {
-		if qualifier != "" {
-			alias = alias + qualifier
-		}
-		return alias, true
+	if !found {
+		return "", false
 	}
-	return "", false
+	return alias + qualifier, true
 }
 
 // ContainerOption specifies a functional configuration option for a Container.
@@ -174,17 +173,18 @@ type ContainerOption func(*Container) (*Container, error)
 
 // Abbrevs configures a set of simple names as abbreviations for fully-qualified names.
 //
-// An abbreviation (abbrev for short) can be useful when working with variables, functions, and
-// especially types from multiple namespaces:
+// An abbreviation (abbrev for short) is a simple name that expands to a fully-qualified name.
+// Abbreviations can be useful when working with variables, functions, and especially types from
+// multiple namespaces:
 //
 //    // CEL object construction
 //    qual.pkg.version.ObjTypeName{
 //       field: alt.container.ver.FieldTypeName{value: ...}
 //    }
 //
-// Only one qualified path may be used as CEL container, so at least one of these references is
-// a long qualified name within an otherwise short CEL program. Using the following abbreviations,
-// the program becomes much simpler:
+// Only one the qualified names above may be used as the CEL container, so at least one of these
+// references must be a long qualified name within an otherwise short CEL program. Using the
+// following abbreviations, the program becomes much simpler:
 //
 //    // CEL Go option
 //    Abbrevs("qual.pkg.version.ObjTypeName", "alt.container.ver.FieldTypeName")
@@ -193,23 +193,22 @@ type ContainerOption func(*Container) (*Container, error)
 //
 // There are a few rules for the qualified names and the simple abbreviations generated from them:
 // - Qualified names must be dot-delimited, e.g. `package.subpkg.name`.
-// - The last element in the qualified name is the simple name used as the abbreviation.
-// - Abbreviations names must not collide with each other.
+// - The last element in the qualified name is the abbreviation.
+// - Abbreviations must not collide with each other.
 // - The abbreviation must not collide with unqualified names in use.
 //
-// Abbrevs are distinct from container-based references in the following important ways:
+// Abbreviations are distinct from container-based references in the following important ways:
+// - Abbreviations must expand to a fully-qualified name.
+// - Expanded abbreviations do not participate in namespace resolution.
+// - Abbreviation expansion is done instead of the container search for a matching identifier.
 // - Containers follow C++ namespace resolution rules with searches from the most qualified name
 //   to the least qualified name.
 // - Container references within the CEL program may be relative, and are resolved to fully
 //   qualified names at either type-check time or program plan time, whichever comes first.
-// - Abbreviations must resolve to a fully-qualified name.
-// - Resolved abbreviations do not participate in namespace resolution.
-// - Abbreviation resolution happens before the container path has been searched for matching
-//   identifiers.
 //
-// If there is ever a case where an identifier could be in both the container and in the alias,
-// the alias wins as this will ensure that the meaning of a program is preserved between
-// compilations even as the container evolves.
+// If there is ever a case where an identifier could be in both the container and as an
+// abbreviation, the abbreviation wins as this will ensure that the meaning of a program is
+// preserved between compilations even as the container evolves.
 func Abbrevs(qualifiedNames ...string) ContainerOption {
 	return func(c *Container) (*Container, error) {
 		for _, qn := range qualifiedNames {
