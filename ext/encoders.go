@@ -31,28 +31,30 @@ import (
 //
 // Base64.Decode
 //
-// Decodes a base64-encoded string to an unencoded string value.
+// Decodes bytes or a base64-encoded string to a sequence of bytes.
 //
-// This function will return an error if the input string is not base64-encoded.
+// This function will return an error if the UTF-8 string input is not base64-encoded.
 //
-//     base64.decode(<string>) -> <string>
+//     base64.decode(<bytes>)  -> <bytes>
+//     base64.decode(<string>) -> <bytes>
 //
 // Examples:
 //
-//     base64.decode('aGVsbG8=')  // return 'hello'
+//     base64.decode(b'aGVsbG8=') // return b'hello'
+//     base64.decode('aGVsbG8=')  // return b'hello'
 //     base64.decode('aGVsbG8')   // error
 //
 // Base64.Encode
 //
-// Encodes a bytes or string input to a base64-encoded string.
+// Encodes a bytes or string input to base64-encoded bytes.
 //
-//     base64.encode(<bytes>) -> <string>
-//     base64.encode(<string>) -> <string>
+//     base64.encode(<bytes>)  -> <bytes>
+//     base64.encode(<string>) -> <bytes>
 //
 // Examples:
 //
-//     base64.encode('hello')  // return 'aGVsbG8='
-//     base64.encode(b'hello') // return 'aGVsbG8='
+//     base64.encode(b'hello') // return b'aGVsbG8='
+//     base64.encode('hello')  // return b'aGVsbG8='
 func Encoders() cel.EnvOption {
 	return cel.Lib(encoderLib{})
 }
@@ -65,38 +67,47 @@ func (encoderLib) CompileOptions() []cel.EnvOption {
 			decls.NewFunction("base64.decode",
 				decls.NewOverload("base64_decode_string",
 					[]*exprpb.Type{decls.String},
-					decls.String)),
+					decls.Bytes),
+				decls.NewOverload("base64_decode_bytes",
+					[]*exprpb.Type{decls.Bytes},
+					decls.Bytes)),
 			decls.NewFunction("base64.encode",
 				decls.NewOverload("base64_encode_string",
 					[]*exprpb.Type{decls.String},
-					decls.String),
+					decls.Bytes),
 				decls.NewOverload("base64_encode_bytes",
 					[]*exprpb.Type{decls.Bytes},
-					decls.String)),
-			decls.NewFunction("json.decode",
-				decls.NewOverload("json_decode_string",
-					[]*exprpb.Type{decls.String},
-					decls.Dyn)),
-			decls.NewFunction("json.encode",
-				decls.NewOverload("json_encode_dyn",
-					[]*exprpb.Type{decls.Dyn},
-					decls.String)),
+					decls.Bytes)),
 		),
 	}
 }
 
 func (encoderLib) ProgramOptions() []cel.ProgramOption {
-	wrappedBase64EncodeBytes := callInBytesOutStr(base64EncodeBytes)
-	wrappedBase64EncodeString := callInStrOutStr(base64EncodeString)
+	wrappedBase64EncodeBytes := callInBytesOutBytes(base64EncodeBytes)
+	wrappedBase64EncodeString := callInStrOutBytes(base64EncodeString)
+	wrappedBase64DecodeBytes := callInBytesOutBytes(base64DecodeBytes)
+	wrappedBase64DecodeString := callInStrOutBytes(base64DecodeString)
 	return []cel.ProgramOption{
 		cel.Functions(
 			&functions.Overload{
 				Operator: "base64.decode",
-				Unary:    callInStrOutStr(base64DecodeString),
+				Unary: func(val ref.Val) ref.Val {
+					switch val.(type) {
+					case types.Bytes:
+						return wrappedBase64DecodeBytes(val)
+					case types.String:
+						return wrappedBase64DecodeString(val)
+					}
+					return types.MaybeNoSuchOverloadErr(val)
+				},
+			},
+			&functions.Overload{
+				Operator: "base64_decode_bytes",
+				Unary:    wrappedBase64DecodeBytes,
 			},
 			&functions.Overload{
 				Operator: "base64_decode_string",
-				Unary:    callInStrOutStr(base64DecodeString),
+				Unary:    wrappedBase64DecodeString,
 			},
 			&functions.Overload{
 				Operator: "base64.encode",
@@ -107,7 +118,7 @@ func (encoderLib) ProgramOptions() []cel.ProgramOption {
 					case types.String:
 						return wrappedBase64EncodeString(val)
 					}
-					return types.NoSuchOverloadErr()
+					return types.MaybeNoSuchOverloadErr(val)
 				},
 			},
 			&functions.Overload{
@@ -122,18 +133,22 @@ func (encoderLib) ProgramOptions() []cel.ProgramOption {
 	}
 }
 
-func base64DecodeString(str string) (string, error) {
-	bytes, err := base64.StdEncoding.DecodeString(str)
-	if err != nil {
-		return "", err
-	}
-	return string(bytes), nil
+func base64DecodeBytes(bytes []byte) ([]byte, error) {
+	buf := make([]byte, base64.StdEncoding.DecodedLen(len(bytes)))
+	n, err := base64.StdEncoding.Decode(buf, bytes)
+	return buf[:n], err
 }
 
-func base64EncodeBytes(bytes []byte) (string, error) {
-	return base64.StdEncoding.EncodeToString(bytes), nil
+func base64DecodeString(str string) ([]byte, error) {
+	return base64.StdEncoding.DecodeString(str)
 }
 
-func base64EncodeString(str string) (string, error) {
+func base64EncodeBytes(bytes []byte) ([]byte, error) {
+	buf := make([]byte, base64.StdEncoding.EncodedLen(len(bytes)))
+	base64.StdEncoding.Encode(buf, bytes)
+	return buf, nil
+}
+
+func base64EncodeString(str string) ([]byte, error) {
 	return base64EncodeBytes([]byte(str))
 }

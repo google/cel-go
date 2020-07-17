@@ -9,28 +9,31 @@ Encoding utilies for marshalling data into standardized representations.
 
 ### Base64.Decode
 
-Decodes a base64-encoded string to an unencoded string value.
+Decodes bytes or a base64-encoded string to a sequence of bytes.
 
-This function will return an error if the input string is not base64-encoded.
+This function will return an error if the UTF-8 string input is not
+base64-encoded.
 
-    base64.decode(<string>) -> <string>
+    base64.decode(<bytes>)  -> <bytes>
+    base64.decode(<string>) -> <bytes>
 
 Examples:
 
-    base64.decode('aGVsbG8=')  // return 'hello'
+    base64.decode(b'aGVsbG8=') // return b'hello'
+    base64.decode('aGVsbG8=')  // return b'hello'
     base64.decode('aGVsbG8')   // error
 
 ### Base64.Encode
 
-Encodes a bytes or string input to a base64-encoded string.
+Encodes a bytes or string input to base64-encoded bytes.
 
-    base64.encode(<bytes>) -> <string>
-    base64.encode(<string>) -> <string>
+    base64.encode(<bytes>)  -> <bytes>
+    base64.encode(<string>) -> <bytes>
 
 Examples:
 
-    base64.encode('hello')  // return 'aGVsbG8='
-    base64.encode(b'hello') // return 'aGVsbG8='
+    base64.encode(b'hello') // return b'aGVsbG8='
+    base64.encode('hello')  // return b'aGVsbG8='
 
 ## Strings
 

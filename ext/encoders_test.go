@@ -27,16 +27,23 @@ func TestEncoders(t *testing.T) {
 		err       string
 		parseOnly bool
 	}{
-		{expr: "base64.decode('aGVsbG8=') == 'hello'"},
+		{expr: "base64.decode('aGVsbG8=') == b'hello'"},
+		{expr: "base64.decode(b'aGVsbG8=') == b'hello'"},
 		{
-			expr: "base64.decode('aGVsbG8') == 'error'",
+			expr: "base64.decode('aGVsbG8') == b'error'",
 			err:  "illegal base64 data at input byte 4",
 		},
-		{expr: "base64.encode('hello') == 'aGVsbG8='"},
-		{expr: "base64.encode(b'hello') == 'aGVsbG8='"},
 		{
-			expr: "base64.encode(123) == 'error'",
-			err:  "no such overload",
+			expr:      "base64.decode(123) == b'error'",
+			err:       "no such overload",
+			parseOnly: true,
+		},
+		{expr: "base64.encode('hello') == b'aGVsbG8='"},
+		{expr: "base64.encode(b'hello') == b'aGVsbG8='"},
+		{
+			expr:      "base64.encode(123) == b'error'",
+			err:       "no such overload",
+			parseOnly: true,
 		},
 	}
 
@@ -53,7 +60,7 @@ func TestEncoders(t *testing.T) {
 				tt.Fatal(iss.Err())
 			}
 			asts = append(asts, pAst)
-			if tc.parseOnly {
+			if !tc.parseOnly {
 				cAst, iss := env.Check(pAst)
 				if iss.Err() != nil {
 					tt.Fatal(iss.Err())
