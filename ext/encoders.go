@@ -46,7 +46,8 @@ import (
 //
 // Base64.Encode
 //
-// Encodes a bytes or string input to base64-encoded bytes.
+// Encodes a bytes or UTF-8 string input to base64-encoded bytes.
+// Note, string inputs are converted to bytes before encoding.
 //
 //     base64.encode(<bytes>)  -> <bytes>
 //     base64.encode(<string>) -> <bytes>
