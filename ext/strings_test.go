@@ -290,14 +290,15 @@ func TestStrings(t *testing.T) {
 				asts = append(asts, cAst)
 			}
 			for _, ast := range asts {
-				exe, err := env.Program(ast)
+				prg, err := env.Program(ast)
 				if err != nil {
 					tt.Fatal(err)
 				}
-				out, _, err := exe.Eval(cel.NoVars())
+				out, _, err := prg.Eval(cel.NoVars())
 				if tc.err != "" {
 					if err == nil {
-						tt.Fatalf("got value %v, wanted error %s for expr: %s", out.Value(), tc.err, tc.expr)
+						tt.Fatalf("got value %v, wanted error %s for expr: %s",
+							out.Value(), tc.err, tc.expr)
 					}
 					if tc.err != err.Error() {
 						tt.Errorf("got error %v, wanted error %s for expr: %s", err, tc.err, tc.expr)

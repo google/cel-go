@@ -342,11 +342,11 @@ func (stringLib) ProgramOptions() []cel.ProgramOption {
 			},
 			&functions.Overload{
 				Operator: "trim",
-				Unary:    callInStrOutStr(strings.TrimSpace),
+				Unary:    callInStrOutStr(trimSpace),
 			},
 			&functions.Overload{
 				Operator: "string_trim",
-				Unary:    callInStrOutStr(strings.TrimSpace),
+				Unary:    callInStrOutStr(trimSpace),
 			},
 			&functions.Overload{
 				Operator: "upperAscii",
@@ -437,7 +437,7 @@ func lastIndexOfOffset(str, substr string, offset int64) (int64, error) {
 	return -1, nil
 }
 
-func lowerASCII(str string) string {
+func lowerASCII(str string) (string, error) {
 	runes := []rune(str)
 	for i, r := range runes {
 		if r <= unicode.MaxASCII {
@@ -445,7 +445,7 @@ func lowerASCII(str string) string {
 			runes[i] = r
 		}
 	}
-	return string(runes)
+	return string(runes), nil
 }
 
 func replace(str, old, new string) (string, error) {
@@ -487,7 +487,11 @@ func substrRange(str string, start, end int64) (string, error) {
 	return string(runes[int(start):int(end)]), nil
 }
 
-func upperASCII(str string) string {
+func trimSpace(str string) (string, error) {
+	return strings.TrimSpace(str), nil
+}
+
+func upperASCII(str string) (string, error) {
 	runes := []rune(str)
 	for i, r := range runes {
 		if r <= unicode.MaxASCII {
@@ -495,198 +499,5 @@ func upperASCII(str string) string {
 			runes[i] = r
 		}
 	}
-	return string(runes)
-}
-
-func callInStrOutStr(fn func(string) string) functions.UnaryOp {
-	return func(val ref.Val) ref.Val {
-		vVal, ok := val.(types.String)
-		if !ok {
-			return types.MaybeNoSuchOverloadErr(val)
-		}
-		return types.String(fn(string(vVal)))
-	}
-}
-
-func callInStrIntOutStr(fn func(string, int64) (string, error)) functions.BinaryOp {
-	return func(val, arg ref.Val) ref.Val {
-		vVal, ok := val.(types.String)
-		if !ok {
-			return types.MaybeNoSuchOverloadErr(val)
-		}
-		argVal, ok := arg.(types.Int)
-		if !ok {
-			return types.MaybeNoSuchOverloadErr(arg)
-		}
-		out, err := fn(string(vVal), int64(argVal))
-		if err != nil {
-			return types.NewErr(err.Error())
-		}
-		return types.String(out)
-	}
-}
-
-func callInStrStrOutInt(fn func(string, string) (int64, error)) functions.BinaryOp {
-	return func(val, arg ref.Val) ref.Val {
-		vVal, ok := val.(types.String)
-		if !ok {
-			return types.MaybeNoSuchOverloadErr(val)
-		}
-		argVal, ok := arg.(types.String)
-		if !ok {
-			return types.MaybeNoSuchOverloadErr(arg)
-		}
-		out, err := fn(string(vVal), string(argVal))
-		if err != nil {
-			return types.NewErr(err.Error())
-		}
-		return types.Int(out)
-	}
-}
-
-func callInStrStrOutListStr(fn func(string, string) ([]string, error)) functions.BinaryOp {
-	return func(val, arg ref.Val) ref.Val {
-		vVal, ok := val.(types.String)
-		if !ok {
-			return types.MaybeNoSuchOverloadErr(val)
-		}
-		argVal, ok := arg.(types.String)
-		if !ok {
-			return types.MaybeNoSuchOverloadErr(arg)
-		}
-		out, err := fn(string(vVal), string(argVal))
-		if err != nil {
-			return types.NewErr(err.Error())
-		}
-		return types.DefaultTypeAdapter.NativeToValue(out)
-	}
-}
-
-func callInStrIntIntOutStr(fn func(string, int64, int64) (string, error)) functions.FunctionOp {
-	return func(args ...ref.Val) ref.Val {
-		if len(args) != 3 {
-			return types.NoSuchOverloadErr()
-		}
-		vVal, ok := args[0].(types.String)
-		if !ok {
-			return types.MaybeNoSuchOverloadErr(args[0])
-		}
-		arg1Val, ok := args[1].(types.Int)
-		if !ok {
-			return types.MaybeNoSuchOverloadErr(args[1])
-		}
-		arg2Val, ok := args[2].(types.Int)
-		if !ok {
-			return types.MaybeNoSuchOverloadErr(args[2])
-		}
-		out, err := fn(string(vVal), int64(arg1Val), int64(arg2Val))
-		if err != nil {
-			return types.NewErr(err.Error())
-		}
-		return types.String(out)
-	}
-}
-
-func callInStrStrStrOutStr(fn func(string, string, string) (string, error)) functions.FunctionOp {
-	return func(args ...ref.Val) ref.Val {
-		if len(args) != 3 {
-			return types.NoSuchOverloadErr()
-		}
-		vVal, ok := args[0].(types.String)
-		if !ok {
-			return types.MaybeNoSuchOverloadErr(args[0])
-		}
-		arg1Val, ok := args[1].(types.String)
-		if !ok {
-			return types.MaybeNoSuchOverloadErr(args[1])
-		}
-		arg2Val, ok := args[2].(types.String)
-		if !ok {
-			return types.MaybeNoSuchOverloadErr(args[2])
-		}
-		out, err := fn(string(vVal), string(arg1Val), string(arg2Val))
-		if err != nil {
-			return types.NewErr(err.Error())
-		}
-		return types.String(out)
-	}
-}
-
-func callInStrStrIntOutInt(fn func(string, string, int64) (int64, error)) functions.FunctionOp {
-	return func(args ...ref.Val) ref.Val {
-		if len(args) != 3 {
-			return types.NoSuchOverloadErr()
-		}
-		vVal, ok := args[0].(types.String)
-		if !ok {
-			return types.MaybeNoSuchOverloadErr(args[0])
-		}
-		arg1Val, ok := args[1].(types.String)
-		if !ok {
-			return types.MaybeNoSuchOverloadErr(args[1])
-		}
-		arg2Val, ok := args[2].(types.Int)
-		if !ok {
-			return types.MaybeNoSuchOverloadErr(args[2])
-		}
-		out, err := fn(string(vVal), string(arg1Val), int64(arg2Val))
-		if err != nil {
-			return types.NewErr(err.Error())
-		}
-		return types.Int(out)
-	}
-}
-
-func callInStrStrIntOutListStr(fn func(string, string, int64) ([]string, error)) functions.FunctionOp {
-	return func(args ...ref.Val) ref.Val {
-		if len(args) != 3 {
-			return types.NoSuchOverloadErr()
-		}
-		vVal, ok := args[0].(types.String)
-		if !ok {
-			return types.MaybeNoSuchOverloadErr(args[0])
-		}
-		arg1Val, ok := args[1].(types.String)
-		if !ok {
-			return types.MaybeNoSuchOverloadErr(args[1])
-		}
-		arg2Val, ok := args[2].(types.Int)
-		if !ok {
-			return types.MaybeNoSuchOverloadErr(args[2])
-		}
-		out, err := fn(string(vVal), string(arg1Val), int64(arg2Val))
-		if err != nil {
-			return types.NewErr(err.Error())
-		}
-		return types.DefaultTypeAdapter.NativeToValue(out)
-	}
-}
-
-func callInStrStrStrIntOutStr(fn func(string, string, string, int64) (string, error)) functions.FunctionOp {
-	return func(args ...ref.Val) ref.Val {
-		if len(args) != 4 {
-			return types.NoSuchOverloadErr()
-		}
-		vVal, ok := args[0].(types.String)
-		if !ok {
-			return types.MaybeNoSuchOverloadErr(args[0])
-		}
-		arg1Val, ok := args[1].(types.String)
-		if !ok {
-			return types.MaybeNoSuchOverloadErr(args[1])
-		}
-		arg2Val, ok := args[2].(types.String)
-		if !ok {
-			return types.MaybeNoSuchOverloadErr(args[2])
-		}
-		arg3Val, ok := args[3].(types.Int)
-		if !ok {
-			return types.MaybeNoSuchOverloadErr(args[3])
-		}
-		out, err := fn(string(vVal), string(arg1Val), string(arg2Val), int64(arg3Val))
-		if err != nil {
-			return types.NewErr(err.Error())
-		}
-		return types.String(out)
-	}
+	return string(runes), nil
 }
