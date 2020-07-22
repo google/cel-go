@@ -31,7 +31,8 @@ import (
 //
 // Base64.Decode
 //
-// Decodes bytes or a base64-encoded string to a sequence of bytes.
+// Decodes base64-encoded text to a sequence of bytes. The text can be supplied
+// as a string or utf8-encoded bytes.
 //
 // This function will return an error if the UTF-8 string input is not base64-encoded.
 //
@@ -46,8 +47,9 @@ import (
 //
 // Base64.Encode
 //
-// Encodes a bytes or UTF-8 string input to base64-encoded bytes.
-// Note, string inputs are converted to bytes before encoding.
+// Encodes binary data to base64-encoded text. The binary data can by bytes or
+// a string, which will be utf8-encoded to binary before base64-encoding. The
+// base64-encoded text is returned as utf8-encoded bytes.
 //
 //     base64.encode(<bytes>)  -> <bytes>
 //     base64.encode(<string>) -> <bytes>
