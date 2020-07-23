@@ -28,20 +28,18 @@ func TestEncoders(t *testing.T) {
 		parseOnly bool
 	}{
 		{expr: "base64.decode('aGVsbG8=') == b'hello'"},
-		{expr: "base64.decode(b'aGVsbG8=') == b'hello'"},
 		{
 			expr: "base64.decode('aGVsbG8') == b'error'",
 			err:  "illegal base64 data at input byte 4",
 		},
 		{
-			expr:      "base64.decode(123) == b'error'",
+			expr:      "base64.decode(b'aGVsbG8=') == b'hello'",
 			err:       "no such overload",
 			parseOnly: true,
 		},
-		{expr: "base64.encode('hello') == b'aGVsbG8='"},
-		{expr: "base64.encode(b'hello') == b'aGVsbG8='"},
+		{expr: "base64.encode(b'hello') == 'aGVsbG8='"},
 		{
-			expr:      "base64.encode(123) == b'error'",
+			expr:      "base64.encode('hello') == b'aGVsbG8='",
 			err:       "no such overload",
 			parseOnly: true,
 		},
