@@ -357,7 +357,7 @@ func (fd *FieldDescription) GetFrom(target interface{}) (interface{}, error) {
 		t = reflect.ValueOf(target)
 	}
 	var fieldVal reflect.Value
-	if fd.isProto3 && fd.field != nil && !fd.IsOneof() {
+	if !fd.getter.IsValid() || (fd.isProto3 && fd.field != nil && !fd.IsOneof()) {
 		// The target object should always be a struct.
 		t = reflect.Indirect(t)
 		if t.Kind() != reflect.Struct {
