@@ -67,9 +67,12 @@ func PruneAst(expr *exprpb.Expr, state EvalState) *exprpb.Expr {
 }
 
 func (p *astPruner) createLiteral(node *exprpb.Expr, val *exprpb.Constant) *exprpb.Expr {
-	newExpr := *node
-	newExpr.ExprKind = &exprpb.Expr_ConstExpr{ConstExpr: val}
-	return &newExpr
+	return &exprpb.Expr{
+		Id: node.GetId(),
+		ExprKind: &exprpb.Expr_ConstExpr{
+			ConstExpr: val,
+		},
+	}
 }
 
 func (p *astPruner) maybePruneAndOr(node *exprpb.Expr) (*exprpb.Expr, bool) {
@@ -78,13 +81,11 @@ func (p *astPruner) maybePruneAndOr(node *exprpb.Expr) (*exprpb.Expr, bool) {
 	}
 
 	call := node.GetCallExpr()
-
 	// We know result is unknown, so we have at least one unknown arg
 	// and if one side is a known value, we know we can ignore it.
 	if p.existsWithKnownValue(call.Args[0].GetId()) {
 		return call.Args[1], true
 	}
-
 	if p.existsWithKnownValue(call.Args[1].GetId()) {
 		return call.Args[0], true
 	}
@@ -125,11 +126,9 @@ func (p *astPruner) prune(node *exprpb.Expr) (*exprpb.Expr, bool) {
 		return node, false
 	}
 	if val, valueExists := p.value(node.GetId()); valueExists && !types.IsUnknownOrError(val) {
-
 		// TODO if we have a list or struct, create a list/struct
 		// expression. This is useful especially if these expressions
 		// are result of a function call.
-
 		switch val.Type() {
 		case types.BoolType:
 			return p.createLiteral(node,
@@ -162,79 +161,124 @@ func (p *astPruner) prune(node *exprpb.Expr) (*exprpb.Expr, bool) {
 	switch node.ExprKind.(type) {
 	case *exprpb.Expr_SelectExpr:
 		if operand, pruned := p.prune(node.GetSelectExpr().Operand); pruned {
-			newExpr := *node
-			newSelect := *newExpr.GetSelectExpr()
-			newSelect.Operand = operand
-			newExpr.GetExprKind().(*exprpb.Expr_SelectExpr).SelectExpr = &newSelect
-			return &newExpr, true
+			return &exprpb.Expr{
+				Id: node.GetId(),
+				ExprKind: &exprpb.Expr_SelectExpr{
+					SelectExpr: &exprpb.Expr_Select{
+						Operand:  operand,
+						Field:    node.GetSelectExpr().GetField(),
+						TestOnly: node.GetSelectExpr().GetTestOnly(),
+					},
+				},
+			}, true
 		}
 	case *exprpb.Expr_CallExpr:
 		if newExpr, pruned := p.maybePruneFunction(node); pruned {
 			newExpr, _ = p.prune(newExpr)
 			return newExpr, true
 		}
-		newCall := *node.GetCallExpr()
 		var prunedCall bool
-		var prunedArg bool
-		for i, arg := range node.GetCallExpr().Args {
-			if newCall.Args[i], prunedArg = p.prune(arg); prunedArg {
+		call := node.GetCallExpr()
+		args := call.GetArgs()
+		newArgs := make([]*exprpb.Expr, len(args))
+		newCall := &exprpb.Expr_Call{
+			Function: call.GetFunction(),
+			Target:   call.GetTarget(),
+			Args:     newArgs,
+		}
+		for i, arg := range args {
+			newArgs[i] = args[i]
+			if newArg, prunedArg := p.prune(arg); prunedArg {
 				prunedCall = true
+				newArgs[i] = newArg
 			}
 		}
-		if newTarget, prunedTarget := p.prune(node.GetCallExpr().Target); prunedTarget {
+		if newTarget, prunedTarget := p.prune(call.GetTarget()); prunedTarget {
 			prunedCall = true
 			newCall.Target = newTarget
 		}
 		if prunedCall {
-			newExpr := *node
-			newExpr.GetExprKind().(*exprpb.Expr_CallExpr).CallExpr = &newCall
-			return &newExpr, true
+			return &exprpb.Expr{
+				Id: node.GetId(),
+				ExprKind: &exprpb.Expr_CallExpr{
+					CallExpr: newCall,
+				},
+			}, true
 		}
 	case *exprpb.Expr_ListExpr:
-		newList := *node.GetListExpr()
+		elems := node.GetListExpr().GetElements()
+		newElems := make([]*exprpb.Expr, len(elems))
 		var prunedList bool
-		var prunedElem bool
-		for i, elem := range node.GetListExpr().Elements {
-			if newList.Elements[i], prunedElem = p.prune(elem); prunedElem {
+		for i, elem := range elems {
+			if newElem, prunedElem := p.prune(elem); prunedElem {
+				newElems[i] = newElem
 				prunedList = true
 			}
 		}
 		if prunedList {
-			newExpr := *node
-			newExpr.GetExprKind().(*exprpb.Expr_ListExpr).ListExpr = &newList
-			return &newExpr, true
+			return &exprpb.Expr{
+				Id: node.GetId(),
+				ExprKind: &exprpb.Expr_ListExpr{
+					ListExpr: &exprpb.Expr_CreateList{
+						Elements: newElems,
+					},
+				},
+			}, true
 		}
 	case *exprpb.Expr_StructExpr:
-		newStruct := *node.GetStructExpr()
 		var prunedStruct bool
-		var prunedEntry bool
-		for i, entry := range node.GetStructExpr().Entries {
-			newEntry := *entry
-			if newKey, pruned := p.prune(entry.GetMapKey()); pruned {
-				prunedEntry = true
-				newEntry.GetKeyKind().(*exprpb.Expr_CreateStruct_Entry_MapKey).MapKey = newKey
+		entries := node.GetStructExpr().GetEntries()
+		messageType := node.GetStructExpr().GetMessageName()
+		newEntries := make([]*exprpb.Expr_CreateStruct_Entry, len(entries))
+		for i, entry := range entries {
+			newKey, prunedKey := p.prune(entry.GetMapKey())
+			newValue, prunedValue := p.prune(entry.GetValue())
+			if !prunedKey && !prunedValue {
+				newEntries[i] = entry
 			}
-			if newValue, pruned := p.prune(entry.Value); pruned {
-				prunedEntry = true
-				newEntry.Value = newValue
+			prunedStruct = true
+			newEntry := &exprpb.Expr_CreateStruct_Entry{
+				Value: newValue,
 			}
-			if prunedEntry {
-				prunedStruct = true
-				newStruct.Entries[i] = &newEntry
+			if messageType != "" {
+				newEntry.KeyKind = &exprpb.Expr_CreateStruct_Entry_FieldKey{
+					FieldKey: entry.GetFieldKey(),
+				}
+			} else {
+				newEntry.KeyKind = &exprpb.Expr_CreateStruct_Entry_MapKey{
+					MapKey: newKey,
+				}
 			}
+			newEntries[i] = newEntry
 		}
 		if prunedStruct {
-			newExpr := *node
-			newExpr.GetExprKind().(*exprpb.Expr_StructExpr).StructExpr = &newStruct
-			return &newExpr, true
+			return &exprpb.Expr{
+				Id: node.GetId(),
+				ExprKind: &exprpb.Expr_StructExpr{
+					StructExpr: &exprpb.Expr_CreateStruct{
+						MessageName: messageType,
+						Entries:     newEntries,
+					},
+				},
+			}, true
 		}
 	case *exprpb.Expr_ComprehensionExpr:
-		if newIterRange, pruned := p.prune(node.GetComprehensionExpr().IterRange); pruned {
-			newExpr := *node
-			newCompre := *newExpr.GetComprehensionExpr()
-			newCompre.IterRange = newIterRange
-			newExpr.GetExprKind().(*exprpb.Expr_ComprehensionExpr).ComprehensionExpr = &newCompre
-			return &newExpr, true
+		compre := node.GetComprehensionExpr()
+		if newRange, pruned := p.prune(compre.GetIterRange()); pruned {
+			return &exprpb.Expr{
+				Id: node.GetId(),
+				ExprKind: &exprpb.Expr_ComprehensionExpr{
+					ComprehensionExpr: &exprpb.Expr_Comprehension{
+						IterVar:       compre.GetIterVar(),
+						IterRange:     newRange,
+						AccuVar:       compre.GetAccuVar(),
+						AccuInit:      compre.GetAccuInit(),
+						LoopCondition: compre.GetLoopCondition(),
+						LoopStep:      compre.GetLoopStep(),
+						Result:        compre.GetResult(),
+					},
+				},
+			}, true
 		}
 	}
 	return node, false

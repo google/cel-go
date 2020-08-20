@@ -1068,3 +1068,47 @@ func Test_ResidualAst_AttributeQualifiers(t *testing.T) {
 		t.Errorf("got expr: %s, wanted %s", expr, want)
 	}
 }
+
+func Test_ResidualAst_Modified(t *testing.T) {
+	e, _ := NewEnv(
+		Declarations(
+			decls.NewVar("x", decls.NewMapType(decls.String, decls.Int)),
+			decls.NewVar("y", decls.Int),
+		),
+	)
+	ast, _ := e.Parse("x == y")
+	prg, _ := e.Program(ast,
+		EvalOptions(OptTrackState, OptPartialEval),
+	)
+	for _, x := range []int{123, 456} {
+		vars, _ := PartialVars(map[string]interface{}{
+			"x": x,
+		}, AttributePattern("y"))
+		out, det, err := prg.Eval(vars)
+		if !types.IsUnknown(out) {
+			t.Fatalf("got %v, expected unknown", out)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		residual, err := e.ResidualAst(ast, det)
+		if err != nil {
+			t.Fatal(err)
+		}
+		orig, err := AstToString(ast)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if orig != "x == y" {
+			t.Errorf("parsed ast: got expr: %s, wanted x == y", orig)
+		}
+		expr, err := AstToString(residual)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := fmt.Sprintf("%d == y", x)
+		if expr != want {
+			t.Errorf("residual ast: got expr: %s, wanted %s", expr, want)
+		}
+	}
+}
