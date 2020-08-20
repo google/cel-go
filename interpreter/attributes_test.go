@@ -15,12 +15,18 @@
 package interpreter
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/golang/protobuf/ptypes"
 
+	"github.com/google/cel-go/checker"
+	"github.com/google/cel-go/checker/decls"
+	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/parser"
 
 	proto3pb "github.com/google/cel-go/test/proto3pb"
 
@@ -508,6 +514,169 @@ func TestAttributes_MissingMsg_UnknownField(t *testing.T) {
 	_, isUnk := out.(types.Unknown)
 	if !isUnk {
 		t.Errorf("got %v, wanted unknown value", out)
+	}
+}
+
+func TestAttribute_StateTracking(t *testing.T) {
+	var tests = []struct {
+		expr  string
+		env   []*exprpb.Decl
+		in    map[string]interface{}
+		out   ref.Val
+		state map[int64]interface{}
+	}{
+		{
+			expr: `[{"field": true}][0].field`,
+			env:  []*exprpb.Decl{},
+			in:   map[string]interface{}{},
+			out:  types.True,
+			state: map[int64]interface{}{
+				// overall expression
+				1: true,
+				// [{"field": true}][0]
+				6: map[ref.Val]ref.Val{types.String("field"): types.True},
+				// [{"field": true}][0].field
+				8: true,
+			},
+		},
+		{
+			expr: `a[1]['two']`,
+			env: []*exprpb.Decl{
+				decls.NewVar("a", decls.NewMapType(
+					decls.Int,
+					decls.NewMapType(decls.String, decls.Bool))),
+			},
+			in: map[string]interface{}{
+				"a": map[int64]interface{}{
+					1: map[string]bool{
+						"two": true,
+					},
+				},
+			},
+			out: types.True,
+			state: map[int64]interface{}{
+				// overall expression
+				1: true,
+				// a[1]
+				2: map[string]bool{"two": true},
+				// a[1]["two"]
+				4: true,
+			},
+		},
+		{
+			expr: `a[1][2][3]`,
+			env: []*exprpb.Decl{
+				decls.NewVar("a", decls.NewMapType(
+					decls.Int,
+					decls.NewMapType(decls.Dyn, decls.Dyn))),
+			},
+			in: map[string]interface{}{
+				"a": map[int64]interface{}{
+					1: map[int64]interface{}{
+						1: 0,
+						2: []string{"index", "middex", "outdex", "dex"},
+					},
+				},
+			},
+			out: types.String("dex"),
+			state: map[int64]interface{}{
+				// overall expression
+				1: "dex",
+				// a[1]
+				2: map[int64]interface{}{
+					1: 0,
+					2: []string{"index", "middex", "outdex", "dex"},
+				},
+				// a[1][2]
+				4: []string{"index", "middex", "outdex", "dex"},
+				// a[1][2][3]
+				6: "dex",
+			},
+		},
+		{
+			expr: `a[1][2][a[1][1]]`,
+			env: []*exprpb.Decl{
+				decls.NewVar("a", decls.NewMapType(
+					decls.Int,
+					decls.NewMapType(decls.Dyn, decls.Dyn))),
+			},
+			in: map[string]interface{}{
+				"a": map[int64]interface{}{
+					1: map[int64]interface{}{
+						1: 0,
+						2: []string{"index", "middex", "outdex", "dex"},
+					},
+				},
+			},
+			out: types.String("index"),
+			state: map[int64]interface{}{
+				// overall expression
+				1: "index",
+				// a[1]
+				2: map[int64]interface{}{
+					1: 0,
+					2: []string{"index", "middex", "outdex", "dex"},
+				},
+				// a[1][2]
+				4: []string{"index", "middex", "outdex", "dex"},
+				// a[1][2][a[1][1]]
+				6: "index",
+				// dynamic index into a[1][2]
+				// a[1]
+				8: map[int64]interface{}{
+					1: 0,
+					2: []string{"index", "middex", "outdex", "dex"},
+				},
+				// a[1][1]
+				10: int64(0),
+			},
+		},
+	}
+	for _, test := range tests {
+		tc := test
+		t.Run(tc.expr, func(tt *testing.T) {
+			src := common.NewTextSource(tc.expr)
+			parsed, errors := parser.Parse(src)
+			if len(errors.GetErrors()) != 0 {
+				tt.Fatalf(errors.ToDisplayString())
+			}
+			cont := containers.DefaultContainer
+			reg := types.NewRegistry()
+			env := checker.NewStandardEnv(cont, reg)
+			if tc.env != nil {
+				env.Add(tc.env...)
+			}
+			checked, errors := checker.Check(parsed, src, env)
+			if len(errors.GetErrors()) != 0 {
+				tt.Fatalf(errors.ToDisplayString())
+			}
+			attrs := NewAttributeFactory(cont, reg, reg)
+			interp := NewStandardInterpreter(cont, reg, reg, attrs)
+			// Show that program planning will now produce an error.
+			st := NewEvalState()
+			i, err := interp.NewInterpretable(checked, Optimize(), TrackState(st))
+			if err != nil {
+				tt.Fatal(err)
+			}
+			if err != nil {
+				tt.Fatal(err)
+			}
+			in, _ := NewActivation(tc.in)
+			out := i.Eval(in)
+			if tc.out.Equal(out) != types.True {
+				tt.Errorf("got %v, wanted %v", out.Value(), tc.out)
+			}
+			for id, val := range tc.state {
+				stVal, found := st.Value(id)
+				if !found {
+					tt.Errorf("state not found for %d=%v", id, val)
+					continue
+				}
+				if !reflect.DeepEqual(stVal.Value(), val) {
+					tt.Errorf("got %v, wanted %v for id: %d", stVal.Value(), val, id)
+				}
+			}
+		})
 	}
 }
 

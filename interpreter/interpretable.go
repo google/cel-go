@@ -60,7 +60,14 @@ type InterpretableAttribute interface {
 	// Attribute, the Attribute should first be copied before adding the qualifier. Attributes
 	// are not copyable by default, so this is a capable that would need to be added to the
 	// AttributeFactory or specifically to the underlying Attribute implementation.
-	AddQualifier(Qualifier) (InterpretableAttribute, error)
+	AddQualifier(Qualifier) (Attribute, error)
+
+	// Qualify replicates the Attribute.Qualify method to permit extension and interception
+	// of object qualification.
+	Qualify(vars Activation, obj interface{}) (interface{}, error)
+
+	// Resolve returns the value of the Attribute given the current Activation.
+	Resolve(Activation) (interface{}, error)
 }
 
 // InterpretableCall interface for inspecting Interpretable instructions related to function calls.
@@ -101,7 +108,7 @@ func (test *evalTestOnly) Eval(ctx Activation) ref.Val {
 	if test.fieldType != nil {
 		opAttr, ok := test.op.(InterpretableAttribute)
 		if ok {
-			opVal, err := opAttr.Attr().Resolve(ctx)
+			opVal, err := opAttr.Resolve(ctx)
 			if err != nil {
 				return types.NewErr(err.Error())
 			}
@@ -822,16 +829,94 @@ type evalWatchAttr struct {
 	observer evalObserver
 }
 
-// Eval implements the Interpretable interface method.
-func (e *evalWatchAttr) Eval(vars Activation) ref.Val {
-	val := e.InterpretableAttribute.Eval(vars)
+// AddQualifier creates a wrapper over the incoming qualifier which observes the qualification
+// result.
+func (e *evalWatchAttr) AddQualifier(q Qualifier) (Attribute, error) {
+	cq, isConst := q.(ConstantQualifier)
+	if isConst {
+		q = &evalWatchConstQual{
+			ConstantQualifier: cq,
+			observer:          e.observer,
+			adapter:           e.InterpretableAttribute.Adapter(),
+		}
+	} else {
+		q = &evalWatchQual{
+			Qualifier: q,
+			observer:  e.observer,
+			adapter:   e.InterpretableAttribute.Adapter(),
+		}
+	}
+	_, err := e.InterpretableAttribute.AddQualifier(q)
+	return e, err
+}
+
+// evalWatchConstQual observes the qualification of an object using a constant boolean, int,
+// string, or uint.
+type evalWatchConstQual struct {
+	ConstantQualifier
+	observer evalObserver
+	adapter  ref.TypeAdapter
+}
+
+// Cost implements the Coster interface method.
+func (e *evalWatchConstQual) Cost() (min, max int64) {
+	return estimateCost(e.ConstantQualifier)
+}
+
+// Qualify observes the qualification of a object via a constant boolean, int, string, or uint.
+func (e *evalWatchConstQual) Qualify(vars Activation, obj interface{}) (interface{}, error) {
+	out, err := e.ConstantQualifier.Qualify(vars, obj)
+	var val ref.Val
+	if err != nil {
+		val = types.NewErr(err.Error())
+	} else {
+		val = e.adapter.NativeToValue(out)
+	}
 	e.observer(e.ID(), val)
-	return val
+	return out, err
+}
+
+// QualifierValueEquals tests whether the incoming value is equal to the qualificying constant.
+func (e *evalWatchConstQual) QualifierValueEquals(value interface{}) bool {
+	qve, ok := e.ConstantQualifier.(qualifierValueEquator)
+	return ok && qve.QualifierValueEquals(value)
+}
+
+// evalWatchQual observes the qualification of an object by a value computed at runtime.
+type evalWatchQual struct {
+	Qualifier
+	observer evalObserver
+	adapter  ref.TypeAdapter
+}
+
+// Cost implements the Coster interface method.
+func (e *evalWatchQual) Cost() (min, max int64) {
+	return estimateCost(e.Qualifier)
+}
+
+// Qualify observes the qualification of a object via a value computed at runtime.
+func (e *evalWatchQual) Qualify(vars Activation, obj interface{}) (interface{}, error) {
+	out, err := e.Qualifier.Qualify(vars, obj)
+	var val ref.Val
+	if err != nil {
+		val = types.NewErr(err.Error())
+	} else {
+		val = e.adapter.NativeToValue(out)
+	}
+	e.observer(e.ID(), val)
+	return out, err
 }
 
 // Cost implements the Coster interface method.
 func (e *evalWatchAttr) Cost() (min, max int64) {
 	return estimateCost(e.InterpretableAttribute)
+}
+
+// Eval implements the Interpretable interface method.
+func (e *evalWatchAttr) Eval(vars Activation) ref.Val {
+	val := e.InterpretableAttribute.Eval(vars)
+	e.observer(e.ID(), val)
+	return val
 }
 
 // evalWatchConst describes a watcher of an instConst Interpretable.
@@ -1066,6 +1151,7 @@ func (fold *evalExhaustiveFold) Cost() (min, max int64) {
 		iMax + aMax + cMax*rangeCnt + sMax*rangeCnt + rMax
 }
 
+// evalAttr evaluates an Attribute value.
 type evalAttr struct {
 	adapter ref.TypeAdapter
 	attr    Attribute
@@ -1074,6 +1160,13 @@ type evalAttr struct {
 // ID of the attribute instruction.
 func (a *evalAttr) ID() int64 {
 	return a.attr.ID()
+}
+
+// AddQualifier implements the instAttr interface method.
+func (a *evalAttr) AddQualifier(qual Qualifier) (Attribute, error) {
+	attr, err := a.attr.AddQualifier(qual)
+	a.attr = attr
+	return attr, err
 }
 
 // Attr implements the instAttr interface method.
@@ -1086,6 +1179,11 @@ func (a *evalAttr) Adapter() ref.TypeAdapter {
 	return a.adapter
 }
 
+// Cost implements the Coster interface method.
+func (a *evalAttr) Cost() (min, max int64) {
+	return estimateCost(a.attr)
+}
+
 // Eval implements the Interpretable interface method.
 func (a *evalAttr) Eval(ctx Activation) ref.Val {
 	v, err := a.attr.Resolve(ctx)
@@ -1095,13 +1193,12 @@ func (a *evalAttr) Eval(ctx Activation) ref.Val {
 	return a.adapter.NativeToValue(v)
 }
 
-// Cost implements the Coster interface method.
-func (a *evalAttr) Cost() (min, max int64) {
-	return estimateCost(a.attr)
+// Qualify proxies to the Attribute's Qualify method.
+func (a *evalAttr) Qualify(ctx Activation, obj interface{}) (interface{}, error) {
+	return a.attr.Qualify(ctx, obj)
 }
 
-// AddQualifier implements the instAttr interface method.
-func (a *evalAttr) AddQualifier(qual Qualifier) (InterpretableAttribute, error) {
-	_, err := a.attr.AddQualifier(qual)
-	return a, err
+// Resolve proxies to the Attribute's Resolve method.
+func (a *evalAttr) Resolve(ctx Activation) (interface{}, error) {
+	return a.attr.Resolve(ctx)
 }

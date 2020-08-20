@@ -1142,7 +1142,7 @@ func TestInterpreter(t *testing.T) {
 			if tc.cost != nil {
 				minCost, maxCost := estimateCost(prg)
 				if minCost != tc.cost[0] || maxCost != tc.cost[1] {
-					t.Errorf("Got cost interval [%v, %v], wanted %v", minCost, maxCost, tc.cost)
+					tt.Errorf("Got cost interval [%v, %v], wanted %v", minCost, maxCost, tc.cost)
 				}
 			}
 			state := NewEvalState()
@@ -1177,8 +1177,8 @@ func TestInterpreter(t *testing.T) {
 						}
 						minCost, maxCost := estimateCost(prg)
 						if minCost != wantedCost[0] || maxCost != wantedCost[1] {
-							t.Errorf("Got exhaustive cost interval [%v, %v], wanted %v",
-								minCost, maxCost, tc.cost)
+							ttt.Errorf("Got exhaustive cost interval [%v, %v], wanted %v",
+								minCost, maxCost, wantedCost)
 						}
 					}
 					if mode == "optimize" && tc.cost != nil {
@@ -1188,7 +1188,7 @@ func TestInterpreter(t *testing.T) {
 						}
 						minCost, maxCost := estimateCost(prg)
 						if minCost != wantedCost[0] || maxCost != wantedCost[1] {
-							t.Errorf("Got optimize cost interval [%v, %v], wanted %v", minCost, maxCost, tc.cost)
+							ttt.Errorf("Got optimize cost interval [%v, %v], wanted %v", minCost, maxCost, tc.cost)
 						}
 					}
 					state.Reset()
