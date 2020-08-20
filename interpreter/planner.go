@@ -228,7 +228,8 @@ func (p *planner) planSelect(expr *exprpb.Expr) (Interpretable, error) {
 	// Lastly, create a field selection Interpretable.
 	attr, isAttr := op.(InterpretableAttribute)
 	if isAttr {
-		return attr.AddQualifier(qual)
+		_, err = attr.AddQualifier(qual)
+		return attr, err
 	}
 
 	relAttr := p.attrFactory.RelativeAttribute(op.ID(), op)
@@ -480,24 +481,41 @@ func (p *planner) planCallIndex(expr *exprpb.Expr,
 	if !isOpAttr {
 		opAttr = &evalAttr{
 			adapter: p.adapter,
-			attr:    p.attrFactory.RelativeAttribute(expr.Id, op),
+			attr:    p.attrFactory.RelativeAttribute(op.ID(), op),
 		}
 	}
+	decAttr, err := p.decorate(opAttr, nil)
+	if err != nil {
+		return nil, err
+	}
+	opAttr, isOpAttr = decAttr.(InterpretableAttribute)
+	if !isOpAttr {
+		return nil, fmt.Errorf("invalid attribute decoration: %v(%T)", decAttr, decAttr)
+	}
+	opType := p.typeMap[expr.GetCallExpr().GetTarget().GetId()]
 	indConst, isIndConst := ind.(InterpretableConst)
 	if isIndConst {
-		opType := p.typeMap[expr.GetCallExpr().GetTarget().GetId()]
 		qual, err := p.attrFactory.NewQualifier(
-			opType, indConst.ID(), indConst.Value())
+			opType, expr.GetId(), indConst.Value())
 		if err != nil {
 			return nil, err
 		}
-		return opAttr.AddQualifier(qual)
+		_, err = opAttr.AddQualifier(qual)
+		return opAttr, err
 	}
 	indAttr, isIndAttr := ind.(InterpretableAttribute)
 	if isIndAttr {
-		return opAttr.AddQualifier(indAttr.Attr())
+		qual, err := p.attrFactory.NewQualifier(
+			opType, expr.GetId(), indAttr)
+		if err != nil {
+			return nil, err
+		}
+		_, err = opAttr.AddQualifier(qual)
+		return opAttr, err
 	}
-	return opAttr.AddQualifier(p.attrFactory.RelativeAttribute(ind.ID(), ind))
+	_, err = opAttr.AddQualifier(
+		p.attrFactory.RelativeAttribute(expr.GetId(), ind))
+	return opAttr, err
 }
 
 // planCreateList generates a list construction Interpretable.

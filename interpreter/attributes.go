@@ -465,7 +465,12 @@ func findMax(x, y int64) int64 {
 //
 // If none of the attributes within the maybe resolves a value, the result is an error.
 func (a *maybeAttribute) AddQualifier(qual Qualifier) (Attribute, error) {
-	str, isStr := qual.(*stringQualifier)
+	str := ""
+	isStr := false
+	cq, isConst := qual.(ConstantQualifier)
+	if isConst {
+		str, isStr = cq.Value().Value().(string)
+	}
 	var augmentedNames []string
 	// First add the qualifier to all existing attributes in the oneof.
 	for _, attr := range a.attrs {
@@ -475,7 +480,7 @@ func (a *maybeAttribute) AddQualifier(qual Qualifier) (Attribute, error) {
 				len(candidateVars),
 				len(candidateVars))
 			for i, name := range candidateVars {
-				augmentedNames[i] = fmt.Sprintf("%s.%s", name, str.value)
+				augmentedNames[i] = fmt.Sprintf("%s.%s", name, str)
 			}
 		}
 		attr.AddQualifier(qual)
@@ -605,7 +610,7 @@ func newQualifier(adapter ref.TypeAdapter, id int64, v interface{}) (Qualifier, 
 	var qual Qualifier
 	switch val := v.(type) {
 	case Attribute:
-		return val, nil
+		return &attrQualifier{id: id, Attribute: val}, nil
 	case string:
 		qual = &stringQualifier{id: id, value: val, celValue: types.String(val), adapter: adapter}
 	case int:
@@ -634,6 +639,20 @@ func newQualifier(adapter ref.TypeAdapter, id int64, v interface{}) (Qualifier, 
 		return nil, fmt.Errorf("invalid qualifier type: %T", v)
 	}
 	return qual, nil
+}
+
+type attrQualifier struct {
+	id int64
+	Attribute
+}
+
+func (q *attrQualifier) ID() int64 {
+	return q.id
+}
+
+// Cost returns zero for constant field qualifiers
+func (q *attrQualifier) Cost() (min, max int64) {
+	return estimateCost(q.Attribute)
 }
 
 type stringQualifier struct {

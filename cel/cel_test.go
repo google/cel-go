@@ -1027,3 +1027,44 @@ func Test_Cost(t *testing.T) {
 			min, max, wantedCost)
 	}
 }
+
+func Test_ResidualAst_AttributeQualifiers(t *testing.T) {
+	e, _ := NewEnv(
+		Declarations(
+			decls.NewVar("x", decls.NewMapType(decls.String, decls.Dyn)),
+			decls.NewVar("y", decls.NewListType(decls.Int)),
+			decls.NewVar("u", decls.Int),
+		),
+	)
+	ast, _ := e.Parse(`x.abc == u && x["abc"] == u && x[x.string] == u && y[0] == u && y[x.zero] == u && (true ? x : y).abc == u && (false ? y : x).abc == u`)
+	prg, _ := e.Program(ast,
+		EvalOptions(OptTrackState, OptPartialEval),
+	)
+	vars, _ := PartialVars(map[string]interface{}{
+		"x": map[string]interface{}{
+			"zero":   0,
+			"abc":    123,
+			"string": "abc",
+		},
+		"y": []int{123},
+	}, AttributePattern("u"))
+	out, det, err := prg.Eval(vars)
+	if !types.IsUnknown(out) {
+		t.Fatalf("got %v, expected unknown", out)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	residual, err := e.ResidualAst(ast, det)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expr, err := AstToString(residual)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const want = "123 == u && 123 == u && 123 == u && 123 == u && 123 == u && 123 == u && 123 == u"
+	if expr != want {
+		t.Errorf("got expr: %s, wanted %s", expr, want)
+	}
+}
