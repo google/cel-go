@@ -232,15 +232,15 @@ func (p *planner) planSelect(expr *exprpb.Expr) (Interpretable, error) {
 		return attr, err
 	}
 
-	relAttr := p.attrFactory.RelativeAttribute(op.ID(), op)
+	relAttr, err := p.relativeAttr(op.ID(), op)
+	if err != nil {
+		return nil, err
+	}
 	_, err = relAttr.AddQualifier(qual)
 	if err != nil {
 		return nil, err
 	}
-	return &evalAttr{
-		adapter: p.adapter,
-		attr:    relAttr,
-	}, nil
+	return relAttr, nil
 }
 
 // planCall creates a callable Interpretable while specializing for common functions and invocation
@@ -477,20 +477,9 @@ func (p *planner) planCallIndex(expr *exprpb.Expr,
 	args []Interpretable) (Interpretable, error) {
 	op := args[0]
 	ind := args[1]
-	opAttr, isOpAttr := op.(InterpretableAttribute)
-	if !isOpAttr {
-		opAttr = &evalAttr{
-			adapter: p.adapter,
-			attr:    p.attrFactory.RelativeAttribute(op.ID(), op),
-		}
-	}
-	decAttr, err := p.decorate(opAttr, nil)
+	opAttr, err := p.relativeAttr(op.ID(), op)
 	if err != nil {
 		return nil, err
-	}
-	opAttr, isOpAttr = decAttr.(InterpretableAttribute)
-	if !isOpAttr {
-		return nil, fmt.Errorf("invalid attribute decoration: %v(%T)", decAttr, decAttr)
 	}
 	opType := p.typeMap[expr.GetCallExpr().GetTarget().GetId()]
 	indConst, isIndConst := ind.(InterpretableConst)
@@ -513,8 +502,11 @@ func (p *planner) planCallIndex(expr *exprpb.Expr,
 		_, err = opAttr.AddQualifier(qual)
 		return opAttr, err
 	}
-	_, err = opAttr.AddQualifier(
-		p.attrFactory.RelativeAttribute(expr.GetId(), ind))
+	indQual, err := p.relativeAttr(expr.GetId(), ind)
+	if err != nil {
+		return nil, err
+	}
+	_, err = opAttr.AddQualifier(indQual)
 	return opAttr, err
 }
 
@@ -738,6 +730,25 @@ func (p *planner) resolveFunction(expr *exprpb.Expr) (*exprpb.Expr, string, stri
 	// In the default case, the function is exactly as it was advertised: a receiver call on with
 	// an expression-based target with the given simple function name.
 	return target, fnName, ""
+}
+
+func (p *planner) relativeAttr(id int64, eval Interpretable) (InterpretableAttribute, error) {
+	eAttr, ok := eval.(InterpretableAttribute)
+	if !ok {
+		eAttr = &evalAttr{
+			adapter: p.adapter,
+			attr:    p.attrFactory.RelativeAttribute(id, eval),
+		}
+	}
+	decAttr, err := p.decorate(eAttr, nil)
+	if err != nil {
+		return nil, err
+	}
+	eAttr, ok = decAttr.(InterpretableAttribute)
+	if !ok {
+		return nil, fmt.Errorf("invalid attribute decoration: %v(%T)", decAttr, decAttr)
+	}
+	return eAttr, nil
 }
 
 // toQualifiedName converts an expression AST into a qualified name if possible, with a boolean
