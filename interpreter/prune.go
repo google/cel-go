@@ -105,8 +105,7 @@ func (p *astPruner) maybeCreateLiteral(id int64, val ref.Val) (*exprpb.Expr, boo
 	}
 
 	// Attempt to build a list literal.
-	list, isList := val.(traits.Lister)
-	if isList {
+	if list, isList := val.(traits.Lister); isList {
 		sz := list.Size().(types.Int)
 		elemExprs := make([]*exprpb.Expr, sz)
 		for i := types.Int(0); i < sz; i++ {
@@ -131,8 +130,7 @@ func (p *astPruner) maybeCreateLiteral(id int64, val ref.Val) (*exprpb.Expr, boo
 	}
 
 	// Create a map literal if possible.
-	mp, isMap := val.(traits.Mapper)
-	if isMap {
+	if mp, isMap := val.(traits.Mapper); isMap {
 		it := mp.Iterator()
 		entries := make([]*exprpb.Expr_CreateStruct_Entry, mp.Size().(types.Int))
 		i := 0
@@ -383,10 +381,12 @@ func (p *astPruner) existsWithKnownValue(id int64) bool {
 }
 
 func (p *astPruner) nextID() int64 {
-	_, found := p.state.Value(p.nextExprID)
-	for found {
+	for true {
+		_, found := p.state.Value(p.nextExprID)
+		if found {
+			break
+		}
 		p.nextExprID++
-		_, found = p.state.Value(p.nextExprID)
 	}
 	next := p.nextExprID
 	p.nextExprID++
