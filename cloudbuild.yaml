@@ -11,7 +11,7 @@ steps:
         - name: 'gcr.io/cloud-builders/gsutil'
           # writes _DATE to GCS bucket so it can be used as GCS folder name
           args: ['cp', '-r', '_DATE', 'gs://cel-conformance']
-        - name: 'gcr.io/cloud-builders/bazel'
+        - name: 'gcr.io/cel-analysis/bazel:3.0.0'
           # run conformance tests with bazel
           args: ['test', '--test_output=all', 'conformance/ct_dashboard']
         - name: 'ubuntu'
