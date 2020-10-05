@@ -22,48 +22,77 @@ import (
 	"github.com/google/cel-go/checker/decls"
 )
 
-func TestIO_AstToProto(t *testing.T) {
+func TestAstToProto(t *testing.T) {
 	stdEnv, _ := NewEnv(Declarations(
 		decls.NewVar("a", decls.Dyn),
 		decls.NewVar("b", decls.Dyn),
 	))
-	ast, _ := stdEnv.Parse("a + b")
+	ast, iss := stdEnv.Parse("a + b")
+	if iss.Err() != nil {
+		t.Fatalf("Parse('a + b') failed: %v", iss.Err())
+	}
 	parsed, err := AstToParsedExpr(ast)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("AstToParsedExpr() failed: %v", err)
 	}
 	ast2 := ParsedExprToAst(parsed)
 	if !proto.Equal(ast2.Expr(), ast.Expr()) {
-		t.Errorf("Got %v, wanted %v", ast2, ast)
+		t.Errorf("got expr %v, wanted %v", ast2, ast)
 	}
 
 	_, err = AstToCheckedExpr(ast)
 	if err == nil {
-		t.Fatal("expected error converting unchecked ast")
+		t.Error("expected error converting unchecked ast")
 	}
-	ast, iss := stdEnv.Check(ast)
+	ast, iss = stdEnv.Check(ast)
 	if iss != nil && iss.Err() != nil {
-		t.Fatal(iss.Err())
+		t.Fatalf("stdEnv.Check(ast) failed: %v", iss.Err())
 	}
 	checked, err := AstToCheckedExpr(ast)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("AstToCheckeExpr(ast) failed: %v", err)
 	}
 	ast3 := CheckedExprToAst(checked)
 	if !proto.Equal(ast3.Expr(), ast.Expr()) {
-		t.Fatalf("Got %v, wanted %v", ast3, ast)
+		t.Fatalf("got ast %v, wanted %v", ast3, ast)
 	}
 }
 
-func TestIO_AstToString(t *testing.T) {
-	stdEnv, _ := NewEnv()
+func TestAstToString(t *testing.T) {
+	stdEnv, err := NewEnv()
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
 	in := "a + b - (c ? (-d + 4) : e)"
-	ast, _ := stdEnv.Parse(in)
+	ast, iss := stdEnv.Parse(in)
+	if iss.Err() != nil {
+		t.Fatalf("stdEnv.Parse(%q) failed: %v", in, iss.Err())
+	}
 	expr, err := AstToString(ast)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("AstToString(ast) failed: %v", err)
 	}
 	if expr != in {
-		t.Errorf("Got %v, wanted %v", expr, in)
+		t.Errorf("got %v, wanted %v", expr, in)
+	}
+}
+
+func TestCheckedExprToAst_ConstantExpr(t *testing.T) {
+	stdEnv, err := NewEnv()
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	in := "10"
+	ast, iss := stdEnv.Compile(in)
+	if iss.Err() != nil {
+		t.Fatalf("stdEnv.Compile(%q) failed: %v", in, iss.Err())
+	}
+	expr, err := AstToCheckedExpr(ast)
+	if err != nil {
+		t.Fatalf("AstToCheckedExpr(ast) failed: %v", err)
+	}
+	ast2 := CheckedExprToAst(expr)
+	if !proto.Equal(ast2.Expr(), ast.Expr()) {
+		t.Fatalf("got ast %v, wanted %v", ast2, ast)
 	}
 }
