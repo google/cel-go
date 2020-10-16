@@ -27,7 +27,8 @@ A CEL "program" is a single expression. The examples have been tagged as
 of the syntax.
 
 CEL is ideal for lightweight expression evaluation when a fully sandboxed
-scripting language is too resource intensive.
+scripting language is too resource intensive. To get started, try the
+[Codelab](https://codelabs.developers.google.com/codelabs/cel-go/index.html).
 
 A dashboard that shows results of cel-go conformance tests can be found
 [here](https://k8s-testgrid.appspot.com/google-cel#cel-go).
