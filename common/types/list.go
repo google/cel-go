@@ -221,10 +221,8 @@ func (l *baseList) Get(index ref.Val) ref.Val {
 // Iterator implements the traits.Iterable interface method.
 func (l *baseList) Iterator() traits.Iterator {
 	return &listIterator{
-		baseIterator: &baseIterator{},
-		listValue:    l,
-		cursor:       0,
-		len:          l.Size().(Int)}
+		listValue: l,
+		len:       l.Size().(Int)}
 }
 
 // Size implements the traits.Sizer interface method.
@@ -347,10 +345,8 @@ func (l *concatList) Get(index ref.Val) ref.Val {
 // Iterator implements the traits.Iterable interface method.
 func (l *concatList) Iterator() traits.Iterator {
 	return &listIterator{
-		baseIterator: &baseIterator{},
-		listValue:    l,
-		cursor:       0,
-		len:          l.Size().(Int)}
+		listValue: l,
+		len:       l.Size().(Int)}
 }
 
 // Size implements the traits.Sizer interface method.

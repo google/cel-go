@@ -47,13 +47,13 @@ func NewStringStringMap(adapter ref.TypeAdapter, value map[string]string) traits
 	}
 }
 
-/*
+// NewProtoMap returns a specialized traits.Mapper for handling protobuf map values.
 func NewProtoMap(adapter ref.TypeAdapter, value pb.Map) traits.Mapper {
 	return &protoMap{
 		TypeAdapter: adapter,
 		value:       value,
 	}
-}*/
+}
 
 var (
 	// MapType singleton.
@@ -83,6 +83,11 @@ func (m *baseMap) Contains(index ref.Val) ref.Val {
 
 // ConvertToNative implements the ref.Val interface method.
 func (m *baseMap) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
+	// If the map is already assignable to the desired type return it, e.g. interfaces and
+	// maps with the same key value types.
+	if reflect.TypeOf(m).AssignableTo(typeDesc) {
+		return m, nil
+	}
 	switch typeDesc {
 	case anyValueType:
 		json, err := m.ConvertToNative(jsonStructType)
@@ -115,12 +120,6 @@ func (m *baseMap) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 			return nil, fmt.Errorf("unsupported type conversion to '%v'", tk)
 		}
 		isPtr = true
-	}
-
-	// If the map is already assignable to the desired type return it, e.g. interfaces and
-	// maps with the same key value types.
-	if reflect.TypeOf(m).AssignableTo(typeDesc) {
-		return m, nil
 	}
 
 	// Establish some basic facts about the map key and value types.
@@ -272,12 +271,9 @@ func (m *baseMap) Get(key ref.Val) ref.Val {
 func (m *baseMap) Iterator() traits.Iterator {
 	mapKeys := m.refValue.MapKeys()
 	return &mapIterator{
-		baseIterator: &baseIterator{},
-		TypeAdapter:  m.TypeAdapter,
-		mapValue:     m,
-		mapKeys:      mapKeys,
-		cursor:       0,
-		len:          int(m.Size().(Int))}
+		TypeAdapter: m.TypeAdapter,
+		mapKeys:     mapKeys,
+		len:         int(m.Size().(Int))}
 }
 
 // Size implements the traits.Sizer interface method.
@@ -388,7 +384,70 @@ func (m *protoMap) Contains(key ref.Val) ref.Val {
 }
 
 func (m *protoMap) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
-	return nil, nil
+	// If the map is already assignable to the desired type return it, e.g. interfaces and
+	// maps with the same key value types.
+	if reflect.TypeOf(m).AssignableTo(typeDesc) {
+		return m, nil
+	}
+	switch typeDesc {
+	case anyValueType:
+		json, err := m.ConvertToNative(jsonStructType)
+		if err != nil {
+			return nil, err
+		}
+		return anypb.New(json.(proto.Message))
+	case jsonValueType, jsonStructType:
+		jsonEntries, err :=
+			m.ConvertToNative(reflect.TypeOf(map[string]*structpb.Value{}))
+		if err != nil {
+			return nil, err
+		}
+		jsonMap := &structpb.Struct{
+			Fields: jsonEntries.(map[string]*structpb.Value)}
+		if typeDesc == jsonStructType {
+			return jsonMap, nil
+		}
+		return &structpb.Value{
+			Kind: &structpb.Value_StructValue{
+				StructValue: jsonMap}}, nil
+	}
+	if typeDesc.Kind() != reflect.Map {
+		return nil, fmt.Errorf("unsupported type conversion: %v to map", typeDesc)
+	}
+	keyType := m.value.KeyType.ReflectType()
+	valType := m.value.ValueType.ReflectType()
+	otherKeyType := typeDesc.Key()
+	otherValType := typeDesc.Elem()
+	mapVal := reflect.MakeMapWithSize(typeDesc, m.value.Len())
+	var err error
+	m.value.Range(func(key protoreflect.MapKey, val protoreflect.Value) bool {
+		ntvKey := key.Interface()
+		ntvVal := val.Interface()
+		switch ntvVal.(type) {
+		case protoreflect.Message:
+			ntvVal = ntvVal.(protoreflect.Message).Interface()
+		}
+		if keyType == otherKeyType && valType == otherValType {
+			mapVal.SetMapIndex(reflect.ValueOf(ntvKey), reflect.ValueOf(ntvVal))
+			return true
+		}
+		celKey := m.NativeToValue(ntvKey)
+		celVal := m.NativeToValue(ntvVal)
+		ntvKey, err = celKey.ConvertToNative(otherKeyType)
+		if err != nil {
+			return false
+		}
+		ntvVal, err = celVal.ConvertToNative(otherValType)
+		if err != nil {
+			return false
+		}
+		mapVal.SetMapIndex(reflect.ValueOf(ntvKey), reflect.ValueOf(ntvVal))
+		return true
+	})
+	if err != nil {
+		return nil, err
+	}
+	return mapVal.Interface(), nil
 }
 
 func (m *protoMap) ConvertToType(typeVal ref.Type) ref.Val {
@@ -409,7 +468,7 @@ func (m *protoMap) Equal(other ref.Val) ref.Val {
 	if m.value.Map.Len() != int(otherMap.Size().(Int)) {
 		return False
 	}
-	var retVal ref.Val = False
+	var retVal ref.Val = True
 	m.value.Range(func(key protoreflect.MapKey, val protoreflect.Value) bool {
 		keyVal := m.NativeToValue(key.Interface())
 		valVal := m.NativeToValue(val)
@@ -465,6 +524,28 @@ func (m *protoMap) Find(key ref.Val) (ref.Val, bool) {
 	}
 }
 
+// Get implements the traits.Indexer interface method.
+func (m *protoMap) Get(key ref.Val) ref.Val {
+	v, found := m.Find(key)
+	if !found {
+		return ValOrErr(v, "no such key: %v", key)
+	}
+	return v
+}
+
+func (m *protoMap) Iterator() traits.Iterator {
+	mapKeys := make([]protoreflect.MapKey, 0, m.value.Len())
+	m.value.Range(func(k protoreflect.MapKey, v protoreflect.Value) bool {
+		mapKeys = append(mapKeys, k)
+		return true
+	})
+	return &protoMapIterator{
+		TypeAdapter: m.TypeAdapter,
+		mapKeys:     mapKeys,
+		len:         m.value.Len(),
+	}
+}
+
 func (m *protoMap) Size() ref.Val {
 	return Int(m.value.Len())
 }
@@ -480,10 +561,9 @@ func (m *protoMap) Value() interface{} {
 type mapIterator struct {
 	*baseIterator
 	ref.TypeAdapter
-	mapValue traits.Mapper
-	mapKeys  []reflect.Value
-	cursor   int
-	len      int
+	mapKeys []reflect.Value
+	cursor  int
+	len     int
 }
 
 // HasNext implements the traits.Iterator interface method.
@@ -493,6 +573,30 @@ func (it *mapIterator) HasNext() ref.Val {
 
 // Next implements the traits.Iterator interface method.
 func (it *mapIterator) Next() ref.Val {
+	if it.HasNext() == True {
+		index := it.cursor
+		it.cursor++
+		refKey := it.mapKeys[index]
+		return it.NativeToValue(refKey.Interface())
+	}
+	return nil
+}
+
+type protoMapIterator struct {
+	*baseIterator
+	ref.TypeAdapter
+	mapKeys []protoreflect.MapKey
+	cursor  int
+	len     int
+}
+
+// HasNext implements the traits.Iterator interface method.
+func (it *protoMapIterator) HasNext() ref.Val {
+	return Bool(it.cursor < it.len)
+}
+
+// Next implements the traits.Iterator interface method.
+func (it *protoMapIterator) Next() ref.Val {
 	if it.HasNext() == True {
 		index := it.cursor
 		it.cursor++

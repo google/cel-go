@@ -175,7 +175,6 @@ func (m *jsonStruct) Iterator() traits.Iterator {
 		i++
 	}
 	return &jsonValueMapIterator{
-		baseIterator: &baseIterator{},
 		len:          len(keys),
 		mapKeys:      keys}
 }

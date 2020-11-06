@@ -172,7 +172,6 @@ func (l *jsonListValue) Get(index ref.Val) ref.Val {
 // Iterator implements the traits.Iterable interface method.
 func (l *jsonListValue) Iterator() traits.Iterator {
 	return &jsonValueListIterator{
-		baseIterator: &baseIterator{},
 		TypeAdapter:  l.TypeAdapter,
 		elems:        l.GetValues(),
 		len:          len(l.GetValues())}
