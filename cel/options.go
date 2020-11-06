@@ -17,7 +17,6 @@ package cel
 import (
 	"fmt"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/types/pb"
 	"github.com/google/cel-go/common/types/ref"
@@ -25,8 +24,13 @@ import (
 	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/parser"
 
-	descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protodesc"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
+
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	descpb "google.golang.org/protobuf/types/descriptorpb"
 )
 
 // These constants beginning with "Feature" enable optional behavior in
@@ -205,12 +209,9 @@ func Types(addTypes ...interface{}) EnvOption {
 		for _, t := range addTypes {
 			switch v := t.(type) {
 			case proto.Message:
-				fds, err := pb.CollectFileDescriptorSet(v)
-				if err != nil {
-					return nil, err
-				}
-				for _, fd := range fds.GetFile() {
-					err = reg.RegisterDescriptor(fd)
+				fdMap := pb.CollectFileDescriptorSet(v)
+				for _, fd := range fdMap {
+					err := reg.RegisterDescriptor(fd)
 					if err != nil {
 						return nil, err
 					}
@@ -240,16 +241,20 @@ func TypeDescs(descs ...interface{}) EnvOption {
 		}
 		for _, d := range descs {
 			switch p := d.(type) {
+			case *protoregistry.Files:
+				if err := registerFiles(reg, p); err != nil {
+					return nil, err
+				}
+			case protoreflect.FileDescriptor:
+				if err := reg.RegisterDescriptor(p); err != nil {
+					return nil, err
+				}
 			case *descpb.FileDescriptorSet:
-				for _, fd := range p.File {
-					err := reg.RegisterDescriptor(fd)
-					if err != nil {
-						return nil, err
-					}
+				if err := registerFileSet(reg, p); err != nil {
+					return nil, err
 				}
 			case *descpb.FileDescriptorProto:
-				err := reg.RegisterDescriptor(p)
-				if err != nil {
+				if err := registerFileProto(reg, p); err != nil {
 					return nil, err
 				}
 			default:
@@ -258,6 +263,34 @@ func TypeDescs(descs ...interface{}) EnvOption {
 		}
 		return e, nil
 	}
+}
+
+func registerFileProto(reg ref.TypeRegistry, fileProto *descpb.FileDescriptorProto) error {
+	file, err := protodesc.NewFile(fileProto, protoregistry.GlobalFiles)
+	if err != nil {
+		return fmt.Errorf("protodesc.NewFile(%q) failed: %v", fileProto.GetName(), err)
+	}
+	return reg.RegisterDescriptor(file)
+}
+
+func registerFileSet(reg ref.TypeRegistry, fileSet *descpb.FileDescriptorSet) error {
+	files, err := protodesc.NewFiles(fileSet)
+	if err != nil {
+		return fmt.Errorf("protodesc.NewFiles(%v) failed: %v", fileSet, err)
+	}
+	return registerFiles(reg, files)
+}
+
+func registerFiles(reg ref.TypeRegistry, files *protoregistry.Files) error {
+	var err error
+	files.RangeFiles(func(fd protoreflect.FileDescriptor) bool {
+		err = reg.RegisterDescriptor(fd)
+		if err != nil {
+			return false
+		}
+		return true
+	})
+	return err
 }
 
 // ProgramOption is a functional interface for configuring evaluation bindings and behaviors.

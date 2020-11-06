@@ -15,18 +15,19 @@
 package types
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
-
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
 
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 
-	dpb "github.com/golang/protobuf/ptypes/duration"
-	structpb "github.com/golang/protobuf/ptypes/struct"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
+
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	dpb "google.golang.org/protobuf/types/known/durationpb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 )
 
 func TestBaseList_Add_Empty(t *testing.T) {
@@ -89,12 +90,13 @@ func TestBaseList_ConvertToNative_Any(t *testing.T) {
 		t.Error(err)
 	}
 	jsonVal := &structpb.ListValue{}
-	if jsonpb.UnmarshalString("[1.0, 2.0]", jsonVal) != nil {
-		t.Error("Unable to unmarshal json")
-	}
-	want, err := ptypes.MarshalAny(jsonVal)
+	err = protojson.Unmarshal([]byte("[1.0, 2.0]"), jsonVal)
 	if err != nil {
-		t.Error(err)
+		t.Fatalf("protojson.Unmarshal() failed: %v", err)
+	}
+	want, err := anypb.New(jsonVal)
+	if err != nil {
+		t.Fatalf("anypb.New() failed: %v", err)
 	}
 	if !proto.Equal(val.(proto.Message), want) {
 		t.Errorf("Got %v, wanted %v", val, want)
@@ -108,8 +110,9 @@ func TestBaseList_ConvertToNative_Json(t *testing.T) {
 		t.Error(err)
 	}
 	want := &structpb.ListValue{}
-	if jsonpb.UnmarshalString("[1.0, 2.0]", want) != nil {
-		t.Error("Unable to unmarshal json")
+	err = protojson.Unmarshal([]byte("[1.0, 2.0]"), want)
+	if err != nil {
+		t.Fatalf("protojson.Unmarshal() failed: %v", err)
 	}
 	if !proto.Equal(val.(proto.Message), want) {
 		t.Errorf("Got %v, wanted %v", val, want)
@@ -220,30 +223,42 @@ func TestConcatList_ConvertToNative_Json(t *testing.T) {
 	listA := NewDynamicList(reg, []float32{1.0, 2.0})
 	listB := NewDynamicList(reg, []string{"3"})
 	list := listA.Add(listB)
-	json, err := list.ConvertToNative(jsonValueType)
+	jsonVal, err := list.ConvertToNative(jsonValueType)
 	if err != nil {
-		t.Errorf("Got '%v', expected '%v'", err, json)
+		t.Fatalf("Got error '%v', expected value", err)
 	}
-	jsonTxt, err := (&jsonpb.Marshaler{}).MarshalToString(json.(proto.Message))
+	jsonBytes, err := protojson.Marshal(jsonVal.(proto.Message))
 	if err != nil {
-		t.Error(err)
+		t.Fatalf("protojson.Marshal(%v) failed: %v", jsonVal, err)
 	}
-	if jsonTxt != "[1,2,\"3\"]" {
-		t.Errorf("Got '%v', expected [1,2,\"3\"]", jsonTxt)
+	jsonTxt := string(jsonBytes)
+	outList := []interface{}{}
+	err = json.Unmarshal(jsonBytes, &outList)
+	if err != nil {
+		t.Fatalf("json.Unmarshal(%q) failed: %v", jsonTxt, err)
+	}
+	if !reflect.DeepEqual(outList, []interface{}{1.0, 2.0, "3"}) {
+		t.Errorf("got json '%v', expected %v", jsonTxt, outList)
 	}
 	// Test proto3 to JSON conversion.
 	listC := NewDynamicList(reg, []*dpb.Duration{{Seconds: 100}})
 	listConcat := listA.Add(listC)
-	json, err = listConcat.ConvertToNative(jsonValueType)
+	jsonVal, err = listConcat.ConvertToNative(jsonValueType)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
-	jsonTxt, err = (&jsonpb.Marshaler{}).MarshalToString(json.(proto.Message))
+	jsonBytes, err = protojson.Marshal(jsonVal.(proto.Message))
 	if err != nil {
-		t.Error(err)
+		t.Fatalf("protojson.Marshal(%v) failed: %v", jsonVal, err)
 	}
-	if jsonTxt != "[1,2,\"100s\"]" {
-		t.Errorf("Got '%v', expected [1,2,\"100s\"]", jsonTxt)
+	jsonTxt = string(jsonBytes)
+	outList = []interface{}{}
+	err = json.Unmarshal(jsonBytes, &outList)
+	if err != nil {
+		t.Fatalf("json.Unmarshal(%q) failed: %v", jsonTxt, err)
+	}
+	if !reflect.DeepEqual(outList, []interface{}{1.0, 2.0, "100s"}) {
+		t.Errorf("got json '%v', expected %v", jsonTxt, outList)
 	}
 }
 
@@ -451,23 +466,33 @@ func TestStringList_ConvertToNative_Error(t *testing.T) {
 func TestStringList_ConvertToNative_Json(t *testing.T) {
 	reg := NewRegistry()
 	list := NewStringList(reg, []string{"h", "e", "l", "p"})
-	json, err := list.ConvertToNative(jsonValueType)
+	jsonVal, err := list.ConvertToNative(jsonValueType)
 	if err != nil {
-		t.Errorf("Got '%v', expected '%v'", err, json)
+		t.Errorf("Got '%v', expected '%v'", err, jsonVal)
 	}
-	jsonTxt, err := (&jsonpb.Marshaler{}).MarshalToString(json.(proto.Message))
+	jsonBytes, err := protojson.Marshal(jsonVal.(proto.Message))
 	if err != nil {
-		t.Error(err)
+		t.Fatalf("protojson.Marshal(%v) failed: %v", jsonVal, err)
 	}
-	if jsonTxt != "[\"h\",\"e\",\"l\",\"p\"]" {
-		t.Errorf("Got '%v', expected [\"h\",\"e\",\"l\",\"p\"]", jsonTxt)
+	jsonTxt := string(jsonBytes)
+	outList := []interface{}{}
+	err = json.Unmarshal(jsonBytes, &outList)
+	if err != nil {
+		t.Fatalf("json.Unmarshal(%q) failed: %v", jsonTxt, err)
+	}
+	if !reflect.DeepEqual(outList, []interface{}{"h", "e", "l", "p"}) {
+		t.Errorf("got json '%v', expected %v", jsonTxt, outList)
 	}
 
 	jsonList, err := list.ConvertToNative(jsonListValueType)
 	if err != nil {
 		t.Errorf("Got '%v', expected '%v'", err, jsonList)
 	}
-	jsonListTxt, _ := (&jsonpb.Marshaler{}).MarshalToString(jsonList.(proto.Message))
+	jsonListBytes, err := protojson.Marshal(jsonList.(proto.Message))
+	if err != nil {
+		t.Fatalf("protojson.Marshal(%v) failed: %v", jsonVal, err)
+	}
+	jsonListTxt := string(jsonListBytes)
 	if jsonTxt != jsonListTxt {
 		t.Errorf("Json value and list value not equal.")
 	}
@@ -503,16 +528,22 @@ func TestValueList_Add(t *testing.T) {
 func TestValueList_ConvertToNative_Json(t *testing.T) {
 	reg := NewRegistry()
 	list := NewValueList(reg, []ref.Val{String("hello"), String("world")})
-	json, err := list.ConvertToNative(jsonListValueType)
+	jsonVal, err := list.ConvertToNative(jsonListValueType)
 	if err != nil {
-		t.Errorf("Got '%v', expected '%v'", err, json)
+		t.Errorf("Got '%v', expected '%v'", err, jsonVal)
 	}
-	jsonTxt, err := (&jsonpb.Marshaler{}).MarshalToString(json.(proto.Message))
+	jsonBytes, err := protojson.Marshal(jsonVal.(proto.Message))
 	if err != nil {
-		t.Error(err)
+		t.Fatalf("protojson.Marshal(%v) failed: %v", jsonVal, err)
 	}
-	if jsonTxt != `["hello","world"]` {
-		t.Errorf(`Got '%v', expected ["hello","world"]`, jsonTxt)
+	jsonTxt := string(jsonBytes)
+	outList := []interface{}{}
+	err = json.Unmarshal(jsonBytes, &outList)
+	if err != nil {
+		t.Fatalf("json.Unmarshal(%q) failed: %v", jsonTxt, err)
+	}
+	if !reflect.DeepEqual(outList, []interface{}{"hello", "world"}) {
+		t.Errorf("got json '%v', expected %v", jsonTxt, outList)
 	}
 }
 

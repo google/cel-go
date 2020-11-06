@@ -18,8 +18,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/golang/protobuf/ptypes"
-
 	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common"
@@ -31,6 +29,7 @@ import (
 	proto3pb "github.com/google/cel-go/test/proto3pb"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 func TestAttributes_AbsoluteAttr(t *testing.T) {
@@ -477,7 +476,7 @@ func TestResolver_CustomQualifier(t *testing.T) {
 func TestAttributes_MissingMsg(t *testing.T) {
 	reg := types.NewRegistry()
 	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
-	any, _ := ptypes.MarshalAny(&proto3pb.TestAllTypes{})
+	any, _ := anypb.New(&proto3pb.TestAllTypes{})
 	vars, _ := NewActivation(map[string]interface{}{
 		"missing_msg": any,
 	})
@@ -498,7 +497,7 @@ func TestAttributes_MissingMsg(t *testing.T) {
 func TestAttributes_MissingMsg_UnknownField(t *testing.T) {
 	reg := types.NewRegistry()
 	attrs := NewPartialAttributeFactory(containers.DefaultContainer, reg, reg)
-	any, _ := ptypes.MarshalAny(&proto3pb.TestAllTypes{})
+	any, _ := anypb.New(&proto3pb.TestAllTypes{})
 	vars, _ := NewPartialActivation(map[string]interface{}{
 		"missing_msg": any,
 	}, NewAttributePattern("missing_msg").QualString("field"))

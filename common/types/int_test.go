@@ -20,11 +20,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/proto"
 
-	structpb "github.com/golang/protobuf/ptypes/struct"
-	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
+	tpb "google.golang.org/protobuf/types/known/timestamppb"
+	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 func TestInt_Add(t *testing.T) {
@@ -58,7 +59,7 @@ func TestInt_ConvertToNative_Any(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	want, err := ptypes.MarshalAny(&wrapperspb.Int64Value{Value: math.MaxInt64})
+	want, err := anypb.New(&wrapperspb.Int64Value{Value: math.MaxInt64})
 	if err != nil {
 		t.Error(err)
 	}
@@ -180,7 +181,7 @@ func TestInt_ConvertToType(t *testing.T) {
 		t.Error("Got duration, expected error.")
 	}
 	tm := time.Unix(946684800, 0)
-	ts, _ := ptypes.TimestampProto(tm)
+	ts := tpb.New(tm)
 	celts := Timestamp{Timestamp: ts}
 	if !Int(946684800).ConvertToType(TimestampType).Equal(celts).(Bool) {
 		t.Error("unsuccessful type conversion to timestamp")

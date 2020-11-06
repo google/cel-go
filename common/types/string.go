@@ -22,14 +22,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
-
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 
-	structpb "github.com/golang/protobuf/ptypes/struct"
-	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	dpb "google.golang.org/protobuf/types/known/durationpb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
+	tpb "google.golang.org/protobuf/types/known/timestamppb"
+	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // String type implementation which supports addition, comparison, matching,
@@ -81,7 +82,7 @@ func (s String) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		switch typeDesc {
 		case anyValueType:
 			// Primitives must be wrapped before being set on an Any field.
-			return ptypes.MarshalAny(&wrapperspb.StringValue{Value: string(s)})
+			return anypb.New(&wrapperspb.StringValue{Value: string(s)})
 		case jsonValueType:
 			// Convert to a protobuf representation of a JSON String.
 			return &structpb.Value{
@@ -127,13 +128,12 @@ func (s String) ConvertToType(typeVal ref.Type) ref.Val {
 		return Bytes(s)
 	case DurationType:
 		if d, err := time.ParseDuration(s.Value().(string)); err == nil {
-			return Duration{ptypes.DurationProto(d)}
+			return Duration{Duration: dpb.New(d)}
 		}
 	case TimestampType:
 		if t, err := time.Parse(time.RFC3339, s.Value().(string)); err == nil {
-			if ts, err := ptypes.TimestampProto(t); err == nil {
-				return Timestamp{ts}
-			}
+			ts := tpb.New(t)
+			return Timestamp{Timestamp: ts}
 		}
 	case StringType:
 		return s

@@ -19,11 +19,11 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/proto"
 
-	structpb "github.com/golang/protobuf/ptypes/struct"
-	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
+	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 func TestBytes_Add(t *testing.T) {
@@ -55,7 +55,7 @@ func TestBytes_ConvertToNative_Any(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	want, err := ptypes.MarshalAny(&wrapperspb.BytesValue{Value: []byte("123")})
+	want, err := anypb.New(&wrapperspb.BytesValue{Value: []byte("123")})
 	if err != nil {
 		t.Error(err)
 	}

@@ -20,13 +20,13 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
-
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 
-	structpb "github.com/golang/protobuf/ptypes/struct"
-	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
+	tpb "google.golang.org/protobuf/types/known/timestamppb"
+	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // Int type that implements ref.Val as well as comparison and math operators.
@@ -95,7 +95,7 @@ func (i Int) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		switch typeDesc {
 		case anyValueType:
 			// Primitives must be wrapped before being set on an Any field.
-			return ptypes.MarshalAny(&wrapperspb.Int64Value{Value: int64(i)})
+			return anypb.New(&wrapperspb.Int64Value{Value: int64(i)})
 		case int32WrapperType:
 			// Convert the value to a protobuf.Int32Value (with truncation).
 			return &wrapperspb.Int32Value{Value: int32(i)}, nil
@@ -166,10 +166,7 @@ func (i Int) ConvertToType(typeVal ref.Type) ref.Val {
 		return String(fmt.Sprintf("%d", int64(i)))
 	case TimestampType:
 		t := time.Unix(int64(i), 0)
-		ts, err := ptypes.TimestampProto(t)
-		if err != nil {
-			return NewErr(err.Error())
-		}
+		ts := tpb.New(t)
 		return Timestamp{Timestamp: ts}
 	case TypeType:
 		return IntType

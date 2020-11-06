@@ -18,16 +18,16 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types/ref"
 
-	dpb "github.com/golang/protobuf/ptypes/duration"
-	structpb "github.com/golang/protobuf/ptypes/struct"
-	tpb "github.com/golang/protobuf/ptypes/timestamp"
-	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	dpb "google.golang.org/protobuf/types/known/durationpb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
+	tpb "google.golang.org/protobuf/types/known/timestamppb"
+	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 func TestString_Add(t *testing.T) {
@@ -62,7 +62,7 @@ func TestString_ConvertToNative_Any(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	want, err := ptypes.MarshalAny(&wrapperspb.StringValue{Value: "hello"})
+	want, err := anypb.New(&wrapperspb.StringValue{Value: "hello"})
 	if err != nil {
 		t.Error(err)
 	}

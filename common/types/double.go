@@ -22,10 +22,9 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 
-	"github.com/golang/protobuf/ptypes"
-
-	structpb "github.com/golang/protobuf/ptypes/struct"
-	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
+	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // Double type that implements ref.Val, comparison, and mathematical
@@ -86,7 +85,7 @@ func (d Double) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		switch typeDesc {
 		case anyValueType:
 			// Primitives must be wrapped before being set on an Any field.
-			return ptypes.MarshalAny(&wrapperspb.DoubleValue{Value: float64(d)})
+			return anypb.New(&wrapperspb.DoubleValue{Value: float64(d)})
 		case doubleWrapperType:
 			// Convert to a protobuf.DoubleValue
 			return &wrapperspb.DoubleValue{Value: float64(d)}, nil

@@ -18,14 +18,14 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
-
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types/ref"
 
-	dpb "github.com/golang/protobuf/ptypes/duration"
-	structpb "github.com/golang/protobuf/ptypes/struct"
+	"google.golang.org/protobuf/proto"
+
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	dpb "google.golang.org/protobuf/types/known/durationpb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 )
 
 func TestDuration_Add(t *testing.T) {
@@ -67,7 +67,7 @@ func TestDuration_ConvertToNative_Any(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	want, err := ptypes.MarshalAny(pb)
+	want, err := anypb.New(pb)
 	if err != nil {
 		t.Error(err)
 	}

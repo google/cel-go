@@ -18,11 +18,10 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/proto"
 
-	anypb "github.com/golang/protobuf/ptypes/any"
-	structpb "github.com/golang/protobuf/ptypes/struct"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 )
 
 func TestNull_ConvertToNative(t *testing.T) {
@@ -42,14 +41,14 @@ func TestNull_ConvertToNative(t *testing.T) {
 	// google.protobuf.Any
 	val, err = NullValue.ConvertToNative(anyValueType)
 	if err != nil {
-		t.Error("Fail to convert Null to any.")
+		t.Fatalf("NullValue.ConvertToNative(%v) failed: %v", anyValueType, err)
 	}
-	data := ptypes.DynamicAny{}
-	if ptypes.UnmarshalAny(val.(*anypb.Any), &data) != nil {
-		t.Error("Fail to unmarshal any.")
+	data, err := val.(*anypb.Any).UnmarshalNew()
+	if err != nil {
+		t.Fatalf("val.UnmarshalNew() failed: %v", err)
 	}
-	if !proto.Equal(expected, data.Message) {
-		t.Errorf("Messages were not equal, got '%v'", data.Message)
+	if !proto.Equal(expected, data) {
+		t.Errorf("Messages were not equal, got '%v'", data)
 	}
 
 	// NullValue

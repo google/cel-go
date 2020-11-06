@@ -20,28 +20,16 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
-
+	"github.com/google/cel-go/common/types/pb"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 
-	structpb "github.com/golang/protobuf/ptypes/struct"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
+
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 )
-
-// baseMap is a reflection based map implementation designed to handle a variety of map-like types.
-type baseMap struct {
-	ref.TypeAdapter
-	value    interface{}
-	refValue reflect.Value
-}
-
-// stringMap is a specialization to improve the performance of simple key, value pair lookups by
-// string as this is the most common usage of maps.
-type stringMap struct {
-	*baseMap
-	mapStrStr map[string]string
-}
 
 // NewDynamicMap returns a traits.Mapper value with dynamic key, value pairs.
 func NewDynamicMap(adapter ref.TypeAdapter, value interface{}) traits.Mapper {
@@ -59,6 +47,14 @@ func NewStringStringMap(adapter ref.TypeAdapter, value map[string]string) traits
 	}
 }
 
+/*
+func NewProtoMap(adapter ref.TypeAdapter, value pb.Map) traits.Mapper {
+	return &protoMap{
+		TypeAdapter: adapter,
+		value:       value,
+	}
+}*/
+
 var (
 	// MapType singleton.
 	MapType = NewTypeValue("map",
@@ -68,18 +64,15 @@ var (
 		traits.SizerType)
 )
 
-// Contains implements the traits.Container interface method.
-func (m *baseMap) Contains(index ref.Val) ref.Val {
-	val, found := m.Find(index)
-	// When the index is not found and val is non-nil, this is an error or unknown value.
-	if !found && val != nil && IsUnknownOrError(val) {
-		return val
-	}
-	return Bool(found)
+// baseMap is a reflection based map implementation designed to handle a variety of map-like types.
+type baseMap struct {
+	ref.TypeAdapter
+	value    interface{}
+	refValue reflect.Value
 }
 
 // Contains implements the traits.Container interface method.
-func (m *stringMap) Contains(index ref.Val) ref.Val {
+func (m *baseMap) Contains(index ref.Val) ref.Val {
 	val, found := m.Find(index)
 	// When the index is not found and val is non-nil, this is an error or unknown value.
 	if !found && val != nil && IsUnknownOrError(val) {
@@ -96,7 +89,7 @@ func (m *baseMap) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
-		return ptypes.MarshalAny(json.(proto.Message))
+		return anypb.New(json.(proto.Message))
 	case jsonValueType, jsonStructType:
 		jsonEntries, err :=
 			m.ConvertToNative(reflect.TypeOf(map[string]*structpb.Value{}))
@@ -206,14 +199,6 @@ func (m *baseMap) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	return nil, fmt.Errorf("type conversion error from map to '%v'", typeDesc)
 }
 
-// ConvertToNative implements the ref.Val interface method.
-func (m *stringMap) ConvertToNative(refType reflect.Type) (interface{}, error) {
-	if !m.baseMap.refValue.IsValid() {
-		m.baseMap.refValue = reflect.ValueOf(m.value)
-	}
-	return m.baseMap.ConvertToNative(refType)
-}
-
 // ConvertToType implements the ref.Val interface method.
 func (m *baseMap) ConvertToType(typeVal ref.Type) ref.Val {
 	switch typeVal {
@@ -223,16 +208,6 @@ func (m *baseMap) ConvertToType(typeVal ref.Type) ref.Val {
 		return MapType
 	}
 	return NewErr("type conversion error from '%s' to '%s'", MapType, typeVal)
-}
-
-// ConvertToType implements the ref.Val interface method.
-func (m *stringMap) ConvertToType(typeVal ref.Type) ref.Val {
-	switch typeVal {
-	case MapType:
-		return m
-	default:
-		return m.baseMap.ConvertToType(typeVal)
-	}
 }
 
 // Equal implements the ref.Val interface method.
@@ -263,14 +238,6 @@ func (m *baseMap) Equal(other ref.Val) ref.Val {
 	return True
 }
 
-// Equal implements the ref.Val interface method.
-func (m *stringMap) Equal(other ref.Val) ref.Val {
-	if !m.baseMap.refValue.IsValid() {
-		m.baseMap.refValue = reflect.ValueOf(m.value)
-	}
-	return m.baseMap.Equal(other)
-}
-
 // Find implements the traits.Mapper interface method.
 func (m *baseMap) Find(key ref.Val) (ref.Val, bool) {
 	// TODO: There are multiple reasons why a Get could fail. Typically, this is because the key
@@ -292,30 +259,8 @@ func (m *baseMap) Find(key ref.Val) (ref.Val, bool) {
 	return m.NativeToValue(value.Interface()), true
 }
 
-// Find implements the traits.Mapper interface method.
-func (m *stringMap) Find(key ref.Val) (ref.Val, bool) {
-	strKey, ok := key.(String)
-	if !ok {
-		return ValOrErr(key, "no such overload"), false
-	}
-	val, found := m.mapStrStr[string(strKey)]
-	if !found {
-		return nil, false
-	}
-	return String(val), true
-}
-
 // Get implements the traits.Indexer interface method.
 func (m *baseMap) Get(key ref.Val) ref.Val {
-	v, found := m.Find(key)
-	if !found {
-		return ValOrErr(v, "no such key: %v", key)
-	}
-	return v
-}
-
-// Get implements the traits.Indexer interface method.
-func (m *stringMap) Get(key ref.Val) ref.Val {
 	v, found := m.Find(key)
 	if !found {
 		return ValOrErr(v, "no such key: %v", key)
@@ -335,22 +280,9 @@ func (m *baseMap) Iterator() traits.Iterator {
 		len:          int(m.Size().(Int))}
 }
 
-// Iterator implements the traits.Iterable interface method.
-func (m *stringMap) Iterator() traits.Iterator {
-	if !m.baseMap.refValue.IsValid() {
-		m.baseMap.refValue = reflect.ValueOf(m.value)
-	}
-	return m.baseMap.Iterator()
-}
-
 // Size implements the traits.Sizer interface method.
 func (m *baseMap) Size() ref.Val {
 	return Int(m.refValue.Len())
-}
-
-// Size implements the traits.Sizer interface method.
-func (m *stringMap) Size() ref.Val {
-	return Int(len(m.mapStrStr))
 }
 
 // Type implements the ref.Val interface method.
@@ -361,6 +293,188 @@ func (m *baseMap) Type() ref.Type {
 // Value implements the ref.Val interface method.
 func (m *baseMap) Value() interface{} {
 	return m.value
+}
+
+// stringMap is a specialization to improve the performance of simple key, value pair lookups by
+// string as this is the most common usage of maps.
+type stringMap struct {
+	*baseMap
+	mapStrStr map[string]string
+}
+
+// Contains implements the traits.Container interface method.
+func (m *stringMap) Contains(index ref.Val) ref.Val {
+	val, found := m.Find(index)
+	// When the index is not found and val is non-nil, this is an error or unknown value.
+	if !found && val != nil && IsUnknownOrError(val) {
+		return val
+	}
+	return Bool(found)
+}
+
+// ConvertToNative implements the ref.Val interface method.
+func (m *stringMap) ConvertToNative(refType reflect.Type) (interface{}, error) {
+	if !m.baseMap.refValue.IsValid() {
+		m.baseMap.refValue = reflect.ValueOf(m.value)
+	}
+	return m.baseMap.ConvertToNative(refType)
+}
+
+// ConvertToType implements the ref.Val interface method.
+func (m *stringMap) ConvertToType(typeVal ref.Type) ref.Val {
+	switch typeVal {
+	case MapType:
+		return m
+	default:
+		return m.baseMap.ConvertToType(typeVal)
+	}
+}
+
+// Equal implements the ref.Val interface method.
+func (m *stringMap) Equal(other ref.Val) ref.Val {
+	if !m.baseMap.refValue.IsValid() {
+		m.baseMap.refValue = reflect.ValueOf(m.value)
+	}
+	return m.baseMap.Equal(other)
+}
+
+// Find implements the traits.Mapper interface method.
+func (m *stringMap) Find(key ref.Val) (ref.Val, bool) {
+	strKey, ok := key.(String)
+	if !ok {
+		return ValOrErr(key, "no such overload"), false
+	}
+	val, found := m.mapStrStr[string(strKey)]
+	if !found {
+		return nil, false
+	}
+	return String(val), true
+}
+
+// Get implements the traits.Indexer interface method.
+func (m *stringMap) Get(key ref.Val) ref.Val {
+	v, found := m.Find(key)
+	if !found {
+		return ValOrErr(v, "no such key: %v", key)
+	}
+	return v
+}
+
+// Iterator implements the traits.Iterable interface method.
+func (m *stringMap) Iterator() traits.Iterator {
+	if !m.baseMap.refValue.IsValid() {
+		m.baseMap.refValue = reflect.ValueOf(m.value)
+	}
+	return m.baseMap.Iterator()
+}
+
+// Size implements the traits.Sizer interface method.
+func (m *stringMap) Size() ref.Val {
+	return Int(len(m.mapStrStr))
+}
+
+type protoMap struct {
+	ref.TypeAdapter
+	value pb.Map
+}
+
+func (m *protoMap) Contains(key ref.Val) ref.Val {
+	val, found := m.Find(key)
+	// When the index is not found and val is non-nil, this is an error or unknown value.
+	if !found && val != nil && IsUnknownOrError(val) {
+		return val
+	}
+	return Bool(found)
+}
+
+func (m *protoMap) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
+	return nil, nil
+}
+
+func (m *protoMap) ConvertToType(typeVal ref.Type) ref.Val {
+	switch typeVal {
+	case MapType:
+		return m
+	case TypeType:
+		return MapType
+	}
+	return NewErr("type conversion error from '%s' to '%s'", MapType, typeVal)
+}
+
+func (m *protoMap) Equal(other ref.Val) ref.Val {
+	if MapType != other.Type() {
+		return ValOrErr(other, "no such overload")
+	}
+	otherMap := other.(traits.Mapper)
+	if m.value.Map.Len() != int(otherMap.Size().(Int)) {
+		return False
+	}
+	var retVal ref.Val = False
+	m.value.Range(func(key protoreflect.MapKey, val protoreflect.Value) bool {
+		keyVal := m.NativeToValue(key.Interface())
+		valVal := m.NativeToValue(val)
+		otherVal, found := otherMap.Find(keyVal)
+		if !found {
+			if otherVal == nil {
+				retVal = False
+				return false
+			}
+			retVal = ValOrErr(otherVal, "no such overload")
+			return false
+		}
+		valEq := valVal.Equal(otherVal)
+		if valEq != True {
+			retVal = valEq
+			return false
+		}
+		return true
+	})
+	return retVal
+}
+
+func (m *protoMap) Find(key ref.Val) (ref.Val, bool) {
+	if IsUnknownOrError(key) {
+		return key, false
+	}
+	// TODO: ensure that the key.Value() type is what is desired by the map
+	// This means that the type information needs to be provided to the proto map
+	// And I'm not sure how to do this.
+	ntvKey, err := key.ConvertToNative(m.value.KeyType.ReflectType())
+	if err != nil {
+		return &Err{err}, false
+	}
+	val := m.value.Get(protoreflect.ValueOf(ntvKey).MapKey()).Interface()
+	switch v := val.(type) {
+	case protoreflect.EnumNumber:
+		return Int(v), true
+	case protoreflect.List:
+		return m.NativeToValue(pb.List{
+			List:     v,
+			ElemType: m.value.ValueType,
+		}), true
+	case protoreflect.Map:
+		return m.NativeToValue(pb.Map{
+			Map:       v,
+			KeyType:   m.value.ValueType.KeyType,
+			ValueType: m.value.ValueType.ValueType},
+		), true
+	case protoreflect.Message:
+		return m.NativeToValue(v.Interface()), true
+	default:
+		return m.NativeToValue(v), true
+	}
+}
+
+func (m *protoMap) Size() ref.Val {
+	return Int(m.value.Len())
+}
+
+func (m *protoMap) Type() ref.Type {
+	return MapType
+}
+
+func (m *protoMap) Value() interface{} {
+	return m.value.Map
 }
 
 type mapIterator struct {

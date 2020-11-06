@@ -18,13 +18,13 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 
-	structpb "github.com/golang/protobuf/ptypes/struct"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 )
 
 var (
@@ -83,7 +83,7 @@ func (m *jsonStruct) ConvertToNative(typeDesc reflect.Type) (interface{}, error)
 	case reflect.Ptr:
 		switch typeDesc {
 		case anyValueType:
-			return ptypes.MarshalAny(m.Value().(proto.Message))
+			return anypb.New(m.Value().(proto.Message))
 		case jsonValueType:
 			return &structpb.Value{
 				Kind: &structpb.Value_StructValue{StructValue: m.Struct},

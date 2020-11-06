@@ -18,13 +18,13 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 
-	structpb "github.com/golang/protobuf/ptypes/struct"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 )
 
 var (
@@ -126,7 +126,7 @@ func (l *baseList) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
-		return ptypes.MarshalAny(json.(proto.Message))
+		return anypb.New(json.(proto.Message))
 	case jsonValueType, jsonListValueType:
 		jsonValues, err :=
 			l.ConvertToNative(reflect.TypeOf([]*structpb.Value{}))
@@ -430,7 +430,7 @@ func (l *stringList) ConvertToNative(typeDesc reflect.Type) (interface{}, error)
 			if err != nil {
 				return nil, err
 			}
-			return ptypes.MarshalAny(json.(proto.Message))
+			return anypb.New(json.(proto.Message))
 		case jsonValueType, jsonListValueType:
 			elemCount := len(l.elems)
 			listVals := make([]*structpb.Value, elemCount, elemCount)

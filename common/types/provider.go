@@ -15,20 +15,21 @@
 package types
 
 import (
+	"fmt"
 	"reflect"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 
 	"github.com/google/cel-go/common/types/pb"
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/common/types/traits"
 
-	descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
-	anypb "github.com/golang/protobuf/ptypes/any"
-	dpb "github.com/golang/protobuf/ptypes/duration"
-	structpb "github.com/golang/protobuf/ptypes/struct"
-	tpb "github.com/golang/protobuf/ptypes/timestamp"
-	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	dpb "google.golang.org/protobuf/types/known/durationpb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
+	tpb "google.golang.org/protobuf/types/known/timestamppb"
+	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
@@ -144,41 +145,19 @@ func (p *protoTypeRegistry) NewValue(typeName string, fields map[string]ref.Val)
 	if err != nil {
 		return NewErr("unknown type '%s'", typeName)
 	}
-	refType := td.ReflectType()
-	// create the new type instance.
-	value := reflect.New(refType.Elem())
-	pbValue := value.Elem()
-
-	// for all of the field names referenced, set the provided value.
+	msg := td.New()
+	fieldMap := td.FieldMap()
 	for name, value := range fields {
-		fd, found := td.FieldByName(name)
+		field, found := fieldMap[name]
 		if !found {
-			return NewErr("no such field '%s'", name)
+			return NewErr("no such field: %s", name)
 		}
-		refField := pbValue.Field(fd.Index())
-		if !refField.IsValid() {
-			return NewErr("no such field '%s'", name)
-		}
-
-		dstType := refField.Type()
-		// Oneof fields are defined with wrapper structs that have a single proto.Message
-		// field value. The oneof wrapper is not a proto.Message instance.
-		if fd.IsOneof() {
-			oneofVal := reflect.New(fd.OneofType().Elem())
-			refField.Set(oneofVal)
-			refField = oneofVal.Elem().Field(0)
-			dstType = refField.Type()
-		}
-		fieldValue, err := value.ConvertToNative(dstType)
-		if err != nil {
-			return &Err{err}
-		}
-		refField.Set(reflect.ValueOf(fieldValue))
+		msgSetField(msg, field, value)
 	}
-	return p.NativeToValue(value.Interface())
+	return p.NativeToValue(msg.Interface())
 }
 
-func (p *protoTypeRegistry) RegisterDescriptor(fileDesc *descpb.FileDescriptorProto) error {
+func (p *protoTypeRegistry) RegisterDescriptor(fileDesc protoreflect.FileDescriptor) error {
 	fd, err := p.pbdb.RegisterDescriptor(fileDesc)
 	if err != nil {
 		return err
@@ -252,14 +231,14 @@ func (p *protoTypeRegistry) NativeToValue(value interface{}) ref.Val {
 		if v == nil {
 			return NewErr("unsupported type conversion: '%T'", value)
 		}
-		unpackedAny := ptypes.DynamicAny{}
-		if ptypes.UnmarshalAny(v, &unpackedAny) != nil {
-			return NewErr("unknown type: '%s'", v.GetTypeUrl())
+		unpackedAny, err := v.UnmarshalNew()
+		if err != nil {
+			return NewErr("anypb.UnmarshalNew() failed for type %q: %v", v.GetTypeUrl(), err)
 		}
-		return p.NativeToValue(unpackedAny.Message)
+		return p.NativeToValue(unpackedAny)
 	// Convert custom proto types to CEL values based on type's presence within the pb.Db.
 	case proto.Message:
-		typeName := proto.MessageName(v)
+		typeName := string(v.ProtoReflect().Descriptor().FullName())
 		td, err := p.pbdb.DescribeType(typeName)
 		if err != nil {
 			return NewErr("unknown type: '%s'", typeName)
@@ -439,11 +418,11 @@ func (a *defaultTypeAdapter) NativeToValue(value interface{}) ref.Val {
 		if val == nil {
 			return NewErr("unsupported type conversion")
 		}
-		unpackedAny := ptypes.DynamicAny{}
-		if ptypes.UnmarshalAny(val, &unpackedAny) != nil {
-			return NewErr("unknown type: %s", val.GetTypeUrl())
+		unpackedAny, err := val.UnmarshalNew()
+		if err != nil {
+			return NewErr("anypb.UnmarshalNew() failed for type %q: %v", val.GetTypeUrl(), err)
 		}
-		return a.NativeToValue(unpackedAny.Message)
+		return a.NativeToValue(unpackedAny)
 	case *wrapperspb.BoolValue:
 		val := value.(*wrapperspb.BoolValue)
 		if val == nil {
@@ -535,4 +514,90 @@ func (a *defaultTypeAdapter) NativeToValue(value interface{}) ref.Val {
 		}
 	}
 	return NewErr("unsupported type conversion: '%T'", value)
+}
+
+func msgSetField(target protoreflect.Message, field *pb.FieldDescription, val ref.Val) error {
+	if field.IsList() {
+		lv := target.NewField(field.Descriptor())
+		list, ok := val.(traits.Lister)
+		if !ok {
+			msgName := field.Descriptor().ContainingMessage().FullName()
+			return fmt.Errorf("unsupported field type for %v.%v: %v", msgName, field.Name(), val.Type())
+		}
+		err := msgSetListField(lv.List(), field, list)
+		if err != nil {
+			return err
+		}
+		target.Set(field.Descriptor(), lv)
+		return nil
+	}
+	if field.IsMap() {
+		mv := target.NewField(field.Descriptor())
+		mp, ok := val.(traits.Mapper)
+		if !ok {
+			msgName := field.Descriptor().ContainingMessage().FullName()
+			return fmt.Errorf("unsupported field type for %v.%v: %v", msgName, field.Name(), val.Type())
+		}
+		err := msgSetMapField(mv.Map(), field, mp)
+		if err != nil {
+			return err
+		}
+		target.Set(field.Descriptor(), mv)
+		return nil
+	}
+	v, err := val.ConvertToNative(field.ReflectType())
+	if err != nil {
+		msgName := field.Descriptor().ContainingMessage().FullName()
+		return fmt.Errorf("field type conversion error for %v.%v: %v", msgName, field.Name(), err)
+	}
+	switch v.(type) {
+	case proto.Message:
+		v = v.(proto.Message).ProtoReflect()
+	}
+	target.Set(field.Descriptor(), protoreflect.ValueOf(v))
+	return nil
+}
+
+func msgSetListField(target protoreflect.List, elemType *pb.FieldDescription, listVal traits.Lister) error {
+	elemReflectType := elemType.ReflectType().Elem()
+	for i := Int(0); i < listVal.Size().(Int); i++ {
+		elem := listVal.Get(i)
+		elemVal, err := elem.ConvertToNative(elemReflectType)
+		if err != nil {
+			msgName := elemType.Descriptor().ContainingMessage().FullName()
+			return fmt.Errorf("field type conversion error for %v.%v: %v", msgName, elemType.Name(), err)
+		}
+		switch ev := elemVal.(type) {
+		case proto.Message:
+			elemVal = ev.ProtoReflect()
+		}
+		target.Append(protoreflect.ValueOf(elemVal))
+	}
+	return nil
+}
+
+func msgSetMapField(target protoreflect.Map, entryType *pb.FieldDescription, mapVal traits.Mapper) error {
+	targetKeyType := entryType.KeyType.ReflectType()
+	targetValType := entryType.ValueType.ReflectType()
+	it := mapVal.Iterator()
+	for it.HasNext() == True {
+		key := it.Next()
+		val := mapVal.Get(key)
+		k, err := key.ConvertToNative(targetKeyType)
+		if err != nil {
+			msgName := entryType.Descriptor().ContainingMessage().FullName()
+			return fmt.Errorf("field type conversion error for %v.%v key type: %v", msgName, entryType.Name(), err)
+		}
+		v, err := val.ConvertToNative(targetValType)
+		if err != nil {
+			msgName := entryType.Descriptor().ContainingMessage().FullName()
+			return fmt.Errorf("field type conversion error for %v.%v value type: %v", msgName, entryType.Name(), err)
+		}
+		switch v.(type) {
+		case proto.Message:
+			v = v.(proto.Message).ProtoReflect()
+		}
+		target.Set(protoreflect.ValueOf(k).MapKey(), protoreflect.ValueOf(v))
+	}
+	return nil
 }

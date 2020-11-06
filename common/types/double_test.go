@@ -19,11 +19,11 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/proto"
 
-	structpb "github.com/golang/protobuf/ptypes/struct"
-	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
+	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 func TestDouble_Add(t *testing.T) {
@@ -57,7 +57,7 @@ func TestDouble_ConvertToNative_Any(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	want, err := ptypes.MarshalAny(&wrapperspb.DoubleValue{Value: 1.7976931348623157e+308})
+	want, err := anypb.New(&wrapperspb.DoubleValue{Value: 1.7976931348623157e+308})
 	if err != nil {
 		t.Error(err)
 	}

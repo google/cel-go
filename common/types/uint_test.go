@@ -19,11 +19,11 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/proto"
 
-	structpb "github.com/golang/protobuf/ptypes/struct"
-	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
+	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 func TestUint_Add(t *testing.T) {
@@ -57,7 +57,7 @@ func TestUint_ConvertToNative_Any(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	want, err := ptypes.MarshalAny(&wrapperspb.UInt64Value{Value: math.MaxUint64})
+	want, err := anypb.New(&wrapperspb.UInt64Value{Value: math.MaxUint64})
 	if err != nil {
 		t.Error(err)
 	}

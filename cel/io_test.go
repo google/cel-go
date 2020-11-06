@@ -17,7 +17,7 @@ package cel
 import (
 	"testing"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/google/cel-go/checker/decls"
 )

@@ -17,13 +17,13 @@ package pb
 import (
 	"fmt"
 	"reflect"
-	"strings"
-	"sync"
 
-	"github.com/golang/protobuf/proto"
-	descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
-	structpb "github.com/golang/protobuf/ptypes/struct"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
+
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	dynamicpb "google.golang.org/protobuf/types/dynamicpb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 )
 
 // NewTypeDescription produces a TypeDescription value for the fully-qualified proto type name
@@ -32,265 +32,123 @@ import (
 // The type description creation method also expects the type to be marked clearly as a proto2 or
 // proto3 type, and accepts a typeResolver reference for resolving field TypeDescription during
 // lazily initialization of the type which is done atomically.
-func NewTypeDescription(typeName string, desc *descpb.DescriptorProto,
-	isProto3 bool, resolveType typeResolver) *TypeDescription {
+func NewTypeDescription(typeName string, desc protoreflect.MessageDescriptor) *TypeDescription {
+	msgType := dynamicpb.NewMessageType(desc)
+	fieldMap := map[string]*FieldDescription{}
+	fields := desc.Fields()
+	for i := 0; i < fields.Len(); i++ {
+		f := fields.Get(i)
+		fieldMap[string(f.Name())] = NewFieldDescription(f)
+	}
 	return &TypeDescription{
 		typeName:    typeName,
-		isProto3:    isProto3,
 		desc:        desc,
-		resolveType: resolveType,
+		msgType:     msgType,
+		fieldMap:    fieldMap,
+		reflectType: reflect.TypeOf(msgType.Zero().Interface()),
 	}
 }
 
 // TypeDescription is a collection of type metadata relevant to expression
 // checking and evaluation.
 type TypeDescription struct {
-	typeName string
-	isProto3 bool
-	desc     *descpb.DescriptorProto
-
-	// resolveType is used to lookup field types during type initialization.
-	// The resolver may point to shared state; however, this state is guaranteed to be computed at
-	// most one time.
-	resolveType typeResolver
-	init        sync.Once
-	metadata    *typeMetadata
+	typeName    string
+	desc        protoreflect.MessageDescriptor
+	msgType     protoreflect.MessageType
+	fieldMap    map[string]*FieldDescription
+	reflectType reflect.Type
 }
 
-// typeResolver accepts a type name and returns a TypeDescription.
-// The typeResolver is used to resolve field types during lazily initialization of the type
-// description metadata.
-type typeResolver func(typeName string) (*TypeDescription, error)
-
-type typeMetadata struct {
-	fields          map[string]*FieldDescription // fields by name (proto)
-	fieldIndices    map[int][]*FieldDescription  // fields by Go struct idx
-	fieldProperties *proto.StructProperties
-	reflectedType   *reflect.Type
-	reflectedVal    *reflect.Value
-	emptyVal        interface{}
-}
-
-// FieldCount returns the number of fields declared within the type.
-func (td *TypeDescription) FieldCount() int {
-	// The number of keys in the field indices map corresponds to the number
-	// of fields on the proto message.
-	return len(td.getMetadata().fieldIndices)
+// FieldMap returns a string field name to FieldDescription map.
+func (td *TypeDescription) FieldMap() map[string]*FieldDescription {
+	return td.fieldMap
 }
 
 // FieldByName returns the FieldDescription associated with a field name.
 func (td *TypeDescription) FieldByName(name string) (*FieldDescription, bool) {
-	fd, found := td.getMetadata().fields[name]
-	return fd, found
+	fd, found := td.fieldMap[name]
+	if !found {
+		return nil, false
+	}
+	return fd, true
 }
 
 // Name of the type.
 func (td *TypeDescription) Name() string {
-	return td.typeName
+	return string(td.desc.FullName())
 }
 
-// ReflectType returns the reflected struct type of the generated proto struct.
+// New returns a mutable proto message
+func (td *TypeDescription) New() protoreflect.Message {
+	return td.msgType.New()
+}
+
+// ReflectType returns the Golang reflect.Type for this type.
 func (td *TypeDescription) ReflectType() reflect.Type {
-	if td.getMetadata().reflectedType == nil {
-		return nil
-	}
-	return *td.getMetadata().reflectedType
+	return td.reflectType
 }
 
-// DefaultValue returns an empty instance of the proto message associated with the type,
-// or nil for wrapper types.
-func (td *TypeDescription) DefaultValue() proto.Message {
-	val := td.getMetadata().emptyVal
-	if val == nil {
-		return nil
-	}
-	return val.(proto.Message)
-}
+// NewFieldDescription creates a new field description from a protoreflect.FieldDescriptor.
+func NewFieldDescription(fieldDesc protoreflect.FieldDescriptor) *FieldDescription {
+	var reflectType reflect.Type
+	switch fieldDesc.Kind() {
+	case protoreflect.EnumKind:
+		reflectType = reflect.TypeOf(protoreflect.EnumNumber(0))
+	case protoreflect.MessageKind:
 
-// getMetadata computes the type field metadata used for determining field types and default
-// values. The call to makeMetadata within this method is guaranteed to be invoked exactly
-// once.
-func (td *TypeDescription) getMetadata() *typeMetadata {
-	td.init.Do(func() {
-		td.metadata = td.makeMetadata()
-	})
-	return td.metadata
-}
-
-func (td *TypeDescription) makeMetadata() *typeMetadata {
-	refType := proto.MessageType(td.typeName)
-	meta := &typeMetadata{
-		fields:       make(map[string]*FieldDescription),
-		fieldIndices: make(map[int][]*FieldDescription),
-	}
-	if refType != nil {
-		// Set the reflected type if non-nil.
-		meta.reflectedType = &refType
-
-		// Unwrap the pointer reference for the sake of later checks.
-		elemType := refType
-		if elemType.Kind() == reflect.Ptr {
-			elemType = elemType.Elem()
-		}
-		if elemType.Kind() == reflect.Struct {
-			meta.fieldProperties = proto.GetProperties(elemType)
-		}
-		refVal := reflect.New(elemType)
-		meta.reflectedVal = &refVal
-		if refVal.CanInterface() {
-			meta.emptyVal = refVal.Interface()
-		} else {
-			meta.emptyVal = reflect.Zero(elemType).Interface()
-		}
-	}
-
-	fieldIndexMap := make(map[string]int)
-	fieldDescMap := make(map[string]*descpb.FieldDescriptorProto)
-	for i, f := range td.desc.Field {
-		fieldDescMap[f.GetName()] = f
-		fieldIndexMap[f.GetName()] = i
-	}
-	if meta.fieldProperties != nil {
-		// This is a proper message type.
-		for i, prop := range meta.fieldProperties.Prop {
-			if strings.HasPrefix(prop.OrigName, "XXX_") {
-				// Book-keeping fields generated by protoc start with XXX_
-				continue
+		reflectType = reflect.TypeOf(dynamicpb.NewMessageType(fieldDesc.Message()).Zero().Interface())
+	default:
+		reflectType = reflect.TypeOf(fieldDesc.Default().Interface())
+		if fieldDesc.IsList() {
+			parentMsg := dynamicpb.NewMessage(fieldDesc.ContainingMessage())
+			listField := parentMsg.NewField(fieldDesc).List()
+			elem := listField.NewElement().Interface()
+			switch elemType := elem.(type) {
+			case protoreflect.Message:
+				elem = elemType.Interface()
 			}
-			desc := fieldDescMap[prop.OrigName]
-			fd := td.newFieldDesc(*meta.reflectedType, desc, prop, i)
-			meta.fields[prop.OrigName] = fd
-			meta.fieldIndices[i] = append(meta.fieldIndices[i], fd)
-		}
-		for _, oneofProp := range meta.fieldProperties.OneofTypes {
-			desc := fieldDescMap[oneofProp.Prop.OrigName]
-			fd := td.newOneofFieldDesc(*meta.reflectedType, desc, oneofProp, oneofProp.Field)
-			meta.fields[oneofProp.Prop.OrigName] = fd
-			meta.fieldIndices[oneofProp.Field] = append(meta.fieldIndices[oneofProp.Field], fd)
-		}
-	} else {
-		for fieldName, desc := range fieldDescMap {
-			fd := td.newMapFieldDesc(desc)
-			meta.fields[fieldName] = fd
-			index := fieldIndexMap[fieldName]
-			meta.fieldIndices[index] = append(meta.fieldIndices[index], fd)
+			reflectType = reflect.TypeOf(elem)
 		}
 	}
-	return meta
-}
-
-// Create a new field description for the proto field descriptor associated with the given type.
-// The field properties should never not be found when performing reflection on the type unless
-// there are fundamental changes to the backing proto library behavior.
-func (td *TypeDescription) newFieldDesc(
-	tdType reflect.Type,
-	desc *descpb.FieldDescriptorProto,
-	prop *proto.Properties,
-	index int) *FieldDescription {
-	getterName := fmt.Sprintf("Get%s", prop.Name)
-	getter, _ := tdType.MethodByName(getterName)
-	var field *reflect.StructField
-	if tdType.Kind() == reflect.Ptr {
-		tdType = tdType.Elem()
+	if fieldDesc.IsList() {
+		reflectType = reflect.SliceOf(reflectType)
 	}
-	f, found := tdType.FieldByName(prop.Name)
-	if found {
-		field = &f
+	var keyType, valType *FieldDescription
+	if fieldDesc.IsMap() {
+		keyType = NewFieldDescription(fieldDesc.MapKey())
+		valType = NewFieldDescription(fieldDesc.MapValue())
 	}
-	fieldDesc := &FieldDescription{
-		desc:      desc,
-		index:     index,
-		getter:    getter.Func,
-		field:     field,
-		prop:      prop,
-		isProto3:  td.isProto3,
-		isWrapper: isWrapperType(desc),
-	}
-	if desc.GetType() == descpb.FieldDescriptorProto_TYPE_MESSAGE {
-		typeName := sanitizeProtoName(desc.GetTypeName())
-		fieldType, _ := td.resolveType(typeName)
-		fieldDesc.td = fieldType
-		return fieldDesc
-	}
-	return fieldDesc
-}
-
-func (td *TypeDescription) newOneofFieldDesc(
-	tdType reflect.Type,
-	desc *descpb.FieldDescriptorProto,
-	oneofProp *proto.OneofProperties,
-	index int) *FieldDescription {
-	fieldDesc := td.newFieldDesc(tdType, desc, oneofProp.Prop, index)
-	fieldDesc.oneofProp = oneofProp
-	return fieldDesc
-}
-
-func (td *TypeDescription) newMapFieldDesc(desc *descpb.FieldDescriptorProto) *FieldDescription {
 	return &FieldDescription{
-		desc:     desc,
-		index:    int(desc.GetNumber()),
-		isProto3: td.isProto3,
+		descriptor:  fieldDesc,
+		KeyType:     keyType,
+		ValueType:   valType,
+		isWrapper:   isWrapperType(fieldDesc),
+		reflectType: reflectType,
 	}
-}
-
-func isWrapperType(desc *descpb.FieldDescriptorProto) bool {
-	if desc.GetType() != descpb.FieldDescriptorProto_TYPE_MESSAGE {
-		return false
-	}
-	switch sanitizeProtoName(desc.GetTypeName()) {
-	case "google.protobuf.BoolValue",
-		"google.protobuf.BytesValue",
-		"google.protobuf.DoubleValue",
-		"google.protobuf.FloatValue",
-		"google.protobuf.Int32Value",
-		"google.protobuf.Int64Value",
-		"google.protobuf.StringValue",
-		"google.protobuf.UInt32Value",
-		"google.protobuf.UInt64Value":
-		return true
-	}
-	return false
 }
 
 // FieldDescription holds metadata related to fields declared within a type.
 type FieldDescription struct {
-	// getter is the reflected accessor method that obtains the field value.
-	getter reflect.Value
-	// field is the field location in a refValue
-	// The field will be not found for oneofs, but this is accounted for
-	// by checking the 'desc' value which provides this information.
-	field *reflect.StructField
-	// isProto3 indicates whether the field is defined in a proto3 syntax.
-	isProto3 bool
-	// isWrapper indicates whether the field is a wrapper type.
-	isWrapper bool
-
-	// td is the type description for message typed fields.
-	td *TypeDescription
-
-	// proto descriptor data.
-	desc      *descpb.FieldDescriptorProto
-	index     int
-	prop      *proto.Properties
-	oneofProp *proto.OneofProperties
+	descriptor  protoreflect.FieldDescriptor
+	KeyType     *FieldDescription
+	ValueType   *FieldDescription
+	isWrapper   bool
+	reflectType reflect.Type
 }
 
 // CheckedType returns the type-definition used at type-check time.
 func (fd *FieldDescription) CheckedType() *exprpb.Type {
-	if fd.IsMap() {
-		// Get the FieldDescriptors for the type arranged by their index within the
-		// generated Go struct.
-		fieldIndices := fd.getFieldIndicies()
-		// Map keys and values are represented as repeated entries in a list.
-		key := fieldIndices[0][0]
-		val := fieldIndices[1][0]
+	if fd.descriptor.IsMap() {
 		return &exprpb.Type{
 			TypeKind: &exprpb.Type_MapType_{
 				MapType: &exprpb.Type_MapType{
-					KeyType:   key.typeDefToType(),
-					ValueType: val.typeDefToType()}}}
+					KeyType:   fd.KeyType.typeDefToType(),
+					ValueType: fd.ValueType.typeDefToType(),
+				},
+			},
+		}
 	}
-	if fd.IsRepeated() {
+	if fd.descriptor.IsList() {
 		return &exprpb.Type{
 			TypeKind: &exprpb.Type_ListType_{
 				ListType: &exprpb.Type_ListType{
@@ -299,140 +157,97 @@ func (fd *FieldDescription) CheckedType() *exprpb.Type {
 	return fd.typeDefToType()
 }
 
+// Descriptor returns the protoreflect.FieldDescriptor for this type.
+func (fd *FieldDescription) Descriptor() protoreflect.FieldDescriptor {
+	return fd.descriptor
+}
+
+// ReflectType returns the Golang reflect.Type for this field.
+func (fd *FieldDescription) ReflectType() reflect.Type {
+	return fd.reflectType
+}
+
 // IsSet returns whether the field is set on the target value, per the proto presence conventions
 // of proto2 or proto3 accordingly.
 //
 // The input target may either be a reflect.Value or Go struct type.
 func (fd *FieldDescription) IsSet(target interface{}) bool {
-	t, ok := target.(reflect.Value)
-	if !ok {
-		t = reflect.ValueOf(target)
+	switch v := target.(type) {
+	case protoreflect.Message:
+		return v.Has(fd.descriptor)
+	case proto.Message:
+		return v.ProtoReflect().Has(fd.descriptor)
+	case reflect.Value:
+		return fd.IsSet(v.Interface())
+	default:
+		return false
 	}
-	// For the case where the field is not a oneof, test whether the field is set on the target
-	// value assuming it is a struct. A field that is not set will be one of the following values:
-	// - nil for message and primitive typed fields in proto2
-	// - nil for message typed fields in proto3
-	// - empty for primitive typed fields in proto3
-	if fd.field != nil && !fd.IsOneof() {
-		t = reflect.Indirect(t)
-		return isFieldSet(t.FieldByIndex(fd.field.Index))
-	}
-	// Oneof fields must consider two pieces of information:
-	// - whether the oneof is set to any value at all
-	// - whether the field in the oneof is the same as the field under test.
-	//
-	// In go protobuf libraries, oneofs result in the creation of special oneof type messages
-	// which contain a reference to the actual field type. The creation of these special message
-	// types makes it possible to test for presence of primitive field values in proto3.
-	//
-	// The logic below performs a get on the oneof to obtain the field reference and then checks
-	// the type of the field reference against the known oneof type determined FieldDescription
-	// initialization.
-	if fd.IsOneof() {
-		t = reflect.Indirect(t)
-		oneof := t.Field(fd.Index())
-		if !isFieldSet(oneof) {
-			return false
-		}
-		oneofVal := oneof.Interface()
-		oneofType := reflect.TypeOf(oneofVal)
-		return oneofType == fd.OneofType()
-	}
-
-	// When the field is nil or when the field is a oneof, call the accessor
-	// associated with this field name to determine whether the field value is
-	// the default.
-	fieldVal := fd.getter.Call([]reflect.Value{t})[0]
-	return isFieldSet(fieldVal)
 }
 
 // GetFrom returns the accessor method associated with the field on the proto generated struct.
 //
 // If the field is not set, the proto default value is returned instead.
 //
-// The input target may either be a reflect.Value or Go struct type.
+// The input target may either be a reflect.Value or proto.Message type.
 func (fd *FieldDescription) GetFrom(target interface{}) (interface{}, error) {
-	t, ok := target.(reflect.Value)
-	if !ok {
-		t = reflect.ValueOf(target)
-	}
-	var fieldVal reflect.Value
-	// For proto3, prefer direct field access as the primitive types are simple values.
-	// For proto2, prefer the getter method to ensure that the primitive types are dereferenced
-	// to a value.
-	// If the getter method does not exist (as may be the case for gogo protogen sources), then
-	// prefer the direct field access.
-	if !fd.getter.IsValid() || (fd.isProto3 && fd.field != nil && !fd.IsOneof()) {
-		// The target object should always be a struct.
-		t = reflect.Indirect(t)
-		if t.Kind() != reflect.Struct {
-			return nil, fmt.Errorf("unsupported field selection target: %T", target)
-		}
-		fieldVal = t.FieldByIndex(fd.field.Index)
-	} else {
-		// The accessor method must be used for proto2 in order to properly handle
-		// default values.
-		// Additionally, proto3 oneofs require the use of the accessor to get the proper value.
-		fieldVal = fd.getter.Call([]reflect.Value{t})[0]
-	}
-	// If the field is a non-repeated message, and it's not set, return its default value.
-	// Note, repeated fields should have default values of empty list or empty map, so the checks
-	// for whether to return a default proto message don't really apply.
-	if fd.IsMessage() && !fd.IsRepeated() && !isFieldSet(fieldVal) {
-		// Well known wrapper types default to null if not set.
+	switch v := target.(type) {
+	case proto.Message:
 		if fd.IsWrapper() {
-			return structpb.NullValue_NULL_VALUE, nil
+			if !fd.IsSet(target) {
+				return structpb.NullValue_NULL_VALUE, nil
+			}
 		}
-		// Otherwise, return an empty message.
-		return fd.Type().DefaultValue(), nil
+		fieldVal := v.ProtoReflect().Get(fd.descriptor).Interface()
+		switch fv := fieldVal.(type) {
+		case protoreflect.EnumNumber:
+			return int64(fv), nil
+		case protoreflect.List:
+			return List{List: fv, ElemType: fd}, nil
+		case protoreflect.Map:
+			return Map{Map: fv, KeyType: fd.KeyType, ValueType: fd.ValueType}, nil
+		case protoreflect.Message:
+			return fv.Interface(), nil
+		default:
+			return fv, nil
+		}
+	case reflect.Value:
+		return fd.GetFrom(v.Interface())
+	default:
+		return nil, fmt.Errorf("unsupported field selection target: (%T)%v", target, target)
 	}
-	// Otherwise, return the field value or the zero value for its type.
-	if fieldVal.CanInterface() {
-		return fieldVal.Interface(), nil
-	}
-	return reflect.Zero(fieldVal.Type()).Interface(), nil
 }
 
 // Index returns the field index within a reflected value.
 func (fd *FieldDescription) Index() int {
-	return fd.index
+	return fd.descriptor.Index()
 }
 
 // IsEnum returns true if the field type refers to an enum value.
 func (fd *FieldDescription) IsEnum() bool {
-	return fd.desc.GetType() == descpb.FieldDescriptorProto_TYPE_ENUM
+	return fd.descriptor.Kind() == protoreflect.EnumKind
 }
 
 // IsMap returns true if the field is of map type.
 func (fd *FieldDescription) IsMap() bool {
-	if !fd.IsRepeated() || !fd.IsMessage() {
-		return false
-	}
-	if fd.td == nil {
-		return false
-	}
-	return fd.td.desc.GetOptions().GetMapEntry()
+	return fd.descriptor.IsMap()
 }
 
 // IsMessage returns true if the field is of message type.
 func (fd *FieldDescription) IsMessage() bool {
-	return fd.desc.GetType() == descpb.FieldDescriptorProto_TYPE_MESSAGE
+	return fd.descriptor.Kind() == protoreflect.MessageKind
 }
 
 // IsOneof returns true if the field is declared within a oneof block.
 func (fd *FieldDescription) IsOneof() bool {
-	if fd.desc != nil {
-		return fd.desc.OneofIndex != nil
-	}
-	return fd.oneofProp != nil
+	return fd.descriptor.ContainingOneof() != nil
 }
 
 // IsRepeated returns true if the field is a repeated value.
 //
 // This method will also return true for map values, so check whether the
 // field is also a map.
-func (fd *FieldDescription) IsRepeated() bool {
-	return *fd.desc.Label == descpb.FieldDescriptorProto_LABEL_REPEATED
+func (fd *FieldDescription) IsList() bool {
+	return fd.descriptor.IsList()
 }
 
 // IsWrapper returns true if the field type is a primitive wrapper type.
@@ -440,62 +255,39 @@ func (fd *FieldDescription) IsWrapper() bool {
 	return fd.isWrapper
 }
 
-// OneofType returns the reflect.Type value of a oneof field.
-//
-// Oneof field values are wrapped in a struct which contains one field whose
-// value is a proto.Message.
-func (fd *FieldDescription) OneofType() reflect.Type {
-	return fd.oneofProp.Type
-}
-
-// OrigName returns the snake_case name of the field as it was declared within
-// the proto. This is the same name format that is expected within expressions.
-func (fd *FieldDescription) OrigName() string {
-	if fd.desc != nil && fd.desc.Name != nil {
-		return *fd.desc.Name
-	}
-	return fd.prop.OrigName
-}
-
 // Name returns the CamelCase name of the field within the proto-based struct.
 func (fd *FieldDescription) Name() string {
-	return fd.prop.Name
+	return string(fd.descriptor.Name())
 }
 
 // String returns a struct-like field definition string.
 func (fd *FieldDescription) String() string {
-	return fmt.Sprintf("%s %s `oneof=%t`",
-		fd.TypeName(), fd.OrigName(), fd.IsOneof())
-}
-
-// Type returns the TypeDescription for the field.
-func (fd *FieldDescription) Type() *TypeDescription {
-	return fd.td
-}
-
-// TypeName returns the type name of the field.
-func (fd *FieldDescription) TypeName() string {
-	return sanitizeProtoName(fd.desc.GetTypeName())
-}
-
-func (fd *FieldDescription) getFieldIndicies() map[int][]*FieldDescription {
-	return fd.td.getMetadata().fieldIndices
+	return fmt.Sprintf("%v.%s `oneof=%t`", fd.descriptor.ContainingMessage().FullName(), fd.Name(), fd.IsOneof())
 }
 
 func (fd *FieldDescription) typeDefToType() *exprpb.Type {
-	if fd.IsMessage() {
-		if wk, found := CheckedWellKnowns[fd.TypeName()]; found {
+	if fd.descriptor.Kind() == protoreflect.MessageKind {
+		msgType := string(fd.descriptor.Message().FullName())
+		if wk, found := CheckedWellKnowns[msgType]; found {
 			return wk
 		}
-		return checkedMessageType(fd.TypeName())
+		return checkedMessageType(msgType)
 	}
-	if fd.IsEnum() {
+	if fd.descriptor.Kind() == protoreflect.EnumKind {
 		return checkedInt
 	}
-	if p, found := CheckedPrimitives[fd.desc.GetType()]; found {
-		return p
-	}
-	return CheckedPrimitives[fd.desc.GetType()]
+	return CheckedPrimitives[fd.descriptor.Kind()]
+}
+
+type List struct {
+	protoreflect.List
+	ElemType *FieldDescription
+}
+
+type Map struct {
+	protoreflect.Map
+	KeyType   *FieldDescription
+	ValueType *FieldDescription
 }
 
 func checkedMessageType(name string) *exprpb.Type {
@@ -518,24 +310,22 @@ func checkedWrap(t *exprpb.Type) *exprpb.Type {
 		TypeKind: &exprpb.Type_Wrapper{Wrapper: t.GetPrimitive()}}
 }
 
-func isFieldSet(refVal reflect.Value) bool {
-	switch refVal.Kind() {
-	case reflect.Ptr:
-		// proto2 represents all non-repeated fields as pointers.
-		// proto3 represents message fields as pointers.
-		// if the value is non-nil, it is set.
-		return !refVal.IsNil()
-	case reflect.Array, reflect.Slice, reflect.Map:
-		// proto2 and proto3 repeated and map types are considered set if not empty.
-		return refVal.Len() > 0
-	default:
-		// proto3 represents simple types by their zero value when they are not set.
-		// return whether the value is something other than the zero value.
-		zeroVal := reflect.Zero(refVal.Type()).Interface()
-		if refVal.CanInterface() {
-			val := refVal.Interface()
-			return !reflect.DeepEqual(val, zeroVal)
-		}
+func isWrapperType(desc protoreflect.FieldDescriptor) bool {
+	if desc.Kind() != protoreflect.MessageKind {
 		return false
 	}
+	typeName := string(desc.ContainingMessage().FullName())
+	switch sanitizeProtoName(typeName) {
+	case "google.protobuf.BoolValue",
+		"google.protobuf.BytesValue",
+		"google.protobuf.DoubleValue",
+		"google.protobuf.FloatValue",
+		"google.protobuf.Int32Value",
+		"google.protobuf.Int64Value",
+		"google.protobuf.StringValue",
+		"google.protobuf.UInt32Value",
+		"google.protobuf.UInt64Value":
+		return true
+	}
+	return false
 }

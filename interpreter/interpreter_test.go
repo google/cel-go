@@ -21,7 +21,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/checker/decls"
@@ -33,10 +33,10 @@ import (
 	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/parser"
 
-	dpb "github.com/golang/protobuf/ptypes/duration"
-	structpb "github.com/golang/protobuf/ptypes/struct"
-	tpb "github.com/golang/protobuf/ptypes/timestamp"
-	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
+	dpb "google.golang.org/protobuf/types/known/durationpb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
+	tpb "google.golang.org/protobuf/types/known/timestamppb"
+	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 
 	proto2pb "github.com/google/cel-go/test/proto2pb"
 	proto3pb "github.com/google/cel-go/test/proto3pb"

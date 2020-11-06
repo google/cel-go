@@ -15,16 +15,17 @@
 package types
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
-
 	"github.com/google/cel-go/common/types/traits"
 
-	structpb "github.com/golang/protobuf/ptypes/struct"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
+
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 )
 
 type testStruct struct {
@@ -80,10 +81,11 @@ func TestBaseMap_ConvertToNative_Any(t *testing.T) {
 		t.Error(err)
 	}
 	jsonMap := &structpb.Struct{}
-	if jsonpb.UnmarshalString(`{"nested":{"1":-1}}`, jsonMap) != nil {
-		t.Error("Unable to unmarshal json to protobuf.Value")
+	err = protojson.Unmarshal([]byte(`{"nested":{"1":-1}}`), jsonMap)
+	if err != nil {
+		t.Fatalf("protojson.Unmarshal() failed: %v", err)
 	}
-	want, err := ptypes.MarshalAny(jsonMap)
+	want, err := anypb.New(jsonMap)
 	if err != nil {
 		t.Error(err)
 	}
@@ -110,7 +112,11 @@ func TestBaseMap_ConvertToNative_Json(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	jsonTxt, _ := (&jsonpb.Marshaler{}).MarshalToString(json.(proto.Message))
+	jsonBytes, err := protojson.Marshal(json.(proto.Message))
+	if err != nil {
+		t.Fatalf("protojson.Marshal(%v) failed: %v", json, err)
+	}
+	jsonTxt := string(jsonBytes)
 	if jsonTxt != `{"nested":{"1":-1}}` {
 		t.Error(jsonTxt)
 	}
@@ -205,13 +211,23 @@ func TestStringMap_ConvertToNative_Json(t *testing.T) {
 	mapValue := NewStringStringMap(reg, map[string]string{
 		"first":  "hello",
 		"second": "world"}).(traits.Mapper)
-	json, err := mapValue.ConvertToNative(jsonStructType)
+	jsonVal, err := mapValue.ConvertToNative(jsonStructType)
 	if err != nil {
 		t.Error(err)
 	}
-	jsonTxt, _ := (&jsonpb.Marshaler{}).MarshalToString(json.(proto.Message))
-	if jsonTxt != `{"first":"hello","second":"world"}` {
-		t.Error(jsonTxt)
+	jsonBytes, err := protojson.Marshal(jsonVal.(proto.Message))
+
+	jsonTxt := string(jsonBytes)
+	outMap := map[string]interface{}{}
+	err = json.Unmarshal(jsonBytes, &outMap)
+	if err != nil {
+		t.Fatalf("json.Unmarshal(%q) failed: %v", jsonTxt, err)
+	}
+	if !reflect.DeepEqual(outMap, map[string]interface{}{
+		"first":  "hello",
+		"second": "world",
+	}) {
+		t.Errorf("got json '%v', expected %v", jsonTxt, outMap)
 	}
 }
 

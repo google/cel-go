@@ -19,13 +19,12 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/golang/protobuf/ptypes"
-
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 
-	structpb "github.com/golang/protobuf/ptypes/struct"
-	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
+	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // Bool type that implements ref.Val and supports comparison and negation.
@@ -71,7 +70,7 @@ func (b Bool) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		switch typeDesc {
 		case anyValueType:
 			// Primitives must be wrapped before being set on an Any field.
-			return ptypes.MarshalAny(&wrapperspb.BoolValue{Value: bool(b)})
+			return anypb.New(&wrapperspb.BoolValue{Value: bool(b)})
 		case boolWrapperType:
 			// Convert the bool to a protobuf.BoolValue.
 			return &wrapperspb.BoolValue{Value: bool(b)}, nil

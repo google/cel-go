@@ -20,13 +20,12 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/golang/protobuf/ptypes"
-
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 
-	structpb "github.com/golang/protobuf/ptypes/struct"
-	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
+	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // Uint type implementation which supports comparison and math operators.
@@ -85,7 +84,7 @@ func (i Uint) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		switch typeDesc {
 		case anyValueType:
 			// Primitives must be wrapped before being set on an Any field.
-			return ptypes.MarshalAny(&wrapperspb.UInt64Value{Value: uint64(i)})
+			return anypb.New(&wrapperspb.UInt64Value{Value: uint64(i)})
 		case jsonValueType:
 			// JSON can accurately represent 32-bit uints as floating point values.
 			if i.isJSONSafe() {

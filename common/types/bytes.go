@@ -21,13 +21,12 @@ import (
 	"reflect"
 	"unicode/utf8"
 
-	"github.com/golang/protobuf/ptypes"
-
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 
-	structpb "github.com/golang/protobuf/ptypes/struct"
-	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
+	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // Bytes type that implements ref.Val and supports add, compare, and size
@@ -74,7 +73,7 @@ func (b Bytes) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		switch typeDesc {
 		case anyValueType:
 			// Primitives must be wrapped before being set on an Any field.
-			return ptypes.MarshalAny(&wrapperspb.BytesValue{Value: []byte(b)})
+			return anypb.New(&wrapperspb.BytesValue{Value: []byte(b)})
 		case byteWrapperType:
 			// Convert the bytes to a protobuf.BytesValue.
 			return &wrapperspb.BytesValue{Value: []byte(b)}, nil

@@ -25,6 +25,7 @@ import (
 	"github.com/google/cel-go/test"
 	"github.com/google/cel-spec/tools/celrpc"
 
+	confpb "google.golang.org/genproto/googleapis/api/expr/conformance/v1alpha1"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
@@ -73,7 +74,7 @@ var (
 
 // TestParse tests the Parse method.
 func TestParse(t *testing.T) {
-	req := exprpb.ParseRequest{
+	req := confpb.ParseRequest{
 		CelSource: "1 + 1",
 	}
 	res, err := globals.client.Parse(context.Background(), &req)
@@ -131,7 +132,7 @@ func TestCheck(t *testing.T) {
 	// If TestParse() passes, it validates a good chunk
 	// of the server mechanisms for data conversion, so we
 	// won't be as fussy here..
-	req := exprpb.CheckRequest{
+	req := confpb.CheckRequest{
 		ParsedExpr: parsed,
 	}
 	res, err := globals.client.Check(context.Background(), &req)
@@ -160,8 +161,8 @@ func TestCheck(t *testing.T) {
 
 // TestEval tests the Eval method.
 func TestEval(t *testing.T) {
-	req := exprpb.EvalRequest{
-		ExprKind: &exprpb.EvalRequest_ParsedExpr{ParsedExpr: parsed},
+	req := confpb.EvalRequest{
+		ExprKind: &confpb.EvalRequest_ParsedExpr{ParsedExpr: parsed},
 	}
 	res, err := globals.client.Eval(context.Background(), &req)
 	if err != nil {
@@ -188,7 +189,7 @@ func TestEval(t *testing.T) {
 
 // TestFullUp tests Parse, Check, and Eval back-to-back.
 func TestFullUp(t *testing.T) {
-	preq := exprpb.ParseRequest{
+	preq := confpb.ParseRequest{
 		CelSource: "x + y",
 	}
 	pres, err := globals.client.Parse(context.Background(), &preq)
@@ -200,7 +201,7 @@ func TestFullUp(t *testing.T) {
 		t.Fatal("Empty parsed expression")
 	}
 
-	creq := exprpb.CheckRequest{
+	creq := confpb.CheckRequest{
 		ParsedExpr: parsedExpr,
 		TypeEnv: []*exprpb.Decl{
 			decls.NewVar("x", decls.Int),
@@ -231,8 +232,8 @@ func TestFullUp(t *testing.T) {
 		t.Error("Bad top-level type", tp)
 	}
 
-	ereq := exprpb.EvalRequest{
-		ExprKind: &exprpb.EvalRequest_CheckedExpr{CheckedExpr: checkedExpr},
+	ereq := confpb.EvalRequest{
+		ExprKind: &confpb.EvalRequest_CheckedExpr{CheckedExpr: checkedExpr},
 		Bindings: map[string]*exprpb.ExprValue{
 			"x": exprValueInt64(1),
 			"y": exprValueInt64(2),
@@ -273,11 +274,11 @@ func exprValueInt64(x int64) *exprpb.ExprValue {
 
 // fullPipeline parses, checks, and evaluates the CEL expression in source
 // and returns the result from the Eval call.
-func fullPipeline(t *testing.T, source string) (*exprpb.ParseResponse, *exprpb.CheckResponse, *exprpb.EvalResponse) {
+func fullPipeline(t *testing.T, source string) (*confpb.ParseResponse, *confpb.CheckResponse, *confpb.EvalResponse) {
 	t.Helper()
 
 	// Parse
-	preq := exprpb.ParseRequest{
+	preq := confpb.ParseRequest{
 		CelSource: source,
 	}
 	pres, err := globals.client.Parse(context.Background(), &preq)
@@ -296,7 +297,7 @@ func fullPipeline(t *testing.T, source string) (*exprpb.ParseResponse, *exprpb.C
 	}
 
 	// Check
-	creq := exprpb.CheckRequest{
+	creq := confpb.CheckRequest{
 		ParsedExpr: parsedExpr,
 	}
 	cres, err := globals.client.Check(context.Background(), &creq)
@@ -312,8 +313,8 @@ func fullPipeline(t *testing.T, source string) (*exprpb.ParseResponse, *exprpb.C
 	}
 
 	// Eval
-	ereq := exprpb.EvalRequest{
-		ExprKind: &exprpb.EvalRequest_CheckedExpr{CheckedExpr: checkedExpr},
+	ereq := confpb.EvalRequest{
+		ExprKind: &confpb.EvalRequest_CheckedExpr{CheckedExpr: checkedExpr},
 	}
 	eres, err := globals.client.Eval(context.Background(), &ereq)
 	if err != nil {

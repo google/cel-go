@@ -1,4 +1,3 @@
-
 // Copyright 2020 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,10 +24,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
-
 	"github.com/google/cel-go/cel"
 	_ "github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/types"
@@ -36,11 +31,15 @@ import (
 	"github.com/google/cel-go/common/types/traits"
 	_ "github.com/google/cel-go/interpreter/functions"
 
-	structpb "github.com/golang/protobuf/ptypes/struct"
-	tpb "github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/golang/glog"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/encoding/prototext"
+	"google.golang.org/protobuf/proto"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	rpcpb "google.golang.org/genproto/googleapis/rpc/context/attribute_context"
+	structpb "google.golang.org/protobuf/types/known/structpb"
+	tpb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func main() {
@@ -174,7 +173,11 @@ func eval(prg cel.Program,
 		for k, v := range varMap {
 			switch val := v.(type) {
 			case proto.Message:
-				fmt.Printf("%s = %v", k, proto.MarshalTextString(val))
+				bytes, err := prototext.Marshal(val)
+				if err != nil {
+					glog.Exitf("failed to marshal proto to text: %v", val)
+				}
+				fmt.Printf("%s = %s", k, string(bytes))
 			case map[string]interface{}:
 				b, _ := json.MarshalIndent(v, "", "  ")
 				fmt.Printf("%s = %v\n", k, string(b))
@@ -291,12 +294,12 @@ func valueToJSON(val ref.Val) string {
 	if err != nil {
 		glog.Exit(err)
 	}
-	marshaller := &jsonpb.Marshaler{Indent: "    "}
-	str, err := marshaller.MarshalToString(v.(proto.Message))
+	marshaller := protojson.MarshalOptions{Indent: "    "}
+	bytes, err := marshaller.Marshal(v.(proto.Message))
 	if err != nil {
 		glog.Exit(err)
 	}
-	return str
+	return string(bytes)
 }
 
 var (

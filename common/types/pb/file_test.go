@@ -3,6 +3,11 @@ package pb
 import (
 	"testing"
 
+	"google.golang.org/protobuf/reflect/protodesc"
+	"google.golang.org/protobuf/reflect/protoreflect"
+
+	descpb "google.golang.org/protobuf/types/descriptorpb"
+
 	proto3pb "github.com/google/cel-go/test/proto3pb"
 )
 
@@ -78,16 +83,25 @@ func TestFileDescription_GetEnumNames(t *testing.T) {
 
 func TestFileDescription_GetImportedEnumNames(t *testing.T) {
 	pbdb := NewDb()
-	fds, err := CollectFileDescriptorSet(&proto3pb.TestAllTypes{})
-	if err != nil {
-		t.Fatal(err)
+	fdMap := CollectFileDescriptorSet(&proto3pb.TestAllTypes{})
+	fileSet := make([]*descpb.FileDescriptorProto, 0, len(fdMap))
+	for _, fd := range fdMap {
+		fileSet = append(fileSet, protodesc.ToFileDescriptorProto(fd))
 	}
-	for _, fd := range fds.GetFile() {
+	fds := &descpb.FileDescriptorSet{File: fileSet}
+	files, err := protodesc.NewFiles(fds)
+	if err != nil {
+		t.Fatalf("protodesc.NewFiles() failed: %v", err)
+	}
+	files.RangeFiles(func(fd protoreflect.FileDescriptor) bool {
+		t.Logf("registering file: %v", fd.Path())
 		_, err = pbdb.RegisterDescriptor(fd)
 		if err != nil {
-			t.Fatal(err)
+			t.Fatalf("pbdb.RegisterDescriptor(%v) failed: %v", fd, err)
+			return false
 		}
-	}
+		return true
+	})
 	imported := map[string]int32{
 		"google.expr.proto3.test.ImportedGlobalEnum.IMPORT_FOO": 0,
 		"google.expr.proto3.test.ImportedGlobalEnum.IMPORT_BAR": 1,
@@ -96,7 +110,7 @@ func TestFileDescription_GetImportedEnumNames(t *testing.T) {
 	for enumName, value := range imported {
 		ed, err := pbdb.DescribeEnum(enumName)
 		if err != nil {
-			t.Error(err)
+			t.Fatalf("pbdb.DescribeEnum(%q) failed: %v", enumName, err)
 		}
 		if ed.Value() != value {
 			t.Errorf("Got %v, wanted %v for enum %s", ed, value, enumName)

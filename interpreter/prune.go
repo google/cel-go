@@ -20,7 +20,7 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 
-	structpb "github.com/golang/protobuf/ptypes/struct"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 
 	expr "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"

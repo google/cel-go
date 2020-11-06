@@ -20,7 +20,8 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/containers"

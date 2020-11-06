@@ -17,7 +17,7 @@ package types
 import (
 	"reflect"
 
-	"github.com/golang/protobuf/ptypes/struct"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // jsonValueType constant representing the reflected type of a protobuf Value.

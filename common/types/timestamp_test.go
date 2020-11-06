@@ -17,15 +17,15 @@ package types
 import (
 	"testing"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types/ref"
 
-	dpb "github.com/golang/protobuf/ptypes/duration"
-	structpb "github.com/golang/protobuf/ptypes/struct"
-	tpb "github.com/golang/protobuf/ptypes/timestamp"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	dpb "google.golang.org/protobuf/types/known/durationpb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
+	tpb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestTimestamp_Add(t *testing.T) {
@@ -50,7 +50,7 @@ func TestTimestamp_ConvertToNative_Any(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	want, err := ptypes.MarshalAny(ts.Timestamp)
+	want, err := anypb.New(ts.Timestamp)
 	if err != nil {
 		t.Error(err)
 	}

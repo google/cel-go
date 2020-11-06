@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/containers"
@@ -27,6 +26,8 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/parser"
 	"github.com/google/cel-go/test"
+
+	"google.golang.org/protobuf/proto"
 
 	proto2pb "github.com/google/cel-go/test/proto2pb"
 	proto3pb "github.com/google/cel-go/test/proto3pb"

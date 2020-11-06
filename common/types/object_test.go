@@ -18,15 +18,13 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/google/cel-go/common/types/traits"
 
-	anypb "github.com/golang/protobuf/ptypes/any"
-
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 )
 
 func TestNewProtoObject(t *testing.T) {
@@ -67,24 +65,26 @@ func TestProtoObj_ConvertToNative(t *testing.T) {
 	// google.protobuf.Any
 	anyVal, err := objVal.ConvertToNative(anyValueType)
 	if err != nil {
-		t.Error(err)
+		t.Fatalf("objVal.ConvertToNative() failed: %v", err)
 	}
-	unpackedAny := ptypes.DynamicAny{}
-	if ptypes.UnmarshalAny(anyVal.(*anypb.Any), &unpackedAny) != nil {
-		NewErr("Failed to unmarshal any")
+	anyMsg := anyVal.(*anypb.Any)
+	unpackedAny, err := anyMsg.UnmarshalNew()
+	if err != nil {
+		t.Fatalf("")
 	}
-	if !proto.Equal(unpackedAny.Message, objVal.Value().(proto.Message)) {
-		t.Errorf("Messages were not equal, expect '%v', got '%v'", objVal.Value(), unpackedAny.Message)
+	if !proto.Equal(unpackedAny, objVal.Value().(proto.Message)) {
+		t.Errorf("Messages were not equal, expect '%v', got '%v'", objVal.Value(), unpackedAny)
 	}
 
 	// JSON
 	json, err := objVal.ConvertToNative(jsonValueType)
 	if err != nil {
-		t.Error(err)
+		t.Fatalf("objVal.ConvertToNative(%v) failed: %v", jsonValueType, err)
 	}
-	jsonTxt, err := (&jsonpb.Marshaler{}).MarshalToString(json.(proto.Message))
+	jsonBytes, err := protojson.Marshal(json.(proto.Message))
+	jsonTxt := string(jsonBytes)
 	if err != nil {
-		t.Error(err)
+		t.Fatalf("protojson.Marshal(%v) failed: %v", json, err)
 	}
 	wantTxt := `{"sourceInfo":{"lineOffsets":[1,2,3]}}`
 	if jsonTxt != wantTxt {

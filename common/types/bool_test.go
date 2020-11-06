@@ -18,11 +18,11 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/proto"
 
-	structpb "github.com/golang/protobuf/ptypes/struct"
-	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
+	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 func TestBool_Compare(t *testing.T) {
@@ -48,7 +48,7 @@ func TestBool_ConvertToNative_Any(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	pbVal, err := ptypes.MarshalAny(&wrapperspb.BoolValue{Value: true})
+	pbVal, err := anypb.New(&wrapperspb.BoolValue{Value: true})
 	if err != nil {
 		t.Error(err)
 	}

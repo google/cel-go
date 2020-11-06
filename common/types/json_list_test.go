@@ -20,11 +20,10 @@ import (
 
 	"github.com/google/cel-go/common/types/traits"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/proto"
 
-	anypb "github.com/golang/protobuf/ptypes/any"
-	structpb "github.com/golang/protobuf/ptypes/struct"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 )
 
 func TestJsonListValue_Add(t *testing.T) {
@@ -143,15 +142,14 @@ func TestJsonListValue_ConvertToNative_Any(t *testing.T) {
 		{Kind: &structpb.Value_NumberValue{NumberValue: 1}}}})
 	anyVal, err := list.ConvertToNative(anyValueType)
 	if err != nil {
-		t.Error(err)
+		t.Fatalf("list.ConvertToNative() failed: %v", err)
 	}
-	unpackedAny := ptypes.DynamicAny{}
-	if ptypes.UnmarshalAny(anyVal.(*anypb.Any), &unpackedAny) != nil {
-		t.Error("Fail to unmarshal any")
+	unpackedAny, err := anyVal.(*anypb.Any).UnmarshalNew()
+	if err != nil {
+		t.Fatalf("anyVal.UnmarshalNew() failed: %v", err)
 	}
-	if !proto.Equal(unpackedAny.Message,
-		list.Value().(proto.Message)) {
-		t.Errorf("Messages were not equal, got '%v'", unpackedAny.Message)
+	if !proto.Equal(unpackedAny, list.Value().(proto.Message)) {
+		t.Errorf("Messages were not equal, got '%v'", unpackedAny)
 	}
 }
 

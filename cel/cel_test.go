@@ -22,7 +22,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/operators"
@@ -34,10 +35,10 @@ import (
 	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/parser"
 
-	descpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
 	proto2pb "github.com/google/cel-go/test/proto2pb"
 	proto3pb "github.com/google/cel-go/test/proto3pb"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	descpb "google.golang.org/protobuf/types/descriptorpb"
 )
 
 func Example() {

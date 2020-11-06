@@ -19,16 +19,15 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
-
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 
-	structpb "github.com/golang/protobuf/ptypes/struct"
-	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
+	"google.golang.org/protobuf/proto"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
+	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 func TestTypeRegistry_NewValue(t *testing.T) {
@@ -43,10 +42,12 @@ func TestTypeRegistry_NewValue(t *testing.T) {
 	if IsError(sourceInfo) {
 		t.Error(sourceInfo)
 	} else {
-		info := sourceInfo.Value().(*exprpb.SourceInfo)
-		if info.Location != "TestTypeRegistry_NewValue" ||
-			!reflect.DeepEqual(info.LineOffsets, []int32{0, 2}) ||
-			!reflect.DeepEqual(info.Positions, map[int64]int32{1: 2, 2: 4}) {
+		info := sourceInfo.Value().(proto.Message)
+		srcInfo := &exprpb.SourceInfo{}
+		proto.Merge(srcInfo, info)
+		if srcInfo.Location != "TestTypeRegistry_NewValue" ||
+			!reflect.DeepEqual(srcInfo.LineOffsets, []int32{0, 2}) ||
+			!reflect.DeepEqual(srcInfo.Positions, map[int64]int32{1: 2, 2: 4}) {
 			t.Errorf("Source info not properly configured: %v", info)
 		}
 	}
@@ -64,8 +65,10 @@ func TestTypeRegistry_NewValue_OneofFields(t *testing.T) {
 		}); IsError(exp) {
 		t.Error(exp)
 	} else {
-		e := exp.Value().(*exprpb.Expr)
-		if e.GetConstExpr().GetStringValue() != "oneof" {
+		e := exp.Value().(proto.Message)
+		exp := &exprpb.Expr{}
+		proto.Merge(exp, e)
+		if exp.GetConstExpr().GetStringValue() != "oneof" {
 			t.Errorf("Expr with oneof could not be created: %v", e)
 		}
 	}
@@ -146,7 +149,7 @@ func TestNativeToValue_Any(t *testing.T) {
 	expectNativeToValue(t, anyValue, NullValue)
 
 	// Json Struct
-	anyValue, err = ptypes.MarshalAny(&structpb.Value{
+	anyValue, err = anypb.New(&structpb.Value{
 		Kind: &structpb.Value_StructValue{
 			StructValue: &structpb.Struct{
 				Fields: map[string]*structpb.Value{
@@ -162,7 +165,7 @@ func TestNativeToValue_Any(t *testing.T) {
 	expectNativeToValue(t, anyValue, expected)
 
 	//Json List
-	anyValue, err = ptypes.MarshalAny(&structpb.Value{
+	anyValue, err = anypb.New(&structpb.Value{
 		Kind: &structpb.Value_ListValue{
 			ListValue: &structpb.ListValue{
 				Values: []*structpb.Value{
@@ -181,7 +184,7 @@ func TestNativeToValue_Any(t *testing.T) {
 	pbMessage := exprpb.ParsedExpr{
 		SourceInfo: &exprpb.SourceInfo{
 			LineOffsets: []int32{1, 2, 3}}}
-	anyValue, err = ptypes.MarshalAny(&pbMessage)
+	anyValue, err = anypb.New(&pbMessage)
 	if err != nil {
 		t.Error(err)
 	}
