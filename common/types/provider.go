@@ -209,6 +209,10 @@ func (p *protoTypeRegistry) NativeToValue(value interface{}) ref.Val {
 		if err != nil {
 			return NewErr("unknown type: '%s'", typeName)
 		}
+		unwrapped, isUnwrapped := td.MaybeUnwrap(v)
+		if isUnwrapped {
+			return p.NativeToValue(unwrapped)
+		}
 		typeVal, found := p.FindIdent(typeName)
 		if !found {
 			return NewErr("unknown type: '%s'", typeName)

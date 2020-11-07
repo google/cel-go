@@ -23,7 +23,10 @@ import (
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	dynamicpb "google.golang.org/protobuf/types/dynamicpb"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	dpb "google.golang.org/protobuf/types/known/durationpb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
+	tpb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // NewTypeDescription produces a TypeDescription value for the fully-qualified proto type name
@@ -41,22 +44,24 @@ func NewTypeDescription(typeName string, desc protoreflect.MessageDescriptor) *T
 		fieldMap[string(f.Name())] = NewFieldDescription(f)
 	}
 	return &TypeDescription{
-		typeName:    typeName,
-		desc:        desc,
-		msgType:     msgType,
-		fieldMap:    fieldMap,
-		reflectType: reflect.TypeOf(msgType.Zero().Interface()),
+		typeName:     typeName,
+		desc:         desc,
+		msgType:      msgType,
+		wrapperField: wrapperMsg(desc),
+		fieldMap:     fieldMap,
+		reflectType:  reflect.TypeOf(msgType.Zero().Interface()),
 	}
 }
 
 // TypeDescription is a collection of type metadata relevant to expression
 // checking and evaluation.
 type TypeDescription struct {
-	typeName    string
-	desc        protoreflect.MessageDescriptor
-	msgType     protoreflect.MessageType
-	fieldMap    map[string]*FieldDescription
-	reflectType reflect.Type
+	typeName     string
+	desc         protoreflect.MessageDescriptor
+	msgType      protoreflect.MessageType
+	fieldMap     map[string]*FieldDescription
+	wrapperField protoreflect.FieldDescriptor
+	reflectType  reflect.Type
 }
 
 // FieldMap returns a string field name to FieldDescription map.
@@ -86,6 +91,44 @@ func (td *TypeDescription) New() protoreflect.Message {
 // ReflectType returns the Golang reflect.Type for this type.
 func (td *TypeDescription) ReflectType() reflect.Type {
 	return td.reflectType
+}
+
+func (td *TypeDescription) MaybeUnwrap(msg proto.Message) (interface{}, bool) {
+	switch v := msg.(type) {
+	case *dynamicpb.Message:
+		if td.wrapperField != nil {
+			return v.Get(td.wrapperField).Interface(), true
+		}
+		switch td.typeName {
+		case "google.protobuf.Any":
+			unwrapped := &anypb.Any{}
+			proto.Merge(unwrapped, v)
+			return unwrapped, true
+		case "google.protobuf.Duration":
+			unwrapped := &dpb.Duration{}
+			proto.Merge(unwrapped, v)
+			return unwrapped, true
+		case "google.protobuf.ListValue":
+			unwrapped := &structpb.ListValue{}
+			proto.Merge(unwrapped, v)
+			return unwrapped, true
+		case "google.protobuf.NullValue":
+			return structpb.NullValue_NULL_VALUE, true
+		case "google.protobuf.Struct":
+			unwrapped := &structpb.Struct{}
+			proto.Merge(unwrapped, v)
+			return unwrapped, true
+		case "google.protobuf.Timestamp":
+			unwrapped := &tpb.Timestamp{}
+			proto.Merge(unwrapped, v)
+			return unwrapped, true
+		case "google.protobuf.Value":
+			unwrapped := &structpb.Value{}
+			proto.Merge(unwrapped, v)
+			return unwrapped, true
+		}
+	}
+	return msg, false
 }
 
 // NewFieldDescription creates a new field description from a protoreflect.FieldDescriptor.
@@ -119,11 +162,12 @@ func NewFieldDescription(fieldDesc protoreflect.FieldDescriptor) *FieldDescripti
 		keyType = NewFieldDescription(fieldDesc.MapKey())
 		valType = NewFieldDescription(fieldDesc.MapValue())
 	}
+	wrapperDesc := wrapperField(fieldDesc)
 	return &FieldDescription{
-		descriptor:  fieldDesc,
+		desc:        fieldDesc,
 		KeyType:     keyType,
 		ValueType:   valType,
-		isWrapper:   isWrapperType(fieldDesc),
+		wrapperDesc: wrapperDesc,
 		reflectType: reflectType,
 		zeroMsg:     zeroMsg,
 	}
@@ -131,17 +175,17 @@ func NewFieldDescription(fieldDesc protoreflect.FieldDescriptor) *FieldDescripti
 
 // FieldDescription holds metadata related to fields declared within a type.
 type FieldDescription struct {
-	descriptor  protoreflect.FieldDescriptor
+	desc        protoreflect.FieldDescriptor
 	KeyType     *FieldDescription
 	ValueType   *FieldDescription
-	isWrapper   bool
+	wrapperDesc protoreflect.FieldDescriptor
 	reflectType reflect.Type
 	zeroMsg     proto.Message
 }
 
 // CheckedType returns the type-definition used at type-check time.
 func (fd *FieldDescription) CheckedType() *exprpb.Type {
-	if fd.descriptor.IsMap() {
+	if fd.desc.IsMap() {
 		return &exprpb.Type{
 			TypeKind: &exprpb.Type_MapType_{
 				MapType: &exprpb.Type_MapType{
@@ -151,7 +195,7 @@ func (fd *FieldDescription) CheckedType() *exprpb.Type {
 			},
 		}
 	}
-	if fd.descriptor.IsList() {
+	if fd.desc.IsList() {
 		return &exprpb.Type{
 			TypeKind: &exprpb.Type_ListType_{
 				ListType: &exprpb.Type_ListType{
@@ -162,7 +206,7 @@ func (fd *FieldDescription) CheckedType() *exprpb.Type {
 
 // Descriptor returns the protoreflect.FieldDescriptor for this type.
 func (fd *FieldDescription) Descriptor() protoreflect.FieldDescriptor {
-	return fd.descriptor
+	return fd.desc
 }
 
 // ReflectType returns the Golang reflect.Type for this field.
@@ -177,9 +221,9 @@ func (fd *FieldDescription) ReflectType() reflect.Type {
 func (fd *FieldDescription) IsSet(target interface{}) bool {
 	switch v := target.(type) {
 	case protoreflect.Message:
-		return v.Has(fd.descriptor)
+		return v.Has(fd.desc)
 	case proto.Message:
-		return v.ProtoReflect().Has(fd.descriptor)
+		return v.ProtoReflect().Has(fd.desc)
 	case reflect.Value:
 		return fd.IsSet(v.Interface())
 	default:
@@ -195,12 +239,7 @@ func (fd *FieldDescription) IsSet(target interface{}) bool {
 func (fd *FieldDescription) GetFrom(target interface{}) (interface{}, error) {
 	switch v := target.(type) {
 	case proto.Message:
-		if fd.IsWrapper() {
-			if !fd.IsSet(target) {
-				return structpb.NullValue_NULL_VALUE, nil
-			}
-		}
-		fieldVal := v.ProtoReflect().Get(fd.descriptor).Interface()
+		fieldVal := v.ProtoReflect().Get(fd.desc).Interface()
 		switch fv := fieldVal.(type) {
 		case protoreflect.EnumNumber:
 			return int64(fv), nil
@@ -209,10 +248,13 @@ func (fd *FieldDescription) GetFrom(target interface{}) (interface{}, error) {
 		case protoreflect.Map:
 			return &Map{Map: fv, KeyType: fd.KeyType, ValueType: fd.ValueType}, nil
 		case protoreflect.Message:
-			if fv.IsValid() {
-				return fv.Interface(), nil
+			if fd.IsWrapper() {
+				return fd.Unwrap(fv), nil
 			}
-			return fd.zeroMsg, nil
+			if !fv.IsValid() {
+				return fd.zeroMsg, nil
+			}
+			return fv.Interface(), nil
 		default:
 			return fv, nil
 		}
@@ -225,27 +267,27 @@ func (fd *FieldDescription) GetFrom(target interface{}) (interface{}, error) {
 
 // Index returns the field index within a reflected value.
 func (fd *FieldDescription) Index() int {
-	return fd.descriptor.Index()
+	return fd.desc.Index()
 }
 
 // IsEnum returns true if the field type refers to an enum value.
 func (fd *FieldDescription) IsEnum() bool {
-	return fd.descriptor.Kind() == protoreflect.EnumKind
+	return fd.desc.Kind() == protoreflect.EnumKind
 }
 
 // IsMap returns true if the field is of map type.
 func (fd *FieldDescription) IsMap() bool {
-	return fd.descriptor.IsMap()
+	return fd.desc.IsMap()
 }
 
 // IsMessage returns true if the field is of message type.
 func (fd *FieldDescription) IsMessage() bool {
-	return fd.descriptor.Kind() == protoreflect.MessageKind
+	return fd.desc.Kind() == protoreflect.MessageKind
 }
 
 // IsOneof returns true if the field is declared within a oneof block.
 func (fd *FieldDescription) IsOneof() bool {
-	return fd.descriptor.ContainingOneof() != nil
+	return fd.desc.ContainingOneof() != nil
 }
 
 // IsRepeated returns true if the field is a repeated value.
@@ -253,36 +295,43 @@ func (fd *FieldDescription) IsOneof() bool {
 // This method will also return true for map values, so check whether the
 // field is also a map.
 func (fd *FieldDescription) IsList() bool {
-	return fd.descriptor.IsList()
+	return fd.desc.IsList()
 }
 
 // IsWrapper returns true if the field type is a primitive wrapper type.
 func (fd *FieldDescription) IsWrapper() bool {
-	return fd.isWrapper
+	return fd.wrapperDesc != nil
 }
 
 // Name returns the CamelCase name of the field within the proto-based struct.
 func (fd *FieldDescription) Name() string {
-	return string(fd.descriptor.Name())
+	return string(fd.desc.Name())
 }
 
 // String returns a struct-like field definition string.
 func (fd *FieldDescription) String() string {
-	return fmt.Sprintf("%v.%s `oneof=%t`", fd.descriptor.ContainingMessage().FullName(), fd.Name(), fd.IsOneof())
+	return fmt.Sprintf("%v.%s `oneof=%t`", fd.desc.ContainingMessage().FullName(), fd.Name(), fd.IsOneof())
+}
+
+func (fd *FieldDescription) Unwrap(msg protoreflect.Message) interface{} {
+	if !msg.IsValid() {
+		return structpb.NullValue_NULL_VALUE
+	}
+	return msg.Get(fd.wrapperDesc).Interface()
 }
 
 func (fd *FieldDescription) typeDefToType() *exprpb.Type {
-	if fd.descriptor.Kind() == protoreflect.MessageKind {
-		msgType := string(fd.descriptor.Message().FullName())
+	if fd.desc.Kind() == protoreflect.MessageKind {
+		msgType := string(fd.desc.Message().FullName())
 		if wk, found := CheckedWellKnowns[msgType]; found {
 			return wk
 		}
 		return checkedMessageType(msgType)
 	}
-	if fd.descriptor.Kind() == protoreflect.EnumKind {
+	if fd.desc.Kind() == protoreflect.EnumKind {
 		return checkedInt
 	}
-	return CheckedPrimitives[fd.descriptor.Kind()]
+	return CheckedPrimitives[fd.desc.Kind()]
 }
 
 type List struct {
@@ -316,11 +365,15 @@ func checkedWrap(t *exprpb.Type) *exprpb.Type {
 		TypeKind: &exprpb.Type_Wrapper{Wrapper: t.GetPrimitive()}}
 }
 
-func isWrapperType(desc protoreflect.FieldDescriptor) bool {
+func wrapperField(desc protoreflect.FieldDescriptor) protoreflect.FieldDescriptor {
 	if desc.Kind() != protoreflect.MessageKind {
-		return false
+		return nil
 	}
-	typeName := string(desc.ContainingMessage().FullName())
+	return wrapperMsg(desc.Message())
+}
+
+func wrapperMsg(msg protoreflect.MessageDescriptor) protoreflect.FieldDescriptor {
+	typeName := string(msg.FullName())
 	switch sanitizeProtoName(typeName) {
 	case "google.protobuf.BoolValue",
 		"google.protobuf.BytesValue",
@@ -331,7 +384,7 @@ func isWrapperType(desc protoreflect.FieldDescriptor) bool {
 		"google.protobuf.StringValue",
 		"google.protobuf.UInt32Value",
 		"google.protobuf.UInt64Value":
-		return true
+		return msg.Fields().ByName("value")
 	}
-	return false
+	return nil
 }
