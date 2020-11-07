@@ -114,6 +114,10 @@ func (d Double) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 			return p.Interface(), nil
 		}
 	case reflect.Interface:
+		dv := d.Value()
+		if reflect.TypeOf(dv).Implements(typeDesc) {
+			return dv, nil
+		}
 		if reflect.TypeOf(d).Implements(typeDesc) {
 			return d, nil
 		}

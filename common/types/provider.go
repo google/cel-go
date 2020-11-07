@@ -61,6 +61,9 @@ func NewRegistry(types ...proto.Message) ref.TypeRegistry {
 		TypeType,
 		UintType)
 
+	for _, fd := range p.pbdb.FileDescriptions() {
+		p.registerAllTypes(fd)
+	}
 	for _, msgType := range types {
 		err := p.RegisterMessage(msgType)
 		if err != nil {
@@ -211,8 +214,10 @@ func (p *protoTypeRegistry) NativeToValue(value interface{}) ref.Val {
 			return NewErr("unknown type: '%s'", typeName)
 		}
 		return NewObject(p, td, typeVal.(*TypeValue), v)
-	case pb.Map:
+	case *pb.Map:
 		return NewProtoMap(p, v)
+	case *pb.List:
+		return NewProtoList(p, v)
 	case protoreflect.Message:
 		return p.NativeToValue(v.Interface())
 	case protoreflect.Value:

@@ -85,6 +85,10 @@ func (b Bool) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 			}
 		}
 	case reflect.Interface:
+		bv := b.Value()
+		if reflect.TypeOf(bv).Implements(typeDesc) {
+			return bv, nil
+		}
 		if reflect.TypeOf(b).Implements(typeDesc) {
 			return b, nil
 		}

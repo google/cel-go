@@ -48,7 +48,7 @@ func NewStringStringMap(adapter ref.TypeAdapter, value map[string]string) traits
 }
 
 // NewProtoMap returns a specialized traits.Mapper for handling protobuf map values.
-func NewProtoMap(adapter ref.TypeAdapter, value pb.Map) traits.Mapper {
+func NewProtoMap(adapter ref.TypeAdapter, value *pb.Map) traits.Mapper {
 	return &protoMap{
 		TypeAdapter: adapter,
 		value:       value,
@@ -371,7 +371,7 @@ func (m *stringMap) Size() ref.Val {
 
 type protoMap struct {
 	ref.TypeAdapter
-	value pb.Map
+	value *pb.Map
 }
 
 func (m *protoMap) Contains(key ref.Val) ref.Val {
@@ -507,12 +507,12 @@ func (m *protoMap) Find(key ref.Val) (ref.Val, bool) {
 	case protoreflect.EnumNumber:
 		return Int(v), true
 	case protoreflect.List:
-		return m.NativeToValue(pb.List{
+		return m.NativeToValue(&pb.List{
 			List:     v,
 			ElemType: m.value.ValueType,
 		}), true
 	case protoreflect.Map:
-		return m.NativeToValue(pb.Map{
+		return m.NativeToValue(&pb.Map{
 			Map:       v,
 			KeyType:   m.value.ValueType.KeyType,
 			ValueType: m.value.ValueType.ValueType},

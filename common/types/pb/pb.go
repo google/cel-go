@@ -32,12 +32,14 @@ import (
 // Db maps from file / message / enum name to file description.
 type Db struct {
 	revFileDescriptorMap map[string]*FileDescription
+	files                []*FileDescription
 }
 
 var (
 	// DefaultDb used at evaluation time or unless overridden at check time.
 	DefaultDb = &Db{
 		revFileDescriptorMap: make(map[string]*FileDescription),
+		files:                []*FileDescription{},
 	}
 )
 
@@ -45,6 +47,7 @@ var (
 func NewDb() *Db {
 	pbdb := &Db{
 		revFileDescriptorMap: make(map[string]*FileDescription),
+		files:                []*FileDescription{},
 	}
 	// The FileDescription objects in the default db contain lazily initialized TypeDescription
 	// values which may point to the state contained in the DefaultDb irrespective of this shallow
@@ -53,6 +56,9 @@ func NewDb() *Db {
 	// is safe to share these values across instances.
 	for k, v := range DefaultDb.revFileDescriptorMap {
 		pbdb.revFileDescriptorMap[k] = v
+	}
+	for _, f := range DefaultDb.files {
+		pbdb.files = append(pbdb.files, f)
 	}
 	return pbdb
 }
@@ -63,7 +69,15 @@ func (pbdb *Db) Copy() *Db {
 	for k, v := range pbdb.revFileDescriptorMap {
 		copy.revFileDescriptorMap[k] = v
 	}
+	for _, f := range pbdb.files {
+		copy.files = append(copy.files, f)
+	}
 	return copy
+}
+
+// FileDescriptions returns the set of file descriptions associated with this db.
+func (pbdb *Db) FileDescriptions() []*FileDescription {
+	return pbdb.files
 }
 
 // RegisterDescriptor produces a `FileDescription` from a `FileDescriptor` and registers the
@@ -83,6 +97,7 @@ func (pbdb *Db) RegisterDescriptor(fileDesc protoreflect.FileDescriptor) (*FileD
 	pbdb.revFileDescriptorMap[fileDesc.Path()] = fd
 
 	// Return the specific file descriptor registered.
+	pbdb.files = append(pbdb.files, fd)
 	return fd, nil
 }
 

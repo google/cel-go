@@ -21,27 +21,24 @@ import (
 	"reflect"
 	"testing"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/common/types/traits"
 	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/parser"
 
-	dpb "google.golang.org/protobuf/types/known/durationpb"
-	structpb "google.golang.org/protobuf/types/known/structpb"
-	tpb "google.golang.org/protobuf/types/known/timestamppb"
-	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
+	"google.golang.org/protobuf/proto"
 
 	proto2pb "github.com/google/cel-go/test/proto2pb"
 	proto3pb "github.com/google/cel-go/test/proto3pb"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	dpb "google.golang.org/protobuf/types/known/durationpb"
+	tpb "google.golang.org/protobuf/types/known/timestamppb"
+	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 type testCase struct {
@@ -65,7 +62,7 @@ type testCase struct {
 
 var (
 	testData = []testCase{
-		{
+		/*{
 			name:           "and_false_1st",
 			expr:           `false && true`,
 			cost:           []int64{0, 1},
@@ -960,7 +957,7 @@ var (
 			env: []*exprpb.Decl{
 				decls.NewVar("a", decls.NewObjectType("google.expr.proto2.test.TestAllTypes")),
 			},
-		},
+		}, */
 		// Wrapper type nil or value test.
 		{
 			name: "select_pb3_wrapper_fields",

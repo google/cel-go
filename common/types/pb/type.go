@@ -91,12 +91,13 @@ func (td *TypeDescription) ReflectType() reflect.Type {
 // NewFieldDescription creates a new field description from a protoreflect.FieldDescriptor.
 func NewFieldDescription(fieldDesc protoreflect.FieldDescriptor) *FieldDescription {
 	var reflectType reflect.Type
+	var zeroMsg proto.Message
 	switch fieldDesc.Kind() {
 	case protoreflect.EnumKind:
 		reflectType = reflect.TypeOf(protoreflect.EnumNumber(0))
 	case protoreflect.MessageKind:
-
-		reflectType = reflect.TypeOf(dynamicpb.NewMessageType(fieldDesc.Message()).Zero().Interface())
+		zeroMsg = dynamicpb.NewMessageType(fieldDesc.Message()).Zero().Interface()
+		reflectType = reflect.TypeOf(zeroMsg)
 	default:
 		reflectType = reflect.TypeOf(fieldDesc.Default().Interface())
 		if fieldDesc.IsList() {
@@ -124,6 +125,7 @@ func NewFieldDescription(fieldDesc protoreflect.FieldDescriptor) *FieldDescripti
 		ValueType:   valType,
 		isWrapper:   isWrapperType(fieldDesc),
 		reflectType: reflectType,
+		zeroMsg:     zeroMsg,
 	}
 }
 
@@ -134,6 +136,7 @@ type FieldDescription struct {
 	ValueType   *FieldDescription
 	isWrapper   bool
 	reflectType reflect.Type
+	zeroMsg     proto.Message
 }
 
 // CheckedType returns the type-definition used at type-check time.
@@ -202,11 +205,14 @@ func (fd *FieldDescription) GetFrom(target interface{}) (interface{}, error) {
 		case protoreflect.EnumNumber:
 			return int64(fv), nil
 		case protoreflect.List:
-			return List{List: fv, ElemType: fd}, nil
+			return &List{List: fv, ElemType: fd}, nil
 		case protoreflect.Map:
-			return Map{Map: fv, KeyType: fd.KeyType, ValueType: fd.ValueType}, nil
+			return &Map{Map: fv, KeyType: fd.KeyType, ValueType: fd.ValueType}, nil
 		case protoreflect.Message:
-			return fv.Interface(), nil
+			if fv.IsValid() {
+				return fv.Interface(), nil
+			}
+			return fd.zeroMsg, nil
 		default:
 			return fv, nil
 		}

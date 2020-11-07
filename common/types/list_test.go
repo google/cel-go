@@ -271,8 +271,9 @@ func TestConcatList_ConvertToNative_ListInterface(t *testing.T) {
 	if err != nil {
 		t.Errorf("Got '%v', expected '%v'", err, list)
 	}
-	if !reflect.DeepEqual(iface, []interface{}{1.0, 2.0, "3.0"}) {
-		t.Errorf("Got '%v', expected '%v'", iface, []interface{}{1.0, 2.0, "3.0"})
+	want := []interface{}{1.0, 2.0, "3.0"}
+	if !reflect.DeepEqual(iface, want) {
+		t.Errorf("Got '%v', expected '%v'", iface, want)
 	}
 }
 
@@ -449,8 +450,15 @@ func TestStringList_ConvertToNative_ListInterface(t *testing.T) {
 	if err != nil {
 		t.Error("Unable to convert string list to itself.")
 	}
-	if !reflect.DeepEqual(val, []interface{}{"h", "e", "l", "p"}) {
-		t.Errorf(`Got %v, expected ["h", "e", "l", "p"]`, val)
+	want := []interface{}{"h", "e", "l", "p"}
+	if !reflect.DeepEqual(val.([]interface{}), want) {
+		for i, e := range val.([]interface{}) {
+			t.Logf("val[%d] %v(%T)", i, e, e)
+		}
+		for i, e := range want {
+			t.Logf("want[%d] %v(%T)", i, e, e)
+		}
+		t.Errorf(`Got %v(%T), expected %v(%T)`, val, val, want, want)
 	}
 }
 
