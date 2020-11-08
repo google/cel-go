@@ -290,7 +290,7 @@ func (fd *FieldDescription) IsOneof() bool {
 	return fd.desc.ContainingOneof() != nil
 }
 
-// IsRepeated returns true if the field is a repeated value.
+// IsList returns true if the field is a repeated value.
 //
 // This method will also return true for map values, so check whether the
 // field is also a map.

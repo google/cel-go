@@ -25,10 +25,7 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 
-	"google.golang.org/protobuf/proto"
-
 	anypb "google.golang.org/protobuf/types/known/anypb"
-	dpb "google.golang.org/protobuf/types/known/durationpb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 	tpb "google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -37,7 +34,7 @@ import (
 // operations. Timestamps are also capable of participating in dynamic
 // function dispatch to instance methods.
 type Timestamp struct {
-	*tpb.Timestamp
+	time.Time
 }
 
 var (
@@ -63,8 +60,8 @@ func (t Timestamp) Compare(other ref.Val) ref.Val {
 	if TimestampType != other.Type() {
 		return ValOrErr(other, "no such overload")
 	}
-	ts1 := t.Timestamp.AsTime()
-	ts2 := other.(Timestamp).AsTime()
+	ts1 := t.Time
+	ts2 := other.(Timestamp).Time
 	ts := ts1.Sub(ts2)
 	if ts < 0 {
 		return IntNegOne
@@ -80,7 +77,7 @@ func (t Timestamp) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	switch typeDesc {
 	case anyValueType:
 		// Pack the underlying protobuf.Timestamp to an Any value.
-		return anypb.New(t.Timestamp)
+		return anypb.New(tpb.New(t.Time))
 	case jsonValueType:
 		// CEL follows the proto3 to JSON conversion which formats as an RFC 3339 encoded JSON
 		// string.
@@ -93,7 +90,7 @@ func (t Timestamp) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		}, nil
 	case timestampValueType:
 		// Unwrap the underlying protobuf.Timestamp.
-		return t.Value(), nil
+		return tpb.New(t.Time), nil
 	}
 	// If the timestamp is already assignable to the desired type return it.
 	if reflect.TypeOf(t).AssignableTo(typeDesc) {
@@ -107,11 +104,10 @@ func (t Timestamp) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 func (t Timestamp) ConvertToType(typeVal ref.Type) ref.Val {
 	switch typeVal {
 	case StringType:
-		return String(t.AsTime().Format(time.RFC3339))
+		return String(t.Format(time.RFC3339))
 	case IntType:
-		ts := t.AsTime()
 		// Return the Unix time in seconds since 1970
-		return Int(ts.Unix())
+		return Int(t.Unix())
 	case TimestampType:
 		return t
 	case TypeType:
@@ -125,20 +121,19 @@ func (t Timestamp) Equal(other ref.Val) ref.Val {
 	if TimestampType != other.Type() {
 		return ValOrErr(other, "no such overload")
 	}
-	return Bool(proto.Equal(t.Timestamp, other.Value().(proto.Message)))
+	return Bool(t.Time.Equal(other.(Timestamp).Time))
 }
 
 // Receive implements traits.Reciever.Receive.
 func (t Timestamp) Receive(function string, overload string, args []ref.Val) ref.Val {
-	ts := t.AsTime()
 	switch len(args) {
 	case 0:
 		if f, found := timestampZeroArgOverloads[function]; found {
-			return f(ts)
+			return f(t.Time)
 		}
 	case 1:
 		if f, found := timestampOneArgOverloads[function]; found {
-			return f(ts, args[0])
+			return f(t.Time, args[0])
 		}
 	}
 	return NewErr("no such overload")
@@ -148,14 +143,11 @@ func (t Timestamp) Receive(function string, overload string, args []ref.Val) ref
 func (t Timestamp) Subtract(subtrahend ref.Val) ref.Val {
 	switch subtrahend.Type() {
 	case DurationType:
-		ts := t.AsTime()
-		dur := subtrahend.(Duration).AsDuration()
-		tstamp := tpb.New(ts.Add(-dur))
-		return Timestamp{Timestamp: tstamp}
+		dur := subtrahend.(Duration)
+		return Timestamp{Time: t.Time.Add(-dur.Duration)}
 	case TimestampType:
-		ts1 := t.AsTime()
-		ts2 := subtrahend.(Timestamp).AsTime()
-		return Duration{Duration: dpb.New(ts1.Sub(ts2))}
+		t2 := subtrahend.(Timestamp).Time
+		return Duration{Duration: t.Time.Sub(t2)}
 	}
 	return ValOrErr(subtrahend, "no such overload")
 }
@@ -167,7 +159,7 @@ func (t Timestamp) Type() ref.Type {
 
 // Value implements ref.Val.Value.
 func (t Timestamp) Value() interface{} {
-	return t.Timestamp
+	return t.Time
 }
 
 var (

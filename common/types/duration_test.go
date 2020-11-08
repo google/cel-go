@@ -17,6 +17,7 @@ package types
 import (
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types/ref"
@@ -29,15 +30,16 @@ import (
 )
 
 func TestDuration_Add(t *testing.T) {
-	d := Duration{&dpb.Duration{Seconds: 7506}}
-	if !d.Add(d).Equal(Duration{&dpb.Duration{Seconds: 15012}}).(Bool) {
+	dur := &dpb.Duration{Seconds: 7506}
+	d := Duration{Duration: dur.AsDuration()}
+	if !d.Add(d).Equal(Duration{(&dpb.Duration{Seconds: 15012}).AsDuration()}).(Bool) {
 		t.Error("Adding duration and itself did not double it.")
 	}
 }
 
 func TestDuration_Compare(t *testing.T) {
-	d := Duration{&dpb.Duration{Seconds: 7506}}
-	lt := Duration{&dpb.Duration{Seconds: -10}}
+	d := Duration{(&dpb.Duration{Seconds: 7506}).AsDuration()}
+	lt := Duration{(&dpb.Duration{Seconds: -10}).AsDuration()}
 	if d.Compare(lt).(Int) != IntOne {
 		t.Error("Larger duration was not considered greater than smaller one.")
 	}
@@ -53,7 +55,7 @@ func TestDuration_Compare(t *testing.T) {
 }
 
 func TestDuration_ConvertToNative(t *testing.T) {
-	val, err := Duration{&dpb.Duration{Seconds: 7506, Nanos: 1000}}.
+	val, err := Duration{Duration: duration(7506, 1000)}.
 		ConvertToNative(reflect.TypeOf(&dpb.Duration{}))
 	if err != nil ||
 		!proto.Equal(val.(proto.Message), &dpb.Duration{Seconds: 7506, Nanos: 1000}) {
@@ -62,12 +64,12 @@ func TestDuration_ConvertToNative(t *testing.T) {
 }
 
 func TestDuration_ConvertToNative_Any(t *testing.T) {
-	pb := &dpb.Duration{Seconds: 7506, Nanos: 1000}
-	val, err := Duration{pb}.ConvertToNative(anyValueType)
+	d := Duration{Duration: duration(7506, 1000)}
+	val, err := d.ConvertToNative(anyValueType)
 	if err != nil {
 		t.Error(err)
 	}
-	want, err := anypb.New(pb)
+	want, err := anypb.New(dpb.New(d.Duration))
 	if err != nil {
 		t.Error(err)
 	}
@@ -77,8 +79,7 @@ func TestDuration_ConvertToNative_Any(t *testing.T) {
 }
 
 func TestDuration_ConvertToNative_Error(t *testing.T) {
-	val, err := Duration{&dpb.Duration{Seconds: 7506, Nanos: 1000}}.
-		ConvertToNative(jsonValueType)
+	val, err := Duration{Duration: duration(7506, 1000)}.ConvertToNative(jsonValueType)
 	if err != nil {
 		t.Errorf("Got error: '%v', expected value", err)
 	}
@@ -94,7 +95,7 @@ func TestDuration_ConvertToNative_Error(t *testing.T) {
 }
 
 func TestDuration_ConvertToNative_Json(t *testing.T) {
-	val, err := Duration{&dpb.Duration{Seconds: 7506, Nanos: 1000}}.ConvertToNative(jsonValueType)
+	val, err := Duration{Duration: duration(7506, 1000)}.ConvertToNative(jsonValueType)
 	if err != nil {
 		t.Error(err)
 	}
@@ -105,7 +106,7 @@ func TestDuration_ConvertToNative_Json(t *testing.T) {
 }
 
 func TestDuration_ConvertToType_Identity(t *testing.T) {
-	d := Duration{&dpb.Duration{Seconds: 7506, Nanos: 1000}}
+	d := Duration{Duration: duration(7506, 1000)}
 	str := d.ConvertToType(StringType).(String)
 	if str != "7506.000001s" {
 		t.Errorf("Got '%v', wanted 7506.000001s", str)
@@ -126,14 +127,15 @@ func TestDuration_ConvertToType_Identity(t *testing.T) {
 }
 
 func TestDuration_Negate(t *testing.T) {
-	neg := Duration{&dpb.Duration{Seconds: 1234, Nanos: 1}}.Negate().(Duration)
-	if !proto.Equal(neg.Duration, &dpb.Duration{Seconds: -1234, Nanos: -1}) {
-		t.Errorf("Got '%v', expected seconds: -1234, nanos: -1", neg)
+	neg := Duration{Duration: duration(1234, 1)}.Negate()
+	want := duration(-1234, -1)
+	if neg.Value().(time.Duration) != want {
+		t.Errorf("Got %v, expected %v", neg, want)
 	}
 }
 
 func TestDuration_Receive_GetHours(t *testing.T) {
-	d := Duration{&dpb.Duration{Seconds: 7506}}
+	d := Duration{Duration: duration(7506, 0)}
 	hr := d.Receive(overloads.TimeGetHours, overloads.DurationToHours, []ref.Val{})
 	if !hr.Equal(Int(2)).(Bool) {
 		t.Error("Expected 2 hours, got", hr)
@@ -141,7 +143,7 @@ func TestDuration_Receive_GetHours(t *testing.T) {
 }
 
 func TestDuration_Receive_GetMinutes(t *testing.T) {
-	d := Duration{&dpb.Duration{Seconds: 7506}}
+	d := Duration{Duration: duration(7506, 0)}
 	min := d.Receive(overloads.TimeGetMinutes, overloads.DurationToMinutes, []ref.Val{})
 	if !min.Equal(Int(125)).(Bool) {
 		t.Error("Expected 5 minutes, got", min)
@@ -149,7 +151,7 @@ func TestDuration_Receive_GetMinutes(t *testing.T) {
 }
 
 func TestDuration_Receive_GetSeconds(t *testing.T) {
-	d := Duration{&dpb.Duration{Seconds: 7506}}
+	d := Duration{Duration: duration(7506, 0)}
 	sec := d.Receive(overloads.TimeGetSeconds, overloads.DurationToSeconds, []ref.Val{})
 	if !sec.Equal(Int(7506)).(Bool) {
 		t.Error("Expected 6 seconds, got", sec)
@@ -157,8 +159,12 @@ func TestDuration_Receive_GetSeconds(t *testing.T) {
 }
 
 func TestDuration_Subtract(t *testing.T) {
-	d := Duration{&dpb.Duration{Seconds: 7506}}
+	d := Duration{Duration: duration(7506, 0)}
 	if !d.Subtract(d).ConvertToType(IntType).Equal(IntZero).(Bool) {
 		t.Error("Subtracting a duration from itself did not equal zero.")
 	}
+}
+
+func duration(seconds, nanos int64) time.Duration {
+	return time.Duration(seconds)*time.Second + time.Duration(nanos)
 }

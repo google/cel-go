@@ -20,6 +20,7 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/checker/decls"
@@ -37,7 +38,6 @@ import (
 	proto3pb "github.com/google/cel-go/test/proto3pb"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
-	dpb "google.golang.org/protobuf/types/known/durationpb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 	tpb "google.golang.org/protobuf/types/known/timestamppb"
 	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
@@ -452,7 +452,7 @@ var (
 			optimizedCost: []int64{1, 1},
 		},
 		{
-			name:          "timestamp_eq_timestamp",
+			name:          "timestamp_ne_timestamp",
 			expr:          `timestamp(1) != timestamp(2)`,
 			cost:          []int64{3, 3},
 			optimizedCost: []int64{1, 1},
@@ -1438,13 +1438,13 @@ func TestInterpreter_TypeConversionOpt(t *testing.T) {
 		{in: `double("_123")`, err: true},
 		{in: `double("123.0")`, out: types.Double(123.0)},
 		{in: `duration('12hh3')`, err: true},
-		{in: `duration('12s')`, out: types.Duration{Duration: &dpb.Duration{Seconds: 12}}},
+		{in: `duration('12s')`, out: types.Duration{Duration: time.Duration(12) * time.Second}},
 		{in: `dyn(1u)`, out: types.Uint(1)},
 		{in: `int('11l')`, err: true},
 		{in: `int('11')`, out: types.Int(11)},
 		{in: `string('11')`, out: types.String("11")},
 		{in: `timestamp('123')`, err: true},
-		{in: `timestamp(123)`, out: types.Timestamp{Timestamp: &tpb.Timestamp{Seconds: 123}}},
+		{in: `timestamp(123)`, out: types.Timestamp{Time: time.Unix(123, 0).UTC()}},
 		{in: `type(null)`, out: types.NullType},
 		{in: `type(timestamp(int('123')))`, out: types.TimestampType},
 		{in: `uint(-1)`, err: true},

@@ -17,6 +17,7 @@ package types
 import (
 	"fmt"
 	"reflect"
+	"time"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -199,11 +200,11 @@ func (p *protoTypeRegistry) registerAllTypes(fd *pb.FileDescription) error {
 //
 // This method should be the inverse of ref.Val.ConvertToNative.
 func (p *protoTypeRegistry) NativeToValue(value interface{}) ref.Val {
+	if val, found := nativeToValue(p, value); found {
+		return val
+	}
 	switch v := value.(type) {
 	case proto.Message:
-		if val, found := nativeToValue(p, value); found {
-			return val
-		}
 		typeName := string(v.ProtoReflect().Descriptor().FullName())
 		td, err := p.pbdb.DescribeType(typeName)
 		if err != nil {
@@ -227,9 +228,6 @@ func (p *protoTypeRegistry) NativeToValue(value interface{}) ref.Val {
 	case protoreflect.Value:
 		return p.NativeToValue(v.Interface())
 	}
-	if val, found := nativeToValue(p, value); found {
-		return val
-	}
 	return NoSuchTypeConversionForValue(value)
 }
 
@@ -246,7 +244,7 @@ func (a *defaultTypeAdapter) NativeToValue(value interface{}) ref.Val {
 	if val, found := nativeToValue(a, value); found {
 		return val
 	}
-	return NewErr("unsupported type conversion for %T to ref.Val", value)
+	return NoSuchTypeConversionForValue(value)
 }
 
 func nativeToValue(a ref.TypeAdapter, value interface{}) (ref.Val, bool) {
@@ -305,6 +303,10 @@ func nativeToValue(a ref.TypeAdapter, value interface{}) (ref.Val, bool) {
 		return Double(v), true
 	case string:
 		return String(v), true
+	case time.Duration:
+		return Duration{Duration: v}, true
+	case time.Time:
+		return Timestamp{Time: v}, true
 	case *bool:
 		if v == nil {
 			return NoSuchTypeConversionForValue(v), true
@@ -365,7 +367,7 @@ func nativeToValue(a ref.TypeAdapter, value interface{}) (ref.Val, bool) {
 		if v == nil {
 			return NoSuchTypeConversionForValue(v), true
 		}
-		return Duration{Duration: v}, true
+		return Duration{Duration: v.AsDuration()}, true
 	case *structpb.ListValue:
 		if v == nil {
 			return NoSuchTypeConversionForValue(v), true
@@ -400,7 +402,7 @@ func nativeToValue(a ref.TypeAdapter, value interface{}) (ref.Val, bool) {
 		if v == nil {
 			return NoSuchTypeConversionForValue(v), true
 		}
-		return Timestamp{Timestamp: v}, true
+		return Timestamp{Time: v.AsTime()}, true
 	case *anypb.Any:
 		if v == nil {
 			return NoSuchTypeConversionForValue(v), true

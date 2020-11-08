@@ -24,19 +24,16 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 
-	"google.golang.org/protobuf/proto"
-
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	dpb "google.golang.org/protobuf/types/known/durationpb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
-	tpb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // Duration type that implements ref.Val and supports add, compare, negate,
 // and subtract operators. This type is also a receiver which means it can
 // participate in dispatch to receiver functions.
 type Duration struct {
-	*dpb.Duration
+	time.Duration
 }
 
 var (
@@ -53,13 +50,11 @@ var (
 func (d Duration) Add(other ref.Val) ref.Val {
 	switch other.Type() {
 	case DurationType:
-		dur1 := d.AsDuration()
-		dur2 := other.(Duration).AsDuration()
-		return Duration{Duration: dpb.New(dur1 + dur2)}
+		dur2 := other.(Duration)
+		return Duration{Duration: d.Duration + dur2.Duration}
 	case TimestampType:
-		dur := d.AsDuration()
-		ts := other.(Timestamp).AsTime()
-		return Timestamp{Timestamp: tpb.New(ts.Add(dur))}
+		ts := other.(Timestamp).Time
+		return Timestamp{Time: ts.Add(d.Duration)}
 	}
 	return ValOrErr(other, "no such overload")
 }
@@ -70,9 +65,7 @@ func (d Duration) Compare(other ref.Val) ref.Val {
 	if !ok {
 		return ValOrErr(other, "no such overload")
 	}
-	dur1 := d.AsDuration()
-	dur2 := otherDur.AsDuration()
-	dur := dur1 - dur2
+	dur := d.Duration - otherDur.Duration
 	if dur < 0 {
 		return IntNegOne
 	}
@@ -87,10 +80,10 @@ func (d Duration) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	switch typeDesc {
 	case anyValueType:
 		// Pack the underlying proto value into an Any value.
-		return anypb.New(d.Value().(*dpb.Duration))
+		return anypb.New(dpb.New(d.Duration))
 	case durationValueType:
 		// Unwrap the CEL value to its underlying proto value.
-		return d.Value(), nil
+		return dpb.New(d.Duration), nil
 	case jsonValueType:
 		// CEL follows the proto3 to JSON conversion.
 		// Note, using jsonpb would wrap the result in extra double quotes.
@@ -114,11 +107,9 @@ func (d Duration) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 func (d Duration) ConvertToType(typeVal ref.Type) ref.Val {
 	switch typeVal {
 	case StringType:
-		dur := d.AsDuration()
-		return String(strconv.FormatFloat(dur.Seconds(), 'f', -1, 64) + "s")
+		return String(strconv.FormatFloat(d.Seconds(), 'f', -1, 64) + "s")
 	case IntType:
-		dur := d.AsDuration()
-		return Int(dur)
+		return Int(d.Duration)
 	case DurationType:
 		return d
 	case TypeType:
@@ -133,21 +124,19 @@ func (d Duration) Equal(other ref.Val) ref.Val {
 	if !ok {
 		return ValOrErr(other, "no such overload")
 	}
-	return Bool(proto.Equal(d.Duration, otherDur.Value().(proto.Message)))
+	return Bool(d.Duration == otherDur.Duration)
 }
 
 // Negate implements traits.Negater.Negate.
 func (d Duration) Negate() ref.Val {
-	dur := d.AsDuration()
-	return Duration{Duration: dpb.New(-dur)}
+	return Duration{Duration: -d.Duration}
 }
 
 // Receive implements traits.Receiver.Receive.
 func (d Duration) Receive(function string, overload string, args []ref.Val) ref.Val {
-	dur := d.AsDuration()
 	if len(args) == 0 {
 		if f, found := durationZeroArgOverloads[function]; found {
-			return f(dur)
+			return f(d.Duration)
 		}
 	}
 	return NewErr("no such overload")

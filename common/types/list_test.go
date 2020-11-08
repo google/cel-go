@@ -238,7 +238,7 @@ func TestConcatList_ConvertToNative_Json(t *testing.T) {
 		t.Fatalf("json.Unmarshal(%q) failed: %v", jsonTxt, err)
 	}
 	if !reflect.DeepEqual(outList, []interface{}{1.0, 2.0, "3"}) {
-		t.Errorf("got json '%v', expected %v", jsonTxt, outList)
+		t.Errorf("got json '%v', expected %v", outList, []interface{}{1.0, 2.0, "3"})
 	}
 	// Test proto3 to JSON conversion.
 	listC := NewDynamicList(reg, []*dpb.Duration{{Seconds: 100}})
@@ -258,7 +258,7 @@ func TestConcatList_ConvertToNative_Json(t *testing.T) {
 		t.Fatalf("json.Unmarshal(%q) failed: %v", jsonTxt, err)
 	}
 	if !reflect.DeepEqual(outList, []interface{}{1.0, 2.0, "100s"}) {
-		t.Errorf("got json '%v', expected %v", jsonTxt, outList)
+		t.Errorf("got json '%v', expected %v", outList, []interface{}{1.0, 2.0, "100s"})
 	}
 }
 

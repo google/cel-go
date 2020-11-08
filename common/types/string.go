@@ -27,9 +27,7 @@ import (
 	"github.com/google/cel-go/common/types/traits"
 
 	anypb "google.golang.org/protobuf/types/known/anypb"
-	dpb "google.golang.org/protobuf/types/known/durationpb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
-	tpb "google.golang.org/protobuf/types/known/timestamppb"
 	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
@@ -132,12 +130,11 @@ func (s String) ConvertToType(typeVal ref.Type) ref.Val {
 		return Bytes(s)
 	case DurationType:
 		if d, err := time.ParseDuration(s.Value().(string)); err == nil {
-			return Duration{Duration: dpb.New(d)}
+			return Duration{Duration: d}
 		}
 	case TimestampType:
 		if t, err := time.Parse(time.RFC3339, s.Value().(string)); err == nil {
-			ts := tpb.New(t)
-			return Timestamp{Timestamp: ts}
+			return Timestamp{Time: t}
 		}
 	case StringType:
 		return s

@@ -16,6 +16,7 @@ package types
 
 import (
 	"bytes"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -369,6 +370,30 @@ func expectNativeToValue(t *testing.T, in interface{}, out ref.Val) {
 			t.Errorf("Unexpected conversion from expr to proto.\n"+
 				"expected: %T, actual: %T", val, out)
 		}
+	}
+}
+
+func BenchmarkNativeToValue(b *testing.B) {
+	reg := NewRegistry()
+	inputs := []interface{}{
+		true,
+		false,
+		float32(-1.2),
+		float64(-2.4),
+		1,
+		int32(2),
+		int64(3),
+		"",
+		"hello",
+		String("hello world"),
+	}
+	for _, in := range inputs {
+		input := in
+		b.Run(fmt.Sprintf("%T/%v", in, in), func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				reg.NativeToValue(input)
+			}
+		})
 	}
 }
 

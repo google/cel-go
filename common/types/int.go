@@ -25,7 +25,6 @@ import (
 
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
-	tpb "google.golang.org/protobuf/types/known/timestamppb"
 	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
@@ -169,9 +168,8 @@ func (i Int) ConvertToType(typeVal ref.Type) ref.Val {
 	case StringType:
 		return String(fmt.Sprintf("%d", int64(i)))
 	case TimestampType:
-		t := time.Unix(int64(i), 0)
-		ts := tpb.New(t)
-		return Timestamp{Timestamp: ts}
+		t := time.Unix(int64(i), 0).UTC()
+		return Timestamp{Time: t}
 	case TypeType:
 		return IntType
 	}

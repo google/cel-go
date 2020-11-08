@@ -24,7 +24,6 @@ import (
 
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
-	tpb "google.golang.org/protobuf/types/known/timestamppb"
 	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
@@ -180,9 +179,8 @@ func TestInt_ConvertToType(t *testing.T) {
 	if !IsError(Int(-4).ConvertToType(DurationType)) {
 		t.Error("Got duration, expected error.")
 	}
-	tm := time.Unix(946684800, 0)
-	ts := tpb.New(tm)
-	celts := Timestamp{Timestamp: ts}
+	tm := time.Unix(946684800, 0).UTC()
+	celts := Timestamp{Time: tm}
 	if !Int(946684800).ConvertToType(TimestampType).Equal(celts).(Bool) {
 		t.Error("unsuccessful type conversion to timestamp")
 	}
