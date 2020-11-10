@@ -26,13 +26,9 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 
-	anypb "google.golang.org/protobuf/types/known/anypb"
-	dpb "google.golang.org/protobuf/types/known/durationpb"
-	structpb "google.golang.org/protobuf/types/known/structpb"
-	tpb "google.golang.org/protobuf/types/known/timestamppb"
-	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
-
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type protoTypeRegistry struct {
@@ -96,8 +92,8 @@ func (p *protoTypeRegistry) Copy() ref.TypeRegistry {
 }
 
 func (p *protoTypeRegistry) EnumValue(enumName string) ref.Val {
-	enumVal, err := p.pbdb.DescribeEnum(enumName)
-	if err != nil {
+	enumVal, found := p.pbdb.DescribeEnum(enumName)
+	if !found {
 		return NewErr("unknown enum name '%s'", enumName)
 	}
 	return Int(enumVal.Value())
@@ -105,8 +101,8 @@ func (p *protoTypeRegistry) EnumValue(enumName string) ref.Val {
 
 func (p *protoTypeRegistry) FindFieldType(messageType string,
 	fieldName string) (*ref.FieldType, bool) {
-	msgType, err := p.pbdb.DescribeType(messageType)
-	if err != nil {
+	msgType, found := p.pbdb.DescribeType(messageType)
+	if !found {
 		return nil, false
 	}
 	field, found := msgType.FieldByName(fieldName)
@@ -124,14 +120,14 @@ func (p *protoTypeRegistry) FindIdent(identName string) (ref.Val, bool) {
 	if t, found := p.revTypeMap[identName]; found {
 		return t.(ref.Val), true
 	}
-	if enumVal, err := p.pbdb.DescribeEnum(identName); err == nil {
+	if enumVal, found := p.pbdb.DescribeEnum(identName); found {
 		return Int(enumVal.Value()), true
 	}
 	return nil, false
 }
 
 func (p *protoTypeRegistry) FindType(typeName string) (*exprpb.Type, bool) {
-	if _, err := p.pbdb.DescribeType(typeName); err != nil {
+	if _, found := p.pbdb.DescribeType(typeName); !found {
 		return nil, false
 	}
 	if typeName != "" && typeName[0] == '.' {
@@ -145,8 +141,8 @@ func (p *protoTypeRegistry) FindType(typeName string) (*exprpb.Type, bool) {
 }
 
 func (p *protoTypeRegistry) NewValue(typeName string, fields map[string]ref.Val) ref.Val {
-	td, err := p.pbdb.DescribeType(typeName)
-	if err != nil {
+	td, found := p.pbdb.DescribeType(typeName)
+	if !found {
 		return NewErr("unknown type '%s'", typeName)
 	}
 	msg := td.New()
@@ -206,8 +202,8 @@ func (p *protoTypeRegistry) NativeToValue(value interface{}) ref.Val {
 	switch v := value.(type) {
 	case proto.Message:
 		typeName := string(v.ProtoReflect().Descriptor().FullName())
-		td, err := p.pbdb.DescribeType(typeName)
-		if err != nil {
+		td, found := p.pbdb.DescribeType(typeName)
+		if !found {
 			return NewErr("unknown type: '%s'", typeName)
 		}
 		unwrapped, isUnwrapped := td.MaybeUnwrap(v)
@@ -363,46 +359,6 @@ func nativeToValue(a ref.TypeAdapter, value interface{}) (ref.Val, bool) {
 		return NewStringList(a, value.([]string)), true
 	case map[string]string:
 		return NewStringStringMap(a, value.(map[string]string)), true
-	case *dpb.Duration:
-		if v == nil {
-			return NoSuchTypeConversionForValue(v), true
-		}
-		return Duration{Duration: v.AsDuration()}, true
-	case *structpb.ListValue:
-		if v == nil {
-			return NoSuchTypeConversionForValue(v), true
-		}
-		return NewJSONList(a, v), true
-	case structpb.NullValue, *structpb.NullValue:
-		return NullValue, true
-	case *structpb.Struct:
-		if v == nil {
-			return NoSuchTypeConversionForValue(v), true
-		}
-		return NewJSONStruct(a, v), true
-	case *structpb.Value:
-		if v == nil {
-			return NullValue, true
-		}
-		switch v.Kind.(type) {
-		case *structpb.Value_BoolValue:
-			return nativeToValue(a, v.GetBoolValue())
-		case *structpb.Value_ListValue:
-			return nativeToValue(a, v.GetListValue())
-		case *structpb.Value_NullValue:
-			return NullValue, true
-		case *structpb.Value_NumberValue:
-			return nativeToValue(a, v.GetNumberValue())
-		case *structpb.Value_StringValue:
-			return nativeToValue(a, v.GetStringValue())
-		case *structpb.Value_StructValue:
-			return nativeToValue(a, v.GetStructValue())
-		}
-	case *tpb.Timestamp:
-		if v == nil {
-			return NoSuchTypeConversionForValue(v), true
-		}
-		return Timestamp{Time: v.AsTime()}, true
 	case *anypb.Any:
 		if v == nil {
 			return NoSuchTypeConversionForValue(v), true
@@ -412,51 +368,26 @@ func nativeToValue(a ref.TypeAdapter, value interface{}) (ref.Val, bool) {
 			return NewErr("anypb.UnmarshalNew() failed for type %q: %v", v.GetTypeUrl(), err), true
 		}
 		return a.NativeToValue(unpackedAny), true
-	case *wrapperspb.BoolValue:
+	case *structpb.NullValue, structpb.NullValue:
+		return NullValue, true
+	case *structpb.ListValue:
+		return NewJSONList(a, v), true
+	case *structpb.Struct:
+		return NewJSONStruct(a, v), true
+	case proto.Message:
 		if v == nil {
 			return NoSuchTypeConversionForValue(v), true
 		}
-		return Bool(v.GetValue()), true
-	case *wrapperspb.BytesValue:
-		if v == nil {
-			return NoSuchTypeConversionForValue(v), true
+		typeName := string(v.ProtoReflect().Descriptor().FullName())
+		td, found := pb.DefaultDb.DescribeType(typeName)
+		if !found {
+			return nil, false
 		}
-		return Bytes(v.GetValue()), true
-	case *wrapperspb.DoubleValue:
-		if v == nil {
-			return NoSuchTypeConversionForValue(v), true
+		val, unwrapped := td.MaybeUnwrap(v)
+		if !unwrapped {
+			return nil, false
 		}
-		return Double(v.GetValue()), true
-	case *wrapperspb.FloatValue:
-		if v == nil {
-			return NoSuchTypeConversionForValue(v), true
-		}
-		return Double(v.GetValue()), true
-	case *wrapperspb.Int32Value:
-		if v == nil {
-			return NoSuchTypeConversionForValue(v), true
-		}
-		return Int(v.GetValue()), true
-	case *wrapperspb.Int64Value:
-		if v == nil {
-			return NoSuchTypeConversionForValue(v), true
-		}
-		return Int(v.GetValue()), true
-	case *wrapperspb.StringValue:
-		if v == nil {
-			return NoSuchTypeConversionForValue(v), true
-		}
-		return String(v.GetValue()), true
-	case *wrapperspb.UInt32Value:
-		if v == nil {
-			return NoSuchTypeConversionForValue(v), true
-		}
-		return Uint(v.GetValue()), true
-	case *wrapperspb.UInt64Value:
-		if v == nil {
-			return NoSuchTypeConversionForValue(v), true
-		}
-		return Uint(v.GetValue()), true
+		return a.NativeToValue(val), true
 	default:
 		refValue := reflect.ValueOf(v)
 		if refValue.Kind() == reflect.Ptr {

@@ -17,8 +17,6 @@
 package pb
 
 import (
-	"fmt"
-
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 
@@ -115,21 +113,21 @@ func (pbdb *Db) RegisterMessage(message proto.Message) (*FileDescription, error)
 
 // DescribeEnum takes a qualified enum name and returns an `EnumDescription` if it exists in the
 // `pb.Db`.
-func (pbdb *Db) DescribeEnum(enumName string) (*EnumValueDescription, error) {
+func (pbdb *Db) DescribeEnum(enumName string) (*EnumValueDescription, bool) {
 	enumName = sanitizeProtoName(enumName)
 	if fd, found := pbdb.revFileDescriptorMap[enumName]; found {
 		return fd.GetEnumDescription(enumName)
 	}
-	return nil, fmt.Errorf("unrecognized enum '%s'", enumName)
+	return nil, false
 }
 
 // DescribeType returns a `TypeDescription` for the `typeName` if it exists in the `pb.Db`.
-func (pbdb *Db) DescribeType(typeName string) (*TypeDescription, error) {
+func (pbdb *Db) DescribeType(typeName string) (*TypeDescription, bool) {
 	typeName = sanitizeProtoName(typeName)
 	if fd, found := pbdb.revFileDescriptorMap[typeName]; found {
 		return fd.GetTypeDescription(typeName)
 	}
-	return nil, fmt.Errorf("unrecognized type '%s'", typeName)
+	return nil, false
 }
 
 // CollectFileDescriptorSet builds a file descriptor set associated with the file where the input

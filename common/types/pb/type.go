@@ -27,7 +27,13 @@ import (
 	dpb "google.golang.org/protobuf/types/known/durationpb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 	tpb "google.golang.org/protobuf/types/known/timestamppb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
+
+type description interface {
+	WrapperField() protoreflect.FieldDescriptor
+	Zero() proto.Message
+}
 
 // NewTypeDescription produces a TypeDescription value for the fully-qualified proto type name
 // with a given descriptor.
@@ -50,6 +56,7 @@ func NewTypeDescription(typeName string, desc protoreflect.MessageDescriptor) *T
 		wrapperField: wrapperMsg(desc),
 		fieldMap:     fieldMap,
 		reflectType:  reflect.TypeOf(msgType.Zero().Interface()),
+		zeroMsg:      msgType.Zero().Interface(),
 	}
 }
 
@@ -62,6 +69,7 @@ type TypeDescription struct {
 	fieldMap     map[string]*FieldDescription
 	wrapperField protoreflect.FieldDescriptor
 	reflectType  reflect.Type
+	zeroMsg      proto.Message
 }
 
 // FieldMap returns a string field name to FieldDescription map.
@@ -76,6 +84,13 @@ func (td *TypeDescription) FieldByName(name string) (*FieldDescription, bool) {
 		return nil, false
 	}
 	return fd, true
+}
+
+// MaybeUnwrap accepts a proto message as input and unwraps it to a primitive CEL type if possible.
+//
+// This method returns the unwrapped value and 'true', else the original value and 'false'.
+func (td *TypeDescription) MaybeUnwrap(msg proto.Message) (interface{}, bool) {
+	return unwrap(td, msg)
 }
 
 // Name of the type.
@@ -93,42 +108,16 @@ func (td *TypeDescription) ReflectType() reflect.Type {
 	return td.reflectType
 }
 
-func (td *TypeDescription) MaybeUnwrap(msg proto.Message) (interface{}, bool) {
-	switch v := msg.(type) {
-	case *dynamicpb.Message:
-		if td.wrapperField != nil {
-			return v.Get(td.wrapperField).Interface(), true
-		}
-		switch td.typeName {
-		case "google.protobuf.Any":
-			unwrapped := &anypb.Any{}
-			proto.Merge(unwrapped, v)
-			return unwrapped, true
-		case "google.protobuf.Duration":
-			unwrapped := &dpb.Duration{}
-			proto.Merge(unwrapped, v)
-			return unwrapped, true
-		case "google.protobuf.ListValue":
-			unwrapped := &structpb.ListValue{}
-			proto.Merge(unwrapped, v)
-			return unwrapped, true
-		case "google.protobuf.NullValue":
-			return structpb.NullValue_NULL_VALUE, true
-		case "google.protobuf.Struct":
-			unwrapped := &structpb.Struct{}
-			proto.Merge(unwrapped, v)
-			return unwrapped, true
-		case "google.protobuf.Timestamp":
-			unwrapped := &tpb.Timestamp{}
-			proto.Merge(unwrapped, v)
-			return unwrapped, true
-		case "google.protobuf.Value":
-			unwrapped := &structpb.Value{}
-			proto.Merge(unwrapped, v)
-			return unwrapped, true
-		}
-	}
-	return msg, false
+// WrapperField returns the FieldDescriptor for the 'value' field of a wrapper type proto.
+//
+// When the type is not a google.protobuf wrapper type, the method returns nil.
+func (td *TypeDescription) WrapperField() protoreflect.FieldDescriptor {
+	return td.wrapperField
+}
+
+// Zero returns the zero proto.Message value for this type.
+func (td *TypeDescription) Zero() proto.Message {
+	return td.zeroMsg
 }
 
 // NewFieldDescription creates a new field description from a protoreflect.FieldDescriptor.
@@ -164,23 +153,23 @@ func NewFieldDescription(fieldDesc protoreflect.FieldDescriptor) *FieldDescripti
 	}
 	wrapperDesc := wrapperField(fieldDesc)
 	return &FieldDescription{
-		desc:        fieldDesc,
-		KeyType:     keyType,
-		ValueType:   valType,
-		wrapperDesc: wrapperDesc,
-		reflectType: reflectType,
-		zeroMsg:     zeroMsg,
+		desc:         fieldDesc,
+		KeyType:      keyType,
+		ValueType:    valType,
+		wrapperField: wrapperDesc,
+		reflectType:  reflectType,
+		zeroMsg:      zeroMsg,
 	}
 }
 
 // FieldDescription holds metadata related to fields declared within a type.
 type FieldDescription struct {
-	desc        protoreflect.FieldDescriptor
-	KeyType     *FieldDescription
-	ValueType   *FieldDescription
-	wrapperDesc protoreflect.FieldDescriptor
-	reflectType reflect.Type
-	zeroMsg     proto.Message
+	desc         protoreflect.FieldDescriptor
+	KeyType      *FieldDescription
+	ValueType    *FieldDescription
+	wrapperField protoreflect.FieldDescriptor
+	reflectType  reflect.Type
+	zeroMsg      proto.Message
 }
 
 // CheckedType returns the type-definition used at type-check time.
@@ -207,11 +196,6 @@ func (fd *FieldDescription) CheckedType() *exprpb.Type {
 // Descriptor returns the protoreflect.FieldDescriptor for this type.
 func (fd *FieldDescription) Descriptor() protoreflect.FieldDescriptor {
 	return fd.desc
-}
-
-// ReflectType returns the Golang reflect.Type for this field.
-func (fd *FieldDescription) ReflectType() reflect.Type {
-	return fd.reflectType
 }
 
 // IsSet returns whether the field is set on the target value, per the proto presence conventions
@@ -248,13 +232,8 @@ func (fd *FieldDescription) GetFrom(target interface{}) (interface{}, error) {
 		case protoreflect.Map:
 			return &Map{Map: fv, KeyType: fd.KeyType, ValueType: fd.ValueType}, nil
 		case protoreflect.Message:
-			if fd.IsWrapper() {
-				return fd.Unwrap(fv), nil
-			}
-			if !fv.IsValid() {
-				return fd.zeroMsg, nil
-			}
-			return fv.Interface(), nil
+			unwrapped, _ := fd.MaybeUnwrap(fv)
+			return unwrapped, nil
 		default:
 			return fv, nil
 		}
@@ -300,7 +279,16 @@ func (fd *FieldDescription) IsList() bool {
 
 // IsWrapper returns true if the field type is a primitive wrapper type.
 func (fd *FieldDescription) IsWrapper() bool {
-	return fd.wrapperDesc != nil
+	return fd.wrapperField != nil
+}
+
+// MaybeUnwrap takes the reflected protoreflect.Message and determines whether the value
+// can be unwrapped to a more primitive CEL type.
+//
+// This function returns the unwrapped value and 'true' on success, or the original value
+// and 'false' otherwise.
+func (fd *FieldDescription) MaybeUnwrap(msg protoreflect.Message) (interface{}, bool) {
+	return unwrapDynamic(fd, msg)
 }
 
 // Name returns the CamelCase name of the field within the proto-based struct.
@@ -308,16 +296,27 @@ func (fd *FieldDescription) Name() string {
 	return string(fd.desc.Name())
 }
 
+// ReflectType returns the Golang reflect.Type for this field.
+func (fd *FieldDescription) ReflectType() reflect.Type {
+	return fd.reflectType
+}
+
 // String returns a struct-like field definition string.
 func (fd *FieldDescription) String() string {
 	return fmt.Sprintf("%v.%s `oneof=%t`", fd.desc.ContainingMessage().FullName(), fd.Name(), fd.IsOneof())
 }
 
-func (fd *FieldDescription) Unwrap(msg protoreflect.Message) interface{} {
-	if !msg.IsValid() {
-		return structpb.NullValue_NULL_VALUE
-	}
-	return msg.Get(fd.wrapperDesc).Interface()
+// WrapperField returns the field descriptor for the 'value' of this field value when the
+// field is a wrapper type.
+func (fd *FieldDescription) WrapperField() protoreflect.FieldDescriptor {
+	return fd.wrapperField
+}
+
+// Zero returns the zero value for the protobuf message represented by this field.
+//
+// If the field is not a proto.Message type, the zero value is nil.
+func (fd *FieldDescription) Zero() proto.Message {
+	return fd.zeroMsg
 }
 
 func (fd *FieldDescription) typeDefToType() *exprpb.Type {
@@ -334,11 +333,15 @@ func (fd *FieldDescription) typeDefToType() *exprpb.Type {
 	return CheckedPrimitives[fd.desc.Kind()]
 }
 
+// List wraps the protoreflect.List object with an element type FieldDescription for use in
+// retrieving individual elements within CEL value data types.
 type List struct {
 	protoreflect.List
 	ElemType *FieldDescription
 }
 
+// Map wraps the protoreflect.Map object with a key and value FieldDescription for use in
+// retrieving individual elements within CEL value data types.
 type Map struct {
 	protoreflect.Map
 	KeyType   *FieldDescription
@@ -387,4 +390,94 @@ func wrapperMsg(msg protoreflect.MessageDescriptor) protoreflect.FieldDescriptor
 		return msg.Fields().ByName("value")
 	}
 	return nil
+}
+
+func unwrap(desc description, msg proto.Message) (interface{}, bool) {
+	switch v := msg.(type) {
+	case *dynamicpb.Message:
+		return unwrapDynamic(desc, v)
+	case *dpb.Duration:
+		return v.AsDuration(), true
+	case *tpb.Timestamp:
+		return v.AsTime(), true
+	case *structpb.Value:
+		switch v.GetKind().(type) {
+		case *structpb.Value_BoolValue:
+			return v.GetBoolValue(), true
+		case *structpb.Value_ListValue:
+			return v.GetListValue(), true
+		case *structpb.Value_NullValue:
+			return structpb.NullValue_NULL_VALUE, true
+		case *structpb.Value_NumberValue:
+			return v.GetNumberValue(), true
+		case *structpb.Value_StringValue:
+			return v.GetStringValue(), true
+		case *structpb.Value_StructValue:
+			return v.GetStructValue(), true
+		default:
+			return structpb.NullValue_NULL_VALUE, true
+		}
+	case *wrapperspb.BoolValue:
+		return v.GetValue(), true
+	case *wrapperspb.BytesValue:
+		return v.GetValue(), true
+	case *wrapperspb.DoubleValue:
+		return v.GetValue(), true
+	case *wrapperspb.FloatValue:
+		return float64(v.GetValue()), true
+	case *wrapperspb.Int32Value:
+		return int64(v.GetValue()), true
+	case *wrapperspb.Int64Value:
+		return v.GetValue(), true
+	case *wrapperspb.StringValue:
+		return v.GetValue(), true
+	case *wrapperspb.UInt32Value:
+		return uint64(v.GetValue()), true
+	case *wrapperspb.UInt64Value:
+		return v.GetValue(), true
+	}
+	return msg, false
+}
+
+func unwrapDynamic(desc description, refMsg protoreflect.Message) (interface{}, bool) {
+	if desc.WrapperField() != nil {
+		if !refMsg.IsValid() {
+			return structpb.NullValue_NULL_VALUE, true
+		}
+		return refMsg.Get(desc.WrapperField()).Interface(), true
+	}
+	msg := refMsg.Interface()
+	if !refMsg.IsValid() {
+		msg = desc.Zero()
+	}
+	typeName := string(refMsg.Descriptor().FullName())
+	switch typeName {
+	case "google.protobuf.Any":
+		unwrapped := &anypb.Any{}
+		proto.Merge(unwrapped, msg)
+		return unwrapped, true
+	case "google.protobuf.Duration":
+		unwrapped := &dpb.Duration{}
+		proto.Merge(unwrapped, msg)
+		return unwrapped.AsDuration(), true
+	case "google.protobuf.ListValue":
+		unwrapped := &structpb.ListValue{}
+		proto.Merge(unwrapped, msg)
+		return unwrapped, true
+	case "google.protobuf.NullValue":
+		return structpb.NullValue_NULL_VALUE, true
+	case "google.protobuf.Struct":
+		unwrapped := &structpb.Struct{}
+		proto.Merge(unwrapped, msg)
+		return unwrapped, true
+	case "google.protobuf.Timestamp":
+		unwrapped := &tpb.Timestamp{}
+		proto.Merge(unwrapped, msg)
+		return unwrapped.AsTime(), true
+	case "google.protobuf.Value":
+		unwrapped := &structpb.Value{}
+		proto.Merge(unwrapped, msg)
+		return unwrap(desc, unwrapped)
+	}
+	return msg, false
 }

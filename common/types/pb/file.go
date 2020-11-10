@@ -46,11 +46,9 @@ type FileDescription struct {
 
 // GetEnumDescription returns an EnumDescription for a qualified enum value
 // name declared within the .proto file.
-func (fd *FileDescription) GetEnumDescription(enumName string) (*EnumValueDescription, error) {
-	if ed, found := fd.enums[sanitizeProtoName(enumName)]; found {
-		return ed, nil
-	}
-	return nil, fmt.Errorf("no such enum value '%s'", enumName)
+func (fd *FileDescription) GetEnumDescription(enumName string) (*EnumValueDescription, bool) {
+	ed, found := fd.enums[sanitizeProtoName(enumName)]
+	return ed, found
 }
 
 // GetEnumNames returns the string names of all enum values in the file.
@@ -66,11 +64,9 @@ func (fd *FileDescription) GetEnumNames() []string {
 
 // GetTypeDescription returns a TypeDescription for a qualified type name
 // declared within the .proto file.
-func (fd *FileDescription) GetTypeDescription(typeName string) (*TypeDescription, error) {
-	if td, found := fd.types[sanitizeProtoName(typeName)]; found {
-		return td, nil
-	}
-	return nil, fmt.Errorf("no such type '%s'", typeName)
+func (fd *FileDescription) GetTypeDescription(typeName string) (*TypeDescription, bool) {
+	td, found := fd.types[sanitizeProtoName(typeName)]
+	return td, found
 }
 
 // GetTypeNames returns the list of all type names contained within the file.

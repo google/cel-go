@@ -39,9 +39,9 @@ func TestFileDescription_GetTypes(t *testing.T) {
 		}
 	}
 	for _, typeName := range fd.GetTypeNames() {
-		td, err := fd.GetTypeDescription(typeName)
-		if err != nil {
-			t.Error(err)
+		td, found := fd.GetTypeDescription(typeName)
+		if !found {
+			t.Fatalf("fd.GetTypeDescription(%v) returned not found", typeName)
 		}
 		if td.Name() != typeName {
 			t.Error("Indexed type name not equal to descriptor type name", td, typeName)
@@ -68,10 +68,11 @@ func TestFileDescription_GetEnumNames(t *testing.T) {
 	}
 	for _, enumName := range fd.GetEnumNames() {
 		if enumVal, found := expected[enumName]; found {
-			ed, err := fd.GetEnumDescription(enumName)
-			if err != nil {
-				t.Error(err)
-			} else if ed.Value() != enumVal {
+			ed, found := fd.GetEnumDescription(enumName)
+			if !found {
+				t.Fatalf("fd.GetEnumDescription(%v) returned not found", enumName)
+			}
+			if ed.Value() != enumVal {
 				t.Errorf("Enum did not have expected value. %s got '%v', wanted '%v'",
 					enumName, ed.Value(), enumVal)
 			}
@@ -108,9 +109,9 @@ func TestFileDescription_GetImportedEnumNames(t *testing.T) {
 		"google.expr.proto3.test.ImportedGlobalEnum.IMPORT_BAZ": 2,
 	}
 	for enumName, value := range imported {
-		ed, err := pbdb.DescribeEnum(enumName)
-		if err != nil {
-			t.Fatalf("pbdb.DescribeEnum(%q) failed: %v", enumName, err)
+		ed, found := pbdb.DescribeEnum(enumName)
+		if !found {
+			t.Fatalf("pbdb.DescribeEnum(%q) returned not found", enumName)
 		}
 		if ed.Value() != value {
 			t.Errorf("Got %v, wanted %v for enum %s", ed, value, enumName)

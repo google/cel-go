@@ -25,42 +25,24 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
-func TestTypeDescription_Any(t *testing.T) {
+func TestTypeDescription(t *testing.T) {
 	pbdb := NewDb()
-	_, err := pbdb.DescribeType(".google.protobuf.Any")
-	if err != nil {
-		t.Error(err)
+	types := []string{
+		".google.protobuf.Any",
+		".google.protobuf.BoolValue",
+		".google.protobuf.BytesValue",
+		".google.protobuf.DoubleValue",
+		".google.protobuf.FloatValue",
+		".google.protobuf.Int32Value",
+		".google.protobuf.Int64Value",
+		".google.protobuf.ListValue",
+		".google.protobuf.Struct",
+		".google.protobuf.Value",
 	}
-}
-
-func TestTypeDescription_Json(t *testing.T) {
-	pbdb := NewDb()
-	_, err := pbdb.DescribeType(".google.protobuf.Value")
-	if err != nil {
-		t.Error(err)
-	}
-}
-
-func TestTypeDescription_JsonNotInTypeInit(t *testing.T) {
-	pbdb := NewDb()
-	_, err := pbdb.DescribeType(".google.protobuf.ListValue")
-	if err != nil {
-		t.Error(err)
-	}
-}
-
-func TestTypeDescription_Wrapper(t *testing.T) {
-	pbdb := NewDb()
-	_, err := pbdb.DescribeType(".google.protobuf.BoolValue")
-	if err != nil {
-		t.Error(err)
-	}
-}
-
-func TestTypeDescription_WrapperNotInTypeInit(t *testing.T) {
-	pbdb := NewDb()
-	if _, err := pbdb.DescribeType(".google.protobuf.BytesValue"); err != nil {
-		t.Error(err)
+	for _, typeName := range types {
+		if _, found := pbdb.DescribeType(typeName); !found {
+			t.Errorf("pbdb.DescribeType(%v) not found", typeName)
+		}
 	}
 }
 
@@ -68,9 +50,9 @@ func TestTypeDescriptionFieldMap(t *testing.T) {
 	pbdb := NewDb()
 	msg := &proto3pb.NestedTestAllTypes{}
 	pbdb.RegisterMessage(msg)
-	td, err := pbdb.DescribeType(string(msg.ProtoReflect().Descriptor().FullName()))
-	if err != nil {
-		t.Error(err)
+	td, found := pbdb.DescribeType(string(msg.ProtoReflect().Descriptor().FullName()))
+	if !found {
+		t.Fatalf("pbdb.DescribeType(%v) not found", msg)
 	}
 	if len(td.FieldMap()) != 2 {
 		t.Errorf("Unexpected field count. got '%d', wanted '%d'", len(td.FieldMap()), 2)
@@ -82,11 +64,11 @@ func TestFieldDescription(t *testing.T) {
 	msg := proto3pb.NestedTestAllTypes{}
 	_, err := pbdb.RegisterMessage(&msg)
 	if err != nil {
-		t.Error(err)
+		t.Fatalf("pbdb.RegisterMessage(%v) failed: %v", &msg, err)
 	}
-	td, err := pbdb.DescribeType(string(msg.ProtoReflect().Descriptor().FullName()))
-	if err != nil {
-		t.Error(err)
+	td, found := pbdb.DescribeType(string(msg.ProtoReflect().Descriptor().FullName()))
+	if !found {
+		t.Fatalf("pbdb.DescribeType(%v) not found", &msg)
 	}
 	fd, found := td.FieldByName("payload")
 	if !found {
@@ -129,9 +111,9 @@ func TestProtoReflection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("pbdb.RegisterMessage() failed: %v", err)
 	}
-	td, err := pbdb.DescribeType("google.expr.proto3.test.TestAllTypes")
-	if err != nil {
-		t.Fatalf("pbdb.DescribeType() failed: %v", err)
+	td, found := pbdb.DescribeType("google.expr.proto3.test.TestAllTypes")
+	if !found {
+		t.Fatal("pbdb.DescribeType(google.expr.proto3.test.TestAllTypes) not found")
 	}
 	fieldValues := map[string]interface{}{
 		"single_int32":    int32(1),
