@@ -58,7 +58,7 @@ func TestInt_ConvertToNative_Any(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	want, err := anypb.New(&wrapperspb.Int64Value{Value: math.MaxInt64})
+	want, err := anypb.New(wrapperspb.Int64(math.MaxInt64))
 	if err != nil {
 		t.Error(err)
 	}
@@ -99,7 +99,7 @@ func TestInt_ConvertToNative_Json(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	} else if !proto.Equal(val.(proto.Message),
-		&structpb.Value{Kind: &structpb.Value_NumberValue{NumberValue: 9007199254740991.0}}) {
+		structpb.NewNumberValue(9007199254740991.0)) {
 		t.Errorf("Got '%v', expected a json number for a 32-bit int", val)
 	}
 
@@ -107,8 +107,7 @@ func TestInt_ConvertToNative_Json(t *testing.T) {
 	val, err = Int(maxIntJSON + 1).ConvertToNative(jsonValueType)
 	if err != nil {
 		t.Error(err)
-	} else if !proto.Equal(val.(proto.Message),
-		&structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "9007199254740992"}}) {
+	} else if !proto.Equal(val.(proto.Message), structpb.NewStringValue("9007199254740992")) {
 		t.Errorf("Got '%v', expected a json string for a 64-bit int", val)
 	}
 }
@@ -139,7 +138,7 @@ func TestInt_ConvertToNative_Wrapper(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	want := &wrapperspb.Int32Value{Value: math.MinInt32}
+	want := wrapperspb.Int32(math.MinInt32)
 	if err != nil {
 		t.Error(err)
 	}
@@ -151,7 +150,7 @@ func TestInt_ConvertToNative_Wrapper(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	want2 := &wrapperspb.Int64Value{Value: math.MinInt64}
+	want2 := wrapperspb.Int64(math.MinInt64)
 	if err != nil {
 		t.Error(err)
 	}

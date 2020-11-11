@@ -25,10 +25,7 @@ import (
 )
 
 func TestNull_ConvertToNative(t *testing.T) {
-	expected := &structpb.Value{
-		Kind: &structpb.Value_NullValue{
-			NullValue: structpb.NullValue_NULL_VALUE}}
-
+	expected := structpb.NewNullValue()
 	// Json Value
 	val, err := NullValue.ConvertToNative(jsonValueType)
 	if err != nil {

@@ -57,7 +57,7 @@ func TestDouble_ConvertToNative_Any(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	want, err := anypb.New(&wrapperspb.DoubleValue{Value: 1.7976931348623157e+308})
+	want, err := anypb.New(wrapperspb.Double(1.7976931348623157e+308))
 	if err != nil {
 		t.Error(err)
 	}
@@ -93,7 +93,7 @@ func TestDouble_ConvertToNative_Float64(t *testing.T) {
 
 func TestDouble_ConvertToNative_Json(t *testing.T) {
 	val, err := Double(-1.4).ConvertToNative(jsonValueType)
-	pbVal := &structpb.Value{Kind: &structpb.Value_NumberValue{NumberValue: -1.4}}
+	pbVal := structpb.NewNumberValue(-1.4)
 	if err != nil {
 		t.Error(err)
 	} else if !proto.Equal(val.(proto.Message), pbVal) {
@@ -111,14 +111,14 @@ func TestDouble_ConvertToNative_Json(t *testing.T) {
 	}
 
 	val, err = Double(math.Inf(-1)).ConvertToNative(jsonValueType)
-	pbVal = &structpb.Value{Kind: &structpb.Value_NumberValue{NumberValue: math.Inf(-1)}}
+	pbVal = structpb.NewNumberValue(math.Inf(-1))
 	if err != nil {
 		t.Error(err)
 	} else if !proto.Equal(val.(proto.Message), pbVal) {
 		t.Errorf("Got '%v', expected -Infinity", val)
 	}
 	val, err = Double(math.Inf(0)).ConvertToNative(jsonValueType)
-	pbVal = &structpb.Value{Kind: &structpb.Value_NumberValue{NumberValue: math.Inf(0)}}
+	pbVal = structpb.NewNumberValue(math.Inf(0))
 	if err != nil {
 		t.Error(err)
 	} else if !proto.Equal(val.(proto.Message), pbVal) {
@@ -151,7 +151,7 @@ func TestDouble_ConvertToNative_Wrapper(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	want := &wrapperspb.FloatValue{Value: 3.1415}
+	want := wrapperspb.Float(3.1415)
 	if !proto.Equal(val.(proto.Message), want) {
 		t.Errorf("Got '%v', wanted %v", val, want)
 	}
@@ -160,7 +160,7 @@ func TestDouble_ConvertToNative_Wrapper(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	want2 := &wrapperspb.DoubleValue{Value: 1.7976931348623157e+308}
+	want2 := wrapperspb.Double(1.7976931348623157e+308)
 	if !proto.Equal(val.(proto.Message), want2) {
 		t.Errorf("Got '%v', wanted %v", val, want2)
 	}

@@ -115,9 +115,6 @@ func decOptimize() InterpretableDecorator {
 			}
 		case *evalUnary:
 			return maybeOptimizeConstUnary(i, inst)
-		case *evalBinary:
-			if inst.overload == overloads.InList {
-			}
 		}
 		return i, nil
 	}

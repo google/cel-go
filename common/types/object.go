@@ -55,6 +55,12 @@ func NewObject(adapter ref.TypeAdapter,
 
 func (o *protoObj) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	pb := o.value
+	if reflect.TypeOf(pb).AssignableTo(typeDesc) {
+		return pb, nil
+	}
+	if reflect.TypeOf(o).AssignableTo(typeDesc) {
+		return o, nil
+	}
 	switch typeDesc {
 	case anyValueType:
 		_, isAny := pb.(*anypb.Any)
@@ -77,16 +83,15 @@ func (o *protoObj) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		return json, nil
 	default:
 		if typeDesc == o.typeDesc.ReflectType() {
-			return pb, nil
+			return o.value, nil
 		}
 		if typeDesc.Kind() == reflect.Ptr {
-			typeDesc = typeDesc.Elem()
-		}
-		dst := reflect.New(typeDesc).Interface()
-		dstPB, ok := dst.(proto.Message)
-		if ok {
-			proto.Merge(dstPB, pb)
-			return dst, nil
+			val := reflect.New(typeDesc.Elem()).Interface()
+			dstPB, ok := val.(proto.Message)
+			if ok {
+				proto.Merge(dstPB, pb)
+				return dstPB, nil
+			}
 		}
 	}
 	return nil, fmt.Errorf("type conversion error from '%T' to '%v'", o.value, typeDesc)
@@ -101,14 +106,14 @@ func (o *protoObj) ConvertToType(typeVal ref.Type) ref.Val {
 	case TypeType:
 		return o.typeValue
 	}
-	return NewErr("type conversion error from '%s' to '%s'",
-		o.typeDesc.Name(), typeVal)
+	return NewErr("type conversion error from '%s' to '%s'", o.typeDesc.Name(), typeVal)
 }
 
 func (o *protoObj) Equal(other ref.Val) ref.Val {
 	if o.typeDesc.Name() != other.Type().TypeName() {
-		return ValOrErr(other, "no such overload")
+		return MaybeNoSuchOverloadErr(other)
 	}
+	fmt.Printf("this is valid %v, other is value %v\n", o.value.ProtoReflect().IsValid(), other.Value().(proto.Message).ProtoReflect().IsValid())
 	return Bool(proto.Equal(o.value, other.Value().(proto.Message)))
 }
 
@@ -116,7 +121,7 @@ func (o *protoObj) Equal(other ref.Val) ref.Val {
 func (o *protoObj) IsSet(field ref.Val) ref.Val {
 	protoFieldName, ok := field.(String)
 	if !ok {
-		return ValOrErr(field, "no such overload")
+		return MaybeNoSuchOverloadErr(field)
 	}
 	protoFieldStr := string(protoFieldName)
 	fd, found := o.typeDesc.FieldByName(protoFieldStr)
@@ -132,7 +137,7 @@ func (o *protoObj) IsSet(field ref.Val) ref.Val {
 func (o *protoObj) Get(index ref.Val) ref.Val {
 	protoFieldName, ok := index.(String)
 	if !ok {
-		return ValOrErr(index, "no such overload")
+		return MaybeNoSuchOverloadErr(index)
 	}
 	protoFieldStr := string(protoFieldName)
 	fd, found := o.typeDesc.FieldByName(protoFieldStr)

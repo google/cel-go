@@ -73,18 +73,16 @@ func (b Bytes) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		switch typeDesc {
 		case anyValueType:
 			// Primitives must be wrapped before being set on an Any field.
-			return anypb.New(&wrapperspb.BytesValue{Value: []byte(b)})
+			return anypb.New(wrapperspb.Bytes([]byte(b)))
 		case byteWrapperType:
 			// Convert the bytes to a protobuf.BytesValue.
-			return &wrapperspb.BytesValue{Value: []byte(b)}, nil
+			return wrapperspb.Bytes([]byte(b)), nil
 		case jsonValueType:
 			// CEL follows the proto3 to JSON conversion by encoding bytes to a string via base64.
 			// The encoding below matches the golang 'encoding/json' behavior during marshaling,
 			// which uses base64.StdEncoding.
 			str := base64.StdEncoding.EncodeToString([]byte(b))
-			return &structpb.Value{
-				Kind: &structpb.Value_StringValue{StringValue: str},
-			}, nil
+			return structpb.NewStringValue(str), nil
 		}
 	case reflect.Interface:
 		bv := b.Value()

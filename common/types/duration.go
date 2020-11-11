@@ -77,6 +77,13 @@ func (d Duration) Compare(other ref.Val) ref.Val {
 
 // ConvertToNative implements ref.Val.ConvertToNative.
 func (d Duration) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
+	// If the duration is already assignable to the desired type return it.
+	if reflect.TypeOf(d.Duration).AssignableTo(typeDesc) {
+		return d.Duration, nil
+	}
+	if reflect.TypeOf(d).AssignableTo(typeDesc) {
+		return d, nil
+	}
 	switch typeDesc {
 	case anyValueType:
 		// Pack the underlying proto value into an Any value.
@@ -91,16 +98,9 @@ func (d Duration) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		if IsError(v) {
 			return nil, v.(*Err)
 		}
-		return &structpb.Value{
-			Kind: &structpb.Value_StringValue{StringValue: string(v.(String))},
-		}, nil
+		return structpb.NewStringValue(string(v.(String))), nil
 	}
-	// If the duration is already assignable to the desired type return it.
-	if reflect.TypeOf(d).AssignableTo(typeDesc) {
-		return d, nil
-	}
-	return nil, fmt.Errorf("type conversion error from "+
-		"'google.protobuf.Duration' to '%v'", typeDesc)
+	return nil, fmt.Errorf("type conversion error from 'Duration' to '%v'", typeDesc)
 }
 
 // ConvertToType implements ref.Val.ConvertToType.
@@ -175,6 +175,6 @@ var (
 			return Int(dur.Seconds())
 		},
 		overloads.TimeGetMilliseconds: func(dur time.Duration) ref.Val {
-			return Int(dur.Nanoseconds() / 1000000)
+			return Int(dur.Milliseconds())
 		}}
 )

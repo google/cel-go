@@ -68,7 +68,15 @@ func (pbdb *Db) Copy() *Db {
 		copy.revFileDescriptorMap[k] = v
 	}
 	for _, f := range pbdb.files {
-		copy.files = append(copy.files, f)
+		hasFile := false
+		for _, f2 := range copy.files {
+			if f2 == f {
+				hasFile = true
+			}
+		}
+		if !hasFile {
+			copy.files = append(copy.files, f)
+		}
 	}
 	return copy
 }

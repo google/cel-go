@@ -529,11 +529,7 @@ func mapContainsKeyValue(args ...ref.Val) ref.Val {
 func auth(user string, claims map[string]string) *rpcpb.AttributeContext_Auth {
 	claimFields := make(map[string]*structpb.Value)
 	for k, v := range claims {
-		claimFields[k] = &structpb.Value{
-			Kind: &structpb.Value_StringValue{
-				StringValue: v,
-			},
-		}
+		claimFields[k] = structpb.NewStringValue(v)
 	}
 	return &rpcpb.AttributeContext_Auth{
 		Principal: user,

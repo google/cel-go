@@ -70,14 +70,12 @@ func (b Bool) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		switch typeDesc {
 		case anyValueType:
 			// Primitives must be wrapped before being set on an Any field.
-			return anypb.New(&wrapperspb.BoolValue{Value: bool(b)})
+			return anypb.New(wrapperspb.Bool(bool(b)))
 		case boolWrapperType:
 			// Convert the bool to a protobuf.BoolValue.
-			return &wrapperspb.BoolValue{Value: bool(b)}, nil
+			return wrapperspb.Bool(bool(b)), nil
 		case jsonValueType:
-			return &structpb.Value{
-				Kind: &structpb.Value_BoolValue{BoolValue: bool(b)},
-			}, nil
+			return structpb.NewBoolValue(bool(b)), nil
 		default:
 			if typeDesc.Elem().Kind() == reflect.Bool {
 				p := bool(b)

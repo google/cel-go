@@ -48,7 +48,7 @@ func TestBool_ConvertToNative_Any(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	pbVal, err := anypb.New(&wrapperspb.BoolValue{Value: true})
+	pbVal, err := anypb.New(wrapperspb.Bool(true))
 	if err != nil {
 		t.Error(err)
 	}
@@ -98,7 +98,7 @@ func TestBool_ConvertToNative_Ptr(t *testing.T) {
 
 func TestBool_ConvertToNative_Wrapper(t *testing.T) {
 	val, err := True.ConvertToNative(boolWrapperType)
-	pbVal := &wrapperspb.BoolValue{Value: true}
+	pbVal := wrapperspb.Bool(true)
 	if err != nil {
 		t.Error(err)
 	} else if !proto.Equal(val.(proto.Message), pbVal) {

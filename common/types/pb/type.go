@@ -43,6 +43,7 @@ type description interface {
 // lazily initialization of the type which is done atomically.
 func NewTypeDescription(typeName string, desc protoreflect.MessageDescriptor) *TypeDescription {
 	msgType := dynamicpb.NewMessageType(desc)
+	msgZero := dynamicpb.NewMessage(desc).Interface()
 	fieldMap := map[string]*FieldDescription{}
 	fields := desc.Fields()
 	for i := 0; i < fields.Len(); i++ {
@@ -55,8 +56,8 @@ func NewTypeDescription(typeName string, desc protoreflect.MessageDescriptor) *T
 		msgType:      msgType,
 		wrapperField: wrapperMsg(desc),
 		fieldMap:     fieldMap,
-		reflectType:  reflect.TypeOf(msgType.Zero().Interface()),
-		zeroMsg:      msgType.Zero().Interface(),
+		reflectType:  reflect.TypeOf(msgZero),
+		zeroMsg:      msgZero,
 	}
 }
 
@@ -128,7 +129,7 @@ func NewFieldDescription(fieldDesc protoreflect.FieldDescriptor) *FieldDescripti
 	case protoreflect.EnumKind:
 		reflectType = reflect.TypeOf(protoreflect.EnumNumber(0))
 	case protoreflect.MessageKind:
-		zeroMsg = dynamicpb.NewMessageType(fieldDesc.Message()).Zero().Interface()
+		zeroMsg = dynamicpb.NewMessage(fieldDesc.Message())
 		reflectType = reflect.TypeOf(zeroMsg)
 	default:
 		reflectType = reflect.TypeOf(fieldDesc.Default().Interface())
@@ -232,7 +233,7 @@ func (fd *FieldDescription) GetFrom(target interface{}) (interface{}, error) {
 		case protoreflect.Map:
 			return &Map{Map: fv, KeyType: fd.KeyType, ValueType: fd.ValueType}, nil
 		case protoreflect.Message:
-			unwrapped, _ := fd.MaybeUnwrap(fv)
+			unwrapped, _ := fd.MaybeUnwrapDynamic(fv)
 			return unwrapped, nil
 		default:
 			return fv, nil
@@ -242,11 +243,6 @@ func (fd *FieldDescription) GetFrom(target interface{}) (interface{}, error) {
 	default:
 		return nil, fmt.Errorf("unsupported field selection target: (%T)%v", target, target)
 	}
-}
-
-// Index returns the field index within a reflected value.
-func (fd *FieldDescription) Index() int {
-	return fd.desc.Index()
 }
 
 // IsEnum returns true if the field type refers to an enum value.
@@ -277,17 +273,12 @@ func (fd *FieldDescription) IsList() bool {
 	return fd.desc.IsList()
 }
 
-// IsWrapper returns true if the field type is a primitive wrapper type.
-func (fd *FieldDescription) IsWrapper() bool {
-	return fd.wrapperField != nil
-}
-
-// MaybeUnwrap takes the reflected protoreflect.Message and determines whether the value
-// can be unwrapped to a more primitive CEL type.
+// MaybeUnwrapDynamic takes the reflected protoreflect.Message and determines whether the
+// value can be unwrapped to a more primitive CEL type.
 //
 // This function returns the unwrapped value and 'true' on success, or the original value
 // and 'false' otherwise.
-func (fd *FieldDescription) MaybeUnwrap(msg protoreflect.Message) (interface{}, bool) {
+func (fd *FieldDescription) MaybeUnwrapDynamic(msg protoreflect.Message) (interface{}, bool) {
 	return unwrapDynamic(fd, msg)
 }
 

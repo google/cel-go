@@ -19,9 +19,11 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
+	"github.com/google/cel-go/test/proto3pb"
 
 	"google.golang.org/protobuf/proto"
 
@@ -31,12 +33,69 @@ import (
 	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
-func TestTypeRegistry_NewValue(t *testing.T) {
+func TestTypeRegistryCopy(t *testing.T) {
+	reg := NewEmptyRegistry()
+	reg2 := reg.Copy()
+	if !reflect.DeepEqual(reg, reg2) {
+		t.Fatal("type registry copy did not produce equivalent values.")
+	}
+	reg = NewRegistry()
+	reg2 = reg.Copy()
+	if !reflect.DeepEqual(reg, reg2) {
+		t.Fatal("type registry copy did not produce equivalent values.")
+	}
+}
+
+func TestTypeRegistryEnumValue(t *testing.T) {
+	reg := NewRegistry()
+	err := reg.RegisterDescriptor(proto3pb.GlobalEnum_GOO.Descriptor().ParentFile())
+	if err != nil {
+		t.Fatalf("RegisterDescriptor() failed: %v", err)
+	}
+	enumVal := reg.EnumValue("google.expr.proto3.test.GlobalEnum.GOO")
+	if Int(proto3pb.GlobalEnum_GOO.Number()) != enumVal.(Int) {
+		t.Errorf("enum values were not equal between registry and proto: %v", enumVal)
+	}
+	enumVal2, found := reg.FindIdent("google.expr.proto3.test.GlobalEnum.GOO")
+	if !found {
+		t.Fatal("Ident not found google.expr.proto3.test.GlobalEnum.GOO")
+	}
+	if enumVal.(Int) != enumVal2.(Int) {
+		t.Errorf("got enum value %v, wanted %v", enumVal2, enumVal)
+	}
+}
+
+func TestTypeRegistryFindType(t *testing.T) {
+	reg := NewRegistry()
+	err := reg.RegisterDescriptor(proto3pb.GlobalEnum_GOO.Descriptor().ParentFile())
+	if err != nil {
+		t.Fatalf("RegisterDescriptor() failed: %v", err)
+	}
+	msgTypeName := ".google.expr.proto3.test.TestAllTypes"
+	_, found := reg.FindType(msgTypeName)
+	if !found {
+		t.Fatalf("FindType() did not find: %q", msgTypeName)
+	}
+	_, found = reg.FindType(msgTypeName + "Undefined")
+	if found {
+		t.Fatalf("FindType() found: %q", msgTypeName+"Undefined")
+	}
+	_, found = reg.FindFieldType(msgTypeName, "single_bool")
+	if !found {
+		t.Fatalf("FindFieldType() did not find: %q, %s", msgTypeName, "single_bool")
+	}
+	_, found = reg.FindFieldType(msgTypeName, "double_bool")
+	if found {
+		t.Fatalf("FindFieldType() found: %q, %s", msgTypeName, "double_bool")
+	}
+}
+
+func TestTypeRegistryNewValue(t *testing.T) {
 	reg := NewRegistry(&exprpb.ParsedExpr{})
 	sourceInfo := reg.NewValue(
 		"google.api.expr.v1alpha1.SourceInfo",
 		map[string]ref.Val{
-			"location":     String("TestTypeRegistry_NewValue"),
+			"location":     String("TestTypeRegistryNewValue"),
 			"line_offsets": NewDynamicList(reg, []int64{0, 2}),
 			"positions":    NewDynamicMap(reg, map[int64]int64{1: 2, 2: 4}),
 		})
@@ -46,7 +105,7 @@ func TestTypeRegistry_NewValue(t *testing.T) {
 		info := sourceInfo.Value().(proto.Message)
 		srcInfo := &exprpb.SourceInfo{}
 		proto.Merge(srcInfo, info)
-		if srcInfo.Location != "TestTypeRegistry_NewValue" ||
+		if srcInfo.Location != "TestTypeRegistryNewValue" ||
 			!reflect.DeepEqual(srcInfo.LineOffsets, []int32{0, 2}) ||
 			!reflect.DeepEqual(srcInfo.Positions, map[int64]int32{1: 2, 2: 4}) {
 			t.Errorf("Source info not properly configured: %v", info)
@@ -54,7 +113,7 @@ func TestTypeRegistry_NewValue(t *testing.T) {
 	}
 }
 
-func TestTypeRegistry_NewValue_OneofFields(t *testing.T) {
+func TestTypeRegistryNewValue_OneofFields(t *testing.T) {
 	reg := NewRegistry(&exprpb.ParsedExpr{})
 	if exp := reg.NewValue(
 		"google.api.expr.v1alpha1.Expr",
@@ -75,12 +134,12 @@ func TestTypeRegistry_NewValue_OneofFields(t *testing.T) {
 	}
 }
 
-func TestTypeRegistry_Getters(t *testing.T) {
+func TestTypeRegistryGetters(t *testing.T) {
 	reg := NewRegistry(&exprpb.ParsedExpr{})
 	if sourceInfo := reg.NewValue(
 		"google.api.expr.v1alpha1.SourceInfo",
 		map[string]ref.Val{
-			"location":     String("TestTypeRegistry_GetFieldValue"),
+			"location":     String("TestTypeRegistryGetFieldValue"),
 			"line_offsets": NewDynamicList(reg, []int64{0, 2}),
 			"positions":    NewDynamicMap(reg, map[int64]int64{1: 2, 2: 4}),
 		}); IsError(sourceInfo) {
@@ -89,10 +148,8 @@ func TestTypeRegistry_Getters(t *testing.T) {
 		si := sourceInfo.(traits.Indexer)
 		if loc := si.Get(String("location")); IsError(loc) {
 			t.Error(loc)
-		} else if loc.(String) != "TestTypeRegistry_GetFieldValue" {
-			t.Errorf("Expected %s, got %s",
-				"TestTypeRegistry_GetFieldValue",
-				loc)
+		} else if loc.(String) != "TestTypeRegistryGetFieldValue" {
+			t.Errorf("Expected %s, got %s", "TestTypeRegistryGetFieldValue", loc)
 		}
 		if pos := si.Get(String("positions")); IsError(pos) {
 			t.Error(pos)
@@ -113,7 +170,7 @@ func TestTypeRegistry_Getters(t *testing.T) {
 	}
 }
 
-func TestValue_ConvertToNative(t *testing.T) {
+func TestConvertToNative(t *testing.T) {
 	reg := NewRegistry(&exprpb.ParsedExpr{})
 
 	// Core type conversion tests.
@@ -126,8 +183,9 @@ func TestValue_ConvertToNative(t *testing.T) {
 	expectValueToNative(t, Double(-5.5), float64(-5.5))
 	expectValueToNative(t, String("hello"), "hello")
 	expectValueToNative(t, Bytes("world"), []byte("world"))
-	expectValueToNative(t, NewDynamicList(reg,
-		[]int64{1, 2, 3}), []int32{1, 2, 3})
+	expectValueToNative(t, NewDynamicList(reg, []int64{1, 2, 3}), []int32{1, 2, 3})
+	expectValueToNative(t, Duration{Duration: time.Duration(500)}, time.Duration(500))
+	expectValueToNative(t, Timestamp{Time: time.Unix(12345, 0)}, time.Unix(12345, 0))
 	expectValueToNative(t, NewDynamicMap(reg,
 		map[int64]int64{1: 1, 2: 1, 3: 1}),
 		map[int32]int32{1: 1, 2: 1, 3: 1})
@@ -150,35 +208,44 @@ func TestNativeToValue_Any(t *testing.T) {
 	expectNativeToValue(t, anyValue, NullValue)
 
 	// Json Struct
-	anyValue, err = anypb.New(&structpb.Value{
-		Kind: &structpb.Value_StructValue{
-			StructValue: &structpb.Struct{
+	anyValue, err = anypb.New(
+		structpb.NewStructValue(
+			&structpb.Struct{
 				Fields: map[string]*structpb.Value{
-					"a": {Kind: &structpb.Value_StringValue{StringValue: "world"}},
-					"b": {Kind: &structpb.Value_StringValue{StringValue: "five!"}}}}}})
+					"a": structpb.NewStringValue("world"),
+					"b": structpb.NewStringValue("five!"),
+				},
+			},
+		),
+	)
 	if err != nil {
 		t.Error(err)
 	}
 	expected := NewJSONStruct(reg, &structpb.Struct{
 		Fields: map[string]*structpb.Value{
-			"a": {Kind: &structpb.Value_StringValue{StringValue: "world"}},
-			"b": {Kind: &structpb.Value_StringValue{StringValue: "five!"}}}})
+			"a": structpb.NewStringValue("world"),
+			"b": structpb.NewStringValue("five!"),
+		},
+	})
 	expectNativeToValue(t, anyValue, expected)
 
 	//Json List
-	anyValue, err = anypb.New(&structpb.Value{
-		Kind: &structpb.Value_ListValue{
-			ListValue: &structpb.ListValue{
-				Values: []*structpb.Value{
-					{Kind: &structpb.Value_StringValue{StringValue: "world"}},
-					{Kind: &structpb.Value_StringValue{StringValue: "five!"}}}}}})
+	anyValue, err = anypb.New(structpb.NewListValue(
+		&structpb.ListValue{
+			Values: []*structpb.Value{
+				structpb.NewStringValue("world"),
+				structpb.NewStringValue("five!"),
+			},
+		},
+	))
 	if err != nil {
 		t.Error(err)
 	}
 	expectedList := NewJSONList(reg, &structpb.ListValue{
 		Values: []*structpb.Value{
-			{Kind: &structpb.Value_StringValue{StringValue: "world"}},
-			{Kind: &structpb.Value_StringValue{StringValue: "five!"}}}})
+			structpb.NewStringValue("world"),
+			structpb.NewStringValue("five!"),
+		}})
 	expectNativeToValue(t, anyValue, expectedList)
 
 	// Object
@@ -195,45 +262,44 @@ func TestNativeToValue_Any(t *testing.T) {
 func TestNativeToValue_Json(t *testing.T) {
 	reg := NewRegistry(&exprpb.ParsedExpr{})
 	// Json primitive conversion test.
-	expectNativeToValue(t,
-		&structpb.Value{Kind: &structpb.Value_BoolValue{}},
-		False)
-	expectNativeToValue(t,
-		&structpb.Value{Kind: &structpb.Value_NumberValue{NumberValue: 1.1}},
-		Double(1.1))
-	expectNativeToValue(t,
-		&structpb.Value{Kind: &structpb.Value_NullValue{
-			NullValue: structpb.NullValue_NULL_VALUE}},
-		Null(structpb.NullValue_NULL_VALUE))
-	expectNativeToValue(t,
-		&structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "hello"}},
-		String("hello"))
+	expectNativeToValue(t, structpb.NewBoolValue(false), False)
+	expectNativeToValue(t, structpb.NewNumberValue(1.1), Double(1.1))
+	expectNativeToValue(t, structpb.NewNullValue(), Null(structpb.NullValue_NULL_VALUE))
+	expectNativeToValue(t, structpb.NewStringValue("hello"), String("hello"))
 
 	// Json list conversion.
 	expectNativeToValue(t,
-		&structpb.Value{
-			Kind: &structpb.Value_ListValue{
-				ListValue: &structpb.ListValue{
-					Values: []*structpb.Value{
-						{Kind: &structpb.Value_StringValue{StringValue: "world"}},
-						{Kind: &structpb.Value_StringValue{StringValue: "five!"}}}}}},
+		structpb.NewListValue(
+			&structpb.ListValue{
+				Values: []*structpb.Value{
+					structpb.NewStringValue("world"),
+					structpb.NewStringValue("five!"),
+				},
+			},
+		),
 		NewJSONList(reg, &structpb.ListValue{
 			Values: []*structpb.Value{
-				{Kind: &structpb.Value_StringValue{StringValue: "world"}},
-				{Kind: &structpb.Value_StringValue{StringValue: "five!"}}}}))
+				structpb.NewStringValue("world"),
+				structpb.NewStringValue("five!"),
+			},
+		}))
 
 	// Json struct conversion.
 	expectNativeToValue(t,
-		&structpb.Value{
-			Kind: &structpb.Value_StructValue{
-				StructValue: &structpb.Struct{
-					Fields: map[string]*structpb.Value{
-						"a": {Kind: &structpb.Value_StringValue{StringValue: "world"}},
-						"b": {Kind: &structpb.Value_StringValue{StringValue: "five!"}}}}}},
+		structpb.NewStructValue(
+			&structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"a": structpb.NewStringValue("world"),
+					"b": structpb.NewStringValue("five!"),
+				},
+			},
+		),
 		NewJSONStruct(reg, &structpb.Struct{
 			Fields: map[string]*structpb.Value{
-				"a": {Kind: &structpb.Value_StringValue{StringValue: "world"}},
-				"b": {Kind: &structpb.Value_StringValue{StringValue: "five!"}}}}))
+				"a": structpb.NewStringValue("world"),
+				"b": structpb.NewStringValue("five!"),
+			},
+		}))
 
 	// Proto conversion test.
 	parsedExpr := &exprpb.ParsedExpr{}
@@ -242,24 +308,24 @@ func TestNativeToValue_Json(t *testing.T) {
 
 func TestNativeToValue_Wrappers(t *testing.T) {
 	// Wrapper conversion test.
-	expectNativeToValue(t, &wrapperspb.BoolValue{Value: true}, True)
+	expectNativeToValue(t, wrapperspb.Bool(true), True)
 	expectNativeToValue(t, &wrapperspb.BoolValue{}, False)
 	expectNativeToValue(t, &wrapperspb.BytesValue{}, Bytes{})
-	expectNativeToValue(t, &wrapperspb.BytesValue{Value: []byte("hi")}, Bytes("hi"))
+	expectNativeToValue(t, wrapperspb.Bytes([]byte("hi")), Bytes("hi"))
 	expectNativeToValue(t, &wrapperspb.DoubleValue{}, Double(0.0))
-	expectNativeToValue(t, &wrapperspb.DoubleValue{Value: 6.4}, Double(6.4))
+	expectNativeToValue(t, wrapperspb.Double(6.4), Double(6.4))
 	expectNativeToValue(t, &wrapperspb.FloatValue{}, Double(0.0))
-	expectNativeToValue(t, &wrapperspb.FloatValue{Value: 3.0}, Double(3.0))
+	expectNativeToValue(t, wrapperspb.Float(3.0), Double(3.0))
 	expectNativeToValue(t, &wrapperspb.Int32Value{}, IntZero)
-	expectNativeToValue(t, &wrapperspb.Int32Value{Value: -32}, Int(-32))
+	expectNativeToValue(t, wrapperspb.Int32(-32), Int(-32))
 	expectNativeToValue(t, &wrapperspb.Int64Value{}, IntZero)
-	expectNativeToValue(t, &wrapperspb.Int64Value{Value: -64}, Int(-64))
+	expectNativeToValue(t, wrapperspb.Int64(-64), Int(-64))
 	expectNativeToValue(t, &wrapperspb.StringValue{}, String(""))
-	expectNativeToValue(t, &wrapperspb.StringValue{Value: "hello"}, String("hello"))
+	expectNativeToValue(t, wrapperspb.String("hello"), String("hello"))
 	expectNativeToValue(t, &wrapperspb.UInt32Value{}, Uint(0))
-	expectNativeToValue(t, &wrapperspb.UInt32Value{Value: 32}, Uint(32))
+	expectNativeToValue(t, wrapperspb.UInt32(32), Uint(32))
 	expectNativeToValue(t, &wrapperspb.UInt64Value{}, Uint(0))
-	expectNativeToValue(t, &wrapperspb.UInt64Value{Value: 64}, Uint(64))
+	expectNativeToValue(t, wrapperspb.UInt64(64), Uint(64))
 }
 
 func TestNativeToValue_Primitive(t *testing.T) {
@@ -277,6 +343,8 @@ func TestNativeToValue_Primitive(t *testing.T) {
 	expectNativeToValue(t, float64(-5.5), Double(-5.5))
 	expectNativeToValue(t, "hello", String("hello"))
 	expectNativeToValue(t, []byte("world"), Bytes("world"))
+	expectNativeToValue(t, time.Duration(500), Duration{Duration: time.Duration(500)})
+	expectNativeToValue(t, time.Unix(12345, 0), Timestamp{Time: time.Unix(12345, 0)})
 	expectNativeToValue(t, []int32{1, 2, 3}, NewDynamicList(reg, []int32{1, 2, 3}))
 	expectNativeToValue(t, map[int32]int32{1: 1, 2: 1, 3: 1},
 		NewDynamicMap(reg, map[int32]int32{1: 1, 2: 1, 3: 1}))

@@ -145,7 +145,7 @@ func TestBaseList_Get(t *testing.T) {
 }
 
 func TestValueList_Get(t *testing.T) {
-	validateList123(t, NewValueList(NewRegistry(), []ref.Val{Int(1), Int(2), Int(3)}))
+	validateList123(t, NewRefValList(NewRegistry(), []ref.Val{Int(1), Int(2), Int(3)}))
 }
 
 func TestBaseList_Iterator(t *testing.T) {
@@ -153,7 +153,7 @@ func TestBaseList_Iterator(t *testing.T) {
 }
 
 func TestValueListValue_Iterator(t *testing.T) {
-	validateIterator123(t, NewValueList(NewRegistry(), []ref.Val{Int(1), Int(2), Int(3)}))
+	validateIterator123(t, NewRefValList(NewRegistry(), []ref.Val{Int(1), Int(2), Int(3)}))
 }
 
 func TestBaseList_NestedList(t *testing.T) {
@@ -522,8 +522,8 @@ func TestStringList_Get_OutOfRange(t *testing.T) {
 
 func TestValueList_Add(t *testing.T) {
 	reg := NewRegistry()
-	listA := NewValueList(reg, []ref.Val{String("hello")})
-	listB := NewValueList(reg, []ref.Val{String("world")})
+	listA := NewRefValList(reg, []ref.Val{String("hello")})
+	listB := NewRefValList(reg, []ref.Val{String("world")})
 	listConcat := listA.Add(listB).(traits.Lister)
 	if listConcat.Contains(String("goodbye")) != False {
 		t.Error("Homogeneous concatenated value list did not return false on missing input")
@@ -535,7 +535,7 @@ func TestValueList_Add(t *testing.T) {
 
 func TestValueList_ConvertToNative_Json(t *testing.T) {
 	reg := NewRegistry()
-	list := NewValueList(reg, []ref.Val{String("hello"), String("world")})
+	list := NewRefValList(reg, []ref.Val{String("hello"), String("world")})
 	jsonVal, err := list.ConvertToNative(jsonListValueType)
 	if err != nil {
 		t.Errorf("Got '%v', expected '%v'", err, jsonVal)

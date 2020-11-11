@@ -181,16 +181,6 @@ func (p *protoTypeRegistry) RegisterType(types ...ref.Type) error {
 	return nil
 }
 
-func (p *protoTypeRegistry) registerAllTypes(fd *pb.FileDescription) error {
-	for _, typeName := range fd.GetTypeNames() {
-		err := p.RegisterType(NewObjectTypeValue(typeName))
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // NativeToValue converts various "native" types to ref.Val with this specific implementation
 // providing support for custom proto-based types.
 //
@@ -227,6 +217,16 @@ func (p *protoTypeRegistry) NativeToValue(value interface{}) ref.Val {
 	return NoSuchTypeConversionForValue(value)
 }
 
+func (p *protoTypeRegistry) registerAllTypes(fd *pb.FileDescription) error {
+	for _, typeName := range fd.GetTypeNames() {
+		err := p.RegisterType(NewObjectTypeValue(typeName))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // defaultTypeAdapter converts go native types to CEL values.
 type defaultTypeAdapter struct{}
 
@@ -245,40 +245,32 @@ func (a *defaultTypeAdapter) NativeToValue(value interface{}) ref.Val {
 
 func nativeToValue(a ref.TypeAdapter, value interface{}) (ref.Val, bool) {
 	switch v := value.(type) {
-	case ref.Val:
-		return v, true
 	case nil:
 		return NullValue, true
 	case *Bool:
-		if v == nil {
-			return NoSuchTypeConversionForValue(v), true
+		if v != nil {
+			return *v, true
 		}
-		return *v, true
 	case *Bytes:
-		if v == nil {
-			return NoSuchTypeConversionForValue(v), true
+		if v != nil {
+			return *v, true
 		}
-		return *v, true
 	case *Double:
-		if v == nil {
-			return NoSuchTypeConversionForValue(v), true
+		if v != nil {
+			return *v, true
 		}
-		return *v, true
 	case *Int:
-		if v == nil {
-			return NoSuchTypeConversionForValue(v), true
+		if v != nil {
+			return *v, true
 		}
-		return *v, true
 	case *String:
-		if v == nil {
-			return NoSuchTypeConversionForValue(v), true
+		if v != nil {
+			return *v, true
 		}
-		return *v, true
 	case *Uint:
-		if v == nil {
-			return NoSuchTypeConversionForValue(v), true
+		if v != nil {
+			return *v, true
 		}
-		return *v, true
 	case bool:
 		return Bool(v), true
 	case int:
@@ -304,61 +296,57 @@ func nativeToValue(a ref.TypeAdapter, value interface{}) (ref.Val, bool) {
 	case time.Time:
 		return Timestamp{Time: v}, true
 	case *bool:
-		if v == nil {
-			return NoSuchTypeConversionForValue(v), true
+		if v != nil {
+			return Bool(*v), true
 		}
-		return Bool(*v), true
 	case *float32:
-		if v == nil {
-			return NoSuchTypeConversionForValue(v), true
+		if v != nil {
+			return Double(*v), true
 		}
-		return Double(*v), true
 	case *float64:
-		if v == nil {
-			return NoSuchTypeConversionForValue(v), true
+		if v != nil {
+			return Double(*v), true
 		}
-		return Double(*v), true
 	case *int:
-		if v == nil {
-			return NoSuchTypeConversionForValue(v), true
+		if v != nil {
+			return Int(*v), true
 		}
-		return Int(*v), true
 	case *int32:
-		if v == nil {
-			return NoSuchTypeConversionForValue(v), true
+		if v != nil {
+			return Int(*v), true
 		}
-		return Int(*v), true
 	case *int64:
-		if v == nil {
-			return NoSuchTypeConversionForValue(v), true
+		if v != nil {
+			return Int(*v), true
 		}
-		return Int(*v), true
 	case *string:
-		if v == nil {
-			return NoSuchTypeConversionForValue(v), true
+		if v != nil {
+			return String(*v), true
 		}
-		return String(*v), true
 	case *uint:
-		if v == nil {
-			return NoSuchTypeConversionForValue(v), true
+		if v != nil {
+			return Uint(*v), true
 		}
-		return Uint(*v), true
 	case *uint32:
-		if v == nil {
-			return NoSuchTypeConversionForValue(v), true
+		if v != nil {
+			return Uint(*v), true
 		}
-		return Uint(*v), true
 	case *uint64:
-		if v == nil {
-			return NoSuchTypeConversionForValue(v), true
+		if v != nil {
+			return Uint(*v), true
 		}
-		return Uint(*v), true
 	case []byte:
-		return Bytes(value.([]byte)), true
+		return Bytes(v), true
 	case []string:
-		return NewStringList(a, value.([]string)), true
+		return NewStringList(a, v), true
+	case []ref.Val:
+		return NewRefValList(a, v), true
 	case map[string]string:
-		return NewStringStringMap(a, value.(map[string]string)), true
+		return NewStringStringMap(a, v), true
+	case map[string]interface{}:
+		return NewStringInterfaceMap(a, v), true
+	case map[ref.Val]ref.Val:
+		return NewRefValMap(a, v), true
 	case *anypb.Any:
 		if v == nil {
 			return NoSuchTypeConversionForValue(v), true
@@ -374,6 +362,8 @@ func nativeToValue(a ref.TypeAdapter, value interface{}) (ref.Val, bool) {
 		return NewJSONList(a, v), true
 	case *structpb.Struct:
 		return NewJSONStruct(a, v), true
+	case ref.Val:
+		return v, true
 	case proto.Message:
 		if v == nil {
 			return NoSuchTypeConversionForValue(v), true

@@ -74,6 +74,13 @@ func (t Timestamp) Compare(other ref.Val) ref.Val {
 
 // ConvertToNative implements ref.Val.ConvertToNative.
 func (t Timestamp) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
+	// If the timestamp is already assignable to the desired type return it.
+	if reflect.TypeOf(t.Time).AssignableTo(typeDesc) {
+		return t.Time, nil
+	}
+	if reflect.TypeOf(t).AssignableTo(typeDesc) {
+		return t, nil
+	}
 	switch typeDesc {
 	case anyValueType:
 		// Pack the underlying protobuf.Timestamp to an Any value.
@@ -85,19 +92,12 @@ func (t Timestamp) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		if IsError(v) {
 			return nil, v.(*Err)
 		}
-		return &structpb.Value{
-			Kind: &structpb.Value_StringValue{StringValue: string(v.(String))},
-		}, nil
+		return structpb.NewStringValue(string(v.(String))), nil
 	case timestampValueType:
 		// Unwrap the underlying protobuf.Timestamp.
 		return tpb.New(t.Time), nil
 	}
-	// If the timestamp is already assignable to the desired type return it.
-	if reflect.TypeOf(t).AssignableTo(typeDesc) {
-		return t, nil
-	}
-	return nil, fmt.Errorf("type conversion error from "+
-		"'google.protobuf.Timestamp' to '%v'", typeDesc)
+	return nil, fmt.Errorf("type conversion error from 'Timestamp' to '%v'", typeDesc)
 }
 
 // ConvertToType implements ref.Val.ConvertToType.
@@ -119,7 +119,7 @@ func (t Timestamp) ConvertToType(typeVal ref.Type) ref.Val {
 // Equal implements ref.Val.Equal.
 func (t Timestamp) Equal(other ref.Val) ref.Val {
 	if TimestampType != other.Type() {
-		return ValOrErr(other, "no such overload")
+		return MaybeNoSuchOverloadErr(other)
 	}
 	return Bool(t.Time.Equal(other.(Timestamp).Time))
 }
@@ -273,7 +273,6 @@ func timeZone(tz ref.Val, visitor timestampVisitor) timestampVisitor {
 
 		// If the input is not the name of a timezone (for example, 'US/Central'), it should be a numerical offset from UTC
 		// in the format ^(+|-)(0[0-9]|1[0-4]):[0-5][0-9]$. The numerical input is parsed in terms of hours and minutes.
-
 		hr, err := strconv.Atoi(string(val[0:ind]))
 		if err != nil {
 			return &Err{err}

@@ -94,13 +94,13 @@ func (i Int) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		switch typeDesc {
 		case anyValueType:
 			// Primitives must be wrapped before being set on an Any field.
-			return anypb.New(&wrapperspb.Int64Value{Value: int64(i)})
+			return anypb.New(wrapperspb.Int64(int64(i)))
 		case int32WrapperType:
 			// Convert the value to a protobuf.Int32Value (with truncation).
-			return &wrapperspb.Int32Value{Value: int32(i)}, nil
+			return wrapperspb.Int32(int32(i)), nil
 		case int64WrapperType:
 			// Convert the value to a protobuf.Int64Value.
-			return &wrapperspb.Int64Value{Value: int64(i)}, nil
+			return wrapperspb.Int64(int64(i)), nil
 		case jsonValueType:
 			// The proto-to-JSON conversion rules would convert all 64-bit integer values to JSON
 			// decimal strings. Because CEL ints might come from the automatic widening of 32-bit
@@ -117,17 +117,11 @@ func (i Int) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 			// however, it is best to simply stay within the JSON number range when building JSON
 			// objects in CEL.
 			if i.isJSONSafe() {
-				return &structpb.Value{
-					Kind: &structpb.Value_NumberValue{NumberValue: float64(i)},
-				}, nil
+				return structpb.NewNumberValue(float64(i)), nil
 			}
 			// Proto3 to JSON conversion requires string-formatted int64 values
 			// since the conversion to floating point would result in truncation.
-			return &structpb.Value{
-				Kind: &structpb.Value_StringValue{
-					StringValue: strconv.FormatInt(int64(i), 10),
-				},
-			}, nil
+			return structpb.NewStringValue(strconv.FormatInt(int64(i), 10)), nil
 		}
 		switch typeDesc.Elem().Kind() {
 		case reflect.Int32:

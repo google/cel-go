@@ -600,7 +600,7 @@ func (l *evalList) Eval(ctx Activation) ref.Val {
 		}
 		elemVals[i] = elemVal
 	}
-	return types.NewDynamicList(l.adapter, elemVals)
+	return l.adapter.NativeToValue(elemVals)
 }
 
 // Cost implements the Coster interface method.
@@ -635,7 +635,7 @@ func (m *evalMap) Eval(ctx Activation) ref.Val {
 		}
 		entries[keyVal] = valVal
 	}
-	return types.NewDynamicMap(m.adapter, entries)
+	return m.adapter.NativeToValue(entries)
 }
 
 // Cost implements the Coster interface method.

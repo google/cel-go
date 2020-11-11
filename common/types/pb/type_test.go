@@ -17,12 +17,20 @@ package pb
 import (
 	"reflect"
 	"testing"
+	"time"
+
+	"github.com/google/cel-go/checker/decls"
 
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/reflect/protoreflect"
 
 	proto3pb "github.com/google/cel-go/test/proto3pb"
+
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	dynamicpb "google.golang.org/protobuf/types/dynamicpb"
+	dpb "google.golang.org/protobuf/types/known/durationpb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
+	tpb "google.golang.org/protobuf/types/known/timestamppb"
+	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 func TestTypeDescription(t *testing.T) {
@@ -105,126 +113,308 @@ func TestFieldDescription(t *testing.T) {
 	}
 }
 
-func TestProtoReflection(t *testing.T) {
+func TestFieldDescriptionGetFrom(t *testing.T) {
 	pbdb := NewDb()
-	_, err := pbdb.RegisterMessage(&proto3pb.TestAllTypes{})
+	msg := &proto3pb.TestAllTypes{
+		SingleUint64:       12,
+		SingleDuration:     dpb.New(time.Duration(1234)),
+		SingleTimestamp:    tpb.New(time.Unix(12345, 0).UTC()),
+		SingleBoolWrapper:  wrapperspb.Bool(false),
+		SingleInt32Wrapper: wrapperspb.Int32(42),
+		StandaloneEnum:     proto3pb.TestAllTypes_BAR,
+		NestedType: &proto3pb.TestAllTypes_SingleNestedMessage{
+			SingleNestedMessage: &proto3pb.TestAllTypes_NestedMessage{
+				Bb: 123,
+			},
+		},
+		SingleValue: structpb.NewStringValue("hello world"),
+		SingleStruct: jsonStruct(t, map[string]interface{}{
+			"null": nil,
+		}),
+	}
+	msgName := string(msg.ProtoReflect().Descriptor().FullName())
+	_, err := pbdb.RegisterMessage(msg)
 	if err != nil {
-		t.Fatalf("pbdb.RegisterMessage() failed: %v", err)
+		t.Fatalf("pbdb.RegisterMessage(%q) failed: %v", msgName, err)
 	}
-	td, found := pbdb.DescribeType("google.expr.proto3.test.TestAllTypes")
+	td, found := pbdb.DescribeType(msgName)
 	if !found {
-		t.Fatal("pbdb.DescribeType(google.expr.proto3.test.TestAllTypes) not found")
+		t.Fatalf("pbdb.DescribeType(%q) not found", msgName)
 	}
-	fieldValues := map[string]interface{}{
-		"single_int32":    int32(1),
-		"standalone_enum": proto3pb.TestAllTypes_FOO.Number(),
-		"repeated_int32":  []int64{1, 2, 3},
-		"repeated_nested_message": []*proto3pb.TestAllTypes_NestedMessage{
-			{Bb: 8},
-			{Bb: 8},
+	expected := map[string]interface{}{
+		"single_uint64":        uint64(12),
+		"single_duration":      time.Duration(1234),
+		"single_timestamp":     time.Unix(12345, 0).UTC(),
+		"single_bool_wrapper":  false,
+		"single_int32_wrapper": int32(42),
+		"single_int64_wrapper": structpb.NullValue_NULL_VALUE,
+		"single_nested_message": &proto3pb.TestAllTypes_NestedMessage{
+			Bb: 123,
 		},
-		"map_string_string": map[string]string{
-			"hello": "world",
-		},
-		"map_int64_nested_type": map[int32]interface{}{
-			1: &proto3pb.NestedTestAllTypes{
-				Child: &proto3pb.NestedTestAllTypes{
-					Payload: &proto3pb.TestAllTypes{
-						SingleDouble: float64(4.2),
-					},
-				},
-			},
-		},
+		"standalone_enum": int64(1),
+		"single_value":    "hello world",
+		"single_struct": jsonStruct(t, map[string]interface{}{
+			"null": nil,
+		}),
 	}
-	msg := td.New()
-	for f, v := range fieldValues {
-		field, found := td.FieldByName(f)
+	for field, want := range expected {
+		f, found := td.FieldByName(field)
 		if !found {
-			t.Errorf("td.FieldByName(%q) failed", f)
+			t.Fatalf("td.FieldByName(%q) not found", field)
 		}
-		t.Logf("%s=%v", f, v)
-		setMsgField(msg, field, v)
-	}
-	got := msg.Interface()
-	want := &proto3pb.TestAllTypes{
-		SingleInt32:    1,
-		StandaloneEnum: proto3pb.TestAllTypes_FOO,
-		RepeatedInt32:  []int32{1, 2, 3},
-		RepeatedNestedMessage: []*proto3pb.TestAllTypes_NestedMessage{
-			{Bb: 8},
-			{Bb: 8},
-		},
-		MapStringString: map[string]string{
-			"hello": "world",
-		},
-		MapInt64NestedType: map[int64]*proto3pb.NestedTestAllTypes{
-			1: {
-				Child: &proto3pb.NestedTestAllTypes{
-					Payload: &proto3pb.TestAllTypes{
-						SingleDouble: float64(4.2),
-					},
-				},
-			},
-		},
-	}
-	if !proto.Equal(got, want) {
-		t.Errorf("got message %v, wanted %v", got, want)
-	}
-}
-
-func setMsgField(target protoreflect.Message, field *FieldDescription, val interface{}) {
-	if field.IsList() {
-		lv := target.NewField(field.Descriptor())
-		setListElems(lv.List(), field, val)
-		target.Set(field.Descriptor(), lv)
-		return
-	}
-	if field.IsMap() {
-		mv := target.NewField(field.Descriptor())
-		setMapEntries(mv.Map(), field, val)
-		target.Set(field.Descriptor(), mv)
-		return
-	}
-	target.Set(field.Descriptor(), protoreflect.ValueOf(val))
-}
-
-func setListElems(target protoreflect.List, elemType *FieldDescription, listVal interface{}) {
-	targetElemType := elemType.ReflectType().Elem()
-	lv := reflect.ValueOf(listVal)
-	for i := 0; i < lv.Len(); i++ {
-		elem := lv.Index(i)
-		if elem.Type() != targetElemType && targetElemType.Kind() != reflect.Ptr {
-			elem = elem.Convert(targetElemType)
+		got, err := f.GetFrom(msg)
+		if err != nil {
+			t.Fatalf("field.GetFrom() failed: %v", err)
 		}
-		elemVal := elem.Interface()
-		switch ev := elemVal.(type) {
+		switch g := got.(type) {
 		case proto.Message:
-			elemVal = ev.ProtoReflect()
+			if !proto.Equal(g, want.(proto.Message)) {
+				t.Errorf("got field %s value %v, wanted %v", field, g, want)
+			}
+		default:
+			if !reflect.DeepEqual(g, want) {
+				t.Errorf("got field %s value %v, wanted %v", field, g, want)
+			}
 		}
-		target.Append(protoreflect.ValueOf(elemVal))
 	}
 }
 
-func setMapEntries(target protoreflect.Map, entryType *FieldDescription, mapVal interface{}) {
-	mv := reflect.ValueOf(mapVal)
-	targetKeyType := entryType.KeyType.ReflectType()
-	targetValType := entryType.ValueType.ReflectType()
-	// Ensure the value being set is actually a map value
-	for _, k := range mv.MapKeys() {
-		val := mv.MapIndex(k)
-		if k.Type() != targetKeyType {
-			k = k.Convert(targetKeyType)
-		}
-		if val.Type() != targetValType && targetValType.Kind() != reflect.Ptr {
-			val = val.Convert(targetValType)
-		}
-		entryVal := val.Interface()
-		switch ev := entryVal.(type) {
-		case proto.Message:
-			entryVal = ev.ProtoReflect()
-		}
-		target.Set(
-			protoreflect.ValueOf(k.Interface()).MapKey(),
-			protoreflect.ValueOf(entryVal))
+func TestFieldDescriptionIsSet(t *testing.T) {
+	pbdb := NewDb()
+	msg := &proto3pb.TestAllTypes{}
+	msgName := string(msg.ProtoReflect().Descriptor().FullName())
+	_, err := pbdb.RegisterMessage(msg)
+	if err != nil {
+		t.Fatalf("pbdb.RegisterMessage(%q) failed: %v", msgName, err)
 	}
+	td, found := pbdb.DescribeType(msgName)
+	if !found {
+		t.Fatalf("pbdb.DescribeType(%q) not found", msgName)
+	}
+
+	tests := []struct {
+		msg   interface{}
+		field string
+		isSet bool
+	}{
+		{
+			msg:   &proto3pb.TestAllTypes{SingleBool: true},
+			field: "single_bool",
+			isSet: true,
+		},
+		{
+			msg:   &proto3pb.TestAllTypes{},
+			field: "single_bool",
+			isSet: false,
+		},
+		{
+			msg:   (&proto3pb.TestAllTypes{SingleBool: true}).ProtoReflect(),
+			field: "single_bool",
+			isSet: true,
+		},
+		{
+			msg:   (&proto3pb.TestAllTypes{SingleBool: false}).ProtoReflect(),
+			field: "single_bool",
+			isSet: false,
+		},
+		{
+			msg:   (&proto3pb.TestAllTypes{}).ProtoReflect(),
+			field: "single_bool",
+			isSet: false,
+		},
+		{
+			msg:   reflect.ValueOf(&proto3pb.TestAllTypes{}),
+			field: "single_bool",
+			isSet: false,
+		},
+		{
+			msg:   nil,
+			field: "single_any",
+			isSet: false,
+		},
+	}
+	for _, tc := range tests {
+		f, found := td.FieldByName(tc.field)
+		if !found {
+			t.Fatalf("td.FieldByName(%q) not found", tc.field)
+		}
+		if f.IsSet(tc.msg) != tc.isSet {
+			t.Errorf("got field %s set: %v, wanted %v", tc.field, f.IsSet(tc.msg), tc.isSet)
+		}
+	}
+}
+
+func TestTypeDescriptionMaybeUnwrap(t *testing.T) {
+	pbdb := NewDb()
+	msgType := "google.protobuf.Value"
+	msgDesc, found := pbdb.DescribeType(msgType)
+	if !found {
+		t.Fatalf("pbdb.DescribeType(%q) not found", msgType)
+	}
+	tests := []struct {
+		in  proto.Message
+		out interface{}
+	}{
+		{
+			in:  msgDesc.Zero(),
+			out: structpb.NullValue_NULL_VALUE,
+		},
+		{
+			in:  msgDesc.New().Interface(),
+			out: structpb.NullValue_NULL_VALUE,
+		},
+		{
+			in:  dynamicpb.NewMessage((&structpb.ListValue{}).ProtoReflect().Descriptor()),
+			out: jsonList(t, []interface{}{}),
+		},
+		{
+			in:  structpb.NewBoolValue(true),
+			out: true,
+		},
+		{
+			in:  structpb.NewBoolValue(false),
+			out: false,
+		},
+		{
+			in:  structpb.NewNullValue(),
+			out: structpb.NullValue_NULL_VALUE,
+		},
+		{
+			in:  &structpb.Value{},
+			out: structpb.NullValue_NULL_VALUE,
+		},
+		{
+			in:  structpb.NewNumberValue(1.5),
+			out: float64(1.5),
+		},
+		{
+			in:  structpb.NewStringValue("hello world"),
+			out: "hello world",
+		},
+		{
+			in:  structpb.NewListValue(jsonList(t, []interface{}{true, 1.0})),
+			out: jsonList(t, []interface{}{true, 1.0}),
+		},
+		{
+			in:  structpb.NewStructValue(jsonStruct(t, map[string]interface{}{"hello": "world"})),
+			out: jsonStruct(t, map[string]interface{}{"hello": "world"}),
+		},
+		{
+			in:  wrapperspb.Bool(false),
+			out: false,
+		},
+		{
+			in:  wrapperspb.Bool(true),
+			out: true,
+		},
+		{
+			in:  wrapperspb.Bytes([]byte("hello")),
+			out: []byte("hello"),
+		},
+		{
+			in:  wrapperspb.Double(-4.2),
+			out: -4.2,
+		},
+		{
+			in:  wrapperspb.Float(4.5),
+			out: 4.5,
+		},
+		{
+			in:  wrapperspb.Int32(123),
+			out: int64(123),
+		},
+		{
+			in:  wrapperspb.Int64(456),
+			out: int64(456),
+		},
+		{
+			in:  wrapperspb.String("goodbye"),
+			out: "goodbye",
+		},
+		{
+			in:  wrapperspb.UInt32(1234),
+			out: uint64(1234),
+		},
+		{
+			in:  wrapperspb.UInt64(5678),
+			out: uint64(5678),
+		},
+		{
+			in:  tpb.New(time.Unix(12345, 0).UTC()),
+			out: time.Unix(12345, 0).UTC(),
+		},
+		{
+			in:  dpb.New(time.Duration(345)),
+			out: time.Duration(345),
+		},
+	}
+	for _, tc := range tests {
+		typeName := string(tc.in.ProtoReflect().Descriptor().FullName())
+		td, found := pbdb.DescribeType(typeName)
+		if !found {
+			t.Fatalf("pbdb.DescribeType(%q) not found", typeName)
+		}
+		msg, unwrapped := td.MaybeUnwrap(tc.in)
+		if !unwrapped {
+			t.Errorf("value %v not unwrapped", tc.in)
+		}
+		switch val := msg.(type) {
+		case proto.Message:
+			if !proto.Equal(val, tc.out.(proto.Message)) {
+				t.Errorf("got value %v, wanted %v", val, tc.out)
+			}
+		default:
+			if !reflect.DeepEqual(val, tc.out) {
+				t.Errorf("got value %v, wanted %v", val, tc.out)
+			}
+		}
+	}
+}
+
+func TestTypeDescriptionCheckedType(t *testing.T) {
+	pbdb := NewDb()
+	msg := &proto3pb.TestAllTypes{}
+	msgName := string(msg.ProtoReflect().Descriptor().FullName())
+	_, err := pbdb.RegisterMessage(msg)
+	if err != nil {
+		t.Fatalf("pbdb.RegisterMessage(%q) failed: %v", msgName, err)
+	}
+	td, found := pbdb.DescribeType(msgName)
+	if !found {
+		t.Fatalf("pbdb.DescribeType(%q) not found", msgName)
+	}
+	field, found := td.FieldByName("map_string_string")
+	if !found {
+		t.Fatal("td.FieldByName('map_string_string') not found")
+	}
+	mapType := decls.NewMapType(decls.String, decls.String)
+	if !proto.Equal(field.CheckedType(), mapType) {
+		t.Errorf("got checked type %v, wanted %v", field.CheckedType(), mapType)
+	}
+	field, found = td.FieldByName("repeated_nested_message")
+	if !found {
+		t.Fatal("td.FieldByName('repeated_nested_message') not found")
+	}
+	listType := decls.NewListType(decls.NewObjectType("google.expr.proto3.test.TestAllTypes.NestedMessage"))
+	if !proto.Equal(field.CheckedType(), listType) {
+		t.Errorf("got checked type %v, wanted %v", field.CheckedType(), listType)
+	}
+}
+
+func jsonList(t *testing.T, elems []interface{}) *structpb.ListValue {
+	t.Helper()
+	l, err := structpb.NewList(elems)
+	if err != nil {
+		t.Fatalf("structpb.NewList() failed: %v", err)
+	}
+	return l
+}
+
+func jsonStruct(t *testing.T, entries map[string]interface{}) *structpb.Struct {
+	t.Helper()
+	s, err := structpb.NewStruct(entries)
+	if err != nil {
+		t.Fatalf("structpb.NewStruct() failed: %v", err)
+	}
+	return s
 }

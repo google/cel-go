@@ -55,7 +55,7 @@ func TestBytes_ConvertToNative_Any(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	want, err := anypb.New(&wrapperspb.BytesValue{Value: []byte("123")})
+	want, err := anypb.New(wrapperspb.Bytes([]byte("123")))
 	if err != nil {
 		t.Error(err)
 	}
@@ -83,7 +83,7 @@ func TestBytes_ConvertToNative_Json(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	want := &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "MTIz"}}
+	want := structpb.NewStringValue("MTIz")
 	if !proto.Equal(val.(proto.Message), want) {
 		t.Errorf("Got %v, wanted %v", val, want)
 	}
@@ -94,7 +94,7 @@ func TestBytes_ConvertToNative_Wrapper(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	want := &wrapperspb.BytesValue{Value: []byte("123")}
+	want := wrapperspb.Bytes([]byte("123"))
 	if !proto.Equal(val.(proto.Message), want) {
 		t.Errorf("Got %v, wanted %v", val, want)
 	}

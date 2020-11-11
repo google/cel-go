@@ -56,11 +56,7 @@ func (n Null) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 			}
 			return anypb.New(pb.(proto.Message))
 		case jsonValueType:
-			return &structpb.Value{
-				Kind: &structpb.Value_NullValue{
-					NullValue: structpb.NullValue_NULL_VALUE,
-				},
-			}, nil
+			return structpb.NewNullValue(), nil
 		}
 	case reflect.Interface:
 		nv := n.Value()

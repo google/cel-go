@@ -926,9 +926,7 @@ var (
 								"list": {Kind: &structpb.Value_ListValue{
 									ListValue: &structpb.ListValue{
 										Values: []*structpb.Value{
-											{Kind: &structpb.Value_StringValue{
-												StringValue: "world",
-											}},
+											structpb.NewStringValue("world"),
 										},
 									},
 								}},
@@ -977,7 +975,7 @@ var (
 			in: map[string]interface{}{
 				"a": &proto3pb.TestAllTypes{
 					SingleInt64Wrapper:  &wrapperspb.Int64Value{},
-					SingleStringWrapper: &wrapperspb.StringValue{Value: "hello"},
+					SingleStringWrapper: wrapperspb.String("hello"),
 				},
 			},
 		},

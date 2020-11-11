@@ -20,5 +20,9 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
-// jsonValueType constant representing the reflected type of a protobuf Value.
-var jsonValueType = reflect.TypeOf(&structpb.Value{})
+// JSON type constants representing the reflected types of protobuf JSON values.
+var (
+	jsonValueType     = reflect.TypeOf(&structpb.Value{})
+	jsonListValueType = reflect.TypeOf(&structpb.ListValue{})
+	jsonStructType    = reflect.TypeOf(&structpb.Struct{})
+)

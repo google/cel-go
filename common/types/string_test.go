@@ -61,7 +61,7 @@ func TestString_ConvertToNative_Any(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	want, err := anypb.New(&wrapperspb.StringValue{Value: "hello"})
+	want, err := anypb.New(wrapperspb.String("hello"))
 	if err != nil {
 		t.Error(err)
 	}
@@ -79,7 +79,7 @@ func TestString_ConvertToNative_Error(t *testing.T) {
 
 func TestString_ConvertToNative_Json(t *testing.T) {
 	val, err := String("hello").ConvertToNative(jsonValueType)
-	pbVal := &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "hello"}}
+	pbVal := structpb.NewStringValue("hello")
 	if err != nil {
 		t.Error(err)
 	} else if !proto.Equal(val.(proto.Message), pbVal) {
@@ -111,7 +111,7 @@ func TestString_ConvertToNative_Wrapper(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	want := &wrapperspb.StringValue{Value: "hello"}
+	want := wrapperspb.String("hello")
 	if !proto.Equal(val.(proto.Message), want) {
 		t.Errorf("Got '%v', expected '%v'", val, want)
 	}
