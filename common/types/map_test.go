@@ -37,11 +37,10 @@ import (
 type testStruct struct {
 	M       string
 	Details []string
-	private string
 }
 
 func TestDynamicMapContains(t *testing.T) {
-	reg := NewRegistry()
+	reg := newTestRegistry(t)
 	mapValue := NewDynamicMap(reg, map[string]map[int32]float32{
 		"nested": {1: -1.0, 2: 2.0},
 		"empty":  {}}).(traits.Mapper)
@@ -60,7 +59,7 @@ func TestDynamicMapContains(t *testing.T) {
 }
 
 func TestStringMapContains(t *testing.T) {
-	reg := NewRegistry()
+	reg := newTestRegistry(t)
 	mapValue := NewStringStringMap(reg, map[string]string{
 		"first":  "hello",
 		"second": "world"}).(traits.Mapper)
@@ -79,7 +78,7 @@ func TestStringMapContains(t *testing.T) {
 }
 
 func TestDynamicMapConvertToNative_Any(t *testing.T) {
-	reg := NewRegistry()
+	reg := newTestRegistry(t)
 	mapValue := NewDynamicMap(reg, map[string]map[string]float32{
 		"nested": {"1": -1.0}})
 	val, err := mapValue.ConvertToNative(anyValueType)
@@ -101,7 +100,7 @@ func TestDynamicMapConvertToNative_Any(t *testing.T) {
 }
 
 func TestDynamicMapConvertToNative_Error(t *testing.T) {
-	reg := NewRegistry()
+	reg := newTestRegistry(t)
 	mapValue := NewDynamicMap(reg, map[string]map[string]float32{
 		"nested": {"1": -1.0}})
 	val, err := mapValue.ConvertToNative(reflect.TypeOf(""))
@@ -111,7 +110,7 @@ func TestDynamicMapConvertToNative_Error(t *testing.T) {
 }
 
 func TestDynamicMapConvertToNative_Json(t *testing.T) {
-	reg := NewRegistry()
+	reg := newTestRegistry(t)
 	mapValue := NewDynamicMap(reg, map[string]map[string]float32{
 		"nested": {"1": -1.0}})
 	json, err := mapValue.ConvertToNative(jsonValueType)
@@ -129,7 +128,7 @@ func TestDynamicMapConvertToNative_Json(t *testing.T) {
 }
 
 func TestDynamicMapConvertToNative_Struct(t *testing.T) {
-	reg := NewRegistry()
+	reg := newTestRegistry(t)
 	mapValue := NewDynamicMap(reg, map[string]interface{}{
 		"m":       "hello",
 		"details": []string{"world", "universe"},
@@ -145,7 +144,7 @@ func TestDynamicMapConvertToNative_Struct(t *testing.T) {
 }
 
 func TestDynamicMapConvertToNative_StructPtr(t *testing.T) {
-	reg := NewRegistry()
+	reg := newTestRegistry(t)
 	mapValue := NewDynamicMap(reg, map[string]interface{}{
 		"m":       "hello",
 		"details": []string{"world", "universe"},
@@ -161,7 +160,7 @@ func TestDynamicMapConvertToNative_StructPtr(t *testing.T) {
 }
 
 func TestDynamicMapConvertToNative_StructPtrPtr(t *testing.T) {
-	reg := NewRegistry()
+	reg := newTestRegistry(t)
 	mapValue := NewDynamicMap(reg, map[string]interface{}{
 		"m":       "hello",
 		"details": []string{"world", "universe"},
@@ -174,7 +173,7 @@ func TestDynamicMapConvertToNative_StructPtrPtr(t *testing.T) {
 }
 
 func TestDynamicMapConvertToNative_Struct_InvalidFieldError(t *testing.T) {
-	reg := NewRegistry()
+	reg := newTestRegistry(t)
 	mapValue := NewDynamicMap(reg, map[string]interface{}{
 		"m":       "hello",
 		"details": []string{"world", "universe"},
@@ -187,7 +186,7 @@ func TestDynamicMapConvertToNative_Struct_InvalidFieldError(t *testing.T) {
 }
 
 func TestDynamicMapConvertToNative_Struct_EmptyFieldError(t *testing.T) {
-	reg := NewRegistry()
+	reg := newTestRegistry(t)
 	mapValue := NewDynamicMap(reg, map[string]interface{}{
 		"m":       "hello",
 		"details": []string{"world", "universe"},
@@ -200,7 +199,7 @@ func TestDynamicMapConvertToNative_Struct_EmptyFieldError(t *testing.T) {
 }
 
 func TestDynamicMapConvertToNative_Struct_PrivateFieldError(t *testing.T) {
-	reg := NewRegistry()
+	reg := newTestRegistry(t)
 	mapValue := NewDynamicMap(reg, map[string]interface{}{
 		"message": "hello",
 		"details": []string{"world", "universe"},
@@ -213,7 +212,7 @@ func TestDynamicMapConvertToNative_Struct_PrivateFieldError(t *testing.T) {
 }
 
 func TestStringMapConvertToNative(t *testing.T) {
-	reg := NewRegistry()
+	reg := newTestRegistry(t)
 	strMap := map[string]string{
 		"first":  "hello",
 		"second": "world",
@@ -256,7 +255,7 @@ func TestStringMapConvertToNative(t *testing.T) {
 }
 
 func TestDynamicMapConvertToType(t *testing.T) {
-	reg := NewRegistry()
+	reg := newTestRegistry(t)
 	mapValue := NewDynamicMap(reg, map[string]string{"key": "value"})
 	if mapValue.ConvertToType(MapType) != mapValue {
 		t.Error("Map could not be converted to a map.")
@@ -270,7 +269,7 @@ func TestDynamicMapConvertToType(t *testing.T) {
 }
 
 func TestStringMapConvertToType(t *testing.T) {
-	reg := NewRegistry()
+	reg := newTestRegistry(t)
 	mapValue := reg.NativeToValue(map[string]string{"key": "value"})
 	if mapValue.ConvertToType(MapType) != mapValue {
 		t.Error("Map could not be converted to a map.")
@@ -284,7 +283,7 @@ func TestStringMapConvertToType(t *testing.T) {
 }
 
 func TestDynamicMapEqual_True(t *testing.T) {
-	reg := NewRegistry()
+	reg := newTestRegistry(t)
 	mapValue := NewDynamicMap(reg, map[string]map[int32]float32{
 		"nested": {1: -1.0, 2: 2.0},
 		"empty":  {}})
@@ -300,7 +299,7 @@ func TestDynamicMapEqual_True(t *testing.T) {
 }
 
 func TestStringMapEqual_True(t *testing.T) {
-	reg := NewRegistry()
+	reg := newTestRegistry(t)
 	mapValue := NewStringStringMap(reg, map[string]string{
 		"first":  "hello",
 		"second": "world"})
@@ -324,7 +323,7 @@ func TestStringMapEqual_True(t *testing.T) {
 }
 
 func TestDynamicMapEqual_NotTrue(t *testing.T) {
-	reg := NewRegistry()
+	reg := newTestRegistry(t)
 	mapValue := NewDynamicMap(reg, map[string]map[int32]float32{
 		"nested": {1: -1.0, 2: 2.0},
 		"empty":  {}})
@@ -343,7 +342,7 @@ func TestDynamicMapEqual_NotTrue(t *testing.T) {
 }
 
 func TestStringMapEqual_NotTrue(t *testing.T) {
-	reg := NewRegistry()
+	reg := newTestRegistry(t)
 	mapValue := NewStringStringMap(reg, map[string]string{
 		"first":  "hello",
 		"second": "world"})
@@ -376,7 +375,7 @@ func TestStringMapEqual_NotTrue(t *testing.T) {
 }
 
 func TestDynamicMapGet(t *testing.T) {
-	reg := NewRegistry()
+	reg := newTestRegistry(t)
 	mapValue := NewDynamicMap(reg, map[string]map[int32]float32{
 		"nested": {1: -1.0, 2: 2.0},
 		"empty":  {}}).(traits.Mapper)
@@ -394,7 +393,7 @@ func TestDynamicMapGet(t *testing.T) {
 }
 
 func TestStringMapGet(t *testing.T) {
-	reg := NewRegistry()
+	reg := newTestRegistry(t)
 	mapValue := NewStringStringMap(reg, map[string]string{
 		"first":  "hello",
 		"second": "world"}).(traits.Mapper)
@@ -411,7 +410,7 @@ func TestStringMapGet(t *testing.T) {
 }
 
 func TestDynamicMapIterator(t *testing.T) {
-	reg := NewRegistry()
+	reg := newTestRegistry(t)
 	mapValue := NewDynamicMap(reg, map[string]map[int32]float32{
 		"nested": {1: -1.0, 2: 2.0},
 		"empty":  {}}).(traits.Mapper)
@@ -435,7 +434,7 @@ func TestDynamicMapIterator(t *testing.T) {
 }
 
 func TestStringMapIterator(t *testing.T) {
-	reg := NewRegistry()
+	reg := newTestRegistry(t)
 	mapValue := NewStringStringMap(reg, map[string]string{
 		"first":  "hello",
 		"second": "world"}).(traits.Mapper)
@@ -476,7 +475,7 @@ func TestStringMapIterator(t *testing.T) {
 }
 
 func TestDynamicMapSize(t *testing.T) {
-	reg := NewRegistry()
+	reg := newTestRegistry(t)
 	mapValue := NewDynamicMap(reg, map[string]int{
 		"first":  1,
 		"second": 2}).(traits.Mapper)
@@ -486,7 +485,7 @@ func TestDynamicMapSize(t *testing.T) {
 }
 
 func TestStringMapSize(t *testing.T) {
-	reg := NewRegistry()
+	reg := newTestRegistry(t)
 	mapValue := NewStringStringMap(reg, map[string]string{
 		"first":  "hello",
 		"second": "world"}).(traits.Mapper)
@@ -502,7 +501,7 @@ func TestProtoMap(t *testing.T) {
 		"welcome": "back",
 	}
 	msg := &proto3pb.TestAllTypes{MapStringString: strMap}
-	reg := NewRegistry(msg)
+	reg := newTestRegistry(t, msg)
 	obj := reg.NativeToValue(msg).(traits.Indexer)
 
 	// Test a simple proto map of string string.
@@ -600,7 +599,7 @@ func TestProtoMapConvertToNative(t *testing.T) {
 		"welcome": "back",
 	}
 	msg := &proto3pb.TestAllTypes{MapStringString: strMap}
-	reg := NewRegistry(msg)
+	reg := newTestRegistry(t, msg)
 	obj := reg.NativeToValue(msg).(traits.Indexer)
 	// Test a simple proto map of string string.
 	field := obj.Get(String("map_string_string"))
@@ -684,7 +683,7 @@ func TestProtoMapConvertToNative_NestedProto(t *testing.T) {
 		},
 	}
 	msg := &proto3pb.TestAllTypes{MapInt64NestedType: nestedTypeMap}
-	reg := NewRegistry(msg)
+	reg := newTestRegistry(t, msg)
 	obj := reg.NativeToValue(msg).(traits.Indexer)
 	// Test a simple proto map of string string.
 	field := obj.Get(String("map_int64_nested_type"))

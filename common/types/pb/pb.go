@@ -55,9 +55,7 @@ func NewDb() *Db {
 	for k, v := range DefaultDb.revFileDescriptorMap {
 		pbdb.revFileDescriptorMap[k] = v
 	}
-	for _, f := range DefaultDb.files {
-		pbdb.files = append(pbdb.files, f)
-	}
+	pbdb.files = append(pbdb.files, DefaultDb.files...)
 	return pbdb
 }
 

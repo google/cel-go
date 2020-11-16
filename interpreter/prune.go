@@ -381,7 +381,7 @@ func (p *astPruner) existsWithKnownValue(id int64) bool {
 }
 
 func (p *astPruner) nextID() int64 {
-	for true {
+	for {
 		_, found := p.state.Value(p.nextExprID)
 		if found {
 			break

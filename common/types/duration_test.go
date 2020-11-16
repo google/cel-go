@@ -62,10 +62,16 @@ func TestDurationConvertToNative(t *testing.T) {
 		t.Errorf("Got '%v', expected backing proto message value", err)
 	}
 	val, err = dur.ConvertToNative(reflect.TypeOf(Duration{}))
+	if err != nil {
+		t.Fatalf("ConvertToNative() failed: %v", err)
+	}
 	if !reflect.DeepEqual(val, dur) {
 		t.Errorf("got value %v, wanted %v", val, dur)
 	}
 	val, err = dur.ConvertToNative(reflect.TypeOf(time.Duration(0)))
+	if err != nil {
+		t.Fatalf("ConvertToNative() failed: %v", err)
+	}
 	if !reflect.DeepEqual(val, dur.Duration) {
 		t.Errorf("got value %v, wanted %v", val, dur.Duration)
 	}

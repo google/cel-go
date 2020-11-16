@@ -27,7 +27,7 @@ import (
 )
 
 func TestJsonListValue_Add(t *testing.T) {
-	reg := NewRegistry()
+	reg := newTestRegistry(t)
 	listA := NewJSONList(reg, &structpb.ListValue{Values: []*structpb.Value{
 		structpb.NewStringValue("hello"),
 		structpb.NewNumberValue(1)}})
@@ -69,7 +69,7 @@ func TestJsonListValue_Add(t *testing.T) {
 }
 
 func TestJsonListValue_Contains_SingleElemType(t *testing.T) {
-	list := NewJSONList(NewRegistry(), &structpb.ListValue{Values: []*structpb.Value{
+	list := NewJSONList(newTestRegistry(t), &structpb.ListValue{Values: []*structpb.Value{
 		structpb.NewNumberValue(3.3),
 		structpb.NewNumberValue(1)}})
 	if !list.Contains(Double(1)).(Bool) {
@@ -81,7 +81,7 @@ func TestJsonListValue_Contains_SingleElemType(t *testing.T) {
 }
 
 func TestJsonListValue_Contains_MixedElemType(t *testing.T) {
-	list := NewJSONList(NewRegistry(), &structpb.ListValue{Values: []*structpb.Value{
+	list := NewJSONList(newTestRegistry(t), &structpb.ListValue{Values: []*structpb.Value{
 		structpb.NewStringValue("hello"),
 		structpb.NewNumberValue(1)}})
 	if !list.Contains(Double(1)).(Bool) {
@@ -98,7 +98,7 @@ func TestJsonListValue_Contains_MixedElemType(t *testing.T) {
 }
 
 func TestJsonListValue_ConvertToNative_Json(t *testing.T) {
-	list := NewJSONList(NewRegistry(), &structpb.ListValue{Values: []*structpb.Value{
+	list := NewJSONList(newTestRegistry(t), &structpb.ListValue{Values: []*structpb.Value{
 		structpb.NewStringValue("hello"),
 		structpb.NewNumberValue(1)}})
 	listVal, err := list.ConvertToNative(jsonListValueType)
@@ -121,7 +121,7 @@ func TestJsonListValue_ConvertToNative_Json(t *testing.T) {
 }
 
 func TestJsonListValue_ConvertToNative_Slice(t *testing.T) {
-	reg := NewRegistry()
+	reg := newTestRegistry(t)
 	list := NewJSONList(reg, &structpb.ListValue{Values: []*structpb.Value{
 		structpb.NewStringValue("hello"),
 		structpb.NewNumberValue(1)}})
@@ -138,7 +138,7 @@ func TestJsonListValue_ConvertToNative_Slice(t *testing.T) {
 }
 
 func TestJsonListValue_ConvertToNative_Any(t *testing.T) {
-	list := NewJSONList(NewRegistry(), &structpb.ListValue{Values: []*structpb.Value{
+	list := NewJSONList(newTestRegistry(t), &structpb.ListValue{Values: []*structpb.Value{
 		structpb.NewStringValue("hello"),
 		structpb.NewNumberValue(1)}})
 	anyVal, err := list.ConvertToNative(anyValueType)
@@ -155,7 +155,7 @@ func TestJsonListValue_ConvertToNative_Any(t *testing.T) {
 }
 
 func TestJsonListValue_ConvertToType(t *testing.T) {
-	list := NewJSONList(NewRegistry(), &structpb.ListValue{Values: []*structpb.Value{
+	list := NewJSONList(newTestRegistry(t), &structpb.ListValue{Values: []*structpb.Value{
 		structpb.NewStringValue("hello"),
 		structpb.NewNumberValue(1)}})
 	if list.ConvertToType(TypeType) != ListType {
@@ -170,11 +170,11 @@ func TestJsonListValue_ConvertToType(t *testing.T) {
 }
 
 func TestJsonListValue_Equal(t *testing.T) {
-	listA := NewJSONList(NewRegistry(), &structpb.ListValue{Values: []*structpb.Value{
+	listA := NewJSONList(newTestRegistry(t), &structpb.ListValue{Values: []*structpb.Value{
 		structpb.NewNumberValue(-3),
 		structpb.NewStringValue("hello")},
 	})
-	listB := NewJSONList(NewRegistry(), &structpb.ListValue{Values: []*structpb.Value{
+	listB := NewJSONList(newTestRegistry(t), &structpb.ListValue{Values: []*structpb.Value{
 		structpb.NewNumberValue(2),
 		structpb.NewStringValue("hello")}})
 	if listA.Equal(listB).(Bool) || listB.Equal(listA).(Bool) {
@@ -192,7 +192,7 @@ func TestJsonListValue_Equal(t *testing.T) {
 }
 
 func TestJsonListValue_Get_OutOfRange(t *testing.T) {
-	list := NewJSONList(NewRegistry(), &structpb.ListValue{Values: []*structpb.Value{
+	list := NewJSONList(newTestRegistry(t), &structpb.ListValue{Values: []*structpb.Value{
 		structpb.NewStringValue("hello"),
 		structpb.NewNumberValue(1)}})
 	if !IsError(list.Get(Int(-1))) {
@@ -207,7 +207,7 @@ func TestJsonListValue_Get_OutOfRange(t *testing.T) {
 }
 
 func TestJsonListValue_Iterator(t *testing.T) {
-	list := NewJSONList(NewRegistry(), &structpb.ListValue{Values: []*structpb.Value{
+	list := NewJSONList(newTestRegistry(t), &structpb.ListValue{Values: []*structpb.Value{
 		structpb.NewStringValue("hello"),
 		structpb.NewNumberValue(1),
 		structpb.NewNumberValue(2),

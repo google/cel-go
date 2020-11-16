@@ -342,9 +342,9 @@ func (a *reflectMapAccessor) Find(key ref.Val) (ref.Val, bool) {
 		return &Err{err}, false
 	}
 	var refKey reflect.Value
-	switch k.(type) {
+	switch k := k.(type) {
 	case reflect.Value:
-		refKey = k.(reflect.Value)
+		refKey = k
 	default:
 		refKey = reflect.ValueOf(k)
 	}

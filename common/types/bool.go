@@ -133,11 +133,11 @@ func (b Bool) Value() interface{} {
 
 // IsBool returns whether the input ref.Val or ref.Type is equal to BoolType.
 func IsBool(elem interface{}) bool {
-	switch elem.(type) {
+	switch elem := elem.(type) {
 	case ref.Type:
 		return elem == BoolType
 	case ref.Val:
-		return IsBool(elem.(ref.Val).Type())
+		return IsBool(elem.Type())
 	}
 	return false
 }

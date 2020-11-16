@@ -476,14 +476,15 @@ func (a *maybeAttribute) AddQualifier(qual Qualifier) (Attribute, error) {
 	for _, attr := range a.attrs {
 		if isStr && len(attr.Qualifiers()) == 0 {
 			candidateVars := attr.CandidateVariableNames()
-			augmentedNames = make([]string,
-				len(candidateVars),
-				len(candidateVars))
+			augmentedNames = make([]string, len(candidateVars))
 			for i, name := range candidateVars {
 				augmentedNames[i] = fmt.Sprintf("%s.%s", name, str)
 			}
 		}
-		attr.AddQualifier(qual)
+		_, err := attr.AddQualifier(qual)
+		if err != nil {
+			return nil, err
+		}
 	}
 	// Next, ensure the most specific variable / type reference is searched first.
 	a.attrs = append([]NamespacedAttribute{

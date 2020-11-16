@@ -1623,23 +1623,24 @@ func TestCheck(t *testing.T) {
 	for i, tst := range testCases {
 		name := fmt.Sprintf("%d %s", i, tst.I)
 		tc := tst
-		t.Run(name, func(tt *testing.T) {
+		t.Run(name, func(t *testing.T) {
 			// Runs the tests in parallel to ensure that there are no data races
 			// due to shared mutable state across tests.
-			tt.Parallel()
+			t.Parallel()
 
 			src := common.NewTextSource(tc.I)
 			expression, errors := parser.Parse(src)
 			if len(errors.GetErrors()) > 0 {
-				tt.Fatalf("Unexpected parse errors: %v", errors.ToDisplayString())
+				t.Fatalf("Unexpected parse errors: %v", errors.ToDisplayString())
 			}
 
-			reg := types.NewRegistry()
-			reg.RegisterMessage(&proto2pb.TestAllTypes{})
-			reg.RegisterMessage(&proto3pb.TestAllTypes{})
+			reg, err := types.NewRegistry(&proto2pb.TestAllTypes{}, &proto3pb.TestAllTypes{})
+			if err != nil {
+				t.Fatalf("types.NewRegistry() failed: %v", err)
+			}
 			cont, err := containers.NewContainer(containers.Name(tc.Container))
 			if err != nil {
-				tt.Fatal(err)
+				t.Fatalf("containers.NewContainer() failed: %v", err)
 			}
 			env := NewStandardEnv(cont, reg)
 			if tc.DisableStdEnv {
@@ -1664,26 +1665,26 @@ func TestCheck(t *testing.T) {
 				errorString := errors.ToDisplayString()
 				if tc.Error != "" {
 					if !test.Compare(errorString, tc.Error) {
-						tt.Error(test.DiffMessage("Error mismatch", errorString, tc.Error))
+						t.Error(test.DiffMessage("Error mismatch", errorString, tc.Error))
 					}
 				} else {
-					tt.Errorf("Unexpected type-check errors: %v", errorString)
+					t.Errorf("Unexpected type-check errors: %v", errorString)
 				}
 			} else if tc.Error != "" {
-				tt.Errorf("Expected error not thrown: %s", tc.Error)
+				t.Errorf("Expected error not thrown: %s", tc.Error)
 			}
 
 			actual := semantics.TypeMap[expression.Expr.Id]
 			if tc.Error == "" {
 				if actual == nil || !proto.Equal(actual, tc.Type) {
-					tt.Error(test.DiffMessage("Type Error", actual, tc.Type))
+					t.Error(test.DiffMessage("Type Error", actual, tc.Type))
 				}
 			}
 
 			if tc.R != "" {
 				actualStr := Print(expression.Expr, semantics)
 				if !test.Compare(actualStr, tc.R) {
-					tt.Error(test.DiffMessage("Structure error", actualStr, tc.R))
+					t.Error(test.DiffMessage("Structure error", actualStr, tc.R))
 				}
 			}
 		})

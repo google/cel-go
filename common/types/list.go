@@ -380,7 +380,7 @@ func (l *concatList) Type() ref.Type {
 // Value implements the ref.Val interface method.
 func (l *concatList) Value() interface{} {
 	if l.value == nil {
-		merged := make([]interface{}, l.Size().(Int), l.Size().(Int))
+		merged := make([]interface{}, l.Size().(Int))
 		prevLen := l.prevList.Size().(Int)
 		for i := Int(0); i < prevLen; i++ {
 			merged[i] = l.prevList.Get(i).Value()

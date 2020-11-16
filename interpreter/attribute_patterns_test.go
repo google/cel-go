@@ -183,7 +183,7 @@ var patternTests = map[string]patternTest{
 }
 
 func TestAttributePattern_UnknownResolution(t *testing.T) {
-	reg := types.NewRegistry()
+	reg := newTestRegistry(t)
 	for nm, tc := range patternTests {
 		tst := tc
 		t.Run(nm, func(tt *testing.T) {
@@ -236,7 +236,7 @@ func TestAttributePattern_UnknownResolution(t *testing.T) {
 }
 
 func TestAttributePattern_CrossReference(t *testing.T) {
-	reg := types.NewRegistry()
+	reg := newTestRegistry(t)
 	fac := NewPartialAttributeFactory(containers.DefaultContainer, reg, reg)
 	a := fac.AbsoluteAttribute(1, "a")
 	b := fac.AbsoluteAttribute(2, "b")

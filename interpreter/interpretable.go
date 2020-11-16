@@ -533,7 +533,7 @@ func (fn *evalVarArgs) ID() int64 {
 
 // Eval implements the Interpretable interface method.
 func (fn *evalVarArgs) Eval(ctx Activation) ref.Val {
-	argVals := make([]ref.Val, len(fn.args), len(fn.args))
+	argVals := make([]ref.Val, len(fn.args))
 	// Early return if any argument to the function is unknown or error.
 	for i, arg := range fn.args {
 		argVals[i] = arg.Eval(ctx)
@@ -591,7 +591,7 @@ func (l *evalList) ID() int64 {
 
 // Eval implements the Interpretable interface method.
 func (l *evalList) Eval(ctx Activation) ref.Val {
-	elemVals := make([]ref.Val, len(l.elems), len(l.elems))
+	elemVals := make([]ref.Val, len(l.elems))
 	// If any argument is unknown or error early terminate.
 	for i, elem := range l.elems {
 		elemVal := elem.Eval(ctx)

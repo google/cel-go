@@ -30,7 +30,7 @@ import (
 )
 
 func TestNewProtoObject(t *testing.T) {
-	reg := NewRegistry()
+	reg := newTestRegistry(t)
 	parsedExpr := &exprpb.ParsedExpr{
 		SourceInfo: &exprpb.SourceInfo{
 			LineOffsets: []int32{1, 2, 3}}}
@@ -49,7 +49,7 @@ func TestNewProtoObject(t *testing.T) {
 }
 
 func TestProtoObjectConvertToNative(t *testing.T) {
-	reg := NewRegistry(&exprpb.Expr{})
+	reg := newTestRegistry(t, &exprpb.Expr{})
 	msg := &exprpb.ParsedExpr{
 		SourceInfo: &exprpb.SourceInfo{
 			LineOffsets: []int32{1, 2, 3}}}
@@ -127,7 +127,7 @@ func TestProtoObjectIsSet(t *testing.T) {
 			LineOffsets: []int32{1, 2, 3},
 		},
 	}
-	reg := NewRegistry(msg)
+	reg := newTestRegistry(t, msg)
 	objVal := reg.NativeToValue(msg).(*protoObj)
 	if objVal.IsSet(String("source_info")) != True {
 		t.Error("got 'source_info' not set, wanted set")
@@ -149,7 +149,7 @@ func TestProtoObjectGet(t *testing.T) {
 			LineOffsets: []int32{1, 2, 3},
 		},
 	}
-	reg := NewRegistry(msg)
+	reg := newTestRegistry(t, msg)
 	objVal := reg.NativeToValue(msg).(*protoObj)
 	if objVal.Get(String("source_info")).Equal(reg.NativeToValue(msg.GetSourceInfo())) != True {
 		t.Error("could not get 'source_info'")
@@ -171,7 +171,7 @@ func TestProtoObjectConvertToType(t *testing.T) {
 			LineOffsets: []int32{1, 2, 3},
 		},
 	}
-	reg := NewRegistry(msg)
+	reg := newTestRegistry(t, msg)
 	objVal := reg.NativeToValue(msg)
 	tv := objVal.Type().(*TypeValue)
 	if objVal.ConvertToType(TypeType).Equal(tv) != True {

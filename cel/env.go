@@ -115,7 +115,10 @@ func NewEnv(opts ...EnvOption) (*Env, error) {
 // See the EnvOption helper functions for the options that can be used to configure the
 // environment.
 func NewCustomEnv(opts ...EnvOption) (*Env, error) {
-	registry := types.NewRegistry()
+	registry, err := types.NewRegistry()
+	if err != nil {
+		return nil, err
+	}
 	return (&Env{
 		declarations: []*exprpb.Decl{},
 		macros:       []parser.Macro{},

@@ -39,7 +39,7 @@ func TestTypeRegistryCopy(t *testing.T) {
 	if !reflect.DeepEqual(reg, reg2) {
 		t.Fatal("type registry copy did not produce equivalent values.")
 	}
-	reg = NewRegistry()
+	reg = newTestRegistry(t)
 	reg2 = reg.Copy()
 	if !reflect.DeepEqual(reg, reg2) {
 		t.Fatal("type registry copy did not produce equivalent values.")
@@ -47,7 +47,7 @@ func TestTypeRegistryCopy(t *testing.T) {
 }
 
 func TestTypeRegistryEnumValue(t *testing.T) {
-	reg := NewRegistry()
+	reg := newTestRegistry(t)
 	err := reg.RegisterDescriptor(proto3pb.GlobalEnum_GOO.Descriptor().ParentFile())
 	if err != nil {
 		t.Fatalf("RegisterDescriptor() failed: %v", err)
@@ -66,7 +66,7 @@ func TestTypeRegistryEnumValue(t *testing.T) {
 }
 
 func TestTypeRegistryFindType(t *testing.T) {
-	reg := NewRegistry()
+	reg := newTestRegistry(t)
 	err := reg.RegisterDescriptor(proto3pb.GlobalEnum_GOO.Descriptor().ParentFile())
 	if err != nil {
 		t.Fatalf("RegisterDescriptor() failed: %v", err)
@@ -91,7 +91,7 @@ func TestTypeRegistryFindType(t *testing.T) {
 }
 
 func TestTypeRegistryNewValue(t *testing.T) {
-	reg := NewRegistry(&exprpb.ParsedExpr{})
+	reg := newTestRegistry(t, &exprpb.ParsedExpr{})
 	sourceInfo := reg.NewValue(
 		"google.api.expr.v1alpha1.SourceInfo",
 		map[string]ref.Val{
@@ -114,7 +114,7 @@ func TestTypeRegistryNewValue(t *testing.T) {
 }
 
 func TestTypeRegistryNewValue_OneofFields(t *testing.T) {
-	reg := NewRegistry(&exprpb.ParsedExpr{})
+	reg := newTestRegistry(t, &exprpb.ParsedExpr{})
 	if exp := reg.NewValue(
 		"google.api.expr.v1alpha1.Expr",
 		map[string]ref.Val{
@@ -135,7 +135,7 @@ func TestTypeRegistryNewValue_OneofFields(t *testing.T) {
 }
 
 func TestTypeRegistryGetters(t *testing.T) {
-	reg := NewRegistry(&exprpb.ParsedExpr{})
+	reg := newTestRegistry(t, &exprpb.ParsedExpr{})
 	if sourceInfo := reg.NewValue(
 		"google.api.expr.v1alpha1.SourceInfo",
 		map[string]ref.Val{
@@ -171,7 +171,7 @@ func TestTypeRegistryGetters(t *testing.T) {
 }
 
 func TestConvertToNative(t *testing.T) {
-	reg := NewRegistry(&exprpb.ParsedExpr{})
+	reg := newTestRegistry(t, &exprpb.ParsedExpr{})
 
 	// Core type conversion tests.
 	expectValueToNative(t, True, true)
@@ -199,7 +199,7 @@ func TestConvertToNative(t *testing.T) {
 }
 
 func TestNativeToValue_Any(t *testing.T) {
-	reg := NewRegistry(&exprpb.ParsedExpr{})
+	reg := newTestRegistry(t, &exprpb.ParsedExpr{})
 	// NullValue
 	anyValue, err := NullValue.ConvertToNative(anyValueType)
 	if err != nil {
@@ -260,7 +260,7 @@ func TestNativeToValue_Any(t *testing.T) {
 }
 
 func TestNativeToValue_Json(t *testing.T) {
-	reg := NewRegistry(&exprpb.ParsedExpr{})
+	reg := newTestRegistry(t, &exprpb.ParsedExpr{})
 	// Json primitive conversion test.
 	expectNativeToValue(t, structpb.NewBoolValue(false), False)
 	expectNativeToValue(t, structpb.NewNumberValue(1.1), Double(1.1))
@@ -329,7 +329,7 @@ func TestNativeToValue_Wrappers(t *testing.T) {
 }
 
 func TestNativeToValue_Primitive(t *testing.T) {
-	reg := NewRegistry()
+	reg := newTestRegistry(t)
 
 	// Core type conversions.
 	expectNativeToValue(t, true, True)
@@ -399,7 +399,7 @@ func TestNativeToValue_Primitive(t *testing.T) {
 }
 
 func TestUnsupportedConversion(t *testing.T) {
-	reg := NewRegistry()
+	reg := newTestRegistry(t)
 	if val := reg.NativeToValue(nonConvertible{}); !IsError(val) {
 		t.Error("Expected error when converting non-proto struct to proto", val)
 	}
@@ -430,7 +430,7 @@ func expectValueToNative(t *testing.T, in ref.Val, out interface{}) {
 
 func expectNativeToValue(t *testing.T, in interface{}, out ref.Val) {
 	t.Helper()
-	reg := NewRegistry(&exprpb.ParsedExpr{})
+	reg := newTestRegistry(t, &exprpb.ParsedExpr{})
 	if val := reg.NativeToValue(in); IsError(val) {
 		t.Error(val)
 	} else {
@@ -442,7 +442,10 @@ func expectNativeToValue(t *testing.T, in interface{}, out ref.Val) {
 }
 
 func BenchmarkNativeToValue(b *testing.B) {
-	reg := NewRegistry()
+	reg, err := NewRegistry()
+	if err != nil {
+		b.Fatalf("NewRegistry() failed: %v", err)
+	}
 	inputs := []interface{}{
 		true,
 		false,
@@ -466,7 +469,10 @@ func BenchmarkNativeToValue(b *testing.B) {
 }
 
 func BenchmarkTypeProvider_NewValue(b *testing.B) {
-	reg := NewRegistry(&exprpb.ParsedExpr{})
+	reg, err := NewRegistry(&exprpb.ParsedExpr{})
+	if err != nil {
+		b.Fatalf("NewRegistry() failed: %v", err)
+	}
 	for i := 0; i < b.N; i++ {
 		reg.NewValue(
 			"google.api.expr.v1.SourceInfo",
@@ -488,3 +494,12 @@ type testUint32 uint32
 type testUint64 uint64
 type testFloat32 float32
 type testFloat64 float64
+
+func newTestRegistry(t *testing.T, types ...proto.Message) ref.TypeRegistry {
+	t.Helper()
+	reg, err := NewRegistry(types...)
+	if err != nil {
+		t.Fatalf("NewRegistry(%v) failed: %v", types, err)
+	}
+	return reg
+}

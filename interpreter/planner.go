@@ -256,7 +256,7 @@ func (p *planner) planCall(expr *exprpb.Expr) (Interpretable, error) {
 		offset++
 	}
 
-	args := make([]Interpretable, argCount, argCount)
+	args := make([]Interpretable, argCount)
 	if target != nil {
 		arg, err := p.Plan(target)
 		if err != nil {
@@ -513,7 +513,7 @@ func (p *planner) planCallIndex(expr *exprpb.Expr,
 // planCreateList generates a list construction Interpretable.
 func (p *planner) planCreateList(expr *exprpb.Expr) (Interpretable, error) {
 	list := expr.GetListExpr()
-	elems := make([]Interpretable, len(list.GetElements()), len(list.GetElements()))
+	elems := make([]Interpretable, len(list.GetElements()))
 	for i, elem := range list.GetElements() {
 		elemVal, err := p.Plan(elem)
 		if err != nil {

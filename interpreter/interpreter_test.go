@@ -1007,9 +1007,9 @@ var (
 			},
 			attrs: &custAttrFactory{
 				AttributeFactory: NewAttributeFactory(
-					safeContainer("google.expr.proto3.test"),
-					types.NewRegistry(),
-					types.NewRegistry(),
+					testContainer("google.expr.proto3.test"),
+					types.DefaultTypeAdapter,
+					types.NewEmptyRegistry(),
 				),
 			},
 			in: map[string]interface{}{
@@ -1075,7 +1075,7 @@ var (
 
 func BenchmarkInterpreter(b *testing.B) {
 	for _, tst := range testData {
-		prg, vars, err := program(&tst, Optimize())
+		prg, vars, err := program(b, &tst, Optimize())
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -1092,7 +1092,7 @@ func BenchmarkInterpreter(b *testing.B) {
 
 func BenchmarkInterpreter_Parallel(b *testing.B) {
 	for _, tst := range testData {
-		prg, vars, err := program(&tst, Optimize())
+		prg, vars, err := program(b, &tst, Optimize())
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -1111,7 +1111,7 @@ func BenchmarkInterpreter_Parallel(b *testing.B) {
 func TestInterpreter(t *testing.T) {
 	for _, tst := range testData {
 		tc := tst
-		prg, vars, err := program(&tc)
+		prg, vars, err := program(t, &tc)
 		if err != nil {
 			t.Fatalf("%s: %v", tc.name, err)
 		}
@@ -1149,7 +1149,7 @@ func TestInterpreter(t *testing.T) {
 				"track":      TrackState(state),
 			}
 			for mode, opt := range opts {
-				prg, vars, err = program(&tc, opt)
+				prg, vars, err = program(t, &tc, opt)
 				if err != nil {
 					tt.Fatal(err)
 				}
@@ -1196,7 +1196,7 @@ func TestInterpreter(t *testing.T) {
 }
 
 func TestInterpreter_ProtoAttributeOpt(t *testing.T) {
-	inst, _, err := program(&testCase{
+	inst, _, err := program(t, &testCase{
 		name:  "nested_proto_field_with_index",
 		expr:  `pb3.map_int64_nested_type[0].child.payload.single_int32`,
 		types: []proto.Message{&proto3pb.TestAllTypes{}},
@@ -1249,7 +1249,7 @@ func TestInterpreter_LogicalAndMissingType(t *testing.T) {
 		t.Errorf(errors.ToDisplayString())
 	}
 
-	reg := types.NewRegistry()
+	reg := newTestRegistry(t)
 	cont := containers.DefaultContainer
 	attrs := NewAttributeFactory(cont, reg, reg)
 	intr := NewStandardInterpreter(cont, reg, reg, attrs)
@@ -1268,7 +1268,7 @@ func TestInterpreter_ExhaustiveConditionalExpr(t *testing.T) {
 
 	state := NewEvalState()
 	cont := containers.DefaultContainer
-	reg := types.NewRegistry(&exprpb.ParsedExpr{})
+	reg := newTestRegistry(t, &exprpb.ParsedExpr{})
 	attrs := NewAttributeFactory(cont, reg, reg)
 	intr := NewStandardInterpreter(cont, reg, reg, attrs)
 	interpretable, _ := intr.NewUncheckedInterpretable(
@@ -1301,8 +1301,8 @@ func TestInterpreter_ExhaustiveLogicalOrEquals(t *testing.T) {
 	}
 
 	state := NewEvalState()
-	reg := types.NewRegistry(&exprpb.Expr{})
-	cont := safeContainer("test")
+	reg := newTestRegistry(t, &exprpb.Expr{})
+	cont := testContainer("test")
 	attrs := NewAttributeFactory(cont, reg, reg)
 	interp := NewStandardInterpreter(cont, reg, reg, attrs)
 	i, _ := interp.NewUncheckedInterpretable(
@@ -1341,8 +1341,8 @@ func TestInterpreter_SetProto2PrimitiveFields(t *testing.T) {
 		t.Errorf(errors.ToDisplayString())
 	}
 
-	cont := safeContainer("google.expr.proto2.test")
-	reg := types.NewRegistry(&proto2pb.TestAllTypes{})
+	cont := testContainer("google.expr.proto2.test")
+	reg := newTestRegistry(t, &proto2pb.TestAllTypes{})
 	env := checker.NewStandardEnv(cont, reg)
 	env.Add(decls.NewVar("input", decls.NewObjectType("google.expr.proto2.test.TestAllTypes")))
 	checked, errors := checker.Check(parsed, src, env)
@@ -1394,8 +1394,8 @@ func TestInterpreter_MissingIdentInSelect(t *testing.T) {
 		t.Fatalf(errors.ToDisplayString())
 	}
 
-	cont := safeContainer("test")
-	reg := types.NewRegistry()
+	cont := testContainer("test")
+	reg := newTestRegistry(t)
 	env := checker.NewStandardEnv(cont, reg)
 	env.Add(decls.NewVar("a.b", decls.Dyn))
 	checked, errors := checker.Check(parsed, src, env)
@@ -1455,7 +1455,7 @@ func TestInterpreter_TypeConversionOpt(t *testing.T) {
 			t.Fatalf(errors.ToDisplayString())
 		}
 		cont := containers.DefaultContainer
-		reg := types.NewRegistry()
+		reg := newTestRegistry(t)
 		env := checker.NewStandardEnv(cont, reg)
 		checked, errors := checker.Check(parsed, src, env)
 		if len(errors.GetErrors()) != 0 {
@@ -1496,17 +1496,16 @@ func TestInterpreter_TypeConversionOpt(t *testing.T) {
 	}
 }
 
-func safeContainer(name string) *containers.Container {
+func testContainer(name string) *containers.Container {
 	cont, _ := containers.NewContainer(containers.Name(name))
 	return cont
 }
 
-func program(tst *testCase,
-	opts ...InterpretableDecorator) (Interpretable, Activation, error) {
+func program(ctx interface{}, tst *testCase, opts ...InterpretableDecorator) (Interpretable, Activation, error) {
 	// Configure the package.
 	cont := containers.DefaultContainer
 	if tst.container != "" {
-		cont = safeContainer(tst.container)
+		cont = testContainer(tst.container)
 	}
 	var err error
 	if tst.abbrevs != nil {
@@ -1517,9 +1516,18 @@ func program(tst *testCase,
 			return nil, nil, err
 		}
 	}
-	reg := types.NewRegistry()
-	if tst.types != nil {
-		reg = types.NewRegistry(tst.types...)
+	var reg ref.TypeRegistry
+	switch t := ctx.(type) {
+	case *testing.T:
+		reg = newTestRegistry(t)
+		if tst.types != nil {
+			reg = newTestRegistry(t, tst.types...)
+		}
+	case *testing.B:
+		reg = newBenchRegistry(t)
+		if tst.types != nil {
+			reg = newBenchRegistry(t, tst.types...)
+		}
 	}
 	attrs := NewAttributeFactory(cont, reg, reg)
 	if tst.attrs != nil {
@@ -1598,4 +1606,22 @@ func isFieldQual(q Qualifier, fieldName string) bool {
 		return false
 	}
 	return f.Name == fieldName
+}
+
+func newBenchRegistry(b *testing.B, msgs ...proto.Message) ref.TypeRegistry {
+	b.Helper()
+	reg, err := types.NewRegistry(msgs...)
+	if err != nil {
+		b.Fatalf("types.NewRegistry(%v) failed: %v", msgs, err)
+	}
+	return reg
+}
+
+func newTestRegistry(t *testing.T, msgs ...proto.Message) ref.TypeRegistry {
+	t.Helper()
+	reg, err := types.NewRegistry(msgs...)
+	if err != nil {
+		t.Fatalf("types.NewRegistry(%v) failed: %v", msgs, err)
+	}
+	return reg
 }

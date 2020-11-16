@@ -33,7 +33,7 @@ import (
 )
 
 func TestAttributes_AbsoluteAttr(t *testing.T) {
-	reg := types.NewRegistry()
+	reg := newTestRegistry(t)
 	cont, err := containers.NewContainer(containers.Name("acme.ns"))
 	if err != nil {
 		t.Fatal(err)
@@ -71,7 +71,7 @@ func TestAttributes_AbsoluteAttr(t *testing.T) {
 }
 
 func TestAttributes_AbsoluteAttr_Type(t *testing.T) {
-	reg := types.NewRegistry()
+	reg := newTestRegistry(t)
 	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
 
 	// int
@@ -90,7 +90,7 @@ func TestAttributes_AbsoluteAttr_Type(t *testing.T) {
 }
 
 func TestAttributes_RelativeAttr(t *testing.T) {
-	reg := types.NewRegistry()
+	reg := newTestRegistry(t)
 	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
 	data := map[string]interface{}{
 		"a": map[int]interface{}{
@@ -128,7 +128,7 @@ func TestAttributes_RelativeAttr(t *testing.T) {
 }
 
 func TestAttributes_RelativeAttr_OneOf(t *testing.T) {
-	reg := types.NewRegistry()
+	reg := newTestRegistry(t)
 	cont, err := containers.NewContainer(containers.Name("acme.ns"))
 	if err != nil {
 		t.Fatal(err)
@@ -177,7 +177,7 @@ func TestAttributes_RelativeAttr_OneOf(t *testing.T) {
 }
 
 func TestAttributes_RelativeAttr_Conditional(t *testing.T) {
-	reg := types.NewRegistry()
+	reg := newTestRegistry(t)
 	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
 	data := map[string]interface{}{
 		"a": map[int]interface{}{
@@ -231,7 +231,7 @@ func TestAttributes_RelativeAttr_Relative(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	reg := types.NewRegistry()
+	reg := newTestRegistry(t)
 	attrs := NewAttributeFactory(cont, reg, reg)
 	data := map[string]interface{}{
 		"a": map[int]interface{}{
@@ -301,7 +301,7 @@ func TestAttributes_RelativeAttr_Relative(t *testing.T) {
 }
 
 func TestAttributes_OneofAttr(t *testing.T) {
-	reg := types.NewRegistry()
+	reg := newTestRegistry(t)
 	cont, err := containers.NewContainer(containers.Name("acme.ns"))
 	if err != nil {
 		t.Fatal(err)
@@ -334,7 +334,7 @@ func TestAttributes_OneofAttr(t *testing.T) {
 }
 
 func TestAttributes_ConditionalAttr_TrueBranch(t *testing.T) {
-	reg := types.NewRegistry()
+	reg := newTestRegistry(t)
 	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
 	data := map[string]interface{}{
 		"a": map[int]interface{}{
@@ -372,7 +372,7 @@ func TestAttributes_ConditionalAttr_TrueBranch(t *testing.T) {
 }
 
 func TestAttributes_ConditionalAttr_FalseBranch(t *testing.T) {
-	reg := types.NewRegistry()
+	reg := newTestRegistry(t)
 	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
 	data := map[string]interface{}{
 		"a": map[int]interface{}{
@@ -410,7 +410,7 @@ func TestAttributes_ConditionalAttr_FalseBranch(t *testing.T) {
 }
 
 func TestAttributes_ConditionalAttr_ErrorUnknown(t *testing.T) {
-	reg := types.NewRegistry()
+	reg := newTestRegistry(t)
 	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
 
 	// err ? a : b
@@ -443,7 +443,7 @@ func TestAttributes_ConditionalAttr_ErrorUnknown(t *testing.T) {
 }
 
 func TestResolver_CustomQualifier(t *testing.T) {
-	reg := types.NewRegistry()
+	reg := newTestRegistry(t)
 	attrs := &custAttrFactory{
 		AttributeFactory: NewAttributeFactory(containers.DefaultContainer, reg, reg),
 	}
@@ -474,7 +474,7 @@ func TestResolver_CustomQualifier(t *testing.T) {
 }
 
 func TestAttributes_MissingMsg(t *testing.T) {
-	reg := types.NewRegistry()
+	reg := newTestRegistry(t)
 	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
 	any, _ := anypb.New(&proto3pb.TestAllTypes{})
 	vars, _ := NewActivation(map[string]interface{}{
@@ -495,7 +495,7 @@ func TestAttributes_MissingMsg(t *testing.T) {
 }
 
 func TestAttributes_MissingMsg_UnknownField(t *testing.T) {
-	reg := types.NewRegistry()
+	reg := newTestRegistry(t)
 	attrs := NewPartialAttributeFactory(containers.DefaultContainer, reg, reg)
 	any, _ := anypb.New(&proto3pb.TestAllTypes{})
 	vars, _ := NewPartialActivation(map[string]interface{}{
@@ -640,7 +640,7 @@ func TestAttribute_StateTracking(t *testing.T) {
 				tt.Fatalf(errors.ToDisplayString())
 			}
 			cont := containers.DefaultContainer
-			reg := types.NewRegistry()
+			reg := newTestRegistry(t)
 			env := checker.NewStandardEnv(cont, reg)
 			if tc.env != nil {
 				env.Add(tc.env...)
@@ -680,7 +680,7 @@ func TestAttribute_StateTracking(t *testing.T) {
 }
 
 func BenchmarkResolver_CustomQualifier(b *testing.B) {
-	reg := types.NewRegistry()
+	reg := newBenchRegistry(b)
 	attrs := &custAttrFactory{
 		AttributeFactory: NewAttributeFactory(containers.DefaultContainer, reg, reg),
 	}

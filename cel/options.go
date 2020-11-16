@@ -285,10 +285,7 @@ func registerFiles(reg ref.TypeRegistry, files *protoregistry.Files) error {
 	var err error
 	files.RangeFiles(func(fd protoreflect.FileDescriptor) bool {
 		err = reg.RegisterDescriptor(fd)
-		if err != nil {
-			return false
-		}
-		return true
+		return err == nil
 	})
 	return err
 }

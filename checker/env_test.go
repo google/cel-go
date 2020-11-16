@@ -22,12 +22,13 @@ import (
 	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 func TestOverlappingIdentifier(t *testing.T) {
-	env := NewStandardEnv(containers.DefaultContainer, types.NewRegistry())
+	env := NewStandardEnv(containers.DefaultContainer, newTestRegistry(t))
 	err := env.Add(
 		decls.NewVar("int", decls.NewTypeType(nil)))
 	if err == nil {
@@ -38,7 +39,7 @@ func TestOverlappingIdentifier(t *testing.T) {
 }
 
 func TestOverlappingMacro(t *testing.T) {
-	env := NewStandardEnv(containers.DefaultContainer, types.NewRegistry())
+	env := NewStandardEnv(containers.DefaultContainer, newTestRegistry(t))
 	err := env.Add(decls.NewFunction("has",
 		decls.NewOverload("has", []*exprpb.Type{decls.String}, decls.Bool)))
 	if err == nil {
@@ -49,7 +50,7 @@ func TestOverlappingMacro(t *testing.T) {
 }
 
 func TestOverlappingOverload(t *testing.T) {
-	env := NewStandardEnv(containers.DefaultContainer, types.NewRegistry())
+	env := NewStandardEnv(containers.DefaultContainer, newTestRegistry(t))
 	paramA := decls.NewTypeParamType("A")
 	typeParamAList := []string{"A"}
 	err := env.Add(decls.NewFunction(overloads.TypeConvertDyn,
@@ -61,4 +62,13 @@ func TestOverlappingOverload(t *testing.T) {
 	} else if !strings.Contains(err.Error(), "overlapping overload") {
 		t.Errorf("Got %v, wanted overlapping overload error", err)
 	}
+}
+
+func newTestRegistry(t *testing.T) ref.TypeRegistry {
+	t.Helper()
+	reg, err := types.NewRegistry()
+	if err != nil {
+		t.Fatalf("types.NewRegistry() failed: %v", err)
+	}
+	return reg
 }

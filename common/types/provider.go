@@ -39,12 +39,12 @@ type protoTypeRegistry struct {
 // NewRegistry accepts a list of proto message instances and returns a type
 // provider which can create new instances of the provided message or any
 // message that proto depends upon in its FileDescriptor.
-func NewRegistry(types ...proto.Message) ref.TypeRegistry {
+func NewRegistry(types ...proto.Message) (ref.TypeRegistry, error) {
 	p := &protoTypeRegistry{
 		revTypeMap: make(map[string]ref.Type),
 		pbdb:       pb.NewDb(),
 	}
-	p.RegisterType(
+	err := p.RegisterType(
 		BoolType,
 		BytesType,
 		DoubleType,
@@ -57,17 +57,23 @@ func NewRegistry(types ...proto.Message) ref.TypeRegistry {
 		TimestampType,
 		TypeType,
 		UintType)
+	if err != nil {
+		return nil, err
+	}
 
 	for _, fd := range p.pbdb.FileDescriptions() {
-		p.registerAllTypes(fd)
-	}
-	for _, msgType := range types {
-		err := p.RegisterMessage(msgType)
+		err = p.registerAllTypes(fd)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 	}
-	return p
+	for _, msgType := range types {
+		err = p.RegisterMessage(msgType)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return p, nil
 }
 
 // NewEmptyRegistry returns a registry which is completely unconfigured.
@@ -152,7 +158,10 @@ func (p *protoTypeRegistry) NewValue(typeName string, fields map[string]ref.Val)
 		if !found {
 			return NewErr("no such field: %s", name)
 		}
-		msgSetField(msg, field, value)
+		err := msgSetField(msg, field, value)
+		if err != nil {
+			return &Err{err}
+		}
 	}
 	return p.NativeToValue(msg.Interface())
 }

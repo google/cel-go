@@ -806,7 +806,10 @@ func Benchmark_EvalOptions(b *testing.B) {
 			b.ResetTimer()
 			b.ReportAllocs()
 			for i := 0; i < bb.N; i++ {
-				prg.Eval(vars)
+				_, _, err := prg.Eval(vars)
+				if err != nil {
+					b.Fatal(err)
+				}
 			}
 		})
 	}
