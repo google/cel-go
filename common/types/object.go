@@ -113,7 +113,6 @@ func (o *protoObj) Equal(other ref.Val) ref.Val {
 	if o.typeDesc.Name() != other.Type().TypeName() {
 		return MaybeNoSuchOverloadErr(other)
 	}
-	fmt.Printf("this is valid %v, other is value %v\n", o.value.ProtoReflect().IsValid(), other.Value().(proto.Message).ProtoReflect().IsValid())
 	return Bool(proto.Equal(o.value, other.Value().(proto.Message)))
 }
 

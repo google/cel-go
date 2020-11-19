@@ -114,23 +114,50 @@ func TestTypeRegistryNewValue(t *testing.T) {
 }
 
 func TestTypeRegistryNewValue_OneofFields(t *testing.T) {
-	reg := newTestRegistry(t, &exprpb.ParsedExpr{})
-	if exp := reg.NewValue(
-		"google.api.expr.v1alpha1.Expr",
+	reg := newTestRegistry(t, &exprpb.CheckedExpr{}, &exprpb.ParsedExpr{})
+	exp := reg.NewValue(
+		"google.api.expr.v1alpha1.CheckedExpr",
 		map[string]ref.Val{
-			"const_expr": reg.NativeToValue(
-				&exprpb.Constant{
-					ConstantKind: &exprpb.Constant_StringValue{
-						StringValue: "oneof"}}),
-		}); IsError(exp) {
-		t.Error(exp)
-	} else {
-		e := exp.Value().(proto.Message)
-		exp := &exprpb.Expr{}
-		proto.Merge(exp, e)
-		if exp.GetConstExpr().GetStringValue() != "oneof" {
-			t.Errorf("Expr with oneof could not be created: %v", e)
-		}
+			"expr": reg.NewValue(
+				"google.api.expr.v1alpha1.Expr",
+				map[string]ref.Val{
+					"const_expr": reg.NewValue(
+						"google.api.expr.v1alpha1.Constant",
+						map[string]ref.Val{
+							"string_value": String("oneof"),
+						}),
+				}),
+		})
+	if IsError(exp) {
+		t.Fatalf("reg.NewValue() creation failed: %v", exp)
+	}
+	e, err := exp.ConvertToNative(reflect.TypeOf(&exprpb.CheckedExpr{}))
+	if err != nil {
+		t.Fatalf("ConvertToNative() failed: %v", err)
+	}
+	ce := e.(*exprpb.CheckedExpr)
+	if ce.GetExpr().GetConstExpr().GetStringValue() != "oneof" {
+		t.Errorf("Expr with oneof could not be created: %v", ce)
+	}
+}
+
+func TestTypeRegistryNewValue_WrapperFields(t *testing.T) {
+	reg := newTestRegistry(t, &proto3pb.TestAllTypes{})
+	exp := reg.NewValue(
+		"google.expr.proto3.test.TestAllTypes",
+		map[string]ref.Val{
+			"single_int32_wrapper": Int(123),
+		})
+	if IsError(exp) {
+		t.Fatalf("reg.NewValue() creation failed: %v", exp)
+	}
+	e, err := exp.ConvertToNative(reflect.TypeOf(&proto3pb.TestAllTypes{}))
+	if err != nil {
+		t.Fatalf("ConvertToNative() failed: %v", err)
+	}
+	ce := e.(*proto3pb.TestAllTypes)
+	if ce.GetSingleInt32Wrapper().GetValue() != int32(123) {
+		t.Errorf("single_int32_wrapper value %v not set to 123", ce)
 	}
 }
 

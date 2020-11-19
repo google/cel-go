@@ -15,11 +15,12 @@
 package test
 
 import (
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/structpb"
 	"github.com/google/cel-go/common/operators"
 
+	"google.golang.org/protobuf/proto"
+
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 )
 
 // TestExpr packages an Expr with SourceInfo, for testing.

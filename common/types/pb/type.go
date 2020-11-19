@@ -43,7 +43,7 @@ type description interface {
 // lazily initialization of the type which is done atomically.
 func NewTypeDescription(typeName string, desc protoreflect.MessageDescriptor) *TypeDescription {
 	msgType := dynamicpb.NewMessageType(desc)
-	msgZero := dynamicpb.NewMessage(desc).Interface()
+	msgZero := dynamicpb.NewMessage(desc)
 	fieldMap := map[string]*FieldDescription{}
 	fields := desc.Fields()
 	for i := 0; i < fields.Len(); i++ {
@@ -56,8 +56,8 @@ func NewTypeDescription(typeName string, desc protoreflect.MessageDescriptor) *T
 		msgType:      msgType,
 		wrapperField: wrapperMsg(desc),
 		fieldMap:     fieldMap,
-		reflectType:  reflect.TypeOf(msgZero),
-		zeroMsg:      msgZero,
+		reflectType:  reflectTypeOf(msgZero),
+		zeroMsg:      zeroValueOf(msgZero),
 	}
 }
 
@@ -130,9 +130,9 @@ func NewFieldDescription(fieldDesc protoreflect.FieldDescriptor) *FieldDescripti
 		reflectType = reflect.TypeOf(protoreflect.EnumNumber(0))
 	case protoreflect.MessageKind:
 		zeroMsg = dynamicpb.NewMessage(fieldDesc.Message())
-		reflectType = reflect.TypeOf(zeroMsg)
+		reflectType = reflectTypeOf(zeroMsg)
 	default:
-		reflectType = reflect.TypeOf(fieldDesc.Default().Interface())
+		reflectType = reflectTypeOf(fieldDesc.Default().Interface())
 		if fieldDesc.IsList() {
 			parentMsg := dynamicpb.NewMessage(fieldDesc.ContainingMessage())
 			listField := parentMsg.NewField(fieldDesc).List()
@@ -141,7 +141,7 @@ func NewFieldDescription(fieldDesc protoreflect.FieldDescriptor) *FieldDescripti
 			case protoreflect.Message:
 				elem = elemType.Interface()
 			}
-			reflectType = reflect.TypeOf(elem)
+			reflectType = reflectTypeOf(elem)
 		}
 	}
 	if fieldDesc.IsList() {
@@ -159,7 +159,7 @@ func NewFieldDescription(fieldDesc protoreflect.FieldDescriptor) *FieldDescripti
 		ValueType:    valType,
 		wrapperField: wrapperDesc,
 		reflectType:  reflectType,
-		zeroMsg:      zeroMsg,
+		zeroMsg:      zeroValueOf(zeroMsg),
 	}
 }
 
@@ -472,3 +472,44 @@ func unwrapDynamic(desc description, refMsg protoreflect.Message) (interface{}, 
 	}
 	return msg, false
 }
+
+func reflectTypeOf(val interface{}) reflect.Type {
+	switch v := val.(type) {
+	case proto.Message:
+		return reflect.TypeOf(zeroValueOf(v))
+	default:
+		return reflect.TypeOf(v)
+	}
+}
+
+func zeroValueOf(msg proto.Message) proto.Message {
+	if msg == nil {
+		return nil
+	}
+	typeName := string(msg.ProtoReflect().Descriptor().FullName())
+	zeroVal, found := zeroValueMap[typeName]
+	if found {
+		return zeroVal
+	}
+	return msg
+}
+
+var (
+	zeroValueMap = map[string]proto.Message{
+		"google.protobuf.Any":         &anypb.Any{},
+		"google.protobuf.Duration":    &dpb.Duration{},
+		"google.protobuf.ListValue":   &structpb.ListValue{},
+		"google.protobuf.Struct":      &structpb.Struct{},
+		"google.protobuf.Timestamp":   &tpb.Timestamp{},
+		"google.protobuf.Value":       &structpb.Value{},
+		"google.protobuf.BoolValue":   wrapperspb.Bool(false),
+		"google.protobuf.BytesValue":  wrapperspb.Bytes([]byte{}),
+		"google.protobuf.DoubleValue": wrapperspb.Double(0.0),
+		"google.protobuf.FloatValue":  wrapperspb.Float(0.0),
+		"google.protobuf.Int32Value":  wrapperspb.Int32(0),
+		"google.protobuf.Int64Value":  wrapperspb.Int64(0),
+		"google.protobuf.StringValue": wrapperspb.String(""),
+		"google.protobuf.UInt32Value": wrapperspb.UInt32(0),
+		"google.protobuf.UInt64Value": wrapperspb.UInt64(0),
+	}
+)

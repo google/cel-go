@@ -1098,8 +1098,8 @@ func BenchmarkInterpreter_Parallel(b *testing.B) {
 		}
 		b.ResetTimer()
 		b.Run(tst.name,
-			func(bb *testing.B) {
-				bb.RunParallel(func(pb *testing.PB) {
+			func(b *testing.B) {
+				b.RunParallel(func(pb *testing.PB) {
 					for pb.Next() {
 						prg.Eval(vars)
 					}
@@ -1115,8 +1115,8 @@ func TestInterpreter(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: %v", tc.name, err)
 		}
-		t.Run(tc.name, func(tt *testing.T) {
-			tt.Parallel()
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
 			var want ref.Val = types.True
 			if tc.out != nil {
@@ -1126,20 +1126,20 @@ func TestInterpreter(t *testing.T) {
 			_, expectUnk := want.(types.Unknown)
 			if expectUnk {
 				if !reflect.DeepEqual(got, want) {
-					tt.Fatalf("Got %v, wanted %v", got, want)
+					t.Fatalf("Got %v, wanted %v", got, want)
 				}
 			} else if tc.err != "" {
 				if !types.IsError(got) || got.(*types.Err).String() != tc.err {
-					tt.Fatalf("Got %v (%T), wanted error: %s", got, got, tc.err)
+					t.Fatalf("Got %v (%T), wanted error: %s", got, got, tc.err)
 				}
 			} else if got.Equal(want) != types.True {
-				tt.Fatalf("Got %v, wanted %v", got, want)
+				t.Fatalf("Got %v, wanted %v", got, want)
 			}
 
 			if tc.cost != nil {
 				minCost, maxCost := estimateCost(prg)
 				if minCost != tc.cost[0] || maxCost != tc.cost[1] {
-					tt.Errorf("Got cost interval [%v, %v], wanted %v", minCost, maxCost, tc.cost)
+					t.Errorf("Got cost interval [%v, %v], wanted %v", minCost, maxCost, tc.cost)
 				}
 			}
 			state := NewEvalState()
@@ -1151,21 +1151,21 @@ func TestInterpreter(t *testing.T) {
 			for mode, opt := range opts {
 				prg, vars, err = program(t, &tc, opt)
 				if err != nil {
-					tt.Fatal(err)
+					t.Fatal(err)
 				}
-				tt.Run(mode, func(ttt *testing.T) {
+				t.Run(mode, func(t *testing.T) {
 					got := prg.Eval(vars)
 					_, expectUnk := want.(types.Unknown)
 					if expectUnk {
 						if !reflect.DeepEqual(got, want) {
-							ttt.Errorf("Got %v, wanted %v", got, want)
+							t.Errorf("Got %v, wanted %v", got, want)
 						}
 					} else if tc.err != "" {
 						if !types.IsError(got) || got.(*types.Err).String() != tc.err {
-							ttt.Errorf("Got %v (%T), wanted error: %s", got, got, tc.err)
+							t.Errorf("Got %v (%T), wanted error: %s", got, got, tc.err)
 						}
 					} else if got.Equal(want) != types.True {
-						ttt.Errorf("Got %v, wanted %v", got, want)
+						t.Errorf("Got %v, wanted %v", got, want)
 					}
 					if mode == "exhaustive" && tc.cost != nil {
 						wantedCost := tc.cost
@@ -1174,7 +1174,7 @@ func TestInterpreter(t *testing.T) {
 						}
 						minCost, maxCost := estimateCost(prg)
 						if minCost != wantedCost[0] || maxCost != wantedCost[1] {
-							ttt.Errorf("Got exhaustive cost interval [%v, %v], wanted %v",
+							t.Errorf("Got exhaustive cost interval [%v, %v], wanted %v",
 								minCost, maxCost, wantedCost)
 						}
 					}
@@ -1185,7 +1185,7 @@ func TestInterpreter(t *testing.T) {
 						}
 						minCost, maxCost := estimateCost(prg)
 						if minCost != wantedCost[0] || maxCost != wantedCost[1] {
-							ttt.Errorf("Got optimize cost interval [%v, %v], wanted %v", minCost, maxCost, tc.cost)
+							t.Errorf("Got optimize cost interval [%v, %v], wanted %v", minCost, maxCost, tc.cost)
 						}
 					}
 					state.Reset()

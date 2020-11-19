@@ -22,6 +22,7 @@ import (
 
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	durpb "google.golang.org/protobuf/types/known/durationpb"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 	tspb "google.golang.org/protobuf/types/known/timestamppb"
 	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
@@ -170,6 +171,7 @@ func init() {
 	// where the message is declared.
 	DefaultDb.RegisterMessage(&anypb.Any{})
 	DefaultDb.RegisterMessage(&durpb.Duration{})
+	DefaultDb.RegisterMessage(&emptypb.Empty{})
 	DefaultDb.RegisterMessage(&tspb.Timestamp{})
 	DefaultDb.RegisterMessage(&structpb.Value{})
 	DefaultDb.RegisterMessage(&wrapperspb.BoolValue{})
