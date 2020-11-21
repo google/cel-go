@@ -34,6 +34,7 @@ import (
 	"github.com/google/cel-go/parser"
 
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protodesc"
 
 	proto2pb "github.com/google/cel-go/test/proto2pb"
 	proto3pb "github.com/google/cel-go/test/proto3pb"
@@ -191,7 +192,7 @@ func Test_ExampleWithBuiltins(t *testing.T) {
 	}
 }
 
-func Test_Abbrevs_Compiled(t *testing.T) {
+func TestAbbrevs_Compiled(t *testing.T) {
 	// Test whether abbreviations successfully resolve at type-check time (compile time).
 	env, err := NewEnv(
 		Abbrevs("qualified.identifier.name"),
@@ -223,7 +224,7 @@ func Test_Abbrevs_Compiled(t *testing.T) {
 	}
 }
 
-func Test_Abbrevs_Parsed(t *testing.T) {
+func TestAbbrevs_Parsed(t *testing.T) {
 	// Test whether abbreviations are resolved properly at evaluation time.
 	env, err := NewEnv(
 		Abbrevs("qualified.identifier.name"),
@@ -254,7 +255,7 @@ func Test_Abbrevs_Parsed(t *testing.T) {
 	}
 }
 
-func Test_Abbrevs_Disambiguation(t *testing.T) {
+func TestAbbrevs_Disambiguation(t *testing.T) {
 	env, err := NewEnv(
 		Abbrevs("external.Expr"),
 		Container("google.api.expr.v1alpha1"),
@@ -306,7 +307,7 @@ func Test_Abbrevs_Disambiguation(t *testing.T) {
 	}
 }
 
-func Test_CustomEnvError(t *testing.T) {
+func TestCustomEnvError(t *testing.T) {
 	e, err := NewCustomEnv(StdLib(), StdLib())
 	if err != nil {
 		t.Fatal(err)
@@ -317,7 +318,7 @@ func Test_CustomEnvError(t *testing.T) {
 	}
 }
 
-func Test_CustomEnv(t *testing.T) {
+func TestCustomEnv(t *testing.T) {
 	e, _ := NewCustomEnv(
 		Declarations(decls.NewVar("a.b.c", decls.Bool)))
 
@@ -341,7 +342,7 @@ func Test_CustomEnv(t *testing.T) {
 	})
 }
 
-func Test_HomogeneousAggregateLiterals(t *testing.T) {
+func TestHomogeneousAggregateLiterals(t *testing.T) {
 	e, _ := NewCustomEnv(
 		Declarations(
 			decls.NewVar("name", decls.String),
@@ -412,7 +413,7 @@ func Test_HomogeneousAggregateLiterals(t *testing.T) {
 	})
 }
 
-func Test_CustomTypes(t *testing.T) {
+func TestCustomTypes(t *testing.T) {
 	exprType := decls.NewObjectType("google.api.expr.v1alpha1.Expr")
 	reg := types.NewEmptyRegistry()
 	e, _ := NewEnv(
@@ -467,7 +468,7 @@ func Test_CustomTypes(t *testing.T) {
 	}
 }
 
-func Test_TypeIsolation(t *testing.T) {
+func TestTypeIsolation(t *testing.T) {
 	b, err := ioutil.ReadFile("testdata/team.fds")
 	if err != nil {
 		t.Fatal("can't read fds file: ", err)
@@ -483,7 +484,7 @@ func Test_TypeIsolation(t *testing.T) {
 			decls.NewVar("myteam",
 				decls.NewObjectType("cel.testdata.Team"))))
 	if err != nil {
-		t.Fatal("can't create env: ", err)
+		t.Fatalf("NewEnv() failed: %v", err)
 	}
 
 	src := "myteam.members[0].name == 'Cyclops'"
@@ -503,7 +504,65 @@ func Test_TypeIsolation(t *testing.T) {
 	}
 }
 
-func Test_GlobalVars(t *testing.T) {
+func TestDynamicProto(t *testing.T) {
+	b, err := ioutil.ReadFile("testdata/team.fds")
+	if err != nil {
+		t.Fatalf("ioutil.ReadFile() failed: %v", err)
+	}
+	var fds descpb.FileDescriptorSet
+	if err = proto.Unmarshal(b, &fds); err != nil {
+		t.Fatalf("proto.Unmarshal() failed: %v", err)
+	}
+	files := (&fds).GetFile()
+	fileCopy := make([]interface{}, len(files))
+	for i := 0; i < len(files); i++ {
+		fileCopy[i] = files[i]
+	}
+	pbFiles, err := protodesc.NewFiles(&fds)
+	if err != nil {
+		t.Fatalf("protodesc.NewFiles() failed: %v", err)
+	}
+	e, err := NewEnv(
+		Container("cel"),
+		// The following is identical to registering the FileDescriptorSet;
+		// however, it tests a different code path which aggregates individual
+		// FileDescriptorProto values together.
+		TypeDescs(fileCopy...),
+		// Additionally, demonstrate that double registration of files doesn't
+		// cause any problems.
+		TypeDescs(pbFiles),
+	)
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	src := `testdata.Team{name: 'X-Men', members: [
+		testdata.Mutant{name: 'Jean Grey', level: 20},
+		testdata.Mutant{name: 'Cyclops', level: 7},
+		testdata.Mutant{name: 'Storm', level: 7},
+		testdata.Mutant{name: 'Wolverine', level: 11}
+	]}`
+	ast, iss := e.Compile(src)
+	if iss.Err() != nil {
+		t.Fatalf("env.Compile(%s) failed: %v", src, iss.Err())
+	}
+	prg, err := e.Program(ast, EvalOptions(OptOptimize))
+	if err != nil {
+		t.Fatalf("env.Program() failed: %v", err)
+	}
+	out, _, err := prg.Eval(NoVars())
+	if err != nil {
+		t.Fatalf("program.Eval() failed: %v", err)
+	}
+	obj, ok := out.(traits.Indexer)
+	if !ok {
+		t.Fatalf("unable to convert output to object: %v", out)
+	}
+	if obj.Get(types.String("name")).Equal(types.String("X-Men")) == types.False {
+		t.Fatalf("got field 'name' %v, wanted X-Men", obj.Get(types.String("name")))
+	}
+}
+
+func TestGlobalVars(t *testing.T) {
 	mapStrDyn := decls.NewMapType(decls.String, decls.Dyn)
 	e, _ := NewEnv(
 		Declarations(
@@ -578,7 +637,7 @@ func Test_GlobalVars(t *testing.T) {
 	})
 }
 
-func Test_CustomMacro(t *testing.T) {
+func TestCustomMacro(t *testing.T) {
 	joinMacro := parser.NewReceiverMacro("join", 1,
 		func(eh parser.ExprHelper,
 			target *exprpb.Expr,
@@ -630,7 +689,7 @@ func Test_CustomMacro(t *testing.T) {
 	}
 }
 
-func Test_EvalOptions(t *testing.T) {
+func TestEvalOptions(t *testing.T) {
 	e, _ := NewEnv(
 		Declarations(
 			decls.NewVar("k", decls.String),
@@ -673,7 +732,7 @@ func Test_EvalOptions(t *testing.T) {
 	}
 }
 
-func Test_EvalRecover(t *testing.T) {
+func TestEvalRecover(t *testing.T) {
 	e, _ := NewEnv(
 		Declarations(
 			decls.NewFunction("panic",
@@ -700,7 +759,7 @@ func Test_EvalRecover(t *testing.T) {
 	}
 }
 
-func Test_ResidualAst(t *testing.T) {
+func TestResidualAst(t *testing.T) {
 	e, _ := NewEnv(
 		Declarations(
 			decls.NewVar("x", decls.Int),
@@ -732,7 +791,7 @@ func Test_ResidualAst(t *testing.T) {
 	}
 }
 
-func Test_ResidualAst_Complex(t *testing.T) {
+func TestResidualAst_Complex(t *testing.T) {
 	e, _ := NewEnv(
 		Declarations(
 			decls.NewVar("resource.name", decls.String),
@@ -815,7 +874,7 @@ func Benchmark_EvalOptions(b *testing.B) {
 	}
 }
 
-func Test_EnvExtension(t *testing.T) {
+func TestEnvExtension(t *testing.T) {
 	e, _ := NewEnv(
 		Container("google.api.expr.v1alpha1"),
 		Types(&exprpb.Expr{}),
@@ -846,7 +905,7 @@ func Test_EnvExtension(t *testing.T) {
 	}
 }
 
-func Test_EnvExtensionIsolation(t *testing.T) {
+func TestEnvExtensionIsolation(t *testing.T) {
 	baseEnv, err := NewEnv(
 		Container("google.expr"),
 		Declarations(
@@ -899,7 +958,7 @@ func Test_EnvExtensionIsolation(t *testing.T) {
 	}
 }
 
-func Test_ParseAndCheckConcurrently(t *testing.T) {
+func TestParseAndCheckConcurrently(t *testing.T) {
 	e, _ := NewEnv(
 		Container("google.api.expr.v1alpha1"),
 		Types(&exprpb.Expr{}),
@@ -929,7 +988,7 @@ func Test_ParseAndCheckConcurrently(t *testing.T) {
 	wgDone.Wait()
 }
 
-func Test_CustomInterpreterDecorator(t *testing.T) {
+func TestCustomInterpreterDecorator(t *testing.T) {
 	var lastInstruction interpreter.Interpretable
 	optimizeArith := func(i interpreter.Interpretable) (interpreter.Interpretable, error) {
 		lastInstruction = i
@@ -955,7 +1014,7 @@ func Test_CustomInterpreterDecorator(t *testing.T) {
 			}
 			val := call.Eval(interpreter.EmptyActivation())
 			if types.IsError(val) {
-				return nil, val.Value().(error)
+				return nil, val.(*types.Err)
 			}
 			return interpreter.NewConstValue(call.ID(), val), nil
 		default:
@@ -997,7 +1056,7 @@ func Test_CustomInterpreterDecorator(t *testing.T) {
 	}
 }
 
-func Test_Cost(t *testing.T) {
+func TestCost(t *testing.T) {
 	e, err := NewEnv()
 	if err != nil {
 		log.Fatalf("environment creation error: %s\n", err)
@@ -1032,7 +1091,7 @@ func Test_Cost(t *testing.T) {
 	}
 }
 
-func Test_ResidualAst_AttributeQualifiers(t *testing.T) {
+func TestResidualAst_AttributeQualifiers(t *testing.T) {
 	e, _ := NewEnv(
 		Declarations(
 			decls.NewVar("x", decls.NewMapType(decls.String, decls.Dyn)),
@@ -1073,7 +1132,7 @@ func Test_ResidualAst_AttributeQualifiers(t *testing.T) {
 	}
 }
 
-func Test_ResidualAst_Modified(t *testing.T) {
+func TestResidualAst_Modified(t *testing.T) {
 	e, _ := NewEnv(
 		Declarations(
 			decls.NewVar("x", decls.NewMapType(decls.String, decls.Int)),

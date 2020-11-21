@@ -229,48 +229,56 @@ func Types(addTypes ...interface{}) EnvOption {
 	}
 }
 
-// TypeDescs adds type declarations for one or more protocol buffer
-// FileDescriptorProtos or FileDescriptorSets.  Note that types added
-// via descriptor will not be able to instantiate messages, and so are
-// only useful for Check() operations.
+// TypeDescs adds type declarations from any protoreflect.FileDescriptor, protoregistry.Files,
+// google.protobuf.FileDescriptorProto or google.protobuf.FileDescriptorSet provided.
+//
+// Note that messages instantiated from these descriptors will be *dynamicpb.Message values
+// rather than the concrete message type.
 func TypeDescs(descs ...interface{}) EnvOption {
 	return func(e *Env) (*Env, error) {
 		reg, isReg := e.provider.(ref.TypeRegistry)
 		if !isReg {
 			return nil, fmt.Errorf("custom types not supported by provider: %T", e.provider)
 		}
+		var fds *descpb.FileDescriptorSet
 		for _, d := range descs {
-			switch p := d.(type) {
+			switch f := d.(type) {
+			case *descpb.FileDescriptorProto:
+				if fds == nil {
+					fds = &descpb.FileDescriptorSet{
+						File: []*descpb.FileDescriptorProto{},
+					}
+				}
+				fds.File = append(fds.File, f)
+			}
+		}
+		if fds != nil {
+			if err := registerFileSet(reg, fds); err != nil {
+				return nil, err
+			}
+		}
+		for _, d := range descs {
+			switch f := d.(type) {
 			case *protoregistry.Files:
-				if err := registerFiles(reg, p); err != nil {
+				if err := registerFiles(reg, f); err != nil {
 					return nil, err
 				}
 			case protoreflect.FileDescriptor:
-				if err := reg.RegisterDescriptor(p); err != nil {
+				if err := reg.RegisterDescriptor(f); err != nil {
 					return nil, err
 				}
 			case *descpb.FileDescriptorSet:
-				if err := registerFileSet(reg, p); err != nil {
+				if err := registerFileSet(reg, f); err != nil {
 					return nil, err
 				}
 			case *descpb.FileDescriptorProto:
-				if err := registerFileProto(reg, p); err != nil {
-					return nil, err
-				}
+				// skip, handled as a synthetic file descriptor set.
 			default:
 				return nil, fmt.Errorf("unsupported type descriptor: %T", d)
 			}
 		}
 		return e, nil
 	}
-}
-
-func registerFileProto(reg ref.TypeRegistry, fileProto *descpb.FileDescriptorProto) error {
-	file, err := protodesc.NewFile(fileProto, protoregistry.GlobalFiles)
-	if err != nil {
-		return fmt.Errorf("protodesc.NewFile(%q) failed: %v", fileProto.GetName(), err)
-	}
-	return reg.RegisterDescriptor(file)
 }
 
 func registerFileSet(reg ref.TypeRegistry, fileSet *descpb.FileDescriptorSet) error {

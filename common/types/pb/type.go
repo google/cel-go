@@ -30,17 +30,20 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
+// description is a private interface used to make it convenient to perform type unwrapping at
+// the TypeDescription or FieldDescription level.
 type description interface {
+	// WrapperField returns non-nil when the description object is a protobuf wrapper types and has
+	// a 'Value' field.
 	WrapperField() protoreflect.FieldDescriptor
+
+	// Zero returns an empty immutable protobuf message when the description is a protobuf message
+	// type.
 	Zero() proto.Message
 }
 
 // NewTypeDescription produces a TypeDescription value for the fully-qualified proto type name
 // with a given descriptor.
-//
-// The type description creation method also expects the type to be marked clearly as a proto2 or
-// proto3 type, and accepts a typeResolver reference for resolving field TypeDescription during
-// lazily initialization of the type which is done atomically.
 func NewTypeDescription(typeName string, desc protoreflect.MessageDescriptor) *TypeDescription {
 	msgType := dynamicpb.NewMessageType(desc)
 	msgZero := dynamicpb.NewMessage(desc)
@@ -127,7 +130,7 @@ func NewFieldDescription(fieldDesc protoreflect.FieldDescriptor) *FieldDescripti
 	var zeroMsg proto.Message
 	switch fieldDesc.Kind() {
 	case protoreflect.EnumKind:
-		reflectType = reflect.TypeOf(protoreflect.EnumNumber(0))
+		reflectType = reflectTypeOf(protoreflect.EnumNumber(0))
 	case protoreflect.MessageKind:
 		zeroMsg = dynamicpb.NewMessage(fieldDesc.Message())
 		reflectType = reflectTypeOf(zeroMsg)
@@ -144,6 +147,7 @@ func NewFieldDescription(fieldDesc protoreflect.FieldDescriptor) *FieldDescripti
 			reflectType = reflectTypeOf(elem)
 		}
 	}
+	// Ensure the list type is appropriately reflected as a Go-native list.
 	if fieldDesc.IsList() {
 		reflectType = reflect.SliceOf(reflectType)
 	}
@@ -165,11 +169,14 @@ func NewFieldDescription(fieldDesc protoreflect.FieldDescriptor) *FieldDescripti
 
 // FieldDescription holds metadata related to fields declared within a type.
 type FieldDescription struct {
+	// KeyType returns the key FieldDescription for map fields.
+	KeyType *FieldDescription
+	// ValueType returns the value FieldDescription for map fields.
+	ValueType *FieldDescription
+
 	desc         protoreflect.FieldDescriptor
-	KeyType      *FieldDescription
-	ValueType    *FieldDescription
-	wrapperField protoreflect.FieldDescriptor
 	reflectType  reflect.Type
+	wrapperField protoreflect.FieldDescriptor
 	zeroMsg      proto.Message
 }
 
@@ -202,15 +209,13 @@ func (fd *FieldDescription) Descriptor() protoreflect.FieldDescriptor {
 // IsSet returns whether the field is set on the target value, per the proto presence conventions
 // of proto2 or proto3 accordingly.
 //
-// The input target may either be a reflect.Value or Go struct type.
+// The input target may either be a proto.Message or protoreflect.Message.
 func (fd *FieldDescription) IsSet(target interface{}) bool {
 	switch v := target.(type) {
 	case protoreflect.Message:
 		return v.Has(fd.desc)
 	case proto.Message:
 		return v.ProtoReflect().Has(fd.desc)
-	case reflect.Value:
-		return fd.IsSet(v.Interface())
 	default:
 		return false
 	}
@@ -220,28 +225,29 @@ func (fd *FieldDescription) IsSet(target interface{}) bool {
 //
 // If the field is not set, the proto default value is returned instead.
 //
-// The input target may either be a reflect.Value or proto.Message type.
+// The input target may either be a proto.Message or protoreflect.Message.
 func (fd *FieldDescription) GetFrom(target interface{}) (interface{}, error) {
-	switch v := target.(type) {
-	case proto.Message:
-		fieldVal := v.ProtoReflect().Get(fd.desc).Interface()
-		switch fv := fieldVal.(type) {
-		case protoreflect.EnumNumber:
-			return int64(fv), nil
-		case protoreflect.List:
-			return &List{List: fv, ElemType: fd}, nil
-		case protoreflect.Map:
-			return &Map{Map: fv, KeyType: fd.KeyType, ValueType: fd.ValueType}, nil
-		case protoreflect.Message:
-			unwrapped, _ := fd.MaybeUnwrapDynamic(fv)
-			return unwrapped, nil
-		default:
-			return fv, nil
-		}
-	case reflect.Value:
-		return fd.GetFrom(v.Interface())
-	default:
+	v, ok := target.(proto.Message)
+	if !ok {
 		return nil, fmt.Errorf("unsupported field selection target: (%T)%v", target, target)
+	}
+	fieldVal := v.ProtoReflect().Get(fd.desc).Interface()
+	switch fv := fieldVal.(type) {
+	// Fast-path return for primitive types.
+	case bool, []byte, float32, float64, int32, int64, string, uint32, uint64, protoreflect.List:
+		return fv, nil
+	case protoreflect.EnumNumber:
+		return int64(fv), nil
+	case protoreflect.Map:
+		// Return a wrapper around the protobuf-reflected Map types which carries additional
+		// information about the key and value definitions of the map.
+		return &Map{Map: fv, KeyType: fd.KeyType, ValueType: fd.ValueType}, nil
+	case protoreflect.Message:
+		// Make sure to unwrap well-known protobuf types before returning.
+		unwrapped, _ := fd.MaybeUnwrapDynamic(fv)
+		return unwrapped, nil
+	default:
+		return fv, nil
 	}
 }
 
@@ -324,13 +330,6 @@ func (fd *FieldDescription) typeDefToType() *exprpb.Type {
 	return CheckedPrimitives[fd.desc.Kind()]
 }
 
-// List wraps the protoreflect.List object with an element type FieldDescription for use in
-// retrieving individual elements within CEL value data types.
-type List struct {
-	protoreflect.List
-	ElemType *FieldDescription
-}
-
 // Map wraps the protoreflect.Map object with a key and value FieldDescription for use in
 // retrieving individual elements within CEL value data types.
 type Map struct {
@@ -383,6 +382,10 @@ func wrapperMsg(msg protoreflect.MessageDescriptor) protoreflect.FieldDescriptor
 	return nil
 }
 
+// unwrap unwraps the provided proto.Message value, potentially based on the description if the
+// input message is a *dynamicpb.Message which obscures the typing information from Go.
+//
+// Returns the unwrapped value and 'true' if unwrapped, otherwise the input value and 'false'.
 func unwrap(desc description, msg proto.Message) (interface{}, bool) {
 	switch v := msg.(type) {
 	case *dynamicpb.Message:
@@ -430,6 +433,9 @@ func unwrap(desc description, msg proto.Message) (interface{}, bool) {
 	return msg, false
 }
 
+// unwrapDynamic unwraps a reflected protobuf Message value.
+//
+// Returns the unwrapped value and 'true' if unwrapped, otherwise the input value and 'false'.
 func unwrapDynamic(desc description, refMsg protoreflect.Message) (interface{}, bool) {
 	if desc.WrapperField() != nil {
 		if !refMsg.IsValid() {
@@ -441,6 +447,8 @@ func unwrapDynamic(desc description, refMsg protoreflect.Message) (interface{}, 
 	if !refMsg.IsValid() {
 		msg = desc.Zero()
 	}
+	// In order to ensure that these wrapped types match the expectations of the CEL type system
+	// the dynamicpb.Message must be merged with an protobuf instance of the well-known type value.
 	typeName := string(refMsg.Descriptor().FullName())
 	switch typeName {
 	case "google.protobuf.Any":
@@ -473,6 +481,8 @@ func unwrapDynamic(desc description, refMsg protoreflect.Message) (interface{}, 
 	return msg, false
 }
 
+// reflectTypeOf intercepts the reflect.Type call to ensure that dynamicpb.Message types preserve
+// well-known protobuf reflected types expected by the CEL type system.
 func reflectTypeOf(val interface{}) reflect.Type {
 	switch v := val.(type) {
 	case proto.Message:
@@ -482,6 +492,8 @@ func reflectTypeOf(val interface{}) reflect.Type {
 	}
 }
 
+// zeroValueOf will return the strongest possible proto.Message representing the default protobuf
+// message value of the input msg type.
 func zeroValueOf(msg proto.Message) proto.Message {
 	if msg == nil {
 		return nil

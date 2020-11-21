@@ -66,9 +66,7 @@ func (b Bytes) Compare(other ref.Val) ref.Val {
 func (b Bytes) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	switch typeDesc.Kind() {
 	case reflect.Array, reflect.Slice:
-		if typeDesc.Elem().Kind() == reflect.Uint8 {
-			return b.Value(), nil
-		}
+		return reflect.ValueOf(b).Convert(typeDesc).Interface(), nil
 	case reflect.Ptr:
 		switch typeDesc {
 		case anyValueType:

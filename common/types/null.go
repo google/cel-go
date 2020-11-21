@@ -42,9 +42,7 @@ var (
 func (n Null) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	switch typeDesc.Kind() {
 	case reflect.Int32:
-		if typeDesc == jsonNullType {
-			return structpb.NullValue_NULL_VALUE, nil
-		}
+		return reflect.ValueOf(n).Convert(typeDesc).Interface(), nil
 	case reflect.Ptr:
 		switch typeDesc {
 		case anyValueType:

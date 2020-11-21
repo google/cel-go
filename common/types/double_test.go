@@ -26,7 +26,7 @@ import (
 	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
-func TestDouble_Add(t *testing.T) {
+func TestDoubleAdd(t *testing.T) {
 	if !Double(4).Add(Double(-3.5)).Equal(Double(0.5)).(Bool) {
 		t.Error("Adding two doubles did not match expected value.")
 	}
@@ -35,7 +35,7 @@ func TestDouble_Add(t *testing.T) {
 	}
 }
 
-func TestDouble_Compare(t *testing.T) {
+func TestDoubleCompare(t *testing.T) {
 	lt := Double(-1300)
 	gt := Double(204)
 	if !lt.Compare(gt).Equal(IntNegOne).(Bool) {
@@ -52,7 +52,7 @@ func TestDouble_Compare(t *testing.T) {
 	}
 }
 
-func TestDouble_ConvertToNative_Any(t *testing.T) {
+func TestDoubleConvertToNative_Any(t *testing.T) {
 	val, err := Double(math.MaxFloat64).ConvertToNative(anyValueType)
 	if err != nil {
 		t.Error(err)
@@ -66,14 +66,14 @@ func TestDouble_ConvertToNative_Any(t *testing.T) {
 	}
 }
 
-func TestDouble_ConvertToNative_Error(t *testing.T) {
+func TestDoubleConvertToNative_Error(t *testing.T) {
 	val, err := Double(-10000).ConvertToNative(reflect.TypeOf(""))
 	if err == nil {
 		t.Errorf("Got '%v', expected error", val)
 	}
 }
 
-func TestDouble_ConvertToNative_Float32(t *testing.T) {
+func TestDoubleConvertToNative_Float32(t *testing.T) {
 	val, err := Double(3.1415).ConvertToNative(reflect.TypeOf(float32(0)))
 	if err != nil {
 		t.Error(err)
@@ -82,7 +82,7 @@ func TestDouble_ConvertToNative_Float32(t *testing.T) {
 	}
 }
 
-func TestDouble_ConvertToNative_Float64(t *testing.T) {
+func TestDoubleConvertToNative_Float64(t *testing.T) {
 	val, err := Double(30000000.1).ConvertToNative(reflect.TypeOf(float64(0)))
 	if err != nil {
 		t.Error(err)
@@ -91,7 +91,7 @@ func TestDouble_ConvertToNative_Float64(t *testing.T) {
 	}
 }
 
-func TestDouble_ConvertToNative_Json(t *testing.T) {
+func TestDoubleConvertToNative_Json(t *testing.T) {
 	val, err := Double(-1.4).ConvertToNative(jsonValueType)
 	pbVal := structpb.NewNumberValue(-1.4)
 	if err != nil {
@@ -126,7 +126,7 @@ func TestDouble_ConvertToNative_Json(t *testing.T) {
 	}
 }
 
-func TestDouble_ConvertToNative_Ptr_Float32(t *testing.T) {
+func TestDoubleConvertToNative_Ptr_Float32(t *testing.T) {
 	ptrType := float32(0)
 	val, err := Double(3.1415).ConvertToNative(reflect.TypeOf(&ptrType))
 	if err != nil {
@@ -136,7 +136,7 @@ func TestDouble_ConvertToNative_Ptr_Float32(t *testing.T) {
 	}
 }
 
-func TestDouble_ConvertToNative_Ptr_Float64(t *testing.T) {
+func TestDoubleConvertToNative_Ptr_Float64(t *testing.T) {
 	ptrType := float64(0)
 	val, err := Double(30000000.1).ConvertToNative(reflect.TypeOf(&ptrType))
 	if err != nil {
@@ -146,7 +146,7 @@ func TestDouble_ConvertToNative_Ptr_Float64(t *testing.T) {
 	}
 }
 
-func TestDouble_ConvertToNative_Wrapper(t *testing.T) {
+func TestDoubleConvertToNative_Wrapper(t *testing.T) {
 	val, err := Double(3.1415).ConvertToNative(floatWrapperType)
 	if err != nil {
 		t.Error(err)
@@ -166,7 +166,7 @@ func TestDouble_ConvertToNative_Wrapper(t *testing.T) {
 	}
 }
 
-func TestDouble_ConvertToType(t *testing.T) {
+func TestDoubleConvertToType(t *testing.T) {
 	if !Double(-4.5).ConvertToType(IntType).Equal(Int(-5)).(Bool) {
 		t.Error("Unsuccessful type conversion to int")
 	}
@@ -187,7 +187,7 @@ func TestDouble_ConvertToType(t *testing.T) {
 	}
 }
 
-func TestDouble_Divide(t *testing.T) {
+func TestDoubleDivide(t *testing.T) {
 	if !Double(3).Divide(Double(1.5)).Equal(Double(2)).(Bool) {
 		t.Error("Dividing two doubles did not match expectations.")
 	}
@@ -200,13 +200,13 @@ func TestDouble_Divide(t *testing.T) {
 	}
 }
 
-func TestDouble_Equal(t *testing.T) {
+func TestDoubleEqual(t *testing.T) {
 	if !IsError(Double(0).Equal(False)) {
 		t.Error("Double equal to non-double resulted in non-error.")
 	}
 }
 
-func TestDouble_Multiply(t *testing.T) {
+func TestDoubleMultiply(t *testing.T) {
 	if !Double(1.1).Multiply(Double(-1.2)).Equal(Double(-1.32)).(Bool) {
 		t.Error("Multiplying two doubles did not match expectations.")
 	}
@@ -215,13 +215,13 @@ func TestDouble_Multiply(t *testing.T) {
 	}
 }
 
-func TestDouble_Negate(t *testing.T) {
+func TestDoubleNegate(t *testing.T) {
 	if !Double(1.1).Negate().Equal(Double(-1.1)).(Bool) {
 		t.Error("Negating double value did not succeed")
 	}
 }
 
-func TestDouble_Subtract(t *testing.T) {
+func TestDoubleSubtract(t *testing.T) {
 	if !Double(4).Subtract(Double(-3.5)).Equal(Double(7.5)).(Bool) {
 		t.Error("Subtracting two doubles did not match expected value.")
 	}

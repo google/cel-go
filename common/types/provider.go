@@ -216,14 +216,14 @@ func (p *protoTypeRegistry) NativeToValue(value interface{}) ref.Val {
 		return NewObject(p, td, typeVal.(*TypeValue), v)
 	case *pb.Map:
 		return NewProtoMap(p, v)
-	case *pb.List:
+	case protoreflect.List:
 		return NewProtoList(p, v)
 	case protoreflect.Message:
 		return p.NativeToValue(v.Interface())
 	case protoreflect.Value:
 		return p.NativeToValue(v.Interface())
 	}
-	return NoSuchTypeConversionForValue(value)
+	return UnsupportedTypeConversionErr(value)
 }
 
 func (p *protoTypeRegistry) registerAllTypes(fd *pb.FileDescription) error {
@@ -249,9 +249,11 @@ func (a *defaultTypeAdapter) NativeToValue(value interface{}) ref.Val {
 	if val, found := nativeToValue(a, value); found {
 		return val
 	}
-	return NoSuchTypeConversionForValue(value)
+	return UnsupportedTypeConversionErr(value)
 }
 
+// nativeToValue returns the converted (ref.Val, true) of a conversion is found,
+// otherwise (nil, false)
 func nativeToValue(a ref.TypeAdapter, value interface{}) (ref.Val, bool) {
 	switch v := value.(type) {
 	case nil:
@@ -358,7 +360,7 @@ func nativeToValue(a ref.TypeAdapter, value interface{}) (ref.Val, bool) {
 		return NewRefValMap(a, v), true
 	case *anypb.Any:
 		if v == nil {
-			return NoSuchTypeConversionForValue(v), true
+			return UnsupportedTypeConversionErr(v), true
 		}
 		unpackedAny, err := v.UnmarshalNew()
 		if err != nil {
@@ -373,9 +375,11 @@ func nativeToValue(a ref.TypeAdapter, value interface{}) (ref.Val, bool) {
 		return NewJSONStruct(a, v), true
 	case ref.Val:
 		return v, true
+	case protoreflect.EnumNumber:
+		return Int(v), true
 	case proto.Message:
 		if v == nil {
-			return NoSuchTypeConversionForValue(v), true
+			return UnsupportedTypeConversionErr(v), true
 		}
 		typeName := string(v.ProtoReflect().Descriptor().FullName())
 		td, found := pb.DefaultDb.DescribeType(typeName)
@@ -387,11 +391,15 @@ func nativeToValue(a ref.TypeAdapter, value interface{}) (ref.Val, bool) {
 			return nil, false
 		}
 		return a.NativeToValue(val), true
+	// Note: dynamicpb.Message implements the proto.Message _and_ protoreflect.Message interfaces
+	// which means that this case must appear after handling a proto.Message type.
+	case protoreflect.Message:
+		return a.NativeToValue(v.Interface()), true
 	default:
 		refValue := reflect.ValueOf(v)
 		if refValue.Kind() == reflect.Ptr {
 			if refValue.IsNil() {
-				return NoSuchTypeConversionForValue(v), true
+				return UnsupportedTypeConversionErr(v), true
 			}
 			refValue = refValue.Elem()
 		}
@@ -431,8 +439,7 @@ func msgSetField(target protoreflect.Message, field *pb.FieldDescription, val re
 		lv := target.NewField(field.Descriptor())
 		list, ok := val.(traits.Lister)
 		if !ok {
-			msgName := field.Descriptor().ContainingMessage().FullName()
-			return fmt.Errorf("unsupported field type for %v.%v: %v", msgName, field.Name(), val.Type())
+			return unsupportedTypeConversionError(field, val)
 		}
 		err := msgSetListField(lv.List(), field, list)
 		if err != nil {
@@ -445,8 +452,7 @@ func msgSetField(target protoreflect.Message, field *pb.FieldDescription, val re
 		mv := target.NewField(field.Descriptor())
 		mp, ok := val.(traits.Mapper)
 		if !ok {
-			msgName := field.Descriptor().ContainingMessage().FullName()
-			return fmt.Errorf("unsupported field type for %v.%v: %v", msgName, field.Name(), val.Type())
+			return unsupportedTypeConversionError(field, val)
 		}
 		err := msgSetMapField(mv.Map(), field, mp)
 		if err != nil {
@@ -457,8 +463,7 @@ func msgSetField(target protoreflect.Message, field *pb.FieldDescription, val re
 	}
 	v, err := val.ConvertToNative(field.ReflectType())
 	if err != nil {
-		msgName := field.Descriptor().ContainingMessage().FullName()
-		return fmt.Errorf("field type conversion error for %v.%v: %v", msgName, field.Name(), err)
+		return fieldTypeConversionError(field, err)
 	}
 	switch v.(type) {
 	case proto.Message:
@@ -468,14 +473,13 @@ func msgSetField(target protoreflect.Message, field *pb.FieldDescription, val re
 	return nil
 }
 
-func msgSetListField(target protoreflect.List, elemType *pb.FieldDescription, listVal traits.Lister) error {
-	elemReflectType := elemType.ReflectType().Elem()
+func msgSetListField(target protoreflect.List, listField *pb.FieldDescription, listVal traits.Lister) error {
+	elemReflectType := listField.ReflectType().Elem()
 	for i := Int(0); i < listVal.Size().(Int); i++ {
 		elem := listVal.Get(i)
 		elemVal, err := elem.ConvertToNative(elemReflectType)
 		if err != nil {
-			msgName := elemType.Descriptor().ContainingMessage().FullName()
-			return fmt.Errorf("field type conversion error for %v.%v: %v", msgName, elemType.Name(), err)
+			return fieldTypeConversionError(listField, err)
 		}
 		switch ev := elemVal.(type) {
 		case proto.Message:
@@ -486,22 +490,20 @@ func msgSetListField(target protoreflect.List, elemType *pb.FieldDescription, li
 	return nil
 }
 
-func msgSetMapField(target protoreflect.Map, entryType *pb.FieldDescription, mapVal traits.Mapper) error {
-	targetKeyType := entryType.KeyType.ReflectType()
-	targetValType := entryType.ValueType.ReflectType()
+func msgSetMapField(target protoreflect.Map, mapField *pb.FieldDescription, mapVal traits.Mapper) error {
+	targetKeyType := mapField.KeyType.ReflectType()
+	targetValType := mapField.ValueType.ReflectType()
 	it := mapVal.Iterator()
 	for it.HasNext() == True {
 		key := it.Next()
 		val := mapVal.Get(key)
 		k, err := key.ConvertToNative(targetKeyType)
 		if err != nil {
-			msgName := entryType.Descriptor().ContainingMessage().FullName()
-			return fmt.Errorf("field type conversion error for %v.%v key type: %v", msgName, entryType.Name(), err)
+			return fieldTypeConversionError(mapField, err)
 		}
 		v, err := val.ConvertToNative(targetValType)
 		if err != nil {
-			msgName := entryType.Descriptor().ContainingMessage().FullName()
-			return fmt.Errorf("field type conversion error for %v.%v value type: %v", msgName, entryType.Name(), err)
+			return fieldTypeConversionError(mapField, err)
 		}
 		switch v.(type) {
 		case proto.Message:
@@ -510,4 +512,14 @@ func msgSetMapField(target protoreflect.Map, entryType *pb.FieldDescription, map
 		target.Set(protoreflect.ValueOf(k).MapKey(), protoreflect.ValueOf(v))
 	}
 	return nil
+}
+
+func unsupportedTypeConversionError(field *pb.FieldDescription, val ref.Val) error {
+	msgName := field.Descriptor().ContainingMessage().FullName()
+	return fmt.Errorf("unsupported field type for %v.%v: %v", msgName, field.Name(), val.Type())
+}
+
+func fieldTypeConversionError(field *pb.FieldDescription, err error) error {
+	msgName := field.Descriptor().ContainingMessage().FullName()
+	return fmt.Errorf("field type conversion error for %v.%v value type: %v", msgName, field.Name(), err)
 }

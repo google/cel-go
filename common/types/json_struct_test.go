@@ -24,7 +24,7 @@ import (
 	structpb "google.golang.org/protobuf/types/known/structpb"
 )
 
-func TestJsonStruct_Contains(t *testing.T) {
+func TestJsonStructContains(t *testing.T) {
 	mapVal := NewJSONStruct(newTestRegistry(t), &structpb.Struct{Fields: map[string]*structpb.Value{
 		"first":  structpb.NewStringValue("hello"),
 		"second": structpb.NewNumberValue(1)}})
@@ -36,7 +36,7 @@ func TestJsonStruct_Contains(t *testing.T) {
 	}
 }
 
-func TestJsonStruct_ConvertToNative_Json(t *testing.T) {
+func TestJsonStructConvertToNative_Json(t *testing.T) {
 	structVal := &structpb.Struct{Fields: map[string]*structpb.Value{
 		"first":  structpb.NewStringValue("hello"),
 		"second": structpb.NewNumberValue(1)}}
@@ -59,7 +59,7 @@ func TestJsonStruct_ConvertToNative_Json(t *testing.T) {
 	}
 }
 
-func TestJsonStruct_ConvertToNative_Any(t *testing.T) {
+func TestJsonStructConvertToNative_Any(t *testing.T) {
 	structVal := &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			"first":  structpb.NewStringValue("hello"),
@@ -78,7 +78,7 @@ func TestJsonStruct_ConvertToNative_Any(t *testing.T) {
 	}
 }
 
-func TestJsonStruct_ConvertToNative_Map(t *testing.T) {
+func TestJsonStructConvertToNative_Map(t *testing.T) {
 	structVal := &structpb.Struct{Fields: map[string]*structpb.Value{
 		"first":  structpb.NewStringValue("hello"),
 		"second": structpb.NewStringValue("world"),
@@ -93,7 +93,7 @@ func TestJsonStruct_ConvertToNative_Map(t *testing.T) {
 	}
 }
 
-func TestJsonStruct_ConvertToType(t *testing.T) {
+func TestJsonStructConvertToType(t *testing.T) {
 	mapVal := NewJSONStruct(newTestRegistry(t),
 		&structpb.Struct{Fields: map[string]*structpb.Value{
 			"first":  structpb.NewStringValue("hello"),
@@ -109,7 +109,7 @@ func TestJsonStruct_ConvertToType(t *testing.T) {
 	}
 }
 
-func TestJsonStruct_Equal(t *testing.T) {
+func TestJsonStructEqual(t *testing.T) {
 	reg := newTestRegistry(t)
 	mapVal := NewJSONStruct(reg,
 		&structpb.Struct{Fields: map[string]*structpb.Value{
@@ -150,7 +150,7 @@ func TestJsonStruct_Equal(t *testing.T) {
 	}
 }
 
-func TestJsonStruct_Get(t *testing.T) {
+func TestJsonStructGet(t *testing.T) {
 	if !IsError(NewJSONStruct(newTestRegistry(t), &structpb.Struct{}).Get(Int(1))) {
 		t.Error("Structs may only have string keys.")
 	}

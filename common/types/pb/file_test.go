@@ -11,7 +11,7 @@ import (
 	proto3pb "github.com/google/cel-go/test/proto3pb"
 )
 
-func TestFileDescription_GetTypes(t *testing.T) {
+func TestFileDescriptionGetTypes(t *testing.T) {
 	pbdb := NewDb()
 	fd, err := pbdb.RegisterMessage(&proto3pb.TestAllTypes{})
 	if err != nil {
@@ -49,7 +49,7 @@ func TestFileDescription_GetTypes(t *testing.T) {
 	}
 }
 
-func TestFileDescription_GetEnumNames(t *testing.T) {
+func TestFileDescriptionGetEnumNames(t *testing.T) {
 	pbdb := NewDb()
 	fd, err := pbdb.RegisterMessage(&proto3pb.TestAllTypes{})
 	if err != nil {
@@ -82,7 +82,7 @@ func TestFileDescription_GetEnumNames(t *testing.T) {
 	}
 }
 
-func TestFileDescription_GetImportedEnumNames(t *testing.T) {
+func TestFileDescriptionGetImportedEnumNames(t *testing.T) {
 	pbdb := NewDb()
 	fdMap := CollectFileDescriptorSet(&proto3pb.TestAllTypes{})
 	fileSet := make([]*descpb.FileDescriptorProto, 0, len(fdMap))

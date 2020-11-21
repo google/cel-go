@@ -371,6 +371,55 @@ func TestTypeDescriptionMaybeUnwrap(t *testing.T) {
 	}
 }
 
+func BenchmarkTypeDescriptionMaybeUnwrap(b *testing.B) {
+	pbdb := NewDb()
+	pbdb.RegisterMessage(&proto3pb.TestAllTypes{})
+	msgType := "google.protobuf.Value"
+	msgDesc, found := pbdb.DescribeType(msgType)
+	if !found {
+		b.Fatalf("pbdb.DescribeType(%q) not found", msgType)
+	}
+	tests := []struct {
+		in proto.Message
+	}{
+		{in: msgDesc.Zero()},
+		{in: msgDesc.New().Interface()},
+		{in: dynamicpb.NewMessage((&structpb.ListValue{}).ProtoReflect().Descriptor())},
+		{in: structpb.NewBoolValue(true)},
+		{in: structpb.NewBoolValue(false)},
+		{in: structpb.NewNullValue()},
+		{in: &structpb.Value{}},
+		{in: structpb.NewNumberValue(1.5)},
+		{in: structpb.NewStringValue("hello world")},
+		{in: wrapperspb.Bool(false)},
+		{in: wrapperspb.Bool(true)},
+		{in: wrapperspb.Bytes([]byte("hello"))},
+		{in: wrapperspb.Double(-4.2)},
+		{in: wrapperspb.Float(4.5)},
+		{in: wrapperspb.Int32(123)},
+		{in: wrapperspb.Int64(456)},
+		{in: wrapperspb.String("goodbye")},
+		{in: wrapperspb.UInt32(1234)},
+		{in: wrapperspb.UInt64(5678)},
+		{in: tpb.New(time.Unix(12345, 0).UTC())},
+		{in: dpb.New(time.Duration(345))},
+		{in: &proto3pb.TestAllTypes{}},
+	}
+	for _, tc := range tests {
+		typeName := string(tc.in.ProtoReflect().Descriptor().FullName())
+		td, found := pbdb.DescribeType(typeName)
+		if !found {
+			b.Fatalf("pbdb.DescribeType(%q) not found", typeName)
+		}
+		in := tc.in
+		b.Run(typeName, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				td.MaybeUnwrap(in)
+			}
+		})
+	}
+}
+
 func TestTypeDescriptionCheckedType(t *testing.T) {
 	pbdb := NewDb()
 	msg := &proto3pb.TestAllTypes{}

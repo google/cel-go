@@ -24,7 +24,7 @@ import (
 	structpb "google.golang.org/protobuf/types/known/structpb"
 )
 
-func TestNull_ConvertToNative(t *testing.T) {
+func TestNullConvertToNative(t *testing.T) {
 	expected := structpb.NewNullValue()
 	// Json Value
 	val, err := NullValue.ConvertToNative(jsonValueType)
@@ -58,7 +58,7 @@ func TestNull_ConvertToNative(t *testing.T) {
 	}
 }
 
-func TestNull_ConvertToType(t *testing.T) {
+func TestNullConvertToType(t *testing.T) {
 	if !NullValue.ConvertToType(NullType).Equal(NullValue).(Bool) {
 		t.Error("Failed to get NullType of NullValue.")
 	}
@@ -71,19 +71,19 @@ func TestNull_ConvertToType(t *testing.T) {
 	}
 }
 
-func TestNull_Equal(t *testing.T) {
+func TestNullEqual(t *testing.T) {
 	if !NullValue.Equal(NullValue).(Bool) {
 		t.Error("NullValue does not equal to itself.")
 	}
 }
 
-func TestNull_Type(t *testing.T) {
+func TestNullType(t *testing.T) {
 	if NullValue.Type() != NullType {
 		t.Error("NullValue gets incorrect type.")
 	}
 }
 
-func TestNull_Value(t *testing.T) {
+func TestNullValue(t *testing.T) {
 	if NullValue.Value() != structpb.NullValue_NULL_VALUE {
 		t.Error("NullValue gets incorrect value.")
 	}

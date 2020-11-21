@@ -75,6 +75,9 @@ func (s String) Compare(other ref.Val) ref.Val {
 func (s String) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	switch typeDesc.Kind() {
 	case reflect.String:
+		if reflect.TypeOf(s).AssignableTo(typeDesc) {
+			return s, nil
+		}
 		return s.Value(), nil
 	case reflect.Ptr:
 		switch typeDesc {

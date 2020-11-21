@@ -18,11 +18,11 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/google/cel-go/common/types/pb"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
@@ -64,6 +64,8 @@ func NewStringList(adapter ref.TypeAdapter, elems []string) traits.Lister {
 }
 
 // NewRefValList returns a traits.Lister with ref.Val elements.
+//
+// This type specialization is used with list literals within CEL expressions.
 func NewRefValList(adapter ref.TypeAdapter, elems []ref.Val) traits.Lister {
 	return &baseList{
 		TypeAdapter: adapter,
@@ -74,7 +76,7 @@ func NewRefValList(adapter ref.TypeAdapter, elems []ref.Val) traits.Lister {
 }
 
 // NewProtoList returns a traits.Lister based on a pb.List instance.
-func NewProtoList(adapter ref.TypeAdapter, list *pb.List) traits.Lister {
+func NewProtoList(adapter ref.TypeAdapter, list protoreflect.List) traits.Lister {
 	return &baseList{
 		TypeAdapter: adapter,
 		value:       list,
@@ -100,8 +102,14 @@ func NewJSONList(adapter ref.TypeAdapter, l *structpb.ListValue) traits.Lister {
 type baseList struct {
 	ref.TypeAdapter
 	value interface{}
-	size  int
-	get   func(int) interface{}
+
+	// size indicates the number of elements within the list.
+	// Since objects are immutable the size of a list is static.
+	size int
+
+	// get returns a value at the specified integer index.
+	// The index is guaranteed to be checked against the list index range.
+	get func(int) interface{}
 }
 
 // Add implements the traits.Adder interface method.
@@ -151,13 +159,15 @@ func (l *baseList) Contains(elem ref.Val) ref.Val {
 
 // ConvertToNative implements the ref.Val interface method.
 func (l *baseList) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
+	// If the underlying list value is assignable to the reflected type return it.
 	if reflect.TypeOf(l.value).AssignableTo(typeDesc) {
 		return l.value, nil
 	}
-	// If the list is already assignable to the desired type return it.
+	// If the list wrapper is assignable to the desired type return it.
 	if reflect.TypeOf(l).AssignableTo(typeDesc) {
 		return l, nil
 	}
+	// Attempt to convert the list to a set of well known protobuf types.
 	switch typeDesc {
 	case anyValueType:
 		json, err := l.ConvertToNative(jsonListValueType)

@@ -65,7 +65,7 @@ func (b Bool) Compare(other ref.Val) ref.Val {
 func (b Bool) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	switch typeDesc.Kind() {
 	case reflect.Bool:
-		return bool(b), nil
+		return reflect.ValueOf(b).Convert(typeDesc).Interface(), nil
 	case reflect.Ptr:
 		switch typeDesc {
 		case anyValueType:
