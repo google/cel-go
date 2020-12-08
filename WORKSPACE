@@ -20,6 +20,7 @@ http_archive(
     ],
 )
 
+# Latest version as of 10/27/2020
 http_archive(
     name = "rules_proto",
     sha256 = "8e7d59a5b12b233be5652e3d29f42fba01c7cbab09f6b3a8d0a57ed6d1e9a0da",
@@ -30,7 +31,7 @@ http_archive(
     ],
 )
 
-# googleapis
+# Latest version of googleapis as of 7/27/2020
 http_archive(
     name = "com_google_googleapis",
     sha256 = "1f742f6cafe616fe73302db010e0b7ee6579cb1ce06010427b7d0995cbd80ce4",
@@ -43,6 +44,7 @@ http_archive(
 # protobuf
 http_archive(
     name = "com_google_protobuf",
+    sha256 = "1c744a6a1f2c901e68c5521bc275e22bdc66256eeb605c2781923365b7087e5f",
     strip_prefix = "protobuf-3.13.0",
     urls = ["https://github.com/protocolbuffers/protobuf/archive/v3.13.0.zip"],
 )
@@ -67,7 +69,7 @@ go_repository(
   tag = "v1.25.0",
 )
 
-# Generated Google APIs protos for Golang
+# Generated Google APIs protos for Golang 11/16/2020
 go_repository(
   name = "org_golang_google_genproto",
   build_file_proto_mode = "disable_global",
@@ -75,7 +77,7 @@ go_repository(
   importpath = "google.golang.org/genproto",
 )
 
-# gRPC deps
+# gRPC deps for v1.33.2 (including x/text and x/net)
 go_repository(
     name = "org_golang_google_grpc",
     build_file_proto_mode = "disable_global",
@@ -97,7 +99,7 @@ go_repository(
     version = "v0.3.2",
 )
 
-# Antlr deps
+# Antlr deps to pickup golang concurrency fixes 4/30/2020
 go_repository(
   name = "com_github_antlr",
   commit = "621b933c7a7f01c67ae9de15103151fa0f9d6d90",
@@ -111,10 +113,12 @@ go_repository(
   importpath = "github.com/google/cel-spec",
 )
 
+# strcase deps
 go_repository(
     name = "com_github_stoewer_go_strcase",
-    commit = "7962b205553802087345c0b4c74d57b65236f676",
     importpath = "github.com/stoewer/go-strcase",
+    sum = "h1:Z2iHWqGXH00XYgqDmNgQbIBxf3wrNq0F3feEy0ainaU=",
+    version = "v1.2.0",
 )
 
 # Run the dependencies at the end.  These will silently try to import some

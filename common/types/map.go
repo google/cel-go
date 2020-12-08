@@ -102,17 +102,36 @@ var (
 		traits.SizerType)
 )
 
+// mapAccessor is a private interface for finding values within a map and iterating over the keys.
+// This interface implements portions of the API surface area required by the traits.Mapper
+// interface.
 type mapAccessor interface {
+	// Find returns a value, if one exists, for the inpput key.
+	//
+	// If the key is not found the function returns (nil, false).
+	// If the input key is not valid for the map, or is Err or Unknown the function returns
+	// (Unknown|Err, false).
 	Find(ref.Val) (ref.Val, bool)
+
+	// Iterator returns an Iterator over the map key set.
 	Iterator() traits.Iterator
 }
 
 // baseMap is a reflection based map implementation designed to handle a variety of map-like types.
+//
+// Since CEL is side-effect free, the base map represents an immutable object.
 type baseMap struct {
+	// TypeAdapter used to convert keys and values accessed within the map.
 	ref.TypeAdapter
+
+	// mapAccessor interface implementation used to find and iterate over map keys.
 	mapAccessor
+
+	// value is the native Go value upon which the map type operators.
 	value interface{}
-	size  int
+
+	// size is the number of entries in the map.
+	size int
 }
 
 // Contains implements the traits.Container interface method.
@@ -231,10 +250,10 @@ func (m *baseMap) ConvertToType(typeVal ref.Type) ref.Val {
 
 // Equal implements the ref.Val interface method.
 func (m *baseMap) Equal(other ref.Val) ref.Val {
-	if MapType != other.Type() {
+	otherMap, ok := other.(traits.Mapper)
+	if !ok {
 		return MaybeNoSuchOverloadErr(other)
 	}
-	otherMap := other.(traits.Mapper)
 	if m.Size() != otherMap.Size() {
 		return False
 	}
@@ -293,8 +312,12 @@ type jsonStructAccessor struct {
 	st map[string]*structpb.Value
 }
 
-// Find searches the json struct field map for the input key value and returns the value and 'true'
-// if found.
+// Find searches the json struct field map for the input key value and returns (value, true) if
+// found.
+//
+// If the key is not found the function returns (nil, false).
+// If the input key is not a String, or is an  Err or Unknown, the function returns
+// (Unknown|Err, false).
 func (a *jsonStructAccessor) Find(key ref.Val) (ref.Val, bool) {
 	strKey, ok := key.(String)
 	if !ok {
@@ -309,6 +332,7 @@ func (a *jsonStructAccessor) Find(key ref.Val) (ref.Val, bool) {
 
 // Iterator creates a new traits.Iterator from the set of JSON struct field names.
 func (a *jsonStructAccessor) Iterator() traits.Iterator {
+	// Copy the keys to make their order stable.
 	mapKeys := make([]string, len(a.st))
 	i := 0
 	for k := range a.st {
@@ -336,8 +360,12 @@ type reflectMapAccessor struct {
 	keyType  reflect.Type
 }
 
-// Find converts the input key to a native Golang type and then uses reflection to find the key
-// if present.
+// Find converts the input key to a native Golang type and then uses reflection to find the key,
+// returning (value, true) if present.
+//
+// If the key is not found the function returns (nil, false).
+// If the input key is not a String, or is an  Err or Unknown, the function returns
+// (Unknown|Err, false).
 func (a *reflectMapAccessor) Find(key ref.Val) (ref.Val, bool) {
 	if IsUnknownOrError(key) {
 		return MaybeNoSuchOverloadErr(key), false
@@ -377,7 +405,10 @@ type refValMapAccessor struct {
 	mapVal map[ref.Val]ref.Val
 }
 
-// Find uses native map accesses to determine if the ref.Val is contained in the backing map.
+// Find uses native map accesses to find the key, returning (value, true) if present.
+//
+// If the key is not found the function returns (nil, false).
+// If the input key is an Err or Unknown, the function returns (Unknown|Err, false).
 func (a *refValMapAccessor) Find(key ref.Val) (ref.Val, bool) {
 	if IsUnknownOrError(key) {
 		return key, false
@@ -403,7 +434,11 @@ type stringMapAccessor struct {
 	mapVal map[string]string
 }
 
-// Find searches the map for the input key using native map accesses.
+// Find uses native map accesses to find the key, returning (value, true) if present.
+//
+// If the key is not found the function returns (nil, false).
+// If the input key is not a String, or is an Err or Unknown, the function returns
+// (Unknown|Err, false).
 func (a *stringMapAccessor) Find(key ref.Val) (ref.Val, bool) {
 	strKey, ok := key.(String)
 	if !ok {
@@ -418,6 +453,7 @@ func (a *stringMapAccessor) Find(key ref.Val) (ref.Val, bool) {
 
 // Iterator creates a new traits.Iterator from the string key set of the map.
 func (a *stringMapAccessor) Iterator() traits.Iterator {
+	// Copy the keys to make their order stable.
 	mapKeys := make([]string, len(a.mapVal))
 	i := 0
 	for k := range a.mapVal {
@@ -442,7 +478,11 @@ type stringIfaceMapAccessor struct {
 	mapVal map[string]interface{}
 }
 
-// Find searches the map for the input key using native map accesses.
+// Find uses native map accesses to find the key, returning (value, true) if present.
+//
+// If the key is not found the function returns (nil, false).
+// If the input key is not a String, or is an Err or Unknown, the function returns
+// (Unknown|Err, false).
 func (a *stringIfaceMapAccessor) Find(key ref.Val) (ref.Val, bool) {
 	strKey, ok := key.(String)
 	if !ok {
@@ -457,6 +497,7 @@ func (a *stringIfaceMapAccessor) Find(key ref.Val) (ref.Val, bool) {
 
 // Iterator creates a new traits.Iterator from the string key set of the map.
 func (a *stringIfaceMapAccessor) Iterator() traits.Iterator {
+	// Copy the keys to make their order stable.
 	mapKeys := make([]string, len(a.mapVal))
 	i := 0
 	for k := range a.mapVal {
@@ -606,7 +647,12 @@ func (m *protoMap) Equal(other ref.Val) ref.Val {
 	return retVal
 }
 
-// Find returns whether the protoreflect.Map contains the input key
+// Find returns whether the protoreflect.Map contains the input key.
+//
+// If the key is not found the function returns (nil, false).
+// If the input key is not a supported proto map key type, or is an Err or Unknown,
+// the function returns
+// (Unknown|Err, false).
 func (m *protoMap) Find(key ref.Val) (ref.Val, bool) {
 	if IsUnknownOrError(key) {
 		return key, false
@@ -642,6 +688,7 @@ func (m *protoMap) Get(key ref.Val) ref.Val {
 
 // Iterator implements the traits.Iterable interface method.
 func (m *protoMap) Iterator() traits.Iterator {
+	// Copy the keys to make their order stable.
 	mapKeys := make([]protoreflect.MapKey, 0, m.value.Len())
 	m.value.Range(func(k protoreflect.MapKey, v protoreflect.Value) bool {
 		mapKeys = append(mapKeys, k)

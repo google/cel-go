@@ -42,10 +42,10 @@ func NoSuchOverloadErr() ref.Val {
 	return NewErr("no such overload")
 }
 
-// UnsupportedTypeConversionErr returns a types.NewErr instance with a no such type conversion
+// UnsupportedRefValConversionErr returns a types.NewErr instance with a no such conversion
 // message that indicates that the native value could not be converted to a CEL ref.Val.
-func UnsupportedTypeConversionErr(val interface{}) ref.Val {
-	return NewErr("no such type conversion to ref.Val: (%T)%v", val, val)
+func UnsupportedRefValConversionErr(val interface{}) ref.Val {
+	return NewErr("unsupported conversion to ref.Val: (%T)%v", val, val)
 }
 
 // MaybeNoSuchOverloadErr returns the error or unknown if the input ref.Val is one of these types,

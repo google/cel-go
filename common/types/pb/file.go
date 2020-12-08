@@ -62,7 +62,7 @@ func (fd *FileDescription) GetEnumNames() []string {
 	return enumNames
 }
 
-// GetTypeDescription returns a TypeDescription for a qualified type name
+// GetTypeDescription returns a TypeDescription for a qualified protobuf message type name
 // declared within the .proto file.
 func (fd *FileDescription) GetTypeDescription(typeName string) (*TypeDescription, bool) {
 	td, found := fd.types[sanitizeProtoName(typeName)]
@@ -94,6 +94,7 @@ type fileMetadata struct {
 	msgTypes map[string]protoreflect.MessageDescriptor
 	// enumValues maps from fully-qualified enum value to enum value descriptor.
 	enumValues map[string]protoreflect.EnumValueDescriptor
+	// TODO: support enum type definitions for use in future type-check enhancements.
 }
 
 // collectFileMetadata traverses the proto file object graph to collect message types and enum
@@ -109,8 +110,8 @@ func collectFileMetadata(fileDesc protoreflect.FileDescriptor) *fileMetadata {
 	}
 }
 
-// collectMsgTypes recursively collects messages and nested messages into a map of fully
-// qualified message names to message descriptors.
+// collectMsgTypes recursively collects messages, nested messages, and nested enums into a map of
+// fully qualified protobuf names to descriptors.
 func collectMsgTypes(msgTypes protoreflect.MessageDescriptors, msgTypeMap map[string]protoreflect.MessageDescriptor, enumValueMap map[string]protoreflect.EnumValueDescriptor) {
 	for i := 0; i < msgTypes.Len(); i++ {
 		msgType := msgTypes.Get(i)

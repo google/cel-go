@@ -81,7 +81,7 @@ func (td *TypeDescription) FieldMap() map[string]*FieldDescription {
 	return td.fieldMap
 }
 
-// FieldByName returns the FieldDescription associated with a field name.
+// FieldByName returns (FieldDescription, true) if the field name is declared within the type.
 func (td *TypeDescription) FieldByName(name string) (*FieldDescription, bool) {
 	fd, found := td.fieldMap[name]
 	if !found {
@@ -97,7 +97,7 @@ func (td *TypeDescription) MaybeUnwrap(msg proto.Message) (interface{}, bool) {
 	return unwrap(td, msg)
 }
 
-// Name of the type.
+// Name returns the fully-qualified name of the type.
 func (td *TypeDescription) Name() string {
 	return string(td.desc.FullName())
 }
@@ -169,9 +169,9 @@ func NewFieldDescription(fieldDesc protoreflect.FieldDescriptor) *FieldDescripti
 
 // FieldDescription holds metadata related to fields declared within a type.
 type FieldDescription struct {
-	// KeyType returns the key FieldDescription for map fields.
+	// KeyType holds the key FieldDescription for map fields.
 	KeyType *FieldDescription
-	// ValueType returns the value FieldDescription for map fields.
+	// ValueType holds the value FieldDescription for map fields.
 	ValueType *FieldDescription
 
 	desc         protoreflect.FieldDescriptor
@@ -209,11 +209,10 @@ func (fd *FieldDescription) Descriptor() protoreflect.FieldDescriptor {
 // IsSet returns whether the field is set on the target value, per the proto presence conventions
 // of proto2 or proto3 accordingly.
 //
-// The input target may either be a proto.Message or protoreflect.Message.
+// This function implements the FieldType.IsSet function contract which can be used to operate on
+// more than just protobuf field accesses; however, the target here must be a protobuf.Message.
 func (fd *FieldDescription) IsSet(target interface{}) bool {
 	switch v := target.(type) {
-	case protoreflect.Message:
-		return v.Has(fd.desc)
 	case proto.Message:
 		return v.ProtoReflect().Has(fd.desc)
 	default:
@@ -225,7 +224,8 @@ func (fd *FieldDescription) IsSet(target interface{}) bool {
 //
 // If the field is not set, the proto default value is returned instead.
 //
-// The input target may either be a proto.Message or protoreflect.Message.
+// This function implements the FieldType.GetFrom function contract which can be used to operate
+// on more than just protobuf field accesses; however, the target here must be a protobuf.Message.
 func (fd *FieldDescription) GetFrom(target interface{}) (interface{}, error) {
 	v, ok := target.(proto.Message)
 	if !ok {
@@ -298,7 +298,8 @@ func (fd *FieldDescription) ReflectType() reflect.Type {
 	return fd.reflectType
 }
 
-// String returns a struct-like field definition string.
+// String returns the fully qualified name of the field within its type as well as whether the
+// field occurs within a oneof.
 func (fd *FieldDescription) String() string {
 	return fmt.Sprintf("%v.%s `oneof=%t`", fd.desc.ContainingMessage().FullName(), fd.Name(), fd.IsOneof())
 }
@@ -452,6 +453,14 @@ func unwrapDynamic(desc description, refMsg protoreflect.Message) (interface{}, 
 	typeName := string(refMsg.Descriptor().FullName())
 	switch typeName {
 	case "google.protobuf.Any":
+		// Note, Any values require further unwrapping; however, this does not take place here as
+		// input desc is not representative of the value's eventual type. Callers must attempt to
+		// unwrap Any values again on their own, or else miss out on the type unwrapping required
+		// for wrapper types packed into Any values.
+		//
+		// Since Any values must be unpacked and recursively unwrapped in ref.TypeProvider
+		// implementations, this work is left to the caller so as to avoid duplication between call
+		// paths.
 		unwrapped := &anypb.Any{}
 		proto.Merge(unwrapped, msg)
 		return unwrapped, true

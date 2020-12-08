@@ -31,7 +31,8 @@ import (
 // Db maps from file / message / enum name to file description.
 type Db struct {
 	revFileDescriptorMap map[string]*FileDescription
-	files                []*FileDescription
+	// files contains the deduped set of FileDescriptions whose types are contained in the pb.Db.
+	files []*FileDescription
 }
 
 var (

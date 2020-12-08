@@ -234,12 +234,18 @@ func Types(addTypes ...interface{}) EnvOption {
 //
 // Note that messages instantiated from these descriptors will be *dynamicpb.Message values
 // rather than the concrete message type.
+//
+// TypeDescs are hermetic to a single Env object, but may be copied to other Env values via
+// extension or by re-using the same EnvOption with another NewEnv() call.
 func TypeDescs(descs ...interface{}) EnvOption {
 	return func(e *Env) (*Env, error) {
 		reg, isReg := e.provider.(ref.TypeRegistry)
 		if !isReg {
 			return nil, fmt.Errorf("custom types not supported by provider: %T", e.provider)
 		}
+		// Scan the input descriptors for FileDescriptorProto messages and accumulate them into a
+		// synthetic FileDescriptorSet as the FileDescriptorProto messages may refer to each other
+		// and will not resolve properly unless they are part of the same set.
 		var fds *descpb.FileDescriptorSet
 		for _, d := range descs {
 			switch f := d.(type) {

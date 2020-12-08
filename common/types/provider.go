@@ -60,7 +60,7 @@ func NewRegistry(types ...proto.Message) (ref.TypeRegistry, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	// This block ensures that the well-known protobuf types are registered by default.
 	for _, fd := range p.pbdb.FileDescriptions() {
 		err = p.registerAllTypes(fd)
 		if err != nil {
@@ -223,7 +223,7 @@ func (p *protoTypeRegistry) NativeToValue(value interface{}) ref.Val {
 	case protoreflect.Value:
 		return p.NativeToValue(v.Interface())
 	}
-	return UnsupportedTypeConversionErr(value)
+	return UnsupportedRefValConversionErr(value)
 }
 
 func (p *protoTypeRegistry) registerAllTypes(fd *pb.FileDescription) error {
@@ -249,7 +249,7 @@ func (a *defaultTypeAdapter) NativeToValue(value interface{}) ref.Val {
 	if val, found := nativeToValue(a, value); found {
 		return val
 	}
-	return UnsupportedTypeConversionErr(value)
+	return UnsupportedRefValConversionErr(value)
 }
 
 // nativeToValue returns the converted (ref.Val, true) of a conversion is found,
@@ -348,19 +348,22 @@ func nativeToValue(a ref.TypeAdapter, value interface{}) (ref.Val, bool) {
 		}
 	case []byte:
 		return Bytes(v), true
+	// specializations for common lists types.
 	case []string:
 		return NewStringList(a, v), true
 	case []ref.Val:
 		return NewRefValList(a, v), true
+	// specializations for common map types.
 	case map[string]string:
 		return NewStringStringMap(a, v), true
 	case map[string]interface{}:
 		return NewStringInterfaceMap(a, v), true
 	case map[ref.Val]ref.Val:
 		return NewRefValMap(a, v), true
+	// additional specializations may be added upon request / need.
 	case *anypb.Any:
 		if v == nil {
-			return UnsupportedTypeConversionErr(v), true
+			return UnsupportedRefValConversionErr(v), true
 		}
 		unpackedAny, err := v.UnmarshalNew()
 		if err != nil {
@@ -379,7 +382,7 @@ func nativeToValue(a ref.TypeAdapter, value interface{}) (ref.Val, bool) {
 		return Int(v), true
 	case proto.Message:
 		if v == nil {
-			return UnsupportedTypeConversionErr(v), true
+			return UnsupportedRefValConversionErr(v), true
 		}
 		typeName := string(v.ProtoReflect().Descriptor().FullName())
 		td, found := pb.DefaultDb.DescribeType(typeName)
@@ -399,7 +402,7 @@ func nativeToValue(a ref.TypeAdapter, value interface{}) (ref.Val, bool) {
 		refValue := reflect.ValueOf(v)
 		if refValue.Kind() == reflect.Ptr {
 			if refValue.IsNil() {
-				return UnsupportedTypeConversionErr(v), true
+				return UnsupportedRefValConversionErr(v), true
 			}
 			refValue = refValue.Elem()
 		}
