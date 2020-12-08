@@ -438,12 +438,6 @@ func unwrap(desc description, msg proto.Message) (interface{}, bool) {
 //
 // Returns the unwrapped value and 'true' if unwrapped, otherwise the input value and 'false'.
 func unwrapDynamic(desc description, refMsg protoreflect.Message) (interface{}, bool) {
-	if desc.WrapperField() != nil {
-		if !refMsg.IsValid() {
-			return structpb.NullValue_NULL_VALUE, true
-		}
-		return refMsg.Get(desc.WrapperField()).Interface(), true
-	}
 	msg := refMsg.Interface()
 	if !refMsg.IsValid() {
 		msg = desc.Zero()
@@ -453,17 +447,31 @@ func unwrapDynamic(desc description, refMsg protoreflect.Message) (interface{}, 
 	typeName := string(refMsg.Descriptor().FullName())
 	switch typeName {
 	case "google.protobuf.Any":
-		// Note, Any values require further unwrapping; however, this does not take place here as
-		// input desc is not representative of the value's eventual type. Callers must attempt to
-		// unwrap Any values again on their own, or else miss out on the type unwrapping required
-		// for wrapper types packed into Any values.
-		//
-		// Since Any values must be unpacked and recursively unwrapped in ref.TypeProvider
-		// implementations, this work is left to the caller so as to avoid duplication between call
-		// paths.
-		unwrapped := &anypb.Any{}
-		proto.Merge(unwrapped, msg)
-		return unwrapped, true
+		// Note, Any values require further unwrapping; however, this unwrapping may or may not
+		// be to a well-known type, so callers are encouraged to attempt further unwrapping of Any
+		// values.
+		unwrappedAny := &anypb.Any{}
+		proto.Merge(unwrappedAny, msg)
+		if unwrapped, nested := unwrapDynamic(desc, unwrappedAny.ProtoReflect()); nested {
+			return unwrapped, true
+		}
+		return unwrappedAny, true
+	case "google.protobuf.BoolValue",
+		"google.protobuf.BytesValue",
+		"google.protobuf.DoubleValue",
+		"google.protobuf.FloatValue",
+		"google.protobuf.Int32Value",
+		"google.protobuf.Int64Value",
+		"google.protobuf.StringValue",
+		"google.protobuf.UInt32Value",
+		"google.protobuf.UInt64Value":
+		// The msg value is ignored when dealing with wrapper types as they have a null or value
+		// behavior, rather than the standard zero value behavior of other proto message types.
+		if !refMsg.IsValid() {
+			return structpb.NullValue_NULL_VALUE, true
+		}
+		valueField := refMsg.Descriptor().Fields().ByName("value")
+		return refMsg.Get(valueField).Interface(), true
 	case "google.protobuf.Duration":
 		unwrapped := &dpb.Duration{}
 		proto.Merge(unwrapped, msg)

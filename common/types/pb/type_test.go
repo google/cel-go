@@ -208,17 +208,12 @@ func TestFieldDescriptionIsSet(t *testing.T) {
 			isSet: false,
 		},
 		{
-			msg:   (&proto3pb.TestAllTypes{SingleBool: true}).ProtoReflect(),
-			field: "single_bool",
-			isSet: true,
-		},
-		{
-			msg:   (&proto3pb.TestAllTypes{SingleBool: false}).ProtoReflect(),
+			msg:   (&proto3pb.TestAllTypes{SingleBool: false}),
 			field: "single_bool",
 			isSet: false,
 		},
 		{
-			msg:   (&proto3pb.TestAllTypes{}).ProtoReflect(),
+			msg:   (&proto3pb.TestAllTypes{}),
 			field: "single_bool",
 			isSet: false,
 		},
