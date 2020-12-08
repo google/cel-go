@@ -27,6 +27,7 @@ import (
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	dynamicpb "google.golang.org/protobuf/types/dynamicpb"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 	dpb "google.golang.org/protobuf/types/known/durationpb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 	tpb "google.golang.org/protobuf/types/known/timestamppb"
@@ -241,6 +242,10 @@ func TestFieldDescriptionIsSet(t *testing.T) {
 
 func TestTypeDescriptionMaybeUnwrap(t *testing.T) {
 	pbdb := NewDb()
+	_, err := pbdb.RegisterMessage(&proto3pb.TestAllTypes{})
+	if err != nil {
+		t.Fatalf("pbdb.RegisterMessage() failed: %v", err)
+	}
 	msgType := "google.protobuf.Value"
 	msgDesc, found := pbdb.DescribeType(msgType)
 	if !found {
@@ -259,7 +264,23 @@ func TestTypeDescriptionMaybeUnwrap(t *testing.T) {
 			out: structpb.NullValue_NULL_VALUE,
 		},
 		{
-			in:  dynamicpb.NewMessage((&structpb.ListValue{}).ProtoReflect().Descriptor()),
+			in:  anyMsg(t, wrapperspb.Bool(true)),
+			out: true,
+		},
+		{
+			in:  anyMsg(t, structpb.NewNumberValue(4.5)),
+			out: float64(4.5),
+		},
+		{
+			in:  dynMsg(t, anyMsg(t, structpb.NewNumberValue(4.5))),
+			out: float64(4.5),
+		},
+		{
+			in:  dynMsg(t, anyMsg(t, &proto3pb.TestAllTypes{SingleFloat: 123.0})),
+			out: &proto3pb.TestAllTypes{SingleFloat: 123.0},
+		},
+		{
+			in:  dynMsg(t, &structpb.ListValue{}),
 			out: jsonList(t, []interface{}{}),
 		},
 		{
@@ -443,6 +464,22 @@ func TestTypeDescriptionCheckedType(t *testing.T) {
 	if !proto.Equal(field.CheckedType(), listType) {
 		t.Errorf("got checked type %v, wanted %v", field.CheckedType(), listType)
 	}
+}
+
+func dynMsg(t *testing.T, msg proto.Message) *dynamicpb.Message {
+	t.Helper()
+	dynPB := dynamicpb.NewMessage(msg.ProtoReflect().Descriptor())
+	proto.Merge(dynPB, msg)
+	return dynPB
+}
+
+func anyMsg(t *testing.T, msg proto.Message) *anypb.Any {
+	t.Helper()
+	pb, err := anypb.New(msg)
+	if err != nil {
+		t.Fatalf("anypb.New(%v) failed: %v", msg, err)
+	}
+	return pb
 }
 
 func jsonList(t *testing.T, elems []interface{}) *structpb.ListValue {

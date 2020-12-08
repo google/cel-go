@@ -33,10 +33,6 @@ import (
 // description is a private interface used to make it convenient to perform type unwrapping at
 // the TypeDescription or FieldDescription level.
 type description interface {
-	// WrapperField returns non-nil when the description object is a protobuf wrapper types and has
-	// a 'Value' field.
-	WrapperField() protoreflect.FieldDescriptor
-
 	// Zero returns an empty immutable protobuf message when the description is a protobuf message
 	// type.
 	Zero() proto.Message
@@ -54,26 +50,24 @@ func NewTypeDescription(typeName string, desc protoreflect.MessageDescriptor) *T
 		fieldMap[string(f.Name())] = NewFieldDescription(f)
 	}
 	return &TypeDescription{
-		typeName:     typeName,
-		desc:         desc,
-		msgType:      msgType,
-		wrapperField: wrapperMsg(desc),
-		fieldMap:     fieldMap,
-		reflectType:  reflectTypeOf(msgZero),
-		zeroMsg:      zeroValueOf(msgZero),
+		typeName:    typeName,
+		desc:        desc,
+		msgType:     msgType,
+		fieldMap:    fieldMap,
+		reflectType: reflectTypeOf(msgZero),
+		zeroMsg:     zeroValueOf(msgZero),
 	}
 }
 
 // TypeDescription is a collection of type metadata relevant to expression
 // checking and evaluation.
 type TypeDescription struct {
-	typeName     string
-	desc         protoreflect.MessageDescriptor
-	msgType      protoreflect.MessageType
-	fieldMap     map[string]*FieldDescription
-	wrapperField protoreflect.FieldDescriptor
-	reflectType  reflect.Type
-	zeroMsg      proto.Message
+	typeName    string
+	desc        protoreflect.MessageDescriptor
+	msgType     protoreflect.MessageType
+	fieldMap    map[string]*FieldDescription
+	reflectType reflect.Type
+	zeroMsg     proto.Message
 }
 
 // FieldMap returns a string field name to FieldDescription map.
@@ -110,13 +104,6 @@ func (td *TypeDescription) New() protoreflect.Message {
 // ReflectType returns the Golang reflect.Type for this type.
 func (td *TypeDescription) ReflectType() reflect.Type {
 	return td.reflectType
-}
-
-// WrapperField returns the FieldDescriptor for the 'value' field of a wrapper type proto.
-//
-// When the type is not a google.protobuf wrapper type, the method returns nil.
-func (td *TypeDescription) WrapperField() protoreflect.FieldDescriptor {
-	return td.wrapperField
 }
 
 // Zero returns the zero proto.Message value for this type.
@@ -156,14 +143,12 @@ func NewFieldDescription(fieldDesc protoreflect.FieldDescriptor) *FieldDescripti
 		keyType = NewFieldDescription(fieldDesc.MapKey())
 		valType = NewFieldDescription(fieldDesc.MapValue())
 	}
-	wrapperDesc := wrapperField(fieldDesc)
 	return &FieldDescription{
-		desc:         fieldDesc,
-		KeyType:      keyType,
-		ValueType:    valType,
-		wrapperField: wrapperDesc,
-		reflectType:  reflectType,
-		zeroMsg:      zeroValueOf(zeroMsg),
+		desc:        fieldDesc,
+		KeyType:     keyType,
+		ValueType:   valType,
+		reflectType: reflectType,
+		zeroMsg:     zeroValueOf(zeroMsg),
 	}
 }
 
@@ -174,10 +159,9 @@ type FieldDescription struct {
 	// ValueType holds the value FieldDescription for map fields.
 	ValueType *FieldDescription
 
-	desc         protoreflect.FieldDescriptor
-	reflectType  reflect.Type
-	wrapperField protoreflect.FieldDescriptor
-	zeroMsg      proto.Message
+	desc        protoreflect.FieldDescriptor
+	reflectType reflect.Type
+	zeroMsg     proto.Message
 }
 
 // CheckedType returns the type-definition used at type-check time.
@@ -304,12 +288,6 @@ func (fd *FieldDescription) String() string {
 	return fmt.Sprintf("%v.%s `oneof=%t`", fd.desc.ContainingMessage().FullName(), fd.Name(), fd.IsOneof())
 }
 
-// WrapperField returns the field descriptor for the 'value' of this field value when the
-// field is a wrapper type.
-func (fd *FieldDescription) WrapperField() protoreflect.FieldDescriptor {
-	return fd.wrapperField
-}
-
 // Zero returns the zero value for the protobuf message represented by this field.
 //
 // If the field is not a proto.Message type, the zero value is nil.
@@ -359,36 +337,18 @@ func checkedWrap(t *exprpb.Type) *exprpb.Type {
 		TypeKind: &exprpb.Type_Wrapper{Wrapper: t.GetPrimitive()}}
 }
 
-func wrapperField(desc protoreflect.FieldDescriptor) protoreflect.FieldDescriptor {
-	if desc.Kind() != protoreflect.MessageKind {
-		return nil
-	}
-	return wrapperMsg(desc.Message())
-}
-
-func wrapperMsg(msg protoreflect.MessageDescriptor) protoreflect.FieldDescriptor {
-	typeName := string(msg.FullName())
-	switch sanitizeProtoName(typeName) {
-	case "google.protobuf.BoolValue",
-		"google.protobuf.BytesValue",
-		"google.protobuf.DoubleValue",
-		"google.protobuf.FloatValue",
-		"google.protobuf.Int32Value",
-		"google.protobuf.Int64Value",
-		"google.protobuf.StringValue",
-		"google.protobuf.UInt32Value",
-		"google.protobuf.UInt64Value":
-		return msg.Fields().ByName("value")
-	}
-	return nil
-}
-
 // unwrap unwraps the provided proto.Message value, potentially based on the description if the
 // input message is a *dynamicpb.Message which obscures the typing information from Go.
 //
 // Returns the unwrapped value and 'true' if unwrapped, otherwise the input value and 'false'.
 func unwrap(desc description, msg proto.Message) (interface{}, bool) {
 	switch v := msg.(type) {
+	case *anypb.Any:
+		dynMsg, err := v.UnmarshalNew()
+		if err != nil {
+			return v, false
+		}
+		return unwrapDynamic(desc, dynMsg.ProtoReflect())
 	case *dynamicpb.Message:
 		return unwrapDynamic(desc, v)
 	case *dpb.Duration:
@@ -452,10 +412,16 @@ func unwrapDynamic(desc description, refMsg protoreflect.Message) (interface{}, 
 		// values.
 		unwrappedAny := &anypb.Any{}
 		proto.Merge(unwrappedAny, msg)
-		if unwrapped, nested := unwrapDynamic(desc, unwrappedAny.ProtoReflect()); nested {
+		dynMsg, err := unwrappedAny.UnmarshalNew()
+		if err != nil {
+			// Allow the error to move further up the stack.
+			return unwrappedAny, true
+		}
+		// Attempt to unwrap the dynamic type, otherwise return the dynamic message.
+		if unwrapped, nested := unwrapDynamic(desc, dynMsg.ProtoReflect()); nested {
 			return unwrapped, true
 		}
-		return unwrappedAny, true
+		return dynMsg, true
 	case "google.protobuf.BoolValue",
 		"google.protobuf.BytesValue",
 		"google.protobuf.DoubleValue",
