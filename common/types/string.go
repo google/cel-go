@@ -88,7 +88,7 @@ func (s String) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 			// Convert to a protobuf representation of a JSON String.
 			return structpb.NewStringValue(string(s)), nil
 		case stringWrapperType:
-			// Convert to a protobuf.StringValue.
+			// Convert to a wrapperspb.StringValue.
 			return wrapperspb.String(string(s)), nil
 		}
 		if typeDesc.Elem().Kind() == reflect.String {

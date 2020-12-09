@@ -69,13 +69,13 @@ func (b Bool) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	case reflect.Ptr:
 		switch typeDesc {
 		case anyValueType:
-			// Primitives must be wrapped to a protobuf.BoolValue before being packed into an Any.
+			// Primitives must be wrapped to a wrapperspb.BoolValue before being packed into an Any.
 			return anypb.New(wrapperspb.Bool(bool(b)))
 		case boolWrapperType:
-			// Convert the bool to a protobuf.BoolValue.
+			// Convert the bool to a wrapperspb.BoolValue.
 			return wrapperspb.Bool(bool(b)), nil
 		case jsonValueType:
-			// Return the bool as a new protobuf.Value.
+			// Return the bool as a new structpb.Value.
 			return structpb.NewBoolValue(bool(b)), nil
 		default:
 			if typeDesc.Elem().Kind() == reflect.Bool {

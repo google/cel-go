@@ -83,7 +83,7 @@ func (t Timestamp) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	}
 	switch typeDesc {
 	case anyValueType:
-		// Pack the underlying protobuf.Timestamp to an Any value.
+		// Pack the underlying time as a tpb.Timestamp into an Any value.
 		return anypb.New(tpb.New(t.Time))
 	case jsonValueType:
 		// CEL follows the proto3 to JSON conversion which formats as an RFC 3339 encoded JSON
@@ -94,7 +94,7 @@ func (t Timestamp) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 		}
 		return structpb.NewStringValue(string(v.(String))), nil
 	case timestampValueType:
-		// Unwrap the underlying protobuf.Timestamp.
+		// Unwrap the underlying tpb.Timestamp.
 		return tpb.New(t.Time), nil
 	}
 	return nil, fmt.Errorf("type conversion error from 'Timestamp' to '%v'", typeDesc)

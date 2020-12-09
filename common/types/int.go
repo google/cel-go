@@ -96,10 +96,10 @@ func (i Int) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 			// Primitives must be wrapped before being set on an Any field.
 			return anypb.New(wrapperspb.Int64(int64(i)))
 		case int32WrapperType:
-			// Convert the value to a protobuf.Int32Value (with truncation).
+			// Convert the value to a wrapperspb.Int32Value (with truncation).
 			return wrapperspb.Int32(int32(i)), nil
 		case int64WrapperType:
-			// Convert the value to a protobuf.Int64Value.
+			// Convert the value to a wrapperspb.Int64Value.
 			return wrapperspb.Int64(int64(i)), nil
 		case jsonValueType:
 			// The proto-to-JSON conversion rules would convert all 64-bit integer values to JSON

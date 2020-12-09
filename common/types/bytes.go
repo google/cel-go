@@ -73,7 +73,7 @@ func (b Bytes) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 			// Primitives must be wrapped before being set on an Any field.
 			return anypb.New(wrapperspb.Bytes([]byte(b)))
 		case byteWrapperType:
-			// Convert the bytes to a protobuf.BytesValue.
+			// Convert the bytes to a wrapperspb.BytesValue.
 			return wrapperspb.Bytes([]byte(b)), nil
 		case jsonValueType:
 			// CEL follows the proto3 to JSON conversion by encoding bytes to a string via base64.

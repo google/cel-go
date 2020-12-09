@@ -87,10 +87,10 @@ func (d Double) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 			// Primitives must be wrapped before being set on an Any field.
 			return anypb.New(wrapperspb.Double(float64(d)))
 		case doubleWrapperType:
-			// Convert to a protobuf.DoubleValue
+			// Convert to a wrapperspb.DoubleValue
 			return wrapperspb.Double(float64(d)), nil
 		case floatWrapperType:
-			// Convert to a protobuf.FloatValue (with truncation).
+			// Convert to a wrapperspb.FloatValue (with truncation).
 			return wrapperspb.Float(float32(d)), nil
 		case jsonValueType:
 			// Note, there are special cases for proto3 to json conversion that

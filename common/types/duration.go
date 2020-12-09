@@ -86,7 +86,7 @@ func (d Duration) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	}
 	switch typeDesc {
 	case anyValueType:
-		// Pack the underlying proto value into an Any value.
+		// Pack the duration as a dpb.Duration into an Any value.
 		return anypb.New(dpb.New(d.Duration))
 	case durationValueType:
 		// Unwrap the CEL value to its underlying proto value.

@@ -94,10 +94,10 @@ func (i Uint) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 			// since the conversion to floating point would result in truncation.
 			return structpb.NewStringValue(strconv.FormatUint(uint64(i), 10)), nil
 		case uint32WrapperType:
-			// Convert the value to a protobuf.UInt32Value (with truncation).
+			// Convert the value to a wrapperspb.UInt32Value (with truncation).
 			return wrapperspb.UInt32(uint32(i)), nil
 		case uint64WrapperType:
-			// Convert the value to a protobuf.UInt64Value.
+			// Convert the value to a wrapperspb.UInt64Value.
 			return wrapperspb.UInt64(uint64(i)), nil
 		}
 		switch typeDesc.Elem().Kind() {

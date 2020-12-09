@@ -408,13 +408,15 @@ func unwrapDynamic(desc description, refMsg protoreflect.Message) (interface{}, 
 	switch typeName {
 	case "google.protobuf.Any":
 		// Note, Any values require further unwrapping; however, this unwrapping may or may not
-		// be to a well-known type, so callers are encouraged to attempt further unwrapping of Any
-		// values.
+		// be to a well-known type. If the unwrapped value is a well-known type it will be further
+		// unwrapped before being returned to the caller. Otherwise, the dynamic protobuf object
+		// represented by the Any will be returned.
 		unwrappedAny := &anypb.Any{}
 		proto.Merge(unwrappedAny, msg)
 		dynMsg, err := unwrappedAny.UnmarshalNew()
 		if err != nil {
-			// Allow the error to move further up the stack.
+			// Allow the error to move further up the stack as it should result in an type
+			// conversion error if the caller does not recover it somehow.
 			return unwrappedAny, true
 		}
 		// Attempt to unwrap the dynamic type, otherwise return the dynamic message.
