@@ -18,18 +18,14 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/proto"
 
-	anypb "github.com/golang/protobuf/ptypes/any"
-	structpb "github.com/golang/protobuf/ptypes/struct"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 )
 
-func TestNull_ConvertToNative(t *testing.T) {
-	expected := &structpb.Value{
-		Kind: &structpb.Value_NullValue{
-			NullValue: structpb.NullValue_NULL_VALUE}}
-
+func TestNullConvertToNative(t *testing.T) {
+	expected := structpb.NewNullValue()
 	// Json Value
 	val, err := NullValue.ConvertToNative(jsonValueType)
 	if err != nil {
@@ -42,14 +38,14 @@ func TestNull_ConvertToNative(t *testing.T) {
 	// google.protobuf.Any
 	val, err = NullValue.ConvertToNative(anyValueType)
 	if err != nil {
-		t.Error("Fail to convert Null to any.")
+		t.Fatalf("NullValue.ConvertToNative(%v) failed: %v", anyValueType, err)
 	}
-	data := ptypes.DynamicAny{}
-	if ptypes.UnmarshalAny(val.(*anypb.Any), &data) != nil {
-		t.Error("Fail to unmarshal any.")
+	data, err := val.(*anypb.Any).UnmarshalNew()
+	if err != nil {
+		t.Fatalf("val.UnmarshalNew() failed: %v", err)
 	}
-	if !proto.Equal(expected, data.Message) {
-		t.Errorf("Messages were not equal, got '%v'", data.Message)
+	if !proto.Equal(expected, data) {
+		t.Errorf("Messages were not equal, got '%v'", data)
 	}
 
 	// NullValue
@@ -62,7 +58,7 @@ func TestNull_ConvertToNative(t *testing.T) {
 	}
 }
 
-func TestNull_ConvertToType(t *testing.T) {
+func TestNullConvertToType(t *testing.T) {
 	if !NullValue.ConvertToType(NullType).Equal(NullValue).(Bool) {
 		t.Error("Failed to get NullType of NullValue.")
 	}
@@ -75,19 +71,19 @@ func TestNull_ConvertToType(t *testing.T) {
 	}
 }
 
-func TestNull_Equal(t *testing.T) {
+func TestNullEqual(t *testing.T) {
 	if !NullValue.Equal(NullValue).(Bool) {
 		t.Error("NullValue does not equal to itself.")
 	}
 }
 
-func TestNull_Type(t *testing.T) {
+func TestNullType(t *testing.T) {
 	if NullValue.Type() != NullType {
 		t.Error("NullValue gets incorrect type.")
 	}
 }
 
-func TestNull_Value(t *testing.T) {
+func TestNullValue(t *testing.T) {
 	if NullValue.Value() != structpb.NullValue_NULL_VALUE {
 		t.Error("NullValue gets incorrect value.")
 	}

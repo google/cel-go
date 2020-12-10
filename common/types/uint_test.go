@@ -19,11 +19,11 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/proto"
 
-	structpb "github.com/golang/protobuf/ptypes/struct"
-	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
+	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 func TestUint_Add(t *testing.T) {
@@ -57,7 +57,7 @@ func TestUint_ConvertToNative_Any(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	want, err := ptypes.MarshalAny(&wrapperspb.UInt64Value{Value: math.MaxUint64})
+	want, err := anypb.New(wrapperspb.UInt64(math.MaxUint64))
 	if err != nil {
 		t.Error(err)
 	}
@@ -79,7 +79,7 @@ func TestUint_ConvertToNative_Json(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	} else if !proto.Equal(val.(proto.Message),
-		&structpb.Value{Kind: &structpb.Value_NumberValue{NumberValue: 9007199254740991.0}}) {
+		structpb.NewNumberValue(9007199254740991.0)) {
 		t.Errorf("Got '%v', expected a json number for a 32-bit uint", val)
 	}
 
@@ -87,8 +87,7 @@ func TestUint_ConvertToNative_Json(t *testing.T) {
 	val, err = Int(maxIntJSON + 1).ConvertToNative(jsonValueType)
 	if err != nil {
 		t.Error(err)
-	} else if !proto.Equal(val.(proto.Message),
-		&structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "9007199254740992"}}) {
+	} else if !proto.Equal(val.(proto.Message), structpb.NewStringValue("9007199254740992")) {
 		t.Errorf("Got '%v', expected a json string for a 64-bit uint", val)
 	}
 }
@@ -118,7 +117,7 @@ func TestUint_ConvertToNative_Wrapper(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	want := &wrapperspb.UInt32Value{Value: math.MaxUint32}
+	want := wrapperspb.UInt32(math.MaxUint32)
 	if !proto.Equal(val.(proto.Message), want) {
 		t.Errorf("Got %v, wanted %v", val, want)
 	}
@@ -127,7 +126,7 @@ func TestUint_ConvertToNative_Wrapper(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	want2 := &wrapperspb.UInt64Value{Value: math.MaxUint64}
+	want2 := wrapperspb.UInt64(math.MaxUint64)
 	if !proto.Equal(val.(proto.Message), want2) {
 		t.Errorf("Got %v, wanted %v", val, want2)
 	}

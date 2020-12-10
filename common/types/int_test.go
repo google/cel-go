@@ -20,14 +20,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/proto"
 
-	structpb "github.com/golang/protobuf/ptypes/struct"
-	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
+	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
-func TestInt_Add(t *testing.T) {
+func TestIntAdd(t *testing.T) {
 	if !Int(4).Add(Int(-3)).Equal(Int(1)).(Bool) {
 		t.Error("Adding two ints did not match expected value.")
 	}
@@ -36,7 +36,7 @@ func TestInt_Add(t *testing.T) {
 	}
 }
 
-func TestInt_Compare(t *testing.T) {
+func TestIntCompare(t *testing.T) {
 	lt := Int(-1300)
 	gt := Int(204)
 	if !lt.Compare(gt).Equal(IntNegOne).(Bool) {
@@ -53,12 +53,12 @@ func TestInt_Compare(t *testing.T) {
 	}
 }
 
-func TestInt_ConvertToNative_Any(t *testing.T) {
+func TestIntConvertToNative_Any(t *testing.T) {
 	val, err := Int(math.MaxInt64).ConvertToNative(anyValueType)
 	if err != nil {
 		t.Error(err)
 	}
-	want, err := ptypes.MarshalAny(&wrapperspb.Int64Value{Value: math.MaxInt64})
+	want, err := anypb.New(wrapperspb.Int64(math.MaxInt64))
 	if err != nil {
 		t.Error(err)
 	}
@@ -67,14 +67,14 @@ func TestInt_ConvertToNative_Any(t *testing.T) {
 	}
 }
 
-func TestInt_ConvertToNative_Error(t *testing.T) {
+func TestIntConvertToNative_Error(t *testing.T) {
 	val, err := Int(1).ConvertToNative(jsonStructType)
 	if err == nil {
 		t.Errorf("Got '%v', expected error", val)
 	}
 }
 
-func TestInt_ConvertToNative_Int32(t *testing.T) {
+func TestIntConvertToNative_Int32(t *testing.T) {
 	val, err := Int(20050).ConvertToNative(reflect.TypeOf(int32(0)))
 	if err != nil {
 		t.Error(err)
@@ -83,7 +83,7 @@ func TestInt_ConvertToNative_Int32(t *testing.T) {
 	}
 }
 
-func TestInt_ConvertToNative_Int64(t *testing.T) {
+func TestIntConvertToNative_Int64(t *testing.T) {
 	// Value greater than max int32.
 	val, err := Int(4147483648).ConvertToNative(reflect.TypeOf(int64(0)))
 	if err != nil {
@@ -93,13 +93,13 @@ func TestInt_ConvertToNative_Int64(t *testing.T) {
 	}
 }
 
-func TestInt_ConvertToNative_Json(t *testing.T) {
+func TestIntConvertToNative_Json(t *testing.T) {
 	// Value can be represented accurately as a JSON number.
 	val, err := Int(maxIntJSON).ConvertToNative(jsonValueType)
 	if err != nil {
 		t.Error(err)
 	} else if !proto.Equal(val.(proto.Message),
-		&structpb.Value{Kind: &structpb.Value_NumberValue{NumberValue: 9007199254740991.0}}) {
+		structpb.NewNumberValue(9007199254740991.0)) {
 		t.Errorf("Got '%v', expected a json number for a 32-bit int", val)
 	}
 
@@ -107,13 +107,12 @@ func TestInt_ConvertToNative_Json(t *testing.T) {
 	val, err = Int(maxIntJSON + 1).ConvertToNative(jsonValueType)
 	if err != nil {
 		t.Error(err)
-	} else if !proto.Equal(val.(proto.Message),
-		&structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "9007199254740992"}}) {
+	} else if !proto.Equal(val.(proto.Message), structpb.NewStringValue("9007199254740992")) {
 		t.Errorf("Got '%v', expected a json string for a 64-bit int", val)
 	}
 }
 
-func TestInt_ConvertToNative_Ptr_Int32(t *testing.T) {
+func TestIntConvertToNative_Ptr_Int32(t *testing.T) {
 	ptrType := int32(0)
 	val, err := Int(20050).ConvertToNative(reflect.TypeOf(&ptrType))
 	if err != nil {
@@ -123,7 +122,7 @@ func TestInt_ConvertToNative_Ptr_Int32(t *testing.T) {
 	}
 }
 
-func TestInt_ConvertToNative_Ptr_Int64(t *testing.T) {
+func TestIntConvertToNative_Ptr_Int64(t *testing.T) {
 	// Value greater than max int32.
 	ptrType := int64(0)
 	val, err := Int(math.MaxInt32 + 1).ConvertToNative(reflect.TypeOf(&ptrType))
@@ -134,12 +133,12 @@ func TestInt_ConvertToNative_Ptr_Int64(t *testing.T) {
 	}
 }
 
-func TestInt_ConvertToNative_Wrapper(t *testing.T) {
+func TestIntConvertToNative_Wrapper(t *testing.T) {
 	val, err := Int(math.MinInt32).ConvertToNative(int32WrapperType)
 	if err != nil {
 		t.Error(err)
 	}
-	want := &wrapperspb.Int32Value{Value: math.MinInt32}
+	want := wrapperspb.Int32(math.MinInt32)
 	if err != nil {
 		t.Error(err)
 	}
@@ -151,7 +150,7 @@ func TestInt_ConvertToNative_Wrapper(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	want2 := &wrapperspb.Int64Value{Value: math.MinInt64}
+	want2 := wrapperspb.Int64(math.MinInt64)
 	if err != nil {
 		t.Error(err)
 	}
@@ -160,7 +159,7 @@ func TestInt_ConvertToNative_Wrapper(t *testing.T) {
 	}
 }
 
-func TestInt_ConvertToType(t *testing.T) {
+func TestIntConvertToType(t *testing.T) {
 	if !Int(-4).ConvertToType(IntType).Equal(Int(-4)).(Bool) {
 		t.Error("Unsuccessful type conversion to int")
 	}
@@ -179,15 +178,14 @@ func TestInt_ConvertToType(t *testing.T) {
 	if !IsError(Int(-4).ConvertToType(DurationType)) {
 		t.Error("Got duration, expected error.")
 	}
-	tm := time.Unix(946684800, 0)
-	ts, _ := ptypes.TimestampProto(tm)
-	celts := Timestamp{Timestamp: ts}
+	tm := time.Unix(946684800, 0).UTC()
+	celts := Timestamp{Time: tm}
 	if !Int(946684800).ConvertToType(TimestampType).Equal(celts).(Bool) {
 		t.Error("unsuccessful type conversion to timestamp")
 	}
 }
 
-func TestInt_Divide(t *testing.T) {
+func TestIntDivide(t *testing.T) {
 	if !Int(3).Divide(Int(2)).Equal(Int(1)).(Bool) {
 		t.Error("Dividing two ints did not match expectations.")
 	}
@@ -199,13 +197,13 @@ func TestInt_Divide(t *testing.T) {
 	}
 }
 
-func TestInt_Equal(t *testing.T) {
+func TestIntEqual(t *testing.T) {
 	if !IsError(Int(0).Equal(False)) {
 		t.Error("Int equal to non-int type resulted in non-error.")
 	}
 }
 
-func TestInt_Modulo(t *testing.T) {
+func TestIntModulo(t *testing.T) {
 	if !Int(21).Modulo(Int(2)).Equal(Int(1)).(Bool) {
 		t.Error("Unexpected result from modulus operator.")
 	}
@@ -217,7 +215,7 @@ func TestInt_Modulo(t *testing.T) {
 	}
 }
 
-func TestInt_Multiply(t *testing.T) {
+func TestIntMultiply(t *testing.T) {
 	if !Int(2).Multiply(Int(-2)).Equal(Int(-4)).(Bool) {
 		t.Error("Multiplying two values did not match expectations.")
 	}
@@ -226,13 +224,13 @@ func TestInt_Multiply(t *testing.T) {
 	}
 }
 
-func TestInt_Negate(t *testing.T) {
+func TestIntNegate(t *testing.T) {
 	if !Int(1).Negate().Equal(Int(-1)).(Bool) {
 		t.Error("Negating int value did not succeed")
 	}
 }
 
-func TestInt_Subtract(t *testing.T) {
+func TestIntSubtract(t *testing.T) {
 	if !Int(4).Subtract(Int(-3)).Equal(Int(7)).(Bool) {
 		t.Error("Subtracting two ints did not match expected value.")
 	}

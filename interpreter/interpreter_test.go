@@ -20,8 +20,7 @@ import (
 	"errors"
 	"reflect"
 	"testing"
-
-	"github.com/golang/protobuf/proto"
+	"time"
 
 	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/checker/decls"
@@ -33,15 +32,15 @@ import (
 	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/parser"
 
-	dpb "github.com/golang/protobuf/ptypes/duration"
-	structpb "github.com/golang/protobuf/ptypes/struct"
-	tpb "github.com/golang/protobuf/ptypes/timestamp"
-	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
+	"google.golang.org/protobuf/proto"
 
 	proto2pb "github.com/google/cel-go/test/proto2pb"
 	proto3pb "github.com/google/cel-go/test/proto3pb"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	structpb "google.golang.org/protobuf/types/known/structpb"
+	tpb "google.golang.org/protobuf/types/known/timestamppb"
+	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 type testCase struct {
@@ -453,7 +452,7 @@ var (
 			optimizedCost: []int64{1, 1},
 		},
 		{
-			name:          "timestamp_eq_timestamp",
+			name:          "timestamp_ne_timestamp",
 			expr:          `timestamp(1) != timestamp(2)`,
 			cost:          []int64{3, 3},
 			optimizedCost: []int64{1, 1},
@@ -927,9 +926,7 @@ var (
 								"list": {Kind: &structpb.Value_ListValue{
 									ListValue: &structpb.ListValue{
 										Values: []*structpb.Value{
-											{Kind: &structpb.Value_StringValue{
-												StringValue: "world",
-											}},
+											structpb.NewStringValue("world"),
 										},
 									},
 								}},
@@ -978,7 +975,7 @@ var (
 			in: map[string]interface{}{
 				"a": &proto3pb.TestAllTypes{
 					SingleInt64Wrapper:  &wrapperspb.Int64Value{},
-					SingleStringWrapper: &wrapperspb.StringValue{Value: "hello"},
+					SingleStringWrapper: wrapperspb.String("hello"),
 				},
 			},
 		},
@@ -1010,9 +1007,9 @@ var (
 			},
 			attrs: &custAttrFactory{
 				AttributeFactory: NewAttributeFactory(
-					safeContainer("google.expr.proto3.test"),
-					types.NewRegistry(),
-					types.NewRegistry(),
+					testContainer("google.expr.proto3.test"),
+					types.DefaultTypeAdapter,
+					types.NewEmptyRegistry(),
 				),
 			},
 			in: map[string]interface{}{
@@ -1078,7 +1075,7 @@ var (
 
 func BenchmarkInterpreter(b *testing.B) {
 	for _, tst := range testData {
-		prg, vars, err := program(&tst, Optimize())
+		prg, vars, err := program(b, &tst, Optimize())
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -1095,14 +1092,14 @@ func BenchmarkInterpreter(b *testing.B) {
 
 func BenchmarkInterpreter_Parallel(b *testing.B) {
 	for _, tst := range testData {
-		prg, vars, err := program(&tst, Optimize())
+		prg, vars, err := program(b, &tst, Optimize())
 		if err != nil {
 			b.Fatal(err)
 		}
 		b.ResetTimer()
 		b.Run(tst.name,
-			func(bb *testing.B) {
-				bb.RunParallel(func(pb *testing.PB) {
+			func(b *testing.B) {
+				b.RunParallel(func(pb *testing.PB) {
 					for pb.Next() {
 						prg.Eval(vars)
 					}
@@ -1114,12 +1111,12 @@ func BenchmarkInterpreter_Parallel(b *testing.B) {
 func TestInterpreter(t *testing.T) {
 	for _, tst := range testData {
 		tc := tst
-		prg, vars, err := program(&tc)
+		prg, vars, err := program(t, &tc)
 		if err != nil {
 			t.Fatalf("%s: %v", tc.name, err)
 		}
-		t.Run(tc.name, func(tt *testing.T) {
-			tt.Parallel()
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
 			var want ref.Val = types.True
 			if tc.out != nil {
@@ -1129,20 +1126,20 @@ func TestInterpreter(t *testing.T) {
 			_, expectUnk := want.(types.Unknown)
 			if expectUnk {
 				if !reflect.DeepEqual(got, want) {
-					tt.Fatalf("Got %v, wanted %v", got, want)
+					t.Fatalf("Got %v, wanted %v", got, want)
 				}
 			} else if tc.err != "" {
 				if !types.IsError(got) || got.(*types.Err).String() != tc.err {
-					tt.Fatalf("Got %v (%T), wanted error: %s", got, got, tc.err)
+					t.Fatalf("Got %v (%T), wanted error: %s", got, got, tc.err)
 				}
 			} else if got.Equal(want) != types.True {
-				tt.Fatalf("Got %v, wanted %v", got, want)
+				t.Fatalf("Got %v, wanted %v", got, want)
 			}
 
 			if tc.cost != nil {
 				minCost, maxCost := estimateCost(prg)
 				if minCost != tc.cost[0] || maxCost != tc.cost[1] {
-					tt.Errorf("Got cost interval [%v, %v], wanted %v", minCost, maxCost, tc.cost)
+					t.Errorf("Got cost interval [%v, %v], wanted %v", minCost, maxCost, tc.cost)
 				}
 			}
 			state := NewEvalState()
@@ -1152,23 +1149,23 @@ func TestInterpreter(t *testing.T) {
 				"track":      TrackState(state),
 			}
 			for mode, opt := range opts {
-				prg, vars, err = program(&tc, opt)
+				prg, vars, err = program(t, &tc, opt)
 				if err != nil {
-					tt.Fatal(err)
+					t.Fatal(err)
 				}
-				tt.Run(mode, func(ttt *testing.T) {
+				t.Run(mode, func(t *testing.T) {
 					got := prg.Eval(vars)
 					_, expectUnk := want.(types.Unknown)
 					if expectUnk {
 						if !reflect.DeepEqual(got, want) {
-							ttt.Errorf("Got %v, wanted %v", got, want)
+							t.Errorf("Got %v, wanted %v", got, want)
 						}
 					} else if tc.err != "" {
 						if !types.IsError(got) || got.(*types.Err).String() != tc.err {
-							ttt.Errorf("Got %v (%T), wanted error: %s", got, got, tc.err)
+							t.Errorf("Got %v (%T), wanted error: %s", got, got, tc.err)
 						}
 					} else if got.Equal(want) != types.True {
-						ttt.Errorf("Got %v, wanted %v", got, want)
+						t.Errorf("Got %v, wanted %v", got, want)
 					}
 					if mode == "exhaustive" && tc.cost != nil {
 						wantedCost := tc.cost
@@ -1177,7 +1174,7 @@ func TestInterpreter(t *testing.T) {
 						}
 						minCost, maxCost := estimateCost(prg)
 						if minCost != wantedCost[0] || maxCost != wantedCost[1] {
-							ttt.Errorf("Got exhaustive cost interval [%v, %v], wanted %v",
+							t.Errorf("Got exhaustive cost interval [%v, %v], wanted %v",
 								minCost, maxCost, wantedCost)
 						}
 					}
@@ -1188,7 +1185,7 @@ func TestInterpreter(t *testing.T) {
 						}
 						minCost, maxCost := estimateCost(prg)
 						if minCost != wantedCost[0] || maxCost != wantedCost[1] {
-							ttt.Errorf("Got optimize cost interval [%v, %v], wanted %v", minCost, maxCost, tc.cost)
+							t.Errorf("Got optimize cost interval [%v, %v], wanted %v", minCost, maxCost, tc.cost)
 						}
 					}
 					state.Reset()
@@ -1199,7 +1196,7 @@ func TestInterpreter(t *testing.T) {
 }
 
 func TestInterpreter_ProtoAttributeOpt(t *testing.T) {
-	inst, _, err := program(&testCase{
+	inst, _, err := program(t, &testCase{
 		name:  "nested_proto_field_with_index",
 		expr:  `pb3.map_int64_nested_type[0].child.payload.single_int32`,
 		types: []proto.Message{&proto3pb.TestAllTypes{}},
@@ -1252,7 +1249,7 @@ func TestInterpreter_LogicalAndMissingType(t *testing.T) {
 		t.Errorf(errors.ToDisplayString())
 	}
 
-	reg := types.NewRegistry()
+	reg := newTestRegistry(t)
 	cont := containers.DefaultContainer
 	attrs := NewAttributeFactory(cont, reg, reg)
 	intr := NewStandardInterpreter(cont, reg, reg, attrs)
@@ -1271,7 +1268,7 @@ func TestInterpreter_ExhaustiveConditionalExpr(t *testing.T) {
 
 	state := NewEvalState()
 	cont := containers.DefaultContainer
-	reg := types.NewRegistry(&exprpb.ParsedExpr{})
+	reg := newTestRegistry(t, &exprpb.ParsedExpr{})
 	attrs := NewAttributeFactory(cont, reg, reg)
 	intr := NewStandardInterpreter(cont, reg, reg, attrs)
 	interpretable, _ := intr.NewUncheckedInterpretable(
@@ -1304,8 +1301,8 @@ func TestInterpreter_ExhaustiveLogicalOrEquals(t *testing.T) {
 	}
 
 	state := NewEvalState()
-	reg := types.NewRegistry(&exprpb.Expr{})
-	cont := safeContainer("test")
+	reg := newTestRegistry(t, &exprpb.Expr{})
+	cont := testContainer("test")
 	attrs := NewAttributeFactory(cont, reg, reg)
 	interp := NewStandardInterpreter(cont, reg, reg, attrs)
 	i, _ := interp.NewUncheckedInterpretable(
@@ -1344,8 +1341,8 @@ func TestInterpreter_SetProto2PrimitiveFields(t *testing.T) {
 		t.Errorf(errors.ToDisplayString())
 	}
 
-	cont := safeContainer("google.expr.proto2.test")
-	reg := types.NewRegistry(&proto2pb.TestAllTypes{})
+	cont := testContainer("google.expr.proto2.test")
+	reg := newTestRegistry(t, &proto2pb.TestAllTypes{})
 	env := checker.NewStandardEnv(cont, reg)
 	env.Add(decls.NewVar("input", decls.NewObjectType("google.expr.proto2.test.TestAllTypes")))
 	checked, errors := checker.Check(parsed, src, env)
@@ -1397,8 +1394,8 @@ func TestInterpreter_MissingIdentInSelect(t *testing.T) {
 		t.Fatalf(errors.ToDisplayString())
 	}
 
-	cont := safeContainer("test")
-	reg := types.NewRegistry()
+	cont := testContainer("test")
+	reg := newTestRegistry(t)
 	env := checker.NewStandardEnv(cont, reg)
 	env.Add(decls.NewVar("a.b", decls.Dyn))
 	checked, errors := checker.Check(parsed, src, env)
@@ -1439,13 +1436,13 @@ func TestInterpreter_TypeConversionOpt(t *testing.T) {
 		{in: `double("_123")`, err: true},
 		{in: `double("123.0")`, out: types.Double(123.0)},
 		{in: `duration('12hh3')`, err: true},
-		{in: `duration('12s')`, out: types.Duration{Duration: &dpb.Duration{Seconds: 12}}},
+		{in: `duration('12s')`, out: types.Duration{Duration: time.Duration(12) * time.Second}},
 		{in: `dyn(1u)`, out: types.Uint(1)},
 		{in: `int('11l')`, err: true},
 		{in: `int('11')`, out: types.Int(11)},
 		{in: `string('11')`, out: types.String("11")},
 		{in: `timestamp('123')`, err: true},
-		{in: `timestamp(123)`, out: types.Timestamp{Timestamp: &tpb.Timestamp{Seconds: 123}}},
+		{in: `timestamp(123)`, out: types.Timestamp{Time: time.Unix(123, 0).UTC()}},
 		{in: `type(null)`, out: types.NullType},
 		{in: `type(timestamp(int('123')))`, out: types.TimestampType},
 		{in: `uint(-1)`, err: true},
@@ -1458,7 +1455,7 @@ func TestInterpreter_TypeConversionOpt(t *testing.T) {
 			t.Fatalf(errors.ToDisplayString())
 		}
 		cont := containers.DefaultContainer
-		reg := types.NewRegistry()
+		reg := newTestRegistry(t)
 		env := checker.NewStandardEnv(cont, reg)
 		checked, errors := checker.Check(parsed, src, env)
 		if len(errors.GetErrors()) != 0 {
@@ -1499,17 +1496,16 @@ func TestInterpreter_TypeConversionOpt(t *testing.T) {
 	}
 }
 
-func safeContainer(name string) *containers.Container {
+func testContainer(name string) *containers.Container {
 	cont, _ := containers.NewContainer(containers.Name(name))
 	return cont
 }
 
-func program(tst *testCase,
-	opts ...InterpretableDecorator) (Interpretable, Activation, error) {
+func program(ctx interface{}, tst *testCase, opts ...InterpretableDecorator) (Interpretable, Activation, error) {
 	// Configure the package.
 	cont := containers.DefaultContainer
 	if tst.container != "" {
-		cont = safeContainer(tst.container)
+		cont = testContainer(tst.container)
 	}
 	var err error
 	if tst.abbrevs != nil {
@@ -1520,9 +1516,18 @@ func program(tst *testCase,
 			return nil, nil, err
 		}
 	}
-	reg := types.NewRegistry()
-	if tst.types != nil {
-		reg = types.NewRegistry(tst.types...)
+	var reg ref.TypeRegistry
+	switch t := ctx.(type) {
+	case *testing.T:
+		reg = newTestRegistry(t)
+		if tst.types != nil {
+			reg = newTestRegistry(t, tst.types...)
+		}
+	case *testing.B:
+		reg = newBenchRegistry(t)
+		if tst.types != nil {
+			reg = newBenchRegistry(t, tst.types...)
+		}
 	}
 	attrs := NewAttributeFactory(cont, reg, reg)
 	if tst.attrs != nil {
@@ -1601,4 +1606,22 @@ func isFieldQual(q Qualifier, fieldName string) bool {
 		return false
 	}
 	return f.Name == fieldName
+}
+
+func newBenchRegistry(b *testing.B, msgs ...proto.Message) ref.TypeRegistry {
+	b.Helper()
+	reg, err := types.NewRegistry(msgs...)
+	if err != nil {
+		b.Fatalf("types.NewRegistry(%v) failed: %v", msgs, err)
+	}
+	return reg
+}
+
+func newTestRegistry(t *testing.T, msgs ...proto.Message) ref.TypeRegistry {
+	t.Helper()
+	reg, err := types.NewRegistry(msgs...)
+	if err != nil {
+		t.Fatalf("types.NewRegistry(%v) failed: %v", msgs, err)
+	}
+	return reg
 }

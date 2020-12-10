@@ -18,14 +18,14 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/proto"
 
-	structpb "github.com/golang/protobuf/ptypes/struct"
-	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
+	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
-func TestBool_Compare(t *testing.T) {
+func TestBoolCompare(t *testing.T) {
 	if False.Compare(True).(Int) != IntNegOne {
 		t.Error("False was not less than true")
 	}
@@ -43,12 +43,12 @@ func TestBool_Compare(t *testing.T) {
 	}
 }
 
-func TestBool_ConvertToNative_Any(t *testing.T) {
+func TestBoolConvertToNative_Any(t *testing.T) {
 	val, err := True.ConvertToNative(anyValueType)
 	if err != nil {
 		t.Error(err)
 	}
-	pbVal, err := ptypes.MarshalAny(&wrapperspb.BoolValue{Value: true})
+	pbVal, err := anypb.New(wrapperspb.Bool(true))
 	if err != nil {
 		t.Error(err)
 	}
@@ -57,7 +57,7 @@ func TestBool_ConvertToNative_Any(t *testing.T) {
 	}
 }
 
-func TestBool_ConvertToNative_Bool(t *testing.T) {
+func TestBoolConvertToNative_Bool(t *testing.T) {
 	refType := reflect.TypeOf(true)
 	val, err := True.ConvertToNative(refType)
 	if err != nil {
@@ -67,7 +67,7 @@ func TestBool_ConvertToNative_Bool(t *testing.T) {
 	}
 }
 
-func TestBool_ConvertToNative_Error(t *testing.T) {
+func TestBoolConvertToNative_Error(t *testing.T) {
 	refType := reflect.TypeOf("")
 	val, err := True.ConvertToNative(refType)
 	if err == nil {
@@ -75,7 +75,7 @@ func TestBool_ConvertToNative_Error(t *testing.T) {
 	}
 }
 
-func TestBool_ConvertToNative_Json(t *testing.T) {
+func TestBoolConvertToNative_Json(t *testing.T) {
 	val, err := True.ConvertToNative(jsonValueType)
 	pbVal := &structpb.Value{Kind: &structpb.Value_BoolValue{BoolValue: true}}
 	if err != nil {
@@ -85,7 +85,7 @@ func TestBool_ConvertToNative_Json(t *testing.T) {
 	}
 }
 
-func TestBool_ConvertToNative_Ptr(t *testing.T) {
+func TestBoolConvertToNative_Ptr(t *testing.T) {
 	ptrType := true
 	refType := reflect.TypeOf(&ptrType)
 	val, err := True.ConvertToNative(refType)
@@ -96,9 +96,9 @@ func TestBool_ConvertToNative_Ptr(t *testing.T) {
 	}
 }
 
-func TestBool_ConvertToNative_Wrapper(t *testing.T) {
+func TestBoolConvertToNative_Wrapper(t *testing.T) {
 	val, err := True.ConvertToNative(boolWrapperType)
-	pbVal := &wrapperspb.BoolValue{Value: true}
+	pbVal := wrapperspb.Bool(true)
 	if err != nil {
 		t.Error(err)
 	} else if !proto.Equal(val.(proto.Message), pbVal) {
@@ -106,7 +106,7 @@ func TestBool_ConvertToNative_Wrapper(t *testing.T) {
 	}
 }
 
-func TestBool_ConvertToType(t *testing.T) {
+func TestBoolConvertToType(t *testing.T) {
 	if !True.ConvertToType(StringType).Equal(String("true")).(Bool) {
 		t.Error("Boolean could not be converted to string")
 	}
@@ -121,7 +121,7 @@ func TestBool_ConvertToType(t *testing.T) {
 	}
 }
 
-func TestBool_Equal(t *testing.T) {
+func TestBoolEqual(t *testing.T) {
 	if !True.Equal(True).(Bool) {
 		t.Error("True was not equal to true")
 	}
@@ -133,7 +133,7 @@ func TestBool_Equal(t *testing.T) {
 	}
 }
 
-func TestBool_Negate(t *testing.T) {
+func TestBoolNegate(t *testing.T) {
 	if True.Negate() != False {
 		t.Error("True did not negate to false.")
 	}

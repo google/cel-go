@@ -17,17 +17,16 @@ package types
 import (
 	"reflect"
 	"testing"
+	"time"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types/ref"
 
-	dpb "github.com/golang/protobuf/ptypes/duration"
-	structpb "github.com/golang/protobuf/ptypes/struct"
-	tpb "github.com/golang/protobuf/ptypes/timestamp"
-	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
+	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 func TestString_Add(t *testing.T) {
@@ -62,7 +61,7 @@ func TestString_ConvertToNative_Any(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	want, err := ptypes.MarshalAny(&wrapperspb.StringValue{Value: "hello"})
+	want, err := anypb.New(wrapperspb.String("hello"))
 	if err != nil {
 		t.Error(err)
 	}
@@ -80,7 +79,7 @@ func TestString_ConvertToNative_Error(t *testing.T) {
 
 func TestString_ConvertToNative_Json(t *testing.T) {
 	val, err := String("hello").ConvertToNative(jsonValueType)
-	pbVal := &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "hello"}}
+	pbVal := structpb.NewStringValue("hello")
 	if err != nil {
 		t.Error(err)
 	} else if !proto.Equal(val.(proto.Message), pbVal) {
@@ -112,7 +111,7 @@ func TestString_ConvertToNative_Wrapper(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	want := &wrapperspb.StringValue{Value: "hello"}
+	want := wrapperspb.String("hello")
 	if !proto.Equal(val.(proto.Message), want) {
 		t.Errorf("Got '%v', expected '%v'", val, want)
 	}
@@ -129,11 +128,11 @@ func TestString_ConvertToType(t *testing.T) {
 		t.Error("String could not be converted to uint")
 	}
 	if !String("2017-01-01T00:00:00Z").ConvertToType(TimestampType).
-		Equal(Timestamp{&tpb.Timestamp{Seconds: 1483228800}}).(Bool) {
+		Equal(Timestamp{Time: time.Unix(1483228800, 0).UTC()}).(Bool) {
 		t.Error("String could not be converted to timestamp")
 	}
 	if !String("1h5s").ConvertToType(DurationType).
-		Equal(Duration{&dpb.Duration{Seconds: 3605}}).(Bool) {
+		Equal(Duration{Duration: time.Duration(3605) * time.Second}).(Bool) {
 		t.Error("String could not be converted to duration")
 	}
 	if !String("2.5").ConvertToType(DoubleType).Equal(Double(2.5)).(Bool) {

@@ -15,26 +15,27 @@
 package types
 
 import (
+	"reflect"
 	"testing"
-
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
+	"time"
 
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types/ref"
 
-	dpb "github.com/golang/protobuf/ptypes/duration"
-	structpb "github.com/golang/protobuf/ptypes/struct"
-	tpb "github.com/golang/protobuf/ptypes/timestamp"
+	"google.golang.org/protobuf/proto"
+
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
+	tpb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func TestTimestamp_Add(t *testing.T) {
-	ts := Timestamp{&tpb.Timestamp{Seconds: 7506}}
-	val := ts.Add(Duration{&dpb.Duration{Seconds: 3600, Nanos: 1000}})
+func TestTimestampAdd(t *testing.T) {
+	ts := Timestamp{Time: time.Unix(7506, 0).UTC()}
+	val := ts.Add(Duration{time.Duration(3600)*time.Second + time.Duration(1000)})
 	if val.ConvertToType(TypeType) != TimestampType {
 		t.Error("Could not add duration and timestamp")
 	}
-	expected := Timestamp{&tpb.Timestamp{Seconds: 11106, Nanos: 1000}}
+	expected := Timestamp{Time: time.Unix(11106, 1000).UTC()}
 	if !expected.Compare(val).Equal(IntZero).(Bool) {
 		t.Errorf("Got '%v', expected '%v'", val, expected)
 	}
@@ -43,14 +44,14 @@ func TestTimestamp_Add(t *testing.T) {
 	}
 }
 
-func TestTimestamp_ConvertToNative_Any(t *testing.T) {
+func TestTimestampConvertToNative_Any(t *testing.T) {
 	// 1970-01-01T02:05:06Z
-	ts := Timestamp{&tpb.Timestamp{Seconds: 7506}}
+	ts := Timestamp{Time: time.Unix(7506, 0)}
 	val, err := ts.ConvertToNative(anyValueType)
 	if err != nil {
 		t.Error(err)
 	}
-	want, err := ptypes.MarshalAny(ts.Timestamp)
+	want, err := anypb.New(tpb.New(ts.Time))
 	if err != nil {
 		t.Error(err)
 	}
@@ -59,51 +60,78 @@ func TestTimestamp_ConvertToNative_Any(t *testing.T) {
 	}
 }
 
-func TestTimestamp_ConvertToNative_Json(t *testing.T) {
+func TestTimestampConvertToNative(t *testing.T) {
 	// 1970-01-01T02:05:06Z
-	ts := Timestamp{&tpb.Timestamp{Seconds: 7506}}
-	val, err := ts.ConvertToNative(jsonValueType)
-	if err != nil {
-		t.Error(err)
-	}
-	want := &structpb.Value{
-		Kind: &structpb.Value_StringValue{
-			StringValue: "1970-01-01T02:05:06Z",
-		},
-	}
-	if !proto.Equal(val.(proto.Message), want) {
-		t.Errorf("Got '%v', expected '%v'", val, want)
-	}
-}
-
-func TestTimestamp_ConvertToNative_Timestamp(t *testing.T) {
-	// 1970-01-01T02:05:06Z
-	ts := Timestamp{&tpb.Timestamp{Seconds: 7506}}
+	ts := Timestamp{Time: time.Unix(7506, 0).UTC()}
 	val, err := ts.ConvertToNative(timestampValueType)
 	if err != nil {
 		t.Error(err)
 	}
-	want := ts.Timestamp
-	if !proto.Equal(val.(proto.Message), want) {
+	var want interface{}
+	want = tpb.New(ts.Time)
+	if !proto.Equal(val.(proto.Message), want.(proto.Message)) {
 		t.Errorf("Got '%v', expected '%v'", val, want)
+	}
+	val, err = ts.ConvertToNative(jsonValueType)
+	if err != nil {
+		t.Error(err)
+	}
+	want = structpb.NewStringValue("1970-01-01T02:05:06Z")
+	if !proto.Equal(val.(proto.Message), want.(proto.Message)) {
+		t.Errorf("Got '%v', expected '%v'", val, want)
+	}
+	val, err = ts.ConvertToNative(anyValueType)
+	if err != nil {
+		t.Error(err)
+	}
+	want, err = anypb.New(tpb.New(ts.Time))
+	if err != nil {
+		t.Error(err)
+	}
+	if !proto.Equal(val.(proto.Message), want.(proto.Message)) {
+		t.Errorf("Got '%v', expected '%v'", val, want)
+	}
+	val, err = ts.ConvertToNative(reflect.TypeOf(Timestamp{}))
+	if err != nil {
+		t.Error(err)
+	}
+	if !reflect.DeepEqual(val, ts) {
+		t.Errorf("got %v wanted %v", val, ts)
+	}
+	val, err = ts.ConvertToNative(reflect.TypeOf(time.Now()))
+	if err != nil {
+		t.Error(err)
+	}
+	want = time.Unix(7506, 0).UTC()
+	if !reflect.DeepEqual(val, want) {
+		t.Errorf("got %v wanted %v", val, want)
 	}
 }
 
-func TestTimestamp_Subtract(t *testing.T) {
-	ts := Timestamp{&tpb.Timestamp{Seconds: 7506}}
-	val := ts.Subtract(Duration{&dpb.Duration{Seconds: 3600, Nanos: 1000}})
+func TestTimestampSubtract(t *testing.T) {
+	ts := Timestamp{Time: time.Unix(7506, 0).UTC()}
+	val := ts.Subtract(Duration{Duration: time.Duration(3600)*time.Second + time.Duration(1000)})
 	if val.ConvertToType(TypeType) != TimestampType {
 		t.Error("Could not add duration and timestamp")
 	}
-	expected := Timestamp{&tpb.Timestamp{Seconds: 3905, Nanos: 999999000}}
+	expected := Timestamp{Time: time.Unix(3905, 999999000).UTC()}
 	if !expected.Compare(val).Equal(IntZero).(Bool) {
 		t.Errorf("Got '%v', expected '%v'", val, expected)
 	}
+	ts2 := Timestamp{Time: time.Unix(6506, 0).UTC()}
+	val = ts.Subtract(ts2)
+	if val.ConvertToType(TypeType) != DurationType {
+		t.Error("Could not subtract timestamps")
+	}
+	expectedDur := Duration{Duration: time.Duration(1000000000000)}
+	if !expectedDur.Compare(val).Equal(IntZero).(Bool) {
+		t.Errorf("Got '%v', expected '%v'", val, expectedDur)
+	}
 }
 
-func TestTimestamp_RecieveGetDayOfYear(t *testing.T) {
+func TestTimestampGetDayOfYear(t *testing.T) {
 	// 1970-01-01T02:05:06Z
-	ts := Timestamp{&tpb.Timestamp{Seconds: 7506}}
+	ts := Timestamp{Time: time.Unix(7506, 0).UTC()}
 	hr := ts.Receive(overloads.TimeGetDayOfYear, overloads.TimestampToDayOfYear, []ref.Val{})
 	if !hr.Equal(Int(0)).(Bool) {
 		t.Error("Expected 0, got", hr)
@@ -114,11 +142,16 @@ func TestTimestamp_RecieveGetDayOfYear(t *testing.T) {
 	if !hrTz.Equal(Int(364)).(Bool) {
 		t.Error("Expected 364, got", hrTz)
 	}
+	hrTz = ts.Receive(overloads.TimeGetDayOfYear, overloads.TimestampToDayOfYearWithTz,
+		[]ref.Val{String("-07:00")})
+	if !hrTz.Equal(Int(364)).(Bool) {
+		t.Error("Expected 364, got", hrTz)
+	}
 }
 
-func TestTimestamp_ReceiveGetMonth(t *testing.T) {
+func TestTimestampGetMonth(t *testing.T) {
 	// 1970-01-01T02:05:06Z
-	ts := Timestamp{&tpb.Timestamp{Seconds: 7506}}
+	ts := Timestamp{Time: time.Unix(7506, 0).UTC()}
 	hr := ts.Receive(overloads.TimeGetMonth, overloads.TimestampToMonth, []ref.Val{})
 	if !hr.Equal(Int(0)).(Bool) {
 		t.Error("Expected 0, got", hr)
@@ -131,9 +164,9 @@ func TestTimestamp_ReceiveGetMonth(t *testing.T) {
 	}
 }
 
-func TestTimestamp_ReceiveGetHours(t *testing.T) {
+func TestTimestampGetHours(t *testing.T) {
 	// 1970-01-01T02:05:06Z
-	ts := Timestamp{&tpb.Timestamp{Seconds: 7506}}
+	ts := Timestamp{Time: time.Unix(7506, 0).UTC()}
 	hr := ts.Receive(overloads.TimeGetHours, overloads.TimestampToHours, []ref.Val{})
 	if !hr.Equal(Int(2)).(Bool) {
 		t.Error("Expected 2 hours, got", hr)
@@ -146,9 +179,9 @@ func TestTimestamp_ReceiveGetHours(t *testing.T) {
 	}
 }
 
-func TestTimestamp_ReceiveGetMinutes(t *testing.T) {
+func TestTimestampGetMinutes(t *testing.T) {
 	// 1970-01-01T02:05:06Z
-	ts := Timestamp{&tpb.Timestamp{Seconds: 7506}}
+	ts := Timestamp{Time: time.Unix(7506, 0).UTC()}
 	min := ts.Receive(overloads.TimeGetMinutes, overloads.TimestampToMinutes, []ref.Val{})
 	if !min.Equal(Int(5)).(Bool) {
 		t.Error("Expected 5 minutes, got", min)
@@ -161,9 +194,9 @@ func TestTimestamp_ReceiveGetMinutes(t *testing.T) {
 	}
 }
 
-func TestTimestamp_ReceiveGetSeconds(t *testing.T) {
+func TestTimestampGetSeconds(t *testing.T) {
 	// 1970-01-01T02:05:06Z
-	ts := Timestamp{&tpb.Timestamp{Seconds: 7506}}
+	ts := Timestamp{Time: time.Unix(7506, 0).UTC()}
 	sec := ts.Receive(overloads.TimeGetSeconds, overloads.TimestampToSeconds, []ref.Val{})
 	if !sec.Equal(Int(6)).(Bool) {
 		t.Error("Expected 6 seconds, got", sec)

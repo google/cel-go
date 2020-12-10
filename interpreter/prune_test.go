@@ -19,7 +19,6 @@ import (
 
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/containers"
-	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/parser"
 	"github.com/google/cel-go/test"
 )
@@ -126,7 +125,7 @@ func TestPrune(t *testing.T) {
 			t.Fatalf(iss.ToDisplayString())
 		}
 		state := NewEvalState()
-		reg := types.NewRegistry()
+		reg := newTestRegistry(t)
 		attrs := NewPartialAttributeFactory(containers.DefaultContainer, reg, reg)
 		interp := NewStandardInterpreter(containers.DefaultContainer, reg, reg, attrs)
 		interpretable, _ := interp.NewUncheckedInterpretable(

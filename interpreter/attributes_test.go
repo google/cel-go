@@ -18,8 +18,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/golang/protobuf/ptypes"
-
 	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common"
@@ -31,10 +29,11 @@ import (
 	proto3pb "github.com/google/cel-go/test/proto3pb"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
-func TestAttributes_AbsoluteAttr(t *testing.T) {
-	reg := types.NewRegistry()
+func TestAttributesAbsoluteAttr(t *testing.T) {
+	reg := newTestRegistry(t)
 	cont, err := containers.NewContainer(containers.Name("acme.ns"))
 	if err != nil {
 		t.Fatal(err)
@@ -71,8 +70,8 @@ func TestAttributes_AbsoluteAttr(t *testing.T) {
 	}
 }
 
-func TestAttributes_AbsoluteAttr_Type(t *testing.T) {
-	reg := types.NewRegistry()
+func TestAttributesAbsoluteAttr_Type(t *testing.T) {
+	reg := newTestRegistry(t)
 	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
 
 	// int
@@ -90,8 +89,8 @@ func TestAttributes_AbsoluteAttr_Type(t *testing.T) {
 	}
 }
 
-func TestAttributes_RelativeAttr(t *testing.T) {
-	reg := types.NewRegistry()
+func TestAttributesRelativeAttr(t *testing.T) {
+	reg := newTestRegistry(t)
 	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
 	data := map[string]interface{}{
 		"a": map[int]interface{}{
@@ -128,8 +127,8 @@ func TestAttributes_RelativeAttr(t *testing.T) {
 	}
 }
 
-func TestAttributes_RelativeAttr_OneOf(t *testing.T) {
-	reg := types.NewRegistry()
+func TestAttributesRelativeAttr_OneOf(t *testing.T) {
+	reg := newTestRegistry(t)
 	cont, err := containers.NewContainer(containers.Name("acme.ns"))
 	if err != nil {
 		t.Fatal(err)
@@ -177,8 +176,8 @@ func TestAttributes_RelativeAttr_OneOf(t *testing.T) {
 	}
 }
 
-func TestAttributes_RelativeAttr_Conditional(t *testing.T) {
-	reg := types.NewRegistry()
+func TestAttributesRelativeAttr_Conditional(t *testing.T) {
+	reg := newTestRegistry(t)
 	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
 	data := map[string]interface{}{
 		"a": map[int]interface{}{
@@ -227,12 +226,12 @@ func TestAttributes_RelativeAttr_Conditional(t *testing.T) {
 	}
 }
 
-func TestAttributes_RelativeAttr_Relative(t *testing.T) {
+func TestAttributesRelativeAttr_Relative(t *testing.T) {
 	cont, err := containers.NewContainer(containers.Name("acme.ns"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	reg := types.NewRegistry()
+	reg := newTestRegistry(t)
 	attrs := NewAttributeFactory(cont, reg, reg)
 	data := map[string]interface{}{
 		"a": map[int]interface{}{
@@ -301,8 +300,8 @@ func TestAttributes_RelativeAttr_Relative(t *testing.T) {
 	}
 }
 
-func TestAttributes_OneofAttr(t *testing.T) {
-	reg := types.NewRegistry()
+func TestAttributesOneofAttr(t *testing.T) {
+	reg := newTestRegistry(t)
 	cont, err := containers.NewContainer(containers.Name("acme.ns"))
 	if err != nil {
 		t.Fatal(err)
@@ -334,8 +333,8 @@ func TestAttributes_OneofAttr(t *testing.T) {
 	}
 }
 
-func TestAttributes_ConditionalAttr_TrueBranch(t *testing.T) {
-	reg := types.NewRegistry()
+func TestAttributesConditionalAttr_TrueBranch(t *testing.T) {
+	reg := newTestRegistry(t)
 	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
 	data := map[string]interface{}{
 		"a": map[int]interface{}{
@@ -372,8 +371,8 @@ func TestAttributes_ConditionalAttr_TrueBranch(t *testing.T) {
 	}
 }
 
-func TestAttributes_ConditionalAttr_FalseBranch(t *testing.T) {
-	reg := types.NewRegistry()
+func TestAttributesConditionalAttr_FalseBranch(t *testing.T) {
+	reg := newTestRegistry(t)
 	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
 	data := map[string]interface{}{
 		"a": map[int]interface{}{
@@ -410,8 +409,8 @@ func TestAttributes_ConditionalAttr_FalseBranch(t *testing.T) {
 	}
 }
 
-func TestAttributes_ConditionalAttr_ErrorUnknown(t *testing.T) {
-	reg := types.NewRegistry()
+func TestAttributesConditionalAttr_ErrorUnknown(t *testing.T) {
+	reg := newTestRegistry(t)
 	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
 
 	// err ? a : b
@@ -443,8 +442,41 @@ func TestAttributes_ConditionalAttr_ErrorUnknown(t *testing.T) {
 	}
 }
 
-func TestResolver_CustomQualifier(t *testing.T) {
-	reg := types.NewRegistry()
+func BenchmarkResolverFieldQualifier(b *testing.B) {
+	msg := &proto3pb.TestAllTypes{
+		NestedType: &proto3pb.TestAllTypes_SingleNestedMessage{
+			SingleNestedMessage: &proto3pb.TestAllTypes_NestedMessage{
+				Bb: 123,
+			},
+		},
+	}
+	reg := newBenchRegistry(b, msg)
+	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
+	vars, _ := NewActivation(map[string]interface{}{
+		"msg": msg,
+	})
+	attr := attrs.AbsoluteAttribute(1, "msg")
+	opType, found := reg.FindType("google.expr.proto3.test.TestAllTypes")
+	if !found {
+		b.Fatal("FindType() could not find TestAllTypes")
+	}
+	fieldType, found := reg.FindType("google.expr.proto3.test.TestAllTypes.NestedMessage")
+	if !found {
+		b.Fatal("FindType() could not find NestedMessage")
+	}
+	attr.AddQualifier(makeQualifier(b, attrs, opType.GetType(), 2, "single_nested_message"))
+	attr.AddQualifier(makeQualifier(b, attrs, fieldType.GetType(), 3, "bb"))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := attr.Resolve(vars)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func TestResolverCustomQualifier(t *testing.T) {
+	reg := newTestRegistry(t)
 	attrs := &custAttrFactory{
 		AttributeFactory: NewAttributeFactory(containers.DefaultContainer, reg, reg),
 	}
@@ -474,10 +506,10 @@ func TestResolver_CustomQualifier(t *testing.T) {
 	}
 }
 
-func TestAttributes_MissingMsg(t *testing.T) {
-	reg := types.NewRegistry()
+func TestAttributesMissingMsg(t *testing.T) {
+	reg := newTestRegistry(t)
 	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
-	any, _ := ptypes.MarshalAny(&proto3pb.TestAllTypes{})
+	any, _ := anypb.New(&proto3pb.TestAllTypes{})
 	vars, _ := NewActivation(map[string]interface{}{
 		"missing_msg": any,
 	})
@@ -495,10 +527,10 @@ func TestAttributes_MissingMsg(t *testing.T) {
 	}
 }
 
-func TestAttributes_MissingMsg_UnknownField(t *testing.T) {
-	reg := types.NewRegistry()
+func TestAttributeMissingMsg_UnknownField(t *testing.T) {
+	reg := newTestRegistry(t)
 	attrs := NewPartialAttributeFactory(containers.DefaultContainer, reg, reg)
-	any, _ := ptypes.MarshalAny(&proto3pb.TestAllTypes{})
+	any, _ := anypb.New(&proto3pb.TestAllTypes{})
 	vars, _ := NewPartialActivation(map[string]interface{}{
 		"missing_msg": any,
 	}, NewAttributePattern("missing_msg").QualString("field"))
@@ -517,7 +549,7 @@ func TestAttributes_MissingMsg_UnknownField(t *testing.T) {
 	}
 }
 
-func TestAttribute_StateTracking(t *testing.T) {
+func TestAttributeStateTracking(t *testing.T) {
 	var tests = []struct {
 		expr  string
 		env   []*exprpb.Decl
@@ -641,7 +673,7 @@ func TestAttribute_StateTracking(t *testing.T) {
 				tt.Fatalf(errors.ToDisplayString())
 			}
 			cont := containers.DefaultContainer
-			reg := types.NewRegistry()
+			reg := newTestRegistry(t)
 			env := checker.NewStandardEnv(cont, reg)
 			if tc.env != nil {
 				env.Add(tc.env...)
@@ -680,8 +712,8 @@ func TestAttribute_StateTracking(t *testing.T) {
 	}
 }
 
-func BenchmarkResolver_CustomQualifier(b *testing.B) {
-	reg := types.NewRegistry()
+func BenchmarkResolverCustomQualifier(b *testing.B) {
+	reg := newBenchRegistry(b)
 	attrs := &custAttrFactory{
 		AttributeFactory: NewAttributeFactory(containers.DefaultContainer, reg, reg),
 	}
@@ -732,4 +764,13 @@ func (q *nestedMsgQualifier) Qualify(vars Activation, obj interface{}) (interfac
 // Cost implements the Coster interface method. It returns zero for testing purposes.
 func (q *nestedMsgQualifier) Cost() (min, max int64) {
 	return 0, 0
+}
+
+func makeQualifier(b *testing.B, attrs AttributeFactory, typ *exprpb.Type, qualID int64, val interface{}) Qualifier {
+	b.Helper()
+	qual, err := attrs.NewQualifier(typ, qualID, val)
+	if err != nil {
+		b.Fatalf("attrs.NewQualifier() failed: %v", err)
+	}
+	return qual
 }

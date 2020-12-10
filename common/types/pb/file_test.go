@@ -3,10 +3,15 @@ package pb
 import (
 	"testing"
 
+	"google.golang.org/protobuf/reflect/protodesc"
+	"google.golang.org/protobuf/reflect/protoreflect"
+
+	descpb "google.golang.org/protobuf/types/descriptorpb"
+
 	proto3pb "github.com/google/cel-go/test/proto3pb"
 )
 
-func TestFileDescription_GetTypes(t *testing.T) {
+func TestFileDescriptionGetTypes(t *testing.T) {
 	pbdb := NewDb()
 	fd, err := pbdb.RegisterMessage(&proto3pb.TestAllTypes{})
 	if err != nil {
@@ -34,9 +39,9 @@ func TestFileDescription_GetTypes(t *testing.T) {
 		}
 	}
 	for _, typeName := range fd.GetTypeNames() {
-		td, err := fd.GetTypeDescription(typeName)
-		if err != nil {
-			t.Error(err)
+		td, found := fd.GetTypeDescription(typeName)
+		if !found {
+			t.Fatalf("fd.GetTypeDescription(%v) returned not found", typeName)
 		}
 		if td.Name() != typeName {
 			t.Error("Indexed type name not equal to descriptor type name", td, typeName)
@@ -44,7 +49,7 @@ func TestFileDescription_GetTypes(t *testing.T) {
 	}
 }
 
-func TestFileDescription_GetEnumNames(t *testing.T) {
+func TestFileDescriptionGetEnumNames(t *testing.T) {
 	pbdb := NewDb()
 	fd, err := pbdb.RegisterMessage(&proto3pb.TestAllTypes{})
 	if err != nil {
@@ -63,10 +68,11 @@ func TestFileDescription_GetEnumNames(t *testing.T) {
 	}
 	for _, enumName := range fd.GetEnumNames() {
 		if enumVal, found := expected[enumName]; found {
-			ed, err := fd.GetEnumDescription(enumName)
-			if err != nil {
-				t.Error(err)
-			} else if ed.Value() != enumVal {
+			ed, found := fd.GetEnumDescription(enumName)
+			if !found {
+				t.Fatalf("fd.GetEnumDescription(%v) returned not found", enumName)
+			}
+			if ed.Value() != enumVal {
 				t.Errorf("Enum did not have expected value. %s got '%v', wanted '%v'",
 					enumName, ed.Value(), enumVal)
 			}
@@ -76,27 +82,36 @@ func TestFileDescription_GetEnumNames(t *testing.T) {
 	}
 }
 
-func TestFileDescription_GetImportedEnumNames(t *testing.T) {
+func TestFileDescriptionGetImportedEnumNames(t *testing.T) {
 	pbdb := NewDb()
-	fds, err := CollectFileDescriptorSet(&proto3pb.TestAllTypes{})
-	if err != nil {
-		t.Fatal(err)
+	fdMap := CollectFileDescriptorSet(&proto3pb.TestAllTypes{})
+	fileSet := make([]*descpb.FileDescriptorProto, 0, len(fdMap))
+	for _, fd := range fdMap {
+		fileSet = append(fileSet, protodesc.ToFileDescriptorProto(fd))
 	}
-	for _, fd := range fds.GetFile() {
+	fds := &descpb.FileDescriptorSet{File: fileSet}
+	files, err := protodesc.NewFiles(fds)
+	if err != nil {
+		t.Fatalf("protodesc.NewFiles() failed: %v", err)
+	}
+	files.RangeFiles(func(fd protoreflect.FileDescriptor) bool {
+		t.Logf("registering file: %v", fd.Path())
 		_, err = pbdb.RegisterDescriptor(fd)
 		if err != nil {
-			t.Fatal(err)
+			t.Fatalf("pbdb.RegisterDescriptor(%v) failed: %v", fd, err)
+			return false
 		}
-	}
+		return true
+	})
 	imported := map[string]int32{
 		"google.expr.proto3.test.ImportedGlobalEnum.IMPORT_FOO": 0,
 		"google.expr.proto3.test.ImportedGlobalEnum.IMPORT_BAR": 1,
 		"google.expr.proto3.test.ImportedGlobalEnum.IMPORT_BAZ": 2,
 	}
 	for enumName, value := range imported {
-		ed, err := pbdb.DescribeEnum(enumName)
-		if err != nil {
-			t.Error(err)
+		ed, found := pbdb.DescribeEnum(enumName)
+		if !found {
+			t.Fatalf("pbdb.DescribeEnum(%q) returned not found", enumName)
 		}
 		if ed.Value() != value {
 			t.Errorf("Got %v, wanted %v for enum %s", ed, value, enumName)

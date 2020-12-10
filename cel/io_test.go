@@ -17,9 +17,9 @@ package cel
 import (
 	"testing"
 
-	"github.com/golang/protobuf/proto"
-
 	"github.com/google/cel-go/checker/decls"
+
+	"google.golang.org/protobuf/proto"
 )
 
 func TestAstToProto(t *testing.T) {

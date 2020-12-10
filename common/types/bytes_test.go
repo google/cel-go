@@ -19,14 +19,14 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/proto"
 
-	structpb "github.com/golang/protobuf/ptypes/struct"
-	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
+	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
-func TestBytes_Add(t *testing.T) {
+func TestBytesAdd(t *testing.T) {
 	if !Bytes("hello").Add(Bytes("world")).Equal(Bytes("helloworld")).(Bool) {
 		t.Error("Byte ranges were not successfully added.")
 	}
@@ -35,7 +35,7 @@ func TestBytes_Add(t *testing.T) {
 	}
 }
 
-func TestBytes_Compare(t *testing.T) {
+func TestBytesCompare(t *testing.T) {
 	if !Bytes("1234").Compare(Bytes("2345")).Equal(IntNegOne).(Bool) {
 		t.Error("Comparison did not yield -1")
 	}
@@ -50,12 +50,12 @@ func TestBytes_Compare(t *testing.T) {
 	}
 }
 
-func TestBytes_ConvertToNative_Any(t *testing.T) {
+func TestBytesConvertToNative_Any(t *testing.T) {
 	val, err := Bytes("123").ConvertToNative(anyValueType)
 	if err != nil {
 		t.Error(err)
 	}
-	want, err := ptypes.MarshalAny(&wrapperspb.BytesValue{Value: []byte("123")})
+	want, err := anypb.New(wrapperspb.Bytes([]byte("123")))
 	if err != nil {
 		t.Error(err)
 	}
@@ -64,43 +64,43 @@ func TestBytes_ConvertToNative_Any(t *testing.T) {
 	}
 }
 
-func TestBytes_ConvertToNative_ByteSlice(t *testing.T) {
+func TestBytesConvertToNative_ByteSlice(t *testing.T) {
 	val, err := Bytes("123").ConvertToNative(reflect.TypeOf([]byte{}))
 	if err != nil || !bytes.Equal(val.([]byte), []byte{49, 50, 51}) {
 		t.Error("Got unexpected value, wanted []byte{49, 50, 51}", err, val)
 	}
 }
 
-func TestBytes_ConvertToNative_Error(t *testing.T) {
+func TestBytesConvertToNative_Error(t *testing.T) {
 	val, err := Bytes("123").ConvertToNative(reflect.TypeOf(""))
 	if err == nil {
 		t.Errorf("Got '%v', expected error", val)
 	}
 }
 
-func TestBytes_ConvertToNative_Json(t *testing.T) {
+func TestBytesConvertToNative_Json(t *testing.T) {
 	val, err := Bytes("123").ConvertToNative(jsonValueType)
 	if err != nil {
 		t.Error(err)
 	}
-	want := &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "MTIz"}}
+	want := structpb.NewStringValue("MTIz")
 	if !proto.Equal(val.(proto.Message), want) {
 		t.Errorf("Got %v, wanted %v", val, want)
 	}
 }
 
-func TestBytes_ConvertToNative_Wrapper(t *testing.T) {
+func TestBytesConvertToNative_Wrapper(t *testing.T) {
 	val, err := Bytes("123").ConvertToNative(byteWrapperType)
 	if err != nil {
 		t.Error(err)
 	}
-	want := &wrapperspb.BytesValue{Value: []byte("123")}
+	want := wrapperspb.Bytes([]byte("123"))
 	if !proto.Equal(val.(proto.Message), want) {
 		t.Errorf("Got %v, wanted %v", val, want)
 	}
 }
 
-func TestBytes_ConvertToType(t *testing.T) {
+func TestBytesConvertToType(t *testing.T) {
 	if !Bytes("hello world").ConvertToType(BytesType).Equal(Bytes("hello world")).(Bool) {
 		t.Error("Unsupported type conversion to bytes")
 	}
@@ -115,7 +115,7 @@ func TestBytes_ConvertToType(t *testing.T) {
 	}
 }
 
-func TestBytes_Size(t *testing.T) {
+func TestBytesSize(t *testing.T) {
 	if !Bytes("1234567890").Size().Equal(Int(10)).(Bool) {
 		t.Error("Unexpected byte count.")
 	}

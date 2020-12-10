@@ -15,22 +15,22 @@
 package types
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
-
+	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 
-	anypb "github.com/golang/protobuf/ptypes/any"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 )
 
 func TestNewProtoObject(t *testing.T) {
-	reg := NewRegistry()
+	reg := newTestRegistry(t)
 	parsedExpr := &exprpb.ParsedExpr{
 		SourceInfo: &exprpb.SourceInfo{
 			LineOffsets: []int32{1, 2, 3}}}
@@ -48,46 +48,136 @@ func TestNewProtoObject(t *testing.T) {
 	}
 }
 
-func TestProtoObj_ConvertToNative(t *testing.T) {
-	reg := NewRegistry(&exprpb.Expr{})
-	pbMessage := &exprpb.ParsedExpr{
+func TestProtoObjectConvertToNative(t *testing.T) {
+	reg := newTestRegistry(t, &exprpb.Expr{})
+	msg := &exprpb.ParsedExpr{
 		SourceInfo: &exprpb.SourceInfo{
 			LineOffsets: []int32{1, 2, 3}}}
-	objVal := reg.NativeToValue(pbMessage)
+	objVal := reg.NativeToValue(msg)
 
 	// Proto Message
 	val, err := objVal.ConvertToNative(reflect.TypeOf(&exprpb.ParsedExpr{}))
 	if err != nil {
 		t.Error(err)
 	}
-	if !proto.Equal(val.(proto.Message), pbMessage) {
-		t.Errorf("Messages were not equal, expect '%v', got '%v'", objVal.Value(), pbMessage)
+	if !proto.Equal(val.(proto.Message), msg) {
+		t.Errorf("Messages were not equal, expect '%v', got '%v'", objVal.Value(), msg)
+	}
+
+	// Dynamic protobuf
+	dynPB := reg.NewValue(
+		string(msg.ProtoReflect().Descriptor().FullName()),
+		map[string]ref.Val{
+			"source_info": reg.NativeToValue(msg.GetSourceInfo()),
+		})
+	if IsError(dynPB) {
+		t.Fatalf("reg.NewValue() failed: %v", dynPB)
+	}
+	dynVal := reg.NativeToValue(dynPB)
+	val, err = dynVal.ConvertToNative(reflect.TypeOf(msg))
+	if err != nil {
+		t.Fatalf("dynVal.ConvertToNative() failed: %v", err)
+	}
+	if !proto.Equal(val.(proto.Message), msg) {
+		t.Errorf("Messages were not equal, expect '%v', got '%v'", objVal.Value(), msg)
 	}
 
 	// google.protobuf.Any
 	anyVal, err := objVal.ConvertToNative(anyValueType)
 	if err != nil {
-		t.Error(err)
+		t.Fatalf("objVal.ConvertToNative() failed: %v", err)
 	}
-	unpackedAny := ptypes.DynamicAny{}
-	if ptypes.UnmarshalAny(anyVal.(*anypb.Any), &unpackedAny) != nil {
-		NewErr("Failed to unmarshal any")
+	anyMsg := anyVal.(*anypb.Any)
+	unpackedAny, err := anyMsg.UnmarshalNew()
+	if err != nil {
+		t.Fatalf("UnmarshalNew() failed: %v", err)
 	}
-	if !proto.Equal(unpackedAny.Message, objVal.Value().(proto.Message)) {
-		t.Errorf("Messages were not equal, expect '%v', got '%v'", objVal.Value(), unpackedAny.Message)
+	if !proto.Equal(unpackedAny, objVal.Value().(proto.Message)) {
+		t.Errorf("Messages were not equal, expect '%v', got '%v'", objVal.Value(), unpackedAny)
 	}
 
 	// JSON
-	json, err := objVal.ConvertToNative(jsonValueType)
+	jsonVal, err := objVal.ConvertToNative(jsonValueType)
 	if err != nil {
-		t.Error(err)
+		t.Fatalf("objVal.ConvertToNative(%v) failed: %v", jsonValueType, err)
 	}
-	jsonTxt, err := (&jsonpb.Marshaler{}).MarshalToString(json.(proto.Message))
+	jsonBytes, err := protojson.Marshal(jsonVal.(proto.Message))
+	jsonTxt := string(jsonBytes)
 	if err != nil {
-		t.Error(err)
+		t.Fatalf("protojson.Marshal(%v) failed: %v", jsonVal, err)
 	}
-	wantTxt := `{"sourceInfo":{"lineOffsets":[1,2,3]}}`
-	if jsonTxt != wantTxt {
-		t.Errorf("Got %v, wanted %v", jsonTxt, wantTxt)
+	outMap := map[string]interface{}{}
+	err = json.Unmarshal(jsonBytes, &outMap)
+	if err != nil {
+		t.Fatalf("json.Unmarshal(%q) failed: %v", jsonTxt, err)
+	}
+	want := map[string]interface{}{
+		"sourceInfo": map[string]interface{}{
+			"lineOffsets": []interface{}{1.0, 2.0, 3.0},
+		},
+	}
+	if !reflect.DeepEqual(outMap, want) {
+		t.Errorf("got json '%v', expected %v", outMap, want)
+	}
+}
+
+func TestProtoObjectIsSet(t *testing.T) {
+	msg := &exprpb.ParsedExpr{
+		SourceInfo: &exprpb.SourceInfo{
+			LineOffsets: []int32{1, 2, 3},
+		},
+	}
+	reg := newTestRegistry(t, msg)
+	objVal := reg.NativeToValue(msg).(*protoObj)
+	if objVal.IsSet(String("source_info")) != True {
+		t.Error("got 'source_info' not set, wanted set")
+	}
+	if objVal.IsSet(String("expr")) != False {
+		t.Error("got 'expr' set, wanted not set")
+	}
+	if !IsError(objVal.IsSet(String("bad_field"))) {
+		t.Error("got 'bad_field' wanted error")
+	}
+	if !IsError(objVal.IsSet(IntZero)) {
+		t.Error("got field '0' wanted error")
+	}
+}
+
+func TestProtoObjectGet(t *testing.T) {
+	msg := &exprpb.ParsedExpr{
+		SourceInfo: &exprpb.SourceInfo{
+			LineOffsets: []int32{1, 2, 3},
+		},
+	}
+	reg := newTestRegistry(t, msg)
+	objVal := reg.NativeToValue(msg).(*protoObj)
+	if objVal.Get(String("source_info")).Equal(reg.NativeToValue(msg.GetSourceInfo())) != True {
+		t.Error("could not get 'source_info'")
+	}
+	if objVal.Get(String("expr")).Equal(reg.NativeToValue(&exprpb.Expr{})) != True {
+		t.Errorf("did not get 'expr' default value: %v", objVal.Get(String("expr")))
+	}
+	if !IsError(objVal.Get(String("bad_field"))) {
+		t.Error("got 'bad_field' wanted error")
+	}
+	if !IsError(objVal.Get(IntZero)) {
+		t.Error("got field '0' wanted error")
+	}
+}
+
+func TestProtoObjectConvertToType(t *testing.T) {
+	msg := &exprpb.ParsedExpr{
+		SourceInfo: &exprpb.SourceInfo{
+			LineOffsets: []int32{1, 2, 3},
+		},
+	}
+	reg := newTestRegistry(t, msg)
+	objVal := reg.NativeToValue(msg)
+	tv := objVal.Type().(*TypeValue)
+	if objVal.ConvertToType(TypeType).Equal(tv) != True {
+		t.Errorf("got non-type value: %v, wanted objet type", objVal.ConvertToType(TypeType))
+	}
+	if objVal.ConvertToType(objVal.Type()) != objVal {
+		t.Error("identity type conversion failed")
 	}
 }

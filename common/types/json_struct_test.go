@@ -18,17 +18,16 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/proto"
 
-	anypb "github.com/golang/protobuf/ptypes/any"
-	structpb "github.com/golang/protobuf/ptypes/struct"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 )
 
-func TestJsonStruct_Contains(t *testing.T) {
-	mapVal := NewJSONStruct(NewRegistry(), &structpb.Struct{Fields: map[string]*structpb.Value{
-		"first":  {Kind: &structpb.Value_StringValue{StringValue: "hello"}},
-		"second": {Kind: &structpb.Value_NumberValue{NumberValue: 1}}}})
+func TestJsonStructContains(t *testing.T) {
+	mapVal := NewJSONStruct(newTestRegistry(t), &structpb.Struct{Fields: map[string]*structpb.Value{
+		"first":  structpb.NewStringValue("hello"),
+		"second": structpb.NewNumberValue(1)}})
 	if !mapVal.Contains(String("first")).(Bool) {
 		t.Error("Expected map to contain key 'first'", mapVal)
 	}
@@ -37,19 +36,11 @@ func TestJsonStruct_Contains(t *testing.T) {
 	}
 }
 
-func TestJsonStruct_ConvertToNative_Error(t *testing.T) {
-	val, err := NewJSONStruct(NewRegistry(), &structpb.Struct{}).ConvertToNative(jsonListValueType)
-	if err == nil {
-		t.Errorf("Unsupported type conversion succeeded. "+
-			"Got '%v', expected error", val)
-	}
-}
-
-func TestJsonStruct_ConvertToNative_Json(t *testing.T) {
+func TestJsonStructConvertToNative_Json(t *testing.T) {
 	structVal := &structpb.Struct{Fields: map[string]*structpb.Value{
-		"first":  {Kind: &structpb.Value_StringValue{StringValue: "hello"}},
-		"second": {Kind: &structpb.Value_NumberValue{NumberValue: 1}}}}
-	mapVal := NewJSONStruct(NewRegistry(), structVal)
+		"first":  structpb.NewStringValue("hello"),
+		"second": structpb.NewNumberValue(1)}}
+	mapVal := NewJSONStruct(newTestRegistry(t), structVal)
 	val, err := mapVal.ConvertToNative(jsonValueType)
 	if err != nil {
 		t.Error(err)
@@ -68,30 +59,31 @@ func TestJsonStruct_ConvertToNative_Json(t *testing.T) {
 	}
 }
 
-func TestJsonStruct_ConvertToNative_Any(t *testing.T) {
+func TestJsonStructConvertToNative_Any(t *testing.T) {
 	structVal := &structpb.Struct{
 		Fields: map[string]*structpb.Value{
-			"first":  {Kind: &structpb.Value_StringValue{StringValue: "hello"}},
-			"second": {Kind: &structpb.Value_NumberValue{NumberValue: 1}}}}
-	mapVal := NewJSONStruct(NewRegistry(), structVal)
+			"first":  structpb.NewStringValue("hello"),
+			"second": structpb.NewNumberValue(1)}}
+	mapVal := NewJSONStruct(newTestRegistry(t), structVal)
 	anyVal, err := mapVal.ConvertToNative(anyValueType)
 	if err != nil {
 		t.Error(err)
 	}
-	unpackedAny := ptypes.DynamicAny{}
-	if ptypes.UnmarshalAny(anyVal.(*anypb.Any), &unpackedAny) != nil {
-		t.Error("Failed to unmarshal any")
+	unpackedAny, err := anyVal.(*anypb.Any).UnmarshalNew()
+	if err != nil {
+		t.Fatalf("anyVal.UnmarshalNew() failed: %v", err)
 	}
-	if !proto.Equal(unpackedAny.Message, mapVal.Value().(proto.Message)) {
-		t.Errorf("Messages were not equal, got '%v'", unpackedAny.Message)
+	if !proto.Equal(unpackedAny, mapVal.Value().(proto.Message)) {
+		t.Errorf("Messages were not equal, got '%v'", unpackedAny)
 	}
 }
 
-func TestJsonStruct_ConvertToNative_Map(t *testing.T) {
+func TestJsonStructConvertToNative_Map(t *testing.T) {
 	structVal := &structpb.Struct{Fields: map[string]*structpb.Value{
-		"first":  {Kind: &structpb.Value_StringValue{StringValue: "hello"}},
-		"second": {Kind: &structpb.Value_StringValue{StringValue: "world"}}}}
-	mapVal := NewJSONStruct(NewRegistry(), structVal)
+		"first":  structpb.NewStringValue("hello"),
+		"second": structpb.NewStringValue("world"),
+	}}
+	mapVal := NewJSONStruct(newTestRegistry(t), structVal)
 	val, err := mapVal.ConvertToNative(reflect.TypeOf(map[string]string{}))
 	if err != nil {
 		t.Error(err)
@@ -101,11 +93,11 @@ func TestJsonStruct_ConvertToNative_Map(t *testing.T) {
 	}
 }
 
-func TestJsonStruct_ConvertToType(t *testing.T) {
-	mapVal := NewJSONStruct(NewRegistry(),
+func TestJsonStructConvertToType(t *testing.T) {
+	mapVal := NewJSONStruct(newTestRegistry(t),
 		&structpb.Struct{Fields: map[string]*structpb.Value{
-			"first":  {Kind: &structpb.Value_StringValue{StringValue: "hello"}},
-			"second": {Kind: &structpb.Value_NumberValue{NumberValue: 1}}}})
+			"first":  structpb.NewStringValue("hello"),
+			"second": structpb.NewNumberValue(1)}})
 	if mapVal.ConvertToType(MapType) != mapVal {
 		t.Error("Map could not be converted to a map.")
 	}
@@ -117,12 +109,12 @@ func TestJsonStruct_ConvertToType(t *testing.T) {
 	}
 }
 
-func TestJsonStruct_Equal(t *testing.T) {
-	reg := NewRegistry()
+func TestJsonStructEqual(t *testing.T) {
+	reg := newTestRegistry(t)
 	mapVal := NewJSONStruct(reg,
 		&structpb.Struct{Fields: map[string]*structpb.Value{
-			"first":  {Kind: &structpb.Value_StringValue{StringValue: "hello"}},
-			"second": {Kind: &structpb.Value_NumberValue{NumberValue: 4}}}})
+			"first":  structpb.NewStringValue("hello"),
+			"second": structpb.NewNumberValue(4)}})
 	if mapVal.Equal(mapVal) != True {
 		t.Error("Map was not equal to itself.")
 	}
@@ -135,16 +127,16 @@ func TestJsonStruct_Equal(t *testing.T) {
 
 	other := NewJSONStruct(reg,
 		&structpb.Struct{Fields: map[string]*structpb.Value{
-			"first":  {Kind: &structpb.Value_StringValue{StringValue: "hello"}},
-			"second": {Kind: &structpb.Value_NumberValue{NumberValue: 1}}}})
+			"first":  structpb.NewStringValue("hello"),
+			"second": structpb.NewNumberValue(1)}})
 	if mapVal.Equal(other) != False {
 		t.Errorf("Got equals 'true', expected 'false' for '%v' == '%v'",
 			mapVal, other)
 	}
 	other = NewJSONStruct(reg,
 		&structpb.Struct{Fields: map[string]*structpb.Value{
-			"first": {Kind: &structpb.Value_StringValue{StringValue: "hello"}},
-			"third": {Kind: &structpb.Value_NumberValue{NumberValue: 4}}}})
+			"first": structpb.NewStringValue("hello"),
+			"third": structpb.NewNumberValue(4)}})
 	if mapVal.Equal(other) != False {
 		t.Errorf("Got equals 'true', expected 'false' for '%v' == '%v'",
 			mapVal, other)
@@ -158,16 +150,16 @@ func TestJsonStruct_Equal(t *testing.T) {
 	}
 }
 
-func TestJsonStruct_Get(t *testing.T) {
-	if !IsError(NewJSONStruct(NewRegistry(), &structpb.Struct{}).Get(Int(1))) {
+func TestJsonStructGet(t *testing.T) {
+	if !IsError(NewJSONStruct(newTestRegistry(t), &structpb.Struct{}).Get(Int(1))) {
 		t.Error("Structs may only have string keys.")
 	}
 
-	reg := NewRegistry()
+	reg := newTestRegistry(t)
 	mapVal := NewJSONStruct(reg,
 		&structpb.Struct{Fields: map[string]*structpb.Value{
-			"first":  {Kind: &structpb.Value_StringValue{StringValue: "hello"}},
-			"second": {Kind: &structpb.Value_NumberValue{NumberValue: 4}}}})
+			"first":  structpb.NewStringValue("hello"),
+			"second": structpb.NewNumberValue(4)}})
 
 	s := mapVal.Get(String("first"))
 	if s.Equal(String("hello")) != True {
