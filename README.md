@@ -1,6 +1,6 @@
 # Common Expression Language
 
-[![Build Status](https://travis-ci.org/google/cel-go.svg?branch=master)](https://travis-ci.org/google/cel-go) [![Go Report Card](https://goreportcard.com/badge/github.com/google/cel-go)](https://goreportcard.com/report/github.com/google/cel-go)
+[![Go Report Card](https://goreportcard.com/badge/github.com/google/cel-go)](https://goreportcard.com/report/github.com/google/cel-go)
 [![GoDoc](https://godoc.org/github.com/google/cel-go?status.svg)][6]
 
 The Common Expression Language (CEL) is a non-Turing complete language designed
