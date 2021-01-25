@@ -75,6 +75,11 @@ func (ast *Ast) Source() Source {
 	return ast.source
 }
 
+// FormatType converts a type message into a string representation.
+func FormatType(t *exprpb.Type) string {
+	return checker.FormatCheckedType(t)
+}
+
 // Env encapsulates the context necessary to perform parsing, type checking, or generation of
 // evaluable programs for different expressions.
 type Env struct {
