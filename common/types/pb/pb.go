@@ -19,6 +19,7 @@ package pb
 import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
 
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	durpb "google.golang.org/protobuf/types/known/durationpb"
@@ -29,6 +30,10 @@ import (
 )
 
 // Db maps from file / message / enum name to file description.
+//
+// Each Db is isolated from each other, and while information about protobuf descriptors may be
+// fetched from the global protobuf registry, no descriptors are added to this registry, else
+// the isolation guarantees of the Db object would be violated.
 type Db struct {
 	revFileDescriptorMap map[string]*FileDescription
 	// files contains the deduped set of FileDescriptions whose types are contained in the pb.Db.
@@ -92,6 +97,18 @@ func (pbdb *Db) RegisterDescriptor(fileDesc protoreflect.FileDescriptor) (*FileD
 	fd, found := pbdb.revFileDescriptorMap[fileDesc.Path()]
 	if found {
 		return fd, nil
+	}
+	// Make sure to search the global registry to see if a protoreflect.FileDescriptor for
+	// the file specified has been linked into the binary. If so, use the copy of the descriptor
+	// from the global cache.
+	//
+	// Note: Proto reflection relies on descriptor values being object equal rather than object
+	// equivalence. This choice means that a FieldDescriptor generated from a FileDescriptorProto
+	// will be incompatible with the FieldDescriptor in the global registry and any message created
+	// from that global registry.
+	globalFD, err := protoregistry.GlobalFiles.FindFileByPath(fileDesc.Path())
+	if err == nil {
+		fileDesc = globalFD
 	}
 	fd = NewFileDescription(fileDesc, pbdb)
 	for _, enumValName := range fd.GetEnumNames() {
