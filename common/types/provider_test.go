@@ -30,7 +30,9 @@ import (
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	anypb "google.golang.org/protobuf/types/known/anypb"
+	dpb "google.golang.org/protobuf/types/known/durationpb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
+	tpb "google.golang.org/protobuf/types/known/timestamppb"
 	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
@@ -395,6 +397,9 @@ func TestNativeToValue_Primitive(t *testing.T) {
 	expectNativeToValue(t, []byte("world"), Bytes("world"))
 	expectNativeToValue(t, time.Duration(500), Duration{Duration: time.Duration(500)})
 	expectNativeToValue(t, time.Unix(12345, 0), Timestamp{Time: time.Unix(12345, 0)})
+	expectNativeToValue(t, dpb.New(time.Duration(500)), Duration{Duration: time.Duration(500)})
+	expectNativeToValue(t, time.Unix(12345, 0), Timestamp{Time: time.Unix(12345, 0)})
+	expectNativeToValue(t, tpb.New(time.Unix(12345, 0)), Timestamp{Time: time.Unix(12345, 0)})
 	expectNativeToValue(t, []int32{1, 2, 3}, NewDynamicList(reg, []int32{1, 2, 3}))
 	expectNativeToValue(t, map[int32]int32{1: 1, 2: 1, 3: 1},
 		NewDynamicMap(reg, map[int32]int32{1: 1, 2: 1, 3: 1}))

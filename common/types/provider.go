@@ -28,7 +28,9 @@ import (
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	anypb "google.golang.org/protobuf/types/known/anypb"
+	dpb "google.golang.org/protobuf/types/known/durationpb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
+	tpb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type protoTypeRegistry struct {
@@ -302,8 +304,12 @@ func nativeToValue(a ref.TypeAdapter, value interface{}) (ref.Val, bool) {
 		return Double(v), true
 	case string:
 		return String(v), true
+	case *dpb.Duration:
+		return Duration{Duration: v.AsDuration()}, true
 	case time.Duration:
 		return Duration{Duration: v}, true
+	case *tpb.Timestamp:
+		return Timestamp{Time: v.AsTime()}, true
 	case time.Time:
 		return Timestamp{Time: v}, true
 	case *bool:
