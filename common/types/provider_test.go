@@ -398,7 +398,6 @@ func TestNativeToValue_Primitive(t *testing.T) {
 	expectNativeToValue(t, time.Duration(500), Duration{Duration: time.Duration(500)})
 	expectNativeToValue(t, time.Unix(12345, 0), Timestamp{Time: time.Unix(12345, 0)})
 	expectNativeToValue(t, dpb.New(time.Duration(500)), Duration{Duration: time.Duration(500)})
-	expectNativeToValue(t, time.Unix(12345, 0), Timestamp{Time: time.Unix(12345, 0)})
 	expectNativeToValue(t, tpb.New(time.Unix(12345, 0)), Timestamp{Time: time.Unix(12345, 0)})
 	expectNativeToValue(t, []int32{1, 2, 3}, NewDynamicList(reg, []int32{1, 2, 3}))
 	expectNativeToValue(t, map[int32]int32{1: 1, 2: 1, 3: 1},
