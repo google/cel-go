@@ -202,7 +202,7 @@ func (fd *FieldDescription) IsSet(target interface{}) bool {
 		pbDesc := pbRef.Descriptor()
 		if pbDesc == fd.desc.ContainingMessage() {
 			// When the target protobuf shares the same message descriptor instance as the field
-			// descriptoruse the cached field descriptor value.
+			// descriptor, use the cached field descriptor value.
 			return pbRef.Has(fd.desc)
 		}
 		// Otherwise, fallback to a dynamic lookup of the field descriptor from the target
@@ -229,7 +229,7 @@ func (fd *FieldDescription) GetFrom(target interface{}) (interface{}, error) {
 	var fieldVal interface{}
 	if pbDesc == fd.desc.ContainingMessage() {
 		// When the target protobuf shares the same message descriptor instance as the field
-		// descriptoruse the cached field descriptor value.
+		// descriptor, use the cached field descriptor value.
 		fieldVal = pbRef.Get(fd.desc).Interface()
 	} else {
 		// Otherwise, fallback to a dynamic lookup of the field descriptor from the target

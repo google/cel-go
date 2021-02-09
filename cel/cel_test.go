@@ -41,7 +41,7 @@ import (
 	proto3pb "github.com/google/cel-go/test/proto3pb"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	descpb "google.golang.org/protobuf/types/descriptorpb"
-	"google.golang.org/protobuf/types/dynamicpb"
+	dynamicpb "google.golang.org/protobuf/types/dynamicpb"
 )
 
 func Example() {
