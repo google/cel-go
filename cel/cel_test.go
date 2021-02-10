@@ -35,11 +35,13 @@ import (
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protodesc"
+	"google.golang.org/protobuf/reflect/protoreflect"
 
 	proto2pb "github.com/google/cel-go/test/proto2pb"
 	proto3pb "github.com/google/cel-go/test/proto3pb"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	descpb "google.golang.org/protobuf/types/descriptorpb"
+	dynamicpb "google.golang.org/protobuf/types/dynamicpb"
 )
 
 func Example() {
@@ -559,6 +561,68 @@ func TestDynamicProto(t *testing.T) {
 	}
 	if obj.Get(types.String("name")).Equal(types.String("X-Men")) == types.False {
 		t.Fatalf("got field 'name' %v, wanted X-Men", obj.Get(types.String("name")))
+	}
+}
+
+func TestDynamicProto_Input(t *testing.T) {
+	b, err := ioutil.ReadFile("testdata/team.fds")
+	if err != nil {
+		t.Fatalf("ioutil.ReadFile() failed: %v", err)
+	}
+	var fds descpb.FileDescriptorSet
+	if err = proto.Unmarshal(b, &fds); err != nil {
+		t.Fatalf("proto.Unmarshal() failed: %v", err)
+	}
+	files := (&fds).GetFile()
+	fileCopy := make([]interface{}, len(files))
+	for i := 0; i < len(files); i++ {
+		fileCopy[i] = files[i]
+	}
+	pbFiles, err := protodesc.NewFiles(&fds)
+	if err != nil {
+		t.Fatalf("protodesc.NewFiles() failed: %v", err)
+	}
+	desc, err := pbFiles.FindDescriptorByName("cel.testdata.Mutant")
+	if err != nil {
+		t.Fatalf("pbFiles.FindDescriptorByName() could not find Mutant: %v", err)
+	}
+	msgDesc, ok := desc.(protoreflect.MessageDescriptor)
+	if !ok {
+		t.Fatalf("desc not convertible to MessageDescriptor: %T", desc)
+	}
+	wolverine := dynamicpb.NewMessage(msgDesc)
+	wolverine.ProtoReflect().Set(msgDesc.Fields().ByName("name"), protoreflect.ValueOfString("Wolverine"))
+	e, err := NewEnv(
+		// The following is identical to registering the FileDescriptorSet;
+		// however, it tests a different code path which aggregates individual
+		// FileDescriptorProto values together.
+		TypeDescs(fileCopy...),
+		Declarations(decls.NewVar("mutant", decls.NewObjectType("cel.testdata.Mutant"))),
+	)
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	src := `has(mutant.name) && mutant.name == 'Wolverine'`
+	ast, iss := e.Compile(src)
+	if iss.Err() != nil {
+		t.Fatalf("env.Compile(%s) failed: %v", src, iss.Err())
+	}
+	prg, err := e.Program(ast, EvalOptions(OptOptimize))
+	if err != nil {
+		t.Fatalf("env.Program() failed: %v", err)
+	}
+	out, _, err := prg.Eval(map[string]interface{}{
+		"mutant": wolverine,
+	})
+	if err != nil {
+		t.Fatalf("program.Eval() failed: %v", err)
+	}
+	obj, ok := out.(types.Bool)
+	if !ok {
+		t.Fatalf("unable to convert output to object: %v", out)
+	}
+	if obj != types.True {
+		t.Errorf("got %v, wanted true", out)
 	}
 }
 

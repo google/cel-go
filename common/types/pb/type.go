@@ -198,7 +198,16 @@ func (fd *FieldDescription) Descriptor() protoreflect.FieldDescriptor {
 func (fd *FieldDescription) IsSet(target interface{}) bool {
 	switch v := target.(type) {
 	case proto.Message:
-		return v.ProtoReflect().Has(fd.desc)
+		pbRef := v.ProtoReflect()
+		pbDesc := pbRef.Descriptor()
+		if pbDesc == fd.desc.ContainingMessage() {
+			// When the target protobuf shares the same message descriptor instance as the field
+			// descriptor, use the cached field descriptor value.
+			return pbRef.Has(fd.desc)
+		}
+		// Otherwise, fallback to a dynamic lookup of the field descriptor from the target
+		// instance as an attempt to use the cached field descriptor will result in a panic.
+		return pbRef.Has(pbDesc.Fields().ByName(protoreflect.Name(fd.Name())))
 	default:
 		return false
 	}
@@ -215,7 +224,18 @@ func (fd *FieldDescription) GetFrom(target interface{}) (interface{}, error) {
 	if !ok {
 		return nil, fmt.Errorf("unsupported field selection target: (%T)%v", target, target)
 	}
-	fieldVal := v.ProtoReflect().Get(fd.desc).Interface()
+	pbRef := v.ProtoReflect()
+	pbDesc := pbRef.Descriptor()
+	var fieldVal interface{}
+	if pbDesc == fd.desc.ContainingMessage() {
+		// When the target protobuf shares the same message descriptor instance as the field
+		// descriptor, use the cached field descriptor value.
+		fieldVal = pbRef.Get(fd.desc).Interface()
+	} else {
+		// Otherwise, fallback to a dynamic lookup of the field descriptor from the target
+		// instance as an attempt to use the cached field descriptor will result in a panic.
+		fieldVal = pbRef.Get(pbDesc.Fields().ByName(protoreflect.Name(fd.Name()))).Interface()
+	}
 	switch fv := fieldVal.(type) {
 	// Fast-path return for primitive types.
 	case bool, []byte, float32, float64, int32, int64, string, uint32, uint64, protoreflect.List:
