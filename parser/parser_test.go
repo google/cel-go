@@ -597,7 +597,22 @@ ERROR: <input>:1:5: Syntax error: extraneous input 'b' expecting <EOF>
 		]^#1:*expr.Expr_ListExpr#`,
 	},
 	{
+		I: `[3, 4, 5,]`,
+		P: `[
+			3^#2:*expr.Constant_Int64Value#,
+			4^#3:*expr.Constant_Int64Value#,
+			5^#4:*expr.Constant_Int64Value#
+		]^#1:*expr.Expr_ListExpr#`,
+	},
+	{
 		I: `{foo: 5, bar: "xyz"}`,
+		P: `{
+			foo^#3:*expr.Expr_IdentExpr#:5^#4:*expr.Constant_Int64Value#^#2:*expr.Expr_CreateStruct_Entry#,
+			bar^#6:*expr.Expr_IdentExpr#:"xyz"^#7:*expr.Constant_StringValue#^#5:*expr.Expr_CreateStruct_Entry#
+		}^#1:*expr.Expr_StructExpr#`,
+	},
+	{
+		I: `{foo: 5, bar: "xyz", }`,
 		P: `{
 			foo^#3:*expr.Expr_IdentExpr#:5^#4:*expr.Constant_Int64Value#^#2:*expr.Expr_CreateStruct_Entry#,
 			bar^#6:*expr.Expr_IdentExpr#:"xyz"^#7:*expr.Constant_StringValue#^#5:*expr.Expr_CreateStruct_Entry#
@@ -631,7 +646,7 @@ ERROR: <input>:1:5: Syntax error: extraneous input 'b' expecting <EOF>
 	},
 	{
 		I: `{`,
-		E: `ERROR: <input>:1:2: Syntax error: mismatched input '<EOF>' expecting {'[', '{', '}', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
+		E: `ERROR: <input>:1:2: Syntax error: mismatched input '<EOF>' expecting {'[', '{', '}', '(', '.', ',', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
 		 | {
 		 | .^`,
 	},
@@ -1018,7 +1033,7 @@ ERROR: <input>:1:26: reserved identifier: var
 	},
 	{
 		I: "func{{a}}",
-		E: `ERROR: <input>:1:6: Syntax error: extraneous input '{' expecting {'}', IDENTIFIER}
+		E: `ERROR: <input>:1:6: Syntax error: extraneous input '{' expecting {'}', ',', IDENTIFIER}
 		| func{{a}}
 		| .....^
 	   ERROR: <input>:1:8: Syntax error: mismatched input '}' expecting ':'
@@ -1030,7 +1045,7 @@ ERROR: <input>:1:26: reserved identifier: var
 	},
 	{
 		I: "msg{:a}",
-		E: `ERROR: <input>:1:5: Syntax error: extraneous input ':' expecting {'}', IDENTIFIER}
+		E: `ERROR: <input>:1:5: Syntax error: extraneous input ':' expecting {'}', ',', IDENTIFIER}
 		| msg{:a}
 		| ....^
 	   ERROR: <input>:1:7: Syntax error: mismatched input '}' expecting ':'
@@ -1045,7 +1060,7 @@ ERROR: <input>:1:26: reserved identifier: var
 	},
 	{
 		I: "{:a}",
-		E: `ERROR: <input>:1:2: Syntax error: extraneous input ':' expecting {'[', '{', '}', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
+		E: `ERROR: <input>:1:2: Syntax error: extraneous input ':' expecting {'[', '{', '}', '(', '.', ',', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
 		| {:a}
 		| .^
 	   ERROR: <input>:1:4: Syntax error: mismatched input '}' expecting ':'
