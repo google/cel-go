@@ -24,12 +24,19 @@ import (
 )
 
 type testInfo struct {
-	in   Activation
+	in   interface{}
 	expr string
 	out  string
 }
 
 var testCases = []testInfo{
+	{
+		in: map[string]interface{}{
+			"msg": map[string]string{"foo": "bar"},
+		},
+		expr: `msg`,
+		out:  `{"foo": "bar"}`,
+	},
 	{
 		expr: `true && false`,
 		out:  `false`,
@@ -128,10 +135,11 @@ func TestPrune(t *testing.T) {
 		reg := newTestRegistry(t)
 		attrs := NewPartialAttributeFactory(containers.DefaultContainer, reg, reg)
 		interp := NewStandardInterpreter(containers.DefaultContainer, reg, reg, attrs)
+
 		interpretable, _ := interp.NewUncheckedInterpretable(
 			ast.Expr,
 			ExhaustiveEval(state))
-		interpretable.Eval(tst.in)
+		interpretable.Eval(testActivation(t, tst.in))
 		newExpr := PruneAst(ast.Expr, state)
 		actual, err := parser.Unparse(newExpr, nil)
 		if err != nil {
@@ -149,5 +157,17 @@ func unknownActivation(vars ...string) PartialActivation {
 		pats[i] = NewAttributePattern(v)
 	}
 	a, _ := NewPartialActivation(map[string]interface{}{}, pats...)
+	return a
+}
+
+func testActivation(t *testing.T, in interface{}) Activation {
+	t.Helper()
+	if in == nil {
+		return EmptyActivation()
+	}
+	a, err := NewActivation(in)
+	if err != nil {
+		t.Fatalf("NewActivation(%v) failed: %v", in, err)
+	}
 	return a
 }
