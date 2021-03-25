@@ -57,6 +57,9 @@ func (i Uint) Add(other ref.Val) ref.Val {
 	if !ok {
 		return ValOrErr(other, "no such overload")
 	}
+	if otherUint > 0 && i > math.MaxUint64-otherUint {
+		return NewErr("unsigned integer overflow")
+	}
 	return i + otherUint
 }
 
@@ -183,6 +186,9 @@ func (i Uint) Multiply(other ref.Val) ref.Val {
 	if !ok {
 		return ValOrErr(other, "no such overload")
 	}
+	if otherUint != 0 && i > math.MaxUint64/otherUint {
+		return NewErr("unsigned integer overflow")
+	}
 	return i * otherUint
 }
 
@@ -191,6 +197,9 @@ func (i Uint) Subtract(subtrahend ref.Val) ref.Val {
 	subtraUint, ok := subtrahend.(Uint)
 	if !ok {
 		return ValOrErr(subtrahend, "no such overload")
+	}
+	if subtraUint > i {
+		return NewErr("unsigned integer overflow")
 	}
 	return i - subtraUint
 }

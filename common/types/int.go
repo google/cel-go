@@ -16,6 +16,7 @@ package types
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"strconv"
 	"time"
@@ -62,6 +63,9 @@ func (i Int) Add(other ref.Val) ref.Val {
 	otherInt, ok := other.(Int)
 	if !ok {
 		return ValOrErr(other, "no such overload")
+	}
+	if (otherInt > 0 && i > math.MaxInt64-otherInt) || (otherInt < 0 && i < math.MinInt64-otherInt) {
+		return NewErr("integer overflow")
 	}
 	return i + otherInt
 }
@@ -179,6 +183,10 @@ func (i Int) Divide(other ref.Val) ref.Val {
 	if otherInt == IntZero {
 		return NewErr("divide by zero")
 	}
+	// In twos complement, negating MinInt64 would result in a valid of MaxInt64+1.
+	if i == math.MinInt64 && otherInt == -1 {
+		return NewErr("integer overflow")
+	}
 	return i / otherInt
 }
 
@@ -200,6 +208,10 @@ func (i Int) Modulo(other ref.Val) ref.Val {
 	if otherInt == IntZero {
 		return NewErr("modulus by zero")
 	}
+	// In twos complement, negating MinInt64 would result in a valid of MaxInt64+1.
+	if i == math.MinInt64 && otherInt == -1 {
+		return NewErr("integer overflow")
+	}
 	return i % otherInt
 }
 
@@ -209,11 +221,23 @@ func (i Int) Multiply(other ref.Val) ref.Val {
 	if !ok {
 		return ValOrErr(other, "no such overload")
 	}
+	// Detecting multiplication overflow is more complicated than the others. The first two detect
+	// attempting to negate MinInt64, which would result in MaxInt64+1. The other four detect normal
+	// overflow conditions.
+	if (i == -1 && otherInt == math.MinInt64) || (otherInt == -1 && i == math.MinInt64) ||
+		(i > 0 && otherInt > 0 && i > math.MaxInt64/otherInt) || (i > 0 && otherInt < 0 && otherInt < math.MinInt64/i) ||
+		(i < 0 && otherInt > 0 && i < math.MinInt64/otherInt) || (i < 0 && otherInt < 0 && otherInt < math.MaxInt64/i) {
+		return NewErr("integer overflow")
+	}
 	return i * otherInt
 }
 
 // Negate implements traits.Negater.Negate.
 func (i Int) Negate() ref.Val {
+	// In twos complement, negating MinInt64 would result in a valid of MaxInt64+1.
+	if i == math.MinInt64 {
+		return NewErr("integer overflow")
+	}
 	return -i
 }
 
@@ -222,6 +246,9 @@ func (i Int) Subtract(subtrahend ref.Val) ref.Val {
 	subtraInt, ok := subtrahend.(Int)
 	if !ok {
 		return ValOrErr(subtrahend, "no such overload")
+	}
+	if (subtraInt < 0 && i > math.MaxInt64+subtraInt) || (subtraInt > 0 && i < math.MinInt64+subtraInt) {
+		return NewErr("integer overflow")
 	}
 	return i - subtraInt
 }

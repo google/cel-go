@@ -33,6 +33,12 @@ func TestUint_Add(t *testing.T) {
 	if !IsError(Uint(1).Add(String("-1"))) {
 		t.Error("Adding non-uint to uint was not an error.")
 	}
+	if lhs, rhs := uint64(math.MaxUint64), 1; !IsError(Uint(lhs).Add(Uint(rhs))) {
+		t.Errorf("Expected adding %d and %d to result in overflow.", lhs, rhs)
+	}
+	if lhs, rhs := uint64(math.MaxUint64-1), 1; !Uint(lhs).Add(Uint(rhs)).Equal(Uint(math.MaxUint64)).(Bool) {
+		t.Errorf("Expected adding %d and %d to yield %d", lhs, rhs, uint64(math.MaxUint64))
+	}
 }
 
 func TestUint_Compare(t *testing.T) {
@@ -193,6 +199,12 @@ func TestUint_Multiply(t *testing.T) {
 	if !IsError(Uint(1).Multiply(Double(-4.0))) {
 		t.Error("Multiplication permitted without express type-conversion.")
 	}
+	if lhs, rhs := uint64(math.MaxUint64/2), 3; !IsError(Uint(lhs).Multiply(Uint(rhs))) {
+		t.Errorf("Expected multiplying %d and %d to result in overflow.", lhs, rhs)
+	}
+	if lhs, rhs := uint64(math.MaxUint64/2), 2; !Uint(lhs).Multiply(Uint(rhs)).Equal(Uint(uint64(math.MaxUint64 - 1))).(Bool) {
+		t.Errorf("Expected multiplying %d and %d to yield %d", lhs, rhs, uint64(math.MaxUint64-1))
+	}
 }
 
 func TestUint_Subtract(t *testing.T) {
@@ -201,5 +213,11 @@ func TestUint_Subtract(t *testing.T) {
 	}
 	if !IsError(Uint(1).Subtract(Int(1))) {
 		t.Error("Subtraction permitted without express type-conversion.")
+	}
+	if lhs, rhs := uint64(math.MaxUint64-1), uint64(math.MaxUint64); !IsError(Uint(lhs).Subtract(Uint(rhs))) {
+		t.Errorf("Expected subtracting %d and %d to result in overflow.", lhs, rhs)
+	}
+	if lhs, rhs := uint64(math.MaxUint64), uint64(math.MaxUint64); !Uint(lhs).Subtract(Uint(rhs)).Equal(Uint(0)).(Bool) {
+		t.Errorf("Expected subtracting %d and %d to yield %d", lhs, rhs, 0)
 	}
 }
