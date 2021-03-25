@@ -15,7 +15,6 @@ sh_test(
         "--skip_test=enums/strong_proto2",
         "--skip_test=enums/strong_proto3",
         "--skip_test=fields/qualified_identifier_resolution/map_key_float,map_key_null,map_value_repeat_key",
-        "--skip_test=integer_math/int64_math/int64_overflow_positive,int64_overflow_negative,uint64_overflow_positive,uint64_overflow_negative,int64_min_negate",
         "--skip_test=timestamps/timestamp_range/from_string_under,add_duration_under,add_duration_over",
         "$(location @com_google_cel_spec//tests/simple:testdata/plumbing.textproto)",
         "$(location @com_google_cel_spec//tests/simple:testdata/basic.textproto)",

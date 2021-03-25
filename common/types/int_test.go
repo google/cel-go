@@ -34,6 +34,18 @@ func TestIntAdd(t *testing.T) {
 	if !IsError(Int(-1).Add(String("-1"))) {
 		t.Error("Adding non-int to int was not an error.")
 	}
+	if lhs, rhs := math.MaxInt64, 1; !IsError(Int(lhs).Add(Int(rhs))) {
+		t.Errorf("Expected adding %d and %d to result in overflow.", lhs, rhs)
+	}
+	if lhs, rhs := math.MinInt64, -1; !IsError(Int(lhs).Add(Int(rhs))) {
+		t.Errorf("Expected adding %d and %d to result in overflow.", lhs, rhs)
+	}
+	if lhs, rhs := math.MaxInt64-1, 1; !Int(lhs).Add(Int(rhs)).Equal(Int(math.MaxInt64)).(Bool) {
+		t.Errorf("Expected adding %d and %d to yield %d", lhs, rhs, math.MaxInt64)
+	}
+	if lhs, rhs := math.MinInt64+1, -1; !Int(lhs).Add(Int(rhs)).Equal(Int(math.MinInt64)).(Bool) {
+		t.Errorf("Expected adding %d and %d to yield %d", lhs, rhs, math.MaxInt64)
+	}
 }
 
 func TestIntCompare(t *testing.T) {
@@ -195,6 +207,9 @@ func TestIntDivide(t *testing.T) {
 	if !IsError(Int(1).Divide(Double(-1))) {
 		t.Error("Division permitted without express type-conversion.")
 	}
+	if lhs, rhs := math.MinInt64, -1; !IsError(Int(lhs).Divide(Int(rhs))) {
+		t.Errorf("Expected dividing %d and %d result in overflow.", lhs, rhs)
+	}
 }
 
 func TestIntEqual(t *testing.T) {
@@ -213,6 +228,9 @@ func TestIntModulo(t *testing.T) {
 	if !IsError(Int(21).Modulo(uintZero)) {
 		t.Error("Modulus permitted between different types without type conversion.")
 	}
+	if lhs, rhs := math.MinInt64, -1; !IsError(Int(lhs).Modulo(Int(rhs))) {
+		t.Errorf("Expected modulo %d and %d result in overflow.", lhs, rhs)
+	}
 }
 
 func TestIntMultiply(t *testing.T) {
@@ -222,11 +240,32 @@ func TestIntMultiply(t *testing.T) {
 	if !IsError(Int(1).Multiply(Double(-4.0))) {
 		t.Error("Multiplication permitted without express type-conversion.")
 	}
+	if lhs, rhs := math.MaxInt64/2, 3; !IsError(Int(lhs).Multiply(Int(rhs))) {
+		t.Errorf("Expected multiplying %d and %d to result in overflow.", lhs, rhs)
+	}
+	if lhs, rhs := math.MinInt64/2, 3; !IsError(Int(lhs).Multiply(Int(rhs))) {
+		t.Errorf("Expected multiplying %d and %d to result in overflow.", lhs, rhs)
+	}
+	if lhs, rhs := math.MaxInt64/2, 2; !Int(lhs).Multiply(Int(rhs)).Equal(Int(math.MaxInt64 - 1)).(Bool) {
+		t.Errorf("Expected multiplying %d and %d to yield %d", lhs, rhs, math.MaxInt64-1)
+	}
+	if lhs, rhs := math.MinInt64/2, 2; !Int(lhs).Multiply(Int(rhs)).Equal(Int(math.MinInt64)).(Bool) {
+		t.Errorf("Expected multiplying %d and %d to yield %d", lhs, rhs, math.MaxInt64)
+	}
+	if lhs, rhs := math.MinInt64, -1; !IsError(Int(lhs).Multiply(Int(rhs))) {
+		t.Errorf("Expected multiplying %d and %d result in overflow.", lhs, rhs)
+	}
 }
 
 func TestIntNegate(t *testing.T) {
 	if !Int(1).Negate().Equal(Int(-1)).(Bool) {
 		t.Error("Negating int value did not succeed")
+	}
+	if v := math.MinInt64; !IsError(Int(v).Negate()) {
+		t.Errorf("Expected negating %d to result in overflow.", v)
+	}
+	if v := math.MaxInt64; !Int(v).Negate().Equal(Int(math.MinInt64 + 1)).(Bool) {
+		t.Errorf("Expected negating %d to yeild %d", v, math.MinInt64+1)
 	}
 }
 
@@ -236,5 +275,17 @@ func TestIntSubtract(t *testing.T) {
 	}
 	if !IsError(Int(1).Subtract(Uint(1))) {
 		t.Error("Subtraction permitted without express type-conversion.")
+	}
+	if lhs, rhs := math.MaxInt64, -1; !IsError(Int(lhs).Subtract(Int(rhs))) {
+		t.Errorf("Expected subtracting %d and %d to result in overflow.", lhs, rhs)
+	}
+	if lhs, rhs := math.MinInt64, 1; !IsError(Int(lhs).Subtract(Int(rhs))) {
+		t.Errorf("Expected subtracting %d and %d to result in overflow.", lhs, rhs)
+	}
+	if lhs, rhs := math.MaxInt64-1, -1; !Int(lhs).Subtract(Int(rhs)).Equal(Int(math.MaxInt64)).(Bool) {
+		t.Errorf("Expected subtracting %d and %d to yield %d", lhs, rhs, math.MaxInt64)
+	}
+	if lhs, rhs := math.MinInt64+1, 1; !Int(lhs).Subtract(Int(rhs)).Equal(Int(math.MinInt64)).(Bool) {
+		t.Errorf("Expected subtracting %d and %d to yield %d", lhs, rhs, math.MaxInt64)
 	}
 }
