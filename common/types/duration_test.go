@@ -15,6 +15,7 @@
 package types
 
 import (
+	"math"
 	"reflect"
 	"testing"
 	"time"
@@ -34,6 +35,18 @@ func TestDurationAdd(t *testing.T) {
 	d := Duration{Duration: dur.AsDuration()}
 	if !d.Add(d).Equal(Duration{(&dpb.Duration{Seconds: 15012}).AsDuration()}).(Bool) {
 		t.Error("Adding duration and itself did not double it.")
+	}
+	if lhs, rhs := time.Duration(math.MaxInt64), time.Duration(1); !IsError(durationOf(lhs).Add(durationOf(rhs))) {
+		t.Errorf("Expected adding %d and %d to result in overflow.", lhs, rhs)
+	}
+	if lhs, rhs := time.Duration(math.MinInt64), time.Duration(-1); !IsError(durationOf(lhs).Add(durationOf(rhs))) {
+		t.Errorf("Expected adding %d and %d to result in overflow.", lhs, rhs)
+	}
+	if lhs, rhs := time.Duration(math.MaxInt64-1), time.Duration(1); !durationOf(lhs).Add(durationOf(rhs)).Equal(durationOf(math.MaxInt64)).(Bool) {
+		t.Errorf("Expected adding %d and %d to yield %d", lhs, rhs, math.MaxInt64)
+	}
+	if lhs, rhs := time.Duration(math.MinInt64+1), time.Duration(-1); !durationOf(lhs).Add(durationOf(rhs)).Equal(durationOf(math.MinInt64)).(Bool) {
+		t.Errorf("Expected adding %d and %d to yield %d", lhs, rhs, math.MaxInt64)
 	}
 }
 
@@ -142,6 +155,12 @@ func TestDurationNegate(t *testing.T) {
 	if neg.Value().(time.Duration) != want {
 		t.Errorf("Got %v, expected %v", neg, want)
 	}
+	if v := time.Duration(math.MinInt64); !IsError(durationOf(v).Negate()) {
+		t.Errorf("Expected negating %d to result in overflow.", v)
+	}
+	if v := time.Duration(math.MaxInt64); !durationOf(v).Negate().Equal(durationOf(time.Duration(math.MinInt64 + 1))).(Bool) {
+		t.Errorf("Expected negating %d to yeild %d", v, time.Duration(math.MinInt64+1))
+	}
 }
 
 func TestDurationGetHours(t *testing.T) {
@@ -180,6 +199,18 @@ func TestDurationSubtract(t *testing.T) {
 	d := Duration{Duration: duration(7506, 0)}
 	if !d.Subtract(d).ConvertToType(IntType).Equal(IntZero).(Bool) {
 		t.Error("Subtracting a duration from itself did not equal zero.")
+	}
+	if lhs, rhs := time.Duration(math.MaxInt64), time.Duration(-1); !IsError(durationOf(lhs).Subtract(durationOf(rhs))) {
+		t.Errorf("Expected subtracting %d and %d to result in overflow.", lhs, rhs)
+	}
+	if lhs, rhs := time.Duration(math.MinInt64), time.Duration(1); !IsError(durationOf(lhs).Subtract(durationOf(rhs))) {
+		t.Errorf("Expected subtracting %d and %d to result in overflow.", lhs, rhs)
+	}
+	if lhs, rhs := time.Duration(math.MaxInt64-1), time.Duration(-1); !durationOf(lhs).Subtract(durationOf(rhs)).Equal(durationOf(math.MaxInt64)).(Bool) {
+		t.Errorf("Expected subtracting %d and %d to yield %d", lhs, rhs, math.MaxInt64)
+	}
+	if lhs, rhs := time.Duration(math.MinInt64+1), time.Duration(1); !durationOf(lhs).Subtract(durationOf(rhs)).Equal(durationOf(math.MinInt64)).(Bool) {
+		t.Errorf("Expected subtracting %d and %d to yield %d", lhs, rhs, math.MinInt64)
 	}
 }
 

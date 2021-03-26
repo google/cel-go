@@ -37,6 +37,21 @@ type Timestamp struct {
 	time.Time
 }
 
+func timestampOf(t time.Time) Timestamp {
+	// Note that this function does not valiate that time.Time is in our supported range.
+	return Timestamp{Time: t}
+}
+
+const (
+	// The number of seconds between year 1 and year 1970.
+	unixToInternal int64 = (1969*365 + 1969/4 - 1969/100 + 1969/400) * (60 * 60 * 24)
+
+	// Number of seconds between `0001-01-01T00:00:00Z` and the Unix epoch.
+	minUnixTime int64 = -62135596800
+	// Number of seconds between `9999-12-31T23:59:59.999999999Z` and the Unix epoch.
+	maxUnixTime int64 = 253402300799
+)
+
 var (
 	// TimestampType singleton.
 	TimestampType = NewTypeValue("google.protobuf.Timestamp",
@@ -62,14 +77,14 @@ func (t Timestamp) Compare(other ref.Val) ref.Val {
 	}
 	ts1 := t.Time
 	ts2 := other.(Timestamp).Time
-	ts := ts1.Sub(ts2)
-	if ts < 0 {
+	switch {
+	case ts1.Before(ts2):
 		return IntNegOne
-	}
-	if ts > 0 {
+	case ts1.After(ts2):
 		return IntOne
+	default:
+		return IntZero
 	}
-	return IntZero
 }
 
 // ConvertToNative implements ref.Val.ConvertToNative.
@@ -144,10 +159,16 @@ func (t Timestamp) Subtract(subtrahend ref.Val) ref.Val {
 	switch subtrahend.Type() {
 	case DurationType:
 		dur := subtrahend.(Duration)
-		return Timestamp{Time: t.Time.Add(-dur.Duration)}
+		if val, ok := subtractTimeDurationOverflow(t.Time, dur.Duration); ok {
+			return timestampOf(val)
+		}
+		return NewErr("timestamp overflow")
 	case TimestampType:
 		t2 := subtrahend.(Timestamp).Time
-		return Duration{Duration: t.Time.Sub(t2)}
+		if val, ok := subtractTimeOverflow(t.Time, t2); ok {
+			return durationOf(val)
+		}
+		return NewErr("duration overflow")
 	}
 	return ValOrErr(subtrahend, "no such overload")
 }

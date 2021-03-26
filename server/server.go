@@ -18,6 +18,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common"
@@ -33,7 +34,9 @@ import (
 	confpb "google.golang.org/genproto/googleapis/api/expr/conformance/v1alpha1"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	rpc "google.golang.org/genproto/googleapis/rpc/status"
-	anypb "google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // ConformanceServer contains the server state.
@@ -272,6 +275,28 @@ func RefValueToValue(res ref.Val) (*exprpb.Value, error) {
 	case types.UintType:
 		return &exprpb.Value{
 			Kind: &exprpb.Value_Uint64Value{Uint64Value: res.Value().(uint64)}}, nil
+	case types.DurationType:
+		d, ok := res.Value().(time.Duration)
+		if !ok {
+			return nil, status.New(codes.InvalidArgument, "Expected time.Duration").Err()
+		}
+		any, err := anypb.New(durationpb.New(d))
+		if err != nil {
+			return nil, err
+		}
+		return &exprpb.Value{
+			Kind: &exprpb.Value_ObjectValue{ObjectValue: any}}, nil
+	case types.TimestampType:
+		t, ok := res.Value().(time.Time)
+		if !ok {
+			return nil, status.New(codes.InvalidArgument, "Expected time.Time").Err()
+		}
+		any, err := anypb.New(timestamppb.New(t))
+		if err != nil {
+			return nil, err
+		}
+		return &exprpb.Value{
+			Kind: &exprpb.Value_ObjectValue{ObjectValue: any}}, nil
 	default:
 		// Object type
 		pb, ok := res.Value().(proto.Message)

@@ -21,6 +21,7 @@ go_library(
         "map.go",
         "null.go",
         "object.go",
+        "overflow.go",
         "provider.go",
         "string.go",
         "timestamp.go",

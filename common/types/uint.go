@@ -57,10 +57,10 @@ func (i Uint) Add(other ref.Val) ref.Val {
 	if !ok {
 		return ValOrErr(other, "no such overload")
 	}
-	if otherUint > 0 && i > math.MaxUint64-otherUint {
-		return NewErr("unsigned integer overflow")
+	if val, ok := addUint64Overflow(uint64(i), uint64(otherUint)); ok {
+		return Uint(val)
 	}
-	return i + otherUint
+	return NewErr("unsigned integer overflow")
 }
 
 // Compare implements traits.Comparer.Compare.
@@ -186,10 +186,10 @@ func (i Uint) Multiply(other ref.Val) ref.Val {
 	if !ok {
 		return ValOrErr(other, "no such overload")
 	}
-	if otherUint != 0 && i > math.MaxUint64/otherUint {
-		return NewErr("unsigned integer overflow")
+	if val, ok := multiplyUint64Overflow(uint64(i), uint64(otherUint)); ok {
+		return Uint(val)
 	}
-	return i * otherUint
+	return NewErr("unsigned integer overflow")
 }
 
 // Subtract implements traits.Subtractor.Subtract.
@@ -198,10 +198,10 @@ func (i Uint) Subtract(subtrahend ref.Val) ref.Val {
 	if !ok {
 		return ValOrErr(subtrahend, "no such overload")
 	}
-	if subtraUint > i {
-		return NewErr("unsigned integer overflow")
+	if val, ok := subtractUint64Overflow(uint64(i), uint64(subtraUint)); ok {
+		return Uint(val)
 	}
-	return i - subtraUint
+	return NewErr("unsigned integer overflow")
 }
 
 // Type implements ref.Val.Type.

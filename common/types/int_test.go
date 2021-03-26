@@ -250,7 +250,13 @@ func TestIntMultiply(t *testing.T) {
 		t.Errorf("Expected multiplying %d and %d to yield %d", lhs, rhs, math.MaxInt64-1)
 	}
 	if lhs, rhs := math.MinInt64/2, 2; !Int(lhs).Multiply(Int(rhs)).Equal(Int(math.MinInt64)).(Bool) {
-		t.Errorf("Expected multiplying %d and %d to yield %d", lhs, rhs, math.MaxInt64)
+		t.Errorf("Expected multiplying %d and %d to yield %d", lhs, rhs, math.MinInt64)
+	}
+	if lhs, rhs := math.MaxInt64/2, -2; !Int(lhs).Multiply(Int(rhs)).Equal(Int(math.MinInt64 + 2)).(Bool) {
+		t.Errorf("Expected multiplying %d and %d to yield %d", lhs, rhs, math.MinInt64+2)
+	}
+	if lhs, rhs := (math.MinInt64+2)/2, -2; !Int(lhs).Multiply(Int(rhs)).Equal(Int(math.MaxInt64 - 1)).(Bool) {
+		t.Errorf("Expected multiplying %d and %d to yield %d", lhs, rhs, math.MaxInt64-1)
 	}
 	if lhs, rhs := math.MinInt64, -1; !IsError(Int(lhs).Multiply(Int(rhs))) {
 		t.Errorf("Expected multiplying %d and %d result in overflow.", lhs, rhs)
@@ -286,6 +292,6 @@ func TestIntSubtract(t *testing.T) {
 		t.Errorf("Expected subtracting %d and %d to yield %d", lhs, rhs, math.MaxInt64)
 	}
 	if lhs, rhs := math.MinInt64+1, 1; !Int(lhs).Subtract(Int(rhs)).Equal(Int(math.MinInt64)).(Bool) {
-		t.Errorf("Expected subtracting %d and %d to yield %d", lhs, rhs, math.MaxInt64)
+		t.Errorf("Expected subtracting %d and %d to yield %d", lhs, rhs, math.MinInt64)
 	}
 }

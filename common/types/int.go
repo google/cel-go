@@ -16,7 +16,6 @@ package types
 
 import (
 	"fmt"
-	"math"
 	"reflect"
 	"strconv"
 	"time"
@@ -64,10 +63,10 @@ func (i Int) Add(other ref.Val) ref.Val {
 	if !ok {
 		return ValOrErr(other, "no such overload")
 	}
-	if (otherInt > 0 && i > math.MaxInt64-otherInt) || (otherInt < 0 && i < math.MinInt64-otherInt) {
-		return NewErr("integer overflow")
+	if val, ok := addInt64Overflow(int64(i), int64(otherInt)); ok {
+		return Int(val)
 	}
-	return i + otherInt
+	return NewErr("integer overflow")
 }
 
 // Compare implements traits.Comparer.Compare.
@@ -166,8 +165,12 @@ func (i Int) ConvertToType(typeVal ref.Type) ref.Val {
 	case StringType:
 		return String(fmt.Sprintf("%d", int64(i)))
 	case TimestampType:
-		t := time.Unix(int64(i), 0).UTC()
-		return Timestamp{Time: t}
+		// The maximum positive value that can be passed to time.Unix is math.MaxInt64 minus the number
+		// of seconds between year 1 and year 1970. See comments on unixToInternal.
+		if int64(i) < minUnixTime || int64(i) > maxUnixTime {
+			return NewErr("timestamp overflow")
+		}
+		return timestampOf(time.Unix(int64(i), 0).UTC())
 	case TypeType:
 		return IntType
 	}
@@ -183,11 +186,10 @@ func (i Int) Divide(other ref.Val) ref.Val {
 	if otherInt == IntZero {
 		return NewErr("divide by zero")
 	}
-	// In twos complement, negating MinInt64 would result in a valid of MaxInt64+1.
-	if i == math.MinInt64 && otherInt == -1 {
-		return NewErr("integer overflow")
+	if val, ok := divideInt64Overflow(int64(i), int64(otherInt)); ok {
+		return Int(val)
 	}
-	return i / otherInt
+	return NewErr("integer overflow")
 }
 
 // Equal implements ref.Val.Equal.
@@ -208,11 +210,10 @@ func (i Int) Modulo(other ref.Val) ref.Val {
 	if otherInt == IntZero {
 		return NewErr("modulus by zero")
 	}
-	// In twos complement, negating MinInt64 would result in a valid of MaxInt64+1.
-	if i == math.MinInt64 && otherInt == -1 {
-		return NewErr("integer overflow")
+	if val, ok := moduloInt64Overflow(int64(i), int64(otherInt)); ok {
+		return Int(val)
 	}
-	return i % otherInt
+	return NewErr("integer overflow")
 }
 
 // Multiply implements traits.Multiplier.Multiply.
@@ -221,24 +222,18 @@ func (i Int) Multiply(other ref.Val) ref.Val {
 	if !ok {
 		return ValOrErr(other, "no such overload")
 	}
-	// Detecting multiplication overflow is more complicated than the others. The first two detect
-	// attempting to negate MinInt64, which would result in MaxInt64+1. The other four detect normal
-	// overflow conditions.
-	if (i == -1 && otherInt == math.MinInt64) || (otherInt == -1 && i == math.MinInt64) ||
-		(i > 0 && otherInt > 0 && i > math.MaxInt64/otherInt) || (i > 0 && otherInt < 0 && otherInt < math.MinInt64/i) ||
-		(i < 0 && otherInt > 0 && i < math.MinInt64/otherInt) || (i < 0 && otherInt < 0 && otherInt < math.MaxInt64/i) {
-		return NewErr("integer overflow")
+	if val, ok := multiplyInt64Overflow(int64(i), int64(otherInt)); ok {
+		return Int(val)
 	}
-	return i * otherInt
+	return NewErr("integer overflow")
 }
 
 // Negate implements traits.Negater.Negate.
 func (i Int) Negate() ref.Val {
-	// In twos complement, negating MinInt64 would result in a valid of MaxInt64+1.
-	if i == math.MinInt64 {
-		return NewErr("integer overflow")
+	if val, ok := negateInt64Overflow(int64(i)); ok {
+		return Int(val)
 	}
-	return -i
+	return NewErr("integer overflow")
 }
 
 // Subtract implements traits.Subtractor.Subtract.
@@ -247,10 +242,10 @@ func (i Int) Subtract(subtrahend ref.Val) ref.Val {
 	if !ok {
 		return ValOrErr(subtrahend, "no such overload")
 	}
-	if (subtraInt < 0 && i > math.MaxInt64+subtraInt) || (subtraInt > 0 && i < math.MinInt64+subtraInt) {
-		return NewErr("integer overflow")
+	if val, ok := subtractInt64Overflow(int64(i), int64(subtraInt)); ok {
+		return Int(val)
 	}
-	return i - subtraInt
+	return NewErr("integer overflow")
 }
 
 // Type implements ref.Val.Type.
