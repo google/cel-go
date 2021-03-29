@@ -30,7 +30,7 @@ import (
 )
 
 type serverTest struct {
-	client *celrpc.ConfClient
+	client celrpc.ConfClient
 }
 
 var (
@@ -45,7 +45,7 @@ func TestMain(m *testing.M) {
 }
 
 func mainHelper(m *testing.M) int {
-	client, err := celrpc.NewClientFromPath(os.Args[1])
+	client, err := celrpc.NewGrpcClient(os.Args[1])
 	globals.client = client
 	defer client.Shutdown()
 	if err != nil {
