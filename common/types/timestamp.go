@@ -104,7 +104,7 @@ func (t Timestamp) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 func (t Timestamp) ConvertToType(typeVal ref.Type) ref.Val {
 	switch typeVal {
 	case StringType:
-		return String(t.Format(time.RFC3339))
+		return String(t.Format(time.RFC3339Nano))
 	case IntType:
 		// Return the Unix time in seconds since 1970
 		return Int(t.Unix())
