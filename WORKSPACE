@@ -38,7 +38,7 @@ http_archive(
     strip_prefix = "googleapis-6a813acf535e4746fa4a135ce23547bb6425c26d",
     urls = [
         "https://github.com/googleapis/googleapis/archive/6a813acf535e4746fa4a135ce23547bb6425c26d.tar.gz",
-    ]
+    ],
 )
 
 # protobuf
@@ -49,7 +49,7 @@ http_archive(
     urls = ["https://github.com/protocolbuffers/protobuf/archive/v3.13.0.zip"],
 )
 
-load("@io_bazel_rules_go//go:deps.bzl", "go_rules_dependencies", "go_register_toolchains")
+load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
 load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies", "go_repository")
 load("@com_google_googleapis//:repository_rules.bzl", "switched_rules_by_language")
 load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
@@ -63,18 +63,18 @@ switched_rules_by_language(
 # Do *not* call *_dependencies(), etc, yet.  See comment at the end.
 
 go_repository(
-  name = "org_golang_google_protobuf",
-  build_file_proto_mode = "disable_global",
-  importpath = "google.golang.org/protobuf",
-  tag = "v1.25.0",
+    name = "org_golang_google_protobuf",
+    build_file_proto_mode = "disable_global",
+    importpath = "google.golang.org/protobuf",
+    tag = "v1.25.0",
 )
 
 # Generated Google APIs protos for Golang 11/16/2020
 go_repository(
-  name = "org_golang_google_genproto",
-  build_file_proto_mode = "disable_global",
-  commit = "62d171c70ae133bd47722027b62f8820407cf744",
-  importpath = "google.golang.org/genproto",
+    name = "org_golang_google_genproto",
+    build_file_proto_mode = "disable_global",
+    commit = "62d171c70ae133bd47722027b62f8820407cf744",
+    importpath = "google.golang.org/genproto",
 )
 
 # gRPC deps for v1.33.2 (including x/text and x/net)
@@ -101,16 +101,16 @@ go_repository(
 
 # Antlr deps to pickup golang concurrency fixes 4/30/2020
 go_repository(
-  name = "com_github_antlr",
-  commit = "621b933c7a7f01c67ae9de15103151fa0f9d6d90",
-  importpath = "github.com/antlr/antlr4",
+    name = "com_github_antlr",
+    commit = "621b933c7a7f01c67ae9de15103151fa0f9d6d90",
+    importpath = "github.com/antlr/antlr4",
 )
 
 # CEL Spec deps
 go_repository(
-  name = "com_google_cel_spec",
-  commit = "1b5a71c00310535ae98f892ff187d976e46ff37e",
-  importpath = "github.com/google/cel-spec",
+    name = "com_google_cel_spec",
+    commit = "1b5a71c00310535ae98f892ff187d976e46ff37e",
+    importpath = "github.com/google/cel-spec",
 )
 
 # strcase deps
@@ -124,8 +124,13 @@ go_repository(
 # Run the dependencies at the end.  These will silently try to import some
 # of the above repositories but at different versions, so ours must come first.
 go_rules_dependencies()
+
 go_register_toolchains()
+
 gazelle_dependencies()
+
 rules_proto_dependencies()
+
 rules_proto_toolchains()
+
 protobuf_deps()

@@ -8,9 +8,9 @@ package(
 go_binary(
     name = "cel_server",
     srcs = ["main.go"],
+    out = "cel_server",
     deps = [
         "//server:go_default_library",
         "@com_google_cel_spec//tools/celrpc:go_default_library",
     ],
-    out = "cel_server",
 )
