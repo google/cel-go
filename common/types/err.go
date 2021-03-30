@@ -29,6 +29,15 @@ type Err struct {
 var (
 	// ErrType singleton.
 	ErrType = NewTypeValue("error")
+
+	// errIntOverflow is an error representing integer overflow.
+	errIntOverflow = NewErr("integer overflow")
+	// errUintOverflow is an error representing unsigned integer overflow.
+	errUintOverflow = NewErr("unsigned integer overflow")
+	// errDurationOverflow is an error representing duration overflow.
+	errDurationOverflow = NewErr("duration overflow")
+	// errTimestampOverflow is an error representing timestamp overflow.
+	errTimestampOverflow = NewErr("timestamp overflow")
 )
 
 // NewErr creates a new Err described by the format string and args.

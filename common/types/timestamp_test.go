@@ -42,6 +42,18 @@ func TestTimestampAdd(t *testing.T) {
 	if !IsError(ts.Add(expected)) {
 		t.Error("Cannot add two timestamps together")
 	}
+	if lhs, rhs := time.Unix(maxUnixTime, 999999999), 1*time.Nanosecond; !IsError(timestampOf(lhs).Add(durationOf(rhs))) {
+		t.Errorf("Expected adding %s and %s to result in overflow.", lhs, rhs)
+	}
+	if lhs, rhs := time.Unix(minUnixTime, 0), -1*time.Nanosecond; !IsError(timestampOf(lhs).Add(durationOf(rhs))) {
+		t.Errorf("Expected adding %s and %s to result in overflow.", lhs, rhs)
+	}
+	if lhs, rhs := time.Unix(maxUnixTime, 999999999), -1*time.Nanosecond; !timestampOf(lhs).Add(durationOf(rhs)).Equal(timestampOf(lhs.Add(rhs))).(Bool) {
+		t.Errorf("Expected adding %s and %s to yield %s", lhs, rhs, lhs.Add(rhs))
+	}
+	if lhs, rhs := time.Unix(minUnixTime, 0), 1*time.Nanosecond; !timestampOf(lhs).Add(durationOf(rhs)).Equal(timestampOf(lhs.Add(rhs))).(Bool) {
+		t.Errorf("Expected adding %s and %s to yield %s", lhs, rhs, lhs.Add(rhs))
+	}
 }
 
 func TestTimestampConvertToNative_Any(t *testing.T) {

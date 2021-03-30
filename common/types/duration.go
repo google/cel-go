@@ -36,6 +36,10 @@ type Duration struct {
 	time.Duration
 }
 
+func durationOf(d time.Duration) Duration {
+	return Duration{Duration: d}
+}
+
 var (
 	// DurationType singleton.
 	DurationType = NewTypeValue("google.protobuf.Duration",
@@ -51,10 +55,16 @@ func (d Duration) Add(other ref.Val) ref.Val {
 	switch other.Type() {
 	case DurationType:
 		dur2 := other.(Duration)
-		return Duration{Duration: d.Duration + dur2.Duration}
+		if val, ok := addDurationChecked(d.Duration, dur2.Duration); ok {
+			return durationOf(val)
+		}
+		return errDurationOverflow
 	case TimestampType:
 		ts := other.(Timestamp).Time
-		return Timestamp{Time: ts.Add(d.Duration)}
+		if val, ok := addTimeDurationChecked(ts, d.Duration); ok {
+			return timestampOf(val)
+		}
+		return errTimestampOverflow
 	}
 	return ValOrErr(other, "no such overload")
 }
@@ -65,14 +75,16 @@ func (d Duration) Compare(other ref.Val) ref.Val {
 	if !ok {
 		return ValOrErr(other, "no such overload")
 	}
-	dur := d.Duration - otherDur.Duration
-	if dur < 0 {
+	d1 := d.Duration
+	d2 := otherDur.Duration
+	switch {
+	case d1 < d2:
 		return IntNegOne
-	}
-	if dur > 0 {
+	case d1 > d2:
 		return IntOne
+	default:
+		return IntZero
 	}
-	return IntZero
 }
 
 // ConvertToNative implements ref.Val.ConvertToNative.
@@ -129,7 +141,10 @@ func (d Duration) Equal(other ref.Val) ref.Val {
 
 // Negate implements traits.Negater.Negate.
 func (d Duration) Negate() ref.Val {
-	return Duration{Duration: -d.Duration}
+	if val, ok := negateDurationChecked(d.Duration); ok {
+		return durationOf(val)
+	}
+	return errDurationOverflow
 }
 
 // Receive implements traits.Receiver.Receive.
@@ -148,7 +163,10 @@ func (d Duration) Subtract(subtrahend ref.Val) ref.Val {
 	if !ok {
 		return ValOrErr(subtrahend, "no such overload")
 	}
-	return d.Add(subtraDur.Negate())
+	if val, ok := subtractDurationChecked(d.Duration, subtraDur.Duration); ok {
+		return durationOf(val)
+	}
+	return errDurationOverflow
 }
 
 // Type implements ref.Val.Type.

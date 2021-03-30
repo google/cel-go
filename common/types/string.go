@@ -131,11 +131,14 @@ func (s String) ConvertToType(typeVal ref.Type) ref.Val {
 		return Bytes(s)
 	case DurationType:
 		if d, err := time.ParseDuration(s.Value().(string)); err == nil {
-			return Duration{Duration: d}
+			return durationOf(d)
 		}
 	case TimestampType:
 		if t, err := time.Parse(time.RFC3339, s.Value().(string)); err == nil {
-			return Timestamp{Time: t}
+			if t.Unix() < minUnixTime || t.Unix() > maxUnixTime {
+				return errTimestampOverflow
+			}
+			return timestampOf(t)
 		}
 	case StringType:
 		return s
