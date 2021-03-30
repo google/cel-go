@@ -35,8 +35,8 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	rpc "google.golang.org/genproto/googleapis/rpc/status"
 	anypb "google.golang.org/protobuf/types/known/anypb"
-	durationpb "google.golang.org/protobuf/types/known/durationpb"
-	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
+	dpb "google.golang.org/protobuf/types/known/durationpb"
+	tpb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // ConformanceServer contains the server state.
