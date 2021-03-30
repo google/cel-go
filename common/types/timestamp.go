@@ -43,7 +43,8 @@ func timestampOf(t time.Time) Timestamp {
 }
 
 const (
-	// The number of seconds between year 1 and year 1970.
+	// The number of seconds between year 1 and year 1970. This is borrowed from
+	// https://golang.org/src/time/time.go.
 	unixToInternal int64 = (1969*365 + 1969/4 - 1969/100 + 1969/400) * (60 * 60 * 24)
 
 	// Number of seconds between `0001-01-01T00:00:00Z` and the Unix epoch.
@@ -159,16 +160,16 @@ func (t Timestamp) Subtract(subtrahend ref.Val) ref.Val {
 	switch subtrahend.Type() {
 	case DurationType:
 		dur := subtrahend.(Duration)
-		if val, ok := subtractTimeDurationOverflow(t.Time, dur.Duration); ok {
+		if val, ok := subtractTimeDurationChecked(t.Time, dur.Duration); ok {
 			return timestampOf(val)
 		}
-		return NewErr("timestamp overflow")
+		return errTimestampOverflow
 	case TimestampType:
 		t2 := subtrahend.(Timestamp).Time
-		if val, ok := subtractTimeOverflow(t.Time, t2); ok {
+		if val, ok := subtractTimeChecked(t.Time, t2); ok {
 			return durationOf(val)
 		}
-		return NewErr("duration overflow")
+		return errDurationOverflow
 	}
 	return ValOrErr(subtrahend, "no such overload")
 }

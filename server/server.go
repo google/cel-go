@@ -33,7 +33,7 @@ import (
 	test3pb "github.com/google/cel-spec/proto/test/v1/proto3/test_all_types"
 	confpb "google.golang.org/genproto/googleapis/api/expr/conformance/v1alpha1"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
-	rpc "google.golang.org/genproto/googleapis/rpc/status"
+	rpcpb "google.golang.org/genproto/googleapis/rpc/status"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	dpb "google.golang.org/protobuf/types/known/durationpb"
 	tpb "google.golang.org/protobuf/types/known/timestamppb"
@@ -142,7 +142,7 @@ func (s *ConformanceServer) Eval(ctx context.Context, in *confpb.EvalRequest) (*
 
 // appendErrors converts the errors from errs to Status messages
 // and appends them to the list of issues.
-func appendErrors(errs []common.Error, issues *[]*rpc.Status) {
+func appendErrors(errs []common.Error, issues *[]*rpcpb.Status) {
 	for _, e := range errs {
 		status := ErrToStatus(e, confpb.IssueDetails_ERROR)
 		*issues = append(*issues, status)
@@ -150,7 +150,7 @@ func appendErrors(errs []common.Error, issues *[]*rpc.Status) {
 }
 
 // ErrToStatus converts an Error to a Status message with the given severity.
-func ErrToStatus(e common.Error, severity confpb.IssueDetails_Severity) *rpc.Status {
+func ErrToStatus(e common.Error, severity confpb.IssueDetails_Severity) *rpcpb.Status {
 	detail := confpb.IssueDetails{
 		Severity: severity,
 		Position: &exprpb.SourcePosition{
@@ -177,7 +177,7 @@ func RefValueToExprValue(res ref.Val, err error) (*exprpb.ExprValue, error) {
 		return &exprpb.ExprValue{
 			Kind: &exprpb.ExprValue_Error{
 				Error: &exprpb.ErrorSet{
-					Errors: []*rpc.Status{s},
+					Errors: []*rpcpb.Status{s},
 				},
 			},
 		}, nil
@@ -280,7 +280,7 @@ func RefValueToValue(res ref.Val) (*exprpb.Value, error) {
 		if !ok {
 			return nil, status.New(codes.InvalidArgument, "Expected time.Duration").Err()
 		}
-		any, err := anypb.New(durationpb.New(d))
+		any, err := anypb.New(dpb.New(d))
 		if err != nil {
 			return nil, err
 		}
@@ -291,7 +291,7 @@ func RefValueToValue(res ref.Val) (*exprpb.Value, error) {
 		if !ok {
 			return nil, status.New(codes.InvalidArgument, "Expected time.Time").Err()
 		}
-		any, err := anypb.New(timestamppb.New(t))
+		any, err := anypb.New(tpb.New(t))
 		if err != nil {
 			return nil, err
 		}
@@ -318,7 +318,7 @@ func ExprValueToRefValue(adapter ref.TypeAdapter, ev *exprpb.ExprValue) (ref.Val
 	case *exprpb.ExprValue_Value:
 		return ValueToRefValue(adapter, ev.GetValue())
 	case *exprpb.ExprValue_Error:
-		// An error ExprValue is a repeated set of rpc.Status
+		// An error ExprValue is a repeated set of rpcpb.Status
 		// messages, with no convention for the status details.
 		// To convert this to a types.Err, we need to convert
 		// these Status messages to a single string, and be

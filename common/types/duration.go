@@ -55,16 +55,16 @@ func (d Duration) Add(other ref.Val) ref.Val {
 	switch other.Type() {
 	case DurationType:
 		dur2 := other.(Duration)
-		if val, ok := addDurationOverflow(d.Duration, dur2.Duration); ok {
+		if val, ok := addDurationChecked(d.Duration, dur2.Duration); ok {
 			return durationOf(val)
 		}
-		return NewErr("duration overflow")
+		return errDurationOverflow
 	case TimestampType:
 		ts := other.(Timestamp).Time
-		if val, ok := addTimeDurationOverflow(ts, d.Duration); ok {
+		if val, ok := addTimeDurationChecked(ts, d.Duration); ok {
 			return timestampOf(val)
 		}
-		return NewErr("timestamp overflow")
+		return errTimestampOverflow
 	}
 	return ValOrErr(other, "no such overload")
 }
@@ -141,10 +141,10 @@ func (d Duration) Equal(other ref.Val) ref.Val {
 
 // Negate implements traits.Negater.Negate.
 func (d Duration) Negate() ref.Val {
-	if val, ok := negateDurationOverflow(d.Duration); ok {
+	if val, ok := negateDurationChecked(d.Duration); ok {
 		return durationOf(val)
 	}
-	return NewErr("duration overflow")
+	return errDurationOverflow
 }
 
 // Receive implements traits.Receiver.Receive.
@@ -163,10 +163,10 @@ func (d Duration) Subtract(subtrahend ref.Val) ref.Val {
 	if !ok {
 		return ValOrErr(subtrahend, "no such overload")
 	}
-	if val, ok := subtractDurationOverflow(d.Duration, subtraDur.Duration); ok {
+	if val, ok := subtractDurationChecked(d.Duration, subtraDur.Duration); ok {
 		return durationOf(val)
 	}
-	return NewErr("duration overflow")
+	return errDurationOverflow
 }
 
 // Type implements ref.Val.Type.

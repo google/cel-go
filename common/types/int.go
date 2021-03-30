@@ -63,10 +63,10 @@ func (i Int) Add(other ref.Val) ref.Val {
 	if !ok {
 		return ValOrErr(other, "no such overload")
 	}
-	if val, ok := addInt64Overflow(int64(i), int64(otherInt)); ok {
+	if val, ok := addInt64Checked(int64(i), int64(otherInt)); ok {
 		return Int(val)
 	}
-	return NewErr("integer overflow")
+	return errIntOverflow
 }
 
 // Compare implements traits.Comparer.Compare.
@@ -168,7 +168,7 @@ func (i Int) ConvertToType(typeVal ref.Type) ref.Val {
 		// The maximum positive value that can be passed to time.Unix is math.MaxInt64 minus the number
 		// of seconds between year 1 and year 1970. See comments on unixToInternal.
 		if int64(i) < minUnixTime || int64(i) > maxUnixTime {
-			return NewErr("timestamp overflow")
+			return errTimestampOverflow
 		}
 		return timestampOf(time.Unix(int64(i), 0).UTC())
 	case TypeType:
@@ -186,10 +186,10 @@ func (i Int) Divide(other ref.Val) ref.Val {
 	if otherInt == IntZero {
 		return NewErr("divide by zero")
 	}
-	if val, ok := divideInt64Overflow(int64(i), int64(otherInt)); ok {
+	if val, ok := divideInt64Checked(int64(i), int64(otherInt)); ok {
 		return Int(val)
 	}
-	return NewErr("integer overflow")
+	return errIntOverflow
 }
 
 // Equal implements ref.Val.Equal.
@@ -210,10 +210,10 @@ func (i Int) Modulo(other ref.Val) ref.Val {
 	if otherInt == IntZero {
 		return NewErr("modulus by zero")
 	}
-	if val, ok := moduloInt64Overflow(int64(i), int64(otherInt)); ok {
+	if val, ok := moduloInt64Checked(int64(i), int64(otherInt)); ok {
 		return Int(val)
 	}
-	return NewErr("integer overflow")
+	return errIntOverflow
 }
 
 // Multiply implements traits.Multiplier.Multiply.
@@ -222,18 +222,18 @@ func (i Int) Multiply(other ref.Val) ref.Val {
 	if !ok {
 		return ValOrErr(other, "no such overload")
 	}
-	if val, ok := multiplyInt64Overflow(int64(i), int64(otherInt)); ok {
+	if val, ok := multiplyInt64Checked(int64(i), int64(otherInt)); ok {
 		return Int(val)
 	}
-	return NewErr("integer overflow")
+	return errIntOverflow
 }
 
 // Negate implements traits.Negater.Negate.
 func (i Int) Negate() ref.Val {
-	if val, ok := negateInt64Overflow(int64(i)); ok {
+	if val, ok := negateInt64Checked(int64(i)); ok {
 		return Int(val)
 	}
-	return NewErr("integer overflow")
+	return errIntOverflow
 }
 
 // Subtract implements traits.Subtractor.Subtract.
@@ -242,10 +242,10 @@ func (i Int) Subtract(subtrahend ref.Val) ref.Val {
 	if !ok {
 		return ValOrErr(subtrahend, "no such overload")
 	}
-	if val, ok := subtractInt64Overflow(int64(i), int64(subtraInt)); ok {
+	if val, ok := subtractInt64Checked(int64(i), int64(subtraInt)); ok {
 		return Int(val)
 	}
-	return NewErr("integer overflow")
+	return errIntOverflow
 }
 
 // Type implements ref.Val.Type.

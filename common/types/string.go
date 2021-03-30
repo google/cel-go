@@ -136,7 +136,7 @@ func (s String) ConvertToType(typeVal ref.Type) ref.Val {
 	case TimestampType:
 		if t, err := time.Parse(time.RFC3339, s.Value().(string)); err == nil {
 			if t.Unix() < minUnixTime || t.Unix() > maxUnixTime {
-				return NewErr("timestamp overflow")
+				return errTimestampOverflow
 			}
 			return timestampOf(t)
 		}
