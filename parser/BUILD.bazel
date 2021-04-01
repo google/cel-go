@@ -9,6 +9,7 @@ go_library(
     srcs = [
         "errors.go",
         "helper.go",
+        "input.go",
         "macro.go",
         "parser.go",
         "unescape.go",
