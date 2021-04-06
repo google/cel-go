@@ -28,16 +28,34 @@ import (
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/parser/gen"
 
-	structpb "google.golang.org/protobuf/types/known/structpb"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 )
 
 // reservedIds are not legal to use as variables.  We exclude them post-parse, as they *are* valid
 // field names for protos, and it would complicate the grammar to distinguish the cases.
-var reservedIds = []string{
-	"as", "break", "const", "continue", "else", "false", "for", "function", "if",
-	"import", "in", "let", "loop", "package", "namespace", "null", "return",
-	"true", "var", "void", "while",
+var reservedIds = map[string]struct{}{
+	"as":        {},
+	"break":     {},
+	"const":     {},
+	"continue":  {},
+	"else":      {},
+	"false":     {},
+	"for":       {},
+	"function":  {},
+	"if":        {},
+	"import":    {},
+	"in":        {},
+	"let":       {},
+	"loop":      {},
+	"package":   {},
+	"namespace": {},
+	"null":      {},
+	"return":    {},
+	"true":      {},
+	"var":       {},
+	"void":      {},
+	"while":     {},
 }
 
 // Parse converts a source input a parsed expression.
@@ -57,7 +75,7 @@ func ParseWithMacros(source common.Source, macros []Macro) (*exprpb.ParsedExpr, 
 		helper: newParserHelper(source),
 		macros: macroMap,
 	}
-	e := p.parse(source.Content())
+	e := p.parse(source.Content(), source.Description())
 	return &exprpb.ParsedExpr{
 		Expr:       e,
 		SourceInfo: p.helper.getSourceInfo(),
@@ -87,9 +105,9 @@ var (
 	}
 )
 
-func (p *parser) parse(expression string) *exprpb.Expr {
+func (p *parser) parse(expr, desc string) *exprpb.Expr {
 	lexer := lexerPool.Get().(*gen.CELLexer)
-	lexer.SetInputStream(antlr.NewInputStream(expression))
+	lexer.SetInputStream(newCodePointBuffer(expr, desc))
 	defer lexerPool.Put(lexer)
 
 	prsr := parserPool.Get().(*gen.CELParser)
@@ -372,10 +390,8 @@ func (p *parser) VisitIdentOrGlobalCall(ctx *gen.IdentOrGlobalCallContext) inter
 	}
 	// Handle reserved identifiers.
 	id := ctx.GetId().GetText()
-	for _, r := range reservedIds {
-		if r == id {
-			return p.reportError(ctx, "reserved identifier: %s", r)
-		}
+	if _, ok := reservedIds[id]; ok {
+		return p.reportError(ctx, "reserved identifier: %s", id)
 	}
 	identName += id
 	if ctx.GetOp() != nil {
