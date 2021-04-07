@@ -130,3 +130,8 @@ func TestStringSource_SnippetSingleline(t *testing.T) {
 		t.Error(unexpectedSnippet, t.Name(), str2, "")
 	}
 }
+
+func TestNewInfoSource_NoPanicOnNil(t *testing.T) {
+	// Ensure there is no panic when passing nil, NewInfoSource should use proto v2 style accessors.
+	_ = NewInfoSource(nil)
+}
