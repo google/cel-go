@@ -96,9 +96,9 @@ func NewStringSource(contents string, description string) Source {
 func NewInfoSource(info *exprpb.SourceInfo) Source {
 	return &sourceImpl{
 		contents:    []rune(""),
-		description: info.Location,
-		lineOffsets: info.LineOffsets,
-		idOffsets:   info.Positions,
+		description: info.GetLocation(),
+		lineOffsets: info.GetLineOffsets(),
+		idOffsets:   info.GetPositions(),
 	}
 }
 
