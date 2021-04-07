@@ -19,6 +19,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//common:go_default_library",
+        "//common/runes:go_default_library",
         "//common/operators:go_default_library",
         "//parser/gen:go_default_library",
         "@com_github_antlr//runtime/Go/antlr:go_default_library",

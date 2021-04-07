@@ -26,6 +26,7 @@ import (
 
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/operators"
+	"github.com/google/cel-go/common/runes"
 	"github.com/google/cel-go/parser/gen"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
@@ -75,7 +76,11 @@ func ParseWithMacros(source common.Source, macros []Macro) (*exprpb.ParsedExpr, 
 		helper: newParserHelper(source),
 		macros: macroMap,
 	}
-	e := p.parse(source.Content(), source.Description())
+	buf, ok := source.(runes.Buffer)
+	if !ok {
+		buf = runes.NewBuffer(source.Content())
+	}
+	e := p.parse(buf, source.Description())
 	return &exprpb.ParsedExpr{
 		Expr:       e,
 		SourceInfo: p.helper.getSourceInfo(),
@@ -105,9 +110,9 @@ var (
 	}
 )
 
-func (p *parser) parse(expr, desc string) *exprpb.Expr {
+func (p *parser) parse(expr runes.Buffer, desc string) *exprpb.Expr {
 	lexer := lexerPool.Get().(*gen.CELLexer)
-	lexer.SetInputStream(newCodePointBuffer(expr, desc))
+	lexer.SetInputStream(newCharStream(expr, desc))
 	defer lexerPool.Put(lexer)
 
 	prsr := parserPool.Get().(*gen.CELParser)
