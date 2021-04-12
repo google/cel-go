@@ -1093,6 +1093,16 @@ ERROR: <input>:1:26: reserved identifier: var
 		| ?
 		| .^`,
 	},
+	{
+		I: `[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+		[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+		[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+		[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[['too many']]]]]]]]]]]]]]]]]]]]]]]]]]]]
+		]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+		]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+		]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]`,
+		E: "ERROR: <input>:-1:0: expression recursion limit exceeded: 250",
+	},
 }
 
 type testInfo struct {
@@ -1171,6 +1181,10 @@ func (l *locationAdorner) GetMetadata(elem interface{}) string {
 }
 
 func TestParse(t *testing.T) {
+	p, err := NewParser(Macros(AllMacros...))
+	if err != nil {
+		t.Fatal(err)
+	}
 	for i, tst := range testCases {
 		name := fmt.Sprintf("%d %s", i, tst.I)
 		// Local variable required as the closure will reference the value for the last
@@ -1182,7 +1196,7 @@ func TestParse(t *testing.T) {
 			tt.Parallel()
 
 			src := common.NewTextSource(tc.I)
-			expression, errors := Parse(src)
+			expression, errors := p.Parse(src)
 			if len(errors.GetErrors()) > 0 {
 				actualErr := errors.ToDisplayString()
 				if tc.E == "" {

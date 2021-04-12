@@ -33,6 +33,66 @@ import (
 	structpb "google.golang.org/protobuf/types/known/structpb"
 )
 
+// Parser encapsulates the context necessary to perform parsing for different expressions.
+type Parser struct {
+	options
+}
+
+// NewParser builds and returns a new Parser using the provided options.
+func NewParser(opts ...Option) (*Parser, error) {
+	p := &Parser{}
+	for _, opt := range opts {
+		if err := opt(&p.options); err != nil {
+			return nil, err
+		}
+	}
+	if p.maxRecursionDepth == 0 {
+		p.maxRecursionDepth = 250
+	}
+	if p.maxRecursionDepth == -1 {
+		p.maxRecursionDepth = int((^uint(0)) >> 1)
+	}
+	if p.errorRecoveryLimit == 0 {
+		p.errorRecoveryLimit = 30
+	}
+	if p.errorRecoveryLimit == -1 {
+		p.errorRecoveryLimit = int((^uint(0)) >> 1)
+	}
+	return p, nil
+}
+
+// mustNewParser does the work of NewParser and panics if an error occurs.
+//
+// This function is only intended for internal use and is for backwards compatibility in Parse and
+// ParseWithMacros, where we know the options will result in an error.
+func mustNewParser(opts ...Option) *Parser {
+	p, err := NewParser(opts...)
+	if err != nil {
+		panic(err)
+	}
+	return p
+}
+
+// Parse parses the expression represented by source and returns the result.
+func (p *Parser) Parse(source common.Source) (*exprpb.ParsedExpr, *common.Errors) {
+	impl := parser{
+		errors:             &parseErrors{common.NewErrors(source)},
+		helper:             newParserHelper(source),
+		macros:             p.macros,
+		maxRecursionDepth:  p.maxRecursionDepth,
+		errorRecoveryLimit: p.errorRecoveryLimit,
+	}
+	buf, ok := source.(runes.Buffer)
+	if !ok {
+		buf = runes.NewBuffer(source.Content())
+	}
+	e := impl.parse(buf, source.Description())
+	return &exprpb.ParsedExpr{
+		Expr:       e,
+		SourceInfo: impl.helper.getSourceInfo(),
+	}, impl.errors.Errors
+}
+
 // reservedIds are not legal to use as variables.  We exclude them post-parse, as they *are* valid
 // field names for protos, and it would complicate the grammar to distinguish the cases.
 var reservedIds = map[string]struct{}{
@@ -61,37 +121,107 @@ var reservedIds = map[string]struct{}{
 
 // Parse converts a source input a parsed expression.
 // This function calls ParseWithMacros with AllMacros.
+//
+// Deprecated: Use NewParser().Parse() instead.
 func Parse(source common.Source) (*exprpb.ParsedExpr, *common.Errors) {
 	return ParseWithMacros(source, AllMacros)
 }
 
 // ParseWithMacros converts a source input and macros set to a parsed expression.
+//
+// Deprecated: Use NewParser().Parse() instead.
 func ParseWithMacros(source common.Source, macros []Macro) (*exprpb.ParsedExpr, *common.Errors) {
-	macroMap := make(map[string]Macro)
-	for _, m := range macros {
-		macroMap[m.MacroKey()] = m
-	}
-	p := parser{
-		errors: &parseErrors{common.NewErrors(source)},
-		helper: newParserHelper(source),
-		macros: macroMap,
-	}
-	buf, ok := source.(runes.Buffer)
-	if !ok {
-		buf = runes.NewBuffer(source.Content())
-	}
-	e := p.parse(buf, source.Description())
-	return &exprpb.ParsedExpr{
-		Expr:       e,
-		SourceInfo: p.helper.getSourceInfo(),
-	}, p.errors.Errors
+	return mustNewParser(Macros(macros...)).Parse(source)
 }
+
+type recursionError struct {
+	message string
+}
+
+// Error implements error.
+func (re *recursionError) Error() string {
+	return re.message
+}
+
+var _ error = &recursionError{}
+
+type recursionListener struct {
+	maxDepth int
+	depth    int
+}
+
+func (rl *recursionListener) VisitTerminal(node antlr.TerminalNode) {}
+
+func (rl *recursionListener) VisitErrorNode(node antlr.ErrorNode) {}
+
+func (rl *recursionListener) EnterEveryRule(ctx antlr.ParserRuleContext) {
+	if ctx != nil && ctx.GetRuleIndex() == gen.CELParserRULE_expr {
+		if rl.depth >= rl.maxDepth {
+			rl.depth++
+			panic(&recursionError{
+				message: fmt.Sprintf("expression recursion limit exceeded: %d", rl.maxDepth),
+			})
+		}
+		rl.depth++
+	}
+}
+
+func (rl *recursionListener) ExitEveryRule(ctx antlr.ParserRuleContext) {
+	if ctx != nil && ctx.GetRuleIndex() == gen.CELParserRULE_expr {
+		rl.depth--
+	}
+}
+
+var _ antlr.ParseTreeListener = &recursionListener{}
+
+type recoveryLimitError struct {
+	message string
+}
+
+// Error implements error.
+func (rl *recoveryLimitError) Error() string {
+	return rl.message
+}
+
+var _ error = &recoveryLimitError{}
+
+type recoveryLimitErrorStrategy struct {
+	*antlr.DefaultErrorStrategy
+	maxAttempts int
+	attempts    int
+}
+
+func (rl *recoveryLimitErrorStrategy) Recover(recognizer antlr.Parser, e antlr.RecognitionException) {
+	rl.checkAttempts(recognizer)
+	rl.DefaultErrorStrategy.Recover(recognizer, e)
+}
+
+func (rl *recoveryLimitErrorStrategy) RecoverInline(recognizer antlr.Parser) antlr.Token {
+	rl.checkAttempts(recognizer)
+	return rl.DefaultErrorStrategy.RecoverInline(recognizer)
+}
+
+func (rl *recoveryLimitErrorStrategy) checkAttempts(recognizer antlr.Parser) {
+	if rl.attempts >= rl.maxAttempts {
+		rl.attempts++
+		msg := fmt.Sprintf("error recovery attempt limit exceeded: %d", rl.maxAttempts)
+		recognizer.NotifyErrorListeners(msg, nil, nil)
+		panic(&recoveryLimitError{
+			message: msg,
+		})
+	}
+	rl.attempts++
+}
+
+var _ antlr.ErrorStrategy = &recoveryLimitErrorStrategy{}
 
 type parser struct {
 	gen.BaseCELVisitor
-	errors *parseErrors
-	helper *parserHelper
-	macros map[string]Macro
+	errors             *parseErrors
+	helper             *parserHelper
+	macros             map[string]Macro
+	maxRecursionDepth  int
+	errorRecoveryLimit int
 }
 
 var (
@@ -112,17 +242,49 @@ var (
 
 func (p *parser) parse(expr runes.Buffer, desc string) *exprpb.Expr {
 	lexer := lexerPool.Get().(*gen.CELLexer)
-	lexer.SetInputStream(newCharStream(expr, desc))
-	defer lexerPool.Put(lexer)
-
 	prsr := parserPool.Get().(*gen.CELParser)
-	prsr.SetInputStream(antlr.NewCommonTokenStream(lexer, 0))
-	defer parserPool.Put(prsr)
 
-	lexer.RemoveErrorListeners()
-	prsr.RemoveErrorListeners()
+	// Unfortunately ANTLR Go runtime is missing (*antlr.BaseParser).RemoveParseListeners, so this is
+	// good enough until that is exported.
+	prsrListener := &recursionListener{
+		maxDepth: p.maxRecursionDepth,
+	}
+
+	defer func() {
+		// Reset the lexer and parser before putting them back in the pool.
+		lexer.RemoveErrorListeners()
+		prsr.RemoveParseListener(prsrListener)
+		prsr.RemoveErrorListeners()
+		lexer.SetInputStream(nil)
+		prsr.SetInputStream(nil)
+		lexerPool.Put(lexer)
+		parserPool.Put(prsr)
+	}()
+
+	lexer.SetInputStream(newCharStream(expr, desc))
+	prsr.SetInputStream(antlr.NewCommonTokenStream(lexer, 0))
+
 	lexer.AddErrorListener(p)
 	prsr.AddErrorListener(p)
+	prsr.AddParseListener(prsrListener)
+
+	prsr.SetErrorHandler(&recoveryLimitErrorStrategy{
+		DefaultErrorStrategy: antlr.NewDefaultErrorStrategy(),
+		maxAttempts:          p.errorRecoveryLimit,
+	})
+
+	defer func() {
+		if val := recover(); val != nil {
+			switch err := val.(type) {
+			case *recursionError:
+				p.errors.ReportError(common.NoLocation, "%s", err.message)
+			case *recoveryLimitError:
+				p.errors.ReportError(common.NoLocation, "%s", err.message)
+			default:
+				panic(val)
+			}
+		}
+	}()
 
 	return p.Visit(prsr.Start()).(*exprpb.Expr)
 }
