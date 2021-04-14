@@ -17,9 +17,8 @@ package parser
 import (
 	"testing"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/google/cel-go/common"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestUnparse_Identical(t *testing.T) {

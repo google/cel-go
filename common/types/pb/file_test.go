@@ -6,9 +6,8 @@ import (
 	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"
 
-	descpb "google.golang.org/protobuf/types/descriptorpb"
-
 	proto3pb "github.com/google/cel-go/test/proto3pb"
+	descpb "google.golang.org/protobuf/types/descriptorpb"
 )
 
 func TestFileDescriptionGetTypes(t *testing.T) {

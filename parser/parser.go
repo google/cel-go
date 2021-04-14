@@ -23,7 +23,6 @@ import (
 	"sync"
 
 	"github.com/antlr/antlr4/runtime/Go/antlr"
-
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/runes"

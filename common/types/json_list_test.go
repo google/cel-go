@@ -19,7 +19,6 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/common/types/traits"
-
 	"google.golang.org/protobuf/proto"
 
 	anypb "google.golang.org/protobuf/types/known/anypb"

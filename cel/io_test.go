@@ -18,7 +18,6 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/checker/decls"
-
 	"google.golang.org/protobuf/proto"
 )
 
