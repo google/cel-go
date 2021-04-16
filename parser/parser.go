@@ -57,6 +57,12 @@ func NewParser(opts ...Option) (*Parser, error) {
 	if p.errorRecoveryLimit == -1 {
 		p.errorRecoveryLimit = int((^uint(0)) >> 1)
 	}
+	if p.expressionSizeCodePointLimit == 0 {
+		p.expressionSizeCodePointLimit = 100_000
+	}
+	if p.expressionSizeCodePointLimit == -1 {
+		p.expressionSizeCodePointLimit = int((^uint(0)) >> 1)
+	}
 	return p, nil
 }
 
@@ -85,7 +91,14 @@ func (p *Parser) Parse(source common.Source) (*exprpb.ParsedExpr, *common.Errors
 	if !ok {
 		buf = runes.NewBuffer(source.Content())
 	}
-	e := impl.parse(buf, source.Description())
+	var e *exprpb.Expr
+	if buf.Len() > p.expressionSizeCodePointLimit {
+		e = impl.reportError(common.NoLocation,
+			"expression code point size exceeds limit: size: %d, limit %d",
+			buf.Len(), p.expressionSizeCodePointLimit)
+	} else {
+		e = impl.parse(buf, source.Description())
+	}
 	return &exprpb.ParsedExpr{
 		Expr:       e,
 		SourceInfo: impl.helper.getSourceInfo(),
