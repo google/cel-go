@@ -17,9 +17,10 @@ package parser
 import "fmt"
 
 type options struct {
-	maxRecursionDepth  int
-	errorRecoveryLimit int
-	macros             map[string]Macro
+	maxRecursionDepth            int
+	errorRecoveryLimit           int
+	expressionSizeCodePointLimit int
+	macros                       map[string]Macro
 }
 
 // Option configures the behavior of the parser.
@@ -45,6 +46,16 @@ func ErrorRecoveryLimit(errorRecoveryLimit int) Option {
 			return fmt.Errorf("error recovery limit must be greater than or equal to -1: %d", errorRecoveryLimit)
 		}
 		opts.errorRecoveryLimit = errorRecoveryLimit
+		return nil
+	}
+}
+
+func ExpressionSizeCodePointLimit(expressionSizeCodePointLimit int) Option {
+	return func(opts *options) error {
+		if expressionSizeCodePointLimit < -1 {
+			return fmt.Errorf("expression size code point limit must be greater than or equal to -1: %d", expressionSizeCodePointLimit)
+		}
+		opts.expressionSizeCodePointLimit = expressionSizeCodePointLimit
 		return nil
 	}
 }
