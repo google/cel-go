@@ -1225,11 +1225,10 @@ func TestParse(t *testing.T) {
 }
 
 func TestExpressionSizeCodePointLimit(t *testing.T) {
-	p, err := NewParser(Macros(AllMacros...), ExpressionSizeCodePointLimit(-2))
-	if err == nil {
+	if _, err := NewParser(Macros(AllMacros...), ExpressionSizeCodePointLimit(-2)); err == nil {
 		t.Fatalf("got %q, want %q", err, "expression size code point limit must be greater than or equal to -1: -2")
 	}
-	p, err = NewParser(Macros(AllMacros...), ExpressionSizeCodePointLimit((2)))
+	p, err := NewParser(Macros(AllMacros...), ExpressionSizeCodePointLimit((2)))
 	if err != nil {
 		t.Fatal(err)
 	}
