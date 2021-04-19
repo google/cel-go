@@ -50,6 +50,8 @@ func ErrorRecoveryLimit(errorRecoveryLimit int) Option {
 	}
 }
 
+// ExpressionSizeCodePointLimit is an option which limits the maximum code point count of an
+// expression.
 func ExpressionSizeCodePointLimit(expressionSizeCodePointLimit int) Option {
 	return func(opts *options) error {
 		if expressionSizeCodePointLimit < -1 {
