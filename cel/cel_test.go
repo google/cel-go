@@ -752,6 +752,31 @@ func TestCustomMacro(t *testing.T) {
 	}
 }
 
+func TestAstIsChecked(t *testing.T) {
+	e, err := NewEnv()
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	ast, iss := e.Compile("true")
+	if iss.Err() != nil {
+		t.Fatalf("e.Compile('true') failed: %v", iss.Err())
+	}
+	if !ast.IsChecked() {
+		t.Error("got ast.IsChecked() 'false', wanted 'true'.")
+	}
+	ce, err := AstToCheckedExpr(ast)
+	if err != nil {
+		t.Fatalf("AstToCheckedExpr(%v) failed: %v", ast, err)
+	}
+	ast2 := CheckedExprToAst(ce)
+	if !ast2.IsChecked() {
+		t.Error("got ast2.IsChecked() 'false', wanted 'true'")
+	}
+	if !proto.Equal(ast.Expr(), ast2.Expr()) {
+		t.Errorf("AST exprs did not roundtrip properly: ast1: %v, ast2: %v", ast, ast2)
+	}
+}
+
 func TestEvalOptions(t *testing.T) {
 	e, _ := NewEnv(
 		Declarations(
