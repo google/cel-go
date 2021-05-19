@@ -241,13 +241,17 @@ var (
 
 	lexerPool *sync.Pool = &sync.Pool{
 		New: func() interface{} {
-			return gen.NewCELLexer(nil)
+			l := gen.NewCELLexer(nil)
+			l.RemoveErrorListeners()
+			return l
 		},
 	}
 
 	parserPool *sync.Pool = &sync.Pool{
 		New: func() interface{} {
-			return gen.NewCELParser(nil)
+			p := gen.NewCELParser(nil)
+			p.RemoveErrorListeners()
+			return p
 		},
 	}
 )
