@@ -46,13 +46,13 @@ func TestErrors(t *testing.T) {
 }
 
 func TestErrors_WideAndNarrowCharacters(t *testing.T) {
-	source := NewStringSource("你好吗\n我b很好\n", "errors-test")
+	source := NewStringSource("你好吗\n我a很好\n", "errors-test")
 	errors := NewErrors(source)
 	errors.ReportError(NewLocation(2, 3), "Unexpected character '好'")
 
 	got := errors.ToDisplayString()
 	want := "ERROR: errors-test:2:4: Unexpected character '好'\n" +
-		" | 我b很好\n" +
+		" | 我a很好\n" +
 		" | ．.．＾"
 	if got != want {
 		t.Errorf("%s got %s, wanted %s", t.Name(), got, want)
