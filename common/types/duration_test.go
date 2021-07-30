@@ -158,7 +158,7 @@ func TestDurationNegate(t *testing.T) {
 		t.Errorf("Expected negating %d to result in overflow.", v)
 	}
 	if v := time.Duration(math.MaxInt64); !durationOf(v).Negate().Equal(durationOf(time.Duration(math.MinInt64 + 1))).(Bool) {
-		t.Errorf("Expected negating %d to yeild %d", v, time.Duration(math.MinInt64+1))
+		t.Errorf("Expected negating %d to yield %d", v, time.Duration(math.MinInt64+1))
 	}
 }
 

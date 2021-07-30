@@ -271,7 +271,7 @@ func TestIntNegate(t *testing.T) {
 		t.Errorf("Expected negating %d to result in overflow.", v)
 	}
 	if v := math.MaxInt64; !Int(v).Negate().Equal(Int(math.MinInt64 + 1)).(Bool) {
-		t.Errorf("Expected negating %d to yeild %d", v, math.MinInt64+1)
+		t.Errorf("Expected negating %d to yield %d", v, math.MinInt64+1)
 	}
 }
 
