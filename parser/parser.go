@@ -46,7 +46,7 @@ func NewParser(opts ...Option) (*Parser, error) {
 		}
 	}
 	if p.maxRecursionDepth == 0 {
-		p.maxRecursionDepth = 250
+		p.maxRecursionDepth = 200
 	}
 	if p.maxRecursionDepth == -1 {
 		p.maxRecursionDepth = int((^uint(0)) >> 1)
@@ -158,8 +158,8 @@ func (re *recursionError) Error() string {
 var _ error = &recursionError{}
 
 type recursionListener struct {
-	maxDepth int
-	depth    int
+	maxDepth      int
+	ruleTypeDepth map[int]int
 }
 
 func (rl *recursionListener) VisitTerminal(node antlr.TerminalNode) {}
@@ -167,21 +167,32 @@ func (rl *recursionListener) VisitTerminal(node antlr.TerminalNode) {}
 func (rl *recursionListener) VisitErrorNode(node antlr.ErrorNode) {}
 
 func (rl *recursionListener) EnterEveryRule(ctx antlr.ParserRuleContext) {
-	if ctx != nil && ctx.GetRuleIndex() == gen.CELParserRULE_expr {
-		if rl.depth >= rl.maxDepth {
-			rl.depth++
-			panic(&recursionError{
-				message: fmt.Sprintf("expression recursion limit exceeded: %d", rl.maxDepth),
-			})
-		}
-		rl.depth++
+	if ctx == nil {
+		return
+	}
+	ruleIndex := ctx.GetRuleIndex()
+	depth, found := rl.ruleTypeDepth[ruleIndex]
+	if !found {
+		depth = 1
+	} else {
+		depth++
+	}
+	rl.ruleTypeDepth[ruleIndex] = depth
+	if depth >= rl.maxDepth {
+		panic(&recursionError{
+			message: fmt.Sprintf("expression recursion limit exceeded: %d", rl.maxDepth),
+		})
 	}
 }
 
 func (rl *recursionListener) ExitEveryRule(ctx antlr.ParserRuleContext) {
-	if ctx != nil && ctx.GetRuleIndex() == gen.CELParserRULE_expr {
-		rl.depth--
+	if ctx == nil {
+		return
 	}
+	ruleIndex := ctx.GetRuleIndex()
+	depth := rl.ruleTypeDepth[ruleIndex]
+	depth--
+	rl.ruleTypeDepth[ruleIndex] = depth
 }
 
 var _ antlr.ParseTreeListener = &recursionListener{}
@@ -263,7 +274,8 @@ func (p *parser) parse(expr runes.Buffer, desc string) *exprpb.Expr {
 	// Unfortunately ANTLR Go runtime is missing (*antlr.BaseParser).RemoveParseListeners, so this is
 	// good enough until that is exported.
 	prsrListener := &recursionListener{
-		maxDepth: p.maxRecursionDepth,
+		maxDepth:      p.maxRecursionDepth,
+		ruleTypeDepth: map[int]int{},
 	}
 
 	defer func() {
