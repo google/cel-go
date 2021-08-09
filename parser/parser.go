@@ -159,7 +159,7 @@ var _ error = &recursionError{}
 
 type recursionListener struct {
 	maxDepth      int
-	ruleTypeDepth map[int]int
+	ruleTypeDepth map[int]*int
 }
 
 func (rl *recursionListener) VisitTerminal(node antlr.TerminalNode) {}
@@ -173,12 +173,13 @@ func (rl *recursionListener) EnterEveryRule(ctx antlr.ParserRuleContext) {
 	ruleIndex := ctx.GetRuleIndex()
 	depth, found := rl.ruleTypeDepth[ruleIndex]
 	if !found {
-		depth = 1
+		var counter = 1
+		rl.ruleTypeDepth[ruleIndex] = &counter
+		depth = &counter
 	} else {
-		depth++
+		*depth++
 	}
-	rl.ruleTypeDepth[ruleIndex] = depth
-	if depth >= rl.maxDepth {
+	if *depth >= rl.maxDepth {
 		panic(&recursionError{
 			message: fmt.Sprintf("expression recursion limit exceeded: %d", rl.maxDepth),
 		})
@@ -190,9 +191,9 @@ func (rl *recursionListener) ExitEveryRule(ctx antlr.ParserRuleContext) {
 		return
 	}
 	ruleIndex := ctx.GetRuleIndex()
-	depth := rl.ruleTypeDepth[ruleIndex]
-	depth--
-	rl.ruleTypeDepth[ruleIndex] = depth
+	if depth, found := rl.ruleTypeDepth[ruleIndex]; found && *depth > 0 {
+		*depth--
+	}
 }
 
 var _ antlr.ParseTreeListener = &recursionListener{}
@@ -225,7 +226,7 @@ func (rl *recoveryLimitErrorStrategy) RecoverInline(recognizer antlr.Parser) ant
 }
 
 func (rl *recoveryLimitErrorStrategy) checkAttempts(recognizer antlr.Parser) {
-	if rl.attempts >= rl.maxAttempts {
+	if rl.attempts == rl.maxAttempts {
 		rl.attempts++
 		msg := fmt.Sprintf("error recovery attempt limit exceeded: %d", rl.maxAttempts)
 		recognizer.NotifyErrorListeners(msg, nil, nil)
@@ -275,7 +276,7 @@ func (p *parser) parse(expr runes.Buffer, desc string) *exprpb.Expr {
 	// good enough until that is exported.
 	prsrListener := &recursionListener{
 		maxDepth:      p.maxRecursionDepth,
-		ruleTypeDepth: map[int]int{},
+		ruleTypeDepth: map[int]*int{},
 	}
 
 	defer func() {
@@ -307,7 +308,7 @@ func (p *parser) parse(expr runes.Buffer, desc string) *exprpb.Expr {
 			case *recursionError:
 				p.errors.ReportError(common.NoLocation, "%s", err.message)
 			case *recoveryLimitError:
-				p.errors.ReportError(common.NoLocation, "%s", err.message)
+				// do nothing, listeners already notified and error reported.
 			default:
 				panic(val)
 			}

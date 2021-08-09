@@ -1094,6 +1094,19 @@ ERROR: <input>:1:26: reserved identifier: var
 		| .^`,
 	},
 	{
+		I: `a ? b ((?))`,
+		E: `
+	   ERROR: <input>:1:9: Syntax error: mismatched input '?' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
+		| a ? b ((?))
+		| ........^
+	   ERROR: <input>:1:10: Syntax error: mismatched input ')' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
+		| a ? b ((?))
+		| .........^
+	   ERROR: <input>:1:12: Syntax error: error recovery attempt limit exceeded: 4
+		| a ? b ((?))
+		| ...........^`,
+	},
+	{
 		I: `[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
 			[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[['too many']]]]]]]]]]]]]]]]]]]]]]]]]]]]
 			]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]`,
@@ -1227,7 +1240,7 @@ func (l *locationAdorner) GetMetadata(elem interface{}) string {
 }
 
 func TestParse(t *testing.T) {
-	p, err := NewParser(Macros(AllMacros...), MaxRecursionDepth(32))
+	p, err := NewParser(Macros(AllMacros...), MaxRecursionDepth(32), ErrorRecoveryLimit(4))
 	if err != nil {
 		t.Fatal(err)
 	}
