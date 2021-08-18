@@ -1263,3 +1263,19 @@ func TestResidualAst_Modified(t *testing.T) {
 		}
 	}
 }
+
+func TestDeclareContextProto(t *testing.T) {
+	descriptor := new(proto3pb.TestAllTypes).ProtoReflect().Descriptor()
+	option := DeclareContextProto(descriptor)
+	env, err := NewEnv(option)
+	if err != nil {
+		t.Fatalf("NewEnv(DeclareContextProto(%v)) failed: %s", descriptor, err)
+	}
+	expression := `single_int64 == 1 && single_double == 1.0 && single_bool == true && single_string == '' && single_nested_message == google.expr.proto3.test.TestAllTypes.NestedMessage{}
+	&& single_nested_enum == google.expr.proto3.test.TestAllTypes.NestedEnum.FOO && single_duration == duration('5s') && single_timestamp == timestamp('1972-01-01T10:00:20.021-05:00')
+	&& single_any == google.protobuf.Any{} && repeated_int32 == [1,2] && map_string_string == {'': ''} && map_int64_nested_type == {0 : google.expr.proto3.test.NestedTestAllTypes{}}`
+	_, iss := env.Compile(expression)
+	if iss.Err() != nil {
+		t.Fatalf("env.Compile(%s) failed: %s", expression, iss.Err())
+	}
+}
