@@ -95,14 +95,14 @@ var (
 			expr:           `1/0 != 0 && true`,
 			cost:           []int64{2, 3},
 			exhaustiveCost: []int64{3, 3},
-			err:            "divide by zero",
+			err:            "division by zero",
 		},
 		{
 			name:           "and_error_2nd_error",
 			expr:           `true && 1/0 != 0`,
 			cost:           []int64{0, 3},
 			exhaustiveCost: []int64{3, 3},
-			err:            "divide by zero",
+			err:            "division by zero",
 		},
 		{
 			name:      "call_no_args",
@@ -743,14 +743,14 @@ var (
 			expr:           `1/0 != 0 || false`,
 			cost:           []int64{2, 3},
 			exhaustiveCost: []int64{3, 3},
-			err:            "divide by zero",
+			err:            "division by zero",
 		},
 		{
 			name:           "or_error_2nd_error",
 			expr:           `false || 1/0 != 0`,
 			cost:           []int64{0, 3},
 			exhaustiveCost: []int64{3, 3},
-			err:            "divide by zero",
+			err:            "division by zero",
 		},
 		{
 			name:           "or_error_1st_true",
