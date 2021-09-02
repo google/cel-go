@@ -72,7 +72,7 @@ func (t *TypeValue) ConvertToType(typeVal ref.Type) ref.Val {
 // Equal implements ref.Val.Equal.
 func (t *TypeValue) Equal(other ref.Val) ref.Val {
 	if TypeType != other.Type() {
-		return ValOrErr(other, "no such overload")
+		return MaybeNoSuchOverloadErr(other)
 	}
 	return Bool(t.TypeName() == other.(ref.Type).TypeName())
 }

@@ -381,7 +381,7 @@ func TestHomogeneousAggregateLiterals(t *testing.T) {
 			if rhs.Type().HasTrait(traits.ContainerType) {
 				return rhs.(traits.Container).Contains(lhs)
 			}
-			return types.ValOrErr(rhs, "no such overload")
+			return types.MaybeNoSuchOverloadErr(rhs)
 		},
 	})
 	t.Run("ok_list", func(t *testing.T) {

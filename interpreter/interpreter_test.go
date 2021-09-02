@@ -1058,7 +1058,7 @@ var (
 					Unary: func(val ref.Val) ref.Val {
 						str, ok := val.(types.String)
 						if !ok {
-							return types.ValOrErr(val, "no such overload")
+							return types.MaybeNoSuchOverloadErr(val)
 						}
 						m := make(map[string]interface{})
 						err := json.Unmarshal([]byte(str), &m)
@@ -1231,7 +1231,7 @@ func TestInterpreter_ProtoAttributeOpt(t *testing.T) {
 		in: map[string]interface{}{
 			"pb3": &proto3pb.TestAllTypes{
 				MapInt64NestedType: map[int64]*proto3pb.NestedTestAllTypes{
-					0: &proto3pb.NestedTestAllTypes{
+					0: {
 						Child: &proto3pb.NestedTestAllTypes{
 							Payload: &proto3pb.TestAllTypes{
 								SingleInt32: 1,

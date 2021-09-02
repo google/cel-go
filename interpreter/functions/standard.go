@@ -31,7 +31,7 @@ func StandardOverloads() []*Overload {
 			OperandTrait: traits.NegatorType,
 			Unary: func(value ref.Val) ref.Val {
 				if !types.IsBool(value) {
-					return types.ValOrErr(value, "no such overload")
+					return types.MaybeNoSuchOverloadErr(value)
 				}
 				return value.(traits.Negater).Negate()
 			}},
@@ -142,7 +142,7 @@ func StandardOverloads() []*Overload {
 			OperandTrait: traits.NegatorType,
 			Unary: func(value ref.Val) ref.Val {
 				if types.IsBool(value) {
-					return types.ValOrErr(value, "no such overload")
+					return types.MaybeNoSuchOverloadErr(value)
 				}
 				return value.(traits.Negater).Negate()
 			}},
@@ -268,5 +268,5 @@ func inAggregate(lhs ref.Val, rhs ref.Val) ref.Val {
 	if rhs.Type().HasTrait(traits.ContainerType) {
 		return rhs.(traits.Container).Contains(lhs)
 	}
-	return types.ValOrErr(rhs, "no such overload")
+	return types.MaybeNoSuchOverloadErr(rhs)
 }

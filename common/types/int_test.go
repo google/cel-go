@@ -15,11 +15,14 @@
 package types
 
 import (
+	"errors"
 	"math"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/google/cel-go/common/types/ref"
 	"google.golang.org/protobuf/proto"
 
 	anypb "google.golang.org/protobuf/types/known/anypb"
@@ -89,9 +92,16 @@ func TestIntConvertToNative_Error(t *testing.T) {
 func TestIntConvertToNative_Int32(t *testing.T) {
 	val, err := Int(20050).ConvertToNative(reflect.TypeOf(int32(0)))
 	if err != nil {
-		t.Error(err)
-	} else if val.(int32) != 20050 {
+		t.Fatalf("Int.ConvertToNative(int32) failed: %v", err)
+	}
+	if val.(int32) != 20050 {
 		t.Errorf("Got '%v', expected 20050", val)
+	}
+	val, err = Int(math.MaxInt32 + 1).ConvertToNative(reflect.TypeOf(int32(0)))
+	if err == nil {
+		t.Errorf("(MaxInt+1).ConvertToNative(int32) did not error, got: %v", val)
+	} else if !strings.Contains(err.Error(), "integer overflow") {
+		t.Errorf("ConvertToNative(int32) returned unexpected error: %v, wanted integer overflow", err)
 	}
 }
 
@@ -172,28 +182,88 @@ func TestIntConvertToNative_Wrapper(t *testing.T) {
 }
 
 func TestIntConvertToType(t *testing.T) {
-	if !Int(-4).ConvertToType(IntType).Equal(Int(-4)).(Bool) {
-		t.Error("Unsuccessful type conversion to int")
+	tests := []struct {
+		name   string
+		in     int64
+		toType ref.Type
+		out    interface{}
+	}{
+		{
+			name:   "IntToType",
+			in:     int64(4),
+			toType: TypeType,
+			out:    IntType.TypeName(),
+		},
+		{
+			name:   "IntToInt",
+			in:     int64(4),
+			toType: IntType,
+			out:    int64(4),
+		},
+		{
+			name:   "IntToUint",
+			in:     int64(4),
+			toType: UintType,
+			out:    uint64(4),
+		},
+		{
+			name:   "IntToUintOverflow",
+			in:     -1,
+			toType: UintType,
+			out:    errUintOverflow,
+		},
+		{
+			name:   "IntToDouble",
+			in:     int64(4),
+			toType: DoubleType,
+			out:    float64(4),
+		},
+		{
+			name:   "IntToString",
+			in:     int64(-4),
+			toType: StringType,
+			out:    "-4",
+		},
+		{
+			name:   "IntToTimestamp",
+			in:     int64(946684800),
+			toType: TimestampType,
+			out:    time.Unix(946684800, 0).UTC(),
+		},
+		{
+			name:   "IntToTimestampPosOverflow",
+			in:     maxUnixTime + 1,
+			toType: TimestampType,
+			out:    errTimestampOverflow,
+		},
+		{
+			name:   "IntToTimestampMinOverflow",
+			in:     minUnixTime - 1,
+			toType: TimestampType,
+			out:    errTimestampOverflow,
+		},
+		{
+			name:   "IntToUnsupportedType",
+			in:     int64(4),
+			toType: DurationType,
+			out:    errors.New("type conversion error"),
+		},
 	}
-	if !IsError(Int(-4).ConvertToType(UintType)) {
-		t.Error("Got uint, expected error.")
-	}
-	if !Int(-4).ConvertToType(DoubleType).Equal(Double(-4)).(Bool) {
-		t.Error("Unsuccessful type conversion to double")
-	}
-	if !Int(-4).ConvertToType(StringType).Equal(String("-4")).(Bool) {
-		t.Error("Unsuccessful type conversion to string")
-	}
-	if !Int(-4).ConvertToType(TypeType).Equal(IntType).(Bool) {
-		t.Error("Unsuccessful type conversion to type")
-	}
-	if !IsError(Int(-4).ConvertToType(DurationType)) {
-		t.Error("Got duration, expected error.")
-	}
-	tm := time.Unix(946684800, 0).UTC()
-	celts := Timestamp{Time: tm}
-	if !Int(946684800).ConvertToType(TimestampType).Equal(celts).(Bool) {
-		t.Error("unsuccessful type conversion to timestamp")
+	for _, tst := range tests {
+		got := Int(tst.in).ConvertToType(tst.toType).Value()
+		var eq bool
+		switch gotVal := got.(type) {
+		case time.Time:
+			eq = gotVal.Equal(tst.out.(time.Time))
+		case error:
+			eq = strings.Contains(gotVal.Error(), tst.out.(error).Error())
+		default:
+			eq = reflect.DeepEqual(gotVal, tst.out)
+		}
+		if !eq {
+			t.Errorf("Int(%v).ConvertToType(%v) failed, got: %v, wanted: %v",
+				tst.in, tst.toType, got, tst.out)
+		}
 	}
 }
 

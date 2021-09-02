@@ -55,25 +55,27 @@ func (d Duration) Add(other ref.Val) ref.Val {
 	switch other.Type() {
 	case DurationType:
 		dur2 := other.(Duration)
-		if val, ok := addDurationChecked(d.Duration, dur2.Duration); ok {
+		if val, err := addDurationChecked(d.Duration, dur2.Duration); err != nil {
+			return wrapErr(err)
+		} else {
 			return durationOf(val)
 		}
-		return errDurationOverflow
 	case TimestampType:
 		ts := other.(Timestamp).Time
-		if val, ok := addTimeDurationChecked(ts, d.Duration); ok {
+		if val, err := addTimeDurationChecked(ts, d.Duration); err != nil {
+			return wrapErr(err)
+		} else {
 			return timestampOf(val)
 		}
-		return errTimestampOverflow
 	}
-	return ValOrErr(other, "no such overload")
+	return MaybeNoSuchOverloadErr(other)
 }
 
 // Compare implements traits.Comparer.Compare.
 func (d Duration) Compare(other ref.Val) ref.Val {
 	otherDur, ok := other.(Duration)
 	if !ok {
-		return ValOrErr(other, "no such overload")
+		return MaybeNoSuchOverloadErr(other)
 	}
 	d1 := d.Duration
 	d2 := otherDur.Duration
@@ -134,17 +136,18 @@ func (d Duration) ConvertToType(typeVal ref.Type) ref.Val {
 func (d Duration) Equal(other ref.Val) ref.Val {
 	otherDur, ok := other.(Duration)
 	if !ok {
-		return ValOrErr(other, "no such overload")
+		return MaybeNoSuchOverloadErr(other)
 	}
 	return Bool(d.Duration == otherDur.Duration)
 }
 
 // Negate implements traits.Negater.Negate.
 func (d Duration) Negate() ref.Val {
-	if val, ok := negateDurationChecked(d.Duration); ok {
+	if val, err := negateDurationChecked(d.Duration); err != nil {
+		return wrapErr(err)
+	} else {
 		return durationOf(val)
 	}
-	return errDurationOverflow
 }
 
 // Receive implements traits.Receiver.Receive.
@@ -154,19 +157,20 @@ func (d Duration) Receive(function string, overload string, args []ref.Val) ref.
 			return f(d.Duration)
 		}
 	}
-	return NewErr("no such overload")
+	return NoSuchOverloadErr()
 }
 
 // Subtract implements traits.Subtractor.Subtract.
 func (d Duration) Subtract(subtrahend ref.Val) ref.Val {
 	subtraDur, ok := subtrahend.(Duration)
 	if !ok {
-		return ValOrErr(subtrahend, "no such overload")
+		return MaybeNoSuchOverloadErr(subtrahend)
 	}
-	if val, ok := subtractDurationChecked(d.Duration, subtraDur.Duration); ok {
+	if val, err := subtractDurationChecked(d.Duration, subtraDur.Duration); err != nil {
+		return wrapErr(err)
+	} else {
 		return durationOf(val)
 	}
-	return errDurationOverflow
 }
 
 // Type implements ref.Val.Type.

@@ -39,11 +39,11 @@ func (*baseIterator) ConvertToNative(typeDesc reflect.Type) (interface{}, error)
 }
 
 func (*baseIterator) ConvertToType(typeVal ref.Type) ref.Val {
-	return NewErr("no such overload")
+	return NoSuchOverloadErr()
 }
 
 func (*baseIterator) Equal(other ref.Val) ref.Val {
-	return NewErr("no such overload")
+	return NoSuchOverloadErr()
 }
 
 func (*baseIterator) Type() ref.Type {

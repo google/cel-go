@@ -38,7 +38,7 @@ type Timestamp struct {
 }
 
 func timestampOf(t time.Time) Timestamp {
-	// Note that this function does not valiate that time.Time is in our supported range.
+	// Note that this function does not validate that time.Time is in our supported range.
 	return Timestamp{Time: t}
 }
 
@@ -68,13 +68,13 @@ func (t Timestamp) Add(other ref.Val) ref.Val {
 	case DurationType:
 		return other.(Duration).Add(t)
 	}
-	return ValOrErr(other, "no such overload")
+	return MaybeNoSuchOverloadErr(other)
 }
 
 // Compare implements traits.Comparer.Compare.
 func (t Timestamp) Compare(other ref.Val) ref.Val {
 	if TimestampType != other.Type() {
-		return ValOrErr(other, "no such overload")
+		return MaybeNoSuchOverloadErr(other)
 	}
 	ts1 := t.Time
 	ts2 := other.(Timestamp).Time
@@ -152,7 +152,7 @@ func (t Timestamp) Receive(function string, overload string, args []ref.Val) ref
 			return f(t.Time, args[0])
 		}
 	}
-	return NewErr("no such overload")
+	return NoSuchOverloadErr()
 }
 
 // Subtract implements traits.Subtractor.Subtract.
@@ -160,18 +160,20 @@ func (t Timestamp) Subtract(subtrahend ref.Val) ref.Val {
 	switch subtrahend.Type() {
 	case DurationType:
 		dur := subtrahend.(Duration)
-		if val, ok := subtractTimeDurationChecked(t.Time, dur.Duration); ok {
+		if val, err := subtractTimeDurationChecked(t.Time, dur.Duration); err != nil {
+			return wrapErr(err)
+		} else {
 			return timestampOf(val)
 		}
-		return errTimestampOverflow
 	case TimestampType:
 		t2 := subtrahend.(Timestamp).Time
-		if val, ok := subtractTimeChecked(t.Time, t2); ok {
+		if val, err := subtractTimeChecked(t.Time, t2); err != nil {
+			return wrapErr(err)
+		} else {
 			return durationOf(val)
 		}
-		return errDurationOverflow
 	}
-	return ValOrErr(subtrahend, "no such overload")
+	return MaybeNoSuchOverloadErr(subtrahend)
 }
 
 // Type implements ref.Val.Type.
@@ -281,14 +283,14 @@ func timestampGetMillisecondsWithTz(t time.Time, tz ref.Val) ref.Val {
 func timeZone(tz ref.Val, visitor timestampVisitor) timestampVisitor {
 	return func(t time.Time) ref.Val {
 		if StringType != tz.Type() {
-			return ValOrErr(tz, "no such overload")
+			return MaybeNoSuchOverloadErr(tz)
 		}
 		val := string(tz.(String))
 		ind := strings.Index(val, ":")
 		if ind == -1 {
 			loc, err := time.LoadLocation(val)
 			if err != nil {
-				return &Err{err}
+				return wrapErr(err)
 			}
 			return visitor(t.In(loc))
 		}
@@ -297,11 +299,11 @@ func timeZone(tz ref.Val, visitor timestampVisitor) timestampVisitor {
 		// in the format ^(+|-)(0[0-9]|1[0-4]):[0-5][0-9]$. The numerical input is parsed in terms of hours and minutes.
 		hr, err := strconv.Atoi(string(val[0:ind]))
 		if err != nil {
-			return &Err{err}
+			return wrapErr(err)
 		}
 		min, err := strconv.Atoi(string(val[ind+1]))
 		if err != nil {
-			return &Err{err}
+			return wrapErr(err)
 		}
 		var offset int
 		if string(val[0]) == "-" {
