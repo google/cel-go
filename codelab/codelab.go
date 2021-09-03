@@ -227,7 +227,7 @@ func report(result ref.Val, details *cel.EvalDetails, err error) {
 func mapContainsKeyValue(args ...ref.Val) ref.Val {
 	// Check the argument input count.
 	if len(args) != 3 {
-		return types.NoSuchOverloadErr()
+		return types.NewErr("no such overload")
 	}
 	obj := args[0]
 	m, isMap := obj.(traits.Mapper)
@@ -238,9 +238,8 @@ func mapContainsKeyValue(args ...ref.Val) ref.Val {
 	// types whenever there is a possibility that your function will deal with
 	// dynamic content.
 	if !isMap {
-		// The helper MaybeNoSuchOverloadErr ensures that errors on input are
-		// propagated.
-		return types.MaybeNoSuchOverloadErr(obj)
+		// The helper ValOrErr ensures that errors on input are propagated.
+		return types.ValOrErr(obj, "no such overload")
 	}
 
 	// CEL has many interfaces for dealing with different type abstractions.

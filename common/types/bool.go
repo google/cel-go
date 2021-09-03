@@ -50,7 +50,7 @@ const (
 func (b Bool) Compare(other ref.Val) ref.Val {
 	otherBool, ok := other.(Bool)
 	if !ok {
-		return MaybeNoSuchOverloadErr(other)
+		return ValOrErr(other, "no such overload")
 	}
 	if b == otherBool {
 		return IntZero
@@ -112,7 +112,7 @@ func (b Bool) ConvertToType(typeVal ref.Type) ref.Val {
 func (b Bool) Equal(other ref.Val) ref.Val {
 	otherBool, ok := other.(Bool)
 	if !ok {
-		return MaybeNoSuchOverloadErr(other)
+		return ValOrErr(other, "no such overload")
 	}
 	return Bool(b == otherBool)
 }

@@ -144,7 +144,7 @@ func (l *baseList) Contains(elem ref.Val) ref.Val {
 		// had written a per-element comparison in an exists() macro or logical ||, e.g.
 		//    list.exists(e, e == elem)
 		if !ok && err == nil {
-			err = MaybeNoSuchOverloadErr(cmp)
+			err = ValOrErr(cmp, "no such overload")
 		}
 		if b == True {
 			return True

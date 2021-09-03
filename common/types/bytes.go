@@ -48,7 +48,7 @@ var (
 func (b Bytes) Add(other ref.Val) ref.Val {
 	otherBytes, ok := other.(Bytes)
 	if !ok {
-		return MaybeNoSuchOverloadErr(other)
+		return ValOrErr(other, "no such overload")
 	}
 	return append(b, otherBytes...)
 }
@@ -57,7 +57,7 @@ func (b Bytes) Add(other ref.Val) ref.Val {
 func (b Bytes) Compare(other ref.Val) ref.Val {
 	otherBytes, ok := other.(Bytes)
 	if !ok {
-		return MaybeNoSuchOverloadErr(other)
+		return ValOrErr(other, "no such overload")
 	}
 	return Int(bytes.Compare(b, otherBytes))
 }
@@ -114,7 +114,7 @@ func (b Bytes) ConvertToType(typeVal ref.Type) ref.Val {
 func (b Bytes) Equal(other ref.Val) ref.Val {
 	otherBytes, ok := other.(Bytes)
 	if !ok {
-		return MaybeNoSuchOverloadErr(other)
+		return ValOrErr(other, "no such overload")
 	}
 	return Bool(bytes.Equal(b, otherBytes))
 }
