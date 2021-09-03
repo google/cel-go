@@ -208,6 +208,13 @@ func TestTimestampOperators(t *testing.T) {
 			out: errIntOverflow,
 		},
 		{
+			name: "DateMinusDateDurationOverflow",
+			op: func() ref.Val {
+				return unixTimestamp(maxUnixTime).Subtract(unixTimestamp(minUnixTime))
+			},
+			out: errIntOverflow,
+		},
+		{
 			name: "MinTimestampMinusOneViaNanosScaleOverflow",
 			op: func() ref.Val {
 				return timestampOf(time.Unix(math.MinInt64, 1)).Subtract(timestampOf(time.Unix(0, -999_999_999)))
