@@ -48,6 +48,10 @@ var testCases = []testInfo{
 		P: `42^#1:*expr.Constant_Int64Value#`,
 	},
 	{
+		I: `0xF`,
+		P: `15^#1:*expr.Constant_Int64Value#`,
+	},
+	{
 		I: `0u`,
 		P: `0u^#1:*expr.Constant_Uint64Value#`,
 	},
@@ -58,6 +62,10 @@ var testCases = []testInfo{
 	{
 		I: `24u`,
 		P: `24u^#1:*expr.Constant_Uint64Value#`,
+	},
+	{
+		I: `0xFu`,
+		P: `15u^#1:*expr.Constant_Uint64Value#`,
 	},
 	{
 		I: `-1`,
@@ -286,15 +294,6 @@ var testCases = []testInfo{
 			b^#3:*expr.Expr_IdentExpr#
 		)^#2:*expr.Expr_CallExpr#`,
 	},
-
-	// TODO: This is an error.
-	//{
-	//  I: `foo{ a=b, c=d }`,
-	//  P: `
-	//
-	//  `,
-	//},
-
 	{
 		I: `foo{ }`,
 		P: `foo{}^#2:*expr.Expr_StructExpr#`,
@@ -386,30 +385,46 @@ var testCases = []testInfo{
 
 	// Parse error tests
 	{
+		I: `0xFFFFFFFFFFFFFFFFF`,
+		E: `ERROR: <input>:1:1: invalid int literal
+		| 0xFFFFFFFFFFFFFFFFF
+		| ^`,
+	},
+	{
+		I: `0xFFFFFFFFFFFFFFFFFu`,
+		E: `ERROR: <input>:1:1: invalid uint literal
+		| 0xFFFFFFFFFFFFFFFFFu
+		| ^`,
+	},
+	{
+		I: `1.99e90000009`,
+		E: `ERROR: <input>:1:1: invalid double literal
+		| 1.99e90000009
+		| ^`,
+	},
+	{
 		I: `*@a | b`,
-		E: `
-ERROR: <input>:1:1: Syntax error: extraneous input '*' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
- | *@a | b
- | ^
-ERROR: <input>:1:2: Syntax error: token recognition error at: '@'
- | *@a | b
- | .^
-ERROR: <input>:1:5: Syntax error: token recognition error at: '| '
- | *@a | b
- | ....^
-ERROR: <input>:1:7: Syntax error: extraneous input 'b' expecting <EOF>
- | *@a | b
- | ......^`,
+		E: `ERROR: <input>:1:1: Syntax error: extraneous input '*' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
+		| *@a | b
+		| ^
+		ERROR: <input>:1:2: Syntax error: token recognition error at: '@'
+		| *@a | b
+		| .^
+		ERROR: <input>:1:5: Syntax error: token recognition error at: '| '
+		| *@a | b
+		| ....^
+		ERROR: <input>:1:7: Syntax error: extraneous input 'b' expecting <EOF>
+		| *@a | b
+		| ......^`,
 	},
 	{
 		I: `a | b`,
-		E: `
-ERROR: <input>:1:3: Syntax error: token recognition error at: '| '
- | a | b
- | ..^
-ERROR: <input>:1:5: Syntax error: extraneous input 'b' expecting <EOF>
- | a | b
- | ....^`,
+		E: `ERROR: <input>:1:3: Syntax error: token recognition error at: '| '
+		| a | b
+		| ..^
+		ERROR: <input>:1:5: Syntax error: extraneous input 'b' expecting <EOF>
+		| a | b
+		| ....^`,
 	},
 
 	// Macro tests
@@ -417,6 +432,54 @@ ERROR: <input>:1:5: Syntax error: extraneous input 'b' expecting <EOF>
 		I: `has(m.f)`,
 		P: `m^#2:*expr.Expr_IdentExpr#.f~test-only~^#4:*expr.Expr_SelectExpr#`,
 		L: `m^#2[1,4]#.f~test-only~^#4[1,3]#`,
+	},
+	{
+		I: `m.exists(v, f)`,
+		P: `__comprehension__(
+			// Variable
+			v,
+			// Target
+			m^#1:*expr.Expr_IdentExpr#,
+			// Accumulator
+			__result__,
+			// Init
+			false^#5:*expr.Constant_BoolValue#,
+			// LoopCondition
+			@not_strictly_false(
+                !_(
+                  __result__^#6:*expr.Expr_IdentExpr#
+                )^#7:*expr.Expr_CallExpr#
+			)^#8:*expr.Expr_CallExpr#,
+			// LoopStep
+			_||_(
+                __result__^#9:*expr.Expr_IdentExpr#,
+                f^#4:*expr.Expr_IdentExpr#
+			)^#10:*expr.Expr_CallExpr#,
+			// Result
+			__result__^#11:*expr.Expr_IdentExpr#)^#12:*expr.Expr_ComprehensionExpr#`,
+	},
+	{
+		I: `m.all(v, f)`,
+		P: `__comprehension__(
+			// Variable
+			v,
+			// Target
+			m^#1:*expr.Expr_IdentExpr#,
+			// Accumulator
+			__result__,
+			// Init
+			true^#5:*expr.Constant_BoolValue#,
+			// LoopCondition
+			@not_strictly_false(
+                __result__^#6:*expr.Expr_IdentExpr#
+            )^#7:*expr.Expr_CallExpr#,
+			// LoopStep
+			_&&_(
+                __result__^#8:*expr.Expr_IdentExpr#,
+                f^#4:*expr.Expr_IdentExpr#
+            )^#9:*expr.Expr_CallExpr#,
+			// Result
+			__result__^#10:*expr.Expr_IdentExpr#)^#11:*expr.Expr_ComprehensionExpr#`,
 	},
 	{
 		I: `m.exists_one(v, f)`,
@@ -684,11 +747,9 @@ ERROR: <input>:1:5: Syntax error: extraneous input 'b' expecting <EOF>
 	},
 	{
 		I: `TestAllTypes(){single_int32: 1, single_int64: 2}`,
-		E: `
-ERROR: <input>:1:13: expected a qualified name
- | TestAllTypes(){single_int32: 1, single_int64: 2}
- | ............^
-`,
+		E: `ERROR: <input>:1:13: expected a qualified name
+		| TestAllTypes(){single_int32: 1, single_int64: 2}
+		| ............^`,
 	},
 	{
 		I: `size(x) == x.size()`,
@@ -701,23 +762,19 @@ ERROR: <input>:1:13: expected a qualified name
 	},
 	{
 		I: `1 + $`,
-		E: `
-ERROR: <input>:1:5: Syntax error: token recognition error at: '$'
- | 1 + $
- | ....^
-ERROR: <input>:1:6: Syntax error: mismatched input '<EOF>' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
- | 1 + $
- | .....^
-`,
+		E: `ERROR: <input>:1:5: Syntax error: token recognition error at: '$'
+		| 1 + $
+		| ....^
+		ERROR: <input>:1:6: Syntax error: mismatched input '<EOF>' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
+		| 1 + $
+		| .....^`,
 	},
 	{
 		I: `1 + 2
 3 +`,
-		E: `
-ERROR: <input>:2:1: Syntax error: mismatched input '3' expecting <EOF>
- | 3 +
- | ^
-		`,
+		E: `ERROR: <input>:2:1: Syntax error: mismatched input '3' expecting <EOF>
+		| 3 +
+		| ^`,
 	},
 	{
 		I: `"\""`,
@@ -736,11 +793,9 @@ ERROR: <input>:2:1: Syntax error: mismatched input '3' expecting <EOF>
 	},
 	{
 		I: `1.all(2, 3)`,
-		E: `
-ERROR: <input>:1:7: argument must be a simple name
- | 1.all(2, 3)
- | ......^
-		`,
+		E: `ERROR: <input>:1:7: argument must be a simple name
+		| 1.all(2, 3)
+		| ......^`,
 	},
 	{
 		I: `x["a"].single_int32 == 23`,
@@ -806,14 +861,12 @@ ERROR: <input>:1:7: argument must be a simple name
 	},
 	{
 		I: `1 + +`,
-		E: `
-ERROR: <input>:1:5: Syntax error: mismatched input '+' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
- | 1 + +
- | ....^
-ERROR: <input>:1:6: Syntax error: mismatched input '<EOF>' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
- | 1 + +
- | .....^
-		`,
+		E: `ERROR: <input>:1:5: Syntax error: mismatched input '+' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
+		| 1 + +
+		| ....^
+		ERROR: <input>:1:6: Syntax error: mismatched input '<EOF>' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
+		| 1 + +
+		| .....^`,
 	},
 	{
 		I: `"abc" + "def"`,
@@ -826,8 +879,8 @@ ERROR: <input>:1:6: Syntax error: mismatched input '<EOF>' expecting {'[', '{', 
 	{
 		I: `{"a": 1}."a"`,
 		E: `ERROR: <input>:1:10: Syntax error: mismatched input '"a"' expecting IDENTIFIER
-             | {"a": 1}."a"
-    		 | .........^`,
+		| {"a": 1}."a"
+		| .........^`,
 	},
 
 	{
@@ -858,27 +911,27 @@ ERROR: <input>:1:6: Syntax error: mismatched input '<EOF>' expecting {'[', '{', 
 	{
 		I: `"\xFh"`,
 		E: `ERROR: <input>:1:1: Syntax error: token recognition error at: '"\xFh'
-    		 | "\xFh"
-    		 | ^
-    		ERROR: <input>:1:6: Syntax error: token recognition error at: '"'
-    		 | "\xFh"
-    		 | .....^
-    		ERROR: <input>:1:7: Syntax error: mismatched input '<EOF>' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
-    		 | "\xFh"
-    		 | ......^`,
+		| "\xFh"
+		| ^
+		ERROR: <input>:1:6: Syntax error: token recognition error at: '"'
+		| "\xFh"
+		| .....^
+		ERROR: <input>:1:7: Syntax error: mismatched input '<EOF>' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
+		| "\xFh"
+		| ......^`,
 	},
 
 	{
 		I: `"\a\b\f\n\r\t\v\'\"\\\? Illegal escape \>"`,
 		E: `ERROR: <input>:1:1: Syntax error: token recognition error at: '"\a\b\f\n\r\t\v\'\"\\\? Illegal escape \>'
-    		 | "\a\b\f\n\r\t\v\'\"\\\? Illegal escape \>"
-    		 | ^
-    		ERROR: <input>:1:42: Syntax error: token recognition error at: '"'
-    		 | "\a\b\f\n\r\t\v\'\"\\\? Illegal escape \>"
-    		 | .........................................^
-    		ERROR: <input>:1:43: Syntax error: mismatched input '<EOF>' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
-    		 | "\a\b\f\n\r\t\v\'\"\\\? Illegal escape \>"
-    		 | ..........................................^`,
+		| "\a\b\f\n\r\t\v\'\"\\\? Illegal escape \>"
+		| ^
+		ERROR: <input>:1:42: Syntax error: token recognition error at: '"'
+		| "\a\b\f\n\r\t\v\'\"\\\? Illegal escape \>"
+		| .........................................^
+		ERROR: <input>:1:43: Syntax error: mismatched input '<EOF>' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
+		| "\a\b\f\n\r\t\v\'\"\\\? Illegal escape \>"
+		| ..........................................^`,
 	},
 
 	{
@@ -898,148 +951,148 @@ ERROR: <input>:1:6: Syntax error: mismatched input '<EOF>' expecting {'[', '{', 
 		E: `ERROR: <input>:2:7: Syntax error: extraneous input 'in' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
 		|    && in.😁
 		| ......^
-	   ERROR: <input>:2:10: Syntax error: token recognition error at: '😁'
+	    ERROR: <input>:2:10: Syntax error: token recognition error at: '😁'
 		|    && in.😁
 		| .........＾
-	   ERROR: <input>:2:11: Syntax error: missing IDENTIFIER at '<EOF>'
+	    ERROR: <input>:2:11: Syntax error: missing IDENTIFIER at '<EOF>'
 		|    && in.😁
 		| .........．^`,
 	},
 	{
 		I: "as",
 		E: `ERROR: <input>:1:1: reserved identifier: as
- | as
- | ^`,
+		| as
+		| ^`,
 	},
 	{
 		I: "break",
 		E: `ERROR: <input>:1:1: reserved identifier: break
- | break
- | ^`,
+		| break
+		| ^`,
 	},
 	{
 		I: "const",
 		E: `ERROR: <input>:1:1: reserved identifier: const
- | const
- | ^`,
+		| const
+		| ^`,
 	},
 	{
 		I: "continue",
 		E: `ERROR: <input>:1:1: reserved identifier: continue
- | continue
- | ^`,
+		| continue
+		| ^`,
 	},
 	{
 		I: "else",
 		E: `ERROR: <input>:1:1: reserved identifier: else
- | else
- | ^`,
+		| else
+		| ^`,
 	},
 	{
 		I: "for",
 		E: `ERROR: <input>:1:1: reserved identifier: for
- | for
- | ^`,
+		| for
+		| ^`,
 	},
 	{
 		I: "function",
 		E: `ERROR: <input>:1:1: reserved identifier: function
- | function
- | ^`,
+		| function
+		| ^`,
 	},
 	{
 		I: "if",
 		E: `ERROR: <input>:1:1: reserved identifier: if
- | if
- | ^`,
+		| if
+		| ^`,
 	},
 	{
 		I: "import",
 		E: `ERROR: <input>:1:1: reserved identifier: import
- | import
- | ^`,
+		| import
+		| ^`,
 	},
 	{
 		I: "in",
 		E: `ERROR: <input>:1:1: Syntax error: mismatched input 'in' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
- | in
- | ^
-            ERROR: <input>:1:3: Syntax error: mismatched input '<EOF>' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
- | in
- | ..^`,
+		| in
+		| ^
+        ERROR: <input>:1:3: Syntax error: mismatched input '<EOF>' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
+		| in
+		| ..^`,
 	},
 	{
 		I: "let",
 		E: `ERROR: <input>:1:1: reserved identifier: let
- | let
- | ^`,
+		| let
+		| ^`,
 	},
 	{
 		I: "loop",
 		E: `ERROR: <input>:1:1: reserved identifier: loop
- | loop
- | ^`,
+		| loop
+		| ^`,
 	},
 	{
 		I: "package",
 		E: `ERROR: <input>:1:1: reserved identifier: package
- | package
- | ^`,
+		| package
+		| ^`,
 	},
 	{
 		I: "namespace",
 		E: `ERROR: <input>:1:1: reserved identifier: namespace
- | namespace
- | ^`,
+		| namespace
+		| ^`,
 	},
 	{
 		I: "return",
 		E: `ERROR: <input>:1:1: reserved identifier: return
- | return
- | ^`,
+		| return
+		| ^`,
 	},
 	{
 		I: "var",
 		E: `ERROR: <input>:1:1: reserved identifier: var
- | var
- | ^`,
+		| var
+		| ^`,
 	},
 	{
 		I: "void",
 		E: `ERROR: <input>:1:1: reserved identifier: void
- | void
- | ^`,
+		| void
+		| ^`,
 	},
 	{
 		I: "while",
 		E: `ERROR: <input>:1:1: reserved identifier: while
- | while
- | ^`,
+		| while
+		| ^`,
 	},
 	{
 		I: "[1, 2, 3].map(var, var * var)",
 		E: `ERROR: <input>:1:14: argument is not an identifier
- | [1, 2, 3].map(var, var * var)
- | .............^
-ERROR: <input>:1:15: reserved identifier: var
- | [1, 2, 3].map(var, var * var)
- | ..............^
-ERROR: <input>:1:20: reserved identifier: var
- | [1, 2, 3].map(var, var * var)
- | ...................^
-ERROR: <input>:1:26: reserved identifier: var
- | [1, 2, 3].map(var, var * var)
- | .........................^`,
+		| [1, 2, 3].map(var, var * var)
+		| .............^
+		ERROR: <input>:1:15: reserved identifier: var
+		| [1, 2, 3].map(var, var * var)
+		| ..............^
+		ERROR: <input>:1:20: reserved identifier: var
+		| [1, 2, 3].map(var, var * var)
+		| ...................^
+		ERROR: <input>:1:26: reserved identifier: var
+		| [1, 2, 3].map(var, var * var)
+		| .........................^`,
 	},
 	{
 		I: "func{{a}}",
 		E: `ERROR: <input>:1:6: Syntax error: extraneous input '{' expecting {'}', ',', IDENTIFIER}
 		| func{{a}}
 		| .....^
-	   ERROR: <input>:1:8: Syntax error: mismatched input '}' expecting ':'
+	    ERROR: <input>:1:8: Syntax error: mismatched input '}' expecting ':'
 		| func{{a}}
 		| .......^
-	   ERROR: <input>:1:9: Syntax error: extraneous input '}' expecting <EOF>
+	    ERROR: <input>:1:9: Syntax error: extraneous input '}' expecting <EOF>
 		| func{{a}}
 		| ........^`,
 	},
@@ -1048,7 +1101,7 @@ ERROR: <input>:1:26: reserved identifier: var
 		E: `ERROR: <input>:1:5: Syntax error: extraneous input ':' expecting {'}', ',', IDENTIFIER}
 		| msg{:a}
 		| ....^
-	   ERROR: <input>:1:7: Syntax error: mismatched input '}' expecting ':'
+	    ERROR: <input>:1:7: Syntax error: mismatched input '}' expecting ':'
 		| msg{:a}
 		| ......^`,
 	},
@@ -1063,7 +1116,7 @@ ERROR: <input>:1:26: reserved identifier: var
 		E: `ERROR: <input>:1:2: Syntax error: extraneous input ':' expecting {'[', '{', '}', '(', '.', ',', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
 		| {:a}
 		| .^
-	   ERROR: <input>:1:4: Syntax error: mismatched input '}' expecting ':'
+	    ERROR: <input>:1:4: Syntax error: mismatched input '}' expecting ':'
 		| {:a}
 		| ...^`,
 	},
@@ -1075,34 +1128,31 @@ ERROR: <input>:1:26: reserved identifier: var
 	},
 	{
 		I: `--`,
-		E: `
-	   ERROR: <input>:1:3: Syntax error: no viable alternative at input '-'
+		E: `ERROR: <input>:1:3: Syntax error: no viable alternative at input '-'
 		| --
 		| ..^
-	   ERROR: <input>:1:3: Syntax error: mismatched input '<EOF>' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
+	    ERROR: <input>:1:3: Syntax error: mismatched input '<EOF>' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
 		| --
 		| ..^`,
 	},
 	{
 		I: `?`,
-		E: `
-	   ERROR: <input>:1:1: Syntax error: mismatched input '?' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
+		E: `ERROR: <input>:1:1: Syntax error: mismatched input '?' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
 		| ?
 		| ^
-	   ERROR: <input>:1:2: Syntax error: mismatched input '<EOF>' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
+	    ERROR: <input>:1:2: Syntax error: mismatched input '<EOF>' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
 		| ?
 		| .^`,
 	},
 	{
 		I: `a ? b ((?))`,
-		E: `
-	   ERROR: <input>:1:9: Syntax error: mismatched input '?' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
+		E: `ERROR: <input>:1:9: Syntax error: mismatched input '?' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
 		| a ? b ((?))
 		| ........^
-	   ERROR: <input>:1:10: Syntax error: mismatched input ')' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
+	    ERROR: <input>:1:10: Syntax error: mismatched input ')' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
 		| a ? b ((?))
 		| .........^
-	   ERROR: <input>:1:12: Syntax error: error recovery attempt limit exceeded: 4
+	    ERROR: <input>:1:12: Syntax error: error recovery attempt limit exceeded: 4
 		| a ? b ((?))
 		| ...........^`,
 	},
@@ -1147,20 +1197,51 @@ ERROR: <input>:1:26: reserved identifier: var
 		--1---1--1--1--0--1--1--1--1--0--2--1--1--0--1--1--1--1--0--1--1--1--3-[-1--1--1
 		--1---1--1--1--0--1--1--1--1--0--2--1--1--0--1--1--1--1--0--1--1--1--3-[-1--1--1
 		--1---1--1--1--0--1--1--1--1--0--3--1--1--0--1`,
-		E: `
-		ERROR: <input>:-1:0: expression recursion limit exceeded: 32
+		E: `ERROR: <input>:-1:0: expression recursion limit exceeded: 32
         ERROR: <input>:3:33: Syntax error: extraneous input '/' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
-         |   --3-[-1--1--1--1---1--1--1--0-/1--1--1--1--0--2--1--1--0--1--1--1--1--0--1--1--1
-         | ................................^
+        |   --3-[-1--1--1--1---1--1--1--0-/1--1--1--1--0--2--1--1--0--1--1--1--1--0--1--1--1
+        | ................................^
         ERROR: <input>:8:33: Syntax error: extraneous input '/' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
-         |   --3-[-1--1--1--1---1--1--1--0-/1--1--1--1--0--2--1--1--0--1--1--1--1--0--1--1--1
-         | ................................^
+        |   --3-[-1--1--1--1---1--1--1--0-/1--1--1--1--0--2--1--1--0--1--1--1--1--0--1--1--1
+        | ................................^
         ERROR: <input>:11:17: Syntax error: token recognition error at: 'À'
-         |   --1--1---1--1-À1--0--1--1--1--1--0--2--1--1--0--1--1--1--1--0--1--1--1--3-[-1--1
-         | ................＾
+        |   --1--1---1--1-À1--0--1--1--1--1--0--2--1--1--0--1--1--1--1--0--1--1--1--3-[-1--1
+        | ................＾
         ERROR: <input>:14:23: Syntax error: extraneous input '/' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
-         |   --1--1---1--1--1--0-/1--1--1--1--0--2--1--1--0--1--1--1--1--0--1--1--1--3-[-1--1
-         | ......................^`,
+        |   --1--1---1--1--1--0-/1--1--1--1--0--2--1--1--0--1--1--1--1--0--1--1--1--3-[-1--1
+        | ......................^`,
+	}, {
+		I: `ó ¢
+		ó 0 
+		0"""\""\"""\""\"""\""\"""\""\"""\"\"""\""\"""\""\"""\""\"""\"!\"""\""\"""\""\"`,
+		E: `ERROR: <input>:-1:0: error recovery token lookahead limit exceeded: 4
+		ERROR: <input>:1:1: Syntax error: token recognition error at: 'ó'
+	    | ó ¢
+		| ＾
+		ERROR: <input>:1:2: Syntax error: token recognition error at: ' '
+		| ó ¢
+		| ．＾
+		ERROR: <input>:1:3: Syntax error: token recognition error at: '¢'
+		| ó ¢
+		| ．．＾
+		ERROR: <input>:2:3: Syntax error: token recognition error at: 'ó'
+		|   ó 0 
+		| ..＾
+		ERROR: <input>:2:4: Syntax error: token recognition error at: ' '
+		|   ó 0 
+		| ..．＾
+		ERROR: <input>:2:6: Syntax error: token recognition error at: ' '
+		|   ó 0 
+		| ..．．.＾
+		ERROR: <input>:3:3: Syntax error: token recognition error at: ''
+		|   0"""\""\"""\""\"""\""\"""\""\"""\"\"""\""\"""\""\"""\""\"""\"!\"""\""\"""\""\"
+		| ..^
+		ERROR: <input>:3:4: Syntax error: mismatched input '0' expecting <EOF>
+		|   0"""\""\"""\""\"""\""\"""\""\"""\"\"""\""\"""\""\"""\""\"""\"!\"""\""\"""\""\"
+		| ...^
+		ERROR: <input>:3:11: Syntax error: token recognition error at: '\'
+		|   0"""\""\"""\""\"""\""\"""\""\"""\"\"""\""\"""\""\"""\""\"""\"!\"""\""\"""\""\"
+		| ..........^`,
 	},
 }
 
@@ -1240,7 +1321,12 @@ func (l *locationAdorner) GetMetadata(elem interface{}) string {
 }
 
 func TestParse(t *testing.T) {
-	p, err := NewParser(Macros(AllMacros...), MaxRecursionDepth(32), ErrorRecoveryLimit(4))
+	p, err := NewParser(
+		Macros(AllMacros...),
+		MaxRecursionDepth(32),
+		ErrorRecoveryLimit(4),
+		ErrorRecoveryLookaheadTokenLimit(4),
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1284,9 +1370,6 @@ func TestParse(t *testing.T) {
 }
 
 func TestExpressionSizeCodePointLimit(t *testing.T) {
-	if _, err := NewParser(Macros(AllMacros...), ExpressionSizeCodePointLimit(-2)); err == nil {
-		t.Fatalf("got %q, want %q", err, "expression size code point limit must be greater than or equal to -1: -2")
-	}
 	p, err := NewParser(Macros(AllMacros...), ExpressionSizeCodePointLimit((2)))
 	if err != nil {
 		t.Fatal(err)
@@ -1298,5 +1381,20 @@ func TestExpressionSizeCodePointLimit(t *testing.T) {
 	}
 	if got, want := errs.GetErrors()[0].Message, "expression code point size exceeds limit: size: 3, limit 2"; got != want {
 		t.Fatalf("got %q, want %q: %s", got, want, errs.GetErrors()[0].ToDisplayString(src))
+	}
+}
+
+func TestParserOptionErrors(t *testing.T) {
+	if _, err := NewParser(Macros(AllMacros...), MaxRecursionDepth(-2)); err == nil {
+		t.Fatalf("got %q, want %q", err, "max recursion depth must be greater than or equal to -1: -2")
+	}
+	if _, err := NewParser(Macros(AllMacros...), ErrorRecoveryLimit(-2)); err == nil {
+		t.Fatalf("got %q, want %q", err, "error recovery limit must be greater than or equal to -1: -2")
+	}
+	if _, err := NewParser(Macros(AllMacros...), ErrorRecoveryLookaheadTokenLimit(0)); err == nil {
+		t.Fatalf("got %q, want %q", err, "error recovery lookahead token limit must be at least 1: 0")
+	}
+	if _, err := NewParser(Macros(AllMacros...), ExpressionSizeCodePointLimit(-2)); err == nil {
+		t.Fatalf("got %q, want %q", err, "expression size code point limit must be greater than or equal to -1: -2")
 	}
 }

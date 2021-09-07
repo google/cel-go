@@ -17,35 +17,51 @@ package parser
 import "fmt"
 
 type options struct {
-	maxRecursionDepth            int
-	errorRecoveryLimit           int
-	expressionSizeCodePointLimit int
-	macros                       map[string]Macro
+	maxRecursionDepth                int
+	errorRecoveryTokenLookaheadLimit int
+	errorRecoveryLimit               int
+	expressionSizeCodePointLimit     int
+	macros                           map[string]Macro
 }
 
 // Option configures the behavior of the parser.
 type Option func(*options) error
 
-// MaxRecursionDepth is an option which limits the maximum depth the parser will attempt to
-// parse the expression before giving up.
-func MaxRecursionDepth(maxRecursionDepth int) Option {
+// MaxRecursionDepth limits the maximum depth the parser will attempt to parse the expression before giving up.
+func MaxRecursionDepth(limit int) Option {
 	return func(opts *options) error {
-		if maxRecursionDepth < -1 {
-			return fmt.Errorf("max recursion depth must be greater than or equal to -1: %d", maxRecursionDepth)
+		if limit < -1 {
+			return fmt.Errorf("max recursion depth must be greater than or equal to -1: %d", limit)
 		}
-		opts.maxRecursionDepth = maxRecursionDepth
+		opts.maxRecursionDepth = limit
 		return nil
 	}
 }
 
-// ErrorRecoveryLimit is an option which limits the number of attempts the parser will perform
-// to recover from an error.
-func ErrorRecoveryLimit(errorRecoveryLimit int) Option {
+// ErrorRecoveryLookaheadTokenLimit limits the number of lexer tokens that may be considered during error recovery.
+//
+// Error recovery often involves looking ahead in the input to determine if there's a point at which parsing may
+// successfully resume. In some pathological cases, the parser can look through quite a large set of input which
+// in turn generates a lot of back-tracking and performance degredation.
+//
+// The limit must be > 1, and is recommended to be less than the default of 256.
+func ErrorRecoveryLookaheadTokenLimit(limit int) Option {
 	return func(opts *options) error {
-		if errorRecoveryLimit < -1 {
-			return fmt.Errorf("error recovery limit must be greater than or equal to -1: %d", errorRecoveryLimit)
+		if limit < 1 {
+			return fmt.Errorf("error recovery lookahead token limit must be at least 1: %d", limit)
 		}
-		opts.errorRecoveryLimit = errorRecoveryLimit
+		opts.errorRecoveryTokenLookaheadLimit = limit
+		return nil
+	}
+}
+
+// ErrorRecoveryLimit limits the number of attempts the parser will perform to recover from an error.
+func ErrorRecoveryLimit(limit int) Option {
+	return func(opts *options) error {
+		if limit < -1 {
+			return fmt.Errorf("error recovery limit must be greater than or equal to -1: %d", limit)
+		}
+		opts.errorRecoveryLimit = limit
 		return nil
 	}
 }

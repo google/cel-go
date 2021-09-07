@@ -51,6 +51,9 @@ func NewParser(opts ...Option) (*Parser, error) {
 	if p.maxRecursionDepth == -1 {
 		p.maxRecursionDepth = int((^uint(0)) >> 1)
 	}
+	if p.errorRecoveryTokenLookaheadLimit == 0 {
+		p.errorRecoveryTokenLookaheadLimit = 256
+	}
 	if p.errorRecoveryLimit == 0 {
 		p.errorRecoveryLimit = 30
 	}
@@ -81,11 +84,12 @@ func mustNewParser(opts ...Option) *Parser {
 // Parse parses the expression represented by source and returns the result.
 func (p *Parser) Parse(source common.Source) (*exprpb.ParsedExpr, *common.Errors) {
 	impl := parser{
-		errors:             &parseErrors{common.NewErrors(source)},
-		helper:             newParserHelper(source),
-		macros:             p.macros,
-		maxRecursionDepth:  p.maxRecursionDepth,
-		errorRecoveryLimit: p.errorRecoveryLimit,
+		errors:                           &parseErrors{common.NewErrors(source)},
+		helper:                           newParserHelper(source),
+		macros:                           p.macros,
+		maxRecursionDepth:                p.maxRecursionDepth,
+		errorRecoveryLimit:               p.errorRecoveryLimit,
+		errorRecoveryLookaheadTokenLimit: p.errorRecoveryTokenLookaheadLimit,
 	}
 	buf, ok := source.(runes.Buffer)
 	if !ok {
@@ -207,45 +211,73 @@ func (rl *recoveryLimitError) Error() string {
 	return rl.message
 }
 
+type lookaheadLimitError struct {
+	message string
+}
+
+func (ll *lookaheadLimitError) Error() string {
+	return ll.message
+}
+
 var _ error = &recoveryLimitError{}
 
 type recoveryLimitErrorStrategy struct {
 	*antlr.DefaultErrorStrategy
-	maxAttempts int
-	attempts    int
+	errorRecoveryLimit               int
+	errorRecoveryTokenLookaheadLimit int
+	recoveryAttempts                 int
+}
+
+type lookaheadConsumer struct {
+	antlr.Parser
+	errorRecoveryTokenLookaheadLimit int
+	lookaheadAttempts                int
+}
+
+func (lc *lookaheadConsumer) Consume() antlr.Token {
+	if lc.lookaheadAttempts >= lc.errorRecoveryTokenLookaheadLimit {
+		panic(&lookaheadLimitError{
+			message: fmt.Sprintf("error recovery token lookahead limit exceeded: %d", lc.errorRecoveryTokenLookaheadLimit),
+		})
+	}
+	lc.lookaheadAttempts++
+	return lc.Parser.Consume()
 }
 
 func (rl *recoveryLimitErrorStrategy) Recover(recognizer antlr.Parser, e antlr.RecognitionException) {
 	rl.checkAttempts(recognizer)
-	rl.DefaultErrorStrategy.Recover(recognizer, e)
+	lc := &lookaheadConsumer{Parser: recognizer, errorRecoveryTokenLookaheadLimit: rl.errorRecoveryTokenLookaheadLimit}
+	rl.DefaultErrorStrategy.Recover(lc, e)
 }
 
 func (rl *recoveryLimitErrorStrategy) RecoverInline(recognizer antlr.Parser) antlr.Token {
 	rl.checkAttempts(recognizer)
-	return rl.DefaultErrorStrategy.RecoverInline(recognizer)
+	lc := &lookaheadConsumer{Parser: recognizer, errorRecoveryTokenLookaheadLimit: rl.errorRecoveryTokenLookaheadLimit}
+	return rl.DefaultErrorStrategy.RecoverInline(lc)
 }
 
 func (rl *recoveryLimitErrorStrategy) checkAttempts(recognizer antlr.Parser) {
-	if rl.attempts == rl.maxAttempts {
-		rl.attempts++
-		msg := fmt.Sprintf("error recovery attempt limit exceeded: %d", rl.maxAttempts)
+	if rl.recoveryAttempts == rl.errorRecoveryLimit {
+		rl.recoveryAttempts++
+		msg := fmt.Sprintf("error recovery attempt limit exceeded: %d", rl.errorRecoveryLimit)
 		recognizer.NotifyErrorListeners(msg, nil, nil)
 		panic(&recoveryLimitError{
 			message: msg,
 		})
 	}
-	rl.attempts++
+	rl.recoveryAttempts++
 }
 
 var _ antlr.ErrorStrategy = &recoveryLimitErrorStrategy{}
 
 type parser struct {
 	gen.BaseCELVisitor
-	errors             *parseErrors
-	helper             *parserHelper
-	macros             map[string]Macro
-	maxRecursionDepth  int
-	errorRecoveryLimit int
+	errors                           *parseErrors
+	helper                           *parserHelper
+	macros                           map[string]Macro
+	maxRecursionDepth                int
+	errorRecoveryLimit               int
+	errorRecoveryLookaheadTokenLimit int
 }
 
 var (
@@ -298,15 +330,18 @@ func (p *parser) parse(expr runes.Buffer, desc string) *exprpb.Expr {
 	prsr.AddParseListener(prsrListener)
 
 	prsr.SetErrorHandler(&recoveryLimitErrorStrategy{
-		DefaultErrorStrategy: antlr.NewDefaultErrorStrategy(),
-		maxAttempts:          p.errorRecoveryLimit,
+		DefaultErrorStrategy:             antlr.NewDefaultErrorStrategy(),
+		errorRecoveryLimit:               p.errorRecoveryLimit,
+		errorRecoveryTokenLookaheadLimit: p.errorRecoveryLookaheadTokenLimit,
 	})
 
 	defer func() {
 		if val := recover(); val != nil {
 			switch err := val.(type) {
+			case *lookaheadLimitError:
+				p.errors.ReportError(common.NoLocation, err.Error())
 			case *recursionError:
-				p.errors.ReportError(common.NoLocation, "%s", err.message)
+				p.errors.ReportError(common.NoLocation, err.Error())
 			case *recoveryLimitError:
 				// do nothing, listeners already notified and error reported.
 			default:
