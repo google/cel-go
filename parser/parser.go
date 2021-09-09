@@ -66,6 +66,7 @@ func NewParser(opts ...Option) (*Parser, error) {
 	if p.expressionSizeCodePointLimit == -1 {
 		p.expressionSizeCodePointLimit = int((^uint(0)) >> 1)
 	}
+	// Bool is false by default, so populateMacroCalls will be false by default
 	return p, nil
 }
 
