@@ -4,8 +4,6 @@ sh_test(
     args = [
         "$(location @com_google_cel_spec//tests/simple:simple_test)",
         "--server=$(location //server/main:cel_server)",
-        "--skip_test=comparisons/eq_literal/not_eq_list_false_vs_types,not_eq_map_false_vs_types",
-        "--skip_test=comparisons/in_map_literal/key_in_mixed_key_type_map_error",
         "--skip_test=dynamic/int32/field_assign_proto2_range,field_assign_proto3_range",
         "--skip_test=dynamic/uint32/field_assign_proto2_range,field_assign_proto3_range",
         "--skip_test=dynamic/float/field_assign_proto2_range,field_assign_proto3_range",

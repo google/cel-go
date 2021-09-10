@@ -17,6 +17,7 @@ package types
 import (
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -40,47 +41,47 @@ type testStruct struct {
 
 func TestDynamicMapContains(t *testing.T) {
 	reg := newTestRegistry(t)
-	mapValue := NewDynamicMap(reg, map[string]map[int32]float32{
+	mapVal := NewDynamicMap(reg, map[string]map[int32]float32{
 		"nested": {1: -1.0, 2: 2.0},
 		"empty":  {}}).(traits.Mapper)
-	if mapValue.Contains(String("nested")) != True {
-		t.Error("Expected key 'nested' contained in map.")
+	if mapVal.Contains(String("nested")) != True {
+		t.Error("mapVal.Contains('nested') got false, wanted true")
 	}
-	if mapValue.Contains(String("unknown")) != False {
-		t.Error("Expected key 'unknown' not contained in map.")
+	if mapVal.Contains(String("unknown")) != False {
+		t.Error("mapVal.Contains('unknown') got true, wanted false")
 	}
-	if !IsError(mapValue.Contains(Int(123))) {
-		t.Error("Expected key of Int type would error with 'no such overload'.")
+	if !IsError(mapVal.Contains(Int(123))) {
+		t.Error("mapVal.Contains(123) expected error")
 	}
-	if !reflect.DeepEqual(mapValue.Contains(Unknown{1}), Unknown{1}) {
-		t.Error("Expected Unknown key in would yield Unknown key out.")
+	if !reflect.DeepEqual(mapVal.Contains(Unknown{1}), Unknown{1}) {
+		t.Error("mapVal.Contains(Unknown) did not return unknown input.")
 	}
 }
 
 func TestStringMapContains(t *testing.T) {
 	reg := newTestRegistry(t)
-	mapValue := NewStringStringMap(reg, map[string]string{
+	mapVal := NewStringStringMap(reg, map[string]string{
 		"first":  "hello",
 		"second": "world"}).(traits.Mapper)
-	if mapValue.Contains(String("first")) != True {
-		t.Error("Expected key 'first' contained in map.")
+	if mapVal.Contains(String("first")) != True {
+		t.Error("mapVal.Contains('first') did not return true")
 	}
-	if mapValue.Contains(String("third")) != False {
-		t.Error("Expected key 'third' not contained in map.")
+	if mapVal.Contains(String("third")) != False {
+		t.Error("mapVal.Contains('third') did not return false")
 	}
-	if !IsError(mapValue.Contains(Int(123))) {
-		t.Error("Expected key of Int type would error with 'no such overload'.")
+	if !IsError(mapVal.Contains(Int(123))) {
+		t.Error("mapVal.Contains(123) did not error, wanted 'unsupported key type: int'.")
 	}
-	if !reflect.DeepEqual(mapValue.Contains(Unknown{1}), Unknown{1}) {
-		t.Error("Expected Unknown key in would yield Unknown key out.")
+	if !reflect.DeepEqual(mapVal.Contains(Unknown{1}), Unknown{1}) {
+		t.Error("mapVal.Contains(Unknown) did not return unknown out.")
 	}
 }
 
 func TestDynamicMapConvertToNative_Any(t *testing.T) {
 	reg := newTestRegistry(t)
-	mapValue := NewDynamicMap(reg, map[string]map[string]float32{
+	mapVal := NewDynamicMap(reg, map[string]map[string]float32{
 		"nested": {"1": -1.0}})
-	val, err := mapValue.ConvertToNative(anyValueType)
+	val, err := mapVal.ConvertToNative(anyValueType)
 	if err != nil {
 		t.Error(err)
 	}
@@ -100,19 +101,19 @@ func TestDynamicMapConvertToNative_Any(t *testing.T) {
 
 func TestDynamicMapConvertToNative_Error(t *testing.T) {
 	reg := newTestRegistry(t)
-	mapValue := NewDynamicMap(reg, map[string]map[string]float32{
+	mapVal := NewDynamicMap(reg, map[string]map[string]float32{
 		"nested": {"1": -1.0}})
-	val, err := mapValue.ConvertToNative(reflect.TypeOf(""))
+	val, err := mapVal.ConvertToNative(reflect.TypeOf(""))
 	if err == nil {
-		t.Errorf("Got '%v', expected error", val)
+		t.Errorf("mapVal.ConvertToNative(string) got '%v', expected error", val)
 	}
 }
 
 func TestDynamicMapConvertToNative_Json(t *testing.T) {
 	reg := newTestRegistry(t)
-	mapValue := NewDynamicMap(reg, map[string]map[string]float32{
+	mapVal := NewDynamicMap(reg, map[string]map[string]float32{
 		"nested": {"1": -1.0}})
-	json, err := mapValue.ConvertToNative(jsonValueType)
+	json, err := mapVal.ConvertToNative(jsonValueType)
 	if err != nil {
 		t.Error(err)
 	}
@@ -128,44 +129,44 @@ func TestDynamicMapConvertToNative_Json(t *testing.T) {
 
 func TestDynamicMapConvertToNative_Struct(t *testing.T) {
 	reg := newTestRegistry(t)
-	mapValue := NewDynamicMap(reg, map[string]interface{}{
+	mapVal := NewDynamicMap(reg, map[string]interface{}{
 		"m":       "hello",
 		"details": []string{"world", "universe"},
 	})
-	ts, err := mapValue.ConvertToNative(reflect.TypeOf(testStruct{}))
+	ts, err := mapVal.ConvertToNative(reflect.TypeOf(testStruct{}))
 	if err != nil {
 		t.Error(err)
 	}
 	want := testStruct{M: "hello", Details: []string{"world", "universe"}}
 	if !reflect.DeepEqual(ts, want) {
-		t.Errorf("Got %v, wanted %v", ts, want)
+		t.Errorf("mapVal.ConvertToNative(struct) got %v, wanted %v", ts, want)
 	}
 }
 
 func TestDynamicMapConvertToNative_StructPtr(t *testing.T) {
 	reg := newTestRegistry(t)
-	mapValue := NewDynamicMap(reg, map[string]interface{}{
+	mapVal := NewDynamicMap(reg, map[string]interface{}{
 		"m":       "hello",
 		"details": []string{"world", "universe"},
 	})
-	ts, err := mapValue.ConvertToNative(reflect.TypeOf(&testStruct{}))
+	ts, err := mapVal.ConvertToNative(reflect.TypeOf(&testStruct{}))
 	if err != nil {
 		t.Error(err)
 	}
 	want := &testStruct{M: "hello", Details: []string{"world", "universe"}}
 	if !reflect.DeepEqual(ts, want) {
-		t.Errorf("Got %v, wanted %v", ts, want)
+		t.Errorf("mapVal.ConvertToNative(struct) got %v, wanted %v", ts, want)
 	}
 }
 
 func TestDynamicMapConvertToNative_StructPtrPtr(t *testing.T) {
 	reg := newTestRegistry(t)
-	mapValue := NewDynamicMap(reg, map[string]interface{}{
+	mapVal := NewDynamicMap(reg, map[string]interface{}{
 		"m":       "hello",
 		"details": []string{"world", "universe"},
 	})
 	ptr := &testStruct{}
-	ts, err := mapValue.ConvertToNative(reflect.TypeOf(&ptr))
+	ts, err := mapVal.ConvertToNative(reflect.TypeOf(&ptr))
 	if err == nil {
 		t.Errorf("Got %v, wanted error", ts)
 	}
@@ -173,40 +174,40 @@ func TestDynamicMapConvertToNative_StructPtrPtr(t *testing.T) {
 
 func TestDynamicMapConvertToNative_Struct_InvalidFieldError(t *testing.T) {
 	reg := newTestRegistry(t)
-	mapValue := NewDynamicMap(reg, map[string]interface{}{
+	mapVal := NewDynamicMap(reg, map[string]interface{}{
 		"m":       "hello",
 		"details": []string{"world", "universe"},
 		"invalid": "invalid field",
 	})
-	ts, err := mapValue.ConvertToNative(reflect.TypeOf(&testStruct{}))
+	ts, err := mapVal.ConvertToNative(reflect.TypeOf(&testStruct{}))
 	if err == nil {
-		t.Errorf("Got %v, wanted error", ts)
+		t.Errorf("mapVal.ConvertToNative(struct) got %v, wanted error", ts)
 	}
 }
 
 func TestDynamicMapConvertToNative_Struct_EmptyFieldError(t *testing.T) {
 	reg := newTestRegistry(t)
-	mapValue := NewDynamicMap(reg, map[string]interface{}{
+	mapVal := NewDynamicMap(reg, map[string]interface{}{
 		"m":       "hello",
 		"details": []string{"world", "universe"},
 		"":        "empty field",
 	})
-	ts, err := mapValue.ConvertToNative(reflect.TypeOf(&testStruct{}))
+	ts, err := mapVal.ConvertToNative(reflect.TypeOf(&testStruct{}))
 	if err == nil {
-		t.Errorf("Got %v, wanted error", ts)
+		t.Errorf("mapVal.ConvertToNative(struct) got %v, wanted error", ts)
 	}
 }
 
 func TestDynamicMapConvertToNative_Struct_PrivateFieldError(t *testing.T) {
 	reg := newTestRegistry(t)
-	mapValue := NewDynamicMap(reg, map[string]interface{}{
+	mapVal := NewDynamicMap(reg, map[string]interface{}{
 		"message": "hello",
 		"details": []string{"world", "universe"},
 		"private": "private field",
 	})
-	ts, err := mapValue.ConvertToNative(reflect.TypeOf(&testStruct{}))
+	ts, err := mapVal.ConvertToNative(reflect.TypeOf(&testStruct{}))
 	if err == nil {
-		t.Errorf("Got %v, wanted error", ts)
+		t.Errorf("mapVal.ConvertToNative(struct) got %v, wanted error", ts)
 	}
 }
 
@@ -216,24 +217,24 @@ func TestStringMapConvertToNative(t *testing.T) {
 		"first":  "hello",
 		"second": "world",
 	}
-	mapValue := NewStringStringMap(reg, strMap)
-	val, err := mapValue.ConvertToNative(reflect.TypeOf(strMap))
+	mapVal := NewStringStringMap(reg, strMap)
+	val, err := mapVal.ConvertToNative(reflect.TypeOf(strMap))
 	if err != nil {
-		t.Fatalf("ConvertToNative(map[string]string) failed: %v", err)
+		t.Fatalf("mapVal.ConvertToNative(map[string]string) failed: %v", err)
 	}
 	if !reflect.DeepEqual(val.(map[string]string), strMap) {
 		t.Errorf("got not-equal, wanted equal for %v == %v", val, strMap)
 	}
-	val, err = mapValue.ConvertToNative(reflect.TypeOf(mapValue))
+	val, err = mapVal.ConvertToNative(reflect.TypeOf(mapVal))
 	if err != nil {
-		t.Fatalf("ConvertToNative(baseMap) failed: %v", err)
+		t.Fatalf("mapVal.ConvertToNative(baseMap) failed: %v", err)
 	}
-	if !reflect.DeepEqual(val, mapValue) {
-		t.Errorf("got not-equal, wanted equal for %v == %v", val, mapValue)
+	if !reflect.DeepEqual(val, mapVal) {
+		t.Errorf("got not-equal, wanted equal for %v == %v", val, mapVal)
 	}
-	jsonVal, err := mapValue.ConvertToNative(jsonStructType)
+	jsonVal, err := mapVal.ConvertToNative(jsonStructType)
 	if err != nil {
-		t.Fatalf("ConvertToNative(jsonStructType) failed: %v", err)
+		t.Fatalf("mapVal.ConvertToNative(jsonStructType) failed: %v", err)
 	}
 	jsonBytes, err := protojson.Marshal(jsonVal.(proto.Message))
 	if err != nil {
@@ -255,170 +256,261 @@ func TestStringMapConvertToNative(t *testing.T) {
 
 func TestDynamicMapConvertToType(t *testing.T) {
 	reg := newTestRegistry(t)
-	mapValue := NewDynamicMap(reg, map[string]string{"key": "value"})
-	if mapValue.ConvertToType(MapType) != mapValue {
-		t.Error("Map could not be converted to a map.")
+	mapVal := NewDynamicMap(reg, map[string]string{"key": "value"})
+	if mapVal.ConvertToType(MapType) != mapVal {
+		t.Error("mapVal.ConvertToType(MapType) could not be converted to a map.")
 	}
-	if mapValue.ConvertToType(TypeType) != MapType {
-		t.Error("Map type was not listed as a map.")
+	if mapVal.ConvertToType(TypeType) != MapType {
+		t.Error("mapVal.ConvertToType(TypeType) did not return a map type.")
 	}
-	if !IsError(mapValue.ConvertToType(ListType)) {
-		t.Error("Map conversion to unsupported type was not an error.")
+	if !IsError(mapVal.ConvertToType(ListType)) {
+		t.Error("mapVal.ConvertToType(ListType) returned a non-error.")
 	}
 }
 
 func TestStringMapConvertToType(t *testing.T) {
 	reg := newTestRegistry(t)
-	mapValue := reg.NativeToValue(map[string]string{"key": "value"})
-	if mapValue.ConvertToType(MapType) != mapValue {
-		t.Error("Map could not be converted to a map.")
+	mapVal := reg.NativeToValue(map[string]string{"key": "value"})
+	if mapVal.ConvertToType(MapType) != mapVal {
+		t.Error("mapVal.ConvertToType(MapType) could not be converted to a map.")
 	}
-	if mapValue.ConvertToType(TypeType) != MapType {
-		t.Error("Map type was not listed as a map.")
+	if mapVal.ConvertToType(TypeType) != MapType {
+		t.Error("mapVal.ConvertToType(TypeType) did not return the map type.")
 	}
-	if !IsError(mapValue.ConvertToType(ListType)) {
-		t.Error("Map conversion to unsupported type was not an error.")
+	if !IsError(mapVal.ConvertToType(ListType)) {
+		t.Error("mapVal.ConvertToType(ListType) did not error.")
 	}
 }
 
 func TestDynamicMapEqual_True(t *testing.T) {
 	reg := newTestRegistry(t)
-	mapValue := NewDynamicMap(reg, map[string]map[int32]float32{
+	mapVal := NewDynamicMap(reg, map[string]map[int32]float32{
 		"nested": {1: -1.0, 2: 2.0},
 		"empty":  {}})
-	if mapValue.Equal(mapValue) != True {
-		t.Error("Map value was not equal to itself")
+	if mapVal.Equal(mapVal) != True {
+		t.Error("mapVal.Equal(mapVal) did not return true")
 	}
-	if nestedVal := mapValue.Get(String("nested")); IsError(nestedVal) {
+	if nestedVal := mapVal.Get(String("nested")); IsError(nestedVal) {
 		t.Error(nestedVal)
-	} else if mapValue.Equal(nestedVal) == True ||
-		nestedVal.Equal(mapValue) == True {
+	} else if mapVal.Equal(nestedVal) == True ||
+		nestedVal.Equal(mapVal) == True {
 		t.Error("Same length, but different key names did not result in error")
 	}
 }
 
 func TestStringMapEqual_True(t *testing.T) {
 	reg := newTestRegistry(t)
-	mapValue := NewStringStringMap(reg, map[string]string{
+	mapVal := NewStringStringMap(reg, map[string]string{
 		"first":  "hello",
 		"second": "world"})
-	if mapValue.Equal(mapValue) != True {
-		t.Error("Map value was not equal to itself")
+	if mapVal.Equal(mapVal) != True {
+		t.Error("mapVal.Equal(mapVal) did not return true")
 	}
 	equivDyn := NewDynamicMap(reg, map[string]string{
 		"second": "world",
 		"first":  "hello"})
-	if mapValue.Equal(equivDyn) != True {
-		t.Error("Map value equality was key-order dependent")
+	if mapVal.Equal(equivDyn) != True {
+		t.Error("mapVal.Equal(equivDyn) did not return true, and was key-order dependent")
 	}
 	equivJSON := NewJSONStruct(reg, &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			"first":  structpb.NewStringValue("hello"),
 			"second": structpb.NewStringValue("world"),
 		}})
-	if mapValue.Equal(equivJSON) != True && equivJSON.Equal(mapValue) != True {
-		t.Error("Map value was not equivalent to json struct")
+	if mapVal.Equal(equivJSON) != True && equivJSON.Equal(mapVal) != True {
+		t.Error("mapVal.Equal(equivJSON) did not return true")
 	}
 }
 
 func TestDynamicMapEqual_NotTrue(t *testing.T) {
 	reg := newTestRegistry(t)
-	mapValue := NewDynamicMap(reg, map[string]map[int32]float32{
+	mapVal := NewDynamicMap(reg, map[string]map[int32]float32{
 		"nested": {1: -1.0, 2: 2.0},
 		"empty":  {}})
 	other := NewDynamicMap(reg, map[string]map[int64]float64{
 		"nested": {1: -1.0, 2: 2.0, 3: 3.14},
 		"empty":  {}})
-	if mapValue.Equal(other) != False {
-		t.Error("Inequal map values were deemed equal.")
+	if mapVal.Equal(other) != False {
+		t.Error("mapVal.Equal(other) did not return false.")
 	}
 	other = NewDynamicMap(reg, map[string]map[int64]float64{
 		"nested": {1: -1.0, 2: 2.0, 3: 3.14},
 		"absent": {}})
-	if mapValue.Equal(other) != False {
-		t.Error("Inequal map keys were deemed equal.")
+	if mapVal.Equal(other) != False {
+		t.Error("mapVal.Equal(other) did not return false.")
 	}
 }
 
 func TestStringMapEqual_NotTrue(t *testing.T) {
 	reg := newTestRegistry(t)
-	mapValue := NewStringStringMap(reg, map[string]string{
+	mapVal := NewStringStringMap(reg, map[string]string{
 		"first":  "hello",
 		"second": "world"})
-	if mapValue.Equal(mapValue) != True {
-		t.Error("Map value was not equal to itself")
+	if mapVal.Equal(mapVal) != True {
+		t.Error("mapVal.Equal(mapVal) did not return true")
 	}
 	other := NewStringStringMap(reg, map[string]string{
 		"second": "world",
 		"first":  "goodbye"})
-	if mapValue.Equal(other) != False {
-		t.Error("Map of same size with same keys and different values not false")
+	if mapVal.Equal(other) != False {
+		t.Error("mapVal.Equal(other) with same keys and different values did not return false")
 	}
 	other = NewStringStringMap(reg, map[string]string{
 		"first": "hello"})
-	if mapValue.Equal(other) != False {
-		t.Error("Equality between maps of different size did not return false")
+	if mapVal.Equal(other) != False {
+		t.Error("mapVal.Equal(other) between maps of different size did not return false")
 	}
 	other = NewStringStringMap(reg, map[string]string{
 		"first": "hello",
 		"third": "goodbye"})
-	if mapValue.Equal(other) != False {
-		t.Error("Equality between maps of different size did not return false")
+	if mapVal.Equal(other) != False {
+		t.Error("mapVal.Equal(other) between maps with different keys did not return false")
 	}
 	other = NewDynamicMap(reg, map[string]interface{}{
 		"first":  "hello",
 		"second": 1})
-	if !IsError(mapValue.Equal(other)) {
-		t.Error("Equality between maps of different value types did not error")
+	if !IsError(mapVal.Equal(other)) {
+		t.Error("mapVal.Equal(other) between maps with same keys and different value types did not error")
 	}
 }
 
 func TestDynamicMapGet(t *testing.T) {
 	reg := newTestRegistry(t)
-	mapValue := NewDynamicMap(reg, map[string]map[int32]float32{
+	mapVal := NewDynamicMap(reg, map[string]map[int32]float32{
 		"nested": {1: -1.0, 2: 2.0},
 		"empty":  {}}).(traits.Mapper)
-	if nestedVal := mapValue.Get(String("nested")); IsError(nestedVal) {
-		t.Error(nestedVal)
-	} else if floatVal := nestedVal.(traits.Indexer).Get(Int(1)); IsError(floatVal) {
-		t.Error(floatVal)
-	} else if floatVal.Equal(Double(-1.0)) != True {
-		t.Error("Nested map access of float property not float64")
+	nestedVal, ok := mapVal.Get(String("nested")).(traits.Mapper)
+	if !ok {
+		t.Fatalf("mapVal.Get('nested') got %v, wanted map value", mapVal.Get(String("nested")))
 	}
-	e, isError := mapValue.Get(String("absent")).(*Err)
-	if !isError || e.Error() != "no such key: absent" {
-		t.Errorf("Got %v, wanted no such key: absent.", e)
+	floatVal := nestedVal.(traits.Indexer).Get(Int(1))
+	if floatVal.Equal(Double(-1.0)) != True {
+		t.Errorf("nestedVal.Get(1) got %v, wanted -1.0", floatVal)
+	}
+	err := mapVal.Get(String("absent"))
+	if !IsError(err) || err.(*Err).Error() != "no such key: absent" {
+		t.Errorf("mapVal.Get('absent') got %v, wanted no such key: absent.", err)
+	}
+	err = nestedVal.Get(String("bad_key"))
+	if !IsError(err) || err.(*Err).Error() != "unsupported key type: string" {
+		t.Errorf("nestedVal.Get('bad_key') got %v, wanted unsupported key type: string.", err)
+	}
+	empty, ok := mapVal.Get(String("empty")).(traits.Mapper)
+	if !ok {
+		t.Fatalf("mapVal.Get('empty') got %v, wanted empty map", mapVal.Get(String("empty")))
+	}
+	err = empty.Get(String("hello"))
+	if !IsError(err) || err.(*Err).Error() != "no such key: hello" {
+		t.Errorf("empty.Get('hello') got %v, wanted no such key: hello", err)
+	}
+	err = empty.Get(Double(-1.0))
+	if !IsError(err) || err.(*Err).Error() != "no such key: -1" {
+		t.Errorf("empty.Get(-1.0) got %v, wanted no such key: -1", err)
+	}
+}
+
+func TestStringIfaceMapGet(t *testing.T) {
+	reg := newTestRegistry(t)
+	mapVal := NewStringInterfaceMap(reg, map[string]interface{}{
+		"nested": map[int32]float64{1: -1.0, 2: 2.0},
+		"empty":  map[string]interface{}{},
+	}).(traits.Mapper)
+	nestedVal, ok := mapVal.Get(String("nested")).(traits.Mapper)
+	if !ok {
+		t.Fatalf("mapVal.Get('nested') got %v, wanted map value", mapVal.Get(String("nested")))
+	}
+	floatVal := nestedVal.(traits.Indexer).Get(Int(1))
+	if floatVal.Equal(Double(-1.0)) != True {
+		t.Errorf("nestedVal.Get(1) got %v, wanted -1.0", floatVal)
+	}
+	err := mapVal.Get(String("absent"))
+	if !IsError(err) || err.(*Err).Error() != "no such key: absent" {
+		t.Errorf("mapVal.Get('absent') got %v, wanted no such key: absent.", err)
+	}
+	err = nestedVal.Get(String("bad_key"))
+	if !IsError(err) || err.(*Err).Error() != "unsupported key type: string" {
+		t.Errorf("nestedVal.Get('bad_key') got %v, wanted unsupported key type: string.", err)
+	}
+	empty, ok := mapVal.Get(String("empty")).(traits.Mapper)
+	if !ok {
+		t.Fatalf("mapVal.Get('empty') got %v, wanted empty map", mapVal.Get(String("empty")))
+	}
+	err = empty.Get(String("hello"))
+	if !IsError(err) || err.(*Err).Error() != "no such key: hello" {
+		t.Errorf("empty.Get('hello') got %v, wanted no such key: hello", err)
+	}
+	err = empty.Get(Double(-1.0))
+	if !IsError(err) || err.(*Err).Error() != "unsupported key type: double" {
+		t.Errorf("empty.Get(-1.0) got %v, wanted unsupported key type: double", err)
 	}
 }
 
 func TestStringMapGet(t *testing.T) {
 	reg := newTestRegistry(t)
-	mapValue := NewStringStringMap(reg, map[string]string{
+	mapVal := NewStringStringMap(reg, map[string]string{
 		"first":  "hello",
 		"second": "world"}).(traits.Mapper)
-	val := mapValue.Get(String("first"))
+	val := mapVal.Get(String("first"))
 	if val.Equal(String("hello")) != True {
-		t.Errorf("Got '%v', wanted 'hello'", val)
+		t.Errorf("mapVal.Get('first') '%v', wanted 'hello'", val)
 	}
-	if !IsError(mapValue.Get(Int(1))) {
-		t.Error("Got real value, wanted error")
+	if !IsError(mapVal.Get(Int(1))) {
+		t.Error("mapVal.Get(1) got real value, wanted error")
 	}
-	if !IsError(mapValue.Get(String("third"))) {
-		t.Error("Got real value, wanted error")
+	if !IsError(mapVal.Get(String("third"))) {
+		t.Error("mapVal.Get('third') got real value, wanted error")
+	}
+}
+
+func TestRefValMapGet(t *testing.T) {
+	reg := newTestRegistry(t)
+	mapVal := NewRefValMap(reg, map[ref.Val]ref.Val{
+		String("nested"): NewRefValMap(reg, map[ref.Val]ref.Val{
+			Int(1): Double(-1.0), Int(2): Double(2.0),
+		}),
+		String("empty"): NewRefValMap(reg, map[ref.Val]ref.Val{}),
+	}).(traits.Mapper)
+	nestedVal, ok := mapVal.Get(String("nested")).(traits.Mapper)
+	if !ok {
+		t.Fatalf("mapVal.Get('nested') got %v, wanted map value", mapVal.Get(String("nested")))
+	}
+	floatVal := nestedVal.(traits.Indexer).Get(Int(1))
+	if floatVal.Equal(Double(-1.0)) != True {
+		t.Errorf("nestedVal.Get(1) got %v, wanted -1.0", floatVal)
+	}
+	err := mapVal.Get(String("absent"))
+	if !IsError(err) || err.(*Err).Error() != "no such key: absent" {
+		t.Errorf("mapVal.Get('absent') got %v, wanted no such key: absent.", err)
+	}
+	err = nestedVal.Get(String("bad_key"))
+	if !IsError(err) || err.(*Err).Error() != "unsupported key type: string" {
+		t.Errorf("nestedVal.Get('bad_key') got %v, wanted unsupported key type: string.", err)
+	}
+	empty, ok := mapVal.Get(String("empty")).(traits.Mapper)
+	if !ok {
+		t.Fatalf("mapVal.Get('empty') got %v, wanted empty map", mapVal.Get(String("empty")))
+	}
+	err = empty.Get(String("hello"))
+	if !IsError(err) || err.(*Err).Error() != "no such key: hello" {
+		t.Errorf("empty.Get('hello') got %v, wanted no such key: hello", err)
+	}
+	err = empty.Get(Double(-1.0))
+	if !IsError(err) || err.(*Err).Error() != "no such key: -1" {
+		t.Errorf("empty.Get(-1.0) got %v, wanted no such key: -1", err)
 	}
 }
 
 func TestDynamicMapIterator(t *testing.T) {
 	reg := newTestRegistry(t)
-	mapValue := NewDynamicMap(reg, map[string]map[int32]float32{
+	mapVal := NewDynamicMap(reg, map[string]map[int32]float32{
 		"nested": {1: -1.0, 2: 2.0},
 		"empty":  {}}).(traits.Mapper)
-	it := mapValue.Iterator()
+	it := mapVal.Iterator()
 	var i = 0
 	var fieldNames []interface{}
 	for ; it.HasNext() == True; i++ {
 		fieldName := it.Next()
-		if value := mapValue.Get(fieldName); IsError(value) {
+		if value := mapVal.Get(fieldName); IsError(value) {
 			t.Error(value)
 		} else {
 			fieldNames = append(fieldNames, fieldName)
@@ -434,15 +526,15 @@ func TestDynamicMapIterator(t *testing.T) {
 
 func TestStringMapIterator(t *testing.T) {
 	reg := newTestRegistry(t)
-	mapValue := NewStringStringMap(reg, map[string]string{
+	mapVal := NewStringStringMap(reg, map[string]string{
 		"first":  "hello",
 		"second": "world"}).(traits.Mapper)
-	it := mapValue.Iterator()
+	it := mapVal.Iterator()
 	var i = 0
 	var fieldNames []interface{}
 	for ; it.HasNext() == True; i++ {
 		fieldName := it.Next()
-		if value := mapValue.Get(fieldName); IsError(value) {
+		if value := mapVal.Get(fieldName); IsError(value) {
 			t.Error(value)
 		} else {
 			fieldNames = append(fieldNames, fieldName)
@@ -475,21 +567,21 @@ func TestStringMapIterator(t *testing.T) {
 
 func TestDynamicMapSize(t *testing.T) {
 	reg := newTestRegistry(t)
-	mapValue := NewDynamicMap(reg, map[string]int{
+	mapVal := NewDynamicMap(reg, map[string]int{
 		"first":  1,
 		"second": 2}).(traits.Mapper)
-	if mapValue.Size() != Int(2) {
-		t.Errorf("Got '%v', expected 2", mapValue.Size())
+	if mapVal.Size() != Int(2) {
+		t.Errorf("mapVal.Size() got '%v', expected 2", mapVal.Size())
 	}
 }
 
 func TestStringMapSize(t *testing.T) {
 	reg := newTestRegistry(t)
-	mapValue := NewStringStringMap(reg, map[string]string{
+	mapVal := NewStringStringMap(reg, map[string]string{
 		"first":  "hello",
 		"second": "world"}).(traits.Mapper)
-	if mapValue.Size() != Int(2) {
-		t.Errorf("Got '%v', expected 2", mapValue.Size())
+	if mapVal.Size() != Int(2) {
+		t.Errorf("mapVal.Size() got '%v', expected 2", mapVal.Size())
 	}
 }
 
@@ -511,33 +603,33 @@ func TestProtoMap(t *testing.T) {
 	}
 	// CEL type conversion tests.
 	if mapVal.ConvertToType(MapType) != mapVal {
-		t.Errorf("got %v, wanted map type", mapVal.ConvertToType(MapType))
+		t.Errorf("mapVal.ConvertToType(MapType) got %v, wanted map type", mapVal.ConvertToType(MapType))
 	}
 	if mapVal.ConvertToType(TypeType) != MapType {
-		t.Errorf("got %v, wanted type type", mapVal.ConvertToType(TypeType))
+		t.Errorf("mapVal.ConvertToType(TypeType) got %v, wanted type type", mapVal.ConvertToType(TypeType))
 	}
 	conv := mapVal.ConvertToType(ListType)
 	if !IsError(conv) {
-		t.Errorf("ConvertToType(ListType) got %v, wanted error", conv)
+		t.Errorf("mapVal.ConvertToType(ListType) got %v, wanted error", conv)
 	}
 	// Size test
 	if mapVal.Size() != Int(len(strMap)) {
-		t.Errorf("wanted map size %d, got %d", mapVal.Size(), len(strMap))
+		t.Errorf("mapVal.Size() got %d, wanted %d", mapVal.Size(), len(strMap))
 	}
 	// Contains, Find, and Get tests.
 	for k, v := range strMap {
 		if mapVal.Contains(reg.NativeToValue(k)) != True {
-			t.Errorf("missing key: %v", k)
+			t.Errorf("mapVal.Contains() missing key: %v", k)
 		}
 		kv := mapVal.Get(reg.NativeToValue(k))
 		if kv.Equal(reg.NativeToValue(v)) != True {
-			t.Errorf("got key (%v) value %v wanted %v", k, kv, v)
+			t.Errorf("mapVal.Get(%v) got value %v wanted %v", k, kv, v)
 		}
 	}
 	// Equality test
 	refStrMap := reg.NativeToValue(strMap)
 	if refStrMap.Equal(mapVal) != True || mapVal.Equal(refStrMap) != True {
-		t.Errorf("got cel ref.Val %v != ref.Val %v", refStrMap, mapVal)
+		t.Errorf("mapVal.Equal(refStrMap) not equal to itself: ref.Val %v != ref.Val %v", refStrMap, mapVal)
 	}
 	// Iterator test
 	it := mapVal.Iterator()
@@ -548,14 +640,14 @@ func TestProtoMap(t *testing.T) {
 	}
 	mapVal2 := reg.NativeToValue(mapValCopy)
 	if mapVal2.Equal(mapVal) != True || mapVal.Equal(mapVal2) != True {
-		t.Errorf("got cel ref.Val %v != ref.Val %v", mapVal2, mapVal)
+		t.Errorf("mapVal.Equal(copy) not equal to original: cel ref.Val %v != ref.Val %v", mapVal2, mapVal)
 	}
 	convMap, err := mapVal.ConvertToNative(reflect.TypeOf(strMap))
 	if err != nil {
 		t.Fatalf("mapVal.ConvertToNative() failed: %v", err)
 	}
 	if !reflect.DeepEqual(strMap, convMap) {
-		t.Errorf("got map %v, wanted %v", convMap, strMap)
+		t.Errorf("mapVal.ConvertToNative() got map %v, wanted %v", convMap, strMap)
 	}
 	// Inequality tests.
 	strNeMap := map[string]string{
@@ -589,6 +681,35 @@ func TestProtoMap(t *testing.T) {
 	if !IsError(mapNeVal.Equal(mapVal)) || !IsError(mapVal.Equal(mapNeVal)) {
 		t.Error("mapNeVal.Equal(mapVal) returned non-error, wanted error")
 	}
+}
+
+func TestProtoMapGet(t *testing.T) {
+	strMap := map[string]string{
+		"hello":   "world",
+		"goodbye": "for now",
+		"welcome": "back",
+	}
+	msg := &proto3pb.TestAllTypes{MapStringString: strMap}
+	reg := newTestRegistry(t, msg)
+	obj := reg.NativeToValue(msg).(traits.Indexer)
+	field := obj.Get(String("map_string_string"))
+	mapVal, ok := field.(traits.Mapper)
+	if !ok {
+		t.Fatalf("obj.Get(map_string_string) failed: %v", field)
+	}
+	v := mapVal.Get(String("hello"))
+	if v.Equal(String("world")) == False {
+		t.Errorf("mapVal.Get('hello') got %v, wanted 'world'", v)
+	}
+	notFound := mapVal.Get(String("not_found"))
+	if !IsError(notFound) || !strings.Contains(notFound.(*Err).Error(), "no such key") {
+		t.Errorf("mapVal.Get('not_found') got %v, wanted no such key error", notFound)
+	}
+	badKey := mapVal.Get(Int(42))
+	if !IsError(badKey) || !strings.Contains(badKey.(*Err).Error(), "unsupported key type") {
+		t.Errorf("mapVal.Get(42) got %v, wanted no such overload", badKey)
+	}
+
 }
 
 func TestProtoMapConvertToNative(t *testing.T) {

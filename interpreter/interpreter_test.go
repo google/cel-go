@@ -317,6 +317,22 @@ var (
 			name: "in_map",
 			expr: `'other-key' in {'key': null, 'other-key': 42}`,
 			cost: []int64{1, 1},
+			out:  types.True,
+		},
+		{
+			name: "in_heterogeneous_map",
+			expr: `'hello' in {1: 'one', false: true, 'hello': 'world'}`,
+			out:  types.True,
+		},
+		{
+			name: "not_in_heterogeneous_map",
+			expr: `!('hello' in {1: 'one', false: true})`,
+			err:  "unsupported key type: string",
+		},
+		{
+			name: "not_in_heterogeneous_map_with_same_key_type",
+			expr: `!('hello' in {1: 'one', 'world': true})`,
+			out:  types.True,
 		},
 		{
 			name:           "index",
@@ -339,6 +355,16 @@ var (
 			name: "index_relative",
 			expr: `([[[1]], [[2]], [[3]]][0][0] + [2, 3, {'four': {'five': 'six'}}])[3].four.five == 'six'`,
 			cost: []int64{2, 2},
+		},
+		{
+			name: "list_eq_false_with_error",
+			expr: `['string', 1] == [2, 3]`,
+			out:  types.False,
+		},
+		{
+			name: "list_eq_error",
+			expr: `['string', true] == [2, 3]`,
+			err:  "no such overload",
 		},
 		{
 			name: "literal_bool_false",
