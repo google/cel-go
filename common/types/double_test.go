@@ -233,7 +233,7 @@ func TestDoubleConvertToType(t *testing.T) {
 		{
 			name:   "DoubleToUintPosInf",
 			in:     math.Inf(1),
-			toType: IntType,
+			toType: UintType,
 			out:    errUintOverflow,
 		},
 		{
