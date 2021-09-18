@@ -95,14 +95,14 @@ var (
 			expr:           `1/0 != 0 && true`,
 			cost:           []int64{2, 3},
 			exhaustiveCost: []int64{3, 3},
-			err:            "divide by zero",
+			err:            "division by zero",
 		},
 		{
 			name:           "and_error_2nd_error",
 			expr:           `true && 1/0 != 0`,
 			cost:           []int64{0, 3},
 			exhaustiveCost: []int64{3, 3},
-			err:            "divide by zero",
+			err:            "division by zero",
 		},
 		{
 			name:      "call_no_args",
@@ -743,14 +743,14 @@ var (
 			expr:           `1/0 != 0 || false`,
 			cost:           []int64{2, 3},
 			exhaustiveCost: []int64{3, 3},
-			err:            "divide by zero",
+			err:            "division by zero",
 		},
 		{
 			name:           "or_error_2nd_error",
 			expr:           `false || 1/0 != 0`,
 			cost:           []int64{0, 3},
 			exhaustiveCost: []int64{3, 3},
-			err:            "divide by zero",
+			err:            "division by zero",
 		},
 		{
 			name:           "or_error_1st_true",
@@ -1058,7 +1058,7 @@ var (
 					Unary: func(val ref.Val) ref.Val {
 						str, ok := val.(types.String)
 						if !ok {
-							return types.ValOrErr(val, "no such overload")
+							return types.MaybeNoSuchOverloadErr(val)
 						}
 						m := make(map[string]interface{})
 						err := json.Unmarshal([]byte(str), &m)
@@ -1231,7 +1231,7 @@ func TestInterpreter_ProtoAttributeOpt(t *testing.T) {
 		in: map[string]interface{}{
 			"pb3": &proto3pb.TestAllTypes{
 				MapInt64NestedType: map[int64]*proto3pb.NestedTestAllTypes{
-					0: &proto3pb.NestedTestAllTypes{
+					0: {
 						Child: &proto3pb.NestedTestAllTypes{
 							Payload: &proto3pb.TestAllTypes{
 								SingleInt32: 1,

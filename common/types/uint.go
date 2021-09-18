@@ -16,7 +16,6 @@ package types
 
 import (
 	"fmt"
-	"math"
 	"reflect"
 	"strconv"
 
@@ -55,19 +54,20 @@ const (
 func (i Uint) Add(other ref.Val) ref.Val {
 	otherUint, ok := other.(Uint)
 	if !ok {
-		return ValOrErr(other, "no such overload")
+		return MaybeNoSuchOverloadErr(other)
 	}
-	if val, ok := addUint64Checked(uint64(i), uint64(otherUint)); ok {
+	if val, err := addUint64Checked(uint64(i), uint64(otherUint)); err != nil {
+		return wrapErr(err)
+	} else {
 		return Uint(val)
 	}
-	return errUintOverflow
 }
 
 // Compare implements traits.Comparer.Compare.
 func (i Uint) Compare(other ref.Val) ref.Val {
 	otherUint, ok := other.(Uint)
 	if !ok {
-		return ValOrErr(other, "no such overload")
+		return MaybeNoSuchOverloadErr(other)
 	}
 	if i < otherUint {
 		return IntNegOne
@@ -81,7 +81,13 @@ func (i Uint) Compare(other ref.Val) ref.Val {
 // ConvertToNative implements ref.Val.ConvertToNative.
 func (i Uint) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	switch typeDesc.Kind() {
-	case reflect.Uint, reflect.Uint32, reflect.Uint64:
+	case reflect.Uint, reflect.Uint32:
+		v, err := uint64ToUint32Checked(uint64(i))
+		if err != nil {
+			return 0, err
+		}
+		return reflect.ValueOf(v).Convert(typeDesc).Interface(), nil
+	case reflect.Uint64:
 		return reflect.ValueOf(i).Convert(typeDesc).Interface(), nil
 	case reflect.Ptr:
 		switch typeDesc {
@@ -97,15 +103,22 @@ func (i Uint) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 			// since the conversion to floating point would result in truncation.
 			return structpb.NewStringValue(strconv.FormatUint(uint64(i), 10)), nil
 		case uint32WrapperType:
-			// Convert the value to a wrapperspb.UInt32Value (with truncation).
-			return wrapperspb.UInt32(uint32(i)), nil
+			// Convert the value to a wrapperspb.UInt32Value, error on overflow.
+			v, err := uint64ToUint32Checked(uint64(i))
+			if err != nil {
+				return 0, err
+			}
+			return wrapperspb.UInt32(v), nil
 		case uint64WrapperType:
 			// Convert the value to a wrapperspb.UInt64Value.
 			return wrapperspb.UInt64(uint64(i)), nil
 		}
 		switch typeDesc.Elem().Kind() {
 		case reflect.Uint32:
-			v := uint32(i)
+			v, err := uint64ToUint32Checked(uint64(i))
+			if err != nil {
+				return 0, err
+			}
 			p := reflect.New(typeDesc.Elem())
 			p.Elem().Set(reflect.ValueOf(v).Convert(typeDesc.Elem()))
 			return p.Interface(), nil
@@ -131,10 +144,11 @@ func (i Uint) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 func (i Uint) ConvertToType(typeVal ref.Type) ref.Val {
 	switch typeVal {
 	case IntType:
-		if i > math.MaxInt64 {
-			return NewErr("range error converting %d to int", i)
+		if v, err := uint64ToInt64Checked(uint64(i)); err != nil {
+			return wrapErr(err)
+		} else {
+			return Int(v)
 		}
-		return Int(i)
 	case UintType:
 		return i
 	case DoubleType:
@@ -151,19 +165,20 @@ func (i Uint) ConvertToType(typeVal ref.Type) ref.Val {
 func (i Uint) Divide(other ref.Val) ref.Val {
 	otherUint, ok := other.(Uint)
 	if !ok {
-		return ValOrErr(other, "no such overload")
+		return MaybeNoSuchOverloadErr(other)
 	}
-	if otherUint == uintZero {
-		return NewErr("divide by zero")
+	if div, err := divideUint64Checked(uint64(i), uint64(otherUint)); err != nil {
+		return wrapErr(err)
+	} else {
+		return Uint(div)
 	}
-	return i / otherUint
 }
 
 // Equal implements ref.Val.Equal.
 func (i Uint) Equal(other ref.Val) ref.Val {
 	otherUint, ok := other.(Uint)
 	if !ok {
-		return ValOrErr(other, "no such overload")
+		return MaybeNoSuchOverloadErr(other)
 	}
 	return Bool(i == otherUint)
 }
@@ -172,36 +187,39 @@ func (i Uint) Equal(other ref.Val) ref.Val {
 func (i Uint) Modulo(other ref.Val) ref.Val {
 	otherUint, ok := other.(Uint)
 	if !ok {
-		return ValOrErr(other, "no such overload")
+		return MaybeNoSuchOverloadErr(other)
 	}
-	if otherUint == uintZero {
-		return NewErr("modulus by zero")
+	if mod, err := moduloUint64Checked(uint64(i), uint64(otherUint)); err != nil {
+		return wrapErr(err)
+	} else {
+		return Uint(mod)
 	}
-	return i % otherUint
 }
 
 // Multiply implements traits.Multiplier.Multiply.
 func (i Uint) Multiply(other ref.Val) ref.Val {
 	otherUint, ok := other.(Uint)
 	if !ok {
-		return ValOrErr(other, "no such overload")
+		return MaybeNoSuchOverloadErr(other)
 	}
-	if val, ok := multiplyUint64Checked(uint64(i), uint64(otherUint)); ok {
+	if val, err := multiplyUint64Checked(uint64(i), uint64(otherUint)); err != nil {
+		return wrapErr(err)
+	} else {
 		return Uint(val)
 	}
-	return errUintOverflow
 }
 
 // Subtract implements traits.Subtractor.Subtract.
 func (i Uint) Subtract(subtrahend ref.Val) ref.Val {
 	subtraUint, ok := subtrahend.(Uint)
 	if !ok {
-		return ValOrErr(subtrahend, "no such overload")
+		return MaybeNoSuchOverloadErr(subtrahend)
 	}
-	if val, ok := subtractUint64Checked(uint64(i), uint64(subtraUint)); ok {
+	if val, err := subtractUint64Checked(uint64(i), uint64(subtraUint)); err != nil {
+		return wrapErr(err)
+	} else {
 		return Uint(val)
 	}
-	return errUintOverflow
 }
 
 // Type implements ref.Val.Type.

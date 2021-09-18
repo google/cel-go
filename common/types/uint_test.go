@@ -15,10 +15,13 @@
 package types
 
 import (
+	"errors"
 	"math"
 	"reflect"
+	"strings"
 	"testing"
 
+	"github.com/google/cel-go/common/types/ref"
 	"google.golang.org/protobuf/proto"
 
 	anypb "google.golang.org/protobuf/types/known/anypb"
@@ -90,11 +93,27 @@ func TestUint_ConvertToNative_Json(t *testing.T) {
 	}
 
 	// Value converts to a JSON decimal string
-	val, err = Int(maxIntJSON + 1).ConvertToNative(jsonValueType)
+	val, err = Uint(maxIntJSON + 1).ConvertToNative(jsonValueType)
 	if err != nil {
 		t.Error(err)
 	} else if !proto.Equal(val.(proto.Message), structpb.NewStringValue("9007199254740992")) {
 		t.Errorf("Got '%v', expected a json string for a 64-bit uint", val)
+	}
+}
+
+func TestUintConvertToNative_Uint32(t *testing.T) {
+	val, err := Uint(20050).ConvertToNative(reflect.TypeOf(uint32(0)))
+	if err != nil {
+		t.Fatalf("Uint.ConvertToNative(uint32) failed: %v", err)
+	}
+	if val.(uint32) != 20050 {
+		t.Errorf("Got '%v', expected 20050", val)
+	}
+	val, err = Uint(math.MaxUint32 + 1).ConvertToNative(reflect.TypeOf(uint32(0)))
+	if err == nil {
+		t.Errorf("(MaxUint+1).ConvertToNative(uint32) did not error, got: %v", val)
+	} else if !strings.Contains(err.Error(), "unsigned integer overflow") {
+		t.Errorf("ConvertToNative(uint32) returned unexpected error: %v, wanted unsigned integer overflow", err)
 	}
 }
 
@@ -139,26 +158,68 @@ func TestUint_ConvertToNative_Wrapper(t *testing.T) {
 }
 
 func TestUint_ConvertToType(t *testing.T) {
-	if !IsError(Uint(18446744073709551612).ConvertToType(IntType)) {
-		t.Error("Got int, expected error")
+	tests := []struct {
+		name   string
+		in     uint64
+		toType ref.Type
+		out    interface{}
+	}{
+		{
+			name:   "UintToUint",
+			in:     uint64(4),
+			toType: UintType,
+			out:    uint64(4),
+		},
+		{
+			name:   "UintToType",
+			in:     uint64(4),
+			toType: TypeType,
+			out:    UintType.TypeName(),
+		},
+		{
+			name:   "UintToInt",
+			in:     uint64(4),
+			toType: IntType,
+			out:    int64(4),
+		},
+		{
+			name:   "UintToIntOverflow",
+			in:     uint64(math.MaxInt64) + 1,
+			toType: IntType,
+			out:    errIntOverflow,
+		},
+		{
+			name:   "UintToDouble",
+			in:     uint64(4),
+			toType: DoubleType,
+			out:    float64(4),
+		},
+		{
+			name:   "UintToString",
+			in:     uint64(4),
+			toType: StringType,
+			out:    "4",
+		},
+		{
+			name:   "UintToUnsupportedType",
+			in:     uint64(4),
+			toType: MapType,
+			out:    errors.New("type conversion error"),
+		},
 	}
-	if !Uint(4).ConvertToType(IntType).Equal(Int(4)).(Bool) {
-		t.Error("Unsuccessful type conversion to int")
-	}
-	if !Uint(4).ConvertToType(UintType).Equal(Uint(4)).(Bool) {
-		t.Error("Unsuccessful type conversion to uint")
-	}
-	if !Uint(4).ConvertToType(DoubleType).Equal(Double(4)).(Bool) {
-		t.Error("Unsuccessful type conversion to double")
-	}
-	if !Uint(4).ConvertToType(StringType).Equal(String("4")).(Bool) {
-		t.Error("Unsuccessful type conversion to string")
-	}
-	if !Uint(4).ConvertToType(TypeType).Equal(UintType).(Bool) {
-		t.Error("Unsuccessful type conversion to type")
-	}
-	if !IsError(Uint(4).ConvertToType(MapType)) {
-		t.Error("Unsupported uint type conversion resulted in value")
+	for _, tst := range tests {
+		got := Uint(tst.in).ConvertToType(tst.toType).Value()
+		var eq bool
+		switch gotVal := got.(type) {
+		case error:
+			eq = strings.Contains(gotVal.Error(), tst.out.(error).Error())
+		default:
+			eq = reflect.DeepEqual(gotVal, tst.out)
+		}
+		if !eq {
+			t.Errorf("Uint(%v).ConvertToType(%v) failed, got: %v, wanted: %v",
+				tst.in, tst.toType, got, tst.out)
+		}
 	}
 }
 
