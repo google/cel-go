@@ -195,6 +195,18 @@ func TestDoubleConvertToType(t *testing.T) {
 			out:    int64(4),
 		},
 		{
+			name:   "DoubleToIntNaN",
+			in:     math.NaN(),
+			toType: IntType,
+			out:    errIntOverflow,
+		},
+		{
+			name:   "DoubleToIntPosInf",
+			in:     math.Inf(1),
+			toType: IntType,
+			out:    errIntOverflow,
+		},
+		{
 			name:   "DoubleToIntPosOverflow",
 			in:     float64(math.MaxInt64),
 			toType: IntType,
@@ -211,6 +223,18 @@ func TestDoubleConvertToType(t *testing.T) {
 			in:     float64(4.7),
 			toType: UintType,
 			out:    uint64(4),
+		},
+		{
+			name:   "DoubleToUintNaN",
+			in:     math.NaN(),
+			toType: UintType,
+			out:    errUintOverflow,
+		},
+		{
+			name:   "DoubleToUintPosInf",
+			in:     math.Inf(1),
+			toType: IntType,
+			out:    errUintOverflow,
 		},
 		{
 			name:   "DoubleToUintPosOverflow",

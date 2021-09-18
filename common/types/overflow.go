@@ -300,7 +300,7 @@ func subtractTimeDurationChecked(x time.Time, y time.Duration) (time.Time, error
 //
 // If the conversion fails due to overflow the error return value will be non-nil.
 func doubleToInt64Checked(v float64) (int64, error) {
-	if math.IsInf(v, 0) || v <= float64(math.MinInt64) || v >= float64(math.MaxInt64) {
+	if math.IsInf(v, 0) || math.IsNaN(v) || v <= float64(math.MinInt64) || v >= float64(math.MaxInt64) {
 		return 0, errIntOverflow
 	}
 	return int64(v), nil
@@ -310,7 +310,7 @@ func doubleToInt64Checked(v float64) (int64, error) {
 //
 // If the conversion fails due to overflow the error return value will be non-nil.
 func doubleToUint64Checked(v float64) (uint64, error) {
-	if math.IsInf(v, 0) || v < 0 || v >= doubleTwoTo64 {
+	if math.IsInf(v, 0) || math.IsNaN(v) || v < 0 || v >= doubleTwoTo64 {
 		return 0, errUintOverflow
 	}
 	return uint64(v), nil
@@ -340,7 +340,7 @@ func int64ToInt32Checked(v int64) (int32, error) {
 //
 // If the conversion fails due to overflow the error return value will be non-nil.
 func uint64ToUint32Checked(v uint64) (uint32, error) {
-	if v < 0 || v > math.MaxUint32 {
+	if v > math.MaxUint32 {
 		return 0, errUintOverflow
 	}
 	return uint32(v), nil
