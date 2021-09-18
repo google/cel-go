@@ -69,7 +69,7 @@ func TestBaseListContains_NonBool(t *testing.T) {
 		t.Error("List contains succeeded with wrong type")
 	}
 	if !reflect.DeepEqual(list.Contains(Unknown{1}), Unknown{1}) {
-		t.Error("List ")
+		t.Error("list.Contains(unknown) did not return unknown input")
 	}
 }
 
@@ -132,10 +132,25 @@ func TestBaseListConvertToType(t *testing.T) {
 }
 
 func TestBaseListEqual(t *testing.T) {
-	listA := NewDynamicList(newTestRegistry(t), []string{"h", "e", "l", "l", "o"})
-	listB := NewDynamicList(newTestRegistry(t), []string{"h", "e", "l", "p", "!"})
+	reg := newTestRegistry(t)
+	listA := NewDynamicList(reg, []string{"h", "e", "l", "l", "o"})
+	if listA.Equal(listA) != True {
+		t.Error("listA.Equal(listA) did not return true.")
+	}
+	listB := NewDynamicList(reg, []string{"h", "e", "l", "p", "!"})
 	if listA.Equal(listB) != False {
-		t.Error("Lists with different contents returned equal.")
+		t.Error("listA.Equal(listB) did not return false.")
+	}
+	listC := reg.NativeToValue([]interface{}{"h", "e", "l", "l", String("o")})
+	if listA.Equal(listC) != True {
+		t.Error("listA.Equal(listC) did not return true.")
+	}
+	listD := reg.NativeToValue([]interface{}{"h", "e", 1, "p", "!"})
+	if listA.Equal(listD) != False {
+		t.Error("listA.Equal(listD) did not return true")
+	}
+	if !IsError(listB.Equal(listD)) {
+		t.Error("listA.Equal(listD) did not error on single element type difference")
 	}
 }
 
@@ -320,27 +335,30 @@ func TestConcatListContains_NonBool(t *testing.T) {
 	}
 }
 
-func TestConcatListValue_Equal(t *testing.T) {
+func TestConcatListEqual(t *testing.T) {
 	reg := newTestRegistry(t)
 	listA := NewDynamicList(reg, []float32{1.0, 2.0})
 	listB := NewDynamicList(reg, []float64{3.0})
 	list := listA.Add(listB)
 	// Note the internal type of list raw and concat list are slightly different.
-	listRaw := NewDynamicList(reg, []interface{}{
-		float32(1.0), float64(2.0), float64(3.0)})
-	if listRaw.Equal(list) != True ||
-		list.Equal(listRaw) != True {
-		t.Errorf("Concat list and raw list were not equal, got '%v', expected '%v'",
-			list.Value(),
-			listRaw.Value())
+	listRaw := NewDynamicList(reg, []interface{}{float32(1.0), float64(2.0), float64(3.0)})
+	if listRaw.Equal(list) != True || list.Equal(listRaw) != True {
+		t.Errorf("listRaw.Equal(list) not true, got '%v', expected '%v'", list.Value(), listRaw.Value())
 	}
-	if list.Equal(listA) == True ||
-		listRaw.Equal(listA) == True {
-		t.Errorf("Lists of unequal length considered equal")
+	if list.Equal(listA) == True || listRaw.Equal(listA) == True {
+		t.Error("lists of unequal length considered equal")
+	}
+	listC := reg.NativeToValue([]interface{}{1.0, 3.0, 2.0})
+	if list.Equal(listC) != False {
+		t.Errorf("list.Equal(listC) got %v, wanted false", list.Equal(listC))
+	}
+	listD := reg.NativeToValue([]interface{}{1, 2.0, 3.0})
+	if !IsError(list.Equal(listD)) {
+		t.Errorf("list.Equal(listD) got %v, wanted error", list.Equal(listD))
 	}
 }
 
-func TestConcatListValue_Get(t *testing.T) {
+func TestConcatListGet(t *testing.T) {
 	reg := newTestRegistry(t)
 	listA := NewDynamicList(reg, []float32{1.0, 2.0})
 	listB := NewDynamicList(reg, []float64{3.0})
@@ -358,7 +376,7 @@ func TestConcatListValue_Get(t *testing.T) {
 	}
 }
 
-func TestConcatListValue_Iterator(t *testing.T) {
+func TestConcatListIterator(t *testing.T) {
 	reg := newTestRegistry(t)
 	listA := NewDynamicList(reg, []float32{1.0, 2.0})
 	listB := NewDynamicList(reg, []float64{3.0})
