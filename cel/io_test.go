@@ -38,6 +38,13 @@ func TestAstToProto(t *testing.T) {
 	if !proto.Equal(ast2.Expr(), ast.Expr()) {
 		t.Errorf("got expr %v, wanted %v", ast2, ast)
 	}
+	ast3 := ParsedExprToAstWithSource(parsed, ast.Source())
+	if !proto.Equal(ast3.Expr(), ast.Expr()) {
+		t.Errorf("got expr %v, wanted %v", ast2, ast)
+	}
+	if ast3.Source() != ast.Source() {
+		t.Errorf("got source %v, wanted %v", ast3.Source(), ast.Source())
+	}
 
 	_, err = AstToCheckedExpr(ast)
 	if err == nil {
@@ -51,9 +58,16 @@ func TestAstToProto(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AstToCheckeExpr(ast) failed: %v", err)
 	}
-	ast3 := CheckedExprToAst(checked)
-	if !proto.Equal(ast3.Expr(), ast.Expr()) {
-		t.Fatalf("got ast %v, wanted %v", ast3, ast)
+	ast4 := CheckedExprToAst(checked)
+	if !proto.Equal(ast4.Expr(), ast.Expr()) {
+		t.Fatalf("got ast %v, wanted %v", ast4, ast)
+	}
+	ast5 := CheckedExprToAstWithSource(checked, ast.Source())
+	if !proto.Equal(ast5.Expr(), ast.Expr()) {
+		t.Errorf("got expr %v, wanted %v", ast5, ast)
+	}
+	if ast5.Source() != ast.Source() {
+		t.Errorf("got source %v, wanted %v", ast5.Source(), ast.Source())
 	}
 }
 
