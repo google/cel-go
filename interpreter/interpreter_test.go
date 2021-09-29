@@ -95,14 +95,14 @@ var (
 			expr:           `1/0 != 0 && true`,
 			cost:           []int64{2, 3},
 			exhaustiveCost: []int64{3, 3},
-			err:            "divide by zero",
+			err:            "division by zero",
 		},
 		{
 			name:           "and_error_2nd_error",
 			expr:           `true && 1/0 != 0`,
 			cost:           []int64{0, 3},
 			exhaustiveCost: []int64{3, 3},
-			err:            "divide by zero",
+			err:            "division by zero",
 		},
 		{
 			name:      "call_no_args",
@@ -317,6 +317,22 @@ var (
 			name: "in_map",
 			expr: `'other-key' in {'key': null, 'other-key': 42}`,
 			cost: []int64{1, 1},
+			out:  types.True,
+		},
+		{
+			name: "in_heterogeneous_map",
+			expr: `'hello' in {1: 'one', false: true, 'hello': 'world'}`,
+			out:  types.True,
+		},
+		{
+			name: "not_in_heterogeneous_map",
+			expr: `!('hello' in {1: 'one', false: true})`,
+			err:  "unsupported key type: string",
+		},
+		{
+			name: "not_in_heterogeneous_map_with_same_key_type",
+			expr: `!('hello' in {1: 'one', 'world': true})`,
+			out:  types.True,
 		},
 		{
 			name:           "index",
@@ -339,6 +355,16 @@ var (
 			name: "index_relative",
 			expr: `([[[1]], [[2]], [[3]]][0][0] + [2, 3, {'four': {'five': 'six'}}])[3].four.five == 'six'`,
 			cost: []int64{2, 2},
+		},
+		{
+			name: "list_eq_false_with_error",
+			expr: `['string', 1] == [2, 3]`,
+			out:  types.False,
+		},
+		{
+			name: "list_eq_error",
+			expr: `['string', true] == [2, 3]`,
+			err:  "no such overload",
 		},
 		{
 			name: "literal_bool_false",
@@ -717,14 +743,14 @@ var (
 			expr:           `1/0 != 0 || false`,
 			cost:           []int64{2, 3},
 			exhaustiveCost: []int64{3, 3},
-			err:            "divide by zero",
+			err:            "division by zero",
 		},
 		{
 			name:           "or_error_2nd_error",
 			expr:           `false || 1/0 != 0`,
 			cost:           []int64{0, 3},
 			exhaustiveCost: []int64{3, 3},
-			err:            "divide by zero",
+			err:            "division by zero",
 		},
 		{
 			name:           "or_error_1st_true",
@@ -1032,7 +1058,7 @@ var (
 					Unary: func(val ref.Val) ref.Val {
 						str, ok := val.(types.String)
 						if !ok {
-							return types.ValOrErr(val, "no such overload")
+							return types.MaybeNoSuchOverloadErr(val)
 						}
 						m := make(map[string]interface{})
 						err := json.Unmarshal([]byte(str), &m)
@@ -1205,7 +1231,7 @@ func TestInterpreter_ProtoAttributeOpt(t *testing.T) {
 		in: map[string]interface{}{
 			"pb3": &proto3pb.TestAllTypes{
 				MapInt64NestedType: map[int64]*proto3pb.NestedTestAllTypes{
-					0: &proto3pb.NestedTestAllTypes{
+					0: {
 						Child: &proto3pb.NestedTestAllTypes{
 							Payload: &proto3pb.TestAllTypes{
 								SingleInt32: 1,

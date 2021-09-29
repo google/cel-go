@@ -29,23 +29,83 @@ import (
 	structpb "google.golang.org/protobuf/types/known/structpb"
 )
 
-func TestDurationAdd(t *testing.T) {
-	dur := &dpb.Duration{Seconds: 7506}
-	d := Duration{Duration: dur.AsDuration()}
-	if !d.Add(d).Equal(Duration{(&dpb.Duration{Seconds: 15012}).AsDuration()}).(Bool) {
-		t.Error("Adding duration and itself did not double it.")
+func TestDurationOperators(t *testing.T) {
+	d := duration(7506, 567)
+	dSecond := duration(1, 0)
+	dNano := duration(0, 1)
+	dMax := duration(0, math.MaxInt64)
+	dMin := duration(0, math.MinInt64)
+
+	tests := []struct {
+		name string
+		op   func() ref.Val
+		out  interface{}
+	}{
+		// Addition tests.
+		{
+			name: "DurationAddSelf",
+			op: func() ref.Val {
+				return durationOf(d).Add(durationOf(d))
+			},
+			out: d + d,
+		},
+		{
+			name: "DurationMaxAddOneNanoOverflow",
+			op: func() ref.Val {
+				return durationOf(dMax).Add(durationOf(dNano))
+			},
+			out: errIntOverflow,
+		},
+		{
+			name: "DurationMaxAddOneSecondOverflow",
+			op: func() ref.Val {
+				return durationOf(dMax).Add(durationOf(dSecond))
+			},
+			out: errIntOverflow,
+		},
+		{
+			name: "DurationMinAddMinusOneOverflow",
+			op: func() ref.Val {
+				return durationOf(dMin).Add(durationOf(-dSecond))
+			},
+			out: errIntOverflow,
+		},
+
+		// Subtraction tests.
+		{
+			name: "DurationSubSelf",
+			op: func() ref.Val {
+				return durationOf(d).Subtract(durationOf(d))
+			},
+			out: duration(0, 0),
+		},
+		{
+			name: "DurationMaxSubMinusOneOverflow",
+			op: func() ref.Val {
+				return durationOf(dMax).Subtract(durationOf(-dNano))
+			},
+			out: errIntOverflow,
+		},
+		{
+			name: "DurationMinSubOneOverflow",
+			op: func() ref.Val {
+				return durationOf(dMin).Subtract(durationOf(dNano))
+			},
+			out: errIntOverflow,
+		},
 	}
-	if lhs, rhs := time.Duration(math.MaxInt64), time.Duration(1); !IsError(durationOf(lhs).Add(durationOf(rhs))) {
-		t.Errorf("Expected adding %d and %d to result in overflow.", lhs, rhs)
-	}
-	if lhs, rhs := time.Duration(math.MinInt64), time.Duration(-1); !IsError(durationOf(lhs).Add(durationOf(rhs))) {
-		t.Errorf("Expected adding %d and %d to result in overflow.", lhs, rhs)
-	}
-	if lhs, rhs := time.Duration(math.MaxInt64-1), time.Duration(1); !durationOf(lhs).Add(durationOf(rhs)).Equal(durationOf(math.MaxInt64)).(Bool) {
-		t.Errorf("Expected adding %d and %d to yield %d", lhs, rhs, math.MaxInt64)
-	}
-	if lhs, rhs := time.Duration(math.MinInt64+1), time.Duration(-1); !durationOf(lhs).Add(durationOf(rhs)).Equal(durationOf(math.MinInt64)).(Bool) {
-		t.Errorf("Expected adding %d and %d to yield %d", lhs, rhs, math.MaxInt64)
+	for _, tst := range tests {
+		got := tst.op()
+		switch v := got.Value().(type) {
+		case error:
+			if want, ok := tst.out.(error); !ok || v.Error() != want.Error() {
+				t.Errorf("%s: got %v, wanted %v", tst.name, v, tst.out)
+			}
+		default:
+			if !reflect.DeepEqual(v, tst.out) {
+				t.Errorf("%s: got %v, wanted %v", tst.name, v, tst.out)
+			}
+		}
 	}
 }
 
@@ -191,25 +251,6 @@ func TestDurationGetMilliseconds(t *testing.T) {
 	sec := d.Receive(overloads.TimeGetMilliseconds, overloads.DurationToMilliseconds, []ref.Val{})
 	if !sec.Equal(Int(7506000)).(Bool) {
 		t.Error("Expected 6 seconds, got", sec)
-	}
-}
-
-func TestDurationSubtract(t *testing.T) {
-	d := Duration{Duration: duration(7506, 0)}
-	if !d.Subtract(d).ConvertToType(IntType).Equal(IntZero).(Bool) {
-		t.Error("Subtracting a duration from itself did not equal zero.")
-	}
-	if lhs, rhs := time.Duration(math.MaxInt64), time.Duration(-1); !IsError(durationOf(lhs).Subtract(durationOf(rhs))) {
-		t.Errorf("Expected subtracting %d and %d to result in overflow.", lhs, rhs)
-	}
-	if lhs, rhs := time.Duration(math.MinInt64), time.Duration(1); !IsError(durationOf(lhs).Subtract(durationOf(rhs))) {
-		t.Errorf("Expected subtracting %d and %d to result in overflow.", lhs, rhs)
-	}
-	if lhs, rhs := time.Duration(math.MaxInt64-1), time.Duration(-1); !durationOf(lhs).Subtract(durationOf(rhs)).Equal(durationOf(math.MaxInt64)).(Bool) {
-		t.Errorf("Expected subtracting %d and %d to yield %d", lhs, rhs, math.MaxInt64)
-	}
-	if lhs, rhs := time.Duration(math.MinInt64+1), time.Duration(1); !durationOf(lhs).Subtract(durationOf(rhs)).Equal(durationOf(math.MinInt64)).(Bool) {
-		t.Errorf("Expected subtracting %d and %d to yield %d", lhs, rhs, math.MinInt64)
 	}
 }
 

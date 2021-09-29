@@ -15,10 +15,13 @@
 package types
 
 import (
+	"errors"
 	"math"
 	"reflect"
+	"strings"
 	"testing"
 
+	"github.com/google/cel-go/common/types/ref"
 	"google.golang.org/protobuf/proto"
 
 	anypb "google.golang.org/protobuf/types/known/anypb"
@@ -167,23 +170,110 @@ func TestDoubleConvertToNative_Wrapper(t *testing.T) {
 }
 
 func TestDoubleConvertToType(t *testing.T) {
-	if !Double(-4.5).ConvertToType(IntType).Equal(Int(-5)).(Bool) {
-		t.Error("Unsuccessful type conversion to int")
+	tests := []struct {
+		name   string
+		in     float64
+		toType ref.Type
+		out    interface{}
+	}{
+		{
+			name:   "DoubleToDouble",
+			in:     float64(-4.2),
+			toType: DoubleType,
+			out:    float64(-4.2),
+		},
+		{
+			name:   "DoubleToType",
+			in:     float64(-4.2),
+			toType: TypeType,
+			out:    DoubleType.TypeName(),
+		},
+		{
+			name:   "DoubleToInt",
+			in:     float64(4.2),
+			toType: IntType,
+			out:    int64(4),
+		},
+		{
+			name:   "DoubleToIntNaN",
+			in:     math.NaN(),
+			toType: IntType,
+			out:    errIntOverflow,
+		},
+		{
+			name:   "DoubleToIntPosInf",
+			in:     math.Inf(1),
+			toType: IntType,
+			out:    errIntOverflow,
+		},
+		{
+			name:   "DoubleToIntPosOverflow",
+			in:     float64(math.MaxInt64),
+			toType: IntType,
+			out:    errIntOverflow,
+		},
+		{
+			name:   "DoubleToIntNegOverflow",
+			in:     float64(math.MinInt64),
+			toType: IntType,
+			out:    errIntOverflow,
+		},
+		{
+			name:   "DoubleToUint",
+			in:     float64(4.7),
+			toType: UintType,
+			out:    uint64(4),
+		},
+		{
+			name:   "DoubleToUintNaN",
+			in:     math.NaN(),
+			toType: UintType,
+			out:    errUintOverflow,
+		},
+		{
+			name:   "DoubleToUintPosInf",
+			in:     math.Inf(1),
+			toType: UintType,
+			out:    errUintOverflow,
+		},
+		{
+			name:   "DoubleToUintPosOverflow",
+			in:     float64(math.MaxUint64),
+			toType: UintType,
+			out:    errUintOverflow,
+		},
+		{
+			name:   "DoubleToUintNegOverflow",
+			in:     float64(-0.1),
+			toType: UintType,
+			out:    errUintOverflow,
+		},
+		{
+			name:   "DoubleToString",
+			in:     float64(4.5),
+			toType: StringType,
+			out:    "4.5",
+		},
+		{
+			name:   "DoubleToUnsupportedType",
+			in:     float64(4),
+			toType: MapType,
+			out:    errors.New("type conversion error"),
+		},
 	}
-	if !IsError(Double(-4.5).ConvertToType(UintType)) {
-		t.Error("Got uint, expected error")
-	}
-	if !Double(-4.5).ConvertToType(DoubleType).Equal(Double(-4.5)).(Bool) {
-		t.Error("Unsuccessful type conversion to double")
-	}
-	if !Double(-4.5).ConvertToType(StringType).Equal(String("-4.5")).(Bool) {
-		t.Error("Unsuccessful type conversion to string")
-	}
-	if !Double(-4.5).ConvertToType(TypeType).Equal(DoubleType).(Bool) {
-		t.Error("Unsuccessful type conversion to type")
-	}
-	if !IsError(Double(-4.5).ConvertToType(TimestampType)) {
-		t.Error("Got value, expected error")
+	for _, tst := range tests {
+		got := Double(tst.in).ConvertToType(tst.toType).Value()
+		var eq bool
+		switch gotVal := got.(type) {
+		case error:
+			eq = strings.Contains(gotVal.Error(), tst.out.(error).Error())
+		default:
+			eq = reflect.DeepEqual(gotVal, tst.out)
+		}
+		if !eq {
+			t.Errorf("Double(%v).ConvertToType(%v) failed, got: %v, wanted: %v",
+				tst.in, tst.toType, got, tst.out)
+		}
 	}
 }
 
