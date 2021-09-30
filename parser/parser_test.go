@@ -17,6 +17,8 @@ package parser
 import (
 	"fmt"
 	"reflect"
+	"sort"
+	"strings"
 	"testing"
 
 	"github.com/google/cel-go/common"
@@ -432,6 +434,9 @@ var testCases = []testInfo{
 		I: `has(m.f)`,
 		P: `m^#2:*expr.Expr_IdentExpr#.f~test-only~^#4:*expr.Expr_SelectExpr#`,
 		L: `m^#2[1,4]#.f~test-only~^#4[1,3]#`,
+		M: `has(
+			m^#2:*expr.Expr_IdentExpr#.f^#3:*expr.Expr_SelectExpr#
+		  )^#4:has#`,
 	},
 	{
 		I: `m.exists(v, f)`,
@@ -457,6 +462,10 @@ var testCases = []testInfo{
 			)^#10:*expr.Expr_CallExpr#,
 			// Result
 			__result__^#11:*expr.Expr_IdentExpr#)^#12:*expr.Expr_ComprehensionExpr#`,
+		M: `m^#1:*expr.Expr_IdentExpr#.exists(
+			v^#3:*expr.Expr_IdentExpr#,
+			f^#4:*expr.Expr_IdentExpr#
+		  	)^#12:exists#`,
 	},
 	{
 		I: `m.all(v, f)`,
@@ -480,6 +489,10 @@ var testCases = []testInfo{
             )^#9:*expr.Expr_CallExpr#,
 			// Result
 			__result__^#10:*expr.Expr_IdentExpr#)^#11:*expr.Expr_ComprehensionExpr#`,
+		M: `m^#1:*expr.Expr_IdentExpr#.all(
+			v^#3:*expr.Expr_IdentExpr#,
+			f^#4:*expr.Expr_IdentExpr#
+		  	)^#11:all#`,
 	},
 	{
 		I: `m.exists_one(v, f)`,
@@ -508,6 +521,10 @@ var testCases = []testInfo{
 				__result__^#12:*expr.Expr_IdentExpr#,
 				1^#6:*expr.Constant_Int64Value#
 			)^#13:*expr.Expr_CallExpr#)^#14:*expr.Expr_ComprehensionExpr#`,
+		M: `m^#1:*expr.Expr_IdentExpr#.exists_one(
+			v^#3:*expr.Expr_IdentExpr#,
+			f^#4:*expr.Expr_IdentExpr#
+		  	)^#14:exists_one#`,
 	},
 	{
 		I: `m.map(v, f)`,
@@ -531,6 +548,10 @@ var testCases = []testInfo{
 			)^#9:*expr.Expr_CallExpr#,
 			// Result
 			__result__^#5:*expr.Expr_IdentExpr#)^#10:*expr.Expr_ComprehensionExpr#`,
+		M: `m^#1:*expr.Expr_IdentExpr#.map(
+			v^#3:*expr.Expr_IdentExpr#,
+			f^#4:*expr.Expr_IdentExpr#
+		  	)^#10:map#`,
 	},
 
 	{
@@ -559,6 +580,11 @@ var testCases = []testInfo{
 			)^#11:*expr.Expr_CallExpr#,
 			// Result
 			__result__^#6:*expr.Expr_IdentExpr#)^#12:*expr.Expr_ComprehensionExpr#`,
+		M: `m^#1:*expr.Expr_IdentExpr#.map(
+			v^#3:*expr.Expr_IdentExpr#,
+			p^#4:*expr.Expr_IdentExpr#,
+			f^#5:*expr.Expr_IdentExpr#
+		  	)^#12:map#`,
 	},
 
 	{
@@ -587,6 +613,10 @@ var testCases = []testInfo{
 			)^#10:*expr.Expr_CallExpr#,
 			// Result
 			__result__^#5:*expr.Expr_IdentExpr#)^#11:*expr.Expr_ComprehensionExpr#`,
+		M: `m^#1:*expr.Expr_IdentExpr#.filter(
+			v^#3:*expr.Expr_IdentExpr#,
+			p^#4:*expr.Expr_IdentExpr#
+		  	)^#11:filter#`,
 	},
 
 	// Tests from C++ parser
@@ -1243,6 +1273,198 @@ var testCases = []testInfo{
 		|   0"""\""\"""\""\"""\""\"""\""\"""\"\"""\""\"""\""\"""\""\"""\"!\"""\""\"""\""\"
 		| ..........^`,
 	},
+	// Macro Calls Tests
+	{
+		I: `x.filter(y, y.filter(z, z > 0))`,
+		P: `__comprehension__(
+			// Variable
+			y,
+			// Target
+			x^#1:*expr.Expr_IdentExpr#,
+			// Accumulator
+			__result__,
+			// Init
+			[]^#18:*expr.Expr_ListExpr#,
+			// LoopCondition
+			true^#19:*expr.Constant_BoolValue#,
+			// LoopStep
+			_?_:_(
+			  __comprehension__(
+				// Variable
+				z,
+				// Target
+				y^#4:*expr.Expr_IdentExpr#,
+				// Accumulator
+				__result__,
+				// Init
+				[]^#11:*expr.Expr_ListExpr#,
+				// LoopCondition
+				true^#12:*expr.Constant_BoolValue#,
+				// LoopStep
+				_?_:_(
+				  _>_(
+					z^#7:*expr.Expr_IdentExpr#,
+					0^#9:*expr.Constant_Int64Value#
+				  )^#8:*expr.Expr_CallExpr#,
+				  _+_(
+					__result__^#10:*expr.Expr_IdentExpr#,
+					[
+					  z^#6:*expr.Expr_IdentExpr#
+					]^#13:*expr.Expr_ListExpr#
+				  )^#14:*expr.Expr_CallExpr#,
+				  __result__^#10:*expr.Expr_IdentExpr#
+				)^#15:*expr.Expr_CallExpr#,
+				// Result
+				__result__^#10:*expr.Expr_IdentExpr#)^#16:*expr.Expr_ComprehensionExpr#,
+			  _+_(
+				__result__^#17:*expr.Expr_IdentExpr#,
+				[
+				  y^#3:*expr.Expr_IdentExpr#
+				]^#20:*expr.Expr_ListExpr#
+			  )^#21:*expr.Expr_CallExpr#,
+			  __result__^#17:*expr.Expr_IdentExpr#
+			)^#22:*expr.Expr_CallExpr#,
+			// Result
+			__result__^#17:*expr.Expr_IdentExpr#)^#23:*expr.Expr_ComprehensionExpr#`,
+		M: `x^#1:*expr.Expr_IdentExpr#.filter(
+			y^#3:*expr.Expr_IdentExpr#,
+			^#16:filter#
+		  )^#23:filter#,
+		  y^#4:*expr.Expr_IdentExpr#.filter(
+			z^#6:*expr.Expr_IdentExpr#,
+			_>_(
+			  z^#7:*expr.Expr_IdentExpr#,
+			  0^#9:*expr.Constant_Int64Value#
+			)^#8:*expr.Expr_CallExpr#
+		  )^#16:filter#`,
+	},
+	{
+		I: `has(a.b).filter(c, c)`,
+		P: `__comprehension__(
+			// Variable
+			c,
+			// Target
+			a^#2:*expr.Expr_IdentExpr#.b~test-only~^#4:*expr.Expr_SelectExpr#,
+			// Accumulator
+			__result__,
+			// Init
+			[]^#9:*expr.Expr_ListExpr#,
+			// LoopCondition
+			true^#10:*expr.Constant_BoolValue#,
+			// LoopStep
+			_?_:_(
+			  c^#7:*expr.Expr_IdentExpr#,
+			  _+_(
+				__result__^#8:*expr.Expr_IdentExpr#,
+				[
+				  c^#6:*expr.Expr_IdentExpr#
+				]^#11:*expr.Expr_ListExpr#
+			  )^#12:*expr.Expr_CallExpr#,
+			  __result__^#8:*expr.Expr_IdentExpr#
+			)^#13:*expr.Expr_CallExpr#,
+			// Result
+			__result__^#8:*expr.Expr_IdentExpr#)^#14:*expr.Expr_ComprehensionExpr#`,
+		M: `^#4:has#.filter(
+			c^#6:*expr.Expr_IdentExpr#,
+			c^#7:*expr.Expr_IdentExpr#
+			)^#14:filter#,
+			has(
+				a^#2:*expr.Expr_IdentExpr#.b^#3:*expr.Expr_SelectExpr#
+			)^#4:has#`,
+	},
+	{
+		I: `x.filter(y, y.exists(z, has(z.a)) && y.exists(z, has(z.b)))`,
+		P: `__comprehension__(
+			// Variable
+			y,
+			// Target
+			x^#1:*expr.Expr_IdentExpr#,
+			// Accumulator
+			__result__,
+			// Init
+			[]^#36:*expr.Expr_ListExpr#,
+			// LoopCondition
+			true^#37:*expr.Constant_BoolValue#,
+			// LoopStep
+			_?_:_(
+			  _&&_(
+				__comprehension__(
+				  // Variable
+				  z,
+				  // Target
+				  y^#4:*expr.Expr_IdentExpr#,
+				  // Accumulator
+				  __result__,
+				  // Init
+				  false^#11:*expr.Constant_BoolValue#,
+				  // LoopCondition
+				  @not_strictly_false(
+					!_(
+					  __result__^#12:*expr.Expr_IdentExpr#
+					)^#13:*expr.Expr_CallExpr#
+				  )^#14:*expr.Expr_CallExpr#,
+				  // LoopStep
+				  _||_(
+					__result__^#15:*expr.Expr_IdentExpr#,
+					z^#8:*expr.Expr_IdentExpr#.a~test-only~^#10:*expr.Expr_SelectExpr#
+				  )^#16:*expr.Expr_CallExpr#,
+				  // Result
+				  __result__^#17:*expr.Expr_IdentExpr#)^#18:*expr.Expr_ComprehensionExpr#,
+				__comprehension__(
+				  // Variable
+				  z,
+				  // Target
+				  y^#19:*expr.Expr_IdentExpr#,
+				  // Accumulator
+				  __result__,
+				  // Init
+				  false^#26:*expr.Constant_BoolValue#,
+				  // LoopCondition
+				  @not_strictly_false(
+					!_(
+					  __result__^#27:*expr.Expr_IdentExpr#
+					)^#28:*expr.Expr_CallExpr#
+				  )^#29:*expr.Expr_CallExpr#,
+				  // LoopStep
+				  _||_(
+					__result__^#30:*expr.Expr_IdentExpr#,
+					z^#23:*expr.Expr_IdentExpr#.b~test-only~^#25:*expr.Expr_SelectExpr#
+				  )^#31:*expr.Expr_CallExpr#,
+				  // Result
+				  __result__^#32:*expr.Expr_IdentExpr#)^#33:*expr.Expr_ComprehensionExpr#
+			  )^#34:*expr.Expr_CallExpr#,
+			  _+_(
+				__result__^#35:*expr.Expr_IdentExpr#,
+				[
+				  y^#3:*expr.Expr_IdentExpr#
+				]^#38:*expr.Expr_ListExpr#
+			  )^#39:*expr.Expr_CallExpr#,
+			  __result__^#35:*expr.Expr_IdentExpr#
+			)^#40:*expr.Expr_CallExpr#,
+			// Result
+			__result__^#35:*expr.Expr_IdentExpr#)^#41:*expr.Expr_ComprehensionExpr#`,
+		M: `x^#1:*expr.Expr_IdentExpr#.filter(
+			y^#3:*expr.Expr_IdentExpr#,
+			_&&_(
+			  ^#18:exists#,
+			  ^#33:exists#
+			)^#34:*expr.Expr_CallExpr#
+			)^#41:filter#,
+			y^#19:*expr.Expr_IdentExpr#.exists(
+				z^#21:*expr.Expr_IdentExpr#,
+				^#25:has#
+			)^#33:exists#,
+			has(
+				z^#23:*expr.Expr_IdentExpr#.b^#24:*expr.Expr_SelectExpr#
+			)^#25:has#,
+			y^#4:*expr.Expr_IdentExpr#.exists(
+				z^#6:*expr.Expr_IdentExpr#,
+				^#10:has#
+			)^#18:exists#,
+			has(
+				z^#8:*expr.Expr_IdentExpr#.a^#9:*expr.Expr_SelectExpr#
+			)^#10:has#`,
+	},
 }
 
 type testInfo struct {
@@ -1257,6 +1479,9 @@ type testInfo struct {
 
 	// L contains the expected source adorned debug output of the expression tree.
 	L string
+
+	// M contains the expected adorned debug output of the macro calls map
+	M string
 }
 
 type metadata interface {
@@ -1264,12 +1489,18 @@ type metadata interface {
 }
 
 type kindAndIDAdorner struct {
+	sourceInfo *exprpb.SourceInfo
 }
 
 func (k *kindAndIDAdorner) GetMetadata(elem interface{}) string {
 	switch elem.(type) {
 	case *exprpb.Expr:
 		e := elem.(*exprpb.Expr)
+		if k.sourceInfo != nil {
+			if val, found := k.sourceInfo.MacroCalls[e.Id]; found {
+				return fmt.Sprintf("^#%d:%s#", e.Id, val.GetCallExpr().Function)
+			}
+		}
 		var valType interface{} = e.ExprKind
 		switch valType.(type) {
 		case *exprpb.Expr_ConstExpr:
@@ -1320,12 +1551,32 @@ func (l *locationAdorner) GetMetadata(elem interface{}) string {
 	return fmt.Sprintf("^#%d[%d,%d]#", elemID, location.Line(), location.Column())
 }
 
+func convertMacroCallsToString(source *exprpb.SourceInfo) string {
+	keys := make([]int64, len(source.MacroCalls))
+	adornedStrings := make([]string, len(source.MacroCalls))
+	i := 0
+	for k := range source.MacroCalls {
+		keys[i] = k
+		i++
+	}
+	sort.Slice(keys, func(i, j int) bool { return keys[i] > keys[j] })
+	i = 0
+	for _, key := range keys {
+		adornedStrings[i] = debug.ToAdornedDebugString(source.MacroCalls[int64(key)], &kindAndIDAdorner{sourceInfo: source})
+		fmt.Printf("%d => %v\n", key, source.MacroCalls[int64(key)])
+		i++
+	}
+	fmt.Println("-----------------------------")
+	return strings.Join(adornedStrings, ",\n")
+}
+
 func TestParse(t *testing.T) {
 	p, err := NewParser(
 		Macros(AllMacros...),
 		MaxRecursionDepth(32),
 		ErrorRecoveryLimit(4),
 		ErrorRecoveryLookaheadTokenLimit(4),
+		PopulateMacroCalls(true),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -1363,6 +1614,13 @@ func TestParse(t *testing.T) {
 				actualWithLocation := debug.ToAdornedDebugString(expression.Expr, &locationAdorner{expression.SourceInfo})
 				if !test.Compare(actualWithLocation, tc.L) {
 					tt.Fatal(test.DiffMessage("location", actualWithLocation, tc.L))
+				}
+			}
+
+			if tc.M != "" {
+				actualAdornedMacroCalls := convertMacroCallsToString(expression.SourceInfo)
+				if !test.Compare(actualAdornedMacroCalls, tc.M) {
+					tt.Fatal(test.DiffMessage("Macro Calls", actualAdornedMacroCalls, tc.M))
 				}
 			}
 		})
