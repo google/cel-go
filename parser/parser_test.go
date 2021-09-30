@@ -1559,14 +1559,13 @@ func convertMacroCallsToString(source *exprpb.SourceInfo) string {
 		keys[i] = k
 		i++
 	}
+	// Sort the keys in descending order to create a stable ordering for tests and improve readability.
 	sort.Slice(keys, func(i, j int) bool { return keys[i] > keys[j] })
 	i = 0
 	for _, key := range keys {
 		adornedStrings[i] = debug.ToAdornedDebugString(source.MacroCalls[int64(key)], &kindAndIDAdorner{sourceInfo: source})
-		fmt.Printf("%d => %v\n", key, source.MacroCalls[int64(key)])
 		i++
 	}
-	fmt.Println("-----------------------------")
 	return strings.Join(adornedStrings, ",\n")
 }
 
