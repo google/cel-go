@@ -41,7 +41,8 @@ func (p *parserHelper) getSourceInfo() *exprpb.SourceInfo {
 	return &exprpb.SourceInfo{
 		Location:    p.source.Description(),
 		Positions:   p.positions,
-		LineOffsets: p.source.LineOffsets()}
+		LineOffsets: p.source.LineOffsets(),
+		MacroCalls:  p.source.MacroCalls()}
 }
 
 func (p *parserHelper) newLiteral(ctx interface{}, value *exprpb.Constant) *exprpb.Expr {
@@ -205,6 +206,58 @@ func (p *parserHelper) getLocation(id int64) common.Location {
 	characterOffset := p.positions[id]
 	location, _ := p.source.OffsetLocation(characterOffset)
 	return location
+}
+
+func (p *parserHelper) buildMacroCallArg(expr *exprpb.Expr) *exprpb.Expr {
+	resultExpr := &exprpb.Expr{Id: expr.Id}
+
+	if _, found := p.source.MacroCalls()[expr.Id]; found {
+		return resultExpr
+	}
+
+	switch expr.ExprKind.(type) {
+	case *exprpb.Expr_CallExpr:
+		callExpr := &exprpb.Expr_CallExpr{
+			CallExpr: &exprpb.Expr_Call{
+				Function: expr.GetCallExpr().Function,
+			},
+		}
+		// Iterate the AST from `expr` recursively looking for macros. Because we are at most
+		// starting from the top level macro, this recursion is bounded by the size of the AST. This
+		// means that the depth check on the AST during parsing will catch recursion overflows
+		// before we get to here.
+		for _, arg := range expr.GetCallExpr().Args {
+			callExpr.CallExpr.Args = append(callExpr.CallExpr.Args, p.buildMacroCallArg(arg))
+		}
+		resultExpr.ExprKind = callExpr
+		return resultExpr
+	}
+
+	return expr
+}
+
+func (p *parserHelper) addMacroCall(exprID int64, function string, target *exprpb.Expr, args ...*exprpb.Expr) {
+	expr := &exprpb.Expr{Id: exprID}
+	callExpr := &exprpb.Expr_CallExpr{
+		CallExpr: &exprpb.Expr_Call{
+			Function: function,
+		},
+	}
+
+	if target != nil {
+		if _, found := p.source.MacroCalls()[target.Id]; found {
+			callExpr.CallExpr.Target = &exprpb.Expr{Id: target.Id}
+		} else {
+			callExpr.CallExpr.Target = target
+		}
+	}
+
+	for _, arg := range args {
+		callExpr.CallExpr.Args = append(callExpr.CallExpr.Args, p.buildMacroCallArg(arg))
+	}
+
+	expr.ExprKind = callExpr
+	p.source.MacroCalls()[exprID] = expr
 }
 
 // balancer performs tree balancing on operators whose arguments are of equal precedence.

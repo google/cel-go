@@ -22,7 +22,7 @@ type options struct {
 	errorRecoveryLimit               int
 	expressionSizeCodePointLimit     int
 	macros                           map[string]Macro
-	populateMacroCalls		 bool
+	populateMacroCalls               bool
 }
 
 // Option configures the behavior of the parser.

@@ -91,6 +91,7 @@ func (p *Parser) Parse(source common.Source) (*exprpb.ParsedExpr, *common.Errors
 		maxRecursionDepth:                p.maxRecursionDepth,
 		errorRecoveryLimit:               p.errorRecoveryLimit,
 		errorRecoveryLookaheadTokenLimit: p.errorRecoveryTokenLookaheadLimit,
+		populateMacroCalls:               p.populateMacroCalls,
 	}
 	buf, ok := source.(runes.Buffer)
 	if !ok {
@@ -279,6 +280,7 @@ type parser struct {
 	maxRecursionDepth                int
 	errorRecoveryLimit               int
 	errorRecoveryLookaheadTokenLimit int
+	populateMacroCalls               bool
 }
 
 var (
@@ -893,6 +895,9 @@ func (p *parser) expandMacro(exprID int64, function string, target *exprpb.Expr,
 			return p.reportError(err.Location, err.Message), true
 		}
 		return p.reportError(p.helper.getLocation(exprID), err.Message), true
+	}
+	if p.populateMacroCalls {
+		p.helper.addMacroCall(expr.Id, function, target, args...)
 	}
 	return expr, true
 }
