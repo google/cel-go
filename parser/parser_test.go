@@ -1497,19 +1497,19 @@ func (k *kindAndIDAdorner) GetMetadata(elem interface{}) string {
 	case *exprpb.Expr:
 		e := elem.(*exprpb.Expr)
 		if k.sourceInfo != nil {
-			if val, found := k.sourceInfo.MacroCalls[e.Id]; found {
-				return fmt.Sprintf("^#%d:%s#", e.Id, val.GetCallExpr().Function)
+			if val, found := k.sourceInfo.MacroCalls[e.GetId()]; found {
+				return fmt.Sprintf("^#%d:%s#", e.Id, val.GetCallExpr().GetFunction())
 			}
 		}
 		var valType interface{} = e.ExprKind
 		switch valType.(type) {
 		case *exprpb.Expr_ConstExpr:
-			valType = e.GetConstExpr().ConstantKind
+			valType = e.GetConstExpr().GetConstantKind()
 		}
-		return fmt.Sprintf("^#%d:%s#", e.Id, reflect.TypeOf(valType))
+		return fmt.Sprintf("^#%d:%s#", e.GetId(), reflect.TypeOf(valType))
 	case *exprpb.Expr_CreateStruct_Entry:
 		entry := elem.(*exprpb.Expr_CreateStruct_Entry)
-		return fmt.Sprintf("^#%d:%s#", entry.Id, "*expr.Expr_CreateStruct_Entry")
+		return fmt.Sprintf("^#%d:%s#", entry.GetId(), "*expr.Expr_CreateStruct_Entry")
 	}
 	return ""
 }
@@ -1521,9 +1521,9 @@ type locationAdorner struct {
 var _ metadata = &locationAdorner{}
 
 func (l *locationAdorner) GetLocation(exprID int64) (common.Location, bool) {
-	if pos, found := l.sourceInfo.Positions[exprID]; found {
+	if pos, found := l.sourceInfo.GetPositions()[exprID]; found {
 		var line = 1
-		for _, lineOffset := range l.sourceInfo.LineOffsets {
+		for _, lineOffset := range l.sourceInfo.GetLineOffsets() {
 			if lineOffset > pos {
 				break
 			} else {
@@ -1532,7 +1532,7 @@ func (l *locationAdorner) GetLocation(exprID int64) (common.Location, bool) {
 		}
 		var column = pos
 		if line > 1 {
-			column = pos - l.sourceInfo.LineOffsets[line-2]
+			column = pos - l.sourceInfo.GetLineOffsets()[line-2]
 		}
 		return common.NewLocation(line, int(column)), true
 	}
@@ -1543,19 +1543,19 @@ func (l *locationAdorner) GetMetadata(elem interface{}) string {
 	var elemID int64
 	switch elem.(type) {
 	case *exprpb.Expr:
-		elemID = elem.(*exprpb.Expr).Id
+		elemID = elem.(*exprpb.Expr).GetId()
 	case *exprpb.Expr_CreateStruct_Entry:
-		elemID = elem.(*exprpb.Expr_CreateStruct_Entry).Id
+		elemID = elem.(*exprpb.Expr_CreateStruct_Entry).GetId()
 	}
 	location, _ := l.GetLocation(elemID)
 	return fmt.Sprintf("^#%d[%d,%d]#", elemID, location.Line(), location.Column())
 }
 
 func convertMacroCallsToString(source *exprpb.SourceInfo) string {
-	keys := make([]int64, len(source.MacroCalls))
-	adornedStrings := make([]string, len(source.MacroCalls))
+	keys := make([]int64, len(source.GetMacroCalls()))
+	adornedStrings := make([]string, len(source.GetMacroCalls()))
 	i := 0
-	for k := range source.MacroCalls {
+	for k := range source.GetMacroCalls() {
 		keys[i] = k
 		i++
 	}
@@ -1563,7 +1563,7 @@ func convertMacroCallsToString(source *exprpb.SourceInfo) string {
 	sort.Slice(keys, func(i, j int) bool { return keys[i] > keys[j] })
 	i = 0
 	for _, key := range keys {
-		adornedStrings[i] = debug.ToAdornedDebugString(source.MacroCalls[int64(key)], &kindAndIDAdorner{sourceInfo: source})
+		adornedStrings[i] = debug.ToAdornedDebugString(source.GetMacroCalls()[int64(key)], &kindAndIDAdorner{sourceInfo: source})
 		i++
 	}
 	return strings.Join(adornedStrings, ",\n")
@@ -1603,23 +1603,23 @@ func TestParse(t *testing.T) {
 			} else if tc.E != "" {
 				tt.Fatalf("Expected error not thrown: '%s'", tc.E)
 			}
-
+			failureDisplayMethod := fmt.Sprintf("Parse(\"%s\")", tc.I)
 			actualWithKind := debug.ToAdornedDebugString(expression.Expr, &kindAndIDAdorner{})
 			if !test.Compare(actualWithKind, tc.P) {
-				tt.Fatal(test.DiffMessage("structure", actualWithKind, tc.P))
+				tt.Fatal(test.DiffMessage(fmt.Sprintf("Structure - %s", failureDisplayMethod), actualWithKind, tc.P))
 			}
 
 			if tc.L != "" {
-				actualWithLocation := debug.ToAdornedDebugString(expression.Expr, &locationAdorner{expression.SourceInfo})
+				actualWithLocation := debug.ToAdornedDebugString(expression.Expr, &locationAdorner{expression.GetSourceInfo()})
 				if !test.Compare(actualWithLocation, tc.L) {
-					tt.Fatal(test.DiffMessage("location", actualWithLocation, tc.L))
+					tt.Fatal(test.DiffMessage(fmt.Sprintf("Location - %s", failureDisplayMethod), actualWithLocation, tc.L))
 				}
 			}
 
 			if tc.M != "" {
-				actualAdornedMacroCalls := convertMacroCallsToString(expression.SourceInfo)
+				actualAdornedMacroCalls := convertMacroCallsToString(expression.GetSourceInfo())
 				if !test.Compare(actualAdornedMacroCalls, tc.M) {
-					tt.Fatal(test.DiffMessage("Macro Calls", actualAdornedMacroCalls, tc.M))
+					tt.Fatal(test.DiffMessage(fmt.Sprintf("Macro Calls - %s", failureDisplayMethod), actualAdornedMacroCalls, tc.M))
 				}
 			}
 		})
