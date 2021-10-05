@@ -35,11 +35,5 @@ func Compare(a string, e string) bool {
 
 // DiffMessage creates a diff dump message for test failures.
 func DiffMessage(context string, actual interface{}, expected interface{}) string {
-	result := fmt.Sprintf("FAILURE(%s)\n", context)
-	result += "\n===== ACTUAL =====\n"
-	result += strings.TrimSpace(fmt.Sprintf("%v", actual))
-	result += "\n==== EXPECTED ====\n"
-	result += strings.TrimSpace(fmt.Sprintf("%v", expected))
-	result += "\n==================\n"
-	return result
+	return fmt.Sprintf("%s: \ngot %q, \nwanted %q", context, actual, expected)
 }
