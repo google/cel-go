@@ -94,6 +94,8 @@ func Macros(macros ...Macro) Option {
 	}
 }
 
+// PopulateMacroCalls ensures that the original call signatures replaced by expanded macros
+// are preserved in the `SourceInfo` of parse result.
 func PopulateMacroCalls(populateMacroCalls bool) Option {
 	return func(opts *options) error {
 		opts.populateMacroCalls = populateMacroCalls
