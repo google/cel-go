@@ -22,6 +22,7 @@ type options struct {
 	errorRecoveryLimit               int
 	expressionSizeCodePointLimit     int
 	macros                           map[string]Macro
+	populateMacroCalls               bool
 }
 
 // Option configures the behavior of the parser.
@@ -89,6 +90,15 @@ func Macros(macros ...Macro) Option {
 				opts.macros[m.MacroKey()] = m
 			}
 		}
+		return nil
+	}
+}
+
+// PopulateMacroCalls ensures that the original call signatures replaced by expanded macros
+// are preserved in the `SourceInfo` of parse result.
+func PopulateMacroCalls(populateMacroCalls bool) Option {
+	return func(opts *options) error {
+		opts.populateMacroCalls = populateMacroCalls
 		return nil
 	}
 }

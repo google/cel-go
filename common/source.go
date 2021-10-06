@@ -39,6 +39,10 @@ type Source interface {
 	// and second line, or EOF if there is only one line of source.
 	LineOffsets() []int32
 
+	// Macro calls returns the macro calls map containing the original
+	// expression from a macro replacement, keyed by Id.
+	MacroCalls() map[int64]*exprpb.Expr
+
 	// LocationOffset translates a Location to an offset.
 	// Given the line and column of the Location returns the
 	// Location's character offset in the Source, and a bool
@@ -65,6 +69,7 @@ type sourceImpl struct {
 	description string
 	lineOffsets []int32
 	idOffsets   map[int64]int32
+	macroCalls  map[int64]*exprpb.Expr
 }
 
 var _ runes.Buffer = &sourceImpl{}
@@ -93,6 +98,7 @@ func NewStringSource(contents string, description string) Source {
 		description: description,
 		lineOffsets: offsets,
 		idOffsets:   map[int64]int32{},
+		macroCalls:  map[int64]*exprpb.Expr{},
 	}
 }
 
@@ -103,6 +109,7 @@ func NewInfoSource(info *exprpb.SourceInfo) Source {
 		description: info.GetLocation(),
 		lineOffsets: info.GetLineOffsets(),
 		idOffsets:   info.GetPositions(),
+		macroCalls:  info.GetMacroCalls(),
 	}
 }
 
@@ -119,6 +126,11 @@ func (s *sourceImpl) Description() string {
 // LineOffsets implements the Source interface method.
 func (s *sourceImpl) LineOffsets() []int32 {
 	return s.lineOffsets
+}
+
+// MacroCalls implements the Source interface method.
+func (s *sourceImpl) MacroCalls() map[int64]*exprpb.Expr {
+	return s.macroCalls
 }
 
 // LocationOffset implements the Source interface method.

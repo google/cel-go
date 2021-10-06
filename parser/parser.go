@@ -66,6 +66,7 @@ func NewParser(opts ...Option) (*Parser, error) {
 	if p.expressionSizeCodePointLimit == -1 {
 		p.expressionSizeCodePointLimit = int((^uint(0)) >> 1)
 	}
+	// Bool is false by default, so populateMacroCalls will be false by default
 	return p, nil
 }
 
@@ -90,6 +91,7 @@ func (p *Parser) Parse(source common.Source) (*exprpb.ParsedExpr, *common.Errors
 		maxRecursionDepth:                p.maxRecursionDepth,
 		errorRecoveryLimit:               p.errorRecoveryLimit,
 		errorRecoveryLookaheadTokenLimit: p.errorRecoveryTokenLookaheadLimit,
+		populateMacroCalls:               p.populateMacroCalls,
 	}
 	buf, ok := source.(runes.Buffer)
 	if !ok {
@@ -278,6 +280,7 @@ type parser struct {
 	maxRecursionDepth                int
 	errorRecoveryLimit               int
 	errorRecoveryLookaheadTokenLimit int
+	populateMacroCalls               bool
 }
 
 var (
@@ -804,7 +807,7 @@ func (p *parser) extractQualifiedName(e *exprpb.Expr) (string, bool) {
 	}
 	switch e.ExprKind.(type) {
 	case *exprpb.Expr_IdentExpr:
-		return e.GetIdentExpr().Name, true
+		return e.GetIdentExpr().GetName(), true
 	case *exprpb.Expr_SelectExpr:
 		s := e.GetSelectExpr()
 		if prefix, found := p.extractQualifiedName(s.Operand); found {
@@ -812,7 +815,7 @@ func (p *parser) extractQualifiedName(e *exprpb.Expr) (string, bool) {
 		}
 	}
 	// TODO: Add a method to Source to get location from character offset.
-	location := p.helper.getLocation(e.Id)
+	location := p.helper.getLocation(e.GetId())
 	p.reportError(location, "expected a qualified name")
 	return "", false
 }
@@ -833,7 +836,7 @@ func (p *parser) reportError(ctx interface{}, format string, args ...interface{}
 		location = ctx.(common.Location)
 	case antlr.Token, antlr.ParserRuleContext:
 		err := p.helper.newExpr(ctx)
-		location = p.helper.getLocation(err.Id)
+		location = p.helper.getLocation(err.GetId())
 	}
 	err := p.helper.newExpr(ctx)
 	// Provide arguments to the report error.
@@ -892,6 +895,9 @@ func (p *parser) expandMacro(exprID int64, function string, target *exprpb.Expr,
 			return p.reportError(err.Location, err.Message), true
 		}
 		return p.reportError(p.helper.getLocation(exprID), err.Message), true
+	}
+	if p.populateMacroCalls {
+		p.helper.addMacroCall(expr.GetId(), function, target, args...)
 	}
 	return expr, true
 }
