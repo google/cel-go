@@ -5,7 +5,7 @@ package(
 )
 
 go_library(
-    name = "go_strings_library",
+    name = "go_default_library",
     srcs = [
         "encoders.go",
         "guards.go",
@@ -31,7 +31,7 @@ go_test(
         "strings_test.go",
     ],
     embed = [
-        ":go_strings_library",
+        ":go_default_library",
     ],
     deps = [
         "//cel:go_default_library",
