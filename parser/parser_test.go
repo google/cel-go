@@ -1465,6 +1465,19 @@ var testCases = []testInfo{
 				z^#8:*expr.Expr_IdentExpr#.a^#9:*expr.Expr_SelectExpr#
 			)^#10:has#`,
 	},
+	{
+		I: `(has(a.b) || has(c.d)).string()`,
+		P: `_||_(
+			  a^#2:*expr.Expr_IdentExpr#.b~test-only~^#4:*expr.Expr_SelectExpr#,
+			  c^#6:*expr.Expr_IdentExpr#.d~test-only~^#8:*expr.Expr_SelectExpr#
+		    )^#9:*expr.Expr_CallExpr#.string()^#10:*expr.Expr_CallExpr#`,
+		M: `has(
+			  c^#6:*expr.Expr_IdentExpr#.d^#7:*expr.Expr_SelectExpr#
+			)^#8:has#,
+			has(
+			  a^#2:*expr.Expr_IdentExpr#.b^#3:*expr.Expr_SelectExpr#
+			)^#4:has#`,
+	},
 }
 
 type testInfo struct {
@@ -1496,9 +1509,10 @@ func (k *kindAndIDAdorner) GetMetadata(elem interface{}) string {
 	switch elem.(type) {
 	case *exprpb.Expr:
 		e := elem.(*exprpb.Expr)
-		if k.sourceInfo != nil {
-			if val, found := k.sourceInfo.MacroCalls[e.GetId()]; found {
-				return fmt.Sprintf("^#%d:%s#", e.Id, val.GetCallExpr().GetFunction())
+		macroCalls := k.sourceInfo.GetMacroCalls()
+		if macroCalls != nil {
+			if val, found := macroCalls[e.GetId()]; found {
+				return fmt.Sprintf("^#%d:%s#", e.GetId(), val.GetCallExpr().GetFunction())
 			}
 		}
 		var valType interface{} = e.ExprKind
@@ -1552,10 +1566,11 @@ func (l *locationAdorner) GetMetadata(elem interface{}) string {
 }
 
 func convertMacroCallsToString(source *exprpb.SourceInfo) string {
-	keys := make([]int64, len(source.GetMacroCalls()))
-	adornedStrings := make([]string, len(source.GetMacroCalls()))
+	macroCalls := source.GetMacroCalls()
+	keys := make([]int64, len(macroCalls))
+	adornedStrings := make([]string, len(macroCalls))
 	i := 0
-	for k := range source.GetMacroCalls() {
+	for k := range macroCalls {
 		keys[i] = k
 		i++
 	}
@@ -1563,7 +1578,14 @@ func convertMacroCallsToString(source *exprpb.SourceInfo) string {
 	sort.Slice(keys, func(i, j int) bool { return keys[i] > keys[j] })
 	i = 0
 	for _, key := range keys {
-		adornedStrings[i] = debug.ToAdornedDebugString(source.GetMacroCalls()[int64(key)], &kindAndIDAdorner{sourceInfo: source})
+		call := macroCalls[int64(key)]
+		callWithID := &exprpb.Expr{
+			Id:       int64(key),
+			ExprKind: call.GetExprKind(),
+		}
+		adornedStrings[i] = debug.ToAdornedDebugString(
+			callWithID,
+			&kindAndIDAdorner{sourceInfo: source})
 		i++
 	}
 	return strings.Join(adornedStrings, ",\n")
@@ -1591,7 +1613,7 @@ func TestParse(t *testing.T) {
 			tt.Parallel()
 
 			src := common.NewTextSource(tc.I)
-			expression, errors := p.Parse(src)
+			parsedExpr, errors := p.Parse(src)
 			if len(errors.GetErrors()) > 0 {
 				actualErr := errors.ToDisplayString()
 				if tc.E == "" {
@@ -1604,20 +1626,20 @@ func TestParse(t *testing.T) {
 				tt.Fatalf("Expected error not thrown: '%s'", tc.E)
 			}
 			failureDisplayMethod := fmt.Sprintf("Parse(\"%s\")", tc.I)
-			actualWithKind := debug.ToAdornedDebugString(expression.Expr, &kindAndIDAdorner{})
+			actualWithKind := debug.ToAdornedDebugString(parsedExpr.GetExpr(), &kindAndIDAdorner{})
 			if !test.Compare(actualWithKind, tc.P) {
 				tt.Fatal(test.DiffMessage(fmt.Sprintf("Structure - %s", failureDisplayMethod), actualWithKind, tc.P))
 			}
 
 			if tc.L != "" {
-				actualWithLocation := debug.ToAdornedDebugString(expression.Expr, &locationAdorner{expression.GetSourceInfo()})
+				actualWithLocation := debug.ToAdornedDebugString(parsedExpr.GetExpr(), &locationAdorner{parsedExpr.GetSourceInfo()})
 				if !test.Compare(actualWithLocation, tc.L) {
 					tt.Fatal(test.DiffMessage(fmt.Sprintf("Location - %s", failureDisplayMethod), actualWithLocation, tc.L))
 				}
 			}
 
 			if tc.M != "" {
-				actualAdornedMacroCalls := convertMacroCallsToString(expression.GetSourceInfo())
+				actualAdornedMacroCalls := convertMacroCallsToString(parsedExpr.GetSourceInfo())
 				if !test.Compare(actualAdornedMacroCalls, tc.M) {
 					tt.Fatal(test.DiffMessage(fmt.Sprintf("Macro Calls - %s", failureDisplayMethod), actualAdornedMacroCalls, tc.M))
 				}
