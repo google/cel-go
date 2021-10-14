@@ -20,6 +20,7 @@ import (
 
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/containers"
+	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
@@ -61,6 +62,30 @@ func TestOverlappingOverload(t *testing.T) {
 		t.Error("Got nil, wanted error")
 	} else if !strings.Contains(err.Error(), "overlapping overload") {
 		t.Errorf("Got %v, wanted overlapping overload error", err)
+	}
+}
+
+func TestSanitizedOverload(t *testing.T) {
+	env := NewStandardEnv(containers.DefaultContainer, newTestRegistry(t))
+	err := env.Add(decls.NewFunction(operators.Add,
+		decls.NewOverload("timestamp_add_int",
+			[]*exprpb.Type{decls.NewObjectType("google.protobuf.Timestamp"), decls.Int},
+			decls.NewObjectType("google.protobuf.Timestamp"))))
+	if err != nil {
+		t.Errorf("env.Add('timestamp_add_int') failed: %v", err)
+	}
+}
+
+func TestSanitizedInstanceOverload(t *testing.T) {
+	env := NewStandardEnv(containers.DefaultContainer, newTestRegistry(t))
+	err := env.Add(decls.NewFunction("orDefault",
+		decls.NewInstanceOverload("int_ordefault_int",
+			[]*exprpb.Type{
+				decls.NewObjectType("google.protobuf.Int32Value"),
+				decls.NewObjectType("google.protobuf.Int32Value")},
+			decls.Int)))
+	if err != nil {
+		t.Errorf("env.Add('int_ordefault_int') failed: %v", err)
 	}
 }
 

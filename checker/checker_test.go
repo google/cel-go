@@ -1564,6 +1564,114 @@ _&&_(_==_(list~type(list(dyn))^list,
 		)~string^base64_encode_string`,
 		Type: decls.String,
 	},
+	{
+		I:    `{}`,
+		R:    `{}~map(dyn, dyn)`,
+		Type: decls.NewMapType(decls.Dyn, decls.Dyn),
+	},
+	{
+		I: `set([1, 2, 3])`,
+		R: `
+		set(
+		  [
+		    1~int,
+		    2~int,
+		    3~int
+		  ]~list(int)
+		)~abstract_type:{name:"set" parameter_types:{primitive:INT64}}^set_list`,
+		Env: env{
+			functions: []*exprpb.Decl{
+				decls.NewFunction("set",
+					decls.NewParameterizedOverload(
+						"set_list", []*exprpb.Type{
+							decls.NewListType(decls.NewTypeParamType("T")),
+						}, decls.NewAbstractType("set", decls.NewTypeParamType("T")),
+						[]string{"T"})),
+			},
+		},
+		Type: decls.NewAbstractType("set", decls.Int),
+	},
+	{
+		I: `set([1, 2]) == set([2, 1])`,
+		R: `
+		_==_(
+		  set([1~int, 2~int]~list(int))~abstract_type:{name:"set" parameter_types:{primitive:INT64}}^set_list,
+		  set([2~int, 1~int]~list(int))~abstract_type:{name:"set" parameter_types:{primitive:INT64}}^set_list
+		)~bool^equals`,
+		Env: env{
+			functions: []*exprpb.Decl{
+				decls.NewFunction("set",
+					decls.NewParameterizedOverload(
+						"set_list", []*exprpb.Type{
+							decls.NewListType(decls.NewTypeParamType("T")),
+						}, decls.NewAbstractType("set", decls.NewTypeParamType("T")),
+						[]string{"T"})),
+			},
+		},
+		Type: decls.Bool,
+	},
+	{
+		I: `set([1, 2]) == x`,
+		R: `
+		_==_(
+		  set([1~int, 2~int]~list(int))~abstract_type:{name:"set" parameter_types:{primitive:INT64}}^set_list,
+		  x~abstract_type:{name:"set" parameter_types:{primitive:INT64}}^x
+		)~bool^equals`,
+		Env: env{
+			idents: []*exprpb.Decl{
+				decls.NewVar("x", decls.NewAbstractType("set", decls.NewTypeParamType("T"))),
+			},
+			functions: []*exprpb.Decl{
+				decls.NewFunction("set",
+					decls.NewParameterizedOverload(
+						"set_list", []*exprpb.Type{
+							decls.NewListType(decls.NewTypeParamType("T")),
+						}, decls.NewAbstractType("set", decls.NewTypeParamType("T")),
+						[]string{"T"})),
+			},
+		},
+		Type: decls.Bool,
+	},
+	{
+		I: `int{}`,
+		Error: `
+		ERROR: <input>:1:4: 'int' is not a message type
+		 | int{}
+		 | ...^
+		`,
+	},
+	{
+		I: `Msg{}`,
+		Error: `
+		ERROR: <input>:1:4: undeclared reference to 'Msg' (in container '')
+		 | Msg{}
+		 | ...^
+		`,
+	},
+	{
+		I: `fun()`,
+		Error: `
+		ERROR: <input>:1:4: undeclared reference to 'fun' (in container '')
+		 | fun()
+		 | ...^
+		`,
+	},
+	{
+		I: `'string'.fun()`,
+		Error: `
+		ERROR: <input>:1:13: undeclared reference to 'fun' (in container '')
+		 | 'string'.fun()
+		 | ............^
+		`,
+	},
+	{
+		I: `[].length`,
+		Error: `
+		ERROR: <input>:1:3: type 'list_type:{elem_type:{type_param:"_var0"}}' does not support field selection
+		 | [].length
+		 | ..^
+		`,
+	},
 }
 
 var testEnvs = map[string]env{
