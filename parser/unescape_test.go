@@ -15,202 +15,69 @@
 package parser
 
 import (
+	"errors"
+	"strings"
 	"testing"
 )
 
-func TestUnescapeSingleQuote(t *testing.T) {
-	text, err := unescape(`'hello'`, false)
-	if err != nil {
-		t.Fatal(err)
+func TestUnescape(t *testing.T) {
+	tests := []struct {
+		in      string
+		out     interface{}
+		isBytes bool
+	}{
+		// Simple string unescaping tests.
+		{in: `'hello'`, out: `hello`},
+		{in: `r'hello'`, out: `hello`},
+		{in: `""`, out: ``},
+		{in: `"\\\""`, out: `\"`},
+		{in: `"\\"`, out: `\`},
+		{in: `'''x''x'''`, out: `x''x`},
+		{in: `"""x""x"""`, out: `x""x`},
+		{in: `"\303\277"`, out: `Ã¿`},
+		{in: `"\377"`, out: `ÿ`},
+		{in: `"\u263A\u263A"`, out: `☺☺`},
+		{in: `"\a\b\f\n\r\t\v\'\"\\\? Legal escapes"`, out: "\a\b\f\n\r\t\v'\"\\? Legal escapes"},
+		// Byte unescaping tests.
+		{in: `"abc"`, out: "\x61\x62\x63", isBytes: true},
+		{in: `"ÿ"`, out: "\xc3\xbf", isBytes: true},
+		{in: `"\303\277"`, out: "\xc3\xbf", isBytes: true},
+		{in: `"\377"`, out: "\xff", isBytes: true},
+		{in: `"\xff"`, out: "\xff", isBytes: true},
+		{in: `"\xc3\xbf"`, out: "\xc3\xbf", isBytes: true},
+		{in: `'''"Kim\t"'''`, out: "\x22\x4b\x69\x6d\x09\x22", isBytes: true},
+		// Escaping errors.
+		{in: `"\a\b\f\n\r\t\v\'\"\\\? Illegal escape \>"`, out: errors.New("unable to unescape string")},
+		{in: `"\u00f"`, out: errors.New("unable to unescape string")},
+		{in: `"\u00fÿ"`, out: errors.New("unable to unescape string")},
+		{in: `"\u00ff"`, out: errors.New("unable to unescape string"), isBytes: true},
+		{in: `"\U00ff"`, out: errors.New("unable to unescape string"), isBytes: true},
+		{in: `"\26"`, out: errors.New("unable to unescape octal sequence")},
+		{in: `"\268"`, out: errors.New("unable to unescape octal sequence")},
+		{in: `"\267\"`, out: errors.New(`found '\' as last character`)},
+		{in: `'`, out: errors.New("unable to unescape string")},
+		{in: `*hello*`, out: errors.New("unable to unescape string")},
+		{in: `r'''hello'`, out: errors.New("unable to unescape string")},
+		{in: `r"""hello"`, out: errors.New("unable to unescape string")},
+		{in: `r"""hello"`, out: errors.New("unable to unescape string")},
 	}
-	if text != "hello" {
-		t.Errorf("Got '%v', wanted '%v", text, "hello")
-	}
-}
 
-func TestUnescapeDoubleQuote(t *testing.T) {
-	text, err := unescape(`""`, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if text != `` {
-		t.Errorf("Got '%v', wanted '%v'", text, ``)
-	}
-}
-
-func TestUnescapeEscapedQuote(t *testing.T) {
-	// The argument to unescape is dquote-backslash-dquote-dquote where both
-	// the backslash and inner double-quote are escaped.
-	text, err := unescape(`"\\\""`, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if text != `\"` {
-		t.Errorf("Got '%v', wanted '%v'", text, `\"`)
-	}
-}
-
-func TestUnescapeEscapedEscape(t *testing.T) {
-	text, err := unescape(`"\\"`, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if text != `\` {
-		t.Errorf("Got '%v', wanted '%v'", text, `\`)
-	}
-}
-
-func TestUnescapeTripleSingleQuote(t *testing.T) {
-	text, err := unescape(`'''x''x'''`, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if text != `x''x` {
-		t.Errorf("Got '%v', wanted '%v'", text, `x''x`)
-	}
-}
-
-func TestUnescapeTripleDoubleQuote(t *testing.T) {
-	text, err := unescape(`"""x""x"""`, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if text != `x""x` {
-		t.Errorf("Got '%v', wanted '%v'", text, `x""x`)
-	}
-}
-
-func TestUnescapeMultiOctalSequence(t *testing.T) {
-	// Octal 303 -> Code point 195 (Ã)
-	// Octal 277 -> Code point 191 (¿)
-	text, err := unescape(`"\303\277"`, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if text != `Ã¿` {
-		t.Errorf("Got '%v', wanted '%v'", text, `Ã¿`)
-	}
-}
-
-func TestUnescapeOctalSequence(t *testing.T) {
-	// Octal 377 -> Code point 255 (ÿ)
-	text, err := unescape(`"\377"`, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if text != `ÿ` {
-		t.Errorf("Got '%v', wanted '%v'", text, `ÿ`)
-	}
-}
-
-func TestUnescapeUnicodeSequence(t *testing.T) {
-	text, err := unescape(`"\u263A\u263A"`, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if text != `☺☺` {
-		t.Errorf("Got '%v', wanted '%v'", text, `☺☺`)
-	}
-}
-
-func TestUnescapeLegalEscapes(t *testing.T) {
-	text, err := unescape(`"\a\b\f\n\r\t\v\'\"\\\? Legal escapes"`, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if text != "\a\b\f\n\r\t\v'\"\\? Legal escapes" {
-		t.Errorf("Got '%v', wanted '%v'", text, "\a\b\f\n\r\t\v'\"\\? Legal escapes")
-	}
-}
-
-func TestUnescapeIllegalEscapes(t *testing.T) {
-	// The first escape sequences are legal, but the '\>' is not.
-	text, err := unescape(`"\a\b\f\n\r\t\v\'\"\\\? Illegal escape \>"`, false)
-	if err == nil {
-		t.Errorf("Got '%v', expected error", text)
-	}
-}
-
-func TestUnescapeBytesAscii(t *testing.T) {
-	bs, err := unescape(`"abc"`, true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := "\x61\x62\x63"
-	if bs != want {
-		t.Errorf("Got '%v', wanted '%v'", bs, want)
-	}
-}
-
-func TestUnescapeBytesUnicode(t *testing.T) {
-	bs, err := unescape(`"ÿ"`, true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := "\xc3\xbf"
-	if bs != want {
-		t.Errorf("Got '%v', wanted '%v'", bs, want)
-	}
-}
-
-func TestUnescapeBytesOctal(t *testing.T) {
-	bs, err := unescape(`"\303\277"`, true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := "\xc3\xbf"
-	if bs != want {
-		t.Errorf("Got '%v', wanted '%v'", bs, want)
-	}
-}
-
-func TestUnescapeBytesOctalMax(t *testing.T) {
-	bs, err := unescape(`"\377"`, true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := "\xff"
-	if bs != want {
-		t.Errorf("Got '%v', wanted '%v'", bs, want)
-	}
-}
-
-func TestUnescapeBytesQuoting(t *testing.T) {
-	bs, err := unescape(`'''"Kim\t"'''`, true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := "\x22\x4b\x69\x6d\x09\x22"
-	if bs != want {
-		t.Errorf("Got '%v', wanted '%v'", bs, want)
-	}
-}
-
-func TestUnescapeBytesHex(t *testing.T) {
-	bs, err := unescape(`"\xc3\xbf"`, true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := "\xc3\xbf"
-	if bs != want {
-		t.Errorf("Got '%v', wanted '%v'", bs, want)
-	}
-}
-
-func TestUnescapeBytesHexMax(t *testing.T) {
-	bs, err := unescape(`"\xff"`, true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := "\xff"
-	if bs != want {
-		t.Errorf("Got '%v', wanted '%v'", bs, want)
-	}
-}
-
-func TestUnescapeBytesUnicodeEscape(t *testing.T) {
-	bs, err := unescape(`"\u00ff"`, true)
-	if err == nil {
-		t.Errorf("Got '%v', expected error", bs)
+	for _, tst := range tests {
+		tc := tst
+		t.Run(tc.in, func(t *testing.T) {
+			got, err := unescape(tc.in, tc.isBytes)
+			if err != nil {
+				expect, isErr := tc.out.(error)
+				if isErr {
+					if !strings.Contains(err.Error(), expect.Error()) {
+						t.Errorf("unescape(%s, %v) errored with %v, wanted %v", tc.in, tc.isBytes, err, expect)
+					}
+				} else {
+					t.Fatalf("unescape(%s, %v) failed: %v", tc.in, tc.isBytes, err)
+				}
+			} else if got != tc.out {
+				t.Errorf("unescape(%s, %v) got %v, wanted %v", tc.in, tc.isBytes, got, tc.out)
+			}
+		})
 	}
 }
