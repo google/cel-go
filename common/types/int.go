@@ -63,11 +63,11 @@ func (i Int) Add(other ref.Val) ref.Val {
 	if !ok {
 		return MaybeNoSuchOverloadErr(other)
 	}
-	if val, err := addInt64Checked(int64(i), int64(otherInt)); err != nil {
+	val, err := addInt64Checked(int64(i), int64(otherInt))
+	if err != nil {
 		return wrapErr(err)
-	} else {
-		return Int(val)
 	}
+	return Int(val)
 }
 
 // Compare implements traits.Comparer.Compare.
@@ -199,11 +199,11 @@ func (i Int) Divide(other ref.Val) ref.Val {
 	if !ok {
 		return MaybeNoSuchOverloadErr(other)
 	}
-	if val, err := divideInt64Checked(int64(i), int64(otherInt)); err != nil {
+	val, err := divideInt64Checked(int64(i), int64(otherInt))
+	if err != nil {
 		return wrapErr(err)
-	} else {
-		return Int(val)
 	}
+	return Int(val)
 }
 
 // Equal implements ref.Val.Equal.
@@ -221,11 +221,11 @@ func (i Int) Modulo(other ref.Val) ref.Val {
 	if !ok {
 		return MaybeNoSuchOverloadErr(other)
 	}
-	if val, err := moduloInt64Checked(int64(i), int64(otherInt)); err != nil {
+	val, err := moduloInt64Checked(int64(i), int64(otherInt))
+	if err != nil {
 		return wrapErr(err)
-	} else {
-		return Int(val)
 	}
+	return Int(val)
 }
 
 // Multiply implements traits.Multiplier.Multiply.
@@ -234,20 +234,20 @@ func (i Int) Multiply(other ref.Val) ref.Val {
 	if !ok {
 		return MaybeNoSuchOverloadErr(other)
 	}
-	if val, err := multiplyInt64Checked(int64(i), int64(otherInt)); err != nil {
+	val, err := multiplyInt64Checked(int64(i), int64(otherInt))
+	if err != nil {
 		return wrapErr(err)
-	} else {
-		return Int(val)
 	}
+	return Int(val)
 }
 
 // Negate implements traits.Negater.Negate.
 func (i Int) Negate() ref.Val {
-	if val, err := negateInt64Checked(int64(i)); err != nil {
+	val, err := negateInt64Checked(int64(i))
+	if err != nil {
 		return wrapErr(err)
-	} else {
-		return Int(val)
 	}
+	return Int(val)
 }
 
 // Subtract implements traits.Subtractor.Subtract.
@@ -256,11 +256,11 @@ func (i Int) Subtract(subtrahend ref.Val) ref.Val {
 	if !ok {
 		return MaybeNoSuchOverloadErr(subtrahend)
 	}
-	if val, err := subtractInt64Checked(int64(i), int64(subtraInt)); err != nil {
+	val, err := subtractInt64Checked(int64(i), int64(subtraInt))
+	if err != nil {
 		return wrapErr(err)
-	} else {
-		return Int(val)
 	}
+	return Int(val)
 }
 
 // Type implements ref.Val.Type.

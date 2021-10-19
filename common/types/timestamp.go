@@ -160,18 +160,18 @@ func (t Timestamp) Subtract(subtrahend ref.Val) ref.Val {
 	switch subtrahend.Type() {
 	case DurationType:
 		dur := subtrahend.(Duration)
-		if val, err := subtractTimeDurationChecked(t.Time, dur.Duration); err != nil {
+		val, err := subtractTimeDurationChecked(t.Time, dur.Duration)
+		if err != nil {
 			return wrapErr(err)
-		} else {
-			return timestampOf(val)
 		}
+		return timestampOf(val)
 	case TimestampType:
 		t2 := subtrahend.(Timestamp).Time
-		if val, err := subtractTimeChecked(t.Time, t2); err != nil {
+		val, err := subtractTimeChecked(t.Time, t2)
+		if err != nil {
 			return wrapErr(err)
-		} else {
-			return durationOf(val)
 		}
+		return durationOf(val)
 	}
 	return MaybeNoSuchOverloadErr(subtrahend)
 }
