@@ -55,18 +55,18 @@ func (d Duration) Add(other ref.Val) ref.Val {
 	switch other.Type() {
 	case DurationType:
 		dur2 := other.(Duration)
-		if val, err := addDurationChecked(d.Duration, dur2.Duration); err != nil {
+		val, err := addDurationChecked(d.Duration, dur2.Duration)
+		if err != nil {
 			return wrapErr(err)
-		} else {
-			return durationOf(val)
 		}
+		return durationOf(val)
 	case TimestampType:
 		ts := other.(Timestamp).Time
-		if val, err := addTimeDurationChecked(ts, d.Duration); err != nil {
+		val, err := addTimeDurationChecked(ts, d.Duration)
+		if err != nil {
 			return wrapErr(err)
-		} else {
-			return timestampOf(val)
 		}
+		return timestampOf(val)
 	}
 	return MaybeNoSuchOverloadErr(other)
 }
@@ -143,11 +143,11 @@ func (d Duration) Equal(other ref.Val) ref.Val {
 
 // Negate implements traits.Negater.Negate.
 func (d Duration) Negate() ref.Val {
-	if val, err := negateDurationChecked(d.Duration); err != nil {
+	val, err := negateDurationChecked(d.Duration)
+	if err != nil {
 		return wrapErr(err)
-	} else {
-		return durationOf(val)
 	}
+	return durationOf(val)
 }
 
 // Receive implements traits.Receiver.Receive.
@@ -166,11 +166,11 @@ func (d Duration) Subtract(subtrahend ref.Val) ref.Val {
 	if !ok {
 		return MaybeNoSuchOverloadErr(subtrahend)
 	}
-	if val, err := subtractDurationChecked(d.Duration, subtraDur.Duration); err != nil {
+	val, err := subtractDurationChecked(d.Duration, subtraDur.Duration)
+	if err != nil {
 		return wrapErr(err)
-	} else {
-		return durationOf(val)
 	}
+	return durationOf(val)
 }
 
 // Type implements ref.Val.Type.

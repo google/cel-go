@@ -56,11 +56,11 @@ func (i Uint) Add(other ref.Val) ref.Val {
 	if !ok {
 		return MaybeNoSuchOverloadErr(other)
 	}
-	if val, err := addUint64Checked(uint64(i), uint64(otherUint)); err != nil {
+	val, err := addUint64Checked(uint64(i), uint64(otherUint))
+	if err != nil {
 		return wrapErr(err)
-	} else {
-		return Uint(val)
 	}
+	return Uint(val)
 }
 
 // Compare implements traits.Comparer.Compare.
@@ -144,11 +144,11 @@ func (i Uint) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 func (i Uint) ConvertToType(typeVal ref.Type) ref.Val {
 	switch typeVal {
 	case IntType:
-		if v, err := uint64ToInt64Checked(uint64(i)); err != nil {
+		v, err := uint64ToInt64Checked(uint64(i))
+		if err != nil {
 			return wrapErr(err)
-		} else {
-			return Int(v)
 		}
+		return Int(v)
 	case UintType:
 		return i
 	case DoubleType:
@@ -167,11 +167,11 @@ func (i Uint) Divide(other ref.Val) ref.Val {
 	if !ok {
 		return MaybeNoSuchOverloadErr(other)
 	}
-	if div, err := divideUint64Checked(uint64(i), uint64(otherUint)); err != nil {
+	div, err := divideUint64Checked(uint64(i), uint64(otherUint))
+	if err != nil {
 		return wrapErr(err)
-	} else {
-		return Uint(div)
 	}
+	return Uint(div)
 }
 
 // Equal implements ref.Val.Equal.
@@ -189,11 +189,11 @@ func (i Uint) Modulo(other ref.Val) ref.Val {
 	if !ok {
 		return MaybeNoSuchOverloadErr(other)
 	}
-	if mod, err := moduloUint64Checked(uint64(i), uint64(otherUint)); err != nil {
+	mod, err := moduloUint64Checked(uint64(i), uint64(otherUint))
+	if err != nil {
 		return wrapErr(err)
-	} else {
-		return Uint(mod)
 	}
+	return Uint(mod)
 }
 
 // Multiply implements traits.Multiplier.Multiply.
@@ -202,11 +202,11 @@ func (i Uint) Multiply(other ref.Val) ref.Val {
 	if !ok {
 		return MaybeNoSuchOverloadErr(other)
 	}
-	if val, err := multiplyUint64Checked(uint64(i), uint64(otherUint)); err != nil {
+	val, err := multiplyUint64Checked(uint64(i), uint64(otherUint))
+	if err != nil {
 		return wrapErr(err)
-	} else {
-		return Uint(val)
 	}
+	return Uint(val)
 }
 
 // Subtract implements traits.Subtractor.Subtract.
@@ -215,11 +215,11 @@ func (i Uint) Subtract(subtrahend ref.Val) ref.Val {
 	if !ok {
 		return MaybeNoSuchOverloadErr(subtrahend)
 	}
-	if val, err := subtractUint64Checked(uint64(i), uint64(subtraUint)); err != nil {
+	val, err := subtractUint64Checked(uint64(i), uint64(subtraUint))
+	if err != nil {
 		return wrapErr(err)
-	} else {
-		return Uint(val)
 	}
+	return Uint(val)
 }
 
 // Type implements ref.Val.Type.
