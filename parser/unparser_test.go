@@ -36,6 +36,8 @@ func TestUnparse(t *testing.T) {
 		{name: "call_and", in: `a && b && c && d && e`},
 		{name: "call_and_or", in: `a || b && (c || d) && e`},
 		{name: "call_cond", in: `a ? b : c`},
+		{name: "call_cond_nested_inner", in: `a ? (c ? d : e) : b`},
+		{name: "call_cond_nested_outer", in: `a ? b : c ? d : e`, out: `a ? b : (c ? d : e)`},
 		{name: "call_index", in: `a[1]["b"]`},
 		{name: "call_index_eq", in: `x["a"].single_int32 == 23`},
 		{name: "call_mul", in: `a * (b / c) % 0`},
