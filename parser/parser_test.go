@@ -1478,6 +1478,79 @@ var testCases = []testInfo{
 			  a^#2:*expr.Expr_IdentExpr#.b^#3:*expr.Expr_SelectExpr#
 			)^#4:has#`,
 	},
+	{
+		I: `has(a.b).asList().exists(c, c)`,
+		P: `__comprehension__(
+			// Variable
+			c,
+			// Target
+			a^#2:*expr.Expr_IdentExpr#.b~test-only~^#4:*expr.Expr_SelectExpr#.asList()^#5:*expr.Expr_CallExpr#,
+			// Accumulator
+			__result__,
+			// Init
+			false^#9:*expr.Constant_BoolValue#,
+			// LoopCondition
+			@not_strictly_false(
+			  !_(
+				__result__^#10:*expr.Expr_IdentExpr#
+			  )^#11:*expr.Expr_CallExpr#
+			)^#12:*expr.Expr_CallExpr#,
+			// LoopStep
+			_||_(
+			  __result__^#13:*expr.Expr_IdentExpr#,
+			  c^#8:*expr.Expr_IdentExpr#
+			)^#14:*expr.Expr_CallExpr#,
+			// Result
+			__result__^#15:*expr.Expr_IdentExpr#)^#16:*expr.Expr_ComprehensionExpr#`,
+		M: `^#4:has#.asList()^#5:*expr.Expr_CallExpr#.exists(
+			c^#7:*expr.Expr_IdentExpr#,
+			c^#8:*expr.Expr_IdentExpr#
+		  )^#16:exists#,
+		  has(
+			a^#2:*expr.Expr_IdentExpr#.b^#3:*expr.Expr_SelectExpr#
+		  )^#4:has#`,
+	},
+	{
+		I: `[has(a.b), has(c.d)].exists(e, e)`,
+		P: `__comprehension__(
+			// Variable
+			e,
+			// Target
+			[
+			  a^#3:*expr.Expr_IdentExpr#.b~test-only~^#5:*expr.Expr_SelectExpr#,
+			  c^#7:*expr.Expr_IdentExpr#.d~test-only~^#9:*expr.Expr_SelectExpr#
+			]^#1:*expr.Expr_ListExpr#,
+			// Accumulator
+			__result__,
+			// Init
+			false^#13:*expr.Constant_BoolValue#,
+			// LoopCondition
+			@not_strictly_false(
+			  !_(
+				__result__^#14:*expr.Expr_IdentExpr#
+			  )^#15:*expr.Expr_CallExpr#
+			)^#16:*expr.Expr_CallExpr#,
+			// LoopStep
+			_||_(
+			  __result__^#17:*expr.Expr_IdentExpr#,
+			  e^#12:*expr.Expr_IdentExpr#
+			)^#18:*expr.Expr_CallExpr#,
+			// Result
+			__result__^#19:*expr.Expr_IdentExpr#)^#20:*expr.Expr_ComprehensionExpr#`,
+		M: `[
+			^#5:has#,
+			^#9:has#
+		  ]^#1:*expr.Expr_ListExpr#.exists(
+			e^#11:*expr.Expr_IdentExpr#,
+			e^#12:*expr.Expr_IdentExpr#
+		  )^#20:exists#,
+		  has(
+			c^#7:*expr.Expr_IdentExpr#.d^#8:*expr.Expr_SelectExpr#
+		  )^#9:has#,
+		  has(
+			a^#3:*expr.Expr_IdentExpr#.b^#4:*expr.Expr_SelectExpr#
+		  )^#5:has#`,
+	},
 }
 
 type testInfo struct {
