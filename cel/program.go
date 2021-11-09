@@ -129,9 +129,6 @@ func newProgram(e *Env, ast *Ast, opts []ProgramOption) (Program, error) {
 	// Configure the program via the ProgramOption values.
 	var err error
 	for _, opt := range opts {
-		if opt == nil {
-			return nil, fmt.Errorf("program options should be non-nil")
-		}
 		p, err = opt(p)
 		if err != nil {
 			return nil, err

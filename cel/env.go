@@ -89,13 +89,17 @@ type Env struct {
 	adapter      ref.TypeAdapter
 	provider     ref.TypeProvider
 	features     map[int]bool
-	// program options tied to the environment.
-	progOpts []ProgramOption
+
+	// Internal parser representation
+	prsr *parser.Parser
 
 	// Internal checker representation
-	chk    *checker.Env
-	chkErr error
-	once   sync.Once
+	chk     *checker.Env
+	chkErr  error
+	chkOnce sync.Once
+
+	// Program options tied to the environment
+	progOpts []ProgramOption
 }
 
 // NewEnv creates a program environment configured with the standard library of CEL functions and
@@ -147,10 +151,10 @@ func (e *Env) Check(ast *Ast) (*Ast, *Issues) {
 	pe, _ := AstToParsedExpr(ast)
 
 	// Construct the internal checker env, erroring if there is an issue adding the declarations.
-	e.once.Do(func() {
+	e.chkOnce.Do(func() {
 		ce := checker.NewEnv(e.Container, e.provider)
 		ce.EnableDynamicAggregateLiterals(true)
-		if e.HasFeature(FeatureDisableDynamicAggregateLiterals) {
+		if e.HasFeature(featureDisableDynamicAggregateLiterals) {
 			ce.EnableDynamicAggregateLiterals(false)
 		}
 		err := ce.Add(e.declarations...)
@@ -207,11 +211,10 @@ func (e *Env) CompileSource(src common.Source) (*Ast, *Issues) {
 		return nil, iss
 	}
 	checked, iss2 := e.Check(ast)
-	iss = iss.Append(iss2)
-	if iss.Err() != nil {
-		return nil, iss
+	if iss2.Err() != nil {
+		return nil, iss2
 	}
-	return checked, iss
+	return checked, iss2
 }
 
 // Extend the current environment with additional options to produce a new Env.
@@ -301,7 +304,7 @@ func (e *Env) Parse(txt string) (*Ast, *Issues) {
 // It is possible to have both non-nil Ast and Issues values returned from this call; however,
 // the mere presence of an Ast does not imply that it is valid for use.
 func (e *Env) ParseSource(src common.Source) (*Ast, *Issues) {
-	res, errs := parser.ParseWithMacros(src, e.macros)
+	res, errs := e.prsr.Parse(src)
 	if len(errs.GetErrors()) > 0 {
 		return nil, &Issues{errs: errs}
 	}
@@ -413,6 +416,14 @@ func (e *Env) configure(opts []EnvOption) (*Env, error) {
 			return nil, err
 		}
 	}
+	prsrOpts := []parser.Option{parser.Macros(e.macros...)}
+	if e.HasFeature(featureEnableMacroCallTracking) {
+		prsrOpts = append(prsrOpts, parser.PopulateMacroCalls(true))
+	}
+	e.prsr, err = parser.NewParser(prsrOpts...)
+	if err != nil {
+		return nil, err
+	}
 	return e, nil
 }
 
@@ -453,6 +464,9 @@ func (i *Issues) Errors() []common.Error {
 func (i *Issues) Append(other *Issues) *Issues {
 	if i == nil {
 		return other
+	}
+	if other == nil {
+		return i
 	}
 	return NewIssues(i.errs.Append(other.errs.GetErrors()))
 }

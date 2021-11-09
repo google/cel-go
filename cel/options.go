@@ -45,7 +45,10 @@ const (
 	// provided as variables to the expression, as well as via conversion
 	// of well-known dynamic types, or with unchecked expressions.
 	// Affects checking.  Provides a subset of standard behavior.
-	FeatureDisableDynamicAggregateLiterals
+	featureDisableDynamicAggregateLiterals
+
+	// Enable the tracking of function call expressions replaced by macros.
+	featureEnableMacroCallTracking
 )
 
 // EnvOption is a functional interface for configuring the environment.
@@ -113,7 +116,7 @@ func Features(flags ...int) EnvOption {
 // expression, as well as via conversion of well-known dynamic types, or with unchecked
 // expressions.
 func HomogeneousAggregateLiterals() EnvOption {
-	return Features(FeatureDisableDynamicAggregateLiterals)
+	return Features(featureDisableDynamicAggregateLiterals)
 }
 
 // Macros option extends the macro set configured in the environment.
@@ -334,8 +337,7 @@ func Functions(funcs ...*functions.Overload) ProgramOption {
 // The vars value may either be an `interpreter.Activation` instance or a `map[string]interface{}`.
 func Globals(vars interface{}) ProgramOption {
 	return func(p *prog) (*prog, error) {
-		defaultVars, err :=
-			interpreter.NewActivation(vars)
+		defaultVars, err := interpreter.NewActivation(vars)
 		if err != nil {
 			return nil, err
 		}
@@ -411,19 +413,19 @@ func fieldToDecl(field protoreflect.FieldDescriptor) (*exprpb.Decl, error) {
 			return nil, err
 		}
 		return decls.NewVar(name, decls.NewMapType(keyType, valueType)), nil
-	} else if field.IsList() {
+	}
+	if field.IsList() {
 		elemType, err := fieldToCELType(field)
 		if err != nil {
 			return nil, err
 		}
 		return decls.NewVar(name, decls.NewListType(elemType)), nil
-	} else {
-		celType, err := fieldToCELType(field)
-		if err != nil {
-			return nil, err
-		}
-		return decls.NewVar(name, celType), nil
 	}
+	celType, err := fieldToCELType(field)
+	if err != nil {
+		return nil, err
+	}
+	return decls.NewVar(name, celType), nil
 }
 
 // DeclareContextProto returns an option to extend CEL environment with declarations from the given context proto.
@@ -447,5 +449,14 @@ func DeclareContextProto(descriptor protoreflect.MessageDescriptor) EnvOption {
 			return nil, err
 		}
 		return Types(dynamicpb.NewMessage(descriptor))(e)
+	}
+}
+
+// EnableMacroCallTracking ensures that call expressions which are replaced by macros
+// are tracked in the `SourceInfo` of parsed and checked expressions.
+func EnableMacroCallTracking() EnvOption {
+	return func(e *Env) (*Env, error) {
+		e.features[featureEnableMacroCallTracking] = true
+		return e, nil
 	}
 }
