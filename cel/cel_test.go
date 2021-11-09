@@ -1046,8 +1046,51 @@ func TestEnvExtensionIsolation(t *testing.T) {
 	}
 }
 
+func TestParseError(t *testing.T) {
+	e, err := NewEnv()
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	_, iss := e.Parse("invalid & logical_and")
+	if iss.Err() == nil {
+		t.Fatal("e.Parse('invalid & logical_and') did not error")
+	}
+}
+
+func TestParseWithMacroTracking(t *testing.T) {
+	e, err := NewEnv(EnableMacroCallTracking())
+	if err != nil {
+		t.Fatalf("NewEnv(EnableMacroCallTracking()) failed: %v", err)
+	}
+	ast, iss := e.Parse("has(a.b) && a.b.exists(c, c < 10)")
+	if iss.Err() != nil {
+		t.Fatalf("e.Parse() failed: %v", iss.Err())
+	}
+	pe, err := AstToParsedExpr(ast)
+	if err != nil {
+		t.Fatalf("AstToParsedExpr(%v) failed: %v", ast, err)
+	}
+	macroCalls := pe.GetSourceInfo().GetMacroCalls()
+	if len(macroCalls) != 2 {
+		t.Errorf("got %d macro calls, wanted 2", len(macroCalls))
+	}
+	callsFound := map[string]bool{"has": false, "exists": false}
+	for _, expr := range macroCalls {
+		f := expr.GetCallExpr().GetFunction()
+		_, found := callsFound[f]
+		if !found {
+			t.Errorf("Unexpected macro call: %v", expr)
+		}
+		callsFound[f] = true
+	}
+	callsWanted := map[string]bool{"has": true, "exists": true}
+	if !reflect.DeepEqual(callsFound, callsWanted) {
+		t.Errorf("Tracked calls %v, but wanted %v", callsFound, callsWanted)
+	}
+}
+
 func TestParseAndCheckConcurrently(t *testing.T) {
-	e, _ := NewEnv(
+	e, err := NewEnv(
 		Container("google.api.expr.v1alpha1"),
 		Types(&exprpb.Expr{}),
 		Declarations(
@@ -1055,11 +1098,14 @@ func TestParseAndCheckConcurrently(t *testing.T) {
 				decls.NewObjectType("google.api.expr.v1alpha1.Expr")),
 		),
 	)
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
 
 	parseAndCheck := func(expr string) {
 		_, iss := e.Compile(expr)
 		if iss.Err() != nil {
-			t.Fatalf("failed to parse '%s': %v", expr, iss.Err())
+			t.Fatalf("e.Compile('%s') failed: %v", expr, iss.Err())
 		}
 	}
 

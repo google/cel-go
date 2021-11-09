@@ -19,6 +19,8 @@ import (
 
 	"github.com/google/cel-go/checker/decls"
 	"google.golang.org/protobuf/proto"
+
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 func TestAstToProto(t *testing.T) {
@@ -90,7 +92,7 @@ func TestAstToString(t *testing.T) {
 	}
 }
 
-func TestCheckedExprToAst_ConstantExpr(t *testing.T) {
+func TestCheckedExprToAstConstantExpr(t *testing.T) {
 	stdEnv, err := NewEnv()
 	if err != nil {
 		t.Fatalf("NewEnv() failed: %v", err)
@@ -107,5 +109,35 @@ func TestCheckedExprToAst_ConstantExpr(t *testing.T) {
 	ast2 := CheckedExprToAst(expr)
 	if !proto.Equal(ast2.Expr(), ast.Expr()) {
 		t.Fatalf("got ast %v, wanted %v", ast2, ast)
+	}
+}
+
+func TestCheckedExprToAstMissingInfo(t *testing.T) {
+	stdEnv, err := NewEnv()
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	in := "10"
+	ast, iss := stdEnv.Parse(in)
+	if iss.Err() != nil {
+		t.Fatalf("stdEnv.Compile(%q) failed: %v", in, iss.Err())
+	}
+	if ast.ResultType() != decls.Dyn {
+		t.Fatalf("ast.ResultType() got %v, wanted 'dyn'", ast.ResultType())
+	}
+	expr, err := AstToParsedExpr(ast)
+	if err != nil {
+		t.Fatalf("AstToParsedExpr(ast) failed: %v", err)
+	}
+	checkedExpr := &exprpb.CheckedExpr{
+		TypeMap: map[int64]*exprpb.Type{expr.GetExpr().GetId(): decls.Int},
+		Expr:    expr.GetExpr(),
+	}
+	ast2 := CheckedExprToAst(checkedExpr)
+	if !ast2.IsChecked() {
+		t.Fatal("CheckedExprToAst() did not produce a 'checked' ast")
+	}
+	if ast2.ResultType() != decls.Int {
+		t.Fatalf("ast2.ResultType() got %v, wanted 'int'", ast.ResultType())
 	}
 }
