@@ -298,6 +298,11 @@ func (eq *evalEq) ID() int64 {
 func (eq *evalEq) Eval(ctx Activation) ref.Val {
 	lVal := eq.lhs.Eval(ctx)
 	rVal := eq.rhs.Eval(ctx)
+	lNull := lVal == types.NullValue
+	rNull := rVal == types.NullValue
+	if lNull || rNull {
+		return types.Bool(lNull == rNull)
+	}
 	return lVal.Equal(rVal)
 }
 
@@ -336,6 +341,11 @@ func (ne *evalNe) ID() int64 {
 func (ne *evalNe) Eval(ctx Activation) ref.Val {
 	lVal := ne.lhs.Eval(ctx)
 	rVal := ne.rhs.Eval(ctx)
+	lNull := lVal == types.NullValue
+	rNull := rVal == types.NullValue
+	if lNull || rNull {
+		return types.Bool(lNull != rNull)
+	}
 	eqVal := lVal.Equal(rVal)
 	eqBool, ok := eqVal.(types.Bool)
 	if !ok {

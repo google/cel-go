@@ -79,7 +79,12 @@ var testCases = []testInfo{
 	{
 		in:   unknownActivation(),
 		expr: `test == null`,
-		out:  `test == null`,
+		out:  `false`,
+	},
+	{
+		in:   unknownActivation(),
+		expr: `test == null || true`,
+		out:  `true`,
 	},
 	{
 		in:   unknownActivation(),
