@@ -271,7 +271,7 @@ func (m *baseMap) Equal(other ref.Val) ref.Val {
 			}
 			continue
 		}
-		valEq := thisVal.Equal(otherVal)
+		valEq := Equal(thisVal, otherVal)
 		if valEq == False {
 			return False
 		}
@@ -660,7 +660,7 @@ func (m *protoMap) Equal(other ref.Val) ref.Val {
 			retVal = MaybeNoSuchOverloadErr(otherVal)
 			return false
 		}
-		valEq := valVal.Equal(otherVal)
+		valEq := Equal(valVal, otherVal)
 		if valEq != True {
 			retVal = valEq
 			return false

@@ -231,7 +231,7 @@ func (l *baseList) Equal(other ref.Val) ref.Val {
 	for i := IntZero; i < l.Size().(Int); i++ {
 		thisElem := l.Get(i)
 		otherElem := otherList.Get(i)
-		elemEq := thisElem.Equal(otherElem)
+		elemEq := Equal(thisElem, otherElem)
 		if elemEq == False {
 			return False
 		}
@@ -358,7 +358,7 @@ func (l *concatList) Equal(other ref.Val) ref.Val {
 	for i := IntZero; i < l.Size().(Int); i++ {
 		thisElem := l.Get(i)
 		otherElem := otherList.Get(i)
-		elemEq := thisElem.Equal(otherElem)
+		elemEq := Equal(thisElem, otherElem)
 		if elemEq == False {
 			return False
 		}
