@@ -37,7 +37,7 @@ func IsPrimitiveType(val ref.Val) bool {
 	return false
 }
 
-// Equal returns whether the two ref.Value are heterogenously equivalent.
+// Equal returns whether the two ref.Value are heterogeneously equivalent.
 func Equal(lhs ref.Val, rhs ref.Val) ref.Val {
 	lNull := lhs == NullValue
 	rNull := rhs == NullValue
