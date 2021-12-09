@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/common/types/traits"
 	"google.golang.org/protobuf/proto"
 
 	anypb "google.golang.org/protobuf/types/known/anypb"
@@ -45,19 +46,88 @@ func TestUint_Add(t *testing.T) {
 }
 
 func TestUint_Compare(t *testing.T) {
-	lt := Uint(204)
-	gt := Uint(1300)
-	if !lt.Compare(gt).Equal(IntNegOne).(Bool) {
-		t.Error("Comparison did not yield - 1")
+	tests := []struct {
+		a   ref.Val
+		b   ref.Val
+		out ref.Val
+	}{
+		{
+			a:   Uint(42),
+			b:   Uint(42),
+			out: IntZero,
+		},
+		{
+			a:   Uint(42),
+			b:   Int(42),
+			out: IntZero,
+		},
+		{
+			a:   Uint(42),
+			b:   Double(42),
+			out: IntZero,
+		},
+		{
+			a:   Uint(13),
+			b:   Int(204),
+			out: IntNegOne,
+		},
+		{
+			a:   Uint(13),
+			b:   Uint(204),
+			out: IntNegOne,
+		},
+		{
+			a:   Uint(204),
+			b:   Double(204.1),
+			out: IntNegOne,
+		},
+		{
+			a:   Uint(204),
+			b:   Int(205),
+			out: IntNegOne,
+		},
+		{
+			a:   Uint(204),
+			b:   Double(math.MaxUint64) + 2049.0,
+			out: IntNegOne,
+		},
+		{
+			a:   Uint(204),
+			b:   Double(math.NaN()),
+			out: NewErr("NaN values cannot be ordered"),
+		},
+		{
+			a:   Uint(1300),
+			b:   Int(-1),
+			out: IntOne,
+		},
+		{
+			a:   Uint(204),
+			b:   Uint(13),
+			out: IntOne,
+		},
+		{
+			a:   Uint(204),
+			b:   Double(203.9),
+			out: IntOne,
+		},
+		{
+			a:   Uint(204),
+			b:   Double(-1.0),
+			out: IntOne,
+		},
+		{
+			a:   Uint(1),
+			b:   String("1"),
+			out: NoSuchOverloadErr(),
+		},
 	}
-	if !gt.Compare(lt).Equal(IntOne).(Bool) {
-		t.Error("Comparison did not yield 1")
-	}
-	if !gt.Compare(gt).Equal(IntZero).(Bool) {
-		t.Error(("Comparison did not yield 0"))
-	}
-	if !IsError(gt.Compare(TypeType)) {
-		t.Error("Types not comparable")
+	for _, tc := range tests {
+		comparer := tc.a.(traits.Comparer)
+		got := comparer.Compare(tc.b)
+		if !reflect.DeepEqual(got, tc.out) {
+			t.Errorf("%v.Compare(%v) got %v, wanted %v", tc.a, tc.b, got, tc.out)
+		}
 	}
 }
 
@@ -236,8 +306,57 @@ func TestUint_Divide(t *testing.T) {
 }
 
 func TestUint_Equal(t *testing.T) {
-	if !IsError(Uint(0).Equal(False)) {
-		t.Error("Uint equal to non-uint type result in non-error")
+	tests := []struct {
+		a   ref.Val
+		b   ref.Val
+		out ref.Val
+	}{
+		{
+			a:   Uint(10),
+			b:   Uint(10),
+			out: True,
+		},
+		{
+			a:   Uint(10),
+			b:   Int(-10),
+			out: False,
+		},
+		{
+			a:   Uint(10),
+			b:   Int(10),
+			out: True,
+		},
+		{
+			a:   Uint(9),
+			b:   Int(10),
+			out: False,
+		},
+		{
+			a:   Uint(10),
+			b:   Double(10),
+			out: True,
+		},
+		{
+			a:   Uint(10),
+			b:   Double(-10.5),
+			out: False,
+		},
+		{
+			a:   Uint(10),
+			b:   Double(math.NaN()),
+			out: False,
+		},
+		{
+			a:   Uint(10),
+			b:   Unknown{2},
+			out: Unknown{2},
+		},
+	}
+	for _, tc := range tests {
+		got := tc.a.Equal(tc.b)
+		if !reflect.DeepEqual(got, tc.out) {
+			t.Errorf("%v.Equal(%v) got %v, wanted %v", tc.a, tc.b, got, tc.out)
+		}
 	}
 }
 
