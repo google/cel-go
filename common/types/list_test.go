@@ -16,6 +16,7 @@ package types
 
 import (
 	"encoding/json"
+	"math"
 	"reflect"
 	"testing"
 
@@ -48,28 +49,52 @@ func TestBaseListAdd_Error(t *testing.T) {
 
 func TestBaseListContains(t *testing.T) {
 	list := NewDynamicList(newTestRegistry(t), []float32{1.0, 2.0, 3.0})
-	if list.Contains(Double(5)) != False {
-		t.Error("List contains did not return false")
+	tests := []struct {
+		in  ref.Val
+		out ref.Val
+	}{
+		{
+			in:  Double(math.NaN()),
+			out: False,
+		},
+		{
+			in:  Double(5),
+			out: False,
+		},
+		{
+			in:  Double(3),
+			out: True,
+		},
+		{
+			in:  Uint(3),
+			out: True,
+		},
+		{
+			in:  Int(3),
+			out: True,
+		},
+		{
+			in:  Int(3),
+			out: True,
+		},
+		{
+			in:  Int(0),
+			out: False,
+		},
+		{
+			in:  String("3"),
+			out: NoSuchOverloadErr(),
+		},
+		{
+			in:  Unknown{1},
+			out: Unknown{1},
+		},
 	}
-	if list.Contains(Double(3)) != True {
-		t.Error("List contains did not succeed")
-	}
-	list = NewDynamicList(newTestRegistry(t), []interface{}{1.0, 2, 3.0})
-	if list.Contains(Int(2)) != True {
-		t.Error("List contains did not succeed")
-	}
-	if list.Contains(Double(3)) != True {
-		t.Error("List contains did not succeed")
-	}
-}
-
-func TestBaseListContains_NonBool(t *testing.T) {
-	list := NewDynamicList(newTestRegistry(t), []interface{}{1.0, 2, 3.0})
-	if !IsError(list.Contains(Int(3))) {
-		t.Error("List contains succeeded with wrong type")
-	}
-	if !reflect.DeepEqual(list.Contains(Unknown{1}), Unknown{1}) {
-		t.Error("list.Contains(unknown) did not return unknown input")
+	for _, tc := range tests {
+		got := list.Contains(tc.in)
+		if !reflect.DeepEqual(got, tc.out) {
+			t.Errorf("list.Contains(%v) returned %v, wanted %v", tc.in, got, tc.out)
+		}
 	}
 }
 
@@ -276,7 +301,7 @@ func TestConcatListConvertToNative_Json(t *testing.T) {
 	}
 }
 
-func TestConcatListConvertToNative_ListInterface(t *testing.T) {
+func TestConcatListConvertToNativeListInterface(t *testing.T) {
 	reg := newTestRegistry(t)
 	listA := NewDynamicList(reg, []float32{1.0, 2.0})
 	listB := NewStringList(reg, []string{"3.0"})
@@ -325,7 +350,7 @@ func TestConcatListContains(t *testing.T) {
 	}
 }
 
-func TestConcatListContains_NonBool(t *testing.T) {
+func TestConcatListContainsNonBool(t *testing.T) {
 	reg := newTestRegistry(t)
 	listA := NewDynamicList(reg, []float32{1.0, 2.0})
 	listB := NewDynamicList(reg, []string{"3"})
@@ -353,8 +378,8 @@ func TestConcatListEqual(t *testing.T) {
 		t.Errorf("list.Equal(listC) got %v, wanted false", list.Equal(listC))
 	}
 	listD := reg.NativeToValue([]interface{}{1, 2.0, 3.0})
-	if !IsError(list.Equal(listD)) {
-		t.Errorf("list.Equal(listD) got %v, wanted error", list.Equal(listD))
+	if list.Equal(listD) != True {
+		t.Errorf("list.Equal(listD) got %v, wanted true", list.Equal(listD))
 	}
 }
 

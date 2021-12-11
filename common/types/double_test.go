@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/common/types/traits"
 	"google.golang.org/protobuf/proto"
 
 	anypb "google.golang.org/protobuf/types/known/anypb"
@@ -39,19 +40,93 @@ func TestDoubleAdd(t *testing.T) {
 }
 
 func TestDoubleCompare(t *testing.T) {
-	lt := Double(-1300)
-	gt := Double(204)
-	if !lt.Compare(gt).Equal(IntNegOne).(Bool) {
-		t.Error("Comparison did not yield - 1")
+	tests := []struct {
+		a   ref.Val
+		b   ref.Val
+		out ref.Val
+	}{
+		{
+			a:   Double(42),
+			b:   Double(42),
+			out: IntZero,
+		},
+		{
+			a:   Double(42),
+			b:   Uint(42),
+			out: IntZero,
+		},
+		{
+			a:   Double(42),
+			b:   Int(42),
+			out: IntZero,
+		},
+		{
+			a:   Double(-1300),
+			b:   Double(204),
+			out: IntNegOne,
+		},
+		{
+			a:   Double(-1300),
+			b:   Uint(204),
+			out: IntNegOne,
+		},
+		{
+			a:   Double(203.9),
+			b:   Int(204),
+			out: IntNegOne,
+		},
+		{
+			a:   Double(1300),
+			b:   Uint(math.MaxInt64) + 1,
+			out: IntNegOne,
+		},
+		{
+			a:   Double(204),
+			b:   Uint(205),
+			out: IntNegOne,
+		},
+		{
+			a:   Double(204),
+			b:   Double(math.MaxInt64) + 1025.0,
+			out: IntNegOne,
+		},
+		{
+			a:   Double(204),
+			b:   Double(math.NaN()),
+			out: NewErr("NaN values cannot be ordered"),
+		},
+		{
+			a:   Double(math.NaN()),
+			b:   Double(204),
+			out: NewErr("NaN values cannot be ordered"),
+		},
+		{
+			a:   Double(204),
+			b:   Double(-1300),
+			out: IntOne,
+		},
+		{
+			a:   Double(204),
+			b:   Uint(10),
+			out: IntOne,
+		},
+		{
+			a:   Double(204.1),
+			b:   Int(204),
+			out: IntOne,
+		},
+		{
+			a:   Double(1),
+			b:   String("1"),
+			out: NoSuchOverloadErr(),
+		},
 	}
-	if !gt.Compare(lt).Equal(IntOne).(Bool) {
-		t.Error("Comparison did not yield 1")
-	}
-	if !gt.Compare(gt).Equal(IntZero).(Bool) {
-		t.Error(("Comparison did not yield 0"))
-	}
-	if !IsError(gt.Compare(TypeType)) {
-		t.Error("Types not comparable")
+	for _, tc := range tests {
+		comparer := tc.a.(traits.Comparer)
+		got := comparer.Compare(tc.b)
+		if !reflect.DeepEqual(got, tc.out) {
+			t.Errorf("%v.Compare(%v) got %v, wanted %v", tc.a, tc.b, got, tc.out)
+		}
 	}
 }
 
@@ -291,8 +366,57 @@ func TestDoubleDivide(t *testing.T) {
 }
 
 func TestDoubleEqual(t *testing.T) {
-	if !IsError(Double(0).Equal(False)) {
-		t.Error("Double equal to non-double resulted in non-error.")
+	tests := []struct {
+		a   ref.Val
+		b   ref.Val
+		out ref.Val
+	}{
+		{
+			a:   Double(-10),
+			b:   Double(-10),
+			out: True,
+		},
+		{
+			a:   Double(-10),
+			b:   Double(10),
+			out: False,
+		},
+		{
+			a:   Double(10),
+			b:   Uint(10),
+			out: True,
+		},
+		{
+			a:   Double(9),
+			b:   Uint(10),
+			out: False,
+		},
+		{
+			a:   Double(10),
+			b:   Int(10),
+			out: True,
+		},
+		{
+			a:   Double(10),
+			b:   Int(-15),
+			out: False,
+		},
+		{
+			a:   Double(math.NaN()),
+			b:   Int(10),
+			out: False,
+		},
+		{
+			a:   Double(10),
+			b:   Unknown{2},
+			out: Unknown{2},
+		},
+	}
+	for _, tc := range tests {
+		got := tc.a.Equal(tc.b)
+		if !reflect.DeepEqual(got, tc.out) {
+			t.Errorf("%v.Equal(%v) got %v, wanted %v", tc.a, tc.b, got, tc.out)
+		}
 	}
 }
 
