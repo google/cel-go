@@ -156,23 +156,25 @@ func TestFieldDescriptionGetFrom(t *testing.T) {
 			"null": nil,
 		}),
 	}
-	for field, want := range expected {
-		f, found := td.FieldByName(field)
-		if !found {
-			t.Fatalf("td.FieldByName(%q) not found", field)
-		}
-		got, err := f.GetFrom(msg)
-		if err != nil {
-			t.Fatalf("field.GetFrom() failed: %v", err)
-		}
-		switch g := got.(type) {
-		case proto.Message:
-			if !proto.Equal(g, want.(proto.Message)) {
-				t.Errorf("got field %s value %v, wanted %v", field, g, want)
+	for fieldName, want := range expected {
+		for _, field := range []string{fieldName, protoJSONCamelCase(fieldName)} {
+			f, found := td.FieldByName(field)
+			if !found {
+				t.Fatalf("td.FieldByName(%q) not found", field)
 			}
-		default:
-			if !reflect.DeepEqual(g, want) {
-				t.Errorf("got field %s value %v, wanted %v", field, g, want)
+			got, err := f.GetFrom(msg)
+			if err != nil {
+				t.Fatalf("field.GetFrom() failed: %v", err)
+			}
+			switch g := got.(type) {
+			case proto.Message:
+				if !proto.Equal(g, want.(proto.Message)) {
+					t.Errorf("got field %s value %v, wanted %v", field, g, want)
+				}
+			default:
+				if !reflect.DeepEqual(g, want) {
+					t.Errorf("got field %s value %v, wanted %v", field, g, want)
+				}
 			}
 		}
 	}
@@ -228,12 +230,14 @@ func TestFieldDescriptionIsSet(t *testing.T) {
 		},
 	}
 	for _, tc := range tests {
-		f, found := td.FieldByName(tc.field)
-		if !found {
-			t.Fatalf("td.FieldByName(%q) not found", tc.field)
-		}
-		if f.IsSet(tc.msg) != tc.isSet {
-			t.Errorf("got field %s set: %v, wanted %v", tc.field, f.IsSet(tc.msg), tc.isSet)
+		for _, field := range []string{tc.field, protoJSONCamelCase(tc.field)} {
+			f, found := td.FieldByName(field)
+			if !found {
+				t.Fatalf("td.FieldByName(%q) not found", field)
+			}
+			if f.IsSet(tc.msg) != tc.isSet {
+				t.Errorf("got field %s set: %v, wanted %v", field, f.IsSet(tc.msg), tc.isSet)
+			}
 		}
 	}
 }
@@ -496,4 +500,26 @@ func jsonStruct(t *testing.T, entries map[string]interface{}) *structpb.Struct {
 		t.Fatalf("structpb.NewStruct() failed: %v", err)
 	}
 	return s
+}
+
+// protoJSONCamelCase converts an identifier into camel case that conforms to the protobuf JSON spec.
+// Taken from https://github.com/protocolbuffers/protobuf-go/blob/fb30439f551a7e79e413e7b4f5f4dfb58e117d73/internal/strs/strings.go#L92
+func protoJSONCamelCase(s string) string {
+	var b []byte
+	var wasUnderscore bool
+	for i := 0; i < len(s); i++ { // proto identifiers are always ASCII
+		c := s[i]
+		if c != '_' {
+			if wasUnderscore && isASCIILower(c) {
+				c -= 'a' - 'A' // convert to uppercase
+			}
+			b = append(b, c)
+		}
+		wasUnderscore = c == '_'
+	}
+	return string(b)
+}
+
+func isASCIILower(c byte) bool {
+	return 'a' <= c && c <= 'z'
 }
