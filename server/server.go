@@ -18,13 +18,11 @@ package server
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/common/types/traits"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -35,8 +33,6 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	rpcpb "google.golang.org/genproto/googleapis/rpc/status"
 	anypb "google.golang.org/protobuf/types/known/anypb"
-	dpb "google.golang.org/protobuf/types/known/durationpb"
-	tpb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // ConformanceServer contains the server state.
@@ -133,7 +129,7 @@ func (s *ConformanceServer) Eval(ctx context.Context, in *confpb.EvalRequest) (*
 	}
 	// NOTE: the EvalState is currently discarded
 	res, _, err := prg.Eval(args)
-	resultExprVal, err := RefValueToExprValue(res, err)
+	resultExprVal, err := types.RefValueToExprValue(res, err)
 	if err != nil {
 		return nil, fmt.Errorf("con't convert result: %s", err)
 	}
@@ -170,34 +166,6 @@ func ErrToStatus(e common.Error, severity confpb.IssueDetails_Severity) *rpcpb.S
 // common/types/provider.go and consolidated/refactored as appropriate.
 // In particular, make judicious use of types.NativeToValue().
 
-// RefValueToExprValue converts between ref.Val and exprpb.ExprValue.
-func RefValueToExprValue(res ref.Val, err error) (*exprpb.ExprValue, error) {
-	if err != nil {
-		s := status.Convert(err).Proto()
-		return &exprpb.ExprValue{
-			Kind: &exprpb.ExprValue_Error{
-				Error: &exprpb.ErrorSet{
-					Errors: []*rpcpb.Status{s},
-				},
-			},
-		}, nil
-	}
-	if types.IsUnknown(res) {
-		return &exprpb.ExprValue{
-			Kind: &exprpb.ExprValue_Unknown{
-				Unknown: &exprpb.UnknownSet{
-					Exprs: res.Value().([]int64),
-				},
-			}}, nil
-	}
-	v, err := RefValueToValue(res)
-	if err != nil {
-		return nil, err
-	}
-	return &exprpb.ExprValue{
-		Kind: &exprpb.ExprValue_Value{Value: v}}, nil
-}
-
 var (
 	typeNameToTypeValue = map[string]*types.TypeValue{
 		"bool":      types.BoolType,
@@ -212,105 +180,6 @@ var (
 		"uint":      types.UintType,
 	}
 )
-
-// RefValueToValue converts between ref.Val and Value.
-// The ref.Val must not be error or unknown.
-func RefValueToValue(res ref.Val) (*exprpb.Value, error) {
-	switch res.Type() {
-	case types.BoolType:
-		return &exprpb.Value{
-			Kind: &exprpb.Value_BoolValue{BoolValue: res.Value().(bool)}}, nil
-	case types.BytesType:
-		return &exprpb.Value{
-			Kind: &exprpb.Value_BytesValue{BytesValue: res.Value().([]byte)}}, nil
-	case types.DoubleType:
-		return &exprpb.Value{
-			Kind: &exprpb.Value_DoubleValue{DoubleValue: res.Value().(float64)}}, nil
-	case types.IntType:
-		return &exprpb.Value{
-			Kind: &exprpb.Value_Int64Value{Int64Value: res.Value().(int64)}}, nil
-	case types.ListType:
-		l := res.(traits.Lister)
-		sz := l.Size().(types.Int)
-		elts := make([]*exprpb.Value, 0, int64(sz))
-		for i := types.Int(0); i < sz; i++ {
-			v, err := RefValueToValue(l.Get(i))
-			if err != nil {
-				return nil, err
-			}
-			elts = append(elts, v)
-		}
-		return &exprpb.Value{
-			Kind: &exprpb.Value_ListValue{
-				ListValue: &exprpb.ListValue{Values: elts}}}, nil
-	case types.MapType:
-		mapper := res.(traits.Mapper)
-		sz := mapper.Size().(types.Int)
-		entries := make([]*exprpb.MapValue_Entry, 0, int64(sz))
-		for it := mapper.Iterator(); it.HasNext().(types.Bool); {
-			k := it.Next()
-			v := mapper.Get(k)
-			kv, err := RefValueToValue(k)
-			if err != nil {
-				return nil, err
-			}
-			vv, err := RefValueToValue(v)
-			if err != nil {
-				return nil, err
-			}
-			entries = append(entries, &exprpb.MapValue_Entry{Key: kv, Value: vv})
-		}
-		return &exprpb.Value{
-			Kind: &exprpb.Value_MapValue{
-				MapValue: &exprpb.MapValue{Entries: entries}}}, nil
-	case types.NullType:
-		return &exprpb.Value{
-			Kind: &exprpb.Value_NullValue{}}, nil
-	case types.StringType:
-		return &exprpb.Value{
-			Kind: &exprpb.Value_StringValue{StringValue: res.Value().(string)}}, nil
-	case types.TypeType:
-		typeName := res.(ref.Type).TypeName()
-		return &exprpb.Value{Kind: &exprpb.Value_TypeValue{TypeValue: typeName}}, nil
-	case types.UintType:
-		return &exprpb.Value{
-			Kind: &exprpb.Value_Uint64Value{Uint64Value: res.Value().(uint64)}}, nil
-	case types.DurationType:
-		d, ok := res.Value().(time.Duration)
-		if !ok {
-			return nil, status.New(codes.InvalidArgument, "Expected time.Duration").Err()
-		}
-		any, err := anypb.New(dpb.New(d))
-		if err != nil {
-			return nil, err
-		}
-		return &exprpb.Value{
-			Kind: &exprpb.Value_ObjectValue{ObjectValue: any}}, nil
-	case types.TimestampType:
-		t, ok := res.Value().(time.Time)
-		if !ok {
-			return nil, status.New(codes.InvalidArgument, "Expected time.Time").Err()
-		}
-		any, err := anypb.New(tpb.New(t))
-		if err != nil {
-			return nil, err
-		}
-		return &exprpb.Value{
-			Kind: &exprpb.Value_ObjectValue{ObjectValue: any}}, nil
-	default:
-		// Object type
-		pb, ok := res.Value().(proto.Message)
-		if !ok {
-			return nil, status.New(codes.InvalidArgument, "Expected proto message").Err()
-		}
-		any, err := anypb.New(pb)
-		if err != nil {
-			return nil, err
-		}
-		return &exprpb.Value{
-			Kind: &exprpb.Value_ObjectValue{ObjectValue: any}}, nil
-	}
-}
 
 // ExprValueToRefValue converts between exprpb.ExprValue and ref.Val.
 func ExprValueToRefValue(adapter ref.TypeAdapter, ev *exprpb.ExprValue) (ref.Val, error) {
