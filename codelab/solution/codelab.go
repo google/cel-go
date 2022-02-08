@@ -260,9 +260,10 @@ func exercise6() {
 
 	// Construct an environment and indicate that the container for all references
 	// within the expression is `google.rpc.context.AttributeContext`.
+	requestType := &rpcpb.AttributeContext_Request{}
 	env, _ := cel.NewEnv(
 		cel.Container("google.rpc.context.AttributeContext"),
-		cel.Types(&rpcpb.AttributeContext_Request{}),
+		cel.Types(requestType),
 		cel.Declarations(
 			decls.NewVar("jwt", decls.NewMapType(decls.String, decls.Dyn)),
 			decls.NewVar("now", decls.Timestamp),
@@ -289,9 +290,7 @@ func exercise6() {
 		decls.NewObjectType("google.rpc.context.AttributeContext.Request"))
 	program, _ := env.Program(ast)
 
-	// Construct the message. The result is a ref.Val whose Value() method will
-	// return the underlying proto message. No conversion from CEL type to native
-	// type required.
+	// Construct the message. The result is a ref.Val that returns a dynamic proto message.
 	out, _, _ := eval(
 		program,
 		map[string]interface{}{
@@ -306,11 +305,13 @@ func exercise6() {
 			"now": &tpb.Timestamp{Seconds: time.Now().Unix()},
 		},
 	)
-	// Unwrap the CEL value to a proto. No type conversion necessary here, though
-	// the ConvertToNative function would yield the same value as out.Value() in
-	// this case.
-	req := out.Value().(*rpcpb.AttributeContext_Request)
-	bytes, err := prototext.Marshal(req)
+	// Unwrap the CEL value to a proto. Make sure to use the `ConvertToNative` to convert
+	// the dynamic proto message to the concrete type expected.
+	req, err := out.ConvertToNative(reflect.TypeOf(requestType))
+	if err != nil {
+		glog.Exit(err)
+	}
+	bytes, err := prototext.Marshal(req.(proto.Message))
 	if err != nil {
 		glog.Exitf("failed to marshal proto to text: %v", req)
 	}
