@@ -25,14 +25,12 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
 
 	test2pb "github.com/google/cel-spec/proto/test/v1/proto2/test_all_types"
 	test3pb "github.com/google/cel-spec/proto/test/v1/proto3/test_all_types"
 	confpb "google.golang.org/genproto/googleapis/api/expr/conformance/v1alpha1"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	rpcpb "google.golang.org/genproto/googleapis/rpc/status"
-	anypb "google.golang.org/protobuf/types/known/anypb"
 )
 
 // ConformanceServer contains the server state.
@@ -129,7 +127,7 @@ func (s *ConformanceServer) Eval(ctx context.Context, in *confpb.EvalRequest) (*
 	}
 	// NOTE: the EvalState is currently discarded
 	res, _, err := prg.Eval(args)
-	resultExprVal, err := types.RefValueToExprValue(res, err)
+	resultExprVal, err := RefValueToExprValue(res, err)
 	if err != nil {
 		return nil, fmt.Errorf("con't convert result: %s", err)
 	}
@@ -178,7 +176,7 @@ func RefValueToExprValue(res ref.Val, err error) (*exprpb.ExprValue, error) {
 			},
 		}, nil
 	}
-	if IsUnknown(res) {
+	if types.IsUnknown(res) {
 		return &exprpb.ExprValue{
 			Kind: &exprpb.ExprValue_Unknown{
 				Unknown: &exprpb.UnknownSet{
@@ -186,7 +184,7 @@ func RefValueToExprValue(res ref.Val, err error) (*exprpb.ExprValue, error) {
 				},
 			}}, nil
 	}
-	v, err := RefValueToValue(res)
+	v, err := cel.RefValueToValue(res)
 	if err != nil {
 		return nil, err
 	}
@@ -198,7 +196,7 @@ func RefValueToExprValue(res ref.Val, err error) (*exprpb.ExprValue, error) {
 func ExprValueToRefValue(adapter ref.TypeAdapter, ev *exprpb.ExprValue) (ref.Val, error) {
 	switch ev.Kind.(type) {
 	case *exprpb.ExprValue_Value:
-		return ValueToRefValue(adapter, ev.GetValue())
+		return cel.ValueToRefValue(adapter, ev.GetValue())
 	case *exprpb.ExprValue_Error:
 		// An error ExprValue is a repeated set of rpcpb.Status
 		// messages, with no convention for the status details.

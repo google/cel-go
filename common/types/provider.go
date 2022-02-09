@@ -20,6 +20,8 @@ import (
 	"time"
 
 	"github.com/google/cel-go/common/types/pb"
+	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/common/types/traits"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 
@@ -27,7 +29,6 @@ import (
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	dpb "google.golang.org/protobuf/types/known/durationpb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
-	rpcpb "google.golang.org/genproto/googleapis/rpc/status"
 	tpb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
