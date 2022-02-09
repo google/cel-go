@@ -18,10 +18,171 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/checker/decls"
+	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/common/types/traits"
+	"github.com/google/cel-go/test/proto3pb"
 	"google.golang.org/protobuf/proto"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
+
+func TestValueToRefValue(t *testing.T) {
+	stdEnv, err := NewEnv()
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+
+	var expected ref.Val
+	var val *exprpb.Value
+	var actual ref.Val
+
+	expected = types.NullValue
+	val, err = RefValueToValue(expected)
+	if err != nil {
+		t.Fatalf("RefValueToValue() failed: &v", err)
+	}
+	actual, err = ValueToRefValue(stdEnv.TypeAdapter(), val)
+	if err != nil {
+		t.Fatalf("ValueToRefValue() failed: &v", err)
+	}
+	if expected.Equal(actual) != types.True {
+		t.Fatalf("got val %v, want %v", actual, expected)
+	}
+
+	expected = types.True
+	val, err = RefValueToValue(expected)
+	if err != nil {
+		t.Fatalf("RefValueToValue() failed: &v", err)
+	}
+	actual, err = ValueToRefValue(stdEnv.TypeAdapter(), val)
+	if err != nil {
+		t.Fatalf("ValueToRefValue() failed: &v", err)
+	}
+	if expected.Equal(actual) != types.True {
+		t.Fatalf("got val %v, want %v", actual, expected)
+	}
+
+	expected = types.Int(0)
+	val, err = RefValueToValue(expected)
+	if err != nil {
+		t.Fatalf("RefValueToValue() failed: &v", err)
+	}
+	actual, err = ValueToRefValue(stdEnv.TypeAdapter(), val)
+	if err != nil {
+		t.Fatalf("ValueToRefValue() failed: &v", err)
+	}
+	if expected.Equal(actual) != types.True {
+		t.Fatalf("got val %v, want %v", actual, expected)
+	}
+
+	expected = types.Uint(0)
+	val, err = RefValueToValue(expected)
+	if err != nil {
+		t.Fatalf("RefValueToValue() failed: &v", err)
+	}
+	actual, err = ValueToRefValue(stdEnv.TypeAdapter(), val)
+	if err != nil {
+		t.Fatalf("ValueToRefValue() failed: &v", err)
+	}
+	if expected.Equal(actual) != types.True {
+		t.Fatalf("got val %v, want %v", actual, expected)
+	}
+
+	expected = types.Double(0.0)
+	val, err = RefValueToValue(expected)
+	if err != nil {
+		t.Fatalf("RefValueToValue() failed: &v", err)
+	}
+	actual, err = ValueToRefValue(stdEnv.TypeAdapter(), val)
+	if err != nil {
+		t.Fatalf("ValueToRefValue() failed: &v", err)
+	}
+	if expected.Equal(actual) != types.True {
+		t.Fatalf("got val %v, want %v", actual, expected)
+	}
+
+	expected = types.Bytes(make([]byte, 0, 5))
+	val, err = RefValueToValue(expected)
+	if err != nil {
+		t.Fatalf("RefValueToValue() failed: &v", err)
+	}
+	actual, err = ValueToRefValue(stdEnv.TypeAdapter(), val)
+	if err != nil {
+		t.Fatalf("ValueToRefValue() failed: &v", err)
+	}
+	if expected.Equal(actual) != types.True {
+		t.Fatalf("got val %v, want %v", actual, expected)
+	}
+
+	expected = types.String("abc")
+	val, err = RefValueToValue(expected)
+	if err != nil {
+		t.Fatalf("RefValueToValue() failed: &v", err)
+	}
+	actual, err = ValueToRefValue(stdEnv.TypeAdapter(), val)
+	if err != nil {
+		t.Fatalf("ValueToRefValue() failed: &v", err)
+	}
+	if expected.Equal(actual) != types.True {
+		t.Fatalf("got val %v, want %v", actual, expected)
+	}
+
+	reg, err := types.NewRegistry()
+	if err != nil {
+		t.Fatalf("types.NewRegistry() failed: %v", err)
+	}
+	expected = types.NewDynamicList(reg, []bool{true}).(traits.Lister)
+	expected.(traits.Lister).Add(types.String("abc"))
+	val, err = RefValueToValue(expected)
+	if err != nil {
+		t.Fatalf("RefValueToValue() failed: &v", err)
+	}
+	actual, err = ValueToRefValue(stdEnv.TypeAdapter(), val)
+	if err != nil {
+		t.Fatalf("ValueToRefValue() failed: &v", err)
+	}
+	if expected.Equal(actual) != types.True {
+		t.Fatalf("got val %v, want %v", actual, expected)
+	}
+
+	reg, err = types.NewRegistry()
+	if err != nil {
+		t.Fatalf("types.NewRegistry() failed: %v", err)
+	}
+	expected = types.NewDynamicMap(reg, map[string]map[int32]float32{
+		"nested": {1: -1.0, 2: 2.0},
+		"empty":  {}}).(traits.Mapper)
+	val, err = RefValueToValue(expected)
+	if err != nil {
+		t.Fatalf("RefValueToValue() failed: &v", err)
+	}
+	actual, err = ValueToRefValue(stdEnv.TypeAdapter(), val)
+	if err != nil {
+		t.Fatalf("ValueToRefValue() failed: &v", err)
+	}
+	if expected.Equal(actual) != types.True {
+		t.Fatalf("got val %v, want %v", actual, expected)
+	}
+
+	reg, err = types.NewRegistry(&proto3pb.TestAllTypes{})
+	if err != nil {
+		t.Fatalf("types.NewRegistry() failed: %v", err)
+	}
+	msg := &proto3pb.TestAllTypes{SingleString: "abc"}
+	expected = reg.NativeToValue(msg)
+	val, err = RefValueToValue(expected)
+	if err != nil {
+		t.Fatalf("RefValueToValue() failed: &v", err)
+	}
+	actual, err = ValueToRefValue(reg.(ref.TypeAdapter), val)
+	if err != nil {
+		t.Fatalf("ValueToRefValue() failed: &v", err)
+	}
+	if expected.Equal(actual) != types.True {
+		t.Fatalf("got val %v, want %v", actual, expected)
+	}
+ }
 
 func TestAstToProto(t *testing.T) {
 	stdEnv, _ := NewEnv(Declarations(
