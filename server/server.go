@@ -166,20 +166,33 @@ func ErrToStatus(e common.Error, severity confpb.IssueDetails_Severity) *rpcpb.S
 // common/types/provider.go and consolidated/refactored as appropriate.
 // In particular, make judicious use of types.NativeToValue().
 
-var (
-	typeNameToTypeValue = map[string]*types.TypeValue{
-		"bool":      types.BoolType,
-		"bytes":     types.BytesType,
-		"double":    types.DoubleType,
-		"null_type": types.NullType,
-		"int":       types.IntType,
-		"list":      types.ListType,
-		"map":       types.MapType,
-		"string":    types.StringType,
-		"type":      types.TypeType,
-		"uint":      types.UintType,
+// RefValueToExprValue converts between ref.Val and exprpb.ExprValue.
+func RefValueToExprValue(res ref.Val, err error) (*exprpb.ExprValue, error) {
+	if err != nil {
+		s := status.Convert(err).Proto()
+		return &exprpb.ExprValue{
+			Kind: &exprpb.ExprValue_Error{
+				Error: &exprpb.ErrorSet{
+					Errors: []*rpcpb.Status{s},
+				},
+			},
+		}, nil
 	}
-)
+	if IsUnknown(res) {
+		return &exprpb.ExprValue{
+			Kind: &exprpb.ExprValue_Unknown{
+				Unknown: &exprpb.UnknownSet{
+					Exprs: res.Value().([]int64),
+				},
+			}}, nil
+	}
+	v, err := RefValueToValue(res)
+	if err != nil {
+		return nil, err
+	}
+	return &exprpb.ExprValue{
+		Kind: &exprpb.ExprValue_Value{Value: v}}, nil
+}
 
 // ExprValueToRefValue converts between exprpb.ExprValue and ref.Val.
 func ExprValueToRefValue(adapter ref.TypeAdapter, ev *exprpb.ExprValue) (ref.Val, error) {
@@ -201,63 +214,3 @@ func ExprValueToRefValue(adapter ref.TypeAdapter, ev *exprpb.ExprValue) (ref.Val
 	return nil, status.New(codes.InvalidArgument, "unknown ExprValue kind").Err()
 }
 
-// ValueToRefValue converts between exprpb.Value and ref.Val.
-func ValueToRefValue(adapter ref.TypeAdapter, v *exprpb.Value) (ref.Val, error) {
-	switch v.Kind.(type) {
-	case *exprpb.Value_NullValue:
-		return types.NullValue, nil
-	case *exprpb.Value_BoolValue:
-		return types.Bool(v.GetBoolValue()), nil
-	case *exprpb.Value_Int64Value:
-		return types.Int(v.GetInt64Value()), nil
-	case *exprpb.Value_Uint64Value:
-		return types.Uint(v.GetUint64Value()), nil
-	case *exprpb.Value_DoubleValue:
-		return types.Double(v.GetDoubleValue()), nil
-	case *exprpb.Value_StringValue:
-		return types.String(v.GetStringValue()), nil
-	case *exprpb.Value_BytesValue:
-		return types.Bytes(v.GetBytesValue()), nil
-	case *exprpb.Value_ObjectValue:
-		any := v.GetObjectValue()
-		msg, err := anypb.UnmarshalNew(any, proto.UnmarshalOptions{DiscardUnknown: true})
-		if err != nil {
-			return nil, err
-		}
-		return adapter.NativeToValue(msg.(proto.Message)), nil
-	case *exprpb.Value_MapValue:
-		m := v.GetMapValue()
-		entries := make(map[ref.Val]ref.Val)
-		for _, entry := range m.Entries {
-			key, err := ValueToRefValue(adapter, entry.Key)
-			if err != nil {
-				return nil, err
-			}
-			pb, err := ValueToRefValue(adapter, entry.Value)
-			if err != nil {
-				return nil, err
-			}
-			entries[key] = pb
-		}
-		return adapter.NativeToValue(entries), nil
-	case *exprpb.Value_ListValue:
-		l := v.GetListValue()
-		elts := make([]ref.Val, len(l.Values))
-		for i, e := range l.Values {
-			rv, err := ValueToRefValue(adapter, e)
-			if err != nil {
-				return nil, err
-			}
-			elts[i] = rv
-		}
-		return adapter.NativeToValue(elts), nil
-	case *exprpb.Value_TypeValue:
-		typeName := v.GetTypeValue()
-		tv, ok := typeNameToTypeValue[typeName]
-		if ok {
-			return tv, nil
-		}
-		return types.NewObjectTypeValue(typeName), nil
-	}
-	return nil, status.New(codes.InvalidArgument, "unknown value").Err()
-}
