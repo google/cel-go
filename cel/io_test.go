@@ -20,11 +20,11 @@ import (
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/common/types/traits"
 	"github.com/google/cel-go/test/proto3pb"
 	"google.golang.org/protobuf/proto"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
-	structpb "google.golang.org/types/protobuf/types/known/structpb"
 )
 
 func TestValueToRefValue(t *testing.T) {
@@ -33,16 +33,20 @@ func TestValueToRefValue(t *testing.T) {
 		t.Fatalf("NewEnv() failed: %v", err)
 	}
 
-	expected := structpb.NewNullValue()
-	val, err := RefValueToValue(expected)
+	var expected ref.Val
+	var val *exprpb.Value
+	var actual ref.Val
+
+	expected = types.NullValue
+	val, err = RefValueToValue(expected)
 	if err != nil {
 		t.Fatalf("RefValueToValue() failed: &v", err)
 	}
-	actual, err := ValueToRefValue(stdEnv.TypeAdapter(), val)
+	actual, err = ValueToRefValue(stdEnv.TypeAdapter(), val)
 	if err != nil {
 		t.Fatalf("ValueToRefValue() failed: &v", err)
 	}
-	if !expected.Equal(actual) {
+	if expected.Equal(actual) != types.True {
 		t.Fatalf("got val %v, want %v", actual, expected)
 	}
 
@@ -55,7 +59,7 @@ func TestValueToRefValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ValueToRefValue() failed: &v", err)
 	}
-	if !expected.Equal(actual) {
+	if expected.Equal(actual) != types.True {
 		t.Fatalf("got val %v, want %v", actual, expected)
 	}
 
@@ -68,7 +72,7 @@ func TestValueToRefValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ValueToRefValue() failed: &v", err)
 	}
-	if !expected.Equal(actual) {
+	if expected.Equal(actual) != types.True {
 		t.Fatalf("got val %v, want %v", actual, expected)
 	}
 
@@ -81,7 +85,7 @@ func TestValueToRefValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ValueToRefValue() failed: &v", err)
 	}
-	if !expected.Equal(actual) {
+	if expected.Equal(actual) != types.True {
 		t.Fatalf("got val %v, want %v", actual, expected)
 	}
 
@@ -94,7 +98,7 @@ func TestValueToRefValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ValueToRefValue() failed: &v", err)
 	}
-	if !expected.Equal(actual) {
+	if expected.Equal(actual) != types.True {
 		t.Fatalf("got val %v, want %v", actual, expected)
 	}
 
@@ -107,7 +111,7 @@ func TestValueToRefValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ValueToRefValue() failed: &v", err)
 	}
-	if !expected.Equal(actual) {
+	if expected.Equal(actual) != types.True {
 		t.Fatalf("got val %v, want %v", actual, expected)
 	}
 
@@ -120,16 +124,16 @@ func TestValueToRefValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ValueToRefValue() failed: &v", err)
 	}
-	if !expected.Equal(actual) {
+	if expected.Equal(actual) != types.True {
 		t.Fatalf("got val %v, want %v", actual, expected)
 	}
 
-	reg, err = types.NewRegistry()
+	reg, err := types.NewRegistry()
 	if err != nil {
 		t.Fatalf("types.NewRegistry() failed: %v", err)
 	}
-	expected = types.NewDynamicList(reg, []bool{true})
-	expected.Add(types.String("abc"))
+	expected = types.NewDynamicList(reg, []bool{true}).(traits.Lister)
+	expected.(traits.Lister).Add(types.String("abc"))
 	val, err = RefValueToValue(expected)
 	if err != nil {
 		t.Fatalf("RefValueToValue() failed: &v", err)
@@ -138,7 +142,7 @@ func TestValueToRefValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ValueToRefValue() failed: &v", err)
 	}
-	if !expected.Equal(actual) {
+	if expected.Equal(actual) != types.True {
 		t.Fatalf("got val %v, want %v", actual, expected)
 	}
 
@@ -157,7 +161,7 @@ func TestValueToRefValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ValueToRefValue() failed: &v", err)
 	}
-	if !expected.Equal(actual) {
+	if expected.Equal(actual) != types.True {
 		t.Fatalf("got val %v, want %v", actual, expected)
 	}
 
@@ -171,11 +175,11 @@ func TestValueToRefValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RefValueToValue() failed: &v", err)
 	}
-	actual, err = ValueToRefValue(stdEnv.TypeAdapter(), val)
+	actual, err = ValueToRefValue(reg.(ref.TypeAdapter), val)
 	if err != nil {
 		t.Fatalf("ValueToRefValue() failed: &v", err)
 	}
-	if !expected.Equal(actual) {
+	if expected.Equal(actual) != types.True {
 		t.Fatalf("got val %v, want %v", actual, expected)
 	}
  }
