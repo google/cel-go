@@ -23,8 +23,6 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 	"github.com/google/cel-go/parser"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
@@ -196,7 +194,7 @@ func RefValueToValue(res ref.Val) (*exprpb.Value, error) {
 	case types.DurationType:
 		d, ok := res.Value().(time.Duration)
 		if !ok {
-			return nil, status.New(codes.InvalidArgument, "Expected time.Duration").Err()
+			return nil, fmt.Errorf("Expected time.Duration")
 		}
 		any, err := anypb.New(dpb.New(d))
 		if err != nil {
@@ -207,7 +205,7 @@ func RefValueToValue(res ref.Val) (*exprpb.Value, error) {
 	case types.TimestampType:
 		t, ok := res.Value().(time.Time)
 		if !ok {
-			return nil, status.New(codes.InvalidArgument, "Expected time.Time").Err()
+			return nil, fmt.Errorf("Expected time.Time")
 		}
 		any, err := anypb.New(tpb.New(t))
 		if err != nil {
@@ -219,7 +217,7 @@ func RefValueToValue(res ref.Val) (*exprpb.Value, error) {
 		// Object type
 		pb, ok := res.Value().(proto.Message)
 		if !ok {
-			return nil, status.New(codes.InvalidArgument, "Expected proto message").Err()
+			return nil, fmt.Errorf("Expected proto message")
 		}
 		any, err := anypb.New(pb)
 		if err != nil {
