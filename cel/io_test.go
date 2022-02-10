@@ -28,7 +28,7 @@ import (
 )
 
 func TestValueToRefValue(t *testing.T) {
-	stdEnv, err := NewEnv()
+	env, err := NewEnv(Types(&proto3pb.TestAllTypes{}))
 	if err != nil {
 		t.Fatalf("NewEnv() failed: %v", err)
 	}
@@ -42,7 +42,7 @@ func TestValueToRefValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RefValueToValue() failed: &v", err)
 	}
-	actual, err = ValueToRefValue(stdEnv.TypeAdapter(), val)
+	actual, err = ValueToRefValue(env.TypeAdapter(), val)
 	if err != nil {
 		t.Fatalf("ValueToRefValue() failed: &v", err)
 	}
@@ -55,7 +55,7 @@ func TestValueToRefValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RefValueToValue() failed: &v", err)
 	}
-	actual, err = ValueToRefValue(stdEnv.TypeAdapter(), val)
+	actual, err = ValueToRefValue(env.TypeAdapter(), val)
 	if err != nil {
 		t.Fatalf("ValueToRefValue() failed: &v", err)
 	}
@@ -68,7 +68,7 @@ func TestValueToRefValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RefValueToValue() failed: &v", err)
 	}
-	actual, err = ValueToRefValue(stdEnv.TypeAdapter(), val)
+	actual, err = ValueToRefValue(env.TypeAdapter(), val)
 	if err != nil {
 		t.Fatalf("ValueToRefValue() failed: &v", err)
 	}
@@ -81,7 +81,7 @@ func TestValueToRefValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RefValueToValue() failed: &v", err)
 	}
-	actual, err = ValueToRefValue(stdEnv.TypeAdapter(), val)
+	actual, err = ValueToRefValue(env.TypeAdapter(), val)
 	if err != nil {
 		t.Fatalf("ValueToRefValue() failed: &v", err)
 	}
@@ -94,7 +94,7 @@ func TestValueToRefValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RefValueToValue() failed: &v", err)
 	}
-	actual, err = ValueToRefValue(stdEnv.TypeAdapter(), val)
+	actual, err = ValueToRefValue(env.TypeAdapter(), val)
 	if err != nil {
 		t.Fatalf("ValueToRefValue() failed: &v", err)
 	}
@@ -107,7 +107,7 @@ func TestValueToRefValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RefValueToValue() failed: &v", err)
 	}
-	actual, err = ValueToRefValue(stdEnv.TypeAdapter(), val)
+	actual, err = ValueToRefValue(env.TypeAdapter(), val)
 	if err != nil {
 		t.Fatalf("ValueToRefValue() failed: &v", err)
 	}
@@ -120,7 +120,7 @@ func TestValueToRefValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RefValueToValue() failed: &v", err)
 	}
-	actual, err = ValueToRefValue(stdEnv.TypeAdapter(), val)
+	actual, err = ValueToRefValue(env.TypeAdapter(), val)
 	if err != nil {
 		t.Fatalf("ValueToRefValue() failed: &v", err)
 	}
@@ -138,7 +138,7 @@ func TestValueToRefValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RefValueToValue() failed: &v", err)
 	}
-	actual, err = ValueToRefValue(stdEnv.TypeAdapter(), val)
+	actual, err = ValueToRefValue(env.TypeAdapter(), val)
 	if err != nil {
 		t.Fatalf("ValueToRefValue() failed: &v", err)
 	}
@@ -157,7 +157,7 @@ func TestValueToRefValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RefValueToValue() failed: &v", err)
 	}
-	actual, err = ValueToRefValue(stdEnv.TypeAdapter(), val)
+	actual, err = ValueToRefValue(env.TypeAdapter(), val)
 	if err != nil {
 		t.Fatalf("ValueToRefValue() failed: &v", err)
 	}
@@ -175,14 +175,14 @@ func TestValueToRefValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RefValueToValue() failed: &v", err)
 	}
-	actual, err = ValueToRefValue(reg.(ref.TypeAdapter), val)
+	actual, err = ValueToRefValue(reg, val)
 	if err != nil {
 		t.Fatalf("ValueToRefValue() failed: &v", err)
 	}
 	if expected.Equal(actual) != types.True {
 		t.Fatalf("got val %v, want %v", actual, expected)
 	}
- }
+}
 
 func TestAstToProto(t *testing.T) {
 	stdEnv, _ := NewEnv(Declarations(
