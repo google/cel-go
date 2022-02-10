@@ -131,8 +131,8 @@ func AstToString(a *Ast) (string, error) {
 	return parser.Unparse(expr, info)
 }
 
-// RefValueToValue converts between ref.Val and Value.
-// The ref.Val must not be error or unknown.
+// RefValueToValue converts between ref.Val and api.expr.Value. 
+// The result Value is the serialized proto form. The ref.Val must not be error or unknown.
 func RefValueToValue(res ref.Val) (*exprpb.Value, error) {
 	switch res.Type() {
 	case types.BoolType:
@@ -303,5 +303,5 @@ func ValueToRefValue(adapter ref.TypeAdapter, v *exprpb.Value) (ref.Val, error) 
 		}
 		return types.NewObjectTypeValue(typeName), nil
 	}
-	return nil, status.New(codes.InvalidArgument, "unknown value").Err()
+	return nil, fmt.Errorf("unknown value")
 }
