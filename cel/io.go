@@ -15,6 +15,7 @@
 package cel
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -129,7 +130,7 @@ func AstToString(a *Ast) (string, error) {
 	return parser.Unparse(expr, info)
 }
 
-// RefValueToValue converts between ref.Val and api.expr.Value. 
+// RefValueToValue converts between ref.Val and api.expr.Value.
 // The result Value is the serialized proto form. The ref.Val must not be error or unknown.
 func RefValueToValue(res ref.Val) (*exprpb.Value, error) {
 	switch res.Type() {
@@ -194,7 +195,7 @@ func RefValueToValue(res ref.Val) (*exprpb.Value, error) {
 	case types.DurationType:
 		d, ok := res.Value().(time.Duration)
 		if !ok {
-			return nil, fmt.Errorf("Expected time.Duration")
+			return nil, errors.New("Expected time.Duration")
 		}
 		any, err := anypb.New(dpb.New(d))
 		if err != nil {
@@ -205,7 +206,7 @@ func RefValueToValue(res ref.Val) (*exprpb.Value, error) {
 	case types.TimestampType:
 		t, ok := res.Value().(time.Time)
 		if !ok {
-			return nil, fmt.Errorf("Expected time.Time")
+			return nil, errors.New("Expected time.Time")
 		}
 		any, err := anypb.New(tpb.New(t))
 		if err != nil {
@@ -217,7 +218,7 @@ func RefValueToValue(res ref.Val) (*exprpb.Value, error) {
 		// Object type
 		pb, ok := res.Value().(proto.Message)
 		if !ok {
-			return nil, fmt.Errorf("Expected proto message")
+			return nil, errors.New("Expected proto message")
 		}
 		any, err := anypb.New(pb)
 		if err != nil {
@@ -301,5 +302,5 @@ func ValueToRefValue(adapter ref.TypeAdapter, v *exprpb.Value) (ref.Val, error) 
 		}
 		return types.NewObjectTypeValue(typeName), nil
 	}
-	return nil, fmt.Errorf("unknown value")
+	return nil, errors.New("unknown value")
 }
