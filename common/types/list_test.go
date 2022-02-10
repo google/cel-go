@@ -83,11 +83,7 @@ func TestBaseListContains(t *testing.T) {
 		},
 		{
 			in:  String("3"),
-			out: NoSuchOverloadErr(),
-		},
-		{
-			in:  Unknown{1},
-			out: Unknown{1},
+			out: False,
 		},
 	}
 	for _, tc := range tests {
@@ -174,8 +170,8 @@ func TestBaseListEqual(t *testing.T) {
 	if listA.Equal(listD) != False {
 		t.Error("listA.Equal(listD) did not return true")
 	}
-	if !IsError(listB.Equal(listD)) {
-		t.Error("listA.Equal(listD) did not error on single element type difference")
+	if IsError(listB.Equal(listD)) {
+		t.Error("listA.Equal(listD) errored, wanted 'false'")
 	}
 }
 
@@ -355,8 +351,8 @@ func TestConcatListContainsNonBool(t *testing.T) {
 	listA := NewDynamicList(reg, []float32{1.0, 2.0})
 	listB := NewDynamicList(reg, []string{"3"})
 	listConcat := listA.Add(listB).(traits.Lister)
-	if !IsError(listConcat.Contains(String("4"))) {
-		t.Error("Contains did not error with list of mixed types an not found input.")
+	if IsError(listConcat.Contains(String("4"))) {
+		t.Error("Contains errored with a not-found element, wanted 'false'")
 	}
 }
 

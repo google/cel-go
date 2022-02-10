@@ -222,7 +222,7 @@ func (i Int) Equal(other ref.Val) ref.Val {
 	case Uint:
 		return Bool(compareIntUint(i, ov) == 0)
 	default:
-		return MaybeNoSuchOverloadErr(other)
+		return False
 	}
 }
 

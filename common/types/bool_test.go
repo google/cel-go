@@ -128,8 +128,8 @@ func TestBoolEqual(t *testing.T) {
 	if False.Equal(True).(Bool) {
 		t.Error("False was equal to true")
 	}
-	if !IsError(Double(0.0).Equal(False)) {
-		t.Error("Cross-type equality yielded non-error value.")
+	if Double(0.0).Equal(False) != False {
+		t.Error("Cross-type equality yielded error value.")
 	}
 }
 

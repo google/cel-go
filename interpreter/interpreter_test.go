@@ -327,7 +327,7 @@ var (
 		{
 			name: "not_in_heterogeneous_map",
 			expr: `!('hello' in {1: 'one', false: true})`,
-			err:  "unsupported key type: string",
+			out:  types.True,
 		},
 		{
 			name: "not_in_heterogeneous_map_with_same_key_type",
@@ -364,7 +364,7 @@ var (
 		{
 			name: "list_eq_error",
 			expr: `['string', true] == [2, 3]`,
-			err:  "no such overload",
+			out:  types.False,
 		},
 		{
 			name: "literal_bool_false",

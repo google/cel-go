@@ -406,11 +406,6 @@ func TestDoubleEqual(t *testing.T) {
 			b:   Int(10),
 			out: False,
 		},
-		{
-			a:   Double(10),
-			b:   Unknown{2},
-			out: Unknown{2},
-		},
 	}
 	for _, tc := range tests {
 		got := tc.a.Equal(tc.b)

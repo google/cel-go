@@ -121,8 +121,8 @@ func TestJsonStructEqual(t *testing.T) {
 	if mapVal.Equal(NewJSONStruct(reg, &structpb.Struct{})) != False {
 		t.Error("Map with key-value pairs was equal to empty map")
 	}
-	if !IsError(mapVal.Equal(String(""))) {
-		t.Error("Map equal to a non-map type returned non-error.")
+	if IsError(mapVal.Equal(String(""))) {
+		t.Error("Map equal to a non-map type returned error, wanted 'false'")
 	}
 
 	other := NewJSONStruct(reg,
@@ -145,8 +145,8 @@ func TestJsonStructEqual(t *testing.T) {
 		map[int]interface{}{
 			1: "hello",
 			2: "world"})
-	if !IsError(mapVal.Equal(mismatch)) {
-		t.Error("Key type mismatch did not result in error")
+	if IsError(mapVal.Equal(mismatch)) {
+		t.Error("Key type mismatch resulted in error, wanted 'false'")
 	}
 }
 

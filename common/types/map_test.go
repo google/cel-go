@@ -50,11 +50,8 @@ func TestDynamicMapContains(t *testing.T) {
 	if mapVal.Contains(String("unknown")) != False {
 		t.Error("mapVal.Contains('unknown') got true, wanted false")
 	}
-	if !IsError(mapVal.Contains(Int(123))) {
-		t.Error("mapVal.Contains(123) expected error")
-	}
-	if !reflect.DeepEqual(mapVal.Contains(Unknown{1}), Unknown{1}) {
-		t.Error("mapVal.Contains(Unknown) did not return unknown input.")
+	if IsError(mapVal.Contains(Int(123))) {
+		t.Error("mapVal.Contains(123) errored, wanted false")
 	}
 }
 
@@ -69,11 +66,8 @@ func TestStringMapContains(t *testing.T) {
 	if mapVal.Contains(String("third")) != False {
 		t.Error("mapVal.Contains('third') did not return false")
 	}
-	if !IsError(mapVal.Contains(Int(123))) {
-		t.Error("mapVal.Contains(123) did not error, wanted 'unsupported key type: int'.")
-	}
-	if !reflect.DeepEqual(mapVal.Contains(Unknown{1}), Unknown{1}) {
-		t.Error("mapVal.Contains(Unknown) did not return unknown out.")
+	if IsError(mapVal.Contains(Int(123))) {
+		t.Error("mapVal.Contains(123) errored, wanted false'.")
 	}
 }
 
@@ -369,8 +363,8 @@ func TestStringMapEqual_NotTrue(t *testing.T) {
 	other = NewDynamicMap(reg, map[string]interface{}{
 		"first":  "hello",
 		"second": 1})
-	if !IsError(mapVal.Equal(other)) {
-		t.Error("mapVal.Equal(other) between maps with same keys and different value types did not error")
+	if IsError(mapVal.Equal(other)) {
+		t.Error("mapVal.Equal(other) between maps with same keys and different value types errored, wanted 'false'")
 	}
 }
 
@@ -392,8 +386,8 @@ func TestDynamicMapGet(t *testing.T) {
 		t.Errorf("mapVal.Get('absent') got %v, wanted no such key: absent.", err)
 	}
 	err = nestedVal.Get(String("bad_key"))
-	if !IsError(err) || err.(*Err).Error() != "unsupported key type: string" {
-		t.Errorf("nestedVal.Get('bad_key') got %v, wanted unsupported key type: string.", err)
+	if !IsError(err) || err.(*Err).Error() != "no such key: bad_key" {
+		t.Errorf("nestedVal.Get('bad_key') errored %v, wanted no such key: bad_key.", err)
 	}
 	empty, ok := mapVal.Get(String("empty")).(traits.Mapper)
 	if !ok {
@@ -428,8 +422,8 @@ func TestStringIfaceMapGet(t *testing.T) {
 		t.Errorf("mapVal.Get('absent') got %v, wanted no such key: absent.", err)
 	}
 	err = nestedVal.Get(String("bad_key"))
-	if !IsError(err) || err.(*Err).Error() != "unsupported key type: string" {
-		t.Errorf("nestedVal.Get('bad_key') got %v, wanted unsupported key type: string.", err)
+	if !IsError(err) || err.(*Err).Error() != "no such key: bad_key" {
+		t.Errorf("nestedVal.Get('bad_key') got %v, no such key: bad_key", err)
 	}
 	empty, ok := mapVal.Get(String("empty")).(traits.Mapper)
 	if !ok {
@@ -440,8 +434,8 @@ func TestStringIfaceMapGet(t *testing.T) {
 		t.Errorf("empty.Get('hello') got %v, wanted no such key: hello", err)
 	}
 	err = empty.Get(Double(-1.0))
-	if !IsError(err) || err.(*Err).Error() != "unsupported key type: double" {
-		t.Errorf("empty.Get(-1.0) got %v, wanted unsupported key type: double", err)
+	if !IsError(err) || err.(*Err).Error() != "no such key: -1" {
+		t.Errorf("empty.Get(-1.0) got %v, wanted no such key: -1", err)
 	}
 }
 
@@ -483,8 +477,8 @@ func TestRefValMapGet(t *testing.T) {
 		t.Errorf("mapVal.Get('absent') got %v, wanted no such key: absent.", err)
 	}
 	err = nestedVal.Get(String("bad_key"))
-	if !IsError(err) || err.(*Err).Error() != "unsupported key type: string" {
-		t.Errorf("nestedVal.Get('bad_key') got %v, wanted unsupported key type: string.", err)
+	if !IsError(err) || err.(*Err).Error() != "no such key: bad_key" {
+		t.Errorf("nestedVal.Get('bad_key') got %v, wanted no such key: bad_key.", err)
 	}
 	empty, ok := mapVal.Get(String("empty")).(traits.Mapper)
 	if !ok {
@@ -678,8 +672,8 @@ func TestProtoMap(t *testing.T) {
 		3: 1,
 	}
 	mapNeVal = reg.NativeToValue(mapNeMap)
-	if !IsError(mapNeVal.Equal(mapVal)) || !IsError(mapVal.Equal(mapNeVal)) {
-		t.Error("mapNeVal.Equal(mapVal) returned non-error, wanted error")
+	if IsError(mapNeVal.Equal(mapVal)) || IsError(mapVal.Equal(mapNeVal)) {
+		t.Error("mapNeVal.Equal(mapVal) returned error, wanted false")
 	}
 }
 
@@ -706,8 +700,8 @@ func TestProtoMapGet(t *testing.T) {
 		t.Errorf("mapVal.Get('not_found') got %v, wanted no such key error", notFound)
 	}
 	badKey := mapVal.Get(Int(42))
-	if !IsError(badKey) || !strings.Contains(badKey.(*Err).Error(), "unsupported key type") {
-		t.Errorf("mapVal.Get(42) got %v, wanted no such overload", badKey)
+	if !IsError(badKey) || !strings.Contains(badKey.(*Err).Error(), "no such key: 42") {
+		t.Errorf("mapVal.Get(42) got %v, wanted no such key: 42", badKey)
 	}
 
 }

@@ -178,7 +178,7 @@ func (d Double) Equal(other ref.Val) ref.Val {
 	case Uint:
 		return Bool(compareDoubleUint(d, ov) == 0)
 	default:
-		return MaybeNoSuchOverloadErr(other)
+		return False
 	}
 }
 
