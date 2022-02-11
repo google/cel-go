@@ -15,13 +15,56 @@
 package cel
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/google/cel-go/checker/decls"
+	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/test/proto3pb"
 	"google.golang.org/protobuf/proto"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
+
+func TestRefValueToValueRoundTrip(t *testing.T) {
+	tests := []struct {
+		value interface{}
+	}{
+		{value: types.NullValue},
+		{value: types.Bool(true)},
+		{value: types.String("abc")},
+		{value: types.Double(0.0)},
+		{value: types.Bytes(make([]byte, 0, 5))},
+		{value: types.Int(0)},
+		{value: types.Uint(0)},
+		{value: map[int64]int64{1: 1}},
+		{value: []interface{}{true, "abc"}},
+		{value: &proto3pb.TestAllTypes{SingleString: "abc"}},
+	}
+
+	env, err := NewEnv(Types(&proto3pb.TestAllTypes{}))
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+
+	for i, tst := range tests {
+		tc := tst
+		t.Run(fmt.Sprintf("[%d]%v", i, tc.value), func(t *testing.T) {
+			refVal := env.TypeAdapter().NativeToValue(tc.value)
+			val, err := RefValueToValue(refVal)
+			if err != nil {
+				t.Fatalf("RefValueToValue(%v) failed with error: %v", refVal, err)
+			}
+			actual, err := ValueToRefValue(env.TypeAdapter(), val)
+			if err != nil {
+				t.Fatalf("ValueToRefValue() failed: &v", err)
+			}
+			if refVal.Equal(actual) != types.True {
+				t.Errorf("got val %v, wanted %v", actual, refVal)
+			}
+		})
+	}
+}
 
 func TestAstToProto(t *testing.T) {
 	stdEnv, _ := NewEnv(Declarations(
