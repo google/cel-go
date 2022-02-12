@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -308,31 +309,190 @@ var (
 			out: types.False,
 		},
 		{
-			name:          "in_list",
+			name: "cond_attr_out_of_bounds_error",
+			expr: `m[(x ? 0 : 1)] >= 0`,
+			env: []*exprpb.Decl{
+				decls.NewVar("m", decls.NewListType(decls.Int)),
+				decls.NewVar("x", decls.Bool),
+			},
+			in: map[string]interface{}{
+				"m": []int{-1},
+				"x": false,
+			},
+			err: "index out of bounds: 1",
+		},
+		{
+			name: "cond_attr_qualify_bad_type_error",
+			expr: `m[(x ? a : b)] >= 0`,
+			env: []*exprpb.Decl{
+				decls.NewVar("m", decls.NewListType(decls.Dyn)),
+				decls.NewVar("a", decls.Dyn),
+				decls.NewVar("b", decls.Dyn),
+				decls.NewVar("x", decls.Bool),
+			},
+			in: map[string]interface{}{
+				"m": []int{1},
+				"x": false,
+				"a": time.Millisecond,
+				"b": time.Millisecond,
+			},
+			err: "invalid qualifier type",
+		},
+		{
+			name: "cond_attr_qualify_bad_field_error",
+			expr: `m[(x ? a : b).c] >= 0`,
+			env: []*exprpb.Decl{
+				decls.NewVar("m", decls.NewListType(decls.Dyn)),
+				decls.NewVar("a", decls.Dyn),
+				decls.NewVar("b", decls.Dyn),
+				decls.NewVar("x", decls.Bool),
+			},
+			in: map[string]interface{}{
+				"m": []int{1},
+				"x": false,
+				"a": int32(1),
+				"b": int32(2),
+			},
+			err: "no such key: c",
+		},
+		{
+			name: "in_empty_list",
+			expr: `6 in []`,
+			out:  types.False,
+		},
+		{
+			name:          "in_constant_list",
 			expr:          `6 in [2, 12, 6]`,
 			cost:          []int64{1, 1},
 			optimizedCost: []int64{0, 0},
 		},
 		{
-			name: "in_map",
+			name: "list_in_constant_list",
+			expr: `[6] in [2, 12, [6]]`,
+		},
+		{
+			name: "in_constant_list_cross_type_uint_int",
+			expr: `dyn(12u) in [2, 12, 6]`,
+		},
+		{
+			name: "in_constant_list_cross_type_double_int",
+			expr: `dyn(6.0) in [2, 12, 6]`,
+		},
+		{
+			name: "in_constant_list_cross_type_int_double",
+			expr: `dyn(6) in [2.1, 12.0, 6.0]`,
+		},
+		{
+			name: "not_in_constant_list_cross_type_int_double",
+			expr: `dyn(2) in [2.1, 12.0, 6.0]`,
+			out:  types.False,
+		},
+		{
+			name: "in_constant_list_cross_type_int_uint",
+			expr: `dyn(6) in [2u, 12u, 6u]`,
+		},
+		{
+			name: "in_constant_list_cross_type_negative_int_uint",
+			expr: `dyn(-6) in [2u, 12u, 6u]`,
+			out:  types.False,
+		},
+		{
+			name: "in_constant_list_cross_type_negative_double_uint",
+			expr: `dyn(-6.1) in [2u, 12u, 6u]`,
+			out:  types.False,
+		},
+		{
+			name: "in_var_list_int",
+			expr: `6 in [2, 12, x]`,
+			env: []*exprpb.Decl{
+				decls.NewVar("x", decls.Dyn),
+			},
+			in: map[string]interface{}{"x": 6},
+		},
+		{
+			name: "in_var_list_uint",
+			expr: `6 in [2, 12, x]`,
+			env: []*exprpb.Decl{
+				decls.NewVar("x", decls.Dyn),
+			},
+			in: map[string]interface{}{"x": uint64(6)},
+		},
+		{
+			name: "in_var_list_double",
+			expr: `6 in [2, 12, x]`,
+			env: []*exprpb.Decl{
+				decls.NewVar("x", decls.Dyn),
+			},
+			in: map[string]interface{}{"x": 6.0},
+		},
+		{
+			name: "in_var_list_double_double",
+			expr: `dyn(6.0) in [2, 12, x]`,
+			env: []*exprpb.Decl{
+				decls.NewVar("x", decls.Int),
+			},
+			in: map[string]interface{}{"x": 6},
+		},
+		{
+			name: "in_constant_map",
 			expr: `'other-key' in {'key': null, 'other-key': 42}`,
 			cost: []int64{1, 1},
 			out:  types.True,
 		},
 		{
-			name: "in_heterogeneous_map",
+			name: "in_constant_map_cross_type_string_number",
+			expr: `'other-key' in {1: null, 2u: 42}`,
+			out:  types.False,
+		},
+		{
+			name: "in_constant_map_cross_type_double_int",
+			expr: `2.0 in {1: null, 2u: 42}`,
+		},
+		{
+			name: "not_in_constant_map_cross_type_double_int",
+			expr: `2.1 in {1: null, 2u: 42}`,
+			out:  types.False,
+		},
+		{
+			name: "in_constant_heterogeneous_map",
 			expr: `'hello' in {1: 'one', false: true, 'hello': 'world'}`,
 			out:  types.True,
 		},
 		{
-			name: "not_in_heterogeneous_map",
+			name: "not_in_constant_heterogeneous_map",
 			expr: `!('hello' in {1: 'one', false: true})`,
 			out:  types.True,
 		},
 		{
-			name: "not_in_heterogeneous_map_with_same_key_type",
+			name: "not_in_constant_heterogeneous_map_with_same_key_type",
 			expr: `!('hello' in {1: 'one', 'world': true})`,
 			out:  types.True,
+		},
+		{
+			name: "in_var_key_map",
+			expr: `'other-key' in {x: null, y: 42}`,
+			out:  types.True,
+			env: []*exprpb.Decl{
+				decls.NewVar("x", decls.String),
+				decls.NewVar("y", decls.Int),
+			},
+			in: map[string]interface{}{
+				"x": "other-key",
+				"y": 2,
+			},
+		},
+		{
+			name: "in_var_value_map",
+			expr: `'other-key' in {1: x, 2u: y}`,
+			out:  types.False,
+			env: []*exprpb.Decl{
+				decls.NewVar("x", decls.String),
+				decls.NewVar("y", decls.Int),
+			},
+			in: map[string]interface{}{
+				"x": "other-value",
+				"y": 2,
+			},
 		},
 		{
 			name:           "index",
@@ -350,6 +510,59 @@ var (
 					"0":    10,
 				},
 			},
+		},
+		{
+			name:           "index_cross_type_float_uint",
+			expr:           `{1: 'hello'}[x] == 'hello' && {2: 'world'}[y] == 'world'`,
+			cost:           []int64{2, 5},
+			exhaustiveCost: []int64{5, 5},
+			optimizedCost:  []int64{2, 5},
+			env: []*exprpb.Decl{
+				decls.NewVar("x", decls.Dyn),
+				decls.NewVar("y", decls.Dyn),
+			},
+			in: map[string]interface{}{
+				"x": float32(1.0),
+				"y": uint(2),
+			},
+		},
+		{
+			name: "no_index_cross_type_float_uint",
+			expr: `{1: 'hello'}[x] == 'hello' && ['world'][y] == 'world'`,
+			env: []*exprpb.Decl{
+				decls.NewVar("x", decls.Dyn),
+				decls.NewVar("y", decls.Dyn),
+			},
+			in: map[string]interface{}{
+				"x": float32(2.0),
+				"y": uint(3),
+			},
+			err: "no such key: 2",
+		},
+		{
+			name: "index_cross_type_double",
+			expr: `{1: 'hello', 2: 'world'}[x] == 'hello'`,
+			env: []*exprpb.Decl{
+				decls.NewVar("x", decls.Dyn),
+			},
+			in: map[string]interface{}{
+				"x": 1.0,
+			},
+		},
+		{
+			name: "index_cross_type_uint",
+			expr: `{1: 'hello', 2: 'world'}[dyn(2u)] == 'world'`,
+		},
+		{
+			name: "index_cross_type_bad_qualifier",
+			expr: `{1: 'hello', 2: 'world'}[x] == 'world'`,
+			env: []*exprpb.Decl{
+				decls.NewVar("x", decls.Dyn),
+			},
+			in: map[string]interface{}{
+				"x": time.Millisecond,
+			},
+			err: "invalid qualifier type",
 		},
 		{
 			name: "index_relative",
@@ -1153,7 +1366,7 @@ func TestInterpreter(t *testing.T) {
 					t.Fatalf("Got %v, wanted %v", got, want)
 				}
 			} else if tc.err != "" {
-				if !types.IsError(got) || got.(*types.Err).String() != tc.err {
+				if !types.IsError(got) || !strings.Contains(got.(*types.Err).String(), tc.err) {
 					t.Fatalf("Got %v (%T), wanted error: %s", got, got, tc.err)
 				}
 			} else if got.Equal(want) != types.True {
@@ -1185,7 +1398,7 @@ func TestInterpreter(t *testing.T) {
 							t.Errorf("Got %v, wanted %v", got, want)
 						}
 					} else if tc.err != "" {
-						if !types.IsError(got) || got.(*types.Err).String() != tc.err {
+						if !types.IsError(got) || !strings.Contains(got.(*types.Err).String(), tc.err) {
 							t.Errorf("Got %v (%T), wanted error: %s", got, got, tc.err)
 						}
 					} else if got.Equal(want) != types.True {
@@ -1209,7 +1422,7 @@ func TestInterpreter(t *testing.T) {
 						}
 						minCost, maxCost := estimateCost(prg)
 						if minCost != wantedCost[0] || maxCost != wantedCost[1] {
-							t.Errorf("Got optimize cost interval [%v, %v], wanted %v", minCost, maxCost, tc.cost)
+							t.Errorf("Got optimize cost interval [%v, %v], wanted %v", minCost, maxCost, tc.optimizedCost)
 						}
 					}
 					state.Reset()

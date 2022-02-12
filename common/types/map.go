@@ -108,8 +108,6 @@ type mapAccessor interface {
 	// Find returns a value, if one exists, for the inpput key.
 	//
 	// If the key is not found the function returns (nil, false).
-	// If the input key is not valid for the map, or is Err or Unknown the function returns
-	// (Unknown|Err, false).
 	Find(ref.Val) (ref.Val, bool)
 
 	// Iterator returns an Iterator over the map key set.
@@ -308,8 +306,6 @@ type jsonStructAccessor struct {
 // found.
 //
 // If the key is not found the function returns (nil, false).
-// If the input key is not a String, or is an  Err or Unknown, the function returns
-// (Unknown|Err, false).
 func (a *jsonStructAccessor) Find(key ref.Val) (ref.Val, bool) {
 	strKey, ok := key.(String)
 	if !ok {
@@ -356,30 +352,58 @@ type reflectMapAccessor struct {
 // returning (value, true) if present.
 //
 // If the key is not found the function returns (nil, false).
-// If the input key is not a String, or is an  Err or Unknown, the function returns
-// (Unknown|Err, false).
-func (a *reflectMapAccessor) Find(key ref.Val) (ref.Val, bool) {
-	if a.refValue.Len() == 0 {
+func (m *reflectMapAccessor) Find(key ref.Val) (ref.Val, bool) {
+	if m.refValue.Len() == 0 {
 		return nil, false
 	}
-	k, err := key.ConvertToNative(a.keyType)
+	if keyVal, found := m.findInternal(key); found {
+		return keyVal, true
+	}
+	switch k := key.(type) {
+	// Double is not a valid proto map key type, so check for the key as an int or uint.
+	case Double:
+		if ik, ok := doubleToInt64Lossless(float64(k)); ok {
+			if keyVal, found := m.findInternal(Int(ik)); found {
+				return keyVal, true
+			}
+		}
+		if uk, ok := doubleToUint64Lossless(float64(k)); ok {
+			return m.findInternal(Uint(uk))
+		}
+	// map keys of type double are not supported.
+	case Int:
+		if uk, ok := int64ToUint64Lossless(int64(k)); ok {
+			return m.findInternal(Uint(uk))
+		}
+	case Uint:
+		if ik, ok := uint64ToInt64Lossless(uint64(k)); ok {
+			return m.findInternal(Int(ik))
+		}
+	}
+	return nil, false
+}
+
+// findInternal attempts to convert the incoming key to the map's internal native type
+// and then returns the value, if found.
+func (m *reflectMapAccessor) findInternal(key ref.Val) (ref.Val, bool) {
+	k, err := key.ConvertToNative(m.keyType)
 	if err != nil {
 		return nil, false
 	}
 	refKey := reflect.ValueOf(k)
-	val := a.refValue.MapIndex(refKey)
+	val := m.refValue.MapIndex(refKey)
 	if val.IsValid() {
-		return a.NativeToValue(val.Interface()), true
+		return m.NativeToValue(val.Interface()), true
 	}
 	return nil, false
 }
 
 // Iterator creates a Golang reflection based traits.Iterator.
-func (a *reflectMapAccessor) Iterator() traits.Iterator {
+func (m *reflectMapAccessor) Iterator() traits.Iterator {
 	return &mapIterator{
-		TypeAdapter: a.TypeAdapter,
-		mapKeys:     a.refValue.MapRange(),
-		len:         a.refValue.Len(),
+		TypeAdapter: m.TypeAdapter,
+		mapKeys:     m.refValue.MapRange(),
+		len:         m.refValue.Len(),
 	}
 }
 
@@ -394,16 +418,37 @@ type refValMapAccessor struct {
 // Find uses native map accesses to find the key, returning (value, true) if present.
 //
 // If the key is not found the function returns (nil, false).
-// If the input key is an Err or Unknown, the function returns (Unknown|Err, false).
 func (a *refValMapAccessor) Find(key ref.Val) (ref.Val, bool) {
 	if len(a.mapVal) == 0 {
 		return nil, false
 	}
-	keyVal, found := a.mapVal[key]
-	if !found {
-		return nil, false
+	if keyVal, found := a.mapVal[key]; found {
+		return keyVal, true
 	}
-	return keyVal, true
+	switch k := key.(type) {
+	case Double:
+		if ik, ok := doubleToInt64Lossless(float64(k)); ok {
+			if keyVal, found := a.mapVal[Int(ik)]; found {
+				return keyVal, true
+			}
+		}
+		if uk, ok := doubleToUint64Lossless(float64(k)); ok {
+			keyVal, found := a.mapVal[Uint(uk)]
+			return keyVal, found
+		}
+	// map keys of type double are not supported.
+	case Int:
+		if uk, ok := int64ToUint64Lossless(int64(k)); ok {
+			keyVal, found := a.mapVal[Uint(uk)]
+			return keyVal, found
+		}
+	case Uint:
+		if ik, ok := uint64ToInt64Lossless(uint64(k)); ok {
+			keyVal, found := a.mapVal[Int(ik)]
+			return keyVal, found
+		}
+	}
+	return nil, false
 }
 
 // Iterator produces a new traits.Iterator which iterates over the map keys via Golang reflection.
@@ -426,8 +471,6 @@ type stringMapAccessor struct {
 // Find uses native map accesses to find the key, returning (value, true) if present.
 //
 // If the key is not found the function returns (nil, false).
-// If the input key is not a String, or is an Err or Unknown, the function returns
-// (Unknown|Err, false).
 func (a *stringMapAccessor) Find(key ref.Val) (ref.Val, bool) {
 	strKey, ok := key.(String)
 	if !ok {
@@ -470,8 +513,6 @@ type stringIfaceMapAccessor struct {
 // Find uses native map accesses to find the key, returning (value, true) if present.
 //
 // If the key is not found the function returns (nil, false).
-// If the input key is not a String, or is an Err or Unknown, the function returns
-// (Unknown|Err, false).
 func (a *stringIfaceMapAccessor) Find(key ref.Val) (ref.Val, bool) {
 	strKey, ok := key.(String)
 	if !ok {
@@ -604,7 +645,7 @@ func (m *protoMap) ConvertToType(typeVal ref.Type) ref.Val {
 func (m *protoMap) Equal(other ref.Val) ref.Val {
 	otherMap, ok := other.(traits.Mapper)
 	if !ok {
-		return MaybeNoSuchOverloadErr(other)
+		return False
 	}
 	if m.value.Map.Len() != int(otherMap.Size().(Int)) {
 		return False
@@ -631,10 +672,37 @@ func (m *protoMap) Equal(other ref.Val) ref.Val {
 // Find returns whether the protoreflect.Map contains the input key.
 //
 // If the key is not found the function returns (nil, false).
-// If the input key is not a supported proto map key type, or is an Err or Unknown,
-// the function returns
-// (Unknown|Err, false).
 func (m *protoMap) Find(key ref.Val) (ref.Val, bool) {
+	if keyVal, found := m.findInternal(key); found {
+		return keyVal, true
+	}
+	switch k := key.(type) {
+	// Double is not a valid proto map key type, so check for the key as an int or uint.
+	case Double:
+		if ik, ok := doubleToInt64Lossless(float64(k)); ok {
+			if keyVal, found := m.findInternal(Int(ik)); found {
+				return keyVal, true
+			}
+		}
+		if uk, ok := doubleToUint64Lossless(float64(k)); ok {
+			return m.findInternal(Uint(uk))
+		}
+	// map keys of type double are not supported.
+	case Int:
+		if uk, ok := int64ToUint64Lossless(int64(k)); ok {
+			return m.findInternal(Uint(uk))
+		}
+	case Uint:
+		if ik, ok := uint64ToInt64Lossless(uint64(k)); ok {
+			return m.findInternal(Int(ik))
+		}
+	}
+	return nil, false
+}
+
+// findInternal attempts to convert the incoming key to the map's internal native type
+// and then returns the value, if found.
+func (m *protoMap) findInternal(key ref.Val) (ref.Val, bool) {
 	// Convert the input key to the expected protobuf key type.
 	ntvKey, err := key.ConvertToNative(m.value.KeyType.ReflectType())
 	if err != nil {

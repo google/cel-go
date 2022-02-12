@@ -780,10 +780,9 @@ func (fold *evalFold) Cost() (min, max int64) {
 // evalSetMembership is an Interpretable implementation which tests whether an input value
 // exists within the set of map keys used to model a set.
 type evalSetMembership struct {
-	inst        Interpretable
-	arg         Interpretable
-	argTypeName string
-	valueSet    map[ref.Val]ref.Val
+	inst     Interpretable
+	arg      Interpretable
+	valueSet map[ref.Val]ref.Val
 }
 
 // ID implements the Interpretable interface method.
@@ -794,9 +793,6 @@ func (e *evalSetMembership) ID() int64 {
 // Eval implements the Interpretable interface method.
 func (e *evalSetMembership) Eval(ctx Activation) ref.Val {
 	val := e.arg.Eval(ctx)
-	if val.Type().TypeName() != e.argTypeName {
-		return types.ValOrErr(val, "no such overload")
-	}
 	if ret, found := e.valueSet[val]; found {
 		return ret
 	}

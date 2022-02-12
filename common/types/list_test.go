@@ -377,6 +377,9 @@ func TestConcatListEqual(t *testing.T) {
 	if list.Equal(listD) != True {
 		t.Errorf("list.Equal(listD) got %v, wanted true", list.Equal(listD))
 	}
+	if list.Equal(NullValue) != False {
+		t.Errorf("list.Equal(NullValue) got %v, wanted false", list.Equal(NullValue))
+	}
 }
 
 func TestConcatListGet(t *testing.T) {

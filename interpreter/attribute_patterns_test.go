@@ -97,10 +97,11 @@ var patternTests = map[string]patternTest{
 		matches: []attr{
 			{name: "var"},
 			{name: "var", quals: []interface{}{int64(0)}},
+			{name: "var", quals: []interface{}{float64(0)}},
 			{name: "var", quals: []interface{}{int64(0), false}},
+			{name: "var", quals: []interface{}{uint64(0)}},
 		},
 		misses: []attr{
-			{name: "var", quals: []interface{}{uint64(0)}},
 			{name: "var", quals: []interface{}{int64(1), false}},
 		},
 	},
@@ -110,10 +111,10 @@ var patternTests = map[string]patternTest{
 			{name: "var"},
 			{name: "var", quals: []interface{}{uint64(1)}},
 			{name: "var", quals: []interface{}{uint64(1), true}},
+			{name: "var", quals: []interface{}{int64(1), false}},
 		},
 		misses: []attr{
 			{name: "var", quals: []interface{}{uint64(0)}},
-			{name: "var", quals: []interface{}{int64(1), false}},
 		},
 	},
 	"var_index_bool": {
@@ -186,16 +187,16 @@ func TestAttributePattern_UnknownResolution(t *testing.T) {
 	reg := newTestRegistry(t)
 	for nm, tc := range patternTests {
 		tst := tc
-		t.Run(nm, func(tt *testing.T) {
+		t.Run(nm, func(t *testing.T) {
 			for i, match := range tst.matches {
 				m := match
-				tt.Run(fmt.Sprintf("match[%d]", i), func(ttt *testing.T) {
+				t.Run(fmt.Sprintf("match[%d]", i), func(t *testing.T) {
 					var err error
 					cont := containers.DefaultContainer
 					if m.unchecked {
 						cont, err = containers.NewContainer(containers.Name(m.container))
 						if err != nil {
-							ttt.Fatal(err)
+							t.Fatal(err)
 						}
 					}
 					fac := NewPartialAttributeFactory(cont, reg, reg)
@@ -203,23 +204,23 @@ func TestAttributePattern_UnknownResolution(t *testing.T) {
 					partVars, _ := NewPartialActivation(EmptyActivation(), tst.pattern)
 					val, err := attr.Resolve(partVars)
 					if err != nil {
-						ttt.Fatalf("Got error: %s, wanted unknown", err)
+						t.Fatalf("Got error: %s, wanted unknown", err)
 					}
 					_, isUnk := val.(types.Unknown)
 					if !isUnk {
-						ttt.Fatalf("Got value %v, wanted unknown", val)
+						t.Fatalf("Got value %v, wanted unknown", val)
 					}
 				})
 			}
 			for i, miss := range tst.misses {
 				m := miss
-				tt.Run(fmt.Sprintf("miss[%d]", i), func(ttt *testing.T) {
+				t.Run(fmt.Sprintf("miss[%d]", i), func(t *testing.T) {
 					cont := containers.DefaultContainer
 					if m.unchecked {
 						var err error
 						cont, err = containers.NewContainer(containers.Name(m.container))
 						if err != nil {
-							ttt.Fatal(err)
+							t.Fatal(err)
 						}
 					}
 					fac := NewPartialAttributeFactory(cont, reg, reg)
@@ -227,7 +228,7 @@ func TestAttributePattern_UnknownResolution(t *testing.T) {
 					partVars, _ := NewPartialActivation(EmptyActivation(), tst.pattern)
 					val, err := attr.Resolve(partVars)
 					if err == nil {
-						ttt.Fatalf("Got value: %s, wanted error", val)
+						t.Fatalf("Got value: %s, wanted error", val)
 					}
 				})
 			}

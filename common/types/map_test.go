@@ -16,6 +16,8 @@ package types
 
 import (
 	"encoding/json"
+	"fmt"
+	"math"
 	"reflect"
 	"strings"
 	"testing"
@@ -39,19 +41,59 @@ type testStruct struct {
 	Details []string
 }
 
-func TestDynamicMapContains(t *testing.T) {
-	reg := newTestRegistry(t)
-	mapVal := NewDynamicMap(reg, map[string]map[int32]float32{
-		"nested": {1: -1.0, 2: 2.0},
-		"empty":  {}}).(traits.Mapper)
-	if mapVal.Contains(String("nested")) != True {
-		t.Error("mapVal.Contains('nested') got false, wanted true")
+func TestMapContains(t *testing.T) {
+	reg := newTestRegistry(t, &proto3pb.TestAllTypes{})
+	reflectMap := reg.NativeToValue(map[interface{}]interface{}{
+		int64(1):  "hello",
+		uint64(2): "world",
+	}).(traits.Mapper)
+
+	refValMap := reg.NativeToValue(map[ref.Val]ref.Val{
+		Int(1):  String("hello"),
+		Uint(2): String("world"),
+	}).(traits.Mapper)
+
+	msg := &proto3pb.TestAllTypes{
+		MapInt64NestedType: map[int64]*proto3pb.NestedTestAllTypes{
+			1: {},
+			2: {},
+		},
 	}
-	if mapVal.Contains(String("unknown")) != False {
-		t.Error("mapVal.Contains('unknown') got true, wanted false")
+	pbMsg := reg.NativeToValue(msg).(traits.Indexer)
+	protoMap := pbMsg.Get(String("map_int64_nested_type")).(traits.Mapper)
+
+	tests := []struct {
+		value interface{}
+		out   Bool
+	}{
+		{value: 1, out: True},
+		{value: 1.0, out: True},
+		{value: uint(1), out: True},
+		{value: 2, out: True},
+		{value: 2.0, out: True},
+		{value: uint(2), out: True},
+
+		{value: 3, out: False},
+		{value: 1.1, out: False},
+		{value: 1.1 + math.MaxInt64, out: False},
+		{value: 1.1 + math.MaxUint64, out: False},
+		{value: "3", out: False},
 	}
-	if IsError(mapVal.Contains(Int(123))) {
-		t.Error("mapVal.Contains(123) errored, wanted false")
+
+	for i, tst := range tests {
+		tc := tst
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			v := reg.NativeToValue(tc.value)
+			if reflectMap.Contains(v).Equal(tc.out) != True {
+				t.Errorf("reflectMap.Contains(%v) got %v, wanted %v", v, tc.out.Negate(), tc.out)
+			}
+			if refValMap.Contains(v).Equal(tc.out) != True {
+				t.Errorf("refValMap.Contains(%v) got %v, wanted %v", v, tc.out.Negate(), tc.out)
+			}
+			if protoMap.Contains(v).Equal(tc.out) != True {
+				t.Errorf("protoMap.Contains(%v) got %v, wanted %v", v, tc.out.Negate(), tc.out)
+			}
+		})
 	}
 }
 
@@ -284,6 +326,7 @@ func TestDynamicMapEqual_True(t *testing.T) {
 	if mapVal.Equal(mapVal) != True {
 		t.Error("mapVal.Equal(mapVal) did not return true")
 	}
+
 	if nestedVal := mapVal.Get(String("nested")); IsError(nestedVal) {
 		t.Error(nestedVal)
 	} else if mapVal.Equal(nestedVal) == True ||
@@ -332,6 +375,9 @@ func TestDynamicMapEqual_NotTrue(t *testing.T) {
 		"absent": {}})
 	if mapVal.Equal(other) != False {
 		t.Error("mapVal.Equal(other) did not return false.")
+	}
+	if mapVal.Equal(NullValue) != False {
+		t.Errorf("mapVal.Equal(NullValue) returned %v, wanted false", mapVal.Equal(NullValue))
 	}
 }
 
@@ -635,6 +681,9 @@ func TestProtoMap(t *testing.T) {
 	mapVal2 := reg.NativeToValue(mapValCopy)
 	if mapVal2.Equal(mapVal) != True || mapVal.Equal(mapVal2) != True {
 		t.Errorf("mapVal.Equal(copy) not equal to original: cel ref.Val %v != ref.Val %v", mapVal2, mapVal)
+	}
+	if mapVal.Equal(NullValue) != False {
+		t.Errorf("mapVal.Equal(NullValue) got %v, wanted false", mapVal.Equal(NullValue))
 	}
 	convMap, err := mapVal.ConvertToNative(reflect.TypeOf(strMap))
 	if err != nil {

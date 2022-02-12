@@ -328,7 +328,7 @@ func (l *concatList) ConvertToType(typeVal ref.Type) ref.Val {
 func (l *concatList) Equal(other ref.Val) ref.Val {
 	otherList, ok := other.(traits.Lister)
 	if !ok {
-		return MaybeNoSuchOverloadErr(other)
+		return False
 	}
 	if l.Size() != otherList.Size() {
 		return False
