@@ -196,6 +196,26 @@ func TestEqual(t *testing.T) {
 			out: true,
 		},
 		{
+			name: "NotEqualDoublePackedAny",
+			a: &proto3pb.TestAllTypes{
+				SingleAny: doublePackAny(t, &proto3pb.TestAllTypes{
+					SingleInt32:   1,
+					SingleUint32:  2,
+					SingleString:  "three",
+					RepeatedInt32: []int32{1, 2, 3},
+				}),
+			},
+			b: &proto3pb.TestAllTypes{
+				SingleAny: doublePackAny(t, &proto3pb.TestAllTypes{
+					SingleInt32:   1,
+					SingleUint32:  2,
+					SingleString:  "three",
+					RepeatedInt32: []int32{1, 2, 3, 4},
+				}),
+			},
+			out: false,
+		},
+		{
 			name: "NotEqualAnyTypeURL",
 			a: &proto3pb.TestAllTypes{
 				SingleAny: packAny(t, &proto3pb.NestedTestAllTypes{}),
@@ -340,6 +360,19 @@ func packAny(t *testing.T, m proto.Message) *anypb.Any {
 	any, err := anypb.New(m)
 	if err != nil {
 		t.Fatalf("anypb.New(%v) failed with error: %v", m, err)
+	}
+	return any
+}
+
+func doublePackAny(t *testing.T, m proto.Message) *anypb.Any {
+	t.Helper()
+	any, err := anypb.New(m)
+	if err != nil {
+		t.Fatalf("anypb.New(%v) failed with error: %v", m, err)
+	}
+	any, err = anypb.New(any)
+	if err != nil {
+		t.Fatalf("anypb.New(%v) failed with error: %v", any, err)
 	}
 	return any
 }

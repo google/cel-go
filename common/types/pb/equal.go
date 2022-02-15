@@ -16,7 +16,6 @@ package pb
 
 import (
 	"bytes"
-	"math"
 	"reflect"
 
 	"google.golang.org/protobuf/encoding/protowire"
@@ -52,6 +51,10 @@ func Equal(x, y proto.Message) bool {
 }
 
 func equalMessage(mx, my protoreflect.Message) bool {
+	// Note, the original proto.Equal upon which this implementation is based does not specifically handle the
+	// case when both messages are invalid. It is assumed that the descriptors will be equal and that byte-wise
+	// comparison will be used, though the semantics of validity are neither clear, nor promised within the
+	//  proto.Equal implementation.
 	if mx.IsValid() != my.IsValid() || mx.Descriptor() != my.Descriptor() {
 		return false
 	}
@@ -74,12 +77,12 @@ func equalMessage(mx, my protoreflect.Message) bool {
 		if err != nil {
 			return false
 		}
-		mx = x.ProtoReflect()
 		y, err := ay.UnmarshalNew()
 		if err != nil {
 			return false
 		}
-		my = y.ProtoReflect()
+		// Recursively compare the unwrapped messages to ensure nested Any values are unwrapped accordingly.
+		return equalMessage(x.ProtoReflect(), y.ProtoReflect())
 	}
 
 	// Walk the set fields to determine field-wise equality
@@ -157,12 +160,7 @@ func equalValue(fd protoreflect.FieldDescriptor, x, y protoreflect.Value) bool {
 		protoreflect.Fixed32Kind, protoreflect.Fixed64Kind:
 		return x.Uint() == y.Uint()
 	case protoreflect.FloatKind, protoreflect.DoubleKind:
-		fx := x.Float()
-		fy := y.Float()
-		if math.IsNaN(fx) || math.IsNaN(fy) {
-			return false
-		}
-		return fx == fy
+		return x.Float() == y.Float()
 	case protoreflect.StringKind:
 		return x.String() == y.String()
 	case protoreflect.BytesKind:
