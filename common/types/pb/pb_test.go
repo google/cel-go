@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package pb reflects over protocol buffer descriptors to generate objects
-// that simplify type, enum, and field lookup.
 package pb
 
 import (
