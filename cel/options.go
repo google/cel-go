@@ -49,6 +49,9 @@ const (
 
 	// Enable the tracking of function call expressions replaced by macros.
 	featureEnableMacroCallTracking
+
+	// Enable the use of cross-type numeric comparisons at the type-checker.
+	featureCrossTypeNumericComparisons
 )
 
 // EnvOption is a functional interface for configuring the environment.
@@ -99,16 +102,6 @@ func Declarations(decls ...*exprpb.Decl) EnvOption {
 	}
 }
 
-// Features sets the given feature flags.  See list of Feature constants above.
-func Features(flags ...int) EnvOption {
-	return func(e *Env) (*Env, error) {
-		for _, flag := range flags {
-			e.SetFeature(flag)
-		}
-		return e, nil
-	}
-}
-
 // HomogeneousAggregateLiterals option ensures that list and map literal entry types must agree
 // during type-checking.
 //
@@ -116,7 +109,7 @@ func Features(flags ...int) EnvOption {
 // expression, as well as via conversion of well-known dynamic types, or with unchecked
 // expressions.
 func HomogeneousAggregateLiterals() EnvOption {
-	return Features(featureDisableDynamicAggregateLiterals)
+	return features(featureDisableDynamicAggregateLiterals, true)
 }
 
 // Macros option extends the macro set configured in the environment.
@@ -455,8 +448,18 @@ func DeclareContextProto(descriptor protoreflect.MessageDescriptor) EnvOption {
 // EnableMacroCallTracking ensures that call expressions which are replaced by macros
 // are tracked in the `SourceInfo` of parsed and checked expressions.
 func EnableMacroCallTracking() EnvOption {
+	return features(featureEnableMacroCallTracking, true)
+}
+
+// CrossTypeNumericComparisons makes it possible to compare across numeric types, e.g. double < int
+func CrossTypeNumericComparisons(enabled bool) EnvOption {
+	return features(featureCrossTypeNumericComparisons, enabled)
+}
+
+// features sets the given feature flags.  See list of Feature constants above.
+func features(flag int, enabled bool) EnvOption {
 	return func(e *Env) (*Env, error) {
-		e.features[featureEnableMacroCallTracking] = true
+		e.features[flag] = enabled
 		return e, nil
 	}
 }

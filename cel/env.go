@@ -153,17 +153,21 @@ func (e *Env) Check(ast *Ast) (*Ast, *Issues) {
 
 	// Construct the internal checker env, erroring if there is an issue adding the declarations.
 	e.chkOnce.Do(func() {
-		ce := checker.NewEnv(e.Container, e.provider)
-		ce.EnableDynamicAggregateLiterals(true)
-		if e.HasFeature(featureDisableDynamicAggregateLiterals) {
-			ce.EnableDynamicAggregateLiterals(false)
-		}
-		err := ce.Add(e.declarations...)
+		ce, err := checker.NewEnv(e.Container, e.provider,
+			checker.HomogeneousAggregateLiterals(
+				e.HasFeature(featureDisableDynamicAggregateLiterals)),
+			checker.CrossTypeNumericComparisons(
+				e.HasFeature(featureCrossTypeNumericComparisons)))
 		if err != nil {
 			e.chkErr = err
-		} else {
-			e.chk = ce
+			return
 		}
+		err = ce.Add(e.declarations...)
+		if err != nil {
+			e.chkErr = err
+			return
+		}
+		e.chk = ce
 	})
 	// The once call will ensure that this value is set or nil for all invocations.
 	if e.chkErr != nil {
@@ -284,8 +288,8 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 // HasFeature checks whether the environment enables the given feature
 // flag, as enumerated in options.go.
 func (e *Env) HasFeature(flag int) bool {
-	_, has := e.features[flag]
-	return has
+	enabled, has := e.features[flag]
+	return has && enabled
 }
 
 // Parse parses the input expression value `txt` to a Ast and/or a set of Issues.
@@ -327,11 +331,6 @@ func (e *Env) Program(ast *Ast, opts ...ProgramOption) (Program, error) {
 		optSet = mergedOpts
 	}
 	return newProgram(e, ast, optSet)
-}
-
-// SetFeature sets the given feature flag, as enumerated in options.go.
-func (e *Env) SetFeature(flag int) {
-	e.features[flag] = true
 }
 
 // TypeAdapter returns the `ref.TypeAdapter` configured for the environment.

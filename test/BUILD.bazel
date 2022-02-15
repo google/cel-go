@@ -2,6 +2,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 package(
     default_visibility = [
+        "//cel:__subpackages__",
         "//checker:__subpackages__",
         "//common:__subpackages__",
         "//interpreter:__subpackages__",

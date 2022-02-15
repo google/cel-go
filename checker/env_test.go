@@ -29,7 +29,7 @@ import (
 )
 
 func TestOverlappingIdentifier(t *testing.T) {
-	env := NewStandardEnv(containers.DefaultContainer, newTestRegistry(t))
+	env := newStdEnv(t)
 	err := env.Add(
 		decls.NewVar("int", decls.NewTypeType(nil)))
 	if err == nil {
@@ -40,7 +40,7 @@ func TestOverlappingIdentifier(t *testing.T) {
 }
 
 func TestOverlappingMacro(t *testing.T) {
-	env := NewStandardEnv(containers.DefaultContainer, newTestRegistry(t))
+	env := newStdEnv(t)
 	err := env.Add(decls.NewFunction("has",
 		decls.NewOverload("has", []*exprpb.Type{decls.String}, decls.Bool)))
 	if err == nil {
@@ -51,7 +51,7 @@ func TestOverlappingMacro(t *testing.T) {
 }
 
 func TestOverlappingOverload(t *testing.T) {
-	env := NewStandardEnv(containers.DefaultContainer, newTestRegistry(t))
+	env := newStdEnv(t)
 	paramA := decls.NewTypeParamType("A")
 	typeParamAList := []string{"A"}
 	err := env.Add(decls.NewFunction(overloads.TypeConvertDyn,
@@ -66,7 +66,7 @@ func TestOverlappingOverload(t *testing.T) {
 }
 
 func TestSanitizedOverload(t *testing.T) {
-	env := NewStandardEnv(containers.DefaultContainer, newTestRegistry(t))
+	env := newStdEnv(t)
 	err := env.Add(decls.NewFunction(operators.Add,
 		decls.NewOverload("timestamp_add_int",
 			[]*exprpb.Type{decls.NewObjectType("google.protobuf.Timestamp"), decls.Int},
@@ -77,7 +77,7 @@ func TestSanitizedOverload(t *testing.T) {
 }
 
 func TestSanitizedInstanceOverload(t *testing.T) {
-	env := NewStandardEnv(containers.DefaultContainer, newTestRegistry(t))
+	env := newStdEnv(t)
 	err := env.Add(decls.NewFunction("orDefault",
 		decls.NewInstanceOverload("int_ordefault_int",
 			[]*exprpb.Type{
@@ -87,6 +87,19 @@ func TestSanitizedInstanceOverload(t *testing.T) {
 	if err != nil {
 		t.Errorf("env.Add('int_ordefault_int') failed: %v", err)
 	}
+}
+
+func newStdEnv(t *testing.T) *Env {
+	t.Helper()
+	env, err := NewEnv(containers.DefaultContainer, newTestRegistry(t))
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	err = env.Add(StandardDeclarations()...)
+	if err != nil {
+		t.Fatalf("env.Add(StandardDeclarations()) failed: %v", err)
+	}
+	return env
 }
 
 func newTestRegistry(t *testing.T) ref.TypeRegistry {

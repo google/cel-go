@@ -18,6 +18,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -1580,7 +1581,7 @@ func TestInterpreter_SetProto2PrimitiveFields(t *testing.T) {
 
 	cont := testContainer("google.expr.proto2.test")
 	reg := newTestRegistry(t, &proto2pb.TestAllTypes{})
-	env := checker.NewStandardEnv(cont, reg)
+	env := newTestEnv(t, cont, reg)
 	env.Add(decls.NewVar("input", decls.NewObjectType("google.expr.proto2.test.TestAllTypes")))
 	checked, errors := checker.Check(parsed, src, env)
 	if len(errors.GetErrors()) != 0 {
@@ -1633,7 +1634,7 @@ func TestInterpreter_MissingIdentInSelect(t *testing.T) {
 
 	cont := testContainer("test")
 	reg := newTestRegistry(t)
-	env := checker.NewStandardEnv(cont, reg)
+	env := newTestEnv(t, cont, reg)
 	env.Add(decls.NewVar("a.b", decls.Dyn))
 	checked, errors := checker.Check(parsed, src, env)
 	if len(errors.GetErrors()) != 0 {
@@ -1693,7 +1694,7 @@ func TestInterpreter_TypeConversionOpt(t *testing.T) {
 		}
 		cont := containers.DefaultContainer
 		reg := newTestRegistry(t)
-		env := checker.NewStandardEnv(cont, reg)
+		env := newTestEnv(t, cont, reg)
 		checked, errors := checker.Check(parsed, src, env)
 		if len(errors.GetErrors()) != 0 {
 			t.Fatalf(errors.ToDisplayString())
@@ -1754,27 +1755,30 @@ func program(ctx interface{}, tst *testCase, opts ...InterpretableDecorator) (In
 		}
 	}
 	var reg ref.TypeRegistry
+	var env *checker.Env
 	switch t := ctx.(type) {
 	case *testing.T:
 		reg = newTestRegistry(t)
 		if tst.types != nil {
 			reg = newTestRegistry(t, tst.types...)
 		}
+		env = newTestEnv(t, cont, reg)
 	case *testing.B:
 		reg = newBenchRegistry(t)
 		if tst.types != nil {
 			reg = newBenchRegistry(t, tst.types...)
 		}
+		env = newBenchEnv(t, cont, reg)
 	}
 	attrs := NewAttributeFactory(cont, reg, reg)
 	if tst.attrs != nil {
 		attrs = tst.attrs
 	}
-
-	// Configure the environment.
-	env := checker.NewStandardEnv(cont, reg)
 	if tst.env != nil {
-		env.Add(tst.env...)
+		err = env.Add(tst.env...)
+		if err != nil {
+			return nil, nil, fmt.Errorf("env.Add(%v) failed: %v", tst.env, err)
+		}
 	}
 	// Configure the program input.
 	vars := EmptyActivation()
@@ -1854,6 +1858,19 @@ func newBenchRegistry(b *testing.B, msgs ...proto.Message) ref.TypeRegistry {
 	return reg
 }
 
+func newBenchEnv(b *testing.B, cont *containers.Container, reg ref.TypeRegistry) *checker.Env {
+	b.Helper()
+	env, err := checker.NewEnv(cont, reg, checker.CrossTypeNumericComparisons(true))
+	if err != nil {
+		b.Fatalf("checker.NewEnv(%v, %v) failed: %v", cont, reg, err)
+	}
+	err = env.Add(checker.StandardDeclarations()...)
+	if err != nil {
+		b.Fatalf("env.Add(StandardDeclarations()...) failed: %v", err)
+	}
+	return env
+}
+
 func newTestRegistry(t *testing.T, msgs ...proto.Message) ref.TypeRegistry {
 	t.Helper()
 	reg, err := types.NewRegistry(msgs...)
@@ -1861,4 +1878,17 @@ func newTestRegistry(t *testing.T, msgs ...proto.Message) ref.TypeRegistry {
 		t.Fatalf("types.NewRegistry(%v) failed: %v", msgs, err)
 	}
 	return reg
+}
+
+func newTestEnv(t *testing.T, cont *containers.Container, reg ref.TypeRegistry) *checker.Env {
+	t.Helper()
+	env, err := checker.NewEnv(cont, reg, checker.CrossTypeNumericComparisons(true))
+	if err != nil {
+		t.Fatalf("checker.NewEnv(%v, %v) failed: %v", cont, reg, err)
+	}
+	err = env.Add(checker.StandardDeclarations()...)
+	if err != nil {
+		t.Fatalf("env.Add(StandardDeclarations()...) failed: %v", err)
+	}
+	return env
 }
