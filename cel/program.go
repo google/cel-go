@@ -83,7 +83,8 @@ func AttributePattern(varName string) *interpreter.AttributePattern {
 
 // EvalDetails holds additional information observed during the Eval() call.
 type EvalDetails struct {
-	state interpreter.EvalState
+	state       interpreter.EvalState
+	costTracker *interpreter.CostTracker
 }
 
 // State of the evaluation, non-nil if the OptTrackState or OptExhaustiveEval is specified
@@ -125,6 +126,14 @@ func newCtxResult(val ref.Val, det *EvalDetails, err error) *ctxResult {
 	}
 }
 
+func (ed *EvalDetails) ActualCost() *uint64 {
+	if ed.costTracker == nil {
+		return nil
+	}
+	cost := ed.costTracker.ActualCost()
+	return &cost
+}
+
 // prog is the internal implementation of the Program interface.
 type prog struct {
 	*Env
@@ -139,7 +148,7 @@ type prog struct {
 }
 
 // progFactory is a helper alias for marking a program creation factory function.
-type progFactory func(interpreter.EvalState) (Program, error)
+type progFactory func(interpreter.EvalState, *interpreter.CostTracker) (Program, error)
 
 // progGen holds a reference to a progFactory instance and implements the Program interface.
 type progGen struct {
@@ -194,27 +203,23 @@ func newProgram(e *Env, ast *Ast, opts []ProgramOption) (Program, error) {
 	if len(p.regexOptimizations) > 0 {
 		decorators = append(decorators, interpreter.CompileRegexConstants(p.regexOptimizations...))
 	}
-	// Enable exhaustive eval over state tracking since it offers a superset of features.
-	if p.evalOpts&OptExhaustiveEval == OptExhaustiveEval {
+
+	// Enable exhaustive eval, state tracking and cost tracking last since they require a factory.
+	if p.evalOpts&(OptExhaustiveEval|OptTrackState|OptTrackCost) != 0 {
 		// State tracking requires that each Eval() call operate on an isolated EvalState
 		// object; hence, the presence of the factory.
-		factory := func(state interpreter.EvalState) (Program, error) {
-			decs := append(decorators, interpreter.ExhaustiveEval(state))
-			clone := &prog{
-				evalOpts:    p.evalOpts,
-				defaultVars: p.defaultVars,
-				Env:         e,
-				dispatcher:  disp,
-				interpreter: interp}
-			return initInterpretable(clone, ast, decs)
-		}
-		return initProgGen(factory)
-	}
-	// Enable state tracking last since it too requires the factory approach but is less
-	// featured than the ExhaustiveEval decorator.
-	if p.evalOpts&OptTrackState == OptTrackState {
-		factory := func(state interpreter.EvalState) (Program, error) {
-			decs := append(decorators, interpreter.TrackState(state))
+		factory := func(state interpreter.EvalState, costTracker *interpreter.CostTracker) (Program, error) {
+			decs := decorators
+			// Enable exhaustive eval over state tracking since it offers a superset of features.
+			if p.evalOpts&OptExhaustiveEval == OptExhaustiveEval {
+				decs = append(decs, interpreter.ExhaustiveEval(state))
+			} else if p.evalOpts&(OptTrackState|OptTrackCost) != 0 {
+				decs = append(decs, interpreter.TrackState(state))
+			}
+			if p.evalOpts&OptTrackCost == OptTrackCost {
+				decs = append(decs, interpreter.TrackCost(state, costTracker))
+			}
+
 			clone := &prog{
 				evalOpts:    p.evalOpts,
 				defaultVars: p.defaultVars,
@@ -232,7 +237,7 @@ func newProgram(e *Env, ast *Ast, opts []ProgramOption) (Program, error) {
 // the test is successful.
 func initProgGen(factory progFactory) (Program, error) {
 	// Test the factory to make sure that configuration errors are spotted at config
-	_, err := factory(interpreter.NewEvalState())
+	_, err := factory(interpreter.NewEvalState(), &interpreter.CostTracker{})
 	if err != nil {
 		return nil, err
 	}
@@ -289,6 +294,7 @@ func (p *prog) Eval(input interface{}) (v ref.Val, det *EvalDetails, err error) 
 	if p.defaultVars != nil {
 		vars = interpreter.NewHierarchicalActivation(p.defaultVars, vars)
 	}
+	// TODO: set up any costTracker information needed from env here
 	v = p.interpretable.Eval(vars)
 	// The output of an internal Eval may have a value (`v`) that is a types.Err. This step
 	// translates the CEL value to a Go error response. This interface does not quite match the
@@ -310,12 +316,13 @@ func (gen *progGen) Eval(input interface{}) (ref.Val, *EvalDetails, error) {
 	// new EvalState instance for each call to ensure that unique evaluations yield unique stateful
 	// results.
 	state := interpreter.NewEvalState()
-	det := &EvalDetails{state: state}
+	costTracker := &interpreter.CostTracker{}
+	det := &EvalDetails{state: state, costTracker: costTracker}
 
 	// Generate a new instance of the interpretable using the factory configured during the call to
 	// newProgram(). It is incredibly unlikely that the factory call will generate an error given
 	// the factory test performed within the Program() call.
-	p, err := gen.factory(state)
+	p, err := gen.factory(state, costTracker)
 	if err != nil {
 		return nil, det, err
 	}
@@ -331,7 +338,7 @@ func (gen *progGen) Eval(input interface{}) (ref.Val, *EvalDetails, error) {
 // Cost implements the Coster interface method.
 func (gen *progGen) Cost() (min, max int64) {
 	// Use an empty state value since no evaluation is performed.
-	p, err := gen.factory(emptyEvalState)
+	p, err := gen.factory(emptyEvalState, nil)
 	if err != nil {
 		return 0, math.MaxInt64
 	}

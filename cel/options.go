@@ -375,6 +375,8 @@ const (
 	// By itself, OptPartialEval does not change evaluation behavior unless the input to the
 	// Program Eval is an PartialVars.
 	OptPartialEval EvalOption = 1 << iota
+
+	OptTrackCost EvalOption = 1 << iota
 )
 
 // EvalOptions sets one or more evaluation options which may affect the evaluation or Result.

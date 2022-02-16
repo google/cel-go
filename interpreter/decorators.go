@@ -45,6 +45,11 @@ func decObserveEval(observer evalObserver) InterpretableDecorator {
 				InterpretableConst: inst,
 				observer:           observer,
 			}, nil
+		case InterpretableCall:
+			return &evalWatchCall{
+				InterpretableCall: inst,
+				observer:          observer,
+			}, nil
 		default:
 			return &evalWatch{
 				Interpretable: i,

@@ -964,6 +964,24 @@ func (e *evalWatchConst) Cost() (min, max int64) {
 	return estimateCost(e.InterpretableConst)
 }
 
+// evalWatchCall describes a watcher of an instCall Interpretable.
+type evalWatchCall struct {
+	InterpretableCall
+	observer evalObserver
+}
+
+// Eval implements the Interpretable interface method.
+func (e *evalWatchCall) Eval(vars Activation) ref.Val {
+	val := e.InterpretableCall.Eval(vars)
+	e.observer(e.ID(), val)
+	return val
+}
+
+// Cost implements the Coster interface method.
+func (e *evalWatchCall) Cost() (min, max int64) {
+	return estimateCost(e.InterpretableCall)
+}
+
 // evalExhaustiveOr is just like evalOr, but does not short-circuit argument evaluation.
 type evalExhaustiveOr struct {
 	id  int64
