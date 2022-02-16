@@ -933,6 +933,37 @@ func TestAstIsChecked(t *testing.T) {
 	}
 }
 
+func TestTrackCost(t *testing.T) {
+	e, _ := NewEnv(
+		Declarations(
+			decls.NewVar("k", decls.String),
+			decls.NewVar("v", decls.Bool)))
+	ast, issues := e.Compile(`k.contains(k + "postfix")`)
+	if issues.Err() != nil {
+		t.Fatal(issues.Err())
+	}
+
+	prg, err := e.Program(ast, EvalOptions(OptTrackState, OptTrackCost))
+	if err != nil {
+		t.Fatalf("program creation error: %s\n", err)
+	}
+	out, details, err := prg.Eval(
+		map[string]interface{}{
+			"k": "key",
+			"v": true})
+	if err != nil {
+		t.Fatalf("runtime error: %s\n", err)
+	}
+	if out != types.True {
+		t.Errorf("got '%v', expected 'true'", out.Value())
+	}
+
+	expectedCost := uint64(4)
+	if *details.ActualCost() != expectedCost {
+		t.Errorf("got cost %v, expected %v", *details.ActualCost(), expectedCost)
+	}
+}
+
 func TestEvalOptions(t *testing.T) {
 	e, _ := NewEnv(
 		Declarations(
