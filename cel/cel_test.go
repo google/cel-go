@@ -706,6 +706,48 @@ func TestGlobalVars(t *testing.T) {
 	})
 }
 
+func TestClearMacros(t *testing.T) {
+	e, err := NewEnv(ClearMacros())
+	if err != nil {
+		t.Fatalf("NewEnv(ClearMacros()) failed: %v", err)
+	}
+	ast, iss := e.Parse("has(a.b)")
+	if iss.Err() != nil {
+		t.Fatalf("Parse(`has(a.b)`) failed: %v", iss.Err())
+	}
+	pe, err := AstToParsedExpr(ast)
+	if err != nil {
+		t.Fatalf("AstToParsedExpr(ast) failed: %v", err)
+	}
+	want := &exprpb.Expr{
+		Id: 1,
+		ExprKind: &exprpb.Expr_CallExpr{
+			CallExpr: &exprpb.Expr_Call{
+				Function: "has",
+				Args: []*exprpb.Expr{
+					{
+						Id: 3,
+						ExprKind: &exprpb.Expr_SelectExpr{
+							SelectExpr: &exprpb.Expr_Select{
+								Operand: &exprpb.Expr{
+									Id: 2,
+									ExprKind: &exprpb.Expr_IdentExpr{
+										IdentExpr: &exprpb.Expr_Ident{Name: "a"},
+									},
+								},
+								Field: "b",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	if !proto.Equal(pe.GetExpr(), want) {
+		t.Errorf("Parse() produced AST with macro replacement rather than call. got %v, wanted %v", pe, want)
+	}
+}
+
 func TestCustomMacro(t *testing.T) {
 	joinMacro := parser.NewReceiverMacro("join", 1,
 		func(eh parser.ExprHelper,

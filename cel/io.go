@@ -17,19 +17,18 @@ package cel
 import (
 	"errors"
 	"fmt"
-	"time"
+	"reflect"
 
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 	"github.com/google/cel-go/parser"
+
 	"google.golang.org/protobuf/proto"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	anypb "google.golang.org/protobuf/types/known/anypb"
-	dpb "google.golang.org/protobuf/types/known/durationpb"
-	tpb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // CheckedExprToAst converts a checked expression proto message to an Ast.
@@ -192,40 +191,13 @@ func RefValueToValue(res ref.Val) (*exprpb.Value, error) {
 	case types.UintType:
 		return &exprpb.Value{
 			Kind: &exprpb.Value_Uint64Value{Uint64Value: res.Value().(uint64)}}, nil
-	case types.DurationType:
-		d, ok := res.Value().(time.Duration)
-		if !ok {
-			return nil, errors.New("Expected time.Duration")
-		}
-		any, err := anypb.New(dpb.New(d))
-		if err != nil {
-			return nil, err
-		}
-		return &exprpb.Value{
-			Kind: &exprpb.Value_ObjectValue{ObjectValue: any}}, nil
-	case types.TimestampType:
-		t, ok := res.Value().(time.Time)
-		if !ok {
-			return nil, errors.New("Expected time.Time")
-		}
-		any, err := anypb.New(tpb.New(t))
-		if err != nil {
-			return nil, err
-		}
-		return &exprpb.Value{
-			Kind: &exprpb.Value_ObjectValue{ObjectValue: any}}, nil
 	default:
-		// Object type
-		pb, ok := res.Value().(proto.Message)
-		if !ok {
-			return nil, errors.New("Expected proto message")
-		}
-		any, err := anypb.New(pb)
+		any, err := res.ConvertToNative(reflect.TypeOf(&anypb.Any{}))
 		if err != nil {
 			return nil, err
 		}
 		return &exprpb.Value{
-			Kind: &exprpb.Value_ObjectValue{ObjectValue: any}}, nil
+			Kind: &exprpb.Value_ObjectValue{ObjectValue: any.(*anypb.Any)}}, nil
 	}
 }
 
