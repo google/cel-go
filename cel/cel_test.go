@@ -1206,217 +1206,10 @@ func (tc testCostEstimator) EstimateSize(element checker.AstNode) *checker.SizeE
 
 func (tc testCostEstimator) EstimateCallCost(overloadId string, target *checker.AstNode, args []checker.AstNode) *checker.CostEstimate {
 	switch overloadId {
-	case "noop":
-		return &checker.CostEstimate{Min: 0, Max: 0}
+	case overloads.TimestampToYear:
+		return &checker.CostEstimate{Min: 7, Max: 7}
 	}
 	return nil
-}
-
-func BenchmarkCost(b *testing.B) {
-	cases := []struct {
-		name    string
-		program string
-		decls   []*exprpb.Decl
-		vars    interface{}
-	}{
-		{
-			name:    "const",
-			program: `"Hello World!"`,
-		},
-		{
-			name:    "identity",
-			program: `"input"`,
-			decls:   []*exprpb.Decl{decls.NewVar("input", decls.Int)},
-		},
-		{
-			name:    "select: map",
-			program: `"input['key']"`,
-			decls:   []*exprpb.Decl{decls.NewVar("input", decls.NewMapType(decls.String, decls.String))},
-			vars:    map[string]interface{}{"input": map[string]string{"key": "value"}},
-		},
-		{
-			name:    "select: field",
-			program: `"input.single_int32"`,
-			decls:   []*exprpb.Decl{decls.NewVar("input", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"))},
-			vars:    map[string]interface{}{"input": map[string]*proto3pb.TestAllTypes{"key": {SingleInt32: 1}}},
-		},
-		{
-			name:    "select: field test only",
-			program: `"has(input.single_int32)"`,
-			decls:   []*exprpb.Decl{decls.NewVar("input", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"))},
-			vars:    map[string]interface{}{"input": map[string]*proto3pb.TestAllTypes{"key": {SingleInt32: 1}}},
-		},
-		{
-			name:    "create list empty",
-			program: `[]`,
-		},
-		{
-			name:    "create list 10",
-			program: `[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]`,
-		},
-		{
-			name:    "create struct empty",
-			program: `google.expr.proto3.test.TestAllTypes{}`,
-		},
-		{
-			name:    "create struct 3",
-			program: `google.expr.proto3.test.TestAllTypes{single_int32: 1, single_float: 3.14, single_string: 'str'}`,
-		},
-		{
-			name:    "create map empty",
-			program: `{}`,
-		},
-		{
-			name:    "create map 10",
-			program: `{'a': 1, 'b': 2, 'c': 3, 'd': 4, 'e': 5, 'f': 6, 'g': 7, 'h': 8, 'i': 9, 'j': 10}`,
-		},
-		{
-			name:    "all comprehension empty",
-			program: `input.all(e, true)`,
-			decls:   []*exprpb.Decl{decls.NewVar("input", decls.NewListType(decls.String))},
-			vars:    map[string]interface{}{"input": []string{}},
-		},
-		{
-			name:    "all comprehension 10",
-			program: `input.all(e, true)`,
-			decls:   []*exprpb.Decl{decls.NewVar("input", decls.NewListType(decls.String))},
-			vars:    map[string]interface{}{"input": []string{"a", "a", "a", "a", "a", "a", "a", "a", "a", "a"}},
-		},
-		{
-			name:    "contains empty",
-			program: `input.contains(arg1)`,
-			decls: []*exprpb.Decl{
-				decls.NewVar("input", decls.String),
-				decls.NewVar("arg1", decls.String),
-			},
-			vars: map[string]interface{}{"input": "", "arg1": "x"},
-		},
-		{
-			name:    "contains 10",
-			program: `input.contains(arg1)`,
-			decls: []*exprpb.Decl{
-				decls.NewVar("input", decls.String),
-				decls.NewVar("arg1", decls.String),
-			},
-			vars: map[string]interface{}{"input": "abcdefghij", "arg1": "abcdefghij"},
-		},
-		{
-			name:    "matches empty",
-			program: `input.matches(arg1)`,
-			decls: []*exprpb.Decl{
-				decls.NewVar("input", decls.String),
-				decls.NewVar("arg1", decls.String),
-			},
-			vars: map[string]interface{}{"input": "", "arg1": "[0-9]*"},
-		},
-		{
-			name:    "matches 10",
-			program: `input.matches(arg1)`,
-			decls: []*exprpb.Decl{
-				decls.NewVar("input", decls.String),
-				decls.NewVar("arg1", decls.String),
-			},
-			vars: map[string]interface{}{"input": "abcdefghi1", "arg1": "[0-9]*"},
-		},
-		{
-			name:    "or",
-			program: `true || false`,
-		},
-		{
-			name:    "and",
-			program: `true && false`,
-		},
-		{
-			name:    "lt",
-			program: `1 < 2`,
-		},
-		{
-			name:    "lte",
-			program: `1 <= 2`,
-		},
-		{
-			name:    "eq",
-			program: `1 == 2`,
-		},
-		{
-			name:    "gt",
-			program: `2 > 1`,
-		},
-		{
-			name:    "gte",
-			program: `2 >= 1`,
-		},
-		{
-			name:    "in empty list",
-			program: `2 in []`,
-		},
-		{
-			name:    "in list 10",
-			program: `2 in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]`,
-		},
-		{
-			name:    "plus",
-			program: `1 + 1`,
-		},
-		{
-			name:    "minus",
-			program: `1 - 1`,
-		},
-		{
-			name:    "divide",
-			program: `1 / 1`,
-		},
-		{
-			name:    "multiply",
-			program: `1 * 1`,
-		},
-		{
-			name:    "modulo",
-			program: `1 % 1`,
-		},
-		{
-			name:    "ternary",
-			program: `true ? 1 : 2`,
-		},
-		{
-			name:    "string size",
-			program: `size("123")`,
-		},
-		{
-			name:    "int to string conversion",
-			program: `string(1)`,
-		},
-	}
-	for _, tc := range cases {
-		b.Run(tc.name, func(bb *testing.B) {
-			vars := tc.vars
-			if vars == nil {
-				vars = map[string]interface{}{}
-			}
-			descriptor := new(proto3pb.TestAllTypes).ProtoReflect().Descriptor()
-			e, err := NewEnv(Declarations(tc.decls...), DeclareContextProto(descriptor))
-			if err != nil {
-				log.Fatalf("environment creation error: %s\n", err)
-			}
-			e, _ = e.Extend(CustomTypeAdapter(types.DefaultTypeAdapter))
-			ast, iss := e.Compile(tc.program)
-			if iss.Err() != nil {
-				log.Fatalln(iss.Err())
-			}
-			prg, err := e.Program(ast)
-			if err != nil {
-				log.Fatalf("program creation error: %s\n", err)
-			}
-			b.ResetTimer()
-			b.ReportAllocs()
-			for i := 0; i < bb.N; i++ {
-				_, _, err := prg.Eval(vars)
-				if err != nil {
-					b.Fatal(err)
-				}
-			}
-		})
-	}
 }
 
 func TestCost(t *testing.T) {
@@ -1449,31 +1242,27 @@ func TestCost(t *testing.T) {
 		},
 		{
 			name:    "select: map",
-			program: `"input['key']"`,
+			program: `input['key']`,
 			decls:   []*exprpb.Decl{decls.NewVar("input", decls.NewMapType(decls.String, decls.String))},
-			wanted:  zeroCost,
+			wanted:  checker.CostEstimate{Min: 2, Max: 2},
 		},
 		{
 			name:    "select: field",
-			program: `"input.single_int32"`,
+			program: `input.single_int32`,
 			decls:   []*exprpb.Decl{decls.NewVar("input", allTypes)},
-			wanted:  zeroCost,
+			wanted:  checker.CostEstimate{Min: 2, Max: 2},
 		},
 		{
 			name:    "select: field test only",
-			program: `"has(input.single_int32)"`,
+			program: `has(input.single_int32)`,
 			decls:   []*exprpb.Decl{decls.NewVar("input", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"))},
 			wanted:  zeroCost,
 		},
 		{
-			name:    "function call",
-			program: `"noop('arg')"`,
-			wanted:  zeroCost,
-		},
-		{
-			name:    "receiver function call",
-			program: `"'receiver'.noop()"`,
-			wanted:  zeroCost,
+			name:    "estimated function call",
+			program: `input.getFullYear()`,
+			decls:   []*exprpb.Decl{decls.NewVar("input", decls.Timestamp)},
+			wanted:  checker.CostEstimate{Min: 8, Max: 8},
 		},
 		{
 			name:    "create list",
@@ -1690,19 +1479,10 @@ func TestCost(t *testing.T) {
 			if iss.Err() != nil {
 				t.Fatal(iss.Err())
 			}
-
-			// Test standard evaluation cost.
-			parsed, err := AstToParsedExpr(ast)
+			est, err := e.EstimateCost(ast, testCostEstimator{hints: tc.hints})
 			if err != nil {
-				t.Fatalf("program creation error: %s\n", err)
+				t.Fatalf("estimate cost error: %s\n", err)
 			}
-
-			checked, errs := checker.Check(parsed, ast.Source(), e.chk)
-			if len(errs.GetErrors()) > 0 {
-				t.Fatalf("program creation error: %s\n", err)
-			}
-
-			est := checker.Cost(checked, e.chk, testCostEstimator{hints: tc.hints})
 			if est.Min != tc.wanted.Min || est.Max != tc.wanted.Max {
 				t.Fatalf("Got cost interval [%v, %v], wanted [%v, %v]",
 					est.Min, est.Max, tc.wanted.Min, tc.wanted.Max)
