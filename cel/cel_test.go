@@ -1212,7 +1212,7 @@ func (tc testCostEstimator) EstimateCallCost(overloadId string, target *checker.
 	return nil
 }
 
-func TestCost(t *testing.T) {
+func TestEstimateCost(t *testing.T) {
 	allTypes := decls.NewObjectType("google.expr.proto3.test.TestAllTypes")
 	allList := decls.NewListType(allTypes)
 	intList := decls.NewListType(decls.Int)
@@ -1236,9 +1236,9 @@ func TestCost(t *testing.T) {
 		},
 		{
 			name:    "identity",
-			program: `"input"`,
+			program: `input`,
 			decls:   []*exprpb.Decl{decls.NewVar("input", intList)},
-			wanted:  zeroCost,
+			wanted:  checker.CostEstimate{Min: 1, Max: 1},
 		},
 		{
 			name:    "select: map",
@@ -1303,12 +1303,12 @@ func TestCost(t *testing.T) {
 			decls:   []*exprpb.Decl{decls.NewVar("input", str)},
 			hints:   map[*exprpb.Type]int64{str: 500},
 			program: `input.matches('[0-9]')`,
-			wanted:  checker.CostEstimate{Min: 1, Max: 6},
+			wanted:  checker.CostEstimate{Min: 1, Max: 101},
 		},
 		{
 			name:    "variable cost function with constant",
 			program: `'123'.matches('[0-9]')`,
-			wanted:  checker.CostEstimate{Min: 1, Max: 1},
+			wanted:  checker.CostEstimate{Min: 2, Max: 2},
 		},
 		{
 			name:    "or",
@@ -1348,7 +1348,7 @@ func TestCost(t *testing.T) {
 		{
 			name:    "in",
 			program: `2 in [1, 2, 3]`,
-			wanted:  checker.CostEstimate{Min: 11, Max: 11},
+			wanted:  checker.CostEstimate{Min: 13, Max: 13},
 		},
 		{
 			name:    "plus",
@@ -1390,14 +1390,14 @@ func TestCost(t *testing.T) {
 			decls:   []*exprpb.Decl{decls.NewVar("input", bytes)},
 			hints:   map[*exprpb.Type]int64{bytes: 500},
 			program: `string(input)`,
-			wanted:  checker.CostEstimate{Min: 1, Max: 6},
+			wanted:  checker.CostEstimate{Min: 1, Max: 51},
 		},
 		{
 			name:    "string to bytes conversion",
 			decls:   []*exprpb.Decl{decls.NewVar("input", str)},
 			hints:   map[*exprpb.Type]int64{str: 500},
 			program: `bytes(input)`,
-			wanted:  checker.CostEstimate{Min: 1, Max: 6},
+			wanted:  checker.CostEstimate{Min: 1, Max: 51},
 		},
 		{
 			name:    "int to string conversion",
@@ -1412,17 +1412,16 @@ func TestCost(t *testing.T) {
 				decls.NewVar("arg1", str),
 			},
 			hints:  map[*exprpb.Type]int64{str: 500},
-			wanted: checker.CostEstimate{Min: 2, Max: 27},
+			wanted: checker.CostEstimate{Min: 2, Max: 2502},
 		},
 		{
 			name:    "matches",
-			program: `input.matches(arg1)`,
+			program: `input.matches('\\d+a\\d+b')`,
 			decls: []*exprpb.Decl{
 				decls.NewVar("input", str),
-				decls.NewVar("arg1", str),
 			},
 			hints:  map[*exprpb.Type]int64{str: 500},
-			wanted: checker.CostEstimate{Min: 2, Max: 252},
+			wanted: checker.CostEstimate{Min: 1, Max: 101},
 		},
 		{
 			name:    "startsWith",
@@ -1432,7 +1431,7 @@ func TestCost(t *testing.T) {
 				decls.NewVar("arg1", str),
 			},
 			hints:  map[*exprpb.Type]int64{str: 500},
-			wanted: checker.CostEstimate{Min: 2, Max: 7},
+			wanted: checker.CostEstimate{Min: 2, Max: 52},
 		},
 		{
 			name:    "endsWith",
@@ -1442,7 +1441,7 @@ func TestCost(t *testing.T) {
 				decls.NewVar("arg1", str),
 			},
 			hints:  map[*exprpb.Type]int64{str: 500},
-			wanted: checker.CostEstimate{Min: 2, Max: 7},
+			wanted: checker.CostEstimate{Min: 2, Max: 52},
 		},
 		{
 			name:    "size receiver",
@@ -1450,7 +1449,6 @@ func TestCost(t *testing.T) {
 			decls: []*exprpb.Decl{
 				decls.NewVar("input", str),
 			},
-			hints:  map[*exprpb.Type]int64{str: 500},
 			wanted: checker.CostEstimate{Min: 2, Max: 2},
 		},
 		{
@@ -1459,7 +1457,6 @@ func TestCost(t *testing.T) {
 			decls: []*exprpb.Decl{
 				decls.NewVar("input", str),
 			},
-			hints:  map[*exprpb.Type]int64{str: 500},
 			wanted: checker.CostEstimate{Min: 2, Max: 2},
 		},
 	}

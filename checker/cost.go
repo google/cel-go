@@ -254,6 +254,7 @@ func (c *coster) costCall(e *exprpb.Expr) CostEstimate {
 	argTypes := make([]AstNode, len(args))
 	for i, arg := range args {
 		// TODO: && || short circuit, so min cost should only include 1st arg eval
+		// unless exhaustive evaluation is enabled
 		sum = sum.Add(c.cost(arg))
 		argTypes[i] = expr{t: c.getType(arg), expr: arg}
 	}
@@ -269,6 +270,7 @@ func (c *coster) costCall(e *exprpb.Expr) CostEstimate {
 			targetType = expr{t: c.getType(call.Target), expr: call.Target}
 		}
 	}
+	// Pick a cost estimate range that covers all the overload cost estimation ranges
 	fnCost := CostEstimate{Min: uint64(math.MaxUint64), Max: 0}
 	for _, overload := range ref.GetOverloadId() {
 		overloadCost := c.functionCost(overload, &targetType, argTypes)
@@ -383,30 +385,38 @@ func (c *coster) functionCost(overloadId string, target *AstNode, args []AstNode
 	}
 	switch overloadId {
 	// O(n) functions
-	case overloads.StartsWithString, overloads.EndsWithString:
-		if target != nil && len(args) == 1 {
-			return c.sizeEstimate(args[0]).MultiplyByCostFactor(0.01)
-		}
-	// O(n) conversions
-	case overloads.StringToBytes, overloads.BytesToString:
+	case overloads.StartsWithString, overloads.EndsWithString, overloads.StringToBytes, overloads.BytesToString:
 		if len(args) == 1 {
-			return c.sizeEstimate(args[0]).MultiplyByCostFactor(0.01)
+			return c.sizeEstimate(args[0]).MultiplyByCostFactor(0.1)
+		}
+	case overloads.InList:
+		// TODO: account for optimization where lists are converted to sets?
+		if len(args) == 2 {
+			return c.sizeEstimate(args[1]).MultiplyByCostFactor(1)
 		}
 	// O(nm) functions
 	case overloads.MatchesString:
 		// https://swtch.com/~rsc/regexp/regexp1.html applies to RE2 implementation supported by CEL
 		if target != nil && len(args) == 1 {
-			strCost := c.sizeEstimate(*target).MultiplyByCostFactor(0.01)
-			regexCost := c.sizeEstimate(args[0]).MultiplyByCostFactor(0.1)
+			strCost := c.sizeEstimate(*target).MultiplyByCostFactor(0.1)
+			// We don't know how many expressions are in the regex, just the string length (a huge
+			// improvement here would be to somehow get a count the number of expressions in the regex or
+			// how many states are in the regex state machine and use that to measure regex cost).
+			// For now, we're making a guess that each expression in a regex is typically at least 4 chars
+			// in length.
+			regexCost := c.sizeEstimate(args[0]).MultiplyByCostFactor(0.25)
 			return strCost.Multiply(regexCost)
 		}
 	case overloads.ContainsString:
 		if target != nil && len(args) == 1 {
-			strCost := c.sizeEstimate(*target).MultiplyByCostFactor(0.01)
-			regexCost := c.sizeEstimate(args[0]).MultiplyByCostFactor(0.01)
-			return strCost.Multiply(regexCost)
+			strCost := c.sizeEstimate(*target).MultiplyByCostFactor(0.1)
+			substrCost := c.sizeEstimate(args[0]).MultiplyByCostFactor(0.1)
+			return strCost.Multiply(substrCost)
 		}
 	}
+	// O(n) functions
+	// Benchmarks suggest that most of the other operations take +/- 50% of a base cost unit
+	// which on an Intel xeon 2.20GHz CPU is 50ns.
 	return CostEstimate{Min: 1, Max: 1}
 }
 
