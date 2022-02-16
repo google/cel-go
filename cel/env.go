@@ -405,6 +405,12 @@ func (e *Env) ResidualAst(a *Ast, details *EvalDetails) (*Ast, error) {
 	return checked, nil
 }
 
+// EstimateCost estimates the cost of the CEL expression using the length estimates of input data and extension functions
+// provided by estimator.
+func (e *Env) EstimateCost(ast *exprpb.CheckedExpr, estimator checker.CostEstimator) checker.CostEstimate {
+	return checker.Cost(ast, e.chk, estimator)
+}
+
 // configure applies a series of EnvOptions to the current environment.
 func (e *Env) configure(opts []EnvOption) (*Env, error) {
 	// Customized the environment using the provided EnvOption values. If an error is
