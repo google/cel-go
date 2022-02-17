@@ -74,28 +74,28 @@ type SizeEstimate struct {
 
 // Multiply multiplies by another SizeEstimate and returns the sum.
 // If multiply would result in an uint64 overflow, the result is Maxuint64.
-func (ce SizeEstimate) Multiply(sizeEstimate SizeEstimate) CostEstimate {
-	return CostEstimate{
-		multiplyUint64NoOverflow(ce.Min, sizeEstimate.Min),
-		multiplyUint64NoOverflow(ce.Max, sizeEstimate.Max),
+func (se SizeEstimate) Multiply(sizeEstimate SizeEstimate) SizeEstimate {
+	return SizeEstimate{
+		multiplyUint64NoOverflow(se.Min, sizeEstimate.Min),
+		multiplyUint64NoOverflow(se.Max, sizeEstimate.Max),
 	}
 }
 
 // MultiplyByCostFactor multiplies a SizeEstimate by a cost factor and returns the CostEstimate with the
 // nearest integer of the result, rounded up.
-func (ce SizeEstimate) MultiplyByCostFactor(costPerUnit float64) CostEstimate {
+func (se SizeEstimate) MultiplyByCostFactor(costPerUnit float64) CostEstimate {
 	return CostEstimate{
-		multiplyByCostFactor(ce.Min, costPerUnit),
-		multiplyByCostFactor(ce.Max, costPerUnit),
+		multiplyByCostFactor(se.Min, costPerUnit),
+		multiplyByCostFactor(se.Max, costPerUnit),
 	}
 }
 
 // MultiplyByCost multiplies by the cost and returns the sum.
 // If multiply would result in an uint64 overflow, the result is Maxuint64.
-func (ce SizeEstimate) MultiplyByCost(cost CostEstimate) CostEstimate {
+func (se SizeEstimate) MultiplyByCost(cost CostEstimate) CostEstimate {
 	return CostEstimate{
-		multiplyUint64NoOverflow(ce.Min, cost.Min),
-		multiplyUint64NoOverflow(ce.Max, cost.Max),
+		multiplyUint64NoOverflow(se.Min, cost.Min),
+		multiplyUint64NoOverflow(se.Max, cost.Max),
 	}
 }
 
@@ -390,7 +390,8 @@ func (c *coster) functionCost(overloadId string, target *AstNode, args []AstNode
 			return c.sizeEstimate(args[0]).MultiplyByCostFactor(0.1)
 		}
 	case overloads.InList:
-		// TODO: account for optimization where lists are converted to sets?
+		// If a list is composed entirely of constant values this is O(1), but we don't account for that here.
+		// We just assume all list containment checks are O(n).
 		if len(args) == 2 {
 			return c.sizeEstimate(args[1]).MultiplyByCostFactor(1)
 		}
