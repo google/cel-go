@@ -1501,6 +1501,15 @@ func TestEstimateCost(t *testing.T) {
 			hints:  map[string]int64{"input": 5, "input.@keys": 10},
 			wanted: checker.CostEstimate{Min: 2, Max: 37},
 		},
+		{
+			name:    "comprehension variable shadowing",
+			program: `input.all(k, input[k].all(k, true) && k.contains(k))`,
+			decls: []*exprpb.Decl{
+				decls.NewVar("input", nestedMap),
+			},
+			hints:  map[string]int64{"input": 2, "input.@values": 2, "input.@keys": 5},
+			wanted: checker.CostEstimate{Min: 2, Max: 42},
+		},
 	}
 
 	for _, tc := range cases {

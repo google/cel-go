@@ -412,8 +412,11 @@ func (e *Env) EstimateCost(ast *Ast, estimator checker.CostEstimator) (checker.C
 	if !ast.IsChecked() {
 		return checker.CostEstimate{}, fmt.Errorf("EsimateCost may only be called with a type checked Ast")
 	}
-	checked := &exprpb.CheckedExpr{Expr: ast.Expr(), ReferenceMap: ast.refMap, TypeMap: ast.typeMap, SourceInfo: ast.SourceInfo()}
-	return checker.Cost(checked, e.chk, estimator), nil
+	checked, err := AstToCheckedExpr(ast)
+	if err != nil {
+		return checker.CostEstimate{}, err
+	}
+	return checker.Cost(checked, estimator), nil
 }
 
 // configure applies a series of EnvOptions to the current environment.
