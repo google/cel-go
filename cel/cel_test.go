@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math"
 	"reflect"
 	"strings"
 	"sync"
@@ -1219,6 +1220,9 @@ func TestEstimateCost(t *testing.T) {
 	intList := decls.NewListType(decls.Int)
 	nestedList := decls.NewListType(allList)
 
+	allMap := decls.NewMapType(decls.String, allTypes)
+	nestedMap := decls.NewMapType(decls.String, allMap)
+
 	zeroCost := checker.CostEstimate{}
 	oneCost := checker.CostEstimate{Min: 1, Max: 1}
 	cases := []struct {
@@ -1288,7 +1292,7 @@ func TestEstimateCost(t *testing.T) {
 		{
 			name:    "nested all comprehension",
 			decls:   []*exprpb.Decl{decls.NewVar("input", nestedList)},
-			hints:   map[string]int64{"input": 50, "input.*": 10},
+			hints:   map[string]int64{"input": 50, "input.@items": 10},
 			program: `input.all(x, x.all(y, true))`,
 			wanted:  checker.CostEstimate{Min: 2, Max: 2302},
 		},
@@ -1458,6 +1462,45 @@ func TestEstimateCost(t *testing.T) {
 			},
 			wanted: checker.CostEstimate{Min: 2, Max: 2},
 		},
+		{
+			name:    "ternary eval",
+			program: `(x > 2 ? input1 : input2).all(y, true)`,
+			decls: []*exprpb.Decl{
+				decls.NewVar("x", decls.Int),
+				decls.NewVar("input1", allList),
+				decls.NewVar("input2", allList),
+			},
+			hints: map[string]int64{"input1": 1, "input2": 1},
+			// TODO: we don't track cost in the specific case
+			wanted: checker.CostEstimate{Min: 6, Max: math.MaxUint64},
+		},
+		{
+			name:    "comprehension over map",
+			program: `input.all(k, input[k].single_int32 > 3)`,
+			decls: []*exprpb.Decl{
+				decls.NewVar("input", allMap),
+			},
+			hints:  map[string]int64{"input": 10},
+			wanted: checker.CostEstimate{Min: 2, Max: 92},
+		},
+		{
+			name:    "comprehension over nested map of maps",
+			program: `input.all(k, input[k].all(x, true))`,
+			decls: []*exprpb.Decl{
+				decls.NewVar("input", nestedMap),
+			},
+			hints:  map[string]int64{"input": 5, "input.@values": 10},
+			wanted: checker.CostEstimate{Min: 2, Max: 242},
+		},
+		{
+			name:    "string size of map keys",
+			program: `input.all(k, k.contains(k))`,
+			decls: []*exprpb.Decl{
+				decls.NewVar("input", nestedMap),
+			},
+			hints:  map[string]int64{"input": 5, "input.@keys": 10},
+			wanted: checker.CostEstimate{Min: 2, Max: 37},
+		},
 	}
 
 	for _, tc := range cases {
@@ -1466,11 +1509,13 @@ func TestEstimateCost(t *testing.T) {
 				tc.hints = map[string]int64{}
 			}
 			descriptor := new(proto3pb.TestAllTypes).ProtoReflect().Descriptor()
-			e, err := NewEnv(Declarations(tc.decls...), DeclareContextProto(descriptor))
+			e, err := NewEnv(
+				Declarations(tc.decls...),
+				DeclareContextProto(descriptor),
+				CustomTypeAdapter(types.DefaultTypeAdapter))
 			if err != nil {
 				t.Fatalf("environment creation error: %s\n", err)
 			}
-			e, _ = e.Extend(CustomTypeAdapter(types.DefaultTypeAdapter))
 			ast, iss := e.Compile(tc.program)
 			if iss.Err() != nil {
 				t.Fatal(iss.Err())

@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/overloads"
+	"github.com/google/cel-go/parser"
 )
 
 // CostEstimator estimates the sizes of variable length input data and the costs of functions.
@@ -24,8 +25,8 @@ type CostEstimator interface {
 
 // AstNode represents an AST node for the purpose of cost estimations.
 type AstNode interface {
-	// Path returns a path to the AstNode. The first path element is a variable. All subsequent path elements are
-	// field selectors or '*' to indicate traversal into the elements or  of a map of list.
+	// Path returns a path to the AstNode in the provided type declarations. The first path element is a variable. All
+	// subsequent path elements are field names or '@items', '@keys', '@values'.
 	Path() []string
 	// Type returns the deduced type of the AstNode.
 	Type() *exprpb.Type
@@ -232,9 +233,14 @@ func (c *coster) costIdent(e *exprpb.Expr) CostEstimate {
 	// resolve the field path
 	if ident := c.env.LookupIdent(identExpr.GetName()); ident != nil {
 		if binding, ok := c.iterVarMapping[ident]; ok {
-			c.exprPath[e.Id] = append(c.exprPath[binding], "*")
+			switch c.checker.TypeMap[binding].TypeKind.(type) {
+			case *exprpb.Type_ListType_:
+				c.addPath(e, append(c.exprPath[binding], "@items"))
+			case *exprpb.Type_MapType_:
+				c.addPath(e, append(c.exprPath[binding], "@keys"))
+			}
 		} else {
-			c.exprPath[e.Id] = []string{identExpr.GetName()}
+			c.addPath(e, []string{identExpr.GetName()})
 		}
 
 		return identCost
@@ -288,6 +294,12 @@ func (c *coster) costCall(e *exprpb.Expr) CostEstimate {
 	// Pick a cost estimate range that covers all the overload cost estimation ranges
 	fnCost := CostEstimate{Min: uint64(math.MaxUint64), Max: 0}
 	for _, overload := range ref.GetOverloadId() {
+		switch overload {
+		case overloads.IndexList:
+			c.addPath(e, append(c.getPath(args[0]), "@items"))
+		case overloads.IndexMap:
+			c.addPath(e, append(c.getPath(args[0]), "@values"))
+		}
 		overloadCost := c.functionCost(overload, &targetType, argTypes)
 		if overloadCost.Max > fnCost.Max {
 			fnCost.Max = overloadCost.Max
@@ -425,6 +437,14 @@ func (c *coster) getPath(e *exprpb.Expr) []string {
 	return c.exprPath[e.Id]
 }
 
+func (c *coster) addPath(e *exprpb.Expr, path []string) {
+	c.exprPath[e.Id] = path
+}
+
 func (c *coster) newAstNode(e *exprpb.Expr) *astNode {
-	return &astNode{path: c.getPath(e), t: c.getType(e), expr: e}
+	path := c.getPath(e)
+	if len(path) > 0 && path[0] == parser.AccumulatorName {
+		path = nil // only provide paths to root vars to AstNodes
+	}
+	return &astNode{path: path, t: c.getType(e), expr: e}
 }
