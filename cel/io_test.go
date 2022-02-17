@@ -57,7 +57,7 @@ func TestRefValueToValueRoundTrip(t *testing.T) {
 			}
 			actual, err := ValueToRefValue(env.TypeAdapter(), val)
 			if err != nil {
-				t.Fatalf("ValueToRefValue() failed: &v", err)
+				t.Fatalf("ValueToRefValue() failed: %v", err)
 			}
 			if refVal.Equal(actual) != types.True {
 				t.Errorf("got val %v, wanted %v", actual, refVal)
