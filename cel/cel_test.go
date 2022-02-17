@@ -19,6 +19,7 @@ import (
 	"io/ioutil"
 	"log"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 
@@ -1194,11 +1195,11 @@ func TestCustomInterpreterDecorator(t *testing.T) {
 }
 
 type testCostEstimator struct {
-	hints map[*exprpb.Type]int64
+	hints map[string]int64
 }
 
 func (tc testCostEstimator) EstimateSize(element checker.AstNode) *checker.SizeEstimate {
-	if l, ok := tc.hints[element.Type()]; ok {
+	if l, ok := tc.hints[strings.Join(element.Path(), ".")]; ok {
 		return &checker.SizeEstimate{Min: 0, Max: uint64(l)}
 	}
 	return nil
@@ -1220,13 +1221,11 @@ func TestEstimateCost(t *testing.T) {
 
 	zeroCost := checker.CostEstimate{}
 	oneCost := checker.CostEstimate{Min: 1, Max: 1}
-	str := decls.NewPrimitiveType(exprpb.Type_STRING)
-	bytes := decls.NewPrimitiveType(exprpb.Type_BYTES)
 	cases := []struct {
 		name    string
 		program string
 		decls   []*exprpb.Decl
-		hints   map[*exprpb.Type]int64
+		hints   map[string]int64
 		wanted  checker.CostEstimate
 	}{
 		{
@@ -1282,14 +1281,14 @@ func TestEstimateCost(t *testing.T) {
 		{
 			name:    "all comprehension",
 			decls:   []*exprpb.Decl{decls.NewVar("input", allList)},
-			hints:   map[*exprpb.Type]int64{allList: 100},
+			hints:   map[string]int64{"input": 100},
 			program: `input.all(x, true)`,
 			wanted:  checker.CostEstimate{Min: 2, Max: 402},
 		},
 		{
 			name:    "nested all comprehension",
 			decls:   []*exprpb.Decl{decls.NewVar("input", nestedList)},
-			hints:   map[*exprpb.Type]int64{nestedList: 50, allList: 10},
+			hints:   map[string]int64{"input": 50, "input.*": 10},
 			program: `input.all(x, x.all(y, true))`,
 			wanted:  checker.CostEstimate{Min: 2, Max: 2302},
 		},
@@ -1300,8 +1299,8 @@ func TestEstimateCost(t *testing.T) {
 		},
 		{
 			name:    "variable cost function",
-			decls:   []*exprpb.Decl{decls.NewVar("input", str)},
-			hints:   map[*exprpb.Type]int64{str: 500},
+			decls:   []*exprpb.Decl{decls.NewVar("input", decls.String)},
+			hints:   map[string]int64{"input": 500},
 			program: `input.matches('[0-9]')`,
 			wanted:  checker.CostEstimate{Min: 1, Max: 101},
 		},
@@ -1387,15 +1386,15 @@ func TestEstimateCost(t *testing.T) {
 		},
 		{
 			name:    "bytes to string conversion",
-			decls:   []*exprpb.Decl{decls.NewVar("input", bytes)},
-			hints:   map[*exprpb.Type]int64{bytes: 500},
+			decls:   []*exprpb.Decl{decls.NewVar("input", decls.Bytes)},
+			hints:   map[string]int64{"input": 500},
 			program: `string(input)`,
 			wanted:  checker.CostEstimate{Min: 1, Max: 51},
 		},
 		{
 			name:    "string to bytes conversion",
-			decls:   []*exprpb.Decl{decls.NewVar("input", str)},
-			hints:   map[*exprpb.Type]int64{str: 500},
+			decls:   []*exprpb.Decl{decls.NewVar("input", decls.String)},
+			hints:   map[string]int64{"input": 500},
 			program: `bytes(input)`,
 			wanted:  checker.CostEstimate{Min: 1, Max: 51},
 		},
@@ -1408,19 +1407,19 @@ func TestEstimateCost(t *testing.T) {
 			name:    "contains",
 			program: `input.contains(arg1)`,
 			decls: []*exprpb.Decl{
-				decls.NewVar("input", str),
-				decls.NewVar("arg1", str),
+				decls.NewVar("input", decls.String),
+				decls.NewVar("arg1", decls.String),
 			},
-			hints:  map[*exprpb.Type]int64{str: 500},
+			hints:  map[string]int64{"input": 500, "arg1": 500},
 			wanted: checker.CostEstimate{Min: 2, Max: 2502},
 		},
 		{
 			name:    "matches",
 			program: `input.matches('\\d+a\\d+b')`,
 			decls: []*exprpb.Decl{
-				decls.NewVar("input", str),
+				decls.NewVar("input", decls.String),
 			},
-			hints:  map[*exprpb.Type]int64{str: 500},
+			hints:  map[string]int64{"input": 500},
 			wanted: checker.CostEstimate{Min: 1, Max: 101},
 		},
 		{
@@ -1428,9 +1427,9 @@ func TestEstimateCost(t *testing.T) {
 			program: `input.startsWith(arg1)`,
 			decls: []*exprpb.Decl{
 				decls.NewVar("input", decls.String),
-				decls.NewVar("arg1", str),
+				decls.NewVar("arg1", decls.String),
 			},
-			hints:  map[*exprpb.Type]int64{str: 500},
+			hints:  map[string]int64{"arg1": 500},
 			wanted: checker.CostEstimate{Min: 2, Max: 52},
 		},
 		{
@@ -1438,16 +1437,16 @@ func TestEstimateCost(t *testing.T) {
 			program: `input.endsWith(arg1)`,
 			decls: []*exprpb.Decl{
 				decls.NewVar("input", decls.String),
-				decls.NewVar("arg1", str),
+				decls.NewVar("arg1", decls.String),
 			},
-			hints:  map[*exprpb.Type]int64{str: 500},
+			hints:  map[string]int64{"arg1": 500},
 			wanted: checker.CostEstimate{Min: 2, Max: 52},
 		},
 		{
 			name:    "size receiver",
 			program: `input.size()`,
 			decls: []*exprpb.Decl{
-				decls.NewVar("input", str),
+				decls.NewVar("input", decls.String),
 			},
 			wanted: checker.CostEstimate{Min: 2, Max: 2},
 		},
@@ -1455,7 +1454,7 @@ func TestEstimateCost(t *testing.T) {
 			name:    "size",
 			program: `size(input)`,
 			decls: []*exprpb.Decl{
-				decls.NewVar("input", str),
+				decls.NewVar("input", decls.String),
 			},
 			wanted: checker.CostEstimate{Min: 2, Max: 2},
 		},
@@ -1464,7 +1463,7 @@ func TestEstimateCost(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.hints == nil {
-				tc.hints = map[*exprpb.Type]int64{}
+				tc.hints = map[string]int64{}
 			}
 			descriptor := new(proto3pb.TestAllTypes).ProtoReflect().Descriptor()
 			e, err := NewEnv(Declarations(tc.decls...), DeclareContextProto(descriptor))

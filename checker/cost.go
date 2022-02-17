@@ -4,8 +4,6 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	"math"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/overloads"
 )
@@ -26,6 +24,9 @@ type CostEstimator interface {
 
 // AstNode represents an AST node for the purpose of cost estimations.
 type AstNode interface {
+	// Path returns a path to the AstNode. The first path element is a variable. All subsequent path elements are
+	// field selectors or '*' to indicate traversal into the elements or  of a map of list.
+	Path() []string
 	// Type returns the deduced type of the AstNode.
 	Type() *exprpb.Type
 	// LiteralSize returns the size of the AstNode if it is a literal defined inline in CEL, or
@@ -33,16 +34,21 @@ type AstNode interface {
 	LiteralSize() *uint64
 }
 
-type expr struct {
+type astNode struct {
+	path []string
 	t    *exprpb.Type
 	expr *exprpb.Expr
 }
 
-func (e expr) Type() *exprpb.Type {
+func (e astNode) Path() []string {
+	return e.path
+}
+
+func (e astNode) Type() *exprpb.Type {
 	return e.t
 }
 
-func (e expr) LiteralSize() *uint64 {
+func (e astNode) LiteralSize() *uint64 {
 	var v uint64
 	switch ek := e.expr.ExprKind.(type) {
 	case *exprpb.Expr_ConstExpr:
@@ -170,9 +176,13 @@ var (
 )
 
 type coster struct {
-	env       *Env
-	checker   *exprpb.CheckedExpr
-	estimator CostEstimator
+	env *Env
+	// map from Expr Id to field path. Only set for Exprs where the path from a root variable is known.
+	exprPath map[int64][]string
+	// map from comprehension iterVar Decls to the iterRange Expr Ids they iterate across.
+	iterVarMapping map[*exprpb.Decl]int64
+	checker        *exprpb.CheckedExpr
+	estimator      CostEstimator
 }
 
 // Cost estimates the cost of the parsed CEL expression.
@@ -181,9 +191,11 @@ type coster struct {
 func Cost(checker *exprpb.CheckedExpr,
 	env *Env, estimator CostEstimator) CostEstimate {
 	c := coster{
-		env:       env,
-		checker:   checker,
-		estimator: estimator,
+		env:            env,
+		checker:        checker,
+		estimator:      estimator,
+		exprPath:       map[int64][]string{},
+		iterVarMapping: map[*exprpb.Decl]int64{},
 	}
 	return c.cost(checker.GetExpr())
 }
@@ -192,7 +204,6 @@ func (c *coster) cost(e *exprpb.Expr) CostEstimate {
 	if e == nil {
 		return CostEstimate{}
 	}
-
 	var cost CostEstimate
 	switch e.ExprKind.(type) {
 	case *exprpb.Expr_ConstExpr:
@@ -217,12 +228,15 @@ func (c *coster) cost(e *exprpb.Expr) CostEstimate {
 
 func (c *coster) costIdent(e *exprpb.Expr) CostEstimate {
 	identExpr := e.GetIdentExpr()
-	// set types to the exact type references provided
-	// other than this set, types are unmodified. This set is guaranteed not to change
-	// the type if it is already set.
-	// TODO: Isolate where the type is being set such that this is needed.
+
+	// resolve the field path
 	if ident := c.env.LookupIdent(identExpr.GetName()); ident != nil {
-		c.setType(e, ident.GetIdent().Type)
+		if binding, ok := c.iterVarMapping[ident]; ok {
+			c.exprPath[e.Id] = append(c.exprPath[binding], "*")
+		} else {
+			c.exprPath[e.Id] = []string{identExpr.GetName()}
+		}
+
 		return identCost
 	}
 	return CostEstimate{}
@@ -236,6 +250,7 @@ func (c *coster) costSelect(e *exprpb.Expr) CostEstimate {
 		return sum
 	}
 	sum = sum.Add(c.cost(sel.Operand))
+	c.exprPath[e.Id] = append(c.exprPath[sel.Operand.Id], sel.Field)
 	targetType := c.getType(sel.Operand)
 	switch kindOf(targetType) {
 	case kindMap, kindObject, kindTypeParam:
@@ -256,7 +271,7 @@ func (c *coster) costCall(e *exprpb.Expr) CostEstimate {
 		// TODO: && || short circuit, so min cost should only include 1st arg eval
 		// unless exhaustive evaluation is enabled
 		sum = sum.Add(c.cost(arg))
-		argTypes[i] = expr{t: c.getType(arg), expr: arg}
+		argTypes[i] = c.newAstNode(arg)
 	}
 
 	ref := c.checker.ReferenceMap[e.Id]
@@ -267,7 +282,7 @@ func (c *coster) costCall(e *exprpb.Expr) CostEstimate {
 	if target != nil {
 		if call.Target != nil {
 			sum = sum.Add(c.cost(call.Target))
-			targetType = expr{t: c.getType(call.Target), expr: call.Target}
+			targetType = c.newAstNode(call.Target)
 		}
 	}
 	// Pick a cost estimate range that covers all the overload cost estimation ranges
@@ -328,41 +343,22 @@ func (c *coster) costComprehension(e *exprpb.Expr) CostEstimate {
 	var sum CostEstimate
 	sum = sum.Add(c.cost(comp.IterRange))
 	sum = sum.Add(c.cost(comp.AccuInit))
-	accuType := c.getType(comp.AccuInit)
-	rangeType := c.getType(comp.IterRange)
-	var varType *exprpb.Type
 
-	switch kindOf(rangeType) {
-	case kindList:
-		varType = rangeType.GetListType().ElemType
-	case kindMap:
-		// Ranges over the keys.
-		varType = rangeType.GetMapType().KeyType
-	case kindDyn, kindError, kindTypeParam:
-		// Set the range iteration variable to type DYN as well.
-		varType = decls.Dyn
-	default:
-		// not a valid range
-		varType = decls.Error
-	}
+	c.env = c.env.enterScope()
+	c.env.Add(decls.NewVar(comp.AccuVar, nil)) // Don't need to track types
+	c.env = c.env.enterScope()
+	varDecl := decls.NewVar(comp.IterVar, nil)
 
-	// Create a scope for the comprehension since it has a local accumulation variable.
-	// This scope will contain the accumulation variable used to compute the result.
-	c.env = c.env.enterScope()
-	c.env.Add(decls.NewVar(comp.AccuVar, accuType))
-	// Create a block scope for the loop.
-	c.env = c.env.enterScope()
-	c.env.Add(decls.NewVar(comp.IterVar, varType))
-	// Check the variable references in the condition and step.
+	c.iterVarMapping[varDecl] = comp.IterRange.Id // Track the iterRange of each IterVar for field path construction
+	c.env.Add(varDecl)
 	loopCost := c.cost(comp.LoopCondition)
 	stepCost := c.cost(comp.LoopStep)
-	// Exit the loop's block scope before checking the result.
+	delete(c.iterVarMapping, varDecl)
 	c.env = c.env.exitScope()
 	sum = sum.Add(c.cost(comp.Result))
-	// Exit the comprehension scope.
 	c.env = c.env.exitScope()
 
-	rangeCnt := c.sizeEstimate(expr{t: c.getType(comp.IterRange), expr: comp.IterRange})
+	rangeCnt := c.sizeEstimate(c.newAstNode(comp.IterRange))
 	rangeCost := rangeCnt.MultiplyByCost(stepCost.Add(loopCost))
 	sum = sum.Add(rangeCost)
 
@@ -421,13 +417,14 @@ func (c *coster) functionCost(overloadId string, target *AstNode, args []AstNode
 	return CostEstimate{Min: 1, Max: 1}
 }
 
-func (c *coster) setType(e *exprpb.Expr, t *exprpb.Type) {
-	if old, found := c.checker.TypeMap[e.Id]; found && !proto.Equal(old, t) {
-		return
-	}
-	c.checker.TypeMap[e.Id] = t
-}
-
 func (c *coster) getType(e *exprpb.Expr) *exprpb.Type {
 	return c.checker.TypeMap[e.Id]
+}
+
+func (c *coster) getPath(e *exprpb.Expr) []string {
+	return c.exprPath[e.Id]
+}
+
+func (c *coster) newAstNode(e *exprpb.Expr) *astNode {
+	return &astNode{path: c.getPath(e), t: c.getType(e), expr: e}
 }
