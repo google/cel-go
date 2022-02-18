@@ -18,10 +18,17 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protodesc"
+	"google.golang.org/protobuf/reflect/protoreflect"
+
+	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/operators"
@@ -32,15 +39,13 @@ import (
 	"github.com/google/cel-go/interpreter"
 	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/parser"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/reflect/protodesc"
-	"google.golang.org/protobuf/reflect/protoreflect"
 
-	proto2pb "github.com/google/cel-go/test/proto2pb"
-	proto3pb "github.com/google/cel-go/test/proto3pb"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	descpb "google.golang.org/protobuf/types/descriptorpb"
 	dynamicpb "google.golang.org/protobuf/types/dynamicpb"
+
+	proto2pb "github.com/google/cel-go/test/proto2pb"
+	proto3pb "github.com/google/cel-go/test/proto3pb"
 )
 
 func Example() {
@@ -1190,38 +1195,348 @@ func TestCustomInterpreterDecorator(t *testing.T) {
 	}
 }
 
-func TestCost(t *testing.T) {
-	e, err := NewEnv()
-	if err != nil {
-		log.Fatalf("environment creation error: %s\n", err)
+type testCostEstimator struct {
+	hints map[string]int64
+}
+
+func (tc testCostEstimator) EstimateSize(element checker.AstNode) *checker.SizeEstimate {
+	if l, ok := tc.hints[strings.Join(element.Path(), ".")]; ok {
+		return &checker.SizeEstimate{Min: 0, Max: uint64(l)}
 	}
-	ast, iss := e.Compile(`"Hello, World!"`)
-	if iss.Err() != nil {
-		log.Fatalln(iss.Err())
+	return nil
+}
+
+func (tc testCostEstimator) EstimateCallCost(overloadId string, target *checker.AstNode, args []checker.AstNode) *checker.CostEstimate {
+	switch overloadId {
+	case overloads.TimestampToYear:
+		return &checker.CostEstimate{Min: 7, Max: 7}
+	}
+	return nil
+}
+
+func TestEstimateCost(t *testing.T) {
+	allTypes := decls.NewObjectType("google.expr.proto3.test.TestAllTypes")
+	allList := decls.NewListType(allTypes)
+	intList := decls.NewListType(decls.Int)
+	nestedList := decls.NewListType(allList)
+
+	allMap := decls.NewMapType(decls.String, allTypes)
+	nestedMap := decls.NewMapType(decls.String, allMap)
+
+	zeroCost := checker.CostEstimate{}
+	oneCost := checker.CostEstimate{Min: 1, Max: 1}
+	cases := []struct {
+		name    string
+		program string
+		decls   []*exprpb.Decl
+		hints   map[string]int64
+		wanted  checker.CostEstimate
+	}{
+		{
+			name:    "const",
+			program: `"Hello World!"`,
+			wanted:  zeroCost,
+		},
+		{
+			name:    "identity",
+			program: `input`,
+			decls:   []*exprpb.Decl{decls.NewVar("input", intList)},
+			wanted:  checker.CostEstimate{Min: 1, Max: 1},
+		},
+		{
+			name:    "select: map",
+			program: `input['key']`,
+			decls:   []*exprpb.Decl{decls.NewVar("input", decls.NewMapType(decls.String, decls.String))},
+			wanted:  checker.CostEstimate{Min: 2, Max: 2},
+		},
+		{
+			name:    "select: field",
+			program: `input.single_int32`,
+			decls:   []*exprpb.Decl{decls.NewVar("input", allTypes)},
+			wanted:  checker.CostEstimate{Min: 2, Max: 2},
+		},
+		{
+			name:    "select: field test only",
+			program: `has(input.single_int32)`,
+			decls:   []*exprpb.Decl{decls.NewVar("input", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"))},
+			wanted:  zeroCost,
+		},
+		{
+			name:    "estimated function call",
+			program: `input.getFullYear()`,
+			decls:   []*exprpb.Decl{decls.NewVar("input", decls.Timestamp)},
+			wanted:  checker.CostEstimate{Min: 8, Max: 8},
+		},
+		{
+			name:    "create list",
+			program: `[1, 2, 3]`,
+			wanted:  checker.CostEstimate{Min: 10, Max: 10},
+		},
+		{
+			name:    "create struct",
+			program: `google.expr.proto3.test.TestAllTypes{single_int32: 1, single_float: 3.14, single_string: 'str'}`,
+			wanted:  checker.CostEstimate{Min: 40, Max: 40},
+		},
+		{
+			name:    "create map",
+			program: `{"a": 1, "b": 2, "c": 3}`,
+			wanted:  checker.CostEstimate{Min: 30, Max: 30},
+		},
+		{
+			name:    "all comprehension",
+			decls:   []*exprpb.Decl{decls.NewVar("input", allList)},
+			hints:   map[string]int64{"input": 100},
+			program: `input.all(x, true)`,
+			wanted:  checker.CostEstimate{Min: 2, Max: 402},
+		},
+		{
+			name:    "nested all comprehension",
+			decls:   []*exprpb.Decl{decls.NewVar("input", nestedList)},
+			hints:   map[string]int64{"input": 50, "input.@items": 10},
+			program: `input.all(x, x.all(y, true))`,
+			wanted:  checker.CostEstimate{Min: 2, Max: 2302},
+		},
+		{
+			name:    "all comprehension on literal",
+			program: `[1, 2, 3].all(x, true)`,
+			wanted:  checker.CostEstimate{Min: 23, Max: 23},
+		},
+		{
+			name:    "variable cost function",
+			decls:   []*exprpb.Decl{decls.NewVar("input", decls.String)},
+			hints:   map[string]int64{"input": 500},
+			program: `input.matches('[0-9]')`,
+			wanted:  checker.CostEstimate{Min: 1, Max: 101},
+		},
+		{
+			name:    "variable cost function with constant",
+			program: `'123'.matches('[0-9]')`,
+			wanted:  checker.CostEstimate{Min: 2, Max: 2},
+		},
+		{
+			name:    "or",
+			program: `true || false`,
+			wanted:  oneCost,
+		},
+		{
+			name:    "and",
+			program: `true && false`,
+			wanted:  oneCost,
+		},
+		{
+			name:    "lt",
+			program: `1 < 2`,
+			wanted:  oneCost,
+		},
+		{
+			name:    "lte",
+			program: `1 <= 2`,
+			wanted:  oneCost,
+		},
+		{
+			name:    "eq",
+			program: `1 == 2`,
+			wanted:  oneCost,
+		},
+		{
+			name:    "gt",
+			program: `2 > 1`,
+			wanted:  oneCost,
+		},
+		{
+			name:    "gte",
+			program: `2 >= 1`,
+			wanted:  oneCost,
+		},
+		{
+			name:    "in",
+			program: `2 in [1, 2, 3]`,
+			wanted:  checker.CostEstimate{Min: 13, Max: 13},
+		},
+		{
+			name:    "plus",
+			program: `1 + 1`,
+			wanted:  oneCost,
+		},
+		{
+			name:    "minus",
+			program: `1 - 1`,
+			wanted:  oneCost,
+		},
+		{
+			name:    "/",
+			program: `1 / 1`,
+			wanted:  oneCost,
+		},
+		{
+			name:    "/",
+			program: `1 * 1`,
+			wanted:  oneCost,
+		},
+		{
+			name:    "%",
+			program: `1 % 1`,
+			wanted:  oneCost,
+		},
+		{
+			name:    "ternary",
+			program: `true ? 1 : 2`,
+			wanted:  oneCost,
+		},
+		{
+			name:    "string size",
+			program: `size("123")`,
+			wanted:  oneCost,
+		},
+		{
+			name:    "bytes to string conversion",
+			decls:   []*exprpb.Decl{decls.NewVar("input", decls.Bytes)},
+			hints:   map[string]int64{"input": 500},
+			program: `string(input)`,
+			wanted:  checker.CostEstimate{Min: 1, Max: 51},
+		},
+		{
+			name:    "string to bytes conversion",
+			decls:   []*exprpb.Decl{decls.NewVar("input", decls.String)},
+			hints:   map[string]int64{"input": 500},
+			program: `bytes(input)`,
+			wanted:  checker.CostEstimate{Min: 1, Max: 51},
+		},
+		{
+			name:    "int to string conversion",
+			program: `string(1)`,
+			wanted:  checker.CostEstimate{Min: 1, Max: 1},
+		},
+		{
+			name:    "contains",
+			program: `input.contains(arg1)`,
+			decls: []*exprpb.Decl{
+				decls.NewVar("input", decls.String),
+				decls.NewVar("arg1", decls.String),
+			},
+			hints:  map[string]int64{"input": 500, "arg1": 500},
+			wanted: checker.CostEstimate{Min: 2, Max: 2502},
+		},
+		{
+			name:    "matches",
+			program: `input.matches('\\d+a\\d+b')`,
+			decls: []*exprpb.Decl{
+				decls.NewVar("input", decls.String),
+			},
+			hints:  map[string]int64{"input": 500},
+			wanted: checker.CostEstimate{Min: 1, Max: 101},
+		},
+		{
+			name:    "startsWith",
+			program: `input.startsWith(arg1)`,
+			decls: []*exprpb.Decl{
+				decls.NewVar("input", decls.String),
+				decls.NewVar("arg1", decls.String),
+			},
+			hints:  map[string]int64{"arg1": 500},
+			wanted: checker.CostEstimate{Min: 2, Max: 52},
+		},
+		{
+			name:    "endsWith",
+			program: `input.endsWith(arg1)`,
+			decls: []*exprpb.Decl{
+				decls.NewVar("input", decls.String),
+				decls.NewVar("arg1", decls.String),
+			},
+			hints:  map[string]int64{"arg1": 500},
+			wanted: checker.CostEstimate{Min: 2, Max: 52},
+		},
+		{
+			name:    "size receiver",
+			program: `input.size()`,
+			decls: []*exprpb.Decl{
+				decls.NewVar("input", decls.String),
+			},
+			wanted: checker.CostEstimate{Min: 2, Max: 2},
+		},
+		{
+			name:    "size",
+			program: `size(input)`,
+			decls: []*exprpb.Decl{
+				decls.NewVar("input", decls.String),
+			},
+			wanted: checker.CostEstimate{Min: 2, Max: 2},
+		},
+		{
+			name:    "ternary eval",
+			program: `(x > 2 ? input1 : input2).all(y, true)`,
+			decls: []*exprpb.Decl{
+				decls.NewVar("x", decls.Int),
+				decls.NewVar("input1", allList),
+				decls.NewVar("input2", allList),
+			},
+			hints: map[string]int64{"input1": 1, "input2": 1},
+			// TODO: we don't track cost in the specific case
+			wanted: checker.CostEstimate{Min: 6, Max: math.MaxUint64},
+		},
+		{
+			name:    "comprehension over map",
+			program: `input.all(k, input[k].single_int32 > 3)`,
+			decls: []*exprpb.Decl{
+				decls.NewVar("input", allMap),
+			},
+			hints:  map[string]int64{"input": 10},
+			wanted: checker.CostEstimate{Min: 2, Max: 92},
+		},
+		{
+			name:    "comprehension over nested map of maps",
+			program: `input.all(k, input[k].all(x, true))`,
+			decls: []*exprpb.Decl{
+				decls.NewVar("input", nestedMap),
+			},
+			hints:  map[string]int64{"input": 5, "input.@values": 10},
+			wanted: checker.CostEstimate{Min: 2, Max: 242},
+		},
+		{
+			name:    "string size of map keys",
+			program: `input.all(k, k.contains(k))`,
+			decls: []*exprpb.Decl{
+				decls.NewVar("input", nestedMap),
+			},
+			hints:  map[string]int64{"input": 5, "input.@keys": 10},
+			wanted: checker.CostEstimate{Min: 2, Max: 37},
+		},
+		{
+			name:    "comprehension variable shadowing",
+			program: `input.all(k, input[k].all(k, true) && k.contains(k))`,
+			decls: []*exprpb.Decl{
+				decls.NewVar("input", nestedMap),
+			},
+			hints:  map[string]int64{"input": 2, "input.@values": 2, "input.@keys": 5},
+			wanted: checker.CostEstimate{Min: 2, Max: 42},
+		},
 	}
 
-	wantedCost := []int64{0, 0}
-
-	// Test standard evaluation cost.
-	prg, err := e.Program(ast)
-	if err != nil {
-		log.Fatalf("program creation error: %s\n", err)
-	}
-	min, max := EstimateCost(prg)
-	if min != wantedCost[0] || max != wantedCost[1] {
-		log.Fatalf("Got cost interval [%v, %v], wanted %v",
-			min, max, wantedCost)
-	}
-
-	// Test the factory-based evaluation cost.
-	prg, err = e.Program(ast, EvalOptions(OptExhaustiveEval))
-	if err != nil {
-		t.Fatalf("program creation error: %s\n", err)
-	}
-	min, max = EstimateCost(prg)
-	if min != wantedCost[0] || max != wantedCost[1] {
-		log.Fatalf("Got cost interval [%v, %v], wanted %v",
-			min, max, wantedCost)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.hints == nil {
+				tc.hints = map[string]int64{}
+			}
+			e, err := NewEnv(
+				Declarations(tc.decls...),
+				Types(&proto3pb.TestAllTypes{}),
+				CustomTypeAdapter(types.DefaultTypeAdapter))
+			if err != nil {
+				t.Fatalf("environment creation error: %s\n", err)
+			}
+			ast, iss := e.Compile(tc.program)
+			if iss.Err() != nil {
+				t.Fatal(iss.Err())
+			}
+			est, err := e.EstimateCost(ast, testCostEstimator{hints: tc.hints})
+			if err != nil {
+				t.Fatalf("estimate cost error: %s\n", err)
+			}
+			if est.Min != tc.wanted.Min || est.Max != tc.wanted.Max {
+				t.Fatalf("Got cost interval [%v, %v], wanted [%v, %v]",
+					est.Min, est.Max, tc.wanted.Min, tc.wanted.Max)
+			}
+		})
 	}
 }
 

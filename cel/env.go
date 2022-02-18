@@ -16,6 +16,7 @@ package cel
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/google/cel-go/checker"
@@ -403,6 +404,19 @@ func (e *Env) ResidualAst(a *Ast, details *EvalDetails) (*Ast, error) {
 		return nil, iss.Err()
 	}
 	return checked, nil
+}
+
+// EstimateCost estimates the cost of a type checked CEL expression using the length estimates of input data and
+// extension functions provided by estimator.
+func (e *Env) EstimateCost(ast *Ast, estimator checker.CostEstimator) (checker.CostEstimate, error) {
+	if !ast.IsChecked() {
+		return checker.CostEstimate{}, fmt.Errorf("EsimateCost may only be called with a type checked Ast")
+	}
+	checked, err := AstToCheckedExpr(ast)
+	if err != nil {
+		return checker.CostEstimate{}, err
+	}
+	return checker.Cost(checked, estimator), nil
 }
 
 // configure applies a series of EnvOptions to the current environment.

@@ -8,6 +8,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "checker.go",
+        "cost.go",
         "env.go",
         "errors.go",
         "mapping.go",
