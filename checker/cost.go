@@ -11,9 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-// Package checker defines functions to type-checked a parsed expression
-// against a set of identifier and function declarations.
 package checker
 
 import (
@@ -196,9 +193,9 @@ type coster struct {
 	// exprPath maps from Expr Id to field path.
 	exprPath map[int64][]string
 	// iterRanges tracks the iterRange of each iterVar.
-	iterRanges iterRangeScopes
-	checker    *exprpb.CheckedExpr
-	estimator  CostEstimator
+	iterRanges  iterRangeScopes
+	checkedExpr *exprpb.CheckedExpr
+	estimator   CostEstimator
 }
 
 // Use a stack of iterVar -> iterRange Expr Ids to handle shadowed variable names.
@@ -224,10 +221,10 @@ func (vs iterRangeScopes) peek(varName string) (int64, bool) {
 // Cost estimates the cost of the parsed and type checked CEL expression.
 func Cost(checker *exprpb.CheckedExpr, estimator CostEstimator) CostEstimate {
 	c := coster{
-		checker:    checker,
-		estimator:  estimator,
-		exprPath:   map[int64][]string{},
-		iterRanges: map[string][]int64{},
+		checkedExpr: checker,
+		estimator:   estimator,
+		exprPath:    map[int64][]string{},
+		iterRanges:  map[string][]int64{},
 	}
 	return c.cost(checker.GetExpr())
 }
@@ -263,7 +260,7 @@ func (c *coster) costIdent(e *exprpb.Expr) CostEstimate {
 
 	// build and track the field path
 	if iterRange, ok := c.iterRanges.peek(identExpr.GetName()); ok {
-		switch c.checker.TypeMap[iterRange].TypeKind.(type) {
+		switch c.checkedExpr.TypeMap[iterRange].TypeKind.(type) {
 		case *exprpb.Type_ListType_:
 			c.addPath(e, append(c.exprPath[iterRange], "@items"))
 		case *exprpb.Type_MapType_:
@@ -306,13 +303,12 @@ func (c *coster) costCall(e *exprpb.Expr) CostEstimate {
 	for i, arg := range args {
 		// TODO: && || operators short circuit, so min cost should only include 1st arg eval
 		// unless exhaustive evaluation is enabled
-		// TODO: comprehensions also
 		// TODO: ternary operator also short circuits, Min cost should be cond + min(a, b) within <cond> ? a : b
 		sum = sum.Add(c.cost(arg))
 		argTypes[i] = c.newAstNode(arg)
 	}
 
-	ref := c.checker.ReferenceMap[e.GetId()]
+	ref := c.checkedExpr.ReferenceMap[e.GetId()]
 	if ref == nil || len(ref.GetOverloadId()) == 0 {
 		return CostEstimate{}
 	}
@@ -454,14 +450,14 @@ func (c *coster) functionCost(overloadId string, target *AstNode, args []AstNode
 			return strCost.Multiply(substrCost)
 		}
 	}
-	// O(n) functions
+	// O(1) functions
 	// Benchmarks suggest that most of the other operations take +/- 50% of a base cost unit
 	// which on an Intel xeon 2.20GHz CPU is 50ns.
 	return CostEstimate{Min: 1, Max: 1}
 }
 
 func (c *coster) getType(e *exprpb.Expr) *exprpb.Type {
-	return c.checker.TypeMap[e.GetId()]
+	return c.checkedExpr.TypeMap[e.GetId()]
 }
 
 func (c *coster) getPath(e *exprpb.Expr) []string {
