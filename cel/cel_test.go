@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"math"
 	"reflect"
 	"strings"
 	"sync"
@@ -1254,10 +1253,10 @@ func (tc testCostEstimator) EstimateSize(element checker.AstNode) *checker.SizeE
 	return nil
 }
 
-func (tc testCostEstimator) EstimateCallCost(overloadId string, target *checker.AstNode, args []checker.AstNode) *checker.CostEstimate {
+func (tc testCostEstimator) EstimateCallCost(overloadId string, target *checker.AstNode, args []checker.AstNode) *checker.CallEstimate {
 	switch overloadId {
 	case overloads.TimestampToYear:
-		return &checker.CostEstimate{Min: 7, Max: 7}
+		return &checker.CallEstimate{CostEstimate: checker.CostEstimate{Min: 7, Max: 7}}
 	}
 	return nil
 }
@@ -1518,9 +1517,8 @@ func TestEstimateCost(t *testing.T) {
 				decls.NewVar("input1", allList),
 				decls.NewVar("input2", allList),
 			},
-			hints: map[string]int64{"input1": 1, "input2": 1},
-			// TODO: we don't track cost in the specific case
-			wanted: checker.CostEstimate{Min: 6, Max: math.MaxUint64},
+			hints:  map[string]int64{"input1": 1, "input2": 1},
+			wanted: checker.CostEstimate{Min: 6, Max: 10},
 		},
 		{
 			name:    "comprehension over map",
@@ -1557,6 +1555,35 @@ func TestEstimateCost(t *testing.T) {
 			},
 			hints:  map[string]int64{"input": 2, "input.@values": 2, "input.@keys": 5},
 			wanted: checker.CostEstimate{Min: 2, Max: 42},
+		},
+		{
+			name:    "comprehension variable shadowing",
+			program: `input.all(k, input[k].all(k, true) && k.contains(k))`,
+			decls: []*exprpb.Decl{
+				decls.NewVar("input", nestedMap),
+			},
+			hints:  map[string]int64{"input": 2, "input.@values": 2, "input.@keys": 5},
+			wanted: checker.CostEstimate{Min: 2, Max: 42},
+		},
+		{
+			name:    "list concat",
+			program: `(list1 + list2).all(x, true)`,
+			decls: []*exprpb.Decl{
+				decls.NewVar("list1", decls.NewListType(decls.Int)),
+				decls.NewVar("list2", decls.NewListType(decls.Int)),
+			},
+			hints:  map[string]int64{"list1": 10, "list2": 10},
+			wanted: checker.CostEstimate{Min: 3, Max: 85},
+		},
+		{
+			name:    "str concat",
+			program: `"abcdefg".contains(str1 + str2)`,
+			decls: []*exprpb.Decl{
+				decls.NewVar("str1", decls.String),
+				decls.NewVar("str2", decls.String),
+			},
+			hints:  map[string]int64{"str1": 10, "str2": 10},
+			wanted: checker.CostEstimate{Min: 2, Max: 6},
 		},
 	}
 
