@@ -15,6 +15,8 @@
 package cel
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"math"
 
@@ -88,6 +90,39 @@ type EvalDetails struct {
 // within EvalOptions.
 func (ed *EvalDetails) State() interpreter.EvalState {
 	return ed.state
+}
+
+// ContextEval evaluates a program against a set of variables within a Golang Context.
+//
+// ContextEval allows callers to use CEL with deadlines and cancellation behaviors that might be required
+// or expected within latency critical environments.
+func ContextEval(ctx context.Context, p Program, vars interface{}) (ref.Val, *EvalDetails, error) {
+	res := make(chan *ctxResult, 1)
+	go func() {
+		res <- newCtxResult(p.Eval(vars))
+	}()
+	select {
+	case out := <-res:
+		return out.val, out.det, out.err
+	case <-ctx.Done():
+		return nil, nil, errors.New("operation cancelled")
+	}
+}
+
+// ctxResult is the struct form of the Program.Eval output variables.
+type ctxResult struct {
+	val ref.Val
+	det *EvalDetails
+	err error
+}
+
+// newCtxResult constructs a ctxResult that can be passed over a channel.
+func newCtxResult(val ref.Val, det *EvalDetails, err error) *ctxResult {
+	return &ctxResult{
+		val: val,
+		det: det,
+		err: err,
+	}
 }
 
 // prog is the internal implementation of the Program interface.
