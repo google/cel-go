@@ -1517,10 +1517,9 @@ func TestEstimateCost(t *testing.T) {
 			if tc.hints == nil {
 				tc.hints = map[string]int64{}
 			}
-			descriptor := new(proto3pb.TestAllTypes).ProtoReflect().Descriptor()
 			e, err := NewEnv(
 				Declarations(tc.decls...),
-				DeclareContextProto(descriptor),
+				Types(&proto3pb.TestAllTypes{}),
 				CustomTypeAdapter(types.DefaultTypeAdapter))
 			if err != nil {
 				t.Fatalf("environment creation error: %s\n", err)

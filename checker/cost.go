@@ -290,8 +290,10 @@ func (c *coster) costCall(e *exprpb.Expr) CostEstimate {
 
 	argTypes := make([]AstNode, len(args))
 	for i, arg := range args {
-		// TODO: && || short circuit, so min cost should only include 1st arg eval
+		// TODO: && || operators short circuit, so min cost should only include 1st arg eval
 		// unless exhaustive evaluation is enabled
+		// TODO: comprehensions also
+		// TODO: ternary operator also short circuits, Min cost should be cond + min(a, b) within <cond> ? a : b
 		sum = sum.Add(c.cost(arg))
 		argTypes[i] = c.newAstNode(arg)
 	}
@@ -383,6 +385,8 @@ func (c *coster) costComprehension(e *exprpb.Expr) CostEstimate {
 	stepCost := c.cost(comp.GetLoopStep())
 	c.iterRanges.pop(comp.GetIterVar())
 	sum = sum.Add(c.cost(comp.Result))
+	// TODO: comprehensions short circuit, so even if the min list size > 0, the minimum number of elements evaluated
+	// will be 1.
 	rangeCnt := c.sizeEstimate(c.newAstNode(comp.GetIterRange()))
 	rangeCost := rangeCnt.MultiplyByCost(stepCost.Add(loopCost))
 	sum = sum.Add(rangeCost)
