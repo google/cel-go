@@ -751,6 +751,7 @@ func (r *custAttrFactory) NewQualifier(objType *exprpb.Type,
 }
 
 type nestedMsgQualifier struct {
+	RuntimeCoster
 	id    int64
 	field string
 }

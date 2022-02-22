@@ -67,6 +67,8 @@ type AttributeFactory interface {
 // Qualifier marker interface for designating different qualifier values and where they appear
 // within field selections and index call expressions (`_[_]`).
 type Qualifier interface {
+	RuntimeCoster
+
 	// ID where the qualifier appears within an expression.
 	ID() int64
 
@@ -80,6 +82,8 @@ type Qualifier interface {
 //
 // Non-constant qualifiers are of Attribute type.
 type ConstantQualifier interface {
+	RuntimeCoster
+
 	Qualifier
 
 	Value() ref.Val
@@ -88,6 +92,8 @@ type ConstantQualifier interface {
 // Attribute values are a variable or value with an optional set of qualifiers, such as field, key,
 // or index accesses.
 type Attribute interface {
+	RuntimeCoster
+
 	Qualifier
 
 	// AddQualifier adds a qualifier on the Attribute or error if the qualification is not a valid
@@ -239,6 +245,16 @@ func (a *absoluteAttribute) Cost() (min, max int64) {
 	return
 }
 
+// RuntimeCost implements the RuntimeCost interface method.
+func (a *absoluteAttribute) RuntimeCost(ctx Activation, evalState EvalState) uint64 {
+	cost := uint64(len(a.namespaceNames))
+	cost += uint64(len(a.Qualifiers()))
+	for _, qualifier := range a.qualifiers {
+		cost += calRuntimeCost(qualifier, ctx, evalState)
+	}
+	return cost
+}
+
 // AddQualifier implements the Attribute interface method.
 func (a *absoluteAttribute) AddQualifier(qual Qualifier) (Attribute, error) {
 	a.qualifiers = append(a.qualifiers, qual)
@@ -346,6 +362,23 @@ func (a *conditionalAttribute) Cost() (min, max int64) {
 	return eMin + findMin(tMin, fMin), eMax + findMax(tMax, fMax)
 }
 
+// RuntimeCost implements the RuntimeCost interface method.
+func (a *conditionalAttribute) RuntimeCost(ctx Activation, evalState EvalState) uint64 {
+	truthyCost := a.truthy.RuntimeCost(ctx, evalState)
+	falsyCost := a.falsy.RuntimeCost(ctx, evalState)
+	exprValue, found := evalState.Value(a.expr.ID())
+	if !found {
+		return 1
+	}
+	if exprValue == types.True {
+		return 1 + truthyCost
+	}
+	if exprValue == types.False {
+		return 1 + falsyCost
+	}
+	return 1
+}
+
 // AddQualifier appends the same qualifier to both sides of the conditional, in effect managing
 // the qualification of alternate attributes.
 func (a *conditionalAttribute) AddQualifier(qual Qualifier) (Attribute, error) {
@@ -423,6 +456,20 @@ func (a *maybeAttribute) Cost() (min, max int64) {
 		max = findMax(max, maxA)
 	}
 	return
+}
+
+// RuntimeCost implements the RuntimeCost interface method.
+func (a *maybeAttribute) RuntimeCost(ctx Activation, evalState EvalState) uint64 {
+	cost := uint64(1)
+	for _, attr := range a.attrs {
+		_, found, err := attr.TryResolve(ctx)
+		cost += attr.RuntimeCost(ctx, evalState)
+		// Return an error if one is encountered.
+		if err != nil || found {
+			return cost
+		}
+	}
+	return cost
 }
 
 func findMin(x, y int64) int64 {
@@ -554,6 +601,15 @@ func (a *relativeAttribute) Cost() (min, max int64) {
 	return
 }
 
+// RuntimeCost implements the RuntimeCost interface method.
+func (a *relativeAttribute) RuntimeCost(ctx Activation, evalState EvalState) uint64 {
+	var cost uint64 = 0
+	for _, qual := range a.qualifiers {
+		cost += calRuntimeCost(qual, ctx, evalState)
+	}
+	return cost
+}
+
 // AddQualifier implements the Attribute interface method.
 func (a *relativeAttribute) AddQualifier(qual Qualifier) (Attribute, error) {
 	a.qualifiers = append(a.qualifiers, qual)
@@ -657,6 +713,11 @@ func (q *attrQualifier) Cost() (min, max int64) {
 	return estimateCost(q.Attribute)
 }
 
+// RuntimeCost returns zero for constant field qualifiers
+func (q *attrQualifier) RuntimeCost(ctx Activation, evalState EvalState) uint64 {
+	return calRuntimeCost(q.Attribute, ctx, evalState)
+}
+
 type stringQualifier struct {
 	id       int64
 	value    string
@@ -731,6 +792,11 @@ func (q *stringQualifier) Value() ref.Val {
 // Cost returns zero for constant field qualifiers
 func (q *stringQualifier) Cost() (min, max int64) {
 	return 0, 0
+}
+
+// RuntimeCost returns zero for constant field qualifiers
+func (q *stringQualifier) RuntimeCost(ctx Activation, evalState EvalState) uint64 {
+	return 0
 }
 
 type intQualifier struct {
@@ -848,6 +914,11 @@ func (q *intQualifier) Cost() (min, max int64) {
 	return 0, 0
 }
 
+// RuntimeCost returns zero for constant field qualifiers
+func (q *intQualifier) RuntimeCost(ctx Activation, evalState EvalState) uint64 {
+	return 0
+}
+
 type uintQualifier struct {
 	id       int64
 	value    uint64
@@ -904,6 +975,11 @@ func (q *uintQualifier) Cost() (min, max int64) {
 	return 0, 0
 }
 
+// RuntimeCost returns zero for constant field qualifiers
+func (q *uintQualifier) RuntimeCost(ctx Activation, evalState EvalState) uint64 {
+	return 0
+}
+
 type boolQualifier struct {
 	id       int64
 	value    bool
@@ -952,6 +1028,11 @@ func (q *boolQualifier) Cost() (min, max int64) {
 	return 0, 0
 }
 
+// RuntimeCost returns zero for constant field qualifiers
+func (q *boolQualifier) RuntimeCost(ctx Activation, evalState EvalState) uint64 {
+	return 0
+}
+
 // fieldQualifier indicates that the qualification is a well-defined field with a known
 // field type. When the field type is known this can be used to improve the speed and
 // efficiency of field resolution.
@@ -985,6 +1066,11 @@ func (q *fieldQualifier) Cost() (min, max int64) {
 	return 0, 0
 }
 
+// RuntimeCost returns zero for constant field qualifiers
+func (q *fieldQualifier) RuntimeCost(ctx Activation, evalState EvalState) uint64 {
+	return 0
+}
+
 // doubleQualifier qualifies a CEL object, map, or list using a double value.
 //
 // This qualifier is used for working with dynamic data like JSON or protobuf.Any where the value
@@ -1014,6 +1100,11 @@ func (q *doubleQualifier) Qualify(vars Activation, obj interface{}) (interface{}
 		}
 		return elem, nil
 	}
+}
+
+// RuntimeCost returns zero for constant field qualifiers
+func (q *doubleQualifier) RuntimeCost(ctx Activation, evalState EvalState) uint64 {
+	return 0
 }
 
 // refResolve attempts to convert the value to a CEL value and then uses reflection methods

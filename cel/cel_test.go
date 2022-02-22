@@ -933,37 +933,6 @@ func TestAstIsChecked(t *testing.T) {
 	}
 }
 
-func TestTrackCost(t *testing.T) {
-	e, _ := NewEnv(
-		Declarations(
-			decls.NewVar("k", decls.String),
-			decls.NewVar("v", decls.Bool)))
-	ast, issues := e.Compile(`k.contains(k + "postfix")`)
-	if issues.Err() != nil {
-		t.Fatal(issues.Err())
-	}
-
-	prg, err := e.Program(ast, EvalOptions(OptTrackState, OptTrackCost))
-	if err != nil {
-		t.Fatalf("program creation error: %s\n", err)
-	}
-	out, details, err := prg.Eval(
-		map[string]interface{}{
-			"k": "key",
-			"v": true})
-	if err != nil {
-		t.Fatalf("runtime error: %s\n", err)
-	}
-	if out != types.True {
-		t.Errorf("got '%v', expected 'true'", out.Value())
-	}
-
-	expectedCost := uint64(4)
-	if *details.ActualCost() != expectedCost {
-		t.Errorf("got cost %v, expected %v", *details.ActualCost(), expectedCost)
-	}
-}
-
 func TestEvalOptions(t *testing.T) {
 	e, _ := NewEnv(
 		Declarations(
@@ -1476,7 +1445,7 @@ func (tc testCostEstimator) EstimateCallCost(overloadId string, target *checker.
 	return nil
 }
 
-func TestEstimateCost(t *testing.T) {
+func TestEstimateCostAndRuntimeCost(t *testing.T) {
 	intList := decls.NewListType(decls.Int)
 	zeroCost := checker.CostEstimate{}
 	cases := []struct {
@@ -1485,6 +1454,7 @@ func TestEstimateCost(t *testing.T) {
 		decls []*exprpb.Decl
 		hints map[string]int64
 		want  checker.CostEstimate
+		in    interface{}
 	}{
 		{
 			name: "const",
@@ -1496,6 +1466,7 @@ func TestEstimateCost(t *testing.T) {
 			expr:  `input`,
 			decls: []*exprpb.Decl{decls.NewVar("input", intList)},
 			want:  checker.CostEstimate{Min: 1, Max: 1},
+			in:    map[string]interface{}{"input": []int{1, 2}},
 		},
 		{
 			name: "str concat",
@@ -1506,6 +1477,7 @@ func TestEstimateCost(t *testing.T) {
 			},
 			hints: map[string]int64{"str1": 10, "str2": 10},
 			want:  checker.CostEstimate{Min: 2, Max: 6},
+			in:    map[string]interface{}{"str1": "val1111111", "str2": "val2222222"},
 		},
 		{
 			name: "ternary with var",
@@ -1547,6 +1519,32 @@ func TestEstimateCost(t *testing.T) {
 				t.Fatalf("Got cost interval [%v, %v], wanted [%v, %v]",
 					est.Min, est.Max, tc.want.Min, tc.want.Max)
 			}
+
+			ctx := constructActivation(t, tc.in)
+			checked_ast, iss := e.Check(ast)
+			if iss.Err() != nil {
+				t.Fatalf(`Failed to check expression with error: %v`, iss.Err())
+			}
+			// Evaluate expression.
+			program, err := e.Program(checked_ast, EvalOptions(OptTrackCost),
+				CallCostEstimator(testRuntimeCostEstimator{}))
+			if err != nil {
+				t.Fatalf(`Failed to construct Program with error: %v`, err)
+			}
+			_, details, err := program.Eval(ctx)
+			if err != nil {
+				t.Fatalf(`Failed to evaluate expression with error: %v`, err)
+			}
+			actualCost := details.ActualCost()
+			if actualCost == nil {
+				t.Fatalf(`Null pointer returned for the cost of expression "%s"`, tc.expr)
+			}
+
+			if est.Min > *actualCost || est.Max < *actualCost {
+				t.Fatalf("runtime cost %d is out of the range of estimate cost [%d, %d]", *actualCost,
+					est.Min, est.Max)
+			}
+
 		})
 	}
 }
