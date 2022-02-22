@@ -376,6 +376,8 @@ const (
 	// Program Eval is an PartialVars.
 	OptPartialEval EvalOption = 1 << iota
 
+	// OptTrackCost enables the runtime cost calculation while validation and return cost within evalDetails
+	// cost calculation is available via func ActualCost()
 	OptTrackCost EvalOption = 1 << iota
 )
 
@@ -385,6 +387,15 @@ func EvalOptions(opts ...EvalOption) ProgramOption {
 		for _, opt := range opts {
 			p.evalOpts |= opt
 		}
+		return p, nil
+	}
+}
+
+// CallCostEstimator registers a ActualCostEstimator that can optionally provide a runtime cost estimate for any function calls.
+// This enables runtime costs to be assigned to calls function library extensions.
+func CallCostEstimator(costEstimator interpreter.ActualCostEstimator) ProgramOption {
+	return func(p *prog) (*prog, error) {
+		p.callCostEstimator = costEstimator
 		return p, nil
 	}
 }

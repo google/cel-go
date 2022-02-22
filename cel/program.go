@@ -145,6 +145,7 @@ type prog struct {
 	interpretable      interpreter.Interpretable
 	attrFactory        interpreter.AttributeFactory
 	regexOptimizations []*interpreter.RegexOptimization
+	callCostEstimator interpreter.ActualCostEstimator
 }
 
 // progFactory is a helper alias for marking a program creation factory function.
@@ -209,6 +210,7 @@ func newProgram(e *Env, ast *Ast, opts []ProgramOption) (Program, error) {
 		// State tracking requires that each Eval() call operate on an isolated EvalState
 		// object; hence, the presence of the factory.
 		factory := func(state interpreter.EvalState, costTracker *interpreter.CostTracker) (Program, error) {
+			costTracker.CallCostEstimator = p.callCostEstimator
 			decs := decorators
 			// Enable exhaustive eval over state tracking since it offers a superset of features.
 			if p.evalOpts&OptExhaustiveEval == OptExhaustiveEval {
@@ -294,7 +296,6 @@ func (p *prog) Eval(input interface{}) (v ref.Val, det *EvalDetails, err error) 
 	if p.defaultVars != nil {
 		vars = interpreter.NewHierarchicalActivation(p.defaultVars, vars)
 	}
-	// TODO: set up any costTracker information needed from env here
 	v = p.interpretable.Eval(vars)
 	// The output of an internal Eval may have a value (`v`) that is a types.Err. This step
 	// translates the CEL value to a Go error response. This interface does not quite match the
