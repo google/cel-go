@@ -91,8 +91,8 @@ func TestJsonListValueContains_MixedElemType(t *testing.T) {
 	// each element in the list. When the value is present, the result
 	// can be True. When the value is not present and the list is of
 	// mixed element type, the result is an error.
-	if !IsError(list.Contains(Double(2))) {
-		t.Error("Expected value list to not contain number '2' and error", list)
+	if list.Contains(Double(2)).(Bool) {
+		t.Error("Expected value list to not contain number '2'", list)
 	}
 }
 
@@ -185,8 +185,8 @@ func TestJsonListValueEqual(t *testing.T) {
 	if listA.Add(listA).Equal(listB).(Bool) {
 		t.Error("Lists of different size were equal.")
 	}
-	if !IsError(listA.Equal(True)) {
-		t.Error("Equality of different type returned non-error.")
+	if IsError(listA.Equal(True)) {
+		t.Error("Equality of different type returned error.")
 	}
 }
 

@@ -177,7 +177,6 @@ func maybeOptimizeSetMembership(i Interpretable, inlist InterpretableCall) (Inte
 		return NewConstValue(inlist.ID(), types.False), nil
 	}
 	it := list.Iterator()
-	var typ ref.Type
 	valueSet := make(map[ref.Val]ref.Val)
 	for it.HasNext() == types.True {
 		elem := it.Next()
@@ -185,17 +184,44 @@ func maybeOptimizeSetMembership(i Interpretable, inlist InterpretableCall) (Inte
 			// Note, non-primitive type are not yet supported.
 			return i, nil
 		}
-		if typ == nil {
-			typ = elem.Type()
-		} else if typ.TypeName() != elem.Type().TypeName() {
-			return i, nil
-		}
 		valueSet[elem] = types.True
+		switch ev := elem.(type) {
+		case types.Double:
+			iv := ev.ConvertToType(types.IntType)
+			// Ensure that only lossless conversions are added to the set
+			if !types.IsError(iv) && iv.Equal(ev) == types.True {
+				valueSet[iv] = types.True
+			}
+			// Ensure that only lossless conversions are added to the set
+			uv := ev.ConvertToType(types.UintType)
+			if !types.IsError(uv) && uv.Equal(ev) == types.True {
+				valueSet[uv] = types.True
+			}
+		case types.Int:
+			dv := ev.ConvertToType(types.DoubleType)
+			if !types.IsError(dv) {
+				valueSet[dv] = types.True
+			}
+			uv := ev.ConvertToType(types.UintType)
+			if !types.IsError(uv) {
+				valueSet[uv] = types.True
+			}
+		case types.Uint:
+			dv := ev.ConvertToType(types.DoubleType)
+			if !types.IsError(dv) {
+				valueSet[dv] = types.True
+			}
+			iv := ev.ConvertToType(types.IntType)
+			if !types.IsError(iv) {
+				valueSet[iv] = types.True
+			}
+		default:
+			break
+		}
 	}
 	return &evalSetMembership{
-		inst:        inlist,
-		arg:         lhs,
-		argTypeName: typ.TypeName(),
-		valueSet:    valueSet,
+		inst:     inlist,
+		arg:      lhs,
+		valueSet: valueSet,
 	}, nil
 }

@@ -346,11 +346,6 @@ func TestUint_Equal(t *testing.T) {
 			b:   Double(math.NaN()),
 			out: False,
 		},
-		{
-			a:   Uint(10),
-			b:   Unknown{2},
-			out: Unknown{2},
-		},
 	}
 	for _, tc := range tests {
 		got := tc.a.Equal(tc.b)

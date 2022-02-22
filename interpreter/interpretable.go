@@ -298,6 +298,12 @@ func (eq *evalEq) ID() int64 {
 func (eq *evalEq) Eval(ctx Activation) ref.Val {
 	lVal := eq.lhs.Eval(ctx)
 	rVal := eq.rhs.Eval(ctx)
+	if types.IsUnknownOrError(lVal) {
+		return lVal
+	}
+	if types.IsUnknownOrError(rVal) {
+		return rVal
+	}
 	return types.Equal(lVal, rVal)
 }
 
@@ -336,12 +342,13 @@ func (ne *evalNe) ID() int64 {
 func (ne *evalNe) Eval(ctx Activation) ref.Val {
 	lVal := ne.lhs.Eval(ctx)
 	rVal := ne.rhs.Eval(ctx)
-	eqVal := types.Equal(lVal, rVal)
-	eqBool, ok := eqVal.(types.Bool)
-	if !ok {
-		return types.ValOrErr(eqVal, "no such overload: _!=_")
+	if types.IsUnknownOrError(lVal) {
+		return lVal
 	}
-	return !eqBool
+	if types.IsUnknownOrError(rVal) {
+		return rVal
+	}
+	return types.Bool(types.Equal(lVal, rVal) != types.True)
 }
 
 // Cost implements the Coster interface method.
@@ -786,10 +793,9 @@ func (fold *evalFold) Cost() (min, max int64) {
 // evalSetMembership is an Interpretable implementation which tests whether an input value
 // exists within the set of map keys used to model a set.
 type evalSetMembership struct {
-	inst        Interpretable
-	arg         Interpretable
-	argTypeName string
-	valueSet    map[ref.Val]ref.Val
+	inst     Interpretable
+	arg      Interpretable
+	valueSet map[ref.Val]ref.Val
 }
 
 // ID implements the Interpretable interface method.
@@ -800,9 +806,6 @@ func (e *evalSetMembership) ID() int64 {
 // Eval implements the Interpretable interface method.
 func (e *evalSetMembership) Eval(ctx Activation) ref.Val {
 	val := e.arg.Eval(ctx)
-	if val.Type().TypeName() != e.argTypeName {
-		return types.ValOrErr(val, "no such overload")
-	}
 	if ret, found := e.valueSet[val]; found {
 		return ret
 	}

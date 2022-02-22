@@ -190,7 +190,7 @@ func (i Uint) Equal(other ref.Val) ref.Val {
 	case Uint:
 		return Bool(i == ov)
 	default:
-		return MaybeNoSuchOverloadErr(other)
+		return False
 	}
 }
 

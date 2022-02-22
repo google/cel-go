@@ -143,27 +143,13 @@ func (l *baseList) Add(other ref.Val) ref.Val {
 
 // Contains implements the traits.Container interface method.
 func (l *baseList) Contains(elem ref.Val) ref.Val {
-	if IsUnknownOrError(elem) {
-		return elem
-	}
-	var err ref.Val
 	for i := 0; i < l.size; i++ {
 		val := l.NativeToValue(l.get(i))
 		cmp := elem.Equal(val)
 		b, ok := cmp.(Bool)
-		// When there is an error on the contain check, this is not necessarily terminal.
-		// The contains call could find the element and return True, just as though the user
-		// had written a per-element comparison in an exists() macro or logical ||, e.g.
-		//    list.exists(e, e == elem)
-		if !ok && err == nil {
-			err = ValOrErr(cmp, "no such overload")
-		}
-		if b == True {
+		if ok && b == True {
 			return True
 		}
-	}
-	if err != nil {
-		return err
 	}
 	return False
 }
@@ -234,12 +220,11 @@ func (l *baseList) ConvertToType(typeVal ref.Type) ref.Val {
 func (l *baseList) Equal(other ref.Val) ref.Val {
 	otherList, ok := other.(traits.Lister)
 	if !ok {
-		return MaybeNoSuchOverloadErr(other)
+		return False
 	}
 	if l.Size() != otherList.Size() {
 		return False
 	}
-	var maybeErr ref.Val
 	for i := IntZero; i < l.Size().(Int); i++ {
 		thisElem := l.Get(i)
 		otherElem := otherList.Get(i)
@@ -247,12 +232,6 @@ func (l *baseList) Equal(other ref.Val) ref.Val {
 		if elemEq == False {
 			return False
 		}
-		if maybeErr == nil && IsUnknownOrError(elemEq) {
-			maybeErr = elemEq
-		}
-	}
-	if maybeErr != nil {
-		return maybeErr
 	}
 	return True
 }
@@ -387,7 +366,7 @@ func (l *concatList) ConvertToType(typeVal ref.Type) ref.Val {
 func (l *concatList) Equal(other ref.Val) ref.Val {
 	otherList, ok := other.(traits.Lister)
 	if !ok {
-		return MaybeNoSuchOverloadErr(other)
+		return False
 	}
 	if l.Size() != otherList.Size() {
 		return False
