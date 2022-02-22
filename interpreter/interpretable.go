@@ -696,6 +696,7 @@ type evalFold struct {
 	cond      Interpretable
 	step      Interpretable
 	result    Interpretable
+	adapter   ref.TypeAdapter
 }
 
 // ID implements the Interpretable interface method.
@@ -714,6 +715,14 @@ func (fold *evalFold) Eval(ctx Activation) ref.Val {
 	accuCtx.parent = ctx
 	accuCtx.name = fold.accuVar
 	accuCtx.val = fold.accu.Eval(ctx)
+	// If the accumulator starts as an empty list, then the comprehension will build a list
+	// so create a mutable list to optimize the cost of the inner loop.
+	l, ok := accuCtx.val.(traits.Lister)
+	buildingList := false
+	if ok && l.Size() == types.IntZero {
+		buildingList = true
+		accuCtx.val = types.NewMutableList(fold.adapter)
+	}
 	iterCtx := varActivationPool.Get().(*varActivation)
 	iterCtx.parent = accuCtx
 	iterCtx.name = fold.iterVar
@@ -734,6 +743,10 @@ func (fold *evalFold) Eval(ctx Activation) ref.Val {
 	}
 	// Compute the result.
 	res := fold.result.Eval(accuCtx)
+	// Convert a mutable list to an immutable one, if the comprehension has generated a list as a result.
+	if buildingList {
+		res = res.(traits.MutableLister).ToImmutableList()
+	}
 	varActivationPool.Put(iterCtx)
 	varActivationPool.Put(accuCtx)
 	return res
