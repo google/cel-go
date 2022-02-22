@@ -68,6 +68,9 @@ type InterpretableAttribute interface {
 
 	// Resolve returns the value of the Attribute given the current Activation.
 	Resolve(Activation) (interface{}, error)
+
+	// RuntimeCost returns the runtime cost of the Attribute given the current Activation and EvalState
+	RuntimeCost(ctx Activation, evalState EvalState) uint64
 }
 
 // InterpretableCall interface for inspecting Interpretable instructions related to function calls.
@@ -86,6 +89,12 @@ type InterpretableCall interface {
 	// Args returns the normalized arguments to the function overload.
 	// For receiver-style functions, the receiver target is arg 0.
 	Args() []Interpretable
+}
+
+type InterpretableOp interface {
+	Interpretable
+
+	RuntimeCost() uint64
 }
 
 // Core Interpretable implementations used during the program planning phase.
@@ -227,6 +236,10 @@ func (or *evalOr) Cost() (min, max int64) {
 	return calShortCircuitBinaryOpsCost(or.lhs, or.rhs)
 }
 
+func (or *evalOr) RuntimeCost() uint64 {
+	return 1
+}
+
 type evalAnd struct {
 	id  int64
 	lhs Interpretable
@@ -275,6 +288,10 @@ func (and *evalAnd) Eval(ctx Activation) ref.Val {
 // side expr is sufficient in determining the evaluation result.
 func (and *evalAnd) Cost() (min, max int64) {
 	return calShortCircuitBinaryOpsCost(and.lhs, and.rhs)
+}
+
+func (and *evalAnd) RuntimeCost() uint64 {
+	return 1
 }
 
 func calShortCircuitBinaryOpsCost(lhs, rhs Interpretable) (min, max int64) {
@@ -626,6 +643,10 @@ func (l *evalList) Cost() (min, max int64) {
 	return sumOfCost(l.elems)
 }
 
+func (l *evalList) RuntimeCost() uint64 {
+	return 10
+}
+
 type evalMap struct {
 	id      int64
 	keys    []Interpretable
@@ -663,6 +684,10 @@ func (m *evalMap) Cost() (min, max int64) {
 	return kMin + vMin, kMax + vMax
 }
 
+func (m *evalMap) RuntimeCost() uint64 {
+	return 30
+}
+
 type evalObj struct {
 	id       int64
 	typeName string
@@ -693,6 +718,10 @@ func (o *evalObj) Eval(ctx Activation) ref.Val {
 // Cost implements the Coster interface method.
 func (o *evalObj) Cost() (min, max int64) {
 	return sumOfCost(o.vals)
+}
+
+func (o *evalObj) RuntimeCost() uint64 {
+	return 40
 }
 
 func sumOfCost(interps []Interpretable) (min, max int64) {
@@ -865,6 +894,14 @@ func (e *evalWatch) Cost() (min, max int64) {
 	return estimateCost(e.Interpretable)
 }
 
+func (e *evalWatch) RuntimeCost() uint64 {
+	switch t := e.Interpretable.(type) {
+	case InterpretableOp:
+		return t.RuntimeCost()
+	}
+	return 0
+}
+
 // evalWatchAttr describes a watcher of an instAttr Interpretable.
 //
 // Since the watcher may be selected against at a later stage in program planning, the watcher
@@ -948,7 +985,8 @@ type evalWatchQual struct {
 
 // Cost implements the Coster interface method.
 func (e *evalWatchQual) Cost() (min, max int64) {
-	return estimateCost(e.Qualifier)
+	//return estimateCost(e.Qualifier)
+	return 0, 0
 }
 
 // Qualify observes the qualification of a object via a value computed at runtime.
@@ -1187,4 +1225,8 @@ func (a *evalAttr) Qualify(ctx Activation, obj interface{}) (interface{}, error)
 // Resolve proxies to the Attribute's Resolve method.
 func (a *evalAttr) Resolve(ctx Activation) (interface{}, error) {
 	return a.attr.Resolve(ctx)
+}
+
+func (a *evalAttr) RuntimeCost(ctx Activation, evalState EvalState) uint64 {
+	return a.attr.RuntimeCost(ctx, evalState)
 }

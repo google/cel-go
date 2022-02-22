@@ -125,7 +125,8 @@ type prog struct {
 	regexOptimizations []*interpreter.RegexOptimization
 
 	// Interpretable configured from an Ast and aggregate decorator set based on program options.
-	interpretable interpreter.Interpretable
+	interpretable     interpreter.Interpretable
+	callCostEstimator interpreter.ActualCostEstimator
 }
 
 func (p *prog) clone() *prog {
@@ -195,6 +196,7 @@ func newProgram(e *Env, ast *Ast, opts []ProgramOption) (Program, error) {
 	// Enable exhaustive eval, state tracking and cost tracking last since they require a factory.
 	if p.evalOpts&(OptExhaustiveEval|OptTrackState|OptTrackCost) != 0 {
 		factory := func(state interpreter.EvalState, costTracker *interpreter.CostTracker) (Program, error) {
+			costTracker.CallCostEstimator = p.callCostEstimator
 			decs := decorators
 			// Enable exhaustive eval over state tracking since it offers a superset of features.
 			if p.evalOpts&OptExhaustiveEval == OptExhaustiveEval {
@@ -263,7 +265,6 @@ func (p *prog) Eval(input interface{}) (v ref.Val, det *EvalDetails, err error) 
 	if p.defaultVars != nil {
 		vars = interpreter.NewHierarchicalActivation(p.defaultVars, vars)
 	}
-	// TODO: set up any costTracker information needed from env here
 	v = p.interpretable.Eval(vars)
 	// The output of an internal Eval may have a value (`v`) that is a types.Err. This step
 	// translates the CEL value to a Go error response. This interface does not quite match the
