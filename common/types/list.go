@@ -404,13 +404,31 @@ func (l *concatList) Type() ref.Type {
 func (l *concatList) Value() interface{} {
 	if l.value == nil {
 		merged := make([]interface{}, l.Size().(Int))
+
 		prevLen := l.prevList.Size().(Int)
-		for i := Int(0); i < prevLen; i++ {
-			merged[i] = l.prevList.Get(i).Value()
+		switch l.prevList.(type) {
+		case *concatList:
+			newMerges := l.prevList.Value().([]interface{})
+			for i := Int(0); i < Int(len(newMerges)); i++ {
+				merged[i] = newMerges[i]
+			}
+		default:
+			for i := Int(0); i < prevLen; i++ {
+				merged[i] = l.prevList.Get(i).Value()
+			}
 		}
+
 		nextLen := l.nextList.Size().(Int)
-		for j := Int(0); j < nextLen; j++ {
-			merged[prevLen+j] = l.nextList.Get(j).Value()
+		switch l.nextList.(type) {
+		case *concatList:
+			newMerges := l.nextList.Value().([]interface{})
+			for j := Int(0); j < nextLen; j++ {
+				merged[prevLen+j] = newMerges[j]
+			}
+		default:
+			for j := Int(0); j < nextLen; j++ {
+				merged[prevLen+j] = l.nextList.Get(j).Value()
+			}
 		}
 		l.value = merged
 	}
