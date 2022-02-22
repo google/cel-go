@@ -557,7 +557,7 @@ var (
 		},
 		{
 			name: "macro_filter",
-			expr: `[1, 2, 3].filter(x, x > 2) == [3]`,
+			expr: `[-10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3].filter(x, x > 0) == [1, 2, 3]`,
 		},
 		{
 			name:           "macro_has_map_key",
@@ -1104,10 +1104,10 @@ func BenchmarkInterpreter(b *testing.B) {
 			b.Fatal(err)
 		}
 		// Benchmark the eval.
-		b.Run(tst.name, func(bb *testing.B) {
+		b.Run(tst.name, func(b *testing.B) {
 			b.ResetTimer()
 			b.ReportAllocs()
-			for i := 0; i < bb.N; i++ {
+			for i := 0; i < b.N; i++ {
 				prg.Eval(vars)
 			}
 		})

@@ -857,7 +857,7 @@ func TestContextEval(t *testing.T) {
 		t.Errorf("ContextEval() got %v, wanted 75", out)
 	}
 
-	evalCtx, cancel := context.WithTimeout(ctx, 100*time.Microsecond)
+	evalCtx, cancel := context.WithTimeout(ctx, 50*time.Microsecond)
 	defer cancel()
 
 	out, _, err = ContextEval(evalCtx, prg, map[string]interface{}{"items": items})
@@ -866,6 +866,40 @@ func TestContextEval(t *testing.T) {
 	}
 	if err != nil && err.Error() != "operation cancelled" {
 		t.Errorf("Got %v, wanted operation cancelled error", err)
+	}
+}
+
+func BenchmarkContextEval(b *testing.B) {
+	env, err := NewEnv(
+		Declarations(
+			decls.NewVar("items", decls.NewListType(decls.Int)),
+		),
+	)
+	if err != nil {
+		b.Fatalf("NewEnv() failed: %v", err)
+	}
+	ast, iss := env.Compile("items.map(i, i * 2).filter(i, i >= 50).size()")
+	if iss.Err() != nil {
+		b.Fatalf("env.Compile(expr) failed: %v", iss.Err())
+	}
+	prg, err := env.Program(ast, EvalOptions(OptOptimize))
+	if err != nil {
+		b.Fatalf("env.Program() failed: %v", err)
+	}
+
+	ctx := context.TODO()
+	items := make([]int64, 100)
+	for i := int64(0); i < 100; i++ {
+		items[i] = i
+	}
+	for i := 0; i < b.N; i++ {
+		out, _, err := ContextEval(ctx, prg, map[string]interface{}{"items": items})
+		if err != nil {
+			b.Fatalf("ContextEval() failed: %v", err)
+		}
+		if out != types.Int(75) {
+			b.Errorf("ContextEval() got %v, wanted 75", out)
+		}
 	}
 }
 
