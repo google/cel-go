@@ -665,21 +665,25 @@ func TestAttributeStateTracking(t *testing.T) {
 	}
 	for _, test := range tests {
 		tc := test
-		t.Run(tc.expr, func(tt *testing.T) {
+		t.Run(tc.expr, func(t *testing.T) {
 			src := common.NewTextSource(tc.expr)
 			parsed, errors := parser.Parse(src)
 			if len(errors.GetErrors()) != 0 {
-				tt.Fatalf(errors.ToDisplayString())
+				t.Fatalf(errors.ToDisplayString())
 			}
 			cont := containers.DefaultContainer
 			reg := newTestRegistry(t)
-			env := checker.NewStandardEnv(cont, reg)
+			env, err := checker.NewEnv(cont, reg)
+			if err != nil {
+				t.Fatalf("checker.NewEnv() failed: %v", err)
+			}
+			env.Add(checker.StandardDeclarations()...)
 			if tc.env != nil {
 				env.Add(tc.env...)
 			}
 			checked, errors := checker.Check(parsed, src, env)
 			if len(errors.GetErrors()) != 0 {
-				tt.Fatalf(errors.ToDisplayString())
+				t.Fatalf(errors.ToDisplayString())
 			}
 			attrs := NewAttributeFactory(cont, reg, reg)
 			interp := NewStandardInterpreter(cont, reg, reg, attrs)
@@ -687,24 +691,24 @@ func TestAttributeStateTracking(t *testing.T) {
 			st := NewEvalState()
 			i, err := interp.NewInterpretable(checked, Optimize(), TrackState(st))
 			if err != nil {
-				tt.Fatal(err)
+				t.Fatal(err)
 			}
 			if err != nil {
-				tt.Fatal(err)
+				t.Fatal(err)
 			}
 			in, _ := NewActivation(tc.in)
 			out := i.Eval(in)
 			if tc.out.Equal(out) != types.True {
-				tt.Errorf("got %v, wanted %v", out.Value(), tc.out)
+				t.Errorf("got %v, wanted %v", out.Value(), tc.out)
 			}
 			for id, val := range tc.state {
 				stVal, found := st.Value(id)
 				if !found {
-					tt.Errorf("state not found for %d=%v", id, val)
+					t.Errorf("state not found for %d=%v", id, val)
 					continue
 				}
 				if !reflect.DeepEqual(stVal.Value(), val) {
-					tt.Errorf("got %v, wanted %v for id: %d", stVal.Value(), val, id)
+					t.Errorf("got %v, wanted %v for id: %d", stVal.Value(), val, id)
 				}
 			}
 		})

@@ -40,6 +40,7 @@ import (
 	"github.com/google/cel-go/interpreter"
 	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/parser"
+	"github.com/google/cel-go/test"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	descpb "google.golang.org/protobuf/types/descriptorpb"
@@ -199,7 +200,7 @@ func Test_ExampleWithBuiltins(t *testing.T) {
 	}
 }
 
-func TestAbbrevs_Compiled(t *testing.T) {
+func TestAbbrevsCompiled(t *testing.T) {
 	// Test whether abbreviations successfully resolve at type-check time (compile time).
 	env, err := NewEnv(
 		Abbrevs("qualified.identifier.name"),
@@ -231,7 +232,7 @@ func TestAbbrevs_Compiled(t *testing.T) {
 	}
 }
 
-func TestAbbrevs_Parsed(t *testing.T) {
+func TestAbbrevsParsed(t *testing.T) {
 	// Test whether abbreviations are resolved properly at evaluation time.
 	env, err := NewEnv(
 		Abbrevs("qualified.identifier.name"),
@@ -350,7 +351,7 @@ func TestCustomEnv(t *testing.T) {
 }
 
 func TestHomogeneousAggregateLiterals(t *testing.T) {
-	e, _ := NewCustomEnv(
+	e, err := NewCustomEnv(
 		Declarations(
 			decls.NewVar("name", decls.String),
 			decls.NewFunction(
@@ -362,25 +363,10 @@ func TestHomogeneousAggregateLiterals(t *testing.T) {
 					decls.String, decls.NewMapType(decls.String, decls.Bool),
 				}, decls.Bool))),
 		HomogeneousAggregateLiterals())
+	if err != nil {
+		t.Fatalf("NewCustomEnv() failed: %v", err)
+	}
 
-	t.Run("err_list", func(t *testing.T) {
-		_, iss := e.Compile("name in ['hello', 0]")
-		if iss == nil || iss.Err() == nil {
-			t.Error("got successful compile, expected error for mixed list entry types.")
-		}
-	})
-	t.Run("err_map_key", func(t *testing.T) {
-		_, iss := e.Compile("name in {'hello':'world', 1:'!'}")
-		if iss == nil || iss.Err() == nil {
-			t.Error("got successful compile, expected error for mixed map key types.")
-		}
-	})
-	t.Run("err_map_val", func(t *testing.T) {
-		_, iss := e.Compile("name in {'hello':'world', 'goodbye':true}")
-		if iss == nil || iss.Err() == nil {
-			t.Error("got successful compile, expected error for mixed map value types.")
-		}
-	})
 	funcs := Functions(&functions.Overload{
 		Operator: operators.In,
 		Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
@@ -390,34 +376,156 @@ func TestHomogeneousAggregateLiterals(t *testing.T) {
 			return types.ValOrErr(rhs, "no such overload")
 		},
 	})
-	t.Run("ok_list", func(t *testing.T) {
-		ast, iss := e.Compile("name in ['hello', 'world']")
-		if iss.Err() != nil {
-			t.Fatalf("got issue: %v, expected successful compile.", iss.Err())
-		}
-		prg, _ := e.Program(ast, funcs)
-		out, _, err := prg.Eval(map[string]interface{}{"name": "world"})
-		if err != nil {
-			t.Fatalf("got err: %v, wanted result", err)
-		}
-		if out != types.True {
-			t.Errorf("got '%v', wanted 'true'", out)
-		}
-	})
-	t.Run("ok_map", func(t *testing.T) {
-		ast, iss := e.Compile("name in {'hello': false, 'world': true}")
-		if iss.Err() != nil {
-			t.Fatalf("got issue: %v, expected successful compile.", iss.Err())
-		}
-		prg, _ := e.Program(ast, funcs)
-		out, _, err := prg.Eval(map[string]interface{}{"name": "world"})
-		if err != nil {
-			t.Fatalf("got err: %v, wanted result", err)
-		}
-		if out != types.True {
-			t.Errorf("got '%v', wanted 'true'", out)
-		}
-	})
+
+	tests := []struct {
+		name string
+		expr string
+		iss  string
+		vars map[string]interface{}
+		out  ref.Val
+	}{
+		{
+			name: "err_list",
+			expr: `name in ['hello', 0]`,
+			iss: `
+			ERROR: <input>:1:19: expected type 'string' but found 'int'
+             | name in ['hello', 0]
+             | ..................^`,
+		},
+		{
+			name: "err_map_key",
+			expr: `name in {'hello':'world', 1:'!'}`,
+			iss: `
+			ERROR: <input>:1:6: found no matching overload for '@in' applied to '(string, map(!error!, string))'
+			 | name in {'hello':'world', 1:'!'}
+			 | .....^
+			ERROR: <input>:1:27: expected type 'string' but found 'int'
+             | name in {'hello':'world', 1:'!'}
+             | ..........................^`,
+		},
+		{
+			name: "err_map_value",
+			expr: `name in {'hello':'world', 'goodbye':true}`,
+			iss: `
+			ERROR: <input>:1:37: expected type 'string' but found 'bool'
+             | name in {'hello':'world', 'goodbye':true}
+             | ....................................^`,
+		},
+		{
+			name: "ok_list",
+			expr: `name in ['hello', 'world']`,
+			vars: map[string]interface{}{"name": "world"},
+			out:  types.True,
+		},
+		{
+			name: "ok_map",
+			expr: `name in {'hello': false, 'world': true}`,
+			vars: map[string]interface{}{"name": "world"},
+			out:  types.True,
+		},
+	}
+	for _, tst := range tests {
+		tc := tst
+		t.Run(tc.name, func(t *testing.T) {
+			ast, iss := e.Compile(tc.expr)
+			if tc.iss != "" {
+				if iss.Err() == nil {
+					t.Fatalf("e.Compile(%v) returned ast, expected error: %v", tc.expr, tc.iss)
+				}
+				if !test.Compare(iss.Err().Error(), tc.iss) {
+					t.Fatalf("e.Compile(%v) returned %v, expected error: %v", tc.expr, iss.Err(), tc.iss)
+				}
+				return
+			}
+			if iss.Err() != nil {
+				t.Fatalf("e.Compile(%v) failed: %v", tc.expr, iss.Err())
+			}
+			prg, err := e.Program(ast, funcs)
+			if err != nil {
+				t.Fatalf("e.Program() failed: %v", err)
+			}
+			out, _, err := prg.Eval(tc.vars)
+			if err != nil {
+				t.Fatalf("prg.Eval(%v) errored: %v", tc.vars, err)
+			}
+			if out != tc.out {
+				t.Errorf("program eval got %v, wanted %v", out, tc.out)
+			}
+		})
+	}
+}
+
+func TestCrossTypeNumericComparisons(t *testing.T) {
+	tests := []struct {
+		name string
+		expr string
+		iss  string
+		opt  EnvOption
+		out  ref.Val
+	}{
+		// Statically typed expressions need to opt in to cross-type numeric comparisons
+		{
+			name: "double_less_than_int_err",
+			expr: `1.0 < 2`,
+			opt:  CrossTypeNumericComparisons(false),
+			iss: `
+			ERROR: <input>:1:5: found no matching overload for '_<_' applied to '(double, int)'
+             | 1.0 < 2
+             | ....^`,
+		},
+		{
+			name: "double_less_than_int_success",
+			expr: `1.0 < 2`,
+			opt:  CrossTypeNumericComparisons(true),
+			out:  types.True,
+		},
+		// Dynamic data already benefits from cross-type numeric comparisons
+		{
+			name: "dyn_less_than_int_success",
+			expr: `dyn(1.0) < 2`,
+			opt:  CrossTypeNumericComparisons(false),
+			out:  types.True,
+		},
+		{
+			name: "dyn_less_than_int_success",
+			expr: `dyn(1.0) < 2`,
+			opt:  CrossTypeNumericComparisons(true),
+			out:  types.True,
+		},
+	}
+	for _, tst := range tests {
+		tc := tst
+		t.Run(tc.name, func(t *testing.T) {
+			e, err := NewEnv(tc.opt)
+			if err != nil {
+				t.Fatalf("NewEnv() failed: %v", err)
+			}
+			ast, iss := e.Compile(tc.expr)
+			if tc.iss != "" {
+				if iss.Err() == nil {
+					t.Fatalf("e.Compile(%v) returned ast, expected error: %v", tc.expr, tc.iss)
+				}
+				if !test.Compare(iss.Err().Error(), tc.iss) {
+					t.Fatalf("e.Compile(%v) returned %v, expected error: %v", tc.expr, iss.Err(), tc.iss)
+				}
+				return
+			}
+			if iss.Err() != nil {
+				t.Fatalf("e.Compile(%v) failed: %v", tc.expr, iss.Err())
+			}
+			prg, err := e.Program(ast)
+			if err != nil {
+				t.Fatalf("e.Program() failed: %v", err)
+			}
+			out, _, err := prg.Eval(NoVars())
+			if err != nil {
+				t.Fatalf("prg.Eval() errored: %v", err)
+			}
+			if out != tc.out {
+				t.Errorf("program eval got %v, wanted %v", out, tc.out)
+			}
+		})
+	}
 }
 
 func TestCustomTypes(t *testing.T) {
