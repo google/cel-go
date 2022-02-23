@@ -192,7 +192,7 @@ func RefValueToValue(res ref.Val) (*exprpb.Value, error) {
 		return &exprpb.Value{
 			Kind: &exprpb.Value_Uint64Value{Uint64Value: res.Value().(uint64)}}, nil
 	default:
-		any, err := res.ConvertToNative(reflect.TypeOf(&anypb.Any{}))
+		any, err := res.ConvertToNative(anyPbType)
 		if err != nil {
 			return nil, err
 		}
@@ -214,6 +214,8 @@ var (
 		"type":      types.TypeType,
 		"uint":      types.UintType,
 	}
+
+	anyPbType = reflect.TypeOf(&anypb.Any{})
 )
 
 // ValueToRefValue converts between exprpb.Value and ref.Val.
