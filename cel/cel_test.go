@@ -899,7 +899,7 @@ func TestContextEval(t *testing.T) {
 		t.Errorf("ContextEval() got %v, wanted 75", out)
 	}
 
-	evalCtx, cancel := context.WithTimeout(ctx, 50*time.Microsecond)
+	evalCtx, cancel := context.WithTimeout(ctx, 10*time.Microsecond)
 	defer cancel()
 
 	out, _, err = ContextEval(evalCtx, prg, map[string]interface{}{"items": items})
