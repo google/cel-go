@@ -92,6 +92,10 @@ func (ed *EvalDetails) State() interpreter.EvalState {
 	return ed.state
 }
 
+type programWithContext interface {
+	ContextEval(ctx context.Context, vars interface{}) (ref.Val, *EvalDetails, error)
+}
+
 // ContextEval evaluates a program against a set of variables within a Golang Context.
 //
 // ContextEval allows callers to use CEL with deadlines and cancellation behaviors that might be required
@@ -99,7 +103,11 @@ func (ed *EvalDetails) State() interpreter.EvalState {
 func ContextEval(ctx context.Context, p Program, vars interface{}) (ref.Val, *EvalDetails, error) {
 	res := make(chan *ctxResult, 1)
 	go func() {
-		res <- newCtxResult(p.Eval(vars))
+		if cp, ok := p.(programWithContext); ok {
+			res <- newCtxResult(cp.ContextEval(ctx, vars))
+		} else {
+			res <- newCtxResult(p.Eval(vars))
+		}
 	}()
 	select {
 	case out := <-res:
@@ -138,7 +146,7 @@ type prog struct {
 }
 
 // progFactory is a helper alias for marking a program creation factory function.
-type progFactory func(interpreter.EvalState) (Program, error)
+type progFactory func(interpreter.EvalState, <-chan struct{}) (Program, error)
 
 // progGen holds a reference to a progFactory instance and implements the Program interface.
 type progGen struct {
@@ -188,45 +196,38 @@ func newProgram(e *Env, ast *Ast, opts []ProgramOption) (Program, error) {
 	if p.evalOpts&OptOptimize == OptOptimize {
 		decorators = append(decorators, interpreter.Optimize())
 	}
-	// Enable exhaustive eval over state tracking since it offers a superset of features.
-	if p.evalOpts&OptExhaustiveEval == OptExhaustiveEval {
+
+	factory := func(state interpreter.EvalState, stopCh <-chan struct{}) (Program, error) {
+		decs := decorators
 		// State tracking requires that each Eval() call operate on an isolated EvalState
 		// object; hence, the presence of the factory.
-		factory := func(state interpreter.EvalState) (Program, error) {
-			decs := append(decorators, interpreter.ExhaustiveEval(state))
-			clone := &prog{
+		if p.evalOpts&(OptExhaustiveEval|OptTrackState) != 0 || stopCh != nil {
+			// Enable exhaustive eval over state tracking since it offers a superset of features.
+			if p.evalOpts&OptExhaustiveEval == OptExhaustiveEval {
+				decs = append(decs, interpreter.ExhaustiveEval(state))
+			} else if p.evalOpts&OptTrackState == OptTrackState {
+				decs = append(decorators, interpreter.TrackState(state))
+			}
+			if stopCh != nil {
+				decs = append(decs, interpreter.Stoppable(stopCh))
+			}
+			p = &prog{
 				evalOpts:    p.evalOpts,
 				defaultVars: p.defaultVars,
 				Env:         e,
 				dispatcher:  disp,
 				interpreter: interp}
-			return initInterpretable(clone, ast, decs)
 		}
-		return initProgGen(factory)
+		return initInterpretable(p, ast, decs)
 	}
-	// Enable state tracking last since it too requires the factory approach but is less
-	// featured than the ExhaustiveEval decorator.
-	if p.evalOpts&OptTrackState == OptTrackState {
-		factory := func(state interpreter.EvalState) (Program, error) {
-			decs := append(decorators, interpreter.TrackState(state))
-			clone := &prog{
-				evalOpts:    p.evalOpts,
-				defaultVars: p.defaultVars,
-				Env:         e,
-				dispatcher:  disp,
-				interpreter: interp}
-			return initInterpretable(clone, ast, decs)
-		}
-		return initProgGen(factory)
-	}
-	return initInterpretable(p, ast, decorators)
+	return initProgGen(factory)
 }
 
 // initProgGen tests the factory object by calling it once and returns a factory-based Program if
 // the test is successful.
 func initProgGen(factory progFactory) (Program, error) {
 	// Test the factory to make sure that configuration errors are spotted at config
-	_, err := factory(interpreter.NewEvalState())
+	_, err := factory(interpreter.NewEvalState(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -300,6 +301,11 @@ func (p *prog) Cost() (min, max int64) {
 
 // Eval implements the Program interface method.
 func (gen *progGen) Eval(input interface{}) (ref.Val, *EvalDetails, error) {
+	return gen.ContextEval(context.TODO(), input)
+}
+
+// ContextEval evaluates the Program, respecting the cancellation signal of the provided Context.
+func (gen *progGen) ContextEval(ctx context.Context, input interface{}) (ref.Val, *EvalDetails, error) {
 	// The factory based Eval() differs from the standard evaluation model in that it generates a
 	// new EvalState instance for each call to ensure that unique evaluations yield unique stateful
 	// results.
@@ -309,7 +315,7 @@ func (gen *progGen) Eval(input interface{}) (ref.Val, *EvalDetails, error) {
 	// Generate a new instance of the interpretable using the factory configured during the call to
 	// newProgram(). It is incredibly unlikely that the factory call will generate an error given
 	// the factory test performed within the Program() call.
-	p, err := gen.factory(state)
+	p, err := gen.factory(state, ctx.Done())
 	if err != nil {
 		return nil, det, err
 	}
@@ -325,7 +331,7 @@ func (gen *progGen) Eval(input interface{}) (ref.Val, *EvalDetails, error) {
 // Cost implements the Coster interface method.
 func (gen *progGen) Cost() (min, max int64) {
 	// Use an empty state value since no evaluation is performed.
-	p, err := gen.factory(emptyEvalState)
+	p, err := gen.factory(emptyEvalState, nil)
 	if err != nil {
 		return 0, math.MaxInt64
 	}

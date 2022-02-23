@@ -73,6 +73,11 @@ func Optimize() InterpretableDecorator {
 	return decOptimize()
 }
 
+// Stoppable decorates all operations with one that returns an "operation cancelled" error if stopCh is closed.
+func Stoppable(stopCh <-chan struct{}) InterpretableDecorator {
+	return decStoppable(stopCh)
+}
+
 type exprInterpreter struct {
 	dispatcher  Dispatcher
 	container   *containers.Container

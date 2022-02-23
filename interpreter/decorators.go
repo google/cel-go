@@ -118,6 +118,43 @@ func decOptimize() InterpretableDecorator {
 	}
 }
 
+// decStoppable decorates an Interpretable with an Interpretable that returns an "operation cancelled" error if stopCh is closed.
+func decStoppable(stopCh <-chan struct{}) InterpretableDecorator {
+	return func(i Interpretable) (Interpretable, error) {
+		switch t := i.(type) {
+		case InterpretableCall:
+			return &stoppableCall{InterpretableCall: t, stopCh: stopCh}, nil
+		}
+		return i, nil
+	}
+}
+
+const stopCheckFreq = 100
+
+type stoppableCall struct {
+	InterpretableCall
+	stopCh      <-chan struct{}
+	freqCounter uint64
+}
+
+// ID implements the Interpretable interface method.
+func (s *stoppableCall) ID() int64 {
+	return s.InterpretableCall.ID()
+}
+
+// Eval implements the Interpretable interface method.
+func (s *stoppableCall) Eval(ctx Activation) ref.Val {
+	if s.freqCounter%stopCheckFreq == 0 {
+		select {
+		case <-s.stopCh:
+			return types.NewErr("operation cancelled")
+		default:
+		}
+	}
+	s.freqCounter++
+	return s.InterpretableCall.Eval(ctx)
+}
+
 func maybeOptimizeConstUnary(i Interpretable, call InterpretableCall) (Interpretable, error) {
 	args := call.Args()
 	if len(args) != 1 {

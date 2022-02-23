@@ -1017,6 +1017,17 @@ func TestContextEval(t *testing.T) {
 	if err != nil && err.Error() != "operation cancelled" {
 		t.Errorf("Got %v, wanted operation cancelled error", err)
 	}
+
+	//  Run CEL evaluation in the foreground (don't run it in a background go routine) and
+	// verify cancellation halts evaluation.
+	ctxPrg := prg.(programWithContext)
+	out, _, err = ctxPrg.ContextEval(evalCtx, map[string]interface{}{"items": items})
+	if err == nil {
+		t.Errorf("Got result %v, wanted timeout error", out)
+	}
+	if err != nil && err.Error() != "operation cancelled" {
+		t.Errorf("Got %v, wanted operation cancelled error", err)
+	}
 }
 
 func BenchmarkContextEval(b *testing.B) {

@@ -17,6 +17,12 @@ package cel
 import (
 	"fmt"
 
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protodesc"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
+	"google.golang.org/protobuf/types/dynamicpb"
+
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/types/pb"
@@ -24,11 +30,6 @@ import (
 	"github.com/google/cel-go/interpreter"
 	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/parser"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/reflect/protodesc"
-	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/reflect/protoregistry"
-	"google.golang.org/protobuf/types/dynamicpb"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	descpb "google.golang.org/protobuf/types/descriptorpb"
