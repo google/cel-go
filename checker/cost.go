@@ -15,11 +15,12 @@
 package checker
 
 import (
-	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	"math"
 
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/parser"
+
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 // CostEstimator estimates the sizes of variable length input data and the costs of functions.
