@@ -17,6 +17,12 @@ package cel
 import (
 	"fmt"
 
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protodesc"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
+	"google.golang.org/protobuf/types/dynamicpb"
+
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/types/pb"
@@ -24,11 +30,6 @@ import (
 	"github.com/google/cel-go/interpreter"
 	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/parser"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/reflect/protodesc"
-	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/reflect/protoregistry"
-	"google.golang.org/protobuf/types/dynamicpb"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	descpb "google.golang.org/protobuf/types/descriptorpb"
@@ -335,6 +336,16 @@ func Globals(vars interface{}) ProgramOption {
 			return nil, err
 		}
 		p.defaultVars = defaultVars
+		return p, nil
+	}
+}
+
+// OptimizeRegex provides a way to replace the InterpretableCall for regex functions. This can be used
+// to compile regex string constants at program creation time and report any errors and then use the
+// compiled regex for all regex function invocations.
+func OptimizeRegex(regexOptimizations ...*interpreter.RegexOptimization) ProgramOption {
+	return func(p *prog) (*prog, error) {
+		p.regexOptimizations = append(p.regexOptimizations, regexOptimizations...)
 		return p, nil
 	}
 }

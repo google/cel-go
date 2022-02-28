@@ -128,13 +128,14 @@ func newCtxResult(val ref.Val, det *EvalDetails, err error) *ctxResult {
 // prog is the internal implementation of the Program interface.
 type prog struct {
 	*Env
-	evalOpts      EvalOption
-	decorators    []interpreter.InterpretableDecorator
-	defaultVars   interpreter.Activation
-	dispatcher    interpreter.Dispatcher
-	interpreter   interpreter.Interpreter
-	interpretable interpreter.Interpretable
-	attrFactory   interpreter.AttributeFactory
+	evalOpts           EvalOption
+	decorators         []interpreter.InterpretableDecorator
+	defaultVars        interpreter.Activation
+	dispatcher         interpreter.Dispatcher
+	interpreter        interpreter.Interpreter
+	interpretable      interpreter.Interpretable
+	attrFactory        interpreter.AttributeFactory
+	regexOptimizations []*interpreter.RegexOptimization
 }
 
 // progFactory is a helper alias for marking a program creation factory function.
@@ -187,6 +188,10 @@ func newProgram(e *Env, ast *Ast, opts []ProgramOption) (Program, error) {
 	// Enable constant folding first.
 	if p.evalOpts&OptOptimize == OptOptimize {
 		decorators = append(decorators, interpreter.Optimize())
+	}
+	// Enable regex compilation of constants immediately after folding constants.
+	if len(p.regexOptimizations) > 0 {
+		decorators = append(decorators, interpreter.CompileRegexConstants(p.regexOptimizations...))
 	}
 	// Enable exhaustive eval over state tracking since it offers a superset of features.
 	if p.evalOpts&OptExhaustiveEval == OptExhaustiveEval {

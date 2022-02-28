@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"log"
 	"reflect"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -1603,5 +1604,112 @@ func TestDeclareContextProto(t *testing.T) {
 	_, iss := env.Compile(expression)
 	if iss.Err() != nil {
 		t.Fatalf("env.Compile(%s) failed: %s", expression, iss.Err())
+	}
+}
+
+type testRegexCall struct {
+	interpreter.InterpretableCall
+	compiledRegex *regexp.Regexp
+}
+
+func (r testRegexCall) Eval(ctx interpreter.Activation) ref.Val {
+	args := r.InterpretableCall.Args()
+	argVals := make([]ref.Val, len(args))
+	for i, arg := range args {
+		argVals[i] = arg.Eval(ctx)
+		if types.IsUnknownOrError(argVals[i]) {
+			return argVals[i]
+		}
+	}
+	return types.Bool(r.compiledRegex.MatchString(argVals[0].Value().(string)))
+}
+
+var testRegexOptimization = &interpreter.RegexOptimization{
+	Function:   "matches",
+	RegexIndex: 1,
+	Factory: func(call interpreter.InterpretableCall, regexIndex int, pattern ref.Val) (interpreter.Interpretable, error) {
+		compiledRegex, err := regexp.Compile(pattern.Value().(string))
+		if err != nil {
+			return nil, err
+		}
+		return &testRegexCall{call, compiledRegex}, nil
+	},
+}
+
+func TestRegexOptimizer(t *testing.T) {
+	var stringTests = []struct {
+		expr          string
+		optimizeRegex bool
+		progErr       string
+		err           string
+		parseOnly     bool
+	}{
+		{expr: `"123 abc 456".matches('[0-9]*')`},
+		{expr: `"123 abc 456".matches('[0-9]' + '*')`},
+		{expr: `"123 abc 456".matches('[0-9]*')`, optimizeRegex: true},
+		{expr: `"123 abc 456".matches('[0-9]' + '*')`, optimizeRegex: true},
+		{
+			expr: `"123 abc 456".matches(')[0-9]*')`, optimizeRegex: true,
+			progErr: "error parsing regexp: unexpected ): `)[0-9]*`",
+		},
+		{
+			expr: `"123 abc 456".matches(')[0-9]*')`,
+			err:  "error parsing regexp: unexpected ): `)[0-9]*`",
+		},
+	}
+
+	env, err := NewEnv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, tst := range stringTests {
+		tc := tst
+		t.Run(fmt.Sprintf("[%d]", i), func(tt *testing.T) {
+			var asts []*Ast
+			pAst, iss := env.Parse(tc.expr)
+			if iss.Err() != nil {
+				tt.Fatal(iss.Err())
+			}
+			asts = append(asts, pAst)
+			if !tc.parseOnly {
+				cAst, iss := env.Check(pAst)
+				if iss.Err() != nil {
+					tt.Fatal(iss.Err())
+				}
+				asts = append(asts, cAst)
+			}
+			for _, ast := range asts {
+				var opts []ProgramOption
+				if tc.optimizeRegex {
+					opts = append(opts, OptimizeRegex(testRegexOptimization))
+				}
+				prg, progErr := env.Program(ast, opts...)
+				if tc.progErr != "" {
+					if progErr == nil {
+						tt.Fatalf("wanted error %s for expr: %s", tc.progErr, tc.expr)
+					}
+					if tc.progErr != progErr.Error() {
+						tt.Errorf("got error %v, wanted error %s for expr: %s", progErr, tc.progErr, tc.expr)
+					}
+					continue
+				} else if progErr != nil {
+					tt.Fatal(progErr)
+				}
+				out, _, err := prg.Eval(NoVars())
+				if tc.err != "" {
+					if err == nil {
+						tt.Fatalf("got value %v, wanted error %s for expr: %s",
+							out.Value(), tc.err, tc.expr)
+					}
+					if tc.err != err.Error() {
+						tt.Errorf("got error %v, wanted error %s for expr: %s", err, tc.err, tc.expr)
+					}
+				} else if err != nil {
+					tt.Fatal(err)
+				} else if out.Value() != true {
+					tt.Errorf("got %v, wanted true for expr: %s", out.Value(), tc.expr)
+				}
+			}
+		})
 	}
 }
