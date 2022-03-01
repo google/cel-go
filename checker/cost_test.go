@@ -375,7 +375,10 @@ func TestCost(t *testing.T) {
 				t.Fatalf("types.NewRegistry(...) failed: %v", err)
 			}
 
-			e := NewEnv(containers.DefaultContainer, reg)
+			e, err := NewEnv(containers.DefaultContainer, reg)
+			if err != nil {
+				t.Fatalf("NewEnv() failed: %v", err)
+			}
 			err = e.Add(StandardDeclarations()...)
 			if err != nil {
 				t.Fatalf("environment creation error: %v", err)
