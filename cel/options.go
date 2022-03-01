@@ -362,7 +362,9 @@ const (
 	OptExhaustiveEval EvalOption = 1<<iota | OptTrackState
 
 	// OptOptimize precomputes functions and operators with constants as arguments at program
-	// creation time. This flag is useful when the expression will be evaluated repeatedly against
+	// creation time. It also pre-compiles regex pattern constants passed to 'matches', reports any compilation errors
+	// at program creation and uses the compiled regex pattern for all 'matches' function invocations.
+	// This flag is useful when the expression will be evaluated repeatedly against
 	// a series of different inputs.
 	OptOptimize EvalOption = 1 << iota
 

@@ -73,14 +73,23 @@ func Optimize() InterpretableDecorator {
 	return decOptimize()
 }
 
-// RegexOptimization provides a way to replace an InterpretableCall for a regex function if the
-// RegexIndex is a string constant argument. Typically, the Factory would compile the regex pattern at
+// RegexOptimization provides a way to replace an InterpretableCall for a regex function when the
+// RegexIndex argument is a string constant. Typically, the Factory would compile the regex pattern at
 // RegexIndex and report any errors (at program creation time) and then use the compiled regex for
 // all regex function invocations.
 type RegexOptimization struct {
-	Function   string
+	// Function is the name of the function to optimize.
+	Function string
+	// OverloadID is the ID of the overload to optimize.
+	OverloadID string
+	// RegexIndex is the index position of the regex pattern argument. Only calls to the function where this argument is
+	// a string constant will be delegated to this optimizer.
 	RegexIndex int
-	Factory    func(call InterpretableCall, regexIndex int, pattern ref.Val) (Interpretable, error)
+	// Factory constructs a replacement InterpretableCall node that optimizes the regex function call. Factory is
+	// provided with the unoptimized regex call and the string constant at the RegexIndex argument.
+	// The Factory may compile the regex for use across all invocations of the call, return any errors and
+	// return an interpreter.NewCall with the desired regex optimized function impl.
+	Factory func(call InterpretableCall, regexPattern string) (InterpretableCall, error)
 }
 
 // CompileRegexConstants compiles regex pattern string constants at program creation time and reports any regex pattern

@@ -20,11 +20,11 @@ import (
 	"fmt"
 	"math"
 
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter"
-
-	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 // Program is an evaluable view of an Ast.
@@ -188,6 +188,7 @@ func newProgram(e *Env, ast *Ast, opts []ProgramOption) (Program, error) {
 	// Enable constant folding first.
 	if p.evalOpts&OptOptimize == OptOptimize {
 		decorators = append(decorators, interpreter.Optimize())
+		p.regexOptimizations = append(p.regexOptimizations, interpreter.MatchesRegexOptimization)
 	}
 	// Enable regex compilation of constants immediately after folding constants.
 	if len(p.regexOptimizations) > 0 {

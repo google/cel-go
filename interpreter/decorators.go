@@ -120,9 +120,13 @@ func decOptimize() InterpretableDecorator {
 
 // decRegexOptimizer compiles regex pattern string constants.
 func decRegexOptimizer(regexOptimizations ...*RegexOptimization) InterpretableDecorator {
-	regexMatchMap := make(map[string]*RegexOptimization)
+	functionMatchMap := make(map[string]*RegexOptimization)
+	overloadMatchMap := make(map[string]*RegexOptimization)
 	for _, m := range regexOptimizations {
-		regexMatchMap[m.Function] = m
+		functionMatchMap[m.Function] = m
+		if m.OverloadID != "" {
+			overloadMatchMap[m.OverloadID] = m
+		}
 	}
 
 	return func(i Interpretable) (Interpretable, error) {
@@ -130,7 +134,15 @@ func decRegexOptimizer(regexOptimizations ...*RegexOptimization) InterpretableDe
 		if !ok {
 			return i, nil
 		}
-		matcher, found := regexMatchMap[call.Function()]
+
+		var matcher *RegexOptimization
+		var found bool
+		if call.OverloadID() != "" {
+			matcher, found = overloadMatchMap[call.OverloadID()]
+		}
+		if !found {
+			matcher, found = functionMatchMap[call.Function()]
+		}
 		if !found || matcher.RegexIndex >= len(call.Args()) {
 			return i, nil
 		}
@@ -140,7 +152,11 @@ func decRegexOptimizer(regexOptimizations ...*RegexOptimization) InterpretableDe
 		if !isConst {
 			return i, nil
 		}
-		return matcher.Factory(call, matcher.RegexIndex, regexStr.Value())
+		pattern, ok := regexStr.Value().(types.String)
+		if !ok {
+			return i, nil
+		}
+		return matcher.Factory(call, string(pattern))
 	}
 }
 

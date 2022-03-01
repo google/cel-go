@@ -20,7 +20,6 @@ import (
 	"io/ioutil"
 	"log"
 	"reflect"
-	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -1607,35 +1606,6 @@ func TestDeclareContextProto(t *testing.T) {
 	}
 }
 
-type testRegexCall struct {
-	interpreter.InterpretableCall
-	compiledRegex *regexp.Regexp
-}
-
-func (r testRegexCall) Eval(ctx interpreter.Activation) ref.Val {
-	args := r.InterpretableCall.Args()
-	argVals := make([]ref.Val, len(args))
-	for i, arg := range args {
-		argVals[i] = arg.Eval(ctx)
-		if types.IsUnknownOrError(argVals[i]) {
-			return argVals[i]
-		}
-	}
-	return types.Bool(r.compiledRegex.MatchString(argVals[0].Value().(string)))
-}
-
-var testRegexOptimization = &interpreter.RegexOptimization{
-	Function:   "matches",
-	RegexIndex: 1,
-	Factory: func(call interpreter.InterpretableCall, regexIndex int, pattern ref.Val) (interpreter.Interpretable, error) {
-		compiledRegex, err := regexp.Compile(pattern.Value().(string))
-		if err != nil {
-			return nil, err
-		}
-		return &testRegexCall{call, compiledRegex}, nil
-	},
-}
-
 func TestRegexOptimizer(t *testing.T) {
 	var stringTests = []struct {
 		expr          string
@@ -1649,6 +1619,8 @@ func TestRegexOptimizer(t *testing.T) {
 		{expr: `"123 abc 456".matches('[0-9]*')`, optimizeRegex: true},
 		{expr: `"123 abc 456".matches('[0-9]' + '*')`, optimizeRegex: true},
 		{
+			// Verify that a regex compilation error for an optimized regex is
+			// reported at program creation time.
 			expr: `"123 abc 456".matches(')[0-9]*')`, optimizeRegex: true,
 			progErr: "error parsing regexp: unexpected ): `)[0-9]*`",
 		},
@@ -1681,7 +1653,7 @@ func TestRegexOptimizer(t *testing.T) {
 			for _, ast := range asts {
 				var opts []ProgramOption
 				if tc.optimizeRegex {
-					opts = append(opts, OptimizeRegex(testRegexOptimization))
+					opts = append(opts, EvalOptions(OptOptimize))
 				}
 				prg, progErr := env.Program(ast, opts...)
 				if tc.progErr != "" {
