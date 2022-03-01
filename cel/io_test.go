@@ -17,10 +17,12 @@ package cel
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/test/proto3pb"
+
 	"google.golang.org/protobuf/proto"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
@@ -37,6 +39,10 @@ func TestRefValueToValueRoundTrip(t *testing.T) {
 		{value: types.Bytes(make([]byte, 0, 5))},
 		{value: types.Int(0)},
 		{value: types.Uint(0)},
+		{value: types.Duration{Duration: time.Hour}},
+		{value: types.Timestamp{Time: time.Unix(0, 0)}},
+		{value: types.IntType},
+		{value: types.NewTypeValue("CustomType")},
 		{value: map[int64]int64{1: 1}},
 		{value: []interface{}{true, "abc"}},
 		{value: &proto3pb.TestAllTypes{SingleString: "abc"}},

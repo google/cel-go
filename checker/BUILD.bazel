@@ -42,6 +42,7 @@ go_test(
     size = "small",
     srcs = [
         "checker_test.go",
+        "cost_test.go",
         "env_test.go",
     ],
     embed = [
