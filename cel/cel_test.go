@@ -1605,3 +1605,83 @@ func TestDeclareContextProto(t *testing.T) {
 		t.Fatalf("env.Compile(%s) failed: %s", expression, iss.Err())
 	}
 }
+
+func TestRegexOptimizer(t *testing.T) {
+	var stringTests = []struct {
+		expr          string
+		optimizeRegex bool
+		progErr       string
+		err           string
+		parseOnly     bool
+	}{
+		{expr: `"123 abc 456".matches('[0-9]*')`},
+		{expr: `"123 abc 456".matches('[0-9]' + '*')`},
+		{expr: `"123 abc 456".matches('[0-9]*')`, optimizeRegex: true},
+		{expr: `"123 abc 456".matches('[0-9]' + '*')`, optimizeRegex: true},
+		{
+			// Verify that a regex compilation error for an optimized regex is
+			// reported at program creation time.
+			expr: `"123 abc 456".matches(')[0-9]*')`, optimizeRegex: true,
+			progErr: "error parsing regexp: unexpected ): `)[0-9]*`",
+		},
+		{
+			expr: `"123 abc 456".matches(')[0-9]*')`,
+			err:  "error parsing regexp: unexpected ): `)[0-9]*`",
+		},
+	}
+
+	env, err := NewEnv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, tst := range stringTests {
+		tc := tst
+		t.Run(fmt.Sprintf("[%d]", i), func(tt *testing.T) {
+			var asts []*Ast
+			pAst, iss := env.Parse(tc.expr)
+			if iss.Err() != nil {
+				tt.Fatal(iss.Err())
+			}
+			asts = append(asts, pAst)
+			if !tc.parseOnly {
+				cAst, iss := env.Check(pAst)
+				if iss.Err() != nil {
+					tt.Fatal(iss.Err())
+				}
+				asts = append(asts, cAst)
+			}
+			for _, ast := range asts {
+				var opts []ProgramOption
+				if tc.optimizeRegex {
+					opts = append(opts, EvalOptions(OptOptimize))
+				}
+				prg, progErr := env.Program(ast, opts...)
+				if tc.progErr != "" {
+					if progErr == nil {
+						tt.Fatalf("wanted error %s for expr: %s", tc.progErr, tc.expr)
+					}
+					if tc.progErr != progErr.Error() {
+						tt.Errorf("got error %v, wanted error %s for expr: %s", progErr, tc.progErr, tc.expr)
+					}
+					continue
+				} else if progErr != nil {
+					tt.Fatal(progErr)
+				}
+				out, _, err := prg.Eval(NoVars())
+				if tc.err != "" {
+					if err == nil {
+						tt.Fatalf("got value %v, wanted error %s for expr: %s",
+							out.Value(), tc.err, tc.expr)
+					}
+					if tc.err != err.Error() {
+						tt.Errorf("got error %v, wanted error %s for expr: %s", err, tc.err, tc.expr)
+					}
+				} else if err != nil {
+					tt.Fatal(err)
+				} else if out.Value() != true {
+					tt.Errorf("got %v, wanted true for expr: %s", out.Value(), tc.expr)
+				}
+			}
+		})
+	}
+}

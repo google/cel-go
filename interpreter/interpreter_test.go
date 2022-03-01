@@ -24,6 +24,8 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common"
@@ -33,14 +35,14 @@ import (
 	"github.com/google/cel-go/common/types/traits"
 	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/parser"
-	"google.golang.org/protobuf/proto"
 
-	proto2pb "github.com/google/cel-go/test/proto2pb"
-	proto3pb "github.com/google/cel-go/test/proto3pb"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 	tpb "google.golang.org/protobuf/types/known/timestamppb"
 	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
+
+	proto2pb "github.com/google/cel-go/test/proto2pb"
+	proto3pb "github.com/google/cel-go/test/proto3pb"
 )
 
 type testCase struct {
@@ -56,10 +58,12 @@ type testCase struct {
 	funcs          []*functions.Overload
 	attrs          AttributeFactory
 	unchecked      bool
+	extraOpts      []InterpretableDecorator
 
-	in  map[string]interface{}
-	out interface{}
-	err string
+	in      map[string]interface{}
+	out     interface{}
+	err     string
+	progErr string
 }
 
 var (
@@ -861,6 +865,21 @@ var (
 			},
 		},
 		{
+			name: "matches error",
+			expr: `input.matches(')k.*')`,
+			env: []*exprpb.Decl{
+				decls.NewVar("input", decls.String),
+			},
+			in: map[string]interface{}{
+				"input": "kathmandu",
+			},
+			extraOpts: []InterpretableDecorator{CompileRegexConstants(MatchesRegexOptimization)},
+			// unoptimized program should report a regex compile error at runtime
+			err: "unexpected ): `)k.*`",
+			// optimized program should report a regex compile at program creation time
+			progErr: "unexpected ): `)k.*`",
+		},
+		{
 			name:  "nested_proto_field",
 			expr:  `pb3.single_nested_message.bb`,
 			cost:  []int64{1, 1},
@@ -1313,7 +1332,7 @@ var (
 
 func BenchmarkInterpreter(b *testing.B) {
 	for _, tst := range testData {
-		prg, vars, err := program(b, &tst, Optimize())
+		prg, vars, err := program(b, &tst, Optimize(), CompileRegexConstants(MatchesRegexOptimization))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -1330,7 +1349,7 @@ func BenchmarkInterpreter(b *testing.B) {
 
 func BenchmarkInterpreter_Parallel(b *testing.B) {
 	for _, tst := range testData {
-		prg, vars, err := program(b, &tst, Optimize())
+		prg, vars, err := program(b, &tst, Optimize(), CompileRegexConstants(MatchesRegexOptimization))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -1387,7 +1406,17 @@ func TestInterpreter(t *testing.T) {
 				"track":      TrackState(state),
 			}
 			for mode, opt := range opts {
-				prg, vars, err = program(t, &tc, opt)
+				opts := []InterpretableDecorator{opt}
+				if tc.extraOpts != nil {
+					opts = append(opts, tc.extraOpts...)
+				}
+				prg, vars, err = program(t, &tc, opts...)
+				if tc.progErr != "" {
+					if !types.IsError(got) || !strings.Contains(got.(*types.Err).String(), tc.progErr) {
+						t.Errorf("Got %v (%T), wanted error: %s", got, got, tc.progErr)
+					}
+					continue
+				}
 				if err != nil {
 					t.Fatal(err)
 				}

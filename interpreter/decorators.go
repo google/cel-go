@@ -118,6 +118,48 @@ func decOptimize() InterpretableDecorator {
 	}
 }
 
+// decRegexOptimizer compiles regex pattern string constants.
+func decRegexOptimizer(regexOptimizations ...*RegexOptimization) InterpretableDecorator {
+	functionMatchMap := make(map[string]*RegexOptimization)
+	overloadMatchMap := make(map[string]*RegexOptimization)
+	for _, m := range regexOptimizations {
+		functionMatchMap[m.Function] = m
+		if m.OverloadID != "" {
+			overloadMatchMap[m.OverloadID] = m
+		}
+	}
+
+	return func(i Interpretable) (Interpretable, error) {
+		call, ok := i.(InterpretableCall)
+		if !ok {
+			return i, nil
+		}
+
+		var matcher *RegexOptimization
+		var found bool
+		if call.OverloadID() != "" {
+			matcher, found = overloadMatchMap[call.OverloadID()]
+		}
+		if !found {
+			matcher, found = functionMatchMap[call.Function()]
+		}
+		if !found || matcher.RegexIndex >= len(call.Args()) {
+			return i, nil
+		}
+		args := call.Args()
+		regexArg := args[matcher.RegexIndex]
+		regexStr, isConst := regexArg.(InterpretableConst)
+		if !isConst {
+			return i, nil
+		}
+		pattern, ok := regexStr.Value().(types.String)
+		if !ok {
+			return i, nil
+		}
+		return matcher.Factory(call, string(pattern))
+	}
+}
+
 func maybeOptimizeConstUnary(i Interpretable, call InterpretableCall) (Interpretable, error) {
 	args := call.Args()
 	if len(args) != 1 {

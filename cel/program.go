@@ -20,11 +20,11 @@ import (
 	"fmt"
 	"math"
 
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter"
-
-	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 // Program is an evaluable view of an Ast.
@@ -128,13 +128,14 @@ func newCtxResult(val ref.Val, det *EvalDetails, err error) *ctxResult {
 // prog is the internal implementation of the Program interface.
 type prog struct {
 	*Env
-	evalOpts      EvalOption
-	decorators    []interpreter.InterpretableDecorator
-	defaultVars   interpreter.Activation
-	dispatcher    interpreter.Dispatcher
-	interpreter   interpreter.Interpreter
-	interpretable interpreter.Interpretable
-	attrFactory   interpreter.AttributeFactory
+	evalOpts           EvalOption
+	decorators         []interpreter.InterpretableDecorator
+	defaultVars        interpreter.Activation
+	dispatcher         interpreter.Dispatcher
+	interpreter        interpreter.Interpreter
+	interpretable      interpreter.Interpretable
+	attrFactory        interpreter.AttributeFactory
+	regexOptimizations []*interpreter.RegexOptimization
 }
 
 // progFactory is a helper alias for marking a program creation factory function.
@@ -187,6 +188,11 @@ func newProgram(e *Env, ast *Ast, opts []ProgramOption) (Program, error) {
 	// Enable constant folding first.
 	if p.evalOpts&OptOptimize == OptOptimize {
 		decorators = append(decorators, interpreter.Optimize())
+		p.regexOptimizations = append(p.regexOptimizations, interpreter.MatchesRegexOptimization)
+	}
+	// Enable regex compilation of constants immediately after folding constants.
+	if len(p.regexOptimizations) > 0 {
+		decorators = append(decorators, interpreter.CompileRegexConstants(p.regexOptimizations...))
 	}
 	// Enable exhaustive eval over state tracking since it offers a superset of features.
 	if p.evalOpts&OptExhaustiveEval == OptExhaustiveEval {

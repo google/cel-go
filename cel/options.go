@@ -17,6 +17,12 @@ package cel
 import (
 	"fmt"
 
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protodesc"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
+	"google.golang.org/protobuf/types/dynamicpb"
+
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/types/pb"
@@ -24,11 +30,6 @@ import (
 	"github.com/google/cel-go/interpreter"
 	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/parser"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/reflect/protodesc"
-	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/reflect/protoregistry"
-	"google.golang.org/protobuf/types/dynamicpb"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	descpb "google.golang.org/protobuf/types/descriptorpb"
@@ -339,6 +340,16 @@ func Globals(vars interface{}) ProgramOption {
 	}
 }
 
+// OptimizeRegex provides a way to replace the InterpretableCall for regex functions. This can be used
+// to compile regex string constants at program creation time and report any errors and then use the
+// compiled regex for all regex function invocations.
+func OptimizeRegex(regexOptimizations ...*interpreter.RegexOptimization) ProgramOption {
+	return func(p *prog) (*prog, error) {
+		p.regexOptimizations = append(p.regexOptimizations, regexOptimizations...)
+		return p, nil
+	}
+}
+
 // EvalOption indicates an evaluation option that may affect the evaluation behavior or information
 // in the output result.
 type EvalOption int
@@ -351,7 +362,9 @@ const (
 	OptExhaustiveEval EvalOption = 1<<iota | OptTrackState
 
 	// OptOptimize precomputes functions and operators with constants as arguments at program
-	// creation time. This flag is useful when the expression will be evaluated repeatedly against
+	// creation time. It also pre-compiles regex pattern constants passed to 'matches', reports any compilation errors
+	// at program creation and uses the compiled regex pattern for all 'matches' function invocations.
+	// This flag is useful when the expression will be evaluated repeatedly against
 	// a series of different inputs.
 	OptOptimize EvalOption = 1 << iota
 

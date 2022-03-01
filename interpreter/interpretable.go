@@ -533,6 +533,17 @@ type evalVarArgs struct {
 	impl     functions.FunctionOp
 }
 
+// NewCall creates a new call Interpretable.
+func NewCall(id int64, function, overload string, args []Interpretable, impl functions.FunctionOp) InterpretableCall {
+	return &evalVarArgs{
+		id:       id,
+		function: function,
+		overload: overload,
+		args:     args,
+		impl:     impl,
+	}
+}
+
 // ID implements the Interpretable interface method.
 func (fn *evalVarArgs) ID() int64 {
 	return fn.id
