@@ -534,13 +534,12 @@ type evalVarArgs struct {
 }
 
 // NewCall creates a new call Interpretable.
-func NewCall(id int64, function, overload string, args []Interpretable, trait int, impl functions.FunctionOp) InterpretableCall {
+func NewCall(id int64, function, overload string, args []Interpretable, impl functions.FunctionOp) InterpretableCall {
 	return &evalVarArgs{
 		id:       id,
 		function: function,
 		overload: overload,
 		args:     args,
-		trait:    trait,
 		impl:     impl,
 	}
 }

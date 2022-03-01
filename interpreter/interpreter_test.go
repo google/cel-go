@@ -1332,7 +1332,7 @@ var (
 
 func BenchmarkInterpreter(b *testing.B) {
 	for _, tst := range testData {
-		prg, vars, err := program(b, &tst, Optimize())
+		prg, vars, err := program(b, &tst, Optimize(), CompileRegexConstants(MatchesRegexOptimization))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -1349,7 +1349,7 @@ func BenchmarkInterpreter(b *testing.B) {
 
 func BenchmarkInterpreter_Parallel(b *testing.B) {
 	for _, tst := range testData {
-		prg, vars, err := program(b, &tst, Optimize())
+		prg, vars, err := program(b, &tst, Optimize(), CompileRegexConstants(MatchesRegexOptimization))
 		if err != nil {
 			b.Fatal(err)
 		}

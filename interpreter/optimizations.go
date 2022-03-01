@@ -21,6 +21,9 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 )
 
+// MatchesRegexOptimization optimizes the 'matches' standard library function by compiling the regex pattern and
+// reporting any compilation errors at program creation time, and using the compiled regex pattern for all function
+// call invocations.
 var MatchesRegexOptimization = &RegexOptimization{
 	Function:   "matches",
 	RegexIndex: 1,
@@ -29,7 +32,7 @@ var MatchesRegexOptimization = &RegexOptimization{
 		if err != nil {
 			return nil, err
 		}
-		return NewCall(call.ID(), call.Function(), call.OverloadID(), call.Args(), 0, func(values ...ref.Val) ref.Val {
+		return NewCall(call.ID(), call.Function(), call.OverloadID(), call.Args(), func(values ...ref.Val) ref.Val {
 			if len(values) != 2 {
 				return types.NoSuchOverloadErr()
 			}
