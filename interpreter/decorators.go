@@ -122,8 +122,17 @@ func decOptimize() InterpretableDecorator {
 func decStoppable(stopCh <-chan struct{}) InterpretableDecorator {
 	return func(i Interpretable) (Interpretable, error) {
 		switch t := i.(type) {
-		case InterpretableCall:
-			return &stoppableCall{InterpretableCall: t, stopCh: stopCh}, nil
+		case *evalFold:
+			return &evalFold{
+				id:        t.id,
+				accuVar:   t.accuVar,
+				iterVar:   t.iterVar,
+				iterRange: t.iterRange,
+				accu:      t.accu,
+				cond:      t.cond,
+				step:      &stoppableStep{Interpretable: t.step, stopCh: stopCh},
+				result:    t.result,
+			}, nil
 		}
 		return i, nil
 	}
@@ -131,28 +140,25 @@ func decStoppable(stopCh <-chan struct{}) InterpretableDecorator {
 
 const stopCheckFreq = 100
 
-type stoppableCall struct {
-	InterpretableCall
+type stoppableStep struct {
+	Interpretable
 	stopCh      <-chan struct{}
 	freqCounter uint64
 }
 
-// ID implements the Interpretable interface method.
-func (s *stoppableCall) ID() int64 {
-	return s.InterpretableCall.ID()
-}
-
 // Eval implements the Interpretable interface method.
-func (s *stoppableCall) Eval(ctx Activation) ref.Val {
+func (s *stoppableStep) Eval(ctx Activation) ref.Val {
 	if s.freqCounter%stopCheckFreq == 0 {
 		select {
 		case <-s.stopCh:
-			return types.NewErr("operation cancelled")
+			// TODO: avoid a panic here? If we could bail during a fold we wouldn't need
+			// to do this
+			panic("operation canceled")
 		default:
 		}
 	}
 	s.freqCounter++
-	return s.InterpretableCall.Eval(ctx)
+	return s.Interpretable.Eval(ctx)
 }
 
 func maybeOptimizeConstUnary(i Interpretable, call InterpretableCall) (Interpretable, error) {

@@ -273,7 +273,11 @@ func (p *prog) Eval(input interface{}) (v ref.Val, det *EvalDetails, err error) 
 	// function.
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("internal error: %v", r)
+			if r == "operation canceled" {
+				err = fmt.Errorf("%v", r)
+			} else {
+				err = fmt.Errorf("internal error: %v", r)
+			}
 		}
 	}()
 	// Build a hierarchical activation if there are default vars set.
