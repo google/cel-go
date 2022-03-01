@@ -995,15 +995,15 @@ func TestContextEval(t *testing.T) {
 	}
 
 	ctx := context.TODO()
-	items := make([]int64, 100)
-	for i := int64(0); i < 100; i++ {
+	items := make([]int64, 1000)
+	for i := int64(0); i < 1000; i++ {
 		items[i] = i
 	}
 	out, _, err := ContextEval(ctx, prg, map[string]interface{}{"items": items})
 	if err != nil {
 		t.Fatalf("ContextEval() failed: %v", err)
 	}
-	if out != types.Int(75) {
+	if out != types.Int(975) {
 		t.Errorf("ContextEval() got %v, wanted 75", out)
 	}
 
