@@ -80,6 +80,8 @@ import (
 //
 //     ['hello', 'mellow'].join() // returns 'hellomellow'
 //     ['hello', 'mellow'].join(' ') // returns 'hello mellow'
+//     [].join() // returns ''
+//     [].join('/') // returns ''
 //
 // LastIndexOf
 //
@@ -258,12 +260,13 @@ func (stringLib) CompileOptions() []cel.EnvOption {
 					[]*exprpb.Type{decls.String},
 					decls.String)),
 			decls.NewFunction("join",
-				decls.NewInstanceOverload("string_string_join_string",
+				decls.NewInstanceOverload("list_join",
+					[]*exprpb.Type{decls.NewListType(decls.String)},
+					decls.String),
+				decls.NewInstanceOverload("list_join_string",
 					[]*exprpb.Type{decls.NewListType(decls.String), decls.String},
 					decls.String),
-				decls.NewInstanceOverload("string_join_string",
-					[]*exprpb.Type{decls.NewListType(decls.String)},
-					decls.String)),
+			),
 		),
 	}
 }
@@ -380,6 +383,14 @@ func (stringLib) ProgramOptions() []cel.ProgramOption {
 			&functions.Overload{
 				Operator: "join",
 				Unary:    callInListStrOutStr(join),
+				Binary:   callInListStrStrOutStr(joinSeparator),
+			},
+			&functions.Overload{
+				Operator: "list_join",
+				Unary:    callInListStrOutStr(join),
+			},
+			&functions.Overload{
+				Operator: "list_join_string",
 				Binary:   callInListStrStrOutStr(joinSeparator),
 			},
 		),

@@ -257,9 +257,10 @@ func callInListStrOutStr(fn func([]string) (string, error)) functions.UnaryOp {
 		strings := make([]string, vVal.Size().Value().(int64))
 		i := 0
 		for it := vVal.Iterator(); it.HasNext() == types.True; {
-			v, ok := it.Next().(types.String)
+			next := it.Next()
+			v, ok := next.(types.String)
 			if !ok {
-				return types.MaybeNoSuchOverloadErr(v)
+				return types.MaybeNoSuchOverloadErr(next)
 			}
 			strings[i] = string(v)
 			i++
@@ -285,9 +286,10 @@ func callInListStrStrOutStr(fn func([]string, string) (string, error)) functions
 		strings := make([]string, vVal.Size().Value().(int64))
 		i := 0
 		for it := vVal.Iterator(); it.HasNext() == types.True; {
-			v, ok := it.Next().(types.String)
+			next := it.Next()
+			v, ok := next.(types.String)
 			if !ok {
-				return types.MaybeNoSuchOverloadErr(v)
+				return types.MaybeNoSuchOverloadErr(next)
 			}
 			strings[i] = string(v)
 			i++
