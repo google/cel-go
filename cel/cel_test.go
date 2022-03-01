@@ -1479,6 +1479,17 @@ func TestEstimateCostAndRuntimeCost(t *testing.T) {
 			want:  checker.CostEstimate{Min: 2, Max: 6},
 			in:    map[string]interface{}{"str1": "val1111111", "str2": "val2222222"},
 		},
+		// FIXME: When estimate cost comes to calculate cost for int1 : int2, cost.Min should be min{cost.arg[1], cost.arg[2]}, cost.Max should be Max{cost.arg[1], cost.arg[2]}
+		{
+			name:    "ternary with var",
+			program: `int1 > int2 ? int1 : int2`,
+			decls: []*exprpb.Decl{
+				decls.NewVar("int1", decls.Int),
+				decls.NewVar("int2", decls.Int),
+			},
+			wanted: checker.CostEstimate{Min: 6, Max: 6},
+			in:     map[string]interface{}{"int1": 1, "int2": 2},
+		},
 	}
 
 	for _, tc := range cases {
