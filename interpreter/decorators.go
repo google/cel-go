@@ -25,14 +25,11 @@ import (
 // Interpretable expression nodes at construction time.
 type InterpretableDecorator func(Interpretable) (Interpretable, error)
 
-// evalObserver is a functional interface that accepts an expression id and an observed value.
-type evalObserver func(int64, ref.Val)
-
 // decObserveEval records evaluation state into an EvalState object.
-func decObserveEval(observer evalObserver) InterpretableDecorator {
+func decObserveEval(observer EvalObserver) InterpretableDecorator {
 	return func(i Interpretable) (Interpretable, error) {
 		switch inst := i.(type) {
-		case *evalWatch, *evalWatchAttr, *evalWatchConst, *evalCostTrackerAttribute, *evalCostTrackerCall, *evalCostTrackerConst, *evalCostTrackerOp:
+		case *evalWatch, *evalWatchAttr, *evalWatchConst:
 			// these instruction are already watching, return straight-away.
 			return i, nil
 		case InterpretableAttribute:
@@ -44,11 +41,6 @@ func decObserveEval(observer evalObserver) InterpretableDecorator {
 			return &evalWatchConst{
 				InterpretableConst: inst,
 				observer:           observer,
-			}, nil
-		case InterpretableCall:
-			return &evalWatchCall{
-				InterpretableCall: inst,
-				observer:          observer,
 			}, nil
 		default:
 			return &evalWatch{

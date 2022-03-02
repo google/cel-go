@@ -19,40 +19,73 @@
 package interpreter
 
 import (
+	"math"
+
 	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/common/overloads"
+	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	"math"
-	"reflect"
+	"github.com/google/cel-go/common/types/traits"
 )
 
 // ActualCostEstimator provides function call cost estimations at runtime
-// CallCost returns an estimated cost for the function overload invocation with the given args, or nil if it has not estimate to provide.
-// CEL attempts to provide reasonable estimates for it's standard function library, so CallCost should typically not need to provide an estimate for CELs standard function.
+// CallCost returns an estimated cost for the function overload invocation with the given args, or nil if it has no
+// estimate to provide. CEL attempts to provide reasonable estimates for its standard function library, so CallCost
+// should typically not need to provide an estimate for CELs standard function.
 type ActualCostEstimator interface {
 	CallCost(overloadId string, args []ref.Val) *uint64
+}
+
+// CostObserver provides an observer that tracks runtime cost.
+func CostObserver(tracker *CostTracker) EvalObserver {
+	observer := func(id int64, programStep interface{}, val ref.Val) {
+		switch t := programStep.(type) {
+		case InterpretableConst:
+			// zero cost
+		case ConstantQualifier:
+			tracker.cost += 1
+		case InterpretableAttribute:
+			tracker.cost += 1
+		case Qualifier:
+			tracker.stack.pop()
+			tracker.cost += 1
+		case InterpretableCall:
+			argVals := make([]ref.Val, len(t.Args()))
+			argsFound := true
+			for i := len(t.Args()) - 1; i >= 0; i-- {
+				if v, ok := tracker.stack.pop(); ok {
+					argVals[i] = v
+				} else {
+					// should never happen
+					argsFound = false
+				}
+			}
+			if argsFound {
+				tracker.cost += tracker.costCall(t, argVals)
+			}
+		case InterpretableConstructor:
+			switch t.Type() {
+			case types.ListType:
+				tracker.cost += 10
+			case types.MapType:
+				tracker.cost += 30
+			default:
+				tracker.cost += 40
+			}
+		case InterpretableBooleanBinaryOp:
+			tracker.cost += 1
+		}
+		tracker.stack.push(val)
+	}
+	return observer
 }
 
 // CostTracker represents the information needed for tacking runtime cost
 type CostTracker struct {
 	estimator         *checker.CostEstimator
 	CallCostEstimator ActualCostEstimator
-	state             EvalState
 	cost              uint64
-}
-
-// actualSize returns the size of value
-func (c CostTracker) actualSize(i Interpretable) uint64 {
-	if v, ok := c.state.Value(i.ID()); ok {
-		reflectV := reflect.ValueOf(v.Value())
-		switch reflectV.Kind() {
-		// Note that the CEL bytes type is implemented with Go byte slices, therefore also supported by the following
-		// code.
-		case reflect.String, reflect.Array, reflect.Slice, reflect.Map:
-			return uint64(reflectV.Len())
-		}
-	}
-	return 1
+	stack             refValStack
 }
 
 // ActualCost returns the runtime cost
@@ -60,63 +93,25 @@ func (c CostTracker) ActualCost() uint64 {
 	return c.cost
 }
 
-type evalCostTrackerConst struct {
-	InterpretableConst
-	tracker *CostTracker
-}
-
-// Eval implements the Interpretable interface method.
-func (e *evalCostTrackerConst) Eval(ctx Activation) ref.Val {
-	val := e.InterpretableConst.Eval(ctx)
-	return val
-}
-
-type evalCostTrackerAttribute struct {
-	InterpretableAttribute
-	tracker *CostTracker
-}
-
-// Eval implements the Interpretable interface method.
-func (e *evalCostTrackerAttribute) Eval(ctx Activation) ref.Val {
-	val := e.InterpretableAttribute.Eval(ctx)
-	e.tracker.cost += e.InterpretableAttribute.RuntimeCost(ctx, e.tracker.state)
-	return val
-}
-
-type evalCostTrackerCall struct {
-	InterpretableCall
-	tracker *CostTracker
-}
-
-// Eval implements the Interpretable interface method.
-func (e *evalCostTrackerCall) Eval(ctx Activation) ref.Val {
-	val := e.InterpretableCall.Eval(ctx)
-	args := e.InterpretableCall.Args()
-	var argValues []ref.Val
-	for _, arg := range args {
-		if v, ok := e.tracker.state.Value(arg.ID()); ok {
-			argValues = append(argValues, v)
-		} else {
-			// FIXME: abort.
-		}
-	}
-	if e.tracker.CallCostEstimator != nil {
-		cost := e.tracker.CallCostEstimator.CallCost(e.OverloadID(), argValues)
-		if cost != nil {
-			e.tracker.cost += *cost
-			return val
+func (c CostTracker) costCall(call InterpretableCall, argValues []ref.Val) uint64 {
+	var cost uint64
+	if c.CallCostEstimator != nil {
+		callCost := c.CallCostEstimator.CallCost(call.OverloadID(), argValues)
+		if callCost != nil {
+			cost += *callCost
+			return cost
 		}
 	}
 	// if user didn't specify, the default way of calculating runtime cost would be used.
 	// if user has their own implementation of ActualCostEstimator, make sure to cover the mapping between overloadId and cost calculation
-	switch e.OverloadID() {
+	switch call.OverloadID() {
 	// O(n) functions
 	case overloads.StartsWithString, overloads.EndsWithString, overloads.StringToBytes, overloads.BytesToString:
-		e.tracker.cost += uint64(math.Ceil(float64(e.tracker.actualSize(args[0])) * 0.1))
+		cost += uint64(math.Ceil(float64(c.actualSize(argValues[0])) * 0.1))
 	case overloads.InList:
 		// If a list is composed entirely of constant values this is O(1), but we don't account for that here.
 		// We just assume all list containment checks are O(n).
-		e.tracker.cost += e.tracker.actualSize(args[1])
+		cost += c.actualSize(argValues[1])
 	// O(min(m, n)) functions
 	case overloads.LessString, overloads.GreaterString, overloads.LessEqualsString, overloads.GreaterEqualsString,
 		overloads.LessBytes, overloads.GreaterBytes, overloads.LessEqualsBytes, overloads.GreaterEqualsBytes,
@@ -124,81 +119,64 @@ func (e *evalCostTrackerCall) Eval(ctx Activation) ref.Val {
 		// When we check the equality of 2 scalar values (e.g. 2 integers, 2 floating-point numbers, 2 booleans etc.),
 		// the CostTracker.actualSize() function by definition returns 1 for each operand, resulting in an overall cost
 		// of 1.
-		lhsCost := e.tracker.actualSize(args[0])
-		rhsCost := e.tracker.actualSize(args[1])
+		lhsCost := c.actualSize(argValues[0])
+		rhsCost := c.actualSize(argValues[1])
 		if lhsCost > rhsCost {
-			e.tracker.cost += rhsCost
+			cost += rhsCost
 		} else {
-			e.tracker.cost += lhsCost
+			cost += lhsCost
 		}
 	// O(m+n) functions
 	case overloads.AddString, overloads.AddBytes, overloads.AddList:
 		// In the worst case scenario, we would need to reallocate a new backing store and copy both operands over.
-		e.tracker.cost += uint64(math.Ceil(float64(e.tracker.actualSize(args[0])+e.tracker.actualSize(args[1])) * 0.1))
+		cost += uint64(math.Ceil(float64(c.actualSize(argValues[0])+c.actualSize(argValues[1])) * 0.1))
 	// O(nm) functions
 	case overloads.MatchesString:
 		// https://swtch.com/~rsc/regexp/regexp1.html applies to RE2 implementation supported by CEL
-		strCost := uint64(math.Ceil(float64(e.tracker.actualSize(args[0])) * 0.1))
+		strCost := uint64(math.Ceil(float64(c.actualSize(argValues[0])) * 0.1))
 		// We don't know how many expressions are in the regex, just the string length (a huge
 		// improvement here would be to somehow get a count the number of expressions in the regex or
 		// how many states are in the regex state machine and use that to measure regex cost).
 		// For now, we're making a guess that each expression in a regex is typically at least 4 chars
 		// in length.
-		regexCost := uint64(math.Ceil(float64(e.tracker.actualSize(args[1])) * 0.25))
-		e.tracker.cost += strCost * regexCost
+		regexCost := uint64(math.Ceil(float64(c.actualSize(argValues[1])) * 0.25))
+		cost += strCost * regexCost
 	case overloads.ContainsString:
-		strCost := uint64(math.Ceil(float64(e.tracker.actualSize(args[0])) * 0.1))
-		substrCost := uint64(math.Ceil(float64(e.tracker.actualSize(args[1])) * 0.1))
-		e.tracker.cost += strCost * substrCost
+		strCost := uint64(math.Ceil(float64(c.actualSize(argValues[0])) * 0.1))
+		substrCost := uint64(math.Ceil(float64(c.actualSize(argValues[1])) * 0.1))
+		cost += strCost * substrCost
 	default:
 		// The following operations are assumed to have O(1) complexity.
 		// 1. Concatenation of 2 lists: see the implementation of the concatList type.
 		// 2. Computing the size of strings, byte sequences, lists and maps: presumably, the length of each of these
 		//    data structures are cached and can be retrieved in constant time.
-		e.tracker.cost += 1
+		cost += 1
 
 	}
-
-	return val
+	return cost
 }
 
-type evalCostTrackerOp struct {
-	InterpretableOp
-	tracker *CostTracker
-}
-
-// Eval implements the Interpretable interface method.
-func (e *evalCostTrackerOp) Eval(ctx Activation) ref.Val {
-	val := e.InterpretableOp.Eval(ctx)
-	e.tracker.cost += e.InterpretableOp.RuntimeCost()
-
-	return val
-}
-
-func TrackCost(evalState EvalState, tracker *CostTracker) InterpretableDecorator {
-	return func(i Interpretable) (Interpretable, error) {
-		tracker.state = evalState
-		switch t := i.(type) {
-		// this is to remove extra interpretable nodes
-		case *evalCostTrackerAttribute, *evalCostTrackerCall, *evalCostTrackerConst, *evalCostTrackerOp:
-			return i, nil
-		case InterpretableConst:
-			return &evalCostTrackerConst{InterpretableConst: t, tracker: tracker}, nil
-		case InterpretableAttribute:
-			return &evalCostTrackerAttribute{InterpretableAttribute: t, tracker: tracker}, nil
-		case InterpretableCall:
-			return &evalCostTrackerCall{InterpretableCall: t, tracker: tracker}, nil
-		case InterpretableOp:
-			return &evalCostTrackerOp{InterpretableOp: t, tracker: tracker}, nil
-		}
-		return i, nil
+// actualSize returns the size of value
+func (c CostTracker) actualSize(value ref.Val) uint64 {
+	if sz, ok := value.(traits.Sizer); ok {
+		return uint64(sz.Size().Value().(int64))
 	}
+	return 1
 }
 
-func calRuntimeCost(i interface{}, ctx Activation, evalState EvalState) uint64 {
-	c, ok := i.(RuntimeCoster)
-	if !ok {
-		return math.MaxInt64
+// refValStack keeps track of values of the stack for cost calculation purposes
+type refValStack []ref.Val
+
+func (s *refValStack) push(value ref.Val) {
+	*s = append(*s, value)
+}
+
+func (s *refValStack) pop() (ref.Val, bool) {
+	if len(*s) == 0 {
+		return nil, false
 	}
-	return c.RuntimeCost(ctx, evalState)
+	idx := len(*s) - 1
+	el := (*s)[idx]
+	*s = (*s)[:idx]
+	return el, true
 }
