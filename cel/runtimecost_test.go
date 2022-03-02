@@ -15,17 +15,19 @@
 package cel
 
 import (
+	"math/rand"
+	"reflect"
+	"testing"
+	"time"
+
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter"
 	"github.com/google/cel-go/test/proto3pb"
-	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
-	"math/rand"
-	"reflect"
-	"testing"
-	"time"
 )
 
 type testInfo struct {
@@ -458,7 +460,7 @@ func TestRuntimeCost(t *testing.T) {
 				decls.NewVar("input1", allList),
 				decls.NewVar("input2", allList),
 			},
-			want: 9,
+			want: 8,
 			in:   map[string]interface{}{"input1": []proto3pb.TestAllTypes{proto3pb.TestAllTypes{}}, "input2": []proto3pb.TestAllTypes{proto3pb.TestAllTypes{}}, "x": 1},
 		},
 		{
@@ -467,7 +469,7 @@ func TestRuntimeCost(t *testing.T) {
 			decls: []*exprpb.Decl{
 				decls.NewVar("input", allMap),
 			},
-			want: 11,
+			want: 10,
 			in:   map[string]interface{}{"input": map[string]interface{}{"val": &proto3pb.TestAllTypes{}}},
 		},
 		{
@@ -550,7 +552,7 @@ func TestRuntimeCost(t *testing.T) {
 			// Evaluate expression.
 			var program Program
 			if tc.testFuncCost {
-				program, err = e.Program(checked_ast, EvalOptions(OptTrackCost), CallCostEstimator(testRuntimeCostEstimator{}))
+				program, err = e.Program(checked_ast, ActualCostTracking(testRuntimeCostEstimator{}))
 			} else {
 				program, err = e.Program(checked_ast, EvalOptions(OptTrackCost))
 			}
