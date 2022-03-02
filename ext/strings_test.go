@@ -93,6 +93,11 @@ var stringTests = []struct {
 	// Upper ASCII tests.
 	{expr: `'tacoCat'.upperAscii() == 'TACOCAT'`},
 	{expr: `'tacoCαt'.upperAscii() == 'TACOCαT'`},
+	// Join tests.
+	{expr: `['x', 'y'].join() == 'xy'`},
+	{expr: `['x', 'y'].join('-') == 'x-y'`},
+	{expr: `[].join() == ''`},
+	{expr: `[].join('-') == ''`},
 	// Error test cases based on checked expression usage.
 	{
 		expr: `'tacocat'.charAt(30) == ''`,
