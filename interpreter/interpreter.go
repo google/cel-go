@@ -38,22 +38,67 @@ type Interpreter interface {
 		decorators ...InterpretableDecorator) (Interpretable, error)
 }
 
+// EvalObserver is a functional interface that accepts an expression id and an observed value.
+type EvalObserver func(id int64, programStep interface{}, value ref.Val)
+
+func Observe(observers ...EvalObserver) InterpretableDecorator {
+	if len(observers) == 1 {
+		return decObserveEval(observers[0])
+	}
+	observeFn := func(id int64, programStep interface{}, val ref.Val) {
+		for _, observer := range observers {
+			observer(id, programStep, val)
+		}
+	}
+	return decObserveEval(observeFn)
+}
+
+// TODO: Replace all usages of TrackState with EvalStateObserver
+
 // TrackState decorates each expression node with an observer which records the value
 // associated with the given expression id. EvalState must be provided to the decorator.
 // This decorator is not thread-safe, and the EvalState must be reset between Eval()
 // calls.
+// DEPRECATED: Please use EvalStateObserver instead. It composes gracefully with additional observers.
 func TrackState(state EvalState) InterpretableDecorator {
-	observer := func(id int64, val ref.Val) {
+	return Observe(EvalStateObserver(state))
+}
+
+// EvalStateObserver provides an observer which records the value
+// associated with the given expression id. EvalState must be provided to the observer.
+// This decorator is not thread-safe, and the EvalState must be reset between Eval()
+// calls.
+func EvalStateObserver(state EvalState) EvalObserver {
+	return func(id int64, programStep interface{}, val ref.Val) {
 		state.SetValue(id, val)
 	}
-	return decObserveEval(observer)
 }
+
+// ExhaustiveEvalWrapper replaces operations that short-circuit with versions that evaluate
+// expressions and couples this behavior with the TrackState observer to provide
+// insight into the evaluation state of the entire expression. The EvalStateObserver must be
+// included in the underlying decorator. This decorator is not thread-safe, and the EvalState
+// must be reset between Eval() calls.
+func ExhaustiveEvalWrapper(underlying InterpretableDecorator) InterpretableDecorator {
+	ex := decDisableShortcircuits()
+	return func(i Interpretable) (Interpretable, error) {
+		var err error
+		i, err = ex(i)
+		if err != nil {
+			return nil, err
+		}
+		return underlying(i)
+	}
+}
+
+// TODO: Replace all usages of ExhaustiveEval with ExhaustiveEvalWrapper
 
 // ExhaustiveEval replaces operations that short-circuit with versions that evaluate
 // expressions and couples this behavior with the TrackState() decorator to provide
 // insight into the evaluation state of the entire expression. EvalState must be
 // provided to the decorator. This decorator is not thread-safe, and the EvalState
 // must be reset between Eval() calls.
+// DEPRECATED: Please use ExhaustiveEvalWrapper instead. It composes gracefully with additional observers.
 func ExhaustiveEval(state EvalState) InterpretableDecorator {
 	ex := decDisableShortcircuits()
 	obs := TrackState(state)

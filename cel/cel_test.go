@@ -1511,8 +1511,7 @@ func TestEstimateCostAndRuntimeCost(t *testing.T) {
 				t.Fatalf(`Failed to check expression with error: %v`, iss.Err())
 			}
 			// Evaluate expression.
-			program, err := e.Program(checked_ast, EvalOptions(OptTrackCost),
-				CallCostEstimator(testRuntimeCostEstimator{}))
+			program, err := e.Program(checked_ast, ActualCostTracking(testRuntimeCostEstimator{}))
 			if err != nil {
 				t.Fatalf(`Failed to construct Program with error: %v`, err)
 			}
@@ -1529,7 +1528,6 @@ func TestEstimateCostAndRuntimeCost(t *testing.T) {
 				t.Fatalf("runtime cost %d is out of the range of estimate cost [%d, %d]", *actualCost,
 					est.Min, est.Max)
 			}
-
 		})
 	}
 }

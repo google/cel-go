@@ -68,9 +68,6 @@ type InterpretableAttribute interface {
 
 	// Resolve returns the value of the Attribute given the current Activation.
 	Resolve(Activation) (interface{}, error)
-
-	// RuntimeCost returns the runtime cost of the Attribute given the current Activation and EvalState
-	RuntimeCost(ctx Activation, evalState EvalState) uint64
 }
 
 // InterpretableCall interface for inspecting Interpretable instructions related to function calls.
@@ -91,10 +88,27 @@ type InterpretableCall interface {
 	Args() []Interpretable
 }
 
-type InterpretableOp interface {
+// InterpretableConstructor interface for inspecting  Interpretable instructions that initialize a list, map
+// or struct.
+type InterpretableConstructor interface {
 	Interpretable
 
-	RuntimeCost() uint64
+	// InitVals returns all the list elements, map key and values or struct field values.
+	InitVals() []Interpretable
+
+	// Type returns the type constructed.
+	Type() ref.Type
+}
+
+// InterpretableBooleanBinaryOp interface for inspecting "&&" and "||" booelan operations.
+type InterpretableBooleanBinaryOp interface {
+	Interpretable
+
+	// LHS returns the left-hand size.
+	LHS() Interpretable
+
+	// RHS returns the right-hand size.
+	RHS() Interpretable
 }
 
 // Core Interpretable implementations used during the program planning phase.
@@ -197,6 +211,16 @@ func (or *evalOr) ID() int64 {
 	return or.id
 }
 
+// LHS implements the InterpretableBooleanBinaryOp interface method.
+func (or *evalOr) LHS() Interpretable {
+	return or.lhs
+}
+
+// RHS implements the InterpretableBooleanBinaryOp interface method.
+func (or *evalOr) RHS() Interpretable {
+	return or.rhs
+}
+
 // Eval implements the Interpretable interface method.
 func (or *evalOr) Eval(ctx Activation) ref.Val {
 	// short-circuit lhs.
@@ -236,10 +260,6 @@ func (or *evalOr) Cost() (min, max int64) {
 	return calShortCircuitBinaryOpsCost(or.lhs, or.rhs)
 }
 
-func (or *evalOr) RuntimeCost() uint64 {
-	return 1
-}
-
 type evalAnd struct {
 	id  int64
 	lhs Interpretable
@@ -249,6 +269,16 @@ type evalAnd struct {
 // ID implements the Interpretable interface method.
 func (and *evalAnd) ID() int64 {
 	return and.id
+}
+
+// LHS implements the InterpretableBooleanBinaryOp interface method.
+func (and *evalAnd) LHS() Interpretable {
+	return and.lhs
+}
+
+// RHS implements the InterpretableBooleanBinaryOp interface method.
+func (and *evalAnd) RHS() Interpretable {
+	return and.rhs
 }
 
 // Eval implements the Interpretable interface method.
@@ -288,10 +318,6 @@ func (and *evalAnd) Eval(ctx Activation) ref.Val {
 // side expr is sufficient in determining the evaluation result.
 func (and *evalAnd) Cost() (min, max int64) {
 	return calShortCircuitBinaryOpsCost(and.lhs, and.rhs)
-}
-
-func (and *evalAnd) RuntimeCost() uint64 {
-	return 1
 }
 
 func calShortCircuitBinaryOpsCost(lhs, rhs Interpretable) (min, max int64) {
@@ -638,13 +664,17 @@ func (l *evalList) Eval(ctx Activation) ref.Val {
 	return l.adapter.NativeToValue(elemVals)
 }
 
+func (l *evalList) InitVals() []Interpretable {
+	return l.elems
+}
+
+func (l *evalList) Type() ref.Type {
+	return types.ListType
+}
+
 // Cost implements the Coster interface method.
 func (l *evalList) Cost() (min, max int64) {
 	return sumOfCost(l.elems)
-}
-
-func (l *evalList) RuntimeCost() uint64 {
-	return 10
 }
 
 type evalMap struct {
@@ -677,15 +707,19 @@ func (m *evalMap) Eval(ctx Activation) ref.Val {
 	return m.adapter.NativeToValue(entries)
 }
 
+func (m *evalMap) InitVals() []Interpretable {
+	return append(m.keys, m.vals...)
+}
+
+func (m *evalMap) Type() ref.Type {
+	return types.MapType
+}
+
 // Cost implements the Coster interface method.
 func (m *evalMap) Cost() (min, max int64) {
 	kMin, kMax := sumOfCost(m.keys)
 	vMin, vMax := sumOfCost(m.vals)
 	return kMin + vMin, kMax + vMax
-}
-
-func (m *evalMap) RuntimeCost() uint64 {
-	return 30
 }
 
 type evalObj struct {
@@ -715,13 +749,17 @@ func (o *evalObj) Eval(ctx Activation) ref.Val {
 	return o.provider.NewValue(o.typeName, fieldVals)
 }
 
+func (o *evalObj) InitVals() []Interpretable {
+	return o.vals
+}
+
+func (o *evalObj) Type() ref.Type {
+	return types.NewObjectTypeValue(o.typeName)
+}
+
 // Cost implements the Coster interface method.
 func (o *evalObj) Cost() (min, max int64) {
 	return sumOfCost(o.vals)
-}
-
-func (o *evalObj) RuntimeCost() uint64 {
-	return 40
 }
 
 func sumOfCost(interps []Interpretable) (min, max int64) {
@@ -861,13 +899,13 @@ func (e *evalSetMembership) Cost() (min, max int64) {
 // expression so that it may observe the computed value and send it to an observer.
 type evalWatch struct {
 	Interpretable
-	observer evalObserver
+	observer EvalObserver
 }
 
 // Eval implements the Interpretable interface method.
 func (e *evalWatch) Eval(ctx Activation) ref.Val {
 	val := e.Interpretable.Eval(ctx)
-	e.observer(e.ID(), val)
+	e.observer(e.ID(), e.Interpretable, val)
 	return val
 }
 
@@ -876,21 +914,13 @@ func (e *evalWatch) Cost() (min, max int64) {
 	return estimateCost(e.Interpretable)
 }
 
-func (e *evalWatch) RuntimeCost() uint64 {
-	switch t := e.Interpretable.(type) {
-	case InterpretableOp:
-		return t.RuntimeCost()
-	}
-	return 0
-}
-
 // evalWatchAttr describes a watcher of an instAttr Interpretable.
 //
 // Since the watcher may be selected against at a later stage in program planning, the watcher
 // must implement the instAttr interface by proxy.
 type evalWatchAttr struct {
 	InterpretableAttribute
-	observer evalObserver
+	observer EvalObserver
 }
 
 // AddQualifier creates a wrapper over the incoming qualifier which observes the qualification
@@ -918,7 +948,7 @@ func (e *evalWatchAttr) AddQualifier(q Qualifier) (Attribute, error) {
 // string, or uint.
 type evalWatchConstQual struct {
 	ConstantQualifier
-	observer evalObserver
+	observer EvalObserver
 	adapter  ref.TypeAdapter
 }
 
@@ -936,7 +966,7 @@ func (e *evalWatchConstQual) Qualify(vars Activation, obj interface{}) (interfac
 	} else {
 		val = e.adapter.NativeToValue(out)
 	}
-	e.observer(e.ID(), val)
+	e.observer(e.ID(), e.ConstantQualifier, val)
 	return out, err
 }
 
@@ -949,14 +979,13 @@ func (e *evalWatchConstQual) QualifierValueEquals(value interface{}) bool {
 // evalWatchQual observes the qualification of an object by a value computed at runtime.
 type evalWatchQual struct {
 	Qualifier
-	observer evalObserver
+	observer EvalObserver
 	adapter  ref.TypeAdapter
 }
 
 // Cost implements the Coster interface method.
 func (e *evalWatchQual) Cost() (min, max int64) {
-	//return estimateCost(e.Qualifier)
-	return 0, 0
+	return estimateCost(e.Qualifier)
 }
 
 // Qualify observes the qualification of a object via a value computed at runtime.
@@ -968,7 +997,7 @@ func (e *evalWatchQual) Qualify(vars Activation, obj interface{}) (interface{}, 
 	} else {
 		val = e.adapter.NativeToValue(out)
 	}
-	e.observer(e.ID(), val)
+	e.observer(e.ID(), e.Qualifier, val)
 	return out, err
 }
 
@@ -980,44 +1009,26 @@ func (e *evalWatchAttr) Cost() (min, max int64) {
 // Eval implements the Interpretable interface method.
 func (e *evalWatchAttr) Eval(vars Activation) ref.Val {
 	val := e.InterpretableAttribute.Eval(vars)
-	e.observer(e.ID(), val)
+	e.observer(e.ID(), e.InterpretableAttribute, val)
 	return val
 }
 
 // evalWatchConst describes a watcher of an instConst Interpretable.
 type evalWatchConst struct {
 	InterpretableConst
-	observer evalObserver
+	observer EvalObserver
 }
 
 // Eval implements the Interpretable interface method.
 func (e *evalWatchConst) Eval(vars Activation) ref.Val {
 	val := e.Value()
-	e.observer(e.ID(), val)
+	e.observer(e.ID(), e.InterpretableConst, val)
 	return val
 }
 
 // Cost implements the Coster interface method.
 func (e *evalWatchConst) Cost() (min, max int64) {
 	return estimateCost(e.InterpretableConst)
-}
-
-// evalWatchCall describes a watcher of an instCall Interpretable.
-type evalWatchCall struct {
-	InterpretableCall
-	observer evalObserver
-}
-
-// Eval implements the Interpretable interface method.
-func (e *evalWatchCall) Eval(vars Activation) ref.Val {
-	val := e.InterpretableCall.Eval(vars)
-	e.observer(e.ID(), val)
-	return val
-}
-
-// Cost implements the Coster interface method.
-func (e *evalWatchCall) Cost() (min, max int64) {
-	return estimateCost(e.InterpretableCall)
 }
 
 // evalExhaustiveOr is just like evalOr, but does not short-circuit argument evaluation.
@@ -1030,6 +1041,16 @@ type evalExhaustiveOr struct {
 // ID implements the Interpretable interface method.
 func (or *evalExhaustiveOr) ID() int64 {
 	return or.id
+}
+
+// LHS implements the InterpretableBooleanBinaryOp interface method.
+func (or *evalExhaustiveOr) LHS() Interpretable {
+	return or.lhs
+}
+
+// RHS implements the InterpretableBooleanBinaryOp interface method.
+func (or *evalExhaustiveOr) RHS() Interpretable {
+	return or.rhs
 }
 
 // Eval implements the Interpretable interface method.
@@ -1076,6 +1097,16 @@ type evalExhaustiveAnd struct {
 // ID implements the Interpretable interface method.
 func (and *evalExhaustiveAnd) ID() int64 {
 	return and.id
+}
+
+// LHS implements the InterpretableBooleanBinaryOp interface method.
+func (and *evalExhaustiveAnd) LHS() Interpretable {
+	return and.lhs
+}
+
+// RHS implements the InterpretableBooleanBinaryOp interface method.
+func (and *evalExhaustiveAnd) RHS() Interpretable {
+	return and.rhs
 }
 
 // Eval implements the Interpretable interface method.
@@ -1284,8 +1315,4 @@ func (a *evalAttr) Qualify(ctx Activation, obj interface{}) (interface{}, error)
 // Resolve proxies to the Attribute's Resolve method.
 func (a *evalAttr) Resolve(ctx Activation) (interface{}, error) {
 	return a.attr.Resolve(ctx)
-}
-
-func (a *evalAttr) RuntimeCost(ctx Activation, evalState EvalState) uint64 {
-	return a.attr.RuntimeCost(ctx, evalState)
 }

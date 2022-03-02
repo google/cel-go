@@ -33,7 +33,7 @@ type Program interface {
 	//
 	// The vars value may either be an `interpreter.Activation` or a `map[string]interface{}`.
 	//
-	// If the `OptTrackState` or `OptExhaustiveEval` flags are used, the `details` response will
+	// If the `OptTrackState`, `OptTrackCost` or `OptExhaustiveEval` flags are used, the `details` response will
 	// be non-nil. Given this caveat on `details`, the return state from evaluation will be:
 	//
 	// *  `val`, `details`, `nil` - Successful evaluation of a non-error result.
@@ -212,14 +212,21 @@ func newProgram(e *Env, ast *Ast, opts []ProgramOption) (Program, error) {
 		factory := func(state interpreter.EvalState, costTracker *interpreter.CostTracker) (Program, error) {
 			costTracker.CallCostEstimator = p.callCostEstimator
 			decs := decorators
-			// Enable exhaustive eval over state tracking since it offers a superset of features.
-			if p.evalOpts&OptExhaustiveEval == OptExhaustiveEval {
-				decs = append(decs, interpreter.ExhaustiveEval(state))
-			} else if p.evalOpts&(OptTrackState|OptTrackCost) != 0 {
-				decs = append(decs, interpreter.TrackState(state))
+			var observers []interpreter.EvalObserver
+
+			if p.evalOpts&(OptExhaustiveEval|OptTrackState) != 0 {
+				// EvalStateObserver is required for OptExhaustiveEval.
+				observers = append(observers, interpreter.EvalStateObserver(state))
 			}
 			if p.evalOpts&OptTrackCost == OptTrackCost {
-				decs = append(decs, interpreter.TrackCost(state, costTracker))
+				observers = append(observers, interpreter.CostObserver(costTracker))
+			}
+
+			// Enable exhaustive eval over a basic observer since it offers a superset of features.
+			if p.evalOpts&OptExhaustiveEval == OptExhaustiveEval {
+				decs = append(decs, interpreter.ExhaustiveEvalWrapper(interpreter.Observe(observers...)))
+			} else if len(observers) > 0 {
+				decs = append(decs, interpreter.Observe(observers...))
 			}
 
 			clone := &prog{

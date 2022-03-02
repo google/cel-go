@@ -391,11 +391,12 @@ func EvalOptions(opts ...EvalOption) ProgramOption {
 	}
 }
 
-// CallCostEstimator registers a ActualCostEstimator that can optionally provide a runtime cost estimate for any function calls.
+// ActualCostTracking enables cost tracking and registers a ActualCostEstimator that can optionally provide a runtime cost estimate for any function calls.
 // This enables runtime costs to be assigned to calls function library extensions.
-func CallCostEstimator(costEstimator interpreter.ActualCostEstimator) ProgramOption {
+func ActualCostTracking(costEstimator interpreter.ActualCostEstimator) ProgramOption {
 	return func(p *prog) (*prog, error) {
 		p.callCostEstimator = costEstimator
+		p.evalOpts |= OptTrackCost
 		return p, nil
 	}
 }
