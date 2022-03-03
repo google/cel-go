@@ -17,11 +17,14 @@ package checker
 import (
 	"math"
 
+	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/parser"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
+
+// WARNING: Any changes to cost calculations in this file require a corresponding change in interpreter/runtimecost.go
 
 // CostEstimator estimates the sizes of variable length input data and the costs of functions.
 type CostEstimator interface {
@@ -56,7 +59,8 @@ type AstNode interface {
 	Expr() *exprpb.Expr
 	// ComputedSize returns a size estimate of the AstNode derived from information available in the CEL expression.
 	// For constants and inline list and map declarations, the exact size is returned. For concatenated list, strings
-	// and bytes, the size is derived from the size estimates of the operands.
+	// and bytes, the size is derived from the size estimates of the operands. nil is returned if there is no
+	// computed size available.
 	ComputedSize() *SizeEstimate
 }
 
@@ -91,6 +95,10 @@ func (e astNode) ComputedSize() *SizeEstimate {
 			v = uint64(len(ck.StringValue))
 		case *exprpb.Constant_BytesValue:
 			v = uint64(len(ck.BytesValue))
+		case *exprpb.Constant_BoolValue, *exprpb.Constant_DoubleValue, *exprpb.Constant_DurationValue,
+			*exprpb.Constant_Int64Value, *exprpb.Constant_TimestampValue, *exprpb.Constant_Uint64Value,
+			*exprpb.Constant_NullValue:
+			v = uint64(1)
 		default:
 			return nil
 		}
@@ -233,13 +241,12 @@ func multiplyByCostFactor(x uint64, y float64) uint64 {
 }
 
 var (
-	identCost  = CostEstimate{Min: 1, Max: 1}
-	selectCost = CostEstimate{Min: 1, Max: 1}
-	constCost  = CostEstimate{Min: 0, Max: 0}
+	selectAndIdentCost = CostEstimate{Min: common.SelectAndIdentCost, Max: common.SelectAndIdentCost}
+	constCost          = CostEstimate{Min: common.ConstCost, Max: common.ConstCost}
 
-	createListBaseCost    = CostEstimate{Min: 10, Max: 10}
-	createMapBaseCost     = CostEstimate{Min: 30, Max: 30}
-	createMessageBaseCost = CostEstimate{Min: 40, Max: 40}
+	createListBaseCost    = CostEstimate{Min: common.ListCreateBaseCost, Max: common.ListCreateBaseCost}
+	createMapBaseCost     = CostEstimate{Min: common.MapCreateBaseCost, Max: common.MapCreateBaseCost}
+	createMessageBaseCost = CostEstimate{Min: common.StructCreateBaseCost, Max: common.StructCreateBaseCost}
 )
 
 type coster struct {
@@ -326,7 +333,7 @@ func (c *coster) costIdent(e *exprpb.Expr) CostEstimate {
 		c.addPath(e, []string{identExpr.GetName()})
 	}
 
-	return identCost
+	return selectAndIdentCost
 }
 
 func (c *coster) costSelect(e *exprpb.Expr) CostEstimate {
@@ -339,7 +346,7 @@ func (c *coster) costSelect(e *exprpb.Expr) CostEstimate {
 	targetType := c.getType(sel.GetOperand())
 	switch kindOf(targetType) {
 	case kindMap, kindObject, kindTypeParam:
-		sum = sum.Add(selectCost)
+		sum = sum.Add(selectAndIdentCost)
 	}
 
 	// build and track the field path
@@ -456,8 +463,6 @@ func (c *coster) costComprehension(e *exprpb.Expr) CostEstimate {
 	stepCost := c.cost(comp.GetLoopStep())
 	c.iterRanges.pop(comp.GetIterVar())
 	sum = sum.Add(c.cost(comp.Result))
-	// TODO: comprehensions short circuit, so even if the min list size > 0, the minimum number of elements evaluated
-	// will be 1.
 	rangeCnt := c.sizeEstimate(c.newAstNode(comp.GetIterRange()))
 	rangeCost := rangeCnt.MultiplyByCost(stepCost.Add(loopCost))
 	sum = sum.Add(rangeCost)
@@ -477,9 +482,6 @@ func (c *coster) sizeEstimate(t AstNode) SizeEstimate {
 
 func (c *coster) functionCost(overloadId string, target *AstNode, args []AstNode, argCosts []CostEstimate) CallEstimate {
 	argCostSum := func() CostEstimate {
-		// TODO: handle ternary
-		// TODO: && || operators short circuit, so min cost should only include 1st arg eval
-		// unless exhaustive evaluation is enabled
 		var sum CostEstimate
 		for _, a := range argCosts {
 			sum = sum.Add(a)
@@ -495,7 +497,7 @@ func (c *coster) functionCost(overloadId string, target *AstNode, args []AstNode
 	// O(n) functions
 	case overloads.StartsWithString, overloads.EndsWithString, overloads.StringToBytes, overloads.BytesToString:
 		if len(args) == 1 {
-			return CallEstimate{CostEstimate: c.sizeEstimate(args[0]).MultiplyByCostFactor(0.1).Add(argCostSum())}
+			return CallEstimate{CostEstimate: c.sizeEstimate(args[0]).MultiplyByCostFactor(common.StringTraversalCostFactor).Add(argCostSum())}
 		}
 	case overloads.InList:
 		// If a list is composed entirely of constant values this is O(1), but we don't account for that here.
@@ -507,19 +509,21 @@ func (c *coster) functionCost(overloadId string, target *AstNode, args []AstNode
 	case overloads.MatchesString:
 		// https://swtch.com/~rsc/regexp/regexp1.html applies to RE2 implementation supported by CEL
 		if target != nil && len(args) == 1 {
-			strCost := c.sizeEstimate(*target).MultiplyByCostFactor(0.1)
+			// Add one to string length for purposes of cost calculation to prevent product of string and regex to be 0
+			// in case where string is empty but regex is still expensive.
+			strCost := c.sizeEstimate(*target).Add(SizeEstimate{Min: 1, Max: 1}).MultiplyByCostFactor(common.StringTraversalCostFactor)
 			// We don't know how many expressions are in the regex, just the string length (a huge
 			// improvement here would be to somehow get a count the number of expressions in the regex or
 			// how many states are in the regex state machine and use that to measure regex cost).
 			// For now, we're making a guess that each expression in a regex is typically at least 4 chars
 			// in length.
-			regexCost := c.sizeEstimate(args[0]).MultiplyByCostFactor(0.25)
+			regexCost := c.sizeEstimate(args[0]).MultiplyByCostFactor(common.RegexStringLengthCostFactor)
 			return CallEstimate{CostEstimate: strCost.Multiply(regexCost).Add(argCostSum())}
 		}
 	case overloads.ContainsString:
 		if target != nil && len(args) == 1 {
-			strCost := c.sizeEstimate(*target).MultiplyByCostFactor(0.1)
-			substrCost := c.sizeEstimate(args[0]).MultiplyByCostFactor(0.1)
+			strCost := c.sizeEstimate(*target).MultiplyByCostFactor(common.StringTraversalCostFactor)
+			substrCost := c.sizeEstimate(args[0]).MultiplyByCostFactor(common.StringTraversalCostFactor)
 			return CallEstimate{CostEstimate: strCost.Multiply(substrCost).Add(argCostSum())}
 		}
 	case overloads.LogicalOr, overloads.LogicalAnd:
@@ -540,10 +544,33 @@ func (c *coster) functionCost(overloadId string, target *AstNode, args []AstNode
 			lhsSize := c.sizeEstimate(args[0])
 			rhsSize := c.sizeEstimate(args[1])
 			resultSize := lhsSize.Add(rhsSize)
-			return CallEstimate{CostEstimate: resultSize.MultiplyByCostFactor(0.1).Add(argCostSum()), ResultSize: &resultSize}
+			switch overloadId {
+			case overloads.AddList:
+				// list concatenation is O(1), but we handle it here to track size
+				return CallEstimate{CostEstimate: CostEstimate{Min: 1, Max: 1}.Add(argCostSum()), ResultSize: &resultSize}
+			default:
+				return CallEstimate{CostEstimate: resultSize.MultiplyByCostFactor(common.StringTraversalCostFactor).Add(argCostSum()), ResultSize: &resultSize}
+			}
 		}
+	case overloads.LessString, overloads.GreaterString, overloads.LessEqualsString, overloads.GreaterEqualsString,
+		overloads.LessBytes, overloads.GreaterBytes, overloads.LessEqualsBytes, overloads.GreaterEqualsBytes,
+		overloads.Equals, overloads.NotEquals:
+		lhsCost := c.sizeEstimate(args[0])
+		rhsCost := c.sizeEstimate(args[1])
+		min := uint64(0)
+		smallestMax := lhsCost.Max
+		if rhsCost.Max < smallestMax {
+			smallestMax = rhsCost.Max
+		}
+		if smallestMax > 0 {
+			min = 1
+		}
+		// equality of 2 scalar values results in a cost of 1
+		return CallEstimate{CostEstimate: CostEstimate{Min: min, Max: smallestMax}.MultiplyByCostFactor(common.StringTraversalCostFactor).Add(argCostSum())}
 	}
 	// O(1) functions
+	// See CostTracker.costCall for more details about O(1) cost calculations
+
 	// Benchmarks suggest that most of the other operations take +/- 50% of a base cost unit
 	// which on an Intel xeon 2.20GHz CPU is 50ns.
 	return CallEstimate{CostEstimate: CostEstimate{Min: 1, Max: 1}.Add(argCostSum())}

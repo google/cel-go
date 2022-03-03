@@ -1426,6 +1426,7 @@ func TestCustomInterpreterDecorator(t *testing.T) {
 	}
 }
 
+// TODO: ideally testCostEstimator and testRuntimeCostEstimator would be shared in a test fixtures package
 type testCostEstimator struct {
 	hints map[string]int64
 }
@@ -1445,6 +1446,34 @@ func (tc testCostEstimator) EstimateCallCost(overloadId string, target *checker.
 	return nil
 }
 
+type testRuntimeCostEstimator struct {
+}
+
+var timeToYearCost uint64 = 7
+
+func (e testRuntimeCostEstimator) CallCost(overloadId string, args []ref.Val) *uint64 {
+	argsSize := make([]uint64, len(args))
+	for i, arg := range args {
+		reflectV := reflect.ValueOf(arg.Value())
+		switch reflectV.Kind() {
+		// Note that the CEL bytes type is implemented with Go byte slices, therefore also supported by the following
+		// code.
+		case reflect.String, reflect.Array, reflect.Slice, reflect.Map:
+			argsSize[i] = uint64(reflectV.Len())
+		default:
+			argsSize[i] = 1
+		}
+	}
+
+	switch overloadId {
+	case overloads.TimestampToYear:
+		return &timeToYearCost
+	default:
+		return nil
+	}
+}
+
+// TestEstimateCostAndRuntimeCost sanity checks that the cost systems are usable from the program API.
 func TestEstimateCostAndRuntimeCost(t *testing.T) {
 	intList := decls.NewListType(decls.Int)
 	zeroCost := checker.CostEstimate{}
@@ -1460,6 +1489,7 @@ func TestEstimateCostAndRuntimeCost(t *testing.T) {
 			name: "const",
 			expr: `"Hello World!"`,
 			want: zeroCost,
+			in:   map[string]interface{}{},
 		},
 		{
 			name:  "identity",
@@ -1479,21 +1509,6 @@ func TestEstimateCostAndRuntimeCost(t *testing.T) {
 			want:  checker.CostEstimate{Min: 2, Max: 6},
 			in:    map[string]interface{}{"str1": "val1111111", "str2": "val2222222"},
 		},
-		{
-			name: "ternary with var",
-			expr: `true > false ? [1, 2, 3].all(x, true) : false`,
-			want: checker.CostEstimate{Min: 1, Max: 21},
-		},
-		{
-			name: "short circuited, 0 cost lhs",
-			expr: `true || 4 > 3 || 3 > 2 || 2 > 1 || 1 > 0`,
-			want: checker.CostEstimate{Min: 0, Max: 4},
-		},
-		{
-			name: "short circuited, 1 cost lhs",
-			expr: `3 > 4 || 4 > 3 || 3 > 2 || 2 > 1 || 1 > 0`,
-			want: checker.CostEstimate{Min: 1, Max: 5},
-		},
 	}
 
 	for _, tc := range cases {
@@ -1505,7 +1520,7 @@ func TestEstimateCostAndRuntimeCost(t *testing.T) {
 				Declarations(tc.decls...),
 				Types(&proto3pb.TestAllTypes{}))
 			if err != nil {
-				t.Fatalf("environment creation error: %s\n", err)
+				t.Fatalf("NewEnv(opts ...EnvOption) failed to create an environment: %s\n", err)
 			}
 			ast, iss := e.Compile(tc.expr)
 			if iss.Err() != nil {
@@ -1513,34 +1528,33 @@ func TestEstimateCostAndRuntimeCost(t *testing.T) {
 			}
 			est, err := e.EstimateCost(ast, testCostEstimator{hints: tc.hints})
 			if err != nil {
-				t.Fatalf("estimate cost error: %s\n", err)
+				t.Fatalf("Env.EstimateCost(ast *Ast, estimator checker.CostEstimator) failed to estimate cost: %s\n", err)
 			}
 			if est.Min != tc.want.Min || est.Max != tc.want.Max {
-				t.Fatalf("Got cost interval [%v, %v], wanted [%v, %v]",
+				t.Fatalf("Env.EstimateCost(ast *Ast, estimator checker.CostEstimator) failed to return the right cost interval. Got [%v, %v], wanted [%v, %v]",
 					est.Min, est.Max, tc.want.Min, tc.want.Max)
 			}
 
-			ctx := constructActivation(t, tc.in)
-			checked_ast, iss := e.Check(ast)
+			checkedAst, iss := e.Check(ast)
 			if iss.Err() != nil {
-				t.Fatalf(`Failed to check expression with error: %v`, iss.Err())
+				t.Fatalf(`Env.Check(ast *Ast) failed to check expression: %v`, iss.Err())
 			}
 			// Evaluate expression.
-			program, err := e.Program(checked_ast, ActualCostTracking(testRuntimeCostEstimator{}))
+			program, err := e.Program(checkedAst, CostTracking(testRuntimeCostEstimator{}))
 			if err != nil {
-				t.Fatalf(`Failed to construct Program with error: %v`, err)
+				t.Fatalf(`Env.Program(ast *Ast, opts ...ProgramOption) failed to construct program: %v`, err)
 			}
-			_, details, err := program.Eval(ctx)
+			_, details, err := program.Eval(tc.in)
 			if err != nil {
-				t.Fatalf(`Failed to evaluate expression with error: %v`, err)
+				t.Fatalf(`Program.Eval(vars interface{}) failed to evaluate expression: %v`, err)
 			}
 			actualCost := details.ActualCost()
 			if actualCost == nil {
-				t.Fatalf(`Null pointer returned for the cost of expression "%s"`, tc.expr)
+				t.Errorf(`EvalDetails.ActualCost() got nil for "%s" cost, wanted %d`, tc.expr, actualCost)
 			}
 
 			if est.Min > *actualCost || est.Max < *actualCost {
-				t.Fatalf("runtime cost %d is out of the range of estimate cost [%d, %d]", *actualCost,
+				t.Errorf("EvalDetails.ActualCost() failed to return a runtime cost %d is the range of estimate cost [%d, %d]", *actualCost,
 					est.Min, est.Max)
 			}
 		})

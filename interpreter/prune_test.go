@@ -143,7 +143,7 @@ func TestPrune(t *testing.T) {
 
 		interpretable, _ := interp.NewUncheckedInterpretable(
 			ast.Expr,
-			ExhaustiveEval(state))
+			ExhaustiveEval(), Observe(EvalStateObserver(state)))
 		interpretable.Eval(testActivation(t, tst.in))
 		newExpr := PruneAst(ast.Expr, state)
 		actual, err := parser.Unparse(newExpr, nil)

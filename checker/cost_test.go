@@ -122,7 +122,7 @@ func TestCost(t *testing.T) {
 			decls:  []*exprpb.Decl{decls.NewVar("input", decls.String)},
 			hints:  map[string]int64{"input": 500},
 			expr:   `input.matches('[0-9]')`,
-			wanted: CostEstimate{Min: 1, Max: 101},
+			wanted: CostEstimate{Min: 3, Max: 103},
 		},
 		{
 			name:   "variable cost function with constant",
@@ -240,7 +240,7 @@ func TestCost(t *testing.T) {
 				decls.NewVar("input", decls.String),
 			},
 			hints:  map[string]int64{"input": 500},
-			wanted: CostEstimate{Min: 1, Max: 101},
+			wanted: CostEstimate{Min: 3, Max: 103},
 		},
 		{
 			name: "startsWith",
@@ -342,7 +342,7 @@ func TestCost(t *testing.T) {
 				decls.NewVar("list2", decls.NewListType(decls.Int)),
 			},
 			hints:  map[string]int64{"list1": 10, "list2": 10},
-			wanted: CostEstimate{Min: 3, Max: 65},
+			wanted: CostEstimate{Min: 4, Max: 64},
 		},
 		{
 			name: "str concat",

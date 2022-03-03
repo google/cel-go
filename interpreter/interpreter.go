@@ -39,8 +39,12 @@ type Interpreter interface {
 }
 
 // EvalObserver is a functional interface that accepts an expression id and an observed value.
+// The id identifies the expression that was evaluated, the programStep is the Interpretable or Qualifier that
+// was evaluated and value is the result of the evaluation.
 type EvalObserver func(id int64, programStep interface{}, value ref.Val)
 
+// Observe constructs a decorator that calls all the provided observers in order after evaluating each Interpretable
+// or Qualifier during program evaluation.
 func Observe(observers ...EvalObserver) InterpretableDecorator {
 	if len(observers) == 1 {
 		return decObserveEval(observers[0])
@@ -52,6 +56,29 @@ func Observe(observers ...EvalObserver) InterpretableDecorator {
 	}
 	return decObserveEval(observeFn)
 }
+
+// EvalCancelledError represents a cancelled program evaluation operation.
+type EvalCancelledError struct {
+	Message string
+	// Type identifies the cause of the cancellation.
+	Cause CancellationCause
+}
+
+func (e EvalCancelledError) Error() string {
+	return e.Message
+}
+
+// CancellationCause enumerates the ways a program evaluation operation can be cancelled.
+type CancellationCause int
+
+const (
+	// ContextCancelled indicates that the operation was cancelled in response to a Golang context cancellation.
+	ContextCancelled CancellationCause = iota
+
+	// CostLimitExceeded indicates that the operation was cancelled in response to the actual cost limit being
+	// exceeded.
+	CostLimitExceeded
+)
 
 // TODO: Replace all usages of TrackState with EvalStateObserver
 
@@ -74,23 +101,6 @@ func EvalStateObserver(state EvalState) EvalObserver {
 	}
 }
 
-// ExhaustiveEvalWrapper replaces operations that short-circuit with versions that evaluate
-// expressions and couples this behavior with the TrackState observer to provide
-// insight into the evaluation state of the entire expression. The EvalStateObserver must be
-// included in the underlying decorator. This decorator is not thread-safe, and the EvalState
-// must be reset between Eval() calls.
-func ExhaustiveEvalWrapper(underlying InterpretableDecorator) InterpretableDecorator {
-	ex := decDisableShortcircuits()
-	return func(i Interpretable) (Interpretable, error) {
-		var err error
-		i, err = ex(i)
-		if err != nil {
-			return nil, err
-		}
-		return underlying(i)
-	}
-}
-
 // TODO: Replace all usages of ExhaustiveEval with ExhaustiveEvalWrapper
 
 // ExhaustiveEval replaces operations that short-circuit with versions that evaluate
@@ -98,17 +108,10 @@ func ExhaustiveEvalWrapper(underlying InterpretableDecorator) InterpretableDecor
 // insight into the evaluation state of the entire expression. EvalState must be
 // provided to the decorator. This decorator is not thread-safe, and the EvalState
 // must be reset between Eval() calls.
-// DEPRECATED: Please use ExhaustiveEvalWrapper instead. It composes gracefully with additional observers.
-func ExhaustiveEval(state EvalState) InterpretableDecorator {
+func ExhaustiveEval() InterpretableDecorator {
 	ex := decDisableShortcircuits()
-	obs := TrackState(state)
 	return func(i Interpretable) (Interpretable, error) {
-		var err error
-		i, err = ex(i)
-		if err != nil {
-			return nil, err
-		}
-		return obs(i)
+		return ex(i)
 	}
 }
 

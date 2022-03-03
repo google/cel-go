@@ -100,17 +100,6 @@ type InterpretableConstructor interface {
 	Type() ref.Type
 }
 
-// InterpretableBooleanBinaryOp interface for inspecting "&&" and "||" booelan operations.
-type InterpretableBooleanBinaryOp interface {
-	Interpretable
-
-	// LHS returns the left-hand size.
-	LHS() Interpretable
-
-	// RHS returns the right-hand size.
-	RHS() Interpretable
-}
-
 // Core Interpretable implementations used during the program planning phase.
 
 type evalTestOnly struct {
@@ -211,16 +200,6 @@ func (or *evalOr) ID() int64 {
 	return or.id
 }
 
-// LHS implements the InterpretableBooleanBinaryOp interface method.
-func (or *evalOr) LHS() Interpretable {
-	return or.lhs
-}
-
-// RHS implements the InterpretableBooleanBinaryOp interface method.
-func (or *evalOr) RHS() Interpretable {
-	return or.rhs
-}
-
 // Eval implements the Interpretable interface method.
 func (or *evalOr) Eval(ctx Activation) ref.Val {
 	// short-circuit lhs.
@@ -269,16 +248,6 @@ type evalAnd struct {
 // ID implements the Interpretable interface method.
 func (and *evalAnd) ID() int64 {
 	return and.id
-}
-
-// LHS implements the InterpretableBooleanBinaryOp interface method.
-func (and *evalAnd) LHS() Interpretable {
-	return and.lhs
-}
-
-// RHS implements the InterpretableBooleanBinaryOp interface method.
-func (and *evalAnd) RHS() Interpretable {
-	return and.rhs
 }
 
 // Eval implements the Interpretable interface method.
@@ -1061,16 +1030,6 @@ func (or *evalExhaustiveOr) ID() int64 {
 	return or.id
 }
 
-// LHS implements the InterpretableBooleanBinaryOp interface method.
-func (or *evalExhaustiveOr) LHS() Interpretable {
-	return or.lhs
-}
-
-// RHS implements the InterpretableBooleanBinaryOp interface method.
-func (or *evalExhaustiveOr) RHS() Interpretable {
-	return or.rhs
-}
-
 // Eval implements the Interpretable interface method.
 func (or *evalExhaustiveOr) Eval(ctx Activation) ref.Val {
 	lVal := or.lhs.Eval(ctx)
@@ -1115,16 +1074,6 @@ type evalExhaustiveAnd struct {
 // ID implements the Interpretable interface method.
 func (and *evalExhaustiveAnd) ID() int64 {
 	return and.id
-}
-
-// LHS implements the InterpretableBooleanBinaryOp interface method.
-func (and *evalExhaustiveAnd) LHS() Interpretable {
-	return and.lhs
-}
-
-// RHS implements the InterpretableBooleanBinaryOp interface method.
-func (and *evalExhaustiveAnd) RHS() Interpretable {
-	return and.rhs
 }
 
 // Eval implements the Interpretable interface method.
