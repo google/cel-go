@@ -829,7 +829,7 @@ func (fold *evalFold) Eval(ctx Activation) ref.Val {
 	// Compute the result.
 	res := fold.result.Eval(accuCtx)
 	// Convert a mutable list to an immutable one, if the comprehension has generated a list as a result.
-	if buildingList {
+	if !types.IsUnknownOrError(res) && buildingList {
 		res = res.(traits.MutableLister).ToImmutableList()
 	}
 	varActivationPool.Put(iterCtx)
