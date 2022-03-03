@@ -401,6 +401,16 @@ func ActualCostTracking(costEstimator interpreter.ActualCostEstimator) ProgramOp
 	}
 }
 
+// ActualCostLimit enables cost tracking and sets configures program evaluation to exit early with a
+// "runtime cost limit exceeded" error if the runtime cost exceeds the limit.
+func ActualCostLimit(limit uint64) ProgramOption {
+	return func(p *prog) (*prog, error) {
+		p.costLimit = &limit
+		p.evalOpts |= OptTrackCost
+		return p, nil
+	}
+}
+
 func fieldToCELType(field protoreflect.FieldDescriptor) (*exprpb.Type, error) {
 	if field.Kind() == protoreflect.MessageKind {
 		msgName := (string)(field.Message().FullName())

@@ -16,7 +16,6 @@ package cel
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math"
 
@@ -106,7 +105,7 @@ func ContextEval(ctx context.Context, p Program, vars interface{}) (ref.Val, *Ev
 	case out := <-res:
 		return out.val, out.det, out.err
 	case <-ctx.Done():
-		return nil, nil, errors.New("operation cancelled")
+		return nil, nil, interpreter.EvalCanceledError{Cause: interpreter.ContextCancelled}
 	}
 }
 
@@ -145,7 +144,8 @@ type prog struct {
 	interpretable      interpreter.Interpretable
 	attrFactory        interpreter.AttributeFactory
 	regexOptimizations []*interpreter.RegexOptimization
-	callCostEstimator interpreter.ActualCostEstimator
+	callCostEstimator  interpreter.ActualCostEstimator
+	costLimit          *uint64
 }
 
 // progFactory is a helper alias for marking a program creation factory function.
@@ -210,7 +210,8 @@ func newProgram(e *Env, ast *Ast, opts []ProgramOption) (Program, error) {
 		// State tracking requires that each Eval() call operate on an isolated EvalState
 		// object; hence, the presence of the factory.
 		factory := func(state interpreter.EvalState, costTracker *interpreter.CostTracker) (Program, error) {
-			costTracker.CallCostEstimator = p.callCostEstimator
+			costTracker.Estimator = p.callCostEstimator
+			costTracker.Limit = p.costLimit
 			decs := decorators
 			var observers []interpreter.EvalObserver
 
@@ -292,7 +293,12 @@ func (p *prog) Eval(input interface{}) (v ref.Val, det *EvalDetails, err error) 
 	// function.
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("internal error: %v", r)
+			switch t := r.(type) {
+			case interpreter.EvalCanceledError:
+				err = t
+			default:
+				err = fmt.Errorf("internal error: %v", r)
+			}
 		}
 	}()
 	// Build a hierarchical activation if there are default vars set.

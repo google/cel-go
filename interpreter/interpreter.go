@@ -53,6 +53,35 @@ func Observe(observers ...EvalObserver) InterpretableDecorator {
 	return decObserveEval(observeFn)
 }
 
+// EvalCanceledError represents a cancelled program evaluation operation.
+type EvalCanceledError struct {
+	// Type identifies the cause of the cancellation.
+	Cause CancelationCause
+}
+
+func (e EvalCanceledError) Error() string {
+	switch e.Cause {
+	case ContextCancelled:
+		return "operation cancelled: context was cancelled"
+	case ActualCostLimitExceeded:
+		return "operation cancelled: actual cost limit exceeded"
+	default:
+		return "operation cancelled" // should not happen
+	}
+}
+
+// CancelationCause enumerates the ways a program evaluation operation can be cancelled.
+type CancelationCause int
+
+const (
+	// ContextCancelled indicates that the operation was cancelled in response to a Golang context cancellation.
+	ContextCancelled CancelationCause = iota
+
+	// ActualCostLimitExceeded indicates that the operation was cancelled in response to the actual cost limit being
+	// exceeded.
+	ActualCostLimitExceeded
+)
+
 // TODO: Replace all usages of TrackState with EvalStateObserver
 
 // TrackState decorates each expression node with an observer which records the value

@@ -21,7 +21,6 @@ package interpreter
 import (
 	"math"
 
-	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
@@ -76,16 +75,20 @@ func CostObserver(tracker *CostTracker) EvalObserver {
 			tracker.cost += 1
 		}
 		tracker.stack.push(val)
+		if tracker.Limit != nil && tracker.cost > *tracker.Limit {
+			panic(EvalCanceledError{Cause: ActualCostLimitExceeded})
+		}
 	}
 	return observer
 }
 
 // CostTracker represents the information needed for tacking runtime cost
 type CostTracker struct {
-	estimator         *checker.CostEstimator
-	CallCostEstimator ActualCostEstimator
-	cost              uint64
-	stack             refValStack
+	Estimator ActualCostEstimator
+	Limit     *uint64
+
+	cost  uint64
+	stack refValStack
 }
 
 // ActualCost returns the runtime cost
@@ -95,8 +98,8 @@ func (c CostTracker) ActualCost() uint64 {
 
 func (c CostTracker) costCall(call InterpretableCall, argValues []ref.Val) uint64 {
 	var cost uint64
-	if c.CallCostEstimator != nil {
-		callCost := c.CallCostEstimator.CallCost(call.OverloadID(), argValues)
+	if c.Estimator != nil {
+		callCost := c.Estimator.CallCost(call.OverloadID(), argValues)
 		if callCost != nil {
 			cost += *callCost
 			return cost

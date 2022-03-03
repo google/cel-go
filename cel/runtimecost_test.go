@@ -193,6 +193,9 @@ func TestRuntimeCost(t *testing.T) {
 		want         uint64
 		in           interface{}
 		testFuncCost bool
+		limit        uint64
+
+		expectExceedsLimit bool
 	}{
 		{
 			name: "const",
@@ -528,6 +531,28 @@ func TestRuntimeCost(t *testing.T) {
 			want: 6,
 			in:   map[string]interface{}{"str1": "val1", "str2": "val2222222"},
 		},
+		{
+			name: "at limit",
+			expr: `"abcdefg".contains(str1 + str2)`,
+			decls: []*exprpb.Decl{
+				decls.NewVar("str1", decls.String),
+				decls.NewVar("str2", decls.String),
+			},
+			in:    map[string]interface{}{"str1": "val1", "str2": "val2222222"},
+			limit: 6,
+			want:  6,
+		},
+		{
+			name: "above limit",
+			expr: `"abcdefg".contains(str1 + str2)`,
+			decls: []*exprpb.Decl{
+				decls.NewVar("str1", decls.String),
+				decls.NewVar("str2", decls.String),
+			},
+			in:                 map[string]interface{}{"str1": "val1", "str2": "val2222222"},
+			limit:              5,
+			expectExceedsLimit: true,
+		},
 	}
 
 	for _, tc := range cases {
@@ -545,24 +570,35 @@ func TestRuntimeCost(t *testing.T) {
 			}
 
 			ctx := constructActivation(t, tc.in)
-			checked_ast, iss := e.Check(ast)
+			checkedAst, iss := e.Check(ast)
 			if iss.Err() != nil {
 				t.Fatalf(`Failed to check expression with error: %v`, iss.Err())
 			}
 			// Evaluate expression.
 			var program Program
+			opts := []ProgramOption{EvalOptions(OptTrackCost)}
 			if tc.testFuncCost {
-				program, err = e.Program(checked_ast, ActualCostTracking(testRuntimeCostEstimator{}))
-			} else {
-				program, err = e.Program(checked_ast, EvalOptions(OptTrackCost))
+				opts = append(opts, ActualCostTracking(testRuntimeCostEstimator{}))
 			}
+			if tc.limit > 0 {
+				opts = append(opts, ActualCostLimit(tc.limit))
+			}
+			program, err = e.Program(checkedAst, opts...)
 
 			if err != nil {
 				t.Fatalf(`Failed to construct Program with error: %v`, err)
 			}
 			_, details, err := program.Eval(ctx)
 			if err != nil {
+				if tc.expectExceedsLimit {
+					if canceled, ok := err.(interpreter.EvalCanceledError); ok && canceled.Cause == interpreter.ActualCostLimitExceeded {
+						return
+					}
+				}
 				t.Fatalf(`Failed to evaluate expression with error: %v`, err)
+			}
+			if tc.expectExceedsLimit {
+				t.Fatalf(`Expected limit of %d to be exceeded, but it was not`, tc.limit)
 			}
 			actualCost := details.ActualCost()
 			if actualCost == nil {
