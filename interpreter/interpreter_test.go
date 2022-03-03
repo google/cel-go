@@ -1402,13 +1402,13 @@ func TestInterpreter(t *testing.T) {
 				}
 			}
 			state := NewEvalState()
-			opts := map[string]InterpretableDecorator{
-				"optimize":   Optimize(),
-				"exhaustive": ExhaustiveEval(state),
-				"track":      TrackState(state),
+			opts := map[string][]InterpretableDecorator{
+				"optimize":   {Optimize()},
+				"exhaustive": {ExhaustiveEval(), Observe(EvalStateObserver(state))},
+				"track":      {Observe(EvalStateObserver(state))},
 			}
 			for mode, opt := range opts {
-				opts := []InterpretableDecorator{opt}
+				opts := opt
 				if tc.extraOpts != nil {
 					opts = append(opts, tc.extraOpts...)
 				}
@@ -1542,7 +1542,7 @@ func TestInterpreter_ExhaustiveConditionalExpr(t *testing.T) {
 	intr := NewStandardInterpreter(cont, reg, reg, attrs)
 	interpretable, _ := intr.NewUncheckedInterpretable(
 		parsed.GetExpr(),
-		ExhaustiveEval(state))
+		ExhaustiveEval(), Observe(EvalStateObserver(state)))
 	vars, _ := NewActivation(map[string]interface{}{
 		"a": types.True,
 		"b": types.Double(0.999),
@@ -1631,7 +1631,7 @@ func TestInterpreter_ExhaustiveLogicalOrEquals(t *testing.T) {
 	interp := NewStandardInterpreter(cont, reg, reg, attrs)
 	i, _ := interp.NewUncheckedInterpretable(
 		parsed.GetExpr(),
-		ExhaustiveEval(state))
+		ExhaustiveEval(), Observe(EvalStateObserver(state)))
 	vars, _ := NewActivation(map[string]interface{}{
 		"a": true,
 		"b": "b",

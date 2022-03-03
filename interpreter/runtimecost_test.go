@@ -12,51 +12,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cel
+package interpreter
 
 import (
+	"fmt"
 	"math/rand"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 
+	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/checker/decls"
+	"github.com/google/cel-go/common"
+	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/overloads"
-	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/interpreter"
+	"github.com/google/cel-go/parser"
 	"github.com/google/cel-go/test/proto3pb"
 )
 
-type testInfo struct {
-	env     *Env
-	in      interface{}
-	lhsExpr string
-	rhsExpr string
-}
-
-func computeCosts(t *testing.T, info *testInfo) (lhsCost, rhsCost uint64) {
-	t.Helper()
-
-	env := info.env
-	if env == nil {
-		emptyEnv, err := NewEnv()
-		if err != nil {
-			t.Fatalf("Failed to create empty environment, error: %v", err)
-		}
-		env = emptyEnv
-	}
-	ctx := constructActivation(t, info.in)
-	lhsCost = computeCost(t, env, info.lhsExpr, &ctx)
-	rhsCost = computeCost(t, env, info.rhsExpr, &ctx)
-
-	return lhsCost, rhsCost
-}
-
 func TestTrackCostAdvanced(t *testing.T) {
-	var equalCases = []testInfo{
+	var equalCases = []struct {
+		in      interface{}
+		lhsExpr string
+		rhsExpr string
+	}{
 		{
 			lhsExpr: `1`,
 			rhsExpr: `2`,
@@ -70,14 +53,29 @@ func TestTrackCostAdvanced(t *testing.T) {
 			rhsExpr: `2 in [15, 17, 16]`,
 		},
 	}
-	for i, testCase := range equalCases {
-		lhsCost, rhsCost := computeCosts(t, &testCase)
-		if lhsCost != rhsCost {
-			t.Errorf(`Expected equal cost case #%d, expressions "%s" vs. "%s", respective cost %d vs. %d`, i,
-				testCase.lhsExpr, testCase.rhsExpr, lhsCost, rhsCost)
-		}
+	for _, tc := range equalCases {
+		t.Run(tc.lhsExpr+" vs "+tc.rhsExpr, func(t *testing.T) {
+			ctx := constructActivation(t, tc.in)
+			lhsCost, _, err := computeCost(t, tc.lhsExpr, nil, ctx, nil)
+			if err != nil {
+				t.Fatalf("Interpreter.Eval(activation Activation) failed to eval expression due: %v", err)
+			}
+			rhsCost, _, err := computeCost(t, tc.rhsExpr, nil, ctx, nil)
+			if err != nil {
+				t.Fatalf("Interpreter.Eval(activation Activation) failed to eval expression due: %v", err)
+			}
+			if lhsCost != rhsCost {
+				t.Errorf(`Interpreter.Eval(activation Activation) failed return a cost for %s of %d equal to a cost for %s of %d`,
+					tc.lhsExpr, lhsCost, tc.rhsExpr, rhsCost)
+			}
+		})
+
 	}
-	var smallerCases = []testInfo{
+	var smallerCases = []struct {
+		in      interface{}
+		lhsExpr string
+		rhsExpr string
+	}{
 		{
 			lhsExpr: `1`,
 			rhsExpr: `1 + 2`,
@@ -91,50 +89,79 @@ func TestTrackCostAdvanced(t *testing.T) {
 			rhsExpr: `1 in [4, 5, 6, 7, 8, 9]`,
 		},
 	}
-	for i, testCase := range smallerCases {
-		lhsCost, rhsCost := computeCosts(t, &testCase)
-		if lhsCost >= rhsCost {
-			t.Errorf(`Expected smaller cost case #%d, expect the cost of expression "%s" to be strictly smaller than "%s", but got %d vs. %d respectively`,
-				i, testCase.lhsExpr, testCase.rhsExpr, lhsCost, rhsCost)
-		}
+	for _, tc := range smallerCases {
+		t.Run(tc.lhsExpr+" vs "+tc.rhsExpr, func(t *testing.T) {
+			ctx := constructActivation(t, tc.in)
+			lhsCost, _, err := computeCost(t, tc.lhsExpr, nil, ctx, nil)
+			if err != nil {
+				t.Fatalf("Interpreter.Eval(activation Activation) failed to eval expression due: %v", err)
+			}
+			rhsCost, _, err := computeCost(t, tc.rhsExpr, nil, ctx, nil)
+			if err != nil {
+				t.Fatalf("Interpreter.Eval(activation Activation) failed to eval expression due: %v", err)
+			}
+			if lhsCost >= rhsCost {
+				t.Errorf(`Interpreter.Eval(activation Activation) failed return a cost for %s of %d less than the cost for %s of %d`,
+					tc.lhsExpr, lhsCost, tc.rhsExpr, rhsCost)
+			}
+		})
 	}
 }
 
-func computeCost(t *testing.T, env *Env, expr string, ctx *interpreter.Activation) uint64 {
+func computeCost(t *testing.T, expr string, decls []*exprpb.Decl, ctx Activation, limit *uint64) (cost uint64, est checker.CostEstimate, err error) {
 	t.Helper()
 
-	// Compile and check expression.
-	ast, iss := env.Compile(expr)
-	if iss.Err() != nil {
-		t.Fatalf(`Failed to compile expression "%s", error: %v`, expr, iss.Err())
+	s := common.NewTextSource(expr)
+	p, err := parser.NewParser(parser.Macros(parser.AllMacros...))
+	if err != nil {
+		t.Fatalf("Failed to initialize parser: %v", err)
 	}
-	checked_ast, iss := env.Check(ast)
-	if iss.Err() != nil {
-		t.Fatalf(`Failed to check expression "%s", error: %v`, expr, iss.Err())
+	parsed, errs := p.Parse(s)
+	if len(errs.GetErrors()) != 0 {
+		t.Fatalf(`Failed to Parse expression "%s", error: %v`, expr, errs.GetErrors())
 	}
 
-	// Evaluate expression.
-	program, err := env.Program(checked_ast, EvalOptions(OptTrackCost))
+	cont := containers.DefaultContainer
+	reg := newTestRegistry(t, &proto3pb.TestAllTypes{})
+	attrs := NewAttributeFactory(cont, reg, reg)
+	env := newTestEnv(t, cont, reg)
+	err = env.Add(decls...)
 	if err != nil {
-		t.Fatalf(`Failed to construct Program from expression "%s", error: %v`, expr, err)
+		t.Fatalf("Failed to initialize env: %v", err)
 	}
-	_, details, err := program.Eval(*ctx)
+
+	checked, errs := checker.Check(parsed, s, env)
+	if len(errs.GetErrors()) != 0 {
+		t.Fatalf(`Failed to check expression "%s", error: %v`, expr, errs.GetErrors())
+	}
+	est = checker.Cost(checked, testCostEstimator{})
+	interp := NewStandardInterpreter(cont, reg, reg, attrs)
+	costTracker := &CostTracker{Estimator: &testRuntimeCostEstimator{}, Limit: limit}
+	prg, err := interp.NewInterpretable(checked, Observe(CostObserver(costTracker)))
 	if err != nil {
-		t.Fatalf(`Failed to evaluate expression "%s", error: %v`, expr, err)
+		t.Fatalf(`Failed to check expression "%s", error: %v`, expr, errs.GetErrors())
 	}
-	costPtr := details.ActualCost()
-	if costPtr == nil {
-		t.Fatalf(`Null pointer returned for the cost of expression "%s"`, expr)
-	}
-	return *costPtr
+
+	defer func() {
+		if r := recover(); r != nil {
+			switch t := r.(type) {
+			case EvalCancelledError:
+				err = t
+			default:
+				err = fmt.Errorf("internal error: %v", r)
+			}
+		}
+	}()
+	prg.Eval(ctx)
+	return costTracker.cost, est, err
 }
 
-func constructActivation(t *testing.T, in interface{}) interpreter.Activation {
+func constructActivation(t *testing.T, in interface{}) Activation {
 	t.Helper()
 	if in == nil {
-		return interpreter.EmptyActivation()
+		return EmptyActivation()
 	}
-	a, err := interpreter.NewActivation(in)
+	a, err := NewActivation(in)
 	if err != nil {
 		t.Fatalf("NewActivation(%v) failed: %v", in, err)
 	}
@@ -178,6 +205,25 @@ func (e testRuntimeCostEstimator) CallCost(overloadId string, args []ref.Val) *u
 	}
 }
 
+type testCostEstimator struct {
+	hints map[string]int64
+}
+
+func (tc testCostEstimator) EstimateSize(element checker.AstNode) *checker.SizeEstimate {
+	if l, ok := tc.hints[strings.Join(element.Path(), ".")]; ok {
+		return &checker.SizeEstimate{Min: 0, Max: uint64(l)}
+	}
+	return nil
+}
+
+func (tc testCostEstimator) EstimateCallCost(overloadId string, target *checker.AstNode, args []checker.AstNode) *checker.CallEstimate {
+	switch overloadId {
+	case overloads.TimestampToYear:
+		return &checker.CallEstimate{CostEstimate: checker.CostEstimate{Min: 7, Max: 7}}
+	}
+	return nil
+}
+
 func TestRuntimeCost(t *testing.T) {
 	allTypes := decls.NewObjectType("google.expr.proto3.test.TestAllTypes")
 	allList := decls.NewListType(allTypes)
@@ -193,6 +239,9 @@ func TestRuntimeCost(t *testing.T) {
 		want         uint64
 		in           interface{}
 		testFuncCost bool
+		limit        uint64
+
+		expectExceedsLimit bool
 	}{
 		{
 			name: "const",
@@ -214,6 +263,13 @@ func TestRuntimeCost(t *testing.T) {
 			in:    map[string]interface{}{"input": map[string]string{"key": "v"}},
 		},
 		{
+			name:  "select: array index",
+			expr:  `input[1]`,
+			decls: []*exprpb.Decl{decls.NewVar("input", decls.NewListType(decls.String))},
+			want:  2,
+			in:    map[string]interface{}{"input": []string{"v"}},
+		},
+		{
 			name:  "select: field",
 			expr:  `input.single_int32`,
 			decls: []*exprpb.Decl{decls.NewVar("input", allTypes)},
@@ -227,6 +283,20 @@ func TestRuntimeCost(t *testing.T) {
 					MapStringString: map[string]string{},
 				},
 			},
+		},
+		{
+			name:  "expr select: map",
+			expr:  `input['ke' + 'y']`,
+			decls: []*exprpb.Decl{decls.NewVar("input", decls.NewMapType(decls.String, decls.String))},
+			want:  3,
+			in:    map[string]interface{}{"input": map[string]string{"key": "v"}},
+		},
+		{
+			name:  "expr select: array index",
+			expr:  `input[3-2]`,
+			decls: []*exprpb.Decl{decls.NewVar("input", decls.NewListType(decls.String))},
+			want:  3,
+			in:    map[string]interface{}{"input": []string{"v"}},
 		},
 		{
 			name:  "select: field test only",
@@ -287,13 +357,13 @@ func TestRuntimeCost(t *testing.T) {
 		{
 			name: "all comprehension on literal",
 			expr: `[1, 2, 3].all(x, true)`,
-			want: 23,
+			want: 20,
 		},
 		{
 			name:  "variable cost function",
 			decls: []*exprpb.Decl{decls.NewVar("input", decls.String)},
 			expr:  `input.matches('[0-9]')`,
-			want:  101,
+			want:  103,
 			in:    map[string]interface{}{"input": string(randSeq(500))},
 		},
 		{
@@ -304,12 +374,12 @@ func TestRuntimeCost(t *testing.T) {
 		{
 			name: "or",
 			expr: `true || false`,
-			want: 1,
+			want: 0,
 		},
 		{
 			name: "and",
 			expr: `true && false`,
-			want: 1,
+			want: 0,
 		},
 		{
 			name: "lt",
@@ -369,12 +439,17 @@ func TestRuntimeCost(t *testing.T) {
 		{
 			name: "ternary",
 			expr: `true ? 1 : 2`,
-			want: 1,
+			want: 0,
 		},
 		{
 			name: "string size",
 			expr: `size("123")`,
 			want: 1,
+		},
+		{
+			name: "str eq str",
+			expr: `'12345678901234567890' == '123456789012345678901234567890'`,
+			want: 2,
 		},
 		{
 			name:  "bytes to string conversion",
@@ -411,7 +486,7 @@ func TestRuntimeCost(t *testing.T) {
 			decls: []*exprpb.Decl{
 				decls.NewVar("input", decls.String),
 			},
-			want: 101,
+			want: 103,
 			in:   map[string]interface{}{"input": string(randSeq(500)), "arg1": string(randSeq(500))},
 		},
 		{
@@ -460,8 +535,20 @@ func TestRuntimeCost(t *testing.T) {
 				decls.NewVar("input1", allList),
 				decls.NewVar("input2", allList),
 			},
-			want: 8,
+			want: 6,
 			in:   map[string]interface{}{"input1": []proto3pb.TestAllTypes{proto3pb.TestAllTypes{}}, "input2": []proto3pb.TestAllTypes{proto3pb.TestAllTypes{}}, "x": 1},
+		},
+		{
+			name: "ternary eval trivial, true",
+			expr: `true ? false : 1 > 3`,
+			want: 0,
+			in:   map[string]interface{}{},
+		},
+		{
+			name: "ternary eval trivial, false",
+			expr: `false ? false : 1 > 3`,
+			want: 1,
+			in:   map[string]interface{}{},
 		},
 		{
 			name: "comprehension over map",
@@ -469,7 +556,7 @@ func TestRuntimeCost(t *testing.T) {
 			decls: []*exprpb.Decl{
 				decls.NewVar("input", allMap),
 			},
-			want: 10,
+			want: 9,
 			in:   map[string]interface{}{"input": map[string]interface{}{"val": &proto3pb.TestAllTypes{}}},
 		},
 		{
@@ -515,7 +602,7 @@ func TestRuntimeCost(t *testing.T) {
 				decls.NewVar("list1", decls.NewListType(decls.Int)),
 				decls.NewVar("list2", decls.NewListType(decls.Int)),
 			},
-			want: 3,
+			want: 4,
 			in:   map[string]interface{}{"list1": []int{}, "list2": []int{}},
 		},
 		{
@@ -528,50 +615,69 @@ func TestRuntimeCost(t *testing.T) {
 			want: 6,
 			in:   map[string]interface{}{"str1": "val1", "str2": "val2222222"},
 		},
+		{
+			name: "at limit",
+			expr: `"abcdefg".contains(str1 + str2)`,
+			decls: []*exprpb.Decl{
+				decls.NewVar("str1", decls.String),
+				decls.NewVar("str2", decls.String),
+			},
+			in:    map[string]interface{}{"str1": "val1", "str2": "val2222222"},
+			limit: 6,
+			want:  6,
+		},
+		{
+			name: "above limit",
+			expr: `"abcdefg".contains(str1 + str2)`,
+			decls: []*exprpb.Decl{
+				decls.NewVar("str1", decls.String),
+				decls.NewVar("str2", decls.String),
+			},
+			in:                 map[string]interface{}{"str1": "val1", "str2": "val2222222"},
+			limit:              5,
+			expectExceedsLimit: true,
+		},
+		{
+			name:  "ternary as operand",
+			expr:  `(1 > 2 ? 5 : 3) > 1`,
+			decls: []*exprpb.Decl{},
+			in:    map[string]interface{}{},
+			want:  2,
+		},
+		{
+			name:  "ternary as operand",
+			expr:  `(1 > 2 || 2 > 1) == true`,
+			decls: []*exprpb.Decl{},
+			in:    map[string]interface{}{},
+			want:  3,
+		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			e, err := NewEnv(
-				Declarations(tc.decls...),
-				Types(&proto3pb.TestAllTypes{}),
-				CustomTypeAdapter(types.DefaultTypeAdapter))
-			if err != nil {
-				t.Fatalf("environment creation error: %s\n", err)
-			}
-			ast, iss := e.Compile(tc.expr)
-			if iss.Err() != nil {
-				t.Fatal(iss.Err())
-			}
-
 			ctx := constructActivation(t, tc.in)
-			checked_ast, iss := e.Check(ast)
-			if iss.Err() != nil {
-				t.Fatalf(`Failed to check expression with error: %v`, iss.Err())
-			}
-			// Evaluate expression.
-			var program Program
-			if tc.testFuncCost {
-				program, err = e.Program(checked_ast, ActualCostTracking(testRuntimeCostEstimator{}))
-			} else {
-				program, err = e.Program(checked_ast, EvalOptions(OptTrackCost))
-			}
 
+			var costLimit *uint64
+			if tc.limit > 0 {
+				costLimit = &tc.limit
+			}
+			actualCost, est, err := computeCost(t, tc.expr, tc.decls, ctx, costLimit)
 			if err != nil {
-				t.Fatalf(`Failed to construct Program with error: %v`, err)
+				if tc.expectExceedsLimit {
+					return
+				}
+				t.Fatalf("Interpreter.Eval(activation Activation) failed due to: %v", err)
 			}
-			_, details, err := program.Eval(ctx)
-			if err != nil {
-				t.Fatalf(`Failed to evaluate expression with error: %v`, err)
+			if tc.expectExceedsLimit {
+				t.Fatalf("Interpreter.Eval(activation Activation) failed to return a cost exceeded error for limit %d, got cost %d", tc.limit, actualCost)
 			}
-			actualCost := details.ActualCost()
-			if actualCost == nil {
-				t.Fatalf(`Null pointer returned for the cost of expression "%s"`, tc.expr)
+			if actualCost != tc.want {
+				t.Fatalf("Interpreter.Eval(activation Activation) failed to return expected runtime cost %d, got %d", tc.want, actualCost)
 			}
-			if *actualCost != tc.want {
-				t.Fatalf("runtime cost %d does not match expected runtime cost %d", *actualCost, tc.want)
+			if est.Min > actualCost || est.Max < actualCost {
+				t.Fatalf("Interpreter.Eval(activation Activation) failed to return cost in range of estimate cost [%d, %d], got %d",
+					est.Min, est.Max, actualCost)
 			}
-
 		})
 	}
 }

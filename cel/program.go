@@ -127,6 +127,7 @@ type prog struct {
 	// Interpretable configured from an Ast and aggregate decorator set based on program options.
 	interpretable     interpreter.Interpretable
 	callCostEstimator interpreter.ActualCostEstimator
+	costLimit         *uint64
 }
 
 func (p *prog) clone() *prog {
@@ -196,7 +197,8 @@ func newProgram(e *Env, ast *Ast, opts []ProgramOption) (Program, error) {
 	// Enable exhaustive eval, state tracking and cost tracking last since they require a factory.
 	if p.evalOpts&(OptExhaustiveEval|OptTrackState|OptTrackCost) != 0 {
 		factory := func(state interpreter.EvalState, costTracker *interpreter.CostTracker) (Program, error) {
-			costTracker.CallCostEstimator = p.callCostEstimator
+			costTracker.Estimator = p.callCostEstimator
+			costTracker.Limit = p.costLimit
 			decs := decorators
 			var observers []interpreter.EvalObserver
 
@@ -210,7 +212,7 @@ func newProgram(e *Env, ast *Ast, opts []ProgramOption) (Program, error) {
 
 			// Enable exhaustive eval over a basic observer since it offers a superset of features.
 			if p.evalOpts&OptExhaustiveEval == OptExhaustiveEval {
-				decs = append(decs, interpreter.ExhaustiveEvalWrapper(interpreter.Observe(observers...)))
+				decs = append(decs, interpreter.ExhaustiveEval(), interpreter.Observe(observers...))
 			} else if len(observers) > 0 {
 				decs = append(decs, interpreter.Observe(observers...))
 			}
@@ -255,7 +257,12 @@ func (p *prog) Eval(input interface{}) (v ref.Val, det *EvalDetails, err error) 
 	// function.
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("internal error: %v", r)
+			switch t := r.(type) {
+			case interpreter.EvalCancelledError:
+				err = t
+			default:
+				err = fmt.Errorf("internal error: %v", r)
+			}
 		}
 	}()
 	// Build a hierarchical activation if there are default vars set.

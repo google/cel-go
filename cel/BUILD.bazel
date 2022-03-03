@@ -46,7 +46,6 @@ go_test(
     srcs = [
         "cel_test.go",
         "io_test.go",
-        "runtimecost_test.go",
     ],
     data = [
         "//cel/testdata:gen_test_fds",

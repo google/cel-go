@@ -400,11 +400,22 @@ func InterruptCheckFrequency(checkFrequency uint) ProgramOption {
 	}
 }
 
-// ActualCostTracking enables cost tracking and registers a ActualCostEstimator that can optionally provide a runtime cost estimate for any function calls.
-// This enables runtime costs to be assigned to calls function library extensions.
-func ActualCostTracking(costEstimator interpreter.ActualCostEstimator) ProgramOption {
+// CostTracking enables cost tracking and registers a ActualCostEstimator that can optionally provide a runtime cost estimate for any function calls.
+func CostTracking(costEstimator interpreter.ActualCostEstimator) ProgramOption {
 	return func(p *prog) (*prog, error) {
 		p.callCostEstimator = costEstimator
+		p.evalOpts |= OptTrackCost
+		return p, nil
+	}
+}
+
+// CostLimit enables cost tracking and sets configures program evaluation to exit early with a
+// "runtime cost limit exceeded" error if the runtime cost exceeds the costLimit.
+// The CostLimit is a metric that corresponds to the number and estimated expense of operations
+// performed while evaluating an expression. It is indicative of CPU usage, not memory usage.
+func CostLimit(costLimit uint64) ProgramOption {
+	return func(p *prog) (*prog, error) {
+		p.costLimit = &costLimit
 		p.evalOpts |= OptTrackCost
 		return p, nil
 	}

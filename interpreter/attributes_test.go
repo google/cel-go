@@ -690,7 +690,7 @@ func TestAttributeStateTracking(t *testing.T) {
 			interp := NewStandardInterpreter(cont, reg, reg, attrs)
 			// Show that program planning will now produce an error.
 			st := NewEvalState()
-			i, err := interp.NewInterpretable(checked, Optimize(), TrackState(st))
+			i, err := interp.NewInterpretable(checked, Optimize(), Observe(EvalStateObserver(st)))
 			if err != nil {
 				t.Fatal(err)
 			}
