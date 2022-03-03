@@ -1476,6 +1476,21 @@ func TestEstimateCost(t *testing.T) {
 			hints: map[string]int64{"str1": 10, "str2": 10},
 			want:  checker.CostEstimate{Min: 2, Max: 6},
 		},
+		{
+			name: "ternary with var",
+			expr: `true > false ? [1, 2, 3].all(x, true) : false`,
+			want: checker.CostEstimate{Min: 1, Max: 21},
+		},
+		{
+			name: "short circuited, 0 cost lhs",
+			expr: `true || 4 > 3 || 3 > 2 || 2 > 1 || 1 > 0`,
+			want: checker.CostEstimate{Min: 0, Max: 4},
+		},
+		{
+			name: "short circuited, 1 cost lhs",
+			expr: `3 > 4 || 4 > 3 || 3 > 2 || 2 > 1 || 1 > 0`,
+			want: checker.CostEstimate{Min: 1, Max: 5},
+		},
 	}
 
 	for _, tc := range cases {
