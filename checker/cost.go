@@ -356,10 +356,9 @@ func (c *coster) costCall(e *exprpb.Expr) CostEstimate {
 	var sum CostEstimate
 
 	argTypes := make([]AstNode, len(args))
+	argCosts := make([]CostEstimate, len(args))
 	for i, arg := range args {
-		// TODO: && || operators short circuit, so min cost should only include 1st arg eval
-		// unless exhaustive evaluation is enabled
-		sum = sum.Add(c.cost(arg))
+		argCosts[i] = c.cost(arg)
 		argTypes[i] = c.newAstNode(arg)
 	}
 
@@ -378,7 +377,7 @@ func (c *coster) costCall(e *exprpb.Expr) CostEstimate {
 	fnCost := CostEstimate{Min: uint64(math.MaxUint64), Max: 0}
 	var resultSize *SizeEstimate
 	for _, overload := range ref.GetOverloadId() {
-		overloadCost := c.functionCost(overload, &targetType, argTypes)
+		overloadCost := c.functionCost(overload, &targetType, argTypes, argCosts)
 		fnCost = fnCost.Union(overloadCost.CostEstimate)
 		if overloadCost.ResultSize != nil {
 			if resultSize == nil {
@@ -476,21 +475,33 @@ func (c *coster) sizeEstimate(t AstNode) SizeEstimate {
 	return SizeEstimate{Min: 0, Max: math.MaxUint64}
 }
 
-func (c *coster) functionCost(overloadId string, target *AstNode, args []AstNode) CallEstimate {
+func (c *coster) functionCost(overloadId string, target *AstNode, args []AstNode, argCosts []CostEstimate) CallEstimate {
+	argCostSum := func() CostEstimate {
+		// TODO: handle ternary
+		// TODO: && || operators short circuit, so min cost should only include 1st arg eval
+		// unless exhaustive evaluation is enabled
+		var sum CostEstimate
+		for _, a := range argCosts {
+			sum = sum.Add(a)
+		}
+		return sum
+	}
+
 	if est := c.estimator.EstimateCallCost(overloadId, target, args); est != nil {
-		return *est
+		callEst := *est
+		return CallEstimate{CostEstimate: callEst.Add(argCostSum())}
 	}
 	switch overloadId {
 	// O(n) functions
 	case overloads.StartsWithString, overloads.EndsWithString, overloads.StringToBytes, overloads.BytesToString:
 		if len(args) == 1 {
-			return CallEstimate{CostEstimate: c.sizeEstimate(args[0]).MultiplyByCostFactor(0.1)}
+			return CallEstimate{CostEstimate: c.sizeEstimate(args[0]).MultiplyByCostFactor(0.1).Add(argCostSum())}
 		}
 	case overloads.InList:
 		// If a list is composed entirely of constant values this is O(1), but we don't account for that here.
 		// We just assume all list containment checks are O(n).
 		if len(args) == 2 {
-			return CallEstimate{CostEstimate: c.sizeEstimate(args[1]).MultiplyByCostFactor(1)}
+			return CallEstimate{CostEstimate: c.sizeEstimate(args[1]).MultiplyByCostFactor(1).Add(argCostSum())}
 		}
 	// O(nm) functions
 	case overloads.MatchesString:
@@ -503,29 +514,39 @@ func (c *coster) functionCost(overloadId string, target *AstNode, args []AstNode
 			// For now, we're making a guess that each expression in a regex is typically at least 4 chars
 			// in length.
 			regexCost := c.sizeEstimate(args[0]).MultiplyByCostFactor(0.25)
-			return CallEstimate{CostEstimate: strCost.Multiply(regexCost)}
+			return CallEstimate{CostEstimate: strCost.Multiply(regexCost).Add(argCostSum())}
 		}
 	case overloads.ContainsString:
 		if target != nil && len(args) == 1 {
 			strCost := c.sizeEstimate(*target).MultiplyByCostFactor(0.1)
 			substrCost := c.sizeEstimate(args[0]).MultiplyByCostFactor(0.1)
-			return CallEstimate{CostEstimate: strCost.Multiply(substrCost)}
+			return CallEstimate{CostEstimate: strCost.Multiply(substrCost).Add(argCostSum())}
 		}
+	case overloads.LogicalOr, overloads.LogicalAnd:
+		lhs := argCosts[0]
+		rhs := argCosts[1]
+		// min cost is min of LHS for short circuited && or ||
+		argCost := CostEstimate{Min: lhs.Min, Max: lhs.Add(rhs).Max}
+		return CallEstimate{CostEstimate: argCost}
 	case overloads.Conditional:
 		size := c.sizeEstimate(args[1]).Union(c.sizeEstimate(args[2]))
-		return CallEstimate{CostEstimate: CostEstimate{Min: 1, Max: 1}, ResultSize: &size}
+		conditionalCost := argCosts[0]
+		ifTrueCost := argCosts[1]
+		ifFalseCost := argCosts[2]
+		argCost := conditionalCost.Add(ifTrueCost.Union(ifFalseCost))
+		return CallEstimate{CostEstimate: argCost, ResultSize: &size}
 	case overloads.AddString, overloads.AddBytes, overloads.AddList:
 		if len(args) == 2 {
 			lhsSize := c.sizeEstimate(args[0])
 			rhsSize := c.sizeEstimate(args[1])
 			resultSize := lhsSize.Add(rhsSize)
-			return CallEstimate{CostEstimate: resultSize.MultiplyByCostFactor(0.1), ResultSize: &resultSize}
+			return CallEstimate{CostEstimate: resultSize.MultiplyByCostFactor(0.1).Add(argCostSum()), ResultSize: &resultSize}
 		}
 	}
 	// O(1) functions
 	// Benchmarks suggest that most of the other operations take +/- 50% of a base cost unit
 	// which on an Intel xeon 2.20GHz CPU is 50ns.
-	return CallEstimate{CostEstimate: CostEstimate{Min: 1, Max: 1}}
+	return CallEstimate{CostEstimate: CostEstimate{Min: 1, Max: 1}.Add(argCostSum())}
 }
 
 func (c *coster) getType(e *exprpb.Expr) *exprpb.Type {

@@ -103,19 +103,19 @@ func TestCost(t *testing.T) {
 			decls:  []*exprpb.Decl{decls.NewVar("input", allList)},
 			hints:  map[string]int64{"input": 100},
 			expr:   `input.all(x, true)`,
-			wanted: CostEstimate{Min: 2, Max: 402},
+			wanted: CostEstimate{Min: 2, Max: 302},
 		},
 		{
 			name:   "nested all comprehension",
 			decls:  []*exprpb.Decl{decls.NewVar("input", nestedList)},
 			hints:  map[string]int64{"input": 50, "input.@items": 10},
 			expr:   `input.all(x, x.all(y, true))`,
-			wanted: CostEstimate{Min: 2, Max: 2302},
+			wanted: CostEstimate{Min: 2, Max: 1752},
 		},
 		{
 			name:   "all comprehension on literal",
 			expr:   `[1, 2, 3].all(x, true)`,
-			wanted: CostEstimate{Min: 23, Max: 23},
+			wanted: CostEstimate{Min: 20, Max: 20},
 		},
 		{
 			name:   "variable cost function",
@@ -132,12 +132,12 @@ func TestCost(t *testing.T) {
 		{
 			name:   "or",
 			expr:   `true || false`,
-			wanted: oneCost,
+			wanted: zeroCost,
 		},
 		{
 			name:   "and",
 			expr:   `true && false`,
-			wanted: oneCost,
+			wanted: zeroCost,
 		},
 		{
 			name:   "lt",
@@ -197,7 +197,7 @@ func TestCost(t *testing.T) {
 		{
 			name:   "ternary",
 			expr:   `true ? 1 : 2`,
-			wanted: oneCost,
+			wanted: zeroCost,
 		},
 		{
 			name:   "string size",
@@ -287,7 +287,7 @@ func TestCost(t *testing.T) {
 				decls.NewVar("input2", allList),
 			},
 			hints:  map[string]int64{"input1": 1, "input2": 1},
-			wanted: CostEstimate{Min: 6, Max: 10},
+			wanted: CostEstimate{Min: 4, Max: 7},
 		},
 		{
 			name: "comprehension over map",
@@ -296,7 +296,7 @@ func TestCost(t *testing.T) {
 				decls.NewVar("input", allMap),
 			},
 			hints:  map[string]int64{"input": 10},
-			wanted: CostEstimate{Min: 2, Max: 92},
+			wanted: CostEstimate{Min: 2, Max: 82},
 		},
 		{
 			name: "comprehension over nested map of maps",
@@ -305,7 +305,7 @@ func TestCost(t *testing.T) {
 				decls.NewVar("input", nestedMap),
 			},
 			hints:  map[string]int64{"input": 5, "input.@values": 10},
-			wanted: CostEstimate{Min: 2, Max: 242},
+			wanted: CostEstimate{Min: 2, Max: 187},
 		},
 		{
 			name: "string size of map keys",
@@ -314,7 +314,7 @@ func TestCost(t *testing.T) {
 				decls.NewVar("input", nestedMap),
 			},
 			hints:  map[string]int64{"input": 5, "input.@keys": 10},
-			wanted: CostEstimate{Min: 2, Max: 37},
+			wanted: CostEstimate{Min: 2, Max: 32},
 		},
 		{
 			name: "comprehension variable shadowing",
@@ -323,7 +323,7 @@ func TestCost(t *testing.T) {
 				decls.NewVar("input", nestedMap),
 			},
 			hints:  map[string]int64{"input": 2, "input.@values": 2, "input.@keys": 5},
-			wanted: CostEstimate{Min: 2, Max: 42},
+			wanted: CostEstimate{Min: 2, Max: 34},
 		},
 		{
 			name: "comprehension variable shadowing",
@@ -332,7 +332,7 @@ func TestCost(t *testing.T) {
 				decls.NewVar("input", nestedMap),
 			},
 			hints:  map[string]int64{"input": 2, "input.@values": 2, "input.@keys": 5},
-			wanted: CostEstimate{Min: 2, Max: 42},
+			wanted: CostEstimate{Min: 2, Max: 34},
 		},
 		{
 			name: "list concat",
@@ -342,7 +342,7 @@ func TestCost(t *testing.T) {
 				decls.NewVar("list2", decls.NewListType(decls.Int)),
 			},
 			hints:  map[string]int64{"list1": 10, "list2": 10},
-			wanted: CostEstimate{Min: 3, Max: 85},
+			wanted: CostEstimate{Min: 3, Max: 65},
 		},
 		{
 			name: "str concat",
