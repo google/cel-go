@@ -357,7 +357,8 @@ func (m *attributeMatcher) Resolve(vars Activation) (interface{}, error) {
 // the standard Resolve logic applies.
 func (m *attributeMatcher) TryResolve(vars Activation) (interface{}, bool, error) {
 	id := m.NamespacedAttribute.ID()
-	partial, isPartial := vars.(PartialActivation)
+	// Bug in how partial activation is resolved, should search parents as well.
+	partial, isPartial := toPartialActivation(vars)
 	if isPartial {
 		unk, err := m.fac.matchesUnknownPatterns(
 			partial,
@@ -389,4 +390,15 @@ func (m *attributeMatcher) Qualify(vars Activation, obj interface{}) (interface{
 		return nil, err
 	}
 	return qual.Qualify(vars, obj)
+}
+
+func toPartialActivation(vars Activation) (PartialActivation, bool) {
+	pv, ok := vars.(PartialActivation)
+	if ok {
+		return pv, true
+	}
+	if vars.Parent() != nil {
+		return toPartialActivation(vars.Parent())
+	}
+	return nil, false
 }

@@ -373,7 +373,7 @@ const (
 	// member graph.
 	//
 	// By itself, OptPartialEval does not change evaluation behavior unless the input to the
-	// Program Eval is an PartialVars.
+	// Program Eval() call is created via PartialVars().
 	OptPartialEval EvalOption = 1 << iota
 )
 
@@ -383,6 +383,15 @@ func EvalOptions(opts ...EvalOption) ProgramOption {
 		for _, opt := range opts {
 			p.evalOpts |= opt
 		}
+		return p, nil
+	}
+}
+
+// InterruptCheckFrequency configures the number of iterations within a comprehension to evaluate
+// before checking whether the function evaluation has been interrupted.
+func InterruptCheckFrequency(checkFrequency uint) ProgramOption {
+	return func(p *prog) (*prog, error) {
+		p.interruptCheckFrequency = checkFrequency
 		return p, nil
 	}
 }

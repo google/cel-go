@@ -67,6 +67,10 @@ func ExhaustiveEval(state EvalState) InterpretableDecorator {
 	}
 }
 
+func InterruptableEval() InterpretableDecorator {
+	return decInterruptFolds()
+}
+
 // Optimize will pre-compute operations such as list and map construction and optimize
 // call arguments to set membership tests. The set of optimizations will increase over time.
 func Optimize() InterpretableDecorator {

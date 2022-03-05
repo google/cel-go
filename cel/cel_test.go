@@ -989,7 +989,7 @@ func TestContextEval(t *testing.T) {
 	if iss.Err() != nil {
 		t.Fatalf("env.Compile(expr) failed: %v", iss.Err())
 	}
-	prg, err := env.Program(ast, EvalOptions(OptOptimize))
+	prg, err := env.Program(ast, EvalOptions(OptOptimize|OptTrackState), InterruptCheckFrequency(100))
 	if err != nil {
 		t.Fatalf("env.Program() failed: %v", err)
 	}
@@ -999,23 +999,23 @@ func TestContextEval(t *testing.T) {
 	for i := int64(0); i < 1000; i++ {
 		items[i] = i
 	}
-	out, _, err := ContextEval(ctx, prg, map[string]interface{}{"items": items})
+	out, _, err := prg.ContextEval(ctx, map[string]interface{}{"items": items})
 	if err != nil {
-		t.Fatalf("ContextEval() failed: %v", err)
+		t.Fatalf("prg.ContextEval() failed: %v", err)
 	}
 	if out != types.Int(975) {
-		t.Errorf("ContextEval() got %v, wanted 75", out)
+		t.Errorf("prg.ContextEval() got %v, wanted 75", out)
 	}
 
-	evalCtx, cancel := context.WithTimeout(ctx, 10*time.Microsecond)
+	evalCtx, cancel := context.WithTimeout(ctx, time.Microsecond)
 	defer cancel()
 
-	out, _, err = ContextEval(evalCtx, prg, map[string]interface{}{"items": items})
+	out, _, err = prg.ContextEval(evalCtx, map[string]interface{}{"items": items})
 	if err == nil {
 		t.Errorf("Got result %v, wanted timeout error", out)
 	}
-	if err != nil && err.Error() != "operation cancelled" {
-		t.Errorf("Got %v, wanted operation cancelled error", err)
+	if err != nil && err.Error() != "operation interrupted" {
+		t.Errorf("Got %v, wanted operation interrupted error", err)
 	}
 }
 
@@ -1032,7 +1032,7 @@ func BenchmarkContextEval(b *testing.B) {
 	if iss.Err() != nil {
 		b.Fatalf("env.Compile(expr) failed: %v", iss.Err())
 	}
-	prg, err := env.Program(ast, EvalOptions(OptOptimize))
+	prg, err := env.Program(ast, EvalOptions(OptOptimize), InterruptCheckFrequency(200))
 	if err != nil {
 		b.Fatalf("env.Program() failed: %v", err)
 	}
@@ -1043,12 +1043,12 @@ func BenchmarkContextEval(b *testing.B) {
 		items[i] = i
 	}
 	for i := 0; i < b.N; i++ {
-		out, _, err := ContextEval(ctx, prg, map[string]interface{}{"items": items})
+		out, _, err := prg.ContextEval(ctx, map[string]interface{}{"items": items})
 		if err != nil {
-			b.Fatalf("ContextEval() failed: %v", err)
+			b.Fatalf("prg.ContextEval() failed: %v", err)
 		}
 		if out != types.Int(75) {
-			b.Errorf("ContextEval() got %v, wanted 75", out)
+			b.Errorf("prg.ContextEval() got %v, wanted 75", out)
 		}
 	}
 }
@@ -1540,7 +1540,7 @@ func TestResidualAst_AttributeQualifiers(t *testing.T) {
 		},
 		"y": []int{123},
 	}, AttributePattern("u"))
-	out, det, err := prg.Eval(vars)
+	out, det, err := prg.ContextEval(context.TODO(), vars)
 	if !types.IsUnknown(out) {
 		t.Fatalf("got %v, expected unknown", out)
 	}

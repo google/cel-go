@@ -54,6 +54,19 @@ func decObserveEval(observer evalObserver) InterpretableDecorator {
 	}
 }
 
+// decInterruptFolds creates an intepretable decorator which marks comprehensions as interruptable
+// where the interrupt state is communicated via a hidden variable on the Activation.
+func decInterruptFolds() InterpretableDecorator {
+	return func(i Interpretable) (Interpretable, error) {
+		fold, ok := i.(*evalFold)
+		if !ok {
+			return i, nil
+		}
+		fold.interruptable = true
+		return fold, nil
+	}
+}
+
 // decDisableShortcircuits ensures that all branches of an expression will be evaluated, no short-circuiting.
 func decDisableShortcircuits() InterpretableDecorator {
 	return func(i Interpretable) (Interpretable, error) {
@@ -71,16 +84,8 @@ func decDisableShortcircuits() InterpretableDecorator {
 				rhs: expr.rhs,
 			}, nil
 		case *evalFold:
-			return &evalExhaustiveFold{
-				id:        expr.id,
-				accu:      expr.accu,
-				accuVar:   expr.accuVar,
-				iterRange: expr.iterRange,
-				iterVar:   expr.iterVar,
-				cond:      expr.cond,
-				step:      expr.step,
-				result:    expr.result,
-			}, nil
+			expr.exhaustive = true
+			return expr, nil
 		case InterpretableAttribute:
 			cond, isCond := expr.Attr().(*conditionalAttribute)
 			if isCond {
