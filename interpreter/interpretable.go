@@ -706,15 +706,17 @@ func sumOfCost(interps []Interpretable) (min, max int64) {
 }
 
 type evalFold struct {
-	id        int64
-	accuVar   string
-	iterVar   string
-	iterRange Interpretable
-	accu      Interpretable
-	cond      Interpretable
-	step      Interpretable
-	result    Interpretable
-	adapter   ref.TypeAdapter
+	id            int64
+	accuVar       string
+	iterVar       string
+	iterRange     Interpretable
+	accu          Interpretable
+	cond          Interpretable
+	step          Interpretable
+	result        Interpretable
+	adapter       ref.TypeAdapter
+	exhaustive    bool
+	interruptable bool
 }
 
 // ID implements the Interpretable interface method.
@@ -737,13 +739,15 @@ func (fold *evalFold) Eval(ctx Activation) ref.Val {
 	// so create a mutable list to optimize the cost of the inner loop.
 	l, ok := accuCtx.val.(traits.Lister)
 	buildingList := false
-	if ok && l.Size() == types.IntZero {
+	if !fold.exhaustive && ok && l.Size() == types.IntZero {
 		buildingList = true
 		accuCtx.val = types.NewMutableList(fold.adapter)
 	}
 	iterCtx := varActivationPool.Get().(*varActivation)
 	iterCtx.parent = accuCtx
 	iterCtx.name = fold.iterVar
+
+	interrupted := false
 	it := foldRange.(traits.Iterable).Iterator()
 	for it.HasNext() == types.True {
 		// Modify the iter var in the fold activation.
@@ -752,21 +756,31 @@ func (fold *evalFold) Eval(ctx Activation) ref.Val {
 		// Evaluate the condition, terminate the loop if false.
 		cond := fold.cond.Eval(iterCtx)
 		condBool, ok := cond.(types.Bool)
-		if !types.IsUnknown(cond) && ok && condBool != types.True {
+		if !fold.exhaustive && ok && condBool != types.True {
 			break
 		}
-
-		// Evalute the evaluation step into accu var.
+		// Evaluate the evaluation step into accu var.
 		accuCtx.val = fold.step.Eval(iterCtx)
+		if fold.interruptable {
+			if stop, found := ctx.ResolveName("#interrupted"); found && stop == true {
+				interrupted = true
+				break
+			}
+		}
 	}
+	varActivationPool.Put(iterCtx)
+	if interrupted {
+		varActivationPool.Put(accuCtx)
+		return types.NewErr("operation interrupted")
+	}
+
 	// Compute the result.
 	res := fold.result.Eval(accuCtx)
+	varActivationPool.Put(accuCtx)
 	// Convert a mutable list to an immutable one, if the comprehension has generated a list as a result.
 	if buildingList {
 		res = res.(traits.MutableLister).ToImmutableList()
 	}
-	varActivationPool.Put(iterCtx)
-	varActivationPool.Put(accuCtx)
 	return res
 }
 
@@ -791,6 +805,10 @@ func (fold *evalFold) Cost() (min, max int64) {
 	cMin, cMax := estimateCost(fold.cond)
 	sMin, sMax := estimateCost(fold.step)
 	rMin, rMax := estimateCost(fold.result)
+	if fold.exhaustive {
+		cMin = cMin * rangeCnt
+		sMin = sMin * rangeCnt
+	}
 
 	// The cond and step costs are multiplied by size(iterRange). The minimum possible cost incurs
 	// when the evaluation result can be determined by the first iteration.
@@ -877,6 +895,18 @@ func (e *evalWatchAttr) AddQualifier(q Qualifier) (Attribute, error) {
 	return e, err
 }
 
+// Cost implements the Coster interface method.
+func (e *evalWatchAttr) Cost() (min, max int64) {
+	return estimateCost(e.InterpretableAttribute)
+}
+
+// Eval implements the Interpretable interface method.
+func (e *evalWatchAttr) Eval(vars Activation) ref.Val {
+	val := e.InterpretableAttribute.Eval(vars)
+	e.observer(e.ID(), val)
+	return val
+}
+
 // evalWatchConstQual observes the qualification of an object using a constant boolean, int,
 // string, or uint.
 type evalWatchConstQual struct {
@@ -932,18 +962,6 @@ func (e *evalWatchQual) Qualify(vars Activation, obj interface{}) (interface{}, 
 	}
 	e.observer(e.ID(), val)
 	return out, err
-}
-
-// Cost implements the Coster interface method.
-func (e *evalWatchAttr) Cost() (min, max int64) {
-	return estimateCost(e.InterpretableAttribute)
-}
-
-// Eval implements the Interpretable interface method.
-func (e *evalWatchAttr) Eval(vars Activation) ref.Val {
-	val := e.InterpretableAttribute.Eval(vars)
-	e.observer(e.ID(), val)
-	return val
 }
 
 // evalWatchConst describes a watcher of an instConst Interpretable.
@@ -1099,83 +1117,6 @@ func (cond *evalExhaustiveConditional) Eval(ctx Activation) ref.Val {
 // Cost implements the Coster interface method.
 func (cond *evalExhaustiveConditional) Cost() (min, max int64) {
 	return cond.attr.Cost()
-}
-
-// evalExhaustiveFold is like evalFold, but does not short-circuit argument evaluation.
-type evalExhaustiveFold struct {
-	id        int64
-	accuVar   string
-	iterVar   string
-	iterRange Interpretable
-	accu      Interpretable
-	cond      Interpretable
-	step      Interpretable
-	result    Interpretable
-}
-
-// ID implements the Interpretable interface method.
-func (fold *evalExhaustiveFold) ID() int64 {
-	return fold.id
-}
-
-// Eval implements the Interpretable interface method.
-func (fold *evalExhaustiveFold) Eval(ctx Activation) ref.Val {
-	foldRange := fold.iterRange.Eval(ctx)
-	if !foldRange.Type().HasTrait(traits.IterableType) {
-		return types.ValOrErr(foldRange, "got '%T', expected iterable type", foldRange)
-	}
-	// Configure the fold activation with the accumulator initial value.
-	accuCtx := varActivationPool.Get().(*varActivation)
-	accuCtx.parent = ctx
-	accuCtx.name = fold.accuVar
-	accuCtx.val = fold.accu.Eval(ctx)
-	iterCtx := varActivationPool.Get().(*varActivation)
-	iterCtx.parent = accuCtx
-	iterCtx.name = fold.iterVar
-	it := foldRange.(traits.Iterable).Iterator()
-	for it.HasNext() == types.True {
-		// Modify the iter var in the fold activation.
-		iterCtx.val = it.Next()
-
-		// Evaluate the condition, but don't terminate the loop as this is exhaustive eval!
-		fold.cond.Eval(iterCtx)
-
-		// Evalute the evaluation step into accu var.
-		accuCtx.val = fold.step.Eval(iterCtx)
-	}
-	// Compute the result.
-	res := fold.result.Eval(accuCtx)
-	varActivationPool.Put(iterCtx)
-	varActivationPool.Put(accuCtx)
-	return res
-}
-
-// Cost implements the Coster interface method.
-func (fold *evalExhaustiveFold) Cost() (min, max int64) {
-	// Compute the cost for evaluating iterRange.
-	iMin, iMax := estimateCost(fold.iterRange)
-
-	// Compute the size of iterRange. If the size depends on the input, return the maximum possible
-	// cost range.
-	foldRange := fold.iterRange.Eval(EmptyActivation())
-	if !foldRange.Type().HasTrait(traits.IterableType) {
-		return 0, math.MaxInt64
-	}
-	var rangeCnt int64
-	it := foldRange.(traits.Iterable).Iterator()
-	for it.HasNext() == types.True {
-		it.Next()
-		rangeCnt++
-	}
-
-	aMin, aMax := estimateCost(fold.accu)
-	cMin, cMax := estimateCost(fold.cond)
-	sMin, sMax := estimateCost(fold.step)
-	rMin, rMax := estimateCost(fold.result)
-
-	// The cond and step costs are multiplied by size(iterRange).
-	return iMin + aMin + cMin*rangeCnt + sMin*rangeCnt + rMin,
-		iMax + aMax + cMax*rangeCnt + sMax*rangeCnt + rMax
 }
 
 // evalAttr evaluates an Attribute value.

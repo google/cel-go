@@ -15,6 +15,7 @@
 package interpreter
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -775,7 +776,8 @@ var (
 		},
 		{
 			name: "macro_filter",
-			expr: `[-10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3].filter(x, x > 0) == [1, 2, 3]`,
+			expr: `[-10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3].filter(x, x > 0)`,
+			out:  []int64{1, 2, 3},
 		},
 		{
 			name:           "macro_has_map_key",
@@ -1556,6 +1558,61 @@ func TestInterpreter_ExhaustiveConditionalExpr(t *testing.T) {
 	if result != types.True {
 		t.Errorf("Expected true, got: %v", result)
 	}
+}
+
+func TestInterpreter_InterruptableEval(t *testing.T) {
+	items := make([]int64, 5000)
+	for i := int64(0); i < 5000; i++ {
+		items[i] = i
+	}
+	tc := testCase{
+		expr: `items.map(i, i).map(i, i).size() != 0`,
+		env: []*exprpb.Decl{
+			decls.NewVar("items", decls.NewListType(decls.Int)),
+		},
+		in: map[string]interface{}{
+			"items": items,
+		},
+		out: true,
+	}
+	prg, vars, err := program(t, &tc, InterruptableEval())
+	if err != nil {
+		t.Fatalf("program(%s) failed: %v", tc.expr, err)
+	}
+
+	ctx := context.TODO()
+	evalCtx, cancel := context.WithTimeout(ctx, 10*time.Microsecond)
+	defer cancel()
+
+	ctxVars := &contextActivation{
+		Activation: vars,
+		interrupt: func() bool {
+			select {
+			case <-evalCtx.Done():
+				return true
+			default:
+				return false
+			}
+		},
+	}
+	out := prg.Eval(ctxVars)
+	if !types.IsError(out) || out.(*types.Err).String() != "operation interrupted" {
+		t.Errorf("Got %v, wanted operation interrupted error", out)
+	}
+}
+
+type contextActivation struct {
+	Activation
+	interruptCount int
+	interrupt      func() bool
+}
+
+func (ca *contextActivation) ResolveName(name string) (interface{}, bool) {
+	if name == "#interrupted" {
+		ca.interruptCount++
+		return ca.interruptCount%100 == 0 && ca.interrupt(), true
+	}
+	return ca.Activation.ResolveName(name)
 }
 
 func TestInterpreter_ExhaustiveLogicalOrEquals(t *testing.T) {
