@@ -1750,3 +1750,43 @@ func TestParserOptionErrors(t *testing.T) {
 		t.Fatalf("got %q, want %q", err, "expression size code point limit must be greater than or equal to -1: -2")
 	}
 }
+
+func BenchmarkParse(b *testing.B) {
+	p, err := NewParser(
+		Macros(AllMacros...),
+		MaxRecursionDepth(32),
+		ErrorRecoveryLimit(4),
+		ErrorRecoveryLookaheadTokenLimit(4),
+		PopulateMacroCalls(true),
+	)
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		for _, testCase := range testCases {
+			p.Parse(common.NewTextSource(testCase.I))
+		}
+	}
+}
+
+func BenchmarkParseParallel(b *testing.B) {
+	p, err := NewParser(
+		Macros(AllMacros...),
+		MaxRecursionDepth(32),
+		ErrorRecoveryLimit(4),
+		ErrorRecoveryLookaheadTokenLimit(4),
+		PopulateMacroCalls(true),
+	)
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			for _, testCase := range testCases {
+				p.Parse(common.NewTextSource(testCase.I))
+			}
+		}
+	})
+}
