@@ -297,6 +297,7 @@ var (
 )
 
 func (p *parser) parse(expr runes.Buffer, desc string) *exprpb.Expr {
+	// TODO: get rid of these pools once https://github.com/antlr/antlr4/pull/3571 is in a release
 	lexer := lexerPool.Get().(*gen.CELLexer)
 	prsr := parserPool.Get().(*gen.CELParser)
 
