@@ -31,7 +31,7 @@ import (
 // estimate to provide. CEL attempts to provide reasonable estimates for its standard function library, so CallCost
 // should typically not need to provide an estimate for CELs standard function.
 type ActualCostEstimator interface {
-	CallCost(overloadID string, args []ref.Val) *uint64
+	CallCost(function, overloadID string, args []ref.Val, result ref.Val) *uint64
 }
 
 // CostObserver provides an observer that tracks runtime cost.
@@ -58,7 +58,7 @@ func CostObserver(tracker *CostTracker) EvalObserver {
 			tracker.cost++
 		case InterpretableCall:
 			if argVals, ok := tracker.stack.pop(len(t.Args())); ok {
-				tracker.cost += tracker.costCall(t, argVals)
+				tracker.cost += tracker.costCall(t, argVals, val)
 			}
 		case InterpretableConstructor:
 			switch t.Type() {
@@ -93,10 +93,10 @@ func (c CostTracker) ActualCost() uint64 {
 	return c.cost
 }
 
-func (c CostTracker) costCall(call InterpretableCall, argValues []ref.Val) uint64 {
+func (c CostTracker) costCall(call InterpretableCall, argValues []ref.Val, result ref.Val) uint64 {
 	var cost uint64
 	if c.Estimator != nil {
-		callCost := c.Estimator.CallCost(call.OverloadID(), argValues)
+		callCost := c.Estimator.CallCost(call.Function(), call.OverloadID(), argValues, result)
 		if callCost != nil {
 			cost += *callCost
 			return cost
