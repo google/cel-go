@@ -342,7 +342,7 @@ func TestRuntimeCost(t *testing.T) {
 			expr:  `input.all(x, true)`,
 			want:  2,
 			in: map[string]interface{}{
-				"input": []proto3pb.TestAllTypes{},
+				"input": []*proto3pb.TestAllTypes{},
 			},
 		},
 		{
@@ -351,7 +351,7 @@ func TestRuntimeCost(t *testing.T) {
 			expr:  `input.all(x, x.all(y, true))`,
 			want:  2,
 			in: map[string]interface{}{
-				"input": []proto3pb.TestAllTypes{},
+				"input": []*proto3pb.TestAllTypes{},
 			},
 		},
 		{
@@ -536,7 +536,7 @@ func TestRuntimeCost(t *testing.T) {
 				decls.NewVar("input2", allList),
 			},
 			want: 6,
-			in:   map[string]interface{}{"input1": []proto3pb.TestAllTypes{proto3pb.TestAllTypes{}}, "input2": []proto3pb.TestAllTypes{proto3pb.TestAllTypes{}}, "x": 1},
+			in:   map[string]interface{}{"input1": []*proto3pb.TestAllTypes{{}}, "input2": []*proto3pb.TestAllTypes{{}}, "x": 1},
 		},
 		{
 			name: "ternary eval trivial, true",
