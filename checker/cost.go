@@ -37,7 +37,7 @@ type CostEstimator interface {
 	EstimateSize(element AstNode) *SizeEstimate
 	// EstimateCallCost returns the estimated cost of an invocation, or nil if
 	// the estimator has no estimate to provide.
-	EstimateCallCost(overloadID string, target *AstNode, args []AstNode) *CallEstimate
+	EstimateCallCost(function, overloadID string, target *AstNode, args []AstNode) *CallEstimate
 }
 
 // CallEstimate includes a CostEstimate for the call, and an optional estimate of the result object size.
@@ -384,7 +384,7 @@ func (c *coster) costCall(e *exprpb.Expr) CostEstimate {
 	fnCost := CostEstimate{Min: uint64(math.MaxUint64), Max: 0}
 	var resultSize *SizeEstimate
 	for _, overload := range ref.GetOverloadId() {
-		overloadCost := c.functionCost(overload, &targetType, argTypes, argCosts)
+		overloadCost := c.functionCost(call.GetFunction(), overload, &targetType, argTypes, argCosts)
 		fnCost = fnCost.Union(overloadCost.CostEstimate)
 		if overloadCost.ResultSize != nil {
 			if resultSize == nil {
@@ -479,7 +479,7 @@ func (c *coster) sizeEstimate(t AstNode) SizeEstimate {
 	return SizeEstimate{Min: 0, Max: math.MaxUint64}
 }
 
-func (c *coster) functionCost(overloadID string, target *AstNode, args []AstNode, argCosts []CostEstimate) CallEstimate {
+func (c *coster) functionCost(function, overloadID string, target *AstNode, args []AstNode, argCosts []CostEstimate) CallEstimate {
 	argCostSum := func() CostEstimate {
 		var sum CostEstimate
 		for _, a := range argCosts {
@@ -488,7 +488,7 @@ func (c *coster) functionCost(overloadID string, target *AstNode, args []AstNode
 		return sum
 	}
 
-	if est := c.estimator.EstimateCallCost(overloadID, target, args); est != nil {
+	if est := c.estimator.EstimateCallCost(function, overloadID, target, args); est != nil {
 		callEst := *est
 		return CallEstimate{CostEstimate: callEst.Add(argCostSum())}
 	}
