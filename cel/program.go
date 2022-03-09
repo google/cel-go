@@ -102,6 +102,8 @@ func (ed *EvalDetails) State() interpreter.EvalState {
 	return ed.state
 }
 
+// ActualCost returns the tracked cost through the course of execution when `CostTracking` is enabled.
+// Otherwise, returns nil if the cost was not enabled.
 func (ed *EvalDetails) ActualCost() *uint64 {
 	if ed.costTracker == nil {
 		return nil

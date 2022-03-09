@@ -411,8 +411,8 @@ func (tc testCostEstimator) EstimateSize(element AstNode) *SizeEstimate {
 	return nil
 }
 
-func (tc testCostEstimator) EstimateCallCost(overloadId string, target *AstNode, args []AstNode) *CallEstimate {
-	switch overloadId {
+func (tc testCostEstimator) EstimateCallCost(overloadID string, target *AstNode, args []AstNode) *CallEstimate {
+	switch overloadID {
 	case overloads.TimestampToYear:
 		return &CallEstimate{CostEstimate: CostEstimate{Min: 7, Max: 7}}
 	}

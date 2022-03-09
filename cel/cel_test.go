@@ -1438,8 +1438,8 @@ func (tc testCostEstimator) EstimateSize(element checker.AstNode) *checker.SizeE
 	return nil
 }
 
-func (tc testCostEstimator) EstimateCallCost(overloadId string, target *checker.AstNode, args []checker.AstNode) *checker.CallEstimate {
-	switch overloadId {
+func (tc testCostEstimator) EstimateCallCost(overloadID string, target *checker.AstNode, args []checker.AstNode) *checker.CallEstimate {
+	switch overloadID {
 	case overloads.TimestampToYear:
 		return &checker.CallEstimate{CostEstimate: checker.CostEstimate{Min: 7, Max: 7}}
 	}
@@ -1451,7 +1451,7 @@ type testRuntimeCostEstimator struct {
 
 var timeToYearCost uint64 = 7
 
-func (e testRuntimeCostEstimator) CallCost(overloadId string, args []ref.Val) *uint64 {
+func (e testRuntimeCostEstimator) CallCost(overloadID string, args []ref.Val) *uint64 {
 	argsSize := make([]uint64, len(args))
 	for i, arg := range args {
 		reflectV := reflect.ValueOf(arg.Value())
@@ -1465,7 +1465,7 @@ func (e testRuntimeCostEstimator) CallCost(overloadId string, args []ref.Val) *u
 		}
 	}
 
-	switch overloadId {
+	switch overloadID {
 	case overloads.TimestampToYear:
 		return &timeToYearCost
 	default:
