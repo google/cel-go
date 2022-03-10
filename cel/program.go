@@ -293,6 +293,9 @@ func (p *prog) Eval(input interface{}) (v ref.Val, det *EvalDetails, err error) 
 
 // ContextEval implements the Program interface.
 func (p *prog) ContextEval(ctx context.Context, input interface{}) (ref.Val, *EvalDetails, error) {
+	if ctx == nil {
+		return nil, nil, fmt.Errorf("context can not be nil")
+	}
 	// Configure the input, making sure to wrap Activation inputs in the special ctxActivation which
 	// exposes the #interrupted variable and manages rate-limited checks of the ctx.Done() state.
 	var vars interpreter.Activation
@@ -362,6 +365,9 @@ func (gen *progGen) Eval(input interface{}) (ref.Val, *EvalDetails, error) {
 
 // ContextEval implements the Program interface method.
 func (gen *progGen) ContextEval(ctx context.Context, input interface{}) (ref.Val, *EvalDetails, error) {
+	if ctx == nil {
+		return nil, nil, fmt.Errorf("context can not be nil")
+	}
 	// The factory based Eval() differs from the standard evaluation model in that it generates a
 	// new EvalState instance for each call to ensure that unique evaluations yield unique stateful
 	// results.
