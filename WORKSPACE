@@ -99,11 +99,12 @@ go_repository(
     version = "v0.3.2",
 )
 
-# Antlr deps to pickup golang concurrency fixes 4/30/2020
+# Antlr deps
 go_repository(
-    name = "com_github_antlr",
-    commit = "621b933c7a7f01c67ae9de15103151fa0f9d6d90",
-    importpath = "github.com/antlr/antlr4",
+    name = "com_github_antlr_antlr4_runtime_go_antlr",
+    importpath = "github.com/antlr/antlr4/runtime/Go/antlr",
+    sum = "h1:zvkJv+9Pxm1nnEMcKnShREt4qtduHKz4iw4AB4ul0Ao=",
+    version = "v0.0.0-20220209173558-ad29539cd2e9",
 )
 
 # CEL Spec deps
