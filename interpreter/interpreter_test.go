@@ -70,6 +70,11 @@ type testCase struct {
 var (
 	testData = []testCase{
 		{
+			name: "double_ne_nan",
+			expr: `0.0/0.0 == 0.0/0.0`,
+			out:  types.False,
+		},
+		{
 			name:           "and_false_1st",
 			expr:           `false && true`,
 			cost:           []int64{0, 1},
@@ -554,6 +559,10 @@ var (
 			in: map[string]interface{}{
 				"x": 1.0,
 			},
+		},
+		{
+			name: "index_cross_type_double_const",
+			expr: `{1: 'hello', 2: 'world'}[dyn(2.0)] == 'world'`,
 		},
 		{
 			name: "index_cross_type_uint",

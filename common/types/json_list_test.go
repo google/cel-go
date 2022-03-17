@@ -15,6 +15,7 @@
 package types
 
 import (
+	"math"
 	"reflect"
 	"testing"
 
@@ -200,8 +201,15 @@ func TestJsonListValueGet_OutOfRange(t *testing.T) {
 	if !IsError(list.Get(Int(2))) {
 		t.Error("Index out of range did not result in error.")
 	}
-	if !IsError(list.Get(Uint(1))) {
-		t.Error("Index of incorrect type did not result in error.")
+	if !IsError(list.Get(String("1"))) {
+		t.Error("Invalid index type did not return error.")
+	}
+	if !IsError(list.Get(Uint(math.MaxUint64))) {
+		t.Error("Index out of range did not return error.")
+	}
+	got := list.Get(Uint(1))
+	if got.Equal(Double(1)) != True {
+		t.Errorf("list.Get(1u) got %v, wanted 1.0", got)
 	}
 }
 
