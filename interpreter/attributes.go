@@ -637,6 +637,8 @@ func newQualifier(adapter ref.TypeAdapter, id int64, v interface{}) (Qualifier, 
 		qual = &uintQualifier{id: id, value: uint64(val), celValue: val, adapter: adapter}
 	case types.Bool:
 		qual = &boolQualifier{id: id, value: bool(val), celValue: val, adapter: adapter}
+	case types.Double:
+		qual = &doubleQualifier{id: id, value: float64(val), celValue: val, adapter: adapter}
 	default:
 		return nil, fmt.Errorf("invalid qualifier type: %T", v)
 	}

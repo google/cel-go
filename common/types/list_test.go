@@ -387,9 +387,9 @@ func TestConcatListGet(t *testing.T) {
 	listA := NewDynamicList(reg, []float32{1.0, 2.0})
 	listB := NewDynamicList(reg, []float64{3.0})
 	list := listA.Add(listB).(traits.Lister)
-	if getElem(t, list, 0) != Double(1.0) ||
-		getElem(t, list, 1) != Double(2.0) ||
-		getElem(t, list, 2) != Double(3.0) {
+	if getElem(t, list, Int(0)) != Double(1.0) ||
+		getElem(t, list, Uint(1)) != Double(2.0) ||
+		getElem(t, list, Double(2.0)) != Double(3.0) {
 		t.Errorf("List values by index did not match expectations")
 	}
 	if val := list.Get(Int(-1)); !IsError(val) {
@@ -556,7 +556,10 @@ func TestStringListGet_OutOfRange(t *testing.T) {
 	if !IsError(list.Get(Int(2))) {
 		t.Error("Index out of range did not return error.")
 	}
-	if !IsError(list.Get(Uint(1))) {
+	if !IsError(list.Get(Double(0.9))) {
+		t.Error("Index out of range did not return error.")
+	}
+	if !IsError(list.Get(String("1"))) {
 		t.Error("Invalid index type did not return error.")
 	}
 }
@@ -596,7 +599,7 @@ func TestValueListConvertToNative_Json(t *testing.T) {
 	}
 }
 
-func getElem(t *testing.T, list traits.Indexer, index Int) interface{} {
+func getElem(t *testing.T, list traits.Indexer, index ref.Val) interface{} {
 	t.Helper()
 	val := list.Get(index)
 	if IsError(val) {
@@ -608,9 +611,9 @@ func getElem(t *testing.T, list traits.Indexer, index Int) interface{} {
 
 func validateList123(t *testing.T, list traits.Lister) {
 	t.Helper()
-	if getElem(t, list, 0) != Int(1) ||
-		getElem(t, list, 1) != Int(2) ||
-		getElem(t, list, 2) != Int(3) {
+	if getElem(t, list, Int(0)) != Int(1) ||
+		getElem(t, list, Uint(1)) != Int(2) ||
+		getElem(t, list, Double(2.0)) != Int(3) {
 		t.Errorf("List values by index did not match expectations")
 	}
 	if val := list.Get(Int(-1)); !IsError(val) {

@@ -238,16 +238,14 @@ func (l *baseList) Equal(other ref.Val) ref.Val {
 
 // Get implements the traits.Indexer interface method.
 func (l *baseList) Get(index ref.Val) ref.Val {
-	i, ok := index.(Int)
-	if !ok {
-		return ValOrErr(index, "unsupported index type '%s' in list", index.Type())
+	ind, err := indexOrError(index)
+	if err != nil {
+		return ValOrErr(index, err.Error())
 	}
-	iv := int(i)
-	if iv < 0 || iv >= l.size {
-		return NewErr("index '%d' out of range in list size '%d'", i, l.Size())
+	if ind < 0 || ind >= l.size {
+		return NewErr("index '%d' out of range in list size '%d'", ind, l.Size())
 	}
-	elem := l.get(iv)
-	return l.NativeToValue(elem)
+	return l.NativeToValue(l.get(ind))
 }
 
 // Iterator implements the traits.Iterable interface method.
@@ -391,10 +389,11 @@ func (l *concatList) Equal(other ref.Val) ref.Val {
 
 // Get implements the traits.Indexer interface method.
 func (l *concatList) Get(index ref.Val) ref.Val {
-	i, ok := index.(Int)
-	if !ok {
-		return MaybeNoSuchOverloadErr(index)
+	ind, err := indexOrError(index)
+	if err != nil {
+		return ValOrErr(index, err.Error())
 	}
+	i := Int(ind)
 	if i < l.prevList.Size().(Int) {
 		return l.prevList.Get(i)
 	}
@@ -461,4 +460,23 @@ func (it *listIterator) Next() ref.Val {
 		return it.listValue.Get(index)
 	}
 	return nil
+}
+
+func indexOrError(index ref.Val) (int, error) {
+	switch iv := index.(type) {
+	case Int:
+		return int(iv), nil
+	case Double:
+		if ik, ok := doubleToInt64Lossless(float64(iv)); ok {
+			return int(ik), nil
+		}
+		return -1, fmt.Errorf("unsupported index value %v in list", index)
+	case Uint:
+		if ik, ok := uint64ToInt64Lossless(uint64(iv)); ok {
+			return int(ik), nil
+		}
+		return -1, fmt.Errorf("unsupported index value %v in list", index)
+	default:
+		return -1, fmt.Errorf("unsupported index type '%s' in list", index.Type())
+	}
 }
