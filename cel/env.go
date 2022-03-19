@@ -32,9 +32,7 @@ import (
 )
 
 // Source interface representing a user-provided expression.
-type Source interface {
-	common.Source
-}
+type Source = common.Source
 
 // Ast representing the checked or unchecked expression, its source, and related metadata such as
 // source position information.
@@ -210,7 +208,7 @@ func (e *Env) Compile(txt string) (*Ast, *Issues) {
 // issues discovered during Check.
 //
 // Note, for parse-only uses of CEL use Parse.
-func (e *Env) CompileSource(src common.Source) (*Ast, *Issues) {
+func (e *Env) CompileSource(src Source) (*Ast, *Issues) {
 	ast, iss := e.ParseSource(src)
 	if iss.Err() != nil {
 		return nil, iss
@@ -294,7 +292,7 @@ func (e *Env) HasFeature(flag int) bool {
 
 // Parse parses the input expression value `txt` to a Ast and/or a set of Issues.
 //
-// This form of Parse creates a common.Source value for the input `txt` and forwards to the
+// This form of Parse creates a Source value for the input `txt` and forwards to the
 // ParseSource method.
 func (e *Env) Parse(txt string) (*Ast, *Issues) {
 	src := common.NewTextSource(txt)
@@ -308,7 +306,7 @@ func (e *Env) Parse(txt string) (*Ast, *Issues) {
 //
 // It is possible to have both non-nil Ast and Issues values returned from this call; however,
 // the mere presence of an Ast does not imply that it is valid for use.
-func (e *Env) ParseSource(src common.Source) (*Ast, *Issues) {
+func (e *Env) ParseSource(src Source) (*Ast, *Issues) {
 	res, errs := e.prsr.Parse(src)
 	if len(errs.GetErrors()) > 0 {
 		return nil, &Issues{errs: errs}
@@ -316,7 +314,7 @@ func (e *Env) ParseSource(src common.Source) (*Ast, *Issues) {
 	// Manually create the Ast to ensure that the text source information is propagated on
 	// subsequent calls to Check.
 	return &Ast{
-		source: Source(src),
+		source: src,
 		expr:   res.GetExpr(),
 		info:   res.GetSourceInfo()}, nil
 }
