@@ -75,7 +75,7 @@ func TestStringSource_LocationOffset(t *testing.T) {
 	// expected.
 	charStart, _ := source.LocationOffset(NewLocation(1, 2))
 	charEnd, _ := source.LocationOffset(NewLocation(3, 2))
-	if "d &&\n\t b.c.arg(10) &&\n\t " != string(contents[charStart:charEnd]) {
+	if string(contents[charStart:charEnd]) != "d &&\n\t b.c.arg(10) &&\n\t " {
 		t.Errorf(unexpectedValue, t.Name(),
 			string(contents[charStart:charEnd]),
 			"d &&\n\t b.c.arg(10) &&\n\t ")
@@ -125,9 +125,9 @@ func TestStringSource_SnippetSingleline(t *testing.T) {
 		t.Errorf(unexpectedSnippet, t.Name(), str, "hello, world")
 	}
 	if str2, found := source.Snippet(2); found {
-		t.Error(snippetFound, t.Name(), 2)
+		t.Errorf(snippetFound, t.Name(), 2)
 	} else if str2 != "" {
-		t.Error(unexpectedSnippet, t.Name(), str2, "")
+		t.Errorf(unexpectedSnippet, t.Name(), str2, "")
 	}
 }
 

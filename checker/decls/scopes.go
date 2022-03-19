@@ -100,7 +100,7 @@ func (s *Scopes) FindFunction(name string) *exprpb.Decl {
 }
 
 // Group is a set of Decls that is pushed on or popped off a Scopes as a unit.
-// Contains separate namespaces for idenifier and function Decls.
+// Contains separate namespaces for identifier and function Decls.
 // (Should be named "Scope" perhaps?)
 type Group struct {
 	idents    map[string]*exprpb.Decl

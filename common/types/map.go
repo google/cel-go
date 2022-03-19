@@ -105,7 +105,7 @@ var (
 // This interface implements portions of the API surface area required by the traits.Mapper
 // interface.
 type mapAccessor interface {
-	// Find returns a value, if one exists, for the inpput key.
+	// Find returns a value, if one exists, for the input key.
 	//
 	// If the key is not found the function returns (nil, false).
 	Find(ref.Val) (ref.Val, bool)
