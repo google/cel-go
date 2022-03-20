@@ -208,7 +208,7 @@ func (c *checker) checkSelect(e *exprpb.Expr) {
 			resultType = fieldType.Type
 		}
 	case kindTypeParam:
-		// Set the operand type to DYN to prevent assignment to a potentionally incorrect type
+		// Set the operand type to DYN to prevent assignment to a potentially incorrect type
 		// at a later point in type-checking. The isAssignable call will update the type
 		// substitutions for the type param under the covers.
 		c.isAssignable(decls.Dyn, targetType)
@@ -478,7 +478,7 @@ func (c *checker) checkComprehension(e *exprpb.Expr) {
 		// Ranges over the keys.
 		varType = rangeType.GetMapType().KeyType
 	case kindDyn, kindError, kindTypeParam:
-		// Set the range type to DYN to prevent assignment to a potentionally incorrect type
+		// Set the range type to DYN to prevent assignment to a potentially incorrect type
 		// at a later point in type-checking. The isAssignable call will update the type
 		// substitutions for the type param under the covers.
 		c.isAssignable(decls.Dyn, rangeType)

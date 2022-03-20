@@ -852,7 +852,7 @@ func (fold *evalFold) Cost() (min, max int64) {
 		iMax + aMax + cMax*rangeCnt + sMax*rangeCnt + rMax
 }
 
-// Optional Intepretable implementations that specialize, subsume, or extend the core evaluation
+// Optional Interpretable implementations that specialize, subsume, or extend the core evaluation
 // plan via decorators.
 
 // evalSetMembership is an Interpretable implementation which tests whether an input value
@@ -969,7 +969,7 @@ func (e *evalWatchConstQual) Qualify(vars Activation, obj interface{}) (interfac
 	return out, err
 }
 
-// QualifierValueEquals tests whether the incoming value is equal to the qualificying constant.
+// QualifierValueEquals tests whether the incoming value is equal to the qualifying constant.
 func (e *evalWatchConstQual) QualifierValueEquals(value interface{}) bool {
 	qve, ok := e.ConstantQualifier.(qualifierValueEquator)
 	return ok && qve.QualifierValueEquals(value)

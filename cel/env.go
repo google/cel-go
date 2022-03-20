@@ -56,7 +56,7 @@ func (ast *Ast) IsChecked() bool {
 	return ast.typeMap != nil && len(ast.typeMap) > 0
 }
 
-// SourceInfo returns character offset and newling position information about expression elements.
+// SourceInfo returns character offset and newline position information about expression elements.
 func (ast *Ast) SourceInfo() *exprpb.SourceInfo {
 	return ast.info
 }

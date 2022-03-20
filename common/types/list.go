@@ -321,7 +321,7 @@ func (l *concatList) Add(other ref.Val) ref.Val {
 		nextList:    otherList}
 }
 
-// Contains implments the traits.Container interface method.
+// Contains implements the traits.Container interface method.
 func (l *concatList) Contains(elem ref.Val) ref.Val {
 	// The concat list relies on the IsErrorOrUnknown checks against the input element to be
 	// performed by the `prevList` and/or `nextList`.

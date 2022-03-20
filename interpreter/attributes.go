@@ -587,7 +587,7 @@ func (a *relativeAttribute) Resolve(vars Activation) (interface{}, error) {
 	if types.IsUnknown(v) {
 		return v, nil
 	}
-	// Next, qualify it. Qualification handles unkonwns as well, so there's no need to recheck.
+	// Next, qualify it. Qualification handles unknowns as well, so there's no need to recheck.
 	var err error
 	var obj interface{} = v
 	for _, qual := range a.qualifiers {
