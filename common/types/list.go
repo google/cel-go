@@ -110,6 +110,17 @@ func NewMutableList(adapter ref.TypeAdapter) traits.MutableLister {
 	}
 }
 
+func (*mutableList) Contains(ref.Val) ref.Val { panic("invalid use of mutable list") }
+func (*mutableList) ConvertToNative(reflect.Type) (interface{}, error) {
+	panic("invalid use of mutable list")
+}
+func (*mutableList) ConvertToType(ref.Type) ref.Val { panic("invalid use of mutable list") }
+func (*mutableList) Equal(ref.Val) ref.Val          { panic("invalid use of mutable list") }
+func (*mutableList) Get(ref.Val) ref.Val            { panic("invalid use of mutable list") }
+func (*mutableList) Iterator() traits.Iterator      { panic("invalid use of mutable list") }
+func (*mutableList) Size() ref.Val                  { panic("invalid use of mutable list") }
+func (*mutableList) Value() interface{}             { panic("invalid use of mutable list") }
+
 // baseList points to a list containing elements of any type.
 // The `value` is an array of native values, and refValue is its reflection object.
 // The `ref.TypeAdapter` enables native type to CEL type conversions.
@@ -273,7 +284,6 @@ func (l *baseList) Value() interface{} {
 
 // mutableList aggregates values into its internal storage. For use with internal CEL variables only.
 type mutableList struct {
-	traits.Lister
 	ref.TypeAdapter
 	mutableValues []ref.Val
 }
