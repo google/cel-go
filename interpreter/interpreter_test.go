@@ -876,7 +876,7 @@ var (
 			},
 		},
 		{
-			name: "matches error",
+			name: "matches_error",
 			expr: `input.matches(')k.*')`,
 			env: []*exprpb.Decl{
 				decls.NewVar("input", decls.String),
@@ -1343,6 +1343,9 @@ var (
 
 func BenchmarkInterpreter(b *testing.B) {
 	for _, tst := range testData {
+		if tst.err != "" || tst.progErr != "" {
+			continue
+		}
 		prg, vars, err := program(b, &tst, Optimize(), CompileRegexConstants(MatchesRegexOptimization))
 		if err != nil {
 			b.Fatal(err)
@@ -1361,6 +1364,9 @@ func BenchmarkInterpreter(b *testing.B) {
 func BenchmarkInterpreter_Parallel(b *testing.B) {
 	for _, tst := range testData {
 		prg, vars, err := program(b, &tst, Optimize(), CompileRegexConstants(MatchesRegexOptimization))
+		if tst.err != "" || tst.progErr != "" {
+			continue
+		}
 		if err != nil {
 			b.Fatal(err)
 		}
