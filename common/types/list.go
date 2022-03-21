@@ -97,12 +97,15 @@ func NewJSONList(adapter ref.TypeAdapter, l *structpb.ListValue) traits.Lister {
 
 // NewMutableList creates a new mutable list whose internal state can be modified.
 //
-// The mutable list only handles `Add` calls correctly as it is intended only for use within
-// comprehension loops which generate an immutable result upon completion.
-func NewMutableList(adapter ref.TypeAdapter) traits.Lister {
+// The mutable list only handles `Add` and `Type` calls correctly as it is intended
+// only for use within comprehension loops which generate an immutable result upon
+// completion.
+//
+// The returned value's ToImmutableList must be called to return a list for use in
+// CEL expressions.
+func NewMutableList(adapter ref.TypeAdapter) traits.MutableLister {
 	return &mutableList{
 		TypeAdapter:   adapter,
-		baseList:      nil,
 		mutableValues: []ref.Val{},
 	}
 }
@@ -270,12 +273,13 @@ func (l *baseList) Value() interface{} {
 
 // mutableList aggregates values into its internal storage. For use with internal CEL variables only.
 type mutableList struct {
+	traits.Lister
 	ref.TypeAdapter
-	*baseList
 	mutableValues []ref.Val
 }
 
 // Add copies elements from the other list into the internal storage of the mutable list.
+// The ref.Val returned by Add is the receiver.
 func (l *mutableList) Add(other ref.Val) ref.Val {
 	otherList, ok := other.(traits.Lister)
 	if !ok {
@@ -292,6 +296,11 @@ func (l *mutableList) ToImmutableList() traits.Lister {
 	// The reference to internal state is guaranteed to be safe as this call is only performed
 	// when mutations have been completed.
 	return NewRefValList(l.TypeAdapter, l.mutableValues)
+}
+
+// Type implements the ref.Val interface method.
+func (l *mutableList) Type() ref.Type {
+	return ListType
 }
 
 // concatList combines two list implementations together into a view.
