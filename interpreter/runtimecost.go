@@ -41,7 +41,6 @@ func CostObserver(tracker *CostTracker) EvalObserver {
 		case ConstantQualifier:
 			// TODO: Push identifiers on to the stack before observing constant qualifiers that apply to them
 			// and enable the below pop. Once enabled this can case can be collapsed into the Qualifier case.
-			//tracker.stack.drop1()
 			tracker.cost++
 		case InterpretableConst:
 			// zero cost
@@ -71,7 +70,6 @@ func CostObserver(tracker *CostTracker) EvalObserver {
 		case *evalFold:
 			tracker.stack.drop(t.iterRange.ID())
 		case Qualifier:
-			tracker.stack.drop1()
 			tracker.cost++
 		case InterpretableCall:
 			if argVals, ok := tracker.stack.popArgs(t.Args()); ok {
@@ -88,7 +86,7 @@ func CostObserver(tracker *CostTracker) EvalObserver {
 				tracker.cost += common.StructCreateBaseCost
 			}
 		}
-		tracker.stack.push(stackVal{Val: val, ID: id})
+		tracker.stack.push(val, id)
 
 		if tracker.Limit != nil && tracker.cost > *tracker.Limit {
 			panic(EvalCancelledError{Cause: CostLimitExceeded, Message: "operation cancelled: actual cost limit exceeded"})
@@ -196,17 +194,9 @@ type stackVal struct {
 // refValStack keeps track of values of the stack for cost calculation purposes
 type refValStack []stackVal
 
-func (s *refValStack) push(value stackVal) {
+func (s *refValStack) push(val ref.Val, id int64) {
+	value := stackVal{Val: val, ID: id}
 	*s = append(*s, value)
-}
-
-// drop1 removes the top item from the stack.
-func (s *refValStack) drop1() {
-	if len(*s) < 1 {
-		return
-	}
-	idx := len(*s) - 1
-	*s = (*s)[:idx]
 }
 
 // TODO: Allowing drop and popArgs to remove stack items above the IDs they are provided is a workaround. drop and popArgs
@@ -214,6 +204,8 @@ func (s *refValStack) drop1() {
 
 // drop searches the stack for each ID and removes the ID and all stack items above it.
 // If none of the IDs are found, the stack is not modified.
+// WARNING: It is possible for multiple expressions with the same ID to exist (due to how macros are implemented) so it's
+// possible that a dropped ID will remain on the stack.  They should be removed when IDs on the stack are popped.
 func (s *refValStack) drop(ids ...int64) {
 	for _, id := range ids {
 		for idx := len(*s) - 1; idx >= 0; idx-- {
@@ -229,6 +221,8 @@ func (s *refValStack) drop(ids ...int64) {
 // stack items above any of the arg IDs. If any of the IDs are not found the stack, false is returned.
 // Args are assumed to be found in the stack in reverse order, i.e. the last arg is expected to be found highest in
 // the stack.
+// WARNING: It is possible for multiple expressions with the same ID to exist (due to how macros are implemented) so it's
+// possible that a dropped ID will remain on the stack.  They should be removed when IDs on the stack are popped.
 func (s *refValStack) popArgs(args []Interpretable) ([]ref.Val, bool) {
 	result := make([]ref.Val, len(args))
 argloop:

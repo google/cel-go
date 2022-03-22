@@ -680,10 +680,14 @@ func (m *evalMap) InitVals() []Interpretable {
 	if len(m.keys) != len(m.vals) {
 		return nil
 	}
-	var result []Interpretable
+	result := make([]Interpretable, len(m.keys)+len(m.vals))
+	idx := 0
 	for i, k := range m.keys {
 		v := m.vals[i]
-		result = append(result, k, v)
+		result[idx] = k
+		idx++
+		result[idx] = v
+		idx++
 	}
 	return result
 }
