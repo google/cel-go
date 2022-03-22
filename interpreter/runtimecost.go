@@ -72,11 +72,11 @@ func CostObserver(tracker *CostTracker) EvalObserver {
 		case Qualifier:
 			tracker.cost++
 		case InterpretableCall:
-			if argVals, ok := tracker.stack.popArgs(t.Args()); ok {
+			if argVals, ok := tracker.stack.dropArgs(t.Args()); ok {
 				tracker.cost += tracker.costCall(t, argVals, val)
 			}
 		case InterpretableConstructor:
-			tracker.stack.popArgs(t.InitVals())
+			tracker.stack.dropArgs(t.InitVals())
 			switch t.Type() {
 			case types.ListType:
 				tracker.cost += common.ListCreateBaseCost
@@ -199,7 +199,7 @@ func (s *refValStack) push(val ref.Val, id int64) {
 	*s = append(*s, value)
 }
 
-// TODO: Allowing drop and popArgs to remove stack items above the IDs they are provided is a workaround. drop and popArgs
+// TODO: Allowing drop and dropArgs to remove stack items above the IDs they are provided is a workaround. drop and dropArgs
 // should find and remove only the stack items matching the provided IDs once all attributes are properly pushed and popped from stack.
 
 // drop searches the stack for each ID and removes the ID and all stack items above it.
@@ -217,13 +217,13 @@ func (s *refValStack) drop(ids ...int64) {
 	}
 }
 
-// popArgs searches the stack for all the args by their IDs, accumulates their associated ref.Vals and drops any
+// dropArgs searches the stack for all the args by their IDs, accumulates their associated ref.Vals and drops any
 // stack items above any of the arg IDs. If any of the IDs are not found the stack, false is returned.
 // Args are assumed to be found in the stack in reverse order, i.e. the last arg is expected to be found highest in
 // the stack.
 // WARNING: It is possible for multiple expressions with the same ID to exist (due to how macros are implemented) so it's
 // possible that a dropped ID will remain on the stack.  They should be removed when IDs on the stack are popped.
-func (s *refValStack) popArgs(args []Interpretable) ([]ref.Val, bool) {
+func (s *refValStack) dropArgs(args []Interpretable) ([]ref.Val, bool) {
 	result := make([]ref.Val, len(args))
 argloop:
 	for nIdx := len(args) - 1; nIdx >= 0; nIdx-- {
