@@ -150,3 +150,11 @@ func TestIsBool(t *testing.T) {
 		t.Error("Non-boolean value tested as boolean.")
 	}
 }
+
+func BenchmarkIsBool(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		if !(IsBool(True) && !IsBool(IntNegOne)) {
+			b.Fatal("IsBool() failed to return proper result")
+		}
+	}
+}
