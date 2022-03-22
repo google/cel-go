@@ -677,7 +677,15 @@ func (m *evalMap) Eval(ctx Activation) ref.Val {
 }
 
 func (m *evalMap) InitVals() []Interpretable {
-	return append(m.keys, m.vals...)
+	if len(m.keys) != len(m.vals) {
+		return nil
+	}
+	var result []Interpretable
+	for i, k := range m.keys {
+		v := m.vals[i]
+		result = append(result, k, v)
+	}
+	return result
 }
 
 func (m *evalMap) Type() ref.Type {

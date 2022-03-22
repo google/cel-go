@@ -153,6 +153,10 @@ func computeCost(t *testing.T, expr string, decls []*exprpb.Decl, ctx Activation
 		}
 	}()
 	prg.Eval(ctx)
+	// TODO: enable this once all attributes are properly pushed and popped from stack.
+	//if len(costTracker.stack) != 1 {
+	//	t.Fatalf(`Expected resulting stack size to be 1 but got %d: %#+v`, len(costTracker.stack), costTracker.stack)
+	//}
 	return costTracker.cost, est, err
 }
 
@@ -264,7 +268,7 @@ func TestRuntimeCost(t *testing.T) {
 		},
 		{
 			name:  "select: array index",
-			expr:  `input[1]`,
+			expr:  `input[0]`,
 			decls: []*exprpb.Decl{decls.NewVar("input", decls.NewListType(decls.String))},
 			want:  2,
 			in:    map[string]interface{}{"input": []string{"v"}},
@@ -293,7 +297,7 @@ func TestRuntimeCost(t *testing.T) {
 		},
 		{
 			name:  "expr select: array index",
-			expr:  `input[3-2]`,
+			expr:  `input[3-3]`,
 			decls: []*exprpb.Decl{decls.NewVar("input", decls.NewListType(decls.String))},
 			want:  3,
 			in:    map[string]interface{}{"input": []string{"v"}},
@@ -373,12 +377,22 @@ func TestRuntimeCost(t *testing.T) {
 		},
 		{
 			name: "or",
+			expr: `false || false`,
+			want: 0,
+		},
+		{
+			name: "or short-circuit",
 			expr: `true || false`,
 			want: 0,
 		},
 		{
 			name: "and",
 			expr: `true && false`,
+			want: 0,
+		},
+		{
+			name: "and short-circuit",
+			expr: `false && true`,
 			want: 0,
 		},
 		{
@@ -650,6 +664,13 @@ func TestRuntimeCost(t *testing.T) {
 			decls: []*exprpb.Decl{},
 			in:    map[string]interface{}{},
 			want:  3,
+		},
+		{
+			name:  "list map literal",
+			expr:  `[{'k1': 1}, {'k2': 2}].all(x, true)`,
+			decls: []*exprpb.Decl{},
+			in:    map[string]interface{}{},
+			want:  77,
 		},
 	}
 
