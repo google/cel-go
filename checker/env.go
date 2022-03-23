@@ -102,7 +102,7 @@ func NewEnv(container *containers.Container, provider ref.TypeProvider, opts ...
 		filteredOverloadIDs = make(map[string]struct{})
 	}
 	if envOptions.validatedDeclarations != nil {
-		declarations = envOptions.validatedDeclarations
+		declarations = envOptions.validatedDeclarations.Copy()
 	}
 	return &Env{
 		container:           container,
@@ -225,9 +225,6 @@ func (e *Env) addFunction(decl *exprpb.Decl) []errorMsg {
 
 	errorMsgs := make([]errorMsg, 0)
 	for _, overload := range decl.GetFunction().GetOverloads() {
-		if _, found := e.filteredOverloadIDs[overload.GetOverloadId()]; found {
-			continue
-		}
 		errorMsgs = append(errorMsgs, e.addOverload(current, overload)...)
 	}
 	return errorMsgs
@@ -242,6 +239,13 @@ func (e *Env) addIdent(decl *exprpb.Decl) errorMsg {
 	}
 	e.declarations.AddIdent(decl)
 	return ""
+}
+
+func (e *Env) isOverloadDisabled(overloadID string) bool {
+	if _, found := e.filteredOverloadIDs[overloadID]; found {
+		return found
+	}
+	return false
 }
 
 // sanitizeFunction replaces well-known types referenced by message name with their equivalent
@@ -321,6 +325,7 @@ func getObjectWellKnownType(t *exprpb.Type) *exprpb.Type {
 	return pb.CheckedWellKnowns[t.GetMessageType()]
 }
 
+// validatedDeclarations returns a copy of the internal validated variable and function declaration scope stack.
 func (e *Env) validatedDeclarations() *decls.Scopes {
 	return e.declarations.Copy()
 }

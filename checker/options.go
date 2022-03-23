@@ -43,9 +43,11 @@ func HomogeneousAggregateLiterals(enabled bool) Option {
 	}
 }
 
-func CopyDeclarations(env *Env) Option {
+// ValidatedDeclarations provides a references to validated declarations which will be copied
+// into new checker instances.
+func ValidatedDeclarations(env *Env) Option {
 	return func(opts *options) error {
-		opts.validatedDeclarations = env.validatedDeclarations().Copy()
+		opts.validatedDeclarations = env.validatedDeclarations()
 		return nil
 	}
 }

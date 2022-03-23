@@ -33,6 +33,7 @@ func NewScopes() *Scopes {
 	}
 }
 
+// Copy creates a copy of the current Scopes values, including a copy of its parent if non-nil.
 func (s *Scopes) Copy() *Scopes {
 	cpy := NewScopes()
 	if s == nil {
@@ -119,8 +120,13 @@ type Group struct {
 	functions map[string]*exprpb.Decl
 }
 
+// copy creates a new Group instance with a shallow copy of the variables and functions.
+// If callers need to mutate the exprpb.Decl definitions for a Function, they should copy-on-write.
 func (g *Group) copy() *Group {
-	cpy := newGroup()
+	cpy := &Group{
+		idents:    make(map[string]*exprpb.Decl, len(g.idents)),
+		functions: make(map[string]*exprpb.Decl, len(g.functions)),
+	}
 	for n, id := range g.idents {
 		cpy.idents[n] = id
 	}
@@ -130,6 +136,7 @@ func (g *Group) copy() *Group {
 	return cpy
 }
 
+// newGroup creates a new Group with empty maps for identifiers and functions.
 func newGroup() *Group {
 	return &Group{
 		idents:    make(map[string]*exprpb.Decl),

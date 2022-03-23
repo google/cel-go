@@ -107,6 +107,14 @@ func Declarations(decls ...*exprpb.Decl) EnvOption {
 	}
 }
 
+// EagerlyValidateDeclarations ensures that any collisions between configured declarations are caught
+// at the time of the `NewEnv` call.
+//
+// Eagerly validating declarations is also useful for bootstrapping a base `cel.Env` value.
+// Calls to base `Env.Extend()` will be significantly faster when declarations are eagerly validated
+// as declarations will be collision-checked at most once and only incrementally by way of `Extend`
+//
+// Disabled by default as not all environments are used for type-checking.
 func EagerlyValidateDeclarations(enabled bool) EnvOption {
 	return features(featureEagerlyValidateDeclarations, enabled)
 }

@@ -109,8 +109,8 @@ type Env struct {
 // See the EnvOption helper functions for the options that can be used to configure the
 // environment.
 func NewEnv(opts ...EnvOption) (*Env, error) {
-	stdOpts := append([]EnvOption{StdLib()}, opts...)
-	return NewCustomEnv(stdOpts...)
+	stdOpts := append([]EnvOption{EagerlyValidateDeclarations(false)}, opts...)
+	return stdEnv.Extend(stdOpts...)
 }
 
 // NewCustomEnv creates a custom program environment which is not automatically configured with the
@@ -236,11 +236,21 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 	if e.chkErr != nil {
 		return nil, e.chkErr
 	}
-	chkOpts := []checker.Option{}
+
+	// The type-checker is configured with Declarations. The declarations may either be provided
+	// as options which have not yet been validated, or may come from a previous checker instance
+	// whose types have already been validated.
+	chkOptsCopy := make([]checker.Option, len(e.chkOpts))
+	copy(chkOptsCopy, e.chkOpts)
+
 	decsCopy := []*exprpb.Decl{}
 	if e.chk != nil {
-		chkOpts = append(chkOpts, checker.CopyDeclarations(e.chk))
+		// If the type-checker has already been instantiated, then the e.declarations have been
+		// valdiated within the chk instance.
+		chkOptsCopy = append(chkOptsCopy, checker.ValidatedDeclarations(e.chk))
 	} else {
+		// If the type-checker has not been instantiated, ensure the unvalidated declarations are
+		// provided to the extended Env instance.
 		decsCopy = make([]*exprpb.Decl, len(e.declarations))
 		copy(decsCopy, e.declarations)
 	}
@@ -290,7 +300,7 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 		adapter:      adapter,
 		features:     featuresCopy,
 		provider:     provider,
-		chkOpts:      chkOpts,
+		chkOpts:      chkOptsCopy,
 	}
 	return ext.configure(opts)
 }
@@ -509,4 +519,14 @@ func (i *Issues) String() string {
 		return ""
 	}
 	return i.errs.ToDisplayString()
+}
+
+var stdEnv *Env
+
+func init() {
+	var err error
+	stdEnv, err = NewCustomEnv(StdLib(), EagerlyValidateDeclarations(true))
+	if err != nil {
+		panic(err)
+	}
 }

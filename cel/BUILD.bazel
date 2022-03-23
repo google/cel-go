@@ -46,6 +46,7 @@ go_test(
     srcs = [
         "cel_example_test.go",
         "cel_test.go",
+        "env_test.go",
         "io_test.go",
     ],
     data = [

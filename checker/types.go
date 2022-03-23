@@ -149,21 +149,6 @@ func isEqualOrLessSpecific(t1 *exprpb.Type, t2 *exprpb.Type) bool {
 			}
 		}
 		return true
-	case kindFunction:
-		fn1 := t1.GetFunction()
-		fn2 := t2.GetFunction()
-		if len(fn1.ArgTypes) != len(fn2.ArgTypes) {
-			return false
-		}
-		if !isEqualOrLessSpecific(fn1.ResultType, fn2.ResultType) {
-			return false
-		}
-		for i, a1 := range fn1.ArgTypes {
-			if !isEqualOrLessSpecific(a1, fn2.ArgTypes[i]) {
-				return false
-			}
-		}
-		return true
 	case kindList:
 		return isEqualOrLessSpecific(t1.GetListType().ElemType, t2.GetListType().ElemType)
 	case kindMap:
@@ -246,7 +231,7 @@ func internalIsAssignable(m *mapping, t1 *exprpb.Type, t2 *exprpb.Type) bool {
 }
 
 // isValidTypeSubstitution returns whether t2 (or its type substitution) is a valid type
-// substitution for t1.
+// substitution for t1, and whether t2 has a type substitution in mapping m.
 //
 // The type t2 is a valid substitution for t1 if any of the following statements is true
 // - t2 has a type substitition (t2sub) equal to t1
@@ -276,13 +261,8 @@ func isValidTypeSubstitution(m *mapping, t1, t2 *exprpb.Type) (valid, hasSub boo
 func internalIsAssignableAbstractType(m *mapping,
 	a1 *exprpb.Type_AbstractType,
 	a2 *exprpb.Type_AbstractType) bool {
-	if a1.GetName() != a2.GetName() {
-		return false
-	}
-	if internalIsAssignableList(m, a1.GetParameterTypes(), a2.GetParameterTypes()) {
-		return true
-	}
-	return false
+	return a1.GetName() == a2.GetName() &&
+		internalIsAssignableList(m, a1.GetParameterTypes(), a2.GetParameterTypes())
 }
 
 // internalIsAssignableFunction returns true if the function return type and arg types are
@@ -430,15 +410,6 @@ func notReferencedIn(m *mapping, t *exprpb.Type, withinType *exprpb.Type) bool {
 			}
 		}
 		return true
-	case kindFunction:
-		fn := withinType.GetFunction()
-		types := flattenFunctionTypes(fn)
-		for _, a := range types {
-			if !notReferencedIn(m, t, a) {
-				return false
-			}
-		}
-		return true
 	case kindList:
 		return notReferencedIn(m, t, withinType.GetListType().ElemType)
 	case kindMap:
@@ -463,7 +434,6 @@ func substitute(m *mapping, t *exprpb.Type, typeParamToDyn bool) *exprpb.Type {
 	}
 	switch kind {
 	case kindAbstract:
-		// TODO: implement!
 		at := t.GetAbstractType()
 		params := make([]*exprpb.Type, len(at.GetParameterTypes()))
 		for i, p := range at.GetParameterTypes() {
