@@ -96,14 +96,16 @@ func NewJSONList(adapter ref.TypeAdapter, l *structpb.ListValue) traits.Lister {
 }
 
 // NewMutableList creates a new mutable list whose internal state can be modified.
-//
-// The mutable list only handles `Add` calls correctly as it is intended only for use within
-// comprehension loops which generate an immutable result upon completion.
-func NewMutableList(adapter ref.TypeAdapter) traits.Lister {
+func NewMutableList(adapter ref.TypeAdapter) traits.MutableLister {
+	var mutableValues []ref.Val
 	return &mutableList{
-		TypeAdapter:   adapter,
-		baseList:      nil,
-		mutableValues: []ref.Val{},
+		baseList: &baseList{
+			TypeAdapter: adapter,
+			value:       mutableValues,
+			size:        0,
+			get:         func(i int) interface{} { return mutableValues[i] },
+		},
+		mutableValues: mutableValues,
 	}
 }
 
@@ -270,19 +272,24 @@ func (l *baseList) Value() interface{} {
 
 // mutableList aggregates values into its internal storage. For use with internal CEL variables only.
 type mutableList struct {
-	ref.TypeAdapter
 	*baseList
 	mutableValues []ref.Val
 }
 
 // Add copies elements from the other list into the internal storage of the mutable list.
+// The ref.Val returned by Add is the receiver.
 func (l *mutableList) Add(other ref.Val) ref.Val {
-	otherList, ok := other.(traits.Lister)
-	if !ok {
+	switch otherList := other.(type) {
+	case *mutableList:
+		l.mutableValues = append(l.mutableValues, otherList.mutableValues...)
+		l.size += len(otherList.mutableValues)
+	case traits.Lister:
+		for i := IntZero; i < otherList.Size().(Int); i++ {
+			l.size++
+			l.mutableValues = append(l.mutableValues, otherList.Get(i))
+		}
+	default:
 		return MaybeNoSuchOverloadErr(otherList)
-	}
-	for i := IntZero; i < otherList.Size().(Int); i++ {
-		l.mutableValues = append(l.mutableValues, otherList.Get(i))
 	}
 	return l
 }
