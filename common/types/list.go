@@ -96,30 +96,18 @@ func NewJSONList(adapter ref.TypeAdapter, l *structpb.ListValue) traits.Lister {
 }
 
 // NewMutableList creates a new mutable list whose internal state can be modified.
-//
-// The mutable list only handles `Add` and `Type` calls correctly as it is intended
-// only for use within comprehension loops which generate an immutable result upon
-// completion.
-//
-// The returned value's ToImmutableList must be called to return a list for use in
-// CEL expressions.
 func NewMutableList(adapter ref.TypeAdapter) traits.MutableLister {
+	var mutableValues []ref.Val
 	return &mutableList{
-		TypeAdapter:   adapter,
-		mutableValues: []ref.Val{},
+		baseList: &baseList{
+			TypeAdapter: adapter,
+			value:       mutableValues,
+			size:        0,
+			get:         func(i int) interface{} { return mutableValues[i] },
+		},
+		mutableValues: mutableValues,
 	}
 }
-
-func (*mutableList) Contains(ref.Val) ref.Val { panic("invalid use of mutable list") }
-func (*mutableList) ConvertToNative(reflect.Type) (interface{}, error) {
-	panic("invalid use of mutable list")
-}
-func (*mutableList) ConvertToType(ref.Type) ref.Val { panic("invalid use of mutable list") }
-func (*mutableList) Equal(ref.Val) ref.Val          { panic("invalid use of mutable list") }
-func (*mutableList) Get(ref.Val) ref.Val            { panic("invalid use of mutable list") }
-func (*mutableList) Iterator() traits.Iterator      { panic("invalid use of mutable list") }
-func (*mutableList) Size() ref.Val                  { panic("invalid use of mutable list") }
-func (*mutableList) Value() interface{}             { panic("invalid use of mutable list") }
 
 // baseList points to a list containing elements of any type.
 // The `value` is an array of native values, and refValue is its reflection object.
@@ -284,19 +272,24 @@ func (l *baseList) Value() interface{} {
 
 // mutableList aggregates values into its internal storage. For use with internal CEL variables only.
 type mutableList struct {
-	ref.TypeAdapter
+	*baseList
 	mutableValues []ref.Val
 }
 
 // Add copies elements from the other list into the internal storage of the mutable list.
 // The ref.Val returned by Add is the receiver.
 func (l *mutableList) Add(other ref.Val) ref.Val {
-	otherList, ok := other.(traits.Lister)
-	if !ok {
+	switch otherList := other.(type) {
+	case *mutableList:
+		l.mutableValues = append(l.mutableValues, otherList.mutableValues...)
+		l.size += len(otherList.mutableValues)
+	case traits.Lister:
+		for i := IntZero; i < otherList.Size().(Int); i++ {
+			l.size++
+			l.mutableValues = append(l.mutableValues, otherList.Get(i))
+		}
+	default:
 		return MaybeNoSuchOverloadErr(otherList)
-	}
-	for i := IntZero; i < otherList.Size().(Int); i++ {
-		l.mutableValues = append(l.mutableValues, otherList.Get(i))
 	}
 	return l
 }
@@ -306,11 +299,6 @@ func (l *mutableList) ToImmutableList() traits.Lister {
 	// The reference to internal state is guaranteed to be safe as this call is only performed
 	// when mutations have been completed.
 	return NewRefValList(l.TypeAdapter, l.mutableValues)
-}
-
-// Type implements the ref.Val interface method.
-func (l *mutableList) Type() ref.Type {
-	return ListType
 }
 
 // concatList combines two list implementations together into a view.
