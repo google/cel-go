@@ -96,6 +96,7 @@ type Env struct {
 	chk     *checker.Env
 	chkErr  error
 	chkOnce sync.Once
+	chkOpts []checker.Option
 
 	// Program options tied to the environment
 	progOpts []ProgramOption
@@ -151,11 +152,15 @@ func (e *Env) Check(ast *Ast) (*Ast, *Issues) {
 
 	// Construct the internal checker env, erroring if there is an issue adding the declarations.
 	e.chkOnce.Do(func() {
-		ce, err := checker.NewEnv(e.Container, e.provider,
+		chkOpts := []checker.Option{}
+		chkOpts = append(chkOpts, e.chkOpts...)
+		chkOpts = append(chkOpts,
 			checker.HomogeneousAggregateLiterals(
 				e.HasFeature(featureDisableDynamicAggregateLiterals)),
 			checker.CrossTypeNumericComparisons(
 				e.HasFeature(featureCrossTypeNumericComparisons)))
+
+		ce, err := checker.NewEnv(e.Container, e.provider, chkOpts...)
 		if err != nil {
 			e.chkErr = err
 			return
@@ -231,11 +236,17 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 	if e.chkErr != nil {
 		return nil, e.chkErr
 	}
+	chkOpts := []checker.Option{}
+	decsCopy := []*exprpb.Decl{}
+	if e.chk != nil {
+		chkOpts = append(chkOpts, checker.CopyDeclarations(e.chk))
+	} else {
+		decsCopy = make([]*exprpb.Decl, len(e.declarations))
+		copy(decsCopy, e.declarations)
+	}
 	// Copy slices.
-	decsCopy := make([]*exprpb.Decl, len(e.declarations))
 	macsCopy := make([]parser.Macro, len(e.macros))
 	progOptsCopy := make([]ProgramOption, len(e.progOpts))
-	copy(decsCopy, e.declarations)
 	copy(macsCopy, e.macros)
 	copy(progOptsCopy, e.progOpts)
 
@@ -279,6 +290,7 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 		adapter:      adapter,
 		features:     featuresCopy,
 		provider:     provider,
+		chkOpts:      chkOpts,
 	}
 	return ext.configure(opts)
 }
@@ -424,6 +436,8 @@ func (e *Env) configure(opts []EnvOption) (*Env, error) {
 			return nil, err
 		}
 	}
+
+	// Configure the parser.
 	prsrOpts := []parser.Option{parser.Macros(e.macros...)}
 	if e.HasFeature(featureEnableMacroCallTracking) {
 		prsrOpts = append(prsrOpts, parser.PopulateMacroCalls(true))
@@ -432,6 +446,16 @@ func (e *Env) configure(opts []EnvOption) (*Env, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// The simplest way to eagerly validate declarations on environment creation is to compile
+	// a dummy program and check for the presence of e.chkErr being non-nil.
+	if e.HasFeature(featureEagerlyValidateDeclarations) {
+		e.Compile("'validate'")
+		if e.chkErr != nil {
+			return nil, e.chkErr
+		}
+	}
+
 	return e, nil
 }
 

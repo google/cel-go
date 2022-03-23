@@ -14,9 +14,12 @@
 
 package checker
 
+import "github.com/google/cel-go/checker/decls"
+
 type options struct {
 	crossTypeNumericComparisons  bool
 	homogeneousAggregateLiterals bool
+	validatedDeclarations        *decls.Scopes
 }
 
 // Option is a functional option for configuring the type-checker
@@ -36,6 +39,13 @@ func CrossTypeNumericComparisons(enabled bool) Option {
 func HomogeneousAggregateLiterals(enabled bool) Option {
 	return func(opts *options) error {
 		opts.homogeneousAggregateLiterals = enabled
+		return nil
+	}
+}
+
+func CopyDeclarations(env *Env) Option {
+	return func(opts *options) error {
+		opts.validatedDeclarations = env.validatedDeclarations().Copy()
 		return nil
 	}
 }

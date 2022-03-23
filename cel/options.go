@@ -53,6 +53,10 @@ const (
 
 	// Enable the use of cross-type numeric comparisons at the type-checker.
 	featureCrossTypeNumericComparisons
+
+	// Enable eager validation of declarations to ensure that Env values created
+	// with `Extend` inherit a validated list of declarations from the parent Env.
+	featureEagerlyValidateDeclarations
 )
 
 // EnvOption is a functional interface for configuring the environment.
@@ -101,6 +105,10 @@ func Declarations(decls ...*exprpb.Decl) EnvOption {
 		e.declarations = append(e.declarations, decls...)
 		return e, nil
 	}
+}
+
+func EagerlyValidateDeclarations(enabled bool) EnvOption {
+	return features(featureEagerlyValidateDeclarations, enabled)
 }
 
 // HomogeneousAggregateLiterals option ensures that list and map literal entry types must agree

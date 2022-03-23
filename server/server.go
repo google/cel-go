@@ -23,6 +23,7 @@ import (
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -96,8 +97,7 @@ func (s *ConformanceServer) Check(ctx context.Context, in *confpb.CheckRequest) 
 
 // Eval implements ConformanceService.Eval.
 func (s *ConformanceServer) Eval(ctx context.Context, in *confpb.EvalRequest) (*confpb.EvalResponse, error) {
-	env, _ := cel.NewEnv(cel.Container(in.Container),
-		cel.Types(&test2pb.TestAllTypes{}, &test3pb.TestAllTypes{}))
+	env, _ := evalEnv.Extend(cel.Container(in.Container))
 	var prg cel.Program
 	var err error
 	switch in.ExprKind.(type) {
@@ -212,3 +212,10 @@ func ExprValueToRefValue(adapter ref.TypeAdapter, ev *exprpb.ExprValue) (ref.Val
 	return nil, status.New(codes.InvalidArgument, "unknown ExprValue kind").Err()
 }
 
+var evalEnv *cel.Env
+
+func init() {
+	evalEnv, _ = cel.NewEnv(
+		cel.Types(&test2pb.TestAllTypes{}, &test3pb.TestAllTypes{}),
+		cel.EagerlyValidateDeclarations(true))
+}

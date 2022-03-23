@@ -18,7 +18,11 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common"
+	"github.com/google/cel-go/common/operators"
+	"github.com/google/cel-go/common/types"
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 func TestIssuesNil(t *testing.T) {
@@ -77,5 +81,61 @@ ERROR: <input>:1:2: Syntax error: mismatched input '<EOF>' expecting {'[', '{', 
  | .^`
 	if iss.String() != wantIss {
 		t.Errorf("iss.String() returned %v, wanted %v", iss.String(), wantIss)
+	}
+}
+
+func BenchmarkNewEnv(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		env, err := NewEnv()
+		if err != nil {
+			b.Fatalf("NewEnv() failed: %v", err)
+		}
+		_, iss := env.Compile("123")
+		if iss.Err() != nil {
+			b.Fatalf("env.Compile(123) failed: %v", iss.Err())
+		}
+	}
+}
+
+func BenchmarkEnvExtend(b *testing.B) {
+	env, err := NewEnv(EagerlyValidateDeclarations(true))
+	if err != nil {
+		b.Fatalf("NewEnv() failed: %v", err)
+	}
+	for i := 0; i < b.N; i++ {
+		ext, err := env.Extend(
+			Declarations(
+				decls.NewVar("test_var", decls.String),
+				decls.NewFunction(
+					operators.In,
+					decls.NewOverload("string_in_string", []*exprpb.Type{
+						decls.String, decls.String,
+					}, decls.Bool)),
+			),
+		)
+		if err != nil {
+			b.Fatalf("env.Extend() failed: %v", err)
+		}
+		_, iss := ext.Compile("123")
+		if iss.Err() != nil {
+			b.Fatalf("env.Compile(123) failed: %v", iss.Err())
+		}
+	}
+}
+
+func BenchmarkEnvExtendNoDecls(b *testing.B) {
+	env, err := NewEnv(EagerlyValidateDeclarations(true))
+	if err != nil {
+		b.Fatalf("NewEnv() failed: %v", err)
+	}
+	for i := 0; i < b.N; i++ {
+		ext, err := env.Extend(CustomTypeProvider(types.NewEmptyRegistry()))
+		if err != nil {
+			b.Fatalf("env.Extend() failed: %v", err)
+		}
+		_, iss := ext.Compile("123")
+		if iss.Err() != nil {
+			b.Fatalf("env.Compile(123) failed: %v", iss.Err())
+		}
 	}
 }

@@ -33,6 +33,18 @@ func NewScopes() *Scopes {
 	}
 }
 
+func (s *Scopes) Copy() *Scopes {
+	cpy := NewScopes()
+	if s == nil {
+		return cpy
+	}
+	if s.parent != nil {
+		cpy.parent = s.parent.Copy()
+	}
+	cpy.scopes = s.scopes.copy()
+	return cpy
+}
+
 // Push creates a new Scopes value which references the current Scope as its parent.
 func (s *Scopes) Push() *Scopes {
 	return &Scopes{
@@ -80,9 +92,9 @@ func (s *Scopes) FindIdentInScope(name string) *exprpb.Decl {
 	return nil
 }
 
-// AddFunction adds the function Decl to the current scope.
+// SetFunction adds the function Decl to the current scope.
 // Note: Any previous entry for a function in the current scope with the same name is overwritten.
-func (s *Scopes) AddFunction(fn *exprpb.Decl) {
+func (s *Scopes) SetFunction(fn *exprpb.Decl) {
 	s.scopes.functions[fn.Name] = fn
 }
 
@@ -105,6 +117,17 @@ func (s *Scopes) FindFunction(name string) *exprpb.Decl {
 type Group struct {
 	idents    map[string]*exprpb.Decl
 	functions map[string]*exprpb.Decl
+}
+
+func (g *Group) copy() *Group {
+	cpy := newGroup()
+	for n, id := range g.idents {
+		cpy.idents[n] = id
+	}
+	for n, fn := range g.functions {
+		cpy.functions[n] = fn
+	}
+	return cpy
 }
 
 func newGroup() *Group {

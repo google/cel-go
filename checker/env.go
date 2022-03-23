@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"strings"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/overloads"
@@ -98,6 +100,9 @@ func NewEnv(container *containers.Container, provider ref.TypeProvider, opts ...
 	filteredOverloadIDs := crossTypeNumericComparisonOverloads
 	if envOptions.crossTypeNumericComparisons {
 		filteredOverloadIDs = make(map[string]struct{})
+	}
+	if envOptions.validatedDeclarations != nil {
+		declarations = envOptions.validatedDeclarations
 	}
 	return &Env{
 		container:           container,
@@ -212,8 +217,11 @@ func (e *Env) addFunction(decl *exprpb.Decl) []errorMsg {
 	if current == nil {
 		//Add the function declaration without overloads and check the overloads below.
 		current = decls.NewFunction(decl.Name)
-		e.declarations.AddFunction(current)
+	} else {
+		// Copy on write since we don't know where this original definition came from.
+		current = proto.Clone(current).(*exprpb.Decl)
 	}
+	e.declarations.SetFunction(current)
 
 	errorMsgs := make([]errorMsg, 0)
 	for _, overload := range decl.GetFunction().GetOverloads() {
@@ -311,6 +319,10 @@ func isObjectWellKnownType(t *exprpb.Type) bool {
 // getObjectWellKnownType returns the built-in CEL type declaration for input type's message name.
 func getObjectWellKnownType(t *exprpb.Type) *exprpb.Type {
 	return pb.CheckedWellKnowns[t.GetMessageType()]
+}
+
+func (e *Env) validatedDeclarations() *decls.Scopes {
+	return e.declarations.Copy()
 }
 
 // enterScope creates a new Env instance with a new innermost declaration scope.

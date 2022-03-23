@@ -89,6 +89,21 @@ func TestSanitizedInstanceOverload(t *testing.T) {
 	}
 }
 
+func BenchmarkNewStdEnv(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		env, err := NewEnv(containers.DefaultContainer, newTestRegistry(b))
+		if err != nil {
+			b.Fatalf("NewEnv() failed: %v", err)
+		}
+		decls := []*exprpb.Decl{}
+		decls = append(decls, StandardDeclarations()...)
+		err = env.Add(decls...)
+		if err != nil {
+			b.Fatalf("env.Add(StandardDeclarations()) failed: %v", err)
+		}
+	}
+}
+
 func newStdEnv(t *testing.T) *Env {
 	t.Helper()
 	env, err := NewEnv(containers.DefaultContainer, newTestRegistry(t))
@@ -102,7 +117,7 @@ func newStdEnv(t *testing.T) *Env {
 	return env
 }
 
-func newTestRegistry(t *testing.T) ref.TypeRegistry {
+func newTestRegistry(t testing.TB) ref.TypeRegistry {
 	t.Helper()
 	reg, err := types.NewRegistry()
 	if err != nil {
