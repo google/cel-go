@@ -104,8 +104,16 @@ func BenchmarkNewCustomEnvEager(b *testing.B) {
 	}
 }
 
-func BenchmarkNewEnv(b *testing.B) {
-	b.ResetTimer()
+func BenchmarkNewEnvLazy(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_, err := NewEnv()
+		if err != nil {
+			b.Fatalf("NewEnv() failed: %v", err)
+		}
+	}
+}
+
+func BenchmarkNewEnvEager(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		env, err := NewEnv()
 		if err != nil {
@@ -118,7 +126,24 @@ func BenchmarkNewEnv(b *testing.B) {
 	}
 }
 
-func BenchmarkEnvExtend(b *testing.B) {
+func BenchmarkEnvExtendEager(b *testing.B) {
+	env, err := NewEnv()
+	if err != nil {
+		b.Fatalf("NewEnv() failed: %v", err)
+	}
+	for i := 0; i < b.N; i++ {
+		ext, err := env.Extend()
+		if err != nil {
+			b.Fatalf("env.Extend() failed: %v", err)
+		}
+		_, iss := ext.Compile("123")
+		if iss.Err() != nil {
+			b.Fatalf("env.Compile(123) failed: %v", iss.Err())
+		}
+	}
+}
+
+func BenchmarkEnvExtendEagerTypes(b *testing.B) {
 	env, err := NewEnv(EagerlyValidateDeclarations(true))
 	if err != nil {
 		b.Fatalf("NewEnv() failed: %v", err)
@@ -135,7 +160,7 @@ func BenchmarkEnvExtend(b *testing.B) {
 	}
 }
 
-func BenchmarkEnvExtendDecls(b *testing.B) {
+func BenchmarkEnvExtendEagerDecls(b *testing.B) {
 	env, err := NewEnv(EagerlyValidateDeclarations(true))
 	if err != nil {
 		b.Fatalf("NewEnv() failed: %v", err)

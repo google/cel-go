@@ -122,7 +122,7 @@ func (e *Env) Add(decls ...*exprpb.Decl) error {
 		case *exprpb.Decl_Ident:
 			errMsgs = append(errMsgs, e.addIdent(sanitizeIdent(decl)))
 		case *exprpb.Decl_Function:
-			errMsgs = append(errMsgs, e.addFunction(sanitizeFunction(decl))...)
+			errMsgs = append(errMsgs, e.setFunction(sanitizeFunction(decl))...)
 		}
 	}
 	return formatError(errMsgs)
@@ -209,10 +209,10 @@ func (e *Env) addOverload(f *exprpb.Decl, overload *exprpb.Decl_FunctionDecl_Ove
 	return errMsgs
 }
 
-// addFunction adds the function Decl to the Env.
+// setFunction adds the function Decl to the Env.
 // Adds a function decl if one doesn't already exist, then adds all overloads from the Decl.
 // If overload overlaps with an existing overload, adds to the errors  in the Env instead.
-func (e *Env) addFunction(decl *exprpb.Decl) []errorMsg {
+func (e *Env) setFunction(decl *exprpb.Decl) []errorMsg {
 	current := e.declarations.FindFunction(decl.Name)
 	if current == nil {
 		//Add the function declaration without overloads and check the overloads below.
@@ -325,9 +325,10 @@ func getObjectWellKnownType(t *exprpb.Type) *exprpb.Type {
 	return pb.CheckedWellKnowns[t.GetMessageType()]
 }
 
-// validatedDeclarations returns a copy of the internal validated variable and function declaration scope stack.
+// validatedDeclarations returns a reference to the validated variable and function declaration scope stack.
+// must be copied before use.
 func (e *Env) validatedDeclarations() *decls.Scopes {
-	return e.declarations.Copy()
+	return e.declarations
 }
 
 // enterScope creates a new Env instance with a new innermost declaration scope.

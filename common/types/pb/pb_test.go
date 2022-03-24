@@ -43,6 +43,12 @@ func TestDbCopy(t *testing.T) {
 	}
 }
 
+func BenchmarkDbCopy(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		NewDb().Copy()
+	}
+}
+
 func TestProtoReflectRoundTrip(t *testing.T) {
 	msg := &proto3pb.TestAllTypes{SingleBool: true}
 	fdMap := CollectFileDescriptorSet(msg)

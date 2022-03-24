@@ -243,6 +243,7 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 	chkOptsCopy := make([]checker.Option, len(e.chkOpts))
 	copy(chkOptsCopy, e.chkOpts)
 
+	// Copy the declarations if needed.
 	decsCopy := []*exprpb.Decl{}
 	if e.chk != nil {
 		// If the type-checker has already been instantiated, then the e.declarations have been
@@ -254,7 +255,8 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 		decsCopy = make([]*exprpb.Decl, len(e.declarations))
 		copy(decsCopy, e.declarations)
 	}
-	// Copy slices.
+
+	// Copy macros and program options
 	macsCopy := make([]parser.Macro, len(e.macros))
 	progOptsCopy := make([]ProgramOption, len(e.progOpts))
 	copy(macsCopy, e.macros)
