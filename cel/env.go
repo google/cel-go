@@ -109,6 +109,10 @@ type Env struct {
 // See the EnvOption helper functions for the options that can be used to configure the
 // environment.
 func NewEnv(opts ...EnvOption) (*Env, error) {
+	// Extend the statically configured standard environment, disabling eager validation to ensure
+	// the cost of setup for the environment is still just as cheap as it is in v0.11.x and earlier
+	// releases. The user provided options can easily re-enable the eager validation as they are
+	// processed after this default option.
 	stdOpts := append([]EnvOption{EagerlyValidateDeclarations(false)}, opts...)
 	return stdEnv.Extend(stdOpts...)
 }
