@@ -239,7 +239,8 @@ func internalIsAssignable(m *mapping, t1 *exprpb.Type, t2 *exprpb.Type) bool {
 // - t2 does not occur within t1.
 func isValidTypeSubstitution(m *mapping, t1, t2 *exprpb.Type) (valid, hasSub bool) {
 	if t2Sub, found := m.find(t2); found {
-		if proto.Equal(t1, t2Sub) {
+		kind1, kind2 := kindOf(t1), kindOf(t2)
+		if kind1 == kind2 && proto.Equal(t1, t2Sub) {
 			return true, true
 		}
 		// If the types are compatible, pick the more general type and return true
