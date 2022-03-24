@@ -520,7 +520,7 @@ func BenchmarkNativeToValue(b *testing.B) {
 	}
 }
 
-func BenchmarkTypeProvider_NewValue(b *testing.B) {
+func BenchmarkTypeProviderNewValue(b *testing.B) {
 	reg, err := NewRegistry(&exprpb.ParsedExpr{})
 	if err != nil {
 		b.Fatalf("NewRegistry() failed: %v", err)
@@ -533,6 +533,16 @@ func BenchmarkTypeProvider_NewValue(b *testing.B) {
 				"LineOffsets": NewDynamicList(reg, []int64{0, 2}),
 				"Positions":   NewDynamicMap(reg, map[int64]int64{1: 2, 2: 4}),
 			})
+	}
+}
+
+func BenchmarkTypeProviderCopy(b *testing.B) {
+	reg, err := NewRegistry()
+	if err != nil {
+		b.Fatalf("NewRegistry() failed: %v", err)
+	}
+	for i := 0; i < b.N; i++ {
+		reg.Copy()
 	}
 }
 

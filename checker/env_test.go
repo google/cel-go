@@ -19,11 +19,13 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/checker/decls"
+	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/parser"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
@@ -89,6 +91,60 @@ func TestSanitizedInstanceOverload(t *testing.T) {
 	}
 }
 
+func TestCopyDeclarations(t *testing.T) {
+	src := common.NewTextSource(`1 + 2 != 3 - 4`)
+	parsedAst, errors := parser.Parse(src)
+	if len(errors.GetErrors()) > 0 {
+		t.Fatalf("Unexpected parse errors: %v", errors.ToDisplayString())
+	}
+
+	env := newStdEnv(t)
+	_, errors = Check(parsedAst, src, env)
+	if len(errors.GetErrors()) > 0 {
+		t.Fatalf("Check(parsedAst, src, env): %v", errors.ToDisplayString())
+	}
+
+	copy, err := NewEnv(containers.DefaultContainer, newTestRegistry(t), ValidatedDeclarations(env))
+	if err != nil {
+		t.Fatalf("NewEnv(container, registry, CopyDeclarations(env)) failed %v: ", err)
+	}
+	_, errors = Check(parsedAst, src, copy)
+	if len(errors.GetErrors()) > 0 {
+		t.Fatalf("Check(parsedAst, src, copy): %v", errors.ToDisplayString())
+	}
+}
+
+func BenchmarkNewStdEnv(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		env, err := NewEnv(containers.DefaultContainer, newTestRegistry(b))
+		if err != nil {
+			b.Fatalf("NewEnv() failed: %v", err)
+		}
+		decls := []*exprpb.Decl{}
+		decls = append(decls, StandardDeclarations()...)
+		err = env.Add(decls...)
+		if err != nil {
+			b.Fatalf("env.Add(StandardDeclarations()) failed: %v", err)
+		}
+	}
+}
+
+func BenchmarkCopyDeclarations(b *testing.B) {
+	env, err := NewEnv(containers.DefaultContainer, newTestRegistry(b))
+	if err != nil {
+		b.Fatalf("NewEnv() failed: %v", err)
+	}
+	decls := []*exprpb.Decl{}
+	decls = append(decls, StandardDeclarations()...)
+	err = env.Add(decls...)
+	if err != nil {
+		b.Fatalf("env.Add(StandardDeclarations()) failed: %v", err)
+	}
+	for i := 0; i < b.N; i++ {
+		env.validatedDeclarations().Copy()
+	}
+}
+
 func newStdEnv(t *testing.T) *Env {
 	t.Helper()
 	env, err := NewEnv(containers.DefaultContainer, newTestRegistry(t))
@@ -102,7 +158,7 @@ func newStdEnv(t *testing.T) *Env {
 	return env
 }
 
-func newTestRegistry(t *testing.T) ref.TypeRegistry {
+func newTestRegistry(t testing.TB) ref.TypeRegistry {
 	t.Helper()
 	reg, err := types.NewRegistry()
 	if err != nil {

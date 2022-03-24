@@ -96,6 +96,7 @@ type Env struct {
 	chk     *checker.Env
 	chkErr  error
 	chkOnce sync.Once
+	chkOpts []checker.Option
 
 	// Program options tied to the environment
 	progOpts []ProgramOption
@@ -108,8 +109,12 @@ type Env struct {
 // See the EnvOption helper functions for the options that can be used to configure the
 // environment.
 func NewEnv(opts ...EnvOption) (*Env, error) {
-	stdOpts := append([]EnvOption{StdLib()}, opts...)
-	return NewCustomEnv(stdOpts...)
+	// Extend the statically configured standard environment, disabling eager validation to ensure
+	// the cost of setup for the environment is still just as cheap as it is in v0.11.x and earlier
+	// releases. The user provided options can easily re-enable the eager validation as they are
+	// processed after this default option.
+	stdOpts := append([]EnvOption{EagerlyValidateDeclarations(false)}, opts...)
+	return stdEnv.Extend(stdOpts...)
 }
 
 // NewCustomEnv creates a custom program environment which is not automatically configured with the
@@ -150,25 +155,8 @@ func (e *Env) Check(ast *Ast) (*Ast, *Issues) {
 	pe, _ := AstToParsedExpr(ast)
 
 	// Construct the internal checker env, erroring if there is an issue adding the declarations.
-	e.chkOnce.Do(func() {
-		ce, err := checker.NewEnv(e.Container, e.provider,
-			checker.HomogeneousAggregateLiterals(
-				e.HasFeature(featureDisableDynamicAggregateLiterals)),
-			checker.CrossTypeNumericComparisons(
-				e.HasFeature(featureCrossTypeNumericComparisons)))
-		if err != nil {
-			e.chkErr = err
-			return
-		}
-		err = ce.Add(e.declarations...)
-		if err != nil {
-			e.chkErr = err
-			return
-		}
-		e.chk = ce
-	})
-	// The once call will ensure that this value is set or nil for all invocations.
-	if e.chkErr != nil {
+	err := e.initChecker()
+	if err != nil {
 		errs := common.NewErrors(ast.Source())
 		errs.ReportError(common.NoLocation, e.chkErr.Error())
 		return nil, NewIssues(errs)
@@ -231,11 +219,29 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 	if e.chkErr != nil {
 		return nil, e.chkErr
 	}
-	// Copy slices.
-	decsCopy := make([]*exprpb.Decl, len(e.declarations))
+
+	// The type-checker is configured with Declarations. The declarations may either be provided
+	// as options which have not yet been validated, or may come from a previous checker instance
+	// whose types have already been validated.
+	chkOptsCopy := make([]checker.Option, len(e.chkOpts))
+	copy(chkOptsCopy, e.chkOpts)
+
+	// Copy the declarations if needed.
+	decsCopy := []*exprpb.Decl{}
+	if e.chk != nil {
+		// If the type-checker has already been instantiated, then the e.declarations have been
+		// valdiated within the chk instance.
+		chkOptsCopy = append(chkOptsCopy, checker.ValidatedDeclarations(e.chk))
+	} else {
+		// If the type-checker has not been instantiated, ensure the unvalidated declarations are
+		// provided to the extended Env instance.
+		decsCopy = make([]*exprpb.Decl, len(e.declarations))
+		copy(decsCopy, e.declarations)
+	}
+
+	// Copy macros and program options
 	macsCopy := make([]parser.Macro, len(e.macros))
 	progOptsCopy := make([]ProgramOption, len(e.progOpts))
-	copy(decsCopy, e.declarations)
 	copy(macsCopy, e.macros)
 	copy(progOptsCopy, e.progOpts)
 
@@ -279,6 +285,7 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 		adapter:      adapter,
 		features:     featuresCopy,
 		provider:     provider,
+		chkOpts:      chkOptsCopy,
 	}
 	return ext.configure(opts)
 }
@@ -424,6 +431,8 @@ func (e *Env) configure(opts []EnvOption) (*Env, error) {
 			return nil, err
 		}
 	}
+
+	// Configure the parser.
 	prsrOpts := []parser.Option{parser.Macros(e.macros...)}
 	if e.HasFeature(featureEnableMacroCallTracking) {
 		prsrOpts = append(prsrOpts, parser.PopulateMacroCalls(true))
@@ -432,7 +441,42 @@ func (e *Env) configure(opts []EnvOption) (*Env, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// The simplest way to eagerly validate declarations on environment creation is to compile
+	// a dummy program and check for the presence of e.chkErr being non-nil.
+	if e.HasFeature(featureEagerlyValidateDeclarations) {
+		err := e.initChecker()
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return e, nil
+}
+
+func (e *Env) initChecker() error {
+	e.chkOnce.Do(func() {
+		chkOpts := []checker.Option{}
+		chkOpts = append(chkOpts, e.chkOpts...)
+		chkOpts = append(chkOpts,
+			checker.HomogeneousAggregateLiterals(
+				e.HasFeature(featureDisableDynamicAggregateLiterals)),
+			checker.CrossTypeNumericComparisons(
+				e.HasFeature(featureCrossTypeNumericComparisons)))
+
+		ce, err := checker.NewEnv(e.Container, e.provider, chkOpts...)
+		if err != nil {
+			e.chkErr = err
+			return
+		}
+		err = ce.Add(e.declarations...)
+		if err != nil {
+			e.chkErr = err
+			return
+		}
+		e.chk = ce
+	})
+	return e.chkErr
 }
 
 // Issues defines methods for inspecting the error details of parse and check calls.
@@ -485,4 +529,14 @@ func (i *Issues) String() string {
 		return ""
 	}
 	return i.errs.ToDisplayString()
+}
+
+var stdEnv *Env
+
+func init() {
+	var err error
+	stdEnv, err = NewCustomEnv(StdLib(), EagerlyValidateDeclarations(true))
+	if err != nil {
+		panic(err)
+	}
 }
