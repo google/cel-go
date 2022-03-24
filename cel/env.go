@@ -155,29 +155,8 @@ func (e *Env) Check(ast *Ast) (*Ast, *Issues) {
 	pe, _ := AstToParsedExpr(ast)
 
 	// Construct the internal checker env, erroring if there is an issue adding the declarations.
-	e.chkOnce.Do(func() {
-		chkOpts := []checker.Option{}
-		chkOpts = append(chkOpts, e.chkOpts...)
-		chkOpts = append(chkOpts,
-			checker.HomogeneousAggregateLiterals(
-				e.HasFeature(featureDisableDynamicAggregateLiterals)),
-			checker.CrossTypeNumericComparisons(
-				e.HasFeature(featureCrossTypeNumericComparisons)))
-
-		ce, err := checker.NewEnv(e.Container, e.provider, chkOpts...)
-		if err != nil {
-			e.chkErr = err
-			return
-		}
-		err = ce.Add(e.declarations...)
-		if err != nil {
-			e.chkErr = err
-			return
-		}
-		e.chk = ce
-	})
-	// The once call will ensure that this value is set or nil for all invocations.
-	if e.chkErr != nil {
+	err := e.initChecker()
+	if err != nil {
 		errs := common.NewErrors(ast.Source())
 		errs.ReportError(common.NoLocation, e.chkErr.Error())
 		return nil, NewIssues(errs)
@@ -466,13 +445,38 @@ func (e *Env) configure(opts []EnvOption) (*Env, error) {
 	// The simplest way to eagerly validate declarations on environment creation is to compile
 	// a dummy program and check for the presence of e.chkErr being non-nil.
 	if e.HasFeature(featureEagerlyValidateDeclarations) {
-		e.Compile("'validate'")
-		if e.chkErr != nil {
-			return nil, e.chkErr
+		err := e.initChecker()
+		if err != nil {
+			return nil, err
 		}
 	}
 
 	return e, nil
+}
+
+func (e *Env) initChecker() error {
+	e.chkOnce.Do(func() {
+		chkOpts := []checker.Option{}
+		chkOpts = append(chkOpts, e.chkOpts...)
+		chkOpts = append(chkOpts,
+			checker.HomogeneousAggregateLiterals(
+				e.HasFeature(featureDisableDynamicAggregateLiterals)),
+			checker.CrossTypeNumericComparisons(
+				e.HasFeature(featureCrossTypeNumericComparisons)))
+
+		ce, err := checker.NewEnv(e.Container, e.provider, chkOpts...)
+		if err != nil {
+			e.chkErr = err
+			return
+		}
+		err = ce.Add(e.declarations...)
+		if err != nil {
+			e.chkErr = err
+			return
+		}
+		e.chk = ce
+	})
+	return e.chkErr
 }
 
 // Issues defines methods for inspecting the error details of parse and check calls.

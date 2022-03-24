@@ -241,11 +241,10 @@ func (e *Env) addIdent(decl *exprpb.Decl) errorMsg {
 	return ""
 }
 
+// isOverloadDisabled returns whether the overloadID is disabled in the current environment.
 func (e *Env) isOverloadDisabled(overloadID string) bool {
-	if _, found := e.filteredOverloadIDs[overloadID]; found {
-		return found
-	}
-	return false
+	_, found := e.filteredOverloadIDs[overloadID]
+	return found
 }
 
 // sanitizeFunction replaces well-known types referenced by message name with their equivalent
