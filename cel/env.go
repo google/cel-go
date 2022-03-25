@@ -114,7 +114,11 @@ func NewEnv(opts ...EnvOption) (*Env, error) {
 	// releases. The user provided options can easily re-enable the eager validation as they are
 	// processed after this default option.
 	stdOpts := append([]EnvOption{EagerlyValidateDeclarations(false)}, opts...)
-	return stdEnv.Extend(stdOpts...)
+	env, err := getStdEnv()
+	if err != nil {
+		return nil, err
+	}
+	return env.Extend(stdOpts...)
 }
 
 // NewCustomEnv creates a custom program environment which is not automatically configured with the
@@ -531,12 +535,16 @@ func (i *Issues) String() string {
 	return i.errs.ToDisplayString()
 }
 
-var stdEnv *Env
-
-func init() {
-	var err error
-	stdEnv, err = NewCustomEnv(StdLib(), EagerlyValidateDeclarations(true))
-	if err != nil {
-		panic(err)
-	}
+// getStdEnv lazy initializes the CEL standard environment.
+func getStdEnv() (*Env, error) {
+	stdEnvInit.Do(func() {
+		stdEnv, stdEnvErr = NewCustomEnv(StdLib(), EagerlyValidateDeclarations(true))
+	})
+	return stdEnv, stdEnvErr
 }
+
+var (
+	stdEnvInit sync.Once
+	stdEnv     *Env
+	stdEnvErr  error
+)
