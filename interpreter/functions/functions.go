@@ -45,6 +45,9 @@ type Overload struct {
 	// Function defines the overload with a FunctionOp implementation. May be
 	// nil.
 	Function FunctionOp
+
+	// AllowError specifies whether the Overload will tolerate error arguments.
+	AllowError bool
 }
 
 // UnaryOp is a function that takes a single value and produces an output.

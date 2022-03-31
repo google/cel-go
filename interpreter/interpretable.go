@@ -421,12 +421,13 @@ func (zero *evalZeroArity) Args() []Interpretable {
 }
 
 type evalUnary struct {
-	id       int64
-	function string
-	overload string
-	arg      Interpretable
-	trait    int
-	impl     functions.UnaryOp
+	id         int64
+	function   string
+	overload   string
+	arg        Interpretable
+	trait      int
+	impl       functions.UnaryOp
+	allowError bool
 }
 
 // ID implements the Interpretable interface method.
@@ -438,8 +439,14 @@ func (un *evalUnary) ID() int64 {
 func (un *evalUnary) Eval(ctx Activation) ref.Val {
 	argVal := un.arg.Eval(ctx)
 	// Early return if the argument to the function is unknown or error.
-	if types.IsUnknownOrError(argVal) {
-		return argVal
+	if un.allowError {
+		if types.IsUnknown(argVal) {
+			return argVal
+		}
+	} else {
+		if types.IsUnknownOrError(argVal) {
+			return argVal
+		}
 	}
 	// If the implementation is bound and the argument value has the right traits required to
 	// invoke it, then call the implementation.
@@ -478,13 +485,14 @@ func (un *evalUnary) Args() []Interpretable {
 }
 
 type evalBinary struct {
-	id       int64
-	function string
-	overload string
-	lhs      Interpretable
-	rhs      Interpretable
-	trait    int
-	impl     functions.BinaryOp
+	id         int64
+	function   string
+	overload   string
+	lhs        Interpretable
+	rhs        Interpretable
+	trait      int
+	impl       functions.BinaryOp
+	allowError bool
 }
 
 // ID implements the Interpretable interface method.
@@ -497,11 +505,20 @@ func (bin *evalBinary) Eval(ctx Activation) ref.Val {
 	lVal := bin.lhs.Eval(ctx)
 	rVal := bin.rhs.Eval(ctx)
 	// Early return if any argument to the function is unknown or error.
-	if types.IsUnknownOrError(lVal) {
-		return lVal
-	}
-	if types.IsUnknownOrError(rVal) {
-		return rVal
+	if bin.allowError {
+		if types.IsUnknown(lVal) {
+			return lVal
+		}
+		if types.IsUnknown(rVal) {
+			return rVal
+		}
+	} else {
+		if types.IsUnknownOrError(lVal) {
+			return lVal
+		}
+		if types.IsUnknownOrError(rVal) {
+			return rVal
+		}
 	}
 	// If the implementation is bound and the argument value has the right traits required to
 	// invoke it, then call the implementation.
@@ -537,12 +554,13 @@ func (bin *evalBinary) Args() []Interpretable {
 }
 
 type evalVarArgs struct {
-	id       int64
-	function string
-	overload string
-	args     []Interpretable
-	trait    int
-	impl     functions.FunctionOp
+	id         int64
+	function   string
+	overload   string
+	args       []Interpretable
+	trait      int
+	impl       functions.FunctionOp
+	allowError bool
 }
 
 // NewCall creates a new call Interpretable.
@@ -565,10 +583,19 @@ func (fn *evalVarArgs) ID() int64 {
 func (fn *evalVarArgs) Eval(ctx Activation) ref.Val {
 	argVals := make([]ref.Val, len(fn.args))
 	// Early return if any argument to the function is unknown or error.
-	for i, arg := range fn.args {
-		argVals[i] = arg.Eval(ctx)
-		if types.IsUnknownOrError(argVals[i]) {
-			return argVals[i]
+	if fn.allowError {
+		for i, arg := range fn.args {
+			argVals[i] = arg.Eval(ctx)
+			if types.IsUnknown(argVals[i]) {
+				return argVals[i]
+			}
+		}
+	} else {
+		for i, arg := range fn.args {
+			argVals[i] = arg.Eval(ctx)
+			if types.IsUnknownOrError(argVals[i]) {
+				return argVals[i]
+			}
 		}
 	}
 	// If the implementation is bound and the argument value has the right traits required to

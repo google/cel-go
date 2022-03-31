@@ -1338,6 +1338,60 @@ var (
 			container: "google.expr.proto3.test",
 			out:       types.True,
 		},
+		{
+			name:      "call_with_error_unary",
+			expr:      `try(0/0)`,
+			unchecked: true,
+			funcs: []*functions.Overload{
+				{
+					Operator: "try",
+					Unary: func(arg ref.Val) ref.Val {
+						if types.IsError(arg) {
+							return types.String(fmt.Sprintf("error: %s", arg))
+						}
+						return arg
+					},
+					AllowError: true,
+				},
+			},
+			out: types.String("error: division by zero"),
+		},
+		{
+			name:      "call_with_error_binary",
+			expr:      `try(0/0, 0)`,
+			unchecked: true,
+			funcs: []*functions.Overload{
+				{
+					Operator: "try",
+					Binary: func(arg0, arg1 ref.Val) ref.Val {
+						if types.IsError(arg0) {
+							return types.String(fmt.Sprintf("error: %s", arg0))
+						}
+						return types.NewDynamicList(types.DefaultTypeAdapter, []ref.Val{arg0, arg1})
+					},
+					AllowError: true,
+				},
+			},
+			out: types.String("error: division by zero"),
+		},
+		{
+			name:      "call_with_error_function",
+			expr:      `try(0/0, 0, 0)`,
+			unchecked: true,
+			funcs: []*functions.Overload{
+				{
+					Operator: "try",
+					Function: func(args ...ref.Val) ref.Val {
+						if types.IsError(args[0]) {
+							return types.String(fmt.Sprintf("error: %s", args[0]))
+						}
+						return types.NewDynamicList(types.DefaultTypeAdapter, args)
+					},
+					AllowError: true,
+				},
+			},
+			out: types.String("error: division by zero"),
+		},
 	}
 )
 
