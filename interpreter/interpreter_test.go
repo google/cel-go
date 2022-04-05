@@ -1351,7 +1351,7 @@ var (
 						}
 						return arg
 					},
-					AllowError: true,
+					NonStrict: true,
 				},
 			},
 			out: types.String("error: division by zero"),
@@ -1369,7 +1369,7 @@ var (
 						}
 						return types.NewDynamicList(types.DefaultTypeAdapter, []ref.Val{arg0, arg1})
 					},
-					AllowError: true,
+					NonStrict: true,
 				},
 			},
 			out: types.String("error: division by zero"),
@@ -1387,7 +1387,7 @@ var (
 						}
 						return types.NewDynamicList(types.DefaultTypeAdapter, args)
 					},
-					AllowError: true,
+					NonStrict: true,
 				},
 			},
 			out: types.String("error: division by zero"),
