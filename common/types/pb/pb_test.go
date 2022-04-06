@@ -23,6 +23,9 @@ import (
 
 	proto3pb "github.com/google/cel-go/test/proto3pb"
 	descpb "google.golang.org/protobuf/types/descriptorpb"
+	dynamicpb "google.golang.org/protobuf/types/dynamicpb"
+	"google.golang.org/protobuf/types/known/durationpb"
+	tpb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestDbCopy(t *testing.T) {
@@ -89,5 +92,37 @@ func TestProtoReflectRoundTrip(t *testing.T) {
 	}
 	if val != true {
 		t.Errorf("got TestAllTypes.single_bool %v, wanted true", val)
+	}
+}
+
+func TestMerge(t *testing.T) {
+	timestampPB := &tpb.Timestamp{}
+	fileDesc := protodesc.ToFileDescriptorProto(timestampPB.ProtoReflect().Descriptor().ParentFile())
+	fds := &descpb.FileDescriptorSet{}
+	fds.File = append(fds.File, fileDesc)
+	pbFiles, err := protodesc.NewFiles(fds)
+	if err != nil {
+		t.Fatalf("protodesc.NewFiles(%v) failed: %v", fds, err)
+	}
+	tsDesc, err := pbFiles.FindDescriptorByName(protoreflect.FullName("google.protobuf.Timestamp"))
+	if err != nil {
+		t.Fatalf("pbFiles.FindDescriptorByName() failed for Timestamp: %v", err)
+	}
+	tsMsgDesc := tsDesc.(protoreflect.MessageDescriptor)
+	tsType := dynamicpb.NewMessageType(tsMsgDesc)
+	dynTimestampPB := tsType.New()
+	dynTimestampPB.Set(tsMsgDesc.Fields().ByName(protoreflect.Name("seconds")), protoreflect.ValueOf(int64(123)))
+	err = Merge(timestampPB, dynTimestampPB.Interface())
+	if err != nil {
+		t.Fatalf("Merge() failed: %v", err)
+	}
+}
+
+func TestMergeError(t *testing.T) {
+	timestampPB := &tpb.Timestamp{}
+	durationPB := &durationpb.Duration{}
+	err := Merge(timestampPB, durationPB)
+	if err == nil || err.Error() != "pb.Merge() arguments must be the same type. got: google.protobuf.Timestamp, google.protobuf.Duration" {
+		t.Fatalf("got err: %v, wanted bad argument error", err)
 	}
 }

@@ -249,6 +249,7 @@ func TestTypeDescriptionMaybeUnwrap(t *testing.T) {
 	if !found {
 		t.Fatalf("pbdb.DescribeType(%q) not found", msgType)
 	}
+
 	tests := []struct {
 		in  proto.Message
 		out interface{}
@@ -368,7 +369,10 @@ func TestTypeDescriptionMaybeUnwrap(t *testing.T) {
 		if !found {
 			t.Fatalf("pbdb.DescribeType(%q) not found", typeName)
 		}
-		msg, unwrapped := td.MaybeUnwrap(tc.in)
+		msg, unwrapped, err := td.MaybeUnwrap(tc.in)
+		if err != nil {
+			t.Fatalf("MaybeUnwrap(%v) failed: %v", tc.in, err)
+		}
 		if !unwrapped {
 			t.Errorf("value %v not unwrapped", tc.in)
 		}
