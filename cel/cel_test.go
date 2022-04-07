@@ -667,9 +667,17 @@ func TestGlobalVars(t *testing.T) {
 			}})
 
 	// Global variables can be configured as a ProgramOption and optionally overridden on Eval.
-	prg, _ := e.Program(ast, funcs, Globals(map[string]interface{}{
-		"default": "third",
-	}))
+	// Add a previous globals map to confirm the order of shadowing and a final empty global
+	// map to show that globals are not clobbered.
+	prg, _ := e.Program(ast, funcs,
+		Globals(map[string]interface{}{
+			"default": "shadow me",
+		}),
+		Globals(map[string]interface{}{
+			"default": "third",
+		}),
+		Globals(map[string]interface{}{}),
+	)
 
 	t.Run("global_default", func(t *testing.T) {
 		vars := map[string]interface{}{
