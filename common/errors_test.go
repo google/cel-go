@@ -16,6 +16,7 @@
 package common
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -45,6 +46,31 @@ func TestErrors(t *testing.T) {
 	}
 }
 
+func TestErrorsReportingLimit(t *testing.T) {
+	errors := NewErrors(NewTextSource("hello world"))
+	for i := 0; i < 2*errors.maxErrorsToReport; i++ {
+		errors.ReportError(NoLocation, "error %d", i)
+	}
+	if !strings.HasSuffix(errors.ToDisplayString(), "100 more errors were truncated") {
+		t.Errorf("Error truncation did not succeed, got %s, wanted 100 errors truncated", errors.ToDisplayString())
+	}
+}
+
+func TestErrorsAppendReportingLimit(t *testing.T) {
+	errors := NewErrors(NewTextSource("hello world"))
+	for i := 0; i < 75; i++ {
+		errors.ReportError(NoLocation, "error %d", i)
+	}
+	errors2 := NewErrors(NewTextSource("hello world"))
+	for i := 0; i < 75; i++ {
+		errors2.ReportError(NoLocation, "error %d", i+75)
+	}
+	errors = errors.Append(errors2.GetErrors())
+	if !strings.HasSuffix(errors.ToDisplayString(), "50 more errors were truncated") {
+		t.Errorf("Error truncation did not succeed, got %s, wanted 50 errors truncated", errors.ToDisplayString())
+	}
+}
+
 func TestErrors_WideAndNarrowCharacters(t *testing.T) {
 	source := NewStringSource("你好吗\n我a很好\n", "errors-test")
 	errors := NewErrors(source)
@@ -59,7 +85,7 @@ func TestErrors_WideAndNarrowCharacters(t *testing.T) {
 	}
 }
 
-func TestErrors_WideAndNarrowCharacters_Emojis(t *testing.T) {
+func TestErrors_WideAndNarrowCharactersWithEmojis(t *testing.T) {
 	source := NewStringSource("      '😁' in ['😁', '😑', '😦'] && in.😁", "errors-test")
 	errors := NewErrors(source)
 	errors.ReportError(NewLocation(1, 32), "Syntax error: extraneous input 'in' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}")
