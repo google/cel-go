@@ -14,16 +14,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# TODO: High-level file comment.
+# To regenerate the CEL lexer/parser statically do the following:
+# 1. Download the latest anltr tool from https://www.antlr.org/download.html
+# 2. Copy the downloaded jar to the gen directory. It will have a name
+#    like antlr-<version>-complete.jar.
+# 3. Modify the script below to refer to the current ANTLR version.
+# 4. Execute the generation script from the gen directory.
+# 5. Delete the jar and commit the regenerated sources.
 
 #!/bin/sh
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # Generate AntLR artifacts.
-java -Xmx500M -cp ${DIR}/antlr-4.9.1-complete.jar org.antlr.v4.Tool  \
+java -Xmx500M -cp ${DIR}/antlr-4.10.1-complete.jar org.antlr.v4.Tool  \
     -Dlanguage=Go \
     -package gen \
-    -o ${DIR}/../parser/gen \
-    -visitor ${DIR}/../parser/gen/CEL.g4
+    -o ${DIR} \
+    -visitor ${DIR}/CEL.g4
 
