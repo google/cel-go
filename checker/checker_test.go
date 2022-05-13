@@ -1856,6 +1856,58 @@ _&&_(_==_(list~type(list(dyn))^list,
 			)~bool^logical_and
 		  )~bool^logical_and`,
 	},
+	{
+		in:      `[1].map(x, [x, x]).map(x, [x, x])`,
+		outType: decls.NewListType(decls.NewListType(decls.NewListType(decls.Int))),
+		out: `__comprehension__(
+			// Variable
+			x,
+			// Target
+			__comprehension__(
+			  // Variable
+			  x,
+			  // Target
+			  [
+				1~int
+			  ]~list(int),
+			  // Accumulator
+			  __result__,
+			  // Init
+			  []~list(list(int)),
+			  // LoopCondition
+			  true~bool,
+			  // LoopStep
+			  _+_(
+				__result__~list(list(int))^__result__,
+				[
+				  [
+					x~int^x,
+					x~int^x
+				  ]~list(int)
+				]~list(list(int))
+			  )~list(list(int))^add_list,
+			  // Result
+			  __result__~list(list(int))^__result__)~list(list(int)),
+			// Accumulator
+			__result__,
+			// Init
+			[]~list(list(list(int))),
+			// LoopCondition
+			true~bool,
+			// LoopStep
+			_+_(
+			  __result__~list(list(list(int)))^__result__,
+			  [
+				[
+				  x~list(int)^x,
+				  x~list(int)^x
+				]~list(list(int))
+			  ]~list(list(list(int)))
+			)~list(list(list(int)))^add_list,
+			// Result
+			__result__~list(list(list(int)))^__result__)~list(list(list(int)))
+		  `,
+	},
 }
 
 var testEnvs = map[string]testEnv{
