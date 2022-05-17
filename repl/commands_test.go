@@ -44,9 +44,9 @@ func TestParse(t *testing.T) {
 			wantExpr:    "1",
 		},
 		{
-			commandLine: "%let x: int64 = 1",
+			commandLine: "%let x: int = 1",
 			wantCmd:     "let",
-			wantArgs:    []string{"x", "int64"},
+			wantArgs:    []string{"x", "int"},
 			wantExpr:    "1",
 		},
 		{
@@ -79,6 +79,12 @@ func TestParse(t *testing.T) {
 			wantArgs:    []string{"x"},
 			wantExpr:    "",
 		},
+		{
+			commandLine: `%declare x: int`,
+			wantCmd:     "declare",
+			wantArgs:    []string{"x", "int"},
+			wantExpr:    "",
+		},
 	}
 	for _, tc := range testCases {
 		cmd, args, expr, err := Parse(tc.commandLine)
@@ -102,11 +108,19 @@ func TestParseErrors(t *testing.T) {
 		},
 		{
 			// no assignment
-			commandLine: "%let x: int64",
+			commandLine: "%let x: int",
 		},
 		{
-			// not yet supported
-			commandLine: `%declare x: int64`,
+			// type required for declare
+			commandLine: "%declare x",
+		},
+		{
+			// not an identifier
+			commandLine: "%declare 123",
+		},
+		{
+			// not an identifier
+			commandLine: "%delete 123",
 		},
 	}
 	for _, tc := range testCases {

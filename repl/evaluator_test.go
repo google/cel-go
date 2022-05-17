@@ -16,7 +16,18 @@ package main
 
 import (
 	"testing"
+
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
+
+func mustParseType(t testing.TB, name string) *exprpb.Type {
+	t.Helper()
+	ty, err := ParseType(name)
+	if err != nil {
+		t.Fatalf("ParseType(%s) failed", name)
+	}
+	return ty
+}
 
 func TestEvalSimple(t *testing.T) {
 	eval, err := NewEvaluator()
@@ -37,7 +48,7 @@ func TestEvalSingleLetVar(t *testing.T) {
 		t.Fatalf("NewEvaluator() failed with: %v", err)
 	}
 
-	err = eval.AddLetVar("x", "2 + 2")
+	err = eval.AddLetVar("x", "2 + 2", nil)
 	if err != nil {
 		t.Errorf("eval.AddLetVar('x', '2 + 2') got %v, wanted non-error", err)
 	}
@@ -55,9 +66,9 @@ func TestEvalMultiLet(t *testing.T) {
 		t.Fatalf("NewEvaluator() failed with: %v", err)
 	}
 
-	eval.AddLetVar("x", "20/5")
-	eval.AddLetVar("y", "x * 3")
-	eval.AddLetVar("x", "20")
+	eval.AddLetVar("x", "20/5", nil)
+	eval.AddLetVar("y", "x * 3", nil)
+	eval.AddLetVar("x", "20", nil)
 
 	_, _, err = eval.Evaluate("[1, 2, 3, x, y]")
 	if err != nil {
@@ -71,8 +82,8 @@ func TestEvalError(t *testing.T) {
 		t.Fatalf("NewEvaluator() failed with: %v", err)
 	}
 
-	eval.AddLetVar("x", "1")
-	eval.AddLetVar("y", "0")
+	eval.AddLetVar("x", "1", nil)
+	eval.AddLetVar("y", "0", nil)
 
 	_, _, err = eval.Evaluate("x / y")
 	if err == nil {
@@ -86,14 +97,50 @@ func TestLetError(t *testing.T) {
 		t.Fatalf("NewEvaluator() failed with: %v", err)
 	}
 
-	err = eval.AddLetVar("y", "z + 1")
+	err = eval.AddLetVar("y", "z + 1", nil)
 	if err == nil {
-		t.Errorf("eval.AddLetVar() got non-error, wanted error")
+		t.Errorf("eval.AddLetVar('y', 'z + 1') got %v, wanted error", err)
 	}
 
-	_, _, err = eval.Evaluate("y")
+	result, _, err := eval.Evaluate("y")
 	if err == nil {
-		t.Errorf("eval.Evaluate() got non-error, wanted error")
+		t.Errorf("eval.Evaluate('y') got result %v, wanted error", result.Value())
+	}
+}
+
+func TestLetTypeHintError(t *testing.T) {
+	eval, err := NewEvaluator()
+	if err != nil {
+		t.Fatalf("NewEvaluator() failed with: %v", err)
+	}
+
+	err = eval.AddLetVar("y", "10u", mustParseType(t, "int"))
+	if err == nil {
+		t.Errorf("eval.AddLetVar('y', '10u') got %v, wanted error", err)
+	}
+
+	result, _, err := eval.Evaluate("y")
+	if err == nil {
+		t.Errorf("eval.Evaluate('y') got result %v, wanted error", result)
+	}
+}
+
+func TestDeclareError(t *testing.T) {
+	eval, err := NewEvaluator()
+	if err != nil {
+		t.Fatalf("NewEvaluator() failed with: %v", err)
+	}
+
+	eval.AddDeclVar("z", mustParseType(t, "double"))
+	eval.AddLetVar("y", "z + 10.0", nil)
+	err = eval.AddLetVar("z", "'2.0'", nil)
+	if err == nil {
+		t.Errorf("eval.AddLetVar('z', '\"2.0\"') got %v, wanted error", err)
+	}
+
+	err = eval.AddDeclVar("z", mustParseType(t, "string"))
+	if err == nil {
+		t.Errorf("eval.AddDeclVar('z', string) got %v, wanted error", err)
 	}
 }
 
@@ -103,12 +150,12 @@ func TestDelError(t *testing.T) {
 		t.Fatalf("NewEvaluator() failed with: %v", err)
 	}
 
-	eval.AddLetVar("z", "41")
-	eval.AddLetVar("y", "z + 1")
+	eval.AddLetVar("z", "41", nil)
+	eval.AddLetVar("y", "z + 1", nil)
 
 	err = eval.DelLetVar("z")
 	if err == nil {
-		t.Errorf("eval.DelLetVar('z') got non-error, wanted error")
+		t.Errorf("eval.DelLetVar('z') got %v, wanted error", err)
 	}
 
 	val, _, err := eval.Evaluate("y")
