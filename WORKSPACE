@@ -122,6 +122,13 @@ go_repository(
     version = "v1.2.0",
 )
 
+# Readline for repl
+go_repository(
+    name = "com_github_chzyer_readline",
+    importpath = "github.com/chzyer/readline",
+    commit = "62c6fe6193755f722b8b8788aa7357be55a50ff1"  # v1.4
+)
+
 # Run the dependencies at the end.  These will silently try to import some
 # of the above repositories but at different versions, so ours must come first.
 go_rules_dependencies()

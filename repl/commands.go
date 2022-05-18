@@ -1,0 +1,101 @@
+// Copyright 2022 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// Handles parsing command line inputs into canonical commands.
+package main
+
+import (
+	"regexp"
+	"strings"
+)
+
+var exprSubRe = `(?P<expr>.*)`
+var exprAssignRe = `(\s+=\s+)` + exprSubRe
+var identifier = `[_a-zA-Z][_a-zA-Z0-9]*`
+var ws = regexp.MustCompile(`[ \t\r\n]+`)
+var letRe = regexp.MustCompile(`(?P<ident>` + identifier + `)(\s*:\s*(?P<type_hint>\w+))?` + exprAssignRe)
+var delRe = regexp.MustCompile(`(?P<ident>` + identifier + `)`)
+
+func subexpByName(r *regexp.Regexp, m []string, n string) *string {
+	idx := r.SubexpIndex(n)
+	if idx < 0 {
+		return nil
+	}
+	return &m[idx]
+}
+
+// PromptError represents an invalid command (distinct from invalid CEL expr)
+type PromptError string
+
+func (p PromptError) Error() string {
+	return "Invalid command: " + string(p)
+}
+
+// Parse a cli command into a canonical command and arguments.
+func Parse(line string) (cmd string, args []string, expr string, err error) {
+	// TODO(issue/538): Switch to a parsing library over regex as this gets more complicated.
+	line = strings.TrimSpace(line)
+
+	if strings.IndexRune(line, '%') == 0 {
+		span := ws.FindStringIndex(line)
+		if span != nil {
+			cmd = line[1:span[0]]
+			line = line[span[1]:]
+		} else {
+			cmd = line[1:]
+			line = ""
+		}
+	} else if line == "" {
+		cmd = "null"
+		return
+	} else {
+		// default is to just evaluate cel
+		cmd = "eval"
+	}
+
+	switch cmd {
+	case "let":
+		m := letRe.FindStringSubmatch(line)
+		if m == nil {
+			err = PromptError("invalid let statement")
+			return
+		}
+		if a := subexpByName(letRe, m, "ident"); a != nil {
+			args = append(args, *a)
+		}
+		if t := subexpByName(letRe, m, "type_hint"); t != nil && *t != "" {
+			args = append(args, *t)
+		}
+		if e := subexpByName(letRe, m, "expr"); e != nil {
+			expr = *e
+		}
+	case "delete":
+		m := delRe.FindStringSubmatch(line)
+		if m == nil {
+			err = PromptError("invalid delete statement")
+		}
+		if i := subexpByName(delRe, m, "ident"); i != nil {
+			args = append(args, *i)
+		}
+	case "eval":
+		expr = line
+	case "exit":
+	case "null":
+	case "declare":
+		err = PromptError(line + "\nDeclare not yet implemented")
+	default:
+		err = PromptError("Undefined command: " + cmd)
+	}
+	return
+}
