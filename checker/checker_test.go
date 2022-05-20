@@ -1908,6 +1908,61 @@ _&&_(_==_(list~type(list(dyn))^list,
 			__result__~list(list(list(int)))^__result__)~list(list(list(int)))
 		  `,
 	},
+	{
+		in:      `values.filter(i, i.content != "").map(i, i.content)`,
+		outType: decls.NewListType(decls.String),
+		env: testEnv{
+			idents: []*exprpb.Decl{
+				decls.NewVar("values", decls.NewListType(decls.NewMapType(decls.String, decls.String))),
+			},
+		},
+		out: `__comprehension__(
+			// Variable
+			i,
+			// Target
+			__comprehension__(
+			  // Variable
+			  i,
+			  // Target
+			  values~list(map(string, string))^values,
+			  // Accumulator
+			  __result__,
+			  // Init
+			  []~list(map(string, string)),
+			  // LoopCondition
+			  true~bool,
+			  // LoopStep
+			  _?_:_(
+				_!=_(
+				  i~map(string, string)^i.content~string,
+				  ""~string
+				)~bool^not_equals,
+				_+_(
+				  __result__~list(map(string, string))^__result__,
+				  [
+					i~map(string, string)^i
+				  ]~list(map(string, string))
+				)~list(map(string, string))^add_list,
+				__result__~list(map(string, string))^__result__
+			  )~list(map(string, string))^conditional,
+			  // Result
+			  __result__~list(map(string, string))^__result__)~list(map(string, string)),
+			// Accumulator
+			__result__,
+			// Init
+			[]~list(string),
+			// LoopCondition
+			true~bool,
+			// LoopStep
+			_+_(
+			  __result__~list(string)^__result__,
+			  [
+				i~map(string, string)^i.content~string
+			  ]~list(string)
+			)~list(string)^add_list,
+			// Result
+			__result__~list(string)^__result__)~list(string)`,
+	},
 }
 
 var testEnvs = map[string]testEnv{
