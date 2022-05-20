@@ -187,7 +187,7 @@ func (c *checker) checkSelect(e *exprpb.Expr) {
 
 	// Interpret as field selection, first traversing down the operand.
 	c.check(sel.Operand)
-	targetType := c.getType(sel.Operand)
+	targetType := substitute(c.mappings, c.getType(sel.Operand), false)
 	// Assume error type by default as most types do not support field selection.
 	resultType := decls.Error
 	switch kindOf(targetType) {
@@ -224,7 +224,7 @@ func (c *checker) checkSelect(e *exprpb.Expr) {
 	if sel.TestOnly {
 		resultType = decls.Bool
 	}
-	c.setType(e, resultType)
+	c.setType(e, substitute(c.mappings, resultType, false))
 }
 
 func (c *checker) checkCall(e *exprpb.Expr) {
@@ -472,7 +472,7 @@ func (c *checker) checkComprehension(e *exprpb.Expr) {
 	c.check(comp.IterRange)
 	c.check(comp.AccuInit)
 	accuType := c.getType(comp.AccuInit)
-	rangeType := c.getType(comp.IterRange)
+	rangeType := substitute(c.mappings, c.getType(comp.IterRange), false)
 	var varType *exprpb.Type
 
 	switch kindOf(rangeType) {
