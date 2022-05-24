@@ -16,6 +16,7 @@
 package main
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 )
@@ -23,9 +24,21 @@ import (
 var exprSubRe = `(?P<expr>.*)`
 var exprAssignRe = `(\s+=\s+)` + exprSubRe
 var identifier = `[_a-zA-Z][_a-zA-Z0-9]*`
+var typeSuffix = `(\s*:\s*(?P<type_hint>[^=]+))`
 var ws = regexp.MustCompile(`[ \t\r\n]+`)
-var letRe = regexp.MustCompile(`(?P<ident>` + identifier + `)(\s*:\s*(?P<type_hint>\w+))?` + exprAssignRe)
-var delRe = regexp.MustCompile(`(?P<ident>` + identifier + `)`)
+var identPrefix = `(?P<ident>` + identifier + `)`
+var letRe = regexp.MustCompile(identPrefix + typeSuffix + `?` + exprAssignRe)
+var declRe = regexp.MustCompile(identPrefix + typeSuffix)
+var delRe = regexp.MustCompile(identPrefix)
+
+var letUsage = `Let introduces a variable whose value is defined by a sub-CEL expression.
+%let <identifier> (: <type>)? = <expr>`
+
+var declareUsage = `Declare introduces a variable for type checking, but doesn't define a value for it.
+%declare <identifier> : <type>`
+
+var deleteUsage = `Delete removes a variable declaration from the evaluation context.
+%delete <identifier>`
 
 func subexpByName(r *regexp.Regexp, m []string, n string) *string {
 	idx := r.SubexpIndex(n)
@@ -36,10 +49,17 @@ func subexpByName(r *regexp.Regexp, m []string, n string) *string {
 }
 
 // PromptError represents an invalid command (distinct from invalid CEL expr)
-type PromptError string
+type PromptError struct {
+	msg   string
+	usage *string
+}
 
 func (p PromptError) Error() string {
-	return "Invalid command: " + string(p)
+	r := p.msg
+	if p.usage != nil {
+		r = fmt.Sprintf("%s\nUsage: \n%s", r, *p.usage)
+	}
+	return r
 }
 
 // Parse a cli command into a canonical command and arguments.
@@ -68,7 +88,7 @@ func Parse(line string) (cmd string, args []string, expr string, err error) {
 	case "let":
 		m := letRe.FindStringSubmatch(line)
 		if m == nil {
-			err = PromptError("invalid let statement")
+			err = PromptError{msg: "invalid let statement", usage: &letUsage}
 			return
 		}
 		if a := subexpByName(letRe, m, "ident"); a != nil {
@@ -83,19 +103,30 @@ func Parse(line string) (cmd string, args []string, expr string, err error) {
 	case "delete":
 		m := delRe.FindStringSubmatch(line)
 		if m == nil {
-			err = PromptError("invalid delete statement")
+			err = PromptError{msg: "invalid delete statement", usage: &deleteUsage}
+			return
 		}
 		if i := subexpByName(delRe, m, "ident"); i != nil {
 			args = append(args, *i)
+		}
+	case "declare":
+		m := declRe.FindStringSubmatch(line)
+		if m == nil {
+			err = PromptError{msg: "invalid declare statement", usage: &declareUsage}
+			return
+		}
+		if a := subexpByName(declRe, m, "ident"); a != nil {
+			args = append(args, *a)
+		}
+		if t := subexpByName(declRe, m, "type_hint"); t != nil {
+			args = append(args, *t)
 		}
 	case "eval":
 		expr = line
 	case "exit":
 	case "null":
-	case "declare":
-		err = PromptError(line + "\nDeclare not yet implemented")
 	default:
-		err = PromptError("Undefined command: " + cmd)
+		err = PromptError{msg: "Undefined command: " + cmd}
 	}
 	return
 }

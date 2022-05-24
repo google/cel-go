@@ -43,6 +43,7 @@ import (
 	"os"
 
 	"github.com/chzyer/readline"
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 func main() {
@@ -91,14 +92,32 @@ PromptLoop:
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Expr failed:\n%v\n", err)
 			}
-			// TODO(issue/538): add better type formatting
 			if val != nil {
-				fmt.Printf("%v (%v)\n", val.Value(), resultT)
+				fmt.Printf("%v : %s\n", val.Value(), UnparseType(resultT))
 			}
 		case "let":
-			err = eval.AddLetVar(args[0], expr)
+			var typeHint *exprpb.Type
+			var err error
+			if len(args) == 2 {
+				typeHint, err = ParseType(args[1])
+				if err != nil {
+					fmt.Printf("Adding let failed:\n%v\n", err)
+					break
+				}
+			}
+			err = eval.AddLetVar(args[0], expr, typeHint)
 			if err != nil {
 				fmt.Printf("Adding let failed:\n%v\n", err)
+			}
+		case "declare":
+			typePB, err := ParseType(args[1])
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Adding decl failed:\n%b\n", err)
+				break
+			}
+			err = eval.AddDeclVar(args[0], typePB)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Adding decl failed:\n%b\n", err)
 			}
 		case "delete":
 			err = eval.DelLetVar(args[0])
