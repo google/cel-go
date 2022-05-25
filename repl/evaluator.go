@@ -21,15 +21,17 @@ import (
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/checker/decls"
+	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter"
+	"github.com/google/cel-go/interpreter/functions"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	"google.golang.org/protobuf/proto"
 )
 
-// LetVariable let variable representation
-type LetVariable struct {
+// letVariable let variable representation
+type letVariable struct {
 	identifier string
 	src        string
 	typeHint   *exprpb.Type
@@ -38,15 +40,141 @@ type LetVariable struct {
 	resultType *exprpb.Type
 	env        *cel.Env
 	ast        *cel.Ast
-	prog       *cel.Program
+	prog       cel.Program
 }
 
-func (l LetVariable) String() string {
+type letFunctionParam struct {
+	identifier string
+	typeHint   *exprpb.Type
+}
+
+// letFunction coordinates let function data (type definition and CEL function implementation).
+type letFunction struct {
+	identifier string
+	src        string
+	resultType *exprpb.Type
+	params     []letFunctionParam
+
+	// memoized results from building the expression tree
+	env   *cel.Env // the context env for repl evaluation
+	fnEnv *cel.Env // the fn env for implementing the extension fn
+	prog  cel.Program
+	impl  functions.FunctionOp
+}
+
+func checkArgsMatch(params []letFunctionParam, args []ref.Val) error {
+	if len(params) != len(args) {
+		return fmt.Errorf("got %d args, expected %d", len(args), len(params))
+	}
+	for i, arg := range args {
+		ptype := UnparseType(params[i].typeHint)
+		atype := arg.Type().TypeName()
+		if ptype != atype {
+			return fmt.Errorf("got %s, expected %s for argument %d", atype, ptype, i)
+		}
+	}
+	return nil
+}
+
+func (l *letFunction) update(env *cel.Env, deps []*functions.Overload) error {
+
+	var paramVars []*exprpb.Decl
+
+	for _, p := range l.params {
+		paramVars = append(paramVars, decls.NewVar(p.identifier, p.typeHint))
+	}
+
+	var err error
+	l.fnEnv, err = env.Extend(cel.Declarations(paramVars...))
+	if err != nil {
+		return err
+	}
+
+	ast, iss := l.fnEnv.Compile(l.src)
+
+	if iss != nil {
+		return iss.Err()
+	}
+
+	if !proto.Equal(ast.ResultType(), l.resultType) {
+		return fmt.Errorf("got result type %s for %s", UnparseType(ast.ResultType()), l)
+	}
+
+	l.prog, err = l.fnEnv.Program(ast, cel.Functions(deps...))
+
+	if err != nil {
+		return err
+	}
+
+	l.impl = func(args ...ref.Val) ref.Val {
+		err := checkArgsMatch(l.params, args)
+		if err != nil {
+			return types.NewErr("error evaluating %s: %v", l, err)
+		}
+		activation := make(map[string]interface{})
+		for i, param := range l.params {
+			activation[param.identifier] = args[i]
+		}
+
+		val, _, err := l.prog.Eval(activation)
+
+		if err != nil {
+			return types.NewErr("error evaluating %s: %v", l, err)
+		}
+
+		return val
+	}
+
+	paramTypes := make([]*exprpb.Type, len(l.params))
+	for i, p := range l.params {
+		paramTypes[i] = p.typeHint
+	}
+
+	l.env, err = env.Extend(cel.Declarations(
+		decls.NewFunction(
+			l.identifier,
+			decls.NewOverload(l.identifier,
+				paramTypes,
+				ast.ResultType()))))
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (l letVariable) String() string {
 	return fmt.Sprintf("%s = %s", l.identifier, l.src)
 }
 
+func (l letFunction) String() string {
+	return fmt.Sprintf("%s %s -> %s = %s", l.identifier, "TODO", UnparseType(l.resultType), l.src)
+}
+
+func (l *letFunction) generateFunction() *functions.Overload {
+	switch len(l.params) {
+	case 1:
+		return &functions.Overload{
+			Operator: l.identifier,
+			Unary:    func(v ref.Val) ref.Val { return l.impl(v) },
+		}
+	case 2:
+		return &functions.Overload{
+			Operator: l.identifier,
+			Binary:   func(lhs ref.Val, rhs ref.Val) ref.Val { return l.impl(lhs, rhs) },
+		}
+	default:
+		return &functions.Overload{
+			Operator: l.identifier,
+			Function: l.impl,
+		}
+	}
+
+}
+
 // Reset plan if we need to recompile based on a dependency change.
-func (l *LetVariable) clearPlan() {
+func (l *letVariable) clearPlan() {
 	l.resultType = nil
 	l.env = nil
 	l.ast = nil
@@ -56,7 +184,8 @@ func (l *LetVariable) clearPlan() {
 // EvaluationContext context for the repl.
 // Handles maintaining state for multiple let expressions.
 type EvaluationContext struct {
-	letVars []LetVariable
+	letVars []letVariable
+	letFns  []letFunction
 }
 
 func (ctx *EvaluationContext) indexLetVar(name string) int {
@@ -68,10 +197,21 @@ func (ctx *EvaluationContext) indexLetVar(name string) int {
 	return -1
 }
 
+func (ctx *EvaluationContext) indexLetFn(name string) int {
+	for idx, el := range ctx.letFns {
+		if el.identifier == name {
+			return idx
+		}
+	}
+	return -1
+}
+
 func (ctx *EvaluationContext) copy() *EvaluationContext {
 	var cpy EvaluationContext
-	cpy.letVars = make([]LetVariable, len(ctx.letVars))
+	cpy.letVars = make([]letVariable, len(ctx.letVars))
 	copy(cpy.letVars, ctx.letVars)
+	cpy.letFns = make([]letFunction, len(ctx.letFns))
+	copy(cpy.letFns, ctx.letFns)
 	return &cpy
 }
 
@@ -93,7 +233,7 @@ func (ctx *EvaluationContext) delLetVar(name string) {
 // Add or update an existing let then invalidate any computed plans.
 func (ctx *EvaluationContext) addLetVar(name string, expr string, typeHint *exprpb.Type) {
 	idx := ctx.indexLetVar(name)
-	newVar := LetVariable{identifier: name, src: expr, typeHint: typeHint}
+	newVar := letVariable{identifier: name, src: expr, typeHint: typeHint}
 	if idx < 0 {
 		ctx.letVars = append(ctx.letVars, newVar)
 	} else {
@@ -103,6 +243,32 @@ func (ctx *EvaluationContext) addLetVar(name string, expr string, typeHint *expr
 			ctx.letVars[i].clearPlan()
 		}
 	}
+}
+
+// Add or update an existing let then invalidate any computed plans.
+func (ctx *EvaluationContext) addLetFn(name string, params []letFunctionParam, resultType *exprpb.Type, expr string) {
+	idx := ctx.indexLetFn(name)
+	newFn := letFunction{identifier: name, params: params, resultType: resultType, src: expr}
+	if idx < 0 {
+		ctx.letFns = append(ctx.letFns, newFn)
+	} else {
+		ctx.letFns[idx] = newFn
+	}
+
+	for i := 0; i < len(ctx.letVars); i++ {
+		// invalidate dependant let exprs
+		ctx.letVars[i].clearPlan()
+	}
+}
+
+// programOptions generates the program options for planning.
+// Assumes context has been planned.
+func (ctx *EvaluationContext) programOptions() cel.ProgramOption {
+	var fns = make([]*functions.Overload, len(ctx.letFns))
+	for i, fn := range ctx.letFns {
+		fns[i] = fn.generateFunction()
+	}
+	return cel.Functions(fns...)
 }
 
 // Evaluator provides basic environment for evaluating an expression with
@@ -126,8 +292,17 @@ func NewEvaluator() (*Evaluator, error) {
 // This is done eagerly to help avoid introducing an invalid 'let' expression.
 // The planned expressions are evaluated as needed when evaluating a (non-let) CEL expression.
 // Return an error if any of the updates fail.
-func (e *Evaluator) updateContextPlans(ctx *EvaluationContext) error {
-	env := e.env
+func updateContextPlans(ctx *EvaluationContext, env *cel.Env) error {
+	overloads := make([]*functions.Overload, 0)
+	for i := range ctx.letFns {
+		letFn := &ctx.letFns[i]
+		err := letFn.update(env, overloads)
+		if err != nil {
+			return err
+		}
+		env = letFn.env
+		overloads = append(overloads, letFn.generateFunction())
+	}
 	for i := range ctx.letVars {
 		el := &ctx.letVars[i]
 		// Check if the let variable has a definition and needs to be re-planned
@@ -147,11 +322,11 @@ func (e *Evaluator) updateContextPlans(ctx *EvaluationContext) error {
 			el.ast = ast
 			el.resultType = ast.ResultType()
 
-			plan, err := env.Program(ast)
+			plan, err := env.Program(ast, ctx.programOptions())
 			if err != nil {
 				return err
 			}
-			el.prog = &plan
+			el.prog = plan
 		} else if el.src == "" {
 			// Variable is declared but not defined, just update the type checking environment
 			el.resultType = el.typeHint
@@ -166,7 +341,6 @@ func (e *Evaluator) updateContextPlans(ctx *EvaluationContext) error {
 		env = el.env
 	}
 	return nil
-
 }
 
 // AddLetVar adds a let variable to the evaluation context.
@@ -176,11 +350,25 @@ func (e *Evaluator) AddLetVar(name string, expr string, typeHint *exprpb.Type) e
 	// if successful, swap the current context with the updated copy.
 	ctx := e.ctx.copy()
 	ctx.addLetVar(name, expr, typeHint)
-	err := e.updateContextPlans(ctx)
+	err := updateContextPlans(ctx, e.env)
 	if err != nil {
 		return err
 	}
 	e.ctx = *ctx
+	return nil
+}
+
+// AddLetFn adds a let function to the evaluation context.
+func (e *Evaluator) AddLetFn(name string, params []letFunctionParam, resultType *exprpb.Type, expr string) error {
+	// copy the current context and attempt to update dependant expressions.
+	// if successful, swap the current context with the updated copy.
+	cpy := e.ctx.copy()
+	cpy.addLetFn(name, params, resultType, expr)
+	err := updateContextPlans(cpy, e.env)
+	if err != nil {
+		return err
+	}
+	e.ctx = *cpy
 	return nil
 }
 
@@ -189,7 +377,7 @@ func (e *Evaluator) AddLetVar(name string, expr string, typeHint *exprpb.Type) e
 func (e *Evaluator) AddDeclVar(name string, typeHint *exprpb.Type) error {
 	ctx := e.ctx.copy()
 	ctx.addLetVar(name, "", typeHint)
-	err := e.updateContextPlans(ctx)
+	err := updateContextPlans(ctx, e.env)
 	if err != nil {
 		return err
 	}
@@ -200,7 +388,7 @@ func (e *Evaluator) AddDeclVar(name string, typeHint *exprpb.Type) error {
 func (e *Evaluator) DelLetVar(name string) error {
 	ctx := e.ctx.copy()
 	ctx.delLetVar(name)
-	err := e.updateContextPlans(ctx)
+	err := updateContextPlans(ctx, e.env)
 	if err != nil {
 		return err
 	}
@@ -213,13 +401,14 @@ func (e *Evaluator) DelLetVar(name string) error {
 // values of the let expressions.
 func (e *Evaluator) applyContext() (*cel.Env, interpreter.Activation, error) {
 	var vars = make(map[string]interface{})
+
 	for _, el := range e.ctx.letVars {
 		if el.prog == nil {
 			// Declared but not defined variable so nothing to evaluate
 			continue
 		}
 
-		val, _, err := (*el.prog).Eval(vars)
+		val, _, err := el.prog.Eval(vars)
 		if val != nil {
 			vars[el.identifier] = val
 		} else if err != nil {
@@ -233,14 +422,17 @@ func (e *Evaluator) applyContext() (*cel.Env, interpreter.Activation, error) {
 	}
 
 	env := e.env
+
 	if len(e.ctx.letVars) > 0 {
 		env = e.ctx.letVars[len(e.ctx.letVars)-1].env
+	} else if len(e.ctx.letFns) > 0 {
+		env = e.ctx.letFns[len(e.ctx.letFns)-1].env
 	}
 
 	return env, act, nil
 }
 
-// Evaluate sets up a CEL evaluation using the provided evaluation context
+// Evaluate sets up a CEL evaluation using the current evaluation context.
 func (e *Evaluator) Evaluate(expr string) (ref.Val, *exprpb.Type, error) {
 	env, act, err := e.applyContext()
 	if err != nil {
@@ -252,7 +444,7 @@ func (e *Evaluator) Evaluate(expr string) (ref.Val, *exprpb.Type, error) {
 		return nil, nil, iss.Err()
 	}
 
-	p, err := e.env.Program(ast)
+	p, err := env.Program(ast, e.ctx.programOptions())
 	if err != nil {
 		return nil, nil, err
 	}

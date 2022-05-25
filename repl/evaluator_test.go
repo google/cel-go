@@ -161,9 +161,138 @@ func TestDelError(t *testing.T) {
 	val, _, err := eval.Evaluate("y")
 	if err != nil {
 		t.Errorf("eval.Evaluate('y') failed %v, wanted non-error", err)
+	} else if val.Value().(int64) != 42 {
+		t.Errorf("eval.Evaluate('y') got %v, wanted 42", val.Value())
 	}
 
-	if val.Value().(int64) != 42 {
-		t.Errorf("eval.Evaluate('y') got %v, wanted 42", val.Value())
+}
+
+func TestAddLetFn(t *testing.T) {
+	eval, err := NewEvaluator()
+	if err != nil {
+		t.Fatalf("NewEvaluator() failed with: %v", err)
+	}
+
+	eval.AddLetFn("fn", []letFunctionParam{
+		{identifier: "x", typeHint: mustParseType(t, "int")},
+		{identifier: "y", typeHint: mustParseType(t, "int")}},
+		mustParseType(t, "int"),
+		"x * x - y * y")
+
+	eval.AddLetVar("testcases", "[[1, 2], [2, 3], [3, 4], [10, 20]]", mustParseType(t, "list(list(int))"))
+
+	result, _, err := eval.Evaluate("testcases.all(e, fn(e[0], e[1]) == (e[0] - e[1]) * (e[0] + e[1]))")
+
+	if err != nil {
+		t.Errorf("eval.Evaluate() got error %v wanted nil", err)
+	} else if !result.Value().(bool) {
+		t.Errorf("eval.Evaluate() got %v wanted true", result.Value())
+	}
+}
+
+func TestAddLetFnComposed(t *testing.T) {
+	eval, err := NewEvaluator()
+	if err != nil {
+		t.Fatalf("NewEvaluator() failed with: %v", err)
+	}
+
+	err = eval.AddLetFn("square", []letFunctionParam{{
+		identifier: "x",
+		typeHint:   mustParseType(t, "int"),
+	}}, mustParseType(t, "int"), "x * x")
+
+	if err != nil {
+		t.Errorf("eval.AddLetFn(square x -> int) got error %v expected nil", err)
+	}
+
+	err = eval.AddLetFn("squareDiff", []letFunctionParam{
+		{
+			identifier: "x",
+			typeHint:   mustParseType(t, "int"),
+		},
+		{
+			identifier: "y",
+			typeHint:   mustParseType(t, "int"),
+		}}, mustParseType(t, "int"), "square(x) - square(y)")
+
+	if err != nil {
+		t.Errorf("eval.AddLetFn(squareDiff x, y -> int) got error %v expected nil", err)
+	}
+
+	result, _, err := eval.Evaluate("squareDiff(4, 3)")
+
+	if err != nil {
+		t.Errorf("eval.Evaluate() got error %v wanted nil", err)
+	} else if result.Value().(int64) != 7 {
+		t.Errorf("eval.Evaluate() got %v wanted true", result.Value())
+	}
+}
+
+func TestAddLetFnErrorOnTypeChange(t *testing.T) {
+	eval, err := NewEvaluator()
+	if err != nil {
+		t.Fatalf("NewEvaluator() failed with: %v", err)
+	}
+
+	err = eval.AddLetFn("square", []letFunctionParam{
+		{identifier: "x", typeHint: mustParseType(t, "int")}},
+		mustParseType(t, "int"),
+		"x * x")
+
+	if err != nil {
+		t.Errorf("eval.AddLetFn('square x -> int') got error %v expected nil", err)
+	}
+
+	eval.AddLetVar("y", "square(1) + 1", nil)
+
+	// Overloads not yet supported
+	err = eval.AddLetFn("square", []letFunctionParam{
+		{identifier: "x", typeHint: mustParseType(t, "double")}},
+		mustParseType(t, "double"),
+		"x * x")
+
+	if err == nil {
+		t.Error("eval.AddLetFn('square x -> double') got nil, expected error")
+	}
+
+	result, _, err := eval.Evaluate("y")
+
+	if err != nil {
+		t.Errorf("eval.Evaluate() got error %v wanted nil", err)
+	} else if result.Value().(int64) != 2 {
+		t.Errorf("eval.Evaluate() got %v wanted true", result.Value())
+	}
+}
+
+func TestAddLetFnErrorTypeMismatch(t *testing.T) {
+	eval, err := NewEvaluator()
+	if err != nil {
+		t.Fatalf("NewEvaluator() failed with: %v", err)
+	}
+
+	err = eval.AddLetFn("fn", []letFunctionParam{
+		{identifier: "x", typeHint: mustParseType(t, "int")},
+		{identifier: "y", typeHint: mustParseType(t, "int")}},
+		mustParseType(t, "double"),
+		"x * x - y * y")
+
+	if err == nil {
+		t.Error("eval.AddLetFn('fn x : int, y : int -> double') got nil expected error")
+	}
+}
+
+func TestAddLetFnErrorBadExpr(t *testing.T) {
+	eval, err := NewEvaluator()
+	if err != nil {
+		t.Fatalf("NewEvaluator() failed with: %v", err)
+	}
+
+	err = eval.AddLetFn("fn", []letFunctionParam{
+		{identifier: "y", typeHint: mustParseType(t, "string")}},
+		mustParseType(t, "int"),
+		"2 - y")
+
+	if err == nil {
+		t.Error("eval.AddLetFn('fn y : string -> int = 2 - y') got nil wanted error")
 	}
 }
