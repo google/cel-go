@@ -18,6 +18,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/checker/decls"
@@ -36,7 +37,7 @@ type letVariable struct {
 	src        string
 	typeHint   *exprpb.Type
 
-	// memoized results from building the expression tree
+	// memoized results from building the expression AST and program
 	resultType *exprpb.Type
 	env        *cel.Env
 	ast        *cel.Ast
@@ -55,9 +56,9 @@ type letFunction struct {
 	resultType *exprpb.Type
 	params     []letFunctionParam
 
-	// memoized results from building the expression tree
+	// memoized results from building the expression AST and program
 	env   *cel.Env // the context env for repl evaluation
-	fnEnv *cel.Env // the fn env for implementing the extension fn
+	fnEnv *cel.Env // the env for implementing the extension fn
 	prog  cel.Program
 	impl  functions.FunctionOp
 }
@@ -67,17 +68,16 @@ func checkArgsMatch(params []letFunctionParam, args []ref.Val) error {
 		return fmt.Errorf("got %d args, expected %d", len(args), len(params))
 	}
 	for i, arg := range args {
-		ptype := UnparseType(params[i].typeHint)
-		atype := arg.Type().TypeName()
-		if ptype != atype {
-			return fmt.Errorf("got %s, expected %s for argument %d", atype, ptype, i)
+		pType := UnparseType(params[i].typeHint)
+		aType := arg.Type().TypeName()
+		if pType != aType {
+			return fmt.Errorf("got %s, expected %s for argument %d", aType, pType, i)
 		}
 	}
 	return nil
 }
 
-func (l *letFunction) update(env *cel.Env, deps []*functions.Overload) error {
-
+func (l *letFunction) updateImpl(env *cel.Env, deps []*functions.Overload) error {
 	var paramVars []*exprpb.Decl
 
 	for _, p := range l.params {
@@ -124,6 +124,17 @@ func (l *letFunction) update(env *cel.Env, deps []*functions.Overload) error {
 
 		return val
 	}
+	return nil
+}
+
+func (l *letFunction) update(env *cel.Env, deps []*functions.Overload) error {
+	var err error
+	if l.src != "" {
+		err = l.updateImpl(env, deps)
+		if err != nil {
+			return err
+		}
+	}
 
 	paramTypes := make([]*exprpb.Type, len(l.params))
 	for i, p := range l.params {
@@ -135,7 +146,7 @@ func (l *letFunction) update(env *cel.Env, deps []*functions.Overload) error {
 			l.identifier,
 			decls.NewOverload(l.identifier,
 				paramTypes,
-				ast.ResultType()))))
+				l.resultType))))
 
 	if err != nil {
 		return err
@@ -148,8 +159,18 @@ func (l letVariable) String() string {
 	return fmt.Sprintf("%s = %s", l.identifier, l.src)
 }
 
+func formatParams(params []letFunctionParam) string {
+	fmtParams := make([]string, len(params))
+
+	for i, p := range params {
+		fmtParams[i] = fmt.Sprintf("%s: %s", p.identifier, UnparseType(p.typeHint))
+	}
+
+	return fmt.Sprintf("(%s)", strings.Join(fmtParams, ", "))
+}
+
 func (l letFunction) String() string {
-	return fmt.Sprintf("%s %s -> %s = %s", l.identifier, "TODO", UnparseType(l.resultType), l.src)
+	return fmt.Sprintf("%s %s: %s -> %s", l.identifier, formatParams(l.params), UnparseType(l.resultType), l.src)
 }
 
 func (l *letFunction) generateFunction() *functions.Overload {
@@ -170,7 +191,6 @@ func (l *letFunction) generateFunction() *functions.Overload {
 			Function: l.impl,
 		}
 	}
-
 }
 
 // Reset plan if we need to recompile based on a dependency change.
@@ -227,7 +247,20 @@ func (ctx *EvaluationContext) delLetVar(name string) {
 	for i := idx; i < len(ctx.letVars); i++ {
 		ctx.letVars[i].clearPlan()
 	}
+}
 
+func (ctx *EvaluationContext) delLetFn(name string) {
+	idx := ctx.indexLetFn(name)
+	if idx < 0 {
+		// no-op if deleting something that's not defined
+		return
+	}
+
+	ctx.letFns = append(ctx.letFns[:idx], ctx.letFns[idx+1:]...)
+
+	for i := range ctx.letVars {
+		ctx.letVars[i].clearPlan()
+	}
 }
 
 // Add or update an existing let then invalidate any computed plans.
@@ -298,10 +331,14 @@ func updateContextPlans(ctx *EvaluationContext, env *cel.Env) error {
 		letFn := &ctx.letFns[i]
 		err := letFn.update(env, overloads)
 		if err != nil {
-			return err
+			return fmt.Errorf("error updating %s: %w", letFn, err)
 		}
 		env = letFn.env
-		overloads = append(overloads, letFn.generateFunction())
+		// if no src, this is declared but not defined.
+		if letFn.src != "" {
+			overloads = append(overloads, letFn.generateFunction())
+		}
+
 	}
 	for i := range ctx.letVars {
 		el := &ctx.letVars[i]
@@ -385,9 +422,37 @@ func (e *Evaluator) AddDeclVar(name string, typeHint *exprpb.Type) error {
 	return nil
 }
 
+// AddDeclFn declares a function in the environment but doesn't register an expr with it.
+// This allows planning to succeed, but with no value for the function at runtime.
+func (e *Evaluator) AddDeclFn(name string, params []letFunctionParam, typeHint *exprpb.Type) error {
+	ctx := e.ctx.copy()
+	ctx.addLetFn(name, params, typeHint, "")
+	err := updateContextPlans(ctx, e.env)
+	if err != nil {
+		return err
+	}
+	e.ctx = *ctx
+	return nil
+}
+
+// DelLetVar removes a variable from the evaluation context.
+// If deleting the variable breaks a later expression, this function will return an error without modifying the context.
 func (e *Evaluator) DelLetVar(name string) error {
 	ctx := e.ctx.copy()
 	ctx.delLetVar(name)
+	err := updateContextPlans(ctx, e.env)
+	if err != nil {
+		return err
+	}
+	e.ctx = *ctx
+	return nil
+}
+
+// DelLetVar removes a function from the evaluation context.
+// If deleting the function breaks a later expression, this function will return an error without modifying the context.
+func (e *Evaluator) DelLetFn(name string) error {
+	ctx := e.ctx.copy()
+	ctx.delLetFn(name)
 	err := updateContextPlans(ctx, e.env)
 	if err != nil {
 		return err

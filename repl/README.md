@@ -43,34 +43,66 @@ cel-repl> %exit
 
 ### Commands
 
-*%let* introduce or update a variable declaration and provide a definition (as
-another CEL expression). A type hint is optionally provided to check that the
-provided expression has the expected type.
+#### let
+`%let` introduces or update a variable or function  declaration and provide a
+definition (as another CEL expression). A type hint is optionally provided to
+check that the provided expression has the expected type.
+
 `%let <identifier> (: <type>)? = <expr>`
 
-*%declare* introduce or update a variable declaration with no definition.
+Example:
+
+`%let y = 42`
+
+For functions, result types are mandatory:
+
+`%let <identifier> (<identifier> : <type>, ...) : <type> -> <expr>`
+
+Example:
+
+`%let oracle(x : int) : bool -> x == 42`
+
+#### declare
+
+`%declare` introduces or updates a variable or function declaration with no
+definition.
+
 `%declare <identifier> : <type>`
 
-*%delete* delete a variable declaration `%delete <identifier>`
+#### delete
+`%delete` deletes a variable declaration
 
-*%eval* evaluate an expression `%eval <expr>` or simply `<expr>`
+`%delete <identifier>`
+
+#### eval
+`%eval` evaluate an expression:
+
+`%eval <expr>` or simply `<expr>`
 
 ### Evaluation Model
 
-The evaluator considers the let expressions and declarations in order. Let
-expressions may refer to earlier expressions, but the reverse is not true. To
-prevent breaking dependant expressions, updates will fail if removing or
-changing a let prevents a later let expression from compiling. Let expressions 
-are compiled when declared and evaluated before the expression in an `%eval`
-command.
+The evaluator considers the let expressions and declarations in order, with
+functions defined before variables. Let expressions may refer to earlier
+expressions, but the reverse is not true. To prevent breaking dependant
+expressions, updates will fail if removing or changing a let prevents a later
+let expression from compiling. Let expressions are compiled when declared and
+evaluated before the expression in an `%eval` command.
+
+Functions are implicitly defined before variables: let variables may refer to
+functions, but functions cannot refer to let variables.
 
 Using curly-braces to indicate scopes, this looks like: 
 ```
-let x = 10
+let sum (x : int, y : int) : int -> x + y 
 {
-    let y = x + 20
+    let x = sum(2, 4)
     {
-        eval x + y
+        let y = sum(x, 30) 
+        {
+            eval sum(x, y) == 42
+            // (x) + (x + 30)
+            // (2 + 4) + ((2 + 4) + 30)
+        }
     }
 }
 ```

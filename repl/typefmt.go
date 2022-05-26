@@ -120,19 +120,19 @@ func (l *errorListener) SyntaxError(recognizer antlr.Recognizer, offendingSymbol
 }
 
 type typesVisitor struct {
-	parser.BaseTypesVisitor
+	parser.BaseCommandsVisitor
 
 	errs []error
 }
 
-var _ parser.TypesVisitor = &typesVisitor{}
+var _ parser.CommandsVisitor = &typesVisitor{}
 
 type typeParams []*exprpb.Type
 
 func (t *typesVisitor) Visit(tree antlr.ParseTree) interface{} {
 	switch ctx := tree.(type) {
-	case *parser.StartContext:
-		return t.VisitStart(ctx)
+	case *parser.StartTypeContext:
+		return t.VisitStartType(ctx)
 	case *parser.TypeContext:
 		return t.VisitType(ctx)
 	case *parser.TypeIdContext:
@@ -146,7 +146,7 @@ func (t *typesVisitor) Visit(tree antlr.ParseTree) interface{} {
 
 }
 
-func (t *typesVisitor) VisitStart(ctx *parser.StartContext) interface{} {
+func (t *typesVisitor) VisitStartType(ctx *parser.StartTypeContext) interface{} {
 	return t.Visit(ctx.GetT())
 }
 
@@ -291,15 +291,15 @@ func ParseType(t string) (*exprpb.Type, error) {
 	var errListener errorListener
 	visitor := &typesVisitor{}
 	is := antlr.NewInputStream(t)
-	lexer := parser.NewTypesLexer(is)
+	lexer := parser.NewCommandsLexer(is)
 	lexer.RemoveErrorListeners()
 	lexer.AddErrorListener(&errListener)
-	p := parser.NewTypesParser(antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel))
+	p := parser.NewCommandsParser(antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel))
 	p.RemoveErrorListeners()
 	p.AddErrorListener(&errListener)
 
 	var result *exprpb.Type
-	s := visitor.Visit(p.Start())
+	s := visitor.Visit(p.StartType())
 	if s != nil {
 		result = s.(*exprpb.Type)
 	}

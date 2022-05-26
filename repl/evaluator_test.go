@@ -296,3 +296,109 @@ func TestAddLetFnErrorBadExpr(t *testing.T) {
 		t.Error("eval.AddLetFn('fn y : string -> int = 2 - y') got nil wanted error")
 	}
 }
+
+func TestAddDeclFn(t *testing.T) {
+	eval, err := NewEvaluator()
+	if err != nil {
+		t.Fatalf("NewEvaluator() failed with: %v", err)
+	}
+
+	err = eval.AddDeclFn("fn", []letFunctionParam{
+		{identifier: "x", typeHint: mustParseType(t, "int")},
+		{identifier: "y", typeHint: mustParseType(t, "int")}},
+		mustParseType(t, "int"))
+
+	if err != nil {
+		t.Errorf("eval.AddDeclFn('fn(x:int, y:int): int') got error %v wanted nil", err)
+	}
+
+	err = eval.AddLetVar("z", "fn(1, 2)", nil)
+
+	if err != nil {
+		t.Errorf("eval.AddLetVar('z = fn(1, 2)') got error %v wanted nil", err)
+	}
+}
+
+func TestAddDeclFnError(t *testing.T) {
+	eval, err := NewEvaluator()
+	if err != nil {
+		t.Fatalf("NewEvaluator() failed with: %v", err)
+	}
+
+	err = eval.AddDeclFn("fn", []letFunctionParam{
+		{identifier: "x", typeHint: mustParseType(t, "int")},
+		{identifier: "y", typeHint: mustParseType(t, "int")}},
+		mustParseType(t, "int"))
+
+	if err != nil {
+		t.Errorf("eval.AddDeclFn('fn(x:int, y:int): int') got error %v wanted nil", err)
+	}
+
+	err = eval.AddLetVar("z", "fn(1, 2)", nil)
+
+	if err != nil {
+		t.Errorf("eval.AddLetVar('z = fn(1, 2)') got error %v wanted nil", err)
+	}
+
+	err = eval.AddDeclFn("fn", []letFunctionParam{
+		{identifier: "x", typeHint: mustParseType(t, "string")},
+		{identifier: "y", typeHint: mustParseType(t, "string")}},
+		mustParseType(t, "int"))
+
+	if err == nil {
+		t.Errorf("eval.AddDeclFn('fn(x:string, y:string): int') got nil wanted error")
+	}
+
+}
+
+func TestDelLetFn(t *testing.T) {
+	eval, err := NewEvaluator()
+	if err != nil {
+		t.Fatalf("NewEvaluator() failed with: %v", err)
+	}
+
+	err = eval.AddLetFn("fn", []letFunctionParam{
+		{identifier: "y", typeHint: mustParseType(t, "int")}},
+		mustParseType(t, "int"),
+		"2 - y")
+
+	if err != nil {
+		t.Fatalf("eval.AddLetFn('fn (y : string): int -> 2 - y') failed: %s", err)
+	}
+
+	err = eval.DelLetFn("fn")
+	if err != nil {
+		t.Errorf("eval.DelLetFn('fn') got error %s, wanted nil", err)
+	}
+
+	err = eval.AddLetVar("x", "fn(2)", nil)
+	if err == nil {
+		t.Error("eval.AddLetVar('fn(2)') got nil, wanted error")
+	}
+}
+
+func TestDelLetFnError(t *testing.T) {
+	eval, err := NewEvaluator()
+	if err != nil {
+		t.Fatalf("NewEvaluator() failed with: %v", err)
+	}
+
+	err = eval.AddLetFn("fn", []letFunctionParam{
+		{identifier: "y", typeHint: mustParseType(t, "int")}},
+		mustParseType(t, "int"),
+		"2 - y")
+
+	if err != nil {
+		t.Fatalf("eval.AddLetFn('fn (y : string): int -> 2 - y') failed: %s", err)
+	}
+
+	err = eval.AddLetVar("x", "fn(2)", nil)
+	if err != nil {
+		t.Errorf("eval.AddLetVar('fn(2)') got error %s, wanted nil", err)
+	}
+
+	err = eval.DelLetFn("fn")
+	if err == nil {
+		t.Error("eval.DelLetFn('fn') got nil, wanted error")
+	}
+}
