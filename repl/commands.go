@@ -20,18 +20,20 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/antlr/antlr4/runtime/Go/antlr"
 	"github.com/google/cel-go/repl/parser"
+
+	"github.com/antlr/antlr4/runtime/Go/antlr"
+
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 var letUsage = `Let introduces a variable or function defined by a sub-CEL expression.
 %let <identifier> (: <type>)? = <expr>
-%let <identifier> <param_identifier> : <param_type>, ... -> <result-type> = <expr>`
+%let <identifier> (<param_identifier> : <param_type>, ...) : <result-type> -> <expr>`
 
 var declareUsage = `Declare introduces a variable or function for type checking, but doesn't define a value for it.
 %declare <identifier> : <type>
-%declare <identifier> <param_identifier> : <param_type>, ... -> <result-type>
+%declare <identifier> (<param_identifier> : <param_type>, ...) : <result-type>
 `
 var deleteUsage = `Delete removes a variable or function declaration from the evaluation context.
 %delete <identifier>`
@@ -61,9 +63,11 @@ type evalCmd struct {
 	expr string
 }
 
-// Cmd interface
-type Cmd interface {
-	// simple name for the command for debugging if the client doesn't support a particular command kind
+// Cmder interface provides normalized command name from a repl command.
+// Command specifics are available via checked type casting to the specific
+// command type.
+type Cmder interface {
+	// Cmd returns the normalized name for the command.
 	Cmd() string
 }
 
@@ -100,7 +104,7 @@ type commandParseListener struct {
 	parser.BaseCommandsListener
 
 	errs  []error
-	cmd   Cmd
+	cmd   Cmder
 	usage string
 }
 
@@ -108,11 +112,60 @@ func (c *commandParseListener) reportIssue(e error) {
 	c.errs = append(c.errs, e)
 }
 
-// Implement error listener interface for syntax errors
+// extractSourceText extracts original text from a parse rule match.
+// Preserves original whitespace if possible.
+func extractSourceText(ctx antlr.ParserRuleContext) string {
+	if ctx.GetStart() == nil || ctx.GetStop() == nil ||
+		ctx.GetStart().GetStart() < 0 || ctx.GetStop().GetStop() < 0 {
+		// fallback to the normalized parse
+		return ctx.GetText()
+	}
+	s, e := ctx.GetStart().GetStart(), ctx.GetStop().GetStop()
+	return ctx.GetStart().GetInputStream().GetText(s, e)
+}
+
+// Parse parses a repl command line into a command object. This provides
+// the normalized command name plus any parsed parameters (e.g. variable names
+// in let statements).
+//
+// An error is returned if the statement isn't well formed. See the parser
+// pacakage for details on the antlr grammar.
+func Parse(line string) (Cmder, error) {
+	line = strings.TrimSpace(line)
+	listener := &commandParseListener{}
+	is := antlr.NewInputStream(line)
+	lexer := parser.NewCommandsLexer(is)
+	lexer.RemoveErrorListeners()
+	lexer.AddErrorListener(listener)
+	p := parser.NewCommandsParser(antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel))
+	p.RemoveErrorListeners()
+	p.AddErrorListener(listener)
+
+	antlr.ParseTreeWalkerDefault.Walk(listener, p.StartCommand())
+
+	if len(listener.errs) > 0 {
+		errFmt := make([]string, len(listener.errs))
+		for i, err := range listener.errs {
+			errFmt[i] = err.Error()
+		}
+
+		if listener.usage != "" {
+			errFmt = append(errFmt, "", "Usage:", listener.usage)
+		}
+		return nil, errors.New(strings.Join(errFmt, "\n"))
+	}
+
+	return listener.cmd, nil
+}
+
+// ANTLR interface implementations
+
+// Implement antlr ErrorListener interface for syntax errors.
 func (l *commandParseListener) SyntaxError(recognizer antlr.Recognizer, offendingSymbol interface{}, line, column int, msg string, e antlr.RecognitionException) {
 	l.errs = append(l.errs, fmt.Errorf("(%d:%d) %s", line, column, msg))
 }
 
+// Implement ANTLR interface for commands listener.
 func (c *commandParseListener) EnterSimple(ctx *parser.SimpleContext) {
 	cmd := "undefined"
 	if ctx.GetCmd() != nil {
@@ -162,11 +215,11 @@ func (c *commandParseListener) ExitDeclare(ctx *parser.DeclareContext) {
 
 func (c *commandParseListener) EnterDelete(ctx *parser.DeleteContext) {
 	c.usage = deleteUsage
-	if ctx.GetId() == nil {
+	if ctx.GetVar() == nil && ctx.GetFn() == nil {
 		c.reportIssue(errors.New("missing identifier in delete"))
 		return
 	}
-	c.cmd = &delCmd{identifier: ctx.GetId().GetText()}
+	c.cmd = &delCmd{}
 }
 
 func (c *commandParseListener) EnterExprCmd(ctx *parser.ExprCmdContext) {
@@ -208,21 +261,20 @@ func (c *commandParseListener) ExitFnDecl(ctx *parser.FnDeclContext) {
 
 		}
 		cmd.resultType = ty
+	case *delCmd:
+		if ctx.GetId() == nil {
+			c.reportIssue(errors.New("missing identifier in delete"))
+		}
+		cmd.identifier = ctx.GetId().GetText()
 	default:
 		c.reportIssue(errors.New("unexepected function declaration"))
 	}
 }
 
-// extract source text from a parse rule match.
-// preserves original whitespace if possible
-func extractSourceText(ctx antlr.ParserRuleContext) string {
-	if ctx.GetStart() == nil || ctx.GetStop() == nil ||
-		ctx.GetStart().GetStart() < 0 || ctx.GetStop().GetStop() < 0 {
-		// fallback to the normalized parse
-		return ctx.GetText()
+func (c *commandParseListener) ExitQualId(ctx *parser.QualIdContext) {
+	if ctx.GetRid() == nil {
+		c.reportIssue(errors.New("missing root identifier"))
 	}
-	s, e := ctx.GetStart().GetStart(), ctx.GetStop().GetStop()
-	return ctx.GetStart().GetInputStream().GetText(s, e)
 }
 
 func (c *commandParseListener) ExitVarDecl(ctx *parser.VarDeclContext) {
@@ -240,8 +292,13 @@ func (c *commandParseListener) ExitVarDecl(ctx *parser.VarDeclContext) {
 			}
 			cmd.typeHint = ty
 		}
+	case *delCmd:
+		if ctx.GetId() == nil {
+			c.reportIssue(errors.New("missing identifier in delete"))
+		}
+		cmd.identifier = ctx.GetId().GetText()
 	default:
-		c.reportIssue(errors.New("unexepected var declaration"))
+		c.reportIssue(errors.New("unexpected var declaration"))
 	}
 }
 
@@ -257,32 +314,4 @@ func (c *commandParseListener) ExitExpr(ctx *parser.ExprContext) {
 	default:
 		c.reportIssue(errors.New("unexpected CEL expression"))
 	}
-}
-
-func Parse(line string) (Cmd, error) {
-	line = strings.TrimSpace(line)
-	listener := &commandParseListener{}
-	is := antlr.NewInputStream(line)
-	lexer := parser.NewCommandsLexer(is)
-	lexer.RemoveErrorListeners()
-	lexer.AddErrorListener(listener)
-	p := parser.NewCommandsParser(antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel))
-	p.RemoveErrorListeners()
-	p.AddErrorListener(listener)
-
-	antlr.ParseTreeWalkerDefault.Walk(listener, p.StartCommand())
-
-	if len(listener.errs) > 0 {
-		errFmt := make([]string, len(listener.errs))
-		for i, err := range listener.errs {
-			errFmt[i] = err.Error()
-		}
-
-		if listener.usage != "" {
-			errFmt = append(errFmt, "", "Usage:", listener.usage)
-		}
-		return nil, errors.New(strings.Join(errFmt, "\n"))
-	}
-
-	return listener.cmd, nil
 }

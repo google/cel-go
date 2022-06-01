@@ -22,7 +22,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func cmdMatches(t testing.TB, got Cmd, expected Cmd) (result bool) {
+func cmdMatches(t testing.TB, got Cmder, expected Cmder) (result bool) {
 	t.Helper()
 
 	defer func() {
@@ -32,35 +32,37 @@ func cmdMatches(t testing.TB, got Cmd, expected Cmd) (result bool) {
 		}
 	}()
 
-	switch expected := expected.(type) {
+	switch want := expected.(type) {
 	case *evalCmd:
-		return got.(*evalCmd).expr == expected.expr
+		gotEval := got.(*evalCmd)
+		return gotEval.expr == want.expr
 	case *delCmd:
-		return got.(*delCmd).identifier == expected.identifier
+		gotDel := got.(*delCmd)
+		return gotDel.identifier == want.identifier
 	case *simpleCmd:
-		return got.(*simpleCmd).cmd == expected.cmd
+		gotSimple := got.(*simpleCmd)
+		return gotSimple.cmd == want.cmd
 	case *letFnCmd:
-		got := got.(*letFnCmd)
-		if got.identifier != expected.identifier ||
-			got.src != expected.src ||
-			!proto.Equal(got.resultType, expected.resultType) ||
-			len(got.params) != len(expected.params) {
+		gotLetFn := got.(*letFnCmd)
+		if gotLetFn.identifier != want.identifier ||
+			gotLetFn.src != want.src ||
+			!proto.Equal(gotLetFn.resultType, want.resultType) ||
+			len(gotLetFn.params) != len(want.params) {
 			return false
 		}
-		for i, p := range expected.params {
-			if got.params[i].identifier != p.identifier ||
-				!proto.Equal(got.params[i].typeHint, p.typeHint) {
+		for i, wantP := range want.params {
+			if gotLetFn.params[i].identifier != wantP.identifier ||
+				!proto.Equal(gotLetFn.params[i].typeHint, wantP.typeHint) {
 				return false
 			}
 		}
 		return true
 	case *letVarCmd:
-		got := got.(*letVarCmd)
-		return got.identifier == expected.identifier &&
-			proto.Equal(got.typeHint, expected.typeHint) &&
-			got.src == expected.src
+		gotLetVar := got.(*letVarCmd)
+		return gotLetVar.identifier == want.identifier &&
+			proto.Equal(gotLetVar.typeHint, want.typeHint) &&
+			gotLetVar.src == want.src
 	}
-
 	return false
 }
 
@@ -99,12 +101,20 @@ func (c *simpleCmd) String() string {
 func TestParse(t *testing.T) {
 	var testCases = []struct {
 		commandLine string
-		wantCmd     Cmd
+		wantCmd     Cmder
 	}{
 		{
 			commandLine: "%let x = 1",
 			wantCmd: &letVarCmd{
 				identifier: "x",
+				typeHint:   nil,
+				src:        "1",
+			},
+		},
+		{
+			commandLine: "%let com.google.x = 1",
+			wantCmd: &letVarCmd{
+				identifier: "com.google.x",
 				typeHint:   nil,
 				src:        "1",
 			},
@@ -138,6 +148,10 @@ func TestParse(t *testing.T) {
 			wantCmd:     &delCmd{identifier: "x"},
 		},
 		{
+			commandLine: `%delete com.google.x`,
+			wantCmd:     &delCmd{identifier: "com.google.x"},
+		},
+		{
 			commandLine: `%declare x: int`,
 			wantCmd: &letVarCmd{
 				identifier: "x",
@@ -154,6 +168,17 @@ func TestParse(t *testing.T) {
 				},
 				resultType: mustParseType(t, "int"),
 				src:        "x + 2",
+			},
+		},
+		{
+			commandLine: `%let int.plus (x : int) : int -> this + x`,
+			wantCmd: &letFnCmd{
+				identifier: "int.plus",
+				params: []letFunctionParam{
+					{identifier: "x", typeHint: mustParseType(t, "int")},
+				},
+				resultType: mustParseType(t, "int"),
+				src:        "this + x",
 			},
 		},
 		{
@@ -191,6 +216,7 @@ func TestParse(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
+		tc := tc
 		t.Run(tc.commandLine, func(t *testing.T) {
 			cmd, err := Parse(tc.commandLine)
 			if err != nil {

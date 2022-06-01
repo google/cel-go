@@ -40,6 +40,9 @@ type CommandsListener interface {
 	// EnterExprCmd is called when entering the exprCmd production.
 	EnterExprCmd(c *ExprCmdContext)
 
+	// EnterQualId is called when entering the qualId production.
+	EnterQualId(c *QualIdContext)
+
 	// EnterStartType is called when entering the startType production.
 	EnterStartType(c *StartTypeContext)
 
@@ -171,6 +174,9 @@ type CommandsListener interface {
 
 	// ExitExprCmd is called when exiting the exprCmd production.
 	ExitExprCmd(c *ExprCmdContext)
+
+	// ExitQualId is called when exiting the qualId production.
+	ExitQualId(c *QualIdContext)
 
 	// ExitStartType is called when exiting the startType production.
 	ExitStartType(c *StartTypeContext)

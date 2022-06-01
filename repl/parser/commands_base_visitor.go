@@ -51,6 +51,10 @@ func (v *BaseCommandsVisitor) VisitExprCmd(ctx *ExprCmdContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseCommandsVisitor) VisitQualId(ctx *QualIdContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseCommandsVisitor) VisitStartType(ctx *StartTypeContext) interface{} {
 	return v.VisitChildren(ctx)
 }

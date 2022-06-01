@@ -86,6 +86,12 @@ func (s *BaseCommandsListener) EnterExprCmd(ctx *ExprCmdContext) {}
 // ExitExprCmd is called when production exprCmd is exited.
 func (s *BaseCommandsListener) ExitExprCmd(ctx *ExprCmdContext) {}
 
+// EnterQualId is called when production qualId is entered.
+func (s *BaseCommandsListener) EnterQualId(ctx *QualIdContext) {}
+
+// ExitQualId is called when production qualId is exited.
+func (s *BaseCommandsListener) ExitQualId(ctx *QualIdContext) {}
+
 // EnterStartType is called when production startType is entered.
 func (s *BaseCommandsListener) EnterStartType(ctx *StartTypeContext) {}
 

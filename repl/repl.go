@@ -46,6 +46,29 @@ import (
 	"github.com/chzyer/readline"
 )
 
+func printStatus(eval *Evaluator) {
+	fmt.Println("// Functions")
+	for _, fn := range eval.ctx.letFns {
+		cmd := "let"
+		if fn.src == "" {
+			cmd = "declare"
+		}
+
+		fmt.Printf("%%%s %s\n", cmd, fn)
+	}
+	fmt.Println()
+	fmt.Println("// Variables")
+
+	for _, lVar := range eval.ctx.letVars {
+		cmd := "let"
+		if lVar.src == "" {
+			cmd = "declare"
+		}
+
+		fmt.Printf("%%%s %s\n", cmd, lVar)
+	}
+}
+
 func main() {
 	var c readline.Config
 	c.Prompt = "cel-repl> "
@@ -129,11 +152,14 @@ PromptLoop:
 			}
 
 		case *simpleCmd:
-			if cmd.Cmd() == "exit" {
+			switch cmd.Cmd() {
+			case "exit":
 				break PromptLoop
-			} else if cmd.Cmd() == "null" {
+			case "null":
 				continue
-			} else {
+			case "status":
+				printStatus(eval)
+			default:
 				fmt.Fprintf(os.Stderr, "Unsupported command: %v\n", cmd.Cmd())
 			}
 		default:

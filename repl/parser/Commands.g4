@@ -30,19 +30,21 @@ let: '%let' ( (var=varDecl '=') | (fn=fnDecl '->') ) e=expr;
 
 declare: '%declare' (var=varDecl | fn=fnDecl);
 
-varDecl: id=IDENTIFIER (':' t=type)?; 
+varDecl: id=qualId (':' t=type)?; 
 
-fnDecl: id=IDENTIFIER '(' (params+=param (',' params+=param)*)? ')' ':' rType=type;
+fnDecl: id=qualId '(' (params+=param (',' params+=param)*)? ')' ':' rType=type;
 
 param: pid=IDENTIFIER ':' t=type;
 
-delete: '%delete' id=IDENTIFIER;
+delete: '%delete' (var=varDecl | fn=fnDecl);
 
-simple: cmd=COMMAND;
+simple: cmd=COMMAND (args+=FLAG | args+=STRING)*;
 
 empty: ;
 
 exprCmd: '%eval'? e=expr;
+
+qualId: leadingDot='.'? rid=IDENTIFIER ('.' qualifiers+=IDENTIFIER)*;
 
 // type sublanguage
 startType : t=type EOF;
@@ -58,6 +60,7 @@ typeParamList:
 
 // lexer rules:
 COMMAND: '%' IDENTIFIER;
+FLAG: '-'? '-' IDENTIFIER;
 ARROW: '->';
 EQUAL_ASSIGN: '=';
 

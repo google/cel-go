@@ -62,12 +62,27 @@ Example:
 
 `%let oracle(x : int) : bool -> x == 42`
 
+Instance functions are declared as `<type>.<identifier>(...): <type>` and may
+reference `this` as the receiver instance.
+
+Example:
+
+```
+> %let int.oracle() : bool -> this == 42
+> 42.oracle()
+true : bool
+> 41.oracle()
+false : bool
+```
+
 #### declare
 
 `%declare` introduces or updates a variable or function declaration with no
 definition.
 
 `%declare <identifier> : <type>`
+
+`%declare <identifier> (<identifier> : <type>, ...) : <type>`
 
 #### delete
 `%delete` deletes a variable declaration
@@ -78,6 +93,10 @@ definition.
 `%eval` evaluate an expression:
 
 `%eval <expr>` or simply `<expr>`
+
+#### status
+
+`%status` prints a list of existing lets in the evaluation context.
 
 ### Evaluation Model
 

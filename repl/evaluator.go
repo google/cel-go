@@ -55,6 +55,7 @@ type letFunction struct {
 	src        string
 	resultType *exprpb.Type
 	params     []letFunctionParam
+	receiver   *exprpb.Type // if not nil indicates an instance function
 
 	// memoized results from building the expression AST and program
 	env   *cel.Env // the context env for repl evaluation
@@ -63,15 +64,18 @@ type letFunction struct {
 	impl  functions.FunctionOp
 }
 
+func typeAssignable(rtType ref.Type, declType *exprpb.Type) bool {
+	// TODO(issue/535): add better type agreement support
+	return UnparseType(declType) == rtType.TypeName()
+}
+
 func checkArgsMatch(params []letFunctionParam, args []ref.Val) error {
 	if len(params) != len(args) {
 		return fmt.Errorf("got %d args, expected %d", len(args), len(params))
 	}
 	for i, arg := range args {
-		pType := UnparseType(params[i].typeHint)
-		aType := arg.Type().TypeName()
-		if pType != aType {
-			return fmt.Errorf("got %s, expected %s for argument %d", aType, pType, i)
+		if !typeAssignable(arg.Type(), params[i].typeHint) {
+			return fmt.Errorf("got %s, expected %s for argument %d", arg.Type().TypeName(), UnparseType(params[i].typeHint), i)
 		}
 	}
 	return nil
@@ -79,6 +83,10 @@ func checkArgsMatch(params []letFunctionParam, args []ref.Val) error {
 
 func (l *letFunction) updateImpl(env *cel.Env, deps []*functions.Overload) error {
 	var paramVars []*exprpb.Decl
+
+	if l.receiver != nil {
+		paramVars = append(paramVars, decls.NewVar("this", l.receiver))
+	}
 
 	for _, p := range l.params {
 		paramVars = append(paramVars, decls.NewVar(p.identifier, p.typeHint))
@@ -107,13 +115,27 @@ func (l *letFunction) updateImpl(env *cel.Env, deps []*functions.Overload) error
 	}
 
 	l.impl = func(args ...ref.Val) ref.Val {
-		err := checkArgsMatch(l.params, args)
+		var err error
+		var instance ref.Val
+		if l.receiver != nil {
+			instance = args[0]
+			args = args[1:]
+		}
+		err = checkArgsMatch(l.params, args)
 		if err != nil {
 			return types.NewErr("error evaluating %s: %v", l, err)
 		}
+
 		activation := make(map[string]interface{})
 		for i, param := range l.params {
 			activation[param.identifier] = args[i]
+		}
+
+		if instance != nil {
+			if !typeAssignable(instance.Type(), l.receiver) {
+				return types.NewErr("error evaluating %s: got receiver type: %s wanted %s", l, instance.Type().TypeName(), UnparseType(l.receiver))
+			}
+			activation["this"] = instance
 		}
 
 		val, _, err := l.prog.Eval(activation)
@@ -141,13 +163,26 @@ func (l *letFunction) update(env *cel.Env, deps []*functions.Overload) error {
 		paramTypes[i] = p.typeHint
 	}
 
-	l.env, err = env.Extend(cel.Declarations(
-		decls.NewFunction(
-			l.identifier,
-			decls.NewOverload(l.identifier,
-				paramTypes,
-				l.resultType))))
+	var opt cel.EnvOption
+	if l.receiver != nil {
+		paramTypes = append([]*exprpb.Type{l.receiver}, paramTypes...)
+		opt = cel.Declarations(
+			decls.NewFunction(l.identifier,
+				decls.NewInstanceOverload(
+					l.identifier,
+					paramTypes,
+					l.resultType,
+				)))
+	} else {
+		opt = cel.Declarations(
+			decls.NewFunction(
+				l.identifier,
+				decls.NewOverload(l.identifier,
+					paramTypes,
+					l.resultType)))
+	}
 
+	l.env, err = env.Extend(opt)
 	if err != nil {
 		return err
 	}
@@ -170,11 +205,20 @@ func formatParams(params []letFunctionParam) string {
 }
 
 func (l letFunction) String() string {
-	return fmt.Sprintf("%s %s: %s -> %s", l.identifier, formatParams(l.params), UnparseType(l.resultType), l.src)
+	receiverFmt := ""
+	if l.receiver != nil {
+		receiverFmt = fmt.Sprintf("%s.", UnparseType(l.receiver))
+	}
+
+	return fmt.Sprintf("%s%s%s : %s -> %s", receiverFmt, l.identifier, formatParams(l.params), UnparseType(l.resultType), l.src)
 }
 
 func (l *letFunction) generateFunction() *functions.Overload {
-	switch len(l.params) {
+	argLen := len(l.params)
+	if l.receiver != nil {
+		argLen += 1
+	}
+	switch argLen {
 	case 1:
 		return &functions.Overload{
 			Operator: l.identifier,
@@ -278,10 +322,45 @@ func (ctx *EvaluationContext) addLetVar(name string, expr string, typeHint *expr
 	}
 }
 
+// Try to normalize a defined function name as either a namespaced function or a receiver call.
+func (ctx *EvaluationContext) resolveFn(name string) (string, *exprpb.Type) {
+	leadingDot := ""
+	id := name
+	if strings.HasPrefix(name, ".") {
+		id = strings.TrimLeft(name, ".")
+		leadingDot = "."
+	}
+	qualifiers := strings.Split(id, ".")
+	if len(qualifiers) == 1 {
+		return qualifiers[0], nil
+	}
+
+	namespace := strings.Join(qualifiers[:len(qualifiers)-1], ".")
+	id = qualifiers[len(qualifiers)-1]
+
+	maybeType, err := ParseType(leadingDot + namespace)
+	if err != nil {
+		return name, nil
+	}
+
+	switch maybeType.TypeKind.(type) {
+	// unsupported type assume it's just namespaced
+	case *exprpb.Type_AbstractType_:
+	case *exprpb.Type_MessageType:
+	case *exprpb.Type_Error:
+	case *exprpb.Type_Function:
+	default:
+		return id, maybeType
+	}
+
+	return name, nil
+}
+
 // Add or update an existing let then invalidate any computed plans.
 func (ctx *EvaluationContext) addLetFn(name string, params []letFunctionParam, resultType *exprpb.Type, expr string) {
+	name, receiver := ctx.resolveFn(name)
 	idx := ctx.indexLetFn(name)
-	newFn := letFunction{identifier: name, params: params, resultType: resultType, src: expr}
+	newFn := letFunction{identifier: name, params: params, receiver: receiver, resultType: resultType, src: expr}
 	if idx < 0 {
 		ctx.letFns = append(ctx.letFns, newFn)
 	} else {

@@ -402,3 +402,27 @@ func TestDelLetFnError(t *testing.T) {
 		t.Error("eval.DelLetFn('fn') got nil, wanted error")
 	}
 }
+
+func TestInstanceFunction(t *testing.T) {
+	eval, err := NewEvaluator()
+	if err != nil {
+		t.Fatalf("NewEvaluator() failed with: %v", err)
+	}
+
+	err = eval.AddLetFn("int.plus", []letFunctionParam{
+		{identifier: "y", typeHint: mustParseType(t, "int")}},
+		mustParseType(t, "int"),
+		"this + y")
+
+	if err != nil {
+		t.Fatalf("eval.AddLetFn('int.plus(y : int): int -> this + y') failed: %s", err)
+	}
+
+	val, _, err := eval.Evaluate("40.plus(2)")
+	if err != nil {
+		t.Errorf("eval.Eval('40.plus(2)') got error %v, wanted nil", err)
+	}
+	if val.Value().(int64) != 42 {
+		t.Errorf("eval.Eval('40.plus(2)') got %s, wanted 42", val)
+	}
+}

@@ -40,6 +40,9 @@ type CommandsVisitor interface {
 	// Visit a parse tree produced by CommandsParser#exprCmd.
 	VisitExprCmd(ctx *ExprCmdContext) interface{}
 
+	// Visit a parse tree produced by CommandsParser#qualId.
+	VisitQualId(ctx *QualIdContext) interface{}
+
 	// Visit a parse tree produced by CommandsParser#startType.
 	VisitStartType(ctx *StartTypeContext) interface{}
 
