@@ -22,6 +22,7 @@ import (
 	"github.com/google/cel-go/checker/decls"
 	"google.golang.org/protobuf/proto"
 
+	proto2pb "github.com/google/cel-go/test/proto2pb"
 	proto3pb "github.com/google/cel-go/test/proto3pb"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	dynamicpb "google.golang.org/protobuf/types/dynamicpb"
@@ -50,6 +51,34 @@ func TestTypeDescription(t *testing.T) {
 		if _, found := pbdb.DescribeType(typeName); !found {
 			t.Errorf("pbdb.DescribeType(%v) not found", typeName)
 		}
+	}
+}
+
+func TestTypeDescriptionGroupFields(t *testing.T) {
+	pbdb := NewDb()
+	msg := &proto2pb.TestAllTypes{}
+	pbdb.RegisterMessage(msg)
+	td, found := pbdb.DescribeType(string(msg.ProtoReflect().Descriptor().FullName()))
+	if !found {
+		t.Fatalf("pbdb.DescribeType(%v) not found", msg)
+	}
+	field, found := td.FieldByName("nestedgroup")
+	if !found {
+		t.Fatal("TypeDescription.FieldByName('nestedgroup') could not be found")
+	}
+	if !field.IsMessage() {
+		t.Errorf("Group field 'nestedgroup' is type %v, wanted message type", field.Descriptor())
+	}
+	ng, found := pbdb.DescribeType(string(field.Descriptor().Message().FullName()))
+	if !found {
+		t.Fatalf("pbdb.DescribeType(%v) not found", field.Descriptor().Message().FullName())
+	}
+	groupFields := ng.FieldMap()
+	if groupFields["nested_name"].ReflectType() != reflect.TypeOf("") {
+		t.Errorf("groupFields['nested_name'] is type %v, not string", groupFields["nested_name"].ReflectType())
+	}
+	if groupFields["nested_id"].ReflectType() != reflect.TypeOf(int32(1)) {
+		t.Errorf("groupFields['nested_id'] is type %v, not int32", groupFields["nested_id"].ReflectType())
 	}
 }
 

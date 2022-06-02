@@ -43,6 +43,10 @@ message TestAllTypes {
   optional string single_string = 14 [default = "empty"];
   optional bytes single_bytes = 15 [default = "none"];
   optional NestedEnum standalone_enum = 22;
+  optional group NestedGroup = 23 {
+    optional int32 nested_id = 24;
+    optional string nested_name = 25;
+  }
 
   // Wellknown.
   optional google.protobuf.Any single_any = 100;
