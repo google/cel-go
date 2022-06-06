@@ -1,14 +1,50 @@
-// Code generated from ./Types.g4 by ANTLR 4.10.1. DO NOT EDIT.
+// Code generated from ./Commands.g4 by ANTLR 4.10.1. DO NOT EDIT.
 
-package parser // Types
+package parser // Commands
 import "github.com/antlr/antlr4/runtime/Go/antlr"
 
-// TypesListener is a complete listener for a parse tree produced by TypesParser.
-type TypesListener interface {
+// CommandsListener is a complete listener for a parse tree produced by CommandsParser.
+type CommandsListener interface {
 	antlr.ParseTreeListener
 
-	// EnterStart is called when entering the start production.
-	EnterStart(c *StartContext)
+	// EnterStartCommand is called when entering the startCommand production.
+	EnterStartCommand(c *StartCommandContext)
+
+	// EnterCommand is called when entering the command production.
+	EnterCommand(c *CommandContext)
+
+	// EnterLet is called when entering the let production.
+	EnterLet(c *LetContext)
+
+	// EnterDeclare is called when entering the declare production.
+	EnterDeclare(c *DeclareContext)
+
+	// EnterVarDecl is called when entering the varDecl production.
+	EnterVarDecl(c *VarDeclContext)
+
+	// EnterFnDecl is called when entering the fnDecl production.
+	EnterFnDecl(c *FnDeclContext)
+
+	// EnterParam is called when entering the param production.
+	EnterParam(c *ParamContext)
+
+	// EnterDelete is called when entering the delete production.
+	EnterDelete(c *DeleteContext)
+
+	// EnterSimple is called when entering the simple production.
+	EnterSimple(c *SimpleContext)
+
+	// EnterEmpty is called when entering the empty production.
+	EnterEmpty(c *EmptyContext)
+
+	// EnterExprCmd is called when entering the exprCmd production.
+	EnterExprCmd(c *ExprCmdContext)
+
+	// EnterQualId is called when entering the qualId production.
+	EnterQualId(c *QualIdContext)
+
+	// EnterStartType is called when entering the startType production.
+	EnterStartType(c *StartTypeContext)
 
 	// EnterType is called when entering the type production.
 	EnterType(c *TypeContext)
@@ -18,6 +54,9 @@ type TypesListener interface {
 
 	// EnterTypeParamList is called when entering the typeParamList production.
 	EnterTypeParamList(c *TypeParamListContext)
+
+	// EnterStart is called when entering the start production.
+	EnterStart(c *StartContext)
 
 	// EnterExpr is called when entering the expr production.
 	EnterExpr(c *ExprContext)
@@ -103,8 +142,44 @@ type TypesListener interface {
 	// EnterNull is called when entering the Null production.
 	EnterNull(c *NullContext)
 
-	// ExitStart is called when exiting the start production.
-	ExitStart(c *StartContext)
+	// ExitStartCommand is called when exiting the startCommand production.
+	ExitStartCommand(c *StartCommandContext)
+
+	// ExitCommand is called when exiting the command production.
+	ExitCommand(c *CommandContext)
+
+	// ExitLet is called when exiting the let production.
+	ExitLet(c *LetContext)
+
+	// ExitDeclare is called when exiting the declare production.
+	ExitDeclare(c *DeclareContext)
+
+	// ExitVarDecl is called when exiting the varDecl production.
+	ExitVarDecl(c *VarDeclContext)
+
+	// ExitFnDecl is called when exiting the fnDecl production.
+	ExitFnDecl(c *FnDeclContext)
+
+	// ExitParam is called when exiting the param production.
+	ExitParam(c *ParamContext)
+
+	// ExitDelete is called when exiting the delete production.
+	ExitDelete(c *DeleteContext)
+
+	// ExitSimple is called when exiting the simple production.
+	ExitSimple(c *SimpleContext)
+
+	// ExitEmpty is called when exiting the empty production.
+	ExitEmpty(c *EmptyContext)
+
+	// ExitExprCmd is called when exiting the exprCmd production.
+	ExitExprCmd(c *ExprCmdContext)
+
+	// ExitQualId is called when exiting the qualId production.
+	ExitQualId(c *QualIdContext)
+
+	// ExitStartType is called when exiting the startType production.
+	ExitStartType(c *StartTypeContext)
 
 	// ExitType is called when exiting the type production.
 	ExitType(c *TypeContext)
@@ -114,6 +189,9 @@ type TypesListener interface {
 
 	// ExitTypeParamList is called when exiting the typeParamList production.
 	ExitTypeParamList(c *TypeParamListContext)
+
+	// ExitStart is called when exiting the start production.
+	ExitStart(c *StartContext)
 
 	// ExitExpr is called when exiting the expr production.
 	ExitExpr(c *ExprContext)

@@ -15,86 +15,218 @@
 package main
 
 import (
+	"fmt"
+	"strings"
 	"testing"
+
+	"google.golang.org/protobuf/proto"
 )
 
-func argsEqual(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i, x := range a {
-		if x != b[i] {
+func cmdMatches(t testing.TB, got Cmder, expected Cmder) (result bool) {
+	t.Helper()
+
+	defer func() {
+		// catch type assertion errors
+		if v := recover(); v != nil {
+			result = false
+		}
+	}()
+
+	switch want := expected.(type) {
+	case *evalCmd:
+		gotEval := got.(*evalCmd)
+		return gotEval.expr == want.expr
+	case *delCmd:
+		gotDel := got.(*delCmd)
+		return gotDel.identifier == want.identifier
+	case *simpleCmd:
+		gotSimple := got.(*simpleCmd)
+		return gotSimple.cmd == want.cmd
+	case *letFnCmd:
+		gotLetFn := got.(*letFnCmd)
+		if gotLetFn.identifier != want.identifier ||
+			gotLetFn.src != want.src ||
+			!proto.Equal(gotLetFn.resultType, want.resultType) ||
+			len(gotLetFn.params) != len(want.params) {
 			return false
 		}
+		for i, wantP := range want.params {
+			if gotLetFn.params[i].identifier != wantP.identifier ||
+				!proto.Equal(gotLetFn.params[i].typeHint, wantP.typeHint) {
+				return false
+			}
+		}
+		return true
+	case *letVarCmd:
+		gotLetVar := got.(*letVarCmd)
+		return gotLetVar.identifier == want.identifier &&
+			proto.Equal(gotLetVar.typeHint, want.typeHint) &&
+			gotLetVar.src == want.src
 	}
-	return true
+	return false
+}
+
+func (c *evalCmd) String() string {
+	return fmt.Sprintf("%%eval %s", c.expr)
+}
+
+func (c *letVarCmd) String() string {
+	return fmt.Sprintf("%%let %s : %s = %s", c.identifier, UnparseType(c.typeHint), c.src)
+}
+
+func fmtParam(p letFunctionParam) string {
+	return fmt.Sprintf("%s : %s", p.identifier, UnparseType(p.typeHint))
+}
+
+func fmtParams(ps []letFunctionParam) string {
+	buf := make([]string, len(ps))
+	for i, p := range ps {
+		buf[i] = fmtParam(p)
+	}
+	return strings.Join(buf, ", ")
+}
+
+func (c *letFnCmd) String() string {
+	return fmt.Sprintf("%%let %s (%s) : %s -> %s", c.identifier, fmtParams(c.params), UnparseType(c.resultType), c.src)
+}
+
+func (c *delCmd) String() string {
+	return fmt.Sprintf("%%delete %s", c.identifier)
+}
+
+func (c *simpleCmd) String() string {
+	return fmt.Sprintf("%%%s", c.cmd)
 }
 
 func TestParse(t *testing.T) {
 	var testCases = []struct {
 		commandLine string
-		wantCmd     string
-		wantArgs    []string
-		wantExpr    string
+		wantCmd     Cmder
 	}{
 		{
 			commandLine: "%let x = 1",
-			wantCmd:     "let",
-			wantArgs:    []string{"x"},
-			wantExpr:    "1",
+			wantCmd: &letVarCmd{
+				identifier: "x",
+				typeHint:   nil,
+				src:        "1",
+			},
+		},
+		{
+			commandLine: "%let com.google.x = 1",
+			wantCmd: &letVarCmd{
+				identifier: "com.google.x",
+				typeHint:   nil,
+				src:        "1",
+			},
 		},
 		{
 			commandLine: "%let x: int = 1",
-			wantCmd:     "let",
-			wantArgs:    []string{"x", "int"},
-			wantExpr:    "1",
+			wantCmd: &letVarCmd{
+				identifier: "x",
+				typeHint:   mustParseType(t, "int"),
+				src:        "1",
+			},
 		},
 		{
 			commandLine: `%eval x + 2`,
-			wantCmd:     "eval",
-			wantArgs:    []string{},
-			wantExpr:    "x + 2",
+			wantCmd:     &evalCmd{expr: "x + 2"},
 		},
 		{
 			commandLine: "x + 2",
-			wantCmd:     "eval",
-			wantArgs:    []string{},
-			wantExpr:    "x + 2",
+			wantCmd:     &evalCmd{expr: "x + 2"},
 		},
 		{
 			commandLine: `%exit`,
-			wantCmd:     "exit",
-			wantArgs:    []string{},
-			wantExpr:    "",
+			wantCmd:     &simpleCmd{cmd: "exit"},
 		},
 		{
 			commandLine: "   ",
-			wantCmd:     "null",
-			wantArgs:    []string{},
-			wantExpr:    "",
+			wantCmd:     &simpleCmd{"null"},
 		},
 		{
 			commandLine: `%delete x`,
-			wantCmd:     "delete",
-			wantArgs:    []string{"x"},
-			wantExpr:    "",
+			wantCmd:     &delCmd{identifier: "x"},
+		},
+		{
+			commandLine: `%delete com.google.x`,
+			wantCmd:     &delCmd{identifier: "com.google.x"},
 		},
 		{
 			commandLine: `%declare x: int`,
-			wantCmd:     "declare",
-			wantArgs:    []string{"x", "int"},
-			wantExpr:    "",
+			wantCmd: &letVarCmd{
+				identifier: "x",
+				typeHint:   mustParseType(t, "int"),
+				src:        "",
+			},
+		},
+		{
+			commandLine: `%let fn (x : int) : int -> x + 2`,
+			wantCmd: &letFnCmd{
+				identifier: "fn",
+				params: []letFunctionParam{
+					{identifier: "x", typeHint: mustParseType(t, "int")},
+				},
+				resultType: mustParseType(t, "int"),
+				src:        "x + 2",
+			},
+		},
+		{
+			commandLine: `%let int.plus (x : int) : int -> this + x`,
+			wantCmd: &letFnCmd{
+				identifier: "int.plus",
+				params: []letFunctionParam{
+					{identifier: "x", typeHint: mustParseType(t, "int")},
+				},
+				resultType: mustParseType(t, "int"),
+				src:        "this + x",
+			},
+		},
+		{
+			commandLine: `%let fn () : int -> 2 + 2`,
+			wantCmd: &letFnCmd{
+				identifier: "fn",
+				params:     []letFunctionParam{},
+				resultType: mustParseType(t, "int"),
+				src:        "2 + 2",
+			},
+		},
+		{
+			commandLine: `%let fn (x:int, y :int) : int -> x + y`,
+			wantCmd: &letFnCmd{
+				identifier: "fn",
+				params: []letFunctionParam{
+					{identifier: "x", typeHint: mustParseType(t, "int")},
+					{identifier: "y", typeHint: mustParseType(t, "int")},
+				},
+				resultType: mustParseType(t, "int"),
+				src:        "x + y",
+			},
+		},
+		{
+			commandLine: `%declare fn (x : int) : int`,
+			wantCmd: &letFnCmd{
+				identifier: "fn",
+				params: []letFunctionParam{
+					{identifier: "x", typeHint: mustParseType(t, "int")},
+				},
+				resultType: mustParseType(t, "int"),
+				src:        "",
+			},
 		},
 	}
+
 	for _, tc := range testCases {
-		cmd, args, expr, err := Parse(tc.commandLine)
-		if err != nil {
-			t.Errorf("Parse(\"%s\") failed: %s", tc.commandLine, err)
-		}
-		if tc.wantCmd != cmd || !argsEqual(tc.wantArgs, args) || tc.wantExpr != expr {
-			t.Errorf("Parse('%s') got (%s, %v, %s) wanted (%s, %v, %s)", tc.commandLine,
-				cmd, args, expr, tc.wantCmd, tc.wantArgs, tc.wantExpr)
-		}
+		tc := tc
+		t.Run(tc.commandLine, func(t *testing.T) {
+			cmd, err := Parse(tc.commandLine)
+			if err != nil {
+				t.Errorf("Parse(\"%s\") failed: %s", tc.commandLine, err)
+			}
+			if cmd == nil || !cmdMatches(t, cmd, tc.wantCmd) {
+				t.Errorf("Parse('%s') got (%s) wanted (%s)", tc.commandLine,
+					cmd, tc.wantCmd)
+			}
+		})
 	}
 }
 
@@ -111,6 +243,18 @@ func TestParseErrors(t *testing.T) {
 			commandLine: "%let x: int",
 		},
 		{
+			// no assignment
+			commandLine: "%let fn() : int",
+		},
+		{
+			// missing types
+			commandLine: "%let fn (x) -> x + 1",
+		},
+		{
+			// missing arg id
+			commandLine: "%let fn (: int) : int -> x + 1",
+		},
+		{
 			// type required for declare
 			commandLine: "%declare x",
 		},
@@ -120,11 +264,15 @@ func TestParseErrors(t *testing.T) {
 		},
 		{
 			// not an identifier
+			commandLine: "%declare 1() : int",
+		},
+		{
+			// not an identifier
 			commandLine: "%delete 123",
 		},
 	}
 	for _, tc := range testCases {
-		_, _, _, err := Parse(tc.commandLine)
+		_, err := Parse(tc.commandLine)
 		if err == nil {
 			t.Errorf("Parse(\"%s\") ok wanted error", tc.commandLine)
 		}

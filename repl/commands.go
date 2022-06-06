@@ -16,117 +16,302 @@
 package main
 
 import (
+	"errors"
 	"fmt"
-	"regexp"
 	"strings"
+
+	"github.com/google/cel-go/repl/parser"
+
+	"github.com/antlr/antlr4/runtime/Go/antlr"
+
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
-var exprSubRe = `(?P<expr>.*)`
-var exprAssignRe = `(\s+=\s+)` + exprSubRe
-var identifier = `[_a-zA-Z][_a-zA-Z0-9]*`
-var typeSuffix = `(\s*:\s*(?P<type_hint>[^=]+))`
-var ws = regexp.MustCompile(`[ \t\r\n]+`)
-var identPrefix = `(?P<ident>` + identifier + `)`
-var letRe = regexp.MustCompile(identPrefix + typeSuffix + `?` + exprAssignRe)
-var declRe = regexp.MustCompile(identPrefix + typeSuffix)
-var delRe = regexp.MustCompile(identPrefix)
+var letUsage = `Let introduces a variable or function defined by a sub-CEL expression.
+%let <identifier> (: <type>)? = <expr>
+%let <identifier> (<param_identifier> : <param_type>, ...) : <result-type> -> <expr>`
 
-var letUsage = `Let introduces a variable whose value is defined by a sub-CEL expression.
-%let <identifier> (: <type>)? = <expr>`
-
-var declareUsage = `Declare introduces a variable for type checking, but doesn't define a value for it.
-%declare <identifier> : <type>`
-
-var deleteUsage = `Delete removes a variable declaration from the evaluation context.
+var declareUsage = `Declare introduces a variable or function for type checking, but doesn't define a value for it.
+%declare <identifier> : <type>
+%declare <identifier> (<param_identifier> : <param_type>, ...) : <result-type>
+`
+var deleteUsage = `Delete removes a variable or function declaration from the evaluation context.
 %delete <identifier>`
 
-func subexpByName(r *regexp.Regexp, m []string, n string) *string {
-	idx := r.SubexpIndex(n)
-	if idx < 0 {
-		return nil
-	}
-	return &m[idx]
+type letVarCmd struct {
+	identifier string
+	typeHint   *exprpb.Type
+	src        string
 }
 
-// PromptError represents an invalid command (distinct from invalid CEL expr)
-type PromptError struct {
-	msg   string
-	usage *string
+type letFnCmd struct {
+	identifier string
+	resultType *exprpb.Type
+	params     []letFunctionParam
+	src        string
 }
 
-func (p PromptError) Error() string {
-	r := p.msg
-	if p.usage != nil {
-		r = fmt.Sprintf("%s\nUsage: \n%s", r, *p.usage)
-	}
-	return r
+type delCmd struct {
+	identifier string
 }
 
-// Parse a cli command into a canonical command and arguments.
-func Parse(line string) (cmd string, args []string, expr string, err error) {
-	// TODO(issue/538): Switch to a parsing library over regex as this gets more complicated.
-	line = strings.TrimSpace(line)
+type simpleCmd struct {
+	cmd string
+}
 
-	if strings.IndexRune(line, '%') == 0 {
-		span := ws.FindStringIndex(line)
-		if span != nil {
-			cmd = line[1:span[0]]
-			line = line[span[1]:]
-		} else {
-			cmd = line[1:]
-			line = ""
-		}
-	} else if line == "" {
-		cmd = "null"
-		return
+type evalCmd struct {
+	expr string
+}
+
+// Cmder interface provides normalized command name from a repl command.
+// Command specifics are available via checked type casting to the specific
+// command type.
+type Cmder interface {
+	// Cmd returns the normalized name for the command.
+	Cmd() string
+}
+
+func (c *letVarCmd) Cmd() string {
+	if c.src == "" {
+		return "declare"
 	} else {
-		// default is to just evaluate cel
-		cmd = "eval"
+		return "let"
+	}
+}
+
+func (c *letFnCmd) Cmd() string {
+	if c.src == "" {
+		return "declare"
+	} else {
+		return "let"
+	}
+}
+
+func (c *delCmd) Cmd() string {
+	return "delete"
+}
+
+func (c *simpleCmd) Cmd() string {
+	return c.cmd
+}
+
+func (c *evalCmd) Cmd() string {
+	return "eval"
+}
+
+type commandParseListener struct {
+	antlr.DefaultErrorListener
+	parser.BaseCommandsListener
+
+	errs  []error
+	cmd   Cmder
+	usage string
+}
+
+func (c *commandParseListener) reportIssue(e error) {
+	c.errs = append(c.errs, e)
+}
+
+// extractSourceText extracts original text from a parse rule match.
+// Preserves original whitespace if possible.
+func extractSourceText(ctx antlr.ParserRuleContext) string {
+	if ctx.GetStart() == nil || ctx.GetStop() == nil ||
+		ctx.GetStart().GetStart() < 0 || ctx.GetStop().GetStop() < 0 {
+		// fallback to the normalized parse
+		return ctx.GetText()
+	}
+	s, e := ctx.GetStart().GetStart(), ctx.GetStop().GetStop()
+	return ctx.GetStart().GetInputStream().GetText(s, e)
+}
+
+// Parse parses a repl command line into a command object. This provides
+// the normalized command name plus any parsed parameters (e.g. variable names
+// in let statements).
+//
+// An error is returned if the statement isn't well formed. See the parser
+// pacakage for details on the antlr grammar.
+func Parse(line string) (Cmder, error) {
+	line = strings.TrimSpace(line)
+	listener := &commandParseListener{}
+	is := antlr.NewInputStream(line)
+	lexer := parser.NewCommandsLexer(is)
+	lexer.RemoveErrorListeners()
+	lexer.AddErrorListener(listener)
+	p := parser.NewCommandsParser(antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel))
+	p.RemoveErrorListeners()
+	p.AddErrorListener(listener)
+
+	antlr.ParseTreeWalkerDefault.Walk(listener, p.StartCommand())
+
+	if len(listener.errs) > 0 {
+		errFmt := make([]string, len(listener.errs))
+		for i, err := range listener.errs {
+			errFmt[i] = err.Error()
+		}
+
+		if listener.usage != "" {
+			errFmt = append(errFmt, "", "Usage:", listener.usage)
+		}
+		return nil, errors.New(strings.Join(errFmt, "\n"))
 	}
 
-	switch cmd {
-	case "let":
-		m := letRe.FindStringSubmatch(line)
-		if m == nil {
-			err = PromptError{msg: "invalid let statement", usage: &letUsage}
-			return
-		}
-		if a := subexpByName(letRe, m, "ident"); a != nil {
-			args = append(args, *a)
-		}
-		if t := subexpByName(letRe, m, "type_hint"); t != nil && *t != "" {
-			args = append(args, *t)
-		}
-		if e := subexpByName(letRe, m, "expr"); e != nil {
-			expr = *e
-		}
-	case "delete":
-		m := delRe.FindStringSubmatch(line)
-		if m == nil {
-			err = PromptError{msg: "invalid delete statement", usage: &deleteUsage}
-			return
-		}
-		if i := subexpByName(delRe, m, "ident"); i != nil {
-			args = append(args, *i)
-		}
-	case "declare":
-		m := declRe.FindStringSubmatch(line)
-		if m == nil {
-			err = PromptError{msg: "invalid declare statement", usage: &declareUsage}
-			return
-		}
-		if a := subexpByName(declRe, m, "ident"); a != nil {
-			args = append(args, *a)
-		}
-		if t := subexpByName(declRe, m, "type_hint"); t != nil {
-			args = append(args, *t)
-		}
-	case "eval":
-		expr = line
-	case "exit":
-	case "null":
-	default:
-		err = PromptError{msg: "Undefined command: " + cmd}
+	return listener.cmd, nil
+}
+
+// ANTLR interface implementations
+
+// Implement antlr ErrorListener interface for syntax errors.
+func (l *commandParseListener) SyntaxError(recognizer antlr.Recognizer, offendingSymbol interface{}, line, column int, msg string, e antlr.RecognitionException) {
+	l.errs = append(l.errs, fmt.Errorf("(%d:%d) %s", line, column, msg))
+}
+
+// Implement ANTLR interface for commands listener.
+func (c *commandParseListener) EnterSimple(ctx *parser.SimpleContext) {
+	cmd := "undefined"
+	if ctx.GetCmd() != nil {
+		cmd = ctx.GetCmd().GetText()[1:]
 	}
-	return
+	c.cmd = &simpleCmd{cmd: cmd}
+}
+
+func (c *commandParseListener) EnterEmpty(ctx *parser.EmptyContext) {
+	c.cmd = &simpleCmd{cmd: "null"}
+}
+
+func (c *commandParseListener) EnterLet(ctx *parser.LetContext) {
+	c.usage = letUsage
+	if ctx.GetFn() != nil {
+		c.cmd = &letFnCmd{}
+	} else if ctx.GetVar() != nil {
+		c.cmd = &letVarCmd{}
+	} else {
+		c.errs = append(c.errs, fmt.Errorf("missing declaration in let"))
+	}
+}
+
+func (c *commandParseListener) EnterDeclare(ctx *parser.DeclareContext) {
+	c.usage = declareUsage
+	if ctx.GetFn() != nil {
+		c.cmd = &letFnCmd{}
+	} else if ctx.GetVar() != nil {
+		c.cmd = &letVarCmd{}
+	} else {
+		c.errs = append(c.errs, fmt.Errorf("missing declaration in declare"))
+	}
+}
+
+func (c *commandParseListener) ExitDeclare(ctx *parser.DeclareContext) {
+	var typeHint *exprpb.Type
+	switch cmd := c.cmd.(type) {
+	case *letVarCmd:
+		typeHint = cmd.typeHint
+	case *letFnCmd:
+		typeHint = cmd.resultType
+	}
+	if typeHint == nil {
+		c.reportIssue(errors.New("result type required for declare"))
+	}
+}
+
+func (c *commandParseListener) EnterDelete(ctx *parser.DeleteContext) {
+	c.usage = deleteUsage
+	if ctx.GetVar() == nil && ctx.GetFn() == nil {
+		c.reportIssue(errors.New("missing identifier in delete"))
+		return
+	}
+	c.cmd = &delCmd{}
+}
+
+func (c *commandParseListener) EnterExprCmd(ctx *parser.ExprCmdContext) {
+	c.cmd = &evalCmd{}
+}
+
+func (c *commandParseListener) ExitFnDecl(ctx *parser.FnDeclContext) {
+	switch cmd := c.cmd.(type) {
+	case *letFnCmd:
+		if ctx.GetId() == nil {
+			c.reportIssue(errors.New("missing identifier in function declaration"))
+			return
+		}
+		if ctx.GetRType() == nil {
+			c.reportIssue(errors.New("missing result type in function declaration"))
+			return
+		}
+		cmd.identifier = ctx.GetId().GetText()
+		ty, err := ParseType(ctx.GetRType().GetText())
+		if err != nil {
+			c.reportIssue(err)
+		}
+		for _, p := range ctx.GetParams() {
+			if p.GetT() == nil {
+				c.reportIssue(errors.New("missing type in function param declaration"))
+				continue
+			}
+			if p.GetPid() == nil {
+				c.reportIssue(errors.New("missing identifier in function param declaration"))
+			}
+			ty, err := ParseType(p.GetT().GetText())
+			if err != nil {
+				c.reportIssue(err)
+			}
+			cmd.params = append(cmd.params, letFunctionParam{
+				identifier: p.GetPid().GetText(),
+				typeHint:   ty,
+			})
+
+		}
+		cmd.resultType = ty
+	case *delCmd:
+		if ctx.GetId() == nil {
+			c.reportIssue(errors.New("missing identifier in delete"))
+		}
+		cmd.identifier = ctx.GetId().GetText()
+	default:
+		c.reportIssue(errors.New("unexepected function declaration"))
+	}
+}
+
+func (c *commandParseListener) ExitQualId(ctx *parser.QualIdContext) {
+	if ctx.GetRid() == nil {
+		c.reportIssue(errors.New("missing root identifier"))
+	}
+}
+
+func (c *commandParseListener) ExitVarDecl(ctx *parser.VarDeclContext) {
+	switch cmd := c.cmd.(type) {
+	case *letVarCmd:
+		if ctx.GetId() == nil {
+			c.reportIssue(errors.New("no identifier in variable declaration"))
+			return
+		}
+		cmd.identifier = ctx.GetId().GetText()
+		if ctx.GetT() != nil {
+			ty, err := ParseType(ctx.GetT().GetText())
+			if err != nil {
+				c.reportIssue(err)
+			}
+			cmd.typeHint = ty
+		}
+	case *delCmd:
+		if ctx.GetId() == nil {
+			c.reportIssue(errors.New("missing identifier in delete"))
+		}
+		cmd.identifier = ctx.GetId().GetText()
+	default:
+		c.reportIssue(errors.New("unexpected var declaration"))
+	}
+}
+
+func (c *commandParseListener) ExitExpr(ctx *parser.ExprContext) {
+	expr := extractSourceText(ctx)
+	switch cmd := c.cmd.(type) {
+	case *evalCmd:
+		cmd.expr = expr
+	case *letFnCmd:
+		cmd.src = expr
+	case *letVarCmd:
+		cmd.src = expr
+	default:
+		c.reportIssue(errors.New("unexpected CEL expression"))
+	}
 }

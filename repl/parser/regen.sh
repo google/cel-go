@@ -1,11 +1,12 @@
 #!/bin/sh
 
-ANTLR_JAR="/home/jdtatum/bin/antlr-4.10.1-complete.jar"
+ANTLR_JAR="$HOME/bin/antlr-4.10.1-complete.jar"
+export CLASSPATH=".:$ANTLR_JAR:$CLASSPATH"
 antlr4="java -Xmx500M -cp \"$ANTLR_JAR:$CLASSPATH\" org.antlr.v4.Tool"
 
 $antlr4 \
     -Dlanguage=Go \
-    -lib ../../parser/gen/ \
-    -visitor \
+    -lib ../../parser/gen \
     -package parser \
-    ./Types.g4
+    -visitor \
+    ./Commands.g4

@@ -39,12 +39,35 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
 	"github.com/chzyer/readline"
-	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
+
+func printStatus(eval *Evaluator) {
+	fmt.Println("// Functions")
+	for _, fn := range eval.ctx.letFns {
+		cmd := "let"
+		if fn.src == "" {
+			cmd = "declare"
+		}
+
+		fmt.Printf("%%%s %s\n", cmd, fn)
+	}
+	fmt.Println()
+	fmt.Println("// Variables")
+
+	for _, lVar := range eval.ctx.letVars {
+		cmd := "let"
+		if lVar.src == "" {
+			cmd = "declare"
+		}
+
+		fmt.Printf("%%%s %s\n", cmd, lVar)
+	}
+}
 
 func main() {
 	var c readline.Config
@@ -81,54 +104,66 @@ PromptLoop:
 			break
 		}
 
-		cmd, args, expr, err := Parse(line)
+		cmd, err := Parse(line)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Invalid command: %v\n", err)
 			continue
 		}
-		switch cmd {
-		case "eval":
-			val, resultT, err := eval.Evaluate(expr)
+		switch cmd := cmd.(type) {
+		case *evalCmd:
+			val, resultT, err := eval.Evaluate(cmd.expr)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Expr failed:\n%v\n", err)
 			}
 			if val != nil {
 				fmt.Printf("%v : %s\n", val.Value(), UnparseType(resultT))
 			}
-		case "let":
-			var typeHint *exprpb.Type
+		case *letVarCmd:
 			var err error
-			if len(args) == 2 {
-				typeHint, err = ParseType(args[1])
-				if err != nil {
-					fmt.Printf("Adding let failed:\n%v\n", err)
-					break
-				}
+			if cmd.src != "" {
+				err = eval.AddLetVar(cmd.identifier, cmd.src, cmd.typeHint)
+			} else {
+				// declare only
+				err = eval.AddDeclVar(cmd.identifier, cmd.typeHint)
 			}
-			err = eval.AddLetVar(args[0], expr, typeHint)
+
 			if err != nil {
-				fmt.Printf("Adding let failed:\n%v\n", err)
+				fmt.Printf("Adding variable failed:\n%v\n", err)
 			}
-		case "declare":
-			typePB, err := ParseType(args[1])
+		case *letFnCmd:
+			var err error
+			if cmd.src != "" {
+				err = eval.AddLetFn(cmd.identifier, cmd.params, cmd.resultType, cmd.src)
+			} else {
+				// declare only
+				err = errors.New("declare not yet implemented")
+			}
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Adding decl failed:\n%b\n", err)
-				break
+				fmt.Fprintf(os.Stderr, "Adding function failed:\n%v\n", err)
 			}
-			err = eval.AddDeclVar(args[0], typePB)
+		case *delCmd:
+			err = eval.DelLetVar(cmd.identifier)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Adding decl failed:\n%b\n", err)
+				fmt.Fprintf(os.Stderr, "Deleting declaration failed:\n%v\n", err)
 			}
-		case "delete":
-			err = eval.DelLetVar(args[0])
+			err = eval.DelLetFn(cmd.identifier)
 			if err != nil {
-				fmt.Printf("Deleting declaration failed:\n%v\n", err)
+				fmt.Fprintf(os.Stderr, "Deleting declaration failed:\n%v\n", err)
 			}
-		case "exit":
-			break PromptLoop
+
+		case *simpleCmd:
+			switch cmd.Cmd() {
+			case "exit":
+				break PromptLoop
+			case "null":
+				continue
+			case "status":
+				printStatus(eval)
+			default:
+				fmt.Fprintf(os.Stderr, "Unsupported command: %v\n", cmd.Cmd())
+			}
 		default:
-			// nothing to do so just refresh the prompt
-			continue
+			fmt.Fprintf(os.Stderr, "Unsupported command: %v\n", cmd.Cmd())
 		}
 
 	}
