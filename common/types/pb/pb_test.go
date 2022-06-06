@@ -24,7 +24,7 @@ import (
 	proto3pb "github.com/google/cel-go/test/proto3pb"
 	descpb "google.golang.org/protobuf/types/descriptorpb"
 	dynamicpb "google.golang.org/protobuf/types/dynamicpb"
-	"google.golang.org/protobuf/types/known/durationpb"
+	durationpb "google.golang.org/protobuf/types/known/durationpb"
 	tpb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
