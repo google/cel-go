@@ -11,9 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
-// Handles parsing command line inputs into canonical commands.
-package main
+
+package repl
 
 import (
 	"errors"
@@ -74,17 +73,15 @@ type Cmder interface {
 func (c *letVarCmd) Cmd() string {
 	if c.src == "" {
 		return "declare"
-	} else {
-		return "let"
 	}
+	return "let"
 }
 
 func (c *letFnCmd) Cmd() string {
 	if c.src == "" {
 		return "declare"
-	} else {
-		return "let"
 	}
+	return "let"
 }
 
 func (c *delCmd) Cmd() string {
@@ -161,8 +158,8 @@ func Parse(line string) (Cmder, error) {
 // ANTLR interface implementations
 
 // Implement antlr ErrorListener interface for syntax errors.
-func (l *commandParseListener) SyntaxError(recognizer antlr.Recognizer, offendingSymbol interface{}, line, column int, msg string, e antlr.RecognitionException) {
-	l.errs = append(l.errs, fmt.Errorf("(%d:%d) %s", line, column, msg))
+func (c *commandParseListener) SyntaxError(recognizer antlr.Recognizer, offendingSymbol interface{}, line, column int, msg string, e antlr.RecognitionException) {
+	c.errs = append(c.errs, fmt.Errorf("(%d:%d) %s", line, column, msg))
 }
 
 // Implement ANTLR interface for commands listener.

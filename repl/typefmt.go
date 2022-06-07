@@ -11,9 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
-// Provides utilities for parsing and formatting the type mini language.
-package main
+
+package repl
 
 import (
 	"fmt"
@@ -21,6 +20,7 @@ import (
 
 	"github.com/antlr/antlr4/runtime/Go/antlr"
 	"github.com/google/cel-go/repl/parser"
+
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
@@ -102,9 +102,8 @@ func UnparseType(t *exprpb.Type) string {
 	case *exprpb.Type_AbstractType_:
 		if len(t.GetAbstractType().GetParameterTypes()) > 0 {
 			return t.GetAbstractType().GetName() + formatTypeArgs(t.GetAbstractType().GetParameterTypes())
-		} else {
-			return t.GetAbstractType().GetName()
 		}
+		return t.GetAbstractType().GetName()
 	}
 	return "<unknown type>"
 }
@@ -201,7 +200,7 @@ func (t *typesVisitor) VisitType(ctx *parser.TypeContext) interface{} {
 		return emptyType
 	}
 
-	typeId := r.(string)
+	typeID := r.(string)
 
 	paramsCtx := ctx.GetParams()
 
@@ -214,30 +213,30 @@ func (t *typesVisitor) VisitType(ctx *parser.TypeContext) interface{} {
 		params = r.(typeParams)
 	}
 
-	switch typeId {
+	switch typeID {
 	case "int":
-		t.expectUnparameterized(params, typeId)
+		t.expectUnparameterized(params, typeID)
 		return &exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_INT64}}
 	case "uint":
-		t.expectUnparameterized(params, typeId)
+		t.expectUnparameterized(params, typeID)
 		return &exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_UINT64}}
 	case "double":
-		t.expectUnparameterized(params, typeId)
+		t.expectUnparameterized(params, typeID)
 		return &exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_DOUBLE}}
 	case "bytes":
-		t.expectUnparameterized(params, typeId)
+		t.expectUnparameterized(params, typeID)
 		return &exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_BYTES}}
 	case "string":
-		t.expectUnparameterized(params, typeId)
+		t.expectUnparameterized(params, typeID)
 		return &exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_STRING}}
 	case "bool":
-		t.expectUnparameterized(params, typeId)
+		t.expectUnparameterized(params, typeID)
 		return &exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_BOOL}}
 	case "dyn":
-		t.expectUnparameterized(params, typeId)
+		t.expectUnparameterized(params, typeID)
 		return &exprpb.Type{TypeKind: &exprpb.Type_Dyn{}}
 	case "null":
-		t.expectUnparameterized(params, typeId)
+		t.expectUnparameterized(params, typeID)
 		return &exprpb.Type{TypeKind: &exprpb.Type_Null{}}
 	case "wrapper":
 		if params == nil || len(params) != 1 {
@@ -276,12 +275,12 @@ func (t *typesVisitor) VisitType(ctx *parser.TypeContext) interface{} {
 		return &exprpb.Type{TypeKind: &exprpb.Type_Type{Type: p}}
 	default:
 		// TODO(issue/538): need a way to distinguish message from abstract type
-		t.expectUnparameterized(params, typeId)
-		wkt := checkWellKnown(typeId)
+		t.expectUnparameterized(params, typeID)
+		wkt := checkWellKnown(typeID)
 		if wkt != nil {
 			return wkt
 		}
-		return &exprpb.Type{TypeKind: &exprpb.Type_MessageType{MessageType: typeId}}
+		return &exprpb.Type{TypeKind: &exprpb.Type_MessageType{MessageType: typeID}}
 	}
 }
 
