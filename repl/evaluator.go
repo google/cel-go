@@ -11,12 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
-// Provides Evaluator type with basic operations for setting up the evaluation
-// environment then evaluating small CEL expressions.
-package main
+
+// Package repl defines a set of utilities for working with command line processing of CEL.
+package repl
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -27,8 +27,9 @@ import (
 	"github.com/google/cel-go/interpreter"
 	"github.com/google/cel-go/interpreter/functions"
 
-	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	"google.golang.org/protobuf/proto"
+
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 // letVariable let variable representation
@@ -216,7 +217,7 @@ func (l letFunction) String() string {
 func (l *letFunction) generateFunction() *functions.Overload {
 	argLen := len(l.params)
 	if l.receiver != nil {
-		argLen += 1
+		argLen++
 	}
 	switch argLen {
 	case 1:
@@ -527,7 +528,7 @@ func (e *Evaluator) DelLetVar(name string) error {
 	return nil
 }
 
-// DelLetVar removes a function from the evaluation context.
+// DelLetFn removes a function from the evaluation context.
 // If deleting the function breaks a later expression, this function will return an error without modifying the context.
 func (e *Evaluator) DelLetFn(name string) error {
 	ctx := e.ctx.copy()
@@ -538,6 +539,26 @@ func (e *Evaluator) DelLetFn(name string) error {
 	}
 	e.ctx = *ctx
 	return nil
+}
+
+// Status returns a stringified view of the current evaluator state.
+func (e *Evaluator) Status() string {
+	var funcs, vars string
+	for _, fn := range e.ctx.letFns {
+		cmd := "let"
+		if fn.src == "" {
+			cmd = "declare"
+		}
+		funcs = funcs + fmt.Sprintf("%%%s %s\n", cmd, fn)
+	}
+	for _, lVar := range e.ctx.letVars {
+		cmd := "let"
+		if lVar.src == "" {
+			cmd = "declare"
+		}
+		vars = vars + fmt.Sprintf("%%%s %s\n", cmd, lVar)
+	}
+	return fmt.Sprintf("// Functions\n%s\n// Variables\n%s", funcs, vars)
 }
 
 // applyContext evaluates the let expressions in the context to build an activation for the given expression.
@@ -574,6 +595,62 @@ func (e *Evaluator) applyContext() (*cel.Env, interpreter.Activation, error) {
 	}
 
 	return env, act, nil
+}
+
+func (e *Evaluator) Process(cmd Cmder) (string, bool, error) {
+	switch cmd := cmd.(type) {
+	case *evalCmd:
+		val, resultT, err := e.Evaluate(cmd.expr)
+		if err != nil {
+			return "", false, fmt.Errorf("expr failed:\n%v", err)
+		}
+		if val != nil {
+			return fmt.Sprintf("%v : %s", val.Value(), UnparseType(resultT)), false, nil
+		}
+	case *letVarCmd:
+		var err error
+		if cmd.src != "" {
+			err = e.AddLetVar(cmd.identifier, cmd.src, cmd.typeHint)
+		} else {
+			// declare only
+			err = e.AddDeclVar(cmd.identifier, cmd.typeHint)
+		}
+		if err != nil {
+			return "", false, fmt.Errorf("adding variable failed:\n%v", err)
+		}
+	case *letFnCmd:
+		err := errors.New("declare not yet implemented")
+		if cmd.src != "" {
+			err = e.AddLetFn(cmd.identifier, cmd.params, cmd.resultType, cmd.src)
+		}
+		if err != nil {
+			return "", false, fmt.Errorf("adding function failed:\n%v", err)
+		}
+	case *delCmd:
+		err := e.DelLetVar(cmd.identifier)
+		if err != nil {
+			return "", false, fmt.Errorf("deleting declaration failed:\n%v", err)
+		}
+		err = e.DelLetFn(cmd.identifier)
+		if err != nil {
+			return "", false, fmt.Errorf("deleting declaration failed:\n%v", err)
+		}
+
+	case *simpleCmd:
+		switch cmd.Cmd() {
+		case "exit":
+			return "", true, nil
+		case "null":
+			return "", false, nil
+		case "status":
+			return e.Status(), false, nil
+		default:
+			return "", false, fmt.Errorf("unsupported command: %v", cmd.Cmd())
+		}
+	default:
+		return "", false, fmt.Errorf("unsupported command: %v", cmd.Cmd())
+	}
+	return "", false, nil
 }
 
 // Evaluate sets up a CEL evaluation using the current evaluation context.

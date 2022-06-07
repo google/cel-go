@@ -30,7 +30,7 @@ let: '%let' ( (var=varDecl '=') | (fn=fnDecl '->') ) e=expr;
 
 declare: '%declare' (var=varDecl | fn=fnDecl);
 
-varDecl: id=qualId (':' t=type)?; 
+varDecl: id=qualId (':' t=type)?;
 
 fnDecl: id=qualId '(' (params+=param (',' params+=param)*)? ')' ':' rType=type;
 

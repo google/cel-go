@@ -15,7 +15,7 @@ An example session:
 
 ```
 # from a cel-go clone
-$ cd ./repl
+$ cd ./repl/main
 
 $ go run .
 CEL REPL
@@ -110,13 +110,13 @@ evaluated before the expression in an `%eval` command.
 Functions are implicitly defined before variables: let variables may refer to
 functions, but functions cannot refer to let variables.
 
-Using curly-braces to indicate scopes, this looks like: 
+Using curly-braces to indicate scopes, this looks like:
 ```
-let sum (x : int, y : int) : int -> x + y 
+let sum (x : int, y : int) : int -> x + y
 {
     let x = sum(2, 4)
     {
-        let y = sum(x, 30) 
+        let y = sum(x, 30)
         {
             eval sum(x, y) == 42
             // (x) + (x + 30)
@@ -128,11 +128,11 @@ let sum (x : int, y : int) : int -> x + y
 
 ## Installing
 
-To build and install as a standalone binary: 
+To build and install as a standalone binary:
 
 ```
 $ git clone git@github.com:google/cel-go.git ./cel-go
-$ cd ./cel-go/repl
+$ cd ./cel-go/repl/main
 $ go build .
 # e.g. to your $PATH
 $ mv ./repl <install location>
