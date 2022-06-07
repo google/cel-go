@@ -27,8 +27,7 @@ func Compare(a string, e string) bool {
 
 // DiffMessage creates a diff dump message for test failures.
 func DiffMessage(context string, actual interface{}, expected interface{}) string {
-	return fmt.Sprintf("%s: \ngot %q, \nwanted %q",
-		context, stripWhitespace(actual.(string)), stripWhitespace(expected.(string)))
+	return fmt.Sprintf("%s: \ngot %v, \nwanted %v", context, actual, expected)
 }
 
 func stripWhitespace(a string) string {

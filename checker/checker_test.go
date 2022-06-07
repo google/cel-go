@@ -1397,7 +1397,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 	{
 		in: `[].map(x, [].map(y, x in y && y in x))`,
 		err: `
-		ERROR: <input>:1:33: found no matching overload for '@in' applied to '(type_param:"_var2" , type_param:"_var0" )'
+		ERROR: <input>:1:33: found no matching overload for '@in' applied to '(_var2, _var0)'
 		| [].map(x, [].map(y, x in y && y in x))
 		| ................................^`,
 	},
@@ -1962,6 +1962,64 @@ _&&_(_==_(list~type(list(dyn))^list,
 			)~list(string)^add_list,
 			// Result
 			__result__~list(string)^__result__)~list(string)`,
+	},
+	{
+		in:      `[{}.map(c,c,c)]+[{}.map(c,c,c)]`,
+		outType: decls.NewListType(decls.NewListType(decls.Bool)),
+		out: `_+_(
+			[
+			  __comprehension__(
+				// Variable
+				c,
+				// Target
+				{}~map(bool, dyn),
+				// Accumulator
+				__result__,
+				// Init
+				[]~list(bool),
+				// LoopCondition
+				true~bool,
+				// LoopStep
+				_?_:_(
+				  c~bool^c,
+				  _+_(
+					__result__~list(bool)^__result__,
+					[
+					  c~bool^c
+					]~list(bool)
+				  )~list(bool)^add_list,
+				  __result__~list(bool)^__result__
+				)~list(bool)^conditional,
+				// Result
+				__result__~list(bool)^__result__)~list(bool)
+			]~list(list(bool)),
+			[
+			  __comprehension__(
+				// Variable
+				c,
+				// Target
+				{}~map(bool, dyn),
+				// Accumulator
+				__result__,
+				// Init
+				[]~list(bool),
+				// LoopCondition
+				true~bool,
+				// LoopStep
+				_?_:_(
+				  c~bool^c,
+				  _+_(
+					__result__~list(bool)^__result__,
+					[
+					  c~bool^c
+					]~list(bool)
+				  )~list(bool)^add_list,
+				  __result__~list(bool)^__result__
+				)~list(bool)^conditional,
+				// Result
+				__result__~list(bool)^__result__)~list(bool)
+			]~list(list(bool))
+		  )~list(list(bool))^add_list`,
 	},
 }
 
