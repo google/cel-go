@@ -99,8 +99,6 @@ func CustomTypeProvider(provider ref.TypeProvider) EnvOption {
 // for the environment. The NewEnv call builds on top of the standard CEL declarations. For a
 // purely custom set of declarations use NewCustomEnv.
 func Declarations(decls ...*exprpb.Decl) EnvOption {
-	// TODO: provide an alternative means of specifying declarations that doesn't refer
-	// to the underlying proto implementations.
 	return func(e *Env) (*Env, error) {
 		e.declarations = append(e.declarations, decls...)
 		return e, nil
@@ -332,6 +330,9 @@ func CustomDecorator(dec interpreter.InterpretableDecorator) ProgramOption {
 }
 
 // Functions adds function overloads that extend or override the set of CEL built-ins.
+//
+// Deprecated: use DeclareFunctions instead to declare the function, its overload signatures,
+// and the overload implementations.
 func Functions(funcs ...*functions.Overload) ProgramOption {
 	return func(p *prog) (*prog, error) {
 		if err := p.dispatcher.Add(funcs...); err != nil {
