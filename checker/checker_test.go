@@ -2021,6 +2021,21 @@ _&&_(_==_(list~type(list(dyn))^list,
 			]~list(list(bool))
 		  )~list(list(bool))^add_list`,
 	},
+	{
+		in: "type(testAllTypes.nestedgroup.nested_id) == int",
+		env: testEnv{
+			idents: []*exprpb.Decl{
+				decls.NewVar("testAllTypes", decls.NewObjectType("google.expr.proto2.test.TestAllTypes")),
+			},
+		},
+		outType: decls.Bool,
+		out: `_==_(
+			type(
+			  testAllTypes~google.expr.proto2.test.TestAllTypes^testAllTypes.nestedgroup~google.expr.proto2.test.TestAllTypes.NestedGroup.nested_id~int
+			)~type(int)^type,
+			int~type(int)^int
+		  )~bool^equals`,
+	},
 }
 
 var testEnvs = map[string]testEnv{

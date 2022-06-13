@@ -69,6 +69,9 @@ func TestTypeDescriptionGroupFields(t *testing.T) {
 	if !field.IsMessage() {
 		t.Errorf("Group field 'nestedgroup' is type %v, wanted message type", field.Descriptor())
 	}
+	if !proto.Equal(field.CheckedType(), decls.NewObjectType("google.expr.proto2.test.TestAllTypes.NestedGroup")) {
+		t.Errorf("field.CheckedType() got %v, wanted 'google.expr.proto2.test.TestAllTypes.NestedGroup'", field.CheckedType())
+	}
 	ng, found := pbdb.DescribeType(string(field.Descriptor().Message().FullName()))
 	if !found {
 		t.Fatalf("pbdb.DescribeType(%v) not found", field.Descriptor().Message().FullName())

@@ -317,7 +317,7 @@ func (fd *FieldDescription) Zero() proto.Message {
 }
 
 func (fd *FieldDescription) typeDefToType() *exprpb.Type {
-	if fd.desc.Kind() == protoreflect.MessageKind {
+	if fd.desc.Kind() == protoreflect.MessageKind || fd.desc.Kind() == protoreflect.GroupKind {
 		msgType := string(fd.desc.Message().FullName())
 		if wk, found := CheckedWellKnowns[msgType]; found {
 			return wk
