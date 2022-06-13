@@ -442,7 +442,7 @@ func CostLimit(costLimit uint64) ProgramOption {
 }
 
 func fieldToCELType(field protoreflect.FieldDescriptor) (*exprpb.Type, error) {
-	if field.Kind() == protoreflect.MessageKind {
+	if field.Kind() == protoreflect.MessageKind || field.Kind() == protoreflect.GroupKind {
 		msgName := (string)(field.Message().FullName())
 		wellKnownType, found := pb.CheckedWellKnowns[msgName]
 		if found {
