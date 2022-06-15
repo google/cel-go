@@ -18,6 +18,7 @@ package repl
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"strings"
 
 	"github.com/google/cel-go/cel"
@@ -27,9 +28,11 @@ import (
 	"github.com/google/cel-go/interpreter"
 	"github.com/google/cel-go/interpreter/functions"
 
+	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	descpb "google.golang.org/protobuf/types/descriptorpb"
 )
 
 // letVariable let variable representation
@@ -246,11 +249,20 @@ func (l *letVariable) clearPlan() {
 	l.prog = nil
 }
 
+// Optioner interface represents an option set on the base CEL environment used by
+// the evaluator.
+type Optioner interface {
+	// Option returns the cel.EnvOption that should be applied to the
+	// environment.
+	Option() cel.EnvOption
+}
+
 // EvaluationContext context for the repl.
 // Handles maintaining state for multiple let expressions.
 type EvaluationContext struct {
 	letVars []letVariable
 	letFns  []letFunction
+	options []Optioner
 }
 
 func (ctx *EvaluationContext) indexLetVar(name string) int {
@@ -260,6 +272,20 @@ func (ctx *EvaluationContext) indexLetVar(name string) int {
 		}
 	}
 	return -1
+}
+
+func (ctx *EvaluationContext) getEffectiveEnv(env *cel.Env) *cel.Env {
+	if len(ctx.letVars) > 0 {
+		env = ctx.letVars[len(ctx.letVars)-1].env
+	} else if len(ctx.letFns) > 0 {
+		env = ctx.letFns[len(ctx.letFns)-1].env
+	} else if len(ctx.options) > 0 {
+		for _, opt := range ctx.options {
+			env, _ = env.Extend(opt.Option())
+		}
+	}
+
+	return env
 }
 
 func (ctx *EvaluationContext) indexLetFn(name string) int {
@@ -273,6 +299,8 @@ func (ctx *EvaluationContext) indexLetFn(name string) int {
 
 func (ctx *EvaluationContext) copy() *EvaluationContext {
 	var cpy EvaluationContext
+	cpy.options = make([]Optioner, len(ctx.options))
+	copy(cpy.options, ctx.options)
 	cpy.letVars = make([]letVariable, len(ctx.letVars))
 	copy(cpy.letVars, ctx.letVars)
 	cpy.letFns = make([]letFunction, len(ctx.letFns))
@@ -374,6 +402,15 @@ func (ctx *EvaluationContext) addLetFn(name string, params []letFunctionParam, r
 	}
 }
 
+func (ctx *EvaluationContext) addOption(opt Optioner) {
+	ctx.options = append(ctx.options, opt)
+
+	for i := 0; i < len(ctx.letVars); i++ {
+		// invalidate dependant let exprs
+		ctx.letVars[i].clearPlan()
+	}
+}
+
 // programOptions generates the program options for planning.
 // Assumes context has been planned.
 func (ctx *EvaluationContext) programOptions() cel.ProgramOption {
@@ -406,6 +443,13 @@ func NewEvaluator() (*Evaluator, error) {
 // The planned expressions are evaluated as needed when evaluating a (non-let) CEL expression.
 // Return an error if any of the updates fail.
 func updateContextPlans(ctx *EvaluationContext, env *cel.Env) error {
+	for _, opt := range ctx.options {
+		var err error
+		env, err = env.Extend(opt.Option())
+		if err != nil {
+			return err
+		}
+	}
 	overloads := make([]*functions.Overload, 0)
 	for i := range ctx.letFns {
 		letFn := &ctx.letFns[i]
@@ -515,6 +559,20 @@ func (e *Evaluator) AddDeclFn(name string, params []letFunctionParam, typeHint *
 	return nil
 }
 
+// AddOption adds an option to the basic environment.
+// Options are applied before evaluating any of the let statements.
+// Returns an error if setting the option prevents planning any of the defined let expressions.
+func (e *Evaluator) AddOption(opt Optioner) error {
+	cpy := e.ctx.copy()
+	cpy.addOption(opt)
+	err := updateContextPlans(cpy, e.env)
+	if err != nil {
+		return err
+	}
+	e.ctx = *cpy
+	return nil
+}
+
 // DelLetVar removes a variable from the evaluation context.
 // If deleting the variable breaks a later expression, this function will return an error without modifying the context.
 func (e *Evaluator) DelLetVar(name string) error {
@@ -543,7 +601,12 @@ func (e *Evaluator) DelLetFn(name string) error {
 
 // Status returns a stringified view of the current evaluator state.
 func (e *Evaluator) Status() string {
-	var funcs, vars string
+	var options, funcs, vars string
+
+	for _, opt := range e.ctx.options {
+		options = options + fmt.Sprintf("%s\n", opt)
+	}
+
 	for _, fn := range e.ctx.letFns {
 		cmd := "let"
 		if fn.src == "" {
@@ -551,6 +614,7 @@ func (e *Evaluator) Status() string {
 		}
 		funcs = funcs + fmt.Sprintf("%%%s %s\n", cmd, fn)
 	}
+
 	for _, lVar := range e.ctx.letVars {
 		cmd := "let"
 		if lVar.src == "" {
@@ -558,7 +622,7 @@ func (e *Evaluator) Status() string {
 		}
 		vars = vars + fmt.Sprintf("%%%s %s\n", cmd, lVar)
 	}
-	return fmt.Sprintf("// Functions\n%s\n// Variables\n%s", funcs, vars)
+	return fmt.Sprintf("// Options\n%s\n// Functions\n%s\n// Variables\n%s", options, funcs, vars)
 }
 
 // applyContext evaluates the let expressions in the context to build an activation for the given expression.
@@ -586,15 +650,104 @@ func (e *Evaluator) applyContext() (*cel.Env, interpreter.Activation, error) {
 		return nil, nil, err
 	}
 
-	env := e.env
+	return e.ctx.getEffectiveEnv(e.env), act, nil
+}
 
-	if len(e.ctx.letVars) > 0 {
-		env = e.ctx.letVars[len(e.ctx.letVars)-1].env
-	} else if len(e.ctx.letFns) > 0 {
-		env = e.ctx.letFns[len(e.ctx.letFns)-1].env
+// typeOption implements optioner for loading a set of types defined by a protobuf file descriptor set.
+type typeOption struct {
+	path string
+	fds  *descpb.FileDescriptorSet
+}
+
+func (o *typeOption) String() string {
+	return fmt.Sprintf("%%load_descriptors '%s'", o.path)
+}
+
+func (o *typeOption) Option() cel.EnvOption {
+	return cel.TypeDescs(o.fds)
+}
+
+type containerOption struct {
+	container string
+}
+
+func (o *containerOption) String() string {
+	return fmt.Sprintf("%%option --container '%s'", o.container)
+}
+
+func (o *containerOption) Option() cel.EnvOption {
+	return cel.Container(o.container)
+}
+
+// setOption sets a number of options on the environment. returns an error if
+// any of them fail.
+func (e *Evaluator) setOption(args []string) error {
+	var issues []string
+	for idx := 0; idx < len(args); {
+		arg := args[idx]
+		idx++
+		if arg == "--container" {
+			if idx >= len(args) {
+				issues = append(issues, "not enough args for container")
+			}
+			container := args[idx]
+			idx++
+			err := e.AddOption(&containerOption{container: container})
+			if err != nil {
+				issues = append(issues, fmt.Sprintf("container: %v", err))
+			}
+		} else {
+			issues = append(issues, fmt.Sprintf("unsupported option '%s'", arg))
+		}
+	}
+	if len(issues) > 0 {
+		return errors.New(strings.Join(issues, "\n"))
+	}
+	return nil
+}
+
+func loadFileDescriptorSet(path string, textfmt bool) (*descpb.FileDescriptorSet, error) {
+	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
 	}
 
-	return env, act, nil
+	var fds descpb.FileDescriptorSet
+
+	if textfmt {
+		err = prototext.Unmarshal(data, &fds)
+	} else {
+		// binary pb
+		err = proto.Unmarshal(data, &fds)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return &fds, nil
+}
+
+func (e *Evaluator) loadDescriptors(args []string) error {
+	if len(args) < 1 {
+		return errors.New("expected path for load descriptors")
+	}
+	flag := ""
+	if len(args) > 1 {
+		flag = args[0]
+	}
+
+	textfmt := true
+	if flag == "--binarypb" {
+		textfmt = false
+	}
+
+	p := args[len(args)-1]
+	fds, err := loadFileDescriptorSet(p, textfmt)
+	if err != nil {
+		return fmt.Errorf("error loading file: %v", err)
+	}
+
+	return e.AddOption(&typeOption{path: p, fds: fds})
 }
 
 func (e *Evaluator) Process(cmd Cmder) (string, bool, error) {
@@ -644,6 +797,13 @@ func (e *Evaluator) Process(cmd Cmder) (string, bool, error) {
 			return "", false, nil
 		case "status":
 			return e.Status(), false, nil
+		case "load_descriptors":
+			return "", false, e.loadDescriptors(cmd.args)
+		case "option":
+			return "", false, e.setOption(cmd.args)
+		case "reset":
+			e.ctx = EvaluationContext{}
+			return "", false, nil
 		default:
 			return "", false, fmt.Errorf("unsupported command: %v", cmd.Cmd())
 		}

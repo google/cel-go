@@ -98,6 +98,35 @@ definition.
 
 `%status` prints a list of existing lets in the evaluation context.
 
+#### load_descriptors
+
+`%load_descriptors` loads a file descriptor set from file into the context.
+Message types from the file are available for use in later expressions as
+CEL structs.
+
+Accepts an argument for the filedescriptor file format: `--textproto` or
+`--binarypb`.
+
+example:
+
+`%load_descriptors --textproto "./testdata/attribute_context_fds.textproto"`
+
+#### option
+
+`%option` sets an environment option. Options are specified with flags that
+may take string arguments.
+
+`--container <string>` sets the expression container for name resolution.
+
+example:
+
+`%option --container 'google.protobuf'` 
+
+#### reset
+
+`%reset` drops all options and let expressions, returning the evaluator to a 
+starting empty state.
+
 ### Evaluation Model
 
 The evaluator considers the let expressions and declarations in order, with

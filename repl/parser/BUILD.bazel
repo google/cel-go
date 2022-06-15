@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 package(
     default_visibility = ["//repl:__subpackages__"],
@@ -21,10 +21,17 @@ package(
 
 go_library(
     name = "go_default_library",
-    srcs = glob(["*.go"]),
+    srcs = glob(["*.go"], exclude=["*_test.go"]),
     data = glob(["*.tokens"]),
     importpath = "github.com/google/cel-go/repl/parser",
     deps = [
         "@com_github_antlr_antlr4_runtime_go_antlr//:go_default_library",
     ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = ["commands_test.go"],
+    embed = [":go_default_library"],
+    deps = ["@com_github_antlr_antlr4_runtime_go_antlr//:go_default_library"],
 )
