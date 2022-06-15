@@ -37,6 +37,9 @@ var declareUsage = `Declare introduces a variable or function for type checking,
 var deleteUsage = `Delete removes a variable or function declaration from the evaluation context.
 %delete <identifier>`
 
+var loadDescUsage = `LoadDescriptors reads a file descriptor set proto from disk to introduce type definitions
+%load_descriptors <--text> "/absolute/path/to/file"`
+
 type letVarCmd struct {
 	identifier string
 	typeHint   *exprpb.Type
@@ -55,7 +58,8 @@ type delCmd struct {
 }
 
 type simpleCmd struct {
-	cmd string
+	cmd  string
+	args []string
 }
 
 type evalCmd struct {
@@ -168,7 +172,18 @@ func (c *commandParseListener) EnterSimple(ctx *parser.SimpleContext) {
 	if ctx.GetCmd() != nil {
 		cmd = ctx.GetCmd().GetText()[1:]
 	}
-	c.cmd = &simpleCmd{cmd: cmd}
+	var args []string
+	for _, arg := range ctx.GetArgs() {
+		a := arg.GetText()
+		if strings.HasPrefix(a, "-") {
+			a = "--" + strings.ToLower(strings.TrimLeft(a, "-"))
+		} else {
+			a = strings.Trim(a, "\"'")
+		}
+		args = append(args, a)
+
+	}
+	c.cmd = &simpleCmd{cmd: cmd, args: args}
 }
 
 func (c *commandParseListener) EnterEmpty(ctx *parser.EmptyContext) {

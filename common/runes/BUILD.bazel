@@ -7,18 +7,14 @@ package(
 
 go_library(
     name = "go_default_library",
-    srcs = [
-        "buffer.go",
-    ],
+    srcs = ["buffer.go"],
     importpath = "github.com/google/cel-go/common/runes",
 )
 
 go_test(
     name = "go_default_test",
     size = "small",
-    srcs = [
-        "buffer_test.go",
-    ],
+    srcs = ["buffer_test.go"],
     embed = [
         ":go_default_library",
     ],

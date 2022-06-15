@@ -7,9 +7,7 @@ package(
 
 go_library(
     name = "go_default_library",
-    srcs = [
-        "container.go",
-    ],
+    srcs = ["container.go"],
     importpath = "github.com/google/cel-go/common/containers",
     deps = [
         "@org_golang_google_genproto//googleapis/api/expr/v1alpha1:go_default_library",
@@ -19,9 +17,7 @@ go_library(
 go_test(
     name = "go_default_test",
     size = "small",
-    srcs = [
-        "container_test.go",
-    ],
+    srcs = ["container_test.go"],
     embed = [
         ":go_default_library",
     ],
