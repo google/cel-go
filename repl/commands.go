@@ -55,7 +55,8 @@ type delCmd struct {
 }
 
 type simpleCmd struct {
-	cmd string
+	cmd  string
+	args []string
 }
 
 type evalCmd struct {
@@ -168,7 +169,18 @@ func (c *commandParseListener) EnterSimple(ctx *parser.SimpleContext) {
 	if ctx.GetCmd() != nil {
 		cmd = ctx.GetCmd().GetText()[1:]
 	}
-	c.cmd = &simpleCmd{cmd: cmd}
+	var args []string
+	for _, arg := range ctx.GetArgs() {
+		a := arg.GetText()
+		if strings.HasPrefix(a, "-") {
+			a = "--" + strings.ToLower(strings.TrimLeft(a, "-"))
+		} else {
+			a = strings.Trim(a, "\"'")
+		}
+		args = append(args, a)
+
+	}
+	c.cmd = &simpleCmd{cmd: cmd, args: args}
 }
 
 func (c *commandParseListener) EnterEmpty(ctx *parser.EmptyContext) {

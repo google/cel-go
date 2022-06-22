@@ -41,6 +41,14 @@ func cmdMatches(t testing.TB, got Cmder, expected Cmder) (result bool) {
 		return gotDel.identifier == want.identifier
 	case *simpleCmd:
 		gotSimple := got.(*simpleCmd)
+		if len(gotSimple.args) != len(want.args) {
+			return false
+		}
+		for i, a := range want.args {
+			if gotSimple.args[i] != a {
+				return false
+			}
+		}
 		return gotSimple.cmd == want.cmd
 	case *letFnCmd:
 		gotLetFn := got.(*letFnCmd)
@@ -95,7 +103,8 @@ func (c *delCmd) String() string {
 }
 
 func (c *simpleCmd) String() string {
-	return fmt.Sprintf("%%%s", c.cmd)
+	flagFmt := strings.Join(c.args, " ")
+	return fmt.Sprintf("%%%s %s", c.cmd, flagFmt)
 }
 
 func TestParse(t *testing.T) {
@@ -140,8 +149,16 @@ func TestParse(t *testing.T) {
 			wantCmd:     &simpleCmd{cmd: "exit"},
 		},
 		{
+			commandLine: `%arbitrary --flag -FLAG 'string literal\n'`,
+			wantCmd: &simpleCmd{cmd: "arbitrary",
+				args: []string{
+					"--flag", "--flag", "string literal\\n",
+				},
+			},
+		},
+		{
 			commandLine: "   ",
-			wantCmd:     &simpleCmd{"null"},
+			wantCmd:     &simpleCmd{cmd: "null"},
 		},
 		{
 			commandLine: `%delete x`,

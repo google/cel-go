@@ -1,0 +1,751 @@
+file {
+  name: "google/protobuf/any.proto"
+  package: "google.protobuf"
+  message_type {
+    name: "Any"
+    field {
+      name: "type_url"
+      number: 1
+      label: LABEL_OPTIONAL
+      type: TYPE_STRING
+      options {
+        ctype: STRING_PIECE
+      }
+      json_name: "typeUrl"
+    }
+    field {
+      name: "value"
+      number: 2
+      label: LABEL_OPTIONAL
+      type: TYPE_BYTES
+      options {
+        ctype: CORD
+      }
+      json_name: "value"
+    }
+  }
+  options {
+    java_package: "com.google.protobuf"
+    java_outer_classname: "AnyProto"
+    java_multiple_files: true
+    go_package: "google.golang.org/protobuf/types/known/anypb"
+    objc_class_prefix: "GPB"
+    csharp_namespace: "Google.Protobuf.WellKnownTypes"
+  }
+  syntax: "proto3"
+}
+file {
+  name: "google/protobuf/duration.proto"
+  package: "google.protobuf"
+  message_type {
+    name: "Duration"
+    field {
+      name: "seconds"
+      number: 1
+      label: LABEL_OPTIONAL
+      type: TYPE_INT64
+      json_name: "seconds"
+    }
+    field {
+      name: "nanos"
+      number: 2
+      label: LABEL_OPTIONAL
+      type: TYPE_INT32
+      json_name: "nanos"
+    }
+  }
+  options {
+    java_package: "com.google.protobuf"
+    java_outer_classname: "DurationProto"
+    java_multiple_files: true
+    go_package: "google.golang.org/protobuf/types/known/durationpb"
+    cc_enable_arenas: true
+    objc_class_prefix: "GPB"
+    csharp_namespace: "Google.Protobuf.WellKnownTypes"
+  }
+  syntax: "proto3"
+}
+file {
+  name: "google/protobuf/struct.proto"
+  package: "google.protobuf"
+  message_type {
+    name: "Struct"
+    field {
+      name: "fields"
+      number: 1
+      label: LABEL_REPEATED
+      type: TYPE_MESSAGE
+      type_name: ".google.protobuf.Struct.FieldsEntry"
+      json_name: "fields"
+    }
+    nested_type {
+      name: "FieldsEntry"
+      field {
+        name: "key"
+        number: 1
+        label: LABEL_OPTIONAL
+        type: TYPE_STRING
+        json_name: "key"
+      }
+      field {
+        name: "value"
+        number: 2
+        label: LABEL_OPTIONAL
+        type: TYPE_MESSAGE
+        type_name: ".google.protobuf.Value"
+        json_name: "value"
+      }
+      options {
+        map_entry: true
+      }
+    }
+  }
+  message_type {
+    name: "Value"
+    field {
+      name: "null_value"
+      number: 1
+      label: LABEL_OPTIONAL
+      type: TYPE_ENUM
+      type_name: ".google.protobuf.NullValue"
+      oneof_index: 0
+      json_name: "nullValue"
+    }
+    field {
+      name: "number_value"
+      number: 2
+      label: LABEL_OPTIONAL
+      type: TYPE_DOUBLE
+      oneof_index: 0
+      json_name: "numberValue"
+    }
+    field {
+      name: "string_value"
+      number: 3
+      label: LABEL_OPTIONAL
+      type: TYPE_STRING
+      oneof_index: 0
+      json_name: "stringValue"
+    }
+    field {
+      name: "bool_value"
+      number: 4
+      label: LABEL_OPTIONAL
+      type: TYPE_BOOL
+      oneof_index: 0
+      json_name: "boolValue"
+    }
+    field {
+      name: "struct_value"
+      number: 5
+      label: LABEL_OPTIONAL
+      type: TYPE_MESSAGE
+      type_name: ".google.protobuf.Struct"
+      oneof_index: 0
+      json_name: "structValue"
+    }
+    field {
+      name: "list_value"
+      number: 6
+      label: LABEL_OPTIONAL
+      type: TYPE_MESSAGE
+      type_name: ".google.protobuf.ListValue"
+      oneof_index: 0
+      json_name: "listValue"
+    }
+    oneof_decl {
+      name: "kind"
+    }
+  }
+  message_type {
+    name: "ListValue"
+    field {
+      name: "values"
+      number: 1
+      label: LABEL_REPEATED
+      type: TYPE_MESSAGE
+      type_name: ".google.protobuf.Value"
+      json_name: "values"
+    }
+  }
+  enum_type {
+    name: "NullValue"
+    value {
+      name: "NULL_VALUE"
+      number: 0
+    }
+  }
+  options {
+    java_package: "com.google.protobuf"
+    java_outer_classname: "StructProto"
+    java_multiple_files: true
+    go_package: "google.golang.org/protobuf/types/known/structpb"
+    cc_enable_arenas: true
+    objc_class_prefix: "GPB"
+    csharp_namespace: "Google.Protobuf.WellKnownTypes"
+  }
+  syntax: "proto3"
+}
+file {
+  name: "google/protobuf/timestamp.proto"
+  package: "google.protobuf"
+  message_type {
+    name: "Timestamp"
+    field {
+      name: "seconds"
+      number: 1
+      label: LABEL_OPTIONAL
+      type: TYPE_INT64
+      json_name: "seconds"
+    }
+    field {
+      name: "nanos"
+      number: 2
+      label: LABEL_OPTIONAL
+      type: TYPE_INT32
+      json_name: "nanos"
+    }
+  }
+  options {
+    java_package: "com.google.protobuf"
+    java_outer_classname: "TimestampProto"
+    java_multiple_files: true
+    go_package: "google.golang.org/protobuf/types/known/timestamppb"
+    cc_enable_arenas: true
+    objc_class_prefix: "GPB"
+    csharp_namespace: "Google.Protobuf.WellKnownTypes"
+  }
+  syntax: "proto3"
+}
+file {
+  name: "google/rpc/context/attribute_context.proto"
+  package: "google.rpc.context"
+  dependency: "google/protobuf/any.proto"
+  dependency: "google/protobuf/duration.proto"
+  dependency: "google/protobuf/struct.proto"
+  dependency: "google/protobuf/timestamp.proto"
+  message_type {
+    name: "AttributeContext"
+    field {
+      name: "origin"
+      number: 7
+      label: LABEL_OPTIONAL
+      type: TYPE_MESSAGE
+      type_name: ".google.rpc.context.AttributeContext.Peer"
+      json_name: "origin"
+    }
+    field {
+      name: "source"
+      number: 1
+      label: LABEL_OPTIONAL
+      type: TYPE_MESSAGE
+      type_name: ".google.rpc.context.AttributeContext.Peer"
+      json_name: "source"
+    }
+    field {
+      name: "destination"
+      number: 2
+      label: LABEL_OPTIONAL
+      type: TYPE_MESSAGE
+      type_name: ".google.rpc.context.AttributeContext.Peer"
+      json_name: "destination"
+    }
+    field {
+      name: "request"
+      number: 3
+      label: LABEL_OPTIONAL
+      type: TYPE_MESSAGE
+      type_name: ".google.rpc.context.AttributeContext.Request"
+      json_name: "request"
+    }
+    field {
+      name: "response"
+      number: 4
+      label: LABEL_OPTIONAL
+      type: TYPE_MESSAGE
+      type_name: ".google.rpc.context.AttributeContext.Response"
+      json_name: "response"
+    }
+    field {
+      name: "resource"
+      number: 5
+      label: LABEL_OPTIONAL
+      type: TYPE_MESSAGE
+      type_name: ".google.rpc.context.AttributeContext.Resource"
+      json_name: "resource"
+    }
+    field {
+      name: "api"
+      number: 6
+      label: LABEL_OPTIONAL
+      type: TYPE_MESSAGE
+      type_name: ".google.rpc.context.AttributeContext.Api"
+      json_name: "api"
+    }
+    field {
+      name: "extensions"
+      number: 8
+      label: LABEL_REPEATED
+      type: TYPE_MESSAGE
+      type_name: ".google.protobuf.Any"
+      json_name: "extensions"
+    }
+    nested_type {
+      name: "Peer"
+      field {
+        name: "ip"
+        number: 1
+        label: LABEL_OPTIONAL
+        type: TYPE_STRING
+        json_name: "ip"
+      }
+      field {
+        name: "port"
+        number: 2
+        label: LABEL_OPTIONAL
+        type: TYPE_INT64
+        json_name: "port"
+      }
+      field {
+        name: "labels"
+        number: 6
+        label: LABEL_REPEATED
+        type: TYPE_MESSAGE
+        type_name: ".google.rpc.context.AttributeContext.Peer.LabelsEntry"
+        json_name: "labels"
+      }
+      field {
+        name: "principal"
+        number: 7
+        label: LABEL_OPTIONAL
+        type: TYPE_STRING
+        json_name: "principal"
+      }
+      field {
+        name: "region_code"
+        number: 8
+        label: LABEL_OPTIONAL
+        type: TYPE_STRING
+        json_name: "regionCode"
+      }
+      nested_type {
+        name: "LabelsEntry"
+        field {
+          name: "key"
+          number: 1
+          label: LABEL_OPTIONAL
+          type: TYPE_STRING
+          json_name: "key"
+        }
+        field {
+          name: "value"
+          number: 2
+          label: LABEL_OPTIONAL
+          type: TYPE_STRING
+          json_name: "value"
+        }
+        options {
+          map_entry: true
+        }
+      }
+      reserved_range {
+        start: 3
+        end: 4
+      }
+      reserved_range {
+        start: 4
+        end: 5
+      }
+      reserved_range {
+        start: 5
+        end: 6
+      }
+    }
+    nested_type {
+      name: "Api"
+      field {
+        name: "service"
+        number: 1
+        label: LABEL_OPTIONAL
+        type: TYPE_STRING
+        json_name: "service"
+      }
+      field {
+        name: "operation"
+        number: 2
+        label: LABEL_OPTIONAL
+        type: TYPE_STRING
+        json_name: "operation"
+      }
+      field {
+        name: "protocol"
+        number: 3
+        label: LABEL_OPTIONAL
+        type: TYPE_STRING
+        json_name: "protocol"
+      }
+      field {
+        name: "version"
+        number: 4
+        label: LABEL_OPTIONAL
+        type: TYPE_STRING
+        json_name: "version"
+      }
+    }
+    nested_type {
+      name: "Auth"
+      field {
+        name: "principal"
+        number: 1
+        label: LABEL_OPTIONAL
+        type: TYPE_STRING
+        json_name: "principal"
+      }
+      field {
+        name: "audiences"
+        number: 2
+        label: LABEL_REPEATED
+        type: TYPE_STRING
+        json_name: "audiences"
+      }
+      field {
+        name: "presenter"
+        number: 3
+        label: LABEL_OPTIONAL
+        type: TYPE_STRING
+        json_name: "presenter"
+      }
+      field {
+        name: "claims"
+        number: 4
+        label: LABEL_OPTIONAL
+        type: TYPE_MESSAGE
+        type_name: ".google.protobuf.Struct"
+        json_name: "claims"
+      }
+      field {
+        name: "access_levels"
+        number: 5
+        label: LABEL_REPEATED
+        type: TYPE_STRING
+        json_name: "accessLevels"
+      }
+    }
+    nested_type {
+      name: "Request"
+      field {
+        name: "id"
+        number: 1
+        label: LABEL_OPTIONAL
+        type: TYPE_STRING
+        json_name: "id"
+      }
+      field {
+        name: "method"
+        number: 2
+        label: LABEL_OPTIONAL
+        type: TYPE_STRING
+        json_name: "method"
+      }
+      field {
+        name: "headers"
+        number: 3
+        label: LABEL_REPEATED
+        type: TYPE_MESSAGE
+        type_name: ".google.rpc.context.AttributeContext.Request.HeadersEntry"
+        json_name: "headers"
+      }
+      field {
+        name: "path"
+        number: 4
+        label: LABEL_OPTIONAL
+        type: TYPE_STRING
+        json_name: "path"
+      }
+      field {
+        name: "host"
+        number: 5
+        label: LABEL_OPTIONAL
+        type: TYPE_STRING
+        json_name: "host"
+      }
+      field {
+        name: "scheme"
+        number: 6
+        label: LABEL_OPTIONAL
+        type: TYPE_STRING
+        json_name: "scheme"
+      }
+      field {
+        name: "query"
+        number: 7
+        label: LABEL_OPTIONAL
+        type: TYPE_STRING
+        json_name: "query"
+      }
+      field {
+        name: "time"
+        number: 9
+        label: LABEL_OPTIONAL
+        type: TYPE_MESSAGE
+        type_name: ".google.protobuf.Timestamp"
+        json_name: "time"
+      }
+      field {
+        name: "size"
+        number: 10
+        label: LABEL_OPTIONAL
+        type: TYPE_INT64
+        json_name: "size"
+      }
+      field {
+        name: "protocol"
+        number: 11
+        label: LABEL_OPTIONAL
+        type: TYPE_STRING
+        json_name: "protocol"
+      }
+      field {
+        name: "reason"
+        number: 12
+        label: LABEL_OPTIONAL
+        type: TYPE_STRING
+        json_name: "reason"
+      }
+      field {
+        name: "auth"
+        number: 13
+        label: LABEL_OPTIONAL
+        type: TYPE_MESSAGE
+        type_name: ".google.rpc.context.AttributeContext.Auth"
+        json_name: "auth"
+      }
+      nested_type {
+        name: "HeadersEntry"
+        field {
+          name: "key"
+          number: 1
+          label: LABEL_OPTIONAL
+          type: TYPE_STRING
+          json_name: "key"
+        }
+        field {
+          name: "value"
+          number: 2
+          label: LABEL_OPTIONAL
+          type: TYPE_STRING
+          json_name: "value"
+        }
+        options {
+          map_entry: true
+        }
+      }
+      reserved_range {
+        start: 8
+        end: 9
+      }
+    }
+    nested_type {
+      name: "Response"
+      field {
+        name: "code"
+        number: 1
+        label: LABEL_OPTIONAL
+        type: TYPE_INT64
+        json_name: "code"
+      }
+      field {
+        name: "size"
+        number: 2
+        label: LABEL_OPTIONAL
+        type: TYPE_INT64
+        json_name: "size"
+      }
+      field {
+        name: "headers"
+        number: 3
+        label: LABEL_REPEATED
+        type: TYPE_MESSAGE
+        type_name: ".google.rpc.context.AttributeContext.Response.HeadersEntry"
+        json_name: "headers"
+      }
+      field {
+        name: "time"
+        number: 4
+        label: LABEL_OPTIONAL
+        type: TYPE_MESSAGE
+        type_name: ".google.protobuf.Timestamp"
+        json_name: "time"
+      }
+      field {
+        name: "backend_latency"
+        number: 5
+        label: LABEL_OPTIONAL
+        type: TYPE_MESSAGE
+        type_name: ".google.protobuf.Duration"
+        json_name: "backendLatency"
+      }
+      nested_type {
+        name: "HeadersEntry"
+        field {
+          name: "key"
+          number: 1
+          label: LABEL_OPTIONAL
+          type: TYPE_STRING
+          json_name: "key"
+        }
+        field {
+          name: "value"
+          number: 2
+          label: LABEL_OPTIONAL
+          type: TYPE_STRING
+          json_name: "value"
+        }
+        options {
+          map_entry: true
+        }
+      }
+    }
+    nested_type {
+      name: "Resource"
+      field {
+        name: "service"
+        number: 1
+        label: LABEL_OPTIONAL
+        type: TYPE_STRING
+        json_name: "service"
+      }
+      field {
+        name: "name"
+        number: 2
+        label: LABEL_OPTIONAL
+        type: TYPE_STRING
+        json_name: "name"
+      }
+      field {
+        name: "type"
+        number: 3
+        label: LABEL_OPTIONAL
+        type: TYPE_STRING
+        json_name: "type"
+      }
+      field {
+        name: "labels"
+        number: 4
+        label: LABEL_REPEATED
+        type: TYPE_MESSAGE
+        type_name: ".google.rpc.context.AttributeContext.Resource.LabelsEntry"
+        json_name: "labels"
+      }
+      field {
+        name: "uid"
+        number: 5
+        label: LABEL_OPTIONAL
+        type: TYPE_STRING
+        json_name: "uid"
+      }
+      field {
+        name: "annotations"
+        number: 6
+        label: LABEL_REPEATED
+        type: TYPE_MESSAGE
+        type_name: ".google.rpc.context.AttributeContext.Resource.AnnotationsEntry"
+        json_name: "annotations"
+      }
+      field {
+        name: "display_name"
+        number: 7
+        label: LABEL_OPTIONAL
+        type: TYPE_STRING
+        json_name: "displayName"
+      }
+      field {
+        name: "create_time"
+        number: 8
+        label: LABEL_OPTIONAL
+        type: TYPE_MESSAGE
+        type_name: ".google.protobuf.Timestamp"
+        json_name: "createTime"
+      }
+      field {
+        name: "update_time"
+        number: 9
+        label: LABEL_OPTIONAL
+        type: TYPE_MESSAGE
+        type_name: ".google.protobuf.Timestamp"
+        json_name: "updateTime"
+      }
+      field {
+        name: "delete_time"
+        number: 10
+        label: LABEL_OPTIONAL
+        type: TYPE_MESSAGE
+        type_name: ".google.protobuf.Timestamp"
+        json_name: "deleteTime"
+      }
+      field {
+        name: "etag"
+        number: 11
+        label: LABEL_OPTIONAL
+        type: TYPE_STRING
+        json_name: "etag"
+      }
+      field {
+        name: "location"
+        number: 12
+        label: LABEL_OPTIONAL
+        type: TYPE_STRING
+        json_name: "location"
+      }
+      nested_type {
+        name: "LabelsEntry"
+        field {
+          name: "key"
+          number: 1
+          label: LABEL_OPTIONAL
+          type: TYPE_STRING
+          json_name: "key"
+        }
+        field {
+          name: "value"
+          number: 2
+          label: LABEL_OPTIONAL
+          type: TYPE_STRING
+          json_name: "value"
+        }
+        options {
+          map_entry: true
+        }
+      }
+      nested_type {
+        name: "AnnotationsEntry"
+        field {
+          name: "key"
+          number: 1
+          label: LABEL_OPTIONAL
+          type: TYPE_STRING
+          json_name: "key"
+        }
+        field {
+          name: "value"
+          number: 2
+          label: LABEL_OPTIONAL
+          type: TYPE_STRING
+          json_name: "value"
+        }
+        options {
+          map_entry: true
+        }
+      }
+    }
+  }
+  options {
+    java_package: "com.google.rpc.context"
+    java_outer_classname: "AttributeContextProto"
+    java_multiple_files: true
+    go_package: "google.golang.org/genproto/googleapis/rpc/context/attribute_context;attribute_context"
+    cc_enable_arenas: true
+  }
+  syntax: "proto3"
+}
+

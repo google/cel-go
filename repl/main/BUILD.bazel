@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@io_bazel_rules_go//go:def.bzl", "go_binary")
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 
 package(
     licenses = ["notice"],  # Apache 2.0
@@ -20,10 +20,18 @@ package(
 
 go_binary(
     name = "main",
+    embed = [":go_default_library"],
+    importpath = "github.com/google/cel-go/repl/main",
+    visibility = ["//visibility:public"],
+)
+
+go_library(
+    name = "go_default_library",
     srcs = ["main.go"],
     importpath = "github.com/google/cel-go/repl/main",
+    visibility = ["//visibility:private"],
     deps = [
         "//repl:go_default_library",
-        "@com_github_chzyer_readline//:readline",
+        "@com_github_chzyer_readline//:go_default_library",
     ],
 )

@@ -17,8 +17,12 @@ package repl
 import (
 	"testing"
 
+	"github.com/google/cel-go/cel"
+
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
+
+var testTextDescriptorFile string = "testdata/attribute_context_fds.textproto"
 
 func mustParseType(t testing.TB, name string) *exprpb.Type {
 	t.Helper()
@@ -424,5 +428,245 @@ func TestInstanceFunction(t *testing.T) {
 	}
 	if val.Value().(int64) != 42 {
 		t.Errorf("eval.Eval('40.plus(2)') got %s, wanted 42", val)
+	}
+}
+
+type testContainerOption struct {
+	container string
+}
+
+func (o *testContainerOption) String() string {
+	return o.container
+}
+
+func (o *testContainerOption) Option() cel.EnvOption {
+	return cel.Container(o.container)
+}
+
+func TestSetOption(t *testing.T) {
+	eval, err := NewEvaluator()
+	if err != nil {
+		t.Fatalf("NewEvaluator() failed with: %v", err)
+	}
+
+	err = eval.AddOption(&testContainerOption{container: "google.protobuf"})
+	if err != nil {
+		t.Errorf("eval.AddOption() got error: %v, wanted nil", err)
+	}
+
+	val, _, err := eval.Evaluate("Int64Value{value: 42} == 42")
+	if err != nil {
+		t.Errorf("eval.Evaluate() got error: %v, expected nil", err)
+	}
+
+	if !val.Value().(bool) {
+		t.Error("eval.Evaluate() got false expected true")
+	}
+}
+
+func TestSetOptionError(t *testing.T) {
+	eval, err := NewEvaluator()
+	if err != nil {
+		t.Fatalf("NewEvaluator() failed with: %v", err)
+	}
+
+	err = eval.AddOption(&testContainerOption{container: "google.protobuf"})
+	if err != nil {
+		t.Errorf("eval.AddOption() got error: %v, wanted nil", err)
+	}
+
+	err = eval.AddLetVar("x", "Int64Value{value: 42} == 42", nil)
+	if err != nil {
+		t.Errorf("eval.Evaluate() got error: %v, expected nil", err)
+	}
+
+	err = eval.AddOption(&testContainerOption{container: ""})
+	if err == nil {
+		t.Error("eval.AddOption() got nil expected error")
+	}
+}
+
+func TestProcess(t *testing.T) {
+	var testCases = []struct {
+		name      string
+		commands  []Cmder
+		wantText  string
+		wantExit  bool
+		wantError bool
+	}{
+		{
+			name: "OptionBasic",
+			commands: []Cmder{
+				&simpleCmd{
+					cmd: "option",
+					args: []string{
+						"--container",
+						"google.protobuf",
+					},
+				},
+			},
+			wantText:  "",
+			wantExit:  false,
+			wantError: false,
+		},
+		{
+			name: "OptionContainer",
+			commands: []Cmder{
+				&simpleCmd{
+					cmd: "option",
+					args: []string{
+						"--container",
+						"google.protobuf",
+					},
+				},
+				&evalCmd{
+					expr: "Int64Value{value: 20}",
+				},
+			},
+			wantText:  "20 : wrapper(int)",
+			wantExit:  false,
+			wantError: false,
+		},
+		{
+			name: "LoadDescriptorsError",
+			commands: []Cmder{
+				&simpleCmd{
+					cmd: "load_descriptors",
+					args: []string{
+						"<not a file>",
+					},
+				},
+			},
+			wantText:  "",
+			wantExit:  false,
+			wantError: true,
+		},
+		{
+			name: "LoadDescriptorsAddsTypes",
+			commands: []Cmder{
+				&simpleCmd{
+					cmd: "load_descriptors",
+					args: []string{
+						testTextDescriptorFile,
+					},
+				},
+				&simpleCmd{
+					cmd: "option",
+					args: []string{
+						"--container",
+						"google.rpc.context",
+					},
+				},
+				&evalCmd{
+					expr: "AttributeContext.Request{host: 'www.example.com'}",
+				},
+			},
+			wantText:  `host:"www.example.com" : google.rpc.context.AttributeContext.Request`,
+			wantExit:  false,
+			wantError: false,
+		},
+		{
+			name: "Status",
+			commands: []Cmder{
+				&simpleCmd{
+					cmd: "option",
+					args: []string{
+						"--container",
+						"google",
+					},
+				},
+				&letVarCmd{
+					identifier: "x",
+					typeHint:   mustParseType(t, "int"),
+					src:        "1",
+				},
+				&letFnCmd{
+					identifier: "fn",
+					src:        "2",
+					resultType: mustParseType(t, "int"),
+					params:     nil,
+				},
+				&simpleCmd{
+					cmd:  "status",
+					args: []string{},
+				},
+			},
+			wantText: `// Options
+%option --container 'google'
+
+// Functions
+%let fn() : int -> 2
+
+// Variables
+%let x = 1
+`,
+			wantExit:  false,
+			wantError: false,
+		},
+		{
+			name: "Reset",
+			commands: []Cmder{
+				&simpleCmd{
+					cmd: "option",
+					args: []string{
+						"--container",
+						"google",
+					},
+				},
+				&letVarCmd{
+					identifier: "x",
+					typeHint:   mustParseType(t, "int"),
+					src:        "1",
+				},
+				&letFnCmd{
+					identifier: "fn",
+					src:        "2",
+					resultType: mustParseType(t, "int"),
+					params:     nil,
+				},
+				&simpleCmd{
+					cmd:  "reset",
+					args: nil,
+				},
+				&simpleCmd{
+					cmd:  "status",
+					args: []string{},
+				},
+			},
+			wantText: `// Options
+
+// Functions
+
+// Variables
+`,
+			wantExit:  false,
+			wantError: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			eval, err := NewEvaluator()
+			if err != nil {
+				t.Fatalf("NewEvaluator returned error: %v, wanted nil", err)
+			}
+			n := len(tc.commands)
+			for _, cmd := range tc.commands[:n-1] {
+				// only need output of last command
+				eval.Process(cmd)
+			}
+			text, exit, err := eval.Process(tc.commands[n-1])
+
+			gotErr := false
+			if err != nil {
+				gotErr = true
+			}
+
+			if text != tc.wantText || exit != tc.wantExit || (gotErr != tc.wantError) {
+				t.Errorf("For command %s got (output: '%s' exit: %v err: %v (%v)) wanted (output: '%s' exit: %v err: %v)",
+					tc.commands[n-1], text, exit, gotErr, err, tc.wantText, tc.wantExit, tc.wantError)
+			}
+		})
 	}
 }
