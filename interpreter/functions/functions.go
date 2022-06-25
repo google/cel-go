@@ -25,9 +25,9 @@ import (
 type Overloader interface {
 	GetOperator() string
 	GetOperandTrait() int
-	GetUnaryOp(ctx context.Context) UnaryOp
-	GetBinaryOp(ctx context.Context) BinaryOp
-	GetFunctionOp(ctx context.Context) FunctionOp
+	GetUnary(ctx context.Context) UnaryOp
+	GetBinary(ctx context.Context) BinaryOp
+	GetFunction(ctx context.Context) FunctionOp
 	IsNonStrict() bool
 }
 
@@ -64,12 +64,12 @@ type Overload struct {
 	NonStrict bool
 }
 
-func (o *Overload) GetOperator() string                          { return o.Operator }
-func (o *Overload) GetOperandTrait() int                         { return o.OperandTrait }
-func (o *Overload) GetUnaryOp(ctx context.Context) UnaryOp       { return o.Unary }
-func (o *Overload) GetBinaryOp(ctx context.Context) BinaryOp     { return o.Binary }
-func (o *Overload) GetFunctionOp(ctx context.Context) FunctionOp { return o.Function }
-func (o *Overload) IsNonStrict() bool                            { return o.NonStrict }
+func (o *Overload) GetOperator() string                        { return o.Operator }
+func (o *Overload) GetOperandTrait() int                       { return o.OperandTrait }
+func (o *Overload) GetUnary(ctx context.Context) UnaryOp       { return o.Unary }
+func (o *Overload) GetBinary(ctx context.Context) BinaryOp     { return o.Binary }
+func (o *Overload) GetFunction(ctx context.Context) FunctionOp { return o.Function }
+func (o *Overload) IsNonStrict() bool                          { return o.NonStrict }
 
 // UnaryOp is a function that takes a single value and produces an output.
 type UnaryOp func(value ref.Val) ref.Val

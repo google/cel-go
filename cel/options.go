@@ -332,7 +332,7 @@ func CustomDecorator(dec interpreter.InterpretableDecorator) ProgramOption {
 }
 
 // Functions adds function overloads that extend or override the set of CEL built-ins.
-func Functions(funcs ...*functions.Overload) ProgramOption {
+func Functions(funcs ...functions.Overloader) ProgramOption {
 	return func(p *prog) (*prog, error) {
 		if err := p.dispatcher.Add(funcs...); err != nil {
 			return nil, err

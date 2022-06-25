@@ -56,7 +56,7 @@ type testCase struct {
 	abbrevs        []string
 	env            []*exprpb.Decl
 	types          []proto.Message
-	funcs          []*functions.Overload
+	funcs          []functions.Overloader
 	attrs          AttributeFactory
 	unchecked      bool
 	extraOpts      []InterpretableDecorator
@@ -121,8 +121,8 @@ var (
 			expr:      `zero()`,
 			cost:      []int64{1, 1},
 			unchecked: true,
-			funcs: []*functions.Overload{
-				{
+			funcs: []functions.Overloader{
+				&functions.Overload{
 					Operator: "zero",
 					Function: func(args ...ref.Val) ref.Val {
 						return types.IntZero
@@ -136,8 +136,8 @@ var (
 			expr:      `neg(1)`,
 			cost:      []int64{1, 1},
 			unchecked: true,
-			funcs: []*functions.Overload{
-				{
+			funcs: []functions.Overloader{
+				&functions.Overload{
 					Operator:     "neg",
 					OperandTrait: traits.NegatorType,
 					Unary: func(arg ref.Val) ref.Val {
@@ -152,8 +152,8 @@ var (
 			expr:      `b'abc'.concat(b'def')`,
 			cost:      []int64{1, 1},
 			unchecked: true,
-			funcs: []*functions.Overload{
-				{
+			funcs: []functions.Overloader{
+				&functions.Overload{
 					Operator:     "concat",
 					OperandTrait: traits.AdderType,
 					Binary: func(lhs, rhs ref.Val) ref.Val {
@@ -168,8 +168,8 @@ var (
 			expr:      `addall(a, b, c, d) == 10`,
 			cost:      []int64{6, 6},
 			unchecked: true,
-			funcs: []*functions.Overload{
-				{
+			funcs: []functions.Overloader{
+				&functions.Overload{
 					Operator:     "addall",
 					OperandTrait: traits.AdderType,
 					Function: func(args ...ref.Val) ref.Val {
@@ -196,12 +196,12 @@ var (
 						decls.String),
 				),
 			},
-			funcs: []*functions.Overload{
-				{
+			funcs: []functions.Overloader{
+				&functions.Overload{
 					Operator: "base64.encode",
 					Unary:    base64Encode,
 				},
-				{
+				&functions.Overload{
 					Operator: "base64_encode_string",
 					Unary:    base64Encode,
 				},
@@ -213,8 +213,8 @@ var (
 			expr:      `base64.encode('hello')`,
 			cost:      []int64{1, 1},
 			unchecked: true,
-			funcs: []*functions.Overload{
-				{
+			funcs: []functions.Overloader{
+				&functions.Overload{
 					Operator: "base64.encode",
 					Unary:    base64Encode,
 				},
@@ -233,12 +233,12 @@ var (
 						decls.String),
 				),
 			},
-			funcs: []*functions.Overload{
-				{
+			funcs: []functions.Overloader{
+				&functions.Overload{
 					Operator: "base64.encode",
 					Unary:    base64Encode,
 				},
-				{
+				&functions.Overload{
 					Operator: "base64_encode_string",
 					Unary:    base64Encode,
 				},
@@ -251,8 +251,8 @@ var (
 			cost:      []int64{1, 1},
 			container: `base64`,
 			unchecked: true,
-			funcs: []*functions.Overload{
-				{
+			funcs: []functions.Overloader{
+				&functions.Overload{
 					Operator: "base64.encode",
 					Unary:    base64Encode,
 				},
@@ -1296,8 +1296,8 @@ var (
 					decls.NewOverload("string_to_json",
 						[]*exprpb.Type{decls.String}, decls.Dyn)),
 			},
-			funcs: []*functions.Overload{
-				{
+			funcs: []functions.Overloader{
+				&functions.Overload{
 					Operator: "json",
 					Unary: func(val ref.Val) ref.Val {
 						str, ok := val.(types.String)
@@ -1342,8 +1342,8 @@ var (
 			name:      "call_with_error_unary",
 			expr:      `try(0/0)`,
 			unchecked: true,
-			funcs: []*functions.Overload{
-				{
+			funcs: []functions.Overloader{
+				&functions.Overload{
 					Operator: "try",
 					Unary: func(arg ref.Val) ref.Val {
 						if types.IsError(arg) {
@@ -1360,8 +1360,8 @@ var (
 			name:      "call_with_error_binary",
 			expr:      `try(0/0, 0)`,
 			unchecked: true,
-			funcs: []*functions.Overload{
-				{
+			funcs: []functions.Overloader{
+				&functions.Overload{
 					Operator: "try",
 					Binary: func(arg0, arg1 ref.Val) ref.Val {
 						if types.IsError(arg0) {
@@ -1378,8 +1378,8 @@ var (
 			name:      "call_with_error_function",
 			expr:      `try(0/0, 0, 0)`,
 			unchecked: true,
-			funcs: []*functions.Overload{
-				{
+			funcs: []functions.Overloader{
+				&functions.Overload{
 					Operator: "try",
 					Function: func(args ...ref.Val) ref.Val {
 						if types.IsError(args[0]) {
