@@ -16,7 +16,20 @@
 // interpreter and as declared within the checker#StandardDeclarations.
 package functions
 
-import "github.com/google/cel-go/common/types/ref"
+import (
+	"context"
+
+	"github.com/google/cel-go/common/types/ref"
+)
+
+type Overloader interface {
+	GetOperator() string
+	GetOperandTrait() int
+	GetUnaryOp(ctx context.Context) UnaryOp
+	GetBinaryOp(ctx context.Context) BinaryOp
+	GetFunctionOp(ctx context.Context) FunctionOp
+	IsNonStrict() bool
+}
 
 // Overload defines a named overload of a function, indicating an operand trait
 // which must be present on the first argument to the overload as well as one
@@ -50,6 +63,13 @@ type Overload struct {
 	// are types.Err or types.Unknown.
 	NonStrict bool
 }
+
+func (o *Overload) GetOperator() string                          { return o.Operator }
+func (o *Overload) GetOperandTrait() int                         { return o.OperandTrait }
+func (o *Overload) GetUnaryOp(ctx context.Context) UnaryOp       { return o.Unary }
+func (o *Overload) GetBinaryOp(ctx context.Context) BinaryOp     { return o.Binary }
+func (o *Overload) GetFunctionOp(ctx context.Context) FunctionOp { return o.Function }
+func (o *Overload) IsNonStrict() bool                            { return o.NonStrict }
 
 // UnaryOp is a function that takes a single value and produces an output.
 type UnaryOp func(value ref.Val) ref.Val
