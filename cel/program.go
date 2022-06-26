@@ -302,12 +302,12 @@ func (p *prog) ContextEval(ctx context.Context, input interface{}) (ref.Val, *Ev
 	var vars interpreter.Activation
 	switch v := input.(type) {
 	case interpreter.Activation:
-		vars = ctxActivationPool.Setup(v, ctx.Done(), p.interruptCheckFrequency)
+		vars = ctxActivationPool.Setup(ctx, v, p.interruptCheckFrequency)
 		defer ctxActivationPool.Put(vars)
 	case map[string]interface{}:
 		rawVars := activationPool.Setup(v)
 		defer activationPool.Put(rawVars)
-		vars = ctxActivationPool.Setup(rawVars, ctx.Done(), p.interruptCheckFrequency)
+		vars = ctxActivationPool.Setup(ctx, rawVars, p.interruptCheckFrequency)
 		defer ctxActivationPool.Put(vars)
 	default:
 		return nil, nil, fmt.Errorf("invalid input, wanted Activation or map[string]interface{}, got: (%T)%v", input, input)
@@ -520,10 +520,11 @@ type ctxEvalActivationPool struct {
 }
 
 // Setup initializes a pooled Activation with the ability check for context.Context cancellation
-func (p *ctxEvalActivationPool) Setup(vars interpreter.Activation, done <-chan struct{}, interruptCheckRate uint) *ctxEvalActivation {
+func (p *ctxEvalActivationPool) Setup(ctx context.Context, vars interpreter.Activation, interruptCheckRate uint) *ctxEvalActivation {
 	a := p.Pool.Get().(*ctxEvalActivation)
+	a.ctx = ctx
 	a.parent = vars
-	a.interrupt = done
+	a.interrupt = ctx.Done()
 	a.interruptCheckCount = 0
 	a.interruptCheckFrequency = interruptCheckRate
 	return a
