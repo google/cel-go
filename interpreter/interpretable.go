@@ -15,7 +15,6 @@
 package interpreter
 
 import (
-	"context"
 	"math"
 
 	"github.com/google/cel-go/common/operators"
@@ -398,7 +397,7 @@ func (zero *evalZeroArity) ID() int64 {
 
 // Eval implements the Interpretable interface method.
 func (zero *evalZeroArity) Eval(ctx Activation) ref.Val {
-	return zero.impl(context.TODO())
+	return zero.impl(ctx)
 }
 
 // Cost returns 1 representing the heuristic cost of the function.
@@ -447,7 +446,7 @@ func (un *evalUnary) Eval(ctx Activation) ref.Val {
 	// If the implementation is bound and the argument value has the right traits required to
 	// invoke it, then call the implementation.
 	if un.impl != nil && (un.trait == 0 || argVal.Type().HasTrait(un.trait)) {
-		return un.impl(context.TODO(), argVal)
+		return un.impl(ctx, argVal)
 	}
 	// Otherwise, if the argument is a ReceiverType attempt to invoke the receiver method on the
 	// operand (arg0).
@@ -513,7 +512,7 @@ func (bin *evalBinary) Eval(ctx Activation) ref.Val {
 	// If the implementation is bound and the argument value has the right traits required to
 	// invoke it, then call the implementation.
 	if bin.impl != nil && (bin.trait == 0 || lVal.Type().HasTrait(bin.trait)) {
-		return bin.impl(context.TODO(), lVal, rVal)
+		return bin.impl(ctx, lVal, rVal)
 	}
 	// Otherwise, if the argument is a ReceiverType attempt to invoke the receiver method on the
 	// operand (arg0).
@@ -584,7 +583,7 @@ func (fn *evalVarArgs) Eval(ctx Activation) ref.Val {
 	// invoke it, then call the implementation.
 	arg0 := argVals[0]
 	if fn.impl != nil && (fn.trait == 0 || arg0.Type().HasTrait(fn.trait)) {
-		return fn.impl(context.TODO(), argVals...)
+		return fn.impl(ctx, argVals...)
 	}
 	// Otherwise, if the argument is a ReceiverType attempt to invoke the receiver method on the
 	// operand (arg0).
