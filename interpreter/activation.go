@@ -15,9 +15,11 @@
 package interpreter
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/google/cel-go/common/types/ref"
 )
@@ -26,6 +28,7 @@ import (
 //
 // An Activation is the primary mechanism by which a caller supplies input into a CEL program.
 type Activation interface {
+	context.Context
 	// ResolveName returns a value from the activation by qualified name, or false if the name
 	// could not be found.
 	ResolveName(name string) (interface{}, bool)
@@ -37,14 +40,20 @@ type Activation interface {
 
 // EmptyActivation returns a variable-free activation.
 func EmptyActivation() Activation {
-	return emptyActivation{}
+	return &emptyActivation{ctx: context.Background()}
 }
 
 // emptyActivation is a variable-free activation.
-type emptyActivation struct{}
+type emptyActivation struct {
+	ctx context.Context
+}
 
-func (emptyActivation) ResolveName(string) (interface{}, bool) { return nil, false }
-func (emptyActivation) Parent() Activation                     { return nil }
+func (a *emptyActivation) Deadline() (deadline time.Time, ok bool) { return a.ctx.Deadline() }
+func (a *emptyActivation) Done() <-chan struct{}                   { return a.ctx.Done() }
+func (a *emptyActivation) Err() error                              { return a.ctx.Err() }
+func (a *emptyActivation) Value(key interface{}) interface{}       { return a.ctx.Value }
+func (a *emptyActivation) ResolveName(string) (interface{}, bool)  { return nil, false }
+func (a *emptyActivation) Parent() Activation                      { return nil }
 
 // NewActivation returns an activation based on a map-based binding where the map keys are
 // expected to be qualified names used with ResolveName calls.
@@ -73,7 +82,7 @@ func NewActivation(bindings interface{}) (Activation, error) {
 			"activation input must be an activation or map[string]interface: got %T",
 			bindings)
 	}
-	return &mapActivation{bindings: m}, nil
+	return &mapActivation{ctx: context.Background(), bindings: m}, nil
 }
 
 // mapActivation which implements Activation and maps of named values.
@@ -81,8 +90,14 @@ func NewActivation(bindings interface{}) (Activation, error) {
 // Named bindings may lazily supply values by providing a function which accepts no arguments and
 // produces an interface value.
 type mapActivation struct {
+	ctx      context.Context
 	bindings map[string]interface{}
 }
+
+func (a *mapActivation) Deadline() (deadline time.Time, ok bool) { return a.ctx.Deadline() }
+func (a *mapActivation) Done() <-chan struct{}                   { return a.ctx.Done() }
+func (a *mapActivation) Err() error                              { return a.ctx.Err() }
+func (a *mapActivation) Value(key interface{}) interface{}       { return a.ctx.Value }
 
 // Parent implements the Activation interface method.
 func (a *mapActivation) Parent() Activation {
@@ -113,6 +128,54 @@ func (a *mapActivation) ResolveName(name string) (interface{}, bool) {
 type hierarchicalActivation struct {
 	parent Activation
 	child  Activation
+}
+
+func (a *hierarchicalActivation) Deadline() (deadline time.Time, ok bool) {
+	if d1, ok := a.child.Deadline(); ok {
+		if d2, ok := a.parent.Deadline(); ok {
+			if d1.Before(d2) {
+				return d1, true
+			} else {
+				return d2, true
+			}
+		}
+		return d1, ok
+	}
+	return a.parent.Deadline()
+}
+
+func (a *hierarchicalActivation) Done() <-chan struct{} {
+	if a.parent.Done() != nil {
+		if a.child.Done() != nil {
+			c := make(chan struct{})
+			go func() {
+				select {
+				case c <- <-a.parent.Done():
+				case c <- <-a.child.Done():
+				}
+			}()
+			return c
+		} else {
+			return a.parent.Done()
+		}
+	}
+	return a.child.Done()
+}
+
+func (a *hierarchicalActivation) Err() error {
+	if err := a.child.Err(); err != nil {
+		return err
+	} else if err = a.parent.Err(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (a *hierarchicalActivation) Value(key interface{}) interface{} {
+	if v := a.child.Value(key); v != nil {
+		return v
+	}
+	return a.parent.Value(key)
 }
 
 // Parent implements the Activation interface method.
@@ -176,6 +239,34 @@ type varActivation struct {
 	parent Activation
 	name   string
 	val    ref.Val
+}
+
+func (a *varActivation) Deadline() (deadline time.Time, ok bool) {
+	if a.parent != nil {
+		return a.parent.Deadline()
+	}
+	return time.Time{}, ok
+}
+
+func (a *varActivation) Done() <-chan struct{} {
+	if a.parent != nil {
+		return a.parent.Done()
+	}
+	return nil
+}
+
+func (a *varActivation) Err() error {
+	if a.parent != nil {
+		return a.parent.Err()
+	}
+	return nil
+}
+
+func (a *varActivation) Value(key interface{}) interface{} {
+	if a.parent != nil {
+		return a.parent.Value(key)
+	}
+	return nil
 }
 
 // Parent implements the Activation interface method.

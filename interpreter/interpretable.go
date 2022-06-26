@@ -387,7 +387,7 @@ type evalZeroArity struct {
 	id       int64
 	function string
 	overload string
-	impl     functions.FunctionOp
+	impl     functions.ContextFunctionOp
 }
 
 // ID implements the Interpretable interface method.
@@ -397,7 +397,7 @@ func (zero *evalZeroArity) ID() int64 {
 
 // Eval implements the Interpretable interface method.
 func (zero *evalZeroArity) Eval(ctx Activation) ref.Val {
-	return zero.impl()
+	return zero.impl(ctx)
 }
 
 // Cost returns 1 representing the heuristic cost of the function.
@@ -426,7 +426,7 @@ type evalUnary struct {
 	overload  string
 	arg       Interpretable
 	trait     int
-	impl      functions.UnaryOp
+	impl      functions.ContextUnaryOp
 	nonStrict bool
 }
 
@@ -446,7 +446,7 @@ func (un *evalUnary) Eval(ctx Activation) ref.Val {
 	// If the implementation is bound and the argument value has the right traits required to
 	// invoke it, then call the implementation.
 	if un.impl != nil && (un.trait == 0 || argVal.Type().HasTrait(un.trait)) {
-		return un.impl(argVal)
+		return un.impl(ctx, argVal)
 	}
 	// Otherwise, if the argument is a ReceiverType attempt to invoke the receiver method on the
 	// operand (arg0).
@@ -486,7 +486,7 @@ type evalBinary struct {
 	lhs       Interpretable
 	rhs       Interpretable
 	trait     int
-	impl      functions.BinaryOp
+	impl      functions.ContextBinaryOp
 	nonStrict bool
 }
 
@@ -512,7 +512,7 @@ func (bin *evalBinary) Eval(ctx Activation) ref.Val {
 	// If the implementation is bound and the argument value has the right traits required to
 	// invoke it, then call the implementation.
 	if bin.impl != nil && (bin.trait == 0 || lVal.Type().HasTrait(bin.trait)) {
-		return bin.impl(lVal, rVal)
+		return bin.impl(ctx, lVal, rVal)
 	}
 	// Otherwise, if the argument is a ReceiverType attempt to invoke the receiver method on the
 	// operand (arg0).
@@ -548,12 +548,12 @@ type evalVarArgs struct {
 	overload  string
 	args      []Interpretable
 	trait     int
-	impl      functions.FunctionOp
+	impl      functions.ContextFunctionOp
 	nonStrict bool
 }
 
 // NewCall creates a new call Interpretable.
-func NewCall(id int64, function, overload string, args []Interpretable, impl functions.FunctionOp) InterpretableCall {
+func NewCall(id int64, function, overload string, args []Interpretable, impl functions.ContextFunctionOp) InterpretableCall {
 	return &evalVarArgs{
 		id:       id,
 		function: function,
@@ -583,7 +583,7 @@ func (fn *evalVarArgs) Eval(ctx Activation) ref.Val {
 	// invoke it, then call the implementation.
 	arg0 := argVals[0]
 	if fn.impl != nil && (fn.trait == 0 || arg0.Type().HasTrait(fn.trait)) {
-		return fn.impl(argVals...)
+		return fn.impl(ctx, argVals...)
 	}
 	// Otherwise, if the argument is a ReceiverType attempt to invoke the receiver method on the
 	// operand (arg0).

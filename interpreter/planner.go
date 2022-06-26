@@ -290,7 +290,7 @@ func (p *planner) planCall(expr *exprpb.Expr) (Interpretable, error) {
 
 	// Otherwise, generate Interpretable calls specialized by argument count.
 	// Try to find the specific function by overload id.
-	var fnDef *functions.Overload
+	var fnDef functions.Overloader
 	if oName != "" {
 		fnDef, _ = p.disp.FindOverload(oName)
 	}
@@ -314,15 +314,15 @@ func (p *planner) planCall(expr *exprpb.Expr) (Interpretable, error) {
 func (p *planner) planCallZero(expr *exprpb.Expr,
 	function string,
 	overload string,
-	impl *functions.Overload) (Interpretable, error) {
-	if impl == nil || impl.Function == nil {
+	impl functions.Overloader) (Interpretable, error) {
+	if impl == nil || impl.GetFunction() == nil {
 		return nil, fmt.Errorf("no such overload: %s()", function)
 	}
 	return &evalZeroArity{
 		id:       expr.Id,
 		function: function,
 		overload: overload,
-		impl:     impl.Function,
+		impl:     impl.GetFunction(),
 	}, nil
 }
 
@@ -330,18 +330,18 @@ func (p *planner) planCallZero(expr *exprpb.Expr,
 func (p *planner) planCallUnary(expr *exprpb.Expr,
 	function string,
 	overload string,
-	impl *functions.Overload,
+	impl functions.Overloader,
 	args []Interpretable) (Interpretable, error) {
-	var fn functions.UnaryOp
+	var fn functions.ContextUnaryOp
 	var trait int
 	var nonStrict bool
 	if impl != nil {
-		if impl.Unary == nil {
+		if impl.GetUnary() == nil {
 			return nil, fmt.Errorf("no such overload: %s(arg)", function)
 		}
-		fn = impl.Unary
-		trait = impl.OperandTrait
-		nonStrict = impl.NonStrict
+		fn = impl.GetUnary()
+		trait = impl.GetOperandTrait()
+		nonStrict = impl.IsNonStrict()
 	}
 	return &evalUnary{
 		id:        expr.Id,
@@ -358,18 +358,18 @@ func (p *planner) planCallUnary(expr *exprpb.Expr,
 func (p *planner) planCallBinary(expr *exprpb.Expr,
 	function string,
 	overload string,
-	impl *functions.Overload,
+	impl functions.Overloader,
 	args []Interpretable) (Interpretable, error) {
-	var fn functions.BinaryOp
+	var fn functions.ContextBinaryOp
 	var trait int
 	var nonStrict bool
 	if impl != nil {
-		if impl.Binary == nil {
+		if impl.GetBinary() == nil {
 			return nil, fmt.Errorf("no such overload: %s(lhs, rhs)", function)
 		}
-		fn = impl.Binary
-		trait = impl.OperandTrait
-		nonStrict = impl.NonStrict
+		fn = impl.GetBinary()
+		trait = impl.GetOperandTrait()
+		nonStrict = impl.IsNonStrict()
 	}
 	return &evalBinary{
 		id:        expr.Id,
@@ -387,18 +387,18 @@ func (p *planner) planCallBinary(expr *exprpb.Expr,
 func (p *planner) planCallVarArgs(expr *exprpb.Expr,
 	function string,
 	overload string,
-	impl *functions.Overload,
+	impl functions.Overloader,
 	args []Interpretable) (Interpretable, error) {
-	var fn functions.FunctionOp
+	var fn functions.ContextFunctionOp
 	var trait int
 	var nonStrict bool
 	if impl != nil {
-		if impl.Function == nil {
+		if impl.GetFunction() == nil {
 			return nil, fmt.Errorf("no such overload: %s(...)", function)
 		}
-		fn = impl.Function
-		trait = impl.OperandTrait
-		nonStrict = impl.NonStrict
+		fn = impl.GetFunction()
+		trait = impl.GetOperandTrait()
+		nonStrict = impl.IsNonStrict()
 	}
 	return &evalVarArgs{
 		id:        expr.Id,

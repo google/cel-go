@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"math"
 	"sync"
+	"time"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 
@@ -301,12 +302,12 @@ func (p *prog) ContextEval(ctx context.Context, input interface{}) (ref.Val, *Ev
 	var vars interpreter.Activation
 	switch v := input.(type) {
 	case interpreter.Activation:
-		vars = ctxActivationPool.Setup(v, ctx.Done(), p.interruptCheckFrequency)
+		vars = ctxActivationPool.Setup(ctx, v, p.interruptCheckFrequency)
 		defer ctxActivationPool.Put(vars)
 	case map[string]interface{}:
 		rawVars := activationPool.Setup(v)
 		defer activationPool.Put(rawVars)
-		vars = ctxActivationPool.Setup(rawVars, ctx.Done(), p.interruptCheckFrequency)
+		vars = ctxActivationPool.Setup(ctx, rawVars, p.interruptCheckFrequency)
 		defer ctxActivationPool.Put(vars)
 	default:
 		return nil, nil, fmt.Errorf("invalid input, wanted Activation or map[string]interface{}, got: (%T)%v", input, input)
@@ -415,10 +416,61 @@ func estimateCost(i interface{}) (min, max int64) {
 }
 
 type ctxEvalActivation struct {
+	ctx                     context.Context
 	parent                  interpreter.Activation
 	interrupt               <-chan struct{}
 	interruptCheckCount     uint
 	interruptCheckFrequency uint
+}
+
+func (a *ctxEvalActivation) Deadline() (deadline time.Time, ok bool) {
+	if a.parent != nil {
+		if d1, ok := a.parent.Deadline(); ok {
+			if d2, ok := a.ctx.Deadline(); ok {
+				if d1.Before(d2) {
+					return d1, true
+				} else {
+					return d2, true
+				}
+			}
+			return d1, ok
+		}
+	}
+	return a.ctx.Deadline()
+}
+
+func (a *ctxEvalActivation) Done() <-chan struct{} {
+	if a.parent != nil {
+		if a.parent.Done() != nil {
+			c := make(chan struct{})
+			go func() {
+				select {
+				case c <- <-a.parent.Done():
+				case c <- <-a.ctx.Done():
+				}
+			}()
+			return c
+		}
+	}
+	return a.ctx.Done()
+}
+
+func (a *ctxEvalActivation) Err() error {
+	if a.parent != nil {
+		if err := a.parent.Err(); err != nil {
+			return err
+		}
+	}
+	return a.ctx.Err()
+}
+
+func (a *ctxEvalActivation) Value(key interface{}) interface{} {
+	if a.parent != nil {
+		if v := a.parent.Value(key); v != nil {
+			return v
+		}
+	}
+	return a.ctx.Value(key)
 }
 
 // ResolveName implements the Activation interface method, but adds a special #interrupted variable
@@ -447,7 +499,7 @@ func newCtxEvalActivationPool() *ctxEvalActivationPool {
 	return &ctxEvalActivationPool{
 		Pool: sync.Pool{
 			New: func() interface{} {
-				return &ctxEvalActivation{}
+				return &ctxEvalActivation{ctx: context.Background()}
 			},
 		},
 	}
@@ -458,19 +510,26 @@ type ctxEvalActivationPool struct {
 }
 
 // Setup initializes a pooled Activation with the ability check for context.Context cancellation
-func (p *ctxEvalActivationPool) Setup(vars interpreter.Activation, done <-chan struct{}, interruptCheckRate uint) *ctxEvalActivation {
+func (p *ctxEvalActivationPool) Setup(ctx context.Context, vars interpreter.Activation, interruptCheckRate uint) *ctxEvalActivation {
 	a := p.Pool.Get().(*ctxEvalActivation)
+	a.ctx = ctx
 	a.parent = vars
-	a.interrupt = done
+	a.interrupt = ctx.Done()
 	a.interruptCheckCount = 0
 	a.interruptCheckFrequency = interruptCheckRate
 	return a
 }
 
 type evalActivation struct {
+	ctx      context.Context
 	vars     map[string]interface{}
 	lazyVars map[string]interface{}
 }
+
+func (a *evalActivation) Deadline() (deadline time.Time, ok bool) { return a.ctx.Deadline() }
+func (a *evalActivation) Done() <-chan struct{}                   { return a.ctx.Done() }
+func (a *evalActivation) Err() error                              { return a.ctx.Err() }
+func (a *evalActivation) Value(key interface{}) interface{}       { return a.ctx.Value }
 
 // ResolveName looks up the value of the input variable name, if found.
 //
@@ -516,7 +575,7 @@ func newEvalActivationPool() *evalActivationPool {
 	return &evalActivationPool{
 		Pool: sync.Pool{
 			New: func() interface{} {
-				return &evalActivation{lazyVars: make(map[string]interface{})}
+				return &evalActivation{ctx: context.Background(), lazyVars: make(map[string]interface{})}
 			},
 		},
 	}

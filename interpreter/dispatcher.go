@@ -23,10 +23,10 @@ import (
 // Dispatcher resolves function calls to their appropriate overload.
 type Dispatcher interface {
 	// Add one or more overloads, returning an error if any Overload has the same Overload#Name.
-	Add(overloads ...*functions.Overload) error
+	Add(overloads ...functions.Overloader) error
 
 	// FindOverload returns an Overload definition matching the provided name.
-	FindOverload(overload string) (*functions.Overload, bool)
+	FindOverload(overload string) (functions.Overloader, bool)
 
 	// OverloadIds returns the set of all overload identifiers configured for dispatch.
 	OverloadIds() []string
@@ -35,7 +35,7 @@ type Dispatcher interface {
 // NewDispatcher returns an empty Dispatcher instance.
 func NewDispatcher() Dispatcher {
 	return &defaultDispatcher{
-		overloads: make(map[string]*functions.Overload)}
+		overloads: make(map[string]functions.Overloader)}
 }
 
 // ExtendDispatcher returns a Dispatcher which inherits the overloads of its parent, and
@@ -44,11 +44,11 @@ func NewDispatcher() Dispatcher {
 func ExtendDispatcher(parent Dispatcher) Dispatcher {
 	return &defaultDispatcher{
 		parent:    parent,
-		overloads: make(map[string]*functions.Overload)}
+		overloads: make(map[string]functions.Overloader)}
 }
 
 // overloadMap helper type for indexing overloads by function name.
-type overloadMap map[string]*functions.Overload
+type overloadMap map[string]functions.Overloader
 
 // defaultDispatcher struct which contains an overload map.
 type defaultDispatcher struct {
@@ -57,20 +57,20 @@ type defaultDispatcher struct {
 }
 
 // Add implements the Dispatcher.Add interface method.
-func (d *defaultDispatcher) Add(overloads ...*functions.Overload) error {
+func (d *defaultDispatcher) Add(overloads ...functions.Overloader) error {
 	for _, o := range overloads {
 		// add the overload unless an overload of the same name has already been provided.
-		if _, found := d.overloads[o.Operator]; found {
-			return fmt.Errorf("overload already exists '%s'", o.Operator)
+		if _, found := d.overloads[o.GetOperator()]; found {
+			return fmt.Errorf("overload already exists '%s'", o.GetOperator())
 		}
 		// index the overload by function name.
-		d.overloads[o.Operator] = o
+		d.overloads[o.GetOperator()] = o
 	}
 	return nil
 }
 
 // FindOverload implements the Dispatcher.FindOverload interface method.
-func (d *defaultDispatcher) FindOverload(overload string) (*functions.Overload, bool) {
+func (d *defaultDispatcher) FindOverload(overload string) (functions.Overloader, bool) {
 	o, found := d.overloads[overload]
 	// Attempt to dispatch to an overload defined in the parent.
 	if !found && d.parent != nil {

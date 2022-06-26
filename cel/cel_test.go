@@ -913,6 +913,58 @@ func TestContextEval(t *testing.T) {
 	}
 }
 
+func TestContextEvalPropagation(t *testing.T) {
+	env, err := NewEnv(
+		Declarations(
+			decls.NewFunction("sleep", decls.NewOverload(
+				"sleep", []*exprpb.Type{decls.Int}, decls.Null,
+			)),
+		),
+	)
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	ast, iss := env.Compile("sleep(20)")
+	if iss.Err() != nil {
+		t.Fatalf("env.Compile(expr) failed: %v", iss.Err())
+	}
+	prg, err := env.Program(ast, EvalOptions(OptOptimize|OptTrackState), Functions(&functions.ContextOverload{
+		Operator: "sleep",
+		Unary: func(ctx context.Context, value ref.Val) ref.Val {
+			t := time.NewTimer(time.Duration(value.Value().(int64)) * time.Microsecond)
+			select {
+			case <-t.C:
+				return types.NullValue
+			case <-ctx.Done():
+				return types.NewErr("ctx done")
+			}
+		},
+	}))
+	if err != nil {
+		t.Fatalf("env.Program() failed: %v", err)
+	}
+
+	ctx := context.TODO()
+	out, _, err := prg.ContextEval(ctx, map[string]interface{}{})
+	if err != nil {
+		t.Fatalf("prg.ContextEval() failed: %v", err)
+	}
+	if out != types.NullValue {
+		t.Errorf("prg.ContextEval() got %v, wanted true", out)
+	}
+
+	evalCtx, cancel := context.WithTimeout(ctx, time.Microsecond)
+	defer cancel()
+
+	out, _, err = prg.ContextEval(evalCtx, map[string]interface{}{})
+	if err == nil {
+		t.Errorf("Got result %v, wanted timeout error", out)
+	}
+	if err != nil && err.Error() != "ctx done" {
+		t.Errorf("Got %v, wanted operation interrupted error", err)
+	}
+}
+
 func BenchmarkContextEval(b *testing.B) {
 	env, err := NewEnv(
 		Declarations(

@@ -23,10 +23,10 @@ import (
 )
 
 // StandardOverloads returns the definitions of the built-in overloads.
-func StandardOverloads() []*Overload {
-	return []*Overload{
+func StandardOverloads() []Overloader {
+	return []Overloader{
 		// Logical not (!a)
-		{
+		&Overload{
 			Operator:     operators.LogicalNot,
 			OperandTrait: traits.NegatorType,
 			Unary: func(value ref.Val) ref.Val {
@@ -36,16 +36,16 @@ func StandardOverloads() []*Overload {
 				return value.(traits.Negater).Negate()
 			}},
 		// Not strictly false: IsBool(a) ? a : true
-		{
+		&Overload{
 			Operator: operators.NotStrictlyFalse,
 			Unary:    notStrictlyFalse},
 		// Deprecated: not strictly false, may be overridden in the environment.
-		{
+		&Overload{
 			Operator: operators.OldNotStrictlyFalse,
 			Unary:    notStrictlyFalse},
 
 		// Less than operator
-		{Operator: operators.Less,
+		&Overload{Operator: operators.Less,
 			OperandTrait: traits.ComparerType,
 			Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
 				cmp := lhs.(traits.Comparer).Compare(rhs)
@@ -59,7 +59,7 @@ func StandardOverloads() []*Overload {
 			}},
 
 		// Less than or equal operator
-		{Operator: operators.LessEquals,
+		&Overload{Operator: operators.LessEquals,
 			OperandTrait: traits.ComparerType,
 			Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
 				cmp := lhs.(traits.Comparer).Compare(rhs)
@@ -73,7 +73,7 @@ func StandardOverloads() []*Overload {
 			}},
 
 		// Greater than operator
-		{Operator: operators.Greater,
+		&Overload{Operator: operators.Greater,
 			OperandTrait: traits.ComparerType,
 			Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
 				cmp := lhs.(traits.Comparer).Compare(rhs)
@@ -87,7 +87,7 @@ func StandardOverloads() []*Overload {
 			}},
 
 		// Greater than equal operators
-		{Operator: operators.GreaterEquals,
+		&Overload{Operator: operators.GreaterEquals,
 			OperandTrait: traits.ComparerType,
 			Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
 				cmp := lhs.(traits.Comparer).Compare(rhs)
@@ -101,42 +101,42 @@ func StandardOverloads() []*Overload {
 			}},
 
 		// Add operator
-		{Operator: operators.Add,
+		&Overload{Operator: operators.Add,
 			OperandTrait: traits.AdderType,
 			Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
 				return lhs.(traits.Adder).Add(rhs)
 			}},
 
 		// Subtract operators
-		{Operator: operators.Subtract,
+		&Overload{Operator: operators.Subtract,
 			OperandTrait: traits.SubtractorType,
 			Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
 				return lhs.(traits.Subtractor).Subtract(rhs)
 			}},
 
 		// Multiply operator
-		{Operator: operators.Multiply,
+		&Overload{Operator: operators.Multiply,
 			OperandTrait: traits.MultiplierType,
 			Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
 				return lhs.(traits.Multiplier).Multiply(rhs)
 			}},
 
 		// Divide operator
-		{Operator: operators.Divide,
+		&Overload{Operator: operators.Divide,
 			OperandTrait: traits.DividerType,
 			Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
 				return lhs.(traits.Divider).Divide(rhs)
 			}},
 
 		// Modulo operator
-		{Operator: operators.Modulo,
+		&Overload{Operator: operators.Modulo,
 			OperandTrait: traits.ModderType,
 			Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
 				return lhs.(traits.Modder).Modulo(rhs)
 			}},
 
 		// Negate operator
-		{Operator: operators.Negate,
+		&Overload{Operator: operators.Negate,
 			OperandTrait: traits.NegatorType,
 			Unary: func(value ref.Val) ref.Val {
 				if types.IsBool(value) {
@@ -146,26 +146,26 @@ func StandardOverloads() []*Overload {
 			}},
 
 		// Index operator
-		{Operator: operators.Index,
+		&Overload{Operator: operators.Index,
 			OperandTrait: traits.IndexerType,
 			Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
 				return lhs.(traits.Indexer).Get(rhs)
 			}},
 
 		// Size function
-		{Operator: overloads.Size,
+		&Overload{Operator: overloads.Size,
 			OperandTrait: traits.SizerType,
 			Unary: func(value ref.Val) ref.Val {
 				return value.(traits.Sizer).Size()
 			}},
 
 		// In operator
-		{Operator: operators.In, Binary: inAggregate},
+		&Overload{Operator: operators.In, Binary: inAggregate},
 		// Deprecated: in operator, may be overridden in the environment.
-		{Operator: operators.OldIn, Binary: inAggregate},
+		&Overload{Operator: operators.OldIn, Binary: inAggregate},
 
 		// Matches function
-		{Operator: overloads.Matches,
+		&Overload{Operator: overloads.Matches,
 			OperandTrait: traits.MatcherType,
 			Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
 				return lhs.(traits.Matcher).Match(rhs)
@@ -175,78 +175,78 @@ func StandardOverloads() []*Overload {
 		// TODO: verify type conversion safety of numeric values.
 
 		// Int conversions.
-		{Operator: overloads.TypeConvertInt,
+		&Overload{Operator: overloads.TypeConvertInt,
 			Unary: func(value ref.Val) ref.Val {
 				return value.ConvertToType(types.IntType)
 			}},
 
 		// Uint conversions.
-		{Operator: overloads.TypeConvertUint,
+		&Overload{Operator: overloads.TypeConvertUint,
 			Unary: func(value ref.Val) ref.Val {
 				return value.ConvertToType(types.UintType)
 			}},
 
 		// Double conversions.
-		{Operator: overloads.TypeConvertDouble,
+		&Overload{Operator: overloads.TypeConvertDouble,
 			Unary: func(value ref.Val) ref.Val {
 				return value.ConvertToType(types.DoubleType)
 			}},
 
 		// Bool conversions.
-		{Operator: overloads.TypeConvertBool,
+		&Overload{Operator: overloads.TypeConvertBool,
 			Unary: func(value ref.Val) ref.Val {
 				return value.ConvertToType(types.BoolType)
 			}},
 
 		// Bytes conversions.
-		{Operator: overloads.TypeConvertBytes,
+		&Overload{Operator: overloads.TypeConvertBytes,
 			Unary: func(value ref.Val) ref.Val {
 				return value.ConvertToType(types.BytesType)
 			}},
 
 		// String conversions.
-		{Operator: overloads.TypeConvertString,
+		&Overload{Operator: overloads.TypeConvertString,
 			Unary: func(value ref.Val) ref.Val {
 				return value.ConvertToType(types.StringType)
 			}},
 
 		// Timestamp conversions.
-		{Operator: overloads.TypeConvertTimestamp,
+		&Overload{Operator: overloads.TypeConvertTimestamp,
 			Unary: func(value ref.Val) ref.Val {
 				return value.ConvertToType(types.TimestampType)
 			}},
 
 		// Duration conversions.
-		{Operator: overloads.TypeConvertDuration,
+		&Overload{Operator: overloads.TypeConvertDuration,
 			Unary: func(value ref.Val) ref.Val {
 				return value.ConvertToType(types.DurationType)
 			}},
 
 		// Type operations.
-		{Operator: overloads.TypeConvertType,
+		&Overload{Operator: overloads.TypeConvertType,
 			Unary: func(value ref.Val) ref.Val {
 				return value.ConvertToType(types.TypeType)
 			}},
 
 		// Dyn conversion (identity function).
-		{Operator: overloads.TypeConvertDyn,
+		&Overload{Operator: overloads.TypeConvertDyn,
 			Unary: func(value ref.Val) ref.Val {
 				return value
 			}},
 
-		{Operator: overloads.Iterator,
+		&Overload{Operator: overloads.Iterator,
 			OperandTrait: traits.IterableType,
 			Unary: func(value ref.Val) ref.Val {
 				return value.(traits.Iterable).Iterator()
 			}},
 
-		{Operator: overloads.HasNext,
+		&Overload{Operator: overloads.HasNext,
 			OperandTrait: traits.IteratorType,
 			Unary: func(value ref.Val) ref.Val {
 				return value.(traits.Iterator).HasNext()
 			}},
 
-		{Operator: overloads.Next,
+		&Overload{Operator: overloads.Next,
 			OperandTrait: traits.IteratorType,
 			Unary: func(value ref.Val) ref.Val {
 				return value.(traits.Iterator).Next()
