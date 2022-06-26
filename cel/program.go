@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"math"
 	"sync"
+	"time"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 
@@ -415,10 +416,71 @@ func estimateCost(i interface{}) (min, max int64) {
 }
 
 type ctxEvalActivation struct {
+	doneOnce                *sync.Once
+	doneChan                <-chan struct{}
+	ctx                     context.Context
 	parent                  interpreter.Activation
 	interrupt               <-chan struct{}
 	interruptCheckCount     uint
 	interruptCheckFrequency uint
+}
+
+func (a *ctxEvalActivation) Deadline() (deadline time.Time, ok bool) {
+	if a.parent != nil {
+		if d1, ok := a.parent.Deadline(); ok {
+			if d2, ok := a.ctx.Deadline(); ok {
+				if d1.Before(d2) {
+					return d1, true
+				} else {
+					return d2, true
+				}
+			}
+			return d1, ok
+		}
+	}
+	return a.ctx.Deadline()
+}
+
+func (a *ctxEvalActivation) Done() <-chan struct{} {
+	a.doneOnce.Do(func() {
+		if a.parent != nil {
+			if d1 := a.parent.Done(); d1 != nil {
+				if d2 := a.ctx.Done(); d2 != nil {
+					c := make(chan struct{})
+					a.doneChan = c
+					go func() {
+						select {
+						case s := <-d1:
+							c <- s
+						case s := <-d2:
+							c <- s
+						}
+					}()
+				}
+				a.doneChan = d1
+			}
+		}
+		a.doneChan = a.ctx.Done()
+	})
+	return a.doneChan
+}
+
+func (a *ctxEvalActivation) Err() error {
+	if a.parent != nil {
+		if err := a.parent.Err(); err != nil {
+			return err
+		}
+	}
+	return a.ctx.Err()
+}
+
+func (a *ctxEvalActivation) Value(key interface{}) interface{} {
+	if a.parent != nil {
+		if v := a.parent.Value(key); v != nil {
+			return v
+		}
+	}
+	return a.ctx.Value(key)
 }
 
 // ResolveName implements the Activation interface method, but adds a special #interrupted variable
@@ -447,7 +509,7 @@ func newCtxEvalActivationPool() *ctxEvalActivationPool {
 	return &ctxEvalActivationPool{
 		Pool: sync.Pool{
 			New: func() interface{} {
-				return &ctxEvalActivation{}
+				return &ctxEvalActivation{doneOnce: &sync.Once{}, ctx: context.Background()}
 			},
 		},
 	}
@@ -468,9 +530,15 @@ func (p *ctxEvalActivationPool) Setup(vars interpreter.Activation, done <-chan s
 }
 
 type evalActivation struct {
+	ctx      context.Context
 	vars     map[string]interface{}
 	lazyVars map[string]interface{}
 }
+
+func (a *evalActivation) Deadline() (deadline time.Time, ok bool) { return a.ctx.Deadline() }
+func (a *evalActivation) Done() <-chan struct{}                   { return a.ctx.Done() }
+func (a *evalActivation) Err() error                              { return a.ctx.Err() }
+func (a *evalActivation) Value(key interface{}) interface{}       { return a.ctx.Value }
 
 // ResolveName looks up the value of the input variable name, if found.
 //
@@ -516,7 +584,7 @@ func newEvalActivationPool() *evalActivationPool {
 	return &evalActivationPool{
 		Pool: sync.Pool{
 			New: func() interface{} {
-				return &evalActivation{lazyVars: make(map[string]interface{})}
+				return &evalActivation{ctx: context.Background(), lazyVars: make(map[string]interface{})}
 			},
 		},
 	}
