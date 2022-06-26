@@ -15,7 +15,6 @@
 package interpreter
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
@@ -316,14 +315,14 @@ func (p *planner) planCallZero(expr *exprpb.Expr,
 	function string,
 	overload string,
 	impl functions.Overloader) (Interpretable, error) {
-	if impl == nil || impl.GetFunction(context.Background()) == nil {
+	if impl == nil || impl.GetFunction() == nil {
 		return nil, fmt.Errorf("no such overload: %s()", function)
 	}
 	return &evalZeroArity{
 		id:       expr.Id,
 		function: function,
 		overload: overload,
-		impl:     impl.GetFunction(context.Background()),
+		impl:     impl.GetFunction(),
 	}, nil
 }
 
@@ -333,14 +332,14 @@ func (p *planner) planCallUnary(expr *exprpb.Expr,
 	overload string,
 	impl functions.Overloader,
 	args []Interpretable) (Interpretable, error) {
-	var fn functions.UnaryOp
+	var fn functions.ContextUnaryOp
 	var trait int
 	var nonStrict bool
 	if impl != nil {
-		if impl.GetUnary(context.Background()) == nil {
+		if impl.GetUnary() == nil {
 			return nil, fmt.Errorf("no such overload: %s(arg)", function)
 		}
-		fn = impl.GetUnary(context.Background())
+		fn = impl.GetUnary()
 		trait = impl.GetOperandTrait()
 		nonStrict = impl.IsNonStrict()
 	}
@@ -361,14 +360,14 @@ func (p *planner) planCallBinary(expr *exprpb.Expr,
 	overload string,
 	impl functions.Overloader,
 	args []Interpretable) (Interpretable, error) {
-	var fn functions.BinaryOp
+	var fn functions.ContextBinaryOp
 	var trait int
 	var nonStrict bool
 	if impl != nil {
-		if impl.GetBinary(context.Background()) == nil {
+		if impl.GetBinary() == nil {
 			return nil, fmt.Errorf("no such overload: %s(lhs, rhs)", function)
 		}
-		fn = impl.GetBinary(context.Background())
+		fn = impl.GetBinary()
 		trait = impl.GetOperandTrait()
 		nonStrict = impl.IsNonStrict()
 	}
@@ -390,14 +389,14 @@ func (p *planner) planCallVarArgs(expr *exprpb.Expr,
 	overload string,
 	impl functions.Overloader,
 	args []Interpretable) (Interpretable, error) {
-	var fn functions.FunctionOp
+	var fn functions.ContextFunctionOp
 	var trait int
 	var nonStrict bool
 	if impl != nil {
-		if impl.GetFunction(context.Background()) == nil {
+		if impl.GetFunction() == nil {
 			return nil, fmt.Errorf("no such overload: %s(...)", function)
 		}
-		fn = impl.GetFunction(context.Background())
+		fn = impl.GetFunction()
 		trait = impl.GetOperandTrait()
 		nonStrict = impl.IsNonStrict()
 	}

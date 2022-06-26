@@ -25,9 +25,9 @@ import (
 type Overloader interface {
 	GetOperator() string
 	GetOperandTrait() int
-	GetUnary(ctx context.Context) UnaryOp
-	GetBinary(ctx context.Context) BinaryOp
-	GetFunction(ctx context.Context) FunctionOp
+	GetUnary() ContextUnaryOp
+	GetBinary() ContextBinaryOp
+	GetFunction() ContextFunctionOp
 	IsNonStrict() bool
 }
 
@@ -64,19 +64,69 @@ type Overload struct {
 	NonStrict bool
 }
 
-func (o *Overload) GetOperator() string                        { return o.Operator }
-func (o *Overload) GetOperandTrait() int                       { return o.OperandTrait }
-func (o *Overload) GetUnary(ctx context.Context) UnaryOp       { return o.Unary }
-func (o *Overload) GetBinary(ctx context.Context) BinaryOp     { return o.Binary }
-func (o *Overload) GetFunction(ctx context.Context) FunctionOp { return o.Function }
-func (o *Overload) IsNonStrict() bool                          { return o.NonStrict }
+func (o *Overload) GetOperator() string  { return o.Operator }
+func (o *Overload) GetOperandTrait() int { return o.OperandTrait }
+func (o *Overload) GetUnary() ContextUnaryOp {
+	if o.Unary != nil {
+		return func(ctx context.Context, value ref.Val) ref.Val { return o.Unary(value) }
+	}
+	return nil
+}
+func (o *Overload) GetBinary() ContextBinaryOp {
+	if o.Binary != nil {
+		return func(ctx context.Context, lhs, rhs ref.Val) ref.Val { return o.Binary(lhs, rhs) }
+	}
+	return nil
+}
+func (o *Overload) GetFunction() ContextFunctionOp {
+	if o.Function != nil {
+		return func(ctx context.Context, values ...ref.Val) ref.Val { return o.Function(values...) }
+	}
+	return nil
+}
+func (o *Overload) IsNonStrict() bool { return o.NonStrict }
+
+type ContextOverload struct {
+	// Operator name as written in an expression or defined within
+	// operators.go.
+	Operator string
+
+	// Operand trait used to dispatch the call. The zero-value indicates a
+	// global function overload or that one of the Unary / Binary / Function
+	// definitions should be used to execute the call.
+	OperandTrait int
+
+	// Unary defines the overload with a UnaryOp implementation. May be nil.
+	Unary ContextUnaryOp
+
+	// Binary defines the overload with a BinaryOp implementation. May be nil.
+	Binary ContextBinaryOp
+
+	// Function defines the overload with a FunctionOp implementation. May be
+	// nil.
+	Function ContextFunctionOp
+
+	// NonStrict specifies whether the Overload will tolerate arguments that
+	// are types.Err or types.Unknown.
+	NonStrict bool
+}
+
+func (o *ContextOverload) GetOperator() string            { return o.Operator }
+func (o *ContextOverload) GetOperandTrait() int           { return o.OperandTrait }
+func (o *ContextOverload) GetUnary() ContextUnaryOp       { return o.Unary }
+func (o *ContextOverload) GetBinary() ContextBinaryOp     { return o.Binary }
+func (o *ContextOverload) GetFunction() ContextFunctionOp { return o.Function }
+func (o *ContextOverload) IsNonStrict() bool              { return o.NonStrict }
 
 // UnaryOp is a function that takes a single value and produces an output.
 type UnaryOp func(value ref.Val) ref.Val
+type ContextUnaryOp func(ctx context.Context, value ref.Val) ref.Val
 
 // BinaryOp is a function that takes two values and produces an output.
 type BinaryOp func(lhs ref.Val, rhs ref.Val) ref.Val
+type ContextBinaryOp func(ctx context.Context, lhs ref.Val, rhs ref.Val) ref.Val
 
 // FunctionOp is a function with accepts zero or more arguments and produces
 // an value (as interface{}) or error as a result.
 type FunctionOp func(values ...ref.Val) ref.Val
+type ContextFunctionOp func(ctx context.Context, values ...ref.Val) ref.Val

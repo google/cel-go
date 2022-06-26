@@ -15,6 +15,7 @@
 package interpreter
 
 import (
+	"context"
 	"regexp"
 
 	"github.com/google/cel-go/common/types"
@@ -32,7 +33,7 @@ var MatchesRegexOptimization = &RegexOptimization{
 		if err != nil {
 			return nil, err
 		}
-		return NewCall(call.ID(), call.Function(), call.OverloadID(), call.Args(), func(values ...ref.Val) ref.Val {
+		return NewCall(call.ID(), call.Function(), call.OverloadID(), call.Args(), func(ctx context.Context, values ...ref.Val) ref.Val {
 			if len(values) != 2 {
 				return types.NoSuchOverloadErr()
 			}
