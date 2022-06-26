@@ -126,10 +126,8 @@ func (a *mapActivation) ResolveName(name string) (interface{}, bool) {
 // hierarchicalActivation which implements Activation and contains a parent and
 // child activation.
 type hierarchicalActivation struct {
-	doneOnce *sync.Once
-	doneChan <-chan struct{}
-	parent   Activation
-	child    Activation
+	parent Activation
+	child  Activation
 }
 
 func (a *hierarchicalActivation) Deadline() (deadline time.Time, ok bool) {
@@ -147,25 +145,21 @@ func (a *hierarchicalActivation) Deadline() (deadline time.Time, ok bool) {
 }
 
 func (a *hierarchicalActivation) Done() <-chan struct{} {
-	a.doneOnce.Do(func() {
-		if d1 := a.child.Done(); d1 != nil {
-			if d2 := a.parent.Done(); d2 != nil {
-				c := make(chan struct{})
-				a.doneChan = c
-				go func() {
-					select {
-					case s := <-d1:
-						c <- s
-					case s := <-d2:
-						c <- s
-					}
-				}()
-			}
-			a.doneChan = d1
+	if a.parent.Done() != nil {
+		if a.child.Done() != nil {
+			c := make(chan struct{})
+			go func() {
+				select {
+				case c <- <-a.parent.Done():
+				case c <- <-a.child.Done():
+				}
+			}()
+			return c
+		} else {
+			return a.parent.Done()
 		}
-		a.doneChan = a.parent.Done()
-	})
-	return a.doneChan
+	}
+	return a.child.Done()
 }
 
 func (a *hierarchicalActivation) Err() error {
@@ -200,7 +194,7 @@ func (a *hierarchicalActivation) ResolveName(name string) (interface{}, bool) {
 // NewHierarchicalActivation takes two activations and produces a new one which prioritizes
 // resolution in the child first and parent(s) second.
 func NewHierarchicalActivation(parent Activation, child Activation) Activation {
-	return &hierarchicalActivation{&sync.Once{}, nil, parent, child}
+	return &hierarchicalActivation{parent, child}
 }
 
 // NewPartialActivation returns an Activation which contains a list of AttributePattern values

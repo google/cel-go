@@ -416,8 +416,6 @@ func estimateCost(i interface{}) (min, max int64) {
 }
 
 type ctxEvalActivation struct {
-	doneOnce                *sync.Once
-	doneChan                <-chan struct{}
 	ctx                     context.Context
 	parent                  interpreter.Activation
 	interrupt               <-chan struct{}
@@ -442,27 +440,19 @@ func (a *ctxEvalActivation) Deadline() (deadline time.Time, ok bool) {
 }
 
 func (a *ctxEvalActivation) Done() <-chan struct{} {
-	a.doneOnce.Do(func() {
-		if a.parent != nil {
-			if d1 := a.parent.Done(); d1 != nil {
-				if d2 := a.ctx.Done(); d2 != nil {
-					c := make(chan struct{})
-					a.doneChan = c
-					go func() {
-						select {
-						case s := <-d1:
-							c <- s
-						case s := <-d2:
-							c <- s
-						}
-					}()
+	if a.parent != nil {
+		if a.parent.Done() != nil {
+			c := make(chan struct{})
+			go func() {
+				select {
+				case c <- <-a.parent.Done():
+				case c <- <-a.ctx.Done():
 				}
-				a.doneChan = d1
-			}
+			}()
+			return c
 		}
-		a.doneChan = a.ctx.Done()
-	})
-	return a.doneChan
+	}
+	return a.ctx.Done()
 }
 
 func (a *ctxEvalActivation) Err() error {
@@ -509,7 +499,7 @@ func newCtxEvalActivationPool() *ctxEvalActivationPool {
 	return &ctxEvalActivationPool{
 		Pool: sync.Pool{
 			New: func() interface{} {
-				return &ctxEvalActivation{doneOnce: &sync.Once{}, ctx: context.Background()}
+				return &ctxEvalActivation{ctx: context.Background()}
 			},
 		},
 	}
