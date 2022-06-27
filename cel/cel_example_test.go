@@ -33,7 +33,7 @@ func Example() {
 		// Function to generate a greeting from one person to another: i.greet(you)
 		cel.Function("greet",
 			cel.MemberOverload("string_greet_string", []*cel.Type{cel.StringType, cel.StringType}, cel.StringType,
-				cel.BinaryImpl(func(lhs, rhs ref.Val) ref.Val {
+				cel.BinaryBinding(func(lhs, rhs ref.Val) ref.Val {
 					return types.String(fmt.Sprintf("Hello %s! Nice to meet you, I'm %s.\n", rhs, lhs))
 				}),
 			),
@@ -83,7 +83,7 @@ func Example_globalOverload() {
 		//    shake_hands(i,you)
 		cel.Function("shake_hands",
 			cel.Overload("shake_hands_string_string", []*cel.Type{cel.StringType, cel.StringType}, cel.StringType,
-				cel.BinaryImpl(func(arg1, arg2 ref.Val) ref.Val {
+				cel.BinaryBinding(func(arg1, arg2 ref.Val) ref.Val {
 					return types.String(fmt.Sprintf("%v and %v are shaking hands.\n", arg1, arg2))
 				}),
 			),

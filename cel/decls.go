@@ -316,10 +316,10 @@ func Variable(name string, t *Type) EnvOption {
 	}
 }
 
-// Function defines a function and overloads with optional singleton or per-overload implementations.
+// Function defines a function and overloads with optional singleton or per-overload bindings.
 //
 // Using Function is roughly equivalent to calling Declarations() to declare the function signatures
-// and Functions() to define the function implementations, if they have been defined. Specifying the
+// and Functions() to define the function bindings, if they have been defined. Specifying the
 // same function name more than once will result in the aggregation of the function overloads. If any
 // signatures conflict between the existing and new function definition an error will be raised.
 // However, if the signatures are identical and the overload ids are the same, the redefinition will
@@ -327,8 +327,8 @@ func Variable(name string, t *Type) EnvOption {
 //
 // One key difference with using Function() is that each FunctionDecl provided will handle dynamic
 // dispatch based on the type-signatures of the overloads provided which means overload resolution at
-// runtime is handled out of the box rather than via a custom implementation for overload resolution
-// via Functions().
+// runtime is handled out of the box rather than via a custom binding for overload resolution via
+// Functions().
 func Function(name string, opts ...FunctionOpt) EnvOption {
 	return func(e *Env) (*Env, error) {
 		fn := &functionDecl{
@@ -358,18 +358,18 @@ func Function(name string, opts ...FunctionOpt) EnvOption {
 // FunctionOpt defines a functional  option for configuring a function declaration.
 type FunctionOpt func(*functionDecl) (*functionDecl, error)
 
-// SingletonUnaryImpl creates a singleton function defintion to be used for all function overloads.
+// SingletonUnaryBinding creates a singleton function defintion to be used for all function overloads.
 //
 // Note, this approach works well if operand is expected to have a specific trait which it implements,
-// e.g. traits.ContainerType. Otherwise, prefer per-overload implementations.
-func SingletonUnaryImpl(fn functions.UnaryOp, traits ...int) FunctionOpt {
+// e.g. traits.ContainerType. Otherwise, prefer per-overload function bindings.
+func SingletonUnaryBinding(fn functions.UnaryOp, traits ...int) FunctionOpt {
 	trait := 0
 	for _, t := range traits {
 		trait = trait | t
 	}
 	return func(f *functionDecl) (*functionDecl, error) {
 		if f.singleton != nil {
-			return nil, fmt.Errorf("function already has an implementation: %s", f.name)
+			return nil, fmt.Errorf("function already has a singleton binding: %s", f.name)
 		}
 		f.singleton = &functions.Overload{
 			Operator:     f.name,
@@ -383,7 +383,7 @@ func SingletonUnaryImpl(fn functions.UnaryOp, traits ...int) FunctionOpt {
 // SingletonBinaryImpl creates a singleton function definition to be used with all function overloads.
 //
 // Note, this approach works well if operand is expected to have a specific trait which it implements,
-// e.g. traits.ContainerType. Otherwise, prefer per-overload implementations.
+// e.g. traits.ContainerType. Otherwise, prefer per-overload function bindings.
 func SingletonBinaryImpl(fn functions.BinaryOp, traits ...int) FunctionOpt {
 	trait := 0
 	for _, t := range traits {
@@ -391,7 +391,7 @@ func SingletonBinaryImpl(fn functions.BinaryOp, traits ...int) FunctionOpt {
 	}
 	return func(f *functionDecl) (*functionDecl, error) {
 		if f.singleton != nil {
-			return nil, fmt.Errorf("function already has an implementation: %s", f.name)
+			return nil, fmt.Errorf("function already has a singleton binding: %s", f.name)
 		}
 		f.singleton = &functions.Overload{
 			Operator:     f.name,
@@ -405,7 +405,7 @@ func SingletonBinaryImpl(fn functions.BinaryOp, traits ...int) FunctionOpt {
 // SingletonFunctionImpl creates a singleton function definition to be used with all function overloads.
 //
 // Note, this approach works well if operand is expected to have a specific trait which it implements,
-// e.g. traits.ContainerType. Otherwise, prefer per-overload implementations.
+// e.g. traits.ContainerType. Otherwise, prefer per-overload function bindings.
 func SingletonFunctionImpl(fn functions.FunctionOp, traits ...int) FunctionOpt {
 	trait := 0
 	for _, t := range traits {
@@ -413,7 +413,7 @@ func SingletonFunctionImpl(fn functions.FunctionOp, traits ...int) FunctionOpt {
 	}
 	return func(f *functionDecl) (*functionDecl, error) {
 		if f.singleton != nil {
-			return nil, fmt.Errorf("function already has an implementation: %s", f.name)
+			return nil, fmt.Errorf("function already has a singleton binding: %s", f.name)
 		}
 		f.singleton = &functions.Overload{
 			Operator:     f.name,
@@ -425,20 +425,20 @@ func SingletonFunctionImpl(fn functions.FunctionOp, traits ...int) FunctionOpt {
 }
 
 // Overload defines a new global overload with an overload id, argument types, and result type. Through the
-// use of OverloadOpt options, the overload may also be configured with an implementation, an operand trait,
-// and to be non-strict.
+// use of OverloadOpt options, the overload may also be configured with a binding, an operand trait, and to
+// be non-strict.
 //
-// Note: implementations should be commonly configured with Overload instances whereas operand traits and
+// Note: function bindings should be commonly configured with Overload instances whereas operand traits and
 // strict-ness should be rare occurrences.
 func Overload(overloadID string, args []*Type, resultType *Type, opts ...OverloadOpt) FunctionOpt {
 	return newOverload(overloadID, false, args, resultType, opts...)
 }
 
 // MemberOverload defines a new receiver-style overload (or member function) with an overload id, argument types,
-// and result type. Through the use of OverloadOpt options, the overload may also be configured with an
-// implementation, an operand trait, and to be non-strict.
+// and result type. Through the use of OverloadOpt options, the overload may also be configured with a binding,
+// an operand trait, and to be non-strict.
 //
-// Note: implementations should be commonly configured with Overload instances whereas operand traits and
+// Note: function bindings should be commonly configured with Overload instances whereas operand traits and
 // strict-ness should be rare occurrences.
 func MemberOverload(overloadID string, args []*Type, resultType *Type, opts ...OverloadOpt) FunctionOpt {
 	return newOverload(overloadID, true, args, resultType, opts...)
@@ -447,44 +447,44 @@ func MemberOverload(overloadID string, args []*Type, resultType *Type, opts ...O
 // OverloadOpt is a functional option for configuring a function overload.
 type OverloadOpt func(*overloadDecl) (*overloadDecl, error)
 
-// UnaryImpl provides the implementation of a unary overload. The provided function is protected by a runtime
+// UnaryBinding provides the implementation of a unary overload. The provided function is protected by a runtime
 // type-guard which ensures runtime type agreement between the overload signature and runtime argument types.
-func UnaryImpl(impl functions.UnaryOp) OverloadOpt {
+func UnaryBinding(binding functions.UnaryOp) OverloadOpt {
 	return func(o *overloadDecl) (*overloadDecl, error) {
-		if o.hasImpl() {
-			return nil, fmt.Errorf("overload already has an implementation: %s", o.id)
+		if o.hasBinding() {
+			return nil, fmt.Errorf("overload already has a binding: %s", o.id)
 		}
 		if len(o.argTypes) != 1 {
 			return nil, fmt.Errorf("unary function bound to non-unary overload: %s", o.id)
 		}
-		o.unaryOp = impl
+		o.unaryOp = binding
 		return o, nil
 	}
 }
 
-// BinaryImpl provides the implementation of a binary overload. The provided function is protected by a runtime
+// BinaryBinding provides the implementation of a binary overload. The provided function is protected by a runtime
 // type-guard which ensures runtime type agreement between the overload signature and runtime argument types.
-func BinaryImpl(impl functions.BinaryOp) OverloadOpt {
+func BinaryBinding(binding functions.BinaryOp) OverloadOpt {
 	return func(o *overloadDecl) (*overloadDecl, error) {
-		if o.hasImpl() {
-			return nil, fmt.Errorf("overload already has an implementation: %s", o.id)
+		if o.hasBinding() {
+			return nil, fmt.Errorf("overload already has a binding: %s", o.id)
 		}
 		if len(o.argTypes) != 2 {
 			return nil, fmt.Errorf("binary function bound to non-binary overload: %s", o.id)
 		}
-		o.binaryOp = impl
+		o.binaryOp = binding
 		return o, nil
 	}
 }
 
-// FunctionImpl provides the implementation of a variadic overload. The provided function is protected by a runtime
+// FunctionBinding provides the implementation of a variadic overload. The provided function is protected by a runtime
 // type-guard which ensures runtime type agreement between the overload signature and runtime argument types.
-func FunctionImpl(impl functions.FunctionOp) OverloadOpt {
+func FunctionBinding(binding functions.FunctionOp) OverloadOpt {
 	return func(o *overloadDecl) (*overloadDecl, error) {
-		if o.hasImpl() {
-			return nil, fmt.Errorf("overload already has an implementation: %s", o.id)
+		if o.hasBinding() {
+			return nil, fmt.Errorf("overload already has a binding: %s", o.id)
 		}
-		o.functionOp = impl
+		o.functionOp = binding
 		return o, nil
 	}
 }
@@ -538,12 +538,12 @@ func (f *functionDecl) init() error {
 	return nil
 }
 
-// bindings produces a set of function overload implementations, if any are defined.
+// bindings produces a set of function bindings, if any are defined.
 func (f *functionDecl) bindings() ([]*functions.Overload, error) {
 	overloads := []*functions.Overload{}
 	nonStrict := false
 	for _, o := range f.overloads {
-		if o.hasImpl() {
+		if o.hasBinding() {
 			overload := &functions.Overload{
 				Operator:     o.id,
 				Unary:        o.guardedUnaryOp(f.name),
@@ -624,7 +624,7 @@ func (f *functionDecl) bindings() ([]*functions.Overload, error) {
 //
 // If a function is extended, by say adding new overloads to an existing function, then it is merged with the
 // prior definition of the function at which point its overloads must not collide with pre-existing overloads
-// and its implementations (singleton, or per-overload) must not conflict with previous definitions either.
+// and its bindings (singleton, or per-overload) must not conflict with previous definitions either.
 func (f *functionDecl) merge(other *functionDecl) (*functionDecl, error) {
 	if f.name != other.name {
 		return nil, fmt.Errorf("cannot merge unrelated functions. %s and %s", f.name, other.name)
@@ -655,7 +655,7 @@ func (f *functionDecl) merge(other *functionDecl) (*functionDecl, error) {
 	}
 	if other.singleton != nil {
 		if merged.singleton != nil {
-			return nil, fmt.Errorf("function already has an implementation: %s", f.name)
+			return nil, fmt.Errorf("function already has a binding: %s", f.name)
 		}
 		merged.singleton = other.singleton
 	}
@@ -663,7 +663,7 @@ func (f *functionDecl) merge(other *functionDecl) (*functionDecl, error) {
 }
 
 // addOverload ensures that the new overload does not collide with an existing overload signature,
-// nor does it redefine an existing overload implementation.
+// nor does it redefine an existing overload binding.
 func (f *functionDecl) addOverload(overload *overloadDecl) error {
 	for id, o := range f.overloads {
 		if id != overload.id && o.signatureOverlaps(overload) {
@@ -671,10 +671,10 @@ func (f *functionDecl) addOverload(overload *overloadDecl) error {
 		}
 		if id == overload.id {
 			if o.signatureEquals(overload) && o.nonStrict == overload.nonStrict {
-				if !o.hasImpl() && overload.hasImpl() {
+				if !o.hasBinding() && overload.hasBinding() {
 					f.overloads[id] = overload
-				} else if o.hasImpl() && overload.hasImpl() && o != overload {
-					return fmt.Errorf("overload implementation collision in function %s: %s has multiple implementations", f.name, o.id)
+				} else if o.hasBinding() && overload.hasBinding() && o != overload {
+					return fmt.Errorf("overload binding collision in function %s: %s has multiple bindings", f.name, o.id)
 				}
 			} else {
 				return fmt.Errorf("overload redefinition in function. %s: %s has multiple definitions", f.name, o.id)
@@ -701,7 +701,7 @@ type overloadDecl struct {
 	resultType     *Type
 	memberFunction bool
 
-	// implementation options, optional but encouraged.
+	// binding options, optional but encouraged.
 	unaryOp    functions.UnaryOp
 	binaryOp   functions.BinaryOp
 	functionOp functions.FunctionOp
@@ -711,7 +711,7 @@ type overloadDecl struct {
 	operandTrait int
 }
 
-func (o *overloadDecl) hasImpl() bool {
+func (o *overloadDecl) hasBinding() bool {
 	return o.unaryOp != nil || o.binaryOp != nil || o.functionOp != nil
 }
 
@@ -741,7 +741,7 @@ func (o *overloadDecl) guardedBinaryOp(funcName string) functions.BinaryOp {
 	}
 }
 
-// guardedFunctionOp creates an invocation guard around the provided variadic function implementation, if one is provided.
+// guardedFunctionOp creates an invocation guard around the provided variadic function binding, if one is provided.
 func (o *overloadDecl) guardedFunctionOp(funcName string) functions.FunctionOp {
 	if o.functionOp == nil {
 		return nil

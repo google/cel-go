@@ -91,7 +91,7 @@ func TestFunctionMerge(t *testing.T) {
 		MemberOverload("list_size", []*Type{ListType(TypeParamType("V"))}, IntType),
 		MemberOverload("string_size", []*Type{StringType}, IntType),
 		MemberOverload("bytes_size", []*Type{BytesType}, IntType),
-		SingletonUnaryImpl(func(arg ref.Val) ref.Val {
+		SingletonUnaryBinding(func(arg ref.Val) ref.Val {
 			return arg.(traits.Sizer).Size()
 		}, traits.SizerType),
 	)
@@ -106,13 +106,13 @@ func TestFunctionMerge(t *testing.T) {
 
 	vectorExt := Function("vector",
 		Overload("vector_list", []*Type{ListType(TypeParamType("V"))}, OpaqueType("vector", TypeParamType("V")),
-			UnaryImpl(func(list ref.Val) ref.Val {
+			UnaryBinding(func(list ref.Val) ref.Val {
 				return list
 			})))
 
 	eq := Function(operators.Equals,
 		Overload(operators.Equals, []*Type{TypeParamType("T"), TypeParamType("T")}, BoolType,
-			BinaryImpl(func(lhs, rhs ref.Val) ref.Val {
+			BinaryBinding(func(lhs, rhs ref.Val) ref.Val {
 				return lhs.Equal(rhs)
 			})))
 
@@ -148,17 +148,17 @@ func TestFunctionMerge(t *testing.T) {
 	}
 
 	_, err = NewCustomEnv(vectorExt, vectorExt)
-	if err == nil || !strings.Contains(err.Error(), "overload implementation collision") {
+	if err == nil || !strings.Contains(err.Error(), "overload binding collision") {
 		t.Errorf("NewCustomEnv(vectorExt, vectorExt) did not produce expected error: %v", err)
 	}
 	_, err = NewCustomEnv(size, size)
-	if err == nil || !strings.Contains(err.Error(), "already has an implementation") {
+	if err == nil || !strings.Contains(err.Error(), "already has a binding") {
 		t.Errorf("NewCustomEnv(size, size) did not produce the expected error: %v", err)
 	}
 	e, err = NewCustomEnv(size,
 		Function("size",
 			Overload("size_int", []*Type{IntType}, IntType,
-				UnaryImpl(func(arg ref.Val) ref.Val { return types.Int(2) }),
+				UnaryBinding(func(arg ref.Val) ref.Val { return types.Int(2) }),
 			),
 		),
 	)
@@ -186,7 +186,7 @@ func TestFunctionMergeDeclarationAndDefinition(t *testing.T) {
 	idFuncDecl := Function("id", Overload("id", []*Type{TypeParamType("T")}, TypeParamType("T"), OverloadIsNonStrict()))
 	idFuncDef := Function("id",
 		Overload("id", []*Type{TypeParamType("T")}, TypeParamType("T"), OverloadIsNonStrict(),
-			UnaryImpl(func(arg ref.Val) ref.Val {
+			UnaryBinding(func(arg ref.Val) ref.Val {
 				return arg
 			}),
 		),
@@ -236,16 +236,16 @@ func TestSingletonUnaryImplRedefinition(t *testing.T) {
 	_, err := NewCustomEnv(
 		Function("id",
 			Overload("id_any", []*Type{AnyType}, AnyType),
-			SingletonUnaryImpl(func(arg ref.Val) ref.Val {
+			SingletonUnaryBinding(func(arg ref.Val) ref.Val {
 				return arg
 			}),
-			SingletonUnaryImpl(func(arg ref.Val) ref.Val {
+			SingletonUnaryBinding(func(arg ref.Val) ref.Val {
 				return arg
 			}),
 		),
 	)
-	if err == nil || !strings.Contains(err.Error(), "already has an implementation") {
-		t.Errorf("NewCustomEnv() got %v, wanted already had an implementation", err)
+	if err == nil || !strings.Contains(err.Error(), "already has a singleton binding") {
+		t.Errorf("NewCustomEnv() got %v, wanted already has a singleton singleton binding", err)
 	}
 }
 
@@ -254,7 +254,7 @@ func TestSingletonUnaryImpl(t *testing.T) {
 	e, err := NewCustomEnv(
 		Variable("x", AnyType),
 		Function("id", Overload("id_any", []*Type{AnyType}, AnyType)),
-		Function("id", Overload("id_any", []*Type{AnyType}, AnyType), SingletonUnaryImpl(func(arg ref.Val) ref.Val { return arg })),
+		Function("id", Overload("id_any", []*Type{AnyType}, AnyType), SingletonUnaryBinding(func(arg ref.Val) ref.Val { return arg })),
 	)
 	if err != nil {
 		t.Errorf("NewCustomEnv() failed: %v", err)
@@ -287,8 +287,8 @@ func TestSingletonBinaryImplRedefinition(t *testing.T) {
 				return arg2
 			}),
 		))
-	if err == nil || !strings.Contains(err.Error(), "already has an implementation") {
-		t.Errorf("NewCustomEnv() got %v, wanted already had an implementation", err)
+	if err == nil || !strings.Contains(err.Error(), "already has a singleton binding") {
+		t.Errorf("NewCustomEnv() got %v, wanted already has a singleton binding", err)
 	}
 }
 
@@ -320,8 +320,8 @@ func TestSingletonFunctionImplRedefinition(t *testing.T) {
 			}, traits.ComparerType),
 		),
 	)
-	if err == nil || !strings.Contains(err.Error(), "already has an implementation") {
-		t.Errorf("NewCustomEnv() got %v, wanted already had an implementation", err)
+	if err == nil || !strings.Contains(err.Error(), "already has a singleton binding") {
+		t.Errorf("NewCustomEnv() got %v, wanted already has a singleton binding", err)
 	}
 }
 
@@ -331,7 +331,7 @@ func TestSingletonFunctionImpl(t *testing.T) {
 		Variable("err", DynType),
 		Function("dyn",
 			Overload("dyn", []*Type{DynType}, DynType),
-			SingletonUnaryImpl(func(arg ref.Val) ref.Val {
+			SingletonUnaryBinding(func(arg ref.Val) ref.Val {
 				return arg
 			})),
 		Function("max",
@@ -344,7 +344,7 @@ func TestSingletonFunctionImpl(t *testing.T) {
 					i, ok := arg.(types.Int)
 					if !ok {
 						// With a singleton implementation, the error handling must be explicitly
-						// performed as an implementation detail of the singleton function.
+						// performed as a binding detail of the singleton function.
 						// With custom overload implementations, a function guard is automatically
 						// added to the function to validate that the runtime types are compatible
 						// to provide some basic invocation protections.
@@ -380,13 +380,13 @@ func TestUnaryImplRedefinition(t *testing.T) {
 	_, err := NewCustomEnv(
 		Function("dyn",
 			Overload("dyn", []*Type{DynType}, DynType,
-				UnaryImpl(func(arg ref.Val) ref.Val { return arg }),
+				UnaryBinding(func(arg ref.Val) ref.Val { return arg }),
 				// redefinition.
-				UnaryImpl(func(arg ref.Val) ref.Val { return arg }),
+				UnaryBinding(func(arg ref.Val) ref.Val { return arg }),
 			),
 		),
 	)
-	if err == nil || !strings.Contains(err.Error(), "already has an implementation") {
+	if err == nil || !strings.Contains(err.Error(), "already has a binding") {
 		t.Errorf("redefinition of function impl did not produce expected error: %v", err)
 	}
 }
@@ -396,7 +396,7 @@ func TestUnaryImpl(t *testing.T) {
 		Function("dyn",
 			Overload("dyn", []*Type{}, DynType,
 				// wrong arg count
-				UnaryImpl(func(arg ref.Val) ref.Val { return arg }),
+				UnaryBinding(func(arg ref.Val) ref.Val { return arg }),
 			),
 		),
 	)
@@ -409,7 +409,7 @@ func TestUnaryImpl(t *testing.T) {
 			Overload("size_non_strict", []*Type{ListType(DynType)}, IntType,
 				OverloadIsNonStrict(),
 				OverloadOperandTrait(traits.SizerType),
-				UnaryImpl(func(arg ref.Val) ref.Val {
+				UnaryBinding(func(arg ref.Val) ref.Val {
 					if types.IsUnknownOrError(arg) {
 						return arg
 					}
@@ -440,23 +440,23 @@ func TestBinaryImplRedefinition(t *testing.T) {
 	_, err := NewCustomEnv(
 		Function("right",
 			Overload("right_int_int", []*Type{IntType, IntType}, IntType,
-				BinaryImpl(func(arg1, arg2 ref.Val) ref.Val { return arg2 }),
+				BinaryBinding(func(arg1, arg2 ref.Val) ref.Val { return arg2 }),
 				// redefinition.
-				BinaryImpl(func(arg1, arg2 ref.Val) ref.Val { return arg2 }),
+				BinaryBinding(func(arg1, arg2 ref.Val) ref.Val { return arg2 }),
 			),
 		),
 	)
-	if err == nil || !strings.Contains(err.Error(), "already has an implementation") {
+	if err == nil || !strings.Contains(err.Error(), "already has a binding") {
 		t.Errorf("redefinition of function impl did not produce expected error: %v", err)
 	}
 
 	_, err = NewCustomEnv(
 		Function("right",
 			Overload("right_int_int", []*Type{IntType, IntType}, IntType,
-				BinaryImpl(func(arg1, arg2 ref.Val) ref.Val { return arg2 }),
+				BinaryBinding(func(arg1, arg2 ref.Val) ref.Val { return arg2 }),
 			),
 			Overload("right_int_int", []*Type{IntType, IntType, DurationType}, IntType,
-				FunctionImpl(func(args ...ref.Val) ref.Val { return args[0] }),
+				FunctionBinding(func(args ...ref.Val) ref.Val { return args[0] }),
 			),
 		),
 	)
@@ -480,7 +480,7 @@ func TestBinaryImpl(t *testing.T) {
 		Function("max",
 			Overload("max_int_int", []*Type{IntType, IntType}, IntType,
 				OverloadIsNonStrict(),
-				BinaryImpl(func(arg1, arg2 ref.Val) ref.Val {
+				BinaryBinding(func(arg1, arg2 ref.Val) ref.Val {
 					if types.IsUnknownOrError(arg1) {
 						return arg2
 					}
@@ -533,7 +533,7 @@ func TestBinaryImpl(t *testing.T) {
 		Function("right",
 			Overload("right_int_int", []*Type{IntType, IntType, IntType}, IntType,
 				// wrong arg count
-				BinaryImpl(func(arg1, arg2 ref.Val) ref.Val { return arg2 }),
+				BinaryBinding(func(arg1, arg2 ref.Val) ref.Val { return arg2 }),
 			),
 		),
 	)
@@ -546,13 +546,13 @@ func TestFunctionImplRedefinition(t *testing.T) {
 	_, err := NewCustomEnv(
 		Function("right",
 			Overload("right_int_int_int", []*Type{IntType, IntType, IntType}, IntType,
-				FunctionImpl(func(args ...ref.Val) ref.Val { return args[0] }),
+				FunctionBinding(func(args ...ref.Val) ref.Val { return args[0] }),
 				// redefinition.
-				FunctionImpl(func(args ...ref.Val) ref.Val { return args[1] }),
+				FunctionBinding(func(args ...ref.Val) ref.Val { return args[1] }),
 			),
 		),
 	)
-	if err == nil || !strings.Contains(err.Error(), "already has an implementation") {
+	if err == nil || !strings.Contains(err.Error(), "already has a binding") {
 		t.Errorf("redefinition of function impl did not produce expected error: %v", err)
 	}
 }
@@ -563,21 +563,21 @@ func TestFunctionImpl(t *testing.T) {
 		Variable("err", DynType),
 		Function("dyn",
 			Overload("dyn", []*Type{DynType}, DynType),
-			SingletonUnaryImpl(func(arg ref.Val) ref.Val {
+			SingletonUnaryBinding(func(arg ref.Val) ref.Val {
 				return arg
 			})),
 		Function("max",
 			Overload("max_int", []*Type{IntType}, IntType,
-				UnaryImpl(func(arg ref.Val) ref.Val { return arg })),
+				UnaryBinding(func(arg ref.Val) ref.Val { return arg })),
 			Overload("max_int_int", []*Type{IntType, IntType}, IntType,
-				BinaryImpl(func(lhs, rhs ref.Val) ref.Val {
+				BinaryBinding(func(lhs, rhs ref.Val) ref.Val {
 					if lhs.(types.Int).Compare(rhs) == types.IntNegOne {
 						return rhs
 					}
 					return lhs
 				})),
 			Overload("max_int_int_int", []*Type{IntType, IntType, IntType}, IntType,
-				FunctionImpl(func(args ...ref.Val) ref.Val {
+				FunctionBinding(func(args ...ref.Val) ref.Val {
 					max := types.Int(math.MinInt64)
 					for _, arg := range args {
 						i := arg.(types.Int)

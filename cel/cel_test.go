@@ -235,12 +235,12 @@ func TestHomogeneousAggregateLiterals(t *testing.T) {
 		Variable("name", StringType),
 		Function(operators.In,
 			Overload(overloads.InList, []*Type{StringType, ListType(StringType)}, BoolType,
-				BinaryImpl(func(lhs, rhs ref.Val) ref.Val {
+				BinaryBinding(func(lhs, rhs ref.Val) ref.Val {
 					return rhs.(traits.Container).Contains(lhs)
 				}),
 			),
 			Overload(overloads.InMap, []*Type{StringType, MapType(StringType, BoolType)}, BoolType,
-				BinaryImpl(func(lhs, rhs ref.Val) ref.Val {
+				BinaryBinding(func(lhs, rhs ref.Val) ref.Val {
 					return rhs.(traits.Container).Contains(lhs)
 				}),
 			),
@@ -614,7 +614,7 @@ func TestGlobalVars(t *testing.T) {
 		Variable("default", DynType),
 		Function("get",
 			MemberOverload("get_map", []*Type{MapType(StringType, DynType), StringType, DynType}, DynType,
-				FunctionImpl(func(args ...ref.Val) ref.Val {
+				FunctionBinding(func(args ...ref.Val) ref.Val {
 					attrs, ok := args[0].(traits.Mapper)
 					if !ok {
 						return types.NewErr(
@@ -934,7 +934,7 @@ func TestEvalRecover(t *testing.T) {
 	e, err := NewEnv(
 		Function("panic",
 			Overload("global_panic", []*Type{}, BoolType,
-				FunctionImpl(func(args ...ref.Val) ref.Val {
+				FunctionBinding(func(args ...ref.Val) ref.Val {
 					panic("watch me recover")
 				}),
 			),
