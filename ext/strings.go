@@ -206,20 +206,20 @@ func (stringLib) CompileOptions() []cel.EnvOption {
 	return []cel.EnvOption{
 		cel.Function("charAt",
 			cel.MemberOverload("string_char_at_int", []*cel.Type{cel.StringType, cel.IntType}, cel.StringType,
-				cel.BinaryImpl(func(str, ind ref.Val) ref.Val {
+				cel.BinaryBinding(func(str, ind ref.Val) ref.Val {
 					s := str.(types.String)
 					i := ind.(types.Int)
 					return stringOrError(charAt(string(s), int64(i)))
 				}))),
 		cel.Function("indexOf",
 			cel.MemberOverload("string_index_of_string", []*cel.Type{cel.StringType, cel.StringType}, cel.IntType,
-				cel.BinaryImpl(func(str, substr ref.Val) ref.Val {
+				cel.BinaryBinding(func(str, substr ref.Val) ref.Val {
 					s := str.(types.String)
 					sub := substr.(types.String)
 					return intOrError(indexOf(string(s), string(sub)))
 				})),
 			cel.MemberOverload("string_index_of_string_int", []*cel.Type{cel.StringType, cel.StringType, cel.IntType}, cel.IntType,
-				cel.FunctionImpl(func(args ...ref.Val) ref.Val {
+				cel.FunctionBinding(func(args ...ref.Val) ref.Val {
 					s := args[0].(types.String)
 					sub := args[1].(types.String)
 					offset := args[2].(types.Int)
@@ -227,13 +227,13 @@ func (stringLib) CompileOptions() []cel.EnvOption {
 				}))),
 		cel.Function("lastIndexOf",
 			cel.MemberOverload("string_last_index_of_string", []*cel.Type{cel.StringType, cel.StringType}, cel.IntType,
-				cel.BinaryImpl(func(str, substr ref.Val) ref.Val {
+				cel.BinaryBinding(func(str, substr ref.Val) ref.Val {
 					s := str.(types.String)
 					sub := substr.(types.String)
 					return intOrError(lastIndexOf(string(s), string(sub)))
 				})),
 			cel.MemberOverload("string_last_index_of_string_int", []*cel.Type{cel.StringType, cel.StringType, cel.IntType}, cel.IntType,
-				cel.FunctionImpl(func(args ...ref.Val) ref.Val {
+				cel.FunctionBinding(func(args ...ref.Val) ref.Val {
 					s := args[0].(types.String)
 					sub := args[1].(types.String)
 					offset := args[2].(types.Int)
@@ -241,14 +241,14 @@ func (stringLib) CompileOptions() []cel.EnvOption {
 				}))),
 		cel.Function("lowerAscii",
 			cel.MemberOverload("string_lower_ascii", []*cel.Type{cel.StringType}, cel.StringType,
-				cel.UnaryImpl(func(str ref.Val) ref.Val {
+				cel.UnaryBinding(func(str ref.Val) ref.Val {
 					s := str.(types.String)
 					return stringOrError(lowerASCII(string(s)))
 				}))),
 		cel.Function("replace",
 			cel.MemberOverload(
 				"string_replace_string_string", []*cel.Type{cel.StringType, cel.StringType, cel.StringType}, cel.StringType,
-				cel.FunctionImpl(func(args ...ref.Val) ref.Val {
+				cel.FunctionBinding(func(args ...ref.Val) ref.Val {
 					str := args[0].(types.String)
 					old := args[1].(types.String)
 					new := args[2].(types.String)
@@ -256,7 +256,7 @@ func (stringLib) CompileOptions() []cel.EnvOption {
 				})),
 			cel.MemberOverload(
 				"string_replace_string_string_int", []*cel.Type{cel.StringType, cel.StringType, cel.StringType, cel.IntType}, cel.StringType,
-				cel.FunctionImpl(func(args ...ref.Val) ref.Val {
+				cel.FunctionBinding(func(args ...ref.Val) ref.Val {
 					str := args[0].(types.String)
 					old := args[1].(types.String)
 					new := args[2].(types.String)
@@ -265,13 +265,13 @@ func (stringLib) CompileOptions() []cel.EnvOption {
 				}))),
 		cel.Function("split",
 			cel.MemberOverload("string_split_string", []*cel.Type{cel.StringType, cel.StringType}, cel.ListType(cel.StringType),
-				cel.BinaryImpl(func(str, separator ref.Val) ref.Val {
+				cel.BinaryBinding(func(str, separator ref.Val) ref.Val {
 					s := str.(types.String)
 					sep := separator.(types.String)
 					return listStringOrError(split(string(s), string(sep)))
 				})),
 			cel.MemberOverload("string_split_string_int", []*cel.Type{cel.StringType, cel.StringType, cel.IntType}, cel.ListType(cel.StringType),
-				cel.FunctionImpl(func(args ...ref.Val) ref.Val {
+				cel.FunctionBinding(func(args ...ref.Val) ref.Val {
 					s := args[0].(types.String)
 					sep := args[1].(types.String)
 					n := args[2].(types.Int)
@@ -279,13 +279,13 @@ func (stringLib) CompileOptions() []cel.EnvOption {
 				}))),
 		cel.Function("substring",
 			cel.MemberOverload("string_substring_int", []*cel.Type{cel.StringType, cel.IntType}, cel.StringType,
-				cel.BinaryImpl(func(str, offset ref.Val) ref.Val {
+				cel.BinaryBinding(func(str, offset ref.Val) ref.Val {
 					s := str.(types.String)
 					off := offset.(types.Int)
 					return stringOrError(substr(string(s), int64(off)))
 				})),
 			cel.MemberOverload("string_substring_int_int", []*cel.Type{cel.StringType, cel.IntType, cel.IntType}, cel.StringType,
-				cel.FunctionImpl(func(args ...ref.Val) ref.Val {
+				cel.FunctionBinding(func(args ...ref.Val) ref.Val {
 					s := args[0].(types.String)
 					start := args[1].(types.Int)
 					end := args[2].(types.Int)
@@ -293,19 +293,19 @@ func (stringLib) CompileOptions() []cel.EnvOption {
 				}))),
 		cel.Function("trim",
 			cel.MemberOverload("string_trim", []*cel.Type{cel.StringType}, cel.StringType,
-				cel.UnaryImpl(func(str ref.Val) ref.Val {
+				cel.UnaryBinding(func(str ref.Val) ref.Val {
 					s := str.(types.String)
 					return stringOrError(trimSpace(string(s)))
 				}))),
 		cel.Function("upperAscii",
 			cel.MemberOverload("string_upper_ascii", []*cel.Type{cel.StringType}, cel.StringType,
-				cel.UnaryImpl(func(str ref.Val) ref.Val {
+				cel.UnaryBinding(func(str ref.Val) ref.Val {
 					s := str.(types.String)
 					return stringOrError(upperASCII(string(s)))
 				}))),
 		cel.Function("join",
 			cel.MemberOverload("list_join", []*cel.Type{cel.ListType(cel.StringType)}, cel.StringType,
-				cel.UnaryImpl(func(list ref.Val) ref.Val {
+				cel.UnaryBinding(func(list ref.Val) ref.Val {
 					l, err := list.ConvertToNative(stringListType)
 					if err != nil {
 						return types.NewErr(err.Error())
@@ -313,7 +313,7 @@ func (stringLib) CompileOptions() []cel.EnvOption {
 					return stringOrError(join(l.([]string)))
 				})),
 			cel.MemberOverload("list_join_string", []*cel.Type{cel.ListType(cel.StringType), cel.StringType}, cel.StringType,
-				cel.BinaryImpl(func(list, delim ref.Val) ref.Val {
+				cel.BinaryBinding(func(list, delim ref.Val) ref.Val {
 					l, err := list.ConvertToNative(stringListType)
 					if err != nil {
 						return types.NewErr(err.Error())

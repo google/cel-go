@@ -58,13 +58,13 @@ func (encoderLib) CompileOptions() []cel.EnvOption {
 	return []cel.EnvOption{
 		cel.Function("base64.decode",
 			cel.Overload("base64_decode_string", []*cel.Type{cel.StringType}, cel.BytesType,
-				cel.UnaryImpl(func(str ref.Val) ref.Val {
+				cel.UnaryBinding(func(str ref.Val) ref.Val {
 					s := str.(types.String)
 					return bytesOrError(base64DecodeString(string(s)))
 				}))),
 		cel.Function("base64.encode",
 			cel.Overload("base64_encode_bytes", []*cel.Type{cel.BytesType}, cel.StringType,
-				cel.UnaryImpl(func(bytes ref.Val) ref.Val {
+				cel.UnaryBinding(func(bytes ref.Val) ref.Val {
 					b := bytes.(types.Bytes)
 					return stringOrError(base64EncodeBytes([]byte(b)))
 				}))),
