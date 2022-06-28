@@ -18,12 +18,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/types"
-
-	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 func TestIssuesNil(t *testing.T) {
@@ -167,13 +164,10 @@ func BenchmarkEnvExtendEagerDecls(b *testing.B) {
 	}
 	for i := 0; i < b.N; i++ {
 		ext, err := env.Extend(
-			Declarations(
-				decls.NewVar("test_var", decls.String),
-				decls.NewFunction(
-					operators.In,
-					decls.NewOverload("string_in_string", []*exprpb.Type{
-						decls.String, decls.String,
-					}, decls.Bool)),
+			Variable("test_var", StringType),
+			Function(
+				operators.In,
+				Overload("string_in_string", []*Type{StringType, StringType}, BoolType),
 			),
 		)
 		if err != nil {

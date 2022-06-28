@@ -19,29 +19,26 @@ import (
 	"log"
 
 	"github.com/google/cel-go/cel"
-	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/interpreter/functions"
-
-	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 func Example() {
-	// Create the CEL environment with declarations for the input attributes and
-	// the desired extension functions. In many cases the desired functionality will
-	// be present in a built-in function.
-	decls := cel.Declarations(
-		// Identifiers used within this expression.
-		decls.NewVar("i", decls.String),
-		decls.NewVar("you", decls.String),
-		// Function to generate a greeting from one person to another.
-		//    i.greet(you)
-		decls.NewFunction("greet",
-			decls.NewInstanceOverload("string_greet_string",
-				[]*exprpb.Type{decls.String, decls.String},
-				decls.String)))
-	e, err := cel.NewEnv(decls)
+	// Create the CEL environment with declarations for the input attributes and the extension functions.
+	// In many cases the desired functionality will be present in a built-in function.
+	e, err := cel.NewEnv(
+		// Variable identifiers used within this expression.
+		cel.Variable("i", cel.StringType),
+		cel.Variable("you", cel.StringType),
+		// Function to generate a greeting from one person to another: i.greet(you)
+		cel.Function("greet",
+			cel.MemberOverload("string_greet_string", []*cel.Type{cel.StringType, cel.StringType}, cel.StringType,
+				cel.BinaryBinding(func(lhs, rhs ref.Val) ref.Val {
+					return types.String(fmt.Sprintf("Hello %s! Nice to meet you, I'm %s.\n", rhs, lhs))
+				}),
+			),
+		),
+	)
 	if err != nil {
 		log.Fatalf("environment creation error: %s\n", err)
 	}
@@ -53,14 +50,7 @@ func Example() {
 	}
 
 	// Create the program.
-	funcs := cel.Functions(
-		&functions.Overload{
-			Operator: "string_greet_string",
-			Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
-				return types.String(
-					fmt.Sprintf("Hello %s! Nice to meet you, I'm %s.\n", rhs, lhs))
-			}})
-	prg, err := e.Program(ast, funcs)
+	prg, err := e.Program(ast)
 	if err != nil {
 		log.Fatalf("program creation error: %s\n", err)
 	}
@@ -85,17 +75,20 @@ func Example_globalOverload() {
 	// Create the CEL environment with declarations for the input attributes and
 	// the desired extension functions. In many cases the desired functionality will
 	// be present in a built-in function.
-	decls := cel.Declarations(
+	e, err := cel.NewEnv(
 		// Identifiers used within this expression.
-		decls.NewVar("i", decls.String),
-		decls.NewVar("you", decls.String),
+		cel.Variable("i", cel.StringType),
+		cel.Variable("you", cel.StringType),
 		// Function to generate shake_hands between two people.
 		//    shake_hands(i,you)
-		decls.NewFunction("shake_hands",
-			decls.NewOverload("shake_hands_string_string",
-				[]*exprpb.Type{decls.String, decls.String},
-				decls.String)))
-	e, err := cel.NewEnv(decls)
+		cel.Function("shake_hands",
+			cel.Overload("shake_hands_string_string", []*cel.Type{cel.StringType, cel.StringType}, cel.StringType,
+				cel.BinaryBinding(func(arg1, arg2 ref.Val) ref.Val {
+					return types.String(fmt.Sprintf("%v and %v are shaking hands.\n", arg1, arg2))
+				}),
+			),
+		),
+	)
 	if err != nil {
 		log.Fatalf("environment creation error: %s\n", err)
 	}
@@ -107,22 +100,7 @@ func Example_globalOverload() {
 	}
 
 	// Create the program.
-	funcs := cel.Functions(
-		&functions.Overload{
-			Operator: "shake_hands_string_string",
-			Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
-				s1, ok := lhs.(types.String)
-				if !ok {
-					return types.ValOrErr(lhs, "unexpected type '%v' passed to shake_hands", lhs.Type())
-				}
-				s2, ok := rhs.(types.String)
-				if !ok {
-					return types.ValOrErr(rhs, "unexpected type '%v' passed to shake_hands", rhs.Type())
-				}
-				return types.String(
-					fmt.Sprintf("%s and %s are shaking hands.\n", s1, s2))
-			}})
-	prg, err := e.Program(ast, funcs)
+	prg, err := e.Program(ast)
 	if err != nil {
 		log.Fatalf("program creation error: %s\n", err)
 	}

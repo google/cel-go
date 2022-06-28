@@ -29,7 +29,6 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 
 	"github.com/google/cel-go/checker"
-	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/overloads"
@@ -37,7 +36,6 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 	"github.com/google/cel-go/interpreter"
-	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/parser"
 	"github.com/google/cel-go/test"
 
@@ -51,10 +49,10 @@ import (
 
 func Test_ExampleWithBuiltins(t *testing.T) {
 	// Variables used within this expression environment.
-	decls := Declarations(
-		decls.NewVar("i", decls.String),
-		decls.NewVar("you", decls.String))
-	env, err := NewEnv(decls)
+	env, err := NewEnv(
+		Variable("i", StringType),
+		Variable("you", StringType),
+	)
 	if err != nil {
 		t.Fatalf("environment creation error: %s\n", err)
 	}
@@ -90,9 +88,7 @@ func TestAbbrevsCompiled(t *testing.T) {
 	// Test whether abbreviations successfully resolve at type-check time (compile time).
 	env, err := NewEnv(
 		Abbrevs("qualified.identifier.name"),
-		Declarations(
-			decls.NewVar("qualified.identifier.name.first", decls.String),
-		),
+		Variable("qualified.identifier.name.first", StringType),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -154,10 +150,9 @@ func TestAbbrevs_Disambiguation(t *testing.T) {
 		Abbrevs("external.Expr"),
 		Container("google.api.expr.v1alpha1"),
 		Types(&exprpb.Expr{}),
-		Declarations(
-			decls.NewVar("test", decls.Bool),
-			decls.NewVar("external.Expr", decls.String),
-		),
+
+		Variable("test", BoolType),
+		Variable("external.Expr", StringType),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -213,8 +208,7 @@ func TestCustomEnvError(t *testing.T) {
 }
 
 func TestCustomEnv(t *testing.T) {
-	e, _ := NewCustomEnv(
-		Declarations(decls.NewVar("a.b.c", decls.Bool)))
+	e, _ := NewCustomEnv(Variable("a.b.c", BoolType))
 
 	t.Run("err", func(t *testing.T) {
 		_, iss := e.Compile("a.b.c == true")
@@ -238,30 +232,24 @@ func TestCustomEnv(t *testing.T) {
 
 func TestHomogeneousAggregateLiterals(t *testing.T) {
 	e, err := NewCustomEnv(
-		Declarations(
-			decls.NewVar("name", decls.String),
-			decls.NewFunction(
-				operators.In,
-				decls.NewOverload(overloads.InList, []*exprpb.Type{
-					decls.String, decls.NewListType(decls.String),
-				}, decls.Bool),
-				decls.NewOverload(overloads.InMap, []*exprpb.Type{
-					decls.String, decls.NewMapType(decls.String, decls.Bool),
-				}, decls.Bool))),
-		HomogeneousAggregateLiterals())
+		Variable("name", StringType),
+		Function(operators.In,
+			Overload(overloads.InList, []*Type{StringType, ListType(StringType)}, BoolType,
+				BinaryBinding(func(lhs, rhs ref.Val) ref.Val {
+					return rhs.(traits.Container).Contains(lhs)
+				}),
+			),
+			Overload(overloads.InMap, []*Type{StringType, MapType(StringType, BoolType)}, BoolType,
+				BinaryBinding(func(lhs, rhs ref.Val) ref.Val {
+					return rhs.(traits.Container).Contains(lhs)
+				}),
+			),
+		),
+		HomogeneousAggregateLiterals(),
+	)
 	if err != nil {
 		t.Fatalf("NewCustomEnv() failed: %v", err)
 	}
-
-	funcs := Functions(&functions.Overload{
-		Operator: operators.In,
-		Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
-			if rhs.Type().HasTrait(traits.ContainerType) {
-				return rhs.(traits.Container).Contains(lhs)
-			}
-			return types.ValOrErr(rhs, "no such overload")
-		},
-	})
 
 	tests := []struct {
 		name string
@@ -326,7 +314,7 @@ func TestHomogeneousAggregateLiterals(t *testing.T) {
 			if iss.Err() != nil {
 				t.Fatalf("e.Compile(%v) failed: %v", tc.expr, iss.Err())
 			}
-			prg, err := e.Program(ast, funcs)
+			prg, err := e.Program(ast)
 			if err != nil {
 				t.Fatalf("e.Program() failed: %v", err)
 			}
@@ -415,7 +403,6 @@ func TestCrossTypeNumericComparisons(t *testing.T) {
 }
 
 func TestCustomTypes(t *testing.T) {
-	exprType := decls.NewObjectType("google.api.expr.v1alpha1.Expr")
 	reg := types.NewEmptyRegistry()
 	e, _ := NewEnv(
 		CustomTypeAdapter(reg),
@@ -426,8 +413,8 @@ func TestCustomTypes(t *testing.T) {
 			types.BoolType,
 			types.IntType,
 			types.StringType),
-		Declarations(
-			decls.NewVar("expr", exprType)))
+		Variable("expr", ObjectType("google.api.expr.v1alpha1.Expr")),
+	)
 
 	ast, _ := e.Compile(`
 		expr == Expr{id: 2,
@@ -437,8 +424,8 @@ func TestCustomTypes(t *testing.T) {
 					Expr{id: 1, ident_expr: Expr.Ident{ name: "a" }},
 					Expr{id: 3, ident_expr: Expr.Ident{ name: "b" }}]
 			}}`)
-	if !proto.Equal(ast.ResultType(), decls.Bool) {
-		t.Fatalf("got %v, wanted type bool", ast.ResultType())
+	if ast.OutputType() != BoolType {
+		t.Fatalf("got %v, wanted type bool", ast.OutputType())
 	}
 	prg, _ := e.Program(ast)
 	vars := map[string]interface{}{"expr": &exprpb.Expr{
@@ -481,9 +468,8 @@ func TestTypeIsolation(t *testing.T) {
 
 	e, err := NewEnv(
 		TypeDescs(&fds),
-		Declarations(
-			decls.NewVar("myteam",
-				decls.NewObjectType("cel.testdata.Team"))))
+		Variable("myteam", ObjectType("cel.testdata.Team")),
+	)
 	if err != nil {
 		t.Fatalf("NewEnv() failed: %v", err)
 	}
@@ -495,10 +481,7 @@ func TestTypeIsolation(t *testing.T) {
 	}
 
 	// Ensure that isolated types don't leak through.
-	e2, _ := NewEnv(
-		Declarations(
-			decls.NewVar("myteam",
-				decls.NewObjectType("cel.testdata.Team"))))
+	e2, _ := NewEnv(Variable("myteam", ObjectType("cel.testdata.Team")))
 	_, iss = e2.Compile(src)
 	if iss == nil || iss.Err() == nil {
 		t.Errorf("wanted compile failure for unknown message.")
@@ -596,7 +579,7 @@ func TestDynamicProto_Input(t *testing.T) {
 		// however, it tests a different code path which aggregates individual
 		// FileDescriptorProto values together.
 		TypeDescs(fileCopy...),
-		Declarations(decls.NewVar("mutant", decls.NewObjectType("cel.testdata.Mutant"))),
+		Variable("mutant", ObjectType("cel.testdata.Mutant")),
 	)
 	if err != nil {
 		t.Fatalf("NewEnv() failed: %v", err)
@@ -626,50 +609,40 @@ func TestDynamicProto_Input(t *testing.T) {
 }
 
 func TestGlobalVars(t *testing.T) {
-	mapStrDyn := decls.NewMapType(decls.String, decls.Dyn)
-	e, _ := NewEnv(
-		Declarations(
-			decls.NewVar("attrs", mapStrDyn),
-			decls.NewVar("default", decls.Dyn),
-			decls.NewFunction(
-				"get",
-				decls.NewInstanceOverload(
-					"get_map",
-					[]*exprpb.Type{mapStrDyn, decls.String, decls.Dyn},
-					decls.Dyn))))
-	ast, _ := e.Compile(`attrs.get("first", attrs.get("second", default))`)
-
-	// Create the program.
-	funcs := Functions(
-		&functions.Overload{
-			Operator: "get",
-			Function: func(args ...ref.Val) ref.Val {
-				if len(args) != 3 {
-					return types.NewErr("invalid arguments to 'get'")
-				}
-				attrs, ok := args[0].(traits.Mapper)
-				if !ok {
-					return types.NewErr(
-						"invalid operand of type '%v' to obj.get(key, def)",
-						args[0].Type())
-				}
-				key, ok := args[1].(types.String)
-				if !ok {
-					return types.NewErr(
-						"invalid key of type '%v' to obj.get(key, def)",
-						args[1].Type())
-				}
-				defVal := args[2]
-				if attrs.Contains(key) == types.True {
-					return attrs.Get(key)
-				}
-				return defVal
-			}})
+	e, err := NewEnv(
+		Variable("attrs", MapType(StringType, DynType)),
+		Variable("default", DynType),
+		Function("get",
+			MemberOverload("get_map", []*Type{MapType(StringType, DynType), StringType, DynType}, DynType,
+				FunctionBinding(func(args ...ref.Val) ref.Val {
+					attrs, ok := args[0].(traits.Mapper)
+					if !ok {
+						return types.NewErr(
+							"invalid operand of type '%v' to obj.get(key, def)",
+							args[0].Type())
+					}
+					key := args[1]
+					defVal := args[2]
+					if attrs.Contains(key) == types.True {
+						return attrs.Get(key)
+					}
+					return defVal
+				}),
+			),
+		),
+	)
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	ast, iss := e.Compile(`attrs.get("first", attrs.get("second", default))`)
+	if iss.Err() != nil {
+		t.Fatalf("e.Parse() failed: %v", iss.Err())
+	}
 
 	// Global variables can be configured as a ProgramOption and optionally overridden on Eval.
 	// Add a previous globals map to confirm the order of shadowing and a final empty global
 	// map to show that globals are not clobbered.
-	prg, _ := e.Program(ast, funcs,
+	prg, err := e.Program(ast,
 		Globals(map[string]interface{}{
 			"default": "shadow me",
 		}),
@@ -678,11 +651,27 @@ func TestGlobalVars(t *testing.T) {
 		}),
 		Globals(map[string]interface{}{}),
 	)
+	if err != nil {
+		t.Fatalf("e.Program() failed: %v", err)
+	}
+
+	t.Run("bad_attrs", func(t *testing.T) {
+		out, _, err := prg.Eval(map[string]interface{}{
+			"attrs": []string{"one", "two"},
+		})
+		if err == nil {
+			t.Errorf("prg.Eval() of incorrect arg type invoked function, wanted error, got %v", out)
+		}
+	})
 
 	t.Run("global_default", func(t *testing.T) {
 		vars := map[string]interface{}{
-			"attrs": map[string]interface{}{}}
-		out, _, _ := prg.Eval(vars)
+			"attrs": map[string]interface{}{},
+		}
+		out, _, err := prg.Eval(vars)
+		if err != nil {
+			t.Fatalf("prg.Eval() failed: %v", err)
+		}
 		if out.Equal(types.String("third")) != types.True {
 			t.Errorf("got '%v', expected 'third'.", out.Value())
 		}
@@ -829,9 +818,9 @@ func TestAstIsChecked(t *testing.T) {
 
 func TestEvalOptions(t *testing.T) {
 	e, _ := NewEnv(
-		Declarations(
-			decls.NewVar("k", decls.String),
-			decls.NewVar("v", decls.Bool)))
+		Variable("k", StringType),
+		Variable("v", BoolType),
+	)
 	ast, _ := e.Compile(`{k: true}[k] || v != false`)
 
 	prg, err := e.Program(ast, EvalOptions(OptExhaustiveEval))
@@ -871,11 +860,7 @@ func TestEvalOptions(t *testing.T) {
 }
 
 func TestContextEval(t *testing.T) {
-	env, err := NewEnv(
-		Declarations(
-			decls.NewVar("items", decls.NewListType(decls.Int)),
-		),
-	)
+	env, err := NewEnv(Variable("items", ListType(IntType)))
 	if err != nil {
 		t.Fatalf("NewEnv() failed: %v", err)
 	}
@@ -915,9 +900,7 @@ func TestContextEval(t *testing.T) {
 
 func BenchmarkContextEval(b *testing.B) {
 	env, err := NewEnv(
-		Declarations(
-			decls.NewVar("items", decls.NewListType(decls.Int)),
-		),
+		Variable("items", ListType(IntType)),
 	)
 	if err != nil {
 		b.Fatalf("NewEnv() failed: %v", err)
@@ -949,28 +932,32 @@ func BenchmarkContextEval(b *testing.B) {
 
 func TestEvalRecover(t *testing.T) {
 	e, err := NewEnv(
-		Declarations(
-			decls.NewFunction("panic",
-				decls.NewOverload("panic", []*exprpb.Type{}, decls.Bool)),
-		))
+		Function("panic",
+			Overload("global_panic", []*Type{}, BoolType,
+				FunctionBinding(func(args ...ref.Val) ref.Val {
+					panic("watch me recover")
+				}),
+			),
+		),
+	)
 	if err != nil {
 		t.Fatalf("NewEnv() failed: %v", err)
 	}
-	funcs := Functions(&functions.Overload{
-		Operator: "panic",
-		Function: func(args ...ref.Val) ref.Val {
-			panic("watch me recover")
-		},
-	})
 	// Test standard evaluation.
-	pAst, _ := e.Parse("panic()")
-	prgm, _ := e.Program(pAst, funcs)
+	pAst, iss := e.Parse("panic()")
+	if iss.Err() != nil {
+		t.Fatalf("e.Parse('panic()') failed: %v", iss.Err())
+	}
+	prgm, err := e.Program(pAst)
+	if err != nil {
+		t.Fatalf("e.Program(Ast) failed: %v", err)
+	}
 	_, _, err = prgm.Eval(map[string]interface{}{})
 	if err.Error() != "internal error: watch me recover" {
 		t.Errorf("got '%v', wanted 'internal error: watch me recover'", err)
 	}
 	// Test the factory-based evaluation.
-	prgm, _ = e.Program(pAst, funcs, EvalOptions(OptTrackState))
+	prgm, _ = e.Program(pAst, EvalOptions(OptTrackState))
 	_, _, err = prgm.Eval(map[string]interface{}{})
 	if err.Error() != "internal error: watch me recover" {
 		t.Errorf("got '%v', wanted 'internal error: watch me recover'", err)
@@ -979,10 +966,8 @@ func TestEvalRecover(t *testing.T) {
 
 func TestResidualAst(t *testing.T) {
 	e, _ := NewEnv(
-		Declarations(
-			decls.NewVar("x", decls.Int),
-			decls.NewVar("y", decls.Int),
-		),
+		Variable("x", IntType),
+		Variable("y", IntType),
 	)
 	unkVars := e.UnknownVars()
 	ast, _ := e.Parse(`x < 10 && (y == 0 || 'hello' != 'goodbye')`)
@@ -1011,12 +996,9 @@ func TestResidualAst(t *testing.T) {
 
 func TestResidualAst_Complex(t *testing.T) {
 	e, _ := NewEnv(
-		Declarations(
-			decls.NewVar("resource.name", decls.String),
-			decls.NewVar("request.time", decls.Timestamp),
-			decls.NewVar("request.auth.claims",
-				decls.NewMapType(decls.String, decls.String)),
-		),
+		Variable("resource.name", StringType),
+		Variable("request.time", TimestampType),
+		Variable("request.auth.claims", MapType(StringType, StringType)),
 	)
 	unkVars, _ := PartialVars(
 		map[string]interface{}{
@@ -1059,10 +1041,8 @@ func TestResidualAst_Complex(t *testing.T) {
 
 func Benchmark_EvalOptions(b *testing.B) {
 	e, _ := NewEnv(
-		Declarations(
-			decls.NewVar("ai", decls.Int),
-			decls.NewVar("ar", decls.NewMapType(decls.String, decls.String)),
-		),
+		Variable("ai", IntType),
+		Variable("ar", MapType(StringType, StringType)),
 	)
 	ast, _ := e.Compile("ai == 20 || ar['foo'] == 'bar'")
 	vars := map[string]interface{}{
@@ -1096,10 +1076,7 @@ func TestEnvExtension(t *testing.T) {
 	e, _ := NewEnv(
 		Container("google.api.expr.v1alpha1"),
 		Types(&exprpb.Expr{}),
-		Declarations(
-			decls.NewVar("expr",
-				decls.NewObjectType("google.api.expr.v1alpha1.Expr")),
-		),
+		Variable("expr", ObjectType("google.api.expr.v1alpha1.Expr")),
 	)
 	e2, _ := e.Extend(
 		CustomTypeAdapter(types.DefaultTypeAdapter),
@@ -1126,24 +1103,24 @@ func TestEnvExtension(t *testing.T) {
 func TestEnvExtensionIsolation(t *testing.T) {
 	baseEnv, err := NewEnv(
 		Container("google.expr"),
-		Declarations(
-			decls.NewVar("age", decls.Int),
-			decls.NewVar("gender", decls.String),
-			decls.NewVar("country", decls.String),
-		),
+		Variable("age", IntType),
+		Variable("gender", StringType),
+		Variable("country", StringType),
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
 	env1, err := baseEnv.Extend(
 		Types(&proto2pb.TestAllTypes{}),
-		Declarations(decls.NewVar("name", decls.String)))
+		Variable("name", StringType),
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
 	env2, err := baseEnv.Extend(
 		Types(&proto3pb.TestAllTypes{}),
-		Declarations(decls.NewVar("group", decls.String)))
+		Variable("group", StringType),
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1223,10 +1200,7 @@ func TestParseAndCheckConcurrently(t *testing.T) {
 	e, err := NewEnv(
 		Container("google.api.expr.v1alpha1"),
 		Types(&exprpb.Expr{}),
-		Declarations(
-			decls.NewVar("expr",
-				decls.NewObjectType("google.api.expr.v1alpha1.Expr")),
-		),
+		Variable("expr", ObjectType("google.api.expr.v1alpha1.Expr")),
 	)
 	if err != nil {
 		t.Fatalf("NewEnv() failed: %v", err)
@@ -1286,7 +1260,7 @@ func TestCustomInterpreterDecorator(t *testing.T) {
 		}
 	}
 
-	env, _ := NewEnv(Declarations(decls.NewVar("foo", decls.Int)))
+	env, _ := NewEnv(Variable("foo", IntType))
 	ast, _ := env.Compile(`foo == -1 + 2 * 3 / 3`)
 	_, err := env.Program(ast,
 		EvalOptions(OptPartialEval),
@@ -1369,12 +1343,12 @@ func (e testRuntimeCostEstimator) CallCost(function, overloadID string, args []r
 
 // TestEstimateCostAndRuntimeCost sanity checks that the cost systems are usable from the program API.
 func TestEstimateCostAndRuntimeCost(t *testing.T) {
-	intList := decls.NewListType(decls.Int)
+	intList := ListType(IntType)
 	zeroCost := checker.CostEstimate{}
 	cases := []struct {
 		name  string
 		expr  string
-		decls []*exprpb.Decl
+		decls []EnvOption
 		hints map[string]int64
 		want  checker.CostEstimate
 		in    interface{}
@@ -1388,16 +1362,16 @@ func TestEstimateCostAndRuntimeCost(t *testing.T) {
 		{
 			name:  "identity",
 			expr:  `input`,
-			decls: []*exprpb.Decl{decls.NewVar("input", intList)},
+			decls: []EnvOption{Variable("input", intList)},
 			want:  checker.CostEstimate{Min: 1, Max: 1},
 			in:    map[string]interface{}{"input": []int{1, 2}},
 		},
 		{
 			name: "str concat",
 			expr: `"abcdefg".contains(str1 + str2)`,
-			decls: []*exprpb.Decl{
-				decls.NewVar("str1", decls.String),
-				decls.NewVar("str2", decls.String),
+			decls: []EnvOption{
+				Variable("str1", StringType),
+				Variable("str2", StringType),
 			},
 			hints: map[string]int64{"str1": 10, "str2": 10},
 			want:  checker.CostEstimate{Min: 2, Max: 6},
@@ -1410,9 +1384,7 @@ func TestEstimateCostAndRuntimeCost(t *testing.T) {
 			if tc.hints == nil {
 				tc.hints = map[string]int64{}
 			}
-			e, err := NewEnv(
-				Declarations(tc.decls...),
-				Types(&proto3pb.TestAllTypes{}))
+			e, err := NewEnv(append(tc.decls, Types(&proto3pb.TestAllTypes{}))...)
 			if err != nil {
 				t.Fatalf("NewEnv(opts ...EnvOption) failed to create an environment: %s\n", err)
 			}
@@ -1457,11 +1429,9 @@ func TestEstimateCostAndRuntimeCost(t *testing.T) {
 
 func TestResidualAst_AttributeQualifiers(t *testing.T) {
 	e, _ := NewEnv(
-		Declarations(
-			decls.NewVar("x", decls.NewMapType(decls.String, decls.Dyn)),
-			decls.NewVar("y", decls.NewListType(decls.Int)),
-			decls.NewVar("u", decls.Int),
-		),
+		Variable("x", MapType(StringType, DynType)),
+		Variable("y", ListType(IntType)),
+		Variable("u", IntType),
 	)
 	ast, _ := e.Parse(`x.abc == u && x["abc"] == u && x[x.string] == u && y[0] == u && y[x.zero] == u && (true ? x : y).abc == u && (false ? y : x).abc == u`)
 	prg, _ := e.Program(ast,
@@ -1498,10 +1468,8 @@ func TestResidualAst_AttributeQualifiers(t *testing.T) {
 
 func TestResidualAst_Modified(t *testing.T) {
 	e, _ := NewEnv(
-		Declarations(
-			decls.NewVar("x", decls.NewMapType(decls.String, decls.Int)),
-			decls.NewVar("y", decls.Int),
-		),
+		Variable("x", MapType(StringType, IntType)),
+		Variable("y", IntType),
 	)
 	ast, _ := e.Parse("x == y")
 	prg, _ := e.Program(ast,

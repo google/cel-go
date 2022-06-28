@@ -8,6 +8,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "cel.go",
+        "decls.go",
         "env.go",
         "io.go",
         "library.go",
@@ -46,6 +47,7 @@ go_test(
     srcs = [
         "cel_example_test.go",
         "cel_test.go",
+        "decls_test.go",
         "env_test.go",
         "io_test.go",
     ],
@@ -56,13 +58,11 @@ go_test(
         ":go_default_library",
     ],
     deps = [
-        "//checker/decls:go_default_library",
         "//common/operators:go_default_library",
         "//common/overloads:go_default_library",
         "//common/types:go_default_library",
         "//common/types/ref:go_default_library",
         "//common/types/traits:go_default_library",
-        "//interpreter/functions:go_default_library",
         "//test:go_default_library",
         "//test/proto2pb:go_default_library",
         "//test/proto3pb:go_default_library",
