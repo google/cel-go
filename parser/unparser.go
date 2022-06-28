@@ -36,9 +36,26 @@ import (
 // - Floating point values are converted to the small number of digits needed to represent the value.
 // - Spacing around punctuation marks may be lost.
 // - Parentheses will only be applied when they affect operator precedence.
-func Unparse(expr *exprpb.Expr, info *exprpb.SourceInfo) (string, error) {
-	un := &unparser{info: info}
-	err := un.visit(expr)
+//
+// This function optionally takes in one or more UnparserFormattingOption to dictate the formatting of the output.
+func Unparse(expr *exprpb.Expr, info *exprpb.SourceInfo, opts ...UnparserFormattingOption) (string, error) {
+	formattingOpts := &formattingOption{
+		wrapColumn: defaultWrapColumn,
+	}
+
+	var err error
+	for _, opt := range opts {
+		formattingOpts, err = opt(formattingOpts)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	un := &unparser{
+		info:    info,
+		options: formattingOpts,
+	}
+	err = un.visit(expr)
 	if err != nil {
 		return "", err
 	}
@@ -47,8 +64,10 @@ func Unparse(expr *exprpb.Expr, info *exprpb.SourceInfo) (string, error) {
 
 // unparser visits an expression to reconstruct a human-readable string from an AST.
 type unparser struct {
-	str  strings.Builder
-	info *exprpb.SourceInfo
+	str              strings.Builder
+	info             *exprpb.SourceInfo
+	options          *formattingOption
+	lastWrappedIndex int
 }
 
 func (un *unparser) visit(expr *exprpb.Expr) error {
@@ -135,9 +154,12 @@ func (un *unparser) visitCallBinary(expr *exprpb.Expr) error {
 	if !found {
 		return fmt.Errorf("cannot unmangle operator: %s", fun)
 	}
+
 	un.str.WriteString(" ")
 	un.str.WriteString(unmangled)
-	un.str.WriteString(" ")
+	if !un.wrapForOperator(fun) {
+		un.str.WriteString(" ")
+	}
 	return un.visitMaybeNested(rhs, rhsParen)
 }
 
@@ -151,7 +173,11 @@ func (un *unparser) visitCallConditional(expr *exprpb.Expr) error {
 	if err != nil {
 		return err
 	}
-	un.str.WriteString(" ? ")
+	un.str.WriteString(" ?")
+	if !un.wrapForOperator(operators.Conditional) {
+		un.str.WriteString(" ")
+	}
+
 	// add parens if operand is a conditional itself.
 	nested = isSamePrecedence(operators.Conditional, args[1]) ||
 		isComplexOperator(args[1])
@@ -159,6 +185,7 @@ func (un *unparser) visitCallConditional(expr *exprpb.Expr) error {
 	if err != nil {
 		return err
 	}
+
 	un.str.WriteString(" : ")
 	// add parens if operand is a conditional itself.
 	nested = isSamePrecedence(operators.Conditional, args[2]) ||
@@ -443,4 +470,77 @@ func bytesToOctets(byteVal []byte) string {
 		fmt.Fprintf(&b, "\\%03o", c)
 	}
 	return b.String()
+}
+
+// Takes in a function then inserts a newline based on the rules provided in formatting options
+func (un *unparser) wrapForOperator(fun string) bool {
+	_, wrapOperatorExists := un.options.operatorsToWrapOn[fun]
+	lineLength := un.str.Len() - un.lastWrappedIndex
+	if wrapOperatorExists && lineLength >= un.options.wrapColumn {
+		un.lastWrappedIndex = un.str.Len()
+		un.str.WriteString("\n")
+		return true
+	}
+	return false
+}
+
+// Defined defaults for the formatting options
+var (
+	defaultWrapColumn = 80
+)
+
+// UnparserFormattingOption is a funcitonal option for configuring the output formatting
+// of the Unparse function.
+type UnparserFormattingOption func(*formattingOption) (*formattingOption, error)
+
+// Internal representation of the UnparserFormattingOption type
+type formattingOption struct {
+	wrapColumn        int // Defaults to 80
+	operatorsToWrapOn map[string]bool
+}
+
+// WrapOnColumn returns an UnparserFormattingOption with the column limit set.
+// Word wrapping will be performed when a line's length exceeds the limit
+// for operators set by WrapOnOperators function.
+//
+// Example usage:
+//
+//	Unparse(expr, sourceInfo, WrapColumn(3), WrapOnOperators(Operators.LogicalAnd))
+//
+// This will insert a newline immediately after the logical AND operator for the below example input:
+//
+// Input: a && b
+// Output: a &&\nb
+func WrapColumn(col int) UnparserFormattingOption {
+	return func(opt *formattingOption) (*formattingOption, error) {
+		if col < 1 {
+			return nil, fmt.Errorf("Invalid formatting option. Wrap column value must be greater than or equal to 1. Got %v instead", col)
+		}
+		opt.wrapColumn = col
+		return opt, nil
+	}
+}
+
+// WrapOnOperators returns an UnparserFormattedOption with operators to perform word wrapping on.
+// Word wrapping is supported on non-unary symbolic operators. Refer to operators.go for the full list
+//
+// This will replace any previously supplied operators instead of merging them.
+func WrapOnOperators(symbols ...string) UnparserFormattingOption {
+	return func(fmtOpt *formattingOption) (*formattingOption, error) {
+		fmtOpt.operatorsToWrapOn = make(map[string]bool)
+		for _, symbol := range symbols {
+			_, found := operators.FindReverse(symbol)
+			if !found {
+				return nil, fmt.Errorf("Invalid formatting option. Unsupported operator: %s", symbol)
+			}
+			arity := operators.Arity(symbol)
+			if arity < 2 {
+				return nil, fmt.Errorf("Invalid formatting option. Unary operators are unsupported: %s", symbol)
+			}
+
+			fmtOpt.operatorsToWrapOn[symbol] = true
+		}
+
+		return fmtOpt, nil
+	}
 }
