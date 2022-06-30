@@ -56,6 +56,11 @@ const (
 	// Enable eager validation of declarations to ensure that Env values created
 	// with `Extend` inherit a validated list of declarations from the parent Env.
 	featureEagerlyValidateDeclarations
+
+	// Enable the use of the default UTC timezone when a timezone is not specified
+	// on a CEL timestamp operation. This fixes the scenario where the input time
+	// is not already in UTC.
+	featureDefaultUTCTimeZone
 )
 
 // EnvOption is a functional interface for configuring the environment.
@@ -523,10 +528,10 @@ func CrossTypeNumericComparisons(enabled bool) EnvOption {
 	return features(featureCrossTypeNumericComparisons, enabled)
 }
 
-// EnableDefaultUTCTimeZone ensures that time-based operations use the UTC timezone rather than the
+// DefaultUTCTimeZone ensures that time-based operations use the UTC timezone rather than the
 // input time's local timezone.
-func EnableDefaultUTCTimeZone() EnvOption {
-	return Lib(timeUTCLibrary{})
+func DefaultUTCTimeZone(enabled bool) EnvOption {
+	return features(featureDefaultUTCTimeZone, enabled)
 }
 
 // features sets the given feature flags.  See list of Feature constants above.

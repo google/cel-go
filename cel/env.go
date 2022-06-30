@@ -452,6 +452,14 @@ func (e *Env) configure(opts []EnvOption) (*Env, error) {
 		}
 	}
 
+	// If the default UTC timezone fix has been enabled, make sure the library is configured
+	if e.HasFeature(featureDefaultUTCTimeZone) {
+		e, err = Lib(timeUTCLibrary{})(e)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	// Initialize all of the functions configured within the environment.
 	for _, fn := range e.functions {
 		err = fn.init()

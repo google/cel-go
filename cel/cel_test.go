@@ -1650,8 +1650,8 @@ func TestRegexOptimizer(t *testing.T) {
 	}
 }
 
-func TestUseUTCTimeZone(t *testing.T) {
-	env, err := NewEnv(Variable("x", TimestampType), EnableDefaultUTCTimeZone())
+func TestDefaultUTCTimeZone(t *testing.T) {
+	env, err := NewEnv(Variable("x", TimestampType), DefaultUTCTimeZone(true))
 	if err != nil {
 		t.Fatalf("NewEnv() failed: %v", err)
 	}
@@ -1703,8 +1703,8 @@ func TestUseUTCTimeZone(t *testing.T) {
 	}
 }
 
-func TestUseUTCTimeZoneError(t *testing.T) {
-	env, err := NewEnv(Variable("x", TimestampType), EnableDefaultUTCTimeZone())
+func TestDefaultUTCTimeZoneError(t *testing.T) {
+	env, err := NewEnv(Variable("x", TimestampType), DefaultUTCTimeZone(true))
 	if err != nil {
 		t.Fatalf("NewEnv() failed: %v", err)
 	}
