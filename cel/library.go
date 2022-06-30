@@ -69,11 +69,10 @@ type stdLibrary struct{}
 
 // EnvOptions returns options for the standard CEL function declarations and macros.
 func (stdLibrary) CompileOptions() []EnvOption {
-	opts := []EnvOption{
+	return []EnvOption{
 		Declarations(checker.StandardDeclarations()...),
 		Macros(StandardMacros...),
 	}
-	return opts
 }
 
 // ProgramOptions returns function implementations for the standard CEL functions.
