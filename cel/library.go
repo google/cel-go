@@ -17,7 +17,6 @@ package cel
 import (
 	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/interpreter/functions"
-	"github.com/google/cel-go/parser"
 )
 
 // Library provides a collection of EnvOption and ProgramOption values used to configure a CEL
@@ -65,7 +64,7 @@ type stdLibrary struct{}
 func (stdLibrary) CompileOptions() []EnvOption {
 	return []EnvOption{
 		Declarations(checker.StandardDeclarations()...),
-		Macros(parser.AllMacros...),
+		Macros(StandardMacros...),
 	}
 }
 

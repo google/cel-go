@@ -12,6 +12,7 @@ go_library(
         "env.go",
         "io.go",
         "library.go",
+        "macro.go",
         "options.go",
         "program.go",
     ],

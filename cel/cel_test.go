@@ -36,7 +36,6 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 	"github.com/google/cel-go/interpreter"
-	"github.com/google/cel-go/parser"
 	"github.com/google/cel-go/test"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
@@ -694,7 +693,7 @@ func TestMacroSubset(t *testing.T) {
 	// Only enable the 'has' macro rather than all parser macros.
 	env, err := NewEnv(
 		ClearMacros(),
-		Macros(parser.HasMacro),
+		Macros(HasMacro),
 		Variable("name", MapType(StringType, StringType)),
 	)
 	if err != nil {
@@ -719,40 +718,41 @@ func TestMacroSubset(t *testing.T) {
 }
 
 func TestCustomMacro(t *testing.T) {
-	joinMacro := parser.NewReceiverMacro("join", 1,
-		func(eh parser.ExprHelper,
+	joinMacro := NewReceiverMacro("join", 1,
+		func(mh MacroExprHelper,
 			target *exprpb.Expr,
 			args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
 			delim := args[0]
-			iterIdent := eh.Ident("__iter__")
-			accuIdent := eh.Ident("__result__")
-			init := eh.LiteralString("")
-			condition := eh.LiteralBool(true)
-			step := eh.GlobalCall(
+			iterIdent := mh.Ident("__iter__")
+			accuIdent := mh.AccuIdent()
+			init := mh.LiteralString("")
+			condition := mh.LiteralBool(true)
+			step := mh.GlobalCall(
 				operators.Conditional,
-				eh.GlobalCall(operators.Greater,
-					eh.ReceiverCall("size", accuIdent),
-					eh.LiteralInt(0)),
-				eh.GlobalCall(
+				mh.GlobalCall(operators.Greater,
+					mh.ReceiverCall("size", accuIdent),
+					mh.LiteralInt(0)),
+				mh.GlobalCall(
 					operators.Add,
-					eh.GlobalCall(
+					mh.GlobalCall(
 						operators.Add,
 						accuIdent,
 						delim),
 					iterIdent),
 				iterIdent)
-			return eh.Fold(
+			return mh.Fold(
 				"__iter__",
 				target,
-				"__result__",
+				accuIdent.GetIdentExpr().GetName(),
 				init,
 				condition,
 				step,
 				accuIdent), nil
 		})
-	e, _ := NewEnv(
-		Macros(joinMacro),
-	)
+	e, err := NewEnv(Macros(HasMacro, joinMacro))
+	if err != nil {
+		t.Fatalf("NewEnv(joinMacro) failed: %v", err)
+	}
 	ast, iss := e.Compile(`['hello', 'cel', 'friend'].join(',')`)
 	if iss.Err() != nil {
 		t.Fatal(iss.Err())
