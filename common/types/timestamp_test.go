@@ -23,6 +23,7 @@ import (
 
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types/ref"
+
 	"google.golang.org/protobuf/proto"
 
 	anypb "google.golang.org/protobuf/types/known/anypb"
@@ -312,9 +313,48 @@ func TestTimestampConvertToNative(t *testing.T) {
 	}
 }
 
+func TestTimestampGetDayOfMonth(t *testing.T) {
+	// 1970-01-01T02:05:06Z
+	ts := timestampOf(time.Unix(7506, 0).UTC())
+	mon := ts.Receive(overloads.TimeGetDayOfMonth, overloads.TimestampToDayOfMonthZeroBased, []ref.Val{})
+	if !mon.Equal(Int(0)).(Bool) {
+		t.Errorf("ts.getDayOfMonth() got %v, wanted 0", mon)
+	}
+	// 1969-12-31T19:05:06Z
+	monTz := ts.Receive(overloads.TimeGetDayOfMonth, overloads.TimestampToDayOfMonthZeroBasedWithTz,
+		[]ref.Val{String("America/Phoenix")})
+	if !monTz.Equal(Int(30)).(Bool) {
+		t.Errorf("ts.getDayOfMonth() got %v, wanted 30", mon)
+	}
+	// 1969-12-31T19:05:06Z
+	monTz = ts.Receive(overloads.TimeGetDayOfMonth, overloads.TimestampToDayOfMonthZeroBasedWithTz,
+		[]ref.Val{String("-07:00")})
+	if !monTz.Equal(Int(30)).(Bool) {
+		t.Errorf("ts.getDayOfMonth() got %v, wanted 30", mon)
+	}
+
+	// 1970-01-01T02:05:06Z
+	mon = ts.Receive(overloads.TimeGetDate, overloads.TimestampToDayOfMonthOneBased, []ref.Val{})
+	if !mon.Equal(Int(1)).(Bool) {
+		t.Errorf("ts.getDate() got %v, wanted 1", mon)
+	}
+	// 1969-12-31T19:05:06Z
+	monTz = ts.Receive(overloads.TimeGetDate, overloads.TimestampToDayOfMonthOneBasedWithTz,
+		[]ref.Val{String("America/Phoenix")})
+	if !monTz.Equal(Int(31)).(Bool) {
+		t.Errorf("ts.getDate() got %v, wanted 31", mon)
+	}
+	// 1970-01-02T01:05:06Z
+	monTz = ts.Receive(overloads.TimeGetDate, overloads.TimestampToDayOfMonthOneBasedWithTz,
+		[]ref.Val{String("+23:00")})
+	if !monTz.Equal(Int(2)).(Bool) {
+		t.Errorf("ts.getDate() got %v, wanted 2", mon)
+	}
+}
+
 func TestTimestampGetDayOfYear(t *testing.T) {
 	// 1970-01-01T02:05:06Z
-	ts := Timestamp{Time: time.Unix(7506, 0).UTC()}
+	ts := timestampOf(time.Unix(7506, 0).UTC())
 	hr := ts.Receive(overloads.TimeGetDayOfYear, overloads.TimestampToDayOfYear, []ref.Val{})
 	if !hr.Equal(Int(0)).(Bool) {
 		t.Error("Expected 0, got", hr)
@@ -332,18 +372,48 @@ func TestTimestampGetDayOfYear(t *testing.T) {
 	}
 }
 
+func TestTimestampGetFullYear(t *testing.T) {
+	// 1970-01-01T02:05:06Z
+	ts := Timestamp{Time: time.Unix(7506, 0).UTC()}
+	year := ts.Receive(overloads.TimeGetFullYear, overloads.TimestampToYear, []ref.Val{})
+	if !year.Equal(Int(1970)).(Bool) {
+		t.Errorf("ts.getFullYear() got %v, wanted 1970", year)
+	}
+	// 1969-12-31T19:05:06Z
+	yearTz := ts.Receive(overloads.TimeGetFullYear, overloads.TimestampToYearWithTz,
+		[]ref.Val{String("America/Phoenix")})
+	if !yearTz.Equal(Int(1969)).(Bool) {
+		t.Errorf("ts.getFullYear('America/Phoenix') got %v, wanted 1969", yearTz)
+	}
+}
+
 func TestTimestampGetMonth(t *testing.T) {
 	// 1970-01-01T02:05:06Z
 	ts := Timestamp{Time: time.Unix(7506, 0).UTC()}
 	hr := ts.Receive(overloads.TimeGetMonth, overloads.TimestampToMonth, []ref.Val{})
 	if !hr.Equal(Int(0)).(Bool) {
-		t.Error("Expected 0, got", hr)
+		t.Errorf("ts.getMonth() got %v, wanted 0", hr)
 	}
 	// 1969-12-31T19:05:06Z
 	hrTz := ts.Receive(overloads.TimeGetMonth, overloads.TimestampToMonthWithTz,
 		[]ref.Val{String("America/Phoenix")})
 	if !hrTz.Equal(Int(11)).(Bool) {
-		t.Error("Expected 11, got", hrTz)
+		t.Errorf("ts.getMonth('America/Phoenix') got %v, wanted 11", hrTz)
+	}
+}
+
+func TestTimestampGetDayOfWeek(t *testing.T) {
+	// 1970-01-01T02:05:06Z
+	ts := Timestamp{Time: time.Unix(7506, 0).UTC()}
+	day := ts.Receive(overloads.TimeGetDayOfWeek, overloads.TimestampToDayOfWeek, []ref.Val{})
+	if !day.Equal(Int(4)).(Bool) {
+		t.Errorf("ts.getDayOfWeek() got %v, wanted 4", day)
+	}
+	// 1969-12-31T19:05:06Z
+	dayTz := ts.Receive(overloads.TimeGetDayOfWeek, overloads.TimestampToDayOfWeekWithTz,
+		[]ref.Val{String("America/Phoenix")})
+	if !dayTz.Equal(Int(3)).(Bool) {
+		t.Errorf("ts.getDayOfWeek('America/Phoenix') got %v, wanted 3", dayTz)
 	}
 }
 
@@ -352,13 +422,13 @@ func TestTimestampGetHours(t *testing.T) {
 	ts := Timestamp{Time: time.Unix(7506, 0).UTC()}
 	hr := ts.Receive(overloads.TimeGetHours, overloads.TimestampToHours, []ref.Val{})
 	if !hr.Equal(Int(2)).(Bool) {
-		t.Error("Expected 2 hours, got", hr)
+		t.Errorf("ts.getHours() got %v, wanted 2", hr)
 	}
 	// 1969-12-31T19:05:06Z
 	hrTz := ts.Receive(overloads.TimeGetHours, overloads.TimestampToHoursWithTz,
 		[]ref.Val{String("America/Phoenix")})
 	if !hrTz.Equal(Int(19)).(Bool) {
-		t.Error("Expected 19 hours, got", hrTz)
+		t.Errorf("ts.getHours('America/Phoenix') got %v, wanted 19 hours", hrTz)
 	}
 }
 
@@ -367,13 +437,13 @@ func TestTimestampGetMinutes(t *testing.T) {
 	ts := Timestamp{Time: time.Unix(7506, 0).UTC()}
 	min := ts.Receive(overloads.TimeGetMinutes, overloads.TimestampToMinutes, []ref.Val{})
 	if !min.Equal(Int(5)).(Bool) {
-		t.Error("Expected 5 minutes, got", min)
+		t.Errorf("ts.getMinutes() got %v, wanted 5 minutes", min)
 	}
 	// 1969-12-31T19:05:06Z
 	minTz := ts.Receive(overloads.TimeGetMinutes, overloads.TimestampToMinutesWithTz,
 		[]ref.Val{String("America/Phoenix")})
 	if !minTz.Equal(Int(5)).(Bool) {
-		t.Error("Expected 5 minutes, got", minTz)
+		t.Errorf("ts.getMinutes('America/Phoenix') got %v, wanted 5 minutes", min)
 	}
 }
 
@@ -382,12 +452,27 @@ func TestTimestampGetSeconds(t *testing.T) {
 	ts := Timestamp{Time: time.Unix(7506, 0).UTC()}
 	sec := ts.Receive(overloads.TimeGetSeconds, overloads.TimestampToSeconds, []ref.Val{})
 	if !sec.Equal(Int(6)).(Bool) {
-		t.Error("Expected 6 seconds, got", sec)
+		t.Errorf("ts.getSeconds() got %v, wanted 6 seconds", sec)
 	}
 	// 1969-12-31T19:05:06Z
 	secTz := ts.Receive(overloads.TimeGetSeconds, overloads.TimestampToSecondsWithTz,
 		[]ref.Val{String("America/Phoenix")})
 	if !secTz.Equal(Int(6)).(Bool) {
-		t.Error("Expected 6 seconds, got", secTz)
+		t.Errorf("ts.getSeconds('America/Phoenix') got %v, wanted 6 seconds", secTz)
+	}
+}
+
+func TestTimestampGetMilliseconds(t *testing.T) {
+	// 1970-01-01T02:05:06Z
+	ts := Timestamp{Time: time.Unix(7506, 1000000).UTC()}
+	ms := ts.Receive(overloads.TimeGetMilliseconds, overloads.TimestampToMilliseconds, []ref.Val{})
+	if !ms.Equal(Int(1)).(Bool) {
+		t.Errorf("ts.getMilliseconds() got %v, wanted 1 ms", ms)
+	}
+	// 1969-12-31T19:05:06Z
+	msTz := ts.Receive(overloads.TimeGetMilliseconds, overloads.TimestampToMillisecondsWithTz,
+		[]ref.Val{String("America/Phoenix")})
+	if !msTz.Equal(Int(1)).(Bool) {
+		t.Errorf("ts.getMilliseconds('America/Phoenix') got %v, wanted 1 ms", msTz)
 	}
 }

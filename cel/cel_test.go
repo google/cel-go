@@ -144,7 +144,7 @@ func TestAbbrevsParsed(t *testing.T) {
 	}
 }
 
-func TestAbbrevs_Disambiguation(t *testing.T) {
+func TestAbbrevsDisambiguation(t *testing.T) {
 	env, err := NewEnv(
 		Abbrevs("external.Expr"),
 		Container("google.api.expr.v1alpha1"),
@@ -1085,7 +1085,7 @@ func TestResidualAstComplex(t *testing.T) {
 	}
 }
 
-func Benchmark_EvalOptions(b *testing.B) {
+func BenchmarkEvalOptions(b *testing.B) {
 	e, _ := NewEnv(
 		Variable("ai", IntType),
 		Variable("ar", MapType(StringType, StringType)),
@@ -1647,6 +1647,89 @@ func TestRegexOptimizer(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestUseUTCTimeZone(t *testing.T) {
+	env, err := NewEnv(Variable("x", TimestampType), EnableDefaultUTCTimeZone())
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	ast, iss := env.Compile(`
+		x.getFullYear() == 1970
+		&& x.getMonth() == 0
+		&& x.getDayOfYear() == 0
+		&& x.getDayOfMonth() == 0
+		&& x.getDate() == 1
+		&& x.getDayOfWeek() == 4
+		&& x.getHours() == 2
+		&& x.getMinutes() == 5
+		&& x.getSeconds() == 6
+		&& x.getMilliseconds() == 1
+		&& x.getFullYear('-07:00') == 1969
+		&& x.getDayOfYear('-07:00') == 364
+		&& x.getMonth('-07:00') == 11
+		&& x.getDayOfMonth('-07:00') == 30
+		&& x.getDate('-07:00') == 31
+		&& x.getDayOfWeek('-07:00') == 3
+		&& x.getHours('-07:00') == 19
+		&& x.getMinutes('-07:00') == 5
+		&& x.getSeconds('-07:00') == 6
+		&& x.getMilliseconds('-07:00') == 1
+		&& x.getFullYear('23:00') == 1970
+		&& x.getDayOfYear('23:00') == 1
+		&& x.getMonth('23:00') == 0
+		&& x.getDayOfMonth('23:00') == 1
+		&& x.getDate('23:00') == 2
+		&& x.getDayOfWeek('23:00') == 5
+		&& x.getHours('23:00') == 1
+		&& x.getMinutes('23:00') == 5
+		&& x.getSeconds('23:00') == 6
+		&& x.getMilliseconds('23:00') == 1
+	`)
+	if iss.Err() != nil {
+		t.Fatalf("env.Compile() failed: %v", iss.Err())
+	}
+	prg, err := env.Program(ast)
+	if err != nil {
+		t.Fatalf("env.Program() failed: %v", err)
+	}
+	out, _, err := prg.Eval(map[string]interface{}{"x": time.Unix(7506, 1000000).Local()})
+	if err != nil {
+		t.Fatalf("prg.Eval() failed: %v", err)
+	}
+	if out != types.True {
+		t.Errorf("Eval() got %v, wanted true", out)
+	}
+}
+
+func TestUseUTCTimeZoneError(t *testing.T) {
+	env, err := NewEnv(Variable("x", TimestampType), EnableDefaultUTCTimeZone())
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	ast, iss := env.Compile(`
+		x.getFullYear(':xx') == 1969
+		|| x.getDayOfYear('xx:') == 364
+		|| x.getMonth('Am/Ph') == 11
+		|| x.getDayOfMonth('Am/Ph') == 30
+		|| x.getDate('Am/Ph') == 31
+		|| x.getDayOfWeek('Am/Ph') == 3
+		|| x.getHours('Am/Ph') == 19
+		|| x.getMinutes('Am/Ph') == 5
+		|| x.getSeconds('Am/Ph') == 6
+		|| x.getMilliseconds('Am/Ph') == 1
+	`)
+	if iss.Err() != nil {
+		t.Fatalf("env.Compile() failed: %v", iss.Err())
+	}
+	prg, err := env.Program(ast)
+	if err != nil {
+		t.Fatalf("env.Program() failed: %v", err)
+	}
+	out, _, err := prg.Eval(map[string]interface{}{"x": time.Unix(7506, 1000000).Local()})
+	if err == nil {
+		t.Fatalf("prg.Eval() got %v wanted error", out)
 	}
 }
 

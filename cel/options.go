@@ -523,6 +523,12 @@ func CrossTypeNumericComparisons(enabled bool) EnvOption {
 	return features(featureCrossTypeNumericComparisons, enabled)
 }
 
+// EnableDefaultUTCTimeZone ensures that time-based operations use the UTC timezone rather than the
+// input time's local timezone.
+func EnableDefaultUTCTimeZone() EnvOption {
+	return Lib(timeUTCLibrary{})
+}
+
 // features sets the given feature flags.  See list of Feature constants above.
 func features(flag int, enabled bool) EnvOption {
 	return func(e *Env) (*Env, error) {
