@@ -692,8 +692,7 @@ func TestGlobalVars(t *testing.T) {
 func TestMacroSubset(t *testing.T) {
 	// Only enable the 'has' macro rather than all parser macros.
 	env, err := NewEnv(
-		ClearMacros(),
-		Macros(HasMacro),
+		ClearMacros(), Macros(HasMacro),
 		Variable("name", MapType(StringType, StringType)),
 	)
 	if err != nil {
@@ -719,37 +718,28 @@ func TestMacroSubset(t *testing.T) {
 
 func TestCustomMacro(t *testing.T) {
 	joinMacro := NewReceiverMacro("join", 1,
-		func(mh MacroExprHelper,
-			target *exprpb.Expr,
-			args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
+		func(meh MacroExprHelper, iterRange *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
 			delim := args[0]
-			iterIdent := mh.Ident("__iter__")
-			accuIdent := mh.AccuIdent()
-			init := mh.LiteralString("")
-			condition := mh.LiteralBool(true)
-			step := mh.GlobalCall(
+			iterIdent := meh.Ident("__iter__")
+			accuIdent := meh.AccuIdent()
+			accuInit := meh.LiteralString("")
+			condition := meh.LiteralBool(true)
+			step := meh.GlobalCall(
+				// __result__.size() > 0 ? __result__  + delim + __iter__ : __iter__
 				operators.Conditional,
-				mh.GlobalCall(operators.Greater,
-					mh.ReceiverCall("size", accuIdent),
-					mh.LiteralInt(0)),
-				mh.GlobalCall(
-					operators.Add,
-					mh.GlobalCall(
-						operators.Add,
-						accuIdent,
-						delim),
-					iterIdent),
+				meh.GlobalCall(operators.Greater, meh.ReceiverCall("size", accuIdent), meh.LiteralInt(0)),
+				meh.GlobalCall(operators.Add, meh.GlobalCall(operators.Add, accuIdent, delim), iterIdent),
 				iterIdent)
-			return mh.Fold(
+			return meh.Fold(
 				"__iter__",
-				target,
+				iterRange,
 				accuIdent.GetIdentExpr().GetName(),
-				init,
+				accuInit,
 				condition,
 				step,
 				accuIdent), nil
 		})
-	e, err := NewEnv(Macros(HasMacro, joinMacro))
+	e, err := NewEnv(Macros(joinMacro))
 	if err != nil {
 		t.Fatalf("NewEnv(joinMacro) failed: %v", err)
 	}
@@ -767,6 +757,83 @@ func TestCustomMacro(t *testing.T) {
 	}
 	if out.Equal(types.String("hello,cel,friend")) != types.True {
 		t.Errorf("got %v, wanted 'hello,cel,friend'", out)
+	}
+}
+
+func TestCustomExistsMacro(t *testing.T) {
+	env, err := NewEnv(
+		Variable("attr", MapType(StringType, BoolType)),
+		Macros(
+			NewGlobalVarArgMacro("kleeneOr",
+				func(meh MacroExprHelper, unused *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
+					inputs := meh.NewList(args...)
+					eqOne, err := ExistsMacroExpander(meh, inputs, []*exprpb.Expr{
+						meh.Ident("__iter__"),
+						meh.GlobalCall(operators.Equals, meh.Ident("__iter__"), meh.LiteralInt(1)),
+					})
+					if err != nil {
+						return nil, err
+					}
+					eqZero, err := ExistsMacroExpander(meh, inputs, []*exprpb.Expr{
+						meh.Ident("__iter__"),
+						meh.GlobalCall(operators.Equals, meh.Ident("__iter__"), meh.LiteralInt(0)),
+					})
+					if err != nil {
+						return nil, err
+					}
+					return meh.GlobalCall(
+						operators.Conditional,
+						eqOne,
+						meh.LiteralInt(1),
+						meh.GlobalCall(
+							operators.Conditional,
+							eqZero,
+							meh.LiteralInt(0),
+							meh.LiteralInt(-1),
+						),
+					), nil
+				},
+			),
+			NewGlobalMacro("kleeneEq", 2,
+				func(meh MacroExprHelper, unused *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
+					attr := args[0]
+					value := args[1]
+					hasAttr, err := HasMacroExpander(meh, nil, []*exprpb.Expr{attr})
+					if err != nil {
+						return nil, err
+					}
+					return meh.GlobalCall(
+						operators.Conditional,
+						meh.GlobalCall(operators.LogicalNot, hasAttr),
+						meh.LiteralInt(0),
+						meh.GlobalCall(
+							operators.Conditional,
+							meh.GlobalCall(operators.Equals, attr, value),
+							meh.LiteralInt(1),
+							meh.LiteralInt(-1),
+						),
+					), nil
+				},
+			),
+		),
+	)
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	ast, iss := env.Compile("kleeneOr(kleeneEq(attr.value, true), kleeneOr(0, 1, 1)) == 1")
+	if iss.Err() != nil {
+		t.Fatalf("env.Compile() failed: %v", iss.Err())
+	}
+	prg, err := env.Program(ast)
+	if err != nil {
+		t.Fatalf("env.Program(ast) failed: %v", err)
+	}
+	out, _, err := prg.Eval(map[string]interface{}{"attr": map[string]bool{"value": false}})
+	if err != nil {
+		t.Errorf("prg.Eval() got %v, wanted non-error", err)
+	}
+	if out != types.True {
+		t.Errorf("prg.Eval() got %v, wanted true", out)
 	}
 }
 

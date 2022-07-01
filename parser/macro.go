@@ -48,8 +48,7 @@ func NewGlobalVarArgMacro(function string, expander MacroExpander) Macro {
 		varArgStyle: true}
 }
 
-// NewReceiverVarArgMacro creates a Macro for a receiver function matching a variable arg
-// count.
+// NewReceiverVarArgMacro creates a Macro for a receiver function matching a variable arg count.
 func NewReceiverVarArgMacro(function string, expander MacroExpander) Macro {
 	return &macro{
 		function:      function,

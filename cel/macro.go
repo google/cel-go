@@ -14,7 +14,11 @@
 
 package cel
 
-import "github.com/google/cel-go/parser"
+import (
+	"github.com/google/cel-go/common"
+	"github.com/google/cel-go/parser"
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+)
 
 type Macro = parser.Macro
 
@@ -30,24 +34,67 @@ type MacroExpander = parser.MacroExpander
 // MacroExprHelper exposes helper methods for creating new expressions within a CEL abstract syntax tree.
 type MacroExprHelper = parser.ExprHelper
 
+// NewGlobalMacro creates a Macro for a global function with the specified arg count.
+func NewGlobalMacro(function string, argCount int, expander MacroExpander) Macro {
+	return parser.NewGlobalMacro(function, argCount, expander)
+}
+
+// NewReceiverMacro creates a Macro for a receiver function matching the specified arg count.
+func NewReceiverMacro(function string, argCount int, expander MacroExpander) Macro {
+	return parser.NewReceiverMacro(function, argCount, expander)
+}
+
+// NewGlobalVarArgMacro creates a Macro for a global function with a variable arg count.
+func NewGlobalVarArgMacro(function string, expander MacroExpander) Macro {
+	return parser.NewGlobalVarArgMacro(function, expander)
+}
+
+// NewReceiverVarArgMacro creates a Macro for a receiver function matching a variable arg count.
+func NewReceiverVarArgMacro(function string, expander MacroExpander) Macro {
+	return parser.NewReceiverVarArgMacro(function, expander)
+}
+
+// HasMacroExpander expands the input call arguments into a presence test, e.g. has(<operand>.field)
+func HasMacroExpander(meh MacroExprHelper, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
+	return parser.MakeHas(meh, target, args)
+}
+
+// ExistsMacroExpander expands the input call arguments into a comprehension that returns true if any of the
+// elements in the range match the predicate expressions:
+// <iterRange>.exists(<iterVar>, <predicate>)
+func ExistsMacroExpander(meh MacroExprHelper, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
+	return parser.MakeExists(meh, target, args)
+}
+
+// ExistsOneMacroExpander expands the input call arguments into a comprehension that returns true if exactly
+// one of the elements in the range match the predicate expressions:
+// <iterRange>.exists_one(<iterVar>, <predicate>)
+func ExistsOneMacroExpander(meh MacroExprHelper, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
+	return parser.MakeExistsOne(meh, target, args)
+}
+
+// MapMacroExpander expands the input call arguments into a comprehension that transforms each element in the
+// input to produce an output list.
+//
+// There are two call patterns supported by map:
+//   <iterRange>.map(<iterVar>, <transform>)
+//   <iterRange>.map(<iterVar>, <predicate>, <transform>)
+// In the second form only iterVar values which return true when provided to the predicate expression
+// are transformed.
+func MapMacroExpander(meh MacroExprHelper, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
+	return parser.MakeMap(meh, target, args)
+}
+
+// MakeFilter expands the input call arguments into a comprehension which produces a list which contains
+// only elements which match the provided predicate expression:
+// <iterRange>.filter(<iterVar>, <predicate>)
+func FilterMacroExpander(meh MacroExprHelper, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
+	return parser.MakeFilter(meh, target, args)
+}
+
 var (
-	// Factory functions for creating new cel.Macro instances that will match against the CEL abstract syntax tree
-	// at parse time and then be expanded into an alternative AST defined by the MacroExpander
-
-	NewGlobalMacro         = parser.NewGlobalMacro
-	NewReceiverMacro       = parser.NewReceiverMacro
-	NewGlobalVarArgMacro   = parser.NewGlobalVarArgMacro
-	NewReceiverVarArgMacro = parser.NewReceiverVarArgMacro
-
-	// Aliases to the functions used to create the CEL standard macros.
-
-	MakeHas       = parser.MakeHas
-	MakeExists    = parser.MakeExists
-	MakeExistsOne = parser.MakeExistsOne
-	MakeFilter    = parser.MakeFilter
-	MakeMap       = parser.MakeMap
-
 	// Aliases to each macro in the CEL standard environment.
+	// Note: reassigning these macro variables may result in undefined behavior.
 
 	// HasMacro expands "has(m.f)" which tests the presence of a field, avoiding the need to
 	// specify the field as a string.
