@@ -16,6 +16,7 @@ package ext
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/google/cel-go/cel"
@@ -305,7 +306,7 @@ func TestStrings(t *testing.T) {
 						tt.Fatalf("got value %v, wanted error %s for expr: %s",
 							out.Value(), tc.err, tc.expr)
 					}
-					if tc.err != err.Error() {
+					if !strings.Contains(err.Error(), tc.err) {
 						tt.Errorf("got error %v, wanted error %s for expr: %s", err, tc.err, tc.expr)
 					}
 				} else if err != nil {
