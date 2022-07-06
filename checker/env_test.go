@@ -54,12 +54,8 @@ func TestOverlappingMacro(t *testing.T) {
 
 func TestOverlappingOverload(t *testing.T) {
 	env := newStdEnv(t)
-	paramA := decls.NewTypeParamType("A")
-	typeParamAList := []string{"A"}
 	err := env.Add(decls.NewFunction(overloads.TypeConvertDyn,
-		decls.NewParameterizedOverload(overloads.ToDyn,
-			[]*exprpb.Type{paramA}, decls.Dyn,
-			typeParamAList)))
+		decls.NewOverload(overloads.ToDyn, []*exprpb.Type{decls.String}, decls.Dyn)))
 	if err == nil {
 		t.Error("Got nil, wanted error")
 	} else if !strings.Contains(err.Error(), "overlapping overload") {
