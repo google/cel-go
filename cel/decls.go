@@ -165,7 +165,7 @@ type Type struct {
 	isAssignableRuntimeType func(other ref.Type) bool
 }
 
-// IsAssignableFrom determines whether the current type is type-check assignable from the input fromType.
+// IsAssignableType determines whether the current type is type-check assignable from the input fromType.
 func (t *Type) IsAssignableType(fromType *Type) bool {
 	if t.isAssignableType != nil {
 		return t.isAssignableType(fromType)
