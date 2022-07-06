@@ -29,7 +29,6 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter"
 	"github.com/google/cel-go/interpreter/functions"
-	"github.com/google/cel-go/parser"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	descpb "google.golang.org/protobuf/types/descriptorpb"
@@ -68,7 +67,7 @@ type EnvOption func(e *Env) (*Env, error)
 // comprehensions such as `all` and `exists` are enabled only via macros.
 func ClearMacros() EnvOption {
 	return func(e *Env) (*Env, error) {
-		e.macros = parser.NoMacros
+		e.macros = NoMacros
 		return e, nil
 	}
 }
@@ -130,7 +129,7 @@ func HomogeneousAggregateLiterals() EnvOption {
 // Macros option extends the macro set configured in the environment.
 //
 // Note: This option must be specified after ClearMacros if used together.
-func Macros(macros ...parser.Macro) EnvOption {
+func Macros(macros ...Macro) EnvOption {
 	return func(e *Env) (*Env, error) {
 		e.macros = append(e.macros, macros...)
 		return e, nil
@@ -331,7 +330,7 @@ func CustomDecorator(dec interpreter.InterpretableDecorator) ProgramOption {
 
 // Functions adds function overloads that extend or override the set of CEL built-ins.
 //
-// Deprecated: use DeclareFunctions instead to declare the function, its overload signatures,
+// Deprecated: use Function() instead to declare the function, its overload signatures,
 // and the overload implementations.
 func Functions(funcs ...*functions.Overload) ProgramOption {
 	return func(p *prog) (*prog, error) {

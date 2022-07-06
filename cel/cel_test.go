@@ -36,7 +36,6 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 	"github.com/google/cel-go/interpreter"
-	"github.com/google/cel-go/parser"
 	"github.com/google/cel-go/test"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
@@ -160,15 +159,7 @@ func TestAbbrevs_Disambiguation(t *testing.T) {
 	// This expression will return either a string or a protobuf Expr value depending on the value
 	// of the 'test' argument. The fully qualified type name is used indicate that the protobuf
 	// typed 'Expr' should be used rather than the abbreviatation for 'external.Expr'.
-	ast, iss := env.Compile(`test ? dyn(Expr) : google.api.expr.v1alpha1.Expr{id: 1}`)
-	if iss.Err() != nil {
-		t.Fatal(iss.Err())
-	}
-	prg, err := env.Program(ast)
-	if err != nil {
-		t.Fatal(err)
-	}
-	out, _, err := prg.Eval(
+	out, err := interpret(t, env, `test ? dyn(Expr) : google.api.expr.v1alpha1.Expr{id: 1}`,
 		map[string]interface{}{
 			"test":          true,
 			"external.Expr": "string expr",
@@ -180,7 +171,7 @@ func TestAbbrevs_Disambiguation(t *testing.T) {
 	if out.Value() != "string expr" {
 		t.Errorf("got %v, wanted 'string expr'", out)
 	}
-	out, _, err = prg.Eval(
+	out, err = interpret(t, env, `test ? dyn(Expr) : google.api.expr.v1alpha1.Expr{id: 1}`,
 		map[string]interface{}{
 			"test":          false,
 			"external.Expr": "wrong expr",
@@ -190,7 +181,10 @@ func TestAbbrevs_Disambiguation(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := &exprpb.Expr{Id: 1}
-	got, _ := out.ConvertToNative(reflect.TypeOf(want))
+	got, err := out.ConvertToNative(reflect.TypeOf(want))
+	if err != nil {
+		t.Fatal(err)
+	}
 	if !proto.Equal(got.(*exprpb.Expr), want) {
 		t.Errorf("got %v, wanted '%v'", out, want)
 	}
@@ -218,12 +212,10 @@ func TestCustomEnv(t *testing.T) {
 	})
 
 	t.Run("ok", func(t *testing.T) {
-		ast, iss := e.Compile("a.b.c")
-		if iss.Err() != nil {
-			t.Fatal(iss.Err())
+		out, err := interpret(t, e, "a.b.c", map[string]interface{}{"a.b.c": true})
+		if err != nil {
+			t.Fatal(err)
 		}
-		prg, _ := e.Program(ast)
-		out, _, _ := prg.Eval(map[string]interface{}{"a.b.c": true})
 		if out != types.True {
 			t.Errorf("got '%v', wanted 'true'", out.Value())
 		}
@@ -697,83 +689,60 @@ func TestGlobalVars(t *testing.T) {
 	})
 }
 
-func TestClearMacros(t *testing.T) {
-	e, err := NewEnv(ClearMacros())
+func TestMacroSubset(t *testing.T) {
+	// Only enable the 'has' macro rather than all parser macros.
+	env, err := NewEnv(
+		ClearMacros(), Macros(HasMacro),
+		Variable("name", MapType(StringType, StringType)),
+	)
 	if err != nil {
-		t.Fatalf("NewEnv(ClearMacros()) failed: %v", err)
+		t.Fatalf("NewEnv() failed: %v", err)
 	}
-	ast, iss := e.Parse("has(a.b)")
-	if iss.Err() != nil {
-		t.Fatalf("Parse(`has(a.b)`) failed: %v", iss.Err())
-	}
-	pe, err := AstToParsedExpr(ast)
-	if err != nil {
-		t.Fatalf("AstToParsedExpr(ast) failed: %v", err)
-	}
-	want := &exprpb.Expr{
-		Id: 1,
-		ExprKind: &exprpb.Expr_CallExpr{
-			CallExpr: &exprpb.Expr_Call{
-				Function: "has",
-				Args: []*exprpb.Expr{
-					{
-						Id: 3,
-						ExprKind: &exprpb.Expr_SelectExpr{
-							SelectExpr: &exprpb.Expr_Select{
-								Operand: &exprpb.Expr{
-									Id: 2,
-									ExprKind: &exprpb.Expr_IdentExpr{
-										IdentExpr: &exprpb.Expr_Ident{Name: "a"},
-									},
-								},
-								Field: "b",
-							},
-						},
-					},
-				},
+	out, err := interpret(t, env, `has(name.first)`,
+		map[string]interface{}{
+			"name": map[string]string{
+				"first": "Jim",
 			},
-		},
+		})
+	if err != nil {
+		t.Fatal(err)
 	}
-	if !proto.Equal(pe.GetExpr(), want) {
-		t.Errorf("Parse() produced AST with macro replacement rather than call. got %v, wanted %v", pe, want)
+	if out != types.True {
+		t.Errorf("got %v, wanted true", out)
+	}
+	out, err = interpret(t, env, `[1, 2].all(i, i > 0)`, NoVars())
+	if err == nil {
+		t.Errorf("got %v, wanted err", out)
 	}
 }
 
 func TestCustomMacro(t *testing.T) {
-	joinMacro := parser.NewReceiverMacro("join", 1,
-		func(eh parser.ExprHelper,
-			target *exprpb.Expr,
-			args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
+	joinMacro := NewReceiverMacro("join", 1,
+		func(meh MacroExprHelper, iterRange *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
 			delim := args[0]
-			iterIdent := eh.Ident("__iter__")
-			accuIdent := eh.Ident("__result__")
-			init := eh.LiteralString("")
-			condition := eh.LiteralBool(true)
-			step := eh.GlobalCall(
+			iterIdent := meh.Ident("__iter__")
+			accuIdent := meh.AccuIdent()
+			accuInit := meh.LiteralString("")
+			condition := meh.LiteralBool(true)
+			step := meh.GlobalCall(
+				// __result__.size() > 0 ? __result__  + delim + __iter__ : __iter__
 				operators.Conditional,
-				eh.GlobalCall(operators.Greater,
-					eh.ReceiverCall("size", accuIdent),
-					eh.LiteralInt(0)),
-				eh.GlobalCall(
-					operators.Add,
-					eh.GlobalCall(
-						operators.Add,
-						accuIdent,
-						delim),
-					iterIdent),
+				meh.GlobalCall(operators.Greater, meh.ReceiverCall("size", accuIdent), meh.LiteralInt(0)),
+				meh.GlobalCall(operators.Add, meh.GlobalCall(operators.Add, accuIdent, delim), iterIdent),
 				iterIdent)
-			return eh.Fold(
+			return meh.Fold(
 				"__iter__",
-				target,
-				"__result__",
-				init,
+				iterRange,
+				accuIdent.GetIdentExpr().GetName(),
+				accuInit,
 				condition,
 				step,
 				accuIdent), nil
 		})
-	e, _ := NewEnv(
-		Macros(joinMacro),
-	)
+	e, err := NewEnv(Macros(joinMacro))
+	if err != nil {
+		t.Fatalf("NewEnv(joinMacro) failed: %v", err)
+	}
 	ast, iss := e.Compile(`['hello', 'cel', 'friend'].join(',')`)
 	if iss.Err() != nil {
 		t.Fatal(iss.Err())
@@ -788,6 +757,83 @@ func TestCustomMacro(t *testing.T) {
 	}
 	if out.Equal(types.String("hello,cel,friend")) != types.True {
 		t.Errorf("got %v, wanted 'hello,cel,friend'", out)
+	}
+}
+
+func TestCustomExistsMacro(t *testing.T) {
+	env, err := NewEnv(
+		Variable("attr", MapType(StringType, BoolType)),
+		Macros(
+			NewGlobalVarArgMacro("kleeneOr",
+				func(meh MacroExprHelper, unused *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
+					inputs := meh.NewList(args...)
+					eqOne, err := ExistsMacroExpander(meh, inputs, []*exprpb.Expr{
+						meh.Ident("__iter__"),
+						meh.GlobalCall(operators.Equals, meh.Ident("__iter__"), meh.LiteralInt(1)),
+					})
+					if err != nil {
+						return nil, err
+					}
+					eqZero, err := ExistsMacroExpander(meh, inputs, []*exprpb.Expr{
+						meh.Ident("__iter__"),
+						meh.GlobalCall(operators.Equals, meh.Ident("__iter__"), meh.LiteralInt(0)),
+					})
+					if err != nil {
+						return nil, err
+					}
+					return meh.GlobalCall(
+						operators.Conditional,
+						eqOne,
+						meh.LiteralInt(1),
+						meh.GlobalCall(
+							operators.Conditional,
+							eqZero,
+							meh.LiteralInt(0),
+							meh.LiteralInt(-1),
+						),
+					), nil
+				},
+			),
+			NewGlobalMacro("kleeneEq", 2,
+				func(meh MacroExprHelper, unused *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
+					attr := args[0]
+					value := args[1]
+					hasAttr, err := HasMacroExpander(meh, nil, []*exprpb.Expr{attr})
+					if err != nil {
+						return nil, err
+					}
+					return meh.GlobalCall(
+						operators.Conditional,
+						meh.GlobalCall(operators.LogicalNot, hasAttr),
+						meh.LiteralInt(0),
+						meh.GlobalCall(
+							operators.Conditional,
+							meh.GlobalCall(operators.Equals, attr, value),
+							meh.LiteralInt(1),
+							meh.LiteralInt(-1),
+						),
+					), nil
+				},
+			),
+		),
+	)
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	ast, iss := env.Compile("kleeneOr(kleeneEq(attr.value, true), kleeneOr(0, 1, 1)) == 1")
+	if iss.Err() != nil {
+		t.Fatalf("env.Compile() failed: %v", iss.Err())
+	}
+	prg, err := env.Program(ast)
+	if err != nil {
+		t.Fatalf("env.Program(ast) failed: %v", err)
+	}
+	out, _, err := prg.Eval(map[string]interface{}{"attr": map[string]bool{"value": false}})
+	if err != nil {
+		t.Errorf("prg.Eval() got %v, wanted non-error", err)
+	}
+	if out != types.True {
+		t.Errorf("prg.Eval() got %v, wanted true", out)
 	}
 }
 
@@ -994,7 +1040,7 @@ func TestResidualAst(t *testing.T) {
 	}
 }
 
-func TestResidualAst_Complex(t *testing.T) {
+func TestResidualAstComplex(t *testing.T) {
 	e, _ := NewEnv(
 		Variable("resource.name", StringType),
 		Variable("request.time", TimestampType),
@@ -1602,4 +1648,21 @@ func TestRegexOptimizer(t *testing.T) {
 			}
 		})
 	}
+}
+
+func interpret(t *testing.T, env *Env, expr string, vars interface{}) (ref.Val, error) {
+	t.Helper()
+	ast, iss := env.Compile(expr)
+	if iss.Err() != nil {
+		return nil, fmt.Errorf("env.Compile(%s) failed: %v", expr, iss.Err())
+	}
+	prg, err := env.Program(ast)
+	if err != nil {
+		return nil, fmt.Errorf("env.Program() failed: %v", err)
+	}
+	out, _, err := prg.Eval(vars)
+	if err != nil {
+		return nil, fmt.Errorf("prg.Eval(%v) failed: %v", vars, err)
+	}
+	return out, nil
 }
