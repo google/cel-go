@@ -1666,26 +1666,26 @@ func TestDefaultUTCTimeZone(t *testing.T) {
 		&& x.getMinutes() == 5
 		&& x.getSeconds() == 6
 		&& x.getMilliseconds() == 1
-		&& x.getFullYear('-07:00') == 1969
-		&& x.getDayOfYear('-07:00') == 364
-		&& x.getMonth('-07:00') == 11
-		&& x.getDayOfMonth('-07:00') == 30
-		&& x.getDate('-07:00') == 31
-		&& x.getDayOfWeek('-07:00') == 3
-		&& x.getHours('-07:00') == 19
-		&& x.getMinutes('-07:00') == 5
-		&& x.getSeconds('-07:00') == 6
-		&& x.getMilliseconds('-07:00') == 1
-		&& x.getFullYear('23:00') == 1970
-		&& x.getDayOfYear('23:00') == 1
-		&& x.getMonth('23:00') == 0
-		&& x.getDayOfMonth('23:00') == 1
-		&& x.getDate('23:00') == 2
-		&& x.getDayOfWeek('23:00') == 5
-		&& x.getHours('23:00') == 1
-		&& x.getMinutes('23:00') == 5
-		&& x.getSeconds('23:00') == 6
-		&& x.getMilliseconds('23:00') == 1
+		&& x.getFullYear('-07:30') == 1969
+		&& x.getDayOfYear('-07:30') == 364
+		&& x.getMonth('-07:30') == 11
+		&& x.getDayOfMonth('-07:30') == 30
+		&& x.getDate('-07:30') == 31
+		&& x.getDayOfWeek('-07:30') == 3
+		&& x.getHours('-07:30') == 18
+		&& x.getMinutes('-07:30') == 35
+		&& x.getSeconds('-07:30') == 6
+		&& x.getMilliseconds('-07:30') == 1
+		&& x.getFullYear('23:15') == 1970
+		&& x.getDayOfYear('23:15') == 1
+		&& x.getMonth('23:15') == 0
+		&& x.getDayOfMonth('23:15') == 1
+		&& x.getDate('23:15') == 2
+		&& x.getDayOfWeek('23:15') == 5
+		&& x.getHours('23:15') == 1
+		&& x.getMinutes('23:15') == 20
+		&& x.getSeconds('23:15') == 6
+		&& x.getMilliseconds('23:15') == 1
 	`)
 	if iss.Err() != nil {
 		t.Fatalf("env.Compile() failed: %v", iss.Err())

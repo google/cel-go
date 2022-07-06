@@ -303,7 +303,7 @@ func inTimeZone(ts, tz ref.Val) (time.Time, error) {
 	if err != nil {
 		return time.Time{}, err
 	}
-	min, err := strconv.Atoi(string(val[ind+1]))
+	min, err := strconv.Atoi(string(val[ind+1:]))
 	if err != nil {
 		return time.Time{}, err
 	}
