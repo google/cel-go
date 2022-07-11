@@ -40,7 +40,7 @@ import (
 // This function optionally takes in one or more UnparserOption to alter the unparsing behavior, such as
 // performing word wrapping on expressions.
 func Unparse(expr *exprpb.Expr, info *exprpb.SourceInfo, opts ...UnparserOption) (string, error) {
-	formattingOpts := &unparserOption{
+	unparserOpts := &unparserOption{
 		wrapColumn:           defaultWrapColumn,
 		wrapAfterColumnLimit: defaultWrapAfterColumnLimit,
 		operatorsToWrapOn:    defaultOperatorsToWrapOn,
@@ -48,7 +48,7 @@ func Unparse(expr *exprpb.Expr, info *exprpb.SourceInfo, opts ...UnparserOption)
 
 	var err error
 	for _, opt := range opts {
-		formattingOpts, err = opt(formattingOpts)
+		unparserOpts, err = opt(unparserOpts)
 		if err != nil {
 			return "", err
 		}
@@ -56,7 +56,7 @@ func Unparse(expr *exprpb.Expr, info *exprpb.SourceInfo, opts ...UnparserOption)
 
 	un := &unparser{
 		info:    info,
-		options: formattingOpts,
+		options: unparserOpts,
 	}
 	err = un.visit(expr)
 	if err != nil {
@@ -469,7 +469,7 @@ func bytesToOctets(byteVal []byte) string {
 }
 
 // writeOperatorWithWrapping outputs the operator and inserts a newline for operators configured
-// in the formatting options.
+// in the unparser options.
 func (un *unparser) writeOperatorWithWrapping(fun string, unmangled string) bool {
 	_, wrapOperatorExists := un.options.operatorsToWrapOn[fun]
 	lineLength := un.str.Len() - un.lastWrappedIndex + len(fun)
@@ -500,7 +500,7 @@ func (un *unparser) writeOperatorWithWrapping(fun string, unmangled string) bool
 	return false
 }
 
-// Defined defaults for the formatting options
+// Defined defaults for the unparser options
 var (
 	defaultWrapColumn           = 80
 	defaultWrapAfterColumnLimit = true
@@ -510,7 +510,7 @@ var (
 	}
 )
 
-// UnparserOption is a funcitonal option for configuring the output formatting
+// UnparserOption is a functional option for configuring the output formatting
 // of the Unparse function.
 type UnparserOption func(*unparserOption) (*unparserOption, error)
 
@@ -539,7 +539,7 @@ type unparserOption struct {
 func WrapOnColumn(col int) UnparserOption {
 	return func(opt *unparserOption) (*unparserOption, error) {
 		if col < 1 {
-			return nil, fmt.Errorf("Invalid formatting option. Wrap column value must be greater than or equal to 1. Got %v instead", col)
+			return nil, fmt.Errorf("Invalid unparser option. Wrap column value must be greater than or equal to 1. Got %v instead", col)
 		}
 		opt.wrapColumn = col
 		return opt, nil
@@ -558,11 +558,11 @@ func WrapOnOperators(symbols ...string) UnparserOption {
 		for _, symbol := range symbols {
 			_, found := operators.FindReverse(symbol)
 			if !found {
-				return nil, fmt.Errorf("Invalid formatting option. Unsupported operator: %s", symbol)
+				return nil, fmt.Errorf("Invalid unparser option. Unsupported operator: %s", symbol)
 			}
 			arity := operators.Arity(symbol)
 			if arity < 2 {
-				return nil, fmt.Errorf("Invalid formatting option. Unary operators are unsupported: %s", symbol)
+				return nil, fmt.Errorf("Invalid unparser option. Unary operators are unsupported: %s", symbol)
 			}
 
 			opt.operatorsToWrapOn[symbol] = true
