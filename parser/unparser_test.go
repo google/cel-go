@@ -21,6 +21,7 @@ import (
 
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/operators"
+
 	"google.golang.org/protobuf/proto"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
@@ -32,7 +33,7 @@ func TestUnparse(t *testing.T) {
 		in                 string
 		out                interface{}
 		requiresMacroCalls bool
-		formattingOptions  []UnparserFormattingOption
+		formattingOptions  []UnparserOption
 	}{
 		{name: "call_add", in: `a + b - c`},
 		{name: "call_and", in: `a && b && c && d && e`},
@@ -147,16 +148,16 @@ func TestUnparse(t *testing.T) {
 			name: "call_no_wrap_no_operators",
 			in:   "a + b + c + d",
 			out:  "a + b + c + d",
-			formattingOptions: []UnparserFormattingOption{
-				WrapColumn(3),
+			formattingOptions: []UnparserOption{
+				WrapOnColumn(3),
 			},
 		},
 		{
 			name: "call_no_wrap_short_line",
 			in:   "a + b + c + d",
 			out:  "a + b + c + d",
-			formattingOptions: []UnparserFormattingOption{
-				WrapColumn(12),
+			formattingOptions: []UnparserOption{
+				WrapOnColumn(12),
 				WrapOnOperators(operators.Add),
 			},
 		},
@@ -166,8 +167,8 @@ func TestUnparse(t *testing.T) {
 			name: "call_wrap_add",
 			in:   "a + b - d * e",
 			out:  "a +\nb - d * e",
-			formattingOptions: []UnparserFormattingOption{
-				WrapColumn(3),
+			formattingOptions: []UnparserOption{
+				WrapOnColumn(3),
 				WrapOnOperators(operators.Add),
 			},
 		},
@@ -175,8 +176,8 @@ func TestUnparse(t *testing.T) {
 			name: "call_wrap_add_and_subtract",
 			in:   "a * b + c - d * e",
 			out:  "a * b +\nc -\nd * e",
-			formattingOptions: []UnparserFormattingOption{
-				WrapColumn(3),
+			formattingOptions: []UnparserOption{
+				WrapOnColumn(3),
 				WrapOnOperators(operators.Add, operators.Subtract),
 			},
 		},
@@ -184,8 +185,8 @@ func TestUnparse(t *testing.T) {
 			name: "call_wrap_and",
 			in:   "a && b && c && d && e",
 			out:  "a &&\nb &&\nc &&\nd &&\ne",
-			formattingOptions: []UnparserFormattingOption{
-				WrapColumn(3),
+			formattingOptions: []UnparserOption{
+				WrapOnColumn(3),
 				WrapOnOperators(operators.LogicalAnd),
 			},
 		},
@@ -193,8 +194,8 @@ func TestUnparse(t *testing.T) {
 			name: "call_wrap_and_2",
 			in:   "a && b",
 			out:  "a &&\nb",
-			formattingOptions: []UnparserFormattingOption{
-				WrapColumn(3),
+			formattingOptions: []UnparserOption{
+				WrapOnColumn(3),
 				WrapOnOperators(operators.LogicalAnd),
 			},
 		},
@@ -202,8 +203,8 @@ func TestUnparse(t *testing.T) {
 			name: "call_wrap_conditional",
 			in:   "a ? b : c ? d : e",
 			out:  "a ?\nb : (c ?\nd : e)",
-			formattingOptions: []UnparserFormattingOption{
-				WrapColumn(3),
+			formattingOptions: []UnparserOption{
+				WrapOnColumn(3),
 				WrapOnOperators(operators.Conditional),
 			},
 		},
@@ -211,8 +212,8 @@ func TestUnparse(t *testing.T) {
 			name: "call_wrap_or",
 			in:   "a || b || c || d || e",
 			out:  "a ||\nb ||\nc ||\nd ||\ne",
-			formattingOptions: []UnparserFormattingOption{
-				WrapColumn(3),
+			formattingOptions: []UnparserOption{
+				WrapOnColumn(3),
 				WrapOnOperators(operators.LogicalOr),
 			},
 		},
@@ -220,8 +221,8 @@ func TestUnparse(t *testing.T) {
 			name: "call_wrap_equals",
 			in:   "a == b == c == d == e",
 			out:  "a ==\nb ==\nc ==\nd ==\ne",
-			formattingOptions: []UnparserFormattingOption{
-				WrapColumn(3),
+			formattingOptions: []UnparserOption{
+				WrapOnColumn(3),
 				WrapOnOperators(operators.Equals),
 			},
 		},
@@ -229,8 +230,8 @@ func TestUnparse(t *testing.T) {
 			name: "call_wrap_greater",
 			in:   "a > b > c > d > e",
 			out:  "a >\nb >\nc >\nd >\ne",
-			formattingOptions: []UnparserFormattingOption{
-				WrapColumn(3),
+			formattingOptions: []UnparserOption{
+				WrapOnColumn(3),
 				WrapOnOperators(operators.Greater),
 			},
 		},
@@ -238,8 +239,8 @@ func TestUnparse(t *testing.T) {
 			name: "call_wrap_greater_equals",
 			in:   "a >= b >= c >= d >= e",
 			out:  "a >=\nb >=\nc >=\nd >=\ne",
-			formattingOptions: []UnparserFormattingOption{
-				WrapColumn(3),
+			formattingOptions: []UnparserOption{
+				WrapOnColumn(3),
 				WrapOnOperators(operators.GreaterEquals),
 			},
 		},
@@ -247,8 +248,8 @@ func TestUnparse(t *testing.T) {
 			name: "call_wrap_in",
 			in:   "a in b in c in d in e",
 			out:  "a in\nb in\nc in\nd in\ne",
-			formattingOptions: []UnparserFormattingOption{
-				WrapColumn(3),
+			formattingOptions: []UnparserOption{
+				WrapOnColumn(3),
 				WrapOnOperators(operators.In),
 			},
 		},
@@ -256,8 +257,8 @@ func TestUnparse(t *testing.T) {
 			name: "call_wrap_less",
 			in:   "a < b < c < d < e",
 			out:  "a <\nb <\nc <\nd <\ne",
-			formattingOptions: []UnparserFormattingOption{
-				WrapColumn(3),
+			formattingOptions: []UnparserOption{
+				WrapOnColumn(3),
 				WrapOnOperators(operators.Less),
 			},
 		},
@@ -265,8 +266,8 @@ func TestUnparse(t *testing.T) {
 			name: "call_wrap_less_equals",
 			in:   "a <= b <= c <= d <= e",
 			out:  "a <=\nb <=\nc <=\nd <=\ne",
-			formattingOptions: []UnparserFormattingOption{
-				WrapColumn(3),
+			formattingOptions: []UnparserOption{
+				WrapOnColumn(3),
 				WrapOnOperators(operators.LessEquals),
 			},
 		},
@@ -274,8 +275,8 @@ func TestUnparse(t *testing.T) {
 			name: "call_wrap_not_equals",
 			in:   "a != b != c != d != e",
 			out:  "a !=\nb !=\nc !=\nd !=\ne",
-			formattingOptions: []UnparserFormattingOption{
-				WrapColumn(3),
+			formattingOptions: []UnparserOption{
+				WrapOnColumn(3),
 				WrapOnOperators(operators.NotEquals),
 			},
 		},
@@ -283,8 +284,8 @@ func TestUnparse(t *testing.T) {
 			name: "call_wrap_divide",
 			in:   "a / b / c / d / e",
 			out:  "a /\nb /\nc /\nd /\ne",
-			formattingOptions: []UnparserFormattingOption{
-				WrapColumn(3),
+			formattingOptions: []UnparserOption{
+				WrapOnColumn(3),
 				WrapOnOperators(operators.Divide),
 			},
 		},
@@ -292,8 +293,8 @@ func TestUnparse(t *testing.T) {
 			name: "call_wrap_modulo",
 			in:   "a % b % c % d % e",
 			out:  "a %\nb %\nc %\nd %\ne",
-			formattingOptions: []UnparserFormattingOption{
-				WrapColumn(3),
+			formattingOptions: []UnparserOption{
+				WrapOnColumn(3),
 				WrapOnOperators(operators.Modulo),
 			},
 		},
@@ -301,8 +302,8 @@ func TestUnparse(t *testing.T) {
 			name: "call_wrap_multiply",
 			in:   "a * b * c * d * e",
 			out:  "a *\nb *\nc *\nd *\ne",
-			formattingOptions: []UnparserFormattingOption{
-				WrapColumn(3),
+			formattingOptions: []UnparserOption{
+				WrapOnColumn(3),
 				WrapOnOperators(operators.Multiply),
 			},
 		},
@@ -310,8 +311,17 @@ func TestUnparse(t *testing.T) {
 			name: "call_wrap_and_long_variables",
 			in:   "longVariableA && longVariableB && longVariableC",
 			out:  "longVariableA &&\nlongVariableB &&\nlongVariableC",
-			formattingOptions: []UnparserFormattingOption{
-				WrapColumn(3),
+			formattingOptions: []UnparserOption{
+				WrapOnColumn(3),
+				WrapOnOperators(operators.LogicalAnd),
+			},
+		},
+		{
+			name: "call_wrap_and_long_input",
+			in:   `"my-principal-group" in request.auth.claims && request.auth.claims.iat > now - duration("5m")`,
+			out:  `"my-principal-group" in request.auth.claims &&` + "\n" + `request.auth.claims.iat > now - duration("5m")`,
+			formattingOptions: []UnparserOption{
+				WrapOnColumn(40),
 				WrapOnOperators(operators.LogicalAnd),
 			},
 		},
@@ -320,8 +330,8 @@ func TestUnparse(t *testing.T) {
 			in:                 "[1, 2, 3].map(x, x >= 2, x * 4).filter(x, x <= 10)",
 			out:                "[1, 2, 3].map(x, x >=\n2, x * 4).filter(x, x <=\n10)",
 			requiresMacroCalls: true,
-			formattingOptions: []UnparserFormattingOption{
-				WrapColumn(3),
+			formattingOptions: []UnparserOption{
+				WrapOnColumn(3),
 				WrapOnOperators(operators.GreaterEquals, operators.LessEquals),
 			},
 		},
@@ -378,7 +388,7 @@ func TestUnparseErrors(t *testing.T) {
 		name              string
 		in                *exprpb.Expr
 		err               error
-		formattingOptions []UnparserFormattingOption
+		formattingOptions []UnparserOption
 	}{
 		{name: "empty_expr", in: &exprpb.Expr{}, err: errors.New("unsupported expression")},
 		{
@@ -442,18 +452,26 @@ func TestUnparseErrors(t *testing.T) {
 			err: errors.New("unsupported expression"),
 		},
 		{
-			name: "bad_formatting_option_wrap_column",
+			name: "bad_formatting_option_wrap_column_zero",
 			in:   validConstantExpression,
 			err:  errors.New("Invalid formatting option. Wrap column value must be greater than or equal to 1. Got 0 instead"),
-			formattingOptions: []UnparserFormattingOption{
-				WrapColumn(0),
+			formattingOptions: []UnparserOption{
+				WrapOnColumn(0),
+			},
+		},
+		{
+			name: "bad_formatting_option_wrap_column_negative",
+			in:   validConstantExpression,
+			err:  errors.New("Invalid formatting option. Wrap column value must be greater than or equal to 1. Got -1 instead"),
+			formattingOptions: []UnparserOption{
+				WrapOnColumn(-1),
 			},
 		},
 		{
 			name: "bad_formatting_option_unsupported_operator",
 			in:   validConstantExpression,
 			err:  errors.New("Invalid formatting option. Unsupported operator: bogus"),
-			formattingOptions: []UnparserFormattingOption{
+			formattingOptions: []UnparserOption{
 				WrapOnOperators("bogus"),
 			},
 		},
@@ -461,7 +479,7 @@ func TestUnparseErrors(t *testing.T) {
 			name: "bad_formatting_option_unary_operator",
 			in:   validConstantExpression,
 			err:  errors.New("Invalid formatting option. Unary operators are unsupported: " + operators.Negate),
-			formattingOptions: []UnparserFormattingOption{
+			formattingOptions: []UnparserOption{
 				WrapOnOperators(operators.Negate),
 			},
 		},

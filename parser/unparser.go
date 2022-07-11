@@ -37,9 +37,10 @@ import (
 // - Spacing around punctuation marks may be lost.
 // - Parentheses will only be applied when they affect operator precedence.
 //
-// This function optionally takes in one or more UnparserFormattingOption to dictate the formatting of the output.
-func Unparse(expr *exprpb.Expr, info *exprpb.SourceInfo, opts ...UnparserFormattingOption) (string, error) {
-	formattingOpts := &formattingOption{
+// This function optionally takes in one or more UnparserOption to alter the unparsing behavior, such as
+// performing word wrapping on operators.
+func Unparse(expr *exprpb.Expr, info *exprpb.SourceInfo, opts ...UnparserOption) (string, error) {
+	formattingOpts := &unparserOption{
 		wrapColumn: defaultWrapColumn,
 	}
 
@@ -66,7 +67,7 @@ func Unparse(expr *exprpb.Expr, info *exprpb.SourceInfo, opts ...UnparserFormatt
 type unparser struct {
 	str              strings.Builder
 	info             *exprpb.SourceInfo
-	options          *formattingOption
+	options          *unparserOption
 	lastWrappedIndex int
 }
 
@@ -472,7 +473,7 @@ func bytesToOctets(byteVal []byte) string {
 	return b.String()
 }
 
-// Takes in a function then inserts a newline based on the rules provided in formatting options
+// wrapForOperator inserts a newline after operators configured in the formatting options.
 func (un *unparser) wrapForOperator(fun string) bool {
 	_, wrapOperatorExists := un.options.operatorsToWrapOn[fun]
 	lineLength := un.str.Len() - un.lastWrappedIndex
@@ -489,18 +490,17 @@ var (
 	defaultWrapColumn = 80
 )
 
-// UnparserFormattingOption is a funcitonal option for configuring the output formatting
+// UnparserOption is a funcitonal option for configuring the output formatting
 // of the Unparse function.
-type UnparserFormattingOption func(*formattingOption) (*formattingOption, error)
+type UnparserOption func(*unparserOption) (*unparserOption, error)
 
-// Internal representation of the UnparserFormattingOption type
-type formattingOption struct {
+// Internal representation of the UnparserOption type
+type unparserOption struct {
 	wrapColumn        int // Defaults to 80
 	operatorsToWrapOn map[string]bool
 }
 
-// WrapOnColumn returns an UnparserFormattingOption with the column limit set.
-// Word wrapping will be performed when a line's length exceeds the limit
+// WrapOnColumn wraps the output expression when its string length exceeds a specified limit
 // for operators set by WrapOnOperators function.
 //
 // Example usage:
@@ -509,10 +509,14 @@ type formattingOption struct {
 //
 // This will insert a newline immediately after the logical AND operator for the below example input:
 //
-// Input: a && b
-// Output: a &&\nb
-func WrapColumn(col int) UnparserFormattingOption {
-	return func(opt *formattingOption) (*formattingOption, error) {
+// Input:
+// 'my-principal-group' in request.auth.claims && request.auth.claims.iat > now - duration('5m')
+//
+// Output:
+// 'my-principal-group' in request.auth.claims &&
+// request.auth.claims.iat > now - duration('5m')
+func WrapOnColumn(col int) UnparserOption {
+	return func(opt *unparserOption) (*unparserOption, error) {
 		if col < 1 {
 			return nil, fmt.Errorf("Invalid formatting option. Wrap column value must be greater than or equal to 1. Got %v instead", col)
 		}
@@ -525,8 +529,8 @@ func WrapColumn(col int) UnparserFormattingOption {
 // Word wrapping is supported on non-unary symbolic operators. Refer to operators.go for the full list
 //
 // This will replace any previously supplied operators instead of merging them.
-func WrapOnOperators(symbols ...string) UnparserFormattingOption {
-	return func(fmtOpt *formattingOption) (*formattingOption, error) {
+func WrapOnOperators(symbols ...string) UnparserOption {
+	return func(fmtOpt *unparserOption) (*unparserOption, error) {
 		fmtOpt.operatorsToWrapOn = make(map[string]bool)
 		for _, symbol := range symbols {
 			_, found := operators.FindReverse(symbol)
