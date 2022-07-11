@@ -41,7 +41,8 @@ import (
 // performing word wrapping on operators.
 func Unparse(expr *exprpb.Expr, info *exprpb.SourceInfo, opts ...UnparserOption) (string, error) {
 	formattingOpts := &unparserOption{
-		wrapColumn: defaultWrapColumn,
+		wrapColumn:           defaultWrapColumn,
+		wrapAfterColumnLimit: defaultWrapAfterColumnLimit,
 	}
 
 	var err error
@@ -156,11 +157,7 @@ func (un *unparser) visitCallBinary(expr *exprpb.Expr) error {
 		return fmt.Errorf("cannot unmangle operator: %s", fun)
 	}
 
-	un.str.WriteString(" ")
-	un.str.WriteString(unmangled)
-	if !un.wrapForOperator(fun) {
-		un.str.WriteString(" ")
-	}
+	un.writeOperatorWithWrapping(fun, unmangled)
 	return un.visitMaybeNested(rhs, rhsParen)
 }
 
@@ -174,10 +171,7 @@ func (un *unparser) visitCallConditional(expr *exprpb.Expr) error {
 	if err != nil {
 		return err
 	}
-	un.str.WriteString(" ?")
-	if !un.wrapForOperator(operators.Conditional) {
-		un.str.WriteString(" ")
-	}
+	un.writeOperatorWithWrapping(operators.Conditional, "?")
 
 	// add parens if operand is a conditional itself.
 	nested = isSamePrecedence(operators.Conditional, args[1]) ||
@@ -473,21 +467,42 @@ func bytesToOctets(byteVal []byte) string {
 	return b.String()
 }
 
-// wrapForOperator inserts a newline after operators configured in the formatting options.
-func (un *unparser) wrapForOperator(fun string) bool {
+// writeOperatorWithWrapping outputs the operator and inserts a newline for operators configured
+// in the formatting options.
+func (un *unparser) writeOperatorWithWrapping(fun string, unmangled string) bool {
 	_, wrapOperatorExists := un.options.operatorsToWrapOn[fun]
-	lineLength := un.str.Len() - un.lastWrappedIndex
+	lineLength := un.str.Len() - un.lastWrappedIndex + len(fun)
+
 	if wrapOperatorExists && lineLength >= un.options.wrapColumn {
 		un.lastWrappedIndex = un.str.Len()
-		un.str.WriteString("\n")
+		// wrapAfterColumnLimit flag dictates whether the newline is placed
+		// before or after the operator
+		if un.options.wrapAfterColumnLimit {
+			// Input: a && b
+			// Output: a &&\nb
+			un.str.WriteString(" ")
+			un.str.WriteString(unmangled)
+			un.str.WriteString("\n")
+		} else {
+			// Input: a && b
+			// Output: a\n&& b
+			un.str.WriteString("\n")
+			un.str.WriteString(unmangled)
+			un.str.WriteString(" ")
+		}
 		return true
+	} else {
+		un.str.WriteString(" ")
+		un.str.WriteString(unmangled)
+		un.str.WriteString(" ")
 	}
 	return false
 }
 
 // Defined defaults for the formatting options
-var (
-	defaultWrapColumn = 80
+const (
+	defaultWrapColumn           = 80
+	defaultWrapAfterColumnLimit = true
 )
 
 // UnparserOption is a funcitonal option for configuring the output formatting
@@ -496,8 +511,9 @@ type UnparserOption func(*unparserOption) (*unparserOption, error)
 
 // Internal representation of the UnparserOption type
 type unparserOption struct {
-	wrapColumn        int // Defaults to 80
-	operatorsToWrapOn map[string]bool
+	wrapColumn           int
+	operatorsToWrapOn    map[string]bool
+	wrapAfterColumnLimit bool
 }
 
 // WrapOnColumn wraps the output expression when its string length exceeds a specified limit

@@ -153,11 +153,20 @@ func TestUnparse(t *testing.T) {
 			},
 		},
 		{
-			name: "call_no_wrap_short_line",
+			name: "call_no_wrap_column_limit_large_val",
 			in:   "a + b + c + d",
 			out:  "a + b + c + d",
 			formattingOptions: []UnparserOption{
-				WrapOnColumn(12),
+				WrapOnColumn(1000),
+				WrapOnOperators(operators.Add),
+			},
+		},
+		{
+			name: "call_no_wrap_column_limit_equal_length_to_input",
+			in:   "a + b + c + d",
+			out:  "a + b + c + d",
+			formattingOptions: []UnparserOption{
+				WrapOnColumn(13),
 				WrapOnOperators(operators.Add),
 			},
 		},
