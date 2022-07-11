@@ -38,7 +38,7 @@ import (
 // - Parentheses will only be applied when they affect operator precedence.
 //
 // This function optionally takes in one or more UnparserOption to alter the unparsing behavior, such as
-// performing word wrapping on operators.
+// performing word wrapping on expressions.
 func Unparse(expr *exprpb.Expr, info *exprpb.SourceInfo, opts ...UnparserOption) (string, error) {
 	formattingOpts := &unparserOption{
 		wrapColumn:           defaultWrapColumn,
@@ -517,11 +517,11 @@ type unparserOption struct {
 }
 
 // WrapOnColumn wraps the output expression when its string length exceeds a specified limit
-// for operators set by WrapOnOperators function.
+// for operators set by WrapOnOperators function or by default, "&&" and "||" will be wrapped.
 //
 // Example usage:
 //
-//	Unparse(expr, sourceInfo, WrapColumn(3), WrapOnOperators(Operators.LogicalAnd))
+//	Unparse(expr, sourceInfo, WrapColumn(40), WrapOnOperators(Operators.LogicalAnd))
 //
 // This will insert a newline immediately after the logical AND operator for the below example input:
 //
@@ -541,13 +541,15 @@ func WrapOnColumn(col int) UnparserOption {
 	}
 }
 
-// WrapOnOperators returns an UnparserFormattedOption with operators to perform word wrapping on.
+// WrapOnOperators specifies which operators to perform word wrapping on an output expression when its string length
+// exceeds the column limit set by WrapOnColumn function.
+//
 // Word wrapping is supported on non-unary symbolic operators. Refer to operators.go for the full list
 //
 // This will replace any previously supplied operators instead of merging them.
 func WrapOnOperators(symbols ...string) UnparserOption {
-	return func(fmtOpt *unparserOption) (*unparserOption, error) {
-		fmtOpt.operatorsToWrapOn = make(map[string]bool)
+	return func(opt *unparserOption) (*unparserOption, error) {
+		opt.operatorsToWrapOn = make(map[string]bool)
 		for _, symbol := range symbols {
 			_, found := operators.FindReverse(symbol)
 			if !found {
@@ -558,9 +560,31 @@ func WrapOnOperators(symbols ...string) UnparserOption {
 				return nil, fmt.Errorf("Invalid formatting option. Unary operators are unsupported: %s", symbol)
 			}
 
-			fmtOpt.operatorsToWrapOn[symbol] = true
+			opt.operatorsToWrapOn[symbol] = true
 		}
 
-		return fmtOpt, nil
+		return opt, nil
+	}
+}
+
+// WrapAfterColumnLimit dictates whether to insert a newline before or after the specified operator
+// when word wrapping is performed.
+//
+// Example usage:
+//
+//	Unparse(expr, sourceInfo, WrapColumn(40), WrapOnOperators(Operators.LogicalAnd), WrapAfterColumnLimit(false))
+//
+// This will insert a newline immediately before the logical AND operator for the below example input:
+//
+// Input:
+// 'my-principal-group' in request.auth.claims && request.auth.claims.iat > now - duration('5m')
+//
+// Output:
+// 'my-principal-group' in request.auth.claims &&
+// request.auth.claims.iat > now - duration('5m')
+func WrapAfterColumnLimit(wrapAfter bool) UnparserOption {
+	return func(opt *unparserOption) (*unparserOption, error) {
+		opt.wrapAfterColumnLimit = wrapAfter
+		return opt, nil
 	}
 }

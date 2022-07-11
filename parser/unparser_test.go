@@ -182,7 +182,7 @@ func TestUnparse(t *testing.T) {
 			},
 		},
 		{
-			name: "call_wrap_add_and_subtract",
+			name: "call_wrap_add_subtract",
 			in:   "a * b + c - d * e",
 			out:  "a * b +\nc -\nd * e",
 			formattingOptions: []UnparserOption{
@@ -191,7 +191,16 @@ func TestUnparse(t *testing.T) {
 			},
 		},
 		{
-			name: "call_wrap_and",
+			name: "call_wrap_add_subtract",
+			in:   "a * b + c - d * e",
+			out:  "a * b +\nc -\nd * e",
+			formattingOptions: []UnparserOption{
+				WrapOnColumn(3),
+				WrapOnOperators(operators.Add, operators.Subtract),
+			},
+		},
+		{
+			name: "call_wrap_logical_and",
 			in:   "a && b && c && d && e",
 			out:  "a &&\nb &&\nc &&\nd &&\ne",
 			formattingOptions: []UnparserOption{
@@ -200,7 +209,7 @@ func TestUnparse(t *testing.T) {
 			},
 		},
 		{
-			name: "call_wrap_and_2",
+			name: "call_wrap_logical_and_2",
 			in:   "a && b",
 			out:  "a &&\nb",
 			formattingOptions: []UnparserOption{
@@ -317,20 +326,11 @@ func TestUnparse(t *testing.T) {
 			},
 		},
 		{
-			name: "call_wrap_and_long_variables",
+			name: "call_wrap_logical_and_long_variables",
 			in:   "longVariableA && longVariableB && longVariableC",
 			out:  "longVariableA &&\nlongVariableB &&\nlongVariableC",
 			formattingOptions: []UnparserOption{
 				WrapOnColumn(3),
-				WrapOnOperators(operators.LogicalAnd),
-			},
-		},
-		{
-			name: "call_wrap_and_long_input",
-			in:   `"my-principal-group" in request.auth.claims && request.auth.claims.iat > now - duration("5m")`,
-			out:  `"my-principal-group" in request.auth.claims &&` + "\n" + `request.auth.claims.iat > now - duration("5m")`,
-			formattingOptions: []UnparserOption{
-				WrapOnColumn(40),
 				WrapOnOperators(operators.LogicalAnd),
 			},
 		},
@@ -342,6 +342,55 @@ func TestUnparse(t *testing.T) {
 			formattingOptions: []UnparserOption{
 				WrapOnColumn(3),
 				WrapOnOperators(operators.GreaterEquals, operators.LessEquals),
+			},
+		},
+		{
+			name: "call_wrap_before_add",
+			in:   "a + b - d * e",
+			out:  "a\n+ b - d * e",
+			formattingOptions: []UnparserOption{
+				WrapOnColumn(3),
+				WrapOnOperators(operators.Add),
+				WrapAfterColumnLimit(false),
+			},
+		},
+		{
+			name: "call_wrap_before_add_subtract",
+			in:   "a * b + c - d * e",
+			out:  "a * b\n+ c\n- d * e",
+			formattingOptions: []UnparserOption{
+				WrapOnColumn(3),
+				WrapOnOperators(operators.Add, operators.Subtract),
+				WrapAfterColumnLimit(false),
+			},
+		},
+		{
+			name: "call_wrap_logical_and_long_variables",
+			in:   "longVariableA && longVariableB && longVariableC",
+			out:  "longVariableA\n&& longVariableB\n&& longVariableC",
+			formattingOptions: []UnparserOption{
+				WrapOnColumn(3),
+				WrapOnOperators(operators.LogicalAnd),
+				WrapAfterColumnLimit(false),
+			},
+		},
+		{
+			name: "call_wrap_logical_and_long_input",
+			in:   `"my-principal-group" in request.auth.claims && request.auth.claims.iat > now - duration("5m")`,
+			out:  `"my-principal-group" in request.auth.claims &&` + "\n" + `request.auth.claims.iat > now - duration("5m")`,
+			formattingOptions: []UnparserOption{
+				WrapOnColumn(40),
+				WrapOnOperators(operators.LogicalAnd),
+			},
+		},
+		{
+			name: "call_wrap_before_logical_and_long_input",
+			in:   `"my-principal-group" in request.auth.claims && request.auth.claims.iat > now - duration("5m")`,
+			out:  `"my-principal-group" in request.auth.claims` + "\n" + `&& request.auth.claims.iat > now - duration("5m")`,
+			formattingOptions: []UnparserOption{
+				WrapOnColumn(40),
+				WrapOnOperators(operators.LogicalAnd),
+				WrapAfterColumnLimit(false),
 			},
 		},
 	}
