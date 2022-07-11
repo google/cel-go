@@ -165,7 +165,7 @@ func TestFunctionMerge(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewCustomEnv(size, <custom>) failed: %v", err)
 	}
-	prg, err = e.Program(ast)
+	_, err = e.Program(ast)
 	if err == nil || !strings.Contains(err.Error(), "incompatible with specialized overloads") {
 		t.Errorf("NewCustomEnv(size, size_specialization) did not produce the expected error: %v", err)
 	}
@@ -273,6 +273,34 @@ func TestSingletonUnaryImpl(t *testing.T) {
 	}
 	if out.Equal(types.String("hello")) != types.True {
 		t.Errorf("Eval got %v, wanted 'hello'", out)
+	}
+}
+
+func TestSingletonUnaryImplParameterized(t *testing.T) {
+	// Test the case where the singleton unary impl is merged with the earlier declaration.
+	e, err := NewCustomEnv(
+		Variable("x", AnyType),
+		Function("isSorted", MemberOverload("list_int_is_sorted", []*Type{ListType(IntType)}, BoolType)),
+		Function("isSorted", MemberOverload("list_uint_is_sorted", []*Type{ListType(UintType)}, BoolType),
+			SingletonUnaryBinding(func(arg ref.Val) ref.Val { return types.True })),
+	)
+	if err != nil {
+		t.Errorf("NewCustomEnv() failed: %v", err)
+	}
+	ast, iss := e.Parse("x.isSorted()")
+	if iss.Err() != nil {
+		t.Fatalf("Parse('x.isSorted()') failed: %v", iss.Err())
+	}
+	prg, err := e.Program(ast)
+	if err != nil {
+		t.Fatalf("Program() failed: %v", err)
+	}
+	out, _, err := prg.Eval(map[string]interface{}{"x": []int{1, 2, 3}})
+	if err != nil {
+		t.Errorf("prg.Eval(x=[1,2,3]) failed: %v", err)
+	}
+	if out != types.True {
+		t.Errorf("Eval got %v, wanted true", out)
 	}
 }
 
@@ -419,6 +447,9 @@ func TestUnaryImpl(t *testing.T) {
 		),
 		Variable("x", ListType(DynType)),
 	)
+	if err != nil {
+		t.Fatalf("NewCustomEnv() failed: %v", err)
+	}
 	ast, iss := e.Compile("size(x)")
 	if iss.Err() != nil {
 		t.Fatalf("Compile(size(x)) failed: %v", iss.Err())
@@ -499,6 +530,9 @@ func TestBinaryImpl(t *testing.T) {
 		Variable("x", IntType),
 		Variable("y", IntType),
 	)
+	if err != nil {
+		t.Fatalf("NewCustomEnv() failed: %v", err)
+	}
 	ast, iss := e.Parse("max(x, y)")
 	if iss.Err() != nil {
 		t.Fatalf("Parse(max(x, y))) failed: %v", iss.Err())
