@@ -393,6 +393,29 @@ func TestUnparse(t *testing.T) {
 				WrapAfterColumnLimit(false),
 			},
 		},
+		{
+			// By default:
+			// - Column limit is at 80
+			// - && and || are wrapped
+			// - Wrapping occurs after the symbol
+			name: "call_wrap_default",
+			in:   `jwt.extra_claims.filter(c, c.startsWith("group")).all(c, jwt.extra_claims[c].all(g, g.endsWith("@acme.co"))) && jwt.extra_claims.exists(c, c.startsWith("group")) || request.auth.claims.group == "admin" || request.auth.principal == "user:me@acme.co"`,
+			out: `jwt.extra_claims.filter(c, c.startsWith("group")).all(c, jwt.extra_claims[c].all(g, g.endsWith("@acme.co"))) &&` +
+				"\n" +
+				`jwt.extra_claims.exists(c, c.startsWith("group")) || request.auth.claims.group == "admin" ||` +
+				"\n" +
+				`request.auth.principal == "user:me@acme.co"`,
+			requiresMacroCalls: true,
+		},
+		{
+			// && and || are wrapped by default if only the column limit is specified
+			name: "call_wrap_default_operators",
+			in:   "longVariableA && longVariableB || longVariableC + longVariableD - longVariableE",
+			out:  "longVariableA &&\nlongVariableB ||\nlongVariableC + longVariableD - longVariableE",
+			formattingOptions: []UnparserOption{
+				WrapOnColumn(3),
+			},
+		},
 	}
 
 	for _, tst := range tests {

@@ -43,6 +43,7 @@ func Unparse(expr *exprpb.Expr, info *exprpb.SourceInfo, opts ...UnparserOption)
 	formattingOpts := &unparserOption{
 		wrapColumn:           defaultWrapColumn,
 		wrapAfterColumnLimit: defaultWrapAfterColumnLimit,
+		operatorsToWrapOn:    defaultOperatorsToWrapOn,
 	}
 
 	var err error
@@ -500,9 +501,13 @@ func (un *unparser) writeOperatorWithWrapping(fun string, unmangled string) bool
 }
 
 // Defined defaults for the formatting options
-const (
+var (
 	defaultWrapColumn           = 80
 	defaultWrapAfterColumnLimit = true
+	defaultOperatorsToWrapOn    = map[string]bool{
+		operators.LogicalAnd: true,
+		operators.LogicalOr:  true,
+	}
 )
 
 // UnparserOption is a funcitonal option for configuring the output formatting
@@ -574,14 +579,15 @@ func WrapOnOperators(symbols ...string) UnparserOption {
 //
 //	Unparse(expr, sourceInfo, WrapColumn(40), WrapOnOperators(Operators.LogicalAnd), WrapAfterColumnLimit(false))
 //
-// This will insert a newline immediately before the logical AND operator for the below example input:
+// This will insert a newline immediately before the logical AND operator for the below example input, ensuring
+// that the length of a line never exceeds the specified column limit:
 //
 // Input:
 // 'my-principal-group' in request.auth.claims && request.auth.claims.iat > now - duration('5m')
 //
 // Output:
-// 'my-principal-group' in request.auth.claims &&
-// request.auth.claims.iat > now - duration('5m')
+// 'my-principal-group' in request.auth.claims
+// && request.auth.claims.iat > now - duration('5m')
 func WrapAfterColumnLimit(wrapAfter bool) UnparserOption {
 	return func(opt *unparserOption) (*unparserOption, error) {
 		opt.wrapAfterColumnLimit = wrapAfter
