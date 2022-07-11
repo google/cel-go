@@ -41,7 +41,7 @@ import (
 // performing word wrapping on expressions.
 func Unparse(expr *exprpb.Expr, info *exprpb.SourceInfo, opts ...UnparserOption) (string, error) {
 	unparserOpts := &unparserOption{
-		wrapColumn:           defaultWrapColumn,
+		wrapOnColumn:         defaultWrapOnColumn,
 		wrapAfterColumnLimit: defaultWrapAfterColumnLimit,
 		operatorsToWrapOn:    defaultOperatorsToWrapOn,
 	}
@@ -474,7 +474,7 @@ func (un *unparser) writeOperatorWithWrapping(fun string, unmangled string) bool
 	_, wrapOperatorExists := un.options.operatorsToWrapOn[fun]
 	lineLength := un.str.Len() - un.lastWrappedIndex + len(fun)
 
-	if wrapOperatorExists && lineLength >= un.options.wrapColumn {
+	if wrapOperatorExists && lineLength >= un.options.wrapOnColumn {
 		un.lastWrappedIndex = un.str.Len()
 		// wrapAfterColumnLimit flag dictates whether the newline is placed
 		// before or after the operator
@@ -502,7 +502,7 @@ func (un *unparser) writeOperatorWithWrapping(fun string, unmangled string) bool
 
 // Defined defaults for the unparser options
 var (
-	defaultWrapColumn           = 80
+	defaultWrapOnColumn         = 80
 	defaultWrapAfterColumnLimit = true
 	defaultOperatorsToWrapOn    = map[string]bool{
 		operators.LogicalAnd: true,
@@ -516,7 +516,7 @@ type UnparserOption func(*unparserOption) (*unparserOption, error)
 
 // Internal representation of the UnparserOption type
 type unparserOption struct {
-	wrapColumn           int
+	wrapOnColumn         int
 	operatorsToWrapOn    map[string]bool
 	wrapAfterColumnLimit bool
 }
@@ -526,7 +526,7 @@ type unparserOption struct {
 //
 // Example usage:
 //
-//	Unparse(expr, sourceInfo, WrapColumn(40), WrapOnOperators(Operators.LogicalAnd))
+//	Unparse(expr, sourceInfo, WrapOnColumn(40), WrapOnOperators(Operators.LogicalAnd))
 //
 // This will insert a newline immediately after the logical AND operator for the below example input:
 //
@@ -541,7 +541,7 @@ func WrapOnColumn(col int) UnparserOption {
 		if col < 1 {
 			return nil, fmt.Errorf("Invalid unparser option. Wrap column value must be greater than or equal to 1. Got %v instead", col)
 		}
-		opt.wrapColumn = col
+		opt.wrapOnColumn = col
 		return opt, nil
 	}
 }
@@ -577,7 +577,7 @@ func WrapOnOperators(symbols ...string) UnparserOption {
 //
 // Example usage:
 //
-//	Unparse(expr, sourceInfo, WrapColumn(40), WrapOnOperators(Operators.LogicalAnd), WrapAfterColumnLimit(false))
+//	Unparse(expr, sourceInfo, WrapOnColumn(40), WrapOnOperators(Operators.LogicalAnd), WrapAfterColumnLimit(false))
 //
 // This will insert a newline immediately before the logical AND operator for the below example input, ensuring
 // that the length of a line never exceeds the specified column limit:
