@@ -1703,6 +1703,32 @@ func TestDefaultUTCTimeZone(t *testing.T) {
 	}
 }
 
+func TestDefaultUTCTimeZoneExtension(t *testing.T) {
+	env, err := NewEnv(Variable("x", TimestampType), DefaultUTCTimeZone(true))
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	env, err = env.Extend()
+	if err != nil {
+		t.Fatalf("env.Extend() failed: %v", err)
+	}
+	ast, iss := env.Compile(`x.getFullYear() == 1970`)
+	if iss.Err() != nil {
+		t.Fatalf("env.Compile() failed: %v", iss.Err())
+	}
+	prg, err := env.Program(ast)
+	if err != nil {
+		t.Fatalf("env.Program() failed: %v", err)
+	}
+	out, _, err := prg.Eval(map[string]interface{}{"x": time.Unix(7506, 1000000).Local()})
+	if err != nil {
+		t.Fatalf("prg.Eval() failed: %v", err)
+	}
+	if out != types.True {
+		t.Errorf("Eval() got %v, wanted true", out)
+	}
+}
+
 func TestDefaultUTCTimeZoneError(t *testing.T) {
 	env, err := NewEnv(Variable("x", TimestampType), DefaultUTCTimeZone(true))
 	if err != nil {
