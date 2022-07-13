@@ -2,8 +2,7 @@
 ## explicit; go 1.16
 github.com/antlr/antlr4/runtime/Go/antlr
 # github.com/golang/glog v1.0.0
-## explicit; go 1.11
-github.com/golang/glog
+## explicit
 # github.com/golang/protobuf v1.5.2
 ## explicit; go 1.9
 github.com/golang/protobuf/proto
@@ -22,7 +21,6 @@ golang.org/x/text/width
 # google.golang.org/genproto v0.0.0-20220502173005-c8bf987b8c21
 ## explicit; go 1.15
 google.golang.org/genproto/googleapis/api/expr/v1alpha1
-google.golang.org/genproto/googleapis/rpc/context/attribute_context
 google.golang.org/genproto/googleapis/rpc/status
 # google.golang.org/protobuf v1.28.0
 ## explicit; go 1.11
