@@ -21,6 +21,7 @@ import (
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/common/types/traits"
 	"github.com/google/cel-go/interpreter/functions"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
@@ -162,7 +163,7 @@ type Type struct {
 
 	// isAssignableRuntimeType function determines whether the runtime type (with erasure) is assignable to this type.
 	// A nil value for the isAssignableRuntimeType function falls back to the equality of the type or type name.
-	isAssignableRuntimeType func(other ref.Type) bool
+	isAssignableRuntimeType func(other ref.Val) bool
 }
 
 // IsAssignableType determines whether the current type is type-check assignable from the input fromType.
@@ -177,11 +178,11 @@ func (t *Type) IsAssignableType(fromType *Type) bool {
 //
 // At runtime, parameterized types are erased and so a function which type-checks to support a map(string, string)
 // will have a runtime assignable type of a map.
-func (t *Type) IsAssignableRuntimeType(runtimeType ref.Type) bool {
+func (t *Type) IsAssignableRuntimeType(val ref.Val) bool {
 	if t.isAssignableRuntimeType != nil {
-		return t.isAssignableRuntimeType(runtimeType)
+		return t.isAssignableRuntimeType(val)
 	}
-	return t.defaultIsAssignableRuntimeType(runtimeType)
+	return t.defaultIsAssignableRuntimeType(val)
 }
 
 // String returns a human-readable definition of the type name.
@@ -221,8 +222,7 @@ func (t *Type) equals(other *Type) bool {
 // - The from types are the same instance
 // - The target type is dynamic
 // - The fromType has the same kind and type name as the target type, and all parameters of the target type
-//
-//	are IsAssignableType() from the parameters of the fromType.
+//	 are IsAssignableType() from the parameters of the fromType.
 func (t *Type) defaultIsAssignableType(fromType *Type) bool {
 	if t == fromType || t.isDyn() {
 		return true
@@ -241,8 +241,40 @@ func (t *Type) defaultIsAssignableType(fromType *Type) bool {
 	return true
 }
 
-func (t *Type) defaultIsAssignableRuntimeType(runtimeType ref.Type) bool {
-	return t.runtimeType == runtimeType || t.isDyn() || t.runtimeType.TypeName() == runtimeType.TypeName()
+// defaultIsAssignableRuntimeType inspects the type and in the case of list and map elements, the key and element types
+// to determine whether a ref.Val is assignable to the declared type for a function signature.
+func (t *Type) defaultIsAssignableRuntimeType(val ref.Val) bool {
+	valType := val.Type()
+	if !(t.runtimeType == valType || t.isDyn() || t.runtimeType.TypeName() == valType.TypeName()) {
+		return false
+	}
+	switch t.runtimeType {
+	case types.ListType:
+		elemType := t.parameters[0]
+		l := val.(traits.Lister)
+		if l.Size() == types.IntZero {
+			return true
+		}
+		it := l.Iterator()
+		for it.HasNext() == types.True {
+			elemVal := it.Next()
+			return elemType.IsAssignableRuntimeType(elemVal)
+		}
+	case types.MapType:
+		keyType := t.parameters[0]
+		elemType := t.parameters[1]
+		m := val.(traits.Mapper)
+		if m.Size() == types.IntZero {
+			return true
+		}
+		it := m.Iterator()
+		for it.HasNext() == types.True {
+			keyVal := it.Next()
+			elemVal := m.Get(keyVal)
+			return keyType.IsAssignableRuntimeType(keyVal) && elemType.IsAssignableRuntimeType(elemVal)
+		}
+	}
+	return true
 }
 
 // ListType creates an instances of a list type value with the provided element type.
@@ -274,7 +306,7 @@ func NullableType(wrapped *Type) *Type {
 		isAssignableType: func(other *Type) bool {
 			return NullType.IsAssignableType(other) || wrapped.IsAssignableType(other)
 		},
-		isAssignableRuntimeType: func(other ref.Type) bool {
+		isAssignableRuntimeType: func(other ref.Val) bool {
 			return NullType.IsAssignableRuntimeType(other) || wrapped.IsAssignableRuntimeType(other)
 		},
 	}
@@ -329,12 +361,26 @@ func Variable(name string, t *Type) EnvOption {
 // One key difference with using Function() is that each FunctionDecl provided will handle dynamic
 // dispatch based on the type-signatures of the overloads provided which means overload resolution at
 // runtime is handled out of the box rather than via a custom binding for overload resolution via
-// Functions().
+// Functions():
+//
+// - Overloads are searched in the order they are declared
+// - Dynamic dispatch for lists and maps is limited by inspection of the list and map contents
+//   at runtime. Empty lists and maps will result in a 'default dispatch'
+// - In the event that a default dispatch occurs, the first overload provided is the one invoked
+//
+// If you intend to use overloads which differentiate based on the key or element type of a list or
+// map, consider using a generic function instead: e.g. func(list(T)) or func(map(K, V)) as this
+// will allow your implementation to determine how best to handle dispatch and the default behavior
+// for empty lists and maps whose contents cannot be inspected.
+//
+// For functions which use parameterized opaque types (abstract types), consider using a singleton
+// function which is capable of inspecting the contents of the type and resolving the appropriate
+// overload as CEL can only make inferences by type-name regarding such types.
 func Function(name string, opts ...FunctionOpt) EnvOption {
 	return func(e *Env) (*Env, error) {
 		fn := &functionDecl{
 			name:      name,
-			overloads: []*o{},
+			overloads: []*overloadDecl{},
 			options:   opts,
 		}
 		err := fn.init()
@@ -446,12 +492,12 @@ func MemberOverload(overloadID string, args []*Type, resultType *Type, opts ...O
 }
 
 // OverloadOpt is a functional option for configuring a function overload.
-type OverloadOpt func(*o) (*o, error)
+type OverloadOpt func(*overloadDecl) (*overloadDecl, error)
 
 // UnaryBinding provides the implementation of a unary overload. The provided function is protected by a runtime
 // type-guard which ensures runtime type agreement between the overload signature and runtime argument types.
 func UnaryBinding(binding functions.UnaryOp) OverloadOpt {
-	return func(o *o) (*o, error) {
+	return func(o *overloadDecl) (*overloadDecl, error) {
 		if o.hasBinding() {
 			return nil, fmt.Errorf("overload already has a binding: %s", o.id)
 		}
@@ -466,7 +512,7 @@ func UnaryBinding(binding functions.UnaryOp) OverloadOpt {
 // BinaryBinding provides the implementation of a binary overload. The provided function is protected by a runtime
 // type-guard which ensures runtime type agreement between the overload signature and runtime argument types.
 func BinaryBinding(binding functions.BinaryOp) OverloadOpt {
-	return func(o *o) (*o, error) {
+	return func(o *overloadDecl) (*overloadDecl, error) {
 		if o.hasBinding() {
 			return nil, fmt.Errorf("overload already has a binding: %s", o.id)
 		}
@@ -481,7 +527,7 @@ func BinaryBinding(binding functions.BinaryOp) OverloadOpt {
 // FunctionBinding provides the implementation of a variadic overload. The provided function is protected by a runtime
 // type-guard which ensures runtime type agreement between the overload signature and runtime argument types.
 func FunctionBinding(binding functions.FunctionOp) OverloadOpt {
-	return func(o *o) (*o, error) {
+	return func(o *overloadDecl) (*overloadDecl, error) {
 		if o.hasBinding() {
 			return nil, fmt.Errorf("overload already has a binding: %s", o.id)
 		}
@@ -494,7 +540,7 @@ func FunctionBinding(binding functions.FunctionOp) OverloadOpt {
 //
 // Note: do not use this option unless absoluately necessary as it should be an uncommon feature.
 func OverloadIsNonStrict() OverloadOpt {
-	return func(o *o) (*o, error) {
+	return func(o *overloadDecl) (*overloadDecl, error) {
 		o.nonStrict = true
 		return o, nil
 	}
@@ -503,7 +549,7 @@ func OverloadIsNonStrict() OverloadOpt {
 // OverloadOperandTrait configures a set of traits which the first argument to the overload must implement in order to be
 // successfully invoked.
 func OverloadOperandTrait(trait int) OverloadOpt {
-	return func(o *o) (*o, error) {
+	return func(o *overloadDecl) (*overloadDecl, error) {
 		o.operandTrait = trait
 		return o, nil
 	}
@@ -511,7 +557,7 @@ func OverloadOperandTrait(trait int) OverloadOpt {
 
 type functionDecl struct {
 	name        string
-	overloads   []*o
+	overloads   []*overloadDecl
 	options     []FunctionOpt
 	singleton   *functions.Overload
 	initialized bool
@@ -640,7 +686,7 @@ func (f *functionDecl) merge(other *functionDecl) (*functionDecl, error) {
 	}
 	merged := &functionDecl{
 		name:        f.name,
-		overloads:   make([]*o, len(f.overloads)),
+		overloads:   make([]*overloadDecl, len(f.overloads)),
 		options:     []FunctionOpt{},
 		initialized: true,
 		singleton:   f.singleton,
@@ -664,7 +710,7 @@ func (f *functionDecl) merge(other *functionDecl) (*functionDecl, error) {
 // addOverload ensures that the new overload does not collide with an existing overload signature;
 // however, if the function signatures are identical, the implementation may be rewritten as its
 // difficult to compare functions by object identity.
-func (f *functionDecl) addOverload(overload *o) error {
+func (f *functionDecl) addOverload(overload *overloadDecl) error {
 	for index, o := range f.overloads {
 		if o.id != overload.id && o.signatureOverlaps(overload) {
 			return fmt.Errorf("overload signature collision in function %s: %s collides with %s", f.name, o.id, overload.id)
@@ -692,8 +738,8 @@ func noSuchOverload(funcName string, args ...ref.Val) ref.Val {
 	return types.NewErr("no such overload: %s(%s)", funcName, signature)
 }
 
-// o contains all of the relevant information regarding a specific function overload.
-type o struct {
+// overloadDecl contains all of the relevant information regarding a specific function overload.
+type overloadDecl struct {
 	id             string
 	argTypes       []*Type
 	resultType     *Type
@@ -709,12 +755,12 @@ type o struct {
 	operandTrait int
 }
 
-func (o *o) hasBinding() bool {
+func (o *overloadDecl) hasBinding() bool {
 	return o.unaryOp != nil || o.binaryOp != nil || o.functionOp != nil
 }
 
 // guardedUnaryOp creates an invocation guard around the provided unary operator, if one is defined.
-func (o *o) guardedUnaryOp(funcName string) functions.UnaryOp {
+func (o *overloadDecl) guardedUnaryOp(funcName string) functions.UnaryOp {
 	if o.unaryOp == nil {
 		return nil
 	}
@@ -727,7 +773,7 @@ func (o *o) guardedUnaryOp(funcName string) functions.UnaryOp {
 }
 
 // guardedBinaryOp creates an invocation guard around the provided binary operator, if one is defined.
-func (o *o) guardedBinaryOp(funcName string) functions.BinaryOp {
+func (o *overloadDecl) guardedBinaryOp(funcName string) functions.BinaryOp {
 	if o.binaryOp == nil {
 		return nil
 	}
@@ -740,7 +786,7 @@ func (o *o) guardedBinaryOp(funcName string) functions.BinaryOp {
 }
 
 // guardedFunctionOp creates an invocation guard around the provided variadic function binding, if one is provided.
-func (o *o) guardedFunctionOp(funcName string) functions.FunctionOp {
+func (o *overloadDecl) guardedFunctionOp(funcName string) functions.FunctionOp {
 	if o.functionOp == nil {
 		return nil
 	}
@@ -753,27 +799,27 @@ func (o *o) guardedFunctionOp(funcName string) functions.FunctionOp {
 }
 
 // matchesRuntimeUnarySignature indicates whether the argument type is runtime assiganble to the overload's expected argument.
-func (o *o) matchesRuntimeUnarySignature(arg ref.Val) bool {
+func (o *overloadDecl) matchesRuntimeUnarySignature(arg ref.Val) bool {
 	if o.nonStrict && types.IsUnknownOrError(arg) {
 		return true
 	}
-	return o.argTypes[0].IsAssignableRuntimeType(arg.Type()) && (o.operandTrait == 0 || arg.Type().HasTrait(o.operandTrait))
+	return o.argTypes[0].IsAssignableRuntimeType(arg) && (o.operandTrait == 0 || arg.Type().HasTrait(o.operandTrait))
 }
 
 // matchesRuntimeBinarySignature indicates whether the argument types are runtime assiganble to the overload's expected arguments.
-func (o *o) matchesRuntimeBinarySignature(arg1, arg2 ref.Val) bool {
+func (o *overloadDecl) matchesRuntimeBinarySignature(arg1, arg2 ref.Val) bool {
 	if o.nonStrict {
 		if types.IsUnknownOrError(arg1) {
-			return types.IsUnknownOrError(arg2) || o.argTypes[1].IsAssignableRuntimeType(arg2.Type())
+			return types.IsUnknownOrError(arg2) || o.argTypes[1].IsAssignableRuntimeType(arg2)
 		}
-	} else if !o.argTypes[1].IsAssignableRuntimeType(arg2.Type()) {
+	} else if !o.argTypes[1].IsAssignableRuntimeType(arg2) {
 		return false
 	}
-	return o.argTypes[0].IsAssignableRuntimeType(arg1.Type()) && (o.operandTrait == 0 || arg1.Type().HasTrait(o.operandTrait))
+	return o.argTypes[0].IsAssignableRuntimeType(arg1) && (o.operandTrait == 0 || arg1.Type().HasTrait(o.operandTrait))
 }
 
 // matchesRuntimeSignature indicates whether the argument types are runtime assiganble to the overload's expected arguments.
-func (o *o) matchesRuntimeSignature(args ...ref.Val) bool {
+func (o *overloadDecl) matchesRuntimeSignature(args ...ref.Val) bool {
 	if len(args) != len(o.argTypes) {
 		return false
 	}
@@ -785,7 +831,7 @@ func (o *o) matchesRuntimeSignature(args ...ref.Val) bool {
 		if o.nonStrict && types.IsUnknownOrError(arg) {
 			continue
 		}
-		allArgsMatch = allArgsMatch && o.argTypes[i].IsAssignableRuntimeType(arg.Type())
+		allArgsMatch = allArgsMatch && o.argTypes[i].IsAssignableRuntimeType(arg)
 	}
 
 	arg := args[0]
@@ -795,7 +841,7 @@ func (o *o) matchesRuntimeSignature(args ...ref.Val) bool {
 // signatureEquals indicates whether one overload has an identical signature to another overload.
 //
 // Providing a duplicate signature is not an issue, but an overloapping signature is problematic.
-func (o *o) signatureEquals(other *o) bool {
+func (o *overloadDecl) signatureEquals(other *overloadDecl) bool {
 	if o.id != other.id || o.memberFunction != other.memberFunction || len(o.argTypes) != len(other.argTypes) {
 		return false
 	}
@@ -811,7 +857,7 @@ func (o *o) signatureEquals(other *o) bool {
 // signatureOverlaps indicates whether one overload has an overlapping signature with another overload.
 //
 // The 'other' overload must first be checked for equality before determining whether it overlaps in order to be completely accurate.
-func (o *o) signatureOverlaps(other *o) bool {
+func (o *overloadDecl) signatureOverlaps(other *overloadDecl) bool {
 	if o.memberFunction != other.memberFunction || len(o.argTypes) != len(other.argTypes) {
 		return false
 	}
@@ -827,7 +873,7 @@ func (o *o) signatureOverlaps(other *o) bool {
 
 func newOverload(overloadID string, memberFunction bool, args []*Type, resultType *Type, opts ...OverloadOpt) FunctionOpt {
 	return func(f *functionDecl) (*functionDecl, error) {
-		overload := &o{
+		overload := &overloadDecl{
 			id:             overloadID,
 			argTypes:       args,
 			resultType:     resultType,

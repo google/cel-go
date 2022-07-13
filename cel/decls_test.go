@@ -20,6 +20,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/operators"
@@ -659,14 +660,27 @@ func TestIsAssignableType(t *testing.T) {
 }
 
 func TestIsAssignableRuntimeType(t *testing.T) {
-	if !NullableType(DoubleType).IsAssignableRuntimeType(types.NullType) {
+	if !NullableType(DoubleType).IsAssignableRuntimeType(types.NullValue) {
 		t.Error("nullable double cannot be assigned from null")
 	}
-	if !NullableType(DoubleType).IsAssignableRuntimeType(types.DoubleType) {
+	if !NullableType(DoubleType).IsAssignableRuntimeType(types.Double(0.0)) {
 		t.Error("nullable double cannot be assigned from double")
 	}
-	if !MapType(StringType, DurationType).IsAssignableRuntimeType(types.MapType) {
-		t.Error("map(string, duration) not assibale to map at runtime")
+	if !MapType(StringType, DurationType).IsAssignableRuntimeType(
+		types.DefaultTypeAdapter.NativeToValue(map[string]time.Duration{})) {
+		t.Error("map(string, duration) not assignable to map at runtime")
+	}
+	if !MapType(StringType, DurationType).IsAssignableRuntimeType(
+		types.DefaultTypeAdapter.NativeToValue(map[string]time.Duration{"one": time.Duration(1)})) {
+		t.Error("map(string, duration) not assignable to map at runtime")
+	}
+	if !MapType(StringType, DynType).IsAssignableRuntimeType(
+		types.DefaultTypeAdapter.NativeToValue(map[string]time.Duration{"one": time.Duration(1)})) {
+		t.Error("map(string, dyn) not assignable to map at runtime")
+	}
+	if MapType(StringType, DynType).IsAssignableRuntimeType(
+		types.DefaultTypeAdapter.NativeToValue(map[int64]time.Duration{1: time.Duration(1)})) {
+		t.Error("map(string, dyn) must not be assignable to map(int, duration) at runtime")
 	}
 }
 
