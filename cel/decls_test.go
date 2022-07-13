@@ -147,10 +147,6 @@ func TestFunctionMerge(t *testing.T) {
 		t.Errorf("prg.Eval() got %v, wanted %v", out, want)
 	}
 
-	_, err = NewCustomEnv(vectorExt, vectorExt)
-	if err == nil || !strings.Contains(err.Error(), "overload binding collision") {
-		t.Errorf("NewCustomEnv(vectorExt, vectorExt) did not produce expected error: %v", err)
-	}
 	_, err = NewCustomEnv(size, size)
 	if err == nil || !strings.Contains(err.Error(), "already has a binding") {
 		t.Errorf("NewCustomEnv(size, size) did not produce the expected error: %v", err)
