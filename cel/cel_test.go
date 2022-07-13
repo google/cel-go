@@ -202,8 +202,10 @@ func TestCustomEnvError(t *testing.T) {
 }
 
 func TestCustomEnv(t *testing.T) {
-	e, _ := NewCustomEnv(Variable("a.b.c", BoolType))
-
+	e, err := NewCustomEnv(Variable("a.b.c", BoolType))
+	if err != nil {
+		t.Fatalf("NewCustomEnv(a.b.c:bool) failed: %v", err)
+	}
 	t.Run("err", func(t *testing.T) {
 		_, iss := e.Compile("a.b.c == true")
 		if iss.Err() == nil {
@@ -1704,7 +1706,11 @@ func TestDefaultUTCTimeZone(t *testing.T) {
 }
 
 func TestDefaultUTCTimeZoneExtension(t *testing.T) {
-	env, err := NewEnv(Variable("x", TimestampType), DefaultUTCTimeZone(true))
+	env, err := NewEnv(
+		Variable("x", TimestampType),
+		Variable("y", DurationType),
+		DefaultUTCTimeZone(true),
+	)
 	if err != nil {
 		t.Fatalf("NewEnv() failed: %v", err)
 	}
@@ -1712,7 +1718,12 @@ func TestDefaultUTCTimeZoneExtension(t *testing.T) {
 	if err != nil {
 		t.Fatalf("env.Extend() failed: %v", err)
 	}
-	ast, iss := env.Compile(`x.getFullYear() == 1970`)
+	ast, iss := env.Compile(`
+	    x.getFullYear() == 1970
+		&& y.getHours() == 2
+		&& y.getMinutes() == 120
+		&& y.getSeconds() == 7235
+		&& y.getMilliseconds() == 7235000`)
 	if iss.Err() != nil {
 		t.Fatalf("env.Compile() failed: %v", iss.Err())
 	}
@@ -1720,12 +1731,17 @@ func TestDefaultUTCTimeZoneExtension(t *testing.T) {
 	if err != nil {
 		t.Fatalf("env.Program() failed: %v", err)
 	}
-	out, _, err := prg.Eval(map[string]interface{}{"x": time.Unix(7506, 1000000).Local()})
+	out, _, err := prg.Eval(
+		map[string]interface{}{
+			"x": time.Unix(7506, 1000000).Local(),
+			"y": time.Duration(7235) * time.Second,
+		},
+	)
 	if err != nil {
 		t.Fatalf("prg.Eval() failed: %v", err)
 	}
 	if out != types.True {
-		t.Errorf("Eval() got %v, wanted true", out)
+		t.Errorf("Eval() got %v, wanted true", out.Value())
 	}
 }
 
