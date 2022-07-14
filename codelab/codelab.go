@@ -25,18 +25,15 @@ import (
 	"time"
 
 	"github.com/google/cel-go/cel"
-	_ "github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
-	_ "github.com/google/cel-go/interpreter/functions"
 
 	"github.com/golang/glog"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 
-	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	rpcpb "google.golang.org/genproto/googleapis/rpc/context/attribute_context"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 	tpb "google.golang.org/protobuf/types/known/timestamppb"
@@ -147,14 +144,14 @@ func exercise8() {
 // compile will parse and check an expression `expr` against a given
 // environment `env` and determine whether the resulting type of the expression
 // matches the `exprType` provided as input.
-func compile(env *cel.Env, expr string, exprType *exprpb.Type) *cel.Ast {
+func compile(env *cel.Env, expr string, celType *cel.Type) *cel.Ast {
 	ast, iss := env.Compile(expr)
 	if iss.Err() != nil {
 		glog.Exit(iss.Err())
 	}
-	if !proto.Equal(ast.ResultType(), exprType) {
+	if !reflect.DeepEqual(ast.OutputType(), celType) {
 		glog.Exitf(
-			"Got %v, wanted %v result type", ast.ResultType(), exprType)
+			"Got %v, wanted %v result type", ast.OutputType(), celType)
 	}
 	fmt.Printf("%s\n\n", strings.ReplaceAll(expr, "\t", " "))
 	return ast
@@ -223,30 +220,19 @@ func report(result ref.Val, details *cel.EvalDetails, err error) {
 }
 
 // mapContainsKeyValue implements the custom function:
-//   `map.contains(key, value) bool`.
+//
+//	`map.contains(key, value) bool`.
 func mapContainsKeyValue(args ...ref.Val) ref.Val {
-	// Check the argument input count.
-	if len(args) != 3 {
-		return types.NewErr("no such overload")
-	}
-	obj := args[0]
-	m, isMap := obj.(traits.Mapper)
-	// Ensure the argument is a CEL map type, otherwise error.
-	// The type-checking is a best effort check to ensure that the types provided
-	// to functions match the ones specified; however, it is always possible that
-	// the implementation does not match the declaration. Always check arguments
-	// types whenever there is a possibility that your function will deal with
-	// dynamic content.
-	if !isMap {
-		// The helper ValOrErr ensures that errors on input are propagated.
-		return types.ValOrErr(obj, "no such overload")
-	}
+	// The declaration of the function ensures that only arguments which match
+	// the mapContainsKey signature will be provided to the function.
+	m := args[0].(traits.Mapper)
 
 	// CEL has many interfaces for dealing with different type abstractions.
 	// The traits.Mapper interface unifies field presence testing on proto
 	// messages and maps.
 	key := args[1]
 	v, found := m.Find(key)
+
 	// If not found and the value was non-nil, the value is an error per the
 	// `Find` contract. Propagate it accordingly.
 	if !found {
