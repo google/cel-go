@@ -9,7 +9,7 @@ name.
 import "github.com/google/cel-go/cel"
 
     env, err := cel.NewEnv(cel.Variable("name", cel.StringType))
-    // Check iss for compilation errors.
+    // Check err for environment setup errors.
     if err != nil {
         log.Fatalln(err)
     }
@@ -61,7 +61,6 @@ method.
             ),
         ),
     )
-    // Create env and compile
     prg, _ := env.Program(c)
     out, _, _ := prg.Eval(map[string]interface{}{
         "i": "CEL",
@@ -101,7 +100,6 @@ of `MemberOverload` in the `Function` option:
             ),
         ),
     )
-    // Create env and compile.
     prg, _ := env.Program(c)
     out, _, _ := prg.Eval(map[string]interface{}{
         "i": "CEL",
