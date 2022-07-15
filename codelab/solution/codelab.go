@@ -223,7 +223,7 @@ func exercise5() {
 	out, _, _ := eval(
 		program,
 		map[string]interface{}{
-			"now": &tpb.Timestamp{Seconds: time.Now().Unix()},
+			"now": time.Now(),
 		},
 	)
 	// The output of the program is a CEL map type, but it can be converted
@@ -282,7 +282,7 @@ func exercise6() {
 					"group": "admin",
 				},
 			},
-			"now": &tpb.Timestamp{Seconds: time.Now().Unix()},
+			"now": time.Now(),
 		},
 	)
 	// Unwrap the CEL value to a proto. Make sure to use the `ConvertToNative` to convert

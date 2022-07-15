@@ -63,8 +63,7 @@ func (customLib) CompileOptions() []cel.EnvOption {
 				cel.BinaryBinding(func(lhs, rhs ref.Val) ref.Val {
 					return types.String(
 						fmt.Sprintf("Hello %s! Nice to meet you, I'm %s.\n", rhs, lhs))
-				},
-				),
+				}),
 			),
 		),
 	}
