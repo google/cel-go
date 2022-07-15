@@ -6,14 +6,13 @@ Evaluate expression `"Hello world! I'm " + name + "."` with `CEL` passed as
 name.
 
 ```go
-import (
-    "github.com/google/cel-go/cel"
-    "github.com/google/cel-go/checker/decls"
-)
+import "github.com/google/cel-go/cel"
 
-    d := cel.Declarations(decls.NewVar("name", decls.String))
-    env, err := cel.NewEnv(d)
-
+    env, err := cel.NewEnv(cel.Variable("name", cel.StringType))
+    // Check iss for compilation errors.
+    if err != nil {
+        log.Fatalln(err)
+    }
     ast, iss := env.Compile(`"Hello world! I'm " + name + "."`)
     // Check iss for compilation errors.
     if iss.Err() != nil {
@@ -40,35 +39,31 @@ Evaluate expression `i.greet(you)` with:
 ```
 
 First we need to declare two string variables and `greet` function.
-`NewInstanceOverload` must be used if we want to declare function which will
-operate on a type. First element of slice passed as `argTypes` into
-`NewInstanceOverload` is declaration of instance type. Next elements are
-parameters of function.
+`Function` must be used if we want to declare an extension to CEL. The
+`MemberOverload` declares an overload id, a list of arguments where the
+first element the `argTypes` slice is the target type of the member
+function. The remaining argument types are the signature of the member
+method.
 
 ```go
-    decls.NewVar("i", decls.String),
-    decls.NewVar("you", decls.String),
-    decls.NewFunction("greet",
-        decls.NewInstanceOverload("string_greet_string",
-            []*exprpb.Type{decls.String, decls.String},
-            decls.String))
-    ... // Create env and compile
-```
-
-Let's implement `greet` function and pass it to `program`. We will be using
-`Binary`, because `greet` function uses 2 parameters (1st instance, 2nd
-function parameter).
-
-```go
-    greetFunc := &functions.Overload{
-        Operator: "string_greet_string",
-        Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
-            return types.String(
-                fmt.Sprintf("Hello %s! Nice to meet you, I'm %s.\n", rhs, lhs))
-            }}
-    prg, err := env.Program(c, cel.Functions(greetFunc))
-
-    out, _, err := prg.Eval(map[string]interface{}{
+    env, _ := cel.NewEnv(
+        cel.Variable("i", cel.StringType),
+        cel.Variable("you", cel.StringType),
+        cel.Function("greet",
+            cel.MemberOverload("string_greet_string",
+                []*cel.Type{cel.StringType, cel.StringType},
+                cel.StringType,
+                cel.BinaryBinding(func (lhs, rhs ref.Val) ref.Val {
+                    return types.String(
+                        fmt.Sprintf("Hello %s! Nice to meet you, I'm %s.\n", rhs, lhs))
+                    },
+                ),
+            ),
+        ),
+    )
+    // Create env and compile
+    prg, _ := env.Program(c)
+    out, _, _ := prg.Eval(map[string]interface{}{
         "i": "CEL",
         "you": "world",
     })
@@ -87,26 +82,28 @@ Evaluate expression `shake_hands(i,you)` with:
     shake_hands -> "%s and %s are shaking hands."
 ```
 
-In order to declare global function we need to use `NewOverload`:
+In order to declare global function we need to use `Overload` instead
+of `MemberOverload` in the `Function` option:
 
 ```go
-    decls.NewVar("i", decls.String),
-    decls.NewVar("you", decls.String),
-    decls.NewFunction("shake_hands",
-        decls.NewOverload("shake_hands_string_string",
-            []*exprpb.Type{decls.String, decls.String},
-            decls.String))
-    ... // Create env and compile.
-
-    shakeFunc := &functions.Overload{
-        Operator: "shake_hands_string_string",
-        Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
-            return types.String(
-                fmt.Sprintf("%s and %s are shaking hands.\n", lhs, rhs))
-            }}
-    prg, err := env.Program(c, cel.Functions(shakeFunc))
-
-    out, _, err := prg.Eval(map[string]interface{}{
+    env, _ := cel.NewEnv(
+        cel.Variable("i", cel.StringType),
+        cel.Variable("you", cel.StringType),
+        cel.Function("shake_hands",
+            cel.Overload("shake_hands_string_string",
+                []*cel.Type{cel.StringType, cel.StringType},
+                cel.StringType,
+                cel.BinaryBinding(func(lhs, rhs ref.Val) ref.Val {
+                    return types.String(
+                        fmt.Sprintf("%s and %s are shaking hands.\n", lhs, rhs))
+                    },
+                ),
+            ),
+        ),
+    )
+    // Create env and compile.
+    prg, _ := env.Program(c)
+    out, _, _ := prg.Eval(map[string]interface{}{
         "i": "CEL",
         "you": "world",
     })

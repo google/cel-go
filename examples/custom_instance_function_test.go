@@ -19,12 +19,8 @@ import (
 	"log"
 
 	"github.com/google/cel-go/cel"
-	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/interpreter/functions"
-
-	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 func ExampleCustomInstanceFunction() {
@@ -58,26 +54,22 @@ type customLib struct{}
 
 func (customLib) CompileOptions() []cel.EnvOption {
 	return []cel.EnvOption{
-		cel.Declarations(
-			decls.NewVar("i", decls.String),
-			decls.NewVar("you", decls.String),
-			decls.NewFunction("greet",
-				decls.NewInstanceOverload("string_greet_string",
-					[]*exprpb.Type{decls.String, decls.String},
-					decls.String))),
+		cel.Variable("i", cel.StringType),
+		cel.Variable("you", cel.StringType),
+		cel.Function("greet",
+			cel.MemberOverload("string_greet_string",
+				[]*cel.Type{cel.StringType, cel.StringType},
+				cel.StringType,
+				cel.BinaryBinding(func(lhs, rhs ref.Val) ref.Val {
+					return types.String(
+						fmt.Sprintf("Hello %s! Nice to meet you, I'm %s.\n", rhs, lhs))
+				},
+				),
+			),
+		),
 	}
 }
 
 func (customLib) ProgramOptions() []cel.ProgramOption {
-	return []cel.ProgramOption{
-		cel.Functions(
-			&functions.Overload{
-				Operator: "string_greet_string",
-				Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
-					return types.String(
-						fmt.Sprintf("Hello %s! Nice to meet you, I'm %s.\n", rhs, lhs))
-				},
-			},
-		),
-	}
+	return []cel.ProgramOption{}
 }
