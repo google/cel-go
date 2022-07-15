@@ -4,7 +4,6 @@ go 1.17
 
 require (
 	github.com/antlr/antlr4/runtime/Go/antlr v0.0.0-20220418222510-f25a4f6275ed
-	github.com/golang/glog v1.0.0
 	github.com/golang/protobuf v1.5.2
 	github.com/stoewer/go-strcase v1.2.0
 	golang.org/x/text v0.3.7

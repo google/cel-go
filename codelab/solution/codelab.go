@@ -24,19 +24,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/common/types/traits"
+
 	"github.com/golang/glog"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/google/cel-go/cel"
-	"github.com/google/cel-go/checker/decls"
-	"github.com/google/cel-go/common/types"
-	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/common/types/traits"
-	"github.com/google/cel-go/interpreter/functions"
-
-	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	rpcpb "google.golang.org/genproto/googleapis/rpc/context/attribute_context"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 	tpb "google.golang.org/protobuf/types/known/timestamppb"
@@ -75,11 +72,11 @@ func exercise1() {
 	if iss.Err() != nil {
 		glog.Exit(iss.Err())
 	}
-	// Check the result type is a string.
-	if !proto.Equal(checked.ResultType(), decls.String) {
+	// Check the output type is a string.
+	if checked.OutputType() != cel.StringType {
 		glog.Exitf(
 			"Got %v, wanted %v result type",
-			checked.ResultType(), decls.String)
+			checked.OutputType(), cel.StringType)
 	}
 	// Plan the program.
 	program, err := env.Program(checked)
@@ -101,15 +98,14 @@ func exercise2() {
 	// the google.rpc.context.AttributeContext.Request type.
 	env, err := cel.NewEnv(
 		cel.Types(&rpcpb.AttributeContext_Request{}),
-		cel.Declarations(
-			decls.NewVar("request",
-				decls.NewObjectType("google.rpc.context.AttributeContext.Request")),
+		cel.Variable("request",
+			cel.ObjectType("google.rpc.context.AttributeContext.Request"),
 		),
 	)
 	if err != nil {
 		glog.Exit(err)
 	}
-	ast := compile(env, `request.auth.claims.group == 'admin'`, decls.Bool)
+	ast := compile(env, `request.auth.claims.group == 'admin'`, cel.BoolType)
 	program, _ := env.Program(ast)
 
 	// Evaluate a request object that sets the proper group claim.
@@ -132,16 +128,14 @@ func exercise3() {
 	fmt.Println("=== Exercise 3: Logical AND/OR ===\n")
 	env, _ := cel.NewEnv(
 		cel.Types(&rpcpb.AttributeContext_Request{}),
-		cel.Declarations(
-			decls.NewVar("request",
-				decls.NewObjectType("google.rpc.context.AttributeContext.Request"),
-			),
+		cel.Variable("request",
+			cel.ObjectType("google.rpc.context.AttributeContext.Request"),
 		),
 	)
 	ast := compile(env,
 		`request.auth.claims.group == 'admin'
 				|| request.auth.principal == 'user:me@acme.co'`,
-		decls.Bool)
+		cel.BoolType)
 	program, _ := env.Program(ast)
 
 	// Evaluate once with no claims and the proper user.
@@ -166,42 +160,32 @@ func exercise4() {
 	//   key in map && map[key] == value
 
 	// Useful components of the type-signature for 'contains'.
-	typeParamA := decls.NewTypeParamType("A")
-	typeParamB := decls.NewTypeParamType("B")
-	mapAB := decls.NewMapType(typeParamA, typeParamB)
+	typeParamA := cel.TypeParamType("A")
+	typeParamB := cel.TypeParamType("B")
+	mapAB := cel.MapType(typeParamA, typeParamB)
 
 	// Env declaration.
 	env, _ := cel.NewEnv(
 		cel.Types(&rpcpb.AttributeContext_Request{}),
-		cel.Declarations(
-			// Declare the request.
-			decls.NewVar("request",
-				decls.NewObjectType("google.rpc.context.AttributeContext.Request"),
-			),
-			// Declare the custom contains function.
-			decls.NewFunction("contains",
-				decls.NewParameterizedInstanceOverload(
-					"map_contains_key_value",
-					[]*exprpb.Type{mapAB, typeParamA, typeParamB},
-					decls.Bool,
-					[]string{"A", "B"},
-				),
-			),
+		// Declare the request.
+		cel.Variable("request",
+			cel.ObjectType("google.rpc.context.AttributeContext.Request"),
+		),
+		// Declare the custom contains function and its implementation.
+		cel.Function("contains",
+			cel.MemberOverload("map_contains_key_value",
+				[]*cel.Type{mapAB, typeParamA, typeParamB},
+				cel.BoolType,
+				cel.FunctionBinding(mapContainsKeyValue)),
 		),
 	)
 	ast := compile(env,
 		`request.auth.claims.contains('group', 'admin')`,
-		decls.Bool)
+		cel.BoolType)
 
-	// Construct the program plan and provide the 'contains' function impl.
+	// Construct the program plan.
 	// Output: false
-	program, err := env.Program(ast,
-		cel.Functions(
-			&functions.Overload{
-				Operator: "map_contains_key_value",
-				Function: mapContainsKeyValue,
-			}),
-	)
+	program, err := env.Program(ast)
 	if err != nil {
 		glog.Exit(err)
 	}
@@ -220,9 +204,7 @@ func exercise5() {
 	// Note the quoted keys in the CEL map literal. For proto messages the
 	// field names are unquoted as they represent well-defined identifiers.
 	env, _ := cel.NewEnv(
-		cel.Declarations(
-			decls.NewVar("now", decls.Timestamp),
-		),
+		cel.Variable("now", cel.TimestampType),
 	)
 	ast := compile(env, `
 		{'aud': 'my-project',
@@ -235,13 +217,13 @@ func exercise5() {
 		 'nbf': now,
 		 'sub': 'serviceAccount:delegate@acme.co'
 		 }`,
-		decls.NewMapType(decls.String, decls.Dyn))
+		cel.MapType(cel.StringType, cel.DynType))
 
 	program, _ := env.Program(ast)
 	out, _, _ := eval(
 		program,
 		map[string]interface{}{
-			"now": &tpb.Timestamp{Seconds: time.Now().Unix()},
+			"now": time.Now(),
 		},
 	)
 	// The output of the program is a CEL map type, but it can be converted
@@ -264,10 +246,8 @@ func exercise6() {
 	env, _ := cel.NewEnv(
 		cel.Container("google.rpc.context.AttributeContext"),
 		cel.Types(requestType),
-		cel.Declarations(
-			decls.NewVar("jwt", decls.NewMapType(decls.String, decls.Dyn)),
-			decls.NewVar("now", decls.Timestamp),
-		),
+		cel.Variable("jwt", cel.MapType(cel.StringType, cel.DynType)),
+		cel.Variable("now", cel.TimestampType),
 	)
 
 	// Compile the `Request` message construction expression and validate that the
@@ -287,7 +267,7 @@ func exercise6() {
 			},
 			time: now
 		}`,
-		decls.NewObjectType("google.rpc.context.AttributeContext.Request"))
+		cel.ObjectType("google.rpc.context.AttributeContext.Request"))
 	program, _ := env.Program(ast)
 
 	// Construct the message. The result is a ref.Val that returns a dynamic proto message.
@@ -302,7 +282,7 @@ func exercise6() {
 					"group": "admin",
 				},
 			},
-			"now": &tpb.Timestamp{Seconds: time.Now().Unix()},
+			"now": time.Now(),
 		},
 	)
 	// Unwrap the CEL value to a proto. Make sure to use the `ConvertToNative` to convert
@@ -326,16 +306,14 @@ func exercise6() {
 // values containing only strings that end with '@acme.co`.
 func exercise7() {
 	fmt.Println("=== Exercise 7: Macros ===\n")
-	env, _ := cel.NewEnv(
-		cel.Declarations(decls.NewVar("jwt", decls.Dyn)),
-	)
+	env, _ := cel.NewEnv(cel.Variable("jwt", cel.DynType))
 	ast := compile(env,
 		`jwt.extra_claims.exists(c, c.startsWith('group'))
 				&& jwt.extra_claims
 							.filter(c, c.startsWith('group'))
 							.all(c, jwt.extra_claims[c]
 											 	 .all(g, g.endsWith('@acme.co')))`,
-		decls.Bool)
+		cel.BoolType)
 	program, _ := env.Program(ast)
 
 	// Evaluate a complex-ish JWT with two groups that satisfy the criteria.
@@ -366,14 +344,12 @@ func exercise8() {
 	fmt.Println("=== Exercise 8: Tuning ===\n")
 	// Declare the `x` and 'y' variables as input into the expression.
 	env, _ := cel.NewEnv(
-		cel.Declarations(
-			decls.NewVar("x", decls.Int),
-			decls.NewVar("y", decls.Uint),
-		),
+		cel.Variable("x", cel.IntType),
+		cel.Variable("y", cel.UintType),
 	)
 	ast := compile(env,
 		`x in [1, 2, 3, 4, 5] && type(y) == uint`,
-		decls.Bool)
+		cel.BoolType)
 	// Turn on optimization.
 	trueVars := map[string]interface{}{"x": int64(4), "y": uint64(2)}
 	program, _ := env.Program(ast, cel.EvalOptions(cel.OptOptimize))
@@ -409,16 +385,14 @@ func exercise8() {
 // compile will parse and check an expression `expr` against a given
 // environment `env` and determine whether the resulting type of the expression
 // matches the `exprType` provided as input.
-func compile(env *cel.Env, expr string, exprType *exprpb.Type) *cel.Ast {
+func compile(env *cel.Env, expr string, celType *cel.Type) *cel.Ast {
 	ast, iss := env.Compile(expr)
 	if iss.Err() != nil {
 		glog.Exit(iss.Err())
 	}
-	if !proto.Equal(ast.ResultType(), exprType) {
+	if !reflect.DeepEqual(ast.OutputType(), celType) {
 		glog.Exitf(
-			"Got %v, wanted %v result type",
-			ast.ResultType(),
-			exprType)
+			"Got %v, wanted %v result type", ast.OutputType(), celType)
 	}
 	fmt.Printf("%s\n\n", strings.ReplaceAll(expr, "\t", " "))
 	return ast
@@ -487,30 +461,19 @@ func report(result ref.Val, details *cel.EvalDetails, err error) {
 }
 
 // mapContainsKeyValue implements the custom function:
-//   `map.contains(key, value) bool`.
+//
+//	`map.contains(key, value) bool`.
 func mapContainsKeyValue(args ...ref.Val) ref.Val {
-	// Check the argument input count.
-	if len(args) != 3 {
-		return types.NewErr("no such overload")
-	}
-	obj := args[0]
-	m, isMap := obj.(traits.Mapper)
-	// Ensure the argument is a CEL map type, otherwise error.
-	// The type-checking is a best effort check to ensure that the types provided
-	// to functions match the ones specified; however, it is always possible that
-	// the implementation does not match the declaration. Always check arguments
-	// types whenever there is a possibility that your function will deal with
-	// dynamic content.
-	if !isMap {
-		// The helper ValOrErr ensures that errors on input are propagated.
-		return types.ValOrErr(obj, "no such overload")
-	}
+	// The declaration of the function ensures that only arguments which match
+	// the mapContainsKey signature will be provided to the function.
+	m := args[0].(traits.Mapper)
 
 	// CEL has many interfaces for dealing with different type abstractions.
 	// The traits.Mapper interface unifies field presence testing on proto
 	// messages and maps.
 	key := args[1]
 	v, found := m.Find(key)
+
 	// If not found and the value was non-nil, the value is an error per the
 	// `Find` contract. Propagate it accordingly.
 	if !found {

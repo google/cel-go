@@ -19,12 +19,10 @@ import (
 	"log"
 
 	"github.com/google/cel-go/cel"
-	"github.com/google/cel-go/checker/decls"
 )
 
 func ExampleSimple() {
-	d := cel.Declarations(decls.NewVar("name", decls.String))
-	env, err := cel.NewEnv(d)
+	env, err := cel.NewEnv(cel.Variable("name", cel.StringType))
 	if err != nil {
 		log.Fatalf("environment creation error: %v\n", err)
 	}

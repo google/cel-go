@@ -60,15 +60,12 @@ Let's expose `name` and  `group` variables to CEL using the `cel.Declarations`
 environment option:
 
 ```go
-import(
-    "github.com/google/cel-go/cel"
-    "github.com/google/cel-go/checker/decls"
-)
+import "github.com/google/cel-go/cel"
 
 env, err := cel.NewEnv(
-    cel.Declarations(
-        decls.NewVar("name", decls.String),
-        decls.NewVar("group", decls.String)))
+    cel.Variable("name", cel.StringType),
+    cel.Variable("group", cel.StringType),
+)
 ```
 
 That's it. The environment is ready to be use for parsing and type-checking.
