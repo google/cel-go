@@ -100,7 +100,7 @@ func (s *ConformanceServer) Eval(ctx context.Context, in *confpb.EvalRequest) (*
 	env, _ := evalEnv.Extend(cel.Container(in.Container))
 	var prg cel.Program
 	var err error
-	switch in.ExprKind.(type) {
+	switch in.GetExprKind().(type) {
 	case *confpb.EvalRequest_ParsedExpr:
 		ast := cel.ParsedExprToAst(in.GetParsedExpr())
 		prg, err = env.Program(ast)

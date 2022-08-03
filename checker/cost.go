@@ -88,9 +88,9 @@ func (e astNode) ComputedSize() *SizeEstimate {
 		return e.derivedSize
 	}
 	var v uint64
-	switch ek := e.expr.ExprKind.(type) {
+	switch ek := e.expr.GetExprKind().(type) {
 	case *exprpb.Expr_ConstExpr:
-		switch ck := ek.ConstExpr.ConstantKind.(type) {
+		switch ck := ek.ConstExpr.GetConstantKind().(type) {
 		case *exprpb.Constant_StringValue:
 			v = uint64(len(ck.StringValue))
 		case *exprpb.Constant_BytesValue:
@@ -103,10 +103,10 @@ func (e astNode) ComputedSize() *SizeEstimate {
 			return nil
 		}
 	case *exprpb.Expr_ListExpr:
-		v = uint64(len(ek.ListExpr.Elements))
+		v = uint64(len(ek.ListExpr.GetElements()))
 	case *exprpb.Expr_StructExpr:
-		if ek.StructExpr.MessageName == "" {
-			v = uint64(len(ek.StructExpr.Entries))
+		if ek.StructExpr.GetMessageName() == "" {
+			v = uint64(len(ek.StructExpr.GetEntries()))
 		}
 	default:
 		return nil
@@ -297,7 +297,7 @@ func (c *coster) cost(e *exprpb.Expr) CostEstimate {
 		return CostEstimate{}
 	}
 	var cost CostEstimate
-	switch e.ExprKind.(type) {
+	switch e.GetExprKind().(type) {
 	case *exprpb.Expr_ConstExpr:
 		cost = constCost
 	case *exprpb.Expr_IdentExpr:
@@ -323,7 +323,7 @@ func (c *coster) costIdent(e *exprpb.Expr) CostEstimate {
 
 	// build and track the field path
 	if iterRange, ok := c.iterRanges.peek(identExpr.GetName()); ok {
-		switch c.checkedExpr.TypeMap[iterRange].TypeKind.(type) {
+		switch c.checkedExpr.TypeMap[iterRange].GetTypeKind().(type) {
 		case *exprpb.Type_ListType_:
 			c.addPath(e, append(c.exprPath[iterRange], "@items"))
 		case *exprpb.Type_MapType_:
@@ -350,7 +350,7 @@ func (c *coster) costSelect(e *exprpb.Expr) CostEstimate {
 	}
 
 	// build and track the field path
-	c.addPath(e, append(c.getPath(sel.GetOperand()), sel.Field))
+	c.addPath(e, append(c.getPath(sel.GetOperand()), sel.GetField()))
 
 	return sum
 }
