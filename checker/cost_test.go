@@ -363,6 +363,31 @@ func TestCost(t *testing.T) {
 			},
 			wanted: CostEstimate{Min: 5, Max: 5},
 		},
+		{
+			name: "list size from ternary",
+			expr: `x > y ? list1.size() : list2.size()`,
+			decls: []*exprpb.Decl{
+				decls.NewVar("x", decls.Int),
+				decls.NewVar("y", decls.Int),
+				decls.NewVar("list1", decls.NewListType(decls.Int)),
+				decls.NewVar("list2", decls.NewListType(decls.Int)),
+			},
+			wanted: CostEstimate{Min: 5, Max: 5},
+		},
+		{
+			name: "str endsWith inequality",
+			expr: `str1.endsWith("abcdefghijklmnopqrstuvwxyz") == str2.endsWith("abcdefghijklmnopqrstuvwxyz")`,
+			decls: []*exprpb.Decl{
+				decls.NewVar("str1", decls.String),
+				decls.NewVar("str2", decls.String),
+			},
+			wanted: CostEstimate{Min: 9, Max: 9},
+		},
+		{
+			name:   "nested subexpression operators",
+			expr:   `((5 != 6) == (1 == 2)) == ((3 <= 4) == (9 != 9))`,
+			wanted: CostEstimate{Min: 7, Max: 7},
+		},
 	}
 
 	for _, tc := range cases {
