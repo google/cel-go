@@ -476,6 +476,11 @@ func (c *coster) sizeEstimate(t AstNode) SizeEstimate {
 	if l := c.estimator.EstimateSize(t); l != nil {
 		return *l
 	}
+	// return a constant size if we're dealing with a CallExpr and EstimateSize
+	// came up empty; this code is reached when a CallExpr is nested inside
+	// another CallExpr and doesn't have an estimator that can handle it, such
+	// as `(1 == 2) == (3 == 4)` - without this block, that expression would
+	// return SizeEstimate{Min: 0, Max: math.MaxUint64}
 	if _, ok := t.Expr().ExprKind.(*exprpb.Expr_CallExpr); ok {
 		return SizeEstimate{Min: 1, Max: 1}
 	}
