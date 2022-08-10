@@ -354,6 +354,15 @@ func TestCost(t *testing.T) {
 			hints:  map[string]int64{"str1": 10, "str2": 10},
 			wanted: CostEstimate{Min: 2, Max: 6},
 		},
+		{
+			name: "list size comparison",
+			expr: `list1.size() == list2.size()`,
+			decls: []*exprpb.Decl{
+				decls.NewVar("list1", decls.NewListType(decls.Int)),
+				decls.NewVar("list2", decls.NewListType(decls.Int)),
+			},
+			wanted: CostEstimate{Min: 5, Max: 5},
+		},
 	}
 
 	for _, tc := range cases {

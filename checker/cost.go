@@ -476,6 +476,9 @@ func (c *coster) sizeEstimate(t AstNode) SizeEstimate {
 	if l := c.estimator.EstimateSize(t); l != nil {
 		return *l
 	}
+	if _, ok := t.Expr().ExprKind.(*exprpb.Expr_CallExpr); ok {
+		return SizeEstimate{Min: 1, Max: 1}
+	}
 	return SizeEstimate{Min: 0, Max: math.MaxUint64}
 }
 
