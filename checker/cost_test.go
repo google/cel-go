@@ -388,6 +388,15 @@ func TestCost(t *testing.T) {
 			expr:   `((5 != 6) == (1 == 2)) == ((3 <= 4) == (9 != 9))`,
 			wanted: CostEstimate{Min: 7, Max: 7},
 		},
+		{
+			name: "str size estimate",
+			expr: `string(timestamp1) == string(timestamp2)`,
+			decls: []*exprpb.Decl{
+				decls.NewVar("timestamp1", decls.Timestamp),
+				decls.NewVar("timestamp2", decls.Timestamp),
+			},
+			wanted: CostEstimate{Min: 5, Max: 1844674407370955268},
+		},
 	}
 
 	for _, tc := range cases {

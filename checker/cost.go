@@ -482,7 +482,14 @@ func (c *coster) sizeEstimate(t AstNode) SizeEstimate {
 	// as `(1 == 2) == (3 == 4)` - without this block, that expression would
 	// return SizeEstimate{Min: 0, Max: math.MaxUint64}
 	if _, ok := t.Expr().ExprKind.(*exprpb.Expr_CallExpr); ok {
-		return SizeEstimate{Min: 1, Max: 1}
+		// ensure we only return an estimate of 1 for return types of set
+		// lengths, since strings/bytes/more complex objects could be of
+		// variable length
+		if kindOf(t.Type()) == kindPrimitive {
+			if t.Type().GetPrimitive() != exprpb.Type_STRING && t.Type().GetPrimitive() != exprpb.Type_BYTES {
+				return SizeEstimate{Min: 1, Max: 1}
+			}
+		}
 	}
 	return SizeEstimate{Min: 0, Max: math.MaxUint64}
 }
