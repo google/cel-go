@@ -375,7 +375,7 @@ func TestCost(t *testing.T) {
 			wanted: CostEstimate{Min: 5, Max: 5},
 		},
 		{
-			name: "str endsWith inequality",
+			name: "str endsWith equality",
 			expr: `str1.endsWith("abcdefghijklmnopqrstuvwxyz") == str2.endsWith("abcdefghijklmnopqrstuvwxyz")`,
 			decls: []*exprpb.Decl{
 				decls.NewVar("str1", decls.String),
