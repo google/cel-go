@@ -485,10 +485,8 @@ func (c *coster) sizeEstimate(t AstNode) SizeEstimate {
 		// ensure we only return an estimate of 1 for return types of set
 		// lengths, since strings/bytes/more complex objects could be of
 		// variable length
-		if kindOf(t.Type()) == kindPrimitive {
-			if t.Type().GetPrimitive() != exprpb.Type_STRING && t.Type().GetPrimitive() != exprpb.Type_BYTES {
-				return SizeEstimate{Min: 1, Max: 1}
-			}
+		if isScalar(t.Type()) {
+			return SizeEstimate{Min: 1, Max: 1}
 		}
 	}
 	return SizeEstimate{Min: 0, Max: math.MaxUint64}
@@ -613,4 +611,13 @@ func (c *coster) newAstNode(e *exprpb.Expr) *astNode {
 		derivedSize = &size
 	}
 	return &astNode{path: path, t: c.getType(e), expr: e, derivedSize: derivedSize}
+}
+
+func isScalar(t *exprpb.Type) bool {
+	if kindOf(t) == kindPrimitive {
+		if t.GetPrimitive() != exprpb.Type_STRING && t.GetPrimitive() != exprpb.Type_BYTES {
+			return true
+		}
+	}
+	return false
 }
