@@ -476,18 +476,11 @@ func (c *coster) sizeEstimate(t AstNode) SizeEstimate {
 	if l := c.estimator.EstimateSize(t); l != nil {
 		return *l
 	}
-	// return a constant size if we're dealing with a CallExpr and EstimateSize
-	// came up empty; this code is reached when a CallExpr is nested inside
-	// another CallExpr and doesn't have an estimator that can handle it, such
-	// as `(1 == 2) == (3 == 4)` - without this block, that expression would
-	// return SizeEstimate{Min: 0, Max: math.MaxUint64}
-	if _, ok := t.Expr().ExprKind.(*exprpb.Expr_CallExpr); ok {
-		// ensure we only return an estimate of 1 for return types of set
-		// lengths, since strings/bytes/more complex objects could be of
-		// variable length
-		if isScalar(t.Type()) {
-			return SizeEstimate{Min: 1, Max: 1}
-		}
+	// return an estimate of 1 for return types of set
+	// lengths, since strings/bytes/more complex objects could be of
+	// variable length
+	if isScalar(t.Type()) {
+		return SizeEstimate{Min: 1, Max: 1}
 	}
 	return SizeEstimate{Min: 0, Max: math.MaxUint64}
 }
@@ -614,10 +607,28 @@ func (c *coster) newAstNode(e *exprpb.Expr) *astNode {
 }
 
 func isScalar(t *exprpb.Type) bool {
-	if kindOf(t) == kindPrimitive {
+	switch kindOf(t) {
+	case kindPrimitive:
 		if t.GetPrimitive() != exprpb.Type_STRING && t.GetPrimitive() != exprpb.Type_BYTES {
 			return true
 		}
+	case kindWellKnown:
+		if t.GetWellKnown() == exprpb.Type_DURATION || t.GetWellKnown() == exprpb.Type_TIMESTAMP {
+			return true
+		}
+	case kindObject:
+		switch t.GetMessageType() {
+		case "google.protobuf.Duration", "google.protobuf.Timestamp",
+			"google.protobuf.BoolValue", "google.protobuf.BytesValue",
+			"google.protobuf.DoubleValue", "google.protobuf.FloatValue",
+			"google.protobuf.Int32Value", "google.protobuf.Int64Value",
+			"google.protobuf.UInt32Value", "google.protobuf.UInt64Value":
+			return true
+		default:
+			return false
+		}
+	default:
+		return false
 	}
 	return false
 }

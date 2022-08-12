@@ -397,6 +397,24 @@ func TestCost(t *testing.T) {
 			},
 			wanted: CostEstimate{Min: 5, Max: 1844674407370955268},
 		},
+		{
+			name: "timestamp equality check",
+			expr: `timestamp1 == timestamp2`,
+			decls: []*exprpb.Decl{
+				decls.NewVar("timestamp1", decls.Timestamp),
+				decls.NewVar("timestamp2", decls.Timestamp),
+			},
+			wanted: CostEstimate{Min: 3, Max: 3},
+		},
+		{
+			name: "duration inequality check",
+			expr: `duration1 != duration2`,
+			decls: []*exprpb.Decl{
+				decls.NewVar("duration1", decls.Duration),
+				decls.NewVar("duration2", decls.Duration),
+			},
+			wanted: CostEstimate{Min: 3, Max: 3},
+		},
 	}
 
 	for _, tc := range cases {
