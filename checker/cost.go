@@ -606,6 +606,9 @@ func (c *coster) newAstNode(e *exprpb.Expr) *astNode {
 	return &astNode{path: path, t: c.getType(e), expr: e, derivedSize: derivedSize}
 }
 
+// isScalar returns true if the given type is known to be of a constant size at
+// compile time. isScalar will return false for strings (they are variable-width)
+// in addition to protobuf.Any and protobuf.Value (their size is not knowable at compile time).
 func isScalar(t *exprpb.Type) bool {
 	switch kindOf(t) {
 	case kindPrimitive:
