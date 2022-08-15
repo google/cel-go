@@ -619,19 +619,6 @@ func isScalar(t *exprpb.Type) bool {
 		if t.GetWellKnown() == exprpb.Type_DURATION || t.GetWellKnown() == exprpb.Type_TIMESTAMP {
 			return true
 		}
-	case kindObject:
-		switch t.GetMessageType() {
-		case "google.protobuf.Duration", "google.protobuf.Timestamp",
-			"google.protobuf.BoolValue", "google.protobuf.BytesValue",
-			"google.protobuf.DoubleValue", "google.protobuf.FloatValue",
-			"google.protobuf.Int32Value", "google.protobuf.Int64Value",
-			"google.protobuf.UInt32Value", "google.protobuf.UInt64Value":
-			return true
-		default:
-			return false
-		}
-	default:
-		return false
 	}
 	return false
 }
