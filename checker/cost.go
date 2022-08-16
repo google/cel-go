@@ -480,6 +480,9 @@ func (c *coster) sizeEstimate(t AstNode) SizeEstimate {
 	// lengths, since strings/bytes/more complex objects could be of
 	// variable length
 	if isScalar(t.Type()) {
+		// TODO: since the logic for size estimation is split between
+		// ComputedSize and isScalar, changing one will likely require changing
+		// the other, so they should be merged in the future if possible
 		return SizeEstimate{Min: 1, Max: 1}
 	}
 	return SizeEstimate{Min: 0, Max: math.MaxUint64}
