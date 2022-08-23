@@ -229,8 +229,6 @@ func TestMutableListGet(t *testing.T) {
 	if itemVal.Value().(string) != "item" {
 		t.Error("MutableList get returned invalid item.")
 	}
-
-	validateList123(t, NewDynamicList(newTestRegistry(t), []int32{1, 2, 3}).(traits.Lister))
 }
 
 func TestConcatListAdd(t *testing.T) {
