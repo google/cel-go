@@ -752,7 +752,18 @@ func TestProtoMapGet(t *testing.T) {
 	if !IsError(badKey) || !strings.Contains(badKey.(*Err).Error(), "no such key: 42") {
 		t.Errorf("mapVal.Get(42) got %v, wanted no such key: 42", badKey)
 	}
+}
 
+func TestProtoMapString(t *testing.T) {
+	strMap := map[string]string{
+		"hello": "world",
+	}
+	reg := newTestRegistry(t)
+	m := reg.NativeToValue(strMap)
+	want := `{hello: world}`
+	if fmt.Sprintf("%v", m) != want {
+		t.Errorf("map.String() got %v, wanted %v", m, want)
+	}
 }
 
 func TestProtoMapConvertToNative(t *testing.T) {
