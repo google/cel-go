@@ -147,6 +147,9 @@ type MacroExpander func(eh ExprHelper,
 // consistent with the source position and expression id generation code leveraged by both
 // the parser and type-checker.
 type ExprHelper interface {
+	// Copy the input expression with a brand new set of identifiers.
+	Copy(*exprpb.Expr) *exprpb.Expr
+
 	// LiteralBool creates an Expr value for a bool literal.
 	LiteralBool(value bool) *exprpb.Expr
 
@@ -309,8 +312,10 @@ func MakeExistsOne(eh ExprHelper, target *exprpb.Expr, args []*exprpb.Expr) (*ex
 // input to produce an output list.
 //
 // There are two call patterns supported by map:
-//   <iterRange>.map(<iterVar>, <transform>)
-//   <iterRange>.map(<iterVar>, <predicate>, <transform>)
+//
+//	<iterRange>.map(<iterVar>, <transform>)
+//	<iterRange>.map(<iterVar>, <predicate>, <transform>)
+//
 // In the second form only iterVar values which return true when provided to the predicate expression
 // are transformed.
 func MakeMap(eh ExprHelper, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {

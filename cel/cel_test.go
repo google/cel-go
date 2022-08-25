@@ -779,7 +779,7 @@ func TestCustomExistsMacro(t *testing.T) {
 					if err != nil {
 						return nil, err
 					}
-					eqZero, err := ExistsMacroExpander(meh, inputs, []*exprpb.Expr{
+					eqZero, err := ExistsMacroExpander(meh, meh.Copy(inputs), []*exprpb.Expr{
 						meh.Ident("__iter__"),
 						meh.GlobalCall(operators.Equals, meh.Ident("__iter__"), meh.LiteralInt(0)),
 					})
@@ -803,7 +803,7 @@ func TestCustomExistsMacro(t *testing.T) {
 				func(meh MacroExprHelper, unused *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
 					attr := args[0]
 					value := args[1]
-					hasAttr, err := HasMacroExpander(meh, nil, []*exprpb.Expr{attr})
+					hasAttr, err := HasMacroExpander(meh, nil, []*exprpb.Expr{meh.Copy(attr)})
 					if err != nil {
 						return nil, err
 					}
