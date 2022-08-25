@@ -16,6 +16,7 @@ package types
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 	"reflect"
 	"testing"
@@ -177,6 +178,14 @@ func TestBaseListEqual(t *testing.T) {
 
 func TestBaseListGet(t *testing.T) {
 	validateList123(t, NewDynamicList(newTestRegistry(t), []int32{1, 2, 3}).(traits.Lister))
+}
+
+func TestBaseListString(t *testing.T) {
+	l := NewDynamicList(newTestRegistry(t), []interface{}{1, "hello", 2.1, true, []string{"world"}})
+	want := `[1, hello, 2.1, true, [world]]`
+	if fmt.Sprintf("%v", l) != want {
+		t.Errorf("l.String() got %v, wanted %v", l, want)
+	}
 }
 
 func TestValueListGet(t *testing.T) {

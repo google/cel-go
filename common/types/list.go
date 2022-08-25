@@ -17,6 +17,7 @@ package types
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
@@ -273,6 +274,20 @@ func (l *baseList) Value() interface{} {
 	return l.value
 }
 
+// String converts the list to a human readable string form.
+func (l *baseList) String() string {
+	var sb strings.Builder
+	sb.WriteString("[")
+	for i := 0; i < l.size; i++ {
+		sb.WriteString(fmt.Sprintf("%v", l.get(i)))
+		if i != l.size-1 {
+			sb.WriteString(", ")
+		}
+	}
+	sb.WriteString("]")
+	return sb.String()
+}
+
 // mutableList aggregates values into its internal storage. For use with internal CEL variables only.
 type mutableList struct {
 	*baseList
@@ -419,6 +434,20 @@ func (l *concatList) Iterator() traits.Iterator {
 // Size implements the traits.Sizer interface method.
 func (l *concatList) Size() ref.Val {
 	return l.prevList.Size().(Int).Add(l.nextList.Size())
+}
+
+// String converts the concatenated list to a human-readable string.
+func (l *concatList) String() string {
+	var sb strings.Builder
+	sb.WriteString("[")
+	for i := Int(0); i < l.Size().(Int); i++ {
+		sb.WriteString(fmt.Sprintf("%v", l.Get(i)))
+		if i != l.Size().(Int)-1 {
+			sb.WriteString(", ")
+		}
+	}
+	sb.WriteString("]")
+	return sb.String()
 }
 
 // Type implements the ref.Val interface method.

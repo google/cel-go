@@ -17,6 +17,7 @@ package types
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/google/cel-go/common/types/pb"
 	"github.com/google/cel-go/common/types/ref"
@@ -278,6 +279,25 @@ func (m *baseMap) Get(key ref.Val) ref.Val {
 // Size implements the traits.Sizer interface method.
 func (m *baseMap) Size() ref.Val {
 	return Int(m.size)
+}
+
+// String converts the map into a human-readable string.
+func (m *baseMap) String() string {
+	var sb strings.Builder
+	sb.WriteString("{")
+	it := m.Iterator()
+	i := 0
+	for it.HasNext() == True {
+		k := it.Next()
+		v, _ := m.Find(k)
+		sb.WriteString(fmt.Sprintf("%v: %v", k, v))
+		if i != m.size-1 {
+			sb.WriteString(", ")
+		}
+		i++
+	}
+	sb.WriteString("}")
+	return sb.String()
 }
 
 // Type implements the ref.Val interface method.
