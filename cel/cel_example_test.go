@@ -15,6 +15,7 @@
 package cel_test
 
 import (
+	"context"
 	"fmt"
 	"log"
 
@@ -116,4 +117,63 @@ func Example_globalOverload() {
 
 	fmt.Println(out)
 	// Output:CEL and world are shaking hands.
+}
+
+func Example_statefulOverload() {
+	// makeFetch produces a consistent function signature with a different function
+	// implementation depending on the provided context.
+	makeFetch := func(ctx context.Context) cel.EnvOption {
+		fn := func(arg ref.Val) ref.Val {
+			return types.NewErr("stateful context not bound")
+		}
+		if ctx != nil {
+			fn = func(resource ref.Val) ref.Val {
+				return types.DefaultTypeAdapter.NativeToValue(
+					ctx.Value(string(resource.(types.String))),
+				)
+			}
+		}
+		return cel.Function("fetch",
+			cel.Overload("fetch_string",
+				[]*cel.Type{cel.StringType}, cel.StringType,
+				cel.UnaryBinding(fn),
+			),
+		)
+	}
+
+	// The base environment declares the fetch function with a dummy binding that errors
+	// if it is invoked without being replaced by a subsequent call to `baseEnv.Extend`
+	baseEnv, err := cel.NewEnv(
+		// Identifiers used within this expression.
+		cel.Variable("resource", cel.StringType),
+		// Function to fetch a resource.
+		//    fetch(resource)
+		makeFetch(nil),
+	)
+	if err != nil {
+		log.Fatalf("environment creation error: %s\n", err)
+	}
+	ast, iss := baseEnv.Compile("fetch('my-resource') == 'my-value'")
+	if iss.Err() != nil {
+		log.Fatalf("Compile() failed: %v", iss.Err())
+	}
+
+	// The runtime environment extends the base environment with a contextual binding for
+	// the 'fetch' function.
+	ctx := context.WithValue(context.TODO(), "my-resource", "my-value")
+	runtimeEnv, err := baseEnv.Extend(makeFetch(ctx))
+	if err != nil {
+		log.Fatalf("baseEnv.Extend() failed with error: %s\n", err)
+	}
+	prg, err := runtimeEnv.Program(ast)
+	if err != nil {
+		log.Fatalf("runtimeEnv.Program() error: %s\n", err)
+	}
+	out, _, err := prg.Eval(cel.NoVars())
+	if err != nil {
+		log.Fatalf("runtime error: %s\n", err)
+	}
+
+	fmt.Println(out)
+	// Output:true
 }
