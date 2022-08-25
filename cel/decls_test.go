@@ -221,7 +221,7 @@ func TestFunctionMergeCollision(t *testing.T) {
 }
 
 func TestFunctionNoOverloads(t *testing.T) {
-	_, err := NewCustomEnv(Function("right", SingletonBinaryImpl(func(arg1, arg2 ref.Val) ref.Val {
+	_, err := NewCustomEnv(Function("right", SingletonBinaryBinding(func(arg1, arg2 ref.Val) ref.Val {
 		return arg2
 	})))
 	if err == nil || !strings.Contains(err.Error(), "must have at least one overload") {
@@ -229,7 +229,7 @@ func TestFunctionNoOverloads(t *testing.T) {
 	}
 }
 
-func TestSingletonUnaryImplRedefinition(t *testing.T) {
+func TestSingletonUnaryBindingRedefinition(t *testing.T) {
 	_, err := NewCustomEnv(
 		Function("id",
 			Overload("id_any", []*Type{AnyType}, AnyType),
@@ -246,7 +246,7 @@ func TestSingletonUnaryImplRedefinition(t *testing.T) {
 	}
 }
 
-func TestSingletonUnaryImpl(t *testing.T) {
+func TestSingletonUnaryBinding(t *testing.T) {
 	// Test the case where the singleton unary impl is merged with the earlier declaration.
 	e, err := NewCustomEnv(
 		Variable("x", AnyType),
@@ -273,7 +273,7 @@ func TestSingletonUnaryImpl(t *testing.T) {
 	}
 }
 
-func TestSingletonUnaryImplParameterized(t *testing.T) {
+func TestSingletonUnaryBindingParameterized(t *testing.T) {
 	// Test the case where the singleton unary impl is merged with the earlier declaration.
 	e, err := NewCustomEnv(
 		Variable("x", AnyType),
@@ -301,14 +301,14 @@ func TestSingletonUnaryImplParameterized(t *testing.T) {
 	}
 }
 
-func TestSingletonBinaryImplRedefinition(t *testing.T) {
+func TestSingletonBinaryBindingRedefinition(t *testing.T) {
 	_, err := NewCustomEnv(
 		Function("right",
 			Overload("right_double_double", []*Type{DoubleType, DoubleType}, DoubleType),
-			SingletonBinaryImpl(func(arg1, arg2 ref.Val) ref.Val {
+			SingletonBinaryBinding(func(arg1, arg2 ref.Val) ref.Val {
 				return arg2
 			}, traits.ComparerType),
-			SingletonBinaryImpl(func(arg1, arg2 ref.Val) ref.Val {
+			SingletonBinaryBinding(func(arg1, arg2 ref.Val) ref.Val {
 				return arg2
 			}),
 		))
@@ -317,13 +317,13 @@ func TestSingletonBinaryImplRedefinition(t *testing.T) {
 	}
 }
 
-func TestSingletonBinaryImpl(t *testing.T) {
+func TestSingletonBinaryBinding(t *testing.T) {
 	_, err := NewCustomEnv(
 		Function("right",
 			Overload("right_int_int", []*Type{IntType, IntType}, IntType),
 			Overload("right_double_double", []*Type{DoubleType, DoubleType}, DoubleType),
 			Overload("right_string_string", []*Type{StringType, StringType}, StringType),
-			SingletonBinaryImpl(func(arg1, arg2 ref.Val) ref.Val {
+			SingletonBinaryBinding(func(arg1, arg2 ref.Val) ref.Val {
 				return arg2
 			}, traits.ComparerType),
 		),
@@ -333,14 +333,14 @@ func TestSingletonBinaryImpl(t *testing.T) {
 	}
 }
 
-func TestSingletonFunctionImplRedefinition(t *testing.T) {
+func TestSingletonFunctionBindingRedefinition(t *testing.T) {
 	_, err := NewCustomEnv(
 		Function("id",
 			Overload("id_any", []*Type{AnyType}, AnyType),
-			SingletonFunctionImpl(func(args ...ref.Val) ref.Val {
+			SingletonFunctionBinding(func(args ...ref.Val) ref.Val {
 				return args[0]
 			}, traits.ComparerType),
-			SingletonFunctionImpl(func(args ...ref.Val) ref.Val {
+			SingletonFunctionBinding(func(args ...ref.Val) ref.Val {
 				return args[0]
 			}, traits.ComparerType),
 		),
@@ -350,7 +350,7 @@ func TestSingletonFunctionImplRedefinition(t *testing.T) {
 	}
 }
 
-func TestSingletonFunctionImpl(t *testing.T) {
+func TestSingletonFunctionBinding(t *testing.T) {
 	env, err := NewCustomEnv(
 		Variable("unk", DynType),
 		Variable("err", DynType),
@@ -363,7 +363,7 @@ func TestSingletonFunctionImpl(t *testing.T) {
 			Overload("max_int", []*Type{IntType}, IntType),
 			Overload("max_int_int", []*Type{IntType, IntType}, IntType),
 			Overload("max_int_int_int", []*Type{IntType, IntType, IntType}, IntType),
-			SingletonFunctionImpl(func(args ...ref.Val) ref.Val {
+			SingletonFunctionBinding(func(args ...ref.Val) ref.Val {
 				max := types.Int(math.MinInt64)
 				for _, arg := range args {
 					i, ok := arg.(types.Int)
@@ -401,7 +401,7 @@ func TestSingletonFunctionImpl(t *testing.T) {
 	}
 }
 
-func TestUnaryImplRedefinition(t *testing.T) {
+func TestUnaryBindingRedefinition(t *testing.T) {
 	_, err := NewCustomEnv(
 		Function("dyn",
 			Overload("dyn", []*Type{DynType}, DynType,
@@ -416,7 +416,7 @@ func TestUnaryImplRedefinition(t *testing.T) {
 	}
 }
 
-func TestUnaryImpl(t *testing.T) {
+func TestUnaryBinding(t *testing.T) {
 	_, err := NewCustomEnv(
 		Function("dyn",
 			Overload("dyn", []*Type{}, DynType,
@@ -464,7 +464,7 @@ func TestUnaryImpl(t *testing.T) {
 	}
 }
 
-func TestBinaryImplRedefinition(t *testing.T) {
+func TestBinaryBindingRedefinition(t *testing.T) {
 	_, err := NewCustomEnv(
 		Function("right",
 			Overload("right_int_int", []*Type{IntType, IntType}, IntType,
@@ -503,7 +503,7 @@ func TestBinaryImplRedefinition(t *testing.T) {
 	}
 }
 
-func TestBinaryImpl(t *testing.T) {
+func TestBinaryBinding(t *testing.T) {
 	e, err := NewCustomEnv(
 		Function("max",
 			Overload("max_int_int", []*Type{IntType, IntType}, IntType,
@@ -573,7 +573,7 @@ func TestBinaryImpl(t *testing.T) {
 	}
 }
 
-func TestFunctionImplRedefinition(t *testing.T) {
+func TestFunctionBindingRedefinition(t *testing.T) {
 	_, err := NewCustomEnv(
 		Function("right",
 			Overload("right_int_int_int", []*Type{IntType, IntType, IntType}, IntType,
@@ -588,7 +588,7 @@ func TestFunctionImplRedefinition(t *testing.T) {
 	}
 }
 
-func TestFunctionImpl(t *testing.T) {
+func TestFunctionBinding(t *testing.T) {
 	e, err := NewCustomEnv(
 		Variable("unk", DynType),
 		Variable("err", DynType),
