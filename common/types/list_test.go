@@ -218,6 +218,19 @@ func TestBaseListSize(t *testing.T) {
 	}
 }
 
+func TestMutableListGet(t *testing.T) {
+	reg := newTestRegistry(t)
+	listA := NewMutableList(reg)
+	listB := NewStringList(reg, []string{"item"})
+	listA = listA.Add(listB).(*mutableList)
+
+	itemVal := listA.Get(Int(0))
+
+	if itemVal.Value().(string) != "item" {
+		t.Error("MutableList get returned invalid item.")
+	}
+}
+
 func TestConcatListAdd(t *testing.T) {
 	reg := newTestRegistry(t)
 	listA := NewDynamicList(reg, []float32{1.0, 2.0})

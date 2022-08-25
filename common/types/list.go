@@ -98,15 +98,18 @@ func NewJSONList(adapter ref.TypeAdapter, l *structpb.ListValue) traits.Lister {
 // NewMutableList creates a new mutable list whose internal state can be modified.
 func NewMutableList(adapter ref.TypeAdapter) traits.MutableLister {
 	var mutableValues []ref.Val
-	return &mutableList{
+	l := &mutableList{
 		baseList: &baseList{
 			TypeAdapter: adapter,
 			value:       mutableValues,
 			size:        0,
-			get:         func(i int) interface{} { return mutableValues[i] },
 		},
 		mutableValues: mutableValues,
 	}
+	l.get = func(i int) interface{} {
+		return l.mutableValues[i]
+	}
+	return l
 }
 
 // baseList points to a list containing elements of any type.
