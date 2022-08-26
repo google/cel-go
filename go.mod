@@ -8,5 +8,5 @@ require (
 	github.com/stoewer/go-strcase v1.2.0
 	golang.org/x/text v0.3.7
 	google.golang.org/genproto v0.0.0-20220502173005-c8bf987b8c21
-	google.golang.org/protobuf v1.28.0
+	google.golang.org/protobuf v1.28.1
 )
