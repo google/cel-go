@@ -118,6 +118,11 @@ func (e *Err) Value() interface{} {
 	return e.error
 }
 
+// Is implements errors.Is.
+func (e *Err) Is(target error) bool {
+	return e.error.Error() == target.Error()
+}
+
 // IsError returns whether the input element ref.Type or ref.Val is equal to
 // the ErrType singleton.
 func IsError(val ref.Val) bool {
