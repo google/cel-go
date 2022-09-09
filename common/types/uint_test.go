@@ -21,16 +21,17 @@ import (
 	"strings"
 	"testing"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
-	"google.golang.org/protobuf/proto"
 
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
-func TestUint_Add(t *testing.T) {
+func TestUintAdd(t *testing.T) {
 	if !Uint(4).Add(Uint(3)).Equal(Uint(7)).(Bool) {
 		t.Error("Adding two uints did not match expected value.")
 	}
@@ -45,7 +46,7 @@ func TestUint_Add(t *testing.T) {
 	}
 }
 
-func TestUint_Compare(t *testing.T) {
+func TestUintCompare(t *testing.T) {
 	tests := []struct {
 		a   ref.Val
 		b   ref.Val
@@ -131,7 +132,7 @@ func TestUint_Compare(t *testing.T) {
 	}
 }
 
-func TestUint_ConvertToNative_Any(t *testing.T) {
+func TestUintConvertToNative_Any(t *testing.T) {
 	val, err := Uint(math.MaxUint64).ConvertToNative(anyValueType)
 	if err != nil {
 		t.Error(err)
@@ -145,14 +146,14 @@ func TestUint_ConvertToNative_Any(t *testing.T) {
 	}
 }
 
-func TestUint_ConvertToNative_Error(t *testing.T) {
+func TestUintConvertToNative_Error(t *testing.T) {
 	val, err := Uint(10000).ConvertToNative(reflect.TypeOf(int(0)))
 	if err == nil {
 		t.Errorf("Got '%v', expected error", val)
 	}
 }
 
-func TestUint_ConvertToNative_Json(t *testing.T) {
+func TestUintConvertToNative_Json(t *testing.T) {
 	// Value can be represented accurately as a JSON number.
 	val, err := Uint(maxIntJSON).ConvertToNative(jsonValueType)
 	if err != nil {
@@ -187,7 +188,7 @@ func TestUintConvertToNative_Uint32(t *testing.T) {
 	}
 }
 
-func TestUint_ConvertToNative_Ptr_Uint32(t *testing.T) {
+func TestUintConvertToNative_Ptr_Uint32(t *testing.T) {
 	ptrType := uint32(0)
 	val, err := Uint(10000).ConvertToNative(reflect.TypeOf(&ptrType))
 	if err != nil {
@@ -197,7 +198,7 @@ func TestUint_ConvertToNative_Ptr_Uint32(t *testing.T) {
 	}
 }
 
-func TestUint_ConvertToNative_Ptr_Uint64(t *testing.T) {
+func TestUintConvertToNative_Ptr_Uint64(t *testing.T) {
 	ptrType := uint64(0)
 	val, err := Uint(18446744073709551612).ConvertToNative(reflect.TypeOf(&ptrType))
 	if err != nil {
@@ -207,7 +208,7 @@ func TestUint_ConvertToNative_Ptr_Uint64(t *testing.T) {
 	}
 }
 
-func TestUint_ConvertToNative_Wrapper(t *testing.T) {
+func TestUintConvertToNative_Wrapper(t *testing.T) {
 	val, err := Uint(math.MaxUint32).ConvertToNative(uint32WrapperType)
 	if err != nil {
 		t.Error(err)
@@ -227,7 +228,7 @@ func TestUint_ConvertToNative_Wrapper(t *testing.T) {
 	}
 }
 
-func TestUint_ConvertToType(t *testing.T) {
+func TestUintConvertToType(t *testing.T) {
 	tests := []struct {
 		name   string
 		in     uint64
@@ -293,7 +294,7 @@ func TestUint_ConvertToType(t *testing.T) {
 	}
 }
 
-func TestUint_Divide(t *testing.T) {
+func TestUintDivide(t *testing.T) {
 	if !Uint(3).Divide(Uint(2)).Equal(Uint(1)).(Bool) {
 		t.Error("Dividing two uints did not match expectations.")
 	}
@@ -305,7 +306,7 @@ func TestUint_Divide(t *testing.T) {
 	}
 }
 
-func TestUint_Equal(t *testing.T) {
+func TestUintEqual(t *testing.T) {
 	tests := []struct {
 		a   ref.Val
 		b   ref.Val
@@ -355,7 +356,16 @@ func TestUint_Equal(t *testing.T) {
 	}
 }
 
-func TestUint_Modulo(t *testing.T) {
+func TestUintIsZeroValue(t *testing.T) {
+	if Uint(1).IsZeroValue() {
+		t.Error("Uint(1).IsZeroValue() returned true, wanted false.")
+	}
+	if !Uint(0).IsZeroValue() {
+		t.Error("Uint(0).IsZeroValue() returned false, wanted true")
+	}
+}
+
+func TestUintModulo(t *testing.T) {
 	if !Uint(21).Modulo(Uint(2)).Equal(Uint(1)).(Bool) {
 		t.Error("Unexpected result from modulus operator.")
 	}
@@ -367,7 +377,7 @@ func TestUint_Modulo(t *testing.T) {
 	}
 }
 
-func TestUint_Multiply(t *testing.T) {
+func TestUintMultiply(t *testing.T) {
 	if !Uint(2).Multiply(Uint(2)).Equal(Uint(4)).(Bool) {
 		t.Error("Multiplying two values did not match expectations.")
 	}
@@ -382,7 +392,7 @@ func TestUint_Multiply(t *testing.T) {
 	}
 }
 
-func TestUint_Subtract(t *testing.T) {
+func TestUintSubtract(t *testing.T) {
 	if !Uint(4).Subtract(Uint(3)).Equal(Uint(1)).(Bool) {
 		t.Error("Subtracting two uints did not match expected value.")
 	}

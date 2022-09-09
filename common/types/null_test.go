@@ -77,6 +77,12 @@ func TestNullEqual(t *testing.T) {
 	}
 }
 
+func TestNullIsZeroValue(t *testing.T) {
+	if !NullValue.IsZeroValue() {
+		t.Error("NullValue.IsZeroValue() returned false, wanted true")
+	}
+}
+
 func TestNullType(t *testing.T) {
 	if NullValue.Type() != NullType {
 		t.Error("NullValue gets incorrect type.")

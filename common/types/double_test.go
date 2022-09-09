@@ -21,9 +21,10 @@ import (
 	"strings"
 	"testing"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
-	"google.golang.org/protobuf/proto"
 
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
@@ -412,6 +413,21 @@ func TestDoubleEqual(t *testing.T) {
 		if !reflect.DeepEqual(got, tc.out) {
 			t.Errorf("%v.Equal(%v) got %v, wanted %v", tc.a, tc.b, got, tc.out)
 		}
+	}
+}
+
+func TestDoubleIsZeroValue(t *testing.T) {
+	if Double(math.Inf(1)).IsZeroValue() {
+		t.Error("Double(+infinity).IsZeroValue() returned true, wanted false.")
+	}
+	if Double(math.Inf(-1)).IsZeroValue() {
+		t.Error("Double(-infinity).IsZeroValue() returned true, wanted false.")
+	}
+	if Double(math.NaN()).IsZeroValue() {
+		t.Error("Double(NaN).IsZeroValue() returned true, wanted false.")
+	}
+	if !Double(0.0).IsZeroValue() {
+		t.Error("Double(0.0).IsZeroValue() returned false, wanted true")
 	}
 }
 

@@ -154,6 +154,11 @@ func (s String) Equal(other ref.Val) ref.Val {
 	return Bool(ok && s == otherString)
 }
 
+// IsZeroValue returns true if the string is empty.
+func (s String) IsZeroValue() bool {
+	return len(s) == 0
+}
+
 // Match implements traits.Matcher.Match.
 func (s String) Match(pattern ref.Val) ref.Val {
 	pat, ok := pattern.(String)

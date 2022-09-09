@@ -19,10 +19,11 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/common/types/traits"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/common/types/traits"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	anypb "google.golang.org/protobuf/types/known/anypb"
@@ -139,6 +140,23 @@ func TestProtoObjectIsSet(t *testing.T) {
 	}
 	if !IsError(objVal.IsSet(IntZero)) {
 		t.Error("got field '0' wanted error")
+	}
+}
+
+func TestProtoObjectIsZeroValue(t *testing.T) {
+	reg := newTestRegistry(t, &exprpb.ParsedExpr{})
+	emptyObj := reg.NativeToValue(&exprpb.ParsedExpr{})
+	pb, ok := emptyObj.(traits.Zeroer)
+	if !ok {
+		t.Fatal("Proto object is not a traits.Zeroer")
+	}
+	if !pb.IsZeroValue() {
+		t.Error("pb.IsZeroValue() got false, wanted true")
+	}
+	obj := reg.NativeToValue(&exprpb.Expr{ExprKind: &exprpb.Expr_CallExpr{}})
+	pb = obj.(traits.Zeroer)
+	if pb.IsZeroValue() {
+		t.Error("pb.IsZeroValue() got true, wanted false")
 	}
 }
 

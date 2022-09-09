@@ -19,10 +19,11 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/common/types/traits"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
+
+	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/common/types/traits"
 
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
@@ -254,6 +255,11 @@ func (l *baseList) Get(index ref.Val) ref.Val {
 	return l.NativeToValue(l.get(ind))
 }
 
+// IsZeroValue returns true if the list is empty.
+func (l *baseList) IsZeroValue() bool {
+	return l.size == 0
+}
+
 // Iterator implements the traits.Iterable interface method.
 func (l *baseList) Iterator() traits.Iterator {
 	return newListIterator(l)
@@ -424,6 +430,11 @@ func (l *concatList) Get(index ref.Val) ref.Val {
 	}
 	offset := i - l.prevList.Size().(Int)
 	return l.nextList.Get(offset)
+}
+
+// IsZeroValue returns true if the list is empty.
+func (l *concatList) IsZeroValue() bool {
+	return l.Size().(Int) == 0
 }
 
 // Iterator implements the traits.Iterable interface method.

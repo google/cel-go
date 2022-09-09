@@ -464,17 +464,14 @@ func (e *Env) configure(opts []EnvOption) (*Env, error) {
 	}
 
 	// If the default UTC timezone fix has been enabled, make sure the library is configured
-	if e.HasFeature(featureDefaultUTCTimeZone) {
-		if _, found := e.appliedFeatures[featureDefaultUTCTimeZone]; !found {
-			e, err = Lib(timeUTCLibrary{})(e)
-			if err != nil {
-				return nil, err
-			}
-			// record that the feature has been applied since it will generate declarations
-			// and functions which will be propagated on Extend() calls and which should only
-			// be registered once.
-			e.appliedFeatures[featureDefaultUTCTimeZone] = true
-		}
+	e, err = e.maybeApplyFeature(featureDefaultUTCTimeZone, Lib(timeUTCLibrary{}))
+	if err != nil {
+		return nil, err
+	}
+	// If optional types have been enabled, then configure the optional library.
+	e, err = e.maybeApplyFeature(featureOptionalTypes, Lib(optionalLibrary{}))
+	if err != nil {
+		return nil, err
 	}
 
 	// Initialize all of the functions configured within the environment.
@@ -544,6 +541,27 @@ func (e *Env) initChecker() error {
 		e.chk = ce
 	})
 	return e.chkErr
+}
+
+// maybeApplyFeature determines whether the feature-guarded option is enabled, and if so applies
+// the feature if it has not already been enabled.
+func (e *Env) maybeApplyFeature(feature int, option EnvOption) (*Env, error) {
+	if !e.HasFeature(feature) {
+		return e, nil
+	}
+	_, applied := e.appliedFeatures[feature]
+	if applied {
+		return e, nil
+	}
+	e, err := option(e)
+	if err != nil {
+		return nil, err
+	}
+	// record that the feature has been applied since it will generate declarations
+	// and functions which will be propagated on Extend() calls and which should only
+	// be registered once.
+	e.appliedFeatures[feature] = true
+	return e, nil
 }
 
 // Issues defines methods for inspecting the error details of parse and check calls.

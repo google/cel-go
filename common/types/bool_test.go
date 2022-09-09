@@ -133,6 +133,15 @@ func TestBoolEqual(t *testing.T) {
 	}
 }
 
+func TestBoolIsZeroValue(t *testing.T) {
+	if True.IsZeroValue() {
+		t.Error("True.IsZeroValue() returned true, wanted false.")
+	}
+	if !False.IsZeroValue() {
+		t.Error("False.IsZeroValue() returned false, wanted true")
+	}
+}
+
 func TestBoolNegate(t *testing.T) {
 	if True.Negate() != False {
 		t.Error("True did not negate to false.")

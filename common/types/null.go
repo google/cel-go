@@ -18,8 +18,9 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/google/cel-go/common/types/ref"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/google/cel-go/common/types/ref"
 
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
@@ -33,8 +34,6 @@ var (
 	NullType = NewTypeValue("null_type")
 	// NullValue singleton.
 	NullValue = Null(structpb.NullValue_NULL_VALUE)
-
-	jsonNullType = reflect.TypeOf(structpb.NullValue_NULL_VALUE)
 )
 
 // ConvertToNative implements ref.Val.ConvertToNative.
@@ -84,6 +83,11 @@ func (n Null) ConvertToType(typeVal ref.Type) ref.Val {
 // Equal implements ref.Val.Equal.
 func (n Null) Equal(other ref.Val) ref.Val {
 	return Bool(NullType == other.Type())
+}
+
+// IsZeroValue returns true as null always represents an absent value.
+func (n Null) IsZeroValue() bool {
+	return true
 }
 
 // Type implements ref.Val.Type.

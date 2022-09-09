@@ -423,8 +423,7 @@ func (p *planner) planCallVarArgs(expr *exprpb.Expr,
 }
 
 // planCallEqual generates an equals (==) Interpretable.
-func (p *planner) planCallEqual(expr *exprpb.Expr,
-	args []Interpretable) (Interpretable, error) {
+func (p *planner) planCallEqual(expr *exprpb.Expr, args []Interpretable) (Interpretable, error) {
 	return &evalEq{
 		id:  expr.GetId(),
 		lhs: args[0],
@@ -433,8 +432,7 @@ func (p *planner) planCallEqual(expr *exprpb.Expr,
 }
 
 // planCallNotEqual generates a not equals (!=) Interpretable.
-func (p *planner) planCallNotEqual(expr *exprpb.Expr,
-	args []Interpretable) (Interpretable, error) {
+func (p *planner) planCallNotEqual(expr *exprpb.Expr, args []Interpretable) (Interpretable, error) {
 	return &evalNe{
 		id:  expr.GetId(),
 		lhs: args[0],
@@ -443,8 +441,7 @@ func (p *planner) planCallNotEqual(expr *exprpb.Expr,
 }
 
 // planCallLogicalAnd generates a logical and (&&) Interpretable.
-func (p *planner) planCallLogicalAnd(expr *exprpb.Expr,
-	args []Interpretable) (Interpretable, error) {
+func (p *planner) planCallLogicalAnd(expr *exprpb.Expr, args []Interpretable) (Interpretable, error) {
 	return &evalAnd{
 		id:  expr.GetId(),
 		lhs: args[0],
@@ -453,8 +450,7 @@ func (p *planner) planCallLogicalAnd(expr *exprpb.Expr,
 }
 
 // planCallLogicalOr generates a logical or (||) Interpretable.
-func (p *planner) planCallLogicalOr(expr *exprpb.Expr,
-	args []Interpretable) (Interpretable, error) {
+func (p *planner) planCallLogicalOr(expr *exprpb.Expr, args []Interpretable) (Interpretable, error) {
 	return &evalOr{
 		id:  expr.GetId(),
 		lhs: args[0],
@@ -463,10 +459,8 @@ func (p *planner) planCallLogicalOr(expr *exprpb.Expr,
 }
 
 // planCallConditional generates a conditional / ternary (c ? t : f) Interpretable.
-func (p *planner) planCallConditional(expr *exprpb.Expr,
-	args []Interpretable) (Interpretable, error) {
+func (p *planner) planCallConditional(expr *exprpb.Expr, args []Interpretable) (Interpretable, error) {
 	cond := args[0]
-
 	t := args[1]
 	var tAttr Attribute
 	truthyAttr, isTruthyAttr := t.(InterpretableAttribute)
@@ -493,8 +487,7 @@ func (p *planner) planCallConditional(expr *exprpb.Expr,
 
 // planCallIndex either extends an attribute with the argument to the index operation, or creates
 // a relative attribute based on the return of a function call or operation.
-func (p *planner) planCallIndex(expr *exprpb.Expr,
-	args []Interpretable) (Interpretable, error) {
+func (p *planner) planCallIndex(expr *exprpb.Expr, args []Interpretable) (Interpretable, error) {
 	op := args[0]
 	ind := args[1]
 	opAttr, err := p.relativeAttr(op.ID(), op)

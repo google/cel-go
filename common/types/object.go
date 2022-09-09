@@ -18,10 +18,11 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/google/cel-go/common/types/pb"
-	"github.com/google/cel-go/common/types/ref"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/google/cel-go/common/types/pb"
+	"github.com/google/cel-go/common/types/ref"
 
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
@@ -131,6 +132,11 @@ func (o *protoObj) IsSet(field ref.Val) ref.Val {
 		return True
 	}
 	return False
+}
+
+// IsZeroValue returns true if the protobuf object is empty.
+func (o *protoObj) IsZeroValue() bool {
+	return proto.Equal(o.value, o.typeDesc.Zero())
 }
 
 func (o *protoObj) Get(index ref.Val) ref.Val {

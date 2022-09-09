@@ -313,6 +313,10 @@ func NullableType(wrapped *Type) *Type {
 	}
 }
 
+func OptionalType(param *Type) *Type {
+	return OpaqueType("optional", param)
+}
+
 // OpaqueType creates an abstract parameterized type with a given name.
 func OpaqueType(name string, params ...*Type) *Type {
 	return &Type{

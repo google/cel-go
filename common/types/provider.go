@@ -19,11 +19,12 @@ import (
 	"reflect"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
+
 	"github.com/google/cel-go/common/types/pb"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/reflect/protoreflect"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	anypb "google.golang.org/protobuf/types/known/anypb"
@@ -479,9 +480,9 @@ func msgSetField(target protoreflect.Message, field *pb.FieldDescription, val re
 	if err != nil {
 		return fieldTypeConversionError(field, err)
 	}
-	switch v.(type) {
+	switch pv := v.(type) {
 	case proto.Message:
-		v = v.(proto.Message).ProtoReflect()
+		v = pv.ProtoReflect()
 	}
 	target.Set(field.Descriptor(), protoreflect.ValueOf(v))
 	return nil
@@ -519,9 +520,9 @@ func msgSetMapField(target protoreflect.Map, mapField *pb.FieldDescription, mapV
 		if err != nil {
 			return fieldTypeConversionError(mapField, err)
 		}
-		switch v.(type) {
+		switch pv := v.(type) {
 		case proto.Message:
-			v = v.(proto.Message).ProtoReflect()
+			v = pv.ProtoReflect()
 		}
 		target.Set(protoreflect.ValueOf(k).MapKey(), protoreflect.ValueOf(v))
 	}

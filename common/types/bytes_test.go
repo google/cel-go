@@ -115,6 +115,15 @@ func TestBytesConvertToType(t *testing.T) {
 	}
 }
 
+func TestBytesIsZeroValue(t *testing.T) {
+	if Bytes("non-zero").IsZeroValue() {
+		t.Error("Bytes('non-zero').IsZeroValue() returned true, wanted false.")
+	}
+	if !Bytes("").IsZeroValue() {
+		t.Error("Bytes('').IsZeroValue() returned false, wanted true")
+	}
+}
+
 func TestBytesSize(t *testing.T) {
 	if !Bytes("1234567890").Size().Equal(Int(10)).(Bool) {
 		t.Error("Unexpected byte count.")

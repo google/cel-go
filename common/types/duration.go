@@ -138,6 +138,11 @@ func (d Duration) Equal(other ref.Val) ref.Val {
 	return Bool(ok && d.Duration == otherDur.Duration)
 }
 
+// IsZeroValue returns true if the duration value is zero
+func (d Duration) IsZeroValue() bool {
+	return d.Duration == 0
+}
+
 // Negate implements traits.Negater.Negate.
 func (d Duration) Negate() ref.Val {
 	val, err := negateDurationChecked(d.Duration)

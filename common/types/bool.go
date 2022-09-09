@@ -114,6 +114,11 @@ func (b Bool) Equal(other ref.Val) ref.Val {
 	return Bool(ok && b == otherBool)
 }
 
+// IsZeroValue returns true if the boolean value is false.
+func (b Bool) IsZeroValue() bool {
+	return b == False
+}
+
 // Negate implements the traits.Negater interface method.
 func (b Bool) Negate() ref.Val {
 	return !b

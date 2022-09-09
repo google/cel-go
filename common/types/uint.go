@@ -194,6 +194,11 @@ func (i Uint) Equal(other ref.Val) ref.Val {
 	}
 }
 
+// IsZeroValue returns true if the uint is zero.
+func (i Uint) IsZeroValue() bool {
+	return i == 0
+}
+
 // Modulo implements traits.Modder.Modulo.
 func (i Uint) Modulo(other ref.Val) ref.Val {
 	otherUint, ok := other.(Uint)
