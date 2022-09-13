@@ -1,4 +1,4 @@
-# Used by Google Cloud Build to run cel-go conformance tests and generate necesary file structure for TestGrid dashboard in Google Cloud Storage
+# Used by Google Cloud Build to run cel-go conformance tests and generate necessary file structure for TestGrid dashboard in Google Cloud Storage
 steps:
         # - name: 'ubuntu'
         #   # writes start time and #PR to started.json
@@ -21,7 +21,7 @@ steps:
         #   entrypoint: sh
         #   # deploys folder of test results (with build id as folder name) to GCS
         #   args: ['-c', 'gsutil cp -r $(cat _DATE) gs://cel-conformance/test-logs/']
-        - name: 'gcr.io/cel-analysis/bazel:3.0.0'
+        - name: 'gcr.io/cloud-builders/bazel'
           entrypoint: bazel
           args: ['test', '--test_output=errors', '...']
           id: bazel-test
