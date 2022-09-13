@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/antlr/antlr4/runtime/Go/antlr/v4"
+	"github.com/antlr/antlr4/runtime/Go/antlr"
 
 	"github.com/google/cel-go/repl/parser"
 
@@ -191,7 +191,7 @@ func (c *commandParseListener) EnterLet(ctx *parser.LetContext) {
 	c.usage = letUsage
 	if ctx.GetFn() != nil {
 		c.cmd = &letFnCmd{}
-	} else if ctx.GetVar_() != nil {
+	} else if ctx.GetVar() != nil {
 		c.cmd = &letVarCmd{}
 	} else {
 		c.errs = append(c.errs, fmt.Errorf("missing declaration in let"))
@@ -202,7 +202,7 @@ func (c *commandParseListener) EnterDeclare(ctx *parser.DeclareContext) {
 	c.usage = declareUsage
 	if ctx.GetFn() != nil {
 		c.cmd = &letFnCmd{}
-	} else if ctx.GetVar_() != nil {
+	} else if ctx.GetVar() != nil {
 		c.cmd = &letVarCmd{}
 	} else {
 		c.errs = append(c.errs, fmt.Errorf("missing declaration in declare"))
@@ -224,7 +224,7 @@ func (c *commandParseListener) ExitDeclare(ctx *parser.DeclareContext) {
 
 func (c *commandParseListener) EnterDelete(ctx *parser.DeleteContext) {
 	c.usage = deleteUsage
-	if ctx.GetVar_() == nil && ctx.GetFn() == nil {
+	if ctx.GetVar() == nil && ctx.GetFn() == nil {
 		c.reportIssue(errors.New("missing identifier in delete"))
 		return
 	}
