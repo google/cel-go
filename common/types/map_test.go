@@ -23,11 +23,12 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/google/cel-go/common/types/pb"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
-	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
 
 	proto3pb "github.com/google/cel-go/test/proto3pb"
 	anypb "google.golang.org/protobuf/types/known/anypb"
@@ -101,7 +102,7 @@ func TestStringMapContains(t *testing.T) {
 	reg := newTestRegistry(t)
 	mapVal := NewStringStringMap(reg, map[string]string{
 		"first":  "hello",
-		"second": "world"}).(traits.Mapper)
+		"second": "world"})
 	if mapVal.Contains(String("first")) != True {
 		t.Error("mapVal.Contains('first') did not return true")
 	}
@@ -418,7 +419,7 @@ func TestDynamicMapGet(t *testing.T) {
 	reg := newTestRegistry(t)
 	mapVal := NewDynamicMap(reg, map[string]map[int32]float32{
 		"nested": {1: -1.0, 2: 2.0},
-		"empty":  {}}).(traits.Mapper)
+		"empty":  {}})
 	nestedVal, ok := mapVal.Get(String("nested")).(traits.Mapper)
 	if !ok {
 		t.Fatalf("mapVal.Get('nested') got %v, wanted map value", mapVal.Get(String("nested")))
@@ -454,7 +455,7 @@ func TestStringIfaceMapGet(t *testing.T) {
 	mapVal := NewStringInterfaceMap(reg, map[string]interface{}{
 		"nested": map[int32]float64{1: -1.0, 2: 2.0},
 		"empty":  map[string]interface{}{},
-	}).(traits.Mapper)
+	})
 	nestedVal, ok := mapVal.Get(String("nested")).(traits.Mapper)
 	if !ok {
 		t.Fatalf("mapVal.Get('nested') got %v, wanted map value", mapVal.Get(String("nested")))
@@ -489,7 +490,7 @@ func TestStringMapGet(t *testing.T) {
 	reg := newTestRegistry(t)
 	mapVal := NewStringStringMap(reg, map[string]string{
 		"first":  "hello",
-		"second": "world"}).(traits.Mapper)
+		"second": "world"})
 	val := mapVal.Get(String("first"))
 	if val.Equal(String("hello")) != True {
 		t.Errorf("mapVal.Get('first') '%v', wanted 'hello'", val)
@@ -509,7 +510,7 @@ func TestRefValMapGet(t *testing.T) {
 			Int(1): Double(-1.0), Int(2): Double(2.0),
 		}),
 		String("empty"): NewRefValMap(reg, map[ref.Val]ref.Val{}),
-	}).(traits.Mapper)
+	})
 	nestedVal, ok := mapVal.Get(String("nested")).(traits.Mapper)
 	if !ok {
 		t.Fatalf("mapVal.Get('nested') got %v, wanted map value", mapVal.Get(String("nested")))
@@ -540,11 +541,92 @@ func TestRefValMapGet(t *testing.T) {
 	}
 }
 
+func TestMapIsZeroValue(t *testing.T) {
+	msg := &proto3pb.TestAllTypes{
+		MapStringString: map[string]string{
+			"hello": "world",
+		},
+	}
+	reg := newTestRegistry(t, msg)
+	obj := reg.NativeToValue(msg).(traits.Indexer)
+
+	tests := []struct {
+		val         interface{}
+		isZeroValue bool
+	}{
+		{
+			val:         map[int]int{},
+			isZeroValue: true,
+		},
+		{
+			val:         map[string]interface{}{},
+			isZeroValue: true,
+		},
+		{
+			val:         map[string]string{},
+			isZeroValue: true,
+		},
+		{
+			val:         map[ref.Val]ref.Val{},
+			isZeroValue: true,
+		},
+		{
+			val:         &structpb.Struct{},
+			isZeroValue: true,
+		},
+		{
+			val:         obj.Get(String("map_int64_nested_type")),
+			isZeroValue: true,
+		},
+		{
+			val:         map[int]int{1: 1},
+			isZeroValue: false,
+		},
+		{
+			val:         map[string]interface{}{"hello": []interface{}{}},
+			isZeroValue: false,
+		},
+		{
+			val:         map[string]string{"": ""},
+			isZeroValue: false,
+		},
+		{
+			val:         map[ref.Val]ref.Val{False: True},
+			isZeroValue: false,
+		},
+		{
+			val: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"": structpb.NewNullValue(),
+				},
+			},
+			isZeroValue: false,
+		},
+		{
+			val:         obj.Get(String("map_string_string")),
+			isZeroValue: false,
+		},
+	}
+	for i, tst := range tests {
+		tc := tst
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			v := DefaultTypeAdapter.NativeToValue(tc.val)
+			zv, ok := v.(traits.Zeroer)
+			if !ok {
+				t.Fatalf("%v could not be converted to a zero-valuer type", tc.val)
+			}
+			if zv.IsZeroValue() != tc.isZeroValue {
+				t.Errorf("%v.IsZeroValue() got %t, wanted %t", v, zv.IsZeroValue(), tc.isZeroValue)
+			}
+		})
+	}
+}
+
 func TestDynamicMapIterator(t *testing.T) {
 	reg := newTestRegistry(t)
 	mapVal := NewDynamicMap(reg, map[string]map[int32]float32{
 		"nested": {1: -1.0, 2: 2.0},
-		"empty":  {}}).(traits.Mapper)
+		"empty":  {}})
 	it := mapVal.Iterator()
 	var i = 0
 	var fieldNames []interface{}
@@ -568,7 +650,7 @@ func TestStringMapIterator(t *testing.T) {
 	reg := newTestRegistry(t)
 	mapVal := NewStringStringMap(reg, map[string]string{
 		"first":  "hello",
-		"second": "world"}).(traits.Mapper)
+		"second": "world"})
 	it := mapVal.Iterator()
 	var i = 0
 	var fieldNames []interface{}
@@ -609,7 +691,7 @@ func TestDynamicMapSize(t *testing.T) {
 	reg := newTestRegistry(t)
 	mapVal := NewDynamicMap(reg, map[string]int{
 		"first":  1,
-		"second": 2}).(traits.Mapper)
+		"second": 2})
 	if mapVal.Size() != Int(2) {
 		t.Errorf("mapVal.Size() got '%v', expected 2", mapVal.Size())
 	}
@@ -619,7 +701,7 @@ func TestStringMapSize(t *testing.T) {
 	reg := newTestRegistry(t)
 	mapVal := NewStringStringMap(reg, map[string]string{
 		"first":  "hello",
-		"second": "world"}).(traits.Mapper)
+		"second": "world"})
 	if mapVal.Size() != Int(2) {
 		t.Errorf("mapVal.Size() got '%v', expected 2", mapVal.Size())
 	}

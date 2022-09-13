@@ -20,9 +20,10 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types/ref"
-	"google.golang.org/protobuf/proto"
 
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	dpb "google.golang.org/protobuf/types/known/durationpb"
@@ -251,6 +252,15 @@ func TestDurationGetMilliseconds(t *testing.T) {
 	sec := d.Receive(overloads.TimeGetMilliseconds, overloads.DurationToMilliseconds, []ref.Val{})
 	if !sec.Equal(Int(7506000)).(Bool) {
 		t.Error("Expected 6 seconds, got", sec)
+	}
+}
+
+func TestDurationIsZeroValue(t *testing.T) {
+	if (&Duration{Duration: time.Duration(1)}).IsZeroValue() {
+		t.Error("Duration(1).IsZeroValue() returned true, wanted false.")
+	}
+	if !(&Duration{Duration: time.Duration(0)}).IsZeroValue() {
+		t.Error("Duration(0).IsZeroValue() returned false, wanted true")
 	}
 }
 

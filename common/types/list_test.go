@@ -21,10 +21,11 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/common/types/traits"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/common/types/traits"
 
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	dpb "google.golang.org/protobuf/types/known/durationpb"
@@ -177,14 +178,92 @@ func TestBaseListEqual(t *testing.T) {
 }
 
 func TestBaseListGet(t *testing.T) {
-	validateList123(t, NewDynamicList(newTestRegistry(t), []int32{1, 2, 3}).(traits.Lister))
+	validateList123(t, NewDynamicList(newTestRegistry(t), []int32{1, 2, 3}))
 }
 
 func TestBaseListString(t *testing.T) {
-	l := NewDynamicList(newTestRegistry(t), []interface{}{1, "hello", 2.1, true, []string{"world"}})
+	l := DefaultTypeAdapter.NativeToValue([]interface{}{1, "hello", 2.1, true, []string{"world"}})
 	want := `[1, hello, 2.1, true, [world]]`
 	if fmt.Sprintf("%v", l) != want {
 		t.Errorf("l.String() got %v, wanted %v", l, want)
+	}
+}
+
+func TestConcatListString(t *testing.T) {
+	l := DefaultTypeAdapter.NativeToValue([]interface{}{1, "hello", 2.1, true}).(traits.Lister)
+	c := l.Add(DefaultTypeAdapter.NativeToValue([]string{"world"}))
+	want := `[1, hello, 2.1, true, world]`
+	if fmt.Sprintf("%v", c) != want {
+		t.Errorf("c.String() got %v, wanted %v", c, want)
+	}
+}
+
+func TestListIsZeroValue(t *testing.T) {
+	tests := []struct {
+		val         interface{}
+		isZeroValue bool
+	}{
+		{
+			val:         []string{},
+			isZeroValue: true,
+		},
+		{
+			val:         []int{},
+			isZeroValue: true,
+		},
+		{
+			val:         []interface{}{},
+			isZeroValue: true,
+		},
+		{
+			val:         &structpb.ListValue{},
+			isZeroValue: true,
+		},
+		{
+			val:         []ref.Val{},
+			isZeroValue: true,
+		},
+		{
+			val:         DefaultTypeAdapter.NativeToValue([]ref.Val{}).(traits.Lister).Add(DefaultTypeAdapter.NativeToValue([]ref.Val{})),
+			isZeroValue: true,
+		},
+		{
+			val:         []string{""},
+			isZeroValue: false,
+		},
+		{
+			val:         []bool{false},
+			isZeroValue: false,
+		},
+		{
+			val:         []interface{}{0},
+			isZeroValue: false,
+		},
+		{
+			val:         &structpb.ListValue{Values: []*structpb.Value{structpb.NewBoolValue(false)}},
+			isZeroValue: false,
+		},
+		{
+			val:         []ref.Val{Double(0.0)},
+			isZeroValue: false,
+		},
+		{
+			val:         DefaultTypeAdapter.NativeToValue([]ref.Val{IntOne}).(traits.Lister).Add(DefaultTypeAdapter.NativeToValue([]ref.Val{})),
+			isZeroValue: false,
+		},
+	}
+	for i, tst := range tests {
+		tc := tst
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			v := DefaultTypeAdapter.NativeToValue(tc.val)
+			zv, ok := v.(traits.Zeroer)
+			if !ok {
+				t.Fatalf("%v could not be converted to a zero-valuer type", tc.val)
+			}
+			if zv.IsZeroValue() != tc.isZeroValue {
+				t.Errorf("%v.IsZeroValue() got %t, wanted %t", v, zv.IsZeroValue(), tc.isZeroValue)
+			}
+		})
 	}
 }
 
@@ -193,7 +272,7 @@ func TestValueListGet(t *testing.T) {
 }
 
 func TestBaseListIterator(t *testing.T) {
-	validateIterator123(t, NewDynamicList(newTestRegistry(t), []int32{1, 2, 3}).(traits.Lister))
+	validateIterator123(t, NewDynamicList(newTestRegistry(t), []int32{1, 2, 3}))
 }
 
 func TestValueListValue_Iterator(t *testing.T) {

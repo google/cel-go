@@ -19,16 +19,17 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types/ref"
-	"google.golang.org/protobuf/proto"
 
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
-func TestString_Add(t *testing.T) {
+func TestStringAdd(t *testing.T) {
 	if String("hello").Add(String(" world")) != String("hello world") {
 		t.Error("Adding two strings did not produce a concatenated value.")
 	}
@@ -37,7 +38,7 @@ func TestString_Add(t *testing.T) {
 	}
 }
 
-func TestString_Compare(t *testing.T) {
+func TestStringCompare(t *testing.T) {
 	a := String("a")
 	b := String("bbbb")
 	c := String("c")
@@ -55,7 +56,7 @@ func TestString_Compare(t *testing.T) {
 	}
 }
 
-func TestString_ConvertToNative_Any(t *testing.T) {
+func TestStringConvertToNative_Any(t *testing.T) {
 	val, err := String("hello").ConvertToNative(anyValueType)
 	if err != nil {
 		t.Error(err)
@@ -69,14 +70,14 @@ func TestString_ConvertToNative_Any(t *testing.T) {
 	}
 }
 
-func TestString_ConvertToNative_Error(t *testing.T) {
+func TestStringConvertToNative_Error(t *testing.T) {
 	val, err := String("hello").ConvertToNative(reflect.TypeOf(0))
 	if err == nil {
 		t.Errorf("Got '%v', expected error", val)
 	}
 }
 
-func TestString_ConvertToNative_Json(t *testing.T) {
+func TestStringConvertToNative_Json(t *testing.T) {
 	val, err := String("hello").ConvertToNative(jsonValueType)
 	pbVal := structpb.NewStringValue("hello")
 	if err != nil {
@@ -86,7 +87,7 @@ func TestString_ConvertToNative_Json(t *testing.T) {
 	}
 }
 
-func TestString_ConvertToNative_Ptr(t *testing.T) {
+func TestStringConvertToNative_Ptr(t *testing.T) {
 	ptrType := ""
 	val, err := String("hello").ConvertToNative(reflect.TypeOf(&ptrType))
 	if err != nil {
@@ -96,7 +97,7 @@ func TestString_ConvertToNative_Ptr(t *testing.T) {
 	}
 }
 
-func TestString_ConvertToNative_String(t *testing.T) {
+func TestStringConvertToNative_String(t *testing.T) {
 	val, err := String("hello").ConvertToNative(reflect.TypeOf(""))
 	if err != nil {
 		t.Error(err)
@@ -105,7 +106,7 @@ func TestString_ConvertToNative_String(t *testing.T) {
 	}
 }
 
-func TestString_ConvertToNative_Wrapper(t *testing.T) {
+func TestStringConvertToNative_Wrapper(t *testing.T) {
 	val, err := String("hello").ConvertToNative(stringWrapperType)
 	if err != nil {
 		t.Error(err)
@@ -116,7 +117,7 @@ func TestString_ConvertToNative_Wrapper(t *testing.T) {
 	}
 }
 
-func TestString_ConvertToType(t *testing.T) {
+func TestStringConvertToType(t *testing.T) {
 	if !String("-1").ConvertToType(IntType).Equal(IntNegOne).(Bool) {
 		t.Error("String could not be converted to int")
 	}
@@ -151,7 +152,7 @@ func TestString_ConvertToType(t *testing.T) {
 	}
 }
 
-func TestString_Equal(t *testing.T) {
+func TestStringEqual(t *testing.T) {
 	if !String("hello").Equal(String("hello")).(Bool) {
 		t.Error("Two equivalent strings were not equal")
 	}
@@ -163,7 +164,16 @@ func TestString_Equal(t *testing.T) {
 	}
 }
 
-func TestString_Match(t *testing.T) {
+func TestStringIsZeroValue(t *testing.T) {
+	if String("non-zero").IsZeroValue() {
+		t.Error("String('non-zero').IsZeroValue() returned true, wanted false.")
+	}
+	if !String("").IsZeroValue() {
+		t.Error("String('').IsZeroValue() returned false, wanted true")
+	}
+}
+
+func TestStringMatch(t *testing.T) {
 	str := String("hello 1 world")
 	sw := String("^hello")
 	ew := String("\\d world$")
@@ -181,7 +191,7 @@ func TestString_Match(t *testing.T) {
 	}
 }
 
-func TestString_Contains(t *testing.T) {
+func TestStringContains(t *testing.T) {
 	y := String("goodbye").Receive(
 		overloads.Contains,
 		overloads.ContainsString,
@@ -198,7 +208,7 @@ func TestString_Contains(t *testing.T) {
 	}
 }
 
-func TestString_EndsWith(t *testing.T) {
+func TestStringEndsWith(t *testing.T) {
 	y := String("goodbye").Receive(
 		overloads.EndsWith,
 		overloads.EndsWithString,
@@ -215,7 +225,7 @@ func TestString_EndsWith(t *testing.T) {
 	}
 }
 
-func TestString_StartsWith(t *testing.T) {
+func TestStringStartsWith(t *testing.T) {
 	y := String("goodbye").Receive(
 		overloads.StartsWith,
 		overloads.StartsWithString,
@@ -232,7 +242,7 @@ func TestString_StartsWith(t *testing.T) {
 	}
 }
 
-func TestString_Size(t *testing.T) {
+func TestStringSize(t *testing.T) {
 	if String("").Size().(Int) != 0 {
 		t.Error("Empty string had a non-zero size")
 	}

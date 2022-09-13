@@ -122,14 +122,14 @@ func Example_globalOverload() {
 func Example_statefulOverload() {
 	// makeFetch produces a consistent function signature with a different function
 	// implementation depending on the provided context.
-	makeFetch := func(ctx context.Context) cel.EnvOption {
+	makeFetch := func(ctx interface{}) cel.EnvOption {
 		fn := func(arg ref.Val) ref.Val {
 			return types.NewErr("stateful context not bound")
 		}
 		if ctx != nil {
 			fn = func(resource ref.Val) ref.Val {
 				return types.DefaultTypeAdapter.NativeToValue(
-					ctx.Value(string(resource.(types.String))),
+					ctx.(context.Context).Value(contextString(string(resource.(types.String)))),
 				)
 			}
 		}
@@ -160,7 +160,7 @@ func Example_statefulOverload() {
 
 	// The runtime environment extends the base environment with a contextual binding for
 	// the 'fetch' function.
-	ctx := context.WithValue(context.TODO(), "my-resource", "my-value")
+	ctx := context.WithValue(context.TODO(), contextString("my-resource"), "my-value")
 	runtimeEnv, err := baseEnv.Extend(makeFetch(ctx))
 	if err != nil {
 		log.Fatalf("baseEnv.Extend() failed with error: %s\n", err)
@@ -177,3 +177,5 @@ func Example_statefulOverload() {
 	fmt.Println(out)
 	// Output:true
 }
+
+type contextString string

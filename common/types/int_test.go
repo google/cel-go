@@ -22,9 +22,10 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
-	"google.golang.org/protobuf/proto"
 
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
@@ -398,12 +399,26 @@ func TestIntEqual(t *testing.T) {
 			b:   Double(math.NaN()),
 			out: False,
 		},
+		{
+			a:   Int(1),
+			b:   String("1"),
+			out: False,
+		},
 	}
 	for _, tc := range tests {
 		got := tc.a.Equal(tc.b)
 		if !reflect.DeepEqual(got, tc.out) {
 			t.Errorf("%v.Equal(%v) got %v, wanted %v", tc.a, tc.b, got, tc.out)
 		}
+	}
+}
+
+func TestIntIsZeroValue(t *testing.T) {
+	if Int(1).IsZeroValue() {
+		t.Error("Int(1).IsZeroValue() returned true, wanted false.")
+	}
+	if !Int(0).IsZeroValue() {
+		t.Error("Int(0).IsZeroValue() returned false, wanted true")
 	}
 }
 

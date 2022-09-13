@@ -182,6 +182,11 @@ func (d Double) Equal(other ref.Val) ref.Val {
 	}
 }
 
+// IsZeroValue returns true if double value is 0.0
+func (d Double) IsZeroValue() bool {
+	return float64(d) == 0.0
+}
+
 // Multiply implements traits.Multiplier.Multiply.
 func (d Double) Multiply(other ref.Val) ref.Val {
 	otherDouble, ok := other.(Double)

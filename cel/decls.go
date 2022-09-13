@@ -313,6 +313,11 @@ func NullableType(wrapped *Type) *Type {
 	}
 }
 
+// OptionalType creates an abstract parameterized type instance corresponding to CEL's notion of optional.
+func OptionalType(param *Type) *Type {
+	return OpaqueType("optional", param)
+}
+
 // OpaqueType creates an abstract parameterized type with a given name.
 func OpaqueType(name string, params ...*Type) *Type {
 	return &Type{

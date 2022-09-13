@@ -23,6 +23,8 @@ import (
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/common/types/traits"
+	"github.com/google/cel-go/interpreter"
 	"github.com/google/cel-go/interpreter/functions"
 )
 
@@ -80,6 +82,150 @@ func (stdLibrary) ProgramOptions() []ProgramOption {
 	return []ProgramOption{
 		Functions(functions.StandardOverloads()...),
 	}
+}
+
+type optionalLibrary struct{}
+
+func (optionalLibrary) CompileOptions() []EnvOption {
+	paramType := TypeParamType("T")
+	optionalType := OpaqueType("optional", paramType)
+
+	return []EnvOption{
+		Types(types.OptionalType),
+		// Global and member functions for working with optional values.
+		Function("optional.of",
+			Overload("optional_of", []*Type{paramType}, optionalType,
+				UnaryBinding(func(value ref.Val) ref.Val {
+					return types.OptionalOf(value)
+				}))),
+		Function("optional.ofNonZeroValue",
+			Overload("optional_ofNonZeroValue", []*Type{paramType}, optionalType,
+				UnaryBinding(func(value ref.Val) ref.Val {
+					v, isZeroer := value.(traits.Zeroer)
+					if !isZeroer || !v.IsZeroValue() {
+						return types.OptionalOf(value)
+					}
+					return types.OptionalNone
+				}))),
+		Function("optional.none",
+			Overload("optional_none", []*Type{}, optionalType,
+				FunctionBinding(func(values ...ref.Val) ref.Val {
+					return types.OptionalNone
+				}))),
+		Function("value",
+			MemberOverload("optional_value", []*Type{optionalType}, paramType,
+				UnaryBinding(func(value ref.Val) ref.Val {
+					opt := value.(*types.Optional)
+					return opt.GetValue()
+				}))),
+		Function("hasValue",
+			MemberOverload("optional_hasValue", []*Type{optionalType}, paramType,
+				UnaryBinding(func(value ref.Val) ref.Val {
+					opt := value.(*types.Optional)
+					return types.Bool(opt.HasValue())
+				}))),
+		// Implementation of 'or' and 'orValue' are special-cased to support short-circuiting in the
+		// evaluation chain.
+		Function("or",
+			MemberOverload("optional_or_optional", []*Type{optionalType, optionalType}, optionalType)),
+		Function("orValue",
+			MemberOverload("optional_orValue_value", []*Type{optionalType, paramType}, paramType)),
+	}
+}
+
+func (optionalLibrary) ProgramOptions() []ProgramOption {
+	return []ProgramOption{
+		CustomDecorator(decorateOptionalOr),
+	}
+}
+
+func decorateOptionalOr(i interpreter.Interpretable) (interpreter.Interpretable, error) {
+	call, ok := i.(interpreter.InterpretableCall)
+	if !ok {
+		return i, nil
+	}
+	args := call.Args()
+	if len(args) != 2 {
+		return i, nil
+	}
+	switch call.Function() {
+	case "or":
+		if call.OverloadID() != "" && call.OverloadID() != "optional_or_optional" {
+			return i, nil
+		}
+		return &evalOptionalOr{
+			id:  call.ID(),
+			lhs: args[0],
+			rhs: args[1],
+		}, nil
+	case "orValue":
+		if call.OverloadID() != "" && call.OverloadID() != "optional_orValue_value" {
+			return i, nil
+		}
+		return &evalOptionalOrValue{
+			id:  call.ID(),
+			lhs: args[0],
+			rhs: args[1],
+		}, nil
+	default:
+		return i, nil
+	}
+}
+
+// evalOptionalOr selects between two optional values, either the first if it has a value, or
+// the second optional expression is evaluated and returned.
+type evalOptionalOr struct {
+	id  int64
+	lhs interpreter.Interpretable
+	rhs interpreter.Interpretable
+}
+
+// ID implements the Interpretable interface method.
+func (opt *evalOptionalOr) ID() int64 {
+	return opt.id
+}
+
+// Eval evaluates the left-hand side optional to determine whether it contains a value, else
+// proceeds with the right-hand side evaluation.
+func (opt *evalOptionalOr) Eval(ctx interpreter.Activation) ref.Val {
+	// short-circuit lhs.
+	optLhs := opt.lhs.Eval(ctx)
+	optVal, ok := optLhs.(*types.Optional)
+	if !ok {
+		return optLhs
+	}
+	if optVal.HasValue() {
+		return optVal
+	}
+	return opt.rhs.Eval(ctx)
+}
+
+// evalOptionalOrValue selects between an optional or a concrete value. If the optional has a value,
+// its value is returned, otherwise the alternative value expression is evaluated and returned.
+type evalOptionalOrValue struct {
+	id  int64
+	lhs interpreter.Interpretable
+	rhs interpreter.Interpretable
+}
+
+// ID implements the Interpretable interface method.
+func (opt *evalOptionalOrValue) ID() int64 {
+	return opt.id
+}
+
+// Eval evaluates the left-hand side optional to determine whether it contains a value, else
+// proceeds with the right-hand side evaluation.
+func (opt *evalOptionalOrValue) Eval(ctx interpreter.Activation) ref.Val {
+	// short-circuit lhs.
+	optLhs := opt.lhs.Eval(ctx)
+	optVal, ok := optLhs.(*types.Optional)
+	if !ok {
+		return optLhs
+	}
+	if optVal.HasValue() {
+		return optVal.GetValue()
+	}
+	return opt.rhs.Eval(ctx)
 }
 
 type timeUTCLibrary struct{}

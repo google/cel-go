@@ -116,6 +116,11 @@ func (b Bytes) Equal(other ref.Val) ref.Val {
 	return Bool(ok && bytes.Equal(b, otherBytes))
 }
 
+// IsZeroValue returns true if the byte array is empty.
+func (b Bytes) IsZeroValue() bool {
+	return len(b) == 0
+}
+
 // Size implements the traits.Sizer interface method.
 func (b Bytes) Size() ref.Val {
 	return Int(len(b))

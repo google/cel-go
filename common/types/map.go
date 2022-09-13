@@ -19,12 +19,13 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/google/cel-go/common/types/pb"
-	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/common/types/traits"
 	"github.com/stoewer/go-strcase"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
+
+	"github.com/google/cel-go/common/types/pb"
+	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/common/types/traits"
 
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
@@ -274,6 +275,11 @@ func (m *baseMap) Get(key ref.Val) ref.Val {
 		return ValOrErr(v, "no such key: %v", key)
 	}
 	return v
+}
+
+// IsZeroValue returns true if the map is empty.
+func (m *baseMap) IsZeroValue() bool {
+	return m.size == 0
 }
 
 // Size implements the traits.Sizer interface method.
@@ -621,9 +627,9 @@ func (m *protoMap) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	m.value.Range(func(key protoreflect.MapKey, val protoreflect.Value) bool {
 		ntvKey := key.Interface()
 		ntvVal := val.Interface()
-		switch ntvVal.(type) {
+		switch pv := ntvVal.(type) {
 		case protoreflect.Message:
-			ntvVal = ntvVal.(protoreflect.Message).Interface()
+			ntvVal = pv.Interface()
 		}
 		if keyType == otherKeyType && valType == otherValType {
 			mapVal.SetMapIndex(reflect.ValueOf(ntvKey), reflect.ValueOf(ntvVal))
@@ -750,6 +756,11 @@ func (m *protoMap) Get(key ref.Val) ref.Val {
 		return ValOrErr(v, "no such key: %v", key)
 	}
 	return v
+}
+
+// IsZeroValue returns true if the map is empty.
+func (m *protoMap) IsZeroValue() bool {
+	return m.value.Len() == 0
 }
 
 // Iterator implements the traits.Iterable interface method.

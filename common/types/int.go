@@ -226,6 +226,11 @@ func (i Int) Equal(other ref.Val) ref.Val {
 	}
 }
 
+// IsZeroValue returns true if integer is equal to 0
+func (i Int) IsZeroValue() bool {
+	return i == IntZero
+}
+
 // Modulo implements traits.Modder.Modulo.
 func (i Int) Modulo(other ref.Val) ref.Val {
 	otherInt, ok := other.(Int)

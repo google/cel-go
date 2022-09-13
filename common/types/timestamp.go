@@ -138,6 +138,11 @@ func (t Timestamp) Equal(other ref.Val) ref.Val {
 	return Bool(ok && t.Time.Equal(otherTime.Time))
 }
 
+// IsZeroValue returns true if the timestamp is epoch 0.
+func (t Timestamp) IsZeroValue() bool {
+	return t.IsZero()
+}
+
 // Receive implements traits.Receiver.Receive.
 func (t Timestamp) Receive(function string, overload string, args []ref.Val) ref.Val {
 	switch len(args) {

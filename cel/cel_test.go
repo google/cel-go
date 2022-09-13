@@ -1825,6 +1825,122 @@ func TestDynamicDispatch(t *testing.T) {
 	}
 }
 
+func TestOptionalValues(t *testing.T) {
+	env, err := NewEnv(
+		OptionalTypes(true),
+		Variable("m", MapType(StringType, MapType(StringType, StringType))),
+		Variable("x", OptionalType(IntType)),
+		Variable("y", OptionalType(IntType)),
+		Variable("z", IntType),
+	)
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	tests := []struct {
+		expr string
+		in   map[string]interface{}
+		out  interface{}
+	}{
+		{
+			expr: `x.or(y).orValue(z)`,
+			in: map[string]interface{}{
+				"x": types.OptionalNone,
+				"y": types.OptionalNone,
+				"z": 42,
+			},
+			out: 42,
+		},
+		{
+			expr: `optional.ofNonZeroValue(z).or(optional.of(10)).value() == 42`,
+			in: map[string]interface{}{
+				"z": 42,
+			},
+			out: true,
+		},
+		{
+			// In the future this can be expressed as: m.?x
+			expr: `(has(m.x) ? optional.of(m.x) : optional.none()).hasValue()`,
+			in: map[string]interface{}{
+				"m": map[string]map[string]string{},
+			},
+			out: false,
+		},
+		{
+			// return the value of m.c['dashed-index'], no magic in the optional.of() call.
+			expr: `optional.ofNonZeroValue('').or(optional.of(m.c['dashed-index'])).orValue('default value')`,
+			in: map[string]interface{}{
+				"m": map[string]map[string]string{
+					"c": map[string]string{
+						"dashed-index": "goodbye",
+					},
+				},
+			},
+			out: "goodbye",
+		},
+		{
+			// ensure an error is propagated to the result.
+			expr: `optional.ofNonZeroValue(m.a.z).orValue(m.c['dashed-index'])`,
+			in: map[string]interface{}{
+				"m": map[string]map[string]string{
+					"c": map[string]string{
+						"dashed-index": "goodbye",
+					},
+				},
+			},
+			out: "no such key: a",
+		},
+	}
+
+	for i, tst := range tests {
+		tc := tst
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			ast, iss := env.Compile(tc.expr)
+			if iss.Err() != nil {
+				t.Fatalf("%v failed: %v", tc.expr, iss.Err())
+			}
+			prg, err := env.Program(ast)
+			if err != nil {
+				t.Errorf("env.Program() failed: %v", err)
+			}
+			out, _, err := prg.Eval(tc.in)
+			if err != nil && err.Error() != tc.out {
+				t.Errorf("prg.Eval() got %v, wanted %v", err, tc.out)
+			}
+			if err == nil && out.Equal(types.DefaultTypeAdapter.NativeToValue(tc.out)) != types.True {
+				t.Errorf("prg.Eval() got %v, wanted %v", out, tc.out)
+			}
+		})
+	}
+}
+
+func BenchmarkOptionalValues(b *testing.B) {
+	env, err := NewEnv(
+		OptionalTypes(true),
+		Variable("x", OptionalType(IntType)),
+		Variable("y", OptionalType(IntType)),
+		Variable("z", IntType),
+	)
+	if err != nil {
+		b.Fatalf("NewEnv() failed: %v", err)
+	}
+	ast, iss := env.Compile("x.or(y).orValue(z)")
+	if iss.Err() != nil {
+		b.Fatalf("env.Compile(x.or(y).orValue(z)) failed: %v", iss.Err())
+	}
+	prg, err := env.Program(ast, EvalOptions(OptOptimize))
+	if err != nil {
+		b.Errorf("env.Program() failed: %v", err)
+	}
+	input := map[string]interface{}{
+		"x": types.OptionalNone,
+		"y": types.OptionalNone,
+		"z": 42,
+	}
+	for i := 0; i < b.N; i++ {
+		prg.Eval(input)
+	}
+}
+
 func BenchmarkDynamicDispatch(b *testing.B) {
 	env, err := NewEnv(
 		HomogeneousAggregateLiterals(),

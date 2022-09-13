@@ -313,6 +313,15 @@ func TestTimestampConvertToNative(t *testing.T) {
 	}
 }
 
+func TestTimestampIsZeroValue(t *testing.T) {
+	if (Timestamp{Time: time.Now()}).IsZeroValue() {
+		t.Error("Timestamp(Now()).IsZeroValue() returned true, wanted false.")
+	}
+	if (Timestamp{Time: time.Unix(0, 0)}).IsZeroValue() {
+		t.Error("Timestamp(0).IsZeroValue() returned true, wanted false.")
+	}
+}
+
 func TestTimestampGetDayOfMonth(t *testing.T) {
 	// 1970-01-01T02:05:06Z
 	ts := timestampOf(time.Unix(7506, 0).UTC())
