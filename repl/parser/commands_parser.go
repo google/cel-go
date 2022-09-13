@@ -1,4 +1,4 @@
-// Code generated from ./Commands.g4 by ANTLR 4.10.1. DO NOT EDIT.
+// Code generated from java-escape by ANTLR 4.11.1. DO NOT EDIT.
 
 package parser // Commands
 import (
@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/antlr/antlr4/runtime/Go/antlr"
+	"github.com/antlr/antlr4/runtime/Go/antlr/v4"
 )
 
 // Suppress unused import errors
@@ -246,7 +246,7 @@ func NewCommandsParser(input antlr.TokenStream) *CommandsParser {
 	this.RuleNames = staticData.ruleNames
 	this.LiteralNames = staticData.literalNames
 	this.SymbolicNames = staticData.symbolicNames
-	this.GrammarFileName = "Commands.g4"
+	this.GrammarFileName = "java-escape"
 
 	return this
 }
@@ -527,7 +527,7 @@ func (s *CommandContext) Declare() IDeclareContext {
 	return t.(IDeclareContext)
 }
 
-func (s *CommandContext) Delete() IDeleteContext {
+func (s *CommandContext) Delete_() IDeleteContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
 		if _, ok := ctx.(IDeleteContext); ok {
@@ -666,7 +666,7 @@ func (p *CommandsParser) Command() (localctx ICommandContext) {
 		p.EnterOuterAlt(localctx, 3)
 		{
 			p.SetState(63)
-			p.Delete()
+			p.Delete_()
 		}
 
 	case CommandsParserCOMMAND:
@@ -704,8 +704,8 @@ type ILetContext interface {
 	// GetParser returns the parser.
 	GetParser() antlr.Parser
 
-	// GetVar returns the var rule contexts.
-	GetVar() IVarDeclContext
+	// GetVar_ returns the var_ rule contexts.
+	GetVar_() IVarDeclContext
 
 	// GetFn returns the fn rule contexts.
 	GetFn() IFnDeclContext
@@ -713,8 +713,8 @@ type ILetContext interface {
 	// GetE returns the e rule contexts.
 	GetE() IExprContext
 
-	// SetVar sets the var rule contexts.
-	SetVar(IVarDeclContext)
+	// SetVar_ sets the var_ rule contexts.
+	SetVar_(IVarDeclContext)
 
 	// SetFn sets the fn rule contexts.
 	SetFn(IFnDeclContext)
@@ -756,13 +756,13 @@ func NewLetContext(parser antlr.Parser, parent antlr.ParserRuleContext, invoking
 
 func (s *LetContext) GetParser() antlr.Parser { return s.parser }
 
-func (s *LetContext) GetVar() IVarDeclContext { return s.var_ }
+func (s *LetContext) GetVar_() IVarDeclContext { return s.var_ }
 
 func (s *LetContext) GetFn() IFnDeclContext { return s.fn }
 
 func (s *LetContext) GetE() IExprContext { return s.e }
 
-func (s *LetContext) SetVar(v IVarDeclContext) { s.var_ = v }
+func (s *LetContext) SetVar_(v IVarDeclContext) { s.var_ = v }
 
 func (s *LetContext) SetFn(v IFnDeclContext) { s.fn = v }
 
@@ -930,14 +930,14 @@ type IDeclareContext interface {
 	// GetParser returns the parser.
 	GetParser() antlr.Parser
 
-	// GetVar returns the var rule contexts.
-	GetVar() IVarDeclContext
+	// GetVar_ returns the var_ rule contexts.
+	GetVar_() IVarDeclContext
 
 	// GetFn returns the fn rule contexts.
 	GetFn() IFnDeclContext
 
-	// SetVar sets the var rule contexts.
-	SetVar(IVarDeclContext)
+	// SetVar_ sets the var_ rule contexts.
+	SetVar_(IVarDeclContext)
 
 	// SetFn sets the fn rule contexts.
 	SetFn(IFnDeclContext)
@@ -975,11 +975,11 @@ func NewDeclareContext(parser antlr.Parser, parent antlr.ParserRuleContext, invo
 
 func (s *DeclareContext) GetParser() antlr.Parser { return s.parser }
 
-func (s *DeclareContext) GetVar() IVarDeclContext { return s.var_ }
+func (s *DeclareContext) GetVar_() IVarDeclContext { return s.var_ }
 
 func (s *DeclareContext) GetFn() IFnDeclContext { return s.fn }
 
-func (s *DeclareContext) SetVar(v IVarDeclContext) { s.var_ = v }
+func (s *DeclareContext) SetVar_(v IVarDeclContext) { s.var_ = v }
 
 func (s *DeclareContext) SetFn(v IFnDeclContext) { s.fn = v }
 
@@ -1179,7 +1179,7 @@ func (s *VarDeclContext) COLON() antlr.TerminalNode {
 	return s.GetToken(CommandsParserCOLON, 0)
 }
 
-func (s *VarDeclContext) Type() ITypeContext {
+func (s *VarDeclContext) Type_() ITypeContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
 		if _, ok := ctx.(ITypeContext); ok {
@@ -1269,7 +1269,7 @@ func (p *CommandsParser) VarDecl() (localctx IVarDeclContext) {
 		{
 			p.SetState(87)
 
-			var _x = p.Type()
+			var _x = p.Type_()
 
 			localctx.(*VarDeclContext).t = _x
 		}
@@ -1389,7 +1389,7 @@ func (s *FnDeclContext) QualId() IQualIdContext {
 	return t.(IQualIdContext)
 }
 
-func (s *FnDeclContext) Type() ITypeContext {
+func (s *FnDeclContext) Type_() ITypeContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
 		if _, ok := ctx.(ITypeContext); ok {
@@ -1568,7 +1568,7 @@ func (p *CommandsParser) FnDecl() (localctx IFnDeclContext) {
 	{
 		p.SetState(104)
 
-		var _x = p.Type()
+		var _x = p.Type_()
 
 		localctx.(*FnDeclContext).rType = _x
 	}
@@ -1644,7 +1644,7 @@ func (s *ParamContext) IDENTIFIER() antlr.TerminalNode {
 	return s.GetToken(CommandsParserIDENTIFIER, 0)
 }
 
-func (s *ParamContext) Type() ITypeContext {
+func (s *ParamContext) Type_() ITypeContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
 		if _, ok := ctx.(ITypeContext); ok {
@@ -1728,7 +1728,7 @@ func (p *CommandsParser) Param() (localctx IParamContext) {
 	{
 		p.SetState(108)
 
-		var _x = p.Type()
+		var _x = p.Type_()
 
 		localctx.(*ParamContext).t = _x
 	}
@@ -1743,14 +1743,14 @@ type IDeleteContext interface {
 	// GetParser returns the parser.
 	GetParser() antlr.Parser
 
-	// GetVar returns the var rule contexts.
-	GetVar() IVarDeclContext
+	// GetVar_ returns the var_ rule contexts.
+	GetVar_() IVarDeclContext
 
 	// GetFn returns the fn rule contexts.
 	GetFn() IFnDeclContext
 
-	// SetVar sets the var rule contexts.
-	SetVar(IVarDeclContext)
+	// SetVar_ sets the var_ rule contexts.
+	SetVar_(IVarDeclContext)
 
 	// SetFn sets the fn rule contexts.
 	SetFn(IFnDeclContext)
@@ -1788,11 +1788,11 @@ func NewDeleteContext(parser antlr.Parser, parent antlr.ParserRuleContext, invok
 
 func (s *DeleteContext) GetParser() antlr.Parser { return s.parser }
 
-func (s *DeleteContext) GetVar() IVarDeclContext { return s.var_ }
+func (s *DeleteContext) GetVar_() IVarDeclContext { return s.var_ }
 
 func (s *DeleteContext) GetFn() IFnDeclContext { return s.fn }
 
-func (s *DeleteContext) SetVar(v IVarDeclContext) { s.var_ = v }
+func (s *DeleteContext) SetVar_(v IVarDeclContext) { s.var_ = v }
 
 func (s *DeleteContext) SetFn(v IFnDeclContext) { s.fn = v }
 
@@ -1858,7 +1858,7 @@ func (s *DeleteContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
 	}
 }
 
-func (p *CommandsParser) Delete() (localctx IDeleteContext) {
+func (p *CommandsParser) Delete_() (localctx IDeleteContext) {
 	this := p
 	_ = this
 
@@ -2607,7 +2607,7 @@ func (s *StartTypeContext) EOF() antlr.TerminalNode {
 	return s.GetToken(CommandsParserEOF, 0)
 }
 
-func (s *StartTypeContext) Type() ITypeContext {
+func (s *StartTypeContext) Type_() ITypeContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
 		if _, ok := ctx.(ITypeContext); ok {
@@ -2680,7 +2680,7 @@ func (p *CommandsParser) StartType() (localctx IStartTypeContext) {
 	{
 		p.SetState(141)
 
-		var _x = p.Type()
+		var _x = p.Type_()
 
 		localctx.(*StartTypeContext).t = _x
 	}
@@ -2814,7 +2814,7 @@ func (s *TypeContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
 	}
 }
 
-func (p *CommandsParser) Type() (localctx ITypeContext) {
+func (p *CommandsParser) Type_() (localctx ITypeContext) {
 	this := p
 	_ = this
 
@@ -3147,7 +3147,7 @@ func (s *TypeParamListContext) RPAREN() antlr.TerminalNode {
 	return s.GetToken(CommandsParserRPAREN, 0)
 }
 
-func (s *TypeParamListContext) AllType() []ITypeContext {
+func (s *TypeParamListContext) AllType_() []ITypeContext {
 	children := s.GetChildren()
 	len := 0
 	for _, ctx := range children {
@@ -3168,7 +3168,7 @@ func (s *TypeParamListContext) AllType() []ITypeContext {
 	return tst
 }
 
-func (s *TypeParamListContext) Type(i int) ITypeContext {
+func (s *TypeParamListContext) Type_(i int) ITypeContext {
 	var t antlr.RuleContext
 	j := 0
 	for _, ctx := range s.GetChildren() {
@@ -3258,7 +3258,7 @@ func (p *CommandsParser) TypeParamList() (localctx ITypeParamListContext) {
 	{
 		p.SetState(160)
 
-		var _x = p.Type()
+		var _x = p.Type_()
 
 		localctx.(*TypeParamListContext)._type = _x
 	}
@@ -3275,7 +3275,7 @@ func (p *CommandsParser) TypeParamList() (localctx ITypeParamListContext) {
 		{
 			p.SetState(162)
 
-			var _x = p.Type()
+			var _x = p.Type_()
 
 			localctx.(*TypeParamListContext)._type = _x
 		}
@@ -4376,7 +4376,7 @@ func (p *CommandsParser) relation(_p int) (localctx IRelationContext) {
 
 				_la = p.GetTokenStream().LA(1)
 
-				if !(((_la)&-(0x1f+1)) == 0 && ((1<<uint(_la))&((1<<CommandsParserEQUALS)|(1<<CommandsParserNOT_EQUALS)|(1<<CommandsParserIN)|(1<<CommandsParserLESS)|(1<<CommandsParserLESS_EQUALS)|(1<<CommandsParserGREATER_EQUALS)|(1<<CommandsParserGREATER))) != 0) {
+				if !((int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&65024) != 0) {
 					var _ri = p.GetErrorHandler().RecoverInline(p)
 
 					localctx.(*RelationContext).op = _ri
@@ -4627,7 +4627,7 @@ func (p *CommandsParser) calc(_p int) (localctx ICalcContext) {
 
 					_la = p.GetTokenStream().LA(1)
 
-					if !(((_la-31)&-(0x1f+1)) == 0 && ((1<<uint((_la-31)))&((1<<(CommandsParserSTAR-31))|(1<<(CommandsParserSLASH-31))|(1<<(CommandsParserPERCENT-31)))) != 0) {
+					if !((int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&15032385536) != 0) {
 						var _ri = p.GetErrorHandler().RecoverInline(p)
 
 						localctx.(*CalcContext).op = _ri
@@ -5530,7 +5530,7 @@ func (p *CommandsParser) member(_p int) (localctx IMemberContext) {
 					p.GetErrorHandler().Sync(p)
 					_la = p.GetTokenStream().LA(1)
 
-					if ((_la-18)&-(0x1f+1)) == 0 && ((1<<uint((_la-18)))&((1<<(CommandsParserLBRACKET-18))|(1<<(CommandsParserLBRACE-18))|(1<<(CommandsParserLPAREN-18))|(1<<(CommandsParserDOT-18))|(1<<(CommandsParserMINUS-18))|(1<<(CommandsParserEXCLAM-18))|(1<<(CommandsParserCEL_TRUE-18))|(1<<(CommandsParserCEL_FALSE-18))|(1<<(CommandsParserNUL-18))|(1<<(CommandsParserNUM_FLOAT-18))|(1<<(CommandsParserNUM_INT-18))|(1<<(CommandsParserNUM_UINT-18))|(1<<(CommandsParserSTRING-18))|(1<<(CommandsParserBYTES-18))|(1<<(CommandsParserIDENTIFIER-18)))) != 0 {
+					if (int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&34755098968064) != 0 {
 						{
 							p.SetState(244)
 
@@ -6120,7 +6120,7 @@ func (p *CommandsParser) Primary() (localctx IPrimaryContext) {
 			p.GetErrorHandler().Sync(p)
 			_la = p.GetTokenStream().LA(1)
 
-			if ((_la-18)&-(0x1f+1)) == 0 && ((1<<uint((_la-18)))&((1<<(CommandsParserLBRACKET-18))|(1<<(CommandsParserLBRACE-18))|(1<<(CommandsParserLPAREN-18))|(1<<(CommandsParserDOT-18))|(1<<(CommandsParserMINUS-18))|(1<<(CommandsParserEXCLAM-18))|(1<<(CommandsParserCEL_TRUE-18))|(1<<(CommandsParserCEL_FALSE-18))|(1<<(CommandsParserNUL-18))|(1<<(CommandsParserNUM_FLOAT-18))|(1<<(CommandsParserNUM_INT-18))|(1<<(CommandsParserNUM_UINT-18))|(1<<(CommandsParserSTRING-18))|(1<<(CommandsParserBYTES-18))|(1<<(CommandsParserIDENTIFIER-18)))) != 0 {
+			if (int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&34755098968064) != 0 {
 				{
 					p.SetState(274)
 
@@ -6170,7 +6170,7 @@ func (p *CommandsParser) Primary() (localctx IPrimaryContext) {
 		p.GetErrorHandler().Sync(p)
 		_la = p.GetTokenStream().LA(1)
 
-		if ((_la-18)&-(0x1f+1)) == 0 && ((1<<uint((_la-18)))&((1<<(CommandsParserLBRACKET-18))|(1<<(CommandsParserLBRACE-18))|(1<<(CommandsParserLPAREN-18))|(1<<(CommandsParserDOT-18))|(1<<(CommandsParserMINUS-18))|(1<<(CommandsParserEXCLAM-18))|(1<<(CommandsParserCEL_TRUE-18))|(1<<(CommandsParserCEL_FALSE-18))|(1<<(CommandsParserNUL-18))|(1<<(CommandsParserNUM_FLOAT-18))|(1<<(CommandsParserNUM_INT-18))|(1<<(CommandsParserNUM_UINT-18))|(1<<(CommandsParserSTRING-18))|(1<<(CommandsParserBYTES-18))|(1<<(CommandsParserIDENTIFIER-18)))) != 0 {
+		if (int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&34755098968064) != 0 {
 			{
 				p.SetState(285)
 
@@ -6210,7 +6210,7 @@ func (p *CommandsParser) Primary() (localctx IPrimaryContext) {
 		p.GetErrorHandler().Sync(p)
 		_la = p.GetTokenStream().LA(1)
 
-		if ((_la-18)&-(0x1f+1)) == 0 && ((1<<uint((_la-18)))&((1<<(CommandsParserLBRACKET-18))|(1<<(CommandsParserLBRACE-18))|(1<<(CommandsParserLPAREN-18))|(1<<(CommandsParserDOT-18))|(1<<(CommandsParserMINUS-18))|(1<<(CommandsParserEXCLAM-18))|(1<<(CommandsParserCEL_TRUE-18))|(1<<(CommandsParserCEL_FALSE-18))|(1<<(CommandsParserNUL-18))|(1<<(CommandsParserNUM_FLOAT-18))|(1<<(CommandsParserNUM_INT-18))|(1<<(CommandsParserNUM_UINT-18))|(1<<(CommandsParserSTRING-18))|(1<<(CommandsParserBYTES-18))|(1<<(CommandsParserIDENTIFIER-18)))) != 0 {
+		if (int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&34755098968064) != 0 {
 			{
 				p.SetState(293)
 
