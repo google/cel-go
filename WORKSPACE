@@ -20,7 +20,7 @@ http_archive(
     ],
 )
 
-# Latest version as of 10/27/2020
+# rules_proto v3.20.0
 http_archive(
     name = "rules_proto",
     sha256 = "e017528fd1c91c5a33f15493e3a398181a9e821a804eb7ff5acdd1d2d6c2b18d",
@@ -30,7 +30,7 @@ http_archive(
     ],
 )
 
-# Latest version of googleapis as of 7/27/2020
+# googleapis as of 9/9/2022
 http_archive(
     name = "com_google_googleapis",
     sha256 = "1f742f6cafe616fe73302db010e0b7ee6579cb1ce06010427b7d0995cbd80ce4",
@@ -68,7 +68,7 @@ go_repository(
     tag = "v1.28.1",
 )
 
-# Generated Google APIs protos for Golang 11/16/2020
+# Generated Google APIs protos for Golang 9/9/2022
 go_repository(
     name = "org_golang_google_genproto",
     build_file_proto_mode = "disable_global",
@@ -106,7 +106,7 @@ go_repository(
     version = "v4.0.0-20220911224424-aa1f1f12a846",
 )
 
-# CEL Spec deps
+# CEL Spec deps v0.7.1
 go_repository(
     name = "com_google_cel_spec",
     commit = "ebff24990ecc57209ab9f9b28896fd171848274f",
