@@ -24,14 +24,13 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-
 	test2pb "github.com/google/cel-spec/proto/test/v1/proto2/test_all_types"
 	test3pb "github.com/google/cel-spec/proto/test/v1/proto3/test_all_types"
 	confpb "google.golang.org/genproto/googleapis/api/expr/conformance/v1alpha1"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
-	rpcpb "google.golang.org/genproto/googleapis/rpc/status"
+	codepb "google.golang.org/genproto/googleapis/rpc/code"
+	statuspb "google.golang.org/genproto/googleapis/rpc/status"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 )
 
 // ConformanceServer contains the server state.
@@ -40,8 +39,7 @@ type ConformanceServer struct{}
 // Parse implements ConformanceService.Parse.
 func (s *ConformanceServer) Parse(ctx context.Context, in *confpb.ParseRequest) (*confpb.ParseResponse, error) {
 	if in.CelSource == "" {
-		st := status.New(codes.InvalidArgument, "No source code.")
-		return nil, st.Err()
+		return nil, invalidArgument("No source code.")
 	}
 	// NOTE: syntax_version isn't currently used
 	var parseOptions []cel.EnvOption
@@ -64,12 +62,10 @@ func (s *ConformanceServer) Parse(ctx context.Context, in *confpb.ParseRequest) 
 // Check implements ConformanceService.Check.
 func (s *ConformanceServer) Check(ctx context.Context, in *confpb.CheckRequest) (*confpb.CheckResponse, error) {
 	if in.ParsedExpr == nil {
-		st := status.New(codes.InvalidArgument, "No parsed expression.")
-		return nil, st.Err()
+		return nil, invalidArgument("No parsed expression.")
 	}
 	if in.ParsedExpr.SourceInfo == nil {
-		st := status.New(codes.InvalidArgument, "No source info.")
-		return nil, st.Err()
+		return nil, invalidArgument("No source info.")
 	}
 	// Build the environment.
 	var checkOptions []cel.EnvOption = []cel.EnvOption{cel.StdLib()}
@@ -114,8 +110,7 @@ func (s *ConformanceServer) Eval(ctx context.Context, in *confpb.EvalRequest) (*
 			return nil, err
 		}
 	default:
-		st := status.New(codes.InvalidArgument, "No expression.")
-		return nil, st.Err()
+		return nil, invalidArgument("No expression.")
 	}
 	args := make(map[string]interface{})
 	for name, exprValue := range in.Bindings {
@@ -136,7 +131,7 @@ func (s *ConformanceServer) Eval(ctx context.Context, in *confpb.EvalRequest) (*
 
 // appendErrors converts the errors from errs to Status messages
 // and appends them to the list of issues.
-func appendErrors(errs []common.Error, issues *[]*rpcpb.Status) {
+func appendErrors(errs []common.Error, issues *[]*statuspb.Status) {
 	for _, e := range errs {
 		status := ErrToStatus(e, confpb.IssueDetails_ERROR)
 		*issues = append(*issues, status)
@@ -144,20 +139,21 @@ func appendErrors(errs []common.Error, issues *[]*rpcpb.Status) {
 }
 
 // ErrToStatus converts an Error to a Status message with the given severity.
-func ErrToStatus(e common.Error, severity confpb.IssueDetails_Severity) *rpcpb.Status {
-	detail := confpb.IssueDetails{
+func ErrToStatus(e common.Error, severity confpb.IssueDetails_Severity) *statuspb.Status {
+	detail := &confpb.IssueDetails{
 		Severity: severity,
 		Position: &exprpb.SourcePosition{
 			Line:   int32(e.Location.Line()),
 			Column: int32(e.Location.Column()),
 		},
 	}
-	s := status.New(codes.InvalidArgument, e.Message)
-	sd, err := s.WithDetails(&detail)
-	if err == nil {
-		return sd.Proto()
+	s := errToStatus(invalidArgument(e.Message))
+	packed, err := anypb.New(detail)
+	if err != nil {
+		return s
 	}
-	return s.Proto()
+	s.Details = append(s.Details, packed)
+	return s
 }
 
 // TODO(jimlarson): The following conversion code should be moved to
@@ -167,11 +163,11 @@ func ErrToStatus(e common.Error, severity confpb.IssueDetails_Severity) *rpcpb.S
 // RefValueToExprValue converts between ref.Val and exprpb.ExprValue.
 func RefValueToExprValue(res ref.Val, err error) (*exprpb.ExprValue, error) {
 	if err != nil {
-		s := status.Convert(err).Proto()
+		s := errToStatus(err)
 		return &exprpb.ExprValue{
 			Kind: &exprpb.ExprValue_Error{
 				Error: &exprpb.ErrorSet{
-					Errors: []*rpcpb.Status{s},
+					Errors: []*statuspb.Status{s},
 				},
 			},
 		}, nil
@@ -198,7 +194,7 @@ func ExprValueToRefValue(adapter ref.TypeAdapter, ev *exprpb.ExprValue) (ref.Val
 	case *exprpb.ExprValue_Value:
 		return cel.ValueToRefValue(adapter, ev.GetValue())
 	case *exprpb.ExprValue_Error:
-		// An error ExprValue is a repeated set of rpcpb.Status
+		// An error ExprValue is a repeated set of statuspb.Status
 		// messages, with no convention for the status details.
 		// To convert this to a types.Err, we need to convert
 		// these Status messages to a single string, and be
@@ -209,7 +205,42 @@ func ExprValueToRefValue(adapter ref.TypeAdapter, ev *exprpb.ExprValue) (ref.Val
 	case *exprpb.ExprValue_Unknown:
 		return types.Unknown(ev.GetUnknown().Exprs), nil
 	}
-	return nil, status.New(codes.InvalidArgument, "unknown ExprValue kind").Err()
+	return nil, invalidArgument("unknown ExprValue kind")
+}
+
+func errToStatus(err error) *statuspb.Status {
+	re, ok := err.(invalidArgErr)
+	if ok {
+		return &statuspb.Status{
+			Code:    int32(codepb.Code_INVALID_ARGUMENT),
+			Message: re.msg,
+		}
+	}
+	return &statuspb.Status{
+		Code:    int32(codepb.Code_UNKNOWN),
+		Message: err.Error(),
+	}
+}
+
+func invalidArgument(msg string) error {
+	return invalidArgErr{msg: msg}
+}
+
+type invalidArgErr struct {
+	msg string
+}
+
+func (e invalidArgErr) Error() string {
+	return e.String()
+}
+
+func (e invalidArgErr) String() string {
+	return fmt.Sprintf("rpc error: code = InvalidArgument desc = %s", e.msg)
+}
+
+func (e invalidArgErr) Is(other error) bool {
+	otherErr, ok := other.(invalidArgErr)
+	return ok && e.msg == otherErr.msg
 }
 
 var evalEnv *cel.Env

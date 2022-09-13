@@ -17,7 +17,8 @@ package parser
 import (
 	"sync"
 
-	"github.com/antlr/antlr4/runtime/Go/antlr"
+	"github.com/antlr/antlr4/runtime/Go/antlr/v4"
+
 	"github.com/google/cel-go/common"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
