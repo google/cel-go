@@ -1858,6 +1858,7 @@ func TestOptionalValues(t *testing.T) {
 			out: true,
 		},
 		{
+			// In the future this can be expressed as: m.?x
 			expr: `(has(m.x) ? optional.of(m.x) : optional.none()).hasValue()`,
 			in: map[string]interface{}{
 				"m": map[string]map[string]string{},
@@ -1865,6 +1866,7 @@ func TestOptionalValues(t *testing.T) {
 			out: false,
 		},
 		{
+			// return the value of m.c['dashed-index'], no magic in the optional.of() call.
 			expr: `optional.ofNonZeroValue('').or(optional.of(m.c['dashed-index'])).orValue('default value')`,
 			in: map[string]interface{}{
 				"m": map[string]map[string]string{
@@ -1874,6 +1876,18 @@ func TestOptionalValues(t *testing.T) {
 				},
 			},
 			out: "goodbye",
+		},
+		{
+			// ensure an error is propagated to the result.
+			expr: `optional.ofNonZeroValue(m.a.z).orValue(m.c['dashed-index'])`,
+			in: map[string]interface{}{
+				"m": map[string]map[string]string{
+					"c": map[string]string{
+						"dashed-index": "goodbye",
+					},
+				},
+			},
+			out: "no such key: a",
 		},
 	}
 
@@ -1889,9 +1903,10 @@ func TestOptionalValues(t *testing.T) {
 				t.Errorf("env.Program() failed: %v", err)
 			}
 			out, _, err := prg.Eval(tc.in)
-			if err != nil {
+			if err != nil && err.Error() != tc.out {
 				t.Errorf("prg.Eval() got %v, wanted %v", err, tc.out)
-			} else if out.Equal(types.DefaultTypeAdapter.NativeToValue(tc.out)) != types.True {
+			}
+			if err == nil && out.Equal(types.DefaultTypeAdapter.NativeToValue(tc.out)) != types.True {
 				t.Errorf("prg.Eval() got %v, wanted %v", out, tc.out)
 			}
 		})
