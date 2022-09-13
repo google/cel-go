@@ -98,12 +98,12 @@ go_repository(
     version = "v0.3.7",
 )
 
-# ANTLR v4.11.1
+# ANTLR v4.10.1
 go_repository(
     name = "com_github_antlr_antlr4_runtime_go_antlr",
-    importpath = "github.com/antlr/antlr4/runtime/Go/antlr/v4",
-    sum = "h1:et5J11AOyUn9qwkIAF9kcxTxjTO8Z9oSmlOqH7MVSPo=",
-    version = "v4.0.0-20220911224424-aa1f1f12a846",
+    importpath = "github.com/antlr/antlr4/runtime/Go/antlr",
+    sum = "h1:yL7+Jz0jTC6yykIK/Wh74gnTJnrGr5AyrNMXuA0gves=",
+    version = "v1.4.10",
 )
 
 # CEL Spec deps v0.7.1
