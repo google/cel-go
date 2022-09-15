@@ -1560,6 +1560,10 @@ var testCases = []testInfo{
 		!=-y!=-y!=-y-y!=-y!=-y!=-y-y!=-y!=-y!=-y-y!=-y`,
 		E: `ERROR: <input>:-1:0: max recursion depth exceeded`,
 	},
+	{
+		I: `[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[['not fine']]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]`,
+		E: `ERROR: <input>:-1:0: expression recursion limit exceeded: 32`,
+	},
 }
 
 type testInfo struct {

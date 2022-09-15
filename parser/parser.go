@@ -179,7 +179,7 @@ func (rl *recursionListener) EnterEveryRule(ctx antlr.ParserRuleContext) {
 	} else {
 		*depth++
 	}
-	if *depth >= rl.maxDepth {
+	if *depth > rl.maxDepth {
 		panic(&recursionError{
 			message: fmt.Sprintf("expression recursion limit exceeded: %d", rl.maxDepth),
 		})
@@ -354,56 +354,79 @@ func (p *parser) parse(expr runes.Buffer, desc string) *exprpb.Expr {
 
 // Visitor implementations.
 func (p *parser) Visit(tree antlr.ParseTree) interface{} {
-	p.recursionDepth++
-	if p.recursionDepth > p.maxRecursionDepth {
-		panic(&recursionError{message: "max recursion depth exceeded"})
-	}
-	defer func() {
-		p.recursionDepth--
-	}()
-	switch tree.(type) {
+	t := unnest(tree)
+	switch tree := t.(type) {
 	case *gen.StartContext:
-		return p.VisitStart(tree.(*gen.StartContext))
+		return p.VisitStart(tree)
 	case *gen.ExprContext:
-		return p.VisitExpr(tree.(*gen.ExprContext))
+		p.checkAndIncrementRecursionDepth()
+		out := p.VisitExpr(tree)
+		p.decrementRecursionDepth()
+		return out
 	case *gen.ConditionalAndContext:
-		return p.VisitConditionalAnd(tree.(*gen.ConditionalAndContext))
+		return p.VisitConditionalAnd(tree)
 	case *gen.ConditionalOrContext:
-		return p.VisitConditionalOr(tree.(*gen.ConditionalOrContext))
+		return p.VisitConditionalOr(tree)
 	case *gen.RelationContext:
-		return p.VisitRelation(tree.(*gen.RelationContext))
+		p.checkAndIncrementRecursionDepth()
+		out := p.VisitRelation(tree)
+		p.decrementRecursionDepth()
+		return out
 	case *gen.CalcContext:
-		return p.VisitCalc(tree.(*gen.CalcContext))
+		p.checkAndIncrementRecursionDepth()
+		out := p.VisitCalc(tree)
+		p.decrementRecursionDepth()
+		return out
 	case *gen.LogicalNotContext:
-		return p.VisitLogicalNot(tree.(*gen.LogicalNotContext))
-	case *gen.MemberExprContext:
-		return p.VisitMemberExpr(tree.(*gen.MemberExprContext))
-	case *gen.PrimaryExprContext:
-		return p.VisitPrimaryExpr(tree.(*gen.PrimaryExprContext))
+		return p.VisitLogicalNot(tree)
+	case *gen.IdentOrGlobalCallContext:
+		return p.VisitIdentOrGlobalCall(tree)
 	case *gen.SelectOrCallContext:
-		return p.VisitSelectOrCall(tree.(*gen.SelectOrCallContext))
+		p.checkAndIncrementRecursionDepth()
+		out := p.VisitSelectOrCall(tree)
+		p.decrementRecursionDepth()
+		return out
 	case *gen.MapInitializerListContext:
-		return p.VisitMapInitializerList(tree.(*gen.MapInitializerListContext))
+		return p.VisitMapInitializerList(tree)
 	case *gen.NegateContext:
-		return p.VisitNegate(tree.(*gen.NegateContext))
+		return p.VisitNegate(tree)
 	case *gen.IndexContext:
-		return p.VisitIndex(tree.(*gen.IndexContext))
+		p.checkAndIncrementRecursionDepth()
+		out := p.VisitIndex(tree)
+		p.decrementRecursionDepth()
+		return out
 	case *gen.UnaryContext:
-		return p.VisitUnary(tree.(*gen.UnaryContext))
+		return p.VisitUnary(tree)
 	case *gen.CreateListContext:
-		return p.VisitCreateList(tree.(*gen.CreateListContext))
+		return p.VisitCreateList(tree)
 	case *gen.CreateMessageContext:
-		return p.VisitCreateMessage(tree.(*gen.CreateMessageContext))
+		return p.VisitCreateMessage(tree)
 	case *gen.CreateStructContext:
-		return p.VisitCreateStruct(tree.(*gen.CreateStructContext))
+		return p.VisitCreateStruct(tree)
+	case *gen.IntContext:
+		return p.VisitInt(tree)
+	case *gen.UintContext:
+		return p.VisitUint(tree)
+	case *gen.DoubleContext:
+		return p.VisitDouble(tree)
+	case *gen.StringContext:
+		return p.VisitString(tree)
+	case *gen.BytesContext:
+		return p.VisitBytes(tree)
+	case *gen.BoolFalseContext:
+		return p.VisitBoolFalse(tree)
+	case *gen.BoolTrueContext:
+		return p.VisitBoolTrue(tree)
+	case *gen.NullContext:
+		return p.VisitNull(tree)
 	}
 
 	// Report at least one error if the parser reaches an unknown parse element.
 	// Typically, this happens if the parser has already encountered a syntax error elsewhere.
 	if len(p.errors.GetErrors()) == 0 {
 		txt := "<<nil>>"
-		if tree != nil {
-			txt = fmt.Sprintf("<<%T>>", tree)
+		if t != nil {
+			txt = fmt.Sprintf("<<%T>>", t)
 		}
 		return p.reportError(common.NoLocation, "unknown parse element encountered: %s", txt)
 	}
@@ -431,9 +454,6 @@ func (p *parser) VisitExpr(ctx *gen.ExprContext) interface{} {
 // Visit a parse tree produced by CELParser#conditionalOr.
 func (p *parser) VisitConditionalOr(ctx *gen.ConditionalOrContext) interface{} {
 	result := p.Visit(ctx.GetE()).(*exprpb.Expr)
-	if ctx.GetOps() == nil {
-		return result
-	}
 	b := newBalancer(p.helper, operators.LogicalOr, result)
 	rest := ctx.GetE1()
 	for i, op := range ctx.GetOps() {
@@ -450,9 +470,6 @@ func (p *parser) VisitConditionalOr(ctx *gen.ConditionalOrContext) interface{} {
 // Visit a parse tree produced by CELParser#conditionalAnd.
 func (p *parser) VisitConditionalAnd(ctx *gen.ConditionalAndContext) interface{} {
 	result := p.Visit(ctx.GetE()).(*exprpb.Expr)
-	if ctx.GetOps() == nil {
-		return result
-	}
 	b := newBalancer(p.helper, operators.LogicalAnd, result)
 	rest := ctx.GetE1()
 	for i, op := range ctx.GetOps() {
@@ -468,9 +485,6 @@ func (p *parser) VisitConditionalAnd(ctx *gen.ConditionalAndContext) interface{}
 
 // Visit a parse tree produced by CELParser#relation.
 func (p *parser) VisitRelation(ctx *gen.RelationContext) interface{} {
-	if ctx.Calc() != nil {
-		return p.Visit(ctx.Calc())
-	}
 	opText := ""
 	if ctx.GetOp() != nil {
 		opText = ctx.GetOp().GetText()
@@ -486,9 +500,6 @@ func (p *parser) VisitRelation(ctx *gen.RelationContext) interface{} {
 
 // Visit a parse tree produced by CELParser#calc.
 func (p *parser) VisitCalc(ctx *gen.CalcContext) interface{} {
-	if ctx.Unary() != nil {
-		return p.Visit(ctx.Unary())
-	}
 	opText := ""
 	if ctx.GetOp() != nil {
 		opText = ctx.GetOp().GetText()
@@ -504,21 +515,6 @@ func (p *parser) VisitCalc(ctx *gen.CalcContext) interface{} {
 
 func (p *parser) VisitUnary(ctx *gen.UnaryContext) interface{} {
 	return p.helper.newLiteralString(ctx, "<<error>>")
-}
-
-// Visit a parse tree produced by CELParser#MemberExpr.
-func (p *parser) VisitMemberExpr(ctx *gen.MemberExprContext) interface{} {
-	switch ctx.Member().(type) {
-	case *gen.PrimaryExprContext:
-		return p.VisitPrimaryExpr(ctx.Member().(*gen.PrimaryExprContext))
-	case *gen.SelectOrCallContext:
-		return p.VisitSelectOrCall(ctx.Member().(*gen.SelectOrCallContext))
-	case *gen.IndexContext:
-		return p.VisitIndex(ctx.Member().(*gen.IndexContext))
-	case *gen.CreateMessageContext:
-		return p.VisitCreateMessage(ctx.Member().(*gen.CreateMessageContext))
-	}
-	return p.reportError(ctx, "unsupported simple expression")
 }
 
 // Visit a parse tree produced by CELParser#LogicalNot.
@@ -553,24 +549,6 @@ func (p *parser) VisitSelectOrCall(ctx *gen.SelectOrCallContext) interface{} {
 		return p.receiverCallOrMacro(opID, id, operand, p.visitList(ctx.GetArgs())...)
 	}
 	return p.helper.newSelect(ctx.GetOp(), operand, id)
-}
-
-// Visit a parse tree produced by CELParser#PrimaryExpr.
-func (p *parser) VisitPrimaryExpr(ctx *gen.PrimaryExprContext) interface{} {
-	switch ctx.Primary().(type) {
-	case *gen.NestedContext:
-		return p.VisitNested(ctx.Primary().(*gen.NestedContext))
-	case *gen.IdentOrGlobalCallContext:
-		return p.VisitIdentOrGlobalCall(ctx.Primary().(*gen.IdentOrGlobalCallContext))
-	case *gen.CreateListContext:
-		return p.VisitCreateList(ctx.Primary().(*gen.CreateListContext))
-	case *gen.CreateStructContext:
-		return p.VisitCreateStruct(ctx.Primary().(*gen.CreateStructContext))
-	case *gen.ConstantLiteralContext:
-		return p.VisitConstantLiteral(ctx.Primary().(*gen.ConstantLiteralContext))
-	}
-
-	return p.reportError(ctx, "invalid primary expression")
 }
 
 // Visit a parse tree produced by CELParser#Index.
@@ -638,11 +616,6 @@ func (p *parser) VisitIdentOrGlobalCall(ctx *gen.IdentOrGlobalCallContext) inter
 	return p.helper.newIdent(ctx.GetId(), identName)
 }
 
-// Visit a parse tree produced by CELParser#Nested.
-func (p *parser) VisitNested(ctx *gen.NestedContext) interface{} {
-	return p.Visit(ctx.GetE())
-}
-
 // Visit a parse tree produced by CELParser#CreateList.
 func (p *parser) VisitCreateList(ctx *gen.CreateListContext) interface{} {
 	listID := p.helper.id(ctx.GetOp())
@@ -657,29 +630,6 @@ func (p *parser) VisitCreateStruct(ctx *gen.CreateStructContext) interface{} {
 		entries = p.Visit(ctx.GetEntries()).([]*exprpb.Expr_CreateStruct_Entry)
 	}
 	return p.helper.newMap(structID, entries...)
-}
-
-// Visit a parse tree produced by CELParser#ConstantLiteral.
-func (p *parser) VisitConstantLiteral(ctx *gen.ConstantLiteralContext) interface{} {
-	switch ctx.Literal().(type) {
-	case *gen.IntContext:
-		return p.VisitInt(ctx.Literal().(*gen.IntContext))
-	case *gen.UintContext:
-		return p.VisitUint(ctx.Literal().(*gen.UintContext))
-	case *gen.DoubleContext:
-		return p.VisitDouble(ctx.Literal().(*gen.DoubleContext))
-	case *gen.StringContext:
-		return p.VisitString(ctx.Literal().(*gen.StringContext))
-	case *gen.BytesContext:
-		return p.VisitBytes(ctx.Literal().(*gen.BytesContext))
-	case *gen.BoolFalseContext:
-		return p.VisitBoolFalse(ctx.Literal().(*gen.BoolFalseContext))
-	case *gen.BoolTrueContext:
-		return p.VisitBoolTrue(ctx.Literal().(*gen.BoolTrueContext))
-	case *gen.NullContext:
-		return p.VisitNull(ctx.Literal().(*gen.NullContext))
-	}
-	return p.reportError(ctx, "invalid literal")
 }
 
 // Visit a parse tree produced by CELParser#mapInitializerList.
@@ -903,4 +853,57 @@ func (p *parser) expandMacro(exprID int64, function string, target *exprpb.Expr,
 		p.helper.addMacroCall(expr.GetId(), function, target, args...)
 	}
 	return expr, true
+}
+
+func (p *parser) checkAndIncrementRecursionDepth() {
+	p.recursionDepth++
+	if p.recursionDepth > p.maxRecursionDepth {
+		panic(&recursionError{message: "max recursion depth exceeded"})
+	}
+}
+
+func (p *parser) decrementRecursionDepth() {
+	p.recursionDepth--
+}
+
+func unnest(tree antlr.ParseTree) antlr.ParseTree {
+	for {
+		switch t := tree.(type) {
+		case *gen.ExprContext:
+			if t.GetOp() != nil {
+				return t
+			}
+			tree = t.GetE()
+		case *gen.ConditionalOrContext:
+			if t.GetOps() != nil && len(t.GetOps()) > 0 {
+				return t
+			}
+			tree = t.GetE()
+		case *gen.ConditionalAndContext:
+			if t.GetOps() != nil && len(t.GetOps()) > 0 {
+				return t
+			}
+			tree = t.GetE()
+		case *gen.RelationContext:
+			if t.GetOp() != nil {
+				return t
+			}
+			tree = t.Calc()
+		case *gen.CalcContext:
+			if t.GetOp() != nil {
+				return t
+			}
+			tree = t.Unary()
+		case *gen.MemberExprContext:
+			tree = t.Member()
+		case *gen.PrimaryExprContext:
+			tree = t.Primary()
+		case *gen.NestedContext:
+			tree = t.GetE()
+		case *gen.ConstantLiteralContext:
+			tree = t.Literal()
+		default:
+			return t
+		}
+	}
 }
