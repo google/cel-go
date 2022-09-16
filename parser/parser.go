@@ -866,44 +866,61 @@ func (p *parser) decrementRecursionDepth() {
 	p.recursionDepth--
 }
 
+// unnest traverses down the left-hand side of the parse graph until it encounters the first compound
+// parse node or the first leaf in the parse graph.
 func unnest(tree antlr.ParseTree) antlr.ParseTree {
-	for {
+	for tree != nil {
 		switch t := tree.(type) {
 		case *gen.ExprContext:
+			// conditionalOr op='?' conditionalOr : expr
 			if t.GetOp() != nil {
 				return t
 			}
+			// conditionalOr
 			tree = t.GetE()
 		case *gen.ConditionalOrContext:
+			// conditionalAnd (ops=|| conditionalAnd)*
 			if t.GetOps() != nil && len(t.GetOps()) > 0 {
 				return t
 			}
+			// conditionalAnd
 			tree = t.GetE()
 		case *gen.ConditionalAndContext:
+			// relation (ops=&& relation)*
 			if t.GetOps() != nil && len(t.GetOps()) > 0 {
 				return t
 			}
+			// relation
 			tree = t.GetE()
 		case *gen.RelationContext:
+			// relation op relation
 			if t.GetOp() != nil {
 				return t
 			}
+			// calc
 			tree = t.Calc()
 		case *gen.CalcContext:
+			// calc op calc
 			if t.GetOp() != nil {
 				return t
 			}
+			// unary
 			tree = t.Unary()
 		case *gen.MemberExprContext:
+			// member expands to one of: primary, select, index, or create message
 			tree = t.Member()
 		case *gen.PrimaryExprContext:
+			// primary expands to one of identifier, nested, create list, create struct, literal
 			tree = t.Primary()
 		case *gen.NestedContext:
+			// contains a nested 'expr'
 			tree = t.GetE()
 		case *gen.ConstantLiteralContext:
+			// expands to a primitive literal
 			tree = t.Literal()
 		default:
 			return t
 		}
 	}
+	return tree
 }
