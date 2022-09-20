@@ -298,20 +298,20 @@ var testCases = []testInfo{
 	},
 	{
 		I: `foo{ }`,
-		P: `foo{}^#2:*expr.Expr_StructExpr#`,
+		P: `foo{}^#1:*expr.Expr_StructExpr#`,
 	},
 	{
 		I: `foo{ a:b }`,
 		P: `foo{
-			a:b^#4:*expr.Expr_IdentExpr#^#3:*expr.Expr_CreateStruct_Entry#
-		}^#2:*expr.Expr_StructExpr#`,
+			a:b^#3:*expr.Expr_IdentExpr#^#2:*expr.Expr_CreateStruct_Entry#
+		}^#1:*expr.Expr_StructExpr#`,
 	},
 	{
 		I: `foo{ a:b, c:d }`,
 		P: `foo{
-			a:b^#4:*expr.Expr_IdentExpr#^#3:*expr.Expr_CreateStruct_Entry#,
-			c:d^#6:*expr.Expr_IdentExpr#^#5:*expr.Expr_CreateStruct_Entry#
-		}^#2:*expr.Expr_StructExpr#`,
+			a:b^#3:*expr.Expr_IdentExpr#^#2:*expr.Expr_CreateStruct_Entry#,
+			c:d^#5:*expr.Expr_IdentExpr#^#4:*expr.Expr_CreateStruct_Entry#
+		}^#1:*expr.Expr_StructExpr#`,
 	},
 	{
 		I: `{}`,
@@ -677,9 +677,9 @@ var testCases = []testInfo{
 	{
 		I: `SomeMessage{foo: 5, bar: "xyz"}`,
 		P: `SomeMessage{
-			foo:5^#4:*expr.Constant_Int64Value#^#3:*expr.Expr_CreateStruct_Entry#,
-			bar:"xyz"^#6:*expr.Constant_StringValue#^#5:*expr.Expr_CreateStruct_Entry#
-		}^#2:*expr.Expr_StructExpr#`,
+			foo:5^#3:*expr.Constant_Int64Value#^#2:*expr.Expr_CreateStruct_Entry#,
+			bar:"xyz"^#5:*expr.Constant_StringValue#^#4:*expr.Expr_CreateStruct_Entry#
+		}^#1:*expr.Expr_StructExpr#`,
 	},
 	{
 		I: `[3, 4, 5]`,
@@ -771,15 +771,21 @@ var testCases = []testInfo{
 	{
 		I: `TestAllTypes{single_int32: 1, single_int64: 2}`,
 		P: `TestAllTypes{
-			single_int32:1^#4:*expr.Constant_Int64Value#^#3:*expr.Expr_CreateStruct_Entry#,
-			single_int64:2^#6:*expr.Constant_Int64Value#^#5:*expr.Expr_CreateStruct_Entry#
-		}^#2:*expr.Expr_StructExpr#`,
+			single_int32:1^#3:*expr.Constant_Int64Value#^#2:*expr.Expr_CreateStruct_Entry#,
+			single_int64:2^#5:*expr.Constant_Int64Value#^#4:*expr.Expr_CreateStruct_Entry#
+		}^#1:*expr.Expr_StructExpr#`,
 	},
 	{
-		I: `TestAllTypes(){single_int32: 1, single_int64: 2}`,
-		E: `ERROR: <input>:1:13: expected a qualified name
-		| TestAllTypes(){single_int32: 1, single_int64: 2}
-		| ............^`,
+		I: `TestAllTypes(){}`,
+		E: `ERROR: <input>:1:15: Syntax error: mismatched input '{' expecting <EOF>
+		| TestAllTypes(){}
+		| ..............^`,
+	},
+	{
+		I: `TestAllTypes{}()`,
+		E: `ERROR: <input>:1:15: Syntax error: mismatched input '(' expecting <EOF>
+		| TestAllTypes{}()
+		| ..............^`,
 	},
 	{
 		I: `size(x) == x.size()`,
@@ -908,7 +914,7 @@ var testCases = []testInfo{
 
 	{
 		I: `{"a": 1}."a"`,
-		E: `ERROR: <input>:1:10: Syntax error: mismatched input '"a"' expecting IDENTIFIER
+		E: `ERROR: <input>:1:10: Syntax error: no viable alternative at input '."a"'
 		| {"a": 1}."a"
 		| .........^`,
 	},
@@ -984,7 +990,7 @@ var testCases = []testInfo{
 	    ERROR: <input>:2:10: Syntax error: token recognition error at: '😁'
 		|    && in.😁
 		| .........＾
-	    ERROR: <input>:2:11: Syntax error: missing IDENTIFIER at '<EOF>'
+		ERROR: <input>:2:11: Syntax error: no viable alternative at input '.'
 		|    && in.😁
 		| .........．^`,
 	},

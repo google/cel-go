@@ -34,17 +34,17 @@ type CELVisitor interface {
 	// Visit a parse tree produced by CELParser#Negate.
 	VisitNegate(ctx *NegateContext) interface{}
 
-	// Visit a parse tree produced by CELParser#SelectOrCall.
-	VisitSelectOrCall(ctx *SelectOrCallContext) interface{}
+	// Visit a parse tree produced by CELParser#MemberCall.
+	VisitMemberCall(ctx *MemberCallContext) interface{}
+
+	// Visit a parse tree produced by CELParser#Select.
+	VisitSelect(ctx *SelectContext) interface{}
 
 	// Visit a parse tree produced by CELParser#PrimaryExpr.
 	VisitPrimaryExpr(ctx *PrimaryExprContext) interface{}
 
 	// Visit a parse tree produced by CELParser#Index.
 	VisitIndex(ctx *IndexContext) interface{}
-
-	// Visit a parse tree produced by CELParser#CreateMessage.
-	VisitCreateMessage(ctx *CreateMessageContext) interface{}
 
 	// Visit a parse tree produced by CELParser#IdentOrGlobalCall.
 	VisitIdentOrGlobalCall(ctx *IdentOrGlobalCallContext) interface{}
@@ -57,6 +57,9 @@ type CELVisitor interface {
 
 	// Visit a parse tree produced by CELParser#CreateStruct.
 	VisitCreateStruct(ctx *CreateStructContext) interface{}
+
+	// Visit a parse tree produced by CELParser#CreateMessage.
+	VisitCreateMessage(ctx *CreateMessageContext) interface{}
 
 	// Visit a parse tree produced by CELParser#ConstantLiteral.
 	VisitConstantLiteral(ctx *ConstantLiteralContext) interface{}
