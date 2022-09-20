@@ -782,6 +782,12 @@ var testCases = []testInfo{
 		| ..............^`,
 	},
 	{
+		I: `TestAllTypes{}()`,
+		E: `ERROR: <input>:1:15: Syntax error: mismatched input '(' expecting <EOF>
+		| TestAllTypes{}()
+		| ..............^`,
+	},
+	{
 		I: `size(x) == x.size()`,
 		P: `_==_(
 			size(
