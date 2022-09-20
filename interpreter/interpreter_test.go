@@ -656,7 +656,7 @@ var (
 			expr:          `string(b"""Kim\t""")`,
 			cost:          []int64{1, 1},
 			optimizedCost: []int64{0, 0},
-			out: `Kim	`,
+			out:           `Kim	`,
 		},
 		{
 			name:      "literal_pb3_msg",
@@ -861,7 +861,17 @@ var (
 			exhaustiveCost: []int64{14, 14},
 		},
 		{
-			name: "matches",
+			name: "matches_global",
+			expr: `matches(input, 'k.*')`,
+			env: []*exprpb.Decl{
+				decls.NewVar("input", decls.String),
+			},
+			in: map[string]interface{}{
+				"input": "kathmandu",
+			},
+		},
+		{
+			name: "matches_member",
 			expr: `input.matches('k.*')
 				&& !'foo'.matches('k.*')
 				&& !'bar'.matches('k.*')
