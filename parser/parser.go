@@ -381,9 +381,14 @@ func (p *parser) Visit(tree antlr.ParseTree) interface{} {
 		return p.VisitLogicalNot(tree)
 	case *gen.IdentOrGlobalCallContext:
 		return p.VisitIdentOrGlobalCall(tree)
-	case *gen.SelectOrCallContext:
+	case *gen.SelectContext:
 		p.checkAndIncrementRecursionDepth()
-		out := p.VisitSelectOrCall(tree)
+		out := p.VisitSelect(tree)
+		p.decrementRecursionDepth()
+		return out
+	case *gen.MemberCallContext:
+		p.checkAndIncrementRecursionDepth()
+		out := p.VisitMemberCall(tree)
 		p.decrementRecursionDepth()
 		return out
 	case *gen.MapInitializerListContext:
@@ -536,19 +541,27 @@ func (p *parser) VisitNegate(ctx *gen.NegateContext) interface{} {
 	return p.globalCallOrMacro(opID, operators.Negate, target)
 }
 
-// Visit a parse tree produced by CELParser#SelectOrCall.
-func (p *parser) VisitSelectOrCall(ctx *gen.SelectOrCallContext) interface{} {
+// VisitSelect visits a parse tree produced by CELParser#Select.
+func (p *parser) VisitSelect(ctx *gen.SelectContext) interface{} {
 	operand := p.Visit(ctx.Member()).(*exprpb.Expr)
 	// Handle the error case where no valid identifier is specified.
 	if ctx.GetId() == nil {
 		return p.helper.newExpr(ctx)
 	}
 	id := ctx.GetId().GetText()
-	if ctx.GetOpen() != nil {
-		opID := p.helper.id(ctx.GetOpen())
-		return p.receiverCallOrMacro(opID, id, operand, p.visitList(ctx.GetArgs())...)
-	}
 	return p.helper.newSelect(ctx.GetOp(), operand, id)
+}
+
+// VisitMemberCall visits a parse tree produced by CELParser#MemberCall.
+func (p *parser) VisitMemberCall(ctx *gen.MemberCallContext) interface{} {
+	operand := p.Visit(ctx.Member()).(*exprpb.Expr)
+	// Handle the error case where no valid identifier is specified.
+	if ctx.GetId() == nil {
+		return p.helper.newExpr(ctx)
+	}
+	id := ctx.GetId().GetText()
+	opID := p.helper.id(ctx.GetOpen())
+	return p.receiverCallOrMacro(opID, id, operand, p.visitList(ctx.GetArgs())...)
 }
 
 // Visit a parse tree produced by CELParser#Index.
@@ -561,13 +574,19 @@ func (p *parser) VisitIndex(ctx *gen.IndexContext) interface{} {
 
 // Visit a parse tree produced by CELParser#CreateMessage.
 func (p *parser) VisitCreateMessage(ctx *gen.CreateMessageContext) interface{} {
-	target := p.Visit(ctx.Member()).(*exprpb.Expr)
-	objID := p.helper.id(ctx.GetOp())
-	if messageName, found := p.extractQualifiedName(target); found {
-		entries := p.VisitIFieldInitializerList(ctx.GetEntries()).([]*exprpb.Expr_CreateStruct_Entry)
-		return p.helper.newObject(objID, messageName, entries...)
+	messageName := ""
+	for _, id := range ctx.GetIds() {
+		if len(messageName) != 0 {
+			messageName += "."
+		}
+		messageName += id.GetText()
 	}
-	return p.helper.newExpr(objID)
+	if ctx.GetLeadingDot() != nil {
+		messageName = "." + messageName
+	}
+	objID := p.helper.id(ctx.GetOp())
+	entries := p.VisitIFieldInitializerList(ctx.GetEntries()).([]*exprpb.Expr_CreateStruct_Entry)
+	return p.helper.newObject(objID, messageName, entries...)
 }
 
 // Visit a parse tree of field initializers.
@@ -752,25 +771,6 @@ func (p *parser) visitSlice(expressions []gen.IExprContext) []*exprpb.Expr {
 		result[i] = ex
 	}
 	return result
-}
-
-func (p *parser) extractQualifiedName(e *exprpb.Expr) (string, bool) {
-	if e == nil {
-		return "", false
-	}
-	switch e.GetExprKind().(type) {
-	case *exprpb.Expr_IdentExpr:
-		return e.GetIdentExpr().GetName(), true
-	case *exprpb.Expr_SelectExpr:
-		s := e.GetSelectExpr()
-		if prefix, found := p.extractQualifiedName(s.GetOperand()); found {
-			return prefix + "." + s.GetField(), true
-		}
-	}
-	// TODO: Add a method to Source to get location from character offset.
-	location := p.helper.getLocation(e.GetId())
-	p.reportError(location, "expected a qualified name")
-	return "", false
 }
 
 func (p *parser) unquote(ctx interface{}, value string, isBytes bool) string {
