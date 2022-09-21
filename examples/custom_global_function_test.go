@@ -52,7 +52,7 @@ func ExampleCustomGlobalFunction() {
 		log.Fatalf("Program creation error: %v\n", err)
 	}
 
-	out, _, err := prg.Eval(map[string]interface{}{
+	out, _, err := prg.Eval(map[string]any{
 		"i":   "CEL",
 		"you": "world",
 	})
