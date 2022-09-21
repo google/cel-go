@@ -142,7 +142,7 @@ func TestJsonStructEqual(t *testing.T) {
 			mapVal, other)
 	}
 	mismatch := NewDynamicMap(reg,
-		map[int]interface{}{
+		map[int]any{
 			1: "hello",
 			2: "world"})
 	if IsError(mapVal.Equal(mismatch)) {

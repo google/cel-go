@@ -44,7 +44,7 @@ type testStruct struct {
 
 func TestMapContains(t *testing.T) {
 	reg := newTestRegistry(t, &proto3pb.TestAllTypes{})
-	reflectMap := reg.NativeToValue(map[interface{}]interface{}{
+	reflectMap := reg.NativeToValue(map[any]any{
 		int64(1):  "hello",
 		uint64(2): "world",
 	}).(traits.Mapper)
@@ -64,7 +64,7 @@ func TestMapContains(t *testing.T) {
 	protoMap := pbMsg.Get(String("map_int64_nested_type")).(traits.Mapper)
 
 	tests := []struct {
-		value interface{}
+		value any
 		out   Bool
 	}{
 		{value: 1, out: True},
@@ -166,7 +166,7 @@ func TestDynamicMapConvertToNative_Json(t *testing.T) {
 
 func TestDynamicMapConvertToNative_Struct(t *testing.T) {
 	reg := newTestRegistry(t)
-	mapVal := NewDynamicMap(reg, map[string]interface{}{
+	mapVal := NewDynamicMap(reg, map[string]any{
 		"m":       "hello",
 		"details": []string{"world", "universe"},
 	})
@@ -182,7 +182,7 @@ func TestDynamicMapConvertToNative_Struct(t *testing.T) {
 
 func TestDynamicMapConvertToNative_StructPtr(t *testing.T) {
 	reg := newTestRegistry(t)
-	mapVal := NewDynamicMap(reg, map[string]interface{}{
+	mapVal := NewDynamicMap(reg, map[string]any{
 		"m":       "hello",
 		"details": []string{"world", "universe"},
 	})
@@ -198,7 +198,7 @@ func TestDynamicMapConvertToNative_StructPtr(t *testing.T) {
 
 func TestDynamicMapConvertToNative_StructPtrPtr(t *testing.T) {
 	reg := newTestRegistry(t)
-	mapVal := NewDynamicMap(reg, map[string]interface{}{
+	mapVal := NewDynamicMap(reg, map[string]any{
 		"m":       "hello",
 		"details": []string{"world", "universe"},
 	})
@@ -211,7 +211,7 @@ func TestDynamicMapConvertToNative_StructPtrPtr(t *testing.T) {
 
 func TestDynamicMapConvertToNative_Struct_InvalidFieldError(t *testing.T) {
 	reg := newTestRegistry(t)
-	mapVal := NewDynamicMap(reg, map[string]interface{}{
+	mapVal := NewDynamicMap(reg, map[string]any{
 		"m":       "hello",
 		"details": []string{"world", "universe"},
 		"invalid": "invalid field",
@@ -224,7 +224,7 @@ func TestDynamicMapConvertToNative_Struct_InvalidFieldError(t *testing.T) {
 
 func TestDynamicMapConvertToNative_Struct_EmptyFieldError(t *testing.T) {
 	reg := newTestRegistry(t)
-	mapVal := NewDynamicMap(reg, map[string]interface{}{
+	mapVal := NewDynamicMap(reg, map[string]any{
 		"m":       "hello",
 		"details": []string{"world", "universe"},
 		"":        "empty field",
@@ -237,7 +237,7 @@ func TestDynamicMapConvertToNative_Struct_EmptyFieldError(t *testing.T) {
 
 func TestDynamicMapConvertToNative_Struct_PrivateFieldError(t *testing.T) {
 	reg := newTestRegistry(t)
-	mapVal := NewDynamicMap(reg, map[string]interface{}{
+	mapVal := NewDynamicMap(reg, map[string]any{
 		"message": "hello",
 		"details": []string{"world", "universe"},
 		"private": "private field",
@@ -278,12 +278,12 @@ func TestStringMapConvertToNative(t *testing.T) {
 		t.Fatalf("protojson.Marshal() failed: %v", err)
 	}
 	jsonTxt := string(jsonBytes)
-	outMap := map[string]interface{}{}
+	outMap := map[string]any{}
 	err = json.Unmarshal(jsonBytes, &outMap)
 	if err != nil {
 		t.Fatalf("json.Unmarshal(%q) failed: %v", jsonTxt, err)
 	}
-	if !reflect.DeepEqual(outMap, map[string]interface{}{
+	if !reflect.DeepEqual(outMap, map[string]any{
 		"first":  "hello",
 		"second": "world",
 	}) {
@@ -407,7 +407,7 @@ func TestStringMapEqual_NotTrue(t *testing.T) {
 	if mapVal.Equal(other) != False {
 		t.Error("mapVal.Equal(other) between maps with different keys did not return false")
 	}
-	other = NewDynamicMap(reg, map[string]interface{}{
+	other = NewDynamicMap(reg, map[string]any{
 		"first":  "hello",
 		"second": 1})
 	if IsError(mapVal.Equal(other)) {
@@ -452,9 +452,9 @@ func TestDynamicMapGet(t *testing.T) {
 
 func TestStringIfaceMapGet(t *testing.T) {
 	reg := newTestRegistry(t)
-	mapVal := NewStringInterfaceMap(reg, map[string]interface{}{
+	mapVal := NewStringInterfaceMap(reg, map[string]any{
 		"nested": map[int32]float64{1: -1.0, 2: 2.0},
-		"empty":  map[string]interface{}{},
+		"empty":  map[string]any{},
 	})
 	nestedVal, ok := mapVal.Get(String("nested")).(traits.Mapper)
 	if !ok {
@@ -551,7 +551,7 @@ func TestMapIsZeroValue(t *testing.T) {
 	obj := reg.NativeToValue(msg).(traits.Indexer)
 
 	tests := []struct {
-		val         interface{}
+		val         any
 		isZeroValue bool
 	}{
 		{
@@ -559,7 +559,7 @@ func TestMapIsZeroValue(t *testing.T) {
 			isZeroValue: true,
 		},
 		{
-			val:         map[string]interface{}{},
+			val:         map[string]any{},
 			isZeroValue: true,
 		},
 		{
@@ -583,7 +583,7 @@ func TestMapIsZeroValue(t *testing.T) {
 			isZeroValue: false,
 		},
 		{
-			val:         map[string]interface{}{"hello": []interface{}{}},
+			val:         map[string]any{"hello": []any{}},
 			isZeroValue: false,
 		},
 		{
@@ -629,7 +629,7 @@ func TestDynamicMapIterator(t *testing.T) {
 		"empty":  {}})
 	it := mapVal.Iterator()
 	var i = 0
-	var fieldNames []interface{}
+	var fieldNames []any
 	for ; it.HasNext() == True; i++ {
 		fieldName := it.Next()
 		if value := mapVal.Get(fieldName); IsError(value) {
@@ -653,7 +653,7 @@ func TestStringMapIterator(t *testing.T) {
 		"second": "world"})
 	it := mapVal.Iterator()
 	var i = 0
-	var fieldNames []interface{}
+	var fieldNames []any
 	for ; it.HasNext() == True; i++ {
 		fieldName := it.Next()
 		if value := mapVal.Get(fieldName); IsError(value) {
@@ -863,11 +863,11 @@ func TestProtoMapConvertToNative(t *testing.T) {
 	if !ok {
 		t.Fatalf("obj.Get('map_string_string') did not return map: (%T)%v", field, field)
 	}
-	convMap, err := mapVal.ConvertToNative(reflect.TypeOf(map[string]interface{}{}))
+	convMap, err := mapVal.ConvertToNative(reflect.TypeOf(map[string]any{}))
 	if err != nil {
 		t.Fatalf("mapVal.ConvertToNative() failed: %v", err)
 	}
-	for k, v := range convMap.(map[string]interface{}) {
+	for k, v := range convMap.(map[string]any) {
 		if strMap[k] != v {
 			t.Errorf("got differing values for key %q: got %v, wanted: %v", k, strMap[k], v)
 		}
@@ -947,11 +947,11 @@ func TestProtoMapConvertToNative_NestedProto(t *testing.T) {
 	if !ok {
 		t.Fatalf("obj.Get('map_int64_nested_type') did not return map: (%T)%v", field, field)
 	}
-	convMap, err := mapVal.ConvertToNative(reflect.TypeOf(map[int32]interface{}{}))
+	convMap, err := mapVal.ConvertToNative(reflect.TypeOf(map[int32]any{}))
 	if err != nil {
 		t.Fatalf("mapVal.ConvertToNative() failed: %v", err)
 	}
-	for k, v := range convMap.(map[int32]interface{}) {
+	for k, v := range convMap.(map[int32]any) {
 		if !proto.Equal(nestedTypeMap[int64(k)], v.(proto.Message)) {
 			t.Errorf("got differing values for key %q: got %v, wanted: %v", k, nestedTypeMap[int64(k)], v)
 		}

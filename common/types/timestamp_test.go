@@ -59,7 +59,7 @@ func TestTimestampOperators(t *testing.T) {
 	tests := []struct {
 		name string
 		op   func() ref.Val
-		out  interface{}
+		out  any
 	}{
 		// Addition tests.
 		{
@@ -272,7 +272,7 @@ func TestTimestampConvertToNative(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	var want interface{}
+	var want any
 	want = tpb.New(ts.Time)
 	if !proto.Equal(val.(proto.Message), want.(proto.Message)) {
 		t.Errorf("Got '%v', expected '%v'", val, want)

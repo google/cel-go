@@ -63,7 +63,7 @@ func (b Bytes) Compare(other ref.Val) ref.Val {
 }
 
 // ConvertToNative implements the ref.Val interface method.
-func (b Bytes) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
+func (b Bytes) ConvertToNative(typeDesc reflect.Type) (any, error) {
 	switch typeDesc.Kind() {
 	case reflect.Array, reflect.Slice:
 		return reflect.ValueOf(b).Convert(typeDesc).Interface(), nil
@@ -132,6 +132,6 @@ func (b Bytes) Type() ref.Type {
 }
 
 // Value implements the ref.Val interface method.
-func (b Bytes) Value() interface{} {
+func (b Bytes) Value() any {
 	return []byte(b)
 }

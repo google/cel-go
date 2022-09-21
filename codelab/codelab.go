@@ -161,8 +161,8 @@ func compile(env *cel.Env, expr string, celType *cel.Type) *cel.Ast {
 // and return the output, eval details (optional), or error that results from
 // evaluation.
 func eval(prg cel.Program,
-	vars interface{}) (out ref.Val, det *cel.EvalDetails, err error) {
-	varMap, isMap := vars.(map[string]interface{})
+	vars any) (out ref.Val, det *cel.EvalDetails, err error) {
+	varMap, isMap := vars.(map[string]any)
 	fmt.Println("------ input ------")
 	if !isMap {
 		fmt.Printf("(%T)\n", vars)
@@ -175,7 +175,7 @@ func eval(prg cel.Program,
 					glog.Exitf("failed to marshal proto to text: %v", val)
 				}
 				fmt.Printf("%s = %s", k, string(bytes))
-			case map[string]interface{}:
+			case map[string]any:
 				b, _ := json.MarshalIndent(v, "", "  ")
 				fmt.Printf("%s = %v\n", k, string(b))
 			case uint64:
@@ -261,12 +261,12 @@ func auth(user string, claims map[string]string) *rpcpb.AttributeContext_Auth {
 }
 
 // request constructs a `google.rpc.context.AttributeContext.Request` message.
-func request(auth *rpcpb.AttributeContext_Auth, t time.Time) map[string]interface{} {
+func request(auth *rpcpb.AttributeContext_Auth, t time.Time) map[string]any {
 	req := &rpcpb.AttributeContext_Request{
 		Auth: auth,
 		Time: &tpb.Timestamp{Seconds: t.Unix()},
 	}
-	return map[string]interface{}{"request": req}
+	return map[string]any{"request": req}
 }
 
 // valueToJSON converts the CEL type to a protobuf JSON representation and

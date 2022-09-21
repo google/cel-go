@@ -64,10 +64,10 @@ type InterpretableAttribute interface {
 
 	// Qualify replicates the Attribute.Qualify method to permit extension and interception
 	// of object qualification.
-	Qualify(vars Activation, obj interface{}) (interface{}, error)
+	Qualify(vars Activation, obj any) (any, error)
 
 	// Resolve returns the value of the Attribute given the current Activation.
-	Resolve(Activation) (interface{}, error)
+	Resolve(Activation) (any, error)
 }
 
 // InterpretableCall interface for inspecting Interpretable instructions related to function calls.
@@ -979,7 +979,7 @@ func (e *evalWatchConstQual) Cost() (min, max int64) {
 }
 
 // Qualify observes the qualification of a object via a constant boolean, int, string, or uint.
-func (e *evalWatchConstQual) Qualify(vars Activation, obj interface{}) (interface{}, error) {
+func (e *evalWatchConstQual) Qualify(vars Activation, obj any) (any, error) {
 	out, err := e.ConstantQualifier.Qualify(vars, obj)
 	var val ref.Val
 	if err != nil {
@@ -992,7 +992,7 @@ func (e *evalWatchConstQual) Qualify(vars Activation, obj interface{}) (interfac
 }
 
 // QualifierValueEquals tests whether the incoming value is equal to the qualifying constant.
-func (e *evalWatchConstQual) QualifierValueEquals(value interface{}) bool {
+func (e *evalWatchConstQual) QualifierValueEquals(value any) bool {
 	qve, ok := e.ConstantQualifier.(qualifierValueEquator)
 	return ok && qve.QualifierValueEquals(value)
 }
@@ -1010,7 +1010,7 @@ func (e *evalWatchQual) Cost() (min, max int64) {
 }
 
 // Qualify observes the qualification of a object via a value computed at runtime.
-func (e *evalWatchQual) Qualify(vars Activation, obj interface{}) (interface{}, error) {
+func (e *evalWatchQual) Qualify(vars Activation, obj any) (any, error) {
 	out, err := e.Qualifier.Qualify(vars, obj)
 	var val ref.Val
 	if err != nil {
@@ -1220,11 +1220,11 @@ func (a *evalAttr) Eval(ctx Activation) ref.Val {
 }
 
 // Qualify proxies to the Attribute's Qualify method.
-func (a *evalAttr) Qualify(ctx Activation, obj interface{}) (interface{}, error) {
+func (a *evalAttr) Qualify(ctx Activation, obj any) (any, error) {
 	return a.attr.Qualify(ctx, obj)
 }
 
 // Resolve proxies to the Attribute's Resolve method.
-func (a *evalAttr) Resolve(ctx Activation) (interface{}, error) {
+func (a *evalAttr) Resolve(ctx Activation) (any, error) {
 	return a.attr.Resolve(ctx)
 }

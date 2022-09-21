@@ -53,7 +53,7 @@ func (o *Optional) GetValue() ref.Val {
 }
 
 // ConvertToNative implements the ref.Val interface method.
-func (o *Optional) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
+func (o *Optional) ConvertToNative(typeDesc reflect.Type) (any, error) {
 	if !o.HasValue() {
 		return nil, errors.New("optional.none() dereference")
 	}
@@ -92,7 +92,7 @@ func (o *Optional) Type() ref.Type {
 }
 
 // Value returns the underlying 'Value()' of the wrapped value, if present.
-func (o *Optional) Value() interface{} {
+func (o *Optional) Value() any {
 	if o.value == nil {
 		return nil
 	}

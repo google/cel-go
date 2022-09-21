@@ -189,16 +189,7 @@ func (p *planner) planSelect(expr *exprpb.Expr) (Interpretable, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// Determine the field type if this is a proto message type.
-	var fieldType *ref.FieldType
 	opType := p.typeMap[sel.GetOperand().GetId()]
-	if opType.GetMessageType() != "" {
-		ft, found := p.provider.FindFieldType(opType.GetMessageType(), sel.GetField())
-		if found && ft.IsSet != nil && ft.GetFrom != nil {
-			fieldType = ft
-		}
-	}
 
 	// If the Select was marked TestOnly, this is a presence test.
 	//
@@ -212,6 +203,14 @@ func (p *planner) planSelect(expr *exprpb.Expr) (Interpretable, error) {
 	// it is not clear whether has should error or follow the convention defined for structured
 	// values.
 	if sel.TestOnly {
+		// Determine the field type if this is a proto message type.
+		var fieldType *ref.FieldType
+		if opType.GetMessageType() != "" {
+			ft, found := p.provider.FindFieldType(opType.GetMessageType(), sel.GetField())
+			if found && ft.IsSet != nil && ft.GetFrom != nil {
+				fieldType = ft
+			}
+		}
 		// Return the test only eval expression.
 		return &evalTestOnly{
 			id:        expr.GetId(),
@@ -221,8 +220,7 @@ func (p *planner) planSelect(expr *exprpb.Expr) (Interpretable, error) {
 		}, nil
 	}
 	// Build a qualifier.
-	qual, err := p.attrFactory.NewQualifier(
-		opType, expr.GetId(), sel.GetField())
+	qual, err := p.attrFactory.NewQualifier(opType, expr.GetId(), sel.GetField())
 	if err != nil {
 		return nil, err
 	}
@@ -497,8 +495,7 @@ func (p *planner) planCallIndex(expr *exprpb.Expr, args []Interpretable) (Interp
 	opType := p.typeMap[expr.GetCallExpr().GetTarget().GetId()]
 	indConst, isIndConst := ind.(InterpretableConst)
 	if isIndConst {
-		qual, err := p.attrFactory.NewQualifier(
-			opType, expr.GetId(), indConst.Value())
+		qual, err := p.attrFactory.NewQualifier(opType, expr.GetId(), indConst.Value())
 		if err != nil {
 			return nil, err
 		}
@@ -507,8 +504,7 @@ func (p *planner) planCallIndex(expr *exprpb.Expr, args []Interpretable) (Interp
 	}
 	indAttr, isIndAttr := ind.(InterpretableAttribute)
 	if isIndAttr {
-		qual, err := p.attrFactory.NewQualifier(
-			opType, expr.GetId(), indAttr)
+		qual, err := p.attrFactory.NewQualifier(opType, expr.GetId(), indAttr)
 		if err != nil {
 			return nil, err
 		}

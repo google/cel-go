@@ -196,7 +196,7 @@ func (p *protoTypeRegistry) RegisterType(types ...ref.Type) error {
 // providing support for custom proto-based types.
 //
 // This method should be the inverse of ref.Val.ConvertToNative.
-func (p *protoTypeRegistry) NativeToValue(value interface{}) ref.Val {
+func (p *protoTypeRegistry) NativeToValue(value any) ref.Val {
 	if val, found := nativeToValue(p, value); found {
 		return val
 	}
@@ -250,7 +250,7 @@ var (
 )
 
 // NativeToValue implements the ref.TypeAdapter interface.
-func (a *defaultTypeAdapter) NativeToValue(value interface{}) ref.Val {
+func (a *defaultTypeAdapter) NativeToValue(value any) ref.Val {
 	if val, found := nativeToValue(a, value); found {
 		return val
 	}
@@ -259,7 +259,7 @@ func (a *defaultTypeAdapter) NativeToValue(value interface{}) ref.Val {
 
 // nativeToValue returns the converted (ref.Val, true) of a conversion is found,
 // otherwise (nil, false)
-func nativeToValue(a ref.TypeAdapter, value interface{}) (ref.Val, bool) {
+func nativeToValue(a ref.TypeAdapter, value any) (ref.Val, bool) {
 	switch v := value.(type) {
 	case nil:
 		return NullValue, true
@@ -365,7 +365,7 @@ func nativeToValue(a ref.TypeAdapter, value interface{}) (ref.Val, bool) {
 	// specializations for common map types.
 	case map[string]string:
 		return NewStringStringMap(a, v), true
-	case map[string]interface{}:
+	case map[string]any:
 		return NewStringInterfaceMap(a, v), true
 	case map[ref.Val]ref.Val:
 		return NewRefValMap(a, v), true

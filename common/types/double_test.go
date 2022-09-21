@@ -250,7 +250,7 @@ func TestDoubleConvertToType(t *testing.T) {
 		name   string
 		in     float64
 		toType ref.Type
-		out    interface{}
+		out    any
 	}{
 		{
 			name:   "DoubleToDouble",

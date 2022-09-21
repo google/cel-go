@@ -221,7 +221,7 @@ func Abbrevs(qualifiedNames ...string) EnvOption {
 // environment by default.
 //
 // Note: This option must be specified after the CustomTypeProvider option when used together.
-func Types(addTypes ...interface{}) EnvOption {
+func Types(addTypes ...any) EnvOption {
 	return func(e *Env) (*Env, error) {
 		reg, isReg := e.provider.(ref.TypeRegistry)
 		if !isReg {
@@ -258,7 +258,7 @@ func Types(addTypes ...interface{}) EnvOption {
 //
 // TypeDescs are hermetic to a single Env object, but may be copied to other Env values via
 // extension or by re-using the same EnvOption with another NewEnv() call.
-func TypeDescs(descs ...interface{}) EnvOption {
+func TypeDescs(descs ...any) EnvOption {
 	return func(e *Env) (*Env, error) {
 		reg, isReg := e.provider.(ref.TypeRegistry)
 		if !isReg {
@@ -355,8 +355,8 @@ func Functions(funcs ...*functions.Overload) ProgramOption {
 // variables with the same name provided to the Eval() call. If Globals is used in a Library with
 // a Lib EnvOption, vars may shadow variables provided by previously added libraries.
 //
-// The vars value may either be an `interpreter.Activation` instance or a `map[string]interface{}`.
-func Globals(vars interface{}) ProgramOption {
+// The vars value may either be an `interpreter.Activation` instance or a `map[string]any`.
+func Globals(vars any) ProgramOption {
 	return func(p *prog) (*prog, error) {
 		defaultVars, err := interpreter.NewActivation(vars)
 		if err != nil {

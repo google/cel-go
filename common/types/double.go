@@ -78,7 +78,7 @@ func (d Double) Compare(other ref.Val) ref.Val {
 }
 
 // ConvertToNative implements ref.Val.ConvertToNative.
-func (d Double) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
+func (d Double) ConvertToNative(typeDesc reflect.Type) (any, error) {
 	switch typeDesc.Kind() {
 	case reflect.Float32:
 		v := float32(d)
@@ -216,6 +216,6 @@ func (d Double) Type() ref.Type {
 }
 
 // Value implements ref.Val.Value.
-func (d Double) Value() interface{} {
+func (d Double) Value() any {
 	return float64(d)
 }

@@ -36,7 +36,7 @@ type attr struct {
 	// variable name, fully qualified unless the attr is marked as unchecked=true
 	name string
 	// quals contains a list of static qualifiers.
-	quals []interface{}
+	quals []any
 }
 
 // patternTest describes a pattern, and a set of matches and misses for the pattern to highlight
@@ -52,7 +52,7 @@ var patternTests = map[string]patternTest{
 		pattern: NewAttributePattern("var"),
 		matches: []attr{
 			{name: "var"},
-			{name: "var", quals: []interface{}{"field"}},
+			{name: "var", quals: []any{"field"}},
 		},
 		misses: []attr{
 			{name: "ns.var"},
@@ -62,10 +62,10 @@ var patternTests = map[string]patternTest{
 		pattern: NewAttributePattern("ns.app.var"),
 		matches: []attr{
 			{name: "ns.app.var"},
-			{name: "ns.app.var", quals: []interface{}{int64(0)}},
+			{name: "ns.app.var", quals: []any{int64(0)}},
 			{
 				name:      "ns",
-				quals:     []interface{}{"app", "var", "foo"},
+				quals:     []any{"app", "var", "foo"},
 				container: "ns.app",
 				unchecked: true,
 			},
@@ -74,7 +74,7 @@ var patternTests = map[string]patternTest{
 			{name: "ns.var"},
 			{
 				name:      "ns",
-				quals:     []interface{}{"var"},
+				quals:     []any{"var"},
 				container: "ns.app",
 				unchecked: true,
 			},
@@ -84,48 +84,48 @@ var patternTests = map[string]patternTest{
 		pattern: NewAttributePattern("var").QualString("field"),
 		matches: []attr{
 			{name: "var"},
-			{name: "var", quals: []interface{}{"field"}},
-			{name: "var", quals: []interface{}{"field"}, unchecked: true},
-			{name: "var", quals: []interface{}{"field", uint64(1)}},
+			{name: "var", quals: []any{"field"}},
+			{name: "var", quals: []any{"field"}, unchecked: true},
+			{name: "var", quals: []any{"field", uint64(1)}},
 		},
 		misses: []attr{
-			{name: "var", quals: []interface{}{"other"}},
+			{name: "var", quals: []any{"other"}},
 		},
 	},
 	"var_index": {
 		pattern: NewAttributePattern("var").QualInt(0),
 		matches: []attr{
 			{name: "var"},
-			{name: "var", quals: []interface{}{int64(0)}},
-			{name: "var", quals: []interface{}{float64(0)}},
-			{name: "var", quals: []interface{}{int64(0), false}},
-			{name: "var", quals: []interface{}{uint64(0)}},
+			{name: "var", quals: []any{int64(0)}},
+			{name: "var", quals: []any{float64(0)}},
+			{name: "var", quals: []any{int64(0), false}},
+			{name: "var", quals: []any{uint64(0)}},
 		},
 		misses: []attr{
-			{name: "var", quals: []interface{}{int64(1), false}},
+			{name: "var", quals: []any{int64(1), false}},
 		},
 	},
 	"var_index_uint": {
 		pattern: NewAttributePattern("var").QualUint(1),
 		matches: []attr{
 			{name: "var"},
-			{name: "var", quals: []interface{}{uint64(1)}},
-			{name: "var", quals: []interface{}{uint64(1), true}},
-			{name: "var", quals: []interface{}{int64(1), false}},
+			{name: "var", quals: []any{uint64(1)}},
+			{name: "var", quals: []any{uint64(1), true}},
+			{name: "var", quals: []any{int64(1), false}},
 		},
 		misses: []attr{
-			{name: "var", quals: []interface{}{uint64(0)}},
+			{name: "var", quals: []any{uint64(0)}},
 		},
 	},
 	"var_index_bool": {
 		pattern: NewAttributePattern("var").QualBool(true),
 		matches: []attr{
 			{name: "var"},
-			{name: "var", quals: []interface{}{true}},
-			{name: "var", quals: []interface{}{true, "name"}},
+			{name: "var", quals: []any{true}},
+			{name: "var", quals: []any{true, "name"}},
 		},
 		misses: []attr{
-			{name: "var", quals: []interface{}{false}},
+			{name: "var", quals: []any{false}},
 			{name: "none"},
 		},
 	},
@@ -137,25 +137,25 @@ var patternTests = map[string]patternTest{
 			// when testing variable names.
 			{
 				name:      "var",
-				quals:     []interface{}{true},
+				quals:     []any{true},
 				container: "ns",
 				unchecked: true,
 			},
 			{
 				name:      "var",
-				quals:     []interface{}{"name"},
+				quals:     []any{"name"},
 				container: "ns",
 				unchecked: true,
 			},
 			{
 				name:      "var",
-				quals:     []interface{}{"name"},
+				quals:     []any{"name"},
 				container: "ns",
 				unchecked: true,
 			},
 		},
 		misses: []attr{
-			{name: "var", quals: []interface{}{false}},
+			{name: "var", quals: []any{false}},
 			{name: "none"},
 		},
 	},
@@ -163,19 +163,19 @@ var patternTests = map[string]patternTest{
 		pattern: NewAttributePattern("var").Wildcard().QualString("field"),
 		matches: []attr{
 			{name: "var"},
-			{name: "var", quals: []interface{}{true}},
-			{name: "var", quals: []interface{}{int64(10), "field"}},
+			{name: "var", quals: []any{true}},
+			{name: "var", quals: []any{int64(10), "field"}},
 		},
 		misses: []attr{
-			{name: "var", quals: []interface{}{int64(10), "other"}},
+			{name: "var", quals: []any{int64(10), "other"}},
 		},
 	},
 	"var_wildcard_wildcard": {
 		pattern: NewAttributePattern("var").Wildcard().Wildcard(),
 		matches: []attr{
 			{name: "var"},
-			{name: "var", quals: []interface{}{true}},
-			{name: "var", quals: []interface{}{int64(10), "field"}},
+			{name: "var", quals: []any{true}},
+			{name: "var", quals: []any{int64(10), "field"}},
 		},
 		misses: []attr{
 			{name: "none"},
@@ -246,7 +246,7 @@ func TestAttributePattern_CrossReference(t *testing.T) {
 	// Ensure that var a[b], the dynamic index into var 'a' is the unknown value
 	// returned from attribute resolution.
 	partVars, _ := NewPartialActivation(
-		map[string]interface{}{"a": []int64{1, 2}},
+		map[string]any{"a": []int64{1, 2}},
 		NewAttributePattern("b"))
 	val, err := a.Resolve(partVars)
 	if err != nil {
@@ -261,7 +261,7 @@ func TestAttributePattern_CrossReference(t *testing.T) {
 	// patterns specified. This changes the evaluation behavior slightly, but the end
 	// result is the same.
 	partVars, _ = NewPartialActivation(
-		map[string]interface{}{"a": []int64{1, 2}},
+		map[string]any{"a": []int64{1, 2}},
 		NewAttributePattern("a").QualInt(0),
 		NewAttributePattern("b"))
 	val, err = a.Resolve(partVars)
@@ -276,7 +276,7 @@ func TestAttributePattern_CrossReference(t *testing.T) {
 	// have values. However, since the attribute being pattern matched is just 'a.b',
 	// the outcome will indicate that 'a[b]' is unknown.
 	partVars, _ = NewPartialActivation(
-		map[string]interface{}{"a": []int64{1, 2}, "b": 0},
+		map[string]any{"a": []int64{1, 2}, "b": 0},
 		NewAttributePattern("a").QualInt(0).QualString("c"))
 	val, err = a.Resolve(partVars)
 	if err != nil {
@@ -289,7 +289,7 @@ func TestAttributePattern_CrossReference(t *testing.T) {
 	// Test a positive case that returns a valid value even though the attribugte factory
 	// is the partial attribute factory.
 	partVars, _ = NewPartialActivation(
-		map[string]interface{}{"a": []int64{1, 2}, "b": 0})
+		map[string]any{"a": []int64{1, 2}, "b": 0})
 	val, err = a.Resolve(partVars)
 	if err != nil {
 		t.Fatal(err)
@@ -300,7 +300,7 @@ func TestAttributePattern_CrossReference(t *testing.T) {
 
 	// Ensure the unknown attribute id moves when the attribute becomes more specific.
 	partVars, _ = NewPartialActivation(
-		map[string]interface{}{"a": []int64{1, 2}, "b": 0},
+		map[string]any{"a": []int64{1, 2}, "b": 0},
 		NewAttributePattern("a").QualInt(0).QualString("c"))
 	// Qualify a[b] with 'c', a[b].c
 	c, _ := fac.NewQualifier(nil, 3, "c")

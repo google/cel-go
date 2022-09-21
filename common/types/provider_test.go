@@ -204,32 +204,32 @@ func TestConvertToNative(t *testing.T) {
 	// Core type conversion tests.
 	expectValueToNative(t, True, true)
 	expectValueToNative(t, True, True)
-	expectValueToNative(t, NewDynamicList(reg, []Bool{True, False}), []interface{}{true, false})
+	expectValueToNative(t, NewDynamicList(reg, []Bool{True, False}), []any{true, false})
 	expectValueToNative(t, NewDynamicList(reg, []Bool{True, False}), []ref.Val{True, False})
 	expectValueToNative(t, Int(-1), int32(-1))
 	expectValueToNative(t, Int(2), int64(2))
 	expectValueToNative(t, Int(-1), Int(-1))
-	expectValueToNative(t, NewDynamicList(reg, []Int{4}), []interface{}{int64(4)})
+	expectValueToNative(t, NewDynamicList(reg, []Int{4}), []any{int64(4)})
 	expectValueToNative(t, NewDynamicList(reg, []Int{5}), []ref.Val{Int(5)})
 	expectValueToNative(t, Uint(3), uint32(3))
 	expectValueToNative(t, Uint(4), uint64(4))
 	expectValueToNative(t, Uint(5), Uint(5))
-	expectValueToNative(t, NewDynamicList(reg, []Uint{4}), []interface{}{uint64(4)})
+	expectValueToNative(t, NewDynamicList(reg, []Uint{4}), []any{uint64(4)})
 	expectValueToNative(t, NewDynamicList(reg, []Uint{5}), []ref.Val{Uint(5)})
 	expectValueToNative(t, Double(5.5), float32(5.5))
 	expectValueToNative(t, Double(-5.5), float64(-5.5))
-	expectValueToNative(t, NewDynamicList(reg, []Double{-5.5}), []interface{}{-5.5})
+	expectValueToNative(t, NewDynamicList(reg, []Double{-5.5}), []any{-5.5})
 	expectValueToNative(t, NewDynamicList(reg, []Double{-5.5}), []ref.Val{Double(-5.5)})
 	expectValueToNative(t, Double(-5.5), Double(-5.5))
 	expectValueToNative(t, String("hello"), "hello")
 	expectValueToNative(t, String("hello"), String("hello"))
 	expectValueToNative(t, NullValue, structpb.NullValue_NULL_VALUE)
 	expectValueToNative(t, NullValue, NullValue)
-	expectValueToNative(t, NewDynamicList(reg, []Null{NullValue}), []interface{}{structpb.NullValue_NULL_VALUE})
+	expectValueToNative(t, NewDynamicList(reg, []Null{NullValue}), []any{structpb.NullValue_NULL_VALUE})
 	expectValueToNative(t, NewDynamicList(reg, []Null{NullValue}), []ref.Val{NullValue})
 	expectValueToNative(t, Bytes("world"), []byte("world"))
 	expectValueToNative(t, Bytes("world"), Bytes("world"))
-	expectValueToNative(t, NewDynamicList(reg, []Bytes{Bytes("hello")}), []interface{}{[]byte("hello")})
+	expectValueToNative(t, NewDynamicList(reg, []Bytes{Bytes("hello")}), []any{[]byte("hello")})
 	expectValueToNative(t, NewDynamicList(reg, []Bytes{Bytes("hello")}), []ref.Val{Bytes("hello")})
 	expectValueToNative(t, NewDynamicList(reg, []int64{1, 2, 3}), []int32{1, 2, 3})
 	expectValueToNative(t, Duration{Duration: time.Duration(500)}, time.Duration(500))
@@ -457,7 +457,7 @@ func TestUnsupportedConversion(t *testing.T) {
 	}
 }
 
-func expectValueToNative(t *testing.T, in ref.Val, out interface{}) {
+func expectValueToNative(t *testing.T, in ref.Val, out any) {
 	t.Helper()
 	if val, err := in.ConvertToNative(reflect.TypeOf(out)); err != nil {
 		t.Error(err)
@@ -480,7 +480,7 @@ func expectValueToNative(t *testing.T, in ref.Val, out interface{}) {
 	}
 }
 
-func expectNativeToValue(t *testing.T, in interface{}, out ref.Val) {
+func expectNativeToValue(t *testing.T, in any, out ref.Val) {
 	t.Helper()
 	reg := newTestRegistry(t, &exprpb.ParsedExpr{})
 	if val := reg.NativeToValue(in); IsError(val) {
@@ -498,7 +498,7 @@ func BenchmarkNativeToValue(b *testing.B) {
 	if err != nil {
 		b.Fatalf("NewRegistry() failed: %v", err)
 	}
-	inputs := []interface{}{
+	inputs := []any{
 		true,
 		false,
 		float32(-1.2),

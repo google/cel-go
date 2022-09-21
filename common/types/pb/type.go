@@ -87,7 +87,7 @@ func (td *TypeDescription) FieldByName(name string) (*FieldDescription, bool) {
 // MaybeUnwrap accepts a proto message as input and unwraps it to a primitive CEL type if possible.
 //
 // This method returns the unwrapped value and 'true', else the original value and 'false'.
-func (td *TypeDescription) MaybeUnwrap(msg proto.Message) (interface{}, bool, error) {
+func (td *TypeDescription) MaybeUnwrap(msg proto.Message) (any, bool, error) {
 	return unwrap(td, msg)
 }
 
@@ -195,7 +195,7 @@ func (fd *FieldDescription) Descriptor() protoreflect.FieldDescriptor {
 //
 // This function implements the FieldType.IsSet function contract which can be used to operate on
 // more than just protobuf field accesses; however, the target here must be a protobuf.Message.
-func (fd *FieldDescription) IsSet(target interface{}) bool {
+func (fd *FieldDescription) IsSet(target any) bool {
 	switch v := target.(type) {
 	case proto.Message:
 		pbRef := v.ProtoReflect()
@@ -219,14 +219,14 @@ func (fd *FieldDescription) IsSet(target interface{}) bool {
 //
 // This function implements the FieldType.GetFrom function contract which can be used to operate
 // on more than just protobuf field accesses; however, the target here must be a protobuf.Message.
-func (fd *FieldDescription) GetFrom(target interface{}) (interface{}, error) {
+func (fd *FieldDescription) GetFrom(target any) (any, error) {
 	v, ok := target.(proto.Message)
 	if !ok {
 		return nil, fmt.Errorf("unsupported field selection target: (%T)%v", target, target)
 	}
 	pbRef := v.ProtoReflect()
 	pbDesc := pbRef.Descriptor()
-	var fieldVal interface{}
+	var fieldVal any
 	if pbDesc == fd.desc.ContainingMessage() {
 		// When the target protobuf shares the same message descriptor instance as the field
 		// descriptor, use the cached field descriptor value.
@@ -289,7 +289,7 @@ func (fd *FieldDescription) IsList() bool {
 //
 // This function returns the unwrapped value and 'true' on success, or the original value
 // and 'false' otherwise.
-func (fd *FieldDescription) MaybeUnwrapDynamic(msg protoreflect.Message) (interface{}, bool, error) {
+func (fd *FieldDescription) MaybeUnwrapDynamic(msg protoreflect.Message) (any, bool, error) {
 	return unwrapDynamic(fd, msg)
 }
 
@@ -362,7 +362,7 @@ func checkedWrap(t *exprpb.Type) *exprpb.Type {
 // input message is a *dynamicpb.Message which obscures the typing information from Go.
 //
 // Returns the unwrapped value and 'true' if unwrapped, otherwise the input value and 'false'.
-func unwrap(desc description, msg proto.Message) (interface{}, bool, error) {
+func unwrap(desc description, msg proto.Message) (any, bool, error) {
 	switch v := msg.(type) {
 	case *anypb.Any:
 		dynMsg, err := v.UnmarshalNew()
@@ -418,7 +418,7 @@ func unwrap(desc description, msg proto.Message) (interface{}, bool, error) {
 // unwrapDynamic unwraps a reflected protobuf Message value.
 //
 // Returns the unwrapped value and 'true' if unwrapped, otherwise the input value and 'false'.
-func unwrapDynamic(desc description, refMsg protoreflect.Message) (interface{}, bool, error) {
+func unwrapDynamic(desc description, refMsg protoreflect.Message) (any, bool, error) {
 	msg := refMsg.Interface()
 	if !refMsg.IsValid() {
 		msg = desc.Zero()
@@ -508,7 +508,7 @@ func unwrapDynamic(desc description, refMsg protoreflect.Message) (interface{}, 
 
 // reflectTypeOf intercepts the reflect.Type call to ensure that dynamicpb.Message types preserve
 // well-known protobuf reflected types expected by the CEL type system.
-func reflectTypeOf(val interface{}) reflect.Type {
+func reflectTypeOf(val any) reflect.Type {
 	switch v := val.(type) {
 	case proto.Message:
 		return reflect.TypeOf(zeroValueOf(v))

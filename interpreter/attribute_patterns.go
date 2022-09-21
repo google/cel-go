@@ -36,9 +36,9 @@ import (
 //
 // Examples:
 //
-//   1. ns.myvar["complex-value"]
-//   2. ns.myvar["complex-value"][0]
-//   3. ns.myvar["complex-value"].*.name
+//  1. ns.myvar["complex-value"]
+//  2. ns.myvar["complex-value"][0]
+//  3. ns.myvar["complex-value"].*.name
 //
 // The first example is simple: match an attribute where the variable is 'ns.myvar' with a
 // field access on 'complex-value'. The second example expands the match to indicate that only
@@ -108,7 +108,7 @@ func (apat *AttributePattern) QualifierPatterns() []*AttributeQualifierPattern {
 // AttributeQualifierPattern holds a wildcard or valued qualifier pattern.
 type AttributeQualifierPattern struct {
 	wildcard bool
-	value    interface{}
+	value    any
 }
 
 // Matches returns true if the qualifier pattern is a wildcard, or the Qualifier implements the
@@ -134,44 +134,44 @@ func (qpat *AttributeQualifierPattern) Matches(q Qualifier) bool {
 type qualifierValueEquator interface {
 	// QualifierValueEquals returns true if the input value is equal to the value held in the
 	// Qualifier.
-	QualifierValueEquals(value interface{}) bool
+	QualifierValueEquals(value any) bool
 }
 
 // QualifierValueEquals implementation for boolean qualifiers.
-func (q *boolQualifier) QualifierValueEquals(value interface{}) bool {
+func (q *boolQualifier) QualifierValueEquals(value any) bool {
 	bval, ok := value.(bool)
 	return ok && q.value == bval
 }
 
 // QualifierValueEquals implementation for field qualifiers.
-func (q *fieldQualifier) QualifierValueEquals(value interface{}) bool {
+func (q *fieldQualifier) QualifierValueEquals(value any) bool {
 	sval, ok := value.(string)
 	return ok && q.Name == sval
 }
 
 // QualifierValueEquals implementation for string qualifiers.
-func (q *stringQualifier) QualifierValueEquals(value interface{}) bool {
+func (q *stringQualifier) QualifierValueEquals(value any) bool {
 	sval, ok := value.(string)
 	return ok && q.value == sval
 }
 
 // QualifierValueEquals implementation for int qualifiers.
-func (q *intQualifier) QualifierValueEquals(value interface{}) bool {
+func (q *intQualifier) QualifierValueEquals(value any) bool {
 	return numericValueEquals(value, q.celValue)
 }
 
 // QualifierValueEquals implementation for uint qualifiers.
-func (q *uintQualifier) QualifierValueEquals(value interface{}) bool {
+func (q *uintQualifier) QualifierValueEquals(value any) bool {
 	return numericValueEquals(value, q.celValue)
 }
 
 // QualifierValueEquals implementation for double qualifiers.
-func (q *doubleQualifier) QualifierValueEquals(value interface{}) bool {
+func (q *doubleQualifier) QualifierValueEquals(value any) bool {
 	return numericValueEquals(value, q.celValue)
 }
 
 // numericValueEquals uses CEL equality to determine whether two number values are
-func numericValueEquals(value interface{}, celValue ref.Val) bool {
+func numericValueEquals(value any, celValue ref.Val) bool {
 	val := types.DefaultTypeAdapter.NativeToValue(value)
 	return celValue.Equal(val) == types.True
 }
@@ -341,7 +341,7 @@ func (m *attributeMatcher) AddQualifier(qual Qualifier) (Attribute, error) {
 // Resolve is an implementation of the Attribute interface method which uses the
 // attributeMatcher TryResolve implementation rather than the embedded NamespacedAttribute
 // Resolve implementation.
-func (m *attributeMatcher) Resolve(vars Activation) (interface{}, error) {
+func (m *attributeMatcher) Resolve(vars Activation) (any, error) {
 	obj, found, err := m.TryResolve(vars)
 	if err != nil {
 		return nil, err
@@ -355,7 +355,7 @@ func (m *attributeMatcher) Resolve(vars Activation) (interface{}, error) {
 // TryResolve is an implementation of the NamespacedAttribute interface method which tests
 // for matching unknown attribute patterns and returns types.Unknown if present. Otherwise,
 // the standard Resolve logic applies.
-func (m *attributeMatcher) TryResolve(vars Activation) (interface{}, bool, error) {
+func (m *attributeMatcher) TryResolve(vars Activation) (any, bool, error) {
 	id := m.NamespacedAttribute.ID()
 	// Bug in how partial activation is resolved, should search parents as well.
 	partial, isPartial := toPartialActivation(vars)
@@ -376,7 +376,7 @@ func (m *attributeMatcher) TryResolve(vars Activation) (interface{}, bool, error
 }
 
 // Qualify is an implementation of the Qualifier interface method.
-func (m *attributeMatcher) Qualify(vars Activation, obj interface{}) (interface{}, error) {
+func (m *attributeMatcher) Qualify(vars Activation, obj any) (any, error) {
 	val, err := m.Resolve(vars)
 	if err != nil {
 		return nil, err

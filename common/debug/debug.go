@@ -29,7 +29,7 @@ import (
 // representation of an expression.
 type Adorner interface {
 	// GetMetadata for the input context.
-	GetMetadata(ctx interface{}) string
+	GetMetadata(ctx any) string
 }
 
 // Writer manages writing expressions to an internal string.
@@ -46,7 +46,7 @@ type emptyDebugAdorner struct {
 
 var emptyAdorner Adorner = &emptyDebugAdorner{}
 
-func (a *emptyDebugAdorner) GetMetadata(e interface{}) string {
+func (a *emptyDebugAdorner) GetMetadata(e any) string {
 	return ""
 }
 
@@ -269,7 +269,7 @@ func (w *debugWriter) append(s string) {
 	w.buffer.WriteString(s)
 }
 
-func (w *debugWriter) appendFormat(f string, args ...interface{}) {
+func (w *debugWriter) appendFormat(f string, args ...any) {
 	w.append(fmt.Sprintf(f, args...))
 }
 
@@ -280,7 +280,7 @@ func (w *debugWriter) doIndent() {
 	}
 }
 
-func (w *debugWriter) adorn(e interface{}) {
+func (w *debugWriter) adorn(e any) {
 	w.append(w.adorner.GetMetadata(e))
 }
 

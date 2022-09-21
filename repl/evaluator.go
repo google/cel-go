@@ -130,7 +130,7 @@ func (l *letFunction) updateImpl(env *cel.Env, deps []*functions.Overload) error
 			return types.NewErr("error evaluating %s: %v", l, err)
 		}
 
-		activation := make(map[string]interface{})
+		activation := make(map[string]any)
 		for i, param := range l.params {
 			activation[param.identifier] = args[i]
 		}
@@ -629,7 +629,7 @@ func (e *Evaluator) Status() string {
 // returns the environment for compiling and planning the top level CEL expression and an activation with the
 // values of the let expressions.
 func (e *Evaluator) applyContext() (*cel.Env, interpreter.Activation, error) {
-	var vars = make(map[string]interface{})
+	var vars = make(map[string]any)
 
 	for _, el := range e.ctx.letVars {
 		if el.prog == nil {

@@ -233,7 +233,7 @@ func TestUintConvertToType(t *testing.T) {
 		name   string
 		in     uint64
 		toType ref.Type
-		out    interface{}
+		out    any
 	}{
 		{
 			name:   "UintToUint",

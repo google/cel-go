@@ -112,7 +112,7 @@ func (s *ConformanceServer) Eval(ctx context.Context, in *confpb.EvalRequest) (*
 	default:
 		return nil, invalidArgument("No expression.")
 	}
-	args := make(map[string]interface{})
+	args := make(map[string]any)
 	for name, exprValue := range in.Bindings {
 		refVal, err := ExprValueToRefValue(env.TypeAdapter(), exprValue)
 		if err != nil {

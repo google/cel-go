@@ -173,8 +173,8 @@ func (c *checker) checkSelect(e *exprpb.Expr) {
 
 			// Rewrite the node to be a variable reference to the resolved fully-qualified
 			// variable name.
-			c.setType(e, ident.GetIdent().Type)
-			c.setReference(e, newIdentReference(ident.GetName(), ident.GetIdent().Value))
+			c.setType(e, ident.GetIdent().GetType())
+			c.setReference(e, newIdentReference(ident.GetName(), ident.GetIdent().GetValue()))
 			identName := ident.GetName()
 			e.ExprKind = &exprpb.Expr_IdentExpr{
 				IdentExpr: &exprpb.Expr_Ident{
