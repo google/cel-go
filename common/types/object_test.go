@@ -106,14 +106,14 @@ func TestProtoObjectConvertToNative(t *testing.T) {
 	if err != nil {
 		t.Fatalf("protojson.Marshal(%v) failed: %v", jsonVal, err)
 	}
-	outMap := map[string]interface{}{}
+	outMap := map[string]any{}
 	err = json.Unmarshal(jsonBytes, &outMap)
 	if err != nil {
 		t.Fatalf("json.Unmarshal(%q) failed: %v", jsonTxt, err)
 	}
-	want := map[string]interface{}{
-		"sourceInfo": map[string]interface{}{
-			"lineOffsets": []interface{}{1.0, 2.0, 3.0},
+	want := map[string]any{
+		"sourceInfo": map[string]any{
+			"lineOffsets": []any{1.0, 2.0, 3.0},
 		},
 	}
 	if !reflect.DeepEqual(outMap, want) {

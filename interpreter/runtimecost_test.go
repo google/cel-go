@@ -36,7 +36,7 @@ import (
 
 func TestTrackCostAdvanced(t *testing.T) {
 	var equalCases = []struct {
-		in      interface{}
+		in      any
 		lhsExpr string
 		rhsExpr string
 	}{
@@ -72,7 +72,7 @@ func TestTrackCostAdvanced(t *testing.T) {
 
 	}
 	var smallerCases = []struct {
-		in      interface{}
+		in      any
 		lhsExpr string
 		rhsExpr string
 	}{
@@ -160,7 +160,7 @@ func computeCost(t *testing.T, expr string, decls []*exprpb.Decl, ctx Activation
 	return costTracker.cost, est, err
 }
 
-func constructActivation(t *testing.T, in interface{}) Activation {
+func constructActivation(t *testing.T, in any) Activation {
 	t.Helper()
 	if in == nil {
 		return EmptyActivation()
@@ -241,7 +241,7 @@ func TestRuntimeCost(t *testing.T) {
 		expr         string
 		decls        []*exprpb.Decl
 		want         uint64
-		in           interface{}
+		in           any
 		testFuncCost bool
 		limit        uint64
 
@@ -257,28 +257,28 @@ func TestRuntimeCost(t *testing.T) {
 			expr:  `input`,
 			decls: []*exprpb.Decl{decls.NewVar("input", intList)},
 			want:  1,
-			in:    map[string]interface{}{"input": []int{1, 2}},
+			in:    map[string]any{"input": []int{1, 2}},
 		},
 		{
 			name:  "select: map",
 			expr:  `input['key']`,
 			decls: []*exprpb.Decl{decls.NewVar("input", decls.NewMapType(decls.String, decls.String))},
 			want:  2,
-			in:    map[string]interface{}{"input": map[string]string{"key": "v"}},
+			in:    map[string]any{"input": map[string]string{"key": "v"}},
 		},
 		{
 			name:  "select: array index",
 			expr:  `input[0]`,
 			decls: []*exprpb.Decl{decls.NewVar("input", decls.NewListType(decls.String))},
 			want:  2,
-			in:    map[string]interface{}{"input": []string{"v"}},
+			in:    map[string]any{"input": []string{"v"}},
 		},
 		{
 			name:  "select: field",
 			expr:  `input.single_int32`,
 			decls: []*exprpb.Decl{decls.NewVar("input", allTypes)},
 			want:  2,
-			in: map[string]interface{}{
+			in: map[string]any{
 				"input": &proto3pb.TestAllTypes{
 					RepeatedBool: []bool{false},
 					MapInt64NestedType: map[int64]*proto3pb.NestedTestAllTypes{
@@ -293,21 +293,21 @@ func TestRuntimeCost(t *testing.T) {
 			expr:  `input['ke' + 'y']`,
 			decls: []*exprpb.Decl{decls.NewVar("input", decls.NewMapType(decls.String, decls.String))},
 			want:  3,
-			in:    map[string]interface{}{"input": map[string]string{"key": "v"}},
+			in:    map[string]any{"input": map[string]string{"key": "v"}},
 		},
 		{
 			name:  "expr select: array index",
 			expr:  `input[3-3]`,
 			decls: []*exprpb.Decl{decls.NewVar("input", decls.NewListType(decls.String))},
 			want:  3,
-			in:    map[string]interface{}{"input": []string{"v"}},
+			in:    map[string]any{"input": []string{"v"}},
 		},
 		{
 			name:  "select: field test only",
 			expr:  `has(input.single_int32)`,
 			decls: []*exprpb.Decl{decls.NewVar("input", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"))},
 			want:  0,
-			in: map[string]interface{}{
+			in: map[string]any{
 				"input": &proto3pb.TestAllTypes{
 					RepeatedBool: []bool{false},
 					MapInt64NestedType: map[int64]*proto3pb.NestedTestAllTypes{
@@ -322,7 +322,7 @@ func TestRuntimeCost(t *testing.T) {
 			expr:         `input.getFullYear()`,
 			decls:        []*exprpb.Decl{decls.NewVar("input", decls.Timestamp)},
 			want:         8,
-			in:           map[string]interface{}{"input": time.Now()},
+			in:           map[string]any{"input": time.Now()},
 			testFuncCost: true,
 		},
 		{
@@ -345,7 +345,7 @@ func TestRuntimeCost(t *testing.T) {
 			decls: []*exprpb.Decl{decls.NewVar("input", allList)},
 			expr:  `input.all(x, true)`,
 			want:  2,
-			in: map[string]interface{}{
+			in: map[string]any{
 				"input": []*proto3pb.TestAllTypes{},
 			},
 		},
@@ -354,7 +354,7 @@ func TestRuntimeCost(t *testing.T) {
 			decls: []*exprpb.Decl{decls.NewVar("input", nestedList)},
 			expr:  `input.all(x, x.all(y, true))`,
 			want:  2,
-			in: map[string]interface{}{
+			in: map[string]any{
 				"input": []*proto3pb.TestAllTypes{},
 			},
 		},
@@ -368,7 +368,7 @@ func TestRuntimeCost(t *testing.T) {
 			decls: []*exprpb.Decl{decls.NewVar("input", decls.String)},
 			expr:  `input.matches('[0-9]')`,
 			want:  103,
-			in:    map[string]interface{}{"input": string(randSeq(500))},
+			in:    map[string]any{"input": string(randSeq(500))},
 		},
 		{
 			name: "variable cost function with constant",
@@ -470,14 +470,14 @@ func TestRuntimeCost(t *testing.T) {
 			decls: []*exprpb.Decl{decls.NewVar("input", decls.Bytes)},
 			expr:  `string(input)`,
 			want:  51,
-			in:    map[string]interface{}{"input": randSeq(500)},
+			in:    map[string]any{"input": randSeq(500)},
 		},
 		{
 			name:  "string to bytes conversion",
 			decls: []*exprpb.Decl{decls.NewVar("input", decls.String)},
 			expr:  `bytes(input)`,
 			want:  51,
-			in:    map[string]interface{}{"input": string(randSeq(500))},
+			in:    map[string]any{"input": string(randSeq(500))},
 		},
 		{
 			name: "int to string conversion",
@@ -492,7 +492,7 @@ func TestRuntimeCost(t *testing.T) {
 				decls.NewVar("arg1", decls.String),
 			},
 			want: 2502,
-			in:   map[string]interface{}{"input": string(randSeq(500)), "arg1": string(randSeq(500))},
+			in:   map[string]any{"input": string(randSeq(500)), "arg1": string(randSeq(500))},
 		},
 		{
 			name: "matches",
@@ -501,7 +501,7 @@ func TestRuntimeCost(t *testing.T) {
 				decls.NewVar("input", decls.String),
 			},
 			want: 103,
-			in:   map[string]interface{}{"input": string(randSeq(500)), "arg1": string(randSeq(500))},
+			in:   map[string]any{"input": string(randSeq(500)), "arg1": string(randSeq(500))},
 		},
 		{
 			name: "startsWith",
@@ -511,7 +511,7 @@ func TestRuntimeCost(t *testing.T) {
 				decls.NewVar("arg1", decls.String),
 			},
 			want: 3,
-			in:   map[string]interface{}{"input": "idc", "arg1": string(randSeq(500))},
+			in:   map[string]any{"input": "idc", "arg1": string(randSeq(500))},
 		},
 		{
 			name: "endsWith",
@@ -521,7 +521,7 @@ func TestRuntimeCost(t *testing.T) {
 				decls.NewVar("arg1", decls.String),
 			},
 			want: 3,
-			in:   map[string]interface{}{"input": "idc", "arg1": string(randSeq(500))},
+			in:   map[string]any{"input": "idc", "arg1": string(randSeq(500))},
 		},
 		{
 			name: "size receiver",
@@ -530,7 +530,7 @@ func TestRuntimeCost(t *testing.T) {
 				decls.NewVar("input", decls.String),
 			},
 			want: 2,
-			in:   map[string]interface{}{"input": "500", "arg1": "500"},
+			in:   map[string]any{"input": "500", "arg1": "500"},
 		},
 		{
 			name: "size",
@@ -539,7 +539,7 @@ func TestRuntimeCost(t *testing.T) {
 				decls.NewVar("input", decls.String),
 			},
 			want: 2,
-			in:   map[string]interface{}{"input": "500", "arg1": "500"},
+			in:   map[string]any{"input": "500", "arg1": "500"},
 		},
 		{
 			name: "ternary eval",
@@ -550,19 +550,19 @@ func TestRuntimeCost(t *testing.T) {
 				decls.NewVar("input2", allList),
 			},
 			want: 6,
-			in:   map[string]interface{}{"input1": []*proto3pb.TestAllTypes{{}}, "input2": []*proto3pb.TestAllTypes{{}}, "x": 1},
+			in:   map[string]any{"input1": []*proto3pb.TestAllTypes{{}}, "input2": []*proto3pb.TestAllTypes{{}}, "x": 1},
 		},
 		{
 			name: "ternary eval trivial, true",
 			expr: `true ? false : 1 > 3`,
 			want: 0,
-			in:   map[string]interface{}{},
+			in:   map[string]any{},
 		},
 		{
 			name: "ternary eval trivial, false",
 			expr: `false ? false : 1 > 3`,
 			want: 1,
-			in:   map[string]interface{}{},
+			in:   map[string]any{},
 		},
 		{
 			name: "comprehension over map",
@@ -571,7 +571,7 @@ func TestRuntimeCost(t *testing.T) {
 				decls.NewVar("input", allMap),
 			},
 			want: 9,
-			in:   map[string]interface{}{"input": map[string]interface{}{"val": &proto3pb.TestAllTypes{}}},
+			in:   map[string]any{"input": map[string]any{"val": &proto3pb.TestAllTypes{}}},
 		},
 		{
 			name: "comprehension over nested map of maps",
@@ -580,7 +580,7 @@ func TestRuntimeCost(t *testing.T) {
 				decls.NewVar("input", nestedMap),
 			},
 			want: 2,
-			in:   map[string]interface{}{"input": map[string]interface{}{}},
+			in:   map[string]any{"input": map[string]any{}},
 		},
 		{
 			name: "string size of map keys",
@@ -589,7 +589,7 @@ func TestRuntimeCost(t *testing.T) {
 				decls.NewVar("input", nestedMap),
 			},
 			want: 2,
-			in:   map[string]interface{}{"input": map[string]interface{}{}},
+			in:   map[string]any{"input": map[string]any{}},
 		},
 		{
 			name: "comprehension variable shadowing",
@@ -598,7 +598,7 @@ func TestRuntimeCost(t *testing.T) {
 				decls.NewVar("input", nestedMap),
 			},
 			want: 2,
-			in:   map[string]interface{}{"input": map[string]interface{}{}},
+			in:   map[string]any{"input": map[string]any{}},
 		},
 		{
 			name: "comprehension variable shadowing",
@@ -607,7 +607,7 @@ func TestRuntimeCost(t *testing.T) {
 				decls.NewVar("input", nestedMap),
 			},
 			want: 2,
-			in:   map[string]interface{}{"input": map[string]interface{}{}},
+			in:   map[string]any{"input": map[string]any{}},
 		},
 		{
 			name: "list concat",
@@ -617,7 +617,7 @@ func TestRuntimeCost(t *testing.T) {
 				decls.NewVar("list2", decls.NewListType(decls.Int)),
 			},
 			want: 4,
-			in:   map[string]interface{}{"list1": []int{}, "list2": []int{}},
+			in:   map[string]any{"list1": []int{}, "list2": []int{}},
 		},
 		{
 			name: "str concat",
@@ -627,7 +627,7 @@ func TestRuntimeCost(t *testing.T) {
 				decls.NewVar("str2", decls.String),
 			},
 			want: 6,
-			in:   map[string]interface{}{"str1": "val1", "str2": "val2222222"},
+			in:   map[string]any{"str1": "val1", "str2": "val2222222"},
 		},
 		{
 			name: "at limit",
@@ -636,7 +636,7 @@ func TestRuntimeCost(t *testing.T) {
 				decls.NewVar("str1", decls.String),
 				decls.NewVar("str2", decls.String),
 			},
-			in:    map[string]interface{}{"str1": "val1", "str2": "val2222222"},
+			in:    map[string]any{"str1": "val1", "str2": "val2222222"},
 			limit: 6,
 			want:  6,
 		},
@@ -647,7 +647,7 @@ func TestRuntimeCost(t *testing.T) {
 				decls.NewVar("str1", decls.String),
 				decls.NewVar("str2", decls.String),
 			},
-			in:                 map[string]interface{}{"str1": "val1", "str2": "val2222222"},
+			in:                 map[string]any{"str1": "val1", "str2": "val2222222"},
 			limit:              5,
 			expectExceedsLimit: true,
 		},
@@ -655,21 +655,21 @@ func TestRuntimeCost(t *testing.T) {
 			name:  "ternary as operand",
 			expr:  `(1 > 2 ? 5 : 3) > 1`,
 			decls: []*exprpb.Decl{},
-			in:    map[string]interface{}{},
+			in:    map[string]any{},
 			want:  2,
 		},
 		{
 			name:  "ternary as operand",
 			expr:  `(1 > 2 || 2 > 1) == true`,
 			decls: []*exprpb.Decl{},
-			in:    map[string]interface{}{},
+			in:    map[string]any{},
 			want:  3,
 		},
 		{
 			name:  "list map literal",
 			expr:  `[{'k1': 1}, {'k2': 2}].all(x, true)`,
 			decls: []*exprpb.Decl{},
-			in:    map[string]interface{}{},
+			in:    map[string]any{},
 			want:  77,
 		},
 	}

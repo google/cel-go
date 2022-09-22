@@ -114,7 +114,7 @@ type errorListener struct {
 	errs []error
 }
 
-func (l *errorListener) SyntaxError(recognizer antlr.Recognizer, offendingSymbol interface{}, line, column int, msg string, e antlr.RecognitionException) {
+func (l *errorListener) SyntaxError(recognizer antlr.Recognizer, offendingSymbol any, line, column int, msg string, e antlr.RecognitionException) {
 	l.errs = append(l.errs, fmt.Errorf("type parse error: %s", msg))
 	l.DefaultErrorListener.SyntaxError(recognizer, offendingSymbol, line, column, msg, e)
 }
@@ -129,7 +129,7 @@ var _ parser.CommandsVisitor = &typesVisitor{}
 
 type typeParams []*exprpb.Type
 
-func (t *typesVisitor) Visit(tree antlr.ParseTree) interface{} {
+func (t *typesVisitor) Visit(tree antlr.ParseTree) any {
 	switch ctx := tree.(type) {
 	case *parser.StartTypeContext:
 		return t.VisitStartType(ctx)
@@ -146,7 +146,7 @@ func (t *typesVisitor) Visit(tree antlr.ParseTree) interface{} {
 
 }
 
-func (t *typesVisitor) VisitStartType(ctx *parser.StartTypeContext) interface{} {
+func (t *typesVisitor) VisitStartType(ctx *parser.StartTypeContext) any {
 	return t.Visit(ctx.GetT())
 }
 
@@ -168,7 +168,7 @@ func checkWellKnown(name string) *exprpb.Type {
 	return nil
 }
 
-func (t *typesVisitor) VisitTypeId(ctx *parser.TypeIdContext) interface{} {
+func (t *typesVisitor) VisitTypeId(ctx *parser.TypeIdContext) any {
 	id := ""
 	if ctx.GetLeadingDot() != nil {
 		id += "."
@@ -184,7 +184,7 @@ func (t *typesVisitor) VisitTypeId(ctx *parser.TypeIdContext) interface{} {
 	return id
 }
 
-func (t *typesVisitor) VisitTypeParamList(ctx *parser.TypeParamListContext) interface{} {
+func (t *typesVisitor) VisitTypeParamList(ctx *parser.TypeParamListContext) any {
 	var params typeParams
 	for _, ty := range ctx.GetTypes() {
 		p := t.Visit(ty)
@@ -193,7 +193,7 @@ func (t *typesVisitor) VisitTypeParamList(ctx *parser.TypeParamListContext) inte
 	return params
 }
 
-func (t *typesVisitor) VisitType(ctx *parser.TypeContext) interface{} {
+func (t *typesVisitor) VisitType(ctx *parser.TypeContext) any {
 	emptyType := &exprpb.Type{}
 
 	r := t.Visit(ctx.GetId())

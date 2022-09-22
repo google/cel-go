@@ -159,7 +159,7 @@ func Parse(line string) (Cmder, error) {
 // ANTLR interface implementations
 
 // Implement antlr ErrorListener interface for syntax errors.
-func (c *commandParseListener) SyntaxError(recognizer antlr.Recognizer, offendingSymbol interface{}, line, column int, msg string, e antlr.RecognitionException) {
+func (c *commandParseListener) SyntaxError(recognizer antlr.Recognizer, offendingSymbol any, line, column int, msg string, e antlr.RecognitionException) {
 	c.errs = append(c.errs, fmt.Errorf("(%d:%d) %s", line, column, msg))
 }
 

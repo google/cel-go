@@ -57,7 +57,7 @@ func Example() {
 	}
 
 	// Evaluate the program against some inputs. Note: the details return is not used.
-	out, _, err := prg.Eval(map[string]interface{}{
+	out, _, err := prg.Eval(map[string]any{
 		// Native values are converted to CEL values under the covers.
 		"i": "CEL",
 		// Values may also be lazily supplied.
@@ -107,7 +107,7 @@ func Example_globalOverload() {
 	}
 
 	// Evaluate the program against some inputs. Note: the details return is not used.
-	out, _, err := prg.Eval(map[string]interface{}{
+	out, _, err := prg.Eval(map[string]any{
 		"i":   "CEL",
 		"you": func() ref.Val { return types.String("world") },
 	})
@@ -122,7 +122,7 @@ func Example_globalOverload() {
 func Example_statefulOverload() {
 	// makeFetch produces a consistent function signature with a different function
 	// implementation depending on the provided context.
-	makeFetch := func(ctx interface{}) cel.EnvOption {
+	makeFetch := func(ctx any) cel.EnvOption {
 		fn := func(arg ref.Val) ref.Val {
 			return types.NewErr("stateful context not bound")
 		}

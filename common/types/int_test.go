@@ -262,7 +262,7 @@ func TestIntConvertToType(t *testing.T) {
 		name   string
 		in     int64
 		toType ref.Type
-		out    interface{}
+		out    any
 	}{
 		{
 			name:   "IntToType",

@@ -90,7 +90,7 @@ func (d Duration) Compare(other ref.Val) ref.Val {
 }
 
 // ConvertToNative implements ref.Val.ConvertToNative.
-func (d Duration) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
+func (d Duration) ConvertToNative(typeDesc reflect.Type) (any, error) {
 	// If the duration is already assignable to the desired type return it.
 	if reflect.TypeOf(d.Duration).AssignableTo(typeDesc) {
 		return d.Duration, nil
@@ -181,7 +181,7 @@ func (d Duration) Type() ref.Type {
 }
 
 // Value implements ref.Val.Value.
-func (d Duration) Value() interface{} {
+func (d Duration) Value() any {
 	return d.Duration
 }
 

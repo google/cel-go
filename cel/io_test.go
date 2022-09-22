@@ -30,7 +30,7 @@ import (
 
 func TestRefValueToValueRoundTrip(t *testing.T) {
 	tests := []struct {
-		value interface{}
+		value any
 	}{
 		{value: types.NullValue},
 		{value: types.Bool(true)},
@@ -44,7 +44,7 @@ func TestRefValueToValueRoundTrip(t *testing.T) {
 		{value: types.IntType},
 		{value: types.NewTypeValue("CustomType")},
 		{value: map[int64]int64{1: 1}},
-		{value: []interface{}{true, "abc"}},
+		{value: []any{true, "abc"}},
 		{value: &proto3pb.TestAllTypes{SingleString: "abc"}},
 	}
 

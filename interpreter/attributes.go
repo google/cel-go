@@ -61,7 +61,7 @@ type AttributeFactory interface {
 	// The qualifier may consider the object type being qualified, if present. If absent, the
 	// qualification should be considered dynamic and the qualification should still work, though
 	// it may be sub-optimal.
-	NewQualifier(objType *exprpb.Type, qualID int64, val interface{}) (Qualifier, error)
+	NewQualifier(objType *exprpb.Type, qualID int64, val any) (Qualifier, error)
 }
 
 // Qualifier marker interface for designating different qualifier values and where they appear
@@ -72,7 +72,7 @@ type Qualifier interface {
 
 	// Qualify performs a qualification, e.g. field selection, on the input object and returns
 	// the value or error that results.
-	Qualify(vars Activation, obj interface{}) (interface{}, error)
+	Qualify(vars Activation, obj any) (any, error)
 }
 
 // ConstantQualifier interface embeds the Qualifier interface and provides an option to inspect the
@@ -95,7 +95,7 @@ type Attribute interface {
 	AddQualifier(Qualifier) (Attribute, error)
 
 	// Resolve returns the value of the Attribute given the current Activation.
-	Resolve(Activation) (interface{}, error)
+	Resolve(Activation) (any, error)
 }
 
 // NamespacedAttribute values are a variable within a namespace, and an optional set of qualifiers
@@ -114,7 +114,7 @@ type NamespacedAttribute interface {
 	// If an error is encountered during attribute resolution, it will be returned immediately.
 	// If the attribute cannot be resolved within the Activation, the result must be: `nil`,
 	// `false`, `nil`.
-	TryResolve(Activation) (interface{}, bool, error)
+	TryResolve(Activation) (any, bool, error)
 }
 
 // NewAttributeFactory returns a default AttributeFactory which is produces Attribute values
@@ -192,7 +192,7 @@ func (r *attrFactory) RelativeAttribute(id int64, operand Interpretable) Attribu
 // NewQualifier is an implementation of the AttributeFactory interface.
 func (r *attrFactory) NewQualifier(objType *exprpb.Type,
 	qualID int64,
-	val interface{}) (Qualifier, error) {
+	val any) (Qualifier, error) {
 	// Before creating a new qualifier check to see if this is a protobuf message field access.
 	// If so, use the precomputed GetFrom qualification method rather than the standard
 	// stringQualifier.
@@ -256,7 +256,7 @@ func (a *absoluteAttribute) Qualifiers() []Qualifier {
 }
 
 // Qualify is an implementation of the Qualifier interface method.
-func (a *absoluteAttribute) Qualify(vars Activation, obj interface{}) (interface{}, error) {
+func (a *absoluteAttribute) Qualify(vars Activation, obj any) (any, error) {
 	val, err := a.Resolve(vars)
 	if err != nil {
 		return nil, err
@@ -274,7 +274,7 @@ func (a *absoluteAttribute) Qualify(vars Activation, obj interface{}) (interface
 
 // Resolve returns the resolved Attribute value given the Activation, or error if the Attribute
 // variable is not found, or if its Qualifiers cannot be applied successfully.
-func (a *absoluteAttribute) Resolve(vars Activation) (interface{}, error) {
+func (a *absoluteAttribute) Resolve(vars Activation) (any, error) {
 	obj, found, err := a.TryResolve(vars)
 	if err != nil {
 		return nil, err
@@ -295,7 +295,7 @@ func (a *absoluteAttribute) String() string {
 //
 // If the variable name cannot be found as an Activation variable or in the TypeProvider as
 // a type, then the result is `nil`, `false`, `nil` per the interface requirement.
-func (a *absoluteAttribute) TryResolve(vars Activation) (interface{}, bool, error) {
+func (a *absoluteAttribute) TryResolve(vars Activation) (any, bool, error) {
 	for _, nm := range a.namespaceNames {
 		// If the variable is found, process it. Otherwise, wait until the checks to
 		// determine whether the type is unknown before returning.
@@ -361,7 +361,7 @@ func (a *conditionalAttribute) AddQualifier(qual Qualifier) (Attribute, error) {
 }
 
 // Qualify is an implementation of the Qualifier interface method.
-func (a *conditionalAttribute) Qualify(vars Activation, obj interface{}) (interface{}, error) {
+func (a *conditionalAttribute) Qualify(vars Activation, obj any) (any, error) {
 	val, err := a.Resolve(vars)
 	if err != nil {
 		return nil, err
@@ -378,7 +378,7 @@ func (a *conditionalAttribute) Qualify(vars Activation, obj interface{}) (interf
 }
 
 // Resolve evaluates the condition, and then resolves the truthy or falsy branch accordingly.
-func (a *conditionalAttribute) Resolve(vars Activation) (interface{}, error) {
+func (a *conditionalAttribute) Resolve(vars Activation) (any, error) {
 	val := a.expr.Eval(vars)
 	if types.IsError(val) {
 		return nil, val.(*types.Err)
@@ -446,21 +446,21 @@ func findMax(x, y int64) int64 {
 //
 // 1. Create a maybe attribute from a simple identifier when it occurs in a parsed-only expression
 //
-//    mb = MaybeAttribute(<id>, "a")
+//	mb = MaybeAttribute(<id>, "a")
 //
-//    Initializing the maybe attribute creates an absolute attribute internally which includes the
-//    possible namespaced names of the attribute. In this example, let's assume we are in namespace
-//    'ns', then the maybe is either one of the following variable names:
+// Initializing the maybe attribute creates an absolute attribute internally which includes the
+// possible namespaced names of the attribute. In this example, let's assume we are in namespace
+// 'ns', then the maybe is either one of the following variable names:
 //
-//    possible variables names -- ns.a, a
+//	possible variables names -- ns.a, a
 //
 // 2. Adding a qualifier to the maybe means that the variable name could be a longer qualified
-//    name, or a field selection on one of the possible variable names produced earlier:
+// name, or a field selection on one of the possible variable names produced earlier:
 //
-//    mb.AddQualifier("b")
+//	mb.AddQualifier("b")
 //
-//    possible variables names -- ns.a.b, a.b
-//    possible field selection -- ns.a['b'], a['b']
+//	possible variables names -- ns.a.b, a.b
+//	possible field selection -- ns.a['b'], a['b']
 //
 // If none of the attributes within the maybe resolves a value, the result is an error.
 func (a *maybeAttribute) AddQualifier(qual Qualifier) (Attribute, error) {
@@ -491,7 +491,7 @@ func (a *maybeAttribute) AddQualifier(qual Qualifier) (Attribute, error) {
 }
 
 // Qualify is an implementation of the Qualifier interface method.
-func (a *maybeAttribute) Qualify(vars Activation, obj interface{}) (interface{}, error) {
+func (a *maybeAttribute) Qualify(vars Activation, obj any) (any, error) {
 	val, err := a.Resolve(vars)
 	if err != nil {
 		return nil, err
@@ -509,7 +509,7 @@ func (a *maybeAttribute) Qualify(vars Activation, obj interface{}) (interface{},
 
 // Resolve follows the variable resolution rules to determine whether the attribute is a variable
 // or a field selection.
-func (a *maybeAttribute) Resolve(vars Activation) (interface{}, error) {
+func (a *maybeAttribute) Resolve(vars Activation) (any, error) {
 	for _, attr := range a.attrs {
 		obj, found, err := attr.TryResolve(vars)
 		// Return an error if one is encountered.
@@ -561,7 +561,7 @@ func (a *relativeAttribute) AddQualifier(qual Qualifier) (Attribute, error) {
 }
 
 // Qualify is an implementation of the Qualifier interface method.
-func (a *relativeAttribute) Qualify(vars Activation, obj interface{}) (interface{}, error) {
+func (a *relativeAttribute) Qualify(vars Activation, obj any) (any, error) {
 	val, err := a.Resolve(vars)
 	if err != nil {
 		return nil, err
@@ -578,7 +578,7 @@ func (a *relativeAttribute) Qualify(vars Activation, obj interface{}) (interface
 }
 
 // Resolve expression value and qualifier relative to the expression result.
-func (a *relativeAttribute) Resolve(vars Activation) (interface{}, error) {
+func (a *relativeAttribute) Resolve(vars Activation) (any, error) {
 	// First, evaluate the operand.
 	v := a.operand.Eval(vars)
 	if types.IsError(v) {
@@ -589,7 +589,7 @@ func (a *relativeAttribute) Resolve(vars Activation) (interface{}, error) {
 	}
 	// Next, qualify it. Qualification handles unknowns as well, so there's no need to recheck.
 	var err error
-	var obj interface{} = v
+	var obj any = v
 	for _, qual := range a.qualifiers {
 		obj, err = qual.Qualify(vars, obj)
 		if err != nil {
@@ -604,7 +604,7 @@ func (a *relativeAttribute) String() string {
 	return fmt.Sprintf("id: %v, operand: %v", a.id, a.operand)
 }
 
-func newQualifier(adapter ref.TypeAdapter, id int64, v interface{}) (Qualifier, error) {
+func newQualifier(adapter ref.TypeAdapter, id int64, v any) (Qualifier, error) {
 	var qual Qualifier
 	switch val := v.(type) {
 	case Attribute:
@@ -672,12 +672,12 @@ func (q *stringQualifier) ID() int64 {
 }
 
 // Qualify implements the Qualifier interface method.
-func (q *stringQualifier) Qualify(vars Activation, obj interface{}) (interface{}, error) {
+func (q *stringQualifier) Qualify(vars Activation, obj any) (any, error) {
 	s := q.value
 	isMap := false
 	isKey := false
 	switch o := obj.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		isMap = true
 		obj, isKey = o[s]
 	case map[string]string:
@@ -748,7 +748,7 @@ func (q *intQualifier) ID() int64 {
 }
 
 // Qualify implements the Qualifier interface method.
-func (q *intQualifier) Qualify(vars Activation, obj interface{}) (interface{}, error) {
+func (q *intQualifier) Qualify(vars Activation, obj any) (any, error) {
 	i := q.value
 	isMap := false
 	isKey := false
@@ -758,16 +758,16 @@ func (q *intQualifier) Qualify(vars Activation, obj interface{}) (interface{}, e
 	// of specialized map types supported by string qualifiers since they are less frequently used
 	// than string-based map keys. Additional specializations may be added in the future if
 	// desired.
-	case map[int]interface{}:
+	case map[int]any:
 		isMap = true
 		obj, isKey = o[int(i)]
-	case map[int32]interface{}:
+	case map[int32]any:
 		isMap = true
 		obj, isKey = o[int32(i)]
-	case map[int64]interface{}:
+	case map[int64]any:
 		isMap = true
 		obj, isKey = o[i]
-	case []interface{}:
+	case []any:
 		isIndex = i >= 0 && i < int64(len(o))
 		if isIndex {
 			obj = o[i]
@@ -863,7 +863,7 @@ func (q *uintQualifier) ID() int64 {
 }
 
 // Qualify implements the Qualifier interface method.
-func (q *uintQualifier) Qualify(vars Activation, obj interface{}) (interface{}, error) {
+func (q *uintQualifier) Qualify(vars Activation, obj any) (any, error) {
 	u := q.value
 	isMap := false
 	isKey := false
@@ -872,13 +872,13 @@ func (q *uintQualifier) Qualify(vars Activation, obj interface{}) (interface{}, 
 	// of specialized map types supported by string qualifiers since they are less frequently used
 	// than string-based map keys. Additional specializations may be added in the future if
 	// desired.
-	case map[uint]interface{}:
+	case map[uint]any:
 		isMap = true
 		obj, isKey = o[uint(u)]
-	case map[uint32]interface{}:
+	case map[uint32]any:
 		isMap = true
 		obj, isKey = o[uint32(u)]
-	case map[uint64]interface{}:
+	case map[uint64]any:
 		isMap = true
 		obj, isKey = o[u]
 	case types.Unknown:
@@ -919,7 +919,7 @@ func (q *boolQualifier) ID() int64 {
 }
 
 // Qualify implements the Qualifier interface method.
-func (q *boolQualifier) Qualify(vars Activation, obj interface{}) (interface{}, error) {
+func (q *boolQualifier) Qualify(vars Activation, obj any) (any, error) {
 	b := q.value
 	isKey := false
 	switch o := obj.(type) {
@@ -927,7 +927,7 @@ func (q *boolQualifier) Qualify(vars Activation, obj interface{}) (interface{}, 
 	// of specialized map types supported by string qualifiers since they are less frequently used
 	// than string-based map keys. Additional specializations may be added in the future if
 	// desired.
-	case map[bool]interface{}:
+	case map[bool]any:
 		obj, isKey = o[b]
 	case types.Unknown:
 		return o, nil
@@ -970,7 +970,7 @@ func (q *fieldQualifier) ID() int64 {
 }
 
 // Qualify implements the Qualifier interface method.
-func (q *fieldQualifier) Qualify(vars Activation, obj interface{}) (interface{}, error) {
+func (q *fieldQualifier) Qualify(vars Activation, obj any) (any, error) {
 	if rv, ok := obj.(ref.Val); ok {
 		obj = rv.Value()
 	}
@@ -1005,7 +1005,7 @@ func (q *doubleQualifier) ID() int64 {
 }
 
 // Qualify implements the Qualifier interface method.
-func (q *doubleQualifier) Qualify(vars Activation, obj interface{}) (interface{}, error) {
+func (q *doubleQualifier) Qualify(vars Activation, obj any) (any, error) {
 	switch o := obj.(type) {
 	case types.Unknown:
 		return o, nil
@@ -1020,7 +1020,7 @@ func (q *doubleQualifier) Qualify(vars Activation, obj interface{}) (interface{}
 
 // refResolve attempts to convert the value to a CEL value and then uses reflection methods
 // to try and resolve the qualifier.
-func refResolve(adapter ref.TypeAdapter, idx ref.Val, obj interface{}) (ref.Val, error) {
+func refResolve(adapter ref.TypeAdapter, idx ref.Val, obj any) (ref.Val, error) {
 	celVal := adapter.NativeToValue(obj)
 	mapper, isMapper := celVal.(traits.Mapper)
 	if isMapper {

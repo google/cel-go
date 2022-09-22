@@ -27,7 +27,7 @@ type errListener struct {
 	errs []error
 }
 
-func (l *errListener) SyntaxError(recognizer antlr.Recognizer, offendingSymbol interface{}, line, column int, msg string, e antlr.RecognitionException) {
+func (l *errListener) SyntaxError(recognizer antlr.Recognizer, offendingSymbol any, line, column int, msg string, e antlr.RecognitionException) {
 	l.errs = append(l.errs, fmt.Errorf("(%d:%d) %s", line, column, msg))
 }
 

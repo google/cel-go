@@ -70,7 +70,7 @@ func Test_ExampleWithBuiltins(t *testing.T) {
 
 	// If the Eval() call were provided with cel.EvalOptions(OptTrackState) the details response
 	// (2nd return) would be non-nil.
-	out, _, err := prg.Eval(map[string]interface{}{
+	out, _, err := prg.Eval(map[string]any{
 		"i":   "CEL",
 		"you": "world"})
 	if err != nil {
@@ -101,7 +101,7 @@ func TestAbbrevsCompiled(t *testing.T) {
 		t.Fatal(err)
 	}
 	out, _, err := prg.Eval(
-		map[string]interface{}{
+		map[string]any{
 			"qualified.identifier.name.first": "Jim",
 		},
 	)
@@ -130,7 +130,7 @@ func TestAbbrevsParsed(t *testing.T) {
 		t.Fatal(err)
 	}
 	out, _, err := prg.Eval(
-		map[string]interface{}{
+		map[string]any{
 			"qualified.identifier.name": map[string]string{
 				"first": "Jim",
 			},
@@ -160,7 +160,7 @@ func TestAbbrevsDisambiguation(t *testing.T) {
 	// of the 'test' argument. The fully qualified type name is used indicate that the protobuf
 	// typed 'Expr' should be used rather than the abbreviatation for 'external.Expr'.
 	out, err := interpret(t, env, `test ? dyn(Expr) : google.api.expr.v1alpha1.Expr{id: 1}`,
-		map[string]interface{}{
+		map[string]any{
 			"test":          true,
 			"external.Expr": "string expr",
 		},
@@ -172,7 +172,7 @@ func TestAbbrevsDisambiguation(t *testing.T) {
 		t.Errorf("got %v, wanted 'string expr'", out)
 	}
 	out, err = interpret(t, env, `test ? dyn(Expr) : google.api.expr.v1alpha1.Expr{id: 1}`,
-		map[string]interface{}{
+		map[string]any{
 			"test":          false,
 			"external.Expr": "wrong expr",
 		},
@@ -214,7 +214,7 @@ func TestCustomEnv(t *testing.T) {
 	})
 
 	t.Run("ok", func(t *testing.T) {
-		out, err := interpret(t, e, "a.b.c", map[string]interface{}{"a.b.c": true})
+		out, err := interpret(t, e, "a.b.c", map[string]any{"a.b.c": true})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -249,7 +249,7 @@ func TestHomogeneousAggregateLiterals(t *testing.T) {
 		name string
 		expr string
 		iss  string
-		vars map[string]interface{}
+		vars map[string]any
 		out  ref.Val
 	}{
 		{
@@ -282,13 +282,13 @@ func TestHomogeneousAggregateLiterals(t *testing.T) {
 		{
 			name: "ok_list",
 			expr: `name in ['hello', 'world']`,
-			vars: map[string]interface{}{"name": "world"},
+			vars: map[string]any{"name": "world"},
 			out:  types.True,
 		},
 		{
 			name: "ok_map",
 			expr: `name in {'hello': false, 'world': true}`,
-			vars: map[string]interface{}{"name": "world"},
+			vars: map[string]any{"name": "world"},
 			out:  types.True,
 		},
 	}
@@ -422,7 +422,7 @@ func TestCustomTypes(t *testing.T) {
 		t.Fatalf("got %v, wanted type bool", ast.OutputType())
 	}
 	prg, _ := e.Program(ast)
-	vars := map[string]interface{}{"expr": &exprpb.Expr{
+	vars := map[string]any{"expr": &exprpb.Expr{
 		Id: 2,
 		ExprKind: &exprpb.Expr_CallExpr{
 			CallExpr: &exprpb.Expr_Call{
@@ -492,7 +492,7 @@ func TestDynamicProto(t *testing.T) {
 		t.Fatalf("proto.Unmarshal() failed: %v", err)
 	}
 	files := (&fds).GetFile()
-	fileCopy := make([]interface{}, len(files))
+	fileCopy := make([]any, len(files))
 	for i := 0; i < len(files); i++ {
 		fileCopy[i] = files[i]
 	}
@@ -550,7 +550,7 @@ func TestDynamicProto_Input(t *testing.T) {
 		t.Fatalf("proto.Unmarshal() failed: %v", err)
 	}
 	files := (&fds).GetFile()
-	fileCopy := make([]interface{}, len(files))
+	fileCopy := make([]any, len(files))
 	for i := 0; i < len(files); i++ {
 		fileCopy[i] = files[i]
 	}
@@ -587,7 +587,7 @@ func TestDynamicProto_Input(t *testing.T) {
 	if err != nil {
 		t.Fatalf("env.Program() failed: %v", err)
 	}
-	out, _, err := prg.Eval(map[string]interface{}{
+	out, _, err := prg.Eval(map[string]any{
 		"mutant": wolverine,
 	})
 	if err != nil {
@@ -637,20 +637,20 @@ func TestGlobalVars(t *testing.T) {
 	// Add a previous globals map to confirm the order of shadowing and a final empty global
 	// map to show that globals are not clobbered.
 	prg, err := e.Program(ast,
-		Globals(map[string]interface{}{
+		Globals(map[string]any{
 			"default": "shadow me",
 		}),
-		Globals(map[string]interface{}{
+		Globals(map[string]any{
 			"default": "third",
 		}),
-		Globals(map[string]interface{}{}),
+		Globals(map[string]any{}),
 	)
 	if err != nil {
 		t.Fatalf("e.Program() failed: %v", err)
 	}
 
 	t.Run("bad_attrs", func(t *testing.T) {
-		out, _, err := prg.Eval(map[string]interface{}{
+		out, _, err := prg.Eval(map[string]any{
 			"attrs": []string{"one", "two"},
 		})
 		if err == nil {
@@ -659,8 +659,8 @@ func TestGlobalVars(t *testing.T) {
 	})
 
 	t.Run("global_default", func(t *testing.T) {
-		vars := map[string]interface{}{
-			"attrs": map[string]interface{}{},
+		vars := map[string]any{
+			"attrs": map[string]any{},
 		}
 		out, _, err := prg.Eval(vars)
 		if err != nil {
@@ -672,8 +672,8 @@ func TestGlobalVars(t *testing.T) {
 	})
 
 	t.Run("attrs_alt", func(t *testing.T) {
-		vars := map[string]interface{}{
-			"attrs": map[string]interface{}{"second": "yep"}}
+		vars := map[string]any{
+			"attrs": map[string]any{"second": "yep"}}
 		out, _, err := prg.Eval(vars)
 		if err != nil {
 			t.Fatalf("prg.Eval(vars) failed: %v", err)
@@ -684,8 +684,8 @@ func TestGlobalVars(t *testing.T) {
 	})
 
 	t.Run("local_default", func(t *testing.T) {
-		vars := map[string]interface{}{
-			"attrs":   map[string]interface{}{},
+		vars := map[string]any{
+			"attrs":   map[string]any{},
 			"default": "fourth"}
 		out, _, _ := prg.Eval(vars)
 		if out.Equal(types.String("fourth")) != types.True {
@@ -704,7 +704,7 @@ func TestMacroSubset(t *testing.T) {
 		t.Fatalf("NewEnv() failed: %v", err)
 	}
 	out, err := interpret(t, env, `has(name.first)`,
-		map[string]interface{}{
+		map[string]any{
 			"name": map[string]string{
 				"first": "Jim",
 			},
@@ -833,7 +833,7 @@ func TestCustomExistsMacro(t *testing.T) {
 	if err != nil {
 		t.Fatalf("env.Program(ast) failed: %v", err)
 	}
-	out, _, err := prg.Eval(map[string]interface{}{"attr": map[string]bool{"value": false}})
+	out, _, err := prg.Eval(map[string]any{"attr": map[string]bool{"value": false}})
 	if err != nil {
 		t.Errorf("prg.Eval() got %v, wanted non-error", err)
 	}
@@ -879,7 +879,7 @@ func TestEvalOptions(t *testing.T) {
 		t.Fatalf("program creation error: %s\n", err)
 	}
 	out, details, err := prg.Eval(
-		map[string]interface{}{
+		map[string]any{
 			"k": "key",
 			"v": true})
 	if err != nil {
@@ -929,7 +929,7 @@ func TestContextEval(t *testing.T) {
 	for i := int64(0); i < 1000; i++ {
 		items[i] = i
 	}
-	out, _, err := prg.ContextEval(ctx, map[string]interface{}{"items": items})
+	out, _, err := prg.ContextEval(ctx, map[string]any{"items": items})
 	if err != nil {
 		t.Fatalf("prg.ContextEval() failed: %v", err)
 	}
@@ -940,7 +940,7 @@ func TestContextEval(t *testing.T) {
 	evalCtx, cancel := context.WithTimeout(ctx, time.Microsecond)
 	defer cancel()
 
-	out, _, err = prg.ContextEval(evalCtx, map[string]interface{}{"items": items})
+	out, _, err = prg.ContextEval(evalCtx, map[string]any{"items": items})
 	if err == nil {
 		t.Errorf("Got result %v, wanted timeout error", out)
 	}
@@ -971,7 +971,7 @@ func BenchmarkContextEval(b *testing.B) {
 		items[i] = i
 	}
 	for i := 0; i < b.N; i++ {
-		out, _, err := prg.ContextEval(ctx, map[string]interface{}{"items": items})
+		out, _, err := prg.ContextEval(ctx, map[string]any{"items": items})
 		if err != nil {
 			b.Fatalf("prg.ContextEval() failed: %v", err)
 		}
@@ -1003,13 +1003,13 @@ func TestEvalRecover(t *testing.T) {
 	if err != nil {
 		t.Fatalf("e.Program(Ast) failed: %v", err)
 	}
-	_, _, err = prgm.Eval(map[string]interface{}{})
+	_, _, err = prgm.Eval(map[string]any{})
 	if err.Error() != "internal error: watch me recover" {
 		t.Errorf("got '%v', wanted 'internal error: watch me recover'", err)
 	}
 	// Test the factory-based evaluation.
 	prgm, _ = e.Program(pAst, EvalOptions(OptTrackState))
-	_, _, err = prgm.Eval(map[string]interface{}{})
+	_, _, err = prgm.Eval(map[string]any{})
 	if err.Error() != "internal error: watch me recover" {
 		t.Errorf("got '%v', wanted 'internal error: watch me recover'", err)
 	}
@@ -1052,7 +1052,7 @@ func TestResidualAstComplex(t *testing.T) {
 		Variable("request.auth.claims", MapType(StringType, StringType)),
 	)
 	unkVars, _ := PartialVars(
-		map[string]interface{}{
+		map[string]any{
 			"resource.name": "bucket/my-bucket/objects/private",
 			"request.auth.claims": map[string]string{
 				"email_verified": "true",
@@ -1096,7 +1096,7 @@ func BenchmarkEvalOptions(b *testing.B) {
 		Variable("ar", MapType(StringType, StringType)),
 	)
 	ast, _ := e.Compile("ai == 20 || ar['foo'] == 'bar'")
-	vars := map[string]interface{}{
+	vars := map[string]any{
 		"ai": 2,
 		"ar": map[string]string{
 			"foo": "bar",
@@ -1402,20 +1402,20 @@ func TestEstimateCostAndRuntimeCost(t *testing.T) {
 		decls []EnvOption
 		hints map[string]int64
 		want  checker.CostEstimate
-		in    interface{}
+		in    any
 	}{
 		{
 			name: "const",
 			expr: `"Hello World!"`,
 			want: zeroCost,
-			in:   map[string]interface{}{},
+			in:   map[string]any{},
 		},
 		{
 			name:  "identity",
 			expr:  `input`,
 			decls: []EnvOption{Variable("input", intList)},
 			want:  checker.CostEstimate{Min: 1, Max: 1},
-			in:    map[string]interface{}{"input": []int{1, 2}},
+			in:    map[string]any{"input": []int{1, 2}},
 		},
 		{
 			name: "str concat",
@@ -1426,7 +1426,7 @@ func TestEstimateCostAndRuntimeCost(t *testing.T) {
 			},
 			hints: map[string]int64{"str1": 10, "str2": 10},
 			want:  checker.CostEstimate{Min: 2, Max: 6},
-			in:    map[string]interface{}{"str1": "val1111111", "str2": "val2222222"},
+			in:    map[string]any{"str1": "val1111111", "str2": "val2222222"},
 		},
 	}
 
@@ -1463,7 +1463,7 @@ func TestEstimateCostAndRuntimeCost(t *testing.T) {
 			}
 			_, details, err := program.Eval(tc.in)
 			if err != nil {
-				t.Fatalf(`Program.Eval(vars interface{}) failed to evaluate expression: %v`, err)
+				t.Fatalf(`Program.Eval(vars any) failed to evaluate expression: %v`, err)
 			}
 			actualCost := details.ActualCost()
 			if actualCost == nil {
@@ -1488,8 +1488,8 @@ func TestResidualAst_AttributeQualifiers(t *testing.T) {
 	prg, _ := e.Program(ast,
 		EvalOptions(OptTrackState, OptPartialEval),
 	)
-	vars, _ := PartialVars(map[string]interface{}{
-		"x": map[string]interface{}{
+	vars, _ := PartialVars(map[string]any{
+		"x": map[string]any{
 			"zero":   0,
 			"abc":    123,
 			"string": "abc",
@@ -1527,7 +1527,7 @@ func TestResidualAst_Modified(t *testing.T) {
 		EvalOptions(OptTrackState, OptPartialEval),
 	)
 	for _, x := range []int{123, 456} {
-		vars, _ := PartialVars(map[string]interface{}{
+		vars, _ := PartialVars(map[string]any{
 			"x": x,
 		}, AttributePattern("y"))
 		out, det, err := prg.Eval(vars)
@@ -1691,7 +1691,7 @@ func TestDefaultUTCTimeZone(t *testing.T) {
 		&& x.getMinutes('23:15') == 20
 		&& x.getSeconds('23:15') == 6
 		&& x.getMilliseconds('23:15') == 1`,
-		map[string]interface{}{
+		map[string]any{
 			"x": time.Unix(7506, 1000000).Local(),
 		})
 	if err != nil {
@@ -1721,7 +1721,7 @@ func TestDefaultUTCTimeZoneExtension(t *testing.T) {
 		&& y.getMinutes() == 120
 		&& y.getSeconds() == 7235
 		&& y.getMilliseconds() == 7235000`,
-		map[string]interface{}{
+		map[string]any{
 			"x": time.Unix(7506, 1000000).Local(),
 			"y": time.Duration(7235) * time.Second,
 		},
@@ -1750,7 +1750,7 @@ func TestDefaultUTCTimeZoneError(t *testing.T) {
 		|| x.getMinutes('Am/Ph') == 5
 		|| x.getSeconds('Am/Ph') == 6
 		|| x.getMilliseconds('Am/Ph') == 1
-	`, map[string]interface{}{
+	`, map[string]any{
 		"x": time.Unix(7506, 1000000).Local(),
 	},
 	)
@@ -1815,7 +1815,7 @@ func TestDynamicDispatch(t *testing.T) {
 		&& dyn([1.0, 2.0]).first() == 1.0
 		&& dyn(["hello", "world"]).first() == "hello"
 		&& dyn([["hello"], ["world", "!"]]).first().first() == "hello"
-	`, map[string]interface{}{},
+	`, map[string]any{},
 	)
 	if err != nil {
 		t.Fatalf("prg.Eval() failed: %v", err)
@@ -1838,12 +1838,12 @@ func TestOptionalValues(t *testing.T) {
 	}
 	tests := []struct {
 		expr string
-		in   map[string]interface{}
-		out  interface{}
+		in   map[string]any
+		out  any
 	}{
 		{
 			expr: `x.or(y).orValue(z)`,
-			in: map[string]interface{}{
+			in: map[string]any{
 				"x": types.OptionalNone,
 				"y": types.OptionalNone,
 				"z": 42,
@@ -1852,7 +1852,7 @@ func TestOptionalValues(t *testing.T) {
 		},
 		{
 			expr: `optional.ofNonZeroValue(z).or(optional.of(10)).value() == 42`,
-			in: map[string]interface{}{
+			in: map[string]any{
 				"z": 42,
 			},
 			out: true,
@@ -1860,7 +1860,7 @@ func TestOptionalValues(t *testing.T) {
 		{
 			// In the future this can be expressed as: m.?x
 			expr: `(has(m.x) ? optional.of(m.x) : optional.none()).hasValue()`,
-			in: map[string]interface{}{
+			in: map[string]any{
 				"m": map[string]map[string]string{},
 			},
 			out: false,
@@ -1868,7 +1868,7 @@ func TestOptionalValues(t *testing.T) {
 		{
 			// return the value of m.c['dashed-index'], no magic in the optional.of() call.
 			expr: `optional.ofNonZeroValue('').or(optional.of(m.c['dashed-index'])).orValue('default value')`,
-			in: map[string]interface{}{
+			in: map[string]any{
 				"m": map[string]map[string]string{
 					"c": map[string]string{
 						"dashed-index": "goodbye",
@@ -1880,7 +1880,7 @@ func TestOptionalValues(t *testing.T) {
 		{
 			// ensure an error is propagated to the result.
 			expr: `optional.ofNonZeroValue(m.a.z).orValue(m.c['dashed-index'])`,
-			in: map[string]interface{}{
+			in: map[string]any{
 				"m": map[string]map[string]string{
 					"c": map[string]string{
 						"dashed-index": "goodbye",
@@ -1931,7 +1931,7 @@ func BenchmarkOptionalValues(b *testing.B) {
 	if err != nil {
 		b.Errorf("env.Program() failed: %v", err)
 	}
-	input := map[string]interface{}{
+	input := map[string]any{
 		"x": types.OptionalNone,
 		"y": types.OptionalNone,
 		"z": 42,
@@ -2034,7 +2034,7 @@ func compileOrError(t testing.TB, env *Env, expr string) (Program, error) {
 	return prg, nil
 }
 
-func interpret(t testing.TB, env *Env, expr string, vars interface{}) (ref.Val, error) {
+func interpret(t testing.TB, env *Env, expr string, vars any) (ref.Val, error) {
 	t.Helper()
 	prg, err := compileOrError(t, env, expr)
 	if err != nil {

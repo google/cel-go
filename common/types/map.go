@@ -32,7 +32,7 @@ import (
 )
 
 // NewDynamicMap returns a traits.Mapper value with dynamic key, value pairs.
-func NewDynamicMap(adapter ref.TypeAdapter, value interface{}) traits.Mapper {
+func NewDynamicMap(adapter ref.TypeAdapter, value any) traits.Mapper {
 	refValue := reflect.ValueOf(value)
 	return &baseMap{
 		TypeAdapter: adapter,
@@ -67,7 +67,7 @@ func NewRefValMap(adapter ref.TypeAdapter, value map[ref.Val]ref.Val) traits.Map
 }
 
 // NewStringInterfaceMap returns a specialized traits.Mapper with string keys and interface values.
-func NewStringInterfaceMap(adapter ref.TypeAdapter, value map[string]interface{}) traits.Mapper {
+func NewStringInterfaceMap(adapter ref.TypeAdapter, value map[string]any) traits.Mapper {
 	return &baseMap{
 		TypeAdapter: adapter,
 		mapAccessor: newStringIfaceMapAccessor(adapter, value),
@@ -127,7 +127,7 @@ type baseMap struct {
 	mapAccessor
 
 	// value is the native Go value upon which the map type operators.
-	value interface{}
+	value any
 
 	// size is the number of entries in the map.
 	size int
@@ -140,7 +140,7 @@ func (m *baseMap) Contains(index ref.Val) ref.Val {
 }
 
 // ConvertToNative implements the ref.Val interface method.
-func (m *baseMap) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
+func (m *baseMap) ConvertToNative(typeDesc reflect.Type) (any, error) {
 	// If the map is already assignable to the desired type return it, e.g. interfaces and
 	// maps with the same key value types.
 	if reflect.TypeOf(m.value).AssignableTo(typeDesc) {
@@ -312,7 +312,7 @@ func (m *baseMap) Type() ref.Type {
 }
 
 // Value implements the ref.Val interface method.
-func (m *baseMap) Value() interface{} {
+func (m *baseMap) Value() any {
 	return m.value
 }
 
@@ -524,7 +524,7 @@ func (a *stringMapAccessor) Iterator() traits.Iterator {
 	}
 }
 
-func newStringIfaceMapAccessor(adapter ref.TypeAdapter, mapVal map[string]interface{}) mapAccessor {
+func newStringIfaceMapAccessor(adapter ref.TypeAdapter, mapVal map[string]any) mapAccessor {
 	return &stringIfaceMapAccessor{
 		TypeAdapter: adapter,
 		mapVal:      mapVal,
@@ -533,7 +533,7 @@ func newStringIfaceMapAccessor(adapter ref.TypeAdapter, mapVal map[string]interf
 
 type stringIfaceMapAccessor struct {
 	ref.TypeAdapter
-	mapVal map[string]interface{}
+	mapVal map[string]any
 }
 
 // Find uses native map accesses to find the key, returning (value, true) if present.
@@ -582,7 +582,7 @@ func (m *protoMap) Contains(key ref.Val) ref.Val {
 // ConvertToNative implements the ref.Val interface method.
 //
 // Note, assignment to Golang struct types is not yet supported.
-func (m *protoMap) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
+func (m *protoMap) ConvertToNative(typeDesc reflect.Type) (any, error) {
 	// If the map is already assignable to the desired type return it, e.g. interfaces and
 	// maps with the same key value types.
 	switch typeDesc {
@@ -789,7 +789,7 @@ func (m *protoMap) Type() ref.Type {
 }
 
 // Value implements the ref.Val interface method.
-func (m *protoMap) Value() interface{} {
+func (m *protoMap) Value() any {
 	return m.value
 }
 

@@ -61,8 +61,8 @@ type testCase struct {
 	unchecked      bool
 	extraOpts      []InterpretableDecorator
 
-	in      map[string]interface{}
-	out     interface{}
+	in      map[string]any
+	out     any
 	err     string
 	progErr string
 }
@@ -181,7 +181,7 @@ var (
 					},
 				},
 			},
-			in: map[string]interface{}{
+			in: map[string]any{
 				"a": 1, "b": 2, "c": 3, "d": 4,
 			},
 		},
@@ -273,8 +273,8 @@ var (
 			env: []*exprpb.Decl{
 				decls.NewVar("headers", decls.NewMapType(decls.String, decls.String)),
 			},
-			in: map[string]interface{}{
-				"headers": map[string]interface{}{
+			in: map[string]any{
+				"headers": map[string]any{
 					"ip":    "10.0.1.2",
 					"path":  "/admin/edit",
 					"token": "admin",
@@ -297,7 +297,7 @@ var (
 				decls.NewVar("headers.path", decls.String),
 				decls.NewVar("headers.token", decls.String),
 			},
-			in: map[string]interface{}{
+			in: map[string]any{
 				"headers.ip":    "10.0.1.2",
 				"headers.path":  "/admin/edit",
 				"headers.token": "admin",
@@ -312,7 +312,7 @@ var (
 				decls.NewVar("b", decls.Double),
 				decls.NewVar("c", decls.NewListType(decls.String)),
 			},
-			in: map[string]interface{}{
+			in: map[string]any{
 				"a": true,
 				"b": 2.0,
 				"c": []string{"hello"},
@@ -326,7 +326,7 @@ var (
 				decls.NewVar("m", decls.NewListType(decls.Int)),
 				decls.NewVar("x", decls.Bool),
 			},
-			in: map[string]interface{}{
+			in: map[string]any{
 				"m": []int{-1},
 				"x": false,
 			},
@@ -341,7 +341,7 @@ var (
 				decls.NewVar("b", decls.Dyn),
 				decls.NewVar("x", decls.Bool),
 			},
-			in: map[string]interface{}{
+			in: map[string]any{
 				"m": []int{1},
 				"x": false,
 				"a": time.Millisecond,
@@ -358,7 +358,7 @@ var (
 				decls.NewVar("b", decls.Dyn),
 				decls.NewVar("x", decls.Bool),
 			},
-			in: map[string]interface{}{
+			in: map[string]any{
 				"m": []int{1},
 				"x": false,
 				"a": int32(1),
@@ -418,7 +418,7 @@ var (
 			env: []*exprpb.Decl{
 				decls.NewVar("x", decls.Dyn),
 			},
-			in: map[string]interface{}{"x": 6},
+			in: map[string]any{"x": 6},
 		},
 		{
 			name: "in_var_list_uint",
@@ -426,7 +426,7 @@ var (
 			env: []*exprpb.Decl{
 				decls.NewVar("x", decls.Dyn),
 			},
-			in: map[string]interface{}{"x": uint64(6)},
+			in: map[string]any{"x": uint64(6)},
 		},
 		{
 			name: "in_var_list_double",
@@ -434,7 +434,7 @@ var (
 			env: []*exprpb.Decl{
 				decls.NewVar("x", decls.Dyn),
 			},
-			in: map[string]interface{}{"x": 6.0},
+			in: map[string]any{"x": 6.0},
 		},
 		{
 			name: "in_var_list_double_double",
@@ -442,7 +442,7 @@ var (
 			env: []*exprpb.Decl{
 				decls.NewVar("x", decls.Int),
 			},
-			in: map[string]interface{}{"x": 6},
+			in: map[string]any{"x": 6},
 		},
 		{
 			name: "in_constant_map",
@@ -487,7 +487,7 @@ var (
 				decls.NewVar("x", decls.String),
 				decls.NewVar("y", decls.Int),
 			},
-			in: map[string]interface{}{
+			in: map[string]any{
 				"x": "other-key",
 				"y": 2,
 			},
@@ -500,7 +500,7 @@ var (
 				decls.NewVar("x", decls.String),
 				decls.NewVar("y", decls.Int),
 			},
-			in: map[string]interface{}{
+			in: map[string]any{
 				"x": "other-value",
 				"y": 2,
 			},
@@ -514,8 +514,8 @@ var (
 			env: []*exprpb.Decl{
 				decls.NewVar("m", decls.NewMapType(decls.String, decls.Dyn)),
 			},
-			in: map[string]interface{}{
-				"m": map[string]interface{}{
+			in: map[string]any{
+				"m": map[string]any{
 					"key":  []uint{21, 42},
 					"null": nil,
 					"0":    10,
@@ -532,7 +532,7 @@ var (
 				decls.NewVar("x", decls.Dyn),
 				decls.NewVar("y", decls.Dyn),
 			},
-			in: map[string]interface{}{
+			in: map[string]any{
 				"x": float32(1.0),
 				"y": uint(2),
 			},
@@ -544,7 +544,7 @@ var (
 				decls.NewVar("x", decls.Dyn),
 				decls.NewVar("y", decls.Dyn),
 			},
-			in: map[string]interface{}{
+			in: map[string]any{
 				"x": float32(2.0),
 				"y": uint(3),
 			},
@@ -556,7 +556,7 @@ var (
 			env: []*exprpb.Decl{
 				decls.NewVar("x", decls.Dyn),
 			},
-			in: map[string]interface{}{
+			in: map[string]any{
 				"x": 1.0,
 			},
 		},
@@ -574,7 +574,7 @@ var (
 			env: []*exprpb.Decl{
 				decls.NewVar("x", decls.Dyn),
 			},
-			in: map[string]interface{}{
+			in: map[string]any{
 				"x": time.Millisecond,
 			},
 			err: "invalid qualifier type",
@@ -621,7 +621,7 @@ var (
 			name: "literal_map",
 			expr: `{'hi': 21, 'world': 42u}`,
 			cost: []int64{0, 0},
-			out: map[string]interface{}{
+			out: map[string]any{
 				"hi":    21,
 				"world": uint(42),
 			},
@@ -754,7 +754,7 @@ var (
 				decls.NewVar("code", decls.String),
 				decls.NewVar("tags", decls.NewListType(decls.String)),
 			},
-			in: map[string]interface{}{
+			in: map[string]any{
 				"code": "222",
 				"tags": []string{"a", "b"},
 			},
@@ -775,8 +775,8 @@ var (
 			env: []*exprpb.Decl{
 				decls.NewVar("elems", decls.NewListType(decls.Dyn)),
 			},
-			in: map[string]interface{}{
-				"elems": []interface{}{0, 1, 2, 3, 4, uint(5), 6},
+			in: map[string]any{
+				"elems": []any{0, 1, 2, 3, 4, uint(5), 6},
 			},
 		},
 		{
@@ -801,7 +801,7 @@ var (
 			env: []*exprpb.Decl{
 				decls.NewVar("pb2", decls.NewObjectType("google.expr.proto2.test.TestAllTypes")),
 			},
-			in: map[string]interface{}{
+			in: map[string]any{
 				"pb2": &proto2pb.TestAllTypes{
 					RepeatedBool: []bool{false},
 					MapInt64NestedType: map[int64]*proto2pb.NestedTestAllTypes{
@@ -830,7 +830,7 @@ var (
 				decls.NewVar("pb3", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
 			container: "google.expr.proto3.test",
-			in: map[string]interface{}{
+			in: map[string]any{
 				"pb3": &proto3pb.TestAllTypes{
 					RepeatedBool: []bool{false},
 					MapInt64NestedType: map[int64]*proto3pb.NestedTestAllTypes{
@@ -866,7 +866,7 @@ var (
 			env: []*exprpb.Decl{
 				decls.NewVar("input", decls.String),
 			},
-			in: map[string]interface{}{
+			in: map[string]any{
 				"input": "kathmandu",
 			},
 		},
@@ -881,7 +881,7 @@ var (
 			env: []*exprpb.Decl{
 				decls.NewVar("input", decls.String),
 			},
-			in: map[string]interface{}{
+			in: map[string]any{
 				"input": "kathmandu",
 			},
 		},
@@ -891,7 +891,7 @@ var (
 			env: []*exprpb.Decl{
 				decls.NewVar("input", decls.String),
 			},
-			in: map[string]interface{}{
+			in: map[string]any{
 				"input": "kathmandu",
 			},
 			extraOpts: []InterpretableDecorator{CompileRegexConstants(MatchesRegexOptimization)},
@@ -909,7 +909,7 @@ var (
 				decls.NewVar("pb3",
 					decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
-			in: map[string]interface{}{
+			in: map[string]any{
 				"pb3": &proto3pb.TestAllTypes{
 					NestedType: &proto3pb.TestAllTypes_SingleNestedMessage{
 						SingleNestedMessage: &proto3pb.TestAllTypes_NestedMessage{
@@ -929,7 +929,7 @@ var (
 				decls.NewVar("pb3",
 					decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
-			in: map[string]interface{}{
+			in: map[string]any{
 				"pb3": &proto3pb.TestAllTypes{
 					MapInt64NestedType: map[int64]*proto3pb.NestedTestAllTypes{
 						0: {
@@ -952,7 +952,7 @@ var (
 				decls.NewVar("ai", decls.Int),
 				decls.NewVar("ar", decls.NewMapType(decls.String, decls.String)),
 			},
-			in: map[string]interface{}{
+			in: map[string]any{
 				"ai": 20,
 				"ar": map[string]string{
 					"foo": "bar",
@@ -968,7 +968,7 @@ var (
 				decls.NewVar("ai", decls.Int),
 				decls.NewVar("ar", decls.NewMapType(decls.String, decls.String)),
 			},
-			in: map[string]interface{}{
+			in: map[string]any{
 				"ai": 2,
 				"ar": map[string]string{
 					"foo": "bar",
@@ -984,7 +984,7 @@ var (
 				decls.NewVar("ai", decls.Int),
 				decls.NewVar("ar", decls.NewMapType(decls.String, decls.String)),
 			},
-			in: map[string]interface{}{
+			in: map[string]any{
 				"ai": 2,
 				"ar": map[string]string{
 					"foo": "baz",
@@ -1028,7 +1028,7 @@ var (
 			env: []*exprpb.Decl{
 				decls.NewVar("a.b.c.d", decls.Int),
 			},
-			in: map[string]interface{}{
+			in: map[string]any{
 				"a.b.c.d": 9,
 			},
 		},
@@ -1038,7 +1038,7 @@ var (
 			cost:      []int64{2, 2},
 			unchecked: true,
 			container: "a.b",
-			in: map[string]interface{}{
+			in: map[string]any{
 				"a.c.d": 9,
 			},
 		},
@@ -1048,7 +1048,7 @@ var (
 			cost:      []int64{2, 2},
 			unchecked: true,
 			container: "a.b",
-			in: map[string]interface{}{
+			in: map[string]any{
 				"a.b.c": map[string]int{
 					"d": 10,
 				},
@@ -1072,8 +1072,8 @@ var (
 			env: []*exprpb.Decl{
 				decls.NewVar("m", decls.NewMapType(decls.String, decls.Dyn)),
 			},
-			in: map[string]interface{}{
-				"m": map[string]interface{}{
+			in: map[string]any{
+				"m": map[string]any{
 					"strMap":    map[string]string{"val": "string"},
 					"floatMap":  map[string]float32{"val": 1.5},
 					"doubleMap": map[string]float64{"val": -2.0},
@@ -1105,8 +1105,8 @@ var (
 			env: []*exprpb.Decl{
 				decls.NewVar("m", decls.NewMapType(decls.String, decls.Dyn)),
 			},
-			in: map[string]interface{}{
-				"m": map[string]interface{}{
+			in: map[string]any{
+				"m": map[string]any{
 					"boolStr":     map[bool]string{true: "string"},
 					"boolFloat32": map[bool]float32{true: 1.5},
 					"boolFloat64": map[bool]float64{false: -2.1},
@@ -1117,7 +1117,7 @@ var (
 					"boolUint32":  map[bool]uint32{true: 6},
 					"boolUint64":  map[bool]uint64{false: 7},
 					"boolBool":    map[bool]bool{true: true},
-					"boolIface":   map[bool]interface{}{false: true},
+					"boolIface":   map[bool]any{false: true},
 				},
 			},
 		},
@@ -1132,11 +1132,11 @@ var (
 			env: []*exprpb.Decl{
 				decls.NewVar("m", decls.NewMapType(decls.String, decls.Dyn)),
 			},
-			in: map[string]interface{}{
-				"m": map[string]interface{}{
-					"uintIface":    map[uint]interface{}{1: "string"},
-					"uint32Iface":  map[uint32]interface{}{2: 1.5},
-					"uint64Iface":  map[uint64]interface{}{3: -2.1},
+			in: map[string]any{
+				"m": map[string]any{
+					"uintIface":    map[uint]any{1: "string"},
+					"uint32Iface":  map[uint32]any{2: 1.5},
+					"uint64Iface":  map[uint64]any{3: -2.1},
 					"uint64String": map[uint64]string{4: "three"},
 				},
 			},
@@ -1160,8 +1160,8 @@ var (
 			env: []*exprpb.Decl{
 				decls.NewVar("m", decls.NewMapType(decls.String, decls.Dyn)),
 			},
-			in: map[string]interface{}{
-				"m": map[string]interface{}{
+			in: map[string]any{
+				"m": map[string]any{
 					"strList":    []string{"string"},
 					"floatList":  []float32{1.5},
 					"doubleList": []float64{-2.0},
@@ -1172,7 +1172,7 @@ var (
 					"uint32List": []uint32{7},
 					"uint64List": []uint64{8},
 					"boolList":   []bool{true, false},
-					"ifaceList":  []interface{}{map[string]string{}},
+					"ifaceList":  []any{map[string]string{}},
 				},
 			},
 		},
@@ -1190,7 +1190,7 @@ var (
 				decls.NewVar("pb3", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 				decls.NewVar("json", decls.NewMapType(decls.String, decls.Dyn)),
 			},
-			in: map[string]interface{}{
+			in: map[string]any{
 				"a.b": map[string]bool{
 					"c": true,
 				},
@@ -1229,7 +1229,7 @@ var (
 			cost:           []int64{3, 26},
 			exhaustiveCost: []int64{26, 26},
 			types:          []proto.Message{&proto2pb.TestAllTypes{}},
-			in: map[string]interface{}{
+			in: map[string]any{
 				"a": &proto2pb.TestAllTypes{},
 			},
 			env: []*exprpb.Decl{
@@ -1250,7 +1250,7 @@ var (
 			env: []*exprpb.Decl{
 				decls.NewVar("a", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
-			in: map[string]interface{}{
+			in: map[string]any{
 				"a": &proto3pb.TestAllTypes{
 					SingleInt64Wrapper:  &wrapperspb.Int64Value{},
 					SingleStringWrapper: wrapperspb.String("hello"),
@@ -1266,7 +1266,7 @@ var (
 			env: []*exprpb.Decl{
 				decls.NewVar("a", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
-			in: map[string]interface{}{
+			in: map[string]any{
 				"a": &proto3pb.TestAllTypes{
 					SingleUint64: 10,
 				},
@@ -1290,7 +1290,7 @@ var (
 					types.NewEmptyRegistry(),
 				),
 			},
-			in: map[string]interface{}{
+			in: map[string]any{
 				"a": &proto3pb.TestAllTypes_NestedMessage{
 					Bb: 101,
 				},
@@ -1314,7 +1314,7 @@ var (
 						if !ok {
 							return types.MaybeNoSuchOverloadErr(val)
 						}
-						m := make(map[string]interface{})
+						m := make(map[string]any)
 						err := json.Unmarshal([]byte(str), &m)
 						if err != nil {
 							return types.NewErr("invalid json: %v", err)
@@ -1332,7 +1332,7 @@ var (
 				decls.NewVar("a.b.c", decls.Int),
 				decls.NewVar("a.b", decls.NewMapType(decls.String, decls.String)),
 			},
-			in: map[string]interface{}{
+			in: map[string]any{
 				"a.b.c": 10,
 				"a.b": map[string]string{
 					"c": "ten",
@@ -1552,7 +1552,7 @@ func TestInterpreter_ProtoAttributeOpt(t *testing.T) {
 			decls.NewVar("pb3",
 				decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 		},
-		in: map[string]interface{}{
+		in: map[string]any{
 			"pb3": &proto3pb.TestAllTypes{
 				MapInt64NestedType: map[int64]*proto3pb.NestedTestAllTypes{
 					0: {
@@ -1622,7 +1622,7 @@ func TestInterpreter_ExhaustiveConditionalExpr(t *testing.T) {
 	interpretable, _ := intr.NewUncheckedInterpretable(
 		parsed.GetExpr(),
 		ExhaustiveEval(), Observe(EvalStateObserver(state)))
-	vars, _ := NewActivation(map[string]interface{}{
+	vars, _ := NewActivation(map[string]any{
 		"a": types.True,
 		"b": types.Double(0.999),
 		"c": types.NewStringList(reg, []string{"hello"})})
@@ -1649,7 +1649,7 @@ func TestInterpreter_InterruptableEval(t *testing.T) {
 		env: []*exprpb.Decl{
 			decls.NewVar("items", decls.NewListType(decls.Int)),
 		},
-		in: map[string]interface{}{
+		in: map[string]any{
 			"items": items,
 		},
 		out: true,
@@ -1686,7 +1686,7 @@ type contextActivation struct {
 	interrupt      func() bool
 }
 
-func (ca *contextActivation) ResolveName(name string) (interface{}, bool) {
+func (ca *contextActivation) ResolveName(name string) (any, bool) {
 	if name == "#interrupted" {
 		ca.interruptCount++
 		return ca.interruptCount%100 == 0 && ca.interrupt(), true
@@ -1711,7 +1711,7 @@ func TestInterpreter_ExhaustiveLogicalOrEquals(t *testing.T) {
 	i, _ := interp.NewUncheckedInterpretable(
 		parsed.GetExpr(),
 		ExhaustiveEval(), Observe(EvalStateObserver(state)))
-	vars, _ := NewActivation(map[string]interface{}{
+	vars, _ := NewActivation(map[string]any{
 		"a": true,
 		"b": "b",
 	})
@@ -1774,7 +1774,7 @@ func TestInterpreter_SetProto2PrimitiveFields(t *testing.T) {
 		SingleString: &str,
 		SingleBool:   &truth,
 	}
-	vars, _ := NewActivation(map[string]interface{}{
+	vars, _ := NewActivation(map[string]any{
 		"input": reg.NativeToValue(input),
 	})
 	result := eval.Eval(vars)
@@ -1810,8 +1810,8 @@ func TestInterpreter_MissingIdentInSelect(t *testing.T) {
 	interp := NewStandardInterpreter(cont, reg, reg, attrs)
 	i, _ := interp.NewInterpretable(checked)
 	vars, _ := NewPartialActivation(
-		map[string]interface{}{
-			"a.b": map[string]interface{}{
+		map[string]any{
+			"a.b": map[string]any{
 				"d": "hello",
 			},
 		},
@@ -1904,7 +1904,7 @@ func testContainer(name string) *containers.Container {
 	return cont
 }
 
-func program(ctx interface{}, tst *testCase, opts ...InterpretableDecorator) (Interpretable, Activation, error) {
+func program(ctx any, tst *testCase, opts ...InterpretableDecorator) (Interpretable, Activation, error) {
 	// Configure the package.
 	cont := containers.DefaultContainer
 	if tst.container != "" {

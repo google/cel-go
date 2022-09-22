@@ -164,11 +164,11 @@ func TestBaseListEqual(t *testing.T) {
 	if listA.Equal(listB) != False {
 		t.Error("listA.Equal(listB) did not return false.")
 	}
-	listC := reg.NativeToValue([]interface{}{"h", "e", "l", "l", String("o")})
+	listC := reg.NativeToValue([]any{"h", "e", "l", "l", String("o")})
 	if listA.Equal(listC) != True {
 		t.Error("listA.Equal(listC) did not return true.")
 	}
-	listD := reg.NativeToValue([]interface{}{"h", "e", 1, "p", "!"})
+	listD := reg.NativeToValue([]any{"h", "e", 1, "p", "!"})
 	if listA.Equal(listD) != False {
 		t.Error("listA.Equal(listD) did not return true")
 	}
@@ -182,7 +182,7 @@ func TestBaseListGet(t *testing.T) {
 }
 
 func TestBaseListString(t *testing.T) {
-	l := DefaultTypeAdapter.NativeToValue([]interface{}{1, "hello", 2.1, true, []string{"world"}})
+	l := DefaultTypeAdapter.NativeToValue([]any{1, "hello", 2.1, true, []string{"world"}})
 	want := `[1, hello, 2.1, true, [world]]`
 	if fmt.Sprintf("%v", l) != want {
 		t.Errorf("l.String() got %v, wanted %v", l, want)
@@ -190,7 +190,7 @@ func TestBaseListString(t *testing.T) {
 }
 
 func TestConcatListString(t *testing.T) {
-	l := DefaultTypeAdapter.NativeToValue([]interface{}{1, "hello", 2.1, true}).(traits.Lister)
+	l := DefaultTypeAdapter.NativeToValue([]any{1, "hello", 2.1, true}).(traits.Lister)
 	c := l.Add(DefaultTypeAdapter.NativeToValue([]string{"world"}))
 	want := `[1, hello, 2.1, true, world]`
 	if fmt.Sprintf("%v", c) != want {
@@ -200,7 +200,7 @@ func TestConcatListString(t *testing.T) {
 
 func TestListIsZeroValue(t *testing.T) {
 	tests := []struct {
-		val         interface{}
+		val         any
 		isZeroValue bool
 	}{
 		{
@@ -212,7 +212,7 @@ func TestListIsZeroValue(t *testing.T) {
 			isZeroValue: true,
 		},
 		{
-			val:         []interface{}{},
+			val:         []any{},
 			isZeroValue: true,
 		},
 		{
@@ -236,7 +236,7 @@ func TestListIsZeroValue(t *testing.T) {
 			isZeroValue: false,
 		},
 		{
-			val:         []interface{}{0},
+			val:         []any{0},
 			isZeroValue: false,
 		},
 		{
@@ -282,9 +282,9 @@ func TestValueListValue_Iterator(t *testing.T) {
 func TestBaseListNestedList(t *testing.T) {
 	reg := newTestRegistry(t)
 	listUint32 := []uint32{1, 2}
-	nestedUint32 := NewDynamicList(reg, []interface{}{listUint32})
+	nestedUint32 := NewDynamicList(reg, []any{listUint32})
 	listUint64 := []uint64{1, 2}
-	nestedUint64 := NewDynamicList(reg, []interface{}{listUint64})
+	nestedUint64 := NewDynamicList(reg, []any{listUint64})
 	if nestedUint32.Equal(nestedUint64) != True {
 		t.Error("Could not find nested list")
 	}
@@ -297,7 +297,7 @@ func TestBaseListNestedList(t *testing.T) {
 func TestBaseListSize(t *testing.T) {
 	reg := newTestRegistry(t)
 	listUint32 := []uint32{1, 2}
-	nestedUint32 := NewDynamicList(reg, []interface{}{listUint32})
+	nestedUint32 := NewDynamicList(reg, []any{listUint32})
 	if nestedUint32.Size() != IntOne {
 		t.Error("List indicates the incorrect size.")
 	}
@@ -324,8 +324,8 @@ func TestConcatListAdd(t *testing.T) {
 	listA := NewDynamicList(reg, []float32{1.0, 2.0})
 	listB := NewStringList(reg, []string{"3"})
 	list := listA.Add(listB).(traits.Lister).Add(listA).
-		Value().([]interface{})
-	expected := []interface{}{
+		Value().([]any)
+	expected := []any{
 		float64(1.0),
 		float64(2.0),
 		string("3"),
@@ -368,13 +368,13 @@ func TestConcatListConvertToNative_Json(t *testing.T) {
 		t.Fatalf("protojson.Marshal(%v) failed: %v", jsonVal, err)
 	}
 	jsonTxt := string(jsonBytes)
-	outList := []interface{}{}
+	outList := []any{}
 	err = json.Unmarshal(jsonBytes, &outList)
 	if err != nil {
 		t.Fatalf("json.Unmarshal(%q) failed: %v", jsonTxt, err)
 	}
-	if !reflect.DeepEqual(outList, []interface{}{1.0, 2.0, "3"}) {
-		t.Errorf("got json '%v', expected %v", outList, []interface{}{1.0, 2.0, "3"})
+	if !reflect.DeepEqual(outList, []any{1.0, 2.0, "3"}) {
+		t.Errorf("got json '%v', expected %v", outList, []any{1.0, 2.0, "3"})
 	}
 	// Test proto3 to JSON conversion.
 	listC := NewDynamicList(reg, []*dpb.Duration{{Seconds: 100}})
@@ -388,13 +388,13 @@ func TestConcatListConvertToNative_Json(t *testing.T) {
 		t.Fatalf("protojson.Marshal(%v) failed: %v", jsonVal, err)
 	}
 	jsonTxt = string(jsonBytes)
-	outList = []interface{}{}
+	outList = []any{}
 	err = json.Unmarshal(jsonBytes, &outList)
 	if err != nil {
 		t.Fatalf("json.Unmarshal(%q) failed: %v", jsonTxt, err)
 	}
-	if !reflect.DeepEqual(outList, []interface{}{1.0, 2.0, "100s"}) {
-		t.Errorf("got json '%v', expected %v", outList, []interface{}{1.0, 2.0, "100s"})
+	if !reflect.DeepEqual(outList, []any{1.0, 2.0, "100s"}) {
+		t.Errorf("got json '%v', expected %v", outList, []any{1.0, 2.0, "100s"})
 	}
 }
 
@@ -403,11 +403,11 @@ func TestConcatListConvertToNativeListInterface(t *testing.T) {
 	listA := NewDynamicList(reg, []float32{1.0, 2.0})
 	listB := NewStringList(reg, []string{"3.0"})
 	list := listA.Add(listB)
-	iface, err := list.ConvertToNative(reflect.TypeOf([]interface{}{}))
+	iface, err := list.ConvertToNative(reflect.TypeOf([]any{}))
 	if err != nil {
 		t.Errorf("Got '%v', expected '%v'", err, list)
 	}
-	want := []interface{}{1.0, 2.0, "3.0"}
+	want := []any{1.0, 2.0, "3.0"}
 	if !reflect.DeepEqual(iface, want) {
 		t.Errorf("Got '%v', expected '%v'", iface, want)
 	}
@@ -463,18 +463,18 @@ func TestConcatListEqual(t *testing.T) {
 	listB := NewDynamicList(reg, []float64{3.0})
 	list := listA.Add(listB)
 	// Note the internal type of list raw and concat list are slightly different.
-	listRaw := NewDynamicList(reg, []interface{}{float32(1.0), float64(2.0), float64(3.0)})
+	listRaw := NewDynamicList(reg, []any{float32(1.0), float64(2.0), float64(3.0)})
 	if listRaw.Equal(list) != True || list.Equal(listRaw) != True {
 		t.Errorf("listRaw.Equal(list) not true, got '%v', expected '%v'", list.Value(), listRaw.Value())
 	}
 	if list.Equal(listA) == True || listRaw.Equal(listA) == True {
 		t.Error("lists of unequal length considered equal")
 	}
-	listC := reg.NativeToValue([]interface{}{1.0, 3.0, 2.0})
+	listC := reg.NativeToValue([]any{1.0, 3.0, 2.0})
 	if list.Equal(listC) != False {
 		t.Errorf("list.Equal(listC) got %v, wanted false", list.Equal(listC))
 	}
-	listD := reg.NativeToValue([]interface{}{1, 2.0, 3.0})
+	listD := reg.NativeToValue([]any{1, 2.0, 3.0})
 	if list.Equal(listD) != True {
 		t.Errorf("list.Equal(listD) got %v, wanted true", list.Equal(listD))
 	}
@@ -545,8 +545,8 @@ func TestStringListAdd_Heterogenous(t *testing.T) {
 	reg := newTestRegistry(t)
 	listA := NewStringList(reg, []string{"hello"})
 	listB := NewDynamicList(reg, []int32{1, 2, 3})
-	list := listA.Add(listB).(traits.Lister).Value().([]interface{})
-	expected := []interface{}{"hello", int64(1), int64(2), int64(3)}
+	list := listA.Add(listB).(traits.Lister).Value().([]any)
+	expected := []any{"hello", int64(1), int64(2), int64(3)}
 	if len(list) != len(expected) {
 		t.Errorf("Unexpected list size. Got '%d', expected 4", len(list))
 	}
@@ -588,13 +588,13 @@ func TestStringListConvertToNative(t *testing.T) {
 func TestStringListConvertToNative_ListInterface(t *testing.T) {
 	reg := newTestRegistry(t)
 	list := NewStringList(reg, []string{"h", "e", "l", "p"})
-	val, err := list.ConvertToNative(reflect.TypeOf([]interface{}{}))
+	val, err := list.ConvertToNative(reflect.TypeOf([]any{}))
 	if err != nil {
 		t.Error("Unable to convert string list to itself.")
 	}
-	want := []interface{}{"h", "e", "l", "p"}
-	if !reflect.DeepEqual(val.([]interface{}), want) {
-		for i, e := range val.([]interface{}) {
+	want := []any{"h", "e", "l", "p"}
+	if !reflect.DeepEqual(val.([]any), want) {
+		for i, e := range val.([]any) {
 			t.Logf("val[%d] %v(%T)", i, e, e)
 		}
 		for i, e := range want {
@@ -625,12 +625,12 @@ func TestStringListConvertToNative_Json(t *testing.T) {
 		t.Fatalf("protojson.Marshal(%v) failed: %v", jsonVal, err)
 	}
 	jsonTxt := string(jsonBytes)
-	outList := []interface{}{}
+	outList := []any{}
 	err = json.Unmarshal(jsonBytes, &outList)
 	if err != nil {
 		t.Fatalf("json.Unmarshal(%q) failed: %v", jsonTxt, err)
 	}
-	if !reflect.DeepEqual(outList, []interface{}{"h", "e", "l", "p"}) {
+	if !reflect.DeepEqual(outList, []any{"h", "e", "l", "p"}) {
 		t.Errorf("got json '%v', expected %v", jsonTxt, outList)
 	}
 
@@ -690,17 +690,17 @@ func TestValueListConvertToNative_Json(t *testing.T) {
 		t.Fatalf("protojson.Marshal(%v) failed: %v", jsonVal, err)
 	}
 	jsonTxt := string(jsonBytes)
-	outList := []interface{}{}
+	outList := []any{}
 	err = json.Unmarshal(jsonBytes, &outList)
 	if err != nil {
 		t.Fatalf("json.Unmarshal(%q) failed: %v", jsonTxt, err)
 	}
-	if !reflect.DeepEqual(outList, []interface{}{"hello", "world"}) {
+	if !reflect.DeepEqual(outList, []any{"hello", "world"}) {
 		t.Errorf("got json '%v', expected %v", jsonTxt, outList)
 	}
 }
 
-func getElem(t *testing.T, list traits.Indexer, index ref.Val) interface{} {
+func getElem(t *testing.T, list traits.Indexer, index ref.Val) any {
 	t.Helper()
 	val := list.Get(index)
 	if IsError(val) {

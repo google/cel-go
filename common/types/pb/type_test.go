@@ -159,7 +159,7 @@ func TestFieldDescriptionGetFrom(t *testing.T) {
 			},
 		},
 		SingleValue: structpb.NewStringValue("hello world"),
-		SingleStruct: jsonStruct(t, map[string]interface{}{
+		SingleStruct: jsonStruct(t, map[string]any{
 			"null": nil,
 		}),
 	}
@@ -172,7 +172,7 @@ func TestFieldDescriptionGetFrom(t *testing.T) {
 	if !found {
 		t.Fatalf("pbdb.DescribeType(%q) not found", msgName)
 	}
-	expected := map[string]interface{}{
+	expected := map[string]any{
 		"single_uint64":        uint64(12),
 		"single_duration":      time.Duration(1234),
 		"single_timestamp":     time.Unix(12345, 0).UTC(),
@@ -184,7 +184,7 @@ func TestFieldDescriptionGetFrom(t *testing.T) {
 		},
 		"standalone_enum": int64(1),
 		"single_value":    "hello world",
-		"single_struct": jsonStruct(t, map[string]interface{}{
+		"single_struct": jsonStruct(t, map[string]any{
 			"null": nil,
 		}),
 	}
@@ -224,7 +224,7 @@ func TestFieldDescriptionIsSet(t *testing.T) {
 	}
 
 	tests := []struct {
-		msg   interface{}
+		msg   any
 		field string
 		isSet bool
 	}{
@@ -284,7 +284,7 @@ func TestTypeDescriptionMaybeUnwrap(t *testing.T) {
 
 	tests := []struct {
 		in  proto.Message
-		out interface{}
+		out any
 	}{
 		{
 			in:  msgDesc.Zero(),
@@ -312,7 +312,7 @@ func TestTypeDescriptionMaybeUnwrap(t *testing.T) {
 		},
 		{
 			in:  dynMsg(t, &structpb.ListValue{}),
-			out: jsonList(t, []interface{}{}),
+			out: jsonList(t, []any{}),
 		},
 		{
 			in:  structpb.NewBoolValue(true),
@@ -339,12 +339,12 @@ func TestTypeDescriptionMaybeUnwrap(t *testing.T) {
 			out: "hello world",
 		},
 		{
-			in:  structpb.NewListValue(jsonList(t, []interface{}{true, 1.0})),
-			out: jsonList(t, []interface{}{true, 1.0}),
+			in:  structpb.NewListValue(jsonList(t, []any{true, 1.0})),
+			out: jsonList(t, []any{true, 1.0}),
 		},
 		{
-			in:  structpb.NewStructValue(jsonStruct(t, map[string]interface{}{"hello": "world"})),
-			out: jsonStruct(t, map[string]interface{}{"hello": "world"}),
+			in:  structpb.NewStructValue(jsonStruct(t, map[string]any{"hello": "world"})),
+			out: jsonStruct(t, map[string]any{"hello": "world"}),
 		},
 		{
 			in:  wrapperspb.Bool(false),
@@ -516,7 +516,7 @@ func anyMsg(t *testing.T, msg proto.Message) *anypb.Any {
 	return pb
 }
 
-func jsonList(t *testing.T, elems []interface{}) *structpb.ListValue {
+func jsonList(t *testing.T, elems []any) *structpb.ListValue {
 	t.Helper()
 	l, err := structpb.NewList(elems)
 	if err != nil {
@@ -525,7 +525,7 @@ func jsonList(t *testing.T, elems []interface{}) *structpb.ListValue {
 	return l
 }
 
-func jsonStruct(t *testing.T, entries map[string]interface{}) *structpb.Struct {
+func jsonStruct(t *testing.T, entries map[string]any) *structpb.Struct {
 	t.Helper()
 	s, err := structpb.NewStruct(entries)
 	if err != nil {

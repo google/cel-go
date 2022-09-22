@@ -40,7 +40,7 @@ func TestDurationOperators(t *testing.T) {
 	tests := []struct {
 		name string
 		op   func() ref.Val
-		out  interface{}
+		out  any
 	}{
 		// Addition tests.
 		{

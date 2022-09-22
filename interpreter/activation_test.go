@@ -23,7 +23,7 @@ import (
 )
 
 func TestActivation(t *testing.T) {
-	act, err := NewActivation(map[string]interface{}{"a": types.True})
+	act, err := NewActivation(map[string]any{"a": types.True})
 	if err != nil {
 		t.Fatalf("Got err: %v, wanted activation", err)
 	}
@@ -38,7 +38,7 @@ func TestActivation(t *testing.T) {
 }
 
 func TestActivation_Resolve(t *testing.T) {
-	activation, _ := NewActivation(map[string]interface{}{"a": types.True})
+	activation, _ := NewActivation(map[string]any{"a": types.True})
 	if val, found := activation.ResolveName("a"); !found || val != types.True {
 		t.Error("Activation failed to resolve 'a'")
 	}
@@ -52,7 +52,7 @@ func TestActivation_ResolveLazy(t *testing.T) {
 		}
 		return v
 	}
-	a, _ := NewActivation(map[string]interface{}{
+	a, _ := NewActivation(map[string]any{
 		"now": now,
 	})
 	first, _ := a.ResolveName("now")
@@ -65,12 +65,12 @@ func TestActivation_ResolveLazy(t *testing.T) {
 
 func TestHierarchicalActivation(t *testing.T) {
 	// compose a parent with more properties than the child
-	parent, _ := NewActivation(map[string]interface{}{
+	parent, _ := NewActivation(map[string]any{
 		"a": types.String("world"),
 		"b": types.Int(-42),
 	})
 	// compose the child such that it shadows the parent
-	child, _ := NewActivation(map[string]interface{}{
+	child, _ := NewActivation(map[string]any{
 		"a": types.True,
 		"c": types.String("universe"),
 	})

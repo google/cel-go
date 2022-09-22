@@ -39,9 +39,9 @@ func TestAttributesAbsoluteAttr(t *testing.T) {
 		t.Fatal(err)
 	}
 	attrs := NewAttributeFactory(cont, reg, reg)
-	vars, _ := NewActivation(map[string]interface{}{
-		"acme.a": map[string]interface{}{
-			"b": map[uint]interface{}{
+	vars, _ := NewActivation(map[string]any{
+		"acme.a": map[string]any{
+			"b": map[uint]any{
 				4: map[bool]string{
 					false: "success",
 				},
@@ -92,8 +92,8 @@ func TestAttributesAbsoluteAttr_Type(t *testing.T) {
 func TestAttributesRelativeAttr(t *testing.T) {
 	reg := newTestRegistry(t)
 	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
-	data := map[string]interface{}{
-		"a": map[int]interface{}{
+	data := map[string]any{
+		"a": map[int]any{
 			-1: []int32{2, 42},
 		},
 		"b": 1,
@@ -134,8 +134,8 @@ func TestAttributesRelativeAttr_OneOf(t *testing.T) {
 		t.Fatal(err)
 	}
 	attrs := NewAttributeFactory(cont, reg, reg)
-	data := map[string]interface{}{
-		"a": map[int]interface{}{
+	data := map[string]any{
+		"a": map[int]any{
 			-1: []int32{2, 42},
 		},
 		"acme.b": 1,
@@ -179,12 +179,12 @@ func TestAttributesRelativeAttr_OneOf(t *testing.T) {
 func TestAttributesRelativeAttr_Conditional(t *testing.T) {
 	reg := newTestRegistry(t)
 	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
-	data := map[string]interface{}{
-		"a": map[int]interface{}{
+	data := map[string]any{
+		"a": map[int]any{
 			-1: []int32{2, 42},
 		},
 		"b": []int{0, 1},
-		"c": []interface{}{1, 0},
+		"c": []any{1, 0},
 	}
 	vars, _ := NewActivation(data)
 
@@ -233,9 +233,9 @@ func TestAttributesRelativeAttr_Relative(t *testing.T) {
 	}
 	reg := newTestRegistry(t)
 	attrs := NewAttributeFactory(cont, reg, reg)
-	data := map[string]interface{}{
-		"a": map[int]interface{}{
-			-1: map[string]interface{}{
+	data := map[string]any{
+		"a": map[int]any{
+			-1: map[string]any{
 				"first":  uint(1),
 				"second": uint(2),
 				"third":  uint(3),
@@ -272,7 +272,7 @@ func TestAttributesRelativeAttr_Relative(t *testing.T) {
 	// This is equivalent to:
 	//   <obj>.a[-1]["second"] -> 2u
 	obj := NewConstValue(1, reg.NativeToValue(data))
-	mp := NewConstValue(1, reg.NativeToValue(map[uint32]interface{}{
+	mp := NewConstValue(1, reg.NativeToValue(map[uint32]any{
 		1: "first",
 		2: "second",
 		3: "third",
@@ -307,8 +307,8 @@ func TestAttributesOneofAttr(t *testing.T) {
 		t.Fatal(err)
 	}
 	attrs := NewAttributeFactory(cont, reg, reg)
-	data := map[string]interface{}{
-		"a": map[string]interface{}{
+	data := map[string]any{
+		"a": map[string]any{
 			"b": []int32{2, 42},
 		},
 		"acme.a.b":    1,
@@ -336,12 +336,12 @@ func TestAttributesOneofAttr(t *testing.T) {
 func TestAttributesConditionalAttr_TrueBranch(t *testing.T) {
 	reg := newTestRegistry(t)
 	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
-	data := map[string]interface{}{
-		"a": map[int]interface{}{
+	data := map[string]any{
+		"a": map[int]any{
 			-1: []int32{2, 42},
 		},
-		"b": map[string]interface{}{
-			"c": map[int32]interface{}{
+		"b": map[string]any{
+			"c": map[int32]any{
 				-1: []uint{2, 42},
 			},
 		},
@@ -374,12 +374,12 @@ func TestAttributesConditionalAttr_TrueBranch(t *testing.T) {
 func TestAttributesConditionalAttr_FalseBranch(t *testing.T) {
 	reg := newTestRegistry(t)
 	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
-	data := map[string]interface{}{
-		"a": map[int]interface{}{
+	data := map[string]any{
+		"a": map[int]any{
 			-1: []int32{2, 42},
 		},
-		"b": map[string]interface{}{
-			"c": map[int32]interface{}{
+		"b": map[string]any{
+			"c": map[int32]any{
 				-1: []uint{2, 42},
 			},
 		},
@@ -452,7 +452,7 @@ func BenchmarkResolverFieldQualifier(b *testing.B) {
 	}
 	reg := newBenchRegistry(b, msg)
 	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
-	vars, _ := NewActivation(map[string]interface{}{
+	vars, _ := NewActivation(map[string]any{
 		"msg": msg,
 	})
 	attr := attrs.AbsoluteAttribute(1, "msg")
@@ -483,7 +483,7 @@ func TestResolverCustomQualifier(t *testing.T) {
 	msg := &proto3pb.TestAllTypes_NestedMessage{
 		Bb: 123,
 	}
-	vars, _ := NewActivation(map[string]interface{}{
+	vars, _ := NewActivation(map[string]any{
 		"msg": msg,
 	})
 	attr := attrs.AbsoluteAttribute(1, "msg")
@@ -509,9 +509,9 @@ func TestResolverCustomQualifier(t *testing.T) {
 func TestAttributesMissingMsg(t *testing.T) {
 	reg := newTestRegistry(t)
 	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
-	any, _ := anypb.New(&proto3pb.TestAllTypes{})
-	vars, _ := NewActivation(map[string]interface{}{
-		"missing_msg": any,
+	anyPB, _ := anypb.New(&proto3pb.TestAllTypes{})
+	vars, _ := NewActivation(map[string]any{
+		"missing_msg": anyPB,
 	})
 
 	// missing_msg.field
@@ -530,9 +530,9 @@ func TestAttributesMissingMsg(t *testing.T) {
 func TestAttributeMissingMsg_UnknownField(t *testing.T) {
 	reg := newTestRegistry(t)
 	attrs := NewPartialAttributeFactory(containers.DefaultContainer, reg, reg)
-	any, _ := anypb.New(&proto3pb.TestAllTypes{})
-	vars, _ := NewPartialActivation(map[string]interface{}{
-		"missing_msg": any,
+	anyPB, _ := anypb.New(&proto3pb.TestAllTypes{})
+	vars, _ := NewPartialActivation(map[string]any{
+		"missing_msg": anyPB,
 	}, NewAttributePattern("missing_msg").QualString("field"))
 
 	// missing_msg.field
@@ -553,16 +553,16 @@ func TestAttributeStateTracking(t *testing.T) {
 	var tests = []struct {
 		expr  string
 		env   []*exprpb.Decl
-		in    map[string]interface{}
+		in    map[string]any
 		out   ref.Val
-		state map[int64]interface{}
+		state map[int64]any
 	}{
 		{
 			expr: `[{"field": true}][0].field`,
 			env:  []*exprpb.Decl{},
-			in:   map[string]interface{}{},
+			in:   map[string]any{},
 			out:  types.True,
-			state: map[int64]interface{}{
+			state: map[int64]any{
 				// overall expression
 				1: true,
 				// [{"field": true}][0]
@@ -578,15 +578,15 @@ func TestAttributeStateTracking(t *testing.T) {
 					decls.Int,
 					decls.NewMapType(decls.String, decls.Bool))),
 			},
-			in: map[string]interface{}{
-				"a": map[int64]interface{}{
+			in: map[string]any{
+				"a": map[int64]any{
 					1: map[string]bool{
 						"two": true,
 					},
 				},
 			},
 			out: types.True,
-			state: map[int64]interface{}{
+			state: map[int64]any{
 				// overall expression
 				1: true,
 				// a[1]
@@ -602,20 +602,20 @@ func TestAttributeStateTracking(t *testing.T) {
 					decls.Int,
 					decls.NewMapType(decls.Dyn, decls.Dyn))),
 			},
-			in: map[string]interface{}{
-				"a": map[int64]interface{}{
-					1: map[int64]interface{}{
+			in: map[string]any{
+				"a": map[int64]any{
+					1: map[int64]any{
 						1: 0,
 						2: []string{"index", "middex", "outdex", "dex"},
 					},
 				},
 			},
 			out: types.String("dex"),
-			state: map[int64]interface{}{
+			state: map[int64]any{
 				// overall expression
 				1: "dex",
 				// a[1]
-				2: map[int64]interface{}{
+				2: map[int64]any{
 					1: 0,
 					2: []string{"index", "middex", "outdex", "dex"},
 				},
@@ -632,20 +632,20 @@ func TestAttributeStateTracking(t *testing.T) {
 					decls.Int,
 					decls.NewMapType(decls.Dyn, decls.Dyn))),
 			},
-			in: map[string]interface{}{
-				"a": map[int64]interface{}{
-					1: map[int64]interface{}{
+			in: map[string]any{
+				"a": map[int64]any{
+					1: map[int64]any{
 						1: 0,
 						2: []string{"index", "middex", "outdex", "dex"},
 					},
 				},
 			},
 			out: types.String("index"),
-			state: map[int64]interface{}{
+			state: map[int64]any{
 				// overall expression
 				1: "index",
 				// a[1]
-				2: map[int64]interface{}{
+				2: map[int64]any{
 					1: 0,
 					2: []string{"index", "middex", "outdex", "dex"},
 				},
@@ -655,7 +655,7 @@ func TestAttributeStateTracking(t *testing.T) {
 				6: "index",
 				// dynamic index into a[1][2]
 				// a[1]
-				8: map[int64]interface{}{
+				8: map[int64]any{
 					1: 0,
 					2: []string{"index", "middex", "outdex", "dex"},
 				},
@@ -724,7 +724,7 @@ func BenchmarkResolverCustomQualifier(b *testing.B) {
 	msg := &proto3pb.TestAllTypes_NestedMessage{
 		Bb: 123,
 	}
-	vars, _ := NewActivation(map[string]interface{}{
+	vars, _ := NewActivation(map[string]any{
 		"msg": msg,
 	})
 	attr := attrs.AbsoluteAttribute(1, "msg")
@@ -744,7 +744,7 @@ type custAttrFactory struct {
 }
 
 func (r *custAttrFactory) NewQualifier(objType *exprpb.Type,
-	qualID int64, val interface{}) (Qualifier, error) {
+	qualID int64, val any) (Qualifier, error) {
 	if objType.GetMessageType() == "google.expr.proto3.test.TestAllTypes.NestedMessage" {
 		return &nestedMsgQualifier{id: qualID, field: val.(string)}, nil
 	}
@@ -760,7 +760,7 @@ func (q *nestedMsgQualifier) ID() int64 {
 	return q.id
 }
 
-func (q *nestedMsgQualifier) Qualify(vars Activation, obj interface{}) (interface{}, error) {
+func (q *nestedMsgQualifier) Qualify(vars Activation, obj any) (any, error) {
 	pb := obj.(*proto3pb.TestAllTypes_NestedMessage)
 	return pb.GetBb(), nil
 }
@@ -770,7 +770,7 @@ func (q *nestedMsgQualifier) Cost() (min, max int64) {
 	return 0, 0
 }
 
-func makeQualifier(b *testing.B, attrs AttributeFactory, typ *exprpb.Type, qualID int64, val interface{}) Qualifier {
+func makeQualifier(b *testing.B, attrs AttributeFactory, typ *exprpb.Type, qualID int64, val any) Qualifier {
 	b.Helper()
 	qual, err := attrs.NewQualifier(typ, qualID, val)
 	if err != nil {

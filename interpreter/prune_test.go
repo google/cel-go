@@ -24,14 +24,14 @@ import (
 )
 
 type testInfo struct {
-	in   interface{}
+	in   any
 	expr string
 	out  string
 }
 
 var testCases = []testInfo{
 	{
-		in: map[string]interface{}{
+		in: map[string]any{
 			"msg": map[string]string{"foo": "bar"},
 		},
 		expr: `msg`,
@@ -161,11 +161,11 @@ func unknownActivation(vars ...string) PartialActivation {
 	for i, v := range vars {
 		pats[i] = NewAttributePattern(v)
 	}
-	a, _ := NewPartialActivation(map[string]interface{}{}, pats...)
+	a, _ := NewPartialActivation(map[string]any{}, pats...)
 	return a
 }
 
-func testActivation(t *testing.T, in interface{}) Activation {
+func testActivation(t *testing.T, in any) Activation {
 	t.Helper()
 	if in == nil {
 		return EmptyActivation()

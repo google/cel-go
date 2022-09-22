@@ -222,7 +222,7 @@ func exercise5() {
 	program, _ := env.Program(ast)
 	out, _, _ := eval(
 		program,
-		map[string]interface{}{
+		map[string]any{
 			"now": time.Now(),
 		},
 	)
@@ -273,8 +273,8 @@ func exercise6() {
 	// Construct the message. The result is a ref.Val that returns a dynamic proto message.
 	out, _, _ := eval(
 		program,
-		map[string]interface{}{
-			"jwt": map[string]interface{}{
+		map[string]any{
+			"jwt": map[string]any{
 				"sub": "serviceAccount:delegate@acme.co",
 				"aud": "my-project",
 				"iss": "auth.acme.com:12350",
@@ -319,8 +319,8 @@ func exercise7() {
 	// Evaluate a complex-ish JWT with two groups that satisfy the criteria.
 	// Output: true.
 	eval(program,
-		map[string]interface{}{
-			"jwt": map[string]interface{}{
+		map[string]any{
+			"jwt": map[string]any{
 				"sub": "serviceAccount:delegate@acme.co",
 				"aud": "my-project",
 				"iss": "auth.acme.com:12350",
@@ -351,7 +351,7 @@ func exercise8() {
 		`x in [1, 2, 3, 4, 5] && type(y) == uint`,
 		cel.BoolType)
 	// Turn on optimization.
-	trueVars := map[string]interface{}{"x": int64(4), "y": uint64(2)}
+	trueVars := map[string]any{"x": int64(4), "y": uint64(2)}
 	program, _ := env.Program(ast, cel.EvalOptions(cel.OptOptimize))
 	// Try benchmarking this evaluation with the optimization flag on and off.
 	eval(program, trueVars)
@@ -359,13 +359,13 @@ func exercise8() {
 	// Turn on exhaustive eval to see what the evaluation state looks like.
 	// The input is structure to show a false on the first branch, and true
 	// on the second.
-	falseVars := map[string]interface{}{"x": int64(6), "y": uint64(2)}
+	falseVars := map[string]any{"x": int64(6), "y": uint64(2)}
 	program, _ = env.Program(ast, cel.EvalOptions(cel.OptExhaustiveEval))
 	eval(program, falseVars)
 
 	// Turn on optimization and state tracking to see the typical eval
 	// behavior, but with partial input.
-	xVar := map[string]interface{}{"x": int64(3)}
+	xVar := map[string]any{"x": int64(3)}
 	partialVars, _ := cel.PartialVars(xVar, cel.AttributePattern("y"))
 	program, _ = env.Program(ast,
 		cel.EvalOptions(cel.OptPartialEval, cel.OptOptimize, cel.OptTrackState))
@@ -402,8 +402,8 @@ func compile(env *cel.Env, expr string, celType *cel.Type) *cel.Ast {
 // and return the output, eval details (optional), or error that results from
 // evaluation.
 func eval(prg cel.Program,
-	vars interface{}) (out ref.Val, det *cel.EvalDetails, err error) {
-	varMap, isMap := vars.(map[string]interface{})
+	vars any) (out ref.Val, det *cel.EvalDetails, err error) {
+	varMap, isMap := vars.(map[string]any)
 	fmt.Println("------ input ------")
 	if !isMap {
 		fmt.Printf("(%T)\n", vars)
@@ -416,7 +416,7 @@ func eval(prg cel.Program,
 					glog.Exitf("failed to marshal proto to text: %v", val)
 				}
 				fmt.Printf("%s = %s", k, string(bytes))
-			case map[string]interface{}:
+			case map[string]any:
 				b, _ := json.MarshalIndent(v, "", "  ")
 				fmt.Printf("%s = %v\n", k, string(b))
 			case uint64:
@@ -502,12 +502,12 @@ func auth(user string, claims map[string]string) *rpcpb.AttributeContext_Auth {
 }
 
 // request constructs a `google.rpc.context.AttributeContext.Request` message.
-func request(auth *rpcpb.AttributeContext_Auth, t time.Time) map[string]interface{} {
+func request(auth *rpcpb.AttributeContext_Auth, t time.Time) map[string]any {
 	req := &rpcpb.AttributeContext_Request{
 		Auth: auth,
 		Time: &tpb.Timestamp{Seconds: t.Unix()},
 	}
-	return map[string]interface{}{"request": req}
+	return map[string]any{"request": req}
 }
 
 // valueToJSON converts the CEL type to a protobuf JSON representation and

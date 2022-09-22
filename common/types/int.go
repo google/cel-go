@@ -89,7 +89,7 @@ func (i Int) Compare(other ref.Val) ref.Val {
 }
 
 // ConvertToNative implements ref.Val.ConvertToNative.
-func (i Int) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
+func (i Int) ConvertToNative(typeDesc reflect.Type) (any, error) {
 	switch typeDesc.Kind() {
 	case reflect.Int, reflect.Int32:
 		// Enums are also mapped as int32 derivations.
@@ -285,7 +285,7 @@ func (i Int) Type() ref.Type {
 }
 
 // Value implements ref.Val.Value.
-func (i Int) Value() interface{} {
+func (i Int) Value() any {
 	return int64(i)
 }
 

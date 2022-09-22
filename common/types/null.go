@@ -37,7 +37,7 @@ var (
 )
 
 // ConvertToNative implements ref.Val.ConvertToNative.
-func (n Null) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
+func (n Null) ConvertToNative(typeDesc reflect.Type) (any, error) {
 	switch typeDesc.Kind() {
 	case reflect.Int32:
 		return reflect.ValueOf(n).Convert(typeDesc).Interface(), nil
@@ -96,6 +96,6 @@ func (n Null) Type() ref.Type {
 }
 
 // Value implements ref.Val.Value.
-func (n Null) Value() interface{} {
+func (n Null) Value() any {
 	return structpb.NullValue_NULL_VALUE
 }

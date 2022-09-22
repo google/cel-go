@@ -53,7 +53,7 @@ func NewObject(adapter ref.TypeAdapter,
 		typeValue:   typeValue}
 }
 
-func (o *protoObj) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
+func (o *protoObj) ConvertToNative(typeDesc reflect.Type) (any, error) {
 	srcPB := o.value
 	if reflect.TypeOf(srcPB).AssignableTo(typeDesc) {
 		return srcPB, nil
@@ -160,6 +160,6 @@ func (o *protoObj) Type() ref.Type {
 	return o.typeValue
 }
 
-func (o *protoObj) Value() interface{} {
+func (o *protoObj) Value() any {
 	return o.value
 }

@@ -35,7 +35,7 @@ func ExampleSimple() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	out, _, err := prg.Eval(map[string]interface{}{
+	out, _, err := prg.Eval(map[string]any{
 		"name": "CEL",
 	})
 	if err != nil {

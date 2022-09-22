@@ -72,7 +72,7 @@ func (s String) Compare(other ref.Val) ref.Val {
 }
 
 // ConvertToNative implements ref.Val.ConvertToNative.
-func (s String) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
+func (s String) ConvertToNative(typeDesc reflect.Type) (any, error) {
 	switch typeDesc.Kind() {
 	case reflect.String:
 		if reflect.TypeOf(s).AssignableTo(typeDesc) {
@@ -194,7 +194,7 @@ func (s String) Type() ref.Type {
 }
 
 // Value implements ref.Val.Value.
-func (s String) Value() interface{} {
+func (s String) Value() any {
 	return string(s)
 }
 
