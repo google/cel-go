@@ -721,6 +721,92 @@ func (x *NestedTestAllTypes) GetPayload() *TestAllTypes {
 	return nil
 }
 
+type ExampleType struct {
+	state           protoimpl.MessageState
+	sizeCache       protoimpl.SizeCache
+	unknownFields   protoimpl.UnknownFields
+	extensionFields protoimpl.ExtensionFields
+
+	Name *string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+}
+
+func (x *ExampleType) Reset() {
+	*x = ExampleType{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_test_proto2pb_test_all_types_proto_msgTypes[2]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ExampleType) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExampleType) ProtoMessage() {}
+
+func (x *ExampleType) ProtoReflect() protoreflect.Message {
+	mi := &file_test_proto2pb_test_all_types_proto_msgTypes[2]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExampleType.ProtoReflect.Descriptor instead.
+func (*ExampleType) Descriptor() ([]byte, []int) {
+	return file_test_proto2pb_test_all_types_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *ExampleType) GetName() string {
+	if x != nil && x.Name != nil {
+		return *x.Name
+	}
+	return ""
+}
+
+type ExtendedExampleType struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+}
+
+func (x *ExtendedExampleType) Reset() {
+	*x = ExtendedExampleType{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_test_proto2pb_test_all_types_proto_msgTypes[3]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ExtendedExampleType) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExtendedExampleType) ProtoMessage() {}
+
+func (x *ExtendedExampleType) ProtoReflect() protoreflect.Message {
+	mi := &file_test_proto2pb_test_all_types_proto_msgTypes[3]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExtendedExampleType.ProtoReflect.Descriptor instead.
+func (*ExtendedExampleType) Descriptor() ([]byte, []int) {
+	return file_test_proto2pb_test_all_types_proto_rawDescGZIP(), []int{3}
+}
+
 type TestAllTypes_NestedMessage struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -732,7 +818,7 @@ type TestAllTypes_NestedMessage struct {
 func (x *TestAllTypes_NestedMessage) Reset() {
 	*x = TestAllTypes_NestedMessage{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_test_proto2pb_test_all_types_proto_msgTypes[2]
+		mi := &file_test_proto2pb_test_all_types_proto_msgTypes[4]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -745,7 +831,7 @@ func (x *TestAllTypes_NestedMessage) String() string {
 func (*TestAllTypes_NestedMessage) ProtoMessage() {}
 
 func (x *TestAllTypes_NestedMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_test_proto2pb_test_all_types_proto_msgTypes[2]
+	mi := &file_test_proto2pb_test_all_types_proto_msgTypes[4]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -780,7 +866,7 @@ type TestAllTypes_NestedGroup struct {
 func (x *TestAllTypes_NestedGroup) Reset() {
 	*x = TestAllTypes_NestedGroup{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_test_proto2pb_test_all_types_proto_msgTypes[3]
+		mi := &file_test_proto2pb_test_all_types_proto_msgTypes[5]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -793,7 +879,7 @@ func (x *TestAllTypes_NestedGroup) String() string {
 func (*TestAllTypes_NestedGroup) ProtoMessage() {}
 
 func (x *TestAllTypes_NestedGroup) ProtoReflect() protoreflect.Message {
-	mi := &file_test_proto2pb_test_all_types_proto_msgTypes[3]
+	mi := &file_test_proto2pb_test_all_types_proto_msgTypes[5]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -822,6 +908,63 @@ func (x *TestAllTypes_NestedGroup) GetNestedName() string {
 	}
 	return ""
 }
+
+var file_test_proto2pb_test_all_types_proto_extTypes = []protoimpl.ExtensionInfo{
+	{
+		ExtendedType:  (*ExampleType)(nil),
+		ExtensionType: (*ExampleType)(nil),
+		Field:         100,
+		Name:          "google.expr.proto2.test.nested_example",
+		Tag:           "bytes,100,opt,name=nested_example",
+		Filename:      "test/proto2pb/test_all_types.proto",
+	},
+	{
+		ExtendedType:  (*ExampleType)(nil),
+		ExtensionType: (*int32)(nil),
+		Field:         101,
+		Name:          "google.expr.proto2.test.int32_ext",
+		Tag:           "varint,101,opt,name=int32_ext",
+		Filename:      "test/proto2pb/test_all_types.proto",
+	},
+	{
+		ExtendedType:  (*ExampleType)(nil),
+		ExtensionType: (*wrapperspb.Int32Value)(nil),
+		Field:         102,
+		Name:          "google.expr.proto2.test.int32_wrapper_ext",
+		Tag:           "bytes,102,opt,name=int32_wrapper_ext",
+		Filename:      "test/proto2pb/test_all_types.proto",
+	},
+	{
+		ExtendedType:  (*ExampleType)(nil),
+		ExtensionType: ([]string)(nil),
+		Field:         103,
+		Name:          "google.expr.proto2.test.ExtendedExampleType.extended_examples",
+		Tag:           "bytes,103,rep,name=extended_examples",
+		Filename:      "test/proto2pb/test_all_types.proto",
+	},
+	{
+		ExtendedType:  (*ExampleType)(nil),
+		ExtensionType: (*GlobalEnum)(nil),
+		Field:         104,
+		Name:          "google.expr.proto2.test.ExtendedExampleType.enum_ext",
+		Tag:           "varint,104,opt,name=enum_ext,enum=google.expr.proto2.test.GlobalEnum",
+		Filename:      "test/proto2pb/test_all_types.proto",
+	},
+}
+
+// Extension fields to ExampleType.
+var (
+	// optional google.expr.proto2.test.ExampleType nested_example = 100;
+	E_NestedExample = &file_test_proto2pb_test_all_types_proto_extTypes[0]
+	// optional int32 int32_ext = 101;
+	E_Int32Ext = &file_test_proto2pb_test_all_types_proto_extTypes[1]
+	// optional google.protobuf.Int32Value int32_wrapper_ext = 102;
+	E_Int32WrapperExt = &file_test_proto2pb_test_all_types_proto_extTypes[2]
+	// repeated string extended_examples = 103;
+	E_ExtendedExampleType_ExtendedExamples = &file_test_proto2pb_test_all_types_proto_extTypes[3]
+	// optional google.expr.proto2.test.GlobalEnum enum_ext = 104;
+	E_ExtendedExampleType_EnumExt = &file_test_proto2pb_test_all_types_proto_extTypes[4]
+)
 
 var File_test_proto2pb_test_all_types_proto protoreflect.FileDescriptor
 
@@ -1076,9 +1219,43 @@ var file_test_proto2pb_test_all_types_proto_rawDesc = []byte{
 	0x20, 0x01, 0x28, 0x0b, 0x32, 0x25, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x65, 0x78,
 	0x70, 0x72, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x32, 0x2e, 0x74, 0x65, 0x73, 0x74, 0x2e, 0x54,
 	0x65, 0x73, 0x74, 0x41, 0x6c, 0x6c, 0x54, 0x79, 0x70, 0x65, 0x73, 0x52, 0x07, 0x70, 0x61, 0x79,
-	0x6c, 0x6f, 0x61, 0x64, 0x2a, 0x27, 0x0a, 0x0a, 0x47, 0x6c, 0x6f, 0x62, 0x61, 0x6c, 0x45, 0x6e,
-	0x75, 0x6d, 0x12, 0x07, 0x0a, 0x03, 0x47, 0x4f, 0x4f, 0x10, 0x00, 0x12, 0x07, 0x0a, 0x03, 0x47,
-	0x41, 0x52, 0x10, 0x01, 0x12, 0x07, 0x0a, 0x03, 0x47, 0x41, 0x5a, 0x10, 0x02,
+	0x6c, 0x6f, 0x61, 0x64, 0x22, 0x2b, 0x0a, 0x0b, 0x45, 0x78, 0x61, 0x6d, 0x70, 0x6c, 0x65, 0x54,
+	0x79, 0x70, 0x65, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28,
+	0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x2a, 0x08, 0x08, 0x64, 0x10, 0x80, 0x80, 0x80, 0x80,
+	0x02, 0x22, 0xce, 0x01, 0x0a, 0x13, 0x45, 0x78, 0x74, 0x65, 0x6e, 0x64, 0x65, 0x64, 0x45, 0x78,
+	0x61, 0x6d, 0x70, 0x6c, 0x65, 0x54, 0x79, 0x70, 0x65, 0x32, 0x51, 0x0a, 0x11, 0x65, 0x78, 0x74,
+	0x65, 0x6e, 0x64, 0x65, 0x64, 0x5f, 0x65, 0x78, 0x61, 0x6d, 0x70, 0x6c, 0x65, 0x73, 0x12, 0x24,
+	0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x65, 0x78, 0x70, 0x72, 0x2e, 0x70, 0x72, 0x6f,
+	0x74, 0x6f, 0x32, 0x2e, 0x74, 0x65, 0x73, 0x74, 0x2e, 0x45, 0x78, 0x61, 0x6d, 0x70, 0x6c, 0x65,
+	0x54, 0x79, 0x70, 0x65, 0x18, 0x67, 0x20, 0x03, 0x28, 0x09, 0x52, 0x10, 0x65, 0x78, 0x74, 0x65,
+	0x6e, 0x64, 0x65, 0x64, 0x45, 0x78, 0x61, 0x6d, 0x70, 0x6c, 0x65, 0x73, 0x32, 0x64, 0x0a, 0x08,
+	0x65, 0x6e, 0x75, 0x6d, 0x5f, 0x65, 0x78, 0x74, 0x12, 0x24, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c,
+	0x65, 0x2e, 0x65, 0x78, 0x70, 0x72, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x32, 0x2e, 0x74, 0x65,
+	0x73, 0x74, 0x2e, 0x45, 0x78, 0x61, 0x6d, 0x70, 0x6c, 0x65, 0x54, 0x79, 0x70, 0x65, 0x18, 0x68,
+	0x20, 0x01, 0x28, 0x0e, 0x32, 0x23, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x65, 0x78,
+	0x70, 0x72, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x32, 0x2e, 0x74, 0x65, 0x73, 0x74, 0x2e, 0x47,
+	0x6c, 0x6f, 0x62, 0x61, 0x6c, 0x45, 0x6e, 0x75, 0x6d, 0x52, 0x07, 0x65, 0x6e, 0x75, 0x6d, 0x45,
+	0x78, 0x74, 0x2a, 0x27, 0x0a, 0x0a, 0x47, 0x6c, 0x6f, 0x62, 0x61, 0x6c, 0x45, 0x6e, 0x75, 0x6d,
+	0x12, 0x07, 0x0a, 0x03, 0x47, 0x4f, 0x4f, 0x10, 0x00, 0x12, 0x07, 0x0a, 0x03, 0x47, 0x41, 0x52,
+	0x10, 0x01, 0x12, 0x07, 0x0a, 0x03, 0x47, 0x41, 0x5a, 0x10, 0x02, 0x3a, 0x71, 0x0a, 0x0e, 0x6e,
+	0x65, 0x73, 0x74, 0x65, 0x64, 0x5f, 0x65, 0x78, 0x61, 0x6d, 0x70, 0x6c, 0x65, 0x12, 0x24, 0x2e,
+	0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x65, 0x78, 0x70, 0x72, 0x2e, 0x70, 0x72, 0x6f, 0x74,
+	0x6f, 0x32, 0x2e, 0x74, 0x65, 0x73, 0x74, 0x2e, 0x45, 0x78, 0x61, 0x6d, 0x70, 0x6c, 0x65, 0x54,
+	0x79, 0x70, 0x65, 0x18, 0x64, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x24, 0x2e, 0x67, 0x6f, 0x6f, 0x67,
+	0x6c, 0x65, 0x2e, 0x65, 0x78, 0x70, 0x72, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x32, 0x2e, 0x74,
+	0x65, 0x73, 0x74, 0x2e, 0x45, 0x78, 0x61, 0x6d, 0x70, 0x6c, 0x65, 0x54, 0x79, 0x70, 0x65, 0x52,
+	0x0d, 0x6e, 0x65, 0x73, 0x74, 0x65, 0x64, 0x45, 0x78, 0x61, 0x6d, 0x70, 0x6c, 0x65, 0x3a, 0x41,
+	0x0a, 0x09, 0x69, 0x6e, 0x74, 0x33, 0x32, 0x5f, 0x65, 0x78, 0x74, 0x12, 0x24, 0x2e, 0x67, 0x6f,
+	0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x65, 0x78, 0x70, 0x72, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x32,
+	0x2e, 0x74, 0x65, 0x73, 0x74, 0x2e, 0x45, 0x78, 0x61, 0x6d, 0x70, 0x6c, 0x65, 0x54, 0x79, 0x70,
+	0x65, 0x18, 0x65, 0x20, 0x01, 0x28, 0x05, 0x52, 0x08, 0x69, 0x6e, 0x74, 0x33, 0x32, 0x45, 0x78,
+	0x74, 0x3a, 0x6d, 0x0a, 0x11, 0x69, 0x6e, 0x74, 0x33, 0x32, 0x5f, 0x77, 0x72, 0x61, 0x70, 0x70,
+	0x65, 0x72, 0x5f, 0x65, 0x78, 0x74, 0x12, 0x24, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e,
+	0x65, 0x78, 0x70, 0x72, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x32, 0x2e, 0x74, 0x65, 0x73, 0x74,
+	0x2e, 0x45, 0x78, 0x61, 0x6d, 0x70, 0x6c, 0x65, 0x54, 0x79, 0x70, 0x65, 0x18, 0x66, 0x20, 0x01,
+	0x28, 0x0b, 0x32, 0x1b, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74,
+	0x6f, 0x62, 0x75, 0x66, 0x2e, 0x49, 0x6e, 0x74, 0x33, 0x32, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x52,
+	0x0f, 0x69, 0x6e, 0x74, 0x33, 0x32, 0x57, 0x72, 0x61, 0x70, 0x70, 0x65, 0x72, 0x45, 0x78, 0x74,
 }
 
 var (
@@ -1094,62 +1271,72 @@ func file_test_proto2pb_test_all_types_proto_rawDescGZIP() []byte {
 }
 
 var file_test_proto2pb_test_all_types_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_test_proto2pb_test_all_types_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_test_proto2pb_test_all_types_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_test_proto2pb_test_all_types_proto_goTypes = []interface{}{
 	(GlobalEnum)(0),                    // 0: google.expr.proto2.test.GlobalEnum
 	(TestAllTypes_NestedEnum)(0),       // 1: google.expr.proto2.test.TestAllTypes.NestedEnum
 	(*TestAllTypes)(nil),               // 2: google.expr.proto2.test.TestAllTypes
 	(*NestedTestAllTypes)(nil),         // 3: google.expr.proto2.test.NestedTestAllTypes
-	(*TestAllTypes_NestedMessage)(nil), // 4: google.expr.proto2.test.TestAllTypes.NestedMessage
-	(*TestAllTypes_NestedGroup)(nil),   // 5: google.expr.proto2.test.TestAllTypes.NestedGroup
-	nil,                                // 6: google.expr.proto2.test.TestAllTypes.MapStringStringEntry
-	nil,                                // 7: google.expr.proto2.test.TestAllTypes.MapInt64NestedTypeEntry
-	(*anypb.Any)(nil),                  // 8: google.protobuf.Any
-	(*durationpb.Duration)(nil),        // 9: google.protobuf.Duration
-	(*timestamppb.Timestamp)(nil),      // 10: google.protobuf.Timestamp
-	(*structpb.Struct)(nil),            // 11: google.protobuf.Struct
-	(*structpb.Value)(nil),             // 12: google.protobuf.Value
-	(*wrapperspb.Int64Value)(nil),      // 13: google.protobuf.Int64Value
-	(*wrapperspb.Int32Value)(nil),      // 14: google.protobuf.Int32Value
-	(*wrapperspb.DoubleValue)(nil),     // 15: google.protobuf.DoubleValue
-	(*wrapperspb.FloatValue)(nil),      // 16: google.protobuf.FloatValue
-	(*wrapperspb.UInt64Value)(nil),     // 17: google.protobuf.UInt64Value
-	(*wrapperspb.UInt32Value)(nil),     // 18: google.protobuf.UInt32Value
-	(*wrapperspb.StringValue)(nil),     // 19: google.protobuf.StringValue
-	(*wrapperspb.BoolValue)(nil),       // 20: google.protobuf.BoolValue
-	(*wrapperspb.BytesValue)(nil),      // 21: google.protobuf.BytesValue
+	(*ExampleType)(nil),                // 4: google.expr.proto2.test.ExampleType
+	(*ExtendedExampleType)(nil),        // 5: google.expr.proto2.test.ExtendedExampleType
+	(*TestAllTypes_NestedMessage)(nil), // 6: google.expr.proto2.test.TestAllTypes.NestedMessage
+	(*TestAllTypes_NestedGroup)(nil),   // 7: google.expr.proto2.test.TestAllTypes.NestedGroup
+	nil,                                // 8: google.expr.proto2.test.TestAllTypes.MapStringStringEntry
+	nil,                                // 9: google.expr.proto2.test.TestAllTypes.MapInt64NestedTypeEntry
+	(*anypb.Any)(nil),                  // 10: google.protobuf.Any
+	(*durationpb.Duration)(nil),        // 11: google.protobuf.Duration
+	(*timestamppb.Timestamp)(nil),      // 12: google.protobuf.Timestamp
+	(*structpb.Struct)(nil),            // 13: google.protobuf.Struct
+	(*structpb.Value)(nil),             // 14: google.protobuf.Value
+	(*wrapperspb.Int64Value)(nil),      // 15: google.protobuf.Int64Value
+	(*wrapperspb.Int32Value)(nil),      // 16: google.protobuf.Int32Value
+	(*wrapperspb.DoubleValue)(nil),     // 17: google.protobuf.DoubleValue
+	(*wrapperspb.FloatValue)(nil),      // 18: google.protobuf.FloatValue
+	(*wrapperspb.UInt64Value)(nil),     // 19: google.protobuf.UInt64Value
+	(*wrapperspb.UInt32Value)(nil),     // 20: google.protobuf.UInt32Value
+	(*wrapperspb.StringValue)(nil),     // 21: google.protobuf.StringValue
+	(*wrapperspb.BoolValue)(nil),       // 22: google.protobuf.BoolValue
+	(*wrapperspb.BytesValue)(nil),      // 23: google.protobuf.BytesValue
 }
 var file_test_proto2pb_test_all_types_proto_depIdxs = []int32{
 	1,  // 0: google.expr.proto2.test.TestAllTypes.standalone_enum:type_name -> google.expr.proto2.test.TestAllTypes.NestedEnum
-	5,  // 1: google.expr.proto2.test.TestAllTypes.nestedgroup:type_name -> google.expr.proto2.test.TestAllTypes.NestedGroup
-	8,  // 2: google.expr.proto2.test.TestAllTypes.single_any:type_name -> google.protobuf.Any
-	9,  // 3: google.expr.proto2.test.TestAllTypes.single_duration:type_name -> google.protobuf.Duration
-	10, // 4: google.expr.proto2.test.TestAllTypes.single_timestamp:type_name -> google.protobuf.Timestamp
-	11, // 5: google.expr.proto2.test.TestAllTypes.single_struct:type_name -> google.protobuf.Struct
-	12, // 6: google.expr.proto2.test.TestAllTypes.single_value:type_name -> google.protobuf.Value
-	13, // 7: google.expr.proto2.test.TestAllTypes.single_int64_wrapper:type_name -> google.protobuf.Int64Value
-	14, // 8: google.expr.proto2.test.TestAllTypes.single_int32_wrapper:type_name -> google.protobuf.Int32Value
-	15, // 9: google.expr.proto2.test.TestAllTypes.single_double_wrapper:type_name -> google.protobuf.DoubleValue
-	16, // 10: google.expr.proto2.test.TestAllTypes.single_float_wrapper:type_name -> google.protobuf.FloatValue
-	17, // 11: google.expr.proto2.test.TestAllTypes.single_uint64_wrapper:type_name -> google.protobuf.UInt64Value
-	18, // 12: google.expr.proto2.test.TestAllTypes.single_uint32_wrapper:type_name -> google.protobuf.UInt32Value
-	19, // 13: google.expr.proto2.test.TestAllTypes.single_string_wrapper:type_name -> google.protobuf.StringValue
-	20, // 14: google.expr.proto2.test.TestAllTypes.single_bool_wrapper:type_name -> google.protobuf.BoolValue
-	21, // 15: google.expr.proto2.test.TestAllTypes.single_bytes_wrapper:type_name -> google.protobuf.BytesValue
-	4,  // 16: google.expr.proto2.test.TestAllTypes.single_nested_message:type_name -> google.expr.proto2.test.TestAllTypes.NestedMessage
+	7,  // 1: google.expr.proto2.test.TestAllTypes.nestedgroup:type_name -> google.expr.proto2.test.TestAllTypes.NestedGroup
+	10, // 2: google.expr.proto2.test.TestAllTypes.single_any:type_name -> google.protobuf.Any
+	11, // 3: google.expr.proto2.test.TestAllTypes.single_duration:type_name -> google.protobuf.Duration
+	12, // 4: google.expr.proto2.test.TestAllTypes.single_timestamp:type_name -> google.protobuf.Timestamp
+	13, // 5: google.expr.proto2.test.TestAllTypes.single_struct:type_name -> google.protobuf.Struct
+	14, // 6: google.expr.proto2.test.TestAllTypes.single_value:type_name -> google.protobuf.Value
+	15, // 7: google.expr.proto2.test.TestAllTypes.single_int64_wrapper:type_name -> google.protobuf.Int64Value
+	16, // 8: google.expr.proto2.test.TestAllTypes.single_int32_wrapper:type_name -> google.protobuf.Int32Value
+	17, // 9: google.expr.proto2.test.TestAllTypes.single_double_wrapper:type_name -> google.protobuf.DoubleValue
+	18, // 10: google.expr.proto2.test.TestAllTypes.single_float_wrapper:type_name -> google.protobuf.FloatValue
+	19, // 11: google.expr.proto2.test.TestAllTypes.single_uint64_wrapper:type_name -> google.protobuf.UInt64Value
+	20, // 12: google.expr.proto2.test.TestAllTypes.single_uint32_wrapper:type_name -> google.protobuf.UInt32Value
+	21, // 13: google.expr.proto2.test.TestAllTypes.single_string_wrapper:type_name -> google.protobuf.StringValue
+	22, // 14: google.expr.proto2.test.TestAllTypes.single_bool_wrapper:type_name -> google.protobuf.BoolValue
+	23, // 15: google.expr.proto2.test.TestAllTypes.single_bytes_wrapper:type_name -> google.protobuf.BytesValue
+	6,  // 16: google.expr.proto2.test.TestAllTypes.single_nested_message:type_name -> google.expr.proto2.test.TestAllTypes.NestedMessage
 	1,  // 17: google.expr.proto2.test.TestAllTypes.single_nested_enum:type_name -> google.expr.proto2.test.TestAllTypes.NestedEnum
-	4,  // 18: google.expr.proto2.test.TestAllTypes.repeated_nested_message:type_name -> google.expr.proto2.test.TestAllTypes.NestedMessage
+	6,  // 18: google.expr.proto2.test.TestAllTypes.repeated_nested_message:type_name -> google.expr.proto2.test.TestAllTypes.NestedMessage
 	1,  // 19: google.expr.proto2.test.TestAllTypes.repeated_nested_enum:type_name -> google.expr.proto2.test.TestAllTypes.NestedEnum
-	4,  // 20: google.expr.proto2.test.TestAllTypes.repeated_lazy_message:type_name -> google.expr.proto2.test.TestAllTypes.NestedMessage
-	6,  // 21: google.expr.proto2.test.TestAllTypes.map_string_string:type_name -> google.expr.proto2.test.TestAllTypes.MapStringStringEntry
-	7,  // 22: google.expr.proto2.test.TestAllTypes.map_int64_nested_type:type_name -> google.expr.proto2.test.TestAllTypes.MapInt64NestedTypeEntry
+	6,  // 20: google.expr.proto2.test.TestAllTypes.repeated_lazy_message:type_name -> google.expr.proto2.test.TestAllTypes.NestedMessage
+	8,  // 21: google.expr.proto2.test.TestAllTypes.map_string_string:type_name -> google.expr.proto2.test.TestAllTypes.MapStringStringEntry
+	9,  // 22: google.expr.proto2.test.TestAllTypes.map_int64_nested_type:type_name -> google.expr.proto2.test.TestAllTypes.MapInt64NestedTypeEntry
 	3,  // 23: google.expr.proto2.test.NestedTestAllTypes.child:type_name -> google.expr.proto2.test.NestedTestAllTypes
 	2,  // 24: google.expr.proto2.test.NestedTestAllTypes.payload:type_name -> google.expr.proto2.test.TestAllTypes
 	3,  // 25: google.expr.proto2.test.TestAllTypes.MapInt64NestedTypeEntry.value:type_name -> google.expr.proto2.test.NestedTestAllTypes
-	26, // [26:26] is the sub-list for method output_type
-	26, // [26:26] is the sub-list for method input_type
-	26, // [26:26] is the sub-list for extension type_name
-	26, // [26:26] is the sub-list for extension extendee
+	4,  // 26: google.expr.proto2.test.nested_example:extendee -> google.expr.proto2.test.ExampleType
+	4,  // 27: google.expr.proto2.test.int32_ext:extendee -> google.expr.proto2.test.ExampleType
+	4,  // 28: google.expr.proto2.test.int32_wrapper_ext:extendee -> google.expr.proto2.test.ExampleType
+	4,  // 29: google.expr.proto2.test.ExtendedExampleType.extended_examples:extendee -> google.expr.proto2.test.ExampleType
+	4,  // 30: google.expr.proto2.test.ExtendedExampleType.enum_ext:extendee -> google.expr.proto2.test.ExampleType
+	4,  // 31: google.expr.proto2.test.nested_example:type_name -> google.expr.proto2.test.ExampleType
+	16, // 32: google.expr.proto2.test.int32_wrapper_ext:type_name -> google.protobuf.Int32Value
+	0,  // 33: google.expr.proto2.test.ExtendedExampleType.enum_ext:type_name -> google.expr.proto2.test.GlobalEnum
+	34, // [34:34] is the sub-list for method output_type
+	34, // [34:34] is the sub-list for method input_type
+	31, // [31:34] is the sub-list for extension type_name
+	26, // [26:31] is the sub-list for extension extendee
 	0,  // [0:26] is the sub-list for field type_name
 }
 
@@ -1184,6 +1371,32 @@ func file_test_proto2pb_test_all_types_proto_init() {
 			}
 		}
 		file_test_proto2pb_test_all_types_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ExampleType); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			case 3:
+				return &v.extensionFields
+			default:
+				return nil
+			}
+		}
+		file_test_proto2pb_test_all_types_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ExtendedExampleType); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_test_proto2pb_test_all_types_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*TestAllTypes_NestedMessage); i {
 			case 0:
 				return &v.state
@@ -1195,7 +1408,7 @@ func file_test_proto2pb_test_all_types_proto_init() {
 				return nil
 			}
 		}
-		file_test_proto2pb_test_all_types_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
+		file_test_proto2pb_test_all_types_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*TestAllTypes_NestedGroup); i {
 			case 0:
 				return &v.state
@@ -1218,14 +1431,15 @@ func file_test_proto2pb_test_all_types_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_test_proto2pb_test_all_types_proto_rawDesc,
 			NumEnums:      2,
-			NumMessages:   6,
-			NumExtensions: 0,
+			NumMessages:   8,
+			NumExtensions: 5,
 			NumServices:   0,
 		},
 		GoTypes:           file_test_proto2pb_test_all_types_proto_goTypes,
 		DependencyIndexes: file_test_proto2pb_test_all_types_proto_depIdxs,
 		EnumInfos:         file_test_proto2pb_test_all_types_proto_enumTypes,
 		MessageInfos:      file_test_proto2pb_test_all_types_proto_msgTypes,
+		ExtensionInfos:    file_test_proto2pb_test_all_types_proto_extTypes,
 	}.Build()
 	File_test_proto2pb_test_all_types_proto = out.File
 	file_test_proto2pb_test_all_types_proto_rawDesc = nil

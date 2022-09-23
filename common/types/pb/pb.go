@@ -137,7 +137,7 @@ func (pbdb *Db) RegisterDescriptor(fileDesc protoreflect.FileDescriptor) (*FileD
 	if err == nil {
 		fileDesc = globalFD
 	}
-	fd = NewFileDescription(fileDesc, pbdb)
+	fd = newFileDescription(fileDesc, pbdb)
 	for _, enumValName := range fd.GetEnumNames() {
 		pbdb.revFileDescriptorMap[enumValName] = fd
 	}

@@ -38,16 +38,20 @@ type description interface {
 	Zero() proto.Message
 }
 
-// NewTypeDescription produces a TypeDescription value for the fully-qualified proto type name
+// newTypeDescription produces a TypeDescription value for the fully-qualified proto type name
 // with a given descriptor.
-func NewTypeDescription(typeName string, desc protoreflect.MessageDescriptor) *TypeDescription {
+func newTypeDescription(typeName string, desc protoreflect.MessageDescriptor, extensions []protoreflect.ExtensionDescriptor) *TypeDescription {
 	msgType := dynamicpb.NewMessageType(desc)
 	msgZero := dynamicpb.NewMessage(desc)
 	fieldMap := map[string]*FieldDescription{}
 	fields := desc.Fields()
 	for i := 0; i < fields.Len(); i++ {
 		f := fields.Get(i)
-		fieldMap[string(f.Name())] = NewFieldDescription(f)
+		fieldMap[string(f.Name())] = newFieldDescription(f)
+	}
+	for _, ext := range extensions {
+		extDesc := dynamicpb.NewExtensionType(ext).TypeDescriptor()
+		fieldMap[string(ext.FullName())] = newFieldDescription(extDesc)
 	}
 	return &TypeDescription{
 		typeName:    typeName,
@@ -111,8 +115,8 @@ func (td *TypeDescription) Zero() proto.Message {
 	return td.zeroMsg
 }
 
-// NewFieldDescription creates a new field description from a protoreflect.FieldDescriptor.
-func NewFieldDescription(fieldDesc protoreflect.FieldDescriptor) *FieldDescription {
+// newFieldDescription creates a new field description from a protoreflect.FieldDescriptor.
+func newFieldDescription(fieldDesc protoreflect.FieldDescriptor) *FieldDescription {
 	var reflectType reflect.Type
 	var zeroMsg proto.Message
 	switch fieldDesc.Kind() {
@@ -124,9 +128,17 @@ func NewFieldDescription(fieldDesc protoreflect.FieldDescriptor) *FieldDescripti
 	default:
 		reflectType = reflectTypeOf(fieldDesc.Default().Interface())
 		if fieldDesc.IsList() {
-			parentMsg := dynamicpb.NewMessage(fieldDesc.ContainingMessage())
-			listField := parentMsg.NewField(fieldDesc).List()
-			elem := listField.NewElement().Interface()
+			var elemValue protoreflect.Value
+			if fieldDesc.IsExtension() {
+				et := dynamicpb.NewExtensionType(fieldDesc)
+				elemValue = et.New().List().NewElement()
+			} else {
+				parentMsgType := fieldDesc.ContainingMessage()
+				parentMsg := dynamicpb.NewMessage(parentMsgType)
+				listField := parentMsg.NewField(fieldDesc).List()
+				elemValue = listField.NewElement()
+			}
+			elem := elemValue.Interface()
 			switch elemType := elem.(type) {
 			case protoreflect.Message:
 				elem = elemType.Interface()
@@ -140,8 +152,8 @@ func NewFieldDescription(fieldDesc protoreflect.FieldDescriptor) *FieldDescripti
 	}
 	var keyType, valType *FieldDescription
 	if fieldDesc.IsMap() {
-		keyType = NewFieldDescription(fieldDesc.MapKey())
-		valType = NewFieldDescription(fieldDesc.MapValue())
+		keyType = newFieldDescription(fieldDesc.MapKey())
+		valType = newFieldDescription(fieldDesc.MapValue())
 	}
 	return &FieldDescription{
 		desc:        fieldDesc,
