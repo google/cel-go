@@ -24,7 +24,7 @@ overview. See
 for REPL syntax guide.</p>
 
 <div class="input-block">
-  <!--insertion point-->
+  <span>loading...</span><!--insertion point-->
 </div>
 <div class="controls">
   <button id="add-statement">Add Statement</button>
@@ -58,7 +58,6 @@ func init() {
 
 type context struct{}
 
-// indexHandler responds to requests with our greeting.
 func indexHandler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		log.Printf("unhandled request: %s", r.URL.Path)
