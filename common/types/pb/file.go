@@ -21,7 +21,7 @@ import (
 )
 
 // newFileDescription returns a FileDescription instance with a complete listing of all the message
-// types and enum values declared within any scope in the file.
+// types, enum values, and extension fields (for proto2) declared within any scope in the file.
 func newFileDescription(fileDesc protoreflect.FileDescriptor, pbdb *Db) *FileDescription {
 	metadata := collectFileMetadata(fileDesc)
 	enums := make(map[string]*EnumValueDescription)
@@ -98,8 +98,11 @@ type fileMetadata struct {
 	msgTypes map[string]protoreflect.MessageDescriptor
 	// enumValues maps from fully-qualified enum value to enum value descriptor.
 	enumValues map[string]protoreflect.EnumValueDescriptor
-	// TODO: support enum type definitions for use in future type-check enhancements.
+	// msgExtensionMap maps from the protobuf message name being extended to a set of extensions
+	// for the type.
 	msgExtensionMap map[string][]protoreflect.ExtensionDescriptor
+
+	// TODO: support enum type definitions for use in future type-check enhancements.
 }
 
 // collectFileMetadata traverses the proto file object graph to collect message types and enum
