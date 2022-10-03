@@ -104,7 +104,8 @@ type Env struct {
 	appliedFeatures map[int]bool
 
 	// Internal parser representation
-	prsr *parser.Parser
+	prsr     *parser.Parser
+	prsrOpts []parser.Option
 
 	// Internal checker representation
 	chk     *checker.Env
@@ -240,6 +241,9 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 		return nil, e.chkErr
 	}
 
+	prsrOptsCopy := make([]parser.Option, len(e.prsrOpts))
+	copy(prsrOptsCopy, e.prsrOpts)
+
 	// The type-checker is configured with Declarations. The declarations may either be provided
 	// as options which have not yet been validated, or may come from a previous checker instance
 	// whose types have already been validated.
@@ -317,6 +321,7 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 		appliedFeatures: appliedFeaturesCopy,
 		provider:        provider,
 		chkOpts:         chkOptsCopy,
+		prsrOpts:        prsrOptsCopy,
 	}
 	return ext.configure(opts)
 }
@@ -483,7 +488,10 @@ func (e *Env) configure(opts []EnvOption) (*Env, error) {
 	}
 
 	// Configure the parser.
-	prsrOpts := []parser.Option{parser.Macros(e.macros...)}
+	prsrOpts := []parser.Option{}
+	prsrOpts = append(prsrOpts, e.prsrOpts...)
+	prsrOpts = append(prsrOpts, parser.Macros(e.macros...))
+
 	if e.HasFeature(featureEnableMacroCallTracking) {
 		prsrOpts = append(prsrOpts, parser.PopulateMacroCalls(true))
 	}
