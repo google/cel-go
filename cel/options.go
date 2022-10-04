@@ -29,6 +29,7 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter"
 	"github.com/google/cel-go/interpreter/functions"
+	"github.com/google/cel-go/parser"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	descpb "google.golang.org/protobuf/types/descriptorpb"
@@ -550,6 +551,15 @@ func OptionalTypes(enabled bool) EnvOption {
 func features(flag int, enabled bool) EnvOption {
 	return func(e *Env) (*Env, error) {
 		e.features[flag] = enabled
+		return e, nil
+	}
+}
+
+// ParserRecursionLimit adjusts the AST depth the parser will tolerate.
+// Defaults defined in the parser package.
+func ParserRecursionLimit(limit int) EnvOption {
+	return func(e *Env) (*Env, error) {
+		e.prsrOpts = append(e.prsrOpts, parser.MaxRecursionDepth(limit))
 		return e, nil
 	}
 }

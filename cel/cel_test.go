@@ -1759,6 +1759,57 @@ func TestDefaultUTCTimeZoneError(t *testing.T) {
 	}
 }
 
+func TestParserRecursionLimit(t *testing.T) {
+	testCases := []struct {
+		expr        string
+		errorSubstr string
+		out         ref.Val
+	}{
+		{
+			expr:        `0 + 1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10 + 11`,
+			errorSubstr: "max recursion depth exceeded",
+		},
+		{
+			expr: `0 + 1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10`,
+			out:  types.Int(55),
+		},
+		{
+			expr:        `0 + 1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10 == 45`,
+			errorSubstr: "max recursion depth exceeded",
+		},
+		{
+			// Operator precedence means that '==' is the root.
+			expr: `0 + 1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 == 0 + 1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9`,
+			out:  types.True,
+		},
+	}
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.expr, func(t *testing.T) {
+			env, err := NewEnv(ParserRecursionLimit(10))
+
+			if err != nil {
+				t.Fatalf("NewEnv() failed: %v", err)
+			}
+			out, err := interpret(t, env,
+				tc.expr, map[string]any{})
+
+			if tc.errorSubstr != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.errorSubstr) {
+					t.Fatalf("prg.Eval() wanted error containg '%s' got %v", tc.errorSubstr, err)
+				}
+			}
+
+			if tc.out != nil {
+				if tc.out != out {
+					t.Errorf("prg.Eval() wanted %v got %v", tc.out, out)
+				}
+			}
+		})
+
+	}
+}
+
 func TestDynamicDispatch(t *testing.T) {
 	env, err := NewEnv(
 		HomogeneousAggregateLiterals(),
