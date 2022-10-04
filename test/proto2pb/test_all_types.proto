@@ -107,9 +107,33 @@ message NestedTestAllTypes {
   optional TestAllTypes payload = 2;
 }
 
+// This proto is used to show how extensions are tracked as fields
+// with fully qualified names.
+message ExampleType {
+  optional string name = 1;
+
+  extensions 100 to max;
+}
+
+// Package scoped extensions.
+extend ExampleType {
+  optional ExampleType nested_example = 100;
+  optional int32 int32_ext = 101;
+  optional google.protobuf.Int32Value int32_wrapper_ext = 102;
+}
+
+// Message scoped extensions.
+message ExtendedExampleType {
+  extend ExampleType {
+    repeated string extended_examples = 103;
+    optional GlobalEnum enum_ext = 104;
+  }
+}
+
 // This proto tests that global enums are resolved correctly.
 enum GlobalEnum {
   GOO = 0;
   GAR = 1;
   GAZ = 2;
 }
+

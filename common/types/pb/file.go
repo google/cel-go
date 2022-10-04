@@ -20,17 +20,21 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
-// NewFileDescription returns a FileDescription instance with a complete listing of all the message
-// types and enum values declared within any scope in the file.
-func NewFileDescription(fileDesc protoreflect.FileDescriptor, pbdb *Db) *FileDescription {
+// newFileDescription returns a FileDescription instance with a complete listing of all the message
+// types, enum values, and extension fields (for proto2) declared within any scope in the file.
+func newFileDescription(fileDesc protoreflect.FileDescriptor, pbdb *Db) *FileDescription {
 	metadata := collectFileMetadata(fileDesc)
 	enums := make(map[string]*EnumValueDescription)
 	for name, enumVal := range metadata.enumValues {
-		enums[name] = NewEnumValueDescription(name, enumVal)
+		enums[name] = newEnumValueDescription(name, enumVal)
 	}
 	types := make(map[string]*TypeDescription)
 	for name, msgType := range metadata.msgTypes {
-		types[name] = NewTypeDescription(name, msgType)
+		extensions, found := metadata.msgExtensionMap[name]
+		if !found {
+			extensions = []protoreflect.ExtensionDescriptor{}
+		}
+		types[name] = newTypeDescription(name, msgType, extensions)
 	}
 	return &FileDescription{
 		types: types,
@@ -94,6 +98,10 @@ type fileMetadata struct {
 	msgTypes map[string]protoreflect.MessageDescriptor
 	// enumValues maps from fully-qualified enum value to enum value descriptor.
 	enumValues map[string]protoreflect.EnumValueDescriptor
+	// msgExtensionMap maps from the protobuf message name being extended to a set of extensions
+	// for the type.
+	msgExtensionMap map[string][]protoreflect.ExtensionDescriptor
+
 	// TODO: support enum type definitions for use in future type-check enhancements.
 }
 
@@ -102,27 +110,37 @@ type fileMetadata struct {
 func collectFileMetadata(fileDesc protoreflect.FileDescriptor) *fileMetadata {
 	msgTypes := make(map[string]protoreflect.MessageDescriptor)
 	enumValues := make(map[string]protoreflect.EnumValueDescriptor)
-	collectMsgTypes(fileDesc.Messages(), msgTypes, enumValues)
+	msgExtensionMap := make(map[string][]protoreflect.ExtensionDescriptor)
+	collectMsgTypes(fileDesc.Messages(), msgTypes, enumValues, msgExtensionMap)
 	collectEnumValues(fileDesc.Enums(), enumValues)
+	collectExtensions(fileDesc.Extensions(), msgExtensionMap)
 	return &fileMetadata{
-		msgTypes:   msgTypes,
-		enumValues: enumValues,
+		msgTypes:        msgTypes,
+		enumValues:      enumValues,
+		msgExtensionMap: msgExtensionMap,
 	}
 }
 
 // collectMsgTypes recursively collects messages, nested messages, and nested enums into a map of
 // fully qualified protobuf names to descriptors.
-func collectMsgTypes(msgTypes protoreflect.MessageDescriptors, msgTypeMap map[string]protoreflect.MessageDescriptor, enumValueMap map[string]protoreflect.EnumValueDescriptor) {
+func collectMsgTypes(msgTypes protoreflect.MessageDescriptors,
+	msgTypeMap map[string]protoreflect.MessageDescriptor,
+	enumValueMap map[string]protoreflect.EnumValueDescriptor,
+	msgExtensionMap map[string][]protoreflect.ExtensionDescriptor) {
 	for i := 0; i < msgTypes.Len(); i++ {
 		msgType := msgTypes.Get(i)
 		msgTypeMap[string(msgType.FullName())] = msgType
 		nestedMsgTypes := msgType.Messages()
 		if nestedMsgTypes.Len() != 0 {
-			collectMsgTypes(nestedMsgTypes, msgTypeMap, enumValueMap)
+			collectMsgTypes(nestedMsgTypes, msgTypeMap, enumValueMap, msgExtensionMap)
 		}
 		nestedEnumTypes := msgType.Enums()
 		if nestedEnumTypes.Len() != 0 {
 			collectEnumValues(nestedEnumTypes, enumValueMap)
+		}
+		nestedExtensions := msgType.Extensions()
+		if nestedExtensions.Len() != 0 {
+			collectExtensions(nestedExtensions, msgExtensionMap)
 		}
 	}
 }
@@ -137,5 +155,18 @@ func collectEnumValues(enumTypes protoreflect.EnumDescriptors, enumValueMap map[
 			enumValueName := fmt.Sprintf("%s.%s", string(enumType.FullName()), string(enumValue.Name()))
 			enumValueMap[enumValueName] = enumValue
 		}
+	}
+}
+
+func collectExtensions(extensions protoreflect.ExtensionDescriptors, msgExtensionMap map[string][]protoreflect.ExtensionDescriptor) {
+	for i := 0; i < extensions.Len(); i++ {
+		ext := extensions.Get(i)
+		extendsMsg := string(ext.ContainingMessage().FullName())
+		msgExts, found := msgExtensionMap[extendsMsg]
+		if !found {
+			msgExts = []protoreflect.ExtensionDescriptor{}
+		}
+		msgExts = append(msgExts, ext)
+		msgExtensionMap[extendsMsg] = msgExts
 	}
 }

@@ -17,6 +17,7 @@ package cel
 import (
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/parser"
+
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
@@ -81,8 +82,10 @@ func ExistsOneMacroExpander(meh MacroExprHelper, target *exprpb.Expr, args []*ex
 // input to produce an output list.
 //
 // There are two call patterns supported by map:
-//   <iterRange>.map(<iterVar>, <transform>)
-//   <iterRange>.map(<iterVar>, <predicate>, <transform>)
+//
+//	<iterRange>.map(<iterVar>, <transform>)
+//	<iterRange>.map(<iterVar>, <predicate>, <transform>)
+//
 // In the second form only iterVar values which return true when provided to the predicate expression
 // are transformed.
 func MapMacroExpander(meh MacroExprHelper, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {

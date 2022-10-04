@@ -20,11 +20,11 @@ import (
 	"math"
 	"sync"
 
-	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
-
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter"
+
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 // Program is an evaluable view of an Ast.

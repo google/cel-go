@@ -31,6 +31,39 @@ Example:
 
     base64.encode(b'hello') // return 'aGVsbG8='
 
+## Protos
+
+Protos returns a cel.EnvOption to configure extended macros and functions for
+proto manipulation.
+
+Note, all macros use the 'proto' namespace; however, at the time of macro
+expansion the namespace looks just like any other identifier. If you are
+currently using a variable named 'proto', the macro will likely work just as
+you intend; however, there is some chance for collision.
+
+### Protos.GetExt
+
+Macro which generates a select expression that retrieves an extension field
+from the input proto2 syntax message. If the field is not set, the default
+value forthe extension field is returned according to safe-traversal semantics.
+
+    proto.getExt(<msg>, <fully.qualified.extension.name>) -> <field-type>
+
+Example:
+
+	proto.getExt(msg, google.expr.proto2.test.int32_ext) // returns int value
+
+### Protos.HasExt
+
+Macro which generates a test-only select expression that determines whether
+an extension field is set on a proto2 syntax message.
+
+	proto.hasExt(<msg>, <fully.qualified.extension.name>) -> <bool>
+
+Example:
+
+	proto.hasExt(msg, google.expr.proto2.test.int32_ext) // returns true || false
+
 ## Strings
 
 Extended functions for string manipulation. As a general note, all indices are
