@@ -360,7 +360,10 @@ func (m *attributeMatcher) Qualify(vars Activation, obj any) (any, error) {
 	return attrQualify(m.fac, vars, obj, m)
 }
 
+<<<<<<< HEAD
 // QualifyIfPresent is an implementation of the Qualifier interface method.
+=======
+>>>>>>> 3016e3f (Refactor of attributes qualification to support presence testing)
 func (m *attributeMatcher) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
 	return attrQualifyIfPresent(m.fac, vars, obj, m, presenceOnly)
 }
