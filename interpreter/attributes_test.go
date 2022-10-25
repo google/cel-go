@@ -765,6 +765,14 @@ func (q *nestedMsgQualifier) Qualify(vars Activation, obj any) (any, error) {
 	return pb.GetBb(), nil
 }
 
+func (q *nestedMsgQualifier) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
+	pb := obj.(*proto3pb.TestAllTypes_NestedMessage)
+	if pb.GetBb() == 0 {
+		return nil, false, nil
+	}
+	return pb.GetBb(), true, nil
+}
+
 // Cost implements the Coster interface method. It returns zero for testing purposes.
 func (q *nestedMsgQualifier) Cost() (min, max int64) {
 	return 0, 0

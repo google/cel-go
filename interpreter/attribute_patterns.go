@@ -15,8 +15,6 @@
 package interpreter
 
 import (
-	"fmt"
-
 	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
@@ -272,10 +270,6 @@ func (fac *partialAttributeFactory) matchesUnknownPatterns(
 			if err != nil {
 				return nil, err
 			}
-			unk, isUnk := val.(types.Unknown)
-			if isUnk {
-				return unk, nil
-			}
 			// If this resolution behavior ever changes, new implementations of the
 			// qualifierValueEquator may be required to handle proper resolution.
 			qual, err = fac.NewQualifier(nil, qual.ID(), val)
@@ -338,24 +332,10 @@ func (m *attributeMatcher) AddQualifier(qual Qualifier) (Attribute, error) {
 	return m, nil
 }
 
-// Resolve is an implementation of the Attribute interface method which uses the
-// attributeMatcher TryResolve implementation rather than the embedded NamespacedAttribute
-// Resolve implementation.
-func (m *attributeMatcher) Resolve(vars Activation) (any, error) {
-	obj, found, err := m.TryResolve(vars)
-	if err != nil {
-		return nil, err
-	}
-	if !found {
-		return nil, fmt.Errorf("no such attribute: %v", m.NamespacedAttribute)
-	}
-	return obj, nil
-}
-
-// TryResolve is an implementation of the NamespacedAttribute interface method which tests
+// Resolve is an implementation of the NamespacedAttribute interface method which tests
 // for matching unknown attribute patterns and returns types.Unknown if present. Otherwise,
 // the standard Resolve logic applies.
-func (m *attributeMatcher) TryResolve(vars Activation) (any, bool, error) {
+func (m *attributeMatcher) Resolve(vars Activation) (any, error) {
 	id := m.NamespacedAttribute.ID()
 	// Bug in how partial activation is resolved, should search parents as well.
 	partial, isPartial := toPartialActivation(vars)
@@ -366,30 +346,22 @@ func (m *attributeMatcher) TryResolve(vars Activation) (any, bool, error) {
 			m.CandidateVariableNames(),
 			m.qualifiers)
 		if err != nil {
-			return nil, true, err
+			return nil, err
 		}
 		if unk != nil {
-			return unk, true, nil
+			return unk, nil
 		}
 	}
-	return m.NamespacedAttribute.TryResolve(vars)
+	return m.NamespacedAttribute.Resolve(vars)
 }
 
 // Qualify is an implementation of the Qualifier interface method.
 func (m *attributeMatcher) Qualify(vars Activation, obj any) (any, error) {
-	val, err := m.Resolve(vars)
-	if err != nil {
-		return nil, err
-	}
-	unk, isUnk := val.(types.Unknown)
-	if isUnk {
-		return unk, nil
-	}
-	qual, err := m.fac.NewQualifier(nil, m.ID(), val)
-	if err != nil {
-		return nil, err
-	}
-	return qual.Qualify(vars, obj)
+	return attrQualify(m.fac, vars, obj, m)
+}
+
+func (m *attributeMatcher) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
+	return attrQualifyIfPresent(m.fac, vars, obj, m, presenceOnly)
 }
 
 func toPartialActivation(vars Activation) (PartialActivation, bool) {

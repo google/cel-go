@@ -202,44 +202,38 @@ func (p *planner) planSelect(expr *exprpb.Expr) (Interpretable, error) {
 	// If a string named 'a.b.c' is declared in the environment and referenced within `has(a.b.c)`,
 	// it is not clear whether has should error or follow the convention defined for structured
 	// values.
-	if sel.TestOnly {
-		// Determine the field type if this is a proto message type.
-		var fieldType *ref.FieldType
-		if opType.GetMessageType() != "" {
-			ft, found := p.provider.FindFieldType(opType.GetMessageType(), sel.GetField())
-			if found && ft.IsSet != nil && ft.GetFrom != nil {
-				fieldType = ft
-			}
+
+	// Establish the attribute reference.
+	attr, isAttr := op.(InterpretableAttribute)
+	if !isAttr {
+		attr, err = p.relativeAttr(op.ID(), op)
+		if err != nil {
+			return nil, err
 		}
-		// Return the test only eval expression.
-		return &evalTestOnly{
-			id:        expr.GetId(),
-			field:     types.String(sel.GetField()),
-			fieldType: fieldType,
-			op:        op,
-		}, nil
 	}
-	// Build a qualifier.
+
+	// Build a qualifier for the attribute.
 	qual, err := p.attrFactory.NewQualifier(opType, expr.GetId(), sel.GetField())
 	if err != nil {
 		return nil, err
 	}
-	// Lastly, create a field selection Interpretable.
-	attr, isAttr := op.(InterpretableAttribute)
-	if isAttr {
-		_, err = attr.AddQualifier(qual)
-		return attr, err
+
+	// Return the test only eval expression.
+	if sel.TestOnly {
+		return &evalTestOnly{
+			id:    expr.GetId(),
+			field: types.String(sel.GetField()),
+			attr:  attr,
+			qual:  qual,
+		}, nil
 	}
 
-	relAttr, err := p.relativeAttr(op.ID(), op)
+	// Otherwise, append the qualifier on the attribute.
+	_, err = attr.AddQualifier(qual)
 	if err != nil {
 		return nil, err
 	}
-	_, err = relAttr.AddQualifier(qual)
-	if err != nil {
-		return nil, err
-	}
-	return relAttr, nil
+	return attr, nil
 }
 
 // planCall creates a callable Interpretable while specializing for common functions and invocation

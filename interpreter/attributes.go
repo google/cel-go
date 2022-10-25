@@ -71,8 +71,14 @@ type Qualifier interface {
 	ID() int64
 
 	// Qualify performs a qualification, e.g. field selection, on the input object and returns
-	// the value or error that results.
+	// the value of the access and whether the value was set. A non-nil value with a false presence
+	// test result indicates that the value being returned is the default value.
 	Qualify(vars Activation, obj any) (any, error)
+
+	// QualifyIfPresent qualifies the object if the qualifier is declared or defined on the object.
+	// The 'presenceOnly' flag indicates that the value is not necessary, just a boolean status as
+	// to whether the qualifier is present.
+	QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error)
 }
 
 // ConstantQualifier interface embeds the Qualifier interface and provides an option to inspect the
@@ -90,11 +96,15 @@ type ConstantQualifier interface {
 type Attribute interface {
 	Qualifier
 
-	// AddQualifier adds a qualifier on the Attribute or error if the qualification is not a valid
-	// qualifier type.
+	// AddQualifier adds a qualifier on the Attribute or error if the qualification is not a valid qualifier type.
 	AddQualifier(Qualifier) (Attribute, error)
 
-	// Resolve returns the value of the Attribute given the current Activation.
+	// Resolve returns the value of the Attribute and whether it was present given an Activation.
+	// For objects which support safe traversal, the value may be non-nil and the presence flag be false.
+	//
+	// If an error is encountered during attribute resolution, it will be returned immediately.
+	// If the attribute cannot be resolved within the Activation, the result must be: `nil`,
+	// `false`, `nil`.
 	Resolve(Activation) (any, error)
 }
 
@@ -107,22 +117,14 @@ type NamespacedAttribute interface {
 	// the CEL namespace resolution order.
 	CandidateVariableNames() []string
 
-	// Qualifiers returns the list of qualifiers associated with the Attribute.s
+	// Qualifiers returns the list of qualifiers associated with the Attribute.
 	Qualifiers() []Qualifier
-
-	// TryResolve attempts to return the value of the attribute given the current Activation.
-	// If an error is encountered during attribute resolution, it will be returned immediately.
-	// If the attribute cannot be resolved within the Activation, the result must be: `nil`,
-	// `false`, `nil`.
-	TryResolve(Activation) (any, bool, error)
 }
 
 // NewAttributeFactory returns a default AttributeFactory which is produces Attribute values
 // capable of resolving types by simple names and qualify the values using the supported qualifier
 // types: bool, int, string, and uint.
-func NewAttributeFactory(cont *containers.Container,
-	a ref.TypeAdapter,
-	p ref.TypeProvider) AttributeFactory {
+func NewAttributeFactory(cont *containers.Container, a ref.TypeAdapter, p ref.TypeProvider) AttributeFactory {
 	return &attrFactory{
 		container: cont,
 		adapter:   a,
@@ -190,9 +192,7 @@ func (r *attrFactory) RelativeAttribute(id int64, operand Interpretable) Attribu
 }
 
 // NewQualifier is an implementation of the AttributeFactory interface.
-func (r *attrFactory) NewQualifier(objType *exprpb.Type,
-	qualID int64,
-	val any) (Qualifier, error) {
+func (r *attrFactory) NewQualifier(objType *exprpb.Type, qualID int64, val any) (Qualifier, error) {
 	// Before creating a new qualifier check to see if this is a protobuf message field access.
 	// If so, use the precomputed GetFrom qualification method rather than the standard
 	// stringQualifier.
@@ -257,32 +257,11 @@ func (a *absoluteAttribute) Qualifiers() []Qualifier {
 
 // Qualify is an implementation of the Qualifier interface method.
 func (a *absoluteAttribute) Qualify(vars Activation, obj any) (any, error) {
-	val, err := a.Resolve(vars)
-	if err != nil {
-		return nil, err
-	}
-	unk, isUnk := val.(types.Unknown)
-	if isUnk {
-		return unk, nil
-	}
-	qual, err := a.fac.NewQualifier(nil, a.id, val)
-	if err != nil {
-		return nil, err
-	}
-	return qual.Qualify(vars, obj)
+	return attrQualify(a.fac, vars, obj, a)
 }
 
-// Resolve returns the resolved Attribute value given the Activation, or error if the Attribute
-// variable is not found, or if its Qualifiers cannot be applied successfully.
-func (a *absoluteAttribute) Resolve(vars Activation) (any, error) {
-	obj, found, err := a.TryResolve(vars)
-	if err != nil {
-		return nil, err
-	}
-	if found {
-		return obj, nil
-	}
-	return nil, fmt.Errorf("no such attribute: %v", a)
+func (a *absoluteAttribute) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
+	return attrQualifyIfPresent(a.fac, vars, obj, a, presenceOnly)
 }
 
 // String implements the Stringer interface method.
@@ -290,36 +269,41 @@ func (a *absoluteAttribute) String() string {
 	return fmt.Sprintf("id: %v, names: %v", a.id, a.namespaceNames)
 }
 
-// TryResolve iterates through the namespaced variable names until one is found within the
-// Activation or TypeProvider.
+// Resolve returns the resolved Attribute value given the Activation, or error if the Attribute
+// variable is not found, or if its Qualifiers cannot be applied successfully.
 //
 // If the variable name cannot be found as an Activation variable or in the TypeProvider as
 // a type, then the result is `nil`, `false`, `nil` per the interface requirement.
-func (a *absoluteAttribute) TryResolve(vars Activation) (any, bool, error) {
+func (a *absoluteAttribute) Resolve(vars Activation) (any, error) {
 	for _, nm := range a.namespaceNames {
 		// If the variable is found, process it. Otherwise, wait until the checks to
 		// determine whether the type is unknown before returning.
-		op, found := vars.ResolveName(nm)
+		obj, found := vars.ResolveName(nm)
+		var qualObj any
+		var err error
 		if found {
-			var err error
 			for _, qual := range a.qualifiers {
-				op, err = qual.Qualify(vars, op)
+				qualObj, err = qual.Qualify(vars, obj)
 				if err != nil {
-					return nil, true, err
+					return nil, err
 				}
+				obj = qualObj
 			}
-			return op, true, nil
+			return obj, nil
 		}
 		// Attempt to resolve the qualified type name if the name is not a variable identifier.
 		typ, found := a.provider.FindIdent(nm)
 		if found {
 			if len(a.qualifiers) == 0 {
-				return typ, true, nil
+				return typ, nil
 			}
-			return nil, true, fmt.Errorf("no such attribute: %v", typ)
 		}
 	}
-	return nil, false, nil
+	nsName := "<unknown>"
+	if len(a.namespaceNames) > 0 {
+		nsName = a.namespaceNames[0]
+	}
+	return nil, missingVariable(nsName)
 }
 
 type conditionalAttribute struct {
@@ -362,19 +346,11 @@ func (a *conditionalAttribute) AddQualifier(qual Qualifier) (Attribute, error) {
 
 // Qualify is an implementation of the Qualifier interface method.
 func (a *conditionalAttribute) Qualify(vars Activation, obj any) (any, error) {
-	val, err := a.Resolve(vars)
-	if err != nil {
-		return nil, err
-	}
-	unk, isUnk := val.(types.Unknown)
-	if isUnk {
-		return unk, nil
-	}
-	qual, err := a.fac.NewQualifier(nil, a.id, val)
-	if err != nil {
-		return nil, err
-	}
-	return qual.Qualify(vars, obj)
+	return attrQualify(a.fac, vars, obj, a)
+}
+
+func (a *conditionalAttribute) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
+	return attrQualifyIfPresent(a.fac, vars, obj, a, presenceOnly)
 }
 
 // Resolve evaluates the condition, and then resolves the truthy or falsy branch accordingly.
@@ -492,37 +468,40 @@ func (a *maybeAttribute) AddQualifier(qual Qualifier) (Attribute, error) {
 
 // Qualify is an implementation of the Qualifier interface method.
 func (a *maybeAttribute) Qualify(vars Activation, obj any) (any, error) {
-	val, err := a.Resolve(vars)
-	if err != nil {
-		return nil, err
-	}
-	unk, isUnk := val.(types.Unknown)
-	if isUnk {
-		return unk, nil
-	}
-	qual, err := a.fac.NewQualifier(nil, a.id, val)
-	if err != nil {
-		return nil, err
-	}
-	return qual.Qualify(vars, obj)
+	return attrQualify(a.fac, vars, obj, a)
+}
+
+func (a *maybeAttribute) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
+	return attrQualifyIfPresent(a.fac, vars, obj, a, presenceOnly)
 }
 
 // Resolve follows the variable resolution rules to determine whether the attribute is a variable
 // or a field selection.
 func (a *maybeAttribute) Resolve(vars Activation) (any, error) {
+	var maybeErr error
 	for _, attr := range a.attrs {
-		obj, found, err := attr.TryResolve(vars)
+		obj, err := attr.Resolve(vars)
 		// Return an error if one is encountered.
 		if err != nil {
-			return nil, err
+			resErr, ok := err.(*resolutionError)
+			if !ok {
+				return nil, err
+			}
+			// If this was not a missing variable error, return it.
+			if !resErr.isMissingVariable() {
+				return nil, err
+			}
+			// When the variable is missing in a maybe attribute we defer erroring.
+			if maybeErr == nil {
+				maybeErr = resErr
+			}
+			// Continue attempting to resolve possible variables.
+			continue
 		}
-		// If the object was found, return it.
-		if found {
-			return obj, nil
-		}
+		return obj, nil
 	}
 	// Else, produce a no such attribute error.
-	return nil, fmt.Errorf("no such attribute: %v", a)
+	return nil, maybeErr
 }
 
 // String is an implementation of the Stringer interface method.
@@ -562,19 +541,11 @@ func (a *relativeAttribute) AddQualifier(qual Qualifier) (Attribute, error) {
 
 // Qualify is an implementation of the Qualifier interface method.
 func (a *relativeAttribute) Qualify(vars Activation, obj any) (any, error) {
-	val, err := a.Resolve(vars)
-	if err != nil {
-		return nil, err
-	}
-	unk, isUnk := val.(types.Unknown)
-	if isUnk {
-		return unk, nil
-	}
-	qual, err := a.fac.NewQualifier(nil, a.id, val)
-	if err != nil {
-		return nil, err
-	}
-	return qual.Qualify(vars, obj)
+	return attrQualify(a.fac, vars, obj, a)
+}
+
+func (a *relativeAttribute) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
+	return attrQualifyIfPresent(a.fac, vars, obj, a, presenceOnly)
 }
 
 // Resolve expression value and qualifier relative to the expression result.
@@ -588,13 +559,13 @@ func (a *relativeAttribute) Resolve(vars Activation) (any, error) {
 		return v, nil
 	}
 	// Next, qualify it. Qualification handles unknowns as well, so there's no need to recheck.
-	var err error
 	var obj any = v
 	for _, qual := range a.qualifiers {
-		obj, err = qual.Qualify(vars, obj)
+		qualObj, err := qual.Qualify(vars, obj)
 		if err != nil {
 			return nil, err
 		}
+		obj = qualObj
 	}
 	return obj, nil
 }
@@ -639,6 +610,8 @@ func newQualifier(adapter ref.TypeAdapter, id int64, v any) (Qualifier, error) {
 		qual = &boolQualifier{id: id, value: bool(val), celValue: val, adapter: adapter}
 	case types.Double:
 		qual = &doubleQualifier{id: id, value: float64(val), celValue: val, adapter: adapter}
+	case types.Unknown:
+		qual = &unknownQualifier{id: id, value: val}
 	default:
 		return nil, fmt.Errorf("invalid qualifier type: %T", v)
 	}
@@ -673,56 +646,79 @@ func (q *stringQualifier) ID() int64 {
 
 // Qualify implements the Qualifier interface method.
 func (q *stringQualifier) Qualify(vars Activation, obj any) (any, error) {
+	val, _, err := q.qualifyInternal(vars, obj, false, false)
+	return val, err
+}
+
+func (q *stringQualifier) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
+	return q.qualifyInternal(vars, obj, true, presenceOnly)
+}
+
+func (q *stringQualifier) qualifyInternal(vars Activation, obj any, presenceTest, presenceOnly bool) (any, bool, error) {
 	s := q.value
-	isMap := false
-	isKey := false
 	switch o := obj.(type) {
 	case map[string]any:
-		isMap = true
-		obj, isKey = o[s]
-	case map[string]string:
-		isMap = true
-		obj, isKey = o[s]
-	case map[string]int:
-		isMap = true
-		obj, isKey = o[s]
-	case map[string]int32:
-		isMap = true
-		obj, isKey = o[s]
-	case map[string]int64:
-		isMap = true
-		obj, isKey = o[s]
-	case map[string]uint:
-		isMap = true
-		obj, isKey = o[s]
-	case map[string]uint32:
-		isMap = true
-		obj, isKey = o[s]
-	case map[string]uint64:
-		isMap = true
-		obj, isKey = o[s]
-	case map[string]float32:
-		isMap = true
-		obj, isKey = o[s]
-	case map[string]float64:
-		isMap = true
-		obj, isKey = o[s]
-	case map[string]bool:
-		isMap = true
-		obj, isKey = o[s]
-	case types.Unknown:
-		return o, nil
-	default:
-		elem, err := refResolve(q.adapter, q.celValue, obj)
-		if err != nil {
-			return nil, err
+		obj, isKey := o[s]
+		if isKey {
+			return obj, true, nil
 		}
-		return elem, nil
+	case map[string]string:
+		obj, isKey := o[s]
+		if isKey {
+			return obj, true, nil
+		}
+	case map[string]int:
+		obj, isKey := o[s]
+		if isKey {
+			return obj, true, nil
+		}
+	case map[string]int32:
+		obj, isKey := o[s]
+		if isKey {
+			return obj, true, nil
+		}
+	case map[string]int64:
+		obj, isKey := o[s]
+		if isKey {
+			return obj, true, nil
+		}
+	case map[string]uint:
+		obj, isKey := o[s]
+		if isKey {
+			return obj, true, nil
+		}
+	case map[string]uint32:
+		obj, isKey := o[s]
+		if isKey {
+			return obj, true, nil
+		}
+	case map[string]uint64:
+		obj, isKey := o[s]
+		if isKey {
+			return obj, true, nil
+		}
+	case map[string]float32:
+		obj, isKey := o[s]
+		if isKey {
+			return obj, true, nil
+		}
+	case map[string]float64:
+		obj, isKey := o[s]
+		if isKey {
+			return obj, true, nil
+		}
+	case map[string]bool:
+		obj, isKey := o[s]
+		if isKey {
+			return obj, true, nil
+		}
+	default:
+		return refQualify(q.adapter, obj, q.celValue, presenceTest, presenceOnly)
 	}
-	if isMap && !isKey {
-		return nil, fmt.Errorf("no such key: %v", s)
+	if presenceTest {
+		return nil, false, nil
 	}
-	return obj, nil
+	return nil, false, missingKey(q.celValue)
 }
 
 // Value implements the ConstantQualifier interface
@@ -749,10 +745,17 @@ func (q *intQualifier) ID() int64 {
 
 // Qualify implements the Qualifier interface method.
 func (q *intQualifier) Qualify(vars Activation, obj any) (any, error) {
+	val, _, err := q.qualifyInternal(vars, obj, false, false)
+	return val, err
+}
+
+func (q *intQualifier) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
+	return q.qualifyInternal(vars, obj, true, presenceOnly)
+}
+
+func (q *intQualifier) qualifyInternal(vars Activation, obj any, presenceTest, presenceOnly bool) (any, bool, error) {
 	i := q.value
-	isMap := false
-	isKey := false
-	isIndex := false
+	var isMap bool
 	switch o := obj.(type) {
 	// The specialized map types supported by an int qualifier are considerably fewer than the set
 	// of specialized map types supported by string qualifiers since they are less frequently used
@@ -760,84 +763,87 @@ func (q *intQualifier) Qualify(vars Activation, obj any) (any, error) {
 	// desired.
 	case map[int]any:
 		isMap = true
-		obj, isKey = o[int(i)]
+		obj, isKey := o[int(i)]
+		if isKey {
+			return obj, true, nil
+		}
 	case map[int32]any:
 		isMap = true
-		obj, isKey = o[int32(i)]
+		obj, isKey := o[int32(i)]
+		if isKey {
+			return obj, true, nil
+		}
 	case map[int64]any:
 		isMap = true
-		obj, isKey = o[i]
+		obj, isKey := o[i]
+		if isKey {
+			return obj, true, nil
+		}
 	case []any:
-		isIndex = i >= 0 && i < int64(len(o))
+		isIndex := i >= 0 && i < int64(len(o))
 		if isIndex {
-			obj = o[i]
+			return o[i], true, nil
 		}
 	case []string:
-		isIndex = i >= 0 && i < int64(len(o))
+		isIndex := i >= 0 && i < int64(len(o))
 		if isIndex {
-			obj = o[i]
+			return o[i], true, nil
 		}
 	case []int:
-		isIndex = i >= 0 && i < int64(len(o))
+		isIndex := i >= 0 && i < int64(len(o))
 		if isIndex {
-			obj = o[i]
+			return o[i], true, nil
 		}
 	case []int32:
-		isIndex = i >= 0 && i < int64(len(o))
+		isIndex := i >= 0 && i < int64(len(o))
 		if isIndex {
-			obj = o[i]
+			return o[i], true, nil
 		}
 	case []int64:
-		isIndex = i >= 0 && i < int64(len(o))
+		isIndex := i >= 0 && i < int64(len(o))
 		if isIndex {
-			obj = o[i]
+			return o[i], true, nil
 		}
 	case []uint:
-		isIndex = i >= 0 && i < int64(len(o))
+		isIndex := i >= 0 && i < int64(len(o))
 		if isIndex {
-			obj = o[i]
+			return o[i], true, nil
 		}
 	case []uint32:
-		isIndex = i >= 0 && i < int64(len(o))
+		isIndex := i >= 0 && i < int64(len(o))
 		if isIndex {
-			obj = o[i]
+			return o[i], true, nil
 		}
 	case []uint64:
-		isIndex = i >= 0 && i < int64(len(o))
+		isIndex := i >= 0 && i < int64(len(o))
 		if isIndex {
-			obj = o[i]
+			return o[i], true, nil
 		}
 	case []float32:
-		isIndex = i >= 0 && i < int64(len(o))
+		isIndex := i >= 0 && i < int64(len(o))
 		if isIndex {
-			obj = o[i]
+			return o[i], true, nil
 		}
 	case []float64:
-		isIndex = i >= 0 && i < int64(len(o))
+		isIndex := i >= 0 && i < int64(len(o))
 		if isIndex {
-			obj = o[i]
+			return o[i], true, nil
 		}
 	case []bool:
-		isIndex = i >= 0 && i < int64(len(o))
+		isIndex := i >= 0 && i < int64(len(o))
 		if isIndex {
-			obj = o[i]
+			return o[i], true, nil
 		}
-	case types.Unknown:
-		return o, nil
 	default:
-		elem, err := refResolve(q.adapter, q.celValue, obj)
-		if err != nil {
-			return nil, err
-		}
-		return elem, nil
+		return refQualify(q.adapter, obj, q.celValue, presenceTest, presenceOnly)
 	}
-	if isMap && !isKey {
-		return nil, fmt.Errorf("no such key: %v", i)
+	if presenceTest {
+		return nil, false, nil
 	}
-	if !isMap && !isIndex {
-		return nil, fmt.Errorf("index out of bounds: %v", i)
+	if isMap {
+		return nil, false, missingKey(q.celValue)
 	}
-	return obj, nil
+	return nil, false, missingIndex(q.celValue)
 }
 
 // Value implements the ConstantQualifier interface
@@ -864,36 +870,43 @@ func (q *uintQualifier) ID() int64 {
 
 // Qualify implements the Qualifier interface method.
 func (q *uintQualifier) Qualify(vars Activation, obj any) (any, error) {
+	val, _, err := q.qualifyInternal(vars, obj, false, false)
+	return val, err
+}
+
+func (q *uintQualifier) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
+	return q.qualifyInternal(vars, obj, true, presenceOnly)
+}
+
+func (q *uintQualifier) qualifyInternal(vars Activation, obj any, presenceTest, presenceOnly bool) (any, bool, error) {
 	u := q.value
-	isMap := false
-	isKey := false
 	switch o := obj.(type) {
 	// The specialized map types supported by a uint qualifier are considerably fewer than the set
 	// of specialized map types supported by string qualifiers since they are less frequently used
 	// than string-based map keys. Additional specializations may be added in the future if
 	// desired.
 	case map[uint]any:
-		isMap = true
-		obj, isKey = o[uint(u)]
-	case map[uint32]any:
-		isMap = true
-		obj, isKey = o[uint32(u)]
-	case map[uint64]any:
-		isMap = true
-		obj, isKey = o[u]
-	case types.Unknown:
-		return o, nil
-	default:
-		elem, err := refResolve(q.adapter, q.celValue, obj)
-		if err != nil {
-			return nil, err
+		obj, isKey := o[uint(u)]
+		if isKey {
+			return obj, true, nil
 		}
-		return elem, nil
+	case map[uint32]any:
+		obj, isKey := o[uint32(u)]
+		if isKey {
+			return obj, true, nil
+		}
+	case map[uint64]any:
+		obj, isKey := o[u]
+		if isKey {
+			return obj, true, nil
+		}
+	default:
+		return refQualify(q.adapter, obj, q.celValue, presenceTest, presenceOnly)
 	}
-	if isMap && !isKey {
-		return nil, fmt.Errorf("no such key: %v", u)
+	if presenceTest {
+		return nil, false, nil
 	}
-	return obj, nil
+	return nil, false, missingKey(q.celValue)
 }
 
 // Value implements the ConstantQualifier interface
@@ -920,28 +933,29 @@ func (q *boolQualifier) ID() int64 {
 
 // Qualify implements the Qualifier interface method.
 func (q *boolQualifier) Qualify(vars Activation, obj any) (any, error) {
+	val, _, err := q.qualifyInternal(vars, obj, false, false)
+	return val, err
+}
+
+func (q *boolQualifier) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
+	return q.qualifyInternal(vars, obj, true, presenceOnly)
+}
+
+func (q *boolQualifier) qualifyInternal(vars Activation, obj any, presenceTest, presenceOnly bool) (any, bool, error) {
 	b := q.value
-	isKey := false
 	switch o := obj.(type) {
-	// The specialized map types supported by a bool qualifier are considerably fewer than the set
-	// of specialized map types supported by string qualifiers since they are less frequently used
-	// than string-based map keys. Additional specializations may be added in the future if
-	// desired.
 	case map[bool]any:
-		obj, isKey = o[b]
-	case types.Unknown:
-		return o, nil
-	default:
-		elem, err := refResolve(q.adapter, q.celValue, obj)
-		if err != nil {
-			return nil, err
+		obj, isKey := o[b]
+		if isKey {
+			return obj, true, nil
 		}
-		return elem, nil
+	default:
+		return refQualify(q.adapter, obj, q.celValue, presenceTest, presenceOnly)
 	}
-	if !isKey {
-		return nil, fmt.Errorf("no such key: %v", b)
+	if presenceTest {
+		return nil, false, nil
 	}
-	return obj, nil
+	return nil, false, missingKey(q.celValue)
 }
 
 // Value implements the ConstantQualifier interface
@@ -974,7 +988,28 @@ func (q *fieldQualifier) Qualify(vars Activation, obj any) (any, error) {
 	if rv, ok := obj.(ref.Val); ok {
 		obj = rv.Value()
 	}
-	return q.FieldType.GetFrom(obj)
+	val, err := q.FieldType.GetFrom(obj)
+	if err != nil {
+		return nil, err
+	}
+	return val, nil
+}
+
+func (q *fieldQualifier) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
+	if rv, ok := obj.(ref.Val); ok {
+		obj = rv.Value()
+	}
+	if !q.FieldType.IsSet(obj) {
+		return nil, false, nil
+	}
+	if presenceOnly {
+		return nil, true, nil
+	}
+	val, err := q.FieldType.GetFrom(obj)
+	if err != nil {
+		return nil, false, err
+	}
+	return val, true, nil
 }
 
 // Value implements the ConstantQualifier interface
@@ -1006,46 +1041,174 @@ func (q *doubleQualifier) ID() int64 {
 
 // Qualify implements the Qualifier interface method.
 func (q *doubleQualifier) Qualify(vars Activation, obj any) (any, error) {
-	switch o := obj.(type) {
+	val, _, err := q.qualifyInternal(vars, obj, false, false)
+	return val, err
+}
+
+func (q *doubleQualifier) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
+	return q.qualifyInternal(vars, obj, true, presenceOnly)
+}
+
+func (q *doubleQualifier) qualifyInternal(vars Activation, obj any, presenceTest, presenceOnly bool) (any, bool, error) {
+	return refQualify(q.adapter, obj, q.celValue, presenceTest, presenceOnly)
+}
+
+// Value implements the ConstantQualifier interface
+func (q *doubleQualifier) Value() ref.Val {
+	return q.celValue
+}
+
+// unknownQualifier is a simple qualifier which always returns a preconfigured set of unknown values
+// for any value subject to qualification. This is consistent with CEL's unknown handling elsewhere.
+type unknownQualifier struct {
+	id    int64
+	value types.Unknown
+}
+
+// ID is an implementation of the Qualifier interface method.
+func (q *unknownQualifier) ID() int64 {
+	return q.id
+}
+
+// Qualify returns the unknown value associated with this qualifier.
+func (q *unknownQualifier) Qualify(vars Activation, obj any) (any, error) {
+	return q.value, nil
+}
+
+func (q *unknownQualifier) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
+	return q.value, true, nil
+}
+
+// Value implements the ConstantQualifier interface
+func (q *unknownQualifier) Value() ref.Val {
+	return q.value
+}
+
+func attrQualify(fac AttributeFactory, vars Activation, obj any, qualAttr Attribute) (any, error) {
+	val, err := qualAttr.Resolve(vars)
+	if err != nil {
+		return nil, err
+	}
+	qual, err := fac.NewQualifier(nil, qualAttr.ID(), val)
+	if err != nil {
+		return nil, err
+	}
+	return qual.Qualify(vars, obj)
+}
+
+func attrQualifyIfPresent(fac AttributeFactory, vars Activation, obj any, qualAttr Attribute,
+	presenceOnly bool) (any, bool, error) {
+	val, err := qualAttr.Resolve(vars)
+	if err != nil {
+		return nil, false, err
+	}
+	qual, err := fac.NewQualifier(nil, qualAttr.ID(), val)
+	if err != nil {
+		return nil, false, err
+	}
+	return qual.QualifyIfPresent(vars, obj, presenceOnly)
+}
+
+// refQualify attempts to convert the value to a CEL value and then uses reflection methods to try and
+// apply the qualifier with the option to presence test field accesses before retrieving field values.
+func refQualify(adapter ref.TypeAdapter, obj any, idx ref.Val, presenceTest, presenceOnly bool) (ref.Val, bool, error) {
+	celVal := adapter.NativeToValue(obj)
+	switch v := celVal.(type) {
 	case types.Unknown:
-		return o, nil
-	default:
-		elem, err := refResolve(q.adapter, q.celValue, obj)
-		if err != nil {
-			return nil, err
+		return v, true, nil
+	case *types.Err:
+		return nil, false, v
+	case traits.Mapper:
+		val, found := v.Find(idx)
+		if types.IsError(val) {
+			return nil, false, val.(*types.Err)
 		}
-		return elem, nil
+		if found {
+			return val, true, nil
+		}
+		if presenceTest {
+			return nil, false, nil
+		}
+		return nil, false, missingKey(idx)
+	case traits.Lister:
+		i, ok := idx.(types.Int)
+		if ok && i >= types.IntZero && i < v.Size().(types.Int) {
+			val := v.Get(idx)
+			if types.IsError(val) {
+				return nil, false, val.(*types.Err)
+			}
+			return val, true, nil
+		}
+		if presenceTest {
+			return nil, false, nil
+		}
+		return nil, false, missingIndex(idx)
+	case traits.Indexer:
+		if presenceTest {
+			ft, ok := v.(traits.FieldTester)
+			if ok {
+				if presenceOnly {
+					return nil, ft.IsSet(idx) == types.True, nil
+				}
+				if ft.IsSet(idx) != types.True {
+					return nil, false, nil
+				}
+			}
+		}
+		val := v.Get(idx)
+		if types.IsError(val) {
+			return nil, false, val.(*types.Err)
+		}
+		return val, true, nil
+	default:
+		if presenceTest {
+			return nil, false, nil
+		}
+		return nil, false, missingKey(idx)
 	}
 }
 
-// refResolve attempts to convert the value to a CEL value and then uses reflection methods
-// to try and resolve the qualifier.
-func refResolve(adapter ref.TypeAdapter, idx ref.Val, obj any) (ref.Val, error) {
-	celVal := adapter.NativeToValue(obj)
-	mapper, isMapper := celVal.(traits.Mapper)
-	if isMapper {
-		elem, found := mapper.Find(idx)
-		if !found {
-			return nil, fmt.Errorf("no such key: %v", idx)
-		}
-		return elem, nil
+type resolutionError struct {
+	missingVariable string
+	missingIndex    ref.Val
+	missingKey      ref.Val
+}
+
+func (e *resolutionError) isMissingVariable() bool {
+	return e.missingVariable != ""
+}
+
+func (e *resolutionError) isMissingQualifier() bool {
+	return e.missingIndex != nil || e.missingKey != nil
+}
+
+func missingIndex(missing ref.Val) *resolutionError {
+	return &resolutionError{
+		missingIndex: missing,
 	}
-	indexer, isIndexer := celVal.(traits.Indexer)
-	if isIndexer {
-		elem := indexer.Get(idx)
-		if types.IsError(elem) {
-			return nil, elem.(*types.Err)
-		}
-		return elem, nil
+}
+
+func missingKey(missing ref.Val) *resolutionError {
+	return &resolutionError{
+		missingKey: missing,
 	}
-	if types.IsUnknown(celVal) {
-		return celVal, nil
+}
+
+func missingVariable(variable string) *resolutionError {
+	return &resolutionError{
+		missingVariable: variable,
 	}
-	// TODO: If the types.Err value contains more than just an error message at some point in the
-	// future, then it would be reasonable to return error values as ref.Val types rather than
-	// simple go error types.
-	if types.IsError(celVal) {
-		return nil, celVal.(*types.Err)
+}
+
+func (e *resolutionError) Error() string {
+	if e.missingKey != nil {
+		return fmt.Sprintf("no such key: %v", e.missingKey)
 	}
-	return nil, fmt.Errorf("no such key: %v", idx)
+	if e.missingIndex != nil {
+		return fmt.Sprintf("index out of bounds: %v", e.missingIndex)
+	}
+	if e.missingVariable != "" {
+		return fmt.Sprintf("no such variable: %s", e.missingVariable)
+	}
+	return "invalid attribute"
 }
