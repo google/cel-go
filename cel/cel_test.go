@@ -1880,10 +1880,15 @@ func TestOptionalValues(t *testing.T) {
 	env, err := NewEnv(
 		OptionalTypes(true),
 		Variable("m", MapType(StringType, MapType(StringType, StringType))),
+		Variable("optm", OptionalType(MapType(StringType, MapType(StringType, StringType)))),
+		Variable("l", ListType(StringType)),
+		Variable("optl", OptionalType(ListType(StringType))),
+
 		Variable("x", OptionalType(IntType)),
 		Variable("y", OptionalType(IntType)),
 		Variable("z", IntType),
 	)
+	adapter := env.TypeAdapter()
 	if err != nil {
 		t.Fatalf("NewEnv() failed: %v", err)
 	}
@@ -1909,7 +1914,7 @@ func TestOptionalValues(t *testing.T) {
 			out: true,
 		},
 		{
-			// In the future this can be expressed as: m.?x
+			// Equivalent to m.?x.hasValue()
 			expr: `(has(m.x) ? optional.of(m.x) : optional.none()).hasValue()`,
 			in: map[string]any{
 				"m": map[string]map[string]string{},
@@ -1917,10 +1922,17 @@ func TestOptionalValues(t *testing.T) {
 			out: false,
 		},
 		{
+			expr: `m.?x.hasValue()`,
+			in: map[string]any{
+				"m": map[string]any{},
+			},
+			out: false,
+		},
+		{
 			// return the value of m.c['dashed-index'], no magic in the optional.of() call.
 			expr: `optional.ofNonZeroValue('').or(optional.of(m.c['dashed-index'])).orValue('default value')`,
 			in: map[string]any{
-				"m": map[string]map[string]string{
+				"m": map[string]any{
 					"c": map[string]string{
 						"dashed-index": "goodbye",
 					},
@@ -1929,16 +1941,127 @@ func TestOptionalValues(t *testing.T) {
 			out: "goodbye",
 		},
 		{
+			// Optional index selection in map where the index is found.
+			expr: `m.c[?'dashed-index'].orValue('default value')`,
+			in: map[string]any{
+				"m": map[string]any{
+					"c": map[string]string{
+						"dashed-index": "goodbye",
+					},
+				},
+			},
+			out: "goodbye",
+		},
+		{
+			// Optional index selection in map where the index is absent.
+			expr: `m.c[?'missing-index'].orValue('default value')`,
+			in: map[string]any{
+				"m": map[string]any{
+					"c": map[string]string{},
+				},
+			},
+			out: "default value",
+		},
+		{
+			// Traditional index selection against an optional value in map where the index is found.
+			expr: `optm.c.index.orValue('default value')`,
+			in: map[string]any{
+				"optm": types.OptionalOf(
+					adapter.NativeToValue(
+						map[string]any{
+							"c": map[string]string{
+								"index": "goodbye",
+							},
+						},
+					),
+				),
+			},
+			out: "goodbye",
+		},
+		{
+			// Traditional index selection against an optional value in map where the index is absent.
+			expr: `optm.c.missing.or(optl[0]).orValue('default value')`,
+			in: map[string]any{
+				"optm": types.OptionalOf(
+					adapter.NativeToValue(
+						map[string]any{
+							"c": map[string]string{},
+						},
+					),
+				),
+				"optl": types.OptionalNone,
+			},
+			out: "default value",
+		},
+		{
+			// Traditional index selection against an optional value in map where the index is absent.
+			expr: `optm.c.missing.or(optl[0]).orValue('default value')`,
+			in: map[string]any{
+				"optm": types.OptionalOf(
+					adapter.NativeToValue(
+						map[string]any{
+							"c": map[string]string{},
+						},
+					),
+				),
+				"optl": types.OptionalOf(
+					adapter.NativeToValue([]string{"list-value"}),
+				),
+			},
+			out: "list-value",
+		},
+		{
+			// Traditional index selection against an optional value in map where the index is found.
+			expr: `optm.c['index'].orValue('default value')`,
+			in: map[string]any{
+				"optm": types.OptionalOf(
+					adapter.NativeToValue(
+						map[string]any{
+							"c": map[string]string{
+								"index": "goodbye",
+							},
+						},
+					),
+				),
+			},
+			out: "goodbye",
+		},
+		{
+			// Traditional index selection against an optional value in map where the index is absent.
+			expr: `optm.c['missing'].orValue('default value')`,
+			in: map[string]any{
+				"optm": types.OptionalOf(
+					adapter.NativeToValue(
+						map[string]any{
+							"c": map[string]string{},
+						},
+					),
+				),
+			},
+			out: "default value",
+		},
+		{
 			// ensure an error is propagated to the result.
 			expr: `optional.ofNonZeroValue(m.a.z).orValue(m.c['dashed-index'])`,
 			in: map[string]any{
-				"m": map[string]map[string]string{
+				"m": map[string]any{
 					"c": map[string]string{
 						"dashed-index": "goodbye",
 					},
 				},
 			},
 			out: "no such key: a",
+		},
+		{
+			expr: `m.?c.missing.or(m.?c['dashed-index']).orValue('').size()`,
+			in: map[string]any{
+				"m": map[string]any{
+					"c": map[string]string{
+						"dashed-index": "goodbye",
+					},
+				},
+			},
+			out: 7,
 		},
 	}
 

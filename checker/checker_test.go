@@ -1397,7 +1397,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 	{
 		in: `[].map(x, [].map(y, x in y && y in x))`,
 		err: `
-		ERROR: <input>:1:33: found no matching overload for '@in' applied to '(_var2, _var0)'
+		ERROR: <input>:1:33: found no matching overload for '@in' applied to '(list(dyn), dyn)'
 		| [].map(x, [].map(y, x in y && y in x))
 		| ................................^`,
 	},
@@ -1578,7 +1578,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 		    2~int,
 		    3~int
 		  ]~list(int)
-		)~abstract_type:{name:"set" parameter_types:{primitive:INT64}}^set_list`,
+		)~set(int)^set_list`,
 		env: testEnv{
 			functions: []*exprpb.Decl{
 				decls.NewFunction("set",
@@ -1595,8 +1595,8 @@ _&&_(_==_(list~type(list(dyn))^list,
 		in: `set([1, 2]) == set([2, 1])`,
 		out: `
 		_==_(
-		  set([1~int, 2~int]~list(int))~abstract_type:{name:"set" parameter_types:{primitive:INT64}}^set_list,
-		  set([2~int, 1~int]~list(int))~abstract_type:{name:"set" parameter_types:{primitive:INT64}}^set_list
+		  set([1~int, 2~int]~list(int))~set(int)^set_list,
+		  set([2~int, 1~int]~list(int))~set(int)^set_list
 		)~bool^equals`,
 		env: testEnv{
 			functions: []*exprpb.Decl{
@@ -1614,8 +1614,8 @@ _&&_(_==_(list~type(list(dyn))^list,
 		in: `set([1, 2]) == x`,
 		out: `
 		_==_(
-		  set([1~int, 2~int]~list(int))~abstract_type:{name:"set" parameter_types:{primitive:INT64}}^set_list,
-		  x~abstract_type:{name:"set" parameter_types:{primitive:INT64}}^x
+		  set([1~int, 2~int]~list(int))~set(int)^set_list,
+		  x~set(int)^x
 		)~bool^equals`,
 		env: testEnv{
 			idents: []*exprpb.Decl{
@@ -2036,6 +2036,39 @@ _&&_(_==_(list~type(list(dyn))^list,
 			int~type(int)^int
 		  )~bool^equals`,
 	},
+	{
+		in: `a.?b`,
+		env: testEnv{
+			idents: []*exprpb.Decl{
+				decls.NewVar("a", decls.NewMapType(decls.String, decls.String)),
+			},
+		},
+		outType: decls.NewAbstractType("optional", decls.String),
+		out: `_?._(
+			a~map(string, string)^a,
+			"b"
+		  )~optional(string)`,
+	},
+	{
+		in: `a.b`,
+		env: testEnv{
+			idents: []*exprpb.Decl{
+				decls.NewVar("a", decls.NewAbstractType("optional", decls.NewMapType(decls.String, decls.String))),
+			},
+		},
+		outType: decls.NewAbstractType("optional", decls.String),
+		out:     `a~optional(map(string, string))^a.b~optional(string)`,
+	},
+	{
+		in: `a.dynamic`,
+		env: testEnv{
+			idents: []*exprpb.Decl{
+				decls.NewVar("a", decls.NewAbstractType("optional", decls.Dyn)),
+			},
+		},
+		outType: decls.NewAbstractType("optional", decls.Dyn),
+		out:     `a~optional(dyn)^a.dynamic~optional(dyn)`,
+	},
 }
 
 var testEnvs = map[string]testEnv{
@@ -2091,6 +2124,14 @@ type testEnv struct {
 }
 
 func TestCheck(t *testing.T) {
+	p, err := parser.NewParser(
+		parser.EnableOptionalSyntax(true),
+		parser.Macros(parser.AllMacros...),
+	)
+	if err != nil {
+		t.Fatalf("parser.NewParser() failed: %v", err)
+	}
+
 	for i, tst := range testCases {
 		name := fmt.Sprintf("%d %s", i, tst.in)
 		tc := tst
@@ -2100,7 +2141,7 @@ func TestCheck(t *testing.T) {
 			t.Parallel()
 
 			src := common.NewTextSource(tc.in)
-			expression, errors := parser.Parse(src)
+			expression, errors := p.Parse(src)
 			if len(errors.GetErrors()) > 0 {
 				t.Fatalf("Unexpected parse errors: %v", errors.ToDisplayString())
 			}

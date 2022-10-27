@@ -1624,6 +1624,32 @@ var testCases = []testInfo{
 		| self.true == 1
 		| .....^`,
 	},
+	{
+		I: `a.?b && a[?b]`,
+		E: `ERROR: <input>:1:2: unsupported syntax .?
+        | a.?b && a[?b]
+        | .^
+        ERROR: <input>:1:10: unsupported syntax [?
+        | a.?b && a[?b]
+		| .........^`,
+	},
+	{
+		I:    `a.?b[?0] && a[?c]`,
+		Opts: []Option{EnableOptionalSyntax(true)},
+		P: `_&&_(
+			_[?_](
+			  _?._(
+				a^#1:*expr.Expr_IdentExpr#,
+				"b"^#2:*expr.Constant_StringValue#
+			  )^#3:*expr.Expr_CallExpr#,
+			  0^#5:*expr.Constant_Int64Value#
+			)^#4:*expr.Expr_CallExpr#,
+			_[?_](
+			  a^#6:*expr.Expr_IdentExpr#,
+			  c^#8:*expr.Expr_IdentExpr#
+			)^#7:*expr.Expr_CallExpr#
+		  )^#9:*expr.Expr_CallExpr#`,
+	},
 }
 
 type testInfo struct {
@@ -1641,6 +1667,9 @@ type testInfo struct {
 
 	// M contains the expected adorned debug output of the macro calls map
 	M string
+
+	// Opts contains the list of options to be configured with the parser before parsing the expression.
+	Opts []Option
 }
 
 type metadata interface {
@@ -1738,56 +1767,50 @@ func convertMacroCallsToString(source *exprpb.SourceInfo) string {
 }
 
 func TestParse(t *testing.T) {
-	p, err := NewParser(
-		Macros(AllMacros...),
-		MaxRecursionDepth(32),
-		ErrorRecoveryLimit(4),
-		ErrorRecoveryLookaheadTokenLimit(4),
-		PopulateMacroCalls(true),
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	defaultParser := newTestParser(t)
 	for i, tst := range testCases {
 		name := fmt.Sprintf("%d %s", i, tst.I)
 		// Local variable required as the closure will reference the value for the last
 		// 'tst' value rather than the local 'tc' instance declared within the loop.
 		tc := tst
-		t.Run(name, func(tt *testing.T) {
+		t.Run(name, func(t *testing.T) {
 			// Runs the tests in parallel to ensure that there are no data races
 			// due to shared mutable state across tests.
-			tt.Parallel()
-
+			t.Parallel()
+			p := defaultParser
+			if len(tc.Opts) > 0 {
+				p = newTestParser(t, tc.Opts...)
+			}
 			src := common.NewTextSource(tc.I)
 			parsedExpr, errors := p.Parse(src)
 			if len(errors.GetErrors()) > 0 {
 				actualErr := errors.ToDisplayString()
 				if tc.E == "" {
-					tt.Fatalf("Unexpected errors: %v", actualErr)
+					t.Fatalf("Unexpected errors: %v", actualErr)
 				} else if !test.Compare(actualErr, tc.E) {
-					tt.Fatalf(test.DiffMessage("Error mismatch", actualErr, tc.E))
+					t.Fatalf(test.DiffMessage("Error mismatch", actualErr, tc.E))
 				}
 				return
 			} else if tc.E != "" {
-				tt.Fatalf("Expected error not thrown: '%s'", tc.E)
+				t.Fatalf("Expected error not thrown: '%s'", tc.E)
 			}
 			failureDisplayMethod := fmt.Sprintf("Parse(\"%s\")", tc.I)
 			actualWithKind := debug.ToAdornedDebugString(parsedExpr.GetExpr(), &kindAndIDAdorner{})
 			if !test.Compare(actualWithKind, tc.P) {
-				tt.Fatal(test.DiffMessage(fmt.Sprintf("Structure - %s", failureDisplayMethod), actualWithKind, tc.P))
+				t.Fatal(test.DiffMessage(fmt.Sprintf("Structure - %s", failureDisplayMethod), actualWithKind, tc.P))
 			}
 
 			if tc.L != "" {
 				actualWithLocation := debug.ToAdornedDebugString(parsedExpr.GetExpr(), &locationAdorner{parsedExpr.GetSourceInfo()})
 				if !test.Compare(actualWithLocation, tc.L) {
-					tt.Fatal(test.DiffMessage(fmt.Sprintf("Location - %s", failureDisplayMethod), actualWithLocation, tc.L))
+					t.Fatal(test.DiffMessage(fmt.Sprintf("Location - %s", failureDisplayMethod), actualWithLocation, tc.L))
 				}
 			}
 
 			if tc.M != "" {
 				actualAdornedMacroCalls := convertMacroCallsToString(parsedExpr.GetSourceInfo())
 				if !test.Compare(actualAdornedMacroCalls, tc.M) {
-					tt.Fatal(test.DiffMessage(fmt.Sprintf("Macro Calls - %s", failureDisplayMethod), actualAdornedMacroCalls, tc.M))
+					t.Fatal(test.DiffMessage(fmt.Sprintf("Macro Calls - %s", failureDisplayMethod), actualAdornedMacroCalls, tc.M))
 				}
 			}
 		})
@@ -1862,4 +1885,22 @@ func BenchmarkParseParallel(b *testing.B) {
 			}
 		}
 	})
+}
+
+func newTestParser(t *testing.T, options ...Option) *Parser {
+	t.Helper()
+	defaultOpts := []Option{
+		Macros(AllMacros...),
+		MaxRecursionDepth(32),
+		ErrorRecoveryLimit(4),
+		ErrorRecoveryLookaheadTokenLimit(4),
+		PopulateMacroCalls(true),
+	}
+	opts := append([]Option{}, defaultOpts...)
+	opts = append(opts, options...)
+	p, err := NewParser(opts...)
+	if err != nil {
+		t.Fatalf("NewParser() failed: %v", err)
+	}
+	return p
 }

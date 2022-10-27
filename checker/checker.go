@@ -23,6 +23,7 @@ import (
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/containers"
+	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/types/ref"
 
 	"google.golang.org/protobuf/proto"
@@ -185,9 +186,37 @@ func (c *checker) checkSelect(e *exprpb.Expr) {
 		}
 	}
 
+	resultType := c.checkSelectField(e, sel.GetOperand(), sel.GetField(), false)
+	if sel.TestOnly {
+		resultType = decls.Bool
+	}
+	c.setType(e, substitute(c.mappings, resultType, false))
+}
+
+func (c *checker) checkOptSelect(e *exprpb.Expr) {
+	// Collect metadata related to the opt select call packaged by the parser.
+	call := e.GetCallExpr()
+	operand := call.GetArgs()[0]
+	field := call.GetArgs()[1]
+	fieldName, isString := maybeUnwrapString(field)
+	if !isString {
+		c.errors.ReportError(c.location(field), "unsupported optional field selection: %v", field)
+		return
+	}
+
+	// Perform type-checking using the field selection logic.
+	resultType := c.checkSelectField(e, operand, fieldName, true)
+	c.setType(e, substitute(c.mappings, resultType, false))
+}
+
+func (c *checker) checkSelectField(e, operand *exprpb.Expr, field string, optional bool) *exprpb.Type {
 	// Interpret as field selection, first traversing down the operand.
-	c.check(sel.GetOperand())
-	targetType := substitute(c.mappings, c.getType(sel.GetOperand()), false)
+	c.check(operand)
+	operandType := substitute(c.mappings, c.getType(operand), false)
+
+	// If the target type is 'optional', unwrap it for the sake of this check.
+	targetType, isOpt := maybeUnwrapOptional(operandType)
+
 	// Assume error type by default as most types do not support field selection.
 	resultType := decls.Error
 	switch kindOf(targetType) {
@@ -199,7 +228,7 @@ func (c *checker) checkSelect(e *exprpb.Expr) {
 		// Objects yield their field type declaration as the selection result type, but only if
 		// the field is defined.
 		messageType := targetType
-		if fieldType, found := c.lookupFieldType(c.location(e), messageType.GetMessageType(), sel.GetField()); found {
+		if fieldType, found := c.lookupFieldType(c.location(e), messageType.GetMessageType(), field); found {
 			resultType = fieldType.Type
 		}
 	case kindTypeParam:
@@ -212,16 +241,17 @@ func (c *checker) checkSelect(e *exprpb.Expr) {
 	default:
 		// Dynamic / error values are treated as DYN type. Errors are handled this way as well
 		// in order to allow forward progress on the check.
-		if isDynOrError(targetType) {
-			resultType = decls.Dyn
-		} else {
+		if !isDynOrError(targetType) {
 			c.errors.typeDoesNotSupportFieldSelection(c.location(e), targetType)
 		}
+		resultType = decls.Dyn
 	}
-	if sel.TestOnly {
-		resultType = decls.Bool
+
+	// If the target type was optional coming in, then the result must be optional going out.
+	if isOpt || optional {
+		return decls.NewAbstractType("optional", resultType)
 	}
-	c.setType(e, substitute(c.mappings, resultType, false))
+	return resultType
 }
 
 func (c *checker) checkCall(e *exprpb.Expr) {
@@ -229,15 +259,19 @@ func (c *checker) checkCall(e *exprpb.Expr) {
 	// please consider the impact on planner.go and consolidate implementations or mirror code
 	// as appropriate.
 	call := e.GetCallExpr()
-	target := call.GetTarget()
-	args := call.GetArgs()
 	fnName := call.GetFunction()
+	if fnName == operators.OptSelect {
+		c.checkOptSelect(e)
+		return
+	}
 
+	args := call.GetArgs()
 	// Traverse arguments.
 	for _, arg := range args {
 		c.check(arg)
 	}
 
+	target := call.GetTarget()
 	// Regular static call with simple name.
 	if target == nil {
 		// Check for the existence of the function.
@@ -359,6 +393,9 @@ func (c *checker) resolveOverload(
 	}
 
 	if resultType == nil {
+		for i, arg := range argTypes {
+			argTypes[i] = substitute(c.mappings, arg, true)
+		}
 		c.errors.noMatchingOverload(loc, fn.GetName(), argTypes, target != nil)
 		resultType = decls.Error
 		return nil

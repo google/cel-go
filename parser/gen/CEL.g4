@@ -52,9 +52,9 @@ unary
 
 member
     : primary                                                       # PrimaryExpr
-    | member op='.' id=IDENTIFIER                                   # Select
+    | member op=('.'|'.?') id=IDENTIFIER                            # Select
     | member op='.' id=IDENTIFIER open='(' args=exprList? ')'       # MemberCall
-    | member op='[' index=expr ']'                                  # Index
+    | member op=('['|'[?') index=expr ']'                           # Index
     ;
 
 primary
