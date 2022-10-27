@@ -245,7 +245,7 @@ func (l *baseList) Equal(other ref.Val) ref.Val {
 
 // Get implements the traits.Indexer interface method.
 func (l *baseList) Get(index ref.Val) ref.Val {
-	ind, err := indexOrError(index)
+	ind, err := IndexOrError(index)
 	if err != nil {
 		return ValOrErr(index, err.Error())
 	}
@@ -420,7 +420,7 @@ func (l *concatList) Equal(other ref.Val) ref.Val {
 
 // Get implements the traits.Indexer interface method.
 func (l *concatList) Get(index ref.Val) ref.Val {
-	ind, err := indexOrError(index)
+	ind, err := IndexOrError(index)
 	if err != nil {
 		return ValOrErr(index, err.Error())
 	}
@@ -512,7 +512,8 @@ func (it *listIterator) Next() ref.Val {
 	return nil
 }
 
-func indexOrError(index ref.Val) (int, error) {
+// IndexOrError converts an input index value into either a lossless integer index or an error.
+func IndexOrError(index ref.Val) (int, error) {
 	switch iv := index.(type) {
 	case Int:
 		return int(iv), nil

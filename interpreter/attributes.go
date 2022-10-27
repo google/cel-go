@@ -1144,8 +1144,12 @@ func refQualify(adapter ref.TypeAdapter, obj any, idx ref.Val, presenceTest, pre
 		}
 		return nil, false, missingKey(idx)
 	case traits.Lister:
-		i, ok := idx.(types.Int)
-		if ok && i >= types.IntZero && i < v.Size().(types.Int) {
+		i, err := types.IndexOrError(idx)
+		if err != nil {
+			return nil, false, err
+		}
+		celIndex := types.Int(i)
+		if i >= 0 && celIndex < v.Size().(types.Int) {
 			val := v.Get(idx)
 			if types.IsError(val) {
 				return nil, false, val.(*types.Err)
@@ -1160,11 +1164,12 @@ func refQualify(adapter ref.TypeAdapter, obj any, idx ref.Val, presenceTest, pre
 		if presenceTest {
 			ft, ok := v.(traits.FieldTester)
 			if ok {
-				if presenceOnly {
-					return nil, ft.IsSet(idx) == types.True, nil
+				presence := ft.IsSet(idx)
+				if types.IsError(presence) {
+					return nil, false, presence.(*types.Err)
 				}
-				if ft.IsSet(idx) != types.True {
-					return nil, false, nil
+				if presenceOnly || presence == types.False {
+					return nil, presence == types.True, nil
 				}
 			}
 		}
