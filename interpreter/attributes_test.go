@@ -15,6 +15,8 @@
 package interpreter
 
 import (
+	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -51,9 +53,9 @@ func TestAttributesAbsoluteAttr(t *testing.T) {
 
 	// acme.a.b[4][false]
 	attr := attrs.AbsoluteAttribute(1, "acme.a")
-	qualB, _ := attrs.NewQualifier(nil, 2, "b")
-	qual4, _ := attrs.NewQualifier(nil, 3, uint64(4))
-	qualFalse, _ := attrs.NewQualifier(nil, 4, false)
+	qualB := makeQualifier(t, attrs, nil, 2, "b")
+	qual4 := makeQualifier(t, attrs, nil, 3, uint64(4))
+	qualFalse := makeQualifier(t, attrs, nil, 4, false)
 	attr.AddQualifier(qualB)
 	attr.AddQualifier(qual4)
 	attr.AddQualifier(qualFalse)
@@ -109,8 +111,8 @@ func TestAttributesRelativeAttr(t *testing.T) {
 	// The expression being evaluated is: <map-literal>.a[-1][b] -> 42
 	op := NewConstValue(1, reg.NativeToValue(data))
 	attr := attrs.RelativeAttribute(1, op)
-	qualA, _ := attrs.NewQualifier(nil, 2, "a")
-	qualNeg1, _ := attrs.NewQualifier(nil, 3, int64(-1))
+	qualA := makeQualifier(t, attrs, nil, 2, "a")
+	qualNeg1 := makeQualifier(t, attrs, nil, 3, int64(-1))
 	attr.AddQualifier(qualA)
 	attr.AddQualifier(qualNeg1)
 	attr.AddQualifier(attrs.AbsoluteAttribute(4, "b"))
@@ -127,7 +129,7 @@ func TestAttributesRelativeAttr(t *testing.T) {
 	}
 }
 
-func TestAttributesRelativeAttr_OneOf(t *testing.T) {
+func TestAttributesRelativeAttrOneOf(t *testing.T) {
 	reg := newTestRegistry(t)
 	cont, err := containers.NewContainer(containers.Name("acme.ns"))
 	if err != nil {
@@ -158,8 +160,8 @@ func TestAttributesRelativeAttr_OneOf(t *testing.T) {
 	// The correct behavior should yield the value of the last alternative.
 	op := NewConstValue(1, reg.NativeToValue(data))
 	attr := attrs.RelativeAttribute(1, op)
-	qualA, _ := attrs.NewQualifier(nil, 2, "a")
-	qualNeg1, _ := attrs.NewQualifier(nil, 3, int64(-1))
+	qualA := makeQualifier(t, attrs, nil, 2, "a")
+	qualNeg1 := makeQualifier(t, attrs, nil, 3, int64(-1))
 	attr.AddQualifier(qualA)
 	attr.AddQualifier(qualNeg1)
 	attr.AddQualifier(attrs.MaybeAttribute(4, "b"))
@@ -176,7 +178,7 @@ func TestAttributesRelativeAttr_OneOf(t *testing.T) {
 	}
 }
 
-func TestAttributesRelativeAttr_Conditional(t *testing.T) {
+func TestAttributesRelativeAttrConditional(t *testing.T) {
 	reg := newTestRegistry(t)
 	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
 	data := map[string]any{
@@ -203,13 +205,13 @@ func TestAttributesRelativeAttr_Conditional(t *testing.T) {
 	condAttr := attrs.ConditionalAttribute(4, cond,
 		attrs.AbsoluteAttribute(5, "b"),
 		attrs.AbsoluteAttribute(6, "c"))
-	qual0, _ := attrs.NewQualifier(nil, 7, 0)
+	qual0 := makeQualifier(t, attrs, nil, 7, 0)
 	condAttr.AddQualifier(qual0)
 
 	obj := NewConstValue(1, reg.NativeToValue(data))
 	attr := attrs.RelativeAttribute(1, obj)
-	qualA, _ := attrs.NewQualifier(nil, 2, "a")
-	qualNeg1, _ := attrs.NewQualifier(nil, 3, int64(-1))
+	qualA := makeQualifier(t, attrs, nil, 2, "a")
+	qualNeg1 := makeQualifier(t, attrs, nil, 3, int64(-1))
 	attr.AddQualifier(qualA)
 	attr.AddQualifier(qualNeg1)
 	attr.AddQualifier(condAttr)
@@ -226,7 +228,7 @@ func TestAttributesRelativeAttr_Conditional(t *testing.T) {
 	}
 }
 
-func TestAttributesRelativeAttr_Relative(t *testing.T) {
+func TestAttributesRelativeAttrRelativeQualifier(t *testing.T) {
 	cont, err := containers.NewContainer(containers.Name("acme.ns"))
 	if err != nil {
 		t.Fatal(err)
@@ -278,11 +280,11 @@ func TestAttributesRelativeAttr_Relative(t *testing.T) {
 		3: "third",
 	}))
 	relAttr := attrs.RelativeAttribute(4, mp)
-	qualB, _ := attrs.NewQualifier(nil, 5, attrs.AbsoluteAttribute(5, "b"))
+	qualB := makeQualifier(t, attrs, nil, 5, attrs.AbsoluteAttribute(5, "b"))
 	relAttr.AddQualifier(qualB)
 	attr := attrs.RelativeAttribute(1, obj)
-	qualA, _ := attrs.NewQualifier(nil, 2, "a")
-	qualNeg1, _ := attrs.NewQualifier(nil, 3, int64(-1))
+	qualA := makeQualifier(t, attrs, nil, 2, "a")
+	qualNeg1 := makeQualifier(t, attrs, nil, 3, int64(-1))
 	attr.AddQualifier(qualA)
 	attr.AddQualifier(qualNeg1)
 	attr.AddQualifier(relAttr)
@@ -318,7 +320,7 @@ func TestAttributesOneofAttr(t *testing.T) {
 
 	// a.b -> should resolve to acme.ns.a.b per namespace resolution rules.
 	attr := attrs.MaybeAttribute(1, "a")
-	qualB, _ := attrs.NewQualifier(nil, 2, "b")
+	qualB := makeQualifier(t, attrs, nil, 2, "b")
 	attr.AddQualifier(qualB)
 	out, err := attr.Resolve(vars)
 	if err != nil {
@@ -333,7 +335,7 @@ func TestAttributesOneofAttr(t *testing.T) {
 	}
 }
 
-func TestAttributesConditionalAttr_TrueBranch(t *testing.T) {
+func TestAttributesConditionalAttrTrueBranch(t *testing.T) {
 	reg := newTestRegistry(t)
 	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
 	data := map[string]any{
@@ -351,11 +353,11 @@ func TestAttributesConditionalAttr_TrueBranch(t *testing.T) {
 	// (true ? a : b.c)[-1][1]
 	tv := attrs.AbsoluteAttribute(2, "a")
 	fv := attrs.MaybeAttribute(3, "b")
-	qualC, _ := attrs.NewQualifier(nil, 4, "c")
+	qualC := makeQualifier(t, attrs, nil, 4, "c")
 	fv.AddQualifier(qualC)
 	cond := attrs.ConditionalAttribute(1, NewConstValue(0, types.True), tv, fv)
-	qualNeg1, _ := attrs.NewQualifier(nil, 5, int64(-1))
-	qual1, _ := attrs.NewQualifier(nil, 6, int64(1))
+	qualNeg1 := makeQualifier(t, attrs, nil, 5, int64(-1))
+	qual1 := makeQualifier(t, attrs, nil, 6, int64(1))
 	cond.AddQualifier(qualNeg1)
 	cond.AddQualifier(qual1)
 	out, err := cond.Resolve(vars)
@@ -371,7 +373,7 @@ func TestAttributesConditionalAttr_TrueBranch(t *testing.T) {
 	}
 }
 
-func TestAttributesConditionalAttr_FalseBranch(t *testing.T) {
+func TestAttributesConditionalAttrFalseBranch(t *testing.T) {
 	reg := newTestRegistry(t)
 	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
 	data := map[string]any{
@@ -389,11 +391,11 @@ func TestAttributesConditionalAttr_FalseBranch(t *testing.T) {
 	// (false ? a : b.c)[-1][1]
 	tv := attrs.AbsoluteAttribute(2, "a")
 	fv := attrs.MaybeAttribute(3, "b")
-	qualC, _ := attrs.NewQualifier(nil, 4, "c")
+	qualC := makeQualifier(t, attrs, nil, 4, "c")
 	fv.AddQualifier(qualC)
 	cond := attrs.ConditionalAttribute(1, NewConstValue(0, types.False), tv, fv)
-	qualNeg1, _ := attrs.NewQualifier(nil, 5, int64(-1))
-	qual1, _ := attrs.NewQualifier(nil, 6, int64(1))
+	qualNeg1 := makeQualifier(t, attrs, nil, 5, int64(-1))
+	qual1 := makeQualifier(t, attrs, nil, 6, int64(1))
 	cond.AddQualifier(qualNeg1)
 	cond.AddQualifier(qual1)
 	out, err := cond.Resolve(vars)
@@ -409,7 +411,351 @@ func TestAttributesConditionalAttr_FalseBranch(t *testing.T) {
 	}
 }
 
-func TestAttributesConditionalAttr_ErrorUnknown(t *testing.T) {
+func TestAttributesOptional(t *testing.T) {
+	reg := newTestRegistry(t, &proto3pb.TestAllTypes{})
+	cont, err := containers.NewContainer(containers.Name("ns"))
+	if err != nil {
+		t.Fatalf("")
+	}
+	attrs := NewAttributeFactory(cont, reg, reg)
+
+	tests := []struct {
+		varName  string
+		quals    []any
+		optQuals []any
+		vars     map[string]any
+		out      any
+		err      error
+	}{
+		{
+			// a.?b[0][false]
+			varName:  "a",
+			optQuals: []any{"b", int32(0), false},
+			vars: map[string]any{
+				"a": map[string]any{
+					"b": map[int]any{
+						0: map[bool]string{
+							false: "success",
+						},
+					},
+				},
+			},
+			out: types.OptionalOf(reg.NativeToValue("success")),
+		},
+		{
+			// a.?b[0][false]
+			varName:  "a",
+			optQuals: []any{"b", uint32(0), false},
+			vars: map[string]any{
+				"a": map[string]any{
+					"b": map[int]any{
+						0: map[bool]string{
+							false: "success",
+						},
+					},
+				},
+			},
+			out: types.OptionalOf(reg.NativeToValue("success")),
+		},
+		{
+			// a.?b[0][false]
+			varName:  "a",
+			optQuals: []any{"b", float32(0), false},
+			vars: map[string]any{
+				"a": map[string]any{
+					"b": map[int]any{
+						0: map[bool]string{
+							false: "success",
+						},
+					},
+				},
+			},
+			out: types.OptionalOf(reg.NativeToValue("success")),
+		},
+		{
+			// a.?b[1] with no value
+			varName:  "a",
+			optQuals: []any{"b", uint(1)},
+			vars: map[string]any{
+				"a": map[string]any{
+					"b": map[uint]any{},
+				},
+			},
+			out: types.OptionalNone,
+		},
+		{
+			// a.b[1] with no value where b is a map[uint]
+			varName: "a",
+			quals:   []any{"b", uint(1)},
+			vars: map[string]any{
+				"a": map[string]any{
+					"b": map[uint]any{},
+				},
+			},
+			err: errors.New("no such key: 1"),
+		},
+		{
+			// a.b[?1] with no value where 'b' is a []int
+			varName:  "a",
+			quals:    []any{"b"},
+			optQuals: []any{1},
+			vars: map[string]any{
+				"a": map[string]any{
+					"b": []int{},
+				},
+			},
+			out: types.OptionalNone,
+		},
+		{
+			// a.b[1] with no value where 'b' is a map[int]any
+			varName: "a",
+			quals:   []any{"b", 1},
+			vars: map[string]any{
+				"a": map[string]any{
+					"b": map[int]any{},
+				},
+			},
+			err: errors.New("no such key: 1"),
+		},
+		{
+			// a.b[?1] with no value where 'b' is a []int
+			varName:  "a",
+			quals:    []any{"b", 1, false},
+			optQuals: []any{},
+			vars: map[string]any{
+				"a": map[string]any{
+					"b": []int{},
+				},
+			},
+			err: errors.New("index out of bounds: 1"),
+		},
+		{
+			// a.?b[0][true] with no value
+			varName:  "a",
+			optQuals: []any{"b", 0, false},
+			vars: map[string]any{
+				"a": map[string]any{
+					"b": map[int]any{
+						0: map[bool]any{},
+					},
+				},
+			},
+			out: types.OptionalNone,
+		},
+		{
+			// a.b[0][?true] with no value
+			varName:  "a",
+			quals:    []any{"b", 0},
+			optQuals: []any{true},
+			vars: map[string]any{
+				"a": map[string]any{
+					"b": map[int]any{
+						0: map[bool]any{},
+					},
+				},
+			},
+			out: types.OptionalNone,
+		},
+		{
+			// a.b[0][true] with no value
+			varName: "a",
+			quals:   []any{"b", 0, true},
+			vars: map[string]any{
+				"a": map[string]any{
+					"b": map[int]any{
+						0: map[bool]any{},
+					},
+				},
+			},
+			err: errors.New("no such key: true"),
+		},
+		{
+			// a.b[0][false] where 'a' is optional
+			varName: "a",
+			quals:   []any{"b", int32(0), false},
+			vars: map[string]any{
+				"a": types.OptionalOf(reg.NativeToValue(map[string]any{
+					"b": map[int]any{
+						0: map[bool]string{
+							false: "success",
+						},
+					},
+				})),
+			},
+			out: types.OptionalOf(reg.NativeToValue("success")),
+		},
+		{
+			// a.b[0][false] where 'a' is optional none.
+			varName: "a",
+			quals:   []any{"b", int32(0), false},
+			vars: map[string]any{
+				"a": types.OptionalNone,
+			},
+			out: types.OptionalNone,
+		},
+		{
+			// a.?c[1][true]
+			varName:  "a",
+			optQuals: []any{"c", int32(1), true},
+			vars: map[string]any{
+				"a": map[string]any{},
+			},
+			out: types.OptionalNone,
+		},
+		{
+			// a[?b] where 'b' is dynamically computed.
+			varName:  "a",
+			optQuals: []any{attrs.AbsoluteAttribute(0, "b")},
+			vars: map[string]any{
+				"a": map[string]any{
+					"hello": "world",
+				},
+				"b": "hello",
+			},
+			out: types.OptionalOf(reg.NativeToValue("world")),
+		},
+		{
+			// a[?(false ? : b : c.d.e)]
+			varName: "a",
+			optQuals: []any{
+				attrs.ConditionalAttribute(0,
+					NewConstValue(100, types.False),
+					attrs.AbsoluteAttribute(101, "b"),
+					attrs.MaybeAttribute(102, "c.d.e")),
+			},
+			vars: map[string]any{
+				"a": map[string]any{
+					"hello":   "world",
+					"goodbye": "universe",
+				},
+				"b":     "hello",
+				"c.d.e": "goodbye",
+			},
+			out: types.OptionalOf(reg.NativeToValue("universe")),
+		},
+		{
+			// a[?c.d.e]
+			varName: "a",
+			optQuals: []any{
+				attrs.MaybeAttribute(102, "c.d.e"),
+			},
+			vars: map[string]any{
+				"a": map[string]any{
+					"hello":   "world",
+					"goodbye": "universe",
+				},
+				"b":     "hello",
+				"c.d.e": "goodbye",
+			},
+			out: types.OptionalOf(reg.NativeToValue("universe")),
+		},
+		{
+			// a[c.d.e] where the c.d.e errors
+			varName: "a",
+			quals: []any{
+				addQualifier(t, attrs.MaybeAttribute(102, "c.d"), makeQualifier(t, attrs, nil, 103, "e")),
+			},
+			vars: map[string]any{
+				"a": map[string]any{
+					"goodbye": "universe",
+				},
+				"c.d": map[string]any{},
+			},
+			err: errors.New("no such key: e"),
+		},
+		{
+			// a[?c.d.e] where the c.d.e errors
+			varName: "a",
+			optQuals: []any{
+				addQualifier(t, attrs.MaybeAttribute(102, "c.d"), makeQualifier(t, attrs, nil, 103, "e")),
+			},
+			vars: map[string]any{
+				"a": map[string]any{
+					"goodbye": "universe",
+				},
+				"c.d": map[string]any{},
+			},
+			err: errors.New("no such key: e"),
+		},
+		{
+			// a.?single_int32 with a value.
+			varName:  "a",
+			optQuals: []any{"single_int32"},
+			vars: map[string]any{
+				"a": &proto3pb.TestAllTypes{SingleInt32: 1},
+			},
+			out: types.OptionalOf(reg.NativeToValue(1)),
+		},
+		{
+			// a.?single_int32 where the field is not set.
+			varName:  "a",
+			optQuals: []any{"single_int32"},
+			vars: map[string]any{
+				"a": &proto3pb.TestAllTypes{},
+			},
+			out: types.OptionalNone,
+		},
+		{
+			// a.?single_int32 where the field is set (uses more optimal selection logic)
+			varName: "a",
+			optQuals: []any{
+				makeOptQualifier(t,
+					attrs,
+					&exprpb.Type{TypeKind: &exprpb.Type_MessageType{MessageType: "google.expr.proto3.test.TestAllTypes"}},
+					103,
+					"single_int32",
+				),
+			},
+			vars: map[string]any{
+				"a": &proto3pb.TestAllTypes{SingleInt32: 1},
+			},
+			out: types.OptionalOf(reg.NativeToValue(1)),
+		},
+		{
+			// a.c[1][true]
+			varName: "a",
+			quals:   []any{"c", int32(1), true},
+			vars: map[string]any{
+				"a": map[string]any{},
+			},
+			err: errors.New("no such key: c"),
+		},
+	}
+	for i, tst := range tests {
+		tc := tst
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			i := int64(1)
+			attr := attrs.AbsoluteAttribute(i, tc.varName)
+			for _, q := range tc.quals {
+				i++
+				attr.AddQualifier(makeQualifier(t, attrs, nil, i, q))
+			}
+			for _, oq := range tc.optQuals {
+				i++
+				attr.AddQualifier(makeOptQualifier(t, attrs, nil, i, oq))
+			}
+			vars, err := NewActivation(tc.vars)
+			if err != nil {
+				t.Fatalf("NewActivation() failed: %v", err)
+			}
+			out, err := attr.Resolve(vars)
+			if err != nil {
+				if tc.err != nil {
+					if tc.err.Error() == err.Error() {
+						return
+					}
+					t.Fatalf("attr.Resolve() errored with %v, wanted error %v", err, tc.err)
+				}
+				t.Fatalf("attr.Resolve() failed: %v", err)
+			}
+			if !reflect.DeepEqual(out, tc.out) {
+				t.Errorf("attr.Resolve() got %v, wanted %v", out, tc.out)
+			}
+		})
+	}
+}
+
+func TestAttributesConditionalAttrErrorUnknown(t *testing.T) {
 	reg := newTestRegistry(t)
 	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
 
@@ -487,11 +833,12 @@ func TestResolverCustomQualifier(t *testing.T) {
 		"msg": msg,
 	})
 	attr := attrs.AbsoluteAttribute(1, "msg")
-	qualBB, _ := attrs.NewQualifier(&exprpb.Type{
+	fieldType := &exprpb.Type{
 		TypeKind: &exprpb.Type_MessageType{
 			MessageType: "google.expr.proto3.test.TestAllTypes.NestedMessage",
 		},
-	}, 2, "bb")
+	}
+	qualBB := makeQualifier(t, attrs, fieldType, 2, "bb")
 	attr.AddQualifier(qualBB)
 	out, err := attr.Resolve(vars)
 	if err != nil {
@@ -516,7 +863,7 @@ func TestAttributesMissingMsg(t *testing.T) {
 
 	// missing_msg.field
 	attr := attrs.AbsoluteAttribute(1, "missing_msg")
-	field, _ := attrs.NewQualifier(nil, 2, "field")
+	field := makeQualifier(t, attrs, nil, 2, "field")
 	attr.AddQualifier(field)
 	out, err := attr.Resolve(vars)
 	if err == nil {
@@ -527,7 +874,7 @@ func TestAttributesMissingMsg(t *testing.T) {
 	}
 }
 
-func TestAttributeMissingMsg_UnknownField(t *testing.T) {
+func TestAttributeMissingMsgUnknownField(t *testing.T) {
 	reg := newTestRegistry(t)
 	attrs := NewPartialAttributeFactory(containers.DefaultContainer, reg, reg)
 	anyPB, _ := anypb.New(&proto3pb.TestAllTypes{})
@@ -537,7 +884,7 @@ func TestAttributeMissingMsg_UnknownField(t *testing.T) {
 
 	// missing_msg.field
 	attr := attrs.AbsoluteAttribute(1, "missing_msg")
-	field, _ := attrs.NewQualifier(nil, 2, "field")
+	field := makeQualifier(t, attrs, nil, 2, "field")
 	attr.AddQualifier(field)
 	out, err := attr.Resolve(vars)
 	if err != nil {
@@ -728,11 +1075,12 @@ func BenchmarkResolverCustomQualifier(b *testing.B) {
 		"msg": msg,
 	})
 	attr := attrs.AbsoluteAttribute(1, "msg")
-	qualBB, _ := attrs.NewQualifier(&exprpb.Type{
+	fieldType := &exprpb.Type{
 		TypeKind: &exprpb.Type_MessageType{
 			MessageType: "google.expr.proto3.test.TestAllTypes.NestedMessage",
 		},
-	}, 2, "bb")
+	}
+	qualBB := makeQualifier(b, attrs, fieldType, 2, "bb")
 	attr.AddQualifier(qualBB)
 	for i := 0; i < b.N; i++ {
 		attr.Resolve(vars)
@@ -743,12 +1091,11 @@ type custAttrFactory struct {
 	AttributeFactory
 }
 
-func (r *custAttrFactory) NewQualifier(objType *exprpb.Type,
-	qualID int64, val any) (Qualifier, error) {
+func (r *custAttrFactory) NewQualifier(objType *exprpb.Type, qualID int64, val any, opt bool) (Qualifier, error) {
 	if objType.GetMessageType() == "google.expr.proto3.test.TestAllTypes.NestedMessage" {
 		return &nestedMsgQualifier{id: qualID, field: val.(string)}, nil
 	}
-	return r.AttributeFactory.NewQualifier(objType, qualID, val)
+	return r.AttributeFactory.NewQualifier(objType, qualID, val, opt)
 }
 
 type nestedMsgQualifier struct {
@@ -773,16 +1120,47 @@ func (q *nestedMsgQualifier) QualifyIfPresent(vars Activation, obj any, presence
 	return pb.GetBb(), true, nil
 }
 
+func (q *nestedMsgQualifier) IsOptional() bool {
+	return false
+}
+
 // Cost implements the Coster interface method. It returns zero for testing purposes.
 func (q *nestedMsgQualifier) Cost() (min, max int64) {
 	return 0, 0
 }
 
-func makeQualifier(b *testing.B, attrs AttributeFactory, typ *exprpb.Type, qualID int64, val any) Qualifier {
-	b.Helper()
-	qual, err := attrs.NewQualifier(typ, qualID, val)
+func addQualifier(t testing.TB, attr Attribute, qual Qualifier) Attribute {
+	t.Helper()
+	_, err := attr.AddQualifier(qual)
 	if err != nil {
-		b.Fatalf("attrs.NewQualifier() failed: %v", err)
+		t.Fatalf("attr.AddQualifier(%v) failed: %v", qual, err)
+	}
+	return attr
+}
+
+func makeQualifier(t testing.TB, attrs AttributeFactory, fieldType *exprpb.Type, qualID int64, val any) Qualifier {
+	t.Helper()
+	qual, err := attrs.NewQualifier(fieldType, qualID, val, false)
+	if err != nil {
+		t.Fatalf("attrs.NewQualifier() failed: %v", err)
 	}
 	return qual
+}
+
+func makeOptQualifier(t testing.TB, attrs AttributeFactory, fieldType *exprpb.Type, qualID int64, val any) Qualifier {
+	t.Helper()
+	qual, err := attrs.NewQualifier(fieldType, qualID, val, true)
+	if err != nil {
+		t.Fatalf("attrs.NewQualifier() failed: %v", err)
+	}
+	return qual
+}
+
+func findField(t testing.TB, reg ref.TypeRegistry, typeName, field string) *ref.FieldType {
+	t.Helper()
+	ft, found := reg.FindFieldType(typeName, field)
+	if !found {
+		t.Fatalf("reg.FindFieldType(%v, %v) failed", typeName, field)
+	}
+	return ft
 }

@@ -303,7 +303,7 @@ func TestAttributePattern_CrossReference(t *testing.T) {
 		map[string]any{"a": []int64{1, 2}, "b": 0},
 		NewAttributePattern("a").QualInt(0).QualString("c"))
 	// Qualify a[b] with 'c', a[b].c
-	c, _ := fac.NewQualifier(nil, 3, "c")
+	c, _ := fac.NewQualifier(nil, 3, "c", false)
 	a.AddQualifier(c)
 	// The resolve step should return unknown
 	val, err = a.Resolve(partVars)
@@ -324,7 +324,7 @@ func genAttr(fac AttributeFactory, a attr) Attribute {
 		attr = fac.AbsoluteAttribute(1, a.name)
 	}
 	for _, q := range a.quals {
-		qual, _ := fac.NewQualifier(nil, id, q)
+		qual, _ := fac.NewQualifier(nil, id, q, false)
 		attr.AddQualifier(qual)
 		id++
 	}

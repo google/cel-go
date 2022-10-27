@@ -71,6 +71,8 @@ type InterpretableAttribute interface {
 	// to whether the qualifier is present.
 	QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error)
 
+	IsOptional() bool
+
 	// Resolve returns the value of the Attribute given the current Activation.
 	Resolve(Activation) (any, error)
 }
@@ -1147,18 +1149,18 @@ func (cond *evalExhaustiveConditional) Eval(ctx Activation) ref.Val {
 	cVal := cond.attr.expr.Eval(ctx)
 	tVal, tErr := cond.attr.truthy.Resolve(ctx)
 	fVal, fErr := cond.attr.falsy.Resolve(ctx)
-	if tErr != nil {
-		return types.NewErr(tErr.Error())
-	}
-	if fErr != nil {
-		return types.NewErr(fErr.Error())
-	}
 	cBool, ok := cVal.(types.Bool)
 	if !ok {
 		return types.ValOrErr(cVal, "no such overload")
 	}
 	if cBool {
+		if tErr != nil {
+			return types.NewErr(tErr.Error())
+		}
 		return cond.adapter.NativeToValue(tVal)
+	}
+	if fErr != nil {
+		return types.NewErr(fErr.Error())
 	}
 	return cond.adapter.NativeToValue(fVal)
 }
@@ -1170,8 +1172,9 @@ func (cond *evalExhaustiveConditional) Cost() (min, max int64) {
 
 // evalAttr evaluates an Attribute value.
 type evalAttr struct {
-	adapter ref.TypeAdapter
-	attr    Attribute
+	adapter  ref.TypeAdapter
+	attr     Attribute
+	optional bool
 }
 
 // ID of the attribute instruction.
@@ -1218,6 +1221,10 @@ func (a *evalAttr) Qualify(ctx Activation, obj any) (any, error) {
 // QualifyIfPresent proxies to the Attribute's QualifyIfPresent method.
 func (a *evalAttr) QualifyIfPresent(ctx Activation, obj any, presenceOnly bool) (any, bool, error) {
 	return a.attr.QualifyIfPresent(ctx, obj, presenceOnly)
+}
+
+func (a *evalAttr) IsOptional() bool {
+	return a.optional
 }
 
 // Resolve proxies to the Attribute's Resolve method.
