@@ -66,6 +66,9 @@ type InterpretableAttribute interface {
 	// of object qualification.
 	Qualify(vars Activation, obj any) (any, error)
 
+	// QualifyIfPresent qualifies the object if the qualifier is declared or defined on the object.
+	// The 'presenceOnly' flag indicates that the value is not necessary, just a boolean status as
+	// to whether the qualifier is present.
 	QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error)
 
 	// Resolve returns the value of the Attribute given the current Activation.
@@ -1212,6 +1215,7 @@ func (a *evalAttr) Qualify(ctx Activation, obj any) (any, error) {
 	return a.attr.Qualify(ctx, obj)
 }
 
+// QualifyIfPresent proxies to the Attribute's QualifyIfPresent method.
 func (a *evalAttr) QualifyIfPresent(ctx Activation, obj any, presenceOnly bool) (any, bool, error) {
 	return a.attr.QualifyIfPresent(ctx, obj, presenceOnly)
 }

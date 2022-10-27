@@ -260,6 +260,7 @@ func (a *absoluteAttribute) Qualify(vars Activation, obj any) (any, error) {
 	return attrQualify(a.fac, vars, obj, a)
 }
 
+// QualifyIfPresent is an implementation of the Qualifier interface method.
 func (a *absoluteAttribute) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
 	return attrQualifyIfPresent(a.fac, vars, obj, a, presenceOnly)
 }
@@ -349,6 +350,7 @@ func (a *conditionalAttribute) Qualify(vars Activation, obj any) (any, error) {
 	return attrQualify(a.fac, vars, obj, a)
 }
 
+// QualifyIfPresent is an implementation of the Qualifier interface method.
 func (a *conditionalAttribute) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
 	return attrQualifyIfPresent(a.fac, vars, obj, a, presenceOnly)
 }
@@ -471,6 +473,7 @@ func (a *maybeAttribute) Qualify(vars Activation, obj any) (any, error) {
 	return attrQualify(a.fac, vars, obj, a)
 }
 
+// QualifyIfPresent is an implementation of the Qualifier interface method.
 func (a *maybeAttribute) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
 	return attrQualifyIfPresent(a.fac, vars, obj, a, presenceOnly)
 }
@@ -544,6 +547,7 @@ func (a *relativeAttribute) Qualify(vars Activation, obj any) (any, error) {
 	return attrQualify(a.fac, vars, obj, a)
 }
 
+// QualifyIfPresent is an implementation of the Qualifier interface method.
 func (a *relativeAttribute) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
 	return attrQualifyIfPresent(a.fac, vars, obj, a, presenceOnly)
 }
@@ -650,6 +654,7 @@ func (q *stringQualifier) Qualify(vars Activation, obj any) (any, error) {
 	return val, err
 }
 
+// QualifyIfPresent is an implementation of the Qualifier interface method.
 func (q *stringQualifier) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
 	return q.qualifyInternal(vars, obj, true, presenceOnly)
 }
@@ -749,6 +754,7 @@ func (q *intQualifier) Qualify(vars Activation, obj any) (any, error) {
 	return val, err
 }
 
+// QualifyIfPresent is an implementation of the Qualifier interface method.
 func (q *intQualifier) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
 	return q.qualifyInternal(vars, obj, true, presenceOnly)
 }
@@ -874,6 +880,7 @@ func (q *uintQualifier) Qualify(vars Activation, obj any) (any, error) {
 	return val, err
 }
 
+// QualifyIfPresent is an implementation of the Qualifier interface method.
 func (q *uintQualifier) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
 	return q.qualifyInternal(vars, obj, true, presenceOnly)
 }
@@ -937,6 +944,7 @@ func (q *boolQualifier) Qualify(vars Activation, obj any) (any, error) {
 	return val, err
 }
 
+// QualifyIfPresent is an implementation of the Qualifier interface method.
 func (q *boolQualifier) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
 	return q.qualifyInternal(vars, obj, true, presenceOnly)
 }
@@ -995,6 +1003,7 @@ func (q *fieldQualifier) Qualify(vars Activation, obj any) (any, error) {
 	return val, nil
 }
 
+// QualifyIfPresent is an implementation of the Qualifier interface method.
 func (q *fieldQualifier) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
 	if rv, ok := obj.(ref.Val); ok {
 		obj = rv.Value()
@@ -1075,6 +1084,7 @@ func (q *unknownQualifier) Qualify(vars Activation, obj any) (any, error) {
 	return q.value, nil
 }
 
+// QualifyIfPresent is an implementation of the Qualifier interface method.
 func (q *unknownQualifier) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
 	return q.value, true, nil
 }
@@ -1084,6 +1094,7 @@ func (q *unknownQualifier) Value() ref.Val {
 	return q.value
 }
 
+// attrQualify performs a qualification using the result of an attribute evaluation.
 func attrQualify(fac AttributeFactory, vars Activation, obj any, qualAttr Attribute) (any, error) {
 	val, err := qualAttr.Resolve(vars)
 	if err != nil {
@@ -1096,6 +1107,8 @@ func attrQualify(fac AttributeFactory, vars Activation, obj any, qualAttr Attrib
 	return qual.Qualify(vars, obj)
 }
 
+// attrQualifyIfPresent conditionally performs the qualification of the result of attribute is present
+// on the target object.
 func attrQualifyIfPresent(fac AttributeFactory, vars Activation, obj any, qualAttr Attribute,
 	presenceOnly bool) (any, bool, error) {
 	val, err := qualAttr.Resolve(vars)
@@ -1168,6 +1181,8 @@ func refQualify(adapter ref.TypeAdapter, obj any, idx ref.Val, presenceTest, pre
 	}
 }
 
+// resolutionError is a custom error type which encodes the different error states which may
+// occur during attribute resolution.
 type resolutionError struct {
 	missingVariable string
 	missingIndex    ref.Val
@@ -1176,10 +1191,6 @@ type resolutionError struct {
 
 func (e *resolutionError) isMissingVariable() bool {
 	return e.missingVariable != ""
-}
-
-func (e *resolutionError) isMissingQualifier() bool {
-	return e.missingIndex != nil || e.missingKey != nil
 }
 
 func missingIndex(missing ref.Val) *resolutionError {
@@ -1200,6 +1211,7 @@ func missingVariable(variable string) *resolutionError {
 	}
 }
 
+// Error implements the error interface method.
 func (e *resolutionError) Error() string {
 	if e.missingKey != nil {
 		return fmt.Sprintf("no such key: %v", e.missingKey)
@@ -1211,4 +1223,9 @@ func (e *resolutionError) Error() string {
 		return fmt.Sprintf("no such variable: %s", e.missingVariable)
 	}
 	return "invalid attribute"
+}
+
+// Is implements the errors.Is() method used by more recent versions of Go.
+func (e *resolutionError) Is(err error) bool {
+	return err.Error() == e.Error()
 }
