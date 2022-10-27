@@ -103,8 +103,8 @@ type Attribute interface {
 	// For objects which support safe traversal, the value may be non-nil and the presence flag be false.
 	//
 	// If an error is encountered during attribute resolution, it will be returned immediately.
-	// If the attribute cannot be resolved within the Activation, the result must be: `nil`,
-	// `false`, `nil`.
+	// If the attribute cannot be resolved within the Activation, the result must be: `nil`, `error`
+	// with the error indicating which variable was missing.
 	Resolve(Activation) (any, error)
 }
 
@@ -274,7 +274,8 @@ func (a *absoluteAttribute) String() string {
 // variable is not found, or if its Qualifiers cannot be applied successfully.
 //
 // If the variable name cannot be found as an Activation variable or in the TypeProvider as
-// a type, then the result is `nil`, `false`, `nil` per the interface requirement.
+// a type, then the result is `nil`, `error` with the error indicating the name of the first
+// variable searched as missing.
 func (a *absoluteAttribute) Resolve(vars Activation) (any, error) {
 	for _, nm := range a.namespaceNames {
 		// If the variable is found, process it. Otherwise, wait until the checks to
