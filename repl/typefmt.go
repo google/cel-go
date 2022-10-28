@@ -136,7 +136,7 @@ func (t *typesVisitor) Visit(tree antlr.ParseTree) any {
 	case *parser.TypeContext:
 		return t.VisitType(ctx)
 	case *parser.TypeIdContext:
-		return t.VisitTypeId(ctx)
+		return t.VisitTypeID(ctx)
 	case *parser.TypeParamListContext:
 		return t.VisitTypeParamList(ctx)
 	default:
@@ -168,7 +168,7 @@ func checkWellKnown(name string) *exprpb.Type {
 	return nil
 }
 
-func (t *typesVisitor) VisitTypeId(ctx *parser.TypeIdContext) any {
+func (t *typesVisitor) VisitTypeID(ctx *parser.TypeIdContext) any {
 	id := ""
 	if ctx.GetLeadingDot() != nil {
 		id += "."

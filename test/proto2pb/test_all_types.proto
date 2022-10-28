@@ -1,3 +1,4 @@
+// LINT: ALLOW_GROUPS
 // Some test messages trimmed down from net/proto2/internal/unittest.proto
 
 syntax = "proto2";

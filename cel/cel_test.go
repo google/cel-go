@@ -1796,7 +1796,7 @@ func TestParserRecursionLimit(t *testing.T) {
 
 			if tc.errorSubstr != "" {
 				if err == nil || !strings.Contains(err.Error(), tc.errorSubstr) {
-					t.Fatalf("prg.Eval() wanted error containg '%s' got %v", tc.errorSubstr, err)
+					t.Fatalf("prg.Eval() wanted error containing '%s' got %v", tc.errorSubstr, err)
 				}
 			}
 
