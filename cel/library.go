@@ -189,10 +189,10 @@ func (opt *evalOptionalOr) ID() int64 {
 // proceeds with the right-hand side evaluation.
 func (opt *evalOptionalOr) Eval(ctx interpreter.Activation) ref.Val {
 	// short-circuit lhs.
-	optLhs := opt.lhs.Eval(ctx)
-	optVal, ok := optLhs.(*types.Optional)
+	optLHS := opt.lhs.Eval(ctx)
+	optVal, ok := optLHS.(*types.Optional)
 	if !ok {
-		return optLhs
+		return optLHS
 	}
 	if optVal.HasValue() {
 		return optVal
@@ -217,10 +217,10 @@ func (opt *evalOptionalOrValue) ID() int64 {
 // proceeds with the right-hand side evaluation.
 func (opt *evalOptionalOrValue) Eval(ctx interpreter.Activation) ref.Val {
 	// short-circuit lhs.
-	optLhs := opt.lhs.Eval(ctx)
-	optVal, ok := optLhs.(*types.Optional)
+	optLHS := opt.lhs.Eval(ctx)
+	optVal, ok := optLHS.(*types.Optional)
 	if !ok {
-		return optLhs
+		return optLHS
 	}
 	if optVal.HasValue() {
 		return optVal.GetValue()
