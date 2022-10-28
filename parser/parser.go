@@ -18,6 +18,7 @@ package parser
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -801,6 +802,12 @@ func (p *parser) reportError(ctx interface{}, format string, args ...interface{}
 func (p *parser) SyntaxError(recognizer antlr.Recognizer, offendingSymbol interface{}, line, column int, msg string, e antlr.RecognitionException) {
 	// TODO: Snippet
 	l := p.helper.source.NewLocation(line, column)
+	// Hack to keep existing error messages consistent with previous versions of CEL when a reserved word
+	// is used as an identifier. This behavior needs to be overhauled to provide consistent, normalized error
+	// messages out of ANTLR to prevent future breaking changes related to error message content.
+	if strings.Contains(msg, "no viable alternative") {
+		msg = reservedIdentifier.ReplaceAllString(msg, mismatchedReservedIdentifier)
+	}
 	p.errors.syntaxError(l, msg)
 }
 
@@ -924,3 +931,8 @@ func unnest(tree antlr.ParseTree) antlr.ParseTree {
 	}
 	return tree
 }
+
+var (
+	reservedIdentifier           = regexp.MustCompile("no viable alternative at input '.(true|false|null)'")
+	mismatchedReservedIdentifier = "mismatched input '$1' expecting IDENTIFIER"
+)

@@ -1618,6 +1618,12 @@ var testCases = []testInfo{
 		a[1][2][3][4][5][6][7][8][9][10][11][12][13][14][15][16][17][18][19][20]`,
 		E: `ERROR: <input>:-1:0: max recursion depth exceeded`,
 	},
+	{
+		I: `self.true == 1`,
+		E: `ERROR: <input>:1:6: Syntax error: mismatched input 'true' expecting IDENTIFIER
+		| self.true == 1
+		| .....^`,
+	},
 }
 
 type testInfo struct {
