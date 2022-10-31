@@ -580,6 +580,14 @@ var (
 			err: "invalid qualifier type",
 		},
 		{
+			name: "index_list_int_double_type_index",
+			expr: `[7, 8, 9][dyn(0.0)] == 7`,
+		},
+		{
+			name: "index_list_int_uint_type_index",
+			expr: `[7, 8, 9][dyn(0u)] == 7`,
+		},
+		{
 			name: "index_relative",
 			expr: `([[[1]], [[2]], [[3]]][0][0] + [2, 3, {'four': {'five': 'six'}}])[3].four.five == 'six'`,
 			cost: []int64{2, 2},
@@ -793,6 +801,14 @@ var (
 			expr:           `has({'a':1}.a) && !has({}.a)`,
 			cost:           []int64{1, 4},
 			exhaustiveCost: []int64{4, 4},
+		},
+		{
+			name:      "macro_has_pb2_field_undefined",
+			container: "google.expr.proto2.test",
+			types:     []proto.Message{&proto2pb.TestAllTypes{}},
+			unchecked: true,
+			expr:      `has(TestAllTypes{}.invalid_field)`,
+			err:       "no such field 'invalid_field'",
 		},
 		{
 			name:      "macro_has_pb2_field",
