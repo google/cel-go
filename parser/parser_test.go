@@ -739,7 +739,7 @@ var testCases = []testInfo{
 	},
 	{
 		I: `{`,
-		E: `ERROR: <input>:1:2: Syntax error: mismatched input '<EOF>' expecting {'[', '{', '}', '(', '.', ',', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
+		E: `ERROR: <input>:1:2: Syntax error: mismatched input '<EOF>' expecting {'[', '{', '}', '(', '.', ',', '-', '!', '?', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
 		 | {
 		 | .^`,
 	},
@@ -1122,7 +1122,7 @@ var testCases = []testInfo{
 	},
 	{
 		I: "func{{a}}",
-		E: `ERROR: <input>:1:6: Syntax error: extraneous input '{' expecting {'}', ',', IDENTIFIER}
+		E: `ERROR: <input>:1:6: Syntax error: extraneous input '{' expecting {'}', ',', '?', IDENTIFIER}
 		| func{{a}}
 		| .....^
 	    ERROR: <input>:1:8: Syntax error: mismatched input '}' expecting ':'
@@ -1134,7 +1134,7 @@ var testCases = []testInfo{
 	},
 	{
 		I: "msg{:a}",
-		E: `ERROR: <input>:1:5: Syntax error: extraneous input ':' expecting {'}', ',', IDENTIFIER}
+		E: `ERROR: <input>:1:5: Syntax error: extraneous input ':' expecting {'}', ',', '?', IDENTIFIER}
 		| msg{:a}
 		| ....^
 	    ERROR: <input>:1:7: Syntax error: mismatched input '}' expecting ':'
@@ -1149,7 +1149,7 @@ var testCases = []testInfo{
 	},
 	{
 		I: "{:a}",
-		E: `ERROR: <input>:1:2: Syntax error: extraneous input ':' expecting {'[', '{', '}', '(', '.', ',', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
+		E: `ERROR: <input>:1:2: Syntax error: extraneous input ':' expecting {'[', '{', '}', '(', '.', ',', '-', '!', '?', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
 		| {:a}
 		| .^
 	    ERROR: <input>:1:4: Syntax error: mismatched input '}' expecting ':'
@@ -1626,10 +1626,10 @@ var testCases = []testInfo{
 	},
 	{
 		I: `a.?b && a[?b]`,
-		E: `ERROR: <input>:1:2: unsupported syntax .?
+		E: `ERROR: <input>:1:2: unsupported syntax '.?'
         | a.?b && a[?b]
         | .^
-        ERROR: <input>:1:10: unsupported syntax [?
+        ERROR: <input>:1:10: unsupported syntax '[?'
         | a.?b && a[?b]
 		| .........^`,
 	},
@@ -1649,6 +1649,30 @@ var testCases = []testInfo{
 			  c^#8:*expr.Expr_IdentExpr#
 			)^#7:*expr.Expr_CallExpr#
 		  )^#9:*expr.Expr_CallExpr#`,
+	},
+	{
+		I:    `{?'key': value}`,
+		Opts: []Option{EnableOptionalSyntax(true)},
+		P: `{
+			?"key"^#3:*expr.Constant_StringValue#:value^#4:*expr.Expr_IdentExpr#^#2:*expr.Expr_CreateStruct_Entry#
+		  }^#1:*expr.Expr_StructExpr#`,
+	},
+	{
+		I:    `Msg{?field: value}`,
+		Opts: []Option{EnableOptionalSyntax(true)},
+		P: `Msg{
+			?field:value^#3:*expr.Expr_IdentExpr#^#2:*expr.Expr_CreateStruct_Entry#
+		  }^#1:*expr.Expr_StructExpr#`,
+	},
+	{
+		I: `Msg{?field: value} && {?'key': value}`,
+		E: `
+		ERROR: <input>:1:5: unsupported syntax '?'
+	 	 | Msg{?field: value} && {?'key': value}
+		 | ....^
+	    ERROR: <input>:1:24: unsupported syntax '?'
+		 | Msg{?field: value} && {?'key': value}
+		 | .......................^`,
 	},
 	{
 		I: `noop_macro(123)`,

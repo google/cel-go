@@ -180,14 +180,14 @@ type ExprHelper interface {
 	NewMap(entries ...*exprpb.Expr_CreateStruct_Entry) *exprpb.Expr
 
 	// NewMapEntry creates a Map Entry for the key, value pair.
-	NewMapEntry(key *exprpb.Expr, val *exprpb.Expr) *exprpb.Expr_CreateStruct_Entry
+	NewMapEntry(key *exprpb.Expr, val *exprpb.Expr, optional bool) *exprpb.Expr_CreateStruct_Entry
 
 	// NewObject creates a CreateStruct instruction for an object with a given type name and
 	// optional set of field initializers.
 	NewObject(typeName string, fieldInits ...*exprpb.Expr_CreateStruct_Entry) *exprpb.Expr
 
 	// NewObjectFieldInit creates a new Object field initializer from the field name and value.
-	NewObjectFieldInit(field string, init *exprpb.Expr) *exprpb.Expr_CreateStruct_Entry
+	NewObjectFieldInit(field string, init *exprpb.Expr, optional bool) *exprpb.Expr_CreateStruct_Entry
 
 	// Fold creates a fold comprehension instruction.
 	//

@@ -537,6 +537,7 @@ func (p *planner) planCreateStruct(expr *exprpb.Expr) (Interpretable, error) {
 		return p.planCreateObj(expr)
 	}
 	entries := str.GetEntries()
+	optionals := make([]bool, len(entries))
 	keys := make([]Interpretable, len(entries))
 	vals := make([]Interpretable, len(entries))
 	for i, entry := range entries {
@@ -551,12 +552,14 @@ func (p *planner) planCreateStruct(expr *exprpb.Expr) (Interpretable, error) {
 			return nil, err
 		}
 		vals[i] = valVal
+		optionals[i] = entry.GetOptionalEntry()
 	}
 	return &evalMap{
-		id:      expr.GetId(),
-		keys:    keys,
-		vals:    vals,
-		adapter: p.adapter,
+		id:        expr.GetId(),
+		keys:      keys,
+		vals:      vals,
+		optionals: optionals,
+		adapter:   p.adapter,
 	}, nil
 }
 
@@ -568,6 +571,7 @@ func (p *planner) planCreateObj(expr *exprpb.Expr) (Interpretable, error) {
 		return nil, fmt.Errorf("unknown type: %s", typeName)
 	}
 	entries := obj.GetEntries()
+	optionals := make([]bool, len(entries))
 	fields := make([]string, len(entries))
 	vals := make([]Interpretable, len(entries))
 	for i, entry := range entries {
@@ -577,13 +581,15 @@ func (p *planner) planCreateObj(expr *exprpb.Expr) (Interpretable, error) {
 			return nil, err
 		}
 		vals[i] = val
+		optionals[i] = entry.GetOptionalEntry()
 	}
 	return &evalObj{
-		id:       expr.GetId(),
-		typeName: typeName,
-		fields:   fields,
-		vals:     vals,
-		provider: p.provider,
+		id:        expr.GetId(),
+		typeName:  typeName,
+		fields:    fields,
+		vals:      vals,
+		optionals: optionals,
+		provider:  p.provider,
 	}, nil
 }
 

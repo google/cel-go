@@ -70,8 +70,14 @@ type CELListener interface {
 	// EnterFieldInitializerList is called when entering the fieldInitializerList production.
 	EnterFieldInitializerList(c *FieldInitializerListContext)
 
+	// EnterOptField is called when entering the optField production.
+	EnterOptField(c *OptFieldContext)
+
 	// EnterMapInitializerList is called when entering the mapInitializerList production.
 	EnterMapInitializerList(c *MapInitializerListContext)
+
+	// EnterOptKey is called when entering the optKey production.
+	EnterOptKey(c *OptKeyContext)
 
 	// EnterInt is called when entering the Int production.
 	EnterInt(c *IntContext)
@@ -160,8 +166,14 @@ type CELListener interface {
 	// ExitFieldInitializerList is called when exiting the fieldInitializerList production.
 	ExitFieldInitializerList(c *FieldInitializerListContext)
 
+	// ExitOptField is called when exiting the optField production.
+	ExitOptField(c *OptFieldContext)
+
 	// ExitMapInitializerList is called when exiting the mapInitializerList production.
 	ExitMapInitializerList(c *MapInitializerListContext)
+
+	// ExitOptKey is called when exiting the optKey production.
+	ExitOptKey(c *OptKeyContext)
 
 	// ExitInt is called when exiting the Int production.
 	ExitInt(c *IntContext)

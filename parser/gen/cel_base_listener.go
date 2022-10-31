@@ -146,11 +146,23 @@ func (s *BaseCELListener) EnterFieldInitializerList(ctx *FieldInitializerListCon
 // ExitFieldInitializerList is called when production fieldInitializerList is exited.
 func (s *BaseCELListener) ExitFieldInitializerList(ctx *FieldInitializerListContext) {}
 
+// EnterOptField is called when production optField is entered.
+func (s *BaseCELListener) EnterOptField(ctx *OptFieldContext) {}
+
+// ExitOptField is called when production optField is exited.
+func (s *BaseCELListener) ExitOptField(ctx *OptFieldContext) {}
+
 // EnterMapInitializerList is called when production mapInitializerList is entered.
 func (s *BaseCELListener) EnterMapInitializerList(ctx *MapInitializerListContext) {}
 
 // ExitMapInitializerList is called when production mapInitializerList is exited.
 func (s *BaseCELListener) ExitMapInitializerList(ctx *MapInitializerListContext) {}
+
+// EnterOptKey is called when production optKey is entered.
+func (s *BaseCELListener) EnterOptKey(ctx *OptKeyContext) {}
+
+// ExitOptKey is called when production optKey is exited.
+func (s *BaseCELListener) ExitOptKey(ctx *OptKeyContext) {}
 
 // EnterInt is called when production Int is entered.
 func (s *BaseCELListener) EnterInt(ctx *IntContext) {}

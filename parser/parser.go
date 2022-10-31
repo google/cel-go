@@ -554,7 +554,7 @@ func (p *parser) VisitSelect(ctx *gen.SelectContext) any {
 	id := ctx.GetId().GetText()
 	if ctx.GetOp().GetText() == ".?" {
 		if !p.enableOptionalSyntax {
-			return p.reportError(ctx.GetOp(), "unsupported syntax .?")
+			return p.reportError(ctx.GetOp(), "unsupported syntax '.?'")
 		}
 		return p.helper.newGlobalCall(
 			ctx.GetOp(),
@@ -589,7 +589,7 @@ func (p *parser) VisitIndex(ctx *gen.IndexContext) any {
 	operator := operators.Index
 	if ctx.GetOp().GetText() == "[?" {
 		if !p.enableOptionalSyntax {
-			return p.reportError(ctx.GetOp(), "unsupported syntax [?")
+			return p.reportError(ctx.GetOp(), "unsupported syntax '[?'")
 		}
 		operator = operators.OptIndex
 	}
@@ -629,8 +629,14 @@ func (p *parser) VisitIFieldInitializerList(ctx gen.IFieldInitializerListContext
 			return []*exprpb.Expr_CreateStruct_Entry{}
 		}
 		initID := p.helper.id(cols[i])
+		optField := f.(*gen.OptFieldContext)
+		optional := optField.GetOpt() != nil
+		if !p.enableOptionalSyntax && optional {
+			p.reportError(optField, "unsupported syntax '?'")
+		}
+		fieldName := optField.IDENTIFIER().GetText()
 		value := p.Visit(vals[i]).(*exprpb.Expr)
-		field := p.helper.newObjectField(initID, f.GetText(), value)
+		field := p.helper.newObjectField(initID, fieldName, value, optional)
 		result[i] = field
 	}
 	return result
@@ -691,9 +697,14 @@ func (p *parser) VisitMapInitializerList(ctx *gen.MapInitializerListContext) any
 			// This is the result of a syntax error detected elsewhere.
 			return []*exprpb.Expr_CreateStruct_Entry{}
 		}
-		key := p.Visit(keys[i]).(*exprpb.Expr)
+		optKey := keys[i].(*gen.OptKeyContext)
+		optional := optKey.GetOpt() != nil
+		if !p.enableOptionalSyntax && optional {
+			p.reportError(optKey, "unsupported syntax '?'")
+		}
+		key := p.Visit(optKey.Expr()).(*exprpb.Expr)
 		value := p.Visit(vals[i]).(*exprpb.Expr)
-		entry := p.helper.newMapEntry(colID, key, value)
+		entry := p.helper.newMapEntry(colID, key, value, optional)
 		result[i] = entry
 	}
 	return result

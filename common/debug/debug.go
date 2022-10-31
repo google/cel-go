@@ -170,6 +170,9 @@ func (w *debugWriter) appendObject(obj *exprpb.Expr_CreateStruct) {
 				w.append(",")
 				w.appendLine()
 			}
+			if entry.GetOptionalEntry() {
+				w.append("?")
+			}
 			w.append(entry.GetFieldKey())
 			w.append(":")
 			w.Buffer(entry.GetValue())
@@ -190,6 +193,9 @@ func (w *debugWriter) appendMap(obj *exprpb.Expr_CreateStruct) {
 			if i > 0 {
 				w.append(",")
 				w.appendLine()
+			}
+			if entry.GetOptionalEntry() {
+				w.append("?")
 			}
 			w.Buffer(entry.GetMapKey())
 			w.append(":")

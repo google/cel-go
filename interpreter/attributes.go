@@ -1293,11 +1293,7 @@ func refQualify(adapter ref.TypeAdapter, obj any, idx ref.Val, presenceTest, pre
 		}
 		celIndex := types.Int(i)
 		if i >= 0 && celIndex < v.Size().(types.Int) {
-			val := v.Get(idx)
-			if types.IsError(val) {
-				return nil, false, val.(*types.Err)
-			}
-			return val, true, nil
+			return v.Get(idx), true, nil
 		}
 		if presenceTest {
 			return nil, false, nil
