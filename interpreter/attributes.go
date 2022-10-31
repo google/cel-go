@@ -70,6 +70,10 @@ type Qualifier interface {
 	// ID where the qualifier appears within an expression.
 	ID() int64
 
+	// IsOptional specifies whether the qualifier is optional.
+	// Instead of a direct qualification, an optional qualifier will be resolved via QualifyIfPresent
+	// rather than Qualify. A non-optional qualifier may also be resolved through QualifyIfPresent if
+	// the object to qualify is itself optional.
 	IsOptional() bool
 
 	// Qualify performs a qualification, e.g. field selection, on the input object and returns
@@ -90,6 +94,7 @@ type Qualifier interface {
 type ConstantQualifier interface {
 	Qualifier
 
+	// Value returns the constant value associated with the qualifier.
 	Value() ref.Val
 }
 
@@ -230,6 +235,9 @@ func (a *absoluteAttribute) ID() int64 {
 	return a.id
 }
 
+// IsOptional returns trivially false for an attribute as the attribute represents a fully
+// qualified variable name. If the attribute is used in an optional manner, then an attrQualifier
+// is created and marks the attribute as optional.
 func (a *absoluteAttribute) IsOptional() bool {
 	return false
 }
@@ -327,6 +335,9 @@ func (a *conditionalAttribute) ID() int64 {
 	return a.id
 }
 
+// IsOptional returns trivially false for an attribute as the attribute represents a fully
+// qualified variable name. If the attribute is used in an optional manner, then an attrQualifier
+// is created and marks the attribute as optional.
 func (a *conditionalAttribute) IsOptional() bool {
 	return false
 }
@@ -398,6 +409,9 @@ func (a *maybeAttribute) ID() int64 {
 	return a.id
 }
 
+// IsOptional returns trivially false for an attribute as the attribute represents a fully
+// qualified variable name. If the attribute is used in an optional manner, then an attrQualifier
+// is created and marks the attribute as optional.
 func (a *maybeAttribute) IsOptional() bool {
 	return false
 }
@@ -522,6 +536,9 @@ func (a *relativeAttribute) ID() int64 {
 	return a.id
 }
 
+// IsOptional returns trivially false for an attribute as the attribute represents a fully
+// qualified variable name. If the attribute is used in an optional manner, then an attrQualifier
+// is created and marks the attribute as optional.
 func (a *relativeAttribute) IsOptional() bool {
 	return false
 }
@@ -582,6 +599,10 @@ func newQualifier(adapter ref.TypeAdapter, id int64, v any, opt bool) (Qualifier
 	var qual Qualifier
 	switch val := v.(type) {
 	case Attribute:
+		// Note, attributes are initially identified as non-optional since they represent a top-level
+		// field access; however, when used as a relative qualifier, e.g. a[?b.c], then an attrQualifier
+		// is created which intercepts the IsOptional check for the attribute in order to return the
+		// correct result.
 		return &attrQualifier{
 			id:        id,
 			Attribute: val,
@@ -672,10 +693,13 @@ type attrQualifier struct {
 	optional bool
 }
 
+// ID implements the Qualifier interface method and returns the qualification instruction id
+// rather than the attribute id.
 func (q *attrQualifier) ID() int64 {
 	return q.id
 }
 
+// IsOptional implements the Qualifier interface method.
 func (q *attrQualifier) IsOptional() bool {
 	return q.optional
 }
@@ -698,6 +722,7 @@ func (q *stringQualifier) ID() int64 {
 	return q.id
 }
 
+// IsOptional implements the Qualifier interface method.
 func (q *stringQualifier) IsOptional() bool {
 	return q.optional
 }
@@ -803,6 +828,7 @@ func (q *intQualifier) ID() int64 {
 	return q.id
 }
 
+// IsOptional implements the Qualifier interface method.
 func (q *intQualifier) IsOptional() bool {
 	return q.optional
 }
@@ -934,6 +960,7 @@ func (q *uintQualifier) ID() int64 {
 	return q.id
 }
 
+// IsOptional implements the Qualifier interface method.
 func (q *uintQualifier) IsOptional() bool {
 	return q.optional
 }
@@ -1003,6 +1030,7 @@ func (q *boolQualifier) ID() int64 {
 	return q.id
 }
 
+// IsOptional implements the Qualifier interface method.
 func (q *boolQualifier) IsOptional() bool {
 	return q.optional
 }
@@ -1061,6 +1089,7 @@ func (q *fieldQualifier) ID() int64 {
 	return q.id
 }
 
+// IsOptional implements the Qualifier interface method.
 func (q *fieldQualifier) IsOptional() bool {
 	return q.optional
 }
@@ -1123,6 +1152,7 @@ func (q *doubleQualifier) ID() int64 {
 	return q.id
 }
 
+// IsOptional implements the Qualifier interface method.
 func (q *doubleQualifier) IsOptional() bool {
 	return q.optional
 }
@@ -1158,6 +1188,7 @@ func (q *unknownQualifier) ID() int64 {
 	return q.id
 }
 
+// IsOptional returns trivially false as an the unknown value is always returned.
 func (q *unknownQualifier) IsOptional() bool {
 	return false
 }
