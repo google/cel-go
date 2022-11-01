@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"google.golang.org/protobuf/reflect/protoreflect"
+	dynamicpb "google.golang.org/protobuf/types/dynamicpb"
 )
 
 // newFileDescription returns a FileDescription instance with a complete listing of all the message
@@ -30,22 +31,32 @@ func newFileDescription(fileDesc protoreflect.FileDescriptor, pbdb *Db) *FileDes
 	}
 	types := make(map[string]*TypeDescription)
 	for name, msgType := range metadata.msgTypes {
-		extensions, found := metadata.msgExtensionMap[name]
+		types[name] = newTypeDescription(name, msgType)
+	}
+	fileExtensionMap := map[string]map[string]*FieldDescription{}
+	for typeName, extensions := range metadata.msgExtensionMap {
+		messageExtMap, found := fileExtensionMap[typeName]
 		if !found {
-			extensions = []protoreflect.ExtensionDescriptor{}
+			messageExtMap = make(map[string]*FieldDescription)
 		}
-		types[name] = newTypeDescription(name, msgType, extensions)
+		for _, ext := range extensions {
+			extDesc := dynamicpb.NewExtensionType(ext).TypeDescriptor()
+			messageExtMap[string(ext.FullName())] = newFieldDescription(extDesc)
+		}
+		fileExtensionMap[typeName] = messageExtMap
 	}
 	return &FileDescription{
-		types: types,
-		enums: enums,
+		types:      types,
+		enums:      enums,
+		extensions: fileExtensionMap,
 	}
 }
 
 // FileDescription holds a map of all types and enum values declared within a proto file.
 type FileDescription struct {
-	types map[string]*TypeDescription
-	enums map[string]*EnumValueDescription
+	types      map[string]*TypeDescription
+	enums      map[string]*EnumValueDescription
+	extensions map[string]map[string]*FieldDescription
 }
 
 // GetEnumDescription returns an EnumDescription for a qualified enum value
@@ -82,6 +93,16 @@ func (fd *FileDescription) GetTypeNames() []string {
 		i++
 	}
 	return typeNames
+}
+
+// GetExtension returns a protobuf extension field for the given message type and field name.
+func (fd *FileDescription) GetExtension(messageType, fieldName string) (*FieldDescription, bool) {
+	msgExtensions, found := fd.extensions[messageType]
+	if !found {
+		return nil, false
+	}
+	extField, found := msgExtensions[fieldName]
+	return extField, found
 }
 
 // sanitizeProtoName strips the leading '.' from the proto message name.

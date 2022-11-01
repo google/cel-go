@@ -173,6 +173,18 @@ func (pbdb *Db) DescribeEnum(enumName string) (*EnumValueDescription, bool) {
 	return nil, false
 }
 
+// DescribeExtension returns a `FieldDescription` for a given type name and fully qualified extension
+// name if it exists in the `pb.Db`.
+func (pbdb *Db) DescribeExtension(typeName, extField string) (*FieldDescription, bool) {
+	typeName = sanitizeProtoName(typeName)
+	for _, fd := range pbdb.revFileDescriptorMap {
+		if f, found := fd.GetExtension(typeName, extField); found {
+			return f, true
+		}
+	}
+	return nil, false
+}
+
 // DescribeType returns a `TypeDescription` for the `typeName` if it exists in the `pb.Db`.
 func (pbdb *Db) DescribeType(typeName string) (*TypeDescription, bool) {
 	typeName = sanitizeProtoName(typeName)

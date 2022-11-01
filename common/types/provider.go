@@ -115,7 +115,10 @@ func (p *protoTypeRegistry) FindFieldType(messageType string,
 	}
 	field, found := msgType.FieldByName(fieldName)
 	if !found {
-		return nil, false
+		field, found = p.pbdb.DescribeExtension(messageType, fieldName)
+		if !found {
+			return nil, false
+		}
 	}
 	return &ref.FieldType{
 			Type:    field.CheckedType(),

@@ -40,7 +40,7 @@ type description interface {
 
 // newTypeDescription produces a TypeDescription value for the fully-qualified proto type name
 // with a given descriptor.
-func newTypeDescription(typeName string, desc protoreflect.MessageDescriptor, extensions []protoreflect.ExtensionDescriptor) *TypeDescription {
+func newTypeDescription(typeName string, desc protoreflect.MessageDescriptor) *TypeDescription {
 	msgType := dynamicpb.NewMessageType(desc)
 	msgZero := dynamicpb.NewMessage(desc)
 	fieldMap := map[string]*FieldDescription{}
@@ -48,10 +48,6 @@ func newTypeDescription(typeName string, desc protoreflect.MessageDescriptor, ex
 	for i := 0; i < fields.Len(); i++ {
 		f := fields.Get(i)
 		fieldMap[string(f.Name())] = newFieldDescription(f)
-	}
-	for _, ext := range extensions {
-		extDesc := dynamicpb.NewExtensionType(ext).TypeDescriptor()
-		fieldMap[string(ext.FullName())] = newFieldDescription(extDesc)
 	}
 	return &TypeDescription{
 		typeName:    typeName,

@@ -31,13 +31,9 @@ import (
 
 func TestFileDescriptionGetExtensions(t *testing.T) {
 	pbdb := NewDb()
-	fd, err := pbdb.RegisterMessage(&proto2pb.TestAllTypes{})
+	_, err := pbdb.RegisterMessage(&proto2pb.TestAllTypes{})
 	if err != nil {
 		t.Error(err)
-	}
-	ex, found := fd.GetTypeDescription("google.expr.proto2.test.ExampleType")
-	if !found {
-		t.Fatal("ExampleType not found")
 	}
 	tests := []struct {
 		field     string
@@ -63,7 +59,7 @@ func TestFileDescriptionGetExtensions(t *testing.T) {
 	for _, tst := range tests {
 		tc := tst
 		t.Run(tc.field, func(t *testing.T) {
-			field, found := ex.FieldByName(tc.field)
+			field, found := pbdb.DescribeExtension("google.expr.proto2.test.ExampleType", tc.field)
 			if !found {
 				t.Fatalf("%s extension not found", tc.field)
 			}
