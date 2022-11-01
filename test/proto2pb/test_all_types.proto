@@ -1,9 +1,9 @@
 // LINT: ALLOW_GROUPS
-// Some test messages trimmed down from net/proto2/internal/unittest.proto
-
 syntax = "proto2";
 
 package google.expr.proto2.test;
+
+option go_package = "github.com/google/cel-go/test/proto2pb";
 
 import "google/protobuf/any.proto";
 import "google/protobuf/duration.proto";
@@ -114,13 +114,6 @@ message ExampleType {
   optional string name = 1;
 
   extensions 100 to max;
-}
-
-// Package scoped extensions.
-extend ExampleType {
-  optional ExampleType nested_example = 100;
-  optional int32 int32_ext = 101;
-  optional google.protobuf.Int32Value int32_wrapper_ext = 102;
 }
 
 // Message scoped extensions.

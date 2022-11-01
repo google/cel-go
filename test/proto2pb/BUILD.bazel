@@ -18,6 +18,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "test_all_types.pb.go",
+        "test_extensions.pb.go",
     ],
     importpath = "github.com/google/cel-go/test/proto2pb",
     deps = [
@@ -44,8 +45,20 @@ proto_library(
     ],
 )
 
+proto_library(
+    name = "test_extensions_proto",
+    srcs = ["test_extensions.proto"],
+    deps = [
+        ":test_all_types_proto",
+        "@com_google_protobuf//:wrappers_proto",
+    ],
+)
+
 go_proto_library(
     name = "test_all_types_go_proto",
     importpath = "github.com/google/cel-go/test/proto2pb",
-    proto = ":test_all_types_proto",
+    protos = [
+        ":test_all_types_proto",
+        ":test_extensions_proto",
+    ],
 )

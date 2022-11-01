@@ -31,10 +31,8 @@ import (
 
 func TestFileDescriptionGetExtensions(t *testing.T) {
 	pbdb := NewDb()
-	_, err := pbdb.RegisterMessage(&proto2pb.TestAllTypes{})
-	if err != nil {
-		t.Error(err)
-	}
+	registerFileDescriptor(t, pbdb, proto2pb.File_test_proto2pb_test_all_types_proto)
+	registerFileDescriptor(t, pbdb, proto2pb.File_test_proto2pb_test_extensions_proto)
 	tests := []struct {
 		field     string
 		fieldType *exprpb.Type
@@ -175,5 +173,12 @@ func TestFileDescriptionGetImportedEnumNames(t *testing.T) {
 		if ed.Value() != value {
 			t.Errorf("Got %v, wanted %v for enum %s", ed, value, enumName)
 		}
+	}
+}
+
+func registerFileDescriptor(t *testing.T, pbdb *Db, fileDesc protoreflect.FileDescriptor) {
+	_, err := pbdb.RegisterDescriptor(fileDesc)
+	if err != nil {
+		t.Fatalf("pbdb.RegisterDescriptor(%v) failed: %v", fileDesc, err)
 	}
 }
