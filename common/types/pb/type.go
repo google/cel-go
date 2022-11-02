@@ -38,12 +38,9 @@ type description interface {
 	Zero() proto.Message
 }
 
-// extResolver mirrors the function signature of pbdb.DescribeExtension.
-type extResolver func(string, string) (*FieldDescription, bool)
-
 // newTypeDescription produces a TypeDescription value for the fully-qualified proto type name
 // with a given descriptor.
-func newTypeDescription(typeName string, desc protoreflect.MessageDescriptor, extLookup extResolver) *TypeDescription {
+func newTypeDescription(typeName string, desc protoreflect.MessageDescriptor, extensions extensionMap) *TypeDescription {
 	msgType := dynamicpb.NewMessageType(desc)
 	msgZero := dynamicpb.NewMessage(desc)
 	fieldMap := map[string]*FieldDescription{}
@@ -57,7 +54,7 @@ func newTypeDescription(typeName string, desc protoreflect.MessageDescriptor, ex
 		desc:        desc,
 		msgType:     msgType,
 		fieldMap:    fieldMap,
-		extLookup:   extLookup,
+		extensions:  extensions,
 		reflectType: reflectTypeOf(msgZero),
 		zeroMsg:     zeroValueOf(msgZero),
 	}
@@ -70,9 +67,22 @@ type TypeDescription struct {
 	desc        protoreflect.MessageDescriptor
 	msgType     protoreflect.MessageType
 	fieldMap    map[string]*FieldDescription
-	extLookup   extResolver
+	extensions  extensionMap
 	reflectType reflect.Type
 	zeroMsg     proto.Message
+}
+
+// Copy copies the type description with updated references to the Db.
+func (td *TypeDescription) Copy(pbdb *Db) *TypeDescription {
+	return &TypeDescription{
+		typeName:    td.typeName,
+		desc:        td.desc,
+		msgType:     td.msgType,
+		fieldMap:    td.fieldMap,
+		extensions:  pbdb.extensions,
+		reflectType: td.reflectType,
+		zeroMsg:     td.zeroMsg,
+	}
 }
 
 // FieldMap returns a string field name to FieldDescription map.
@@ -86,7 +96,12 @@ func (td *TypeDescription) FieldByName(name string) (*FieldDescription, bool) {
 	if found {
 		return fd, true
 	}
-	return td.extLookup(td.typeName, name)
+	extFieldMap, found := td.extensions[td.typeName]
+	if !found {
+		return nil, false
+	}
+	fd, found = extFieldMap[name]
+	return fd, found
 }
 
 // MaybeUnwrap accepts a proto message as input and unwraps it to a primitive CEL type if possible.

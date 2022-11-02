@@ -32,11 +32,10 @@ func newFileDescription(fileDesc protoreflect.FileDescriptor, pbdb *Db) *FileDes
 	}
 	types := make(map[string]*TypeDescription)
 	for name, msgType := range metadata.msgTypes {
-		types[name] = newTypeDescription(name, msgType, pbdb.DescribeExtension)
+		types[name] = newTypeDescription(name, msgType, pbdb.extensions)
 	}
-	fileExtensionMap := map[string]map[string]*FieldDescription{}
 	for typeName, extensions := range metadata.msgExtensionMap {
-		messageExtMap, found := fileExtensionMap[typeName]
+		messageExtMap, found := pbdb.extensions[typeName]
 		if !found {
 			messageExtMap = make(map[string]*FieldDescription)
 		}
@@ -44,20 +43,38 @@ func newFileDescription(fileDesc protoreflect.FileDescriptor, pbdb *Db) *FileDes
 			extDesc := dynamicpb.NewExtensionType(ext).TypeDescriptor()
 			messageExtMap[string(ext.FullName())] = newFieldDescription(extDesc)
 		}
-		fileExtensionMap[typeName] = messageExtMap
+		pbdb.extensions[typeName] = messageExtMap
 	}
 	return &FileDescription{
-		types:      types,
-		enums:      enums,
-		extensions: fileExtensionMap,
+		name:  fileDesc.Path(),
+		types: types,
+		enums: enums,
 	}
 }
 
 // FileDescription holds a map of all types and enum values declared within a proto file.
 type FileDescription struct {
-	types      map[string]*TypeDescription
-	enums      map[string]*EnumValueDescription
-	extensions map[string]map[string]*FieldDescription
+	name  string
+	types map[string]*TypeDescription
+	enums map[string]*EnumValueDescription
+}
+
+// Copy creates a copy of the FileDescription with updated Db references within its types.
+func (fd *FileDescription) Copy(pbdb *Db) *FileDescription {
+	typesCopy := make(map[string]*TypeDescription, len(fd.types))
+	for k, v := range fd.types {
+		typesCopy[k] = v.Copy(pbdb)
+	}
+	return &FileDescription{
+		name:  fd.name,
+		types: typesCopy,
+		enums: fd.enums,
+	}
+}
+
+// GetName returns the fully qualified file path for the file.
+func (fd *FileDescription) GetName() string {
+	return fd.name
 }
 
 // GetEnumDescription returns an EnumDescription for a qualified enum value
@@ -94,16 +111,6 @@ func (fd *FileDescription) GetTypeNames() []string {
 		i++
 	}
 	return typeNames
-}
-
-// GetExtension returns a protobuf extension field for the given message type and field name.
-func (fd *FileDescription) GetExtension(messageType, fieldName string) (*FieldDescription, bool) {
-	msgExtensions, found := fd.extensions[messageType]
-	if !found {
-		return nil, false
-	}
-	extField, found := msgExtensions[fieldName]
-	return extField, found
 }
 
 // sanitizeProtoName strips the leading '.' from the proto message name.
