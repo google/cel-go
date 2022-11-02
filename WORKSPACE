@@ -33,10 +33,10 @@ http_archive(
 # googleapis as of 9/9/2022
 http_archive(
     name = "com_google_googleapis",
-    sha256 = "1f742f6cafe616fe73302db010e0b7ee6579cb1ce06010427b7d0995cbd80ce4",
-    strip_prefix = "googleapis-6a813acf535e4746fa4a135ce23547bb6425c26d",
+    sha256 = "d4f8f9ded24ba62605387b8d327297b9013b4f75214023a18a3ffea43ce61146",
+    strip_prefix = "googleapis-5ffa37352ced7e6a48148a334c144a1c3a50e8e0",
     urls = [
-        "https://github.com/googleapis/googleapis/archive/6a813acf535e4746fa4a135ce23547bb6425c26d.tar.gz",
+        "https://github.com/googleapis/googleapis/archive/5ffa37352ced7e6a48148a334c144a1c3a50e8e0.tar.gz",
     ],
 )
 
@@ -68,11 +68,11 @@ go_repository(
     tag = "v1.28.1",
 )
 
-# Generated Google APIs protos for Golang 9/9/2022
+# Generated Google APIs protos for Golang 10/27/2022
 go_repository(
     name = "org_golang_google_genproto",
     build_file_proto_mode = "disable_global",
-    commit = "69f6226f97e558dbaa68715071622af0d86b3a17",
+    commit = "527a21cfbd71ba0fb6ef7b6a341287e0869af45a",
     importpath = "google.golang.org/genproto",
 )
 
