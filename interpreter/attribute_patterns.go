@@ -272,7 +272,7 @@ func (fac *partialAttributeFactory) matchesUnknownPatterns(
 			}
 			// If this resolution behavior ever changes, new implementations of the
 			// qualifierValueEquator may be required to handle proper resolution.
-			qual, err = fac.NewQualifier(nil, qual.ID(), val)
+			qual, err = fac.NewQualifier(nil, qual.ID(), val, attr.IsOptional())
 			if err != nil {
 				return nil, err
 			}

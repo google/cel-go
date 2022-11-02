@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/google/cel-go/checker"
+	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
@@ -87,19 +88,22 @@ func (stdLibrary) ProgramOptions() []ProgramOption {
 type optionalLibrary struct{}
 
 func (optionalLibrary) CompileOptions() []EnvOption {
-	paramType := TypeParamType("T")
-	optionalType := OpaqueType("optional", paramType)
+	paramTypeK := TypeParamType("K")
+	paramTypeV := TypeParamType("V")
+	optionalTypeV := OptionalType(paramTypeV)
+	listTypeV := ListType(paramTypeV)
+	mapTypeKV := MapType(paramTypeK, paramTypeV)
 
 	return []EnvOption{
 		Types(types.OptionalType),
 		// Global and member functions for working with optional values.
 		Function("optional.of",
-			Overload("optional_of", []*Type{paramType}, optionalType,
+			Overload("optional_of", []*Type{paramTypeV}, optionalTypeV,
 				UnaryBinding(func(value ref.Val) ref.Val {
 					return types.OptionalOf(value)
 				}))),
 		Function("optional.ofNonZeroValue",
-			Overload("optional_ofNonZeroValue", []*Type{paramType}, optionalType,
+			Overload("optional_ofNonZeroValue", []*Type{paramTypeV}, optionalTypeV,
 				UnaryBinding(func(value ref.Val) ref.Val {
 					v, isZeroer := value.(traits.Zeroer)
 					if !isZeroer || !v.IsZeroValue() {
@@ -108,18 +112,18 @@ func (optionalLibrary) CompileOptions() []EnvOption {
 					return types.OptionalNone
 				}))),
 		Function("optional.none",
-			Overload("optional_none", []*Type{}, optionalType,
+			Overload("optional_none", []*Type{}, optionalTypeV,
 				FunctionBinding(func(values ...ref.Val) ref.Val {
 					return types.OptionalNone
 				}))),
 		Function("value",
-			MemberOverload("optional_value", []*Type{optionalType}, paramType,
+			MemberOverload("optional_value", []*Type{optionalTypeV}, paramTypeV,
 				UnaryBinding(func(value ref.Val) ref.Val {
 					opt := value.(*types.Optional)
 					return opt.GetValue()
 				}))),
 		Function("hasValue",
-			MemberOverload("optional_hasValue", []*Type{optionalType}, paramType,
+			MemberOverload("optional_hasValue", []*Type{optionalTypeV}, paramTypeV,
 				UnaryBinding(func(value ref.Val) ref.Val {
 					opt := value.(*types.Optional)
 					return types.Bool(opt.HasValue())
@@ -127,9 +131,20 @@ func (optionalLibrary) CompileOptions() []EnvOption {
 		// Implementation of 'or' and 'orValue' are special-cased to support short-circuiting in the
 		// evaluation chain.
 		Function("or",
-			MemberOverload("optional_or_optional", []*Type{optionalType, optionalType}, optionalType)),
+			MemberOverload("optional_or_optional", []*Type{optionalTypeV, optionalTypeV}, optionalTypeV)),
 		Function("orValue",
-			MemberOverload("optional_orValue_value", []*Type{optionalType, paramType}, paramType)),
+			MemberOverload("optional_orValue_value", []*Type{optionalTypeV, paramTypeV}, paramTypeV)),
+		// OptSelect is handled specially by the type-checker, so the receiver's field type is used to determine the
+		// optput type.
+		Function(operators.OptSelect,
+			MemberOverload("select_optional_field", []*Type{DynType, StringType}, optionalTypeV)),
+		// OptIndex is handled mostly like any other indexing operation on a list or map, so the type-checker can use
+		// these signatures to determine type-agreement without any special handling.
+		Function(operators.OptIndex,
+			MemberOverload("list_index_optional_int", []*Type{listTypeV, IntType}, optionalTypeV),
+			MemberOverload("optional_list_index_optional_int", []*Type{OptionalType(listTypeV), IntType}, optionalTypeV),
+			MemberOverload("map_index_optional_value", []*Type{mapTypeKV, paramTypeK}, optionalTypeV),
+			MemberOverload("optional_map_index_optional_value", []*Type{OptionalType(mapTypeKV), paramTypeK}, optionalTypeV)),
 	}
 }
 

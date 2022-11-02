@@ -61,7 +61,7 @@ type AttributeFactory interface {
 	// The qualifier may consider the object type being qualified, if present. If absent, the
 	// qualification should be considered dynamic and the qualification should still work, though
 	// it may be sub-optimal.
-	NewQualifier(objType *exprpb.Type, qualID int64, val any) (Qualifier, error)
+	NewQualifier(objType *exprpb.Type, qualID int64, val any, opt bool) (Qualifier, error)
 }
 
 // Qualifier marker interface for designating different qualifier values and where they appear
@@ -69,6 +69,12 @@ type AttributeFactory interface {
 type Qualifier interface {
 	// ID where the qualifier appears within an expression.
 	ID() int64
+
+	// IsOptional specifies whether the qualifier is optional.
+	// Instead of a direct qualification, an optional qualifier will be resolved via QualifyIfPresent
+	// rather than Qualify. A non-optional qualifier may also be resolved through QualifyIfPresent if
+	// the object to qualify is itself optional.
+	IsOptional() bool
 
 	// Qualify performs a qualification, e.g. field selection, on the input object and returns
 	// the value of the access and whether the value was set. A non-nil value with a false presence
@@ -88,6 +94,7 @@ type Qualifier interface {
 type ConstantQualifier interface {
 	Qualifier
 
+	// Value returns the constant value associated with the qualifier.
 	Value() ref.Val
 }
 
@@ -192,7 +199,7 @@ func (r *attrFactory) RelativeAttribute(id int64, operand Interpretable) Attribu
 }
 
 // NewQualifier is an implementation of the AttributeFactory interface.
-func (r *attrFactory) NewQualifier(objType *exprpb.Type, qualID int64, val any) (Qualifier, error) {
+func (r *attrFactory) NewQualifier(objType *exprpb.Type, qualID int64, val any, opt bool) (Qualifier, error) {
 	// Before creating a new qualifier check to see if this is a protobuf message field access.
 	// If so, use the precomputed GetFrom qualification method rather than the standard
 	// stringQualifier.
@@ -205,10 +212,11 @@ func (r *attrFactory) NewQualifier(objType *exprpb.Type, qualID int64, val any) 
 				Name:      str,
 				FieldType: ft,
 				adapter:   r.adapter,
+				optional:  opt,
 			}, nil
 		}
 	}
-	return newQualifier(r.adapter, qualID, val)
+	return newQualifier(r.adapter, qualID, val, opt)
 }
 
 type absoluteAttribute struct {
@@ -225,6 +233,13 @@ type absoluteAttribute struct {
 // ID implements the Attribute interface method.
 func (a *absoluteAttribute) ID() int64 {
 	return a.id
+}
+
+// IsOptional returns trivially false for an attribute as the attribute represents a fully
+// qualified variable name. If the attribute is used in an optional manner, then an attrQualifier
+// is created and marks the attribute as optional.
+func (a *absoluteAttribute) IsOptional() bool {
+	return false
 }
 
 // Cost implements the Coster interface method.
@@ -281,15 +296,13 @@ func (a *absoluteAttribute) Resolve(vars Activation) (any, error) {
 		// If the variable is found, process it. Otherwise, wait until the checks to
 		// determine whether the type is unknown before returning.
 		obj, found := vars.ResolveName(nm)
-		var qualObj any
-		var err error
 		if found {
-			for _, qual := range a.qualifiers {
-				qualObj, err = qual.Qualify(vars, obj)
-				if err != nil {
-					return nil, err
-				}
-				obj = qualObj
+			obj, isOpt, err := applyQualifiers(vars, obj, a.qualifiers)
+			if err != nil {
+				return nil, err
+			}
+			if isOpt {
+				return types.OptionalOf(a.adapter.NativeToValue(obj)), nil
 			}
 			return obj, nil
 		}
@@ -320,6 +333,13 @@ type conditionalAttribute struct {
 // ID is an implementation of the Attribute interface method.
 func (a *conditionalAttribute) ID() int64 {
 	return a.id
+}
+
+// IsOptional returns trivially false for an attribute as the attribute represents a fully
+// qualified variable name. If the attribute is used in an optional manner, then an attrQualifier
+// is created and marks the attribute as optional.
+func (a *conditionalAttribute) IsOptional() bool {
+	return false
 }
 
 // Cost provides the heuristic cost of a ternary operation <expr> ? <t> : <f>.
@@ -359,9 +379,6 @@ func (a *conditionalAttribute) QualifyIfPresent(vars Activation, obj any, presen
 // Resolve evaluates the condition, and then resolves the truthy or falsy branch accordingly.
 func (a *conditionalAttribute) Resolve(vars Activation) (any, error) {
 	val := a.expr.Eval(vars)
-	if types.IsError(val) {
-		return nil, val.(*types.Err)
-	}
 	if val == types.True {
 		return a.truthy.Resolve(vars)
 	}
@@ -392,6 +409,13 @@ func (a *maybeAttribute) ID() int64 {
 	return a.id
 }
 
+// IsOptional returns trivially false for an attribute as the attribute represents a fully
+// qualified variable name. If the attribute is used in an optional manner, then an attrQualifier
+// is created and marks the attribute as optional.
+func (a *maybeAttribute) IsOptional() bool {
+	return false
+}
+
 // Cost implements the Coster interface method. The min cost is computed as the minimal cost among
 // all the possible attributes, the max cost ditto.
 func (a *maybeAttribute) Cost() (min, max int64) {
@@ -402,20 +426,6 @@ func (a *maybeAttribute) Cost() (min, max int64) {
 		max = findMax(max, maxA)
 	}
 	return
-}
-
-func findMin(x, y int64) int64 {
-	if x < y {
-		return x
-	}
-	return y
-}
-
-func findMax(x, y int64) int64 {
-	if x > y {
-		return x
-	}
-	return y
 }
 
 // AddQualifier adds a qualifier to each possible attribute variant, and also creates
@@ -526,6 +536,13 @@ func (a *relativeAttribute) ID() int64 {
 	return a.id
 }
 
+// IsOptional returns trivially false for an attribute as the attribute represents a fully
+// qualified variable name. If the attribute is used in an optional manner, then an attrQualifier
+// is created and marks the attribute as optional.
+func (a *relativeAttribute) IsOptional() bool {
+	return false
+}
+
 // Cost implements the Coster interface method.
 func (a *relativeAttribute) Cost() (min, max int64) {
 	min, max = estimateCost(a.operand)
@@ -563,14 +580,12 @@ func (a *relativeAttribute) Resolve(vars Activation) (any, error) {
 	if types.IsUnknown(v) {
 		return v, nil
 	}
-	// Next, qualify it. Qualification handles unknowns as well, so there's no need to recheck.
-	var obj any = v
-	for _, qual := range a.qualifiers {
-		qualObj, err := qual.Qualify(vars, obj)
-		if err != nil {
-			return nil, err
-		}
-		obj = qualObj
+	obj, isOpt, err := applyQualifiers(vars, v, a.qualifiers)
+	if err != nil {
+		return nil, err
+	}
+	if isOpt {
+		return types.OptionalOf(a.adapter.NativeToValue(obj)), nil
 	}
 	return obj, nil
 }
@@ -580,44 +595,93 @@ func (a *relativeAttribute) String() string {
 	return fmt.Sprintf("id: %v, operand: %v", a.id, a.operand)
 }
 
-func newQualifier(adapter ref.TypeAdapter, id int64, v any) (Qualifier, error) {
+func newQualifier(adapter ref.TypeAdapter, id int64, v any, opt bool) (Qualifier, error) {
 	var qual Qualifier
 	switch val := v.(type) {
 	case Attribute:
-		return &attrQualifier{id: id, Attribute: val}, nil
+		// Note, attributes are initially identified as non-optional since they represent a top-level
+		// field access; however, when used as a relative qualifier, e.g. a[?b.c], then an attrQualifier
+		// is created which intercepts the IsOptional check for the attribute in order to return the
+		// correct result.
+		return &attrQualifier{
+			id:        id,
+			Attribute: val,
+			optional:  opt,
+		}, nil
 	case string:
-		qual = &stringQualifier{id: id, value: val, celValue: types.String(val), adapter: adapter}
+		qual = &stringQualifier{
+			id:       id,
+			value:    val,
+			celValue: types.String(val),
+			adapter:  adapter,
+			optional: opt,
+		}
 	case int:
-		qual = &intQualifier{id: id, value: int64(val), celValue: types.Int(val), adapter: adapter}
+		qual = &intQualifier{
+			id: id, value: int64(val), celValue: types.Int(val), adapter: adapter, optional: opt,
+		}
 	case int32:
-		qual = &intQualifier{id: id, value: int64(val), celValue: types.Int(val), adapter: adapter}
+		qual = &intQualifier{
+			id: id, value: int64(val), celValue: types.Int(val), adapter: adapter, optional: opt,
+		}
 	case int64:
-		qual = &intQualifier{id: id, value: val, celValue: types.Int(val), adapter: adapter}
+		qual = &intQualifier{
+			id: id, value: val, celValue: types.Int(val), adapter: adapter, optional: opt,
+		}
 	case uint:
-		qual = &uintQualifier{id: id, value: uint64(val), celValue: types.Uint(val), adapter: adapter}
+		qual = &uintQualifier{
+			id: id, value: uint64(val), celValue: types.Uint(val), adapter: adapter, optional: opt,
+		}
 	case uint32:
-		qual = &uintQualifier{id: id, value: uint64(val), celValue: types.Uint(val), adapter: adapter}
+		qual = &uintQualifier{
+			id: id, value: uint64(val), celValue: types.Uint(val), adapter: adapter, optional: opt,
+		}
 	case uint64:
-		qual = &uintQualifier{id: id, value: val, celValue: types.Uint(val), adapter: adapter}
+		qual = &uintQualifier{
+			id: id, value: val, celValue: types.Uint(val), adapter: adapter, optional: opt,
+		}
 	case bool:
-		qual = &boolQualifier{id: id, value: val, celValue: types.Bool(val), adapter: adapter}
+		qual = &boolQualifier{
+			id: id, value: val, celValue: types.Bool(val), adapter: adapter, optional: opt,
+		}
 	case float32:
-		qual = &doubleQualifier{id: id, value: float64(val), celValue: types.Double(val), adapter: adapter}
+		qual = &doubleQualifier{
+			id:       id,
+			value:    float64(val),
+			celValue: types.Double(val),
+			adapter:  adapter,
+			optional: opt,
+		}
 	case float64:
-		qual = &doubleQualifier{id: id, value: val, celValue: types.Double(val), adapter: adapter}
+		qual = &doubleQualifier{
+			id: id, value: val, celValue: types.Double(val), adapter: adapter, optional: opt,
+		}
 	case types.String:
-		qual = &stringQualifier{id: id, value: string(val), celValue: val, adapter: adapter}
+		qual = &stringQualifier{
+			id: id, value: string(val), celValue: val, adapter: adapter, optional: opt,
+		}
 	case types.Int:
-		qual = &intQualifier{id: id, value: int64(val), celValue: val, adapter: adapter}
+		qual = &intQualifier{
+			id: id, value: int64(val), celValue: val, adapter: adapter, optional: opt,
+		}
 	case types.Uint:
-		qual = &uintQualifier{id: id, value: uint64(val), celValue: val, adapter: adapter}
+		qual = &uintQualifier{
+			id: id, value: uint64(val), celValue: val, adapter: adapter, optional: opt,
+		}
 	case types.Bool:
-		qual = &boolQualifier{id: id, value: bool(val), celValue: val, adapter: adapter}
+		qual = &boolQualifier{
+			id: id, value: bool(val), celValue: val, adapter: adapter, optional: opt,
+		}
 	case types.Double:
-		qual = &doubleQualifier{id: id, value: float64(val), celValue: val, adapter: adapter}
+		qual = &doubleQualifier{
+			id: id, value: float64(val), celValue: val, adapter: adapter, optional: opt,
+		}
 	case types.Unknown:
 		qual = &unknownQualifier{id: id, value: val}
 	default:
+		if q, ok := v.(Qualifier); ok {
+			return q, nil
+		}
 		return nil, fmt.Errorf("invalid qualifier type: %T", v)
 	}
 	return qual, nil
@@ -626,10 +690,18 @@ func newQualifier(adapter ref.TypeAdapter, id int64, v any) (Qualifier, error) {
 type attrQualifier struct {
 	id int64
 	Attribute
+	optional bool
 }
 
+// ID implements the Qualifier interface method and returns the qualification instruction id
+// rather than the attribute id.
 func (q *attrQualifier) ID() int64 {
 	return q.id
+}
+
+// IsOptional implements the Qualifier interface method.
+func (q *attrQualifier) IsOptional() bool {
+	return q.optional
 }
 
 // Cost returns zero for constant field qualifiers
@@ -642,11 +714,17 @@ type stringQualifier struct {
 	value    string
 	celValue ref.Val
 	adapter  ref.TypeAdapter
+	optional bool
 }
 
 // ID is an implementation of the Qualifier interface method.
 func (q *stringQualifier) ID() int64 {
 	return q.id
+}
+
+// IsOptional implements the Qualifier interface method.
+func (q *stringQualifier) IsOptional() bool {
+	return q.optional
 }
 
 // Qualify implements the Qualifier interface method.
@@ -742,11 +820,17 @@ type intQualifier struct {
 	value    int64
 	celValue ref.Val
 	adapter  ref.TypeAdapter
+	optional bool
 }
 
 // ID is an implementation of the Qualifier interface method.
 func (q *intQualifier) ID() int64 {
 	return q.id
+}
+
+// IsOptional implements the Qualifier interface method.
+func (q *intQualifier) IsOptional() bool {
+	return q.optional
 }
 
 // Qualify implements the Qualifier interface method.
@@ -868,11 +952,17 @@ type uintQualifier struct {
 	value    uint64
 	celValue ref.Val
 	adapter  ref.TypeAdapter
+	optional bool
 }
 
 // ID is an implementation of the Qualifier interface method.
 func (q *uintQualifier) ID() int64 {
 	return q.id
+}
+
+// IsOptional implements the Qualifier interface method.
+func (q *uintQualifier) IsOptional() bool {
+	return q.optional
 }
 
 // Qualify implements the Qualifier interface method.
@@ -932,11 +1022,17 @@ type boolQualifier struct {
 	value    bool
 	celValue ref.Val
 	adapter  ref.TypeAdapter
+	optional bool
 }
 
 // ID is an implementation of the Qualifier interface method.
 func (q *boolQualifier) ID() int64 {
 	return q.id
+}
+
+// IsOptional implements the Qualifier interface method.
+func (q *boolQualifier) IsOptional() bool {
+	return q.optional
 }
 
 // Qualify implements the Qualifier interface method.
@@ -985,11 +1081,17 @@ type fieldQualifier struct {
 	Name      string
 	FieldType *ref.FieldType
 	adapter   ref.TypeAdapter
+	optional  bool
 }
 
 // ID is an implementation of the Qualifier interface method.
 func (q *fieldQualifier) ID() int64 {
 	return q.id
+}
+
+// IsOptional implements the Qualifier interface method.
+func (q *fieldQualifier) IsOptional() bool {
+	return q.optional
 }
 
 // Qualify implements the Qualifier interface method.
@@ -1042,11 +1144,17 @@ type doubleQualifier struct {
 	value    float64
 	celValue ref.Val
 	adapter  ref.TypeAdapter
+	optional bool
 }
 
 // ID is an implementation of the Qualifier interface method.
 func (q *doubleQualifier) ID() int64 {
 	return q.id
+}
+
+// IsOptional implements the Qualifier interface method.
+func (q *doubleQualifier) IsOptional() bool {
+	return q.optional
 }
 
 // Qualify implements the Qualifier interface method.
@@ -1080,6 +1188,11 @@ func (q *unknownQualifier) ID() int64 {
 	return q.id
 }
 
+// IsOptional returns trivially false as an the unknown value is always returned.
+func (q *unknownQualifier) IsOptional() bool {
+	return false
+}
+
 // Qualify returns the unknown value associated with this qualifier.
 func (q *unknownQualifier) Qualify(vars Activation, obj any) (any, error) {
 	return q.value, nil
@@ -1095,13 +1208,46 @@ func (q *unknownQualifier) Value() ref.Val {
 	return q.value
 }
 
+func applyQualifiers(vars Activation, obj any, qualifiers []Qualifier) (any, bool, error) {
+	optObj, isOpt := obj.(*types.Optional)
+	if isOpt {
+		if !optObj.HasValue() {
+			return optObj, false, nil
+		}
+		obj = optObj.GetValue().Value()
+	}
+
+	var err error
+	for _, qual := range qualifiers {
+		var qualObj any
+		isOpt = isOpt || qual.IsOptional()
+		if isOpt {
+			var present bool
+			qualObj, present, err = qual.QualifyIfPresent(vars, obj, false)
+			if err != nil {
+				return nil, false, err
+			}
+			if !present {
+				return types.OptionalNone, false, nil
+			}
+		} else {
+			qualObj, err = qual.Qualify(vars, obj)
+			if err != nil {
+				return nil, false, err
+			}
+		}
+		obj = qualObj
+	}
+	return obj, isOpt, nil
+}
+
 // attrQualify performs a qualification using the result of an attribute evaluation.
 func attrQualify(fac AttributeFactory, vars Activation, obj any, qualAttr Attribute) (any, error) {
 	val, err := qualAttr.Resolve(vars)
 	if err != nil {
 		return nil, err
 	}
-	qual, err := fac.NewQualifier(nil, qualAttr.ID(), val)
+	qual, err := fac.NewQualifier(nil, qualAttr.ID(), val, qualAttr.IsOptional())
 	if err != nil {
 		return nil, err
 	}
@@ -1116,7 +1262,7 @@ func attrQualifyIfPresent(fac AttributeFactory, vars Activation, obj any, qualAt
 	if err != nil {
 		return nil, false, err
 	}
-	qual, err := fac.NewQualifier(nil, qualAttr.ID(), val)
+	qual, err := fac.NewQualifier(nil, qualAttr.ID(), val, qualAttr.IsOptional())
 	if err != nil {
 		return nil, false, err
 	}
@@ -1234,4 +1380,18 @@ func (e *resolutionError) Error() string {
 // Is implements the errors.Is() method used by more recent versions of Go.
 func (e *resolutionError) Is(err error) bool {
 	return err.Error() == e.Error()
+}
+
+func findMin(x, y int64) int64 {
+	if x < y {
+		return x
+	}
+	return y
+}
+
+func findMax(x, y int64) int64 {
+	if x > y {
+		return x
+	}
+	return y
 }

@@ -206,20 +206,20 @@ func (p *planner) planSelect(expr *exprpb.Expr) (Interpretable, error) {
 	// Establish the attribute reference.
 	attr, isAttr := op.(InterpretableAttribute)
 	if !isAttr {
-		attr, err = p.relativeAttr(op.ID(), op)
+		attr, err = p.relativeAttr(op.ID(), op, false)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	// Build a qualifier for the attribute.
-	qual, err := p.attrFactory.NewQualifier(opType, expr.GetId(), sel.GetField())
+	qual, err := p.attrFactory.NewQualifier(opType, expr.GetId(), sel.GetField(), false)
 	if err != nil {
 		return nil, err
 	}
 
 	// Return the test only eval expression.
-	if sel.TestOnly {
+	if sel.GetTestOnly() {
 		return &evalTestOnly{
 			id:    expr.GetId(),
 			field: types.String(sel.GetField()),
@@ -230,10 +230,7 @@ func (p *planner) planSelect(expr *exprpb.Expr) (Interpretable, error) {
 
 	// Otherwise, append the qualifier on the attribute.
 	_, err = attr.AddQualifier(qual)
-	if err != nil {
-		return nil, err
-	}
-	return attr, nil
+	return attr, err
 }
 
 // planCall creates a callable Interpretable while specializing for common functions and invocation
@@ -278,7 +275,9 @@ func (p *planner) planCall(expr *exprpb.Expr) (Interpretable, error) {
 	case operators.NotEquals:
 		return p.planCallNotEqual(expr, args)
 	case operators.Index:
-		return p.planCallIndex(expr, args)
+		return p.planCallIndex(expr, args, false)
+	case operators.OptSelect, operators.OptIndex:
+		return p.planCallIndex(expr, args, true)
 	}
 
 	// Otherwise, generate Interpretable calls specialized by argument count.
@@ -479,38 +478,38 @@ func (p *planner) planCallConditional(expr *exprpb.Expr, args []Interpretable) (
 
 // planCallIndex either extends an attribute with the argument to the index operation, or creates
 // a relative attribute based on the return of a function call or operation.
-func (p *planner) planCallIndex(expr *exprpb.Expr, args []Interpretable) (Interpretable, error) {
+func (p *planner) planCallIndex(expr *exprpb.Expr, args []Interpretable, optional bool) (Interpretable, error) {
 	op := args[0]
 	ind := args[1]
-	opAttr, err := p.relativeAttr(op.ID(), op)
-	if err != nil {
-		return nil, err
-	}
 	opType := p.typeMap[expr.GetCallExpr().GetTarget().GetId()]
-	indConst, isIndConst := ind.(InterpretableConst)
-	if isIndConst {
-		qual, err := p.attrFactory.NewQualifier(opType, expr.GetId(), indConst.Value())
+
+	// Establish the attribute reference.
+	var err error
+	attr, isAttr := op.(InterpretableAttribute)
+	if !isAttr {
+		attr, err = p.relativeAttr(op.ID(), op, false)
 		if err != nil {
 			return nil, err
 		}
-		_, err = opAttr.AddQualifier(qual)
-		return opAttr, err
 	}
-	indAttr, isIndAttr := ind.(InterpretableAttribute)
-	if isIndAttr {
-		qual, err := p.attrFactory.NewQualifier(opType, expr.GetId(), indAttr)
-		if err != nil {
-			return nil, err
-		}
-		_, err = opAttr.AddQualifier(qual)
-		return opAttr, err
+
+	// Construct the qualifier type.
+	var qual Qualifier
+	switch ind := ind.(type) {
+	case InterpretableConst:
+		qual, err = p.attrFactory.NewQualifier(opType, expr.GetId(), ind.Value(), optional)
+	case InterpretableAttribute:
+		qual, err = p.attrFactory.NewQualifier(opType, expr.GetId(), ind, optional)
+	default:
+		qual, err = p.relativeAttr(expr.GetId(), ind, optional)
 	}
-	indQual, err := p.relativeAttr(expr.GetId(), ind)
 	if err != nil {
 		return nil, err
 	}
-	_, err = opAttr.AddQualifier(indQual)
-	return opAttr, err
+
+	// Add the qualifier to the attribute
+	_, err = attr.AddQualifier(qual)
+	return attr, err
 }
 
 // planCreateList generates a list construction Interpretable.
@@ -736,14 +735,18 @@ func (p *planner) resolveFunction(expr *exprpb.Expr) (*exprpb.Expr, string, stri
 	return target, fnName, ""
 }
 
-func (p *planner) relativeAttr(id int64, eval Interpretable) (InterpretableAttribute, error) {
+// relativeAttr indicates that the attribute in this case acts as a qualifier and as such needs to
+// be observed to ensure that it's evaluation value is properly recorded for state tracking.
+func (p *planner) relativeAttr(id int64, eval Interpretable, opt bool) (InterpretableAttribute, error) {
 	eAttr, ok := eval.(InterpretableAttribute)
 	if !ok {
 		eAttr = &evalAttr{
-			adapter: p.adapter,
-			attr:    p.attrFactory.RelativeAttribute(id, eval),
+			adapter:  p.adapter,
+			attr:     p.attrFactory.RelativeAttribute(id, eval),
+			optional: opt,
 		}
 	}
+	// This looks like it should either decorate the new evalAttr node, or early return the InterpretableAttribute
 	decAttr, err := p.decorate(eAttr, nil)
 	if err != nil {
 		return nil, err
