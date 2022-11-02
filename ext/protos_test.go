@@ -18,14 +18,16 @@ import (
 	"fmt"
 	"testing"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 	"github.com/google/cel-go/test"
-	"github.com/google/cel-go/test/proto2pb"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/wrapperspb"
+
+	proto2pb "github.com/google/cel-go/test/proto2pb"
+	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 func TestProtos(t *testing.T) {
@@ -195,7 +197,7 @@ func testEnv(t *testing.T, opts ...cel.EnvOption) *cel.Env {
 	t.Helper()
 	baseOpts := []cel.EnvOption{
 		cel.Container("google.expr.proto2.test"),
-		cel.Types(&proto2pb.ExampleType{}),
+		cel.Types(&proto2pb.ExampleType{}, &proto2pb.ExternalMessageType{}),
 		cel.Variable("msg", cel.ObjectType("google.expr.proto2.test.ExampleType")),
 		Protos(),
 	}

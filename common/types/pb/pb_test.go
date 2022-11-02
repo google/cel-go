@@ -21,6 +21,7 @@ import (
 	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"
 
+	proto2pb "github.com/google/cel-go/test/proto2pb"
 	proto3pb "github.com/google/cel-go/test/proto3pb"
 	descpb "google.golang.org/protobuf/types/descriptorpb"
 	dynamicpb "google.golang.org/protobuf/types/dynamicpb"
@@ -31,7 +32,7 @@ import (
 func TestDbCopy(t *testing.T) {
 	clone := DefaultDb.Copy()
 	if !reflect.DeepEqual(clone, DefaultDb) {
-		t.Error("db.Copy() did not result in eqivalent objects.")
+		t.Error("db.Copy() did not result in equivalent objects.")
 	}
 	_, err := clone.RegisterMessage(&proto3pb.TestAllTypes{})
 	if err != nil {
@@ -40,9 +41,32 @@ func TestDbCopy(t *testing.T) {
 	if reflect.DeepEqual(clone, DefaultDb) {
 		t.Error("db.RegisterMessage() altered the default db as well")
 	}
+
+	// modify the clone after deriving another copy.
 	clone2 := clone.Copy()
 	if !reflect.DeepEqual(clone, clone2) {
-		t.Error("db.Copy() did not result in eqivalent objects.")
+		t.Error("db.Copy() did not result in equivalent objects.")
+	}
+	_, err = clone.RegisterDescriptor(proto2pb.File_test_proto2pb_test_all_types_proto)
+	if err != nil {
+		t.Fatalf("Db.RegisterDescriptor() failed: %v", err)
+	}
+	if reflect.DeepEqual(clone, clone2) {
+		t.Error("clone modification altered derived clone2 also")
+	}
+
+	// modify the clone2 with some extensions and assert equivalence to clone3
+	_, err = clone2.RegisterDescriptor(proto2pb.File_test_proto2pb_test_all_types_proto)
+	if err != nil {
+		t.Fatalf("Db.RegisterDescriptor() failed: %v", err)
+	}
+	_, err = clone2.RegisterDescriptor(proto2pb.File_test_proto2pb_test_extensions_proto)
+	if err != nil {
+		t.Fatalf("Db.RegisterDescriptor() failed: %v", err)
+	}
+	clone3 := clone2.Copy()
+	if !reflect.DeepEqual(clone2, clone3) {
+		t.Error("db.Copy() did not result in equivalent objects.")
 	}
 }
 

@@ -18,11 +18,13 @@ import (
 	"fmt"
 
 	"google.golang.org/protobuf/reflect/protoreflect"
+
+	dynamicpb "google.golang.org/protobuf/types/dynamicpb"
 )
 
 // newFileDescription returns a FileDescription instance with a complete listing of all the message
-// types, enum values, and extension fields (for proto2) declared within any scope in the file.
-func newFileDescription(fileDesc protoreflect.FileDescriptor, pbdb *Db) *FileDescription {
+// types and enum values, as well as a map of extensions declared within any scope in the file.
+func newFileDescription(fileDesc protoreflect.FileDescriptor, pbdb *Db) (*FileDescription, extensionMap) {
 	metadata := collectFileMetadata(fileDesc)
 	enums := make(map[string]*EnumValueDescription)
 	for name, enumVal := range metadata.enumValues {
@@ -30,22 +32,50 @@ func newFileDescription(fileDesc protoreflect.FileDescriptor, pbdb *Db) *FileDes
 	}
 	types := make(map[string]*TypeDescription)
 	for name, msgType := range metadata.msgTypes {
-		extensions, found := metadata.msgExtensionMap[name]
+		types[name] = newTypeDescription(name, msgType, pbdb.extensions)
+	}
+	fileExtMap := make(extensionMap)
+	for typeName, extensions := range metadata.msgExtensionMap {
+		messageExtMap, found := fileExtMap[typeName]
 		if !found {
-			extensions = []protoreflect.ExtensionDescriptor{}
+			messageExtMap = make(map[string]*FieldDescription)
 		}
-		types[name] = newTypeDescription(name, msgType, extensions)
+		for _, ext := range extensions {
+			extDesc := dynamicpb.NewExtensionType(ext).TypeDescriptor()
+			messageExtMap[string(ext.FullName())] = newFieldDescription(extDesc)
+		}
+		fileExtMap[typeName] = messageExtMap
 	}
 	return &FileDescription{
+		name:  fileDesc.Path(),
 		types: types,
 		enums: enums,
-	}
+	}, fileExtMap
 }
 
 // FileDescription holds a map of all types and enum values declared within a proto file.
 type FileDescription struct {
+	name  string
 	types map[string]*TypeDescription
 	enums map[string]*EnumValueDescription
+}
+
+// Copy creates a copy of the FileDescription with updated Db references within its types.
+func (fd *FileDescription) Copy(pbdb *Db) *FileDescription {
+	typesCopy := make(map[string]*TypeDescription, len(fd.types))
+	for k, v := range fd.types {
+		typesCopy[k] = v.Copy(pbdb)
+	}
+	return &FileDescription{
+		name:  fd.name,
+		types: typesCopy,
+		enums: fd.enums,
+	}
+}
+
+// GetName returns the fully qualified file path for the file.
+func (fd *FileDescription) GetName() string {
+	return fd.name
 }
 
 // GetEnumDescription returns an EnumDescription for a qualified enum value

@@ -1,5 +1,3 @@
-// Some test messages trimmed down from net/proto2/internal/unittest.proto
-
 syntax = "proto3";
 
 package google.expr.proto3.test;

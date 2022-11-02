@@ -40,7 +40,7 @@ type description interface {
 
 // newTypeDescription produces a TypeDescription value for the fully-qualified proto type name
 // with a given descriptor.
-func newTypeDescription(typeName string, desc protoreflect.MessageDescriptor, extensions []protoreflect.ExtensionDescriptor) *TypeDescription {
+func newTypeDescription(typeName string, desc protoreflect.MessageDescriptor, extensions extensionMap) *TypeDescription {
 	msgType := dynamicpb.NewMessageType(desc)
 	msgZero := dynamicpb.NewMessage(desc)
 	fieldMap := map[string]*FieldDescription{}
@@ -49,15 +49,12 @@ func newTypeDescription(typeName string, desc protoreflect.MessageDescriptor, ex
 		f := fields.Get(i)
 		fieldMap[string(f.Name())] = newFieldDescription(f)
 	}
-	for _, ext := range extensions {
-		extDesc := dynamicpb.NewExtensionType(ext).TypeDescriptor()
-		fieldMap[string(ext.FullName())] = newFieldDescription(extDesc)
-	}
 	return &TypeDescription{
 		typeName:    typeName,
 		desc:        desc,
 		msgType:     msgType,
 		fieldMap:    fieldMap,
+		extensions:  extensions,
 		reflectType: reflectTypeOf(msgZero),
 		zeroMsg:     zeroValueOf(msgZero),
 	}
@@ -70,8 +67,22 @@ type TypeDescription struct {
 	desc        protoreflect.MessageDescriptor
 	msgType     protoreflect.MessageType
 	fieldMap    map[string]*FieldDescription
+	extensions  extensionMap
 	reflectType reflect.Type
 	zeroMsg     proto.Message
+}
+
+// Copy copies the type description with updated references to the Db.
+func (td *TypeDescription) Copy(pbdb *Db) *TypeDescription {
+	return &TypeDescription{
+		typeName:    td.typeName,
+		desc:        td.desc,
+		msgType:     td.msgType,
+		fieldMap:    td.fieldMap,
+		extensions:  pbdb.extensions,
+		reflectType: td.reflectType,
+		zeroMsg:     td.zeroMsg,
+	}
 }
 
 // FieldMap returns a string field name to FieldDescription map.
@@ -82,10 +93,15 @@ func (td *TypeDescription) FieldMap() map[string]*FieldDescription {
 // FieldByName returns (FieldDescription, true) if the field name is declared within the type.
 func (td *TypeDescription) FieldByName(name string) (*FieldDescription, bool) {
 	fd, found := td.fieldMap[name]
+	if found {
+		return fd, true
+	}
+	extFieldMap, found := td.extensions[td.typeName]
 	if !found {
 		return nil, false
 	}
-	return fd, true
+	fd, found = extFieldMap[name]
+	return fd, found
 }
 
 // MaybeUnwrap accepts a proto message as input and unwraps it to a primitive CEL type if possible.
