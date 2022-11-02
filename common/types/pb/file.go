@@ -32,7 +32,7 @@ func newFileDescription(fileDesc protoreflect.FileDescriptor, pbdb *Db) *FileDes
 	}
 	types := make(map[string]*TypeDescription)
 	for name, msgType := range metadata.msgTypes {
-		types[name] = newTypeDescription(name, msgType)
+		types[name] = newTypeDescription(name, msgType, pbdb.DescribeExtension)
 	}
 	fileExtensionMap := map[string]map[string]*FieldDescription{}
 	for typeName, extensions := range metadata.msgExtensionMap {

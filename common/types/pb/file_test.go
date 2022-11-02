@@ -33,6 +33,10 @@ func TestFileDescriptionGetExtensions(t *testing.T) {
 	pbdb := NewDb()
 	registerFileDescriptor(t, pbdb, proto2pb.File_test_proto2pb_test_all_types_proto)
 	registerFileDescriptor(t, pbdb, proto2pb.File_test_proto2pb_test_extensions_proto)
+	ex, found := pbdb.DescribeType("google.expr.proto2.test.ExampleType")
+	if !found {
+		t.Fatal("ExampleType not found")
+	}
 	tests := []struct {
 		field     string
 		fieldType *exprpb.Type
@@ -53,11 +57,15 @@ func TestFileDescriptionGetExtensions(t *testing.T) {
 			field:     "google.expr.proto2.test.ExtendedExampleType.enum_ext",
 			fieldType: decls.Int,
 		},
+		{
+			field:     "google.expr.proto2.test.ExternalMessageType.int64_ext",
+			fieldType: decls.Int,
+		},
 	}
 	for _, tst := range tests {
 		tc := tst
 		t.Run(tc.field, func(t *testing.T) {
-			field, found := pbdb.DescribeExtension("google.expr.proto2.test.ExampleType", tc.field)
+			field, found := ex.FieldByName(tc.field)
 			if !found {
 				t.Fatalf("%s extension not found", tc.field)
 			}

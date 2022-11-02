@@ -38,9 +38,12 @@ type description interface {
 	Zero() proto.Message
 }
 
+// extResolver mirrors the function signature of pbdb.DescribeExtension.
+type extResolver func(string, string) (*FieldDescription, bool)
+
 // newTypeDescription produces a TypeDescription value for the fully-qualified proto type name
 // with a given descriptor.
-func newTypeDescription(typeName string, desc protoreflect.MessageDescriptor) *TypeDescription {
+func newTypeDescription(typeName string, desc protoreflect.MessageDescriptor, extLookup extResolver) *TypeDescription {
 	msgType := dynamicpb.NewMessageType(desc)
 	msgZero := dynamicpb.NewMessage(desc)
 	fieldMap := map[string]*FieldDescription{}
@@ -54,6 +57,7 @@ func newTypeDescription(typeName string, desc protoreflect.MessageDescriptor) *T
 		desc:        desc,
 		msgType:     msgType,
 		fieldMap:    fieldMap,
+		extLookup:   extLookup,
 		reflectType: reflectTypeOf(msgZero),
 		zeroMsg:     zeroValueOf(msgZero),
 	}
@@ -66,6 +70,7 @@ type TypeDescription struct {
 	desc        protoreflect.MessageDescriptor
 	msgType     protoreflect.MessageType
 	fieldMap    map[string]*FieldDescription
+	extLookup   extResolver
 	reflectType reflect.Type
 	zeroMsg     proto.Message
 }
@@ -78,10 +83,10 @@ func (td *TypeDescription) FieldMap() map[string]*FieldDescription {
 // FieldByName returns (FieldDescription, true) if the field name is declared within the type.
 func (td *TypeDescription) FieldByName(name string) (*FieldDescription, bool) {
 	fd, found := td.fieldMap[name]
-	if !found {
-		return nil, false
+	if found {
+		return fd, true
 	}
-	return fd, true
+	return td.extLookup(td.typeName, name)
 }
 
 // MaybeUnwrap accepts a proto message as input and unwraps it to a primitive CEL type if possible.
