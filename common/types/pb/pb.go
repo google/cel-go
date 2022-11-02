@@ -159,7 +159,8 @@ func (pbdb *Db) RegisterDescriptor(fileDesc protoreflect.FileDescriptor) (*FileD
 	if err == nil {
 		fileDesc = globalFD
 	}
-	fd = newFileDescription(fileDesc, pbdb)
+	var fileExtMap extensionMap
+	fd, fileExtMap = newFileDescription(fileDesc, pbdb)
 	for _, enumValName := range fd.GetEnumNames() {
 		pbdb.revFileDescriptorMap[enumValName] = fd
 	}
@@ -170,6 +171,18 @@ func (pbdb *Db) RegisterDescriptor(fileDesc protoreflect.FileDescriptor) (*FileD
 
 	// Return the specific file descriptor registered.
 	pbdb.files = append(pbdb.files, fd)
+
+	// Index the protobuf message extensions from the file into the pbdb
+	for typeName, extMap := range fileExtMap {
+		typeExtMap, found := pbdb.extensions[typeName]
+		if !found {
+			pbdb.extensions[typeName] = extMap
+			continue
+		}
+		for extName, field := range extMap {
+			typeExtMap[extName] = field
+		}
+	}
 	return fd, nil
 }
 
@@ -193,18 +206,6 @@ func (pbdb *Db) DescribeEnum(enumName string) (*EnumValueDescription, bool) {
 		return fd.GetEnumDescription(enumName)
 	}
 	return nil, false
-}
-
-// DescribeExtension returns a `FieldDescription` for a given type name and fully qualified extension
-// name if it exists in the `pb.Db`.
-func (pbdb *Db) DescribeExtension(typeName, extField string) (*FieldDescription, bool) {
-	typeName = sanitizeProtoName(typeName)
-	extFieldMap, found := pbdb.extensions[typeName]
-	if !found {
-		return nil, false
-	}
-	fd, found := extFieldMap[extField]
-	return fd, found
 }
 
 // DescribeType returns a `TypeDescription` for the `typeName` if it exists in the `pb.Db`.
