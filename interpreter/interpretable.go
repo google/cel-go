@@ -127,6 +127,13 @@ func (test *evalTestOnly) Eval(ctx Activation) ref.Val {
 	if err != nil {
 		return types.NewErr(err.Error())
 	}
+	optVal, isOpt := val.(*types.Optional)
+	if isOpt {
+		if !optVal.HasValue() {
+			return types.False
+		}
+		val = optVal.GetValue()
+	}
 	out, found, err := test.qual.QualifyIfPresent(ctx, val, true)
 	if err != nil {
 		return types.NewErr(err.Error())

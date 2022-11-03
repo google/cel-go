@@ -2069,6 +2069,29 @@ _&&_(_==_(list~type(list(dyn))^list,
 		outType: decls.NewAbstractType("optional", decls.Dyn),
 		out:     `a~optional(dyn)^a.dynamic~optional(dyn)`,
 	},
+	{
+		in: `has(a.dynamic)`,
+		env: testEnv{
+			idents: []*exprpb.Decl{
+				decls.NewVar("a", decls.NewAbstractType("optional", decls.Dyn)),
+			},
+		},
+		outType: decls.Bool,
+		out:     `a~optional(dyn)^a.dynamic~test-only~~bool`,
+	},
+	{
+		in: `has(a.?b.c)`,
+		env: testEnv{
+			idents: []*exprpb.Decl{
+				decls.NewVar("a", decls.NewAbstractType("optional", decls.NewMapType(decls.String, decls.Dyn))),
+			},
+		},
+		outType: decls.Bool,
+		out: `_?._(
+			a~optional(map(string, dyn))^a,
+			"b"
+		  )~optional(dyn).c~test-only~~bool`,
+	},
 }
 
 var testEnvs = map[string]testEnv{

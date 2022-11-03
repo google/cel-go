@@ -1929,6 +1929,24 @@ func TestOptionalValues(t *testing.T) {
 			out: false,
 		},
 		{
+			expr: `has(m.?x.y)`,
+			in: map[string]any{
+				"m": map[string]any{},
+			},
+			out: false,
+		},
+		{
+			expr: `has(m.?x.y)`,
+			in: map[string]any{
+				"m": map[string]any{
+					"x": map[string]string{
+						"y": "z",
+					},
+				},
+			},
+			out: true,
+		},
+		{
 			// return the value of m.c['dashed-index'], no magic in the optional.of() call.
 			expr: `optional.ofNonZeroValue('').or(optional.of(m.c['dashed-index'])).orValue('default value')`,
 			in: map[string]any{
@@ -2039,6 +2057,22 @@ func TestOptionalValues(t *testing.T) {
 				),
 			},
 			out: "default value",
+		},
+		{
+			// Presence test using optional value where the field is absent.
+			expr: `has(optm.c) && !has(optm.c.missing)`,
+			in: map[string]any{
+				"optm": types.OptionalOf(
+					adapter.NativeToValue(
+						map[string]any{
+							"c": map[string]string{
+								"entry": "hello world",
+							},
+						},
+					),
+				),
+			},
+			out: true,
 		},
 		{
 			// ensure an error is propagated to the result.
