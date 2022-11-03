@@ -30,7 +30,7 @@ http_archive(
     ],
 )
 
-# googleapis as of 9/9/2022
+# googleapis as of 10/31/2022
 http_archive(
     name = "com_google_googleapis",
     sha256 = "d4f8f9ded24ba62605387b8d327297b9013b4f75214023a18a3ffea43ce61146",
