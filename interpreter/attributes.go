@@ -314,11 +314,7 @@ func (a *absoluteAttribute) Resolve(vars Activation) (any, error) {
 			}
 		}
 	}
-	nsName := "<unknown>"
-	if len(a.namespaceNames) > 0 {
-		nsName = a.namespaceNames[0]
-	}
-	return nil, missingVariable(nsName)
+	return nil, missingAttribute(a.String())
 }
 
 type conditionalAttribute struct {
@@ -502,7 +498,7 @@ func (a *maybeAttribute) Resolve(vars Activation) (any, error) {
 				return nil, err
 			}
 			// If this was not a missing variable error, return it.
-			if !resErr.isMissingVariable() {
+			if !resErr.isMissingAttribute() {
 				return nil, err
 			}
 			// When the variable is missing in a maybe attribute we defer erroring.
@@ -1336,13 +1332,13 @@ func refQualify(adapter ref.TypeAdapter, obj any, idx ref.Val, presenceTest, pre
 // resolutionError is a custom error type which encodes the different error states which may
 // occur during attribute resolution.
 type resolutionError struct {
-	missingVariable string
-	missingIndex    ref.Val
-	missingKey      ref.Val
+	missingAttribute string
+	missingIndex     ref.Val
+	missingKey       ref.Val
 }
 
-func (e *resolutionError) isMissingVariable() bool {
-	return e.missingVariable != ""
+func (e *resolutionError) isMissingAttribute() bool {
+	return e.missingAttribute != ""
 }
 
 func missingIndex(missing ref.Val) *resolutionError {
@@ -1357,9 +1353,9 @@ func missingKey(missing ref.Val) *resolutionError {
 	}
 }
 
-func missingVariable(variable string) *resolutionError {
+func missingAttribute(attr string) *resolutionError {
 	return &resolutionError{
-		missingVariable: variable,
+		missingAttribute: attr,
 	}
 }
 
@@ -1371,8 +1367,8 @@ func (e *resolutionError) Error() string {
 	if e.missingIndex != nil {
 		return fmt.Sprintf("index out of bounds: %v", e.missingIndex)
 	}
-	if e.missingVariable != "" {
-		return fmt.Sprintf("no such variable: %s", e.missingVariable)
+	if e.missingAttribute != "" {
+		return fmt.Sprintf("no such attribute: %s", e.missingAttribute)
 	}
 	return "invalid attribute"
 }
