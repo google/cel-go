@@ -720,6 +720,13 @@ func TestAttributesOptional(t *testing.T) {
 			},
 			err: errors.New("no such key: c"),
 		},
+		{
+			// a, no bindings
+			varName: "a",
+			quals:   []any{},
+			vars:    map[string]any{},
+			err:     errors.New("no such attribute: id: 1, names: [a]"),
+		},
 	}
 	for i, tst := range tests {
 		tc := tst
