@@ -59,7 +59,6 @@ var (
 	protoNamespace = "proto"
 	hasExtension   = "hasExt"
 	getExtension   = "getExt"
-	defaultExpr    = &exprpb.Expr{}
 )
 
 type protoLib struct{}
@@ -82,7 +81,7 @@ func (protoLib) ProgramOptions() []cel.ProgramOption {
 // hasProtoExt generates a test-only select expression for a fully-qualified extension name on a protobuf message.
 func hasProtoExt(meh cel.MacroExprHelper, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
 	if !isExtCall(meh, hasExtension, target, args) {
-		return defaultExpr, nil
+		return nil, nil
 	}
 	extensionField, err := getExtFieldName(meh, args[1])
 	if err != nil {
@@ -94,7 +93,7 @@ func hasProtoExt(meh cel.MacroExprHelper, target *exprpb.Expr, args []*exprpb.Ex
 // getProtoExt generates a select expression for a fully-qualified extension name on a protobuf message.
 func getProtoExt(meh cel.MacroExprHelper, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
 	if !isExtCall(meh, getExtension, target, args) {
-		return defaultExpr, nil
+		return nil, nil
 	}
 	extFieldName, err := getExtFieldName(meh, args[1])
 	if err != nil {

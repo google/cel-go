@@ -1655,7 +1655,7 @@ var testCases = []testInfo{
 		Opts: []Option{
 			Macros(NewGlobalVarArgMacro("noop_macro",
 				func(eh ExprHelper, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
-					return &exprpb.Expr{}, nil
+					return nil, nil
 				})),
 		},
 		P: `noop_macro(

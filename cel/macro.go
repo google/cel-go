@@ -30,7 +30,7 @@ type Macro = parser.Macro
 // MacroExpander converts a call and its associated arguments into a new CEL abstract syntax tree.
 //
 // If the MacroExpander determines within the implementation that an expansion is not needed it may return
-// an empty Expr value to indicate a non-match. However, if an expansion is to be performed, but the arguments
+// a nil Expr value to indicate a non-match. However, if an expansion is to be performed, but the arguments
 // are not well-formed, the result of the expansion will be an error.
 //
 // The MacroExpander accepts as arguments a MacroExprHelper as well as the arguments used in the function call
