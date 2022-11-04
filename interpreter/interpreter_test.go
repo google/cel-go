@@ -718,6 +718,15 @@ var (
 			},
 		},
 		{
+			name:      "literal_pb_wrapper_assign_roundtrip",
+			container: "google.expr.proto3.test",
+			types:     []proto.Message{&proto3pb.TestAllTypes{}},
+			expr: `TestAllTypes{
+				single_int32_wrapper: TestAllTypes{}.single_int32_wrapper,
+			}.single_int32_wrapper == null`,
+			out: true,
+		},
+		{
 			name:      "literal_pb_list_assign_null_wrapper",
 			container: "google.expr.proto3.test",
 			types:     []proto.Message{&proto3pb.TestAllTypes{}},
