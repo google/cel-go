@@ -1879,11 +1879,14 @@ func TestDynamicDispatch(t *testing.T) {
 func TestOptionalValues(t *testing.T) {
 	env, err := NewEnv(
 		OptionalTypes(true),
+		// Container and test message types.
+		Container("google.expr.proto2.test"),
+		Types(&proto2pb.TestAllTypes{}),
+		// Test variables.
 		Variable("m", MapType(StringType, MapType(StringType, StringType))),
-		Variable("optm", OptionalType(MapType(StringType, MapType(StringType, StringType)))),
 		Variable("l", ListType(StringType)),
+		Variable("optm", OptionalType(MapType(StringType, MapType(StringType, StringType)))),
 		Variable("optl", OptionalType(ListType(StringType))),
-
 		Variable("x", OptionalType(IntType)),
 		Variable("y", OptionalType(IntType)),
 		Variable("z", IntType),
@@ -2097,6 +2100,84 @@ func TestOptionalValues(t *testing.T) {
 			},
 			out: 7,
 		},
+		{
+			expr: `{?'nested_map': optional.ofNonZeroValue({?'map': m.?c})}`,
+			in: map[string]any{
+				"m": map[string]any{
+					"c": map[string]string{
+						"dashed-index": "goodbye",
+					},
+				},
+			},
+			out: map[string]any{
+				"nested_map": map[string]any{
+					"map": map[string]string{
+						"dashed-index": "goodbye",
+					},
+				},
+			},
+		},
+		{
+			expr: `{?'nested_map': optional.ofNonZeroValue({?'map': m.?c}), 'singleton': true}`,
+			in: map[string]any{
+				"m": map[string]any{},
+			},
+			out: map[string]any{
+				"singleton": true,
+			},
+		},
+		{
+			expr: `optional.ofNonZeroValue({?'nested_map': optional.ofNonZeroValue({?'map': m.?c})})`,
+			in: map[string]any{
+				"m": map[string]any{},
+			},
+			out: types.OptionalNone,
+		},
+		{
+			expr: `TestAllTypes{?single_double_wrapper: optional.ofNonZeroValue(0.0)}`,
+			out:  &proto2pb.TestAllTypes{},
+		},
+		{
+			expr: `optional.ofNonZeroValue(TestAllTypes{?single_double_wrapper: optional.ofNonZeroValue(0.0)})`,
+			out:  types.OptionalNone,
+		},
+		{
+			expr: `TestAllTypes{
+				?map_string_string: m[?'nested']
+			}`,
+			in: map[string]any{
+				"m": map[string]any{
+					"nested": map[string]any{},
+				},
+			},
+			out: &proto2pb.TestAllTypes{},
+		},
+		{
+			expr: `TestAllTypes{
+				?map_string_string: optional.ofNonZeroValue(m[?'nested'].orValue({}))
+			}`,
+			in: map[string]any{
+				"m": map[string]any{
+					"nested": map[string]any{},
+				},
+			},
+			out: &proto2pb.TestAllTypes{},
+		},
+		{
+			expr: `TestAllTypes{
+				?map_string_string: m[?'nested']
+			}`,
+			in: map[string]any{
+				"m": map[string]any{
+					"nested": map[string]any{
+						"hello": "world",
+					},
+				},
+			},
+			out: &proto2pb.TestAllTypes{
+				MapStringString: map[string]string{"hello": "world"},
+			},
+		},
 	}
 
 	for i, tst := range tests {
@@ -2114,8 +2195,9 @@ func TestOptionalValues(t *testing.T) {
 			if err != nil && err.Error() != tc.out {
 				t.Errorf("prg.Eval() got %v, wanted %v", err, tc.out)
 			}
-			if err == nil && out.Equal(types.DefaultTypeAdapter.NativeToValue(tc.out)) != types.True {
-				t.Errorf("prg.Eval() got %v, wanted %v", out, tc.out)
+			want := adapter.NativeToValue(tc.out)
+			if err == nil && out.Equal(want) != types.True {
+				t.Errorf("prg.Eval() got %v, wanted %v", out, want)
 			}
 		})
 	}
