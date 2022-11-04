@@ -249,7 +249,7 @@ func (c *checker) checkSelectField(e, operand *exprpb.Expr, field string, option
 
 	// If the target type was optional coming in, then the result must be optional going out.
 	if isOpt || optional {
-		return decls.NewAbstractType("optional", resultType)
+		return decls.NewOptionalType(resultType)
 	}
 	return resultType
 }
