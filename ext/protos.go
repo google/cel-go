@@ -59,6 +59,7 @@ var (
 	protoNamespace = "proto"
 	hasExtension   = "hasExt"
 	getExtension   = "getExt"
+	defaultExpr    = &exprpb.Expr{}
 )
 
 type protoLib struct{}
@@ -80,8 +81,8 @@ func (protoLib) ProgramOptions() []cel.ProgramOption {
 
 // hasProtoExt generates a test-only select expression for a fully-qualified extension name on a protobuf message.
 func hasProtoExt(meh cel.MacroExprHelper, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
-	if call, isExt := isExtCall(meh, hasExtension, target, args); !isExt {
-		return call, nil
+	if !isExtCall(meh, hasExtension, target, args) {
+		return defaultExpr, nil
 	}
 	extensionField, err := getExtFieldName(meh, args[1])
 	if err != nil {
@@ -92,8 +93,8 @@ func hasProtoExt(meh cel.MacroExprHelper, target *exprpb.Expr, args []*exprpb.Ex
 
 // getProtoExt generates a select expression for a fully-qualified extension name on a protobuf message.
 func getProtoExt(meh cel.MacroExprHelper, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
-	if call, isExt := isExtCall(meh, getExtension, target, args); !isExt {
-		return call, nil
+	if !isExtCall(meh, getExtension, target, args) {
+		return defaultExpr, nil
 	}
 	extFieldName, err := getExtFieldName(meh, args[1])
 	if err != nil {
@@ -102,16 +103,16 @@ func getProtoExt(meh cel.MacroExprHelper, target *exprpb.Expr, args []*exprpb.Ex
 	return meh.Select(args[0], extFieldName), nil
 }
 
-func isExtCall(meh cel.MacroExprHelper, fnName string, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, bool) {
+func isExtCall(meh cel.MacroExprHelper, fnName string, target *exprpb.Expr, args []*exprpb.Expr) bool {
 	switch target.GetExprKind().(type) {
 	case *exprpb.Expr_IdentExpr:
 		if target.GetIdentExpr().GetName() != protoNamespace {
-			return meh.ReceiverCall(fnName, target, args...), false
+			return false
 		}
+		return true
 	default:
-		return meh.ReceiverCall(fnName, target, args...), false
+		return false
 	}
-	return nil, true
 }
 
 func getExtFieldName(meh cel.MacroExprHelper, expr *exprpb.Expr) (string, *common.Error) {

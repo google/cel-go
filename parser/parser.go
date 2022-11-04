@@ -31,6 +31,7 @@ import (
 	"github.com/google/cel-go/parser/gen"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	"google.golang.org/protobuf/proto"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -873,11 +874,17 @@ func (p *parser) expandMacro(exprID int64, function string, target *exprpb.Expr,
 	eh.parserHelper = p.helper
 	eh.id = exprID
 	expr, err := macro.Expander()(eh, target, args)
+	// An error indicates that the macro was matched, but the arguments were not well-formed.
 	if err != nil {
 		if err.Location != nil {
 			return p.reportError(err.Location, err.Message), true
 		}
 		return p.reportError(p.helper.getLocation(exprID), err.Message), true
+	}
+	// An empty Expr value from the macro indicates that the macro implementation decided that
+	// an expansion should not be performed.
+	if proto.Equal(expr, &exprpb.Expr{}) {
+		return nil, false
 	}
 	if p.populateMacroCalls {
 		p.helper.addMacroCall(expr.GetId(), function, target, args...)
