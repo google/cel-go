@@ -1650,6 +1650,18 @@ var testCases = []testInfo{
 			)^#7:*expr.Expr_CallExpr#
 		  )^#9:*expr.Expr_CallExpr#`,
 	},
+	{
+		I: `noop_macro(123)`,
+		Opts: []Option{
+			Macros(NewGlobalVarArgMacro("noop_macro",
+				func(eh ExprHelper, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
+					return nil, nil
+				})),
+		},
+		P: `noop_macro(
+			123^#2:*expr.Constant_Int64Value#
+		  )^#1:*expr.Expr_CallExpr#`,
+	},
 }
 
 type testInfo struct {
