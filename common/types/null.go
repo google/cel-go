@@ -34,13 +34,21 @@ var (
 	NullType = NewTypeValue("null_type")
 	// NullValue singleton.
 	NullValue = Null(structpb.NullValue_NULL_VALUE)
+
+	// golang reflect type for Null values.
+	nullReflectType = reflect.TypeOf(NullValue)
 )
 
 // ConvertToNative implements ref.Val.ConvertToNative.
 func (n Null) ConvertToNative(typeDesc reflect.Type) (any, error) {
 	switch typeDesc.Kind() {
 	case reflect.Int32:
-		return reflect.ValueOf(n).Convert(typeDesc).Interface(), nil
+		switch typeDesc {
+		case jsonNullType:
+			return structpb.NullValue_NULL_VALUE, nil
+		case nullReflectType:
+			return n, nil
+		}
 	case reflect.Ptr:
 		switch typeDesc {
 		case anyValueType:
@@ -53,6 +61,10 @@ func (n Null) ConvertToNative(typeDesc reflect.Type) (any, error) {
 			return anypb.New(pb.(proto.Message))
 		case jsonValueType:
 			return structpb.NewNullValue(), nil
+		case boolWrapperType, byteWrapperType, doubleWrapperType, floatWrapperType,
+			int32WrapperType, int64WrapperType, stringWrapperType, uint32WrapperType,
+			uint64WrapperType:
+			return nil, nil
 		}
 	case reflect.Interface:
 		nv := n.Value()
