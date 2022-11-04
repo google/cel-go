@@ -27,6 +27,7 @@ import (
 	"github.com/google/cel-go/common/types/traits"
 	"github.com/google/cel-go/interpreter"
 	"github.com/google/cel-go/interpreter/functions"
+	"github.com/google/cel-go/parser"
 )
 
 // Library provides a collection of EnvOption and ProgramOption values used to configure a CEL
@@ -95,7 +96,12 @@ func (optionalLibrary) CompileOptions() []EnvOption {
 	mapTypeKV := MapType(paramTypeK, paramTypeV)
 
 	return []EnvOption{
+		// Enable the optional syntax in the parser.
+		enableOptionalSyntax(),
+
+		// Introduce the optional type.
 		Types(types.OptionalType),
+
 		// Global and member functions for working with optional values.
 		Function("optional.of",
 			Overload("optional_of", []*Type{paramTypeV}, optionalTypeV,
@@ -128,23 +134,38 @@ func (optionalLibrary) CompileOptions() []EnvOption {
 					opt := value.(*types.Optional)
 					return types.Bool(opt.HasValue())
 				}))),
+
 		// Implementation of 'or' and 'orValue' are special-cased to support short-circuiting in the
 		// evaluation chain.
 		Function("or",
 			MemberOverload("optional_or_optional", []*Type{optionalTypeV, optionalTypeV}, optionalTypeV)),
 		Function("orValue",
 			MemberOverload("optional_orValue_value", []*Type{optionalTypeV, paramTypeV}, paramTypeV)),
+
 		// OptSelect is handled specially by the type-checker, so the receiver's field type is used to determine the
 		// optput type.
 		Function(operators.OptSelect,
-			MemberOverload("select_optional_field", []*Type{DynType, StringType}, optionalTypeV)),
+			Overload("select_optional_field", []*Type{DynType, StringType}, optionalTypeV)),
+
 		// OptIndex is handled mostly like any other indexing operation on a list or map, so the type-checker can use
 		// these signatures to determine type-agreement without any special handling.
 		Function(operators.OptIndex,
-			MemberOverload("list_index_optional_int", []*Type{listTypeV, IntType}, optionalTypeV),
-			MemberOverload("optional_list_index_optional_int", []*Type{OptionalType(listTypeV), IntType}, optionalTypeV),
-			MemberOverload("map_index_optional_value", []*Type{mapTypeKV, paramTypeK}, optionalTypeV),
-			MemberOverload("optional_map_index_optional_value", []*Type{OptionalType(mapTypeKV), paramTypeK}, optionalTypeV)),
+			Overload("list_optindex_optional_int", []*Type{listTypeV, IntType}, optionalTypeV),
+			Overload("optional_list_optindex_optional_int", []*Type{OptionalType(listTypeV), IntType}, optionalTypeV),
+			Overload("map_optindex_optional_value", []*Type{mapTypeKV, paramTypeK}, optionalTypeV),
+			Overload("optional_map_optindex_optional_value", []*Type{OptionalType(mapTypeKV), paramTypeK}, optionalTypeV)),
+
+		// Index overloads to accomodate using an optional value as the operand.
+		Function(operators.Index,
+			Overload("optional_list_index_int", []*Type{OptionalType(listTypeV), IntType}, optionalTypeV),
+			Overload("optional_map_index_optional_value", []*Type{OptionalType(mapTypeKV), paramTypeK}, optionalTypeV)),
+	}
+}
+
+func enableOptionalSyntax() EnvOption {
+	return func(e *Env) (*Env, error) {
+		e.prsrOpts = append(e.prsrOpts, parser.EnableOptionalSyntax(true))
+		return e, nil
 	}
 }
 

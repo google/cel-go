@@ -94,6 +94,7 @@ func (p *Parser) Parse(source common.Source) (*exprpb.ParsedExpr, *common.Errors
 		errorRecoveryLimit:               p.errorRecoveryLimit,
 		errorRecoveryLookaheadTokenLimit: p.errorRecoveryTokenLookaheadLimit,
 		populateMacroCalls:               p.populateMacroCalls,
+		enableOptionalSyntax:             p.enableOptionalSyntax,
 	}
 	buf, ok := source.(runes.Buffer)
 	if !ok {
@@ -277,6 +278,7 @@ type parser struct {
 	errorRecoveryLimit               int
 	errorRecoveryLookaheadTokenLimit int
 	populateMacroCalls               bool
+	enableOptionalSyntax             bool
 }
 
 var (
@@ -546,10 +548,20 @@ func (p *parser) VisitNegate(ctx *gen.NegateContext) any {
 func (p *parser) VisitSelect(ctx *gen.SelectContext) any {
 	operand := p.Visit(ctx.Member()).(*exprpb.Expr)
 	// Handle the error case where no valid identifier is specified.
-	if ctx.GetId() == nil {
+	if ctx.GetId() == nil || ctx.GetOp() == nil {
 		return p.helper.newExpr(ctx)
 	}
 	id := ctx.GetId().GetText()
+	if ctx.GetOp().GetText() == ".?" {
+		if !p.enableOptionalSyntax {
+			return p.reportError(ctx.GetOp(), "unsupported syntax .?")
+		}
+		return p.helper.newGlobalCall(
+			ctx.GetOp(),
+			operators.OptSelect,
+			operand,
+			p.helper.newLiteralString(ctx.GetId(), id))
+	}
 	return p.helper.newSelect(ctx.GetOp(), operand, id)
 }
 
@@ -568,9 +580,20 @@ func (p *parser) VisitMemberCall(ctx *gen.MemberCallContext) any {
 // Visit a parse tree produced by CELParser#Index.
 func (p *parser) VisitIndex(ctx *gen.IndexContext) any {
 	target := p.Visit(ctx.Member()).(*exprpb.Expr)
+	// Handle the error case where no valid identifier is specified.
+	if ctx.GetOp() == nil {
+		return p.helper.newExpr(ctx)
+	}
 	opID := p.helper.id(ctx.GetOp())
 	index := p.Visit(ctx.GetIndex()).(*exprpb.Expr)
-	return p.globalCallOrMacro(opID, operators.Index, target, index)
+	operator := operators.Index
+	if ctx.GetOp().GetText() == "[?" {
+		if !p.enableOptionalSyntax {
+			return p.reportError(ctx.GetOp(), "unsupported syntax [?")
+		}
+		operator = operators.OptIndex
+	}
+	return p.globalCallOrMacro(opID, operator, target, index)
 }
 
 // Visit a parse tree produced by CELParser#CreateMessage.

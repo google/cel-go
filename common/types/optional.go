@@ -16,6 +16,7 @@ package types
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 
 	"github.com/google/cel-go/common/types/ref"
@@ -84,6 +85,13 @@ func (o *Optional) Equal(other ref.Val) ref.Val {
 		return False
 	}
 	return o.value.Equal(otherOpt.value)
+}
+
+func (o *Optional) String() string {
+	if o.HasValue() {
+		return fmt.Sprintf("optional(%v)", o.GetValue())
+	}
+	return "optional.none()"
 }
 
 // Type implements the ref.Val interface method.
