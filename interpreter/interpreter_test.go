@@ -706,6 +706,55 @@ var (
 			},
 		},
 		{
+			name:      "literal_pb_wrapper_assign",
+			container: "google.expr.proto3.test",
+			types:     []proto.Message{&proto3pb.TestAllTypes{}},
+			expr: `TestAllTypes{
+				single_int64_wrapper: 10,
+				single_int32_wrapper: TestAllTypes{}.single_int32_wrapper,
+			}`,
+			out: &proto3pb.TestAllTypes{
+				SingleInt64Wrapper: wrapperspb.Int64(10),
+			},
+		},
+		{
+			name:      "literal_pb_wrapper_assign_roundtrip",
+			container: "google.expr.proto3.test",
+			types:     []proto.Message{&proto3pb.TestAllTypes{}},
+			expr: `TestAllTypes{
+				single_int32_wrapper: TestAllTypes{}.single_int32_wrapper,
+			}.single_int32_wrapper == null`,
+			out: true,
+		},
+		{
+			name:      "literal_pb_list_assign_null_wrapper",
+			container: "google.expr.proto3.test",
+			types:     []proto.Message{&proto3pb.TestAllTypes{}},
+			expr: `TestAllTypes{
+				repeated_int32: [123, 456, TestAllTypes{}.single_int32_wrapper],
+			}`,
+			err: "field type conversion error",
+		},
+		{
+			name:      "literal_pb_map_assign_null_entry_value",
+			container: "google.expr.proto3.test",
+			types:     []proto.Message{&proto3pb.TestAllTypes{}},
+			expr: `TestAllTypes{
+				map_string_string: {
+					'hello': 'world',
+					'goodbye': TestAllTypes{}.single_string_wrapper,
+				},
+			}`,
+			err: "field type conversion error",
+		},
+		{
+			name:      "unset_wrapper_access",
+			container: "google.expr.proto3.test",
+			types:     []proto.Message{&proto3pb.TestAllTypes{}},
+			expr:      `TestAllTypes{}.single_string_wrapper`,
+			out:       types.NullValue,
+		},
+		{
 			name:          "timestamp_eq_timestamp",
 			expr:          `timestamp(0) == timestamp(0)`,
 			cost:          []int64{3, 3},

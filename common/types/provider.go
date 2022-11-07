@@ -480,6 +480,9 @@ func msgSetField(target protoreflect.Message, field *pb.FieldDescription, val re
 	if err != nil {
 		return fieldTypeConversionError(field, err)
 	}
+	if v == nil {
+		return nil
+	}
 	switch pv := v.(type) {
 	case proto.Message:
 		v = pv.ProtoReflect()
@@ -495,6 +498,9 @@ func msgSetListField(target protoreflect.List, listField *pb.FieldDescription, l
 		elemVal, err := elem.ConvertToNative(elemReflectType)
 		if err != nil {
 			return fieldTypeConversionError(listField, err)
+		}
+		if elemVal == nil {
+			continue
 		}
 		switch ev := elemVal.(type) {
 		case proto.Message:
@@ -519,6 +525,9 @@ func msgSetMapField(target protoreflect.Map, mapField *pb.FieldDescription, mapV
 		v, err := val.ConvertToNative(targetValType)
 		if err != nil {
 			return fieldTypeConversionError(mapField, err)
+		}
+		if v == nil {
+			continue
 		}
 		switch pv := v.(type) {
 		case proto.Message:

@@ -148,6 +148,7 @@ func TestTypeRegistryNewValue_WrapperFields(t *testing.T) {
 		"google.expr.proto3.test.TestAllTypes",
 		map[string]ref.Val{
 			"single_int32_wrapper": Int(123),
+			"single_int64_wrapper": NullValue,
 		})
 	if IsError(exp) {
 		t.Fatalf("reg.NewValue() creation failed: %v", exp)
@@ -156,9 +157,12 @@ func TestTypeRegistryNewValue_WrapperFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ConvertToNative() failed: %v", err)
 	}
-	ce := e.(*proto3pb.TestAllTypes)
-	if ce.GetSingleInt32Wrapper().GetValue() != int32(123) {
-		t.Errorf("single_int32_wrapper value %v not set to 123", ce)
+	out := e.(*proto3pb.TestAllTypes)
+	want := &proto3pb.TestAllTypes{
+		SingleInt32Wrapper: wrapperspb.Int32(123),
+	}
+	if !proto.Equal(out, want) {
+		t.Errorf("reg.NewValue() got %v, wanted %v", out, want)
 	}
 }
 
