@@ -54,6 +54,10 @@ func Encoders() cel.EnvOption {
 
 type encoderLib struct{}
 
+func (encoderLib) LibraryName() string {
+	return "cel.lib.ext.encoders"
+}
+
 func (encoderLib) CompileOptions() []cel.EnvOption {
 	return []cel.EnvOption{
 		cel.Function("base64.decode",

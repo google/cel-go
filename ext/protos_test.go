@@ -50,7 +50,7 @@ func TestProtos(t *testing.T) {
 		{expr: `proto.getExt(msg, google.expr.proto2.test.ExtendedExampleType.enum_ext) == GlobalEnum.GAZ`},
 	}
 
-	env := testEnv(t)
+	env := testProtosEnv(t)
 	for i, tst := range protosTests {
 		tc := tst
 		t.Run(fmt.Sprintf("[%d]", i), func(t *testing.T) {
@@ -101,7 +101,7 @@ func TestProtosNonMatch(t *testing.T) {
 			expr: `msg.hasExt("google.expr.proto2.test.int32_ext", 0)`,
 		},
 	}
-	env := testEnv(t,
+	env := testProtosEnv(t,
 		cel.Function("getExt",
 			cel.MemberOverload("msg_getExt_field_default",
 				[]*cel.Type{cel.DynType, cel.StringType, cel.DynType},
@@ -149,7 +149,6 @@ func TestProtosNonMatch(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestProtosParseErrors(t *testing.T) {
@@ -176,7 +175,7 @@ func TestProtosParseErrors(t *testing.T) {
 		| .......................................^`,
 		},
 	}
-	env := testEnv(t)
+	env := testProtosEnv(t)
 	for i, tst := range protosTests {
 		tc := tst
 		t.Run(fmt.Sprintf("[%d]", i), func(t *testing.T) {
@@ -192,8 +191,8 @@ func TestProtosParseErrors(t *testing.T) {
 	}
 }
 
-// testEnv initializes the test environment common to all tests.
-func testEnv(t *testing.T, opts ...cel.EnvOption) *cel.Env {
+// testProtosEnv initializes the test environment common to all tests.
+func testProtosEnv(t *testing.T, opts ...cel.EnvOption) *cel.Env {
 	t.Helper()
 	baseOpts := []cel.EnvOption{
 		cel.Container("google.expr.proto2.test"),
@@ -206,6 +205,18 @@ func testEnv(t *testing.T, opts ...cel.EnvOption) *cel.Env {
 		t.Fatalf("cel.NewEnv(Protos()) failed: %v", err)
 	}
 	return env
+}
+
+func TestProtosWithExtension(t *testing.T) {
+	env := testProtosEnv(t)
+	_, err := env.Extend(Protos())
+	if err != nil {
+		t.Fatalf("env.Extend(Protos()) failed: %v", err)
+	}
+	_, iss := env.Compile("proto.getExt(ExampleType{}, google.expr.proto2.test.int32_ext) == 0")
+	if iss.Err() != nil {
+		t.Errorf("env.Compile() failed: %v", iss.Err())
+	}
 }
 
 // msgWithExtensions generates a new example message with all possible extensions set.

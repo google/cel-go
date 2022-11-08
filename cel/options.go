@@ -63,6 +63,8 @@ const (
 	// is not already in UTC.
 	featureDefaultUTCTimeZone
 
+	// Enable the use of optional types in the syntax, type-system, type-checking,
+	// and runtime.
 	featureOptionalTypes
 )
 

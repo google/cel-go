@@ -318,3 +318,14 @@ func TestStrings(t *testing.T) {
 		})
 	}
 }
+
+func TestStringsWithExtension(t *testing.T) {
+	env, err := cel.NewEnv(Strings())
+	if err != nil {
+		t.Fatalf("cel.NewEnv(Strings()) failed: %v", err)
+	}
+	_, err = env.Extend(Strings())
+	if err != nil {
+		t.Fatalf("env.Extend(Strings()) failed: %v", err)
+	}
+}

@@ -46,10 +46,27 @@ type Library interface {
 	ProgramOptions() []ProgramOption
 }
 
+// SingletonLibrary refines the Library interface to ensure that libraries in this format are only
+// configured once within the environment.
+type SingletonLibrary interface {
+	Library
+
+	// LibraryName provides a namespaced name which is used to check whether the library has already
+	// been configured in the environment.
+	LibraryName() string
+}
+
 // Lib creates an EnvOption out of a Library, allowing libraries to be provided as functional args,
 // and to be linked to each other.
 func Lib(l Library) EnvOption {
+	singleton, isSingleton := l.(SingletonLibrary)
 	return func(e *Env) (*Env, error) {
+		if isSingleton {
+			if e.HasLibrary(singleton.LibraryName()) {
+				return e, nil
+			}
+			e.libraries[singleton.LibraryName()] = true
+		}
 		var err error
 		for _, opt := range l.CompileOptions() {
 			e, err = opt(e)
@@ -71,6 +88,10 @@ func StdLib() EnvOption {
 // features documented in the specification.
 type stdLibrary struct{}
 
+func (stdLibrary) LibraryName() string {
+	return "cel.lib.std"
+}
+
 // EnvOptions returns options for the standard CEL function declarations and macros.
 func (stdLibrary) CompileOptions() []EnvOption {
 	return []EnvOption{
@@ -88,6 +109,12 @@ func (stdLibrary) ProgramOptions() []ProgramOption {
 
 type optionalLibrary struct{}
 
+// LibraryName implements the SingletonLibrary interface method.
+func (optionalLibrary) LibraryName() string {
+	return "cel.lib.optional"
+}
+
+// CompileOptions implements the Library interface method.
 func (optionalLibrary) CompileOptions() []EnvOption {
 	paramTypeK := TypeParamType("K")
 	paramTypeV := TypeParamType("V")
@@ -162,16 +189,17 @@ func (optionalLibrary) CompileOptions() []EnvOption {
 	}
 }
 
+// ProgramOptions implements the Library interface method.
+func (optionalLibrary) ProgramOptions() []ProgramOption {
+	return []ProgramOption{
+		CustomDecorator(decorateOptionalOr),
+	}
+}
+
 func enableOptionalSyntax() EnvOption {
 	return func(e *Env) (*Env, error) {
 		e.prsrOpts = append(e.prsrOpts, parser.EnableOptionalSyntax(true))
 		return e, nil
-	}
-}
-
-func (optionalLibrary) ProgramOptions() []ProgramOption {
-	return []ProgramOption{
-		CustomDecorator(decorateOptionalOr),
 	}
 }
 
