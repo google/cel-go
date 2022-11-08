@@ -131,29 +131,33 @@ func (p *parserHelper) newMap(ctx interface{}, entries ...*exprpb.Expr_CreateStr
 	return exprNode
 }
 
-func (p *parserHelper) newMapEntry(entryID int64, key *exprpb.Expr, value *exprpb.Expr) *exprpb.Expr_CreateStruct_Entry {
+func (p *parserHelper) newMapEntry(entryID int64, key *exprpb.Expr, value *exprpb.Expr, optional bool) *exprpb.Expr_CreateStruct_Entry {
 	return &exprpb.Expr_CreateStruct_Entry{
-		Id:      entryID,
-		KeyKind: &exprpb.Expr_CreateStruct_Entry_MapKey{MapKey: key},
-		Value:   value}
+		Id:            entryID,
+		KeyKind:       &exprpb.Expr_CreateStruct_Entry_MapKey{MapKey: key},
+		Value:         value,
+		OptionalEntry: optional,
+	}
 }
 
-func (p *parserHelper) newObject(ctx interface{},
-	typeName string,
-	entries ...*exprpb.Expr_CreateStruct_Entry) *exprpb.Expr {
+func (p *parserHelper) newObject(ctx interface{}, typeName string, entries ...*exprpb.Expr_CreateStruct_Entry) *exprpb.Expr {
 	exprNode := p.newExpr(ctx)
 	exprNode.ExprKind = &exprpb.Expr_StructExpr{
 		StructExpr: &exprpb.Expr_CreateStruct{
 			MessageName: typeName,
-			Entries:     entries}}
+			Entries:     entries,
+		},
+	}
 	return exprNode
 }
 
-func (p *parserHelper) newObjectField(fieldID int64, field string, value *exprpb.Expr) *exprpb.Expr_CreateStruct_Entry {
+func (p *parserHelper) newObjectField(fieldID int64, field string, value *exprpb.Expr, optional bool) *exprpb.Expr_CreateStruct_Entry {
 	return &exprpb.Expr_CreateStruct_Entry{
-		Id:      fieldID,
-		KeyKind: &exprpb.Expr_CreateStruct_Entry_FieldKey{FieldKey: field},
-		Value:   value}
+		Id:            fieldID,
+		KeyKind:       &exprpb.Expr_CreateStruct_Entry_FieldKey{FieldKey: field},
+		Value:         value,
+		OptionalEntry: optional,
+	}
 }
 
 func (p *parserHelper) newComprehension(ctx interface{}, iterVar string,
@@ -491,21 +495,18 @@ func (e *exprHelper) NewMap(entries ...*exprpb.Expr_CreateStruct_Entry) *exprpb.
 }
 
 // NewMapEntry implements the ExprHelper interface method.
-func (e *exprHelper) NewMapEntry(key *exprpb.Expr,
-	val *exprpb.Expr) *exprpb.Expr_CreateStruct_Entry {
-	return e.parserHelper.newMapEntry(e.nextMacroID(), key, val)
+func (e *exprHelper) NewMapEntry(key *exprpb.Expr, val *exprpb.Expr, optional bool) *exprpb.Expr_CreateStruct_Entry {
+	return e.parserHelper.newMapEntry(e.nextMacroID(), key, val, optional)
 }
 
 // NewObject implements the ExprHelper interface method.
-func (e *exprHelper) NewObject(typeName string,
-	fieldInits ...*exprpb.Expr_CreateStruct_Entry) *exprpb.Expr {
+func (e *exprHelper) NewObject(typeName string, fieldInits ...*exprpb.Expr_CreateStruct_Entry) *exprpb.Expr {
 	return e.parserHelper.newObject(e.nextMacroID(), typeName, fieldInits...)
 }
 
 // NewObjectFieldInit implements the ExprHelper interface method.
-func (e *exprHelper) NewObjectFieldInit(field string,
-	init *exprpb.Expr) *exprpb.Expr_CreateStruct_Entry {
-	return e.parserHelper.newObjectField(e.nextMacroID(), field, init)
+func (e *exprHelper) NewObjectFieldInit(field string, init *exprpb.Expr, optional bool) *exprpb.Expr_CreateStruct_Entry {
+	return e.parserHelper.newObjectField(e.nextMacroID(), field, init, optional)
 }
 
 // Fold implements the ExprHelper interface method.

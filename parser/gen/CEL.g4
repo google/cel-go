@@ -72,11 +72,19 @@ exprList
     ;
 
 fieldInitializerList
-    : fields+=IDENTIFIER cols+=':' values+=expr (',' fields+=IDENTIFIER cols+=':' values+=expr)*
+    : fields+=optField cols+=':' values+=expr (',' fields+=optField cols+=':' values+=expr)*
+    ;
+
+optField
+    : (opt='?')? IDENTIFIER
     ;
 
 mapInitializerList
-    : keys+=expr cols+=':' values+=expr (',' keys+=expr cols+=':' values+=expr)*
+    : keys+=optKey cols+=':' values+=expr (',' keys+=optKey cols+=':' values+=expr)*
+    ;
+
+optKey
+    : (opt='?')? expr
     ;
 
 literal

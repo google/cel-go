@@ -249,7 +249,7 @@ func (c *checker) checkSelectField(e, operand *exprpb.Expr, field string, option
 
 	// If the target type was optional coming in, then the result must be optional going out.
 	if isOpt || optional {
-		return decls.NewAbstractType("optional", resultType)
+		return decls.NewOptionalType(resultType)
 	}
 	return resultType
 }
@@ -429,22 +429,31 @@ func (c *checker) checkCreateStruct(e *exprpb.Expr) {
 
 func (c *checker) checkCreateMap(e *exprpb.Expr) {
 	mapVal := e.GetStructExpr()
-	var keyType *exprpb.Type
-	var valueType *exprpb.Type
+	var mapKeyType *exprpb.Type
+	var mapValueType *exprpb.Type
 	for _, ent := range mapVal.GetEntries() {
 		key := ent.GetMapKey()
 		c.check(key)
-		keyType = c.joinTypes(c.location(key), keyType, c.getType(key))
+		mapKeyType = c.joinTypes(c.location(key), mapKeyType, c.getType(key))
 
-		c.check(ent.Value)
-		valueType = c.joinTypes(c.location(ent.Value), valueType, c.getType(ent.Value))
+		val := ent.GetValue()
+		c.check(val)
+		valType := c.getType(val)
+		if ent.GetOptionalEntry() {
+			var isOptional bool
+			valType, isOptional = maybeUnwrapOptional(valType)
+			if !isOptional && !isDyn(valType) {
+				c.errors.typeMismatch(c.location(val), decls.NewOptionalType(valType), valType)
+			}
+		}
+		mapValueType = c.joinTypes(c.location(val), mapValueType, valType)
 	}
-	if keyType == nil {
+	if mapKeyType == nil {
 		// If the map is empty, assign free type variables to typeKey and value type.
-		keyType = c.newTypeVar()
-		valueType = c.newTypeVar()
+		mapKeyType = c.newTypeVar()
+		mapValueType = c.newTypeVar()
 	}
-	c.setType(e, decls.NewMapType(keyType, valueType))
+	c.setType(e, decls.NewMapType(mapKeyType, mapValueType))
 }
 
 func (c *checker) checkCreateMessage(e *exprpb.Expr) {
@@ -486,15 +495,21 @@ func (c *checker) checkCreateMessage(e *exprpb.Expr) {
 		c.check(value)
 
 		fieldType := decls.Error
-		if t, found := c.lookupFieldType(
-			c.locationByID(ent.GetId()),
-			messageType.GetMessageType(),
-			field); found {
-			fieldType = t.Type
+		ft, found := c.lookupFieldType(c.locationByID(ent.GetId()), messageType.GetMessageType(), field)
+		if found {
+			fieldType = ft.Type
 		}
-		if !c.isAssignable(fieldType, c.getType(value)) {
-			c.errors.fieldTypeMismatch(
-				c.locationByID(ent.Id), field, fieldType, c.getType(value))
+
+		valType := c.getType(value)
+		if ent.GetOptionalEntry() {
+			var isOptional bool
+			valType, isOptional = maybeUnwrapOptional(valType)
+			if !isOptional && !isDyn(valType) {
+				c.errors.typeMismatch(c.location(value), decls.NewOptionalType(valType), valType)
+			}
+		}
+		if !c.isAssignable(fieldType, valType) {
+			c.errors.fieldTypeMismatch(c.locationByID(ent.Id), field, fieldType, valType)
 		}
 	}
 }

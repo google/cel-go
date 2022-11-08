@@ -588,6 +588,11 @@ var (
 			expr: `[7, 8, 9][dyn(0u)] == 7`,
 		},
 		{
+			name: "index_list_int_bad_double_type_index",
+			expr: `[7, 8, 9][dyn(0.1)] == 7`,
+			err:  `unsupported index value`,
+		},
+		{
 			name: "index_relative",
 			expr: `([[[1]], [[2]], [[3]]][0][0] + [2, 3, {'four': {'five': 'six'}}])[3].four.five == 'six'`,
 			cost: []int64{2, 2},
@@ -1467,6 +1472,37 @@ var (
 			},
 			out: types.String("error: division by zero"),
 		},
+		{
+			name: "literal_map_optional_field",
+			expr: `{?'hi': {}.?missing,
+			        ?'world': {'present': 42u}.?present}`,
+			out: map[string]any{
+				"world": uint(42),
+			},
+		},
+		{
+			name:      "literal_map_optional_field_bad_init",
+			expr:      `{?'hi': 'world'}`,
+			unchecked: true,
+			err:       `cannot initialize optional entry 'hi' from non-optional`,
+		},
+		{
+			name:      "literal_pb_optional_field",
+			expr:      `TestAllTypes{?single_int32: {'value': 1}.?value, ?single_string: {}.?missing}`,
+			container: "google.expr.proto3.test",
+			types:     []proto.Message{&proto3pb.TestAllTypes{}},
+			out: &proto3pb.TestAllTypes{
+				SingleInt32: 1,
+			},
+		},
+		{
+			name:      "literal_pb_optional_field_bad_init",
+			expr:      `TestAllTypes{?single_int32: 1}`,
+			container: "google.expr.proto3.test",
+			types:     []proto.Message{&proto3pb.TestAllTypes{}},
+			unchecked: true,
+			err:       `cannot initialize optional entry 'single_int32' from non-optional`,
+		},
 	}
 )
 
@@ -2029,7 +2065,14 @@ func program(ctx any, tst *testCase, opts ...InterpretableDecorator) (Interpreta
 
 	// Parse the expression.
 	s := common.NewTextSource(tst.expr)
-	parsed, errs := parser.Parse(s)
+	p, err := parser.NewParser(
+		parser.Macros(parser.AllMacros...),
+		parser.EnableOptionalSyntax(true),
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	parsed, errs := p.Parse(s)
 	if len(errs.GetErrors()) != 0 {
 		return nil, nil, errors.New(errs.ToDisplayString())
 	}

@@ -70,8 +70,14 @@ type CELVisitor interface {
 	// Visit a parse tree produced by CELParser#fieldInitializerList.
 	VisitFieldInitializerList(ctx *FieldInitializerListContext) interface{}
 
+	// Visit a parse tree produced by CELParser#optField.
+	VisitOptField(ctx *OptFieldContext) interface{}
+
 	// Visit a parse tree produced by CELParser#mapInitializerList.
 	VisitMapInitializerList(ctx *MapInitializerListContext) interface{}
+
+	// Visit a parse tree produced by CELParser#optKey.
+	VisitOptKey(ctx *OptKeyContext) interface{}
 
 	// Visit a parse tree produced by CELParser#Int.
 	VisitInt(ctx *IntContext) interface{}

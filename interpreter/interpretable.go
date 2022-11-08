@@ -655,10 +655,11 @@ func (l *evalList) Cost() (min, max int64) {
 }
 
 type evalMap struct {
-	id      int64
-	keys    []Interpretable
-	vals    []Interpretable
-	adapter ref.TypeAdapter
+	id        int64
+	keys      []Interpretable
+	vals      []Interpretable
+	optionals []bool
+	adapter   ref.TypeAdapter
 }
 
 // ID implements the Interpretable interface method.
@@ -678,6 +679,18 @@ func (m *evalMap) Eval(ctx Activation) ref.Val {
 		valVal := m.vals[i].Eval(ctx)
 		if types.IsUnknownOrError(valVal) {
 			return valVal
+		}
+		isOpt := m.optionals[i]
+		if isOpt {
+			optVal, ok := valVal.(*types.Optional)
+			if !ok {
+				return invalidOptionalEntryInit(keyVal, valVal)
+			}
+			if !optVal.HasValue() {
+				delete(entries, keyVal)
+				continue
+			}
+			valVal = optVal.GetValue()
 		}
 		entries[keyVal] = valVal
 	}
@@ -712,11 +725,12 @@ func (m *evalMap) Cost() (min, max int64) {
 }
 
 type evalObj struct {
-	id       int64
-	typeName string
-	fields   []string
-	vals     []Interpretable
-	provider ref.TypeProvider
+	id        int64
+	typeName  string
+	fields    []string
+	vals      []Interpretable
+	optionals []bool
+	provider  ref.TypeProvider
 }
 
 // ID implements the Interpretable interface method.
@@ -732,6 +746,18 @@ func (o *evalObj) Eval(ctx Activation) ref.Val {
 		val := o.vals[i].Eval(ctx)
 		if types.IsUnknownOrError(val) {
 			return val
+		}
+		isOpt := o.optionals[i]
+		if isOpt {
+			optVal, ok := val.(*types.Optional)
+			if !ok {
+				return invalidOptionalEntryInit(field, val)
+			}
+			if !optVal.HasValue() {
+				delete(fieldVals, field)
+				continue
+			}
+			val = optVal.GetValue()
 		}
 		fieldVals[field] = val
 	}
@@ -1078,7 +1104,7 @@ func (or *evalExhaustiveOr) Eval(ctx Activation) ref.Val {
 	if types.IsError(lVal) {
 		return lVal
 	}
-	return types.ValOrErr(rVal, "no such overload")
+	return types.MaybeNoSuchOverloadErr(rVal)
 }
 
 // Cost implements the Coster interface method.
@@ -1124,7 +1150,7 @@ func (and *evalExhaustiveAnd) Eval(ctx Activation) ref.Val {
 	if types.IsError(lVal) {
 		return lVal
 	}
-	return types.ValOrErr(rVal, "no such overload")
+	return types.MaybeNoSuchOverloadErr(rVal)
 }
 
 // Cost implements the Coster interface method.
@@ -1237,4 +1263,8 @@ func (a *evalAttr) IsOptional() bool {
 // Resolve proxies to the Attribute's Resolve method.
 func (a *evalAttr) Resolve(ctx Activation) (any, error) {
 	return a.attr.Resolve(ctx)
+}
+
+func invalidOptionalEntryInit(field any, value ref.Val) ref.Val {
+	return types.NewErr("cannot initialize optional entry '%v' from non-optional value %v", field, value)
 }

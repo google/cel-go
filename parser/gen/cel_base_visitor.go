@@ -91,7 +91,15 @@ func (v *BaseCELVisitor) VisitFieldInitializerList(ctx *FieldInitializerListCont
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseCELVisitor) VisitOptField(ctx *OptFieldContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseCELVisitor) VisitMapInitializerList(ctx *MapInitializerListContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseCELVisitor) VisitOptKey(ctx *OptKeyContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

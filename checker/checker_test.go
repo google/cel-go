@@ -2043,7 +2043,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 				decls.NewVar("a", decls.NewMapType(decls.String, decls.String)),
 			},
 		},
-		outType: decls.NewAbstractType("optional", decls.String),
+		outType: decls.NewOptionalType(decls.String),
 		out: `_?._(
 			a~map(string, string)^a,
 			"b"
@@ -2053,27 +2053,27 @@ _&&_(_==_(list~type(list(dyn))^list,
 		in: `a.b`,
 		env: testEnv{
 			idents: []*exprpb.Decl{
-				decls.NewVar("a", decls.NewAbstractType("optional", decls.NewMapType(decls.String, decls.String))),
+				decls.NewVar("a", decls.NewOptionalType(decls.NewMapType(decls.String, decls.String))),
 			},
 		},
-		outType: decls.NewAbstractType("optional", decls.String),
+		outType: decls.NewOptionalType(decls.String),
 		out:     `a~optional(map(string, string))^a.b~optional(string)`,
 	},
 	{
 		in: `a.dynamic`,
 		env: testEnv{
 			idents: []*exprpb.Decl{
-				decls.NewVar("a", decls.NewAbstractType("optional", decls.Dyn)),
+				decls.NewVar("a", decls.NewOptionalType(decls.Dyn)),
 			},
 		},
-		outType: decls.NewAbstractType("optional", decls.Dyn),
+		outType: decls.NewOptionalType(decls.Dyn),
 		out:     `a~optional(dyn)^a.dynamic~optional(dyn)`,
 	},
 	{
 		in: `has(a.dynamic)`,
 		env: testEnv{
 			idents: []*exprpb.Decl{
-				decls.NewVar("a", decls.NewAbstractType("optional", decls.Dyn)),
+				decls.NewVar("a", decls.NewOptionalType(decls.Dyn)),
 			},
 		},
 		outType: decls.Bool,
@@ -2083,7 +2083,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 		in: `has(a.?b.c)`,
 		env: testEnv{
 			idents: []*exprpb.Decl{
-				decls.NewVar("a", decls.NewAbstractType("optional", decls.NewMapType(decls.String, decls.Dyn))),
+				decls.NewVar("a", decls.NewOptionalType(decls.NewMapType(decls.String, decls.Dyn))),
 			},
 		},
 		outType: decls.Bool,
@@ -2091,6 +2091,68 @@ _&&_(_==_(list~type(list(dyn))^list,
 			a~optional(map(string, dyn))^a,
 			"b"
 		  )~optional(dyn).c~test-only~~bool`,
+	},
+	{
+		in:      `{?'key': {'a': 'b'}.?value}`,
+		outType: decls.NewMapType(decls.String, decls.String),
+		out: `{
+			?"key"~string:_?._(
+			  {
+				"a"~string:"b"~string
+			  }~map(string, string),
+			  "value"
+			)~optional(string)
+		  }~map(string, string)`,
+	},
+	{
+		in:      `{?'key': {'a': 'b'}.?value}.key`,
+		outType: decls.String,
+		out: `{
+			?"key"~string:_?._(
+			  {
+				"a"~string:"b"~string
+			  }~map(string, string),
+			  "value"
+			)~optional(string)
+		  }~map(string, string).key~string`,
+	},
+	{
+		in: `{?'nested': a.b}`,
+		env: testEnv{
+			idents: []*exprpb.Decl{
+				decls.NewVar("a", decls.NewOptionalType(decls.NewMapType(decls.String, decls.String))),
+			},
+		},
+		outType: decls.NewMapType(decls.String, decls.String),
+		out: `{
+			?"nested"~string:a~optional(map(string, string))^a.b~optional(string)
+		  }~map(string, string)`,
+	},
+	{
+		in: `{?'key': 'hi'}`,
+		err: `ERROR: <input>:1:10: expected type 'optional(string)' but found 'string'
+		| {?'key': 'hi'}
+		| .........^`,
+	},
+	{
+		in:        `TestAllTypes{?single_int32: {}.?i}`,
+		container: "google.expr.proto2.test",
+		out: `google.expr.proto2.test.TestAllTypes{
+			?single_int32:_?._(
+			  {}~map(dyn, int),
+			  "i"
+			)~optional(int)
+		  }~google.expr.proto2.test.TestAllTypes^google.expr.proto2.test.TestAllTypes`,
+		outType: decls.NewObjectType(
+			"google.expr.proto2.test.TestAllTypes",
+		),
+	},
+	{
+		in:        `TestAllTypes{?single_int32: 1}`,
+		container: "google.expr.proto2.test",
+		err: `ERROR: <input>:1:29: expected type 'optional(int)' but found 'int'
+		| TestAllTypes{?single_int32: 1}
+		| ............................^`,
 	},
 }
 
