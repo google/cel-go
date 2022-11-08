@@ -226,28 +226,35 @@ func TestMathRuntimeErrors(t *testing.T) {
 		},
 		{
 			expr: "math.least(a)",
-			err:  "math.@minList(list) argument must not be empty",
+			err:  "math.@min(list) argument must not be empty",
 			in: map[string]any{
 				"a": []int{},
 			},
 		},
 		{
 			expr: "math.least(a)",
-			err:  "no such overload: math.@minList",
+			err:  "no such overload: math.@min",
 			in: map[string]any{
 				"a": []any{"hello"},
 			},
 		},
 		{
 			expr: "math.least(a)",
-			err:  "no such overload: math.@minList",
+			err:  "no such overload: math.@min",
 			in: map[string]any{
 				"a": []any{[]int{}, []int{}},
 			},
 		},
 		{
+			expr: "math.least(a)",
+			err:  "no such overload: math.@min",
+			in: map[string]any{
+				"a": []any{1, true, 2},
+			},
+		},
+		{
 			expr: "math.least(dyn('string'))",
-			err:  "no such overload: math.@minList",
+			err:  "no such overload: math.@min",
 		},
 
 		// Tests for math.greatest
@@ -269,28 +276,28 @@ func TestMathRuntimeErrors(t *testing.T) {
 		},
 		{
 			expr: "math.greatest(a)",
-			err:  "math.@maxList(list) argument must not be empty",
+			err:  "math.@max(list) argument must not be empty",
 			in: map[string]any{
 				"a": []int{},
 			},
 		},
 		{
 			expr: "math.greatest(a)",
-			err:  "no such overload: math.@maxList",
+			err:  "no such overload: math.@max",
 			in: map[string]any{
 				"a": []any{true},
 			},
 		},
 		{
 			expr: "math.greatest(a)",
-			err:  "no such overload: math.@maxList",
+			err:  "no such overload: math.@max",
 			in: map[string]any{
 				"a": []any{1, true, 2},
 			},
 		},
 		{
 			expr: "math.greatest(dyn('string'))",
-			err:  "no such overload: math.@maxList",
+			err:  "no such overload: math.@max",
 		},
 	}
 

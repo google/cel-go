@@ -96,9 +96,7 @@ var (
 	leastMacro    = "least"
 	greatestMacro = "greatest"
 	minFunc       = "math.@min"
-	minListFunc   = "math.@minList"
 	maxFunc       = "math.@max"
-	maxListFunc   = "math.@maxList"
 )
 
 type mathLib struct{}
@@ -118,40 +116,56 @@ func (mathLib) CompileOptions() []cel.EnvOption {
 			cel.NewReceiverVarArgMacro(greatestMacro, mathGreatest),
 		),
 		cel.Function(minFunc,
-			cel.Overload("math_@min_double_double", []*cel.Type{cel.DoubleType, cel.DoubleType}, cel.DoubleType),
-			cel.Overload("math_@min_int_int", []*cel.Type{cel.IntType, cel.IntType}, cel.IntType),
-			cel.Overload("math_@min_uint_uint", []*cel.Type{cel.UintType, cel.UintType}, cel.UintType),
-			cel.Overload("math_@min_int_uint", []*cel.Type{cel.IntType, cel.UintType}, cel.DynType),
-			cel.Overload("math_@min_int_double", []*cel.Type{cel.IntType, cel.DoubleType}, cel.DynType),
-			cel.Overload("math_@min_double_int", []*cel.Type{cel.DoubleType, cel.IntType}, cel.DynType),
-			cel.Overload("math_@min_double_uint", []*cel.Type{cel.DoubleType, cel.UintType}, cel.DynType),
-			cel.Overload("math_@min_uint_int", []*cel.Type{cel.UintType, cel.IntType}, cel.DynType),
-			cel.Overload("math_@min_uint_double", []*cel.Type{cel.UintType, cel.DoubleType}, cel.DynType),
-			cel.SingletonBinaryBinding(minPair, traits.ComparerType),
-		),
-		cel.Function(minListFunc,
-			cel.Overload("math_@minlist_list_double", []*cel.Type{cel.ListType(cel.DoubleType)}, cel.DoubleType),
-			cel.Overload("math_@minlist_list_int", []*cel.Type{cel.ListType(cel.IntType)}, cel.IntType),
-			cel.Overload("math_@minlist_list_uint", []*cel.Type{cel.ListType(cel.UintType)}, cel.UintType),
-			cel.SingletonUnaryBinding(minList),
+			cel.Overload("math_@min_double_double", []*cel.Type{cel.DoubleType, cel.DoubleType}, cel.DoubleType,
+				cel.BinaryBinding(minPair)),
+			cel.Overload("math_@min_int_int", []*cel.Type{cel.IntType, cel.IntType}, cel.IntType,
+				cel.BinaryBinding(minPair)),
+			cel.Overload("math_@min_uint_uint", []*cel.Type{cel.UintType, cel.UintType}, cel.UintType,
+				cel.BinaryBinding(minPair)),
+			cel.Overload("math_@min_int_uint", []*cel.Type{cel.IntType, cel.UintType}, cel.DynType,
+				cel.BinaryBinding(minPair)),
+			cel.Overload("math_@min_int_double", []*cel.Type{cel.IntType, cel.DoubleType}, cel.DynType,
+				cel.BinaryBinding(minPair)),
+			cel.Overload("math_@min_double_int", []*cel.Type{cel.DoubleType, cel.IntType}, cel.DynType,
+				cel.BinaryBinding(minPair)),
+			cel.Overload("math_@min_double_uint", []*cel.Type{cel.DoubleType, cel.UintType}, cel.DynType,
+				cel.BinaryBinding(minPair)),
+			cel.Overload("math_@min_uint_int", []*cel.Type{cel.UintType, cel.IntType}, cel.DynType,
+				cel.BinaryBinding(minPair)),
+			cel.Overload("math_@min_uint_double", []*cel.Type{cel.UintType, cel.DoubleType}, cel.DynType,
+				cel.BinaryBinding(minPair)),
+			cel.Overload("math_@min_list_double", []*cel.Type{cel.ListType(cel.DoubleType)}, cel.DoubleType,
+				cel.UnaryBinding(minList)),
+			cel.Overload("math_@min_list_int", []*cel.Type{cel.ListType(cel.IntType)}, cel.IntType,
+				cel.UnaryBinding(minList)),
+			cel.Overload("math_@min_list_uint", []*cel.Type{cel.ListType(cel.UintType)}, cel.UintType,
+				cel.UnaryBinding(minList)),
 		),
 		cel.Function(maxFunc,
-			cel.Overload("math_@max_double_double", []*cel.Type{cel.DoubleType, cel.DoubleType}, cel.DoubleType),
-			cel.Overload("math_@max_int_int", []*cel.Type{cel.IntType, cel.IntType}, cel.IntType),
-			cel.Overload("math_@max_uint_uint", []*cel.Type{cel.UintType, cel.UintType}, cel.UintType),
-			cel.Overload("math_@max_int_uint", []*cel.Type{cel.IntType, cel.UintType}, cel.DynType),
-			cel.Overload("math_@max_int_double", []*cel.Type{cel.IntType, cel.DoubleType}, cel.DynType),
-			cel.Overload("math_@max_double_int", []*cel.Type{cel.DoubleType, cel.IntType}, cel.DynType),
-			cel.Overload("math_@max_double_uint", []*cel.Type{cel.DoubleType, cel.UintType}, cel.DynType),
-			cel.Overload("math_@max_uint_int", []*cel.Type{cel.UintType, cel.IntType}, cel.DynType),
-			cel.Overload("math_@max_uint_double", []*cel.Type{cel.UintType, cel.DoubleType}, cel.DynType),
-			cel.SingletonBinaryBinding(maxPair, traits.ComparerType),
-		),
-		cel.Function(maxListFunc,
-			cel.Overload("math_@maxlist_list_double", []*cel.Type{cel.ListType(cel.DoubleType)}, cel.DoubleType),
-			cel.Overload("math_@maxlist_list_int", []*cel.Type{cel.ListType(cel.IntType)}, cel.IntType),
-			cel.Overload("math_@maxlist_list_uint", []*cel.Type{cel.ListType(cel.UintType)}, cel.UintType),
-			cel.SingletonUnaryBinding(maxList),
+			cel.Overload("math_@max_double_double", []*cel.Type{cel.DoubleType, cel.DoubleType}, cel.DoubleType,
+				cel.BinaryBinding(maxPair)),
+			cel.Overload("math_@max_int_int", []*cel.Type{cel.IntType, cel.IntType}, cel.IntType,
+				cel.BinaryBinding(maxPair)),
+			cel.Overload("math_@max_uint_uint", []*cel.Type{cel.UintType, cel.UintType}, cel.UintType,
+				cel.BinaryBinding(maxPair)),
+			cel.Overload("math_@max_int_uint", []*cel.Type{cel.IntType, cel.UintType}, cel.DynType,
+				cel.BinaryBinding(maxPair)),
+			cel.Overload("math_@max_int_double", []*cel.Type{cel.IntType, cel.DoubleType}, cel.DynType,
+				cel.BinaryBinding(maxPair)),
+			cel.Overload("math_@max_double_int", []*cel.Type{cel.DoubleType, cel.IntType}, cel.DynType,
+				cel.BinaryBinding(maxPair)),
+			cel.Overload("math_@max_double_uint", []*cel.Type{cel.DoubleType, cel.UintType}, cel.DynType,
+				cel.BinaryBinding(maxPair)),
+			cel.Overload("math_@max_uint_int", []*cel.Type{cel.UintType, cel.IntType}, cel.DynType,
+				cel.BinaryBinding(maxPair)),
+			cel.Overload("math_@max_uint_double", []*cel.Type{cel.UintType, cel.DoubleType}, cel.DynType,
+				cel.BinaryBinding(maxPair)),
+			cel.Overload("math_@max_list_double", []*cel.Type{cel.ListType(cel.DoubleType)}, cel.DoubleType,
+				cel.UnaryBinding(maxList)),
+			cel.Overload("math_@max_list_int", []*cel.Type{cel.ListType(cel.IntType)}, cel.IntType,
+				cel.UnaryBinding(maxList)),
+			cel.Overload("math_@max_list_uint", []*cel.Type{cel.ListType(cel.UintType)}, cel.UintType,
+				cel.UnaryBinding(maxList)),
 		),
 	}
 }
@@ -176,7 +190,7 @@ func mathLeast(meh cel.MacroExprHelper, target *exprpb.Expr, args []*exprpb.Expr
 			return args[0], nil
 		}
 		if isListLiteralWithValidArgs(args[0]) || isValidArgType(args[0]) {
-			return meh.GlobalCall(minListFunc, args[0]), nil
+			return meh.GlobalCall(minFunc, args[0]), nil
 		}
 		return nil, &common.Error{
 			Message:  "math.least() invalid single argument value",
@@ -193,7 +207,7 @@ func mathLeast(meh cel.MacroExprHelper, target *exprpb.Expr, args []*exprpb.Expr
 		if err != nil {
 			return nil, err
 		}
-		return meh.GlobalCall(minListFunc, meh.NewList(args...)), nil
+		return meh.GlobalCall(minFunc, meh.NewList(args...)), nil
 	}
 }
 
@@ -212,7 +226,7 @@ func mathGreatest(meh cel.MacroExprHelper, target *exprpb.Expr, args []*exprpb.E
 			return args[0], nil
 		}
 		if isListLiteralWithValidArgs(args[0]) || isValidArgType(args[0]) {
-			return meh.GlobalCall(maxListFunc, args[0]), nil
+			return meh.GlobalCall(maxFunc, args[0]), nil
 		}
 		return nil, &common.Error{
 			Message:  "math.greatest() invalid single argument value",
@@ -229,7 +243,7 @@ func mathGreatest(meh cel.MacroExprHelper, target *exprpb.Expr, args []*exprpb.E
 		if err != nil {
 			return nil, err
 		}
-		return meh.GlobalCall(maxListFunc, meh.NewList(args...)), nil
+		return meh.GlobalCall(maxFunc, meh.NewList(args...)), nil
 	}
 }
 
@@ -249,13 +263,10 @@ func minPair(first, second ref.Val) ref.Val {
 }
 
 func minList(numList ref.Val) ref.Val {
-	l, ok := numList.(traits.Lister)
-	if !ok {
-		return types.NewErr("no such overload: math.@minList(%s)", numList.Type().TypeName())
-	}
+	l := numList.(traits.Lister)
 	size := l.Size().(types.Int)
 	if size == types.IntZero {
-		return types.NewErr("math.@minList(list) argument must not be empty")
+		return types.NewErr("math.@min(list) argument must not be empty")
 	}
 	min := l.Get(types.IntZero)
 	for i := types.IntOne; i < size; i++ {
@@ -265,7 +276,7 @@ func minList(numList ref.Val) ref.Val {
 	case types.IntType, types.DoubleType, types.UintType, types.UnknownType:
 		return min
 	default:
-		return types.NewErr("no such overload: math.@minList")
+		return types.NewErr("no such overload: math.@min")
 	}
 }
 
@@ -285,13 +296,10 @@ func maxPair(first, second ref.Val) ref.Val {
 }
 
 func maxList(numList ref.Val) ref.Val {
-	l, ok := numList.(traits.Lister)
-	if !ok {
-		return types.NewErr("no such overload: math.@maxList(%s)", numList.Type().TypeName())
-	}
+	l := numList.(traits.Lister)
 	size := l.Size().(types.Int)
 	if size == types.IntZero {
-		return types.NewErr("math.@maxList(list) argument must not be empty")
+		return types.NewErr("math.@max(list) argument must not be empty")
 	}
 	max := l.Get(types.IntZero)
 	for i := types.IntOne; i < size; i++ {
@@ -301,7 +309,7 @@ func maxList(numList ref.Val) ref.Val {
 	case types.IntType, types.DoubleType, types.UintType, types.UnknownType:
 		return max
 	default:
-		return types.NewErr("no such overload: math.@maxList")
+		return types.NewErr("no such overload: math.@max")
 	}
 }
 
