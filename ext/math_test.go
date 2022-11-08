@@ -39,6 +39,16 @@ func TestMath(t *testing.T) {
 		{expr: "math.least(-1, 0, 1) == -1"},
 		{expr: "math.least(-1, -1, -1) == -1"},
 		{expr: "math.least(1u, 42u, 0u) == 0u"},
+		// math.least two arg overloads across type.
+		{expr: "math.least(1, 1.0) == 1"},
+		{expr: "math.least(1, -2.0) == -2.0"},
+		{expr: "math.least(2, 1u) == 1u"},
+		{expr: "math.least(1.5, 2) == 1.5"},
+		{expr: "math.least(1.5, -2) == -2"},
+		{expr: "math.least(2.5, 1u) == 1u"},
+		{expr: "math.least(1u, 2) == 1u"},
+		{expr: "math.least(1u, -2) == -2"},
+		{expr: "math.least(2u, 2.5) == 2u"},
 		// math.least with dynamic values across type.
 		{expr: "math.least(1u, dyn(42)) == 1"},
 		{expr: "math.least(1u, dyn(42), dyn(0.0)) == 0u"},
@@ -72,6 +82,16 @@ func TestMath(t *testing.T) {
 		{expr: "math.greatest(-1, 0, 1) == 1"},
 		{expr: "math.greatest(-1, -1, -1) == -1"},
 		{expr: "math.greatest(1u, 42u, 0u) == 42u"},
+		// math.least two arg overloads across type.
+		{expr: "math.greatest(1, 1.0) == 1"},
+		{expr: "math.greatest(1, -2.0) == 1"},
+		{expr: "math.greatest(2, 1u) == 2"},
+		{expr: "math.greatest(1.5, 2) == 2"},
+		{expr: "math.greatest(1.5, -2) == 1.5"},
+		{expr: "math.greatest(2.5, 1u) == 2.5"},
+		{expr: "math.greatest(1u, 2) == 2"},
+		{expr: "math.greatest(1u, -2) == 1u"},
+		{expr: "math.greatest(2u, 2.5) == 2.5"},
 		// math.greatest with dynamic values across type.
 		{expr: "math.greatest(1u, dyn(42)) == 42.0"},
 		{expr: "math.greatest(1u, dyn(0.0), 0u) == 1"},
