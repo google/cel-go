@@ -88,6 +88,7 @@ func StdLib() EnvOption {
 // features documented in the specification.
 type stdLibrary struct{}
 
+// LibraryName implements the SingletonLibrary interface method.
 func (stdLibrary) LibraryName() string {
 	return "cel.lib.std"
 }
