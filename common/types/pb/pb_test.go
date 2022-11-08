@@ -47,22 +47,22 @@ func TestDbCopy(t *testing.T) {
 	if !reflect.DeepEqual(clone, clone2) {
 		t.Error("db.Copy() did not result in equivalent objects.")
 	}
-	_, err = clone.RegisterDescriptor(proto2pb.File_test_proto2pb_test_all_types_proto)
+	_, err = clone.RegisterMessage(&proto2pb.TestAllTypes{})
 	if err != nil {
-		t.Fatalf("Db.RegisterDescriptor() failed: %v", err)
+		t.Fatalf("Db.RegisterMessage() failed: %v", err)
 	}
 	if reflect.DeepEqual(clone, clone2) {
 		t.Error("clone modification altered derived clone2 also")
 	}
 
 	// modify the clone2 with some extensions and assert equivalence to clone3
-	_, err = clone2.RegisterDescriptor(proto2pb.File_test_proto2pb_test_all_types_proto)
+	_, err = clone2.RegisterMessage(&proto2pb.TestAllTypes{})
 	if err != nil {
-		t.Fatalf("Db.RegisterDescriptor() failed: %v", err)
+		t.Fatalf("Db.RegisterMessage() failed: %v", err)
 	}
-	_, err = clone2.RegisterDescriptor(proto2pb.File_test_proto2pb_test_extensions_proto)
+	_, err = clone2.RegisterMessage(&proto2pb.ExternalMessageType{})
 	if err != nil {
-		t.Fatalf("Db.RegisterDescriptor() failed: %v", err)
+		t.Fatalf("Db.RegisterMessage() failed: %v", err)
 	}
 	clone3 := clone2.Copy()
 	if !reflect.DeepEqual(clone2, clone3) {

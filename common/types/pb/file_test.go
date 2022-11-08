@@ -31,8 +31,8 @@ import (
 
 func TestFileDescriptionGetExtensions(t *testing.T) {
 	pbdb := NewDb()
-	registerFileDescriptor(t, pbdb, proto2pb.File_test_proto2pb_test_all_types_proto)
-	registerFileDescriptor(t, pbdb, proto2pb.File_test_proto2pb_test_extensions_proto)
+	registerFileDescriptor(t, pbdb, &proto2pb.TestAllTypes{})
+	registerFileDescriptor(t, pbdb, &proto2pb.ExternalMessageType{})
 	ex, found := pbdb.DescribeType("google.expr.proto2.test.ExampleType")
 	if !found {
 		t.Fatal("ExampleType not found")
@@ -184,7 +184,8 @@ func TestFileDescriptionGetImportedEnumNames(t *testing.T) {
 	}
 }
 
-func registerFileDescriptor(t *testing.T, pbdb *Db, fileDesc protoreflect.FileDescriptor) {
+func registerFileDescriptor(t *testing.T, pbdb *Db, pbMsg proto.Message) {
+	fileDesc := pbMsg.ProtoReflect().Descriptor().ParentFile()
 	_, err := pbdb.RegisterDescriptor(fileDesc)
 	if err != nil {
 		t.Fatalf("pbdb.RegisterDescriptor(%v) failed: %v", fileDesc, err)
