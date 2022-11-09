@@ -48,83 +48,83 @@ func (p *parserHelper) getSourceInfo() *exprpb.SourceInfo {
 		MacroCalls:  p.macroCalls}
 }
 
-func (p *parserHelper) newLiteral(ctx interface{}, value *exprpb.Constant) *exprpb.Expr {
+func (p *parserHelper) newLiteral(ctx any, value *exprpb.Constant) *exprpb.Expr {
 	exprNode := p.newExpr(ctx)
 	exprNode.ExprKind = &exprpb.Expr_ConstExpr{ConstExpr: value}
 	return exprNode
 }
 
-func (p *parserHelper) newLiteralBool(ctx interface{}, value bool) *exprpb.Expr {
+func (p *parserHelper) newLiteralBool(ctx any, value bool) *exprpb.Expr {
 	return p.newLiteral(ctx,
 		&exprpb.Constant{ConstantKind: &exprpb.Constant_BoolValue{BoolValue: value}})
 }
 
-func (p *parserHelper) newLiteralString(ctx interface{}, value string) *exprpb.Expr {
+func (p *parserHelper) newLiteralString(ctx any, value string) *exprpb.Expr {
 	return p.newLiteral(ctx,
 		&exprpb.Constant{ConstantKind: &exprpb.Constant_StringValue{StringValue: value}})
 }
 
-func (p *parserHelper) newLiteralBytes(ctx interface{}, value []byte) *exprpb.Expr {
+func (p *parserHelper) newLiteralBytes(ctx any, value []byte) *exprpb.Expr {
 	return p.newLiteral(ctx,
 		&exprpb.Constant{ConstantKind: &exprpb.Constant_BytesValue{BytesValue: value}})
 }
 
-func (p *parserHelper) newLiteralInt(ctx interface{}, value int64) *exprpb.Expr {
+func (p *parserHelper) newLiteralInt(ctx any, value int64) *exprpb.Expr {
 	return p.newLiteral(ctx,
 		&exprpb.Constant{ConstantKind: &exprpb.Constant_Int64Value{Int64Value: value}})
 }
 
-func (p *parserHelper) newLiteralUint(ctx interface{}, value uint64) *exprpb.Expr {
+func (p *parserHelper) newLiteralUint(ctx any, value uint64) *exprpb.Expr {
 	return p.newLiteral(ctx, &exprpb.Constant{ConstantKind: &exprpb.Constant_Uint64Value{Uint64Value: value}})
 }
 
-func (p *parserHelper) newLiteralDouble(ctx interface{}, value float64) *exprpb.Expr {
+func (p *parserHelper) newLiteralDouble(ctx any, value float64) *exprpb.Expr {
 	return p.newLiteral(ctx,
 		&exprpb.Constant{ConstantKind: &exprpb.Constant_DoubleValue{DoubleValue: value}})
 }
 
-func (p *parserHelper) newIdent(ctx interface{}, name string) *exprpb.Expr {
+func (p *parserHelper) newIdent(ctx any, name string) *exprpb.Expr {
 	exprNode := p.newExpr(ctx)
 	exprNode.ExprKind = &exprpb.Expr_IdentExpr{IdentExpr: &exprpb.Expr_Ident{Name: name}}
 	return exprNode
 }
 
-func (p *parserHelper) newSelect(ctx interface{}, operand *exprpb.Expr, field string) *exprpb.Expr {
+func (p *parserHelper) newSelect(ctx any, operand *exprpb.Expr, field string) *exprpb.Expr {
 	exprNode := p.newExpr(ctx)
 	exprNode.ExprKind = &exprpb.Expr_SelectExpr{
 		SelectExpr: &exprpb.Expr_Select{Operand: operand, Field: field}}
 	return exprNode
 }
 
-func (p *parserHelper) newPresenceTest(ctx interface{}, operand *exprpb.Expr, field string) *exprpb.Expr {
+func (p *parserHelper) newPresenceTest(ctx any, operand *exprpb.Expr, field string) *exprpb.Expr {
 	exprNode := p.newExpr(ctx)
 	exprNode.ExprKind = &exprpb.Expr_SelectExpr{
 		SelectExpr: &exprpb.Expr_Select{Operand: operand, Field: field, TestOnly: true}}
 	return exprNode
 }
 
-func (p *parserHelper) newGlobalCall(ctx interface{}, function string, args ...*exprpb.Expr) *exprpb.Expr {
+func (p *parserHelper) newGlobalCall(ctx any, function string, args ...*exprpb.Expr) *exprpb.Expr {
 	exprNode := p.newExpr(ctx)
 	exprNode.ExprKind = &exprpb.Expr_CallExpr{
 		CallExpr: &exprpb.Expr_Call{Function: function, Args: args}}
 	return exprNode
 }
 
-func (p *parserHelper) newReceiverCall(ctx interface{}, function string, target *exprpb.Expr, args ...*exprpb.Expr) *exprpb.Expr {
+func (p *parserHelper) newReceiverCall(ctx any, function string, target *exprpb.Expr, args ...*exprpb.Expr) *exprpb.Expr {
 	exprNode := p.newExpr(ctx)
 	exprNode.ExprKind = &exprpb.Expr_CallExpr{
 		CallExpr: &exprpb.Expr_Call{Function: function, Target: target, Args: args}}
 	return exprNode
 }
 
-func (p *parserHelper) newList(ctx interface{}, elements ...*exprpb.Expr) *exprpb.Expr {
+func (p *parserHelper) newList(ctx any, elements ...*exprpb.Expr) *exprpb.Expr {
 	exprNode := p.newExpr(ctx)
 	exprNode.ExprKind = &exprpb.Expr_ListExpr{
 		ListExpr: &exprpb.Expr_CreateList{Elements: elements}}
 	return exprNode
 }
 
-func (p *parserHelper) newMap(ctx interface{}, entries ...*exprpb.Expr_CreateStruct_Entry) *exprpb.Expr {
+func (p *parserHelper) newMap(ctx any, entries ...*exprpb.Expr_CreateStruct_Entry) *exprpb.Expr {
 	exprNode := p.newExpr(ctx)
 	exprNode.ExprKind = &exprpb.Expr_StructExpr{
 		StructExpr: &exprpb.Expr_CreateStruct{Entries: entries}}
@@ -140,7 +140,7 @@ func (p *parserHelper) newMapEntry(entryID int64, key *exprpb.Expr, value *exprp
 	}
 }
 
-func (p *parserHelper) newObject(ctx interface{}, typeName string, entries ...*exprpb.Expr_CreateStruct_Entry) *exprpb.Expr {
+func (p *parserHelper) newObject(ctx any, typeName string, entries ...*exprpb.Expr_CreateStruct_Entry) *exprpb.Expr {
 	exprNode := p.newExpr(ctx)
 	exprNode.ExprKind = &exprpb.Expr_StructExpr{
 		StructExpr: &exprpb.Expr_CreateStruct{
@@ -160,7 +160,7 @@ func (p *parserHelper) newObjectField(fieldID int64, field string, value *exprpb
 	}
 }
 
-func (p *parserHelper) newComprehension(ctx interface{}, iterVar string,
+func (p *parserHelper) newComprehension(ctx any, iterVar string,
 	iterRange *exprpb.Expr,
 	accuVar string,
 	accuInit *exprpb.Expr,
@@ -180,7 +180,7 @@ func (p *parserHelper) newComprehension(ctx interface{}, iterVar string,
 	return exprNode
 }
 
-func (p *parserHelper) newExpr(ctx interface{}) *exprpb.Expr {
+func (p *parserHelper) newExpr(ctx any) *exprpb.Expr {
 	id, isID := ctx.(int64)
 	if isID {
 		return &exprpb.Expr{Id: id}
@@ -188,7 +188,7 @@ func (p *parserHelper) newExpr(ctx interface{}) *exprpb.Expr {
 	return &exprpb.Expr{Id: p.id(ctx)}
 }
 
-func (p *parserHelper) id(ctx interface{}) int64 {
+func (p *parserHelper) id(ctx any) int64 {
 	var location common.Location
 	switch ctx.(type) {
 	case antlr.ParserRuleContext:
@@ -562,7 +562,7 @@ func (e *exprHelper) OffsetLocation(exprID int64) common.Location {
 var (
 	// Thread-safe pool of ExprHelper values to minimize alloc overhead of ExprHelper creations.
 	exprHelperPool = &sync.Pool{
-		New: func() interface{} {
+		New: func() any {
 			return &exprHelper{}
 		},
 	}
