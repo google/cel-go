@@ -102,6 +102,7 @@ type Env struct {
 	provider        ref.TypeProvider
 	features        map[int]bool
 	appliedFeatures map[int]bool
+	libraries       map[string]bool
 
 	// Internal parser representation
 	prsr     *parser.Parser
@@ -160,6 +161,7 @@ func NewCustomEnv(opts ...EnvOption) (*Env, error) {
 		provider:        registry,
 		features:        map[int]bool{},
 		appliedFeatures: map[int]bool{},
+		libraries:       map[string]bool{},
 		progOpts:        []ProgramOption{},
 	}).configure(opts)
 }
@@ -308,8 +310,11 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 	for k, v := range e.functions {
 		funcsCopy[k] = v
 	}
+	libsCopy := make(map[string]bool, len(e.libraries))
+	for k, v := range e.libraries {
+		libsCopy[k] = v
+	}
 
-	// TODO: functions copy needs to happen here.
 	ext := &Env{
 		Container:       e.Container,
 		declarations:    decsCopy,
@@ -319,6 +324,7 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 		adapter:         adapter,
 		features:        featuresCopy,
 		appliedFeatures: appliedFeaturesCopy,
+		libraries:       libsCopy,
 		provider:        provider,
 		chkOpts:         chkOptsCopy,
 		prsrOpts:        prsrOptsCopy,
@@ -331,6 +337,12 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 func (e *Env) HasFeature(flag int) bool {
 	enabled, has := e.features[flag]
 	return has && enabled
+}
+
+// HasLibrary returns whether a specific SingletonLibrary has been configured in the environment.
+func (e *Env) HasLibrary(libName string) bool {
+	configured, exists := e.libraries[libName]
+	return exists && configured
 }
 
 // Parse parses the input expression value `txt` to a Ast and/or a set of Issues.

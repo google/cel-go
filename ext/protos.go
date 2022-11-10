@@ -63,6 +63,12 @@ var (
 
 type protoLib struct{}
 
+// LibraryName implements the SingletonLibrary interface method.
+func (protoLib) LibraryName() string {
+	return "cel.lib.ext.protos"
+}
+
+// CompileOptions implements the Library interface method.
 func (protoLib) CompileOptions() []cel.EnvOption {
 	return []cel.EnvOption{
 		cel.Macros(
@@ -74,13 +80,14 @@ func (protoLib) CompileOptions() []cel.EnvOption {
 	}
 }
 
+// ProgramOptions implements the Library interface method.
 func (protoLib) ProgramOptions() []cel.ProgramOption {
 	return []cel.ProgramOption{}
 }
 
 // hasProtoExt generates a test-only select expression for a fully-qualified extension name on a protobuf message.
 func hasProtoExt(meh cel.MacroExprHelper, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
-	if !isExtCall(meh, hasExtension, target, args) {
+	if !macroTargetMatchesNamespace(protoNamespace, target) {
 		return nil, nil
 	}
 	extensionField, err := getExtFieldName(meh, args[1])
@@ -92,7 +99,7 @@ func hasProtoExt(meh cel.MacroExprHelper, target *exprpb.Expr, args []*exprpb.Ex
 
 // getProtoExt generates a select expression for a fully-qualified extension name on a protobuf message.
 func getProtoExt(meh cel.MacroExprHelper, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
-	if !isExtCall(meh, getExtension, target, args) {
+	if !macroTargetMatchesNamespace(protoNamespace, target) {
 		return nil, nil
 	}
 	extFieldName, err := getExtFieldName(meh, args[1])
@@ -100,18 +107,6 @@ func getProtoExt(meh cel.MacroExprHelper, target *exprpb.Expr, args []*exprpb.Ex
 		return nil, err
 	}
 	return meh.Select(args[0], extFieldName), nil
-}
-
-func isExtCall(meh cel.MacroExprHelper, fnName string, target *exprpb.Expr, args []*exprpb.Expr) bool {
-	switch target.GetExprKind().(type) {
-	case *exprpb.Expr_IdentExpr:
-		if target.GetIdentExpr().GetName() != protoNamespace {
-			return false
-		}
-		return true
-	default:
-		return false
-	}
 }
 
 func getExtFieldName(meh cel.MacroExprHelper, expr *exprpb.Expr) (string, *common.Error) {

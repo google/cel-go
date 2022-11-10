@@ -202,6 +202,12 @@ func Strings() cel.EnvOption {
 
 type stringLib struct{}
 
+// LibraryName implements the SingletonLibrary interface method.
+func (stringLib) LibraryName() string {
+	return "cel.lib.ext.strings"
+}
+
+// CompileOptions implements the Library interface method.
 func (stringLib) CompileOptions() []cel.EnvOption {
 	return []cel.EnvOption{
 		cel.Function("charAt",
@@ -324,6 +330,7 @@ func (stringLib) CompileOptions() []cel.EnvOption {
 	}
 }
 
+// ProgramOptions implements the Library interface method.
 func (stringLib) ProgramOptions() []cel.ProgramOption {
 	return []cel.ProgramOption{}
 }
