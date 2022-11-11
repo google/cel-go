@@ -633,8 +633,14 @@ func (p *parser) VisitIFieldInitializerList(ctx gen.IFieldInitializerListContext
 		optional := optField.GetOpt() != nil
 		if !p.enableOptionalSyntax && optional {
 			p.reportError(optField, "unsupported syntax '?'")
+			continue
 		}
-		fieldName := optField.IDENTIFIER().GetText()
+		// The field may be empty due to a prior error.
+		id := optField.IDENTIFIER()
+		if id == nil {
+			return []*exprpb.Expr_CreateStruct_Entry{}
+		}
+		fieldName := id.GetText()
 		value := p.Visit(vals[i]).(*exprpb.Expr)
 		field := p.helper.newObjectField(initID, fieldName, value, optional)
 		result[i] = field
@@ -701,6 +707,7 @@ func (p *parser) VisitMapInitializerList(ctx *gen.MapInitializerListContext) any
 		optional := optKey.GetOpt() != nil
 		if !p.enableOptionalSyntax && optional {
 			p.reportError(optKey, "unsupported syntax '?'")
+			continue
 		}
 		key := p.Visit(optKey.Expr()).(*exprpb.Expr)
 		value := p.Visit(vals[i]).(*exprpb.Expr)

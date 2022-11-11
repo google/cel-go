@@ -1686,6 +1686,27 @@ var testCases = []testInfo{
 			123^#2:*expr.Constant_Int64Value#
 		  )^#1:*expr.Expr_CallExpr#`,
 	},
+	{
+		I: `x{?.`,
+		Opts: []Option{
+			ErrorRecoveryLookaheadTokenLimit(10),
+			ErrorRecoveryLimit(10),
+		},
+		E: `
+		ERROR: <input>:1:3: unsupported syntax '?'
+		 | x{?.
+		 | ..^
+	    ERROR: <input>:1:4: Syntax error: mismatched input '.' expecting IDENTIFIER
+		 | x{?.
+		 | ...^`,
+	},
+	{
+		I: `x{.`,
+		E: `
+		ERROR: <input>:1:3: Syntax error: mismatched input '.' expecting {'}', ',', '?', IDENTIFIER}
+		 | x{.
+		 | ..^`,
+	},
 }
 
 type testInfo struct {
