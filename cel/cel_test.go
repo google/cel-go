@@ -1878,7 +1878,7 @@ func TestDynamicDispatch(t *testing.T) {
 
 func TestOptionalValues(t *testing.T) {
 	env, err := NewEnv(
-		OptionalTypes(true),
+		OptionalTypes(),
 		// Container and test message types.
 		Container("google.expr.proto2.test"),
 		Types(&proto2pb.TestAllTypes{}),
@@ -2205,7 +2205,7 @@ func TestOptionalValues(t *testing.T) {
 
 func BenchmarkOptionalValues(b *testing.B) {
 	env, err := NewEnv(
-		OptionalTypes(true),
+		OptionalTypes(),
 		Variable("x", OptionalType(IntType)),
 		Variable("y", OptionalType(IntType)),
 		Variable("z", IntType),

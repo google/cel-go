@@ -17,6 +17,8 @@ package ext
 import (
 	"fmt"
 	"reflect"
+	"strings"
+	"time"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -54,17 +56,16 @@ func newNativeTypeProvider(adapter ref.TypeAdapter, provider ref.TypeProvider, r
 	for _, refType := range refTypes {
 		switch rt := refType.(type) {
 		case reflect.Type:
-			if rt.Kind() != reflect.Struct {
-				return nil, fmt.Errorf("unsupported reflect.Type %v, must be reflect.Struct", rt)
+			t, err := newNativeType(rt)
+			if err != nil {
+				return nil, err
 			}
-			t := &nativeType{refType: rt}
 			nativeTypes[t.TypeName()] = t
 		case reflect.Value:
-			rt = reflect.Indirect(rt)
-			if rt.Kind() != reflect.Struct {
-				return nil, fmt.Errorf("unsupported reflect.Type %v, must be reflect.Struct", rt)
+			t, err := newNativeType(rt.Type())
+			if err != nil {
+				return nil, err
 			}
-			t := &nativeType{refType: rt.Type()}
 			nativeTypes[t.TypeName()] = t
 		default:
 			return nil, fmt.Errorf("unsupported native type: %v (%T) must be reflect.Type or reflect.Value", rt, rt)
@@ -96,7 +97,7 @@ func (tp *nativeTypeProvider) FindIdent(typeName string) (ref.Val, bool) {
 
 func (tp *nativeTypeProvider) FindType(typeName string) (*exprpb.Type, bool) {
 	if _, found := tp.nativeTypes[typeName]; found {
-		return decls.NewObjectType(typeName), true
+		return decls.NewTypeType(decls.NewObjectType(typeName)), true
 	}
 	return tp.baseProvider.FindType(typeName)
 }
@@ -106,8 +107,8 @@ func (tp *nativeTypeProvider) FindFieldType(typeName, fieldName string) (*ref.Fi
 	if !found {
 		return tp.baseProvider.FindFieldType(typeName, fieldName)
 	}
-	refField, found := t.refType.FieldByName(fieldName)
-	if !found {
+	refField, isDefined := t.HasField(fieldName)
+	if !found || !isDefined {
 		return nil, false
 	}
 	exprType, ok := convertToExprType(refField.Type)
@@ -117,14 +118,14 @@ func (tp *nativeTypeProvider) FindFieldType(typeName, fieldName string) (*ref.Fi
 	return &ref.FieldType{
 		Type: exprType,
 		IsSet: func(obj any) bool {
-			refVal := reflect.ValueOf(obj)
+			refVal := reflect.Indirect(reflect.ValueOf(obj))
 			refField := refVal.FieldByName(fieldName)
 			return !refField.IsZero()
 		},
 		GetFrom: func(obj any) (any, error) {
-			refVal := reflect.ValueOf(obj)
+			refVal := reflect.Indirect(reflect.ValueOf(obj))
 			refField := refVal.FieldByName(fieldName)
-			return refField.Interface(), nil
+			return getFieldValue(tp, refField), nil
 		},
 	}, true
 }
@@ -134,32 +135,31 @@ func (tp *nativeTypeProvider) NewValue(typeName string, fields map[string]ref.Va
 	if !found {
 		return tp.baseProvider.NewValue(typeName, fields)
 	}
-	refVal := reflect.New(t.refType)
+	refPtr := reflect.New(t.refType)
+	refVal := refPtr.Elem()
 	for fieldName, val := range fields {
-		_, found := t.refType.FieldByName(fieldName)
-		if !found {
-			types.NewErr("no such field: %s", fieldName)
+		refFieldDef, isDefined := t.HasField(fieldName)
+		if !isDefined {
+			return types.NewErr("no such field: %s", fieldName)
 		}
-		refField := refVal.FieldByName(fieldName)
-		if !refField.CanSet() {
-			return types.NewErr("cannot set field: %s on %s", fieldName, t.refType.Name())
-		}
-		fieldVal, err := val.ConvertToNative(refField.Type())
+		fieldVal, err := val.ConvertToNative(refFieldDef.Type)
 		if err != nil {
 			return types.NewErr(err.Error())
 		}
+		refField := refVal.FieldByIndex(refFieldDef.Index)
 		refFieldVal := reflect.ValueOf(fieldVal)
 		refField.Set(refFieldVal)
 	}
-	return tp.NativeToValue(refVal.Interface())
+	return tp.NativeToValue(refPtr.Interface())
 }
 
 func (tp *nativeTypeProvider) NativeToValue(val any) ref.Val {
-	refVal := reflect.ValueOf(val)
+	if val == nil {
+		return types.NullValue
+	}
+	rawVal := reflect.ValueOf(val)
+	refVal := rawVal
 	if refVal.Kind() == reflect.Ptr {
-		if refVal.IsNil() {
-			return types.UnsupportedRefValConversionErr(val)
-		}
 		refVal = reflect.Indirect(refVal)
 	}
 	// This isn't quite right if you're also supporting proto,
@@ -175,11 +175,14 @@ func (tp *nativeTypeProvider) NativeToValue(val any) ref.Val {
 	case reflect.Map:
 		return types.NewDynamicMap(tp, val)
 	case reflect.Struct:
-		switch val.(type) {
-		case proto.Message, *pb.Map, protoreflect.List, protoreflect.Message, protoreflect.Value:
+		switch val := val.(type) {
+		case ref.Val:
+			return val
+		case proto.Message, *pb.Map, protoreflect.List, protoreflect.Message, protoreflect.Value,
+			time.Time:
 			return tp.baseAdapter.NativeToValue(val)
 		default:
-			return newNativeObject(tp, val, refVal)
+			return newNativeObject(tp, val, rawVal)
 		}
 	default:
 		return tp.baseAdapter.NativeToValue(val)
@@ -193,6 +196,9 @@ func convertToExprType(refType reflect.Type) (*exprpb.Type, bool) {
 	case reflect.Float32, reflect.Float64:
 		return decls.Double, true
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		if refType == durationType {
+			return decls.Duration, true
+		}
 		return decls.Int, true
 	case reflect.String:
 		return decls.String, true
@@ -220,21 +226,31 @@ func convertToExprType(refType reflect.Type) (*exprpb.Type, bool) {
 		}
 		return decls.NewMapType(keyType, elemType), true
 	case reflect.Struct:
-		return decls.NewObjectType(fmt.Sprintf("%s.%s", refType.PkgPath(), refType.Name())), true
+		if refType == timestampType {
+			return decls.Timestamp, true
+		}
+		return decls.NewObjectType(
+			fmt.Sprintf("%s.%s", simplePkgAlias(refType.PkgPath()), refType.Name()),
+		), true
 	case reflect.Pointer:
+		if refType.Implements(pbMsgInterfaceType) {
+			pbMsg := reflect.New(refType.Elem()).Interface().(protoreflect.ProtoMessage)
+			return decls.NewObjectType(string(pbMsg.ProtoReflect().Descriptor().FullName())), true
+		}
 		return convertToExprType(refType.Elem())
 	}
 	return nil, false
 }
 
 func newNativeObject(adapter ref.TypeAdapter, val any, refValue reflect.Value) ref.Val {
-	if val == nil {
-		return types.NullValue
+	valType, err := newNativeType(refValue.Type())
+	if err != nil {
+		return types.NewErr(err.Error())
 	}
 	return &nativeObj{
 		TypeAdapter: adapter,
 		val:         val,
-		valType:     &nativeType{refType: refValue.Type()},
+		valType:     valType,
 		refValue:    refValue,
 	}
 }
@@ -247,44 +263,85 @@ type nativeObj struct {
 }
 
 func (o *nativeObj) ConvertToNative(typeDesc reflect.Type) (any, error) {
-	if o.valType.refType == typeDesc {
+	if o.refValue.Type() == typeDesc {
 		return o.val, nil
 	}
-	return nil, fmt.Errorf("type conversion error from '%T' to '%v'", o.val, typeDesc)
+	if o.refValue.Kind() == reflect.Pointer && o.refValue.Type().Elem() == typeDesc {
+		return o.refValue.Elem().Interface(), nil
+	}
+	if typeDesc.Kind() == reflect.Pointer && o.refValue.Type() == typeDesc.Elem() {
+		ptr := reflect.New(typeDesc.Elem())
+		ptr.Elem().Set(o.refValue)
+		return ptr.Interface(), nil
+	}
+	return nil, fmt.Errorf("type conversion error from '%v' to '%v'", o.Type(), typeDesc)
 }
 
 func (o *nativeObj) ConvertToType(typeVal ref.Type) ref.Val {
 	switch typeVal {
-	default:
-		if o.Type().TypeName() == typeVal.TypeName() {
-			return o
-		}
 	case types.TypeType:
 		return o.valType
+	default:
+		if typeVal.TypeName() == o.valType.typeName {
+			return o
+		}
 	}
-	return types.NewErr("type conversion error from '%s' to '%s'", o.Type().TypeName(), typeVal)
+	return types.NewErr("type conversion error from '%s' to '%s'", o.Type(), typeVal)
 }
 
 func (o *nativeObj) Equal(other ref.Val) ref.Val {
 	otherNtv, ok := other.(*nativeObj)
-	return types.Bool(ok && reflect.DeepEqual(o.val, otherNtv.val))
+	if !ok {
+		return types.False
+	}
+	val := o.val
+	otherVal := otherNtv.val
+	refVal := o.refValue
+	otherRefVal := otherNtv.refValue
+	if refVal.Kind() != otherRefVal.Kind() {
+		if refVal.Kind() == reflect.Pointer {
+			val = refVal.Elem().Interface()
+		} else if otherRefVal.Kind() == reflect.Pointer {
+			otherVal = otherRefVal.Elem().Interface()
+		}
+	}
+	return types.Bool(reflect.DeepEqual(val, otherVal))
 }
 
 func (o *nativeObj) IsZeroValue() bool {
+	fmt.Printf("[nativeObj] is non-zero: %v\n", o.refValue)
 	return o.refValue.IsZero()
 }
 
+// IsSet tests whether a field which is defined is set to a non-default value.
+func (o *nativeObj) IsSet(field ref.Val) ref.Val {
+	refField, refErr := o.getReflectedField(field)
+	if refErr != nil {
+		return refErr
+	}
+	return types.Bool(!refField.IsZero())
+}
+
 func (o *nativeObj) Get(field ref.Val) ref.Val {
+	refField, refErr := o.getReflectedField(field)
+	if refErr != nil {
+		return refErr
+	}
+	return adaptFieldValue(o, refField)
+}
+
+func (o *nativeObj) getReflectedField(field ref.Val) (reflect.Value, ref.Val) {
 	fieldName, ok := field.(types.String)
 	if !ok {
-		return types.MaybeNoSuchOverloadErr(field)
+		return reflect.Value{}, types.MaybeNoSuchOverloadErr(field)
 	}
-	f, isDefined := o.valType.refType.FieldByName(string(fieldName))
+	fieldNameStr := string(fieldName)
+	refField, isDefined := o.valType.HasField(fieldNameStr)
 	if !isDefined {
-		return types.NewErr("no such field: %s", fieldName)
+		return reflect.Value{}, types.NewErr("no such field: %s", fieldName)
 	}
-	fv := o.refValue.FieldByIndex(f.Index)
-	return o.NativeToValue(fv.Interface())
+	refVal := reflect.Indirect(o.refValue)
+	return refVal.FieldByIndex(refField.Index), nil
 }
 
 func (o *nativeObj) Type() ref.Type {
@@ -295,13 +352,28 @@ func (o *nativeObj) Value() any {
 	return o.val
 }
 
+func newNativeType(rawType reflect.Type) (*nativeType, error) {
+	refType := rawType
+	if refType.Kind() == reflect.Pointer {
+		refType = refType.Elem()
+	}
+	if !isValidObjectType(refType) {
+		return nil, fmt.Errorf("unsupported reflect.Type %v, must be reflect.Struct", rawType)
+	}
+	return &nativeType{
+		typeName: fmt.Sprintf("%s.%s", simplePkgAlias(refType.PkgPath()), refType.Name()),
+		refType:  refType,
+	}, nil
+}
+
 type nativeType struct {
-	refType reflect.Type
+	typeName string
+	refType  reflect.Type
 }
 
 // ConvertToNative implements ref.Val.ConvertToNative.
 func (t *nativeType) ConvertToNative(typeDesc reflect.Type) (any, error) {
-	return nil, fmt.Errorf("type conversion not supported for 'type'")
+	return nil, fmt.Errorf("type conversion error for type to '%v'", typeDesc)
 }
 
 // ConvertToType implements ref.Val.ConvertToType.
@@ -309,8 +381,6 @@ func (t *nativeType) ConvertToType(typeVal ref.Type) ref.Val {
 	switch typeVal {
 	case types.TypeType:
 		return types.TypeType
-	case types.StringType:
-		return types.String(t.TypeName())
 	}
 	return types.NewErr("type conversion error from '%s' to '%s'", types.TypeType, typeVal)
 }
@@ -320,12 +390,20 @@ func (t *nativeType) Equal(other ref.Val) ref.Val {
 	return types.Bool(ok && t.TypeName() == otherType.TypeName())
 }
 
+func (t *nativeType) HasField(fieldName string) (reflect.StructField, bool) {
+	f, found := t.refType.FieldByName(fieldName)
+	if !found || !f.IsExported() || !isSupportedType(f.Type) {
+		return reflect.StructField{}, false
+	}
+	return f, true
+}
+
 func (t *nativeType) HasTrait(trait int) bool {
 	return nativeObjTraitMask&trait == trait
 }
 
 func (t *nativeType) String() string {
-	return t.TypeName()
+	return t.typeName
 }
 
 func (t *nativeType) Type() ref.Type {
@@ -333,9 +411,62 @@ func (t *nativeType) Type() ref.Type {
 }
 
 func (t *nativeType) TypeName() string {
-	return fmt.Sprintf("%s.%s", t.refType.PkgPath(), t.refType.Name())
+	return t.typeName
 }
 
 func (t *nativeType) Value() any {
-	return t.TypeName()
+	return t.typeName
 }
+
+func adaptFieldValue(adapter ref.TypeAdapter, refField reflect.Value) ref.Val {
+	return adapter.NativeToValue(getFieldValue(adapter, refField))
+}
+
+func getFieldValue(adapter ref.TypeAdapter, refField reflect.Value) any {
+	if refField.IsZero() {
+		switch refField.Kind() {
+		case reflect.Array, reflect.Slice:
+			return types.NewDynamicList(adapter, []ref.Val{})
+		case reflect.Map:
+			return types.NewDynamicMap(adapter, map[ref.Val]ref.Val{})
+		case reflect.Struct:
+			if refField.Type() == timestampType {
+				return types.Timestamp{Time: time.Unix(0, 0)}
+			}
+			return reflect.New(refField.Type()).Elem().Interface()
+		case reflect.Pointer:
+			return reflect.New(refField.Type().Elem()).Interface()
+		}
+	}
+	return refField.Interface()
+}
+
+func simplePkgAlias(pkgPath string) string {
+	paths := strings.Split(pkgPath, "/")
+	if len(paths) == 0 {
+		return ""
+	}
+	return paths[len(paths)-1]
+}
+
+func isValidObjectType(refType reflect.Type) bool {
+	return refType.Kind() == reflect.Struct
+}
+
+func isSupportedType(refType reflect.Type) bool {
+	switch refType.Kind() {
+	case reflect.Chan, reflect.Complex64, reflect.Complex128, reflect.Func, reflect.UnsafePointer, reflect.Uintptr:
+		return false
+	case reflect.Array, reflect.Slice:
+		return isSupportedType(refType.Elem())
+	case reflect.Map:
+		return isSupportedType(refType.Key()) && isSupportedType(refType.Elem())
+	}
+	return true
+}
+
+var (
+	pbMsgInterfaceType = reflect.TypeOf((*protoreflect.ProtoMessage)(nil)).Elem()
+	timestampType      = reflect.TypeOf(time.Now())
+	durationType       = reflect.TypeOf(time.Nanosecond)
+)

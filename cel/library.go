@@ -157,7 +157,7 @@ func (optionalLibrary) CompileOptions() []EnvOption {
 					return opt.GetValue()
 				}))),
 		Function("hasValue",
-			MemberOverload("optional_hasValue", []*Type{optionalTypeV}, paramTypeV,
+			MemberOverload("optional_hasValue", []*Type{optionalTypeV}, BoolType,
 				UnaryBinding(func(value ref.Val) ref.Val {
 					opt := value.(*types.Optional)
 					return types.Bool(opt.HasValue())

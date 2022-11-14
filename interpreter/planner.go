@@ -566,9 +566,9 @@ func (p *planner) planCreateStruct(expr *exprpb.Expr) (Interpretable, error) {
 // planCreateObj generates an object construction Interpretable.
 func (p *planner) planCreateObj(expr *exprpb.Expr) (Interpretable, error) {
 	obj := expr.GetStructExpr()
-	typeName, defined := p.resolveTypeName(obj.MessageName)
+	typeName, defined := p.resolveTypeName(obj.GetMessageName())
 	if !defined {
-		return nil, fmt.Errorf("unknown type: %s", typeName)
+		return nil, fmt.Errorf("unknown type: %s", obj.GetMessageName())
 	}
 	entries := obj.GetEntries()
 	optionals := make([]bool, len(entries))
