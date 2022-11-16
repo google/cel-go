@@ -27,14 +27,13 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/pb"
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/common/types/traits"
 	"github.com/google/cel-go/test"
 
 	proto3pb "github.com/google/cel-go/test/proto3pb"
 )
 
 func TestNativeTypes(t *testing.T) {
-	// TODO:
-	// - test numeric overflows on 32-bit fields
 	var nativeTests = []struct {
 		expr string
 		out  any
@@ -93,7 +92,7 @@ func TestNativeTypes(t *testing.T) {
 			expr: `ext.TestAllTypes{PbVal: test.TestAllTypes{}} == 
 			ext.TestAllTypes{PbVal: test.TestAllTypes{single_bool: false}}`,
 		},
-		{expr: `ext.TestNestedType{} == ext.TestNestedType{}`},
+		{expr: `ext.TestNestedType{} == TestNestedType{}`},
 		{expr: `ext.TestAllTypes{}.BoolVal != true`},
 		{expr: `!has(ext.TestAllTypes{}.BoolVal) && !has(ext.TestAllTypes{}.NestedVal)`},
 		{expr: `type(ext.TestAllTypes) == type`},
@@ -155,9 +154,9 @@ func TestNativeTypesStaticErrors(t *testing.T) {
 		err  string
 	}{
 		{
-			expr: `TestAllTypes{}`,
-			err: `ERROR: <input>:1:13: undeclared reference to 'TestAllTypes' (in container '')
-			 | TestAllTypes{}
+			expr: `TestAllTypos{}`,
+			err: `ERROR: <input>:1:13: undeclared reference to 'TestAllTypos' (in container 'ext')
+			 | TestAllTypos{}
 			 | ............^`,
 		},
 		{
@@ -206,8 +205,8 @@ func TestNativeTypesRuntimeErrors(t *testing.T) {
 		err  string
 	}{
 		{
-			expr: `TestAllTypes{}`,
-			err:  `unknown type: TestAllTypes`,
+			expr: `TestAllTypos{}`,
+			err:  `unknown type: TestAllTypos`,
 		},
 		{
 			expr: `ext.TestAllTypes{bool_val: false}`,
@@ -240,6 +239,22 @@ func TestNativeTypesRuntimeErrors(t *testing.T) {
 		{
 			expr: `ext.TestAllTypes{BoolVal: 'false'}`,
 			err:  `unsupported native conversion from string to 'bool'`,
+		},
+		{
+			expr: `has(ext.TestAllTypes{}.BadFieldName)`,
+			err:  `no such field: BadFieldName`,
+		},
+		{
+			expr: `ext.TestAllTypes{}[42]`,
+			err:  `no such overload`,
+		},
+		{
+			expr: `ext.TestAllTypes{Int32Val: 9223372036854775807}`,
+			err:  `integer overflow`,
+		},
+		{
+			expr: `ext.TestAllTypes{Uint32Val: 9223372036854775807u}`,
+			err:  `unsigned integer overflow`,
 		},
 	}
 	env := testNativeEnv(t)
@@ -461,10 +476,55 @@ func TestNativeTypesWithOptional(t *testing.T) {
 	}
 }
 
+func TestNativeTypeConvertToType(t *testing.T) {
+	nt, err := newNativeType(reflect.TypeOf(&TestAllTypes{}))
+	if err != nil {
+		t.Fatalf("newNativeType() failed: %v", err)
+	}
+	if nt.ConvertToType(types.TypeType) != types.TypeType {
+		t.Error("ConvertToType(Type) failed")
+	}
+	if !types.IsError(nt.ConvertToType(types.StringType)) {
+		t.Errorf("ConvertToType(String) got %v, wanted error", nt.ConvertToType(types.StringType))
+	}
+}
+
+func TestNativeTypeConvertToNative(t *testing.T) {
+	nt, err := newNativeType(reflect.TypeOf(&TestAllTypes{}))
+	if err != nil {
+		t.Fatalf("newNativeType() failed: %v", err)
+	}
+	out, err := nt.ConvertToNative(reflect.TypeOf(1))
+	if err == nil {
+		t.Errorf("nt.ConvertToNative(1) produced %v, wanted error", out)
+	}
+}
+
+func TestNativeTypeHasTrait(t *testing.T) {
+	nt, err := newNativeType(reflect.TypeOf(&TestAllTypes{}))
+	if err != nil {
+		t.Fatalf("newNativeType() failed: %v", err)
+	}
+	if !nt.HasTrait(traits.IndexerType) || !nt.HasTrait(traits.FieldTesterType) {
+		t.Error("nt.HasTrait() failed indicate support for presence test and field access.")
+	}
+}
+
+func TestNativeTypeValue(t *testing.T) {
+	nt, err := newNativeType(reflect.TypeOf(&TestAllTypes{}))
+	if err != nil {
+		t.Fatalf("newNativeType() failed: %v", err)
+	}
+	if nt.Value() != nt.String() {
+		t.Errorf("nt.Value() got %v, wanted %v", nt.Value(), nt.String())
+	}
+}
+
 // testEnv initializes the test environment common to all tests.
 func testNativeEnv(t *testing.T, opts ...cel.EnvOption) *cel.Env {
 	t.Helper()
 	envOpts := []cel.EnvOption{
+		cel.Container("ext"),
 		cel.Abbrevs("google.expr.proto3.test"),
 		cel.Types(&proto3pb.TestAllTypes{}),
 	}

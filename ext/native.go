@@ -37,6 +37,45 @@ var (
 	nativeObjTraitMask = traits.FieldTesterType | traits.IndexerType
 )
 
+// NativeTypes creates a type provider which uses reflect.Type and reflect.Value instances
+// to produce type definitions that can be used within CEL.
+//
+// All struct types in Go are exposed to CEL via their simple package name and struct type name:
+//
+// ```go
+// package identity
+//
+//	type Account struct {
+//	  ID int
+//	}
+//
+// ```
+//
+// The type `identity.Account` would be expored to CEL using the same qualified name, e.g.
+// `identity.Account{ID: 1234}` would create a new `Account` instance with the `ID` field
+// populated.
+//
+// Only exported fields are exposed via NativeTypes, and the type-mapping between Go and CEL
+// is as follows:
+//
+// | Go type                             | CEL type  |
+// |-------------------------------------|-----------|
+// | bool                                | bool      |
+// | []byte                              | bytes     |
+// | float32, float64                    | double    |
+// | int, int8, int16, int32, int64      | int       |
+// | string                              | string    |
+// | uint, uint8, uint16, uint32, uint64 | uint      |
+// | time.Duration                       | duration  |
+// | time.Time                           | timestamp |
+// | array, slice                        | list      |
+// | map                                 | map       |
+//
+// Please note, if you intend to configure support for proto messages in addition to native
+// types, you will need to provide the protobuf types before the golang native types. The
+// same advice holds if you are using custom type adapters and type providers. The native type
+// provider composes over whichever type adapter and provider is configured in the cel.Env at
+// the time that it is invoked.
 func NativeTypes(refTypes ...any) cel.EnvOption {
 	return func(env *cel.Env) (*cel.Env, error) {
 		tp, err := newNativeTypeProvider(env.TypeAdapter(), env.TypeProvider(), refTypes...)
@@ -84,10 +123,14 @@ type nativeTypeProvider struct {
 	baseProvider ref.TypeProvider
 }
 
+// EnumValue proxies to the ref.TypeProvider configured at the times the NativeTypes
+// option was configured.
 func (tp *nativeTypeProvider) EnumValue(enumName string) ref.Val {
 	return tp.baseProvider.EnumValue(enumName)
 }
 
+// FindIdent looks up natives type instances by qualified identifier, and if not found
+// proxies to the composed ref.TypeProvider.
 func (tp *nativeTypeProvider) FindIdent(typeName string) (ref.Val, bool) {
 	if t, found := tp.nativeTypes[typeName]; found {
 		return t, true
@@ -95,6 +138,8 @@ func (tp *nativeTypeProvider) FindIdent(typeName string) (ref.Val, bool) {
 	return tp.baseProvider.FindIdent(typeName)
 }
 
+// FindType looks up CEL type-checker type definition by qualified identifier, and if not found
+// proxies to the composed ref.TypeProvider.
 func (tp *nativeTypeProvider) FindType(typeName string) (*exprpb.Type, bool) {
 	if _, found := tp.nativeTypes[typeName]; found {
 		return decls.NewTypeType(decls.NewObjectType(typeName)), true
@@ -102,12 +147,14 @@ func (tp *nativeTypeProvider) FindType(typeName string) (*exprpb.Type, bool) {
 	return tp.baseProvider.FindType(typeName)
 }
 
+// FindFieldType looks up a native type's field definition, and if the type name is not a native
+// type then proxies to the composed ref.TypeProvider
 func (tp *nativeTypeProvider) FindFieldType(typeName, fieldName string) (*ref.FieldType, bool) {
 	t, found := tp.nativeTypes[typeName]
 	if !found {
 		return tp.baseProvider.FindFieldType(typeName, fieldName)
 	}
-	refField, isDefined := t.HasField(fieldName)
+	refField, isDefined := t.hasField(fieldName)
 	if !found || !isDefined {
 		return nil, false
 	}
@@ -130,6 +177,7 @@ func (tp *nativeTypeProvider) FindFieldType(typeName, fieldName string) (*ref.Fi
 	}, true
 }
 
+// NewValue implements the ref.TypeProvider interface method.
 func (tp *nativeTypeProvider) NewValue(typeName string, fields map[string]ref.Val) ref.Val {
 	t, found := tp.nativeTypes[typeName]
 	if !found {
@@ -138,7 +186,7 @@ func (tp *nativeTypeProvider) NewValue(typeName string, fields map[string]ref.Va
 	refPtr := reflect.New(t.refType)
 	refVal := refPtr.Elem()
 	for fieldName, val := range fields {
-		refFieldDef, isDefined := t.HasField(fieldName)
+		refFieldDef, isDefined := t.hasField(fieldName)
 		if !isDefined {
 			return types.NewErr("no such field: %s", fieldName)
 		}
@@ -153,6 +201,8 @@ func (tp *nativeTypeProvider) NewValue(typeName string, fields map[string]ref.Va
 	return tp.NativeToValue(refPtr.Interface())
 }
 
+// NewValue adapts native values to CEL values and will proxy to the composed type adapter
+// for non-native types.
 func (tp *nativeTypeProvider) NativeToValue(val any) ref.Val {
 	if val == nil {
 		return types.NullValue
@@ -189,6 +239,7 @@ func (tp *nativeTypeProvider) NativeToValue(val any) ref.Val {
 	}
 }
 
+// convertToExprType converts the Golang reflect.Type to a protobuf exprpb.Type.
 func convertToExprType(refType reflect.Type) (*exprpb.Type, bool) {
 	switch refType.Kind() {
 	case reflect.Bool:
@@ -262,6 +313,10 @@ type nativeObj struct {
 	refValue reflect.Value
 }
 
+// ConvertToNative implements the ref.Val interface method.
+//
+// CEL does not have a notion of pointers, so whether a field is a pointer or value
+// is handled as part of this converstion step.
 func (o *nativeObj) ConvertToNative(typeDesc reflect.Type) (any, error) {
 	if o.refValue.Type() == typeDesc {
 		return o.val, nil
@@ -277,6 +332,7 @@ func (o *nativeObj) ConvertToNative(typeDesc reflect.Type) (any, error) {
 	return nil, fmt.Errorf("type conversion error from '%v' to '%v'", o.Type(), typeDesc)
 }
 
+// ConvertToType implements the ref.Val interface method.
 func (o *nativeObj) ConvertToType(typeVal ref.Type) ref.Val {
 	switch typeVal {
 	case types.TypeType:
@@ -289,6 +345,10 @@ func (o *nativeObj) ConvertToType(typeVal ref.Type) ref.Val {
 	return types.NewErr("type conversion error from '%s' to '%s'", o.Type(), typeVal)
 }
 
+// Equal implements the ref.Val interface method.
+//
+// Note, that in Golang a pointer to a value is not equal to the value it contains.
+// In CEL pointers and values to which they point are equal.
 func (o *nativeObj) Equal(other ref.Val) ref.Val {
 	otherNtv, ok := other.(*nativeObj)
 	if !ok {
@@ -308,9 +368,11 @@ func (o *nativeObj) Equal(other ref.Val) ref.Val {
 	return types.Bool(reflect.DeepEqual(val, otherVal))
 }
 
+// IsZeroValue indicates whether the contained Golang value is a zero value.
+//
+// Golang largely follows proto3 semantics for zero values.
 func (o *nativeObj) IsZeroValue() bool {
-	fmt.Printf("[nativeObj] is non-zero: %v\n", o.refValue)
-	return o.refValue.IsZero()
+	return reflect.Indirect(o.refValue).IsZero()
 }
 
 // IsSet tests whether a field which is defined is set to a non-default value.
@@ -322,6 +384,7 @@ func (o *nativeObj) IsSet(field ref.Val) ref.Val {
 	return types.Bool(!refField.IsZero())
 }
 
+// Get returns the value fo a field name.
 func (o *nativeObj) Get(field ref.Val) ref.Val {
 	refField, refErr := o.getReflectedField(field)
 	if refErr != nil {
@@ -336,7 +399,7 @@ func (o *nativeObj) getReflectedField(field ref.Val) (reflect.Value, ref.Val) {
 		return reflect.Value{}, types.MaybeNoSuchOverloadErr(field)
 	}
 	fieldNameStr := string(fieldName)
-	refField, isDefined := o.valType.HasField(fieldNameStr)
+	refField, isDefined := o.valType.hasField(fieldNameStr)
 	if !isDefined {
 		return reflect.Value{}, types.NewErr("no such field: %s", fieldName)
 	}
@@ -344,10 +407,12 @@ func (o *nativeObj) getReflectedField(field ref.Val) (reflect.Value, ref.Val) {
 	return refVal.FieldByIndex(refField.Index), nil
 }
 
+// Type implements the ref.Val interface method.
 func (o *nativeObj) Type() ref.Type {
 	return o.valType
 }
 
+// Value implements the ref.Val interface method.
 func (o *nativeObj) Value() any {
 	return o.val
 }
@@ -385,37 +450,44 @@ func (t *nativeType) ConvertToType(typeVal ref.Type) ref.Val {
 	return types.NewErr("type conversion error from '%s' to '%s'", types.TypeType, typeVal)
 }
 
+// Equal returns true of both type names are equal to each other.
 func (t *nativeType) Equal(other ref.Val) ref.Val {
 	otherType, ok := other.(ref.Type)
 	return types.Bool(ok && t.TypeName() == otherType.TypeName())
 }
 
-func (t *nativeType) HasField(fieldName string) (reflect.StructField, bool) {
+// HasTrait implements the ref.Type interface method.
+func (t *nativeType) HasTrait(trait int) bool {
+	return nativeObjTraitMask&trait == trait
+}
+
+// String implements the strings.Stringer interface method.
+func (t *nativeType) String() string {
+	return t.typeName
+}
+
+// Type implements the ref.Val interface method.
+func (t *nativeType) Type() ref.Type {
+	return types.TypeType
+}
+
+// TypeName implements the ref.Type interface method.
+func (t *nativeType) TypeName() string {
+	return t.typeName
+}
+
+// Value implements the ref.Val interface method.
+func (t *nativeType) Value() any {
+	return t.typeName
+}
+
+// hasField returns whether a field name has a corresponding Golang reflect.StructField
+func (t *nativeType) hasField(fieldName string) (reflect.StructField, bool) {
 	f, found := t.refType.FieldByName(fieldName)
 	if !found || !f.IsExported() || !isSupportedType(f.Type) {
 		return reflect.StructField{}, false
 	}
 	return f, true
-}
-
-func (t *nativeType) HasTrait(trait int) bool {
-	return nativeObjTraitMask&trait == trait
-}
-
-func (t *nativeType) String() string {
-	return t.typeName
-}
-
-func (t *nativeType) Type() ref.Type {
-	return types.TypeType
-}
-
-func (t *nativeType) TypeName() string {
-	return t.typeName
-}
-
-func (t *nativeType) Value() any {
-	return t.typeName
 }
 
 func adaptFieldValue(adapter ref.TypeAdapter, refField reflect.Value) ref.Val {
