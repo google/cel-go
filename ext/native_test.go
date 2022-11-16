@@ -37,6 +37,7 @@ func TestNativeTypes(t *testing.T) {
 	var nativeTests = []struct {
 		expr string
 		out  any
+		in   any
 	}{
 		{
 			expr: `ext.TestAllTypes{
@@ -107,6 +108,13 @@ func TestNativeTypes(t *testing.T) {
 		{expr: `ext.TestAllTypes{}.MapVal.size() == 0`},
 		{expr: `ext.TestAllTypes{}.TimestampVal == timestamp(0)`},
 		{expr: `test.TestAllTypes{}.single_timestamp == timestamp(0)`},
+		{expr: `[TestAllTypes{BoolVal: true}, TestAllTypes{BoolVal: false}].exists(t, t.BoolVal == true)`},
+		{
+			expr: `tests.all(t, t.Int32Val > 17)`,
+			in: map[string]any{
+				"tests": []*TestAllTypes{{Int32Val: 18}, {Int32Val: 19}, {Int32Val: 20}},
+			},
+		},
 	}
 	env := testNativeEnv(t)
 	for i, tst := range nativeTests {
@@ -128,7 +136,11 @@ func TestNativeTypes(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				out, _, err := prg.Eval(cel.NoVars())
+				in := tc.in
+				if in == nil {
+					in = cel.NoVars()
+				}
+				out, _, err := prg.Eval(in)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -527,6 +539,7 @@ func testNativeEnv(t *testing.T, opts ...cel.EnvOption) *cel.Env {
 		cel.Container("ext"),
 		cel.Abbrevs("google.expr.proto3.test"),
 		cel.Types(&proto3pb.TestAllTypes{}),
+		cel.Variable("tests", cel.ListType(cel.ObjectType("ext.TestAllTypes"))),
 	}
 	envOpts = append(envOpts, opts...)
 	envOpts = append(envOpts,
