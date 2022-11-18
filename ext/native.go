@@ -51,7 +51,7 @@ var (
 //
 // ```
 //
-// The type `identity.Account` would be expored to CEL using the same qualified name, e.g.
+// The type `identity.Account` would be exported to CEL using the same qualified name, e.g.
 // `identity.Account{ID: 1234}` would create a new `Account` instance with the `ID` field
 // populated.
 //
