@@ -485,11 +485,6 @@ func (e *Env) configure(opts []EnvOption) (*Env, error) {
 	if err != nil {
 		return nil, err
 	}
-	// If optional types have been enabled, then configure the optional library.
-	e, err = e.maybeApplyFeature(featureOptionalTypes, Lib(optionalLibrary{}))
-	if err != nil {
-		return nil, err
-	}
 
 	// Initialize all of the functions configured within the environment.
 	for _, fn := range e.functions {
