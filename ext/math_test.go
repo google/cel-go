@@ -416,7 +416,7 @@ func TestMathWithExtension(t *testing.T) {
 
 func testMathEnv(t *testing.T, opts ...cel.EnvOption) *cel.Env {
 	t.Helper()
-	baseOpts := []cel.EnvOption{Math()}
+	baseOpts := []cel.EnvOption{Math(), cel.EnableMacroCallTracking()}
 	env, err := cel.NewEnv(append(baseOpts, opts...)...)
 	if err != nil {
 		t.Fatalf("cel.NewEnv(Math()) failed: %v", err)
