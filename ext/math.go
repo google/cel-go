@@ -116,6 +116,12 @@ func (mathLib) CompileOptions() []cel.EnvOption {
 			cel.NewReceiverVarArgMacro(greatestMacro, mathGreatest),
 		),
 		cel.Function(minFunc,
+			cel.Overload("math_@min_double", []*cel.Type{cel.DoubleType}, cel.DoubleType,
+				cel.UnaryBinding(identity)),
+			cel.Overload("math_@min_int", []*cel.Type{cel.IntType}, cel.IntType,
+				cel.UnaryBinding(identity)),
+			cel.Overload("math_@min_uint", []*cel.Type{cel.UintType}, cel.UintType,
+				cel.UnaryBinding(identity)),
 			cel.Overload("math_@min_double_double", []*cel.Type{cel.DoubleType, cel.DoubleType}, cel.DoubleType,
 				cel.BinaryBinding(minPair)),
 			cel.Overload("math_@min_int_int", []*cel.Type{cel.IntType, cel.IntType}, cel.IntType,
@@ -142,6 +148,12 @@ func (mathLib) CompileOptions() []cel.EnvOption {
 				cel.UnaryBinding(minList)),
 		),
 		cel.Function(maxFunc,
+			cel.Overload("math_@max_double", []*cel.Type{cel.DoubleType}, cel.DoubleType,
+				cel.UnaryBinding(identity)),
+			cel.Overload("math_@max_int", []*cel.Type{cel.IntType}, cel.IntType,
+				cel.UnaryBinding(identity)),
+			cel.Overload("math_@max_uint", []*cel.Type{cel.UintType}, cel.UintType,
+				cel.UnaryBinding(identity)),
 			cel.Overload("math_@max_double_double", []*cel.Type{cel.DoubleType, cel.DoubleType}, cel.DoubleType,
 				cel.BinaryBinding(maxPair)),
 			cel.Overload("math_@max_int_int", []*cel.Type{cel.IntType, cel.IntType}, cel.IntType,
@@ -186,9 +198,6 @@ func mathLeast(meh cel.MacroExprHelper, target *exprpb.Expr, args []*exprpb.Expr
 			Location: meh.OffsetLocation(target.GetId()),
 		}
 	case 1:
-		if isNumericConstant(args[0]) {
-			return args[0], nil
-		}
 		if isListLiteralWithValidArgs(args[0]) || isValidArgType(args[0]) {
 			return meh.GlobalCall(minFunc, args[0]), nil
 		}
@@ -222,9 +231,6 @@ func mathGreatest(meh cel.MacroExprHelper, target *exprpb.Expr, args []*exprpb.E
 			Location: meh.OffsetLocation(target.GetId()),
 		}
 	case 1:
-		if isNumericConstant(args[0]) {
-			return args[0], nil
-		}
 		if isListLiteralWithValidArgs(args[0]) || isValidArgType(args[0]) {
 			return meh.GlobalCall(maxFunc, args[0]), nil
 		}
@@ -245,6 +251,10 @@ func mathGreatest(meh cel.MacroExprHelper, target *exprpb.Expr, args []*exprpb.E
 		}
 		return meh.GlobalCall(maxFunc, meh.NewList(args...)), nil
 	}
+}
+
+func identity(val ref.Val) ref.Val {
+	return val
 }
 
 func minPair(first, second ref.Val) ref.Val {
@@ -348,18 +358,6 @@ func isValidArgType(arg *exprpb.Expr) bool {
 	default:
 		return true
 	}
-}
-
-func isNumericConstant(arg *exprpb.Expr) bool {
-	switch arg.GetExprKind().(type) {
-	case *exprpb.Expr_ConstExpr:
-		c := arg.GetConstExpr()
-		switch c.GetConstantKind().(type) {
-		case *exprpb.Constant_DoubleValue, *exprpb.Constant_Int64Value, *exprpb.Constant_Uint64Value:
-			return true
-		}
-	}
-	return false
 }
 
 func isListLiteralWithValidArgs(arg *exprpb.Expr) bool {
