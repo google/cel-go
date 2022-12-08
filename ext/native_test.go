@@ -21,7 +21,9 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
@@ -84,13 +86,13 @@ func TestNativeTypes(t *testing.T) {
 			},
 		},
 		{
-			expr: `ext.TestAllTypes{					
+			expr: `ext.TestAllTypes{
 					PbVal: test.TestAllTypes{single_int32: 123}
 				}.PbVal`,
 			out: &proto3pb.TestAllTypes{SingleInt32: 123},
 		},
 		{
-			expr: `ext.TestAllTypes{PbVal: test.TestAllTypes{}} == 
+			expr: `ext.TestAllTypes{PbVal: test.TestAllTypes{}} ==
 			ext.TestAllTypes{PbVal: test.TestAllTypes{single_bool: false}}`,
 		},
 		{expr: `ext.TestNestedType{} == TestNestedType{}`},
@@ -206,6 +208,73 @@ func TestNativeTypesStaticErrors(t *testing.T) {
 			}
 			if !test.Compare(iss.Err().Error(), tc.err) {
 				t.Errorf("env.Compile(%v) got %v, wanted error %s", tc.expr, iss.Err(), tc.err)
+			}
+		})
+	}
+}
+
+func TestNativeTypesJsonSerialization(t *testing.T) {
+	tests := []struct {
+		expr string
+		out  string
+	}{
+		{
+			expr: `[b'string']`,
+			out:  `["c3RyaW5n"]`,
+		},
+		{
+			expr: `TestAllTypes{
+				NestedVal: TestNestedType{
+					NestedListVal: ["first", "second"],
+				},
+				BoolVal: true,
+				DurationVal: duration('5s'),
+				DoubleVal: 1.5,
+				FloatVal: 2.0,
+				Int32Val: 23,
+				Int64Val: 64,
+				StringVal: "string",
+			}`,
+			out: `{
+				"BoolVal":  true,
+				"DoubleVal":  1.5,
+				"DurationVal":  "5s",
+				"FloatVal":  2,
+				"Int32Val":  23,
+				"Int64Val":  64,
+				"NestedVal": {
+					"NestedListVal": [
+					  "first",
+					  "second"
+					]
+				},
+				"StringVal":  "string"
+			  }`,
+		},
+	}
+	env := testNativeEnv(t)
+	for i, tst := range tests {
+		tc := tst
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			ast, iss := env.Compile(tc.expr)
+			if iss.Err() != nil {
+				t.Fatalf("env.Compile(%v) failed: %v", tc.expr, iss.Err())
+			}
+			prg, err := env.Program(ast)
+			if err != nil {
+				t.Fatalf("env.Program() failed: %v", err)
+			}
+			out, _, err := prg.Eval(cel.NoVars())
+			if err != nil {
+				t.Fatalf("prg.Eval() failed: %v", err)
+			}
+			conv, err := out.ConvertToNative(reflect.TypeOf(&structpb.Value{}))
+			if err != nil {
+				t.Fatalf("out.ConvertToNative(Value) failed: %v", err)
+			}
+			json := protojson.Format(conv.(proto.Message))
+			if !test.Compare(json, tc.out) {
+				t.Errorf("expr %v converted to %v, wanted %v", tc.expr, json, tc.out)
 			}
 		})
 	}
@@ -578,7 +647,7 @@ type TestAllTypes struct {
 	DoubleVal       float64
 	FloatVal        float32
 	Int32Val        int32
-	Int64Val        int32
+	Int64Val        int64
 	StringVal       string
 	TimestampVal    time.Time
 	Uint32Val       uint32
