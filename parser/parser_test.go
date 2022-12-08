@@ -1666,6 +1666,16 @@ var testCases = []testInfo{
 		  ]^#1:*expr.Expr_ListExpr#`,
 	},
 	{
+		I:    `[?a[?b]]`,
+		Opts: []Option{EnableOptionalSyntax(true)},
+		P: `[
+			_[?_](
+			  a^#2:*expr.Expr_IdentExpr#,
+			  b^#4:*expr.Expr_IdentExpr#
+			)^#3:*expr.Expr_CallExpr#
+		  ]^#1:*expr.Expr_ListExpr#`,
+	},
+	{
 		I: `[?a, ?b]`,
 		E: `
 	    ERROR: <input>:1:2: unsupported syntax '?'
