@@ -617,9 +617,11 @@ func (fn *evalVarArgs) Args() []Interpretable {
 }
 
 type evalList struct {
-	id      int64
-	elems   []Interpretable
-	adapter ref.TypeAdapter
+	id           int64
+	elems        []Interpretable
+	optionals    []bool
+	hasOptionals bool
+	adapter      ref.TypeAdapter
 }
 
 // ID implements the Interpretable interface method.
@@ -629,14 +631,24 @@ func (l *evalList) ID() int64 {
 
 // Eval implements the Interpretable interface method.
 func (l *evalList) Eval(ctx Activation) ref.Val {
-	elemVals := make([]ref.Val, len(l.elems))
+	elemVals := make([]ref.Val, 0, len(l.elems))
 	// If any argument is unknown or error early terminate.
 	for i, elem := range l.elems {
 		elemVal := elem.Eval(ctx)
 		if types.IsUnknownOrError(elemVal) {
 			return elemVal
 		}
-		elemVals[i] = elemVal
+		if l.hasOptionals && l.optionals[i] {
+			optVal, ok := elemVal.(*types.Optional)
+			if !ok {
+				return invalidOptionalElementInit(elemVal)
+			}
+			if !optVal.HasValue() {
+				continue
+			}
+			elemVal = optVal.GetValue()
+		}
+		elemVals = append(elemVals, elemVal)
 	}
 	return l.adapter.NativeToValue(elemVals)
 }
@@ -655,11 +667,12 @@ func (l *evalList) Cost() (min, max int64) {
 }
 
 type evalMap struct {
-	id        int64
-	keys      []Interpretable
-	vals      []Interpretable
-	optionals []bool
-	adapter   ref.TypeAdapter
+	id           int64
+	keys         []Interpretable
+	vals         []Interpretable
+	optionals    []bool
+	hasOptionals bool
+	adapter      ref.TypeAdapter
 }
 
 // ID implements the Interpretable interface method.
@@ -680,8 +693,7 @@ func (m *evalMap) Eval(ctx Activation) ref.Val {
 		if types.IsUnknownOrError(valVal) {
 			return valVal
 		}
-		isOpt := m.optionals[i]
-		if isOpt {
+		if m.hasOptionals && m.optionals[i] {
 			optVal, ok := valVal.(*types.Optional)
 			if !ok {
 				return invalidOptionalEntryInit(keyVal, valVal)
@@ -725,12 +737,13 @@ func (m *evalMap) Cost() (min, max int64) {
 }
 
 type evalObj struct {
-	id        int64
-	typeName  string
-	fields    []string
-	vals      []Interpretable
-	optionals []bool
-	provider  ref.TypeProvider
+	id           int64
+	typeName     string
+	fields       []string
+	vals         []Interpretable
+	optionals    []bool
+	hasOptionals bool
+	provider     ref.TypeProvider
 }
 
 // ID implements the Interpretable interface method.
@@ -747,8 +760,7 @@ func (o *evalObj) Eval(ctx Activation) ref.Val {
 		if types.IsUnknownOrError(val) {
 			return val
 		}
-		isOpt := o.optionals[i]
-		if isOpt {
+		if o.hasOptionals && o.optionals[i] {
 			optVal, ok := val.(*types.Optional)
 			if !ok {
 				return invalidOptionalEntryInit(field, val)
@@ -1267,4 +1279,8 @@ func (a *evalAttr) Resolve(ctx Activation) (any, error) {
 
 func invalidOptionalEntryInit(field any, value ref.Val) ref.Val {
 	return types.NewErr("cannot initialize optional entry '%v' from non-optional value %v", field, value)
+}
+
+func invalidOptionalElementInit(value ref.Val) ref.Val {
+	return types.NewErr("cannot initialize optional list element from non-optional value %v", value)
 }

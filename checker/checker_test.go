@@ -2135,6 +2135,27 @@ _&&_(_==_(list~type(list(dyn))^list,
 		| .........^`,
 	},
 	{
+		in: `[?a, ?b, 'world']`,
+		env: testEnv{
+			idents: []*exprpb.Decl{
+				decls.NewVar("a", decls.NewOptionalType(decls.String)),
+				decls.NewVar("b", decls.NewOptionalType(decls.String)),
+			},
+		},
+		outType: decls.NewListType(decls.String),
+		out: `[
+			a~optional(string)^a,
+			b~optional(string)^b,
+			"world"~string
+		  ]~list(string)`,
+	},
+	{
+		in: `[?'value']`,
+		err: `ERROR: <input>:1:3: expected type 'optional(string)' but found 'string'
+		| [?'value']
+		| ..^`,
+	},
+	{
 		in:        `TestAllTypes{?single_int32: {}.?i}`,
 		container: "google.expr.proto2.test",
 		out: `google.expr.proto2.test.TestAllTypes{

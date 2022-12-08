@@ -515,8 +515,14 @@ func (p *planner) planCallIndex(expr *exprpb.Expr, args []Interpretable, optiona
 // planCreateList generates a list construction Interpretable.
 func (p *planner) planCreateList(expr *exprpb.Expr) (Interpretable, error) {
 	list := expr.GetListExpr()
-	elems := make([]Interpretable, len(list.GetElements()))
-	for i, elem := range list.GetElements() {
+	optionalIndices := list.GetOptionalIndices()
+	elements := list.GetElements()
+	optionals := make([]bool, len(elements))
+	for _, index := range optionalIndices {
+		optionals[index] = true
+	}
+	elems := make([]Interpretable, len(elements))
+	for i, elem := range elements {
 		elemVal, err := p.Plan(elem)
 		if err != nil {
 			return nil, err
@@ -524,9 +530,11 @@ func (p *planner) planCreateList(expr *exprpb.Expr) (Interpretable, error) {
 		elems[i] = elemVal
 	}
 	return &evalList{
-		id:      expr.GetId(),
-		elems:   elems,
-		adapter: p.adapter,
+		id:           expr.GetId(),
+		elems:        elems,
+		optionals:    optionals,
+		hasOptionals: len(optionals) != 0,
+		adapter:      p.adapter,
 	}, nil
 }
 
@@ -555,11 +563,12 @@ func (p *planner) planCreateStruct(expr *exprpb.Expr) (Interpretable, error) {
 		optionals[i] = entry.GetOptionalEntry()
 	}
 	return &evalMap{
-		id:        expr.GetId(),
-		keys:      keys,
-		vals:      vals,
-		optionals: optionals,
-		adapter:   p.adapter,
+		id:           expr.GetId(),
+		keys:         keys,
+		vals:         vals,
+		optionals:    optionals,
+		hasOptionals: len(optionals) != 0,
+		adapter:      p.adapter,
 	}, nil
 }
 
@@ -584,12 +593,13 @@ func (p *planner) planCreateObj(expr *exprpb.Expr) (Interpretable, error) {
 		optionals[i] = entry.GetOptionalEntry()
 	}
 	return &evalObj{
-		id:        expr.GetId(),
-		typeName:  typeName,
-		fields:    fields,
-		vals:      vals,
-		optionals: optionals,
-		provider:  p.provider,
+		id:           expr.GetId(),
+		typeName:     typeName,
+		fields:       fields,
+		vals:         vals,
+		optionals:    optionals,
+		hasOptionals: len(optionals) != 0,
+		provider:     p.provider,
 	}, nil
 }
 

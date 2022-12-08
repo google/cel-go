@@ -1503,6 +1503,17 @@ var (
 			unchecked: true,
 			err:       `cannot initialize optional entry 'single_int32' from non-optional`,
 		},
+		{
+			name: "literal_list_optional_element",
+			expr: `[?{}.?missing, ?{'present': 42u}.?present]`,
+			out:  []uint64{42},
+		},
+		{
+			name:      "literal_list_optional_bad_element",
+			expr:      `[?123]`,
+			unchecked: true,
+			err:       `cannot initialize optional list element from non-optional value 123`,
+		},
 	}
 )
 

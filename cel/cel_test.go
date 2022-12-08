@@ -2127,6 +2127,24 @@ func TestOptionalValues(t *testing.T) {
 			},
 		},
 		{
+			expr: `[?m.?c, ?x, ?y]`,
+			in: map[string]any{
+				"m": map[string]any{},
+				"x": types.OptionalOf(types.Int(42)),
+				"y": types.OptionalNone,
+			},
+			out: []any{42},
+		},
+		{
+			expr: `[?optional.ofNonZeroValue(m.?c.orValue({}))]`,
+			in: map[string]any{
+				"m": map[string]any{
+					"c": []string{},
+				},
+			},
+			out: []any{},
+		},
+		{
 			expr: `optional.ofNonZeroValue({?'nested_map': optional.ofNonZeroValue({?'map': m.?c})})`,
 			in: map[string]any{
 				"m": map[string]any{},
@@ -2176,6 +2194,24 @@ func TestOptionalValues(t *testing.T) {
 			},
 			out: &proto2pb.TestAllTypes{
 				MapStringString: map[string]string{"hello": "world"},
+			},
+		},
+		{
+			expr: `TestAllTypes{
+				repeated_string: ['greetings', ?m.nested.?hello],
+				?repeated_int32: optional.ofNonZeroValue([?x, ?y]),
+			}`,
+			in: map[string]any{
+				"m": map[string]any{
+					"nested": map[string]any{
+						"hello": "world",
+					},
+				},
+				"x": types.OptionalNone,
+				"y": types.OptionalNone,
+			},
+			out: &proto2pb.TestAllTypes{
+				RepeatedString: []string{"greetings", "world"},
 			},
 		},
 	}
