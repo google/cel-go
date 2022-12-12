@@ -224,16 +224,21 @@ func TestNativeTypesJsonSerialization(t *testing.T) {
 		},
 		{
 			expr: `TestAllTypes{
-				NestedVal: TestNestedType{
-					NestedListVal: ["first", "second"],
-				},
 				BoolVal: true,
 				DurationVal: duration('5s'),
 				DoubleVal: 1.5,
 				FloatVal: 2.0,
 				Int32Val: 23,
 				Int64Val: 64,
-				StringVal: "string",
+				MapVal: {
+					'map-key': ext.TestAllTypes{
+						BoolVal: true
+					}
+				},
+				NestedVal: TestNestedType{
+					NestedListVal: ["first", "second"],
+				},
+				StringVal: "string"
 			}`,
 			out: `{
 				"BoolVal":  true,
@@ -242,6 +247,11 @@ func TestNativeTypesJsonSerialization(t *testing.T) {
 				"FloatVal":  2,
 				"Int32Val":  23,
 				"Int64Val":  64,
+				"MapVal": {
+	              "map-key": {
+    	            "BoolVal": true
+        	      }
+            	},
 				"NestedVal": {
 					"NestedListVal": [
 					  "first",
