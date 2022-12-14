@@ -33,10 +33,9 @@ http_archive(
 # googleapis as of 10/31/2022
 http_archive(
     name = "com_google_googleapis",
-    sha256 = "d4f8f9ded24ba62605387b8d327297b9013b4f75214023a18a3ffea43ce61146",
-    strip_prefix = "googleapis-5ffa37352ced7e6a48148a334c144a1c3a50e8e0",
+    strip_prefix = "googleapis-d1391580360579c64417bf6d52a17eb30b19b99d",
     urls = [
-        "https://github.com/googleapis/googleapis/archive/5ffa37352ced7e6a48148a334c144a1c3a50e8e0.tar.gz",
+        "https://github.com/googleapis/googleapis/archive/d1391580360579c64417bf6d52a17eb30b19b99d.tar.gz",
     ],
 )
 
@@ -72,8 +71,9 @@ go_repository(
 go_repository(
     name = "org_golang_google_genproto",
     build_file_proto_mode = "disable_global",
-    commit = "527a21cfbd71ba0fb6ef7b6a341287e0869af45a",
     importpath = "google.golang.org/genproto",
+    sum = "h1:jmIfw8+gSvXcZSgaFAGyInDXeWzUhvYH57G/5GKMn70=",
+    version = "v0.0.0-20221207170731-23e4bf6bdc37",
 )
 
 # gRPC deps for v1.49.0 (including x/text and x/net)

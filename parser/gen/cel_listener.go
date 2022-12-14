@@ -67,6 +67,9 @@ type CELListener interface {
 	// EnterExprList is called when entering the exprList production.
 	EnterExprList(c *ExprListContext)
 
+	// EnterListInit is called when entering the listInit production.
+	EnterListInit(c *ListInitContext)
+
 	// EnterFieldInitializerList is called when entering the fieldInitializerList production.
 	EnterFieldInitializerList(c *FieldInitializerListContext)
 
@@ -76,8 +79,8 @@ type CELListener interface {
 	// EnterMapInitializerList is called when entering the mapInitializerList production.
 	EnterMapInitializerList(c *MapInitializerListContext)
 
-	// EnterOptKey is called when entering the optKey production.
-	EnterOptKey(c *OptKeyContext)
+	// EnterOptExpr is called when entering the optExpr production.
+	EnterOptExpr(c *OptExprContext)
 
 	// EnterInt is called when entering the Int production.
 	EnterInt(c *IntContext)
@@ -163,6 +166,9 @@ type CELListener interface {
 	// ExitExprList is called when exiting the exprList production.
 	ExitExprList(c *ExprListContext)
 
+	// ExitListInit is called when exiting the listInit production.
+	ExitListInit(c *ListInitContext)
+
 	// ExitFieldInitializerList is called when exiting the fieldInitializerList production.
 	ExitFieldInitializerList(c *FieldInitializerListContext)
 
@@ -172,8 +178,8 @@ type CELListener interface {
 	// ExitMapInitializerList is called when exiting the mapInitializerList production.
 	ExitMapInitializerList(c *MapInitializerListContext)
 
-	// ExitOptKey is called when exiting the optKey production.
-	ExitOptKey(c *OptKeyContext)
+	// ExitOptExpr is called when exiting the optExpr production.
+	ExitOptExpr(c *OptExprContext)
 
 	// ExitInt is called when exiting the Int production.
 	ExitInt(c *IntContext)
