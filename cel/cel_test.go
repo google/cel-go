@@ -1090,6 +1090,37 @@ func TestResidualAstComplex(t *testing.T) {
 	}
 }
 
+func TestResidualAstMacros(t *testing.T) {
+	e, _ := NewEnv(
+		Variable("x", ListType(IntType)),
+		Variable("y", IntType),
+		EnableMacroCallTracking(),
+	)
+	unkVars, _ := PartialVars(map[string]any{"y": 11}, AttributePattern("x"))
+	ast, _ := e.Compile(`x.exists(i, i < 10) && [11, 12, 13].all(i, i in [y, 12, 13])`)
+	prg, _ := e.Program(ast,
+		EvalOptions(OptTrackState, OptPartialEval),
+	)
+	out, det, err := prg.Eval(unkVars)
+	if !types.IsUnknown(out) {
+		t.Fatalf("got %v, expected unknown", out)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	residual, err := e.ResidualAst(ast, det)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expr, err := AstToString(residual)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if expr != "x.exists(i, i < 10)" {
+		t.Errorf("got expr: %s, wanted x.exists(i, i < 10)", expr)
+	}
+}
+
 func BenchmarkEvalOptions(b *testing.B) {
 	e, _ := NewEnv(
 		Variable("ai", IntType),
