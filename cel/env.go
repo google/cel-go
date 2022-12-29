@@ -439,8 +439,8 @@ func (e *Env) UnknownVars() interpreter.PartialActivation {
 // TODO: Consider adding an option to generate a Program.Residual to avoid round-tripping to an
 // Ast format and then Program again.
 func (e *Env) ResidualAst(a *Ast, details *EvalDetails) (*Ast, error) {
-	pruned := interpreter.PruneAst(a.Expr(), details.State())
-	expr, err := AstToString(ParsedExprToAst(&exprpb.ParsedExpr{Expr: pruned}))
+	pruned := interpreter.PruneAst(a.Expr(), a.SourceInfo().GetMacroCalls(), details.State())
+	expr, err := AstToString(ParsedExprToAst(pruned))
 	if err != nil {
 		return nil, err
 	}

@@ -145,8 +145,8 @@ func TestPrune(t *testing.T) {
 			ast.Expr,
 			ExhaustiveEval(), Observe(EvalStateObserver(state)))
 		interpretable.Eval(testActivation(t, tst.in))
-		newExpr := PruneAst(ast.Expr, state)
-		actual, err := parser.Unparse(newExpr, nil)
+		newExpr := PruneAst(ast.Expr, ast.SourceInfo.GetMacroCalls(), state)
+		actual, err := parser.Unparse(newExpr.GetExpr(), newExpr.GetSourceInfo())
 		if err != nil {
 			t.Error(err)
 		}
