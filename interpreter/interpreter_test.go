@@ -1537,7 +1537,7 @@ func BenchmarkInterpreter(b *testing.B) {
 	}
 }
 
-func BenchmarkInterpreter_Parallel(b *testing.B) {
+func BenchmarkInterpreterParallel(b *testing.B) {
 	for _, tst := range testData {
 		prg, vars, err := program(b, &tst, Optimize(), CompileRegexConstants(MatchesRegexOptimization))
 		if tst.err != "" || tst.progErr != "" {

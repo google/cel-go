@@ -1765,7 +1765,7 @@ type kindAndIDAdorner struct {
 	sourceInfo *exprpb.SourceInfo
 }
 
-func (k *kindAndIDAdorner) GetMetadata(elem interface{}) string {
+func (k *kindAndIDAdorner) GetMetadata(elem any) string {
 	switch elem.(type) {
 	case *exprpb.Expr:
 		e := elem.(*exprpb.Expr)
@@ -1775,7 +1775,7 @@ func (k *kindAndIDAdorner) GetMetadata(elem interface{}) string {
 				return fmt.Sprintf("^#%d:%s#", e.GetId(), val.GetCallExpr().GetFunction())
 			}
 		}
-		var valType interface{} = e.ExprKind
+		var valType any = e.ExprKind
 		switch valType.(type) {
 		case *exprpb.Expr_ConstExpr:
 			valType = e.GetConstExpr().GetConstantKind()
@@ -1813,7 +1813,7 @@ func (l *locationAdorner) GetLocation(exprID int64) (common.Location, bool) {
 	return common.NoLocation, false
 }
 
-func (l *locationAdorner) GetMetadata(elem interface{}) string {
+func (l *locationAdorner) GetMetadata(elem any) string {
 	var elemID int64
 	switch elem.(type) {
 	case *exprpb.Expr:
