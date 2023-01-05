@@ -70,9 +70,12 @@ func Test_ExampleWithBuiltins(t *testing.T) {
 
 	// If the Eval() call were provided with cel.EvalOptions(OptTrackState) the details response
 	// (2nd return) would be non-nil.
-	out, _, err := prg.Eval(map[string]any{
-		"i":   "CEL",
-		"you": "world"})
+	out, _, err := prg.Eval(
+		map[string]any{
+			"i":   "CEL",
+			"you": "world",
+		},
+	)
 	if err != nil {
 		t.Fatalf("runtime error: %s\n", err)
 	}
@@ -80,6 +83,52 @@ func Test_ExampleWithBuiltins(t *testing.T) {
 	// Hello world! I'm CEL.
 	if out.Equal(types.String("Hello world! I'm CEL.")) != types.True {
 		t.Errorf(`got '%v', wanted "Hello world! I'm CEL."`, out.Value())
+	}
+}
+
+func TestEval(t *testing.T) {
+	env, err := NewEnv(Variable("input", ListType(IntType)))
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	tests := []struct {
+		expr string
+		in   any
+	}{
+		{
+			expr: `input.size() != 0`,
+			in:   map[string]any{"input": []int{1, 2, 3}},
+		},
+	}
+	for i, tst := range tests {
+		tc := tst
+		t.Run(fmt.Sprintf("[%d]", i), func(t *testing.T) {
+			ast, iss := env.Compile(tc.expr)
+			if iss.Err() != nil {
+				t.Fatalf("env.Compile(%s) failed: %v", tc.expr, iss.Err())
+			}
+			ctx := context.Background()
+			prgOpts := []ProgramOption{
+				CostTracking(testRuntimeCostEstimator{}),
+				EvalOptions(OptOptimize, OptTrackCost),
+				InterruptCheckFrequency(100),
+			}
+			prg, err := env.Program(ast, prgOpts...)
+			if err != nil {
+				t.Fatalf("env.Program() failed: %v", err)
+			}
+			for k := 0; k < 100; k++ {
+				t.Run(fmt.Sprintf("[%d]", k), func(t *testing.T) {
+					t.Parallel()
+					prg.Eval(tc.in)
+					evalCtx, _ := context.WithTimeout(ctx, time.Minute)
+					_, _, err := prg.ContextEval(evalCtx, tc.in)
+					if err != nil {
+						t.Fatalf("prg.ContextEval() failed: %v", err)
+					}
+				})
+			}
+		})
 	}
 }
 
@@ -540,7 +589,7 @@ func TestDynamicProto(t *testing.T) {
 	}
 }
 
-func TestDynamicProto_Input(t *testing.T) {
+func TestDynamicProtoFileDescriptors(t *testing.T) {
 	b, err := ioutil.ReadFile("testdata/team.fds")
 	if err != nil {
 		t.Fatalf("ioutil.ReadFile() failed: %v", err)
@@ -867,7 +916,7 @@ func TestAstIsChecked(t *testing.T) {
 	}
 }
 
-func TestEvalOptions(t *testing.T) {
+func TestExhaustiveEval(t *testing.T) {
 	e, _ := NewEnv(
 		Variable("k", StringType),
 		Variable("v", BoolType),
@@ -1463,10 +1512,11 @@ func TestEstimateCostAndRuntimeCost(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			if tc.hints == nil {
 				tc.hints = map[string]int64{}
 			}
-			e, err := NewEnv(append(tc.decls, Types(&proto3pb.TestAllTypes{}))...)
+			e, err := NewEnv(tc.decls...)
 			if err != nil {
 				t.Fatalf("NewEnv(opts ...EnvOption) failed to create an environment: %s\n", err)
 			}
