@@ -142,7 +142,7 @@ func appendErrors(errs []common.Error, issues *[]*statuspb.Status) {
 func ErrToStatus(e common.Error, severity confpb.IssueDetails_Severity) *statuspb.Status {
 	detail := &confpb.IssueDetails{
 		Severity: severity,
-		Position: &exprpb.SourcePosition{
+		Position: &confpb.SourcePosition{
 			Line:   int32(e.Location.Line()),
 			Column: int32(e.Location.Column()),
 		},
