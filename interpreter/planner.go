@@ -519,7 +519,7 @@ func (p *planner) planCreateList(expr *exprpb.Expr) (Interpretable, error) {
 	elements := list.GetElements()
 	optionals := make([]bool, len(elements))
 	for _, index := range optionalIndices {
-		if index > int32(len(elements)) {
+		if index >= int32(len(elements)) {
 			return nil, fmt.Errorf("optional index %d exceeds element count %d", index, len(elements))
 		}
 		optionals[index] = true
