@@ -72,8 +72,8 @@ go_repository(
     name = "org_golang_google_genproto",
     build_file_proto_mode = "disable_global",
     importpath = "google.golang.org/genproto",
-    sum = "h1:jmIfw8+gSvXcZSgaFAGyInDXeWzUhvYH57G/5GKMn70=",
-    version = "v0.0.0-20221207170731-23e4bf6bdc37",
+    sum = "h1:3wPBShTLWQnEkZ9VW/HZZ8zT/9LLtleBtq7l8SKtJIA=",
+    version = "v0.0.0-20230106154932-a12b697841d9",
 )
 
 # gRPC deps for v1.49.0 (including x/text and x/net)
