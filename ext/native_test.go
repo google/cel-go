@@ -23,7 +23,6 @@ import (
 
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
@@ -33,6 +32,7 @@ import (
 	"github.com/google/cel-go/test"
 
 	proto3pb "github.com/google/cel-go/test/proto3pb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 )
 
 func TestNativeTypes(t *testing.T) {

@@ -121,7 +121,8 @@ func TestEval(t *testing.T) {
 				t.Run(fmt.Sprintf("[%d]", k), func(t *testing.T) {
 					t.Parallel()
 					prg.Eval(tc.in)
-					evalCtx, _ := context.WithTimeout(ctx, time.Minute)
+					evalCtx, cancel := context.WithTimeout(ctx, time.Minute)
+					defer cancel()
 					_, _, err := prg.ContextEval(evalCtx, tc.in)
 					if err != nil {
 						t.Fatalf("prg.ContextEval() failed: %v", err)
@@ -1510,7 +1511,8 @@ func TestEstimateCostAndRuntimeCost(t *testing.T) {
 		},
 	}
 
-	for _, tc := range cases {
+	for _, tst := range cases {
+		tc := tst
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			if tc.hints == nil {

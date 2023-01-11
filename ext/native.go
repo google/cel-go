@@ -350,12 +350,12 @@ func (o *nativeObj) ConvertToNative(typeDesc reflect.Type) (any, error) {
 			if !fieldValue.IsValid() || fieldValue.IsZero() {
 				continue
 			}
-			fieldCelVal := o.NativeToValue(fieldValue.Interface())
-			fieldJsonVal, err := fieldCelVal.ConvertToNative(jsonValueType)
+			fieldCELVal := o.NativeToValue(fieldValue.Interface())
+			fieldJSONVal, err := fieldCELVal.ConvertToNative(jsonValueType)
 			if err != nil {
 				return nil, err
 			}
-			fields[fieldType.Name] = fieldJsonVal.(*structpb.Value)
+			fields[fieldType.Name] = fieldJSONVal.(*structpb.Value)
 		}
 		return &structpb.Struct{Fields: fields}, nil
 	}

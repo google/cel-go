@@ -139,7 +139,7 @@ var (
 		kind:        TypeKind,
 		runtimeType: types.TypeType,
 	}
-	//UintType represents a uint type.
+	// UintType represents a uint type.
 	UintType = &Type{
 		kind:        UintKind,
 		runtimeType: types.UintType,
@@ -748,9 +748,8 @@ func (f *functionDecl) addOverload(overload *overloadDecl) error {
 				// Allow redefinition of an overload implementation so long as the signatures match.
 				f.overloads[index] = overload
 				return nil
-			} else {
-				return fmt.Errorf("overload redefinition in function. %s: %s has multiple definitions", f.name, o.id)
 			}
+			return fmt.Errorf("overload redefinition in function. %s: %s has multiple definitions", f.name, o.id)
 		}
 	}
 	f.overloads = append(f.overloads, overload)
