@@ -162,7 +162,7 @@ To build and install as a standalone binary:
 ```
 $ git clone git@github.com:google/cel-go.git ./cel-go
 $ cd ./cel-go/repl/main
-$ go build .
+$ go build -o repl .
 # e.g. to your $PATH
 $ mv ./repl <install location>
 ```
