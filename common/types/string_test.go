@@ -253,3 +253,24 @@ func TestStringSize(t *testing.T) {
 		t.Error("String size must be code points, not UTF8 bytes")
 	}
 }
+
+func TestStringEscape(t *testing.T) {
+	tests := []struct {
+		input          string
+		expectedOutput string
+	}{
+		{
+			input:          "first\nsecond",
+			expectedOutput: "\"first\\nsecond\"",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			s := String(tt.input)
+			output := s.Escape().Value().(string)
+			if output != tt.expectedOutput {
+				t.Errorf("expected %q as output, got %q", tt.expectedOutput, output)
+			}
+		})
+	}
+}

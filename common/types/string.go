@@ -175,6 +175,10 @@ func (s String) Match(pattern ref.Val) ref.Val {
 // Receive implements traits.Receiver.Receive.
 func (s String) Receive(function string, overload string, args []ref.Val) ref.Val {
 	switch len(args) {
+	case 0:
+		if function == "escape" {
+			return s.Escape()
+		}
 	case 1:
 		if f, found := stringOneArgOverloads[function]; found {
 			return f(s, args[0])
@@ -196,6 +200,35 @@ func (s String) Type() ref.Type {
 // Value implements ref.Val.Value.
 func (s String) Value() any {
 	return string(s)
+}
+
+// Escape implements a string escaping function. The string will be wrapped in
+// double quotes, and all valid CEL escape sequences will be escaped to show up
+// literally if printed.
+func (s String) Escape() ref.Val {
+	var escapedStrBuilder strings.Builder
+	for _, c := range s.Value().(string) {
+		switch c {
+		case '\a':
+			escapedStrBuilder.WriteString("\\a")
+		case '\b':
+			escapedStrBuilder.WriteString("\\b")
+		case '\f':
+			escapedStrBuilder.WriteString("\\f")
+		case '\n':
+			escapedStrBuilder.WriteString("\\n")
+		case '\r':
+			escapedStrBuilder.WriteString("\\r")
+		case '\t':
+			escapedStrBuilder.WriteString("\\t")
+		case '\v':
+			escapedStrBuilder.WriteString("\\v")
+		default:
+			escapedStrBuilder.WriteRune(c)
+		}
+	}
+	escapedStr := escapedStrBuilder.String()
+	return String("\"" + escapedStr + "\"")
 }
 
 func stringContains(s String, sub ref.Val) ref.Val {
