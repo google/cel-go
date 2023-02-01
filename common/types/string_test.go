@@ -263,6 +263,30 @@ func TestStringEscape(t *testing.T) {
 			input:          "first\nsecond",
 			expectedOutput: "\"first\\nsecond\"",
 		},
+		{
+			input:          "bell\a",
+			expectedOutput: "\"bell\\a\"",
+		},
+		{
+			input:          "\bbackspace",
+			expectedOutput: "\"\\bbackspace\"",
+		},
+		{
+			input:          "\fform feed",
+			expectedOutput: "\"\\fform feed\"",
+		},
+		{
+			input:          "carriage \r return",
+			expectedOutput: "\"carriage \\r return\"",
+		},
+		{
+			input:          "horizontal tab\t",
+			expectedOutput: "\"horizontal tab\\t\"",
+		},
+		{
+			input:          "vertical \v tab",
+			expectedOutput: "\"vertical \\v tab\"",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
