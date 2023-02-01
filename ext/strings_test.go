@@ -105,6 +105,14 @@ var stringTests = []struct {
 	{expr: `['x', 'y'].join('-') == 'x-y'`},
 	{expr: `[].join() == ''`},
 	{expr: `[].join('-') == ''`},
+	// Escaping tests.
+	{expr: `"first\nsecond".escape() == "\"first\\nsecond\""`},
+	{expr: `"bell\a".escape() == "\"bell\\a\""`},
+	{expr: `"\bbackspace".escape() == "\"\\bbackspace\""`},
+	{expr: `"\fform feed".escape() == "\"\\fform feed\""`},
+	{expr: `"carriage \r return".escape() == "\"carriage \\r return\""`},
+	{expr: `"horizontal tab\t".escape() == "\"horizontal tab\\t\""`},
+	{expr: `"vertical \v tab".escape() == "\"vertical \\v tab\""`},
 	// Error test cases based on checked expression usage.
 	{
 		expr: `'tacocat'.charAt(30) == ''`,

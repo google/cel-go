@@ -433,6 +433,11 @@ func (sl *stringLib) CompileOptions() []cel.EnvOption {
 					d := delim.(types.String)
 					return stringOrError(joinSeparator(l.([]string), string(d)))
 				}))),
+		cel.Function("escape", cel.MemberOverload("string_escape", []*cel.Type{cel.StringType}, cel.StringType,
+			cel.UnaryBinding(func(str ref.Val) ref.Val {
+				s := str.(types.String)
+				return stringOrError(escape(string(s)))
+			}))),
 	}
 	if sl.version >= 1 {
 		opts = append(opts, cel.Function("format",
@@ -1082,6 +1087,35 @@ func makeMatcher(locale string) (language.Matcher, error) {
 	}
 	tags = append(tags, tag)
 	return language.NewMatcher(tags), nil
+}
+
+// escape implements a string escaping function. The string will be wrapped in
+// double quotes, and all valid CEL escape sequences will be escaped to show up
+// literally if printed.
+func escape(s string) (string, error) {
+	var escapedStrBuilder strings.Builder
+	for _, c := range s {
+		switch c {
+		case '\a':
+			escapedStrBuilder.WriteString("\\a")
+		case '\b':
+			escapedStrBuilder.WriteString("\\b")
+		case '\f':
+			escapedStrBuilder.WriteString("\\f")
+		case '\n':
+			escapedStrBuilder.WriteString("\\n")
+		case '\r':
+			escapedStrBuilder.WriteString("\\r")
+		case '\t':
+			escapedStrBuilder.WriteString("\\t")
+		case '\v':
+			escapedStrBuilder.WriteString("\\v")
+		default:
+			escapedStrBuilder.WriteRune(c)
+		}
+	}
+	escapedStr := escapedStrBuilder.String()
+	return "\"" + escapedStr + "\"", nil
 }
 
 var (
