@@ -15,8 +15,8 @@
 package repl
 
 import (
-	"fmt"
 	"strings"
+	"fmt"
 
 	"github.com/antlr/antlr4/runtime/Go/antlr"
 
@@ -25,16 +25,16 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
+func formatFn(t *exprpb.Type_FunctionType) string {
+	return fmt.Sprintf("%s -> %s", formatTypeArgs(t.GetArgTypes()), UnparseType(t.GetResultType()))
+}
+
 func formatTypeArgs(ts []*exprpb.Type) string {
 	s := make([]string, len(ts))
 	for i, t := range ts {
 		s[i] = UnparseType(t)
 	}
 	return fmt.Sprintf("(%s)", strings.Join(s, ", "))
-}
-
-func formatFn(t *exprpb.Type_FunctionType) string {
-	return fmt.Sprintf("%s -> %s", formatTypeArgs(t.GetArgTypes()), UnparseType(t.GetResultType()))
 }
 
 func formatPrimitive(t exprpb.Type_PrimitiveType) string {
