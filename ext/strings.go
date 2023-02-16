@@ -433,10 +433,10 @@ func (sl *stringLib) CompileOptions() []cel.EnvOption {
 					d := delim.(types.String)
 					return stringOrError(joinSeparator(l.([]string), string(d)))
 				}))),
-		cel.Function("strings.escape", cel.Overload("strings_escape", []*cel.Type{cel.StringType}, cel.StringType,
+		cel.Function("strings.quote", cel.Overload("strings_quote", []*cel.Type{cel.StringType}, cel.StringType,
 			cel.UnaryBinding(func(str ref.Val) ref.Val {
 				s := str.(types.String)
-				return stringOrError(escape(string(s)))
+				return stringOrError(quote(string(s)))
 			}))),
 	}
 	if sl.version >= 1 {
@@ -1091,30 +1091,34 @@ func makeMatcher(locale string) (language.Matcher, error) {
 
 // escape implements a string escaping function. The string will be wrapped in
 // double quotes, and all valid CEL escape sequences will be escaped to show up
+// quote implements a string quoting function. The string will be wrapped in
+// double quotes, and all valid CEL quote sequences will be escaped to show up
 // literally if printed.
-func escape(s string) (string, error) {
-	var escapedStrBuilder strings.Builder
+func quote(s string) (string, error) {
+	var quotedStrBuilder strings.Builder
 	for _, c := range s {
 		switch c {
 		case '\a':
-			escapedStrBuilder.WriteString("\\a")
+			quotedStrBuilder.WriteString("\\a")
 		case '\b':
-			escapedStrBuilder.WriteString("\\b")
+			quotedStrBuilder.WriteString("\\b")
 		case '\f':
-			escapedStrBuilder.WriteString("\\f")
+			quotedStrBuilder.WriteString("\\f")
 		case '\n':
-			escapedStrBuilder.WriteString("\\n")
+			quotedStrBuilder.WriteString("\\n")
 		case '\r':
-			escapedStrBuilder.WriteString("\\r")
+			quotedStrBuilder.WriteString("\\r")
 		case '\t':
-			escapedStrBuilder.WriteString("\\t")
+			quotedStrBuilder.WriteString("\\t")
 		case '\v':
-			escapedStrBuilder.WriteString("\\v")
+			quotedStrBuilder.WriteString("\\v")
+		case '\\':
+			quotedStrBuilder.WriteString("\\\\")
 		default:
-			escapedStrBuilder.WriteRune(c)
+			quotedStrBuilder.WriteRune(c)
 		}
 	}
-	escapedStr := escapedStrBuilder.String()
+	escapedStr := quotedStrBuilder.String()
 	return "\"" + escapedStr + "\"", nil
 }
 
