@@ -433,7 +433,7 @@ func (sl *stringLib) CompileOptions() []cel.EnvOption {
 					d := delim.(types.String)
 					return stringOrError(joinSeparator(l.([]string), string(d)))
 				}))),
-		cel.Function("escape", cel.MemberOverload("string_escape", []*cel.Type{cel.StringType}, cel.StringType,
+		cel.Function("strings.escape", cel.Overload("strings_escape", []*cel.Type{cel.StringType}, cel.StringType,
 			cel.UnaryBinding(func(str ref.Val) ref.Val {
 				s := str.(types.String)
 				return stringOrError(escape(string(s)))

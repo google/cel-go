@@ -106,13 +106,13 @@ var stringTests = []struct {
 	{expr: `[].join() == ''`},
 	{expr: `[].join('-') == ''`},
 	// Escaping tests.
-	{expr: `"first\nsecond".escape() == "\"first\\nsecond\""`},
-	{expr: `"bell\a".escape() == "\"bell\\a\""`},
-	{expr: `"\bbackspace".escape() == "\"\\bbackspace\""`},
-	{expr: `"\fform feed".escape() == "\"\\fform feed\""`},
-	{expr: `"carriage \r return".escape() == "\"carriage \\r return\""`},
-	{expr: `"horizontal tab\t".escape() == "\"horizontal tab\\t\""`},
-	{expr: `"vertical \v tab".escape() == "\"vertical \\v tab\""`},
+	{expr: `strings.escape("first\nsecond") == "\"first\\nsecond\""`},
+	{expr: `strings.escape("bell\a") == "\"bell\\a\""`},
+	{expr: `strings.escape("\bbackspace") == "\"\\bbackspace\""`},
+	{expr: `strings.escape("\fform feed") == "\"\\fform feed\""`},
+	{expr: `strings.escape("carriage \r return") == "\"carriage \\r return\""`},
+	{expr: `strings.escape("horizontal tab\t") == "\"horizontal tab\\t\""`},
+	{expr: `strings.escape("vertical \v tab") == "\"vertical \\v tab\""`},
 	// Error test cases based on checked expression usage.
 	{
 		expr: `'tacocat'.charAt(30) == ''`,
