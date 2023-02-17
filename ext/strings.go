@@ -1089,10 +1089,8 @@ func makeMatcher(locale string) (language.Matcher, error) {
 	return language.NewMatcher(tags), nil
 }
 
-// escape implements a string escaping function. The string will be wrapped in
+// quoting implements a string quoting function. The string will be wrapped in
 // double quotes, and all valid CEL escape sequences will be escaped to show up
-// quote implements a string quoting function. The string will be wrapped in
-// double quotes, and all valid CEL quote sequences will be escaped to show up
 // literally if printed.
 func quote(s string) (string, error) {
 	var quotedStrBuilder strings.Builder
