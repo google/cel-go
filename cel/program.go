@@ -207,6 +207,37 @@ func newProgram(e *Env, ast *Ast, opts []ProgramOption) (Program, error) {
 	if len(p.regexOptimizations) > 0 {
 		decorators = append(decorators, interpreter.CompileRegexConstants(p.regexOptimizations...))
 	}
+	// Enable compile-time checking of syntax/cardinality for string.format calls.
+	if p.evalOpts&OptCheckStringFormat == OptCheckStringFormat {
+		var isValidType func(id int64, validTypes ...*types.TypeValue) (bool, error)
+		if ast.IsChecked() {
+			isValidType = func(id int64, validTypes ...*types.TypeValue) (bool, error) {
+				t, err := ExprTypeToType(ast.typeMap[id])
+				if err != nil {
+					return false, err
+				}
+				if t.kind == DynKind {
+					return true, nil
+				}
+				for _, vt := range validTypes {
+					k, err := typeValueToKind(vt)
+					if err != nil {
+						return false, err
+					}
+					if k == t.kind {
+						return true, nil
+					}
+				}
+				return false, nil
+			}
+		} else {
+			// if the AST isn't type-checked, short-circuit validation
+			isValidType = func(id int64, validTypes ...*types.TypeValue) (bool, error) {
+				return true, nil
+			}
+		}
+		decorators = append(decorators, interpreter.InterpolateFormattedString(isValidType))
+	}
 
 	// Enable exhaustive eval, state tracking and cost tracking last since they require a factory.
 	if p.evalOpts&(OptExhaustiveEval|OptTrackState|OptTrackCost) != 0 {

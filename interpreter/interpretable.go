@@ -1277,6 +1277,38 @@ func (a *evalAttr) Resolve(ctx Activation) (any, error) {
 	return a.attr.Resolve(ctx)
 }
 
+type evalWatchConstructor struct {
+	constructor InterpretableConstructor
+	observer    EvalObserver
+}
+
+// InitVals implements the InterpretableConstructor InitVals function.
+func (c *evalWatchConstructor) InitVals() []Interpretable {
+	return c.constructor.InitVals()
+}
+
+// Type implements the InterpretableConstructor Type function.
+func (c *evalWatchConstructor) Type() ref.Type {
+	return c.constructor.Type()
+}
+
+// ID implements the Interpretable ID function.
+func (c *evalWatchConstructor) ID() int64 {
+	return c.constructor.ID()
+}
+
+// Eval implements the Interpretable Eval function.
+func (c *evalWatchConstructor) Eval(ctx Activation) ref.Val {
+	val := c.constructor.Eval(ctx)
+	c.observer(c.ID(), c.constructor, val)
+	return val
+}
+
+// Cost implements the Coster interface method.
+func (c *evalWatchConstructor) Cost() (min, max int64) {
+	return estimateCost(c.constructor)
+}
+
 func invalidOptionalEntryInit(field any, value ref.Val) ref.Val {
 	return types.NewErr("cannot initialize optional entry '%v' from non-optional value %v", field, value)
 }
