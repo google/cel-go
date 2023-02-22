@@ -1,4 +1,4 @@
-package appengine
+package app
 
 import (
 	"encoding/json"
@@ -73,7 +73,7 @@ func (*service) evaluate(req *evaluateRequest) (*evaluateResponse, error) {
 	return &resp, nil
 }
 
-func (s *service) evaluateJson(data []byte) ([]byte, error) {
+func (s *service) evaluateJSON(data []byte) ([]byte, error) {
 	req, err := unmarshalEvaluationRequest(data)
 	if err != nil {
 		return nil, err
@@ -93,7 +93,12 @@ func writeErr(w http.ResponseWriter, err error) {
 	w.Write([]byte(err.Error()))
 }
 
-func NewJsonHandler() http.HandlerFunc {
+// NewJSONHandler provides an http.HandlerFunc that implements the JSON API
+// for the CEL REPL.
+//
+// The service is stateless -- every request creates a new repl instance and
+// applies the list of commands in order.
+func NewJSONHandler() http.HandlerFunc {
 	s := &service{}
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -102,7 +107,7 @@ func NewJsonHandler() http.HandlerFunc {
 			writeErr(w, err)
 			return
 		}
-		resp, err := s.evaluateJson(data)
+		resp, err := s.evaluateJSON(data)
 		if err != nil {
 			writeErr(w, err)
 

@@ -1,26 +1,29 @@
 import { Component } from '@angular/core';
-import { Observable } from 'rxjs';
-import { ReplApiService, EvaluateResponse, EvaluateRequest } from '../repl-api.service';
+import { ReplApiService, EvaluateResponse, EvaluateRequest } from '../shared/repl-api.service';
 
+/**
+ * Component for the repl console.
+ * Handles input for requests against the REPL api.
+ */
 @Component({
   selector: 'app-repl-console',
   templateUrl: './repl-console.component.html',
   styleUrls: ['./repl-console.component.scss']
 })
 export class ReplConsoleComponent {
-  lastEvaluate: EvaluateResponse = {responses: [], evalTime: 0}
-  lastRequest: EvaluateRequest = {commands: []}
+  lastEvaluate: EvaluateResponse = {responses: [], evalTime: 0};
+  lastRequest: EvaluateRequest = {commands: []};
 
   constructor (private replService: ReplApiService) {}
 
   private evaluate(request : EvaluateRequest) {
     this.replService.evaluate(request)
       .subscribe({
-        next: (resp) => {
-        this.lastRequest = request
-        this.lastEvaluate = resp
-        let input = document.querySelector<HTMLInputElement>(".repl-stmt-new")
-        if (input) { input.value = ""; input.focus() }
+        next: (resp : EvaluateResponse) => {
+        this.lastRequest = request;
+        this.lastEvaluate = resp;
+        const input = document.querySelector<HTMLInputElement>(".repl-stmt-new");
+        if (input) { input.value = ""; input.focus(); }
         },
       error: (err) => console.log("error: ", err)
       });
@@ -30,48 +33,46 @@ export class ReplConsoleComponent {
     if (event.key !== "Enter" || event.ctrlKey || event.metaKey) {
       return;
     }
-    event.stopPropagation()
-    let commands : string[] = [];
+    event.stopPropagation();
+    const request : EvaluateRequest = {commands: []};
 
     document.querySelectorAll(".repl-stmt-input").forEach(
       (el : Element) => {
         if (!(el instanceof HTMLInputElement)) {
           return;
         }
-        let inp = el as HTMLInputElement
+        const inp = el as HTMLInputElement;
         if (inp.value && inp.value.trim()) {
-          commands.push(inp.value)
+          request.commands.push(inp.value);
         }
       }
-    )
-    this.evaluate({
-      commands: commands
-    })
+    );
+    this.evaluate(request);
   }
 
   numStatements() : number {
-    return this.lastRequest.commands.length
+    return this.lastRequest.commands.length;
   }
 
   focusIndex(index : number) : void  {
-    let maxIdx = this.numStatements()
+    const maxIdx = this.numStatements();
     if (index < 0) {
-      index = maxIdx
+      index = maxIdx;
     } else if (index > maxIdx) {
-      index = 0
+      index = 0;
     }
-    document.querySelector<HTMLElement>(`input.repl-stmt-input[data-stmt-index="${index}"]`)?.focus()
+    document.querySelector<HTMLElement>(`input.repl-stmt-input[data-stmt-index="${index}"]`)?.focus();
   }
 
   handleUp(i : number) : void {
-    this.focusIndex(i - 1)
+    this.focusIndex(i - 1);
   }
 
   handleDown(i : number) : void {
     if (i >= 0) {
-      this.focusIndex(i + 1)
+      this.focusIndex(i + 1);
     } else {
-      this.focusIndex(-1)
+      this.focusIndex(-1);
     }
   }
 }

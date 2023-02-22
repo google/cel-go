@@ -1,4 +1,4 @@
-package appengine
+package app
 
 import (
 	"reflect"
@@ -69,7 +69,7 @@ func TestApiJson(t *testing.T) {
 
 	for _, tc := range testCases {
 		s := service{}
-		resp, err := s.evaluateJson([]byte(tc.req))
+		resp, err := s.evaluateJSON([]byte(tc.req))
 		if err != tc.err {
 			t.Errorf("evaluate returned wanted %v, got %v", tc.err, err)
 		}

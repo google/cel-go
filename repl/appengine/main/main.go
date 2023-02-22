@@ -1,17 +1,15 @@
+// package main provides an entry point for the REPL web server.
 package main
 
 import (
 	"flag"
-	"net/http"
-	"text/template"
-
 	"log"
+	"net/http"
 	"os"
 
-	app "github.com/google/cel-go/repl/appengine"
+	"github.com/google/cel-go/repl/appengine/app"
 )
 
-var indexTmpl *template.Template
 var port string
 var serveStatic string
 
