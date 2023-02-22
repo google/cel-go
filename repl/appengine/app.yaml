@@ -6,6 +6,10 @@ handlers:
   - url: /ng
     static_dir: web/dist/web
 
+  - url: /ng/
+    static_files: web/dist/web/index.html
+    upload: web/dist/web/index.html
+
   - url: /.*
     secure: always
     redirect_http_response_code: 301

@@ -13,6 +13,11 @@
 .git
 .gitignore
 
+.angular
+.vscode
+web/node_modules
+web/src
+
 # Binaries for programs and plugins
 *.exe
 *.exe~
