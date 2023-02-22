@@ -1,12 +1,11 @@
-runtime: go116
+runtime: go118
 
 main: ./main
 
-
 handlers:
-  - url: /static
-    static_dir: web/built
-  
+  - url: /ng
+    static_dir: web/dist/web
+
   - url: /.*
     secure: always
     redirect_http_response_code: 301

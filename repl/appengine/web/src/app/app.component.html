@@ -1,0 +1,20 @@
+<!-- Toolbar -->
+<div class="toolbar" role="banner">
+  <span>CEL REPL</span>
+    <div class="spacer"></div>
+    <a aria-label="CEL Go on Github" target="_blank" rel="noopener" href="https://github.com/google/cel-go" title="CEL Go Github">
+      <img id="github-logo" src="assets/github.svg" />
+    </a>  
+</div>
+
+<mat-drawer-container role="main" class="content" autosize>
+  <!-- must be immediate childe of side-nav-container -->
+  <mat-drawer class="reference-panel-container" #drawer opened mode="side" position="end">
+    <app-reference-panel></app-reference-panel>
+  </mat-drawer>
+  <mat-drawer-content class="console-container">
+    <app-repl-console></app-repl-console>
+    <button mat-button (click)="drawer.toggle()">Show / Hide References</button>
+  </mat-drawer-content>
+</mat-drawer-container>
+
