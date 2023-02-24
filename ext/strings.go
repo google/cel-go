@@ -1112,6 +1112,8 @@ func quote(s string) (string, error) {
 			quotedStrBuilder.WriteString("\\v")
 		case '\\':
 			quotedStrBuilder.WriteString("\\\\")
+		case '"':
+			quotedStrBuilder.WriteString("\\\"")
 		default:
 			quotedStrBuilder.WriteRune(c)
 		}

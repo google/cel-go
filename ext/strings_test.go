@@ -119,6 +119,7 @@ var stringTests = []struct {
 	{expr: `strings.quote("ends with \\") == "\"ends with \\\\\""`},
 	{expr: `strings.quote("\\ starts with") == "\"\\\\ starts with\""`},
 	{expr: `strings.quote("printable unicode😀") == "\"printable unicode😀\""`},
+	{expr: `strings.quote("mid string \" quote") == "\"mid string \\\" quote\""`},
 	// Error test cases based on checked expression usage.
 	{
 		expr: `'tacocat'.charAt(30) == ''`,
