@@ -22,7 +22,7 @@ golang.org/x/text/message
 golang.org/x/text/message/catalog
 golang.org/x/text/transform
 golang.org/x/text/width
-# google.golang.org/genproto v0.0.0-20230106154932-a12b697841d9
+# google.golang.org/genproto v0.0.0-20221207170731-23e4bf6bdc37
 ## explicit; go 1.19
 google.golang.org/genproto/googleapis/api/expr/v1alpha1
 google.golang.org/genproto/googleapis/rpc/status
