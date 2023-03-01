@@ -59,12 +59,16 @@ const (
 //
 // # Format
 //
+// Introduced at version: 1
+//
 // Returns a new string with substitutions being performed, printf-style.
 // The valid formatting clauses are:
 //
-// `%s` - substitutes a string. This can also be used on bools, lists, maps, bytes, Duration and Timestamp, in addition to all numerical types (int, uint, and double).
-//	Note that the dot/period decimal separator will always be used when printing a list or map that contains a double,
-// and that null can be passed (which results in the string "null") in addition to types.
+// `%s` - substitutes a string. This can also be used on bools, lists, maps, bytes,
+// Duration and Timestamp, in addition to all numerical types (int, uint, and double).
+// Note that the dot/period decimal separator will always be used when printing a list
+// or map that contains a double, and that null can be passed (which results in the
+// string "null") in addition to types.
 // `%d` - substitutes an integer.
 // `%f` - substitutes a double with fixed-point precision. The default precision is 6, but
 // this can be adjusted. The strings `Infinity`, `-Infinity`, and `NaN` are also valid input
@@ -81,19 +85,19 @@ const (
 //
 // Examples:
 //
-// "this is a string: %s\nand an integer: %d".format(["str", 42]) // returns "this is a string: str\nand an integer: 42"
-// "a double substituted with %%s: %s".format([64.2]) // returns "a double substituted with %s: 64.2"
-// "string type: %s".format([type(string)]) // returns "string type: string"
-// "timestamp: %s".format([timestamp("2023-02-03T23:31:20+00:00")]) // returns "timestamp: 2023-02-03T23:31:20Z"
-// "duration: %s".format([duration("1h45m47s")]) // returns "duration: 6347s"
-//  "%f".format([3.14]) // returns "3.140000"
-//  "scientific notation: %e".format([2.71828]) // returns "scientific notation: 2.718280\u202f\u00d7\u202f10\u2070\u2070"
-//  "5 in binary: %b".format([5]), // returns "5 in binary; 101"
-//  "26 in hex: %x".format([26]), // returns "26 in hex: 1a"
-//  "26 in hex (uppercase): %X".format([26]) // returns "26 in hex (uppercase): 1A"
-//  "30 in octal: %o".format([30]) // returns "30 in octal: 36"
-// "a map inside a list: %s".format([[1, 2, 3, {"a": "x", "b": "y", "c": "z"}]]) // returns "a map inside a list: [1, 2, 3, {"a":"x", "b":"y", "c":"d"}]"
-// "true bool: %s - false bool: %s\nbinary bool: %b".format([true, false, true]) // returns "true bool: true - false bool: false\nbinary bool: 1"
+//	"this is a string: %s\nand an integer: %d".format(["str", 42]) // returns "this is a string: str\nand an integer: 42"
+//	"a double substituted with %%s: %s".format([64.2]) // returns "a double substituted with %s: 64.2"
+//	"string type: %s".format([type(string)]) // returns "string type: string"
+//	"timestamp: %s".format([timestamp("2023-02-03T23:31:20+00:00")]) // returns "timestamp: 2023-02-03T23:31:20Z"
+//	"duration: %s".format([duration("1h45m47s")]) // returns "duration: 6347s"
+//	"%f".format([3.14]) // returns "3.140000"
+//	"scientific notation: %e".format([2.71828]) // returns "scientific notation: 2.718280\u202f\u00d7\u202f10\u2070\u2070"
+//	"5 in binary: %b".format([5]), // returns "5 in binary; 101"
+//	"26 in hex: %x".format([26]), // returns "26 in hex: 1a"
+//	"26 in hex (uppercase): %X".format([26]) // returns "26 in hex (uppercase): 1A"
+//	"30 in octal: %o".format([30]) // returns "30 in octal: 36"
+//	"a map inside a list: %s".format([[1, 2, 3, {"a": "x", "b": "y", "c": "z"}]]) // returns "a map inside a list: [1, 2, 3, {"a":"x", "b":"y", "c":"d"}]"
+//	"true bool: %s - false bool: %s\nbinary bool: %b".format([true, false, true]) // returns "true bool: true - false bool: false\nbinary bool: 1"
 //
 // Passing an incorrect type (an integer to `%s`) or mismatching the number of arguments (putting 3
 // formatting clauses but passing two variables, or vice-versa) is considered an error.
@@ -251,7 +255,7 @@ const (
 //	'TacoCat'.upperAscii()      // returns 'TACOCAT'
 //	'TacoCÆt Xii'.upperAscii()  // returns 'TACOCÆT XII'
 func Strings(options ...StringsOption) cel.EnvOption {
-	s := &stringLib{}
+	s := &stringLib{version: math.MaxUint32}
 	for _, o := range options {
 		s = o(s)
 	}
@@ -259,7 +263,8 @@ func Strings(options ...StringsOption) cel.EnvOption {
 }
 
 type stringLib struct {
-	locale string
+	locale  string
+	version uint32
 }
 
 // LibraryName implements the SingletonLibrary interface method.
@@ -280,6 +285,20 @@ func StringsLocale(locale string) StringsOption {
 	}
 }
 
+// Version configures the version of the string library. The version limits which
+// functions are available. Only functions introduced below or equal to the given
+// version included in the library. See the library documentation to determine
+// which version a function was introduced at. If the documentation does not
+// state which version a function was introduced at, it can be assumed to be
+// introduced at version 0, when the library was first created.
+// If this option is not set, all functions are available.
+func Version(version uint32) func(lib *stringLib) *stringLib {
+	return func(sl *stringLib) *stringLib {
+		sl.version = version
+		return sl
+	}
+}
+
 // CompileOptions implements the Library interface method.
 func (sl stringLib) CompileOptions() []cel.EnvOption {
 	formatLocale := "en_US"
@@ -295,14 +314,8 @@ func (sl stringLib) CompileOptions() []cel.EnvOption {
 		}
 		formatLocale = sl.locale
 	}
-	formatOverload := cel.MemberOverload("string_format", []*cel.Type{cel.StringType, cel.ListType(cel.DynType)}, cel.StringType,
-		cel.FunctionBinding(func(args ...ref.Val) ref.Val {
-			s := args[0].(types.String).Value().(string)
-			formatArgs := args[1].(traits.Lister)
-			return stringOrError(stringFormatWithLocale(s, formatArgs, formatLocale))
-		}))
 
-	return []cel.EnvOption{
+	opts := []cel.EnvOption{
 		cel.Function("charAt",
 			cel.MemberOverload("string_char_at_int", []*cel.Type{cel.StringType, cel.IntType}, cel.StringType,
 				cel.BinaryBinding(func(str, ind ref.Val) ref.Val {
@@ -420,8 +433,17 @@ func (sl stringLib) CompileOptions() []cel.EnvOption {
 					d := delim.(types.String)
 					return stringOrError(joinSeparator(l.([]string), string(d)))
 				}))),
-		cel.Function("format", formatOverload),
 	}
+	if sl.version >= 1 {
+		opts = append(opts, cel.Function("format",
+			cel.MemberOverload("string_format", []*cel.Type{cel.StringType, cel.ListType(cel.DynType)}, cel.StringType,
+				cel.FunctionBinding(func(args ...ref.Val) ref.Val {
+					s := args[0].(types.String).Value().(string)
+					formatArgs := args[1].(traits.Lister)
+					return stringOrError(stringFormatWithLocale(s, formatArgs, formatLocale))
+				}))))
+	}
+	return opts
 }
 
 // ProgramOptions implements the Library interface method.

@@ -31,6 +31,7 @@ import (
 // TODO: move these tests to a conformance test.
 var stringTests = []struct {
 	expr      string
+	version   *uint32
 	err       string
 	parseOnly bool
 }{
@@ -323,6 +324,71 @@ func TestStrings(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestVersions(t *testing.T) {
+	versionCases := []struct {
+		version            uint32
+		supportedFunctions map[string]string
+	}{
+		{
+			version: 0,
+			supportedFunctions: map[string]string{
+				"chatAt":      "''.charAt(0)",
+				"indexOf":     "'a'.indexOf('a')",
+				"lastIndexOf": "'a'.lastIndexOf('a')",
+				"join":        "['a', 'b'].join()",
+				"lowerAscii":  "'a'.lowerAscii()",
+				"replace":     "'hello hello'.replace('he', 'we')",
+				"split":       "'hello hello hello'.split(' ')",
+				"substring":   "'tacocat'.substring(4)",
+				"trim":        "'  \\ttrim\\n    '.trim()",
+				"upperAscii":  "'TacoCat'.upperAscii()",
+			},
+		},
+		{
+			version: 1,
+			supportedFunctions: map[string]string{
+				"format": "'a %d'.format([1])",
+			},
+		},
+	}
+	for _, lib := range versionCases {
+		env, err := cel.NewEnv(Strings(Version(lib.version)))
+		if err != nil {
+			t.Fatalf("cel.NewEnv(Strings(Version(%d))) failed: %v", lib.version, err)
+		}
+		t.Run(fmt.Sprintf("version=%d", lib.version), func(t *testing.T) {
+			for _, tc := range versionCases {
+				for name, expr := range tc.supportedFunctions {
+					supported := lib.version >= tc.version
+					t.Run(fmt.Sprintf("%s-supported=%t", name, supported), func(t *testing.T) {
+						var asts []*cel.Ast
+						pAst, iss := env.Parse(expr)
+						if iss.Err() != nil {
+							t.Fatalf("env.Parse(%v) failed: %v", expr, iss.Err())
+						}
+						asts = append(asts, pAst)
+						_, iss = env.Check(pAst)
+
+						if supported {
+							if iss.Err() != nil {
+								t.Errorf("unexpected error: %v", iss.Err())
+							}
+						} else {
+							if iss.Err() == nil || !strings.Contains(iss.Err().Error(), "undeclared reference") {
+								t.Errorf("got error %v, wanted error %s for expr: %s, version: %d", iss.Err(), "undeclared reference", expr, tc.version)
+							}
+						}
+					})
+				}
+			}
+		})
+	}
+}
+
+func version(v uint32) *uint32 {
+	return &v
 }
 
 func TestStringsWithExtension(t *testing.T) {
