@@ -353,9 +353,9 @@ func TestVersions(t *testing.T) {
 		},
 	}
 	for _, lib := range versionCases {
-		env, err := cel.NewEnv(Strings(Version(lib.version)))
+		env, err := cel.NewEnv(Strings(StringsVersion(lib.version)))
 		if err != nil {
-			t.Fatalf("cel.NewEnv(Strings(Version(%d))) failed: %v", lib.version, err)
+			t.Fatalf("cel.NewEnv(Strings(StringsVersion(%d))) failed: %v", lib.version, err)
 		}
 		t.Run(fmt.Sprintf("version=%d", lib.version), func(t *testing.T) {
 			for _, tc := range versionCases {

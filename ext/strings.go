@@ -285,14 +285,14 @@ func StringsLocale(locale string) StringsOption {
 	}
 }
 
-// Version configures the version of the string library. The version limits which
+// StringsVersion configures the version of the string library. The version limits which
 // functions are available. Only functions introduced below or equal to the given
 // version included in the library. See the library documentation to determine
 // which version a function was introduced at. If the documentation does not
 // state which version a function was introduced at, it can be assumed to be
 // introduced at version 0, when the library was first created.
 // If this option is not set, all functions are available.
-func Version(version uint32) func(lib *stringLib) *stringLib {
+func StringsVersion(version uint32) func(lib *stringLib) *stringLib {
 	return func(sl *stringLib) *stringLib {
 		sl.version = version
 		return sl
