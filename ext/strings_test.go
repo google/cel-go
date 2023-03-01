@@ -31,7 +31,6 @@ import (
 // TODO: move these tests to a conformance test.
 var stringTests = []struct {
 	expr      string
-	version   *uint32
 	err       string
 	parseOnly bool
 }{

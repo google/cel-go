@@ -268,7 +268,7 @@ type stringLib struct {
 }
 
 // LibraryName implements the SingletonLibrary interface method.
-func (stringLib) LibraryName() string {
+func (*stringLib) LibraryName() string {
 	return "cel.lib.ext.strings"
 }
 
@@ -300,7 +300,7 @@ func Version(version uint32) func(lib *stringLib) *stringLib {
 }
 
 // CompileOptions implements the Library interface method.
-func (sl stringLib) CompileOptions() []cel.EnvOption {
+func (sl *stringLib) CompileOptions() []cel.EnvOption {
 	formatLocale := "en_US"
 	if sl.locale != "" {
 		// ensure locale is properly-formed if set
@@ -447,7 +447,7 @@ func (sl stringLib) CompileOptions() []cel.EnvOption {
 }
 
 // ProgramOptions implements the Library interface method.
-func (stringLib) ProgramOptions() []cel.ProgramOption {
+func (*stringLib) ProgramOptions() []cel.ProgramOption {
 	return []cel.ProgramOption{}
 }
 
