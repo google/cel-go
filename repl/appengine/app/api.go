@@ -3,6 +3,7 @@ package app
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -11,6 +12,7 @@ import (
 )
 
 type service struct {
+	commandCountLimit int
 }
 
 type evaluateRequest struct {
@@ -39,10 +41,14 @@ func marshalEvaluationResponse(r *evaluateResponse) ([]byte, error) {
 	return v, err
 }
 
-func (*service) evaluate(req *evaluateRequest) (*evaluateResponse, error) {
+func (s *service) evaluate(req *evaluateRequest) (*evaluateResponse, error) {
 	evaluator, err := repl.NewEvaluator()
 	if err != nil {
 		return nil, errors.New("error initilializing evaluator")
+	}
+
+	if s.commandCountLimit > 0 && len(req.Commands) > s.commandCountLimit {
+		return nil, fmt.Errorf("number of commands (%d) exceeded limit (%d)", len(req.Commands), s.commandCountLimit)
 	}
 	start := time.Now()
 	resp := evaluateResponse{}
@@ -99,7 +105,9 @@ func writeErr(w http.ResponseWriter, err error) {
 // The service is stateless -- every request creates a new repl instance and
 // applies the list of commands in order.
 func NewJSONHandler() http.HandlerFunc {
-	s := &service{}
+	s := &service{
+		commandCountLimit: 50,
+	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		data, err := io.ReadAll(r.Body)

@@ -50,6 +50,11 @@ export class ReplConsoleComponent {
     this.evaluate(request);
   }
 
+  reset() : void {
+    this.lastEvaluate = {responses: [], evalTime: 0};
+    this.lastRequest = {commands: []};
+  }
+
   numStatements() : number {
     return this.lastRequest.commands.length;
   }

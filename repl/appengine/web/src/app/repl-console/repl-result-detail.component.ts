@@ -12,4 +12,11 @@ import { CommandResponse } from '../shared/repl-api.service';
 })
 export class ReplResultDetailComponent {
   @Input() lastResponse? : CommandResponse;
+  @Input() evalTime? : number;
+
+  FormatTime(ns : number) : string {
+    const ms = ns / 1000000;
+
+    return ms.toPrecision(3) + "ms";
+  }
 }

@@ -31,6 +31,7 @@
     background-color: #1976d2;
     color: white;
     font-weight: 600;
+    padding: 0 1rem;
   }
 
   .toolbar img {
@@ -68,8 +69,18 @@
     max-width: 35%
   }
 
-  .console-container {
+  .main-panel-container {
     min-width: inherit;
     margin: 0;
     padding: 2rem;
+  }
+
+  .repl-console-container {
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .control-button-bar {
+    margin-top: 1rem;
+    margin-bottom: 1rem;
   }

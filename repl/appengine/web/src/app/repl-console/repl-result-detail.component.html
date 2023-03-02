@@ -6,3 +6,6 @@
     <pre><code id="result">{{lastResponse!.replOutput}}</code></pre>
     </div>
 </div>
+<div *ngIf="!!evalTime" class="repl-result-detail-time">
+   <span><em>Eval Time: {{FormatTime(evalTime)}}</em></span>
+</div>

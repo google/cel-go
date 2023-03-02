@@ -12,9 +12,13 @@
   <mat-drawer class="reference-panel-container" #drawer opened mode="side" position="end">
     <app-reference-panel></app-reference-panel>
   </mat-drawer>
-  <mat-drawer-content class="console-container">
-    <app-repl-console></app-repl-console>
-    <button mat-button (click)="drawer.toggle()">Show / Hide References</button>
+  <mat-drawer-content class="main-panel-container">
+    <div class="repl-console-container">
+      <app-repl-console></app-repl-console>
+    </div>
+    <div class="control-button-bar">
+      <button mat-raised-button (click)="drawer.toggle()" color="primary">Show / Hide References</button>
+    </div>
   </mat-drawer-content>
 </mat-drawer-container>
 
