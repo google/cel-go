@@ -220,11 +220,19 @@ func (p *planner) planSelect(expr *exprpb.Expr) (Interpretable, error) {
 
 	// Return the test only eval expression.
 	if sel.GetTestOnly() {
+		isProtoField := false
+		if opType.GetMessageType() != "" {
+			ft, found := p.provider.FindFieldType(opType.GetMessageType(), sel.GetField())
+			if found && ft.IsSet != nil && ft.GetFrom != nil {
+				isProtoField = true
+			}
+		}
 		return &evalTestOnly{
-			id:    expr.GetId(),
-			field: types.String(sel.GetField()),
-			attr:  attr,
-			qual:  qual,
+			id:           expr.GetId(),
+			field:        types.String(sel.GetField()),
+			attr:         attr,
+			qual:         qual,
+			isProtoField: isProtoField,
 		}, nil
 	}
 

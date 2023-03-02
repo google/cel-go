@@ -110,10 +110,11 @@ type InterpretableConstructor interface {
 // Core Interpretable implementations used during the program planning phase.
 
 type evalTestOnly struct {
-	id    int64
-	attr  InterpretableAttribute
-	qual  Qualifier
-	field types.String
+	id           int64
+	attr         InterpretableAttribute
+	qual         Qualifier
+	field        types.String
+	isProtoField bool
 }
 
 // ID implements the Interpretable interface method.
