@@ -224,8 +224,8 @@ func maybeOptimizeSetMembership(i Interpretable, inlist InterpretableCall) (Inte
 	valueSet := make(map[ref.Val]ref.Val)
 	for it.HasNext() == types.True {
 		elem := it.Next()
-		if !types.IsPrimitiveType(elem) {
-			// Note, non-primitive type are not yet supported.
+		if !types.IsPrimitiveType(elem) || elem.Type() == types.BytesType {
+			// Note, non-primitive type are not yet supported, and []byte isn't hashable.
 			return i, nil
 		}
 		valueSet[elem] = types.True

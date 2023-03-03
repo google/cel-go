@@ -378,6 +378,10 @@ var (
 			optimizedCost: []int64{0, 0},
 		},
 		{
+			name: "bytes_in_constant_list",
+			expr: "b'hello' in [b'world', b'universe', b'hello']",
+		},
+		{
 			name: "list_in_constant_list",
 			expr: `[6] in [2, 12, [6]]`,
 		},
