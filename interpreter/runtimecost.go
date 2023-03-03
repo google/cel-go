@@ -38,12 +38,6 @@ type ActualCostEstimator interface {
 func CostObserver(tracker *CostTracker) EvalObserver {
 	observer := func(id int64, programStep any, val ref.Val) {
 		switch t := programStep.(type) {
-		case *evalTestOnly:
-			// Protobuf has() checks do not incur runtime cost due to not using Eval()
-			// in older versions of CEL; this keeps the runtime cost behavior consistent
-			if !t.isProtoField {
-				tracker.cost++
-			}
 		case ConstantQualifier:
 			// TODO: Push identifiers on to the stack before observing constant qualifiers that apply to them
 			// and enable the below pop. Once enabled this can case can be collapsed into the Qualifier case.
@@ -75,6 +69,8 @@ func CostObserver(tracker *CostTracker) EvalObserver {
 			tracker.stack.drop(t.rhs.ID(), t.lhs.ID())
 		case *evalFold:
 			tracker.stack.drop(t.iterRange.ID())
+		case *evalTestOnly:
+			tracker.cost += common.SelectAndIdentCost
 		case Qualifier:
 			tracker.cost++
 		case InterpretableCall:

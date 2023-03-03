@@ -340,6 +340,8 @@ func (c *coster) costSelect(e *exprpb.Expr) CostEstimate {
 	sel := e.GetSelectExpr()
 	var sum CostEstimate
 	if sel.GetTestOnly() {
+		sum.Min = 1
+		sum.Max = 1
 		return sum
 	}
 	sum = sum.Add(c.cost(sel.GetOperand()))
