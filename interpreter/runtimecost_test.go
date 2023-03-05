@@ -318,6 +318,19 @@ func TestRuntimeCost(t *testing.T) {
 			},
 		},
 		{
+			name:  "select: non-proto field test",
+			expr:  `has(input.testAttr.nestedAttr)`,
+			decls: []*exprpb.Decl{decls.NewVar("input", nestedMap)},
+			want:  2,
+			in: map[string]any{
+				"input": map[string]any{
+					"testAttr": map[string]any{
+						"nestedAttr": "0",
+					},
+				},
+			},
+		},
+		{
 			name:         "estimated function call",
 			expr:         `input.getFullYear()`,
 			decls:        []*exprpb.Decl{decls.NewVar("input", decls.Timestamp)},

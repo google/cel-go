@@ -340,8 +340,11 @@ func (c *coster) costSelect(e *exprpb.Expr) CostEstimate {
 	sel := e.GetSelectExpr()
 	var sum CostEstimate
 	if sel.GetTestOnly() {
-		sum.Min = 1
-		sum.Max = 1
+		// recurse, but do not add any cost
+		// this is equivalent to how evalTestOnly increments the runtime cost counter
+		// but does not add any additional cost for the qualifier, except here we do
+		// the reverse (ident adds cost)
+		sum = sum.Add(c.cost(sel.GetOperand()))
 		return sum
 	}
 	sum = sum.Add(c.cost(sel.GetOperand()))
