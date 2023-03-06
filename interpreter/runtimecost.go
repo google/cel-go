@@ -69,6 +69,8 @@ func CostObserver(tracker *CostTracker) EvalObserver {
 			tracker.stack.drop(t.rhs.ID(), t.lhs.ID())
 		case *evalFold:
 			tracker.stack.drop(t.iterRange.ID())
+		case *evalTestOnly:
+			tracker.cost += common.SelectAndIdentCost
 		case Qualifier:
 			tracker.cost++
 		case InterpretableCall:
