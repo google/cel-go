@@ -680,6 +680,39 @@ func (o *containerOption) Option() cel.EnvOption {
 	return cel.Container(o.container)
 }
 
+// extensionOption implements optional for loading a specific extension into the environment (String, Math, Proto, Encoder)
+type extensionOption struct {
+	extensionType string
+	option        cel.EnvOption
+}
+
+func (o *extensionOption) String() string {
+	return fmt.Sprintf("%%option --extension '%s'", o.extensionType)
+}
+
+func (o extensionOption) Option() cel.EnvOption {
+	return o.option
+}
+
+func newExtensionOption(extType string) (*extensionOption, error) {
+	var extOption cel.EnvOption
+	extType = strings.ToLower(extType)
+	switch op := extType; op {
+	case "strings":
+		extOption = ext.Strings()
+	case "protos":
+		extOption = ext.Protos()
+	case "math":
+		extOption = ext.Math()
+	case "encoders":
+		extOption = ext.Encoders()
+	default:
+		return nil, fmt.Errorf("Unknown option: %s. Available options are: ['strings', 'protos', 'math', 'encoders']", op)
+	}
+
+	return &extensionOption{extensionType: extType, option: extOption}, nil
+}
+
 // setOption sets a number of options on the environment. returns an error if
 // any of them fail.
 func (e *Evaluator) setOption(args []string) error {
@@ -697,6 +730,12 @@ func (e *Evaluator) setOption(args []string) error {
 			if err != nil {
 				issues = append(issues, fmt.Sprintf("container: %v", err))
 			}
+		} else if arg == "--extension" {
+			err := e.loadExtensionOption(idx, args)
+			idx++
+			if err != nil {
+				issues = append(issues, fmt.Sprintf("extension: %v", err))
+			}
 		} else {
 			issues = append(issues, fmt.Sprintf("unsupported option '%s'", arg))
 		}
@@ -704,6 +743,25 @@ func (e *Evaluator) setOption(args []string) error {
 	if len(issues) > 0 {
 		return errors.New(strings.Join(issues, "\n"))
 	}
+	return nil
+}
+
+func (e *Evaluator) loadExtensionOption(idx int, args []string) error {
+	if idx >= len(args) {
+		return fmt.Errorf("not enough args for extension")
+	}
+
+	extType := args[idx]
+	extensionOption, err := newExtensionOption(extType)
+	if err != nil {
+		return err
+	}
+
+	err = e.AddOption(extensionOption)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

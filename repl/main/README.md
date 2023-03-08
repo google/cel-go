@@ -118,9 +118,13 @@ may take string arguments.
 
 `--container <string>` sets the expression container for name resolution.
 
+`--extension <extensionType>` enables CEL extensions. Valid options are: `strings`, `protos`, `math`, `encoders`.
+
 example:
 
 `%option --container 'google.protobuf'` 
+
+`%option --extension 'strings'`
 
 #### reset
 

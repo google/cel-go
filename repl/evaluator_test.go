@@ -19,6 +19,7 @@ import (
 
 	"github.com/google/cel-go/cel"
 
+	proto2pb "github.com/google/cel-go/test/proto2pb"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
@@ -572,6 +573,78 @@ func TestProcess(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "OptionExtensionStrings",
+			commands: []Cmder{
+				&simpleCmd{
+					cmd: "option",
+					args: []string{
+						"--extension",
+						"strings",
+					},
+				},
+				&evalCmd{
+					expr: "'test'.substring(2)",
+				},
+			},
+			wantText:  "st : string",
+			wantExit:  false,
+			wantError: false,
+		},
+		{
+			name: "OptionExtensionProtos",
+			commands: []Cmder{
+				&simpleCmd{
+					cmd: "option",
+					args: []string{
+						"--extension",
+						"protos",
+					},
+				},
+				&evalCmd{
+					expr: "proto.getExt(google.expr.proto2.test.ExampleType{}, google.expr.proto2.test.int32_ext) == 0",
+				},
+			},
+			wantText:  "true : bool",
+			wantExit:  false,
+			wantError: false,
+		},
+		{
+			name: "OptionExtensionMath",
+			commands: []Cmder{
+				&simpleCmd{
+					cmd: "option",
+					args: []string{
+						"--extension",
+						"math",
+					},
+				},
+				&evalCmd{
+					expr: "math.greatest(1,2)",
+				},
+			},
+			wantText:  "2 : int",
+			wantExit:  false,
+			wantError: false,
+		},
+		{
+			name: "OptionExtensionEncoders",
+			commands: []Cmder{
+				&simpleCmd{
+					cmd: "option",
+					args: []string{
+						"--extension",
+						"encoders",
+					},
+				},
+				&evalCmd{
+					expr: "base64.encode(b'hello')",
+				},
+			},
+			wantText:  "aGVsbG8= : string",
+			wantExit:  false,
+			wantError: false,
+		},
+		{
 			name: "LoadDescriptorsError",
 			commands: []Cmder{
 				&simpleCmd{
@@ -695,6 +768,7 @@ func TestProcess(t *testing.T) {
 			if err != nil {
 				t.Fatalf("NewEvaluator returned error: %v, wanted nil", err)
 			}
+			eval.env, _ = eval.env.Extend(cel.Types(&proto2pb.ExampleType{}, &proto2pb.ExternalMessageType{}))
 			n := len(tc.commands)
 			for _, cmd := range tc.commands[:n-1] {
 				// only need output of last command
