@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
@@ -1089,11 +1090,15 @@ func makeMatcher(locale string) (language.Matcher, error) {
 	return language.NewMatcher(tags), nil
 }
 
-// quoting implements a string quoting function. The string will be wrapped in
+// quote implements a string quoting function. The string will be wrapped in
 // double quotes, and all valid CEL escape sequences will be escaped to show up
-// literally if printed.
+// literally if printed. If the input is not valid UTF-8, quote will return with
+// an error.
 func quote(s string) (string, error) {
 	var quotedStrBuilder strings.Builder
+	if !utf8.ValidString(s) {
+		return s, errors.New("input is not valid utf8")
+	}
 	for _, c := range s {
 		switch c {
 		case '\a':

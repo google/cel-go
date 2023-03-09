@@ -15,12 +15,14 @@
 package ext
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
@@ -1093,4 +1095,204 @@ func mustParseDuration(s string) time.Duration {
 	} else {
 		return d
 	}
+}
+
+func unquote(s string) (string, error) {
+	if !utf8.ValidString(s) {
+		return s, errors.New("input is not valid utf8")
+	}
+	r := []rune(s)
+	if r[0] != '"' || r[len(r)-1] != '"' {
+		return "", fmt.Errorf("expected given string to be enclosed in double quotes: %q", r)
+	}
+	var unquotedStrBuilder strings.Builder
+	noQuotes := r[1 : len(r)-1]
+	for i := 0; i < len(noQuotes); {
+		c := noQuotes[i]
+		hasNext := i < len(noQuotes)
+		if c == '\\' {
+			if hasNext {
+				nextChar := noQuotes[i+1]
+				switch nextChar {
+				case 'a':
+					unquotedStrBuilder.WriteRune('\a')
+				case 'b':
+					unquotedStrBuilder.WriteRune('\b')
+				case 'f':
+					unquotedStrBuilder.WriteRune('\f')
+				case 'n':
+					unquotedStrBuilder.WriteRune('\n')
+				case 'r':
+					unquotedStrBuilder.WriteRune('\r')
+				case 't':
+					unquotedStrBuilder.WriteRune('\t')
+				case 'v':
+					unquotedStrBuilder.WriteRune('\v')
+				case '\\':
+					unquotedStrBuilder.WriteRune('\\')
+				case '"':
+					unquotedStrBuilder.WriteRune('"')
+				default:
+					unquotedStrBuilder.WriteRune(c)
+					unquotedStrBuilder.WriteRune(nextChar)
+				}
+				i += 2
+				continue
+			}
+		}
+		unquotedStrBuilder.WriteRune(c)
+		i++
+	}
+	return unquotedStrBuilder.String(), nil
+}
+
+func TestUnquote(t *testing.T) {
+	tests := []struct {
+		name         string
+		testStr      string
+		expectedErr  string
+		disableQuote bool
+	}{
+		{
+			name:    "remove quotes only",
+			testStr: "this is a test",
+		},
+		{
+			name:    "mid-string newline",
+			testStr: "first\nsecond",
+		},
+		{
+			name:    "bell",
+			testStr: "bell\a",
+		},
+		{
+			name:    "backspace",
+			testStr: "\bbackspace",
+		},
+		{
+			name:    "form feed",
+			testStr: "\fform feed",
+		},
+		{
+			name:    "carriage return",
+			testStr: "carriage \r return",
+		},
+		{
+			name:    "horizontal tab",
+			testStr: "horizontal \ttab",
+		},
+		{
+			name:    "vertical tab",
+			testStr: "vertical \v tab",
+		},
+		{
+			name:    "double slash",
+			testStr: "double \\\\ slash",
+		},
+		{
+			name:    "two escape sequences",
+			testStr: "two escape sequences \a\n",
+		},
+		{
+			name:    "ends with slash",
+			testStr: "ends with \\",
+		},
+		{
+			name:    "starts with slash",
+			testStr: "\\ starts with",
+		},
+		{
+			name:    "printable unicode",
+			testStr: "printable unicode😀",
+		},
+		{
+			name:    "mid-string quote",
+			testStr: "mid-string \" quote",
+		},
+		{
+			name:         "missing opening quote",
+			testStr:      `only one quote"`,
+			expectedErr:  "expected given string to be enclosed in double quotes",
+			disableQuote: true,
+		},
+		{
+			name:         "missing closing quote",
+			testStr:      `"only one quote`,
+			expectedErr:  "expected given string to be enclosed in double quotes",
+			disableQuote: true,
+		},
+		{
+			name:         "invalid utf8",
+			testStr:      "filler \x9f",
+			expectedErr:  "input is not valid utf8",
+			disableQuote: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var s string
+			if tt.disableQuote {
+				s = tt.testStr
+			} else {
+				s, _ = quote(tt.testStr)
+			}
+			output, err := unquote(s)
+			if err != nil {
+				if tt.expectedErr != "" {
+					if !strings.Contains(err.Error(), tt.expectedErr) {
+						t.Fatalf("expected error message %q to contain %q", err, tt.expectedErr)
+					}
+				} else {
+					t.Fatalf("unexpected error: %s", err)
+				}
+			} else {
+				if tt.expectedErr != "" {
+					t.Fatalf("expected error message with substring %q but no error was seen", tt.expectedErr)
+				}
+				if output != tt.testStr {
+					t.Fatalf("input-output mismatch: original: %q, quote/unquote: %q", tt.testStr, output)
+				}
+			}
+		})
+	}
+}
+
+func FuzzQuote(f *testing.F) {
+	tests := []string{
+		"this is a test",
+		`only one quote"`,
+		`"only one quote`,
+		"first\nsecond",
+		"bell\a",
+		"\bbackspace",
+		"\fform feed",
+		"carriage \r return",
+		"horizontal \ttab",
+		"vertical \v tab",
+		"double \\\\ slash",
+		"two escape sequences \a\n",
+		"ends with \\",
+		"\\ starts with",
+		"printable unicode😀",
+		"mid-string \" quote",
+		"filler \x9f",
+	}
+	for _, tc := range tests {
+		f.Add(tc)
+	}
+	f.Fuzz(func(t *testing.T, s string) {
+		quoted, err := quote(s)
+		if err != nil {
+			if utf8.ValidString(s) {
+				t.Errorf("unexpected error: %s", err)
+			}
+		} else {
+			unquoted, err := unquote(quoted)
+			if err != nil {
+				t.Errorf("unexpected error: %s", err)
+			} else if unquoted != s {
+				t.Errorf("input-output mismatch: original: %q, quoted: %q, quote/unquote: %q", s, quoted, unquoted)
+			}
+		}
+	})
 }
