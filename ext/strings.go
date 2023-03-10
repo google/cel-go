@@ -172,6 +172,20 @@ const (
 //	'TacoCat'.lowerAscii()      // returns 'tacocat'
 //	'TacoCÆt Xii'.lowerAscii()  // returns 'tacocÆt xii'
 //
+// # Quote
+//
+// Introduced in version 1
+//
+// Takes the given string and makes it safe to print (without any formatting due to escape sequences).
+// If any invalid UTF-8 characters are encountered, they are replaced with \uFFFD.
+//
+// strings.quote(<string>)
+//
+// Examples:
+//
+// strings.quote('single-quote with "double quote"') // returns '"single-quote with \"double quote\""'
+// strings.quote("two escape sequences \a\n") // returns '"two escape sequences \\a\\n"'
+//
 // # Replace
 //
 // Returns a new string based on the target, which replaces the occurrences of a search string
