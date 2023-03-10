@@ -434,11 +434,6 @@ func (sl *stringLib) CompileOptions() []cel.EnvOption {
 					d := delim.(types.String)
 					return stringOrError(joinSeparator(l.([]string), string(d)))
 				}))),
-		cel.Function("strings.quote", cel.Overload("strings_quote", []*cel.Type{cel.StringType}, cel.StringType,
-			cel.UnaryBinding(func(str ref.Val) ref.Val {
-				s := str.(types.String)
-				return stringOrError(quote(string(s)))
-			}))),
 	}
 	if sl.version >= 1 {
 		opts = append(opts, cel.Function("format",
@@ -447,7 +442,13 @@ func (sl *stringLib) CompileOptions() []cel.EnvOption {
 					s := args[0].(types.String).Value().(string)
 					formatArgs := args[1].(traits.Lister)
 					return stringOrError(stringFormatWithLocale(s, formatArgs, formatLocale))
+				}))),
+			cel.Function("strings.quote", cel.Overload("strings_quote", []*cel.Type{cel.StringType}, cel.StringType,
+				cel.UnaryBinding(func(str ref.Val) ref.Val {
+					s := str.(types.String)
+					return stringOrError(quote(string(s)))
 				}))))
+
 	}
 	return opts
 }

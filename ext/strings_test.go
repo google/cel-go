@@ -371,6 +371,7 @@ func TestVersions(t *testing.T) {
 			version: 1,
 			supportedFunctions: map[string]string{
 				"format": "'a %d'.format([1])",
+				"quote":  `strings.quote('\a \b "double quotes"')`,
 			},
 		},
 	}
