@@ -15,7 +15,6 @@
 package ext
 
 import (
-	"errors"
 	"fmt"
 	"math"
 	"reflect"
@@ -1102,10 +1101,7 @@ func mustParseDuration(s string) time.Duration {
 }
 
 func unquote(s string) (string, error) {
-	if !utf8.ValidString(s) {
-		return s, errors.New("input is not valid utf8")
-	}
-	r := []rune(s)
+	r := []rune(sanitize(s))
 	if r[0] != '"' || r[len(r)-1] != '"' {
 		return "", fmt.Errorf("expected given string to be enclosed in double quotes: %q", r)
 	}
@@ -1152,10 +1148,11 @@ func unquote(s string) (string, error) {
 
 func TestUnquote(t *testing.T) {
 	tests := []struct {
-		name         string
-		testStr      string
-		expectedErr  string
-		disableQuote bool
+		name           string
+		testStr        string
+		expectedErr    string
+		expectedOutput string
+		disableQuote   bool
 	}{
 		{
 			name:    "remove quotes only",
@@ -1226,10 +1223,9 @@ func TestUnquote(t *testing.T) {
 			disableQuote: true,
 		},
 		{
-			name:         "invalid utf8",
-			testStr:      "filler \x9f",
-			expectedErr:  "input is not valid utf8",
-			disableQuote: true,
+			name:           "invalid utf8",
+			testStr:        "filler \x9f",
+			expectedOutput: "filler " + string(utf8.RuneError),
 		},
 	}
 	for _, tt := range tests {
@@ -1253,7 +1249,11 @@ func TestUnquote(t *testing.T) {
 				if tt.expectedErr != "" {
 					t.Fatalf("expected error message with substring %q but no error was seen", tt.expectedErr)
 				}
-				if output != tt.testStr {
+				if tt.expectedOutput != "" {
+					if output != tt.expectedOutput {
+						t.Fatalf("expected output: %q, got: %q", tt.expectedOutput, output)
+					}
+				} else if output != tt.testStr {
 					t.Fatalf("input-output mismatch: original: %q, quote/unquote: %q", tt.testStr, output)
 				}
 			}
@@ -1298,6 +1298,10 @@ func FuzzQuote(f *testing.F) {
 			unquoted, err := unquote(quoted)
 			if err != nil {
 				t.Errorf("unexpected error: %s", err)
+			} else if s != sanitize(s) {
+				if unquoted != sanitize(s) {
+					t.Errorf("input-output mismatch on test case containing invalid UTF-8: sanitized original: %q, quoted: %q, quote/unquote: %q", sanitize(s), quoted, unquoted)
+				}
 			} else if unquoted != s {
 				t.Errorf("input-output mismatch: original: %q, quoted: %q, quote/unquote: %q", s, quoted, unquoted)
 			}

@@ -1092,14 +1092,11 @@ func makeMatcher(locale string) (language.Matcher, error) {
 
 // quote implements a string quoting function. The string will be wrapped in
 // double quotes, and all valid CEL escape sequences will be escaped to show up
-// literally if printed. If the input is not valid UTF-8, quote will return with
-// an error.
+// literally if printed. If the input contains any invalid UTF-8, the invalid runes
+// will be replaced with utf8.RuneError.
 func quote(s string) (string, error) {
 	var quotedStrBuilder strings.Builder
-	if !utf8.ValidString(s) {
-		return s, errors.New("input is not valid utf8")
-	}
-	for _, c := range s {
+	for _, c := range sanitize(s) {
 		switch c {
 		case '\a':
 			quotedStrBuilder.WriteString("\\a")
@@ -1125,6 +1122,20 @@ func quote(s string) (string, error) {
 	}
 	escapedStr := quotedStrBuilder.String()
 	return "\"" + escapedStr + "\"", nil
+}
+
+// sanitize replaces all invalid runes in the given string with utf8.RuneError.
+func sanitize(s string) string {
+	var sanitizedStringBuilder strings.Builder
+	rs := []rune(s)
+	for _, r := range rs {
+		if !utf8.ValidRune(r) {
+			sanitizedStringBuilder.WriteRune(utf8.RuneError)
+		} else {
+			sanitizedStringBuilder.WriteRune(r)
+		}
+	}
+	return sanitizedStringBuilder.String()
 }
 
 var (
