@@ -122,6 +122,10 @@ var stringTests = []struct {
 	{expr: `strings.quote("\\ starts with") == "\"\\\\ starts with\""`},
 	{expr: `strings.quote("printable unicode😀") == "\"printable unicode😀\""`},
 	{expr: `strings.quote("mid string \" quote") == "\"mid string \\\" quote\""`},
+	{expr: `strings.quote("size('ÿ')") == "\"size('ÿ')\""`},
+	{expr: `strings.quote("size('πέντε')") == "\"size('πέντε')\""`},
+	{expr: `strings.quote("завтра") == "\"завтра\""`},
+	{expr: `strings.quote("\U0001F431\U0001F600\U0001F61B") == "\"\U0001F431\U0001F600\U0001F61B\""`},
 	// Error test cases based on checked expression usage.
 	{
 		expr: `'tacocat'.charAt(30) == ''`,
@@ -1276,6 +1280,10 @@ func FuzzQuote(f *testing.F) {
 		"printable unicode😀",
 		"mid-string \" quote",
 		"filler \x9f",
+		"size('ÿ')",
+		"size('πέντε')",
+		"завтра",
+		"\U0001F431\U0001F600\U0001F61B",
 	}
 	for _, tc := range tests {
 		f.Add(tc)
