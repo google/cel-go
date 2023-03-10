@@ -121,11 +121,11 @@ var stringTests = []struct {
 	{expr: `strings.quote("\\ starts with") == "\"\\\\ starts with\""`},
 	{expr: `strings.quote("printable unicode😀") == "\"printable unicode😀\""`},
 	{expr: `strings.quote("mid string \" quote") == "\"mid string \\\" quote\""`},
+	{expr: `strings.quote('single-quote with "double quote"') == "\"single-quote with \\\"double quote\\\"\""`},
 	{expr: `strings.quote("size('ÿ')") == "\"size('ÿ')\""`},
 	{expr: `strings.quote("size('πέντε')") == "\"size('πέντε')\""`},
 	{expr: `strings.quote("завтра") == "\"завтра\""`},
 	{expr: `strings.quote("\U0001F431\U0001F600\U0001F61B") == "\"\U0001F431\U0001F600\U0001F61B\""`},
-	{expr: `strings.quote("\u0085\u00a0\u168") == "\"\u0085\u00a0\u168\""`},
 	{expr: `strings.quote("ta©o©αT") == "\"ta©o©αT\""`},
 	// Error test cases based on checked expression usage.
 	{
@@ -1211,6 +1211,10 @@ func TestUnquote(t *testing.T) {
 		{
 			name:    "mid-string quote",
 			testStr: "mid-string \" quote",
+		},
+		{
+			name:    "single-quote with double quote",
+			testStr: `single-quote with "double quote"`,
 		},
 		{
 			name:         "missing opening quote",
