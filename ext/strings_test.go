@@ -1218,6 +1218,10 @@ func TestUnquote(t *testing.T) {
 			testStr: `single-quote with "double quote"`,
 		},
 		{
+			name:    "CEL-only escape sequences",
+			testStr: "\\? and \\`",
+		},
+		{
 			name:         "missing opening quote",
 			testStr:      `only one quote"`,
 			expectedErr:  "expected given string to be enclosed in double quotes",
@@ -1292,6 +1296,7 @@ func FuzzQuote(f *testing.F) {
 		"\\ starts with",
 		"printable unicode😀",
 		"mid-string \" quote",
+		"\\? and \\`",
 		"filler \x9f",
 		"size('ÿ')",
 		"size('πέντε')",
