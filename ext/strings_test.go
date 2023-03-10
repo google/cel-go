@@ -1112,7 +1112,7 @@ func unquote(s string) (string, error) {
 	noQuotes := r[1 : len(r)-1]
 	for i := 0; i < len(noQuotes); {
 		c := noQuotes[i]
-		hasNext := i < len(noQuotes)
+		hasNext := i+1 < len(noQuotes)
 		if c == '\\' {
 			if hasNext {
 				nextChar := noQuotes[i+1]
@@ -1233,6 +1233,12 @@ func TestUnquote(t *testing.T) {
 			name:           "invalid utf8",
 			testStr:        "filler \x9f",
 			expectedOutput: "filler " + string(utf8.RuneError),
+		},
+		{
+			name:           "trailing single slash",
+			testStr:        "\"trailing slash \\\"",
+			expectedOutput: "trailing slash \\",
+			disableQuote:   true,
 		},
 	}
 	for _, tt := range tests {
