@@ -125,6 +125,8 @@ var stringTests = []struct {
 	{expr: `strings.quote("size('πέντε')") == "\"size('πέντε')\""`},
 	{expr: `strings.quote("завтра") == "\"завтра\""`},
 	{expr: `strings.quote("\U0001F431\U0001F600\U0001F61B") == "\"\U0001F431\U0001F600\U0001F61B\""`},
+	{expr: `strings.quote("\u0085\u00a0\u168") == "\"\u0085\u00a0\u168\""`},
+	{expr: `strings.quote("ta©o©αT") == "\"ta©o©αT\""`},
 	// Error test cases based on checked expression usage.
 	{
 		expr: `'tacocat'.charAt(30) == ''`,
@@ -1284,6 +1286,7 @@ func FuzzQuote(f *testing.F) {
 		"size('πέντε')",
 		"завтра",
 		"\U0001F431\U0001F600\U0001F61B",
+		"ta©o©αT",
 	}
 	for _, tc := range tests {
 		f.Add(tc)
