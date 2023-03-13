@@ -148,6 +148,11 @@ const (
 	StartsWith = "startsWith"
 )
 
+// Extension function overloads with complex behaviors that need to be referenced in runtime and static analysis cost computations.
+const (
+	ExtQuoteString = "strings_quote"
+)
+
 // String function overload names.
 const (
 	ContainsString   = "contains_string"

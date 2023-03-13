@@ -1150,77 +1150,100 @@ func unquote(s string) (string, error) {
 	return unquotedStrBuilder.String(), nil
 }
 
-func TestUnquote(t *testing.T) {
+func TestQuoteUnquote(t *testing.T) {
 	tests := []struct {
-		name           string
-		testStr        string
-		expectedErr    string
-		expectedOutput string
-		disableQuote   bool
+		name                string
+		testStr             string
+		expectedErr         string
+		expectedOutput      string
+		expectedRuntimeCost uint64
+		disableQuote        bool
+		disableCELEval      bool
 	}{
 		{
-			name:    "remove quotes only",
-			testStr: "this is a test",
+			name:                "remove quotes only",
+			testStr:             "this is a test",
+			expectedRuntimeCost: 2,
 		},
 		{
-			name:    "mid-string newline",
-			testStr: "first\nsecond",
+			name:                "mid-string newline",
+			testStr:             "first\nsecond",
+			expectedRuntimeCost: 2,
 		},
 		{
-			name:    "bell",
-			testStr: "bell\a",
+			name:                "bell",
+			testStr:             "bell\a",
+			expectedRuntimeCost: 1,
 		},
 		{
-			name:    "backspace",
-			testStr: "\bbackspace",
+			name:                "backspace",
+			testStr:             "\bbackspace",
+			expectedRuntimeCost: 1,
 		},
 		{
-			name:    "form feed",
-			testStr: "\fform feed",
+			name:                "form feed",
+			testStr:             "\fform feed",
+			expectedRuntimeCost: 1,
 		},
 		{
-			name:    "carriage return",
-			testStr: "carriage \r return",
+			name:                "carriage return",
+			testStr:             "carriage \r return",
+			expectedRuntimeCost: 2,
 		},
 		{
-			name:    "horizontal tab",
-			testStr: "horizontal \ttab",
+			name:                "horizontal tab",
+			testStr:             "horizontal \ttab",
+			expectedRuntimeCost: 2,
 		},
 		{
-			name:    "vertical tab",
-			testStr: "vertical \v tab",
+			name:                "vertical tab",
+			testStr:             "vertical \v tab",
+			expectedRuntimeCost: 2,
 		},
 		{
-			name:    "double slash",
-			testStr: "double \\\\ slash",
+			name:                "double slash",
+			testStr:             "double \\\\ slash",
+			expectedRuntimeCost: 2,
 		},
 		{
-			name:    "two escape sequences",
-			testStr: "two escape sequences \a\n",
+			name:                "two escape sequences",
+			testStr:             "two escape sequences \a\n",
+			expectedRuntimeCost: 3,
 		},
 		{
-			name:    "ends with slash",
-			testStr: "ends with \\",
+			name:                "ends with slash",
+			testStr:             "ends with \\",
+			expectedRuntimeCost: 2,
 		},
 		{
-			name:    "starts with slash",
-			testStr: "\\ starts with",
+			name:                "starts with slash",
+			testStr:             "\\ starts with",
+			expectedRuntimeCost: 2,
 		},
 		{
-			name:    "printable unicode",
-			testStr: "printable unicode😀",
+			name:                "printable unicode",
+			testStr:             "printable unicode😀",
+			expectedRuntimeCost: 2,
 		},
 		{
-			name:    "mid-string quote",
-			testStr: "mid-string \" quote",
+			name:                "mid-string quote",
+			testStr:             "mid-string \" quote",
+			expectedRuntimeCost: 2,
 		},
 		{
-			name:    "single-quote with double quote",
-			testStr: `single-quote with "double quote"`,
+			name:                "single-quote with double quote",
+			testStr:             `single-quote with "double quote"`,
+			expectedRuntimeCost: 4,
 		},
 		{
-			name:    "CEL-only escape sequences",
-			testStr: "\\? and \\`",
+			name:                "CEL-only escape sequences",
+			testStr:             "\\? and \\`",
+			expectedRuntimeCost: 1,
+		},
+		{
+			name:                "test runtime cost",
+			testStr:             "this is a very very very long string used to ensure that cost tracking works",
+			expectedRuntimeCost: 8,
 		},
 		{
 			name:         "missing opening quote",
@@ -1238,6 +1261,8 @@ func TestUnquote(t *testing.T) {
 			name:           "invalid utf8",
 			testStr:        "filler \x9f",
 			expectedOutput: "filler " + string(utf8.RuneError),
+			// disable CEL eval in order to simulate a string variable with invalid UTF-8
+			disableCELEval: true,
 		},
 		{
 			name:           "trailing single slash",
@@ -1252,7 +1277,11 @@ func TestUnquote(t *testing.T) {
 			if tt.disableQuote {
 				s = tt.testStr
 			} else {
-				s, _ = quote(tt.testStr)
+				if tt.disableCELEval {
+					s, _ = quote(tt.testStr)
+				} else {
+					s = evalWithCEL(tt.testStr, tt.expectedRuntimeCost, t)
+				}
 			}
 			output, err := unquote(s)
 			if err != nil {
@@ -1277,6 +1306,50 @@ func TestUnquote(t *testing.T) {
 			}
 		})
 	}
+}
+
+type noopCostEstimator struct{}
+
+func (e *noopCostEstimator) CallCost(function, overloadID string, args []ref.Val, result ref.Val) *uint64 {
+	return nil
+}
+
+func evalWithCEL(input string, expectedRuntimeCost uint64, t *testing.T) string {
+	env, err := cel.NewEnv(Strings())
+	if err != nil {
+		t.Fatalf("cel.NewEnv() failed: %v", err)
+	}
+	expr := fmt.Sprintf(`strings.quote(%q)`, input)
+	parsedAst, issues := env.Parse(expr)
+	if issues.Err() != nil {
+		t.Fatalf("env.Parse() failed: %v", issues.Err())
+	}
+	checkedAst, issues := env.Check(parsedAst)
+	if issues.Err() != nil {
+		t.Fatalf("env.Check() failed: %v", issues.Err())
+	}
+	program, err := env.Program(checkedAst, cel.CostTracking(&noopCostEstimator{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, evalDetails, err := program.Eval(cel.NoVars())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if evalDetails == nil {
+		t.Fatal("evalDetails could not be calculated")
+	} else if evalDetails.ActualCost() == nil {
+		t.Fatal("could not calculate runtime cost")
+	}
+	if expectedRuntimeCost != 0 {
+		if *evalDetails.ActualCost() != expectedRuntimeCost {
+			t.Fatalf("expected runtime cost of %d, got %d", expectedRuntimeCost, *evalDetails.ActualCost())
+		}
+	}
+	if out.Type() != types.StringType {
+		t.Fatalf("expected expr output to be a string, got %s", out.Type().TypeName())
+	}
+	return out.Value().(string)
 }
 
 func FuzzQuote(f *testing.F) {
