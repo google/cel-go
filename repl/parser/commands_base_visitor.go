@@ -1,188 +1,204 @@
-// Code generated from ./Commands.g4 by ANTLR 4.10.1. DO NOT EDIT.
+// Code generated from ./Commands.g4 by ANTLR 4.12.0. DO NOT EDIT.
 
 package parser // Commands
-import "github.com/antlr/antlr4/runtime/Go/antlr"
+import "github.com/antlr/antlr4/runtime/Go/antlr/v4"
 
 type BaseCommandsVisitor struct {
 	*antlr.BaseParseTreeVisitor
 }
 
-func (v *BaseCommandsVisitor) VisitStartCommand(ctx *StartCommandContext) any {
+func (v *BaseCommandsVisitor) VisitStartCommand(ctx *StartCommandContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitCommand(ctx *CommandContext) any {
+func (v *BaseCommandsVisitor) VisitCommand(ctx *CommandContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitLet(ctx *LetContext) any {
+func (v *BaseCommandsVisitor) VisitLet(ctx *LetContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitDeclare(ctx *DeclareContext) any {
+func (v *BaseCommandsVisitor) VisitDeclare(ctx *DeclareContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitVarDecl(ctx *VarDeclContext) any {
+func (v *BaseCommandsVisitor) VisitVarDecl(ctx *VarDeclContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitFnDecl(ctx *FnDeclContext) any {
+func (v *BaseCommandsVisitor) VisitFnDecl(ctx *FnDeclContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitParam(ctx *ParamContext) any {
+func (v *BaseCommandsVisitor) VisitParam(ctx *ParamContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitDelete(ctx *DeleteContext) any {
+func (v *BaseCommandsVisitor) VisitDelete(ctx *DeleteContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitSimple(ctx *SimpleContext) any {
+func (v *BaseCommandsVisitor) VisitSimple(ctx *SimpleContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitEmpty(ctx *EmptyContext) any {
+func (v *BaseCommandsVisitor) VisitEmpty(ctx *EmptyContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitExprCmd(ctx *ExprCmdContext) any {
+func (v *BaseCommandsVisitor) VisitExprCmd(ctx *ExprCmdContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitQualId(ctx *QualIdContext) any {
+func (v *BaseCommandsVisitor) VisitQualId(ctx *QualIdContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitStartType(ctx *StartTypeContext) any {
+func (v *BaseCommandsVisitor) VisitStartType(ctx *StartTypeContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitType(ctx *TypeContext) any {
+func (v *BaseCommandsVisitor) VisitType(ctx *TypeContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitTypeId(ctx *TypeIdContext) any {
+func (v *BaseCommandsVisitor) VisitTypeId(ctx *TypeIdContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitTypeParamList(ctx *TypeParamListContext) any {
+func (v *BaseCommandsVisitor) VisitTypeParamList(ctx *TypeParamListContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitStart(ctx *StartContext) any {
+func (v *BaseCommandsVisitor) VisitStart(ctx *StartContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitExpr(ctx *ExprContext) any {
+func (v *BaseCommandsVisitor) VisitExpr(ctx *ExprContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitConditionalOr(ctx *ConditionalOrContext) any {
+func (v *BaseCommandsVisitor) VisitConditionalOr(ctx *ConditionalOrContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitConditionalAnd(ctx *ConditionalAndContext) any {
+func (v *BaseCommandsVisitor) VisitConditionalAnd(ctx *ConditionalAndContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitRelation(ctx *RelationContext) any {
+func (v *BaseCommandsVisitor) VisitRelation(ctx *RelationContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitCalc(ctx *CalcContext) any {
+func (v *BaseCommandsVisitor) VisitCalc(ctx *CalcContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitMemberExpr(ctx *MemberExprContext) any {
+func (v *BaseCommandsVisitor) VisitMemberExpr(ctx *MemberExprContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitLogicalNot(ctx *LogicalNotContext) any {
+func (v *BaseCommandsVisitor) VisitLogicalNot(ctx *LogicalNotContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitNegate(ctx *NegateContext) any {
+func (v *BaseCommandsVisitor) VisitNegate(ctx *NegateContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitSelectOrCall(ctx *SelectOrCallContext) any {
+func (v *BaseCommandsVisitor) VisitMemberCall(ctx *MemberCallContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitPrimaryExpr(ctx *PrimaryExprContext) any {
+func (v *BaseCommandsVisitor) VisitSelect(ctx *SelectContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitIndex(ctx *IndexContext) any {
+func (v *BaseCommandsVisitor) VisitPrimaryExpr(ctx *PrimaryExprContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitCreateMessage(ctx *CreateMessageContext) any {
+func (v *BaseCommandsVisitor) VisitIndex(ctx *IndexContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitIdentOrGlobalCall(ctx *IdentOrGlobalCallContext) any {
+func (v *BaseCommandsVisitor) VisitIdentOrGlobalCall(ctx *IdentOrGlobalCallContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitNested(ctx *NestedContext) any {
+func (v *BaseCommandsVisitor) VisitNested(ctx *NestedContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitCreateList(ctx *CreateListContext) any {
+func (v *BaseCommandsVisitor) VisitCreateList(ctx *CreateListContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitCreateStruct(ctx *CreateStructContext) any {
+func (v *BaseCommandsVisitor) VisitCreateStruct(ctx *CreateStructContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitConstantLiteral(ctx *ConstantLiteralContext) any {
+func (v *BaseCommandsVisitor) VisitCreateMessage(ctx *CreateMessageContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitExprList(ctx *ExprListContext) any {
+func (v *BaseCommandsVisitor) VisitConstantLiteral(ctx *ConstantLiteralContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitFieldInitializerList(ctx *FieldInitializerListContext) any {
+func (v *BaseCommandsVisitor) VisitExprList(ctx *ExprListContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitMapInitializerList(ctx *MapInitializerListContext) any {
+func (v *BaseCommandsVisitor) VisitListInit(ctx *ListInitContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitInt(ctx *IntContext) any {
+func (v *BaseCommandsVisitor) VisitFieldInitializerList(ctx *FieldInitializerListContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitUint(ctx *UintContext) any {
+func (v *BaseCommandsVisitor) VisitOptField(ctx *OptFieldContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitDouble(ctx *DoubleContext) any {
+func (v *BaseCommandsVisitor) VisitMapInitializerList(ctx *MapInitializerListContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitString(ctx *StringContext) any {
+func (v *BaseCommandsVisitor) VisitOptExpr(ctx *OptExprContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitBytes(ctx *BytesContext) any {
+func (v *BaseCommandsVisitor) VisitInt(ctx *IntContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitBoolTrue(ctx *BoolTrueContext) any {
+func (v *BaseCommandsVisitor) VisitUint(ctx *UintContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitBoolFalse(ctx *BoolFalseContext) any {
+func (v *BaseCommandsVisitor) VisitDouble(ctx *DoubleContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitNull(ctx *NullContext) any {
+func (v *BaseCommandsVisitor) VisitString(ctx *StringContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseCommandsVisitor) VisitBytes(ctx *BytesContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseCommandsVisitor) VisitBoolTrue(ctx *BoolTrueContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseCommandsVisitor) VisitBoolFalse(ctx *BoolFalseContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseCommandsVisitor) VisitNull(ctx *NullContext) interface{} {
 	return v.VisitChildren(ctx)
 }

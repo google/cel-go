@@ -22,6 +22,7 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 )
 
+// Error interface which allows types types.Err values to be treated as error values.
 type Error interface {
 	error
 	ref.Val

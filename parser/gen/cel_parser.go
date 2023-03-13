@@ -1,4 +1,4 @@
-// Code generated from /Users/tswadell/go/src/github.com/google/cel-go/parser/gen/CEL.g4 by ANTLR 4.10.1. DO NOT EDIT.
+// Code generated from /Users/tswadell/go/src/github.com/google/cel-go/parser/gen/CEL.g4 by ANTLR 4.12.0. DO NOT EDIT.
 
 package gen // CEL
 import (
@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/antlr/antlr4/runtime/Go/antlr"
+	"github.com/antlr/antlr4/runtime/Go/antlr/v4"
 )
 
 // Suppress unused import errors
@@ -274,6 +274,10 @@ type IStartContext interface {
 	// SetE sets the e rule contexts.
 	SetE(IExprContext)
 
+	// Getter signatures
+	EOF() antlr.TerminalNode
+	Expr() IExprContext
+
 	// IsStartContext differentiates from other interfaces.
 	IsStartContext()
 }
@@ -429,6 +433,13 @@ type IExprContext interface {
 
 	// SetE2 sets the e2 rule contexts.
 	SetE2(IExprContext)
+
+	// Getter signatures
+	AllConditionalOr() []IConditionalOrContext
+	ConditionalOr(i int) IConditionalOrContext
+	COLON() antlr.TerminalNode
+	QUESTIONMARK() antlr.TerminalNode
+	Expr() IExprContext
 
 	// IsExprContext differentiates from other interfaces.
 	IsExprContext()
@@ -681,6 +692,12 @@ type IConditionalOrContext interface {
 	// SetE1 sets the e1 rule context list.
 	SetE1([]IConditionalAndContext)
 
+	// Getter signatures
+	AllConditionalAnd() []IConditionalAndContext
+	ConditionalAnd(i int) IConditionalAndContext
+	AllLOGICAL_OR() []antlr.TerminalNode
+	LOGICAL_OR(i int) antlr.TerminalNode
+
 	// IsConditionalOrContext differentiates from other interfaces.
 	IsConditionalOrContext()
 }
@@ -915,6 +932,12 @@ type IConditionalAndContext interface {
 	// SetE1 sets the e1 rule context list.
 	SetE1([]IRelationContext)
 
+	// Getter signatures
+	AllRelation() []IRelationContext
+	Relation(i int) IRelationContext
+	AllLOGICAL_AND() []antlr.TerminalNode
+	LOGICAL_AND(i int) antlr.TerminalNode
+
 	// IsConditionalAndContext differentiates from other interfaces.
 	IsConditionalAndContext()
 }
@@ -1124,6 +1147,18 @@ type IRelationContext interface {
 
 	// SetOp sets the op token.
 	SetOp(antlr.Token)
+
+	// Getter signatures
+	Calc() ICalcContext
+	AllRelation() []IRelationContext
+	Relation(i int) IRelationContext
+	LESS() antlr.TerminalNode
+	LESS_EQUALS() antlr.TerminalNode
+	GREATER_EQUALS() antlr.TerminalNode
+	GREATER() antlr.TerminalNode
+	EQUALS() antlr.TerminalNode
+	NOT_EQUALS() antlr.TerminalNode
+	IN() antlr.TerminalNode
 
 	// IsRelationContext differentiates from other interfaces.
 	IsRelationContext()
@@ -1344,7 +1379,7 @@ func (p *CELParser) relation(_p int) (localctx IRelationContext) {
 
 				_la = p.GetTokenStream().LA(1)
 
-				if !(((_la)&-(0x1f+1)) == 0 && ((1<<uint(_la))&((1<<CELParserEQUALS)|(1<<CELParserNOT_EQUALS)|(1<<CELParserIN)|(1<<CELParserLESS)|(1<<CELParserLESS_EQUALS)|(1<<CELParserGREATER_EQUALS)|(1<<CELParserGREATER))) != 0) {
+				if !((int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&254) != 0) {
 					var _ri = p.GetErrorHandler().RecoverInline(p)
 
 					localctx.(*RelationContext).op = _ri
@@ -1379,6 +1414,16 @@ type ICalcContext interface {
 
 	// SetOp sets the op token.
 	SetOp(antlr.Token)
+
+	// Getter signatures
+	Unary() IUnaryContext
+	AllCalc() []ICalcContext
+	Calc(i int) ICalcContext
+	STAR() antlr.TerminalNode
+	SLASH() antlr.TerminalNode
+	PERCENT() antlr.TerminalNode
+	PLUS() antlr.TerminalNode
+	MINUS() antlr.TerminalNode
 
 	// IsCalcContext differentiates from other interfaces.
 	IsCalcContext()
@@ -1595,7 +1640,7 @@ func (p *CELParser) calc(_p int) (localctx ICalcContext) {
 
 					_la = p.GetTokenStream().LA(1)
 
-					if !(((_la)&-(0x1f+1)) == 0 && ((1<<uint(_la))&((1<<CELParserSTAR)|(1<<CELParserSLASH)|(1<<CELParserPERCENT))) != 0) {
+					if !((int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&58720256) != 0) {
 						var _ri = p.GetErrorHandler().RecoverInline(p)
 
 						localctx.(*CalcContext).op = _ri
@@ -1657,7 +1702,6 @@ type IUnaryContext interface {
 
 	// GetParser returns the parser.
 	GetParser() antlr.Parser
-
 	// IsUnaryContext differentiates from other interfaces.
 	IsUnaryContext()
 }
@@ -2010,7 +2054,6 @@ type IMemberContext interface {
 
 	// GetParser returns the parser.
 	GetParser() antlr.Parser
-
 	// IsMemberContext differentiates from other interfaces.
 	IsMemberContext()
 }
@@ -2529,7 +2572,7 @@ func (p *CELParser) member(_p int) (localctx IMemberContext) {
 				p.GetErrorHandler().Sync(p)
 				_la = p.GetTokenStream().LA(1)
 
-				if ((_la-10)&-(0x1f+1)) == 0 && ((1<<uint((_la-10)))&((1<<(CELParserLBRACKET-10))|(1<<(CELParserLBRACE-10))|(1<<(CELParserLPAREN-10))|(1<<(CELParserDOT-10))|(1<<(CELParserMINUS-10))|(1<<(CELParserEXCLAM-10))|(1<<(CELParserCEL_TRUE-10))|(1<<(CELParserCEL_FALSE-10))|(1<<(CELParserNUL-10))|(1<<(CELParserNUM_FLOAT-10))|(1<<(CELParserNUM_INT-10))|(1<<(CELParserNUM_UINT-10))|(1<<(CELParserSTRING-10))|(1<<(CELParserBYTES-10))|(1<<(CELParserIDENTIFIER-10)))) != 0 {
+				if (int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&135762105344) != 0 {
 					{
 						p.SetState(112)
 
@@ -2602,7 +2645,6 @@ type IPrimaryContext interface {
 
 	// GetParser returns the parser.
 	GetParser() antlr.Parser
-
 	// IsPrimaryContext differentiates from other interfaces.
 	IsPrimaryContext()
 }
@@ -3204,7 +3246,7 @@ func (p *CELParser) Primary() (localctx IPrimaryContext) {
 			p.GetErrorHandler().Sync(p)
 			_la = p.GetTokenStream().LA(1)
 
-			if ((_la-10)&-(0x1f+1)) == 0 && ((1<<uint((_la-10)))&((1<<(CELParserLBRACKET-10))|(1<<(CELParserLBRACE-10))|(1<<(CELParserLPAREN-10))|(1<<(CELParserDOT-10))|(1<<(CELParserMINUS-10))|(1<<(CELParserEXCLAM-10))|(1<<(CELParserCEL_TRUE-10))|(1<<(CELParserCEL_FALSE-10))|(1<<(CELParserNUL-10))|(1<<(CELParserNUM_FLOAT-10))|(1<<(CELParserNUM_INT-10))|(1<<(CELParserNUM_UINT-10))|(1<<(CELParserSTRING-10))|(1<<(CELParserBYTES-10))|(1<<(CELParserIDENTIFIER-10)))) != 0 {
+			if (int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&135762105344) != 0 {
 				{
 					p.SetState(134)
 
@@ -3254,7 +3296,7 @@ func (p *CELParser) Primary() (localctx IPrimaryContext) {
 		p.GetErrorHandler().Sync(p)
 		_la = p.GetTokenStream().LA(1)
 
-		if ((_la-10)&-(0x1f+1)) == 0 && ((1<<uint((_la-10)))&((1<<(CELParserLBRACKET-10))|(1<<(CELParserLBRACE-10))|(1<<(CELParserLPAREN-10))|(1<<(CELParserDOT-10))|(1<<(CELParserMINUS-10))|(1<<(CELParserEXCLAM-10))|(1<<(CELParserQUESTIONMARK-10))|(1<<(CELParserCEL_TRUE-10))|(1<<(CELParserCEL_FALSE-10))|(1<<(CELParserNUL-10))|(1<<(CELParserNUM_FLOAT-10))|(1<<(CELParserNUM_INT-10))|(1<<(CELParserNUM_UINT-10))|(1<<(CELParserSTRING-10))|(1<<(CELParserBYTES-10))|(1<<(CELParserIDENTIFIER-10)))) != 0 {
+		if (int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&135763153920) != 0 {
 			{
 				p.SetState(145)
 
@@ -3294,7 +3336,7 @@ func (p *CELParser) Primary() (localctx IPrimaryContext) {
 		p.GetErrorHandler().Sync(p)
 		_la = p.GetTokenStream().LA(1)
 
-		if ((_la-10)&-(0x1f+1)) == 0 && ((1<<uint((_la-10)))&((1<<(CELParserLBRACKET-10))|(1<<(CELParserLBRACE-10))|(1<<(CELParserLPAREN-10))|(1<<(CELParserDOT-10))|(1<<(CELParserMINUS-10))|(1<<(CELParserEXCLAM-10))|(1<<(CELParserQUESTIONMARK-10))|(1<<(CELParserCEL_TRUE-10))|(1<<(CELParserCEL_FALSE-10))|(1<<(CELParserNUL-10))|(1<<(CELParserNUM_FLOAT-10))|(1<<(CELParserNUM_INT-10))|(1<<(CELParserNUM_UINT-10))|(1<<(CELParserSTRING-10))|(1<<(CELParserBYTES-10))|(1<<(CELParserIDENTIFIER-10)))) != 0 {
+		if (int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&135763153920) != 0 {
 			{
 				p.SetState(153)
 
@@ -3439,6 +3481,12 @@ type IExprListContext interface {
 
 	// SetE sets the e rule context list.
 	SetE([]IExprContext)
+
+	// Getter signatures
+	AllExpr() []IExprContext
+	Expr(i int) IExprContext
+	AllCOMMA() []antlr.TerminalNode
+	COMMA(i int) antlr.TerminalNode
 
 	// IsExprListContext differentiates from other interfaces.
 	IsExprListContext()
@@ -3637,6 +3685,12 @@ type IListInitContext interface {
 
 	// SetElems sets the elems rule context list.
 	SetElems([]IOptExprContext)
+
+	// Getter signatures
+	AllOptExpr() []IOptExprContext
+	OptExpr(i int) IOptExprContext
+	AllCOMMA() []antlr.TerminalNode
+	COMMA(i int) antlr.TerminalNode
 
 	// IsListInitContext differentiates from other interfaces.
 	IsListInitContext()
@@ -3862,6 +3916,16 @@ type IFieldInitializerListContext interface {
 
 	// SetValues sets the values rule context list.
 	SetValues([]IExprContext)
+
+	// Getter signatures
+	AllOptField() []IOptFieldContext
+	OptField(i int) IOptFieldContext
+	AllCOLON() []antlr.TerminalNode
+	COLON(i int) antlr.TerminalNode
+	AllExpr() []IExprContext
+	Expr(i int) IExprContext
+	AllCOMMA() []antlr.TerminalNode
+	COMMA(i int) antlr.TerminalNode
 
 	// IsFieldInitializerListContext differentiates from other interfaces.
 	IsFieldInitializerListContext()
@@ -4159,6 +4223,10 @@ type IOptFieldContext interface {
 	// SetOpt sets the opt token.
 	SetOpt(antlr.Token)
 
+	// Getter signatures
+	IDENTIFIER() antlr.TerminalNode
+	QUESTIONMARK() antlr.TerminalNode
+
 	// IsOptFieldContext differentiates from other interfaces.
 	IsOptFieldContext()
 }
@@ -4322,6 +4390,16 @@ type IMapInitializerListContext interface {
 
 	// SetValues sets the values rule context list.
 	SetValues([]IExprContext)
+
+	// Getter signatures
+	AllOptExpr() []IOptExprContext
+	OptExpr(i int) IOptExprContext
+	AllCOLON() []antlr.TerminalNode
+	COLON(i int) antlr.TerminalNode
+	AllExpr() []IExprContext
+	Expr(i int) IExprContext
+	AllCOMMA() []antlr.TerminalNode
+	COMMA(i int) antlr.TerminalNode
 
 	// IsMapInitializerListContext differentiates from other interfaces.
 	IsMapInitializerListContext()
@@ -4625,6 +4703,10 @@ type IOptExprContext interface {
 	// SetE sets the e rule contexts.
 	SetE(IExprContext)
 
+	// Getter signatures
+	Expr() IExprContext
+	QUESTIONMARK() antlr.TerminalNode
+
 	// IsOptExprContext differentiates from other interfaces.
 	IsOptExprContext()
 }
@@ -4772,7 +4854,6 @@ type ILiteralContext interface {
 
 	// GetParser returns the parser.
 	GetParser() antlr.Parser
-
 	// IsLiteralContext differentiates from other interfaces.
 	IsLiteralContext()
 }
