@@ -1,6 +1,6 @@
 #!/bin/sh
 
-ANTLR_JAR="antlr-4.10.1-complete.jar"
+ANTLR_JAR="antlr-4.12.0-complete.jar"
 export CLASSPATH=".:$ANTLR_JAR:$CLASSPATH"
 antlr4="java -Xmx500M -cp \"$ANTLR_JAR:$CLASSPATH\" org.antlr.v4.Tool"
 

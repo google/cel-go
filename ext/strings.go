@@ -665,11 +665,11 @@ func parseFormatArg(lastStrIndex, argIndex int, formatStr string, args traits.Li
 	argAny := args.Get(types.Int(argIndex))
 	if formatter == nil {
 		return -1, "", errors.New("formatter required")
-	} else {
-		argStr, err = formatter(argAny, locale)
-		if err != nil {
-			return -1, "", fmt.Errorf("error during formatting: %s", err)
-		}
+	}
+
+	argStr, err = formatter(argAny, locale)
+	if err != nil {
+		return -1, "", fmt.Errorf("error during formatting: %s", err)
 	}
 	return i, argStr, nil
 }
@@ -959,9 +959,8 @@ func formatBinary(arg ref.Val, locale string) (string, error) {
 		argBool := arg.Value().(bool)
 		if argBool {
 			return "1", nil
-		} else {
-			return "0", nil
 		}
+		return "0", nil
 	default:
 		return "", fmt.Errorf("only integers and bools can be formatted as binary, was given %s", arg.Type().TypeName())
 	}
@@ -977,9 +976,8 @@ func formatHex(useUpper bool) clauseImpl {
 		case types.StringType, types.BytesType:
 			if arg.Type() == types.BytesType {
 				return fmt.Sprintf(fmtStr, arg.Value().([]byte)), nil
-			} else {
-				return fmt.Sprintf(fmtStr, arg.Value().(string)), nil
 			}
+			return fmt.Sprintf(fmtStr, arg.Value().(string)), nil
 		case types.IntType:
 			argInt, ok := arg.Value().(int64)
 			if !ok {

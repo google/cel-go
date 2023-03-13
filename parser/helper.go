@@ -17,7 +17,7 @@ package parser
 import (
 	"sync"
 
-	"github.com/antlr/antlr4/runtime/Go/antlr"
+	antlr "github.com/antlr/antlr4/runtime/Go/antlr/v4"
 
 	"github.com/google/cel-go/common"
 

@@ -362,14 +362,7 @@ func TestVersions(t *testing.T) {
 				for name, expr := range tc.supportedFunctions {
 					supported := lib.version >= tc.version
 					t.Run(fmt.Sprintf("%s-supported=%t", name, supported), func(t *testing.T) {
-						var asts []*cel.Ast
-						pAst, iss := env.Parse(expr)
-						if iss.Err() != nil {
-							t.Fatalf("env.Parse(%v) failed: %v", expr, iss.Err())
-						}
-						asts = append(asts, pAst)
-						_, iss = env.Check(pAst)
-
+						_, iss := env.Compile(expr)
 						if supported {
 							if iss.Err() != nil {
 								t.Errorf("unexpected error: %v", iss.Err())

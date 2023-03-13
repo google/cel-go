@@ -23,7 +23,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/antlr/antlr4/runtime/Go/antlr"
+	antlr "github.com/antlr/antlr4/runtime/Go/antlr/v4"
 
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/operators"

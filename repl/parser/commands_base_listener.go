@@ -1,7 +1,7 @@
-// Code generated from ./Commands.g4 by ANTLR 4.10.1. DO NOT EDIT.
+// Code generated from ./Commands.g4 by ANTLR 4.12.0. DO NOT EDIT.
 
 package parser // Commands
-import "github.com/antlr/antlr4/runtime/Go/antlr"
+import "github.com/antlr/antlr4/runtime/Go/antlr/v4"
 
 // BaseCommandsListener is a complete listener for a parse tree produced by CommandsParser.
 type BaseCommandsListener struct{}
@@ -170,11 +170,17 @@ func (s *BaseCommandsListener) EnterNegate(ctx *NegateContext) {}
 // ExitNegate is called when production Negate is exited.
 func (s *BaseCommandsListener) ExitNegate(ctx *NegateContext) {}
 
-// EnterSelectOrCall is called when production SelectOrCall is entered.
-func (s *BaseCommandsListener) EnterSelectOrCall(ctx *SelectOrCallContext) {}
+// EnterMemberCall is called when production MemberCall is entered.
+func (s *BaseCommandsListener) EnterMemberCall(ctx *MemberCallContext) {}
 
-// ExitSelectOrCall is called when production SelectOrCall is exited.
-func (s *BaseCommandsListener) ExitSelectOrCall(ctx *SelectOrCallContext) {}
+// ExitMemberCall is called when production MemberCall is exited.
+func (s *BaseCommandsListener) ExitMemberCall(ctx *MemberCallContext) {}
+
+// EnterSelect is called when production Select is entered.
+func (s *BaseCommandsListener) EnterSelect(ctx *SelectContext) {}
+
+// ExitSelect is called when production Select is exited.
+func (s *BaseCommandsListener) ExitSelect(ctx *SelectContext) {}
 
 // EnterPrimaryExpr is called when production PrimaryExpr is entered.
 func (s *BaseCommandsListener) EnterPrimaryExpr(ctx *PrimaryExprContext) {}
@@ -187,12 +193,6 @@ func (s *BaseCommandsListener) EnterIndex(ctx *IndexContext) {}
 
 // ExitIndex is called when production Index is exited.
 func (s *BaseCommandsListener) ExitIndex(ctx *IndexContext) {}
-
-// EnterCreateMessage is called when production CreateMessage is entered.
-func (s *BaseCommandsListener) EnterCreateMessage(ctx *CreateMessageContext) {}
-
-// ExitCreateMessage is called when production CreateMessage is exited.
-func (s *BaseCommandsListener) ExitCreateMessage(ctx *CreateMessageContext) {}
 
 // EnterIdentOrGlobalCall is called when production IdentOrGlobalCall is entered.
 func (s *BaseCommandsListener) EnterIdentOrGlobalCall(ctx *IdentOrGlobalCallContext) {}
@@ -218,6 +218,12 @@ func (s *BaseCommandsListener) EnterCreateStruct(ctx *CreateStructContext) {}
 // ExitCreateStruct is called when production CreateStruct is exited.
 func (s *BaseCommandsListener) ExitCreateStruct(ctx *CreateStructContext) {}
 
+// EnterCreateMessage is called when production CreateMessage is entered.
+func (s *BaseCommandsListener) EnterCreateMessage(ctx *CreateMessageContext) {}
+
+// ExitCreateMessage is called when production CreateMessage is exited.
+func (s *BaseCommandsListener) ExitCreateMessage(ctx *CreateMessageContext) {}
+
 // EnterConstantLiteral is called when production ConstantLiteral is entered.
 func (s *BaseCommandsListener) EnterConstantLiteral(ctx *ConstantLiteralContext) {}
 
@@ -230,17 +236,35 @@ func (s *BaseCommandsListener) EnterExprList(ctx *ExprListContext) {}
 // ExitExprList is called when production exprList is exited.
 func (s *BaseCommandsListener) ExitExprList(ctx *ExprListContext) {}
 
+// EnterListInit is called when production listInit is entered.
+func (s *BaseCommandsListener) EnterListInit(ctx *ListInitContext) {}
+
+// ExitListInit is called when production listInit is exited.
+func (s *BaseCommandsListener) ExitListInit(ctx *ListInitContext) {}
+
 // EnterFieldInitializerList is called when production fieldInitializerList is entered.
 func (s *BaseCommandsListener) EnterFieldInitializerList(ctx *FieldInitializerListContext) {}
 
 // ExitFieldInitializerList is called when production fieldInitializerList is exited.
 func (s *BaseCommandsListener) ExitFieldInitializerList(ctx *FieldInitializerListContext) {}
 
+// EnterOptField is called when production optField is entered.
+func (s *BaseCommandsListener) EnterOptField(ctx *OptFieldContext) {}
+
+// ExitOptField is called when production optField is exited.
+func (s *BaseCommandsListener) ExitOptField(ctx *OptFieldContext) {}
+
 // EnterMapInitializerList is called when production mapInitializerList is entered.
 func (s *BaseCommandsListener) EnterMapInitializerList(ctx *MapInitializerListContext) {}
 
 // ExitMapInitializerList is called when production mapInitializerList is exited.
 func (s *BaseCommandsListener) ExitMapInitializerList(ctx *MapInitializerListContext) {}
+
+// EnterOptExpr is called when production optExpr is entered.
+func (s *BaseCommandsListener) EnterOptExpr(ctx *OptExprContext) {}
+
+// ExitOptExpr is called when production optExpr is exited.
+func (s *BaseCommandsListener) ExitOptExpr(ctx *OptExprContext) {}
 
 // EnterInt is called when production Int is entered.
 func (s *BaseCommandsListener) EnterInt(ctx *IntContext) {}
