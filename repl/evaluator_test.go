@@ -495,6 +495,50 @@ func TestProcess(t *testing.T) {
 		wantError bool
 	}{
 		{
+			name: "FormatNumberResult",
+			commands: []Cmder{
+				&evalCmd{
+					expr: "1u + 2u",
+				},
+			},
+			wantText:  "3 : uint",
+			wantExit:  false,
+			wantError: false,
+		},
+		{
+			name: "FormatStringResult",
+			commands: []Cmder{
+				&evalCmd{
+					expr: `'a' + r'b\1'`,
+				},
+			},
+			wantText:  `ab\1 : string`,
+			wantExit:  false,
+			wantError: false,
+		},
+		{
+			name: "FormatListResult",
+			commands: []Cmder{
+				&evalCmd{
+					expr: `['abc', 123, 3.14, duration('2m')]`,
+				},
+			},
+			wantText:  `["abc", 123, 3.140000, duration("120s")] : list(dyn)`,
+			wantExit:  false,
+			wantError: false,
+		},
+		{
+			name: "FormatMapResult",
+			commands: []Cmder{
+				&evalCmd{
+					expr: `{1: 123, 2: 3.14, 3: duration('2m'), 4: b'123'}`,
+				},
+			},
+			wantText:  `{1:123, 2:3.140000, 3:duration("120s"), 4:b"123"} : map(int, dyn)`,
+			wantExit:  false,
+			wantError: false,
+		},
+		{
 			name: "OptionBasic",
 			commands: []Cmder{
 				&simpleCmd{

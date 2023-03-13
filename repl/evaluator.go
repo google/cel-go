@@ -25,6 +25,7 @@ import (
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/ext"
 	"github.com/google/cel-go/interpreter"
 	"github.com/google/cel-go/interpreter/functions"
 
@@ -758,7 +759,13 @@ func (e *Evaluator) Process(cmd Cmder) (string, bool, error) {
 			return "", false, fmt.Errorf("expr failed:\n%v", err)
 		}
 		if val != nil {
-			return fmt.Sprintf("%v : %s", val.Value(), UnparseType(resultT)), false, nil
+			t := UnparseType(resultT)
+			v, err := ext.FormatString(val, "")
+			if err != nil {
+				// Default format if type is unsupported by ext.Strings formatter.
+				return fmt.Sprintf("%v : %s", val.Value(), t), false, nil
+			}
+			return fmt.Sprintf("%s : %s", v, t), false, nil
 		}
 	case *letVarCmd:
 		var err error
