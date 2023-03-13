@@ -10,12 +10,14 @@ the requested commands in order on each request.
 
 ## Development
 
-To run the application in development, run the angular CLI builder in watch mode
+Node.js and Go (>=1.18) are required to run the application.
+
+To run the application in development mode, run the npm watch script 
 and run the Go server as follows:
 
 ```
 # from the `repl/appengine/web` directory:
-ng build --watch
+npm run watch
 
 # from the repl/appengine directory:
 go run ./main --serve_static ./web/dist/web
@@ -23,7 +25,7 @@ go run ./main --serve_static ./web/dist/web
 
 ## Deploy on google cloud appengine
 
-1. Build the angular application with `ng build`.
+1. Build the angular application with `npm run build`.
 
 1. Follow the instructions here:
 (https://cloud.google.com/appengine/docs/standard/go/building-app). Make sure to

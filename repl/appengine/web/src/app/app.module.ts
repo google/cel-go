@@ -8,8 +8,8 @@ import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatButtonModule } from '@angular/material/button';
 import { AppComponent } from './app.component';
 import { ReplConsoleModule } from './repl-console/repl-console.module';
-import { SharedModule } from './shared/shared.module';
 import { ReferencePanelModule } from './reference-panel/reference-panel.module';
+import { SharedModule } from './shared/shared.module';
 
 @NgModule({
   declarations: [

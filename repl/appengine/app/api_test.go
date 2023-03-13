@@ -8,15 +8,12 @@ import (
 	"testing"
 )
 
-func responseEqual(lhs, rhs *evaluateResponse) bool {
-	if lhs == nil {
-		if rhs == nil {
-			return true
-		}
-		return false
+func (r *evaluateResponse) getResponses() []commandResponse {
+	if r == nil {
+		return nil
 	}
 
-	return reflect.DeepEqual(lhs.Responses, rhs.Responses)
+	return r.Responses
 }
 
 func generateRange(n int, toString func(int) string) []string {
@@ -39,7 +36,7 @@ func errAgrees(err error, msg string) bool {
 	return true
 }
 
-func TestApiEvaluate(t *testing.T) {
+func TestAPIEvaluate(t *testing.T) {
 	testCases := []struct {
 		service *service
 		req     evaluateRequest
@@ -115,13 +112,13 @@ func TestApiEvaluate(t *testing.T) {
 			t.Errorf("Expected err '%v', got '%v'", tc.err, err)
 		}
 
-		if !responseEqual(resp, tc.resp) {
+		if !reflect.DeepEqual(resp.getResponses(), tc.resp.getResponses()) {
 			t.Errorf("Expected evaluate resp %v, got %v", tc.resp, resp)
 		}
 	}
 }
 
-func TestApiJson(t *testing.T) {
+func TestAPIJSON(t *testing.T) {
 	testCases := []struct {
 		req    string
 		respRe *regexp.Regexp

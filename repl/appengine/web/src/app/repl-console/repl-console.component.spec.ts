@@ -3,10 +3,10 @@ import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
+import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { ReplConsoleComponent } from './repl-console.component';
 import { ReplResultDetailComponent } from './repl-result-detail.component';
 import { SharedModule } from '../shared/shared.module';
-import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { EvaluateRequest } from '../shared/repl-api.service';
 
 describe('ReplConsoleComponent', () => {

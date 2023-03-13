@@ -1,10 +1,10 @@
 import { TestBed } from '@angular/core/testing';
-import { AppComponent } from './app.component';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatButtonModule } from '@angular/material/button';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
+import { AppComponent } from './app.component';
 import { ReferencePanelModule } from './reference-panel/reference-panel.module';
 import { ReplConsoleModule } from './repl-console/repl-console.module';
 

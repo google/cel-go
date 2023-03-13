@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { TrimPipe } from './trim.pipe';
 
 
-
 @NgModule({
   declarations: [
     TrimPipe
