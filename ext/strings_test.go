@@ -127,6 +127,7 @@ var stringTests = []struct {
 	{expr: `strings.quote("завтра") == "\"завтра\""`},
 	{expr: `strings.quote("\U0001F431\U0001F600\U0001F61B") == "\"\U0001F431\U0001F600\U0001F61B\""`},
 	{expr: `strings.quote("ta©o©αT") == "\"ta©o©αT\""`},
+	{expr: `strings.quote("") == "\"\""`},
 	// Error test cases based on checked expression usage.
 	{
 		expr: `'tacocat'.charAt(30) == ''`,
