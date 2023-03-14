@@ -174,7 +174,7 @@ const (
 //
 // # Quote
 //
-// Introduced in version 1
+// Introduced in version: 1
 //
 // Takes the given string and makes it safe to print (without any formatting due to escape sequences).
 // If any invalid UTF-8 characters are encountered, they are replaced with \uFFFD.
@@ -710,11 +710,11 @@ func clauseForType(argType ref.Type) (clauseImpl, error) {
 			argStr := argStrVal.Value().(string)
 			if arg.Type() == types.TimestampType {
 				return fmt.Sprintf("timestamp(%q)", argStr), nil
-			} else if arg.Type() == types.DurationType {
-				return fmt.Sprintf("duration(%q)", argStr), nil
-			} else {
-				return "", fmt.Errorf("cannot convert argument of type %s to timestamp/duration", arg.Type().TypeName())
 			}
+			if arg.Type() == types.DurationType {
+				return fmt.Sprintf("duration(%q)", argStr), nil
+			}
+			return "", fmt.Errorf("cannot convert argument of type %s to timestamp/duration", arg.Type().TypeName())
 		}, nil
 	case types.ListType:
 		return formatList, nil
@@ -1143,8 +1143,7 @@ func quote(s string) (string, error) {
 // sanitize replaces all invalid runes in the given string with utf8.RuneError.
 func sanitize(s string) string {
 	var sanitizedStringBuilder strings.Builder
-	rs := []rune(s)
-	for _, r := range rs {
+	for _, r := range s {
 		if !utf8.ValidRune(r) {
 			sanitizedStringBuilder.WriteRune(utf8.RuneError)
 		} else {

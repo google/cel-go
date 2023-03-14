@@ -971,9 +971,8 @@ func TestStringFormat(t *testing.T) {
 		expr := fmt.Sprintf("%q.format([%s])", format, formatArgs)
 		if len(dynArgs) == 0 {
 			return evalExpr(env, expr, cel.NoVars(), t)
-		} else {
-			return evalExpr(env, expr, dynArgs, t)
 		}
+		return evalExpr(env, expr, dynArgs, t)
 	}
 	checkCase := func(output ref.Val, expectedOutput string, err error, expectedErr string, t *testing.T) {
 		if err != nil {
