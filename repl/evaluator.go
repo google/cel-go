@@ -707,7 +707,7 @@ func newExtensionOption(extType string) (*extensionOption, error) {
 	case "encoders":
 		extOption = ext.Encoders()
 	default:
-		return nil, fmt.Errorf("Unknown option: %s. Available options are: ['strings', 'protos', 'math', 'encoders']", op)
+		return nil, fmt.Errorf("Unknown option: %s. Available options are: ['strings', 'protos', 'math', 'encoders', 'all']", op)
 	}
 
 	return &extensionOption{extensionType: extType, option: extOption}, nil
@@ -751,7 +751,22 @@ func (e *Evaluator) loadExtensionOption(idx int, args []string) error {
 		return fmt.Errorf("not enough args for extension")
 	}
 
-	extType := args[idx]
+	argExtType := args[idx]
+	if argExtType == "all" {
+		// Load all extension types as a convenience
+		var extensionTypes = []string{"strings", "protos", "math", "encoders"}
+		for _, val := range extensionTypes {
+			err := e.loadExtensionOptionType(val)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	return e.loadExtensionOptionType(argExtType)
+}
+
+func (e *Evaluator) loadExtensionOptionType(extType string) error {
 	extensionOption, err := newExtensionOption(extType)
 	if err != nil {
 		return err
@@ -763,6 +778,7 @@ func (e *Evaluator) loadExtensionOption(idx int, args []string) error {
 	}
 
 	return nil
+
 }
 
 func loadFileDescriptorSet(path string, textfmt bool) (*descpb.FileDescriptorSet, error) {

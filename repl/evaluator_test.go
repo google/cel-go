@@ -645,6 +645,28 @@ func TestProcess(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "OptionExtensionAll",
+			commands: []Cmder{
+				&simpleCmd{
+					cmd: "option",
+					args: []string{
+						"--extension",
+						"all",
+					},
+				},
+				&evalCmd{
+					expr: "'test'.substring(2) == 'st' && " +
+						"proto.getExt(google.expr.proto2.test.ExampleType{}, google.expr.proto2.test.int32_ext) == 0 && " +
+						"math.greatest(1,2) == 2 && " +
+						"base64.encode(b'hello') == 'aGVsbG8='",
+				},
+			},
+			wantText:  "true : bool",
+			wantExit:  false,
+			wantError: false,
+		},
+
+		{
 			name: "LoadDescriptorsError",
 			commands: []Cmder{
 				&simpleCmd{
