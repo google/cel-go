@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
@@ -170,6 +171,20 @@ const (
 //
 //	'TacoCat'.lowerAscii()      // returns 'tacocat'
 //	'TacoCÆt Xii'.lowerAscii()  // returns 'tacocÆt xii'
+//
+// # Quote
+//
+// Introduced in version 1
+//
+// Takes the given string and makes it safe to print (without any formatting due to escape sequences).
+// If any invalid UTF-8 characters are encountered, they are replaced with \uFFFD.
+//
+// strings.quote(<string>)
+//
+// Examples:
+//
+// strings.quote('single-quote with "double quote"') // returns '"single-quote with \"double quote\""'
+// strings.quote("two escape sequences \a\n") // returns '"two escape sequences \\a\\n"'
 //
 // # Replace
 //
@@ -441,7 +456,13 @@ func (sl *stringLib) CompileOptions() []cel.EnvOption {
 					s := args[0].(types.String).Value().(string)
 					formatArgs := args[1].(traits.Lister)
 					return stringOrError(stringFormatWithLocale(s, formatArgs, formatLocale))
+				}))),
+			cel.Function("strings.quote", cel.Overload("strings_quote", []*cel.Type{cel.StringType}, cel.StringType,
+				cel.UnaryBinding(func(str ref.Val) ref.Val {
+					s := str.(types.String)
+					return stringOrError(quote(string(s)))
 				}))))
+
 	}
 	return opts
 }
@@ -1083,6 +1104,54 @@ func makeMatcher(locale string) (language.Matcher, error) {
 	}
 	tags = append(tags, tag)
 	return language.NewMatcher(tags), nil
+}
+
+// quote implements a string quoting function. The string will be wrapped in
+// double quotes, and all valid CEL escape sequences will be escaped to show up
+// literally if printed. If the input contains any invalid UTF-8, the invalid runes
+// will be replaced with utf8.RuneError.
+func quote(s string) (string, error) {
+	var quotedStrBuilder strings.Builder
+	for _, c := range sanitize(s) {
+		switch c {
+		case '\a':
+			quotedStrBuilder.WriteString("\\a")
+		case '\b':
+			quotedStrBuilder.WriteString("\\b")
+		case '\f':
+			quotedStrBuilder.WriteString("\\f")
+		case '\n':
+			quotedStrBuilder.WriteString("\\n")
+		case '\r':
+			quotedStrBuilder.WriteString("\\r")
+		case '\t':
+			quotedStrBuilder.WriteString("\\t")
+		case '\v':
+			quotedStrBuilder.WriteString("\\v")
+		case '\\':
+			quotedStrBuilder.WriteString("\\\\")
+		case '"':
+			quotedStrBuilder.WriteString("\\\"")
+		default:
+			quotedStrBuilder.WriteRune(c)
+		}
+	}
+	escapedStr := quotedStrBuilder.String()
+	return "\"" + escapedStr + "\"", nil
+}
+
+// sanitize replaces all invalid runes in the given string with utf8.RuneError.
+func sanitize(s string) string {
+	var sanitizedStringBuilder strings.Builder
+	rs := []rune(s)
+	for _, r := range rs {
+		if !utf8.ValidRune(r) {
+			sanitizedStringBuilder.WriteRune(utf8.RuneError)
+		} else {
+			sanitizedStringBuilder.WriteRune(r)
+		}
+	}
+	return sanitizedStringBuilder.String()
 }
 
 var (

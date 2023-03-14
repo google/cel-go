@@ -21,6 +21,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
@@ -105,6 +106,28 @@ var stringTests = []struct {
 	{expr: `['x', 'y'].join('-') == 'x-y'`},
 	{expr: `[].join() == ''`},
 	{expr: `[].join('-') == ''`},
+	// Escaping tests.
+	{expr: `strings.quote("first\nsecond") == "\"first\\nsecond\""`},
+	{expr: `strings.quote("bell\a") == "\"bell\\a\""`},
+	{expr: `strings.quote("\bbackspace") == "\"\\bbackspace\""`},
+	{expr: `strings.quote("\fform feed") == "\"\\fform feed\""`},
+	{expr: `strings.quote("carriage \r return") == "\"carriage \\r return\""`},
+	{expr: `strings.quote("horizontal tab\t") == "\"horizontal tab\\t\""`},
+	{expr: `strings.quote("vertical \v tab") == "\"vertical \\v tab\""`},
+	{expr: `strings.quote("double \\\\ slash") == "\"double \\\\\\\\ slash\""`},
+	{expr: `strings.quote("two escape sequences \a\n") == "\"two escape sequences \\a\\n\""`},
+	{expr: `strings.quote("verbatim") == "\"verbatim\""`},
+	{expr: `strings.quote("ends with \\") == "\"ends with \\\\\""`},
+	{expr: `strings.quote("\\ starts with") == "\"\\\\ starts with\""`},
+	{expr: `strings.quote("printable unicode😀") == "\"printable unicode😀\""`},
+	{expr: `strings.quote("mid string \" quote") == "\"mid string \\\" quote\""`},
+	{expr: `strings.quote('single-quote with "double quote"') == "\"single-quote with \\\"double quote\\\"\""`},
+	{expr: `strings.quote("size('ÿ')") == "\"size('ÿ')\""`},
+	{expr: `strings.quote("size('πέντε')") == "\"size('πέντε')\""`},
+	{expr: `strings.quote("завтра") == "\"завтра\""`},
+	{expr: `strings.quote("\U0001F431\U0001F600\U0001F61B") == "\"\U0001F431\U0001F600\U0001F61B\""`},
+	{expr: `strings.quote("ta©o©αT") == "\"ta©o©αT\""`},
+	{expr: `strings.quote("") == "\"\""`},
 	// Error test cases based on checked expression usage.
 	{
 		expr: `'tacocat'.charAt(30) == ''`,
@@ -349,6 +372,7 @@ func TestVersions(t *testing.T) {
 			version: 1,
 			supportedFunctions: map[string]string{
 				"format": "'a %d'.format([1])",
+				"quote":  `strings.quote('\a \b "double quotes"')`,
 			},
 		},
 	}
@@ -1071,4 +1095,302 @@ func mustParseDuration(s string) time.Duration {
 	} else {
 		return d
 	}
+}
+
+func unquote(s string) (string, error) {
+	r := []rune(sanitize(s))
+	if r[0] != '"' || r[len(r)-1] != '"' {
+		return "", fmt.Errorf("expected given string to be enclosed in double quotes: %q", r)
+	}
+	var unquotedStrBuilder strings.Builder
+	noQuotes := r[1 : len(r)-1]
+	for i := 0; i < len(noQuotes); {
+		c := noQuotes[i]
+		hasNext := i+1 < len(noQuotes)
+		if c == '\\' {
+			if hasNext {
+				nextChar := noQuotes[i+1]
+				switch nextChar {
+				case 'a':
+					unquotedStrBuilder.WriteRune('\a')
+				case 'b':
+					unquotedStrBuilder.WriteRune('\b')
+				case 'f':
+					unquotedStrBuilder.WriteRune('\f')
+				case 'n':
+					unquotedStrBuilder.WriteRune('\n')
+				case 'r':
+					unquotedStrBuilder.WriteRune('\r')
+				case 't':
+					unquotedStrBuilder.WriteRune('\t')
+				case 'v':
+					unquotedStrBuilder.WriteRune('\v')
+				case '\\':
+					unquotedStrBuilder.WriteRune('\\')
+				case '"':
+					unquotedStrBuilder.WriteRune('"')
+				default:
+					unquotedStrBuilder.WriteRune(c)
+					unquotedStrBuilder.WriteRune(nextChar)
+				}
+				i += 2
+				continue
+			}
+		}
+		unquotedStrBuilder.WriteRune(c)
+		i++
+	}
+	return unquotedStrBuilder.String(), nil
+}
+
+func TestQuoteUnquote(t *testing.T) {
+	tests := []struct {
+		name                string
+		testStr             string
+		expectedErr         string
+		expectedOutput      string
+		expectedRuntimeCost uint64
+		disableQuote        bool
+		disableCELEval      bool
+	}{
+		{
+			name:                "remove quotes only",
+			testStr:             "this is a test",
+			expectedRuntimeCost: 2,
+		},
+		{
+			name:                "mid-string newline",
+			testStr:             "first\nsecond",
+			expectedRuntimeCost: 2,
+		},
+		{
+			name:                "bell",
+			testStr:             "bell\a",
+			expectedRuntimeCost: 1,
+		},
+		{
+			name:                "backspace",
+			testStr:             "\bbackspace",
+			expectedRuntimeCost: 1,
+		},
+		{
+			name:                "form feed",
+			testStr:             "\fform feed",
+			expectedRuntimeCost: 1,
+		},
+		{
+			name:                "carriage return",
+			testStr:             "carriage \r return",
+			expectedRuntimeCost: 2,
+		},
+		{
+			name:                "horizontal tab",
+			testStr:             "horizontal \ttab",
+			expectedRuntimeCost: 2,
+		},
+		{
+			name:                "vertical tab",
+			testStr:             "vertical \v tab",
+			expectedRuntimeCost: 2,
+		},
+		{
+			name:                "double slash",
+			testStr:             "double \\\\ slash",
+			expectedRuntimeCost: 2,
+		},
+		{
+			name:                "two escape sequences",
+			testStr:             "two escape sequences \a\n",
+			expectedRuntimeCost: 3,
+		},
+		{
+			name:                "ends with slash",
+			testStr:             "ends with \\",
+			expectedRuntimeCost: 2,
+		},
+		{
+			name:                "starts with slash",
+			testStr:             "\\ starts with",
+			expectedRuntimeCost: 2,
+		},
+		{
+			name:                "printable unicode",
+			testStr:             "printable unicode😀",
+			expectedRuntimeCost: 2,
+		},
+		{
+			name:                "mid-string quote",
+			testStr:             "mid-string \" quote",
+			expectedRuntimeCost: 2,
+		},
+		{
+			name:                "single-quote with double quote",
+			testStr:             `single-quote with "double quote"`,
+			expectedRuntimeCost: 4,
+		},
+		{
+			name:                "CEL-only escape sequences",
+			testStr:             "\\? and \\`",
+			expectedRuntimeCost: 1,
+		},
+		{
+			name:                "test runtime cost",
+			testStr:             "this is a very very very long string used to ensure that cost tracking works",
+			expectedRuntimeCost: 8,
+		},
+		{
+			name:         "missing opening quote",
+			testStr:      `only one quote"`,
+			expectedErr:  "expected given string to be enclosed in double quotes",
+			disableQuote: true,
+		},
+		{
+			name:         "missing closing quote",
+			testStr:      `"only one quote`,
+			expectedErr:  "expected given string to be enclosed in double quotes",
+			disableQuote: true,
+		},
+		{
+			name:           "invalid utf8",
+			testStr:        "filler \x9f",
+			expectedOutput: "filler " + string(utf8.RuneError),
+			// disable CEL eval in order to simulate a string variable with invalid UTF-8
+			disableCELEval: true,
+		},
+		{
+			name:           "trailing single slash",
+			testStr:        "\"trailing slash \\\"",
+			expectedOutput: "trailing slash \\",
+			disableQuote:   true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var s string
+			if tt.disableQuote {
+				s = tt.testStr
+			} else {
+				if tt.disableCELEval {
+					s, _ = quote(tt.testStr)
+				} else {
+					s = evalWithCEL(tt.testStr, tt.expectedRuntimeCost, t)
+				}
+			}
+			output, err := unquote(s)
+			if err != nil {
+				if tt.expectedErr != "" {
+					if !strings.Contains(err.Error(), tt.expectedErr) {
+						t.Fatalf("expected error message %q to contain %q", err, tt.expectedErr)
+					}
+				} else {
+					t.Fatalf("unexpected error: %s", err)
+				}
+			} else {
+				if tt.expectedErr != "" {
+					t.Fatalf("expected error message with substring %q but no error was seen", tt.expectedErr)
+				}
+				if tt.expectedOutput != "" {
+					if output != tt.expectedOutput {
+						t.Fatalf("expected output: %q, got: %q", tt.expectedOutput, output)
+					}
+				} else if output != tt.testStr {
+					t.Fatalf("input-output mismatch: original: %q, quote/unquote: %q", tt.testStr, output)
+				}
+			}
+		})
+	}
+}
+
+type noopCostEstimator struct{}
+
+func (e *noopCostEstimator) CallCost(function, overloadID string, args []ref.Val, result ref.Val) *uint64 {
+	return nil
+}
+
+func evalWithCEL(input string, expectedRuntimeCost uint64, t *testing.T) string {
+	env, err := cel.NewEnv(Strings())
+	if err != nil {
+		t.Fatalf("cel.NewEnv() failed: %v", err)
+	}
+	expr := fmt.Sprintf(`strings.quote(%q)`, input)
+	parsedAst, issues := env.Parse(expr)
+	if issues.Err() != nil {
+		t.Fatalf("env.Parse() failed: %v", issues.Err())
+	}
+	checkedAst, issues := env.Check(parsedAst)
+	if issues.Err() != nil {
+		t.Fatalf("env.Check() failed: %v", issues.Err())
+	}
+	program, err := env.Program(checkedAst, cel.CostTracking(&noopCostEstimator{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, evalDetails, err := program.Eval(cel.NoVars())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if evalDetails == nil {
+		t.Fatal("evalDetails could not be calculated")
+	} else if evalDetails.ActualCost() == nil {
+		t.Fatal("could not calculate runtime cost")
+	}
+	if expectedRuntimeCost != 0 {
+		if *evalDetails.ActualCost() != expectedRuntimeCost {
+			t.Fatalf("expected runtime cost of %d, got %d", expectedRuntimeCost, *evalDetails.ActualCost())
+		}
+	}
+	if out.Type() != types.StringType {
+		t.Fatalf("expected expr output to be a string, got %s", out.Type().TypeName())
+	}
+	return out.Value().(string)
+}
+
+func FuzzQuote(f *testing.F) {
+	tests := []string{
+		"this is a test",
+		`only one quote"`,
+		`"only one quote`,
+		"first\nsecond",
+		"bell\a",
+		"\bbackspace",
+		"\fform feed",
+		"carriage \r return",
+		"horizontal \ttab",
+		"vertical \v tab",
+		"double \\\\ slash",
+		"two escape sequences \a\n",
+		"ends with \\",
+		"\\ starts with",
+		"printable unicode😀",
+		"mid-string \" quote",
+		"\\? and \\`",
+		"filler \x9f",
+		"size('ÿ')",
+		"size('πέντε')",
+		"завтра",
+		"\U0001F431\U0001F600\U0001F61B",
+		"ta©o©αT",
+	}
+	for _, tc := range tests {
+		f.Add(tc)
+	}
+	f.Fuzz(func(t *testing.T, s string) {
+		quoted, err := quote(s)
+		if err != nil {
+			if utf8.ValidString(s) {
+				t.Errorf("unexpected error: %s", err)
+			}
+		} else {
+			unquoted, err := unquote(quoted)
+			if err != nil {
+				t.Errorf("unexpected error: %s", err)
+			} else if s != sanitize(s) {
+				if unquoted != sanitize(s) {
+					t.Errorf("input-output mismatch on test case containing invalid UTF-8: sanitized original: %q, quoted: %q, quote/unquote: %q", sanitize(s), quoted, unquoted)
+				}
+			} else if unquoted != s {
+				t.Errorf("input-output mismatch: original: %q, quoted: %q, quote/unquote: %q", s, quoted, unquoted)
+			}
+		}
+	})
 }
