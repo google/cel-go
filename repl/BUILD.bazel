@@ -32,6 +32,7 @@ go_library(
         "//checker/decls:go_default_library",
         "//common/types:go_default_library",
         "//common/types/ref:go_default_library",
+        "//ext:go_default_library",
         "//interpreter:go_default_library",
         "//interpreter/functions:go_default_library",
         "//repl/parser:go_default_library",

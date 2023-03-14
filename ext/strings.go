@@ -681,7 +681,7 @@ func clauseForType(argType ref.Type) (clauseImpl, error) {
 	case types.IntType, types.UintType:
 		return formatDecimal, nil
 	case types.StringType, types.BytesType, types.BoolType, types.NullType, types.TypeType:
-		return formatString, nil
+		return FormatString, nil
 	case types.TimestampType, types.DurationType:
 		// special case to ensure timestamps/durations get printed as CEL literals
 		return func(arg ref.Val, locale string) (string, error) {
@@ -770,7 +770,7 @@ func formatMap(arg ref.Val, locale string) (string, error) {
 		var keyFormat clauseImpl
 		switch key.Type() {
 		case types.StringType, types.BoolType:
-			keyFormat = formatString
+			keyFormat = FormatString
 		case types.IntType, types.UintType:
 			keyFormat = formatDecimal
 		default:
@@ -844,7 +844,10 @@ func quoteForCEL(refVal ref.Val, unquotedValue string) string {
 	}
 }
 
-func formatString(arg ref.Val, locale string) (string, error) {
+// FormatString returns the string representation of a CEL value.
+// It is used to implement the %s specifier in the (string).format() extension
+// function.
+func FormatString(arg ref.Val, locale string) (string, error) {
 	switch arg.Type() {
 	case types.ListType:
 		return formatList(arg, locale)
@@ -1018,7 +1021,7 @@ func parseFormattingClause(lastStrIndex int, formatStr string) (int, clauseImpl,
 	i++
 	switch r {
 	case 's':
-		return i, formatString, nil
+		return i, FormatString, nil
 	case 'd':
 		return i, formatDecimal, nil
 	case 'f':
