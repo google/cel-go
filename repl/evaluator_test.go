@@ -19,6 +19,7 @@ import (
 
 	"github.com/google/cel-go/cel"
 
+	proto2pb "github.com/google/cel-go/test/proto2pb"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
@@ -572,6 +573,100 @@ func TestProcess(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "OptionExtensionStrings",
+			commands: []Cmder{
+				&simpleCmd{
+					cmd: "option",
+					args: []string{
+						"--extension",
+						"strings",
+					},
+				},
+				&evalCmd{
+					expr: "'test'.substring(2)",
+				},
+			},
+			wantText:  "st : string",
+			wantExit:  false,
+			wantError: false,
+		},
+		{
+			name: "OptionExtensionProtos",
+			commands: []Cmder{
+				&simpleCmd{
+					cmd: "option",
+					args: []string{
+						"--extension",
+						"protos",
+					},
+				},
+				&evalCmd{
+					expr: "proto.getExt(google.expr.proto2.test.ExampleType{}, google.expr.proto2.test.int32_ext) == 0",
+				},
+			},
+			wantText:  "true : bool",
+			wantExit:  false,
+			wantError: false,
+		},
+		{
+			name: "OptionExtensionMath",
+			commands: []Cmder{
+				&simpleCmd{
+					cmd: "option",
+					args: []string{
+						"--extension",
+						"math",
+					},
+				},
+				&evalCmd{
+					expr: "math.greatest(1,2)",
+				},
+			},
+			wantText:  "2 : int",
+			wantExit:  false,
+			wantError: false,
+		},
+		{
+			name: "OptionExtensionEncoders",
+			commands: []Cmder{
+				&simpleCmd{
+					cmd: "option",
+					args: []string{
+						"--extension",
+						"encoders",
+					},
+				},
+				&evalCmd{
+					expr: "base64.encode(b'hello')",
+				},
+			},
+			wantText:  "aGVsbG8= : string",
+			wantExit:  false,
+			wantError: false,
+		},
+		{
+			name: "OptionExtensionAll",
+			commands: []Cmder{
+				&simpleCmd{
+					cmd: "option",
+					args: []string{
+						"--extension",
+						"all",
+					},
+				},
+				&evalCmd{
+					expr: "'test'.substring(2) == 'st' && " +
+						"proto.getExt(google.expr.proto2.test.ExampleType{}, google.expr.proto2.test.int32_ext) == 0 && " +
+						"math.greatest(1,2) == 2 && " +
+						"base64.encode(b'hello') == 'aGVsbG8='",
+				},
+			},
+			wantText:  "true : bool",
+			wantExit:  false,
+			wantError: false,
+		},
+
+		{
 			name: "LoadDescriptorsError",
 			commands: []Cmder{
 				&simpleCmd{
@@ -695,6 +790,7 @@ func TestProcess(t *testing.T) {
 			if err != nil {
 				t.Fatalf("NewEvaluator returned error: %v, wanted nil", err)
 			}
+			eval.env, _ = eval.env.Extend(cel.Types(&proto2pb.ExampleType{}, &proto2pb.ExternalMessageType{}))
 			n := len(tc.commands)
 			for _, cmd := range tc.commands[:n-1] {
 				// only need output of last command
@@ -710,6 +806,66 @@ func TestProcess(t *testing.T) {
 			if text != tc.wantText || exit != tc.wantExit || (gotErr != tc.wantError) {
 				t.Errorf("For command %s got (output: '%s' exit: %v err: %v (%v)) wanted (output: '%s' exit: %v err: %v)",
 					tc.commands[n-1], text, exit, gotErr, err, tc.wantText, tc.wantExit, tc.wantError)
+			}
+		})
+	}
+}
+
+func TestProcessOptionError(t *testing.T) {
+	var testCases = []struct {
+		name     string
+		command  Cmder
+		errorMsg string
+	}{
+		{
+			name: "OptionContainerNotEnoughArgs",
+			command: &simpleCmd{
+				cmd: "option",
+				args: []string{
+					"--container",
+				},
+			},
+			errorMsg: "container: not enough arguments",
+		},
+		{
+			name: "OptionExtensionNotEnoughArgs",
+			command: &simpleCmd{
+				cmd: "option",
+				args: []string{
+					"--extension",
+				},
+			},
+			errorMsg: "extension: not enough arguments",
+		},
+		{
+			name: "OptionExtensionInvalid",
+			command: &simpleCmd{
+				cmd: "option",
+				args: []string{
+					"--extension",
+					"'bogus'",
+				},
+			},
+			errorMsg: "extension: Unknown option: 'bogus'. Available options are: ['strings', 'protos', 'math', 'encoders', 'all']",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			eval, err := NewEvaluator()
+			if err != nil {
+				t.Fatalf("NewEvaluator returned error: %v, wanted nil", err)
+			}
+			_, _, err = eval.Process(tc.command)
+
+			if err == nil {
+				t.Fatalf("Expected an error processing command: %s", tc.command)
+			}
+
+			if err.Error() != tc.errorMsg {
+				t.Errorf("For command %s got (error: '%s') wanted (error: '%s')",
+					tc.command, err.Error(), tc.errorMsg)
 			}
 		})
 	}
