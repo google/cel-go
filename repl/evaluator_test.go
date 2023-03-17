@@ -810,3 +810,63 @@ func TestProcess(t *testing.T) {
 		})
 	}
 }
+
+func TestProcessOptionError(t *testing.T) {
+	var testCases = []struct {
+		name     string
+		command  Cmder
+		errorMsg string
+	}{
+		{
+			name: "OptionContainerNotEnoughArgs",
+			command: &simpleCmd{
+				cmd: "option",
+				args: []string{
+					"--container",
+				},
+			},
+			errorMsg: "container: not enough arguments",
+		},
+		{
+			name: "OptionExtensionNotEnoughArgs",
+			command: &simpleCmd{
+				cmd: "option",
+				args: []string{
+					"--extension",
+				},
+			},
+			errorMsg: "extension: not enough arguments",
+		},
+		{
+			name: "OptionExtensionInvalid",
+			command: &simpleCmd{
+				cmd: "option",
+				args: []string{
+					"--extension",
+					"'bogus'",
+				},
+			},
+			errorMsg: "extension: Unknown option: 'bogus'. Available options are: ['strings', 'protos', 'math', 'encoders', 'all']",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			eval, err := NewEvaluator()
+			if err != nil {
+				t.Fatalf("NewEvaluator returned error: %v, wanted nil", err)
+			}
+			_, _, err = eval.Process(tc.command)
+
+			if err == nil {
+				t.Fatalf("Expected an error processing command: %s", tc.command)
+			}
+
+			if err.Error() != tc.errorMsg {
+				t.Errorf("For command %s got (error: '%s') wanted (error: '%s')",
+					tc.command, err.Error(), tc.errorMsg)
+			}
+		})
+	}
+}

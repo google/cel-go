@@ -720,23 +720,20 @@ func (e *Evaluator) setOption(args []string) error {
 	for idx := 0; idx < len(args); {
 		arg := args[idx]
 		idx++
-		if arg == "--container" {
-			if idx >= len(args) {
-				issues = append(issues, "not enough args for container")
-			}
-			container := args[idx]
+		switch arg {
+		case "--container":
+			err := e.loadContainerOption(idx, args)
 			idx++
-			err := e.AddOption(&containerOption{container: container})
 			if err != nil {
 				issues = append(issues, fmt.Sprintf("container: %v", err))
 			}
-		} else if arg == "--extension" {
+		case "--extension":
 			err := e.loadExtensionOption(idx, args)
 			idx++
 			if err != nil {
 				issues = append(issues, fmt.Sprintf("extension: %v", err))
 			}
-		} else {
+		default:
 			issues = append(issues, fmt.Sprintf("unsupported option '%s'", arg))
 		}
 	}
@@ -746,9 +743,32 @@ func (e *Evaluator) setOption(args []string) error {
 	return nil
 }
 
-func (e *Evaluator) loadExtensionOption(idx int, args []string) error {
+func checkOptionArgs(idx int, args []string) error {
 	if idx >= len(args) {
-		return fmt.Errorf("not enough args for extension")
+		return fmt.Errorf("not enough arguments")
+	}
+	return nil
+}
+
+func (e *Evaluator) loadContainerOption(idx int, args []string) error {
+	err := checkOptionArgs(idx, args)
+	if err != nil {
+		return err
+	}
+
+	container := args[idx]
+	idx++
+	err = e.AddOption(&containerOption{container: container})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (e *Evaluator) loadExtensionOption(idx int, args []string) error {
+	err := checkOptionArgs(idx, args)
+	if err != nil {
+		return err
 	}
 
 	argExtType := args[idx]
