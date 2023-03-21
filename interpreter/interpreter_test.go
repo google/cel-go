@@ -1971,7 +1971,7 @@ func TestInterpreter_TypeConversionOpt(t *testing.T) {
 		src := common.NewTextSource(tc.in)
 		parsed, errors := parser.Parse(src)
 		if len(errors.GetErrors()) != 0 {
-			t.Fatalf(errors.ToDisplayString())
+			t.Fatalf("parser.Parse(%q) failed: %v", tc.in, errors.ToDisplayString())
 		}
 		cont := containers.DefaultContainer
 		reg := newTestRegistry(t)
@@ -2012,6 +2012,59 @@ func TestInterpreter_TypeConversionOpt(t *testing.T) {
 				t.Errorf("got error %s, wanted error %s", errValStr, err.Error())
 			}
 		}
+	}
+}
+
+func TestInterpreter_PlanOptionalElements(t *testing.T) {
+	// [?a] manipulated so the optional index is negative.
+	badOptionalA := &exprpb.Expr{
+		Id: 1,
+		ExprKind: &exprpb.Expr_ListExpr{
+			ListExpr: &exprpb.Expr_CreateList{
+				OptionalIndices: []int32{-1},
+				Elements: []*exprpb.Expr{
+					{
+						Id: 2,
+						ExprKind: &exprpb.Expr_IdentExpr{
+							IdentExpr: &exprpb.Expr_Ident{
+								Name: "a",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	// [?b] manipulated so the optional index is out of range.
+	badOptionalB := &exprpb.Expr{
+		Id: 1,
+		ExprKind: &exprpb.Expr_ListExpr{
+			ListExpr: &exprpb.Expr_CreateList{
+				OptionalIndices: []int32{24},
+				Elements: []*exprpb.Expr{
+					{
+						Id: 2,
+						ExprKind: &exprpb.Expr_IdentExpr{
+							IdentExpr: &exprpb.Expr_Ident{
+								Name: "b",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	cont := containers.DefaultContainer
+	reg := newTestRegistry(t)
+	attrs := NewAttributeFactory(cont, reg, reg)
+	interp := NewStandardInterpreter(cont, reg, reg, attrs)
+	_, err := interp.NewUncheckedInterpretable(badOptionalA, Optimize())
+	if err == nil {
+		t.Fatal("interp.NewUncheckedInterpretable() should have failed with negative optional index: -1")
+	}
+	_, err = interp.NewUncheckedInterpretable(badOptionalB, Optimize())
+	if err == nil {
+		t.Fatal("interp.NewUncheckedInterpretable() should have failed with out of range optional index: 24")
 	}
 }
 
