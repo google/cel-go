@@ -1,0 +1,45 @@
+<div class="repl-console-wrapper" >
+  <h1>REPL Console</h1>
+  
+    <p>Add statements to evaluate.</p>
+    <p>Do not include sensitive data.</p>
+    <span class="reset-wrapper">
+      <button mat-fab (click)="reset()" color="primary" aria-label="Reset REPL statements"><mat-icon>refresh</mat-icon></button>
+    </span>
+
+    <div class="repl-input-block" (keydown)="onEnter($event)">
+        <!-- Inputs for previously entered REPL commands -->
+        <div class="statement-block" *ngFor="let response of lastEvaluate.responses; let i = index">
+            <mat-form-field class="statement-container" appearance="outline">
+                <mat-label>{{i + 1}}</mat-label>
+                
+                <input matInput class="repl-stmt-input"
+                  value="{{lastRequest.commands[i]}}"
+                  [attr.data-stmt-index]="i"
+                  (keydown.ArrowUp)="handleUp(i)"
+                  (keydown.ArrowDown)="handleDown(i)"> 
+                <mat-hint>
+                    <code class="repl-out-ok">{{response.replOutput || (response.issue? '&lt;err&gt;' : '&lt;ok&gt;' ) | trim:80}}</code>
+                </mat-hint>
+      
+            </mat-form-field>
+        </div>
+        
+        <!-- Input for next command -->
+        <div class="statement-block">
+          <mat-form-field class="statement-container" appearance="outline">
+            <mat-label>&gt; </mat-label>
+            <input matInput class="repl-stmt-input repl-stmt-new"
+            (keydown.ArrowUp)="handleUp(numStatements())"
+            (keydown.ArrowDown)="handleDown(numStatements())"
+            [attr.data-stmt-index]="lastRequest.commands.length" value="">
+          </mat-form-field>
+        </div>
+    </div>
+
+    <app-repl-result-detail
+    [lastResponse]="(numStatements())? lastEvaluate.responses[numStatements() - 1] : undefined"
+    [evalTime]="(!!lastEvaluate.evalTime)? lastEvaluate.evalTime : undefined"
+    ></app-repl-result-detail>
+
+</div>
