@@ -92,7 +92,10 @@ func (e astNode) ComputedSize() *SizeEstimate {
 	case *exprpb.Expr_ConstExpr:
 		switch ck := ek.ConstExpr.GetConstantKind().(type) {
 		case *exprpb.Constant_StringValue:
-			v = uint64(len(ck.StringValue))
+			// converting to runes here is an O(n) operation, but
+			// this is consistent with how size is computed at runtime,
+			// and how the language definition defines string size
+			v = uint64(len([]rune(ck.StringValue)))
 		case *exprpb.Constant_BytesValue:
 			v = uint64(len(ck.BytesValue))
 		case *exprpb.Constant_BoolValue, *exprpb.Constant_DoubleValue, *exprpb.Constant_DurationValue,
@@ -508,7 +511,7 @@ func (c *coster) functionCost(function, overloadID string, target *AstNode, args
 	}
 	switch overloadID {
 	// O(n) functions
-	case overloads.StartsWithString, overloads.EndsWithString, overloads.StringToBytes, overloads.BytesToString:
+	case overloads.StartsWithString, overloads.EndsWithString, overloads.StringToBytes, overloads.BytesToString, overloads.ExtQuoteString:
 		if len(args) == 1 {
 			return CallEstimate{CostEstimate: c.sizeEstimate(args[0]).MultiplyByCostFactor(common.StringTraversalCostFactor).Add(argCostSum())}
 		}
