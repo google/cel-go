@@ -24,6 +24,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	proto3pb "github.com/google/cel-go/test/proto3pb"
@@ -1144,98 +1145,116 @@ func unquote(s string) (string, error) {
 
 func TestQuoteUnquote(t *testing.T) {
 	tests := []struct {
-		name                string
-		testStr             string
-		expectedErr         string
-		expectedOutput      string
-		expectedRuntimeCost uint64
-		disableQuote        bool
-		disableCELEval      bool
+		name                  string
+		testStr               string
+		expectedErr           string
+		expectedOutput        string
+		expectedRuntimeCost   uint64
+		expectedEstimatedCost checker.CostEstimate
+		disableQuote          bool
+		disableCELEval        bool
 	}{
 		{
-			name:                "remove quotes only",
-			testStr:             "this is a test",
-			expectedRuntimeCost: 2,
+			name:                  "remove quotes only",
+			testStr:               "this is a test",
+			expectedEstimatedCost: checker.CostEstimate{Min: 2, Max: 2},
+			expectedRuntimeCost:   2,
 		},
 		{
-			name:                "mid-string newline",
-			testStr:             "first\nsecond",
-			expectedRuntimeCost: 2,
+			name:                  "mid-string newline",
+			testStr:               "first\nsecond",
+			expectedEstimatedCost: checker.CostEstimate{Min: 2, Max: 2},
+			expectedRuntimeCost:   2,
 		},
 		{
-			name:                "bell",
-			testStr:             "bell\a",
-			expectedRuntimeCost: 1,
+			name:                  "bell",
+			testStr:               "bell\a",
+			expectedEstimatedCost: checker.CostEstimate{Min: 1, Max: 1},
+			expectedRuntimeCost:   1,
 		},
 		{
-			name:                "backspace",
-			testStr:             "\bbackspace",
-			expectedRuntimeCost: 1,
+			name:                  "backspace",
+			testStr:               "\bbackspace",
+			expectedEstimatedCost: checker.CostEstimate{Min: 1, Max: 1},
+			expectedRuntimeCost:   1,
 		},
 		{
-			name:                "form feed",
-			testStr:             "\fform feed",
-			expectedRuntimeCost: 1,
+			name:                  "form feed",
+			testStr:               "\fform feed",
+			expectedEstimatedCost: checker.CostEstimate{Min: 1, Max: 1},
+			expectedRuntimeCost:   1,
 		},
 		{
-			name:                "carriage return",
-			testStr:             "carriage \r return",
-			expectedRuntimeCost: 2,
+			name:                  "carriage return",
+			testStr:               "carriage \r return",
+			expectedEstimatedCost: checker.CostEstimate{Min: 2, Max: 2},
+			expectedRuntimeCost:   2,
 		},
 		{
-			name:                "horizontal tab",
-			testStr:             "horizontal \ttab",
-			expectedRuntimeCost: 2,
+			name:                  "horizontal tab",
+			testStr:               "horizontal \ttab",
+			expectedEstimatedCost: checker.CostEstimate{Min: 2, Max: 2},
+			expectedRuntimeCost:   2,
 		},
 		{
-			name:                "vertical tab",
-			testStr:             "vertical \v tab",
-			expectedRuntimeCost: 2,
+			name:                  "vertical tab",
+			testStr:               "vertical \v tab",
+			expectedEstimatedCost: checker.CostEstimate{Min: 2, Max: 2},
+			expectedRuntimeCost:   2,
 		},
 		{
-			name:                "double slash",
-			testStr:             "double \\\\ slash",
-			expectedRuntimeCost: 2,
+			name:                  "double slash",
+			testStr:               "double \\\\ slash",
+			expectedEstimatedCost: checker.CostEstimate{Min: 2, Max: 2},
+			expectedRuntimeCost:   2,
 		},
 		{
-			name:                "two escape sequences",
-			testStr:             "two escape sequences \a\n",
-			expectedRuntimeCost: 3,
+			name:                  "two escape sequences",
+			testStr:               "two escape sequences \a\n",
+			expectedEstimatedCost: checker.CostEstimate{Min: 3, Max: 3},
+			expectedRuntimeCost:   3,
 		},
 		{
-			name:                "ends with slash",
-			testStr:             "ends with \\",
-			expectedRuntimeCost: 2,
+			name:                  "ends with slash",
+			testStr:               "ends with \\",
+			expectedEstimatedCost: checker.CostEstimate{Min: 2, Max: 2},
+			expectedRuntimeCost:   2,
 		},
 		{
-			name:                "starts with slash",
-			testStr:             "\\ starts with",
-			expectedRuntimeCost: 2,
+			name:                  "starts with slash",
+			testStr:               "\\ starts with",
+			expectedEstimatedCost: checker.CostEstimate{Min: 2, Max: 2},
+			expectedRuntimeCost:   2,
 		},
 		{
-			name:                "printable unicode",
-			testStr:             "printable unicode😀",
-			expectedRuntimeCost: 2,
+			name:                  "printable unicode",
+			testStr:               "printable unicode😀",
+			expectedEstimatedCost: checker.CostEstimate{Min: 2, Max: 2},
+			expectedRuntimeCost:   2,
 		},
 		{
-			name:                "mid-string quote",
-			testStr:             "mid-string \" quote",
-			expectedRuntimeCost: 2,
+			name:                  "mid-string quote",
+			testStr:               "mid-string \" quote",
+			expectedEstimatedCost: checker.CostEstimate{Min: 2, Max: 2},
+			expectedRuntimeCost:   2,
 		},
 		{
-			name:                "single-quote with double quote",
-			testStr:             `single-quote with "double quote"`,
-			expectedRuntimeCost: 4,
+			name:                  "single-quote with double quote",
+			testStr:               `single-quote with "double quote"`,
+			expectedEstimatedCost: checker.CostEstimate{Min: 4, Max: 4},
+			expectedRuntimeCost:   4,
 		},
 		{
-			name:                "CEL-only escape sequences",
-			testStr:             "\\? and \\`",
-			expectedRuntimeCost: 1,
+			name:                  "CEL-only escape sequences",
+			testStr:               "\\? and \\`",
+			expectedEstimatedCost: checker.CostEstimate{Min: 1, Max: 1},
+			expectedRuntimeCost:   1,
 		},
 		{
-			name:                "test runtime cost",
-			testStr:             "this is a very very very long string used to ensure that cost tracking works",
-			expectedRuntimeCost: 8,
+			name:                  "test cost",
+			testStr:               "this is a very very very long string used to ensure that cost tracking works",
+			expectedEstimatedCost: checker.CostEstimate{Min: 8, Max: 8},
+			expectedRuntimeCost:   8,
 		},
 		{
 			name:         "missing opening quote",
@@ -1272,7 +1291,7 @@ func TestQuoteUnquote(t *testing.T) {
 				if tt.disableCELEval {
 					s, _ = quote(tt.testStr)
 				} else {
-					s = evalWithCEL(tt.testStr, tt.expectedRuntimeCost, t)
+					s = evalWithCEL(tt.testStr, tt.expectedRuntimeCost, tt.expectedEstimatedCost, t)
 				}
 			}
 			output, err := unquote(s)
@@ -1306,7 +1325,15 @@ func (e *noopCostEstimator) CallCost(function, overloadID string, args []ref.Val
 	return nil
 }
 
-func evalWithCEL(input string, expectedRuntimeCost uint64, t *testing.T) string {
+func (e *noopCostEstimator) EstimateCallCost(function, overloadID string, target *checker.AstNode, args []checker.AstNode) *checker.CallEstimate {
+	return nil
+}
+
+func (e *noopCostEstimator) EstimateSize(element checker.AstNode) *checker.SizeEstimate {
+	return nil
+}
+
+func evalWithCEL(input string, expectedRuntimeCost uint64, expectedEstimatedCost checker.CostEstimate, t *testing.T) string {
 	env, err := cel.NewEnv(Strings())
 	if err != nil {
 		t.Fatalf("cel.NewEnv() failed: %v", err)
@@ -1320,7 +1347,19 @@ func evalWithCEL(input string, expectedRuntimeCost uint64, t *testing.T) string 
 	if issues.Err() != nil {
 		t.Fatalf("env.Check() failed: %v", issues.Err())
 	}
-	program, err := env.Program(checkedAst, cel.CostTracking(&noopCostEstimator{}))
+
+	costTracker := &noopCostEstimator{}
+	actualEstimatedCost, err := env.EstimateCost(checkedAst, costTracker)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if expectedEstimatedCost.Min != 0 && expectedEstimatedCost.Max != 0 {
+		if actualEstimatedCost.Min != expectedEstimatedCost.Min && actualEstimatedCost.Max != expectedEstimatedCost.Max {
+			t.Fatalf("expected estimated cost range to be %v, was %v", expectedEstimatedCost, actualEstimatedCost)
+		}
+	}
+
+	program, err := env.Program(checkedAst, cel.CostTracking(costTracker))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1336,6 +1375,11 @@ func evalWithCEL(input string, expectedRuntimeCost uint64, t *testing.T) string 
 	if expectedRuntimeCost != 0 {
 		if *evalDetails.ActualCost() != expectedRuntimeCost {
 			t.Fatalf("expected runtime cost of %d, got %d", expectedRuntimeCost, *evalDetails.ActualCost())
+		}
+		if expectedEstimatedCost.Min != 0 && expectedEstimatedCost.Max != 0 {
+			if *evalDetails.ActualCost() < expectedEstimatedCost.Min || *evalDetails.ActualCost() > expectedEstimatedCost.Max {
+				t.Fatalf("runtime cost %d outside of expected estimated cost range %v", *evalDetails.ActualCost(), expectedEstimatedCost)
+			}
 		}
 	}
 	if out.Type() != types.StringType {
