@@ -297,18 +297,17 @@ func (p *parserHelper) addMacroCall(exprID int64, function string, target *exprp
 	}
 }
 
-// logicManager performs tree balancing on operators whose arguments are of equal precedence.
+// logicManager compacts logical trees into a more efficient structure which is semantically
+// equivalent with how the logic graph is constructed by the ANTLR parser.
 //
 // The purpose of the logicManager is to ensure a compact serialization format for the logical &&, ||
 // operators which have a tendency to create long DAGs which are skewed in one direction. Since the
 // operators are commutative re-ordering the terms *must not* affect the evaluation result.
 //
-// Re-balancing the terms is a safe, if somewhat controversial choice. A better solution would be
-// to make these functions variadic and update both the checker and interpreter to understand this;
-// however, this is a more complex change.
-//
-// TODO: Consider replacing tree-balancing with variadic logical &&, || within the parser, checker,
-// and interpreter.
+// The logic manager will either render the terms to N-chained && / || operators as a single logical
+// call with N-terms, or will rebalance the tree. Rebalancing the terms is a safe, if somewhat
+// controversial choice as it alters the traditional order of execution assumptions present in most
+// expressions.
 type logicManager struct {
 	helper       *parserHelper
 	function     string
