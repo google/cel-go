@@ -17,7 +17,6 @@ package cel
 import (
 	"context"
 	"fmt"
-	"math"
 	"sync"
 
 	"github.com/google/cel-go/common/types"
@@ -329,11 +328,6 @@ func (p *prog) ContextEval(ctx context.Context, input any) (ref.Val, *EvalDetail
 	return p.Eval(vars)
 }
 
-// Cost implements the Coster interface method.
-func (p *prog) Cost() (min, max int64) {
-	return estimateCost(p.interpretable)
-}
-
 // progFactory is a helper alias for marking a program creation factory function.
 type progFactory func(interpreter.EvalState, *interpreter.CostTracker) (Program, error)
 
@@ -404,29 +398,6 @@ func (gen *progGen) ContextEval(ctx context.Context, input any) (ref.Val, *EvalD
 		return v, det, err
 	}
 	return v, det, nil
-}
-
-// Cost implements the Coster interface method.
-func (gen *progGen) Cost() (min, max int64) {
-	// Use an empty state value since no evaluation is performed.
-	p, err := gen.factory(emptyEvalState, nil)
-	if err != nil {
-		return 0, math.MaxInt64
-	}
-	return estimateCost(p)
-}
-
-// EstimateCost returns the heuristic cost interval for the program.
-func EstimateCost(p Program) (min, max int64) {
-	return estimateCost(p)
-}
-
-func estimateCost(i any) (min, max int64) {
-	c, ok := i.(interpreter.Coster)
-	if !ok {
-		return 0, math.MaxInt64
-	}
-	return c.Cost()
 }
 
 type ctxEvalActivation struct {
