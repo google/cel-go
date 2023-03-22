@@ -360,6 +360,22 @@ func (c *checker) resolveOverload(
 			continue
 		}
 
+		// Alternative type-checking behavior when the logical operators are compacted into
+		// variadic AST representations.
+		if fn.GetName() == operators.LogicalAnd || fn.GetName() == operators.LogicalOr {
+			checkedRef = newFunctionReference(overload.GetOverloadId())
+			for i, argType := range argTypes {
+				if !c.isAssignable(argType, decls.Bool) {
+					c.errors.typeMismatch(c.locationByID(args[i].GetId()), decls.Bool, argType)
+					resultType = decls.Error
+				}
+			}
+			if isError(resultType) {
+				return nil
+			}
+			return newResolution(checkedRef, decls.Bool)
+		}
+
 		overloadType := decls.NewFunctionType(overload.ResultType, overload.Params...)
 		if len(overload.GetTypeParams()) > 0 {
 			// Instantiate overload's type with fresh type variables.
@@ -389,8 +405,8 @@ func (c *checker) resolveOverload(
 	}
 
 	if resultType == nil {
-		for i, arg := range argTypes {
-			argTypes[i] = substitute(c.mappings, arg, true)
+		for i, argType := range argTypes {
+			argTypes[i] = substitute(c.mappings, argType, true)
 		}
 		c.errors.noMatchingOverload(call.GetId(), c.location(call), fn.GetName(), argTypes, target != nil)
 		return nil

@@ -964,9 +964,9 @@ ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, nul
 ERROR: <input>:1:1: expression of type 'google.expr.proto3.test.TestAllTypes' cannot be range of a comprehension (must be list, map, or dynamic)
  | x.all(e, 0)
  | ^
-ERROR: <input>:1:6: found no matching overload for '_&&_' applied to '(bool, int)'
+ERROR: <input>:1:10: expected type 'bool' but found 'int'
  | x.all(e, 0)
- | .....^
+ | .........^
 		`,
 	},
 	{
@@ -1079,6 +1079,51 @@ ERROR: <input>:1:5: undeclared reference to 'x' (in container '')
 				)~bool^greater_equals_bool|greater_equals_int64|greater_equals_int64_double|greater_equals_int64_uint64|greater_equals_uint64|greater_equals_uint64_double|greater_equals_uint64_int64|greater_equals_double|greater_equals_double_int64|greater_equals_double_uint64|greater_equals_string|greater_equals_bytes|greater_equals_timestamp|greater_equals_duration
 			)~bool^logical_or
 		)~bool^logical_or
+		`,
+		outType: decls.Bool,
+	},
+
+	{
+		in: `x == google.protobuf.Any{
+				type_url:'types.googleapis.com/google.expr.proto3.test.TestAllTypes'
+			} && x.single_nested_message.bb == 43
+			|| x == google.expr.proto3.test.TestAllTypes{}
+			|| y < x
+			|| x >= x`,
+		env: testEnv{
+			variadicASTs: true,
+			idents: []*exprpb.Decl{
+				decls.NewVar("x", decls.Any),
+				decls.NewVar("y", decls.NewWrapperType(decls.Int)),
+			},
+		},
+		out: `
+		_||_(
+			_&&_(
+			  _==_(
+				x~any^x,
+				google.protobuf.Any{
+				  type_url:"types.googleapis.com/google.expr.proto3.test.TestAllTypes"~string
+				}~any^google.protobuf.Any
+			  )~bool^equals,
+			  _==_(
+				x~any^x.single_nested_message~dyn.bb~dyn,
+				43~int
+			  )~bool^equals
+			)~bool^logical_and,
+			_==_(
+			  x~any^x,
+			  google.expr.proto3.test.TestAllTypes{}~google.expr.proto3.test.TestAllTypes^google.expr.proto3.test.TestAllTypes
+			)~bool^equals,
+			_<_(
+			  y~wrapper(int)^y,
+			  x~any^x
+			)~bool^less_int64|less_int64_double|less_int64_uint64,
+			_>=_(
+			  x~any^x,
+			  x~any^x
+			)~bool^greater_equals_bool|greater_equals_int64|greater_equals_int64_double|greater_equals_int64_uint64|greater_equals_uint64|greater_equals_uint64_double|greater_equals_uint64_int64|greater_equals_double|greater_equals_double_int64|greater_equals_double_uint64|greater_equals_string|greater_equals_bytes|greater_equals_timestamp|greater_equals_duration
+		  )~bool^logical_or
 		`,
 		outType: decls.Bool,
 	},
@@ -1858,6 +1903,39 @@ _&&_(_==_(list~type(list(dyn))^list,
 		  )~bool^logical_and`,
 	},
 	{
+		in:      `1 >= 1.0 && 1u >= 1.0 && 1.0 >= 1 && 1.0 >= 1u && 1 >= 1u && 1u >= 1`,
+		opts:    []Option{CrossTypeNumericComparisons(true)},
+		env:     testEnv{variadicASTs: true},
+		outType: decls.Bool,
+		out: `
+		_&&_(
+			_>=_(
+			  1~int,
+			  1~double
+			)~bool^greater_equals_int64_double,
+			_>=_(
+			  1u~uint,
+			  1~double
+			)~bool^greater_equals_uint64_double,
+			_>=_(
+			  1~double,
+			  1~int
+			)~bool^greater_equals_double_int64,
+			_>=_(
+			  1~double,
+			  1u~uint
+			)~bool^greater_equals_double_uint64,
+			_>=_(
+			  1~int,
+			  1u~uint
+			)~bool^greater_equals_int64_uint64,
+			_>=_(
+			  1u~uint,
+			  1~int
+			)~bool^greater_equals_uint64_int64
+		  )~bool^logical_and`,
+	},
+	{
 		in:      `[1].map(x, [x, x]).map(x, [x, x])`,
 		outType: decls.NewListType(decls.NewListType(decls.NewListType(decls.Int))),
 		out: `__comprehension__(
@@ -2040,6 +2118,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 	{
 		in: `a.?b`,
 		env: testEnv{
+			optionalSyntax: true,
 			idents: []*exprpb.Decl{
 				decls.NewVar("a", decls.NewMapType(decls.String, decls.String)),
 			},
@@ -2083,6 +2162,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 	{
 		in: `has(a.?b.c)`,
 		env: testEnv{
+			optionalSyntax: true,
 			idents: []*exprpb.Decl{
 				decls.NewVar("a", decls.NewOptionalType(decls.NewMapType(decls.String, decls.Dyn))),
 			},
@@ -2095,6 +2175,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 	},
 	{
 		in:      `{?'key': {'a': 'b'}.?value}`,
+		env:     testEnv{optionalSyntax: true},
 		outType: decls.NewMapType(decls.String, decls.String),
 		out: `{
 			?"key"~string:_?._(
@@ -2107,6 +2188,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 	},
 	{
 		in:      `{?'key': {'a': 'b'}.?value}.key`,
+		env:     testEnv{optionalSyntax: true},
 		outType: decls.String,
 		out: `{
 			?"key"~string:_?._(
@@ -2120,6 +2202,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 	{
 		in: `{?'nested': a.b}`,
 		env: testEnv{
+			optionalSyntax: true,
 			idents: []*exprpb.Decl{
 				decls.NewVar("a", decls.NewOptionalType(decls.NewMapType(decls.String, decls.String))),
 			},
@@ -2130,7 +2213,8 @@ _&&_(_==_(list~type(list(dyn))^list,
 		  }~map(string, string)`,
 	},
 	{
-		in: `{?'key': 'hi'}`,
+		in:  `{?'key': 'hi'}`,
+		env: testEnv{optionalSyntax: true},
 		err: `ERROR: <input>:1:10: expected type 'optional(string)' but found 'string'
 		| {?'key': 'hi'}
 		| .........^`,
@@ -2138,6 +2222,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 	{
 		in: `[?a, ?b, 'world']`,
 		env: testEnv{
+			optionalSyntax: true,
 			idents: []*exprpb.Decl{
 				decls.NewVar("a", decls.NewOptionalType(decls.String)),
 				decls.NewVar("b", decls.NewOptionalType(decls.String)),
@@ -2151,7 +2236,8 @@ _&&_(_==_(list~type(list(dyn))^list,
 		  ]~list(string)`,
 	},
 	{
-		in: `[?'value']`,
+		in:  `[?'value']`,
+		env: testEnv{optionalSyntax: true},
 		err: `ERROR: <input>:1:3: expected type 'optional(string)' but found 'string'
 		| [?'value']
 		| ..^`,
@@ -2159,6 +2245,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 	{
 		in:        `TestAllTypes{?single_int32: {}.?i}`,
 		container: "google.expr.proto2.test",
+		env:       testEnv{optionalSyntax: true},
 		out: `google.expr.proto2.test.TestAllTypes{
 			?single_int32:_?._(
 			  {}~map(dyn, int),
@@ -2172,6 +2259,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 	{
 		in:        `TestAllTypes{?single_int32: 1}`,
 		container: "google.expr.proto2.test",
+		env:       testEnv{optionalSyntax: true},
 		err: `ERROR: <input>:1:29: expected type 'optional(int)' but found 'int'
 		| TestAllTypes{?single_int32: 1}
 		| ............................^`,
@@ -2226,13 +2314,14 @@ type testInfo struct {
 }
 
 type testEnv struct {
-	idents    []*exprpb.Decl
-	functions []*exprpb.Decl
+	idents         []*exprpb.Decl
+	functions      []*exprpb.Decl
+	variadicASTs   bool
+	optionalSyntax bool
 }
 
 func TestCheck(t *testing.T) {
 	p, err := parser.NewParser(
-		parser.EnableOptionalSyntax(true),
 		parser.Macros(parser.AllMacros...),
 	)
 	if err != nil {
@@ -2247,8 +2336,16 @@ func TestCheck(t *testing.T) {
 			// due to shared mutable state across tests.
 			t.Parallel()
 
+			tcParser := p
+			if tc.env.optionalSyntax || tc.env.variadicASTs {
+				tcParser, err = parser.NewParser(
+					parser.Macros(parser.AllMacros...),
+					parser.EnableOptionalSyntax(tc.env.optionalSyntax),
+					parser.EnableVariadicOperatorASTs(tc.env.variadicASTs),
+				)
+			}
 			src := common.NewTextSource(tc.in)
-			pAst, errors := p.Parse(src)
+			pAst, errors := tcParser.Parse(src)
 			if len(errors.GetErrors()) > 0 {
 				t.Fatalf("Unexpected parse errors: %v", errors.ToDisplayString())
 			}

@@ -202,9 +202,8 @@ func (cons *evalConst) Value() ref.Val {
 }
 
 type evalOr struct {
-	id  int64
-	lhs Interpretable
-	rhs Interpretable
+	id    int64
+	terms []Interpretable
 }
 
 // ID implements the Interpretable interface method.
@@ -214,41 +213,46 @@ func (or *evalOr) ID() int64 {
 
 // Eval implements the Interpretable interface method.
 func (or *evalOr) Eval(ctx Activation) ref.Val {
-	// short-circuit lhs.
-	lVal := or.lhs.Eval(ctx)
-	lBool, lok := lVal.(types.Bool)
-	if lok && lBool == types.True {
-		return types.True
+	var err ref.Val = nil
+	var unk types.Unknown = nil
+	for _, term := range or.terms {
+		val := term.Eval(ctx)
+		boolVal, ok := val.(types.Bool)
+		// short-circuit on true.
+		if ok && boolVal == types.True {
+			return types.True
+		}
+		if !ok {
+			if types.IsUnknown(val) {
+				if unk == nil {
+					unk = types.Unknown{}
+				}
+				unk = append(unk, val.(types.Unknown)...)
+				continue
+			}
+			if types.IsError(val) {
+				if unk == nil && err == nil {
+					err = val
+				}
+				continue
+			}
+			if unk == nil {
+				err = types.MaybeNoSuchOverloadErr(val)
+			}
+		}
 	}
-	// short-circuit on rhs.
-	rVal := or.rhs.Eval(ctx)
-	rBool, rok := rVal.(types.Bool)
-	if rok && rBool == types.True {
-		return types.True
+	if unk != nil {
+		return unk
 	}
-	// return if both sides are bool false.
-	if lok && rok {
-		return types.False
+	if err != nil {
+		return err
 	}
-	// TODO: return both values as a set if both are unknown or error.
-	// prefer left unknown to right unknown.
-	if types.IsUnknown(lVal) {
-		return lVal
-	}
-	if types.IsUnknown(rVal) {
-		return rVal
-	}
-	// If the left-hand side is non-boolean return it as the error.
-	if types.IsError(lVal) {
-		return lVal
-	}
-	return types.ValOrErr(rVal, "no such overload")
+	return types.False
 }
 
 type evalAnd struct {
-	id  int64
-	lhs Interpretable
-	rhs Interpretable
+	id    int64
+	terms []Interpretable
 }
 
 // ID implements the Interpretable interface method.
@@ -258,35 +262,41 @@ func (and *evalAnd) ID() int64 {
 
 // Eval implements the Interpretable interface method.
 func (and *evalAnd) Eval(ctx Activation) ref.Val {
-	// short-circuit lhs.
-	lVal := and.lhs.Eval(ctx)
-	lBool, lok := lVal.(types.Bool)
-	if lok && lBool == types.False {
-		return types.False
+	var err ref.Val = nil
+	var unk types.Unknown = nil
+	for _, term := range and.terms {
+		val := term.Eval(ctx)
+		boolVal, ok := val.(types.Bool)
+		// short-circuit on false.
+		if ok && boolVal == types.False {
+			return types.False
+		}
+		if !ok {
+			if types.IsUnknown(val) {
+				if unk == nil {
+					unk = types.Unknown{}
+				}
+				unk = append(unk, val.(types.Unknown)...)
+				continue
+			}
+			if types.IsError(val) {
+				if unk == nil && err == nil {
+					err = val
+				}
+				continue
+			}
+			if unk == nil {
+				err = types.MaybeNoSuchOverloadErr(val)
+			}
+		}
 	}
-	// short-circuit on rhs.
-	rVal := and.rhs.Eval(ctx)
-	rBool, rok := rVal.(types.Bool)
-	if rok && rBool == types.False {
-		return types.False
+	if unk != nil {
+		return unk
 	}
-	// return if both sides are bool true.
-	if lok && rok {
-		return types.True
+	if err != nil {
+		return err
 	}
-	// TODO: return both values as a set if both are unknown or error.
-	// prefer left unknown to right unknown.
-	if types.IsUnknown(lVal) {
-		return lVal
-	}
-	if types.IsUnknown(rVal) {
-		return rVal
-	}
-	// If the left-hand side is non-boolean return it as the error.
-	if types.IsError(lVal) {
-		return lVal
-	}
-	return types.ValOrErr(rVal, "no such overload")
+	return types.True
 }
 
 type evalEq struct {
@@ -986,9 +996,8 @@ func (e *evalWatchConst) Eval(vars Activation) ref.Val {
 
 // evalExhaustiveOr is just like evalOr, but does not short-circuit argument evaluation.
 type evalExhaustiveOr struct {
-	id  int64
-	lhs Interpretable
-	rhs Interpretable
+	id    int64
+	terms []Interpretable
 }
 
 // ID implements the Interpretable interface method.
@@ -998,38 +1007,51 @@ func (or *evalExhaustiveOr) ID() int64 {
 
 // Eval implements the Interpretable interface method.
 func (or *evalExhaustiveOr) Eval(ctx Activation) ref.Val {
-	lVal := or.lhs.Eval(ctx)
-	rVal := or.rhs.Eval(ctx)
-	lBool, lok := lVal.(types.Bool)
-	if lok && lBool == types.True {
+	var err ref.Val = nil
+	var unk types.Unknown = nil
+	isTrue := false
+	for _, term := range or.terms {
+		val := term.Eval(ctx)
+		boolVal, ok := val.(types.Bool)
+		// flag the result as true
+		if ok && boolVal == types.True {
+			isTrue = true
+		}
+		if !ok && !isTrue {
+			if types.IsUnknown(val) {
+				if unk == nil {
+					unk = types.Unknown{}
+				}
+				unk = append(unk, val.(types.Unknown)...)
+				continue
+			}
+			if types.IsError(val) {
+				if unk == nil && err == nil {
+					err = val
+				}
+				continue
+			}
+			if unk == nil {
+				err = types.MaybeNoSuchOverloadErr(val)
+			}
+		}
+	}
+	if isTrue {
 		return types.True
 	}
-	rBool, rok := rVal.(types.Bool)
-	if rok && rBool == types.True {
-		return types.True
+	if unk != nil {
+		return unk
 	}
-	if lok && rok {
-		return types.False
+	if err != nil {
+		return err
 	}
-	if types.IsUnknown(lVal) {
-		return lVal
-	}
-	if types.IsUnknown(rVal) {
-		return rVal
-	}
-	// TODO: Combine the errors into a set in the future.
-	// If the left-hand side is non-boolean return it as the error.
-	if types.IsError(lVal) {
-		return lVal
-	}
-	return types.MaybeNoSuchOverloadErr(rVal)
+	return types.False
 }
 
 // evalExhaustiveAnd is just like evalAnd, but does not short-circuit argument evaluation.
 type evalExhaustiveAnd struct {
-	id  int64
-	lhs Interpretable
-	rhs Interpretable
+	id    int64
+	terms []Interpretable
 }
 
 // ID implements the Interpretable interface method.
@@ -1039,31 +1061,45 @@ func (and *evalExhaustiveAnd) ID() int64 {
 
 // Eval implements the Interpretable interface method.
 func (and *evalExhaustiveAnd) Eval(ctx Activation) ref.Val {
-	lVal := and.lhs.Eval(ctx)
-	rVal := and.rhs.Eval(ctx)
-	lBool, lok := lVal.(types.Bool)
-	if lok && lBool == types.False {
+	var err ref.Val = nil
+	var unk types.Unknown = nil
+	isFalse := false
+	for _, term := range and.terms {
+		val := term.Eval(ctx)
+		boolVal, ok := val.(types.Bool)
+		// short-circuit on false.
+		if ok && boolVal == types.False {
+			isFalse = true
+		}
+		if !ok && !isFalse {
+			if types.IsUnknown(val) {
+				if unk == nil {
+					unk = types.Unknown{}
+				}
+				unk = append(unk, val.(types.Unknown)...)
+				continue
+			}
+			if types.IsError(val) {
+				if unk == nil && err == nil {
+					err = val
+				}
+				continue
+			}
+			if unk == nil {
+				err = types.MaybeNoSuchOverloadErr(val)
+			}
+		}
+	}
+	if isFalse {
 		return types.False
 	}
-	rBool, rok := rVal.(types.Bool)
-	if rok && rBool == types.False {
-		return types.False
+	if unk != nil {
+		return unk
 	}
-	if lok && rok {
-		return types.True
+	if err != nil {
+		return err
 	}
-	if types.IsUnknown(lVal) {
-		return lVal
-	}
-	if types.IsUnknown(rVal) {
-		return rVal
-	}
-	// TODO: Combine the errors into a set in the future.
-	// If the left-hand side is non-boolean return it as the error.
-	if types.IsError(lVal) {
-		return lVal
-	}
-	return types.MaybeNoSuchOverloadErr(rVal)
+	return types.True
 }
 
 // evalExhaustiveConditional is like evalConditional, but does not short-circuit argument

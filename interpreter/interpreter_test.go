@@ -2004,6 +2004,7 @@ func program(ctx any, tst *testCase, opts ...InterpretableDecorator) (Interpreta
 	p, err := parser.NewParser(
 		parser.Macros(parser.AllMacros...),
 		parser.EnableOptionalSyntax(true),
+		parser.EnableVariadicOperatorASTs(true),
 	)
 	if err != nil {
 		return nil, nil, err
