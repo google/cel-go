@@ -92,6 +92,9 @@ func (e astNode) ComputedSize() *SizeEstimate {
 	case *exprpb.Expr_ConstExpr:
 		switch ck := ek.ConstExpr.GetConstantKind().(type) {
 		case *exprpb.Constant_StringValue:
+			// converting to runes here is an O(n) operation, but
+			// this is consistent with how size is computed at runtime,
+			// and how the language definition defines string size
 			v = uint64(len([]rune(ck.StringValue)))
 		case *exprpb.Constant_BytesValue:
 			v = uint64(len(ck.BytesValue))
