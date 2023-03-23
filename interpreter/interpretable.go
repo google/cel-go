@@ -1119,11 +1119,6 @@ func (c *evalWatchConstructor) Eval(ctx Activation) ref.Val {
 	return val
 }
 
-// Cost implements the Coster interface method.
-func (c *evalWatchConstructor) Cost() (min, max int64) {
-	return estimateCost(c.constructor)
-}
-
 func invalidOptionalEntryInit(field any, value ref.Val) ref.Val {
 	return types.NewErr("cannot initialize optional entry '%v' from non-optional value %v", field, value)
 }
