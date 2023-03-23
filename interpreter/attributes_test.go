@@ -66,10 +66,6 @@ func TestAttributesAbsoluteAttr(t *testing.T) {
 	if out != types.String("success") {
 		t.Errorf("Got %v (%T), wanted success", out, out)
 	}
-	wantedMin, wantedMax := int64(1), int64(1)
-	if min, max := estimateCost(attr); min != wantedMin || max != wantedMax {
-		t.Errorf("Got cost interval [%v, %v], wanted [%v, %v]", min, max, wantedMin, wantedMax)
-	}
 }
 
 func TestAttributesAbsoluteAttr_Type(t *testing.T) {
@@ -84,10 +80,6 @@ func TestAttributesAbsoluteAttr_Type(t *testing.T) {
 	}
 	if out != types.IntType {
 		t.Errorf("Got %v, wanted success", out)
-	}
-	wantedMin, wantedMax := int64(1), int64(1)
-	if min, max := estimateCost(attr); min != wantedMin || max != wantedMax {
-		t.Errorf("Got cost interval [%v, %v], wanted [%v, %v]", min, max, wantedMin, wantedMax)
 	}
 }
 
@@ -122,10 +114,6 @@ func TestAttributesRelativeAttr(t *testing.T) {
 	}
 	if out != types.Int(42) {
 		t.Errorf("Got %v (%T), wanted 42", out, out)
-	}
-	wantedMin, wantedMax := int64(1), int64(1)
-	if min, max := estimateCost(attr); min != wantedMin || max != wantedMax {
-		t.Errorf("Got cost interval [%v, %v], wanted [%v, %v]", min, max, wantedMin, wantedMax)
 	}
 }
 
@@ -172,10 +160,6 @@ func TestAttributesRelativeAttrOneOf(t *testing.T) {
 	if out != types.Int(42) {
 		t.Errorf("Got %v (%T), wanted 42", out, out)
 	}
-	wantedMin, wantedMax := int64(1), int64(1)
-	if min, max := estimateCost(attr); min != wantedMin || max != wantedMax {
-		t.Errorf("Got cost interval [%v, %v], wanted [%v, %v]", min, max, wantedMin, wantedMax)
-	}
 }
 
 func TestAttributesRelativeAttrConditional(t *testing.T) {
@@ -221,10 +205,6 @@ func TestAttributesRelativeAttrConditional(t *testing.T) {
 	}
 	if out != types.Int(42) {
 		t.Errorf("Got %v (%T), wanted 42", out, out)
-	}
-	wantedMin, wantedMax := int64(1), int64(1)
-	if min, max := estimateCost(attr); min != wantedMin || max != wantedMax {
-		t.Errorf("Got cost interval [%v, %v], wanted [%v, %v]", min, max, wantedMin, wantedMax)
 	}
 }
 
@@ -296,10 +276,6 @@ func TestAttributesRelativeAttrRelativeQualifier(t *testing.T) {
 	if out != types.Uint(2) {
 		t.Errorf("Got %v (%T), wanted 2", out, out)
 	}
-	wantedMin, wantedMax := int64(1), int64(1)
-	if min, max := estimateCost(attr); min != wantedMin || max != wantedMax {
-		t.Errorf("Got cost interval [%v, %v], wanted [%v, %v]", min, max, wantedMin, wantedMax)
-	}
 }
 
 func TestAttributesOneofAttr(t *testing.T) {
@@ -328,10 +304,6 @@ func TestAttributesOneofAttr(t *testing.T) {
 	}
 	if out != "found" {
 		t.Errorf("Got %v, wanted 'found'", out)
-	}
-	wantedMin, wantedMax := int64(1), int64(1)
-	if min, max := estimateCost(attr); min != wantedMin || max != wantedMax {
-		t.Errorf("Got cost interval [%v, %v], wanted [%v, %v]", min, max, wantedMin, wantedMax)
 	}
 }
 
@@ -367,10 +339,6 @@ func TestAttributesConditionalAttrTrueBranch(t *testing.T) {
 	if out != int32(42) {
 		t.Errorf("Got %v (%T), wanted 42", out, out)
 	}
-	wantedMin, wantedMax := int64(1), int64(1)
-	if min, max := estimateCost(fv); min != wantedMin || max != wantedMax {
-		t.Errorf("Got cost interval [%v, %v], wanted [%v, %v]", min, max, wantedMin, wantedMax)
-	}
 }
 
 func TestAttributesConditionalAttrFalseBranch(t *testing.T) {
@@ -404,10 +372,6 @@ func TestAttributesConditionalAttrFalseBranch(t *testing.T) {
 	}
 	if out != uint(42) {
 		t.Errorf("Got %v (%T), wanted 42", out, out)
-	}
-	wantedMin, wantedMax := int64(1), int64(1)
-	if min, max := estimateCost(fv); min != wantedMin || max != wantedMax {
-		t.Errorf("Got cost interval [%v, %v], wanted [%v, %v]", min, max, wantedMin, wantedMax)
 	}
 }
 
@@ -774,10 +738,6 @@ func TestAttributesConditionalAttrErrorUnknown(t *testing.T) {
 	if err == nil {
 		t.Errorf("Got %v, wanted error", out)
 	}
-	wantedMin, wantedMax := int64(1), int64(1)
-	if min, max := estimateCost(fv); min != wantedMin || max != wantedMax {
-		t.Errorf("Got cost interval [%v, %v], wanted [%v, %v]", min, max, wantedMin, wantedMax)
-	}
 
 	// unk ? a : b
 	condUnk := attrs.ConditionalAttribute(1, NewConstValue(0, types.Unknown{1}), tv, fv)
@@ -788,10 +748,6 @@ func TestAttributesConditionalAttrErrorUnknown(t *testing.T) {
 	unk, ok := out.(types.Unknown)
 	if !ok || !types.IsUnknown(unk) {
 		t.Errorf("Got %v, wanted unknown", out)
-	}
-	wantedMin, wantedMax = int64(1), int64(1)
-	if min, max := estimateCost(fv); min != wantedMin || max != wantedMax {
-		t.Errorf("Got cost interval [%v, %v], wanted [%v, %v]", min, max, wantedMin, wantedMax)
 	}
 }
 
@@ -853,10 +809,6 @@ func TestResolverCustomQualifier(t *testing.T) {
 	}
 	if out != int32(123) {
 		t.Errorf("Got %v, wanted 123", out)
-	}
-	wantedMin, wantedMax := int64(1), int64(1)
-	if min, max := estimateCost(attr); min != wantedMin || max != wantedMax {
-		t.Errorf("Got cost interval [%v, %v], wanted [%v, %v]", min, max, wantedMin, wantedMax)
 	}
 }
 
@@ -1129,11 +1081,6 @@ func (q *nestedMsgQualifier) QualifyIfPresent(vars Activation, obj any, presence
 
 func (q *nestedMsgQualifier) IsOptional() bool {
 	return false
-}
-
-// Cost implements the Coster interface method. It returns zero for testing purposes.
-func (q *nestedMsgQualifier) Cost() (min, max int64) {
-	return 0, 0
 }
 
 func addQualifier(t testing.TB, attr Attribute, qual Qualifier) Attribute {
