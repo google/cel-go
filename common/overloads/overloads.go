@@ -161,6 +161,11 @@ const (
 	StartsWithString = "starts_with_string"
 )
 
+// Extension function overloads with complex behaviors that need to be referenced in runtime and static analysis cost computations.
+const (
+	ExtFormatString = "string_format"
+)
+
 // Time-based functions.
 const (
 	TimeGetFullYear     = "getFullYear"

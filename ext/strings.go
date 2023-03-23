@@ -18,12 +18,10 @@
 package ext
 
 import (
-	"errors"
 	"fmt"
 	"math"
 	"reflect"
 	"sort"
-	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -35,6 +33,7 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
+	"github.com/google/cel-go/interpreter"
 )
 
 const (
@@ -100,8 +99,10 @@ const (
 //	"a map inside a list: %s".format([[1, 2, 3, {"a": "x", "b": "y", "c": "z"}]]) // returns "a map inside a list: [1, 2, 3, {"a":"x", "b":"y", "c":"d"}]"
 //	"true bool: %s - false bool: %s\nbinary bool: %b".format([true, false, true]) // returns "true bool: true - false bool: false\nbinary bool: 1"
 //
-// Passing an incorrect type (an integer to `%s`) or mismatching the number of arguments (putting 3
-// formatting clauses but passing two variables, or vice-versa) is considered an error.
+// Passing an incorrect type (an integer to `%s`) is considered an error, as well as attempting
+// to use more formatting clauses than there are arguments (`%d %d %d` while passing two ints, for instance).
+// If compile-time checking is enabled, and the formatting string is a constant, and the argument list is a literal,
+// then letting any arguments go unused/unformatted is also considered an error.
 //
 // # IndexOf
 //
@@ -455,7 +456,7 @@ func (sl *stringLib) CompileOptions() []cel.EnvOption {
 				cel.FunctionBinding(func(args ...ref.Val) ref.Val {
 					s := args[0].(types.String).Value().(string)
 					formatArgs := args[1].(traits.Lister)
-					return stringOrError(stringFormatWithLocale(s, formatArgs, formatLocale))
+					return stringOrError(interpreter.ParseFormatString(s, &stringFormatter{}, &stringArgList{formatArgs}, formatLocale))
 				}))),
 			cel.Function("strings.quote", cel.Overload("strings_quote", []*cel.Type{cel.StringType}, cel.StringType,
 				cel.UnaryBinding(func(str ref.Val) ref.Val {
@@ -620,79 +621,6 @@ func joinSeparator(strs []string, separator string) (string, error) {
 
 func join(strs []string) (string, error) {
 	return strings.Join(strs, ""), nil
-}
-
-func stringFormatWithLocale(formatStr string, argList traits.Lister, locale string) (string, error) {
-	i := 0
-	argIndex := 0
-	var builtStr strings.Builder
-	for i < len(formatStr) {
-		if formatStr[i] == '%' {
-			if i+1 < len(formatStr) && formatStr[i+1] == '%' {
-				err := builtStr.WriteByte('%')
-				if err != nil {
-					return "", fmt.Errorf("error writing format string: %w", err)
-				}
-				i += 2
-				continue
-			} else {
-				newStrIndex, val, refErr := parseFormatArg(i, argIndex, formatStr, argList, locale)
-				if refErr != nil {
-					return "", refErr
-				}
-				_, err := builtStr.WriteString(val)
-				if err != nil {
-					return "", fmt.Errorf("error writing format string: %w", err)
-				}
-				i = newStrIndex
-				argIndex++
-			}
-		} else {
-			err := builtStr.WriteByte(formatStr[i])
-			if err != nil {
-				return "", fmt.Errorf("error writing format string: %w", err)
-			}
-			i++
-		}
-	}
-	return builtStr.String(), nil
-}
-
-// parseFormatArg takes the most recently-parsed string index, the next argument index to be used,
-// the complete formatting string,, the args passed to string.format, and the locale (or an
-// empty string if no locale was set). It returns the next index in the formatting string that
-// should be parsed, as well as a string containing the formatted argument, or an error if a problem
-// was encountered.
-func parseFormatArg(lastStrIndex, argIndex int, formatStr string, args traits.Lister, locale string) (int, string, error) {
-	if lastStrIndex+1 >= len(formatStr) {
-		return -1, "", errors.New("unexpected end of string")
-	}
-	refSize := args.Size()
-	argSize, ok := refSize.(types.Int)
-	if !ok {
-		return -1, "", errors.New("couldn't convert arg size")
-	}
-	if types.Int(argIndex) >= argSize {
-		return -1, "", fmt.Errorf("index %d out of range", argIndex)
-	}
-
-	i := lastStrIndex
-	i, formatter, err := parseFormattingClause(i, formatStr)
-	if err != nil {
-		return -1, "", fmt.Errorf("could not parse formatting clause: %s", err)
-	}
-
-	var argStr string
-	argAny := args.Get(types.Int(argIndex))
-	if formatter == nil {
-		return -1, "", errors.New("formatter required")
-	}
-
-	argStr, err = formatter(argAny, locale)
-	if err != nil {
-		return -1, "", fmt.Errorf("error during formatting: %s", err)
-	}
-	return i, argStr, nil
 }
 
 type clauseImpl func(ref.Val, string) (string, error)
@@ -908,185 +836,6 @@ func formatDecimal(arg ref.Val, locale string) (string, error) {
 	}
 }
 
-func formatFixed(precision *int) clauseImpl {
-	if precision == nil {
-		precision = new(int)
-		*precision = defaultPrecision
-	}
-	return func(arg ref.Val, locale string) (string, error) {
-		strException := false
-		if arg.Type() == types.StringType {
-			argStr := arg.Value().(string)
-			if argStr == "NaN" || argStr == "Infinity" || argStr == "-Infinity" {
-				strException = true
-			}
-		}
-		if arg.Type() != types.DoubleType && !strException {
-			return "", fmt.Errorf("fixed-point clause can only be used on doubles, was given %s", arg.Type().TypeName())
-		}
-		argFloatVal := arg.ConvertToType(types.DoubleType)
-		argFloat, ok := argFloatVal.Value().(float64)
-		if !ok {
-			return "", fmt.Errorf("could not convert \"%s\" to float64", argFloatVal.Value())
-		}
-		fmtStr := fmt.Sprintf("%%.%df", *precision)
-
-		matchedLocale, err := matchLanguage(locale)
-		if err != nil {
-			return "", fmt.Errorf("error matching locale: %w", err)
-		}
-		return message.NewPrinter(matchedLocale).Sprintf(fmtStr, argFloat), nil
-	}
-}
-
-func formatScientific(precision *int) clauseImpl {
-	if precision == nil {
-		precision = new(int)
-		*precision = defaultPrecision
-	}
-	return func(arg ref.Val, locale string) (string, error) {
-		strException := false
-		if arg.Type() == types.StringType {
-			argStr := arg.Value().(string)
-			if argStr == "NaN" || argStr == "Infinity" || argStr == "-Infinity" {
-				strException = true
-			}
-		}
-		if arg.Type() != types.DoubleType && !strException {
-			return "", fmt.Errorf("scientific clause can only be used on doubles, was given %s", arg.Type().TypeName())
-		}
-		argFloatVal := arg.ConvertToType(types.DoubleType)
-		argFloat, ok := argFloatVal.Value().(float64)
-		if !ok {
-			return "", fmt.Errorf("could not convert \"%s\" to float64", argFloatVal.Value())
-		}
-		matchedLocale, err := matchLanguage(locale)
-		if err != nil {
-			return "", fmt.Errorf("error matching locale: %w", err)
-		}
-		fmtStr := fmt.Sprintf("%%%de", *precision)
-		return message.NewPrinter(matchedLocale).Sprintf(fmtStr, argFloat), nil
-	}
-}
-
-func formatBinary(arg ref.Val, locale string) (string, error) {
-	switch arg.Type() {
-	case types.IntType:
-		argInt := arg.Value().(int64)
-		// locale is intentionally unused as integers formatted as binary
-		// strings are locale-independent
-		return fmt.Sprintf("%b", argInt), nil
-	case types.UintType:
-		argInt := arg.Value().(uint64)
-		return fmt.Sprintf("%b", argInt), nil
-	case types.BoolType:
-		argBool := arg.Value().(bool)
-		if argBool {
-			return "1", nil
-		}
-		return "0", nil
-	default:
-		return "", fmt.Errorf("only integers and bools can be formatted as binary, was given %s", arg.Type().TypeName())
-	}
-}
-
-func formatHex(useUpper bool) clauseImpl {
-	return func(arg ref.Val, locale string) (string, error) {
-		fmtStr := "%x"
-		if useUpper {
-			fmtStr = "%X"
-		}
-		switch arg.Type() {
-		case types.StringType, types.BytesType:
-			if arg.Type() == types.BytesType {
-				return fmt.Sprintf(fmtStr, arg.Value().([]byte)), nil
-			}
-			return fmt.Sprintf(fmtStr, arg.Value().(string)), nil
-		case types.IntType:
-			argInt, ok := arg.Value().(int64)
-			if !ok {
-				return "", fmt.Errorf("could not convert \"%s\" to int64", arg.Value())
-			}
-			return fmt.Sprintf(fmtStr, argInt), nil
-		case types.UintType:
-			argInt, ok := arg.Value().(uint64)
-			if !ok {
-				return "", fmt.Errorf("could not convert \"%s\" to uint64", arg.Value())
-			}
-			return fmt.Sprintf(fmtStr, argInt), nil
-		default:
-			return "", fmt.Errorf("only integers, byte buffers, and strings can be formatted as hex, was given %s", arg.Type().TypeName())
-		}
-	}
-}
-
-func formatOctal(arg ref.Val, locale string) (string, error) {
-	switch arg.Type() {
-	case types.IntType:
-		argInt := arg.Value().(int64)
-		return fmt.Sprintf("%o", argInt), nil
-	case types.UintType:
-		argInt := arg.Value().(uint64)
-		return fmt.Sprintf("%o", argInt), nil
-	default:
-		return "", fmt.Errorf("octal clause can only be used on integers, was given %s", arg.Type().TypeName())
-	}
-}
-
-func parseFormattingClause(lastStrIndex int, formatStr string) (int, clauseImpl, error) {
-	i, precision, err := parsePrecision(lastStrIndex+1, formatStr)
-	if err != nil {
-		return -1, nil, fmt.Errorf("error while parsing precision: %w", err)
-	}
-	r := rune(formatStr[i])
-	i++
-	switch r {
-	case 's':
-		return i, FormatString, nil
-	case 'd':
-		return i, formatDecimal, nil
-	case 'f':
-		return i, formatFixed(precision), nil
-	case 'e':
-		return i, formatScientific(precision), nil
-	case 'b':
-		return i, formatBinary, nil
-	case 'x', 'X':
-		return i, formatHex(unicode.IsUpper(r)), nil
-	case 'o':
-		return i, formatOctal, nil
-	default:
-		return -1, nil, fmt.Errorf("unrecognized formatting clause \"%c\"", r)
-	}
-}
-
-func parsePrecision(lastStrIndex int, formatStr string) (int, *int, error) {
-	i := lastStrIndex
-	if formatStr[i] != '.' {
-		return i, nil, nil
-	}
-	i++
-	var buffer strings.Builder
-	for true {
-		if i >= len(formatStr) {
-			return -1, nil, errors.New("could not find end of precision specifier")
-		} else if !isASCIIDigit(rune(formatStr[i])) {
-			break
-		}
-		buffer.WriteByte(formatStr[i])
-		i++
-	}
-	precision, err := strconv.Atoi(buffer.String())
-	if err != nil {
-		return -1, nil, fmt.Errorf("error while converting precision to integer: %w", err)
-	}
-	return i, &precision, nil
-}
-
-func isASCIIDigit(r rune) bool {
-	return r <= unicode.MaxASCII && unicode.IsDigit(r)
-}
-
 func matchLanguage(locale string) (language.Tag, error) {
 	matcher, err := makeMatcher(locale)
 	if err != nil {
@@ -1151,6 +900,157 @@ func sanitize(s string) string {
 		}
 	}
 	return sanitizedStringBuilder.String()
+}
+
+type stringFormatter struct{}
+
+func (c *stringFormatter) String(arg ref.Val, locale string) (string, error) {
+	return FormatString(arg, locale)
+}
+
+func (c *stringFormatter) Decimal(arg ref.Val, locale string) (string, error) {
+	return formatDecimal(arg, locale)
+}
+
+func (c *stringFormatter) Fixed(precision *int) func(ref.Val, string) (string, error) {
+	if precision == nil {
+		precision = new(int)
+		*precision = defaultPrecision
+	}
+	return func(arg ref.Val, locale string) (string, error) {
+		strException := false
+		if arg.Type() == types.StringType {
+			argStr := arg.Value().(string)
+			if argStr == "NaN" || argStr == "Infinity" || argStr == "-Infinity" {
+				strException = true
+			}
+		}
+		if arg.Type() != types.DoubleType && !strException {
+			return "", fmt.Errorf("fixed-point clause can only be used on doubles, was given %s", arg.Type().TypeName())
+		}
+		argFloatVal := arg.ConvertToType(types.DoubleType)
+		argFloat, ok := argFloatVal.Value().(float64)
+		if !ok {
+			return "", fmt.Errorf("could not convert \"%s\" to float64", argFloatVal.Value())
+		}
+		fmtStr := fmt.Sprintf("%%.%df", *precision)
+
+		matchedLocale, err := matchLanguage(locale)
+		if err != nil {
+			return "", fmt.Errorf("error matching locale: %w", err)
+		}
+		return message.NewPrinter(matchedLocale).Sprintf(fmtStr, argFloat), nil
+	}
+}
+
+func (c *stringFormatter) Scientific(precision *int) func(ref.Val, string) (string, error) {
+	if precision == nil {
+		precision = new(int)
+		*precision = defaultPrecision
+	}
+	return func(arg ref.Val, locale string) (string, error) {
+		strException := false
+		if arg.Type() == types.StringType {
+			argStr := arg.Value().(string)
+			if argStr == "NaN" || argStr == "Infinity" || argStr == "-Infinity" {
+				strException = true
+			}
+		}
+		if arg.Type() != types.DoubleType && !strException {
+			return "", fmt.Errorf("scientific clause can only be used on doubles, was given %s", arg.Type().TypeName())
+		}
+		argFloatVal := arg.ConvertToType(types.DoubleType)
+		argFloat, ok := argFloatVal.Value().(float64)
+		if !ok {
+			return "", fmt.Errorf("could not convert \"%s\" to float64", argFloatVal.Value())
+		}
+		matchedLocale, err := matchLanguage(locale)
+		if err != nil {
+			return "", fmt.Errorf("error matching locale: %w", err)
+		}
+		fmtStr := fmt.Sprintf("%%%de", *precision)
+		return message.NewPrinter(matchedLocale).Sprintf(fmtStr, argFloat), nil
+	}
+}
+
+func (c *stringFormatter) Binary(arg ref.Val, locale string) (string, error) {
+	switch arg.Type() {
+	case types.IntType:
+		argInt := arg.Value().(int64)
+		// locale is intentionally unused as integers formatted as binary
+		// strings are locale-independent
+		return fmt.Sprintf("%b", argInt), nil
+	case types.UintType:
+		argInt := arg.Value().(uint64)
+		return fmt.Sprintf("%b", argInt), nil
+	case types.BoolType:
+		argBool := arg.Value().(bool)
+		if argBool {
+			return "1", nil
+		} else {
+			return "0", nil
+		}
+	default:
+		return "", fmt.Errorf("only integers and bools can be formatted as binary, was given %s", arg.Type().TypeName())
+	}
+}
+
+func (c *stringFormatter) Hex(useUpper bool) func(ref.Val, string) (string, error) {
+	return func(arg ref.Val, locale string) (string, error) {
+		fmtStr := "%x"
+		if useUpper {
+			fmtStr = "%X"
+		}
+		switch arg.Type() {
+		case types.StringType, types.BytesType:
+			if arg.Type() == types.BytesType {
+				return fmt.Sprintf(fmtStr, arg.Value().([]byte)), nil
+			}
+			return fmt.Sprintf(fmtStr, arg.Value().(string)), nil
+		case types.IntType:
+			argInt, ok := arg.Value().(int64)
+			if !ok {
+				return "", fmt.Errorf("could not convert \"%s\" to int64", arg.Value())
+			}
+			return fmt.Sprintf(fmtStr, argInt), nil
+		case types.UintType:
+			argInt, ok := arg.Value().(uint64)
+			if !ok {
+				return "", fmt.Errorf("could not convert \"%s\" to uint64", arg.Value())
+			}
+			return fmt.Sprintf(fmtStr, argInt), nil
+		default:
+			return "", fmt.Errorf("only integers, byte buffers, and strings can be formatted as hex, was given %s", arg.Type().TypeName())
+		}
+	}
+}
+
+func (c *stringFormatter) Octal(arg ref.Val, locale string) (string, error) {
+	switch arg.Type() {
+	case types.IntType:
+		argInt := arg.Value().(int64)
+		return fmt.Sprintf("%o", argInt), nil
+	case types.UintType:
+		argInt := arg.Value().(uint64)
+		return fmt.Sprintf("%o", argInt), nil
+	default:
+		return "", fmt.Errorf("octal clause can only be used on integers, was given %s", arg.Type().TypeName())
+	}
+}
+
+type stringArgList struct {
+	args traits.Lister
+}
+
+func (c *stringArgList) Arg(index int64) (ref.Val, error) {
+	if index >= c.args.Size().Value().(int64) {
+		return nil, fmt.Errorf("index %d out of range", index)
+	}
+	return c.args.Get(types.Int(index)), nil
+}
+
+func (c *stringArgList) ArgSize() int64 {
+	return c.args.Size().Value().(int64)
 }
 
 var (
