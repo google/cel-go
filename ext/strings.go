@@ -987,9 +987,8 @@ func (c *stringFormatter) Binary(arg ref.Val, locale string) (string, error) {
 		argBool := arg.Value().(bool)
 		if argBool {
 			return "1", nil
-		} else {
-			return "0", nil
 		}
+		return "0", nil
 	default:
 		return "", fmt.Errorf("only integers and bools can be formatted as binary, was given %s", arg.Type().TypeName())
 	}

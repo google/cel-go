@@ -1224,9 +1224,8 @@ func TestStringFormat(t *testing.T) {
 		expr := fmt.Sprintf("%q.format([%s])", format, formatArgs)
 		if len(dynArgs) == 0 {
 			return evalExpr(env, expr, cel.NoVars(), skipCompileCheck, expectedRuntimeCost, expectedEstimatedCost, t)
-		} else {
-			return evalExpr(env, expr, dynArgs, skipCompileCheck, expectedRuntimeCost, expectedEstimatedCost, t)
 		}
+		return evalExpr(env, expr, dynArgs, skipCompileCheck, expectedRuntimeCost, expectedEstimatedCost, t)
 	}
 	checkCase := func(output ref.Val, expectedOutput string, err error, expectedErr string, t *testing.T) {
 		if err != nil {
@@ -1345,9 +1344,8 @@ func mustParseDuration(s string) time.Duration {
 	d, err := time.ParseDuration(s)
 	if err != nil {
 		panic(err)
-	} else {
-		return d
 	}
+	return d
 }
 
 func unquote(s string) (string, error) {
