@@ -1,4 +1,4 @@
-import { TrimPipe } from './trim.pipe';
+import { TrimPipe } from './trim-pipe';
 
 describe('TrimPipe', () => {
   it('create an instance', () => {

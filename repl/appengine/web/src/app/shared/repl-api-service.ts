@@ -41,7 +41,7 @@ export declare interface EvaluateResponse {
 })
 export class ReplApiService {
 
-  constructor(private httpClient : HttpClient) { }
+  constructor(private readonly httpClient : HttpClient) { }
 
 
   evalInternal(request : EvaluateRequest) : Observable<EvaluateResponse> {

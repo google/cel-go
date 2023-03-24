@@ -1,6 +1,6 @@
 import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReferencePanelComponent } from './reference-panel.component';
+import { ReferencePanelComponent } from './reference-panel-component';
 
 
 

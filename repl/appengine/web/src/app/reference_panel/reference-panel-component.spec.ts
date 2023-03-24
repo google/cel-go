@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { ReferencePanelComponent } from './reference-panel.component';
+import { ReferencePanelComponent } from './reference-panel-component';
 
 describe('ReferencePanelComponent', () => {
   let component: ReferencePanelComponent;

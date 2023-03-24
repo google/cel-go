@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule } from '@angular/common/http/testing';
 
-import { ReplApiService } from './repl-api.service';
+import { ReplApiService } from './repl-api-service';
 
 describe('ReplApiService', () => {
   let service: ReplApiService;
