@@ -14,14 +14,16 @@
  * limitations under the License.
  */
 
-/* Global styles. */
+import { Component } from '@angular/core';
 
-html {
-    font-size: 100%;
-}
 
-body {
-    font-size: 1em;
-    margin: 0;
-    font-family: Roboto, "Helvetica Neue", sans-serif;
+/**
+ * Top level component for the CEL REPL app.
+ */
+@Component({
+  selector: 'app-root',
+  templateUrl: './app-component.html',
+  styleUrls: ['./app-component.scss']
+})
+export class AppComponent {
 }

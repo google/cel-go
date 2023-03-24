@@ -14,14 +14,21 @@
  * limitations under the License.
  */
 
-/* Global styles. */
+import { NgModule } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { ReferencePanelComponent } from './reference-panel-component';
 
-html {
-    font-size: 100%;
-}
 
-body {
-    font-size: 1em;
-    margin: 0;
-    font-family: Roboto, "Helvetica Neue", sans-serif;
-}
+
+@NgModule({
+  declarations: [
+    ReferencePanelComponent
+  ],
+  imports: [
+    CommonModule
+  ],
+  exports: [
+    ReferencePanelComponent
+  ]
+})
+export class ReferencePanelModule { }

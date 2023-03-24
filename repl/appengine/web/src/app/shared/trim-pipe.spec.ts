@@ -14,14 +14,21 @@
  * limitations under the License.
  */
 
-/* Global styles. */
+import { TrimPipe } from './trim-pipe';
 
-html {
-    font-size: 100%;
-}
+describe('TrimPipe', () => {
+  it('create an instance', () => {
+    const pipe = new TrimPipe();
+    expect(pipe).toBeTruthy();
+  });
 
-body {
-    font-size: 1em;
-    margin: 0;
-    font-family: Roboto, "Helvetica Neue", sans-serif;
-}
+  it('trims long string', () => {
+    const pipe = new TrimPipe();
+    expect(pipe.transform("test123456789", 7)).toBe("test...");
+  });
+
+  it('does not trim short string', () => {
+    const pipe = new TrimPipe();
+    expect(pipe.transform("test", 7)).toBe("test");
+  });
+});

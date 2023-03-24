@@ -1,5 +1,21 @@
+/**
+ * Copyright 2023 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { Component } from '@angular/core';
-import { ReplApiService, EvaluateResponse, EvaluateRequest } from '../shared/repl-api.service';
+import { ReplApiService, EvaluateResponse, EvaluateRequest } from '../shared/repl-api-service';
 
 /**
  * Component for the repl console.
@@ -7,14 +23,14 @@ import { ReplApiService, EvaluateResponse, EvaluateRequest } from '../shared/rep
  */
 @Component({
   selector: 'app-repl-console',
-  templateUrl: './repl-console.component.html',
-  styleUrls: ['./repl-console.component.scss']
+  templateUrl: './repl-console-component.html',
+  styleUrls: ['./repl-console-component.scss']
 })
 export class ReplConsoleComponent {
   lastEvaluate: EvaluateResponse = {responses: [], evalTime: 0};
   lastRequest: EvaluateRequest = {commands: []};
 
-  constructor (private replService: ReplApiService) {}
+  constructor (private readonly replService: ReplApiService) {}
 
   private evaluate(request : EvaluateRequest) {
     this.replService.evaluate(request)
@@ -25,7 +41,7 @@ export class ReplConsoleComponent {
         const input = document.querySelector<HTMLInputElement>(".repl-stmt-new");
         if (input) { input.value = ""; input.focus(); }
         },
-      error: (err) => console.log("error: ", err)
+      error: (err) => { console.log("error: ", err); }
       });
   }
 
@@ -41,9 +57,8 @@ export class ReplConsoleComponent {
         if (!(el instanceof HTMLInputElement)) {
           return;
         }
-        const inp = el as HTMLInputElement;
-        if (inp.value && inp.value.trim()) {
-          request.commands.push(inp.value);
+        if (el.value && el.value.trim()) {
+          request.commands.push(el.value);
         }
       }
     );

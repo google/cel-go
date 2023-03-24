@@ -14,14 +14,21 @@
  * limitations under the License.
  */
 
-/* Global styles. */
+import { Pipe, PipeTransform } from '@angular/core';
 
-html {
-    font-size: 100%;
-}
+/**
+ * Pipe for templates that caps the length of input string (if trimmed, marking
+ * with an elipsis).
+ */
+@Pipe({
+  name: 'trim'
+})
+export class TrimPipe implements PipeTransform {
 
-body {
-    font-size: 1em;
-    margin: 0;
-    font-family: Roboto, "Helvetica Neue", sans-serif;
+  transform(value: string, length : number): string {
+    return value.length < length ? 
+      value :
+      value.substring(0, length - 3) + "..."; 
+  }
+
 }

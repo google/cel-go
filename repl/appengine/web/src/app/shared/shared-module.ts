@@ -14,14 +14,20 @@
  * limitations under the License.
  */
 
-/* Global styles. */
+import { NgModule } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { TrimPipe } from './trim-pipe';
 
-html {
-    font-size: 100%;
-}
 
-body {
-    font-size: 1em;
-    margin: 0;
-    font-family: Roboto, "Helvetica Neue", sans-serif;
-}
+@NgModule({
+  declarations: [
+    TrimPipe
+  ],
+  exports: [
+    TrimPipe
+  ],
+  imports: [
+    CommonModule
+  ]
+})
+export class SharedModule { }

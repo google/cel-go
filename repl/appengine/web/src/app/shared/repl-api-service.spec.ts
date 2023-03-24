@@ -14,14 +14,22 @@
  * limitations under the License.
  */
 
-/* Global styles. */
+import { TestBed } from '@angular/core/testing';
+import { HttpClientTestingModule } from '@angular/common/http/testing';
 
-html {
-    font-size: 100%;
-}
+import { ReplApiService } from './repl-api-service';
 
-body {
-    font-size: 1em;
-    margin: 0;
-    font-family: Roboto, "Helvetica Neue", sans-serif;
-}
+describe('ReplApiService', () => {
+  let service: ReplApiService;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [HttpClientTestingModule]
+    });
+    service = TestBed.inject(ReplApiService);
+  });
+
+  it('should be created', () => {
+    expect(service).toBeTruthy();
+  });
+});

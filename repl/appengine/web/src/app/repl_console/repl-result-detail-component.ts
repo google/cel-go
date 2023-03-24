@@ -14,14 +14,25 @@
  * limitations under the License.
  */
 
-/* Global styles. */
+import { Component, Input } from '@angular/core';
+import { CommandResponse } from '../shared/repl-api-service';
 
-html {
-    font-size: 100%;
-}
+/**
+ * Simple component for detailing the output of the last command from the REPL
+ * API.
+ */
+@Component({
+  selector: 'app-repl-result-detail',
+  templateUrl: './repl-result-detail-component.html',
+  styleUrls: ['./repl-result-detail-component.scss']
+})
+export class ReplResultDetailComponent {
+  @Input() lastResponse? : CommandResponse;
+  @Input() evalTime? : number;
 
-body {
-    font-size: 1em;
-    margin: 0;
-    font-family: Roboto, "Helvetica Neue", sans-serif;
+  formatTime(ns : number) : string {
+    const ms = ns / 1000000;
+
+    return ms.toPrecision(3) + "ms";
+  }
 }
