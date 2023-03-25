@@ -320,7 +320,7 @@ type nativeObj struct {
 // ConvertToNative implements the ref.Val interface method.
 //
 // CEL does not have a notion of pointers, so whether a field is a pointer or value
-// is handled as part of this converstion step.
+// is handled as part of this conversion step.
 func (o *nativeObj) ConvertToNative(typeDesc reflect.Type) (any, error) {
 	if o.refValue.Type() == typeDesc {
 		return o.val, nil

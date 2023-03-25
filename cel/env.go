@@ -256,7 +256,7 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 	decsCopy := []*exprpb.Decl{}
 	if e.chk != nil {
 		// If the type-checker has already been instantiated, then the e.declarations have been
-		// valdiated within the chk instance.
+		// validated within the chk instance.
 		chkOptsCopy = append(chkOptsCopy, checker.ValidatedDeclarations(e.chk))
 	} else {
 		// If the type-checker has not been instantiated, ensure the unvalidated declarations are

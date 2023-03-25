@@ -413,7 +413,7 @@ func Function(name string, opts ...FunctionOpt) EnvOption {
 // FunctionOpt defines a functional  option for configuring a function declaration.
 type FunctionOpt func(*functionDecl) (*functionDecl, error)
 
-// SingletonUnaryBinding creates a singleton function defintion to be used for all function overloads.
+// SingletonUnaryBinding creates a singleton function definition to be used for all function overloads.
 //
 // Note, this approach works well if operand is expected to have a specific trait which it implements,
 // e.g. traits.ContainerType. Otherwise, prefer per-overload function bindings.
