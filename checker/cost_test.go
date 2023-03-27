@@ -135,9 +135,31 @@ func TestCost(t *testing.T) {
 			wanted: zeroCost,
 		},
 		{
+			name: "or accumulated branch cost",
+			expr: `a || b || c || d`,
+			decls: []*exprpb.Decl{
+				decls.NewVar("a", decls.Bool),
+				decls.NewVar("b", decls.Bool),
+				decls.NewVar("c", decls.Bool),
+				decls.NewVar("d", decls.Bool),
+			},
+			wanted: CostEstimate{Min: 1, Max: 4},
+		},
+		{
 			name:   "and",
 			expr:   `true && false`,
 			wanted: zeroCost,
+		},
+		{
+			name: "and accumulated branch cost",
+			expr: `a && b && c && d`,
+			decls: []*exprpb.Decl{
+				decls.NewVar("a", decls.Bool),
+				decls.NewVar("b", decls.Bool),
+				decls.NewVar("c", decls.Bool),
+				decls.NewVar("d", decls.Bool),
+			},
+			wanted: CostEstimate{Min: 1, Max: 4},
 		},
 		{
 			name:   "lt",
