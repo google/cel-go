@@ -398,6 +398,24 @@ func TestRuntimeCost(t *testing.T) {
 			expr: `true || false`,
 			want: 0,
 		},
+
+		{
+			name: "or accumulated branch cost",
+			expr: `a || b || c || d`,
+			decls: []*exprpb.Decl{
+				decls.NewVar("a", decls.Bool),
+				decls.NewVar("b", decls.Bool),
+				decls.NewVar("c", decls.Bool),
+				decls.NewVar("d", decls.Bool),
+			},
+			in: map[string]any{
+				"a": false,
+				"b": false,
+				"c": false,
+				"d": false,
+			},
+			want: 4,
+		},
 		{
 			name: "and",
 			expr: `true && false`,
@@ -407,6 +425,23 @@ func TestRuntimeCost(t *testing.T) {
 			name: "and short-circuit",
 			expr: `false && true`,
 			want: 0,
+		},
+		{
+			name: "and accumulated branch cost",
+			expr: `a && b && c && d`,
+			decls: []*exprpb.Decl{
+				decls.NewVar("a", decls.Bool),
+				decls.NewVar("b", decls.Bool),
+				decls.NewVar("c", decls.Bool),
+				decls.NewVar("d", decls.Bool),
+			},
+			in: map[string]any{
+				"a": true,
+				"b": true,
+				"c": true,
+				"d": true,
+			},
+			want: 4,
 		},
 		{
 			name: "lt",
