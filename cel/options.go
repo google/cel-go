@@ -66,6 +66,11 @@ const (
 	// Enable the use of optional types in the syntax, type-system, type-checking,
 	// and runtime.
 	featureOptionalTypes
+
+	// Enable the serialization of logical operator ASTs as variadic calls, thus
+	// compressing the logic graph to a single call when multiple like-operator
+	// expressions occur: e.g. a && b && c && d -> call(_&&_, [a, b, c, d])
+	featureVariadicLogicalASTs
 )
 
 // EnvOption is a functional interface for configuring the environment.
@@ -126,14 +131,25 @@ func EagerlyValidateDeclarations(enabled bool) EnvOption {
 	return features(featureEagerlyValidateDeclarations, enabled)
 }
 
-// HomogeneousAggregateLiterals option ensures that list and map literal entry types must agree
-// during type-checking.
+// HomogeneousAggregateLiterals disables mixed type list and map literal values.
 //
 // Note, it is still possible to have heterogeneous aggregates when provided as variables to the
 // expression, as well as via conversion of well-known dynamic types, or with unchecked
 // expressions.
 func HomogeneousAggregateLiterals() EnvOption {
 	return features(featureDisableDynamicAggregateLiterals, true)
+}
+
+// VariadicLogicalOperatorASTs flatten like-operator chained logical expressions into a single
+// variadic call with N-terms. This behavior is useful when serializing to a protocol buffer as
+// it will reduce the number of recursive calls needed to deserialize the AST later.
+//
+// For example, given the following expression the call graph will be rendered accordingly:
+//
+//	expression: a && b && c && (d || e)
+//	ast: call(_&&_, [a, b, c, call(_||_, [d, e])])
+func VariadicLogicalOperatorASTs() EnvOption {
+	return features(featureVariadicLogicalASTs, true)
 }
 
 // Macros option extends the macro set configured in the environment.

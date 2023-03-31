@@ -504,6 +504,9 @@ func (e *Env) configure(opts []EnvOption) (*Env, error) {
 	if e.HasFeature(featureEnableMacroCallTracking) {
 		prsrOpts = append(prsrOpts, parser.PopulateMacroCalls(true))
 	}
+	if e.HasFeature(featureVariadicLogicalASTs) {
+		prsrOpts = append(prsrOpts, parser.EnableVariadicOperatorASTs(true))
+	}
 	e.prsr, err = parser.NewParser(prsrOpts...)
 	if err != nil {
 		return nil, err
