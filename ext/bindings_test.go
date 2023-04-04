@@ -21,21 +21,24 @@ import (
 	"github.com/google/cel-go/cel"
 )
 
+var bindingTests = []struct {
+	expr      string
+	parseOnly bool
+}{
+	{expr: `cel.bind(a, 'hell' + 'o' + '!', [a, a, a].join(', ')) == 
+	        ['hell' + 'o' + '!', 'hell' + 'o' + '!', 'hell' + 'o' + '!'].join(', ')`},
+	// Variable shadowing
+	{expr: `cel.bind(a, 
+		        cel.bind(a, 'world', a + '!'), 
+		   		'hello ' + a) == 'hello ' + 'world' + '!'`},
+}
+
 func TestBindings(t *testing.T) {
-	var tests = []struct {
-		expr      string
-		parseOnly bool
-	}{
-		{expr: `cel.bind(a, 'hello', [a, a, a].join(', ')) == 'hello, hello, hello'`},
-		{expr: `cel.bind(
-			a, cel.bind(a, 'world', a + '!'), 
-			'hello ' + a) == 'hello world!'`},
-	}
 	env, err := cel.NewEnv(Bindings(), Strings())
 	if err != nil {
-		t.Fatalf("cel.NewEnv(Encoders()) failed: %v", err)
+		t.Fatalf("cel.NewEnv(Bindings(), Strings()) failed: %v", err)
 	}
-	for i, tst := range tests {
+	for i, tst := range bindingTests {
 		tc := tst
 		t.Run(fmt.Sprintf("[%d]", i), func(t *testing.T) {
 			var asts []*cel.Ast
@@ -62,6 +65,32 @@ func TestBindings(t *testing.T) {
 				} else if out.Value() != true {
 					t.Errorf("got %v, wanted true for expr: %s", out.Value(), tc.expr)
 				}
+			}
+		})
+	}
+}
+
+func BenchmarkBindings(b *testing.B) {
+	env, err := cel.NewEnv(Bindings(), Strings())
+	if err != nil {
+		b.Fatalf("cel.NewEnv(Bindings(), Strings()) failed: %v", err)
+	}
+	for i, tst := range bindingTests {
+		tc := tst
+		ast, iss := env.Compile(tc.expr)
+		if iss.Err() != nil {
+			b.Fatalf("env.Compile(%q) failed: %v", tc.expr, iss.Err())
+		}
+		prg, err := env.Program(ast, cel.EvalOptions(cel.OptOptimize))
+		if err != nil {
+			b.Fatalf("env.Program(ast, Optimize) failed: %v", err)
+		}
+		// Benchmark the eval.
+		b.Run(fmt.Sprintf("[%d]", i), func(b *testing.B) {
+			b.ResetTimer()
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				prg.Eval(cel.NoVars())
 			}
 		})
 	}

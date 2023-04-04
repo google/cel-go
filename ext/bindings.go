@@ -74,7 +74,7 @@ func celBind(meh cel.MacroExprHelper, target *exprpb.Expr, args []*exprpb.Expr) 
 		meh.NewList(),
 		varName,
 		varInit,
-		meh.LiteralBool(true),
+		meh.LiteralBool(false),
 		meh.Ident(varName),
 		resultExpr,
 	), nil
