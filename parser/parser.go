@@ -47,8 +47,8 @@ func NewParser(opts ...Option) (*Parser, error) {
 			return nil, err
 		}
 	}
-	if p.maxErrorsToReport == 0 {
-		p.maxErrorsToReport = 100
+	if p.errorReportingLimit == 0 {
+		p.errorReportingLimit = 100
 	}
 	if p.maxRecursionDepth == 0 {
 		p.maxRecursionDepth = 250
@@ -94,7 +94,7 @@ func (p *Parser) Parse(source common.Source) (*exprpb.ParsedExpr, *common.Errors
 		helper:                           newParserHelper(source),
 		macros:                           p.macros,
 		maxRecursionDepth:                p.maxRecursionDepth,
-		maxErrorsToReport:                p.maxErrorsToReport,
+		errorReportingLimit:              p.errorReportingLimit,
 		errorRecoveryLimit:               p.errorRecoveryLimit,
 		errorRecoveryLookaheadTokenLimit: p.errorRecoveryTokenLookaheadLimit,
 		populateMacroCalls:               p.populateMacroCalls,
@@ -205,11 +205,11 @@ func (rl *recursionListener) ExitEveryRule(ctx antlr.ParserRuleContext) {
 var _ antlr.ParseTreeListener = &recursionListener{}
 
 type tooManyErrors struct {
-	maxErrorsToReport int
+	errorReportingLimit int
 }
 
 func (t *tooManyErrors) Error() string {
-	return fmt.Sprintf("More than %d syntax errors", t.maxErrorsToReport)
+	return fmt.Sprintf("More than %d syntax errors", t.errorReportingLimit)
 }
 
 var _ error = &tooManyErrors{}
@@ -290,7 +290,7 @@ type parser struct {
 	recursionDepth                   int
 	errorReports                     int
 	maxRecursionDepth                int
-	maxErrorsToReport                int
+	errorReportingLimit              int
 	errorRecoveryLimit               int
 	errorRecoveryLookaheadTokenLimit int
 	populateMacroCalls               bool
@@ -893,11 +893,13 @@ func (p *parser) SyntaxError(recognizer antlr.Recognizer, offendingSymbol any, l
 	}
 	// Ensure that no more than 100 syntax errors are reported as this will halt attempts to recover from a
 	// seriously broken expression.
-	if p.errorReports < p.maxErrorsToReport {
+	if p.errorReports < p.errorReportingLimit {
 		p.errorReports++
 		p.errors.syntaxError(l, msg)
 	} else {
-		panic(&tooManyErrors{maxErrorsToReport: p.maxErrorsToReport})
+		tme := &tooManyErrors{errorReportingLimit: p.errorReportingLimit}
+		p.errors.syntaxError(l, tme.Error())
+		panic(tme)
 	}
 }
 

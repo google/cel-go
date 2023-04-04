@@ -1736,13 +1736,18 @@ var testCases = []testInfo{
 		 | ..^`,
 	},
 	{
-		I: `. "!:��*4X+-it-*+{+{d{+{+{+k++*z�+{zPB{b"xc�Z�\'"
-		M[A����{-$0-8<1--849--9--9--284-8-6--9-127-- ��@ {C�֙1"��!{!{s!--!-%-*%%-(-(-1u   -%[-1[--48,-6%[954-810-.4294967296����-(-	-[[*[{[*
-		%.2-%-2<0--1438895�������(-	-[[*[{[*
-		%.2-%-2<0--1<\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\L\\\\\\\\\\\\\\\\\\\\\17--3%4(305!-53335e31--7e0<3---0<>92<3-6e9-) ��@-21-21--8-%6029453{""%*0�d{{w,)a{igw
-		`,
+		I:    `'3# < 10" '& tru ^^`,
+		Opts: []Option{ErrorReportingLimit(2)},
 		E: `
-		ERROR: Too many errors
+		ERROR: <input>:1:12: Syntax error: token recognition error at: '& '
+		 | '3# < 10" '& tru ^^
+		 | ...........^
+		ERROR: <input>:1:18: Syntax error: token recognition error at: '^'
+		 | '3# < 10" '& tru ^^
+		 | .................^
+		ERROR: <input>:1:19: Syntax error: More than 2 syntax errors
+		 | '3# < 10" '& tru ^^
+		 | ..................^
 		`,
 	},
 }
@@ -1931,13 +1936,16 @@ func TestParserOptionErrors(t *testing.T) {
 	if _, err := NewParser(Macros(AllMacros...), MaxRecursionDepth(-2)); err == nil {
 		t.Fatalf("got %q, want %q", err, "max recursion depth must be greater than or equal to -1: -2")
 	}
-	if _, err := NewParser(Macros(AllMacros...), ErrorRecoveryLimit(-2)); err == nil {
+	if _, err := NewParser(ErrorRecoveryLimit(-2)); err == nil {
 		t.Fatalf("got %q, want %q", err, "error recovery limit must be greater than or equal to -1: -2")
 	}
-	if _, err := NewParser(Macros(AllMacros...), ErrorRecoveryLookaheadTokenLimit(0)); err == nil {
+	if _, err := NewParser(ErrorRecoveryLookaheadTokenLimit(0)); err == nil {
 		t.Fatalf("got %q, want %q", err, "error recovery lookahead token limit must be at least 1: 0")
 	}
-	if _, err := NewParser(Macros(AllMacros...), ExpressionSizeCodePointLimit(-2)); err == nil {
+	if _, err := NewParser(ErrorReportingLimit(0)); err == nil {
+		t.Fatalf("got %q, want %q", err, "error reporting limit must be greater than 0: -2")
+	}
+	if _, err := NewParser(ExpressionSizeCodePointLimit(-2)); err == nil {
 		t.Fatalf("got %q, want %q", err, "expression size code point limit must be greater than or equal to -1: -2")
 	}
 }
