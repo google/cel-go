@@ -18,6 +18,7 @@ import "fmt"
 
 type options struct {
 	maxRecursionDepth                int
+	maxErrorsToReport                int
 	errorRecoveryTokenLookaheadLimit int
 	errorRecoveryLimit               int
 	expressionSizeCodePointLimit     int
