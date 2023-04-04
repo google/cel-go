@@ -99,6 +99,11 @@ func TestUnparse(t *testing.T) {
 		{name: "cond_binop", in: `(x < 5) ? x : 5`},
 		{name: "cond_binop_binop", in: `(x > 5) ? (x - 5) : 0`},
 		{name: "cond_cond_binop", in: `(x > 5) ? ((x > 10) ? (x - 10) : 5) : 0`},
+		{name: "select_opt", in: `a.?b`},
+		{name: "index_opt", in: `a[?b]`},
+		{name: "list_lit_opt", in: `[?a, ?b, c]`},
+		{name: "map_lit_opt", in: `{?a: b, c: d}`},
+		{name: "msg_fields_opt", in: `v1alpha1.Expr{?id: id, call_expr: v1alpha1.Call_Expr{function: "name"}}`},
 
 		// Equivalent expressions form unparse which do not match the originals.
 		{name: "call_add_equiv", in: `a+b-c`, out: `a + b - c`},
@@ -424,6 +429,7 @@ func TestUnparse(t *testing.T) {
 			prsr, err := NewParser(
 				Macros(AllMacros...),
 				PopulateMacroCalls(tc.requiresMacroCalls),
+				EnableOptionalSyntax(true),
 			)
 			if err != nil {
 				t.Fatalf("NewParser() failed: %v", err)
