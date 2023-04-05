@@ -573,6 +573,24 @@ func TestProcess(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "OptionExtensionOptional",
+			commands: []Cmder{
+				&simpleCmd{
+					cmd: "option",
+					args: []string{
+						"--extension",
+						"optional",
+					},
+				},
+				&evalCmd{
+					expr: "optional.none().orValue('default')",
+				},
+			},
+			wantText:  "default : string",
+			wantExit:  false,
+			wantError: false,
+		},
+		{
 			name: "OptionExtensionStrings",
 			commands: []Cmder{
 				&simpleCmd{
