@@ -698,6 +698,8 @@ func newExtensionOption(extType string) (*extensionOption, error) {
 	var extOption cel.EnvOption
 	extType = strings.ToLower(extType)
 	switch op := extType; op {
+	case "optional":
+		extOption = cel.OptionalTypes()
 	case "strings":
 		extOption = ext.Strings()
 	case "protos":
@@ -774,7 +776,7 @@ func (e *Evaluator) loadExtensionOption(idx int, args []string) error {
 	argExtType := args[idx]
 	if argExtType == "all" {
 		// Load all extension types as a convenience
-		var extensionTypes = []string{"strings", "protos", "math", "encoders"}
+		var extensionTypes = []string{"optional", "strings", "protos", "math", "encoders"}
 		for _, val := range extensionTypes {
 			err := e.loadExtensionOptionType(val)
 			if err != nil {
