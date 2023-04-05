@@ -1735,6 +1735,21 @@ var testCases = []testInfo{
 		 | x{.
 		 | ..^`,
 	},
+	{
+		I:    `'3# < 10" '& tru ^^`,
+		Opts: []Option{ErrorReportingLimit(2)},
+		E: `
+		ERROR: <input>:1:12: Syntax error: token recognition error at: '& '
+		 | '3# < 10" '& tru ^^
+		 | ...........^
+		ERROR: <input>:1:18: Syntax error: token recognition error at: '^'
+		 | '3# < 10" '& tru ^^
+		 | .................^
+		ERROR: <input>:1:19: Syntax error: More than 2 syntax errors
+		 | '3# < 10" '& tru ^^
+		 | ..................^
+		`,
+	},
 }
 
 type testInfo struct {
@@ -1921,13 +1936,16 @@ func TestParserOptionErrors(t *testing.T) {
 	if _, err := NewParser(Macros(AllMacros...), MaxRecursionDepth(-2)); err == nil {
 		t.Fatalf("got %q, want %q", err, "max recursion depth must be greater than or equal to -1: -2")
 	}
-	if _, err := NewParser(Macros(AllMacros...), ErrorRecoveryLimit(-2)); err == nil {
+	if _, err := NewParser(ErrorRecoveryLimit(-2)); err == nil {
 		t.Fatalf("got %q, want %q", err, "error recovery limit must be greater than or equal to -1: -2")
 	}
-	if _, err := NewParser(Macros(AllMacros...), ErrorRecoveryLookaheadTokenLimit(0)); err == nil {
+	if _, err := NewParser(ErrorRecoveryLookaheadTokenLimit(0)); err == nil {
 		t.Fatalf("got %q, want %q", err, "error recovery lookahead token limit must be at least 1: 0")
 	}
-	if _, err := NewParser(Macros(AllMacros...), ExpressionSizeCodePointLimit(-2)); err == nil {
+	if _, err := NewParser(ErrorReportingLimit(0)); err == nil {
+		t.Fatalf("got %q, want %q", err, "error reporting limit must be greater than 0: -2")
+	}
+	if _, err := NewParser(ExpressionSizeCodePointLimit(-2)); err == nil {
 		t.Fatalf("got %q, want %q", err, "expression size code point limit must be greater than or equal to -1: -2")
 	}
 }
