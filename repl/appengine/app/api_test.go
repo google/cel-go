@@ -85,7 +85,7 @@ func TestAPIEvaluate(t *testing.T) {
 					},
 					{
 						ReplOutput: "",
-						Issue:      "(1:0) no viable alternative at input '}'",
+						Issue:      "invalid command: (1:0) no viable alternative at input '}'",
 						Evaluated:  false,
 					},
 				},

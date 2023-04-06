@@ -13,6 +13,9 @@ type CommandsVisitor interface {
 	// Visit a parse tree produced by CommandsParser#command.
 	VisitCommand(ctx *CommandContext) interface{}
 
+	// Visit a parse tree produced by CommandsParser#help.
+	VisitHelp(ctx *HelpContext) interface{}
+
 	// Visit a parse tree produced by CommandsParser#let.
 	VisitLet(ctx *LetContext) interface{}
 
@@ -36,6 +39,9 @@ type CommandsVisitor interface {
 
 	// Visit a parse tree produced by CommandsParser#empty.
 	VisitEmpty(ctx *EmptyContext) interface{}
+
+	// Visit a parse tree produced by CommandsParser#compile.
+	VisitCompile(ctx *CompileContext) interface{}
 
 	// Visit a parse tree produced by CommandsParser#exprCmd.
 	VisitExprCmd(ctx *ExprCmdContext) interface{}

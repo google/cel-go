@@ -13,6 +13,9 @@ type CommandsListener interface {
 	// EnterCommand is called when entering the command production.
 	EnterCommand(c *CommandContext)
 
+	// EnterHelp is called when entering the help production.
+	EnterHelp(c *HelpContext)
+
 	// EnterLet is called when entering the let production.
 	EnterLet(c *LetContext)
 
@@ -36,6 +39,9 @@ type CommandsListener interface {
 
 	// EnterEmpty is called when entering the empty production.
 	EnterEmpty(c *EmptyContext)
+
+	// EnterCompile is called when entering the compile production.
+	EnterCompile(c *CompileContext)
 
 	// EnterExprCmd is called when entering the exprCmd production.
 	EnterExprCmd(c *ExprCmdContext)
@@ -160,6 +166,9 @@ type CommandsListener interface {
 	// ExitCommand is called when exiting the command production.
 	ExitCommand(c *CommandContext)
 
+	// ExitHelp is called when exiting the help production.
+	ExitHelp(c *HelpContext)
+
 	// ExitLet is called when exiting the let production.
 	ExitLet(c *LetContext)
 
@@ -183,6 +192,9 @@ type CommandsListener interface {
 
 	// ExitEmpty is called when exiting the empty production.
 	ExitEmpty(c *EmptyContext)
+
+	// ExitCompile is called when exiting the compile production.
+	ExitCompile(c *CompileContext)
 
 	// ExitExprCmd is called when exiting the exprCmd production.
 	ExitExprCmd(c *ExprCmdContext)

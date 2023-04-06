@@ -15,6 +15,7 @@
 package repl
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -33,6 +34,9 @@ func cmdMatches(t testing.TB, got Cmder, expected Cmder) (result bool) {
 	}()
 
 	switch want := expected.(type) {
+	case *compileCmd:
+		gotCompile := got.(*compileCmd)
+		return gotCompile.expr == want.expr
 	case *evalCmd:
 		gotEval := got.(*evalCmd)
 		return gotEval.expr == want.expr
@@ -111,6 +115,7 @@ func TestParse(t *testing.T) {
 	var testCases = []struct {
 		commandLine string
 		wantCmd     Cmder
+		wantErr     error
 	}{
 		{
 			commandLine: "%let x = 1",
@@ -137,6 +142,10 @@ func TestParse(t *testing.T) {
 			},
 		},
 		{
+			commandLine: `%compile x + 2`,
+			wantCmd:     &compileCmd{expr: "x + 2"},
+		},
+		{
 			commandLine: `%eval x + 2`,
 			wantCmd:     &evalCmd{expr: "x + 2"},
 		},
@@ -147,6 +156,34 @@ func TestParse(t *testing.T) {
 		{
 			commandLine: `%exit`,
 			wantCmd:     &simpleCmd{cmd: "exit"},
+		},
+		{
+			commandLine: `%help`,
+			wantErr: errors.New(`Compile emits a textproto representation of the compiled expression.
+            %compile <expr>
+            
+            Declare introduces a variable or function for type checking, but
+            doesn't define a value for it:
+            %declare <identifier> : <type>
+            %declare <identifier> (<param_identifier> : <param_type>, ...) : <result-type>
+            
+            Delete removes a variable or function declaration from the evaluation context.
+            %delete <identifier>
+            
+            Let introduces a variable or function defined by a sub-CEL expression.
+            %let <identifier> (: <type>)? = <expr>
+            %let <identifier> (<param_identifier> : <param_type>, ...) : <result-type> -> <expr>
+            
+            Option enables a CEL environment option which enables configuration and
+            optional language features.
+            %option --container 'google.protobuf'
+            %option --extension 'all'
+            
+            Help prints usage information for the commands supported by the REPL.
+            %help
+            
+            Exit terminates the REPL.
+            %exit`),
 		},
 		{
 			commandLine: `%arbitrary --flag -FLAG 'string literal\n'`,
@@ -237,6 +274,9 @@ func TestParse(t *testing.T) {
 		t.Run(tc.commandLine, func(t *testing.T) {
 			cmd, err := Parse(tc.commandLine)
 			if err != nil {
+				if tc.wantErr != nil && stripWhitespace(tc.wantErr.Error()) == stripWhitespace(err.Error()) {
+					return
+				}
 				t.Errorf("Parse(\"%s\") failed: %s", tc.commandLine, err)
 			}
 			if cmd == nil || !cmdMatches(t, cmd, tc.wantCmd) {

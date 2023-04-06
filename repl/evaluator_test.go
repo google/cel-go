@@ -15,6 +15,7 @@
 package repl
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/google/cel-go/cel"
@@ -489,12 +490,44 @@ func TestSetOptionError(t *testing.T) {
 
 func TestProcess(t *testing.T) {
 	var testCases = []struct {
-		name      string
-		commands  []Cmder
-		wantText  string
-		wantExit  bool
-		wantError bool
+		name             string
+		commands         []Cmder
+		wantText         string
+		wantExit         bool
+		wantError        bool
+		ignoreWhitespace bool
 	}{
+		{
+			name: "CompileResult",
+			commands: []Cmder{
+				&compileCmd{
+					expr: "3u",
+				},
+			},
+			wantText: `type_map:  {
+				key:  1
+				value:  {
+				  primitive:  UINT64
+				}
+			  }
+			  source_info:  {
+				location:  "<input>"
+				line_offsets:  3
+				positions:  {
+				  key:  1
+				  value:  0
+				}
+			  }
+			  expr:  {
+				id:  1
+				const_expr:  {
+				  uint64_value:  3
+				}
+			  }`,
+			wantExit:         false,
+			wantError:        false,
+			ignoreWhitespace: true,
+		},
 		{
 			name: "FormatNumberResult",
 			commands: []Cmder{
@@ -820,8 +853,12 @@ func TestProcess(t *testing.T) {
 			if err != nil {
 				gotErr = true
 			}
-
-			if text != tc.wantText || exit != tc.wantExit || (gotErr != tc.wantError) {
+			wantText := tc.wantText
+			if tc.ignoreWhitespace {
+				text = stripWhitespace(text)
+				wantText = stripWhitespace(wantText)
+			}
+			if text != wantText || exit != tc.wantExit || (gotErr != tc.wantError) {
 				t.Errorf("For command %s got (output: '%s' exit: %v err: %v (%v)) wanted (output: '%s' exit: %v err: %v)",
 					tc.commands[n-1], text, exit, gotErr, err, tc.wantText, tc.wantExit, tc.wantError)
 			}
@@ -887,4 +924,11 @@ func TestProcessOptionError(t *testing.T) {
 			}
 		})
 	}
+}
+
+func stripWhitespace(a string) string {
+	a = strings.Replace(a, " ", "", -1)
+	a = strings.Replace(a, "\n", "", -1)
+	a = strings.Replace(a, "\t", "", -1)
+	return strings.Replace(a, "\r", "", -1)
 }
