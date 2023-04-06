@@ -43,6 +43,39 @@ cel-repl> %exit
 
 ### Commands
 
+#### compile
+
+`%compile` compiles the input expression using the currently configured state
+into a protocol buffer text format representing the type-checked AST.
+
+`%compile <expr>`
+
+Example: 
+
+```
+> %compile 3u
+type_map:  {
+    key:  1
+    value:  {
+        primitive:  UINT64
+    }
+}
+source_info:  {
+    location:  "<input>"
+    line_offsets:  3
+    positions:  {
+        key:  1
+        value:  0
+    }
+}
+expr:  {
+    id:  1
+    const_expr:  {
+        uint64_value:  3
+    }
+}
+```
+
 #### let
 `%let` introduces or update a variable or function  declaration and provide a
 definition (as another CEL expression). A type hint is optionally provided to
@@ -118,7 +151,8 @@ may take string arguments.
 
 `--container <string>` sets the expression container for name resolution.
 
-`--extension <extensionType>` enables CEL extensions. Valid options are: `strings`, `protos`, `math`, `encoders`, `all`.
+`--extension <extensionType>` enables CEL extensions. Valid options are: 
+`strings`, `protos`, `math`, `encoders`, `optional`, `all`.
 
 example:
 
@@ -126,7 +160,7 @@ example:
 
 `%option --extension 'strings'`
 
-`%option --extension 'all'` (Loads all 4 extensions)
+`%option --extension 'all'` (Loads all extensions)
 
 #### reset
 
