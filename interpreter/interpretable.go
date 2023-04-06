@@ -802,6 +802,9 @@ func (e *evalSetMembership) ID() int64 {
 // Eval implements the Interpretable interface method.
 func (e *evalSetMembership) Eval(ctx Activation) ref.Val {
 	val := e.arg.Eval(ctx)
+	if types.IsUnknownOrError(val) {
+		return val
+	}
 	if ret, found := e.valueSet[val]; found {
 		return ret
 	}
