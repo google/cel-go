@@ -27,19 +27,31 @@ import (
 )
 
 var (
-	letUsage = `Let introduces a variable or function defined by a sub-CEL expression.
-%let <identifier> (: <type>)? = <expr>
-%let <identifier> (<param_identifier> : <param_type>, ...) : <result-type> -> <expr>`
+	compileUsage = `Compile emits a textproto representation of the compiled expression.
+%compile <expr>`
 
-	declareUsage = `Declare introduces a variable or function for type checking, but doesn't define a value for it.
+	declareUsage = `Declare introduces a variable or function for type checking, but
+doesn't define a value for it:
 %declare <identifier> : <type>
 %declare <identifier> (<param_identifier> : <param_type>, ...) : <result-type>`
 
 	deleteUsage = `Delete removes a variable or function declaration from the evaluation context.
 %delete <identifier>`
 
-	compileUsage = `Compile emits a textproto representation of the compiled expression.
-%compile <expr>`
+	letUsage = `Let introduces a variable or function defined by a sub-CEL expression.
+%let <identifier> (: <type>)? = <expr>
+%let <identifier> (<param_identifier> : <param_type>, ...) : <result-type> -> <expr>`
+
+	optionUsage = `Option enables a CEL environment option which enables configuration and
+optional language features.
+%option --container 'google.protobuf'
+%option --extension 'all'`
+
+	exitUsage = `Exit terminates the REPL.
+%exit`
+
+	helpUsage = `Help prints usage information for the commands supported by the REPL.
+%help`
 )
 
 type letVarCmd struct {
@@ -171,6 +183,9 @@ func Parse(line string) (Cmder, error) {
 			declareUsage,
 			deleteUsage,
 			letUsage,
+			optionUsage,
+			helpUsage,
+			exitUsage,
 		}, "\n\n"))
 	}
 	return listener.cmd, nil
