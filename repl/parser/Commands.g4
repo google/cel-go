@@ -19,12 +19,16 @@ import CEL;
 // parser rules:
 startCommand: command EOF;
 
-command: let |
+command: help |
+         let |
          declare |
          delete |
          simple |
+         compile |
          exprCmd |
          empty;
+
+help: '%help' | '%?';
 
 let: '%let' ( (var=varDecl '=') | (fn=fnDecl '->') ) e=expr;
 
@@ -41,6 +45,8 @@ delete: '%delete' (var=varDecl | fn=fnDecl);
 simple: cmd=COMMAND (args+=FLAG | args+=STRING)*;
 
 empty: ;
+
+compile: '%compile' e=expr;
 
 exprCmd: '%eval'? e=expr;
 

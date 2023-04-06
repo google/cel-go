@@ -28,9 +28,11 @@
 // cel-repl> %let y = {'a': x, 'b': y}
 // Adding let failed:
 // Error updating y = {'a': x, 'b': y}
-// ERROR: <input>:1:15: undeclared reference to 'y' (in container '')
-//  | {'a': x, 'b': y}
-//  | ..............^
+// ERROR: <input>:1:15: undeclared reference to 'y' (in container ”)
+//
+//	| {'a': x, 'b': y}
+//	| ..............^
+//
 // cel-repl> %let z = 41
 // cel-repl> %let y = {'a': x, 'b': z}
 // cel-repl> y.map(key, y[key]).filter(x, x > 41)
@@ -84,7 +86,7 @@ PromptLoop:
 
 		cmd, err := repl.Parse(line)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "invalid command: %v\n", err)
+			fmt.Fprintf(os.Stderr, "%v\n", err)
 			continue
 		}
 		status, exit, err := eval.Process(cmd)

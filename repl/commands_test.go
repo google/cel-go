@@ -33,6 +33,9 @@ func cmdMatches(t testing.TB, got Cmder, expected Cmder) (result bool) {
 	}()
 
 	switch want := expected.(type) {
+	case *compileCmd:
+		gotCompile := got.(*compileCmd)
+		return gotCompile.expr == want.expr
 	case *evalCmd:
 		gotEval := got.(*evalCmd)
 		return gotEval.expr == want.expr
@@ -137,6 +140,10 @@ func TestParse(t *testing.T) {
 			},
 		},
 		{
+			commandLine: `%compile x + 2`,
+			wantCmd:     &compileCmd{expr: "x + 2"},
+		},
+		{
 			commandLine: `%eval x + 2`,
 			wantCmd:     &evalCmd{expr: "x + 2"},
 		},
@@ -147,6 +154,10 @@ func TestParse(t *testing.T) {
 		{
 			commandLine: `%exit`,
 			wantCmd:     &simpleCmd{cmd: "exit"},
+		},
+		{
+			commandLine: `%help`,
+			wantCmd:     &simpleCmd{cmd: "help"},
 		},
 		{
 			commandLine: `%arbitrary --flag -FLAG 'string literal\n'`,

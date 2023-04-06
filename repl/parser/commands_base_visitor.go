@@ -15,6 +15,10 @@ func (v *BaseCommandsVisitor) VisitCommand(ctx *CommandContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseCommandsVisitor) VisitHelp(ctx *HelpContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseCommandsVisitor) VisitLet(ctx *LetContext) interface{} {
 	return v.VisitChildren(ctx)
 }
@@ -44,6 +48,10 @@ func (v *BaseCommandsVisitor) VisitSimple(ctx *SimpleContext) interface{} {
 }
 
 func (v *BaseCommandsVisitor) VisitEmpty(ctx *EmptyContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseCommandsVisitor) VisitCompile(ctx *CompileContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

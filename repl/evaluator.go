@@ -431,7 +431,7 @@ type Evaluator struct {
 
 // NewEvaluator returns an inialized evaluator
 func NewEvaluator() (*Evaluator, error) {
-	env, err := cel.NewEnv()
+	env, err := cel.NewEnv(cel.EnableMacroCallTracking())
 	if err != nil {
 		return nil, err
 	}
@@ -847,8 +847,19 @@ func (e *Evaluator) loadDescriptors(args []string) error {
 	return e.AddOption(&typeOption{path: p, fds: fds})
 }
 
+// Process processes the command provided.
 func (e *Evaluator) Process(cmd Cmder) (string, bool, error) {
 	switch cmd := cmd.(type) {
+	case *compileCmd:
+		ast, err := e.Compile(cmd.expr)
+		if err != nil {
+			return "", false, fmt.Errorf("compile failed:\n%v", err)
+		}
+		cAST, err := cel.AstToCheckedExpr(ast)
+		if err != nil {
+			return "", false, fmt.Errorf("compile failed:\n%v", err)
+		}
+		return prototext.Format(cAST), false, nil
 	case *evalCmd:
 		val, resultT, err := e.Evaluate(cmd.expr)
 		if err != nil {
@@ -916,7 +927,7 @@ func (e *Evaluator) Process(cmd Cmder) (string, bool, error) {
 	return "", false, nil
 }
 
-// Evaluate sets up a CEL evaluation using the current evaluation context.
+// Evaluate sets up a CEL evaluation using the current REPL context.
 func (e *Evaluator) Evaluate(expr string) (ref.Val, *exprpb.Type, error) {
 	env, act, err := e.applyContext()
 	if err != nil {
@@ -924,7 +935,7 @@ func (e *Evaluator) Evaluate(expr string) (ref.Val, *exprpb.Type, error) {
 	}
 
 	ast, iss := env.Compile(expr)
-	if iss != nil {
+	if iss.Err() != nil {
 		return nil, nil, iss.Err()
 	}
 
@@ -936,4 +947,17 @@ func (e *Evaluator) Evaluate(expr string) (ref.Val, *exprpb.Type, error) {
 	val, _, err := p.Eval(act)
 	// expression can be well-formed and result in an error
 	return val, ast.ResultType(), err
+}
+
+// Compile compiles the input expression using the current REPL context.
+func (e *Evaluator) Compile(expr string) (*cel.Ast, error) {
+	env, _, err := e.applyContext()
+	if err != nil {
+		return nil, err
+	}
+	ast, iss := env.Compile(expr)
+	if iss.Err() != nil {
+		return nil, iss.Err()
+	}
+	return ast, nil
 }

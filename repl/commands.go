@@ -26,16 +26,21 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
-var letUsage = `Let introduces a variable or function defined by a sub-CEL expression.
+var (
+	letUsage = `Let introduces a variable or function defined by a sub-CEL expression.
 %let <identifier> (: <type>)? = <expr>
 %let <identifier> (<param_identifier> : <param_type>, ...) : <result-type> -> <expr>`
 
-var declareUsage = `Declare introduces a variable or function for type checking, but doesn't define a value for it.
+	declareUsage = `Declare introduces a variable or function for type checking, but doesn't define a value for it.
 %declare <identifier> : <type>
-%declare <identifier> (<param_identifier> : <param_type>, ...) : <result-type>
-`
-var deleteUsage = `Delete removes a variable or function declaration from the evaluation context.
+%declare <identifier> (<param_identifier> : <param_type>, ...) : <result-type>`
+
+	deleteUsage = `Delete removes a variable or function declaration from the evaluation context.
 %delete <identifier>`
+
+	compileUsage = `Compile emits a textproto representation of the compiled expression.
+%compile <expr>`
+)
 
 type letVarCmd struct {
 	identifier string
@@ -57,6 +62,10 @@ type delCmd struct {
 type simpleCmd struct {
 	cmd  string
 	args []string
+}
+
+type compileCmd struct {
+	expr string
 }
 
 type evalCmd struct {
@@ -91,6 +100,10 @@ func (c *delCmd) Cmd() string {
 
 func (c *simpleCmd) Cmd() string {
 	return c.cmd
+}
+
+func (c *compileCmd) Cmd() string {
+	return "compile"
 }
 
 func (c *evalCmd) Cmd() string {
@@ -150,9 +163,16 @@ func Parse(line string) (Cmder, error) {
 		if listener.usage != "" {
 			errFmt = append(errFmt, "", "Usage:", listener.usage)
 		}
-		return nil, errors.New(strings.Join(errFmt, "\n"))
+		return nil, fmt.Errorf("invalid command: %v", strings.Join(errFmt, "\n"))
 	}
-
+	if listener.cmd.Cmd() == "help" {
+		return nil, errors.New(strings.Join([]string{
+			compileUsage,
+			declareUsage,
+			deleteUsage,
+			letUsage,
+		}, "\n\n"))
+	}
 	return listener.cmd, nil
 }
 
@@ -181,6 +201,10 @@ func (c *commandParseListener) EnterSimple(ctx *parser.SimpleContext) {
 
 	}
 	c.cmd = &simpleCmd{cmd: cmd, args: args}
+}
+
+func (c *commandParseListener) EnterHelp(ctx *parser.HelpContext) {
+	c.cmd = &simpleCmd{cmd: "help"}
 }
 
 func (c *commandParseListener) EnterEmpty(ctx *parser.EmptyContext) {
@@ -229,6 +253,10 @@ func (c *commandParseListener) EnterDelete(ctx *parser.DeleteContext) {
 		return
 	}
 	c.cmd = &delCmd{}
+}
+
+func (c *commandParseListener) EnterCompile(ctx *parser.CompileContext) {
+	c.cmd = &compileCmd{}
 }
 
 func (c *commandParseListener) EnterExprCmd(ctx *parser.ExprCmdContext) {
@@ -314,6 +342,8 @@ func (c *commandParseListener) ExitVarDecl(ctx *parser.VarDeclContext) {
 func (c *commandParseListener) ExitExpr(ctx *parser.ExprContext) {
 	expr := extractSourceText(ctx)
 	switch cmd := c.cmd.(type) {
+	case *compileCmd:
+		cmd.expr = expr
 	case *evalCmd:
 		cmd.expr = expr
 	case *letFnCmd:

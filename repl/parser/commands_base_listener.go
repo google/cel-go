@@ -32,6 +32,12 @@ func (s *BaseCommandsListener) EnterCommand(ctx *CommandContext) {}
 // ExitCommand is called when production command is exited.
 func (s *BaseCommandsListener) ExitCommand(ctx *CommandContext) {}
 
+// EnterHelp is called when production help is entered.
+func (s *BaseCommandsListener) EnterHelp(ctx *HelpContext) {}
+
+// ExitHelp is called when production help is exited.
+func (s *BaseCommandsListener) ExitHelp(ctx *HelpContext) {}
+
 // EnterLet is called when production let is entered.
 func (s *BaseCommandsListener) EnterLet(ctx *LetContext) {}
 
@@ -79,6 +85,12 @@ func (s *BaseCommandsListener) EnterEmpty(ctx *EmptyContext) {}
 
 // ExitEmpty is called when production empty is exited.
 func (s *BaseCommandsListener) ExitEmpty(ctx *EmptyContext) {}
+
+// EnterCompile is called when production compile is entered.
+func (s *BaseCommandsListener) EnterCompile(ctx *CompileContext) {}
+
+// ExitCompile is called when production compile is exited.
+func (s *BaseCommandsListener) ExitCompile(ctx *CompileContext) {}
 
 // EnterExprCmd is called when production exprCmd is entered.
 func (s *BaseCommandsListener) EnterExprCmd(ctx *ExprCmdContext) {}
