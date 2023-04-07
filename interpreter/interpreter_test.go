@@ -1395,6 +1395,11 @@ var (
 			unchecked: true,
 			err:       `cannot initialize optional list element from non-optional value 123`,
 		},
+		{
+			name: "bad_argument_in_optimized_list",
+			expr: `1/0 in [1, 2, 3]`,
+			err:  `division by zero`,
+		},
 	}
 )
 
