@@ -21,6 +21,26 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
+// Bindings returns a cel.EnvOption to configure support for local variable
+// bindings in expressions.
+//
+// # Cel.Bind
+//
+// Binds a simple identifier to an initialization expression which may be used
+// in a subsequenct result expression. Bindings may also be nested within each
+// other.
+//
+//	cel.bind(<varName>, <initExpr>, <resultExpr>)
+//
+// Examples:
+//
+//	cel.bind(a, 'hello',
+//	  cel.bind(b, 'world', a + b + b + a)) // "helloworldworldhello"
+//
+//	// Avoid a list allocation within the exists comprehension.
+//	cel.bind(valid_values, [a, b, c], [d, e, f].exists(elem, elem in valid_values))
+//
+// Local bindings are not guaranteed to be evaluated before use.
 func Bindings() cel.EnvOption {
 	return cel.Lib(celBindings{})
 }
