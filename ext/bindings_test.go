@@ -16,6 +16,7 @@ package ext
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/google/cel-go/cel"
@@ -67,6 +68,35 @@ func TestBindings(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestBindingsNonMatch(t *testing.T) {
+	env, err := cel.NewEnv(Bindings(), Strings())
+	if err != nil {
+		t.Fatalf("cel.NewEnv(Bindings(), Strings()) failed: %v", err)
+	}
+	nonMatchExpr := `ceel.bind(a, 1, a)`
+	ast, iss := env.Parse(nonMatchExpr)
+	if iss.Err() != nil {
+		t.Fatalf("env.Parse(%v) failed: %v", nonMatchExpr, iss.Err())
+	}
+	if len(ast.SourceInfo().GetMacroCalls()) != 0 {
+		t.Fatalf("env.Parse(%v) performed a macro replacement when none was expected: %v",
+			nonMatchExpr, ast.SourceInfo().GetMacroCalls())
+	}
+}
+
+func TestBindingsInvalidIdent(t *testing.T) {
+	env, err := cel.NewEnv(Bindings(), Strings())
+	if err != nil {
+		t.Fatalf("cel.NewEnv(Bindings(), Strings()) failed: %v", err)
+	}
+	invalidIdentExpr := `cel.bind(a.b, 1, a.b)`
+	wantErr := "ERROR: <input>:1:11: cel.bind() variable names must be simple identifers"
+	_, iss := env.Parse(invalidIdentExpr)
+	if !strings.Contains(iss.Err().Error(), wantErr) {
+		t.Fatalf("env.Parse(%v) failed: %v", invalidIdentExpr, iss.Err())
 	}
 }
 

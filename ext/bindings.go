@@ -15,8 +15,6 @@
 package ext
 
 import (
-	"fmt"
-
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common"
 
@@ -63,8 +61,8 @@ func celBind(meh cel.MacroExprHelper, target *exprpb.Expr, args []*exprpb.Expr) 
 		varName = varIdent.GetIdentExpr().GetName()
 	default:
 		return nil, &common.Error{
-			Message:  fmt.Sprintf("cel.bind() variable names must be simple identifers: %v", varIdent),
-			Location: meh.OffsetLocation(target.GetId()),
+			Message:  "cel.bind() variable names must be simple identifers",
+			Location: meh.OffsetLocation(varIdent.GetId()),
 		}
 	}
 	varInit := args[1]
