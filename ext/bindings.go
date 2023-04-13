@@ -35,10 +35,11 @@ import (
 // Examples:
 //
 //	cel.bind(a, 'hello',
-//	  cel.bind(b, 'world', a + b + b + a)) // "helloworldworldhello"
+//	cel.bind(b, 'world', a + b + b + a)) // "helloworldworldhello"
 //
 //	// Avoid a list allocation within the exists comprehension.
-//	cel.bind(valid_values, [a, b, c], [d, e, f].exists(elem, elem in valid_values))
+//	cel.bind(valid_values, [a, b, c],
+//	[d, e, f].exists(elem, elem in valid_values))
 //
 // Local bindings are not guaranteed to be evaluated before use.
 func Bindings() cel.EnvOption {
