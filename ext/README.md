@@ -3,6 +3,30 @@
 CEL extensions are a related set of constants, functions, macros, or other
 features which may not be covered by the core CEL spec.
 
+## Bindings 
+
+Returns a cel.EnvOption to configure support for local variable bindings
+in expressions.
+
+# Cel.Bind
+
+Binds a simple identifier to an initialization expression which may be used
+in a subsequenct result expression. Bindings may also be nested within each
+other.
+
+    cel.bind(<varName>, <initExpr>, <resultExpr>)
+
+Examples:
+
+    cel.bind(a, 'hello',
+     cel.bind(b, 'world', a + b + b + a)) // "helloworldworldhello"
+
+    // Avoid a list allocation within the exists comprehension.
+    cel.bind(valid_values, [a, b, c],
+     [d, e, f].exists(elem, elem in valid_values))
+
+Local bindings are not guaranteed to be evaluated before use.
+
 ## Encoders
 
 Encoding utilies for marshalling data into standardized representations.
