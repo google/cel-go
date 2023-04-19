@@ -20,10 +20,12 @@ import (
 	"time"
 
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/types"
 
+	proto2pb "github.com/google/cel-go/test/proto2pb"
 	proto3pb "github.com/google/cel-go/test/proto3pb"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
@@ -188,5 +190,82 @@ func TestCheckedExprToAstMissingInfo(t *testing.T) {
 	}
 	if ast2.ResultType() != decls.Int {
 		t.Fatalf("ast2.ResultType() got %v, wanted 'int'", ast.ResultType())
+	}
+}
+
+func TestProtoToMap(t *testing.T) {
+	cases := []struct {
+		desc          string
+		proto         *proto2pb.TestAllTypes
+		wantMapSubset map[string]any
+	}{
+		{
+			desc: "simple",
+			proto: &proto2pb.TestAllTypes{
+				SingleInt32: proto.Int32(100),
+			},
+			wantMapSubset: map[string]any{
+				"single_int32": protoreflect.ValueOf(int32(100)),
+			},
+		},
+		{
+			desc:  "default",
+			proto: &proto2pb.TestAllTypes{},
+			wantMapSubset: map[string]any{
+				"single_int32": protoreflect.ValueOf(int32(-32)), // See proto file.
+			},
+		},
+		{
+			desc: "nested_message",
+			proto: &proto2pb.TestAllTypes{
+				NestedType: &proto2pb.TestAllTypes_SingleNestedMessage{
+					SingleNestedMessage: &proto2pb.TestAllTypes_NestedMessage{
+						Bb: proto.Int32(11),
+					},
+				},
+			},
+			wantMapSubset: map[string]any{
+				"single_nested_message": protoreflect.ValueOf((&proto2pb.TestAllTypes_NestedMessage{
+					Bb: proto.Int32(11),
+				}).ProtoReflect()),
+			},
+		},
+		{
+			desc:  "nil_nested_message",
+			proto: &proto2pb.TestAllTypes{},
+			wantMapSubset: map[string]any{
+				// A nil proto with a type.
+				"single_nested_message": protoreflect.ValueOf((*proto2pb.TestAllTypes_NestedMessage)(nil).ProtoReflect()),
+			},
+		},
+		{
+			desc:          "nil_proto",
+			proto:         nil,
+			wantMapSubset: nil,
+		},
+	}
+
+	// Use CEL type adapter for comparison.
+	env, err := NewEnv(Types(&proto2pb.TestAllTypes{}))
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.desc, func(t *testing.T) {
+			m := ProtoToMap(tc.proto)
+			for k, want := range tc.wantMapSubset {
+				got, ok := m[k]
+				if !ok {
+					t.Fatalf("ProtoToMap is missing key: %v", k)
+				}
+
+				wantVal := env.TypeAdapter().NativeToValue(want)
+				gotVal := env.TypeAdapter().NativeToValue(got)
+				if gotVal.Equal(wantVal) != types.True {
+					t.Errorf("got val %v, wanted %v", gotVal, wantVal)
+				}
+			}
+		})
 	}
 }

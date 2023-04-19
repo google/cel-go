@@ -278,3 +278,18 @@ func ValueToRefValue(adapter ref.TypeAdapter, v *exprpb.Value) (ref.Val, error) 
 	}
 	return nil, errors.New("unknown value")
 }
+
+// ProtoToMap creates an activation for a program Eval() based on a context
+// proto. Useful in conjunction with DeclareContextProto.
+func ProtoToMap(m proto.Message) map[string]any {
+	fields := make(map[string]any)
+	if !m.ProtoReflect().IsValid() {
+		return nil
+	}
+	fds := m.ProtoReflect().Descriptor().Fields()
+	for i := 0; i < fds.Len(); i++ {
+		fd := fds.Get(i)
+		fields[fd.TextName()] = m.ProtoReflect().Get(fd)
+	}
+	return fields
+}
