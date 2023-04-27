@@ -12,6 +12,7 @@ go_library(
         "math.go",
         "native.go",
         "protos.go",
+        "sets.go",
         "strings.go",
     ],
     importpath = "github.com/google/cel-go/ext",
@@ -43,6 +44,7 @@ go_test(
         "math_test.go",
         "native_test.go",
         "protos_test.go",
+        "sets_test.go",
         "strings_test.go",
     ],
     embed = [
