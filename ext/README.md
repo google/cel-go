@@ -33,8 +33,7 @@ Example:
 
 ## Math
 
-Math returns a cel.EnvOption to configure namespaced math helper macros and
-functions.
+Math helper macros and functions.
 
 Note, all macros use the 'math' namespace; however, at the time of macro
 expansion the namespace looks just like any other identifier. If you are
@@ -96,8 +95,7 @@ Examples:
 
 ## Protos
 
-Protos returns a cel.EnvOption to configure extended macros and functions for
-proto manipulation.
+Protos configure extended macros and functions for proto manipulation.
 
 Note, all macros use the 'proto' namespace; however, at the time of macro
 expansion the namespace looks just like any other identifier. If you are
@@ -127,8 +125,9 @@ Example:
 
     proto.hasExt(msg, google.expr.proto2.test.int32_ext) // returns true || false
 
-## Sets returns a cel.EnvOption to configure namespaced set relationship
-functions.
+## Sets
+
+Sets provides set relationship tests.
 
 There is no set type within CEL, and while one may be introduced in the
 future, there are cases where a `list` type is known to behave like a set.
