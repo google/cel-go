@@ -357,23 +357,24 @@ func TestVersions(t *testing.T) {
 		{
 			version: 0,
 			supportedFunctions: map[string]string{
-				"chatAt":      "''.charAt(0)",
-				"indexOf":     "'a'.indexOf('a')",
-				"lastIndexOf": "'a'.lastIndexOf('a')",
-				"join":        "['a', 'b'].join()",
-				"lowerAscii":  "'a'.lowerAscii()",
-				"replace":     "'hello hello'.replace('he', 'we')",
-				"split":       "'hello hello hello'.split(' ')",
-				"substring":   "'tacocat'.substring(4)",
-				"trim":        "'  \\ttrim\\n    '.trim()",
-				"upperAscii":  "'TacoCat'.upperAscii()",
+				"chatAt":      "''.charAt(0) == ''",
+				"indexOf":     "'a'.indexOf('a') == 0",
+				"lastIndexOf": "'a'.lastIndexOf('a') == 0",
+				"join":        "['a', 'b'].join() == 'ab'",
+				"joinSep":     "['a', 'b'].join('-') == 'a-b'",
+				"lowerAscii":  "'a'.lowerAscii() == 'a'",
+				"replace":     "'hello hello'.replace('he', 'we') == 'wello wello'",
+				"split":       "'hello hello hello'.split(' ') == ['hello', 'hello', 'hello']",
+				"substring":   "'tacocat'.substring(4) == 'cat'",
+				"trim":        "'  \\ttrim\\n    '.trim() == 'trim'",
+				"upperAscii":  "'TacoCat'.upperAscii() == 'TACOCAT'",
 			},
 		},
 		{
 			version: 1,
 			supportedFunctions: map[string]string{
-				"format": "'a %d'.format([1])",
-				"quote":  `strings.quote('\a \b "double quotes"')`,
+				"format": "'a %d'.format([1]) == 'a 1'",
+				"quote":  `strings.quote('\a \b "double quotes"') == '"\\a \\b \\"double quotes\\""'`,
 			},
 		},
 	}
@@ -387,7 +388,7 @@ func TestVersions(t *testing.T) {
 				for name, expr := range tc.supportedFunctions {
 					supported := lib.version >= tc.version
 					t.Run(fmt.Sprintf("%s-supported=%t", name, supported), func(t *testing.T) {
-						_, iss := env.Compile(expr)
+						ast, iss := env.Compile(expr)
 						if supported {
 							if iss.Err() != nil {
 								t.Errorf("unexpected error: %v", iss.Err())
@@ -396,6 +397,18 @@ func TestVersions(t *testing.T) {
 							if iss.Err() == nil || !strings.Contains(iss.Err().Error(), "undeclared reference") {
 								t.Errorf("got error %v, wanted error %s for expr: %s, version: %d", iss.Err(), "undeclared reference", expr, tc.version)
 							}
+							return
+						}
+						prg, err := env.Program(ast)
+						if err != nil {
+							t.Fatalf("env.Program() failed: %v", err)
+						}
+						out, _, err := prg.Eval(cel.NoVars())
+						if err != nil {
+							t.Fatalf("prg.Eval() failed: %v", err)
+						}
+						if out != types.True {
+							t.Errorf("prg.Eval() got %v, wanted true", out)
 						}
 					})
 				}
