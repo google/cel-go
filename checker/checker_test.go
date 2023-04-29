@@ -2461,7 +2461,7 @@ func TestAddEquivalentDeclarations(t *testing.T) {
 	}
 }
 
-func TestCheckErrorExprID(t *testing.T) {
+func TestCheckErrorData(t *testing.T) {
 	p, err := parser.NewParser(
 		parser.EnableOptionalSyntax(true),
 		parser.Macros(parser.AllMacros...),

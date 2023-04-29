@@ -2104,7 +2104,7 @@ func newTestEnv(t *testing.T, cont *containers.Container, reg ref.TypeRegistry) 
 	return env
 }
 
-// NewStandardInterpreter builds a Dispatcher and TypeProvider with support for all of the CEL
+// newStandardInterpreter builds a Dispatcher and TypeProvider with support for all of the CEL
 // builtins defined in the language definition.
 func newStandardInterpreter(t *testing.T,
 	container *containers.Container,
