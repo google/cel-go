@@ -25,12 +25,12 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/google/cel-go/checker/decls"
+	"github.com/google/cel-go/common/functions"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
-	"github.com/google/cel-go/interpreter/functions"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
