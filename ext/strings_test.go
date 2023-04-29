@@ -942,6 +942,19 @@ func TestStringFormat(t *testing.T) {
 			expectedEstimatedCost: checker.CostEstimate{Min: 13, Max: 13},
 		},
 		{
+			name:       "message field support",
+			format:     "message field msg.single_int32: %d, msg.single_double: %.1f",
+			formatArgs: `msg.single_int32, msg.single_double`,
+			dynArgs: map[string]any{
+				"msg": &proto3pb.TestAllTypes{
+					SingleInt32:  2,
+					SingleDouble: 1.0,
+				},
+			},
+			locale:         "en_US",
+			expectedOutput: `message field msg.single_int32: 2, msg.single_double: 1.0`,
+		},
+		{
 			name:             "unrecognized formatting clause",
 			format:           "%a",
 			formatArgs:       "1",
@@ -1266,7 +1279,7 @@ func TestStringFormat(t *testing.T) {
 			checkCase(out, tt.expectedOutput, err, tt.err, t)
 			if tt.locale == "" {
 				// if the test has no locale specified, then that means it
-				// should have the same output regardless of lcoale
+				// should have the same output regardless of locale
 				t.Run("no change on locale", func(t *testing.T) {
 					out, err := runCase(tt.format, tt.formatArgs, "da_DK", tt.dynArgs, tt.skipCompileCheck, tt.expectedRuntimeCost, tt.expectedEstimatedCost, t)
 					checkCase(out, tt.expectedOutput, err, tt.err, t)
