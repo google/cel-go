@@ -23,10 +23,13 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+
 	proto3pb "github.com/google/cel-go/test/proto3pb"
 )
 
@@ -1222,8 +1225,31 @@ func TestStringFormat(t *testing.T) {
 	buildVariables := func(vars map[string]any) []cel.EnvOption {
 		opts := make([]cel.EnvOption, len(vars))
 		i := 0
-		for name := range vars {
-			opts[i] = cel.Variable(name, cel.DynType)
+		for name, value := range vars {
+			t := cel.DynType
+			switch v := value.(type) {
+			case proto.Message:
+				t = cel.ObjectType(string(v.ProtoReflect().Descriptor().FullName()))
+			case types.Bool:
+				t = cel.BoolType
+			case types.Bytes:
+				t = cel.BytesType
+			case types.Double:
+				t = cel.DoubleType
+			case types.Duration:
+				t = cel.DurationType
+			case types.Int:
+				t = cel.IntType
+			case types.Null:
+				t = cel.NullType
+			case types.String:
+				t = cel.StringType
+			case types.Timestamp:
+				t = cel.TimestampType
+			case types.Uint:
+				t = cel.UintType
+			}
+			opts[i] = cel.Variable(name, t)
 			i++
 		}
 		return opts

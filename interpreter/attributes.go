@@ -231,7 +231,11 @@ type absoluteAttribute struct {
 
 // ID implements the Attribute interface method.
 func (a *absoluteAttribute) ID() int64 {
-	return a.id
+	qual_count := len(a.qualifiers)
+	if qual_count == 0 {
+		return a.id
+	}
+	return a.qualifiers[qual_count-1].ID()
 }
 
 // IsOptional returns trivially false for an attribute as the attribute represents a fully
@@ -315,6 +319,11 @@ type conditionalAttribute struct {
 
 // ID is an implementation of the Attribute interface method.
 func (a *conditionalAttribute) ID() int64 {
+	// There's a field access after the conditional.
+	if a.truthy.ID() == a.falsy.ID() {
+		return a.truthy.ID()
+	}
+	// Otherwise return the conditional id as the consistent id being tracked.
 	return a.id
 }
 
@@ -379,7 +388,7 @@ type maybeAttribute struct {
 
 // ID is an implementation of the Attribute interface method.
 func (a *maybeAttribute) ID() int64 {
-	return a.id
+	return a.attrs[0].ID()
 }
 
 // IsOptional returns trivially false for an attribute as the attribute represents a fully
@@ -494,7 +503,11 @@ type relativeAttribute struct {
 
 // ID is an implementation of the Attribute interface method.
 func (a *relativeAttribute) ID() int64 {
-	return a.id
+	qual_count := len(a.qualifiers)
+	if qual_count == 0 {
+		return a.id
+	}
+	return a.qualifiers[qual_count-1].ID()
 }
 
 // IsOptional returns trivially false for an attribute as the attribute represents a fully
