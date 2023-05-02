@@ -23,10 +23,13 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+
 	proto3pb "github.com/google/cel-go/test/proto3pb"
 )
 
@@ -942,6 +945,19 @@ func TestStringFormat(t *testing.T) {
 			expectedEstimatedCost: checker.CostEstimate{Min: 13, Max: 13},
 		},
 		{
+			name:       "message field support",
+			format:     "message field msg.single_int32: %d, msg.single_double: %.1f",
+			formatArgs: `msg.single_int32, msg.single_double`,
+			dynArgs: map[string]any{
+				"msg": &proto3pb.TestAllTypes{
+					SingleInt32:  2,
+					SingleDouble: 1.0,
+				},
+			},
+			locale:         "en_US",
+			expectedOutput: `message field msg.single_int32: 2, msg.single_double: 1.0`,
+		},
+		{
 			name:             "unrecognized formatting clause",
 			format:           "%a",
 			formatArgs:       "1",
@@ -1209,8 +1225,31 @@ func TestStringFormat(t *testing.T) {
 	buildVariables := func(vars map[string]any) []cel.EnvOption {
 		opts := make([]cel.EnvOption, len(vars))
 		i := 0
-		for name := range vars {
-			opts[i] = cel.Variable(name, cel.DynType)
+		for name, value := range vars {
+			t := cel.DynType
+			switch v := value.(type) {
+			case proto.Message:
+				t = cel.ObjectType(string(v.ProtoReflect().Descriptor().FullName()))
+			case types.Bool:
+				t = cel.BoolType
+			case types.Bytes:
+				t = cel.BytesType
+			case types.Double:
+				t = cel.DoubleType
+			case types.Duration:
+				t = cel.DurationType
+			case types.Int:
+				t = cel.IntType
+			case types.Null:
+				t = cel.NullType
+			case types.String:
+				t = cel.StringType
+			case types.Timestamp:
+				t = cel.TimestampType
+			case types.Uint:
+				t = cel.UintType
+			}
+			opts[i] = cel.Variable(name, t)
 			i++
 		}
 		return opts
@@ -1266,7 +1305,7 @@ func TestStringFormat(t *testing.T) {
 			checkCase(out, tt.expectedOutput, err, tt.err, t)
 			if tt.locale == "" {
 				// if the test has no locale specified, then that means it
-				// should have the same output regardless of lcoale
+				// should have the same output regardless of locale
 				t.Run("no change on locale", func(t *testing.T) {
 					out, err := runCase(tt.format, tt.formatArgs, "da_DK", tt.dynArgs, tt.skipCompileCheck, tt.expectedRuntimeCost, tt.expectedEstimatedCost, t)
 					checkCase(out, tt.expectedOutput, err, tt.err, t)

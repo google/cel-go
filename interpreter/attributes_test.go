@@ -869,8 +869,8 @@ func TestAttributeStateTracking(t *testing.T) {
 			in:   map[string]any{},
 			out:  types.True,
 			state: map[int64]any{
-				// overall expression
-				1: true,
+				// [{"field": true}]
+				1: []ref.Val{types.DefaultTypeAdapter.NativeToValue(map[ref.Val]ref.Val{types.String("field"): types.True})},
 				// [{"field": true}][0]
 				6: map[ref.Val]ref.Val{types.String("field"): types.True},
 				// [{"field": true}][0].field
@@ -893,8 +893,6 @@ func TestAttributeStateTracking(t *testing.T) {
 			},
 			out: types.True,
 			state: map[int64]any{
-				// overall expression
-				1: true,
 				// a[1]
 				2: map[string]bool{"two": true},
 				// a[1]["two"]
@@ -918,8 +916,6 @@ func TestAttributeStateTracking(t *testing.T) {
 			},
 			out: types.String("dex"),
 			state: map[int64]any{
-				// overall expression
-				1: "dex",
 				// a[1]
 				2: map[int64]any{
 					1: 0,
@@ -948,8 +944,6 @@ func TestAttributeStateTracking(t *testing.T) {
 			},
 			out: types.String("index"),
 			state: map[int64]any{
-				// overall expression
-				1: "index",
 				// a[1]
 				2: map[int64]any{
 					1: 0,
@@ -967,6 +961,46 @@ func TestAttributeStateTracking(t *testing.T) {
 				},
 				// a[1][1]
 				10: int64(0),
+			},
+		},
+		{
+			expr: `true ? a : b`,
+			env: []*exprpb.Decl{
+				decls.NewVar("a", decls.String),
+				decls.NewVar("b", decls.String),
+			},
+			in: map[string]any{
+				"a": "hello",
+				"b": "world",
+			},
+			out: types.String("hello"),
+			state: map[int64]any{
+				// 'hello'
+				2: types.String("hello"),
+			},
+		},
+		{
+			expr: `(a.size() != 0 ? a : b)[0]`,
+			env: []*exprpb.Decl{
+				decls.NewVar("a", decls.NewListType(decls.String)),
+				decls.NewVar("b", decls.NewListType(decls.String)),
+			},
+			in: map[string]any{
+				"a": []string{"hello", "world"},
+				"b": []string{"world", "hello"},
+			},
+			out: types.String("hello"),
+			state: map[int64]any{
+				// ["hello", "world"]
+				1: types.DefaultTypeAdapter.NativeToValue([]string{"hello", "world"}),
+				// ["hello", "world"].size() // 2
+				2: types.Int(2),
+				// ["hello", "world"].size() != 0
+				3: types.True,
+				// constant 0
+				4: types.IntZero,
+				// 'hello'
+				8: types.String("hello"),
 			},
 		},
 	}
@@ -1014,7 +1048,8 @@ func TestAttributeStateTracking(t *testing.T) {
 					t.Errorf("state not found for %d=%v", id, val)
 					continue
 				}
-				if !reflect.DeepEqual(stVal.Value(), val) {
+				wantStVal := types.DefaultTypeAdapter.NativeToValue(val)
+				if wantStVal.Equal(stVal) != types.True {
 					t.Errorf("got %v, wanted %v for id: %d", stVal.Value(), val, id)
 				}
 			}
