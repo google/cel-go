@@ -232,11 +232,11 @@ type absoluteAttribute struct {
 
 // ID implements the Attribute interface method.
 func (a *absoluteAttribute) ID() int64 {
-	qual_count := len(a.qualifiers)
-	if qual_count == 0 {
+	qualCount := len(a.qualifiers)
+	if qualCount == 0 {
 		return a.id
 	}
-	return a.qualifiers[qual_count-1].ID()
+	return a.qualifiers[qualCount-1].ID()
 }
 
 // IsOptional returns trivially false for an attribute as the attribute represents a fully
@@ -513,11 +513,11 @@ type relativeAttribute struct {
 
 // ID is an implementation of the Attribute interface method.
 func (a *relativeAttribute) ID() int64 {
-	qual_count := len(a.qualifiers)
-	if qual_count == 0 {
+	qualCount := len(a.qualifiers)
+	if qualCount == 0 {
 		return a.id
 	}
-	return a.qualifiers[qual_count-1].ID()
+	return a.qualifiers[qualCount-1].ID()
 }
 
 // IsOptional returns trivially false for an attribute as the attribute represents a fully
