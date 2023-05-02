@@ -1400,6 +1400,19 @@ var (
 			expr: `1/0 in [1, 2, 3]`,
 			err:  `division by zero`,
 		},
+		{
+			name:      "list_index_error",
+			expr:      `mylistundef[0]`,
+			unchecked: true,
+			err:       `no such attribute(s): mylistundef`,
+		},
+		{
+			name:      "pkg_list_index_error",
+			container: "goog",
+			expr:      `pkg.mylistundef[0]`,
+			unchecked: true,
+			err:       `no such attribute(s): goog.pkg.mylistundef, pkg.mylistundef`,
+		},
 	}
 )
 

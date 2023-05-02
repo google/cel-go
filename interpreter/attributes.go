@@ -16,6 +16,7 @@ package interpreter
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/types"
@@ -301,7 +302,14 @@ func (a *absoluteAttribute) Resolve(vars Activation) (any, error) {
 			}
 		}
 	}
-	return nil, missingAttribute(a.String())
+	var attrNames strings.Builder
+	for i, nm := range a.namespaceNames {
+		if i != 0 {
+			attrNames.WriteString(", ")
+		}
+		attrNames.WriteString(nm)
+	}
+	return nil, missingAttribute(attrNames.String())
 }
 
 type conditionalAttribute struct {
@@ -436,7 +444,9 @@ func (a *maybeAttribute) AddQualifier(qual Qualifier) (Attribute, error) {
 		}
 	}
 	// Next, ensure the most specific variable / type reference is searched first.
-	a.attrs = append([]NamespacedAttribute{a.fac.AbsoluteAttribute(qual.ID(), augmentedNames...)}, a.attrs...)
+	if len(augmentedNames) != 0 {
+		a.attrs = append([]NamespacedAttribute{a.fac.AbsoluteAttribute(qual.ID(), augmentedNames...)}, a.attrs...)
+	}
 	return a, nil
 }
 
@@ -1288,7 +1298,7 @@ func (e *resolutionError) Error() string {
 		return fmt.Sprintf("index out of bounds: %v", e.missingIndex)
 	}
 	if e.missingAttribute != "" {
-		return fmt.Sprintf("no such attribute: %s", e.missingAttribute)
+		return fmt.Sprintf("no such attribute(s): %s", e.missingAttribute)
 	}
 	return "invalid attribute"
 }
