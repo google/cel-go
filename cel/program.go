@@ -169,7 +169,7 @@ func newProgram(e *Env, ast *Ast, opts []ProgramOption) (Program, error) {
 
 	// Add the function bindings created via Function() options.
 	for _, fn := range e.functions {
-		bindings, err := fn.bindings()
+		bindings, err := fn.Bindings()
 		if err != nil {
 			return nil, err
 		}
@@ -215,7 +215,7 @@ func newProgram(e *Env, ast *Ast, opts []ProgramOption) (Program, error) {
 				if err != nil {
 					return false, err
 				}
-				if t.kind == DynKind {
+				if t.Kind == DynKind {
 					return true, nil
 				}
 				for _, vt := range validTypes {
@@ -223,7 +223,7 @@ func newProgram(e *Env, ast *Ast, opts []ProgramOption) (Program, error) {
 					if err != nil {
 						return false, err
 					}
-					if k == t.kind {
+					if k == t.Kind {
 						return true, nil
 					}
 				}

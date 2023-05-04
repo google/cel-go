@@ -24,7 +24,9 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	"github.com/google/cel-go/checker/decls"
+	chkdecls "github.com/google/cel-go/checker/decls"
+
+	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/functions"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/overloads"
@@ -373,7 +375,7 @@ func TestSingletonFunctionBinding(t *testing.T) {
 						// With custom overload implementations, a function guard is automatically
 						// added to the function to validate that the runtime types are compatible
 						// to provide some basic invocation protections.
-						return noSuchOverload("max", args...)
+						return decls.NoSuchOverload("max", args...)
 					}
 					if i > max {
 						max = i
@@ -692,165 +694,165 @@ func TestTypeToExprType(t *testing.T) {
 	}{
 		{
 			in:  OpaqueType("vector", DoubleType, DoubleType),
-			out: decls.NewAbstractType("vector", decls.Double, decls.Double),
+			out: chkdecls.NewAbstractType("vector", chkdecls.Double, chkdecls.Double),
 		},
 		{
 			in:  AnyType,
-			out: decls.Any,
+			out: chkdecls.Any,
 		},
 		{
 			in:  BoolType,
-			out: decls.Bool,
+			out: chkdecls.Bool,
 		},
 		{
 			in:  BytesType,
-			out: decls.Bytes,
+			out: chkdecls.Bytes,
 		},
 		{
 			in:  DoubleType,
-			out: decls.Double,
+			out: chkdecls.Double,
 		},
 		{
 			in:  DurationType,
-			out: decls.Duration,
+			out: chkdecls.Duration,
 		},
 		{
 			in:  DynType,
-			out: decls.Dyn,
+			out: chkdecls.Dyn,
 		},
 		{
 			in:  IntType,
-			out: decls.Int,
+			out: chkdecls.Int,
 		},
 		{
 			in:  ListType(TypeParamType("T")),
-			out: decls.NewListType(decls.NewTypeParamType("T")),
+			out: chkdecls.NewListType(chkdecls.NewTypeParamType("T")),
 		},
 		{
 			in:  MapType(TypeParamType("K"), TypeParamType("V")),
-			out: decls.NewMapType(decls.NewTypeParamType("K"), decls.NewTypeParamType("V")),
+			out: chkdecls.NewMapType(chkdecls.NewTypeParamType("K"), chkdecls.NewTypeParamType("V")),
 		},
 		{
 			in:  NullType,
-			out: decls.Null,
+			out: chkdecls.Null,
 		},
 		{
 			in:  ObjectType("google.type.Expr"),
-			out: decls.NewObjectType("google.type.Expr"),
+			out: chkdecls.NewObjectType("google.type.Expr"),
 		},
 		{
 			in:  StringType,
-			out: decls.String,
+			out: chkdecls.String,
 		},
 		{
 			in:  TimestampType,
-			out: decls.Timestamp,
+			out: chkdecls.Timestamp,
 		},
 		{
 			in:  TypeType,
-			out: decls.NewTypeType(decls.Dyn),
+			out: chkdecls.NewTypeType(chkdecls.Dyn),
 		},
 		{
 			in:  UintType,
-			out: decls.Uint,
+			out: chkdecls.Uint,
 		},
 		{
 			in:  NullableType(BoolType),
-			out: decls.NewWrapperType(decls.Bool),
+			out: chkdecls.NewWrapperType(chkdecls.Bool),
 		},
 		{
 			in:  NullableType(BytesType),
-			out: decls.NewWrapperType(decls.Bytes),
+			out: chkdecls.NewWrapperType(chkdecls.Bytes),
 		},
 		{
 			in:  NullableType(DoubleType),
-			out: decls.NewWrapperType(decls.Double),
+			out: chkdecls.NewWrapperType(chkdecls.Double),
 		},
 		{
 			in:  NullableType(IntType),
-			out: decls.NewWrapperType(decls.Int),
+			out: chkdecls.NewWrapperType(chkdecls.Int),
 		},
 		{
 			in:  NullableType(StringType),
-			out: decls.NewWrapperType(decls.String),
+			out: chkdecls.NewWrapperType(chkdecls.String),
 		},
 		{
 			in:  NullableType(UintType),
-			out: decls.NewWrapperType(decls.Uint),
+			out: chkdecls.NewWrapperType(chkdecls.Uint),
 		},
 		{
 			in:             ObjectType("google.protobuf.Any"),
-			out:            decls.Any,
+			out:            chkdecls.Any,
 			unidirectional: true,
 		},
 		{
 			in:             ObjectType("google.protobuf.Duration"),
-			out:            decls.Duration,
+			out:            chkdecls.Duration,
 			unidirectional: true,
 		},
 		{
 			in:             ObjectType("google.protobuf.Timestamp"),
-			out:            decls.Timestamp,
+			out:            chkdecls.Timestamp,
 			unidirectional: true,
 		},
 		{
 			in:             ObjectType("google.protobuf.Value"),
-			out:            decls.Dyn,
+			out:            chkdecls.Dyn,
 			unidirectional: true,
 		},
 		{
 			in:             ObjectType("google.protobuf.ListValue"),
-			out:            decls.NewListType(decls.Dyn),
+			out:            chkdecls.NewListType(chkdecls.Dyn),
 			unidirectional: true,
 		},
 		{
 			in:             ObjectType("google.protobuf.Struct"),
-			out:            decls.NewMapType(decls.String, decls.Dyn),
+			out:            chkdecls.NewMapType(chkdecls.String, chkdecls.Dyn),
 			unidirectional: true,
 		},
 		{
 			in:             ObjectType("google.protobuf.BoolValue"),
-			out:            decls.NewWrapperType(decls.Bool),
+			out:            chkdecls.NewWrapperType(chkdecls.Bool),
 			unidirectional: true,
 		},
 		{
 			in:             ObjectType("google.protobuf.BytesValue"),
-			out:            decls.NewWrapperType(decls.Bytes),
+			out:            chkdecls.NewWrapperType(chkdecls.Bytes),
 			unidirectional: true,
 		},
 		{
 			in:             ObjectType("google.protobuf.DoubleValue"),
-			out:            decls.NewWrapperType(decls.Double),
+			out:            chkdecls.NewWrapperType(chkdecls.Double),
 			unidirectional: true,
 		},
 		{
 			in:             ObjectType("google.protobuf.FloatValue"),
-			out:            decls.NewWrapperType(decls.Double),
+			out:            chkdecls.NewWrapperType(chkdecls.Double),
 			unidirectional: true,
 		},
 		{
 			in:             ObjectType("google.protobuf.Int32Value"),
-			out:            decls.NewWrapperType(decls.Int),
+			out:            chkdecls.NewWrapperType(chkdecls.Int),
 			unidirectional: true,
 		},
 		{
 			in:             ObjectType("google.protobuf.Int64Value"),
-			out:            decls.NewWrapperType(decls.Int),
+			out:            chkdecls.NewWrapperType(chkdecls.Int),
 			unidirectional: true,
 		},
 		{
 			in:             ObjectType("google.protobuf.StringValue"),
-			out:            decls.NewWrapperType(decls.String),
+			out:            chkdecls.NewWrapperType(chkdecls.String),
 			unidirectional: true,
 		},
 		{
 			in:             ObjectType("google.protobuf.UInt32Value"),
-			out:            decls.NewWrapperType(decls.Uint),
+			out:            chkdecls.NewWrapperType(chkdecls.Uint),
 			unidirectional: true,
 		},
 		{
 			in:             ObjectType("google.protobuf.UInt64Value"),
-			out:            decls.NewWrapperType(decls.Uint),
+			out:            chkdecls.NewWrapperType(chkdecls.Uint),
 			unidirectional: true,
 		},
 	}
@@ -872,7 +874,7 @@ func TestTypeToExprType(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ExprTypeToType(%v) failed: %v", got, err)
 			}
-			if !tc.in.equals(roundTrip) {
+			if !tc.in.Equals(roundTrip) {
 				t.Errorf("ExprTypeToType(%v) returned %v, wanted %v", got, roundTrip, tc.in)
 			}
 		})
@@ -885,63 +887,63 @@ func TestExprTypeToType(t *testing.T) {
 		out *Type
 	}{
 		{
-			in:  decls.NewObjectType("google.protobuf.Any"),
+			in:  chkdecls.NewObjectType("google.protobuf.Any"),
 			out: AnyType,
 		},
 		{
-			in:  decls.NewObjectType("google.protobuf.Duration"),
+			in:  chkdecls.NewObjectType("google.protobuf.Duration"),
 			out: DurationType,
 		},
 		{
-			in:  decls.NewObjectType("google.protobuf.Timestamp"),
+			in:  chkdecls.NewObjectType("google.protobuf.Timestamp"),
 			out: TimestampType,
 		},
 		{
-			in:  decls.NewObjectType("google.protobuf.Value"),
+			in:  chkdecls.NewObjectType("google.protobuf.Value"),
 			out: DynType,
 		},
 		{
-			in:  decls.NewObjectType("google.protobuf.ListValue"),
+			in:  chkdecls.NewObjectType("google.protobuf.ListValue"),
 			out: ListType(DynType),
 		},
 		{
-			in:  decls.NewObjectType("google.protobuf.Struct"),
+			in:  chkdecls.NewObjectType("google.protobuf.Struct"),
 			out: MapType(StringType, DynType),
 		},
 		{
-			in:  decls.NewObjectType("google.protobuf.BoolValue"),
+			in:  chkdecls.NewObjectType("google.protobuf.BoolValue"),
 			out: NullableType(BoolType),
 		},
 		{
-			in:  decls.NewObjectType("google.protobuf.BytesValue"),
+			in:  chkdecls.NewObjectType("google.protobuf.BytesValue"),
 			out: NullableType(BytesType),
 		},
 		{
-			in:  decls.NewObjectType("google.protobuf.DoubleValue"),
+			in:  chkdecls.NewObjectType("google.protobuf.DoubleValue"),
 			out: NullableType(DoubleType),
 		},
 		{
-			in:  decls.NewObjectType("google.protobuf.FloatValue"),
+			in:  chkdecls.NewObjectType("google.protobuf.FloatValue"),
 			out: NullableType(DoubleType),
 		},
 		{
-			in:  decls.NewObjectType("google.protobuf.Int32Value"),
+			in:  chkdecls.NewObjectType("google.protobuf.Int32Value"),
 			out: NullableType(IntType),
 		},
 		{
-			in:  decls.NewObjectType("google.protobuf.Int64Value"),
+			in:  chkdecls.NewObjectType("google.protobuf.Int64Value"),
 			out: NullableType(IntType),
 		},
 		{
-			in:  decls.NewObjectType("google.protobuf.StringValue"),
+			in:  chkdecls.NewObjectType("google.protobuf.StringValue"),
 			out: NullableType(StringType),
 		},
 		{
-			in:  decls.NewObjectType("google.protobuf.UInt32Value"),
+			in:  chkdecls.NewObjectType("google.protobuf.UInt32Value"),
 			out: NullableType(UintType),
 		},
 		{
-			in:  decls.NewObjectType("google.protobuf.UInt64Value"),
+			in:  chkdecls.NewObjectType("google.protobuf.UInt64Value"),
 			out: NullableType(UintType),
 		},
 	}
@@ -953,7 +955,7 @@ func TestExprTypeToType(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ExprTypeToType(%v) failed: %v", tc.in, err)
 			}
-			if !got.equals(tc.out) {
+			if !got.Equals(tc.out) {
 				t.Errorf("ExprTypeToType(%v) returned %v, wanted %v", tc.in, got, tc.out)
 			}
 		})
@@ -978,19 +980,19 @@ func TestExprTypeToTypeInvalid(t *testing.T) {
 			out: "unsupported well-known type",
 		},
 		{
-			in:  decls.NewListType(&exprpb.Type{}),
+			in:  chkdecls.NewListType(&exprpb.Type{}),
 			out: "unsupported type",
 		},
 		{
-			in:  decls.NewMapType(&exprpb.Type{}, decls.Dyn),
+			in:  chkdecls.NewMapType(&exprpb.Type{}, chkdecls.Dyn),
 			out: "unsupported type",
 		},
 		{
-			in:  decls.NewMapType(decls.Dyn, &exprpb.Type{}),
+			in:  chkdecls.NewMapType(chkdecls.Dyn, &exprpb.Type{}),
 			out: "unsupported type",
 		},
 		{
-			in:  decls.NewAbstractType("bad", &exprpb.Type{}),
+			in:  chkdecls.NewAbstractType("bad", &exprpb.Type{}),
 			out: "unsupported type",
 		},
 		{
@@ -1012,12 +1014,12 @@ func TestExprTypeToTypeInvalid(t *testing.T) {
 
 func TestExprDeclToDeclaration(t *testing.T) {
 	size, err := ExprDeclToDeclaration(
-		decls.NewFunction("size", decls.NewOverload("size_string", []*exprpb.Type{decls.String}, decls.Int)),
+		chkdecls.NewFunction("size", chkdecls.NewOverload("size_string", []*exprpb.Type{chkdecls.String}, chkdecls.Int)),
 	)
 	if err != nil {
 		t.Fatalf("ExprDeclToDeclaration(size) failed: %v", err)
 	}
-	x, err := ExprDeclToDeclaration(decls.NewVar("x", decls.String))
+	x, err := ExprDeclToDeclaration(chkdecls.NewVar("x", chkdecls.String))
 	if err != nil {
 		t.Fatalf("ExprDeclToDeclaration(x) failed: %v", err)
 	}
@@ -1065,7 +1067,7 @@ func TestExprDeclToDeclarationInvalid(t *testing.T) {
 				Name: "bad_var",
 				DeclKind: &exprpb.Decl_Ident{
 					Ident: &exprpb.Decl_IdentDecl{
-						Type: decls.NewListType(&exprpb.Type{}),
+						Type: chkdecls.NewListType(&exprpb.Type{}),
 					},
 				},
 			},
@@ -1096,7 +1098,7 @@ func TestExprDeclToDeclarationInvalid(t *testing.T) {
 							{
 								OverloadId: "bad_overload",
 								Params:     []*exprpb.Type{{}},
-								ResultType: decls.Dyn,
+								ResultType: chkdecls.Dyn,
 							},
 						},
 					},
