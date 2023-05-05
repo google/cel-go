@@ -152,6 +152,11 @@ var testCases = []testInfo{
 		expr: `test in {'a': 1, 'field': [test, 3]}.field`,
 		out:  `test in {"a": 1, "field": [test, 3]}.field`,
 	},
+	{
+		in:   partialActivation(map[string]any{"foo": "bar"}, "r.attr"),
+		expr: `foo == "bar" && r.attr.loc in ["GB", "US"]`,
+		out:  `r.attr.loc in ["GB", "US"]`,
+	},
 	// TODO: the output of an expression like this relies on either
 	// a) doing replacements on the original macro call, or
 	// b) mutating the macro call tracking data rather than the core
