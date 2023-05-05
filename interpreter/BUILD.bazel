@@ -61,6 +61,7 @@ go_test(
         "//common/debug:go_default_library",
         "//common/functions:go_default_library",
         "//common/operators:go_default_library",
+        "//common/stdlib:go_default_library",
         "//common/types:go_default_library",
         "//parser:go_default_library",
         "//test:go_default_library",

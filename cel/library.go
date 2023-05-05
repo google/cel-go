@@ -21,9 +21,9 @@ import (
 
 	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/common"
-	"github.com/google/cel-go/common/functions"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/overloads"
+	"github.com/google/cel-go/common/stdlib"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
@@ -117,7 +117,7 @@ func (stdLibrary) CompileOptions() []EnvOption {
 // ProgramOptions returns function implementations for the standard CEL functions.
 func (stdLibrary) ProgramOptions() []ProgramOption {
 	return []ProgramOption{
-		Functions(functions.StandardOverloads()...),
+		Functions(stdlib.StandardOverloads()...),
 	}
 }
 

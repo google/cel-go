@@ -223,11 +223,12 @@ func TestFunctionMergeCollision(t *testing.T) {
 }
 
 func TestFunctionNoOverloads(t *testing.T) {
-	_, err := NewCustomEnv(Function("right", SingletonBinaryBinding(func(arg1, arg2 ref.Val) ref.Val {
-		return arg2
-	})))
+	_, err := NewCustomEnv(
+		Function("right", SingletonBinaryBinding(func(arg1, arg2 ref.Val) ref.Val {
+			return arg2
+		})))
 	if err == nil || !strings.Contains(err.Error(), "must have at least one overload") {
-		t.Errorf("got %v for the error state, wanted 'no overloads'", err)
+		t.Errorf("got %v, wanted 'must have at least one overload'", err)
 	}
 }
 

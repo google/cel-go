@@ -32,6 +32,7 @@ import (
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/functions"
+	"github.com/google/cel-go/common/stdlib"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
@@ -1993,7 +1994,7 @@ func program(ctx any, tst *testCase, opts ...InterpretableDecorator) (Interpreta
 	}
 
 	disp := NewDispatcher()
-	disp.Add(functions.StandardOverloads()...)
+	disp.Add(stdlib.StandardOverloads()...)
 	if tst.funcs != nil {
 		disp.Add(tst.funcs...)
 	}
@@ -2111,6 +2112,6 @@ func newStandardInterpreter(t *testing.T,
 	resolver AttributeFactory) Interpreter {
 	t.Helper()
 	dispatcher := NewDispatcher()
-	dispatcher.Add(functions.StandardOverloads()...)
+	dispatcher.Add(stdlib.StandardOverloads()...)
 	return NewInterpreter(dispatcher, container, provider, adapter, resolver)
 }

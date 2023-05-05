@@ -363,7 +363,7 @@ func NewFunction(name string, opts ...FunctionOpt) (*FunctionDecl, error) {
 		}
 	}
 	if len(fn.Overloads) == 0 {
-		return nil, fmt.Errorf("function %s must have a least one overload", name)
+		return nil, fmt.Errorf("function %s must have at least one overload", name)
 	}
 	return fn, nil
 }
@@ -735,39 +735,6 @@ func (o *OverloadDecl) matchesRuntimeSignature(args ...ref.Val) bool {
 
 	arg := args[0]
 	return allArgsMatch && (o.OperandTrait == 0 || (o.NonStrict && types.IsUnknownOrError(arg)) || arg.Type().HasTrait(o.OperandTrait))
-}
-
-// signatureEquals indicates whether one overload has an identical signature to another overload.
-//
-// Providing a duplicate signature is not an issue, but an overloapping signature is problematic.
-func (o *OverloadDecl) signatureEquals(other *OverloadDecl) bool {
-	if o.ID != other.ID || o.IsMemberFunction != other.IsMemberFunction || len(o.ArgTypes) != len(other.ArgTypes) {
-		return false
-	}
-	for i, at := range o.ArgTypes {
-		oat := other.ArgTypes[i]
-		if !at.Equals(oat) {
-			return false
-		}
-	}
-	return o.ResultType.Equals(other.ResultType)
-}
-
-// signatureOverlaps indicates whether one overload has an overlapping signature with another overload.
-//
-// The 'other' overload must first be checked for equality before determining whether it overlaps in order to be completely accurate.
-func (o *OverloadDecl) signatureOverlaps(other *OverloadDecl) bool {
-	if o.IsMemberFunction != other.IsMemberFunction || len(o.ArgTypes) != len(other.ArgTypes) {
-		return false
-	}
-	argsOverlap := true
-	for i, argType := range o.ArgTypes {
-		otherArgType := other.ArgTypes[i]
-		argsOverlap = argsOverlap &&
-			(argType.IsAssignableType(otherArgType) ||
-				otherArgType.IsAssignableType(argType))
-	}
-	return argsOverlap
 }
 
 // OverloadOpt is a functional option for configuring a function overload.

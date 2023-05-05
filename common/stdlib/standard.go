@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package functions
+package stdlib
 
 import (
+	"github.com/google/cel-go/common/functions"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types"
@@ -23,8 +24,8 @@ import (
 )
 
 // StandardOverloads returns the definitions of the built-in overloads.
-func StandardOverloads() []*Overload {
-	return []*Overload{
+func StandardOverloads() []*functions.Overload {
+	return []*functions.Overload{
 		// Logical not (!a)
 		{
 			Operator:     operators.LogicalNot,
