@@ -15,7 +15,9 @@
 package cel
 
 import (
+	"fmt"
 	"reflect"
+	"sync"
 	"testing"
 
 	"github.com/google/cel-go/common"
@@ -79,6 +81,31 @@ ERROR: <input>:1:2: Syntax error: mismatched input '<EOF>' expecting {'[', '{', 
  | .^`
 	if iss.String() != wantIss {
 		t.Errorf("iss.String() returned %v, wanted %v", iss.String(), wantIss)
+	}
+}
+
+func TestEnvCheckExtendRace(t *testing.T) {
+	t.Parallel()
+	for i := 0; i < 500; i++ {
+		wg := &sync.WaitGroup{}
+		wg.Add(2)
+		env, err := NewCustomEnv(StdLib())
+		if err != nil {
+			t.Fatalf("NewCustomEnv() failed: %v", err)
+		}
+		t.Run(fmt.Sprintf("Compile[%d]", i), func(t *testing.T) {
+			go func() {
+				defer wg.Done()
+				_, _ = env.Compile(`1 + 1 * 20 < 400`)
+			}()
+		})
+		t.Run(fmt.Sprintf("Extend[%d]", i), func(t *testing.T) {
+			go func() {
+				defer wg.Done()
+				_, _ = env.Extend(Variable("bar", BoolType))
+			}()
+		})
+		wg.Wait()
 	}
 }
 
