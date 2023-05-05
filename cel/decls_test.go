@@ -20,12 +20,10 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 
 	"google.golang.org/protobuf/proto"
 
 	chkdecls "github.com/google/cel-go/checker/decls"
-
 	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/functions"
 	"github.com/google/cel-go/common/operators"
@@ -151,7 +149,7 @@ func TestFunctionMerge(t *testing.T) {
 	}
 
 	_, err = NewCustomEnv(size, size)
-	if err == nil || !strings.Contains(err.Error(), "already has a binding") {
+	if err == nil || !strings.Contains(err.Error(), "already has singleton binding") {
 		t.Errorf("NewCustomEnv(size, size) did not produce the expected error: %v", err)
 	}
 	e, err = NewCustomEnv(size,
@@ -232,23 +230,6 @@ func TestFunctionNoOverloads(t *testing.T) {
 	}
 }
 
-func TestSingletonUnaryBindingRedefinition(t *testing.T) {
-	_, err := NewCustomEnv(
-		Function("id",
-			Overload("id_any", []*Type{AnyType}, AnyType),
-			SingletonUnaryBinding(func(arg ref.Val) ref.Val {
-				return arg
-			}),
-			SingletonUnaryBinding(func(arg ref.Val) ref.Val {
-				return arg
-			}),
-		),
-	)
-	if err == nil || !strings.Contains(err.Error(), "already has a singleton binding") {
-		t.Errorf("NewCustomEnv() got %v, wanted already has a singleton singleton binding", err)
-	}
-}
-
 func TestSingletonUnaryBinding(t *testing.T) {
 	// Test the case where the singleton unary impl is merged with the earlier declaration.
 	e, err := NewCustomEnv(
@@ -304,22 +285,6 @@ func TestSingletonUnaryBindingParameterized(t *testing.T) {
 	}
 }
 
-func TestSingletonBinaryBindingRedefinition(t *testing.T) {
-	_, err := NewCustomEnv(
-		Function("right",
-			Overload("right_double_double", []*Type{DoubleType, DoubleType}, DoubleType),
-			SingletonBinaryBinding(func(arg1, arg2 ref.Val) ref.Val {
-				return arg2
-			}, traits.ComparerType),
-			SingletonBinaryBinding(func(arg1, arg2 ref.Val) ref.Val {
-				return arg2
-			}),
-		))
-	if err == nil || !strings.Contains(err.Error(), "already has a singleton binding") {
-		t.Errorf("NewCustomEnv() got %v, wanted already has a singleton binding", err)
-	}
-}
-
 func TestSingletonBinaryBinding(t *testing.T) {
 	_, err := NewCustomEnv(
 		Function("right",
@@ -333,23 +298,6 @@ func TestSingletonBinaryBinding(t *testing.T) {
 	)
 	if err != nil {
 		t.Errorf("NewCustomEnv() failed: %v", err)
-	}
-}
-
-func TestSingletonFunctionBindingRedefinition(t *testing.T) {
-	_, err := NewCustomEnv(
-		Function("id",
-			Overload("id_any", []*Type{AnyType}, AnyType),
-			SingletonFunctionBinding(func(args ...ref.Val) ref.Val {
-				return args[0]
-			}, traits.ComparerType),
-			SingletonFunctionBinding(func(args ...ref.Val) ref.Val {
-				return args[0]
-			}, traits.ComparerType),
-		),
-	)
-	if err == nil || !strings.Contains(err.Error(), "already has a singleton binding") {
-		t.Errorf("NewCustomEnv() got %v, wanted already has a singleton binding", err)
 	}
 }
 
@@ -376,7 +324,7 @@ func TestSingletonFunctionBinding(t *testing.T) {
 						// With custom overload implementations, a function guard is automatically
 						// added to the function to validate that the runtime types are compatible
 						// to provide some basic invocation protections.
-						return decls.NoSuchOverload("max", args...)
+						return decls.MaybeNoSuchOverload("max", args...)
 					}
 					if i > max {
 						max = i
@@ -401,21 +349,6 @@ func TestSingletonFunctionBinding(t *testing.T) {
 		t.Run(fmt.Sprintf("Compile(%s)", tc.expr), func(t *testing.T) {
 			testCompile(t, env, tc.expr, tc.out)
 		})
-	}
-}
-
-func TestUnaryBindingRedefinition(t *testing.T) {
-	_, err := NewCustomEnv(
-		Function("dyn",
-			Overload("dyn", []*Type{DynType}, DynType,
-				UnaryBinding(func(arg ref.Val) ref.Val { return arg }),
-				// redefinition.
-				UnaryBinding(func(arg ref.Val) ref.Val { return arg }),
-			),
-		),
-	)
-	if err == nil || !strings.Contains(err.Error(), "already has a binding") {
-		t.Errorf("redefinition of function impl did not produce expected error: %v", err)
 	}
 }
 
@@ -464,45 +397,6 @@ func TestUnaryBinding(t *testing.T) {
 	}
 	if !reflect.DeepEqual(out, types.Unknown{1}) {
 		t.Errorf("prg.Eval(x=unk) returned %v, wanted unknown{1}", out)
-	}
-}
-
-func TestBinaryBindingRedefinition(t *testing.T) {
-	_, err := NewCustomEnv(
-		Function("right",
-			Overload("right_int_int", []*Type{IntType, IntType}, IntType,
-				BinaryBinding(func(arg1, arg2 ref.Val) ref.Val { return arg2 }),
-				// redefinition.
-				BinaryBinding(func(arg1, arg2 ref.Val) ref.Val { return arg2 }),
-			),
-		),
-	)
-	if err == nil || !strings.Contains(err.Error(), "already has a binding") {
-		t.Errorf("redefinition of function impl did not produce expected error: %v", err)
-	}
-
-	_, err = NewCustomEnv(
-		Function("right",
-			Overload("right_int_int", []*Type{IntType, IntType}, IntType,
-				BinaryBinding(func(arg1, arg2 ref.Val) ref.Val { return arg2 }),
-			),
-			Overload("right_int_int", []*Type{IntType, IntType, DurationType}, IntType,
-				FunctionBinding(func(args ...ref.Val) ref.Val { return args[0] }),
-			),
-		),
-	)
-	if err == nil || !strings.Contains(err.Error(), "multiple definitions") {
-		t.Errorf("redefinition of right_int_int did not produce expected error: %v", err)
-	}
-
-	_, err = NewCustomEnv(
-		Function("elem_type",
-			Overload("elem_type_list", []*Type{ListType(TypeParamType("T"))}, TypeType),
-			Overload("elem_type_list", []*Type{ListType(DynType)}, TypeType),
-		),
-	)
-	if err == nil || !strings.Contains(err.Error(), "multiple definitions") {
-		t.Errorf("redefinition of elem_type_list did not produce expected error: %v", err)
 	}
 }
 
@@ -576,21 +470,6 @@ func TestBinaryBinding(t *testing.T) {
 	}
 }
 
-func TestFunctionBindingRedefinition(t *testing.T) {
-	_, err := NewCustomEnv(
-		Function("right",
-			Overload("right_int_int_int", []*Type{IntType, IntType, IntType}, IntType,
-				FunctionBinding(func(args ...ref.Val) ref.Val { return args[0] }),
-				// redefinition.
-				FunctionBinding(func(args ...ref.Val) ref.Val { return args[1] }),
-			),
-		),
-	)
-	if err == nil || !strings.Contains(err.Error(), "already has a binding") {
-		t.Errorf("redefinition of function impl did not produce expected error: %v", err)
-	}
-}
-
 func TestFunctionBinding(t *testing.T) {
 	e, err := NewCustomEnv(
 		Variable("unk", DynType),
@@ -638,52 +517,6 @@ func TestFunctionBinding(t *testing.T) {
 		t.Run(fmt.Sprintf("Compile(%s)", tc.expr), func(t *testing.T) {
 			testCompile(t, e, tc.expr, tc.out)
 		})
-	}
-}
-
-func TestIsAssignableType(t *testing.T) {
-	if !NullableType(DoubleType).IsAssignableType(NullType) {
-		t.Error("nullable double cannot be assigned from null")
-	}
-	if !NullableType(DoubleType).IsAssignableType(DoubleType) {
-		t.Error("nullable double cannot be assigned from double")
-	}
-	if !OpaqueType("vector", NullableType(DoubleType)).IsAssignableType(OpaqueType("vector", NullType)) {
-		t.Error("vector(nullable(double)) could not be assigned from vector(null)")
-	}
-	if !OpaqueType("vector", DynType).IsAssignableType(OpaqueType("vector", NullableType(IntType))) {
-		t.Error("vector(dyn) could not be assigned from vector(nullable(int))")
-	}
-	if OpaqueType("vector", NullableType(DoubleType)).IsAssignableType(OpaqueType("vector", IntType)) {
-		t.Error("vector(nullable(double)) should not be assignable from vector(int)")
-	}
-	if OpaqueType("vector", NullableType(DoubleType)).IsAssignableType(OpaqueType("vector", DynType)) {
-		t.Error("vector(nullable(double)) should not be assignable from vector(int)")
-	}
-}
-
-func TestIsAssignableRuntimeType(t *testing.T) {
-	if !NullableType(DoubleType).IsAssignableRuntimeType(types.NullValue) {
-		t.Error("nullable double cannot be assigned from null")
-	}
-	if !NullableType(DoubleType).IsAssignableRuntimeType(types.Double(0.0)) {
-		t.Error("nullable double cannot be assigned from double")
-	}
-	if !MapType(StringType, DurationType).IsAssignableRuntimeType(
-		types.DefaultTypeAdapter.NativeToValue(map[string]time.Duration{})) {
-		t.Error("map(string, duration) not assignable to map at runtime")
-	}
-	if !MapType(StringType, DurationType).IsAssignableRuntimeType(
-		types.DefaultTypeAdapter.NativeToValue(map[string]time.Duration{"one": time.Duration(1)})) {
-		t.Error("map(string, duration) not assignable to map at runtime")
-	}
-	if !MapType(StringType, DynType).IsAssignableRuntimeType(
-		types.DefaultTypeAdapter.NativeToValue(map[string]time.Duration{"one": time.Duration(1)})) {
-		t.Error("map(string, dyn) not assignable to map at runtime")
-	}
-	if MapType(StringType, DynType).IsAssignableRuntimeType(
-		types.DefaultTypeAdapter.NativeToValue(map[int64]time.Duration{1: time.Duration(1)})) {
-		t.Error("map(string, dyn) must not be assignable to map(int, duration) at runtime")
 	}
 }
 
@@ -875,7 +708,7 @@ func TestTypeToExprType(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ExprTypeToType(%v) failed: %v", got, err)
 			}
-			if !tc.in.Equals(roundTrip) {
+			if !tc.in.IsType(roundTrip) {
 				t.Errorf("ExprTypeToType(%v) returned %v, wanted %v", got, roundTrip, tc.in)
 			}
 		})
@@ -956,7 +789,7 @@ func TestExprTypeToType(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ExprTypeToType(%v) failed: %v", tc.in, err)
 			}
-			if !got.Equals(tc.out) {
+			if !got.IsType(tc.out) {
 				t.Errorf("ExprTypeToType(%v) returned %v, wanted %v", tc.in, got, tc.out)
 			}
 		})

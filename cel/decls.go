@@ -246,7 +246,7 @@ func SingletonFunctionBinding(fn functions.FunctionOp, traits ...int) FunctionOp
 // Note: function bindings should be commonly configured with Overload instances whereas operand traits and
 // strict-ness should be rare occurrences.
 func Overload(overloadID string, args []*Type, resultType *Type, opts ...OverloadOpt) FunctionOpt {
-	return newOverload(overloadID, false, args, resultType, opts...)
+	return decls.Overload(overloadID, args, resultType, opts...)
 }
 
 // MemberOverload defines a new receiver-style overload (or member function) with an overload id, argument types,
@@ -256,7 +256,7 @@ func Overload(overloadID string, args []*Type, resultType *Type, opts ...Overloa
 // Note: function bindings should be commonly configured with Overload instances whereas operand traits and
 // strict-ness should be rare occurrences.
 func MemberOverload(overloadID string, args []*Type, resultType *Type, opts ...OverloadOpt) FunctionOpt {
-	return newOverload(overloadID, true, args, resultType, opts...)
+	return decls.MemberOverload(overloadID, args, resultType, opts...)
 }
 
 // OverloadOpt is a functional option for configuring a function overload.
@@ -291,26 +291,6 @@ func OverloadIsNonStrict() OverloadOpt {
 // successfully invoked.
 func OverloadOperandTrait(trait int) OverloadOpt {
 	return decls.OverloadOperandTrait(trait)
-}
-
-func newOverload(overloadID string, memberFunction bool, args []*Type, resultType *Type, opts ...OverloadOpt) FunctionOpt {
-	return func(f *decls.FunctionDecl) (*decls.FunctionDecl, error) {
-		var overload *decls.OverloadDecl
-		var err error
-		if memberFunction {
-			overload, err = decls.NewMemberOverload(overloadID, args, resultType, opts...)
-		} else {
-			overload, err = decls.NewOverload(overloadID, args, resultType, opts...)
-		}
-		if err != nil {
-			return nil, err
-		}
-		err = f.AddOverload(overload)
-		if err != nil {
-			return nil, err
-		}
-		return f, nil
-	}
 }
 
 func maybeWrapper(t *Type, pbType *exprpb.Type) *exprpb.Type {
