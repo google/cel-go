@@ -68,15 +68,19 @@ type astPruner struct {
 // the overloads accordingly.
 func PruneAst(expr *exprpb.Expr, macroCalls map[int64]*exprpb.Expr, state EvalState) *exprpb.ParsedExpr {
 	pruneState := NewEvalState()
+	maxID := int64(1)
 	for _, id := range state.IDs() {
 		v, _ := state.Value(id)
 		pruneState.SetValue(id, v)
+		if id > maxID {
+			maxID = id + 1
+		}
 	}
 	pruner := &astPruner{
 		expr:       expr,
 		macroCalls: macroCalls,
 		state:      pruneState,
-		nextExprID: 1}
+		nextExprID: maxID}
 	newExpr, _ := pruner.maybePrune(expr)
 	return &exprpb.ParsedExpr{
 		Expr:       newExpr,
