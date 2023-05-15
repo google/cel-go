@@ -157,6 +157,16 @@ var testCases = []testInfo{
 		expr: `foo == "bar" && r.attr.loc in ["GB", "US"]`,
 		out:  `r.attr.loc in ["GB", "US"]`,
 	},
+	{
+		in: partialActivation(map[string]any{
+			"users": []map[string]string{
+				{"name": "alice", "role": "EMPLOYEE"},
+				{"name": "bob", "role": "MANAGER"},
+				{"name": "eve", "role": "CUSTOMER"},
+			}}, "r.attr.*"),
+		expr: `users.filter(u, u.role=="MANAGER").map(u, u.name) == r.attr.authorized["managers"]`,
+		out:  `["bob"] == r.attr.authorized["managers"]`,
+	},
 	// TODO: the output of an expression like this relies on either
 	// a) doing replacements on the original macro call, or
 	// b) mutating the macro call tracking data rather than the core

@@ -68,19 +68,15 @@ type astPruner struct {
 // the overloads accordingly.
 func PruneAst(expr *exprpb.Expr, macroCalls map[int64]*exprpb.Expr, state EvalState) *exprpb.ParsedExpr {
 	pruneState := NewEvalState()
-	maxID := int64(1)
 	for _, id := range state.IDs() {
 		v, _ := state.Value(id)
 		pruneState.SetValue(id, v)
-		if id > maxID {
-			maxID = id + 1
-		}
 	}
 	pruner := &astPruner{
 		expr:       expr,
 		macroCalls: macroCalls,
 		state:      pruneState,
-		nextExprID: maxID}
+		nextExprID: getMaxID(expr)}
 	newExpr, _ := pruner.maybePrune(expr)
 	return &exprpb.ParsedExpr{
 		Expr:       newExpr,
@@ -462,4 +458,48 @@ func (p *astPruner) nextID() int64 {
 		}
 		p.nextExprID++
 	}
+}
+
+func getMaxID(expr *exprpb.Expr) int64 {
+	maxID := int64(1)
+	exprs := []*exprpb.Expr{expr}
+	for len(exprs) != 0 {
+		e := exprs[0]
+		if e.GetId() >= maxID {
+			maxID = e.GetId() + 1
+		}
+		exprs = exprs[1:]
+		switch e.GetExprKind().(type) {
+		case *exprpb.Expr_SelectExpr:
+			exprs = append(exprs, e.GetSelectExpr().GetOperand())
+		case *exprpb.Expr_CallExpr:
+			call := e.GetCallExpr()
+			if call.GetTarget() != nil {
+				exprs = append(exprs, call.GetTarget())
+			}
+			exprs = append(exprs, call.GetArgs()...)
+		case *exprpb.Expr_ComprehensionExpr:
+			compre := e.GetComprehensionExpr()
+			exprs = append(exprs,
+				compre.GetIterRange(),
+				compre.GetAccuInit(),
+				compre.GetLoopCondition(),
+				compre.GetLoopStep(),
+				compre.GetResult())
+		case *exprpb.Expr_ListExpr:
+			list := e.GetListExpr()
+			exprs = append(exprs, list.GetElements()...)
+		case *exprpb.Expr_StructExpr:
+			for _, entry := range expr.GetStructExpr().GetEntries() {
+				if entry.GetMapKey() != nil {
+					exprs = append(exprs, entry.GetMapKey())
+				}
+				exprs = append(exprs, entry.GetValue())
+				if entry.GetId() >= maxID {
+					maxID = entry.GetId() + 1
+				}
+			}
+		}
+	}
+	return maxID
 }
