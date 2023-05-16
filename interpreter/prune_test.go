@@ -19,6 +19,9 @@ import (
 
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/containers"
+	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/parser"
 	"github.com/google/cel-go/test"
 )
@@ -78,7 +81,7 @@ var testCases = []testInfo{
 	},
 	{
 		in: partialActivation(map[string]any{"rules": map[string]any{"not_in": []string{}}}, "this"),
-		expr: `this.size() > 0 ? this in rules.not_in : 
+		expr: `this.size() > 0 ? this in rules.not_in :
 			  !(this in rules.not_in) ? true : false`,
 		out: `(this.size() > 0) ? false : true`,
 	},
@@ -101,6 +104,87 @@ var testCases = []testInfo{
 	{
 		expr: `2 < 3`,
 		out:  `true`,
+	},
+	{
+		expr: `!false`,
+		out:  `true`,
+	},
+	{
+		in:   unknownActivation("y"),
+		expr: `!y`,
+		out:  `!y`,
+	},
+	{
+		in:   partialActivation(map[string]any{"y": 10}),
+		expr: `optional.of(y)`,
+		out:  `optional.of(10)`,
+	},
+	{
+		in:   unknownActivation("a"),
+		expr: `a.?b`,
+		out:  `a.?b`,
+	},
+	{
+		in:   unknownActivation("a"),
+		expr: `a[?"b"]`,
+		out:  `a[?"b"]`,
+	},
+	{
+		in:   unknownActivation(),
+		expr: `[1, 2, 3, ?optional.none()]`,
+		out:  `[1, 2, 3]`,
+	},
+	{
+		in:   unknownActivation(),
+		expr: `[1, 2, 3, ?optional.of(10)]`,
+		out:  `[1, 2, 3, 10]`,
+	},
+	{
+		in:   unknownActivation(),
+		expr: `{1: 2, ?3: optional.none()}`,
+		out:  `{1: 2}`,
+	},
+	{
+		in:   unknownActivation("a"),
+		expr: `[?optional.none(), a, 2, 3]`,
+		out:  `[a, 2, 3]`,
+	},
+	{
+		in:   unknownActivation("a"),
+		expr: `[?optional.of(10), ?a, 2, 3]`,
+		out:  `[10, ?a, 2, 3]`,
+	},
+	{
+		in:   unknownActivation("y"),
+		expr: `duration('1h') + duration('2h') > y`,
+		out:  `duration("10800s") > y`,
+	},
+	{
+		in:   unknownActivation("x"),
+		expr: `[x, timestamp(0)]`,
+		out:  `[x, timestamp(0)]`,
+	},
+	{
+		expr: `[timestamp(0), timestamp(1)]`,
+		out:  `[timestamp(0), timestamp(1)]`,
+	},
+	{
+		expr: `{"epoch": timestamp(0)}`,
+		out:  `{"epoch": timestamp(0)}`,
+	},
+	{
+		in:   partialActivation(map[string]any{"x": false}, "y"),
+		expr: `!y && !x`,
+		out:  `!y`,
+	},
+	{
+		expr: `!y && !(1/0 < 0)`,
+		out:  `!y && !(1/0 < 0)`,
+	},
+	{
+		in:   partialActivation(map[string]any{"y": false}),
+		expr: `!y && !(1/0 < 0)`,
+		out:  `!(1/0 < 0)`,
 	},
 	{
 		in:   unknownActivation(),
@@ -163,23 +247,37 @@ var testCases = []testInfo{
 				{"name": "alice", "role": "EMPLOYEE"},
 				{"name": "bob", "role": "MANAGER"},
 				{"name": "eve", "role": "CUSTOMER"},
-			}}, "r.attr.*"),
+			}}, "r.attr"),
 		expr: `users.filter(u, u.role=="MANAGER").map(u, u.name) == r.attr.authorized["managers"]`,
 		out:  `["bob"] == r.attr.authorized["managers"]`,
 	},
-	// TODO: the output of an expression like this relies on either
-	// a) doing replacements on the original macro call, or
-	// b) mutating the macro call tracking data rather than the core
-	//    expression in order to render the partial correctly.
-	// {
-	// 	in:   unknownActivation(),
-	// 	expr: `[1+3, 2+2, 3+1, four].exists(x, x == four)`,
-	// 	out:  `[4, 4, 4, four].exists(x, x == four)`,
-	// },
+	{
+		in:   unknownActivation("four"),
+		expr: `[1+3, 2+2, 3+1, four]`,
+		out:  `[4, 4, 4, four]`,
+	},
+	{
+		in:   unknownActivation("four"),
+		expr: `[1+3, 2+2, 3+1, four].exists(x, x == four)`,
+		out:  `[4, 4, 4, four].exists(x, x == four)`,
+	},
+	{
+		in:   unknownActivation("a", "c"),
+		expr: `[has(a.b), has(c.d)].exists(x, x == true)`,
+		out:  `[has(a.b), has(c.d)].exists(x, x == true)`,
+	},
+	{
+		in: partialActivation(map[string]any{
+			"a": map[string]any{},
+		}, "c"),
+		expr: `[has(a.b), has(c.d)].exists(x, x == true)`,
+		out:  `[false, has(c.d)].exists(x, x == true)`,
+	},
 }
 
 func TestPrune(t *testing.T) {
 	p, err := parser.NewParser(
+		parser.EnableOptionalSyntax(true),
 		parser.PopulateMacroCalls(true),
 		parser.Macros(parser.AllMacros...),
 	)
@@ -194,7 +292,21 @@ func TestPrune(t *testing.T) {
 		state := NewEvalState()
 		reg := newTestRegistry(t)
 		attrs := NewPartialAttributeFactory(containers.DefaultContainer, reg, reg)
-		interp := NewStandardInterpreter(containers.DefaultContainer, reg, reg, attrs)
+		dispatcher := NewDispatcher()
+		dispatcher.Add(functions.StandardOverloads()...)
+		dispatcher.Add(&functions.Overload{
+			Operator: "optional.none",
+			Function: func(args ...ref.Val) ref.Val {
+				return types.OptionalNone
+			},
+		})
+		dispatcher.Add(&functions.Overload{
+			Operator: "optional.of",
+			Unary: func(val ref.Val) ref.Val {
+				return types.OptionalOf(val)
+			},
+		})
+		interp := NewInterpreter(dispatcher, containers.DefaultContainer, reg, reg, attrs)
 
 		interpretable, _ := interp.NewUncheckedInterpretable(
 			ast.GetExpr(),
@@ -212,7 +324,7 @@ func TestPrune(t *testing.T) {
 }
 
 func unknownActivation(vars ...string) PartialActivation {
-	pats := make([]*AttributePattern, len(vars), len(vars))
+	pats := make([]*AttributePattern, len(vars))
 	for i, v := range vars {
 		pats[i] = NewAttributePattern(v)
 	}
@@ -221,7 +333,7 @@ func unknownActivation(vars ...string) PartialActivation {
 }
 
 func partialActivation(in map[string]any, vars ...string) PartialActivation {
-	pats := make([]*AttributePattern, len(vars), len(vars))
+	pats := make([]*AttributePattern, len(vars))
 	for i, v := range vars {
 		pats[i] = NewAttributePattern(v)
 	}
