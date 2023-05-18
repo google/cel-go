@@ -333,6 +333,10 @@ func OpaqueType(name string, params ...*Type) *Type {
 
 // ObjectType creates a type references to an externally defined type, e.g. a protobuf message type.
 func ObjectType(typeName string) *Type {
+	// Function sanitizes object types on the fly
+	if wkt, found := checkedWellKnowns[typeName]; found {
+		return wkt
+	}
 	return &Type{
 		Kind:        StructKind,
 		runtimeType: types.NewObjectTypeValue(typeName),
@@ -347,6 +351,16 @@ func TypeParamType(paramName string) *Type {
 	}
 }
 
+// TypeTypeWithParam creates a type with a type parameter.
+// Used for type-checking purposes, but equivalent to TypeType otherwise.
+func TypeTypeWithParam(param *Type) *Type {
+	return &Type{
+		Kind:        TypeKind,
+		Parameters:  []*Type{param},
+		runtimeType: types.TypeType,
+	}
+}
+
 // NewFunction creates a new function declaration with a set of function options to configure overloads
 // and function definitions (implementations).
 //
@@ -354,7 +368,7 @@ func TypeParamType(paramName string) *Type {
 func NewFunction(name string, opts ...FunctionOpt) (*FunctionDecl, error) {
 	fn := &FunctionDecl{
 		Name:      name,
-		Overloads: []*OverloadDecl{},
+		Overloads: map[string]*OverloadDecl{},
 	}
 	var err error
 	for _, opt := range opts {
@@ -376,7 +390,7 @@ type FunctionDecl struct {
 	Name string
 
 	// Overloads associated with the function name.
-	Overloads []*OverloadDecl
+	Overloads map[string]*OverloadDecl
 
 	// Singleton implementation of the function for all overloads.
 	//
@@ -396,15 +410,20 @@ type FunctionDecl struct {
 // prior definition of the function at which point its overloads must not collide with pre-existing overloads
 // and its bindings (singleton, or per-overload) must not conflict with previous definitions either.
 func (f *FunctionDecl) Merge(other *FunctionDecl) (*FunctionDecl, error) {
+	if f == other {
+		return f, nil
+	}
 	if f.Name != other.Name {
 		return nil, fmt.Errorf("cannot merge unrelated functions. %s and %s", f.Name, other.Name)
 	}
 	merged := &FunctionDecl{
 		Name:      f.Name,
-		Overloads: make([]*OverloadDecl, len(f.Overloads)),
+		Overloads: make(map[string]*OverloadDecl, len(f.Overloads)),
 		Singleton: f.Singleton,
 	}
-	copy(merged.Overloads, f.Overloads)
+	for oID, o := range f.Overloads {
+		merged.Overloads[oID] = o
+	}
 	for _, o := range other.Overloads {
 		err := merged.AddOverload(o)
 		if err != nil {
@@ -424,20 +443,20 @@ func (f *FunctionDecl) Merge(other *FunctionDecl) (*FunctionDecl, error) {
 // however, if the function signatures are identical, the implementation may be rewritten as its
 // difficult to compare functions by object identity.
 func (f *FunctionDecl) AddOverload(overload *OverloadDecl) error {
-	for index, o := range f.Overloads {
+	for oID, o := range f.Overloads {
 		if o.ID != overload.ID && o.SignatureOverlaps(overload) {
 			return fmt.Errorf("overload signature collision in function %s: %s collides with %s", f.Name, o.ID, overload.ID)
 		}
 		if o.ID == overload.ID {
 			if o.SignatureEquals(overload) && o.NonStrict == overload.NonStrict {
 				// Allow redefinition of an overload implementation so long as the signatures match.
-				f.Overloads[index] = overload
+				f.Overloads[oID] = overload
 				return nil
 			}
 			return fmt.Errorf("overload redefinition in function. %s: %s has multiple definitions", f.Name, o.ID)
 		}
 	}
-	f.Overloads = append(f.Overloads, overload)
+	f.Overloads[overload.ID] = overload
 	return nil
 }
 
@@ -895,3 +914,27 @@ func OverloadOperandTrait(trait int) OverloadOpt {
 		return o, nil
 	}
 }
+
+var (
+	checkedWellKnowns = map[string]*Type{
+		// Wrapper types.
+		"google.protobuf.BoolValue":   NullableType(BoolType),
+		"google.protobuf.BytesValue":  NullableType(BytesType),
+		"google.protobuf.DoubleValue": NullableType(DoubleType),
+		"google.protobuf.FloatValue":  NullableType(DoubleType),
+		"google.protobuf.Int64Value":  NullableType(IntType),
+		"google.protobuf.Int32Value":  NullableType(IntType),
+		"google.protobuf.UInt64Value": NullableType(UintType),
+		"google.protobuf.UInt32Value": NullableType(UintType),
+		"google.protobuf.StringValue": NullableType(StringType),
+		// Well-known types.
+		"google.protobuf.Any":       AnyType,
+		"google.protobuf.Duration":  DurationType,
+		"google.protobuf.Timestamp": TimestampType,
+		// Json types.
+		"google.protobuf.ListValue": ListType(DynType),
+		"google.protobuf.NullValue": NullType,
+		"google.protobuf.Struct":    MapType(StringType, DynType),
+		"google.protobuf.Value":     DynType,
+	}
+)

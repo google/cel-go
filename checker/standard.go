@@ -23,7 +23,8 @@ import (
 )
 
 var (
-	standardDeclarations []*exprpb.Decl
+	standardTypes     []*exprpb.Decl
+	standardFunctions []*exprpb.Decl
 )
 
 func init() {
@@ -35,21 +36,19 @@ func init() {
 	typeParamABList := []string{"A", "B"}
 	mapOfAB := decls.NewMapType(paramA, paramB)
 
-	var idents []*exprpb.Decl
 	for _, t := range []*exprpb.Type{
 		decls.Int, decls.Uint, decls.Bool,
 		decls.Double, decls.Bytes, decls.String} {
-		idents = append(idents,
+		standardTypes = append(standardTypes,
 			decls.NewVar(FormatCheckedType(t), decls.NewTypeType(t)))
 	}
-	idents = append(idents,
+	standardTypes = append(standardTypes,
 		decls.NewVar("list", decls.NewTypeType(listOfA)),
 		decls.NewVar("map", decls.NewTypeType(mapOfAB)),
 		decls.NewVar("null_type", decls.NewTypeType(decls.Null)),
 		decls.NewVar("type", decls.NewTypeType(decls.NewTypeType(nil))))
 
-	standardDeclarations = append(standardDeclarations, idents...)
-	standardDeclarations = append(standardDeclarations, []*exprpb.Decl{
+	standardFunctions = append(standardFunctions, []*exprpb.Decl{
 		// Booleans
 		decls.NewFunction(operators.Conditional,
 			decls.NewParameterizedOverload(overloads.Conditional,
@@ -488,7 +487,12 @@ func init() {
 	}...)
 }
 
-// StandardDeclarations returns the Decls for all functions and constants in the evaluator.
-func StandardDeclarations() []*exprpb.Decl {
-	return standardDeclarations
+// StandardFunctions returns the Decls for all functions in the evaluator.
+func StandardFunctions() []*exprpb.Decl {
+	return standardFunctions
+}
+
+// StandardTypes returns the set of type identifiers for standard library types.
+func StandardTypes() []*exprpb.Decl {
+	return standardTypes
 }

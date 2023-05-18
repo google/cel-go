@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
@@ -232,6 +233,13 @@ func TestFunctionMerge(t *testing.T) {
 	)
 	if err != nil {
 		t.Fatalf("NewFunction() failed: %v", err)
+	}
+	out, err := sizeFunc.Merge(sizeFunc)
+	if err != nil {
+		t.Errorf("sizeFunc.Merge(sizeFunc) failed: %v", err)
+	}
+	if out != sizeFunc {
+		t.Errorf("sizeFunc.Merge(sizeFunc) != sizeFunc: %v", out)
 	}
 	sizeVecFunc, err := NewFunction("size",
 		MemberOverload("vector_size", []*Type{OpaqueType("vector", TypeParamType("T"))}, IntType),
@@ -651,6 +659,22 @@ func TestTypeString(t *testing.T) {
 			out: "my.type.Message",
 		},
 		{
+			in:  ObjectType("google.protobuf.Int32Value"),
+			out: "int",
+		},
+		{
+			in:  ObjectType("google.protobuf.UInt32Value"),
+			out: "uint",
+		},
+		{
+			in:  ObjectType("google.protobuf.Value"),
+			out: "dyn",
+		},
+		{
+			in:  TypeTypeWithParam(StringType),
+			out: "type(string)",
+		},
+		{
 			in:  TypeParamType("T"),
 			out: "T",
 		},
@@ -777,6 +801,24 @@ func TestTypeIsAssignableType(t *testing.T) {
 		if tst.t1.IsAssignableType(tst.t2) != tst.isAssignable {
 			t.Errorf("%v.IsAssignableType(%v) got %v, wanted %v", tst.t1, tst.t2, !tst.isAssignable, tst.isAssignable)
 		}
+	}
+}
+
+func TestTypeSignatureEquals(t *testing.T) {
+	paramA := TypeParamType("A")
+	paramB := TypeParamType("B")
+	mapOfAB := MapType(paramA, paramB)
+	fn, err := NewFunction(overloads.Size,
+		MemberOverload(overloads.SizeMapInst, []*Type{mapOfAB}, IntType),
+		Overload(overloads.SizeMap, []*Type{mapOfAB}, IntType))
+	if err != nil {
+		t.Fatalf("NewFunction() failed: %v", err)
+	}
+	if !fn.Overloads[overloads.SizeMap].SignatureEquals(fn.Overloads[overloads.SizeMap]) {
+		t.Errorf("SignatureEquals() returned false, wanted true")
+	}
+	if fn.Overloads[overloads.SizeMap].SignatureEquals(fn.Overloads[overloads.SizeMapInst]) {
+		t.Errorf("SignatureEquals() returned false, wanted true")
 	}
 }
 

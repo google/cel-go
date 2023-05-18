@@ -490,7 +490,7 @@ func TestCost(t *testing.T) {
 			if err != nil {
 				t.Fatalf("NewEnv() failed: %v", err)
 			}
-			err = e.Add(StandardDeclarations()...)
+			err = e.Add(StandardFunctions()...)
 			if err != nil {
 				t.Fatalf("environment creation error: %v", err)
 			}

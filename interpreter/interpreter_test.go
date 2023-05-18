@@ -1942,7 +1942,7 @@ func testContainer(name string) *containers.Container {
 	return cont
 }
 
-func program(ctx any, tst *testCase, opts ...InterpretableDecorator) (Interpretable, Activation, error) {
+func program(ctx testing.TB, tst *testCase, opts ...InterpretableDecorator) (Interpretable, Activation, error) {
 	// Configure the package.
 	cont := containers.DefaultContainer
 	if tst.container != "" {
@@ -1971,7 +1971,7 @@ func program(ctx any, tst *testCase, opts ...InterpretableDecorator) (Interpreta
 		if tst.types != nil {
 			reg = newBenchRegistry(t, tst.types...)
 		}
-		env = newBenchEnv(t, cont, reg)
+		env = newTestEnv(t, cont, reg)
 	}
 	attrs := NewAttributeFactory(cont, reg, reg)
 	if tst.attrs != nil {
@@ -1994,7 +1994,7 @@ func program(ctx any, tst *testCase, opts ...InterpretableDecorator) (Interpreta
 	}
 
 	disp := NewDispatcher()
-	disp.Add(stdlib.StandardOverloads()...)
+	addFunctionBindings(ctx, disp)
 	if tst.funcs != nil {
 		disp.Add(tst.funcs...)
 	}
@@ -2069,15 +2069,19 @@ func newBenchRegistry(b *testing.B, msgs ...proto.Message) ref.TypeRegistry {
 	return reg
 }
 
-func newBenchEnv(b *testing.B, cont *containers.Container, reg ref.TypeRegistry) *checker.Env {
-	b.Helper()
+func newTestEnv(t testing.TB, cont *containers.Container, reg ref.TypeRegistry) *checker.Env {
+	t.Helper()
 	env, err := checker.NewEnv(cont, reg, checker.CrossTypeNumericComparisons(true))
 	if err != nil {
-		b.Fatalf("checker.NewEnv(%v, %v) failed: %v", cont, reg, err)
+		t.Fatalf("checker.NewEnv(%v, %v) failed: %v", cont, reg, err)
 	}
-	err = env.Add(checker.StandardDeclarations()...)
+	err = env.Add(checker.StandardTypes()...)
 	if err != nil {
-		b.Fatalf("env.Add(StandardDeclarations()...) failed: %v", err)
+		t.Fatalf("env.Add(StandardTypes()...) failed: %v", err)
+	}
+	err = env.Add(checker.StandardFunctions()...)
+	if err != nil {
+		t.Fatalf("env.Add(StandardFunctions()...) failed: %v", err)
 	}
 	return env
 }
@@ -2091,19 +2095,6 @@ func newTestRegistry(t *testing.T, msgs ...proto.Message) ref.TypeRegistry {
 	return reg
 }
 
-func newTestEnv(t *testing.T, cont *containers.Container, reg ref.TypeRegistry) *checker.Env {
-	t.Helper()
-	env, err := checker.NewEnv(cont, reg, checker.CrossTypeNumericComparisons(true))
-	if err != nil {
-		t.Fatalf("checker.NewEnv(%v, %v) failed: %v", cont, reg, err)
-	}
-	err = env.Add(checker.StandardDeclarations()...)
-	if err != nil {
-		t.Fatalf("env.Add(StandardDeclarations()...) failed: %v", err)
-	}
-	return env
-}
-
 // newStandardInterpreter builds a Dispatcher and TypeProvider with support for all of the CEL
 // builtins defined in the language definition.
 func newStandardInterpreter(t *testing.T,
@@ -2113,6 +2104,20 @@ func newStandardInterpreter(t *testing.T,
 	resolver AttributeFactory) Interpreter {
 	t.Helper()
 	dispatcher := NewDispatcher()
-	dispatcher.Add(stdlib.StandardOverloads()...)
+	addFunctionBindings(t, dispatcher)
 	return NewInterpreter(dispatcher, container, provider, adapter, resolver)
+}
+
+func addFunctionBindings(t testing.TB, dispatcher Dispatcher) {
+	funcs := stdlib.Functions()
+	for _, fn := range funcs {
+		bindings, err := fn.Bindings()
+		if err != nil {
+			t.Fatalf("fn.Bindings() failed for function %v. error: %v", fn.Name, err)
+		}
+		err = dispatcher.Add(bindings...)
+		if err != nil {
+			t.Fatalf("dispatcher.Add() failed: %v", err)
+		}
+	}
 }

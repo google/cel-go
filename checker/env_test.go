@@ -117,7 +117,7 @@ func BenchmarkNewStdEnv(b *testing.B) {
 			b.Fatalf("NewEnv() failed: %v", err)
 		}
 		decls := []*exprpb.Decl{}
-		decls = append(decls, StandardDeclarations()...)
+		decls = append(decls, StandardFunctions()...)
 		err = env.Add(decls...)
 		if err != nil {
 			b.Fatalf("env.Add(StandardDeclarations()) failed: %v", err)
@@ -131,7 +131,8 @@ func BenchmarkCopyDeclarations(b *testing.B) {
 		b.Fatalf("NewEnv() failed: %v", err)
 	}
 	decls := []*exprpb.Decl{}
-	decls = append(decls, StandardDeclarations()...)
+	decls = append(decls, StandardTypes()...)
+	decls = append(decls, StandardFunctions()...)
 	err = env.Add(decls...)
 	if err != nil {
 		b.Fatalf("env.Add(StandardDeclarations()) failed: %v", err)
@@ -147,9 +148,13 @@ func newStdEnv(t *testing.T) *Env {
 	if err != nil {
 		t.Fatalf("NewEnv() failed: %v", err)
 	}
-	err = env.Add(StandardDeclarations()...)
+	err = env.Add(StandardTypes()...)
 	if err != nil {
-		t.Fatalf("env.Add(StandardDeclarations()) failed: %v", err)
+		t.Fatalf("env.Add(StandardTypes()...) failed: %v", err)
+	}
+	err = env.Add(StandardFunctions()...)
+	if err != nil {
+		t.Fatalf("env.Add(StandardFunctions()...) failed: %v", err)
 	}
 	return env
 }
