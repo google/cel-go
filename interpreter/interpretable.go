@@ -110,7 +110,6 @@ type InterpretableConstructor interface {
 type evalTestOnly struct {
 	id    int64
 	attr  InterpretableAttribute
-	qual  Qualifier
 	field types.String
 }
 
@@ -127,20 +126,10 @@ func (test *evalTestOnly) Eval(ctx Activation) ref.Val {
 	}
 	optVal, isOpt := val.(*types.Optional)
 	if isOpt {
-		if !optVal.HasValue() {
-			return types.False
-		}
-		val = optVal.GetValue()
+		return types.Bool(optVal.HasValue())
 	}
-	out, found, err := test.qual.QualifyIfPresent(ctx, val, true)
-	if err != nil {
-		return types.NewErr(err.Error())
-	}
-	if unk, isUnk := out.(types.Unknown); isUnk {
+	if unk, isUnk := val.(types.Unknown); isUnk {
 		return unk
-	}
-	if found {
-		return types.True
 	}
 	return types.False
 }

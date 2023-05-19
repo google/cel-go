@@ -213,23 +213,22 @@ func (p *planner) planSelect(expr *exprpb.Expr) (Interpretable, error) {
 	}
 
 	// Build a qualifier for the attribute.
-	qual, err := p.attrFactory.NewQualifier(opType, expr.GetId(), sel.GetField(), false)
+	qual, err := p.attrFactory.NewQualifier(opType, expr.GetId(), sel.GetField(), sel.GetTestOnly())
 	if err != nil {
 		return nil, err
 	}
 
+	// Otherwise, append the qualifier on the attribute.
+	_, err = attr.AddQualifier(qual)
 	// Return the test only eval expression.
 	if sel.GetTestOnly() {
 		return &evalTestOnly{
 			id:    expr.GetId(),
 			field: types.String(sel.GetField()),
 			attr:  attr,
-			qual:  qual,
 		}, nil
 	}
 
-	// Otherwise, append the qualifier on the attribute.
-	_, err = attr.AddQualifier(qual)
 	return attr, err
 }
 
