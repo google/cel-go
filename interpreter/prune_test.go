@@ -155,6 +155,26 @@ var testCases = []testInfo{
 		out:  `[10, ?a, 2, 3]`,
 	},
 	{
+		in:   partialActivation(map[string]any{"a": "hi"}, "b"),
+		expr: `{?a: b.?c}`,
+		out:  `{?"hi": b.?c}`,
+	},
+	{
+		in:   partialActivation(map[string]any{"a": "hi"}, "b"),
+		expr: `"hi" in {?a: b.?c}`,
+		out:  `"hi" in {?"hi": b.?c}`,
+	},
+	{
+		in:   partialActivation(map[string]any{"a": "hi"}, "b"),
+		expr: `"hi" in {?a: optional.of("world")}`,
+		out:  `true`,
+	},
+	{
+		in:   partialActivation(map[string]any{"a": "hi"}, "b"),
+		expr: `{?a: optional.of("world")}[b]`,
+		out:  `{"hi": "world"}[b]`,
+	},
+	{
 		in:   unknownActivation("y"),
 		expr: `duration('1h') + duration('2h') > y`,
 		out:  `duration("10800s") > y`,
