@@ -312,7 +312,9 @@ func (p *astPruner) prune(node *exprpb.Expr) (*exprpb.Expr, bool) {
 	}
 	if macro, found := p.macroCalls[node.GetId()]; found {
 		// prune the expression in terms of the macro call instead of the expanded form.
-		return p.prune(macro)
+		if newMacro, pruned := p.prune(macro); pruned {
+			p.macroCalls[node.GetId()] = newMacro
+		}
 	}
 
 	// We have either an unknown/error value, or something we don't want to
