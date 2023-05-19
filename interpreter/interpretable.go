@@ -883,6 +883,21 @@ func (e *evalWatchConstQual) Qualify(vars Activation, obj any) (any, error) {
 	return out, err
 }
 
+// QualifyIfPresent conditionally qualifies the variable and only records a value if one is present.
+func (e *evalWatchConstQual) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
+	out, present, err := e.ConstantQualifier.QualifyIfPresent(vars, obj, presenceOnly)
+	var val ref.Val
+	if err != nil {
+		val = types.NewErr(err.Error())
+	} else if present {
+		val = e.adapter.NativeToValue(out)
+	}
+	if present {
+		e.observer(e.ID(), e.ConstantQualifier, val)
+	}
+	return out, present, err
+}
+
 // QualifierValueEquals tests whether the incoming value is equal to the qualifying constant.
 func (e *evalWatchConstQual) QualifierValueEquals(value any) bool {
 	qve, ok := e.ConstantQualifier.(qualifierValueEquator)
@@ -907,6 +922,21 @@ func (e *evalWatchQual) Qualify(vars Activation, obj any) (any, error) {
 	}
 	e.observer(e.ID(), e.Qualifier, val)
 	return out, err
+}
+
+// QualifyIfPresent conditionally qualifies the variable and only records a value if one is present.
+func (e *evalWatchQual) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
+	out, present, err := e.Qualifier.QualifyIfPresent(vars, obj, presenceOnly)
+	var val ref.Val
+	if err != nil {
+		val = types.NewErr(err.Error())
+	} else if present {
+		val = e.adapter.NativeToValue(out)
+	}
+	if present {
+		e.observer(e.ID(), e.Qualifier, val)
+	}
+	return out, present, err
 }
 
 // evalWatchConst describes a watcher of an instConst Interpretable.
