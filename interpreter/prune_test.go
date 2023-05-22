@@ -34,6 +34,10 @@ type testInfo struct {
 
 var testCases = []testInfo{
 	{
+		expr: `{{'nested_key': true}.nested_key: true}`,
+		out:  `{true: true}`,
+	},
+	{
 		in: map[string]any{
 			"msg": map[string]string{"foo": "bar"},
 		},
@@ -82,7 +86,7 @@ var testCases = []testInfo{
 	{
 		in: partialActivation(map[string]any{"rules": map[string]any{"not_in": []string{}}}, "this"),
 		expr: `this.size() > 0 ? this in rules.not_in :
-			  !(this in rules.not_in) ? true : false`,
+				!(this in rules.not_in) ? true : false`,
 		out: `(this.size() > 0) ? false : true`,
 	},
 	{
@@ -314,18 +318,7 @@ func TestPrune(t *testing.T) {
 		attrs := NewPartialAttributeFactory(containers.DefaultContainer, reg, reg)
 		dispatcher := NewDispatcher()
 		dispatcher.Add(functions.StandardOverloads()...)
-		dispatcher.Add(&functions.Overload{
-			Operator: "optional.none",
-			Function: func(args ...ref.Val) ref.Val {
-				return types.OptionalNone
-			},
-		})
-		dispatcher.Add(&functions.Overload{
-			Operator: "optional.of",
-			Unary: func(val ref.Val) ref.Val {
-				return types.OptionalOf(val)
-			},
-		})
+		dispatcher.Add(optionalFunctions()...)
 		interp := NewInterpreter(dispatcher, containers.DefaultContainer, reg, reg, attrs)
 
 		interpretable, _ := interp.NewUncheckedInterpretable(
@@ -371,4 +364,21 @@ func testActivation(t *testing.T, in any) Activation {
 		t.Fatalf("NewActivation(%v) failed: %v", in, err)
 	}
 	return a
+}
+
+func optionalFunctions() []*functions.Overload {
+	return []*functions.Overload{
+		{
+			Operator: "optional.none",
+			Function: func(args ...ref.Val) ref.Val {
+				return types.OptionalNone
+			},
+		},
+		{
+			Operator: "optional.of",
+			Unary: func(val ref.Val) ref.Val {
+				return types.OptionalOf(val)
+			},
+		},
+	}
 }

@@ -486,7 +486,9 @@ func (p *astPruner) nextID() int64 {
 }
 
 type astVisitor struct {
-	visitExpr  func(expr *exprpb.Expr)
+	// visitEntry is called on every expr node, including those within a map/struct entry.
+	visitExpr func(expr *exprpb.Expr)
+	// visitEntry is called before entering the key, value of a map/struct entry.
 	visitEntry func(entry *exprpb.Expr_CreateStruct_Entry)
 }
 
@@ -538,7 +540,7 @@ func visit(expr *exprpb.Expr, visitor astVisitor) {
 			list := e.GetListExpr()
 			exprs = append(exprs, list.GetElements()...)
 		case *exprpb.Expr_StructExpr:
-			for _, entry := range expr.GetStructExpr().GetEntries() {
+			for _, entry := range e.GetStructExpr().GetEntries() {
 				visitor.visitEntry(entry)
 				if entry.GetMapKey() != nil {
 					exprs = append(exprs, entry.GetMapKey())
