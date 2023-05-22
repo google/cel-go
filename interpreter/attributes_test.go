@@ -1003,12 +1003,64 @@ func TestAttributeStateTracking(t *testing.T) {
 				8: types.String("hello"),
 			},
 		},
+		{
+			expr: `a.?b.c`,
+			env: []*exprpb.Decl{
+				decls.NewVar("a", decls.NewMapType(decls.String, decls.NewMapType(decls.String, decls.String))),
+			},
+			in: map[string]any{
+				"a": map[string]any{"b": map[string]any{"c": "world"}},
+			},
+			out: types.OptionalOf(types.String("world")),
+			state: map[int64]any{
+				// {c: world}
+				3: types.DefaultTypeAdapter.NativeToValue(map[string]string{"c": "world"}),
+				// 'world'
+				4: types.OptionalOf(types.String("world")),
+			},
+		},
+		{
+			expr: `a.?b.c`,
+			env: []*exprpb.Decl{
+				decls.NewVar("a", decls.NewMapType(decls.String, decls.NewMapType(decls.String, decls.String))),
+			},
+			in: map[string]any{
+				"a": map[string]any{"b": map[string]string{"random": "value"}},
+			},
+			out: types.OptionalNone,
+			state: map[int64]any{
+				// {random: value}
+				3: types.DefaultTypeAdapter.NativeToValue(map[string]string{"random": "value"}),
+				// optional.none()
+				4: types.OptionalNone,
+			},
+		},
+		{
+			expr: `a.b.c`,
+			env: []*exprpb.Decl{
+				decls.NewVar("a", decls.NewMapType(decls.String, decls.NewMapType(decls.String, decls.String))),
+			},
+			in: map[string]any{
+				"a": map[string]any{"b": map[string]any{"c": "world"}},
+			},
+			out: types.String("world"),
+			state: map[int64]any{
+				// {c: world}
+				2: types.DefaultTypeAdapter.NativeToValue(map[string]string{"c": "world"}),
+				// 'world'
+				3: types.String("world"),
+			},
+		},
 	}
 	for _, test := range tests {
 		tc := test
 		t.Run(tc.expr, func(t *testing.T) {
 			src := common.NewTextSource(tc.expr)
-			parsed, errors := parser.Parse(src)
+			p, err := parser.NewParser(parser.EnableOptionalSyntax(true))
+			if err != nil {
+				t.Fatalf("parser.NewParser() failed: %v", err)
+			}
+			parsed, errors := p.Parse(src)
 			if len(errors.GetErrors()) != 0 {
 				t.Fatalf(errors.ToDisplayString())
 			}
@@ -1045,6 +1097,10 @@ func TestAttributeStateTracking(t *testing.T) {
 			for id, val := range tc.state {
 				stVal, found := st.Value(id)
 				if !found {
+					for _, id := range st.IDs() {
+						v, _ := st.Value(id)
+						t.Error(id, v)
+					}
 					t.Errorf("state not found for %d=%v", id, val)
 					continue
 				}
