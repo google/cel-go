@@ -24,6 +24,7 @@ import (
 	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/parser"
 	"github.com/google/cel-go/test"
+	"github.com/google/cel-go/test/proto3pb"
 )
 
 type testInfo struct {
@@ -66,6 +67,90 @@ var testCases = []testInfo{
 	{
 		in:   unknownActivation("this"),
 		expr: `this in []`,
+		out:  `false`,
+	},
+	{
+		in: partialActivation(map[string]any{
+			"this": map[string]string{"b": "exists"},
+		}, NewAttributePattern("this")),
+		expr: `has(this.a) || !has(this.b)`,
+		out:  `has(this.a) || !has(this.b)`,
+	},
+	{
+		in: partialActivation(map[string]any{
+			"this": map[string]string{"b": "exists"},
+		}, NewAttributePattern("this").QualString("a")),
+		expr: `has(this.a) || !has(this.b)`,
+		out:  `has(this.a)`,
+	},
+	{
+		in: partialActivation(map[string]any{
+			"this": map[string]string{"b": "exists"},
+		}, NewAttributePattern("this").QualString("a")),
+		expr: `!has(this.b) || has(this.a)`,
+		out:  `has(this.a)`,
+	},
+	{
+		in: partialActivation(map[string]any{
+			"this": map[string]string{},
+		}, NewAttributePattern("this")),
+		expr: `(!(this.a in []) || has(this.a)) || !has(this.b)`,
+		out:  `true`,
+	},
+	{
+		in: partialActivation(map[string]any{
+			"this": map[string]string{},
+		}, NewAttributePattern("this")),
+		expr: `has(this.a) || !has(this.b)`,
+		out:  `has(this.a) || !has(this.b)`,
+	},
+	{
+		in: partialActivation(map[string]any{
+			"this": map[string]string{},
+		}, NewAttributePattern("this")),
+		expr: `(has(this.a) || !(this.a in [])) || !has(this.b)`,
+		out:  `true`,
+	},
+	{
+		in: partialActivation(map[string]any{
+			"this": map[string]string{"a": "exists"},
+		}, NewAttributePattern("this").QualString("b")),
+		expr: `has(this.a) && !has(this.b)`,
+		out:  `!has(this.b)`,
+	},
+	{
+		in: partialActivation(map[string]any{
+			"this": map[string]string{},
+		}, NewAttributePattern("this")),
+		expr: `(has(this.a) && this.a in []) || !has(this.b)`,
+		out:  `!has(this.b)`,
+	},
+	{
+		in: partialActivation(map[string]any{
+			"this": map[string]string{},
+		}, NewAttributePattern("this")),
+		expr: `(this.a in [] && has(this.a)) || !has(this.b)`,
+		out:  `!has(this.b)`,
+	},
+	{
+		in: partialActivation(map[string]any{
+			"this": map[string]any{"a": map[string]string{}},
+		}, NewAttributePattern("this").QualString("a")),
+		expr: `has(this.a.b)`,
+		out:  `has(this.a.b)`,
+	},
+	{
+		in: partialActivation(map[string]any{
+			"this": map[string]any{"a": map[string]string{}},
+		}, NewAttributePattern("this").QualString("a")),
+		expr: `has(this["a"].b)`,
+		out:  `has(this["a"].b)`,
+	},
+	{
+		in: partialActivation(map[string]any{
+			"this": &proto3pb.TestAllTypes{SingleInt32: 0, SingleInt64: 1},
+		}, NewAttributePattern("this").QualString("single_int64")),
+		expr: `has(this.single_int32) && !has(this.single_int64)`,
 		out:  `false`,
 	},
 	{
@@ -157,6 +242,11 @@ var testCases = []testInfo{
 		in:   unknownActivation("a"),
 		expr: `[?optional.of(10), ?a, 2, 3]`,
 		out:  `[10, ?a, 2, 3]`,
+	},
+	{
+		in:   unknownActivation("a"),
+		expr: `[?optional.of(10), a, 2, 3]`,
+		out:  `[10, a, 2, 3]`,
 	},
 	{
 		in:   partialActivation(map[string]any{"a": "hi"}, "b"),
@@ -314,7 +404,7 @@ func TestPrune(t *testing.T) {
 			t.Fatalf(iss.ToDisplayString())
 		}
 		state := NewEvalState()
-		reg := newTestRegistry(t)
+		reg := newTestRegistry(t, &proto3pb.TestAllTypes{})
 		attrs := NewPartialAttributeFactory(containers.DefaultContainer, reg, reg)
 		dispatcher := NewDispatcher()
 		dispatcher.Add(functions.StandardOverloads()...)
@@ -331,6 +421,10 @@ func TestPrune(t *testing.T) {
 			t.Error(err)
 		}
 		if !test.Compare(actual, tst.out) {
+			for _, id := range state.IDs() {
+				v, _ := state.Value(id)
+				t.Logf("state[%d] %v\n", id, v)
+			}
 			t.Errorf("prune[%d], diff: %s", i, test.DiffMessage("structure", actual, tst.out))
 		}
 	}
@@ -345,10 +439,17 @@ func unknownActivation(vars ...string) PartialActivation {
 	return a
 }
 
-func partialActivation(in map[string]any, vars ...string) PartialActivation {
+func partialActivation(in map[string]any, vars ...any) PartialActivation {
 	pats := make([]*AttributePattern, len(vars))
 	for i, v := range vars {
-		pats[i] = NewAttributePattern(v)
+		if pat, ok := v.(*AttributePattern); ok {
+			pats[i] = pat
+			continue
+		}
+		if str, ok := v.(string); ok {
+			pats[i] = NewAttributePattern(str)
+			continue
+		}
 	}
 	a, _ := NewPartialActivation(in, pats...)
 	return a

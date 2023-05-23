@@ -24,6 +24,7 @@ import (
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/containers"
+	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/parser"
@@ -68,7 +69,7 @@ func TestAttributesAbsoluteAttr(t *testing.T) {
 	}
 }
 
-func TestAttributesAbsoluteAttr_Type(t *testing.T) {
+func TestAttributesAbsoluteAttrType(t *testing.T) {
 	reg := newTestRegistry(t)
 	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
 
@@ -861,6 +862,7 @@ func TestAttributeStateTracking(t *testing.T) {
 		env   []*exprpb.Decl
 		in    map[string]any
 		out   ref.Val
+		attrs []*AttributePattern
 		state map[int64]any
 	}{
 		{
@@ -1051,12 +1053,54 @@ func TestAttributeStateTracking(t *testing.T) {
 				3: types.String("world"),
 			},
 		},
+		{
+			expr: `m[has(a.b)]`,
+			env: []*exprpb.Decl{
+				decls.NewVar("a", decls.NewMapType(decls.String, decls.String)),
+				decls.NewVar("m", decls.NewMapType(decls.Bool, decls.String)),
+			},
+			in: map[string]any{
+				"a": map[string]string{"b": ""},
+				"m": map[bool]string{true: "world"},
+			},
+			out: types.String("world"),
+		},
+		{
+			expr: `m[?has(a.b)]`,
+			env: []*exprpb.Decl{
+				decls.NewVar("a", decls.NewMapType(decls.String, decls.String)),
+				decls.NewVar("m", decls.NewMapType(decls.Bool, decls.String)),
+			},
+			in: map[string]any{
+				"a": map[string]string{"b": ""},
+				"m": map[bool]string{true: "world"},
+			},
+			out: types.OptionalOf(types.String("world")),
+		},
+		{
+			expr: `m[?has(a.b.c)]`,
+			env: []*exprpb.Decl{
+				decls.NewVar("a", decls.NewMapType(decls.String, decls.Dyn)),
+				decls.NewVar("m", decls.NewMapType(decls.Bool, decls.String)),
+			},
+			in: map[string]any{
+				"a": map[string]any{},
+				"m": map[bool]string{true: "world"},
+			},
+			out: types.Unknown{5},
+			attrs: []*AttributePattern{
+				NewAttributePattern("a").QualString("b"),
+			},
+		},
 	}
 	for _, test := range tests {
 		tc := test
 		t.Run(tc.expr, func(t *testing.T) {
 			src := common.NewTextSource(tc.expr)
-			p, err := parser.NewParser(parser.EnableOptionalSyntax(true))
+			p, err := parser.NewParser(
+				parser.EnableOptionalSyntax(true),
+				parser.Macros(parser.AllMacros...),
+			)
 			if err != nil {
 				t.Fatalf("parser.NewParser() failed: %v", err)
 			}
@@ -1071,6 +1115,7 @@ func TestAttributeStateTracking(t *testing.T) {
 				t.Fatalf("checker.NewEnv() failed: %v", err)
 			}
 			env.Add(checker.StandardDeclarations()...)
+			env.Add(optionalSignatures()...)
 			if tc.env != nil {
 				env.Add(tc.env...)
 			}
@@ -1079,6 +1124,9 @@ func TestAttributeStateTracking(t *testing.T) {
 				t.Fatalf(errors.ToDisplayString())
 			}
 			attrs := NewAttributeFactory(cont, reg, reg)
+			if tc.attrs != nil {
+				attrs = NewPartialAttributeFactory(cont, reg, reg)
+			}
 			interp := NewStandardInterpreter(cont, reg, reg, attrs)
 			// Show that program planning will now produce an error.
 			st := NewEvalState()
@@ -1089,10 +1137,14 @@ func TestAttributeStateTracking(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			in, _ := NewActivation(tc.in)
+			in, _ := NewPartialActivation(tc.in, tc.attrs...)
 			out := i.Eval(in)
-			if tc.out.Equal(out) != types.True {
-				t.Errorf("got %v, wanted %v", out.Value(), tc.out)
+			if types.IsUnknown(tc.out) && types.IsUnknown(out) {
+				if !reflect.DeepEqual(tc.out, out) {
+					t.Errorf("got %v, wanted %v", out, tc.out)
+				}
+			} else if tc.out.Equal(out) != types.True {
+				t.Errorf("got %v, wanted %v", out, tc.out)
 			}
 			for id, val := range tc.state {
 				stVal, found := st.Value(id)
@@ -1208,4 +1260,16 @@ func findField(t testing.TB, reg ref.TypeRegistry, typeName, field string) *ref.
 		t.Fatalf("reg.FindFieldType(%v, %v) failed", typeName, field)
 	}
 	return ft
+}
+
+func optionalSignatures() []*exprpb.Decl {
+	return []*exprpb.Decl{
+		decls.NewFunction(operators.OptIndex,
+			decls.NewParameterizedOverload("map_optindex_optional_value", []*exprpb.Type{
+				decls.NewMapType(decls.NewTypeParamType("K"), decls.NewTypeParamType("V")),
+				decls.NewTypeParamType("K")},
+				decls.NewOptionalType(decls.NewTypeParamType("V")),
+				[]string{"K", "V"},
+			)),
+	}
 }

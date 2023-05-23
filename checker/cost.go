@@ -347,6 +347,7 @@ func (c *coster) costSelect(e *exprpb.Expr) CostEstimate {
 		// this is equivalent to how evalTestOnly increments the runtime cost counter
 		// but does not add any additional cost for the qualifier, except here we do
 		// the reverse (ident adds cost)
+		sum = sum.Add(selectAndIdentCost)
 		sum = sum.Add(c.cost(sel.GetOperand()))
 		return sum
 	}

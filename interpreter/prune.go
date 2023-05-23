@@ -227,12 +227,13 @@ func (p *astPruner) maybePruneOptional(elem *exprpb.Expr) (*exprpb.Expr, bool) {
 }
 
 func (p *astPruner) maybePruneIn(node *exprpb.Expr) (*exprpb.Expr, bool) {
+	// elem in list
 	call := node.GetCallExpr()
-	v, exists := p.value(call.GetArgs()[1].GetId())
-	if !exists || types.IsUnknownOrError(v) {
+	val, exists := p.maybeValue(call.GetArgs()[1].GetId())
+	if !exists {
 		return nil, false
 	}
-	if sz, ok := v.(traits.Sizer); ok && sz.Size() == types.IntZero {
+	if sz, ok := val.(traits.Sizer); ok && sz.Size() == types.IntZero {
 		return p.maybeCreateLiteral(node.GetId(), types.False)
 	}
 	return nil, false
@@ -241,24 +242,49 @@ func (p *astPruner) maybePruneIn(node *exprpb.Expr) (*exprpb.Expr, bool) {
 func (p *astPruner) maybePruneLogicalNot(node *exprpb.Expr) (*exprpb.Expr, bool) {
 	call := node.GetCallExpr()
 	arg := call.GetArgs()[0]
-	v, exists := p.value(arg.GetId())
-	if !exists || types.IsUnknownOrError(v) {
+	val, exists := p.maybeValue(arg.GetId())
+	if !exists {
 		return nil, false
 	}
-	if b, ok := v.(types.Bool); ok {
+	if b, ok := val.(types.Bool); ok {
 		return p.maybeCreateLiteral(node.GetId(), !b)
 	}
 	return nil, false
 }
 
-func (p *astPruner) maybePruneAndOr(node *exprpb.Expr) (*exprpb.Expr, bool) {
+func (p *astPruner) maybePruneOr(node *exprpb.Expr) (*exprpb.Expr, bool) {
 	call := node.GetCallExpr()
 	// We know result is unknown, so we have at least one unknown arg
 	// and if one side is a known value, we know we can ignore it.
-	if p.existsWithKnownValue(call.GetArgs()[0].GetId()) {
+	if v, exists := p.maybeValue(call.GetArgs()[0].GetId()); exists {
+		if v == types.True {
+			return p.maybeCreateLiteral(node.GetId(), types.True)
+		}
 		return call.GetArgs()[1], true
 	}
-	if p.existsWithKnownValue(call.GetArgs()[1].GetId()) {
+	if v, exists := p.maybeValue(call.GetArgs()[1].GetId()); exists {
+		if v == types.True {
+			return p.maybeCreateLiteral(node.GetId(), types.True)
+		}
+		return call.GetArgs()[0], true
+	}
+	return nil, false
+}
+
+func (p *astPruner) maybePruneAnd(node *exprpb.Expr) (*exprpb.Expr, bool) {
+	call := node.GetCallExpr()
+	// We know result is unknown, so we have at least one unknown arg
+	// and if one side is a known value, we know we can ignore it.
+	if v, exists := p.maybeValue(call.GetArgs()[0].GetId()); exists {
+		if v == types.False {
+			return p.maybeCreateLiteral(node.GetId(), types.False)
+		}
+		return call.GetArgs()[1], true
+	}
+	if v, exists := p.maybeValue(call.GetArgs()[1].GetId()); exists {
+		if v == types.False {
+			return p.maybeCreateLiteral(node.GetId(), types.False)
+		}
 		return call.GetArgs()[0], true
 	}
 	return nil, false
@@ -266,8 +292,8 @@ func (p *astPruner) maybePruneAndOr(node *exprpb.Expr) (*exprpb.Expr, bool) {
 
 func (p *astPruner) maybePruneConditional(node *exprpb.Expr) (*exprpb.Expr, bool) {
 	call := node.GetCallExpr()
-	cond, exists := p.value(call.GetArgs()[0].GetId())
-	if !exists || types.IsUnknownOrError(cond) {
+	cond, exists := p.maybeValue(call.GetArgs()[0].GetId())
+	if !exists {
 		return nil, false
 	}
 	if cond.Value().(bool) {
@@ -277,9 +303,15 @@ func (p *astPruner) maybePruneConditional(node *exprpb.Expr) (*exprpb.Expr, bool
 }
 
 func (p *astPruner) maybePruneFunction(node *exprpb.Expr) (*exprpb.Expr, bool) {
+	if _, exists := p.value(node.GetId()); !exists {
+		return nil, false
+	}
 	call := node.GetCallExpr()
-	if call.Function == operators.LogicalOr || call.Function == operators.LogicalAnd {
-		return p.maybePruneAndOr(node)
+	if call.Function == operators.LogicalOr {
+		return p.maybePruneOr(node)
+	}
+	if call.Function == operators.LogicalAnd {
+		return p.maybePruneAnd(node)
 	}
 	if call.Function == operators.Conditional {
 		return p.maybePruneConditional(node)
@@ -301,12 +333,10 @@ func (p *astPruner) prune(node *exprpb.Expr) (*exprpb.Expr, bool) {
 	if node == nil {
 		return node, false
 	}
-	v, exists := p.value(node.GetId())
-	if exists && !types.IsUnknownOrError(v) {
-		if newNode, ok := p.maybeCreateLiteral(node.GetId(), v); ok {
-			// if the macro completely evaluated, then delete the reference to it, if one exists.
+	val, valueExists := p.maybeValue(node.GetId())
+	if valueExists {
+		if newNode, ok := p.maybeCreateLiteral(node.GetId(), val); ok {
 			delete(p.macroCalls, node.GetId())
-			// return the literal value.
 			return newNode, true
 		}
 	}
@@ -320,7 +350,6 @@ func (p *astPruner) prune(node *exprpb.Expr) (*exprpb.Expr, bool) {
 	// We have either an unknown/error value, or something we don't want to
 	// transform, or expression was not evaluated. If possible, drill down
 	// more.
-
 	switch node.GetExprKind().(type) {
 	case *exprpb.Expr_SelectExpr:
 		if operand, pruned := p.maybePrune(node.GetSelectExpr().GetOperand()); pruned {
@@ -386,11 +415,11 @@ func (p *astPruner) prune(node *exprpb.Expr) (*exprpb.Expr, bool) {
 			if isOpt {
 				newElem, pruned := p.maybePruneOptional(elem)
 				if pruned {
+					prunedList = true
 					if newElem != nil {
 						newElems = append(newElems, newElem)
 						prunedIdx++
 					}
-					prunedList = true
 					continue
 				}
 				newOptIndexMap[int32(prunedIdx)] = true
@@ -468,21 +497,18 @@ func (p *astPruner) value(id int64) (ref.Val, bool) {
 	return val, (found && val != nil)
 }
 
-func (p *astPruner) existsWithKnownValue(id int64) bool {
-	val, valueExists := p.value(id)
-	return valueExists && !types.IsUnknownOrError(val)
+func (p *astPruner) maybeValue(id int64) (ref.Val, bool) {
+	val, found := p.value(id)
+	if !found || types.IsUnknownOrError(val) {
+		return nil, false
+	}
+	return val, true
 }
 
 func (p *astPruner) nextID() int64 {
-	for {
-		_, found := p.state.Value(p.nextExprID)
-		if !found {
-			next := p.nextExprID
-			p.nextExprID++
-			return next
-		}
-		p.nextExprID++
-	}
+	next := p.nextExprID
+	p.nextExprID++
+	return next
 }
 
 type astVisitor struct {

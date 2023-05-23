@@ -306,7 +306,7 @@ func TestRuntimeCost(t *testing.T) {
 			name:  "select: field test only",
 			expr:  `has(input.single_int32)`,
 			decls: []*exprpb.Decl{decls.NewVar("input", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"))},
-			want:  1,
+			want:  2,
 			in: map[string]any{
 				"input": &proto3pb.TestAllTypes{
 					RepeatedBool: []bool{false},
@@ -321,7 +321,7 @@ func TestRuntimeCost(t *testing.T) {
 			name:  "select: non-proto field test",
 			expr:  `has(input.testAttr.nestedAttr)`,
 			decls: []*exprpb.Decl{decls.NewVar("input", nestedMap)},
-			want:  2,
+			want:  3,
 			in: map[string]any{
 				"input": map[string]any{
 					"testAttr": map[string]any{
@@ -725,7 +725,6 @@ func TestRuntimeCost(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := constructActivation(t, tc.in)
-
 			var costLimit *uint64
 			if tc.limit > 0 {
 				costLimit = &tc.limit
