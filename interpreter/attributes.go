@@ -1320,17 +1320,3 @@ func (e *resolutionError) Error() string {
 func (e *resolutionError) Is(err error) bool {
 	return err.Error() == e.Error()
 }
-
-func findMin(x, y int64) int64 {
-	if x < y {
-		return x
-	}
-	return y
-}
-
-func findMax(x, y int64) int64 {
-	if x > y {
-		return x
-	}
-	return y
-}
