@@ -75,7 +75,13 @@ func TestCost(t *testing.T) {
 			name:   "select: field test only",
 			expr:   `has(input.single_int32)`,
 			decls:  []*exprpb.Decl{decls.NewVar("input", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"))},
-			wanted: CostEstimate{Min: 1, Max: 1},
+			wanted: CostEstimate{Min: 2, Max: 2},
+		},
+		{
+			name:   "select: non-proto field test",
+			expr:   `has(input.testAttr.nestedAttr)`,
+			decls:  []*exprpb.Decl{decls.NewVar("input", nestedMap)},
+			wanted: CostEstimate{Min: 3, Max: 3},
 		},
 		{
 			name:   "estimated function call",

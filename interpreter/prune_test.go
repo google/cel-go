@@ -71,10 +71,80 @@ var testCases = []testInfo{
 	},
 	{
 		in: partialActivation(map[string]any{
+			"this": map[string]string{"b": "exists"},
+		}, NewAttributePattern("this")),
+		expr: `has(this.a) || !has(this.b)`,
+		out:  `has(this.a) || !has(this.b)`,
+	},
+	{
+		in: partialActivation(map[string]any{
+			"this": map[string]string{"b": "exists"},
+		}, NewAttributePattern("this").QualString("a")),
+		expr: `has(this.a) || !has(this.b)`,
+		out:  `has(this.a)`,
+	},
+	{
+		in: partialActivation(map[string]any{
+			"this": map[string]string{"b": "exists"},
+		}, NewAttributePattern("this").QualString("a")),
+		expr: `!has(this.b) || has(this.a)`,
+		out:  `has(this.a)`,
+	},
+	{
+		in: partialActivation(map[string]any{
+			"this": map[string]string{},
+		}, NewAttributePattern("this")),
+		expr: `(!(this.a in []) || has(this.a)) || !has(this.b)`,
+		out:  `true`,
+	},
+	{
+		in: partialActivation(map[string]any{
+			"this": map[string]string{},
+		}, NewAttributePattern("this")),
+		expr: `has(this.a) || !has(this.b)`,
+		out:  `has(this.a) || !has(this.b)`,
+	},
+	{
+		in: partialActivation(map[string]any{
+			"this": map[string]string{},
+		}, NewAttributePattern("this")),
+		expr: `(has(this.a) || !(this.a in [])) || !has(this.b)`,
+		out:  `true`,
+	},
+	{
+		in: partialActivation(map[string]any{
 			"this": map[string]string{"a": "exists"},
 		}, NewAttributePattern("this").QualString("b")),
 		expr: `has(this.a) && !has(this.b)`,
 		out:  `!has(this.b)`,
+	},
+	{
+		in: partialActivation(map[string]any{
+			"this": map[string]string{},
+		}, NewAttributePattern("this")),
+		expr: `(has(this.a) && this.a in []) || !has(this.b)`,
+		out:  `!has(this.b)`,
+	},
+	{
+		in: partialActivation(map[string]any{
+			"this": map[string]string{},
+		}, NewAttributePattern("this")),
+		expr: `(this.a in [] && has(this.a)) || !has(this.b)`,
+		out:  `!has(this.b)`,
+	},
+	{
+		in: partialActivation(map[string]any{
+			"this": map[string]any{"a": map[string]string{}},
+		}, NewAttributePattern("this").QualString("a")),
+		expr: `has(this.a.b)`,
+		out:  `has(this.a.b)`,
+	},
+	{
+		in: partialActivation(map[string]any{
+			"this": map[string]any{"a": map[string]string{}},
+		}, NewAttributePattern("this").QualString("a")),
+		expr: `has(this["a"].b)`,
+		out:  `has(this["a"].b)`,
 	},
 	{
 		in: partialActivation(map[string]any{
@@ -172,6 +242,11 @@ var testCases = []testInfo{
 		in:   unknownActivation("a"),
 		expr: `[?optional.of(10), ?a, 2, 3]`,
 		out:  `[10, ?a, 2, 3]`,
+	},
+	{
+		in:   unknownActivation("a"),
+		expr: `[?optional.of(10), a, 2, 3]`,
+		out:  `[10, a, 2, 3]`,
 	},
 	{
 		in:   partialActivation(map[string]any{"a": "hi"}, "b"),
@@ -364,7 +439,7 @@ func unknownActivation(vars ...string) PartialActivation {
 	return a
 }
 
-func partialActivation(in map[string]any, vars ...string) PartialActivation {
+func partialActivation(in map[string]any, vars ...any) PartialActivation {
 	pats := make([]*AttributePattern, len(vars))
 	for i, v := range vars {
 		if pat, ok := v.(*AttributePattern); ok {

@@ -20,7 +20,6 @@ import (
 
 	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/operators"
-	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter/functions"
 
@@ -213,22 +212,19 @@ func (p *planner) planSelect(expr *exprpb.Expr) (Interpretable, error) {
 	}
 
 	// Build a qualifier for the attribute.
-	qual, err := p.attrFactory.NewQualifier(opType, expr.GetId(), sel.GetField(), sel.GetTestOnly())
+	qual, err := p.attrFactory.NewQualifier(opType, expr.GetId(), sel.GetField(), false)
 	if err != nil {
 		return nil, err
 	}
-
-	// Otherwise, append the qualifier on the attribute.
-	_, err = attr.AddQualifier(qual)
-	// Return the test only eval expression.
+	// Modify the attribute to be test-only.
 	if sel.GetTestOnly() {
-		return &evalTestOnly{
-			id:    expr.GetId(),
-			field: types.String(sel.GetField()),
-			attr:  attr,
-		}, nil
+		attr = &evalTestOnly{
+			id:                     expr.GetId(),
+			InterpretableAttribute: attr,
+		}
 	}
-
+	// Append the qualifier on the attribute.
+	_, err = attr.AddQualifier(qual)
 	return attr, err
 }
 
