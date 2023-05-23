@@ -413,6 +413,20 @@ var testCases = []testInfo{
 		expr: `[?a[?0], a.b].exists(x, x == true)`,
 		out:  `[?a[?0], a.b].exists(x, x == true)`,
 	},
+	{
+		in: partialActivation(map[string]any{
+			"a": map[string]string{},
+		}),
+		expr: `[?a[?0], a.b].exists(x, x == true)`,
+		out:  `[a.b].exists(x, x == true)`,
+	},
+	{
+		in: partialActivation(map[string]any{
+			"a": map[string]string{},
+		}),
+		expr: `[a[0], a.b].exists(x, x == true)`,
+		out:  `[a[0], a.b].exists(x, x == true)`,
+	},
 }
 
 func TestPrune(t *testing.T) {
