@@ -17,14 +17,19 @@ package interpreter
 import (
 	"testing"
 
+	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/containers"
+	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/parser"
 	"github.com/google/cel-go/test"
-	"github.com/google/cel-go/test/proto3pb"
+
+	proto3pb "github.com/google/cel-go/test/proto3pb"
+
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 type testInfo struct {
@@ -387,6 +392,27 @@ var testCases = []testInfo{
 		expr: `[has(a.b), has(c.d)].exists(x, x == true)`,
 		out:  `[false, has(c.d)].exists(x, x == true)`,
 	},
+	{
+		in: partialActivation(map[string]any{
+			"a": map[string]any{},
+		}, "c"),
+		expr: `[has(a.b), has(c.d)].exists(x, x == true)`,
+		out:  `[false, has(c.d)].exists(x, x == true)`,
+	},
+	{
+		in: partialActivation(map[string]any{
+			"a": map[string]string{},
+		}),
+		expr: `[?a[?0], a.b]`,
+		out:  `[a.b]`,
+	},
+	{
+		in: partialActivation(map[string]any{
+			"a": map[string]string{},
+		}, "a"),
+		expr: `[?a[?0], a.b].exists(x, x == true)`,
+		out:  `[?a[?0], a.b].exists(x, x == true)`,
+	},
 }
 
 func TestPrune(t *testing.T) {
@@ -481,5 +507,17 @@ func optionalFunctions() []*functions.Overload {
 				return types.OptionalOf(val)
 			},
 		},
+	}
+}
+
+func optionalSignatures() []*exprpb.Decl {
+	return []*exprpb.Decl{
+		decls.NewFunction(operators.OptIndex,
+			decls.NewParameterizedOverload("map_optindex_optional_value", []*exprpb.Type{
+				decls.NewMapType(decls.NewTypeParamType("K"), decls.NewTypeParamType("V")),
+				decls.NewTypeParamType("K")},
+				decls.NewOptionalType(decls.NewTypeParamType("V")),
+				[]string{"K", "V"},
+			)),
 	}
 }
