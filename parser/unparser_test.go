@@ -151,6 +151,26 @@ func TestUnparse(t *testing.T) {
 			in:                 `[1, 2, 3].map(x, x >= 2, x * 4).filter(x, x <= 10)`,
 			requiresMacroCalls: true,
 		},
+		{
+			name:               "comp_chained_opt",
+			in:                 `[?a, b[?0], c].map(x, x >= 2, x * 4).filter(x, x <= 10)`,
+			requiresMacroCalls: true,
+		},
+		{
+			name:               "comp_map_opt",
+			in:                 `{?a: b[?0]}.map(k, x >= 2, x * 4)`,
+			requiresMacroCalls: true,
+		},
+		{
+			name:               "comp_map_opt",
+			in:                 `{a: has(b.c)}.exists(k, k != "")`,
+			requiresMacroCalls: true,
+		},
+		{
+			name:               "comp_nested",
+			in:                 `{a: [1, 2].all(i > 0)}.exists(k, k != "")`,
+			requiresMacroCalls: true,
+		},
 
 		// These expressions will not be wrapped because they haven't met the
 		// conditions required by the provided unparser options

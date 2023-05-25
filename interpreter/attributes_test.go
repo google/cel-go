@@ -24,7 +24,6 @@ import (
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/containers"
-	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/parser"
@@ -383,7 +382,6 @@ func TestAttributesOptional(t *testing.T) {
 		t.Fatalf("")
 	}
 	attrs := NewAttributeFactory(cont, reg, reg)
-
 	tests := []struct {
 		varName  string
 		quals    []any
@@ -860,7 +858,7 @@ func TestAttributeStateTracking(t *testing.T) {
 	var tests = []struct {
 		expr  string
 		env   []*exprpb.Decl
-		in    map[string]any
+		in    any
 		out   ref.Val
 		attrs []*AttributePattern
 		state map[int64]any
@@ -1083,14 +1081,14 @@ func TestAttributeStateTracking(t *testing.T) {
 				decls.NewVar("a", decls.NewMapType(decls.String, decls.Dyn)),
 				decls.NewVar("m", decls.NewMapType(decls.Bool, decls.String)),
 			},
-			in: map[string]any{
-				"a": map[string]any{},
-				"m": map[bool]string{true: "world"},
-			},
-			out: types.Unknown{5},
-			attrs: []*AttributePattern{
+			in: partialActivation(
+				map[string]any{
+					"a": map[string]any{},
+					"m": map[bool]string{true: "world"},
+				},
 				NewAttributePattern("a").QualString("b"),
-			},
+			),
+			out: types.Unknown{5},
 		},
 	}
 	for _, test := range tests {
@@ -1123,9 +1121,16 @@ func TestAttributeStateTracking(t *testing.T) {
 			if len(errors.GetErrors()) != 0 {
 				t.Fatalf(errors.ToDisplayString())
 			}
-			attrs := NewAttributeFactory(cont, reg, reg)
-			if tc.attrs != nil {
+			in, err := NewActivation(tc.in)
+			if err != nil {
+				t.Fatalf("NewActivation(%v) failed: %v", tc.in, err)
+			}
+			var attrs AttributeFactory
+			_, isPartial := in.(PartialActivation)
+			if isPartial {
 				attrs = NewPartialAttributeFactory(cont, reg, reg)
+			} else {
+				attrs = NewAttributeFactory(cont, reg, reg)
 			}
 			interp := NewStandardInterpreter(cont, reg, reg, attrs)
 			// Show that program planning will now produce an error.
@@ -1137,7 +1142,6 @@ func TestAttributeStateTracking(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			in, _ := NewPartialActivation(tc.in, tc.attrs...)
 			out := i.Eval(in)
 			if types.IsUnknown(tc.out) && types.IsUnknown(out) {
 				if !reflect.DeepEqual(tc.out, out) {
@@ -1260,16 +1264,4 @@ func findField(t testing.TB, reg ref.TypeRegistry, typeName, field string) *ref.
 		t.Fatalf("reg.FindFieldType(%v, %v) failed", typeName, field)
 	}
 	return ft
-}
-
-func optionalSignatures() []*exprpb.Decl {
-	return []*exprpb.Decl{
-		decls.NewFunction(operators.OptIndex,
-			decls.NewParameterizedOverload("map_optindex_optional_value", []*exprpb.Type{
-				decls.NewMapType(decls.NewTypeParamType("K"), decls.NewTypeParamType("V")),
-				decls.NewTypeParamType("K")},
-				decls.NewOptionalType(decls.NewTypeParamType("V")),
-				[]string{"K", "V"},
-			)),
-	}
 }
