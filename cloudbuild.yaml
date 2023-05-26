@@ -21,6 +21,9 @@ steps:
         #   entrypoint: sh
         #   # deploys folder of test results (with build id as folder name) to GCS
         #   args: ['-c', 'gsutil cp -r $(cat _DATE) gs://cel-conformance/test-logs/']
+        - name: 'ubuntu'
+          # check the integrity of the vendor directory
+          args: ['scripts/verify-vendor.sh']
         - name: 'gcr.io/cloud-builders/bazel'
           entrypoint: bazel
           args: ['test', '--test_output=errors', '...']
