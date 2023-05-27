@@ -1205,15 +1205,26 @@ func BenchmarkEvalOptions(b *testing.B) {
 }
 
 func TestEnvExtension(t *testing.T) {
-	e, _ := NewEnv(
+	e, err := NewEnv(
 		Container("google.api.expr.v1alpha1"),
 		Types(&exprpb.Expr{}),
 		Variable("expr", ObjectType("google.api.expr.v1alpha1.Expr")),
+		Variable("m", MapType(TypeParamType("K"), TypeParamType("V"))),
+		OptionalTypes(),
 	)
-	e2, _ := e.Extend(
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	e2, err := e.Extend(
 		CustomTypeAdapter(types.DefaultTypeAdapter),
 		Types(&proto3pb.TestAllTypes{}),
+		OptionalTypes(),
+		OptionalTypes(),
+		OptionalTypes(),
 	)
+	if err != nil {
+		t.Fatalf("env.Extend() failed: %v", err)
+	}
 	if e == e2 {
 		t.Error("got object equality, wanted separate objects")
 	}
@@ -1223,7 +1234,10 @@ func TestEnvExtension(t *testing.T) {
 	if e.TypeProvider() == e2.TypeProvider() {
 		t.Error("got the same type provider, wanted isolated instances.")
 	}
-	e3, _ := e2.Extend()
+	e3, err := e2.Extend(OptionalTypes())
+	if err != nil {
+		t.Fatalf("env.Extend() failed: %v", err)
+	}
 	if e2.TypeAdapter() != e3.TypeAdapter() {
 		t.Error("got different type adapters, wanted immutable adapter reference")
 	}
