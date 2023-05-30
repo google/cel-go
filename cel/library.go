@@ -34,13 +34,13 @@ import (
 )
 
 const (
-	optMapMacro               = "optMap"
-	hasValueFunc              = "hasValue"
-	optionalNoneFunc          = "optional.none"
-	optionalOfFunc            = "optional.of"
-	optionalOfNonZerValueFunc = "optional.ofNonZeroValue"
-	valueFunc                 = "value"
-	unusedIterVar             = "#unused"
+	optMapMacro                = "optMap"
+	hasValueFunc               = "hasValue"
+	optionalNoneFunc           = "optional.none"
+	optionalOfFunc             = "optional.of"
+	optionalOfNonZeroValueFunc = "optional.ofNonZeroValue"
+	valueFunc                  = "value"
+	unusedIterVar              = "#unused"
 )
 
 // Library provides a collection of EnvOption and ProgramOption values used to configure a CEL
@@ -152,7 +152,7 @@ func (optionalLibrary) CompileOptions() []EnvOption {
 				UnaryBinding(func(value ref.Val) ref.Val {
 					return types.OptionalOf(value)
 				}))),
-		Function(optionalOfNonZerValueFunc,
+		Function(optionalOfNonZeroValueFunc,
 			Overload("optional_ofNonZeroValue", []*Type{paramTypeV}, optionalTypeV,
 				UnaryBinding(func(value ref.Val) ref.Val {
 					v, isZeroer := value.(traits.Zeroer)
