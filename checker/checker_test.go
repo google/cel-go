@@ -2312,3 +2312,53 @@ func TestCheck(t *testing.T) {
 		})
 	}
 }
+
+func TestAddDuplicateDeclarations(t *testing.T) {
+	reg, err := types.NewRegistry(&proto2pb.TestAllTypes{}, &proto3pb.TestAllTypes{})
+	if err != nil {
+		t.Fatalf("types.NewRegistry() failed: %v", err)
+	}
+	env, err := NewEnv(containers.DefaultContainer, reg, CrossTypeNumericComparisons(true))
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	err = env.Add(StandardDeclarations()...)
+	if err != nil {
+		t.Fatalf("env.Add() failed: %v", err)
+	}
+	err = env.Add(StandardDeclarations()...)
+	if err != nil {
+		t.Errorf("env.Add() failed with duplicate declarations: %v", err)
+	}
+}
+
+func TestAddEquivalentDeclarations(t *testing.T) {
+	reg, err := types.NewRegistry(&proto2pb.TestAllTypes{}, &proto3pb.TestAllTypes{})
+	if err != nil {
+		t.Fatalf("types.NewRegistry() failed: %v", err)
+	}
+	env, err := NewEnv(containers.DefaultContainer, reg, CrossTypeNumericComparisons(true))
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	optIndex := decls.NewFunction("optional_index",
+		decls.NewParameterizedOverload("optional_map_key_value",
+			[]*exprpb.Type{
+				decls.NewMapType(decls.NewTypeParamType("K"), decls.NewTypeParamType("V")),
+				decls.NewTypeParamType("K")},
+			decls.NewOptionalType(decls.NewTypeParamType("V")), []string{"K", "V"}))
+	optIndexEquiv := decls.NewFunction("optional_index",
+		decls.NewParameterizedOverload("optional_map_key_value",
+			[]*exprpb.Type{
+				decls.NewMapType(decls.NewTypeParamType("K"), decls.NewTypeParamType("V")),
+				decls.NewTypeParamType("K")},
+			decls.NewOptionalType(decls.NewTypeParamType("V")), []string{"V", "K"}))
+	err = env.Add(optIndex)
+	if err != nil {
+		t.Fatalf("env.Add(optIndex) failed: %v", err)
+	}
+	err = env.Add(optIndexEquiv)
+	if err != nil {
+		t.Errorf("env.Add(optIndexEquiv) failed: %v", err)
+	}
+}
