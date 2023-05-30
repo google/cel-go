@@ -42,11 +42,12 @@ func TestCost(t *testing.T) {
 	zeroCost := CostEstimate{}
 	oneCost := CostEstimate{Min: 1, Max: 1}
 	cases := []struct {
-		name   string
-		expr   string
-		decls  []*exprpb.Decl
-		hints  map[string]int64
-		wanted CostEstimate
+		name    string
+		expr    string
+		decls   []*exprpb.Decl
+		hints   map[string]int64
+		options []CostOption
+		wanted  CostEstimate
 	}{
 		{
 			name:   "const",
@@ -72,10 +73,31 @@ func TestCost(t *testing.T) {
 			wanted: CostEstimate{Min: 2, Max: 2},
 		},
 		{
+			name:    "select: field test only no has() cost",
+			expr:    `has(input.single_int32)`,
+			decls:   []*exprpb.Decl{decls.NewVar("input", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"))},
+			wanted:  CostEstimate{Min: 1, Max: 1},
+			options: []CostOption{PresenceTestHasCost(false)},
+		},
+		{
 			name:   "select: field test only",
 			expr:   `has(input.single_int32)`,
 			decls:  []*exprpb.Decl{decls.NewVar("input", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"))},
 			wanted: CostEstimate{Min: 2, Max: 2},
+		},
+		{
+			name:    "select: non-proto field test has() cost",
+			expr:    `has(input.testAttr.nestedAttr)`,
+			decls:   []*exprpb.Decl{decls.NewVar("input", nestedMap)},
+			wanted:  CostEstimate{Min: 3, Max: 3},
+			options: []CostOption{PresenceTestHasCost(true)},
+		},
+		{
+			name:    "select: non-proto field test no has() cost",
+			expr:    `has(input.testAttr.nestedAttr)`,
+			decls:   []*exprpb.Decl{decls.NewVar("input", nestedMap)},
+			wanted:  CostEstimate{Min: 2, Max: 2},
+			options: []CostOption{PresenceTestHasCost(false)},
 		},
 		{
 			name:   "select: non-proto field test",
@@ -480,7 +502,10 @@ func TestCost(t *testing.T) {
 			if len(errs.GetErrors()) != 0 {
 				t.Fatalf("Check(%s) failed: %v", tc.expr, errs.ToDisplayString())
 			}
-			est := Cost(checked, testCostEstimator{hints: tc.hints})
+			est, err := Cost(checked, testCostEstimator{hints: tc.hints}, tc.options...)
+			if err != nil {
+				t.Fatalf("Cost() failed: %v", err)
+			}
 			if est.Min != tc.wanted.Min || est.Max != tc.wanted.Max {
 				t.Fatalf("Got cost interval [%v, %v], wanted [%v, %v]",
 					est.Min, est.Max, tc.wanted.Min, tc.wanted.Max)

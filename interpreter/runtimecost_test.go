@@ -108,7 +108,7 @@ func TestTrackCostAdvanced(t *testing.T) {
 	}
 }
 
-func computeCost(t *testing.T, expr string, decls []*exprpb.Decl, ctx Activation, limit *uint64) (cost uint64, est checker.CostEstimate, err error) {
+func computeCost(t *testing.T, expr string, decls []*exprpb.Decl, ctx Activation, options []CostTrackerOption) (cost uint64, est checker.CostEstimate, err error) {
 	t.Helper()
 
 	s := common.NewTextSource(expr)
@@ -129,14 +129,19 @@ func computeCost(t *testing.T, expr string, decls []*exprpb.Decl, ctx Activation
 	if err != nil {
 		t.Fatalf("Failed to initialize env: %v", err)
 	}
-
+	costTracker, err := NewCostTracker(&testRuntimeCostEstimator{}, options...)
+	if err != nil {
+		t.Fatalf("NewCostTracker() failed: %v", err)
+	}
 	checked, errs := checker.Check(parsed, s, env)
 	if len(errs.GetErrors()) != 0 {
 		t.Fatalf(`Failed to check expression "%s", error: %v`, expr, errs.GetErrors())
 	}
-	est = checker.Cost(checked, testCostEstimator{})
+	est, err = checker.Cost(checked, testCostEstimator{}, checker.PresenceTestHasCost(costTracker.presenceTestHasCost))
+	if err != nil {
+		t.Fatalf("checker.Cost() failed: %v", err)
+	}
 	interp := NewStandardInterpreter(cont, reg, reg, attrs)
-	costTracker := &CostTracker{Estimator: &testRuntimeCostEstimator{}, Limit: limit}
 	prg, err := interp.NewInterpretable(checked, Observe(CostObserver(costTracker)))
 	if err != nil {
 		t.Fatalf(`Failed to check expression "%s", error: %v`, expr, errs.GetErrors())
@@ -244,6 +249,7 @@ func TestRuntimeCost(t *testing.T) {
 		in           any
 		testFuncCost bool
 		limit        uint64
+		options      []CostTrackerOption
 
 		expectExceedsLimit bool
 	}{
@@ -303,6 +309,22 @@ func TestRuntimeCost(t *testing.T) {
 			in:    map[string]any{"input": []string{"v"}},
 		},
 		{
+			name:    "select: field test only no has() cost",
+			expr:    `has(input.single_int32)`,
+			decls:   []*exprpb.Decl{decls.NewVar("input", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"))},
+			want:    1,
+			options: []CostTrackerOption{PresenceTestHasCost(false)},
+			in: map[string]any{
+				"input": &proto3pb.TestAllTypes{
+					RepeatedBool: []bool{false},
+					MapInt64NestedType: map[int64]*proto3pb.NestedTestAllTypes{
+						1: {},
+					},
+					MapStringString: map[string]string{},
+				},
+			},
+		},
+		{
 			name:  "select: field test only",
 			expr:  `has(input.single_int32)`,
 			decls: []*exprpb.Decl{decls.NewVar("input", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"))},
@@ -314,6 +336,34 @@ func TestRuntimeCost(t *testing.T) {
 						1: {},
 					},
 					MapStringString: map[string]string{},
+				},
+			},
+		},
+		{
+			name:    "select: non-proto field test has() cost",
+			expr:    `has(input.testAttr.nestedAttr)`,
+			decls:   []*exprpb.Decl{decls.NewVar("input", nestedMap)},
+			want:    3,
+			options: []CostTrackerOption{PresenceTestHasCost(true)},
+			in: map[string]any{
+				"input": map[string]any{
+					"testAttr": map[string]any{
+						"nestedAttr": "0",
+					},
+				},
+			},
+		},
+		{
+			name:    "select: non-proto field test no has() cost",
+			expr:    `has(input.testAttr.nestedAttr)`,
+			decls:   []*exprpb.Decl{decls.NewVar("input", nestedMap)},
+			want:    2,
+			options: []CostTrackerOption{PresenceTestHasCost(false)},
+			in: map[string]any{
+				"input": map[string]any{
+					"testAttr": map[string]any{
+						"nestedAttr": "0",
+					},
 				},
 			},
 		},
@@ -729,7 +779,11 @@ func TestRuntimeCost(t *testing.T) {
 			if tc.limit > 0 {
 				costLimit = &tc.limit
 			}
-			actualCost, est, err := computeCost(t, tc.expr, tc.decls, ctx, costLimit)
+			options := tc.options
+			if costLimit != nil {
+				options = append(options, CostTrackerLimit(*costLimit))
+			}
+			actualCost, est, err := computeCost(t, tc.expr, tc.decls, ctx, options)
 			if err != nil {
 				if tc.expectExceedsLimit {
 					return
