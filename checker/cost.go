@@ -293,7 +293,7 @@ type CostOption func(*coster) error
 func PresenceTestHasCost(hasCost bool) CostOption {
 	return func(c *coster) error {
 		if hasCost {
-			c.presenceTestCost = CostEstimate{Min: 1, Max: 1}
+			c.presenceTestCost = selectAndIdentCost
 			return nil
 		}
 		c.presenceTestCost = CostEstimate{Min: 0, Max: 0}
