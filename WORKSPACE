@@ -30,12 +30,13 @@ http_archive(
     ],
 )
 
-# googleapis as of 10/31/2022
+# googleapis as of 05/26/2023
 http_archive(
     name = "com_google_googleapis",
-    strip_prefix = "googleapis-d1391580360579c64417bf6d52a17eb30b19b99d",
+    strip_prefix = "googleapis-07c27163ac591955d736f3057b1619ece66f5b99",
+    sha256 = "bd8e735d881fb829751ecb1a77038dda4a8d274c45490cb9fcf004583ee10571",
     urls = [
-        "https://github.com/googleapis/googleapis/archive/d1391580360579c64417bf6d52a17eb30b19b99d.tar.gz",
+        "https://github.com/googleapis/googleapis/archive/07c27163ac591955d736f3057b1619ece66f5b99.tar.gz",
     ],
 )
 
@@ -67,13 +68,22 @@ go_repository(
     tag = "v1.28.1",
 )
 
-# Generated Google APIs protos for Golang 10/27/2022
+# Generated Google APIs protos for Golang 05/25/2023
 go_repository(
-    name = "org_golang_google_genproto",
+    name = "org_golang_google_genproto_googleapis_api",
     build_file_proto_mode = "disable_global",
-    importpath = "google.golang.org/genproto",
-    sum = "h1:3wPBShTLWQnEkZ9VW/HZZ8zT/9LLtleBtq7l8SKtJIA=",
-    version = "v0.0.0-20230106154932-a12b697841d9",
+    importpath = "google.golang.org/genproto/googleapis/api",
+    sum = "h1:m8v1xLLLzMe1m5P+gCTF8nJB9epwZQUBERm20Oy1poQ=",
+    version = "v0.0.0-20230525234035-dd9d682886f9",
+)
+
+# Generated Google APIs protos for Golang 05/25/2023
+go_repository(
+    name = "org_golang_google_genproto_googleapis_rpc",
+    build_file_proto_mode = "disable_global",
+    importpath = "google.golang.org/genproto/googleapis/rpc",
+    sum = "h1:0nDDozoAU19Qb2HwhXadU8OcsiO/09cnTqhUtq2MEOM=",
+    version = "v0.0.0-20230525234030-28d5490b6b19",
 )
 
 # gRPC deps for v1.49.0 (including x/text and x/net)
@@ -106,11 +116,11 @@ go_repository(
     version = "v4.0.0-20230305170008-8188dc5388df",
 )
 
-# CEL Spec deps v0.7.1
+# CEL Spec deps v0.9.0
 go_repository(
     name = "com_google_cel_spec",
-    commit = "ebff24990ecc57209ab9f9b28896fd171848274f",
     importpath = "github.com/google/cel-spec",
+    commit = "51af45e2b75a8aa2b3108b00f0e91cd172cfbea1",
 )
 
 # strcase deps
