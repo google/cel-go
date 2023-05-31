@@ -36,7 +36,7 @@ go_library(
         "//ext:go_default_library",
         "//interpreter:go_default_library",
         "//repl/parser:go_default_library",
-        "@com_github_antlr_antlr4_runtime_go_antlr_v4//:go_default_library",
+        "@com_github_antlr4_go_antlr_v4//:go_default_library",
         "@org_golang_google_genproto_googleapis_api//expr/v1alpha1:go_default_library",
         "@org_golang_google_protobuf//encoding/prototext:go_default_library",
         "@org_golang_google_protobuf//proto:go_default_library",
