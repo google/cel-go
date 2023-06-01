@@ -1107,12 +1107,12 @@ var testCases = []testInfo{
 	},
 	{
 		I: "[1, 2, 3].map(var, var * var)",
-		E: `ERROR: <input>:1:14: argument is not an identifier
-		| [1, 2, 3].map(var, var * var)
-		| .............^
-		ERROR: <input>:1:15: reserved identifier: var
+		E: `ERROR: <input>:1:15: reserved identifier: var
 		| [1, 2, 3].map(var, var * var)
 		| ..............^
+		ERROR: <input>:1:15: argument is not an identifier
+		| [1, 2, 3].map(var, var * var)
+		| ..............^		
 		ERROR: <input>:1:20: reserved identifier: var
 		| [1, 2, 3].map(var, var * var)
 		| ...................^

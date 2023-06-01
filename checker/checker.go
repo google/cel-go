@@ -18,7 +18,6 @@ package checker
 
 import (
 	"fmt"
-	"reflect"
 
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common"
@@ -50,9 +49,10 @@ type checker struct {
 func Check(parsedExpr *exprpb.ParsedExpr,
 	source common.Source,
 	env *Env) (*exprpb.CheckedExpr, *common.Errors) {
+	errs := common.NewErrors(source)
 	c := checker{
 		env:                env,
-		errors:             &typeErrors{common.NewErrors(source)},
+		errors:             &typeErrors{errs: errs},
 		mappings:           newMapping(),
 		freeTypeVarCounter: 0,
 		sourceInfo:         parsedExpr.GetSourceInfo(),
@@ -73,7 +73,7 @@ func Check(parsedExpr *exprpb.ParsedExpr,
 		SourceInfo:   parsedExpr.GetSourceInfo(),
 		TypeMap:      m,
 		ReferenceMap: c.references,
-	}, c.errors.Errors
+	}, errs
 }
 
 func (c *checker) check(e *exprpb.Expr) {
@@ -113,8 +113,7 @@ func (c *checker) check(e *exprpb.Expr) {
 	case *exprpb.Expr_ComprehensionExpr:
 		c.checkComprehension(e)
 	default:
-		c.errors.ReportError(
-			c.location(e), "Unrecognized ast type: %v", reflect.TypeOf(e))
+		c.errors.unexpectedASTType(c.location(e), e)
 	}
 }
 
@@ -200,7 +199,7 @@ func (c *checker) checkOptSelect(e *exprpb.Expr) {
 	field := call.GetArgs()[1]
 	fieldName, isString := maybeUnwrapString(field)
 	if !isString {
-		c.errors.ReportError(c.location(field), "unsupported optional field selection: %v", field)
+		c.errors.notAnOptionalFieldSelection(c.location(field), field)
 		return
 	}
 
@@ -637,8 +636,7 @@ func (c *checker) lookupFieldType(l common.Location, messageType string, fieldNa
 
 func (c *checker) setType(e *exprpb.Expr, t *exprpb.Type) {
 	if old, found := c.types[e.GetId()]; found && !proto.Equal(old, t) {
-		c.errors.ReportError(c.location(e),
-			"(Incompatible) Type already exists for expression: %v(%d) old:%v, new:%v", e, e.GetId(), old, t)
+		c.errors.incompatibleType(c.location(e), e, old, t)
 		return
 	}
 	c.types[e.GetId()] = t
@@ -650,8 +648,7 @@ func (c *checker) getType(e *exprpb.Expr) *exprpb.Type {
 
 func (c *checker) setReference(e *exprpb.Expr, r *exprpb.Reference) {
 	if old, found := c.references[e.GetId()]; found && !proto.Equal(old, r) {
-		c.errors.ReportError(c.location(e),
-			"Reference already exists for expression: %v(%d) old:%v, new:%v", e, e.GetId(), old, r)
+		c.errors.referenceRedefinition(c.location(e), e, old, r)
 		return
 	}
 	c.references[e.GetId()] = r

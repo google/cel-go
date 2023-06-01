@@ -351,7 +351,7 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 			},
 		},
 		err: `
-	ERROR: <input>:1:2: [internal] unexpected failed resolution of 'google.expr.proto3.test.Proto2Message'
+	ERROR: <input>:1:2: unexpected failed resolution of 'google.expr.proto3.test.Proto2Message'
 	  | x.single_int32 != null
 	  | .^
 	`,
@@ -1667,7 +1667,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 	{
 		in: `[].length`,
 		err: `
-		ERROR: <input>:1:3: type 'list_type:{elem_type:{type_param:"_var0"}}' does not support field selection
+		ERROR: <input>:1:3: type 'list(_var0)' does not support field selection
 		 | [].length
 		 | ..^
 		`,

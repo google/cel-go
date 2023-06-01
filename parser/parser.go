@@ -357,9 +357,9 @@ func (p *parser) parse(expr runes.Buffer, desc string) *exprpb.Expr {
 		if val := recover(); val != nil {
 			switch err := val.(type) {
 			case *lookaheadLimitError:
-				p.errors.ReportError(common.NoLocation, err.Error())
+				p.errors.internalError(err.Error())
 			case *recursionError:
-				p.errors.ReportError(common.NoLocation, err.Error())
+				p.errors.internalError(err.Error())
 			case *tooManyErrors:
 				// do nothing
 			case *recoveryLimitError:

@@ -558,9 +558,20 @@ func (e *exprHelper) Select(operand *exprpb.Expr, field string) *exprpb.Expr {
 
 // OffsetLocation implements the ExprHelper interface method.
 func (e *exprHelper) OffsetLocation(exprID int64) common.Location {
-	offset := e.parserHelper.positions[exprID]
-	location, _ := e.parserHelper.source.OffsetLocation(offset)
+	offset, found := e.parserHelper.positions[exprID]
+	if !found {
+		return common.NoLocation
+	}
+	location, found := e.parserHelper.source.OffsetLocation(offset)
+	if !found {
+		return common.NoLocation
+	}
 	return location
+}
+
+// NewError associates an error message with a given expression id, populating the source offset location of the error if possible.
+func (e *exprHelper) NewError(exprID int64, message string) *common.Error {
+	return common.NewError(exprID, message, e.OffsetLocation(exprID))
 }
 
 var (

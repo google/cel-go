@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	"github.com/google/cel-go/cel"
-	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 
@@ -131,7 +130,7 @@ func (s *ConformanceServer) Eval(ctx context.Context, in *confpb.EvalRequest) (*
 
 // appendErrors converts the errors from errs to Status messages
 // and appends them to the list of issues.
-func appendErrors(errs []common.Error, issues *[]*statuspb.Status) {
+func appendErrors(errs []*cel.Error, issues *[]*statuspb.Status) {
 	for _, e := range errs {
 		status := ErrToStatus(e, confpb.IssueDetails_ERROR)
 		*issues = append(*issues, status)
@@ -139,7 +138,7 @@ func appendErrors(errs []common.Error, issues *[]*statuspb.Status) {
 }
 
 // ErrToStatus converts an Error to a Status message with the given severity.
-func ErrToStatus(e common.Error, severity confpb.IssueDetails_Severity) *statuspb.Status {
+func ErrToStatus(e *cel.Error, severity confpb.IssueDetails_Severity) *statuspb.Status {
 	detail := &confpb.IssueDetails{
 		Severity: severity,
 		Position: &confpb.SourcePosition{

@@ -22,7 +22,7 @@ import (
 
 // Errors type which contains a list of errors observed during parsing.
 type Errors struct {
-	errors            []Error
+	errors            []*Error
 	source            Source
 	numErrors         int
 	maxErrorsToReport int
@@ -31,7 +31,7 @@ type Errors struct {
 // NewErrors creates a new instance of the Errors type.
 func NewErrors(source Source) *Errors {
 	return &Errors{
-		errors:            []Error{},
+		errors:            []*Error{},
 		source:            source,
 		maxErrorsToReport: 100,
 	}
@@ -43,7 +43,7 @@ func (e *Errors) ReportError(l Location, format string, args ...any) {
 	if e.numErrors > e.maxErrorsToReport {
 		return
 	}
-	err := Error{
+	err := &Error{
 		Location: l,
 		Message:  fmt.Sprintf(format, args...),
 	}
@@ -51,12 +51,12 @@ func (e *Errors) ReportError(l Location, format string, args ...any) {
 }
 
 // GetErrors returns the list of observed errors.
-func (e *Errors) GetErrors() []Error {
+func (e *Errors) GetErrors() []*Error {
 	return e.errors[:]
 }
 
 // Append creates a new Errors object with the current and input errors.
-func (e *Errors) Append(errs []Error) *Errors {
+func (e *Errors) Append(errs []*Error) *Errors {
 	return &Errors{
 		errors:            append(e.errors, errs...),
 		source:            e.source,

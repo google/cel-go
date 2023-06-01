@@ -25,6 +25,10 @@ type parseErrors struct {
 	*common.Errors
 }
 
+func (e *parseErrors) internalError(message string) {
+	e.ReportError(common.NoLocation, message)
+}
+
 func (e *parseErrors) syntaxError(l common.Location, message string) {
 	e.ReportError(l, fmt.Sprintf("Syntax error: %s", message))
 }

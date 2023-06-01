@@ -596,6 +596,9 @@ func (e *Env) maybeApplyFeature(feature int, option EnvOption) (*Env, error) {
 	return e, nil
 }
 
+// Error type which references an expression id, a location within source, and a message.
+type Error = common.Error
+
 // Issues defines methods for inspecting the error details of parse and check calls.
 //
 // Note: in the future, non-fatal warnings and notices may be inspectable via the Issues struct.
@@ -622,9 +625,9 @@ func (i *Issues) Err() error {
 }
 
 // Errors returns the collection of errors encountered in more granular detail.
-func (i *Issues) Errors() []common.Error {
+func (i *Issues) Errors() []*Error {
 	if i == nil {
-		return []common.Error{}
+		return []*Error{}
 	}
 	return i.errs.GetErrors()
 }
