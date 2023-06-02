@@ -113,7 +113,7 @@ func (c *checker) check(e *exprpb.Expr) {
 	case *exprpb.Expr_ComprehensionExpr:
 		c.checkComprehension(e)
 	default:
-		c.errors.unexpectedASTType(c.location(e), e)
+		c.errors.unexpectedASTType(e.GetId(), c.location(e), e)
 	}
 }
 
@@ -157,8 +157,7 @@ func (c *checker) checkIdent(e *exprpb.Expr) {
 	}
 
 	c.setType(e, decls.Error)
-	c.errors.undeclaredReference(
-		c.location(e), c.env.container.Name(), identExpr.GetName())
+	c.errors.undeclaredReference(e.GetId(), c.location(e), c.env.container.Name(), identExpr.GetName())
 }
 
 func (c *checker) checkSelect(e *exprpb.Expr) {
@@ -199,7 +198,7 @@ func (c *checker) checkOptSelect(e *exprpb.Expr) {
 	field := call.GetArgs()[1]
 	fieldName, isString := maybeUnwrapString(field)
 	if !isString {
-		c.errors.notAnOptionalFieldSelection(c.location(field), field)
+		c.errors.notAnOptionalFieldSelection(field.GetId(), c.location(field), field)
 		return
 	}
 
@@ -227,7 +226,7 @@ func (c *checker) checkSelectField(e, operand *exprpb.Expr, field string, option
 		// Objects yield their field type declaration as the selection result type, but only if
 		// the field is defined.
 		messageType := targetType
-		if fieldType, found := c.lookupFieldType(c.location(e), messageType.GetMessageType(), field); found {
+		if fieldType, found := c.lookupFieldType(e.GetId(), messageType.GetMessageType(), field); found {
 			resultType = fieldType.Type
 		}
 	case kindTypeParam:
@@ -241,7 +240,7 @@ func (c *checker) checkSelectField(e, operand *exprpb.Expr, field string, option
 		// Dynamic / error values are treated as DYN type. Errors are handled this way as well
 		// in order to allow forward progress on the check.
 		if !isDynOrError(targetType) {
-			c.errors.typeDoesNotSupportFieldSelection(c.location(e), targetType)
+			c.errors.typeDoesNotSupportFieldSelection(e.GetId(), c.location(e), targetType)
 		}
 		resultType = decls.Dyn
 	}
@@ -276,15 +275,14 @@ func (c *checker) checkCall(e *exprpb.Expr) {
 		// Check for the existence of the function.
 		fn := c.env.LookupFunction(fnName)
 		if fn == nil {
-			c.errors.undeclaredReference(
-				c.location(e), c.env.container.Name(), fnName)
+			c.errors.undeclaredReference(e.GetId(), c.location(e), c.env.container.Name(), fnName)
 			c.setType(e, decls.Error)
 			return
 		}
 		// Overwrite the function name with its fully qualified resolved name.
 		call.Function = fn.GetName()
 		// Check to see whether the overload resolves.
-		c.resolveOverloadOrError(c.location(e), e, fn, nil, args)
+		c.resolveOverloadOrError(e, fn, nil, args)
 		return
 	}
 
@@ -303,7 +301,7 @@ func (c *checker) checkCall(e *exprpb.Expr) {
 			// Overwrite with fully-qualified resolved function name sans receiver target.
 			call.Target = nil
 			call.Function = fn.GetName()
-			c.resolveOverloadOrError(c.location(e), e, fn, nil, args)
+			c.resolveOverloadOrError(e, fn, nil, args)
 			return
 		}
 	}
@@ -313,19 +311,18 @@ func (c *checker) checkCall(e *exprpb.Expr) {
 	fn := c.env.LookupFunction(fnName)
 	// Function found, attempt overload resolution.
 	if fn != nil {
-		c.resolveOverloadOrError(c.location(e), e, fn, target, args)
+		c.resolveOverloadOrError(e, fn, target, args)
 		return
 	}
 	// Function name not declared, record error.
-	c.errors.undeclaredReference(c.location(e), c.env.container.Name(), fnName)
+	c.errors.undeclaredReference(e.GetId(), c.location(e), c.env.container.Name(), fnName)
 }
 
 func (c *checker) resolveOverloadOrError(
-	loc common.Location,
 	e *exprpb.Expr,
 	fn *exprpb.Decl, target *exprpb.Expr, args []*exprpb.Expr) {
 	// Attempt to resolve the overload.
-	resolution := c.resolveOverload(loc, fn, target, args)
+	resolution := c.resolveOverload(e, fn, target, args)
 	// No such overload, error noted in the resolveOverload call, type recorded here.
 	if resolution == nil {
 		c.setType(e, decls.Error)
@@ -337,7 +334,7 @@ func (c *checker) resolveOverloadOrError(
 }
 
 func (c *checker) resolveOverload(
-	loc common.Location,
+	call *exprpb.Expr,
 	fn *exprpb.Decl, target *exprpb.Expr, args []*exprpb.Expr) *overloadResolution {
 
 	var argTypes []*exprpb.Type
@@ -395,8 +392,7 @@ func (c *checker) resolveOverload(
 		for i, arg := range argTypes {
 			argTypes[i] = substitute(c.mappings, arg, true)
 		}
-		c.errors.noMatchingOverload(loc, fn.GetName(), argTypes, target != nil)
-		resultType = decls.Error
+		c.errors.noMatchingOverload(call.GetId(), c.location(call), fn.GetName(), argTypes, target != nil)
 		return nil
 	}
 
@@ -418,10 +414,10 @@ func (c *checker) checkCreateList(e *exprpb.Expr) {
 			var isOptional bool
 			elemType, isOptional = maybeUnwrapOptional(elemType)
 			if !isOptional && !isDyn(elemType) {
-				c.errors.typeMismatch(c.location(e), decls.NewOptionalType(elemType), elemType)
+				c.errors.typeMismatch(e.GetId(), c.location(e), decls.NewOptionalType(elemType), elemType)
 			}
 		}
-		elemsType = c.joinTypes(c.location(e), elemsType, elemType)
+		elemsType = c.joinTypes(e, elemsType, elemType)
 	}
 	if elemsType == nil {
 		// If the list is empty, assign free type var to elem type.
@@ -446,7 +442,7 @@ func (c *checker) checkCreateMap(e *exprpb.Expr) {
 	for _, ent := range mapVal.GetEntries() {
 		key := ent.GetMapKey()
 		c.check(key)
-		mapKeyType = c.joinTypes(c.location(key), mapKeyType, c.getType(key))
+		mapKeyType = c.joinTypes(key, mapKeyType, c.getType(key))
 
 		val := ent.GetValue()
 		c.check(val)
@@ -455,10 +451,10 @@ func (c *checker) checkCreateMap(e *exprpb.Expr) {
 			var isOptional bool
 			valType, isOptional = maybeUnwrapOptional(valType)
 			if !isOptional && !isDyn(valType) {
-				c.errors.typeMismatch(c.location(val), decls.NewOptionalType(valType), valType)
+				c.errors.typeMismatch(val.GetId(), c.location(val), decls.NewOptionalType(valType), valType)
 			}
 		}
-		mapValueType = c.joinTypes(c.location(val), mapValueType, valType)
+		mapValueType = c.joinTypes(val, mapValueType, valType)
 	}
 	if mapKeyType == nil {
 		// If the map is empty, assign free type variables to typeKey and value type.
@@ -475,7 +471,7 @@ func (c *checker) checkCreateMessage(e *exprpb.Expr) {
 	decl := c.env.LookupIdent(msgVal.GetMessageName())
 	if decl == nil {
 		c.errors.undeclaredReference(
-			c.location(e), c.env.container.Name(), msgVal.GetMessageName())
+			e.GetId(), c.location(e), c.env.container.Name(), msgVal.GetMessageName())
 		return
 	}
 	// Ensure the type name is fully qualified in the AST.
@@ -485,11 +481,11 @@ func (c *checker) checkCreateMessage(e *exprpb.Expr) {
 	identKind := kindOf(ident.GetType())
 	if identKind != kindError {
 		if identKind != kindType {
-			c.errors.notAType(c.location(e), ident.GetType())
+			c.errors.notAType(e.GetId(), c.location(e), ident.GetType())
 		} else {
 			messageType = ident.GetType().GetType()
 			if kindOf(messageType) != kindObject {
-				c.errors.notAMessageType(c.location(e), messageType)
+				c.errors.notAMessageType(e.GetId(), c.location(e), messageType)
 				messageType = decls.Error
 			}
 		}
@@ -507,7 +503,7 @@ func (c *checker) checkCreateMessage(e *exprpb.Expr) {
 		c.check(value)
 
 		fieldType := decls.Error
-		ft, found := c.lookupFieldType(c.locationByID(ent.GetId()), messageType.GetMessageType(), field)
+		ft, found := c.lookupFieldType(ent.GetId(), messageType.GetMessageType(), field)
 		if found {
 			fieldType = ft.Type
 		}
@@ -517,11 +513,11 @@ func (c *checker) checkCreateMessage(e *exprpb.Expr) {
 			var isOptional bool
 			valType, isOptional = maybeUnwrapOptional(valType)
 			if !isOptional && !isDyn(valType) {
-				c.errors.typeMismatch(c.location(value), decls.NewOptionalType(valType), valType)
+				c.errors.typeMismatch(value.GetId(), c.location(value), decls.NewOptionalType(valType), valType)
 			}
 		}
 		if !c.isAssignable(fieldType, valType) {
-			c.errors.fieldTypeMismatch(c.locationByID(ent.Id), field, fieldType, valType)
+			c.errors.fieldTypeMismatch(ent.GetId(), c.locationByID(ent.GetId()), field, fieldType, valType)
 		}
 	}
 }
@@ -548,7 +544,7 @@ func (c *checker) checkComprehension(e *exprpb.Expr) {
 		// Set the range iteration variable to type DYN as well.
 		varType = decls.Dyn
 	default:
-		c.errors.notAComprehensionRange(c.location(comp.GetIterRange()), rangeType)
+		c.errors.notAComprehensionRange(comp.GetIterRange().GetId(), c.location(comp.GetIterRange()), rangeType)
 		varType = decls.Error
 	}
 
@@ -573,9 +569,7 @@ func (c *checker) checkComprehension(e *exprpb.Expr) {
 }
 
 // Checks compatibility of joined types, and returns the most general common type.
-func (c *checker) joinTypes(loc common.Location,
-	previous *exprpb.Type,
-	current *exprpb.Type) *exprpb.Type {
+func (c *checker) joinTypes(e *exprpb.Expr, previous, current *exprpb.Type) *exprpb.Type {
 	if previous == nil {
 		return current
 	}
@@ -585,7 +579,7 @@ func (c *checker) joinTypes(loc common.Location,
 	if c.dynAggregateLiteralElementTypesEnabled() {
 		return decls.Dyn
 	}
-	c.errors.typeMismatch(loc, previous, current)
+	c.errors.typeMismatch(e.GetId(), c.location(e), previous, current)
 	return decls.Error
 }
 
@@ -619,10 +613,10 @@ func (c *checker) isAssignableList(l1 []*exprpb.Type, l2 []*exprpb.Type) bool {
 	return false
 }
 
-func (c *checker) lookupFieldType(l common.Location, messageType string, fieldName string) (*ref.FieldType, bool) {
+func (c *checker) lookupFieldType(exprID int64, messageType, fieldName string) (*ref.FieldType, bool) {
 	if _, found := c.env.provider.FindType(messageType); !found {
 		// This should not happen, anyway, report an error.
-		c.errors.unexpectedFailedResolution(l, messageType)
+		c.errors.unexpectedFailedResolution(exprID, c.locationByID(exprID), messageType)
 		return nil, false
 	}
 
@@ -630,13 +624,13 @@ func (c *checker) lookupFieldType(l common.Location, messageType string, fieldNa
 		return ft, found
 	}
 
-	c.errors.undefinedField(l, fieldName)
+	c.errors.undefinedField(exprID, c.locationByID(exprID), fieldName)
 	return nil, false
 }
 
 func (c *checker) setType(e *exprpb.Expr, t *exprpb.Type) {
 	if old, found := c.types[e.GetId()]; found && !proto.Equal(old, t) {
-		c.errors.incompatibleType(c.location(e), e, old, t)
+		c.errors.incompatibleType(e.GetId(), c.location(e), e, old, t)
 		return
 	}
 	c.types[e.GetId()] = t
@@ -648,7 +642,7 @@ func (c *checker) getType(e *exprpb.Expr) *exprpb.Type {
 
 func (c *checker) setReference(e *exprpb.Expr, r *exprpb.Reference) {
 	if old, found := c.references[e.GetId()]; found && !proto.Equal(old, r) {
-		c.errors.referenceRedefinition(c.location(e), e, old, r)
+		c.errors.referenceRedefinition(e.GetId(), c.location(e), e, old, r)
 		return
 	}
 	c.references[e.GetId()] = r
@@ -656,7 +650,7 @@ func (c *checker) setReference(e *exprpb.Expr, r *exprpb.Reference) {
 
 func (c *checker) assertType(e *exprpb.Expr, t *exprpb.Type) {
 	if !c.isAssignable(t, c.getType(e)) {
-		c.errors.typeMismatch(c.location(e), t, c.getType(e))
+		c.errors.typeMismatch(e.GetId(), c.location(e), t, c.getType(e))
 	}
 }
 

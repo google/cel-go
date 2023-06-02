@@ -193,15 +193,15 @@ func (p *parserHelper) newExpr(ctx any) *exprpb.Expr {
 
 func (p *parserHelper) id(ctx any) int64 {
 	var location common.Location
-	switch ctx.(type) {
+	switch c := ctx.(type) {
 	case antlr.ParserRuleContext:
-		token := (ctx.(antlr.ParserRuleContext)).GetStart()
+		token := c.GetStart()
 		location = p.source.NewLocation(token.GetLine(), token.GetColumn())
 	case antlr.Token:
-		token := ctx.(antlr.Token)
+		token := c
 		location = p.source.NewLocation(token.GetLine(), token.GetColumn())
 	case common.Location:
-		location = ctx.(common.Location)
+		location = c
 	default:
 		// This should only happen if the ctx is nil
 		return -1

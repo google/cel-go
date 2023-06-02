@@ -39,11 +39,17 @@ func NewErrors(source Source) *Errors {
 
 // ReportError records an error at a source location.
 func (e *Errors) ReportError(l Location, format string, args ...any) {
+	e.ReportErrorAtID(0, l, format, args...)
+}
+
+// ReportErrorAtID records an error at a source location and expression id.
+func (e *Errors) ReportErrorAtID(id int64, l Location, format string, args ...any) {
 	e.numErrors++
 	if e.numErrors > e.maxErrorsToReport {
 		return
 	}
 	err := &Error{
+		ExprID:   id,
 		Location: l,
 		Message:  fmt.Sprintf(format, args...),
 	}

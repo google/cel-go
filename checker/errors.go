@@ -27,66 +27,66 @@ type typeErrors struct {
 	errs *common.Errors
 }
 
-func (e *typeErrors) fieldTypeMismatch(l common.Location, name string, field *exprpb.Type, value *exprpb.Type) {
-	e.errs.ReportError(l, "expected type of field '%s' is '%s' but provided type is '%s'",
+func (e *typeErrors) fieldTypeMismatch(id int64, l common.Location, name string, field *exprpb.Type, value *exprpb.Type) {
+	e.errs.ReportErrorAtID(id, l, "expected type of field '%s' is '%s' but provided type is '%s'",
 		name, FormatCheckedType(field), FormatCheckedType(value))
 }
 
-func (e *typeErrors) incompatibleType(l common.Location, ex *exprpb.Expr, prev, next *exprpb.Type) {
-	e.errs.ReportError(l,
+func (e *typeErrors) incompatibleType(id int64, l common.Location, ex *exprpb.Expr, prev, next *exprpb.Type) {
+	e.errs.ReportErrorAtID(id, l,
 		"incompatible type already exists for expression: %v(%d) old:%v, new:%v", ex, ex.GetId(), prev, next)
 }
 
-func (e *typeErrors) noMatchingOverload(l common.Location, name string, args []*exprpb.Type, isInstance bool) {
+func (e *typeErrors) noMatchingOverload(id int64, l common.Location, name string, args []*exprpb.Type, isInstance bool) {
 	signature := formatFunction(nil, args, isInstance)
-	e.errs.ReportError(l, "found no matching overload for '%s' applied to '%s'", name, signature)
+	e.errs.ReportErrorAtID(id, l, "found no matching overload for '%s' applied to '%s'", name, signature)
 }
 
-func (e *typeErrors) notAComprehensionRange(l common.Location, t *exprpb.Type) {
-	e.errs.ReportError(l, "expression of type '%s' cannot be range of a comprehension (must be list, map, or dynamic)",
+func (e *typeErrors) notAComprehensionRange(id int64, l common.Location, t *exprpb.Type) {
+	e.errs.ReportErrorAtID(id, l, "expression of type '%s' cannot be range of a comprehension (must be list, map, or dynamic)",
 		FormatCheckedType(t))
 }
 
-func (e *typeErrors) notAnOptionalFieldSelection(l common.Location, field *exprpb.Expr) {
-	e.errs.ReportError(l, "unsupported optional field selection: %v", field)
+func (e *typeErrors) notAnOptionalFieldSelection(id int64, l common.Location, field *exprpb.Expr) {
+	e.errs.ReportErrorAtID(id, l, "unsupported optional field selection: %v", field)
 }
 
-func (e *typeErrors) notAType(l common.Location, t *exprpb.Type) {
-	e.errs.ReportError(l, "'%s' is not a type", FormatCheckedType(t))
+func (e *typeErrors) notAType(id int64, l common.Location, t *exprpb.Type) {
+	e.errs.ReportErrorAtID(id, l, "'%s' is not a type", FormatCheckedType(t))
 }
 
-func (e *typeErrors) notAMessageType(l common.Location, t *exprpb.Type) {
-	e.errs.ReportError(l, "'%s' is not a message type", FormatCheckedType(t))
+func (e *typeErrors) notAMessageType(id int64, l common.Location, t *exprpb.Type) {
+	e.errs.ReportErrorAtID(id, l, "'%s' is not a message type", FormatCheckedType(t))
 }
 
-func (e *typeErrors) referenceRedefinition(l common.Location, ex *exprpb.Expr, prev, next *exprpb.Reference) {
-	e.errs.ReportError(l,
+func (e *typeErrors) referenceRedefinition(id int64, l common.Location, ex *exprpb.Expr, prev, next *exprpb.Reference) {
+	e.errs.ReportErrorAtID(id, l,
 		"reference already exists for expression: %v(%d) old:%v, new:%v", ex, ex.GetId(), prev, next)
 }
 
-func (e *typeErrors) typeDoesNotSupportFieldSelection(l common.Location, t *exprpb.Type) {
-	e.errs.ReportError(l, "type '%s' does not support field selection", FormatCheckedType(t))
+func (e *typeErrors) typeDoesNotSupportFieldSelection(id int64, l common.Location, t *exprpb.Type) {
+	e.errs.ReportErrorAtID(id, l, "type '%s' does not support field selection", FormatCheckedType(t))
 }
 
-func (e *typeErrors) typeMismatch(l common.Location, expected *exprpb.Type, actual *exprpb.Type) {
-	e.errs.ReportError(l, "expected type '%s' but found '%s'",
+func (e *typeErrors) typeMismatch(id int64, l common.Location, expected *exprpb.Type, actual *exprpb.Type) {
+	e.errs.ReportErrorAtID(id, l, "expected type '%s' but found '%s'",
 		FormatCheckedType(expected), FormatCheckedType(actual))
 }
 
-func (e *typeErrors) undefinedField(l common.Location, field string) {
-	e.errs.ReportError(l, "undefined field '%s'", field)
+func (e *typeErrors) undefinedField(id int64, l common.Location, field string) {
+	e.errs.ReportErrorAtID(id, l, "undefined field '%s'", field)
 }
 
-func (e *typeErrors) undeclaredReference(l common.Location, container string, name string) {
-	e.errs.ReportError(l, "undeclared reference to '%s' (in container '%s')", name, container)
+func (e *typeErrors) undeclaredReference(id int64, l common.Location, container string, name string) {
+	e.errs.ReportErrorAtID(id, l, "undeclared reference to '%s' (in container '%s')", name, container)
 }
 
-func (e *typeErrors) unexpectedFailedResolution(l common.Location, typeName string) {
-	e.errs.ReportError(l, "unexpected failed resolution of '%s'", typeName)
+func (e *typeErrors) unexpectedFailedResolution(id int64, l common.Location, typeName string) {
+	e.errs.ReportErrorAtID(id, l, "unexpected failed resolution of '%s'", typeName)
 }
 
-func (e *typeErrors) unexpectedASTType(l common.Location, ex *exprpb.Expr) {
-	e.errs.ReportError(l, "unrecognized ast type: %v", reflect.TypeOf(ex))
+func (e *typeErrors) unexpectedASTType(id int64, l common.Location, ex *exprpb.Expr) {
+	e.errs.ReportErrorAtID(id, l, "unrecognized ast type: %v", reflect.TypeOf(ex))
 }
 
 func formatFunction(resultType *exprpb.Type, argTypes []*exprpb.Type, isInstance bool) string {
