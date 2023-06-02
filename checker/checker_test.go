@@ -16,6 +16,7 @@ package checker
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/google/cel-go/checker/decls"
@@ -2247,7 +2248,7 @@ func TestCheck(t *testing.T) {
 			t.Parallel()
 
 			src := common.NewTextSource(tc.in)
-			expression, errors := p.Parse(src)
+			pAst, errors := p.Parse(src)
 			if len(errors.GetErrors()) > 0 {
 				t.Fatalf("Unexpected parse errors: %v", errors.ToDisplayString())
 			}
@@ -2282,7 +2283,7 @@ func TestCheck(t *testing.T) {
 				}
 			}
 
-			semantics, errors := Check(expression, src, env)
+			cAst, errors := Check(pAst, src, env)
 			if len(errors.GetErrors()) > 0 {
 				errorString := errors.ToDisplayString()
 				if tc.err != "" {
@@ -2296,7 +2297,7 @@ func TestCheck(t *testing.T) {
 				t.Errorf("Expected error not thrown: %s", tc.err)
 			}
 
-			actual := semantics.TypeMap[expression.Expr.Id]
+			actual := cAst.TypeMap[pAst.Expr.Id]
 			if tc.err == "" {
 				if actual == nil || !proto.Equal(actual, tc.outType) {
 					t.Error(test.DiffMessage("Type Error", actual, tc.outType))
@@ -2304,7 +2305,7 @@ func TestCheck(t *testing.T) {
 			}
 
 			if tc.out != "" {
-				actualStr := Print(expression.Expr, semantics)
+				actualStr := Print(pAst.Expr, cAst)
 				if !test.Compare(actualStr, tc.out) {
 					t.Error(test.DiffMessage("Structure error", actualStr, tc.out))
 				}
@@ -2360,5 +2361,38 @@ func TestAddEquivalentDeclarations(t *testing.T) {
 	err = env.Add(optIndexEquiv)
 	if err != nil {
 		t.Errorf("env.Add(optIndexEquiv) failed: %v", err)
+	}
+}
+
+func TestCheckErrorExprID(t *testing.T) {
+	p, err := parser.NewParser(
+		parser.EnableOptionalSyntax(true),
+		parser.Macros(parser.AllMacros...),
+	)
+	if err != nil {
+		t.Fatalf("parser.NewParser() failed: %v", err)
+	}
+	src := common.NewTextSource(`a || true`)
+	ast, iss := p.Parse(src)
+	if len(iss.GetErrors()) != 0 {
+		t.Fatalf("Parse() failed: %v", iss.ToDisplayString())
+	}
+
+	reg := newTestRegistry(t)
+	env, err := NewEnv(containers.DefaultContainer, reg)
+	if err != nil {
+		t.Fatalf("NewEnv(cont, reg) failed: %v", err)
+	}
+	env.Add(StandardDeclarations()...)
+	_, iss = Check(ast, src, env)
+	if len(iss.GetErrors()) != 1 {
+		t.Fatalf("Check() of a bad expression did produce a single error: %v", iss.ToDisplayString())
+	}
+	celErr := iss.GetErrors()[0]
+	if celErr.ExprID != 1 {
+		t.Errorf("got exprID %v, wanted 1", celErr.ExprID)
+	}
+	if !strings.Contains(celErr.Message, "undeclared reference") {
+		t.Errorf("got message %v, wanted undeclared reference", celErr.Message)
 	}
 }
