@@ -29,7 +29,6 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 
 	"github.com/google/cel-go/checker"
-	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types"
@@ -773,7 +772,7 @@ func TestMacroSubset(t *testing.T) {
 
 func TestCustomMacro(t *testing.T) {
 	joinMacro := NewReceiverMacro("join", 1,
-		func(meh MacroExprHelper, iterRange *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
+		func(meh MacroExprHelper, iterRange *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *Error) {
 			delim := args[0]
 			iterIdent := meh.Ident("__iter__")
 			accuIdent := meh.AccuIdent()
@@ -820,7 +819,7 @@ func TestCustomExistsMacro(t *testing.T) {
 		Variable("attr", MapType(StringType, BoolType)),
 		Macros(
 			NewGlobalVarArgMacro("kleeneOr",
-				func(meh MacroExprHelper, unused *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
+				func(meh MacroExprHelper, unused *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *Error) {
 					inputs := meh.NewList(args...)
 					eqOne, err := ExistsMacroExpander(meh, inputs, []*exprpb.Expr{
 						meh.Ident("__iter__"),
@@ -850,7 +849,7 @@ func TestCustomExistsMacro(t *testing.T) {
 				},
 			),
 			NewGlobalMacro("kleeneEq", 2,
-				func(meh MacroExprHelper, unused *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
+				func(meh MacroExprHelper, unused *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *Error) {
 					attr := args[0]
 					value := args[1]
 					hasAttr, err := HasMacroExpander(meh, nil, []*exprpb.Expr{meh.Copy(attr)})

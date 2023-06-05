@@ -317,10 +317,7 @@ func internalIsAssignableAbstractType(m *mapping, a1 *exprpb.Type_AbstractType, 
 func internalIsAssignableFunction(m *mapping, f1 *exprpb.Type_FunctionType, f2 *exprpb.Type_FunctionType) bool {
 	f1ArgTypes := flattenFunctionTypes(f1)
 	f2ArgTypes := flattenFunctionTypes(f2)
-	if internalIsAssignableList(m, f1ArgTypes, f2ArgTypes) {
-		return true
-	}
-	return false
+	return internalIsAssignableList(m, f1ArgTypes, f2ArgTypes)
 }
 
 // internalIsAssignableList returns true if the element types at each index in the list are
@@ -340,12 +337,9 @@ func internalIsAssignableList(m *mapping, l1 []*exprpb.Type, l2 []*exprpb.Type) 
 
 // internalIsAssignableMap returns true if map m1 may be assigned to map m2.
 func internalIsAssignableMap(m *mapping, m1 *exprpb.Type_MapType, m2 *exprpb.Type_MapType) bool {
-	if internalIsAssignableList(m,
+	return internalIsAssignableList(m,
 		[]*exprpb.Type{m1.GetKeyType(), m1.GetValueType()},
-		[]*exprpb.Type{m2.GetKeyType(), m2.GetValueType()}) {
-		return true
-	}
-	return false
+		[]*exprpb.Type{m2.GetKeyType(), m2.GetValueType()})
 }
 
 // internalIsAssignableNull returns true if the type is nullable.
@@ -520,7 +514,7 @@ func flattenFunctionTypes(f *exprpb.Type_FunctionType) []*exprpb.Type {
 	if len(argTypes) == 0 {
 		return []*exprpb.Type{f.GetResultType()}
 	}
-	flattend := make([]*exprpb.Type, len(argTypes)+1, len(argTypes)+1)
+	flattend := make([]*exprpb.Type, len(argTypes)+1)
 	for i, at := range argTypes {
 		flattend[i] = at
 	}

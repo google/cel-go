@@ -1107,12 +1107,12 @@ var testCases = []testInfo{
 	},
 	{
 		I: "[1, 2, 3].map(var, var * var)",
-		E: `ERROR: <input>:1:14: argument is not an identifier
-		| [1, 2, 3].map(var, var * var)
-		| .............^
-		ERROR: <input>:1:15: reserved identifier: var
+		E: `ERROR: <input>:1:15: reserved identifier: var
 		| [1, 2, 3].map(var, var * var)
 		| ..............^
+		ERROR: <input>:1:15: argument is not an identifier
+		| [1, 2, 3].map(var, var * var)
+		| ..............^		
 		ERROR: <input>:1:20: reserved identifier: var
 		| [1, 2, 3].map(var, var * var)
 		| ...................^
@@ -1988,6 +1988,22 @@ func BenchmarkParseParallel(b *testing.B) {
 			}
 		}
 	})
+}
+
+func TestParseErrorData(t *testing.T) {
+	p := newTestParser(t)
+	src := common.NewTextSource(`a.?b`)
+	_, iss := p.Parse(src)
+	if len(iss.GetErrors()) != 1 {
+		t.Fatalf("Check() of a bad expression did produce a single error: %v", iss.ToDisplayString())
+	}
+	celErr := iss.GetErrors()[0]
+	if celErr.ExprID != 2 {
+		t.Errorf("got exprID %v, wanted 2", celErr.ExprID)
+	}
+	if !strings.Contains(celErr.Message, "unsupported syntax") {
+		t.Errorf("got message %v, wanted unsupported syntax", celErr.Message)
+	}
 }
 
 func newTestParser(t *testing.T, options ...Option) *Parser {

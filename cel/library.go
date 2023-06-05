@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/google/cel-go/checker"
-	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types"
@@ -206,17 +205,14 @@ func (optionalLibrary) CompileOptions() []EnvOption {
 	}
 }
 
-func optMap(meh MacroExprHelper, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
+func optMap(meh MacroExprHelper, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *Error) {
 	varIdent := args[0]
 	varName := ""
 	switch varIdent.GetExprKind().(type) {
 	case *exprpb.Expr_IdentExpr:
 		varName = varIdent.GetIdentExpr().GetName()
 	default:
-		return nil, &common.Error{
-			Message:  "optMap() variable name must be a simple identifier",
-			Location: meh.OffsetLocation(varIdent.GetId()),
-		}
+		return nil, meh.NewError(varIdent.GetId(), "optMap() variable name must be a simple identifier")
 	}
 	mapExpr := args[1]
 	return meh.GlobalCall(

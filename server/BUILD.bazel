@@ -13,7 +13,6 @@ go_library(
     importpath = "github.com/google/cel-go/server",
     deps = [
         "//cel:go_default_library",
-        "//common:go_default_library",
         "//common/types:go_default_library",
         "//common/types/ref:go_default_library",
         "@com_google_cel_spec//proto/test/v1/proto2:test_all_types_go_proto",
