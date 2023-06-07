@@ -64,3 +64,18 @@ func IsUnknown(val ref.Val) bool {
 		return false
 	}
 }
+
+// MaybeMergeUnknowns determines whether a value can be merged with another, possibly nil, unknown.
+func MaybeMergeUnknowns(val ref.Val, unk Unknown) (Unknown, bool) {
+	src, isUnk := val.(Unknown)
+	if !isUnk {
+		if unk != nil {
+			return unk, true
+		}
+		return nil, false
+	}
+	if unk == nil {
+		return src, true
+	}
+	return append(unk, src...), true
+}

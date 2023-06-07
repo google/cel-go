@@ -366,7 +366,11 @@ func (c *checker) resolveOverload(
 			checkedRef = newFunctionReference(overload.GetOverloadId())
 			for i, argType := range argTypes {
 				if !c.isAssignable(argType, decls.Bool) {
-					c.errors.typeMismatch(c.locationByID(args[i].GetId()), decls.Bool, argType)
+					c.errors.typeMismatch(
+						args[i].GetId(),
+						c.locationByID(args[i].GetId()),
+						decls.Bool,
+						argType)
 					resultType = decls.Error
 				}
 			}

@@ -140,7 +140,7 @@ func HomogeneousAggregateLiterals() EnvOption {
 	return features(featureDisableDynamicAggregateLiterals, true)
 }
 
-// VariadicLogicalOperatorASTs flatten like-operator chained logical expressions into a single
+// variadicLogicalOperatorASTs flatten like-operator chained logical expressions into a single
 // variadic call with N-terms. This behavior is useful when serializing to a protocol buffer as
 // it will reduce the number of recursive calls needed to deserialize the AST later.
 //
@@ -148,7 +148,7 @@ func HomogeneousAggregateLiterals() EnvOption {
 //
 //	expression: a && b && c && (d || e)
 //	ast: call(_&&_, [a, b, c, call(_||_, [d, e])])
-func VariadicLogicalOperatorASTs() EnvOption {
+func variadicLogicalOperatorASTs() EnvOption {
 	return features(featureVariadicLogicalASTs, true)
 }
 

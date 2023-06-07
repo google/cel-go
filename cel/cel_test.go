@@ -1299,7 +1299,7 @@ func TestEnvExtensionIsolation(t *testing.T) {
 }
 
 func TestVariadicLogicalOperators(t *testing.T) {
-	e, err := NewEnv(VariadicLogicalOperatorASTs())
+	e, err := NewEnv(variadicLogicalOperatorASTs())
 	if err != nil {
 		t.Fatalf("NewEnv() failed: %v", err)
 	}

@@ -223,21 +223,14 @@ func (or *evalOr) Eval(ctx Activation) ref.Val {
 			return types.True
 		}
 		if !ok {
-			if types.IsUnknown(val) {
-				if unk == nil {
-					unk = types.Unknown{}
-				}
-				unk = append(unk, val.(types.Unknown)...)
-				continue
-			}
-			if types.IsError(val) {
-				if unk == nil && err == nil {
+			isUnk := false
+			unk, isUnk = types.MaybeMergeUnknowns(val, unk)
+			if !isUnk && err == nil {
+				if types.IsError(val) {
 					err = val
+				} else {
+					err = types.MaybeNoSuchOverloadErr(val)
 				}
-				continue
-			}
-			if unk == nil {
-				err = types.MaybeNoSuchOverloadErr(val)
 			}
 		}
 	}
@@ -272,21 +265,14 @@ func (and *evalAnd) Eval(ctx Activation) ref.Val {
 			return types.False
 		}
 		if !ok {
-			if types.IsUnknown(val) {
-				if unk == nil {
-					unk = types.Unknown{}
-				}
-				unk = append(unk, val.(types.Unknown)...)
-				continue
-			}
-			if types.IsError(val) {
-				if unk == nil && err == nil {
+			isUnk := false
+			unk, isUnk = types.MaybeMergeUnknowns(val, unk)
+			if !isUnk && err == nil {
+				if types.IsError(val) {
 					err = val
+				} else {
+					err = types.MaybeNoSuchOverloadErr(val)
 				}
-				continue
-			}
-			if unk == nil {
-				err = types.MaybeNoSuchOverloadErr(val)
 			}
 		}
 	}
