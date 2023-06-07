@@ -65,7 +65,12 @@ func IsUnknown(val ref.Val) bool {
 	}
 }
 
-// MaybeMergeUnknowns determines whether a value can be merged with another, possibly nil, unknown.
+// MaybeMergeUnknowns determines whether an input value and another, possibly nil, unknown will produce
+// an unknown result.
+//
+// If the input `val` is another Unknown, then the result will be the merge of the `val` and the input
+// `unk`. If the `val` is not unknown, then the result will depend on whether the input `unk` is nil.
+// If both values are non-nil and unknown, then the return value will be a merge of both unknowns.
 func MaybeMergeUnknowns(val ref.Val, unk Unknown) (Unknown, bool) {
 	src, isUnk := val.(Unknown)
 	if !isUnk {
