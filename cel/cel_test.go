@@ -24,6 +24,7 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -1972,7 +1973,122 @@ func TestDynamicDispatch(t *testing.T) {
 	}
 }
 
-func TestOptionalValues(t *testing.T) {
+func TestOptionalValuesCompile(t *testing.T) {
+	env, err := NewEnv(
+		OptionalTypes(),
+		// Test variables.
+		Variable("m", MapType(StringType, MapType(StringType, StringType))),
+		Variable("optm", OptionalType(MapType(StringType, MapType(StringType, StringType)))),
+		Variable("l", ListType(StringType)),
+		Variable("optl", OptionalType(ListType(StringType))),
+		Variable("x", OptionalType(IntType)),
+		Variable("y", IntType),
+	)
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	tests := []struct {
+		expr       string
+		references map[int64]*exprpb.Reference
+	}{
+		{
+			expr: `x.or(optional.of(y)).orValue(42)`,
+			references: map[int64]*exprpb.Reference{
+				1: {Name: "x"},
+				2: {OverloadId: []string{"optional_or_optional"}},
+				4: {OverloadId: []string{"optional_of"}},
+				5: {Name: "y"},
+				6: {OverloadId: []string{"optional_orValue_value"}},
+			},
+		},
+		{
+			expr: `m.?x.hasValue()`,
+			references: map[int64]*exprpb.Reference{
+				1: {Name: "m"},
+				3: {OverloadId: []string{"select_optional_field"}},
+				4: {OverloadId: []string{"optional_hasValue"}},
+			},
+		},
+		{
+			expr: `has(m.?x.y)`,
+			references: map[int64]*exprpb.Reference{
+				2: {Name: "m"},
+				4: {OverloadId: []string{"select_optional_field"}},
+			},
+		},
+		{
+			// Optional index selection in map.
+			expr: `m.k[?'dashed-index'].orValue('default value')`,
+			references: map[int64]*exprpb.Reference{
+				1: {Name: "m"},
+				3: {OverloadId: []string{"map_optindex_optional_value"}},
+				5: {OverloadId: []string{"optional_orValue_value"}},
+			},
+		},
+		{
+			// Optional index selection in list.
+			expr: `l[?y]`,
+			references: map[int64]*exprpb.Reference{
+				1: {Name: "l"},
+				2: {OverloadId: []string{"list_optindex_optional_int"}},
+				3: {Name: "y"},
+			},
+		},
+		{
+			// Index selection against a value in an optional map.
+			expr: `optm.c['index'].orValue('default value')`,
+			references: map[int64]*exprpb.Reference{
+				1: {Name: "optm"},
+				3: {OverloadId: []string{"optional_map_index_value"}},
+				5: {OverloadId: []string{"optional_orValue_value"}},
+			},
+		},
+		{
+			// Index selection against a value in an optional map.
+			expr: `optm.c[?'index']`,
+			references: map[int64]*exprpb.Reference{
+				1: {Name: "optm"},
+				3: {OverloadId: []string{"optional_map_optindex_optional_value"}},
+			},
+		},
+		{
+			// Index selection against an value in an optional list.
+			expr: `optl[0]`,
+			references: map[int64]*exprpb.Reference{
+				1: {Name: "optl"},
+				2: {OverloadId: []string{"optional_list_index_int"}},
+			},
+		},
+		{
+			// Index selection against an value in an optional list.
+			expr: `optl[?0]`,
+			references: map[int64]*exprpb.Reference{
+				1: {Name: "optl"},
+				2: {OverloadId: []string{"optional_list_optindex_optional_int"}},
+			},
+		},
+	}
+
+	for i, tst := range tests {
+		tc := tst
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			ast, iss := env.Compile(tc.expr)
+			if iss.Err() != nil {
+				t.Fatalf("%v failed: %v", tc.expr, iss.Err())
+			}
+			for id, reference := range ast.refMap {
+				other, found := tc.references[id]
+				if !found {
+					t.Errorf("Compile(%v) expected reference %d: %v", tc.expr, id, prototext.Format(reference))
+				} else if !proto.Equal(reference, other) {
+					t.Errorf("Compile(%v) got reference %d: %v, wanted %v", tc.expr, id, prototext.Format(reference), prototext.Format(other))
+				}
+			}
+		})
+	}
+}
+
+func TestOptionalValuesEval(t *testing.T) {
 	env, err := NewEnv(
 		OptionalTypes(),
 		// Container and test message types.
