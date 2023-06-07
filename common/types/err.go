@@ -129,6 +129,11 @@ func (e *Err) Is(target error) bool {
 	return e.error.Error() == target.Error()
 }
 
+// Unwrap implements errors.Unwrap.
+func (e *Err) Unwrap() error {
+	return e.error
+}
+
 // IsError returns whether the input element ref.Type or ref.Val is equal to
 // the ErrType singleton.
 func IsError(val ref.Val) bool {
