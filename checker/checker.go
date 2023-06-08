@@ -205,6 +205,7 @@ func (c *checker) checkOptSelect(e *exprpb.Expr) {
 	// Perform type-checking using the field selection logic.
 	resultType := c.checkSelectField(e, operand, fieldName, true)
 	c.setType(e, substitute(c.mappings, resultType, false))
+	c.setReference(e, newFunctionReference("select_optional_field"))
 }
 
 func (c *checker) checkSelectField(e, operand *exprpb.Expr, field string, optional bool) *exprpb.Type {

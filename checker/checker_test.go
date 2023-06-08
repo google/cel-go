@@ -2048,7 +2048,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 		out: `_?._(
 			a~map(string, string)^a,
 			"b"
-		  )~optional(string)`,
+		  )~optional(string)^select_optional_field`,
 	},
 	{
 		in: `a.b`,
@@ -2091,7 +2091,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 		out: `_?._(
 			a~optional(map(string, dyn))^a,
 			"b"
-		  )~optional(dyn).c~test-only~~bool`,
+		  )~optional(dyn)^select_optional_field.c~test-only~~bool`,
 	},
 	{
 		in:      `{?'key': {'a': 'b'}.?value}`,
@@ -2102,7 +2102,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 				"a"~string:"b"~string
 			  }~map(string, string),
 			  "value"
-			)~optional(string)
+			)~optional(string)^select_optional_field
 		  }~map(string, string)`,
 	},
 	{
@@ -2114,7 +2114,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 				"a"~string:"b"~string
 			  }~map(string, string),
 			  "value"
-			)~optional(string)
+			)~optional(string)^select_optional_field
 		  }~map(string, string).key~string`,
 	},
 	{
@@ -2163,7 +2163,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 			?single_int32:_?._(
 			  {}~map(dyn, int),
 			  "i"
-			)~optional(int)
+			)~optional(int)^select_optional_field
 		  }~google.expr.proto2.test.TestAllTypes^google.expr.proto2.test.TestAllTypes`,
 		outType: decls.NewObjectType(
 			"google.expr.proto2.test.TestAllTypes",
