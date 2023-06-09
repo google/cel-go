@@ -77,14 +77,14 @@ var (
 type Env struct {
 	container           *containers.Container
 	provider            ref.TypeProvider
-	declarations        *decls.Scopes
+	declarations        *Scopes
 	aggLitElemType      aggregateLiteralElementType
 	filteredOverloadIDs map[string]struct{}
 }
 
 // NewEnv returns a new *Env with the given parameters.
 func NewEnv(container *containers.Container, provider ref.TypeProvider, opts ...Option) (*Env, error) {
-	declarations := decls.NewScopes()
+	declarations := newScopes()
 	declarations.Push()
 
 	envOptions := &options{}
@@ -368,7 +368,7 @@ func getObjectWellKnownType(t *exprpb.Type) *exprpb.Type {
 
 // validatedDeclarations returns a reference to the validated variable and function declaration scope stack.
 // must be copied before use.
-func (e *Env) validatedDeclarations() *decls.Scopes {
+func (e *Env) validatedDeclarations() *Scopes {
 	return e.declarations
 }
 

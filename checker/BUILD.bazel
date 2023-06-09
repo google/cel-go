@@ -14,6 +14,7 @@ go_library(
         "mapping.go",
         "options.go",
         "printer.go",
+        "scopes.go",
         "standard.go",
         "types.go",
     ],

@@ -14,12 +14,10 @@
 
 package checker
 
-import "github.com/google/cel-go/checker/decls"
-
 type options struct {
 	crossTypeNumericComparisons  bool
 	homogeneousAggregateLiterals bool
-	validatedDeclarations        *decls.Scopes
+	validatedDeclarations        *Scopes
 }
 
 // Option is a functional option for configuring the type-checker
