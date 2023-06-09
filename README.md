@@ -134,7 +134,7 @@ these features are exposed via macros in CEL.
 ### Evaluate
 
 Now, evaluate for fun and profit. The evaluation is thread-safe and side-effect
-free. Many different inputs can be send to the same `cel.Program` and if fields
+free. Many different inputs can be sent to the same `cel.Program` and if fields
 are present in the input, but not referenced in the expression, they are
 ignored.
 
