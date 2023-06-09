@@ -297,67 +297,83 @@ func (p *parserHelper) addMacroCall(exprID int64, function string, target *exprp
 	}
 }
 
-// balancer performs tree balancing on operators whose arguments are of equal precedence.
+// logicManager compacts logical trees into a more efficient structure which is semantically
+// equivalent with how the logic graph is constructed by the ANTLR parser.
 //
-// The purpose of the balancer is to ensure a compact serialization format for the logical &&, ||
+// The purpose of the logicManager is to ensure a compact serialization format for the logical &&, ||
 // operators which have a tendency to create long DAGs which are skewed in one direction. Since the
 // operators are commutative re-ordering the terms *must not* affect the evaluation result.
 //
-// Re-balancing the terms is a safe, if somewhat controversial choice. A better solution would be
-// to make these functions variadic and update both the checker and interpreter to understand this;
-// however, this is a more complex change.
-//
-// TODO: Consider replacing tree-balancing with variadic logical &&, || within the parser, checker,
-// and interpreter.
-type balancer struct {
-	helper   *parserHelper
-	function string
-	terms    []*exprpb.Expr
-	ops      []int64
+// The logic manager will either render the terms to N-chained && / || operators as a single logical
+// call with N-terms, or will rebalance the tree. Rebalancing the terms is a safe, if somewhat
+// controversial choice as it alters the traditional order of execution assumptions present in most
+// expressions.
+type logicManager struct {
+	helper       *parserHelper
+	function     string
+	terms        []*exprpb.Expr
+	ops          []int64
+	variadicASTs bool
 }
 
-// newBalancer creates a balancer instance bound to a specific function and its first term.
-func newBalancer(h *parserHelper, function string, term *exprpb.Expr) *balancer {
-	return &balancer{
-		helper:   h,
-		function: function,
-		terms:    []*exprpb.Expr{term},
-		ops:      []int64{},
+// newVariadicLogicManager creates a logic manager instance bound to a specific function and its first term.
+func newVariadicLogicManager(h *parserHelper, function string, term *exprpb.Expr) *logicManager {
+	return &logicManager{
+		helper:       h,
+		function:     function,
+		terms:        []*exprpb.Expr{term},
+		ops:          []int64{},
+		variadicASTs: true,
+	}
+}
+
+// newBalancingLogicManager creates a logic manager instance bound to a specific function and its first term.
+func newBalancingLogicManager(h *parserHelper, function string, term *exprpb.Expr) *logicManager {
+	return &logicManager{
+		helper:       h,
+		function:     function,
+		terms:        []*exprpb.Expr{term},
+		ops:          []int64{},
+		variadicASTs: false,
 	}
 }
 
 // addTerm adds an operation identifier and term to the set of terms to be balanced.
-func (b *balancer) addTerm(op int64, term *exprpb.Expr) {
-	b.terms = append(b.terms, term)
-	b.ops = append(b.ops, op)
+func (l *logicManager) addTerm(op int64, term *exprpb.Expr) {
+	l.terms = append(l.terms, term)
+	l.ops = append(l.ops, op)
 }
 
-// balance creates a balanced tree from the sub-terms and returns the final Expr value.
-func (b *balancer) balance() *exprpb.Expr {
-	if len(b.terms) == 1 {
-		return b.terms[0]
+// toExpr renders the logic graph into an Expr value, either balancing a tree of logical
+// operations or creating a variadic representation of the logical operator.
+func (l *logicManager) toExpr() *exprpb.Expr {
+	if len(l.terms) == 1 {
+		return l.terms[0]
 	}
-	return b.balancedTree(0, len(b.ops)-1)
+	if l.variadicASTs {
+		return l.helper.newGlobalCall(l.ops[0], l.function, l.terms...)
+	}
+	return l.balancedTree(0, len(l.ops)-1)
 }
 
 // balancedTree recursively balances the terms provided to a commutative operator.
-func (b *balancer) balancedTree(lo, hi int) *exprpb.Expr {
+func (l *logicManager) balancedTree(lo, hi int) *exprpb.Expr {
 	mid := (lo + hi + 1) / 2
 
 	var left *exprpb.Expr
 	if mid == lo {
-		left = b.terms[mid]
+		left = l.terms[mid]
 	} else {
-		left = b.balancedTree(lo, mid-1)
+		left = l.balancedTree(lo, mid-1)
 	}
 
 	var right *exprpb.Expr
 	if mid == hi {
-		right = b.terms[mid+1]
+		right = l.terms[mid+1]
 	} else {
-		right = b.balancedTree(mid+1, hi)
+		right = l.balancedTree(mid+1, hi)
 	}
-	return b.helper.newGlobalCall(b.ops[mid], b.function, left, right)
+	return l.helper.newGlobalCall(l.ops[mid], l.function, left, right)
 }
 
 type exprHelper struct {

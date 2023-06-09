@@ -1299,6 +1299,30 @@ func TestEnvExtensionIsolation(t *testing.T) {
 	}
 }
 
+func TestVariadicLogicalOperators(t *testing.T) {
+	e, err := NewEnv(variadicLogicalOperatorASTs())
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	ast, iss := e.Compile(
+		`(false || false || false || false || true) && 
+		 (true && true && true && true && false)`)
+	if iss.Err() != nil {
+		t.Fatalf("Compile() failed: %v", iss.Err())
+	}
+	prg, err := e.Program(ast)
+	if err != nil {
+		t.Fatalf("Program(ast) failed: %v", err)
+	}
+	out, _, err := prg.Eval(NoVars())
+	if err != nil {
+		t.Errorf("Eval() got error %v, wanted false", err)
+	}
+	if out != types.False {
+		t.Errorf("Eval() got %v, wanted false", out)
+	}
+}
+
 func TestParseError(t *testing.T) {
 	e, err := NewEnv()
 	if err != nil {

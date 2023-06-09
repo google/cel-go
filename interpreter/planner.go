@@ -429,18 +429,16 @@ func (p *planner) planCallNotEqual(expr *exprpb.Expr, args []Interpretable) (Int
 // planCallLogicalAnd generates a logical and (&&) Interpretable.
 func (p *planner) planCallLogicalAnd(expr *exprpb.Expr, args []Interpretable) (Interpretable, error) {
 	return &evalAnd{
-		id:  expr.GetId(),
-		lhs: args[0],
-		rhs: args[1],
+		id:    expr.GetId(),
+		terms: args,
 	}, nil
 }
 
 // planCallLogicalOr generates a logical or (||) Interpretable.
 func (p *planner) planCallLogicalOr(expr *exprpb.Expr, args []Interpretable) (Interpretable, error) {
 	return &evalOr{
-		id:  expr.GetId(),
-		lhs: args[0],
-		rhs: args[1],
+		id:    expr.GetId(),
+		terms: args,
 	}, nil
 }
 

@@ -100,6 +100,7 @@ func (p *Parser) Parse(source common.Source) (*exprpb.ParsedExpr, *common.Errors
 		errorRecoveryLookaheadTokenLimit: p.errorRecoveryTokenLookaheadLimit,
 		populateMacroCalls:               p.populateMacroCalls,
 		enableOptionalSyntax:             p.enableOptionalSyntax,
+		enableVariadicOperatorASTs:       p.enableVariadicOperatorASTs,
 	}
 	buf, ok := source.(runes.Buffer)
 	if !ok {
@@ -296,6 +297,7 @@ type parser struct {
 	errorRecoveryLookaheadTokenLimit int
 	populateMacroCalls               bool
 	enableOptionalSyntax             bool
+	enableVariadicOperatorASTs       bool
 }
 
 var (
@@ -481,7 +483,7 @@ func (p *parser) VisitExpr(ctx *gen.ExprContext) any {
 // Visit a parse tree produced by CELParser#conditionalOr.
 func (p *parser) VisitConditionalOr(ctx *gen.ConditionalOrContext) any {
 	result := p.Visit(ctx.GetE()).(*exprpb.Expr)
-	b := newBalancer(p.helper, operators.LogicalOr, result)
+	l := p.newLogicManager(operators.LogicalOr, result)
 	rest := ctx.GetE1()
 	for i, op := range ctx.GetOps() {
 		if i >= len(rest) {
@@ -489,15 +491,15 @@ func (p *parser) VisitConditionalOr(ctx *gen.ConditionalOrContext) any {
 		}
 		next := p.Visit(rest[i]).(*exprpb.Expr)
 		opID := p.helper.id(op)
-		b.addTerm(opID, next)
+		l.addTerm(opID, next)
 	}
-	return b.balance()
+	return l.toExpr()
 }
 
 // Visit a parse tree produced by CELParser#conditionalAnd.
 func (p *parser) VisitConditionalAnd(ctx *gen.ConditionalAndContext) any {
 	result := p.Visit(ctx.GetE()).(*exprpb.Expr)
-	b := newBalancer(p.helper, operators.LogicalAnd, result)
+	l := p.newLogicManager(operators.LogicalAnd, result)
 	rest := ctx.GetE1()
 	for i, op := range ctx.GetOps() {
 		if i >= len(rest) {
@@ -505,9 +507,9 @@ func (p *parser) VisitConditionalAnd(ctx *gen.ConditionalAndContext) any {
 		}
 		next := p.Visit(rest[i]).(*exprpb.Expr)
 		opID := p.helper.id(op)
-		b.addTerm(opID, next)
+		l.addTerm(opID, next)
 	}
-	return b.balance()
+	return l.toExpr()
 }
 
 // Visit a parse tree produced by CELParser#relation.
@@ -866,6 +868,13 @@ func (p *parser) unquote(ctx any, value string, isBytes bool) string {
 		return value
 	}
 	return text
+}
+
+func (p *parser) newLogicManager(function string, term *exprpb.Expr) *logicManager {
+	if p.enableVariadicOperatorASTs {
+		return newVariadicLogicManager(p.helper, function, term)
+	}
+	return newBalancingLogicManager(p.helper, function, term)
 }
 
 func (p *parser) reportError(ctx any, format string, args ...any) *exprpb.Expr {
