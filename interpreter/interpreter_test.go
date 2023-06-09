@@ -31,10 +31,11 @@ import (
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/containers"
+	"github.com/google/cel-go/common/functions"
+	"github.com/google/cel-go/common/stdlib"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
-	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/parser"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
@@ -1584,7 +1585,7 @@ func TestInterpreter_LogicalAndMissingType(t *testing.T) {
 	reg := newTestRegistry(t)
 	cont := containers.DefaultContainer
 	attrs := NewAttributeFactory(cont, reg, reg)
-	intr := NewStandardInterpreter(cont, reg, reg, attrs)
+	intr := newStandardInterpreter(t, cont, reg, reg, attrs)
 	i, err := intr.NewUncheckedInterpretable(parsed.GetExpr())
 	if err == nil {
 		t.Errorf("Got '%v', wanted error", i)
@@ -1602,7 +1603,7 @@ func TestInterpreter_ExhaustiveConditionalExpr(t *testing.T) {
 	cont := containers.DefaultContainer
 	reg := newTestRegistry(t, &exprpb.ParsedExpr{})
 	attrs := NewAttributeFactory(cont, reg, reg)
-	intr := NewStandardInterpreter(cont, reg, reg, attrs)
+	intr := newStandardInterpreter(t, cont, reg, reg, attrs)
 	interpretable, _ := intr.NewUncheckedInterpretable(
 		parsed.GetExpr(),
 		ExhaustiveEval(), Observe(EvalStateObserver(state)))
@@ -1691,7 +1692,7 @@ func TestInterpreter_ExhaustiveLogicalOrEquals(t *testing.T) {
 	reg := newTestRegistry(t, &exprpb.Expr{})
 	cont := testContainer("test")
 	attrs := NewAttributeFactory(cont, reg, reg)
-	interp := NewStandardInterpreter(cont, reg, reg, attrs)
+	interp := newStandardInterpreter(t, cont, reg, reg, attrs)
 	i, _ := interp.NewUncheckedInterpretable(
 		parsed.GetExpr(),
 		ExhaustiveEval(), Observe(EvalStateObserver(state)))
@@ -1738,7 +1739,7 @@ func TestInterpreter_SetProto2PrimitiveFields(t *testing.T) {
 	}
 
 	attrs := NewAttributeFactory(cont, reg, reg)
-	i := NewStandardInterpreter(cont, reg, reg, attrs)
+	i := newStandardInterpreter(t, cont, reg, reg, attrs)
 	eval, _ := i.NewInterpretable(checked)
 	one := int32(1)
 	two := int64(2)
@@ -1791,7 +1792,7 @@ func TestInterpreter_MissingIdentInSelect(t *testing.T) {
 	}
 
 	attrs := NewPartialAttributeFactory(cont, reg, reg)
-	interp := NewStandardInterpreter(cont, reg, reg, attrs)
+	interp := newStandardInterpreter(t, cont, reg, reg, attrs)
 	i, _ := interp.NewInterpretable(checked)
 	vars, _ := NewPartialActivation(
 		map[string]any{
@@ -1849,7 +1850,7 @@ func TestInterpreter_TypeConversionOpt(t *testing.T) {
 			t.Fatalf(errors.ToDisplayString())
 		}
 		attrs := NewAttributeFactory(cont, reg, reg)
-		interp := NewStandardInterpreter(cont, reg, reg, attrs)
+		interp := newStandardInterpreter(t, cont, reg, reg, attrs)
 		// Show that program planning will now produce an error.
 		i, err := interp.NewInterpretable(checked, Optimize())
 		if tc.err && err == nil {
@@ -1925,7 +1926,7 @@ func TestInterpreter_PlanOptionalElements(t *testing.T) {
 	cont := containers.DefaultContainer
 	reg := newTestRegistry(t)
 	attrs := NewAttributeFactory(cont, reg, reg)
-	interp := NewStandardInterpreter(cont, reg, reg, attrs)
+	interp := newStandardInterpreter(t, cont, reg, reg, attrs)
 	_, err := interp.NewUncheckedInterpretable(badOptionalA, Optimize())
 	if err == nil {
 		t.Fatal("interp.NewUncheckedInterpretable() should have failed with negative optional index: -1")
@@ -1993,7 +1994,7 @@ func program(ctx any, tst *testCase, opts ...InterpretableDecorator) (Interpreta
 	}
 
 	disp := NewDispatcher()
-	disp.Add(functions.StandardOverloads()...)
+	disp.Add(stdlib.StandardOverloads()...)
 	if tst.funcs != nil {
 		disp.Add(tst.funcs...)
 	}
@@ -2101,4 +2102,17 @@ func newTestEnv(t *testing.T, cont *containers.Container, reg ref.TypeRegistry) 
 		t.Fatalf("env.Add(StandardDeclarations()...) failed: %v", err)
 	}
 	return env
+}
+
+// NewStandardInterpreter builds a Dispatcher and TypeProvider with support for all of the CEL
+// builtins defined in the language definition.
+func newStandardInterpreter(t *testing.T,
+	container *containers.Container,
+	provider ref.TypeProvider,
+	adapter ref.TypeAdapter,
+	resolver AttributeFactory) Interpreter {
+	t.Helper()
+	dispatcher := NewDispatcher()
+	dispatcher.Add(stdlib.StandardOverloads()...)
+	return NewInterpreter(dispatcher, container, provider, adapter, resolver)
 }

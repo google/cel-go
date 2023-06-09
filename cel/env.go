@@ -20,9 +20,10 @@ import (
 	"sync"
 
 	"github.com/google/cel-go/checker"
-	"github.com/google/cel-go/checker/decls"
+	chkdecls "github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/containers"
+	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter"
@@ -65,7 +66,7 @@ func (ast *Ast) SourceInfo() *exprpb.SourceInfo {
 // Deprecated: use OutputType
 func (ast *Ast) ResultType() *exprpb.Type {
 	if !ast.IsChecked() {
-		return decls.Dyn
+		return chkdecls.Dyn
 	}
 	return ast.typeMap[ast.expr.GetId()]
 }
@@ -95,7 +96,7 @@ func FormatType(t *exprpb.Type) string {
 // evaluable programs for different expressions.
 type Env struct {
 	Container       *containers.Container
-	functions       map[string]*functionDecl
+	functions       map[string]*decls.FunctionDecl
 	declarations    []*exprpb.Decl
 	macros          []parser.Macro
 	adapter         ref.TypeAdapter
@@ -155,7 +156,7 @@ func NewCustomEnv(opts ...EnvOption) (*Env, error) {
 	}
 	return (&Env{
 		declarations:    []*exprpb.Decl{},
-		functions:       map[string]*functionDecl{},
+		functions:       map[string]*decls.FunctionDecl{},
 		macros:          []parser.Macro{},
 		Container:       containers.DefaultContainer,
 		adapter:         registry,
@@ -308,7 +309,7 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 	for k, v := range e.appliedFeatures {
 		appliedFeaturesCopy[k] = v
 	}
-	funcsCopy := make(map[string]*functionDecl, len(e.functions))
+	funcsCopy := make(map[string]*decls.FunctionDecl, len(e.functions))
 	for k, v := range e.functions {
 		funcsCopy[k] = v
 	}
@@ -486,14 +487,6 @@ func (e *Env) configure(opts []EnvOption) (*Env, error) {
 	e, err = e.maybeApplyFeature(featureDefaultUTCTimeZone, Lib(timeUTCLibrary{}))
 	if err != nil {
 		return nil, err
-	}
-
-	// Initialize all of the functions configured within the environment.
-	for _, fn := range e.functions {
-		err = fn.init()
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	// Configure the parser.

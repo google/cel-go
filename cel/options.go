@@ -25,10 +25,10 @@ import (
 
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/containers"
+	"github.com/google/cel-go/common/functions"
 	"github.com/google/cel-go/common/types/pb"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter"
-	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/parser"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"

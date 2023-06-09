@@ -20,7 +20,6 @@ package interpreter
 import (
 	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/interpreter/functions"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
@@ -172,17 +171,6 @@ func NewInterpreter(dispatcher Dispatcher,
 		provider:    provider,
 		adapter:     adapter,
 		attrFactory: attrFactory}
-}
-
-// NewStandardInterpreter builds a Dispatcher and TypeProvider with support for all of the CEL
-// builtins defined in the language definition.
-func NewStandardInterpreter(container *containers.Container,
-	provider ref.TypeProvider,
-	adapter ref.TypeAdapter,
-	resolver AttributeFactory) Interpreter {
-	dispatcher := NewDispatcher()
-	dispatcher.Add(functions.StandardOverloads()...)
-	return NewInterpreter(dispatcher, container, provider, adapter, resolver)
 }
 
 // NewIntepretable implements the Interpreter interface method.

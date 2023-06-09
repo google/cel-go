@@ -20,10 +20,11 @@ import (
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/containers"
+	"github.com/google/cel-go/common/functions"
 	"github.com/google/cel-go/common/operators"
+	"github.com/google/cel-go/common/stdlib"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/interpreter/functions"
 	"github.com/google/cel-go/parser"
 	"github.com/google/cel-go/test"
 
@@ -447,7 +448,7 @@ func TestPrune(t *testing.T) {
 		reg := newTestRegistry(t, &proto3pb.TestAllTypes{})
 		attrs := NewPartialAttributeFactory(containers.DefaultContainer, reg, reg)
 		dispatcher := NewDispatcher()
-		dispatcher.Add(functions.StandardOverloads()...)
+		dispatcher.Add(stdlib.StandardOverloads()...)
 		dispatcher.Add(optionalFunctions()...)
 		interp := NewInterpreter(dispatcher, containers.DefaultContainer, reg, reg, attrs)
 
