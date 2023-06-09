@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package decls
+package checker
 
 import exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 
@@ -25,9 +25,9 @@ type Scopes struct {
 	scopes *Group
 }
 
-// NewScopes creates a new, empty Scopes.
+// newScopes creates a new, empty Scopes.
 // Some operations can't be safely performed until a Group is added with Push.
-func NewScopes() *Scopes {
+func newScopes() *Scopes {
 	return &Scopes{
 		scopes: newGroup(),
 	}
@@ -35,7 +35,7 @@ func NewScopes() *Scopes {
 
 // Copy creates a copy of the current Scopes values, including a copy of its parent if non-nil.
 func (s *Scopes) Copy() *Scopes {
-	cpy := NewScopes()
+	cpy := newScopes()
 	if s == nil {
 		return cpy
 	}
