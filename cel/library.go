@@ -105,19 +105,54 @@ func (stdLibrary) LibraryName() string {
 	return "cel.lib.std"
 }
 
-// EnvOptions returns options for the standard CEL function declarations and macros.
+// CompileOptions returns options for the standard CEL function declarations and macros.
 func (stdLibrary) CompileOptions() []EnvOption {
 	return []EnvOption{
-		Declarations(checker.StandardDeclarations()...),
+		Declarations(checker.StandardTypes()...),
 		Macros(StandardMacros...),
+		func(e *Env) (*Env, error) {
+			stdDecls, err := stdlibFuncDecls()
+			if err != nil {
+				return nil, err
+			}
+			e.declarations = append(e.declarations, stdDecls...)
+			return e, nil
+		},
 	}
 }
 
 // ProgramOptions returns function implementations for the standard CEL functions.
 func (stdLibrary) ProgramOptions() []ProgramOption {
 	return []ProgramOption{
-		Functions(stdlib.StandardOverloads()...),
+		func(p *prog) (*prog, error) {
+			for _, fn := range stdlib.Functions() {
+				bindings, err := fn.Bindings()
+				if err != nil {
+					return nil, err
+				}
+				err = p.dispatcher.Add(bindings...)
+				if err != nil {
+					return nil, err
+				}
+			}
+			return p, nil
+		},
 	}
+}
+
+func stdlibFuncDecls() ([]*exprpb.Decl, error) {
+	stdDecls := make([]*exprpb.Decl, 0, len(stdlib.Functions()))
+	for _, fn := range stdlib.Functions() {
+		if fn.IsDeclarationDisabled() {
+			continue
+		}
+		ed, err := functionDeclToExprDecl(fn)
+		if err != nil {
+			return nil, err
+		}
+		stdDecls = append(stdDecls, ed)
+	}
+	return stdDecls, nil
 }
 
 type optionalLibrary struct{}
@@ -354,28 +389,16 @@ var (
 	timeOverloadDeclarations = []EnvOption{
 		Function(overloads.TimeGetHours,
 			MemberOverload(overloads.DurationToHours, []*Type{DurationType}, IntType,
-				UnaryBinding(func(dur ref.Val) ref.Val {
-					d := dur.(types.Duration)
-					return types.Int(d.Hours())
-				}))),
+				UnaryBinding(types.DurationGetHours))),
 		Function(overloads.TimeGetMinutes,
 			MemberOverload(overloads.DurationToMinutes, []*Type{DurationType}, IntType,
-				UnaryBinding(func(dur ref.Val) ref.Val {
-					d := dur.(types.Duration)
-					return types.Int(d.Minutes())
-				}))),
+				UnaryBinding(types.DurationGetMinutes))),
 		Function(overloads.TimeGetSeconds,
 			MemberOverload(overloads.DurationToSeconds, []*Type{DurationType}, IntType,
-				UnaryBinding(func(dur ref.Val) ref.Val {
-					d := dur.(types.Duration)
-					return types.Int(d.Seconds())
-				}))),
+				UnaryBinding(types.DurationGetSeconds))),
 		Function(overloads.TimeGetMilliseconds,
 			MemberOverload(overloads.DurationToMilliseconds, []*Type{DurationType}, IntType,
-				UnaryBinding(func(dur ref.Val) ref.Val {
-					d := dur.(types.Duration)
-					return types.Int(d.Milliseconds())
-				}))),
+				UnaryBinding(types.DurationGetMilliseconds))),
 		Function(overloads.TimeGetFullYear,
 			MemberOverload(overloads.TimestampToYear, []*Type{TimestampType}, IntType,
 				UnaryBinding(func(ts ref.Val) ref.Val {

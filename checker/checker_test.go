@@ -2367,7 +2367,8 @@ func TestCheck(t *testing.T) {
 				t.Fatalf("NewEnv(cont, reg) failed: %v", err)
 			}
 			if !tc.disableStdEnv {
-				env.Add(StandardDeclarations()...)
+				env.Add(StandardTypes()...)
+				env.Add(StandardFunctions()...)
 			}
 			if tc.env.idents != nil {
 				for _, ident := range tc.env.idents {
@@ -2420,11 +2421,11 @@ func TestAddDuplicateDeclarations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewEnv() failed: %v", err)
 	}
-	err = env.Add(StandardDeclarations()...)
+	err = env.Add(StandardFunctions()...)
 	if err != nil {
 		t.Fatalf("env.Add() failed: %v", err)
 	}
-	err = env.Add(StandardDeclarations()...)
+	err = env.Add(StandardFunctions()...)
 	if err != nil {
 		t.Errorf("env.Add() failed with duplicate declarations: %v", err)
 	}
@@ -2461,7 +2462,7 @@ func TestAddEquivalentDeclarations(t *testing.T) {
 	}
 }
 
-func TestCheckErrorExprID(t *testing.T) {
+func TestCheckErrorData(t *testing.T) {
 	p, err := parser.NewParser(
 		parser.EnableOptionalSyntax(true),
 		parser.Macros(parser.AllMacros...),
@@ -2480,7 +2481,8 @@ func TestCheckErrorExprID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewEnv(cont, reg) failed: %v", err)
 	}
-	env.Add(StandardDeclarations()...)
+	env.Add(StandardTypes()...)
+	env.Add(StandardFunctions()...)
 	_, iss = Check(ast, src, env)
 	if len(iss.GetErrors()) != 1 {
 		t.Fatalf("Check() of a bad expression did produce a single error: %v", iss.ToDisplayString())

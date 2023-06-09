@@ -22,7 +22,6 @@ import (
 	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/functions"
 	"github.com/google/cel-go/common/operators"
-	"github.com/google/cel-go/common/stdlib"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/parser"
@@ -448,7 +447,7 @@ func TestPrune(t *testing.T) {
 		reg := newTestRegistry(t, &proto3pb.TestAllTypes{})
 		attrs := NewPartialAttributeFactory(containers.DefaultContainer, reg, reg)
 		dispatcher := NewDispatcher()
-		dispatcher.Add(stdlib.StandardOverloads()...)
+		addFunctionBindings(t, dispatcher)
 		dispatcher.Add(optionalFunctions()...)
 		interp := NewInterpreter(dispatcher, containers.DefaultContainer, reg, reg, attrs)
 

@@ -1112,7 +1112,7 @@ func TestAttributeStateTracking(t *testing.T) {
 			if err != nil {
 				t.Fatalf("checker.NewEnv() failed: %v", err)
 			}
-			env.Add(checker.StandardDeclarations()...)
+			env.Add(checker.StandardFunctions()...)
 			env.Add(optionalSignatures()...)
 			if tc.env != nil {
 				env.Add(tc.env...)

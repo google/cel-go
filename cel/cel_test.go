@@ -460,7 +460,7 @@ func TestCustomTypes(t *testing.T) {
 		Variable("expr", ObjectType("google.api.expr.v1alpha1.Expr")),
 	)
 
-	ast, _ := e.Compile(`
+	ast, iss := e.Compile(`
 		expr == Expr{id: 2,
 			call_expr: Expr.Call{
 				function: "_==_",
@@ -468,6 +468,9 @@ func TestCustomTypes(t *testing.T) {
 					Expr{id: 1, ident_expr: Expr.Ident{ name: "a" }},
 					Expr{id: 3, ident_expr: Expr.Ident{ name: "b" }}]
 			}}`)
+	if iss.Err() != nil {
+		t.Fatalf("Compile() failed: %v", iss.Err())
+	}
 	if ast.OutputType() != BoolType {
 		t.Fatalf("got %v, wanted type bool", ast.OutputType())
 	}
@@ -1977,8 +1980,7 @@ func TestDynamicDispatch(t *testing.T) {
 		t.Fatalf("NewEnv() failed: %v", err)
 	}
 	out, err := interpret(t, env, `
-		[].first() == 0
-		&& [1, 2].first() == 1
+		[1, 2].first() == 1
 		&& [1.0, 2.0].first() == 1.0
 		&& ["hello", "world"].first() == "hello"
 		&& [["hello"], ["world", "!"]].first().first() == "hello"

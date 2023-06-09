@@ -187,7 +187,7 @@ func Function(name string, opts ...FunctionOpt) EnvOption {
 				return nil, err
 			}
 		}
-		e.functions[name] = fn
+		e.functions[fn.Name] = fn
 		return e, nil
 	}
 }
@@ -237,6 +237,12 @@ func SingletonFunctionImpl(fn functions.FunctionOp, traits ...int) FunctionOpt {
 // e.g. traits.ContainerType. Otherwise, prefer per-overload function bindings.
 func SingletonFunctionBinding(fn functions.FunctionOp, traits ...int) FunctionOpt {
 	return decls.SingletonFunctionBinding(fn, traits...)
+}
+
+// DisableDeclaration disables the function signatures, effectively removing them from the type-check
+// environment while preserving the runtime bindings.
+func DisableDeclaration(value bool) FunctionOpt {
+	return decls.DisableDeclaration(value)
 }
 
 // Overload defines a new global overload with an overload id, argument types, and result type. Through the
@@ -348,39 +354,19 @@ func TypeToExprType(t *Type) (*exprpb.Type, error) {
 	case StringKind:
 		return maybeWrapper(t, chkdecls.String), nil
 	case StructKind:
-		switch t.RuntimeTypeName() {
-		case "google.protobuf.Any":
-			return chkdecls.Any, nil
-		case "google.protobuf.Duration":
-			return chkdecls.Duration, nil
-		case "google.protobuf.Timestamp":
-			return chkdecls.Timestamp, nil
-		case "google.protobuf.Value":
-			return chkdecls.Dyn, nil
-		case "google.protobuf.ListValue":
-			return chkdecls.NewListType(chkdecls.Dyn), nil
-		case "google.protobuf.Struct":
-			return chkdecls.NewMapType(chkdecls.String, chkdecls.Dyn), nil
-		case "google.protobuf.BoolValue":
-			return chkdecls.NewWrapperType(chkdecls.Bool), nil
-		case "google.protobuf.BytesValue":
-			return chkdecls.NewWrapperType(chkdecls.Bytes), nil
-		case "google.protobuf.DoubleValue", "google.protobuf.FloatValue":
-			return chkdecls.NewWrapperType(chkdecls.Double), nil
-		case "google.protobuf.Int32Value", "google.protobuf.Int64Value":
-			return chkdecls.NewWrapperType(chkdecls.Int), nil
-		case "google.protobuf.StringValue":
-			return chkdecls.NewWrapperType(chkdecls.String), nil
-		case "google.protobuf.UInt32Value", "google.protobuf.UInt64Value":
-			return chkdecls.NewWrapperType(chkdecls.Uint), nil
-		default:
-			return chkdecls.NewObjectType(t.RuntimeTypeName()), nil
-		}
+		return chkdecls.NewObjectType(t.RuntimeTypeName()), nil
 	case TimestampKind:
 		return chkdecls.Timestamp, nil
 	case TypeParamKind:
 		return chkdecls.NewTypeParamType(t.RuntimeTypeName()), nil
 	case TypeKind:
+		if len(t.Parameters) == 1 {
+			p, err := TypeToExprType(t.Parameters[0])
+			if err != nil {
+				return nil, err
+			}
+			return chkdecls.NewTypeType(p), nil
+		}
 		return chkdecls.NewTypeType(chkdecls.Dyn), nil
 	case UintKind:
 		return maybeWrapper(t, chkdecls.Uint), nil
@@ -420,34 +406,7 @@ func ExprTypeToType(t *exprpb.Type) (*Type, error) {
 		}
 		return MapType(kt, vt), nil
 	case *exprpb.Type_MessageType:
-		switch t.GetMessageType() {
-		case "google.protobuf.Any":
-			return AnyType, nil
-		case "google.protobuf.Duration":
-			return DurationType, nil
-		case "google.protobuf.Timestamp":
-			return TimestampType, nil
-		case "google.protobuf.Value":
-			return DynType, nil
-		case "google.protobuf.ListValue":
-			return ListType(DynType), nil
-		case "google.protobuf.Struct":
-			return MapType(StringType, DynType), nil
-		case "google.protobuf.BoolValue":
-			return NullableType(BoolType), nil
-		case "google.protobuf.BytesValue":
-			return NullableType(BytesType), nil
-		case "google.protobuf.DoubleValue", "google.protobuf.FloatValue":
-			return NullableType(DoubleType), nil
-		case "google.protobuf.Int32Value", "google.protobuf.Int64Value":
-			return NullableType(IntType), nil
-		case "google.protobuf.StringValue":
-			return NullableType(StringType), nil
-		case "google.protobuf.UInt32Value", "google.protobuf.UInt64Value":
-			return NullableType(UintType), nil
-		default:
-			return ObjectType(t.GetMessageType()), nil
-		}
+		return ObjectType(t.GetMessageType()), nil
 	case *exprpb.Type_Null:
 		return NullType, nil
 	case *exprpb.Type_Primitive:

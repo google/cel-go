@@ -23,6 +23,7 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
+	"github.com/google/cel-go/checker"
 	chkdecls "github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/functions"
@@ -1004,5 +1005,64 @@ func testCompile(t testing.TB, env *Env, expr string, want any) {
 		if err == nil || want.Error() != err.Error() {
 			t.Errorf("prg.Eval() got error '%v', wanted '%v'", err, want)
 		}
+	}
+}
+
+func TestStdLibDeclarations(t *testing.T) {
+	stdlibFuncs, err := stdlibFuncDecls()
+	if err != nil {
+		t.Fatalf("stdlibFuncDecls() failed: %v", err)
+	}
+	_, err = NewCustomEnv(
+		Declarations(checker.StandardFunctions()...),
+		Declarations(stdlibFuncs...),
+	)
+	if err != nil {
+		t.Fatalf("NewCustomEnv() failed when combining stdlib functions and checker mirrors: %v", err)
+	}
+	stdlibFuncMap := make(map[string]*exprpb.Decl, len(stdlibFuncs))
+	for _, fn := range stdlibFuncs {
+		stdlibFuncMap[fn.GetName()] = fn
+	}
+	for _, fn := range checker.StandardFunctions() {
+		stdFn, found := stdlibFuncMap[fn.GetName()]
+		if !found {
+			t.Errorf("function not found in stdlib: %v", fn)
+		}
+		if len(stdFn.GetFunction().GetOverloads()) != len(fn.GetFunction().GetOverloads()) {
+			t.Errorf("stdlib function and checker function have different overload sets. std: %v, checker: %v", stdFn, fn)
+		}
+		stdOverloadMap := make(map[string]*exprpb.Decl_FunctionDecl_Overload)
+		for _, o := range stdFn.GetFunction().GetOverloads() {
+			stdOverloadMap[o.GetOverloadId()] = o
+		}
+		for _, o := range fn.GetFunction().GetOverloads() {
+			stdOverload, found := stdOverloadMap[o.GetOverloadId()]
+			if !found {
+				t.Errorf("overload not found in stdlib: %v", o)
+			}
+			if len(stdOverload.GetTypeParams()) != len(o.GetTypeParams()) {
+				t.Errorf("type params differ. std: %v, checker: %v", stdOverload, o)
+			}
+			if stdOverload.GetIsInstanceFunction() != o.GetIsInstanceFunction() {
+				t.Errorf("instance function settings differ. std: %v, checker: %v", stdOverload, o)
+			}
+			if len(stdOverload.GetParams()) != len(o.GetParams()) {
+				t.Errorf("arg counts differ. std: %v, checker: %v", stdOverload, o)
+			}
+			for i, p := range stdOverload.GetParams() {
+				if !proto.Equal(p, o.GetParams()[i]) {
+					t.Errorf("arg types differ. std: %v, checker: %v", stdOverload.GetResultType(), o.GetResultType())
+				}
+			}
+			if !proto.Equal(stdOverload.GetResultType(), o.GetResultType()) {
+				t.Errorf("result types differ. std: %v, checker: %v", stdOverload.GetResultType(), o.GetResultType())
+			}
+			delete(stdOverloadMap, o.GetOverloadId())
+		}
+		delete(stdlibFuncMap, fn.GetName())
+	}
+	for _, fn := range stdlibFuncMap {
+		t.Errorf("function in stdlib but not checker standard functions: %v", fn)
 	}
 }
