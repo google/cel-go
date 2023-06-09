@@ -184,16 +184,6 @@ func init() {
 				[]*exprpb.Type{paramA, mapOfAB}, decls.Bool,
 				typeParamABList)),
 
-		// Deprecated 'in()' function.
-
-		decls.NewFunction(overloads.DeprecatedIn,
-			decls.NewParameterizedOverload(overloads.InList,
-				[]*exprpb.Type{paramA, listOfA}, decls.Bool,
-				typeParamAList),
-			decls.NewParameterizedOverload(overloads.InMap,
-				[]*exprpb.Type{paramA, mapOfAB}, decls.Bool,
-				typeParamABList)),
-
 		// Conversions to type.
 
 		decls.NewFunction(overloads.TypeConvertType,

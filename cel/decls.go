@@ -239,6 +239,12 @@ func SingletonFunctionBinding(fn functions.FunctionOp, traits ...int) FunctionOp
 	return decls.SingletonFunctionBinding(fn, traits...)
 }
 
+// DisableDeclaration disables the function signatures, effectively removing them from the type-check
+// environment while preserving the runtime bindings.
+func DisableDeclaration(value bool) FunctionOpt {
+	return decls.DisableDeclaration(value)
+}
+
 // Overload defines a new global overload with an overload id, argument types, and result type. Through the
 // use of OverloadOpt options, the overload may also be configured with a binding, an operand trait, and to
 // be non-strict.
@@ -354,6 +360,13 @@ func TypeToExprType(t *Type) (*exprpb.Type, error) {
 	case TypeParamKind:
 		return chkdecls.NewTypeParamType(t.RuntimeTypeName()), nil
 	case TypeKind:
+		if len(t.Parameters) == 1 {
+			p, err := TypeToExprType(t.Parameters[0])
+			if err != nil {
+				return nil, err
+			}
+			return chkdecls.NewTypeType(p), nil
+		}
 		return chkdecls.NewTypeType(chkdecls.Dyn), nil
 	case UintKind:
 		return maybeWrapper(t, chkdecls.Uint), nil

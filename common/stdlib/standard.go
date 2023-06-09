@@ -66,6 +66,7 @@ func init() {
 				decls.UnaryBinding(notStrictlyFalse))),
 		// Deprecated: __not_strictly_false__
 		function(operators.OldNotStrictlyFalse,
+			decls.DisableDeclaration(true), // safe deprecation
 			decls.Overload(operators.OldNotStrictlyFalse, argTypes(decls.BoolType), decls.BoolType,
 				decls.OverloadIsNonStrict(),
 				decls.UnaryBinding(notStrictlyFalse))),
@@ -331,10 +332,12 @@ func init() {
 			decls.Overload(overloads.InMap, argTypes(paramA, mapOfAB), decls.BoolType),
 			decls.SingletonBinaryBinding(inAggregate)),
 		function(operators.OldIn,
+			decls.DisableDeclaration(true), // safe deprecation
 			decls.Overload(overloads.InList, argTypes(paramA, listOfA), decls.BoolType),
 			decls.Overload(overloads.InMap, argTypes(paramA, mapOfAB), decls.BoolType),
 			decls.SingletonBinaryBinding(inAggregate)),
 		function(overloads.DeprecatedIn,
+			decls.DisableDeclaration(true), // safe deprecation
 			decls.Overload(overloads.InList, argTypes(paramA, listOfA), decls.BoolType),
 			decls.Overload(overloads.InMap, argTypes(paramA, mapOfAB), decls.BoolType),
 			decls.SingletonBinaryBinding(inAggregate)),
@@ -392,7 +395,7 @@ func init() {
 
 		// Dyn conversions
 		function(overloads.TypeConvertDyn,
-			decls.Overload(overloads.TypeConvertDyn, argTypes(paramA), decls.DynType),
+			decls.Overload(overloads.ToDyn, argTypes(paramA), decls.DynType),
 			decls.SingletonUnaryBinding(identity)),
 
 		// Int conversions

@@ -402,6 +402,16 @@ type FunctionDecl struct {
 	// add overhead on common operations. Setting this option true leaves error checks and argument checks
 	// intact.
 	disableTypeGuards bool
+
+	// declarationDisabled indicates that the binding should be provided on the runtime, but the method should
+	// not be exposed as a declaration available for use.
+	declarationDisabled bool
+}
+
+// IsDeclarationDisabled indicates that the function implementation should be added to the dispatcher, but the
+// declaration should not be exposed for use in expressions.
+func (f *FunctionDecl) IsDeclarationDisabled() bool {
+	return f.declarationDisabled
 }
 
 // Merge combines an existing function declaration with another.
@@ -571,6 +581,16 @@ type FunctionOpt func(*FunctionDecl) (*FunctionDecl, error)
 func DisableTypeGuards(value bool) FunctionOpt {
 	return func(fn *FunctionDecl) (*FunctionDecl, error) {
 		fn.disableTypeGuards = value
+		return fn, nil
+	}
+}
+
+// DisableDeclaration indicates that the function declaration should be disabled, but the runtime function
+// binding should be provided. Marking a function as runtime-only is a safe way to manage deprecations
+// of function declarations while still preserving the runtime behavior for previously compiled expressions.
+func DisableDeclaration(value bool) FunctionOpt {
+	return func(fn *FunctionDecl) (*FunctionDecl, error) {
+		fn.declarationDisabled = value
 		return fn, nil
 	}
 }
