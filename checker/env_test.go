@@ -120,7 +120,7 @@ func BenchmarkNewStdEnv(b *testing.B) {
 		decls = append(decls, StandardFunctions()...)
 		err = env.Add(decls...)
 		if err != nil {
-			b.Fatalf("env.Add(StandardDeclarations()) failed: %v", err)
+			b.Fatalf("env.Add(StandardFunctions()) failed: %v", err)
 		}
 	}
 }
@@ -135,7 +135,7 @@ func BenchmarkCopyDeclarations(b *testing.B) {
 	decls = append(decls, StandardFunctions()...)
 	err = env.Add(decls...)
 	if err != nil {
-		b.Fatalf("env.Add(StandardDeclarations()) failed: %v", err)
+		b.Fatalf("env.Add(StandardFunctions()) failed: %v", err)
 	}
 	for i := 0; i < b.N; i++ {
 		env.validatedDeclarations().Copy()
