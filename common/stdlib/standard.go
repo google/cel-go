@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package stdlib contains all of the standard library function declarations and definitions for CEL.
 package stdlib
 
 import (
@@ -548,6 +549,7 @@ func init() {
 	}
 }
 
+// Functions returns the set of standard library function declarations and definitions for CEL.
 func Functions() []*decls.FunctionDecl {
 	return stdFunctions
 }
