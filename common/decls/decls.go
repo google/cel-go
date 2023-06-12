@@ -525,7 +525,7 @@ func (f *FunctionDecl) Bindings() ([]*functions.Overload, error) {
 	bindings := append([]*functions.Overload{}, overloads...)
 	funcDispatch := func(args ...ref.Val) ref.Val {
 		for _, o := range f.Overloads {
-			// During dynamic dispatch over mulitple functions, signature agreement checks
+			// During dynamic dispatch over multiple functions, signature agreement checks
 			// are preserved in order to assist with the function resolution step.
 			switch len(args) {
 			case 1:
@@ -734,7 +734,7 @@ type OverloadDecl struct {
 	// IsMemberFunction indicates whether the overload is a member function
 	IsMemberFunction bool
 
-	// Function implmentation options. Optional, but encouraged.
+	// Function implementation options. Optional, but encouraged.
 	// UnaryOp is a function binding that takes a single argument.
 	UnaryOp functions.UnaryOp
 	// BinaryOp is a function binding that takes two arguments.

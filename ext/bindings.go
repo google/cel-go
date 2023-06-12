@@ -80,7 +80,7 @@ func celBind(meh cel.MacroExprHelper, target *exprpb.Expr, args []*exprpb.Expr) 
 	case *exprpb.Expr_IdentExpr:
 		varName = varIdent.GetIdentExpr().GetName()
 	default:
-		return nil, meh.NewError(varIdent.GetId(), "cel.bind() variable names must be simple identifers")
+		return nil, meh.NewError(varIdent.GetId(), "cel.bind() variable names must be simple identifiers")
 	}
 	varInit := args[1]
 	resultExpr := args[2]
