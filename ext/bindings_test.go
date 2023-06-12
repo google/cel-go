@@ -93,7 +93,7 @@ func TestBindingsInvalidIdent(t *testing.T) {
 		t.Fatalf("cel.NewEnv(Bindings(), Strings()) failed: %v", err)
 	}
 	invalidIdentExpr := `cel.bind(a.b, 1, a.b)`
-	wantErr := "ERROR: <input>:1:11: cel.bind() variable names must be simple identifers"
+	wantErr := "ERROR: <input>:1:11: cel.bind() variable names must be simple identifiers"
 	_, iss := env.Parse(invalidIdentExpr)
 	if !strings.Contains(iss.Err().Error(), wantErr) {
 		t.Fatalf("env.Parse(%v) failed: %v", invalidIdentExpr, iss.Err())

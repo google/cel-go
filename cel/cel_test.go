@@ -2078,7 +2078,7 @@ func TestOptionalValuesCompile(t *testing.T) {
 			},
 		},
 		{
-			// Index selection against an value in an optional list.
+			// Index selection against a value in an optional list.
 			expr: `optl[0]`,
 			references: map[int64]*exprpb.Reference{
 				1: {Name: "optl"},
@@ -2086,7 +2086,7 @@ func TestOptionalValuesCompile(t *testing.T) {
 			},
 		},
 		{
-			// Index selection against an value in an optional list.
+			// Index selection against a value in an optional list.
 			expr: `optl[?0]`,
 			references: map[int64]*exprpb.Reference{
 				1: {Name: "optl"},
