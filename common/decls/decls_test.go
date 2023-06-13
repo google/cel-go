@@ -649,7 +649,51 @@ func TestFunctionDisableDeclaration(t *testing.T) {
 		t.Fatalf("NewFunction() failed: %v", err)
 	}
 	if !fn.IsDeclarationDisabled() {
-		t.Error("got declaration not disabled, wanted disabled")
+		t.Error("got declaration enabled, wanted disabled")
+	}
+}
+
+func TestFunctionEnableDeclaration(t *testing.T) {
+	fn, err := NewFunction("in",
+		DisableDeclaration(false),
+		Overload("in_list",
+			[]*Type{ListType(TypeParamType("K")), TypeParamType("K")},
+			BoolType),
+	)
+	if err != nil {
+		t.Fatalf("NewFunction() failed: %v", err)
+	}
+	if fn.IsDeclarationDisabled() {
+		t.Error("got declaration disabled, wanted enabled")
+	}
+	fn2, err := NewFunction("in",
+		DisableDeclaration(true),
+		Overload("in_list",
+			[]*Type{ListType(TypeParamType("K")), TypeParamType("K")},
+			BoolType),
+	)
+	if err != nil {
+		t.Fatalf("NewFunction() failed: %v", err)
+	}
+	if !fn2.IsDeclarationDisabled() {
+		t.Error("got declaration enabled, wanted disabled")
+	}
+
+	// enabled -> disabled
+	merged, err := fn.Merge(fn2)
+	if err != nil {
+		t.Fatalf("fn.Merge(fn2) failed: %v", err)
+	}
+	if !merged.IsDeclarationDisabled() {
+		t.Error("got declaration enabled, wanted disabled")
+	}
+	// disabled -> enabled
+	merged2, err := fn2.Merge(fn)
+	if err != nil {
+		t.Fatalf("fn.Merge(fn2) failed: %v", err)
+	}
+	if merged2.IsDeclarationDisabled() {
+		t.Error("got declaration disabled, wanted enabled")
 	}
 }
 

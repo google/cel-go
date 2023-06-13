@@ -177,10 +177,6 @@ func Function(name string, opts ...FunctionOpt) EnvOption {
 		if err != nil {
 			return nil, err
 		}
-		_, err = decls.FunctionDeclToExprDecl(fn)
-		if err != nil {
-			return nil, err
-		}
 		if existing, found := e.functions[fn.Name]; found {
 			fn, err = existing.Merge(fn)
 			if err != nil {

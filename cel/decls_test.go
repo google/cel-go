@@ -518,6 +518,114 @@ func TestFunctionBinding(t *testing.T) {
 	}
 }
 
+func TestFunctionDisableDeclaration(t *testing.T) {
+	e, err := NewCustomEnv(
+		Function("disabled",
+			DisableDeclaration(true),
+			Overload("disabled_any", []*Type{BoolType}, BoolType),
+			SingletonFunctionImpl(func(args ...ref.Val) ref.Val {
+				return types.True
+			}),
+		),
+	)
+	if err != nil {
+		t.Fatalf("NewCustomEnv() failed: %v", err)
+	}
+	ast, iss := e.Parse("disabled(true)")
+	if iss.Err() != nil {
+		t.Errorf("Parse(disabled(true)) failed: %v", iss.Err())
+	}
+	prg, err := e.Program(ast)
+	if err != nil {
+		t.Fatalf("Program(ast) failed: %v", err)
+	}
+	out, _, err := prg.Eval(NoVars())
+	if err != nil {
+		t.Errorf("disabled runtime binding missing: %v", err)
+	} else if out != types.True {
+		t.Errorf("disabled runtime binding failed: %v", out)
+	}
+	_, iss = e.Compile("disabled(true)")
+	if iss.Err() == nil || !strings.Contains(iss.Err().Error(), "undeclared reference to 'disabled'") {
+		t.Errorf("Compile(disabled(true)) got an unexpected error: %v", iss.Err())
+	}
+}
+
+func TestFunctionDisableDeclarationMerge(t *testing.T) {
+	e, err := NewCustomEnv(
+		Function("disabled",
+			Overload("disabled_any", []*Type{BoolType}, BoolType),
+		),
+		// Ensure the previously enabled declaration is disabled
+		Function("disabled",
+			DisableDeclaration(true),
+			Overload("disabled_any", []*Type{BoolType}, BoolType,
+				FunctionBinding(func(args ...ref.Val) ref.Val {
+					return types.True
+				})),
+		),
+	)
+	if err != nil {
+		t.Fatalf("NewCustomEnv() failed: %v", err)
+	}
+	ast, iss := e.Parse("disabled(true)")
+	if iss.Err() != nil {
+		t.Errorf("Parse(disabled(true)) failed: %v", iss.Err())
+	}
+	prg, err := e.Program(ast)
+	if err != nil {
+		t.Fatalf("Program(ast) failed: %v", err)
+	}
+	out, _, err := prg.Eval(NoVars())
+	if err != nil {
+		t.Errorf("disabled runtime binding missing: %v", err)
+	} else if out != types.True {
+		t.Errorf("disabled runtime binding failed: %v", out)
+	}
+	_, iss = e.Compile("disabled(true)")
+	if iss.Err() == nil || !strings.Contains(iss.Err().Error(), "undeclared reference to 'disabled'") {
+		t.Errorf("Compile(disabled(true)) got an unexpected error: %v", iss.Err())
+	}
+}
+
+func TestFunctionDisableDeclarationMergeReenable(t *testing.T) {
+	e, err := NewCustomEnv(
+		Function("enabled",
+			DisableDeclaration(true),
+			Overload("enabled_any", []*Type{BoolType}, BoolType),
+		),
+		// Ensure the previously disabled declaration is enabled
+		Function("enabled",
+			DisableDeclaration(false),
+			Overload("enabled_any", []*Type{BoolType}, BoolType,
+				FunctionBinding(func(args ...ref.Val) ref.Val {
+					return types.True
+				})),
+		),
+	)
+	if err != nil {
+		t.Fatalf("NewCustomEnv() failed: %v", err)
+	}
+	ast, iss := e.Parse("enabled(true)")
+	if iss.Err() != nil {
+		t.Errorf("Parse(enabled(true)) failed: %v", iss.Err())
+	}
+	prg, err := e.Program(ast)
+	if err != nil {
+		t.Fatalf("Program(ast) failed: %v", err)
+	}
+	out, _, err := prg.Eval(NoVars())
+	if err != nil {
+		t.Errorf("enabled runtime binding missing: %v", err)
+	} else if out != types.True {
+		t.Errorf("enabled runtime binding failed: %v", out)
+	}
+	_, iss = e.Compile("enabled(true)")
+	if iss.Err() != nil {
+		t.Errorf("Compile(enabled(true)) got an unexpected error: %v", iss.Err())
+	}
+}
+
 func TestExprDeclToDeclaration(t *testing.T) {
 	size, err := ExprDeclToDeclaration(
 		chkdecls.NewFunction("size", chkdecls.NewOverload("size_string", []*exprpb.Type{chkdecls.String}, chkdecls.Int)),

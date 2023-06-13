@@ -70,18 +70,25 @@ type FunctionDecl struct {
 	// intact.
 	disableTypeGuards bool
 
-	// declarationDisabled indicates that the binding should be provided on the runtime, but the method should
-	// not be exposed as a declaration available for use.
-	declarationDisabled bool
+	// state indicates that the binding should be provided as a declaration, as a runtime binding, or both.
+	state declarationState
 
 	// overloadOrdinals indicates the order in which the overload was declared.
 	overloadOrdinals []string
 }
 
+type declarationState int
+
+const (
+	declarationStateUnset declarationState = iota
+	declarationDisabled
+	declarationEnabled
+)
+
 // IsDeclarationDisabled indicates that the function implementation should be added to the dispatcher, but the
 // declaration should not be exposed for use in expressions.
 func (f *FunctionDecl) IsDeclarationDisabled() bool {
-	return f.declarationDisabled
+	return f.state == declarationDisabled
 }
 
 // Merge combines an existing function declaration with another.
@@ -101,6 +108,16 @@ func (f *FunctionDecl) Merge(other *FunctionDecl) (*FunctionDecl, error) {
 		Overloads:        make(map[string]*OverloadDecl, len(f.Overloads)),
 		Singleton:        f.Singleton,
 		overloadOrdinals: make([]string, len(f.Overloads)),
+		// if one function is expecting type-guards and the other is not, then they
+		// must not be disabled.
+		disableTypeGuards: f.disableTypeGuards && other.disableTypeGuards,
+		// default to the current functions declaration state.
+		state: f.state,
+	}
+	// If the other state indicates that the declaration should be explicitly enabled or
+	// disabled, then update the merged state with the most recent value.
+	if other.state != declarationStateUnset {
+		merged.state = other.state
 	}
 	// baseline copy of the overloads and their ordinals
 	copy(merged.overloadOrdinals, f.overloadOrdinals)
@@ -267,7 +284,11 @@ func DisableTypeGuards(value bool) FunctionOpt {
 // of function declarations while still preserving the runtime behavior for previously compiled expressions.
 func DisableDeclaration(value bool) FunctionOpt {
 	return func(fn *FunctionDecl) (*FunctionDecl, error) {
-		fn.declarationDisabled = value
+		if value {
+			fn.state = declarationDisabled
+		} else {
+			fn.state = declarationEnabled
+		}
 		return fn, nil
 	}
 }
