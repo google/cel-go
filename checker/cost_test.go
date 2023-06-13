@@ -22,6 +22,7 @@ import (
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/overloads"
+	"github.com/google/cel-go/common/stdlib"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/parser"
 
@@ -490,7 +491,7 @@ func TestCost(t *testing.T) {
 			if err != nil {
 				t.Fatalf("NewEnv() failed: %v", err)
 			}
-			err = e.Add(StandardFunctions()...)
+			err = e.Add(stdlib.FunctionExprDecls()...)
 			if err != nil {
 				t.Fatalf("environment creation error: %v", err)
 			}

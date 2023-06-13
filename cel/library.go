@@ -19,7 +19,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/stdlib"
@@ -108,16 +107,9 @@ func (stdLibrary) LibraryName() string {
 // CompileOptions returns options for the standard CEL function declarations and macros.
 func (stdLibrary) CompileOptions() []EnvOption {
 	return []EnvOption{
-		Declarations(checker.StandardTypes()...),
+		Declarations(stdlib.TypeExprDecls()...),
+		Declarations(stdlib.FunctionExprDecls()...),
 		Macros(StandardMacros...),
-		func(e *Env) (*Env, error) {
-			stdDecls, err := stdlibFuncDecls()
-			if err != nil {
-				return nil, err
-			}
-			e.declarations = append(e.declarations, stdDecls...)
-			return e, nil
-		},
 	}
 }
 
@@ -138,21 +130,6 @@ func (stdLibrary) ProgramOptions() []ProgramOption {
 			return p, nil
 		},
 	}
-}
-
-func stdlibFuncDecls() ([]*exprpb.Decl, error) {
-	stdDecls := make([]*exprpb.Decl, 0, len(stdlib.Functions()))
-	for _, fn := range stdlib.Functions() {
-		if fn.IsDeclarationDisabled() {
-			continue
-		}
-		ed, err := functionDeclToExprDecl(fn)
-		if err != nil {
-			return nil, err
-		}
-		stdDecls = append(stdDecls, ed)
-	}
-	return stdDecls, nil
 }
 
 type optionalLibrary struct{}

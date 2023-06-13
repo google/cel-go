@@ -24,6 +24,7 @@ import (
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/containers"
+	"github.com/google/cel-go/common/stdlib"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/parser"
@@ -1112,7 +1113,7 @@ func TestAttributeStateTracking(t *testing.T) {
 			if err != nil {
 				t.Fatalf("checker.NewEnv() failed: %v", err)
 			}
-			env.Add(checker.StandardFunctions()...)
+			env.Add(stdlib.FunctionExprDecls()...)
 			env.Add(optionalSignatures()...)
 			if tc.env != nil {
 				env.Add(tc.env...)

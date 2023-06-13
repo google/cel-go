@@ -19,9 +19,14 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
+	chkdecls "github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
+
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 func TestFunctionBindings(t *testing.T) {
@@ -646,4 +651,288 @@ func TestFunctionDisableDeclaration(t *testing.T) {
 	if !fn.IsDeclarationDisabled() {
 		t.Error("got declaration not disabled, wanted disabled")
 	}
+}
+
+func TestFunctionDeclToExprDecl(t *testing.T) {
+	tests := []struct {
+		fn     *FunctionDecl
+		exDecl *exprpb.Decl
+	}{
+		{
+			fn: testFunction(t, "equals",
+				Overload("equals_value_value", []*Type{TypeParamType("T"), TypeParamType("T")}, BoolType)),
+			exDecl: &exprpb.Decl{
+				Name: "equals",
+				DeclKind: &exprpb.Decl_Function{
+					Function: &exprpb.Decl_FunctionDecl{
+						Overloads: []*exprpb.Decl_FunctionDecl_Overload{
+							{
+								OverloadId: "equals_value_value",
+								Params: []*exprpb.Type{
+									chkdecls.NewTypeParamType("T"),
+									chkdecls.NewTypeParamType("T"),
+								},
+								TypeParams: []string{"T"},
+								ResultType: chkdecls.Bool,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			fn: testFunction(t, "equals",
+				MemberOverload("value_equals_value", []*Type{TypeParamType("T"), TypeParamType("T")}, BoolType)),
+			exDecl: &exprpb.Decl{
+				Name: "equals",
+				DeclKind: &exprpb.Decl_Function{
+					Function: &exprpb.Decl_FunctionDecl{
+						Overloads: []*exprpb.Decl_FunctionDecl_Overload{
+							{
+								OverloadId:         "value_equals_value",
+								IsInstanceFunction: true,
+								Params: []*exprpb.Type{
+									chkdecls.NewTypeParamType("T"),
+									chkdecls.NewTypeParamType("T"),
+								},
+								TypeParams: []string{"T"},
+								ResultType: chkdecls.Bool,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			fn: testFunction(t, "equals",
+				Overload("equals_int_uint", []*Type{IntType, UintType}, BoolType)),
+			exDecl: &exprpb.Decl{
+				Name: "equals",
+				DeclKind: &exprpb.Decl_Function{
+					Function: &exprpb.Decl_FunctionDecl{
+						Overloads: []*exprpb.Decl_FunctionDecl_Overload{
+							{
+								OverloadId: "equals_int_uint",
+								Params: []*exprpb.Type{
+									chkdecls.Int,
+									chkdecls.Uint,
+								},
+								ResultType: chkdecls.Bool,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			fn: testFunction(t, "equals",
+				MemberOverload("int_equals_uint", []*Type{IntType, UintType}, BoolType)),
+			exDecl: &exprpb.Decl{
+				Name: "equals",
+				DeclKind: &exprpb.Decl_Function{
+					Function: &exprpb.Decl_FunctionDecl{
+						Overloads: []*exprpb.Decl_FunctionDecl_Overload{
+							{
+								OverloadId:         "int_equals_uint",
+								IsInstanceFunction: true,
+								Params: []*exprpb.Type{
+									chkdecls.Int,
+									chkdecls.Uint,
+								},
+								ResultType: chkdecls.Bool,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			fn: testFunction(t, "equals",
+				MemberOverload("list_optional_value_equals_list_optional_value", []*Type{
+					ListType(OptionalType(TypeParamType("T"))),
+					ListType(OptionalType(TypeParamType("T"))),
+				}, BoolType)),
+			exDecl: &exprpb.Decl{
+				Name: "equals",
+				DeclKind: &exprpb.Decl_Function{
+					Function: &exprpb.Decl_FunctionDecl{
+						Overloads: []*exprpb.Decl_FunctionDecl_Overload{
+							{
+								OverloadId:         "list_optional_value_equals_list_optional_value",
+								IsInstanceFunction: true,
+								Params: []*exprpb.Type{
+									chkdecls.NewListType(chkdecls.NewOptionalType(chkdecls.NewTypeParamType("T"))),
+									chkdecls.NewListType(chkdecls.NewOptionalType(chkdecls.NewTypeParamType("T"))),
+								},
+								TypeParams: []string{"T"},
+								ResultType: chkdecls.Bool,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			fn: testFunction(t, "equals",
+				MemberOverload("int_equals_uint", []*Type{IntType, UintType}, BoolType),
+				MemberOverload("uint_equals_int", []*Type{UintType, IntType}, BoolType)),
+			exDecl: &exprpb.Decl{
+				Name: "equals",
+				DeclKind: &exprpb.Decl_Function{
+					Function: &exprpb.Decl_FunctionDecl{
+						Overloads: []*exprpb.Decl_FunctionDecl_Overload{
+							{
+								OverloadId:         "int_equals_uint",
+								IsInstanceFunction: true,
+								Params: []*exprpb.Type{
+									chkdecls.Int,
+									chkdecls.Uint,
+								},
+								ResultType: chkdecls.Bool,
+							},
+							{
+								OverloadId:         "uint_equals_int",
+								IsInstanceFunction: true,
+								Params: []*exprpb.Type{
+									chkdecls.Uint,
+									chkdecls.Int,
+								},
+								ResultType: chkdecls.Bool,
+							},
+						},
+					},
+				},
+			},
+		},
+		// Test to make sure the overloads are in stable order: int_uint | uint_int | int_int | uint_uint
+		{
+			fn: testMerge(t,
+				testFunction(t, "equals",
+					Overload("int_equals_uint", []*Type{IntType, UintType}, BoolType),
+					Overload("uint_equals_int", []*Type{UintType, IntType}, BoolType)),
+				testFunction(t, "equals",
+					Overload("int_equals_int", []*Type{IntType, IntType}, BoolType),
+					Overload("int_equals_uint", []*Type{IntType, UintType}, BoolType),
+					Overload("uint_equals_uint", []*Type{UintType, UintType}, BoolType))),
+			exDecl: &exprpb.Decl{
+				Name: "equals",
+				DeclKind: &exprpb.Decl_Function{
+					Function: &exprpb.Decl_FunctionDecl{
+						Overloads: []*exprpb.Decl_FunctionDecl_Overload{
+							{
+								OverloadId: "int_equals_uint",
+								Params: []*exprpb.Type{
+									chkdecls.Int,
+									chkdecls.Uint,
+								},
+								ResultType: chkdecls.Bool,
+							},
+							{
+								OverloadId: "uint_equals_int",
+								Params: []*exprpb.Type{
+									chkdecls.Uint,
+									chkdecls.Int,
+								},
+								ResultType: chkdecls.Bool,
+							},
+							{
+								OverloadId: "int_equals_int",
+								Params: []*exprpb.Type{
+									chkdecls.Int,
+									chkdecls.Int,
+								},
+								ResultType: chkdecls.Bool,
+							},
+							{
+								OverloadId: "uint_equals_uint",
+								Params: []*exprpb.Type{
+									chkdecls.Uint,
+									chkdecls.Uint,
+								},
+								ResultType: chkdecls.Bool,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tst := range tests {
+		exDecl, err := FunctionDeclToExprDecl(tst.fn)
+		if err != nil {
+			t.Fatalf("FunctionDeclToExprDecl(%v) failed: %v", tst.fn, err)
+		}
+		if !proto.Equal(exDecl, tst.exDecl) {
+			t.Errorf("got not equal, wanted %v == %v", exDecl, tst.exDecl)
+		}
+	}
+}
+
+func TestFunctionDeclToExprDeclInvalid(t *testing.T) {
+	fn1 := testFunction(t, "bad_equals",
+		MemberOverload("bad_equals_param", []*Type{{}, UintType}, BoolType))
+	ex1, err := FunctionDeclToExprDecl(fn1)
+	if err == nil {
+		t.Errorf("FunctionDeclToExprDecl(bad_equals) succeeded: %v, wanted error", ex1)
+	}
+	fn2 := testFunction(t, "bad_equals",
+		Overload("bad_equals_out", []*Type{IntType, UintType}, &Type{}))
+	ex2, err := FunctionDeclToExprDecl(fn2)
+	if err == nil {
+		t.Errorf("FunctionDeclToExprDecl(bad_equals) succeeded: %v, wanted error", ex2)
+	}
+}
+
+func TestNewVariable(t *testing.T) {
+	a := NewVariable("a", BoolType)
+	if !a.DeclarationEquals(a) {
+		t.Error("NewVariable(a, bool) does not equal itself")
+	}
+	if !a.DeclarationEquals(NewVariable("a", BoolType)) {
+		t.Error("NewVariable(a, bool) does not equal itself")
+	}
+	a1 := NewVariable("a", IntType)
+	if a.DeclarationEquals(a1) {
+		t.Error("NewVariable(a, int).DeclarationEquals(NewVariable(a, bool))")
+	}
+}
+
+func TestVariableDeclToExprDecl(t *testing.T) {
+	a, err := VariableDeclToExprDecl(NewVariable("a", BoolType))
+	if err != nil {
+		t.Fatalf("VariableDeclToExprDecl() failed: %v", err)
+	}
+	if !proto.Equal(a, chkdecls.NewVar("a", chkdecls.Bool)) {
+		t.Error("proto.Equal() returned false, wanted true")
+	}
+
+}
+
+func TestVariableDeclToExprDeclInvalid(t *testing.T) {
+	out, err := VariableDeclToExprDecl(NewVariable("bad", &Type{}))
+	if err == nil {
+		t.Fatalf("VariableDeclToExprDecl() succeeded: %v, wanted error", out)
+	}
+}
+
+func testMerge(t *testing.T, funcs ...*FunctionDecl) *FunctionDecl {
+	t.Helper()
+	fn := funcs[0]
+	var err error
+	for i := 1; i < len(funcs); i++ {
+		fn, err = fn.Merge(funcs[i])
+		if err != nil {
+			t.Fatalf("%v.Merge(%v) failed: %v", fn, funcs[i], err)
+		}
+	}
+	return fn
+}
+
+func testFunction(t *testing.T, name string, opts ...FunctionOpt) *FunctionDecl {
+	t.Helper()
+	fn, err := NewFunction(name, opts...)
+	if err != nil {
+		t.Fatalf("NewFunction() failed: %v", err)
+	}
+	return fn
 }

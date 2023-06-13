@@ -18,9 +18,12 @@ import (
 	"fmt"
 	"strings"
 
+	chkdecls "github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
+
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 // Kind indicates a CEL type's kind which is used to differentiate quickly between simple and complex types.
@@ -28,7 +31,7 @@ type Kind uint
 
 const (
 	// DynKind represents a dynamic type. This kind only exists at type-check time.
-	DynKind Kind = iota
+	DynKind Kind = iota + 1
 
 	// AnyKind represents a google.protobuf.Any type. This kind only exists at type-check time.
 	AnyKind
@@ -167,7 +170,7 @@ func (t *Type) IsType(other *Type) bool {
 	if t.Kind != other.Kind || len(t.Parameters) != len(other.Parameters) {
 		return false
 	}
-	if t.Kind != TypeParamKind && t.RuntimeTypeName() != other.RuntimeTypeName() {
+	if t.Kind != TypeParamKind && t.DeclaredTypeName() != other.DeclaredTypeName() {
 		return false
 	}
 	for i, p := range t.Parameters {
@@ -197,21 +200,38 @@ func (t *Type) IsAssignableRuntimeType(val ref.Val) bool {
 	return t.defaultIsAssignableRuntimeType(val)
 }
 
+// DeclaredTypeName indicates the type-check type name associated with the type.
+func (t *Type) DeclaredTypeName() string {
+	// if the type itself is neither null, nor dyn, but is assignable to null, then it's a wrapper type.
+	if t.Kind != NullTypeKind && !t.isDyn() && t.IsAssignableType(NullType) {
+		return fmt.Sprintf("wrapper(%s)", t.RuntimeTypeName())
+	}
+	return t.RuntimeTypeName()
+}
+
 // RuntimeTypeName indicates the type-erased type name associated with the type.
 func (t *Type) RuntimeTypeName() string {
+	if t.runtimeType == nil {
+		return ""
+	}
 	return t.runtimeType.TypeName()
+}
+
+// TypeVariable creates a new type identifier for use within a ref.TypeProvider
+func (t *Type) TypeVariable() *VariableDecl {
+	return NewVariable(t.RuntimeTypeName(), TypeTypeWithParam(t))
 }
 
 // String returns a human-readable definition of the type name.
 func (t *Type) String() string {
 	if len(t.Parameters) == 0 {
-		return t.runtimeType.TypeName()
+		return t.DeclaredTypeName()
 	}
 	params := make([]string, len(t.Parameters))
 	for i, p := range t.Parameters {
 		params[i] = p.String()
 	}
-	return fmt.Sprintf("%s(%s)", t.runtimeType.TypeName(), strings.Join(params, ", "))
+	return fmt.Sprintf("%s(%s)", t.DeclaredTypeName(), strings.Join(params, ", "))
 }
 
 // isDyn indicates whether the type is dynamic in any way.
@@ -357,6 +377,172 @@ func TypeTypeWithParam(param *Type) *Type {
 		Parameters:  []*Type{param},
 		runtimeType: types.TypeType,
 	}
+}
+
+// TypeToExprType converts a CEL-native type representation to a protobuf CEL Type representation.
+func TypeToExprType(t *Type) (*exprpb.Type, error) {
+	switch t.Kind {
+	case AnyKind:
+		return chkdecls.Any, nil
+	case BoolKind:
+		return maybeWrapper(t, chkdecls.Bool), nil
+	case BytesKind:
+		return maybeWrapper(t, chkdecls.Bytes), nil
+	case DoubleKind:
+		return maybeWrapper(t, chkdecls.Double), nil
+	case DurationKind:
+		return chkdecls.Duration, nil
+	case DynKind:
+		return chkdecls.Dyn, nil
+	case IntKind:
+		return maybeWrapper(t, chkdecls.Int), nil
+	case ListKind:
+		if len(t.Parameters) != 1 {
+			return nil, fmt.Errorf("invalid list, got %d parameters, wanted one", len(t.Parameters))
+		}
+		et, err := TypeToExprType(t.Parameters[0])
+		if err != nil {
+			return nil, err
+		}
+		return chkdecls.NewListType(et), nil
+	case MapKind:
+		if len(t.Parameters) != 2 {
+			return nil, fmt.Errorf("invalid map, got %d parameters, wanted two", len(t.Parameters))
+		}
+		kt, err := TypeToExprType(t.Parameters[0])
+		if err != nil {
+			return nil, err
+		}
+		vt, err := TypeToExprType(t.Parameters[1])
+		if err != nil {
+			return nil, err
+		}
+		return chkdecls.NewMapType(kt, vt), nil
+	case NullTypeKind:
+		return chkdecls.Null, nil
+	case OpaqueKind:
+		params := make([]*exprpb.Type, len(t.Parameters))
+		for i, p := range t.Parameters {
+			pt, err := TypeToExprType(p)
+			if err != nil {
+				return nil, err
+			}
+			params[i] = pt
+		}
+		return chkdecls.NewAbstractType(t.RuntimeTypeName(), params...), nil
+	case StringKind:
+		return maybeWrapper(t, chkdecls.String), nil
+	case StructKind:
+		return chkdecls.NewObjectType(t.RuntimeTypeName()), nil
+	case TimestampKind:
+		return chkdecls.Timestamp, nil
+	case TypeParamKind:
+		return chkdecls.NewTypeParamType(t.RuntimeTypeName()), nil
+	case TypeKind:
+		if len(t.Parameters) == 1 {
+			p, err := TypeToExprType(t.Parameters[0])
+			if err != nil {
+				return nil, err
+			}
+			return chkdecls.NewTypeType(p), nil
+		}
+		return chkdecls.NewTypeType(nil), nil
+	case UintKind:
+		return maybeWrapper(t, chkdecls.Uint), nil
+	}
+	return nil, fmt.Errorf("missing type conversion to proto: %v", t)
+}
+
+// ExprTypeToType converts a protobuf CEL type representation to a CEL-native type representation.
+func ExprTypeToType(t *exprpb.Type) (*Type, error) {
+	switch t.GetTypeKind().(type) {
+	case *exprpb.Type_Dyn:
+		return DynType, nil
+	case *exprpb.Type_AbstractType_:
+		paramTypes := make([]*Type, len(t.GetAbstractType().GetParameterTypes()))
+		for i, p := range t.GetAbstractType().GetParameterTypes() {
+			pt, err := ExprTypeToType(p)
+			if err != nil {
+				return nil, err
+			}
+			paramTypes[i] = pt
+		}
+		return OpaqueType(t.GetAbstractType().GetName(), paramTypes...), nil
+	case *exprpb.Type_ListType_:
+		et, err := ExprTypeToType(t.GetListType().GetElemType())
+		if err != nil {
+			return nil, err
+		}
+		return ListType(et), nil
+	case *exprpb.Type_MapType_:
+		kt, err := ExprTypeToType(t.GetMapType().GetKeyType())
+		if err != nil {
+			return nil, err
+		}
+		vt, err := ExprTypeToType(t.GetMapType().GetValueType())
+		if err != nil {
+			return nil, err
+		}
+		return MapType(kt, vt), nil
+	case *exprpb.Type_MessageType:
+		return ObjectType(t.GetMessageType()), nil
+	case *exprpb.Type_Null:
+		return NullType, nil
+	case *exprpb.Type_Primitive:
+		switch t.GetPrimitive() {
+		case exprpb.Type_BOOL:
+			return BoolType, nil
+		case exprpb.Type_BYTES:
+			return BytesType, nil
+		case exprpb.Type_DOUBLE:
+			return DoubleType, nil
+		case exprpb.Type_INT64:
+			return IntType, nil
+		case exprpb.Type_STRING:
+			return StringType, nil
+		case exprpb.Type_UINT64:
+			return UintType, nil
+		default:
+			return nil, fmt.Errorf("unsupported primitive type: %v", t)
+		}
+	case *exprpb.Type_TypeParam:
+		return TypeParamType(t.GetTypeParam()), nil
+	case *exprpb.Type_Type:
+		if t.GetType().GetTypeKind() != nil {
+			p, err := ExprTypeToType(t.GetType())
+			if err != nil {
+				return nil, err
+			}
+			return TypeTypeWithParam(p), nil
+		}
+		return TypeType, nil
+	case *exprpb.Type_WellKnown:
+		switch t.GetWellKnown() {
+		case exprpb.Type_ANY:
+			return AnyType, nil
+		case exprpb.Type_DURATION:
+			return DurationType, nil
+		case exprpb.Type_TIMESTAMP:
+			return TimestampType, nil
+		default:
+			return nil, fmt.Errorf("unsupported well-known type: %v", t)
+		}
+	case *exprpb.Type_Wrapper:
+		t, err := ExprTypeToType(&exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: t.GetWrapper()}})
+		if err != nil {
+			return nil, err
+		}
+		return NullableType(t), nil
+	default:
+		return nil, fmt.Errorf("unsupported type: %v", t)
+	}
+}
+
+func maybeWrapper(t *Type, pbType *exprpb.Type) *exprpb.Type {
+	if t.IsAssignableType(NullType) {
+		return chkdecls.NewWrapperType(pbType)
+	}
+	return pbType
 }
 
 var (

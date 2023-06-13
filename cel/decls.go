@@ -177,7 +177,7 @@ func Function(name string, opts ...FunctionOpt) EnvOption {
 		if err != nil {
 			return nil, err
 		}
-		_, err = functionDeclToExprDecl(fn)
+		_, err = decls.FunctionDeclToExprDecl(fn)
 		if err != nil {
 			return nil, err
 		}
@@ -299,157 +299,14 @@ func OverloadOperandTrait(trait int) OverloadOpt {
 	return decls.OverloadOperandTrait(trait)
 }
 
-func maybeWrapper(t *Type, pbType *exprpb.Type) *exprpb.Type {
-	if t.IsAssignableType(NullType) {
-		return chkdecls.NewWrapperType(pbType)
-	}
-	return pbType
-}
-
 // TypeToExprType converts a CEL-native type representation to a protobuf CEL Type representation.
 func TypeToExprType(t *Type) (*exprpb.Type, error) {
-	switch t.Kind {
-	case AnyKind:
-		return chkdecls.Any, nil
-	case BoolKind:
-		return maybeWrapper(t, chkdecls.Bool), nil
-	case BytesKind:
-		return maybeWrapper(t, chkdecls.Bytes), nil
-	case DoubleKind:
-		return maybeWrapper(t, chkdecls.Double), nil
-	case DurationKind:
-		return chkdecls.Duration, nil
-	case DynKind:
-		return chkdecls.Dyn, nil
-	case IntKind:
-		return maybeWrapper(t, chkdecls.Int), nil
-	case ListKind:
-		et, err := TypeToExprType(t.Parameters[0])
-		if err != nil {
-			return nil, err
-		}
-		return chkdecls.NewListType(et), nil
-	case MapKind:
-		kt, err := TypeToExprType(t.Parameters[0])
-		if err != nil {
-			return nil, err
-		}
-		vt, err := TypeToExprType(t.Parameters[1])
-		if err != nil {
-			return nil, err
-		}
-		return chkdecls.NewMapType(kt, vt), nil
-	case NullTypeKind:
-		return chkdecls.Null, nil
-	case OpaqueKind:
-		params := make([]*exprpb.Type, len(t.Parameters))
-		for i, p := range t.Parameters {
-			pt, err := TypeToExprType(p)
-			if err != nil {
-				return nil, err
-			}
-			params[i] = pt
-		}
-		return chkdecls.NewAbstractType(t.RuntimeTypeName(), params...), nil
-	case StringKind:
-		return maybeWrapper(t, chkdecls.String), nil
-	case StructKind:
-		return chkdecls.NewObjectType(t.RuntimeTypeName()), nil
-	case TimestampKind:
-		return chkdecls.Timestamp, nil
-	case TypeParamKind:
-		return chkdecls.NewTypeParamType(t.RuntimeTypeName()), nil
-	case TypeKind:
-		if len(t.Parameters) == 1 {
-			p, err := TypeToExprType(t.Parameters[0])
-			if err != nil {
-				return nil, err
-			}
-			return chkdecls.NewTypeType(p), nil
-		}
-		return chkdecls.NewTypeType(chkdecls.Dyn), nil
-	case UintKind:
-		return maybeWrapper(t, chkdecls.Uint), nil
-	}
-	return nil, fmt.Errorf("missing type conversion to proto: %v", t)
+	return decls.TypeToExprType(t)
 }
 
 // ExprTypeToType converts a protobuf CEL type representation to a CEL-native type representation.
 func ExprTypeToType(t *exprpb.Type) (*Type, error) {
-	switch t.GetTypeKind().(type) {
-	case *exprpb.Type_Dyn:
-		return DynType, nil
-	case *exprpb.Type_AbstractType_:
-		paramTypes := make([]*Type, len(t.GetAbstractType().GetParameterTypes()))
-		for i, p := range t.GetAbstractType().GetParameterTypes() {
-			pt, err := ExprTypeToType(p)
-			if err != nil {
-				return nil, err
-			}
-			paramTypes[i] = pt
-		}
-		return OpaqueType(t.GetAbstractType().GetName(), paramTypes...), nil
-	case *exprpb.Type_ListType_:
-		et, err := ExprTypeToType(t.GetListType().GetElemType())
-		if err != nil {
-			return nil, err
-		}
-		return ListType(et), nil
-	case *exprpb.Type_MapType_:
-		kt, err := ExprTypeToType(t.GetMapType().GetKeyType())
-		if err != nil {
-			return nil, err
-		}
-		vt, err := ExprTypeToType(t.GetMapType().GetValueType())
-		if err != nil {
-			return nil, err
-		}
-		return MapType(kt, vt), nil
-	case *exprpb.Type_MessageType:
-		return ObjectType(t.GetMessageType()), nil
-	case *exprpb.Type_Null:
-		return NullType, nil
-	case *exprpb.Type_Primitive:
-		switch t.GetPrimitive() {
-		case exprpb.Type_BOOL:
-			return BoolType, nil
-		case exprpb.Type_BYTES:
-			return BytesType, nil
-		case exprpb.Type_DOUBLE:
-			return DoubleType, nil
-		case exprpb.Type_INT64:
-			return IntType, nil
-		case exprpb.Type_STRING:
-			return StringType, nil
-		case exprpb.Type_UINT64:
-			return UintType, nil
-		default:
-			return nil, fmt.Errorf("unsupported primitive type: %v", t)
-		}
-	case *exprpb.Type_TypeParam:
-		return TypeParamType(t.GetTypeParam()), nil
-	case *exprpb.Type_Type:
-		return TypeType, nil
-	case *exprpb.Type_WellKnown:
-		switch t.GetWellKnown() {
-		case exprpb.Type_ANY:
-			return AnyType, nil
-		case exprpb.Type_DURATION:
-			return DurationType, nil
-		case exprpb.Type_TIMESTAMP:
-			return TimestampType, nil
-		default:
-			return nil, fmt.Errorf("unsupported well-known type: %v", t)
-		}
-	case *exprpb.Type_Wrapper:
-		t, err := ExprTypeToType(&exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: t.GetWrapper()}})
-		if err != nil {
-			return nil, err
-		}
-		return NullableType(t), nil
-	default:
-		return nil, fmt.Errorf("unsupported type: %v", t)
-	}
+	return decls.ExprTypeToType(t)
 }
 
 // ExprDeclToDeclaration converts a protobuf CEL declaration to a CEL-native declaration, either a Variable or Function.
@@ -461,78 +318,27 @@ func ExprDeclToDeclaration(d *exprpb.Decl) (EnvOption, error) {
 		for i, o := range overloads {
 			args := make([]*Type, len(o.GetParams()))
 			for j, p := range o.GetParams() {
-				a, err := ExprTypeToType(p)
+				a, err := decls.ExprTypeToType(p)
 				if err != nil {
 					return nil, err
 				}
 				args[j] = a
 			}
-			res, err := ExprTypeToType(o.GetResultType())
+			res, err := decls.ExprTypeToType(o.GetResultType())
 			if err != nil {
 				return nil, err
 			}
-			opts[i] = Overload(o.GetOverloadId(), args, res)
+			opts[i] = decls.Overload(o.GetOverloadId(), args, res)
 		}
 		return Function(d.GetName(), opts...), nil
 	case *exprpb.Decl_Ident:
-		t, err := ExprTypeToType(d.GetIdent().GetType())
+		t, err := decls.ExprTypeToType(d.GetIdent().GetType())
 		if err != nil {
 			return nil, err
 		}
 		return Variable(d.GetName(), t), nil
 	default:
 		return nil, fmt.Errorf("unsupported decl: %v", d)
-	}
-
-}
-
-func functionDeclToExprDecl(f *decls.FunctionDecl) (*exprpb.Decl, error) {
-	overloads := make([]*exprpb.Decl_FunctionDecl_Overload, len(f.Overloads))
-	i := 0
-	for _, o := range f.Overloads {
-		paramNames := map[string]struct{}{}
-		argTypes := make([]*exprpb.Type, len(o.ArgTypes))
-		for j, a := range o.ArgTypes {
-			collectParamNames(paramNames, a)
-			at, err := TypeToExprType(a)
-			if err != nil {
-				return nil, err
-			}
-			argTypes[j] = at
-		}
-		collectParamNames(paramNames, o.ResultType)
-		resultType, err := TypeToExprType(o.ResultType)
-		if err != nil {
-			return nil, err
-		}
-		if len(paramNames) == 0 {
-			if o.IsMemberFunction {
-				overloads[i] = chkdecls.NewInstanceOverload(o.ID, argTypes, resultType)
-			} else {
-				overloads[i] = chkdecls.NewOverload(o.ID, argTypes, resultType)
-			}
-		} else {
-			params := []string{}
-			for pn := range paramNames {
-				params = append(params, pn)
-			}
-			if o.IsMemberFunction {
-				overloads[i] = chkdecls.NewParameterizedInstanceOverload(o.ID, argTypes, resultType, params)
-			} else {
-				overloads[i] = chkdecls.NewParameterizedOverload(o.ID, argTypes, resultType, params)
-			}
-		}
-		i++
-	}
-	return chkdecls.NewFunction(f.Name, overloads...), nil
-}
-
-func collectParamNames(paramNames map[string]struct{}, arg *Type) {
-	if arg.Kind == TypeParamKind {
-		paramNames[arg.RuntimeTypeName()] = struct{}{}
-	}
-	for _, param := range arg.Parameters {
-		collectParamNames(paramNames, param)
 	}
 }
 
