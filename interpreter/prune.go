@@ -341,6 +341,12 @@ func (p *astPruner) prune(node *exprpb.Expr) (*exprpb.Expr, bool) {
 		}
 	}
 	if macro, found := p.macroCalls[node.GetId()]; found {
+		// Ensure that intermediate values for the comprehension are cleared during pruning
+		compre := node.GetComprehensionExpr()
+		if compre != nil {
+			visit(macro, clearIterVarVisitor(compre.IterVar, p.state))
+			visit(macro, clearIterVarVisitor(compre.AccuVar, p.state))
+		}
 		// prune the expression in terms of the macro call instead of the expanded form.
 		if newMacro, pruned := p.prune(macro); pruned {
 			p.macroCalls[node.GetId()] = newMacro
@@ -524,6 +530,17 @@ func getMaxID(expr *exprpb.Expr) int64 {
 	return maxID
 }
 
+func clearIterVarVisitor(varName string, state EvalState) astVisitor {
+	return astVisitor{
+		visitExpr: func(e *exprpb.Expr) {
+			ident := e.GetIdentExpr()
+			if ident != nil && ident.GetName() == varName {
+				state.SetValue(e.GetId(), nil)
+			}
+		},
+	}
+}
+
 func maxIDVisitor(maxID *int64) astVisitor {
 	return astVisitor{
 		visitExpr: func(e *exprpb.Expr) {
@@ -543,7 +560,9 @@ func visit(expr *exprpb.Expr, visitor astVisitor) {
 	exprs := []*exprpb.Expr{expr}
 	for len(exprs) != 0 {
 		e := exprs[0]
-		visitor.visitExpr(e)
+		if visitor.visitExpr != nil {
+			visitor.visitExpr(e)
+		}
 		exprs = exprs[1:]
 		switch e.GetExprKind().(type) {
 		case *exprpb.Expr_SelectExpr:
@@ -567,7 +586,9 @@ func visit(expr *exprpb.Expr, visitor astVisitor) {
 			exprs = append(exprs, list.GetElements()...)
 		case *exprpb.Expr_StructExpr:
 			for _, entry := range e.GetStructExpr().GetEntries() {
-				visitor.visitEntry(entry)
+				if visitor.visitEntry != nil {
+					visitor.visitEntry(entry)
+				}
 				if entry.GetMapKey() != nil {
 					exprs = append(exprs, entry.GetMapKey())
 				}

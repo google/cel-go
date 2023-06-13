@@ -371,6 +371,20 @@ var testCases = []testInfo{
 		out:  `["bob"] == r.attr.authorized["managers"]`,
 	},
 	{
+		in: partialActivation(map[string]any{
+			"users": []string{"alice", "bob"},
+		}, NewAttributePattern("r").QualString("attr").Wildcard()),
+		expr: `users.filter(u, u.startsWith(r.attr.prefix))`,
+		out:  `["alice", "bob"].filter(u, u.startsWith(r.attr.prefix))`,
+	},
+	{
+		in: partialActivation(map[string]any{
+			"users": []string{"alice", "bob"},
+		}, NewAttributePattern("r").QualString("attr").Wildcard()),
+		expr: `users.filter(u, r.attr.prefix.endsWith(u))`,
+		out:  `["alice", "bob"].filter(u, r.attr.prefix.endsWith(u))`,
+	},
+	{
 		in:   unknownActivation("four"),
 		expr: `[1+3, 2+2, 3+1, four]`,
 		out:  `[4, 4, 4, four]`,
