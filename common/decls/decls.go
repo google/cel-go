@@ -19,9 +19,12 @@ import (
 	"fmt"
 	"strings"
 
+	chkdecls "github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/functions"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 // NewFunction creates a new function declaration with a set of function options to configure overloads
@@ -30,8 +33,9 @@ import (
 // Functions are checked for name collisions and singleton redefinition.
 func NewFunction(name string, opts ...FunctionOpt) (*FunctionDecl, error) {
 	fn := &FunctionDecl{
-		Name:      name,
-		Overloads: map[string]*OverloadDecl{},
+		Name:             name,
+		Overloads:        map[string]*OverloadDecl{},
+		overloadOrdinals: []string{},
 	}
 	var err error
 	for _, opt := range opts {
@@ -66,15 +70,25 @@ type FunctionDecl struct {
 	// intact.
 	disableTypeGuards bool
 
-	// declarationDisabled indicates that the binding should be provided on the runtime, but the method should
-	// not be exposed as a declaration available for use.
-	declarationDisabled bool
+	// state indicates that the binding should be provided as a declaration, as a runtime binding, or both.
+	state declarationState
+
+	// overloadOrdinals indicates the order in which the overload was declared.
+	overloadOrdinals []string
 }
+
+type declarationState int
+
+const (
+	declarationStateUnset declarationState = iota
+	declarationDisabled
+	declarationEnabled
+)
 
 // IsDeclarationDisabled indicates that the function implementation should be added to the dispatcher, but the
 // declaration should not be exposed for use in expressions.
 func (f *FunctionDecl) IsDeclarationDisabled() bool {
-	return f.declarationDisabled
+	return f.state == declarationDisabled
 }
 
 // Merge combines an existing function declaration with another.
@@ -90,14 +104,29 @@ func (f *FunctionDecl) Merge(other *FunctionDecl) (*FunctionDecl, error) {
 		return nil, fmt.Errorf("cannot merge unrelated functions. %s and %s", f.Name, other.Name)
 	}
 	merged := &FunctionDecl{
-		Name:      f.Name,
-		Overloads: make(map[string]*OverloadDecl, len(f.Overloads)),
-		Singleton: f.Singleton,
+		Name:             f.Name,
+		Overloads:        make(map[string]*OverloadDecl, len(f.Overloads)),
+		Singleton:        f.Singleton,
+		overloadOrdinals: make([]string, len(f.Overloads)),
+		// if one function is expecting type-guards and the other is not, then they
+		// must not be disabled.
+		disableTypeGuards: f.disableTypeGuards && other.disableTypeGuards,
+		// default to the current functions declaration state.
+		state: f.state,
 	}
+	// If the other state indicates that the declaration should be explicitly enabled or
+	// disabled, then update the merged state with the most recent value.
+	if other.state != declarationStateUnset {
+		merged.state = other.state
+	}
+	// baseline copy of the overloads and their ordinals
+	copy(merged.overloadOrdinals, f.overloadOrdinals)
 	for oID, o := range f.Overloads {
 		merged.Overloads[oID] = o
 	}
-	for _, o := range other.Overloads {
+	// overloads and their ordinals are added from the left
+	for _, oID := range other.overloadOrdinals {
+		o := other.Overloads[oID]
 		err := merged.AddOverload(o)
 		if err != nil {
 			return nil, fmt.Errorf("function declaration merge failed: %v", err)
@@ -117,18 +146,19 @@ func (f *FunctionDecl) Merge(other *FunctionDecl) (*FunctionDecl, error) {
 // difficult to compare functions by object identity.
 func (f *FunctionDecl) AddOverload(overload *OverloadDecl) error {
 	for oID, o := range f.Overloads {
-		if o.ID != overload.ID && o.SignatureOverlaps(overload) {
-			return fmt.Errorf("overload signature collision in function %s: %s collides with %s", f.Name, o.ID, overload.ID)
+		if oID != overload.ID && o.SignatureOverlaps(overload) {
+			return fmt.Errorf("overload signature collision in function %s: %s collides with %s", f.Name, oID, overload.ID)
 		}
-		if o.ID == overload.ID {
+		if oID == overload.ID {
 			if o.SignatureEquals(overload) && o.NonStrict == overload.NonStrict {
 				// Allow redefinition of an overload implementation so long as the signatures match.
 				f.Overloads[oID] = overload
 				return nil
 			}
-			return fmt.Errorf("overload redefinition in function. %s: %s has multiple definitions", f.Name, o.ID)
+			return fmt.Errorf("overload redefinition in function. %s: %s has multiple definitions", f.Name, oID)
 		}
 	}
+	f.overloadOrdinals = append(f.overloadOrdinals, overload.ID)
 	f.Overloads[overload.ID] = overload
 	return nil
 }
@@ -137,7 +167,8 @@ func (f *FunctionDecl) AddOverload(overload *OverloadDecl) error {
 func (f *FunctionDecl) Bindings() ([]*functions.Overload, error) {
 	overloads := []*functions.Overload{}
 	nonStrict := false
-	for _, o := range f.Overloads {
+	for _, oID := range f.overloadOrdinals {
+		o := f.Overloads[oID]
 		if o.hasBinding() {
 			overload := &functions.Overload{
 				Operator:     o.ID,
@@ -253,7 +284,11 @@ func DisableTypeGuards(value bool) FunctionOpt {
 // of function declarations while still preserving the runtime behavior for previously compiled expressions.
 func DisableDeclaration(value bool) FunctionOpt {
 	return func(fn *FunctionDecl) (*FunctionDecl, error) {
-		fn.declarationDisabled = value
+		if value {
+			fn.state = declarationDisabled
+		} else {
+			fn.state = declarationEnabled
+		}
 		return fn, nil
 	}
 }
@@ -418,6 +453,9 @@ type OverloadDecl struct {
 //
 // Result type, operand trait, and strict-ness are not considered as part of signature equality.
 func (o *OverloadDecl) SignatureEquals(other *OverloadDecl) bool {
+	if o == other {
+		return true
+	}
 	if o.ID != other.ID || o.IsMemberFunction != other.IsMemberFunction || len(o.ArgTypes) != len(other.ArgTypes) {
 		return false
 	}
@@ -595,5 +633,83 @@ func OverloadOperandTrait(trait int) OverloadOpt {
 	return func(o *OverloadDecl) (*OverloadDecl, error) {
 		o.OperandTrait = trait
 		return o, nil
+	}
+}
+
+// NewVariable creates a new variable declaration.
+func NewVariable(name string, t *Type) *VariableDecl {
+	return &VariableDecl{Name: name, Type: t}
+}
+
+// VariableDecl defines a variable declaration which may optionally have a constant value.
+type VariableDecl struct {
+	Name string
+	Type *Type
+}
+
+// DeclarationEquals returns true if one variable declaration has the same name and same type as the input.
+func (v *VariableDecl) DeclarationEquals(other *VariableDecl) bool {
+	if v == other {
+		return true
+	}
+	return v.Name == other.Name && v.Type.IsType(other.Type)
+}
+
+// VariableDeclToExprDecl converts a go-native variable declaration into a protobuf-type variable declaration.
+func VariableDeclToExprDecl(v *VariableDecl) (*exprpb.Decl, error) {
+	varType, err := TypeToExprType(v.Type)
+	if err != nil {
+		return nil, err
+	}
+	return chkdecls.NewVar(v.Name, varType), nil
+}
+
+// FunctionDeclToExprDecl converts a go-native function declaration into a protobuf-typed function declaration.
+func FunctionDeclToExprDecl(f *FunctionDecl) (*exprpb.Decl, error) {
+	overloads := make([]*exprpb.Decl_FunctionDecl_Overload, len(f.Overloads))
+	for i, oID := range f.overloadOrdinals {
+		o := f.Overloads[oID]
+		paramNames := map[string]struct{}{}
+		argTypes := make([]*exprpb.Type, len(o.ArgTypes))
+		for j, a := range o.ArgTypes {
+			collectParamNames(paramNames, a)
+			at, err := TypeToExprType(a)
+			if err != nil {
+				return nil, err
+			}
+			argTypes[j] = at
+		}
+		collectParamNames(paramNames, o.ResultType)
+		resultType, err := TypeToExprType(o.ResultType)
+		if err != nil {
+			return nil, err
+		}
+		if len(paramNames) == 0 {
+			if o.IsMemberFunction {
+				overloads[i] = chkdecls.NewInstanceOverload(oID, argTypes, resultType)
+			} else {
+				overloads[i] = chkdecls.NewOverload(oID, argTypes, resultType)
+			}
+		} else {
+			params := []string{}
+			for pn := range paramNames {
+				params = append(params, pn)
+			}
+			if o.IsMemberFunction {
+				overloads[i] = chkdecls.NewParameterizedInstanceOverload(oID, argTypes, resultType, params)
+			} else {
+				overloads[i] = chkdecls.NewParameterizedOverload(oID, argTypes, resultType, params)
+			}
+		}
+	}
+	return chkdecls.NewFunction(f.Name, overloads...), nil
+}
+
+func collectParamNames(paramNames map[string]struct{}, arg *Type) {
+	if arg.Kind == TypeParamKind {
+		paramNames[arg.RuntimeTypeName()] = struct{}{}
+	}
+	for _, param := range arg.Parameters {
+		collectParamNames(paramNames, param)
 	}
 }

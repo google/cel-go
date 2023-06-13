@@ -23,6 +23,7 @@ import (
 	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/overloads"
+	"github.com/google/cel-go/common/stdlib"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/parser"
@@ -117,10 +118,10 @@ func BenchmarkNewStdEnv(b *testing.B) {
 			b.Fatalf("NewEnv() failed: %v", err)
 		}
 		decls := []*exprpb.Decl{}
-		decls = append(decls, StandardFunctions()...)
+		decls = append(decls, stdlib.FunctionExprDecls()...)
 		err = env.Add(decls...)
 		if err != nil {
-			b.Fatalf("env.Add(StandardFunctions()) failed: %v", err)
+			b.Fatalf("env.Add(stdlib.FunctionExprDecls()...) failed: %v", err)
 		}
 	}
 }
@@ -131,11 +132,11 @@ func BenchmarkCopyDeclarations(b *testing.B) {
 		b.Fatalf("NewEnv() failed: %v", err)
 	}
 	decls := []*exprpb.Decl{}
-	decls = append(decls, StandardTypes()...)
-	decls = append(decls, StandardFunctions()...)
+	decls = append(decls, stdlib.TypeExprDecls()...)
+	decls = append(decls, stdlib.FunctionExprDecls()...)
 	err = env.Add(decls...)
 	if err != nil {
-		b.Fatalf("env.Add(StandardFunctions()) failed: %v", err)
+		b.Fatalf("env.Add(stdlib.FunctionExprDecls()...) failed: %v", err)
 	}
 	for i := 0; i < b.N; i++ {
 		env.validatedDeclarations().Copy()
@@ -148,13 +149,13 @@ func newStdEnv(t *testing.T) *Env {
 	if err != nil {
 		t.Fatalf("NewEnv() failed: %v", err)
 	}
-	err = env.Add(StandardTypes()...)
+	err = env.Add(stdlib.TypeExprDecls()...)
 	if err != nil {
-		t.Fatalf("env.Add(StandardTypes()...) failed: %v", err)
+		t.Fatalf("env.Add(stdlib.TypeExprDecls()...) failed: %v", err)
 	}
-	err = env.Add(StandardFunctions()...)
+	err = env.Add(stdlib.FunctionExprDecls()...)
 	if err != nil {
-		t.Fatalf("env.Add(StandardFunctions()...) failed: %v", err)
+		t.Fatalf("env.Add(stdlib.FunctionExprDecls()...) failed: %v", err)
 	}
 	return env
 }

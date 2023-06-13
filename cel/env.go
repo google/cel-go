@@ -539,7 +539,10 @@ func (e *Env) initChecker() (*checker.Env, error) {
 		}
 		// Add the function declarations which are derived from the FunctionDecl instances.
 		for _, fn := range e.functions {
-			fnDecl, err := functionDeclToExprDecl(fn)
+			if fn.IsDeclarationDisabled() {
+				continue
+			}
+			fnDecl, err := decls.FunctionDeclToExprDecl(fn)
 			if err != nil {
 				e.setCheckerOrError(nil, err)
 				return

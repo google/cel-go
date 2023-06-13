@@ -2506,6 +2506,21 @@ func TestOptionalMacroError(t *testing.T) {
 	}
 }
 
+func TestParserExpressionSizeLimit(t *testing.T) {
+	env, err := NewEnv(ParserExpressionSizeLimit(10))
+	if err != nil {
+		t.Fatalf("NewEnv(ParserExpressionSizeLimit(10)) failed: %v", err)
+	}
+	_, iss := env.Parse("'greeting'")
+	if iss.Err() != nil {
+		t.Errorf("Parse('greeting') failed: %v", iss.Err())
+	}
+	_, iss = env.Parse("'greetings'")
+	if !strings.Contains(iss.Err().Error(), "size exceeds limit") {
+		t.Errorf("Parse('greetings') got unexpected error: %v", iss.Err())
+	}
+}
+
 func BenchmarkOptionalValues(b *testing.B) {
 	env, err := NewEnv(
 		OptionalTypes(),

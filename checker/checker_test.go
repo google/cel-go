@@ -24,6 +24,7 @@ import (
 	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/overloads"
+	"github.com/google/cel-go/common/stdlib"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/parser"
 	"github.com/google/cel-go/test"
@@ -392,7 +393,7 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 			  x~google.expr.proto3.test.TestAllTypes^x.single_struct~map(string, dyn),
 			  "y"~string
 			)~dyn^index_map
-		  )~dyn^add_int64|add_uint64|add_double|add_string|add_bytes|add_list|add_timestamp_duration|add_duration_timestamp|add_duration_duration
+		  )~dyn^add_bytes|add_double|add_duration_duration|add_duration_timestamp|add_int64|add_list|add_string|add_timestamp_duration|add_uint64
 		  `,
 		outType: decls.Dyn,
 	},
@@ -987,7 +988,7 @@ ERROR: <input>:1:10: expected type 'bool' but found 'int'
 			  _>_(
 				x~dyn^x,
 				1.5~double
-			  )~bool^greater_int64_double|greater_uint64_double|greater_double,
+			  )~bool^greater_double|greater_int64_double|greater_uint64_double,
 			  _+_(
 				__result__~list(dyn)^__result__,
 				[
@@ -1076,7 +1077,7 @@ ERROR: <input>:1:5: undeclared reference to 'x' (in container '')
 				_>=_(
 					x~any^x,
 					x~any^x
-				)~bool^greater_equals_bool|greater_equals_int64|greater_equals_int64_double|greater_equals_int64_uint64|greater_equals_uint64|greater_equals_uint64_double|greater_equals_uint64_int64|greater_equals_double|greater_equals_double_int64|greater_equals_double_uint64|greater_equals_string|greater_equals_bytes|greater_equals_timestamp|greater_equals_duration
+				)~bool^greater_equals_bool|greater_equals_bytes|greater_equals_double|greater_equals_double_int64|greater_equals_double_uint64|greater_equals_duration|greater_equals_int64|greater_equals_int64_double|greater_equals_int64_uint64|greater_equals_string|greater_equals_timestamp|greater_equals_uint64|greater_equals_uint64_double|greater_equals_uint64_int64
 			)~bool^logical_or
 		)~bool^logical_or
 		`,
@@ -1122,7 +1123,7 @@ ERROR: <input>:1:5: undeclared reference to 'x' (in container '')
 			_>=_(
 			  x~any^x,
 			  x~any^x
-			)~bool^greater_equals_bool|greater_equals_int64|greater_equals_int64_double|greater_equals_int64_uint64|greater_equals_uint64|greater_equals_uint64_double|greater_equals_uint64_int64|greater_equals_double|greater_equals_double_int64|greater_equals_double_uint64|greater_equals_string|greater_equals_bytes|greater_equals_timestamp|greater_equals_duration
+			)~bool^greater_equals_bool|greater_equals_bytes|greater_equals_double|greater_equals_double_int64|greater_equals_double_uint64|greater_equals_duration|greater_equals_int64|greater_equals_int64_double|greater_equals_int64_uint64|greater_equals_string|greater_equals_timestamp|greater_equals_uint64|greater_equals_uint64_double|greater_equals_uint64_int64
 		  )~bool^logical_or
 		`,
 		outType: decls.Bool,
@@ -2367,8 +2368,8 @@ func TestCheck(t *testing.T) {
 				t.Fatalf("NewEnv(cont, reg) failed: %v", err)
 			}
 			if !tc.disableStdEnv {
-				env.Add(StandardTypes()...)
-				env.Add(StandardFunctions()...)
+				env.Add(stdlib.TypeExprDecls()...)
+				env.Add(stdlib.FunctionExprDecls()...)
 			}
 			if tc.env.idents != nil {
 				for _, ident := range tc.env.idents {
@@ -2421,11 +2422,11 @@ func TestAddDuplicateDeclarations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewEnv() failed: %v", err)
 	}
-	err = env.Add(StandardFunctions()...)
+	err = env.Add(stdlib.FunctionExprDecls()...)
 	if err != nil {
 		t.Fatalf("env.Add() failed: %v", err)
 	}
-	err = env.Add(StandardFunctions()...)
+	err = env.Add(stdlib.FunctionExprDecls()...)
 	if err != nil {
 		t.Errorf("env.Add() failed with duplicate declarations: %v", err)
 	}
@@ -2481,8 +2482,8 @@ func TestCheckErrorData(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewEnv(cont, reg) failed: %v", err)
 	}
-	env.Add(StandardTypes()...)
-	env.Add(StandardFunctions()...)
+	env.Add(stdlib.TypeExprDecls()...)
+	env.Add(stdlib.FunctionExprDecls()...)
 	_, iss = Check(ast, src, env)
 	if len(iss.GetErrors()) != 1 {
 		t.Fatalf("Check() of a bad expression did produce a single error: %v", iss.ToDisplayString())

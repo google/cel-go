@@ -2075,13 +2075,13 @@ func newTestEnv(t testing.TB, cont *containers.Container, reg ref.TypeRegistry) 
 	if err != nil {
 		t.Fatalf("checker.NewEnv(%v, %v) failed: %v", cont, reg, err)
 	}
-	err = env.Add(checker.StandardTypes()...)
+	err = env.Add(stdlib.TypeExprDecls()...)
 	if err != nil {
-		t.Fatalf("env.Add(StandardTypes()...) failed: %v", err)
+		t.Fatalf("env.Add(stdlib.TypeExprDecls()...) failed: %v", err)
 	}
-	err = env.Add(checker.StandardFunctions()...)
+	err = env.Add(stdlib.FunctionExprDecls()...)
 	if err != nil {
-		t.Fatalf("env.Add(StandardFunctions()...) failed: %v", err)
+		t.Fatalf("env.Add(stdlib.FunctionExprDecls()...) failed: %v", err)
 	}
 	return env
 }

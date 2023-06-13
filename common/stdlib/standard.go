@@ -23,10 +23,15 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
+
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 var (
 	stdFunctions []*decls.FunctionDecl
+	stdFnDecls   []*exprpb.Decl
+	stdTypes     []*decls.VariableDecl
+	stdTypeDecls []*exprpb.Decl
 )
 
 func init() {
@@ -34,6 +39,30 @@ func init() {
 	paramB := decls.TypeParamType("B")
 	listOfA := decls.ListType(paramA)
 	mapOfAB := decls.MapType(paramA, paramB)
+
+	stdTypes = []*decls.VariableDecl{
+		decls.BoolType.TypeVariable(),
+		decls.BytesType.TypeVariable(),
+		decls.DoubleType.TypeVariable(),
+		decls.DurationType.TypeVariable(),
+		decls.IntType.TypeVariable(),
+		listOfA.TypeVariable(),
+		mapOfAB.TypeVariable(),
+		decls.NullType.TypeVariable(),
+		decls.StringType.TypeVariable(),
+		decls.TimestampType.TypeVariable(),
+		decls.TypeType.TypeVariable(),
+		decls.UintType.TypeVariable(),
+	}
+
+	stdTypeDecls = make([]*exprpb.Decl, 0, len(stdTypes))
+	for _, stdType := range stdTypes {
+		typeVar, err := decls.VariableDeclToExprDecl(stdType)
+		if err != nil {
+			panic(err)
+		}
+		stdTypeDecls = append(stdTypeDecls, typeVar)
+	}
 
 	stdFunctions = []*decls.FunctionDecl{
 		// Logical operators. Special-cased within the interpreter.
@@ -547,11 +576,40 @@ func init() {
 			decls.MemberOverload(overloads.DurationToMilliseconds,
 				argTypes(decls.DurationType), decls.IntType)),
 	}
+
+	stdFnDecls = make([]*exprpb.Decl, 0, len(stdFunctions))
+	for _, fn := range stdFunctions {
+		if fn.IsDeclarationDisabled() {
+			continue
+		}
+		ed, err := decls.FunctionDeclToExprDecl(fn)
+		if err != nil {
+			panic(err)
+		}
+		stdFnDecls = append(stdFnDecls, ed)
+	}
 }
 
 // Functions returns the set of standard library function declarations and definitions for CEL.
 func Functions() []*decls.FunctionDecl {
 	return stdFunctions
+}
+
+// FunctionExprDecls returns the legacy style protobuf-typed declarations for all functions and overloads
+// in the CEL standard environment.
+func FunctionExprDecls() []*exprpb.Decl {
+	return stdFnDecls
+}
+
+// Types returns the set of standard library types for CEL.
+func Types() []*decls.VariableDecl {
+	return stdTypes
+}
+
+// TypeExprDecls returns the legacy style protobuf-typed declarations for all types in the CEL
+// standard environment.
+func TypeExprDecls() []*exprpb.Decl {
+	return stdTypeDecls
 }
 
 func notStrictlyFalse(value ref.Val) ref.Val {
