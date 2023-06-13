@@ -21,9 +21,9 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/checker"
-	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/containers"
+	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/stdlib"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
@@ -858,7 +858,7 @@ func TestAttributeMissingMsgUnknownField(t *testing.T) {
 func TestAttributeStateTracking(t *testing.T) {
 	var tests = []struct {
 		expr  string
-		env   []*exprpb.Decl
+		vars  []*decls.VariableDecl
 		in    any
 		out   ref.Val
 		attrs []*AttributePattern
@@ -866,7 +866,7 @@ func TestAttributeStateTracking(t *testing.T) {
 	}{
 		{
 			expr: `[{"field": true}][0].field`,
-			env:  []*exprpb.Decl{},
+			vars: []*decls.VariableDecl{},
 			in:   map[string]any{},
 			out:  types.True,
 			state: map[int64]any{
@@ -880,10 +880,10 @@ func TestAttributeStateTracking(t *testing.T) {
 		},
 		{
 			expr: `a[1]['two']`,
-			env: []*exprpb.Decl{
-				decls.NewVar("a", decls.NewMapType(
-					decls.Int,
-					decls.NewMapType(decls.String, decls.Bool))),
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("a", decls.MapType(
+					decls.IntType,
+					decls.MapType(decls.StringType, decls.BoolType))),
 			},
 			in: map[string]any{
 				"a": map[int64]any{
@@ -902,10 +902,10 @@ func TestAttributeStateTracking(t *testing.T) {
 		},
 		{
 			expr: `a[1][2][3]`,
-			env: []*exprpb.Decl{
-				decls.NewVar("a", decls.NewMapType(
-					decls.Int,
-					decls.NewMapType(decls.Dyn, decls.Dyn))),
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("a", decls.MapType(
+					decls.IntType,
+					decls.MapType(decls.DynType, decls.DynType))),
 			},
 			in: map[string]any{
 				"a": map[int64]any{
@@ -930,10 +930,10 @@ func TestAttributeStateTracking(t *testing.T) {
 		},
 		{
 			expr: `a[1][2][a[1][1]]`,
-			env: []*exprpb.Decl{
-				decls.NewVar("a", decls.NewMapType(
-					decls.Int,
-					decls.NewMapType(decls.Dyn, decls.Dyn))),
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("a", decls.MapType(
+					decls.IntType,
+					decls.MapType(decls.DynType, decls.DynType))),
 			},
 			in: map[string]any{
 				"a": map[int64]any{
@@ -966,9 +966,9 @@ func TestAttributeStateTracking(t *testing.T) {
 		},
 		{
 			expr: `true ? a : b`,
-			env: []*exprpb.Decl{
-				decls.NewVar("a", decls.String),
-				decls.NewVar("b", decls.String),
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("a", decls.StringType),
+				decls.NewVariable("b", decls.StringType),
 			},
 			in: map[string]any{
 				"a": "hello",
@@ -982,9 +982,9 @@ func TestAttributeStateTracking(t *testing.T) {
 		},
 		{
 			expr: `(a.size() != 0 ? a : b)[0]`,
-			env: []*exprpb.Decl{
-				decls.NewVar("a", decls.NewListType(decls.String)),
-				decls.NewVar("b", decls.NewListType(decls.String)),
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("a", decls.ListType(decls.StringType)),
+				decls.NewVariable("b", decls.ListType(decls.StringType)),
 			},
 			in: map[string]any{
 				"a": []string{"hello", "world"},
@@ -1006,8 +1006,8 @@ func TestAttributeStateTracking(t *testing.T) {
 		},
 		{
 			expr: `a.?b.c`,
-			env: []*exprpb.Decl{
-				decls.NewVar("a", decls.NewMapType(decls.String, decls.NewMapType(decls.String, decls.String))),
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("a", decls.MapType(decls.StringType, decls.MapType(decls.StringType, decls.StringType))),
 			},
 			in: map[string]any{
 				"a": map[string]any{"b": map[string]any{"c": "world"}},
@@ -1022,8 +1022,8 @@ func TestAttributeStateTracking(t *testing.T) {
 		},
 		{
 			expr: `a.?b.c`,
-			env: []*exprpb.Decl{
-				decls.NewVar("a", decls.NewMapType(decls.String, decls.NewMapType(decls.String, decls.String))),
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("a", decls.MapType(decls.StringType, decls.MapType(decls.StringType, decls.StringType))),
 			},
 			in: map[string]any{
 				"a": map[string]any{"b": map[string]string{"random": "value"}},
@@ -1038,8 +1038,8 @@ func TestAttributeStateTracking(t *testing.T) {
 		},
 		{
 			expr: `a.b.c`,
-			env: []*exprpb.Decl{
-				decls.NewVar("a", decls.NewMapType(decls.String, decls.NewMapType(decls.String, decls.String))),
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("a", decls.MapType(decls.StringType, decls.MapType(decls.StringType, decls.StringType))),
 			},
 			in: map[string]any{
 				"a": map[string]any{"b": map[string]any{"c": "world"}},
@@ -1054,9 +1054,9 @@ func TestAttributeStateTracking(t *testing.T) {
 		},
 		{
 			expr: `m[has(a.b)]`,
-			env: []*exprpb.Decl{
-				decls.NewVar("a", decls.NewMapType(decls.String, decls.String)),
-				decls.NewVar("m", decls.NewMapType(decls.Bool, decls.String)),
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("a", decls.MapType(decls.StringType, decls.StringType)),
+				decls.NewVariable("m", decls.MapType(decls.BoolType, decls.StringType)),
 			},
 			in: map[string]any{
 				"a": map[string]string{"b": ""},
@@ -1066,9 +1066,9 @@ func TestAttributeStateTracking(t *testing.T) {
 		},
 		{
 			expr: `m[?has(a.b)]`,
-			env: []*exprpb.Decl{
-				decls.NewVar("a", decls.NewMapType(decls.String, decls.String)),
-				decls.NewVar("m", decls.NewMapType(decls.Bool, decls.String)),
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("a", decls.MapType(decls.StringType, decls.StringType)),
+				decls.NewVariable("m", decls.MapType(decls.BoolType, decls.StringType)),
 			},
 			in: map[string]any{
 				"a": map[string]string{"b": ""},
@@ -1078,9 +1078,9 @@ func TestAttributeStateTracking(t *testing.T) {
 		},
 		{
 			expr: `m[?has(a.b.c)]`,
-			env: []*exprpb.Decl{
-				decls.NewVar("a", decls.NewMapType(decls.String, decls.Dyn)),
-				decls.NewVar("m", decls.NewMapType(decls.Bool, decls.String)),
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("a", decls.MapType(decls.StringType, decls.DynType)),
+				decls.NewVariable("m", decls.MapType(decls.BoolType, decls.StringType)),
 			},
 			in: partialActivation(
 				map[string]any{
@@ -1114,9 +1114,9 @@ func TestAttributeStateTracking(t *testing.T) {
 				t.Fatalf("checker.NewEnv() failed: %v", err)
 			}
 			env.Add(stdlib.FunctionExprDecls()...)
-			env.Add(optionalSignatures()...)
-			if tc.env != nil {
-				env.Add(tc.env...)
+			env.Add(funcExprDecls(t, optionalDecls(t)...)...)
+			if tc.vars != nil {
+				env.Add(varExprDecls(t, tc.vars...)...)
 			}
 			checked, errors := checker.Check(parsed, src, env)
 			if len(errors.GetErrors()) != 0 {

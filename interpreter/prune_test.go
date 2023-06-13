@@ -17,19 +17,15 @@ package interpreter
 import (
 	"testing"
 
-	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/containers"
-	"github.com/google/cel-go/common/functions"
-	"github.com/google/cel-go/common/operators"
+	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/parser"
 	"github.com/google/cel-go/test"
 
 	proto3pb "github.com/google/cel-go/test/proto3pb"
-
-	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 type testInfo struct {
@@ -448,7 +444,7 @@ func TestPrune(t *testing.T) {
 		attrs := NewPartialAttributeFactory(containers.DefaultContainer, reg, reg)
 		dispatcher := NewDispatcher()
 		addFunctionBindings(t, dispatcher)
-		dispatcher.Add(optionalFunctions()...)
+		dispatcher.Add(funcBindings(t, optionalDecls(t)...)...)
 		interp := NewInterpreter(dispatcher, containers.DefaultContainer, reg, reg, attrs)
 
 		interpretable, _ := interp.NewUncheckedInterpretable(
@@ -507,31 +503,29 @@ func testActivation(t *testing.T, in any) Activation {
 	return a
 }
 
-func optionalFunctions() []*functions.Overload {
-	return []*functions.Overload{
-		{
-			Operator: "optional.none",
-			Function: func(args ...ref.Val) ref.Val {
-				return types.OptionalNone
-			},
-		},
-		{
-			Operator: "optional.of",
-			Unary: func(val ref.Val) ref.Val {
-				return types.OptionalOf(val)
-			},
-		},
-	}
-}
-
-func optionalSignatures() []*exprpb.Decl {
-	return []*exprpb.Decl{
-		decls.NewFunction(operators.OptIndex,
-			decls.NewParameterizedOverload("map_optindex_optional_value", []*exprpb.Type{
-				decls.NewMapType(decls.NewTypeParamType("K"), decls.NewTypeParamType("V")),
-				decls.NewTypeParamType("K")},
-				decls.NewOptionalType(decls.NewTypeParamType("V")),
-				[]string{"K", "V"},
-			)),
+func optionalDecls(t *testing.T) []*decls.FunctionDecl {
+	paramType := decls.TypeParamType("T")
+	optionalType := decls.OptionalType(paramType)
+	return []*decls.FunctionDecl{
+		funcDecl(t, "optional.none",
+			decls.Overload("optional_none", []*decls.Type{}, optionalType,
+				decls.FunctionBinding(func(args ...ref.Val) ref.Val {
+					return types.OptionalNone
+				}),
+			),
+		),
+		funcDecl(t, "optional.of",
+			decls.Overload("optional_of_value", []*decls.Type{paramType}, optionalType,
+				decls.UnaryBinding(func(val ref.Val) ref.Val {
+					return types.OptionalOf(val)
+				}),
+			),
+		),
+		funcDecl(t, "_[?_]",
+			decls.Overload("map_optindex_optional_value", []*decls.Type{
+				decls.MapType(decls.TypeParamType("K"), paramType),
+				decls.TypeParamType("K"),
+			}, optionalType),
+		),
 	}
 }

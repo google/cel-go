@@ -23,9 +23,9 @@ import (
 	"time"
 
 	"github.com/google/cel-go/checker"
-	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/containers"
+	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/parser"
@@ -234,17 +234,17 @@ func (tc testCostEstimator) EstimateCallCost(function, overloadID string, target
 }
 
 func TestRuntimeCost(t *testing.T) {
-	allTypes := decls.NewObjectType("google.expr.proto3.test.TestAllTypes")
-	allList := decls.NewListType(allTypes)
-	intList := decls.NewListType(decls.Int)
-	nestedList := decls.NewListType(allList)
+	allTypes := decls.ObjectType("google.expr.proto3.test.TestAllTypes")
+	allList := decls.ListType(allTypes)
+	intList := decls.ListType(decls.IntType)
+	nestedList := decls.ListType(allList)
 
-	allMap := decls.NewMapType(decls.String, allTypes)
-	nestedMap := decls.NewMapType(decls.String, allMap)
+	allMap := decls.MapType(decls.StringType, allTypes)
+	nestedMap := decls.MapType(decls.StringType, allMap)
 	cases := []struct {
 		name         string
 		expr         string
-		decls        []*exprpb.Decl
+		vars         []*decls.VariableDecl
 		want         uint64
 		in           any
 		testFuncCost bool
@@ -259,31 +259,31 @@ func TestRuntimeCost(t *testing.T) {
 			want: 0,
 		},
 		{
-			name:  "identity",
-			expr:  `input`,
-			decls: []*exprpb.Decl{decls.NewVar("input", intList)},
-			want:  1,
-			in:    map[string]any{"input": []int{1, 2}},
+			name: "identity",
+			expr: `input`,
+			vars: []*decls.VariableDecl{decls.NewVariable("input", intList)},
+			want: 1,
+			in:   map[string]any{"input": []int{1, 2}},
 		},
 		{
-			name:  "select: map",
-			expr:  `input['key']`,
-			decls: []*exprpb.Decl{decls.NewVar("input", decls.NewMapType(decls.String, decls.String))},
-			want:  2,
-			in:    map[string]any{"input": map[string]string{"key": "v"}},
+			name: "select: map",
+			expr: `input['key']`,
+			vars: []*decls.VariableDecl{decls.NewVariable("input", decls.MapType(decls.StringType, decls.StringType))},
+			want: 2,
+			in:   map[string]any{"input": map[string]string{"key": "v"}},
 		},
 		{
-			name:  "select: array index",
-			expr:  `input[0]`,
-			decls: []*exprpb.Decl{decls.NewVar("input", decls.NewListType(decls.String))},
-			want:  2,
-			in:    map[string]any{"input": []string{"v"}},
+			name: "select: array index",
+			expr: `input[0]`,
+			vars: []*decls.VariableDecl{decls.NewVariable("input", decls.ListType(decls.StringType))},
+			want: 2,
+			in:   map[string]any{"input": []string{"v"}},
 		},
 		{
-			name:  "select: field",
-			expr:  `input.single_int32`,
-			decls: []*exprpb.Decl{decls.NewVar("input", allTypes)},
-			want:  2,
+			name: "select: field",
+			expr: `input.single_int32`,
+			vars: []*decls.VariableDecl{decls.NewVariable("input", allTypes)},
+			want: 2,
 			in: map[string]any{
 				"input": &proto3pb.TestAllTypes{
 					RepeatedBool: []bool{false},
@@ -295,23 +295,23 @@ func TestRuntimeCost(t *testing.T) {
 			},
 		},
 		{
-			name:  "expr select: map",
-			expr:  `input['ke' + 'y']`,
-			decls: []*exprpb.Decl{decls.NewVar("input", decls.NewMapType(decls.String, decls.String))},
-			want:  3,
-			in:    map[string]any{"input": map[string]string{"key": "v"}},
+			name: "expr select: map",
+			expr: `input['ke' + 'y']`,
+			vars: []*decls.VariableDecl{decls.NewVariable("input", decls.MapType(decls.StringType, decls.StringType))},
+			want: 3,
+			in:   map[string]any{"input": map[string]string{"key": "v"}},
 		},
 		{
-			name:  "expr select: array index",
-			expr:  `input[3-3]`,
-			decls: []*exprpb.Decl{decls.NewVar("input", decls.NewListType(decls.String))},
-			want:  3,
-			in:    map[string]any{"input": []string{"v"}},
+			name: "expr select: array index",
+			expr: `input[3-3]`,
+			vars: []*decls.VariableDecl{decls.NewVariable("input", decls.ListType(decls.StringType))},
+			want: 3,
+			in:   map[string]any{"input": []string{"v"}},
 		},
 		{
 			name:    "select: field test only no has() cost",
 			expr:    `has(input.single_int32)`,
-			decls:   []*exprpb.Decl{decls.NewVar("input", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"))},
+			vars:    []*decls.VariableDecl{decls.NewVariable("input", decls.ObjectType("google.expr.proto3.test.TestAllTypes"))},
 			want:    1,
 			options: []CostTrackerOption{PresenceTestHasCost(false)},
 			in: map[string]any{
@@ -325,10 +325,10 @@ func TestRuntimeCost(t *testing.T) {
 			},
 		},
 		{
-			name:  "select: field test only",
-			expr:  `has(input.single_int32)`,
-			decls: []*exprpb.Decl{decls.NewVar("input", decls.NewObjectType("google.expr.proto3.test.TestAllTypes"))},
-			want:  2,
+			name: "select: field test only",
+			expr: `has(input.single_int32)`,
+			vars: []*decls.VariableDecl{decls.NewVariable("input", decls.ObjectType("google.expr.proto3.test.TestAllTypes"))},
+			want: 2,
 			in: map[string]any{
 				"input": &proto3pb.TestAllTypes{
 					RepeatedBool: []bool{false},
@@ -342,7 +342,7 @@ func TestRuntimeCost(t *testing.T) {
 		{
 			name:    "select: non-proto field test has() cost",
 			expr:    `has(input.testAttr.nestedAttr)`,
-			decls:   []*exprpb.Decl{decls.NewVar("input", nestedMap)},
+			vars:    []*decls.VariableDecl{decls.NewVariable("input", nestedMap)},
 			want:    3,
 			options: []CostTrackerOption{PresenceTestHasCost(true)},
 			in: map[string]any{
@@ -356,7 +356,7 @@ func TestRuntimeCost(t *testing.T) {
 		{
 			name:    "select: non-proto field test no has() cost",
 			expr:    `has(input.testAttr.nestedAttr)`,
-			decls:   []*exprpb.Decl{decls.NewVar("input", nestedMap)},
+			vars:    []*decls.VariableDecl{decls.NewVariable("input", nestedMap)},
 			want:    2,
 			options: []CostTrackerOption{PresenceTestHasCost(false)},
 			in: map[string]any{
@@ -368,10 +368,10 @@ func TestRuntimeCost(t *testing.T) {
 			},
 		},
 		{
-			name:  "select: non-proto field test",
-			expr:  `has(input.testAttr.nestedAttr)`,
-			decls: []*exprpb.Decl{decls.NewVar("input", nestedMap)},
-			want:  3,
+			name: "select: non-proto field test",
+			expr: `has(input.testAttr.nestedAttr)`,
+			vars: []*decls.VariableDecl{decls.NewVariable("input", nestedMap)},
+			want: 3,
 			in: map[string]any{
 				"input": map[string]any{
 					"testAttr": map[string]any{
@@ -383,7 +383,7 @@ func TestRuntimeCost(t *testing.T) {
 		{
 			name:         "estimated function call",
 			expr:         `input.getFullYear()`,
-			decls:        []*exprpb.Decl{decls.NewVar("input", decls.Timestamp)},
+			vars:         []*decls.VariableDecl{decls.NewVariable("input", decls.TimestampType)},
 			want:         8,
 			in:           map[string]any{"input": time.Now()},
 			testFuncCost: true,
@@ -404,19 +404,19 @@ func TestRuntimeCost(t *testing.T) {
 			want: 30,
 		},
 		{
-			name:  "all comprehension",
-			decls: []*exprpb.Decl{decls.NewVar("input", allList)},
-			expr:  `input.all(x, true)`,
-			want:  2,
+			name: "all comprehension",
+			vars: []*decls.VariableDecl{decls.NewVariable("input", allList)},
+			expr: `input.all(x, true)`,
+			want: 2,
 			in: map[string]any{
 				"input": []*proto3pb.TestAllTypes{},
 			},
 		},
 		{
-			name:  "nested all comprehension",
-			decls: []*exprpb.Decl{decls.NewVar("input", nestedList)},
-			expr:  `input.all(x, x.all(y, true))`,
-			want:  2,
+			name: "nested all comprehension",
+			vars: []*decls.VariableDecl{decls.NewVariable("input", nestedList)},
+			expr: `input.all(x, x.all(y, true))`,
+			want: 2,
 			in: map[string]any{
 				"input": []*proto3pb.TestAllTypes{},
 			},
@@ -427,11 +427,11 @@ func TestRuntimeCost(t *testing.T) {
 			want: 20,
 		},
 		{
-			name:  "variable cost function",
-			decls: []*exprpb.Decl{decls.NewVar("input", decls.String)},
-			expr:  `input.matches('[0-9]')`,
-			want:  103,
-			in:    map[string]any{"input": string(randSeq(500))},
+			name: "variable cost function",
+			vars: []*decls.VariableDecl{decls.NewVariable("input", decls.StringType)},
+			expr: `input.matches('[0-9]')`,
+			want: 103,
+			in:   map[string]any{"input": string(randSeq(500))},
 		},
 		{
 			name: "variable cost function with constant",
@@ -452,11 +452,11 @@ func TestRuntimeCost(t *testing.T) {
 		{
 			name: "or accumulated branch cost",
 			expr: `a || b || c || d`,
-			decls: []*exprpb.Decl{
-				decls.NewVar("a", decls.Bool),
-				decls.NewVar("b", decls.Bool),
-				decls.NewVar("c", decls.Bool),
-				decls.NewVar("d", decls.Bool),
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("a", decls.BoolType),
+				decls.NewVariable("b", decls.BoolType),
+				decls.NewVariable("c", decls.BoolType),
+				decls.NewVariable("d", decls.BoolType),
 			},
 			in: map[string]any{
 				"a": false,
@@ -479,11 +479,11 @@ func TestRuntimeCost(t *testing.T) {
 		{
 			name: "and accumulated branch cost",
 			expr: `a && b && c && d`,
-			decls: []*exprpb.Decl{
-				decls.NewVar("a", decls.Bool),
-				decls.NewVar("b", decls.Bool),
-				decls.NewVar("c", decls.Bool),
-				decls.NewVar("d", decls.Bool),
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("a", decls.BoolType),
+				decls.NewVariable("b", decls.BoolType),
+				decls.NewVariable("c", decls.BoolType),
+				decls.NewVariable("d", decls.BoolType),
 			},
 			in: map[string]any{
 				"a": true,
@@ -564,18 +564,18 @@ func TestRuntimeCost(t *testing.T) {
 			want: 2,
 		},
 		{
-			name:  "bytes to string conversion",
-			decls: []*exprpb.Decl{decls.NewVar("input", decls.Bytes)},
-			expr:  `string(input)`,
-			want:  51,
-			in:    map[string]any{"input": randSeq(500)},
+			name: "bytes to string conversion",
+			vars: []*decls.VariableDecl{decls.NewVariable("input", decls.BytesType)},
+			expr: `string(input)`,
+			want: 51,
+			in:   map[string]any{"input": randSeq(500)},
 		},
 		{
-			name:  "string to bytes conversion",
-			decls: []*exprpb.Decl{decls.NewVar("input", decls.String)},
-			expr:  `bytes(input)`,
-			want:  51,
-			in:    map[string]any{"input": string(randSeq(500))},
+			name: "string to bytes conversion",
+			vars: []*decls.VariableDecl{decls.NewVariable("input", decls.StringType)},
+			expr: `bytes(input)`,
+			want: 51,
+			in:   map[string]any{"input": string(randSeq(500))},
 		},
 		{
 			name: "int to string conversion",
@@ -585,9 +585,9 @@ func TestRuntimeCost(t *testing.T) {
 		{
 			name: "contains",
 			expr: `input.contains(arg1)`,
-			decls: []*exprpb.Decl{
-				decls.NewVar("input", decls.String),
-				decls.NewVar("arg1", decls.String),
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("input", decls.StringType),
+				decls.NewVariable("arg1", decls.StringType),
 			},
 			want: 2502,
 			in:   map[string]any{"input": string(randSeq(500)), "arg1": string(randSeq(500))},
@@ -595,8 +595,8 @@ func TestRuntimeCost(t *testing.T) {
 		{
 			name: "matches",
 			expr: `input.matches('\\d+a\\d+b')`,
-			decls: []*exprpb.Decl{
-				decls.NewVar("input", decls.String),
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("input", decls.StringType),
 			},
 			want: 103,
 			in:   map[string]any{"input": string(randSeq(500)), "arg1": string(randSeq(500))},
@@ -604,9 +604,9 @@ func TestRuntimeCost(t *testing.T) {
 		{
 			name: "startsWith",
 			expr: `input.startsWith(arg1)`,
-			decls: []*exprpb.Decl{
-				decls.NewVar("input", decls.String),
-				decls.NewVar("arg1", decls.String),
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("input", decls.StringType),
+				decls.NewVariable("arg1", decls.StringType),
 			},
 			want: 3,
 			in:   map[string]any{"input": "idc", "arg1": string(randSeq(500))},
@@ -614,9 +614,9 @@ func TestRuntimeCost(t *testing.T) {
 		{
 			name: "endsWith",
 			expr: `input.endsWith(arg1)`,
-			decls: []*exprpb.Decl{
-				decls.NewVar("input", decls.String),
-				decls.NewVar("arg1", decls.String),
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("input", decls.StringType),
+				decls.NewVariable("arg1", decls.StringType),
 			},
 			want: 3,
 			in:   map[string]any{"input": "idc", "arg1": string(randSeq(500))},
@@ -624,8 +624,8 @@ func TestRuntimeCost(t *testing.T) {
 		{
 			name: "size receiver",
 			expr: `input.size()`,
-			decls: []*exprpb.Decl{
-				decls.NewVar("input", decls.String),
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("input", decls.StringType),
 			},
 			want: 2,
 			in:   map[string]any{"input": "500", "arg1": "500"},
@@ -633,8 +633,8 @@ func TestRuntimeCost(t *testing.T) {
 		{
 			name: "size",
 			expr: `size(input)`,
-			decls: []*exprpb.Decl{
-				decls.NewVar("input", decls.String),
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("input", decls.StringType),
 			},
 			want: 2,
 			in:   map[string]any{"input": "500", "arg1": "500"},
@@ -642,10 +642,10 @@ func TestRuntimeCost(t *testing.T) {
 		{
 			name: "ternary eval",
 			expr: `(x > 2 ? input1 : input2).all(y, true)`,
-			decls: []*exprpb.Decl{
-				decls.NewVar("x", decls.Int),
-				decls.NewVar("input1", allList),
-				decls.NewVar("input2", allList),
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("x", decls.IntType),
+				decls.NewVariable("input1", allList),
+				decls.NewVariable("input2", allList),
 			},
 			want: 6,
 			in:   map[string]any{"input1": []*proto3pb.TestAllTypes{{}}, "input2": []*proto3pb.TestAllTypes{{}}, "x": 1},
@@ -665,8 +665,8 @@ func TestRuntimeCost(t *testing.T) {
 		{
 			name: "comprehension over map",
 			expr: `input.all(k, input[k].single_int32 > 3)`,
-			decls: []*exprpb.Decl{
-				decls.NewVar("input", allMap),
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("input", allMap),
 			},
 			want: 9,
 			in:   map[string]any{"input": map[string]any{"val": &proto3pb.TestAllTypes{}}},
@@ -674,8 +674,8 @@ func TestRuntimeCost(t *testing.T) {
 		{
 			name: "comprehension over nested map of maps",
 			expr: `input.all(k, input[k].all(x, true))`,
-			decls: []*exprpb.Decl{
-				decls.NewVar("input", nestedMap),
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("input", nestedMap),
 			},
 			want: 2,
 			in:   map[string]any{"input": map[string]any{}},
@@ -683,8 +683,8 @@ func TestRuntimeCost(t *testing.T) {
 		{
 			name: "string size of map keys",
 			expr: `input.all(k, k.contains(k))`,
-			decls: []*exprpb.Decl{
-				decls.NewVar("input", nestedMap),
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("input", nestedMap),
 			},
 			want: 2,
 			in:   map[string]any{"input": map[string]any{}},
@@ -692,8 +692,8 @@ func TestRuntimeCost(t *testing.T) {
 		{
 			name: "comprehension variable shadowing",
 			expr: `input.all(k, input[k].all(k, true) && k.contains(k))`,
-			decls: []*exprpb.Decl{
-				decls.NewVar("input", nestedMap),
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("input", nestedMap),
 			},
 			want: 2,
 			in:   map[string]any{"input": map[string]any{}},
@@ -701,8 +701,8 @@ func TestRuntimeCost(t *testing.T) {
 		{
 			name: "comprehension variable shadowing",
 			expr: `input.all(k, input[k].all(k, true) && k.contains(k))`,
-			decls: []*exprpb.Decl{
-				decls.NewVar("input", nestedMap),
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("input", nestedMap),
 			},
 			want: 2,
 			in:   map[string]any{"input": map[string]any{}},
@@ -710,9 +710,9 @@ func TestRuntimeCost(t *testing.T) {
 		{
 			name: "list concat",
 			expr: `(list1 + list2).all(x, true)`,
-			decls: []*exprpb.Decl{
-				decls.NewVar("list1", decls.NewListType(decls.Int)),
-				decls.NewVar("list2", decls.NewListType(decls.Int)),
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("list1", decls.ListType(decls.IntType)),
+				decls.NewVariable("list2", decls.ListType(decls.IntType)),
 			},
 			want: 4,
 			in:   map[string]any{"list1": []int{}, "list2": []int{}},
@@ -720,9 +720,9 @@ func TestRuntimeCost(t *testing.T) {
 		{
 			name: "str concat",
 			expr: `"abcdefg".contains(str1 + str2)`,
-			decls: []*exprpb.Decl{
-				decls.NewVar("str1", decls.String),
-				decls.NewVar("str2", decls.String),
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("str1", decls.StringType),
+				decls.NewVariable("str2", decls.StringType),
 			},
 			want: 6,
 			in:   map[string]any{"str1": "val1", "str2": "val2222222"},
@@ -730,9 +730,9 @@ func TestRuntimeCost(t *testing.T) {
 		{
 			name: "at limit",
 			expr: `"abcdefg".contains(str1 + str2)`,
-			decls: []*exprpb.Decl{
-				decls.NewVar("str1", decls.String),
-				decls.NewVar("str2", decls.String),
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("str1", decls.StringType),
+				decls.NewVariable("str2", decls.StringType),
 			},
 			in:    map[string]any{"str1": "val1", "str2": "val2222222"},
 			limit: 6,
@@ -741,34 +741,34 @@ func TestRuntimeCost(t *testing.T) {
 		{
 			name: "above limit",
 			expr: `"abcdefg".contains(str1 + str2)`,
-			decls: []*exprpb.Decl{
-				decls.NewVar("str1", decls.String),
-				decls.NewVar("str2", decls.String),
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("str1", decls.StringType),
+				decls.NewVariable("str2", decls.StringType),
 			},
 			in:                 map[string]any{"str1": "val1", "str2": "val2222222"},
 			limit:              5,
 			expectExceedsLimit: true,
 		},
 		{
-			name:  "ternary as operand",
-			expr:  `(1 > 2 ? 5 : 3) > 1`,
-			decls: []*exprpb.Decl{},
-			in:    map[string]any{},
-			want:  2,
+			name: "ternary as operand",
+			expr: `(1 > 2 ? 5 : 3) > 1`,
+			vars: []*decls.VariableDecl{},
+			in:   map[string]any{},
+			want: 2,
 		},
 		{
-			name:  "ternary as operand",
-			expr:  `(1 > 2 || 2 > 1) == true`,
-			decls: []*exprpb.Decl{},
-			in:    map[string]any{},
-			want:  3,
+			name: "ternary as operand",
+			expr: `(1 > 2 || 2 > 1) == true`,
+			vars: []*decls.VariableDecl{},
+			in:   map[string]any{},
+			want: 3,
 		},
 		{
-			name:  "list map literal",
-			expr:  `[{'k1': 1}, {'k2': 2}].all(x, true)`,
-			decls: []*exprpb.Decl{},
-			in:    map[string]any{},
-			want:  77,
+			name: "list map literal",
+			expr: `[{'k1': 1}, {'k2': 2}].all(x, true)`,
+			vars: []*decls.VariableDecl{},
+			in:   map[string]any{},
+			want: 77,
 		},
 	}
 
@@ -783,7 +783,7 @@ func TestRuntimeCost(t *testing.T) {
 			if costLimit != nil {
 				options = append(options, CostTrackerLimit(*costLimit))
 			}
-			actualCost, est, err := computeCost(t, tc.expr, tc.decls, ctx, options)
+			actualCost, est, err := computeCost(t, tc.expr, varExprDecls(t, tc.vars...), ctx, options)
 			if err != nil {
 				if tc.expectExceedsLimit {
 					return
