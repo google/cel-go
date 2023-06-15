@@ -57,7 +57,7 @@ const (
 //	'hello'.charAt(5)  // return ''
 //	'hello'.charAt(-1) // error
 //
-// # Strings.Format
+// # Format
 //
 // Introduced at version: 1
 //

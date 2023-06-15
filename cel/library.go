@@ -172,9 +172,10 @@ func (stdLibrary) ProgramOptions() []ProgramOption {
 // will ensure the type on the right-hand side must be optional(T) where T
 // is the type of the field or key-value.
 //
-//		// returns a map with the key expression set only if the subfield is
-//	 // present otherwise an empty map is created.
-//		{?key: obj.?field.subfield}
+// The following returns a map with the key expression set only if the
+// subfield is present, otherwise an empty map is created:
+//
+//	{?key: obj.?field.subfield}
 //
 // ## Optional Element Setting
 //
