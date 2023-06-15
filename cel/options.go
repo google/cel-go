@@ -561,13 +561,6 @@ func DefaultUTCTimeZone(enabled bool) EnvOption {
 	return features(featureDefaultUTCTimeZone, enabled)
 }
 
-// OptionalTypes enable support for optional syntax and types in CEL. The optional value type makes
-// it possible to express whether variables have been provided, whether a result has been computed,
-// and in the future whether an object field path, map key value, or list index has a value.
-func OptionalTypes() EnvOption {
-	return Lib(optionalLibrary{})
-}
-
 // features sets the given feature flags.  See list of Feature constants above.
 func features(flag int, enabled bool) EnvOption {
 	return func(e *Env) (*Env, error) {

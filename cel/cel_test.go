@@ -2155,6 +2155,55 @@ func TestOptionalValuesEval(t *testing.T) {
 			out: types.OptionalNone,
 		},
 		{
+			expr: `m.?key.optFlatMap(k, k.?subkey)`,
+			in: map[string]any{
+				"m": map[string]any{},
+			},
+			out: types.OptionalNone,
+		},
+		{
+			expr: `m.?key.optFlatMap(k, k.?subkey)`,
+			in: map[string]any{
+				"m": map[string]any{
+					"key": map[string]string{},
+				},
+			},
+			out: types.OptionalNone,
+		},
+		{
+			expr: `m.?key.optFlatMap(k, k.?subkey)`,
+			in: map[string]any{
+				"m": map[string]any{
+					"key": map[string]string{
+						"subkey": "subvalue",
+					},
+				},
+			},
+			out: types.OptionalOf(types.String("subvalue")),
+		},
+		{
+			expr: `m.?key.optFlatMap(k, k.?subkey)`,
+			in: map[string]any{
+				"m": map[string]any{
+					"key": map[string]string{
+						"subkey": "",
+					},
+				},
+			},
+			out: types.OptionalOf(types.String("")),
+		},
+		{
+			expr: `m.?key.optFlatMap(k, optional.ofNonZeroValue(k.subkey))`,
+			in: map[string]any{
+				"m": map[string]any{
+					"key": map[string]string{
+						"subkey": "",
+					},
+				},
+			},
+			out: types.OptionalNone,
+		},
+		{
 			expr: `x.optMap(y, y + 1)`,
 			in: map[string]any{
 				"x": types.OptionalOf(types.Int(42)),
@@ -2503,6 +2552,22 @@ func TestOptionalMacroError(t *testing.T) {
 	_, iss := env.Compile("x.optMap(y.z, y.z + 1)")
 	if iss.Err() == nil || !strings.Contains(iss.Err().Error(), "variable name must be a simple identifier") {
 		t.Errorf("optMap() got an unexpected result: %v", iss.Err())
+	}
+	_, iss = env.Compile("x.optFlatMap(y.z, y.z + 1)")
+	if iss.Err() == nil || !strings.Contains(iss.Err().Error(), "variable name must be a simple identifier") {
+		t.Errorf("optFlatMap() got an unexpected result: %v", iss.Err())
+	}
+	env, err = NewEnv(
+		OptionalTypes(OptionalTypesVersion(0)),
+		// Test variables.
+		Variable("x", OptionalType(IntType)),
+	)
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	_, iss = env.Compile("x.optFlatMap(y, y.z + 1)")
+	if iss.Err() == nil || !strings.Contains(iss.Err().Error(), "undeclared reference to 'optFlatMap'") {
+		t.Errorf("optFlatMap() got an unexpected result: %v", iss.Err())
 	}
 }
 
