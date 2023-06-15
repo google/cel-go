@@ -365,7 +365,9 @@ func SingletonFunctionBinding(fn functions.FunctionOp, traits ...int) FunctionOp
 //
 // Note: function bindings should be commonly configured with Overload instances whereas operand traits and
 // strict-ness should be rare occurrences.
-func Overload(overloadID string, args []*Type, resultType *Type, opts ...OverloadOpt) FunctionOpt {
+func Overload(overloadID string,
+	args []*types.Type, resultType *types.Type,
+	opts ...OverloadOpt) FunctionOpt {
 	return newOverload(overloadID, false, args, resultType, opts...)
 }
 
@@ -375,11 +377,15 @@ func Overload(overloadID string, args []*Type, resultType *Type, opts ...Overloa
 //
 // Note: function bindings should be commonly configured with Overload instances whereas operand traits and
 // strict-ness should be rare occurrences.
-func MemberOverload(overloadID string, args []*Type, resultType *Type, opts ...OverloadOpt) FunctionOpt {
+func MemberOverload(overloadID string,
+	args []*types.Type, resultType *types.Type,
+	opts ...OverloadOpt) FunctionOpt {
 	return newOverload(overloadID, true, args, resultType, opts...)
 }
 
-func newOverload(overloadID string, memberFunction bool, args []*Type, resultType *Type, opts ...OverloadOpt) FunctionOpt {
+func newOverload(overloadID string,
+	memberFunction bool, args []*types.Type, resultType *types.Type,
+	opts ...OverloadOpt) FunctionOpt {
 	return func(f *FunctionDecl) (*FunctionDecl, error) {
 		overload, err := newOverloadInternal(overloadID, memberFunction, args, resultType, opts...)
 		if err != nil {
@@ -393,7 +399,9 @@ func newOverload(overloadID string, memberFunction bool, args []*Type, resultTyp
 	}
 }
 
-func newOverloadInternal(overloadID string, memberFunction bool, args []*Type, resultType *Type, opts ...OverloadOpt) (*OverloadDecl, error) {
+func newOverloadInternal(overloadID string,
+	memberFunction bool, args []*types.Type, resultType *types.Type,
+	opts ...OverloadOpt) (*OverloadDecl, error) {
 	overload := &OverloadDecl{
 		ID:               overloadID,
 		ArgTypes:         args,
@@ -424,10 +432,10 @@ type OverloadDecl struct {
 	// ArgTypes contains the set of argument types expected by the overload.
 	//
 	// For member functions ArgTypes[0] represents the member operand type.
-	ArgTypes []*Type
+	ArgTypes []*types.Type
 
 	// ResultType indicates the output type from calling the function.
-	ResultType *Type
+	ResultType *types.Type
 
 	// IsMemberFunction indicates whether the overload is a member function
 	IsMemberFunction bool
@@ -558,7 +566,7 @@ func (o *OverloadDecl) matchesRuntimeSignature(disableTypeGuards bool, args ...r
 	return matchOperandTrait(o.OperandTrait, args[0])
 }
 
-func matchRuntimeArgType(nonStrict, disableTypeGuards bool, argType *Type, arg ref.Val) bool {
+func matchRuntimeArgType(nonStrict, disableTypeGuards bool, argType *types.Type, arg ref.Val) bool {
 	if nonStrict && (disableTypeGuards || types.IsUnknownOrError(arg)) {
 		return true
 	}
@@ -637,14 +645,14 @@ func OverloadOperandTrait(trait int) OverloadOpt {
 }
 
 // NewVariable creates a new variable declaration.
-func NewVariable(name string, t *Type) *VariableDecl {
+func NewVariable(name string, t *types.Type) *VariableDecl {
 	return &VariableDecl{Name: name, Type: t}
 }
 
 // VariableDecl defines a variable declaration which may optionally have a constant value.
 type VariableDecl struct {
 	Name string
-	Type *Type
+	Type *types.Type
 }
 
 // DeclarationEquals returns true if one variable declaration has the same name and same type as the input.
@@ -657,7 +665,7 @@ func (v *VariableDecl) DeclarationEquals(other *VariableDecl) bool {
 
 // VariableDeclToExprDecl converts a go-native variable declaration into a protobuf-type variable declaration.
 func VariableDeclToExprDecl(v *VariableDecl) (*exprpb.Decl, error) {
-	varType, err := TypeToExprType(v.Type)
+	varType, err := types.TypeToExprType(v.Type)
 	if err != nil {
 		return nil, err
 	}
@@ -665,8 +673,8 @@ func VariableDeclToExprDecl(v *VariableDecl) (*exprpb.Decl, error) {
 }
 
 // TypeVariable creates a new type identifier for use within a ref.TypeProvider
-func TypeVariable(t *Type) *VariableDecl {
-	return NewVariable(t.TypeName(), NewTypeTypeWithParam(t))
+func TypeVariable(t *types.Type) *VariableDecl {
+	return NewVariable(t.TypeName(), types.NewTypeTypeWithParam(t))
 }
 
 // FunctionDeclToExprDecl converts a go-native function declaration into a protobuf-typed function declaration.
@@ -678,14 +686,14 @@ func FunctionDeclToExprDecl(f *FunctionDecl) (*exprpb.Decl, error) {
 		argTypes := make([]*exprpb.Type, len(o.ArgTypes))
 		for j, a := range o.ArgTypes {
 			collectParamNames(paramNames, a)
-			at, err := TypeToExprType(a)
+			at, err := types.TypeToExprType(a)
 			if err != nil {
 				return nil, err
 			}
 			argTypes[j] = at
 		}
 		collectParamNames(paramNames, o.ResultType)
-		resultType, err := TypeToExprType(o.ResultType)
+		resultType, err := types.TypeToExprType(o.ResultType)
 		if err != nil {
 			return nil, err
 		}
@@ -710,8 +718,8 @@ func FunctionDeclToExprDecl(f *FunctionDecl) (*exprpb.Decl, error) {
 	return chkdecls.NewFunction(f.Name, overloads...), nil
 }
 
-func collectParamNames(paramNames map[string]struct{}, arg *Type) {
-	if arg.Kind == TypeParamKind {
+func collectParamNames(paramNames map[string]struct{}, arg *types.Type) {
+	if arg.Kind == types.TypeParamKind {
 		paramNames[arg.TypeName()] = struct{}{}
 	}
 	for _, param := range arg.Parameters {

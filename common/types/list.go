@@ -29,16 +29,6 @@ import (
 	structpb "google.golang.org/protobuf/types/known/structpb"
 )
 
-var (
-	// ListType singleton.
-	ListType = NewTypeValue("list",
-		traits.AdderType,
-		traits.ContainerType,
-		traits.IndexerType,
-		traits.IterableType,
-		traits.SizerType)
-)
-
 // NewDynamicList returns a traits.Lister with heterogenous elements.
 // value should be an array of "native" types, i.e. any type that
 // NativeToValue() can convert to a ref.Val.

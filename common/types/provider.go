@@ -233,6 +233,11 @@ func (p *protoTypeRegistry) NativeToValue(value any) ref.Val {
 
 func (p *protoTypeRegistry) registerAllTypes(fd *pb.FileDescription) error {
 	for _, typeName := range fd.GetTypeNames() {
+		// skip well-known type names since they're automatically sanitized
+		// during NewObjectType() calls.
+		if _, found := checkedWellKnowns[typeName]; found {
+			continue
+		}
 		err := p.RegisterType(NewObjectTypeValue(typeName))
 		if err != nil {
 			return err
