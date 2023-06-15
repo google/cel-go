@@ -345,7 +345,6 @@ func (p *astPruner) prune(node *exprpb.Expr) (*exprpb.Expr, bool) {
 		compre := node.GetComprehensionExpr()
 		if compre != nil {
 			visit(macro, clearIterVarVisitor(compre.IterVar, p.state))
-			visit(macro, clearIterVarVisitor(compre.AccuVar, p.state))
 		}
 		// prune the expression in terms of the macro call instead of the expanded form.
 		if newMacro, pruned := p.prune(macro); pruned {
