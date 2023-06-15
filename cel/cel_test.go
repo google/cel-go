@@ -2157,6 +2157,13 @@ func TestOptionalValuesEval(t *testing.T) {
 		{
 			expr: `m.?key.optFlatMap(k, k.?subkey)`,
 			in: map[string]any{
+				"m": map[string]any{},
+			},
+			out: types.OptionalNone,
+		},
+		{
+			expr: `m.?key.optFlatMap(k, k.?subkey)`,
+			in: map[string]any{
 				"m": map[string]any{
 					"key": map[string]string{},
 				},
@@ -2173,6 +2180,28 @@ func TestOptionalValuesEval(t *testing.T) {
 				},
 			},
 			out: types.OptionalOf(types.String("subvalue")),
+		},
+		{
+			expr: `m.?key.optFlatMap(k, k.?subkey)`,
+			in: map[string]any{
+				"m": map[string]any{
+					"key": map[string]string{
+						"subkey": "",
+					},
+				},
+			},
+			out: types.OptionalOf(types.String("")),
+		},
+		{
+			expr: `m.?key.optFlatMap(k, optional.ofNonZeroValue(k.subkey))`,
+			in: map[string]any{
+				"m": map[string]any{
+					"key": map[string]string{
+						"subkey": "",
+					},
+				},
+			},
+			out: types.OptionalNone,
 		},
 		{
 			expr: `x.optMap(y, y + 1)`,
