@@ -202,7 +202,7 @@ func RefValueToValue(res ref.Val) (*exprpb.Value, error) {
 }
 
 var (
-	typeNameToTypeValue = map[string]*types.TypeValue{
+	typeNameToTypeValue = map[string]ref.Val{
 		"bool":      types.BoolType,
 		"bytes":     types.BytesType,
 		"double":    types.DoubleType,

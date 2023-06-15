@@ -664,6 +664,11 @@ func VariableDeclToExprDecl(v *VariableDecl) (*exprpb.Decl, error) {
 	return chkdecls.NewVar(v.Name, varType), nil
 }
 
+// TypeVariable creates a new type identifier for use within a ref.TypeProvider
+func TypeVariable(t *Type) *VariableDecl {
+	return NewVariable(t.TypeName(), NewTypeTypeWithParam(t))
+}
+
 // FunctionDeclToExprDecl converts a go-native function declaration into a protobuf-typed function declaration.
 func FunctionDeclToExprDecl(f *FunctionDecl) (*exprpb.Decl, error) {
 	overloads := make([]*exprpb.Decl_FunctionDecl_Overload, len(f.Overloads))
@@ -707,7 +712,7 @@ func FunctionDeclToExprDecl(f *FunctionDecl) (*exprpb.Decl, error) {
 
 func collectParamNames(paramNames map[string]struct{}, arg *Type) {
 	if arg.Kind == TypeParamKind {
-		paramNames[arg.RuntimeTypeName()] = struct{}{}
+		paramNames[arg.TypeName()] = struct{}{}
 	}
 	for _, param := range arg.Parameters {
 		collectParamNames(paramNames, param)

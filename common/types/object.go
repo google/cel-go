@@ -32,7 +32,7 @@ type protoObj struct {
 	ref.TypeAdapter
 	value     proto.Message
 	typeDesc  *pb.TypeDescription
-	typeValue *TypeValue
+	typeValue ref.Val
 }
 
 // NewObject returns an object based on a proto.Message value which handles
@@ -44,7 +44,7 @@ type protoObj struct {
 // then this will result in an error within the type adapter / provider.
 func NewObject(adapter ref.TypeAdapter,
 	typeDesc *pb.TypeDescription,
-	typeValue *TypeValue,
+	typeValue ref.Val,
 	value proto.Message) ref.Val {
 	return &protoObj{
 		TypeAdapter: adapter,
@@ -157,7 +157,7 @@ func (o *protoObj) Get(index ref.Val) ref.Val {
 }
 
 func (o *protoObj) Type() ref.Type {
-	return o.typeValue
+	return o.typeValue.(ref.Type)
 }
 
 func (o *protoObj) Value() any {

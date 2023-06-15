@@ -208,9 +208,9 @@ func newProgram(e *Env, ast *Ast, opts []ProgramOption) (Program, error) {
 	}
 	// Enable compile-time checking of syntax/cardinality for string.format calls.
 	if p.evalOpts&OptCheckStringFormat == OptCheckStringFormat {
-		var isValidType func(id int64, validTypes ...*types.TypeValue) (bool, error)
+		var isValidType func(id int64, validTypes ...ref.Type) (bool, error)
 		if ast.IsChecked() {
-			isValidType = func(id int64, validTypes ...*types.TypeValue) (bool, error) {
+			isValidType = func(id int64, validTypes ...ref.Type) (bool, error) {
 				t, err := ExprTypeToType(ast.typeMap[id])
 				if err != nil {
 					return false, err
@@ -231,7 +231,7 @@ func newProgram(e *Env, ast *Ast, opts []ProgramOption) (Program, error) {
 			}
 		} else {
 			// if the AST isn't type-checked, short-circuit validation
-			isValidType = func(id int64, validTypes ...*types.TypeValue) (bool, error) {
+			isValidType = func(id int64, validTypes ...ref.Type) (bool, error) {
 				return true, nil
 			}
 		}
