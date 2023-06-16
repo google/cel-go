@@ -836,6 +836,16 @@ ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, nul
 		outType: decls.Bool,
 	},
 	{
+		in: `x.single_timestamp == google.protobuf.Timestamp{seconds: 20} &&
+		     x.single_duration < google.protobuf.Duration{seconds: 10}`,
+		env: testEnv{
+			idents: []*exprpb.Decl{
+				decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
+			},
+		},
+		outType: decls.Bool,
+	},
+	{
 		in: `x.single_bool_wrapper == google.protobuf.BoolValue{value: true}
 			&& x.single_bytes_wrapper == google.protobuf.BytesValue{value: b'hi'}
 			&& x.single_double_wrapper != google.protobuf.DoubleValue{value: 2.0}
