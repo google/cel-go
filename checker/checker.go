@@ -505,7 +505,19 @@ func (c *checker) checkCreateMessage(e *exprpb.Expr) {
 			c.errors.notAType(e.GetId(), c.location(e), ident.GetType())
 		} else {
 			messageType = ident.GetType().GetType()
-			if kindOf(messageType) != kindObject {
+			kind := kindOf(messageType)
+			// Backwards compatibility test between well-known types and message types
+			// In this context, the type is being instantiated by its protobuf name which
+			// is not ideal or recommended, but some users expect this to work.
+			if kind == kindWellKnown || kind == kindWrapper {
+				messageType = &exprpb.Type{
+					TypeKind: &exprpb.Type_MessageType{
+						MessageType: decl.GetName(),
+					},
+				}
+				kind = kindObject
+			}
+			if kind != kindObject {
 				c.errors.notAMessageType(e.GetId(), c.location(e), messageType)
 				messageType = decls.Error
 			}
