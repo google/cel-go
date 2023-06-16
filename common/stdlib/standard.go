@@ -35,24 +35,24 @@ var (
 )
 
 func init() {
-	paramA := decls.TypeParamType("A")
-	paramB := decls.TypeParamType("B")
-	listOfA := decls.ListType(paramA)
-	mapOfAB := decls.MapType(paramA, paramB)
+	paramA := decls.NewTypeParamType("A")
+	paramB := decls.NewTypeParamType("B")
+	listOfA := decls.NewListType(paramA)
+	mapOfAB := decls.NewMapType(paramA, paramB)
 
 	stdTypes = []*decls.VariableDecl{
-		decls.BoolType.TypeVariable(),
-		decls.BytesType.TypeVariable(),
-		decls.DoubleType.TypeVariable(),
-		decls.DurationType.TypeVariable(),
-		decls.IntType.TypeVariable(),
-		listOfA.TypeVariable(),
-		mapOfAB.TypeVariable(),
-		decls.NullType.TypeVariable(),
-		decls.StringType.TypeVariable(),
-		decls.TimestampType.TypeVariable(),
-		decls.TypeType.TypeVariable(),
-		decls.UintType.TypeVariable(),
+		decls.TypeVariable(decls.BoolType),
+		decls.TypeVariable(decls.BytesType),
+		decls.TypeVariable(decls.DoubleType),
+		decls.TypeVariable(decls.DurationType),
+		decls.TypeVariable(decls.IntType),
+		decls.TypeVariable(listOfA),
+		decls.TypeVariable(mapOfAB),
+		decls.TypeVariable(decls.NullType),
+		decls.TypeVariable(decls.StringType),
+		decls.TypeVariable(decls.TimestampType),
+		decls.TypeVariable(decls.TypeType),
+		decls.TypeVariable(decls.UintType),
 	}
 
 	stdTypeDecls = make([]*exprpb.Decl, 0, len(stdTypes))
@@ -386,7 +386,7 @@ func init() {
 
 		// Type conversions
 		function(overloads.TypeConvertType,
-			decls.Overload(overloads.TypeConvertType, argTypes(paramA), decls.TypeTypeWithParam(paramA)),
+			decls.Overload(overloads.TypeConvertType, argTypes(paramA), decls.NewTypeTypeWithParam(paramA)),
 			decls.SingletonUnaryBinding(convertToType(types.TypeType))),
 
 		// Bool conversions

@@ -21,6 +21,7 @@ import (
 	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/functions"
 	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
@@ -110,21 +111,21 @@ var (
 	// function references for instantiating new types.
 
 	// ListType creates an instances of a list type value with the provided element type.
-	ListType = decls.ListType
+	ListType = decls.NewListType
 	// MapType creates an instance of a map type value with the provided key and value types.
-	MapType = decls.MapType
+	MapType = decls.NewMapType
 	// NullableType creates an instance of a nullable type with the provided wrapped type.
 	//
 	// Note: only primitive types are supported as wrapped types.
-	NullableType = decls.NullableType
+	NullableType = decls.NewNullableType
 	// OptionalType creates an abstract parameterized type instance corresponding to CEL's notion of optional.
-	OptionalType = decls.OptionalType
+	OptionalType = decls.NewOptionalType
 	// OpaqueType creates an abstract parameterized type with a given name.
-	OpaqueType = decls.OpaqueType
+	OpaqueType = decls.NewOpaqueType
 	// ObjectType creates a type references to an externally defined type, e.g. a protobuf message type.
-	ObjectType = decls.ObjectType
+	ObjectType = decls.NewObjectType
 	// TypeParamType creates a parameterized type instance.
-	TypeParamType = decls.TypeParamType
+	TypeParamType = decls.NewTypeParamType
 )
 
 // Type holds a reference to a runtime type with an optional type-checked set of type parameters.
@@ -338,7 +339,7 @@ func ExprDeclToDeclaration(d *exprpb.Decl) (EnvOption, error) {
 	}
 }
 
-func typeValueToKind(tv *types.TypeValue) (Kind, error) {
+func typeValueToKind(tv ref.Type) (Kind, error) {
 	switch tv {
 	case types.BoolType:
 		return BoolKind, nil

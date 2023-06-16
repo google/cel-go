@@ -15,6 +15,8 @@
 package decls
 
 import (
+	"errors"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -24,6 +26,8 @@ import (
 	chkdecls "github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/common/types/traits"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
@@ -34,11 +38,11 @@ func TestTypeString(t *testing.T) {
 		out string
 	}{
 		{
-			in:  ListType(IntType),
+			in:  NewListType(IntType),
 			out: "list(int)",
 		},
 		{
-			in:  MapType(UintType, DoubleType),
+			in:  NewMapType(UintType, DoubleType),
 			out: "map(uint, double)",
 		},
 		{
@@ -54,35 +58,35 @@ func TestTypeString(t *testing.T) {
 			out: "null_type",
 		},
 		{
-			in:  NullableType(BoolType),
+			in:  NewNullableType(BoolType),
 			out: "wrapper(bool)",
 		},
 		{
-			in:  OptionalType(ListType(StringType)),
+			in:  NewOptionalType(NewListType(StringType)),
 			out: "optional(list(string))",
 		},
 		{
-			in:  ObjectType("my.type.Message"),
+			in:  NewObjectType("my.type.Message"),
 			out: "my.type.Message",
 		},
 		{
-			in:  ObjectType("google.protobuf.Int32Value"),
+			in:  NewObjectType("google.protobuf.Int32Value"),
 			out: "wrapper(int)",
 		},
 		{
-			in:  ObjectType("google.protobuf.UInt32Value"),
+			in:  NewObjectType("google.protobuf.UInt32Value"),
 			out: "wrapper(uint)",
 		},
 		{
-			in:  ObjectType("google.protobuf.Value"),
+			in:  NewObjectType("google.protobuf.Value"),
 			out: "dyn",
 		},
 		{
-			in:  TypeTypeWithParam(StringType),
+			in:  NewTypeTypeWithParam(StringType),
 			out: "type(string)",
 		},
 		{
-			in:  TypeParamType("T"),
+			in:  NewTypeParamType("T"),
 			out: "T",
 		},
 	}
@@ -110,28 +114,28 @@ func TestTypeIsType(t *testing.T) {
 			isType: false,
 		},
 		{
-			t1:     OptionalType(StringType),
-			t2:     OptionalType(IntType),
+			t1:     NewOptionalType(StringType),
+			t2:     NewOptionalType(IntType),
 			isType: false,
 		},
 		{
-			t1:     OptionalType(UintType),
-			t2:     OptionalType(UintType),
+			t1:     NewOptionalType(UintType),
+			t2:     NewOptionalType(UintType),
 			isType: true,
 		},
 		{
-			t1:     MapType(BoolType, IntType),
-			t2:     MapType(BoolType, IntType),
+			t1:     NewMapType(BoolType, IntType),
+			t2:     NewMapType(BoolType, IntType),
 			isType: true,
 		},
 		{
-			t1:     MapType(TypeParamType("K1"), IntType),
-			t2:     MapType(TypeParamType("K2"), IntType),
+			t1:     NewMapType(NewTypeParamType("K1"), IntType),
+			t2:     NewMapType(NewTypeParamType("K2"), IntType),
 			isType: true,
 		},
 		{
-			t1:     MapType(TypeParamType("K1"), ObjectType("my.msg.First")),
-			t2:     MapType(TypeParamType("K2"), ObjectType("my.msg.Last")),
+			t1:     NewMapType(NewTypeParamType("K1"), NewObjectType("my.msg.First")),
+			t2:     NewMapType(NewTypeParamType("K2"), NewObjectType("my.msg.Last")),
 			isType: false,
 		},
 	}
@@ -149,24 +153,24 @@ func TestTypeTypeVariable(t *testing.T) {
 	}{
 		{
 			t: AnyType,
-			v: NewVariable("google.protobuf.Any", TypeTypeWithParam(AnyType)),
+			v: NewVariable("google.protobuf.Any", NewTypeTypeWithParam(AnyType)),
 		},
 		{
 			t: DynType,
-			v: NewVariable("dyn", TypeTypeWithParam(DynType)),
+			v: NewVariable("dyn", NewTypeTypeWithParam(DynType)),
 		},
 		{
-			t: ObjectType("google.protobuf.Int32Value"),
-			v: NewVariable("int", TypeTypeWithParam(NullableType(IntType))),
+			t: NewObjectType("google.protobuf.Int32Value"),
+			v: NewVariable("int", NewTypeTypeWithParam(NewNullableType(IntType))),
 		},
 		{
-			t: ObjectType("google.protobuf.Int32Value"),
-			v: NewVariable("int", TypeTypeWithParam(NullableType(IntType))),
+			t: NewObjectType("google.protobuf.Int32Value"),
+			v: NewVariable("int", NewTypeTypeWithParam(NewNullableType(IntType))),
 		},
 	}
 	for _, tst := range tests {
-		if !tst.t.TypeVariable().DeclarationEquals(tst.v) {
-			t.Errorf("got not equal %v.Equals(%v)", tst.t.TypeVariable(), tst.v)
+		if !TypeVariable(tst.t).DeclarationEquals(tst.v) {
+			t.Errorf("got not equal %v.Equals(%v)", TypeVariable(tst.t), tst.v)
 		}
 	}
 }
@@ -178,58 +182,58 @@ func TestTypeIsAssignableType(t *testing.T) {
 		isAssignable bool
 	}{
 		{
-			t1:           NullableType(DoubleType),
+			t1:           NewNullableType(DoubleType),
 			t2:           NullType,
 			isAssignable: true,
 		},
 		{
-			t1:           NullableType(DoubleType),
+			t1:           NewNullableType(DoubleType),
 			t2:           DoubleType,
 			isAssignable: true,
 		},
 		{
-			t1:           OpaqueType("vector", NullableType(DoubleType)),
-			t2:           OpaqueType("vector", NullType),
+			t1:           NewOpaqueType("vector", NewNullableType(DoubleType)),
+			t2:           NewOpaqueType("vector", NullType),
 			isAssignable: true,
 		},
 		{
-			t1:           OpaqueType("vector", NullableType(DoubleType)),
-			t2:           OpaqueType("vector", DoubleType),
+			t1:           NewOpaqueType("vector", NewNullableType(DoubleType)),
+			t2:           NewOpaqueType("vector", DoubleType),
 			isAssignable: true,
 		},
 		{
-			t1:           OpaqueType("vector", DynType),
-			t2:           OpaqueType("vector", NullableType(IntType)),
+			t1:           NewOpaqueType("vector", DynType),
+			t2:           NewOpaqueType("vector", NewNullableType(IntType)),
 			isAssignable: true,
 		},
 		{
-			t1:           ObjectType("my.msg.MsgName"),
-			t2:           ObjectType("my.msg.MsgName"),
+			t1:           NewObjectType("my.msg.MsgName"),
+			t2:           NewObjectType("my.msg.MsgName"),
 			isAssignable: true,
 		},
 		{
-			t1:           MapType(TypeParamType("K"), IntType),
-			t2:           MapType(StringType, IntType),
+			t1:           NewMapType(NewTypeParamType("K"), IntType),
+			t2:           NewMapType(StringType, IntType),
 			isAssignable: true,
 		},
 		{
-			t1:           MapType(StringType, IntType),
-			t2:           MapType(TypeParamType("K"), IntType),
+			t1:           NewMapType(StringType, IntType),
+			t2:           NewMapType(NewTypeParamType("K"), IntType),
 			isAssignable: false,
 		},
 		{
-			t1:           OpaqueType("vector", DoubleType),
-			t2:           OpaqueType("vector", NullableType(IntType)),
+			t1:           NewOpaqueType("vector", DoubleType),
+			t2:           NewOpaqueType("vector", NewNullableType(IntType)),
 			isAssignable: false,
 		},
 		{
-			t1:           OpaqueType("vector", NullableType(DoubleType)),
-			t2:           OpaqueType("vector", DynType),
+			t1:           NewOpaqueType("vector", NewNullableType(DoubleType)),
+			t2:           NewOpaqueType("vector", DynType),
 			isAssignable: false,
 		},
 		{
-			t1:           ObjectType("my.msg.MsgName"),
-			t2:           ObjectType("my.msg.MsgName2"),
+			t1:           NewObjectType("my.msg.MsgName"),
+			t2:           NewObjectType("my.msg.MsgName2"),
 			isAssignable: false,
 		},
 	}
@@ -241,9 +245,9 @@ func TestTypeIsAssignableType(t *testing.T) {
 }
 
 func TestTypeSignatureEquals(t *testing.T) {
-	paramA := TypeParamType("A")
-	paramB := TypeParamType("B")
-	mapOfAB := MapType(paramA, paramB)
+	paramA := NewTypeParamType("A")
+	paramB := NewTypeParamType("B")
+	mapOfAB := NewMapType(paramA, paramB)
 	fn, err := NewFunction(overloads.Size,
 		MemberOverload(overloads.SizeMapInst, []*Type{mapOfAB}, IntType),
 		Overload(overloads.SizeMap, []*Type{mapOfAB}, IntType))
@@ -259,25 +263,25 @@ func TestTypeSignatureEquals(t *testing.T) {
 }
 
 func TestTypeIsAssignableRuntimeType(t *testing.T) {
-	if !NullableType(DoubleType).IsAssignableRuntimeType(types.NullValue) {
+	if !NewNullableType(DoubleType).IsAssignableRuntimeType(types.NullValue) {
 		t.Error("nullable double cannot be assigned from null")
 	}
-	if !NullableType(DoubleType).IsAssignableRuntimeType(types.Double(0.0)) {
+	if !NewNullableType(DoubleType).IsAssignableRuntimeType(types.Double(0.0)) {
 		t.Error("nullable double cannot be assigned from double")
 	}
-	if !MapType(StringType, DurationType).IsAssignableRuntimeType(
+	if !NewMapType(StringType, DurationType).IsAssignableRuntimeType(
 		types.DefaultTypeAdapter.NativeToValue(map[string]time.Duration{})) {
 		t.Error("map(string, duration) not assignable to map at runtime")
 	}
-	if !MapType(StringType, DurationType).IsAssignableRuntimeType(
+	if !NewMapType(StringType, DurationType).IsAssignableRuntimeType(
 		types.DefaultTypeAdapter.NativeToValue(map[string]time.Duration{"one": time.Duration(1)})) {
 		t.Error("map(string, duration) not assignable to map at runtime")
 	}
-	if !MapType(StringType, DynType).IsAssignableRuntimeType(
+	if !NewMapType(StringType, DynType).IsAssignableRuntimeType(
 		types.DefaultTypeAdapter.NativeToValue(map[string]time.Duration{"one": time.Duration(1)})) {
 		t.Error("map(string, dyn) not assignable to map at runtime")
 	}
-	if MapType(StringType, DynType).IsAssignableRuntimeType(
+	if NewMapType(StringType, DynType).IsAssignableRuntimeType(
 		types.DefaultTypeAdapter.NativeToValue(map[int64]time.Duration{1: time.Duration(1)})) {
 		t.Error("map(string, dyn) must not be assignable to map(int, duration) at runtime")
 	}
@@ -290,7 +294,7 @@ func TestTypeToExprType(t *testing.T) {
 		unidirectional bool
 	}{
 		{
-			in:  OpaqueType("vector", DoubleType, DoubleType),
+			in:  NewOpaqueType("vector", DoubleType, DoubleType),
 			out: chkdecls.NewAbstractType("vector", chkdecls.Double, chkdecls.Double),
 		},
 		{
@@ -322,11 +326,11 @@ func TestTypeToExprType(t *testing.T) {
 			out: chkdecls.Int,
 		},
 		{
-			in:  ListType(TypeParamType("T")),
+			in:  NewListType(NewTypeParamType("T")),
 			out: chkdecls.NewListType(chkdecls.NewTypeParamType("T")),
 		},
 		{
-			in:  MapType(TypeParamType("K"), TypeParamType("V")),
+			in:  NewMapType(NewTypeParamType("K"), NewTypeParamType("V")),
 			out: chkdecls.NewMapType(chkdecls.NewTypeParamType("K"), chkdecls.NewTypeParamType("V")),
 		},
 		{
@@ -334,7 +338,7 @@ func TestTypeToExprType(t *testing.T) {
 			out: chkdecls.Null,
 		},
 		{
-			in:  ObjectType("google.type.Expr"),
+			in:  NewObjectType("google.type.Expr"),
 			out: chkdecls.NewObjectType("google.type.Expr"),
 		},
 		{
@@ -354,105 +358,105 @@ func TestTypeToExprType(t *testing.T) {
 			out: chkdecls.Uint,
 		},
 		{
-			in:  NullableType(BoolType),
+			in:  NewNullableType(BoolType),
 			out: chkdecls.NewWrapperType(chkdecls.Bool),
 		},
 		{
-			in:  NullableType(BytesType),
+			in:  NewNullableType(BytesType),
 			out: chkdecls.NewWrapperType(chkdecls.Bytes),
 		},
 		{
-			in:  NullableType(DoubleType),
+			in:  NewNullableType(DoubleType),
 			out: chkdecls.NewWrapperType(chkdecls.Double),
 		},
 		{
-			in:  NullableType(IntType),
+			in:  NewNullableType(IntType),
 			out: chkdecls.NewWrapperType(chkdecls.Int),
 		},
 		{
-			in:  NullableType(StringType),
+			in:  NewNullableType(StringType),
 			out: chkdecls.NewWrapperType(chkdecls.String),
 		},
 		{
-			in:  NullableType(UintType),
+			in:  NewNullableType(UintType),
 			out: chkdecls.NewWrapperType(chkdecls.Uint),
 		},
 		{
-			in:  TypeTypeWithParam(TypeTypeWithParam(DynType)),
+			in:  NewTypeTypeWithParam(NewTypeTypeWithParam(DynType)),
 			out: chkdecls.NewTypeType(chkdecls.NewTypeType(chkdecls.Dyn)),
 		},
 		{
-			in:             ObjectType("google.protobuf.Any"),
+			in:             NewObjectType("google.protobuf.Any"),
 			out:            chkdecls.Any,
 			unidirectional: true,
 		},
 		{
-			in:             ObjectType("google.protobuf.Duration"),
+			in:             NewObjectType("google.protobuf.Duration"),
 			out:            chkdecls.Duration,
 			unidirectional: true,
 		},
 		{
-			in:             ObjectType("google.protobuf.Timestamp"),
+			in:             NewObjectType("google.protobuf.Timestamp"),
 			out:            chkdecls.Timestamp,
 			unidirectional: true,
 		},
 		{
-			in:             ObjectType("google.protobuf.Value"),
+			in:             NewObjectType("google.protobuf.Value"),
 			out:            chkdecls.Dyn,
 			unidirectional: true,
 		},
 		{
-			in:             ObjectType("google.protobuf.ListValue"),
+			in:             NewObjectType("google.protobuf.ListValue"),
 			out:            chkdecls.NewListType(chkdecls.Dyn),
 			unidirectional: true,
 		},
 		{
-			in:             ObjectType("google.protobuf.Struct"),
+			in:             NewObjectType("google.protobuf.Struct"),
 			out:            chkdecls.NewMapType(chkdecls.String, chkdecls.Dyn),
 			unidirectional: true,
 		},
 		{
-			in:             ObjectType("google.protobuf.BoolValue"),
+			in:             NewObjectType("google.protobuf.BoolValue"),
 			out:            chkdecls.NewWrapperType(chkdecls.Bool),
 			unidirectional: true,
 		},
 		{
-			in:             ObjectType("google.protobuf.BytesValue"),
+			in:             NewObjectType("google.protobuf.BytesValue"),
 			out:            chkdecls.NewWrapperType(chkdecls.Bytes),
 			unidirectional: true,
 		},
 		{
-			in:             ObjectType("google.protobuf.DoubleValue"),
+			in:             NewObjectType("google.protobuf.DoubleValue"),
 			out:            chkdecls.NewWrapperType(chkdecls.Double),
 			unidirectional: true,
 		},
 		{
-			in:             ObjectType("google.protobuf.FloatValue"),
+			in:             NewObjectType("google.protobuf.FloatValue"),
 			out:            chkdecls.NewWrapperType(chkdecls.Double),
 			unidirectional: true,
 		},
 		{
-			in:             ObjectType("google.protobuf.Int32Value"),
+			in:             NewObjectType("google.protobuf.Int32Value"),
 			out:            chkdecls.NewWrapperType(chkdecls.Int),
 			unidirectional: true,
 		},
 		{
-			in:             ObjectType("google.protobuf.Int64Value"),
+			in:             NewObjectType("google.protobuf.Int64Value"),
 			out:            chkdecls.NewWrapperType(chkdecls.Int),
 			unidirectional: true,
 		},
 		{
-			in:             ObjectType("google.protobuf.StringValue"),
+			in:             NewObjectType("google.protobuf.StringValue"),
 			out:            chkdecls.NewWrapperType(chkdecls.String),
 			unidirectional: true,
 		},
 		{
-			in:             ObjectType("google.protobuf.UInt32Value"),
+			in:             NewObjectType("google.protobuf.UInt32Value"),
 			out:            chkdecls.NewWrapperType(chkdecls.Uint),
 			unidirectional: true,
 		},
 		{
-			in:             ObjectType("google.protobuf.UInt64Value"),
+			in:             NewObjectType("google.protobuf.UInt64Value"),
 			out:            chkdecls.NewWrapperType(chkdecls.Uint),
 			unidirectional: true,
 		},
@@ -488,21 +492,21 @@ func TestTypeToExprTypeInvalid(t *testing.T) {
 		out string
 	}{
 		{
-			in:  &Type{Kind: ListKind, runtimeType: types.ListType},
+			in:  &Type{Kind: ListKind, runtimeTypeName: "list"},
 			out: "invalid list",
 		},
 		{
 			in: &Type{
 				Kind: ListKind,
 				Parameters: []*Type{
-					{Kind: MapKind, runtimeType: types.MapType},
+					{Kind: MapKind, runtimeTypeName: "map"},
 				},
-				runtimeType: types.ListType,
+				runtimeTypeName: "list",
 			},
 			out: "invalid map",
 		},
 		{
-			in:  &Type{Kind: MapKind, runtimeType: types.MapType},
+			in:  &Type{Kind: MapKind, runtimeTypeName: "map"},
 			out: "invalid map",
 		},
 		{
@@ -510,9 +514,9 @@ func TestTypeToExprTypeInvalid(t *testing.T) {
 				Kind: MapKind,
 				Parameters: []*Type{
 					StringType,
-					{Kind: MapKind, runtimeType: types.MapType},
+					{Kind: MapKind, runtimeTypeName: "map"},
 				},
-				runtimeType: types.MapType,
+				runtimeTypeName: "map",
 			},
 			out: "invalid map",
 		},
@@ -520,25 +524,25 @@ func TestTypeToExprTypeInvalid(t *testing.T) {
 			in: &Type{
 				Kind: MapKind,
 				Parameters: []*Type{
-					{Kind: MapKind, runtimeType: types.MapType},
+					{Kind: MapKind, runtimeTypeName: "map"},
 					StringType,
 				},
-				runtimeType: types.MapType,
+				runtimeTypeName: "map",
 			},
 			out: "invalid map",
 		},
 		{
 			in: &Type{
-				Kind:        TypeKind,
-				Parameters:  []*Type{{Kind: ListKind, runtimeType: types.ListType}},
-				runtimeType: types.TypeType,
+				Kind:            TypeKind,
+				Parameters:      []*Type{{Kind: ListKind, runtimeTypeName: "list"}},
+				runtimeTypeName: "type",
 			},
 			out: "invalid list",
 		},
 		{
-			in: OpaqueType("bad_list", &Type{
-				Kind:        ListKind,
-				runtimeType: types.ListType,
+			in: NewOpaqueType("bad_list", &Type{
+				Kind:            ListKind,
+				runtimeTypeName: "list",
 			}),
 			out: "invalid list",
 		},
@@ -581,47 +585,47 @@ func TestExprTypeToType(t *testing.T) {
 		},
 		{
 			in:  chkdecls.NewObjectType("google.protobuf.ListValue"),
-			out: ListType(DynType),
+			out: NewListType(DynType),
 		},
 		{
 			in:  chkdecls.NewObjectType("google.protobuf.Struct"),
-			out: MapType(StringType, DynType),
+			out: NewMapType(StringType, DynType),
 		},
 		{
 			in:  chkdecls.NewObjectType("google.protobuf.BoolValue"),
-			out: NullableType(BoolType),
+			out: NewNullableType(BoolType),
 		},
 		{
 			in:  chkdecls.NewObjectType("google.protobuf.BytesValue"),
-			out: NullableType(BytesType),
+			out: NewNullableType(BytesType),
 		},
 		{
 			in:  chkdecls.NewObjectType("google.protobuf.DoubleValue"),
-			out: NullableType(DoubleType),
+			out: NewNullableType(DoubleType),
 		},
 		{
 			in:  chkdecls.NewObjectType("google.protobuf.FloatValue"),
-			out: NullableType(DoubleType),
+			out: NewNullableType(DoubleType),
 		},
 		{
 			in:  chkdecls.NewObjectType("google.protobuf.Int32Value"),
-			out: NullableType(IntType),
+			out: NewNullableType(IntType),
 		},
 		{
 			in:  chkdecls.NewObjectType("google.protobuf.Int64Value"),
-			out: NullableType(IntType),
+			out: NewNullableType(IntType),
 		},
 		{
 			in:  chkdecls.NewObjectType("google.protobuf.StringValue"),
-			out: NullableType(StringType),
+			out: NewNullableType(StringType),
 		},
 		{
 			in:  chkdecls.NewObjectType("google.protobuf.UInt32Value"),
-			out: NullableType(UintType),
+			out: NewNullableType(UintType),
 		},
 		{
 			in:  chkdecls.NewObjectType("google.protobuf.UInt64Value"),
-			out: NullableType(UintType),
+			out: NewNullableType(UintType),
 		},
 	}
 
@@ -688,6 +692,129 @@ func TestExprTypeToTypeInvalid(t *testing.T) {
 			_, err := ExprTypeToType(tc.in)
 			if err == nil || !strings.Contains(err.Error(), tc.out) {
 				t.Fatalf("ExprTypeToType(%v) got %v, wanted error %v", tc.in, err, tc.out)
+			}
+		})
+	}
+}
+
+func TestTypeHasTrait(t *testing.T) {
+	if !BoolType.HasTrait(traits.ComparerType) {
+		t.Error("BoolType.HasTrait(ComparerType) returned false")
+	}
+}
+
+func TestTypeConvertToType(t *testing.T) {
+	_, err := BoolType.ConvertToNative(reflect.TypeOf(true))
+	if err == nil {
+		t.Error("ConvertToNative() did not error")
+	}
+}
+
+func TestTypeCommonTypeInterop(t *testing.T) {
+	tests := []struct {
+		commonType ref.Type
+		declType   *Type
+	}{
+		{
+			commonType: types.BoolType,
+			declType:   BoolType,
+		},
+		{
+			commonType: types.BytesType,
+			declType:   BytesType,
+		},
+		{
+			commonType: types.DoubleType,
+			declType:   DoubleType,
+		},
+		{
+			commonType: types.DurationType,
+			declType:   DurationType,
+		},
+		{
+			commonType: types.ErrType,
+			declType:   ErrorType,
+		},
+		{
+			commonType: types.IntType,
+			declType:   IntType,
+		},
+		{
+			commonType: types.ListType,
+			declType:   ListType,
+		},
+		{
+			commonType: types.MapType,
+			declType:   MapType,
+		},
+		{
+			commonType: types.NullType,
+			declType:   NullType,
+		},
+		{
+			commonType: types.StringType,
+			declType:   StringType,
+		},
+		{
+			commonType: types.TimestampType,
+			declType:   TimestampType,
+		},
+		{
+			commonType: types.TypeType,
+			declType:   TypeType,
+		},
+		{
+			commonType: types.UintType,
+			declType:   UintType,
+		},
+		{
+			commonType: types.UnknownType,
+			declType:   UnknownType,
+		},
+		{
+			commonType: types.NewObjectTypeValue("dev.cel.Expr"),
+			declType:   NewObjectTypeValue("dev.cel.Expr"),
+		},
+		{
+			commonType: types.NewTypeValue("vector", traits.AdderType),
+			declType:   NewTypeValue("vector", traits.AdderType),
+		},
+	}
+	for _, tst := range tests {
+		tc := tst
+		t.Run(tc.commonType.TypeName(), func(t *testing.T) {
+			if tc.commonType.TypeName() != tc.declType.TypeName() {
+				t.Errorf("type names not equal: got %v, wanted %v", tc.declType.TypeName(), tc.commonType.TypeName())
+			}
+			if !tc.commonType.HasTrait(tc.declType.traitMask) {
+				t.Errorf("trait masks not equal: mask %v", tc.declType.traitMask)
+			}
+			ctVal := tc.commonType.(ref.Val)
+			if ctVal.Equal(tc.declType) != types.True ||
+				tc.declType.Equal(ctVal) != types.True {
+				t.Error("types not runtime equal")
+			}
+			if ctVal.Type() != types.TypeType {
+				t.Errorf("type not marked as a type: %v", ctVal.Type())
+			}
+			if tc.declType.Type() != TypeType {
+				t.Errorf("type not marked as a type: %v", tc.declType.Type())
+			}
+			if ctVal.Value() != tc.declType.Value() {
+				t.Errorf("type values not equal: got %v, wanted %v", tc.declType.Value(), ctVal.Value())
+			}
+			if ctVal.ConvertToType(types.StringType).
+				Equal(tc.declType.ConvertToType(StringType)) != types.True {
+				t.Error("type values did not convert to same string values")
+			}
+			if ctVal.ConvertToType(types.TypeType).
+				Equal(tc.declType.ConvertToType(TypeType)) != types.True {
+				t.Error("type values did not convert to same type values")
+			}
+			if !errors.Is(
+				ctVal.ConvertToType(types.ErrType).(*types.Err),
+				tc.declType.ConvertToType(ErrorType).(*types.Err)) {
+				t.Error("type values did not convert to same error values")
 			}
 		})
 	}

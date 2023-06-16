@@ -16,6 +16,7 @@ package decls
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
 	chkdecls "github.com/google/cel-go/checker/decls"
@@ -47,6 +48,9 @@ const (
 
 	// DurationKind represents a CEL duration type.
 	DurationKind
+
+	// ErrorKind represents a CEL error type.
+	ErrorKind
 
 	// IntKind represents an integer type.
 	IntKind
@@ -80,70 +84,130 @@ const (
 
 	// UintKind represents a uint type.
 	UintKind
+
+	// UnknownKind represents an unknown value type.
+	UnknownKind
 )
 
 var (
 	// AnyType represents the google.protobuf.Any type.
 	AnyType = &Type{
-		Kind:        AnyKind,
-		runtimeType: types.NewTypeValue("google.protobuf.Any"),
+		Kind:            AnyKind,
+		runtimeTypeName: "google.protobuf.Any",
+		traitMask: traits.FieldTesterType |
+			traits.IndexerType,
 	}
 	// BoolType represents the bool type.
 	BoolType = &Type{
-		Kind:        BoolKind,
-		runtimeType: types.BoolType,
+		Kind:            BoolKind,
+		runtimeTypeName: "bool",
+		traitMask: traits.ComparerType |
+			traits.NegatorType,
 	}
 	// BytesType represents the bytes type.
 	BytesType = &Type{
-		Kind:        BytesKind,
-		runtimeType: types.BytesType,
+		Kind:            BytesKind,
+		runtimeTypeName: "bytes",
+		traitMask: traits.AdderType |
+			traits.ComparerType |
+			traits.SizerType,
 	}
 	// DoubleType represents the double type.
 	DoubleType = &Type{
-		Kind:        DoubleKind,
-		runtimeType: types.DoubleType,
+		Kind:            DoubleKind,
+		runtimeTypeName: "double",
+		traitMask: traits.AdderType |
+			traits.ComparerType |
+			traits.DividerType |
+			traits.MultiplierType |
+			traits.NegatorType |
+			traits.SubtractorType,
 	}
 	// DurationType represents the CEL duration type.
 	DurationType = &Type{
-		Kind:        DurationKind,
-		runtimeType: types.DurationType,
+		Kind:            DurationKind,
+		runtimeTypeName: "google.protobuf.Duration",
+		traitMask: traits.AdderType |
+			traits.ComparerType |
+			traits.NegatorType |
+			traits.ReceiverType |
+			traits.SubtractorType,
 	}
 	// DynType represents a dynamic CEL type whose type will be determined at runtime from context.
 	DynType = &Type{
-		Kind:        DynKind,
-		runtimeType: types.NewTypeValue("dyn"),
+		Kind:            DynKind,
+		runtimeTypeName: "dyn",
+	}
+	// ErrorType represents a CEL error value.
+	ErrorType = &Type{
+		Kind:            ErrorKind,
+		runtimeTypeName: "error",
 	}
 	// IntType represents the int type.
 	IntType = &Type{
-		Kind:        IntKind,
-		runtimeType: types.IntType,
+		Kind:            IntKind,
+		runtimeTypeName: "int",
+		traitMask: traits.AdderType |
+			traits.ComparerType |
+			traits.DividerType |
+			traits.ModderType |
+			traits.MultiplierType |
+			traits.NegatorType |
+			traits.SubtractorType,
 	}
+	// ListType represents the runtime list type.
+	ListType = NewListType(nil)
+	// MapType represents the runtime map type.
+	MapType = NewMapType(nil, nil)
 	// NullType represents the type of a null value.
 	NullType = &Type{
-		Kind:        NullTypeKind,
-		runtimeType: types.NullType,
+		Kind:            NullTypeKind,
+		runtimeTypeName: "null_type",
 	}
 	// StringType represents the string type.
 	StringType = &Type{
-		Kind:        StringKind,
-		runtimeType: types.StringType,
+		Kind:            StringKind,
+		runtimeTypeName: "string",
+		traitMask: traits.AdderType |
+			traits.ComparerType |
+			traits.MatcherType |
+			traits.ReceiverType |
+			traits.SizerType,
 	}
 	// TimestampType represents the time type.
 	TimestampType = &Type{
-		Kind:        TimestampKind,
-		runtimeType: types.TimestampType,
+		Kind:            TimestampKind,
+		runtimeTypeName: "google.protobuf.Timestamp",
+		traitMask: traits.AdderType |
+			traits.ComparerType |
+			traits.ReceiverType |
+			traits.SubtractorType,
 	}
 	// TypeType represents a CEL type
 	TypeType = &Type{
-		Kind:        TypeKind,
-		runtimeType: types.TypeType,
+		Kind:            TypeKind,
+		runtimeTypeName: "type",
 	}
 	// UintType represents a uint type.
 	UintType = &Type{
-		Kind:        UintKind,
-		runtimeType: types.UintType,
+		Kind:            UintKind,
+		runtimeTypeName: "uint",
+		traitMask: traits.AdderType |
+			traits.ComparerType |
+			traits.DividerType |
+			traits.ModderType |
+			traits.MultiplierType |
+			traits.SubtractorType,
+	}
+	// UnknownType represents an unknown value type.
+	UnknownType = &Type{
+		Kind:            UnknownKind,
+		runtimeTypeName: "unknown",
 	}
 )
+
+var _ ref.Type = &Type{}
+var _ ref.Val = &Type{}
 
 // Type holds a reference to a runtime type with an optional type-checked set of type parameters.
 type Type struct {
@@ -153,8 +217,8 @@ type Type struct {
 	// Parameters holds the optional type-checked set of type Parameters that are used during static analysis.
 	Parameters []*Type
 
-	// runtimeType is the runtime type of the declaration.
-	runtimeType ref.Type
+	// runtimeTypeName indicates the runtime type name of the type.
+	runtimeTypeName string
 
 	// isAssignableType function determines whether one type is assignable to this type.
 	// A nil value for the isAssignableType function falls back to equality of kind, runtimeType, and parameters.
@@ -163,6 +227,39 @@ type Type struct {
 	// isAssignableRuntimeType function determines whether the runtime type (with erasure) is assignable to this type.
 	// A nil value for the isAssignableRuntimeType function falls back to the equality of the type or type name.
 	isAssignableRuntimeType func(other ref.Val) bool
+
+	// traitMask is a mask of flags which indicate the capabilities of the type.
+	traitMask int
+}
+
+// ConvertToNative implements ref.Val.ConvertToNative.
+func (t *Type) ConvertToNative(typeDesc reflect.Type) (any, error) {
+	return nil, fmt.Errorf("type conversion not supported for 'type'")
+}
+
+// ConvertToType implements ref.Val.ConvertToType.
+func (t *Type) ConvertToType(typeVal ref.Type) ref.Val {
+	switch typeVal {
+	case TypeType:
+		return TypeType
+	case StringType:
+		return types.String(t.TypeName())
+	}
+	return types.NewErr("type conversion error from '%s' to '%s'", TypeType, typeVal)
+}
+
+// Equal indicates whether two types have the same runtime type name.
+//
+// The name Equal is a bit of a misnomer, but for historical reasons, this is the
+// runtime behavior. For a more accurate definition see IsType().
+func (t *Type) Equal(other ref.Val) ref.Val {
+	otherType, ok := other.(ref.Type)
+	return types.Bool(ok && t.TypeName() == otherType.TypeName())
+}
+
+// HasTrait implements the ref.Type interface method.
+func (t *Type) HasTrait(trait int) bool {
+	return trait&t.traitMask == trait
 }
 
 // IsType indicates whether two types have the same kind, type name, and parameters.
@@ -200,26 +297,30 @@ func (t *Type) IsAssignableRuntimeType(val ref.Val) bool {
 	return t.defaultIsAssignableRuntimeType(val)
 }
 
-// DeclaredTypeName indicates the type-check type name associated with the type.
+// DeclaredTypeName indicates the fully qualified and parameterized type-check type name.
 func (t *Type) DeclaredTypeName() string {
 	// if the type itself is neither null, nor dyn, but is assignable to null, then it's a wrapper type.
 	if t.Kind != NullTypeKind && !t.isDyn() && t.IsAssignableType(NullType) {
-		return fmt.Sprintf("wrapper(%s)", t.RuntimeTypeName())
+		return fmt.Sprintf("wrapper(%s)", t.TypeName())
 	}
-	return t.RuntimeTypeName()
+	return t.TypeName()
 }
 
-// RuntimeTypeName indicates the type-erased type name associated with the type.
-func (t *Type) RuntimeTypeName() string {
-	if t.runtimeType == nil {
-		return ""
-	}
-	return t.runtimeType.TypeName()
+// Type implements the ref.Val interface method.
+func (t *Type) Type() ref.Type {
+	return TypeType
 }
 
-// TypeVariable creates a new type identifier for use within a ref.TypeProvider
-func (t *Type) TypeVariable() *VariableDecl {
-	return NewVariable(t.RuntimeTypeName(), TypeTypeWithParam(t))
+// Value implements the ref.Val interface method.
+func (t *Type) Value() any {
+	return t.TypeName()
+}
+
+// TypeName returns the type-erased fully qualified runtime type name.
+//
+// TypeName implements the ref.Type interface method.
+func (t *Type) TypeName() string {
+	return t.runtimeTypeName
 }
 
 // String returns a human-readable definition of the type name.
@@ -251,7 +352,7 @@ func (t *Type) defaultIsAssignableType(fromType *Type) bool {
 		return true
 	}
 	if t.Kind != fromType.Kind ||
-		t.runtimeType.TypeName() != fromType.runtimeType.TypeName() ||
+		t.TypeName() != fromType.TypeName() ||
 		len(t.Parameters) != len(fromType.Parameters) {
 		return false
 	}
@@ -268,22 +369,21 @@ func (t *Type) defaultIsAssignableType(fromType *Type) bool {
 // to determine whether a ref.Val is assignable to the declared type for a function signature.
 func (t *Type) defaultIsAssignableRuntimeType(val ref.Val) bool {
 	valType := val.Type()
-	if !(t.runtimeType == valType || t.isDyn() || t.runtimeType.TypeName() == valType.TypeName()) {
+	// If the current type and value type don't agree, then return
+	if !(t.isDyn() || t.TypeName() == valType.TypeName()) {
 		return false
 	}
-	switch t.runtimeType {
-	case types.ListType:
+	switch t.Kind {
+	case ListKind:
 		elemType := t.Parameters[0]
 		l := val.(traits.Lister)
 		if l.Size() == types.IntZero {
 			return true
 		}
 		it := l.Iterator()
-		for it.HasNext() == types.True {
-			elemVal := it.Next()
-			return elemType.IsAssignableRuntimeType(elemVal)
-		}
-	case types.MapType:
+		elemVal := it.Next()
+		return elemType.IsAssignableRuntimeType(elemVal)
+	case MapKind:
 		keyType := t.Parameters[0]
 		elemType := t.Parameters[1]
 		m := val.(traits.Mapper)
@@ -291,41 +391,57 @@ func (t *Type) defaultIsAssignableRuntimeType(val ref.Val) bool {
 			return true
 		}
 		it := m.Iterator()
-		for it.HasNext() == types.True {
-			keyVal := it.Next()
-			elemVal := m.Get(keyVal)
-			return keyType.IsAssignableRuntimeType(keyVal) && elemType.IsAssignableRuntimeType(elemVal)
-		}
+		keyVal := it.Next()
+		elemVal := m.Get(keyVal)
+		return keyType.IsAssignableRuntimeType(keyVal) && elemType.IsAssignableRuntimeType(elemVal)
 	}
 	return true
 }
 
-// ListType creates an instances of a list type value with the provided element type.
-func ListType(elemType *Type) *Type {
-	return &Type{
-		Kind:        ListKind,
-		runtimeType: types.ListType,
-		Parameters:  []*Type{elemType},
+// NewListType creates an instances of a list type value with the provided element type.
+func NewListType(elemType *Type) *Type {
+	t := &Type{
+		Kind:            ListKind,
+		Parameters:      []*Type{},
+		runtimeTypeName: "list",
+		traitMask: traits.AdderType |
+			traits.ContainerType |
+			traits.IndexerType |
+			traits.IterableType |
+			traits.SizerType,
 	}
+	if elemType != nil {
+		t.Parameters = append(t.Parameters, elemType)
+	}
+	return t
 }
 
-// MapType creates an instance of a map type value with the provided key and value types.
-func MapType(keyType, valueType *Type) *Type {
-	return &Type{
-		Kind:        MapKind,
-		runtimeType: types.MapType,
-		Parameters:  []*Type{keyType, valueType},
+// NewMapType creates an instance of a map type value with the provided key and value types.
+func NewMapType(keyType, valueType *Type) *Type {
+	t := &Type{
+		Kind:            MapKind,
+		Parameters:      []*Type{},
+		runtimeTypeName: "map",
+		traitMask: traits.ContainerType |
+			traits.IndexerType |
+			traits.IterableType |
+			traits.SizerType,
 	}
+	if keyType != nil && valueType != nil {
+		t.Parameters = append(t.Parameters, keyType, valueType)
+	}
+	return t
 }
 
-// NullableType creates an instance of a nullable type with the provided wrapped type.
+// NewNullableType creates an instance of a nullable type with the provided wrapped type.
 //
 // Note: only primitive types are supported as wrapped types.
-func NullableType(wrapped *Type) *Type {
+func NewNullableType(wrapped *Type) *Type {
 	return &Type{
-		Kind:        wrapped.Kind,
-		runtimeType: wrapped.runtimeType,
-		Parameters:  wrapped.Parameters,
+		Kind:            wrapped.Kind,
+		Parameters:      wrapped.Parameters,
+		runtimeTypeName: wrapped.runtimeTypeName,
+		traitMask:       wrapped.traitMask,
 		isAssignableType: func(other *Type) bool {
 			return NullType.IsAssignableType(other) || wrapped.IsAssignableType(other)
 		},
@@ -335,47 +451,73 @@ func NullableType(wrapped *Type) *Type {
 	}
 }
 
-// OptionalType creates an abstract parameterized type instance corresponding to CEL's notion of optional.
-func OptionalType(param *Type) *Type {
-	return OpaqueType("optional", param)
+// NewOptionalType creates an abstract parameterized type instance corresponding to CEL's notion of optional.
+func NewOptionalType(param *Type) *Type {
+	return NewOpaqueType("optional", param)
 }
 
-// OpaqueType creates an abstract parameterized type with a given name.
-func OpaqueType(name string, params ...*Type) *Type {
+// NewOpaqueType creates an abstract parameterized type with a given name.
+func NewOpaqueType(name string, params ...*Type) *Type {
 	return &Type{
-		Kind:        OpaqueKind,
-		runtimeType: types.NewTypeValue(name),
-		Parameters:  params,
+		Kind:            OpaqueKind,
+		Parameters:      params,
+		runtimeTypeName: name,
 	}
 }
 
-// ObjectType creates a type references to an externally defined type, e.g. a protobuf message type.
-func ObjectType(typeName string) *Type {
+// NewObjectType creates a type reference to an externally defined type, e.g. a protobuf message type.
+func NewObjectType(typeName string) *Type {
 	// Function sanitizes object types on the fly
 	if wkt, found := checkedWellKnowns[typeName]; found {
 		return wkt
 	}
 	return &Type{
-		Kind:        StructKind,
-		runtimeType: types.NewObjectTypeValue(typeName),
+		Kind:            StructKind,
+		Parameters:      []*Type{},
+		runtimeTypeName: typeName,
+		traitMask:       traits.FieldTesterType | traits.IndexerType,
 	}
 }
 
-// TypeParamType creates a parameterized type instance.
-func TypeParamType(paramName string) *Type {
+// NewObjectTypeValue creates a type reference to an externally defined type.
+//
+// Deprecated: use cel.ObjectType(typeName)
+func NewObjectTypeValue(typeName string) *Type {
+	return NewObjectType(typeName)
+}
+
+// NewTypeValue creates an opaque type which has a set of optional type traits as defined in
+// the common/types/traits package.
+//
+// Deprecated: use cel.OpaqueType(typeName)
+func NewTypeValue(typeName string, traits ...int) *Type {
+	traitMask := 0
+	for _, trait := range traits {
+		traitMask |= trait
+	}
 	return &Type{
-		Kind:        TypeParamKind,
-		runtimeType: types.NewTypeValue(paramName),
+		Kind:            OpaqueKind,
+		Parameters:      []*Type{},
+		runtimeTypeName: typeName,
+		traitMask:       traitMask,
 	}
 }
 
-// TypeTypeWithParam creates a type with a type parameter.
+// NewTypeParamType creates a parameterized type instance.
+func NewTypeParamType(paramName string) *Type {
+	return &Type{
+		Kind:            TypeParamKind,
+		runtimeTypeName: paramName,
+	}
+}
+
+// NewTypeTypeWithParam creates a type with a type parameter.
 // Used for type-checking purposes, but equivalent to TypeType otherwise.
-func TypeTypeWithParam(param *Type) *Type {
+func NewTypeTypeWithParam(param *Type) *Type {
 	return &Type{
-		Kind:        TypeKind,
-		Parameters:  []*Type{param},
-		runtimeType: types.TypeType,
+		Kind:            TypeKind,
+		runtimeTypeName: "type",
+		Parameters:      []*Type{param},
 	}
 }
 
@@ -429,15 +571,15 @@ func TypeToExprType(t *Type) (*exprpb.Type, error) {
 			}
 			params[i] = pt
 		}
-		return chkdecls.NewAbstractType(t.RuntimeTypeName(), params...), nil
+		return chkdecls.NewAbstractType(t.TypeName(), params...), nil
 	case StringKind:
 		return maybeWrapper(t, chkdecls.String), nil
 	case StructKind:
-		return chkdecls.NewObjectType(t.RuntimeTypeName()), nil
+		return chkdecls.NewObjectType(t.TypeName()), nil
 	case TimestampKind:
 		return chkdecls.Timestamp, nil
 	case TypeParamKind:
-		return chkdecls.NewTypeParamType(t.RuntimeTypeName()), nil
+		return chkdecls.NewTypeParamType(t.TypeName()), nil
 	case TypeKind:
 		if len(t.Parameters) == 1 {
 			p, err := TypeToExprType(t.Parameters[0])
@@ -467,13 +609,13 @@ func ExprTypeToType(t *exprpb.Type) (*Type, error) {
 			}
 			paramTypes[i] = pt
 		}
-		return OpaqueType(t.GetAbstractType().GetName(), paramTypes...), nil
+		return NewOpaqueType(t.GetAbstractType().GetName(), paramTypes...), nil
 	case *exprpb.Type_ListType_:
 		et, err := ExprTypeToType(t.GetListType().GetElemType())
 		if err != nil {
 			return nil, err
 		}
-		return ListType(et), nil
+		return NewListType(et), nil
 	case *exprpb.Type_MapType_:
 		kt, err := ExprTypeToType(t.GetMapType().GetKeyType())
 		if err != nil {
@@ -483,9 +625,9 @@ func ExprTypeToType(t *exprpb.Type) (*Type, error) {
 		if err != nil {
 			return nil, err
 		}
-		return MapType(kt, vt), nil
+		return NewMapType(kt, vt), nil
 	case *exprpb.Type_MessageType:
-		return ObjectType(t.GetMessageType()), nil
+		return NewObjectType(t.GetMessageType()), nil
 	case *exprpb.Type_Null:
 		return NullType, nil
 	case *exprpb.Type_Primitive:
@@ -506,14 +648,14 @@ func ExprTypeToType(t *exprpb.Type) (*Type, error) {
 			return nil, fmt.Errorf("unsupported primitive type: %v", t)
 		}
 	case *exprpb.Type_TypeParam:
-		return TypeParamType(t.GetTypeParam()), nil
+		return NewTypeParamType(t.GetTypeParam()), nil
 	case *exprpb.Type_Type:
 		if t.GetType().GetTypeKind() != nil {
 			p, err := ExprTypeToType(t.GetType())
 			if err != nil {
 				return nil, err
 			}
-			return TypeTypeWithParam(p), nil
+			return NewTypeTypeWithParam(p), nil
 		}
 		return TypeType, nil
 	case *exprpb.Type_WellKnown:
@@ -532,7 +674,7 @@ func ExprTypeToType(t *exprpb.Type) (*Type, error) {
 		if err != nil {
 			return nil, err
 		}
-		return NullableType(t), nil
+		return NewNullableType(t), nil
 	default:
 		return nil, fmt.Errorf("unsupported type: %v", t)
 	}
@@ -548,23 +690,23 @@ func maybeWrapper(t *Type, pbType *exprpb.Type) *exprpb.Type {
 var (
 	checkedWellKnowns = map[string]*Type{
 		// Wrapper types.
-		"google.protobuf.BoolValue":   NullableType(BoolType),
-		"google.protobuf.BytesValue":  NullableType(BytesType),
-		"google.protobuf.DoubleValue": NullableType(DoubleType),
-		"google.protobuf.FloatValue":  NullableType(DoubleType),
-		"google.protobuf.Int64Value":  NullableType(IntType),
-		"google.protobuf.Int32Value":  NullableType(IntType),
-		"google.protobuf.UInt64Value": NullableType(UintType),
-		"google.protobuf.UInt32Value": NullableType(UintType),
-		"google.protobuf.StringValue": NullableType(StringType),
+		"google.protobuf.BoolValue":   NewNullableType(BoolType),
+		"google.protobuf.BytesValue":  NewNullableType(BytesType),
+		"google.protobuf.DoubleValue": NewNullableType(DoubleType),
+		"google.protobuf.FloatValue":  NewNullableType(DoubleType),
+		"google.protobuf.Int64Value":  NewNullableType(IntType),
+		"google.protobuf.Int32Value":  NewNullableType(IntType),
+		"google.protobuf.UInt64Value": NewNullableType(UintType),
+		"google.protobuf.UInt32Value": NewNullableType(UintType),
+		"google.protobuf.StringValue": NewNullableType(StringType),
 		// Well-known types.
 		"google.protobuf.Any":       AnyType,
 		"google.protobuf.Duration":  DurationType,
 		"google.protobuf.Timestamp": TimestampType,
 		// Json types.
-		"google.protobuf.ListValue": ListType(DynType),
+		"google.protobuf.ListValue": NewListType(DynType),
 		"google.protobuf.NullValue": NullType,
-		"google.protobuf.Struct":    MapType(StringType, DynType),
+		"google.protobuf.Struct":    NewMapType(StringType, DynType),
 		"google.protobuf.Value":     DynType,
 	}
 )

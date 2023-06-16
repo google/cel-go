@@ -190,7 +190,7 @@ func TestProtoObjectConvertToType(t *testing.T) {
 	}
 	reg := newTestRegistry(t, msg)
 	objVal := reg.NativeToValue(msg)
-	tv := objVal.Type().(*TypeValue)
+	tv := objVal.Type().(ref.Val)
 	if objVal.ConvertToType(TypeType).Equal(tv) != True {
 		t.Errorf("got non-type value: %v, wanted objet type", objVal.ConvertToType(TypeType))
 	}

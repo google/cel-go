@@ -218,7 +218,7 @@ func (p *protoTypeRegistry) NativeToValue(value any) ref.Val {
 		if !found {
 			return NewErr("unknown type: '%s'", typeName)
 		}
-		return NewObject(p, td, typeVal.(*TypeValue), v)
+		return NewObject(p, td, typeVal, v)
 	case *pb.Map:
 		return NewProtoMap(p, v)
 	case protoreflect.List:

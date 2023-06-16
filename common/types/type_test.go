@@ -14,10 +14,14 @@
 
 package types
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/google/cel-go/common/types/ref"
+)
 
 func TestType_ConvertToType(t *testing.T) {
-	stdTypes := []*TypeValue{
+	stdTypes := []ref.Val{
 		BoolType,
 		BytesType,
 		DoubleType,
