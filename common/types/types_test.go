@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package decls
+package types
 
 import (
-	"errors"
 	"reflect"
 	"strings"
 	"testing"
@@ -24,9 +23,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	chkdecls "github.com/google/cel-go/checker/decls"
-	"github.com/google/cel-go/common/overloads"
-	"github.com/google/cel-go/common/types"
-	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
@@ -146,35 +142,6 @@ func TestTypeIsType(t *testing.T) {
 	}
 }
 
-func TestTypeTypeVariable(t *testing.T) {
-	tests := []struct {
-		t *Type
-		v *VariableDecl
-	}{
-		{
-			t: AnyType,
-			v: NewVariable("google.protobuf.Any", NewTypeTypeWithParam(AnyType)),
-		},
-		{
-			t: DynType,
-			v: NewVariable("dyn", NewTypeTypeWithParam(DynType)),
-		},
-		{
-			t: NewObjectType("google.protobuf.Int32Value"),
-			v: NewVariable("int", NewTypeTypeWithParam(NewNullableType(IntType))),
-		},
-		{
-			t: NewObjectType("google.protobuf.Int32Value"),
-			v: NewVariable("int", NewTypeTypeWithParam(NewNullableType(IntType))),
-		},
-	}
-	for _, tst := range tests {
-		if !TypeVariable(tst.t).DeclarationEquals(tst.v) {
-			t.Errorf("got not equal %v.Equals(%v)", TypeVariable(tst.t), tst.v)
-		}
-	}
-}
-
 func TestTypeIsAssignableType(t *testing.T) {
 	tests := []struct {
 		t1           *Type
@@ -244,45 +211,27 @@ func TestTypeIsAssignableType(t *testing.T) {
 	}
 }
 
-func TestTypeSignatureEquals(t *testing.T) {
-	paramA := NewTypeParamType("A")
-	paramB := NewTypeParamType("B")
-	mapOfAB := NewMapType(paramA, paramB)
-	fn, err := NewFunction(overloads.Size,
-		MemberOverload(overloads.SizeMapInst, []*Type{mapOfAB}, IntType),
-		Overload(overloads.SizeMap, []*Type{mapOfAB}, IntType))
-	if err != nil {
-		t.Fatalf("NewFunction() failed: %v", err)
-	}
-	if !fn.Overloads[overloads.SizeMap].SignatureEquals(fn.Overloads[overloads.SizeMap]) {
-		t.Errorf("SignatureEquals() returned false, wanted true")
-	}
-	if fn.Overloads[overloads.SizeMap].SignatureEquals(fn.Overloads[overloads.SizeMapInst]) {
-		t.Errorf("SignatureEquals() returned false, wanted true")
-	}
-}
-
 func TestTypeIsAssignableRuntimeType(t *testing.T) {
-	if !NewNullableType(DoubleType).IsAssignableRuntimeType(types.NullValue) {
+	if !NewNullableType(DoubleType).IsAssignableRuntimeType(NullValue) {
 		t.Error("nullable double cannot be assigned from null")
 	}
-	if !NewNullableType(DoubleType).IsAssignableRuntimeType(types.Double(0.0)) {
+	if !NewNullableType(DoubleType).IsAssignableRuntimeType(Double(0.0)) {
 		t.Error("nullable double cannot be assigned from double")
 	}
 	if !NewMapType(StringType, DurationType).IsAssignableRuntimeType(
-		types.DefaultTypeAdapter.NativeToValue(map[string]time.Duration{})) {
+		DefaultTypeAdapter.NativeToValue(map[string]time.Duration{})) {
 		t.Error("map(string, duration) not assignable to map at runtime")
 	}
 	if !NewMapType(StringType, DurationType).IsAssignableRuntimeType(
-		types.DefaultTypeAdapter.NativeToValue(map[string]time.Duration{"one": time.Duration(1)})) {
+		DefaultTypeAdapter.NativeToValue(map[string]time.Duration{"one": time.Duration(1)})) {
 		t.Error("map(string, duration) not assignable to map at runtime")
 	}
 	if !NewMapType(StringType, DynType).IsAssignableRuntimeType(
-		types.DefaultTypeAdapter.NativeToValue(map[string]time.Duration{"one": time.Duration(1)})) {
+		DefaultTypeAdapter.NativeToValue(map[string]time.Duration{"one": time.Duration(1)})) {
 		t.Error("map(string, dyn) not assignable to map at runtime")
 	}
 	if NewMapType(StringType, DynType).IsAssignableRuntimeType(
-		types.DefaultTypeAdapter.NativeToValue(map[int64]time.Duration{1: time.Duration(1)})) {
+		DefaultTypeAdapter.NativeToValue(map[int64]time.Duration{1: time.Duration(1)})) {
 		t.Error("map(string, dyn) must not be assignable to map(int, duration) at runtime")
 	}
 }
@@ -707,115 +656,5 @@ func TestTypeConvertToType(t *testing.T) {
 	_, err := BoolType.ConvertToNative(reflect.TypeOf(true))
 	if err == nil {
 		t.Error("ConvertToNative() did not error")
-	}
-}
-
-func TestTypeCommonTypeInterop(t *testing.T) {
-	tests := []struct {
-		commonType ref.Type
-		declType   *Type
-	}{
-		{
-			commonType: types.BoolType,
-			declType:   BoolType,
-		},
-		{
-			commonType: types.BytesType,
-			declType:   BytesType,
-		},
-		{
-			commonType: types.DoubleType,
-			declType:   DoubleType,
-		},
-		{
-			commonType: types.DurationType,
-			declType:   DurationType,
-		},
-		{
-			commonType: types.ErrType,
-			declType:   ErrorType,
-		},
-		{
-			commonType: types.IntType,
-			declType:   IntType,
-		},
-		{
-			commonType: types.ListType,
-			declType:   ListType,
-		},
-		{
-			commonType: types.MapType,
-			declType:   MapType,
-		},
-		{
-			commonType: types.NullType,
-			declType:   NullType,
-		},
-		{
-			commonType: types.StringType,
-			declType:   StringType,
-		},
-		{
-			commonType: types.TimestampType,
-			declType:   TimestampType,
-		},
-		{
-			commonType: types.TypeType,
-			declType:   TypeType,
-		},
-		{
-			commonType: types.UintType,
-			declType:   UintType,
-		},
-		{
-			commonType: types.UnknownType,
-			declType:   UnknownType,
-		},
-		{
-			commonType: types.NewObjectTypeValue("dev.cel.Expr"),
-			declType:   NewObjectTypeValue("dev.cel.Expr"),
-		},
-		{
-			commonType: types.NewTypeValue("vector", traits.AdderType),
-			declType:   NewTypeValue("vector", traits.AdderType),
-		},
-	}
-	for _, tst := range tests {
-		tc := tst
-		t.Run(tc.commonType.TypeName(), func(t *testing.T) {
-			if tc.commonType.TypeName() != tc.declType.TypeName() {
-				t.Errorf("type names not equal: got %v, wanted %v", tc.declType.TypeName(), tc.commonType.TypeName())
-			}
-			if !tc.commonType.HasTrait(tc.declType.traitMask) {
-				t.Errorf("trait masks not equal: mask %v", tc.declType.traitMask)
-			}
-			ctVal := tc.commonType.(ref.Val)
-			if ctVal.Equal(tc.declType) != types.True ||
-				tc.declType.Equal(ctVal) != types.True {
-				t.Error("types not runtime equal")
-			}
-			if ctVal.Type() != types.TypeType {
-				t.Errorf("type not marked as a type: %v", ctVal.Type())
-			}
-			if tc.declType.Type() != TypeType {
-				t.Errorf("type not marked as a type: %v", tc.declType.Type())
-			}
-			if ctVal.Value() != tc.declType.Value() {
-				t.Errorf("type values not equal: got %v, wanted %v", tc.declType.Value(), ctVal.Value())
-			}
-			if ctVal.ConvertToType(types.StringType).
-				Equal(tc.declType.ConvertToType(StringType)) != types.True {
-				t.Error("type values did not convert to same string values")
-			}
-			if ctVal.ConvertToType(types.TypeType).
-				Equal(tc.declType.ConvertToType(TypeType)) != types.True {
-				t.Error("type values did not convert to same type values")
-			}
-			if !errors.Is(
-				ctVal.ConvertToType(types.ErrType).(*types.Err),
-				tc.declType.ConvertToType(ErrorType).(*types.Err)) {
-				t.Error("type values did not convert to same error values")
-			}
-		})
 	}
 }

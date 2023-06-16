@@ -24,7 +24,6 @@ import (
 
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/common/types/traits"
 
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
@@ -36,14 +35,6 @@ import (
 type String string
 
 var (
-	// StringType singleton.
-	StringType = NewTypeValue("string",
-		traits.AdderType,
-		traits.ComparerType,
-		traits.MatcherType,
-		traits.ReceiverType,
-		traits.SizerType)
-
 	stringOneArgOverloads = map[string]func(ref.Val, ref.Val) ref.Val{
 		overloads.Contains:   StringContains,
 		overloads.EndsWith:   StringEndsWith,

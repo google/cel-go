@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package decls
+package types
 
 import (
 	"fmt"
@@ -20,14 +20,14 @@ import (
 	"strings"
 
 	chkdecls "github.com/google/cel-go/checker/decls"
-	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
-// Kind indicates a CEL type's kind which is used to differentiate quickly between simple and complex types.
+// Kind indicates a CEL type's kind which is used to differentiate quickly between simple
+// and complex types.
 type Kind uint
 
 const (
@@ -243,9 +243,9 @@ func (t *Type) ConvertToType(typeVal ref.Type) ref.Val {
 	case TypeType:
 		return TypeType
 	case StringType:
-		return types.String(t.TypeName())
+		return String(t.TypeName())
 	}
-	return types.NewErr("type conversion error from '%s' to '%s'", TypeType, typeVal)
+	return NewErr("type conversion error from '%s' to '%s'", TypeType, typeVal)
 }
 
 // Equal indicates whether two types have the same runtime type name.
@@ -254,7 +254,7 @@ func (t *Type) ConvertToType(typeVal ref.Type) ref.Val {
 // runtime behavior. For a more accurate definition see IsType().
 func (t *Type) Equal(other ref.Val) ref.Val {
 	otherType, ok := other.(ref.Type)
-	return types.Bool(ok && t.TypeName() == otherType.TypeName())
+	return Bool(ok && t.TypeName() == otherType.TypeName())
 }
 
 // HasTrait implements the ref.Type interface method.
@@ -377,7 +377,7 @@ func (t *Type) defaultIsAssignableRuntimeType(val ref.Val) bool {
 	case ListKind:
 		elemType := t.Parameters[0]
 		l := val.(traits.Lister)
-		if l.Size() == types.IntZero {
+		if l.Size() == IntZero {
 			return true
 		}
 		it := l.Iterator()
@@ -387,7 +387,7 @@ func (t *Type) defaultIsAssignableRuntimeType(val ref.Val) bool {
 		keyType := t.Parameters[0]
 		elemType := t.Parameters[1]
 		m := val.(traits.Mapper)
-		if m.Size() == types.IntZero {
+		if m.Size() == IntZero {
 			return true
 		}
 		it := m.Iterator()

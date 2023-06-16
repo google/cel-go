@@ -9,7 +9,6 @@ go_library(
     name = "go_default_library",
     srcs = [
         "decls.go",
-        "types.go",
     ],
     importpath = "github.com/google/cel-go/common/decls",
     deps = [
@@ -26,7 +25,6 @@ go_test(
     name = "go_default_test",
     srcs = [
         "decls_test.go",
-        "types_test.go",
     ],
     embed = [":go_default_library"],
     deps = [

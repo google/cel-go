@@ -22,7 +22,6 @@ import (
 
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/common/types/traits"
 
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	dpb "google.golang.org/protobuf/types/known/durationpb"
@@ -41,14 +40,6 @@ func durationOf(d time.Duration) Duration {
 }
 
 var (
-	// DurationType singleton.
-	DurationType = NewTypeValue("google.protobuf.Duration",
-		traits.AdderType,
-		traits.ComparerType,
-		traits.NegatorType,
-		traits.ReceiverType,
-		traits.SubtractorType)
-
 	durationValueType = reflect.TypeOf(&dpb.Duration{})
 
 	durationZeroArgOverloads = map[string]func(ref.Val) ref.Val{

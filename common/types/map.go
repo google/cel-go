@@ -94,15 +94,6 @@ func NewProtoMap(adapter ref.TypeAdapter, value *pb.Map) traits.Mapper {
 	}
 }
 
-var (
-	// MapType singleton.
-	MapType = NewTypeValue("map",
-		traits.ContainerType,
-		traits.IndexerType,
-		traits.IterableType,
-		traits.SizerType)
-)
-
 // mapAccessor is a private interface for finding values within a map and iterating over the keys.
 // This interface implements portions of the API surface area required by the traits.Mapper
 // interface.

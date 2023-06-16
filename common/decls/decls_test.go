@@ -31,7 +31,8 @@ import (
 
 func TestFunctionBindings(t *testing.T) {
 	sizeFunc, err := NewFunction("size",
-		MemberOverload("list_size", []*Type{NewListType(NewTypeParamType("T"))}, IntType),
+		MemberOverload("list_size",
+			[]*types.Type{types.NewListType(types.NewTypeParamType("T"))}, types.IntType),
 	)
 	if err != nil {
 		t.Fatalf("NewFunction() failed: %v", err)
@@ -44,7 +45,8 @@ func TestFunctionBindings(t *testing.T) {
 		t.Errorf("sizeFunc.Bindings() produced %d bindings, wanted none", len(bindings))
 	}
 	sizeFuncDef, err := NewFunction("size",
-		MemberOverload("list_size", []*Type{NewListType(NewTypeParamType("T"))}, IntType,
+		MemberOverload("list_size",
+			[]*types.Type{types.NewListType(types.NewTypeParamType("T"))}, types.IntType,
 			UnaryBinding(func(list ref.Val) ref.Val {
 				sizer := list.(traits.Sizer)
 				return sizer.Size()
@@ -86,18 +88,21 @@ func TestFunctionVariableArgBindings(t *testing.T) {
 		return types.DefaultTypeAdapter.NativeToValue(strings.SplitN(str, delim, int(count)))
 	}
 	splitFunc, err := NewFunction("split",
-		MemberOverload("string_split", []*Type{StringType}, NewListType(StringType),
+		MemberOverload("string_split",
+			[]*types.Type{types.StringType}, types.NewListType(types.StringType),
 			UnaryBinding(func(str ref.Val) ref.Val {
 				s := str.(types.String)
 				return splitImpl(string(s), "", -1)
 			})),
-		MemberOverload("string_split_string", []*Type{StringType, StringType}, NewListType(StringType),
+		MemberOverload("string_split_string",
+			[]*types.Type{types.StringType, types.StringType}, types.NewListType(types.StringType),
 			BinaryBinding(func(str, sep ref.Val) ref.Val {
 				s := str.(types.String)
 				delim := sep.(types.String)
 				return splitImpl(string(s), string(delim), -1)
 			})),
-		MemberOverload("string_split_string_int", []*Type{StringType, StringType, IntType}, NewListType(StringType),
+		MemberOverload("string_split_string_int",
+			[]*types.Type{types.StringType, types.StringType, types.IntType}, types.NewListType(types.StringType),
 			FunctionBinding(func(args ...ref.Val) ref.Val {
 				s := args[0].(types.String)
 				delim := args[1].(types.String)
@@ -168,7 +173,7 @@ func TestFunctionVariableArgBindings(t *testing.T) {
 func TestFunctionZeroArityBinding(t *testing.T) {
 	now := types.DefaultTypeAdapter.NativeToValue(time.UnixMilli(1000))
 	nowFunc, err := NewFunction("now",
-		Overload("now", []*Type{}, TimestampType,
+		Overload("now", []*types.Type{}, types.TimestampType,
 			FunctionBinding(func(args ...ref.Val) ref.Val {
 				return now
 			})),
@@ -196,12 +201,18 @@ func TestFunctionSingletonBinding(t *testing.T) {
 		// doesn't actually give much additional benefit. The drawback is that invalid signatures
 		// at type-check might be valid at runtime.
 		DisableTypeGuards(true),
-		Overload("size_map", []*Type{NewMapType(NewTypeParamType("K"), NewTypeParamType("V"))}, IntType),
-		Overload("size_list", []*Type{NewListType(NewTypeParamType("V"))}, IntType),
-		Overload("size_string", []*Type{StringType}, IntType),
-		MemberOverload("map_size", []*Type{NewMapType(NewTypeParamType("K"), NewTypeParamType("V"))}, IntType),
-		MemberOverload("list_size", []*Type{NewListType(NewTypeParamType("V"))}, IntType),
-		MemberOverload("string_size", []*Type{StringType}, IntType),
+		Overload("size_map",
+			[]*types.Type{types.NewMapType(types.NewTypeParamType("K"), types.NewTypeParamType("V"))}, types.IntType),
+		Overload("size_list",
+			[]*types.Type{types.NewListType(types.NewTypeParamType("V"))}, types.IntType),
+		Overload("size_string",
+			[]*types.Type{types.StringType}, types.IntType),
+		MemberOverload("map_size",
+			[]*types.Type{types.NewMapType(types.NewTypeParamType("K"), types.NewTypeParamType("V"))}, types.IntType),
+		MemberOverload("list_size",
+			[]*types.Type{types.NewListType(types.NewTypeParamType("V"))}, types.IntType),
+		MemberOverload("string_size",
+			[]*types.Type{types.StringType}, types.IntType),
 		SingletonUnaryBinding(func(arg ref.Val) ref.Val {
 			return arg.(traits.Sizer).Size()
 		}, traits.SizerType),
@@ -232,8 +243,10 @@ func TestFunctionSingletonBinding(t *testing.T) {
 
 func TestFunctionMerge(t *testing.T) {
 	sizeFunc, err := NewFunction("size",
-		MemberOverload("list_size", []*Type{NewListType(NewTypeParamType("T"))}, IntType),
-		MemberOverload("map_size", []*Type{NewMapType(NewTypeParamType("K"), NewTypeParamType("V"))}, IntType),
+		MemberOverload("list_size",
+			[]*types.Type{types.NewListType(types.NewTypeParamType("T"))}, types.IntType),
+		MemberOverload("map_size",
+			[]*types.Type{types.NewMapType(types.NewTypeParamType("K"), types.NewTypeParamType("V"))}, types.IntType),
 	)
 	if err != nil {
 		t.Fatalf("NewFunction() failed: %v", err)
@@ -246,7 +259,8 @@ func TestFunctionMerge(t *testing.T) {
 		t.Errorf("sizeFunc.Merge(sizeFunc) != sizeFunc: %v", out)
 	}
 	sizeVecFunc, err := NewFunction("size",
-		MemberOverload("vector_size", []*Type{NewOpaqueType("vector", NewTypeParamType("T"))}, IntType),
+		MemberOverload("vector_size",
+			[]*types.Type{types.NewOpaqueType("vector", types.NewTypeParamType("T"))}, types.IntType),
 		SingletonUnaryBinding(func(sizer ref.Val) ref.Val {
 			return sizer.(traits.Sizer).Size()
 		}, traits.SizerType),
@@ -279,13 +293,15 @@ func TestFunctionMerge(t *testing.T) {
 
 func TestFunctionMergeWrongName(t *testing.T) {
 	sizeFunc, err := NewFunction("size",
-		MemberOverload("list_size", []*Type{NewListType(NewTypeParamType("T"))}, IntType),
+		MemberOverload("list_size",
+			[]*types.Type{types.NewListType(types.NewTypeParamType("T"))}, types.IntType),
 	)
 	if err != nil {
 		t.Fatalf("NewFunction() failed: %v", err)
 	}
 	sizeVecFunc, err := NewFunction("sizeN",
-		MemberOverload("vector_size", []*Type{NewOpaqueType("vector", NewTypeParamType("T"))}, IntType),
+		MemberOverload("vector_size",
+			[]*types.Type{types.NewOpaqueType("vector", types.NewTypeParamType("T"))}, types.IntType),
 	)
 	if err != nil {
 		t.Fatalf("NewFunction() failed: %v", err)
@@ -298,13 +314,15 @@ func TestFunctionMergeWrongName(t *testing.T) {
 
 func TestFunctionMergeOverloadCollision(t *testing.T) {
 	sizeFunc, err := NewFunction("size",
-		MemberOverload("list_size", []*Type{NewListType(NewTypeParamType("T"))}, IntType),
+		MemberOverload("list_size",
+			[]*types.Type{types.NewListType(types.NewTypeParamType("T"))}, types.IntType),
 	)
 	if err != nil {
 		t.Fatalf("NewFunction() failed: %v", err)
 	}
 	sizeVecFunc, err := NewFunction("size",
-		MemberOverload("list_size2", []*Type{NewListType(NewTypeParamType("K"))}, IntType),
+		MemberOverload("list_size2",
+			[]*types.Type{types.NewListType(types.NewTypeParamType("K"))}, types.IntType),
 	)
 	if err != nil {
 		t.Fatalf("NewFunction() failed: %v", err)
@@ -317,13 +335,15 @@ func TestFunctionMergeOverloadCollision(t *testing.T) {
 
 func TestFunctionMergeOverloadArgCountRedefinition(t *testing.T) {
 	sizeFunc, err := NewFunction("size",
-		MemberOverload("list_size", []*Type{NewListType(NewTypeParamType("T"))}, IntType),
+		MemberOverload("list_size",
+			[]*types.Type{types.NewListType(types.NewTypeParamType("T"))}, types.IntType),
 	)
 	if err != nil {
 		t.Fatalf("NewFunction() failed: %v", err)
 	}
 	sizeVecFunc, err := NewFunction("size",
-		MemberOverload("list_size", []*Type{NewListType(NewTypeParamType("T")), IntType}, IntType),
+		MemberOverload("list_size",
+			[]*types.Type{types.NewListType(types.NewTypeParamType("T")), types.IntType}, types.IntType),
 	)
 	if err != nil {
 		t.Fatalf("NewFunction() failed: %v", err)
@@ -336,13 +356,15 @@ func TestFunctionMergeOverloadArgCountRedefinition(t *testing.T) {
 
 func TestFunctionMergeOverloadArgTypeRedefinition(t *testing.T) {
 	sizeFunc, err := NewFunction("size",
-		MemberOverload("arg_size", []*Type{NewListType(NewTypeParamType("T"))}, IntType),
+		MemberOverload("arg_size",
+			[]*types.Type{types.NewListType(types.NewTypeParamType("T"))}, types.IntType),
 	)
 	if err != nil {
 		t.Fatalf("NewFunction() failed: %v", err)
 	}
 	sizeVecFunc, err := NewFunction("size",
-		MemberOverload("arg_size", []*Type{NewMapType(IntType, StringType)}, IntType),
+		MemberOverload("arg_size",
+			[]*types.Type{types.NewMapType(types.IntType, types.StringType)}, types.IntType),
 	)
 	if err != nil {
 		t.Fatalf("NewFunction() failed: %v", err)
@@ -355,7 +377,8 @@ func TestFunctionMergeOverloadArgTypeRedefinition(t *testing.T) {
 
 func TestFunctionMergeSingletonRedefinition(t *testing.T) {
 	sizeFunc, err := NewFunction("size",
-		MemberOverload("list_size", []*Type{NewListType(NewTypeParamType("T"))}, IntType),
+		MemberOverload("list_size",
+			[]*types.Type{types.NewListType(types.NewTypeParamType("T"))}, types.IntType),
 		SingletonUnaryBinding(func(ref.Val) ref.Val {
 			return types.IntZero
 		}),
@@ -364,7 +387,8 @@ func TestFunctionMergeSingletonRedefinition(t *testing.T) {
 		t.Fatalf("NewFunction() failed: %v", err)
 	}
 	sizeVecFunc, err := NewFunction("size",
-		MemberOverload("string_size", []*Type{StringType}, IntType),
+		MemberOverload("string_size",
+			[]*types.Type{types.StringType}, types.IntType),
 		SingletonUnaryBinding(func(ref.Val) ref.Val {
 			return types.IntZero
 		}),
@@ -380,8 +404,8 @@ func TestFunctionMergeSingletonRedefinition(t *testing.T) {
 
 func TestFunctionAddDuplicateOverloads(t *testing.T) {
 	_, err := NewFunction("max",
-		Overload("max_int", []*Type{IntType}, IntType),
-		Overload("max_int", []*Type{IntType}, IntType),
+		Overload("max_int", []*types.Type{types.IntType}, types.IntType),
+		Overload("max_int", []*types.Type{types.IntType}, types.IntType),
 	)
 	if err != nil {
 		t.Fatalf("NewFunction() with duplicate overload signature failed: %v", err)
@@ -390,8 +414,8 @@ func TestFunctionAddDuplicateOverloads(t *testing.T) {
 
 func TestFunctionAddCollidingOverloads(t *testing.T) {
 	_, err := NewFunction("max",
-		Overload("max_int", []*Type{IntType}, IntType),
-		Overload("max_int2", []*Type{IntType}, IntType),
+		Overload("max_int", []*types.Type{types.IntType}, types.IntType),
+		Overload("max_int2", []*types.Type{types.IntType}, types.IntType),
 	)
 	if err == nil || !strings.Contains(err.Error(), "max_int collides with max_int2") {
 		t.Fatalf("NewFunction() got %v, wanted collision error", err)
@@ -409,7 +433,7 @@ func TestFunctionNoOverloads(t *testing.T) {
 
 func TestSingletonOverloadCollision(t *testing.T) {
 	fn, err := NewFunction("id",
-		Overload("id_any", []*Type{AnyType}, AnyType,
+		Overload("id_any", []*types.Type{types.AnyType}, types.AnyType,
 			UnaryBinding(func(arg ref.Val) ref.Val {
 				return arg
 			}),
@@ -429,7 +453,7 @@ func TestSingletonOverloadCollision(t *testing.T) {
 
 func TestSingletonUnaryBindingRedefinition(t *testing.T) {
 	_, err := NewFunction("id",
-		Overload("id_any", []*Type{AnyType}, AnyType),
+		Overload("id_any", []*types.Type{types.AnyType}, types.AnyType),
 		SingletonUnaryBinding(func(arg ref.Val) ref.Val {
 			return arg
 		}),
@@ -444,7 +468,7 @@ func TestSingletonUnaryBindingRedefinition(t *testing.T) {
 
 func TestSingletonBinaryBindingRedefinition(t *testing.T) {
 	_, err := NewFunction("right",
-		Overload("right_double_double", []*Type{DoubleType, DoubleType}, DoubleType),
+		Overload("right_double_double", []*types.Type{types.DoubleType, types.DoubleType}, types.DoubleType),
 		SingletonBinaryBinding(func(arg1, arg2 ref.Val) ref.Val {
 			return arg2
 		}, traits.ComparerType),
@@ -459,7 +483,7 @@ func TestSingletonBinaryBindingRedefinition(t *testing.T) {
 
 func TestSingletonFunctionBindingRedefinition(t *testing.T) {
 	_, err := NewFunction("id",
-		Overload("id_any", []*Type{AnyType}, AnyType),
+		Overload("id_any", []*types.Type{types.AnyType}, types.AnyType),
 		SingletonFunctionBinding(func(args ...ref.Val) ref.Val {
 			return args[0]
 		}, traits.ComparerType),
@@ -474,7 +498,7 @@ func TestSingletonFunctionBindingRedefinition(t *testing.T) {
 
 func TestOverloadUnaryBindingRedefinition(t *testing.T) {
 	_, err := NewFunction("id",
-		Overload("id_any", []*Type{AnyType}, AnyType,
+		Overload("id_any", []*types.Type{types.AnyType}, types.AnyType,
 			UnaryBinding(func(arg ref.Val) ref.Val {
 				return arg
 			}),
@@ -490,7 +514,7 @@ func TestOverloadUnaryBindingRedefinition(t *testing.T) {
 
 func TestOverloadUnaryBindingArgCountMismatch(t *testing.T) {
 	_, err := NewFunction("id",
-		Overload("id_any", []*Type{}, AnyType,
+		Overload("id_any", []*types.Type{}, types.AnyType,
 			UnaryBinding(func(arg ref.Val) ref.Val {
 				return arg
 			}),
@@ -503,7 +527,7 @@ func TestOverloadUnaryBindingArgCountMismatch(t *testing.T) {
 
 func TestOverloadBinaryBindingArgCountMismatch(t *testing.T) {
 	_, err := NewFunction("id",
-		Overload("id_any", []*Type{}, AnyType,
+		Overload("id_any", []*types.Type{}, types.AnyType,
 			BinaryBinding(func(lhs, rhs ref.Val) ref.Val {
 				return lhs
 			}),
@@ -516,7 +540,7 @@ func TestOverloadBinaryBindingArgCountMismatch(t *testing.T) {
 
 func TestOverloadBinaryBindingRedefinition(t *testing.T) {
 	_, err := NewFunction("right",
-		Overload("right_double_double", []*Type{DoubleType, DoubleType}, DoubleType,
+		Overload("right_double_double", []*types.Type{types.DoubleType, types.DoubleType}, types.DoubleType,
 			BinaryBinding(func(arg1, arg2 ref.Val) ref.Val {
 				return arg2
 			}),
@@ -532,7 +556,7 @@ func TestOverloadBinaryBindingRedefinition(t *testing.T) {
 
 func TestOverloadFunctionBindingRedefinition(t *testing.T) {
 	_, err := NewFunction("id",
-		Overload("id_any", []*Type{AnyType}, AnyType,
+		Overload("id_any", []*types.Type{types.AnyType}, types.AnyType,
 			FunctionBinding(func(args ...ref.Val) ref.Val {
 				return args[0]
 			}),
@@ -549,12 +573,12 @@ func TestOverloadFunctionBindingRedefinition(t *testing.T) {
 func TestOverloadIsNonStrict(t *testing.T) {
 	fn, err := NewFunction("getOrDefault",
 		MemberOverload("get",
-			[]*Type{NewMapType(
-				NewTypeParamType("K"), NewTypeParamType("V")),
-				NewTypeParamType("K"),
-				NewTypeParamType("V"),
+			[]*types.Type{types.NewMapType(
+				types.NewTypeParamType("K"), types.NewTypeParamType("V")),
+				types.NewTypeParamType("K"),
+				types.NewTypeParamType("V"),
 			},
-			NewTypeParamType("V"),
+			types.NewTypeParamType("V"),
 			OverloadOperandTrait(traits.ContainerType|traits.IndexerType),
 			OverloadIsNonStrict(),
 			FunctionBinding(func(args ...ref.Val) ref.Val {
@@ -596,12 +620,12 @@ func TestOverloadIsNonStrict(t *testing.T) {
 func TestOverloadOperandTrait(t *testing.T) {
 	fn, err := NewFunction("getOrDefault",
 		MemberOverload("get",
-			[]*Type{NewMapType(
-				NewTypeParamType("K"), NewTypeParamType("V")),
-				NewTypeParamType("K"),
-				NewTypeParamType("V"),
+			[]*types.Type{types.NewMapType(
+				types.NewTypeParamType("K"), types.NewTypeParamType("V")),
+				types.NewTypeParamType("K"),
+				types.NewTypeParamType("V"),
 			},
-			NewTypeParamType("V"),
+			types.NewTypeParamType("V"),
 			OverloadOperandTrait(traits.ContainerType|traits.IndexerType),
 			FunctionBinding(func(args ...ref.Val) ref.Val {
 				container := args[0].(traits.Container)
@@ -641,8 +665,8 @@ func TestFunctionDisableDeclaration(t *testing.T) {
 	fn, err := NewFunction("in",
 		DisableDeclaration(true),
 		Overload("in_list",
-			[]*Type{NewListType(NewTypeParamType("K")), NewTypeParamType("K")},
-			BoolType,
+			[]*types.Type{types.NewListType(types.NewTypeParamType("K")), types.NewTypeParamType("K")},
+			types.BoolType,
 		),
 	)
 	if err != nil {
@@ -657,8 +681,8 @@ func TestFunctionEnableDeclaration(t *testing.T) {
 	fn, err := NewFunction("in",
 		DisableDeclaration(false),
 		Overload("in_list",
-			[]*Type{NewListType(NewTypeParamType("K")), NewTypeParamType("K")},
-			BoolType),
+			[]*types.Type{types.NewListType(types.NewTypeParamType("K")), types.NewTypeParamType("K")},
+			types.BoolType),
 	)
 	if err != nil {
 		t.Fatalf("NewFunction() failed: %v", err)
@@ -669,8 +693,8 @@ func TestFunctionEnableDeclaration(t *testing.T) {
 	fn2, err := NewFunction("in",
 		DisableDeclaration(true),
 		Overload("in_list",
-			[]*Type{NewListType(NewTypeParamType("K")), NewTypeParamType("K")},
-			BoolType),
+			[]*types.Type{types.NewListType(types.NewTypeParamType("K")), types.NewTypeParamType("K")},
+			types.BoolType),
 	)
 	if err != nil {
 		t.Fatalf("NewFunction() failed: %v", err)
@@ -704,7 +728,8 @@ func TestFunctionDeclToExprDecl(t *testing.T) {
 	}{
 		{
 			fn: testFunction(t, "equals",
-				Overload("equals_value_value", []*Type{NewTypeParamType("T"), NewTypeParamType("T")}, BoolType)),
+				Overload("equals_value_value",
+					[]*types.Type{types.NewTypeParamType("T"), types.NewTypeParamType("T")}, types.BoolType)),
 			exDecl: &exprpb.Decl{
 				Name: "equals",
 				DeclKind: &exprpb.Decl_Function{
@@ -726,7 +751,8 @@ func TestFunctionDeclToExprDecl(t *testing.T) {
 		},
 		{
 			fn: testFunction(t, "equals",
-				MemberOverload("value_equals_value", []*Type{NewTypeParamType("T"), NewTypeParamType("T")}, BoolType)),
+				MemberOverload("value_equals_value",
+					[]*types.Type{types.NewTypeParamType("T"), types.NewTypeParamType("T")}, types.BoolType)),
 			exDecl: &exprpb.Decl{
 				Name: "equals",
 				DeclKind: &exprpb.Decl_Function{
@@ -749,7 +775,8 @@ func TestFunctionDeclToExprDecl(t *testing.T) {
 		},
 		{
 			fn: testFunction(t, "equals",
-				Overload("equals_int_uint", []*Type{IntType, UintType}, BoolType)),
+				Overload("equals_int_uint",
+					[]*types.Type{types.IntType, types.UintType}, types.BoolType)),
 			exDecl: &exprpb.Decl{
 				Name: "equals",
 				DeclKind: &exprpb.Decl_Function{
@@ -770,7 +797,8 @@ func TestFunctionDeclToExprDecl(t *testing.T) {
 		},
 		{
 			fn: testFunction(t, "equals",
-				MemberOverload("int_equals_uint", []*Type{IntType, UintType}, BoolType)),
+				MemberOverload("int_equals_uint",
+					[]*types.Type{types.IntType, types.UintType}, types.BoolType)),
 			exDecl: &exprpb.Decl{
 				Name: "equals",
 				DeclKind: &exprpb.Decl_Function{
@@ -792,10 +820,10 @@ func TestFunctionDeclToExprDecl(t *testing.T) {
 		},
 		{
 			fn: testFunction(t, "equals",
-				MemberOverload("list_optional_value_equals_list_optional_value", []*Type{
-					NewListType(NewOptionalType(NewTypeParamType("T"))),
-					NewListType(NewOptionalType(NewTypeParamType("T"))),
-				}, BoolType)),
+				MemberOverload("list_optional_value_equals_list_optional_value", []*types.Type{
+					types.NewListType(types.NewOptionalType(types.NewTypeParamType("T"))),
+					types.NewListType(types.NewOptionalType(types.NewTypeParamType("T"))),
+				}, types.BoolType)),
 			exDecl: &exprpb.Decl{
 				Name: "equals",
 				DeclKind: &exprpb.Decl_Function{
@@ -818,8 +846,10 @@ func TestFunctionDeclToExprDecl(t *testing.T) {
 		},
 		{
 			fn: testFunction(t, "equals",
-				MemberOverload("int_equals_uint", []*Type{IntType, UintType}, BoolType),
-				MemberOverload("uint_equals_int", []*Type{UintType, IntType}, BoolType)),
+				MemberOverload("int_equals_uint",
+					[]*types.Type{types.IntType, types.UintType}, types.BoolType),
+				MemberOverload("uint_equals_int",
+					[]*types.Type{types.UintType, types.IntType}, types.BoolType)),
 			exDecl: &exprpb.Decl{
 				Name: "equals",
 				DeclKind: &exprpb.Decl_Function{
@@ -852,12 +882,12 @@ func TestFunctionDeclToExprDecl(t *testing.T) {
 		{
 			fn: testMerge(t,
 				testFunction(t, "equals",
-					Overload("int_equals_uint", []*Type{IntType, UintType}, BoolType),
-					Overload("uint_equals_int", []*Type{UintType, IntType}, BoolType)),
+					Overload("int_equals_uint", []*types.Type{types.IntType, types.UintType}, types.BoolType),
+					Overload("uint_equals_int", []*types.Type{types.UintType, types.IntType}, types.BoolType)),
 				testFunction(t, "equals",
-					Overload("int_equals_int", []*Type{IntType, IntType}, BoolType),
-					Overload("int_equals_uint", []*Type{IntType, UintType}, BoolType),
-					Overload("uint_equals_uint", []*Type{UintType, UintType}, BoolType))),
+					Overload("int_equals_int", []*types.Type{types.IntType, types.IntType}, types.BoolType),
+					Overload("int_equals_uint", []*types.Type{types.IntType, types.UintType}, types.BoolType),
+					Overload("uint_equals_uint", []*types.Type{types.UintType, types.UintType}, types.BoolType))),
 			exDecl: &exprpb.Decl{
 				Name: "equals",
 				DeclKind: &exprpb.Decl_Function{
@@ -914,13 +944,13 @@ func TestFunctionDeclToExprDecl(t *testing.T) {
 
 func TestFunctionDeclToExprDeclInvalid(t *testing.T) {
 	fn1 := testFunction(t, "bad_equals",
-		MemberOverload("bad_equals_param", []*Type{{}, UintType}, BoolType))
+		MemberOverload("bad_equals_param", []*types.Type{{}, types.UintType}, types.BoolType))
 	ex1, err := FunctionDeclToExprDecl(fn1)
 	if err == nil {
 		t.Errorf("FunctionDeclToExprDecl(bad_equals) succeeded: %v, wanted error", ex1)
 	}
 	fn2 := testFunction(t, "bad_equals",
-		Overload("bad_equals_out", []*Type{IntType, UintType}, &Type{}))
+		Overload("bad_equals_out", []*types.Type{types.IntType, types.UintType}, &types.Type{}))
 	ex2, err := FunctionDeclToExprDecl(fn2)
 	if err == nil {
 		t.Errorf("FunctionDeclToExprDecl(bad_equals) succeeded: %v, wanted error", ex2)
@@ -928,21 +958,50 @@ func TestFunctionDeclToExprDeclInvalid(t *testing.T) {
 }
 
 func TestNewVariable(t *testing.T) {
-	a := NewVariable("a", BoolType)
+	a := NewVariable("a", types.BoolType)
 	if !a.DeclarationEquals(a) {
 		t.Error("NewVariable(a, bool) does not equal itself")
 	}
-	if !a.DeclarationEquals(NewVariable("a", BoolType)) {
+	if !a.DeclarationEquals(NewVariable("a", types.BoolType)) {
 		t.Error("NewVariable(a, bool) does not equal itself")
 	}
-	a1 := NewVariable("a", IntType)
+	a1 := NewVariable("a", types.IntType)
 	if a.DeclarationEquals(a1) {
 		t.Error("NewVariable(a, int).DeclarationEquals(NewVariable(a, bool))")
 	}
 }
 
+func TestTypeVariable(t *testing.T) {
+	tests := []struct {
+		t *types.Type
+		v *VariableDecl
+	}{
+		{
+			t: types.AnyType,
+			v: NewVariable("google.protobuf.Any", types.NewTypeTypeWithParam(types.AnyType)),
+		},
+		{
+			t: types.DynType,
+			v: NewVariable("dyn", types.NewTypeTypeWithParam(types.DynType)),
+		},
+		{
+			t: types.NewObjectType("google.protobuf.Int32Value"),
+			v: NewVariable("int", types.NewTypeTypeWithParam(types.NewNullableType(types.IntType))),
+		},
+		{
+			t: types.NewObjectType("google.protobuf.Int32Value"),
+			v: NewVariable("int", types.NewTypeTypeWithParam(types.NewNullableType(types.IntType))),
+		},
+	}
+	for _, tst := range tests {
+		if !TypeVariable(tst.t).DeclarationEquals(tst.v) {
+			t.Errorf("got not equal %v.Equals(%v)", TypeVariable(tst.t), tst.v)
+		}
+	}
+}
+
 func TestVariableDeclToExprDecl(t *testing.T) {
-	a, err := VariableDeclToExprDecl(NewVariable("a", BoolType))
+	a, err := VariableDeclToExprDecl(NewVariable("a", types.BoolType))
 	if err != nil {
 		t.Fatalf("VariableDeclToExprDecl() failed: %v", err)
 	}
@@ -953,7 +1012,7 @@ func TestVariableDeclToExprDecl(t *testing.T) {
 }
 
 func TestVariableDeclToExprDeclInvalid(t *testing.T) {
-	out, err := VariableDeclToExprDecl(NewVariable("bad", &Type{}))
+	out, err := VariableDeclToExprDecl(NewVariable("bad", &types.Type{}))
 	if err == nil {
 		t.Fatalf("VariableDeclToExprDecl() succeeded: %v, wanted error", out)
 	}

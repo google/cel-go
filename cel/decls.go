@@ -27,109 +27,109 @@ import (
 )
 
 // Kind indicates a CEL type's kind which is used to differentiate quickly between simple and complex types.
-type Kind = decls.Kind
+type Kind = types.Kind
 
 const (
 	// DynKind represents a dynamic type. This kind only exists at type-check time.
-	DynKind Kind = decls.DynKind
+	DynKind Kind = types.DynKind
 
 	// AnyKind represents a google.protobuf.Any type. This kind only exists at type-check time.
-	AnyKind = decls.AnyKind
+	AnyKind = types.AnyKind
 
 	// BoolKind represents a boolean type.
-	BoolKind = decls.BoolKind
+	BoolKind = types.BoolKind
 
 	// BytesKind represents a bytes type.
-	BytesKind = decls.BytesKind
+	BytesKind = types.BytesKind
 
 	// DoubleKind represents a double type.
-	DoubleKind = decls.DoubleKind
+	DoubleKind = types.DoubleKind
 
 	// DurationKind represents a CEL duration type.
-	DurationKind = decls.DurationKind
+	DurationKind = types.DurationKind
 
 	// IntKind represents an integer type.
-	IntKind = decls.IntKind
+	IntKind = types.IntKind
 
 	// ListKind represents a list type.
-	ListKind = decls.ListKind
+	ListKind = types.ListKind
 
 	// MapKind represents a map type.
-	MapKind = decls.MapKind
+	MapKind = types.MapKind
 
 	// NullTypeKind represents a null type.
-	NullTypeKind = decls.NullTypeKind
+	NullTypeKind = types.NullTypeKind
 
 	// OpaqueKind represents an abstract type which has no accessible fields.
-	OpaqueKind = decls.OpaqueKind
+	OpaqueKind = types.OpaqueKind
 
 	// StringKind represents a string type.
-	StringKind = decls.StringKind
+	StringKind = types.StringKind
 
 	// StructKind represents a structured object with typed fields.
-	StructKind = decls.StructKind
+	StructKind = types.StructKind
 
 	// TimestampKind represents a a CEL time type.
-	TimestampKind = decls.TimestampKind
+	TimestampKind = types.TimestampKind
 
 	// TypeKind represents the CEL type.
-	TypeKind = decls.TypeKind
+	TypeKind = types.TypeKind
 
 	// TypeParamKind represents a parameterized type whose type name will be resolved at type-check time, if possible.
-	TypeParamKind = decls.TypeParamKind
+	TypeParamKind = types.TypeParamKind
 
 	// UintKind represents a uint type.
-	UintKind = decls.UintKind
+	UintKind = types.UintKind
 )
 
 var (
 	// AnyType represents the google.protobuf.Any type.
-	AnyType = decls.AnyType
+	AnyType = types.AnyType
 	// BoolType represents the bool type.
-	BoolType = decls.BoolType
+	BoolType = types.BoolType
 	// BytesType represents the bytes type.
-	BytesType = decls.BytesType
+	BytesType = types.BytesType
 	// DoubleType represents the double type.
-	DoubleType = decls.DoubleType
+	DoubleType = types.DoubleType
 	// DurationType represents the CEL duration type.
-	DurationType = decls.DurationType
+	DurationType = types.DurationType
 	// DynType represents a dynamic CEL type whose type will be determined at runtime from context.
-	DynType = decls.DynType
+	DynType = types.DynType
 	// IntType represents the int type.
-	IntType = decls.IntType
+	IntType = types.IntType
 	// NullType represents the type of a null value.
-	NullType = decls.NullType
+	NullType = types.NullType
 	// StringType represents the string type.
-	StringType = decls.StringType
+	StringType = types.StringType
 	// TimestampType represents the time type.
-	TimestampType = decls.TimestampType
+	TimestampType = types.TimestampType
 	// TypeType represents a CEL type
-	TypeType = decls.TypeType
+	TypeType = types.TypeType
 	// UintType represents a uint type.
-	UintType = decls.UintType
+	UintType = types.UintType
 
 	// function references for instantiating new types.
 
 	// ListType creates an instances of a list type value with the provided element type.
-	ListType = decls.NewListType
+	ListType = types.NewListType
 	// MapType creates an instance of a map type value with the provided key and value types.
-	MapType = decls.NewMapType
+	MapType = types.NewMapType
 	// NullableType creates an instance of a nullable type with the provided wrapped type.
 	//
 	// Note: only primitive types are supported as wrapped types.
-	NullableType = decls.NewNullableType
+	NullableType = types.NewNullableType
 	// OptionalType creates an abstract parameterized type instance corresponding to CEL's notion of optional.
-	OptionalType = decls.NewOptionalType
+	OptionalType = types.NewOptionalType
 	// OpaqueType creates an abstract parameterized type with a given name.
-	OpaqueType = decls.NewOpaqueType
+	OpaqueType = types.NewOpaqueType
 	// ObjectType creates a type references to an externally defined type, e.g. a protobuf message type.
-	ObjectType = decls.NewObjectType
+	ObjectType = types.NewObjectType
 	// TypeParamType creates a parameterized type instance.
-	TypeParamType = decls.NewTypeParamType
+	TypeParamType = types.NewTypeParamType
 )
 
 // Type holds a reference to a runtime type with an optional type-checked set of type parameters.
-type Type = decls.Type
+type Type = types.Type
 
 // Variable creates an instance of a variable declaration with a variable name and type.
 func Variable(name string, t *Type) EnvOption {
@@ -298,12 +298,12 @@ func OverloadOperandTrait(trait int) OverloadOpt {
 
 // TypeToExprType converts a CEL-native type representation to a protobuf CEL Type representation.
 func TypeToExprType(t *Type) (*exprpb.Type, error) {
-	return decls.TypeToExprType(t)
+	return types.TypeToExprType(t)
 }
 
 // ExprTypeToType converts a protobuf CEL type representation to a CEL-native type representation.
 func ExprTypeToType(t *exprpb.Type) (*Type, error) {
-	return decls.ExprTypeToType(t)
+	return types.ExprTypeToType(t)
 }
 
 // ExprDeclToDeclaration converts a protobuf CEL declaration to a CEL-native declaration, either a Variable or Function.
@@ -315,13 +315,13 @@ func ExprDeclToDeclaration(d *exprpb.Decl) (EnvOption, error) {
 		for i, o := range overloads {
 			args := make([]*Type, len(o.GetParams()))
 			for j, p := range o.GetParams() {
-				a, err := decls.ExprTypeToType(p)
+				a, err := types.ExprTypeToType(p)
 				if err != nil {
 					return nil, err
 				}
 				args[j] = a
 			}
-			res, err := decls.ExprTypeToType(o.GetResultType())
+			res, err := types.ExprTypeToType(o.GetResultType())
 			if err != nil {
 				return nil, err
 			}
@@ -329,7 +329,7 @@ func ExprDeclToDeclaration(d *exprpb.Decl) (EnvOption, error) {
 		}
 		return Function(d.GetName(), opts...), nil
 	case *exprpb.Decl_Ident:
-		t, err := decls.ExprTypeToType(d.GetIdent().GetType())
+		t, err := types.ExprTypeToType(d.GetIdent().GetType())
 		if err != nil {
 			return nil, err
 		}
