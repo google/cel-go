@@ -627,8 +627,21 @@ func TestFunctionDisableDeclarationMergeReenable(t *testing.T) {
 }
 
 func TestExprDeclToDeclaration(t *testing.T) {
+	paramT := chkdecls.NewTypeParamType("T")
+	eq, err := ExprDeclToDeclaration(
+		chkdecls.NewFunction(operators.Equals,
+			chkdecls.NewParameterizedOverload(overloads.Equals,
+				[]*exprpb.Type{paramT, paramT}, chkdecls.Bool, []string{"T"})),
+	)
+	if err != nil {
+		t.Fatalf("ExprDeclToDeclaration(equals) failed: %v", err)
+	}
 	size, err := ExprDeclToDeclaration(
-		chkdecls.NewFunction("size", chkdecls.NewOverload("size_string", []*exprpb.Type{chkdecls.String}, chkdecls.Int)),
+		chkdecls.NewFunction(overloads.Size,
+			chkdecls.NewOverload(overloads.SizeString,
+				[]*exprpb.Type{chkdecls.String}, chkdecls.Int),
+			chkdecls.NewInstanceOverload(overloads.SizeStringInst,
+				[]*exprpb.Type{chkdecls.String}, chkdecls.Int)),
 	)
 	if err != nil {
 		t.Fatalf("ExprDeclToDeclaration(size) failed: %v", err)
@@ -637,16 +650,25 @@ func TestExprDeclToDeclaration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ExprDeclToDeclaration(x) failed: %v", err)
 	}
-	e, err := NewCustomEnv(size, x)
+	e, err := NewCustomEnv(size, eq, x)
 	if err != nil {
 		t.Fatalf("NewCustomEnv() failed: %v", err)
 	}
-	ast, iss := e.Compile("size(x)")
+	ast, iss := e.Compile("size(x) == x.size()")
 	if iss.Err() != nil {
-		t.Fatalf("Compile(size(x)) failed: %v", iss.Err())
+		t.Fatalf("Compile(size(x) == x.size()) failed: %v", iss.Err())
 	}
 	prg, err := e.Program(ast, Functions(&functions.Overload{
 		Operator: overloads.SizeString,
+		Unary: func(arg ref.Val) ref.Val {
+			str, ok := arg.(types.String)
+			if !ok {
+				return types.MaybeNoSuchOverloadErr(arg)
+			}
+			return types.Int(len([]rune(string(str))))
+		},
+	}, &functions.Overload{
+		Operator: overloads.SizeStringInst,
 		Unary: func(arg ref.Val) ref.Val {
 			str, ok := arg.(types.String)
 			if !ok {
@@ -662,8 +684,8 @@ func TestExprDeclToDeclaration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("prg.Eval(x=hello) failed: %v", err)
 	}
-	if out.Equal(types.Int(5)) != types.True {
-		t.Errorf("prg.Eval(size(x)) got %v, wanted 5", out)
+	if out != types.True {
+		t.Errorf("prg.Eval(size(x) == x.size()) got %v, wanted true", out)
 	}
 }
 
