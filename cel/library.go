@@ -109,29 +109,28 @@ func (stdLibrary) LibraryName() string {
 // CompileOptions returns options for the standard CEL function declarations and macros.
 func (stdLibrary) CompileOptions() []EnvOption {
 	return []EnvOption{
+		func(e *Env) (*Env, error) {
+			var err error
+			for _, fn := range stdlib.Functions() {
+				existing, found := e.functions[fn.Name]
+				if found {
+					fn, err = existing.Merge(fn)
+					if err != nil {
+						return nil, err
+					}
+				}
+				e.functions[fn.Name] = fn
+			}
+			return e, nil
+		},
 		Declarations(stdlib.TypeExprDecls()...),
-		Declarations(stdlib.FunctionExprDecls()...),
 		Macros(StandardMacros...),
 	}
 }
 
 // ProgramOptions returns function implementations for the standard CEL functions.
 func (stdLibrary) ProgramOptions() []ProgramOption {
-	return []ProgramOption{
-		func(p *prog) (*prog, error) {
-			for _, fn := range stdlib.Functions() {
-				bindings, err := fn.Bindings()
-				if err != nil {
-					return nil, err
-				}
-				err = p.dispatcher.Add(bindings...)
-				if err != nil {
-					return nil, err
-				}
-			}
-			return p, nil
-		},
-	}
+	return []ProgramOption{}
 }
 
 // OptionalTypes enable support for optional syntax and types in CEL.
