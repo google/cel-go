@@ -325,7 +325,11 @@ func ExprDeclToDeclaration(d *exprpb.Decl) (EnvOption, error) {
 			if err != nil {
 				return nil, err
 			}
-			opts[i] = decls.Overload(o.GetOverloadId(), args, res)
+			if o.IsInstanceFunction {
+				opts[i] = decls.MemberOverload(o.GetOverloadId(), args, res)
+			} else {
+				opts[i] = decls.Overload(o.GetOverloadId(), args, res)
+			}
 		}
 		return Function(d.GetName(), opts...), nil
 	case *exprpb.Decl_Ident:
