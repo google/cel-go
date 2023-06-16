@@ -881,9 +881,9 @@ func TestAttributeStateTracking(t *testing.T) {
 		{
 			expr: `a[1]['two']`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("a", decls.MapType(
-					decls.IntType,
-					decls.MapType(decls.StringType, decls.BoolType))),
+				decls.NewVariable("a", types.NewMapType(
+					types.IntType,
+					types.NewMapType(types.StringType, types.BoolType))),
 			},
 			in: map[string]any{
 				"a": map[int64]any{
@@ -903,9 +903,9 @@ func TestAttributeStateTracking(t *testing.T) {
 		{
 			expr: `a[1][2][3]`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("a", decls.MapType(
-					decls.IntType,
-					decls.MapType(decls.DynType, decls.DynType))),
+				decls.NewVariable("a", types.NewMapType(
+					types.IntType,
+					types.NewMapType(types.DynType, types.DynType))),
 			},
 			in: map[string]any{
 				"a": map[int64]any{
@@ -931,9 +931,9 @@ func TestAttributeStateTracking(t *testing.T) {
 		{
 			expr: `a[1][2][a[1][1]]`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("a", decls.MapType(
-					decls.IntType,
-					decls.MapType(decls.DynType, decls.DynType))),
+				decls.NewVariable("a", types.NewMapType(
+					types.IntType,
+					types.NewMapType(types.DynType, types.DynType))),
 			},
 			in: map[string]any{
 				"a": map[int64]any{
@@ -967,8 +967,8 @@ func TestAttributeStateTracking(t *testing.T) {
 		{
 			expr: `true ? a : b`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("a", decls.StringType),
-				decls.NewVariable("b", decls.StringType),
+				decls.NewVariable("a", types.StringType),
+				decls.NewVariable("b", types.StringType),
 			},
 			in: map[string]any{
 				"a": "hello",
@@ -983,8 +983,8 @@ func TestAttributeStateTracking(t *testing.T) {
 		{
 			expr: `(a.size() != 0 ? a : b)[0]`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("a", decls.ListType(decls.StringType)),
-				decls.NewVariable("b", decls.ListType(decls.StringType)),
+				decls.NewVariable("a", types.NewListType(types.StringType)),
+				decls.NewVariable("b", types.NewListType(types.StringType)),
 			},
 			in: map[string]any{
 				"a": []string{"hello", "world"},
@@ -1007,7 +1007,7 @@ func TestAttributeStateTracking(t *testing.T) {
 		{
 			expr: `a.?b.c`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("a", decls.MapType(decls.StringType, decls.MapType(decls.StringType, decls.StringType))),
+				decls.NewVariable("a", types.NewMapType(types.StringType, types.NewMapType(types.StringType, types.StringType))),
 			},
 			in: map[string]any{
 				"a": map[string]any{"b": map[string]any{"c": "world"}},
@@ -1023,7 +1023,7 @@ func TestAttributeStateTracking(t *testing.T) {
 		{
 			expr: `a.?b.c`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("a", decls.MapType(decls.StringType, decls.MapType(decls.StringType, decls.StringType))),
+				decls.NewVariable("a", types.NewMapType(types.StringType, types.NewMapType(types.StringType, types.StringType))),
 			},
 			in: map[string]any{
 				"a": map[string]any{"b": map[string]string{"random": "value"}},
@@ -1039,7 +1039,7 @@ func TestAttributeStateTracking(t *testing.T) {
 		{
 			expr: `a.b.c`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("a", decls.MapType(decls.StringType, decls.MapType(decls.StringType, decls.StringType))),
+				decls.NewVariable("a", types.NewMapType(types.StringType, types.NewMapType(types.StringType, types.StringType))),
 			},
 			in: map[string]any{
 				"a": map[string]any{"b": map[string]any{"c": "world"}},
@@ -1055,8 +1055,8 @@ func TestAttributeStateTracking(t *testing.T) {
 		{
 			expr: `m[has(a.b)]`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("a", decls.MapType(decls.StringType, decls.StringType)),
-				decls.NewVariable("m", decls.MapType(decls.BoolType, decls.StringType)),
+				decls.NewVariable("a", types.NewMapType(types.StringType, types.StringType)),
+				decls.NewVariable("m", types.NewMapType(types.BoolType, types.StringType)),
 			},
 			in: map[string]any{
 				"a": map[string]string{"b": ""},
@@ -1067,8 +1067,8 @@ func TestAttributeStateTracking(t *testing.T) {
 		{
 			expr: `m[?has(a.b)]`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("a", decls.MapType(decls.StringType, decls.StringType)),
-				decls.NewVariable("m", decls.MapType(decls.BoolType, decls.StringType)),
+				decls.NewVariable("a", types.NewMapType(types.StringType, types.StringType)),
+				decls.NewVariable("m", types.NewMapType(types.BoolType, types.StringType)),
 			},
 			in: map[string]any{
 				"a": map[string]string{"b": ""},
@@ -1079,8 +1079,8 @@ func TestAttributeStateTracking(t *testing.T) {
 		{
 			expr: `m[?has(a.b.c)]`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("a", decls.MapType(decls.StringType, decls.DynType)),
-				decls.NewVariable("m", decls.MapType(decls.BoolType, decls.StringType)),
+				decls.NewVariable("a", types.NewMapType(types.StringType, types.DynType)),
+				decls.NewVariable("m", types.NewMapType(types.BoolType, types.StringType)),
 			},
 			in: partialActivation(
 				map[string]any{

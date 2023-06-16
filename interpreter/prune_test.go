@@ -518,27 +518,27 @@ func testActivation(t *testing.T, in any) Activation {
 }
 
 func optionalDecls(t *testing.T) []*decls.FunctionDecl {
-	paramType := decls.TypeParamType("T")
-	optionalType := decls.OptionalType(paramType)
+	paramType := types.NewTypeParamType("T")
+	optionalType := types.NewOptionalType(paramType)
 	return []*decls.FunctionDecl{
 		funcDecl(t, "optional.none",
-			decls.Overload("optional_none", []*decls.Type{}, optionalType,
+			decls.Overload("optional_none", []*types.Type{}, optionalType,
 				decls.FunctionBinding(func(args ...ref.Val) ref.Val {
 					return types.OptionalNone
 				}),
 			),
 		),
 		funcDecl(t, "optional.of",
-			decls.Overload("optional_of_value", []*decls.Type{paramType}, optionalType,
+			decls.Overload("optional_of_value", []*types.Type{paramType}, optionalType,
 				decls.UnaryBinding(func(val ref.Val) ref.Val {
 					return types.OptionalOf(val)
 				}),
 			),
 		),
 		funcDecl(t, "_[?_]",
-			decls.Overload("map_optindex_optional_value", []*decls.Type{
-				decls.MapType(decls.TypeParamType("K"), paramType),
-				decls.TypeParamType("K"),
+			decls.Overload("map_optindex_optional_value", []*types.Type{
+				types.NewMapType(types.NewTypeParamType("K"), paramType),
+				types.NewTypeParamType("K"),
 			}, optionalType),
 		),
 	}

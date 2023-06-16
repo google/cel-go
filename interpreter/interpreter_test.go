@@ -108,7 +108,7 @@ func testData(t testing.TB) []testCase {
 			unchecked: true,
 			funcs: []*decls.FunctionDecl{
 				funcDecl(t, "zero",
-					decls.Overload("zero", []*decls.Type{}, decls.IntType),
+					decls.Overload("zero", []*types.Type{}, types.IntType),
 					decls.SingletonFunctionBinding(func(args ...ref.Val) ref.Val {
 						return types.IntZero
 					}),
@@ -121,7 +121,7 @@ func testData(t testing.TB) []testCase {
 			unchecked: true,
 			funcs: []*decls.FunctionDecl{
 				funcDecl(t, "neg",
-					decls.Overload("neg_int", []*decls.Type{decls.IntType}, decls.IntType,
+					decls.Overload("neg_int", []*types.Type{types.IntType}, types.IntType,
 						decls.OverloadOperandTrait(traits.NegatorType),
 						decls.UnaryBinding(func(arg ref.Val) ref.Val {
 							return arg.(traits.Negater).Negate()
@@ -137,7 +137,7 @@ func testData(t testing.TB) []testCase {
 			unchecked: true,
 			funcs: []*decls.FunctionDecl{
 				funcDecl(t, "concat",
-					decls.MemberOverload("bytes_concat_bytes", []*decls.Type{decls.BytesType, decls.BytesType}, decls.BytesType,
+					decls.MemberOverload("bytes_concat_bytes", []*types.Type{types.BytesType, types.BytesType}, types.BytesType,
 						decls.OverloadOperandTrait(traits.AdderType),
 						decls.BinaryBinding(func(lhs, rhs ref.Val) ref.Val {
 							return lhs.(traits.Adder).Add(rhs)
@@ -152,8 +152,8 @@ func testData(t testing.TB) []testCase {
 			funcs: []*decls.FunctionDecl{
 				funcDecl(t, "addall",
 					decls.Overload("addall_four",
-						[]*decls.Type{decls.IntType, decls.IntType, decls.IntType, decls.IntType},
-						decls.IntType),
+						[]*types.Type{types.IntType, types.IntType, types.IntType, types.IntType},
+						types.IntType),
 					decls.DisableTypeGuards(true),
 					decls.SingletonFunctionBinding(func(args ...ref.Val) ref.Val {
 						val := types.Int(0)
@@ -172,7 +172,7 @@ func testData(t testing.TB) []testCase {
 			expr: `base64.encode('hello')`,
 			funcs: []*decls.FunctionDecl{
 				funcDecl(t, "base64.encode",
-					decls.Overload("base64_encode_string", []*decls.Type{decls.StringType}, decls.StringType),
+					decls.Overload("base64_encode_string", []*types.Type{types.StringType}, types.StringType),
 					decls.SingletonUnaryBinding(base64Encode)),
 			},
 			out: "aGVsbG8=",
@@ -183,7 +183,7 @@ func testData(t testing.TB) []testCase {
 			unchecked: true,
 			funcs: []*decls.FunctionDecl{
 				funcDecl(t, "base64.encode",
-					decls.Overload("base64_encode_string", []*decls.Type{decls.StringType}, decls.StringType),
+					decls.Overload("base64_encode_string", []*types.Type{types.StringType}, types.StringType),
 					decls.SingletonUnaryBinding(base64Encode)),
 			},
 			out: "aGVsbG8=",
@@ -194,7 +194,7 @@ func testData(t testing.TB) []testCase {
 			expr:      `encode('hello')`,
 			funcs: []*decls.FunctionDecl{
 				funcDecl(t, "base64.encode",
-					decls.Overload("base64_encode_string", []*decls.Type{decls.StringType}, decls.StringType),
+					decls.Overload("base64_encode_string", []*types.Type{types.StringType}, types.StringType),
 					decls.SingletonUnaryBinding(base64Encode)),
 			},
 			out: "aGVsbG8=",
@@ -206,7 +206,7 @@ func testData(t testing.TB) []testCase {
 			unchecked: true,
 			funcs: []*decls.FunctionDecl{
 				funcDecl(t, "base64.encode",
-					decls.Overload("base64_encode_string", []*decls.Type{decls.StringType}, decls.StringType),
+					decls.Overload("base64_encode_string", []*types.Type{types.StringType}, types.StringType),
 					decls.SingletonUnaryBinding(base64Encode)),
 			},
 			out: "aGVsbG8=",
@@ -220,7 +220,7 @@ func testData(t testing.TB) []testCase {
 				(headers.path.startsWith("/admin") && headers.token == "admin" && headers.ip in ["10.0.1.2", "10.0.1.2", "10.0.1.2"]))
 			`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("headers", decls.MapType(decls.StringType, decls.StringType)),
+				decls.NewVariable("headers", types.NewMapType(types.StringType, types.StringType)),
 			},
 			in: map[string]any{
 				"headers": map[string]any{
@@ -239,9 +239,9 @@ func testData(t testing.TB) []testCase {
 				(headers.path.startsWith("/admin") && headers.token == "admin" && headers.ip in ["10.0.1.2", "10.0.1.2", "10.0.1.2"]))
 			`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("headers.ip", decls.StringType),
-				decls.NewVariable("headers.path", decls.StringType),
-				decls.NewVariable("headers.token", decls.StringType),
+				decls.NewVariable("headers.ip", types.StringType),
+				decls.NewVariable("headers.path", types.StringType),
+				decls.NewVariable("headers.token", types.StringType),
 			},
 			in: map[string]any{
 				"headers.ip":    "10.0.1.2",
@@ -253,9 +253,9 @@ func testData(t testing.TB) []testCase {
 			name: "cond",
 			expr: `a ? b < 1.2 : c == ['hello']`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("a", decls.BoolType),
-				decls.NewVariable("b", decls.DoubleType),
-				decls.NewVariable("c", decls.ListType(decls.StringType)),
+				decls.NewVariable("a", types.BoolType),
+				decls.NewVariable("b", types.DoubleType),
+				decls.NewVariable("c", types.NewListType(types.StringType)),
 			},
 			in: map[string]any{
 				"a": true,
@@ -268,8 +268,8 @@ func testData(t testing.TB) []testCase {
 			name: "cond_attr_out_of_bounds_error",
 			expr: `m[(x ? 0 : 1)] >= 0`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("m", decls.ListType(decls.IntType)),
-				decls.NewVariable("x", decls.BoolType),
+				decls.NewVariable("m", types.NewListType(types.IntType)),
+				decls.NewVariable("x", types.BoolType),
 			},
 			in: map[string]any{
 				"m": []int{-1},
@@ -281,10 +281,10 @@ func testData(t testing.TB) []testCase {
 			name: "cond_attr_qualify_bad_type_error",
 			expr: `m[(x ? a : b)] >= 0`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("m", decls.ListType(decls.DynType)),
-				decls.NewVariable("a", decls.DynType),
-				decls.NewVariable("b", decls.DynType),
-				decls.NewVariable("x", decls.BoolType),
+				decls.NewVariable("m", types.NewListType(types.DynType)),
+				decls.NewVariable("a", types.DynType),
+				decls.NewVariable("b", types.DynType),
+				decls.NewVariable("x", types.BoolType),
 			},
 			in: map[string]any{
 				"m": []int{1},
@@ -298,10 +298,10 @@ func testData(t testing.TB) []testCase {
 			name: "cond_attr_qualify_bad_field_error",
 			expr: `m[(x ? a : b).c] >= 0`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("m", decls.ListType(decls.DynType)),
-				decls.NewVariable("a", decls.DynType),
-				decls.NewVariable("b", decls.DynType),
-				decls.NewVariable("x", decls.BoolType),
+				decls.NewVariable("m", types.NewListType(types.DynType)),
+				decls.NewVariable("a", types.DynType),
+				decls.NewVariable("b", types.DynType),
+				decls.NewVariable("x", types.BoolType),
 			},
 			in: map[string]any{
 				"m": []int{1},
@@ -363,7 +363,7 @@ func testData(t testing.TB) []testCase {
 			name: "in_var_list_int",
 			expr: `6 in [2, 12, x]`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("x", decls.DynType),
+				decls.NewVariable("x", types.DynType),
 			},
 			in: map[string]any{"x": 6},
 		},
@@ -371,7 +371,7 @@ func testData(t testing.TB) []testCase {
 			name: "in_var_list_uint",
 			expr: `6 in [2, 12, x]`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("x", decls.DynType),
+				decls.NewVariable("x", types.DynType),
 			},
 			in: map[string]any{"x": uint64(6)},
 		},
@@ -379,7 +379,7 @@ func testData(t testing.TB) []testCase {
 			name: "in_var_list_double",
 			expr: `6 in [2, 12, x]`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("x", decls.DynType),
+				decls.NewVariable("x", types.DynType),
 			},
 			in: map[string]any{"x": 6.0},
 		},
@@ -387,7 +387,7 @@ func testData(t testing.TB) []testCase {
 			name: "in_var_list_double_double",
 			expr: `dyn(6.0) in [2, 12, x]`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("x", decls.IntType),
+				decls.NewVariable("x", types.IntType),
 			},
 			in: map[string]any{"x": 6},
 		},
@@ -430,8 +430,8 @@ func testData(t testing.TB) []testCase {
 			expr: `'other-key' in {x: null, y: 42}`,
 			out:  types.True,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("x", decls.StringType),
-				decls.NewVariable("y", decls.IntType),
+				decls.NewVariable("x", types.StringType),
+				decls.NewVariable("y", types.IntType),
 			},
 			in: map[string]any{
 				"x": "other-key",
@@ -443,8 +443,8 @@ func testData(t testing.TB) []testCase {
 			expr: `'other-key' in {1: x, 2u: y}`,
 			out:  types.False,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("x", decls.StringType),
-				decls.NewVariable("y", decls.IntType),
+				decls.NewVariable("x", types.StringType),
+				decls.NewVariable("y", types.IntType),
 			},
 			in: map[string]any{
 				"x": "other-value",
@@ -455,7 +455,7 @@ func testData(t testing.TB) []testCase {
 			name: "index",
 			expr: `m['key'][1] == 42u && m['null'] == null && m[string(0)] == 10`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("m", decls.MapType(decls.StringType, decls.DynType)),
+				decls.NewVariable("m", types.NewMapType(types.StringType, types.DynType)),
 			},
 			in: map[string]any{
 				"m": map[string]any{
@@ -469,8 +469,8 @@ func testData(t testing.TB) []testCase {
 			name: "index_cross_type_float_uint",
 			expr: `{1: 'hello'}[x] == 'hello' && {2: 'world'}[y] == 'world'`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("x", decls.DynType),
-				decls.NewVariable("y", decls.DynType),
+				decls.NewVariable("x", types.DynType),
+				decls.NewVariable("y", types.DynType),
 			},
 			in: map[string]any{
 				"x": float32(1.0),
@@ -481,8 +481,8 @@ func testData(t testing.TB) []testCase {
 			name: "no_index_cross_type_float_uint",
 			expr: `{1: 'hello'}[x] == 'hello' && ['world'][y] == 'world'`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("x", decls.DynType),
-				decls.NewVariable("y", decls.DynType),
+				decls.NewVariable("x", types.DynType),
+				decls.NewVariable("y", types.DynType),
 			},
 			in: map[string]any{
 				"x": float32(2.0),
@@ -494,7 +494,7 @@ func testData(t testing.TB) []testCase {
 			name: "index_cross_type_double",
 			expr: `{1: 'hello', 2: 'world'}[x] == 'hello'`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("x", decls.DynType),
+				decls.NewVariable("x", types.DynType),
 			},
 			in: map[string]any{
 				"x": 1.0,
@@ -512,7 +512,7 @@ func testData(t testing.TB) []testCase {
 			name: "index_cross_type_bad_qualifier",
 			expr: `{1: 'hello', 2: 'world'}[x] == 'world'`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("x", decls.DynType),
+				decls.NewVariable("x", types.DynType),
 			},
 			in: map[string]any{
 				"x": time.Millisecond,
@@ -719,8 +719,8 @@ func testData(t testing.TB) []testCase {
 			expr: `code == "111" && ["a", "b"].all(x, x in tags)
 				|| code == "222" && ["a", "b"].all(x, x in tags)`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("code", decls.StringType),
-				decls.NewVariable("tags", decls.ListType(decls.StringType)),
+				decls.NewVariable("code", types.StringType),
+				decls.NewVariable("tags", types.NewListType(types.StringType)),
 			},
 			in: map[string]any{
 				"code": "222",
@@ -739,7 +739,7 @@ func testData(t testing.TB) []testCase {
 			name: "macro_exists_var",
 			expr: `elems.exists(e, type(e) == uint)`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("elems", decls.ListType(decls.DynType)),
+				decls.NewVariable("elems", types.NewListType(types.DynType)),
 			},
 			in: map[string]any{
 				"elems": []any{0, 1, 2, 3, 4, uint(5), 6},
@@ -771,7 +771,7 @@ func testData(t testing.TB) []testCase {
 			container: "google.expr.proto2.test",
 			types:     []proto.Message{&proto2pb.TestAllTypes{}},
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("pb2", decls.ObjectType("google.expr.proto2.test.TestAllTypes")),
+				decls.NewVariable("pb2", types.NewObjectType("google.expr.proto2.test.TestAllTypes")),
 			},
 			in: map[string]any{
 				"pb2": &proto2pb.TestAllTypes{
@@ -797,7 +797,7 @@ func testData(t testing.TB) []testCase {
 			name:  "macro_has_pb3_field",
 			types: []proto.Message{&proto3pb.TestAllTypes{}},
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("pb3", decls.ObjectType("google.expr.proto3.test.TestAllTypes")),
+				decls.NewVariable("pb3", types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
 			container: "google.expr.proto3.test",
 			in: map[string]any{
@@ -830,7 +830,7 @@ func testData(t testing.TB) []testCase {
 			name: "matches_global",
 			expr: `matches(input, 'k.*')`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("input", decls.StringType),
+				decls.NewVariable("input", types.StringType),
 			},
 			in: map[string]any{
 				"input": "kathmandu",
@@ -843,7 +843,7 @@ func testData(t testing.TB) []testCase {
 				&& !'bar'.matches('k.*')
 				&& 'kilimanjaro'.matches('.*ro')`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("input", decls.StringType),
+				decls.NewVariable("input", types.StringType),
 			},
 			in: map[string]any{
 				"input": "kathmandu",
@@ -853,7 +853,7 @@ func testData(t testing.TB) []testCase {
 			name: "matches_error",
 			expr: `input.matches(')k.*')`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("input", decls.StringType),
+				decls.NewVariable("input", types.StringType),
 			},
 			in: map[string]any{
 				"input": "kathmandu",
@@ -870,7 +870,7 @@ func testData(t testing.TB) []testCase {
 			types: []proto.Message{&proto3pb.TestAllTypes{}},
 			vars: []*decls.VariableDecl{
 				decls.NewVariable("pb3",
-					decls.ObjectType("google.expr.proto3.test.TestAllTypes")),
+					types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
 			in: map[string]any{
 				"pb3": &proto3pb.TestAllTypes{
@@ -889,7 +889,7 @@ func testData(t testing.TB) []testCase {
 			types: []proto.Message{&proto3pb.TestAllTypes{}},
 			vars: []*decls.VariableDecl{
 				decls.NewVariable("pb3",
-					decls.ObjectType("google.expr.proto3.test.TestAllTypes")),
+					types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
 			in: map[string]any{
 				"pb3": &proto3pb.TestAllTypes{
@@ -909,8 +909,8 @@ func testData(t testing.TB) []testCase {
 			name: "or_true_1st",
 			expr: `ai == 20 || ar["foo"] == "bar"`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("ai", decls.IntType),
-				decls.NewVariable("ar", decls.MapType(decls.StringType, decls.StringType)),
+				decls.NewVariable("ai", types.IntType),
+				decls.NewVariable("ar", types.NewMapType(types.StringType, types.StringType)),
 			},
 			in: map[string]any{
 				"ai": 20,
@@ -923,8 +923,8 @@ func testData(t testing.TB) []testCase {
 			name: "or_true_2nd",
 			expr: `ai == 20 || ar["foo"] == "bar"`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("ai", decls.IntType),
-				decls.NewVariable("ar", decls.MapType(decls.StringType, decls.StringType)),
+				decls.NewVariable("ai", types.IntType),
+				decls.NewVariable("ar", types.NewMapType(types.StringType, types.StringType)),
 			},
 			in: map[string]any{
 				"ai": 2,
@@ -937,8 +937,8 @@ func testData(t testing.TB) []testCase {
 			name: "or_false",
 			expr: `ai == 20 || ar["foo"] == "bar"`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("ai", decls.IntType),
-				decls.NewVariable("ar", decls.MapType(decls.StringType, decls.StringType)),
+				decls.NewVariable("ai", types.IntType),
+				decls.NewVariable("ar", types.NewMapType(types.StringType, types.StringType)),
 			},
 			in: map[string]any{
 				"ai": 2,
@@ -973,7 +973,7 @@ func testData(t testing.TB) []testCase {
 			expr:      `b.c.d != 10`,
 			container: "a.b",
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("a.b.c.d", decls.IntType),
+				decls.NewVariable("a.b.c.d", types.IntType),
 			},
 			in: map[string]any{
 				"a.b.c.d": 9,
@@ -1013,7 +1013,7 @@ func testData(t testing.TB) []testCase {
 				&& m.boolMap['val'] == true
 				&& m.boolMap['val'] != false`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("m", decls.MapType(decls.StringType, decls.DynType)),
+				decls.NewVariable("m", types.NewMapType(types.StringType, types.DynType)),
 			},
 			in: map[string]any{
 				"m": map[string]any{
@@ -1044,7 +1044,7 @@ func testData(t testing.TB) []testCase {
 				&& m.boolBool[true]
 				&& m.boolIface[false] == true`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("m", decls.MapType(decls.StringType, decls.DynType)),
+				decls.NewVariable("m", types.NewMapType(types.StringType, types.DynType)),
 			},
 			in: map[string]any{
 				"m": map[string]any{
@@ -1069,7 +1069,7 @@ func testData(t testing.TB) []testCase {
 				&& m.uint64Iface[3u] == -2.1
 				&& m.uint64String[4u] == 'three'`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("m", decls.MapType(decls.StringType, decls.DynType)),
+				decls.NewVariable("m", types.NewMapType(types.StringType, types.DynType)),
 			},
 			in: map[string]any{
 				"m": map[string]any{
@@ -1095,7 +1095,7 @@ func testData(t testing.TB) []testCase {
 				&& m.boolList[1] != true
 				&& m.ifaceList[0] == {}`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("m", decls.MapType(decls.StringType, decls.DynType)),
+				decls.NewVariable("m", types.NewMapType(types.StringType, types.DynType)),
 			},
 			in: map[string]any{
 				"m": map[string]any{
@@ -1121,9 +1121,9 @@ func testData(t testing.TB) []testCase {
 			container: "google.expr.proto3",
 			types:     []proto.Message{&proto3pb.TestAllTypes{}},
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("a.b", decls.MapType(decls.StringType, decls.BoolType)),
-				decls.NewVariable("pb3", decls.ObjectType("google.expr.proto3.test.TestAllTypes")),
-				decls.NewVariable("json", decls.MapType(decls.StringType, decls.DynType)),
+				decls.NewVariable("a.b", types.NewMapType(types.StringType, types.BoolType)),
+				decls.NewVariable("pb3", types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
+				decls.NewVariable("json", types.NewMapType(types.StringType, types.DynType)),
 			},
 			in: map[string]any{
 				"a.b": map[string]bool{
@@ -1166,7 +1166,7 @@ func testData(t testing.TB) []testCase {
 				"a": &proto2pb.TestAllTypes{},
 			},
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("a", decls.ObjectType("google.expr.proto2.test.TestAllTypes")),
+				decls.NewVariable("a", types.NewObjectType("google.expr.proto2.test.TestAllTypes")),
 			},
 		},
 		// Wrapper type nil or value test.
@@ -1179,7 +1179,7 @@ func testData(t testing.TB) []testCase {
 			types:   []proto.Message{&proto3pb.TestAllTypes{}},
 			abbrevs: []string{"google.protobuf.Int32Value"},
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("a", decls.ObjectType("google.expr.proto3.test.TestAllTypes")),
+				decls.NewVariable("a", types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
 			in: map[string]any{
 				"a": &proto3pb.TestAllTypes{
@@ -1194,7 +1194,7 @@ func testData(t testing.TB) []testCase {
 			container: "google.expr.proto3.test",
 			types:     []proto.Message{&proto3pb.TestAllTypes{}},
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("a", decls.ObjectType("google.expr.proto3.test.TestAllTypes")),
+				decls.NewVariable("a", types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
 			in: map[string]any{
 				"a": &proto3pb.TestAllTypes{
@@ -1210,7 +1210,7 @@ func testData(t testing.TB) []testCase {
 			types:     []proto.Message{&proto3pb.TestAllTypes_NestedMessage{}},
 			vars: []*decls.VariableDecl{
 				decls.NewVariable("a",
-					decls.ObjectType("google.expr.proto3.test.TestAllTypes.NestedMessage")),
+					types.NewObjectType("google.expr.proto3.test.TestAllTypes.NestedMessage")),
 			},
 			attrs: &custAttrFactory{
 				AttributeFactory: NewAttributeFactory(
@@ -1231,7 +1231,7 @@ func testData(t testing.TB) []testCase {
 			expr: `json('{"hi":"world"}').hi == 'world'`,
 			funcs: []*decls.FunctionDecl{
 				funcDecl(t, "json",
-					decls.Overload("json_string", []*decls.Type{decls.StringType}, decls.DynType,
+					decls.Overload("json_string", []*types.Type{types.StringType}, types.DynType,
 						decls.UnaryBinding(func(val ref.Val) ref.Val {
 							str, ok := val.(types.String)
 							if !ok {
@@ -1252,8 +1252,8 @@ func testData(t testing.TB) []testCase {
 			name: "select_subsumed_field",
 			expr: `a.b.c`,
 			vars: []*decls.VariableDecl{
-				decls.NewVariable("a.b.c", decls.IntType),
-				decls.NewVariable("a.b", decls.MapType(decls.StringType, decls.StringType)),
+				decls.NewVariable("a.b.c", types.IntType),
+				decls.NewVariable("a.b", types.NewMapType(types.StringType, types.StringType)),
 			},
 			in: map[string]any{
 				"a.b.c": 10,
@@ -1276,7 +1276,7 @@ func testData(t testing.TB) []testCase {
 			unchecked: true,
 			funcs: []*decls.FunctionDecl{
 				funcDecl(t, "try",
-					decls.Overload("try_dyn", []*decls.Type{decls.DynType}, decls.DynType,
+					decls.Overload("try_dyn", []*types.Type{types.DynType}, types.DynType,
 						decls.OverloadIsNonStrict(),
 						decls.UnaryBinding(func(arg ref.Val) ref.Val {
 							if types.IsError(arg) {
@@ -1296,8 +1296,8 @@ func testData(t testing.TB) []testCase {
 			funcs: []*decls.FunctionDecl{
 				funcDecl(t, "try",
 					decls.Overload("try_dyn",
-						[]*decls.Type{decls.DynType, decls.DynType},
-						decls.ListType(decls.DynType),
+						[]*types.Type{types.DynType, types.DynType},
+						types.NewListType(types.DynType),
 						decls.OverloadIsNonStrict(),
 						decls.BinaryBinding(func(arg0, arg1 ref.Val) ref.Val {
 							if types.IsError(arg0) {
@@ -1317,8 +1317,8 @@ func testData(t testing.TB) []testCase {
 			funcs: []*decls.FunctionDecl{
 				funcDecl(t, "try",
 					decls.Overload("try_dyn",
-						[]*decls.Type{decls.DynType, decls.DynType, decls.DynType},
-						decls.ListType(decls.DynType),
+						[]*types.Type{types.DynType, types.DynType, types.DynType},
+						types.NewListType(types.DynType),
 						decls.OverloadIsNonStrict(),
 						decls.FunctionBinding(func(args ...ref.Val) ref.Val {
 							if types.IsError(args[0]) {
@@ -1512,7 +1512,7 @@ func TestInterpreter_ProtoAttributeOpt(t *testing.T) {
 		types: []proto.Message{&proto3pb.TestAllTypes{}},
 		vars: []*decls.VariableDecl{
 			decls.NewVariable("pb3",
-				decls.ObjectType("google.expr.proto3.test.TestAllTypes")),
+				types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 		},
 		in: map[string]any{
 			"pb3": &proto3pb.TestAllTypes{
@@ -1609,7 +1609,7 @@ func TestInterpreter_InterruptableEval(t *testing.T) {
 	tc := testCase{
 		expr: `items.map(i, i).map(i, i).size() != 0`,
 		vars: []*decls.VariableDecl{
-			decls.NewVariable("items", decls.ListType(decls.IntType)),
+			decls.NewVariable("items", types.NewListType(types.IntType)),
 		},
 		in: map[string]any{
 			"items": items,
@@ -1712,7 +1712,7 @@ func TestInterpreter_SetProto2PrimitiveFields(t *testing.T) {
 	env.Add(
 		varExprDecl(t,
 			decls.NewVariable("input",
-				decls.ObjectType("google.expr.proto2.test.TestAllTypes"))))
+				types.NewObjectType("google.expr.proto2.test.TestAllTypes"))))
 	checked, errors := checker.Check(parsed, src, env)
 	if len(errors.GetErrors()) != 0 {
 		t.Errorf(errors.ToDisplayString())
@@ -1765,7 +1765,7 @@ func TestInterpreter_MissingIdentInSelect(t *testing.T) {
 	cont := testContainer("test")
 	reg := newTestRegistry(t)
 	env := newTestEnv(t, cont, reg)
-	env.Add(varExprDecl(t, decls.NewVariable("a.b", decls.DynType)))
+	env.Add(varExprDecl(t, decls.NewVariable("a.b", types.DynType)))
 	checked, errors := checker.Check(parsed, src, env)
 	if len(errors.GetErrors()) != 0 {
 		t.Fatalf(errors.ToDisplayString())
