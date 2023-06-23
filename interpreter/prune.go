@@ -493,6 +493,27 @@ func (p *astPruner) prune(node *exprpb.Expr) (*exprpb.Expr, bool) {
 				},
 			}, true
 		}
+	case *exprpb.Expr_ComprehensionExpr:
+		compre := node.GetComprehensionExpr()
+		// Only the range of the comprehension is pruned since the state tracking only records
+		// the last iteration of the comprehension and not each step in the evaluation which
+		// means that the any residuals computed in between might be inaccurate.
+		if newRange, pruned := p.maybePrune(compre.GetIterRange()); pruned {
+			return &exprpb.Expr{
+				Id: node.GetId(),
+				ExprKind: &exprpb.Expr_ComprehensionExpr{
+					ComprehensionExpr: &exprpb.Expr_Comprehension{
+						IterVar:       compre.GetIterVar(),
+						IterRange:     newRange,
+						AccuVar:       compre.GetAccuVar(),
+						AccuInit:      compre.GetAccuInit(),
+						LoopCondition: compre.GetLoopCondition(),
+						LoopStep:      compre.GetLoopStep(),
+						Result:        compre.GetResult(),
+					},
+				},
+			}, true
+		}
 	}
 	return node, false
 }
