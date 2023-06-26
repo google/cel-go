@@ -29,9 +29,10 @@ import (
 )
 
 type testInfo struct {
-	in   any
-	expr string
-	out  string
+	in        any
+	expr      string
+	out       string
+	iterRange string
 }
 
 var testCases = []testInfo{
@@ -370,15 +371,17 @@ var testCases = []testInfo{
 		in: partialActivation(map[string]any{
 			"users": []string{"alice", "bob"},
 		}, NewAttributePattern("r").QualString("attr").Wildcard()),
-		expr: `users.filter(u, u.startsWith(r.attr.prefix))`,
-		out:  `["alice", "bob"].filter(u, u.startsWith(r.attr.prefix))`,
+		expr:      `users.filter(u, u.startsWith(r.attr.prefix))`,
+		out:       `["alice", "bob"].filter(u, u.startsWith(r.attr.prefix))`,
+		iterRange: `["alice", "bob"]`,
 	},
 	{
 		in: partialActivation(map[string]any{
 			"users": []string{"alice", "bob"},
 		}, NewAttributePattern("r").QualString("attr").Wildcard()),
-		expr: `users.filter(u, r.attr.prefix.endsWith(u))`,
-		out:  `["alice", "bob"].filter(u, r.attr.prefix.endsWith(u))`,
+		expr:      `users.filter(u, r.attr.prefix.endsWith(u))`,
+		out:       `["alice", "bob"].filter(u, r.attr.prefix.endsWith(u))`,
+		iterRange: `["alice", "bob"]`,
 	},
 	{
 		in:   unknownActivation("four"),
@@ -386,9 +389,10 @@ var testCases = []testInfo{
 		out:  `[4, 4, 4, four]`,
 	},
 	{
-		in:   unknownActivation("four"),
-		expr: `[1+3, 2+2, 3+1, four].exists(x, x == four)`,
-		out:  `[4, 4, 4, four].exists(x, x == four)`,
+		in:        unknownActivation("four"),
+		expr:      `[1+3, 2+2, 3+1, four].exists(x, x == four)`,
+		out:       `[4, 4, 4, four].exists(x, x == four)`,
+		iterRange: `[4, 4, 4, four]`,
 	},
 	{
 		in:   unknownActivation("a", "c"),
@@ -406,8 +410,9 @@ var testCases = []testInfo{
 		in: partialActivation(map[string]any{
 			"a": map[string]any{},
 		}, "c"),
-		expr: `[has(a.b), has(c.d)].exists(x, x == true)`,
-		out:  `[false, has(c.d)].exists(x, x == true)`,
+		expr:      `[has(a.b), has(c.d)].exists(x, x == true)`,
+		out:       `[false, has(c.d)].exists(x, x == true)`,
+		iterRange: `[false, has(c.d)]`,
 	},
 	{
 		in: partialActivation(map[string]any{
@@ -466,9 +471,22 @@ func TestPrune(t *testing.T) {
 			ExhaustiveEval(), Observe(EvalStateObserver(state)))
 		interpretable.Eval(testActivation(t, tst.in))
 		newExpr := PruneAst(ast.GetExpr(), ast.GetSourceInfo().GetMacroCalls(), state)
+		if tst.iterRange != "" {
+			compre := newExpr.GetExpr().GetComprehensionExpr()
+			if compre == nil {
+				t.Fatalf("iter range check cannot operate on non comprehension output: %v", newExpr.GetExpr())
+			}
+			gotIterRange, err := parser.Unparse(compre.GetIterRange(), newExpr.GetSourceInfo())
+			if err != nil {
+				t.Fatalf("parser.Unparse() failed: %v", err)
+			}
+			if gotIterRange != tst.iterRange {
+				t.Errorf("iter range unparse got: %v, wanted %v", gotIterRange, tst.iterRange)
+			}
+		}
 		actual, err := parser.Unparse(newExpr.GetExpr(), newExpr.GetSourceInfo())
 		if err != nil {
-			t.Error(err)
+			t.Fatalf("parser.Unparse() failed: %v", err)
 		}
 		if !test.Compare(actual, tst.out) {
 			for _, id := range state.IDs() {
