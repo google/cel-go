@@ -1709,10 +1709,9 @@ func TestInterpreter_SetProto2PrimitiveFields(t *testing.T) {
 	cont := testContainer("google.expr.proto2.test")
 	reg := newTestRegistry(t, &proto2pb.TestAllTypes{})
 	env := newTestEnv(t, cont, reg)
-	env.Add(
-		varExprDecl(t,
-			decls.NewVariable("input",
-				types.NewObjectType("google.expr.proto2.test.TestAllTypes"))))
+	env.AddIdents(
+		decls.NewVariable("input",
+			types.NewObjectType("google.expr.proto2.test.TestAllTypes")))
 	checked, errors := checker.Check(parsed, src, env)
 	if len(errors.GetErrors()) != 0 {
 		t.Errorf(errors.ToDisplayString())
@@ -1765,7 +1764,7 @@ func TestInterpreter_MissingIdentInSelect(t *testing.T) {
 	cont := testContainer("test")
 	reg := newTestRegistry(t)
 	env := newTestEnv(t, cont, reg)
-	env.Add(varExprDecl(t, decls.NewVariable("a.b", types.DynType)))
+	env.AddIdents(decls.NewVariable("a.b", types.DynType))
 	checked, errors := checker.Check(parsed, src, env)
 	if len(errors.GetErrors()) != 0 {
 		t.Fatalf(errors.ToDisplayString())
@@ -1958,7 +1957,7 @@ func program(ctx testing.TB, tst *testCase, opts ...InterpretableDecorator) (Int
 		attrs = tst.attrs
 	}
 	if tst.vars != nil {
-		err = env.Add(varExprDecls(ctx, tst.vars...)...)
+		err = env.AddIdents(tst.vars...)
 		if err != nil {
 			return nil, nil, fmt.Errorf("env.Add(%v) failed: %v", tst.vars, err)
 		}
@@ -1976,7 +1975,7 @@ func program(ctx testing.TB, tst *testCase, opts ...InterpretableDecorator) (Int
 	disp := NewDispatcher()
 	addFunctionBindings(ctx, disp)
 	if tst.funcs != nil {
-		err = env.Add(funcExprDecls(ctx, tst.funcs...)...)
+		err = env.AddFunctions(tst.funcs...)
 		if err != nil {
 			return nil, nil, fmt.Errorf("env.Add(%v) failed: %v", tst.funcs, err)
 		}
@@ -2059,13 +2058,13 @@ func newTestEnv(t testing.TB, cont *containers.Container, reg ref.TypeRegistry) 
 	if err != nil {
 		t.Fatalf("checker.NewEnv(%v, %v) failed: %v", cont, reg, err)
 	}
-	err = env.Add(stdlib.TypeExprDecls()...)
+	err = env.AddIdents(stdlib.Types()...)
 	if err != nil {
-		t.Fatalf("env.Add(stdlib.TypeExprDecls()...) failed: %v", err)
+		t.Fatalf("env.Add(stdlib.Types()...) failed: %v", err)
 	}
-	err = env.Add(stdlib.FunctionExprDecls()...)
+	err = env.AddFunctions(stdlib.Functions()...)
 	if err != nil {
-		t.Fatalf("env.Add(stdlib.FunctionExprDecls()...) failed: %v", err)
+		t.Fatalf("env.Add(stdlib.Functions()...) failed: %v", err)
 	}
 	return env
 }

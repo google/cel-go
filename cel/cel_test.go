@@ -25,12 +25,12 @@ import (
 	"testing"
 	"time"
 
-	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"
 
 	"github.com/google/cel-go/checker"
+	celast "github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types"
@@ -2047,82 +2047,82 @@ func TestOptionalValuesCompile(t *testing.T) {
 	}
 	tests := []struct {
 		expr       string
-		references map[int64]*exprpb.Reference
+		references map[int64]*celast.ReferenceInfo
 	}{
 		{
 			expr: `x.or(optional.of(y)).orValue(42)`,
-			references: map[int64]*exprpb.Reference{
+			references: map[int64]*celast.ReferenceInfo{
 				1: {Name: "x"},
-				2: {OverloadId: []string{"optional_or_optional"}},
-				4: {OverloadId: []string{"optional_of"}},
+				2: {OverloadIDs: []string{"optional_or_optional"}},
+				4: {OverloadIDs: []string{"optional_of"}},
 				5: {Name: "y"},
-				6: {OverloadId: []string{"optional_orValue_value"}},
+				6: {OverloadIDs: []string{"optional_orValue_value"}},
 			},
 		},
 		{
 			expr: `m.?x.hasValue()`,
-			references: map[int64]*exprpb.Reference{
+			references: map[int64]*celast.ReferenceInfo{
 				1: {Name: "m"},
-				3: {OverloadId: []string{"select_optional_field"}},
-				4: {OverloadId: []string{"optional_hasValue"}},
+				3: {OverloadIDs: []string{"select_optional_field"}},
+				4: {OverloadIDs: []string{"optional_hasValue"}},
 			},
 		},
 		{
 			expr: `has(m.?x.y)`,
-			references: map[int64]*exprpb.Reference{
+			references: map[int64]*celast.ReferenceInfo{
 				2: {Name: "m"},
-				4: {OverloadId: []string{"select_optional_field"}},
+				4: {OverloadIDs: []string{"select_optional_field"}},
 			},
 		},
 		{
 			// Optional index selection in map.
 			expr: `m.k[?'dashed-index'].orValue('default value')`,
-			references: map[int64]*exprpb.Reference{
+			references: map[int64]*celast.ReferenceInfo{
 				1: {Name: "m"},
-				3: {OverloadId: []string{"map_optindex_optional_value"}},
-				5: {OverloadId: []string{"optional_orValue_value"}},
+				3: {OverloadIDs: []string{"map_optindex_optional_value"}},
+				5: {OverloadIDs: []string{"optional_orValue_value"}},
 			},
 		},
 		{
 			// Optional index selection in list.
 			expr: `l[?y]`,
-			references: map[int64]*exprpb.Reference{
+			references: map[int64]*celast.ReferenceInfo{
 				1: {Name: "l"},
-				2: {OverloadId: []string{"list_optindex_optional_int"}},
+				2: {OverloadIDs: []string{"list_optindex_optional_int"}},
 				3: {Name: "y"},
 			},
 		},
 		{
 			// Index selection against a value in an optional map.
 			expr: `optm.c['index'].orValue('default value')`,
-			references: map[int64]*exprpb.Reference{
+			references: map[int64]*celast.ReferenceInfo{
 				1: {Name: "optm"},
-				3: {OverloadId: []string{"optional_map_index_value"}},
-				5: {OverloadId: []string{"optional_orValue_value"}},
+				3: {OverloadIDs: []string{"optional_map_index_value"}},
+				5: {OverloadIDs: []string{"optional_orValue_value"}},
 			},
 		},
 		{
 			// Index selection against a value in an optional map.
 			expr: `optm.c[?'index']`,
-			references: map[int64]*exprpb.Reference{
+			references: map[int64]*celast.ReferenceInfo{
 				1: {Name: "optm"},
-				3: {OverloadId: []string{"optional_map_optindex_optional_value"}},
+				3: {OverloadIDs: []string{"optional_map_optindex_optional_value"}},
 			},
 		},
 		{
 			// Index selection against a value in an optional list.
 			expr: `optl[0]`,
-			references: map[int64]*exprpb.Reference{
+			references: map[int64]*celast.ReferenceInfo{
 				1: {Name: "optl"},
-				2: {OverloadId: []string{"optional_list_index_int"}},
+				2: {OverloadIDs: []string{"optional_list_index_int"}},
 			},
 		},
 		{
 			// Index selection against a value in an optional list.
 			expr: `optl[?0]`,
-			references: map[int64]*exprpb.Reference{
+			references: map[int64]*celast.ReferenceInfo{
 				1: {Name: "optl"},
-				2: {OverloadId: []string{"optional_list_optindex_optional_int"}},
+				2: {OverloadIDs: []string{"optional_list_optindex_optional_int"}},
 			},
 		},
 	}
@@ -2137,9 +2137,9 @@ func TestOptionalValuesCompile(t *testing.T) {
 			for id, reference := range ast.refMap {
 				other, found := tc.references[id]
 				if !found {
-					t.Errorf("Compile(%v) expected reference %d: %v", tc.expr, id, prototext.Format(reference))
-				} else if !proto.Equal(reference, other) {
-					t.Errorf("Compile(%v) got reference %d: %v, wanted %v", tc.expr, id, prototext.Format(reference), prototext.Format(other))
+					t.Errorf("Compile(%v) expected reference %d: %v", tc.expr, id, reference)
+				} else if !reference.Equals(other) {
+					t.Errorf("Compile(%v) got reference %d: %v, wanted %v", tc.expr, id, reference, other)
 				}
 			}
 		})

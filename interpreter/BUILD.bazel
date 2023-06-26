@@ -25,6 +25,7 @@ go_library(
     importpath = "github.com/google/cel-go/interpreter",
     deps = [
         "//common:go_default_library",
+        "//common/ast:go_default_library",
         "//common/containers:go_default_library",
         "//common/functions:go_default_library",
         "//common/operators:go_default_library",

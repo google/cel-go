@@ -19,11 +19,10 @@ import (
 	"fmt"
 	"sync"
 
+	celast "github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter"
-
-	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 // Program is an evaluable view of an Ast.
@@ -211,10 +210,7 @@ func newProgram(e *Env, ast *Ast, opts []ProgramOption) (Program, error) {
 		var isValidType func(id int64, validTypes ...ref.Type) (bool, error)
 		if ast.IsChecked() {
 			isValidType = func(id int64, validTypes ...ref.Type) (bool, error) {
-				t, err := ExprTypeToType(ast.typeMap[id])
-				if err != nil {
-					return false, err
-				}
+				t := ast.typeMap[id]
 				if t.Kind == DynKind {
 					return true, nil
 				}
@@ -284,10 +280,11 @@ func (p *prog) initInterpretable(ast *Ast, decs []interpreter.InterpretableDecor
 	}
 
 	// When the AST has been checked it contains metadata that can be used to speed up program execution.
-	var checked *exprpb.CheckedExpr
-	checked, err := AstToCheckedExpr(ast)
-	if err != nil {
-		return nil, err
+	checked := &celast.CheckedAST{
+		Expr:         ast.Expr(),
+		SourceInfo:   ast.SourceInfo(),
+		TypeMap:      ast.typeMap,
+		ReferenceMap: ast.refMap,
 	}
 	interpretable, err := p.interpreter.NewInterpretable(checked, decs...)
 	if err != nil {

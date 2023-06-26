@@ -19,9 +19,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common"
+	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/containers"
+	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/stdlib"
@@ -29,12 +30,8 @@ import (
 	"github.com/google/cel-go/parser"
 	"github.com/google/cel-go/test"
 
-	"google.golang.org/protobuf/proto"
-
 	proto2pb "github.com/google/cel-go/test/proto2pb"
 	proto3pb "github.com/google/cel-go/test/proto3pb"
-
-	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 func testCases(t testing.TB) []testInfo {
@@ -44,111 +41,111 @@ func testCases(t testing.TB) []testInfo {
 		{
 			in:      `"A"`,
 			out:     `"A"~string`,
-			outType: decls.String,
+			outType: types.StringType,
 		},
 		{
 			in:      `12`,
 			out:     `12~int`,
-			outType: decls.Int,
+			outType: types.IntType,
 		},
 		{
 			in:      `12u`,
 			out:     `12u~uint`,
-			outType: decls.Uint,
+			outType: types.UintType,
 		},
 		{
 			in:      `true`,
 			out:     `true~bool`,
-			outType: decls.Bool,
+			outType: types.BoolType,
 		},
 		{
 			in:      `false`,
 			out:     `false~bool`,
-			outType: decls.Bool,
+			outType: types.BoolType,
 		},
 		{
 			in:      `12.23`,
 			out:     `12.23~double`,
-			outType: decls.Double,
+			outType: types.DoubleType,
 		},
 		{
 			in:      `null`,
 			out:     `null~null`,
-			outType: decls.Null,
+			outType: types.NullType,
 		},
 		{
 			in:      `b"ABC"`,
 			out:     `b"ABC"~bytes`,
-			outType: decls.Bytes,
+			outType: types.BytesType,
 		},
 		// Ident types
 		{
 			in:      `is`,
 			out:     `is~string^is`,
-			outType: decls.String,
-			env:     testEnvs["default"],
+			outType: types.StringType,
+			env:     testEnvs(t)["default"],
 		},
 		{
 			in:      `ii`,
 			out:     `ii~int^ii`,
-			outType: decls.Int,
-			env:     testEnvs["default"],
+			outType: types.IntType,
+			env:     testEnvs(t)["default"],
 		},
 		{
 			in:      `iu`,
 			out:     `iu~uint^iu`,
-			outType: decls.Uint,
-			env:     testEnvs["default"],
+			outType: types.UintType,
+			env:     testEnvs(t)["default"],
 		},
 		{
 			in:      `iz`,
 			out:     `iz~bool^iz`,
-			outType: decls.Bool,
-			env:     testEnvs["default"],
+			outType: types.BoolType,
+			env:     testEnvs(t)["default"],
 		},
 		{
 			in:      `id`,
 			out:     `id~double^id`,
-			outType: decls.Double,
-			env:     testEnvs["default"],
+			outType: types.DoubleType,
+			env:     testEnvs(t)["default"],
 		},
 		{
 			in:      `ix`,
 			out:     `ix~null^ix`,
-			outType: decls.Null,
-			env:     testEnvs["default"],
+			outType: types.NullType,
+			env:     testEnvs(t)["default"],
 		},
 		{
 			in:      `ib`,
 			out:     `ib~bytes^ib`,
-			outType: decls.Bytes,
-			env:     testEnvs["default"],
+			outType: types.BytesType,
+			env:     testEnvs(t)["default"],
 		},
 		{
 			in:      `id`,
 			out:     `id~double^id`,
-			outType: decls.Double,
-			env:     testEnvs["default"],
+			outType: types.DoubleType,
+			env:     testEnvs(t)["default"],
 		},
 		{
 			in:      `[]`,
 			out:     `[]~list(dyn)`,
-			outType: decls.NewListType(decls.Dyn),
+			outType: types.NewListType(types.DynType),
 		},
 		{
 			in:      `[1]`,
 			out:     `[1~int]~list(int)`,
-			outType: decls.NewListType(decls.Int),
+			outType: types.NewListType(types.IntType),
 		},
 		{
 			in:      `[1, "A"]`,
 			out:     `[1~int, "A"~string]~list(dyn)`,
-			outType: decls.NewListType(decls.Dyn),
+			outType: types.NewListType(types.DynType),
 		},
 		{
 			in:      `foo`,
 			out:     `foo~!error!`,
-			outType: decls.Error,
+			outType: types.ErrorType,
 			err: `
 ERROR: <input>:1:1: undeclared reference to 'foo' (in container '')
 | foo
@@ -158,36 +155,36 @@ ERROR: <input>:1:1: undeclared reference to 'foo' (in container '')
 		{
 			in:      `fg_s()`,
 			out:     `fg_s()~string^fg_s_0`,
-			outType: decls.String,
-			env:     testEnvs["default"],
+			outType: types.StringType,
+			env:     testEnvs(t)["default"],
 		},
 		{
 			in:      `is.fi_s_s()`,
 			out:     `is~string^is.fi_s_s()~string^fi_s_s_0`,
-			outType: decls.String,
-			env:     testEnvs["default"],
+			outType: types.StringType,
+			env:     testEnvs(t)["default"],
 		},
 		{
 			in:      `1 + 2`,
 			out:     `_+_(1~int, 2~int)~int^add_int64`,
-			outType: decls.Int,
-			env:     testEnvs["default"],
+			outType: types.IntType,
+			env:     testEnvs(t)["default"],
 		},
 		{
 			in:      `1 + ii`,
 			out:     `_+_(1~int, ii~int^ii)~int^add_int64`,
-			outType: decls.Int,
-			env:     testEnvs["default"],
+			outType: types.IntType,
+			env:     testEnvs(t)["default"],
 		},
 		{
 			in:      `[1] + [2]`,
 			out:     `_+_([1~int]~list(int), [2~int]~list(int))~list(int)^add_list`,
-			outType: decls.NewListType(decls.Int),
-			env:     testEnvs["default"],
+			outType: types.NewListType(types.IntType),
+			env:     testEnvs(t)["default"],
 		},
 		{
 			in:      `[] + [1,2,3,] + [4]`,
-			outType: decls.NewListType(decls.Int),
+			outType: types.NewListType(types.IntType),
 			out: `
 	_+_(
 		_+_(
@@ -206,21 +203,21 @@ ERROR: <input>:1:1: undeclared reference to 'foo' (in container '')
 			]~list(dyn),
 			[]~list(dyn)
 		)~list(dyn)^add_list`,
-			outType: decls.NewListType(decls.Dyn),
+			outType: types.NewListType(types.DynType),
 		},
 		{
 			in:      `{1:2u, 2:3u}`,
-			outType: decls.NewMapType(decls.Int, decls.Uint),
+			outType: types.NewMapType(types.IntType, types.UintType),
 			out:     `{1~int : 2u~uint, 2~int : 3u~uint}~map(int, uint)`,
 		},
 		{
 			in:      `{"a":1, "b":2}.a`,
-			outType: decls.Int,
+			outType: types.IntType,
 			out:     `{"a"~string : 1~int, "b"~string : 2~int}~map(string, int).a~int`,
 		},
 		{
 			in:      `{1:2u, 2u:3}`,
-			outType: decls.NewMapType(decls.Dyn, decls.Dyn),
+			outType: types.NewMapType(types.DynType, types.DynType),
 			out:     `{1~int : 2u~uint, 2u~uint : 3~int}~map(dyn, dyn)`,
 		},
 		{
@@ -231,7 +228,7 @@ ERROR: <input>:1:1: undeclared reference to 'foo' (in container '')
 			single_int32 : 1~int,
 			single_int64 : 2~int
 		}~google.expr.proto3.test.TestAllTypes^google.expr.proto3.test.TestAllTypes`,
-			outType: decls.NewObjectType("google.expr.proto3.test.TestAllTypes"),
+			outType: types.NewObjectType("google.expr.proto3.test.TestAllTypes"),
 		},
 		{
 			in:        `TestAllTypes{single_int32: 1u}`,
@@ -255,11 +252,11 @@ ERROR: <input>:1:1: undeclared reference to 'foo' (in container '')
 _==_(size(x~list(int)^x)~int^size_list, x~list(int)^x.size()~int^list_size)
   ~bool^equals`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("x", decls.NewListType(decls.Int)),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("x", types.NewListType(types.IntType)),
 				},
 			},
-			outType: decls.Bool,
+			outType: types.BoolType,
 		},
 		{
 			in: `int(1u) + int(uint("1"))`,
@@ -267,7 +264,7 @@ _==_(size(x~list(int)^x)~int^size_list, x~list(int)^x.size()~int^list_size)
 _+_(int(1u~uint)~int^uint64_to_int64,
       int(uint("1"~string)~uint^string_to_uint64)~int^uint64_to_int64)
   ~int^add_int64`,
-			outType: decls.Int,
+			outType: types.IntType,
 		},
 		{
 			in: `false && !true || false ? 2 : 3`,
@@ -279,12 +276,12 @@ _?_:_(_||_(_&&_(false~bool, !_(true~bool)~bool^logical_not)~bool^logical_and,
       3~int)
   ~int^conditional
 `,
-			outType: decls.Int,
+			outType: types.IntType,
 		},
 		{
 			in:      `b"abc" + b"def"`,
 			out:     `_+_(b"abc"~bytes, b"def"~bytes)~bytes^add_bytes`,
-			outType: decls.Bytes,
+			outType: types.BytesType,
 		},
 		{
 			in: `1.0 + 2.0 * 3.0 - 1.0 / 2.20202 != 66.6`,
@@ -295,7 +292,7 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
        ~double^subtract_double,
       66.6~double)
   ~bool^not_equals`,
-			outType: decls.Bool,
+			outType: types.BoolType,
 		},
 		{
 			in: `null == null && null != null`,
@@ -310,7 +307,7 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 				null~null
 			)~bool^not_equals
 		)~bool^logical_and`,
-			outType: decls.Bool,
+			outType: types.BoolType,
 		},
 		{
 			in: `1 == 1 && 2 != 1`,
@@ -325,17 +322,17 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 				1~int
 			)~bool^not_equals
 		)~bool^logical_and`,
-			outType: decls.Bool,
+			outType: types.BoolType,
 		},
 		{
 			in:      `1 + 2 * 3 - 1 / 2 == 6 % 1`,
 			out:     ` _==_(_-_(_+_(1~int, _*_(2~int, 3~int)~int^multiply_int64)~int^add_int64, _/_(1~int, 2~int)~int^divide_int64)~int^subtract_int64, _%_(6~int, 1~int)~int^modulo_int64)~bool^equals`,
-			outType: decls.Bool,
+			outType: types.BoolType,
 		},
 		{
 			in:      `"abc" + "def"`,
 			out:     `_+_("abc"~string, "def"~string)~string^add_string`,
-			outType: decls.String,
+			outType: types.StringType,
 		},
 		{
 			in: `1u + 2u * 3u - 1u / 2u == 6u % 1u`,
@@ -345,13 +342,13 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 	     ~uint^subtract_uint64,
 	    _%_(6u~uint, 1u~uint)~uint^modulo_uint64)
 	~bool^equals`,
-			outType: decls.Bool,
+			outType: types.BoolType,
 		},
 		{
 			in: `x.single_int32 != null`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.Proto2Message")),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("x", types.NewObjectType("google.expr.proto3.test.Proto2Message")),
 				},
 			},
 			err: `
@@ -363,8 +360,8 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 		{
 			in: `x.single_value + 1 / x.single_struct.y == 23`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("x", types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 				},
 			},
 			out: `_==_(
@@ -377,13 +374,13 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 			)~int^add_int64,
 			23~int
 		  )~bool^equals`,
-			outType: decls.Bool,
+			outType: types.BoolType,
 		},
 		{
 			in: `x.single_value[23] + x.single_struct['y']`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("x", types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 				},
 			},
 			out: `_+_(
@@ -397,7 +394,7 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 			)~dyn^index_map
 		  )~dyn^add_bytes|add_double|add_duration_duration|add_duration_timestamp|add_int64|add_list|add_string|add_timestamp_duration|add_uint64
 		  `,
-			outType: decls.Dyn,
+			outType: types.DynType,
 		},
 		{
 			in:        `TestAllTypes.NestedEnum.BAR != 99`,
@@ -406,15 +403,15 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 	     ~int^google.expr.proto3.test.TestAllTypes.NestedEnum.BAR,
 	    99~int)
 	~bool^not_equals`,
-			outType: decls.Bool,
+			outType: types.BoolType,
 		},
 		{
 			in:      `size([] + [1])`,
 			out:     `size(_+_([]~list(int), [1~int]~list(int))~list(int)^add_list)~int^size_list`,
-			outType: decls.Int,
+			outType: types.IntType,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("x", types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 				},
 			},
 		},
@@ -463,21 +460,21 @@ _!=_(_-_(_+_(1~double, _*_(2~double, 3~double)~double^multiply_double)
 			)~bool^logical_and
 		)~bool^logical_and`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("x", decls.NewObjectType("google.protobuf.Struct")),
-					decls.NewVar("y", decls.NewObjectType("google.protobuf.ListValue")),
-					decls.NewVar("z", decls.NewObjectType("google.protobuf.Value")),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("x", types.NewObjectType("google.protobuf.Struct")),
+					decls.NewVariable("y", types.NewObjectType("google.protobuf.ListValue")),
+					decls.NewVariable("z", types.NewObjectType("google.protobuf.Value")),
 				},
 			},
-			outType: decls.Bool,
+			outType: types.BoolType,
 		},
 		{
 			in:  `x + y`,
 			out: ``,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("x", decls.NewListType(decls.NewObjectType("google.expr.proto3.test.TestAllTypes"))),
-					decls.NewVar("y", decls.NewListType(decls.Int)),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("x", types.NewListType(types.NewObjectType("google.expr.proto3.test.TestAllTypes"))),
+					decls.NewVariable("y", types.NewListType(types.IntType)),
 				},
 			},
 			err: `
@@ -489,8 +486,8 @@ ERROR: <input>:1:3: found no matching overload for '_+_' applied to '(list(googl
 		{
 			in: `x[1u]`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("x", decls.NewListType(decls.NewObjectType("google.expr.proto3.test.TestAllTypes"))),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("x", types.NewListType(types.NewObjectType("google.expr.proto3.test.TestAllTypes"))),
 				},
 			},
 			err: `
@@ -502,8 +499,8 @@ ERROR: <input>:1:2: found no matching overload for '_[_]' applied to '(list(goog
 		{
 			in: `(x + x)[1].single_int32 == size(x)`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("x", decls.NewListType(decls.NewObjectType("google.expr.proto3.test.TestAllTypes"))),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("x", types.NewListType(types.NewObjectType("google.expr.proto3.test.TestAllTypes"))),
 				},
 			},
 			out: `
@@ -518,13 +515,13 @@ _==_(_[_](_+_(x~list(google.expr.proto3.test.TestAllTypes)^x,
       size(x~list(google.expr.proto3.test.TestAllTypes)^x)~int^size_list)
   ~bool^equals
 	`,
-			outType: decls.Bool,
+			outType: types.BoolType,
 		},
 		{
 			in: `x.repeated_int64[x.single_int32] == 23`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("x", types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 				},
 			},
 			out: `
@@ -533,13 +530,13 @@ _==_(_[_](x~google.expr.proto3.test.TestAllTypes^x.repeated_int64~list(int),
        ~int^index_list,
       23~int)
   ~bool^equals`,
-			outType: decls.Bool,
+			outType: types.BoolType,
 		},
 		{
 			in: `size(x.map_int64_nested_type) == 0`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("x", types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 				},
 			},
 			out: `
@@ -549,13 +546,13 @@ _==_(size(x~google.expr.proto3.test.TestAllTypes^x.map_int64_nested_type
       0~int)
   ~bool^equals
 		`,
-			outType: decls.Bool,
+			outType: types.BoolType,
 		},
 		{
 			in: `x.all(y, y == true)`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("x", decls.Bool),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("x", types.BoolType),
 				},
 			},
 			out: `
@@ -590,8 +587,8 @@ _==_(size(x~google.expr.proto3.test.TestAllTypes^x.map_int64_nested_type
 		{
 			in: `x.repeated_int64.map(x, double(x))`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("x", types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 				},
 			},
 			out: `
@@ -618,13 +615,13 @@ _==_(size(x~google.expr.proto3.test.TestAllTypes^x.map_int64_nested_type
     		  // Result
     		  __result__~list(double)^__result__)~list(double)
 		`,
-			outType: decls.NewListType(decls.Double),
+			outType: types.NewListType(types.DoubleType),
 		},
 		{
 			in: `x.repeated_int64.map(x, x > 0, double(x))`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("x", types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 				},
 			},
 			out: `
@@ -658,15 +655,15 @@ _==_(size(x~google.expr.proto3.test.TestAllTypes^x.map_int64_nested_type
     		  // Result
     		  __result__~list(double)^__result__)~list(double)
 		`,
-			outType: decls.NewListType(decls.Double),
+			outType: types.NewListType(types.DoubleType),
 		},
 		{
 			in: `x[2].single_int32 == 23`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("x",
-						decls.NewMapType(decls.String,
-							decls.NewObjectType("google.expr.proto3.test.TestAllTypes"))),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("x",
+						types.NewMapType(types.StringType,
+							types.NewObjectType("google.expr.proto3.test.TestAllTypes"))),
 				},
 			},
 			err: `
@@ -678,10 +675,10 @@ ERROR: <input>:1:2: found no matching overload for '_[_]' applied to '(map(strin
 		{
 			in: `x["a"].single_int32 == 23`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("x",
-						decls.NewMapType(decls.String,
-							decls.NewObjectType("google.expr.proto3.test.TestAllTypes"))),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("x",
+						types.NewMapType(types.StringType,
+							types.NewObjectType("google.expr.proto3.test.TestAllTypes"))),
 				},
 			},
 			out: `
@@ -692,13 +689,13 @@ ERROR: <input>:1:2: found no matching overload for '_[_]' applied to '(map(strin
 		~int,
 		23~int)
 		~bool^equals`,
-			outType: decls.Bool,
+			outType: types.BoolType,
 		},
 		{
 			in: `x.single_nested_message.bb == 43 && has(x.single_nested_message)`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("x", types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 				},
 			},
 
@@ -710,13 +707,13 @@ ERROR: <input>:1:2: found no matching overload for '_[_]' applied to '(map(strin
     		  )~bool^equals,
     		  x~google.expr.proto3.test.TestAllTypes^x.single_nested_message~test-only~~bool
     		)~bool^logical_and`,
-			outType: decls.Bool,
+			outType: types.BoolType,
 		},
 		{
 			in: `x.single_nested_message.undefined == x.undefined && has(x.single_int32) && has(x.repeated_int32)`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("x", types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 				},
 			},
 			err: `
@@ -730,8 +727,8 @@ ERROR: <input>:1:39: undefined field 'undefined'
 		{
 			in: `x.single_nested_message != null`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("x", types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 				},
 			},
 			out: `
@@ -740,13 +737,13 @@ ERROR: <input>:1:39: undefined field 'undefined'
 		null~null)
 		~bool^not_equals
 		`,
-			outType: decls.Bool,
+			outType: types.BoolType,
 		},
 		{
 			in: `x.single_int64 != null`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("x", types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 				},
 			},
 			err: `
@@ -758,8 +755,8 @@ ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, nul
 		{
 			in: `x.single_int64_wrapper == null`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("x", types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 				},
 			},
 			out: `
@@ -768,7 +765,7 @@ ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, nul
 		null~null)
 		~bool^equals
 		`,
-			outType: decls.Bool,
+			outType: types.BoolType,
 		},
 		{
 			in: `x.single_bool_wrapper
@@ -781,8 +778,8 @@ ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, nul
 		&& x.single_uint32_wrapper == 1u
 		&& x.single_uint64_wrapper != 42u`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("x", types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 				},
 			},
 			out: `
@@ -835,17 +832,17 @@ ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, nul
 				)~bool^logical_and
 			)~bool^logical_and
 		)~bool^logical_and`,
-			outType: decls.Bool,
+			outType: types.BoolType,
 		},
 		{
 			in: `x.single_timestamp == google.protobuf.Timestamp{seconds: 20} &&
 		     x.single_duration < google.protobuf.Duration{seconds: 10}`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("x", types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 				},
 			},
-			outType: decls.Bool,
+			outType: types.BoolType,
 		},
 		{
 			in: `x.single_bool_wrapper == google.protobuf.BoolValue{value: true}
@@ -859,17 +856,17 @@ ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, nul
 			&& x.single_uint32_wrapper == google.protobuf.UInt32Value{value: 1u}
 			&& x.single_uint64_wrapper != google.protobuf.UInt64Value{value: 42u}`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("x", types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 				},
 			},
-			outType: decls.Bool,
+			outType: types.BoolType,
 		},
 		{
 			in: `x.repeated_int64.exists(y, y > 10) && y < 5`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("x", types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 				},
 			},
 			err: `ERROR: <input>:1:39: undeclared reference to 'y' (in container '')
@@ -879,8 +876,8 @@ ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, nul
 		{
 			in: `x.repeated_int64.all(e, e > 0) && x.repeated_int64.exists(e, e < 0) && x.repeated_int64.exists_one(e, e == 0)`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("x", types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 				},
 			},
 			out: `_&&_(
@@ -963,14 +960,14 @@ ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, nul
 				1~int
 			  )~bool^equals)~bool
 		  )~bool^logical_and`,
-			outType: decls.Bool,
+			outType: types.BoolType,
 		},
 
 		{
 			in: `x.all(e, 0)`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("x", types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 				},
 			},
 			err: `
@@ -1011,10 +1008,10 @@ ERROR: <input>:1:10: expected type 'bool' but found 'int'
 			)~list(dyn)^conditional,
 			// Result
 			__result__~list(dyn)^__result__)~list(dyn)`,
-			outType: decls.NewListType(decls.Dyn),
+			outType: types.NewListType(types.DynType),
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("lists", decls.Dyn),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("lists", types.DynType),
 				},
 			},
 		},
@@ -1024,8 +1021,8 @@ ERROR: <input>:1:10: expected type 'bool' but found 'int'
 			out: `google.expr.proto3.test.TestAllTypes
 	~type(google.expr.proto3.test.TestAllTypes)
 	^google.expr.proto3.test.TestAllTypes`,
-			outType: decls.NewTypeType(
-				decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
+			outType: types.NewTypeTypeWithParam(
+				types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 		},
 
 		{
@@ -1036,8 +1033,8 @@ ERROR: <input>:1:10: expected type 'bool' but found 'int'
 	~type(google.expr.proto3.test.TestAllTypes)
 	^google.expr.proto3.test.TestAllTypes
 		`,
-			outType: decls.NewTypeType(
-				decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
+			outType: types.NewTypeTypeWithParam(
+				types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 		},
 
 		{
@@ -1056,9 +1053,9 @@ ERROR: <input>:1:5: undeclared reference to 'x' (in container '')
 			|| y < x
 			|| x >= x`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("x", decls.Any),
-					decls.NewVar("y", decls.NewWrapperType(decls.Int)),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("x", types.AnyType),
+					decls.NewVariable("y", types.NewNullableType(types.IntType)),
 				},
 			},
 			out: `
@@ -1093,7 +1090,7 @@ ERROR: <input>:1:5: undeclared reference to 'x' (in container '')
 			)~bool^logical_or
 		)~bool^logical_or
 		`,
-			outType: decls.Bool,
+			outType: types.BoolType,
 		},
 
 		{
@@ -1105,9 +1102,9 @@ ERROR: <input>:1:5: undeclared reference to 'x' (in container '')
 			|| x >= x`,
 			env: testEnv{
 				variadicASTs: true,
-				idents: []*exprpb.Decl{
-					decls.NewVar("x", decls.Any),
-					decls.NewVar("y", decls.NewWrapperType(decls.Int)),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("x", types.AnyType),
+					decls.NewVariable("y", types.NewNullableType(types.IntType)),
 				},
 			},
 			out: `
@@ -1138,19 +1135,19 @@ ERROR: <input>:1:5: undeclared reference to 'x' (in container '')
 			)~bool^greater_equals_bool|greater_equals_bytes|greater_equals_double|greater_equals_double_int64|greater_equals_double_uint64|greater_equals_duration|greater_equals_int64|greater_equals_int64_double|greater_equals_int64_uint64|greater_equals_string|greater_equals_timestamp|greater_equals_uint64|greater_equals_uint64_double|greater_equals_uint64_int64
 		  )~bool^logical_or
 		`,
-			outType: decls.Bool,
+			outType: types.BoolType,
 		},
 
 		{
 			in:        `x`,
 			container: "container",
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("container.x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("container.x", types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 				},
 			},
 			out:     `container.x~google.expr.proto3.test.TestAllTypes^container.x`,
-			outType: decls.NewObjectType("google.expr.proto3.test.TestAllTypes"),
+			outType: types.NewObjectType("google.expr.proto3.test.TestAllTypes"),
 		},
 
 		{
@@ -1164,18 +1161,18 @@ _&&_(_==_(list~type(list(dyn))^list,
         ~bool^equals)
   ~bool^logical_and
 	`,
-			outType: decls.Bool,
+			outType: types.BoolType,
 		},
 
 		{
 			in: `myfun(1, true, 3u) + 1.myfun(false, 3u).myfun(true, 42u)`,
 			env: testEnv{
-				functions: []*exprpb.Decl{
-					decls.NewFunction("myfun",
-						decls.NewInstanceOverload("myfun_instance",
-							[]*exprpb.Type{decls.Int, decls.Bool, decls.Uint}, decls.Int),
-						decls.NewOverload("myfun_static",
-							[]*exprpb.Type{decls.Int, decls.Bool, decls.Uint}, decls.Int)),
+				functions: []*decls.FunctionDecl{
+					testFunction(t, "myfun",
+						decls.MemberOverload("myfun_instance",
+							[]*types.Type{types.IntType, types.BoolType, types.UintType}, types.IntType),
+						decls.Overload("myfun_static",
+							[]*types.Type{types.IntType, types.BoolType, types.UintType}, types.IntType)),
 				},
 			},
 			out: `_+_(
@@ -1192,30 +1189,30 @@ _&&_(_==_(list~type(list(dyn))^list,
     		    42u~uint
     		  )~int^myfun_instance
     		)~int^add_int64`,
-			outType: decls.Int,
+			outType: types.IntType,
 		},
 
 		{
 			in: `size(x) > 4`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("x", types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 				},
-				functions: []*exprpb.Decl{
-					decls.NewFunction("size",
-						decls.NewOverload("size_message",
-							[]*exprpb.Type{decls.NewObjectType("google.expr.proto3.test.TestAllTypes")},
-							decls.Int)),
+				functions: []*decls.FunctionDecl{
+					testFunction(t, "size",
+						decls.Overload("size_message",
+							[]*types.Type{types.NewObjectType("google.expr.proto3.test.TestAllTypes")},
+							types.IntType)),
 				},
 			},
-			outType: decls.Bool,
+			outType: types.BoolType,
 		},
 
 		{
 			in: `x.single_int64_wrapper + 1 != 23`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("x", types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 				},
 			},
 			out: `
@@ -1226,15 +1223,15 @@ _&&_(_==_(list~type(list(dyn))^list,
 		23~int)
 		~bool^not_equals
 		`,
-			outType: decls.Bool,
+			outType: types.BoolType,
 		},
 
 		{
 			in: `x.single_int64_wrapper + y != 23`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("x", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
-					decls.NewVar("y", decls.NewObjectType("google.protobuf.Int32Value")),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("x", types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
+					decls.NewVariable("y", types.NewObjectType("google.protobuf.Int32Value")),
 				},
 			},
 			out: `
@@ -1246,7 +1243,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 			23~int
 		  )~bool^not_equals
 		`,
-			outType: decls.Bool,
+			outType: types.BoolType,
 		},
 
 		{
@@ -1259,7 +1256,7 @@ _&&_(_==_(list~type(list(dyn))^list,
     		    3~int
     		  ]~list(int)
     		)~bool^in_list`,
-			outType: decls.Bool,
+			outType: types.BoolType,
 		},
 
 		{
@@ -1274,7 +1271,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 			  ]~list(int)
 			)~dyn^to_dyn
 		  )~bool^in_list|in_map`,
-			outType: decls.Bool,
+			outType: types.BoolType,
 		},
 
 		{
@@ -1285,33 +1282,33 @@ _&&_(_==_(list~type(list(dyn))^list,
     		  )~type(null)^type,
     		  null_type~type(null)^null_type
     		)~bool^equals`,
-			outType: decls.Bool,
+			outType: types.BoolType,
 		},
 
 		{
 			in: `type(type) == type`,
 			out: `_==_(
 		  type(
-		    type~type(type())^type
-		  )~type(type(type()))^type,
-		  type~type(type())^type
+		    type~type(type)^type
+		  )~type(type(type))^type,
+		  type~type(type)^type
 		)~bool^equals`,
-			outType: decls.Bool,
+			outType: types.BoolType,
 		},
 		// Homogeneous aggregate type restriction tests.
 		{
 			in: `name in [1, 2u, 'string']`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("name", decls.String),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("name", types.StringType),
 				},
-				functions: []*exprpb.Decl{
-					decls.NewFunction(operators.In,
-						decls.NewOverload(overloads.InList,
-							[]*exprpb.Type{
-								decls.String,
-								decls.NewListType(decls.String),
-							}, decls.Bool)),
+				functions: []*decls.FunctionDecl{
+					testFunction(t, operators.In,
+						decls.Overload(overloads.InList,
+							[]*types.Type{
+								types.StringType,
+								types.NewListType(types.StringType),
+							}, types.BoolType)),
 				},
 			},
 			opts:          []Option{HomogeneousAggregateLiterals(true)},
@@ -1331,16 +1328,16 @@ _&&_(_==_(list~type(list(dyn))^list,
 		{
 			in: `name in [1, 2, 3]`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("name", decls.String),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("name", types.StringType),
 				},
-				functions: []*exprpb.Decl{
-					decls.NewFunction(operators.In,
-						decls.NewOverload(overloads.InList,
-							[]*exprpb.Type{
-								decls.String,
-								decls.NewListType(decls.String),
-							}, decls.Bool)),
+				functions: []*decls.FunctionDecl{
+					testFunction(t, operators.In,
+						decls.Overload(overloads.InList,
+							[]*types.Type{
+								types.StringType,
+								types.NewListType(types.StringType),
+							}, types.BoolType)),
 				},
 			},
 			opts:          []Option{HomogeneousAggregateLiterals(true)},
@@ -1360,16 +1357,16 @@ _&&_(_==_(list~type(list(dyn))^list,
 		{
 			in: `name in ["1", "2", "3"]`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("name", decls.String),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("name", types.StringType),
 				},
-				functions: []*exprpb.Decl{
-					decls.NewFunction(operators.In,
-						decls.NewOverload(overloads.InList,
-							[]*exprpb.Type{
-								decls.String,
-								decls.NewListType(decls.String),
-							}, decls.Bool)),
+				functions: []*decls.FunctionDecl{
+					testFunction(t, operators.In,
+						decls.Overload(overloads.InList,
+							[]*types.Type{
+								types.StringType,
+								types.NewListType(types.StringType),
+							}, types.BoolType)),
 				},
 			},
 			opts:          []Option{HomogeneousAggregateLiterals(true)},
@@ -1382,7 +1379,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 				"3"~string
 			]~list(string)
 		)~bool^in_list`,
-			outType: decls.Bool,
+			outType: types.BoolType,
 		},
 		{
 			in: `([[[1]], [[2]], [[3]]][0][0] + [2, 3, {'four': {'five': 'six'}}])[3]`,
@@ -1423,7 +1420,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 			)~list(dyn)^add_list,
 			3~int
 		)~dyn^index_list`,
-			outType: decls.Dyn,
+			outType: types.DynType,
 		},
 		{
 			in: `[1] + [dyn('string')]`,
@@ -1437,7 +1434,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 				)~dyn^to_dyn
 			]~list(dyn)
 		)~list(dyn)^add_list`,
-			outType: decls.NewListType(decls.Dyn),
+			outType: types.NewListType(types.DynType),
 		},
 		{
 			in: `[dyn('string')] + [1]`,
@@ -1451,7 +1448,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 				1~int
 			]~list(int)
 		)~list(dyn)^add_list`,
-			outType: decls.NewListType(decls.Dyn),
+			outType: types.NewListType(types.DynType),
 		},
 		{
 			in: `[].map(x, [].map(y, x in y && y in x))`,
@@ -1493,11 +1490,11 @@ _&&_(_==_(list~type(list(dyn))^list,
 			// Result
 			__result__~list(dyn)^__result__)~list(dyn)`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("args", decls.NewMapType(decls.String, decls.Dyn)),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("args", types.NewMapType(types.StringType, types.DynType)),
 				},
 			},
-			outType: decls.NewListType(decls.Dyn),
+			outType: types.NewListType(types.DynType),
 		},
 		{
 			in: `a.b + 1 == a[0]`,
@@ -1512,11 +1509,11 @@ _&&_(_==_(list~type(list(dyn))^list,
 			)~dyn^index_list|index_map
 		  )~bool^equals`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("a", decls.NewTypeParamType("T")),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("a", types.NewTypeParamType("T")),
 				},
 			},
-			outType: decls.Bool,
+			outType: types.BoolType,
 		},
 		{
 			in: `!has(pb2.single_int64)
@@ -1526,9 +1523,9 @@ _&&_(_==_(list~type(list(dyn))^list,
 		&& !has(pb3.repeated_int32)
 		&& !has(pb3.map_string_string)`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("pb2", decls.NewObjectType("google.expr.proto2.test.TestAllTypes")),
-					decls.NewVar("pb3", decls.NewObjectType("google.expr.proto3.test.TestAllTypes")),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("pb2", types.NewObjectType("google.expr.proto2.test.TestAllTypes")),
+					decls.NewVariable("pb3", types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 				},
 			},
 			out: `
@@ -1560,7 +1557,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 			  )~bool^logical_not
 			)~bool^logical_and
 		  )~bool^logical_and`,
-			outType: decls.Bool,
+			outType: types.BoolType,
 		},
 		{
 			in:        `TestAllTypes{}.repeated_nested_message`,
@@ -1569,8 +1566,8 @@ _&&_(_==_(list~type(list(dyn))^list,
 		google.expr.proto2.test.TestAllTypes{}~google.expr.proto2.test.TestAllTypes^
 		google.expr.proto2.test.TestAllTypes.repeated_nested_message
 		~list(google.expr.proto2.test.TestAllTypes.NestedMessage)`,
-			outType: decls.NewListType(
-				decls.NewObjectType(
+			outType: types.NewListType(
+				types.NewObjectType(
 					"google.expr.proto2.test.TestAllTypes.NestedMessage",
 				),
 			),
@@ -1582,8 +1579,8 @@ _&&_(_==_(list~type(list(dyn))^list,
 		google.expr.proto3.test.TestAllTypes{}~google.expr.proto3.test.TestAllTypes^
 		google.expr.proto3.test.TestAllTypes.repeated_nested_message
 		~list(google.expr.proto3.test.TestAllTypes.NestedMessage)`,
-			outType: decls.NewListType(
-				decls.NewObjectType(
+			outType: types.NewListType(
+				types.NewObjectType(
 					"google.expr.proto3.test.TestAllTypes.NestedMessage",
 				),
 			),
@@ -1591,42 +1588,42 @@ _&&_(_==_(list~type(list(dyn))^list,
 		{
 			in: `base64.encode('hello')`,
 			env: testEnv{
-				functions: []*exprpb.Decl{
-					decls.NewFunction("base64.encode",
-						decls.NewOverload(
+				functions: []*decls.FunctionDecl{
+					testFunction(t, "base64.encode",
+						decls.Overload(
 							"base64_encode_string",
-							[]*exprpb.Type{decls.String},
-							decls.String)),
+							[]*types.Type{types.StringType},
+							types.StringType)),
 				},
 			},
 			out: `
 		base64.encode(
 			"hello"~string
 		)~string^base64_encode_string`,
-			outType: decls.String,
+			outType: types.StringType,
 		},
 		{
 			in:        `encode('hello')`,
 			container: `base64`,
 			env: testEnv{
-				functions: []*exprpb.Decl{
-					decls.NewFunction("base64.encode",
-						decls.NewOverload(
+				functions: []*decls.FunctionDecl{
+					testFunction(t, "base64.encode",
+						decls.Overload(
 							"base64_encode_string",
-							[]*exprpb.Type{decls.String},
-							decls.String)),
+							[]*types.Type{types.StringType},
+							types.StringType)),
 				},
 			},
 			out: `
 		base64.encode(
 			"hello"~string
 		)~string^base64_encode_string`,
-			outType: decls.String,
+			outType: types.StringType,
 		},
 		{
 			in:      `{}`,
 			out:     `{}~map(dyn, dyn)`,
-			outType: decls.NewMapType(decls.Dyn, decls.Dyn),
+			outType: types.NewMapType(types.DynType, types.DynType),
 		},
 		{
 			in: `set([1, 2, 3])`,
@@ -1639,16 +1636,14 @@ _&&_(_==_(list~type(list(dyn))^list,
 		  ]~list(int)
 		)~set(int)^set_list`,
 			env: testEnv{
-				functions: []*exprpb.Decl{
-					decls.NewFunction("set",
-						decls.NewParameterizedOverload(
-							"set_list", []*exprpb.Type{
-								decls.NewListType(decls.NewTypeParamType("T")),
-							}, decls.NewAbstractType("set", decls.NewTypeParamType("T")),
-							[]string{"T"})),
+				functions: []*decls.FunctionDecl{
+					testFunction(t, "set",
+						decls.Overload("set_list",
+							[]*types.Type{types.NewListType(types.NewTypeParamType("T"))},
+							types.NewOpaqueType("set", types.NewTypeParamType("T")))),
 				},
 			},
-			outType: decls.NewAbstractType("set", decls.Int),
+			outType: types.NewOpaqueType("set", types.IntType),
 		},
 		{
 			in: `set([1, 2]) == set([2, 1])`,
@@ -1658,16 +1653,14 @@ _&&_(_==_(list~type(list(dyn))^list,
 		  set([2~int, 1~int]~list(int))~set(int)^set_list
 		)~bool^equals`,
 			env: testEnv{
-				functions: []*exprpb.Decl{
-					decls.NewFunction("set",
-						decls.NewParameterizedOverload(
-							"set_list", []*exprpb.Type{
-								decls.NewListType(decls.NewTypeParamType("T")),
-							}, decls.NewAbstractType("set", decls.NewTypeParamType("T")),
-							[]string{"T"})),
+				functions: []*decls.FunctionDecl{
+					testFunction(t, "set",
+						decls.Overload(
+							"set_list", []*types.Type{types.NewListType(types.NewTypeParamType("T"))},
+							types.NewOpaqueType("set", types.NewTypeParamType("T")))),
 				},
 			},
-			outType: decls.Bool,
+			outType: types.BoolType,
 		},
 		{
 			in: `set([1, 2]) == x`,
@@ -1677,19 +1670,17 @@ _&&_(_==_(list~type(list(dyn))^list,
 		  x~set(int)^x
 		)~bool^equals`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("x", decls.NewAbstractType("set", decls.NewTypeParamType("T"))),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("x", types.NewOpaqueType("set", types.NewTypeParamType("T"))),
 				},
-				functions: []*exprpb.Decl{
-					decls.NewFunction("set",
-						decls.NewParameterizedOverload(
-							"set_list", []*exprpb.Type{
-								decls.NewListType(decls.NewTypeParamType("T")),
-							}, decls.NewAbstractType("set", decls.NewTypeParamType("T")),
-							[]string{"T"})),
+				functions: []*decls.FunctionDecl{
+					testFunction(t, "set",
+						decls.Overload(
+							"set_list", []*types.Type{types.NewListType(types.NewTypeParamType("T"))},
+							types.NewOpaqueType("set", types.NewTypeParamType("T")))),
 				},
 			},
-			outType: decls.Bool,
+			outType: types.BoolType,
 		},
 		{
 			in: `int{}`,
@@ -1758,7 +1749,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 		{
 			in:      `1 <= 1.0 && 1u <= 1.0 && 1.0 <= 1 && 1.0 <= 1u && 1 <= 1u && 1u <= 1`,
 			opts:    []Option{CrossTypeNumericComparisons(true)},
-			outType: decls.Bool,
+			outType: types.BoolType,
 			out: `
 		_&&_(
 			_&&_(
@@ -1798,7 +1789,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 		{
 			in:      `1 < 1.0 && 1u < 1.0 && 1.0 < 1 && 1.0 < 1u && 1 < 1u && 1u < 1`,
 			opts:    []Option{CrossTypeNumericComparisons(true)},
-			outType: decls.Bool,
+			outType: types.BoolType,
 			out: `
 		_&&_(
 			_&&_(
@@ -1838,7 +1829,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 		{
 			in:      `1 > 1.0 && 1u > 1.0 && 1.0 > 1 && 1.0 > 1u && 1 > 1u && 1u > 1`,
 			opts:    []Option{CrossTypeNumericComparisons(true)},
-			outType: decls.Bool,
+			outType: types.BoolType,
 			out: `
 		_&&_(
 			_&&_(
@@ -1878,7 +1869,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 		{
 			in:      `1 >= 1.0 && 1u >= 1.0 && 1.0 >= 1 && 1.0 >= 1u && 1 >= 1u && 1u >= 1`,
 			opts:    []Option{CrossTypeNumericComparisons(true)},
-			outType: decls.Bool,
+			outType: types.BoolType,
 			out: `
 		_&&_(
 			_&&_(
@@ -1919,7 +1910,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 			in:      `1 >= 1.0 && 1u >= 1.0 && 1.0 >= 1 && 1.0 >= 1u && 1 >= 1u && 1u >= 1`,
 			opts:    []Option{CrossTypeNumericComparisons(true)},
 			env:     testEnv{variadicASTs: true},
-			outType: decls.Bool,
+			outType: types.BoolType,
 			out: `
 		_&&_(
 			_>=_(
@@ -1950,7 +1941,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 		},
 		{
 			in:      `[1].map(x, [x, x]).map(x, [x, x])`,
-			outType: decls.NewListType(decls.NewListType(decls.NewListType(decls.Int))),
+			outType: types.NewListType(types.NewListType(types.NewListType(types.IntType))),
 			out: `__comprehension__(
 			// Variable
 			x,
@@ -2002,10 +1993,10 @@ _&&_(_==_(list~type(list(dyn))^list,
 		},
 		{
 			in:      `values.filter(i, i.content != "").map(i, i.content)`,
-			outType: decls.NewListType(decls.String),
+			outType: types.NewListType(types.StringType),
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("values", decls.NewListType(decls.NewMapType(decls.String, decls.String))),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("values", types.NewListType(types.NewMapType(types.StringType, types.StringType))),
 				},
 			},
 			out: `__comprehension__(
@@ -2057,7 +2048,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 		},
 		{
 			in:      `[{}.map(c,c,c)]+[{}.map(c,c,c)]`,
-			outType: decls.NewListType(decls.NewListType(decls.Bool)),
+			outType: types.NewListType(types.NewListType(types.BoolType)),
 			out: `_+_(
 			[
 			  __comprehension__(
@@ -2116,11 +2107,11 @@ _&&_(_==_(list~type(list(dyn))^list,
 		{
 			in: "type(testAllTypes.nestedgroup.nested_id) == int",
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("testAllTypes", decls.NewObjectType("google.expr.proto2.test.TestAllTypes")),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("testAllTypes", types.NewObjectType("google.expr.proto2.test.TestAllTypes")),
 				},
 			},
-			outType: decls.Bool,
+			outType: types.BoolType,
 			out: `_==_(
 			type(
 			  testAllTypes~google.expr.proto2.test.TestAllTypes^testAllTypes.nestedgroup~google.expr.proto2.test.TestAllTypes.NestedGroup.nested_id~int
@@ -2132,11 +2123,11 @@ _&&_(_==_(list~type(list(dyn))^list,
 			in: `a.?b`,
 			env: testEnv{
 				optionalSyntax: true,
-				idents: []*exprpb.Decl{
-					decls.NewVar("a", decls.NewMapType(decls.String, decls.String)),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("a", types.NewMapType(types.StringType, types.StringType)),
 				},
 			},
-			outType: decls.NewOptionalType(decls.String),
+			outType: types.NewOptionalType(types.StringType),
 			out: `_?._(
 			a~map(string, string)^a,
 			"b"
@@ -2145,42 +2136,42 @@ _&&_(_==_(list~type(list(dyn))^list,
 		{
 			in: `a.b`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("a", decls.NewOptionalType(decls.NewMapType(decls.String, decls.String))),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("a", types.NewOptionalType(types.NewMapType(types.StringType, types.StringType))),
 				},
 			},
-			outType: decls.NewOptionalType(decls.String),
+			outType: types.NewOptionalType(types.StringType),
 			out:     `a~optional(map(string, string))^a.b~optional(string)`,
 		},
 		{
 			in: `a.dynamic`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("a", decls.NewOptionalType(decls.Dyn)),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("a", types.NewOptionalType(types.DynType)),
 				},
 			},
-			outType: decls.NewOptionalType(decls.Dyn),
+			outType: types.NewOptionalType(types.DynType),
 			out:     `a~optional(dyn)^a.dynamic~optional(dyn)`,
 		},
 		{
 			in: `has(a.dynamic)`,
 			env: testEnv{
-				idents: []*exprpb.Decl{
-					decls.NewVar("a", decls.NewOptionalType(decls.Dyn)),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("a", types.NewOptionalType(types.DynType)),
 				},
 			},
-			outType: decls.Bool,
+			outType: types.BoolType,
 			out:     `a~optional(dyn)^a.dynamic~test-only~~bool`,
 		},
 		{
 			in: `has(a.?b.c)`,
 			env: testEnv{
 				optionalSyntax: true,
-				idents: []*exprpb.Decl{
-					decls.NewVar("a", decls.NewOptionalType(decls.NewMapType(decls.String, decls.Dyn))),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("a", types.NewOptionalType(types.NewMapType(types.StringType, types.DynType))),
 				},
 			},
-			outType: decls.Bool,
+			outType: types.BoolType,
 			out: `_?._(
 			a~optional(map(string, dyn))^a,
 			"b"
@@ -2189,7 +2180,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 		{
 			in:      `{?'key': {'a': 'b'}.?value}`,
 			env:     testEnv{optionalSyntax: true},
-			outType: decls.NewMapType(decls.String, decls.String),
+			outType: types.NewMapType(types.StringType, types.StringType),
 			out: `{
 			?"key"~string:_?._(
 			  {
@@ -2202,7 +2193,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 		{
 			in:      `{?'key': {'a': 'b'}.?value}.key`,
 			env:     testEnv{optionalSyntax: true},
-			outType: decls.String,
+			outType: types.StringType,
 			out: `{
 			?"key"~string:_?._(
 			  {
@@ -2216,11 +2207,11 @@ _&&_(_==_(list~type(list(dyn))^list,
 			in: `{?'nested': a.b}`,
 			env: testEnv{
 				optionalSyntax: true,
-				idents: []*exprpb.Decl{
-					decls.NewVar("a", decls.NewOptionalType(decls.NewMapType(decls.String, decls.String))),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("a", types.NewOptionalType(types.NewMapType(types.StringType, types.StringType))),
 				},
 			},
-			outType: decls.NewMapType(decls.String, decls.String),
+			outType: types.NewMapType(types.StringType, types.StringType),
 			out: `{
 			?"nested"~string:a~optional(map(string, string))^a.b~optional(string)
 		  }~map(string, string)`,
@@ -2236,12 +2227,12 @@ _&&_(_==_(list~type(list(dyn))^list,
 			in: `[?a, ?b, 'world']`,
 			env: testEnv{
 				optionalSyntax: true,
-				idents: []*exprpb.Decl{
-					decls.NewVar("a", decls.NewOptionalType(decls.String)),
-					decls.NewVar("b", decls.NewOptionalType(decls.String)),
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("a", types.NewOptionalType(types.StringType)),
+					decls.NewVariable("b", types.NewOptionalType(types.StringType)),
 				},
 			},
-			outType: decls.NewListType(decls.String),
+			outType: types.NewListType(types.StringType),
 			out: `[
 			a~optional(string)^a,
 			b~optional(string)^b,
@@ -2265,7 +2256,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 			  "i"
 			)~optional(int)^select_optional_field
 		  }~google.expr.proto2.test.TestAllTypes^google.expr.proto2.test.TestAllTypes`,
-			outType: decls.NewObjectType(
+			outType: types.NewObjectType(
 				"google.expr.proto2.test.TestAllTypes",
 			),
 		},
@@ -2277,28 +2268,63 @@ _&&_(_==_(list~type(list(dyn))^list,
 		| TestAllTypes{?single_int32: 1}
 		| ............................^`,
 		},
+		{
+			in: `undef`,
+			err: `ERROR: <input>:1:1: undeclared reference to 'undef' (in container '')
+			| undef
+			| ^`,
+		},
+		{
+			in: `undef()`,
+			err: `ERROR: <input>:1:6: undeclared reference to 'undef' (in container '')
+			| undef()
+			| .....^`,
+		},
+		{
+			in: `null_int == null || null == null_int || null_msg == null || null == null_msg`,
+			env: testEnv{
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("null_int", types.NewNullableType(types.IntType)),
+					decls.NewVariable("null_msg", types.NewObjectType("google.expr.proto2.test.TestAllTypes")),
+				},
+			},
+			outType: types.BoolType,
+		},
+		{
+			in: `NotAMessage{}`,
+			env: testEnv{
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("NotAMessage", types.NewNullableType(types.IntType)),
+				},
+			},
+			err: `ERROR: <input>:1:12: 'wrapper(int)' is not a type
+			| NotAMessage{}
+			| ...........^`,
+		},
 	}
 }
 
-var testEnvs = map[string]testEnv{
-	"default": {
-		functions: []*exprpb.Decl{
-			decls.NewFunction("fg_s",
-				decls.NewOverload("fg_s_0", []*exprpb.Type{}, decls.String)),
-			decls.NewFunction("fi_s_s",
-				decls.NewInstanceOverload("fi_s_s_0",
-					[]*exprpb.Type{decls.String}, decls.String)),
+func testEnvs(t testing.TB) map[string]testEnv {
+	return map[string]testEnv{
+		"default": {
+			functions: []*decls.FunctionDecl{
+				testFunction(t, "fg_s",
+					decls.Overload("fg_s_0", []*types.Type{}, types.StringType)),
+				testFunction(t, "fi_s_s",
+					decls.MemberOverload("fi_s_s_0",
+						[]*types.Type{types.StringType}, types.StringType)),
+			},
+			idents: []*decls.VariableDecl{
+				decls.NewVariable("is", types.StringType),
+				decls.NewVariable("ii", types.IntType),
+				decls.NewVariable("iu", types.UintType),
+				decls.NewVariable("iz", types.BoolType),
+				decls.NewVariable("ib", types.BytesType),
+				decls.NewVariable("id", types.DoubleType),
+				decls.NewVariable("ix", types.NullType),
+			},
 		},
-		idents: []*exprpb.Decl{
-			decls.NewVar("is", decls.String),
-			decls.NewVar("ii", decls.Int),
-			decls.NewVar("iu", decls.Uint),
-			decls.NewVar("iz", decls.Bool),
-			decls.NewVar("ib", decls.Bytes),
-			decls.NewVar("id", decls.Double),
-			decls.NewVar("ix", decls.Null),
-		},
-	},
+	}
 }
 
 type testInfo struct {
@@ -2309,7 +2335,7 @@ type testInfo struct {
 	out string
 
 	// outType is the expected type of the expression
-	outType *exprpb.Type
+	outType *types.Type
 
 	// container is the container name to use for test.
 	container string
@@ -2328,8 +2354,8 @@ type testInfo struct {
 }
 
 type testEnv struct {
-	idents         []*exprpb.Decl
-	functions      []*exprpb.Decl
+	idents         []*decls.VariableDecl
+	functions      []*decls.FunctionDecl
 	variadicASTs   bool
 	optionalSyntax bool
 }
@@ -2384,17 +2410,17 @@ func TestCheck(t *testing.T) {
 				t.Fatalf("NewEnv(cont, reg) failed: %v", err)
 			}
 			if !tc.disableStdEnv {
-				env.Add(stdlib.TypeExprDecls()...)
-				env.Add(stdlib.FunctionExprDecls()...)
+				env.AddIdents(stdlib.Types()...)
+				env.AddFunctions(stdlib.Functions()...)
 			}
 			if tc.env.idents != nil {
 				for _, ident := range tc.env.idents {
-					env.Add(ident)
+					env.AddIdents(ident)
 				}
 			}
 			if tc.env.functions != nil {
 				for _, fn := range tc.env.functions {
-					env.Add(fn)
+					env.AddFunctions(fn)
 				}
 			}
 
@@ -2414,13 +2440,17 @@ func TestCheck(t *testing.T) {
 
 			actual := cAst.TypeMap[pAst.Expr.Id]
 			if tc.err == "" {
-				if actual == nil || !proto.Equal(actual, tc.outType) {
+				if actual == nil || !actual.IsEquivalentType(tc.outType) {
 					t.Error(test.DiffMessage("Type Error", actual, tc.outType))
 				}
 			}
 
 			if tc.out != "" {
-				actualStr := Print(pAst.Expr, cAst)
+				chkExpr, err := ast.CheckedASTToCheckedExpr(cAst)
+				if err != nil {
+					t.Fatalf("CheckedAstToCheckedExpr() failed: %v", err)
+				}
+				actualStr := Print(pAst.Expr, chkExpr)
 				if !test.Compare(actualStr, tc.out) {
 					t.Error(test.DiffMessage("Structure error", actualStr, tc.out))
 				}
@@ -2474,17 +2504,17 @@ func BenchmarkCheck(b *testing.B) {
 				b.Fatalf("NewEnv(cont, reg) failed: %v", err)
 			}
 			if !tc.disableStdEnv {
-				env.Add(stdlib.TypeExprDecls()...)
-				env.Add(stdlib.FunctionExprDecls()...)
+				env.AddIdents(stdlib.Types()...)
+				env.AddFunctions(stdlib.Functions()...)
 			}
 			if tc.env.idents != nil {
 				for _, ident := range tc.env.idents {
-					env.Add(ident)
+					env.AddIdents(ident)
 				}
 			}
 			if tc.env.functions != nil {
 				for _, fn := range tc.env.functions {
-					env.Add(fn)
+					env.AddFunctions(fn)
 				}
 			}
 			b.ResetTimer()
@@ -2505,13 +2535,17 @@ func BenchmarkCheck(b *testing.B) {
 
 				actual := cAst.TypeMap[pAst.Expr.Id]
 				if tc.err == "" {
-					if actual == nil || !proto.Equal(actual, tc.outType) {
+					if actual == nil || !actual.IsEquivalentType(tc.outType) {
 						b.Error(test.DiffMessage("Type Error", actual, tc.outType))
 					}
 				}
 
 				if tc.out != "" {
-					actualStr := Print(pAst.Expr, cAst)
+					chkExpr, err := ast.CheckedASTToCheckedExpr(cAst)
+					if err != nil {
+						b.Fatalf("CheckedAstToCheckedExpr() failed: %v", err)
+					}
+					actualStr := Print(pAst.Expr, chkExpr)
 					if !test.Compare(actualStr, tc.out) {
 						b.Error(test.DiffMessage("Structure error", actualStr, tc.out))
 					}
@@ -2530,11 +2564,11 @@ func TestAddDuplicateDeclarations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewEnv() failed: %v", err)
 	}
-	err = env.Add(stdlib.FunctionExprDecls()...)
+	err = env.AddFunctions(stdlib.Functions()...)
 	if err != nil {
 		t.Fatalf("env.Add() failed: %v", err)
 	}
-	err = env.Add(stdlib.FunctionExprDecls()...)
+	err = env.AddFunctions(stdlib.Functions()...)
 	if err != nil {
 		t.Errorf("env.Add() failed with duplicate declarations: %v", err)
 	}
@@ -2549,23 +2583,23 @@ func TestAddEquivalentDeclarations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewEnv() failed: %v", err)
 	}
-	optIndex := decls.NewFunction("optional_index",
-		decls.NewParameterizedOverload("optional_map_key_value",
-			[]*exprpb.Type{
-				decls.NewMapType(decls.NewTypeParamType("K"), decls.NewTypeParamType("V")),
-				decls.NewTypeParamType("K")},
-			decls.NewOptionalType(decls.NewTypeParamType("V")), []string{"K", "V"}))
-	optIndexEquiv := decls.NewFunction("optional_index",
-		decls.NewParameterizedOverload("optional_map_key_value",
-			[]*exprpb.Type{
-				decls.NewMapType(decls.NewTypeParamType("K"), decls.NewTypeParamType("V")),
-				decls.NewTypeParamType("K")},
-			decls.NewOptionalType(decls.NewTypeParamType("V")), []string{"V", "K"}))
-	err = env.Add(optIndex)
+	optIndex := testFunction(t, "optional_index",
+		decls.Overload("optional_map_key_value",
+			[]*types.Type{
+				types.NewMapType(types.NewTypeParamType("K"), types.NewTypeParamType("V")),
+				types.NewTypeParamType("K")},
+			types.NewOptionalType(types.NewTypeParamType("V"))))
+	optIndexEquiv := testFunction(t, "optional_index",
+		decls.Overload("optional_map_key_value",
+			[]*types.Type{
+				types.NewMapType(types.NewTypeParamType("K"), types.NewTypeParamType("V")),
+				types.NewTypeParamType("K")},
+			types.NewOptionalType(types.NewTypeParamType("V"))))
+	err = env.AddFunctions(optIndex)
 	if err != nil {
 		t.Fatalf("env.Add(optIndex) failed: %v", err)
 	}
-	err = env.Add(optIndexEquiv)
+	err = env.AddFunctions(optIndexEquiv)
 	if err != nil {
 		t.Errorf("env.Add(optIndexEquiv) failed: %v", err)
 	}
@@ -2590,8 +2624,8 @@ func TestCheckErrorData(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewEnv(cont, reg) failed: %v", err)
 	}
-	env.Add(stdlib.TypeExprDecls()...)
-	env.Add(stdlib.FunctionExprDecls()...)
+	env.AddIdents(stdlib.Types()...)
+	env.AddFunctions(stdlib.Functions()...)
 	_, iss = Check(ast, src, env)
 	if len(iss.GetErrors()) != 1 {
 		t.Fatalf("Check() of a bad expression did produce a single error: %v", iss.ToDisplayString())
@@ -2603,4 +2637,13 @@ func TestCheckErrorData(t *testing.T) {
 	if !strings.Contains(celErr.Message, "undeclared reference") {
 		t.Errorf("got message %v, wanted undeclared reference", celErr.Message)
 	}
+}
+
+func testFunction(t testing.TB, name string, opts ...decls.FunctionOpt) *decls.FunctionDecl {
+	t.Helper()
+	fn, err := decls.NewFunction(name, opts...)
+	if err != nil {
+		t.Fatalf("decls.NewFunction(%s) failed: %v", name, err)
+	}
+	return fn
 }

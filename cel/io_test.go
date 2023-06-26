@@ -113,7 +113,10 @@ func TestAstToProto(t *testing.T) {
 	if !proto.Equal(ast4.Expr(), ast.Expr()) {
 		t.Fatalf("got ast %v, wanted %v", ast4, ast)
 	}
-	ast5 := CheckedExprToAstWithSource(checked, ast.Source())
+	ast5, err := CheckedExprToAstWithSource(checked, ast.Source())
+	if err != nil {
+		t.Fatalf("CheckedExprToAstWithSource() failed: %v", err)
+	}
 	if !proto.Equal(ast5.Expr(), ast.Expr()) {
 		t.Errorf("got expr %v, wanted %v", ast5, ast)
 	}

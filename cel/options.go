@@ -113,8 +113,28 @@ func CustomTypeProvider(provider ref.TypeProvider) EnvOption {
 // for the environment. The NewEnv call builds on top of the standard CEL declarations. For a
 // purely custom set of declarations use NewCustomEnv.
 func Declarations(decls ...*exprpb.Decl) EnvOption {
+	declOpts := []EnvOption{}
+	var err error
+	var opt EnvOption
+	// Convert the declarations to `EnvOption` values ahead of time.
+	// Surface any errors in conversion when the options are applied.
+	for _, d := range decls {
+		opt, err = ExprDeclToDeclaration(d)
+		if err != nil {
+			break
+		}
+		declOpts = append(declOpts, opt)
+	}
 	return func(e *Env) (*Env, error) {
-		e.declarations = append(e.declarations, decls...)
+		if err != nil {
+			return nil, err
+		}
+		for _, o := range declOpts {
+			e, err = o(e)
+			if err != nil {
+				return nil, err
+			}
+		}
 		return e, nil
 	}
 }

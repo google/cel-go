@@ -22,8 +22,6 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
-
-	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 // AttributeFactory provides methods creating Attribute and Qualifier values.
@@ -61,7 +59,7 @@ type AttributeFactory interface {
 	// The qualifier may consider the object type being qualified, if present. If absent, the
 	// qualification should be considered dynamic and the qualification should still work, though
 	// it may be sub-optimal.
-	NewQualifier(objType *exprpb.Type, qualID int64, val any, opt bool) (Qualifier, error)
+	NewQualifier(objType *types.Type, qualID int64, val any, opt bool) (Qualifier, error)
 }
 
 // Qualifier marker interface for designating different qualifier values and where they appear
@@ -199,13 +197,13 @@ func (r *attrFactory) RelativeAttribute(id int64, operand Interpretable) Attribu
 }
 
 // NewQualifier is an implementation of the AttributeFactory interface.
-func (r *attrFactory) NewQualifier(objType *exprpb.Type, qualID int64, val any, opt bool) (Qualifier, error) {
+func (r *attrFactory) NewQualifier(objType *types.Type, qualID int64, val any, opt bool) (Qualifier, error) {
 	// Before creating a new qualifier check to see if this is a protobuf message field access.
 	// If so, use the precomputed GetFrom qualification method rather than the standard
 	// stringQualifier.
 	str, isStr := val.(string)
-	if isStr && objType != nil && objType.GetMessageType() != "" {
-		ft, found := r.provider.FindFieldType(objType.GetMessageType(), str)
+	if isStr && objType != nil && objType.Kind == types.StructKind {
+		ft, found := r.provider.FindFieldType(objType.TypeName(), str)
 		if found && ft.IsSet != nil && ft.GetFrom != nil {
 			return &fieldQualifier{
 				id:        qualID,

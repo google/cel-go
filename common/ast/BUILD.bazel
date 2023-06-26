@@ -5,6 +5,7 @@ package(
         "//cel:__subpackages__",
         "//checker:__subpackages__",
         "//common:__subpackages__",
+        "//interpreter:__subpackages__",
     ],
     licenses = ["notice"],  # Apache 2.0
 )

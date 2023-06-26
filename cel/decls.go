@@ -17,7 +17,6 @@ package cel
 import (
 	"fmt"
 
-	chkdecls "github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/functions"
 	"github.com/google/cel-go/common/types"
@@ -134,11 +133,7 @@ type Type = types.Type
 // Variable creates an instance of a variable declaration with a variable name and type.
 func Variable(name string, t *Type) EnvOption {
 	return func(e *Env) (*Env, error) {
-		et, err := TypeToExprType(t)
-		if err != nil {
-			return nil, err
-		}
-		e.declarations = append(e.declarations, chkdecls.NewVar(name, et))
+		e.variables = append(e.variables, decls.NewVariable(name, t))
 		return e, nil
 	}
 }

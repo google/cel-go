@@ -32,7 +32,6 @@ import (
 	"github.com/google/cel-go/parser"
 
 	proto3pb "github.com/google/cel-go/test/proto3pb"
-	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 func TestTrackCostAdvanced(t *testing.T) {
@@ -109,7 +108,7 @@ func TestTrackCostAdvanced(t *testing.T) {
 	}
 }
 
-func computeCost(t *testing.T, expr string, decls []*exprpb.Decl, ctx Activation, options []CostTrackerOption) (cost uint64, est checker.CostEstimate, err error) {
+func computeCost(t *testing.T, expr string, vars []*decls.VariableDecl, ctx Activation, options []CostTrackerOption) (cost uint64, est checker.CostEstimate, err error) {
 	t.Helper()
 
 	s := common.NewTextSource(expr)
@@ -126,7 +125,7 @@ func computeCost(t *testing.T, expr string, decls []*exprpb.Decl, ctx Activation
 	reg := newTestRegistry(t, &proto3pb.TestAllTypes{})
 	attrs := NewAttributeFactory(cont, reg, reg)
 	env := newTestEnv(t, cont, reg)
-	err = env.Add(decls...)
+	err = env.AddIdents(vars...)
 	if err != nil {
 		t.Fatalf("Failed to initialize env: %v", err)
 	}
@@ -784,7 +783,7 @@ func TestRuntimeCost(t *testing.T) {
 			if costLimit != nil {
 				options = append(options, CostTrackerLimit(*costLimit))
 			}
-			actualCost, est, err := computeCost(t, tc.expr, varExprDecls(t, tc.vars...), ctx, options)
+			actualCost, est, err := computeCost(t, tc.expr, tc.vars, ctx, options)
 			if err != nil {
 				if tc.expectExceedsLimit {
 					return
