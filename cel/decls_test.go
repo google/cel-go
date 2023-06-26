@@ -146,8 +146,14 @@ func TestFunctionMerge(t *testing.T) {
 		t.Errorf("prg.Eval() got %v, wanted %v", out, want)
 	}
 
-	_, err = NewCustomEnv(size, size)
-	if err == nil || !strings.Contains(err.Error(), "already has singleton binding") {
+	sizeBad := Function("size",
+		Overload("size_vector", []*Type{OpaqueType("vector", TypeParamType("V"))}, IntType),
+		MemberOverload("vector_size", []*Type{OpaqueType("vector", TypeParamType("V"))}, IntType),
+		SingletonBinaryBinding(func(lhs, rhs ref.Val) ref.Val {
+			return nil
+		}))
+	_, err = NewCustomEnv(size, sizeBad)
+	if err == nil || !strings.Contains(err.Error(), "already has a singleton binding") {
 		t.Errorf("NewCustomEnv(size, size) did not produce the expected error: %v", err)
 	}
 	e, err = NewCustomEnv(size,

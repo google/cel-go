@@ -262,16 +262,29 @@ func (t *Type) HasTrait(trait int) bool {
 	return trait&t.traitMask == trait
 }
 
-// IsType indicates whether two types have the same kind, type name, and parameters.
-func (t *Type) IsType(other *Type) bool {
+// IsExactType indicates whether the two types are exactly the same. This check also verifies type parameter type names.
+func (t *Type) IsExactType(other *Type) bool {
+	return t.isTypeInternal(other, true)
+}
+
+// IsEquivalentType indicates whether two types are equivalent. This check ignores type parameter type names.
+func (t *Type) IsEquivalentType(other *Type) bool {
+	return t.isTypeInternal(other, false)
+}
+
+// isTypeInternal checks whether the two types are equivalent or exactly the same based on the checkTypeParamName flag.
+func (t *Type) isTypeInternal(other *Type, checkTypeParamName bool) bool {
+	if t == other {
+		return true
+	}
 	if t.Kind != other.Kind || len(t.Parameters) != len(other.Parameters) {
 		return false
 	}
-	if t.Kind != TypeParamKind && t.DeclaredTypeName() != other.DeclaredTypeName() {
+	if (checkTypeParamName || t.Kind != TypeParamKind) && t.TypeName() != other.TypeName() {
 		return false
 	}
 	for i, p := range t.Parameters {
-		if !p.IsType(other.Parameters[i]) {
+		if !p.isTypeInternal(other.Parameters[i], checkTypeParamName) {
 			return false
 		}
 	}
@@ -536,6 +549,8 @@ func TypeToExprType(t *Type) (*exprpb.Type, error) {
 		return chkdecls.Duration, nil
 	case DynKind:
 		return chkdecls.Dyn, nil
+	case ErrorKind:
+		return chkdecls.Error, nil
 	case IntKind:
 		return maybeWrapper(t, chkdecls.Int), nil
 	case ListKind:
