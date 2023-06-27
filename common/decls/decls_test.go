@@ -15,6 +15,7 @@
 package decls
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -275,15 +276,15 @@ func TestFunctionMerge(t *testing.T) {
 	if (sizeMerged.Name) != "size" {
 		t.Errorf("Merge() produced a function with name %v, wanted 'size'", sizeMerged.Name)
 	}
-	if len(sizeMerged.Overloads) != 3 {
-		t.Errorf("Merge() produced %d overloads, wanted 3", len(sizeFunc.Overloads))
+	if len(sizeMerged.overloads) != 3 {
+		t.Errorf("Merge() produced %d overloads, wanted 3", len(sizeFunc.overloads))
 	}
 	overloads := map[string]bool{
 		"list_size":   true,
 		"map_size":    true,
 		"vector_size": true,
 	}
-	for _, o := range sizeMerged.Overloads {
+	for _, o := range sizeMerged.overloads {
 		delete(overloads, o.ID)
 	}
 	if len(overloads) != 0 {
@@ -397,7 +398,7 @@ func TestFunctionMergeSingletonRedefinition(t *testing.T) {
 		t.Fatalf("NewFunction() failed: %v", err)
 	}
 	_, err = sizeFunc.Merge(sizeVecFunc)
-	if err == nil || !strings.Contains(err.Error(), "already has singleton") {
+	if err == nil || !strings.Contains(err.Error(), "already has a singleton") {
 		t.Fatalf("Merge() expected to fail, got: %v", err)
 	}
 }
@@ -658,6 +659,36 @@ func TestOverloadOperandTrait(t *testing.T) {
 	out = bindings[0].Function(m, noSuchKey, types.String("goodbye"))
 	if out != noSuchKey {
 		t.Errorf("function got %v, wanted 'no such key'", out)
+	}
+}
+
+func TestFunctionGetTypeParams(t *testing.T) {
+	fn, err := NewFunction("deep_type_params",
+		Overload("no_type_params", []*types.Type{}, types.DynType),
+		Overload("one_type_param", []*types.Type{types.BoolType}, types.NewTypeParamType("K")),
+		Overload("deep_type_params",
+			[]*types.Type{types.NewTypeParamType("E1"),
+				types.NewMapType(types.NewTypeParamType("K"), types.NewTypeParamType("V"))},
+			types.NewTypeParamType("V"),
+		),
+	)
+	if err != nil {
+		t.Fatalf("NewFunction() failed: %v", err)
+	}
+	if len(fn.OverloadDecls()) != 3 {
+		t.Fatal("fn.OverloadDecls() not equal to 3")
+	}
+	o1 := fn.OverloadDecls()[0]
+	o2 := fn.OverloadDecls()[1]
+	o3 := fn.OverloadDecls()[2]
+	if len(o1.GetTypeParams()) != 0 {
+		t.Errorf("overload %v did not have zero type-params", o1)
+	}
+	if len(o2.GetTypeParams()) != 1 && !reflect.DeepEqual(o2.GetTypeParams(), []string{"K"}) {
+		t.Errorf("overload %v did not have a single type param", o2)
+	}
+	if len(o3.GetTypeParams()) != 3 {
+		t.Errorf("overload %v did not have three type params", o3)
 	}
 }
 
@@ -959,15 +990,25 @@ func TestFunctionDeclToExprDeclInvalid(t *testing.T) {
 
 func TestNewVariable(t *testing.T) {
 	a := NewVariable("a", types.BoolType)
-	if !a.DeclarationEquals(a) {
+	if !a.DeclarationIsEquivalent(a) {
 		t.Error("NewVariable(a, bool) does not equal itself")
 	}
-	if !a.DeclarationEquals(NewVariable("a", types.BoolType)) {
+	if !a.DeclarationIsEquivalent(NewVariable("a", types.BoolType)) {
 		t.Error("NewVariable(a, bool) does not equal itself")
 	}
 	a1 := NewVariable("a", types.IntType)
-	if a.DeclarationEquals(a1) {
+	if a.DeclarationIsEquivalent(a1) {
 		t.Error("NewVariable(a, int).DeclarationEquals(NewVariable(a, bool))")
+	}
+}
+
+func TestNewConstant(t *testing.T) {
+	a := NewConstant("a", types.IntType, types.Int(42))
+	if !a.DeclarationIsEquivalent(a) {
+		t.Error("NewConstant(a, int) does not equal itself")
+	}
+	if !a.DeclarationIsEquivalent(NewVariable("a", types.IntType)) {
+		t.Error("NewConstant(a, int) is not declaration equivalent to int variable")
 	}
 }
 
@@ -994,7 +1035,7 @@ func TestTypeVariable(t *testing.T) {
 		},
 	}
 	for _, tst := range tests {
-		if !TypeVariable(tst.t).DeclarationEquals(tst.v) {
+		if !TypeVariable(tst.t).DeclarationIsEquivalent(tst.v) {
 			t.Errorf("got not equal %v.Equals(%v)", TypeVariable(tst.t), tst.v)
 		}
 	}

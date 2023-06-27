@@ -93,51 +93,105 @@ func TestTypeString(t *testing.T) {
 	}
 }
 
-func TestTypeIsType(t *testing.T) {
+func TestTypeIsExactType(t *testing.T) {
 	tests := []struct {
-		t1     *Type
-		t2     *Type
-		isType bool
+		t1      *Type
+		t2      *Type
+		isExact bool
 	}{
 		{
-			t1:     StringType,
-			t2:     StringType,
-			isType: true,
+			t1:      StringType,
+			t2:      StringType,
+			isExact: true,
 		},
 		{
-			t1:     StringType,
-			t2:     IntType,
-			isType: false,
+			t1:      StringType,
+			t2:      IntType,
+			isExact: false,
 		},
 		{
-			t1:     NewOptionalType(StringType),
-			t2:     NewOptionalType(IntType),
-			isType: false,
+			t1:      NewOptionalType(StringType),
+			t2:      NewOptionalType(IntType),
+			isExact: false,
 		},
 		{
-			t1:     NewOptionalType(UintType),
-			t2:     NewOptionalType(UintType),
-			isType: true,
+			t1:      NewOptionalType(UintType),
+			t2:      NewOptionalType(UintType),
+			isExact: true,
 		},
 		{
-			t1:     NewMapType(BoolType, IntType),
-			t2:     NewMapType(BoolType, IntType),
-			isType: true,
+			t1:      NewOptionalType(NewTypeParamType("T")),
+			t2:      NewOptionalType(NewTypeParamType("T")),
+			isExact: true,
 		},
 		{
-			t1:     NewMapType(NewTypeParamType("K1"), IntType),
-			t2:     NewMapType(NewTypeParamType("K2"), IntType),
-			isType: true,
+			t1:      NewMapType(BoolType, IntType),
+			t2:      NewMapType(BoolType, IntType),
+			isExact: true,
 		},
 		{
-			t1:     NewMapType(NewTypeParamType("K1"), NewObjectType("my.msg.First")),
-			t2:     NewMapType(NewTypeParamType("K2"), NewObjectType("my.msg.Last")),
-			isType: false,
+			t1:      NewMapType(NewTypeParamType("K1"), IntType),
+			t2:      NewMapType(NewTypeParamType("K2"), IntType),
+			isExact: false,
+		},
+		{
+			t1:      NewMapType(NewTypeParamType("K1"), NewObjectType("my.msg.First")),
+			t2:      NewMapType(NewTypeParamType("K2"), NewObjectType("my.msg.Last")),
+			isExact: false,
 		},
 	}
 	for _, tst := range tests {
-		if tst.t1.IsType(tst.t2) != tst.isType {
-			t.Errorf("%v.IsType(%v) got %v, wanted %v", tst.t1, tst.t2, !tst.isType, tst.isType)
+		if tst.t1.IsExactType(tst.t2) != tst.isExact {
+			t.Errorf("%v.IsExactsType(%v) got %v, wanted %v", tst.t1, tst.t2, !tst.isExact, tst.isExact)
+		}
+	}
+}
+
+func TestTypeIsEquivalentType(t *testing.T) {
+	tests := []struct {
+		t1           *Type
+		t2           *Type
+		isEquivalent bool
+	}{
+		{
+			t1:           StringType,
+			t2:           StringType,
+			isEquivalent: true,
+		},
+		{
+			t1:           StringType,
+			t2:           IntType,
+			isEquivalent: false,
+		},
+		{
+			t1:           NewOptionalType(StringType),
+			t2:           NewOptionalType(IntType),
+			isEquivalent: false,
+		},
+		{
+			t1:           NewOptionalType(UintType),
+			t2:           NewOptionalType(UintType),
+			isEquivalent: true,
+		},
+		{
+			t1:           NewMapType(BoolType, IntType),
+			t2:           NewMapType(BoolType, IntType),
+			isEquivalent: true,
+		},
+		{
+			t1:           NewMapType(NewTypeParamType("K1"), IntType),
+			t2:           NewMapType(NewTypeParamType("K2"), IntType),
+			isEquivalent: true,
+		},
+		{
+			t1:           NewMapType(NewTypeParamType("K1"), NewObjectType("my.msg.First")),
+			t2:           NewMapType(NewTypeParamType("K2"), NewObjectType("my.msg.Last")),
+			isEquivalent: false,
+		},
+	}
+	for _, tst := range tests {
+		if tst.t1.IsEquivalentType(tst.t2) != tst.isEquivalent {
+			t.Errorf("%v.IsEquivalentType(%v) got %v, wanted %v", tst.t1, tst.t2, !tst.isEquivalent, tst.isEquivalent)
 		}
 	}
 }
@@ -212,27 +266,82 @@ func TestTypeIsAssignableType(t *testing.T) {
 }
 
 func TestTypeIsAssignableRuntimeType(t *testing.T) {
-	if !NewNullableType(DoubleType).IsAssignableRuntimeType(NullValue) {
-		t.Error("nullable double cannot be assigned from null")
+	tests := []struct {
+		t                   *Type
+		v                   any
+		isRuntimeAssignable bool
+	}{
+		{
+			t:                   NewNullableType(DoubleType),
+			v:                   NullValue,
+			isRuntimeAssignable: true,
+		},
+		{
+			t:                   NewNullableType(DoubleType),
+			v:                   0.0,
+			isRuntimeAssignable: true,
+		},
+		{
+			t:                   NewListType(StringType),
+			v:                   map[string]time.Duration{},
+			isRuntimeAssignable: false,
+		},
+		{
+			t:                   NewListType(StringType),
+			v:                   []time.Duration{},
+			isRuntimeAssignable: true,
+		},
+		{
+			t:                   NewListType(StringType),
+			v:                   []time.Duration{time.Duration(1)},
+			isRuntimeAssignable: false,
+		},
+		{
+			t:                   NewListType(StringType),
+			v:                   []string{"hello"},
+			isRuntimeAssignable: true,
+		},
+		{
+			t:                   NewMapType(StringType, DurationType),
+			v:                   map[string]time.Duration{},
+			isRuntimeAssignable: true,
+		},
+		{
+			t:                   NewMapType(StringType, DurationType),
+			v:                   map[string]string{},
+			isRuntimeAssignable: true,
+		},
+		{
+			t:                   NewMapType(StringType, DurationType),
+			v:                   map[string]time.Duration{"one": time.Duration(1)},
+			isRuntimeAssignable: true,
+		},
+		{
+			t:                   NewMapType(StringType, DynType),
+			v:                   map[string]time.Duration{"one": time.Duration(1)},
+			isRuntimeAssignable: true,
+		},
+		{
+			t:                   NewMapType(DynType, DynType),
+			v:                   map[string]time.Duration{"one": time.Duration(1)},
+			isRuntimeAssignable: true,
+		},
+		{
+			t:                   NewMapType(DynType, DynType),
+			v:                   map[string]time.Duration{},
+			isRuntimeAssignable: true,
+		},
+		{
+			t:                   NewMapType(StringType, DurationType),
+			v:                   map[string]int32{"one": 1},
+			isRuntimeAssignable: false,
+		},
 	}
-	if !NewNullableType(DoubleType).IsAssignableRuntimeType(Double(0.0)) {
-		t.Error("nullable double cannot be assigned from double")
-	}
-	if !NewMapType(StringType, DurationType).IsAssignableRuntimeType(
-		DefaultTypeAdapter.NativeToValue(map[string]time.Duration{})) {
-		t.Error("map(string, duration) not assignable to map at runtime")
-	}
-	if !NewMapType(StringType, DurationType).IsAssignableRuntimeType(
-		DefaultTypeAdapter.NativeToValue(map[string]time.Duration{"one": time.Duration(1)})) {
-		t.Error("map(string, duration) not assignable to map at runtime")
-	}
-	if !NewMapType(StringType, DynType).IsAssignableRuntimeType(
-		DefaultTypeAdapter.NativeToValue(map[string]time.Duration{"one": time.Duration(1)})) {
-		t.Error("map(string, dyn) not assignable to map at runtime")
-	}
-	if NewMapType(StringType, DynType).IsAssignableRuntimeType(
-		DefaultTypeAdapter.NativeToValue(map[int64]time.Duration{1: time.Duration(1)})) {
-		t.Error("map(string, dyn) must not be assignable to map(int, duration) at runtime")
+	for _, tst := range tests {
+		val := DefaultTypeAdapter.NativeToValue(tst.v)
+		if tst.t.IsAssignableRuntimeType(val) != tst.isRuntimeAssignable {
+			t.Errorf("%v.IsAssignableRuntimeType(%v) got %v, wanted %v", tst.t, val, !tst.isRuntimeAssignable, tst.isRuntimeAssignable)
+		}
 	}
 }
 
@@ -409,6 +518,11 @@ func TestTypeToExprType(t *testing.T) {
 			out:            chkdecls.NewWrapperType(chkdecls.Uint),
 			unidirectional: true,
 		},
+		{
+			in:             ErrorType,
+			out:            chkdecls.Error,
+			unidirectional: true,
+		},
 	}
 
 	for _, tc := range tests {
@@ -428,7 +542,7 @@ func TestTypeToExprType(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ExprTypeToType(%v) failed: %v", got, err)
 			}
-			if !tc.in.IsType(roundTrip) {
+			if !tc.in.IsEquivalentType(roundTrip) {
 				t.Errorf("ExprTypeToType(%v) returned %v, wanted %v", got, roundTrip, tc.in)
 			}
 		})
@@ -585,7 +699,7 @@ func TestExprTypeToType(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ExprTypeToType(%v) failed: %v", tc.in, err)
 			}
-			if !got.IsType(tc.out) {
+			if !got.IsEquivalentType(tc.out) {
 				t.Errorf("ExprTypeToType(%v) returned %v, wanted %v", tc.in, got, tc.out)
 			}
 		})
@@ -653,6 +767,18 @@ func TestTypeHasTrait(t *testing.T) {
 }
 
 func TestTypeConvertToType(t *testing.T) {
+	if BoolType.ConvertToType(TypeType) != TypeType {
+		t.Error("ConvertToType(TypeType) did not produce type value")
+	}
+	if BoolType.ConvertToType(StringType) != String("bool") {
+		t.Error("ConvertToType(StringType) did not produce 'bool'")
+	}
+	if !IsError(BoolType.ConvertToType(IntType)) {
+		t.Error("ConvertToType(IntType) did not produce error")
+	}
+}
+
+func TestTypeConvertToNative(t *testing.T) {
 	_, err := BoolType.ConvertToNative(reflect.TypeOf(true))
 	if err == nil {
 		t.Error("ConvertToNative() did not error")
