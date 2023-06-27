@@ -9,6 +9,7 @@ go_library(
     srcs = [
         "encoders.go",
         "guards.go",
+        "lists.go",
         "math.go",
         "native.go",
         "protos.go",
@@ -40,6 +41,7 @@ go_test(
     size = "small",
     srcs = [
         "encoders_test.go",
+        "lists_test.go",
         "math_test.go",
         "native_test.go",
         "protos_test.go",
