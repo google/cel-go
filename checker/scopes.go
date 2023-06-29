@@ -69,7 +69,7 @@ func (s *Scopes) Pop() *Scopes {
 // AddIdent adds the ident Decl in the current scope.
 // Note: If the name collides with an existing identifier in the scope, the Decl is overwritten.
 func (s *Scopes) AddIdent(decl *decls.VariableDecl) {
-	s.scopes.idents[decl.Name] = decl
+	s.scopes.idents[decl.Name()] = decl
 }
 
 // FindIdent finds the first ident Decl with a matching name in Scopes, or nil if one cannot be

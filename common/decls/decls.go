@@ -726,19 +726,44 @@ func OverloadOperandTrait(trait int) OverloadOpt {
 
 // NewConstant creates a new constant declaration.
 func NewConstant(name string, t *types.Type, v ref.Val) *VariableDecl {
-	return &VariableDecl{Name: name, Type: t, Value: v}
+	return &VariableDecl{name: name, varType: t, value: v}
 }
 
 // NewVariable creates a new variable declaration.
 func NewVariable(name string, t *types.Type) *VariableDecl {
-	return &VariableDecl{Name: name, Type: t}
+	return &VariableDecl{name: name, varType: t}
 }
 
 // VariableDecl defines a variable declaration which may optionally have a constant value.
 type VariableDecl struct {
-	Name  string
-	Type  *types.Type
-	Value ref.Val
+	name    string
+	varType *types.Type
+	value   ref.Val
+}
+
+// Name returns the fully-qualified variable name
+func (v *VariableDecl) Name() string {
+	if v == nil {
+		return ""
+	}
+	return v.name
+}
+
+// Type returns the types.Type value associated with the variable.
+func (v *VariableDecl) Type() *types.Type {
+	if v == nil {
+		// types.Type is nil-safe
+		return nil
+	}
+	return v.varType
+}
+
+// Value returns the constant value associated with the declaration.
+func (v *VariableDecl) Value() ref.Val {
+	if v == nil {
+		return nil
+	}
+	return v.value
 }
 
 // DeclarationIsEquivalent returns true if one variable declaration has the same name and same type as the input.
@@ -746,16 +771,16 @@ func (v *VariableDecl) DeclarationIsEquivalent(other *VariableDecl) bool {
 	if v == other {
 		return true
 	}
-	return v.Name == other.Name && v.Type.IsEquivalentType(other.Type)
+	return v.Name() == other.Name() && v.Type().IsEquivalentType(other.Type())
 }
 
 // VariableDeclToExprDecl converts a go-native variable declaration into a protobuf-type variable declaration.
 func VariableDeclToExprDecl(v *VariableDecl) (*exprpb.Decl, error) {
-	varType, err := types.TypeToExprType(v.Type)
+	varType, err := types.TypeToExprType(v.Type())
 	if err != nil {
 		return nil, err
 	}
-	return chkdecls.NewVar(v.Name, varType), nil
+	return chkdecls.NewVar(v.Name(), varType), nil
 }
 
 // TypeVariable creates a new type identifier for use within a ref.TypeProvider

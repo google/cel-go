@@ -413,7 +413,7 @@ func (e *Env) UnknownVars() interpreter.PartialActivation {
 	var unknownPatterns []*interpreter.AttributePattern
 	for _, v := range e.variables {
 		unknownPatterns = append(unknownPatterns,
-			interpreter.NewAttributePattern(v.Name))
+			interpreter.NewAttributePattern(v.Name()))
 	}
 	part, _ := PartialVars(
 		interpreter.EmptyActivation(),

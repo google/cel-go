@@ -202,12 +202,12 @@ func (e *Env) setFunction(fn *decls.FunctionDecl) []errorMsg {
 // addIdent adds the Decl to the declarations in the Env.
 // Returns a non-empty errorMsg if the identifier is already declared in the scope.
 func (e *Env) addIdent(decl *decls.VariableDecl) errorMsg {
-	current := e.declarations.FindIdentInScope(decl.Name)
+	current := e.declarations.FindIdentInScope(decl.Name())
 	if current != nil {
 		if current.DeclarationIsEquivalent(decl) {
 			return ""
 		}
-		return overlappingIdentifierError(decl.Name)
+		return overlappingIdentifierError(decl.Name())
 	}
 	e.declarations.AddIdent(decl)
 	return ""

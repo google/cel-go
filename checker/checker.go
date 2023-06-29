@@ -146,10 +146,10 @@ func (c *checker) checkIdent(e *exprpb.Expr) {
 	identExpr := e.GetIdentExpr()
 	// Check to see if the identifier is declared.
 	if ident := c.env.LookupIdent(identExpr.GetName()); ident != nil {
-		c.setType(e, ident.Type)
-		c.setReference(e, ast.NewIdentReference(ident.Name, ident.Value))
+		c.setType(e, ident.Type())
+		c.setReference(e, ast.NewIdentReference(ident.Name(), ident.Value()))
 		// Overwrite the identifier with its fully qualified name.
-		identExpr.Name = ident.Name
+		identExpr.Name = ident.Name()
 		return
 	}
 
@@ -169,9 +169,9 @@ func (c *checker) checkSelect(e *exprpb.Expr) {
 
 			// Rewrite the node to be a variable reference to the resolved fully-qualified
 			// variable name.
-			c.setType(e, ident.Type)
-			c.setReference(e, ast.NewIdentReference(ident.Name, ident.Value))
-			identName := ident.Name
+			c.setType(e, ident.Type())
+			c.setReference(e, ast.NewIdentReference(ident.Name(), ident.Value()))
+			identName := ident.Name()
 			e.ExprKind = &exprpb.Expr_IdentExpr{
 				IdentExpr: &exprpb.Expr_Ident{
 					Name: identName,
@@ -493,15 +493,15 @@ func (c *checker) checkCreateMessage(e *exprpb.Expr) {
 		return
 	}
 	// Ensure the type name is fully qualified in the AST.
-	typeName := ident.Name
+	typeName := ident.Name()
 	msgVal.MessageName = typeName
-	c.setReference(e, ast.NewIdentReference(ident.Name, nil))
-	identKind := ident.Type.Kind()
+	c.setReference(e, ast.NewIdentReference(ident.Name(), nil))
+	identKind := ident.Type().Kind()
 	if identKind != types.ErrorKind {
 		if identKind != types.TypeKind {
-			c.errors.notAType(e.GetId(), c.location(e), ident.Type.DeclaredTypeName())
+			c.errors.notAType(e.GetId(), c.location(e), ident.Type().DeclaredTypeName())
 		} else {
-			resultType = ident.Type.Parameters()[0]
+			resultType = ident.Type().Parameters()[0]
 			// Backwards compatibility test between well-known types and message types
 			// In this context, the type is being instantiated by its protobuf name which
 			// is not ideal or recommended, but some users expect this to work.
