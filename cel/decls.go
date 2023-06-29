@@ -173,13 +173,13 @@ func Function(name string, opts ...FunctionOpt) EnvOption {
 		if err != nil {
 			return nil, err
 		}
-		if existing, found := e.functions[fn.Name]; found {
+		if existing, found := e.functions[fn.Name()]; found {
 			fn, err = existing.Merge(fn)
 			if err != nil {
 				return nil, err
 			}
 		}
-		e.functions[fn.Name] = fn
+		e.functions[fn.Name()] = fn
 		return e, nil
 	}
 }

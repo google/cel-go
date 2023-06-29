@@ -277,7 +277,7 @@ func (c *checker) checkCall(e *exprpb.Expr) {
 			return
 		}
 		// Overwrite the function name with its fully qualified resolved name.
-		call.Function = fn.Name
+		call.Function = fn.Name()
 		// Check to see whether the overload resolves.
 		c.resolveOverloadOrError(e, fn, nil, args)
 		return
@@ -297,7 +297,7 @@ func (c *checker) checkCall(e *exprpb.Expr) {
 			// be an inaccurate representation of the desired evaluation behavior.
 			// Overwrite with fully-qualified resolved function name sans receiver target.
 			call.Target = nil
-			call.Function = fn.Name
+			call.Function = fn.Name()
 			c.resolveOverloadOrError(e, fn, nil, args)
 			return
 		}
@@ -345,21 +345,21 @@ func (c *checker) resolveOverload(
 	var checkedRef *ast.ReferenceInfo
 	for _, overload := range fn.OverloadDecls() {
 		// Determine whether the overload is currently considered.
-		if c.env.isOverloadDisabled(overload.ID) {
+		if c.env.isOverloadDisabled(overload.ID()) {
 			continue
 		}
 
 		// Ensure the call style for the overload matches.
-		if (target == nil && overload.IsMemberFunction) ||
-			(target != nil && !overload.IsMemberFunction) {
+		if (target == nil && overload.IsMemberFunction()) ||
+			(target != nil && !overload.IsMemberFunction()) {
 			// not a compatible call style.
 			continue
 		}
 
 		// Alternative type-checking behavior when the logical operators are compacted into
 		// variadic AST representations.
-		if fn.Name == operators.LogicalAnd || fn.Name == operators.LogicalOr {
-			checkedRef = ast.NewFunctionReference(overload.ID)
+		if fn.Name() == operators.LogicalAnd || fn.Name() == operators.LogicalOr {
+			checkedRef = ast.NewFunctionReference(overload.ID())
 			for i, argType := range argTypes {
 				if !c.isAssignable(argType, types.BoolType) {
 					c.errors.typeMismatch(
@@ -376,8 +376,8 @@ func (c *checker) resolveOverload(
 			return newResolution(checkedRef, types.BoolType)
 		}
 
-		overloadType := newFunctionType(overload.ResultType, overload.ArgTypes...)
-		typeParams := overload.GetTypeParams()
+		overloadType := newFunctionType(overload.ResultType(), overload.ArgTypes()...)
+		typeParams := overload.TypeParams()
 		if len(typeParams) != 0 {
 			// Instantiate overload's type with fresh type variables.
 			substitutions := newMapping()
@@ -390,9 +390,9 @@ func (c *checker) resolveOverload(
 		candidateArgTypes := overloadType.Parameters()[1:]
 		if c.isAssignableList(argTypes, candidateArgTypes) {
 			if checkedRef == nil {
-				checkedRef = ast.NewFunctionReference(overload.ID)
+				checkedRef = ast.NewFunctionReference(overload.ID())
 			} else {
-				checkedRef.AddOverload(overload.ID)
+				checkedRef.AddOverload(overload.ID())
 			}
 
 			// First matching overload, determines result type.
@@ -409,7 +409,7 @@ func (c *checker) resolveOverload(
 		for i, argType := range argTypes {
 			argTypes[i] = substitute(c.mappings, argType, true)
 		}
-		c.errors.noMatchingOverload(call.GetId(), c.location(call), fn.Name, argTypes, target != nil)
+		c.errors.noMatchingOverload(call.GetId(), c.location(call), fn.Name(), argTypes, target != nil)
 		return nil
 	}
 

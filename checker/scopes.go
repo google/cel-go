@@ -98,7 +98,7 @@ func (s *Scopes) FindIdentInScope(name string) *decls.VariableDecl {
 // SetFunction adds the function Decl to the current scope.
 // Note: Any previous entry for a function in the current scope with the same name is overwritten.
 func (s *Scopes) SetFunction(fn *decls.FunctionDecl) {
-	s.scopes.functions[fn.Name] = fn
+	s.scopes.functions[fn.Name()] = fn
 }
 
 // FindFunction finds the first function Decl with a matching name in Scopes.

@@ -33,7 +33,7 @@ import (
 // Functions are checked for name collisions and singleton redefinition.
 func NewFunction(name string, opts ...FunctionOpt) (*FunctionDecl, error) {
 	fn := &FunctionDecl{
-		Name:             name,
+		name:             name,
 		overloads:        map[string]*OverloadDecl{},
 		overloadOrdinals: []string{},
 	}
@@ -53,17 +53,16 @@ func NewFunction(name string, opts ...FunctionOpt) (*FunctionDecl, error) {
 // FunctionDecl defines a function name, overload set, and optionally a singleton definition for all
 // overload instances.
 type FunctionDecl struct {
-	// Name of the function in human-readable terms, e.g. 'contains' of 'math.least'
-	Name string
+	name string
 
 	// overloads associated with the function name.
 	overloads map[string]*OverloadDecl
 
-	// Singleton implementation of the function for all overloads.
+	// singleton implementation of the function for all overloads.
 	//
 	// If this option is set, an error will occur if any overloads specify a per-overload implementation
 	// or if another function with the same name attempts to redefine the singleton.
-	Singleton *functions.Overload
+	singleton *functions.Overload
 
 	// disableTypeGuards is a performance optimization to disable detailed runtime type checks which could
 	// add overhead on common operations. Setting this option true leaves error checks and argument checks
@@ -85,6 +84,14 @@ const (
 	declarationEnabled
 )
 
+// Name returns the function name in human-readable terms, e.g. 'contains' of 'math.least'
+func (f *FunctionDecl) Name() string {
+	if f == nil {
+		return ""
+	}
+	return f.name
+}
+
 // IsDeclarationDisabled indicates that the function implementation should be added to the dispatcher, but the
 // declaration should not be exposed for use in expressions.
 func (f *FunctionDecl) IsDeclarationDisabled() bool {
@@ -100,13 +107,13 @@ func (f *FunctionDecl) Merge(other *FunctionDecl) (*FunctionDecl, error) {
 	if f == other {
 		return f, nil
 	}
-	if f.Name != other.Name {
-		return nil, fmt.Errorf("cannot merge unrelated functions. %s and %s", f.Name, other.Name)
+	if f.Name() != other.Name() {
+		return nil, fmt.Errorf("cannot merge unrelated functions. %s and %s", f.Name(), other.Name())
 	}
 	merged := &FunctionDecl{
-		Name:             f.Name,
+		name:             f.Name(),
 		overloads:        make(map[string]*OverloadDecl, len(f.overloads)),
-		Singleton:        f.Singleton,
+		singleton:        f.singleton,
 		overloadOrdinals: make([]string, len(f.overloads)),
 		// if one function is expecting type-guards and the other is not, then they
 		// must not be disabled.
@@ -132,11 +139,11 @@ func (f *FunctionDecl) Merge(other *FunctionDecl) (*FunctionDecl, error) {
 			return nil, fmt.Errorf("function declaration merge failed: %v", err)
 		}
 	}
-	if other.Singleton != nil {
-		if merged.Singleton != nil && merged.Singleton != other.Singleton {
-			return nil, fmt.Errorf("function already has a singleton binding: %s", f.Name)
+	if other.singleton != nil {
+		if merged.singleton != nil && merged.singleton != other.singleton {
+			return nil, fmt.Errorf("function already has a singleton binding: %s", f.Name())
 		}
-		merged.Singleton = other.Singleton
+		merged.singleton = other.singleton
 	}
 	return merged, nil
 }
@@ -145,26 +152,32 @@ func (f *FunctionDecl) Merge(other *FunctionDecl) (*FunctionDecl, error) {
 // however, if the function signatures are identical, the implementation may be rewritten as its
 // difficult to compare functions by object identity.
 func (f *FunctionDecl) AddOverload(overload *OverloadDecl) error {
+	if f == nil {
+		return fmt.Errorf("nil function cannot add overload: %s", overload.ID())
+	}
 	for oID, o := range f.overloads {
-		if oID != overload.ID && o.SignatureOverlaps(overload) {
-			return fmt.Errorf("overload signature collision in function %s: %s collides with %s", f.Name, oID, overload.ID)
+		if oID != overload.ID() && o.SignatureOverlaps(overload) {
+			return fmt.Errorf("overload signature collision in function %s: %s collides with %s", f.Name(), oID, overload.ID())
 		}
-		if oID == overload.ID {
-			if o.SignatureEquals(overload) && o.NonStrict == overload.NonStrict {
+		if oID == overload.ID() {
+			if o.SignatureEquals(overload) && o.IsNonStrict() == overload.IsNonStrict() {
 				// Allow redefinition of an overload implementation so long as the signatures match.
 				f.overloads[oID] = overload
 				return nil
 			}
-			return fmt.Errorf("overload redefinition in function. %s: %s has multiple definitions", f.Name, oID)
+			return fmt.Errorf("overload redefinition in function. %s: %s has multiple definitions", f.Name(), oID)
 		}
 	}
-	f.overloadOrdinals = append(f.overloadOrdinals, overload.ID)
-	f.overloads[overload.ID] = overload
+	f.overloadOrdinals = append(f.overloadOrdinals, overload.ID())
+	f.overloads[overload.ID()] = overload
 	return nil
 }
 
 // OverloadDecls returns the overload declarations in the order in which they were declared.
 func (f *FunctionDecl) OverloadDecls() []*OverloadDecl {
+	if f == nil {
+		return []*OverloadDecl{}
+	}
 	overloads := make([]*OverloadDecl, 0, len(f.overloads))
 	for _, oID := range f.overloadOrdinals {
 		overloads = append(overloads, f.overloads[oID])
@@ -174,34 +187,37 @@ func (f *FunctionDecl) OverloadDecls() []*OverloadDecl {
 
 // Bindings produces a set of function bindings, if any are defined.
 func (f *FunctionDecl) Bindings() ([]*functions.Overload, error) {
+	if f == nil {
+		return []*functions.Overload{}, nil
+	}
 	overloads := []*functions.Overload{}
 	nonStrict := false
 	for _, oID := range f.overloadOrdinals {
 		o := f.overloads[oID]
 		if o.hasBinding() {
 			overload := &functions.Overload{
-				Operator:     o.ID,
-				Unary:        o.guardedUnaryOp(f.Name, f.disableTypeGuards),
-				Binary:       o.guardedBinaryOp(f.Name, f.disableTypeGuards),
-				Function:     o.guardedFunctionOp(f.Name, f.disableTypeGuards),
-				OperandTrait: o.OperandTrait,
-				NonStrict:    o.NonStrict,
+				Operator:     o.ID(),
+				Unary:        o.guardedUnaryOp(f.Name(), f.disableTypeGuards),
+				Binary:       o.guardedBinaryOp(f.Name(), f.disableTypeGuards),
+				Function:     o.guardedFunctionOp(f.Name(), f.disableTypeGuards),
+				OperandTrait: o.OperandTrait(),
+				NonStrict:    o.IsNonStrict(),
 			}
 			overloads = append(overloads, overload)
-			nonStrict = nonStrict || o.NonStrict
+			nonStrict = nonStrict || o.IsNonStrict()
 		}
 	}
-	if f.Singleton != nil {
+	if f.singleton != nil {
 		if len(overloads) != 0 {
-			return nil, fmt.Errorf("singleton function incompatible with specialized overloads: %s", f.Name)
+			return nil, fmt.Errorf("singleton function incompatible with specialized overloads: %s", f.Name())
 		}
 		overloads = []*functions.Overload{
 			{
-				Operator:     f.Name,
-				Unary:        f.Singleton.Unary,
-				Binary:       f.Singleton.Binary,
-				Function:     f.Singleton.Function,
-				OperandTrait: f.Singleton.OperandTrait,
+				Operator:     f.Name(),
+				Unary:        f.singleton.Unary,
+				Binary:       f.singleton.Binary,
+				Function:     f.singleton.Function,
+				OperandTrait: f.singleton.OperandTrait,
 			},
 		}
 		// fall-through to return single overload case.
@@ -211,11 +227,11 @@ func (f *FunctionDecl) Bindings() ([]*functions.Overload, error) {
 	}
 	// Single overload. Replicate an entry for it using the function name as well.
 	if len(overloads) == 1 {
-		if overloads[0].Operator == f.Name {
+		if overloads[0].Operator == f.Name() {
 			return overloads, nil
 		}
 		return append(overloads, &functions.Overload{
-			Operator:     f.Name,
+			Operator:     f.Name(),
 			Unary:        overloads[0].Unary,
 			Binary:       overloads[0].Binary,
 			Function:     overloads[0].Function,
@@ -232,23 +248,23 @@ func (f *FunctionDecl) Bindings() ([]*functions.Overload, error) {
 			// are preserved in order to assist with the function resolution step.
 			switch len(args) {
 			case 1:
-				if o.UnaryOp != nil && o.matchesRuntimeSignature( /* disableTypeGuards=*/ false, args...) {
-					return o.UnaryOp(args[0])
+				if o.unaryOp != nil && o.matchesRuntimeSignature( /* disableTypeGuards=*/ false, args...) {
+					return o.unaryOp(args[0])
 				}
 			case 2:
-				if o.BinaryOp != nil && o.matchesRuntimeSignature( /* disableTypeGuards=*/ false, args...) {
-					return o.BinaryOp(args[0], args[1])
+				if o.binaryOp != nil && o.matchesRuntimeSignature( /* disableTypeGuards=*/ false, args...) {
+					return o.binaryOp(args[0], args[1])
 				}
 			}
-			if o.FunctionOp != nil && o.matchesRuntimeSignature( /* disableTypeGuards=*/ false, args...) {
-				return o.FunctionOp(args...)
+			if o.functionOp != nil && o.matchesRuntimeSignature( /* disableTypeGuards=*/ false, args...) {
+				return o.functionOp(args...)
 			}
 			// eventually this will fall through to the noSuchOverload below.
 		}
-		return MaybeNoSuchOverload(f.Name, args...)
+		return MaybeNoSuchOverload(f.Name(), args...)
 	}
 	function := &functions.Overload{
-		Operator:  f.Name,
+		Operator:  f.Name(),
 		Function:  funcDispatch,
 		NonStrict: nonStrict,
 	}
@@ -312,11 +328,11 @@ func SingletonUnaryBinding(fn functions.UnaryOp, traits ...int) FunctionOpt {
 		trait = trait | t
 	}
 	return func(f *FunctionDecl) (*FunctionDecl, error) {
-		if f.Singleton != nil {
-			return nil, fmt.Errorf("function already has a singleton binding: %s", f.Name)
+		if f.singleton != nil {
+			return nil, fmt.Errorf("function already has a singleton binding: %s", f.Name())
 		}
-		f.Singleton = &functions.Overload{
-			Operator:     f.Name,
+		f.singleton = &functions.Overload{
+			Operator:     f.Name(),
 			Unary:        fn,
 			OperandTrait: trait,
 		}
@@ -334,11 +350,11 @@ func SingletonBinaryBinding(fn functions.BinaryOp, traits ...int) FunctionOpt {
 		trait = trait | t
 	}
 	return func(f *FunctionDecl) (*FunctionDecl, error) {
-		if f.Singleton != nil {
-			return nil, fmt.Errorf("function already has a singleton binding: %s", f.Name)
+		if f.singleton != nil {
+			return nil, fmt.Errorf("function already has a singleton binding: %s", f.Name())
 		}
-		f.Singleton = &functions.Overload{
-			Operator:     f.Name,
+		f.singleton = &functions.Overload{
+			Operator:     f.Name(),
 			Binary:       fn,
 			OperandTrait: trait,
 		}
@@ -356,11 +372,11 @@ func SingletonFunctionBinding(fn functions.FunctionOp, traits ...int) FunctionOp
 		trait = trait | t
 	}
 	return func(f *FunctionDecl) (*FunctionDecl, error) {
-		if f.Singleton != nil {
-			return nil, fmt.Errorf("function already has a singleton binding: %s", f.Name)
+		if f.singleton != nil {
+			return nil, fmt.Errorf("function already has a singleton binding: %s", f.Name())
 		}
-		f.Singleton = &functions.Overload{
-			Operator:     f.Name,
+		f.singleton = &functions.Overload{
+			Operator:     f.Name(),
 			Function:     fn,
 			OperandTrait: trait,
 		}
@@ -412,10 +428,10 @@ func newOverloadInternal(overloadID string,
 	memberFunction bool, args []*types.Type, resultType *types.Type,
 	opts ...OverloadOpt) (*OverloadDecl, error) {
 	overload := &OverloadDecl{
-		ID:               overloadID,
-		ArgTypes:         args,
-		ResultType:       resultType,
-		IsMemberFunction: memberFunction,
+		id:               overloadID,
+		argTypes:         args,
+		resultType:       resultType,
+		isMemberFunction: memberFunction,
 	}
 	var err error
 	for _, opt := range opts {
@@ -430,47 +446,88 @@ func newOverloadInternal(overloadID string,
 // OverloadDecl contains the definition of a single overload id with a specific signature, and an optional
 // implementation.
 type OverloadDecl struct {
-	// ID mirrors the overload signature and provides a unique id which may be referenced within the type-checker
-	// and interpreter to optimize performance.
-	//
-	// The ID format is usually one of two styles:
-	// global: <functionName>_<argType>_<argTypeN>
-	// member: <memberType>_<functionName>_<argType>_<argTypeN>
-	ID string
-
-	// ArgTypes contains the set of argument types expected by the overload.
-	//
-	// For member functions ArgTypes[0] represents the member operand type.
-	ArgTypes []*types.Type
-
-	// ResultType indicates the output type from calling the function.
-	ResultType *types.Type
-
-	// IsMemberFunction indicates whether the overload is a member function
-	IsMemberFunction bool
-
-	// Function implementation options. Optional, but encouraged.
-	// UnaryOp is a function binding that takes a single argument.
-	UnaryOp functions.UnaryOp
-	// BinaryOp is a function binding that takes two arguments.
-	BinaryOp functions.BinaryOp
-	// FunctionOp is a catch-all for zero-arity and three-plus arity functions.
-	FunctionOp functions.FunctionOp
-
-	// NonStrict indicates that the function will accept error and unknown arguments as inputs.
-	NonStrict bool
-
-	// OperandTrait indicates whether the member argument should have a specific type-trait.
+	id               string
+	argTypes         []*types.Type
+	resultType       *types.Type
+	isMemberFunction bool
+	// nonStrict indicates that the function will accept error and unknown arguments as inputs.
+	nonStrict bool
+	// operandTrait indicates whether the member argument should have a specific type-trait.
 	//
 	// This is useful for creating overloads which operate on a type-interface rather than a concrete type.
-	OperandTrait int
+	operandTrait int
+
+	// Function implementation options. Optional, but encouraged.
+	// unaryOp is a function binding that takes a single argument.
+	unaryOp functions.UnaryOp
+	// binaryOp is a function binding that takes two arguments.
+	binaryOp functions.BinaryOp
+	// functionOp is a catch-all for zero-arity and three-plus arity functions.
+	functionOp functions.FunctionOp
 }
 
-// GetTypeParams returns the type parameter names associated with the overload.
-func (o *OverloadDecl) GetTypeParams() []string {
+// ID mirrors the overload signature and provides a unique id which may be referenced within the type-checker
+// and interpreter to optimize performance.
+//
+// The ID format is usually one of two styles:
+// global: <functionName>_<argType>_<argTypeN>
+// member: <memberType>_<functionName>_<argType>_<argTypeN>
+func (o *OverloadDecl) ID() string {
+	if o == nil {
+		return ""
+	}
+	return o.id
+}
+
+// ArgTypes contains the set of argument types expected by the overload.
+//
+// For member functions ArgTypes[0] represents the member operand type.
+func (o *OverloadDecl) ArgTypes() []*types.Type {
+	if o == nil {
+		return emptyArgs
+	}
+	return o.argTypes
+}
+
+// IsMemberFunction indicates whether the overload is a member function
+func (o *OverloadDecl) IsMemberFunction() bool {
+	if o == nil {
+		return false
+	}
+	return o.isMemberFunction
+}
+
+// IsNonStrict returns whether the overload accepts errors and unknown values as arguments.
+func (o *OverloadDecl) IsNonStrict() bool {
+	if o == nil {
+		return false
+	}
+	return o.nonStrict
+}
+
+// OperandTrait returns the trait mask of the first operand to the overload call, e.g.
+// `traits.Indexer`
+func (o *OverloadDecl) OperandTrait() int {
+	if o == nil {
+		return 0
+	}
+	return o.operandTrait
+}
+
+// ResultType indicates the output type from calling the function.
+func (o *OverloadDecl) ResultType() *types.Type {
+	if o == nil {
+		// *types.Type is nil-safe
+		return nil
+	}
+	return o.resultType
+}
+
+// TypeParams returns the type parameter names associated with the overload.
+func (o *OverloadDecl) TypeParams() []string {
 	typeParams := map[string]struct{}{}
-	collectParamNames(typeParams, o.ResultType)
-	for _, arg := range o.ArgTypes {
+	collectParamNames(typeParams, o.ResultType())
+	for _, arg := range o.ArgTypes() {
 		collectParamNames(typeParams, arg)
 	}
 	params := make([]string, 0, len(typeParams))
@@ -487,28 +544,28 @@ func (o *OverloadDecl) SignatureEquals(other *OverloadDecl) bool {
 	if o == other {
 		return true
 	}
-	if o.ID != other.ID || o.IsMemberFunction != other.IsMemberFunction || len(o.ArgTypes) != len(other.ArgTypes) {
+	if o.ID() != other.ID() || o.IsMemberFunction() != other.IsMemberFunction() || len(o.ArgTypes()) != len(other.ArgTypes()) {
 		return false
 	}
-	for i, at := range o.ArgTypes {
-		oat := other.ArgTypes[i]
+	for i, at := range o.ArgTypes() {
+		oat := other.ArgTypes()[i]
 		if !at.IsEquivalentType(oat) {
 			return false
 		}
 	}
-	return o.ResultType.IsEquivalentType(other.ResultType)
+	return o.ResultType().IsEquivalentType(other.ResultType())
 }
 
 // SignatureOverlaps indicates whether two functions have non-equal, but overloapping function signatures.
 //
 // For example, list(dyn) collides with list(string) since the 'dyn' type can contain a 'string' type.
 func (o *OverloadDecl) SignatureOverlaps(other *OverloadDecl) bool {
-	if o.IsMemberFunction != other.IsMemberFunction || len(o.ArgTypes) != len(other.ArgTypes) {
+	if o.IsMemberFunction() != other.IsMemberFunction() || len(o.ArgTypes()) != len(other.ArgTypes()) {
 		return false
 	}
 	argsOverlap := true
-	for i, argType := range o.ArgTypes {
-		otherArgType := other.ArgTypes[i]
+	for i, argType := range o.ArgTypes() {
+		otherArgType := other.ArgTypes()[i]
 		argsOverlap = argsOverlap &&
 			(argType.IsAssignableType(otherArgType) ||
 				otherArgType.IsAssignableType(argType))
@@ -518,75 +575,75 @@ func (o *OverloadDecl) SignatureOverlaps(other *OverloadDecl) bool {
 
 // hasBinding indicates whether the overload already has a definition.
 func (o *OverloadDecl) hasBinding() bool {
-	return o.UnaryOp != nil || o.BinaryOp != nil || o.FunctionOp != nil
+	return o != nil && (o.unaryOp != nil || o.binaryOp != nil || o.functionOp != nil)
 }
 
 // guardedUnaryOp creates an invocation guard around the provided unary operator, if one is defined.
 func (o *OverloadDecl) guardedUnaryOp(funcName string, disableTypeGuards bool) functions.UnaryOp {
-	if o.UnaryOp == nil {
+	if o.unaryOp == nil {
 		return nil
 	}
 	return func(arg ref.Val) ref.Val {
 		if !o.matchesRuntimeUnarySignature(disableTypeGuards, arg) {
 			return MaybeNoSuchOverload(funcName, arg)
 		}
-		return o.UnaryOp(arg)
+		return o.unaryOp(arg)
 	}
 }
 
 // guardedBinaryOp creates an invocation guard around the provided binary operator, if one is defined.
 func (o *OverloadDecl) guardedBinaryOp(funcName string, disableTypeGuards bool) functions.BinaryOp {
-	if o.BinaryOp == nil {
+	if o.binaryOp == nil {
 		return nil
 	}
 	return func(arg1, arg2 ref.Val) ref.Val {
 		if !o.matchesRuntimeBinarySignature(disableTypeGuards, arg1, arg2) {
 			return MaybeNoSuchOverload(funcName, arg1, arg2)
 		}
-		return o.BinaryOp(arg1, arg2)
+		return o.binaryOp(arg1, arg2)
 	}
 }
 
 // guardedFunctionOp creates an invocation guard around the provided variadic function binding, if one is provided.
 func (o *OverloadDecl) guardedFunctionOp(funcName string, disableTypeGuards bool) functions.FunctionOp {
-	if o.FunctionOp == nil {
+	if o.functionOp == nil {
 		return nil
 	}
 	return func(args ...ref.Val) ref.Val {
 		if !o.matchesRuntimeSignature(disableTypeGuards, args...) {
 			return MaybeNoSuchOverload(funcName, args...)
 		}
-		return o.FunctionOp(args...)
+		return o.functionOp(args...)
 	}
 }
 
 // matchesRuntimeUnarySignature indicates whether the argument type is runtime assiganble to the overload's expected argument.
 func (o *OverloadDecl) matchesRuntimeUnarySignature(disableTypeGuards bool, arg ref.Val) bool {
-	return matchRuntimeArgType(o.NonStrict, disableTypeGuards, o.ArgTypes[0], arg) &&
-		matchOperandTrait(o.OperandTrait, arg)
+	return matchRuntimeArgType(o.IsNonStrict(), disableTypeGuards, o.ArgTypes()[0], arg) &&
+		matchOperandTrait(o.OperandTrait(), arg)
 }
 
 // matchesRuntimeBinarySignature indicates whether the argument types are runtime assiganble to the overload's expected arguments.
 func (o *OverloadDecl) matchesRuntimeBinarySignature(disableTypeGuards bool, arg1, arg2 ref.Val) bool {
-	return matchRuntimeArgType(o.NonStrict, disableTypeGuards, o.ArgTypes[0], arg1) &&
-		matchRuntimeArgType(o.NonStrict, disableTypeGuards, o.ArgTypes[1], arg2) &&
-		matchOperandTrait(o.OperandTrait, arg1)
+	return matchRuntimeArgType(o.IsNonStrict(), disableTypeGuards, o.ArgTypes()[0], arg1) &&
+		matchRuntimeArgType(o.IsNonStrict(), disableTypeGuards, o.ArgTypes()[1], arg2) &&
+		matchOperandTrait(o.OperandTrait(), arg1)
 }
 
 // matchesRuntimeSignature indicates whether the argument types are runtime assiganble to the overload's expected arguments.
 func (o *OverloadDecl) matchesRuntimeSignature(disableTypeGuards bool, args ...ref.Val) bool {
-	if len(args) != len(o.ArgTypes) {
+	if len(args) != len(o.ArgTypes()) {
 		return false
 	}
 	if len(args) == 0 {
 		return true
 	}
 	for i, arg := range args {
-		if !matchRuntimeArgType(o.NonStrict, disableTypeGuards, o.ArgTypes[i], arg) {
+		if !matchRuntimeArgType(o.IsNonStrict(), disableTypeGuards, o.ArgTypes()[i], arg) {
 			return false
 		}
 	}
-	return matchOperandTrait(o.OperandTrait, args[0])
+	return matchOperandTrait(o.OperandTrait(), args[0])
 }
 
 func matchRuntimeArgType(nonStrict, disableTypeGuards bool, argType *types.Type, arg ref.Val) bool {
@@ -611,12 +668,12 @@ type OverloadOpt func(*OverloadDecl) (*OverloadDecl, error)
 func UnaryBinding(binding functions.UnaryOp) OverloadOpt {
 	return func(o *OverloadDecl) (*OverloadDecl, error) {
 		if o.hasBinding() {
-			return nil, fmt.Errorf("overload already has a binding: %s", o.ID)
+			return nil, fmt.Errorf("overload already has a binding: %s", o.ID())
 		}
-		if len(o.ArgTypes) != 1 {
-			return nil, fmt.Errorf("unary function bound to non-unary overload: %s", o.ID)
+		if len(o.ArgTypes()) != 1 {
+			return nil, fmt.Errorf("unary function bound to non-unary overload: %s", o.ID())
 		}
-		o.UnaryOp = binding
+		o.unaryOp = binding
 		return o, nil
 	}
 }
@@ -626,12 +683,12 @@ func UnaryBinding(binding functions.UnaryOp) OverloadOpt {
 func BinaryBinding(binding functions.BinaryOp) OverloadOpt {
 	return func(o *OverloadDecl) (*OverloadDecl, error) {
 		if o.hasBinding() {
-			return nil, fmt.Errorf("overload already has a binding: %s", o.ID)
+			return nil, fmt.Errorf("overload already has a binding: %s", o.ID())
 		}
-		if len(o.ArgTypes) != 2 {
-			return nil, fmt.Errorf("binary function bound to non-binary overload: %s", o.ID)
+		if len(o.ArgTypes()) != 2 {
+			return nil, fmt.Errorf("binary function bound to non-binary overload: %s", o.ID())
 		}
-		o.BinaryOp = binding
+		o.binaryOp = binding
 		return o, nil
 	}
 }
@@ -641,9 +698,9 @@ func BinaryBinding(binding functions.BinaryOp) OverloadOpt {
 func FunctionBinding(binding functions.FunctionOp) OverloadOpt {
 	return func(o *OverloadDecl) (*OverloadDecl, error) {
 		if o.hasBinding() {
-			return nil, fmt.Errorf("overload already has a binding: %s", o.ID)
+			return nil, fmt.Errorf("overload already has a binding: %s", o.ID())
 		}
-		o.FunctionOp = binding
+		o.functionOp = binding
 		return o, nil
 	}
 }
@@ -653,7 +710,7 @@ func FunctionBinding(binding functions.FunctionOp) OverloadOpt {
 // Note: do not use this option unless absoluately necessary as it should be an uncommon feature.
 func OverloadIsNonStrict() OverloadOpt {
 	return func(o *OverloadDecl) (*OverloadDecl, error) {
-		o.NonStrict = true
+		o.nonStrict = true
 		return o, nil
 	}
 }
@@ -662,7 +719,7 @@ func OverloadIsNonStrict() OverloadOpt {
 // successfully invoked.
 func OverloadOperandTrait(trait int) OverloadOpt {
 	return func(o *OverloadDecl) (*OverloadDecl, error) {
-		o.OperandTrait = trait
+		o.operandTrait = trait
 		return o, nil
 	}
 }
@@ -712,8 +769,8 @@ func FunctionDeclToExprDecl(f *FunctionDecl) (*exprpb.Decl, error) {
 	for i, oID := range f.overloadOrdinals {
 		o := f.overloads[oID]
 		paramNames := map[string]struct{}{}
-		argTypes := make([]*exprpb.Type, len(o.ArgTypes))
-		for j, a := range o.ArgTypes {
+		argTypes := make([]*exprpb.Type, len(o.ArgTypes()))
+		for j, a := range o.ArgTypes() {
 			collectParamNames(paramNames, a)
 			at, err := types.TypeToExprType(a)
 			if err != nil {
@@ -721,13 +778,13 @@ func FunctionDeclToExprDecl(f *FunctionDecl) (*exprpb.Decl, error) {
 			}
 			argTypes[j] = at
 		}
-		collectParamNames(paramNames, o.ResultType)
-		resultType, err := types.TypeToExprType(o.ResultType)
+		collectParamNames(paramNames, o.ResultType())
+		resultType, err := types.TypeToExprType(o.ResultType())
 		if err != nil {
 			return nil, err
 		}
 		if len(paramNames) == 0 {
-			if o.IsMemberFunction {
+			if o.IsMemberFunction() {
 				overloads[i] = chkdecls.NewInstanceOverload(oID, argTypes, resultType)
 			} else {
 				overloads[i] = chkdecls.NewOverload(oID, argTypes, resultType)
@@ -737,14 +794,14 @@ func FunctionDeclToExprDecl(f *FunctionDecl) (*exprpb.Decl, error) {
 			for pn := range paramNames {
 				params = append(params, pn)
 			}
-			if o.IsMemberFunction {
+			if o.IsMemberFunction() {
 				overloads[i] = chkdecls.NewParameterizedInstanceOverload(oID, argTypes, resultType, params)
 			} else {
 				overloads[i] = chkdecls.NewParameterizedOverload(oID, argTypes, resultType, params)
 			}
 		}
 	}
-	return chkdecls.NewFunction(f.Name, overloads...), nil
+	return chkdecls.NewFunction(f.Name(), overloads...), nil
 }
 
 func collectParamNames(paramNames map[string]struct{}, arg *types.Type) {
@@ -755,3 +812,7 @@ func collectParamNames(paramNames map[string]struct{}, arg *types.Type) {
 		collectParamNames(paramNames, param)
 	}
 }
+
+var (
+	emptyArgs = []*types.Type{}
+)

@@ -173,7 +173,7 @@ func (e *Env) LookupFunction(name string) *decls.FunctionDecl {
 // If overload overlaps with an existing overload, adds to the errors  in the Env instead.
 func (e *Env) setFunction(fn *decls.FunctionDecl) []errorMsg {
 	errMsgs := make([]errorMsg, 0)
-	current := e.declarations.FindFunction(fn.Name)
+	current := e.declarations.FindFunction(fn.Name())
 	if current != nil {
 		var err error
 		current, err = current.Merge(fn)
@@ -185,10 +185,10 @@ func (e *Env) setFunction(fn *decls.FunctionDecl) []errorMsg {
 	}
 	for _, overload := range current.OverloadDecls() {
 		for _, macro := range parser.AllMacros {
-			if macro.Function() == current.Name &&
-				macro.IsReceiverStyle() == overload.IsMemberFunction &&
-				macro.ArgCount() == len(overload.ArgTypes) {
-				errMsgs = append(errMsgs, overlappingMacroError(current.Name, macro.ArgCount()))
+			if macro.Function() == current.Name() &&
+				macro.IsReceiverStyle() == overload.IsMemberFunction() &&
+				macro.ArgCount() == len(overload.ArgTypes()) {
+				errMsgs = append(errMsgs, overlappingMacroError(current.Name(), macro.ArgCount()))
 			}
 		}
 		if len(errMsgs) > 0 {
