@@ -85,6 +85,19 @@ func TestTypeString(t *testing.T) {
 			in:  NewTypeParamType("T"),
 			out: "T",
 		},
+		// nil-safety tests
+		{
+			in:  nil,
+			out: "",
+		},
+		{
+			in:  ListType,
+			out: "list()",
+		},
+		{
+			in:  MapType,
+			out: "map(, )",
+		},
 	}
 	for _, tst := range tests {
 		if tst.in.String() != tst.out {
@@ -555,29 +568,29 @@ func TestTypeToExprTypeInvalid(t *testing.T) {
 		out string
 	}{
 		{
-			in:  &Type{Kind: ListKind, runtimeTypeName: "list"},
+			in:  &Type{kind: ListKind, runtimeTypeName: "list"},
 			out: "invalid list",
 		},
 		{
 			in: &Type{
-				Kind: ListKind,
-				Parameters: []*Type{
-					{Kind: MapKind, runtimeTypeName: "map"},
+				kind: ListKind,
+				parameters: []*Type{
+					{kind: MapKind, runtimeTypeName: "map"},
 				},
 				runtimeTypeName: "list",
 			},
 			out: "invalid map",
 		},
 		{
-			in:  &Type{Kind: MapKind, runtimeTypeName: "map"},
+			in:  &Type{kind: MapKind, runtimeTypeName: "map"},
 			out: "invalid map",
 		},
 		{
 			in: &Type{
-				Kind: MapKind,
-				Parameters: []*Type{
+				kind: MapKind,
+				parameters: []*Type{
 					StringType,
-					{Kind: MapKind, runtimeTypeName: "map"},
+					{kind: MapKind, runtimeTypeName: "map"},
 				},
 				runtimeTypeName: "map",
 			},
@@ -585,9 +598,9 @@ func TestTypeToExprTypeInvalid(t *testing.T) {
 		},
 		{
 			in: &Type{
-				Kind: MapKind,
-				Parameters: []*Type{
-					{Kind: MapKind, runtimeTypeName: "map"},
+				kind: MapKind,
+				parameters: []*Type{
+					{kind: MapKind, runtimeTypeName: "map"},
 					StringType,
 				},
 				runtimeTypeName: "map",
@@ -596,15 +609,15 @@ func TestTypeToExprTypeInvalid(t *testing.T) {
 		},
 		{
 			in: &Type{
-				Kind:            TypeKind,
-				Parameters:      []*Type{{Kind: ListKind, runtimeTypeName: "list"}},
+				kind:            TypeKind,
+				parameters:      []*Type{{kind: ListKind, runtimeTypeName: "list"}},
 				runtimeTypeName: "type",
 			},
 			out: "invalid list",
 		},
 		{
 			in: NewOpaqueType("bad_list", &Type{
-				Kind:            ListKind,
+				kind:            ListKind,
 				runtimeTypeName: "list",
 			}),
 			out: "invalid list",

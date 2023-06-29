@@ -16,12 +16,12 @@ package cel
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 
 	"github.com/google/cel-go/checker"
 	chkdecls "github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common"
+	celast "github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/types"
@@ -41,8 +41,8 @@ type Ast struct {
 	expr    *exprpb.Expr
 	info    *exprpb.SourceInfo
 	source  Source
-	refMap  map[int64]*exprpb.Reference
-	typeMap map[int64]*exprpb.Type
+	refMap  map[int64]*celast.ReferenceInfo
+	typeMap map[int64]*types.Type
 }
 
 // Expr returns the proto serializable instance of the parsed/checked expression.
@@ -61,21 +61,26 @@ func (ast *Ast) SourceInfo() *exprpb.SourceInfo {
 }
 
 // ResultType returns the output type of the expression if the Ast has been type-checked, else
-// returns decls.Dyn as the parse step cannot infer the type.
+// returns chkdecls.Dyn as the parse step cannot infer the type.
 //
 // Deprecated: use OutputType
 func (ast *Ast) ResultType() *exprpb.Type {
 	if !ast.IsChecked() {
 		return chkdecls.Dyn
 	}
-	return ast.typeMap[ast.expr.GetId()]
+	out := ast.OutputType()
+	t, err := TypeToExprType(out)
+	if err != nil {
+		return chkdecls.Dyn
+	}
+	return t
 }
 
 // OutputType returns the output type of the expression if the Ast has been type-checked, else
 // returns cel.DynType as the parse step cannot infer types.
 func (ast *Ast) OutputType() *Type {
-	t, err := ExprTypeToType(ast.ResultType())
-	if err != nil {
+	t, found := ast.typeMap[ast.expr.GetId()]
+	if !found {
 		return DynType
 	}
 	return t
@@ -96,8 +101,8 @@ func FormatType(t *exprpb.Type) string {
 // evaluable programs for different expressions.
 type Env struct {
 	Container       *containers.Container
+	variables       []*decls.VariableDecl
 	functions       map[string]*decls.FunctionDecl
-	declarations    []*exprpb.Decl
 	macros          []parser.Macro
 	adapter         ref.TypeAdapter
 	provider        ref.TypeProvider
@@ -155,7 +160,7 @@ func NewCustomEnv(opts ...EnvOption) (*Env, error) {
 		return nil, err
 	}
 	return (&Env{
-		declarations:    []*exprpb.Decl{},
+		variables:       []*decls.VariableDecl{},
 		functions:       map[string]*decls.FunctionDecl{},
 		macros:          []parser.Macro{},
 		Container:       containers.DefaultContainer,
@@ -195,10 +200,10 @@ func (e *Env) Check(ast *Ast) (*Ast, *Issues) {
 	// detailed than the information provided by Check), is returned to the caller.
 	return &Ast{
 		source:  ast.Source(),
-		expr:    res.GetExpr(),
-		info:    res.GetSourceInfo(),
-		refMap:  res.GetReferenceMap(),
-		typeMap: res.GetTypeMap()}, nil
+		expr:    res.Expr,
+		info:    res.SourceInfo,
+		refMap:  res.ReferenceMap,
+		typeMap: res.TypeMap}, nil
 }
 
 // Compile combines the Parse and Check phases CEL program compilation to produce an Ast and
@@ -256,7 +261,7 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 	copy(chkOptsCopy, e.chkOpts)
 
 	// Copy the declarations if needed.
-	decsCopy := []*exprpb.Decl{}
+	varsCopy := []*decls.VariableDecl{}
 	if chk != nil {
 		// If the type-checker has already been instantiated, then the e.declarations have been
 		// validated within the chk instance.
@@ -264,8 +269,8 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 	} else {
 		// If the type-checker has not been instantiated, ensure the unvalidated declarations are
 		// provided to the extended Env instance.
-		decsCopy = make([]*exprpb.Decl, len(e.declarations))
-		copy(decsCopy, e.declarations)
+		varsCopy = make([]*decls.VariableDecl, len(e.variables))
+		copy(varsCopy, e.variables)
 	}
 
 	// Copy macros and program options
@@ -320,7 +325,7 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 
 	ext := &Env{
 		Container:       e.Container,
-		declarations:    decsCopy,
+		variables:       varsCopy,
 		functions:       funcsCopy,
 		macros:          macsCopy,
 		progOpts:        progOptsCopy,
@@ -406,12 +411,9 @@ func (e *Env) TypeProvider() ref.TypeProvider {
 // unless the PartialAttributes option is provided as a ProgramOption.
 func (e *Env) UnknownVars() interpreter.PartialActivation {
 	var unknownPatterns []*interpreter.AttributePattern
-	for _, d := range e.declarations {
-		switch d.GetDeclKind().(type) {
-		case *exprpb.Decl_Ident:
-			unknownPatterns = append(unknownPatterns,
-				interpreter.NewAttributePattern(d.GetName()))
-		}
+	for _, v := range e.variables {
+		unknownPatterns = append(unknownPatterns,
+			interpreter.NewAttributePattern(v.Name()))
 	}
 	part, _ := PartialVars(
 		interpreter.EmptyActivation(),
@@ -464,9 +466,11 @@ func (e *Env) ResidualAst(a *Ast, details *EvalDetails) (*Ast, error) {
 // EstimateCost estimates the cost of a type checked CEL expression using the length estimates of input data and
 // extension functions provided by estimator.
 func (e *Env) EstimateCost(ast *Ast, estimator checker.CostEstimator, opts ...checker.CostOption) (checker.CostEstimate, error) {
-	checked, err := AstToCheckedExpr(ast)
-	if err != nil {
-		return checker.CostEstimate{}, fmt.Errorf("EsimateCost could not inspect Ast: %v", err)
+	checked := &celast.CheckedAST{
+		Expr:         ast.Expr(),
+		SourceInfo:   ast.SourceInfo(),
+		TypeMap:      ast.typeMap,
+		ReferenceMap: ast.refMap,
 	}
 	return checker.Cost(checked, estimator, opts...)
 }
@@ -532,7 +536,7 @@ func (e *Env) initChecker() (*checker.Env, error) {
 			return
 		}
 		// Add the statically configured declarations.
-		err = ce.Add(e.declarations...)
+		err = ce.AddIdents(e.variables...)
 		if err != nil {
 			e.setCheckerOrError(nil, err)
 			return
@@ -542,12 +546,7 @@ func (e *Env) initChecker() (*checker.Env, error) {
 			if fn.IsDeclarationDisabled() {
 				continue
 			}
-			fnDecl, err := decls.FunctionDeclToExprDecl(fn)
-			if err != nil {
-				e.setCheckerOrError(nil, err)
-				return
-			}
-			err = ce.Add(fnDecl)
+			err = ce.AddFunctions(fn)
 			if err != nil {
 				e.setCheckerOrError(nil, err)
 				return

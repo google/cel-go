@@ -18,6 +18,8 @@ import (
 	"reflect"
 
 	"github.com/google/cel-go/common"
+	"github.com/google/cel-go/common/ast"
+	"github.com/google/cel-go/common/types"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
@@ -27,50 +29,50 @@ type typeErrors struct {
 	errs *common.Errors
 }
 
-func (e *typeErrors) fieldTypeMismatch(id int64, l common.Location, name string, field *exprpb.Type, value *exprpb.Type) {
+func (e *typeErrors) fieldTypeMismatch(id int64, l common.Location, name string, field, value *types.Type) {
 	e.errs.ReportErrorAtID(id, l, "expected type of field '%s' is '%s' but provided type is '%s'",
-		name, FormatCheckedType(field), FormatCheckedType(value))
+		name, formatCelType(field), formatCelType(value))
 }
 
-func (e *typeErrors) incompatibleType(id int64, l common.Location, ex *exprpb.Expr, prev, next *exprpb.Type) {
+func (e *typeErrors) incompatibleType(id int64, l common.Location, ex *exprpb.Expr, prev, next *types.Type) {
 	e.errs.ReportErrorAtID(id, l,
 		"incompatible type already exists for expression: %v(%d) old:%v, new:%v", ex, ex.GetId(), prev, next)
 }
 
-func (e *typeErrors) noMatchingOverload(id int64, l common.Location, name string, args []*exprpb.Type, isInstance bool) {
-	signature := formatFunction(nil, args, isInstance)
+func (e *typeErrors) noMatchingOverload(id int64, l common.Location, name string, args []*types.Type, isInstance bool) {
+	signature := formatFunctionDeclType(nil, args, isInstance)
 	e.errs.ReportErrorAtID(id, l, "found no matching overload for '%s' applied to '%s'", name, signature)
 }
 
-func (e *typeErrors) notAComprehensionRange(id int64, l common.Location, t *exprpb.Type) {
+func (e *typeErrors) notAComprehensionRange(id int64, l common.Location, t *types.Type) {
 	e.errs.ReportErrorAtID(id, l, "expression of type '%s' cannot be range of a comprehension (must be list, map, or dynamic)",
-		FormatCheckedType(t))
+		formatCelType(t))
 }
 
 func (e *typeErrors) notAnOptionalFieldSelection(id int64, l common.Location, field *exprpb.Expr) {
 	e.errs.ReportErrorAtID(id, l, "unsupported optional field selection: %v", field)
 }
 
-func (e *typeErrors) notAType(id int64, l common.Location, t *exprpb.Type) {
-	e.errs.ReportErrorAtID(id, l, "'%s' is not a type", FormatCheckedType(t))
+func (e *typeErrors) notAType(id int64, l common.Location, typeName string) {
+	e.errs.ReportErrorAtID(id, l, "'%s' is not a type", typeName)
 }
 
-func (e *typeErrors) notAMessageType(id int64, l common.Location, t *exprpb.Type) {
-	e.errs.ReportErrorAtID(id, l, "'%s' is not a message type", FormatCheckedType(t))
+func (e *typeErrors) notAMessageType(id int64, l common.Location, typeName string) {
+	e.errs.ReportErrorAtID(id, l, "'%s' is not a message type", typeName)
 }
 
-func (e *typeErrors) referenceRedefinition(id int64, l common.Location, ex *exprpb.Expr, prev, next *exprpb.Reference) {
+func (e *typeErrors) referenceRedefinition(id int64, l common.Location, ex *exprpb.Expr, prev, next *ast.ReferenceInfo) {
 	e.errs.ReportErrorAtID(id, l,
 		"reference already exists for expression: %v(%d) old:%v, new:%v", ex, ex.GetId(), prev, next)
 }
 
-func (e *typeErrors) typeDoesNotSupportFieldSelection(id int64, l common.Location, t *exprpb.Type) {
-	e.errs.ReportErrorAtID(id, l, "type '%s' does not support field selection", FormatCheckedType(t))
+func (e *typeErrors) typeDoesNotSupportFieldSelection(id int64, l common.Location, t *types.Type) {
+	e.errs.ReportErrorAtID(id, l, "type '%s' does not support field selection", formatCelType(t))
 }
 
-func (e *typeErrors) typeMismatch(id int64, l common.Location, expected *exprpb.Type, actual *exprpb.Type) {
+func (e *typeErrors) typeMismatch(id int64, l common.Location, expected, actual *types.Type) {
 	e.errs.ReportErrorAtID(id, l, "expected type '%s' but found '%s'",
-		FormatCheckedType(expected), FormatCheckedType(actual))
+		formatCelType(expected), formatCelType(actual))
 }
 
 func (e *typeErrors) undefinedField(id int64, l common.Location, field string) {
@@ -87,30 +89,4 @@ func (e *typeErrors) unexpectedFailedResolution(id int64, l common.Location, typ
 
 func (e *typeErrors) unexpectedASTType(id int64, l common.Location, ex *exprpb.Expr) {
 	e.errs.ReportErrorAtID(id, l, "unrecognized ast type: %v", reflect.TypeOf(ex))
-}
-
-func formatFunction(resultType *exprpb.Type, argTypes []*exprpb.Type, isInstance bool) string {
-	result := ""
-	if isInstance {
-		target := argTypes[0]
-		argTypes = argTypes[1:]
-
-		result += FormatCheckedType(target)
-		result += "."
-	}
-
-	result += "("
-	for i, arg := range argTypes {
-		if i > 0 {
-			result += ", "
-		}
-		result += FormatCheckedType(arg)
-	}
-	result += ")"
-	if resultType != nil {
-		result += " -> "
-		result += FormatCheckedType(resultType)
-	}
-
-	return result
 }

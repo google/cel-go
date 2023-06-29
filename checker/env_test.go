@@ -18,23 +18,18 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/containers"
-	"github.com/google/cel-go/common/operators"
-	"github.com/google/cel-go/common/overloads"
+	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/stdlib"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/parser"
-
-	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 func TestOverlappingIdentifier(t *testing.T) {
 	env := newStdEnv(t)
-	err := env.Add(
-		decls.NewVar("int", decls.NewTypeType(nil)))
+	err := env.AddIdents(decls.NewVariable("int", types.TypeType))
 	if err == nil {
 		t.Error("Got nil, wanted error")
 	} else if !strings.Contains(err.Error(), "overlapping identifier") {
@@ -44,47 +39,16 @@ func TestOverlappingIdentifier(t *testing.T) {
 
 func TestOverlappingMacro(t *testing.T) {
 	env := newStdEnv(t)
-	err := env.Add(decls.NewFunction("has",
-		decls.NewOverload("has", []*exprpb.Type{decls.String}, decls.Bool)))
+	hasFn, err := decls.NewFunction("has",
+		decls.Overload("has", []*types.Type{types.StringType}, types.BoolType))
+	if err != nil {
+		t.Fatalf("decls.NewFunction() failed: %v", err)
+	}
+	err = env.AddFunctions(hasFn)
 	if err == nil {
 		t.Error("Got nil, wanted error")
 	} else if !strings.Contains(err.Error(), "overlapping macro") {
 		t.Errorf("Got %v, wanted overlapping macro error", err)
-	}
-}
-
-func TestOverlappingOverload(t *testing.T) {
-	env := newStdEnv(t)
-	err := env.Add(decls.NewFunction(overloads.TypeConvertDyn,
-		decls.NewOverload(overloads.ToDyn, []*exprpb.Type{decls.String}, decls.Dyn)))
-	if err == nil {
-		t.Error("Got nil, wanted error")
-	} else if !strings.Contains(err.Error(), "overlapping overload") {
-		t.Errorf("Got %v, wanted overlapping overload error", err)
-	}
-}
-
-func TestSanitizedOverload(t *testing.T) {
-	env := newStdEnv(t)
-	err := env.Add(decls.NewFunction(operators.Add,
-		decls.NewOverload("timestamp_add_int",
-			[]*exprpb.Type{decls.NewObjectType("google.protobuf.Timestamp"), decls.Int},
-			decls.NewObjectType("google.protobuf.Timestamp"))))
-	if err != nil {
-		t.Errorf("env.Add('timestamp_add_int') failed: %v", err)
-	}
-}
-
-func TestSanitizedInstanceOverload(t *testing.T) {
-	env := newStdEnv(t)
-	err := env.Add(decls.NewFunction("orDefault",
-		decls.NewInstanceOverload("int_ordefault_int",
-			[]*exprpb.Type{
-				decls.NewObjectType("google.protobuf.Int32Value"),
-				decls.NewObjectType("google.protobuf.Int32Value")},
-			decls.Int)))
-	if err != nil {
-		t.Errorf("env.Add('int_ordefault_int') failed: %v", err)
 	}
 }
 
@@ -117,11 +81,9 @@ func BenchmarkNewStdEnv(b *testing.B) {
 		if err != nil {
 			b.Fatalf("NewEnv() failed: %v", err)
 		}
-		decls := []*exprpb.Decl{}
-		decls = append(decls, stdlib.FunctionExprDecls()...)
-		err = env.Add(decls...)
+		err = env.AddFunctions(stdlib.Functions()...)
 		if err != nil {
-			b.Fatalf("env.Add(stdlib.FunctionExprDecls()...) failed: %v", err)
+			b.Fatalf("env.AddFunctions(stdlib.Functions()...) failed: %v", err)
 		}
 	}
 }
@@ -131,12 +93,13 @@ func BenchmarkCopyDeclarations(b *testing.B) {
 	if err != nil {
 		b.Fatalf("NewEnv() failed: %v", err)
 	}
-	decls := []*exprpb.Decl{}
-	decls = append(decls, stdlib.TypeExprDecls()...)
-	decls = append(decls, stdlib.FunctionExprDecls()...)
-	err = env.Add(decls...)
+	err = env.AddIdents(stdlib.Types()...)
 	if err != nil {
-		b.Fatalf("env.Add(stdlib.FunctionExprDecls()...) failed: %v", err)
+		b.Fatalf("env.AddIdents(stdlib.Types()...) failed: %v", err)
+	}
+	err = env.AddFunctions(stdlib.Functions()...)
+	if err != nil {
+		b.Fatalf("env.AddFunctions(stdlib.Functions()...) failed: %v", err)
 	}
 	for i := 0; i < b.N; i++ {
 		env.validatedDeclarations().Copy()
@@ -149,11 +112,11 @@ func newStdEnv(t *testing.T) *Env {
 	if err != nil {
 		t.Fatalf("NewEnv() failed: %v", err)
 	}
-	err = env.Add(stdlib.TypeExprDecls()...)
+	err = env.AddIdents(stdlib.Types()...)
 	if err != nil {
 		t.Fatalf("env.Add(stdlib.TypeExprDecls()...) failed: %v", err)
 	}
-	err = env.Add(stdlib.FunctionExprDecls()...)
+	err = env.AddFunctions(stdlib.Functions()...)
 	if err != nil {
 		t.Fatalf("env.Add(stdlib.FunctionExprDecls()...) failed: %v", err)
 	}

@@ -665,7 +665,7 @@ func TestAttributesOptional(t *testing.T) {
 			optQuals: []any{
 				makeOptQualifier(t,
 					attrs,
-					&exprpb.Type{TypeKind: &exprpb.Type_MessageType{MessageType: "google.expr.proto3.test.TestAllTypes"}},
+					types.NewObjectType("google.expr.proto3.test.TestAllTypes"),
 					103,
 					"single_int32",
 				),
@@ -773,8 +773,8 @@ func BenchmarkResolverFieldQualifier(b *testing.B) {
 	if !found {
 		b.Fatal("FindType() could not find NestedMessage")
 	}
-	attr.AddQualifier(makeQualifier(b, attrs, opType.GetType(), 2, "single_nested_message"))
-	attr.AddQualifier(makeQualifier(b, attrs, fieldType.GetType(), 3, "bb"))
+	attr.AddQualifier(makeQualifier(b, attrs, testExprTypeToType(b, opType), 2, "single_nested_message"))
+	attr.AddQualifier(makeQualifier(b, attrs, testExprTypeToType(b, fieldType), 3, "bb"))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, err := attr.Resolve(vars)
@@ -796,11 +796,7 @@ func TestResolverCustomQualifier(t *testing.T) {
 		"msg": msg,
 	})
 	attr := attrs.AbsoluteAttribute(1, "msg")
-	fieldType := &exprpb.Type{
-		TypeKind: &exprpb.Type_MessageType{
-			MessageType: "google.expr.proto3.test.TestAllTypes.NestedMessage",
-		},
-	}
+	fieldType := types.NewObjectType("google.expr.proto3.test.TestAllTypes.NestedMessage")
 	qualBB := makeQualifier(t, attrs, fieldType, 2, "bb")
 	attr.AddQualifier(qualBB)
 	out, err := attr.Resolve(vars)
@@ -1113,10 +1109,10 @@ func TestAttributeStateTracking(t *testing.T) {
 			if err != nil {
 				t.Fatalf("checker.NewEnv() failed: %v", err)
 			}
-			env.Add(stdlib.FunctionExprDecls()...)
-			env.Add(funcExprDecls(t, optionalDecls(t)...)...)
+			env.AddFunctions(stdlib.Functions()...)
+			env.AddFunctions(optionalDecls(t)...)
 			if tc.vars != nil {
-				env.Add(varExprDecls(t, tc.vars...)...)
+				env.AddIdents(tc.vars...)
 			}
 			checked, errors := checker.Check(parsed, src, env)
 			if len(errors.GetErrors()) != 0 {
@@ -1182,11 +1178,7 @@ func BenchmarkResolverCustomQualifier(b *testing.B) {
 		"msg": msg,
 	})
 	attr := attrs.AbsoluteAttribute(1, "msg")
-	fieldType := &exprpb.Type{
-		TypeKind: &exprpb.Type_MessageType{
-			MessageType: "google.expr.proto3.test.TestAllTypes.NestedMessage",
-		},
-	}
+	fieldType := types.NewObjectType("google.expr.proto3.test.TestAllTypes.NestedMessage")
 	qualBB := makeQualifier(b, attrs, fieldType, 2, "bb")
 	attr.AddQualifier(qualBB)
 	for i := 0; i < b.N; i++ {
@@ -1198,8 +1190,8 @@ type custAttrFactory struct {
 	AttributeFactory
 }
 
-func (r *custAttrFactory) NewQualifier(objType *exprpb.Type, qualID int64, val any, opt bool) (Qualifier, error) {
-	if objType.GetMessageType() == "google.expr.proto3.test.TestAllTypes.NestedMessage" {
+func (r *custAttrFactory) NewQualifier(objType *types.Type, qualID int64, val any, opt bool) (Qualifier, error) {
+	if objType.Kind() == types.StructKind && objType.TypeName() == "google.expr.proto3.test.TestAllTypes.NestedMessage" {
 		return &nestedMsgQualifier{id: qualID, field: val.(string)}, nil
 	}
 	return r.AttributeFactory.NewQualifier(objType, qualID, val, opt)
@@ -1240,7 +1232,7 @@ func addQualifier(t testing.TB, attr Attribute, qual Qualifier) Attribute {
 	return attr
 }
 
-func makeQualifier(t testing.TB, attrs AttributeFactory, fieldType *exprpb.Type, qualID int64, val any) Qualifier {
+func makeQualifier(t testing.TB, attrs AttributeFactory, fieldType *types.Type, qualID int64, val any) Qualifier {
 	t.Helper()
 	qual, err := attrs.NewQualifier(fieldType, qualID, val, false)
 	if err != nil {
@@ -1249,7 +1241,7 @@ func makeQualifier(t testing.TB, attrs AttributeFactory, fieldType *exprpb.Type,
 	return qual
 }
 
-func makeOptQualifier(t testing.TB, attrs AttributeFactory, fieldType *exprpb.Type, qualID int64, val any) Qualifier {
+func makeOptQualifier(t testing.TB, attrs AttributeFactory, fieldType *types.Type, qualID int64, val any) Qualifier {
 	t.Helper()
 	qual, err := attrs.NewQualifier(fieldType, qualID, val, true)
 	if err != nil {
@@ -1263,6 +1255,15 @@ func findField(t testing.TB, reg ref.TypeRegistry, typeName, field string) *ref.
 	ft, found := reg.FindFieldType(typeName, field)
 	if !found {
 		t.Fatalf("reg.FindFieldType(%v, %v) failed", typeName, field)
+	}
+	return ft
+}
+
+func testExprTypeToType(t testing.TB, fieldType *exprpb.Type) *types.Type {
+	t.Helper()
+	ft, err := types.ExprTypeToType(fieldType)
+	if err != nil {
+		t.Fatalf("types.ExprTypeToType() failed: %v", err)
 	}
 	return ft
 }

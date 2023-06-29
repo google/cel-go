@@ -31,10 +31,15 @@ import (
 type Kind uint
 
 const (
+	// UnspecifiedKind is returned when the type is nil or its kind is not specified.
+	UnspecifiedKind Kind = iota
+
 	// DynKind represents a dynamic type. This kind only exists at type-check time.
-	DynKind Kind = iota + 1
+	DynKind
 
 	// AnyKind represents a google.protobuf.Any type. This kind only exists at type-check time.
+	// Prefer DynKind to AnyKind as AnyKind has a specific meaning which is based on protobuf
+	// well-known types.
 	AnyKind
 
 	// BoolKind represents a boolean type.
@@ -92,21 +97,21 @@ const (
 var (
 	// AnyType represents the google.protobuf.Any type.
 	AnyType = &Type{
-		Kind:            AnyKind,
+		kind:            AnyKind,
 		runtimeTypeName: "google.protobuf.Any",
 		traitMask: traits.FieldTesterType |
 			traits.IndexerType,
 	}
 	// BoolType represents the bool type.
 	BoolType = &Type{
-		Kind:            BoolKind,
+		kind:            BoolKind,
 		runtimeTypeName: "bool",
 		traitMask: traits.ComparerType |
 			traits.NegatorType,
 	}
 	// BytesType represents the bytes type.
 	BytesType = &Type{
-		Kind:            BytesKind,
+		kind:            BytesKind,
 		runtimeTypeName: "bytes",
 		traitMask: traits.AdderType |
 			traits.ComparerType |
@@ -114,7 +119,7 @@ var (
 	}
 	// DoubleType represents the double type.
 	DoubleType = &Type{
-		Kind:            DoubleKind,
+		kind:            DoubleKind,
 		runtimeTypeName: "double",
 		traitMask: traits.AdderType |
 			traits.ComparerType |
@@ -125,7 +130,7 @@ var (
 	}
 	// DurationType represents the CEL duration type.
 	DurationType = &Type{
-		Kind:            DurationKind,
+		kind:            DurationKind,
 		runtimeTypeName: "google.protobuf.Duration",
 		traitMask: traits.AdderType |
 			traits.ComparerType |
@@ -135,17 +140,17 @@ var (
 	}
 	// DynType represents a dynamic CEL type whose type will be determined at runtime from context.
 	DynType = &Type{
-		Kind:            DynKind,
+		kind:            DynKind,
 		runtimeTypeName: "dyn",
 	}
 	// ErrorType represents a CEL error value.
 	ErrorType = &Type{
-		Kind:            ErrorKind,
+		kind:            ErrorKind,
 		runtimeTypeName: "error",
 	}
 	// IntType represents the int type.
 	IntType = &Type{
-		Kind:            IntKind,
+		kind:            IntKind,
 		runtimeTypeName: "int",
 		traitMask: traits.AdderType |
 			traits.ComparerType |
@@ -161,12 +166,12 @@ var (
 	MapType = NewMapType(nil, nil)
 	// NullType represents the type of a null value.
 	NullType = &Type{
-		Kind:            NullTypeKind,
+		kind:            NullTypeKind,
 		runtimeTypeName: "null_type",
 	}
 	// StringType represents the string type.
 	StringType = &Type{
-		Kind:            StringKind,
+		kind:            StringKind,
 		runtimeTypeName: "string",
 		traitMask: traits.AdderType |
 			traits.ComparerType |
@@ -176,7 +181,7 @@ var (
 	}
 	// TimestampType represents the time type.
 	TimestampType = &Type{
-		Kind:            TimestampKind,
+		kind:            TimestampKind,
 		runtimeTypeName: "google.protobuf.Timestamp",
 		traitMask: traits.AdderType |
 			traits.ComparerType |
@@ -185,12 +190,12 @@ var (
 	}
 	// TypeType represents a CEL type
 	TypeType = &Type{
-		Kind:            TypeKind,
+		kind:            TypeKind,
 		runtimeTypeName: "type",
 	}
 	// UintType represents a uint type.
 	UintType = &Type{
-		Kind:            UintKind,
+		kind:            UintKind,
 		runtimeTypeName: "uint",
 		traitMask: traits.AdderType |
 			traits.ComparerType |
@@ -201,7 +206,7 @@ var (
 	}
 	// UnknownType represents an unknown value type.
 	UnknownType = &Type{
-		Kind:            UnknownKind,
+		kind:            UnknownKind,
 		runtimeTypeName: "unknown",
 	}
 )
@@ -211,11 +216,11 @@ var _ ref.Val = &Type{}
 
 // Type holds a reference to a runtime type with an optional type-checked set of type parameters.
 type Type struct {
-	// Kind indicates general category of the type.
-	Kind Kind
+	// kind indicates general category of the type.
+	kind Kind
 
-	// Parameters holds the optional type-checked set of type Parameters that are used during static analysis.
-	Parameters []*Type
+	// parameters holds the optional type-checked set of type Parameters that are used during static analysis.
+	parameters []*Type
 
 	// runtimeTypeName indicates the runtime type name of the type.
 	runtimeTypeName string
@@ -272,19 +277,30 @@ func (t *Type) IsEquivalentType(other *Type) bool {
 	return t.isTypeInternal(other, false)
 }
 
+// Kind indicates general category of the type.
+func (t *Type) Kind() Kind {
+	if t == nil {
+		return UnspecifiedKind
+	}
+	return t.kind
+}
+
 // isTypeInternal checks whether the two types are equivalent or exactly the same based on the checkTypeParamName flag.
 func (t *Type) isTypeInternal(other *Type, checkTypeParamName bool) bool {
+	if t == nil {
+		return false
+	}
 	if t == other {
 		return true
 	}
-	if t.Kind != other.Kind || len(t.Parameters) != len(other.Parameters) {
+	if t.Kind() != other.Kind() || len(t.Parameters()) != len(other.Parameters()) {
 		return false
 	}
-	if (checkTypeParamName || t.Kind != TypeParamKind) && t.TypeName() != other.TypeName() {
+	if (checkTypeParamName || t.Kind() != TypeParamKind) && t.TypeName() != other.TypeName() {
 		return false
 	}
-	for i, p := range t.Parameters {
-		if !p.isTypeInternal(other.Parameters[i], checkTypeParamName) {
+	for i, p := range t.Parameters() {
+		if !p.isTypeInternal(other.Parameters()[i], checkTypeParamName) {
 			return false
 		}
 	}
@@ -293,6 +309,9 @@ func (t *Type) isTypeInternal(other *Type, checkTypeParamName bool) bool {
 
 // IsAssignableType determines whether the current type is type-check assignable from the input fromType.
 func (t *Type) IsAssignableType(fromType *Type) bool {
+	if t == nil {
+		return false
+	}
 	if t.isAssignableType != nil {
 		return t.isAssignableType(fromType)
 	}
@@ -304,16 +323,26 @@ func (t *Type) IsAssignableType(fromType *Type) bool {
 // At runtime, parameterized types are erased and so a function which type-checks to support a map(string, string)
 // will have a runtime assignable type of a map.
 func (t *Type) IsAssignableRuntimeType(val ref.Val) bool {
+	if t == nil {
+		return false
+	}
 	if t.isAssignableRuntimeType != nil {
 		return t.isAssignableRuntimeType(val)
 	}
 	return t.defaultIsAssignableRuntimeType(val)
 }
 
+func (t *Type) Parameters() []*Type {
+	if t == nil {
+		return emptyParams
+	}
+	return t.parameters
+}
+
 // DeclaredTypeName indicates the fully qualified and parameterized type-check type name.
 func (t *Type) DeclaredTypeName() string {
 	// if the type itself is neither null, nor dyn, but is assignable to null, then it's a wrapper type.
-	if t.Kind != NullTypeKind && !t.isDyn() && t.IsAssignableType(NullType) {
+	if t.Kind() != NullTypeKind && !t.isDyn() && t.IsAssignableType(NullType) {
 		return fmt.Sprintf("wrapper(%s)", t.TypeName())
 	}
 	return t.TypeName()
@@ -333,16 +362,19 @@ func (t *Type) Value() any {
 //
 // TypeName implements the ref.Type interface method.
 func (t *Type) TypeName() string {
+	if t == nil {
+		return ""
+	}
 	return t.runtimeTypeName
 }
 
 // String returns a human-readable definition of the type name.
 func (t *Type) String() string {
-	if len(t.Parameters) == 0 {
+	if len(t.Parameters()) == 0 {
 		return t.DeclaredTypeName()
 	}
-	params := make([]string, len(t.Parameters))
-	for i, p := range t.Parameters {
+	params := make([]string, len(t.Parameters()))
+	for i, p := range t.Parameters() {
 		params[i] = p.String()
 	}
 	return fmt.Sprintf("%s(%s)", t.DeclaredTypeName(), strings.Join(params, ", "))
@@ -350,7 +382,8 @@ func (t *Type) String() string {
 
 // isDyn indicates whether the type is dynamic in any way.
 func (t *Type) isDyn() bool {
-	return t.Kind == DynKind || t.Kind == AnyKind || t.Kind == TypeParamKind
+	k := t.Kind()
+	return k == DynKind || k == AnyKind || k == TypeParamKind
 }
 
 // defaultIsAssignableType provides the standard definition of what it means for one type to be assignable to another
@@ -364,13 +397,13 @@ func (t *Type) defaultIsAssignableType(fromType *Type) bool {
 	if t == fromType || t.isDyn() {
 		return true
 	}
-	if t.Kind != fromType.Kind ||
+	if t.Kind() != fromType.Kind() ||
 		t.TypeName() != fromType.TypeName() ||
-		len(t.Parameters) != len(fromType.Parameters) {
+		len(t.Parameters()) != len(fromType.Parameters()) {
 		return false
 	}
-	for i, tp := range t.Parameters {
-		fp := fromType.Parameters[i]
+	for i, tp := range t.Parameters() {
+		fp := fromType.Parameters()[i]
 		if !tp.IsAssignableType(fp) {
 			return false
 		}
@@ -386,9 +419,9 @@ func (t *Type) defaultIsAssignableRuntimeType(val ref.Val) bool {
 	if !(t.isDyn() || t.TypeName() == valType.TypeName()) {
 		return false
 	}
-	switch t.Kind {
+	switch t.Kind() {
 	case ListKind:
-		elemType := t.Parameters[0]
+		elemType := t.Parameters()[0]
 		l := val.(traits.Lister)
 		if l.Size() == IntZero {
 			return true
@@ -397,8 +430,8 @@ func (t *Type) defaultIsAssignableRuntimeType(val ref.Val) bool {
 		elemVal := it.Next()
 		return elemType.IsAssignableRuntimeType(elemVal)
 	case MapKind:
-		keyType := t.Parameters[0]
-		elemType := t.Parameters[1]
+		keyType := t.Parameters()[0]
+		elemType := t.Parameters()[1]
 		m := val.(traits.Mapper)
 		if m.Size() == IntZero {
 			return true
@@ -413,9 +446,9 @@ func (t *Type) defaultIsAssignableRuntimeType(val ref.Val) bool {
 
 // NewListType creates an instances of a list type value with the provided element type.
 func NewListType(elemType *Type) *Type {
-	t := &Type{
-		Kind:            ListKind,
-		Parameters:      []*Type{},
+	return &Type{
+		kind:            ListKind,
+		parameters:      []*Type{elemType},
 		runtimeTypeName: "list",
 		traitMask: traits.AdderType |
 			traits.ContainerType |
@@ -423,27 +456,19 @@ func NewListType(elemType *Type) *Type {
 			traits.IterableType |
 			traits.SizerType,
 	}
-	if elemType != nil {
-		t.Parameters = append(t.Parameters, elemType)
-	}
-	return t
 }
 
 // NewMapType creates an instance of a map type value with the provided key and value types.
 func NewMapType(keyType, valueType *Type) *Type {
-	t := &Type{
-		Kind:            MapKind,
-		Parameters:      []*Type{},
+	return &Type{
+		kind:            MapKind,
+		parameters:      []*Type{keyType, valueType},
 		runtimeTypeName: "map",
 		traitMask: traits.ContainerType |
 			traits.IndexerType |
 			traits.IterableType |
 			traits.SizerType,
 	}
-	if keyType != nil && valueType != nil {
-		t.Parameters = append(t.Parameters, keyType, valueType)
-	}
-	return t
 }
 
 // NewNullableType creates an instance of a nullable type with the provided wrapped type.
@@ -451,9 +476,9 @@ func NewMapType(keyType, valueType *Type) *Type {
 // Note: only primitive types are supported as wrapped types.
 func NewNullableType(wrapped *Type) *Type {
 	return &Type{
-		Kind:            wrapped.Kind,
-		Parameters:      wrapped.Parameters,
-		runtimeTypeName: wrapped.runtimeTypeName,
+		kind:            wrapped.Kind(),
+		parameters:      wrapped.Parameters(),
+		runtimeTypeName: wrapped.TypeName(),
 		traitMask:       wrapped.traitMask,
 		isAssignableType: func(other *Type) bool {
 			return NullType.IsAssignableType(other) || wrapped.IsAssignableType(other)
@@ -472,8 +497,8 @@ func NewOptionalType(param *Type) *Type {
 // NewOpaqueType creates an abstract parameterized type with a given name.
 func NewOpaqueType(name string, params ...*Type) *Type {
 	return &Type{
-		Kind:            OpaqueKind,
-		Parameters:      params,
+		kind:            OpaqueKind,
+		parameters:      params,
 		runtimeTypeName: name,
 	}
 }
@@ -485,8 +510,8 @@ func NewObjectType(typeName string) *Type {
 		return wkt
 	}
 	return &Type{
-		Kind:            StructKind,
-		Parameters:      []*Type{},
+		kind:            StructKind,
+		parameters:      emptyParams,
 		runtimeTypeName: typeName,
 		traitMask:       traits.FieldTesterType | traits.IndexerType,
 	}
@@ -509,8 +534,8 @@ func NewTypeValue(typeName string, traits ...int) *Type {
 		traitMask |= trait
 	}
 	return &Type{
-		Kind:            OpaqueKind,
-		Parameters:      []*Type{},
+		kind:            OpaqueKind,
+		parameters:      emptyParams,
 		runtimeTypeName: typeName,
 		traitMask:       traitMask,
 	}
@@ -519,7 +544,7 @@ func NewTypeValue(typeName string, traits ...int) *Type {
 // NewTypeParamType creates a parameterized type instance.
 func NewTypeParamType(paramName string) *Type {
 	return &Type{
-		Kind:            TypeParamKind,
+		kind:            TypeParamKind,
 		runtimeTypeName: paramName,
 	}
 }
@@ -528,15 +553,15 @@ func NewTypeParamType(paramName string) *Type {
 // Used for type-checking purposes, but equivalent to TypeType otherwise.
 func NewTypeTypeWithParam(param *Type) *Type {
 	return &Type{
-		Kind:            TypeKind,
+		kind:            TypeKind,
 		runtimeTypeName: "type",
-		Parameters:      []*Type{param},
+		parameters:      []*Type{param},
 	}
 }
 
 // TypeToExprType converts a CEL-native type representation to a protobuf CEL Type representation.
 func TypeToExprType(t *Type) (*exprpb.Type, error) {
-	switch t.Kind {
+	switch t.Kind() {
 	case AnyKind:
 		return chkdecls.Any, nil
 	case BoolKind:
@@ -554,23 +579,23 @@ func TypeToExprType(t *Type) (*exprpb.Type, error) {
 	case IntKind:
 		return maybeWrapper(t, chkdecls.Int), nil
 	case ListKind:
-		if len(t.Parameters) != 1 {
-			return nil, fmt.Errorf("invalid list, got %d parameters, wanted one", len(t.Parameters))
+		if len(t.Parameters()) != 1 {
+			return nil, fmt.Errorf("invalid list, got %d parameters, wanted one", len(t.Parameters()))
 		}
-		et, err := TypeToExprType(t.Parameters[0])
+		et, err := TypeToExprType(t.Parameters()[0])
 		if err != nil {
 			return nil, err
 		}
 		return chkdecls.NewListType(et), nil
 	case MapKind:
-		if len(t.Parameters) != 2 {
-			return nil, fmt.Errorf("invalid map, got %d parameters, wanted two", len(t.Parameters))
+		if len(t.Parameters()) != 2 {
+			return nil, fmt.Errorf("invalid map, got %d parameters, wanted two", len(t.Parameters()))
 		}
-		kt, err := TypeToExprType(t.Parameters[0])
+		kt, err := TypeToExprType(t.Parameters()[0])
 		if err != nil {
 			return nil, err
 		}
-		vt, err := TypeToExprType(t.Parameters[1])
+		vt, err := TypeToExprType(t.Parameters()[1])
 		if err != nil {
 			return nil, err
 		}
@@ -578,8 +603,8 @@ func TypeToExprType(t *Type) (*exprpb.Type, error) {
 	case NullTypeKind:
 		return chkdecls.Null, nil
 	case OpaqueKind:
-		params := make([]*exprpb.Type, len(t.Parameters))
-		for i, p := range t.Parameters {
+		params := make([]*exprpb.Type, len(t.Parameters()))
+		for i, p := range t.Parameters() {
 			pt, err := TypeToExprType(p)
 			if err != nil {
 				return nil, err
@@ -596,8 +621,8 @@ func TypeToExprType(t *Type) (*exprpb.Type, error) {
 	case TypeParamKind:
 		return chkdecls.NewTypeParamType(t.TypeName()), nil
 	case TypeKind:
-		if len(t.Parameters) == 1 {
-			p, err := TypeToExprType(t.Parameters[0])
+		if len(t.Parameters()) == 1 {
+			p, err := TypeToExprType(t.Parameters()[0])
 			if err != nil {
 				return nil, err
 			}
@@ -724,4 +749,6 @@ var (
 		"google.protobuf.Struct":    NewMapType(StringType, DynType),
 		"google.protobuf.Value":     DynType,
 	}
+
+	emptyParams = []*Type{}
 )

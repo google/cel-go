@@ -112,14 +112,14 @@ func (stdLibrary) CompileOptions() []EnvOption {
 		func(e *Env) (*Env, error) {
 			var err error
 			for _, fn := range stdlib.Functions() {
-				existing, found := e.functions[fn.Name]
+				existing, found := e.functions[fn.Name()]
 				if found {
 					fn, err = existing.Merge(fn)
 					if err != nil {
 						return nil, err
 					}
 				}
-				e.functions[fn.Name] = fn
+				e.functions[fn.Name()] = fn
 			}
 			return e, nil
 		},

@@ -18,6 +18,7 @@
 package interpreter
 
 import (
+	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/types/ref"
 
@@ -28,7 +29,7 @@ import (
 type Interpreter interface {
 	// NewInterpretable creates an Interpretable from a checked expression and an
 	// optional list of InterpretableDecorator values.
-	NewInterpretable(checked *exprpb.CheckedExpr, decorators ...InterpretableDecorator) (Interpretable, error)
+	NewInterpretable(checked *ast.CheckedAST, decorators ...InterpretableDecorator) (Interpretable, error)
 
 	// NewUncheckedInterpretable returns an Interpretable from a parsed expression
 	// and an optional list of InterpretableDecorator values.
@@ -175,7 +176,7 @@ func NewInterpreter(dispatcher Dispatcher,
 
 // NewIntepretable implements the Interpreter interface method.
 func (i *exprInterpreter) NewInterpretable(
-	checked *exprpb.CheckedExpr,
+	checked *ast.CheckedAST,
 	decorators ...InterpretableDecorator) (Interpretable, error) {
 	p := newPlanner(
 		i.dispatcher,
@@ -185,7 +186,7 @@ func (i *exprInterpreter) NewInterpretable(
 		i.container,
 		checked,
 		decorators...)
-	return p.Plan(checked.GetExpr())
+	return p.Plan(checked.Expr)
 }
 
 // NewUncheckedIntepretable implements the Interpreter interface method.

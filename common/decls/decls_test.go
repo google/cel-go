@@ -273,8 +273,8 @@ func TestFunctionMerge(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Merge() failed: %v", err)
 	}
-	if (sizeMerged.Name) != "size" {
-		t.Errorf("Merge() produced a function with name %v, wanted 'size'", sizeMerged.Name)
+	if sizeMerged.Name() != "size" {
+		t.Errorf("Merge() produced a function with name %v, wanted 'size'", sizeMerged.Name())
 	}
 	if len(sizeMerged.overloads) != 3 {
 		t.Errorf("Merge() produced %d overloads, wanted 3", len(sizeFunc.overloads))
@@ -285,7 +285,7 @@ func TestFunctionMerge(t *testing.T) {
 		"vector_size": true,
 	}
 	for _, o := range sizeMerged.overloads {
-		delete(overloads, o.ID)
+		delete(overloads, o.ID())
 	}
 	if len(overloads) != 0 {
 		t.Errorf("Merge() did not include overloads: %v", overloads)
@@ -681,13 +681,13 @@ func TestFunctionGetTypeParams(t *testing.T) {
 	o1 := fn.OverloadDecls()[0]
 	o2 := fn.OverloadDecls()[1]
 	o3 := fn.OverloadDecls()[2]
-	if len(o1.GetTypeParams()) != 0 {
+	if len(o1.TypeParams()) != 0 {
 		t.Errorf("overload %v did not have zero type-params", o1)
 	}
-	if len(o2.GetTypeParams()) != 1 && !reflect.DeepEqual(o2.GetTypeParams(), []string{"K"}) {
+	if len(o2.TypeParams()) != 1 && !reflect.DeepEqual(o2.TypeParams(), []string{"K"}) {
 		t.Errorf("overload %v did not have a single type param", o2)
 	}
-	if len(o3.GetTypeParams()) != 3 {
+	if len(o3.TypeParams()) != 3 {
 		t.Errorf("overload %v did not have three type params", o3)
 	}
 }
