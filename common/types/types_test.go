@@ -85,6 +85,19 @@ func TestTypeString(t *testing.T) {
 			in:  NewTypeParamType("T"),
 			out: "T",
 		},
+		// nil-safety tests
+		{
+			in:  nil,
+			out: "",
+		},
+		{
+			in:  ListType,
+			out: "list()",
+		},
+		{
+			in:  MapType,
+			out: "map(, )",
+		},
 	}
 	for _, tst := range tests {
 		if tst.in.String() != tst.out {
