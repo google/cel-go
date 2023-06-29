@@ -202,7 +202,7 @@ func (r *attrFactory) NewQualifier(objType *types.Type, qualID int64, val any, o
 	// If so, use the precomputed GetFrom qualification method rather than the standard
 	// stringQualifier.
 	str, isStr := val.(string)
-	if isStr && objType != nil && objType.Kind == types.StructKind {
+	if isStr && objType != nil && objType.Kind() == types.StructKind {
 		ft, found := r.provider.FindFieldType(objType.TypeName(), str)
 		if found && ft.IsSet != nil && ft.GetFrom != nil {
 			return &fieldQualifier{

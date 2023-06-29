@@ -105,10 +105,7 @@ type formatter func(any) string
 
 func formatCelType(t any) string {
 	dt := t.(*types.Type)
-	if dt == nil {
-		return ""
-	}
-	switch dt.Kind {
+	switch dt.Kind() {
 	case types.AnyKind:
 		return "any"
 	case types.DurationKind:
@@ -125,14 +122,16 @@ func formatCelType(t any) string {
 		if dt.TypeName() == "function" {
 			// There is no explicit function type in the new types representation, so information like
 			// whether the function is a member function is absent.
-			return formatFunctionDeclType(dt.Parameters[0], dt.Parameters[1:], false)
+			return formatFunctionDeclType(dt.Parameters()[0], dt.Parameters()[1:], false)
 		}
+	case types.UnspecifiedKind:
+		return ""
 	}
-	if len(dt.Parameters) == 0 {
+	if len(dt.Parameters()) == 0 {
 		return dt.DeclaredTypeName()
 	}
-	paramTypeNames := make([]string, 0, len(dt.Parameters))
-	for _, p := range dt.Parameters {
+	paramTypeNames := make([]string, 0, len(dt.Parameters()))
+	for _, p := range dt.Parameters() {
 		paramTypeNames = append(paramTypeNames, formatCelType(p))
 	}
 	return fmt.Sprintf("%s(%s)", dt.TypeName(), strings.Join(paramTypeNames, ", "))

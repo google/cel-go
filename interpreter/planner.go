@@ -154,7 +154,7 @@ func (p *planner) planCheckedIdent(id int64, identRef *ast.ReferenceInfo) (Inter
 	// Check to see whether the type map indicates this is a type name. All types should be
 	// registered with the provider.
 	cType := p.typeMap[id]
-	if cType.Kind == types.TypeKind {
+	if cType.Kind() == types.TypeKind {
 		cVal, found := p.provider.FindIdent(identRef.Name)
 		if !found {
 			return nil, fmt.Errorf("reference to undefined type: %s", identRef.Name)

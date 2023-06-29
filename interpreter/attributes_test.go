@@ -1191,7 +1191,7 @@ type custAttrFactory struct {
 }
 
 func (r *custAttrFactory) NewQualifier(objType *types.Type, qualID int64, val any, opt bool) (Qualifier, error) {
-	if objType.Kind == types.StructKind && objType.TypeName() == "google.expr.proto3.test.TestAllTypes.NestedMessage" {
+	if objType.Kind() == types.StructKind && objType.TypeName() == "google.expr.proto3.test.TestAllTypes.NestedMessage" {
 		return &nestedMsgQualifier{id: qualID, field: val.(string)}, nil
 	}
 	return r.AttributeFactory.NewQualifier(objType, qualID, val, opt)

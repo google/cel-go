@@ -215,10 +215,10 @@ func (c *checker) checkSelectField(e, operand *exprpb.Expr, field string, option
 
 	// Assume error type by default as most types do not support field selection.
 	resultType := types.ErrorType
-	switch targetType.Kind {
+	switch targetType.Kind() {
 	case types.MapKind:
 		// Maps yield their value type as the selection result type.
-		resultType = targetType.Parameters[1]
+		resultType = targetType.Parameters()[1]
 	case types.StructKind:
 		// Objects yield their field type declaration as the selection result type, but only if
 		// the field is defined.
@@ -387,7 +387,7 @@ func (c *checker) resolveOverload(
 			overloadType = substitute(substitutions, overloadType, false)
 		}
 
-		candidateArgTypes := overloadType.Parameters[1:]
+		candidateArgTypes := overloadType.Parameters()[1:]
 		if c.isAssignableList(argTypes, candidateArgTypes) {
 			if checkedRef == nil {
 				checkedRef = ast.NewFunctionReference(overload.ID)
@@ -396,7 +396,7 @@ func (c *checker) resolveOverload(
 			}
 
 			// First matching overload, determines result type.
-			fnResultType := substitute(c.mappings, overloadType.Parameters[0], false)
+			fnResultType := substitute(c.mappings, overloadType.Parameters()[0], false)
 			if resultType == nil {
 				resultType = fnResultType
 			} else if !isDyn(resultType) && !fnResultType.IsExactType(resultType) {
@@ -496,18 +496,18 @@ func (c *checker) checkCreateMessage(e *exprpb.Expr) {
 	typeName := ident.Name
 	msgVal.MessageName = typeName
 	c.setReference(e, ast.NewIdentReference(ident.Name, nil))
-	identKind := ident.Type.Kind
+	identKind := ident.Type.Kind()
 	if identKind != types.ErrorKind {
 		if identKind != types.TypeKind {
 			c.errors.notAType(e.GetId(), c.location(e), ident.Type.DeclaredTypeName())
 		} else {
-			resultType = ident.Type.Parameters[0]
+			resultType = ident.Type.Parameters()[0]
 			// Backwards compatibility test between well-known types and message types
 			// In this context, the type is being instantiated by its protobuf name which
 			// is not ideal or recommended, but some users expect this to work.
 			if isWellKnownType(resultType) {
 				typeName = getWellKnownTypeName(resultType)
-			} else if resultType.Kind == types.StructKind {
+			} else if resultType.Kind() == types.StructKind {
 				typeName = resultType.DeclaredTypeName()
 			} else {
 				c.errors.notAMessageType(e.GetId(), c.location(e), resultType.DeclaredTypeName())
@@ -551,12 +551,12 @@ func (c *checker) checkComprehension(e *exprpb.Expr) {
 	rangeType := substitute(c.mappings, c.getType(comp.GetIterRange()), false)
 	var varType *types.Type
 
-	switch rangeType.Kind {
+	switch rangeType.Kind() {
 	case types.ListKind:
-		varType = rangeType.Parameters[0]
+		varType = rangeType.Parameters()[0]
 	case types.MapKind:
 		// Ranges over the keys.
-		varType = rangeType.Parameters[0]
+		varType = rangeType.Parameters()[0]
 	case types.DynKind, types.ErrorKind, types.TypeParamKind:
 		// Set the range type to DYN to prevent assignment to a potentially incorrect type
 		// at a later point in type-checking. The isAssignable call will update the type
@@ -726,22 +726,21 @@ func (c *checker) lookupFieldType(exprID int64, messageType, fieldName string) (
 }
 
 func isWellKnownType(t *types.Type) bool {
-	kind := t.Kind
-	switch kind {
+	switch t.Kind() {
 	case types.AnyKind, types.TimestampKind, types.DurationKind, types.DynKind, types.NullTypeKind:
 		return true
 	case types.BoolKind, types.BytesKind, types.DoubleKind, types.IntKind, types.StringKind, types.UintKind:
 		return t.IsAssignableType(types.NullType)
 	case types.ListKind:
-		return t.Parameters[0] == types.DynType
+		return t.Parameters()[0] == types.DynType
 	case types.MapKind:
-		return t.Parameters[0] == types.StringType && t.Parameters[1] == types.DynType
+		return t.Parameters()[0] == types.StringType && t.Parameters()[1] == types.DynType
 	}
 	return false
 }
 
 func getWellKnownTypeName(t *types.Type) string {
-	if name, found := wellKnownTypes[t.Kind]; found {
+	if name, found := wellKnownTypes[t.Kind()]; found {
 		return name
 	}
 	return ""

@@ -353,7 +353,7 @@ func (c *coster) costIdent(e *exprpb.Expr) CostEstimate {
 
 	// build and track the field path
 	if iterRange, ok := c.iterRanges.peek(identExpr.GetName()); ok {
-		switch c.checkedAST.TypeMap[iterRange].Kind {
+		switch c.checkedAST.TypeMap[iterRange].Kind() {
 		case types.ListKind:
 			c.addPath(e, append(c.exprPath[iterRange], "@items"))
 		case types.MapKind:
@@ -380,7 +380,7 @@ func (c *coster) costSelect(e *exprpb.Expr) CostEstimate {
 	}
 	sum = sum.Add(c.cost(sel.GetOperand()))
 	targetType := c.getType(sel.GetOperand())
-	switch targetType.Kind {
+	switch targetType.Kind() {
 	case types.MapKind, types.StructKind, types.TypeParamKind:
 		sum = sum.Add(selectAndIdentCost)
 	}
@@ -656,7 +656,7 @@ func (c *coster) newAstNode(e *exprpb.Expr) *astNode {
 // compile time. isScalar will return false for strings (they are variable-width)
 // in addition to protobuf.Any and protobuf.Value (their size is not knowable at compile time).
 func isScalar(t *types.Type) bool {
-	switch t.Kind {
+	switch t.Kind() {
 	case types.BoolKind, types.DoubleKind, types.DurationKind, types.IntKind, types.TimestampKind, types.UintKind:
 		return true
 	}

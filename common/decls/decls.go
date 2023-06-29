@@ -748,10 +748,10 @@ func FunctionDeclToExprDecl(f *FunctionDecl) (*exprpb.Decl, error) {
 }
 
 func collectParamNames(paramNames map[string]struct{}, arg *types.Type) {
-	if arg.Kind == types.TypeParamKind {
+	if arg.Kind() == types.TypeParamKind {
 		paramNames[arg.TypeName()] = struct{}{}
 	}
-	for _, param := range arg.Parameters {
+	for _, param := range arg.Parameters() {
 		collectParamNames(paramNames, param)
 	}
 }

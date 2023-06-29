@@ -211,7 +211,7 @@ func newProgram(e *Env, ast *Ast, opts []ProgramOption) (Program, error) {
 		if ast.IsChecked() {
 			isValidType = func(id int64, validTypes ...ref.Type) (bool, error) {
 				t := ast.typeMap[id]
-				if t.Kind == DynKind {
+				if t.Kind() == DynKind {
 					return true, nil
 				}
 				for _, vt := range validTypes {
@@ -219,7 +219,7 @@ func newProgram(e *Env, ast *Ast, opts []ProgramOption) (Program, error) {
 					if err != nil {
 						return false, err
 					}
-					if k == t.Kind {
+					if t.Kind() == k {
 						return true, nil
 					}
 				}
