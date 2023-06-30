@@ -93,8 +93,17 @@ func (ast *Ast) Source() Source {
 }
 
 // FormatType converts a type message into a string representation.
+//
+// Deprecated: prefer FormatCelType
 func FormatType(t *exprpb.Type) string {
 	return checker.FormatCheckedType(t)
+}
+
+// FormatCelType formats a cel.Type value to a string representation.
+//
+// The type formatting is identical to FormatType.
+func FormatCelType(t *Type) string {
+	return checker.FormatCelType(t)
 }
 
 // Env encapsulates the context necessary to perform parsing, type checking, or generation of

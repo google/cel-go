@@ -84,6 +84,30 @@ ERROR: <input>:1:2: Syntax error: mismatched input '<EOF>' expecting {'[', '{', 
 	}
 }
 
+func TestFormatCelTypeEquivalence(t *testing.T) {
+	values := []*Type{
+		AnyType,
+		MapType(StringType, DynType),
+		types.NewTypeTypeWithParam(ListType(IntType)),
+		TypeType,
+		NullableType(DoubleType),
+	}
+	for _, v := range values {
+		v := v
+		t.Run(v.String(), func(t *testing.T) {
+			celStr := FormatCelType(v)
+			et, err := TypeToExprType(v)
+			if err != nil {
+				t.Fatalf("TypeToExprType(%v) failed: %v", v, err)
+			}
+			exprStr := FormatType(et)
+			if celStr != exprStr {
+				t.Errorf("FormatCelType(%v) got %s, wanted %s", v, celStr, exprStr)
+			}
+		})
+	}
+}
+
 func TestEnvCheckExtendRace(t *testing.T) {
 	t.Parallel()
 	for i := 0; i < 500; i++ {
