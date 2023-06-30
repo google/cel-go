@@ -597,6 +597,8 @@ func Functions() []*decls.FunctionDecl {
 
 // FunctionExprDecls returns the legacy style protobuf-typed declarations for all functions and overloads
 // in the CEL standard environment.
+//
+// Deprecated: use Functions
 func FunctionExprDecls() []*exprpb.Decl {
 	return stdFnDecls
 }
@@ -608,6 +610,8 @@ func Types() []*decls.VariableDecl {
 
 // TypeExprDecls returns the legacy style protobuf-typed declarations for all types in the CEL
 // standard environment.
+//
+// Deprecated: use Types
 func TypeExprDecls() []*exprpb.Decl {
 	return stdTypeDecls
 }
