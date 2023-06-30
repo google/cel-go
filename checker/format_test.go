@@ -51,9 +51,9 @@ func TestFormatType(t *testing.T) {
 			if err != nil {
 				t.Fatalf("types.TypeToExprType(%v) failed: %v", tc, err)
 			}
-			if formatCelType(tc) != FormatCheckedType(exprType) {
+			if FormatCelType(tc) != FormatCheckedType(exprType) {
 				t.Errorf("formatCelType(%v) not equal to FormatCheckedType(%v), got %s, wanted %s",
-					tc, exprType, formatCelType(tc), FormatCheckedType(exprType))
+					tc, exprType, FormatCelType(tc), FormatCheckedType(exprType))
 			}
 		})
 	}
@@ -61,7 +61,7 @@ func TestFormatType(t *testing.T) {
 
 func TestFormatFunctionType(t *testing.T) {
 	// native type representation of function(string, int) -> bool
-	ct := formatCelType(newFunctionType(types.BoolType, types.StringType, types.IntType))
+	ct := FormatCelType(newFunctionType(types.BoolType, types.StringType, types.IntType))
 	// protobuf-based function type
 	et := FormatCheckedType(decls.NewFunctionType(decls.Bool, decls.String, decls.Int))
 	if ct != et {

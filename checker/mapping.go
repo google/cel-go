@@ -29,11 +29,11 @@ func newMapping() *mapping {
 }
 
 func (m *mapping) add(from, to *types.Type) {
-	m.mapping[formatCelType(from)] = to
+	m.mapping[FormatCelType(from)] = to
 }
 
 func (m *mapping) find(from *types.Type) (*types.Type, bool) {
-	if r, found := m.mapping[formatCelType(from)]; found {
+	if r, found := m.mapping[FormatCelType(from)]; found {
 		return r, found
 	}
 	return nil, false

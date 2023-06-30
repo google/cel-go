@@ -31,7 +31,7 @@ type typeErrors struct {
 
 func (e *typeErrors) fieldTypeMismatch(id int64, l common.Location, name string, field, value *types.Type) {
 	e.errs.ReportErrorAtID(id, l, "expected type of field '%s' is '%s' but provided type is '%s'",
-		name, formatCelType(field), formatCelType(value))
+		name, FormatCelType(field), FormatCelType(value))
 }
 
 func (e *typeErrors) incompatibleType(id int64, l common.Location, ex *exprpb.Expr, prev, next *types.Type) {
@@ -46,7 +46,7 @@ func (e *typeErrors) noMatchingOverload(id int64, l common.Location, name string
 
 func (e *typeErrors) notAComprehensionRange(id int64, l common.Location, t *types.Type) {
 	e.errs.ReportErrorAtID(id, l, "expression of type '%s' cannot be range of a comprehension (must be list, map, or dynamic)",
-		formatCelType(t))
+		FormatCelType(t))
 }
 
 func (e *typeErrors) notAnOptionalFieldSelection(id int64, l common.Location, field *exprpb.Expr) {
@@ -67,12 +67,12 @@ func (e *typeErrors) referenceRedefinition(id int64, l common.Location, ex *expr
 }
 
 func (e *typeErrors) typeDoesNotSupportFieldSelection(id int64, l common.Location, t *types.Type) {
-	e.errs.ReportErrorAtID(id, l, "type '%s' does not support field selection", formatCelType(t))
+	e.errs.ReportErrorAtID(id, l, "type '%s' does not support field selection", FormatCelType(t))
 }
 
 func (e *typeErrors) typeMismatch(id int64, l common.Location, expected, actual *types.Type) {
 	e.errs.ReportErrorAtID(id, l, "expected type '%s' but found '%s'",
-		formatCelType(expected), formatCelType(actual))
+		FormatCelType(expected), FormatCelType(actual))
 }
 
 func (e *typeErrors) undefinedField(id int64, l common.Location, field string) {
