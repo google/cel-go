@@ -413,21 +413,35 @@ func (e *Env) TypeProvider() ref.TypeProvider {
 	return e.provider
 }
 
-// UnknownVars returns an interpreter.PartialActivation which marks all variables
-// declared in the Env as unknown AttributePattern values.
+// UnknownVars returns an interpreter.PartialActivation which marks all variables declared in the
+// Env as unknown AttributePattern values.
 //
-// Note, the UnknownVars will behave the same as an interpreter.EmptyActivation
-// unless the PartialAttributes option is provided as a ProgramOption.
+// Note, the UnknownVars will behave the same as an interpreter.EmptyActivation unless the
+// PartialAttributes option is provided as a ProgramOption.
 func (e *Env) UnknownVars() interpreter.PartialActivation {
-	var unknownPatterns []*interpreter.AttributePattern
-	for _, v := range e.variables {
-		unknownPatterns = append(unknownPatterns,
-			interpreter.NewAttributePattern(v.Name()))
-	}
-	part, _ := PartialVars(
-		interpreter.EmptyActivation(),
-		unknownPatterns...)
+	act := interpreter.EmptyActivation()
+	part, _ := PartialVars(act, e.computeUnknownVars(act)...)
 	return part
+}
+
+// PartialVars returns an interpreter.PartialActivation where all variables not in the input variable
+// set, but which have been configured in the environment, are marked as unknown.
+//
+// The `vars` value may either be an interpreter.Activation or any valid input to the
+// interpreter.NewActivation call.
+//
+// Note, this is equivalent to calling cel.PartialVars and manually configuring the set of unknown
+// variables. For more advanced use cases of partial state where portions of an object graph, rather
+// than top-level variables, are missing the PartialVars() method may be a more suitable choice.
+//
+// Note, the PartialVars will behave the same as an interpreter.EmptyActivation unless the
+// PartialAttributes option is provided as a ProgramOption.
+func (e *Env) PartialVars(vars any) (interpreter.PartialActivation, error) {
+	act, err := interpreter.NewActivation(vars)
+	if err != nil {
+		return nil, err
+	}
+	return PartialVars(act, e.computeUnknownVars(act)...)
 }
 
 // ResidualAst takes an Ast and its EvalDetails to produce a new Ast which only contains the
@@ -601,6 +615,20 @@ func (e *Env) maybeApplyFeature(feature int, option EnvOption) (*Env, error) {
 	// be registered once.
 	e.appliedFeatures[feature] = true
 	return e, nil
+}
+
+// computeUnknownVars determines a set of missing variables based on the input activation and the
+// environment's configured declaration set.
+func (e *Env) computeUnknownVars(vars interpreter.Activation) []*interpreter.AttributePattern {
+	var unknownPatterns []*interpreter.AttributePattern
+	for _, v := range e.variables {
+		if _, found := vars.ResolveName(v.Name()); found {
+			continue
+		}
+		unknownPatterns = append(unknownPatterns,
+			interpreter.NewAttributePattern(v.Name()))
+	}
+	return unknownPatterns
 }
 
 // Error type which references an expression id, a location within source, and a message.
