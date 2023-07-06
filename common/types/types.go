@@ -715,6 +715,8 @@ func ExprTypeToType(t *exprpb.Type) (*Type, error) {
 			return nil, err
 		}
 		return NewNullableType(t), nil
+	case *exprpb.Type_Error:
+		return ErrorType, nil
 	default:
 		return nil, fmt.Errorf("unsupported type: %v", t)
 	}

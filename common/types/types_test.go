@@ -457,6 +457,10 @@ func TestTypeToExprType(t *testing.T) {
 			out: chkdecls.NewTypeType(chkdecls.NewTypeType(chkdecls.Dyn)),
 		},
 		{
+			in:  ErrorType,
+			out: chkdecls.Error,
+		},
+		{
 			in:             NewObjectType("google.protobuf.Any"),
 			out:            chkdecls.Any,
 			unidirectional: true,
@@ -702,6 +706,10 @@ func TestExprTypeToType(t *testing.T) {
 		{
 			in:  chkdecls.NewObjectType("google.protobuf.UInt64Value"),
 			out: NewNullableType(UintType),
+		},
+		{
+			in:  chkdecls.Error,
+			out: ErrorType,
 		},
 	}
 
