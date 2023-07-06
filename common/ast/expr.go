@@ -36,9 +36,9 @@ const (
 	ComprehensionKind
 )
 
-// NavigateExpr converts a protobuf Expr node and a map of expression types by id to a NavigableExpr
-func NavigateExpr(expr *exprpb.Expr, typeMap map[int64]*types.Type) NavigableExpr {
-	return newNavigableExpr(nil, expr, typeMap)
+// NavigateCheckedAST converts a CheckedAST to a NavigableExpr
+func NavigateCheckedAST(ast *CheckedAST) NavigableExpr {
+	return newNavigableExpr(nil, ast.Expr, ast.TypeMap)
 }
 
 // ExprMatcher takes a NavigableExpr in and indicates whether the value is a match.
@@ -71,7 +71,7 @@ func FunctionMatcher(funcName string) ExprMatcher {
 	}
 }
 
-// AllMatcher returns true for all descendents of a NavigableExpr, effectively flattening them into a list.
+// AllMatcher returns true for all descendants of a NavigableExpr, effectively flattening them into a list.
 //
 // Such a result would work well with subsequent MatchList calls.
 func AllMatcher() ExprMatcher {
@@ -80,28 +80,28 @@ func AllMatcher() ExprMatcher {
 	}
 }
 
-// MatchDescendents takes a NavigableExpr and ExprMatcher and produces a list of NavigableExpr values of the
-// descendents which match.
-func MatchDescendents(expr NavigableExpr, matcher ExprMatcher) []NavigableExpr {
+// MatchDescendants takes a NavigableExpr and ExprMatcher and produces a list of NavigableExpr values of the
+// descendants which match.
+func MatchDescendants(expr NavigableExpr, matcher ExprMatcher) []NavigableExpr {
 	return matchListInternal([]NavigableExpr{expr}, matcher, true)
 }
 
-// MatchExprs applies an ExprMatcher to a list of NavigableExpr values and their descendents, producing a
+// MatchSubset applies an ExprMatcher to a list of NavigableExpr values and their descendants, producing a
 // subset of NavigableExpr values which match.
-func MatchExprs(exprs []NavigableExpr, matcher ExprMatcher) []NavigableExpr {
+func MatchSubset(exprs []NavigableExpr, matcher ExprMatcher) []NavigableExpr {
 	visit := make([]NavigableExpr, len(exprs))
 	copy(visit, exprs)
 	return matchListInternal(visit, matcher, false)
 }
 
-func matchListInternal(visit []NavigableExpr, matcher ExprMatcher, visitDescendents bool) []NavigableExpr {
+func matchListInternal(visit []NavigableExpr, matcher ExprMatcher, visitDescendants bool) []NavigableExpr {
 	var matched []NavigableExpr
 	for len(visit) != 0 {
 		e := visit[0]
 		if matcher(e) {
 			matched = append(matched, e)
 		}
-		if visitDescendents {
+		if visitDescendants {
 			visit = append(visit[1:], e.Children()...)
 		} else {
 			visit = visit[1:]
@@ -601,7 +601,7 @@ func kindOf(expr *exprpb.Expr) (ExprKind, childFactory) {
 	case *exprpb.Expr_IdentExpr:
 		return IdentKind, noopFactory
 	case *exprpb.Expr_SelectExpr:
-		return SelectKind, selectFatory
+		return SelectKind, selectFactory
 	case *exprpb.Expr_CallExpr:
 		return CallKind, callArgFactory
 	case *exprpb.Expr_ListExpr:
@@ -624,7 +624,7 @@ func noopFactory(*navigableExprImpl) []NavigableExpr {
 	return nil
 }
 
-func selectFatory(nav *navigableExprImpl) []NavigableExpr {
+func selectFactory(nav *navigableExprImpl) []NavigableExpr {
 	return []NavigableExpr{
 		nav.createChild(nav.ToExpr().GetSelectExpr().GetOperand()),
 	}

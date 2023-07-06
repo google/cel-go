@@ -36,52 +36,52 @@ import (
 func TestNavigateExpr(t *testing.T) {
 	tests := []struct {
 		expr           string
-		descedentCount int
+		descedantCount int
 		callCount      int
 	}{
 		{
 			expr:           `'a' == 'b'`,
-			descedentCount: 3,
+			descedantCount: 3,
 			callCount:      1,
 		},
 		{
 			expr:           `'a'.size()`,
-			descedentCount: 2,
+			descedantCount: 2,
 			callCount:      1,
 		},
 		{
 			expr:           `[1, 2, 3]`,
-			descedentCount: 4,
+			descedantCount: 4,
 			callCount:      0,
 		},
 		{
 			expr:           `[1, 2, 3][0]`,
-			descedentCount: 6,
+			descedantCount: 6,
 			callCount:      1,
 		},
 		{
 			expr:           `{1u: 'hello'}`,
-			descedentCount: 3,
+			descedantCount: 3,
 			callCount:      0,
 		},
 		{
 			expr:           `{'hello': 'world'}.hello`,
-			descedentCount: 4,
+			descedantCount: 4,
 			callCount:      0,
 		},
 		{
 			expr:           `type(1) == int`,
-			descedentCount: 4,
+			descedantCount: 4,
 			callCount:      2,
 		},
 		{
 			expr:           `google.expr.proto3.test.TestAllTypes{single_int32: 1}`,
-			descedentCount: 2,
+			descedantCount: 2,
 			callCount:      0,
 		},
 		{
 			expr:           `[true].exists(i, i)`,
-			descedentCount: 11, // 2 for iter range, 1 for accu init, 4 for loop condition, 3 for loop step, 1 for result
+			descedantCount: 11, // 2 for iter range, 1 for accu init, 4 for loop condition, 3 for loop step, 1 for result
 			callCount:      3,  // @not_strictly_false(!result), accu_init || i
 		},
 	}
@@ -90,14 +90,14 @@ func TestNavigateExpr(t *testing.T) {
 		tc := tst
 		t.Run(tc.expr, func(t *testing.T) {
 			checked := mustTypeCheck(t, tc.expr)
-			nav := ast.NavigateExpr(checked.Expr, checked.TypeMap)
-			descendents := ast.MatchDescendents(nav, ast.AllMatcher())
-			if len(descendents) != tc.descedentCount {
-				t.Errorf("ast.MatchDescendents(%v) got %d descendents, wanted %d", checked.Expr, len(descendents), tc.descedentCount)
+			nav := ast.NavigateCheckedAST(checked)
+			descendants := ast.MatchDescendants(nav, ast.AllMatcher())
+			if len(descendants) != tc.descedantCount {
+				t.Errorf("ast.MatchDescendants(%v) got %d descendants, wanted %d", checked.Expr, len(descendants), tc.descedantCount)
 			}
-			calls := ast.MatchExprs(descendents, ast.KindMatcher(ast.CallKind))
+			calls := ast.MatchSubset(descendants, ast.KindMatcher(ast.CallKind))
 			if len(calls) != tc.callCount {
-				t.Errorf("ast.MatchExprs(%v) got %d calls, wanted %d", checked.Expr, len(calls), tc.callCount)
+				t.Errorf("ast.MatchSubset(%v) got %d calls, wanted %d", checked.Expr, len(calls), tc.callCount)
 			}
 		})
 	}
@@ -110,11 +110,11 @@ func TestNavigateExprNilSafety(t *testing.T) {
 	}{
 		{
 			name: "nil expr",
-			e:    ast.NavigateExpr(nil, map[int64]*types.Type{}),
+			e:    ast.NavigateCheckedAST(&ast.CheckedAST{TypeMap: map[int64]*types.Type{}}),
 		},
 		{
 			name: "empty expr",
-			e:    ast.NavigateExpr(&exprpb.Expr{}, map[int64]*types.Type{}),
+			e:    ast.NavigateCheckedAST(&ast.CheckedAST{Expr: &exprpb.Expr{}, TypeMap: map[int64]*types.Type{}}),
 		},
 	}
 	for _, tst := range tests {
@@ -145,7 +145,7 @@ func TestNavigateExprNilSafety(t *testing.T) {
 
 func TestNavigableCallExpr_Member(t *testing.T) {
 	checked := mustTypeCheck(t, `'hello'.size()`)
-	expr := ast.NavigateExpr(checked.Expr, checked.TypeMap)
+	expr := ast.NavigateCheckedAST(checked)
 	if expr.Kind() != ast.CallKind {
 		t.Errorf("Kind() got %v, wanted CallKind", expr.Kind())
 	}
@@ -175,13 +175,13 @@ func TestNavigableCallExpr_Member(t *testing.T) {
 	if p, found := target.Parent(); !found || p != expr {
 		t.Errorf("Parent() got %v, wanted %v", p, expr)
 	}
-	sizeFn := ast.MatchDescendents(expr, ast.FunctionMatcher("size"))
+	sizeFn := ast.MatchDescendants(expr, ast.FunctionMatcher("size"))
 	if len(sizeFn) != 1 {
-		t.Errorf("ast.MatchDescendents() size function returned %v, wanted 1", sizeFn)
+		t.Errorf("ast.MatchDescendants() size function returned %v, wanted 1", sizeFn)
 	}
-	constantValues := ast.MatchDescendents(expr, ast.ConstantValueMatcher())
+	constantValues := ast.MatchDescendants(expr, ast.ConstantValueMatcher())
 	if len(constantValues) != 1 {
-		t.Fatalf("ast.MatchDescendents() constant values returned %v, wanted 1 value", constantValues)
+		t.Fatalf("ast.MatchDescendants() constant values returned %v, wanted 1 value", constantValues)
 	}
 	if constantValues[0].AsLiteral().Equal(types.String("hello")) != types.True {
 		t.Errorf("constantValues[0] got %v, wanted 'hello'", constantValues[0])
@@ -190,7 +190,7 @@ func TestNavigableCallExpr_Member(t *testing.T) {
 
 func TestNavigableCallExpr_Global(t *testing.T) {
 	checked := mustTypeCheck(t, `size('hello')`)
-	expr := ast.NavigateExpr(checked.Expr, checked.TypeMap)
+	expr := ast.NavigateCheckedAST(checked)
 	if expr.Kind() != ast.CallKind {
 		t.Errorf("Kind() got %v, wanted CallKind", expr.Kind())
 	}
@@ -220,13 +220,13 @@ func TestNavigableCallExpr_Global(t *testing.T) {
 	if p, found := arg.Parent(); !found || p != expr {
 		t.Errorf("Parent() got %v, wanted %v", p, expr)
 	}
-	sizeFn := ast.MatchDescendents(expr, ast.FunctionMatcher("size"))
+	sizeFn := ast.MatchDescendants(expr, ast.FunctionMatcher("size"))
 	if len(sizeFn) != 1 {
-		t.Errorf("ast.MatchDescendents() size function returned %v, wanted 1", sizeFn)
+		t.Errorf("ast.MatchDescendants() size function returned %v, wanted 1", sizeFn)
 	}
-	constantValues := ast.MatchDescendents(expr, ast.ConstantValueMatcher())
+	constantValues := ast.MatchDescendants(expr, ast.ConstantValueMatcher())
 	if len(constantValues) != 1 {
-		t.Fatalf("ast.MatchDescendents() constant values returned %v, wanted 1 value", constantValues)
+		t.Fatalf("ast.MatchDescendants() constant values returned %v, wanted 1 value", constantValues)
 	}
 	if constantValues[0].AsLiteral().Equal(types.String("hello")) != types.True {
 		t.Errorf("constantValues[0] got %v, wanted 'hello'", constantValues[0])
@@ -235,7 +235,7 @@ func TestNavigableCallExpr_Global(t *testing.T) {
 
 func TestNavigableListExpr(t *testing.T) {
 	checked := mustTypeCheck(t, `[[1], [2]]`)
-	expr := ast.NavigateExpr(checked.Expr, checked.TypeMap)
+	expr := ast.NavigateCheckedAST(checked)
 	if expr.Kind() != ast.ListKind {
 		t.Errorf("Kind() got %v, wanted ListKind", expr.Kind())
 	}
@@ -249,23 +249,23 @@ func TestNavigableListExpr(t *testing.T) {
 	if len(list.Elements()) != 2 {
 		t.Errorf("Elements() returned %v, wanted 2", list.Elements())
 	}
-	constantValues := ast.MatchDescendents(expr, ast.ConstantValueMatcher())
+	constantValues := ast.MatchDescendants(expr, ast.ConstantValueMatcher())
 	if len(constantValues) != 5 {
-		t.Errorf("ast.MatchDescendents() constant values returned %v, wanted 5", constantValues)
+		t.Errorf("ast.MatchDescendants() constant values returned %v, wanted 5", constantValues)
 	}
-	constantLists := ast.MatchExprs(constantValues, ast.KindMatcher(ast.ListKind))
+	constantLists := ast.MatchSubset(constantValues, ast.KindMatcher(ast.ListKind))
 	if len(constantLists) != 3 {
-		t.Errorf("ast.MatchExprs() constant lists returned %v, wanted 3", constantLists)
+		t.Errorf("ast.MatchSubset() constant lists returned %v, wanted 3", constantLists)
 	}
-	literals := ast.MatchExprs(constantValues, ast.KindMatcher(ast.LiteralKind))
+	literals := ast.MatchSubset(constantValues, ast.KindMatcher(ast.LiteralKind))
 	if len(literals) != 2 {
-		t.Errorf("ast.MatchExprs() literals returned %v, wanted 2", literals)
+		t.Errorf("ast.MatchSubset() literals returned %v, wanted 2", literals)
 	}
 }
 
 func TestNavigableMapExpr(t *testing.T) {
 	checked := mustTypeCheck(t, `{'hello': 1}`)
-	expr := ast.NavigateExpr(checked.Expr, checked.TypeMap)
+	expr := ast.NavigateCheckedAST(checked)
 	if expr.Kind() != ast.MapKind {
 		t.Errorf("Kind() got %v, wanted MapKind", expr.Kind())
 	}
@@ -286,19 +286,19 @@ func TestNavigableMapExpr(t *testing.T) {
 	if entry.Value().AsLiteral().Equal(types.Int(1)) != types.True {
 		t.Errorf("Value() returned %v, wanted 1", entry.Value().AsLiteral())
 	}
-	descendents := ast.MatchDescendents(expr, ast.AllMatcher())
-	if len(descendents) != 3 {
-		t.Errorf("ast.MatchDescendents() returned %v, wanted 3", descendents)
+	descendants := ast.MatchDescendants(expr, ast.AllMatcher())
+	if len(descendants) != 3 {
+		t.Errorf("ast.MatchDescendants() returned %v, wanted 3", descendants)
 	}
-	literals := ast.MatchExprs(descendents, ast.KindMatcher(ast.LiteralKind))
+	literals := ast.MatchSubset(descendants, ast.KindMatcher(ast.LiteralKind))
 	if len(literals) != 2 {
-		t.Errorf("ast.MatchExprs() literals returned %v, wanted 2", literals)
+		t.Errorf("ast.MatchSubset() literals returned %v, wanted 2", literals)
 	}
 }
 
 func TestNavigableStructExpr(t *testing.T) {
 	checked := mustTypeCheck(t, `google.expr.proto3.test.TestAllTypes{single_int32: 1}`)
-	expr := ast.NavigateExpr(checked.Expr, checked.TypeMap)
+	expr := ast.NavigateCheckedAST(checked)
 	if expr.Kind() != ast.StructKind {
 		t.Errorf("Kind() got %v, wanted StructKind", expr.Kind())
 	}
@@ -319,13 +319,13 @@ func TestNavigableStructExpr(t *testing.T) {
 	if field.Value().AsLiteral().Equal(types.Int(1)) != types.True {
 		t.Errorf("Value() returned %v, wanted 1", field.Value().AsLiteral())
 	}
-	descendents := ast.MatchDescendents(expr, ast.AllMatcher())
-	if len(descendents) != 2 {
-		t.Errorf("ast.MatchDescendents() returned %v, wanted 2", descendents)
+	descendants := ast.MatchDescendants(expr, ast.AllMatcher())
+	if len(descendants) != 2 {
+		t.Errorf("ast.MatchDescendants() returned %v, wanted 2", descendants)
 	}
-	literals := ast.MatchExprs(descendents, ast.KindMatcher(ast.LiteralKind))
+	literals := ast.MatchSubset(descendants, ast.KindMatcher(ast.LiteralKind))
 	if len(literals) != 1 {
-		t.Errorf("ast.MatchExprs() literals returned %v, wanted 1", literals)
+		t.Errorf("ast.MatchSubset() literals returned %v, wanted 1", literals)
 	}
 	if literals[0].AsLiteral().Equal(types.Int(1)) != types.True {
 		t.Errorf("Value().AsLiteral() got %v, wanted 1", literals[0].AsLiteral())
@@ -334,13 +334,13 @@ func TestNavigableStructExpr(t *testing.T) {
 
 func TestNavigableComprehensionExpr(t *testing.T) {
 	checked := mustTypeCheck(t, `[true].exists(i, i)`)
-	expr := ast.NavigateExpr(checked.Expr, checked.TypeMap)
+	expr := ast.NavigateCheckedAST(checked)
 	if expr.Kind() != ast.ComprehensionKind {
 		t.Errorf("Kind() got %v, wanted ComprehensionKind", expr.Kind())
 	}
 	comp := expr.AsComprehension()
 	iterRange := comp.IterRange()
-	if len(ast.MatchExprs([]ast.NavigableExpr{iterRange}, ast.ConstantValueMatcher())) != 1 {
+	if len(ast.MatchSubset([]ast.NavigableExpr{iterRange}, ast.ConstantValueMatcher())) != 1 {
 		t.Errorf("IterRange() returned a non-constant list")
 	}
 	if comp.IterVar() != "i" {
@@ -368,7 +368,7 @@ func TestNavigableComprehensionExpr(t *testing.T) {
 
 func TestNavigableSelectExpr(t *testing.T) {
 	checked := mustTypeCheck(t, `msg.single_int32`)
-	expr := ast.NavigateExpr(checked.Expr, checked.TypeMap)
+	expr := ast.NavigateCheckedAST(checked)
 	if expr.Kind() != ast.SelectKind {
 		t.Errorf("Kind() got %v, wanted SelectKind", expr.Kind())
 	}
@@ -389,7 +389,7 @@ func TestNavigableSelectExpr(t *testing.T) {
 
 func TestNavigableSelectExpr_TestOnly(t *testing.T) {
 	checked := mustTypeCheck(t, `has(msg.single_int32)`)
-	expr := ast.NavigateExpr(checked.Expr, checked.TypeMap)
+	expr := ast.NavigateCheckedAST(checked)
 	if expr.Kind() != ast.SelectKind {
 		t.Errorf("Kind() got %v, wanted SelectKind", expr.Kind())
 	}

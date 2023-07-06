@@ -386,7 +386,7 @@ func (e *exprHelper) nextMacroID() int64 {
 }
 
 // Copy implements the ExprHelper interface method by producing a copy of the input Expr value
-// with a fresh set of numeric identifiers the Expr and all its descendents.
+// with a fresh set of numeric identifiers the Expr and all its descendants.
 func (e *exprHelper) Copy(expr *exprpb.Expr) *exprpb.Expr {
 	copy := e.parserHelper.newExpr(e.parserHelper.getLocation(expr.GetId()))
 	switch expr.GetExprKind().(type) {
