@@ -41,13 +41,6 @@ import (
 const (
 	_ = iota
 
-	// Disallow heterogeneous aggregate (list, map) literals.
-	// Note, it is still possible to have heterogeneous aggregates when
-	// provided as variables to the expression, as well as via conversion
-	// of well-known dynamic types, or with unchecked expressions.
-	// Affects checking.  Provides a subset of standard behavior.
-	featureDisableDynamicAggregateLiterals
-
 	// Enable the tracking of function call expressions replaced by macros.
 	featureEnableMacroCallTracking
 
@@ -62,10 +55,6 @@ const (
 	// on a CEL timestamp operation. This fixes the scenario where the input time
 	// is not already in UTC.
 	featureDefaultUTCTimeZone
-
-	// Enable the use of optional types in the syntax, type-system, type-checking,
-	// and runtime.
-	featureOptionalTypes
 
 	// Enable the serialization of logical operator ASTs as variadic calls, thus
 	// compressing the logic graph to a single call when multiple like-operator
@@ -157,7 +146,7 @@ func EagerlyValidateDeclarations(enabled bool) EnvOption {
 // expression, as well as via conversion of well-known dynamic types, or with unchecked
 // expressions.
 func HomogeneousAggregateLiterals() EnvOption {
-	return features(featureDisableDynamicAggregateLiterals, true)
+	return ASTValidators(ValidateHomogeneousAggregateLiterals())
 }
 
 // variadicLogicalOperatorASTs flatten like-operator chained logical expressions into a single

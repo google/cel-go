@@ -23,8 +23,6 @@ import (
 	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/decls"
-	"github.com/google/cel-go/common/operators"
-	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/stdlib"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/parser"
@@ -1293,92 +1291,6 @@ _&&_(_==_(list~type(list(dyn))^list,
 		  )~type(type(type))^type,
 		  type~type(type)^type
 		)~bool^equals`,
-			outType: types.BoolType,
-		},
-		// Homogeneous aggregate type restriction tests.
-		{
-			in: `name in [1, 2u, 'string']`,
-			env: testEnv{
-				idents: []*decls.VariableDecl{
-					decls.NewVariable("name", types.StringType),
-				},
-				functions: []*decls.FunctionDecl{
-					testFunction(t, operators.In,
-						decls.Overload(overloads.InList,
-							[]*types.Type{
-								types.StringType,
-								types.NewListType(types.StringType),
-							}, types.BoolType)),
-				},
-			},
-			opts:          []Option{HomogeneousAggregateLiterals(true)},
-			disableStdEnv: true,
-			out: `@in(
-			name~string^name,
-			[
-				1~int,
-				2u~uint,
-				"string"~string
-			]~list(string)
-		)~bool^in_list`,
-			err: `ERROR: <input>:1:13: expected type 'int' but found 'uint'
-		| name in [1, 2u, 'string']
-		| ............^`,
-		},
-		{
-			in: `name in [1, 2, 3]`,
-			env: testEnv{
-				idents: []*decls.VariableDecl{
-					decls.NewVariable("name", types.StringType),
-				},
-				functions: []*decls.FunctionDecl{
-					testFunction(t, operators.In,
-						decls.Overload(overloads.InList,
-							[]*types.Type{
-								types.StringType,
-								types.NewListType(types.StringType),
-							}, types.BoolType)),
-				},
-			},
-			opts:          []Option{HomogeneousAggregateLiterals(true)},
-			disableStdEnv: true,
-			out: `@in(
-			name~string^name,
-			[
-				1~int,
-				2~int,
-				3~int
-			]~list(int)
-		)~!error!`,
-			err: `ERROR: <input>:1:6: found no matching overload for '@in' applied to '(string, list(int))'
-		| name in [1, 2, 3]
-		| .....^`,
-		},
-		{
-			in: `name in ["1", "2", "3"]`,
-			env: testEnv{
-				idents: []*decls.VariableDecl{
-					decls.NewVariable("name", types.StringType),
-				},
-				functions: []*decls.FunctionDecl{
-					testFunction(t, operators.In,
-						decls.Overload(overloads.InList,
-							[]*types.Type{
-								types.StringType,
-								types.NewListType(types.StringType),
-							}, types.BoolType)),
-				},
-			},
-			opts:          []Option{HomogeneousAggregateLiterals(true)},
-			disableStdEnv: true,
-			out: `@in(
-			name~string^name,
-			[
-				"1"~string,
-				"2"~string,
-				"3"~string
-			]~list(string)
-		)~bool^in_list`,
 			outType: types.BoolType,
 		},
 		{

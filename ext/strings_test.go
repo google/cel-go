@@ -1260,6 +1260,7 @@ func TestStringFormat(t *testing.T) {
 			cel.Container("ext"),
 			cel.Abbrevs("google.expr.proto3.test"),
 			cel.Types(&proto3pb.TestAllTypes{}),
+			cel.ASTValidators(cel.ValidateHomogeneousAggregateLiterals()),
 			NativeTypes(
 				reflect.TypeOf(&TestNestedType{}),
 				reflect.ValueOf(&TestAllTypes{}),

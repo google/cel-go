@@ -32,15 +32,6 @@ func CrossTypeNumericComparisons(enabled bool) Option {
 	}
 }
 
-// HomogeneousAggregateLiterals toggles support for constructing lists and maps whose elements all
-// have the same type.
-func HomogeneousAggregateLiterals(enabled bool) Option {
-	return func(opts *options) error {
-		opts.homogeneousAggregateLiterals = enabled
-		return nil
-	}
-}
-
 // ValidatedDeclarations provides a references to validated declarations which will be copied
 // into new checker instances.
 func ValidatedDeclarations(env *Env) Option {

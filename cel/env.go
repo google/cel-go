@@ -118,6 +118,7 @@ type Env struct {
 	features        map[int]bool
 	appliedFeatures map[int]bool
 	libraries       map[string]bool
+	validators      []ASTValidator
 
 	// Internal parser representation
 	prsr     *parser.Parser
@@ -178,6 +179,7 @@ func NewCustomEnv(opts ...EnvOption) (*Env, error) {
 		features:        map[int]bool{},
 		appliedFeatures: map[int]bool{},
 		libraries:       map[string]bool{},
+		validators:      []ASTValidator{},
 		progOpts:        []ProgramOption{},
 	}).configure(opts)
 }
@@ -207,12 +209,22 @@ func (e *Env) Check(ast *Ast) (*Ast, *Issues) {
 	}
 	// Manually create the Ast to ensure that the Ast source information (which may be more
 	// detailed than the information provided by Check), is returned to the caller.
-	return &Ast{
+	ast = &Ast{
 		source:  ast.Source(),
 		expr:    res.Expr,
 		info:    res.SourceInfo,
 		refMap:  res.ReferenceMap,
-		typeMap: res.TypeMap}, nil
+		typeMap: res.TypeMap}
+
+	// Apply additional validators on the type-checked result.
+	iss := NewIssues(errs)
+	for _, v := range e.validators {
+		v.Validate(e, ast, iss)
+	}
+	if iss.Err() != nil {
+		return nil, iss
+	}
+	return ast, nil
 }
 
 // Compile combines the Parse and Check phases CEL program compilation to produce an Ast and
@@ -331,6 +343,8 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 	for k, v := range e.libraries {
 		libsCopy[k] = v
 	}
+	validatorsCopy := make([]ASTValidator, len(e.validators))
+	copy(validatorsCopy, e.validators)
 
 	ext := &Env{
 		Container:       e.Container,
@@ -342,6 +356,7 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 		features:        featuresCopy,
 		appliedFeatures: appliedFeaturesCopy,
 		libraries:       libsCopy,
+		validators:      validatorsCopy,
 		provider:        provider,
 		chkOpts:         chkOptsCopy,
 		prsrOpts:        prsrOptsCopy,
@@ -360,6 +375,16 @@ func (e *Env) HasFeature(flag int) bool {
 func (e *Env) HasLibrary(libName string) bool {
 	configured, exists := e.libraries[libName]
 	return exists && configured
+}
+
+// HasValidator returns whether a specific ASTValidator has been configured in the environment.
+func (e *Env) HasValidator(name string) bool {
+	for _, v := range e.validators {
+		if v.Name() == name {
+			return true
+		}
+	}
+	return false
 }
 
 // Parse parses the input expression value `txt` to a Ast and/or a set of Issues.
@@ -534,8 +559,6 @@ func (e *Env) initChecker() (*checker.Env, error) {
 		chkOpts := []checker.Option{}
 		chkOpts = append(chkOpts, e.chkOpts...)
 		chkOpts = append(chkOpts,
-			checker.HomogeneousAggregateLiterals(
-				e.HasFeature(featureDisableDynamicAggregateLiterals)),
 			checker.CrossTypeNumericComparisons(
 				e.HasFeature(featureCrossTypeNumericComparisons)))
 
