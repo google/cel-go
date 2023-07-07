@@ -289,6 +289,61 @@ func TestValidateHomogeneousAggregateLiterals(t *testing.T) {
 	}
 }
 
+func TestValidateComprehensionNestingLimit(t *testing.T) {
+	env, err := NewEnv(
+		ASTValidators(ValidateComprehensionNestingLimit(2)),
+	)
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	tests := []struct {
+		expr string
+		iss  string
+	}{
+		{
+			expr: `[1, 2, 3].exists(i, i < 1)`,
+		},
+		{
+			expr: `[1, 2, 3].exists(i, [4, 5, 6].filter(j, j % i != 0).size() > 0)`,
+		},
+		{
+			// three comprehensions, but not three levels deep
+			expr: `[1, 2, 3].exists(i, [4, 5, 6].filter(j, j % i != 0).size() > 0) && [1, 2, 3].exists(i, i < 1)`,
+		},
+		{
+			// the empty iteration range in [].all(k, k) does not impact the actual runtime complexity,
+			// so it does not trip the comprehension limit.
+			expr: `[1, 2, 3].exists(i, [4, 5, 6].filter(j, [].all(k, k) && j % i != 0).size() > 0)`,
+		},
+		{
+			// three comprehensions, three levels deep
+			expr: `[1, 2, 3].map(i, [4, 5, 6].map(j, [7, 8, 9].map(k, i * j * k)))`,
+			iss: `
+			ERROR: <input>:1:48: comprehension exceeds nesting limit
+             | [1, 2, 3].map(i, [4, 5, 6].map(j, [7, 8, 9].map(k, i * j * k)))
+             | ...............................................^`,
+		},
+	}
+	for _, tst := range tests {
+		tc := tst
+		t.Run(tc.expr, func(t *testing.T) {
+			_, iss := env.Compile(tc.expr)
+			if tc.iss != "" {
+				if iss.Err() == nil {
+					t.Fatalf("e.Compile(%v) returned ast, expected error: %v", tc.expr, tc.iss)
+				}
+				if !test.Compare(iss.Err().Error(), tc.iss) {
+					t.Fatalf("e.Compile(%v) returned %v, expected error: %v", tc.expr, iss.Err(), tc.iss)
+				}
+				return
+			}
+			if iss.Err() != nil {
+				t.Fatalf("e.Compile(%v) failed: %v", tc.expr, iss.Err())
+			}
+		})
+	}
+}
+
 func TestExtendedValidations(t *testing.T) {
 	env, err := NewEnv(
 		Variable("x", types.StringType),

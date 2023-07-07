@@ -92,6 +92,18 @@ func ValidateHomogeneousAggregateLiterals() ASTValidator {
 	return homogeneousAggregateLiteralValidator{}
 }
 
+// ValidateComprehensionNestingLimit ensures that comprehension nesting does not exceed the specified limit.
+//
+// This validator can be useful for preventing arbitrarily nested comprehensions which can take high polynomial
+// time to complete.
+//
+// Note, this limit does not apply to comprehensions with an empty iteration range, as these comprehensions have
+// no actual looping cost. The cel.bind() utilizes the comprehension structure to perform local variable
+// assignments and supplies an empty iteration range, so they won't count against the nesting limit either.
+func ValidateComprehensionNestingLimit(limit int) ASTValidator {
+	return nestingLimitValidator{limit: limit}
+}
+
 type argChecker func(env *Env, call, arg ast.NavigableExpr) error
 
 func newFormatValidator(funcName string, argNum int, check argChecker) formatValidator {
@@ -247,6 +259,51 @@ func (homogeneousAggregateLiteralValidator) typeMismatch(errs errorReporter, id 
 }
 
 func (homogeneousAggregateLiteralValidator) is_validator() {}
+
+type nestingLimitValidator struct {
+	limit int
+}
+
+func (v nestingLimitValidator) Name() string {
+	return "cel.lib.std.validate.comprehension_nesting_limit"
+}
+
+func (v nestingLimitValidator) Validate(e *Env, a *Ast, iss *Issues) {
+	errs := errorReporter{iss: iss, info: a.info}
+	root := ast.NavigateCheckedAST(astToCheckedAST(a))
+	comprehensions := ast.MatchDescendants(root, ast.KindMatcher(ast.ComprehensionKind))
+	if len(comprehensions) <= v.limit {
+		return
+	}
+	for _, comp := range comprehensions {
+		count := 0
+		e := comp
+		hasParent := true
+		for hasParent {
+			// When the expression is not a comprehension, continue to the next ancestor.
+			if e.Kind() != ast.ComprehensionKind {
+				e, hasParent = e.Parent()
+				continue
+			}
+			// When the comprehension has an empty range, continue to the next ancestor
+			// as this comprehension does not have any associated cost.
+			iterRange := e.AsComprehension().IterRange()
+			if iterRange.Kind() == ast.ListKind && iterRange.AsList().Size() == 0 {
+				e, hasParent = e.Parent()
+				continue
+			}
+			// Otherwise check the nesting limit.
+			count++
+			if count > v.limit {
+				errs.reportErrorAtID(comp.ID(), "comprehension exceeds nesting limit")
+				break
+			}
+			e, hasParent = e.Parent()
+		}
+	}
+}
+
+func (nestingLimitValidator) is_validator() {}
 
 type errorReporter struct {
 	iss  *Issues
