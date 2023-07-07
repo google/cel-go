@@ -204,12 +204,12 @@ func (e *Env) Check(ast *Ast) (*Ast, *Issues) {
 	if err != nil {
 		errs := common.NewErrors(ast.Source())
 		errs.ReportError(common.NoLocation, err.Error())
-		return nil, NewIssues(errs)
+		return nil, NewIssuesWithSourceInfo(errs, ast.SourceInfo())
 	}
 
 	res, errs := checker.Check(pe, ast.Source(), chk)
 	if len(errs.GetErrors()) > 0 {
-		return nil, NewIssues(errs)
+		return nil, NewIssuesWithSourceInfo(errs, ast.SourceInfo())
 	}
 	// Manually create the Ast to ensure that the Ast source information (which may be more
 	// detailed than the information provided by Check), is returned to the caller.
@@ -221,9 +221,9 @@ func (e *Env) Check(ast *Ast) (*Ast, *Issues) {
 		typeMap: res.TypeMap}
 
 	// Apply additional validators on the type-checked result.
-	iss := NewIssues(errs)
+	iss := NewIssuesWithSourceInfo(errs, ast.SourceInfo())
 	for _, v := range e.validators {
-		v.Validate(e, ast, iss)
+		v.Validate(e, res, iss)
 	}
 	if iss.Err() != nil {
 		return nil, iss
@@ -638,12 +638,21 @@ type Error = common.Error
 // Note: in the future, non-fatal warnings and notices may be inspectable via the Issues struct.
 type Issues struct {
 	errs *common.Errors
+	info *exprpb.SourceInfo
 }
 
 // NewIssues returns an Issues struct from a common.Errors object.
 func NewIssues(errs *common.Errors) *Issues {
+	return NewIssuesWithSourceInfo(errs, nil)
+}
+
+// NewIssuesWithSourceInfo returns an Issues struct from a common.Errors object with SourceInfo metatata
+// which can be used with the `ReportErrorAtID` method for additional error reports within the context
+// information that's inferred from an expression id.
+func NewIssuesWithSourceInfo(errs *common.Errors, info *exprpb.SourceInfo) *Issues {
 	return &Issues{
 		errs: errs,
+		info: info,
 	}
 }
 
@@ -683,6 +692,28 @@ func (i *Issues) String() string {
 		return ""
 	}
 	return i.errs.ToDisplayString()
+}
+
+func (i *Issues) ReportErrorAtID(id int64, message string, args ...any) {
+	i.errs.ReportErrorAtID(id, locationByID(id, i.info), message, args...)
+}
+
+func locationByID(id int64, sourceInfo *exprpb.SourceInfo) common.Location {
+	positions := sourceInfo.GetPositions()
+	var line = 1
+	if offset, found := positions[id]; found {
+		col := int(offset)
+		for _, lineOffset := range sourceInfo.GetLineOffsets() {
+			if lineOffset < offset {
+				line++
+				col = int(offset - lineOffset)
+			} else {
+				break
+			}
+		}
+		return common.NewLocation(line, col)
+	}
+	return common.NoLocation
 }
 
 // getStdEnv lazy initializes the CEL standard environment.

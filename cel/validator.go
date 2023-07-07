@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/overloads"
 
@@ -49,9 +48,7 @@ type ASTValidator interface {
 	Name() string
 
 	// Validate validates a given Ast within an Environment and collects a set of potential issues.
-	Validate(*Env, *Ast, *Issues)
-
-	is_validator()
+	Validate(*Env, *ast.CheckedAST, *Issues)
 }
 
 // ExtendedValidations collects a set of common AST validations which reduce the likelihood of runtime errors.
@@ -115,9 +112,8 @@ func (v formatValidator) Name() string {
 
 // Validate searches the AST for uses of a given function name with a constant argument and performs a check
 // on whether the argument is a valid literal value.
-func (v formatValidator) Validate(e *Env, a *Ast, iss *Issues) {
-	errs := errorReporter{iss: iss, info: a.info}
-	root := ast.NavigateCheckedAST(astToCheckedAST(a))
+func (v formatValidator) Validate(e *Env, a *ast.CheckedAST, iss *Issues) {
+	root := ast.NavigateCheckedAST(a)
 	funcCalls := ast.MatchDescendants(root, ast.FunctionMatcher(v.funcName))
 	for _, call := range funcCalls {
 		callArgs := call.AsCall().Args()
@@ -129,7 +125,7 @@ func (v formatValidator) Validate(e *Env, a *Ast, iss *Issues) {
 			continue
 		}
 		if err := v.check(e, call, litArg); err != nil {
-			errs.reportErrorAtID(litArg.ID(), "invalid %s argument", v.funcName)
+			iss.ReportErrorAtID(litArg.ID(), "invalid %s argument", v.funcName)
 		}
 	}
 }
@@ -150,8 +146,6 @@ func compileRegex(_ *Env, _, arg ast.NavigableExpr) error {
 	return err
 }
 
-func (formatValidator) is_validator() {}
-
 type homogeneousAggregateLiteralValidator struct{}
 
 // Name returns the unique name of the homogeneous type validator.
@@ -163,9 +157,8 @@ func (homogeneousAggregateLiteralValidator) Name() string {
 //
 // This validator makes an exception for list and map literals which occur at any level of nesting within
 // string format calls.
-func (v homogeneousAggregateLiteralValidator) Validate(e *Env, a *Ast, iss *Issues) {
-	errs := errorReporter{iss: iss, info: a.info}
-	root := ast.NavigateCheckedAST(astToCheckedAST(a))
+func (v homogeneousAggregateLiteralValidator) Validate(_ *Env, a *ast.CheckedAST, iss *Issues) {
+	root := ast.NavigateCheckedAST(a)
 	listExprs := ast.MatchDescendants(root, ast.KindMatcher(ast.ListKind))
 	for _, listExpr := range listExprs {
 		// TODO: Add a validator config object which allows libraries to influence validation options
@@ -188,7 +181,7 @@ func (v homogeneousAggregateLiteralValidator) Validate(e *Env, a *Ast, iss *Issu
 				continue
 			}
 			if !elemType.IsEquivalentType(et) {
-				v.typeMismatch(errs, e.ID(), elemType, et)
+				v.typeMismatch(iss, e.ID(), elemType, et)
 				break
 			}
 		}
@@ -212,10 +205,10 @@ func (v homogeneousAggregateLiteralValidator) Validate(e *Env, a *Ast, iss *Issu
 				continue
 			}
 			if !keyType.IsEquivalentType(kt) {
-				v.typeMismatch(errs, key.ID(), keyType, kt)
+				v.typeMismatch(iss, key.ID(), keyType, kt)
 			}
 			if !valType.IsEquivalentType(vt) {
-				v.typeMismatch(errs, val.ID(), valType, vt)
+				v.typeMismatch(iss, val.ID(), valType, vt)
 			}
 		}
 	}
@@ -242,44 +235,6 @@ func isOptionalIndex(i int, optIndices []int32) bool {
 	return false
 }
 
-func (homogeneousAggregateLiteralValidator) typeMismatch(errs errorReporter, id int64, expected, actual *Type) {
-	errs.reportErrorAtID(id, "expected type '%s' but found '%s'", FormatCelType(expected), FormatCelType(actual))
-}
-
-func (homogeneousAggregateLiteralValidator) is_validator() {}
-
-type errorReporter struct {
-	iss  *Issues
-	info *exprpb.SourceInfo
-}
-
-func (er *errorReporter) reportErrorAtID(id int64, message string, args ...any) {
-	er.iss.errs.ReportErrorAtID(id, locationByID(id, er.info), message, args...)
-}
-
-func locationByID(id int64, sourceInfo *exprpb.SourceInfo) common.Location {
-	positions := sourceInfo.GetPositions()
-	var line = 1
-	if offset, found := positions[id]; found {
-		col := int(offset)
-		for _, lineOffset := range sourceInfo.GetLineOffsets() {
-			if lineOffset < offset {
-				line++
-				col = int(offset - lineOffset)
-			} else {
-				break
-			}
-		}
-		return common.NewLocation(line, col)
-	}
-	return common.NoLocation
-}
-
-func astToCheckedAST(a *Ast) *ast.CheckedAST {
-	return &ast.CheckedAST{
-		Expr:         a.expr,
-		SourceInfo:   a.info,
-		TypeMap:      a.typeMap,
-		ReferenceMap: a.refMap,
-	}
+func (homogeneousAggregateLiteralValidator) typeMismatch(iss *Issues, id int64, expected, actual *Type) {
+	iss.ReportErrorAtID(id, "expected type '%s' but found '%s'", FormatCelType(expected), FormatCelType(actual))
 }
