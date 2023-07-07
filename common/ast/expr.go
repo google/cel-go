@@ -61,7 +61,7 @@ func KindMatcher(kind ExprKind) ExprMatcher {
 }
 
 // FunctionMatcher returns an ExprMatcher which will match NavigableExpr nodes of CallKind type whose
-// function name is equal to `funcName`.
+// function name is equal to `funcName` regardless of whether it is a member or a global function.
 func FunctionMatcher(funcName string) ExprMatcher {
 	return func(e NavigableExpr) bool {
 		if e.Kind() != CallKind {
@@ -199,6 +199,9 @@ type NavigableExpr interface {
 type NavigableCallExpr interface {
 	// FunctionName returns the name of the function.
 	FunctionName() string
+
+	// IsMemberFunction returns whether the call has a non-nil target indicating it is a member function
+	IsMemberFunction() bool
 
 	// Target returns the target of the expression if one is present.
 	Target() NavigableExpr
@@ -425,6 +428,10 @@ type navigableCallImpl struct {
 
 func (call navigableCallImpl) FunctionName() string {
 	return call.ToExpr().GetCallExpr().GetFunction()
+}
+
+func (call navigableCallImpl) IsMemberFunction() bool {
+	return call.ToExpr().GetCallExpr().GetTarget() != nil
 }
 
 func (call navigableCallImpl) Target() NavigableExpr {

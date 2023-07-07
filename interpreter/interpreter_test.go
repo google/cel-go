@@ -2096,7 +2096,7 @@ func addFunctionBindings(t testing.TB, dispatcher Dispatcher) {
 	for _, fn := range funcs {
 		bindings, err := fn.Bindings()
 		if err != nil {
-			t.Fatalf("fn.Bindings() failed for function %v. error: %v", fn.Name, err)
+			t.Fatalf("fn.Bindings() failed for function %s. error: %v", fn.Name(), err)
 		}
 		err = dispatcher.Add(bindings...)
 		if err != nil {

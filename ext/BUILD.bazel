@@ -8,6 +8,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "encoders.go",
+        "formatting.go",
         "guards.go",
         "lists.go",
         "math.go",
@@ -21,6 +22,7 @@ go_library(
     deps = [
         "//cel:go_default_library",
         "//checker/decls:go_default_library",
+        "//common/ast:go_default_library",
         "//common/overloads:go_default_library",
         "//common/types:go_default_library",
         "//common/types/pb:go_default_library",
