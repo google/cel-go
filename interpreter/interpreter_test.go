@@ -1936,22 +1936,13 @@ func program(ctx testing.TB, tst *testCase, opts ...InterpretableDecorator) (Int
 			return nil, nil, err
 		}
 	}
-	var reg ref.TypeRegistry
+	var reg *types.Registry
 	var env *checker.Env
-	switch t := ctx.(type) {
-	case *testing.T:
-		reg = newTestRegistry(t)
-		if tst.types != nil {
-			reg = newTestRegistry(t, tst.types...)
-		}
-		env = newTestEnv(t, cont, reg)
-	case *testing.B:
-		reg = newBenchRegistry(t)
-		if tst.types != nil {
-			reg = newBenchRegistry(t, tst.types...)
-		}
-		env = newTestEnv(t, cont, reg)
+	reg = newTestRegistry(ctx)
+	if tst.types != nil {
+		reg = newTestRegistry(ctx, tst.types...)
 	}
+	env = newTestEnv(ctx, cont, reg)
 	attrs := NewAttributeFactory(cont, reg, reg)
 	if tst.attrs != nil {
 		attrs = tst.attrs
@@ -2043,16 +2034,7 @@ func isFieldQual(q Qualifier, fieldName string) bool {
 	return f.Name == fieldName
 }
 
-func newBenchRegistry(b *testing.B, msgs ...proto.Message) ref.TypeRegistry {
-	b.Helper()
-	reg, err := types.NewRegistry(msgs...)
-	if err != nil {
-		b.Fatalf("types.NewRegistry(%v) failed: %v", msgs, err)
-	}
-	return reg
-}
-
-func newTestEnv(t testing.TB, cont *containers.Container, reg ref.TypeRegistry) *checker.Env {
+func newTestEnv(t testing.TB, cont *containers.Container, reg *types.Registry) *checker.Env {
 	t.Helper()
 	env, err := checker.NewEnv(cont, reg, checker.CrossTypeNumericComparisons(true))
 	if err != nil {
@@ -2069,7 +2051,7 @@ func newTestEnv(t testing.TB, cont *containers.Container, reg ref.TypeRegistry) 
 	return env
 }
 
-func newTestRegistry(t *testing.T, msgs ...proto.Message) ref.TypeRegistry {
+func newTestRegistry(t testing.TB, msgs ...proto.Message) *types.Registry {
 	t.Helper()
 	reg, err := types.NewRegistry(msgs...)
 	if err != nil {
@@ -2082,8 +2064,8 @@ func newTestRegistry(t *testing.T, msgs ...proto.Message) ref.TypeRegistry {
 // builtins defined in the language definition.
 func newStandardInterpreter(t *testing.T,
 	container *containers.Container,
-	provider ref.TypeProvider,
-	adapter ref.TypeAdapter,
+	provider types.Provider,
+	adapter types.Adapter,
 	resolver AttributeFactory) Interpreter {
 	t.Helper()
 	dispatcher := NewDispatcher()
@@ -2096,7 +2078,7 @@ func addFunctionBindings(t testing.TB, dispatcher Dispatcher) {
 	for _, fn := range funcs {
 		bindings, err := fn.Bindings()
 		if err != nil {
-			t.Fatalf("fn.Bindings() failed for function %v. error: %v", fn.Name, err)
+			t.Fatalf("fn.Bindings() failed for function %v. error: %v", fn.Name(), err)
 		}
 		err = dispatcher.Add(bindings...)
 		if err != nil {

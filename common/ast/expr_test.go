@@ -17,7 +17,6 @@ package ast_test
 import (
 	"testing"
 
-	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/google/cel-go/checker"
@@ -27,10 +26,11 @@ import (
 	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/stdlib"
 	"github.com/google/cel-go/common/types"
-	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/parser"
 
 	proto3pb "github.com/google/cel-go/test/proto3pb"
+
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 func TestNavigateExpr(t *testing.T) {
@@ -428,7 +428,7 @@ func mustTypeCheck(t testing.TB, expr string) *ast.CheckedAST {
 	return checked
 }
 
-func newTestRegistry(t testing.TB, msgs ...proto.Message) ref.TypeRegistry {
+func newTestRegistry(t testing.TB, msgs ...proto.Message) *types.Registry {
 	t.Helper()
 	reg, err := types.NewRegistry(msgs...)
 	if err != nil {
@@ -437,7 +437,7 @@ func newTestRegistry(t testing.TB, msgs ...proto.Message) ref.TypeRegistry {
 	return reg
 }
 
-func newTestEnv(t testing.TB, cont *containers.Container, reg ref.TypeRegistry) *checker.Env {
+func newTestEnv(t testing.TB, cont *containers.Container, reg *types.Registry) *checker.Env {
 	t.Helper()
 	env, err := checker.NewEnv(cont, reg, checker.CrossTypeNumericComparisons(true))
 	if err != nil {

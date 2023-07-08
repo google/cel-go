@@ -77,7 +77,6 @@ func (c *checker) check(e *exprpb.Expr) {
 	if e == nil {
 		return
 	}
-
 	switch e.GetExprKind().(type) {
 	case *exprpb.Expr_ConstExpr:
 		literal := e.GetConstExpr()
@@ -706,19 +705,15 @@ func (c *checker) locationByID(id int64) common.Location {
 	return common.NoLocation
 }
 
-func (c *checker) lookupFieldType(exprID int64, messageType, fieldName string) (*types.Type, bool) {
-	if _, found := c.env.provider.FindType(messageType); !found {
+func (c *checker) lookupFieldType(exprID int64, structType, fieldName string) (*types.Type, bool) {
+	if _, found := c.env.provider.FindStructType(structType); !found {
 		// This should not happen, anyway, report an error.
-		c.errors.unexpectedFailedResolution(exprID, c.locationByID(exprID), messageType)
+		c.errors.unexpectedFailedResolution(exprID, c.locationByID(exprID), structType)
 		return nil, false
 	}
 
-	if ft, found := c.env.provider.FindFieldType(messageType, fieldName); found {
-		dt, err := types.ExprTypeToType(ft.Type)
-		if err != nil {
-			c.errors.undefinedField(exprID, c.locationByID(exprID), fieldName)
-		}
-		return dt, found
+	if ft, found := c.env.provider.FindStructFieldType(structType, fieldName); found {
+		return ft.Type, found
 	}
 
 	c.errors.undefinedField(exprID, c.locationByID(exprID), fieldName)

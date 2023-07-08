@@ -211,7 +211,7 @@ var (
 )
 
 // ValueToRefValue converts between exprpb.Value and ref.Val.
-func ValueToRefValue(adapter ref.TypeAdapter, v *exprpb.Value) (ref.Val, error) {
+func ValueToRefValue(adapter types.Adapter, v *exprpb.Value) (ref.Val, error) {
 	switch v.Kind.(type) {
 	case *exprpb.Value_NullValue:
 		return types.NullValue, nil

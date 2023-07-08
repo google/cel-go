@@ -22,7 +22,6 @@ import (
 	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types"
-	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/parser"
 )
 
@@ -71,14 +70,14 @@ var (
 // which can be used to assist with type-checking.
 type Env struct {
 	container           *containers.Container
-	provider            ref.TypeProvider
+	provider            types.Provider
 	declarations        *Scopes
 	aggLitElemType      aggregateLiteralElementType
 	filteredOverloadIDs map[string]struct{}
 }
 
 // NewEnv returns a new *Env with the given parameters.
-func NewEnv(container *containers.Container, provider ref.TypeProvider, opts ...Option) (*Env, error) {
+func NewEnv(container *containers.Container, provider types.Provider, opts ...Option) (*Env, error) {
 	declarations := newScopes()
 	declarations.Push()
 
@@ -141,13 +140,8 @@ func (e *Env) LookupIdent(name string) *decls.VariableDecl {
 		// Next try to import the name as a reference to a message type. If found,
 		// the declaration is added to the outest (global) scope of the
 		// environment, so next time we can access it faster.
-		if t, found := e.provider.FindType(candidate); found {
-			dt, err := types.ExprTypeToType(t)
-			// The error case would just be handled as a missing field declaration.
-			if err != nil {
-				return nil
-			}
-			decl := decls.NewVariable(candidate, dt)
+		if t, found := e.provider.FindStructType(candidate); found {
+			decl := decls.NewVariable(candidate, t)
 			e.declarations.AddIdent(decl)
 			return decl
 		}

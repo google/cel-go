@@ -783,7 +783,7 @@ func VariableDeclToExprDecl(v *VariableDecl) (*exprpb.Decl, error) {
 	return chkdecls.NewVar(v.Name(), varType), nil
 }
 
-// TypeVariable creates a new type identifier for use within a ref.TypeProvider
+// TypeVariable creates a new type identifier for use within a types.Provider
 func TypeVariable(t *types.Type) *VariableDecl {
 	return NewVariable(t.TypeName(), types.NewTypeTypeWithParam(t))
 }

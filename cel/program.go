@@ -498,7 +498,7 @@ type evalActivation struct {
 // The lazy binding will only be invoked once per evaluation.
 //
 // Values which are not represented as ref.Val types on input may be adapted to a ref.Val using
-// the ref.TypeAdapter configured in the environment.
+// the types.Adapter configured in the environment.
 func (a *evalActivation) ResolveName(name string) (any, bool) {
 	v, found := a.vars[name]
 	if !found {
