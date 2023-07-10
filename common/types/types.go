@@ -332,6 +332,11 @@ func (t *Type) IsAssignableRuntimeType(val ref.Val) bool {
 	return t.defaultIsAssignableRuntimeType(val)
 }
 
+// Parameters returns the list of type parameters if set.
+//
+// For ListKind, Parameters()[0] represents the list element type
+// For MapKind, Parameters()[0] represents the map key type, and Parameters()[1] represents the map
+// value type.
 func (t *Type) Parameters() []*Type {
 	if t == nil {
 		return emptyParams
