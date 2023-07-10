@@ -168,6 +168,9 @@ func (v homogeneousAggregateLiteralValidator) Validate(e *Env, a *Ast, iss *Issu
 	root := ast.NavigateCheckedAST(astToCheckedAST(a))
 	listExprs := ast.MatchDescendants(root, ast.KindMatcher(ast.ListKind))
 	for _, listExpr := range listExprs {
+		// TODO: Add a validator config object which allows libraries to influence validation options
+		// for validators that *might* be configured. In this case, a way of skipping certain function
+		// overloads.
 		if hasStringFormatAncestor(listExpr) {
 			continue
 		}
