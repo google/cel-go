@@ -87,7 +87,7 @@ func ValidateRegexLiterals() ASTValidator {
 // no mixed list element types or mixed map key or map value types.
 //
 // Note: the string format call relies on a mixed element type list for ease of use, so this check skips all
-// literals which occure within string format calls.
+// literals which occur within string format calls.
 func ValidateHomogeneousAggregateLiterals() ASTValidator {
 	return homogeneousAggregateLiteralValidator{}
 }
@@ -110,7 +110,7 @@ type formatValidator struct {
 
 // Name returns the unique name of this function format validator.
 func (v formatValidator) Name() string {
-	return fmt.Sprintf("cel.lib.std.functions.%s", v.funcName)
+	return fmt.Sprintf("cel.lib.std.validate.functions.%s", v.funcName)
 }
 
 // Validate searches the AST for uses of a given function name with a constant argument and performs a check
@@ -156,14 +156,14 @@ type homogeneousAggregateLiteralValidator struct{}
 
 // Name returns the unique name of the homogeneous type validator.
 func (homogeneousAggregateLiteralValidator) Name() string {
-	return "cel.lib.std.types.homogeneous"
+	return "cel.lib.std.validate.types.homogeneous"
 }
 
 // Validate validates that all lists and map literals have homogeneous types, i.e. don't contain dyn types.
 //
 // This validator makes an exception for list and map literals which occur at any level of nesting within
 // string format calls.
-func (v homogeneousAggregateLiteralValidator) Validate(_ *Env, a *Ast, iss *Issues) {
+func (v homogeneousAggregateLiteralValidator) Validate(e *Env, a *Ast, iss *Issues) {
 	errs := errorReporter{iss: iss, info: a.info}
 	root := ast.NavigateCheckedAST(astToCheckedAST(a))
 	listExprs := ast.MatchDescendants(root, ast.KindMatcher(ast.ListKind))

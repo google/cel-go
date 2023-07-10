@@ -185,9 +185,13 @@ func NewCustomEnv(opts ...EnvOption) (*Env, error) {
 }
 
 // Check performs type-checking on the input Ast and yields a checked Ast and/or set of Issues.
+// If any `ASTValidators` are configured on the environment, they will be applied after a valid
+// type-check result. If any issues are detected, the validators will provide them on the
+// output Issues object.
 //
-// Checking has failed if the returned Issues value and its Issues.Err() value are non-nil.
-// Issues should be inspected if they are non-nil, but may not represent a fatal error.
+// Either checking or validation has failed if the returned Issues value and its Issues.Err()
+// value are non-nil. Issues should be inspected if they are non-nil, but may not represent a
+// fatal error.
 //
 // It is possible to have both non-nil Ast and Issues values returned from this call: however,
 // the mere presence of an Ast does not imply that it is valid for use.
