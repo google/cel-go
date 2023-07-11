@@ -709,6 +709,11 @@ func (i *Issues) ReportErrorAtID(id int64, message string, args ...any) {
 	i.errs.ReportErrorAtID(id, locationByID(id, i.info), message, args...)
 }
 
+// locationByID returns a common.Location given an expression id.
+//
+// TODO: move this functionality into the native SourceInfo and an overhaul of the common.Source
+// as this implementation relies on the abstractions present in the protobuf SourceInfo object,
+// and is replicated in the checker.
 func locationByID(id int64, sourceInfo *exprpb.SourceInfo) common.Location {
 	positions := sourceInfo.GetPositions()
 	var line = 1
