@@ -108,6 +108,9 @@ func NewEnv(container *containers.Container, provider ref.TypeProvider, opts ...
 	}, nil
 }
 
+// AddIdents configures the checker with a list of variable declarations.
+//
+// If there are overlapping declarations, the method will error.
 func (e *Env) AddIdents(declarations ...*decls.VariableDecl) error {
 	errMsgs := make([]errorMsg, 0)
 	for _, d := range declarations {
@@ -116,6 +119,9 @@ func (e *Env) AddIdents(declarations ...*decls.VariableDecl) error {
 	return formatError(errMsgs)
 }
 
+// AddFunctions configures the checker with a list of function declarations.
+//
+// If there are overlapping declarations, the method will error.
 func (e *Env) AddFunctions(declarations ...*decls.FunctionDecl) error {
 	errMsgs := make([]errorMsg, 0)
 	for _, d := range declarations {
