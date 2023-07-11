@@ -275,17 +275,17 @@ func (f *FunctionDecl) Bindings() ([]*functions.Overload, error) {
 // to return an unknown set, or to produce a new error for a missing function signature.
 func MaybeNoSuchOverload(funcName string, args ...ref.Val) ref.Val {
 	argTypes := make([]string, len(args))
-	var unk types.Unknown
+	var unk *types.Unknown = nil
 	for i, arg := range args {
 		if types.IsError(arg) {
 			return arg
 		}
 		if types.IsUnknown(arg) {
-			unk = append(unk, arg.(types.Unknown)...)
+			unk = types.MergeUnknowns(arg.(*types.Unknown), unk)
 		}
 		argTypes[i] = arg.Type().TypeName()
 	}
-	if len(unk) != 0 {
+	if unk != nil {
 		return unk
 	}
 	signature := strings.Join(argTypes, ", ")

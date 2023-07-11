@@ -202,7 +202,14 @@ func ExprValueToRefValue(adapter types.Adapter, ev *exprpb.ExprValue) (ref.Val, 
 		// TODO(jimlarson) make a convention for this.
 		return types.NewErr("XXX add details later"), nil
 	case *exprpb.ExprValue_Unknown:
-		return types.Unknown(ev.GetUnknown().Exprs), nil
+		var unk *types.Unknown
+		for _, id := range ev.GetUnknown().GetExprs() {
+			if unk == nil {
+				unk = types.NewUnknown(id, nil)
+			}
+			unk = types.MergeUnknowns(types.NewUnknown(id, nil), unk)
+		}
+		return unk, nil
 	}
 	return nil, invalidArgument("unknown ExprValue kind")
 }

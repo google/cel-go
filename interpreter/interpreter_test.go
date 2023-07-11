@@ -1450,7 +1450,7 @@ func TestInterpreter(t *testing.T) {
 				want = tc.out.(ref.Val)
 			}
 			got := prg.Eval(vars)
-			_, expectUnk := want.(types.Unknown)
+			_, expectUnk := want.(*types.Unknown)
 			if expectUnk {
 				if !reflect.DeepEqual(got, want) {
 					t.Fatalf("Got %v, wanted %v", got, want)
@@ -1486,7 +1486,7 @@ func TestInterpreter(t *testing.T) {
 				}
 				t.Run(mode, func(t *testing.T) {
 					got := prg.Eval(vars)
-					_, expectUnk := want.(types.Unknown)
+					_, expectUnk := want.(*types.Unknown)
 					if expectUnk {
 						if !reflect.DeepEqual(got, want) {
 							t.Errorf("Got %v, wanted %v", got, want)

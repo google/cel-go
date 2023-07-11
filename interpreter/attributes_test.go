@@ -740,13 +740,12 @@ func TestAttributesConditionalAttrErrorUnknown(t *testing.T) {
 	}
 
 	// unk ? a : b
-	condUnk := attrs.ConditionalAttribute(1, NewConstValue(0, types.Unknown{1}), tv, fv)
+	condUnk := attrs.ConditionalAttribute(1, NewConstValue(0, types.NewUnknown(1, nil)), tv, fv)
 	out, err = condUnk.Resolve(EmptyActivation())
 	if err != nil {
 		t.Fatal(err)
 	}
-	unk, ok := out.(types.Unknown)
-	if !ok || !types.IsUnknown(unk) {
+	if !types.IsUnknown(out.(ref.Val)) {
 		t.Errorf("Got %v, wanted unknown", out)
 	}
 }
@@ -845,7 +844,7 @@ func TestAttributeMissingMsgUnknownField(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, isUnk := out.(types.Unknown)
+	_, isUnk := out.(*types.Unknown)
 	if !isUnk {
 		t.Errorf("got %v, wanted unknown value", out)
 	}
@@ -1085,7 +1084,7 @@ func TestAttributeStateTracking(t *testing.T) {
 				},
 				NewAttributePattern("a").QualString("b"),
 			),
-			out: types.Unknown{5},
+			out: types.NewUnknown(5, types.QualifyAttribute[string](types.NewAttributeTrail("a"), "b")),
 		},
 	}
 	for _, test := range tests {

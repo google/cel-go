@@ -18,7 +18,7 @@ import "testing"
 
 func BenchmarkIsUnknownOrError(b *testing.B) {
 	err := NewErr("test")
-	unk := Unknown{}
+	unk := &Unknown{}
 	for i := 0; i < b.N; i++ {
 		if !(IsUnknownOrError(unk) && IsUnknownOrError(err) && !IsUnknownOrError(IntOne)) {
 			b.Fatal("IsUnknownOrError() provided an incorrect result.")

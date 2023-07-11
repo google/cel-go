@@ -142,7 +142,7 @@ func TestFunctionVariableArgBindings(t *testing.T) {
 			if !types.IsError(celErr) || !strings.Contains(celErr.(*types.Err).String(), "no such overload") {
 				t.Errorf("binding.Binary(bytes, string) got %v, wanted no such overload", celErr)
 			}
-			celUnk := binding.Binary(types.Bytes("hi"), types.Unknown{1})
+			celUnk := binding.Binary(types.Bytes("hi"), types.NewUnknown(1, types.NewAttributeTrail("x")))
 			if !types.IsUnknown(celUnk) {
 				t.Errorf("binding.Binary(bytes, unk) got %v, wanted unknown{1}", celUnk)
 			}

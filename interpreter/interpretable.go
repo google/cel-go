@@ -214,7 +214,7 @@ func (or *evalOr) ID() int64 {
 // Eval implements the Interpretable interface method.
 func (or *evalOr) Eval(ctx Activation) ref.Val {
 	var err ref.Val = nil
-	var unk types.Unknown = nil
+	var unk *types.Unknown
 	for _, term := range or.terms {
 		val := term.Eval(ctx)
 		boolVal, ok := val.(types.Bool)
@@ -256,7 +256,7 @@ func (and *evalAnd) ID() int64 {
 // Eval implements the Interpretable interface method.
 func (and *evalAnd) Eval(ctx Activation) ref.Val {
 	var err ref.Val = nil
-	var unk types.Unknown = nil
+	var unk *types.Unknown
 	for _, term := range and.terms {
 		val := term.Eval(ctx)
 		boolVal, ok := val.(types.Bool)
@@ -994,7 +994,7 @@ func (or *evalExhaustiveOr) ID() int64 {
 // Eval implements the Interpretable interface method.
 func (or *evalExhaustiveOr) Eval(ctx Activation) ref.Val {
 	var err ref.Val = nil
-	var unk types.Unknown = nil
+	var unk *types.Unknown
 	isTrue := false
 	for _, term := range or.terms {
 		val := term.Eval(ctx)
@@ -1004,21 +1004,14 @@ func (or *evalExhaustiveOr) Eval(ctx Activation) ref.Val {
 			isTrue = true
 		}
 		if !ok && !isTrue {
-			if types.IsUnknown(val) {
-				if unk == nil {
-					unk = types.Unknown{}
-				}
-				unk = append(unk, val.(types.Unknown)...)
-				continue
-			}
-			if types.IsError(val) {
-				if unk == nil && err == nil {
+			isUnk := false
+			unk, isUnk = types.MaybeMergeUnknowns(val, unk)
+			if !isUnk && err == nil {
+				if types.IsError(val) {
 					err = val
+				} else {
+					err = types.MaybeNoSuchOverloadErr(val)
 				}
-				continue
-			}
-			if unk == nil {
-				err = types.MaybeNoSuchOverloadErr(val)
 			}
 		}
 	}
@@ -1048,7 +1041,7 @@ func (and *evalExhaustiveAnd) ID() int64 {
 // Eval implements the Interpretable interface method.
 func (and *evalExhaustiveAnd) Eval(ctx Activation) ref.Val {
 	var err ref.Val = nil
-	var unk types.Unknown = nil
+	var unk *types.Unknown
 	isFalse := false
 	for _, term := range and.terms {
 		val := term.Eval(ctx)
@@ -1058,21 +1051,14 @@ func (and *evalExhaustiveAnd) Eval(ctx Activation) ref.Val {
 			isFalse = true
 		}
 		if !ok && !isFalse {
-			if types.IsUnknown(val) {
-				if unk == nil {
-					unk = types.Unknown{}
-				}
-				unk = append(unk, val.(types.Unknown)...)
-				continue
-			}
-			if types.IsError(val) {
-				if unk == nil && err == nil {
+			isUnk := false
+			unk, isUnk = types.MaybeMergeUnknowns(val, unk)
+			if !isUnk && err == nil {
+				if types.IsError(val) {
 					err = val
+				} else {
+					err = types.MaybeNoSuchOverloadErr(val)
 				}
-				continue
-			}
-			if unk == nil {
-				err = types.MaybeNoSuchOverloadErr(val)
 			}
 		}
 	}

@@ -72,11 +72,11 @@ var dispatchTests = []struct {
 	},
 	{
 		expr: "max(unk, unk)",
-		out:  types.Unknown{42},
+		out:  types.NewUnknown(42, nil),
 	},
 	{
 		expr: "max(unk, unk, unk)",
-		out:  types.Unknown{42},
+		out:  types.NewUnknown(42, nil),
 	},
 }
 
@@ -395,11 +395,11 @@ func TestUnaryBinding(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Program() failed: %v", err)
 	}
-	out, _, err := prg.Eval(map[string]any{"x": types.Unknown{1}})
+	out, _, err := prg.Eval(map[string]any{"x": types.NewUnknown(1, nil)})
 	if err != nil {
 		t.Fatalf("prg.Eval(x=unk) failed: %v", err)
 	}
-	if !reflect.DeepEqual(out, types.Unknown{1}) {
+	if !types.NewUnknown(1, nil).Contains(out.(*types.Unknown)) {
 		t.Errorf("prg.Eval(x=unk) returned %v, wanted unknown{1}", out)
 	}
 }
@@ -439,14 +439,14 @@ func TestBinaryBinding(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Program() failed: %v", err)
 	}
-	out, _, err := prg.Eval(map[string]any{"x": types.Unknown{1}, "y": 1})
+	out, _, err := prg.Eval(map[string]any{"x": types.NewUnknown(1, nil), "y": 1})
 	if err != nil {
 		t.Fatalf("prg.Eval(x=unk) failed: %v", err)
 	}
 	if !reflect.DeepEqual(out, types.IntOne) {
 		t.Errorf("prg.Eval(x=unk, y=1) returned %v, wanted 1", out)
 	}
-	out, _, err = prg.Eval(map[string]any{"x": 2, "y": types.Unknown{2}})
+	out, _, err = prg.Eval(map[string]any{"x": 2, "y": types.NewUnknown(2, nil)})
 	if err != nil {
 		t.Fatalf("prg.Eval(x=2, y=unk) failed: %v", err)
 	}
@@ -790,10 +790,10 @@ func testParse(t testing.TB, env *Env, expr string, want any) {
 	if err != nil {
 		t.Fatalf("env.Program() failed: %v", err)
 	}
-	out, _, err := prg.Eval(map[string]any{"err": types.NewErr("error argument"), "unk": types.Unknown{42}})
+	out, _, err := prg.Eval(map[string]any{"err": types.NewErr("error argument"), "unk": types.NewUnknown(42, nil)})
 	switch want := want.(type) {
-	case types.Unknown:
-		if !reflect.DeepEqual(want, out.(types.Unknown)) {
+	case *types.Unknown:
+		if !want.Contains(out.(*types.Unknown)) {
 			t.Errorf("prg.Eval() got %v, wanted %v", out, want)
 		}
 	case ref.Val:
@@ -817,10 +817,10 @@ func testCompile(t testing.TB, env *Env, expr string, want any) {
 	if err != nil {
 		t.Fatalf("env.Program() failed: %v", err)
 	}
-	out, _, err := prg.Eval(map[string]any{"err": types.NewErr("error argument"), "unk": types.Unknown{42}})
+	out, _, err := prg.Eval(map[string]any{"err": types.NewErr("error argument"), "unk": types.NewUnknown(42, nil)})
 	switch want := want.(type) {
-	case types.Unknown:
-		if !reflect.DeepEqual(want, out.(types.Unknown)) {
+	case *types.Unknown:
+		if !want.Contains(out.(*types.Unknown)) {
 			t.Errorf("prg.Eval() got %v, wanted %v", out, want)
 		}
 	case ref.Val:

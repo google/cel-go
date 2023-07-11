@@ -655,7 +655,7 @@ func newQualifier(adapter types.Adapter, id int64, v any, opt bool) (Qualifier, 
 		qual = &doubleQualifier{
 			id: id, value: float64(val), celValue: val, adapter: adapter, optional: opt,
 		}
-	case types.Unknown:
+	case *types.Unknown:
 		qual = &unknownQualifier{id: id, value: val}
 	default:
 		if q, ok := v.(Qualifier); ok {
@@ -1129,7 +1129,7 @@ func (q *doubleQualifier) Value() ref.Val {
 // for any value subject to qualification. This is consistent with CEL's unknown handling elsewhere.
 type unknownQualifier struct {
 	id    int64
-	value types.Unknown
+	value *types.Unknown
 }
 
 // ID is an implementation of the Qualifier interface method.
@@ -1226,7 +1226,7 @@ func attrQualifyIfPresent(fac AttributeFactory, vars Activation, obj any, qualAt
 func refQualify(adapter types.Adapter, obj any, idx ref.Val, presenceTest, presenceOnly bool) (ref.Val, bool, error) {
 	celVal := adapter.NativeToValue(obj)
 	switch v := celVal.(type) {
-	case types.Unknown:
+	case *types.Unknown:
 		return v, true, nil
 	case *types.Err:
 		return nil, false, v
