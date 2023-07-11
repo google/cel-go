@@ -656,13 +656,20 @@ func TestExprDeclToDeclaration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ExprDeclToDeclaration(x) failed: %v", err)
 	}
-	e, err := NewCustomEnv(size, eq, x)
+	constant, err := ExprDeclToDeclaration(
+		chkdecls.NewConst("constant", chkdecls.Bool, &exprpb.Constant{
+			ConstantKind: &exprpb.Constant_BoolValue{BoolValue: true},
+		}))
+	if err != nil {
+		t.Fatalf("ExprDeclToDeclaration(constant) failed: %v", err)
+	}
+	e, err := NewCustomEnv(size, eq, x, constant)
 	if err != nil {
 		t.Fatalf("NewCustomEnv() failed: %v", err)
 	}
-	ast, iss := e.Compile("size(x) == x.size()")
+	ast, iss := e.Compile("(size(x) == x.size()) == constant")
 	if iss.Err() != nil {
-		t.Fatalf("Compile(size(x) == x.size()) failed: %v", iss.Err())
+		t.Fatalf("Compile((size(x) == x.size()) == constant) failed: %v", iss.Err())
 	}
 	prg, err := e.Program(ast, Functions(&functions.Overload{
 		Operator: overloads.SizeString,
@@ -691,7 +698,7 @@ func TestExprDeclToDeclaration(t *testing.T) {
 		t.Fatalf("prg.Eval(x=hello) failed: %v", err)
 	}
 	if out != types.True {
-		t.Errorf("prg.Eval(size(x) == x.size()) got %v, wanted true", out)
+		t.Errorf("prg.Eval((size(x) == x.size()) == constant) got %v, wanted true", out)
 	}
 }
 
@@ -714,6 +721,18 @@ func TestExprDeclToDeclarationInvalid(t *testing.T) {
 				},
 			},
 			out: "unsupported type",
+		},
+		{
+			in: &exprpb.Decl{
+				Name: "bad_var",
+				DeclKind: &exprpb.Decl_Ident{
+					Ident: &exprpb.Decl_IdentDecl{
+						Type:  chkdecls.Bool,
+						Value: &exprpb.Constant{},
+					},
+				},
+			},
+			out: "unsupported constant",
 		},
 		{
 			in: &exprpb.Decl{
