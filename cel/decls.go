@@ -17,6 +17,7 @@ package cel
 import (
 	"fmt"
 
+	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/functions"
 	"github.com/google/cel-go/common/types"
@@ -129,6 +130,14 @@ var (
 
 // Type holds a reference to a runtime type with an optional type-checked set of type parameters.
 type Type = types.Type
+
+// Constant creates an instances of an identifier declaration with a variable name, type, and value.
+func Constant(name string, t *Type, v ref.Val) EnvOption {
+	return func(e *Env) (*Env, error) {
+		e.variables = append(e.variables, decls.NewConstant(name, t, v))
+		return e, nil
+	}
+}
 
 // Variable creates an instance of a variable declaration with a variable name and type.
 func Variable(name string, t *Type) EnvOption {
@@ -332,7 +341,14 @@ func ExprDeclToDeclaration(d *exprpb.Decl) (EnvOption, error) {
 		if err != nil {
 			return nil, err
 		}
-		return Variable(d.GetName(), t), nil
+		if d.GetIdent().GetValue() == nil {
+			return Variable(d.GetName(), t), nil
+		}
+		val, err := ast.ConstantToVal(d.GetIdent().GetValue())
+		if err != nil {
+			return nil, err
+		}
+		return Constant(d.GetName(), t, val), nil
 	default:
 		return nil, fmt.Errorf("unsupported decl: %v", d)
 	}
