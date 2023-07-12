@@ -622,11 +622,11 @@ func (e *Env) maybeApplyFeature(feature int, option EnvOption) (*Env, error) {
 func (e *Env) computeUnknownVars(vars interpreter.Activation) []*interpreter.AttributePattern {
 	var unknownPatterns []*interpreter.AttributePattern
 	for _, v := range e.variables {
-		if _, found := vars.ResolveName(v.Name()); found {
+		varName := v.Name()
+		if _, found := vars.ResolveName(varName); found {
 			continue
 		}
-		unknownPatterns = append(unknownPatterns,
-			interpreter.NewAttributePattern(v.Name()))
+		unknownPatterns = append(unknownPatterns, interpreter.NewAttributePattern(varName))
 	}
 	return unknownPatterns
 }
