@@ -911,16 +911,16 @@ func TestContextEval(t *testing.T) {
 	}
 
 	ctx := context.TODO()
-	items := make([]int64, 1000)
-	for i := int64(0); i < 1000; i++ {
+	items := make([]int64, 2000)
+	for i := int64(0); i < 2000; i++ {
 		items[i] = i
 	}
 	out, _, err := prg.ContextEval(ctx, map[string]any{"items": items})
 	if err != nil {
 		t.Fatalf("prg.ContextEval() failed: %v", err)
 	}
-	if out != types.Int(975) {
-		t.Errorf("prg.ContextEval() got %v, wanted 75", out)
+	if out != types.Int(1975) {
+		t.Errorf("prg.ContextEval() got %v, wanted 1975", out)
 	}
 
 	evalCtx, cancel := context.WithTimeout(ctx, time.Microsecond)

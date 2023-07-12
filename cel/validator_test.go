@@ -15,6 +15,7 @@
 package cel
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/google/cel-go/common/operators"
@@ -393,5 +394,25 @@ func TestExtendedValidations(t *testing.T) {
 				t.Fatalf("e.Compile(%v) failed: %v", tc.expr, iss.Err())
 			}
 		})
+	}
+}
+
+func TestValidatorConfig(t *testing.T) {
+	config := newValidatorConfig()
+	result := config.GetOrDefault("ext.validate.custom", 2)
+	if result != 2 {
+		t.Errorf("config.GetOrDefault() got %v, wanted default of 2", result)
+	}
+	result = config.GetOrDefault(HomogeneousAggregateLiteralExemptFunctions, []string{})
+	if reflect.TypeOf(result) != reflect.TypeOf([]string{}) {
+		t.Errorf("config.GetOrDefault() got %T, wanted type %T", result, []string{})
+	}
+	err := config.Set(HomogeneousAggregateLiteralExemptFunctions, []string{"_==_"})
+	if err != nil {
+		t.Errorf("config.Set() failed: %v", err)
+	}
+	err = config.Set(HomogeneousAggregateLiteralExemptFunctions, map[string]any{})
+	if err == nil {
+		t.Error("config.Set() with incorrect value type did not fail")
 	}
 }
