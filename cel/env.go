@@ -99,11 +99,11 @@ func FormatType(t *exprpb.Type) string {
 	return checker.FormatCheckedType(t)
 }
 
-// FormatCelType formats a cel.Type value to a string representation.
+// FormatCELType formats a cel.Type value to a string representation.
 //
 // The type formatting is identical to FormatType.
-func FormatCelType(t *Type) string {
-	return checker.FormatCelType(t)
+func FormatCELType(t *Type) string {
+	return checker.FormatCELType(t)
 }
 
 // Env encapsulates the context necessary to perform parsing, type checking, or generation of

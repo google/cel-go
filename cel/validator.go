@@ -342,7 +342,7 @@ func isOptionalIndex(i int, optIndices []int32) bool {
 }
 
 func (homogeneousAggregateLiteralValidator) typeMismatch(iss *Issues, id int64, expected, actual *Type) {
-	iss.ReportErrorAtID(id, "expected type '%s' but found '%s'", FormatCelType(expected), FormatCelType(actual))
+	iss.ReportErrorAtID(id, "expected type '%s' but found '%s'", FormatCELType(expected), FormatCELType(actual))
 }
 
 type nestingLimitValidator struct {

@@ -103,10 +103,10 @@ func FormatCheckedType(t *exprpb.Type) string {
 
 type formatter func(any) string
 
-// FormatCelType formats a types.Type value to a string representation.
+// FormatCELType formats a types.Type value to a string representation.
 //
 // The type formatting is identical to FormatCheckedType.
-func FormatCelType(t any) string {
+func FormatCELType(t any) string {
 	dt := t.(*types.Type)
 	switch dt.Kind() {
 	case types.AnyKind:
@@ -135,7 +135,7 @@ func FormatCelType(t any) string {
 	}
 	paramTypeNames := make([]string, 0, len(dt.Parameters()))
 	for _, p := range dt.Parameters() {
-		paramTypeNames = append(paramTypeNames, FormatCelType(p))
+		paramTypeNames = append(paramTypeNames, FormatCELType(p))
 	}
 	return fmt.Sprintf("%s(%s)", dt.TypeName(), strings.Join(paramTypeNames, ", "))
 }
@@ -152,7 +152,7 @@ func formatFunctionExprType(resultType *exprpb.Type, argTypes []*exprpb.Type, is
 }
 
 func formatFunctionDeclType(resultType *types.Type, argTypes []*types.Type, isInstance bool) string {
-	return formatFunctionInternal[*types.Type](resultType, argTypes, isInstance, FormatCelType)
+	return formatFunctionInternal[*types.Type](resultType, argTypes, isInstance, FormatCELType)
 }
 
 func formatFunctionInternal[T any](resultType T, argTypes []T, isInstance bool, format formatter) string {
