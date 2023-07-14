@@ -61,6 +61,9 @@ func NoVars() interpreter.Activation {
 // PartialVars returns a PartialActivation which contains variables and a set of AttributePattern
 // values that indicate variables or parts of variables whose value are not yet known.
 //
+// This method relies on manually configured sets of missing attribute patterns. For a method which
+// infers the missing variables from the input and the configured environment, use Env.PartialVars().
+//
 // The `vars` value may either be an interpreter.Activation or any valid input to the
 // interpreter.NewActivation call.
 func PartialVars(vars any,

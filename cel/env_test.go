@@ -133,6 +133,14 @@ func TestEnvCheckExtendRace(t *testing.T) {
 	}
 }
 
+func TestEnvPartialVarsError(t *testing.T) {
+	env := testEnv(t)
+	_, err := env.PartialVars(10)
+	if err == nil {
+		t.Error("env.PartialVars(10) succeeded, wanted error")
+	}
+}
+
 func BenchmarkNewCustomEnvLazy(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
