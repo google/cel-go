@@ -23,6 +23,10 @@ import (
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/test/proto3pb"
+
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 func TestIssuesNil(t *testing.T) {
@@ -141,6 +145,89 @@ func TestEnvPartialVarsError(t *testing.T) {
 	}
 }
 
+func TestTypeProviderInterop(t *testing.T) {
+	reg, err := types.NewRegistry(&proto3pb.TestAllTypes{})
+	if err != nil {
+		t.Fatalf("types.NewRegistry() failed: %v", err)
+	}
+	tests := []struct {
+		name     string
+		provider any
+	}{
+		{
+			name:     "custom provider",
+			provider: &customCELProvider{provider: reg},
+		},
+		{
+			name:     "custom legacy provider",
+			provider: &customLegacyProvider{provider: reg},
+		},
+		{
+			name:     "provider",
+			provider: reg,
+		},
+	}
+	for _, tst := range tests {
+		tc := tst
+		t.Run(tc.name, func(t *testing.T) {
+			env, err := NewEnv(CustomTypeProvider(tc.provider))
+			if err != nil {
+				t.Fatalf("NewEnv(CustomTypeProvider()) failed: %v", err)
+			}
+			// Found type
+			pbType, found := env.TypeProvider().FindType("google.expr.proto3.test.TestAllTypes")
+			if !found {
+				t.Fatal("FindType(google.expr.proto3.test.TestAllTypes) failed")
+			}
+			celType, found := env.CELTypeProvider().FindStructType("google.expr.proto3.test.TestAllTypes")
+			if !found {
+				t.Fatal("FindStructType(google.expr.proto3.test.TestAllTypes) failed")
+			}
+			pbConvType, err := types.ExprTypeToType(pbType)
+			if err != nil {
+				t.Fatalf("types.ExprTypeToType(%v) failed: %v", pbType, err)
+			}
+			if !celType.IsExactType(pbConvType) {
+				t.Errorf("got converted type %v, wanted %v", pbConvType, celType)
+			}
+			// Found field
+			pbFieldType, found := env.TypeProvider().FindFieldType("google.expr.proto3.test.TestAllTypes", "single_int32")
+			if !found {
+				t.Fatal("FindFieldType(google.expr.proto3.test.TestAllTypes, single_int32) not found")
+			}
+			celFieldType, found := env.CELTypeProvider().FindStructFieldType("google.expr.proto3.test.TestAllTypes", "single_int32")
+			if !found {
+				t.Fatal("FindStructFieldType(google.expr.proto3.test.TestAllTypes, single_int32) not found")
+			}
+			pbConvFieldType, err := types.ExprTypeToType(pbFieldType.Type)
+			if err != nil {
+				t.Fatalf("types.ExprTypeToType(%v) failed: %v", pbFieldType.Type, err)
+			}
+			if !celFieldType.Type.IsExactType(pbConvFieldType) {
+				t.Errorf("got converted field type %v, wanted %v", pbConvFieldType, celFieldType)
+			}
+			// Not found type
+			_, found = env.TypeProvider().FindType("test.BadTypeName")
+			if found {
+				t.Fatal("FindType(test.BadTypeName) succeeded")
+			}
+			_, found = env.CELTypeProvider().FindStructType("test.BadTypeName")
+			if found {
+				t.Fatal("FindStructType(test.BadTypeName) succeeded")
+			}
+			// Not found field
+			_, found = env.TypeProvider().FindFieldType("google.expr.proto3.test.TestAllTypes", "undefined_field")
+			if found {
+				t.Fatal("FindFieldType(google.expr.proto3.test.TestAllTypes, undefined_field) was found")
+			}
+			_, found = env.CELTypeProvider().FindStructFieldType("google.expr.proto3.test.TestAllTypes", "undefined_field")
+			if found {
+				t.Fatal("FindStructFieldType(google.expr.proto3.test.TestAllTypes, undefined_field) not found")
+			}
+		})
+	}
+}
+
 func BenchmarkNewCustomEnvLazy(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -237,4 +324,52 @@ func BenchmarkEnvExtendEagerDecls(b *testing.B) {
 			b.Fatalf("env.Compile(123) failed: %v", iss.Err())
 		}
 	}
+}
+
+type customLegacyProvider struct {
+	provider ref.TypeProvider
+}
+
+func (p *customLegacyProvider) EnumValue(enumName string) ref.Val {
+	return p.provider.EnumValue(enumName)
+}
+
+func (p *customLegacyProvider) FindIdent(identName string) (ref.Val, bool) {
+	return p.provider.FindIdent(identName)
+}
+
+func (p *customLegacyProvider) FindType(typeName string) (*exprpb.Type, bool) {
+	return p.provider.FindType(typeName)
+}
+
+func (p *customLegacyProvider) FindFieldType(structType, fieldName string) (*ref.FieldType, bool) {
+	return p.provider.FindFieldType(structType, fieldName)
+}
+
+func (p *customLegacyProvider) NewValue(structType string, fields map[string]ref.Val) ref.Val {
+	return p.provider.NewValue(structType, fields)
+}
+
+type customCELProvider struct {
+	provider types.Provider
+}
+
+func (p *customCELProvider) EnumValue(enumName string) ref.Val {
+	return p.provider.EnumValue(enumName)
+}
+
+func (p *customCELProvider) FindIdent(identName string) (ref.Val, bool) {
+	return p.provider.FindIdent(identName)
+}
+
+func (p *customCELProvider) FindStructType(typeName string) (*types.Type, bool) {
+	return p.provider.FindStructType(typeName)
+}
+
+func (p *customCELProvider) FindStructFieldType(structType, fieldName string) (*types.FieldType, bool) {
+	return p.provider.FindStructFieldType(structType, fieldName)
+}
+
+func (p *customCELProvider) NewValue(structType string, fields map[string]ref.Val) ref.Val {
+	return p.provider.NewValue(structType, fields)
 }

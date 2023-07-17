@@ -177,8 +177,8 @@ func numericValueEquals(value any, celValue ref.Val) bool {
 // NewPartialAttributeFactory returns an AttributeFactory implementation capable of performing
 // AttributePattern matches with PartialActivation inputs.
 func NewPartialAttributeFactory(container *containers.Container,
-	adapter ref.TypeAdapter,
-	provider ref.TypeProvider) AttributeFactory {
+	adapter types.Adapter,
+	provider types.Provider) AttributeFactory {
 	fac := NewAttributeFactory(container, adapter, provider)
 	return &partialAttributeFactory{
 		AttributeFactory: fac,
@@ -191,8 +191,8 @@ func NewPartialAttributeFactory(container *containers.Container,
 type partialAttributeFactory struct {
 	AttributeFactory
 	container *containers.Container
-	adapter   ref.TypeAdapter
-	provider  ref.TypeProvider
+	adapter   types.Adapter
+	provider  types.Provider
 }
 
 // AbsoluteAttribute implementation of the AttributeFactory interface which wraps the

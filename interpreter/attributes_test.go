@@ -759,7 +759,7 @@ func BenchmarkResolverFieldQualifier(b *testing.B) {
 			},
 		},
 	}
-	reg := newBenchRegistry(b, msg)
+	reg := newTestRegistry(b, msg)
 	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
 	vars, _ := NewActivation(map[string]any{
 		"msg": msg,
@@ -1167,7 +1167,7 @@ func TestAttributeStateTracking(t *testing.T) {
 }
 
 func BenchmarkResolverCustomQualifier(b *testing.B) {
-	reg := newBenchRegistry(b)
+	reg := newTestRegistry(b)
 	attrs := &custAttrFactory{
 		AttributeFactory: NewAttributeFactory(containers.DefaultContainer, reg, reg),
 	}

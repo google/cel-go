@@ -52,7 +52,7 @@ type InterpretableAttribute interface {
 	Attr() Attribute
 
 	// Adapter returns the type adapter to be used for adapting resolved Attribute values.
-	Adapter() ref.TypeAdapter
+	Adapter() types.Adapter
 
 	// AddQualifier proxies the Attribute.AddQualifier method.
 	//
@@ -575,7 +575,7 @@ type evalList struct {
 	elems        []Interpretable
 	optionals    []bool
 	hasOptionals bool
-	adapter      ref.TypeAdapter
+	adapter      types.Adapter
 }
 
 // ID implements the Interpretable interface method.
@@ -621,7 +621,7 @@ type evalMap struct {
 	vals         []Interpretable
 	optionals    []bool
 	hasOptionals bool
-	adapter      ref.TypeAdapter
+	adapter      types.Adapter
 }
 
 // ID implements the Interpretable interface method.
@@ -685,7 +685,7 @@ type evalObj struct {
 	vals         []Interpretable
 	optionals    []bool
 	hasOptionals bool
-	provider     ref.TypeProvider
+	provider     types.Provider
 }
 
 // ID implements the Interpretable interface method.
@@ -735,7 +735,7 @@ type evalFold struct {
 	cond          Interpretable
 	step          Interpretable
 	result        Interpretable
-	adapter       ref.TypeAdapter
+	adapter       types.Adapter
 	exhaustive    bool
 	interruptable bool
 }
@@ -891,7 +891,7 @@ func (e *evalWatchAttr) Eval(vars Activation) ref.Val {
 type evalWatchConstQual struct {
 	ConstantQualifier
 	observer EvalObserver
-	adapter  ref.TypeAdapter
+	adapter  types.Adapter
 }
 
 // Qualify observes the qualification of a object via a constant boolean, int, string, or uint.
@@ -934,7 +934,7 @@ func (e *evalWatchConstQual) QualifierValueEquals(value any) bool {
 type evalWatchQual struct {
 	Qualifier
 	observer EvalObserver
-	adapter  ref.TypeAdapter
+	adapter  types.Adapter
 }
 
 // Qualify observes the qualification of a object via a value computed at runtime.
@@ -1092,7 +1092,7 @@ func (and *evalExhaustiveAnd) Eval(ctx Activation) ref.Val {
 // evaluation.
 type evalExhaustiveConditional struct {
 	id      int64
-	adapter ref.TypeAdapter
+	adapter types.Adapter
 	attr    *conditionalAttribute
 }
 
@@ -1124,7 +1124,7 @@ func (cond *evalExhaustiveConditional) Eval(ctx Activation) ref.Val {
 
 // evalAttr evaluates an Attribute value.
 type evalAttr struct {
-	adapter  ref.TypeAdapter
+	adapter  types.Adapter
 	attr     Attribute
 	optional bool
 }
@@ -1149,7 +1149,7 @@ func (a *evalAttr) Attr() Attribute {
 }
 
 // Adapter implements the InterpretableAttribute interface method.
-func (a *evalAttr) Adapter() ref.TypeAdapter {
+func (a *evalAttr) Adapter() types.Adapter {
 	return a.adapter
 }
 

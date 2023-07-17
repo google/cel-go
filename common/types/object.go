@@ -29,7 +29,7 @@ import (
 )
 
 type protoObj struct {
-	ref.TypeAdapter
+	Adapter
 	value     proto.Message
 	typeDesc  *pb.TypeDescription
 	typeValue ref.Val
@@ -42,15 +42,15 @@ type protoObj struct {
 // Note: the type value is pulled from the list of registered types within the
 // type provider. If the proto type is not registered within the type provider,
 // then this will result in an error within the type adapter / provider.
-func NewObject(adapter ref.TypeAdapter,
+func NewObject(adapter Adapter,
 	typeDesc *pb.TypeDescription,
 	typeValue ref.Val,
 	value proto.Message) ref.Val {
 	return &protoObj{
-		TypeAdapter: adapter,
-		value:       value,
-		typeDesc:    typeDesc,
-		typeValue:   typeValue}
+		Adapter:   adapter,
+		value:     value,
+		typeDesc:  typeDesc,
+		typeValue: typeValue}
 }
 
 func (o *protoObj) ConvertToNative(typeDesc reflect.Type) (any, error) {

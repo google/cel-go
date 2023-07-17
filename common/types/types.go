@@ -509,16 +509,23 @@ func NewOpaqueType(name string, params ...*Type) *Type {
 }
 
 // NewObjectType creates a type reference to an externally defined type, e.g. a protobuf message type.
-func NewObjectType(typeName string) *Type {
+//
+// An object type is assumed to support field presence testing and field indexing. Additionally, the
+// type may also indicate additional traits through the use of the optional traits vararg argument.
+func NewObjectType(typeName string, traits ...int) *Type {
 	// Function sanitizes object types on the fly
 	if wkt, found := checkedWellKnowns[typeName]; found {
 		return wkt
+	}
+	traitMask := 0
+	for _, trait := range traits {
+		traitMask |= trait
 	}
 	return &Type{
 		kind:            StructKind,
 		parameters:      emptyParams,
 		runtimeTypeName: typeName,
-		traitMask:       traits.FieldTesterType | traits.IndexerType,
+		traitMask:       structTypeTraitMask | traitMask,
 	}
 }
 
@@ -532,14 +539,14 @@ func NewObjectTypeValue(typeName string) *Type {
 // NewTypeValue creates an opaque type which has a set of optional type traits as defined in
 // the common/types/traits package.
 //
-// Deprecated: use cel.OpaqueType(typeName)
+// Deprecated: use cel.ObjectType(typeName, traits)
 func NewTypeValue(typeName string, traits ...int) *Type {
 	traitMask := 0
 	for _, trait := range traits {
 		traitMask |= trait
 	}
 	return &Type{
-		kind:            OpaqueKind,
+		kind:            StructKind,
 		parameters:      emptyParams,
 		runtimeTypeName: typeName,
 		traitMask:       traitMask,
@@ -734,6 +741,24 @@ func maybeWrapper(t *Type, pbType *exprpb.Type) *exprpb.Type {
 	return pbType
 }
 
+func maybeForeignType(t ref.Type) *Type {
+	if celType, ok := t.(*Type); ok {
+		return celType
+	}
+	// Inspect the incoming type to determine its traits. The assumption will be that the incoming
+	// type does not have any field values; however, if the trait mask indicates that field testing
+	// and indexing are supported, the foreign type is marked as a struct.
+	traitMask := 0
+	for _, trait := range allTraits {
+		if t.HasTrait(trait) {
+			traitMask |= trait
+		}
+	}
+	// Treat the value like a struct. If it has no fields, this is harmless to denote the type
+	// as such since it basically becomes an opaque type by convention.
+	return NewObjectType(t.TypeName(), traitMask)
+}
+
 var (
 	checkedWellKnowns = map[string]*Type{
 		// Wrapper types.
@@ -758,4 +783,24 @@ var (
 	}
 
 	emptyParams = []*Type{}
+
+	allTraits = []int{
+		traits.AdderType,
+		traits.ComparerType,
+		traits.ContainerType,
+		traits.DividerType,
+		traits.FieldTesterType,
+		traits.IndexerType,
+		traits.IterableType,
+		traits.IteratorType,
+		traits.MatcherType,
+		traits.ModderType,
+		traits.MultiplierType,
+		traits.NegatorType,
+		traits.ReceiverType,
+		traits.SizerType,
+		traits.SubtractorType,
+	}
+
+	structTypeTraitMask = traits.FieldTesterType | traits.IndexerType
 )

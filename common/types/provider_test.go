@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -34,7 +35,7 @@ import (
 	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
-func TestTypeRegistryCopy(t *testing.T) {
+func TestRegistryCopy(t *testing.T) {
 	reg := NewEmptyRegistry()
 	reg2 := reg.Copy()
 	if !reflect.DeepEqual(reg, reg2) {
@@ -47,7 +48,40 @@ func TestTypeRegistryCopy(t *testing.T) {
 	}
 }
 
-func TestTypeRegistryEnumValue(t *testing.T) {
+func TestRegistryRegisterType(t *testing.T) {
+	reg := newTestRegistry(t)
+	err := reg.RegisterType(
+		NewTypeValue("http.Request", traits.ReceiverType),
+		NewObjectType("http.Request", traits.ReceiverType),
+	)
+	if err == nil {
+		t.Error("RegisterType() for differing type definitions with the same name did not fail")
+	}
+}
+
+func TestRegistryRegisterTypeNoConflict(t *testing.T) {
+	reg := newTestRegistry(t)
+	err := reg.RegisterType(
+		NewOpaqueType("http.Request", NewTypeParamType("T")),
+		NewOpaqueType("http.Request", NewTypeParamType("V")),
+	)
+	if err != nil {
+		t.Errorf("RegisterType() failed for equivalent types: %v", err)
+	}
+}
+
+func TestRegistryRegisterTypeConflict(t *testing.T) {
+	reg := newTestRegistry(t)
+	err := reg.RegisterType(
+		NewOpaqueType("http.Request", NewTypeParamType("T"), NewTypeParamType("V")),
+		NewOpaqueType("http.Request", NewTypeParamType("V")),
+	)
+	if err == nil {
+		t.Error("RegisterType() for differing type definitions with the same name did not fail")
+	}
+}
+
+func TestRegistryEnumValue(t *testing.T) {
 	reg := newTestRegistry(t)
 	err := reg.RegisterDescriptor(proto3pb.GlobalEnum_GOO.Descriptor().ParentFile())
 	if err != nil {
@@ -66,107 +100,355 @@ func TestTypeRegistryEnumValue(t *testing.T) {
 	}
 }
 
-func TestTypeRegistryFindType(t *testing.T) {
+func TestRegistryFindStructType(t *testing.T) {
 	reg := newTestRegistry(t)
 	err := reg.RegisterDescriptor(proto3pb.GlobalEnum_GOO.Descriptor().ParentFile())
 	if err != nil {
 		t.Fatalf("RegisterDescriptor() failed: %v", err)
 	}
 	msgTypeName := ".google.expr.proto3.test.TestAllTypes"
-	_, found := reg.FindType(msgTypeName)
+	exprType, found := reg.FindType(msgTypeName)
 	if !found {
 		t.Fatalf("FindType() did not find: %q", msgTypeName)
+	}
+	celType, found := reg.FindStructType(msgTypeName)
+	if !found {
+		t.Fatalf("FindStructType() did not find %q", msgTypeName)
+	}
+	exprConvType, err := ExprTypeToType(exprType)
+	if err != nil {
+		t.Fatalf("ExprTypeToType(%v) failed: %v", exprType, err)
+	}
+	if !exprConvType.IsExactType(celType) {
+		t.Errorf("Got %v type, wanted %v", exprConvType, celType)
 	}
 	_, found = reg.FindType(msgTypeName + "Undefined")
 	if found {
 		t.Fatalf("FindType() found: %q", msgTypeName+"Undefined")
 	}
-	_, found = reg.FindFieldType(msgTypeName, "single_bool")
-	if !found {
-		t.Fatalf("FindFieldType() did not find: %q, %s", msgTypeName, "single_bool")
-	}
-	_, found = reg.FindFieldType(msgTypeName, "double_bool")
+	_, found = reg.FindStructType(msgTypeName + "Undefined")
 	if found {
-		t.Fatalf("FindFieldType() found: %q, %s", msgTypeName, "double_bool")
+		t.Fatalf("FindStructType() found: %q", msgTypeName+"Undefined")
 	}
 }
 
-func TestTypeRegistryNewValue(t *testing.T) {
-	reg := newTestRegistry(t, &exprpb.ParsedExpr{})
-	sourceInfo := reg.NewValue(
-		"google.api.expr.v1alpha1.SourceInfo",
-		map[string]ref.Val{
-			"location":     String("TestTypeRegistryNewValue"),
-			"line_offsets": NewDynamicList(reg, []int64{0, 2}),
-			"positions":    NewDynamicMap(reg, map[int64]int64{1: 2, 2: 4}),
+func TestRegistryFindStructFieldType(t *testing.T) {
+	reg := newTestRegistry(t)
+	err := reg.RegisterDescriptor(proto3pb.GlobalEnum_GOO.Descriptor().ParentFile())
+	if err != nil {
+		t.Fatalf("RegisterDescriptor() failed: %v", err)
+	}
+	msgTypeName := ".google.expr.proto3.test.TestAllTypes"
+	tests := []struct {
+		typeName string
+		field    string
+		found    bool
+	}{
+		{
+			typeName: msgTypeName,
+			field:    "single_bool",
+			found:    true,
+		},
+		{
+			typeName: msgTypeName,
+			field:    "single_nested_message",
+			found:    true,
+		},
+		{
+			typeName: msgTypeName,
+			field:    "single_nested_message",
+			found:    true,
+		},
+		{
+			typeName: msgTypeName,
+			field:    "standalone_enum",
+			found:    true,
+		},
+		{
+			typeName: msgTypeName,
+			field:    "single_duration",
+			found:    true,
+		},
+		{
+			typeName: msgTypeName,
+			field:    "single_timestamp",
+			found:    true,
+		},
+		{
+			typeName: msgTypeName,
+			field:    "single_any",
+			found:    true,
+		},
+		{
+			typeName: msgTypeName,
+			field:    "single_int64_wrapper",
+			found:    true,
+		},
+		{
+			typeName: msgTypeName,
+			field:    "repeated_bool",
+			found:    true,
+		},
+		{
+			typeName: msgTypeName,
+			field:    "map_string_string",
+			found:    true,
+		},
+		{
+			typeName: msgTypeName,
+			field:    "double_bool",
+			found:    false,
+		},
+		{
+			typeName: msgTypeName + "Undefined",
+			field:    "map_string_string",
+			found:    false,
+		},
+	}
+
+	for _, tst := range tests {
+		tc := tst
+		t.Run(fmt.Sprintf("%s.%s", tc.typeName, tc.field), func(t *testing.T) {
+			// When the field is expected to be found, test parity of the results
+			if tc.found {
+				refField, found := reg.FindFieldType(tc.typeName, tc.field)
+				if !found {
+					t.Fatalf("FindFieldType() did not find: %s.%s", tc.typeName, tc.field)
+				}
+				celField, found := reg.FindStructFieldType(tc.typeName, tc.field)
+				if !found {
+					t.Fatalf("FindStructFieldType() found: %s.%s", tc.typeName, tc.field)
+				}
+				convCelFieldType, err := ExprTypeToType(refField.Type)
+				if err != nil {
+					t.Fatalf("ExprTypeToType(%v) failed: %v", refField.Type, err)
+				}
+				if !convCelFieldType.IsExactType(celField.Type) {
+					t.Errorf("Got %v type, wanted %v", convCelFieldType, celField.Type)
+				}
+				return
+			}
+			// When the field is not expected to be round ensure both return not found.
+			if !tc.found {
+				_, found := reg.FindFieldType(tc.typeName, tc.field)
+				if found {
+					t.Errorf("FindFieldType() found: %s.%s", tc.typeName, tc.field)
+				}
+				_, found = reg.FindStructFieldType(tc.typeName, tc.field)
+				if found {
+					t.Errorf("FindStructFieldType() found: %s.%s", tc.typeName, tc.field)
+				}
+			}
 		})
-	if IsError(sourceInfo) {
-		t.Error(sourceInfo)
-	} else {
-		info := sourceInfo.Value().(proto.Message)
-		srcInfo := &exprpb.SourceInfo{}
-		proto.Merge(srcInfo, info)
-		if srcInfo.Location != "TestTypeRegistryNewValue" ||
-			!reflect.DeepEqual(srcInfo.LineOffsets, []int32{0, 2}) ||
-			!reflect.DeepEqual(srcInfo.Positions, map[int64]int32{1: 2, 2: 4}) {
-			t.Errorf("Source info not properly configured: %v", info)
-		}
 	}
 }
 
-func TestTypeRegistryNewValue_OneofFields(t *testing.T) {
-	reg := newTestRegistry(t, &exprpb.CheckedExpr{}, &exprpb.ParsedExpr{})
-	exp := reg.NewValue(
-		"google.api.expr.v1alpha1.CheckedExpr",
-		map[string]ref.Val{
-			"expr": reg.NewValue(
-				"google.api.expr.v1alpha1.Expr",
-				map[string]ref.Val{
-					"const_expr": reg.NewValue(
-						"google.api.expr.v1alpha1.Constant",
-						map[string]ref.Val{
-							"string_value": String("oneof"),
-						}),
+func TestRegistryNewValue(t *testing.T) {
+	reg := newTestRegistry(t, &proto3pb.TestAllTypes{}, &exprpb.SourceInfo{})
+	tests := []struct {
+		typeName string
+		fields   map[string]ref.Val
+		out      proto.Message
+	}{
+		{
+			typeName: "google.expr.proto3.test.TestAllTypes",
+			fields:   map[string]ref.Val{},
+			out:      &proto3pb.TestAllTypes{},
+		},
+		{
+			typeName: "google.expr.proto3.test.TestAllTypes",
+			fields: map[string]ref.Val{
+				"standalone_enum": Int(1),
+			},
+			out: &proto3pb.TestAllTypes{
+				StandaloneEnum: proto3pb.TestAllTypes_BAR,
+			},
+		},
+		{
+			typeName: "google.expr.proto3.test.TestAllTypes",
+			fields: map[string]ref.Val{
+				"single_int32_wrapper": Int(123),
+				"single_int64_wrapper": NullValue,
+			},
+			out: &proto3pb.TestAllTypes{
+				SingleInt32Wrapper: wrapperspb.Int32(123),
+			},
+		},
+		{
+			typeName: "google.expr.proto3.test.TestAllTypes",
+			fields: map[string]ref.Val{
+				"repeated_int64": reg.NativeToValue([]int64{3, 2, 1}),
+			},
+			out: &proto3pb.TestAllTypes{
+				RepeatedInt64: []int64{3, 2, 1},
+			},
+		},
+		{
+			typeName: "google.expr.proto3.test.TestAllTypes",
+			fields: map[string]ref.Val{
+				"single_nested_enum": Int(2),
+			},
+			out: &proto3pb.TestAllTypes{
+				NestedType: &proto3pb.TestAllTypes_SingleNestedEnum{
+					SingleNestedEnum: proto3pb.TestAllTypes_BAZ,
+				},
+			},
+		},
+		{
+			typeName: "google.expr.proto3.test.TestAllTypes",
+			fields: map[string]ref.Val{
+				"single_value": True,
+			},
+			out: &proto3pb.TestAllTypes{
+				SingleValue: structpb.NewBoolValue(true),
+			},
+		},
+		{
+			typeName: "google.expr.proto3.test.TestAllTypes",
+			fields: map[string]ref.Val{
+				"single_value": reg.NativeToValue([]any{"hello", 10.2}),
+			},
+			out: &proto3pb.TestAllTypes{
+				SingleValue: structpb.NewListValue(
+					&structpb.ListValue{
+						Values: []*structpb.Value{
+							structpb.NewStringValue("hello"),
+							structpb.NewNumberValue(10.2),
+						},
+					},
+				),
+			},
+		},
+		{
+			typeName: "google.expr.proto3.test.TestAllTypes",
+			fields: map[string]ref.Val{
+				"repeated_nested_message": reg.NativeToValue([]any{
+					&proto3pb.TestAllTypes_NestedMessage{Bb: 123},
 				}),
+			},
+			out: &proto3pb.TestAllTypes{
+				RepeatedNestedMessage: []*proto3pb.TestAllTypes_NestedMessage{{Bb: 123}},
+			},
+		},
+		{
+			typeName: "google.expr.proto3.test.TestAllTypes",
+			fields: map[string]ref.Val{
+				"map_int64_nested_type": reg.NativeToValue(map[int64]any{
+					1234: &proto3pb.NestedTestAllTypes{Payload: &proto3pb.TestAllTypes{SingleInt32: 1234}},
+				}),
+			},
+			out: &proto3pb.TestAllTypes{
+				MapInt64NestedType: map[int64]*proto3pb.NestedTestAllTypes{
+					1234: {Payload: &proto3pb.TestAllTypes{SingleInt32: 1234}},
+				},
+			},
+		},
+		{
+			typeName: "google.api.expr.v1alpha1.SourceInfo",
+			fields: map[string]ref.Val{
+				"location":     String("TestRegistryNewValue"),
+				"line_offsets": reg.NativeToValue([]int64{0, 2}),
+				"positions":    reg.NativeToValue(map[int64]int64{1: 2, 2: 4}),
+			},
+			out: &exprpb.SourceInfo{
+				Location:    "TestRegistryNewValue",
+				LineOffsets: []int32{0, 2},
+				Positions:   map[int64]int32{1: 2, 2: 4},
+			},
+		},
+	}
+	for i, tst := range tests {
+		tc := tst
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			out := reg.NewValue(tc.typeName, tc.fields)
+			if IsError(out) {
+				t.Fatalf("reg.NewValue(%s, %v) failed: %v", tc.typeName, tc.fields, out)
+			}
+			if !proto.Equal(tc.out, out.Value().(proto.Message)) {
+				t.Errorf("reg.NewValue() got %v, wanted %v", out, tc.out)
+			}
 		})
-	if IsError(exp) {
-		t.Fatalf("reg.NewValue() creation failed: %v", exp)
-	}
-	e, err := exp.ConvertToNative(reflect.TypeOf(&exprpb.CheckedExpr{}))
-	if err != nil {
-		t.Fatalf("ConvertToNative() failed: %v", err)
-	}
-	ce := e.(*exprpb.CheckedExpr)
-	if ce.GetExpr().GetConstExpr().GetStringValue() != "oneof" {
-		t.Errorf("Expr with oneof could not be created: %v", ce)
 	}
 }
 
-func TestTypeRegistryNewValue_WrapperFields(t *testing.T) {
-	reg := newTestRegistry(t, &proto3pb.TestAllTypes{})
-	exp := reg.NewValue(
-		"google.expr.proto3.test.TestAllTypes",
-		map[string]ref.Val{
-			"single_int32_wrapper": Int(123),
-			"single_int64_wrapper": NullValue,
+func TestRegistryNewValueErrors(t *testing.T) {
+	reg := newTestRegistry(t, &proto3pb.TestAllTypes{}, &exprpb.SourceInfo{})
+	tests := []struct {
+		typeName string
+		fields   map[string]ref.Val
+		err      string
+	}{
+		{
+			typeName: "google.expr.proto3.test.TestAllType",
+			fields:   map[string]ref.Val{},
+			err:      "unknown type",
+		},
+		{
+			typeName: "google.expr.proto3.test.TestAllTypes",
+			fields: map[string]ref.Val{
+				"undefined": Int(1),
+			},
+			err: "no such field",
+		},
+		{
+			typeName: "google.expr.proto3.test.TestAllTypes",
+			fields: map[string]ref.Val{
+				"single_int32_wrapper": True,
+			},
+			err: "type conversion error",
+		},
+		{
+			typeName: "google.expr.proto3.test.TestAllTypes",
+			fields: map[string]ref.Val{
+				"repeated_int64": reg.NativeToValue([]float64{1.0, 2.3}),
+			},
+			err: "type conversion error",
+		},
+		{
+			typeName: "google.expr.proto3.test.TestAllTypes",
+			fields: map[string]ref.Val{
+				"repeated_int64": Int(10),
+			},
+			err: "unsupported field type",
+		},
+		{
+			typeName: "google.expr.proto3.test.TestAllTypes",
+			fields: map[string]ref.Val{
+				"map_string_string": NullValue,
+			},
+			err: "unsupported field type",
+		},
+		{
+			typeName: "google.expr.proto3.test.TestAllTypes",
+			fields: map[string]ref.Val{
+				"map_string_string": reg.NativeToValue(map[string]int{"hello": 1}),
+			},
+			err: "type conversion error",
+		},
+		{
+			typeName: "google.expr.proto3.test.TestAllTypes",
+			fields: map[string]ref.Val{
+				"map_string_string": reg.NativeToValue(map[int]int{1: 1}),
+			},
+			err: "type conversion error",
+		},
+	}
+	for i, tst := range tests {
+		tc := tst
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			out := reg.NewValue(tc.typeName, tc.fields)
+			if !IsError(out) {
+				t.Fatalf("reg.NewValue(%s, %v) got %v, wanted error", tc.typeName, tc.fields, out)
+			}
+			err := out.(*Err)
+			if !strings.Contains(err.Error(), tc.err) {
+				t.Errorf("reg.NewValue() got error %v, wanted error %s", err, tc.err)
+			}
 		})
-	if IsError(exp) {
-		t.Fatalf("reg.NewValue() creation failed: %v", exp)
-	}
-	e, err := exp.ConvertToNative(reflect.TypeOf(&proto3pb.TestAllTypes{}))
-	if err != nil {
-		t.Fatalf("ConvertToNative() failed: %v", err)
-	}
-	out := e.(*proto3pb.TestAllTypes)
-	want := &proto3pb.TestAllTypes{
-		SingleInt32Wrapper: wrapperspb.Int32(123),
-	}
-	if !proto.Equal(out, want) {
-		t.Errorf("reg.NewValue() got %v, wanted %v", out, want)
 	}
 }
 
-func TestTypeRegistryGetters(t *testing.T) {
+func TestRegistryGetters(t *testing.T) {
 	reg := newTestRegistry(t, &exprpb.ParsedExpr{})
 	if sourceInfo := reg.NewValue(
 		"google.api.expr.v1alpha1.SourceInfo",
@@ -561,7 +843,7 @@ type testUint64 uint64
 type testFloat32 float32
 type testFloat64 float64
 
-func newTestRegistry(t *testing.T, types ...proto.Message) ref.TypeRegistry {
+func newTestRegistry(t *testing.T, types ...proto.Message) *Registry {
 	t.Helper()
 	reg, err := NewRegistry(types...)
 	if err != nil {

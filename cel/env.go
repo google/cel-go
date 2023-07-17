@@ -94,7 +94,7 @@ func (ast *Ast) Source() Source {
 
 // FormatType converts a type message into a string representation.
 //
-// Deprecated: prefer FormatCelType
+// Deprecated: prefer FormatCELType
 func FormatType(t *exprpb.Type) string {
 	return checker.FormatCheckedType(t)
 }
@@ -113,8 +113,8 @@ type Env struct {
 	variables       []*decls.VariableDecl
 	functions       map[string]*decls.FunctionDecl
 	macros          []parser.Macro
-	adapter         ref.TypeAdapter
-	provider        ref.TypeProvider
+	adapter         types.Adapter
+	provider        types.Provider
 	features        map[int]bool
 	appliedFeatures map[int]bool
 	libraries       map[string]bool
@@ -314,8 +314,8 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 	// Copy the adapter / provider if they appear to be mutable.
 	adapter := e.adapter
 	provider := e.provider
-	adapterReg, isAdapterReg := e.adapter.(ref.TypeRegistry)
-	providerReg, isProviderReg := e.provider.(ref.TypeRegistry)
+	adapterReg, isAdapterReg := e.adapter.(*types.Registry)
+	providerReg, isProviderReg := e.provider.(*types.Registry)
 	// In most cases the provider and adapter will be a ref.TypeRegistry;
 	// however, in the rare cases where they are not, they are assumed to
 	// be immutable. Since it is possible to set the TypeProvider separately
@@ -439,14 +439,31 @@ func (e *Env) Program(ast *Ast, opts ...ProgramOption) (Program, error) {
 	return newProgram(e, ast, optSet)
 }
 
+// CELTypeAdapter returns the `types.Adapter` configured for the environment.
+func (e *Env) CELTypeAdapter() types.Adapter {
+	return e.adapter
+}
+
+// CELTypeProvider returns the `types.Provider` configured for the environment.
+func (e *Env) CELTypeProvider() types.Provider {
+	return e.provider
+}
+
 // TypeAdapter returns the `ref.TypeAdapter` configured for the environment.
+//
+// Deprecated: use CELTypeAdapter()
 func (e *Env) TypeAdapter() ref.TypeAdapter {
 	return e.adapter
 }
 
 // TypeProvider returns the `ref.TypeProvider` configured for the environment.
+//
+// Deprecated: use CELTypeProvider()
 func (e *Env) TypeProvider() ref.TypeProvider {
-	return e.provider
+	if legacyProvider, ok := e.provider.(ref.TypeProvider); ok {
+		return legacyProvider
+	}
+	return &interopLegacyTypeProvider{Provider: e.provider}
 }
 
 // UnknownVars returns an interpreter.PartialActivation which marks all variables declared in the
@@ -766,6 +783,90 @@ func getStdEnv() (*Env, error) {
 		stdEnv, stdEnvErr = NewCustomEnv(StdLib(), EagerlyValidateDeclarations(true))
 	})
 	return stdEnv, stdEnvErr
+}
+
+// interopCELTypeProvider layers support for the types.Provider interface on top of a ref.TypeProvider.
+type interopCELTypeProvider struct {
+	ref.TypeProvider
+}
+
+// FindStructType returns a types.Type instance for the given fully-qualified typeName if one exists.
+//
+// This method proxies to the underyling ref.TypeProvider's FindType method and converts protobuf type
+// into a native type representation. If the conversion fails, the type is listed as not found.
+func (p *interopCELTypeProvider) FindStructType(typeName string) (*types.Type, bool) {
+	if et, found := p.FindType(typeName); found {
+		t, err := types.ExprTypeToType(et)
+		if err != nil {
+			return nil, false
+		}
+		return t, true
+	}
+	return nil, false
+}
+
+// FindStructFieldType returns a types.FieldType instance for the given fully-qualified typeName and field
+// name, if one exists.
+//
+// This method proxies to the underyling ref.TypeProvider's FindFieldType method and converts protobuf type
+// into a native type representation. If the conversion fails, the type is listed as not found.
+func (p *interopCELTypeProvider) FindStructFieldType(structType, fieldName string) (*types.FieldType, bool) {
+	if ft, found := p.FindFieldType(structType, fieldName); found {
+		t, err := types.ExprTypeToType(ft.Type)
+		if err != nil {
+			return nil, false
+		}
+		return &types.FieldType{
+			Type:    t,
+			IsSet:   ft.IsSet,
+			GetFrom: ft.GetFrom,
+		}, true
+	}
+	return nil, false
+}
+
+// interopLegacyTypeProvider layers support for the ref.TypeProvider interface on top of a types.Provider.
+type interopLegacyTypeProvider struct {
+	types.Provider
+}
+
+// FindType retruns the protobuf Type representation for the input type name if one exists.
+//
+// This method proxies to the underlying types.Provider FindStructType method and converts the types.Type
+// value to a protobuf Type representation.
+//
+// Failure to convert the type will result in the type not being found.
+func (p *interopLegacyTypeProvider) FindType(typeName string) (*exprpb.Type, bool) {
+	if t, found := p.FindStructType(typeName); found {
+		et, err := types.TypeToExprType(t)
+		if err != nil {
+			return nil, false
+		}
+		return et, true
+	}
+	return nil, false
+}
+
+// FindFieldType returns the protobuf-based FieldType representation for the input type name and field,
+// if one exists.
+//
+// This call proxies to the types.Provider FindStructFieldType method and converts the types.FIeldType
+// value to a protobuf-based ref.FieldType representation if found.
+//
+// Failure to convert the FieldType will result in the field not being found.
+func (p *interopLegacyTypeProvider) FindFieldType(structType, fieldName string) (*ref.FieldType, bool) {
+	if cft, found := p.FindStructFieldType(structType, fieldName); found {
+		et, err := types.TypeToExprType(cft.Type)
+		if err != nil {
+			return nil, false
+		}
+		return &ref.FieldType{
+			Type:    et,
+			IsSet:   cft.IsSet,
+			GetFrom: cft.GetFrom,
+		}, true
+	}
+	return nil, false
 }
 
 var (

@@ -26,6 +26,7 @@ import (
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/functions"
+	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/pb"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter"
@@ -76,23 +77,26 @@ func ClearMacros() EnvOption {
 	}
 }
 
-// CustomTypeAdapter swaps the default ref.TypeAdapter implementation with a custom one.
+// CustomTypeAdapter swaps the default types.Adapter implementation with a custom one.
 //
 // Note: This option must be specified before the Types and TypeDescs options when used together.
-func CustomTypeAdapter(adapter ref.TypeAdapter) EnvOption {
+func CustomTypeAdapter(adapter types.Adapter) EnvOption {
 	return func(e *Env) (*Env, error) {
 		e.adapter = adapter
 		return e, nil
 	}
 }
 
-// CustomTypeProvider swaps the default ref.TypeProvider implementation with a custom one.
+// CustomTypeProvider replaces the types.Provider implementation with a custom one.
+//
+// The `provider` variable type may either be types.Provider or ref.TypeProvider (deprecated)
 //
 // Note: This option must be specified before the Types and TypeDescs options when used together.
-func CustomTypeProvider(provider ref.TypeProvider) EnvOption {
+func CustomTypeProvider(provider any) EnvOption {
 	return func(e *Env) (*Env, error) {
-		e.provider = provider
-		return e, nil
+		var err error
+		e.provider, err = maybeInteropProvider(provider)
+		return e, err
 	}
 }
 
@@ -251,7 +255,12 @@ func Abbrevs(qualifiedNames ...string) EnvOption {
 // Note: This option must be specified after the CustomTypeProvider option when used together.
 func Types(addTypes ...any) EnvOption {
 	return func(e *Env) (*Env, error) {
-		reg, isReg := e.provider.(ref.TypeRegistry)
+		var reg ref.TypeRegistry
+		var isReg bool
+		reg, isReg = e.provider.(*types.Registry)
+		if !isReg {
+			reg, isReg = e.provider.(ref.TypeRegistry)
+		}
 		if !isReg {
 			return nil, fmt.Errorf("custom types not supported by provider: %T", e.provider)
 		}
@@ -593,5 +602,16 @@ func ParserExpressionSizeLimit(limit int) EnvOption {
 	return func(e *Env) (*Env, error) {
 		e.prsrOpts = append(e.prsrOpts, parser.ExpressionSizeCodePointLimit(limit))
 		return e, nil
+	}
+}
+
+func maybeInteropProvider(provider any) (types.Provider, error) {
+	switch p := provider.(type) {
+	case types.Provider:
+		return p, nil
+	case ref.TypeProvider:
+		return &interopCELTypeProvider{TypeProvider: p}, nil
+	default:
+		return nil, fmt.Errorf("unsupported type provider: %T", provider)
 	}
 }

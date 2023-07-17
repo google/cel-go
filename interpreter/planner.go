@@ -39,8 +39,8 @@ type interpretablePlanner interface {
 // functions, types, and namespaced identifiers at plan time rather than at runtime since
 // it only needs to be done once and may be semi-expensive to compute.
 func newPlanner(disp Dispatcher,
-	provider ref.TypeProvider,
-	adapter ref.TypeAdapter,
+	provider types.Provider,
+	adapter types.Adapter,
 	attrFactory AttributeFactory,
 	cont *containers.Container,
 	checked *ast.CheckedAST,
@@ -61,8 +61,8 @@ func newPlanner(disp Dispatcher,
 // TypeAdapter, and Container to resolve functions and types at plan time. Namespaces present in
 // Select expressions are resolved lazily at evaluation time.
 func newUncheckedPlanner(disp Dispatcher,
-	provider ref.TypeProvider,
-	adapter ref.TypeAdapter,
+	provider types.Provider,
+	adapter types.Adapter,
 	attrFactory AttributeFactory,
 	cont *containers.Container,
 	decorators ...InterpretableDecorator) interpretablePlanner {
@@ -81,8 +81,8 @@ func newUncheckedPlanner(disp Dispatcher,
 // planner is an implementation of the interpretablePlanner interface.
 type planner struct {
 	disp        Dispatcher
-	provider    ref.TypeProvider
-	adapter     ref.TypeAdapter
+	provider    types.Provider
+	adapter     types.Adapter
 	attrFactory AttributeFactory
 	container   *containers.Container
 	refMap      map[int64]*ast.ReferenceInfo
@@ -672,7 +672,7 @@ func (p *planner) constValue(c *exprpb.Constant) (ref.Val, error) {
 // namespace resolution rules to it in a scan over possible matching types in the TypeProvider.
 func (p *planner) resolveTypeName(typeName string) (string, bool) {
 	for _, qualifiedTypeName := range p.container.ResolveCandidateNames(typeName) {
-		if _, found := p.provider.FindType(qualifiedTypeName); found {
+		if _, found := p.provider.FindStructType(qualifiedTypeName); found {
 			return qualifiedTypeName, true
 		}
 	}

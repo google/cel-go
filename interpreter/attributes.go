@@ -129,7 +129,7 @@ type NamespacedAttribute interface {
 // NewAttributeFactory returns a default AttributeFactory which is produces Attribute values
 // capable of resolving types by simple names and qualify the values using the supported qualifier
 // types: bool, int, string, and uint.
-func NewAttributeFactory(cont *containers.Container, a ref.TypeAdapter, p ref.TypeProvider) AttributeFactory {
+func NewAttributeFactory(cont *containers.Container, a types.Adapter, p types.Provider) AttributeFactory {
 	return &attrFactory{
 		container: cont,
 		adapter:   a,
@@ -139,8 +139,8 @@ func NewAttributeFactory(cont *containers.Container, a ref.TypeAdapter, p ref.Ty
 
 type attrFactory struct {
 	container *containers.Container
-	adapter   ref.TypeAdapter
-	provider  ref.TypeProvider
+	adapter   types.Adapter
+	provider  types.Provider
 }
 
 // AbsoluteAttribute refers to a variable value and an optional qualifier path.
@@ -203,7 +203,7 @@ func (r *attrFactory) NewQualifier(objType *types.Type, qualID int64, val any, o
 	// stringQualifier.
 	str, isStr := val.(string)
 	if isStr && objType != nil && objType.Kind() == types.StructKind {
-		ft, found := r.provider.FindFieldType(objType.TypeName(), str)
+		ft, found := r.provider.FindStructFieldType(objType.TypeName(), str)
 		if found && ft.IsSet != nil && ft.GetFrom != nil {
 			return &fieldQualifier{
 				id:        qualID,
@@ -223,8 +223,8 @@ type absoluteAttribute struct {
 	// (package) of the expression.
 	namespaceNames []string
 	qualifiers     []Qualifier
-	adapter        ref.TypeAdapter
-	provider       ref.TypeProvider
+	adapter        types.Adapter
+	provider       types.Provider
 	fac            AttributeFactory
 }
 
@@ -323,7 +323,7 @@ type conditionalAttribute struct {
 	expr    Interpretable
 	truthy  Attribute
 	falsy   Attribute
-	adapter ref.TypeAdapter
+	adapter types.Adapter
 	fac     AttributeFactory
 }
 
@@ -391,8 +391,8 @@ func (a *conditionalAttribute) String() string {
 type maybeAttribute struct {
 	id       int64
 	attrs    []NamespacedAttribute
-	adapter  ref.TypeAdapter
-	provider ref.TypeProvider
+	adapter  types.Adapter
+	provider types.Provider
 	fac      AttributeFactory
 }
 
@@ -509,7 +509,7 @@ type relativeAttribute struct {
 	id         int64
 	operand    Interpretable
 	qualifiers []Qualifier
-	adapter    ref.TypeAdapter
+	adapter    types.Adapter
 	fac        AttributeFactory
 }
 
@@ -574,7 +574,7 @@ func (a *relativeAttribute) String() string {
 	return fmt.Sprintf("id: %v, operand: %v", a.id, a.operand)
 }
 
-func newQualifier(adapter ref.TypeAdapter, id int64, v any, opt bool) (Qualifier, error) {
+func newQualifier(adapter types.Adapter, id int64, v any, opt bool) (Qualifier, error) {
 	var qual Qualifier
 	switch val := v.(type) {
 	case Attribute:
@@ -687,7 +687,7 @@ type stringQualifier struct {
 	id       int64
 	value    string
 	celValue ref.Val
-	adapter  ref.TypeAdapter
+	adapter  types.Adapter
 	optional bool
 }
 
@@ -788,7 +788,7 @@ type intQualifier struct {
 	id       int64
 	value    int64
 	celValue ref.Val
-	adapter  ref.TypeAdapter
+	adapter  types.Adapter
 	optional bool
 }
 
@@ -915,7 +915,7 @@ type uintQualifier struct {
 	id       int64
 	value    uint64
 	celValue ref.Val
-	adapter  ref.TypeAdapter
+	adapter  types.Adapter
 	optional bool
 }
 
@@ -980,7 +980,7 @@ type boolQualifier struct {
 	id       int64
 	value    bool
 	celValue ref.Val
-	adapter  ref.TypeAdapter
+	adapter  types.Adapter
 	optional bool
 }
 
@@ -1033,8 +1033,8 @@ func (q *boolQualifier) Value() ref.Val {
 type fieldQualifier struct {
 	id        int64
 	Name      string
-	FieldType *ref.FieldType
-	adapter   ref.TypeAdapter
+	FieldType *types.FieldType
+	adapter   types.Adapter
 	optional  bool
 }
 
@@ -1092,7 +1092,7 @@ type doubleQualifier struct {
 	id       int64
 	value    float64
 	celValue ref.Val
-	adapter  ref.TypeAdapter
+	adapter  types.Adapter
 	optional bool
 }
 
@@ -1223,7 +1223,7 @@ func attrQualifyIfPresent(fac AttributeFactory, vars Activation, obj any, qualAt
 
 // refQualify attempts to convert the value to a CEL value and then uses reflection methods to try and
 // apply the qualifier with the option to presence test field accesses before retrieving field values.
-func refQualify(adapter ref.TypeAdapter, obj any, idx ref.Val, presenceTest, presenceOnly bool) (ref.Val, bool, error) {
+func refQualify(adapter types.Adapter, obj any, idx ref.Val, presenceTest, presenceOnly bool) (ref.Val, bool, error) {
 	celVal := adapter.NativeToValue(obj)
 	switch v := celVal.(type) {
 	case types.Unknown:

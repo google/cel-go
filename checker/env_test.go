@@ -23,7 +23,6 @@ import (
 	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/stdlib"
 	"github.com/google/cel-go/common/types"
-	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/parser"
 )
 
@@ -123,7 +122,7 @@ func newStdEnv(t *testing.T) *Env {
 	return env
 }
 
-func newTestRegistry(t testing.TB) ref.TypeRegistry {
+func newTestRegistry(t testing.TB) *types.Registry {
 	t.Helper()
 	reg, err := types.NewRegistry()
 	if err != nil {

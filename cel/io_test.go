@@ -42,7 +42,7 @@ func TestRefValueToValueRoundTrip(t *testing.T) {
 		{value: types.Duration{Duration: time.Hour}},
 		{value: types.Timestamp{Time: time.Unix(0, 0)}},
 		{value: types.IntType},
-		{value: types.NewTypeValue("CustomType")},
+		{value: types.NewOpaqueType("CustomType")},
 		{value: map[int64]int64{1: 1}},
 		{value: []any{true, "abc"}},
 		{value: &proto3pb.TestAllTypes{SingleString: "abc"}},

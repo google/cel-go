@@ -20,6 +20,7 @@ package interpreter
 import (
 	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/containers"
+	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
@@ -154,8 +155,8 @@ func CompileRegexConstants(regexOptimizations ...*RegexOptimization) Interpretab
 type exprInterpreter struct {
 	dispatcher  Dispatcher
 	container   *containers.Container
-	provider    ref.TypeProvider
-	adapter     ref.TypeAdapter
+	provider    types.Provider
+	adapter     types.Adapter
 	attrFactory AttributeFactory
 }
 
@@ -163,8 +164,8 @@ type exprInterpreter struct {
 // throughout the Eval of all Interpretable instances generated from it.
 func NewInterpreter(dispatcher Dispatcher,
 	container *containers.Container,
-	provider ref.TypeProvider,
-	adapter ref.TypeAdapter,
+	provider types.Provider,
+	adapter types.Adapter,
 	attrFactory AttributeFactory) Interpreter {
 	return &exprInterpreter{
 		dispatcher:  dispatcher,

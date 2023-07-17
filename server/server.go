@@ -188,7 +188,7 @@ func RefValueToExprValue(res ref.Val, err error) (*exprpb.ExprValue, error) {
 }
 
 // ExprValueToRefValue converts between exprpb.ExprValue and ref.Val.
-func ExprValueToRefValue(adapter ref.TypeAdapter, ev *exprpb.ExprValue) (ref.Val, error) {
+func ExprValueToRefValue(adapter types.Adapter, ev *exprpb.ExprValue) (ref.Val, error) {
 	switch ev.Kind.(type) {
 	case *exprpb.ExprValue_Value:
 		return cel.ValueToRefValue(adapter, ev.GetValue())
