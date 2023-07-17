@@ -16,6 +16,8 @@ package types
 
 import (
 	"fmt"
+	"math"
+	"strings"
 	"testing"
 
 	"github.com/google/cel-go/common/types/ref"
@@ -71,9 +73,49 @@ func TestAttributeEquals(t *testing.T) {
 			equal: false,
 		},
 		{
+			a:     QualifyAttribute[int64](NewAttributeTrail("a"), 1),
+			b:     QualifyAttribute[string](NewAttributeTrail("a"), "1"),
+			equal: false,
+		},
+		{
+			a:     QualifyAttribute[uint64](NewAttributeTrail("a"), 1),
+			b:     QualifyAttribute[string](NewAttributeTrail("a"), "1"),
+			equal: false,
+		},
+		{
 			a:     QualifyAttribute[string](NewAttributeTrail("a"), "b"),
 			b:     QualifyAttribute[string](NewAttributeTrail("a"), "b"),
 			equal: true,
+		},
+		{
+			a:     QualifyAttribute[int64](NewAttributeTrail("a"), 20),
+			b:     QualifyAttribute[uint64](NewAttributeTrail("a"), 20),
+			equal: true,
+		},
+		{
+			a:     QualifyAttribute[uint64](NewAttributeTrail("a"), 20),
+			b:     QualifyAttribute[int64](NewAttributeTrail("a"), 20),
+			equal: true,
+		},
+		{
+			a:     QualifyAttribute[uint64](NewAttributeTrail("a"), 21),
+			b:     QualifyAttribute[int64](NewAttributeTrail("a"), 20),
+			equal: false,
+		},
+		{
+			a:     QualifyAttribute[int64](NewAttributeTrail("a"), 20),
+			b:     QualifyAttribute[uint64](NewAttributeTrail("a"), 21),
+			equal: false,
+		},
+		{
+			a:     QualifyAttribute[int64](NewAttributeTrail("a"), -1),
+			b:     QualifyAttribute[uint64](NewAttributeTrail("a"), 0),
+			equal: false,
+		},
+		{
+			a:     QualifyAttribute[int64](NewAttributeTrail("a"), 1),
+			b:     QualifyAttribute[uint64](NewAttributeTrail("a"), math.MaxInt64+1),
+			equal: false,
 		},
 	}
 	for i, tst := range tests {
@@ -189,7 +231,7 @@ func TestUnknownContains(t *testing.T) {
 func TestUnknownString(t *testing.T) {
 	tests := []struct {
 		unk *Unknown
-		out string
+		out any
 	}{
 		{
 			unk: NewUnknown(1, nil),
@@ -212,16 +254,42 @@ func TestUnknownString(t *testing.T) {
 				NewUnknown(3, QualifyAttribute[bool](NewAttributeTrail("a"), true)),
 				NewUnknown(4, QualifyAttribute[string](NewAttributeTrail("a"), "b")),
 			),
-			out: "a[true] (3), a.b (4)",
+			out: []string{"a[true] (3)", "a.b (4)"},
+		},
+		{
+			// this case might occur in a logical condition where the attributes are equal.
+			unk: MergeUnknowns(
+				NewUnknown(3, QualifyAttribute[int64](NewAttributeTrail("a"), 0)),
+				NewUnknown(3, QualifyAttribute[int64](NewAttributeTrail("a"), 0)),
+			),
+			out: "a[0] (3)",
+		},
+		{
+			// this case might occur if attribute tracking through comprehensions is supported
+			unk: MergeUnknowns(
+				NewUnknown(3, QualifyAttribute[int64](NewAttributeTrail("a"), 0)),
+				NewUnknown(3, QualifyAttribute[int64](NewAttributeTrail("a"), 1)),
+			),
+			out: "[a[0] a[1]] (3)",
 		},
 	}
 	for i, tst := range tests {
 		tc := tst
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			out := tc.unk.String()
-			if out != tc.out {
-				t.Errorf("%v.String() got %v, wanted %v", tc.unk, out, tc.out)
+			switch want := tc.out.(type) {
+			case string:
+				if out != want {
+					t.Errorf("%v.String() got %v, wanted %v", tc.unk, out, want)
+				}
+			case []string:
+				for _, w := range want {
+					if !strings.Contains(out, w) {
+						t.Errorf("%v.String() got %v, wanted it to contain %v", tc.unk, out, w)
+					}
+				}
 			}
+
 		})
 	}
 }

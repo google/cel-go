@@ -16,6 +16,7 @@ package types
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"strings"
 	"unicode"
@@ -51,11 +52,40 @@ func (a *AttributeTrail) Equal(other *AttributeTrail) bool {
 	}
 	for i, q := range a.QualifierPath() {
 		qual := other.QualifierPath()[i]
-		if q != qual {
+		if !qualifiersEqual(q, qual) {
 			return false
 		}
 	}
 	return true
+}
+
+func qualifiersEqual(a, b any) bool {
+	if a == b {
+		return true
+	}
+	switch numA := a.(type) {
+	case int64:
+		numB, ok := b.(uint64)
+		if !ok {
+			return false
+		}
+		return intUintEqual(numA, numB)
+	case uint64:
+		numB, ok := b.(int64)
+		if !ok {
+			return false
+		}
+		return intUintEqual(numB, numA)
+	default:
+		return false
+	}
+}
+
+func intUintEqual(i int64, u uint64) bool {
+	if i < 0 || u > math.MaxInt64 {
+		return false
+	}
+	return i == int64(u)
 }
 
 // Variable returns the variable name associated with the attribute.
@@ -115,7 +145,7 @@ func QualifyAttribute[T AttributeQualifier](attr *AttributeTrail, qualifier T) *
 
 // Unknown type which collects expression ids which caused the current value to become unknown.
 type Unknown struct {
-	attributeTrails map[int64]*AttributeTrail
+	attributeTrails map[int64][]*AttributeTrail
 }
 
 // NewUnknown creates a new unknown at a given expression id for an attribute.
@@ -126,16 +156,28 @@ func NewUnknown(id int64, attr *AttributeTrail) *Unknown {
 		attr = unspecifiedAttribute
 	}
 	return &Unknown{
-		attributeTrails: map[int64]*AttributeTrail{id: attr},
+		attributeTrails: map[int64][]*AttributeTrail{id: {attr}},
 	}
 }
 
 // Contains returns true if the input unknown is a subset of the current unknown.
 func (u *Unknown) Contains(other *Unknown) bool {
-	for id, trail := range other.attributeTrails {
-		t, found := u.attributeTrails[id]
-		if !found || !t.Equal(trail) {
+	for id, otherTrails := range other.attributeTrails {
+		trails, found := u.attributeTrails[id]
+		if !found || len(otherTrails) != len(trails) {
 			return false
+		}
+		for _, ot := range otherTrails {
+			found := false
+			for _, t := range trails {
+				if t.Equal(ot) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return false
+			}
 		}
 	}
 	return true
@@ -159,11 +201,15 @@ func (u *Unknown) Equal(other ref.Val) ref.Val {
 // String implements the Stringer interface
 func (u *Unknown) String() string {
 	var str strings.Builder
-	for id, attr := range u.attributeTrails {
+	for id, attrs := range u.attributeTrails {
 		if str.Len() != 0 {
 			str.WriteString(", ")
 		}
-		str.WriteString(fmt.Sprintf("%v (%d)", attr, id))
+		if len(attrs) == 1 {
+			str.WriteString(fmt.Sprintf("%v (%d)", attrs[0], id))
+		} else {
+			str.WriteString(fmt.Sprintf("%v (%d)", attrs, id))
+		}
 	}
 	return str.String()
 }
@@ -214,13 +260,31 @@ func MergeUnknowns(unk1, unk2 *Unknown) *Unknown {
 		return unk1
 	}
 	out := &Unknown{
-		attributeTrails: make(map[int64]*AttributeTrail, len(unk1.attributeTrails)+len(unk2.attributeTrails)),
+		attributeTrails: make(map[int64][]*AttributeTrail, len(unk1.attributeTrails)+len(unk2.attributeTrails)),
 	}
-	for id, at := range unk1.attributeTrails {
-		out.attributeTrails[id] = at
+	for id, ats := range unk1.attributeTrails {
+		out.attributeTrails[id] = ats
 	}
-	for id, at := range unk2.attributeTrails {
-		out.attributeTrails[id] = at
+	for id, ats := range unk2.attributeTrails {
+		existing, found := out.attributeTrails[id]
+		if !found {
+			out.attributeTrails[id] = ats
+			continue
+		}
+
+		for _, at := range ats {
+			found := false
+			for _, et := range existing {
+				if at.Equal(et) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				existing = append(existing, at)
+			}
+		}
+		out.attributeTrails[id] = existing
 	}
 	return out
 }
