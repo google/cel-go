@@ -16,7 +16,6 @@ package interpreter
 
 import (
 	"fmt"
-	"reflect"
 	"testing"
 
 	"github.com/google/cel-go/common/containers"
@@ -206,7 +205,7 @@ func TestAttributePattern_UnknownResolution(t *testing.T) {
 					if err != nil {
 						t.Fatalf("Got error: %s, wanted unknown", err)
 					}
-					_, isUnk := val.(types.Unknown)
+					_, isUnk := val.(*types.Unknown)
 					if !isUnk {
 						t.Fatalf("Got value %v, wanted unknown", val)
 					}
@@ -252,8 +251,8 @@ func TestAttributePattern_CrossReference(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(val, types.Unknown{2}) {
-		t.Fatalf("Got %v, wanted unknown attribute id for 'b' (2)", val)
+	if !types.NewUnknown(2, types.NewAttributeTrail("b")).Contains(val.(*types.Unknown)) {
+		t.Errorf("Got %v, wanted unknown attribute id for 'b' (2)", val)
 	}
 
 	// Ensure that a[b], the dynamic index into var 'a' is the unknown value
@@ -268,8 +267,8 @@ func TestAttributePattern_CrossReference(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(val, types.Unknown{2}) {
-		t.Fatalf("Got %v, wanted unknown attribute id for 'b' (2)", val)
+	if !types.NewUnknown(2, types.NewAttributeTrail("b")).Contains(val.(*types.Unknown)) {
+		t.Errorf("Got %v, wanted unknown attribute id for 'b' (2)", val)
 	}
 
 	// Note, that only 'a[0].c' will result in an unknown result since both 'a' and 'b'
@@ -282,8 +281,11 @@ func TestAttributePattern_CrossReference(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(val, types.Unknown{2}) {
-		t.Fatalf("Got %v, wanted unknown attribute id for 'b' (2)", val)
+	unkAttr := types.NewAttributeTrail("a")
+	types.QualifyAttribute[int64](unkAttr, 0)
+	wantUnk := types.NewUnknown(2, unkAttr)
+	if !wantUnk.Contains(val.(*types.Unknown)) {
+		t.Errorf("Got %v, wanted unknown attribute id for %v", val, wantUnk)
 	}
 
 	// Test a positive case that returns a valid value even though the attribugte factory
@@ -295,7 +297,7 @@ func TestAttributePattern_CrossReference(t *testing.T) {
 		t.Fatal(err)
 	}
 	if val != int64(1) {
-		t.Fatalf("Got %v, wanted 1 for a[b]", val)
+		t.Errorf("Got %v, wanted 1 for a[b]", val)
 	}
 
 	// Ensure the unknown attribute id moves when the attribute becomes more specific.
@@ -310,8 +312,12 @@ func TestAttributePattern_CrossReference(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(val, types.Unknown{3}) {
-		t.Fatalf("Got %v, wanted unknown attribute id for a[b].c (3)", val)
+	unkAttr = types.NewAttributeTrail("a")
+	types.QualifyAttribute[int64](unkAttr, 0)
+	types.QualifyAttribute[string](unkAttr, "c")
+	wantUnk = types.NewUnknown(3, unkAttr)
+	if !wantUnk.Contains(val.(*types.Unknown)) {
+		t.Errorf("Got %v, wanted unknown attribute id for %v", val, wantUnk)
 	}
 }
 

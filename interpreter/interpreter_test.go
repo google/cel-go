@@ -59,7 +59,7 @@ type testCase struct {
 	unchecked bool
 	extraOpts []InterpretableDecorator
 
-	in      map[string]any
+	in      any
 	out     any
 	err     string
 	progErr string
@@ -1215,8 +1215,8 @@ func testData(t testing.TB) []testCase {
 			attrs: &custAttrFactory{
 				AttributeFactory: NewAttributeFactory(
 					testContainer("google.expr.proto3.test"),
-					types.DefaultTypeAdapter,
-					types.NewEmptyRegistry(),
+					newTestRegistry(t, &proto3pb.TestAllTypes_NestedMessage{}),
+					newTestRegistry(t, &proto3pb.TestAllTypes_NestedMessage{}),
 				),
 			},
 			in: map[string]any{
@@ -1225,6 +1225,29 @@ func testData(t testing.TB) []testCase {
 				},
 			},
 			out: types.True,
+		},
+		{
+			name:      "select_custom_pb3_optional_field",
+			expr:      `a.?bb`,
+			container: "google.expr.proto3.test",
+			types:     []proto.Message{&proto3pb.TestAllTypes_NestedMessage{}},
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("a",
+					types.NewObjectType("google.expr.proto3.test.TestAllTypes.NestedMessage")),
+			},
+			attrs: &custAttrFactory{
+				AttributeFactory: NewAttributeFactory(
+					testContainer("google.expr.proto3.test"),
+					newTestRegistry(t, &proto3pb.TestAllTypes_NestedMessage{}),
+					newTestRegistry(t, &proto3pb.TestAllTypes_NestedMessage{}),
+				),
+			},
+			in: map[string]any{
+				"a": &proto3pb.TestAllTypes_NestedMessage{
+					Bb: 101,
+				},
+			},
+			out: types.OptionalOf(types.Int(101)),
 		},
 		{
 			name: "select_relative",
@@ -1391,6 +1414,36 @@ func testData(t testing.TB) []testCase {
 			unchecked: true,
 			err:       `no such attribute(s): goog.pkg.mylistundef, pkg.mylistundef`,
 		},
+		{
+			name: "unknown_attribute",
+			expr: `a[0]`,
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("a",
+					types.NewMapType(types.IntType, types.BoolType)),
+			},
+			attrs: NewPartialAttributeFactory(testContainer(""), types.DefaultTypeAdapter, types.NewEmptyRegistry()),
+			in: newTestPartialActivation(t, map[string]any{
+				"a": map[int64]any{
+					1: true,
+				},
+			}, NewAttributePattern("a").QualInt(0)),
+			out: types.NewUnknown(2, types.QualifyAttribute[int64](types.NewAttributeTrail("a"), 0)),
+		},
+		{
+			name: "unknown_attribute_mixed_qualifier",
+			expr: `a[dyn(0u)]`,
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("a",
+					types.NewMapType(types.IntType, types.BoolType)),
+			},
+			attrs: NewPartialAttributeFactory(testContainer(""), types.DefaultTypeAdapter, types.NewEmptyRegistry()),
+			in: newTestPartialActivation(t, map[string]any{
+				"a": map[int64]any{
+					1: true,
+				},
+			}, NewAttributePattern("a").QualInt(0)),
+			out: types.NewUnknown(2, types.QualifyAttribute[uint64](types.NewAttributeTrail("a"), 0)),
+		},
 	}
 }
 
@@ -1450,7 +1503,7 @@ func TestInterpreter(t *testing.T) {
 				want = tc.out.(ref.Val)
 			}
 			got := prg.Eval(vars)
-			_, expectUnk := want.(types.Unknown)
+			_, expectUnk := want.(*types.Unknown)
 			if expectUnk {
 				if !reflect.DeepEqual(got, want) {
 					t.Fatalf("Got %v, wanted %v", got, want)
@@ -1486,7 +1539,7 @@ func TestInterpreter(t *testing.T) {
 				}
 				t.Run(mode, func(t *testing.T) {
 					got := prg.Eval(vars)
-					_, expectUnk := want.(types.Unknown)
+					_, expectUnk := want.(*types.Unknown)
 					if expectUnk {
 						if !reflect.DeepEqual(got, want) {
 							t.Errorf("Got %v, wanted %v", got, want)
@@ -1956,7 +2009,10 @@ func program(ctx testing.TB, tst *testCase, opts ...InterpretableDecorator) (Int
 	// Configure the program input.
 	vars := EmptyActivation()
 	if tst.in != nil {
-		vars, _ = NewActivation(tst.in)
+		vars, err = NewActivation(tst.in)
+		if err != nil {
+			ctx.Fatalf("NewActivation(%v) failed: %v", tst.in, err)
+		}
 	}
 	// Adapt the test output, if needed.
 	if tst.out != nil {
@@ -2060,6 +2116,15 @@ func newTestRegistry(t testing.TB, msgs ...proto.Message) *types.Registry {
 	return reg
 }
 
+func newTestPartialActivation(t testing.TB, in any, unknowns ...*AttributePattern) any {
+	t.Helper()
+	vars, err := NewPartialActivation(in, unknowns...)
+	if err != nil {
+		t.Fatalf("NewPartialActivation(%v) failed: %v", in, err)
+	}
+	return vars
+}
+
 // newStandardInterpreter builds a Dispatcher and TypeProvider with support for all of the CEL
 // builtins defined in the language definition.
 func newStandardInterpreter(t *testing.T,
@@ -2107,40 +2172,4 @@ func funcBindings(t testing.TB, funcs ...*decls.FunctionDecl) []*functions.Overl
 		bindings = append(bindings, overloads...)
 	}
 	return bindings
-}
-
-func funcExprDecl(t testing.TB, fn *decls.FunctionDecl) *exprpb.Decl {
-	t.Helper()
-	d, err := decls.FunctionDeclToExprDecl(fn)
-	if err != nil {
-		t.Fatalf("decls.FunctionDeclToExprDecl(%v) failed: %v", fn, err)
-	}
-	return d
-}
-
-func funcExprDecls(t testing.TB, funcs ...*decls.FunctionDecl) []*exprpb.Decl {
-	t.Helper()
-	d := make([]*exprpb.Decl, 0, len(funcs))
-	for _, fn := range funcs {
-		d = append(d, funcExprDecl(t, fn))
-	}
-	return d
-}
-
-func varExprDecl(t testing.TB, v *decls.VariableDecl) *exprpb.Decl {
-	t.Helper()
-	d, err := decls.VariableDeclToExprDecl(v)
-	if err != nil {
-		t.Fatalf("decls.VariableDeclToExprDecl(%v) failed: %v", v, err)
-	}
-	return d
-}
-
-func varExprDecls(t testing.TB, vars ...*decls.VariableDecl) []*exprpb.Decl {
-	t.Helper()
-	d := make([]*exprpb.Decl, 0, len(vars))
-	for _, v := range vars {
-		d = append(d, varExprDecl(t, v))
-	}
-	return d
 }

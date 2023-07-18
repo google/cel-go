@@ -1438,21 +1438,21 @@ func TestPartialVars(t *testing.T) {
 				interpreter.NewAttributePattern("x"),
 				interpreter.NewAttributePattern("y"),
 			},
-			out: types.Unknown{1},
+			out: types.NewUnknown(1, types.NewAttributeTrail("x")),
 		},
 		{
 			in: map[string]any{"x": "10"},
 			unk: []*interpreter.AttributePattern{
 				interpreter.NewAttributePattern("y"),
 			},
-			out: types.Unknown{4},
+			out: types.NewUnknown(4, types.NewAttributeTrail("y")),
 		},
 		{
 			in: map[string]any{"y": 10},
 			unk: []*interpreter.AttributePattern{
 				interpreter.NewAttributePattern("x"),
 			},
-			out: types.Unknown{1},
+			out: types.NewUnknown(1, types.NewAttributeTrail("x")),
 		},
 		{
 			in:  map[string]any{"x": "10", "y": 10},
@@ -1468,19 +1468,19 @@ func TestPartialVars(t *testing.T) {
 			in:         map[string]any{"y": 10},
 			unk:        []*interpreter.AttributePattern{},
 			out:        types.NewErr("no such attribute: x"),
-			partialOut: types.Unknown{1},
+			partialOut: types.NewUnknown(1, types.NewAttributeTrail("x")),
 		},
 		{
 			in:         map[string]any{"x": "10"},
 			unk:        []*interpreter.AttributePattern{},
 			out:        types.NewErr("no such attribute: y"),
-			partialOut: types.Unknown{4},
+			partialOut: types.NewUnknown(4, types.NewAttributeTrail("y")),
 		},
 		{
 			in:         map[string]any{},
 			unk:        []*interpreter.AttributePattern{},
 			out:        types.NewErr("no such attribute: x"),
-			partialOut: types.Unknown{1},
+			partialOut: types.NewUnknown(1, types.NewAttributeTrail("x")),
 		},
 	}
 	for i, tst := range tests {

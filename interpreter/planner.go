@@ -473,7 +473,7 @@ func (p *planner) planCallConditional(expr *exprpb.Expr, args []Interpretable) (
 func (p *planner) planCallIndex(expr *exprpb.Expr, args []Interpretable, optional bool) (Interpretable, error) {
 	op := args[0]
 	ind := args[1]
-	opType := p.typeMap[expr.GetCallExpr().GetTarget().GetId()]
+	opType := p.typeMap[op.ID()]
 
 	// Establish the attribute reference.
 	var err error

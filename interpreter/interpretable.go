@@ -214,7 +214,7 @@ func (or *evalOr) ID() int64 {
 // Eval implements the Interpretable interface method.
 func (or *evalOr) Eval(ctx Activation) ref.Val {
 	var err ref.Val = nil
-	var unk types.Unknown = nil
+	var unk *types.Unknown
 	for _, term := range or.terms {
 		val := term.Eval(ctx)
 		boolVal, ok := val.(types.Bool)
@@ -256,7 +256,7 @@ func (and *evalAnd) ID() int64 {
 // Eval implements the Interpretable interface method.
 func (and *evalAnd) Eval(ctx Activation) ref.Val {
 	var err ref.Val = nil
-	var unk types.Unknown = nil
+	var unk *types.Unknown
 	for _, term := range and.terms {
 		val := term.Eval(ctx)
 		boolVal, ok := val.(types.Bool)
@@ -861,18 +861,40 @@ type evalWatchAttr struct {
 // AddQualifier creates a wrapper over the incoming qualifier which observes the qualification
 // result.
 func (e *evalWatchAttr) AddQualifier(q Qualifier) (Attribute, error) {
-	cq, isConst := q.(ConstantQualifier)
-	if isConst {
+	switch qual := q.(type) {
+	// By default, the qualifier is either a constant or an attribute
+	// There may be some custom cases where the attribute is neither.
+	case ConstantQualifier:
+		// Expose a method to test whether the qualifier matches the input pattern.
 		q = &evalWatchConstQual{
-			ConstantQualifier: cq,
+			ConstantQualifier: qual,
 			observer:          e.observer,
-			adapter:           e.InterpretableAttribute.Adapter(),
+			adapter:           e.Adapter(),
 		}
-	} else {
-		q = &evalWatchQual{
-			Qualifier: q,
+	case *evalWatchAttr:
+		// Unwrap the evalWatchAttr since the observation will be applied during Qualify or
+		// QualifyIfPresent rather than Eval.
+		q = &evalWatchAttrQual{
+			Attribute: qual.InterpretableAttribute,
 			observer:  e.observer,
-			adapter:   e.InterpretableAttribute.Adapter(),
+			adapter:   e.Adapter(),
+		}
+	case Attribute:
+		// Expose methods which intercept the qualification prior to being applied as a qualifier.
+		// Using this interface ensures that the qualifier is converted to a constant value one
+		// time during attribute pattern matching as the method embeds the Attribute interface
+		// needed to trip the conversion to a constant.
+		q = &evalWatchAttrQual{
+			Attribute: qual,
+			observer:  e.observer,
+			adapter:   e.Adapter(),
+		}
+	default:
+		// This is likely a custom qualifier type.
+		q = &evalWatchQual{
+			Qualifier: qual,
+			observer:  e.observer,
+			adapter:   e.Adapter(),
 		}
 	}
 	_, err := e.InterpretableAttribute.AddQualifier(q)
@@ -928,6 +950,43 @@ func (e *evalWatchConstQual) QualifyIfPresent(vars Activation, obj any, presence
 func (e *evalWatchConstQual) QualifierValueEquals(value any) bool {
 	qve, ok := e.ConstantQualifier.(qualifierValueEquator)
 	return ok && qve.QualifierValueEquals(value)
+}
+
+// evalWatchAttrQual observes the qualification of an object by a value computed at runtime.
+type evalWatchAttrQual struct {
+	Attribute
+	observer EvalObserver
+	adapter  ref.TypeAdapter
+}
+
+// Qualify observes the qualification of a object via a value computed at runtime.
+func (e *evalWatchAttrQual) Qualify(vars Activation, obj any) (any, error) {
+	out, err := e.Attribute.Qualify(vars, obj)
+	var val ref.Val
+	if err != nil {
+		val = types.WrapErr(err)
+	} else {
+		val = e.adapter.NativeToValue(out)
+	}
+	e.observer(e.ID(), e.Attribute, val)
+	return out, err
+}
+
+// QualifyIfPresent conditionally qualifies the variable and only records a value if one is present.
+func (e *evalWatchAttrQual) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
+	out, present, err := e.Attribute.QualifyIfPresent(vars, obj, presenceOnly)
+	var val ref.Val
+	if err != nil {
+		val = types.WrapErr(err)
+	} else if out != nil {
+		val = e.adapter.NativeToValue(out)
+	} else if presenceOnly {
+		val = types.Bool(present)
+	}
+	if present || presenceOnly {
+		e.observer(e.ID(), e.Attribute, val)
+	}
+	return out, present, err
 }
 
 // evalWatchQual observes the qualification of an object by a value computed at runtime.
@@ -994,7 +1053,7 @@ func (or *evalExhaustiveOr) ID() int64 {
 // Eval implements the Interpretable interface method.
 func (or *evalExhaustiveOr) Eval(ctx Activation) ref.Val {
 	var err ref.Val = nil
-	var unk types.Unknown = nil
+	var unk *types.Unknown
 	isTrue := false
 	for _, term := range or.terms {
 		val := term.Eval(ctx)
@@ -1004,21 +1063,14 @@ func (or *evalExhaustiveOr) Eval(ctx Activation) ref.Val {
 			isTrue = true
 		}
 		if !ok && !isTrue {
-			if types.IsUnknown(val) {
-				if unk == nil {
-					unk = types.Unknown{}
-				}
-				unk = append(unk, val.(types.Unknown)...)
-				continue
-			}
-			if types.IsError(val) {
-				if unk == nil && err == nil {
+			isUnk := false
+			unk, isUnk = types.MaybeMergeUnknowns(val, unk)
+			if !isUnk && err == nil {
+				if types.IsError(val) {
 					err = val
+				} else {
+					err = types.MaybeNoSuchOverloadErr(val)
 				}
-				continue
-			}
-			if unk == nil {
-				err = types.MaybeNoSuchOverloadErr(val)
 			}
 		}
 	}
@@ -1048,7 +1100,7 @@ func (and *evalExhaustiveAnd) ID() int64 {
 // Eval implements the Interpretable interface method.
 func (and *evalExhaustiveAnd) Eval(ctx Activation) ref.Val {
 	var err ref.Val = nil
-	var unk types.Unknown = nil
+	var unk *types.Unknown
 	isFalse := false
 	for _, term := range and.terms {
 		val := term.Eval(ctx)
@@ -1058,21 +1110,14 @@ func (and *evalExhaustiveAnd) Eval(ctx Activation) ref.Val {
 			isFalse = true
 		}
 		if !ok && !isFalse {
-			if types.IsUnknown(val) {
-				if unk == nil {
-					unk = types.Unknown{}
-				}
-				unk = append(unk, val.(types.Unknown)...)
-				continue
-			}
-			if types.IsError(val) {
-				if unk == nil && err == nil {
+			isUnk := false
+			unk, isUnk = types.MaybeMergeUnknowns(val, unk)
+			if !isUnk && err == nil {
+				if types.IsError(val) {
 					err = val
+				} else {
+					err = types.MaybeNoSuchOverloadErr(val)
 				}
-				continue
-			}
-			if unk == nil {
-				err = types.MaybeNoSuchOverloadErr(val)
 			}
 		}
 	}

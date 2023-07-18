@@ -740,13 +740,12 @@ func TestAttributesConditionalAttrErrorUnknown(t *testing.T) {
 	}
 
 	// unk ? a : b
-	condUnk := attrs.ConditionalAttribute(1, NewConstValue(0, types.Unknown{1}), tv, fv)
+	condUnk := attrs.ConditionalAttribute(1, NewConstValue(0, types.NewUnknown(1, nil)), tv, fv)
 	out, err = condUnk.Resolve(EmptyActivation())
 	if err != nil {
 		t.Fatal(err)
 	}
-	unk, ok := out.(types.Unknown)
-	if !ok || !types.IsUnknown(unk) {
+	if !types.IsUnknown(out.(ref.Val)) {
 		t.Errorf("Got %v, wanted unknown", out)
 	}
 }
@@ -845,7 +844,7 @@ func TestAttributeMissingMsgUnknownField(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, isUnk := out.(types.Unknown)
+	_, isUnk := out.(*types.Unknown)
 	if !isUnk {
 		t.Errorf("got %v, wanted unknown value", out)
 	}
@@ -1085,7 +1084,7 @@ func TestAttributeStateTracking(t *testing.T) {
 				},
 				NewAttributePattern("a").QualString("b"),
 			),
-			out: types.Unknown{5},
+			out: types.NewUnknown(5, types.QualifyAttribute[string](types.NewAttributeTrail("a"), "b")),
 		},
 	}
 	for _, test := range tests {
@@ -1192,7 +1191,12 @@ type custAttrFactory struct {
 
 func (r *custAttrFactory) NewQualifier(objType *types.Type, qualID int64, val any, opt bool) (Qualifier, error) {
 	if objType.Kind() == types.StructKind && objType.TypeName() == "google.expr.proto3.test.TestAllTypes.NestedMessage" {
-		return &nestedMsgQualifier{id: qualID, field: val.(string)}, nil
+		switch v := val.(type) {
+		case string:
+			return &nestedMsgQualifier{id: qualID, field: v, opt: opt}, nil
+		case types.String:
+			return &nestedMsgQualifier{id: qualID, field: string(v), opt: opt}, nil
+		}
 	}
 	return r.AttributeFactory.NewQualifier(objType, qualID, val, opt)
 }
@@ -1200,10 +1204,15 @@ func (r *custAttrFactory) NewQualifier(objType *types.Type, qualID int64, val an
 type nestedMsgQualifier struct {
 	id    int64
 	field string
+	opt   bool
 }
 
 func (q *nestedMsgQualifier) ID() int64 {
 	return q.id
+}
+
+func (q *nestedMsgQualifier) IsOptional() bool {
+	return q.opt
 }
 
 func (q *nestedMsgQualifier) Qualify(vars Activation, obj any) (any, error) {
@@ -1217,10 +1226,6 @@ func (q *nestedMsgQualifier) QualifyIfPresent(vars Activation, obj any, presence
 		return nil, false, nil
 	}
 	return pb.GetBb(), true, nil
-}
-
-func (q *nestedMsgQualifier) IsOptional() bool {
-	return false
 }
 
 func addQualifier(t testing.TB, attr Attribute, qual Qualifier) Attribute {
