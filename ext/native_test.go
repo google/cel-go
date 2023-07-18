@@ -406,7 +406,7 @@ func TestNativeTypesErrors(t *testing.T) {
 
 func TestNativeTypesConvertToNative(t *testing.T) {
 	env := testNativeEnv(t, NativeTypes(reflect.TypeOf(TestNestedType{})))
-	adapter := env.TypeAdapter()
+	adapter := env.CELTypeAdapter()
 	conversions := []struct {
 		in  any
 		out any
@@ -455,22 +455,9 @@ func TestNativeTypesConvertToNative(t *testing.T) {
 	}
 }
 
-func TestNativeTypesConvertToExprTypeErrors(t *testing.T) {
-	unsupportedTypes := []reflect.Type{
-		reflect.TypeOf(make(map[string]chan string)),
-		reflect.TypeOf(make([]chan int, 0)),
-		reflect.TypeOf(make(map[chan int]bool, 0)),
-	}
-	for _, ut := range unsupportedTypes {
-		if _, converted := convertToExprType(ut); converted {
-			t.Errorf("convertToExprType(%v) succeeded when it should have failed", ut)
-		}
-	}
-}
-
 func TestConvertToTypeErrors(t *testing.T) {
 	env := testNativeEnv(t, NativeTypes(reflect.TypeOf(TestNestedType{})))
-	adapter := env.TypeAdapter()
+	adapter := env.CELTypeAdapter()
 	conversions := []struct {
 		in  any
 		out any
