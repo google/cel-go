@@ -23,7 +23,6 @@ import (
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/dynamicpb"
 
-	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/functions"
 	"github.com/google/cel-go/common/types"
@@ -491,25 +490,21 @@ func CostLimit(costLimit uint64) ProgramOption {
 	}
 }
 
-func fieldToCELType(field protoreflect.FieldDescriptor) (*exprpb.Type, error) {
+func fieldToCELType(field protoreflect.FieldDescriptor) (*Type, error) {
 	if field.Kind() == protoreflect.MessageKind || field.Kind() == protoreflect.GroupKind {
 		msgName := (string)(field.Message().FullName())
-		wellKnownType, found := pb.CheckedWellKnowns[msgName]
-		if found {
-			return wellKnownType, nil
-		}
-		return decls.NewObjectType(msgName), nil
+		return ObjectType(msgName), nil
 	}
-	if primitiveType, found := pb.CheckedPrimitives[field.Kind()]; found {
+	if primitiveType, found := types.ProtoCELPrimitives[field.Kind()]; found {
 		return primitiveType, nil
 	}
 	if field.Kind() == protoreflect.EnumKind {
-		return decls.Int, nil
+		return IntType, nil
 	}
 	return nil, fmt.Errorf("field %s type %s not implemented", field.FullName(), field.Kind().String())
 }
 
-func fieldToDecl(field protoreflect.FieldDescriptor) (*exprpb.Decl, error) {
+func fieldToVariable(field protoreflect.FieldDescriptor) (EnvOption, error) {
 	name := string(field.Name())
 	if field.IsMap() {
 		mapKey := field.MapKey()
@@ -522,20 +517,20 @@ func fieldToDecl(field protoreflect.FieldDescriptor) (*exprpb.Decl, error) {
 		if err != nil {
 			return nil, err
 		}
-		return decls.NewVar(name, decls.NewMapType(keyType, valueType)), nil
+		return Variable(name, MapType(keyType, valueType)), nil
 	}
 	if field.IsList() {
 		elemType, err := fieldToCELType(field)
 		if err != nil {
 			return nil, err
 		}
-		return decls.NewVar(name, decls.NewListType(elemType)), nil
+		return Variable(name, ListType(elemType)), nil
 	}
 	celType, err := fieldToCELType(field)
 	if err != nil {
 		return nil, err
 	}
-	return decls.NewVar(name, celType), nil
+	return Variable(name, celType), nil
 }
 
 // DeclareContextProto returns an option to extend CEL environment with declarations from the given context proto.
@@ -543,23 +538,51 @@ func fieldToDecl(field protoreflect.FieldDescriptor) (*exprpb.Decl, error) {
 // https://github.com/google/cel-spec/blob/master/doc/langdef.md#evaluation-environment
 func DeclareContextProto(descriptor protoreflect.MessageDescriptor) EnvOption {
 	return func(e *Env) (*Env, error) {
-		var decls []*exprpb.Decl
 		fields := descriptor.Fields()
 		for i := 0; i < fields.Len(); i++ {
 			field := fields.Get(i)
-			decl, err := fieldToDecl(field)
+			variable, err := fieldToVariable(field)
 			if err != nil {
 				return nil, err
 			}
-			decls = append(decls, decl)
-		}
-		var err error
-		e, err = Declarations(decls...)(e)
-		if err != nil {
-			return nil, err
+			e, err = variable(e)
+			if err != nil {
+				return nil, err
+			}
 		}
 		return Types(dynamicpb.NewMessage(descriptor))(e)
 	}
+}
+
+// ContextProtoVars uses the fields of the input proto.Messages as top-level variables within an Activation.
+//
+// Consider using with `DeclareContextProto` to simplify variable type declarations and publishing when using
+// protocol buffers.
+func ContextProtoVars(ctx proto.Message) (interpreter.Activation, error) {
+	if ctx == nil || !ctx.ProtoReflect().IsValid() {
+		return interpreter.EmptyActivation(), nil
+	}
+	reg, err := types.NewRegistry(ctx)
+	if err != nil {
+		return nil, err
+	}
+	pbRef := ctx.ProtoReflect()
+	typeName := string(pbRef.Descriptor().FullName())
+	fields := pbRef.Descriptor().Fields()
+	vars := make(map[string]any, fields.Len())
+	for i := 0; i < fields.Len(); i++ {
+		field := fields.Get(i)
+		sft, found := reg.FindStructFieldType(typeName, field.TextName())
+		if !found {
+			return nil, fmt.Errorf("no such field: %s", field.TextName())
+		}
+		fieldVal, err := sft.GetFrom(ctx)
+		if err != nil {
+			return nil, err
+		}
+		vars[field.TextName()] = fieldVal
+	}
+	return interpreter.NewActivation(vars)
 }
 
 // EnableMacroCallTracking ensures that call expressions which are replaced by macros
