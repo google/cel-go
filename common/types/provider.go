@@ -346,7 +346,7 @@ func singularFieldDescToCELType(field *pb.FieldDescription) *Type {
 	if field.IsEnum() {
 		return IntType
 	}
-	return protoCELPrimitives[field.ProtoKind()]
+	return ProtoCELPrimitives[field.ProtoKind()]
 }
 
 // defaultTypeAdapter converts go native types to CEL values.
@@ -657,7 +657,8 @@ func fieldTypeConversionError(field *pb.FieldDescription, err error) error {
 }
 
 var (
-	protoCELPrimitives = map[protoreflect.Kind]*Type{
+	// ProtoCELPrimitives provides a map from the protoreflect Kind to the equivalent CEL type.
+	ProtoCELPrimitives = map[protoreflect.Kind]*Type{
 		protoreflect.BoolKind:     BoolType,
 		protoreflect.BytesKind:    BytesType,
 		protoreflect.DoubleKind:   DoubleType,

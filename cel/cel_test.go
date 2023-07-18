@@ -42,6 +42,9 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	descpb "google.golang.org/protobuf/types/descriptorpb"
 	dynamicpb "google.golang.org/protobuf/types/dynamicpb"
+	durationpb "google.golang.org/protobuf/types/known/durationpb"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
+	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 
 	proto2pb "github.com/google/cel-go/test/proto2pb"
 	proto3pb "github.com/google/cel-go/test/proto3pb"
@@ -1622,16 +1625,60 @@ func TestResidualAstModified(t *testing.T) {
 	}
 }
 
-func TestDeclareContextProto(t *testing.T) {
+func TestContextProto(t *testing.T) {
 	descriptor := new(proto3pb.TestAllTypes).ProtoReflect().Descriptor()
 	option := DeclareContextProto(descriptor)
 	env := testEnv(t, option)
-	expression := `single_int64 == 1 && single_double == 1.0 && single_bool == true && single_string == '' && single_nested_message == google.expr.proto3.test.TestAllTypes.NestedMessage{}
-	&& single_nested_enum == google.expr.proto3.test.TestAllTypes.NestedEnum.FOO && single_duration == duration('5s') && single_timestamp == timestamp('1972-01-01T10:00:20.021-05:00')
-	&& single_any == google.protobuf.Any{} && repeated_int32 == [1,2] && map_string_string == {'': ''} && map_int64_nested_type == {0 : google.expr.proto3.test.NestedTestAllTypes{}}`
-	_, iss := env.Compile(expression)
+	expression := `
+	single_int64 == 1
+	&& single_double == 1.0
+	&& single_bool == true
+	&& single_string == ''
+	&& single_nested_message == google.expr.proto3.test.TestAllTypes.NestedMessage{}
+	&& standalone_enum == google.expr.proto3.test.TestAllTypes.NestedEnum.FOO
+	&& single_duration == duration('5s')
+	&& single_timestamp == timestamp(63154820)
+	&& single_any == null
+	&& single_uint32_wrapper == null
+	&& single_uint64_wrapper == 0u
+	&& repeated_int32 == [1,2]
+	&& map_string_string == {'': ''}
+	&& map_int64_nested_type == {0 : google.expr.proto3.test.NestedTestAllTypes{}}`
+	ast, iss := env.Compile(expression)
 	if iss.Err() != nil {
 		t.Fatalf("env.Compile(%s) failed: %s", expression, iss.Err())
+	}
+	prg, err := env.Program(ast)
+	if err != nil {
+		t.Fatalf("env.Program() failed: %v", err)
+	}
+	in := &proto3pb.TestAllTypes{
+		SingleInt64:  1,
+		SingleDouble: 1.0,
+		SingleBool:   true,
+		NestedType: &proto3pb.TestAllTypes_SingleNestedMessage{
+			SingleNestedMessage: &proto3pb.TestAllTypes_NestedMessage{},
+		},
+		StandaloneEnum: proto3pb.TestAllTypes_FOO,
+		SingleDuration: &durationpb.Duration{Seconds: 5},
+		SingleTimestamp: &timestamppb.Timestamp{
+			Seconds: 63154820,
+		},
+		SingleUint64Wrapper: wrapperspb.UInt64(0),
+		RepeatedInt32:       []int32{1, 2},
+		MapStringString:     map[string]string{"": ""},
+		MapInt64NestedType:  map[int64]*proto3pb.NestedTestAllTypes{0: {}},
+	}
+	vars, err := ContextProtoVars(in)
+	if err != nil {
+		t.Fatalf("ContextProtoVars(%v) failed: %v", in, err)
+	}
+	out, _, err := prg.Eval(vars)
+	if err != nil {
+		t.Fatalf("prg.Eval() failed: %v", err)
+	}
+	if out.Equal(types.True) != types.True {
+		t.Errorf("prg.Eval() got %v, wanted true", out)
 	}
 }
 
