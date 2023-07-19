@@ -145,6 +145,7 @@ func (p *Registry) Copy() *Registry {
 	return copy
 }
 
+// EnumValue returns the numeric value of the given enum value name.
 func (p *Registry) EnumValue(enumName string) ref.Val {
 	enumVal, found := p.pbdb.DescribeEnum(enumName)
 	if !found {
@@ -153,6 +154,10 @@ func (p *Registry) EnumValue(enumName string) ref.Val {
 	return Int(enumVal.Value())
 }
 
+// FieldFieldType returns the field type for a checked type value. Returns false if
+// the field could not be found.
+//
+// Deprecated: use FindStructFieldType
 func (p *Registry) FindFieldType(structType, fieldName string) (*ref.FieldType, bool) {
 	msgType, found := p.pbdb.DescribeType(structType)
 	if !found {
@@ -168,6 +173,8 @@ func (p *Registry) FindFieldType(structType, fieldName string) (*ref.FieldType, 
 		GetFrom: field.GetFrom}, true
 }
 
+// FieldStructFieldType returns the field type for a checked type value. Returns
+// false if the field could not be found.
 func (p *Registry) FindStructFieldType(structType, fieldName string) (*FieldType, bool) {
 	msgType, found := p.pbdb.DescribeType(structType)
 	if !found {
@@ -183,6 +190,7 @@ func (p *Registry) FindStructFieldType(structType, fieldName string) (*FieldType
 		GetFrom: field.GetFrom}, true
 }
 
+// FindIdent takes a qualified identifier name and returns a ref.Val if one exists.
 func (p *Registry) FindIdent(identName string) (ref.Val, bool) {
 	if t, found := p.revTypeMap[identName]; found {
 		return t, true
@@ -193,6 +201,9 @@ func (p *Registry) FindIdent(identName string) (ref.Val, bool) {
 	return nil, false
 }
 
+// FindType looks up the Type given a qualified typeName. Returns false if not found.
+//
+// Deprecated: use FindStructType
 func (p *Registry) FindType(structType string) (*exprpb.Type, bool) {
 	if _, found := p.pbdb.DescribeType(structType); !found {
 		return nil, false
@@ -207,6 +218,13 @@ func (p *Registry) FindType(structType string) (*exprpb.Type, bool) {
 					MessageType: structType}}}}, true
 }
 
+// FindStructType returns the Type give a qualified type name.
+//
+// For historical reasons, only struct types are expected to be returned through this
+// method, and the type values are expected to be wrapped in a TypeType instance using
+// TypeTypeWithParam(<structType>).
+//
+// Returns false if not found.
 func (p *Registry) FindStructType(structType string) (*Type, bool) {
 	if _, found := p.pbdb.DescribeType(structType); !found {
 		return nil, false
@@ -217,6 +235,12 @@ func (p *Registry) FindStructType(structType string) (*Type, bool) {
 	return NewTypeTypeWithParam(NewObjectType(structType)), true
 }
 
+// NewValue creates a new type value from a qualified name and map of field
+// name to value.
+//
+// Note, for each value, the Val.ConvertToNative function will be invoked
+// to convert the Val to the field's native type. If an error occurs during
+// conversion, the NewValue will be a types.Err.
 func (p *Registry) NewValue(structType string, fields map[string]ref.Val) ref.Val {
 	td, found := p.pbdb.DescribeType(structType)
 	if !found {
@@ -237,6 +261,7 @@ func (p *Registry) NewValue(structType string, fields map[string]ref.Val) ref.Va
 	return p.NativeToValue(msg.Interface())
 }
 
+// RegisterDescriptor registers the contents of a protocol buffer `FileDescriptor`.
 func (p *Registry) RegisterDescriptor(fileDesc protoreflect.FileDescriptor) error {
 	fd, err := p.pbdb.RegisterDescriptor(fileDesc)
 	if err != nil {
@@ -245,6 +270,7 @@ func (p *Registry) RegisterDescriptor(fileDesc protoreflect.FileDescriptor) erro
 	return p.registerAllTypes(fd)
 }
 
+// RegisterMessage registers a protocol buffer message and its dependencies.
 func (p *Registry) RegisterMessage(message proto.Message) error {
 	fd, err := p.pbdb.RegisterMessage(message)
 	if err != nil {
@@ -253,6 +279,15 @@ func (p *Registry) RegisterMessage(message proto.Message) error {
 	return p.registerAllTypes(fd)
 }
 
+// RegisterType registers a type value with the provider which ensures the provider is aware of how to
+// map the type to an identifier.
+//
+// If the `ref.Type` value is a `*types.Type` it will be registered directly by its runtime type name.
+// If the `ref.Type` value is not a `*types.Type` instance, a `*types.Type` instance which reflects the
+// traits present on the input and the runtime type name. By default this foreign type will be treated
+// as a types.StructKind. To avoid potential issues where the `ref.Type` values does not match the
+// generated `*types.Type` instance, consider always using the `*types.Type` to represent type extensions
+// to CEL, even when they're not based on protobuf types.
 func (p *Registry) RegisterType(types ...ref.Type) error {
 	for _, t := range types {
 		celType := maybeForeignType(t)

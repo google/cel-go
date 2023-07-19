@@ -326,6 +326,7 @@ func (fd *FieldDescription) Name() string {
 	return string(fd.desc.Name())
 }
 
+// ProtoKind returns the protobuf reflected kind of the field.
 func (fd *FieldDescription) ProtoKind() protoreflect.Kind {
 	return fd.desc.Kind()
 }
