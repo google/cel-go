@@ -340,7 +340,7 @@ func TestStrings(t *testing.T) {
 							out.Value(), tc.err, tc.expr)
 					}
 					if !strings.Contains(err.Error(), tc.err) {
-						t.Errorf("got error %v, wanted error %s for expr: %s", err, tc.err, tc.expr)
+						t.Errorf("got %q, expected error to contain %q for expr: %s", err, tc.err, tc.expr)
 					}
 				} else if err != nil {
 					t.Fatal(err)
@@ -1258,9 +1258,7 @@ func TestStringFormat(t *testing.T) {
 				reflect.ValueOf(&TestAllTypes{}),
 			),
 		}
-		if !skipCompileCheck {
-			opts = append(opts, cel.ASTValidators(cel.ValidateHomogeneousAggregateLiterals()))
-		}
+		opts = append(opts, cel.ASTValidators(cel.ValidateHomogeneousAggregateLiterals()))
 		opts = append(opts, variables...)
 		return opts
 	}
