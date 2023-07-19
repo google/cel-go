@@ -45,7 +45,7 @@ type AttributeTrail struct {
 	qualifierPath []any
 }
 
-// Equals returns whether two attribute values have the same variable name and qualifier paths.
+// Equal returns whether two attribute values have the same variable name and qualifier paths.
 func (a *AttributeTrail) Equal(other *AttributeTrail) bool {
 	if a.Variable() != other.Variable() || len(a.QualifierPath()) != len(other.QualifierPath()) {
 		return false

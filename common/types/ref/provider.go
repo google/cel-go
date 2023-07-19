@@ -83,7 +83,7 @@ type TypeRegistry interface {
 // FieldType represents a field's type value and whether that field supports
 // presence detection.
 //
-// Deprecated: use types.CelFieldType
+// Deprecated: use types.FieldType
 type FieldType struct {
 	// Type of the field as a protobuf type value.
 	Type *exprpb.Type
