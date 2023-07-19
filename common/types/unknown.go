@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"sort"
 	"strings"
 	"unicode"
 
@@ -160,6 +161,26 @@ func NewUnknown(id int64, attr *AttributeTrail) *Unknown {
 	}
 }
 
+// IDs returns the set of unknown expression ids contained by this value.
+//
+// Numeric identifiers are guaranteed to be in sorted order.
+func (u *Unknown) IDs() []int64 {
+	ids := make(int64Slice, len(u.attributeTrails))
+	i := 0
+	for id := range u.attributeTrails {
+		ids[i] = id
+		i++
+	}
+	ids.Sort()
+	return ids
+}
+
+// GetAttributeTrails returns the attribute trails, if present, missing for a given expression id.
+func (u *Unknown) GetAttributeTrails(id int64) ([]*AttributeTrail, bool) {
+	trails, found := u.attributeTrails[id]
+	return trails, found
+}
+
 // Contains returns true if the input unknown is a subset of the current unknown.
 func (u *Unknown) Contains(other *Unknown) bool {
 	for id, otherTrails := range other.attributeTrails {
@@ -288,3 +309,18 @@ func MergeUnknowns(unk1, unk2 *Unknown) *Unknown {
 	}
 	return out
 }
+
+// int64Slice is an implementation of the sort.Interface
+type int64Slice []int64
+
+// Len returns the number of elements in the slice.
+func (x int64Slice) Len() int { return len(x) }
+
+// Less indicates whether the value at index i is less than the value at index j.
+func (x int64Slice) Less(i, j int) bool { return x[i] < x[j] }
+
+// Swap swaps the values at indices i and j in place.
+func (x int64Slice) Swap(i, j int) { x[i], x[j] = x[j], x[i] }
+
+// Sort is a convenience method: x.Sort() calls Sort(x).
+func (x int64Slice) Sort() { sort.Sort(x) }
