@@ -17,6 +17,7 @@ package types
 import (
 	"fmt"
 	"math"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -228,6 +229,68 @@ func TestUnknownContains(t *testing.T) {
 	}
 }
 
+func TestUnknownIDs(t *testing.T) {
+	tests := []struct {
+		unk   *Unknown
+		ids   []int64
+		attrs []string
+	}{
+		{
+			unk:   NewUnknown(1, nil),
+			ids:   []int64{1},
+			attrs: []string{"<unspecified>"},
+		},
+		{
+			unk:   NewUnknown(2, QualifyAttribute[bool](NewAttributeTrail("a"), true)),
+			ids:   []int64{2},
+			attrs: []string{"a[true]"},
+		},
+		{
+			unk:   NewUnknown(3, QualifyAttribute[string](NewAttributeTrail("a"), "b")),
+			ids:   []int64{3},
+			attrs: []string{"a.b"},
+		},
+		{
+			unk:   NewUnknown(4, QualifyAttribute[string](NewAttributeTrail("a"), "c")),
+			ids:   []int64{4},
+			attrs: []string{"a.c"},
+		},
+		{
+			unk: MergeUnknowns(
+				NewUnknown(4, QualifyAttribute[string](NewAttributeTrail("a"), "b")),
+				NewUnknown(3, QualifyAttribute[bool](NewAttributeTrail("a"), true)),
+			),
+			ids:   []int64{3, 4},
+			attrs: []string{"a[true]", "a.b"},
+		},
+	}
+	for i, tst := range tests {
+		tc := tst
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			ids := tc.unk.IDs()
+			if !reflect.DeepEqual(ids, tc.ids) {
+				t.Errorf("%v.IDs() got %v, wanted %v", tc.unk, ids, tc.ids)
+			}
+			attrs := make([]string, len(ids))
+			idx := 0
+			for _, id := range ids {
+				trails, found := tc.unk.GetAttributeTrails(id)
+				if !found {
+					t.Fatalf("GetAttributeTrails(%d) not found", id)
+				}
+				if len(trails) != 1 {
+					t.Fatalf("GetAttributeTrails(%d) got %d trails, wanted 1", id, len(trails))
+				}
+				attrs[idx] = trails[0].String()
+				idx++
+			}
+			if !reflect.DeepEqual(attrs, tc.attrs) {
+				t.Errorf("%v.GetAttributeTrails() got %v, wanted %v", tc.unk, attrs, tc.attrs)
+			}
+		})
+	}
+}
+
 func TestUnknownString(t *testing.T) {
 	tests := []struct {
 		unk *Unknown
@@ -340,7 +403,5 @@ func TestMaybeMergeUnknowns(t *testing.T) {
 
 func newUnk(t *testing.T, id int64, varName string) *Unknown {
 	t.Helper()
-	attr := NewAttributeTrail(varName)
-	unk := NewUnknown(id, attr)
-	return unk
+	return NewUnknown(id, NewAttributeTrail(varName))
 }
