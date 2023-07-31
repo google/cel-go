@@ -29,6 +29,25 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
+func TestAstNil(t *testing.T) {
+	var ast *Ast
+	if ast.IsChecked() {
+		t.Error("ast.IsChecked() returned true for nil ast")
+	}
+	if ast.Expr() != nil {
+		t.Errorf("ast.Expr() got %v, wanted nil", ast.Expr())
+	}
+	if ast.SourceInfo() != nil {
+		t.Errorf("ast.SourceInfo() got %v, wanted nil", ast.SourceInfo())
+	}
+	if ast.OutputType() != types.ErrorType {
+		t.Errorf("ast.OutputType() got %v, wanted error type", ast.OutputType())
+	}
+	if ast.Source() != nil {
+		t.Errorf("ast.Source() got %v, wanted nil", ast.Source())
+	}
+}
+
 func TestIssuesNil(t *testing.T) {
 	var iss *Issues
 	iss = iss.Append(iss)
