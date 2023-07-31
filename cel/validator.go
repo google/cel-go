@@ -244,17 +244,6 @@ func (homogeneousAggregateLiteralValidator) Name() string {
 	return homogeneousValidatorName
 }
 
-// Configure implements the ASTValidatorConfigurer interface and currently sets the list of standard
-// and exempt functions from homogeneous aggregate literal checks.
-//
-// TODO: Move this call into the string.format() ASTValidator once ported.
-func (homogeneousAggregateLiteralValidator) Configure(c MutableValidatorConfig) error {
-	emptyList := []string{}
-	exemptFunctions := c.GetOrDefault(HomogeneousAggregateLiteralExemptFunctions, emptyList).([]string)
-	exemptFunctions = append(exemptFunctions, "format")
-	return c.Set(HomogeneousAggregateLiteralExemptFunctions, exemptFunctions)
-}
-
 // Validate validates that all lists and map literals have homogeneous types, i.e. don't contain dyn types.
 //
 // This validator makes an exception for list and map literals which occur at any level of nesting within

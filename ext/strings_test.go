@@ -340,7 +340,7 @@ func TestStrings(t *testing.T) {
 							out.Value(), tc.err, tc.expr)
 					}
 					if !strings.Contains(err.Error(), tc.err) {
-						t.Errorf("got error %v, wanted error %s for expr: %s", err, tc.err, tc.expr)
+						t.Errorf("got %q, expected error to contain %q for expr: %s", err, tc.err, tc.expr)
 					}
 				} else if err != nil {
 					t.Fatal(err)
@@ -1018,14 +1018,14 @@ func TestStringFormat(t *testing.T) {
 			format:           "%s",
 			formatArgs:       "[1, 2, ext.TestAllTypes{PbVal: test.TestAllTypes{}}]",
 			skipCompileCheck: true,
-			err:              "error during formatting: no formatting function for ext.TestAllTypes",
+			err:              "error during formatting: string clause can only be used on strings, bools, bytes, ints, doubles, maps, lists, types, durations, and timestamps, was given ext.TestAllTypes",
 		},
 		{
 			name:             "object inside map",
 			format:           "%s",
 			formatArgs:       `{1: "a", 2: ext.TestAllTypes{}}`,
 			skipCompileCheck: true,
-			err:              "error during formatting: no formatting function for ext.TestAllTypes",
+			err:              "error during formatting: string clause can only be used on strings, bools, bytes, ints, doubles, maps, lists, types, durations, and timestamps, was given ext.TestAllTypes",
 		},
 		{
 			name:             "null not allowed for %d",
@@ -1117,7 +1117,7 @@ func TestStringFormat(t *testing.T) {
 			name:       "compile-time %d check",
 			format:     "int is %d",
 			formatArgs: "5.2",
-			err:        "error during formatting: integer clause can only be used on integers",
+			err:        "error during formatting: decimal clause can only be used on integers",
 		},
 		{
 			name:       "compile-time %f check",
@@ -1162,7 +1162,7 @@ func TestStringFormat(t *testing.T) {
 			err:        "error during formatting: octal clause can only be used on integers",
 		},
 	}
-	evalExpr := func(env *cel.Env, expr string, evalArgs any, skipCompileCheck bool, expectedRuntimeCost uint64, expectedEstimatedCost checker.CostEstimate, t *testing.T) (ref.Val, error) {
+	evalExpr := func(env *cel.Env, expr string, evalArgs any, expectedRuntimeCost uint64, expectedEstimatedCost checker.CostEstimate, t *testing.T) (ref.Val, error) {
 		t.Logf("evaluating expr: %s", expr)
 		parsedAst, issues := env.Parse(expr)
 		if issues.Err() != nil {
@@ -1170,23 +1170,16 @@ func TestStringFormat(t *testing.T) {
 		}
 		checkedAst, issues := env.Check(parsedAst)
 		if issues.Err() != nil {
-			t.Fatalf("env.Check(%v) failed: %v", expr, issues.Err())
+			return nil, issues.Err()
 		}
 		evalOpts := make([]cel.ProgramOption, 0)
-		if !skipCompileCheck {
-			evalOpts = append(evalOpts, cel.EvalOptions(cel.OptCheckStringFormat))
-		}
 		costTracker := &noopCostEstimator{}
 		if expectedRuntimeCost != 0 {
 			evalOpts = append(evalOpts, cel.CostTracking(costTracker))
 		}
 		program, err := env.Program(checkedAst, evalOpts...)
 		if err != nil {
-			if skipCompileCheck {
-				t.Fatal(err)
-			} else {
-				return nil, err
-			}
+			return nil, err
 		}
 
 		actualEstimatedCost, err := env.EstimateCost(checkedAst, costTracker)
@@ -1254,36 +1247,36 @@ func TestStringFormat(t *testing.T) {
 		}
 		return opts
 	}
-	buildOpts := func(locale string, variables []cel.EnvOption) []cel.EnvOption {
+	buildOpts := func(skipCompileCheck bool, locale string, variables []cel.EnvOption) []cel.EnvOption {
 		opts := []cel.EnvOption{
-			Strings(StringsLocale(locale)),
+			Strings(StringsLocale(locale), StringsValidateFormatCalls(!skipCompileCheck)),
 			cel.Container("ext"),
 			cel.Abbrevs("google.expr.proto3.test"),
 			cel.Types(&proto3pb.TestAllTypes{}),
-			cel.ASTValidators(cel.ValidateHomogeneousAggregateLiterals()),
 			NativeTypes(
 				reflect.TypeOf(&TestNestedType{}),
 				reflect.ValueOf(&TestAllTypes{}),
 			),
 		}
+		opts = append(opts, cel.ASTValidators(cel.ValidateHomogeneousAggregateLiterals()))
 		opts = append(opts, variables...)
 		return opts
 	}
 	runCase := func(format, formatArgs, locale string, dynArgs map[string]any, skipCompileCheck bool, expectedRuntimeCost uint64, expectedEstimatedCost checker.CostEstimate, t *testing.T) (ref.Val, error) {
-		env, err := cel.NewEnv(buildOpts(locale, buildVariables(dynArgs))...)
+		env, err := cel.NewEnv(buildOpts(skipCompileCheck, locale, buildVariables(dynArgs))...)
 		if err != nil {
 			t.Fatalf("cel.NewEnv() failed: %v", err)
 		}
 		expr := fmt.Sprintf("%q.format([%s])", format, formatArgs)
 		if len(dynArgs) == 0 {
-			return evalExpr(env, expr, cel.NoVars(), skipCompileCheck, expectedRuntimeCost, expectedEstimatedCost, t)
+			return evalExpr(env, expr, cel.NoVars(), expectedRuntimeCost, expectedEstimatedCost, t)
 		}
-		return evalExpr(env, expr, dynArgs, skipCompileCheck, expectedRuntimeCost, expectedEstimatedCost, t)
+		return evalExpr(env, expr, dynArgs, expectedRuntimeCost, expectedEstimatedCost, t)
 	}
 	checkCase := func(output ref.Val, expectedOutput string, err error, expectedErr string, t *testing.T) {
 		if err != nil {
 			if expectedErr != "" {
-				if err.Error() != expectedErr {
+				if !strings.Contains(err.Error(), expectedErr) {
 					t.Fatalf("expected %q as error message, got %q", expectedErr, err.Error())
 				}
 			} else {
