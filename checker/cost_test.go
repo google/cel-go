@@ -262,11 +262,27 @@ func TestCost(t *testing.T) {
 			wanted: CostEstimate{Min: 1, Max: 51},
 		},
 		{
+			name:  "bytes to string conversion equality",
+			decls: []*exprpb.Decl{decls.NewVar("input", decls.Bytes)},
+			hints: map[string]int64{"input": 500},
+			// equality check ensures that the resultSize calculation is included in cost
+			expr:   `string(input) == string(input)`,
+			wanted: CostEstimate{Min: 3, Max: 152},
+		},
+		{
 			name:   "string to bytes conversion",
 			decls:  []*exprpb.Decl{decls.NewVar("input", decls.String)},
 			hints:  map[string]int64{"input": 500},
 			expr:   `bytes(input)`,
 			wanted: CostEstimate{Min: 1, Max: 51},
+		},
+		{
+			name:  "string to bytes conversion equality",
+			decls: []*exprpb.Decl{decls.NewVar("input", decls.String)},
+			hints: map[string]int64{"input": 500},
+			// equality check ensures that the resultSize calculation is included in cost
+			expr:   `bytes(input) == bytes(input)`,
+			wanted: CostEstimate{Min: 3, Max: 302},
 		},
 		{
 			name:   "int to string conversion",
