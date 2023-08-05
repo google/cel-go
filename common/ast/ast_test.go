@@ -15,71 +15,139 @@
 package ast_test
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
-	"time"
 
-	"google.golang.org/protobuf/proto"
-
-	chkdecls "github.com/google/cel-go/checker/decls"
+	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types"
-	"github.com/google/cel-go/common/types/ref"
-
-	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
-func TestConvertAST(t *testing.T) {
-	goAST := &ast.CheckedAST{
-		Expr:       &exprpb.Expr{},
-		SourceInfo: &exprpb.SourceInfo{},
-		TypeMap: map[int64]*types.Type{
-			1: types.BoolType,
-			2: types.DynType,
-		},
-		ReferenceMap: map[int64]*ast.ReferenceInfo{
-			1: ast.NewFunctionReference(overloads.LogicalNot),
-			2: ast.NewIdentReference("TRUE", types.True),
-		},
-	}
-
-	exprAST := &exprpb.CheckedExpr{
-		Expr:       &exprpb.Expr{},
-		SourceInfo: &exprpb.SourceInfo{},
-		TypeMap: map[int64]*exprpb.Type{
-			1: chkdecls.Bool,
-			2: chkdecls.Dyn,
-		},
-		ReferenceMap: map[int64]*exprpb.Reference{
-			1: {OverloadId: []string{overloads.LogicalNot}},
-			2: {
-				Name: "TRUE",
-				Value: &exprpb.Constant{
-					ConstantKind: &exprpb.Constant_BoolValue{BoolValue: true},
-				},
-			},
-		},
-	}
-
-	checkedAST, err := ast.CheckedExprToCheckedAST(exprAST)
+func TestASTNilSafety(t *testing.T) {
+	ex, err := ast.ProtoToExpr(nil)
 	if err != nil {
-		t.Fatalf("CheckedExprToCheckedAST() failed: %v", err)
+		t.Fatalf("ast.ProtoToExpr() failed: %v", err)
 	}
-	if !reflect.DeepEqual(checkedAST.ReferenceMap, goAST.ReferenceMap) ||
-		!reflect.DeepEqual(checkedAST.TypeMap, goAST.TypeMap) {
-		t.Errorf("conversion to AST did not produce identical results: got %v, wanted %v", checkedAST, goAST)
-	}
-	if !checkedAST.ReferenceMap[1].Equals(goAST.ReferenceMap[1]) ||
-		!checkedAST.ReferenceMap[2].Equals(goAST.ReferenceMap[2]) {
-		t.Error("converted reference info values not equal")
-	}
-	checkedExpr, err := ast.CheckedASTToCheckedExpr(goAST)
+	info, err := ast.ProtoToSourceInfo(nil)
 	if err != nil {
-		t.Fatalf("CheckedASTToCheckedExpr() failed: %v", err)
+		t.Fatalf("ast.ProtoToSourceInfo() failed: %v", err)
 	}
-	if !proto.Equal(checkedExpr, exprAST) {
-		t.Errorf("conversion to protobuf did not produce identical results: got %v, wanted %v", checkedExpr, exprAST)
+	tests := []*ast.AST{
+		nil,
+		ast.NewAST(nil, nil),
+		ast.NewCheckedAST(nil, nil, nil),
+		ast.NewCheckedAST(ast.NewAST(nil, nil), nil, nil),
+		ast.NewAST(ex, info),
+		ast.NewCheckedAST(ast.NewAST(ex, info), map[int64]*types.Type{}, map[int64]*ast.ReferenceInfo{}),
+	}
+	for i, tst := range tests {
+		tc := tst
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			testAST := tc
+			if testAST.Expr().ID() != 0 {
+				t.Errorf("Expr().ID() got %v, wanted 0", testAST.Expr().ID())
+			}
+			if testAST.SourceInfo().SyntaxVersion() != "" {
+				t.Errorf("SourceInfo().SyntaxVersion() got %s, wanted empty string", testAST.SourceInfo().SyntaxVersion())
+			}
+			if testAST.IsChecked() {
+				t.Error("IsChecked() returned true, wanted false")
+			}
+			if testAST.GetType(testAST.Expr().ID()) != types.DynType {
+				t.Errorf("GetType() got %v, wanted dyn", testAST.GetType(testAST.Expr().ID()))
+			}
+			if len(testAST.GetOverloadIDs(testAST.Expr().ID())) != 0 {
+				t.Errorf("GetOverloadIDs() got %v, wanted empty set", testAST.GetOverloadIDs(testAST.Expr().ID()))
+			}
+		})
+	}
+}
+
+func TestSourceInfo(t *testing.T) {
+	src := common.NewStringSource("a\n? b\n: c", "custom description")
+	info := ast.NewSourceInfo(src)
+	if info.Description() != "custom description" {
+		t.Errorf("Description() got %s, wanted 'custom description'", info.Description())
+	}
+	if len(info.LineOffsets()) != 3 {
+		t.Errorf("LineOffsets() got %v, wanted 3 offsets", info.LineOffsets())
+	}
+	info.SetOffsetRange(1, ast.OffsetRange{Start: 0, Stop: 1}) // a
+	info.SetOffsetRange(2, ast.OffsetRange{Start: 4, Stop: 5}) // b
+	info.SetOffsetRange(3, ast.OffsetRange{Start: 8, Stop: 9}) // c
+	if !reflect.DeepEqual(info.GetStartLocation(1), common.NewLocation(1, 0)) {
+		t.Errorf("info.GetStartLocation(1) got %v, wanted line 1, col 0", info.GetStartLocation(1))
+	}
+	if !reflect.DeepEqual(info.GetStopLocation(1), common.NewLocation(1, 1)) {
+		t.Errorf("info.GetStopLocation(1) got %v, wanted line 1, col 1", info.GetStopLocation(1))
+	}
+	if !reflect.DeepEqual(info.GetStartLocation(2), common.NewLocation(2, 2)) {
+		t.Errorf("info.GetStartLocation(2) got %v, wanted line 2, col 2", info.GetStartLocation(2))
+	}
+	if !reflect.DeepEqual(info.GetStopLocation(2), common.NewLocation(2, 3)) {
+		t.Errorf("info.GetStopLocation(2) got %v, wanted line 2, col 3", info.GetStopLocation(2))
+	}
+	if !reflect.DeepEqual(info.GetStartLocation(3), common.NewLocation(3, 2)) {
+		t.Errorf("info.GetStartLocation(3) got %v, wanted line 2, col 2", info.GetStartLocation(3))
+	}
+	if !reflect.DeepEqual(info.GetStopLocation(3), common.NewLocation(3, 3)) {
+		t.Errorf("info.GetStopLocation(3) got %v, wanted line 2, col 3", info.GetStopLocation(3))
+	}
+	if info.ComputeOffset(3, 2) != 8 {
+		t.Errorf("info.ComputeOffset(3, 2) got %d, wanted 8", info.ComputeOffset(3, 2))
+	}
+}
+
+func TestSourceInfoNilSafety(t *testing.T) {
+	info, err := ast.ProtoToSourceInfo(nil)
+	if err != nil {
+		t.Fatalf("ast.ProtoToSourceInfo() failed: %v", err)
+	}
+	tests := []*ast.SourceInfo{
+		nil,
+		info,
+		ast.NewSourceInfo(nil),
+	}
+	for i, tst := range tests {
+		tc := tst
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			testInfo := tc
+			if testInfo.SyntaxVersion() != "" {
+				t.Errorf("SyntaxVersion() got %s, wanted empty string", testInfo.SyntaxVersion())
+			}
+			if testInfo.Description() != "" {
+				t.Errorf("Description() got %s, wanted empty string", testInfo.Description())
+			}
+			if len(testInfo.LineOffsets()) != 0 {
+				t.Errorf("LineOffsets() got %v, wanted empty list", testInfo.LineOffsets())
+			}
+			if len(testInfo.MacroCalls()) != 0 {
+				t.Errorf("MacroCalls() got %v, wanted empty map", testInfo.MacroCalls())
+			}
+			if call, found := testInfo.GetMacroCall(0); found {
+				t.Errorf("GetMacroCall(0) got %v, wanted not found", call)
+			}
+			if r, found := testInfo.GetOffsetRange(0); found {
+				t.Errorf("GetOffsetRange(0) got %v, wanted not found", r)
+			}
+			if loc := testInfo.GetStartLocation(0); loc != common.NoLocation {
+				t.Errorf("GetStartLocation(0) got %v, wanted no location", loc)
+			}
+			if loc := testInfo.GetStopLocation(0); loc != common.NoLocation {
+				t.Errorf("GetStopLocation(0) got %v, wanted no location", loc)
+			}
+			if off := testInfo.ComputeOffset(1, 0); off != 0 {
+				t.Errorf("ComputeOffset(1, 0) got %d, wanted 0", off)
+			}
+			if off := testInfo.ComputeOffset(-2, 0); off != -1 {
+				t.Errorf("ComputeOffset(-2, 0) got %d, wanted -1", off)
+			}
+			if off := testInfo.ComputeOffset(2, 0); off != -1 {
+				t.Errorf("ComputeOffset(2, 0) got %d, wanted -1", off)
+			}
+		})
 	}
 }
 
@@ -171,59 +239,5 @@ func TestReferenceInfoAddOverload(t *testing.T) {
 	add.AddOverload(overloads.AddDouble)
 	if !add.Equals(ast.NewFunctionReference(overloads.AddBytes, overloads.AddDouble)) {
 		t.Error("repeated AddOverload() did not produce equal references")
-	}
-}
-
-func TestReferenceInfoToReferenceExprError(t *testing.T) {
-	out, err := ast.ReferenceInfoToReferenceExpr(
-		ast.NewIdentReference("SECOND", types.Duration{Duration: time.Duration(1) * time.Second}))
-	if err == nil {
-		t.Errorf("ReferenceInfoToReferenceExpr() got %v, wanted error", out)
-	}
-}
-
-func TestReferenceExprToReferenceInfoError(t *testing.T) {
-	out, err := ast.ReferenceExprToReferenceInfo(&exprpb.Reference{Value: &exprpb.Constant{}})
-	if err == nil {
-		t.Errorf("ReferenceExprToReferenceInfo() got %v, wanted error", out)
-	}
-}
-
-func TestConvertVal(t *testing.T) {
-	tests := []ref.Val{
-		types.True,
-		types.Bytes("bytes"),
-		types.Double(3.2),
-		types.Int(-1),
-		types.NullValue,
-		types.String("string"),
-		types.Uint(27),
-	}
-	for _, tst := range tests {
-		c, err := ast.ValToConstant(tst)
-		if err != nil {
-			t.Errorf("ValToConstant(%v) failed: %v", tst, err)
-		}
-		v, err := ast.ConstantToVal(c)
-		if err != nil {
-			t.Errorf("ValToConstant(%v) failed: %v", c, err)
-		}
-		if tst.Equal(v) != types.True {
-			t.Errorf("roundtrip from %v to %v and back did not produce equal results, got %v, wanted %v", tst, c, v, tst)
-		}
-	}
-}
-
-func TestValToConstantError(t *testing.T) {
-	out, err := ast.ValToConstant(types.Duration{Duration: time.Duration(10)})
-	if err == nil {
-		t.Errorf("ValToConstant() got %v, wanted error", out)
-	}
-}
-
-func TestConstantToValError(t *testing.T) {
-	out, err := ast.ConstantToVal(&exprpb.Constant{})
-	if err == nil {
-		t.Errorf("ConstantToVal() got %v, wanted error", out)
 	}
 }

@@ -38,9 +38,9 @@ type Source = common.Source
 // Ast representing the checked or unchecked expression, its source, and related metadata such as
 // source position information.
 type Ast struct {
-	expr    *exprpb.Expr
-	info    *exprpb.SourceInfo
 	source  Source
+	expr    celast.Expr
+	info    *celast.SourceInfo
 	refMap  map[int64]*celast.ReferenceInfo
 	typeMap map[int64]*types.Type
 }
@@ -50,7 +50,8 @@ func (ast *Ast) Expr() *exprpb.Expr {
 	if ast == nil {
 		return nil
 	}
-	return ast.expr
+	pbExpr, _ := celast.ExprToProto(ast.expr)
+	return pbExpr
 }
 
 // IsChecked returns whether the Ast value has been successfully type-checked.
@@ -66,7 +67,8 @@ func (ast *Ast) SourceInfo() *exprpb.SourceInfo {
 	if ast == nil {
 		return nil
 	}
-	return ast.info
+	pbInfo, _ := celast.SourceInfoToProto(ast.info)
+	return pbInfo
 }
 
 // ResultType returns the output type of the expression if the Ast has been type-checked, else
@@ -88,7 +90,7 @@ func (ast *Ast) OutputType() *Type {
 	if ast == nil {
 		return types.ErrorType
 	}
-	t, found := ast.typeMap[ast.expr.GetId()]
+	t, found := ast.typeMap[ast.expr.ID()]
 	if !found {
 		return DynType
 	}
@@ -227,10 +229,10 @@ func (e *Env) Check(ast *Ast) (*Ast, *Issues) {
 	// detailed than the information provided by Check), is returned to the caller.
 	ast = &Ast{
 		source:  ast.Source(),
-		expr:    res.Expr,
-		info:    res.SourceInfo,
-		refMap:  res.ReferenceMap,
-		typeMap: res.TypeMap}
+		expr:    res.Expr(),
+		info:    res.SourceInfo(),
+		refMap:  res.ReferenceMap(),
+		typeMap: res.TypeMap()}
 
 	// Generate a validator configuration from the set of configured validators.
 	vConfig := newValidatorConfig()
@@ -433,10 +435,20 @@ func (e *Env) ParseSource(src Source) (*Ast, *Issues) {
 	}
 	// Manually create the Ast to ensure that the text source information is propagated on
 	// subsequent calls to Check.
+	expr, err := celast.ProtoToExpr(res.GetExpr())
+	if err != nil {
+		errs.ReportError(common.NoLocation, "invalid parsed expression: %v", err)
+		return nil, &Issues{errs: errs}
+	}
+	info, err := celast.ProtoToSourceInfo(res.GetSourceInfo())
+	if err != nil {
+		errs.ReportError(common.NoLocation, "invalid source info: %v", err)
+		return nil, &Issues{errs: errs}
+	}
 	return &Ast{
 		source: src,
-		expr:   res.GetExpr(),
-		info:   res.GetSourceInfo()}, nil
+		expr:   expr,
+		info:   info}, nil
 }
 
 // Program generates an evaluable instance of the Ast within the environment (Env).
@@ -554,12 +566,7 @@ func (e *Env) ResidualAst(a *Ast, details *EvalDetails) (*Ast, error) {
 // EstimateCost estimates the cost of a type checked CEL expression using the length estimates of input data and
 // extension functions provided by estimator.
 func (e *Env) EstimateCost(ast *Ast, estimator checker.CostEstimator, opts ...checker.CostOption) (checker.CostEstimate, error) {
-	checked := &celast.CheckedAST{
-		Expr:         ast.Expr(),
-		SourceInfo:   ast.SourceInfo(),
-		TypeMap:      ast.typeMap,
-		ReferenceMap: ast.refMap,
-	}
+	checked := celast.NewCheckedAST(celast.NewAST(ast.expr, ast.info), ast.typeMap, ast.refMap)
 	return checker.Cost(checked, estimator, opts...)
 }
 

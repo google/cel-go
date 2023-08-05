@@ -45,7 +45,7 @@ type checker struct {
 // descriptions of protocol buffers, and a registry for errors.
 // Returns a CheckedExpr proto, which might not be usable if
 // there are errors in the error registry.
-func Check(parsedExpr *exprpb.ParsedExpr, source common.Source, env *Env) (*ast.CheckedAST, *common.Errors) {
+func Check(parsedExpr *exprpb.ParsedExpr, source common.Source, env *Env) (*ast.AST, *common.Errors) {
 	errs := common.NewErrors(source)
 	c := checker{
 		env:                env,
@@ -64,13 +64,15 @@ func Check(parsedExpr *exprpb.ParsedExpr, source common.Source, env *Env) (*ast.
 	for id, t := range c.types {
 		m[id] = substitute(c.mappings, t, true)
 	}
+	e, err := ast.ProtoToExpr(parsedExpr.GetExpr())
+	if err != nil {
 
-	return &ast.CheckedAST{
-		Expr:         parsedExpr.GetExpr(),
-		SourceInfo:   parsedExpr.GetSourceInfo(),
-		TypeMap:      m,
-		ReferenceMap: c.references,
-	}, errs
+	}
+	info, err := ast.ProtoToSourceInfo(parsedExpr.GetSourceInfo())
+	if err != nil {
+
+	}
+	return ast.NewCheckedAST(ast.NewAST(e, info), m, c.references), errs
 }
 
 func (c *checker) check(e *exprpb.Expr) {

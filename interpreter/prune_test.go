@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/common"
+	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/types"
@@ -454,9 +455,9 @@ func TestPrune(t *testing.T) {
 		t.Fatalf("parser.NewParser() failed: %v", err)
 	}
 	for i, tst := range testCases {
-		ast, iss := p.Parse(common.NewStringSource(tst.expr, "<input>"))
+		parsed, iss := p.Parse(common.NewStringSource(tst.expr, "<input>"))
 		if len(iss.GetErrors()) > 0 {
-			t.Fatalf(iss.ToDisplayString())
+			t.Fatalf("Parse(%q) failed: %v", tst.expr, iss.ToDisplayString())
 		}
 		state := NewEvalState()
 		reg := newTestRegistry(t, &proto3pb.TestAllTypes{})
@@ -465,12 +466,17 @@ func TestPrune(t *testing.T) {
 		addFunctionBindings(t, dispatcher)
 		dispatcher.Add(funcBindings(t, optionalDecls(t)...)...)
 		interp := NewInterpreter(dispatcher, containers.DefaultContainer, reg, reg, attrs)
-
-		interpretable, _ := interp.NewUncheckedInterpretable(
-			ast.GetExpr(),
+		ex, err := ast.ProtoToExpr(parsed.GetExpr())
+		if err != nil {
+			t.Fatalf("ast.ProtoToExpr() failed: %v", err)
+		}
+		interpretable, err := interp.NewInterpretable(ast.NewAST(ex, nil),
 			ExhaustiveEval(), Observe(EvalStateObserver(state)))
+		if err != nil {
+			t.Fatalf("NewUncheckedInterpretable() failed: %v", err)
+		}
 		interpretable.Eval(testActivation(t, tst.in))
-		newExpr := PruneAst(ast.GetExpr(), ast.GetSourceInfo().GetMacroCalls(), state)
+		newExpr := PruneAst(parsed.GetExpr(), parsed.GetSourceInfo().GetMacroCalls(), state)
 		if tst.iterRange != "" {
 			compre := newExpr.GetExpr().GetComprehensionExpr()
 			if compre == nil {

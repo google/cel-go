@@ -261,7 +261,7 @@ type coster struct {
 	iterRanges iterRangeScopes
 	// computedSizes tracks the computed sizes of call results.
 	computedSizes map[int64]SizeEstimate
-	checkedAST    *ast.CheckedAST
+	checkedAST    *ast.AST
 	estimator     CostEstimator
 	// presenceTestCost will either be a zero or one based on whether has() macros count against cost computations.
 	presenceTestCost CostEstimate
@@ -304,7 +304,7 @@ func PresenceTestHasCost(hasCost bool) CostOption {
 }
 
 // Cost estimates the cost of the parsed and type checked CEL expression.
-func Cost(checker *ast.CheckedAST, estimator CostEstimator, opts ...CostOption) (CostEstimate, error) {
+func Cost(checker *ast.AST, estimator CostEstimator, opts ...CostOption) (CostEstimate, error) {
 	c := &coster{
 		checkedAST:       checker,
 		estimator:        estimator,
@@ -319,7 +319,11 @@ func Cost(checker *ast.CheckedAST, estimator CostEstimator, opts ...CostOption) 
 			return CostEstimate{}, err
 		}
 	}
-	return c.cost(checker.Expr), nil
+	epb, err := ast.ExprToProto(checker.Expr())
+	if err != nil {
+		return CostEstimate{}, err
+	}
+	return c.cost(epb), nil
 }
 
 func (c *coster) cost(e *exprpb.Expr) CostEstimate {
@@ -353,7 +357,7 @@ func (c *coster) costIdent(e *exprpb.Expr) CostEstimate {
 
 	// build and track the field path
 	if iterRange, ok := c.iterRanges.peek(identExpr.GetName()); ok {
-		switch c.checkedAST.TypeMap[iterRange].Kind() {
+		switch c.checkedAST.GetType(iterRange).Kind() {
 		case types.ListKind:
 			c.addPath(e, append(c.exprPath[iterRange], "@items"))
 		case types.MapKind:
@@ -405,8 +409,8 @@ func (c *coster) costCall(e *exprpb.Expr) CostEstimate {
 		argTypes[i] = c.newAstNode(arg)
 	}
 
-	ref := c.checkedAST.ReferenceMap[e.GetId()]
-	if ref == nil || len(ref.OverloadIDs) == 0 {
+	overloadIDs := c.checkedAST.GetOverloadIDs(e.GetId())
+	if len(overloadIDs) == 0 {
 		return CostEstimate{}
 	}
 	var targetType AstNode
@@ -419,7 +423,7 @@ func (c *coster) costCall(e *exprpb.Expr) CostEstimate {
 	// Pick a cost estimate range that covers all the overload cost estimation ranges
 	fnCost := CostEstimate{Min: uint64(math.MaxUint64), Max: 0}
 	var resultSize *SizeEstimate
-	for _, overload := range ref.OverloadIDs {
+	for _, overload := range overloadIDs {
 		overloadCost := c.functionCost(call.GetFunction(), overload, &targetType, argTypes, argCosts)
 		fnCost = fnCost.Union(overloadCost.CostEstimate)
 		if overloadCost.ResultSize != nil {
@@ -624,7 +628,7 @@ func (c *coster) functionCost(function, overloadID string, target *AstNode, args
 }
 
 func (c *coster) getType(e *exprpb.Expr) *types.Type {
-	return c.checkedAST.TypeMap[e.GetId()]
+	return c.checkedAST.GetType(e.GetId())
 }
 
 func (c *coster) getPath(e *exprpb.Expr) []string {

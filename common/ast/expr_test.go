@@ -15,442 +15,467 @@
 package ast_test
 
 import (
+	"fmt"
+	"reflect"
 	"testing"
 
-	"google.golang.org/protobuf/proto"
-
-	"github.com/google/cel-go/checker"
-	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/ast"
-	"github.com/google/cel-go/common/containers"
-	"github.com/google/cel-go/common/decls"
-	"github.com/google/cel-go/common/stdlib"
 	"github.com/google/cel-go/common/types"
-	"github.com/google/cel-go/parser"
-
-	proto3pb "github.com/google/cel-go/test/proto3pb"
-
-	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
-func TestNavigateExpr(t *testing.T) {
-	tests := []struct {
-		expr           string
-		descedantCount int
-		callCount      int
-	}{
-		{
-			expr:           `'a' == 'b'`,
-			descedantCount: 3,
-			callCount:      1,
-		},
-		{
-			expr:           `'a'.size()`,
-			descedantCount: 2,
-			callCount:      1,
-		},
-		{
-			expr:           `[1, 2, 3]`,
-			descedantCount: 4,
-			callCount:      0,
-		},
-		{
-			expr:           `[1, 2, 3][0]`,
-			descedantCount: 6,
-			callCount:      1,
-		},
-		{
-			expr:           `{1u: 'hello'}`,
-			descedantCount: 3,
-			callCount:      0,
-		},
-		{
-			expr:           `{'hello': 'world'}.hello`,
-			descedantCount: 4,
-			callCount:      0,
-		},
-		{
-			expr:           `type(1) == int`,
-			descedantCount: 4,
-			callCount:      2,
-		},
-		{
-			expr:           `google.expr.proto3.test.TestAllTypes{single_int32: 1}`,
-			descedantCount: 2,
-			callCount:      0,
-		},
-		{
-			expr:           `[true].exists(i, i)`,
-			descedantCount: 11, // 2 for iter range, 1 for accu init, 4 for loop condition, 3 for loop step, 1 for result
-			callCount:      3,  // @not_strictly_false(!result), accu_init || i
-		},
+func TestSetKindCase(t *testing.T) {
+	fac := ast.NewExprFactory()
+	tests := []ast.Expr{
+		fac.NewCall(1, "_==_", fac.NewLiteral(2, types.True), fac.NewLiteral(3, types.False)),
+		fac.NewComprehension(12,
+			fac.NewList(1, []ast.Expr{}, []int32{}),
+			"i",
+			"__result__",
+			fac.NewLiteral(5, types.False),
+			fac.NewCall(8, "@not_strictly_false", fac.NewCall(7, "!_", fac.NewAccuIdent(6))),
+			fac.NewCall(10, "_||_", fac.NewAccuIdent(9), fac.NewIdent(4, "i")),
+			fac.NewAccuIdent(11),
+		),
+		fac.NewIdent(1, "a"),
+		fac.NewLiteral(1, types.Bytes("hello")),
+		fac.NewList(1, []ast.Expr{fac.NewIdent(2, "a"), fac.NewIdent(3, "b")}, []int32{}),
+		fac.NewMap(1, []ast.EntryExpr{
+			fac.NewMapEntry(2,
+				fac.NewLiteral(3, types.String("string")),
+				fac.NewCall(6, "_?._", fac.NewIdent(4, "a"), fac.NewLiteral(5, types.String("b"))),
+				true),
+		}),
+		fac.NewSelect(2, fac.NewIdent(1, "a"), "b"),
+		fac.NewStruct(1,
+			"custom.StructType",
+			[]ast.EntryExpr{
+				fac.NewStructField(2,
+					"uint_field",
+					fac.NewLiteral(3, types.Uint(42)),
+					false),
+			}),
 	}
-
-	for _, tst := range tests {
-		tc := tst
-		t.Run(tc.expr, func(t *testing.T) {
-			checked := mustTypeCheck(t, tc.expr)
-			nav := ast.NavigateCheckedAST(checked)
-			descendants := ast.MatchDescendants(nav, ast.AllMatcher())
-			if len(descendants) != tc.descedantCount {
-				t.Errorf("ast.MatchDescendants(%v) got %d descendants, wanted %d", checked.Expr, len(descendants), tc.descedantCount)
-			}
-			calls := ast.MatchSubset(descendants, ast.KindMatcher(ast.CallKind))
-			if len(calls) != tc.callCount {
-				t.Errorf("ast.MatchSubset(%v) got %d calls, wanted %d", checked.Expr, len(calls), tc.callCount)
+	expr := nilTestExpr(t)
+	for i, tst := range tests {
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			expr.SetKindCase(tst)
+			switch expr.Kind() {
+			case ast.CallKind:
+				if !reflect.DeepEqual(expr.AsCall(), tst.AsCall()) {
+					t.Errorf("got %v, wanted %v", expr.AsCall(), tst.AsCall())
+				}
+			case ast.ComprehensionKind:
+				if !reflect.DeepEqual(expr.AsComprehension(), tst.AsComprehension()) {
+					t.Errorf("got %v, wanted %v", expr.AsComprehension(), tst.AsComprehension())
+				}
+			case ast.IdentKind:
+				if !reflect.DeepEqual(expr.AsIdent(), tst.AsIdent()) {
+					t.Errorf("got %v, wanted %v", expr.AsIdent(), tst.AsIdent())
+				}
+			case ast.LiteralKind:
+				if !reflect.DeepEqual(expr.AsLiteral(), tst.AsLiteral()) {
+					t.Errorf("got %v, wanted %v", expr.AsLiteral(), tst.AsLiteral())
+				}
+			case ast.ListKind:
+				if !reflect.DeepEqual(expr.AsList(), tst.AsList()) {
+					t.Errorf("got %v, wanted %v", expr.AsList(), tst.AsList())
+				}
+			case ast.MapKind:
+			case ast.SelectKind:
+			case ast.StructKind:
+			default:
+				t.Errorf("unable to determine kind case: %v", tst)
 			}
 		})
 	}
 }
 
-func TestNavigateExprNilSafety(t *testing.T) {
-	tests := []struct {
-		name string
-		e    ast.NavigableExpr
-	}{
-		{
-			name: "nil expr",
-			e:    ast.NavigateCheckedAST(&ast.CheckedAST{TypeMap: map[int64]*types.Type{}}),
-		},
-		{
-			name: "empty expr",
-			e:    ast.NavigateCheckedAST(&ast.CheckedAST{Expr: &exprpb.Expr{}, TypeMap: map[int64]*types.Type{}}),
-		},
-	}
-	for _, tst := range tests {
-		tc := tst
-		t.Run(tc.name, func(t *testing.T) {
-			e := tc.e
-			if e.Kind() != ast.UnspecifiedKind {
-				t.Errorf("Kind() got %v, wanted unspecified kind", e.Kind())
-			}
-			if e.ID() != 0 {
-				t.Errorf("ID() got %d, wanted 0", e.ID())
-			}
-			if e.Type() != types.DynType {
-				t.Errorf("Type() got %v, wanted types.DynType", e.Type())
-			}
-			if p, found := e.Parent(); found {
-				t.Errorf("Parent() got %v, waned not found", p)
-			}
-			if len(e.Children()) != 0 {
-				t.Errorf("Children() got %v, wanted none", e.Children())
-			}
-			if e.AsLiteral() != nil {
-				t.Errorf("AsLiteral() got %v, wanted nil", e.AsLiteral())
-			}
-		})
-	}
-}
-
-func TestNavigableCallExpr_Member(t *testing.T) {
-	checked := mustTypeCheck(t, `'hello'.size()`)
-	expr := ast.NavigateCheckedAST(checked)
+func TestCall(t *testing.T) {
+	fac := ast.NewExprFactory()
+	expr := fac.NewCall(1, "size", fac.NewLiteral(2, types.String("hello")))
 	if expr.Kind() != ast.CallKind {
-		t.Errorf("Kind() got %v, wanted CallKind", expr.Kind())
+		t.Fatalf("NewCall() produced non-call expression: %v", expr.Kind())
 	}
 	call := expr.AsCall()
 	if call.FunctionName() != "size" {
-		t.Errorf("FunctionName() got %s, wanted size", call.FunctionName())
-	}
-	if call.Target() == nil {
-		t.Fatalf("Target() got nil, wanted non-nil")
-	}
-	if len(call.Args()) != 0 {
-		t.Errorf("Args() got %v, wanted 0", call.Args())
-	}
-	target := call.Target()
-	if target.Kind() != ast.LiteralKind {
-		t.Errorf("Kind() got %v, wanted literal", target.Kind())
-	}
-	if target.AsLiteral().Equal(types.String("hello")) != types.True {
-		t.Errorf("AsLiteral() got %v, wanted 'hello'", target.AsLiteral())
-	}
-	if call.ReturnType() != expr.Type() {
-		t.Errorf("ReturnType() got %v, wanted %v", call.ReturnType(), expr.Type())
-	}
-	if call.ReturnType() != types.IntType {
-		t.Errorf("ReturnType() got %v, wanted int", call.ReturnType())
-	}
-	if p, found := target.Parent(); !found || p != expr {
-		t.Errorf("Parent() got %v, wanted %v", p, expr)
-	}
-	sizeFn := ast.MatchDescendants(expr, ast.FunctionMatcher("size"))
-	if len(sizeFn) != 1 {
-		t.Errorf("ast.MatchDescendants() size function returned %v, wanted 1", sizeFn)
-	}
-	constantValues := ast.MatchDescendants(expr, ast.ConstantValueMatcher())
-	if len(constantValues) != 1 {
-		t.Fatalf("ast.MatchDescendants() constant values returned %v, wanted 1 value", constantValues)
-	}
-	if constantValues[0].AsLiteral().Equal(types.String("hello")) != types.True {
-		t.Errorf("constantValues[0] got %v, wanted 'hello'", constantValues[0])
-	}
-}
-
-func TestNavigableCallExpr_Global(t *testing.T) {
-	checked := mustTypeCheck(t, `size('hello')`)
-	expr := ast.NavigateCheckedAST(checked)
-	if expr.Kind() != ast.CallKind {
-		t.Errorf("Kind() got %v, wanted CallKind", expr.Kind())
-	}
-	call := expr.AsCall()
-	if call.FunctionName() != "size" {
-		t.Errorf("FunctionName() got %s, wanted size", call.FunctionName())
-	}
-	if call.Target() != nil {
-		t.Fatalf("Target() got non-nil, wanted nil")
+		t.Errorf("Function() got %s, wanted 'size''", call.FunctionName())
 	}
 	if len(call.Args()) != 1 {
-		t.Errorf("Args() got %v, wanted 1", call.Args())
+		t.Errorf("Args() got %v, wanted one", call.Args())
 	}
-	arg := call.Args()[0]
-	if arg.Kind() != ast.LiteralKind {
-		t.Errorf("Kind() got %v, wanted literal", arg.Kind())
+	if call.IsMemberFunction() {
+		t.Error("IsMemberFunction() got true, wanted false")
 	}
-	if arg.AsLiteral().Equal(types.String("hello")) != types.True {
-		t.Errorf("AsLiteral() got %v, wanted 'hello'", arg.AsLiteral())
+	if call.Target().ID() != 0 {
+		t.Errorf("empty Target() got %d, wanted 0", call.Target().ID())
 	}
-	if call.ReturnType() != expr.Type() {
-		t.Errorf("ReturnType() got %v, wanted %v", call.ReturnType(), expr.Type())
+	expr.RenumberIDs(testIDGen(100))
+	if expr.ID() != 101 {
+		t.Errorf("expr.ID() got %d, wanted 101 after RenumberIDs", expr.ID())
 	}
-	if call.ReturnType() != types.IntType {
-		t.Errorf("ReturnType() got %v, wanted int", call.ReturnType())
-	}
-	if p, found := arg.Parent(); !found || p != expr {
-		t.Errorf("Parent() got %v, wanted %v", p, expr)
-	}
-	sizeFn := ast.MatchDescendants(expr, ast.FunctionMatcher("size"))
-	if len(sizeFn) != 1 {
-		t.Errorf("ast.MatchDescendants() size function returned %v, wanted 1", sizeFn)
-	}
-	constantValues := ast.MatchDescendants(expr, ast.ConstantValueMatcher())
-	if len(constantValues) != 1 {
-		t.Fatalf("ast.MatchDescendants() constant values returned %v, wanted 1 value", constantValues)
-	}
-	if constantValues[0].AsLiteral().Equal(types.String("hello")) != types.True {
-		t.Errorf("constantValues[0] got %v, wanted 'hello'", constantValues[0])
+	if expr.AsCall().Args()[0].ID() != 102 {
+		t.Errorf("Args()[0].ID() got %d, wanted 102 after RenumberIDs", expr.AsCall().Args()[0].ID())
 	}
 }
 
-func TestNavigableListExpr(t *testing.T) {
-	checked := mustTypeCheck(t, `[[1], [2]]`)
-	expr := ast.NavigateCheckedAST(checked)
-	if expr.Kind() != ast.ListKind {
-		t.Errorf("Kind() got %v, wanted ListKind", expr.Kind())
+func TestMemberCall(t *testing.T) {
+	fac := ast.NewExprFactory()
+	expr := fac.NewMemberCall(1, "size", fac.NewLiteral(2, types.String("hello")))
+	if expr.Kind() != ast.CallKind {
+		t.Fatalf("NewCall() produced non-call expression: %v", expr.Kind())
 	}
-	list := expr.AsList()
-	if list.Size() != 2 {
-		t.Errorf("Size() got %d, wanted 2", list.Size())
+	call := expr.AsCall()
+	if call.FunctionName() != "size" {
+		t.Errorf("Function() got %s, wanted 'size''", call.FunctionName())
 	}
-	if len(list.OptionalIndices()) != 0 {
-		t.Errorf("OptionalIndicies() returned %v, wanted none", list.OptionalIndices())
+	if len(call.Args()) != 0 {
+		t.Errorf("Args() got %v, wanted zero", call.Args())
 	}
-	if len(list.Elements()) != 2 {
-		t.Errorf("Elements() returned %v, wanted 2", list.Elements())
+	if !call.IsMemberFunction() {
+		t.Error("IsMemberFunction() got false, wanted true")
 	}
-	constantValues := ast.MatchDescendants(expr, ast.ConstantValueMatcher())
-	if len(constantValues) != 5 {
-		t.Errorf("ast.MatchDescendants() constant values returned %v, wanted 5", constantValues)
+	if call.Target().ID() != 2 {
+		t.Errorf("Target() got %d, wanted 2", call.Target().ID())
 	}
-	constantLists := ast.MatchSubset(constantValues, ast.KindMatcher(ast.ListKind))
-	if len(constantLists) != 3 {
-		t.Errorf("ast.MatchSubset() constant lists returned %v, wanted 3", constantLists)
+	expr.RenumberIDs(testIDGen(100))
+	if expr.ID() != 101 {
+		t.Errorf("expr.ID() got %d, wanted 101 after RenumberIDs", expr.ID())
 	}
-	literals := ast.MatchSubset(constantValues, ast.KindMatcher(ast.LiteralKind))
-	if len(literals) != 2 {
-		t.Errorf("ast.MatchSubset() literals returned %v, wanted 2", literals)
+	if expr.AsCall().Target().ID() != 102 {
+		t.Errorf("Target().ID() got %d, wanted 102 after RenumberIDs", expr.AsCall().Target().ID())
 	}
 }
 
-func TestNavigableMapExpr(t *testing.T) {
-	checked := mustTypeCheck(t, `{'hello': 1}`)
-	expr := ast.NavigateCheckedAST(checked)
-	if expr.Kind() != ast.MapKind {
-		t.Errorf("Kind() got %v, wanted MapKind", expr.Kind())
+func TestCallNil(t *testing.T) {
+	expr := nilTestExpr(t)
+	call := expr.AsCall()
+	if call.FunctionName() != "" {
+		t.Errorf("FunctionName() got %s, wanted empty value", call.FunctionName())
 	}
-	m := expr.AsMap()
-	if m.Size() != 1 {
-		t.Errorf("Size() got %d, wanted 1", m.Size())
+	if len(call.Args()) != 0 {
+		t.Errorf("Args() got %v, wanted zero", call.Args())
 	}
-	if len(m.Entries()) != 1 {
-		t.Errorf("Entries() returned %v, wanted 1", m.Entries())
+	if call.IsMemberFunction() {
+		t.Error("IsMemberFunction() got true, wanted false")
 	}
-	entry := m.Entries()[0]
-	if entry.IsOptional() {
-		t.Error("IsOptional() returned true, wanted false")
+	if call.Target().ID() != 0 {
+		t.Errorf("empty Target() got %d, wanted 0", call.Target().ID())
 	}
-	if entry.Key().AsLiteral().Equal(types.String("hello")) != types.True {
-		t.Errorf("Key() returned %v, wanted 'hello'", entry.Key().AsLiteral())
-	}
-	if entry.Value().AsLiteral().Equal(types.Int(1)) != types.True {
-		t.Errorf("Value() returned %v, wanted 1", entry.Value().AsLiteral())
-	}
-	descendants := ast.MatchDescendants(expr, ast.AllMatcher())
-	if len(descendants) != 3 {
-		t.Errorf("ast.MatchDescendants() returned %v, wanted 3", descendants)
-	}
-	literals := ast.MatchSubset(descendants, ast.KindMatcher(ast.LiteralKind))
-	if len(literals) != 2 {
-		t.Errorf("ast.MatchSubset() literals returned %v, wanted 2", literals)
+	expr.RenumberIDs(testIDGen(100))
+	if expr.ID() != 1 {
+		t.Errorf("Renumbering an unspecified expression mutated the value: %v", expr)
 	}
 }
 
-func TestNavigableStructExpr(t *testing.T) {
-	checked := mustTypeCheck(t, `google.expr.proto3.test.TestAllTypes{single_int32: 1}`)
-	expr := ast.NavigateCheckedAST(checked)
-	if expr.Kind() != ast.StructKind {
-		t.Errorf("Kind() got %v, wanted StructKind", expr.Kind())
-	}
-	s := expr.AsStruct()
-	if s.TypeName() != "google.expr.proto3.test.TestAllTypes" {
-		t.Errorf("TypeName() got %s, wanted TestAllTypes", s.TypeName())
-	}
-	if len(s.Fields()) != 1 {
-		t.Errorf("Fields() returned %v, wanted 1", s.Fields())
-	}
-	field := s.Fields()[0]
-	if field.IsOptional() {
-		t.Error("IsOptional() returned true, wanted false")
-	}
-	if field.FieldName() != "single_int32" {
-		t.Errorf("FieldName() returned %s, wanted 'single_int32'", field.FieldName())
-	}
-	if field.Value().AsLiteral().Equal(types.Int(1)) != types.True {
-		t.Errorf("Value() returned %v, wanted 1", field.Value().AsLiteral())
-	}
-	descendants := ast.MatchDescendants(expr, ast.AllMatcher())
-	if len(descendants) != 2 {
-		t.Errorf("ast.MatchDescendants() returned %v, wanted 2", descendants)
-	}
-	literals := ast.MatchSubset(descendants, ast.KindMatcher(ast.LiteralKind))
-	if len(literals) != 1 {
-		t.Errorf("ast.MatchSubset() literals returned %v, wanted 1", literals)
-	}
-	if literals[0].AsLiteral().Equal(types.Int(1)) != types.True {
-		t.Errorf("Value().AsLiteral() got %v, wanted 1", literals[0].AsLiteral())
-	}
-}
-
-func TestNavigableComprehensionExpr(t *testing.T) {
-	checked := mustTypeCheck(t, `[true].exists(i, i)`)
-	expr := ast.NavigateCheckedAST(checked)
-	if expr.Kind() != ast.ComprehensionKind {
-		t.Errorf("Kind() got %v, wanted ComprehensionKind", expr.Kind())
-	}
+func TestComprehension(t *testing.T) {
+	fac := ast.NewExprFactory()
+	expr := fac.NewComprehension(1,
+		fac.NewList(2, []ast.Expr{
+			fac.NewLiteral(3, types.Int(1)),
+			fac.NewLiteral(4, types.Int(2)),
+		}, []int32{}),
+		"i",
+		"__result__",
+		fac.NewLiteral(5, types.False),
+		fac.NewLiteral(6, types.True),
+		fac.NewCall(7, "_||_",
+			fac.NewAccuIdent(8),
+			fac.NewCall(9, "<", fac.NewIdent(10, "i"), fac.NewLiteral(11, types.Int(3))),
+		),
+		fac.NewAccuIdent(12),
+	)
 	comp := expr.AsComprehension()
-	iterRange := comp.IterRange()
-	if len(ast.MatchSubset([]ast.NavigableExpr{iterRange}, ast.ConstantValueMatcher())) != 1 {
-		t.Errorf("IterRange() returned a non-constant list")
+	if comp.IterRange().Kind() != ast.ListKind {
+		t.Errorf("IterRange() got %v, wanted list", comp.IterRange().Kind())
 	}
-	if comp.IterVar() != "i" {
-		t.Errorf("IterVar() got %s, wanted 'i'", comp.IterVar())
+	if comp.AccuInit().Kind() != ast.LiteralKind {
+		t.Errorf("AccuInit() got %v, wanted literal", comp.AccuInit().Kind())
 	}
-	if comp.AccuVar() != "__result__" {
-		t.Errorf("AccuVar() got %s, wanted '__result__'", comp.AccuVar())
-	}
-	if comp.AccuInit().AsLiteral() != types.False {
-		t.Errorf("AccuInit() returned %v, wanted false", comp.AccuInit().AsLiteral())
-	}
-	if comp.Result().Kind() != ast.IdentKind {
-		t.Errorf("Result() returned %v, wanted ident", comp.Result())
-	}
-	if comp.LoopCondition().Kind() != ast.CallKind {
-		t.Errorf("LoopCondition() returned %v, wanted call", comp.LoopCondition())
+	if comp.LoopCondition().Kind() != ast.LiteralKind {
+		t.Errorf("LoopCondition() got %v, wanted literal", comp.LoopCondition().Kind())
 	}
 	if comp.LoopStep().Kind() != ast.CallKind {
-		t.Errorf("LoopStep() returned %v, wanted call", comp.LoopStep())
+		t.Errorf("LoopStep() got %v, wanted call", comp.LoopStep().Kind())
 	}
-	if comp.Result().AsIdent() != "__result__" {
-		t.Errorf("AsIdent() returned %v, wanted __result__", comp.Result().AsIdent())
+	if comp.Result().Kind() != ast.IdentKind {
+		t.Errorf("Result() got %v, wanted identifier", comp.Result().Kind())
+	}
+	expr.RenumberIDs(testIDGen(100))
+	if expr.ID() != 101 {
+		t.Errorf("Renumbering an unspecified expression mutated the value: %v", expr)
+	}
+	comp = expr.AsComprehension()
+	if comp.IterRange().ID() != 102 {
+		t.Errorf("IterRange() got %v, wanted list", comp.IterRange().ID())
+	}
+	if comp.AccuInit().ID() != 105 {
+		t.Errorf("AccuInit() got %v, wanted literal", comp.AccuInit().ID())
+	}
+	if comp.LoopCondition().ID() != 106 {
+		t.Errorf("LoopCondition() got %v, wanted literal", comp.LoopCondition().ID())
+	}
+	if comp.LoopStep().ID() != 107 {
+		t.Errorf("LoopStep() got %v, wanted call", comp.LoopStep().ID())
+	}
+	if comp.Result().ID() != 112 {
+		t.Errorf("Result() got %v, wanted identifier", comp.Result().ID())
 	}
 }
 
-func TestNavigableSelectExpr(t *testing.T) {
-	checked := mustTypeCheck(t, `msg.single_int32`)
-	expr := ast.NavigateCheckedAST(checked)
-	if expr.Kind() != ast.SelectKind {
-		t.Errorf("Kind() got %v, wanted SelectKind", expr.Kind())
+func TestComprehensionNil(t *testing.T) {
+	expr := nilTestExpr(t)
+	comp := expr.AsComprehension()
+	if comp.IterRange().Kind() != ast.UnspecifiedExprKind {
+		t.Errorf("IterRange() got %v, wanted unspecified", comp.IterRange().Kind())
 	}
+	if comp.AccuInit().Kind() != ast.UnspecifiedExprKind {
+		t.Errorf("AccuInit() got %v, wanted unspecified", comp.AccuInit().Kind())
+	}
+	if comp.LoopCondition().Kind() != ast.UnspecifiedExprKind {
+		t.Errorf("LoopCondition() got %v, wanted unspecified", comp.LoopCondition().Kind())
+	}
+	if comp.LoopStep().Kind() != ast.UnspecifiedExprKind {
+		t.Errorf("LoopStep() got %v, wanted unspecified", comp.LoopStep().Kind())
+	}
+	if comp.Result().Kind() != ast.UnspecifiedExprKind {
+		t.Errorf("Result() got %v, wanted unspecified", comp.Result().Kind())
+	}
+	expr.RenumberIDs(testIDGen(100))
+	if expr.ID() != 1 {
+		t.Errorf("Renumbering an unspecified expression mutated the value: %v", expr)
+	}
+}
+
+func TestIdent(t *testing.T) {
+	fac := ast.NewExprFactory()
+	id := fac.NewIdent(1, "a")
+	if id.AsIdent() != "a" {
+		t.Errorf("id.AsIdent() got %s, wanted 'a'", id.AsIdent())
+	}
+	id.RenumberIDs(testIDGen(50))
+	if id.ID() != 51 {
+		t.Errorf("id.ID() got %d, wanted 51", id.ID())
+	}
+}
+
+func TestIdentNil(t *testing.T) {
+	expr := nilTestExpr(t)
+	if expr.AsIdent() != "" {
+		t.Errorf("AsIdent() got %s, wanted ''", expr.AsIdent())
+	}
+}
+
+func TestList(t *testing.T) {
+	fac := ast.NewExprFactory()
+	expr := fac.NewList(20, []ast.Expr{fac.NewLiteral(21, types.OptionalOf(types.True))}, []int32{0})
+	list := expr.AsList()
+	if list.Size() != 1 {
+		t.Errorf("list.Size() got %s, wanted 'a'", expr.AsIdent())
+	}
+	if list.Elements()[0].Kind() != ast.LiteralKind {
+		t.Errorf("list.Elements()[0] got %v, wanted true", list.Elements()[0])
+	}
+	if list.OptionalIndices()[0] != 0 {
+		t.Errorf("list.OptionalIndices()[0] got %d, wanted 0", list.OptionalIndices()[0])
+	}
+	expr.RenumberIDs(testIDGen(50))
+	if expr.ID() != 51 {
+		t.Errorf("expr.ID() got %d, wanted 51", expr.ID())
+	}
+	if list.Elements()[0].ID() != 52 {
+		t.Errorf("list.Elements()[0].ID() got %d, wanted 52", list.Elements()[0].ID())
+	}
+}
+
+func TestListNil(t *testing.T) {
+	expr := nilTestExpr(t)
+	list := expr.AsList()
+	if list.Size() != 0 {
+		t.Errorf("nil list.Size() got %d, wanted 0", list.Size())
+	}
+	if len(list.Elements()) != 0 {
+		t.Errorf("nil list.Elements() got %d, wanted 0", list.Elements())
+	}
+	if len(list.OptionalIndices()) != 0 {
+		t.Errorf("nil list.OptionalIndices() got %d, wanted 0", list.OptionalIndices())
+	}
+}
+
+func TestLiteralNil(t *testing.T) {
+	expr := nilTestExpr(t)
+	if expr.AsLiteral() != nil {
+		t.Errorf("AsLiteral() got %v, wanted nil", expr.AsLiteral())
+	}
+}
+
+func TestMap(t *testing.T) {
+	fac := ast.NewExprFactory()
+	expr := fac.NewMap(1,
+		[]ast.EntryExpr{
+			fac.NewMapEntry(2, fac.NewIdent(3, "a"), fac.NewLiteral(4, types.True), true),
+			fac.NewMapEntry(5, fac.NewIdent(6, "b"), fac.NewLiteral(7, types.False), false),
+		})
+	m := expr.AsMap()
+	if m.Size() != 2 {
+		t.Errorf("map.Size() got %d, wanted 2", m.Size())
+	}
+	expr.RenumberIDs(testIDGen(50))
+	if expr.ID() != 51 {
+		t.Errorf("expr.ID() got %d, wanted 51", expr.ID())
+	}
+	if m.Entries()[0].ID() != 52 {
+		t.Errorf("m.Entries()[0].ID() got %d, wanted 52", m.Entries()[0].ID())
+	}
+	entry := m.Entries()[0].AsMapEntry()
+	if key := entry.Key(); key.ID() != 53 {
+		t.Errorf("key.ID() got %d, wanted 53", key.ID())
+	}
+	if val := entry.Value(); val.ID() != 54 {
+		t.Errorf("val.ID() got %d, wanted 54", val.ID())
+	}
+	if !entry.IsOptional() {
+		t.Error("entry.IsOptional() got false, wanted true")
+	}
+}
+
+func TestMapNil(t *testing.T) {
+	expr := nilTestExpr(t)
+	m := expr.AsMap()
+	if m.Size() != 0 {
+		t.Errorf("nil map.Size() got %d, wanted 0", m.Size())
+	}
+	if len(m.Entries()) != 0 {
+		t.Errorf("nil map.Entries() got %d, wanted 0", m.Entries())
+	}
+}
+
+func TestMapEntryNil(t *testing.T) {
+	fac := ast.NewExprFactory()
+	field := fac.NewStructField(1,
+		"hello", fac.NewLiteral(3, types.String("world")), false)
+
+	// intentionally convert the struct field to the wrong type
+	entry := field.AsMapEntry()
+	if entry.Key().Kind() != ast.UnspecifiedExprKind {
+		t.Errorf("entry.Key() got %s, wanted ''", entry.Key())
+	}
+	if entry.Value().Kind() != ast.UnspecifiedExprKind {
+		t.Errorf("entry.Value() got %v, wanted unspecified", entry.Value())
+	}
+	if entry.IsOptional() {
+		t.Errorf("entry.IsOptional() got %v, wanted ''", entry.IsOptional())
+	}
+}
+
+func TestSelect(t *testing.T) {
+	fac := ast.NewExprFactory()
+	expr := fac.NewSelect(2, fac.NewIdent(1, "operand"), "field")
 	sel := expr.AsSelect()
-	if sel.FieldName() != "single_int32" {
-		t.Errorf("FieldName() got %s, wanted single_int32", sel.FieldName())
+	if sel.FieldName() != "field" {
+		t.Errorf("sel.FieldName() got %s, wanted 'field'", sel.FieldName())
 	}
-	if sel.Operand().Kind() != ast.IdentKind {
-		t.Fatalf("Operand() kind got %v, wanted ident", sel.Operand().Kind())
+	if sel.Operand().AsIdent() != "operand" {
+		t.Errorf("sel.Operand().AsIdent() got %s, wanted 'operand'", sel.Operand().AsIdent())
 	}
-	if sel.Operand().AsIdent() != "msg" {
-		t.Errorf("Operand() got %v, wanted ident 'msg'", sel.Operand())
+	expr.RenumberIDs(testIDGen(20))
+	if sel.Operand().ID() != 22 {
+		t.Errorf("Operand().ID() got %d, wanted 22", sel.Operand().ID())
+	}
+}
+
+func TestSelectNil(t *testing.T) {
+	expr := nilTestExpr(t)
+	sel := expr.AsSelect()
+	if sel.FieldName() != "" {
+		t.Errorf("sel.FieldName() got %s, wanted ''", sel.FieldName())
 	}
 	if sel.IsTestOnly() {
-		t.Error("IsTestOnly() got true, wanted false")
+		t.Error("sel.IsTestOnly() got true, wanted false")
+	}
+	if sel.Operand().Kind() != ast.UnspecifiedExprKind {
+		t.Errorf("sel.Operand() got %v, wanted unspecified", sel.Operand())
 	}
 }
 
-func TestNavigableSelectExpr_TestOnly(t *testing.T) {
-	checked := mustTypeCheck(t, `has(msg.single_int32)`)
-	expr := ast.NavigateCheckedAST(checked)
-	if expr.Kind() != ast.SelectKind {
-		t.Errorf("Kind() got %v, wanted SelectKind", expr.Kind())
+func TestStruct(t *testing.T) {
+	fac := ast.NewExprFactory()
+	expr := fac.NewStruct(1,
+		"custom.StructType",
+		[]ast.EntryExpr{
+			fac.NewStructField(2, "a", fac.NewLiteral(3, types.True), true),
+			fac.NewStructField(4, "b", fac.NewLiteral(5, types.False), false),
+		})
+	s := expr.AsStruct()
+	if s.TypeName() != "custom.StructType" {
+		t.Errorf("s.TypeName() got %q, wanted 'custom.StructType'", s.TypeName())
 	}
-	sel := expr.AsSelect()
-	if sel.FieldName() != "single_int32" {
-		t.Errorf("FieldName() got %s, wanted single_int32", sel.FieldName())
+	if len(s.Fields()) != 2 {
+		t.Errorf("s.Fields() got %d, wanted 2", len(s.Fields()))
 	}
-	if sel.Operand().Kind() != ast.IdentKind {
-		t.Fatalf("Operand() kind got %v, wanted ident", sel.Operand().Kind())
+	expr.RenumberIDs(testIDGen(50))
+	if expr.ID() != 51 {
+		t.Errorf("expr.ID() got %d, wanted 51", expr.ID())
 	}
-	if sel.Operand().AsIdent() != "msg" {
-		t.Errorf("Operand() got %v, wanted ident 'msg'", sel.Operand())
+	if s.Fields()[0].ID() != 52 {
+		t.Errorf("s.Fields()[0].ID() got %d, wanted 52", s.Fields()[0].ID())
 	}
-	if !sel.IsTestOnly() {
-		t.Error("IsTestOnly() got false, wanted true")
+	field := s.Fields()[0].AsStructField()
+	if val := field.Value(); val.ID() != 53 {
+		t.Errorf("val.ID() got %d, wanted 53", val.ID())
+	}
+	if field.Name() != "a" {
+		t.Errorf("field.Name() got %s, wanted 'a'", field.Name())
+	}
+	if !field.IsOptional() {
+		t.Error("field.IsOptional() got false, wanted true")
 	}
 }
 
-func mustTypeCheck(t testing.TB, expr string) *ast.CheckedAST {
+func TestStructNil(t *testing.T) {
+	expr := nilTestExpr(t)
+	s := expr.AsStruct()
+	if s.TypeName() != "" {
+		t.Errorf("nil struct.TypeName() got %s, wanted ''", s.TypeName())
+	}
+	if len(s.Fields()) != 0 {
+		t.Errorf("nil struct.Fields() got %d, wanted 0", s.Fields())
+	}
+}
+
+func TestStructFieldNil(t *testing.T) {
+	fac := ast.NewExprFactory()
+	entry := fac.NewMapEntry(1,
+		fac.NewLiteral(2, types.String("hello")),
+		fac.NewLiteral(3, types.String("world")),
+		false)
+
+	// intentionally convert the map entry to the wrong type
+	field := entry.AsStructField()
+	if field.Name() != "" {
+		t.Errorf("field.FieldName() got %s, wanted ''", field.Name())
+	}
+	if field.Value().Kind() != ast.UnspecifiedExprKind {
+		t.Errorf("field.Value() got %v, wanted unspecified", field.Value())
+	}
+	if field.IsOptional() {
+		t.Errorf("field.IsOptional() got %v, wanted ''", field.IsOptional())
+	}
+}
+
+func nilTestExpr(t testing.TB) ast.Expr {
 	t.Helper()
-	p, err := parser.NewParser(parser.Macros(parser.AllMacros...), parser.EnableOptionalSyntax(true))
-	if err != nil {
-		t.Fatalf("parser.NewParser() failed: %v", err)
+	fac := ast.NewExprFactory()
+	expr := fac.NewLiteral(1, types.NullValue)
+	expr.SetKindCase(nil)
+	if expr.Kind() != ast.UnspecifiedExprKind {
+		t.Fatalf("SetKindCase(nil) did not produce an unspecified expr kind: %v", expr.Kind())
 	}
-	exprSrc := common.NewTextSource(expr)
-	parsed, iss := p.Parse(exprSrc)
-	if len(iss.GetErrors()) != 0 {
-		t.Fatalf("Parse(%s) failed: %s", expr, iss.ToDisplayString())
-	}
-	reg := newTestRegistry(t, &proto3pb.TestAllTypes{})
-	env := newTestEnv(t, containers.DefaultContainer, reg)
-	checked, iss := checker.Check(parsed, exprSrc, env)
-	if len(iss.GetErrors()) != 0 {
-		t.Fatalf("Check(%s) failed: %s", expr, iss.ToDisplayString())
-	}
-	return checked
+	return expr
 }
 
-func newTestRegistry(t testing.TB, msgs ...proto.Message) *types.Registry {
-	t.Helper()
-	reg, err := types.NewRegistry(msgs...)
-	if err != nil {
-		t.Fatalf("types.NewRegistry(%v) failed: %v", msgs, err)
+func testIDGen(seed int64) ast.IDGenerator {
+	return func() int64 {
+		seed++
+		return seed
 	}
-	return reg
-}
-
-func newTestEnv(t testing.TB, cont *containers.Container, reg *types.Registry) *checker.Env {
-	t.Helper()
-	env, err := checker.NewEnv(cont, reg, checker.CrossTypeNumericComparisons(true))
-	if err != nil {
-		t.Fatalf("checker.NewEnv(%v, %v) failed: %v", cont, reg, err)
-	}
-	err = env.AddIdents(stdlib.Types()...)
-	if err != nil {
-		t.Fatalf("env.Add(stdlib.Types()...) failed: %v", err)
-	}
-	err = env.AddFunctions(stdlib.Functions()...)
-	if err != nil {
-		t.Fatalf("env.Add(stdlib.Functions()...) failed: %v", err)
-	}
-	env.AddIdents(decls.NewVariable("msg", types.NewObjectType("google.expr.proto3.test.TestAllTypes")))
-	return env
 }

@@ -28,6 +28,7 @@ import (
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/ast"
+	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
@@ -419,16 +420,16 @@ func (stringFormatValidator) Configure(config cel.MutableValidatorConfig) error 
 
 // Validate parses all literal format strings and type checks the format clause against the argument
 // at the corresponding ordinal within the list literal argument to the function, if one is specified.
-func (stringFormatValidator) Validate(env *cel.Env, _ cel.ValidatorConfig, a *ast.CheckedAST, iss *cel.Issues) {
-	root := ast.NavigateCheckedAST(a)
-	formatCallExprs := ast.MatchDescendants(root, matchConstantFormatStringWithListLiteralArgs)
+func (stringFormatValidator) Validate(env *cel.Env, _ cel.ValidatorConfig, a *ast.AST, iss *cel.Issues) {
+	root := ast.NavigateAST(a)
+	formatCallExprs := ast.MatchDescendants(root, matchConstantFormatStringWithListLiteralArgs(a))
 	for _, e := range formatCallExprs {
 		call := e.AsCall()
 		formatStr := call.Target().AsLiteral().Value().(string)
 		args := call.Args()[0].AsList().Elements()
 		formatCheck := &stringFormatChecker{
-			args:    args,
-			typeMap: a.TypeMap,
+			args: args,
+			ast:  a,
 		}
 		// use a placeholder locale, since locale doesn't affect syntax
 		_, err := parseFormatString(formatStr, formatCheck, formatCheck, "en_US")
@@ -460,33 +461,47 @@ func getErrorExprID(id int64, err error) int64 {
 
 // matchConstantFormatStringWithListLiteralArgs matches all valid expression nodes for string
 // format checking.
-func matchConstantFormatStringWithListLiteralArgs(e ast.NavigableExpr) bool {
-	if e.Kind() != ast.CallKind {
-		return false
+func matchConstantFormatStringWithListLiteralArgs(a *ast.AST) ast.ExprMatcher {
+	return func(e ast.NavigableExpr) bool {
+		if e.Kind() != ast.CallKind {
+			return false
+		}
+		call := e.AsCall()
+		if !call.IsMemberFunction() || call.FunctionName() != "format" {
+			return false
+		}
+		overloadIDs := a.GetOverloadIDs(e.ID())
+		if len(overloadIDs) != 0 {
+			found := false
+			for _, overload := range overloadIDs {
+				if overload == overloads.ExtFormatString {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return false
+			}
+		}
+		formatString := call.Target()
+		if formatString.Kind() != ast.LiteralKind && formatString.AsLiteral().Type() != cel.StringType {
+			return false
+		}
+		args := call.Args()
+		if len(args) != 1 {
+			return false
+		}
+		formatArgs := args[0]
+		return formatArgs.Kind() == ast.ListKind
 	}
-	call := e.AsCall()
-	// TODO: expose the OverloadID() method on the NavigableCallExpr to refine this check.
-	if !call.IsMemberFunction() || call.FunctionName() != "format" {
-		return false
-	}
-	formatString := call.Target()
-	if formatString.Kind() != ast.LiteralKind && formatString.Type() != cel.StringType {
-		return false
-	}
-	args := call.Args()
-	if len(args) != 1 {
-		return false
-	}
-	formatArgs := args[0]
-	return formatArgs.Kind() == ast.ListKind
 }
 
 // stringFormatChecker implements the formatStringInterpolater interface
 type stringFormatChecker struct {
-	args          []ast.NavigableExpr
+	args          []ast.Expr
 	argsRequested int
 	currArgIndex  int64
-	typeMap       map[int64]*cel.Type
+	ast           *ast.AST
 }
 
 func (c *stringFormatChecker) String(arg ref.Val, locale string) (string, error) {
@@ -572,11 +587,7 @@ func (c *stringFormatChecker) Size() int64 {
 }
 
 func (c *stringFormatChecker) typeOf(id int64) *cel.Type {
-	t, found := c.typeMap[id]
-	if found {
-		return t
-	}
-	return cel.DynType
+	return c.ast.GetType(id)
 }
 
 func (c *stringFormatChecker) verifyTypeOneOf(id int64, validTypes ...*cel.Type) bool {
@@ -593,7 +604,7 @@ func (c *stringFormatChecker) verifyTypeOneOf(id int64, validTypes ...*cel.Type)
 	return false
 }
 
-func (c *stringFormatChecker) verifyString(sub ast.NavigableExpr) (bool, int64) {
+func (c *stringFormatChecker) verifyString(sub ast.Expr) (bool, int64) {
 	paramA := cel.TypeParamType("A")
 	paramB := cel.TypeParamType("B")
 	subVerified := c.verifyTypeOneOf(sub.ID(),
@@ -603,18 +614,33 @@ func (c *stringFormatChecker) verifyString(sub ast.NavigableExpr) (bool, int64) 
 	if !subVerified {
 		return false, sub.ID()
 	}
-	if sub.Kind() != ast.ListKind && sub.Kind() != ast.MapKind {
+	switch sub.Kind() {
+	case ast.ListKind:
+		for _, e := range sub.AsList().Elements() {
+			// recursively verify if we're dealing with a list/map
+			verified, id := c.verifyString(e)
+			if !verified {
+				return false, id
+			}
+		}
+		return true, sub.ID()
+	case ast.MapKind:
+		for _, e := range sub.AsMap().Entries() {
+			// recursively verify if we're dealing with a list/map
+			entry := e.AsMapEntry()
+			verified, id := c.verifyString(entry.Key())
+			if !verified {
+				return false, id
+			}
+			verified, id = c.verifyString(entry.Value())
+			if !verified {
+				return false, id
+			}
+		}
+		return true, sub.ID()
+	default:
 		return true, sub.ID()
 	}
-	members := sub.Children()
-	for _, m := range members {
-		// recursively verify if we're dealing with a list/map
-		verified, id := c.verifyString(m)
-		if !verified {
-			return false, id
-		}
-	}
-	return true, sub.ID()
 }
 
 // helper routines for reporting common errors during string formatting static validation and
