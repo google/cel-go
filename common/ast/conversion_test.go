@@ -203,25 +203,23 @@ func TestConvertExpr(t *testing.T) {
 			if len(errs.GetErrors()) != 0 {
 				t.Fatalf("Parse() failed: %s", errs.ToDisplayString())
 			}
+			gotPBExpr, err := ast.ExprToProto(parsed.Expr())
+			if err != nil {
+				t.Fatalf("ast.ExprToProto() failed: %v", err)
+			}
 			wantPBExpr, err := ast.ExprToProto(tc.wantExpr)
 			if err != nil {
 				t.Fatalf("ast.ExprToProto() failed: %v", err)
 			}
-			if !proto.Equal(parsed.GetExpr(), wantPBExpr) {
+			if !proto.Equal(gotPBExpr, wantPBExpr) {
 				t.Errorf("got %v\n, wanted %v",
-					prototext.Format(parsed.GetExpr()), prototext.Format(wantPBExpr))
+					prototext.Format(gotPBExpr), prototext.Format(wantPBExpr))
 			}
-			gotExpr, err := ast.ProtoToExpr(parsed.GetExpr())
-			if err != nil {
-				t.Fatalf("ast.ProtoToExpr() failed: %v", err)
-			}
+			gotExpr := parsed.Expr()
 			if !reflect.DeepEqual(gotExpr, tc.wantExpr) {
 				t.Errorf("got %v, wanted %v", gotExpr, tc.wantExpr)
 			}
-			info, err := ast.ProtoToSourceInfo(parsed.GetSourceInfo())
-			if err != nil {
-				t.Fatalf("ast.ProtoToSourceInfo() failed: %v", err)
-			}
+			info := parsed.SourceInfo()
 			for id, wantCall := range tc.macroCalls {
 				call, found := info.GetMacroCall(id)
 				if !found {
@@ -230,14 +228,6 @@ func TestConvertExpr(t *testing.T) {
 				if !reflect.DeepEqual(call, wantCall) {
 					t.Errorf("macro call got %v, wanted %v", call, wantCall)
 				}
-			}
-			pbInfo, err := ast.SourceInfoToProto(info)
-			if err != nil {
-				t.Fatalf("ast.SourceInfoToProto() failed: %v", err)
-			}
-			if !proto.Equal(parsed.GetSourceInfo(), pbInfo) {
-				t.Errorf("source info roundtrip got %v, wanted %v",
-					prototext.Format(pbInfo), prototext.Format(parsed.GetSourceInfo()))
 			}
 		})
 	}

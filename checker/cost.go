@@ -304,9 +304,9 @@ func PresenceTestHasCost(hasCost bool) CostOption {
 }
 
 // Cost estimates the cost of the parsed and type checked CEL expression.
-func Cost(checker *ast.AST, estimator CostEstimator, opts ...CostOption) (CostEstimate, error) {
+func Cost(checked *ast.AST, estimator CostEstimator, opts ...CostOption) (CostEstimate, error) {
 	c := &coster{
-		checkedAST:       checker,
+		checkedAST:       checked,
 		estimator:        estimator,
 		exprPath:         map[int64][]string{},
 		iterRanges:       map[string][]int64{},
@@ -319,7 +319,7 @@ func Cost(checker *ast.AST, estimator CostEstimator, opts ...CostOption) (CostEs
 			return CostEstimate{}, err
 		}
 	}
-	epb, err := ast.ExprToProto(checker.Expr())
+	epb, err := ast.ExprToProto(checked.Expr())
 	if err != nil {
 		return CostEstimate{}, err
 	}

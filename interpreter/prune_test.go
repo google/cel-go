@@ -466,23 +466,19 @@ func TestPrune(t *testing.T) {
 		addFunctionBindings(t, dispatcher)
 		dispatcher.Add(funcBindings(t, optionalDecls(t)...)...)
 		interp := NewInterpreter(dispatcher, containers.DefaultContainer, reg, reg, attrs)
-		ex, err := ast.ProtoToExpr(parsed.GetExpr())
-		if err != nil {
-			t.Fatalf("ast.ProtoToExpr() failed: %v", err)
-		}
-		interpretable, err := interp.NewInterpretable(ast.NewAST(ex, nil),
+		interpretable, err := interp.NewInterpretable(parsed,
 			ExhaustiveEval(), Observe(EvalStateObserver(state)))
 		if err != nil {
 			t.Fatalf("NewUncheckedInterpretable() failed: %v", err)
 		}
 		interpretable.Eval(testActivation(t, tst.in))
-		newExpr := PruneAst(parsed.GetExpr(), parsed.GetSourceInfo().GetMacroCalls(), state)
+		newExpr := PruneAst(parsed.Expr(), parsed.SourceInfo().MacroCalls(), state)
 		if tst.iterRange != "" {
-			compre := newExpr.GetExpr().GetComprehensionExpr()
-			if compre == nil {
-				t.Fatalf("iter range check cannot operate on non comprehension output: %v", newExpr.GetExpr())
+			if newExpr.Expr().Kind() != ast.ComprehensionKind {
+				t.Fatalf("iter range check cannot operate on non comprehension output: %v", newExpr.Expr())
 			}
-			gotIterRange, err := parser.Unparse(compre.GetIterRange(), newExpr.GetSourceInfo())
+			compre := newExpr.Expr().AsComprehension()
+			gotIterRange, err := parser.Unparse(compre.IterRange(), newExpr.SourceInfo())
 			if err != nil {
 				t.Fatalf("parser.Unparse() failed: %v", err)
 			}
@@ -490,7 +486,7 @@ func TestPrune(t *testing.T) {
 				t.Errorf("iter range unparse got: %v, wanted %v", gotIterRange, tst.iterRange)
 			}
 		}
-		actual, err := parser.Unparse(newExpr.GetExpr(), newExpr.GetSourceInfo())
+		actual, err := parser.Unparse(newExpr.Expr(), newExpr.SourceInfo())
 		if err != nil {
 			t.Fatalf("parser.Unparse() failed: %v", err)
 		}

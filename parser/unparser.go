@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/operators"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
@@ -39,14 +40,21 @@ import (
 //
 // This function optionally takes in one or more UnparserOption to alter the unparsing behavior, such as
 // performing word wrapping on expressions.
-func Unparse(expr *exprpb.Expr, info *exprpb.SourceInfo, opts ...UnparserOption) (string, error) {
+func Unparse(expr ast.Expr, info *ast.SourceInfo, opts ...UnparserOption) (string, error) {
+	pbExpr, err := ast.ExprToProto(expr)
+	if err != nil {
+		return "", err
+	}
+	pbInfo, err := ast.SourceInfoToProto(info)
+	if err != nil {
+		return "", err
+	}
 	unparserOpts := &unparserOption{
 		wrapOnColumn:         defaultWrapOnColumn,
 		wrapAfterColumnLimit: defaultWrapAfterColumnLimit,
 		operatorsToWrapOn:    defaultOperatorsToWrapOn,
 	}
 
-	var err error
 	for _, opt := range opts {
 		unparserOpts, err = opt(unparserOpts)
 		if err != nil {
@@ -55,10 +63,10 @@ func Unparse(expr *exprpb.Expr, info *exprpb.SourceInfo, opts ...UnparserOption)
 	}
 
 	un := &unparser{
-		info:    info,
+		info:    pbInfo,
 		options: unparserOpts,
 	}
-	err = un.visit(expr)
+	err = un.visit(pbExpr)
 	if err != nil {
 		return "", err
 	}
