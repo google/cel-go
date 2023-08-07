@@ -38,7 +38,6 @@ type checker struct {
 }
 
 // Check performs type checking, giving a typed AST.
-<<<<<<< HEAD
 //
 // The input is a parsed AST and an env which encapsulates type binding of variables,
 // declarations of built-in functions, descriptions of protocol buffers, and a registry for
@@ -46,13 +45,6 @@ type checker struct {
 //
 // Returns a type-checked AST, which might not be usable if there are errors in the error
 // registry.
-=======
-// The input is a ParsedExpr proto and an env which encapsulates
-// type binding of variables, declarations of built-in functions,
-// descriptions of protocol buffers, and a registry for errors.
-// Returns a CheckedExpr proto, which might not be usable if
-// there are errors in the error registry.
->>>>>>> 3f69e80 (Migrate the type-checker to a native AST representation)
 func Check(parsed *ast.AST, source common.Source, env *Env) (*ast.AST, *common.Errors) {
 	errs := common.NewErrors(source)
 	typeMap := make(map[int64]*types.Type)
