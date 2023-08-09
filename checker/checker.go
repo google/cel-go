@@ -39,7 +39,7 @@ type checker struct {
 
 // Check performs type checking, giving a typed AST.
 //
-// The input is a ParsedExpr proto and an env which encapsulates type binding of variables,
+// The input is a parsed AST and an env which encapsulates type binding of variables,
 // declarations of built-in functions, descriptions of protocol buffers, and a registry for
 // errors.
 //
