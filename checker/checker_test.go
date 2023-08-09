@@ -2350,7 +2350,7 @@ func TestCheck(t *testing.T) {
 				t.Errorf("Expected error not thrown: %s", tc.err)
 			}
 
-			actual := cAst.TypeMap[pAst.Expr.Id]
+			actual := cAst.GetType(pAst.Expr.Id)
 			if tc.err == "" {
 				if actual == nil || !actual.IsEquivalentType(tc.outType) {
 					t.Error(test.DiffMessage("Type Error", actual, tc.outType))
@@ -2358,7 +2358,7 @@ func TestCheck(t *testing.T) {
 			}
 
 			if tc.out != "" {
-				chkExpr, err := ast.CheckedASTToCheckedExpr(cAst)
+				chkExpr, err := ast.ToProto(cAst)
 				if err != nil {
 					t.Fatalf("CheckedAstToCheckedExpr() failed: %v", err)
 				}
@@ -2445,7 +2445,7 @@ func BenchmarkCheck(b *testing.B) {
 					b.Errorf("Expected error not thrown: %s", tc.err)
 				}
 
-				actual := cAst.TypeMap[pAst.Expr.Id]
+				actual := cAst.GetType(pAst.Expr.Id)
 				if tc.err == "" {
 					if actual == nil || !actual.IsEquivalentType(tc.outType) {
 						b.Error(test.DiffMessage("Type Error", actual, tc.outType))
@@ -2453,7 +2453,7 @@ func BenchmarkCheck(b *testing.B) {
 				}
 
 				if tc.out != "" {
-					chkExpr, err := ast.CheckedASTToCheckedExpr(cAst)
+					chkExpr, err := ast.ToProto(cAst)
 					if err != nil {
 						b.Fatalf("CheckedAstToCheckedExpr() failed: %v", err)
 					}

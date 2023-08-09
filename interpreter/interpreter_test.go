@@ -29,6 +29,7 @@ import (
 
 	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/common"
+	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/functions"
@@ -1606,36 +1607,33 @@ func TestInterpreter_ProtoAttributeOpt(t *testing.T) {
 }
 
 func TestInterpreter_LogicalAndMissingType(t *testing.T) {
-	src := common.NewTextSource(`a && TestProto{c: true}.c`)
-	parsed, errors := parser.Parse(src)
-	if len(errors.GetErrors()) != 0 {
-		t.Errorf(errors.ToDisplayString())
+	parsed := testMustParse(t, `a && TestProto{c: true}.c`)
+	ex, err := ast.ProtoToExpr(parsed.GetExpr())
+	if err != nil {
+		t.Fatalf("ast.ProtoToExpr() failed: %v", err)
 	}
-
 	reg := newTestRegistry(t)
 	cont := containers.DefaultContainer
 	attrs := NewAttributeFactory(cont, reg, reg)
 	intr := newStandardInterpreter(t, cont, reg, reg, attrs)
-	i, err := intr.NewUncheckedInterpretable(parsed.GetExpr())
+	i, err := intr.NewInterpretable(ast.NewAST(ex, nil))
 	if err == nil {
 		t.Errorf("Got '%v', wanted error", i)
 	}
 }
 
 func TestInterpreter_ExhaustiveConditionalExpr(t *testing.T) {
-	src := common.NewTextSource(`a ? b < 1.0 : c == ['hello']`)
-	parsed, errors := parser.Parse(src)
-	if len(errors.GetErrors()) != 0 {
-		t.Errorf(errors.ToDisplayString())
+	parsed := testMustParse(t, `a ? b < 1.0 : c == ['hello']`)
+	ex, err := ast.ProtoToExpr(parsed.GetExpr())
+	if err != nil {
+		t.Fatalf("ast.ProtoToExpr() failed: %v", err)
 	}
-
 	state := NewEvalState()
 	cont := containers.DefaultContainer
 	reg := newTestRegistry(t, &exprpb.ParsedExpr{})
 	attrs := NewAttributeFactory(cont, reg, reg)
 	intr := newStandardInterpreter(t, cont, reg, reg, attrs)
-	interpretable, _ := intr.NewUncheckedInterpretable(
-		parsed.GetExpr(),
+	interpretable, _ := intr.NewInterpretable(ast.NewAST(ex, nil),
 		ExhaustiveEval(), Observe(EvalStateObserver(state)))
 	vars, _ := NewActivation(map[string]any{
 		"a": types.True,
@@ -1712,19 +1710,17 @@ func (ca *contextActivation) ResolveName(name string) (any, bool) {
 func TestInterpreter_ExhaustiveLogicalOrEquals(t *testing.T) {
 	// a || b == "b"
 	// Operator "==" is at Expr 4, should be evaluated though "a" is true
-	src := common.NewTextSource(`a || b == "b"`)
-	parsed, errors := parser.Parse(src)
-	if len(errors.GetErrors()) != 0 {
-		t.Errorf(errors.ToDisplayString())
+	parsed := testMustParse(t, `a || b == "b"`)
+	ex, err := ast.ProtoToExpr(parsed.GetExpr())
+	if err != nil {
+		t.Fatalf("ast.ProtoToExpr() failed: %v", err)
 	}
-
 	state := NewEvalState()
 	reg := newTestRegistry(t, &exprpb.Expr{})
 	cont := testContainer("test")
 	attrs := NewAttributeFactory(cont, reg, reg)
 	interp := newStandardInterpreter(t, cont, reg, reg, attrs)
-	i, _ := interp.NewUncheckedInterpretable(
-		parsed.GetExpr(),
+	i, _ := interp.NewInterpretable(ast.NewAST(ex, nil),
 		ExhaustiveEval(), Observe(EvalStateObserver(state)))
 	vars, _ := NewActivation(map[string]any{
 		"a": true,
@@ -1754,11 +1750,7 @@ func TestInterpreter_SetProto2PrimitiveFields(t *testing.T) {
 			single_string: "hello world",
 			single_bool: true
 		}`)
-	parsed, errors := parser.Parse(src)
-	if len(errors.GetErrors()) != 0 {
-		t.Errorf(errors.ToDisplayString())
-	}
-
+	parsed := testMustParse(t, src)
 	cont := testContainer("google.expr.proto2.test")
 	reg := newTestRegistry(t, &proto2pb.TestAllTypes{})
 	env := newTestEnv(t, cont, reg)
@@ -1795,25 +1787,21 @@ func TestInterpreter_SetProto2PrimitiveFields(t *testing.T) {
 		"input": reg.NativeToValue(input),
 	})
 	result := eval.Eval(vars)
-	got, ok := result.(ref.Val).Value().(bool)
+	got, ok := result.Value().(bool)
 	if !ok {
 		t.Fatalf("Got '%v', wanted 'true'.", result)
 	}
 	expected := true
 	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("Could not build object properly. Got '%v', wanted '%v'",
-			result.(ref.Val).Value(),
+			result.Value(),
 			expected)
 	}
 }
 
 func TestInterpreter_MissingIdentInSelect(t *testing.T) {
 	src := common.NewTextSource(`a.b.c`)
-	parsed, errors := parser.Parse(src)
-	if len(errors.GetErrors()) != 0 {
-		t.Fatalf(errors.ToDisplayString())
-	}
-
+	parsed := testMustParse(t, src)
 	cont := testContainer("test")
 	reg := newTestRegistry(t)
 	env := newTestEnv(t, cont, reg)
@@ -1870,10 +1858,7 @@ func TestInterpreter_TypeConversionOpt(t *testing.T) {
 	}
 	for _, tc := range tests {
 		src := common.NewTextSource(tc.in)
-		parsed, errors := parser.Parse(src)
-		if len(errors.GetErrors()) != 0 {
-			t.Fatalf("parser.Parse(%q) failed: %v", tc.in, errors.ToDisplayString())
-		}
+		parsed := testMustParse(t, src)
 		cont := containers.DefaultContainer
 		reg := newTestRegistry(t)
 		env := newTestEnv(t, cont, reg)
@@ -1917,55 +1902,22 @@ func TestInterpreter_TypeConversionOpt(t *testing.T) {
 }
 
 func TestInterpreter_PlanOptionalElements(t *testing.T) {
+	fac := ast.NewExprFactory()
 	// [?a] manipulated so the optional index is negative.
-	badOptionalA := &exprpb.Expr{
-		Id: 1,
-		ExprKind: &exprpb.Expr_ListExpr{
-			ListExpr: &exprpb.Expr_CreateList{
-				OptionalIndices: []int32{-1},
-				Elements: []*exprpb.Expr{
-					{
-						Id: 2,
-						ExprKind: &exprpb.Expr_IdentExpr{
-							IdentExpr: &exprpb.Expr_Ident{
-								Name: "a",
-							},
-						},
-					},
-				},
-			},
-		},
-	}
+	badOptionalA := fac.NewList(1, []ast.Expr{fac.NewIdent(2, "a")}, []int32{-1})
 	// [?b] manipulated so the optional index is out of range.
-	badOptionalB := &exprpb.Expr{
-		Id: 1,
-		ExprKind: &exprpb.Expr_ListExpr{
-			ListExpr: &exprpb.Expr_CreateList{
-				OptionalIndices: []int32{24},
-				Elements: []*exprpb.Expr{
-					{
-						Id: 2,
-						ExprKind: &exprpb.Expr_IdentExpr{
-							IdentExpr: &exprpb.Expr_Ident{
-								Name: "b",
-							},
-						},
-					},
-				},
-			},
-		},
-	}
+	badOptionalB := fac.NewList(1, []ast.Expr{fac.NewIdent(2, "b")}, []int32{24})
 	cont := containers.DefaultContainer
 	reg := newTestRegistry(t)
 	attrs := NewAttributeFactory(cont, reg, reg)
 	interp := newStandardInterpreter(t, cont, reg, reg, attrs)
-	_, err := interp.NewUncheckedInterpretable(badOptionalA, Optimize())
+	_, err := interp.NewInterpretable(ast.NewAST(badOptionalA, nil), Optimize())
 	if err == nil {
-		t.Fatal("interp.NewUncheckedInterpretable() should have failed with negative optional index: -1")
+		t.Fatal("interp.NewInterpretable() should have failed with negative optional index: -1")
 	}
-	_, err = interp.NewUncheckedInterpretable(badOptionalB, Optimize())
+	_, err = interp.NewInterpretable(ast.NewAST(badOptionalB, nil), Optimize())
 	if err == nil {
-		t.Fatal("interp.NewUncheckedInterpretable() should have failed with out of range optional index: 24")
+		t.Fatal("interp.NewInterpretable() should have failed with out of range optional index: 24")
 	}
 }
 
@@ -1974,7 +1926,7 @@ func testContainer(name string) *containers.Container {
 	return cont
 }
 
-func program(ctx testing.TB, tst *testCase, opts ...InterpretableDecorator) (Interpretable, Activation, error) {
+func program(t testing.TB, tst *testCase, opts ...InterpretableDecorator) (Interpretable, Activation, error) {
 	// Configure the package.
 	cont := containers.DefaultContainer
 	if tst.container != "" {
@@ -1991,11 +1943,11 @@ func program(ctx testing.TB, tst *testCase, opts ...InterpretableDecorator) (Int
 	}
 	var reg *types.Registry
 	var env *checker.Env
-	reg = newTestRegistry(ctx)
+	reg = newTestRegistry(t)
 	if tst.types != nil {
-		reg = newTestRegistry(ctx, tst.types...)
+		reg = newTestRegistry(t, tst.types...)
 	}
-	env = newTestEnv(ctx, cont, reg)
+	env = newTestEnv(t, cont, reg)
 	attrs := NewAttributeFactory(cont, reg, reg)
 	if tst.attrs != nil {
 		attrs = tst.attrs
@@ -2011,7 +1963,7 @@ func program(ctx testing.TB, tst *testCase, opts ...InterpretableDecorator) (Int
 	if tst.in != nil {
 		vars, err = NewActivation(tst.in)
 		if err != nil {
-			ctx.Fatalf("NewActivation(%v) failed: %v", tst.in, err)
+			t.Fatalf("NewActivation(%v) failed: %v", tst.in, err)
 		}
 	}
 	// Adapt the test output, if needed.
@@ -2020,13 +1972,13 @@ func program(ctx testing.TB, tst *testCase, opts ...InterpretableDecorator) (Int
 	}
 
 	disp := NewDispatcher()
-	addFunctionBindings(ctx, disp)
+	addFunctionBindings(t, disp)
 	if tst.funcs != nil {
 		err = env.AddFunctions(tst.funcs...)
 		if err != nil {
 			return nil, nil, fmt.Errorf("env.Add(%v) failed: %v", tst.funcs, err)
 		}
-		disp.Add(funcBindings(ctx, tst.funcs...)...)
+		disp.Add(funcBindings(t, tst.funcs...)...)
 	}
 	interp := NewInterpreter(disp, cont, reg, reg, attrs)
 
@@ -2045,9 +1997,12 @@ func program(ctx testing.TB, tst *testCase, opts ...InterpretableDecorator) (Int
 		return nil, nil, errors.New(errs.ToDisplayString())
 	}
 	if tst.unchecked {
+		ex, err := ast.ProtoToExpr(parsed.GetExpr())
+		if err != nil {
+			t.Fatalf("ast.ProtoToExpr() failed: %v", err)
+		}
 		// Build the program plan.
-		prg, err := interp.NewUncheckedInterpretable(
-			parsed.GetExpr(), opts...)
+		prg, err := interp.NewInterpretable(ast.NewAST(ex, nil), opts...)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -2088,6 +2043,28 @@ func isFieldQual(q Qualifier, fieldName string) bool {
 		return false
 	}
 	return f.Name == fieldName
+}
+
+func testMustParse(t testing.TB, data any) *exprpb.ParsedExpr {
+	t.Helper()
+	p, err := parser.NewParser()
+	if err != nil {
+		t.Fatalf("parser.NewParser() failed: %v", err)
+	}
+	var src common.Source
+	switch d := data.(type) {
+	case string:
+		src = common.NewTextSource(d)
+	case common.Source:
+		src = d
+	default:
+		t.Fatalf("testMustParse() got invalid parse data: %v", data)
+	}
+	parsed, errors := p.Parse(src)
+	if len(errors.GetErrors()) != 0 {
+		t.Fatalf("Parse(%q) failed: %v", src.Content(), errors.ToDisplayString())
+	}
+	return parsed
 }
 
 func newTestEnv(t testing.TB, cont *containers.Container, reg *types.Registry) *checker.Env {

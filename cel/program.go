@@ -243,20 +243,12 @@ func newProgram(e *Env, a *Ast, opts []ProgramOption) (Program, error) {
 }
 
 func (p *prog) initInterpretable(a *Ast, decs []interpreter.InterpretableDecorator) (*prog, error) {
-	// Unchecked programs do not contain type and reference information and may be slower to execute.
-	if !a.IsChecked() {
-		interpretable, err :=
-			p.interpreter.NewUncheckedInterpretable(a.Expr(), decs...)
-		if err != nil {
-			return nil, err
-		}
-		p.interpretable = interpretable
-		return p, nil
+	// When the AST has been exprAST it contains metadata that can be used to speed up program execution.
+	exprAST, err := astToExprAST(a)
+	if err != nil {
+		return nil, err
 	}
-
-	// When the AST has been checked it contains metadata that can be used to speed up program execution.
-	checked := astToCheckedAST(a)
-	interpretable, err := p.interpreter.NewInterpretable(checked, decs...)
+	interpretable, err := p.interpreter.NewInterpretable(exprAST, decs...)
 	if err != nil {
 		return nil, err
 	}
@@ -525,13 +517,20 @@ func (p *evalActivationPool) Put(value any) {
 	p.Pool.Put(a)
 }
 
-func astToCheckedAST(a *Ast) *ast.CheckedAST {
-	return &ast.CheckedAST{
-		Expr:         a.Expr(),
-		SourceInfo:   a.SourceInfo(),
-		TypeMap:      a.typeMap,
-		ReferenceMap: a.refMap,
+func astToExprAST(a *Ast) (*ast.AST, error) {
+	expr, err := ast.ProtoToExpr(a.Expr())
+	if err != nil {
+		return nil, err
 	}
+	info, err := ast.ProtoToSourceInfo(a.SourceInfo())
+	if err != nil {
+		return nil, err
+	}
+	baseAST := ast.NewAST(expr, info)
+	if !a.IsChecked() {
+		return baseAST, nil
+	}
+	return ast.NewCheckedAST(baseAST, a.typeMap, a.refMap), nil
 }
 
 var (

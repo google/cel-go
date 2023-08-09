@@ -154,7 +154,7 @@ func (p *Registry) EnumValue(enumName string) ref.Val {
 	return Int(enumVal.Value())
 }
 
-// FieldFieldType returns the field type for a checked type value. Returns false if
+// FindFieldType returns the field type for a checked type value. Returns false if
 // the field could not be found.
 //
 // Deprecated: use FindStructFieldType
@@ -173,7 +173,7 @@ func (p *Registry) FindFieldType(structType, fieldName string) (*ref.FieldType, 
 		GetFrom: field.GetFrom}, true
 }
 
-// FieldStructFieldType returns the field type for a checked type value. Returns
+// FindStructFieldType returns the field type for a checked type value. Returns
 // false if the field could not be found.
 func (p *Registry) FindStructFieldType(structType, fieldName string) (*FieldType, bool) {
 	msgType, found := p.pbdb.DescribeType(structType)

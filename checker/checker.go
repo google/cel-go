@@ -40,12 +40,14 @@ type checker struct {
 }
 
 // Check performs type checking, giving a typed AST.
-// The input is a ParsedExpr proto and an env which encapsulates
-// type binding of variables, declarations of built-in functions,
-// descriptions of protocol buffers, and a registry for errors.
-// Returns a CheckedExpr proto, which might not be usable if
-// there are errors in the error registry.
-func Check(parsedExpr *exprpb.ParsedExpr, source common.Source, env *Env) (*ast.CheckedAST, *common.Errors) {
+//
+// The input is a ParsedExpr proto and an env which encapsulates type binding of variables,
+// declarations of built-in functions, descriptions of protocol buffers, and a registry for
+// errors.
+//
+// Returns a type-checked AST, which might not be usable if there are errors in the error
+// registry.
+func Check(parsedExpr *exprpb.ParsedExpr, source common.Source, env *Env) (*ast.AST, *common.Errors) {
 	errs := common.NewErrors(source)
 	c := checker{
 		env:                env,
@@ -64,13 +66,15 @@ func Check(parsedExpr *exprpb.ParsedExpr, source common.Source, env *Env) (*ast.
 	for id, t := range c.types {
 		m[id] = substitute(c.mappings, t, true)
 	}
-
-	return &ast.CheckedAST{
-		Expr:         parsedExpr.GetExpr(),
-		SourceInfo:   parsedExpr.GetSourceInfo(),
-		TypeMap:      m,
-		ReferenceMap: c.references,
-	}, errs
+	e, err := ast.ProtoToExpr(parsedExpr.GetExpr())
+	if err != nil {
+		errs.ReportError(common.NoLocation, err.Error())
+	}
+	info, err := ast.ProtoToSourceInfo(parsedExpr.GetSourceInfo())
+	if err != nil {
+		errs.ReportError(common.NoLocation, err.Error())
+	}
+	return ast.NewCheckedAST(ast.NewAST(e, info), m, c.references), errs
 }
 
 func (c *checker) check(e *exprpb.Expr) {
