@@ -310,7 +310,7 @@ func EntryExprToProto(e EntryExpr) (*exprpb.Expr_CreateStruct_Entry, error) {
 
 func protoCall(id int64, call CallExpr) (*exprpb.Expr, error) {
 	var err error
-	var target *exprpb.Expr = nil
+	var target *exprpb.Expr
 	if call.IsMemberFunction() {
 		target, err = ExprToProto(call.Target())
 		if err != nil {
