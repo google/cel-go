@@ -267,6 +267,19 @@ const (
 //
 //	'TacoCat'.upperAscii()      // returns 'TACOCAT'
 //	'TacoCÆt Xii'.upperAscii()  // returns 'TACOCÆT XII'
+//
+// # Reverse
+//
+// Returns a new string whose characters are the same as the target string, only formatted in
+// reverse order.
+// This function relies on converting strings to rune arrays in order to reverse
+//
+//	<string>.reverse() -> <string>
+//
+// Examples:
+//
+//	'gums'.reverse() // returns 'smug'
+//	'John Smith'.reverse() // returns 'htimS nhoJ'
 func Strings(options ...StringsOption) cel.EnvOption {
 	s := &stringLib{
 		version:        math.MaxUint32,
@@ -444,6 +457,12 @@ func (lib *stringLib) CompileOptions() []cel.EnvOption {
 				cel.UnaryBinding(func(str ref.Val) ref.Val {
 					s := str.(types.String)
 					return stringOrError(upperASCII(string(s)))
+				}))),
+		cel.Function("reverse",
+			cel.MemberOverload("reverse", []*cel.Type{cel.StringType}, cel.StringType,
+				cel.UnaryBinding(func(str ref.Val) ref.Val {
+					s := str.(types.String)
+					return stringOrError(reverse(string(s)))
 				}))),
 	}
 	if lib.version >= 1 {
@@ -651,6 +670,14 @@ func upperASCII(str string) (string, error) {
 		}
 	}
 	return string(runes), nil
+}
+
+func reverse(str string) (string, error) {
+	chars := []rune(str)
+	for i, j := 0, len(chars)-1; i < j; i, j = i+1, j-1 {
+		chars[i], chars[j] = chars[j], chars[i]
+	}
+	return string(chars), nil
 }
 
 func joinSeparator(strs []string, separator string) (string, error) {
