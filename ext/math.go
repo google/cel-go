@@ -195,7 +195,7 @@ func mathLeast(meh cel.MacroExprFactory, target ast.Expr, args []ast.Expr) (ast.
 		return nil, meh.NewError(target.ID(), "math.least() requires at least one argument")
 	case 1:
 		if isListLiteralWithValidArgs(args[0]) || isValidArgType(args[0]) {
-			return meh.GlobalCall(minFunc, args[0]), nil
+			return meh.NewCall(minFunc, args[0]), nil
 		}
 		return nil, meh.NewError(args[0].ID(), "math.least() invalid single argument value")
 	case 2:
@@ -203,13 +203,13 @@ func mathLeast(meh cel.MacroExprFactory, target ast.Expr, args []ast.Expr) (ast.
 		if err != nil {
 			return nil, err
 		}
-		return meh.GlobalCall(minFunc, args...), nil
+		return meh.NewCall(minFunc, args...), nil
 	default:
 		err := checkInvalidArgs(meh, "math.least()", args)
 		if err != nil {
 			return nil, err
 		}
-		return meh.GlobalCall(minFunc, meh.NewList(args...)), nil
+		return meh.NewCall(minFunc, meh.NewList(args...)), nil
 	}
 }
 
@@ -222,7 +222,7 @@ func mathGreatest(mef cel.MacroExprFactory, target ast.Expr, args []ast.Expr) (a
 		return nil, mef.NewError(target.ID(), "math.greatest() requires at least one argument")
 	case 1:
 		if isListLiteralWithValidArgs(args[0]) || isValidArgType(args[0]) {
-			return mef.GlobalCall(maxFunc, args[0]), nil
+			return mef.NewCall(maxFunc, args[0]), nil
 		}
 		return nil, mef.NewError(args[0].ID(), "math.greatest() invalid single argument value")
 	case 2:
@@ -230,13 +230,13 @@ func mathGreatest(mef cel.MacroExprFactory, target ast.Expr, args []ast.Expr) (a
 		if err != nil {
 			return nil, err
 		}
-		return mef.GlobalCall(maxFunc, args...), nil
+		return mef.NewCall(maxFunc, args...), nil
 	default:
 		err := checkInvalidArgs(mef, "math.greatest()", args)
 		if err != nil {
 			return nil, err
 		}
-		return mef.GlobalCall(maxFunc, mef.NewList(args...)), nil
+		return mef.NewCall(maxFunc, mef.NewList(args...)), nil
 	}
 }
 

@@ -113,8 +113,9 @@ func (p *parserHelper) newObjectField(fieldID int64, field string, value ast.Exp
 	return p.exprFactory.NewStructField(fieldID, field, value, optional)
 }
 
-func (p *parserHelper) newComprehension(ctx any, iterVar string,
+func (p *parserHelper) newComprehension(ctx any,
 	iterRange ast.Expr,
+	iterVar string,
 	accuVar string,
 	accuInit ast.Expr,
 	condition ast.Expr,
@@ -380,34 +381,9 @@ func (e *exprHelper) Copy(expr ast.Expr) ast.Expr {
 	return e.exprFactory.NewUnspecifiedExpr(copyID)
 }
 
-// LiteralBool implements the ExprHelper interface method.
-func (e *exprHelper) LiteralBool(value bool) ast.Expr {
-	return e.exprFactory.NewLiteral(e.nextMacroID(), types.Bool(value))
-}
-
-// LiteralBytes implements the ExprHelper interface method.
-func (e *exprHelper) LiteralBytes(value []byte) ast.Expr {
-	return e.exprFactory.NewLiteral(e.nextMacroID(), types.Bytes(value))
-}
-
-// LiteralDouble implements the ExprHelper interface method.
-func (e *exprHelper) LiteralDouble(value float64) ast.Expr {
-	return e.exprFactory.NewLiteral(e.nextMacroID(), types.Double(value))
-}
-
-// LiteralInt implements the ExprHelper interface method.
-func (e *exprHelper) LiteralInt(value int64) ast.Expr {
-	return e.exprFactory.NewLiteral(e.nextMacroID(), types.Int(value))
-}
-
-// LiteralString implements the ExprHelper interface method.
-func (e *exprHelper) LiteralString(value string) ast.Expr {
-	return e.exprFactory.NewLiteral(e.nextMacroID(), types.String(value))
-}
-
-// LiteralUint implements the ExprHelper interface method.
-func (e *exprHelper) LiteralUint(value uint64) ast.Expr {
-	return e.exprFactory.NewLiteral(e.nextMacroID(), types.Uint(value))
+// NewLiteral implements the ExprHelper interface method.
+func (e *exprHelper) NewLiteral(value ref.Val) ast.Expr {
+	return e.exprFactory.NewLiteral(e.nextMacroID(), value)
 }
 
 // NewList implements the ExprHelper interface method.
@@ -425,19 +401,20 @@ func (e *exprHelper) NewMapEntry(key ast.Expr, val ast.Expr, optional bool) ast.
 	return e.exprFactory.NewMapEntry(e.nextMacroID(), key, val, optional)
 }
 
-// NewObject implements the ExprHelper interface method.
-func (e *exprHelper) NewObject(typeName string, fieldInits ...ast.EntryExpr) ast.Expr {
+// NewStruct implements the ExprHelper interface method.
+func (e *exprHelper) NewStruct(typeName string, fieldInits ...ast.EntryExpr) ast.Expr {
 	return e.exprFactory.NewStruct(e.nextMacroID(), typeName, fieldInits)
 }
 
-// NewObjectFieldInit implements the ExprHelper interface method.
-func (e *exprHelper) NewObjectFieldInit(field string, init ast.Expr, optional bool) ast.EntryExpr {
+// NewStructField implements the ExprHelper interface method.
+func (e *exprHelper) NewStructField(field string, init ast.Expr, optional bool) ast.EntryExpr {
 	return e.exprFactory.NewStructField(e.nextMacroID(), field, init, optional)
 }
 
-// Fold implements the ExprHelper interface method.
-func (e *exprHelper) Fold(iterVar string,
+// NewComprehension implements the ExprHelper interface method.
+func (e *exprHelper) NewComprehension(
 	iterRange ast.Expr,
+	iterVar string,
 	accuVar string,
 	accuInit ast.Expr,
 	condition ast.Expr,
@@ -447,33 +424,33 @@ func (e *exprHelper) Fold(iterVar string,
 		e.nextMacroID(), iterRange, iterVar, accuVar, accuInit, condition, step, result)
 }
 
-// Ident implements the ExprHelper interface method.
-func (e *exprHelper) Ident(name string) ast.Expr {
+// NewIdent implements the ExprHelper interface method.
+func (e *exprHelper) NewIdent(name string) ast.Expr {
 	return e.exprFactory.NewIdent(e.nextMacroID(), name)
 }
 
-// AccuIdent implements the ExprHelper interface method.
-func (e *exprHelper) AccuIdent() ast.Expr {
+// NewAccuIdent implements the ExprHelper interface method.
+func (e *exprHelper) NewAccuIdent() ast.Expr {
 	return e.exprFactory.NewAccuIdent(e.nextMacroID())
 }
 
-// GlobalCall implements the ExprHelper interface method.
-func (e *exprHelper) GlobalCall(function string, args ...ast.Expr) ast.Expr {
+// NewGlobalCall implements the ExprHelper interface method.
+func (e *exprHelper) NewCall(function string, args ...ast.Expr) ast.Expr {
 	return e.exprFactory.NewCall(e.nextMacroID(), function, args...)
 }
 
-// ReceiverCall implements the ExprHelper interface method.
-func (e *exprHelper) ReceiverCall(function string, target ast.Expr, args ...ast.Expr) ast.Expr {
+// NewMemberCall implements the ExprHelper interface method.
+func (e *exprHelper) NewMemberCall(function string, target ast.Expr, args ...ast.Expr) ast.Expr {
 	return e.exprFactory.NewMemberCall(e.nextMacroID(), function, target, args...)
 }
 
-// PresenceTest implements the ExprHelper interface method.
-func (e *exprHelper) PresenceTest(operand ast.Expr, field string) ast.Expr {
+// NewPresenceTest implements the ExprHelper interface method.
+func (e *exprHelper) NewPresenceTest(operand ast.Expr, field string) ast.Expr {
 	return e.exprFactory.NewPresenceTest(e.nextMacroID(), operand, field)
 }
 
-// Select implements the ExprHelper interface method.
-func (e *exprHelper) Select(operand ast.Expr, field string) ast.Expr {
+// NewSelect implements the ExprHelper interface method.
+func (e *exprHelper) NewSelect(operand ast.Expr, field string) ast.Expr {
 	return e.exprFactory.NewSelect(e.nextMacroID(), operand, field)
 }
 

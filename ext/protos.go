@@ -92,7 +92,7 @@ func hasProtoExt(mef cel.MacroExprFactory, target ast.Expr, args []ast.Expr) (as
 	if err != nil {
 		return nil, err
 	}
-	return mef.PresenceTest(args[0], extensionField), nil
+	return mef.NewPresenceTest(args[0], extensionField), nil
 }
 
 // getProtoExt generates a select expression for a fully-qualified extension name on a protobuf message.
@@ -104,7 +104,7 @@ func getProtoExt(mef cel.MacroExprFactory, target ast.Expr, args []ast.Expr) (as
 	if err != nil {
 		return nil, err
 	}
-	return mef.Select(args[0], extFieldName), nil
+	return mef.NewSelect(args[0], extFieldName), nil
 }
 
 func getExtFieldName(mef cel.MacroExprFactory, expr ast.Expr) (string, *cel.Error) {

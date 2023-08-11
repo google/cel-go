@@ -17,6 +17,7 @@ package ext
 import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/ast"
+	"github.com/google/cel-go/common/types"
 )
 
 // Bindings returns a cel.EnvOption to configure support for local variable
@@ -83,13 +84,13 @@ func celBind(mef cel.MacroExprFactory, target ast.Expr, args []ast.Expr) (ast.Ex
 	}
 	varInit := args[1]
 	resultExpr := args[2]
-	return mef.Fold(
-		unusedIterVar,
+	return mef.NewComprehension(
 		mef.NewList(),
+		unusedIterVar,
 		varName,
 		varInit,
-		mef.LiteralBool(false),
-		mef.Ident(varName),
+		mef.NewLiteral(types.False),
+		mef.NewIdent(varName),
 		resultExpr,
 	), nil
 }

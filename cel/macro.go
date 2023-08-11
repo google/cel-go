@@ -19,6 +19,7 @@ import (
 
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/ast"
+	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/parser"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
@@ -33,6 +34,8 @@ type Macro = parser.Macro
 // MacroFactory defines an expansion function which converts a call and its arguments to a cel.Expr value.
 type MacroFactory = parser.MacroExpander
 
+// MacroExprFactory assists with the creation of Expr values in a manner which is consistent
+// the internal semantics and id generation behaviors of the parser and checker libraries.
 type MacroExprFactory = parser.ExprHelper
 
 // MacroExpander converts a call and its associated arguments into a protobuf Expr representation.
@@ -203,7 +206,7 @@ func HasMacroExpander(meh MacroExprHelper, target *exprpb.Expr, args []*exprpb.E
 	}
 	if arg.Kind() == ast.SelectKind {
 		s := arg.AsSelect()
-		return adaptToProto(ph.PresenceTest(s.Operand(), s.FieldName()))
+		return adaptToProto(ph.NewPresenceTest(s.Operand(), s.FieldName()))
 	}
 	return nil, ph.NewError(arg.ID(), "invalid argument to has() macro")
 }
@@ -368,32 +371,32 @@ func (ah *adaptingHelper) Copy(e *exprpb.Expr) *exprpb.Expr {
 
 // LiteralBool creates an Expr value for a bool literal.
 func (ah *adaptingHelper) LiteralBool(value bool) *exprpb.Expr {
-	return mustAdaptToProto(ah.modernHelper.LiteralBool(value))
+	return mustAdaptToProto(ah.modernHelper.NewLiteral(types.Bool(value)))
 }
 
 // LiteralBytes creates an Expr value for a byte literal.
 func (ah *adaptingHelper) LiteralBytes(value []byte) *exprpb.Expr {
-	return mustAdaptToProto(ah.modernHelper.LiteralBytes(value))
+	return mustAdaptToProto(ah.modernHelper.NewLiteral(types.Bytes(value)))
 }
 
 // LiteralDouble creates an Expr value for double literal.
 func (ah *adaptingHelper) LiteralDouble(value float64) *exprpb.Expr {
-	return mustAdaptToProto(ah.modernHelper.LiteralDouble(value))
+	return mustAdaptToProto(ah.modernHelper.NewLiteral(types.Double(value)))
 }
 
 // LiteralInt creates an Expr value for an int literal.
 func (ah *adaptingHelper) LiteralInt(value int64) *exprpb.Expr {
-	return mustAdaptToProto(ah.modernHelper.LiteralInt(value))
+	return mustAdaptToProto(ah.modernHelper.NewLiteral(types.Int(value)))
 }
 
 // LiteralString creates am Expr value for a string literal.
 func (ah *adaptingHelper) LiteralString(value string) *exprpb.Expr {
-	return mustAdaptToProto(ah.modernHelper.LiteralString(value))
+	return mustAdaptToProto(ah.modernHelper.NewLiteral(types.String(value)))
 }
 
 // LiteralUint creates an Expr value for a uint literal.
 func (ah *adaptingHelper) LiteralUint(value uint64) *exprpb.Expr {
-	return mustAdaptToProto(ah.modernHelper.LiteralUint(value))
+	return mustAdaptToProto(ah.modernHelper.NewLiteral(types.Uint(value)))
 }
 
 // NewList creates a CreateList instruction where the list is comprised of the optional set
@@ -425,13 +428,13 @@ func (ah *adaptingHelper) NewObject(typeName string, fieldInits ...*exprpb.Expr_
 	for i, e := range fieldInits {
 		adaptedEntries[i] = mustAdaptToEntryExpr(e)
 	}
-	return mustAdaptToProto(ah.modernHelper.NewObject(typeName, adaptedEntries...))
+	return mustAdaptToProto(ah.modernHelper.NewStruct(typeName, adaptedEntries...))
 }
 
 // NewObjectFieldInit creates a new Object field initializer from the field name and value.
 func (ah *adaptingHelper) NewObjectFieldInit(field string, init *exprpb.Expr, optional bool) *exprpb.Expr_CreateStruct_Entry {
 	return mustAdaptToProtoEntry(
-		ah.modernHelper.NewObjectFieldInit(field, mustAdaptToExpr(init), optional))
+		ah.modernHelper.NewStructField(field, mustAdaptToExpr(init), optional))
 }
 
 // Fold creates a fold comprehension instruction.
@@ -457,9 +460,9 @@ func (ah *adaptingHelper) Fold(iterVar string,
 	step *exprpb.Expr,
 	result *exprpb.Expr) *exprpb.Expr {
 	return mustAdaptToProto(
-		ah.modernHelper.Fold(
-			iterVar,
+		ah.modernHelper.NewComprehension(
 			mustAdaptToExpr(iterRange),
+			iterVar,
 			accuVar,
 			mustAdaptToExpr(accuInit),
 			mustAdaptToExpr(condition),
@@ -471,35 +474,35 @@ func (ah *adaptingHelper) Fold(iterVar string,
 
 // Ident creates an identifier Expr value.
 func (ah *adaptingHelper) Ident(name string) *exprpb.Expr {
-	return mustAdaptToProto(ah.modernHelper.Ident(name))
+	return mustAdaptToProto(ah.modernHelper.NewIdent(name))
 }
 
 // AccuIdent returns an accumulator identifier for use with comprehension results.
 func (ah *adaptingHelper) AccuIdent() *exprpb.Expr {
-	return mustAdaptToProto(ah.modernHelper.AccuIdent())
+	return mustAdaptToProto(ah.modernHelper.NewAccuIdent())
 }
 
 // GlobalCall creates a function call Expr value for a global (free) function.
 func (ah *adaptingHelper) GlobalCall(function string, args ...*exprpb.Expr) *exprpb.Expr {
-	return mustAdaptToProto(ah.modernHelper.GlobalCall(function, mustAdaptToExprs(args)...))
+	return mustAdaptToProto(ah.modernHelper.NewCall(function, mustAdaptToExprs(args)...))
 }
 
 // ReceiverCall creates a function call Expr value for a receiver-style function.
 func (ah *adaptingHelper) ReceiverCall(function string, target *exprpb.Expr, args ...*exprpb.Expr) *exprpb.Expr {
 	return mustAdaptToProto(
-		ah.modernHelper.ReceiverCall(function, mustAdaptToExpr(target), mustAdaptToExprs(args)...))
+		ah.modernHelper.NewMemberCall(function, mustAdaptToExpr(target), mustAdaptToExprs(args)...))
 }
 
 // PresenceTest creates a Select TestOnly Expr value for modelling has() semantics.
 func (ah *adaptingHelper) PresenceTest(operand *exprpb.Expr, field string) *exprpb.Expr {
 	op := mustAdaptToExpr(operand)
-	return mustAdaptToProto(ah.modernHelper.PresenceTest(op, field))
+	return mustAdaptToProto(ah.modernHelper.NewPresenceTest(op, field))
 }
 
 // Select create a field traversal Expr value.
 func (ah *adaptingHelper) Select(operand *exprpb.Expr, field string) *exprpb.Expr {
 	op := mustAdaptToExpr(operand)
-	return mustAdaptToProto(ah.modernHelper.Select(op, field))
+	return mustAdaptToProto(ah.modernHelper.NewSelect(op, field))
 }
 
 // OffsetLocation returns the Location of the expression identifier.

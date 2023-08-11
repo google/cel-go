@@ -395,21 +395,21 @@ func optMap(meh MacroExprFactory, target ast.Expr, args []ast.Expr) (ast.Expr, *
 		return nil, meh.NewError(varIdent.ID(), "optMap() variable name must be a simple identifier")
 	}
 	mapExpr := args[1]
-	return meh.GlobalCall(
+	return meh.NewCall(
 		operators.Conditional,
-		meh.ReceiverCall(hasValueFunc, target),
-		meh.GlobalCall(optionalOfFunc,
-			meh.Fold(
-				unusedIterVar,
+		meh.NewMemberCall(hasValueFunc, target),
+		meh.NewCall(optionalOfFunc,
+			meh.NewComprehension(
 				meh.NewList(),
+				unusedIterVar,
 				varName,
-				meh.ReceiverCall(valueFunc, target),
-				meh.LiteralBool(false),
-				meh.Ident(varName),
+				meh.NewMemberCall(valueFunc, target),
+				meh.NewLiteral(types.False),
+				meh.NewIdent(varName),
 				mapExpr,
 			),
 		),
-		meh.GlobalCall(optionalNoneFunc),
+		meh.NewCall(optionalNoneFunc),
 	), nil
 }
 
@@ -423,19 +423,19 @@ func optFlatMap(meh MacroExprFactory, target ast.Expr, args []ast.Expr) (ast.Exp
 		return nil, meh.NewError(varIdent.ID(), "optFlatMap() variable name must be a simple identifier")
 	}
 	mapExpr := args[1]
-	return meh.GlobalCall(
+	return meh.NewCall(
 		operators.Conditional,
-		meh.ReceiverCall(hasValueFunc, target),
-		meh.Fold(
-			unusedIterVar,
+		meh.NewMemberCall(hasValueFunc, target),
+		meh.NewComprehension(
 			meh.NewList(),
+			unusedIterVar,
 			varName,
-			meh.ReceiverCall(valueFunc, target),
-			meh.LiteralBool(false),
-			meh.Ident(varName),
+			meh.NewMemberCall(valueFunc, target),
+			meh.NewLiteral(types.False),
+			meh.NewIdent(varName),
 			mapExpr,
 		),
-		meh.GlobalCall(optionalNoneFunc),
+		meh.NewCall(optionalNoneFunc),
 	), nil
 }
 
