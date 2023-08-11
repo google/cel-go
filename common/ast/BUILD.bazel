@@ -7,6 +7,7 @@ package(
         "//common:__subpackages__",
         "//ext:__subpackages__",
         "//interpreter:__subpackages__",
+        "//parser:__subpackages__",
     ],
     licenses = ["notice"],  # Apache 2.0
 )

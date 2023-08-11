@@ -15,6 +15,7 @@
 package interpreter
 
 import (
+	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types"
@@ -67,22 +68,30 @@ type astPruner struct {
 // compiled and constant folded expressions, but is not willing to constant
 // fold(and thus cache results of) some external calls, then they can prepare
 // the overloads accordingly.
-func PruneAst(expr *exprpb.Expr, macroCalls map[int64]*exprpb.Expr, state EvalState) *exprpb.ParsedExpr {
+func PruneAst(expr ast.Expr, macroCalls map[int64]ast.Expr, state EvalState) *ast.AST {
 	pruneState := NewEvalState()
 	for _, id := range state.IDs() {
 		v, _ := state.Value(id)
 		pruneState.SetValue(id, v)
 	}
-	pruner := &astPruner{
-		expr:       expr,
-		macroCalls: macroCalls,
-		state:      pruneState,
-		nextExprID: getMaxID(expr)}
-	newExpr, _ := pruner.maybePrune(expr)
-	return &exprpb.ParsedExpr{
-		Expr:       newExpr,
-		SourceInfo: &exprpb.SourceInfo{MacroCalls: pruner.macroCalls},
+	pbExpr, _ := ast.ExprToProto(expr)
+	pbMacroCalls := make(map[int64]*exprpb.Expr, len(macroCalls))
+	for id, call := range macroCalls {
+		pbMacroCalls[id], _ = ast.ExprToProto(call)
 	}
+	pruner := &astPruner{
+		expr:       pbExpr,
+		macroCalls: pbMacroCalls,
+		state:      pruneState,
+		nextExprID: getMaxID(pbExpr)}
+	newPBExpr, _ := pruner.maybePrune(pbExpr)
+	newExpr, _ := ast.ProtoToExpr(newPBExpr)
+	newInfo := ast.NewSourceInfo(nil)
+	for id, pbCall := range pruner.macroCalls {
+		call, _ := ast.ProtoToExpr(pbCall)
+		newInfo.SetMacroCall(id, call)
+	}
+	return ast.NewAST(newExpr, newInfo)
 }
 
 func (p *astPruner) createLiteral(id int64, val *exprpb.Constant) *exprpb.Expr {

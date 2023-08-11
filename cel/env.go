@@ -210,9 +210,6 @@ func NewCustomEnv(opts ...EnvOption) (*Env, error) {
 // It is possible to have both non-nil Ast and Issues values returned from this call: however,
 // the mere presence of an Ast does not imply that it is valid for use.
 func (e *Env) Check(ast *Ast) (*Ast, *Issues) {
-	// Note, errors aren't currently possible on the Ast to ParsedExpr conversion.
-	pe, _ := AstToParsedExpr(ast)
-
 	// Construct the internal checker env, erroring if there is an issue adding the declarations.
 	chk, err := e.initChecker()
 	if err != nil {
@@ -221,7 +218,7 @@ func (e *Env) Check(ast *Ast) (*Ast, *Issues) {
 		return nil, NewIssuesWithSourceInfo(errs, ast.SourceInfo())
 	}
 
-	res, errs := checker.Check(pe, ast.Source(), chk)
+	res, errs := checker.Check(celast.NewAST(ast.expr, ast.info), ast.Source(), chk)
 	if len(errs.GetErrors()) > 0 {
 		return nil, NewIssuesWithSourceInfo(errs, ast.SourceInfo())
 	}
@@ -433,22 +430,10 @@ func (e *Env) ParseSource(src Source) (*Ast, *Issues) {
 	if len(errs.GetErrors()) > 0 {
 		return nil, &Issues{errs: errs}
 	}
-	// Manually create the Ast to ensure that the text source information is propagated on
-	// subsequent calls to Check.
-	expr, err := celast.ProtoToExpr(res.GetExpr())
-	if err != nil {
-		errs.ReportError(common.NoLocation, "invalid parsed expression: %v", err)
-		return nil, &Issues{errs: errs}
-	}
-	info, err := celast.ProtoToSourceInfo(res.GetSourceInfo())
-	if err != nil {
-		errs.ReportError(common.NoLocation, "invalid source info: %v", err)
-		return nil, &Issues{errs: errs}
-	}
 	return &Ast{
 		source: src,
-		expr:   expr,
-		info:   info}, nil
+		expr:   res.Expr(),
+		info:   res.SourceInfo()}, nil
 }
 
 // Program generates an evaluable instance of the Ast within the environment (Env).
@@ -544,8 +529,12 @@ func (e *Env) PartialVars(vars any) (interpreter.PartialActivation, error) {
 // TODO: Consider adding an option to generate a Program.Residual to avoid round-tripping to an
 // Ast format and then Program again.
 func (e *Env) ResidualAst(a *Ast, details *EvalDetails) (*Ast, error) {
-	pruned := interpreter.PruneAst(a.Expr(), a.SourceInfo().GetMacroCalls(), details.State())
-	expr, err := AstToString(ParsedExprToAst(pruned))
+	pruned := interpreter.PruneAst(a.expr, a.info.MacroCalls(), details.State())
+	newAST := &Ast{
+		expr: pruned.Expr(),
+		info: pruned.SourceInfo(),
+	}
+	expr, err := AstToString(newAST)
 	if err != nil {
 		return nil, err
 	}

@@ -273,6 +273,11 @@ func ExprToProto(e Expr) (*exprpb.Expr, error) {
 	case StructKind:
 		return protoStruct(e.ID(), e.AsStruct())
 	case UnspecifiedExprKind:
+		// Handle the case where a macro reference may be getting translated.
+		// A nested macro 'pointer' is a non-zero expression id with no kind set.
+		if e.ID() != 0 {
+			return &exprpb.Expr{Id: e.ID()}, nil
+		}
 		return &exprpb.Expr{}, nil
 	}
 	return nil, fmt.Errorf("unsupported expr kind: %v", e)

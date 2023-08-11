@@ -54,6 +54,14 @@ func (a *AST) GetType(id int64) *types.Type {
 	return types.DynType
 }
 
+// SetType sets the type of the expression node at the given id.
+func (a *AST) SetType(id int64, t *types.Type) {
+	if a == nil {
+		return
+	}
+	a.typeMap[id] = t
+}
+
 // TypeMap returns the map of expression ids to type-checked types.
 //
 // If the AST is not type-checked, the map will be empty.
@@ -80,6 +88,14 @@ func (a *AST) ReferenceMap() map[int64]*ReferenceInfo {
 		return map[int64]*ReferenceInfo{}
 	}
 	return a.refMap
+}
+
+// SetReference adds a reference to the checked AST type map.
+func (a *AST) SetReference(id int64, r *ReferenceInfo) {
+	if a == nil {
+		return
+	}
+	a.refMap[id] = r
 }
 
 // IsChecked returns whether the AST is type-checked.

@@ -22,7 +22,9 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/common"
+	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/debug"
+	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/test"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
@@ -1777,71 +1779,82 @@ type metadata interface {
 }
 
 type kindAndIDAdorner struct {
-	sourceInfo *exprpb.SourceInfo
+	sourceInfo *ast.SourceInfo
 }
 
 func (k *kindAndIDAdorner) GetMetadata(elem any) string {
-	switch elem.(type) {
-	case *exprpb.Expr:
-		e := elem.(*exprpb.Expr)
-		macroCalls := k.sourceInfo.GetMacroCalls()
-		if macroCalls != nil {
-			if val, found := macroCalls[e.GetId()]; found {
-				return fmt.Sprintf("^#%d:%s#", e.GetId(), val.GetCallExpr().GetFunction())
+	switch e := elem.(type) {
+	case ast.Expr:
+		if macroCall, found := k.sourceInfo.GetMacroCall(e.ID()); found {
+			return fmt.Sprintf("^#%d:%s#", e.ID(), macroCall.AsCall().FunctionName())
+		}
+		var valType string
+		switch e.Kind() {
+		case ast.CallKind:
+			valType = "*expr.Expr_CallExpr"
+		case ast.ComprehensionKind:
+			valType = "*expr.Expr_ComprehensionExpr"
+		case ast.IdentKind:
+			valType = "*expr.Expr_IdentExpr"
+		case ast.LiteralKind:
+			lit := e.AsLiteral()
+			switch lit.(type) {
+			case types.Bool:
+				valType = "*expr.Constant_BoolValue"
+			case types.Bytes:
+				valType = "*expr.Constant_BytesValue"
+			case types.Double:
+				valType = "*expr.Constant_DoubleValue"
+			case types.Int:
+				valType = "*expr.Constant_Int64Value"
+			case types.Null:
+				valType = "*expr.Constant_NullValue"
+			case types.String:
+				valType = "*expr.Constant_StringValue"
+			case types.Uint:
+				valType = "*expr.Constant_Uint64Value"
+			default:
+				valType = reflect.TypeOf(lit).String()
 			}
+		case ast.ListKind:
+			valType = "*expr.Expr_ListExpr"
+		case ast.MapKind, ast.StructKind:
+			valType = "*expr.Expr_StructExpr"
+		case ast.SelectKind:
+			valType = "*expr.Expr_SelectExpr"
 		}
-		var valType any = e.ExprKind
-		switch valType.(type) {
-		case *exprpb.Expr_ConstExpr:
-			valType = e.GetConstExpr().GetConstantKind()
-		}
-		return fmt.Sprintf("^#%d:%s#", e.GetId(), reflect.TypeOf(valType))
-	case *exprpb.Expr_CreateStruct_Entry:
-		entry := elem.(*exprpb.Expr_CreateStruct_Entry)
-		return fmt.Sprintf("^#%d:%s#", entry.GetId(), "*expr.Expr_CreateStruct_Entry")
+		return fmt.Sprintf("^#%d:%s#", e.ID(), valType)
+	case ast.EntryExpr:
+		return fmt.Sprintf("^#%d:%s#", e.ID(), "*expr.Expr_CreateStruct_Entry")
 	}
 	return ""
 }
 
 type locationAdorner struct {
-	sourceInfo *exprpb.SourceInfo
+	sourceInfo *ast.SourceInfo
 }
 
 var _ metadata = &locationAdorner{}
 
 func (l *locationAdorner) GetLocation(exprID int64) (common.Location, bool) {
-	if pos, found := l.sourceInfo.GetPositions()[exprID]; found {
-		var line = 1
-		for _, lineOffset := range l.sourceInfo.GetLineOffsets() {
-			if lineOffset > pos {
-				break
-			} else {
-				line++
-			}
-		}
-		var column = pos
-		if line > 1 {
-			column = pos - l.sourceInfo.GetLineOffsets()[line-2]
-		}
-		return common.NewLocation(line, int(column)), true
-	}
-	return common.NoLocation, false
+	loc := l.sourceInfo.GetStartLocation(exprID)
+	return loc, loc != common.NoLocation
 }
 
 func (l *locationAdorner) GetMetadata(elem any) string {
 	var elemID int64
-	switch elem.(type) {
-	case *exprpb.Expr:
-		elemID = elem.(*exprpb.Expr).GetId()
-	case *exprpb.Expr_CreateStruct_Entry:
-		elemID = elem.(*exprpb.Expr_CreateStruct_Entry).GetId()
+	switch elem := elem.(type) {
+	case ast.Expr:
+		elemID = elem.ID()
+	case ast.EntryExpr:
+		elemID = elem.ID()
 	}
 	location, _ := l.GetLocation(elemID)
 	return fmt.Sprintf("^#%d[%d,%d]#", elemID, location.Line(), location.Column())
 }
 
-func convertMacroCallsToString(source *exprpb.SourceInfo) string {
-	macroCalls := source.GetMacroCalls()
+func convertMacroCallsToString(source *ast.SourceInfo) string {
+	macroCalls := source.MacroCalls()
 	keys := make([]int64, len(macroCalls))
 	adornedStrings := make([]string, len(macroCalls))
 	i := 0
@@ -1849,14 +1862,17 @@ func convertMacroCallsToString(source *exprpb.SourceInfo) string {
 		keys[i] = k
 		i++
 	}
+	fac := ast.NewExprFactory()
 	// Sort the keys in descending order to create a stable ordering for tests and improve readability.
 	sort.Slice(keys, func(i, j int) bool { return keys[i] > keys[j] })
 	i = 0
 	for _, key := range keys {
-		call := macroCalls[int64(key)]
-		callWithID := &exprpb.Expr{
-			Id:       int64(key),
-			ExprKind: call.GetExprKind(),
+		call := macroCalls[int64(key)].AsCall()
+		var callWithID ast.Expr
+		if call.IsMemberFunction() {
+			callWithID = fac.NewMemberCall(int64(key), call.FunctionName(), call.Target(), call.Args()...)
+		} else {
+			callWithID = fac.NewCall(int64(key), call.FunctionName(), call.Args()...)
 		}
 		adornedStrings[i] = debug.ToAdornedDebugString(
 			callWithID,
@@ -1882,7 +1898,7 @@ func TestParse(t *testing.T) {
 				p = newTestParser(t, tc.Opts...)
 			}
 			src := common.NewTextSource(tc.I)
-			parsedExpr, errors := p.Parse(src)
+			parsed, errors := p.Parse(src)
 			if len(errors.GetErrors()) > 0 {
 				actualErr := errors.ToDisplayString()
 				if tc.E == "" {
@@ -1895,20 +1911,20 @@ func TestParse(t *testing.T) {
 				t.Fatalf("Expected error not thrown: '%s'", tc.E)
 			}
 			failureDisplayMethod := fmt.Sprintf("Parse(\"%s\")", tc.I)
-			actualWithKind := debug.ToAdornedDebugString(parsedExpr.GetExpr(), &kindAndIDAdorner{})
+			actualWithKind := debug.ToAdornedDebugString(parsed.Expr(), &kindAndIDAdorner{})
 			if !test.Compare(actualWithKind, tc.P) {
 				t.Fatal(test.DiffMessage(fmt.Sprintf("Structure - %s", failureDisplayMethod), actualWithKind, tc.P))
 			}
 
 			if tc.L != "" {
-				actualWithLocation := debug.ToAdornedDebugString(parsedExpr.GetExpr(), &locationAdorner{parsedExpr.GetSourceInfo()})
+				actualWithLocation := debug.ToAdornedDebugString(parsed.Expr(), &locationAdorner{parsed.SourceInfo()})
 				if !test.Compare(actualWithLocation, tc.L) {
 					t.Fatal(test.DiffMessage(fmt.Sprintf("Location - %s", failureDisplayMethod), actualWithLocation, tc.L))
 				}
 			}
 
 			if tc.M != "" {
-				actualAdornedMacroCalls := convertMacroCallsToString(parsedExpr.GetSourceInfo())
+				actualAdornedMacroCalls := convertMacroCallsToString(parsed.SourceInfo())
 				if !test.Compare(actualAdornedMacroCalls, tc.M) {
 					t.Fatal(test.DiffMessage(fmt.Sprintf("Macro Calls - %s", failureDisplayMethod), actualAdornedMacroCalls, tc.M))
 				}

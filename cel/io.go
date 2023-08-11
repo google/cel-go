@@ -112,9 +112,7 @@ func AstToParsedExpr(a *Ast) (*exprpb.ParsedExpr, error) {
 // Note, the conversion may not be an exact replica of the original expression, but will produce
 // a string that is semantically equivalent and whose textual representation is stable.
 func AstToString(a *Ast) (string, error) {
-	expr := a.Expr()
-	info := a.SourceInfo()
-	return parser.Unparse(expr, info)
+	return parser.Unparse(a.expr, a.info)
 }
 
 // RefValueToValue converts between ref.Val and api.expr.Value.
