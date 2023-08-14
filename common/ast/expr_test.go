@@ -474,8 +474,13 @@ func nilTestExpr(t testing.TB) ast.Expr {
 }
 
 func testIDGen(seed int64) ast.IDGenerator {
-	return func() int64 {
+	seen := map[int64]int64{}
+	return func(originalID int64) int64 {
+		if id, found := seen[originalID]; found {
+			return id
+		}
 		seed++
+		seen[originalID] = seed
 		return seed
 	}
 }
