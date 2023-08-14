@@ -155,8 +155,8 @@ type EntryExpr interface {
 	isEntryExpr()
 }
 
-// IDGenerator produces monotonically increasing ids suitable for tagging expression nodes.
-type IDGenerator func() int64
+// IDGenerator produces unique ids suitable for tagging expression nodes
+type IDGenerator func(originalID int64) int64
 
 // CallExpr defines an interface for inspecting a function call and its arugments.
 type CallExpr interface {
@@ -435,7 +435,7 @@ func (e *expr) RenumberIDs(idGen IDGenerator) {
 	if e.Kind() == UnspecifiedExprKind {
 		return
 	}
-	e.id = idGen()
+	e.id = idGen(e.id)
 	e.exprKindCase.renumberIDs(idGen)
 }
 
@@ -751,7 +751,7 @@ func (e *entryExpr) AsStructField() StructField {
 }
 
 func (e *entryExpr) RenumberIDs(idGen IDGenerator) {
-	e.id = idGen()
+	e.id = idGen(e.id)
 	e.entryExprKindCase.renumberIDs(idGen)
 }
 
