@@ -18,6 +18,7 @@ package checker
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/ast"
@@ -78,6 +79,8 @@ func (c *checker) check(e ast.Expr) {
 		case types.BoolType, types.BytesType, types.DoubleType, types.IntType,
 			types.NullType, types.StringType, types.UintType:
 			c.setType(e, literal.Type().(*types.Type))
+		default:
+			c.errors.unexpectedASTType(e.ID(), c.location(e), "literal", literal.Type().TypeName())
 		}
 	case ast.IdentKind:
 		c.checkIdent(e)
@@ -94,7 +97,7 @@ func (c *checker) check(e ast.Expr) {
 	case ast.ComprehensionKind:
 		c.checkComprehension(e)
 	default:
-		c.errors.unexpectedASTType(e.ID(), c.location(e), e)
+		c.errors.unexpectedASTType(e.ID(), c.location(e), "unspecified", reflect.TypeOf(e).Name())
 	}
 }
 

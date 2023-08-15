@@ -15,8 +15,6 @@
 package checker
 
 import (
-	"reflect"
-
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/types"
@@ -85,6 +83,6 @@ func (e *typeErrors) unexpectedFailedResolution(id int64, l common.Location, typ
 	e.errs.ReportErrorAtID(id, l, "unexpected failed resolution of '%s'", typeName)
 }
 
-func (e *typeErrors) unexpectedASTType(id int64, l common.Location, ex ast.Expr) {
-	e.errs.ReportErrorAtID(id, l, "unrecognized ast type: %v", reflect.TypeOf(ex))
+func (e *typeErrors) unexpectedASTType(id int64, l common.Location, kind, typeName string) {
+	e.errs.ReportErrorAtID(id, l, "unexpected %s type: %v", kind, typeName)
 }
