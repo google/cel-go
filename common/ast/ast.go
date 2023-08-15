@@ -125,6 +125,28 @@ func NewCheckedAST(parsed *AST, typeMap map[int64]*types.Type, refMap map[int64]
 	}
 }
 
+// Copy creates a deep copy of the Expr and SourceInfo values in the input AST.
+//
+// Copies of the Expr value are generated using an internal default ExprFactory.
+func Copy(a *AST) *AST {
+	if a == nil {
+		return nil
+	}
+	e := defaultFactory.CopyExpr(a.expr)
+	if !a.IsChecked() {
+		return NewAST(e, CopySourceInfo(a.SourceInfo()))
+	}
+	typesCopy := make(map[int64]*types.Type, len(a.typeMap))
+	for id, t := range a.typeMap {
+		typesCopy[id] = t
+	}
+	refsCopy := make(map[int64]*ReferenceInfo, len(a.refMap))
+	for id, r := range a.refMap {
+		refsCopy[id] = r
+	}
+	return NewCheckedAST(NewAST(e, CopySourceInfo(a.SourceInfo())), typesCopy, refsCopy)
+}
+
 // NewSourceInfo creates a simple SourceInfo object from an input common.Source value.
 func NewSourceInfo(src common.Source) *SourceInfo {
 	var lineOffsets []int32
@@ -138,6 +160,30 @@ func NewSourceInfo(src common.Source) *SourceInfo {
 		lines:        lineOffsets,
 		offsetRanges: make(map[int64]OffsetRange),
 		macroCalls:   make(map[int64]Expr),
+	}
+}
+
+// CopySourceInfo creates a deep copy of the MacroCalls within the input SourceInfo.
+//
+// Copies of macro Expr values are generated using an internal default ExprFactory.
+func CopySourceInfo(info *SourceInfo) *SourceInfo {
+	if info == nil {
+		return nil
+	}
+	rangesCopy := make(map[int64]OffsetRange, len(info.offsetRanges))
+	for id, off := range info.offsetRanges {
+		rangesCopy[id] = off
+	}
+	callsCopy := make(map[int64]Expr, len(info.macroCalls))
+	for id, call := range info.macroCalls {
+		callsCopy[id] = defaultFactory.CopyExpr(call)
+	}
+	return &SourceInfo{
+		syntax:       info.syntax,
+		desc:         info.desc,
+		lines:        info.lines,
+		offsetRanges: rangesCopy,
+		macroCalls:   callsCopy,
 	}
 }
 

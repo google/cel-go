@@ -4,6 +4,12 @@ import "github.com/google/cel-go/common/types/ref"
 
 // ExprFactory interfaces defines a set of methods necessary for building native expression values.
 type ExprFactory interface {
+	// CopyExpr creates a deep copy of the input Expr value.
+	CopyExpr(Expr) Expr
+
+	// CopyEntryExpr creates a deep copy of the input EntryExpr value.
+	CopyEntryExpr(EntryExpr) EntryExpr
+
 	// NewCall creates an Expr value representing a global function call.
 	NewCall(id int64, function string, args ...Expr) Expr
 
@@ -176,6 +182,79 @@ func (fac *baseExprFactory) NewUnspecifiedExpr(id int64) Expr {
 	return fac.newExpr(id, nil)
 }
 
+func (fac *baseExprFactory) CopyExpr(e Expr) Expr {
+	switch e.Kind() {
+	case CallKind:
+		c := e.AsCall()
+		argsCopy := make([]Expr, len(c.Args()))
+		for i, arg := range c.Args() {
+			argsCopy[i] = fac.CopyExpr(arg)
+		}
+		if !c.IsMemberFunction() {
+			return fac.NewCall(e.ID(), c.FunctionName(), argsCopy...)
+		}
+		return fac.NewMemberCall(e.ID(), c.FunctionName(), fac.CopyExpr(c.Target()), argsCopy...)
+	case ComprehensionKind:
+		compre := e.AsComprehension()
+		return fac.NewComprehension(e.ID(),
+			fac.CopyExpr(compre.IterRange()),
+			compre.IterVar(),
+			compre.AccuVar(),
+			fac.CopyExpr(compre.AccuInit()),
+			fac.CopyExpr(compre.LoopCondition()),
+			fac.CopyExpr(compre.LoopStep()),
+			fac.CopyExpr(compre.Result()))
+	case IdentKind:
+		return fac.NewIdent(e.ID(), e.AsIdent())
+	case ListKind:
+		l := e.AsList()
+		elemsCopy := make([]Expr, l.Size())
+		for i, elem := range l.Elements() {
+			elemsCopy[i] = fac.CopyExpr(elem)
+		}
+		return fac.NewList(e.ID(), elemsCopy, l.OptionalIndices())
+	case LiteralKind:
+		return fac.NewLiteral(e.ID(), e.AsLiteral())
+	case MapKind:
+		m := e.AsMap()
+		entriesCopy := make([]EntryExpr, m.Size())
+		for i, entry := range m.Entries() {
+			entriesCopy[i] = fac.CopyEntryExpr(entry)
+		}
+		return fac.NewMap(e.ID(), entriesCopy)
+	case SelectKind:
+		s := e.AsSelect()
+		if s.IsTestOnly() {
+			return fac.NewPresenceTest(e.ID(), fac.CopyExpr(s.Operand()), s.FieldName())
+		}
+		return fac.NewSelect(e.ID(), fac.CopyExpr(s.Operand()), s.FieldName())
+	case StructKind:
+		s := e.AsStruct()
+		fieldsCopy := make([]EntryExpr, len(s.Fields()))
+		for i, field := range s.Fields() {
+			fieldsCopy[i] = fac.CopyEntryExpr(field)
+		}
+		return fac.NewStruct(e.ID(), s.TypeName(), fieldsCopy)
+	default:
+		return fac.NewUnspecifiedExpr(e.ID())
+	}
+}
+
+func (fac *baseExprFactory) CopyEntryExpr(e EntryExpr) EntryExpr {
+	switch e.Kind() {
+	case MapEntryKind:
+		entry := e.AsMapEntry()
+		return fac.NewMapEntry(e.ID(),
+			fac.CopyExpr(entry.Key()), fac.CopyExpr(entry.Value()), entry.IsOptional())
+	case StructFieldKind:
+		field := e.AsStructField()
+		return fac.NewStructField(e.ID(),
+			field.Name(), fac.CopyExpr(field.Value()), field.IsOptional())
+	default:
+		return fac.newEntryExpr(e.ID(), nil)
+	}
+}
+
 func (*baseExprFactory) isExprFactory() {}
 
 func (fac *baseExprFactory) newExpr(id int64, e exprKindCase) Expr {
@@ -191,3 +270,7 @@ func (fac *baseExprFactory) newEntryExpr(id int64, e entryExprKindCase) EntryExp
 		entryExprKindCase: e,
 	}
 }
+
+var (
+	defaultFactory = &baseExprFactory{}
+)
