@@ -99,7 +99,7 @@ func (a *AST) SetReference(id int64, r *ReferenceInfo) {
 
 // IsChecked returns whether the AST is type-checked.
 func (a *AST) IsChecked() bool {
-	return a != nil && (len(a.TypeMap()) > 0 || len(a.ReferenceMap()) > 0)
+	return a != nil && len(a.TypeMap()) > 0
 }
 
 // NewAST creates a base AST instance with an ast.Expr and ast.SourceInfo value.
