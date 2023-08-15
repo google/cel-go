@@ -27,7 +27,6 @@ type AST struct {
 	sourceInfo *SourceInfo
 	typeMap    map[int64]*types.Type
 	refMap     map[int64]*ReferenceInfo
-	checked    bool
 }
 
 // Expr returns the root ast.Expr value in the AST.
@@ -100,7 +99,7 @@ func (a *AST) SetReference(id int64, r *ReferenceInfo) {
 
 // IsChecked returns whether the AST is type-checked.
 func (a *AST) IsChecked() bool {
-	return a != nil && a.checked
+	return a != nil && (len(a.TypeMap()) > 0 || len(a.ReferenceMap()) > 0)
 }
 
 // NewAST creates a base AST instance with an ast.Expr and ast.SourceInfo value.
@@ -113,7 +112,6 @@ func NewAST(e Expr, sourceInfo *SourceInfo) *AST {
 		sourceInfo: sourceInfo,
 		typeMap:    make(map[int64]*types.Type),
 		refMap:     make(map[int64]*ReferenceInfo),
-		checked:    false,
 	}
 }
 
@@ -124,7 +122,6 @@ func NewCheckedAST(parsed *AST, typeMap map[int64]*types.Type, refMap map[int64]
 		sourceInfo: parsed.SourceInfo(),
 		typeMap:    typeMap,
 		refMap:     refMap,
-		checked:    len(typeMap) != 0 || len(refMap) != 0,
 	}
 }
 
