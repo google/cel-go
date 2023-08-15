@@ -387,6 +387,7 @@ func (e *expr) SetKindCase(other Expr) {
 			function: c.FunctionName(),
 			target:   c.Target(),
 			args:     c.Args(),
+			isMember: c.IsMemberFunction(),
 		}
 	case ComprehensionKind:
 		c := other.AsComprehension()
@@ -432,11 +433,13 @@ func (e *expr) SetKindCase(other Expr) {
 }
 
 func (e *expr) RenumberIDs(idGen IDGenerator) {
-	if e.Kind() == UnspecifiedExprKind {
+	if e == nil {
 		return
 	}
 	e.id = idGen(e.id)
-	e.exprKindCase.renumberIDs(idGen)
+	if e.exprKindCase != nil {
+		e.exprKindCase.renumberIDs(idGen)
+	}
 }
 
 type baseCallExpr struct {
