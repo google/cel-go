@@ -518,19 +518,7 @@ func (p *evalActivationPool) Put(value any) {
 }
 
 func astToExprAST(a *Ast) (*ast.AST, error) {
-	expr, err := ast.ProtoToExpr(a.Expr())
-	if err != nil {
-		return nil, err
-	}
-	info, err := ast.ProtoToSourceInfo(a.SourceInfo())
-	if err != nil {
-		return nil, err
-	}
-	baseAST := ast.NewAST(expr, info)
-	if !a.IsChecked() {
-		return baseAST, nil
-	}
-	return ast.NewCheckedAST(baseAST, a.typeMap, a.refMap), nil
+	return a.impl, nil
 }
 
 var (
