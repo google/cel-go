@@ -446,7 +446,10 @@ func TestNavigableSelectExpr_TestOnly(t *testing.T) {
 
 func mustTypeCheck(t testing.TB, expr string) *ast.AST {
 	t.Helper()
-	p, err := parser.NewParser(parser.Macros(parser.AllMacros...), parser.EnableOptionalSyntax(true))
+	p, err := parser.NewParser(
+		parser.Macros(parser.AllMacros...),
+		parser.EnableOptionalSyntax(true),
+		parser.PopulateMacroCalls(true))
 	if err != nil {
 		t.Fatalf("parser.NewParser() failed: %v", err)
 	}

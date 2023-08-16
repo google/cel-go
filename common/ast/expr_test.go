@@ -88,8 +88,17 @@ func TestSetKindCase(t *testing.T) {
 					t.Errorf("got %v, wanted %v", expr, tst)
 				}
 			case ast.MapKind:
+				if !reflect.DeepEqual(expr.AsMap(), tst.AsMap()) {
+					t.Errorf("got %v, wanted %v", expr, tst)
+				}
 			case ast.SelectKind:
+				if !reflect.DeepEqual(expr.AsSelect(), tst.AsSelect()) {
+					t.Errorf("got %v, wanted %v", expr, tst)
+				}
 			case ast.StructKind:
+				if !reflect.DeepEqual(expr.AsStruct(), tst.AsStruct()) {
+					t.Errorf("got %v, wanted %v", expr, tst)
+				}
 			default:
 				t.Errorf("unable to determine kind case: %v", tst)
 			}

@@ -25,6 +25,31 @@ import (
 	"github.com/google/cel-go/common/types"
 )
 
+func TestASTCopy(t *testing.T) {
+	tests := []string{
+		`'a' == 'b'`,
+		`'a'.size()`,
+		`size('a')`,
+		`has({'a': 1}.a)`,
+		`{'a': 1}`,
+		`{'a': 1}['a']`,
+		`[1, 2, 3].exists(i, i % 2 == 1)`,
+		`google.expr.proto3.test.TestAllTypes{}`,
+		`google.expr.proto3.test.TestAllTypes{repeated_int32: [1, 2]}`,
+	}
+
+	for _, tst := range tests {
+		checked := mustTypeCheck(t, tst)
+		copied := ast.Copy(checked)
+		if !reflect.DeepEqual(copied.Expr(), checked.Expr()) {
+			t.Errorf("Copy() got expr %v, wanted %v", copied.Expr(), checked.Expr())
+		}
+		if !reflect.DeepEqual(copied.SourceInfo(), checked.SourceInfo()) {
+			t.Errorf("Copy() got source info %v, wanted %v", copied.SourceInfo(), checked.SourceInfo())
+		}
+	}
+}
+
 func TestASTNilSafety(t *testing.T) {
 	ex, err := ast.ProtoToExpr(nil)
 	if err != nil {
