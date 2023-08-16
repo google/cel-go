@@ -109,6 +109,8 @@ var stringTests = []struct {
 	{expr: `'gums'.reverse() == 'smug'`},
 	{expr: `'palindromes'.reverse() == 'semordnilap'`},
 	{expr: `'John Smith'.reverse() == 'htimS nhoJ'`},
+	{expr: `'u180etext'.reverse() == 'txete081u'`},
+	{expr: `'2600+U'.reverse() == 'U+0062'`},
 	// Join tests.
 	{expr: `['x', 'y'].join() == 'xy'`},
 	{expr: `['x', 'y'].join('-') == 'x-y'`},
