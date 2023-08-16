@@ -61,11 +61,7 @@ func AstToCheckedExpr(a *Ast) (*exprpb.CheckedExpr, error) {
 	if !a.IsChecked() {
 		return nil, fmt.Errorf("cannot convert unchecked ast")
 	}
-	checked, err := astToExprAST(a)
-	if err != nil {
-		return nil, err
-	}
-	return ast.ToProto(checked)
+	return ast.ToProto(a.impl)
 }
 
 // ParsedExprToAst converts a parsed expression proto message to an Ast.

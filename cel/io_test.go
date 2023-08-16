@@ -107,7 +107,7 @@ func TestAstToProto(t *testing.T) {
 	}
 	checked, err := AstToCheckedExpr(ast)
 	if err != nil {
-		t.Fatalf("AstToCheckeExpr(ast) failed: %v", err)
+		t.Fatalf("AstToCheckedExpr(ast) failed: %v", err)
 	}
 	ast4 := CheckedExprToAst(checked)
 	if !proto.Equal(ast4.Expr(), ast.Expr()) {

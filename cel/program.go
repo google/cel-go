@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter"
@@ -244,11 +243,7 @@ func newProgram(e *Env, a *Ast, opts []ProgramOption) (Program, error) {
 
 func (p *prog) initInterpretable(a *Ast, decs []interpreter.InterpretableDecorator) (*prog, error) {
 	// When the AST has been exprAST it contains metadata that can be used to speed up program execution.
-	exprAST, err := astToExprAST(a)
-	if err != nil {
-		return nil, err
-	}
-	interpretable, err := p.interpreter.NewInterpretable(exprAST, decs...)
+	interpretable, err := p.interpreter.NewInterpretable(a.impl, decs...)
 	if err != nil {
 		return nil, err
 	}
@@ -515,10 +510,6 @@ func (p *evalActivationPool) Put(value any) {
 		delete(a.lazyVars, k)
 	}
 	p.Pool.Put(a)
-}
-
-func astToExprAST(a *Ast) (*ast.AST, error) {
-	return a.impl, nil
 }
 
 var (
