@@ -458,12 +458,6 @@ func (lib *stringLib) CompileOptions() []cel.EnvOption {
 					s := str.(types.String)
 					return stringOrError(upperASCII(string(s)))
 				}))),
-		cel.Function("reverse",
-			cel.MemberOverload("reverse", []*cel.Type{cel.StringType}, cel.StringType,
-				cel.UnaryBinding(func(str ref.Val) ref.Val {
-					s := str.(types.String)
-					return stringOrError(reverse(string(s)))
-				}))),
 	}
 	if lib.version >= 1 {
 		opts = append(opts, cel.Function("format",
@@ -516,6 +510,16 @@ func (lib *stringLib) CompileOptions() []cel.EnvOption {
 						}
 						d := delim.(types.String)
 						return stringOrError(joinSeparator(l.([]string), string(d)))
+					}))),
+		)
+	}
+	if lib.version >= 3 {
+		opts = append( opts,
+			cel.Function("reverse",
+				cel.MemberOverload("reverse", []*cel.Type{cel.StringType}, cel.StringType,
+					cel.UnaryBinding(func(str ref.Val) ref.Val {
+						s := str.(types.String)
+						return stringOrError(reverse(string(s)))
 					}))),
 		)
 	}
