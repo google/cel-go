@@ -18,8 +18,10 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/cel-go/common"
+	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/stdlib"
@@ -2539,6 +2541,23 @@ func TestCheckErrorData(t *testing.T) {
 	}
 	if !strings.Contains(celErr.Message, "undeclared reference") {
 		t.Errorf("got message %v, wanted undeclared reference", celErr.Message)
+	}
+}
+
+func TestCheckInvalidLiteral(t *testing.T) {
+	fac := ast.NewExprFactory()
+	durLiteral := fac.NewLiteral(1, types.Duration{Duration: time.Second})
+	// This is not valid syntax, just for illustration purposes.
+	src := common.NewTextSource(`1s`)
+	parsed := ast.NewAST(durLiteral, ast.NewSourceInfo(src))
+	reg := newTestRegistry(t)
+	env, err := NewEnv(containers.DefaultContainer, reg)
+	if err != nil {
+		t.Fatalf("NewEnv(cont, reg) failed: %v", err)
+	}
+	_, iss := Check(parsed, src, env)
+	if !strings.Contains(iss.ToDisplayString(), "unexpected literal type") {
+		t.Errorf("got %s, wanted 'unexpected literal type'", iss.ToDisplayString())
 	}
 }
 
