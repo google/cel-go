@@ -31,56 +31,66 @@ import (
 	proto3pb "github.com/google/cel-go/test/proto3pb"
 )
 
-func TestNavigateExpr(t *testing.T) {
+func TestNavigateAST(t *testing.T) {
 	tests := []struct {
 		expr            string
 		descendantCount int
 		callCount       int
+		maxDepth        int
 	}{
 		{
 			expr:            `'a' == 'b'`,
 			descendantCount: 3,
 			callCount:       1,
+			maxDepth:        1,
 		},
 		{
 			expr:            `'a'.size()`,
 			descendantCount: 2,
 			callCount:       1,
+			maxDepth:        1,
 		},
 		{
 			expr:            `[1, 2, 3]`,
 			descendantCount: 4,
 			callCount:       0,
+			maxDepth:        1,
 		},
 		{
 			expr:            `[1, 2, 3][0]`,
 			descendantCount: 6,
 			callCount:       1,
+			maxDepth:        2,
 		},
 		{
 			expr:            `{1u: 'hello'}`,
 			descendantCount: 3,
 			callCount:       0,
+			maxDepth:        1,
 		},
 		{
 			expr:            `{'hello': 'world'}.hello`,
 			descendantCount: 4,
 			callCount:       0,
+			maxDepth:        2,
 		},
 		{
 			expr:            `type(1) == int`,
 			descendantCount: 4,
 			callCount:       2,
+			maxDepth:        2,
 		},
 		{
 			expr:            `google.expr.proto3.test.TestAllTypes{single_int32: 1}`,
 			descendantCount: 2,
 			callCount:       0,
+			maxDepth:        1,
 		},
 		{
 			expr:            `[true].exists(i, i)`,
 			descendantCount: 11, // 2 for iter range, 1 for accu init, 4 for loop condition, 3 for loop step, 1 for result
 			callCount:       3,  // @not_strictly_false(!result), accu_init || i
+			maxDepth:        3,
 		},
 	}
 
@@ -93,6 +103,15 @@ func TestNavigateExpr(t *testing.T) {
 			if len(descendants) != tc.descendantCount {
 				t.Errorf("ast.MatchDescendants(%v) got %d descendants, wanted %d", checked.Expr(), len(descendants), tc.descendantCount)
 			}
+			maxDepth := 0
+			for _, d := range descendants {
+				if d.Depth() > maxDepth {
+					maxDepth = d.Depth()
+				}
+			}
+			if maxDepth != tc.maxDepth {
+				t.Errorf("got max NavigableExpr.Depth() of %d, wanted %d", maxDepth, tc.maxDepth)
+			}
 			calls := ast.MatchSubset(descendants, ast.KindMatcher(ast.CallKind))
 			if len(calls) != tc.callCount {
 				t.Errorf("ast.MatchSubset(%v) got %d calls, wanted %d", checked.Expr(), len(calls), tc.callCount)
@@ -101,7 +120,7 @@ func TestNavigateExpr(t *testing.T) {
 	}
 }
 
-func TestNavigateExprNilSafety(t *testing.T) {
+func TestNavigableASTNilSafety(t *testing.T) {
 	tests := []struct {
 		name string
 		e    ast.NavigableExpr
@@ -140,6 +159,33 @@ func TestNavigateExprNilSafety(t *testing.T) {
 				t.Errorf("AsComprehension() got nil, wanted non-nil for safe traversal")
 			}
 		})
+	}
+}
+
+func TestNavigableExpr(t *testing.T) {
+	checkedAST := mustTypeCheck(t, `'a' == 'b'`)
+	navAST := ast.NavigateAST(checkedAST)
+	literals := ast.MatchDescendants(navAST, func(expr ast.NavigableExpr) bool {
+		return expr.Kind() == ast.LiteralKind &&
+			expr.AsLiteral().Equal(types.String("a")) == types.True
+	})
+	if len(literals) != 1 {
+		t.Fatalf("MatchDescendents('a') got %d results, wanted 1", len(literals))
+	}
+	litA := literals[0]
+	if litA.Depth() != 1 {
+		t.Fatalf("litA.Depth() got %d, wanted 1", litA.Depth())
+	}
+	parent, found := litA.Parent()
+	if !found {
+		t.Fatal("litA.Parent() returned nil")
+	}
+	if parent.Kind() != ast.CallKind && parent.AsCall().FunctionName() != "==" {
+		t.Fatalf("litA.Parent() got %v, watned '==' function call", parent)
+	}
+	litAPrime := ast.NavigateExpr(checkedAST, litA)
+	if litAPrime.Depth() != litA.Depth() {
+		t.Errorf("litAPrime.Depth() != litA.Depth(), got %d, wanted %d", litAPrime.Depth(), litA.Depth())
 	}
 }
 
@@ -400,7 +446,10 @@ func TestNavigableSelectExpr_TestOnly(t *testing.T) {
 
 func mustTypeCheck(t testing.TB, expr string) *ast.AST {
 	t.Helper()
-	p, err := parser.NewParser(parser.Macros(parser.AllMacros...), parser.EnableOptionalSyntax(true))
+	p, err := parser.NewParser(
+		parser.Macros(parser.AllMacros...),
+		parser.EnableOptionalSyntax(true),
+		parser.PopulateMacroCalls(true))
 	if err != nil {
 		t.Fatalf("parser.NewParser() failed: %v", err)
 	}

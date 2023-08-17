@@ -27,7 +27,6 @@ type AST struct {
 	sourceInfo *SourceInfo
 	typeMap    map[int64]*types.Type
 	refMap     map[int64]*ReferenceInfo
-	checked    bool
 }
 
 // Expr returns the root ast.Expr value in the AST.
@@ -52,6 +51,14 @@ func (a *AST) GetType(id int64) *types.Type {
 		return t
 	}
 	return types.DynType
+}
+
+// SetType sets the type of the expression node at the given id.
+func (a *AST) SetType(id int64, t *types.Type) {
+	if a == nil {
+		return
+	}
+	a.typeMap[id] = t
 }
 
 // TypeMap returns the map of expression ids to type-checked types.
@@ -82,9 +89,17 @@ func (a *AST) ReferenceMap() map[int64]*ReferenceInfo {
 	return a.refMap
 }
 
+// SetReference adds a reference to the checked AST type map.
+func (a *AST) SetReference(id int64, r *ReferenceInfo) {
+	if a == nil {
+		return
+	}
+	a.refMap[id] = r
+}
+
 // IsChecked returns whether the AST is type-checked.
 func (a *AST) IsChecked() bool {
-	return a != nil && a.checked
+	return a != nil && len(a.TypeMap()) > 0
 }
 
 // NewAST creates a base AST instance with an ast.Expr and ast.SourceInfo value.
@@ -97,7 +112,6 @@ func NewAST(e Expr, sourceInfo *SourceInfo) *AST {
 		sourceInfo: sourceInfo,
 		typeMap:    make(map[int64]*types.Type),
 		refMap:     make(map[int64]*ReferenceInfo),
-		checked:    false,
 	}
 }
 
@@ -108,8 +122,29 @@ func NewCheckedAST(parsed *AST, typeMap map[int64]*types.Type, refMap map[int64]
 		sourceInfo: parsed.SourceInfo(),
 		typeMap:    typeMap,
 		refMap:     refMap,
-		checked:    len(typeMap) != 0 || len(refMap) != 0,
 	}
+}
+
+// Copy creates a deep copy of the Expr and SourceInfo values in the input AST.
+//
+// Copies of the Expr value are generated using an internal default ExprFactory.
+func Copy(a *AST) *AST {
+	if a == nil {
+		return nil
+	}
+	e := defaultFactory.CopyExpr(a.expr)
+	if !a.IsChecked() {
+		return NewAST(e, CopySourceInfo(a.SourceInfo()))
+	}
+	typesCopy := make(map[int64]*types.Type, len(a.typeMap))
+	for id, t := range a.typeMap {
+		typesCopy[id] = t
+	}
+	refsCopy := make(map[int64]*ReferenceInfo, len(a.refMap))
+	for id, r := range a.refMap {
+		refsCopy[id] = r
+	}
+	return NewCheckedAST(NewAST(e, CopySourceInfo(a.SourceInfo())), typesCopy, refsCopy)
 }
 
 // NewSourceInfo creates a simple SourceInfo object from an input common.Source value.
@@ -125,6 +160,30 @@ func NewSourceInfo(src common.Source) *SourceInfo {
 		lines:        lineOffsets,
 		offsetRanges: make(map[int64]OffsetRange),
 		macroCalls:   make(map[int64]Expr),
+	}
+}
+
+// CopySourceInfo creates a deep copy of the MacroCalls within the input SourceInfo.
+//
+// Copies of macro Expr values are generated using an internal default ExprFactory.
+func CopySourceInfo(info *SourceInfo) *SourceInfo {
+	if info == nil {
+		return nil
+	}
+	rangesCopy := make(map[int64]OffsetRange, len(info.offsetRanges))
+	for id, off := range info.offsetRanges {
+		rangesCopy[id] = off
+	}
+	callsCopy := make(map[int64]Expr, len(info.macroCalls))
+	for id, call := range info.macroCalls {
+		callsCopy[id] = defaultFactory.CopyExpr(call)
+	}
+	return &SourceInfo{
+		syntax:       info.syntax,
+		desc:         info.desc,
+		lines:        info.lines,
+		offsetRanges: rangesCopy,
+		macroCalls:   callsCopy,
 	}
 }
 

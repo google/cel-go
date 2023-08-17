@@ -1608,15 +1608,11 @@ func TestInterpreter_ProtoAttributeOpt(t *testing.T) {
 
 func TestInterpreter_LogicalAndMissingType(t *testing.T) {
 	parsed := testMustParse(t, `a && TestProto{c: true}.c`)
-	ex, err := ast.ProtoToExpr(parsed.GetExpr())
-	if err != nil {
-		t.Fatalf("ast.ProtoToExpr() failed: %v", err)
-	}
 	reg := newTestRegistry(t)
 	cont := containers.DefaultContainer
 	attrs := NewAttributeFactory(cont, reg, reg)
 	intr := newStandardInterpreter(t, cont, reg, reg, attrs)
-	i, err := intr.NewInterpretable(ast.NewAST(ex, nil))
+	i, err := intr.NewInterpretable(parsed)
 	if err == nil {
 		t.Errorf("Got '%v', wanted error", i)
 	}
@@ -1624,16 +1620,12 @@ func TestInterpreter_LogicalAndMissingType(t *testing.T) {
 
 func TestInterpreter_ExhaustiveConditionalExpr(t *testing.T) {
 	parsed := testMustParse(t, `a ? b < 1.0 : c == ['hello']`)
-	ex, err := ast.ProtoToExpr(parsed.GetExpr())
-	if err != nil {
-		t.Fatalf("ast.ProtoToExpr() failed: %v", err)
-	}
 	state := NewEvalState()
 	cont := containers.DefaultContainer
 	reg := newTestRegistry(t, &exprpb.ParsedExpr{})
 	attrs := NewAttributeFactory(cont, reg, reg)
 	intr := newStandardInterpreter(t, cont, reg, reg, attrs)
-	interpretable, _ := intr.NewInterpretable(ast.NewAST(ex, nil),
+	interpretable, _ := intr.NewInterpretable(parsed,
 		ExhaustiveEval(), Observe(EvalStateObserver(state)))
 	vars, _ := NewActivation(map[string]any{
 		"a": types.True,
@@ -1711,16 +1703,12 @@ func TestInterpreter_ExhaustiveLogicalOrEquals(t *testing.T) {
 	// a || b == "b"
 	// Operator "==" is at Expr 4, should be evaluated though "a" is true
 	parsed := testMustParse(t, `a || b == "b"`)
-	ex, err := ast.ProtoToExpr(parsed.GetExpr())
-	if err != nil {
-		t.Fatalf("ast.ProtoToExpr() failed: %v", err)
-	}
 	state := NewEvalState()
 	reg := newTestRegistry(t, &exprpb.Expr{})
 	cont := testContainer("test")
 	attrs := NewAttributeFactory(cont, reg, reg)
 	interp := newStandardInterpreter(t, cont, reg, reg, attrs)
-	i, _ := interp.NewInterpretable(ast.NewAST(ex, nil),
+	i, _ := interp.NewInterpretable(parsed,
 		ExhaustiveEval(), Observe(EvalStateObserver(state)))
 	vars, _ := NewActivation(map[string]any{
 		"a": true,
@@ -1997,12 +1985,8 @@ func program(t testing.TB, tst *testCase, opts ...InterpretableDecorator) (Inter
 		return nil, nil, errors.New(errs.ToDisplayString())
 	}
 	if tst.unchecked {
-		ex, err := ast.ProtoToExpr(parsed.GetExpr())
-		if err != nil {
-			t.Fatalf("ast.ProtoToExpr() failed: %v", err)
-		}
 		// Build the program plan.
-		prg, err := interp.NewInterpretable(ast.NewAST(ex, nil), opts...)
+		prg, err := interp.NewInterpretable(parsed, opts...)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -2045,7 +2029,7 @@ func isFieldQual(q Qualifier, fieldName string) bool {
 	return f.Name == fieldName
 }
 
-func testMustParse(t testing.TB, data any) *exprpb.ParsedExpr {
+func testMustParse(t testing.TB, data any) *ast.AST {
 	t.Helper()
 	p, err := parser.NewParser()
 	if err != nil {

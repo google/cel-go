@@ -21,11 +21,31 @@ type NavigableExpr interface {
 
 	// Children returns a list of child expression nodes.
 	Children() []NavigableExpr
+
+	// Depth indicates the depth in the expression tree.
+	//
+	// The root expression has depth 0.
+	Depth() int
 }
 
 // NavigateAST converts an AST to a NavigableExpr
 func NavigateAST(ast *AST) NavigableExpr {
-	return newNavigableExpr(ast, nil, ast.Expr())
+	return NavigateExpr(ast, ast.Expr())
+}
+
+// NavigateExpr creates a NavigableExpr whose type information is backed by the input AST.
+//
+// If the expression is already a NavigableExpr, the parent and depth information will be
+// propagated on the new NavigableExpr value; otherwise, the expr value will be treated
+// as though it is the root of the expression graph with a depth of 0.
+func NavigateExpr(ast *AST, expr Expr) NavigableExpr {
+	depth := 0
+	var parent NavigableExpr = nil
+	if nav, ok := expr.(NavigableExpr); ok {
+		depth = nav.Depth()
+		parent, _ = nav.Parent()
+	}
+	return newNavigableExpr(ast, parent, expr, depth)
 }
 
 // ExprMatcher takes a NavigableExpr in and indicates whether the value is a match.
@@ -112,9 +132,14 @@ func matchIsConstantValue(e NavigableExpr) bool {
 	return false
 }
 
-func newNavigableExpr(ast *AST, parent NavigableExpr, expr Expr) NavigableExpr {
+func newNavigableExpr(ast *AST, parent NavigableExpr, expr Expr, depth int) NavigableExpr {
+	// Reduce navigable expression nesting by unwrapping the embedded Expr value.
+	if nav, ok := expr.(*navigableExprImpl); ok {
+		expr = nav.Expr
+	}
 	nav := &navigableExprImpl{
 		Expr:           expr,
+		depth:          depth,
 		ast:            ast,
 		parent:         parent,
 		createChildren: getChildFactory(expr),
@@ -124,6 +149,7 @@ func newNavigableExpr(ast *AST, parent NavigableExpr, expr Expr) NavigableExpr {
 
 type navigableExprImpl struct {
 	Expr
+	depth          int
 	ast            *AST
 	parent         NavigableExpr
 	createChildren childFactory
@@ -150,6 +176,10 @@ func (nav *navigableExprImpl) Type() *types.Type {
 
 func (nav *navigableExprImpl) Children() []NavigableExpr {
 	return nav.createChildren(nav)
+}
+
+func (nav *navigableExprImpl) Depth() int {
+	return nav.depth
 }
 
 func (nav *navigableExprImpl) AsCall() CallExpr {
@@ -185,7 +215,7 @@ func (nav *navigableExprImpl) AsStruct() StructExpr {
 }
 
 func (nav *navigableExprImpl) createChild(e Expr) NavigableExpr {
-	return newNavigableExpr(nav.ast, nav, e)
+	return newNavigableExpr(nav.ast, nav, e, nav.depth+1)
 }
 
 func (nav *navigableExprImpl) isExpr() {}

@@ -47,17 +47,11 @@ func CheckedExprToAst(checkedExpr *exprpb.CheckedExpr) *Ast {
 //
 // Prefer CheckedExprToAst if loading expressions from storage.
 func CheckedExprToAstWithSource(checkedExpr *exprpb.CheckedExpr, src Source) (*Ast, error) {
-	checkedAST, err := ast.ToAST(checkedExpr)
+	checked, err := ast.ToAST(checkedExpr)
 	if err != nil {
 		return nil, err
 	}
-	return &Ast{
-		source:  src,
-		expr:    checkedAST.Expr(),
-		info:    checkedAST.SourceInfo(),
-		refMap:  checkedAST.ReferenceMap(),
-		typeMap: checkedAST.TypeMap(),
-	}, nil
+	return &Ast{source: src, impl: checked}, nil
 }
 
 // AstToCheckedExpr converts an Ast to an protobuf CheckedExpr value.
@@ -67,11 +61,7 @@ func AstToCheckedExpr(a *Ast) (*exprpb.CheckedExpr, error) {
 	if !a.IsChecked() {
 		return nil, fmt.Errorf("cannot convert unchecked ast")
 	}
-	checked, err := astToExprAST(a)
-	if err != nil {
-		return nil, err
-	}
-	return ast.ToProto(checked)
+	return ast.ToProto(a.impl)
 }
 
 // ParsedExprToAst converts a parsed expression proto message to an Ast.
@@ -92,11 +82,7 @@ func ParsedExprToAstWithSource(parsedExpr *exprpb.ParsedExpr, src Source) *Ast {
 		src = common.NewInfoSource(parsedExpr.GetSourceInfo())
 	}
 	e, _ := ast.ProtoToExpr(parsedExpr.GetExpr())
-	return &Ast{
-		expr:   e,
-		info:   info,
-		source: src,
-	}
+	return &Ast{source: src, impl: ast.NewAST(e, info)}
 }
 
 // AstToParsedExpr converts an Ast to an protobuf ParsedExpr value.
@@ -112,9 +98,7 @@ func AstToParsedExpr(a *Ast) (*exprpb.ParsedExpr, error) {
 // Note, the conversion may not be an exact replica of the original expression, but will produce
 // a string that is semantically equivalent and whose textual representation is stable.
 func AstToString(a *Ast) (string, error) {
-	expr := a.Expr()
-	info := a.SourceInfo()
-	return parser.Unparse(expr, info)
+	return parser.Unparse(a.impl.Expr(), a.impl.SourceInfo())
 }
 
 // RefValueToValue converts between ref.Val and api.expr.Value.

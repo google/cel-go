@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/ast"
@@ -2350,7 +2351,7 @@ func TestCheck(t *testing.T) {
 				t.Errorf("Expected error not thrown: %s", tc.err)
 			}
 
-			actual := cAst.GetType(pAst.Expr.Id)
+			actual := cAst.GetType(pAst.Expr().ID())
 			if tc.err == "" {
 				if actual == nil || !actual.IsEquivalentType(tc.outType) {
 					t.Error(test.DiffMessage("Type Error", actual, tc.outType))
@@ -2358,11 +2359,7 @@ func TestCheck(t *testing.T) {
 			}
 
 			if tc.out != "" {
-				chkExpr, err := ast.ToProto(cAst)
-				if err != nil {
-					t.Fatalf("CheckedAstToCheckedExpr() failed: %v", err)
-				}
-				actualStr := Print(pAst.Expr, chkExpr)
+				actualStr := Print(pAst.Expr(), cAst)
 				if !test.Compare(actualStr, tc.out) {
 					t.Error(test.DiffMessage("Structure error", actualStr, tc.out))
 				}
@@ -2445,7 +2442,7 @@ func BenchmarkCheck(b *testing.B) {
 					b.Errorf("Expected error not thrown: %s", tc.err)
 				}
 
-				actual := cAst.GetType(pAst.Expr.Id)
+				actual := cAst.GetType(pAst.Expr().ID())
 				if tc.err == "" {
 					if actual == nil || !actual.IsEquivalentType(tc.outType) {
 						b.Error(test.DiffMessage("Type Error", actual, tc.outType))
@@ -2453,11 +2450,7 @@ func BenchmarkCheck(b *testing.B) {
 				}
 
 				if tc.out != "" {
-					chkExpr, err := ast.ToProto(cAst)
-					if err != nil {
-						b.Fatalf("CheckedAstToCheckedExpr() failed: %v", err)
-					}
-					actualStr := Print(pAst.Expr, chkExpr)
+					actualStr := Print(pAst.Expr(), cAst)
 					if !test.Compare(actualStr, tc.out) {
 						b.Error(test.DiffMessage("Structure error", actualStr, tc.out))
 					}
@@ -2548,6 +2541,23 @@ func TestCheckErrorData(t *testing.T) {
 	}
 	if !strings.Contains(celErr.Message, "undeclared reference") {
 		t.Errorf("got message %v, wanted undeclared reference", celErr.Message)
+	}
+}
+
+func TestCheckInvalidLiteral(t *testing.T) {
+	fac := ast.NewExprFactory()
+	durLiteral := fac.NewLiteral(1, types.Duration{Duration: time.Second})
+	// This is not valid syntax, just for illustration purposes.
+	src := common.NewTextSource(`1s`)
+	parsed := ast.NewAST(durLiteral, ast.NewSourceInfo(src))
+	reg := newTestRegistry(t)
+	env, err := NewEnv(containers.DefaultContainer, reg)
+	if err != nil {
+		t.Fatalf("NewEnv(cont, reg) failed: %v", err)
+	}
+	_, iss := Check(parsed, src, env)
+	if !strings.Contains(iss.ToDisplayString(), "unexpected literal type") {
+		t.Errorf("got %s, wanted 'unexpected literal type'", iss.ToDisplayString())
 	}
 }
 

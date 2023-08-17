@@ -20,13 +20,16 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/common/ast"
+	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types"
 )
 
 func TestSetKindCase(t *testing.T) {
 	fac := ast.NewExprFactory()
 	tests := []ast.Expr{
+		fac.NewUnspecifiedExpr(1),
 		fac.NewCall(1, "_==_", fac.NewLiteral(2, types.True), fac.NewLiteral(3, types.False)),
+		fac.NewMemberCall(1, overloads.Size, fac.NewLiteral(2, types.String("hello"))),
 		fac.NewComprehension(12,
 			fac.NewList(1, []ast.Expr{}, []int32{}),
 			"i",
@@ -80,9 +83,22 @@ func TestSetKindCase(t *testing.T) {
 				if !reflect.DeepEqual(expr.AsList(), tst.AsList()) {
 					t.Errorf("got %v, wanted %v", expr.AsList(), tst.AsList())
 				}
+			case ast.UnspecifiedExprKind:
+				if !reflect.DeepEqual(expr, tst) {
+					t.Errorf("got %v, wanted %v", expr, tst)
+				}
 			case ast.MapKind:
+				if !reflect.DeepEqual(expr.AsMap(), tst.AsMap()) {
+					t.Errorf("got %v, wanted %v", expr, tst)
+				}
 			case ast.SelectKind:
+				if !reflect.DeepEqual(expr.AsSelect(), tst.AsSelect()) {
+					t.Errorf("got %v, wanted %v", expr, tst)
+				}
 			case ast.StructKind:
+				if !reflect.DeepEqual(expr.AsStruct(), tst.AsStruct()) {
+					t.Errorf("got %v, wanted %v", expr, tst)
+				}
 			default:
 				t.Errorf("unable to determine kind case: %v", tst)
 			}
@@ -162,8 +178,8 @@ func TestCallNil(t *testing.T) {
 		t.Errorf("empty Target() got %d, wanted 0", call.Target().ID())
 	}
 	expr.RenumberIDs(testIDGen(100))
-	if expr.ID() != 1 {
-		t.Errorf("Renumbering an unspecified expression mutated the value: %v", expr)
+	if expr.ID() != 101 {
+		t.Errorf("RenumberIDs() got %d, wanted 101", expr.ID())
 	}
 }
 
@@ -241,8 +257,8 @@ func TestComprehensionNil(t *testing.T) {
 		t.Errorf("Result() got %v, wanted unspecified", comp.Result().Kind())
 	}
 	expr.RenumberIDs(testIDGen(100))
-	if expr.ID() != 1 {
-		t.Errorf("Renumbering an unspecified expression mutated the value: %v", expr)
+	if expr.ID() != 101 {
+		t.Errorf("RenumberIDs() got %d, wanted 101", expr.ID())
 	}
 }
 
@@ -462,6 +478,20 @@ func TestStructFieldNil(t *testing.T) {
 	}
 }
 
+func TestRenumberIDs(t *testing.T) {
+	fac := ast.NewExprFactory()
+	e := fac.NewUnspecifiedExpr(10)
+	e.RenumberIDs(testIDGen(100))
+	if e.ID() != 101 {
+		t.Errorf("RenumberIDs() got %d, wanted 101", e.ID())
+	}
+	e = fac.NewLiteral(20, types.True)
+	e.RenumberIDs(testIDGen(200))
+	if e.ID() != 201 {
+		t.Errorf("RenumberIDs() got %d, wanted 201", e.ID())
+	}
+}
+
 func nilTestExpr(t testing.TB) ast.Expr {
 	t.Helper()
 	fac := ast.NewExprFactory()
@@ -474,8 +504,13 @@ func nilTestExpr(t testing.TB) ast.Expr {
 }
 
 func testIDGen(seed int64) ast.IDGenerator {
-	return func() int64 {
+	seen := map[int64]int64{}
+	return func(originalID int64) int64 {
+		if id, found := seen[originalID]; found {
+			return id
+		}
 		seed++
+		seen[originalID] = seed
 		return seed
 	}
 }

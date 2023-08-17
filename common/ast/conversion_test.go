@@ -203,25 +203,23 @@ func TestConvertExpr(t *testing.T) {
 			if len(errs.GetErrors()) != 0 {
 				t.Fatalf("Parse() failed: %s", errs.ToDisplayString())
 			}
+			gotPBExpr, err := ast.ExprToProto(parsed.Expr())
+			if err != nil {
+				t.Fatalf("ast.ExprToProto() failed: %v", err)
+			}
 			wantPBExpr, err := ast.ExprToProto(tc.wantExpr)
 			if err != nil {
 				t.Fatalf("ast.ExprToProto() failed: %v", err)
 			}
-			if !proto.Equal(parsed.GetExpr(), wantPBExpr) {
+			if !proto.Equal(gotPBExpr, wantPBExpr) {
 				t.Errorf("got %v\n, wanted %v",
-					prototext.Format(parsed.GetExpr()), prototext.Format(wantPBExpr))
+					prototext.Format(gotPBExpr), prototext.Format(wantPBExpr))
 			}
-			gotExpr, err := ast.ProtoToExpr(parsed.GetExpr())
-			if err != nil {
-				t.Fatalf("ast.ProtoToExpr() failed: %v", err)
-			}
+			gotExpr := parsed.Expr()
 			if !reflect.DeepEqual(gotExpr, tc.wantExpr) {
 				t.Errorf("got %v, wanted %v", gotExpr, tc.wantExpr)
 			}
-			info, err := ast.ProtoToSourceInfo(parsed.GetSourceInfo())
-			if err != nil {
-				t.Fatalf("ast.ProtoToSourceInfo() failed: %v", err)
-			}
+			info := parsed.SourceInfo()
 			for id, wantCall := range tc.macroCalls {
 				call, found := info.GetMacroCall(id)
 				if !found {
@@ -231,15 +229,181 @@ func TestConvertExpr(t *testing.T) {
 					t.Errorf("macro call got %v, wanted %v", call, wantCall)
 				}
 			}
-			pbInfo, err := ast.SourceInfoToProto(info)
-			if err != nil {
-				t.Fatalf("ast.SourceInfoToProto() failed: %v", err)
-			}
-			if !proto.Equal(parsed.GetSourceInfo(), pbInfo) {
-				t.Errorf("source info roundtrip got %v, wanted %v",
-					prototext.Format(pbInfo), prototext.Format(parsed.GetSourceInfo()))
-			}
 		})
+	}
+}
+
+func TestSourceInfoToProto(t *testing.T) {
+	expr := `[{}, {'field': true}].exists(i, has(i.field))`
+	p, err := parser.NewParser(
+		parser.Macros(parser.AllMacros...),
+		parser.EnableOptionalSyntax(true),
+		parser.PopulateMacroCalls(true))
+	if err != nil {
+		t.Fatalf("parser.NewParser() failed: %v", err)
+	}
+	parsed, errs := p.Parse(common.NewTextSource(expr))
+	if len(errs.GetErrors()) != 0 {
+		t.Fatalf("Parse() failed: %s", errs.ToDisplayString())
+	}
+	pbInfo, err := ast.SourceInfoToProto(parsed.SourceInfo())
+	if err != nil {
+		t.Fatalf("SourceInfoToProto() failed: %v", err)
+	}
+	wantInfo := `
+		location: "<input>"
+        line_offsets: 46
+        positions: {
+          key: 1
+          value: 0
+        }
+        positions: {
+          key: 2
+          value: 1
+        }
+        positions: {
+          key: 3
+          value: 5
+        }
+        positions: {
+          key: 4
+          value: 13
+        }
+        positions: {
+          key: 5
+          value: 6
+        }
+        positions: {
+          key: 6
+          value: 15
+        }
+        positions: {
+          key: 7
+          value: 28
+        }
+        positions: {
+          key: 8
+          value: 29
+        }
+        positions: {
+          key: 9
+          value: 35
+        }
+        positions: {
+          key: 10
+          value: 36
+        }
+        positions: {
+          key: 11
+          value: 37
+        }
+        positions: {
+          key: 12
+          value: 35
+        }
+        positions: {
+          key: 13
+          value: 28
+        }
+        positions: {
+          key: 14
+          value: 28
+        }
+        positions: {
+          key: 15
+          value: 28
+        }
+        positions: {
+          key: 16
+          value: 28
+        }
+        positions: {
+          key: 17
+          value: 28
+        }
+        positions: {
+          key: 18
+          value: 28
+        }
+        positions: {
+          key: 19
+          value: 28
+        }
+        positions: {
+          key: 20
+          value: 28
+        }
+        macro_calls: {
+          key: 12
+          value: {
+            call_expr: {
+              function: "has"
+              args: {
+                id: 11
+                select_expr: {
+                  operand: {
+                    id: 10
+                    ident_expr: {
+                      name: "i"
+                    }
+                  }
+                  field: "field"
+                }
+              }
+            }
+          }
+        }
+        macro_calls: {
+          key: 20
+          value: {
+            call_expr: {
+              target: {
+                id: 1
+                list_expr: {
+                  elements: {
+                    id: 2
+                    struct_expr: {}
+                  }
+                  elements: {
+                    id: 3
+                    struct_expr: {
+                      entries: {
+                        id: 4
+                        map_key: {
+                          id: 5
+                          const_expr: {
+                            string_value: "field"
+                          }
+                        }
+                        value: {
+                          id: 6
+                          const_expr: {
+                            bool_value: true
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+              function: "exists"
+              args: {
+                id: 8
+                ident_expr: {
+                  name: "i"
+                }
+              }
+              args: {
+                id: 12
+              }
+            }
+          }
+        }`
+	wantPBInfo := &exprpb.SourceInfo{}
+	prototext.Unmarshal([]byte(wantInfo), wantPBInfo)
+	if !proto.Equal(pbInfo, wantPBInfo) {
+		t.Errorf("SourceInfoToProto() got %v, wanted %v",
+			prototext.Format(pbInfo), prototext.Format(wantPBInfo))
 	}
 }
 
