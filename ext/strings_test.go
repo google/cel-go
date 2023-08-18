@@ -105,6 +105,13 @@ var stringTests = []struct {
 	// Upper ASCII tests.
 	{expr: `'tacoCat'.upperAscii() == 'TACOCAT'`},
 	{expr: `'tacoCαt'.upperAscii() == 'TACOCαT'`},
+	// Reverse tests.
+	{expr: `'gums'.reverse() == 'smug'`},
+	{expr: `'palindromes'.reverse() == 'semordnilap'`},
+	{expr: `'John Smith'.reverse() == 'htimS nhoJ'`},
+	{expr: `'u180etext'.reverse() == 'txete081u'`},
+	{expr: `'2600+U'.reverse() == 'U+0062'`},
+	{expr: `'\u180e\u200b\u200c\u200d\u2060\ufeff'.reverse() == '\ufeff\u2060\u200d\u200c\u200b\u180e'`},
 	// Join tests.
 	{expr: `['x', 'y'].join() == 'xy'`},
 	{expr: `['x', 'y'].join('-') == 'x-y'`},
