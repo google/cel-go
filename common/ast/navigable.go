@@ -1,3 +1,17 @@
+// Copyright 2023 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package ast
 
 import (
@@ -87,34 +101,146 @@ func AllMatcher() ExprMatcher {
 	}
 }
 
-// MatchDescendants takes a NavigableExpr and ExprMatcher and produces a list of NavigableExpr values of the
-// descendants which match.
+// MatchDescendants takes a NavigableExpr and ExprMatcher and produces a list of NavigableExpr values
+// matching the input criteria in post-order (bottom up).
 func MatchDescendants(expr NavigableExpr, matcher ExprMatcher) []NavigableExpr {
-	return matchListInternal([]NavigableExpr{expr}, matcher, true)
+	matches := []NavigableExpr{}
+	navVisitor := &baseVisitor{
+		visitExpr: func(e Expr) {
+			nav := e.(NavigableExpr)
+			if matcher(nav) {
+				matches = append(matches, nav)
+			}
+		},
+	}
+	visit(expr, navVisitor, postOrder, 0, 0)
+	return matches
 }
 
 // MatchSubset applies an ExprMatcher to a list of NavigableExpr values and their descendants, producing a
 // subset of NavigableExpr values which match.
 func MatchSubset(exprs []NavigableExpr, matcher ExprMatcher) []NavigableExpr {
-	visit := make([]NavigableExpr, len(exprs))
-	copy(visit, exprs)
-	return matchListInternal(visit, matcher, false)
+	matches := []NavigableExpr{}
+	navVisitor := &baseVisitor{
+		visitExpr: func(e Expr) {
+			nav := e.(NavigableExpr)
+			if matcher(nav) {
+				matches = append(matches, nav)
+			}
+		},
+	}
+	for _, expr := range exprs {
+		visit(expr, navVisitor, postOrder, 0, 1)
+	}
+	return matches
 }
 
-func matchListInternal(visit []NavigableExpr, matcher ExprMatcher, visitDescendants bool) []NavigableExpr {
-	var matched []NavigableExpr
-	for len(visit) != 0 {
-		e := visit[0]
-		if matcher(e) {
-			matched = append(matched, e)
+// Visitor defines an object for visiting Expr and EntryExpr nodes within an expression graph.
+type Visitor interface {
+	// VisitExpr visits the input expression.
+	VisitExpr(Expr)
+
+	// VisitEntryExpr visits the input entry expression, i.e. a struct field or map entry.
+	VisitEntryExpr(EntryExpr)
+}
+
+type baseVisitor struct {
+	visitExpr      func(Expr)
+	visitEntryExpr func(EntryExpr)
+}
+
+// VisitExpr visits the Expr if the internal expr visitor has been configured.
+func (v *baseVisitor) VisitExpr(e Expr) {
+	if v.visitExpr != nil {
+		v.visitExpr(e)
+	}
+}
+
+// VisitEntryExpr visits the entry if the internal expr entry visitor has been configured.
+func (v *baseVisitor) VisitEntryExpr(e EntryExpr) {
+	if v.visitEntryExpr != nil {
+		v.visitEntryExpr(e)
+	}
+}
+
+// NewExprVisitor creates a visitor which only visits expression nodes.
+func NewExprVisitor(v func(Expr)) Visitor {
+	return &baseVisitor{
+		visitExpr:      v,
+		visitEntryExpr: nil,
+	}
+}
+
+// PostOrderVisit walks the expression graph and calls the visitor in post-order (bottom-up).
+func PostOrderVisit(expr Expr, visitor Visitor) {
+	visit(expr, visitor, postOrder, 0, 0)
+}
+
+// PreOrderVisit walks the expression graph and calls the visitor in pre-order (top-down).
+func PreOrderVisit(expr Expr, visitor Visitor) {
+	visit(expr, visitor, preOrder, 0, 0)
+}
+
+type visitOrder int
+
+const (
+	preOrder = iota + 1
+	postOrder
+)
+
+func visit(expr Expr, visitor Visitor, order visitOrder, depth, maxDepth int) {
+	if maxDepth > 0 && depth == maxDepth {
+		return
+	}
+	if order == preOrder {
+		visitor.VisitExpr(expr)
+	}
+	switch expr.Kind() {
+	case CallKind:
+		c := expr.AsCall()
+		if c.IsMemberFunction() {
+			visit(c.Target(), visitor, order, depth+1, maxDepth)
 		}
-		if visitDescendants {
-			visit = append(visit[1:], e.Children()...)
-		} else {
-			visit = visit[1:]
+		for _, arg := range c.Args() {
+			visit(arg, visitor, order, depth+1, maxDepth)
+		}
+	case ComprehensionKind:
+		c := expr.AsComprehension()
+		visit(c.IterRange(), visitor, order, depth+1, maxDepth)
+		visit(c.AccuInit(), visitor, order, depth+1, maxDepth)
+		visit(c.LoopCondition(), visitor, order, depth+1, maxDepth)
+		visit(c.LoopStep(), visitor, order, depth+1, maxDepth)
+		visit(c.Result(), visitor, order, depth+1, maxDepth)
+	case ListKind:
+		l := expr.AsList()
+		for _, elem := range l.Elements() {
+			visit(elem, visitor, order, depth+1, maxDepth)
+		}
+	case MapKind:
+		m := expr.AsMap()
+		for _, e := range m.Entries() {
+			if order == preOrder {
+				visitor.VisitEntryExpr(e)
+			}
+			entry := e.AsMapEntry()
+			visit(entry.Key(), visitor, order, depth+1, maxDepth)
+			visit(entry.Value(), visitor, order, depth+1, maxDepth)
+			if order == postOrder {
+				visitor.VisitEntryExpr(e)
+			}
+		}
+	case SelectKind:
+		visit(expr.AsSelect().Operand(), visitor, order, depth+1, maxDepth)
+	case StructKind:
+		s := expr.AsStruct()
+		for _, f := range s.Fields() {
+			visitor.VisitEntryExpr(f)
+			visit(f.AsStructField().Value(), visitor, order, depth+1, maxDepth)
 		}
 	}
-	return matched
+	if order == postOrder {
+		visitor.VisitExpr(expr)
+	}
 }
 
 func matchIsConstantValue(e NavigableExpr) bool {

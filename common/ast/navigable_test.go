@@ -15,6 +15,7 @@
 package ast_test
 
 import (
+	"reflect"
 	"testing"
 
 	"google.golang.org/protobuf/proto"
@@ -37,60 +38,70 @@ func TestNavigateAST(t *testing.T) {
 		descendantCount int
 		callCount       int
 		maxDepth        int
+		maxID           int64
 	}{
 		{
 			expr:            `'a' == 'b'`,
 			descendantCount: 3,
 			callCount:       1,
 			maxDepth:        1,
+			maxID:           4,
 		},
 		{
 			expr:            `'a'.size()`,
 			descendantCount: 2,
 			callCount:       1,
 			maxDepth:        1,
+			maxID:           3,
 		},
 		{
 			expr:            `[1, 2, 3]`,
 			descendantCount: 4,
 			callCount:       0,
 			maxDepth:        1,
+			maxID:           5,
 		},
 		{
 			expr:            `[1, 2, 3][0]`,
 			descendantCount: 6,
 			callCount:       1,
 			maxDepth:        2,
+			maxID:           7,
 		},
 		{
 			expr:            `{1u: 'hello'}`,
 			descendantCount: 3,
 			callCount:       0,
 			maxDepth:        1,
+			maxID:           5,
 		},
 		{
 			expr:            `{'hello': 'world'}.hello`,
 			descendantCount: 4,
 			callCount:       0,
 			maxDepth:        2,
+			maxID:           6,
 		},
 		{
 			expr:            `type(1) == int`,
 			descendantCount: 4,
 			callCount:       2,
 			maxDepth:        2,
+			maxID:           5,
 		},
 		{
 			expr:            `google.expr.proto3.test.TestAllTypes{single_int32: 1}`,
 			descendantCount: 2,
 			callCount:       0,
 			maxDepth:        1,
+			maxID:           4,
 		},
 		{
 			expr:            `[true].exists(i, i)`,
 			descendantCount: 11, // 2 for iter range, 1 for accu init, 4 for loop condition, 3 for loop step, 1 for result
 			callCount:       3,  // @not_strictly_false(!result), accu_init || i
 			maxDepth:        3,
+			maxID:           14,
 		},
 	}
 
@@ -112,9 +123,51 @@ func TestNavigateAST(t *testing.T) {
 			if maxDepth != tc.maxDepth {
 				t.Errorf("got max NavigableExpr.Depth() of %d, wanted %d", maxDepth, tc.maxDepth)
 			}
+			maxID := ast.MaxID(checked)
+			if maxID != tc.maxID {
+				t.Errorf("got max id %d, wanted %d", maxID, tc.maxID)
+			}
 			calls := ast.MatchSubset(descendants, ast.KindMatcher(ast.CallKind))
 			if len(calls) != tc.callCount {
 				t.Errorf("ast.MatchSubset(%v) got %d calls, wanted %d", checked.Expr(), len(calls), tc.callCount)
+			}
+		})
+	}
+}
+
+func TestNavigableExprChildren(t *testing.T) {
+	tests := []struct {
+		expr string
+	}{
+		{expr: `'a' == 'b'`},
+		{expr: `'a'.size()`},
+		{expr: `type(1) == int`},
+		{expr: `{'hello': 'world'}.hello`},
+		{expr: `google.expr.proto3.test.TestAllTypes{single_int32: 1}`},
+		{expr: `[true].exists(i, i)`},
+	}
+
+	for _, tst := range tests {
+		tc := tst
+		t.Run(tc.expr, func(t *testing.T) {
+			checked := mustTypeCheck(t, tc.expr)
+			root := ast.NavigateAST(checked)
+			preOrderExprIDs := []int64{}
+			navVisitor := ast.NewExprVisitor(func(e ast.Expr) {
+				nav := e.(ast.NavigableExpr)
+				preOrderExprIDs = append(preOrderExprIDs, nav.ID())
+			})
+			ast.PreOrderVisit(root, navVisitor)
+
+			allExprs := []int64{}
+			visited := []ast.NavigableExpr{root}
+			for len(visited) > 0 {
+				e := visited[0]
+				allExprs = append(allExprs, e.ID())
+				visited = append(e.Children()[:], visited[1:]...)
+			}
+			if !reflect.DeepEqual(allExprs, preOrderExprIDs) {
+				t.Fatalf("Children() got %v expressions, wanted %v", allExprs, preOrderExprIDs)
 			}
 		})
 	}
