@@ -385,6 +385,10 @@ func (p *customCELProvider) FindStructType(typeName string) (*types.Type, bool) 
 	return p.provider.FindStructType(typeName)
 }
 
+func (p *customCELProvider) FindStructFieldNames(typeName string) ([]string, bool) {
+	return p.provider.FindStructFieldNames(typeName)
+}
+
 func (p *customCELProvider) FindStructFieldType(structType, fieldName string) (*types.FieldType, bool) {
 	return p.provider.FindStructFieldType(structType, fieldName)
 }

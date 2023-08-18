@@ -17,6 +17,7 @@ package ext
 import (
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -157,6 +158,40 @@ func TestNativeTypes(t *testing.T) {
 				if !isPB && !reflect.DeepEqual(out.Value(), want) {
 					t.Errorf("got %v, wanted %v for expr: %s", out.Value(), want, tc.expr)
 				}
+			}
+		})
+	}
+}
+
+func TestNativeFindStructFieldNames(t *testing.T) {
+	env := testNativeEnv(t)
+	provider := env.CELTypeProvider()
+	tests := []struct {
+		typeName string
+		fields   []string
+	}{
+		{
+			typeName: "ext.TestNestedType",
+			fields:   []string{"NestedListVal", "NestedMapVal"},
+		},
+		{
+			typeName: "google.expr.proto3.test.TestAllTypes.NestedMessage",
+			fields:   []string{"bb"},
+		},
+		{
+			typeName: "invalid.TypeName",
+			fields:   []string{},
+		},
+	}
+
+	for _, tst := range tests {
+		tc := tst
+		t.Run(fmt.Sprintf("%s", tc.typeName), func(t *testing.T) {
+			fields, _ := provider.FindStructFieldNames(tc.typeName)
+			sort.Strings(fields)
+			sort.Strings(tc.fields)
+			if !reflect.DeepEqual(fields, tc.fields) {
+				t.Errorf("got %v, wanted %v", fields, tc.fields)
 			}
 		})
 	}

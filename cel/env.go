@@ -773,6 +773,13 @@ func (p *interopCELTypeProvider) FindStructType(typeName string) (*types.Type, b
 	return nil, false
 }
 
+// FindStructFieldNames returns an empty set of field for the interop provider.
+//
+// To inspect the field names, migrate to a `types.Provider` implementation.
+func (p *interopCELTypeProvider) FindStructFieldNames(typeName string) ([]string, bool) {
+	return []string{}, false
+}
+
 // FindStructFieldType returns a types.FieldType instance for the given fully-qualified typeName and field
 // name, if one exists.
 //
