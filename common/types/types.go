@@ -514,7 +514,7 @@ func NewOpaqueType(name string, params ...*Type) *Type {
 // type may also indicate additional traits through the use of the optional traits vararg argument.
 func NewObjectType(typeName string, traits ...int) *Type {
 	// Function sanitizes object types on the fly
-	if wkt, found := checkedWellKnowns[typeName]; found {
+	if wkt, found := CheckedWellKnowns[typeName]; found {
 		return wkt
 	}
 	traitMask := 0
@@ -760,7 +760,7 @@ func maybeForeignType(t ref.Type) *Type {
 }
 
 var (
-	checkedWellKnowns = map[string]*Type{
+	CheckedWellKnowns = map[string]*Type{
 		// Wrapper types.
 		"google.protobuf.BoolValue":   NewNullableType(BoolType),
 		"google.protobuf.BytesValue":  NewNullableType(BytesType),

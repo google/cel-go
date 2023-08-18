@@ -351,7 +351,7 @@ func (p *Registry) registerAllTypes(fd *pb.FileDescription) error {
 	for _, typeName := range fd.GetTypeNames() {
 		// skip well-known type names since they're automatically sanitized
 		// during NewObjectType() calls.
-		if _, found := checkedWellKnowns[typeName]; found {
+		if _, found := CheckedWellKnowns[typeName]; found {
 			continue
 		}
 		err := p.RegisterType(NewObjectTypeValue(typeName))
