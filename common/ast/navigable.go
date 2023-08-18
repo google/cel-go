@@ -188,6 +188,9 @@ const (
 	postOrder
 )
 
+// TODO: consider exposing a way to configure a limit for the max visit depth.
+// It's possible that we could want to configure this on the NewExprVisitor()
+// and through MatchDescendents() / MaxID().
 func visit(expr Expr, visitor Visitor, order visitOrder, depth, maxDepth int) {
 	if maxDepth > 0 && depth == maxDepth {
 		return

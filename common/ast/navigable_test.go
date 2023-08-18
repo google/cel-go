@@ -135,16 +135,53 @@ func TestNavigateAST(t *testing.T) {
 	}
 }
 
-func TestNavigableExprChildren(t *testing.T) {
+func TestExprVisitor(t *testing.T) {
 	tests := []struct {
-		expr string
+		expr         string
+		preOrderIDs  []int64
+		postOrderIDs []int64
 	}{
-		{expr: `'a' == 'b'`},
-		{expr: `'a'.size()`},
-		{expr: `type(1) == int`},
-		{expr: `{'hello': 'world'}.hello`},
-		{expr: `google.expr.proto3.test.TestAllTypes{single_int32: 1}`},
-		{expr: `[true].exists(i, i)`},
+		{
+			// [2] ==, [1] 'a', [3] 'b'
+			expr:         `'a' == 'b'`,
+			preOrderIDs:  []int64{2, 1, 3},
+			postOrderIDs: []int64{1, 3, 2},
+		},
+		{
+			// [2] size(), [1] 'a'
+			expr:         `'a'.size()`,
+			preOrderIDs:  []int64{2, 1},
+			postOrderIDs: []int64{1, 2},
+		},
+		{
+			// [3] ==, [1] type(), [2] 1, [4] int
+			expr:         `type(1) == int`,
+			preOrderIDs:  []int64{3, 1, 2, 4},
+			postOrderIDs: []int64{2, 1, 4, 3},
+		},
+		{
+			// [5] .hello, [1] {}, [3] 'hello', [4] 'world'
+			expr:         `{'hello': 'world'}.hello`,
+			preOrderIDs:  []int64{5, 1, 3, 4},
+			postOrderIDs: []int64{3, 4, 1, 5},
+		},
+		{
+			// [1] TestAllTypes, [3] 1
+			expr:         `google.expr.proto3.test.TestAllTypes{single_int32: 1}`,
+			preOrderIDs:  []int64{1, 3},
+			postOrderIDs: []int64{3, 1},
+		},
+		{
+			// [13] comprehension
+			// range:    [1] [], [2] true
+			// accuInit: [6] result=false
+			// loopCond: [9] @not_strictly_false, [8] !, [7] result
+			// loopStep: [11] ||, [10] result [5] i
+			// result:   [12] result
+			expr:         `[true].exists(i, i)`,
+			preOrderIDs:  []int64{13, 1, 2, 6, 9, 8, 7, 11, 10, 5, 12},
+			postOrderIDs: []int64{2, 1, 6, 7, 8, 9, 10, 5, 11, 12, 13},
+		},
 	}
 
 	for _, tst := range tests {
@@ -152,22 +189,38 @@ func TestNavigableExprChildren(t *testing.T) {
 		t.Run(tc.expr, func(t *testing.T) {
 			checked := mustTypeCheck(t, tc.expr)
 			root := ast.NavigateAST(checked)
+			// Verify pre order visit behavior
 			preOrderExprIDs := []int64{}
 			navVisitor := ast.NewExprVisitor(func(e ast.Expr) {
 				nav := e.(ast.NavigableExpr)
 				preOrderExprIDs = append(preOrderExprIDs, nav.ID())
 			})
 			ast.PreOrderVisit(root, navVisitor)
+			if !reflect.DeepEqual(tc.preOrderIDs, preOrderExprIDs) {
+				t.Errorf("PreOrderVisit() got %v expressions, wanted %v", tc.preOrderIDs, preOrderExprIDs)
+			}
 
-			allExprs := []int64{}
+			// Demonstrate preOrder visit behavior with Children()
+			preOrderExprIDs = []int64{}
 			visited := []ast.NavigableExpr{root}
 			for len(visited) > 0 {
 				e := visited[0]
-				allExprs = append(allExprs, e.ID())
+				preOrderExprIDs = append(preOrderExprIDs, e.ID())
 				visited = append(e.Children()[:], visited[1:]...)
 			}
-			if !reflect.DeepEqual(allExprs, preOrderExprIDs) {
-				t.Fatalf("Children() got %v expressions, wanted %v", allExprs, preOrderExprIDs)
+			if !reflect.DeepEqual(tc.preOrderIDs, preOrderExprIDs) {
+				t.Errorf("PreOrderVisit() got %v expressions, wanted %v", tc.preOrderIDs, preOrderExprIDs)
+			}
+
+			// Verify post order visit behavior.
+			postOrderExprIDs := []int64{}
+			navVisitor = ast.NewExprVisitor(func(e ast.Expr) {
+				nav := e.(ast.NavigableExpr)
+				postOrderExprIDs = append(postOrderExprIDs, nav.ID())
+			})
+			ast.PostOrderVisit(root, navVisitor)
+			if !reflect.DeepEqual(tc.postOrderIDs, postOrderExprIDs) {
+				t.Errorf("PostOrderVisit() got %v expressions, wanted %v", tc.postOrderIDs, postOrderExprIDs)
 			}
 		})
 	}
