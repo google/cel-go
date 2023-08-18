@@ -37,6 +37,7 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 	"github.com/google/cel-go/interpreter"
+	"github.com/google/cel-go/parser"
 	"github.com/google/cel-go/test"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
@@ -696,6 +697,142 @@ func TestCustomMacro(t *testing.T) {
 	}
 	if out.Equal(types.String("hello,cel,friend")) != types.True {
 		t.Errorf("got %v, wanted 'hello,cel,friend'", out)
+	}
+}
+
+func TestMacroInterop(t *testing.T) {
+	existsOneMacro := NewReceiverMacro("exists_one", 2,
+		func(meh MacroExprHelper, iterRange *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *Error) {
+			return ExistsOneMacroExpander(meh, iterRange, args)
+		})
+	transformMacro := NewReceiverMacro("transform", 2,
+		func(meh MacroExprHelper, iterRange *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *Error) {
+			return MapMacroExpander(meh, iterRange, args)
+		})
+	filterMacro := NewReceiverMacro("filter", 2,
+		func(meh MacroExprHelper, iterRange *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *Error) {
+			return FilterMacroExpander(meh, iterRange, args)
+		})
+	pairMacro := NewGlobalMacro("pair", 2,
+		func(meh MacroExprHelper, iterRange *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *Error) {
+			return meh.NewMap(meh.NewMapEntry(args[0], args[1], false)), nil
+		})
+	getMacro := NewReceiverMacro("get", 2,
+		func(meh MacroExprHelper, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *Error) {
+			return meh.GlobalCall(
+				operators.Conditional,
+				meh.PresenceTest(meh.Copy(target), args[0].GetIdentExpr().GetName()),
+				meh.Select(meh.Copy(target), args[0].GetIdentExpr().GetName()),
+				meh.Copy(args[1]),
+			), nil
+		})
+	env := testEnv(t, Macros(existsOneMacro, transformMacro, filterMacro, pairMacro, getMacro))
+	tests := []struct {
+		expr string
+		out  ref.Val
+	}{
+		{
+			expr: `['tr', 's', 'fri'].filter(i, i.size() > 1).transform(i, i + 'end').exists_one(i, i == 'friend')`,
+			out:  types.True,
+		},
+		{
+			expr: `pair('a', 'b')`,
+			out:  types.DefaultTypeAdapter.NativeToValue(map[string]string{"a": "b"}),
+		},
+		{
+			expr: `{}.get(a, 'default')`,
+			out:  types.String("default"),
+		},
+		{
+			expr: `{'a': 'b'}.get(a, 'default')`,
+			out:  types.String("b"),
+		},
+	}
+
+	for _, tst := range tests {
+		ast, iss := env.Compile(tst.expr)
+		if iss.Err() != nil {
+			t.Fatal(iss.Err())
+		}
+		prg, err := env.Program(ast, EvalOptions(OptExhaustiveEval))
+		if err != nil {
+			t.Fatalf("program creation error: %s\n", err)
+		}
+		out, _, err := prg.Eval(NoVars())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if out.Equal(tst.out) != types.True {
+			t.Errorf("got %v, wanted %v", out, tst.out)
+		}
+	}
+}
+
+func TestMacroModern(t *testing.T) {
+	existsOneMacro := ReceiverMacro("exists_one", 2,
+		func(mef MacroExprFactory, iterRange celast.Expr, args []celast.Expr) (celast.Expr, *Error) {
+			return parser.MakeExistsOne(mef, iterRange, args)
+		})
+	transformMacro := ReceiverMacro("transform", 2,
+		func(mef MacroExprFactory, iterRange celast.Expr, args []celast.Expr) (celast.Expr, *Error) {
+			return parser.MakeMap(mef, iterRange, args)
+		})
+	filterMacro := ReceiverMacro("filter", 2,
+		func(mef MacroExprFactory, iterRange celast.Expr, args []celast.Expr) (celast.Expr, *Error) {
+			return parser.MakeFilter(mef, iterRange, args)
+		})
+	pairMacro := GlobalMacro("pair", 2,
+		func(mef MacroExprFactory, iterRange celast.Expr, args []celast.Expr) (celast.Expr, *Error) {
+			return mef.NewMap(mef.NewMapEntry(args[0], args[1], false)), nil
+		})
+	getMacro := ReceiverMacro("get", 2,
+		func(mef MacroExprFactory, target celast.Expr, args []celast.Expr) (celast.Expr, *Error) {
+			return mef.NewCall(
+				operators.Conditional,
+				mef.NewPresenceTest(mef.Copy(target), args[0].AsIdent()),
+				mef.NewSelect(mef.Copy(target), args[0].AsIdent()),
+				mef.Copy(args[1]),
+			), nil
+		})
+	env := testEnv(t, Macros(existsOneMacro, transformMacro, filterMacro, pairMacro, getMacro))
+	tests := []struct {
+		expr string
+		out  ref.Val
+	}{
+		{
+			expr: `['tr', 's', 'fri'].filter(i, i.size() > 1).transform(i, i + 'end').exists_one(i, i == 'friend')`,
+			out:  types.True,
+		},
+		{
+			expr: `pair('a', 'b')`,
+			out:  types.DefaultTypeAdapter.NativeToValue(map[string]string{"a": "b"}),
+		},
+		{
+			expr: `{}.get(a, 'default')`,
+			out:  types.String("default"),
+		},
+		{
+			expr: `{'a': 'b'}.get(a, 'default')`,
+			out:  types.String("b"),
+		},
+	}
+
+	for _, tst := range tests {
+		ast, iss := env.Compile(tst.expr)
+		if iss.Err() != nil {
+			t.Fatal(iss.Err())
+		}
+		prg, err := env.Program(ast, EvalOptions(OptExhaustiveEval))
+		if err != nil {
+			t.Fatalf("program creation error: %s\n", err)
+		}
+		out, _, err := prg.Eval(NoVars())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if out.Equal(tst.out) != types.True {
+			t.Errorf("got %v, wanted %v", out, tst.out)
+		}
 	}
 }
 

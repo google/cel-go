@@ -95,6 +95,18 @@ func ProtoToExpr(e *exprpb.Expr) (Expr, error) {
 	return exprInternal(factory, e)
 }
 
+// ProtoToEntryExpr converts a protobuf struct/map entry to an ast.EntryExpr
+func ProtoToEntryExpr(e *exprpb.Expr_CreateStruct_Entry) (EntryExpr, error) {
+	factory := NewExprFactory()
+	switch e.GetKeyKind().(type) {
+	case *exprpb.Expr_CreateStruct_Entry_FieldKey:
+		return exprStructField(factory, e.GetId(), e)
+	case *exprpb.Expr_CreateStruct_Entry_MapKey:
+		return exprMapEntry(factory, e.GetId(), e)
+	}
+	return nil, fmt.Errorf("unsupported expr entry kind: %v", e)
+}
+
 func exprInternal(factory ExprFactory, e *exprpb.Expr) (Expr, error) {
 	id := e.GetId()
 	switch e.GetExprKind().(type) {

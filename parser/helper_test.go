@@ -21,8 +21,6 @@ import (
 	"github.com/google/cel-go/common/ast"
 
 	"google.golang.org/protobuf/proto"
-
-	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 func TestExprHelperCopy(t *testing.T) {
@@ -34,9 +32,7 @@ func TestExprHelperCopy(t *testing.T) {
 		Macros(
 			MapMacro,
 			NewGlobalMacro("noop", 1,
-				func(eh ExprHelper,
-					target *exprpb.Expr,
-					args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
+				func(eh ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *common.Error) {
 					return eh.Copy(args[0]), nil
 				},
 			),

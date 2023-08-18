@@ -26,8 +26,6 @@ import (
 	"github.com/google/cel-go/common/debug"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/test"
-
-	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 var testCases = []testInfo{
@@ -1708,7 +1706,7 @@ var testCases = []testInfo{
 		I: `noop_macro(123)`,
 		Opts: []Option{
 			Macros(NewGlobalVarArgMacro("noop_macro",
-				func(eh ExprHelper, target *exprpb.Expr, args []*exprpb.Expr) (*exprpb.Expr, *common.Error) {
+				func(eh ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *common.Error) {
 					return nil, nil
 				})),
 		},
