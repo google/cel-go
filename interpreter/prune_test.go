@@ -283,11 +283,11 @@ var testCases = []testInfo{
 	},
 	{
 		expr: `[timestamp(0), timestamp(1)]`,
-		out:  `[timestamp(0), timestamp(1)]`,
+		out:  `[timestamp("1970-01-01T00:00:00Z"), timestamp("1970-01-01T00:00:01Z")]`,
 	},
 	{
 		expr: `{"epoch": timestamp(0)}`,
-		out:  `{"epoch": timestamp(0)}`,
+		out:  `{"epoch": timestamp("1970-01-01T00:00:00Z")}`,
 	},
 	{
 		in:   partialActivation(map[string]any{"x": false}, "y"),
