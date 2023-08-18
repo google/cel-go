@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -129,6 +130,39 @@ func TestRegistryFindStructType(t *testing.T) {
 	_, found = reg.FindStructType(msgTypeName + "Undefined")
 	if found {
 		t.Fatalf("FindStructType() found: %q", msgTypeName+"Undefined")
+	}
+}
+
+func TestRegistryFindStructFieldNames(t *testing.T) {
+	reg := newTestRegistry(t, &exprpb.Decl{}, &exprpb.Reference{})
+	tests := []struct {
+		typeName string
+		fields   []string
+	}{
+		{
+			typeName: "google.api.expr.v1alpha1.Reference",
+			fields:   []string{"name", "overload_id", "value"},
+		},
+		{
+			typeName: "google.api.expr.v1alpha1.Decl",
+			fields:   []string{"name", "ident", "function"},
+		},
+		{
+			typeName: "invalid.TypeName",
+			fields:   []string{},
+		},
+	}
+
+	for _, tst := range tests {
+		tc := tst
+		t.Run(fmt.Sprintf("%s", tc.typeName), func(t *testing.T) {
+			fields, _ := reg.FindStructFieldNames(tc.typeName)
+			sort.Strings(fields)
+			sort.Strings(tc.fields)
+			if !reflect.DeepEqual(fields, tc.fields) {
+				t.Errorf("got %v, wanted %v", fields, tc.fields)
+			}
+		})
 	}
 }
 
