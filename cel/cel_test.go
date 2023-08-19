@@ -2081,7 +2081,8 @@ func TestDynamicDispatch(t *testing.T) {
 		),
 	)
 	out, err := interpret(t, env, `
-		[1, 2].first() == 1
+		dyn([]).first() == 0
+		&& [1, 2].first() == 1
 		&& [1.0, 2.0].first() == 1.0
 		&& ["hello", "world"].first() == "hello"
 		&& [["hello"], ["world", "!"]].first().first() == "hello"
