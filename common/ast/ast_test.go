@@ -23,6 +23,8 @@ import (
 	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types"
+	"google.golang.org/protobuf/encoding/prototext"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestASTCopy(t *testing.T) {
@@ -40,12 +42,38 @@ func TestASTCopy(t *testing.T) {
 
 	for _, tst := range tests {
 		checked := mustTypeCheck(t, tst)
-		copied := ast.Copy(checked)
-		if !reflect.DeepEqual(copied.Expr(), checked.Expr()) {
-			t.Errorf("Copy() got expr %v, wanted %v", copied.Expr(), checked.Expr())
+		copyChecked := ast.Copy(checked)
+		if !reflect.DeepEqual(copyChecked.Expr(), checked.Expr()) {
+			t.Errorf("Copy() got expr %v, wanted %v", copyChecked.Expr(), checked.Expr())
 		}
-		if !reflect.DeepEqual(copied.SourceInfo(), checked.SourceInfo()) {
-			t.Errorf("Copy() got source info %v, wanted %v", copied.SourceInfo(), checked.SourceInfo())
+		if !reflect.DeepEqual(copyChecked.SourceInfo(), checked.SourceInfo()) {
+			t.Errorf("Copy() got source info %v, wanted %v", copyChecked.SourceInfo(), checked.SourceInfo())
+		}
+		copyParsed := ast.Copy(ast.NewAST(checked.Expr(), checked.SourceInfo()))
+		if !reflect.DeepEqual(copyParsed.Expr(), checked.Expr()) {
+			t.Errorf("Copy() got expr %v, wanted %v", copyParsed.Expr(), checked.Expr())
+		}
+		if !reflect.DeepEqual(copyParsed.SourceInfo(), checked.SourceInfo()) {
+			t.Errorf("Copy() got source info %v, wanted %v", copyParsed.SourceInfo(), checked.SourceInfo())
+		}
+		checkedPB, err := ast.ToProto(checked)
+		if err != nil {
+			t.Errorf("ast.ToProto() failed: %v", err)
+		}
+		copyCheckedPB, err := ast.ToProto(copyChecked)
+		if err != nil {
+			t.Errorf("ast.ToProto() failed: %v", err)
+		}
+		if !proto.Equal(checkedPB, copyCheckedPB) {
+			t.Errorf("Copy() produced different proto results, got %v, wanted %v",
+				prototext.Format(checkedPB), prototext.Format(copyCheckedPB))
+		}
+		checkedRoundtrip, err := ast.ToAST(checkedPB)
+		if err != nil {
+			t.Errorf("ast.ToAST() failed: %v", err)
+		}
+		if !reflect.DeepEqual(checked, checkedRoundtrip) {
+			t.Errorf("Roundtrip got %v, wanted %v", checkedRoundtrip, checked)
 		}
 	}
 }
@@ -67,10 +95,10 @@ func TestASTNilSafety(t *testing.T) {
 		ast.NewAST(ex, info),
 		ast.NewCheckedAST(ast.NewAST(ex, info), map[int64]*types.Type{}, map[int64]*ast.ReferenceInfo{}),
 	}
-	for i, tst := range tests {
-		tc := tst
-		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-			testAST := tc
+	for _, tst := range tests {
+		a := tst
+		asts := []*ast.AST{a, ast.Copy(a)}
+		for _, testAST := range asts {
 			if testAST.Expr().ID() != 0 {
 				t.Errorf("Expr().ID() got %v, wanted 0", testAST.Expr().ID())
 			}
@@ -86,7 +114,7 @@ func TestASTNilSafety(t *testing.T) {
 			if len(testAST.GetOverloadIDs(testAST.Expr().ID())) != 0 {
 				t.Errorf("GetOverloadIDs() got %v, wanted empty set", testAST.GetOverloadIDs(testAST.Expr().ID()))
 			}
-		})
+		}
 	}
 }
 

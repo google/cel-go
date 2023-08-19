@@ -219,6 +219,13 @@ func TestConvertExpr(t *testing.T) {
 			if !reflect.DeepEqual(gotExpr, tc.wantExpr) {
 				t.Errorf("got %v, wanted %v", gotExpr, tc.wantExpr)
 			}
+			gotExprRoundtrip, err := ast.ProtoToExpr(gotPBExpr)
+			if err != nil {
+				t.Fatalf("ast.ProtoToExpr() failed: %v", err)
+			}
+			if !reflect.DeepEqual(parsed.Expr(), gotExprRoundtrip) {
+				t.Errorf("ast.ProtoToExpr() got %v, wanted %v", gotExprRoundtrip, parsed.Expr())
+			}
 			info := parsed.SourceInfo()
 			for id, wantCall := range tc.macroCalls {
 				call, found := info.GetMacroCall(id)

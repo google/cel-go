@@ -533,7 +533,7 @@ func SourceInfoToProto(info *SourceInfo) (*exprpb.SourceInfo, error) {
 	return sourceInfo, nil
 }
 
-// ProtoToSourceInfo deserializes
+// ProtoToSourceInfo deserializes the protobuf into a native SourceInfo value.
 func ProtoToSourceInfo(info *exprpb.SourceInfo) (*SourceInfo, error) {
 	sourceInfo := &SourceInfo{
 		syntax:       info.GetSyntaxVersion(),

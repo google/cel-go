@@ -147,6 +147,13 @@ func Copy(a *AST) *AST {
 	return NewCheckedAST(NewAST(e, CopySourceInfo(a.SourceInfo())), typesCopy, refsCopy)
 }
 
+// MaxID returns the upper-bound, non-inclusive, of ids present within the AST's Expr value.
+func MaxID(a *AST) int64 {
+	visitor := &maxIDVisitor{maxID: 1}
+	PostOrderVisit(a.Expr(), visitor)
+	return visitor.maxID + 1
+}
+
 // NewSourceInfo creates a simple SourceInfo object from an input common.Source value.
 func NewSourceInfo(src common.Source) *SourceInfo {
 	var lineOffsets []int32
@@ -396,4 +403,22 @@ func (r *ReferenceInfo) Equals(other *ReferenceInfo) bool {
 		return false
 	}
 	return true
+}
+
+type maxIDVisitor struct {
+	maxID int64
+}
+
+// VisitExpr updates the max identifier if the incoming expression id is greater than previously observed.
+func (v *maxIDVisitor) VisitExpr(e Expr) {
+	if v.maxID < e.ID() {
+		v.maxID = e.ID()
+	}
+}
+
+// VisitEntryExpr updates the max identifier if the incoming entry id is greater than previously observed.
+func (v *maxIDVisitor) VisitEntryExpr(e EntryExpr) {
+	if v.maxID < e.ID() {
+		v.maxID = e.ID()
+	}
 }
