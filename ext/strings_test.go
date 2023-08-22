@@ -82,6 +82,8 @@ var stringTests = []struct {
 	{expr: `"{0} days {0} hours".replace("{0}", "2") == "2 days 2 hours"`},
 	{expr: `"{0} days {0} hours".replace("{0}", "2", 1).replace("{0}", "23") == "2 days 23 hours"`},
 	{expr: `"1 ©αT taco".replace("αT", "o©α") == "1 ©o©α taco"`},
+	{expr: `"hello hello".replace("", "_") == "_h_e_l_l_o_ _h_e_l_l_o_"`},
+	{expr: `"hello hello".replace("h", "") == "ello ello"`},
 	// Split tests.
 	{expr: `"hello world".split(" ") == ["hello", "world"]`},
 	{expr: `"hello world events!".split(" ", 0) == []`},
