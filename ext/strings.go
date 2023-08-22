@@ -202,6 +202,8 @@ const (
 //	'hello hello'.replace('he', 'we', -1) // returns 'wello wello'
 //	'hello hello'.replace('he', 'we', 1)  // returns 'wello hello'
 //	'hello hello'.replace('he', 'we', 0)  // returns 'hello hello'
+//	'hello hello'.replace('', '_')  // returns '_h_e_l_l_o_ _h_e_l_l_o_'
+//	'hello hello'.replace('h', '')  // returns 'ello ello'
 //
 // # Split
 //
@@ -514,7 +516,7 @@ func (lib *stringLib) CompileOptions() []cel.EnvOption {
 		)
 	}
 	if lib.version >= 3 {
-		opts = append( opts,
+		opts = append(opts,
 			cel.Function("reverse",
 				cel.MemberOverload("reverse", []*cel.Type{cel.StringType}, cel.StringType,
 					cel.UnaryBinding(func(str ref.Val) ref.Val {
