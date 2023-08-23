@@ -347,7 +347,7 @@ func (opt *optimizerExprFactory) NewPresenceTest(macroID int64, operand ast.Expr
 			opt.fac.NewSelect(opt.nextID(), operand, field)))
 
 	// Generate a new presence test macro.
-	return opt.fac.NewPresenceTest(opt.nextID(), operand, field)
+	return opt.fac.NewPresenceTest(opt.nextID(), opt.CopyExpr(operand), field)
 }
 
 // NewSelect creates a select expression where a field value is selected from an operand.
