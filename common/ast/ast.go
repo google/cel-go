@@ -249,10 +249,16 @@ func (s *SourceInfo) GetMacroCall(id int64) (Expr, bool) {
 
 // SetMacroCall records a macro call at a specific location.
 func (s *SourceInfo) SetMacroCall(id int64, e Expr) {
-	if s == nil {
-		return
+	if s != nil {
+		s.macroCalls[id] = e
 	}
-	s.macroCalls[id] = e
+}
+
+// ClearMacroCall removes the macro call at the given expression id.
+func (s *SourceInfo) ClearMacroCall(id int64) {
+	if s != nil {
+		delete(s.macroCalls, id)
+	}
 }
 
 // OffsetRanges returns a map of expression id to OffsetRange values where the range indicates either:
@@ -407,6 +413,7 @@ func (r *ReferenceInfo) Equals(other *ReferenceInfo) bool {
 
 type maxIDVisitor struct {
 	maxID int64
+	*baseVisitor
 }
 
 // VisitExpr updates the max identifier if the incoming expression id is greater than previously observed.

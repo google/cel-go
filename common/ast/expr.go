@@ -184,6 +184,9 @@ type ListExpr interface {
 	// OptionalIndicies returns the list of optional indices in the list literal.
 	OptionalIndices() []int32
 
+	// IsOptional indicates whether the given element index is optional.
+	IsOptional(int32) bool
+
 	// Size returns the number of elements in the list.
 	Size() int
 
@@ -604,6 +607,15 @@ func (e *baseListExpr) Elements() []Expr {
 		return []Expr{}
 	}
 	return e.elements
+}
+
+func (e *baseListExpr) IsOptional(index int32) bool {
+	for _, optIndex := range e.OptionalIndices() {
+		if optIndex == index {
+			return true
+		}
+	}
+	return false
 }
 
 func (e *baseListExpr) OptionalIndices() []int32 {

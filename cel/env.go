@@ -43,6 +43,9 @@ type Ast struct {
 }
 
 // Expr returns the proto serializable instance of the parsed/checked expression.
+//
+// Deprecated: prefer cel.AstToCheckedExpr() or cel.AstToParsedExpr() and call GetExpr()
+// the result instead.
 func (ast *Ast) Expr() *exprpb.Expr {
 	if ast == nil {
 		return nil
@@ -220,6 +223,11 @@ func (e *Env) Check(ast *Ast) (*Ast, *Issues) {
 	ast = &Ast{
 		source: ast.Source(),
 		impl:   checked}
+
+	// Avoid creating a validator config if it's not needed.
+	if len(e.validators) == 0 {
+		return ast, nil
+	}
 
 	// Generate a validator configuration from the set of configured validators.
 	vConfig := newValidatorConfig()
