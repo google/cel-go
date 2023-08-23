@@ -228,6 +228,26 @@ func TestTypeProviderInterop(t *testing.T) {
 	}
 }
 
+func TestLibraries(t *testing.T) {
+	e, err := NewEnv(OptionalTypes())
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	for _, expected := range []string{"cel.lib.std", "cel.lib.optional"} {
+		if !e.HasLibrary(expected) {
+			t.Errorf("Expected HasLibrary() to return true for '%s'", expected)
+		}
+		libMap := map[string]struct{}{}
+		for _, lib := range e.Libraries() {
+			libMap[lib] = struct{}{}
+		}
+
+		if _, ok := libMap[expected]; !ok {
+			t.Errorf("Expected Libraries() to include '%s'", expected)
+		}
+	}
+}
+
 func BenchmarkNewCustomEnvLazy(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
