@@ -272,6 +272,8 @@ const (
 //
 // # Reverse
 //
+// Introduced at version: 3
+//
 // Returns a new string whose characters are the same as the target string, only formatted in
 // reverse order.
 // This function relies on converting strings to rune arrays in order to reverse
