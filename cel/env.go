@@ -391,7 +391,7 @@ func (e *Env) HasLibrary(libName string) bool {
 
 // Libraries returns a list of SingletonLibrary that have been configured in the environment.
 func (e *Env) Libraries() []string {
-	libraries := make([]string, len(e.libraries))
+	libraries := make([]string, 0, len(e.libraries))
 	for libName := range e.libraries {
 		libraries = append(libraries, libName)
 	}

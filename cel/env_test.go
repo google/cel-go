@@ -257,8 +257,12 @@ func TestLibraries(t *testing.T) {
 			t.Errorf("Expected HasLibrary() to return true for '%s'", expected)
 		}
 		libMap := map[string]struct{}{}
-		for _, lib := range e.Libraries() {
+		libraries := e.Libraries()
+		for _, lib := range libraries {
 			libMap[lib] = struct{}{}
+		}
+		if len(libraries) != 2 {
+			t.Errorf("Expected HasLibrary() to contain exactly 2 libraries but got: %v", libraries)
 		}
 
 		if _, ok := libMap[expected]; !ok {
