@@ -253,7 +253,70 @@ func TestConstantFoldingOptimizer(t *testing.T) {
 			if iss.Err() != nil {
 				t.Fatalf("Compile() failed: %v", iss.Err())
 			}
-			opt := NewStaticOptimizer(NewConstantFoldingOptimizer())
+			folder, err := NewConstantFoldingOptimizer()
+			if err != nil {
+				t.Fatalf("NewConstantFoldingOptimizer() failed: %v", err)
+			}
+			opt := NewStaticOptimizer(folder)
+			optimized, iss := opt.Optimize(e, checked)
+			if iss.Err() != nil {
+				t.Fatalf("Optimize() generated an invalid AST: %v", iss.Err())
+			}
+			folded, err := AstToString(optimized)
+			if err != nil {
+				t.Fatalf("AstToString() failed: %v", err)
+			}
+			if folded != tc.folded {
+				t.Errorf("got %q, wanted %q", folded, tc.folded)
+			}
+		})
+	}
+}
+
+func TestConstantFoldingOptimizerWithLimit(t *testing.T) {
+	tests := []struct {
+		expr   string
+		limit  int
+		folded string
+	}{
+		{
+			expr:   `[1, 1 + 2, 1 + (2 + 3)]`,
+			limit:  1,
+			folded: `[1, 3, 1 + 5]`,
+		},
+		{
+			expr:   `5 in [1, 1 + 2, 1 + (2 + 3)]`,
+			limit:  2,
+			folded: `5 in [1, 3, 6]`,
+		},
+		{
+			// though more complex, the final tryFold() at the end of the optimization pass
+			// results in this computed output.
+			expr:   `[1, 2, 3].map(i, [1, 2, 3].map(j, i * j))`,
+			limit:  1,
+			folded: `[[1, 2, 3], [2, 4, 6], [3, 6, 9]]`,
+		},
+	}
+	e, err := NewEnv(
+		OptionalTypes(),
+		EnableMacroCallTracking(),
+		Types(&proto3pb.TestAllTypes{}),
+		Variable("x", DynType))
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	for _, tst := range tests {
+		tc := tst
+		t.Run(tc.expr, func(t *testing.T) {
+			checked, iss := e.Compile(tc.expr)
+			if iss.Err() != nil {
+				t.Fatalf("Compile() failed: %v", iss.Err())
+			}
+			folder, err := NewConstantFoldingOptimizer(MaxConstantFoldIterations(tc.limit))
+			if err != nil {
+				t.Fatalf("NewConstantFoldingOptimizer() failed: %v", err)
+			}
+			opt := NewStaticOptimizer(folder)
 			optimized, iss := opt.Optimize(e, checked)
 			if iss.Err() != nil {
 				t.Fatalf("Optimize() generated an invalid AST: %v", iss.Err())
@@ -507,7 +570,11 @@ func TestConstantFoldingNormalizeIDs(t *testing.T) {
 					t.Errorf("Compile() for macro %d got %s, expected %s", id, prototext.Format(pbCall), macroText)
 				}
 			}
-			opt := NewStaticOptimizer(NewConstantFoldingOptimizer())
+			folder, err := NewConstantFoldingOptimizer()
+			if err != nil {
+				t.Fatalf("NewConstantFoldingOptimizer() failed: %v", err)
+			}
+			opt := NewStaticOptimizer(folder)
 			optimized, iss := opt.Optimize(e, checked)
 			if iss.Err() != nil {
 				t.Fatalf("Optimize() generated an invalid AST: %v", iss.Err())

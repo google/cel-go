@@ -25,26 +25,52 @@ import (
 	"github.com/google/cel-go/common/types/traits"
 )
 
-// NewConstantFoldingOptimizer creates an optimizer which inlines constant scalar an aggregate
-// literal values within function calls and select statements with their evaluated result.
-func NewConstantFoldingOptimizer() ASTOptimizer {
-	return &constantFoldingOptimizer{}
+// ConstantFoldingOption defines a functional option for configuring constant folding.
+type ConstantFoldingOption func(opt *constantFoldingOptimizer) (*constantFoldingOptimizer, error)
+
+// MaxConstantFoldIterations limits the number of times literals may be folding during optimization.
+//
+// Defaults to 100 if not set.
+func MaxConstantFoldIterations(limit int) ConstantFoldingOption {
+	return func(opt *constantFoldingOptimizer) (*constantFoldingOptimizer, error) {
+		opt.maxFoldIterations = limit
+		return opt, nil
+	}
 }
 
-type constantFoldingOptimizer struct{}
+// NewConstantFoldingOptimizer creates an optimizer which inlines constant scalar an aggregate
+// literal values within function calls and select statements with their evaluated result.
+func NewConstantFoldingOptimizer(opts ...ConstantFoldingOption) (ASTOptimizer, error) {
+	folder := &constantFoldingOptimizer{
+		maxFoldIterations: defaultMaxConstantFoldIterations,
+	}
+	var err error
+	for _, o := range opts {
+		folder, err = o(folder)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return folder, nil
+}
+
+type constantFoldingOptimizer struct {
+	maxFoldIterations int
+}
 
 // Optimize queries the expression graph for scalar and aggregate literal expressions within call and
 // select statements and then evaluates them and replaces the call site with the literal result.
 //
 // Note: only values which can be represented as literals in CEL syntax are supported.
-func (*constantFoldingOptimizer) Optimize(ctx *OptimizerContext, a *ast.AST) *ast.AST {
+func (opt *constantFoldingOptimizer) Optimize(ctx *OptimizerContext, a *ast.AST) *ast.AST {
 	root := ast.NavigateAST(a)
 
 	// Walk the list of foldable expression and continue to fold until there are no more folds left.
 	// All of the fold candidates returned by the constantExprMatcher should succeed unless there's
 	// a logic bug with the selection of expressions.
 	foldableExprs := ast.MatchDescendants(root, constantExprMatcher)
-	for len(foldableExprs) != 0 {
+	foldCount := 0
+	for len(foldableExprs) != 0 && foldCount < opt.maxFoldIterations {
 		for _, fold := range foldableExprs {
 			// If the expression could be folded because it's a non-strict call, and the
 			// branches are pruned, continue to the next fold.
@@ -58,6 +84,7 @@ func (*constantFoldingOptimizer) Optimize(ctx *OptimizerContext, a *ast.AST) *as
 				return a
 			}
 		}
+		foldCount++
 		foldableExprs = ast.MatchDescendants(root, constantExprMatcher)
 	}
 	// Once all of the constants have been folded, try to run through the remaining comprehensions
@@ -515,4 +542,8 @@ func aggregateLiteralMatcher(e ast.NavigableExpr) bool {
 
 var (
 	constantMatcher = ast.ConstantValueMatcher()
+)
+
+const (
+	defaultMaxConstantFoldIterations = 100
 )
