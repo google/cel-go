@@ -48,7 +48,7 @@ func (*constantFoldingOptimizer) Optimize(ctx *OptimizerContext, a *ast.AST) *as
 		for _, fold := range foldableExprs {
 			// If the expression could be folded because it's a non-strict call, and the
 			// branches are pruned, continue to the next fold.
-			if fold.Kind() == ast.CallKind && maybePruneBranches(fold) {
+			if fold.Kind() == ast.CallKind && maybePruneBranches(ctx, fold) {
 				continue
 			}
 			// Otherwise, assume all context is needed to evaluate the expression.
@@ -72,7 +72,8 @@ func (*constantFoldingOptimizer) Optimize(ctx *OptimizerContext, a *ast.AST) *as
 	pruneOptionalElements(ctx, root)
 
 	// Ensure that all intermediate values in the folded expression can be represented as valid
-	// CEL literals within the AST structure.
+	// CEL literals within the AST structure. Use `PostOrderVisit` rather than `MatchDescendents`
+	// to avoid extra allocations during this final pass through the AST.
 	ast.PostOrderVisit(root, ast.NewExprVisitor(func(e ast.Expr) {
 		if e.Kind() != ast.LiteralKind {
 			return
@@ -117,22 +118,73 @@ func tryFold(ctx *OptimizerContext, a *ast.AST, expr ast.Expr) error {
 // a branch can be removed. Evaluation will naturally prune logical and / or calls,
 // but conditional will not be pruned cleanly, so this is one small area where the
 // constant folding step reimplements a portion of the evaluator.
-func maybePruneBranches(expr ast.NavigableExpr) bool {
+func maybePruneBranches(ctx *OptimizerContext, expr ast.NavigableExpr) bool {
 	call := expr.AsCall()
+	args := call.Args()
 	switch call.FunctionName() {
+	case operators.LogicalAnd, operators.LogicalOr:
+		return maybeShortcircuitLogic(ctx, call.FunctionName(), args, expr)
 	case operators.Conditional:
-		args := call.Args()
 		cond := args[0]
 		truthy := args[1]
 		falsy := args[2]
+		if cond.Kind() != ast.LiteralKind {
+			return false
+		}
 		if cond.AsLiteral() == types.True {
 			expr.SetKindCase(truthy)
 		} else {
 			expr.SetKindCase(falsy)
 		}
 		return true
+	case operators.In:
+		haystack := args[1]
+		if haystack.Kind() == ast.ListKind && haystack.AsList().Size() == 0 {
+			expr.SetKindCase(ctx.NewLiteral(types.False))
+			return true
+		}
+		needle := args[0]
+		if needle.Kind() == ast.LiteralKind && haystack.Kind() == ast.ListKind {
+			needleValue := needle.AsLiteral()
+			list := haystack.AsList()
+			for _, e := range list.Elements() {
+				if e.Kind() == ast.LiteralKind && e.AsLiteral().Equal(needleValue) == types.True {
+					expr.SetKindCase(ctx.NewLiteral(types.True))
+					return true
+				}
+			}
+		}
 	}
 	return false
+}
+
+func maybeShortcircuitLogic(ctx *OptimizerContext, function string, args []ast.Expr, expr ast.NavigableExpr) bool {
+	shortcircuit := types.False
+	skip := types.True
+	if function == operators.LogicalOr {
+		shortcircuit = types.True
+		skip = types.False
+	}
+	newArgs := []ast.Expr{}
+	for _, arg := range args {
+		if arg.Kind() != ast.LiteralKind {
+			newArgs = append(newArgs, arg)
+			continue
+		}
+		if arg.AsLiteral() == skip {
+			continue
+		}
+		if arg.AsLiteral() == shortcircuit {
+			expr.SetKindCase(arg)
+			return true
+		}
+	}
+	if len(newArgs) == 1 {
+		expr.SetKindCase(newArgs[0])
+		return true
+	}
+	expr.SetKindCase(ctx.NewCall(function, newArgs...))
+	return true
 }
 
 // pruneOptionalElements works from the bottom up to resolve optional elements within
@@ -403,14 +455,14 @@ func constantCallMatcher(e ast.NavigableExpr) bool {
 	fnName := call.FunctionName()
 	if fnName == operators.LogicalAnd {
 		for _, child := range children {
-			if child.Kind() == ast.LiteralKind && child.AsLiteral() == types.False {
+			if child.Kind() == ast.LiteralKind {
 				return true
 			}
 		}
 	}
 	if fnName == operators.LogicalOr {
 		for _, child := range children {
-			if child.Kind() == ast.LiteralKind && child.AsLiteral() == types.True {
+			if child.Kind() == ast.LiteralKind {
 				return true
 			}
 		}
@@ -419,6 +471,22 @@ func constantCallMatcher(e ast.NavigableExpr) bool {
 		cond := children[0]
 		if cond.Kind() == ast.LiteralKind && cond.AsLiteral().Type() == types.BoolType {
 			return true
+		}
+	}
+	if fnName == operators.In {
+		haystack := children[1]
+		if haystack.Kind() == ast.ListKind && haystack.AsList().Size() == 0 {
+			return true
+		}
+		needle := children[0]
+		if needle.Kind() == ast.LiteralKind && haystack.Kind() == ast.ListKind {
+			needleValue := needle.AsLiteral()
+			list := haystack.AsList()
+			for _, e := range list.Elements() {
+				if e.Kind() == ast.LiteralKind && e.AsLiteral().Equal(needleValue) == types.True {
+					return true
+				}
+			}
 		}
 	}
 	// convert all other calls with constant arguments

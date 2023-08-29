@@ -407,9 +407,14 @@ func (e *expr) SetKindCase(other Expr) {
 		e.exprKindCase = baseIdentExpr(other.AsIdent())
 	case ListKind:
 		l := other.AsList()
+		optIndexMap := make(map[int32]struct{}, len(l.OptionalIndices()))
+		for _, idx := range l.OptionalIndices() {
+			optIndexMap[idx] = struct{}{}
+		}
 		e.exprKindCase = &baseListExpr{
-			elements:   l.Elements(),
-			optIndices: l.OptionalIndices(),
+			elements:    l.Elements(),
+			optIndices:  l.OptionalIndices(),
+			optIndexMap: optIndexMap,
 		}
 	case LiteralKind:
 		e.exprKindCase = &baseLiteral{Val: other.AsLiteral()}
@@ -594,8 +599,9 @@ func (*baseLiteral) isExpr() {}
 var _ ListExpr = &baseListExpr{}
 
 type baseListExpr struct {
-	elements   []Expr
-	optIndices []int32
+	elements    []Expr
+	optIndices  []int32
+	optIndexMap map[int32]struct{}
 }
 
 func (*baseListExpr) Kind() ExprKind {
@@ -610,12 +616,8 @@ func (e *baseListExpr) Elements() []Expr {
 }
 
 func (e *baseListExpr) IsOptional(index int32) bool {
-	for _, optIndex := range e.OptionalIndices() {
-		if optIndex == index {
-			return true
-		}
-	}
-	return false
+	_, found := e.optIndexMap[index]
+	return found
 }
 
 func (e *baseListExpr) OptionalIndices() []int32 {

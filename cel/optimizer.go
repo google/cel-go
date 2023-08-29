@@ -17,7 +17,6 @@ package cel
 import (
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/ast"
-	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 )
 
@@ -91,8 +90,7 @@ func (opt *StaticOptimizer) Optimize(env *Env, a *Ast) (*Ast, *Issues) {
 }
 
 // normalizeIDs ensures that the metadata present with an AST is reset in a manner such
-// that the ids within the expression correspond to the ids within macros. This function
-// ensures that
+// that the ids within the expression correspond to the ids within macros.
 func normalizeIDs(e *Env, optimized *ast.AST) {
 	ids := newStableIDGen()
 	optimized.Expr().RenumberIDs(ids.renumberID)
@@ -199,57 +197,6 @@ type optimizerExprFactory struct {
 	sourceInfo *ast.SourceInfo
 }
 
-// CopyExpr copies the structure of the input ast.Expr and renumbers the identifiers in a manner
-// consistent with the CEL parser / checker.
-func (opt *optimizerExprFactory) CopyExpr(e ast.Expr) ast.Expr {
-	copy := opt.fac.CopyExpr(e)
-	copy.RenumberIDs(opt.renumberID)
-	return copy
-}
-
-// NewBindMacro creates a cel.bind() call with a variable name, initialization expression, and remaining expression.
-//
-// Note: the macroID indicates the insertion point, the call id that matched the macro signature, which will be used
-// for coordinating macro metadata with the bind call. This piece of data is what makes it possible to unparse
-// optimized expressions which use the bind() call.
-//
-// Example:
-//
-// cel.bind(myVar, a && b || c, !myVar || (myVar && d))
-// - varName: myVar
-// - varInit: a && b || c
-// - remaining: !myVar || (myVar && d)
-func (opt *optimizerExprFactory) NewBindMacro(macroID int64, varName string, varInit, remaining ast.Expr) ast.Expr {
-	bindID := opt.nextID()
-	varID := opt.nextID()
-
-	varInit = opt.CopyExpr(varInit)
-	varInit.RenumberIDs(opt.renumberID)
-
-	remaining = opt.fac.CopyExpr(remaining)
-	remaining.RenumberIDs(opt.renumberID)
-
-	// Place the expanded macro form in the macro calls list so that the inlined
-	// call can be unparsed.
-	opt.sourceInfo.SetMacroCall(macroID,
-		opt.fac.NewMemberCall(0, "bind",
-			opt.fac.NewIdent(opt.nextID(), "cel"),
-			opt.fac.NewIdent(varID, varName),
-			varInit,
-			remaining))
-
-	// Replace the parent node with the intercepted inlining using cel.bind()-like
-	// generated comprehension AST.
-	return opt.fac.NewComprehension(bindID,
-		opt.fac.NewList(opt.nextID(), []ast.Expr{}, []int32{}),
-		"#unused",
-		varName,
-		opt.fac.CopyExpr(varInit),
-		opt.fac.NewLiteral(opt.nextID(), types.False),
-		opt.fac.NewIdent(varID, varName),
-		opt.fac.CopyExpr(remaining))
-}
-
 // NewCall creates a global function call invocation expression.
 //
 // Example:
@@ -328,27 +275,6 @@ func (opt *optimizerExprFactory) NewMap(entries []ast.EntryExpr) ast.Expr {
 // - optional: true
 func (opt *optimizerExprFactory) NewMapEntry(key, value ast.Expr, isOptional bool) ast.EntryExpr {
 	return opt.fac.NewMapEntry(opt.nextID(), key, value, isOptional)
-}
-
-// NewPresenceTest creates a new presence test macro call.
-//
-// Example:
-//
-// has(msg.field_name)
-// - operand: msg
-// - field: field_name
-func (opt *optimizerExprFactory) NewPresenceTest(macroID int64, operand ast.Expr, field string) ast.Expr {
-	// Copy the input operand and renumber it.
-	operand = opt.CopyExpr(operand)
-	operand.RenumberIDs(opt.renumberID)
-
-	// Place the expanded macro form in the macro calls list so that the inlined call can be unparsed.
-	opt.sourceInfo.SetMacroCall(macroID,
-		opt.fac.NewCall(0, "has",
-			opt.fac.NewSelect(opt.nextID(), operand, field)))
-
-	// Generate a new presence test macro.
-	return opt.fac.NewPresenceTest(opt.nextID(), operand, field)
 }
 
 // NewSelect creates a select expression where a field value is selected from an operand.
