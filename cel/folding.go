@@ -217,7 +217,7 @@ func maybeShortcircuitLogic(ctx *OptimizerContext, function string, args []ast.E
 // pruneOptionalElements works from the bottom up to resolve optional elements within
 // aggregate literals.
 //
-// Note, may aggregate literals will be resolved as arguments to functions or select
+// Note, many aggregate literals will be resolved as arguments to functions or select
 // statements, so this method exists to handle the case where the literal could not be
 // fully resolved or exists outside of a call, select, or comprehension context.
 func pruneOptionalElements(ctx *OptimizerContext, root ast.NavigableExpr) {
@@ -277,6 +277,8 @@ func pruneOptionalMapEntries(ctx *OptimizerContext, e ast.Expr) {
 		entry := e.AsMapEntry()
 		key := entry.Key()
 		val := entry.Value()
+		// If the entry is not optional, or the value-side of the optional hasn't
+		// been resolved to a literal, then preserve the entry as-is.
 		if !entry.IsOptional() || val.Kind() != ast.LiteralKind {
 			updatedEntries = append(updatedEntries, e)
 			continue
@@ -286,6 +288,8 @@ func pruneOptionalMapEntries(ctx *OptimizerContext, e ast.Expr) {
 			updatedEntries = append(updatedEntries, e)
 			continue
 		}
+		// When the key is not a literal, but the value is, then it needs to be
+		// restored to an optional value.
 		if key.Kind() != ast.LiteralKind {
 			undoOptVal, err := adaptLiteral(ctx, optElemVal)
 			if err != nil {
