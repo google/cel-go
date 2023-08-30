@@ -423,6 +423,10 @@ func (l navigableListImpl) Elements() []Expr {
 	return elems
 }
 
+func (l navigableListImpl) IsOptional(index int32) bool {
+	return l.Expr.AsList().IsOptional(index)
+}
+
 func (l navigableListImpl) OptionalIndices() []int32 {
 	return l.Expr.AsList().OptionalIndices()
 }

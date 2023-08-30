@@ -137,7 +137,16 @@ func (fac *baseExprFactory) NewLiteral(id int64, value ref.Val) Expr {
 }
 
 func (fac *baseExprFactory) NewList(id int64, elems []Expr, optIndices []int32) Expr {
-	return fac.newExpr(id, &baseListExpr{elements: elems, optIndices: optIndices})
+	optIndexMap := make(map[int32]struct{}, len(optIndices))
+	for _, idx := range optIndices {
+		optIndexMap[idx] = struct{}{}
+	}
+	return fac.newExpr(id,
+		&baseListExpr{
+			elements:    elems,
+			optIndices:  optIndices,
+			optIndexMap: optIndexMap,
+		})
 }
 
 func (fac *baseExprFactory) NewMap(id int64, entries []EntryExpr) Expr {

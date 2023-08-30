@@ -184,6 +184,9 @@ type ListExpr interface {
 	// OptionalIndicies returns the list of optional indices in the list literal.
 	OptionalIndices() []int32
 
+	// IsOptional indicates whether the given element index is optional.
+	IsOptional(int32) bool
+
 	// Size returns the number of elements in the list.
 	Size() int
 
@@ -404,9 +407,14 @@ func (e *expr) SetKindCase(other Expr) {
 		e.exprKindCase = baseIdentExpr(other.AsIdent())
 	case ListKind:
 		l := other.AsList()
+		optIndexMap := make(map[int32]struct{}, len(l.OptionalIndices()))
+		for _, idx := range l.OptionalIndices() {
+			optIndexMap[idx] = struct{}{}
+		}
 		e.exprKindCase = &baseListExpr{
-			elements:   l.Elements(),
-			optIndices: l.OptionalIndices(),
+			elements:    l.Elements(),
+			optIndices:  l.OptionalIndices(),
+			optIndexMap: optIndexMap,
 		}
 	case LiteralKind:
 		e.exprKindCase = &baseLiteral{Val: other.AsLiteral()}
@@ -591,8 +599,9 @@ func (*baseLiteral) isExpr() {}
 var _ ListExpr = &baseListExpr{}
 
 type baseListExpr struct {
-	elements   []Expr
-	optIndices []int32
+	elements    []Expr
+	optIndices  []int32
+	optIndexMap map[int32]struct{}
 }
 
 func (*baseListExpr) Kind() ExprKind {
@@ -604,6 +613,11 @@ func (e *baseListExpr) Elements() []Expr {
 		return []Expr{}
 	}
 	return e.elements
+}
+
+func (e *baseListExpr) IsOptional(index int32) bool {
+	_, found := e.optIndexMap[index]
+	return found
 }
 
 func (e *baseListExpr) OptionalIndices() []int32 {
