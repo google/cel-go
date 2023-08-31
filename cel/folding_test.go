@@ -198,6 +198,30 @@ func TestConstantFoldingOptimizer(t *testing.T) {
 			folded: `x || x`,
 		},
 		{
+			expr:   `true && true`,
+			folded: `true`,
+		},
+		{
+			expr:   `true && false`,
+			folded: `false`,
+		},
+		{
+			expr:   `true || false`,
+			folded: `true`,
+		},
+		{
+			expr:   `false || false`,
+			folded: `false`,
+		},
+		{
+			expr:   `true && false || true`,
+			folded: `true`,
+		},
+		{
+			expr:   `false && true || false`,
+			folded: `false`,
+		},
+		{
 			expr:   `null`,
 			folded: `null`,
 		},
