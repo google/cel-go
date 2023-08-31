@@ -304,7 +304,8 @@ func (v homogeneousAggregateLiteralValidator) Validate(_ *Env, c ValidatorConfig
 }
 
 func inExemptFunction(e ast.NavigableExpr, exemptFunctions []string) bool {
-	if parent, found := e.Parent(); found {
+	parent, found := e.Parent()
+	for found {
 		if parent.Kind() == ast.CallKind {
 			fnName := parent.AsCall().FunctionName()
 			for _, exempt := range exemptFunctions {
@@ -313,9 +314,7 @@ func inExemptFunction(e ast.NavigableExpr, exemptFunctions []string) bool {
 				}
 			}
 		}
-		if parent.Kind() == ast.ListKind || parent.Kind() == ast.MapKind {
-			return inExemptFunction(parent, exemptFunctions)
-		}
+		parent, found = parent.Parent()
 	}
 	return false
 }

@@ -1318,6 +1318,50 @@ func TestStringFormat(t *testing.T) {
 	}
 }
 
+func TestStringFormatHeterogeneousLiterals(t *testing.T) {
+	tests := []struct {
+		expr string
+		out  string
+	}{
+		{
+			expr: `"list: %s".format([[[1, 2, [3.0, 4]]]])`,
+			out:  `list: [[1, 2, [3.000000, 4]]]`,
+		},
+		{
+			expr: `"list size: %d".format([[[1, 2, [3.0, 4]]].size()])`,
+			out:  `list size: 1`,
+		},
+		{
+			expr: `"list element: %s".format([[[1, 2, [3.0, 4]]][0]])`,
+			out:  `list element: [1, 2, [3.000000, 4]]`,
+		},
+	}
+	env, err := cel.NewEnv(Strings(), cel.ASTValidators(cel.ValidateHomogeneousAggregateLiterals()))
+	if err != nil {
+		t.Fatalf("cel.NewEnv() failed: %v", err)
+	}
+	for _, tst := range tests {
+		tc := tst
+		t.Run(tc.expr, func(t *testing.T) {
+			ast, iss := env.Compile(tc.expr)
+			if iss.Err() != nil {
+				t.Fatalf("env.Compile(%q) failed: %v", tc.expr, iss.Err())
+			}
+			prg, err := env.Program(ast)
+			if err != nil {
+				t.Fatalf("env.Program() failed: %v", err)
+			}
+			out, _, err := prg.Eval(cel.NoVars())
+			if err != nil {
+				t.Fatalf("Eval() failed: %v", err)
+			}
+			if out.Value() != tc.out {
+				t.Errorf("Eval() got %v, wanted %v", out, tc.out)
+			}
+		})
+	}
+}
+
 func TestBadLocale(t *testing.T) {
 	_, err := cel.NewEnv(Strings(StringsLocale("bad-locale")))
 	if err != nil {
