@@ -30,13 +30,13 @@ http_archive(
     ],
 )
 
-# googleapis as of 05/26/2023
+# googleapis as of 08/31/2023
 http_archive(
     name = "com_google_googleapis",
-    strip_prefix = "googleapis-07c27163ac591955d736f3057b1619ece66f5b99",
-    sha256 = "bd8e735d881fb829751ecb1a77038dda4a8d274c45490cb9fcf004583ee10571",
+    sha256 = "5c56500adf7b1b7a3a2ee5ca5b77500617ad80afb808e3d3979f582e64c0523d",
+    strip_prefix = "googleapis-25f99371444ea7fd0dc1523ca6925e91cc48a664",
     urls = [
-        "https://github.com/googleapis/googleapis/archive/07c27163ac591955d736f3057b1619ece66f5b99.tar.gz",
+        "https://github.com/googleapis/googleapis/archive/25f99371444ea7fd0dc1523ca6925e91cc48a664.tar.gz",
     ],
 )
 
@@ -68,22 +68,22 @@ go_repository(
     tag = "v1.28.1",
 )
 
-# Generated Google APIs protos for Golang 05/25/2023
+# Generated Google APIs protos for Golang 08/03/2023
 go_repository(
     name = "org_golang_google_genproto_googleapis_api",
     build_file_proto_mode = "disable_global",
     importpath = "google.golang.org/genproto/googleapis/api",
-    sum = "h1:m8v1xLLLzMe1m5P+gCTF8nJB9epwZQUBERm20Oy1poQ=",
-    version = "v0.0.0-20230525234035-dd9d682886f9",
+    sum = "h1:nIgk/EEq3/YlnmVVXVnm14rC2oxgs1o0ong4sD/rd44=",
+    version = "v0.0.0-20230803162519-f966b187b2e5",
 )
 
-# Generated Google APIs protos for Golang 05/25/2023
+# Generated Google APIs protos for Golang 08/03/2023
 go_repository(
     name = "org_golang_google_genproto_googleapis_rpc",
     build_file_proto_mode = "disable_global",
     importpath = "google.golang.org/genproto/googleapis/rpc",
-    sum = "h1:0nDDozoAU19Qb2HwhXadU8OcsiO/09cnTqhUtq2MEOM=",
-    version = "v0.0.0-20230525234030-28d5490b6b19",
+    sum = "h1:eSaPbMR4T7WfH9FvABk36NBMacoTUKdWCvV0dx+KfOg=",
+    version = "v0.0.0-20230803162519-f966b187b2e5",
 )
 
 # gRPC deps for v1.49.0 (including x/text and x/net)
@@ -119,8 +119,8 @@ go_repository(
 # CEL Spec deps v0.9.0
 go_repository(
     name = "com_google_cel_spec",
-    importpath = "github.com/google/cel-spec",
     commit = "51af45e2b75a8aa2b3108b00f0e91cd172cfbea1",
+    importpath = "github.com/google/cel-spec",
 )
 
 # strcase deps
@@ -134,8 +134,8 @@ go_repository(
 # Readline for repl
 go_repository(
     name = "com_github_chzyer_readline",
+    commit = "62c6fe6193755f722b8b8788aa7357be55a50ff1",  # v1.4
     importpath = "github.com/chzyer/readline",
-    commit = "62c6fe6193755f722b8b8788aa7357be55a50ff1"  # v1.4
 )
 
 # golang.org/x/exp deps
@@ -143,7 +143,7 @@ go_repository(
     name = "org_golang_x_exp",
     importpath = "golang.org/x/exp",
     sum = "h1:+WEEuIdZHnUeJJmEUjyYC2gfUMj69yZXw17EnHg/otA=",
-    version = "v0.0.0-20220722155223-a9213eeb770e"
+    version = "v0.0.0-20220722155223-a9213eeb770e",
 )
 
 # Run the dependencies at the end.  These will silently try to import some
