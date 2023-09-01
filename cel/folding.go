@@ -206,6 +206,11 @@ func maybeShortcircuitLogic(ctx *OptimizerContext, function string, args []ast.E
 			return true
 		}
 	}
+	if len(newArgs) == 0 {
+		newArgs = append(newArgs, args[0])
+		expr.SetKindCase(newArgs[0])
+		return true
+	}
 	if len(newArgs) == 1 {
 		expr.SetKindCase(newArgs[0])
 		return true
