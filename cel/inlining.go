@@ -122,7 +122,9 @@ func (opt *inliningOptimizer) Optimize(ctx *OptimizerContext, a *ast.AST) *ast.A
 	return a
 }
 
-// inlineExpr
+// inlineExpr replaces the current expression with the inlined one, unless the location of the inlining
+// happens within a presence test, e.g. has(a.b.c) -> inline alpha for a.b.c in which case an attempt is
+// made to determine whether the inlined value can be presence or existence tested.
 func (opt *inliningOptimizer) inlineExpr(ctx *OptimizerContext, prev, inlined ast.Expr, inlinedType *Type) {
 	switch prev.Kind() {
 	case ast.SelectKind:
@@ -170,10 +172,16 @@ func (opt *inliningOptimizer) rewritePresenceExpr(ctx *OptimizerContext, prev, i
 	ctx.ReportErrorAtID(prev.ID(), "unable to inline expression type %v into presence test", inlinedType)
 }
 
+// isBindable indicates whether the inlined type can be used within a cel.bind() if the expression
+// being replaced occurs within a presence test. Value types with a size() method or field selection
+// support can be bound.
+//
+// In future iterations, support may also be added for indexer types which can be rewritten as an `in`
+// expression; however, this would imply a rewrite of the inlined expression that may not be necessary
+// in most cases.
 func isBindable(matches []ast.NavigableExpr, inlined ast.Expr, inlinedType *Type) bool {
 	if inlinedType.IsAssignableType(NullType) ||
 		inlinedType.HasTrait(traits.SizerType) ||
-		inlinedType.HasTrait(traits.IndexerType) ||
 		inlinedType.HasTrait(traits.FieldTesterType) {
 		return true
 	}
