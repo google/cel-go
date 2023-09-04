@@ -294,3 +294,55 @@ func TestReferenceInfoAddOverload(t *testing.T) {
 		t.Error("repeated AddOverload() did not produce equal references")
 	}
 }
+
+func TestNewSourceInfoRelative(t *testing.T) {
+	sourceInfo := ast.NewSourceInfo(
+		mockRelativeSource(t,
+			"\n \n a || b ?\n cond1 :\n cond2",
+			[]int32{1, 2, 13, 25},
+			common.NewLocation(2, 1)))
+	tests := []struct {
+		loc    common.Location
+		offset int32
+	}{
+		// All locations specify a line number starting at 1
+		// The location of line 2, offset 1 is the same as the
+		// relative offset at location 1, 0 (offset 2)
+		{loc: common.NewLocation(1, 0), offset: 2},
+		// Equivalent to line 3, column 4
+		{loc: common.NewLocation(2, 3), offset: 6},
+		// Equivalent to line 4, column 2
+		{loc: common.NewLocation(3, 1), offset: 15},
+	}
+	for _, tst := range tests {
+		gotOffset := sourceInfo.ComputeOffset(int32(tst.loc.Line()), int32(tst.loc.Column()))
+		if gotOffset != tst.offset {
+			t.Errorf("ComputeOffset() got %v, wanted %v", gotOffset, tst.offset)
+		}
+	}
+}
+
+func mockRelativeSource(t testing.TB, text string, lineOffsets []int32, baseLocation common.Location) common.Source {
+	t.Helper()
+	return &mockSource{
+		Source:       common.NewTextSource(text),
+		lineOffsets:  lineOffsets,
+		baseLocation: baseLocation}
+}
+
+type mockSource struct {
+	common.Source
+	lineOffsets  []int32
+	baseLocation common.Location
+}
+
+func (src *mockSource) LineOffsets() []int32 {
+	return src.lineOffsets
+}
+
+func (src *mockSource) OffsetLocation(offset int32) (common.Location, bool) {
+	if offset == 0 {
+		return src.baseLocation, true
+	}
+	return src.Source.OffsetLocation(offset)
+}
