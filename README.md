@@ -68,7 +68,7 @@ env, err := cel.NewEnv(
 )
 ```
 
-That's it. The environment is ready to be use for parsing and type-checking.
+That's it. The environment is ready to be used for parsing and type-checking.
 CEL supports all the usual primitive types in addition to lists, maps, as well
 as first-class support for JSON and Protocol Buffers.
 
