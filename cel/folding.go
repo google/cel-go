@@ -248,7 +248,7 @@ func pruneOptionalListElements(ctx *OptimizerContext, e ast.Expr) {
 	}
 	updatedElems := []ast.Expr{}
 	updatedIndices := []int32{}
-	newOptIndex := 0
+	newOptIndex := -1
 	for _, e := range elems {
 		newOptIndex++
 		if !l.IsOptional(int32(newOptIndex)) {
