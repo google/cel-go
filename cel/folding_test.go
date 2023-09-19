@@ -130,8 +130,24 @@ func TestConstantFoldingOptimizer(t *testing.T) {
 			folded: `google.expr.proto3.test.TestAllTypes{single_int32: 5}`,
 		},
 		{
+			expr:   `[?optional.ofNonZeroValue(0)]`,
+			folded: `[]`,
+		},
+		{
 			expr:   `[1, ?optional.ofNonZeroValue(0)]`,
 			folded: `[1]`,
+		},
+		{
+			expr:   `[optional.none(), ?x]`,
+			folded: `[optional.none(), ?x]`,
+		},
+		{
+			expr:   `[?optional.none(), ?x]`,
+			folded: `[?x]`,
+		},
+		{
+			expr:   `[1, x, ?optional.ofNonZeroValue(0), ?x.?y]`,
+			folded: `[1, x, ?x.?y]`,
 		},
 		{
 			expr:   `[1, x, ?optional.ofNonZeroValue(3), ?x.?y]`,
