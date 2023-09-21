@@ -18,6 +18,7 @@ ALL_TESTS = [
     "@com_google_cel_spec//tests/simple:testdata/string.textproto",
     "@com_google_cel_spec//tests/simple:testdata/timestamps.textproto",
     "@com_google_cel_spec//tests/simple:testdata/unknowns.textproto",
+    "@com_google_cel_spec//tests/simple:testdata/wrappers.textproto",
 ]
 
 sh_test(
