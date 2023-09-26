@@ -152,7 +152,7 @@ may take string arguments.
 `--container <string>` sets the expression container for name resolution.
 
 `--extension <extensionType>` enables CEL extensions. Valid options are: 
-`strings`, `protos`, `math`, `encoders`, `optional`, `all`.
+`strings`, `protos`, `math`, `encoders`, `optional`, `bindings`, and `all`.
 
 example:
 
