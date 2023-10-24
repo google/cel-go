@@ -901,7 +901,7 @@ func TestProcessOptionError(t *testing.T) {
 					"'bogus'",
 				},
 			},
-			errorMsg: "extension: Unknown option: 'bogus'. Available options are: ['strings', 'protos', 'math', 'encoders', 'all']",
+			errorMsg: "extension: Unknown option: 'bogus'. Available options are: ['strings', 'protos', 'math', 'encoders', 'bindings', 'optional', 'all']",
 		},
 	}
 
