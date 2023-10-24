@@ -711,7 +711,7 @@ func newExtensionOption(extType string) (*extensionOption, error) {
 	case "encoders":
 		extOption = ext.Encoders()
 	default:
-		return nil, fmt.Errorf("Unknown option: %s. Available options are: ['strings', 'protos', 'math', 'encoders', 'all']", op)
+		return nil, fmt.Errorf("Unknown option: %s. Available options are: ['strings', 'protos', 'math', 'encoders', 'bindings', 'optional', 'all']", op)
 	}
 
 	return &extensionOption{extensionType: extType, option: extOption}, nil
@@ -830,14 +830,15 @@ func (e *Evaluator) loadDescriptors(args []string) error {
 	if len(args) < 1 {
 		return errors.New("expected path for load descriptors")
 	}
-	flag := ""
-	if len(args) > 1 {
-		flag = args[0]
-	}
 
 	textfmt := true
-	if flag == "--binarypb" {
-		textfmt = false
+
+	flags := args[:len(args)-1]
+
+	for _, flag := range flags {
+		if flag == "--binarypb" {
+			textfmt = false
+		}
 	}
 
 	p := args[len(args)-1]

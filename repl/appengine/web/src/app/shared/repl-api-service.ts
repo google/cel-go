@@ -59,12 +59,11 @@ export class ReplApiService {
 
   constructor(private readonly httpClient : HttpClient) { }
 
-
   evalInternal(request : EvaluateRequest) : Observable<EvaluateResponse> {
     return this.httpClient.post<EvaluateResponse>(API, request, HTTP_OPTIONS);
   }
 
   evaluate(request : EvaluateRequest) : Observable<EvaluateResponse> {
     return this.evalInternal(request);
-  } 
+  }
 }

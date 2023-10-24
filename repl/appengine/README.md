@@ -17,7 +17,7 @@ and run the Go server as follows:
 
 ```
 # from the `repl/appengine/web` directory:
-npm run watch
+ng run web:build --watch
 
 # from the repl/appengine directory:
 go run ./main --serve_static ./web/dist/web
@@ -25,7 +25,7 @@ go run ./main --serve_static ./web/dist/web
 
 ## Deploy on google cloud appengine
 
-1. Build the angular application with `npm run build`.
+1. Build the angular application with `npm run web:build`.
 
 1. Follow the instructions here:
 (https://cloud.google.com/appengine/docs/standard/go/building-app). Make sure to

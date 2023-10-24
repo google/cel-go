@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-import { Component } from '@angular/core';
+import { Component, ViewChild } from '@angular/core';
+import { ReplConsoleComponent } from './repl_console/repl-console-component';
 
 
 /**
@@ -26,4 +27,10 @@ import { Component } from '@angular/core';
   styleUrls: ['./app-component.scss']
 })
 export class AppComponent {
+  @ViewChild(ReplConsoleComponent)
+  private console!: ReplConsoleComponent;
+
+  submitConsole() {
+    this.console.submit();
+  }
 }
