@@ -20,8 +20,6 @@ import { ReplExampleService, Example } from '../shared/repl-example-service';
 const examples = new Map<string, Example>([
   ["hello-world",
   {
-    "description": 
-      ``,
     "request": {
       commands: [
         `"hello world!"`
@@ -29,8 +27,6 @@ const examples = new Map<string, Example>([
     }
   }],
   ["variables", {
-    "description": 
-      ``,
     "request": {
       commands: [
         `%let x = 10`,
@@ -39,8 +35,6 @@ const examples = new Map<string, Example>([
     }
   }],
   ["errors", {
-    "description": 
-      ``,
     "request": {
       commands: [
         `%let x = 0`,
@@ -52,30 +46,26 @@ const examples = new Map<string, Example>([
     }
   }],
   ["extension-functions", {
-    "description": 
-      ``,
     "request": {
       commands: [
         `%let string.prepend(prefix: string) : string -> prefix + this`,
         `"def".prepend("abc")`,
-        `%let exp(base: double, exponent: int) : double -> 
+        `%let exp(base: double, exponent: int) : double ->
           {-2: 1.0 / base / base,
            -1: 1.0 / base,
            0: 1.0,
            1: base,
-           2: base * base 
+           2: base * base
           }[exponent]`,
         `exp(2.0, -2) == 0.25`,
       ]
     }
   }],
   ["json", {
-    "description": 
-      ``,
     "request": {
       commands: [
         `%let now = timestamp("2001-01-01T00:00:01Z")`,
-        `%let sa_user = ""`,
+        `%let sa_user = "example-service"`,
         `{'aud': 'my-project',
           'exp': now + duration('300s'),
           'extra_claims': {
@@ -90,8 +80,6 @@ const examples = new Map<string, Example>([
     }
   }],
   ["macros", {
-    "description": 
-      ``,
     "request": {
       commands: [
         `[1, 2, 3, 4].exists(x, x > 3)`,
@@ -105,7 +93,6 @@ const examples = new Map<string, Example>([
   }],
   ["optionals",
   {
-    description: ``,
     request: {
       commands: [
         `%option --extension "optional"`,
@@ -124,7 +111,6 @@ const examples = new Map<string, Example>([
   [
     "strings",
   {
-    description: ``,
     request: {
       commands: [
         `%option --extension "strings"`,
@@ -138,7 +124,6 @@ const examples = new Map<string, Example>([
   [
     "math",
   {
-    description: ``,
     request: {
       commands: [
         `%option --extension "math"`,
@@ -151,7 +136,6 @@ const examples = new Map<string, Example>([
   [
     "bind",
   {
-    description: ``,
     request: {
       commands: [
         `%option --extension "bindings"`,

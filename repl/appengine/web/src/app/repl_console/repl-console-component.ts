@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { ReplApiService, EvaluateResponse, EvaluateRequest, CommandResponse } from '../shared/repl-api-service';
 import { Example, ReplExampleService } from '../shared/repl-example-service';
 
@@ -27,12 +27,16 @@ import { Example, ReplExampleService } from '../shared/repl-example-service';
   templateUrl: './repl-console-component.html',
   styleUrls: ['./repl-console-component.scss']
 })
-export class ReplConsoleComponent {
+export class ReplConsoleComponent implements OnInit {
   lastEvaluate: EvaluateResponse = {responses: [], evalTime: 0};
   lastRequest: EvaluateRequest = {commands: []};
 
-  constructor (private readonly replService: ReplApiService, private readonly exampleService: ReplExampleService) {
-    exampleService.examplePosted$.subscribe({
+  constructor (
+    private readonly replService: ReplApiService,
+    private readonly exampleService: ReplExampleService) {}
+
+  ngOnInit() {
+    this.exampleService.examplePosted$.subscribe({
       next: (ex: Example) => {
         this.lastRequest = ex.request;
         this.lastEvaluate = {responses: [], evalTime: 0};
