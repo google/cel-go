@@ -472,6 +472,14 @@ func InterruptCheckFrequency(checkFrequency uint) ProgramOption {
 	}
 }
 
+// CostEstimatorOptions configure type-check time options for estimating expression cost.
+func CostEstimatorOptions(costOpts ...checker.CostOption) EnvOption {
+	return func(e *Env) (*Env, error) {
+		e.costOptions = append(e.costOptions, costOpts...)
+		return e, nil
+	}
+}
+
 // CostTrackerOptions configures a set of options for cost-tracking.
 //
 // Note, CostTrackerOptions is a no-op unless CostTracking is also enabled.
@@ -637,13 +645,6 @@ func ParserRecursionLimit(limit int) EnvOption {
 func ParserExpressionSizeLimit(limit int) EnvOption {
 	return func(e *Env) (*Env, error) {
 		e.prsrOpts = append(e.prsrOpts, parser.ExpressionSizeCodePointLimit(limit))
-		return e, nil
-	}
-}
-
-func CostEstimatorOptions(costOpts ...checker.CostOption) EnvOption {
-	return func(e *Env) (*Env, error) {
-		e.costOptions = append(e.costOptions, costOpts...)
 		return e, nil
 	}
 }
