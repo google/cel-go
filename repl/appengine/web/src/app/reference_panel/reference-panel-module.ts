@@ -17,15 +17,21 @@
 import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReferencePanelComponent } from './reference-panel-component';
-
-
+import { MatButtonModule } from '@angular/material/button';
+import { MatExpansionModule } from '@angular/material/expansion';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatListModule } from '@angular/material/list';
 
 @NgModule({
   declarations: [
     ReferencePanelComponent
   ],
   imports: [
-    CommonModule
+    CommonModule,
+    MatButtonModule,
+    MatExpansionModule,
+    MatFormFieldModule,
+    MatListModule,
   ],
   exports: [
     ReferencePanelComponent

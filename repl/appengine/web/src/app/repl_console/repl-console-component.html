@@ -25,17 +25,18 @@
 
     <div class="repl-input-block" (keydown)="onEnter($event)">
         <!-- Inputs for previously entered REPL commands -->
-        <div class="statement-block" *ngFor="let response of lastEvaluate.responses; let i = index">
+        <div class="statement-block" *ngFor="let command of lastRequest.commands; let i = index">
             <mat-form-field class="statement-container" appearance="outline">
                 <mat-label>{{i + 1}}</mat-label>
 
                 <input matInput class="repl-stmt-input"
-                  value="{{lastRequest.commands[i]}}"
+                  value="{{command}}"
                   [attr.data-stmt-index]="i"
                   (keydown.ArrowUp)="handleUp(i)"
                   (keydown.ArrowDown)="handleDown(i)">
+
                 <mat-hint>
-                    <code class="repl-out-ok">{{response.replOutput || (response.issue? '&lt;err&gt;' : '&lt;ok&gt;' ) | trim:80}}</code>
+                    <code *ngIf="getResponse(i).evaluated" class="repl-out-ok">{{getResponse(i).replOutput || (getResponse(i).issue ? '&lt;err&gt;' : '&lt;ok&gt;' ) | trim:80}}</code>
                 </mat-hint>
 
             </mat-form-field>

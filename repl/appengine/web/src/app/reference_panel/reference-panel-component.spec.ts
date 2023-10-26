@@ -15,7 +15,11 @@
  */
 
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-
+import { MatButtonModule } from '@angular/material/button';
+import { MatExpansionModule } from '@angular/material/expansion';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatListModule } from '@angular/material/list';
+import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { ReferencePanelComponent } from './reference-panel-component';
 
 describe('ReferencePanelComponent', () => {
@@ -24,7 +28,11 @@ describe('ReferencePanelComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      declarations: [ ReferencePanelComponent ]
+      declarations: [ ReferencePanelComponent ],
+      imports: [
+        MatButtonModule, MatExpansionModule, MatListModule, MatFormFieldModule,
+        NoopAnimationsModule
+      ]
     })
     .compileComponents();
 

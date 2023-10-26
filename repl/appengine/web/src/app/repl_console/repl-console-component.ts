@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-import { Component } from '@angular/core';
-import { ReplApiService, EvaluateResponse, EvaluateRequest } from '../shared/repl-api-service';
+import { Component, OnInit } from '@angular/core';
+import { ReplApiService, EvaluateResponse, EvaluateRequest, CommandResponse } from '../shared/repl-api-service';
+import { Example, ReplExampleService } from '../shared/repl-example-service';
 
 /**
  * Component for the repl console.
@@ -26,11 +27,24 @@ import { ReplApiService, EvaluateResponse, EvaluateRequest } from '../shared/rep
   templateUrl: './repl-console-component.html',
   styleUrls: ['./repl-console-component.scss']
 })
-export class ReplConsoleComponent {
+export class ReplConsoleComponent implements OnInit {
   lastEvaluate: EvaluateResponse = {responses: [], evalTime: 0};
   lastRequest: EvaluateRequest = {commands: []};
 
-  constructor (private readonly replService: ReplApiService) {}
+  constructor (
+    private readonly replService: ReplApiService,
+    private readonly exampleService: ReplExampleService) {}
+
+  ngOnInit() {
+    this.exampleService.examplePosted$.subscribe({
+      next: (ex: Example) => {
+        this.lastRequest = ex.request;
+        this.lastEvaluate = {responses: [], evalTime: 0};
+        const input = document.querySelector<HTMLInputElement>(".repl-stmt-new");
+        if (input) { input.value = ""; input.focus(); }
+      }
+    });
+  }
 
   private evaluate(request : EvaluateRequest) {
     this.replService.evaluate(request)
@@ -45,13 +59,8 @@ export class ReplConsoleComponent {
       });
   }
 
-  onEnter(event : KeyboardEvent) : void {
-    if (event.key !== "Enter" || event.ctrlKey || event.metaKey) {
-      return;
-    }
-    event.stopPropagation();
+  submit() {
     const request : EvaluateRequest = {commands: []};
-
     document.querySelectorAll(".repl-stmt-input").forEach(
       (el : Element) => {
         if (!(el instanceof HTMLInputElement)) {
@@ -63,6 +72,21 @@ export class ReplConsoleComponent {
       }
     );
     this.evaluate(request);
+  }
+
+  onEnter(event : KeyboardEvent) : void {
+    if (event.key !== "Enter" || event.ctrlKey || event.metaKey) {
+      return;
+    }
+    event.stopPropagation();
+    this.submit();
+  }
+
+  getResponse(i: number) : CommandResponse {
+    if (i < this.lastEvaluate.responses.length) {
+      return this.lastEvaluate.responses[i];
+    }
+    return {replOutput: "", issue: "", evaluated: false};
   }
 
   reset() : void {
