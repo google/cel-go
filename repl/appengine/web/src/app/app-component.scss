@@ -36,12 +36,14 @@
     flex: 1;
   }
 
+  $toolbar_height: 60px;
+
   .toolbar {
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
-    height: 60px;
+    height: $toolbar_height;
     display: flex;
     align-items: center;
     background-color: #1976d2;
@@ -75,14 +77,13 @@
   }
 
   .content {
-    display:block;
-    margin-top: 60px;
-    width: 100%;
+    position: absolute;
+    inset: $toolbar_height 0 0 0;
   }
 
   .reference-panel-container {
     padding: 2rem;
-    max-width: 35%
+    max-width: 35vw;
   }
 
   .main-panel-container {
