@@ -16,6 +16,7 @@ package interpreter
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
 	"reflect"
 	"strings"
@@ -29,6 +30,7 @@ import (
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/common/types/traits"
 	"github.com/google/cel-go/parser"
 
 	proto3pb "github.com/google/cel-go/test/proto3pb"
@@ -728,6 +730,25 @@ func TestRuntimeCost(t *testing.T) {
 			in:   map[string]any{"str1": "val1", "str2": "val2222222"},
 		},
 		{
+			name: "str concat custom cost tracker",
+			expr: `"abcdefg".contains(str1 + str2)`,
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("str1", types.StringType),
+				decls.NewVariable("str2", types.StringType),
+			},
+			options: []CostTrackerOption{
+				FunctionCostTracker(overloads.Contains, overloads.ContainsString,
+					func(args []ref.Val, result ref.Val) *uint64 {
+						strCost := uint64(math.Ceil(float64(actualSize(args[0])) * 0.2))
+						substrCost := uint64(math.Ceil(float64(actualSize(args[1])) * 0.2))
+						cost := strCost * substrCost
+						return &cost
+					}),
+			},
+			want: 10,
+			in:   map[string]any{"str1": "val1", "str2": "val2222222"},
+		},
+		{
 			name: "at limit",
 			expr: `"abcdefg".contains(str1 + str2)`,
 			vars: []*decls.VariableDecl{
@@ -802,4 +823,11 @@ func TestRuntimeCost(t *testing.T) {
 			}
 		})
 	}
+}
+
+func actualSize(val ref.Val) uint64 {
+	if sz, ok := val.(traits.Sizer); ok {
+		return uint64(sz.Size().(types.Int))
+	}
+	return 1
 }

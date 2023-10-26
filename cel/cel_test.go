@@ -1475,7 +1475,7 @@ func TestEstimateCostAndRuntimeCost(t *testing.T) {
 		name  string
 		expr  string
 		decls []EnvOption
-		hints map[string]int64
+		hints map[string]uint64
 		want  checker.CostEstimate
 		in    any
 	}{
@@ -1499,7 +1499,7 @@ func TestEstimateCostAndRuntimeCost(t *testing.T) {
 				Variable("str1", StringType),
 				Variable("str2", StringType),
 			},
-			hints: map[string]int64{"str1": 10, "str2": 10},
+			hints: map[string]uint64{"str1": 10, "str2": 10},
 			want:  checker.CostEstimate{Min: 2, Max: 6},
 			in:    map[string]any{"str1": "val1111111", "str2": "val2222222"},
 		},
@@ -1510,7 +1510,7 @@ func TestEstimateCostAndRuntimeCost(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			if tc.hints == nil {
-				tc.hints = map[string]int64{}
+				tc.hints = map[string]uint64{}
 			}
 			env := testEnv(t, tc.decls...)
 			ast, iss := env.Compile(tc.expr)
@@ -2768,12 +2768,12 @@ func BenchmarkDynamicDispatch(b *testing.B) {
 
 // TODO: ideally testCostEstimator and testRuntimeCostEstimator would be shared in a test fixtures package
 type testCostEstimator struct {
-	hints map[string]int64
+	hints map[string]uint64
 }
 
 func (tc testCostEstimator) EstimateSize(element checker.AstNode) *checker.SizeEstimate {
 	if l, ok := tc.hints[strings.Join(element.Path(), ".")]; ok {
-		return &checker.SizeEstimate{Min: 0, Max: uint64(l)}
+		return &checker.SizeEstimate{Min: 0, Max: l}
 	}
 	return nil
 }
