@@ -226,7 +226,7 @@ func addUint64NoOverflow(x, y uint64) uint64 {
 // multiplyUint64NoOverflow multiplies non-negative ints. If the result is exceeds math.MaxUint64, math.MaxUint64
 // is returned.
 func multiplyUint64NoOverflow(x, y uint64) uint64 {
-	if x > 0 && y > 0 && x > math.MaxUint64/y {
+	if y != 0 && x > math.MaxUint64/y {
 		return math.MaxUint64
 	}
 	return x * y
@@ -238,7 +238,11 @@ func multiplyByCostFactor(x uint64, y float64) uint64 {
 	if xFloat > 0 && y > 0 && xFloat > math.MaxUint64/y {
 		return math.MaxUint64
 	}
-	return uint64(math.Ceil(xFloat * y))
+	ceil := math.Ceil(xFloat * y)
+	if ceil >= doubleTwoTo64 {
+		return math.MaxUint64
+	}
+	return uint64(ceil)
 }
 
 var (
@@ -692,3 +696,7 @@ func isScalar(t *types.Type) bool {
 	}
 	return false
 }
+
+var (
+	doubleTwoTo64 = math.Ldexp(1.0, 64)
+)
