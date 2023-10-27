@@ -430,7 +430,7 @@ func TestCost(t *testing.T) {
 			},
 			hints: map[string]uint64{"str1": 10, "str2": 10},
 			options: []CostOption{
-				FunctionCostEstimate(overloads.Contains, overloads.ContainsString,
+				OverloadCostEstimate(overloads.ContainsString,
 					func(estimator CostEstimator, target *AstNode, args []AstNode) *CallEstimate {
 						if target != nil && len(args) == 1 {
 							strSize := estimateSize(estimator, *target).MultiplyByCostFactor(0.2)

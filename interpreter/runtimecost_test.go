@@ -737,7 +737,7 @@ func TestRuntimeCost(t *testing.T) {
 				decls.NewVariable("str2", types.StringType),
 			},
 			options: []CostTrackerOption{
-				FunctionCostTracker(overloads.Contains, overloads.ContainsString,
+				OverloadCostTracker(overloads.ContainsString,
 					func(args []ref.Val, result ref.Val) *uint64 {
 						strCost := uint64(math.Ceil(float64(actualSize(args[0])) * 0.2))
 						substrCost := uint64(math.Ceil(float64(actualSize(args[1])) * 0.2))

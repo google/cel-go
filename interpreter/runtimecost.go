@@ -15,7 +15,6 @@
 package interpreter
 
 import (
-	"fmt"
 	"math"
 
 	"github.com/google/cel-go/common"
@@ -134,7 +133,7 @@ func PresenceTestHasCost(hasCost bool) CostTrackerOption {
 func NewCostTracker(estimator ActualCostEstimator, opts ...CostTrackerOption) (*CostTracker, error) {
 	tracker := &CostTracker{
 		Estimator:           estimator,
-		functionTrackers:    map[string]FunctionTracker{},
+		overloadTrackers:    map[string]FunctionTracker{},
 		presenceTestHasCost: true,
 	}
 	for _, opt := range opts {
@@ -146,14 +145,13 @@ func NewCostTracker(estimator ActualCostEstimator, opts ...CostTrackerOption) (*
 	return tracker, nil
 }
 
-// FunctionCostTracker binds a function overload to a runtime FunctionTracker implementation.
+// OverloadCostTracker binds an overload ID to a runtime FunctionTracker implementation.
 //
-// FunctionCostTracker instances augment or override ActualCostEstimator decisions, allowing for  versioned and/or
+// OverloadCostTracker instances augment or override ActualCostEstimator decisions, allowing for  versioned and/or
 // optional cost tracking changes.
-func FunctionCostTracker(function, overloadID string, fnTracker FunctionTracker) CostTrackerOption {
+func OverloadCostTracker(overloadID string, fnTracker FunctionTracker) CostTrackerOption {
 	return func(tracker *CostTracker) error {
-		functionKey := fmt.Sprintf("%s|%s", function, overloadID)
-		tracker.functionTrackers[functionKey] = fnTracker
+		tracker.overloadTrackers[overloadID] = fnTracker
 		return nil
 	}
 }
@@ -164,7 +162,7 @@ type FunctionTracker func(args []ref.Val, result ref.Val) *uint64
 // CostTracker represents the information needed for tracking runtime cost.
 type CostTracker struct {
 	Estimator           ActualCostEstimator
-	functionTrackers    map[string]FunctionTracker
+	overloadTrackers    map[string]FunctionTracker
 	Limit               *uint64
 	presenceTestHasCost bool
 
@@ -179,9 +177,8 @@ func (c *CostTracker) ActualCost() uint64 {
 
 func (c *CostTracker) costCall(call InterpretableCall, args []ref.Val, result ref.Val) uint64 {
 	var cost uint64
-	if len(c.functionTrackers) != 0 {
-		functionKey := fmt.Sprintf("%s|%s", call.Function(), call.OverloadID())
-		if tracker, found := c.functionTrackers[functionKey]; found {
+	if len(c.overloadTrackers) != 0 {
+		if tracker, found := c.overloadTrackers[call.OverloadID()]; found {
 			callCost := tracker(args, result)
 			if callCost != nil {
 				cost += *callCost

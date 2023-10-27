@@ -100,10 +100,10 @@ func (setsLib) CompileOptions() []cel.EnvOption {
 			cel.Overload("list_sets_intersects_list", []*cel.Type{listType, listType}, cel.BoolType,
 				cel.BinaryBinding(setsIntersects))),
 		cel.CostEstimatorOptions(
-			checker.FunctionCostEstimate("sets.contains", "list_sets_contains_list", estimateSetsCost(1)),
-			checker.FunctionCostEstimate("sets.intersects", "list_sets_intersects_list", estimateSetsCost(1)),
+			checker.OverloadCostEstimate("list_sets_contains_list", estimateSetsCost(1)),
+			checker.OverloadCostEstimate("list_sets_intersects_list", estimateSetsCost(1)),
 			// equivalence requires potentially two m*n comparisons to ensure each list is contained by the other
-			checker.FunctionCostEstimate("sets.equivalent", "list_sets_equivalent_list", estimateSetsCost(2)),
+			checker.OverloadCostEstimate("list_sets_equivalent_list", estimateSetsCost(2)),
 		),
 	}
 }
@@ -112,9 +112,9 @@ func (setsLib) CompileOptions() []cel.EnvOption {
 func (setsLib) ProgramOptions() []cel.ProgramOption {
 	return []cel.ProgramOption{
 		cel.CostTrackerOptions(
-			interpreter.FunctionCostTracker("sets.contains", "list_sets_contains_list", trackSetsCost(1)),
-			interpreter.FunctionCostTracker("sets.intersects", "list_sets_intersects_list", trackSetsCost(1)),
-			interpreter.FunctionCostTracker("sets.equivalent", "list_sets_equivalent_list", trackSetsCost(2)),
+			interpreter.OverloadCostTracker("list_sets_contains_list", trackSetsCost(1)),
+			interpreter.OverloadCostTracker("list_sets_intersects_list", trackSetsCost(1)),
+			interpreter.OverloadCostTracker("list_sets_equivalent_list", trackSetsCost(2)),
 		),
 	}
 }
