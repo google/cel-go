@@ -155,10 +155,13 @@ func setsEquivalent(listA, listB ref.Val) ref.Val {
 
 func estimateSetsCost(costFactor float64) checker.FunctionEstimator {
 	return func(estimator checker.CostEstimator, target *checker.AstNode, args []checker.AstNode) *checker.CallEstimate {
-		arg0Size := estimateSize(estimator, args[0])
-		arg1Size := estimateSize(estimator, args[1])
-		costEstimate := arg0Size.Multiply(arg1Size).MultiplyByCostFactor(costFactor).Add(callCostEstimate)
-		return &checker.CallEstimate{CostEstimate: costEstimate}
+		if len(args) == 2 {
+			arg0Size := estimateSize(estimator, args[0])
+			arg1Size := estimateSize(estimator, args[1])
+			costEstimate := arg0Size.Multiply(arg1Size).MultiplyByCostFactor(costFactor).Add(callCostEstimate)
+			return &checker.CallEstimate{CostEstimate: costEstimate}
+		}
+		return nil
 	}
 }
 
