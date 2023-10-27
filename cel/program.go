@@ -384,7 +384,10 @@ func (gen *progGen) ContextEval(ctx context.Context, input any) (ref.Val, *EvalD
 	// new EvalState instance for each call to ensure that unique evaluations yield unique stateful
 	// results.
 	state := interpreter.NewEvalState()
-	costTracker := &interpreter.CostTracker{}
+	costTracker, err := interpreter.NewCostTracker(nil)
+	if err != nil {
+		return nil, nil, err
+	}
 	det := &EvalDetails{state: state, costTracker: costTracker}
 
 	// Generate a new instance of the interpretable using the factory configured during the call to
