@@ -15,6 +15,7 @@
 package ext
 
 import (
+	"math"
 	"reflect"
 	"strings"
 	"testing"
@@ -50,7 +51,7 @@ func TestSets(t *testing.T) {
 			in:   map[string]any{"x": []int64{5, 4, 3, 2, 1}},
 			// min cost is input 'x' length 0, 10 for list creation, 2 for arg costs
 			// max cost is effectively infinite due to missing size hint for 'x'
-			estimatedCost: checker.CostEstimate{Min: 12, Max: 18446744073709551615},
+			estimatedCost: checker.CostEstimate{Min: 12, Max: math.MaxUint64},
 			// actual cost is 'x' length 5 * list literal length 5, 10 for list creation, 2 for arg cost
 			actualCost: 37,
 		},
