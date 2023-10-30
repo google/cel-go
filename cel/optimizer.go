@@ -104,9 +104,6 @@ func normalizeIDs(idGen ast.IDGenerator, optimized ast.Expr, info *ast.SourceInf
 	for id, call := range info.MacroCalls() {
 		info.ClearMacroCall(id)
 		callID := idGen(id)
-		if e, found := allExprMap[callID]; found && e.Kind() == ast.LiteralKind {
-			continue
-		}
 		info.SetMacroCall(callID, call)
 	}
 
