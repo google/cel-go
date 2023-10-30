@@ -15,6 +15,7 @@
 package checker
 
 import (
+	"math"
 	"strings"
 	"testing"
 
@@ -43,7 +44,7 @@ func TestCost(t *testing.T) {
 		name    string
 		expr    string
 		vars    []*decls.VariableDecl
-		hints   map[string]int64
+		hints   map[string]uint64
 		options []CostOption
 		wanted  CostEstimate
 	}{
@@ -128,14 +129,14 @@ func TestCost(t *testing.T) {
 		{
 			name:   "all comprehension",
 			vars:   []*decls.VariableDecl{decls.NewVariable("input", allList)},
-			hints:  map[string]int64{"input": 100},
+			hints:  map[string]uint64{"input": 100},
 			expr:   `input.all(x, true)`,
 			wanted: CostEstimate{Min: 2, Max: 302},
 		},
 		{
 			name:   "nested all comprehension",
 			vars:   []*decls.VariableDecl{decls.NewVariable("input", nestedList)},
-			hints:  map[string]int64{"input": 50, "input.@items": 10},
+			hints:  map[string]uint64{"input": 50, "input.@items": 10},
 			expr:   `input.all(x, x.all(y, true))`,
 			wanted: CostEstimate{Min: 2, Max: 1752},
 		},
@@ -147,7 +148,7 @@ func TestCost(t *testing.T) {
 		{
 			name:   "variable cost function",
 			vars:   []*decls.VariableDecl{decls.NewVariable("input", types.StringType)},
-			hints:  map[string]int64{"input": 500},
+			hints:  map[string]uint64{"input": 500},
 			expr:   `input.matches('[0-9]')`,
 			wanted: CostEstimate{Min: 3, Max: 103},
 		},
@@ -256,14 +257,14 @@ func TestCost(t *testing.T) {
 		{
 			name:   "bytes to string conversion",
 			vars:   []*decls.VariableDecl{decls.NewVariable("input", types.BytesType)},
-			hints:  map[string]int64{"input": 500},
+			hints:  map[string]uint64{"input": 500},
 			expr:   `string(input)`,
 			wanted: CostEstimate{Min: 1, Max: 51},
 		},
 		{
 			name:  "bytes to string conversion equality",
 			vars:  []*decls.VariableDecl{decls.NewVariable("input", types.BytesType)},
-			hints: map[string]int64{"input": 500},
+			hints: map[string]uint64{"input": 500},
 			// equality check ensures that the resultSize calculation is included in cost
 			expr:   `string(input) == string(input)`,
 			wanted: CostEstimate{Min: 3, Max: 152},
@@ -271,14 +272,14 @@ func TestCost(t *testing.T) {
 		{
 			name:   "string to bytes conversion",
 			vars:   []*decls.VariableDecl{decls.NewVariable("input", types.StringType)},
-			hints:  map[string]int64{"input": 500},
+			hints:  map[string]uint64{"input": 500},
 			expr:   `bytes(input)`,
 			wanted: CostEstimate{Min: 1, Max: 51},
 		},
 		{
 			name:  "string to bytes conversion equality",
 			vars:  []*decls.VariableDecl{decls.NewVariable("input", types.StringType)},
-			hints: map[string]int64{"input": 500},
+			hints: map[string]uint64{"input": 500},
 			// equality check ensures that the resultSize calculation is included in cost
 			expr:   `bytes(input) == bytes(input)`,
 			wanted: CostEstimate{Min: 3, Max: 302},
@@ -295,7 +296,7 @@ func TestCost(t *testing.T) {
 				decls.NewVariable("input", types.StringType),
 				decls.NewVariable("arg1", types.StringType),
 			},
-			hints:  map[string]int64{"input": 500, "arg1": 500},
+			hints:  map[string]uint64{"input": 500, "arg1": 500},
 			wanted: CostEstimate{Min: 2, Max: 2502},
 		},
 		{
@@ -304,7 +305,7 @@ func TestCost(t *testing.T) {
 			vars: []*decls.VariableDecl{
 				decls.NewVariable("input", types.StringType),
 			},
-			hints:  map[string]int64{"input": 500},
+			hints:  map[string]uint64{"input": 500},
 			wanted: CostEstimate{Min: 3, Max: 103},
 		},
 		{
@@ -314,7 +315,7 @@ func TestCost(t *testing.T) {
 				decls.NewVariable("input", types.StringType),
 				decls.NewVariable("arg1", types.StringType),
 			},
-			hints:  map[string]int64{"arg1": 500},
+			hints:  map[string]uint64{"arg1": 500},
 			wanted: CostEstimate{Min: 2, Max: 52},
 		},
 		{
@@ -324,7 +325,7 @@ func TestCost(t *testing.T) {
 				decls.NewVariable("input", types.StringType),
 				decls.NewVariable("arg1", types.StringType),
 			},
-			hints:  map[string]int64{"arg1": 500},
+			hints:  map[string]uint64{"arg1": 500},
 			wanted: CostEstimate{Min: 2, Max: 52},
 		},
 		{
@@ -351,7 +352,7 @@ func TestCost(t *testing.T) {
 				decls.NewVariable("input1", allList),
 				decls.NewVariable("input2", allList),
 			},
-			hints:  map[string]int64{"input1": 1, "input2": 1},
+			hints:  map[string]uint64{"input1": 1, "input2": 1},
 			wanted: CostEstimate{Min: 4, Max: 7},
 		},
 		{
@@ -360,7 +361,7 @@ func TestCost(t *testing.T) {
 			vars: []*decls.VariableDecl{
 				decls.NewVariable("input", allMap),
 			},
-			hints:  map[string]int64{"input": 10},
+			hints:  map[string]uint64{"input": 10},
 			wanted: CostEstimate{Min: 2, Max: 82},
 		},
 		{
@@ -369,7 +370,7 @@ func TestCost(t *testing.T) {
 			vars: []*decls.VariableDecl{
 				decls.NewVariable("input", nestedMap),
 			},
-			hints:  map[string]int64{"input": 5, "input.@values": 10},
+			hints:  map[string]uint64{"input": 5, "input.@values": 10},
 			wanted: CostEstimate{Min: 2, Max: 187},
 		},
 		{
@@ -378,7 +379,7 @@ func TestCost(t *testing.T) {
 			vars: []*decls.VariableDecl{
 				decls.NewVariable("input", nestedMap),
 			},
-			hints:  map[string]int64{"input": 5, "input.@keys": 10},
+			hints:  map[string]uint64{"input": 5, "input.@keys": 10},
 			wanted: CostEstimate{Min: 2, Max: 32},
 		},
 		{
@@ -387,7 +388,7 @@ func TestCost(t *testing.T) {
 			vars: []*decls.VariableDecl{
 				decls.NewVariable("input", nestedMap),
 			},
-			hints:  map[string]int64{"input": 2, "input.@values": 2, "input.@keys": 5},
+			hints:  map[string]uint64{"input": 2, "input.@values": 2, "input.@keys": 5},
 			wanted: CostEstimate{Min: 2, Max: 34},
 		},
 		{
@@ -396,7 +397,7 @@ func TestCost(t *testing.T) {
 			vars: []*decls.VariableDecl{
 				decls.NewVariable("input", nestedMap),
 			},
-			hints:  map[string]int64{"input": 2, "input.@values": 2, "input.@keys": 5},
+			hints:  map[string]uint64{"input": 2, "input.@values": 2, "input.@keys": 5},
 			wanted: CostEstimate{Min: 2, Max: 34},
 		},
 		{
@@ -406,7 +407,7 @@ func TestCost(t *testing.T) {
 				decls.NewVariable("list1", types.NewListType(types.IntType)),
 				decls.NewVariable("list2", types.NewListType(types.IntType)),
 			},
-			hints:  map[string]int64{"list1": 10, "list2": 10},
+			hints:  map[string]uint64{"list1": 10, "list2": 10},
 			wanted: CostEstimate{Min: 4, Max: 64},
 		},
 		{
@@ -416,8 +417,29 @@ func TestCost(t *testing.T) {
 				decls.NewVariable("str1", types.StringType),
 				decls.NewVariable("str2", types.StringType),
 			},
-			hints:  map[string]int64{"str1": 10, "str2": 10},
+			hints:  map[string]uint64{"str1": 10, "str2": 10},
 			wanted: CostEstimate{Min: 2, Max: 6},
+		},
+		{
+			name: "str concat custom cost estimate",
+			expr: `"abcdefg".contains(str1 + str2)`,
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("str1", types.StringType),
+				decls.NewVariable("str2", types.StringType),
+			},
+			hints: map[string]uint64{"str1": 10, "str2": 10},
+			options: []CostOption{
+				OverloadCostEstimate(overloads.ContainsString,
+					func(estimator CostEstimator, target *AstNode, args []AstNode) *CallEstimate {
+						if target != nil && len(args) == 1 {
+							strSize := estimateSize(estimator, *target).MultiplyByCostFactor(0.2)
+							subSize := estimateSize(estimator, args[0]).MultiplyByCostFactor(0.2)
+							return &CallEstimate{CostEstimate: strSize.Multiply(subSize)}
+						}
+						return nil
+					}),
+			},
+			wanted: CostEstimate{Min: 2, Max: 12},
 		},
 		{
 			name: "list size comparison",
@@ -485,7 +507,7 @@ func TestCost(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.hints == nil {
-				tc.hints = map[string]int64{}
+				tc.hints = map[string]uint64{}
 			}
 			p, err := parser.NewParser(parser.Macros(parser.AllMacros...))
 			if err != nil {
@@ -530,12 +552,12 @@ func TestCost(t *testing.T) {
 }
 
 type testCostEstimator struct {
-	hints map[string]int64
+	hints map[string]uint64
 }
 
 func (tc testCostEstimator) EstimateSize(element AstNode) *SizeEstimate {
 	if l, ok := tc.hints[strings.Join(element.Path(), ".")]; ok {
-		return &SizeEstimate{Min: 0, Max: uint64(l)}
+		return &SizeEstimate{Min: 0, Max: l}
 	}
 	return nil
 }
@@ -546,4 +568,14 @@ func (tc testCostEstimator) EstimateCallCost(function, overloadID string, target
 		return &CallEstimate{CostEstimate: CostEstimate{Min: 7, Max: 7}}
 	}
 	return nil
+}
+
+func estimateSize(estimator CostEstimator, node AstNode) SizeEstimate {
+	if l := node.ComputedSize(); l != nil {
+		return *l
+	}
+	if l := estimator.EstimateSize(node); l != nil {
+		return *l
+	}
+	return SizeEstimate{Min: 0, Max: math.MaxUint64}
 }

@@ -91,7 +91,12 @@ func Test_ExampleWithBuiltins(t *testing.T) {
 }
 
 func TestEval(t *testing.T) {
-	env, err := NewEnv(Variable("input", ListType(IntType)))
+	env, err := NewEnv(
+		Variable("input", ListType(IntType)),
+		CostEstimatorOptions(
+			checker.OverloadCostEstimate(overloads.TimestampToYear, estimateTimestampToYear),
+		),
+	)
 	if err != nil {
 		t.Fatalf("NewEnv() failed: %v", err)
 	}
@@ -114,6 +119,9 @@ func TestEval(t *testing.T) {
 			ctx := context.Background()
 			prgOpts := []ProgramOption{
 				CostTracking(testRuntimeCostEstimator{}),
+				CostTrackerOptions(
+					interpreter.OverloadCostTracker(overloads.TimestampToYear, trackTimestampToYear),
+				),
 				EvalOptions(OptOptimize, OptTrackCost),
 				InterruptCheckFrequency(100),
 			}
@@ -1338,7 +1346,7 @@ func TestEstimateCostAndRuntimeCost(t *testing.T) {
 		name  string
 		expr  string
 		decls []EnvOption
-		hints map[string]int64
+		hints map[string]uint64
 		want  checker.CostEstimate
 		in    any
 	}{
@@ -1362,7 +1370,7 @@ func TestEstimateCostAndRuntimeCost(t *testing.T) {
 				Variable("str1", StringType),
 				Variable("str2", StringType),
 			},
-			hints: map[string]int64{"str1": 10, "str2": 10},
+			hints: map[string]uint64{"str1": 10, "str2": 10},
 			want:  checker.CostEstimate{Min: 2, Max: 6},
 			in:    map[string]any{"str1": "val1111111", "str2": "val2222222"},
 		},
@@ -1373,9 +1381,15 @@ func TestEstimateCostAndRuntimeCost(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			if tc.hints == nil {
-				tc.hints = map[string]int64{}
+				tc.hints = map[string]uint64{}
 			}
-			env := testEnv(t, tc.decls...)
+			envOpts := []EnvOption{
+				CostEstimatorOptions(
+					checker.OverloadCostEstimate(overloads.TimestampToYear, estimateTimestampToYear),
+				),
+			}
+			envOpts = append(envOpts, tc.decls...)
+			env := testEnv(t, envOpts...)
 			ast, iss := env.Compile(tc.expr)
 			if iss.Err() != nil {
 				t.Fatalf("env.Compile(%v) failed: %v", tc.expr, iss.Err())
@@ -1394,7 +1408,12 @@ func TestEstimateCostAndRuntimeCost(t *testing.T) {
 				t.Fatalf(`Env.Check(ast *Ast) failed to check expression: %v`, iss.Err())
 			}
 			// Evaluate expression.
-			program, err := env.Program(checkedAst, CostTracking(testRuntimeCostEstimator{}))
+			program, err := env.Program(checkedAst,
+				CostTracking(testRuntimeCostEstimator{}),
+				CostTrackerOptions(
+					interpreter.OverloadCostTracker(overloads.TimestampToYear, trackTimestampToYear),
+				),
+			)
 			if err != nil {
 				t.Fatalf(`Env.Program(ast *Ast, opts ...ProgramOption) failed to construct program: %v`, err)
 			}
@@ -2631,26 +2650,25 @@ func BenchmarkDynamicDispatch(b *testing.B) {
 
 // TODO: ideally testCostEstimator and testRuntimeCostEstimator would be shared in a test fixtures package
 type testCostEstimator struct {
-	hints map[string]int64
+	hints map[string]uint64
 }
 
 func (tc testCostEstimator) EstimateSize(element checker.AstNode) *checker.SizeEstimate {
 	if l, ok := tc.hints[strings.Join(element.Path(), ".")]; ok {
-		return &checker.SizeEstimate{Min: 0, Max: uint64(l)}
+		return &checker.SizeEstimate{Min: 0, Max: l}
 	}
 	return nil
 }
 
 func (tc testCostEstimator) EstimateCallCost(function, overloadID string, target *checker.AstNode, args []checker.AstNode) *checker.CallEstimate {
-	switch overloadID {
-	case overloads.TimestampToYear:
-		return &checker.CallEstimate{CostEstimate: checker.CostEstimate{Min: 7, Max: 7}}
-	}
 	return nil
 }
 
-type testRuntimeCostEstimator struct {
+func estimateTimestampToYear(estimator checker.CostEstimator, target *checker.AstNode, args []checker.AstNode) *checker.CallEstimate {
+	return &checker.CallEstimate{CostEstimate: checker.CostEstimate{Min: 7, Max: 7}}
 }
+
+type testRuntimeCostEstimator struct{}
 
 var timeToYearCost uint64 = 7
 
@@ -2667,13 +2685,11 @@ func (e testRuntimeCostEstimator) CallCost(function, overloadID string, args []r
 			argsSize[i] = 1
 		}
 	}
+	return nil
+}
 
-	switch overloadID {
-	case overloads.TimestampToYear:
-		return &timeToYearCost
-	default:
-		return nil
-	}
+func trackTimestampToYear(args []ref.Val, result ref.Val) *uint64 {
+	return &timeToYearCost
 }
 
 func testEnv(t testing.TB, opts ...EnvOption) *Env {
