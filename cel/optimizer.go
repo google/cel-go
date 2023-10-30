@@ -95,10 +95,6 @@ func (opt *StaticOptimizer) Optimize(env *Env, a *Ast) (*Ast, *Issues) {
 // that the ids within the expression correspond to the ids within macros.
 func normalizeIDs(idGen ast.IDGenerator, optimized ast.Expr, info *ast.SourceInfo) {
 	optimized.RenumberIDs(idGen)
-	allExprMap := make(map[int64]ast.Expr)
-	ast.PostOrderVisit(optimized, ast.NewExprVisitor(func(e ast.Expr) {
-		allExprMap[e.ID()] = e
-	}))
 
 	// First, update the macro call ids themselves.
 	for id, call := range info.MacroCalls() {
@@ -106,44 +102,37 @@ func normalizeIDs(idGen ast.IDGenerator, optimized ast.Expr, info *ast.SourceInf
 		callID := idGen(id)
 		info.SetMacroCall(callID, call)
 	}
-
-	// Second, update the macro call id references to ensure that macro pointers are'
-	// updated consistently across macros.
+	// Then update the macro call definitions which refer to these ids
 	for id, call := range info.MacroCalls() {
 		call.RenumberIDs(idGen)
-		resetMacroCall(info, call, allExprMap)
+		info.SetMacroCall(id, call)
+	}
+
+	fac := ast.NewExprFactory()
+	sanitizedExprMap := make(map[int64]ast.Expr)
+	ast.PostOrderVisit(optimized, ast.NewExprVisitor(func(e ast.Expr) {
+		sanitized := fac.CopyExpr(e)
+		if _, found := info.GetMacroCall(e.ID()); found {
+			sanitized.SetKindCase(nil)
+		}
+		sanitizedExprMap[e.ID()] = sanitized
+	}))
+	// Lastly, update the macro call id references to ensure that macro pointers are
+	// updated consistently across macros.
+	for id, call := range info.MacroCalls() {
+		resetMacroCall(call, sanitizedExprMap)
 		info.SetMacroCall(id, call)
 	}
 }
 
-func resetMacroCall(info *ast.SourceInfo, call ast.Expr, allExprMap map[int64]ast.Expr) {
+func resetMacroCall(call ast.Expr, sanitizedExprMap map[int64]ast.Expr) {
 	// Identify the set of expressions in the core expression which were updated,
-	// exclusing nodes which correspond to macros.
-	modified := []ast.Expr{}
+	// excluding nodes which correspond to macros.
 	ast.PostOrderVisit(call, ast.NewExprVisitor(func(e ast.Expr) {
-		if _, found := info.GetMacroCall(call.ID()); found {
-			return
-		}
-		if _, found := allExprMap[e.ID()]; found {
-			modified = append(modified, e)
+		if update, found := sanitizedExprMap[e.ID()]; found {
+			e.SetKindCase(update)
 		}
 	}))
-
-	// Ensure nested macro references whose content should be in the core AST, are
-	// excluded within the macro calls themselves to prevent redundant information
-	// from polluting the optimized AST metadata.
-	fac := ast.NewExprFactory()
-	for _, m := range modified {
-		updated := allExprMap[m.ID()]
-		// Clear the expression nodes which correspond to other macros from the macro-sanitized expression.
-		macroSanitizedCopy := fac.CopyExpr(updated)
-		ast.PreOrderVisit(macroSanitizedCopy, ast.NewExprVisitor(func(e ast.Expr) {
-			if _, isMacroRef := info.GetMacroCall(e.ID()); isMacroRef {
-				e.SetKindCase(nil)
-			}
-		}))
-		m.SetKindCase(macroSanitizedCopy)
-	}
 }
 
 // newMonotonicIDGen increments numbers from an initial seed value.
