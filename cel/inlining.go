@@ -85,17 +85,15 @@ func (opt *inliningOptimizer) Optimize(ctx *OptimizerContext, a *ast.AST) *ast.A
 		}
 
 		// For a single match, do a direct replacement of the expression sub-graph.
-		if len(matches) == 1 {
-			opt.inlineExpr(ctx, matches[0], ctx.CopyExpr(inlineVar.Expr()), inlineVar.Type())
-			continue
-		}
-
-		if !isBindable(matches, inlineVar.Expr(), inlineVar.Type()) {
+		if len(matches) == 1 || !isBindable(matches, inlineVar.Expr(), inlineVar.Type()) {
 			for _, match := range matches {
-				opt.inlineExpr(ctx, match, ctx.CopyExpr(inlineVar.Expr()), inlineVar.Type())
+				// Copy the inlined AST expr and source info.
+				copyExpr := copyASTAndMetadata(ctx, inlineVar.def)
+				opt.inlineExpr(ctx, match, copyExpr, inlineVar.Type())
 			}
 			continue
 		}
+
 		// For multiple matches, find the least common ancestor (lca) and insert the
 		// variable as a cel.bind() macro.
 		var lca ast.NavigableExpr = nil
@@ -115,27 +113,40 @@ func (opt *inliningOptimizer) Optimize(ctx *OptimizerContext, a *ast.AST) *ast.A
 			}
 		}
 
+		// Copy the inlined AST expr and source info.
+		copyExpr := copyASTAndMetadata(ctx, inlineVar.def)
 		// Update the least common ancestor by inserting a cel.bind() call to the alias.
-		inlined := ctx.NewBindMacro(lca.ID(), inlineVar.Alias(), inlineVar.Expr(), lca)
+		inlined := ctx.NewBindMacro(lca.ID(), inlineVar.Alias(), copyExpr, lca)
 		opt.inlineExpr(ctx, lca, inlined, inlineVar.Type())
 	}
 	return a
 }
 
+// copyASTAndMetadata copies the input AST and propagates the macro metadata into the AST being
+// optimized.
+func copyASTAndMetadata(ctx *OptimizerContext, a *ast.AST) ast.Expr {
+	copyExpr, copyInfo := ctx.CopyAST(a)
+	// Add in the macro calls from the inlined AST
+	for id, call := range copyInfo.MacroCalls() {
+		ctx.sourceInfo.SetMacroCall(id, call)
+	}
+	return copyExpr
+}
+
 // inlineExpr replaces the current expression with the inlined one, unless the location of the inlining
 // happens within a presence test, e.g. has(a.b.c) -> inline alpha for a.b.c in which case an attempt is
 // made to determine whether the inlined value can be presence or existence tested.
-func (opt *inliningOptimizer) inlineExpr(ctx *OptimizerContext, prev, inlined ast.Expr, inlinedType *Type) {
+func (opt *inliningOptimizer) inlineExpr(ctx *OptimizerContext, prev ast.NavigableExpr, inlined ast.Expr, inlinedType *Type) {
 	switch prev.Kind() {
 	case ast.SelectKind:
 		sel := prev.AsSelect()
 		if !sel.IsTestOnly() {
-			prev.SetKindCase(inlined)
+			opt.updateExpr(ctx, prev, inlined)
 			return
 		}
 		opt.rewritePresenceExpr(ctx, prev, inlined, inlinedType)
 	default:
-		prev.SetKindCase(inlined)
+		opt.updateExpr(ctx, prev, inlined)
 	}
 }
 
@@ -143,18 +154,18 @@ func (opt *inliningOptimizer) inlineExpr(ctx *OptimizerContext, prev, inlined as
 // expression appropriate for the inlined type, if possible.
 //
 // If the rewrite is not possible an error is reported at the inline expression site.
-func (opt *inliningOptimizer) rewritePresenceExpr(ctx *OptimizerContext, prev, inlined ast.Expr, inlinedType *Type) {
+func (opt *inliningOptimizer) rewritePresenceExpr(ctx *OptimizerContext, prev ast.NavigableExpr, inlined ast.Expr, inlinedType *Type) {
 	// If the input inlined expression is not a select expression it won't work with the has()
 	// macro. Attempt to rewrite the presence test in terms of the typed input, otherwise error.
 	ctx.sourceInfo.ClearMacroCall(prev.ID())
 	if inlined.Kind() == ast.SelectKind {
 		inlinedSel := inlined.AsSelect()
-		prev.SetKindCase(
+		opt.updateExpr(ctx, prev,
 			ctx.NewPresenceTest(prev.ID(), inlinedSel.Operand(), inlinedSel.FieldName()))
 		return
 	}
 	if inlinedType.IsAssignableType(NullType) {
-		prev.SetKindCase(
+		opt.updateExpr(ctx, prev,
 			ctx.NewCall(operators.NotEquals,
 				inlined,
 				ctx.NewLiteral(types.NullValue),
@@ -162,7 +173,7 @@ func (opt *inliningOptimizer) rewritePresenceExpr(ctx *OptimizerContext, prev, i
 		return
 	}
 	if inlinedType.HasTrait(traits.SizerType) {
-		prev.SetKindCase(
+		opt.updateExpr(ctx, prev,
 			ctx.NewCall(operators.NotEquals,
 				ctx.NewMemberCall(overloads.Size, inlined),
 				ctx.NewLiteral(types.IntZero),
@@ -170,6 +181,21 @@ func (opt *inliningOptimizer) rewritePresenceExpr(ctx *OptimizerContext, prev, i
 		return
 	}
 	ctx.ReportErrorAtID(prev.ID(), "unable to inline expression type %v into presence test", inlinedType)
+}
+
+func (opt *inliningOptimizer) updateExpr(ctx *OptimizerContext, prev ast.NavigableExpr, updated ast.Expr) {
+	prev.SetKindCase(updated)
+	if len(ctx.sourceInfo.MacroCalls()) == 0 {
+		return
+	}
+	idVisitor := ast.NewExprVisitor(func(call ast.Expr) {
+		if call.ID() == prev.ID() {
+			call.SetKindCase(ctx.CopyExpr(updated))
+		}
+	})
+	for _, call := range ctx.sourceInfo.MacroCalls() {
+		ast.PostOrderVisit(call, idVisitor)
+	}
 }
 
 // isBindable indicates whether the inlined type can be used within a cel.bind() if the expression
