@@ -47,18 +47,18 @@ func NewStaticOptimizer(optimizers ...ASTOptimizer) *StaticOptimizer {
 func (opt *StaticOptimizer) Optimize(env *Env, a *Ast) (*Ast, *Issues) {
 	// Make a copy of the AST to be optimized.
 	optimized := ast.Copy(a.impl)
+	ids := newIDGenerator(ast.MaxID(a.impl))
 
 	// Create the optimizer context, could be pooled in the future.
 	issues := NewIssues(common.NewErrors(a.Source()))
-	ids := newMonotonicIDGen(ast.MaxID(a.impl))
-	fac := &optimizerExprFactory{
-		nextID:     ids.nextID,
-		renumberID: ids.renumberID,
-		fac:        ast.NewExprFactory(),
-		sourceInfo: optimized.SourceInfo(),
+	baseFac := ast.NewExprFactory()
+	exprFac := &optimizerExprFactory{
+		idGenerator: ids,
+		fac:         baseFac,
+		sourceInfo:  optimized.SourceInfo(),
 	}
 	ctx := &OptimizerContext{
-		optimizerExprFactory: fac,
+		optimizerExprFactory: exprFac,
 		Env:                  env,
 		Issues:               issues,
 	}
@@ -70,13 +70,32 @@ func (opt *StaticOptimizer) Optimize(env *Env, a *Ast) (*Ast, *Issues) {
 			return nil, issues
 		}
 		// Normalize expression id metadata including coordination with macro call metadata.
-		stableIDGen := newStableIDGen()
-		normalizeIDs(stableIDGen.renumberID, optimized.Expr(), optimized.SourceInfo())
+		stableIDGen := newIDGenerator(0)
+		info := optimized.SourceInfo()
+		expr := optimized.Expr()
+		normalizeIDs(stableIDGen.renumberStable, expr, info)
+
+		// Sanitize the macro call references once the optimized expression has been computed
+		// and the ids normalized between the expression and the macros.
+		sanitized := baseFac.CopyExpr(expr)
+		sanitizedExprMap := make(map[int64]ast.Expr)
+		ast.PostOrderVisit(sanitized, ast.NewExprVisitor(func(e ast.Expr) {
+			if _, found := info.GetMacroCall(e.ID()); found {
+				e.SetKindCase(nil)
+			}
+			sanitizedExprMap[e.ID()] = baseFac.CopyExpr(e)
+		}))
+		// Update the macro call id references to ensure that macro pointers are
+		// updated consistently across macros.
+		for id, call := range info.MacroCalls() {
+			resetMacroCall(call, sanitizedExprMap)
+			info.SetMacroCall(id, call)
+		}
 
 		// Recheck the updated expression for any possible type-agreement or validation errors.
 		parsed := &Ast{
 			source: a.Source(),
-			impl:   ast.NewAST(optimized.Expr(), optimized.SourceInfo())}
+			impl:   ast.NewAST(expr, info)}
 		checked, iss := ctx.Check(parsed)
 		if iss.Err() != nil {
 			return nil, iss
@@ -107,22 +126,6 @@ func normalizeIDs(idGen ast.IDGenerator, optimized ast.Expr, info *ast.SourceInf
 		call.RenumberIDs(idGen)
 		info.SetMacroCall(id, call)
 	}
-
-	fac := ast.NewExprFactory()
-	sanitizedExprMap := make(map[int64]ast.Expr)
-	ast.PostOrderVisit(optimized, ast.NewExprVisitor(func(e ast.Expr) {
-		sanitized := fac.CopyExpr(e)
-		if _, found := info.GetMacroCall(e.ID()); found {
-			sanitized.SetKindCase(nil)
-		}
-		sanitizedExprMap[e.ID()] = sanitized
-	}))
-	// Lastly, update the macro call id references to ensure that macro pointers are
-	// updated consistently across macros.
-	for id, call := range info.MacroCalls() {
-		resetMacroCall(call, sanitizedExprMap)
-		info.SetMacroCall(id, call)
-	}
 }
 
 func resetMacroCall(call ast.Expr, sanitizedExprMap map[int64]ast.Expr) {
@@ -135,64 +138,41 @@ func resetMacroCall(call ast.Expr, sanitizedExprMap map[int64]ast.Expr) {
 	}))
 }
 
-// newMonotonicIDGen increments numbers from an initial seed value.
-func newMonotonicIDGen(seed int64) *monotonicIDGenerator {
-	return &monotonicIDGenerator{seed: seed}
+// newIDGenerator ensures that new ids are only created the first time they are encountered.
+func newIDGenerator(seed int64) *idGenerator {
+	return &idGenerator{
+		idMap: make(map[int64]int64),
+		seed:  seed,
+	}
 }
 
-type monotonicIDGenerator struct {
-	seed int64
+type idGenerator struct {
+	idMap map[int64]int64
+	seed  int64
 }
 
-func (gen *monotonicIDGenerator) nextID() int64 {
+func (gen *idGenerator) nextID() int64 {
 	gen.seed++
 	return gen.seed
 }
 
-func (gen *monotonicIDGenerator) renumberID(id int64) int64 {
+func (gen *idGenerator) renumberMonotonic(id int64) int64 {
 	if id == 0 {
 		return 0
 	}
 	return gen.nextID()
 }
 
-func newWrappedStableIDGen(idGen ast.IDGenerator) ast.IDGenerator {
-	idMap := make(map[int64]int64)
-	return func(id int64) int64 {
-		if id == 0 {
-			return 0
-		}
-		if newID, found := idMap[id]; found {
-			return newID
-		}
-		nextID := idGen(id)
-		idMap[id] = nextID
-		return nextID
-	}
-}
-
-// newStableIDGen ensures that new ids are only created the first time they are encountered.
-func newStableIDGen() *stableIDGenerator {
-	return &stableIDGenerator{
-		idMap: make(map[int64]int64),
-	}
-}
-
-type stableIDGenerator struct {
-	idMap  map[int64]int64
-	nextID int64
-}
-
-func (gen *stableIDGenerator) renumberID(id int64) int64 {
+func (gen *idGenerator) renumberStable(id int64) int64 {
 	if id == 0 {
 		return 0
 	}
 	if newID, found := gen.idMap[id]; found {
 		return newID
 	}
-	gen.nextID++
-	gen.idMap[id] = gen.nextID
-	return gen.nextID
+	nextID := gen.nextID()
+	gen.idMap[id] = nextID
+	return nextID
 }
 
 // OptimizerContext embeds Env and Issues instances to make it easy to type-check and evaluate
@@ -212,8 +192,7 @@ type ASTOptimizer interface {
 }
 
 type optimizerExprFactory struct {
-	nextID     func() int64
-	renumberID ast.IDGenerator
+	*idGenerator
 	fac        ast.ExprFactory
 	sourceInfo *ast.SourceInfo
 }
@@ -224,10 +203,11 @@ type optimizerExprFactory struct {
 //
 // Use this method before attempting to merge the expression from AST into another.
 func (opt *optimizerExprFactory) CopyAST(a *ast.AST) (ast.Expr, *ast.SourceInfo) {
-	stableIDGen := newWrappedStableIDGen(opt.renumberID)
+	idGen := newIDGenerator(opt.nextID())
+	defer func() { opt.seed = idGen.nextID() }()
 	copyExpr := opt.fac.CopyExpr(a.Expr())
 	copyInfo := ast.CopySourceInfo(a.SourceInfo())
-	normalizeIDs(stableIDGen, copyExpr, copyInfo)
+	normalizeIDs(idGen.renumberStable, copyExpr, copyInfo)
 	return copyExpr, copyInfo
 }
 
@@ -235,7 +215,7 @@ func (opt *optimizerExprFactory) CopyAST(a *ast.AST) (ast.Expr, *ast.SourceInfo)
 // consistent with the CEL parser / checker.
 func (opt *optimizerExprFactory) CopyExpr(e ast.Expr) ast.Expr {
 	copy := opt.fac.CopyExpr(e)
-	copy.RenumberIDs(opt.renumberID)
+	copy.RenumberIDs(opt.renumberMonotonic)
 	return copy
 }
 
@@ -426,9 +406,15 @@ func (opt *optimizerExprFactory) NewStructField(field string, value ast.Expr, is
 // suitable for use within macro bodies where the body must not contain the content of another macro,
 // but rather a 'pointer' consisting of an empty expression node with an id.
 func (opt *optimizerExprFactory) sanitizeMacroExpr(baseExpr ast.Expr) (copyExpr, macroExpr ast.Expr) {
-	idGen := newWrappedStableIDGen(opt.renumberID)
+	// Something is off in this logic
+	// - renumber the base expression using a stable identifier
+	// - base expression changes need to be reflected in macros which might have referenced
+	//   the old ids
+	// - old and new call entries don't appear to have been updated???
+	idGen := newIDGenerator(opt.nextID())
+	defer func() { opt.seed = idGen.nextID() }()
 	copyExpr = opt.fac.CopyExpr(baseExpr)
-	copyExpr.RenumberIDs(idGen)
+	copyExpr.RenumberIDs(idGen.renumberStable)
 
 	// Traverse the base expression and determine whether a macro id was updated by using
 	// the stable id generator to verify the id move.
@@ -436,8 +422,9 @@ func (opt *optimizerExprFactory) sanitizeMacroExpr(baseExpr ast.Expr) (copyExpr,
 	newToOldMacroIDs := make(map[int64]int64)
 	ast.PreOrderVisit(baseExpr, ast.NewExprVisitor(func(e ast.Expr) {
 		if call, isMacroRef := opt.sourceInfo.GetMacroCall(e.ID()); isMacroRef {
-			newID := idGen(e.ID())
+			newID := idGen.renumberStable(e.ID())
 			newToOldMacroIDs[newID] = e.ID()
+			oldToNewMacroIDs[e.ID()] = newID
 			opt.sourceInfo.SetMacroCall(newID, call)
 			opt.sourceInfo.ClearMacroCall(e.ID())
 		}
