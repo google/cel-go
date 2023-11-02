@@ -79,6 +79,23 @@ const examples = new Map<string, Example>([
       ]
     }
   }],
+  ["structs", {
+    "request": {
+      commands: [
+        `%load_descriptors --pkg 'google-rpc'`,
+        `%option --container "google.rpc.context"`,
+        `%let now = timestamp("2001-01-01T00:00:01Z")`,
+        `%let sa_user = "example-service"`,
+        `AttributeContext.Request{
+          auth: AttributeContext.Auth{
+            principal: sa_user,
+            audiences: ['my-project'],
+          },
+          time: now
+        }`
+      ]
+    }
+  }],
   ["macros", {
     "request": {
       commands: [

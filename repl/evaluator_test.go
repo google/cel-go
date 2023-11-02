@@ -756,6 +756,71 @@ func TestProcess(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "LoadDescriptorsPackageSpec",
+			commands: []Cmder{
+				&simpleCmd{
+					cmd: "load_descriptors",
+					args: []string{
+						"--pkg",
+						"cel-spec-test-types",
+					},
+				},
+				&simpleCmd{
+					cmd: "option",
+					args: []string{
+						"--container",
+						"google.api.expr.test.v1",
+					},
+				},
+				&evalCmd{
+					expr: "proto2.TestAllTypes{single_int64: 42}.single_int64 == proto3.TestAllTypes{single_int64: 42}.single_int64",
+				},
+			},
+			wantText:  `true : bool`,
+			wantExit:  false,
+			wantError: false,
+		},
+		{
+			name: "LoadDescriptorsPackageRpc",
+			commands: []Cmder{
+				&simpleCmd{
+					cmd: "load_descriptors",
+					args: []string{
+						"--pkg",
+						"google-rpc",
+					},
+				},
+				&simpleCmd{
+					cmd: "option",
+					args: []string{
+						"--container",
+						"google.rpc.context",
+					},
+				},
+				&evalCmd{
+					expr: "AttributeContext{source: AttributeContext.Peer{ip: '192.168.0.1'}}.source.ip == '192.168.0.1'",
+				},
+			},
+			wantText:  `true : bool`,
+			wantExit:  false,
+			wantError: false,
+		},
+		{
+			name: "LoadDescriptorsPackageUnknown",
+			commands: []Cmder{
+				&simpleCmd{
+					cmd: "load_descriptors",
+					args: []string{
+						"--pkg",
+						"'unknown'",
+					},
+				},
+			},
+			wantText:  "",
+			wantExit:  false,
+			wantError: true,
+		},
+		{
 			name: "Status",
 			commands: []Cmder{
 				&simpleCmd{

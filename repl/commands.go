@@ -47,6 +47,12 @@ optional language features.
 %option --container 'google.protobuf'
 %option --extension 'all'`
 
+	loadDescriptorsUsage = `LoadDescriptors loads a protobuf descriptor file (google.protobuf.FileDescriptorSet)
+from disk or from a predefined package. Supported packages are "cel-spec-test-types"
+(TestAllTypes) and "google-rpc" (AttributeContext).
+%load_descriptors 'path/to/descriptor_set.binarypb'
+%load_descriptors --pkg 'cel-spec-test-types'`
+
 	exitUsage = `Exit terminates the REPL.
 %exit`
 
@@ -184,6 +190,7 @@ func Parse(line string) (Cmder, error) {
 			deleteUsage,
 			letUsage,
 			optionUsage,
+			loadDescriptorsUsage,
 			helpUsage,
 			exitUsage,
 		}, "\n\n"))
