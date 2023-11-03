@@ -141,12 +141,12 @@ func (opt *inliningOptimizer) inlineExpr(ctx *OptimizerContext, prev ast.Navigab
 	case ast.SelectKind:
 		sel := prev.AsSelect()
 		if !sel.IsTestOnly() {
-			opt.updateExpr(ctx, prev, inlined)
+			UpdateExpr(ctx.fac, prev, inlined, ctx.sourceInfo)
 			return
 		}
 		opt.rewritePresenceExpr(ctx, prev, inlined, inlinedType)
 	default:
-		opt.updateExpr(ctx, prev, inlined)
+		UpdateExpr(ctx.fac, prev, inlined, ctx.sourceInfo)
 	}
 }
 
@@ -154,48 +154,83 @@ func (opt *inliningOptimizer) inlineExpr(ctx *OptimizerContext, prev ast.Navigab
 // expression appropriate for the inlined type, if possible.
 //
 // If the rewrite is not possible an error is reported at the inline expression site.
-func (opt *inliningOptimizer) rewritePresenceExpr(ctx *OptimizerContext, prev ast.NavigableExpr, inlined ast.Expr, inlinedType *Type) {
+func (opt *inliningOptimizer) rewritePresenceExpr(ctx *OptimizerContext, prev, inlined ast.Expr, inlinedType *Type) {
 	// If the input inlined expression is not a select expression it won't work with the has()
 	// macro. Attempt to rewrite the presence test in terms of the typed input, otherwise error.
 	ctx.sourceInfo.ClearMacroCall(prev.ID())
 	if inlined.Kind() == ast.SelectKind {
 		inlinedSel := inlined.AsSelect()
-		opt.updateExpr(ctx, prev,
-			ctx.NewPresenceTest(prev.ID(), inlinedSel.Operand(), inlinedSel.FieldName()))
+		UpdateExpr(ctx.fac, prev,
+			ctx.NewPresenceTest(prev.ID(), inlinedSel.Operand(), inlinedSel.FieldName()),
+			ctx.sourceInfo)
 		return
 	}
 	if inlinedType.IsAssignableType(NullType) {
-		opt.updateExpr(ctx, prev,
+		UpdateExpr(ctx.fac, prev,
 			ctx.NewCall(operators.NotEquals,
 				inlined,
 				ctx.NewLiteral(types.NullValue),
-			))
+			),
+			ctx.sourceInfo)
 		return
 	}
 	if inlinedType.HasTrait(traits.SizerType) {
-		opt.updateExpr(ctx, prev,
+		UpdateExpr(ctx.fac, prev,
 			ctx.NewCall(operators.NotEquals,
 				ctx.NewMemberCall(overloads.Size, inlined),
 				ctx.NewLiteral(types.IntZero),
-			))
+			),
+			ctx.sourceInfo)
 		return
 	}
 	ctx.ReportErrorAtID(prev.ID(), "unable to inline expression type %v into presence test", inlinedType)
 }
 
-func (opt *inliningOptimizer) updateExpr(ctx *OptimizerContext, prev ast.NavigableExpr, updated ast.Expr) {
+func UpdateExpr(fac ast.ExprFactory, prev, updated ast.Expr, info *ast.SourceInfo) {
+	// Update the expression
 	prev.SetKindCase(updated)
-	if len(ctx.sourceInfo.MacroCalls()) == 0 {
+	if len(info.MacroCalls()) == 0 {
 		return
 	}
-	idVisitor := ast.NewExprVisitor(func(call ast.Expr) {
-		if call.ID() == prev.ID() {
-			call.SetKindCase(ctx.CopyExpr(updated))
+
+	// Determine whether the current expression is actually a macro
+	_, isMacro := info.GetMacroCall(prev.ID())
+
+	// If the current expression is not a macro, then update the expression,
+	// and any references to the expression within another macro.
+	if !isMacro {
+		// Update any references to the expression within a macro
+		macroVisitor := ast.NewExprVisitor(func(call ast.Expr) {
+			if call.ID() == prev.ID() {
+				call.SetKindCase(fac.CopyExpr(prev))
+			}
+		})
+		for _, call := range info.MacroCalls() {
+			ast.PostOrderVisit(call, macroVisitor)
+		}
+		return
+	}
+
+	// Punch holes in the previous expression where macros exist, though actually
+	// what should happen is a field for field copy of the macro children with a top-level
+	// update of the macro to use the fields local to that macro???
+	updatedMacro := fac.CopyExpr(prev)
+	macroRefVisitor := ast.NewExprVisitor(func(e ast.Expr) {
+		if _, exists := info.GetMacroCall(e.ID()); exists && e.ID() != updatedMacro.ID() {
+			e.SetKindCase(nil)
 		}
 	})
-	for _, call := range ctx.sourceInfo.MacroCalls() {
-		ast.PostOrderVisit(call, idVisitor)
+	ast.PostOrderVisit(updatedMacro, macroRefVisitor)
+
+	if updatedMacro.Kind() != ast.SelectKind || !updatedMacro.AsSelect().IsTestOnly() {
+		return
 	}
+
+	sel := updatedMacro.AsSelect()
+	op := sel.Operand()
+	updatedMacro.RenumberIDs(clearID(updated.ID()))
+	updatedMacro.SetKindCase(fac.NewSelect(updated.ID(), op, sel.FieldName()))
+	info.SetMacroCall(prev.ID(), updatedMacro)
 }
 
 // isBindable indicates whether the inlined type can be used within a cel.bind() if the expression
@@ -242,5 +277,14 @@ func (opt *inliningOptimizer) matchVariable(varName string) ast.ExprMatcher {
 			return found && qualName+"."+sel.FieldName() == varName
 		}
 		return false
+	}
+}
+
+func clearID(id int64) func(int64) int64 {
+	return func(otherID int64) int64 {
+		if otherID == 0 || id == otherID {
+			return 0
+		}
+		return otherID
 	}
 }

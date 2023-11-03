@@ -15,6 +15,8 @@
 package cel
 
 import (
+	"fmt"
+
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/types"
@@ -70,10 +72,10 @@ func (opt *StaticOptimizer) Optimize(env *Env, a *Ast) (*Ast, *Issues) {
 			return nil, issues
 		}
 		// Normalize expression id metadata including coordination with macro call metadata.
-		stableIDGen := newIDGenerator(0)
+		freshIDGen := newIDGenerator(0)
 		info := optimized.SourceInfo()
 		expr := optimized.Expr()
-		normalizeIDs(stableIDGen.renumberStable, expr, info)
+		normalizeIDs(freshIDGen.renumberStable, expr, info)
 
 		// Sanitize the macro call references once the optimized expression has been computed
 		// and the ids normalized between the expression and the macros.
@@ -114,6 +116,10 @@ func (opt *StaticOptimizer) Optimize(env *Env, a *Ast) (*Ast, *Issues) {
 // that the ids within the expression correspond to the ids within macros.
 func normalizeIDs(idGen ast.IDGenerator, optimized ast.Expr, info *ast.SourceInfo) {
 	optimized.RenumberIDs(idGen)
+
+	if len(info.MacroCalls()) == 0 {
+		return
+	}
 
 	// First, update the macro call ids themselves.
 	for id, call := range info.MacroCalls() {
@@ -203,20 +209,13 @@ type optimizerExprFactory struct {
 //
 // Use this method before attempting to merge the expression from AST into another.
 func (opt *optimizerExprFactory) CopyAST(a *ast.AST) (ast.Expr, *ast.SourceInfo) {
+	fmt.Printf("copy ast: max id %d\n", ast.MaxID(a))
 	idGen := newIDGenerator(opt.nextID())
 	defer func() { opt.seed = idGen.nextID() }()
 	copyExpr := opt.fac.CopyExpr(a.Expr())
 	copyInfo := ast.CopySourceInfo(a.SourceInfo())
 	normalizeIDs(idGen.renumberStable, copyExpr, copyInfo)
 	return copyExpr, copyInfo
-}
-
-// CopyExpr copies the structure of the input ast.Expr and renumbers the identifiers in a manner
-// consistent with the CEL parser / checker.
-func (opt *optimizerExprFactory) CopyExpr(e ast.Expr) ast.Expr {
-	copy := opt.fac.CopyExpr(e)
-	copy.RenumberIDs(opt.renumberMonotonic)
-	return copy
 }
 
 // NewBindMacro creates a cel.bind() call with a variable name, initialization expression, and remaining expression.
@@ -360,7 +359,7 @@ func (opt *optimizerExprFactory) NewPresenceTest(macroID int64, operand ast.Expr
 			opt.fac.NewSelect(opt.nextID(), hasOperand, field)))
 
 	// Generate a new presence test macro.
-	return opt.fac.NewPresenceTest(opt.nextID(), opt.CopyExpr(operand), field)
+	return opt.fac.NewPresenceTest(opt.nextID(), operand, field)
 }
 
 // NewSelect creates a select expression where a field value is selected from an operand.
@@ -416,11 +415,15 @@ func (opt *optimizerExprFactory) sanitizeMacroExpr(baseExpr ast.Expr) (copyExpr,
 	copyExpr = opt.fac.CopyExpr(baseExpr)
 	copyExpr.RenumberIDs(idGen.renumberStable)
 
+	if len(opt.sourceInfo.MacroCalls()) == 0 {
+		return copyExpr, opt.fac.CopyExpr(copyExpr)
+	}
+
 	// Traverse the base expression and determine whether a macro id was updated by using
 	// the stable id generator to verify the id move.
 	oldToNewMacroIDs := make(map[int64]int64)
 	newToOldMacroIDs := make(map[int64]int64)
-	ast.PreOrderVisit(baseExpr, ast.NewExprVisitor(func(e ast.Expr) {
+	ast.PostOrderVisit(baseExpr, ast.NewExprVisitor(func(e ast.Expr) {
 		if call, isMacroRef := opt.sourceInfo.GetMacroCall(e.ID()); isMacroRef {
 			newID := idGen.renumberStable(e.ID())
 			newToOldMacroIDs[newID] = e.ID()
@@ -432,7 +435,7 @@ func (opt *optimizerExprFactory) sanitizeMacroExpr(baseExpr ast.Expr) (copyExpr,
 
 	// Clear the expression nodes which correspond to other macros from the macro-sanitized expression.
 	macroExpr = opt.fac.CopyExpr(copyExpr)
-	ast.PreOrderVisit(macroExpr, ast.NewExprVisitor(func(e ast.Expr) {
+	ast.PostOrderVisit(macroExpr, ast.NewExprVisitor(func(e ast.Expr) {
 		if _, isMacroRef := newToOldMacroIDs[e.ID()]; isMacroRef {
 			e.SetKindCase(nil)
 		}

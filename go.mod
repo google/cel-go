@@ -4,6 +4,7 @@ go 1.18
 
 require (
 	github.com/antlr/antlr4/runtime/Go/antlr/v4 v4.0.0-20230305170008-8188dc5388df
+	github.com/google/go-cmp v0.5.9
 	github.com/stoewer/go-strcase v1.2.0
 	golang.org/x/text v0.9.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20230803162519-f966b187b2e5

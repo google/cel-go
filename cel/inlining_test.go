@@ -18,8 +18,16 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/ast"
+	"github.com/google/cel-go/common/types"
+
+	"github.com/google/go-cmp/cmp"
+
+	"google.golang.org/protobuf/encoding/prototext"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	proto3pb "github.com/google/cel-go/test/proto3pb"
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 func TestInliningOptimizer(t *testing.T) {
@@ -270,6 +278,25 @@ func TestInliningOptimizerMultiStage(t *testing.T) {
 		inlined    string
 		folded     string
 	}{
+		{
+			expr: `has(a.b)`,
+			vars: []varDecl{
+				{
+					name: "a",
+					t:    cel.MapType(cel.StringType, cel.StringType),
+				},
+			},
+			inlineVars: []inlineVarExpr{
+				{
+					name:  "a.b",
+					alias: "alpha",
+					t:     cel.StringType,
+					expr:  `a.b_long`,
+				},
+			},
+			inlined: `has(a.b_long)`,
+			folded:  `has(a.b_long)`,
+		},
 		{
 			expr: `has(a.b) ? a.b : 'default'`,
 			vars: []varDecl{
@@ -644,4 +671,251 @@ func TestInliningOptimizerMultiStage(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSanitizeExpr(t *testing.T) {
+	type varDecl struct {
+		name string
+		t    *cel.Type
+	}
+	tests := []struct {
+		expr      string
+		vars      []varDecl
+		sanitized string
+	}{
+		{
+			expr: `has(a.b)`,
+			vars: []varDecl{
+				{
+					name: `a`,
+					t:    cel.MapType(cel.StringType, cel.DynType),
+				},
+			},
+
+			sanitized: `
+			id: 4
+			`,
+		},
+		{
+			expr: `a.size() > 0 && has(a.b)`,
+			vars: []varDecl{
+				{
+					name: `a`,
+					t:    cel.MapType(cel.StringType, cel.DynType),
+				},
+			},
+
+			sanitized: `
+			id: 9
+			call_expr: {
+				function:"_&&_",
+				args:[{
+					id:3,
+					call_expr:{
+						function:"_>_",
+						args:[{
+							id:2,
+							call_expr:{
+								target:{id:1,
+									ident_expr:{name:"a"}
+								},
+								function:"size"
+							}
+						},
+						{
+							id:4,
+							const_expr:{int64_value:0}
+						}]
+					}
+				},
+				{
+					id:8
+				}]}`,
+		},
+		{
+			expr: `a.exists(k, has(a[k].b))`,
+			vars: []varDecl{
+				{
+					name: `a`,
+					t:    cel.MapType(cel.StringType, cel.DynType),
+				},
+			},
+
+			sanitized: `
+			id: 17
+			`,
+		},
+		{
+			expr: `a.exists(k, has(a[k].b)) && has(a.b)`,
+			vars: []varDecl{
+				{
+					name: `a`,
+					t:    cel.MapType(cel.StringType, cel.DynType),
+				},
+			},
+
+			sanitized: `
+			id: 22
+			call_expr: {
+				function:"_&&_"
+				args:[{
+					id: 17
+				}, {
+					id: 21
+				}]
+			}
+			`,
+		},
+	}
+
+	for _, tst := range tests {
+		tc := tst
+		t.Run(tc.expr, func(t *testing.T) {
+
+			opts := []cel.EnvOption{
+				cel.Container("google.expr"),
+				cel.Types(&proto3pb.TestAllTypes{}),
+				cel.OptionalTypes(),
+				cel.EnableMacroCallTracking()}
+			varDecls := make([]cel.EnvOption, len(tc.vars))
+			for i, v := range tc.vars {
+				varDecls[i] = cel.Variable(v.name, v.t)
+			}
+			e, err := cel.NewEnv(append(varDecls, opts...)...)
+			if err != nil {
+				t.Fatalf("NewEnv() failed: %v", err)
+			}
+			checked, iss := e.Compile(tc.expr)
+			if iss.Err() != nil {
+				t.Fatalf("Compile() failed: %v", iss.Err())
+			}
+			expr := checked.NativeRep().Expr()
+			info := checked.NativeRep().SourceInfo()
+			fac := ast.NewExprFactory()
+			macroExpr := fac.CopyExpr(expr)
+			ast.PostOrderVisit(macroExpr, ast.NewExprVisitor(func(e ast.Expr) {
+				if _, exists := info.GetMacroCall(e.ID()); exists {
+					e.SetKindCase(nil)
+				}
+			}))
+
+			macroPBExpr, err := ast.ExprToProto(macroExpr)
+			if err != nil {
+				t.Fatalf("ast.ExprToProto() failed: %v", err)
+			}
+			expectedExpr := &exprpb.Expr{}
+			if err := prototext.Unmarshal([]byte(tc.sanitized), expectedExpr); err != nil {
+				t.Fatalf("prototext.Unmarshal() failed: %v", err)
+			}
+			if diff := cmp.Diff(expectedExpr, macroPBExpr, protocmp.Transform()); diff != "" {
+				t.Errorf("sanitize %s returned unexpected diff (-want +got):\n%s\n%v", tc.expr, diff, prototext.Format(macroPBExpr))
+			}
+		})
+	}
+}
+
+func TestUpdateExpr(t *testing.T) {
+	fac := ast.NewExprFactory()
+	tests := []struct {
+		name        string
+		expr        ast.Expr
+		origInfo    *ast.SourceInfo
+		inlined     ast.Expr
+		want        ast.Expr
+		updatedInfo *ast.SourceInfo
+	}{
+		{
+			name: "rewrite presence test",
+			expr: fac.NewPresenceTest(1, fac.NewIdent(2, "a"), "b"),
+			origInfo: macrosInfo(
+				map[int64]ast.Expr{
+					1: fac.NewSelect(0, fac.NewIdent(2, "a"), "b"),
+				},
+			),
+			inlined: fac.NewPresenceTest(1, fac.NewIdent(2, "a"), "b_long"),
+			want:    fac.NewPresenceTest(1, fac.NewIdent(2, "a"), "b_long"),
+			updatedInfo: macrosInfo(
+				map[int64]ast.Expr{
+					1: fac.NewSelect(0, fac.NewIdent(2, "a"), "b_long"),
+				},
+			),
+		},
+		{
+			name: "rewrite presence test",
+			expr: fac.NewSelect(1, fac.NewIdent(2, "a"), "b"),
+			origInfo: macrosInfo(
+				map[int64]ast.Expr{
+					1: fac.NewMemberCall(0, "exists",
+						fac.NewList(2, []ast.Expr{fac.NewIdent(3, "a")}, []int32{}),
+						fac.NewIdent(4, "i"),
+						fac.NewUnspecifiedExpr(10)),
+					10: fac.NewPresenceTest(0, fac.NewIdent(11, "i"), "j"),
+				},
+			),
+			inlined: fac.NewComprehension(1,
+				fac.NewList(2, []ast.Expr{fac.NewIdent(3, "a")}, []int32{}),
+				"i",
+				"__result__",
+				fac.NewLiteral(6, types.True),
+				fac.NewLiteral(7, types.True),
+				fac.NewCall(8,
+					"_&&_",
+					fac.NewAccuIdent(9),
+					fac.NewPresenceTest(10, fac.NewIdent(11, "i"), "j"),
+				),
+				fac.NewAccuIdent(12),
+			),
+			want: fac.NewPresenceTest(1, fac.NewIdent(2, "a"), "b_long"),
+			updatedInfo: macrosInfo(
+				map[int64]ast.Expr{
+					1: fac.NewSelect(0, fac.NewIdent(2, "a"), "b_long"),
+				},
+			),
+		},
+	}
+
+	for _, tst := range tests {
+		tc := tst
+		t.Run(tc.name, func(t *testing.T) {
+			target := fac.CopyExpr(tc.expr)
+			targetInfo := ast.CopySourceInfo(tc.origInfo)
+			cel.UpdateExpr(fac, target, tc.inlined, targetInfo)
+			targetPBExpr := pbExpr(t, target)
+			expectedPBExpr := pbExpr(t, tc.want)
+			if diff := cmp.Diff(expectedPBExpr, targetPBExpr, protocmp.Transform()); diff != "" {
+				t.Errorf("UpdateExpr() returned unexpected expr diff (-want +got):\n%s\n%v", diff, prototext.Format(targetPBExpr))
+			}
+			targetPBInfo := pbInfo(t, targetInfo)
+			expectedPBInfo := pbInfo(t, tc.updatedInfo)
+			if diff := cmp.Diff(expectedPBInfo, targetPBInfo, protocmp.Transform()); diff != "" {
+				t.Errorf("UpdateExpr() returned unexpected info diff (-want +got):\n%s\n%v", diff, prototext.Format(targetPBInfo))
+			}
+		})
+	}
+}
+
+func pbExpr(t *testing.T, e ast.Expr) *exprpb.Expr {
+	t.Helper()
+	pb, err := ast.ExprToProto(e)
+	if err != nil {
+		t.Fatalf("ast.ExprToProto() failed: %v", err)
+	}
+	return pb
+}
+
+func pbInfo(t *testing.T, info *ast.SourceInfo) *exprpb.SourceInfo {
+	t.Helper()
+	pb, err := ast.SourceInfoToProto(info)
+	if err != nil {
+		t.Fatalf("ast.SourceInfoToProto() failed: %v", err)
+	}
+	return pb
+}
+
+func macrosInfo(macros map[int64]ast.Expr) *ast.SourceInfo {
+	info := ast.NewSourceInfo(nil)
+	for id, call := range macros {
+		info.SetMacroCall(id, call)
+	}
+	return info
 }
