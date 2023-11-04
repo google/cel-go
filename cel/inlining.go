@@ -96,28 +96,36 @@ func (opt *inliningOptimizer) Optimize(ctx *OptimizerContext, a *ast.AST) *ast.A
 
 		// For multiple matches, find the least common ancestor (lca) and insert the
 		// variable as a cel.bind() macro.
-		var lca ast.NavigableExpr = nil
-		ancestors := map[int64]bool{}
+		var lca ast.NavigableExpr = root
+		lcaAncestorCount := 0
+		ancestors := map[int64]int{}
 		for _, match := range matches {
 			// Update the identifier matches with the provided alias.
-			aliasExpr := ctx.NewIdent(inlineVar.Alias())
-			opt.inlineExpr(ctx, match, aliasExpr, inlineVar.Type())
 			parent, found := match, true
 			for found {
-				_, hasAncestor := ancestors[parent.ID()]
-				if hasAncestor && (lca == nil || lca.Depth() < parent.Depth()) {
-					lca = parent
+				ancestorCount, hasAncestor := ancestors[parent.ID()]
+				if !hasAncestor {
+					ancestors[parent.ID()] = 1
+					parent, found = parent.Parent()
+					continue
 				}
-				ancestors[parent.ID()] = true
+				if lcaAncestorCount < ancestorCount || (lcaAncestorCount == ancestorCount && lca.Depth() < parent.Depth()) {
+					lca = parent
+					lcaAncestorCount = ancestorCount
+				}
+				ancestors[parent.ID()] = ancestorCount + 1
 				parent, found = parent.Parent()
 			}
+			aliasExpr := ctx.NewIdent(inlineVar.Alias())
+			opt.inlineExpr(ctx, match, aliasExpr, inlineVar.Type())
 		}
 
 		// Copy the inlined AST expr and source info.
 		copyExpr := copyASTAndMetadata(ctx, inlineVar.def)
 		// Update the least common ancestor by inserting a cel.bind() call to the alias.
-		inlined := ctx.NewBindMacro(lca.ID(), inlineVar.Alias(), copyExpr, lca)
+		inlined, bindMacro := opt.celBindMacro(ctx, lca.ID(), inlineVar.Alias(), copyExpr, lca)
 		opt.inlineExpr(ctx, lca, inlined, inlineVar.Type())
+		ctx.sourceInfo.SetMacroCall(lca.ID(), bindMacro)
 	}
 	return a
 }
@@ -141,12 +149,12 @@ func (opt *inliningOptimizer) inlineExpr(ctx *OptimizerContext, prev ast.Navigab
 	case ast.SelectKind:
 		sel := prev.AsSelect()
 		if !sel.IsTestOnly() {
-			UpdateExpr(ctx.fac, prev, inlined, ctx.sourceInfo)
+			ctx.UpdateExpr(prev, inlined)
 			return
 		}
 		opt.rewritePresenceExpr(ctx, prev, inlined, inlinedType)
 	default:
-		UpdateExpr(ctx.fac, prev, inlined, ctx.sourceInfo)
+		ctx.UpdateExpr(prev, inlined)
 	}
 }
 
@@ -157,80 +165,31 @@ func (opt *inliningOptimizer) inlineExpr(ctx *OptimizerContext, prev ast.Navigab
 func (opt *inliningOptimizer) rewritePresenceExpr(ctx *OptimizerContext, prev, inlined ast.Expr, inlinedType *Type) {
 	// If the input inlined expression is not a select expression it won't work with the has()
 	// macro. Attempt to rewrite the presence test in terms of the typed input, otherwise error.
-	ctx.sourceInfo.ClearMacroCall(prev.ID())
 	if inlined.Kind() == ast.SelectKind {
-		inlinedSel := inlined.AsSelect()
-		UpdateExpr(ctx.fac, prev,
-			ctx.NewPresenceTest(prev.ID(), inlinedSel.Operand(), inlinedSel.FieldName()),
-			ctx.sourceInfo)
+		presenceTest, hasMacro := opt.hasMacro(ctx, prev.ID(), inlined)
+		ctx.UpdateExpr(prev, presenceTest)
+		ctx.sourceInfo.SetMacroCall(prev.ID(), hasMacro)
 		return
 	}
+
+	ctx.sourceInfo.ClearMacroCall(prev.ID())
 	if inlinedType.IsAssignableType(NullType) {
-		UpdateExpr(ctx.fac, prev,
+		ctx.UpdateExpr(prev,
 			ctx.NewCall(operators.NotEquals,
 				inlined,
 				ctx.NewLiteral(types.NullValue),
-			),
-			ctx.sourceInfo)
+			))
 		return
 	}
 	if inlinedType.HasTrait(traits.SizerType) {
-		UpdateExpr(ctx.fac, prev,
+		ctx.UpdateExpr(prev,
 			ctx.NewCall(operators.NotEquals,
 				ctx.NewMemberCall(overloads.Size, inlined),
 				ctx.NewLiteral(types.IntZero),
-			),
-			ctx.sourceInfo)
+			))
 		return
 	}
 	ctx.ReportErrorAtID(prev.ID(), "unable to inline expression type %v into presence test", inlinedType)
-}
-
-func UpdateExpr(fac ast.ExprFactory, prev, updated ast.Expr, info *ast.SourceInfo) {
-	// Update the expression
-	prev.SetKindCase(updated)
-	if len(info.MacroCalls()) == 0 {
-		return
-	}
-
-	// Determine whether the current expression is actually a macro
-	_, isMacro := info.GetMacroCall(prev.ID())
-
-	// If the current expression is not a macro, then update the expression,
-	// and any references to the expression within another macro.
-	if !isMacro {
-		// Update any references to the expression within a macro
-		macroVisitor := ast.NewExprVisitor(func(call ast.Expr) {
-			if call.ID() == prev.ID() {
-				call.SetKindCase(fac.CopyExpr(prev))
-			}
-		})
-		for _, call := range info.MacroCalls() {
-			ast.PostOrderVisit(call, macroVisitor)
-		}
-		return
-	}
-
-	// Punch holes in the previous expression where macros exist, though actually
-	// what should happen is a field for field copy of the macro children with a top-level
-	// update of the macro to use the fields local to that macro???
-	updatedMacro := fac.CopyExpr(prev)
-	macroRefVisitor := ast.NewExprVisitor(func(e ast.Expr) {
-		if _, exists := info.GetMacroCall(e.ID()); exists && e.ID() != updatedMacro.ID() {
-			e.SetKindCase(nil)
-		}
-	})
-	ast.PostOrderVisit(updatedMacro, macroRefVisitor)
-
-	if updatedMacro.Kind() != ast.SelectKind || !updatedMacro.AsSelect().IsTestOnly() {
-		return
-	}
-
-	sel := updatedMacro.AsSelect()
-	op := sel.Operand()
-	updatedMacro.RenumberIDs(clearID(updated.ID()))
-	updatedMacro.SetKindCase(fac.NewSelect(updated.ID(), op, sel.FieldName()))
-	info.SetMacroCall(prev.ID(), updatedMacro)
 }
 
 // isBindable indicates whether the inlined type can be used within a cel.bind() if the expression
@@ -280,11 +239,53 @@ func (opt *inliningOptimizer) matchVariable(varName string) ast.ExprMatcher {
 	}
 }
 
-func clearID(id int64) func(int64) int64 {
-	return func(otherID int64) int64 {
-		if otherID == 0 || id == otherID {
-			return 0
+func (opt *inliningOptimizer) hasMacro(ctx *OptimizerContext, macroID int64, s ast.Expr) (astExpr, macroExpr ast.Expr) {
+	sel := s.AsSelect()
+	astExpr = ctx.fac.NewPresenceTest(macroID, sel.Operand(), sel.FieldName())
+	macroExpr = ctx.fac.NewCall(0, "has",
+		ctx.NewSelect(ctx.fac.CopyExpr(sel.Operand()), sel.FieldName()))
+	sanitizeMacro(ctx, macroID, macroExpr)
+	return
+}
+
+func (opt *inliningOptimizer) celBindMacro(
+	ctx *OptimizerContext, macroID int64, varName string, varInit, remaining ast.Expr) (astExpr, macroExpr ast.Expr) {
+	varID := ctx.nextID()
+	remainingID := ctx.nextID()
+	remaining = ctx.fac.CopyExpr(remaining)
+	remaining.RenumberIDs(func(id int64) int64 {
+		if id == macroID {
+			return remainingID
 		}
-		return otherID
+		return id
+	})
+	if call, exists := ctx.sourceInfo.GetMacroCall(macroID); exists {
+		ctx.sourceInfo.SetMacroCall(remainingID, ctx.fac.CopyExpr(call))
 	}
+
+	astExpr = ctx.fac.NewComprehension(macroID,
+		ctx.fac.NewList(ctx.nextID(), []ast.Expr{}, []int32{}),
+		"#unused",
+		varName,
+		ctx.fac.CopyExpr(varInit),
+		ctx.fac.NewLiteral(ctx.nextID(), types.False),
+		ctx.fac.NewIdent(varID, varName),
+		remaining)
+
+	macroExpr = ctx.fac.NewMemberCall(0, "bind",
+		ctx.fac.NewIdent(ctx.nextID(), "cel"),
+		ctx.fac.NewIdent(varID, varName),
+		ctx.fac.CopyExpr(varInit),
+		ctx.fac.CopyExpr(remaining))
+	sanitizeMacro(ctx, macroID, macroExpr)
+	return
+}
+
+func sanitizeMacro(ctx *OptimizerContext, macroID int64, macroExpr ast.Expr) {
+	macroRefVisitor := ast.NewExprVisitor(func(e ast.Expr) {
+		if _, exists := ctx.sourceInfo.GetMacroCall(e.ID()); exists && e.ID() != macroID {
+			e.SetKindCase(nil)
+		}
+	})
+	ast.PostOrderVisit(macroExpr, macroRefVisitor)
 }

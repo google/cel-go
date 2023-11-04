@@ -15,11 +15,8 @@
 package cel
 
 import (
-	"fmt"
-
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/ast"
-	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 )
 
@@ -76,22 +73,29 @@ func (opt *StaticOptimizer) Optimize(env *Env, a *Ast) (*Ast, *Issues) {
 		info := optimized.SourceInfo()
 		expr := optimized.Expr()
 		normalizeIDs(freshIDGen.renumberStable, expr, info)
-
 		// Sanitize the macro call references once the optimized expression has been computed
 		// and the ids normalized between the expression and the macros.
-		sanitized := baseFac.CopyExpr(expr)
-		sanitizedExprMap := make(map[int64]ast.Expr)
-		ast.PostOrderVisit(sanitized, ast.NewExprVisitor(func(e ast.Expr) {
-			if _, found := info.GetMacroCall(e.ID()); found {
-				e.SetKindCase(nil)
+		exprRefMap := make(map[int64]struct{})
+		ast.PostOrderVisit(expr, ast.NewExprVisitor(func(e ast.Expr) {
+			if e.ID() == 0 {
+				return
 			}
-			sanitizedExprMap[e.ID()] = baseFac.CopyExpr(e)
+			exprRefMap[e.ID()] = struct{}{}
 		}))
 		// Update the macro call id references to ensure that macro pointers are
 		// updated consistently across macros.
-		for id, call := range info.MacroCalls() {
-			resetMacroCall(call, sanitizedExprMap)
-			info.SetMacroCall(id, call)
+		for _, call := range info.MacroCalls() {
+			ast.PostOrderVisit(call, ast.NewExprVisitor(func(e ast.Expr) {
+				if e.ID() == 0 {
+					return
+				}
+				exprRefMap[e.ID()] = struct{}{}
+			}))
+		}
+		for id := range info.MacroCalls() {
+			if _, found := exprRefMap[id]; !found {
+				info.ClearMacroCall(id)
+			}
 		}
 
 		// Recheck the updated expression for any possible type-agreement or validation errors.
@@ -122,26 +126,30 @@ func normalizeIDs(idGen ast.IDGenerator, optimized ast.Expr, info *ast.SourceInf
 	}
 
 	// First, update the macro call ids themselves.
-	for id, call := range info.MacroCalls() {
-		info.ClearMacroCall(id)
-		callID := idGen(id)
-		info.SetMacroCall(callID, call)
+	callIDMap := map[int64]int64{}
+	for id := range info.MacroCalls() {
+		callIDMap[id] = idGen(id)
 	}
-	// Then update the macro call definitions which refer to these ids
-	for id, call := range info.MacroCalls() {
-		call.RenumberIDs(idGen)
-		info.SetMacroCall(id, call)
+	// Then update the macro call definitions which refer to these ids, but
+	// ensure that the updates don't collide and remove macro entries which haven't
+	// been visited / updated yet.
+	type macroUpdate struct {
+		id   int64
+		call ast.Expr
 	}
-}
-
-func resetMacroCall(call ast.Expr, sanitizedExprMap map[int64]ast.Expr) {
-	// Identify the set of expressions in the core expression which were updated,
-	// excluding nodes which correspond to macros.
-	ast.PostOrderVisit(call, ast.NewExprVisitor(func(e ast.Expr) {
-		if update, found := sanitizedExprMap[e.ID()]; found {
-			e.SetKindCase(update)
+	macroUpdates := []macroUpdate{}
+	for oldID, newID := range callIDMap {
+		call, found := info.GetMacroCall(oldID)
+		if !found {
+			continue
 		}
-	}))
+		call.RenumberIDs(idGen)
+		macroUpdates = append(macroUpdates, macroUpdate{id: newID, call: call})
+		info.ClearMacroCall(oldID)
+	}
+	for _, u := range macroUpdates {
+		info.SetMacroCall(u.id, u.call)
+	}
 }
 
 // newIDGenerator ensures that new ids are only created the first time they are encountered.
@@ -209,56 +217,12 @@ type optimizerExprFactory struct {
 //
 // Use this method before attempting to merge the expression from AST into another.
 func (opt *optimizerExprFactory) CopyAST(a *ast.AST) (ast.Expr, *ast.SourceInfo) {
-	fmt.Printf("copy ast: max id %d\n", ast.MaxID(a))
 	idGen := newIDGenerator(opt.nextID())
 	defer func() { opt.seed = idGen.nextID() }()
 	copyExpr := opt.fac.CopyExpr(a.Expr())
 	copyInfo := ast.CopySourceInfo(a.SourceInfo())
 	normalizeIDs(idGen.renumberStable, copyExpr, copyInfo)
 	return copyExpr, copyInfo
-}
-
-// NewBindMacro creates a cel.bind() call with a variable name, initialization expression, and remaining expression.
-//
-// Note: the macroID indicates the insertion point, the call id that matched the macro signature, which will be used
-// for coordinating macro metadata with the bind call. This piece of data is what makes it possible to unparse
-// optimized expressions which use the bind() call.
-//
-// Example:
-//
-// cel.bind(myVar, a && b || c, !myVar || (myVar && d))
-// - varName: myVar
-// - varInit: a && b || c
-// - remaining: !myVar || (myVar && d)
-func (opt *optimizerExprFactory) NewBindMacro(macroID int64, varName string, varInit, remaining ast.Expr) ast.Expr {
-	bindID := opt.nextID()
-	varID := opt.nextID()
-
-	var bindVarInit ast.Expr
-	varInit, bindVarInit = opt.sanitizeMacroExpr(varInit)
-
-	var bindRemaining ast.Expr
-	remaining, bindRemaining = opt.sanitizeMacroExpr(remaining)
-
-	// Place the expanded macro form in the macro calls list so that the inlined
-	// call can be unparsed.
-	opt.sourceInfo.SetMacroCall(macroID,
-		opt.fac.NewMemberCall(0, "bind",
-			opt.fac.NewIdent(opt.nextID(), "cel"),
-			opt.fac.NewIdent(varID, varName),
-			bindVarInit,
-			bindRemaining))
-
-	// Replace the parent node with the intercepted inlining using cel.bind()-like
-	// generated comprehension AST.
-	return opt.fac.NewComprehension(bindID,
-		opt.fac.NewList(opt.nextID(), []ast.Expr{}, []int32{}),
-		"#unused",
-		varName,
-		opt.fac.CopyExpr(varInit),
-		opt.fac.NewLiteral(opt.nextID(), types.False),
-		opt.fac.NewIdent(varID, varName),
-		opt.fac.CopyExpr(remaining))
 }
 
 // NewCall creates a global function call invocation expression.
@@ -341,27 +305,6 @@ func (opt *optimizerExprFactory) NewMapEntry(key, value ast.Expr, isOptional boo
 	return opt.fac.NewMapEntry(opt.nextID(), key, value, isOptional)
 }
 
-// NewPresenceTest creates a new presence test macro call.
-//
-// Example:
-//
-// has(msg.field_name)
-// - operand: msg
-// - field: field_name
-func (opt *optimizerExprFactory) NewPresenceTest(macroID int64, operand ast.Expr, field string) ast.Expr {
-	// Copy the input operand and renumber it.
-	var hasOperand ast.Expr
-	operand, hasOperand = opt.sanitizeMacroExpr(operand)
-
-	// Place the expanded macro form in the macro calls list so that the inlined call can be unparsed.
-	opt.sourceInfo.SetMacroCall(macroID,
-		opt.fac.NewCall(0, "has",
-			opt.fac.NewSelect(opt.nextID(), hasOperand, field)))
-
-	// Generate a new presence test macro.
-	return opt.fac.NewPresenceTest(opt.nextID(), operand, field)
-}
-
 // NewSelect creates a select expression where a field value is selected from an operand.
 //
 // Example:
@@ -401,57 +344,64 @@ func (opt *optimizerExprFactory) NewStructField(field string, value ast.Expr, is
 	return opt.fac.NewStructField(opt.nextID(), field, value, isOptional)
 }
 
-// sanitizeMacroExpr copies the input expression, renumbers it, and also generates a sanitized version
-// suitable for use within macro bodies where the body must not contain the content of another macro,
-// but rather a 'pointer' consisting of an empty expression node with an id.
-func (opt *optimizerExprFactory) sanitizeMacroExpr(baseExpr ast.Expr) (copyExpr, macroExpr ast.Expr) {
-	// Something is off in this logic
-	// - renumber the base expression using a stable identifier
-	// - base expression changes need to be reflected in macros which might have referenced
-	//   the old ids
-	// - old and new call entries don't appear to have been updated???
-	idGen := newIDGenerator(opt.nextID())
-	defer func() { opt.seed = idGen.nextID() }()
-	copyExpr = opt.fac.CopyExpr(baseExpr)
-	copyExpr.RenumberIDs(idGen.renumberStable)
-
+func (opt *optimizerExprFactory) UpdateExpr(prev, updated ast.Expr) {
+	// Update the expression
+	prev.SetKindCase(updated)
 	if len(opt.sourceInfo.MacroCalls()) == 0 {
-		return copyExpr, opt.fac.CopyExpr(copyExpr)
+		return
 	}
 
-	// Traverse the base expression and determine whether a macro id was updated by using
-	// the stable id generator to verify the id move.
-	oldToNewMacroIDs := make(map[int64]int64)
-	newToOldMacroIDs := make(map[int64]int64)
-	ast.PostOrderVisit(baseExpr, ast.NewExprVisitor(func(e ast.Expr) {
-		if call, isMacroRef := opt.sourceInfo.GetMacroCall(e.ID()); isMacroRef {
-			newID := idGen.renumberStable(e.ID())
-			newToOldMacroIDs[newID] = e.ID()
-			oldToNewMacroIDs[e.ID()] = newID
-			opt.sourceInfo.SetMacroCall(newID, call)
-			opt.sourceInfo.ClearMacroCall(e.ID())
-		}
-	}))
+	// prev is not macro, updated is not macro
+	// prev is macro, updated is not macro
+	// prev is macro, updated is macro
+	// prev is not macro, updated is macro
 
-	// Clear the expression nodes which correspond to other macros from the macro-sanitized expression.
-	macroExpr = opt.fac.CopyExpr(copyExpr)
-	ast.PostOrderVisit(macroExpr, ast.NewExprVisitor(func(e ast.Expr) {
-		if _, isMacroRef := newToOldMacroIDs[e.ID()]; isMacroRef {
+	// Determine whether the previous expression was a macro.
+	_, prevIsMacro := opt.sourceInfo.GetMacroCall(prev.ID())
+
+	// Determine whether the updated expression was a macro.
+	updatedMacro, updatedIsMacro := opt.sourceInfo.GetMacroCall(updated.ID())
+
+	if updatedIsMacro {
+		// If the updated call was a macro, then updated id maps to prev id,
+		// and the updated macro moves into the prev id slot.
+		opt.sourceInfo.ClearMacroCall(updated.ID())
+		opt.sourceInfo.SetMacroCall(prev.ID(), updatedMacro)
+	} else if prevIsMacro {
+		// Otherwise if the previous expr was a macro, but is no longer, clear
+		// the macro reference.
+		opt.sourceInfo.ClearMacroCall(prev.ID())
+	}
+
+	// Punch holes in the updated value where macros references exist.
+	macroExpr := opt.fac.CopyExpr(prev)
+	macroRefVisitor := ast.NewExprVisitor(func(e ast.Expr) {
+		if _, exists := opt.sourceInfo.GetMacroCall(e.ID()); exists {
 			e.SetKindCase(nil)
 		}
-	}))
+	})
+	ast.PostOrderVisit(macroExpr, macroRefVisitor)
 
-	// Macro ids were renumbered during the copy, but not within the macro calls themselves, so this
-	// step ensures that nested macro references are updated as well.
-	updatedIDVisitor := ast.NewExprVisitor(func(e ast.Expr) {
-		if newID, found := oldToNewMacroIDs[e.ID()]; found {
-			e.RenumberIDs(func(int64) int64 {
-				return newID
+	// Update any references to the expression within a macro
+	macroVisitor := ast.NewExprVisitor(func(call ast.Expr) {
+		if call.ID() == prev.ID() {
+			call.SetKindCase(opt.fac.CopyExpr(macroExpr))
+		}
+		if call.ID() == updated.ID() {
+			if updatedIsMacro {
+				call.SetKindCase(nil)
+			} else {
+				call.SetKindCase(opt.fac.CopyExpr(macroExpr))
+			}
+			call.RenumberIDs(func(id int64) int64 {
+				if id == updated.ID() {
+					return prev.ID()
+				}
+				return id
 			})
 		}
 	})
 	for _, call := range opt.sourceInfo.MacroCalls() {
-		ast.PostOrderVisit(call, updatedIDVisitor)
+		ast.PostOrderVisit(call, macroVisitor)
 	}
-	return
 }
