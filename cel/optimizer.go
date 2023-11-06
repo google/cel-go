@@ -344,6 +344,7 @@ func (opt *optimizerExprFactory) NewStructField(field string, value ast.Expr, is
 	return opt.fac.NewStructField(opt.nextID(), field, value, isOptional)
 }
 
+// UpdateExpr updates the previous expression with the updated content while preserving macro metadata.
 func (opt *optimizerExprFactory) UpdateExpr(prev, updated ast.Expr) {
 	// Update the expression
 	prev.SetKindCase(updated)
