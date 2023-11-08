@@ -73,30 +73,7 @@ func (opt *StaticOptimizer) Optimize(env *Env, a *Ast) (*Ast, *Issues) {
 		info := optimized.SourceInfo()
 		expr := optimized.Expr()
 		normalizeIDs(freshIDGen.renumberStable, expr, info)
-		// Sanitize the macro call references once the optimized expression has been computed
-		// and the ids normalized between the expression and the macros.
-		exprRefMap := make(map[int64]struct{})
-		ast.PostOrderVisit(expr, ast.NewExprVisitor(func(e ast.Expr) {
-			if e.ID() == 0 {
-				return
-			}
-			exprRefMap[e.ID()] = struct{}{}
-		}))
-		// Update the macro call id references to ensure that macro pointers are
-		// updated consistently across macros.
-		for _, call := range info.MacroCalls() {
-			ast.PostOrderVisit(call, ast.NewExprVisitor(func(e ast.Expr) {
-				if e.ID() == 0 {
-					return
-				}
-				exprRefMap[e.ID()] = struct{}{}
-			}))
-		}
-		for id := range info.MacroCalls() {
-			if _, found := exprRefMap[id]; !found {
-				info.ClearMacroCall(id)
-			}
-		}
+		cleanupMacroRefs(expr, info)
 
 		// Recheck the updated expression for any possible type-agreement or validation errors.
 		parsed := &Ast{
@@ -149,6 +126,36 @@ func normalizeIDs(idGen ast.IDGenerator, optimized ast.Expr, info *ast.SourceInf
 	}
 	for _, u := range macroUpdates {
 		info.SetMacroCall(u.id, u.call)
+	}
+}
+
+func cleanupMacroRefs(expr ast.Expr, info *ast.SourceInfo) {
+	if len(info.MacroCalls()) == 0 {
+		return
+	}
+	// Sanitize the macro call references once the optimized expression has been computed
+	// and the ids normalized between the expression and the macros.
+	exprRefMap := make(map[int64]struct{})
+	ast.PostOrderVisit(expr, ast.NewExprVisitor(func(e ast.Expr) {
+		if e.ID() == 0 {
+			return
+		}
+		exprRefMap[e.ID()] = struct{}{}
+	}))
+	// Update the macro call id references to ensure that macro pointers are
+	// updated consistently across macros.
+	for _, call := range info.MacroCalls() {
+		ast.PostOrderVisit(call, ast.NewExprVisitor(func(e ast.Expr) {
+			if e.ID() == 0 {
+				return
+			}
+			exprRefMap[e.ID()] = struct{}{}
+		}))
+	}
+	for id := range info.MacroCalls() {
+		if _, found := exprRefMap[id]; !found {
+			info.ClearMacroCall(id)
+		}
 	}
 }
 
@@ -344,38 +351,49 @@ func (opt *optimizerExprFactory) NewStructField(field string, value ast.Expr, is
 	return opt.fac.NewStructField(opt.nextID(), field, value, isOptional)
 }
 
-// UpdateExpr updates the previous expression with the updated content while preserving macro metadata.
-func (opt *optimizerExprFactory) UpdateExpr(prev, updated ast.Expr) {
+// UpdateExpr updates the target expression with the updated content while preserving macro metadata.
+//
+// There are four scenarios during the update to consider:
+// 1. target is not macro, updated is not macro
+// 2. target is macro, updated is not macro
+// 3. target is macro, updated is macro
+// 4. target is not macro, updated is macro
+//
+// When the target is a macro already, it may either be updated to a new macro function
+// body if the update is also a macro, or it may be removed altogether if the update is
+// a macro.
+//
+// When the update is a macro, then the target references within other macros must be
+// updated to point to the new updated macro. Otherwise, other macros which pointed to
+// the target body must be replaced with copies of the updated expression body.
+func (opt *optimizerExprFactory) UpdateExpr(target, updated ast.Expr) {
 	// Update the expression
-	prev.SetKindCase(updated)
+	target.SetKindCase(updated)
+
+	// Early return if there's no macros present sa the source info reflects the
+	// macro set from the target and updated expressions.
 	if len(opt.sourceInfo.MacroCalls()) == 0 {
 		return
 	}
-
-	// prev is not macro, updated is not macro
-	// prev is macro, updated is not macro
-	// prev is macro, updated is macro
-	// prev is not macro, updated is macro
-
-	// Determine whether the previous expression was a macro.
-	_, prevIsMacro := opt.sourceInfo.GetMacroCall(prev.ID())
+	// Determine whether the target expression was a macro.
+	_, targetIsMacro := opt.sourceInfo.GetMacroCall(target.ID())
 
 	// Determine whether the updated expression was a macro.
 	updatedMacro, updatedIsMacro := opt.sourceInfo.GetMacroCall(updated.ID())
 
 	if updatedIsMacro {
-		// If the updated call was a macro, then updated id maps to prev id,
-		// and the updated macro moves into the prev id slot.
+		// If the updated call was a macro, then updated id maps to target id,
+		// and the updated macro moves into the target id slot.
 		opt.sourceInfo.ClearMacroCall(updated.ID())
-		opt.sourceInfo.SetMacroCall(prev.ID(), updatedMacro)
-	} else if prevIsMacro {
-		// Otherwise if the previous expr was a macro, but is no longer, clear
+		opt.sourceInfo.SetMacroCall(target.ID(), updatedMacro)
+	} else if targetIsMacro {
+		// Otherwise if the target expr was a macro, but is no longer, clear
 		// the macro reference.
-		opt.sourceInfo.ClearMacroCall(prev.ID())
+		opt.sourceInfo.ClearMacroCall(target.ID())
 	}
 
 	// Punch holes in the updated value where macros references exist.
-	macroExpr := opt.fac.CopyExpr(prev)
+	macroExpr := opt.fac.CopyExpr(target)
 	macroRefVisitor := ast.NewExprVisitor(func(e ast.Expr) {
 		if _, exists := opt.sourceInfo.GetMacroCall(e.ID()); exists {
 			e.SetKindCase(nil)
@@ -385,18 +403,26 @@ func (opt *optimizerExprFactory) UpdateExpr(prev, updated ast.Expr) {
 
 	// Update any references to the expression within a macro
 	macroVisitor := ast.NewExprVisitor(func(call ast.Expr) {
-		if call.ID() == prev.ID() {
+		// Update the target expression to point to the macro expression which
+		// will be empty if the updated expression was a macro.
+		if call.ID() == target.ID() {
 			call.SetKindCase(opt.fac.CopyExpr(macroExpr))
 		}
+		// Update the macro call expression if it refers to the updated expression
+		// id which has since been remapped to the target id.
 		if call.ID() == updated.ID() {
+			// Either ensure the expression is a macro reference or a populated with
+			// the relevant sub-expression if the updated expr was not a macro.
 			if updatedIsMacro {
 				call.SetKindCase(nil)
 			} else {
 				call.SetKindCase(opt.fac.CopyExpr(macroExpr))
 			}
+			// Since SetKindCase does not renumber the id, ensure the references to
+			// the old 'updated' id are mapped to the target id.
 			call.RenumberIDs(func(id int64) int64 {
 				if id == updated.ID() {
-					return prev.ID()
+					return target.ID()
 				}
 				return id
 			})
