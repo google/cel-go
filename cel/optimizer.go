@@ -17,6 +17,7 @@ package cel
 import (
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/ast"
+	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 )
 
@@ -177,13 +178,6 @@ func (gen *idGenerator) nextID() int64 {
 	return gen.seed
 }
 
-func (gen *idGenerator) renumberMonotonic(id int64) int64 {
-	if id == 0 {
-		return 0
-	}
-	return gen.nextID()
-}
-
 func (gen *idGenerator) renumberStable(id int64) int64 {
 	if id == 0 {
 		return 0
@@ -230,6 +224,40 @@ func (opt *optimizerExprFactory) CopyAST(a *ast.AST) (ast.Expr, *ast.SourceInfo)
 	copyInfo := ast.CopySourceInfo(a.SourceInfo())
 	normalizeIDs(idGen.renumberStable, copyExpr, copyInfo)
 	return copyExpr, copyInfo
+}
+
+// NewBindMacro creates an AST expression representing the expanded bind() macro, and a macro expression
+// representing the unexpanded call signature to be inserted into the source info macro call metadata.
+func (opt *optimizerExprFactory) NewBindMacro(macroID int64, varName string, varInit, remaining ast.Expr) (astExpr, macroExpr ast.Expr) {
+	varID := opt.nextID()
+	remainingID := opt.nextID()
+	remaining = opt.fac.CopyExpr(remaining)
+	remaining.RenumberIDs(func(id int64) int64 {
+		if id == macroID {
+			return remainingID
+		}
+		return id
+	})
+	if call, exists := opt.sourceInfo.GetMacroCall(macroID); exists {
+		opt.sourceInfo.SetMacroCall(remainingID, opt.fac.CopyExpr(call))
+	}
+
+	astExpr = opt.fac.NewComprehension(macroID,
+		opt.fac.NewList(opt.nextID(), []ast.Expr{}, []int32{}),
+		"#unused",
+		varName,
+		opt.fac.CopyExpr(varInit),
+		opt.fac.NewLiteral(opt.nextID(), types.False),
+		opt.fac.NewIdent(varID, varName),
+		remaining)
+
+	macroExpr = opt.fac.NewMemberCall(0, "bind",
+		opt.fac.NewIdent(opt.nextID(), "cel"),
+		opt.fac.NewIdent(varID, varName),
+		opt.fac.CopyExpr(varInit),
+		opt.fac.CopyExpr(remaining))
+	opt.sanitizeMacro(macroID, macroExpr)
+	return
 }
 
 // NewCall creates a global function call invocation expression.
@@ -310,6 +338,17 @@ func (opt *optimizerExprFactory) NewMap(entries []ast.EntryExpr) ast.Expr {
 // - optional: true
 func (opt *optimizerExprFactory) NewMapEntry(key, value ast.Expr, isOptional bool) ast.EntryExpr {
 	return opt.fac.NewMapEntry(opt.nextID(), key, value, isOptional)
+}
+
+// NewHasMacro generates a test-only select expression to be included within an AST and an unexpanded
+// has() macro call signature to be inserted into the source info macro call metadata.
+func (opt *optimizerExprFactory) NewHasMacro(macroID int64, s ast.Expr) (astExpr, macroExpr ast.Expr) {
+	sel := s.AsSelect()
+	astExpr = opt.fac.NewPresenceTest(macroID, sel.Operand(), sel.FieldName())
+	macroExpr = opt.fac.NewCall(0, "has",
+		opt.NewSelect(opt.fac.CopyExpr(sel.Operand()), sel.FieldName()))
+	opt.sanitizeMacro(macroID, macroExpr)
+	return
 }
 
 // NewSelect creates a select expression where a field value is selected from an operand.
@@ -431,4 +470,13 @@ func (opt *optimizerExprFactory) UpdateExpr(target, updated ast.Expr) {
 	for _, call := range opt.sourceInfo.MacroCalls() {
 		ast.PostOrderVisit(call, macroVisitor)
 	}
+}
+
+func (opt *optimizerExprFactory) sanitizeMacro(macroID int64, macroExpr ast.Expr) {
+	macroRefVisitor := ast.NewExprVisitor(func(e ast.Expr) {
+		if _, exists := opt.sourceInfo.GetMacroCall(e.ID()); exists && e.ID() != macroID {
+			e.SetKindCase(nil)
+		}
+	})
+	ast.PostOrderVisit(macroExpr, macroRefVisitor)
 }

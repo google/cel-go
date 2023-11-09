@@ -496,7 +496,7 @@ func TestInliningOptimizerMultiStage(t *testing.T) {
 					name:  "msg.single_any",
 					t:     cel.IntType,
 					alias: "unpacked_nested",
-					expr:  `google.expr.proto3.test.NestedTestAllTypes{}.payload.single_int32`,
+					expr:  `proto3.test.NestedTestAllTypes{}.payload.single_int32`,
 				},
 			},
 			inlined: `has(google.expr.proto3.test.NestedTestAllTypes{}.payload.single_int32) ? google.expr.proto3.test.NestedTestAllTypes{}.payload.single_int32 : 42`,

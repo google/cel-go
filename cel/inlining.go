@@ -123,7 +123,7 @@ func (opt *inliningOptimizer) Optimize(ctx *OptimizerContext, a *ast.AST) *ast.A
 		// Copy the inlined AST expr and source info.
 		copyExpr := copyASTAndMetadata(ctx, inlineVar.def)
 		// Update the least common ancestor by inserting a cel.bind() call to the alias.
-		inlined, bindMacro := opt.celBindMacro(ctx, lca.ID(), inlineVar.Alias(), copyExpr, lca)
+		inlined, bindMacro := ctx.NewBindMacro(lca.ID(), inlineVar.Alias(), copyExpr, lca)
 		opt.inlineExpr(ctx, lca, inlined, inlineVar.Type())
 		ctx.sourceInfo.SetMacroCall(lca.ID(), bindMacro)
 	}
@@ -166,7 +166,7 @@ func (opt *inliningOptimizer) rewritePresenceExpr(ctx *OptimizerContext, prev, i
 	// If the input inlined expression is not a select expression it won't work with the has()
 	// macro. Attempt to rewrite the presence test in terms of the typed input, otherwise error.
 	if inlined.Kind() == ast.SelectKind {
-		presenceTest, hasMacro := opt.hasMacro(ctx, prev.ID(), inlined)
+		presenceTest, hasMacro := ctx.NewHasMacro(prev.ID(), inlined)
 		ctx.UpdateExpr(prev, presenceTest)
 		ctx.sourceInfo.SetMacroCall(prev.ID(), hasMacro)
 		return
@@ -237,55 +237,4 @@ func (opt *inliningOptimizer) matchVariable(varName string) ast.ExprMatcher {
 		}
 		return false
 	}
-}
-
-func (opt *inliningOptimizer) hasMacro(ctx *OptimizerContext, macroID int64, s ast.Expr) (astExpr, macroExpr ast.Expr) {
-	sel := s.AsSelect()
-	astExpr = ctx.fac.NewPresenceTest(macroID, sel.Operand(), sel.FieldName())
-	macroExpr = ctx.fac.NewCall(0, "has",
-		ctx.NewSelect(ctx.fac.CopyExpr(sel.Operand()), sel.FieldName()))
-	sanitizeMacro(ctx, macroID, macroExpr)
-	return
-}
-
-func (opt *inliningOptimizer) celBindMacro(
-	ctx *OptimizerContext, macroID int64, varName string, varInit, remaining ast.Expr) (astExpr, macroExpr ast.Expr) {
-	varID := ctx.nextID()
-	remainingID := ctx.nextID()
-	remaining = ctx.fac.CopyExpr(remaining)
-	remaining.RenumberIDs(func(id int64) int64 {
-		if id == macroID {
-			return remainingID
-		}
-		return id
-	})
-	if call, exists := ctx.sourceInfo.GetMacroCall(macroID); exists {
-		ctx.sourceInfo.SetMacroCall(remainingID, ctx.fac.CopyExpr(call))
-	}
-
-	astExpr = ctx.fac.NewComprehension(macroID,
-		ctx.fac.NewList(ctx.nextID(), []ast.Expr{}, []int32{}),
-		"#unused",
-		varName,
-		ctx.fac.CopyExpr(varInit),
-		ctx.fac.NewLiteral(ctx.nextID(), types.False),
-		ctx.fac.NewIdent(varID, varName),
-		remaining)
-
-	macroExpr = ctx.fac.NewMemberCall(0, "bind",
-		ctx.fac.NewIdent(ctx.nextID(), "cel"),
-		ctx.fac.NewIdent(varID, varName),
-		ctx.fac.CopyExpr(varInit),
-		ctx.fac.CopyExpr(remaining))
-	sanitizeMacro(ctx, macroID, macroExpr)
-	return
-}
-
-func sanitizeMacro(ctx *OptimizerContext, macroID int64, macroExpr ast.Expr) {
-	macroRefVisitor := ast.NewExprVisitor(func(e ast.Expr) {
-		if _, exists := ctx.sourceInfo.GetMacroCall(e.ID()); exists && e.ID() != macroID {
-			e.SetKindCase(nil)
-		}
-	})
-	ast.PostOrderVisit(macroExpr, macroRefVisitor)
 }
