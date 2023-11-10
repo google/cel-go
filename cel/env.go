@@ -42,6 +42,11 @@ type Ast struct {
 	impl   *celast.AST
 }
 
+// NativeRep converts the AST to a Go-native representation.
+func (ast *Ast) NativeRep() *celast.AST {
+	return ast.impl
+}
+
 // Expr returns the proto serializable instance of the parsed/checked expression.
 //
 // Deprecated: prefer cel.AstToCheckedExpr() or cel.AstToParsedExpr() and call GetExpr()

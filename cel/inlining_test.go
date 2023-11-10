@@ -230,7 +230,7 @@ func TestInliningOptimizer(t *testing.T) {
 				t.Fatalf("cel.AstToString() failed: %v", err)
 			}
 			if inlined != tc.inlined {
-				t.Errorf("got %q, wanted %q", inlined, tc.inlined)
+				t.Errorf("inlined got %q, wanted %q", inlined, tc.inlined)
 			}
 			folder, err := cel.NewConstantFoldingOptimizer()
 			if err != nil {
@@ -246,7 +246,7 @@ func TestInliningOptimizer(t *testing.T) {
 				t.Fatalf("cel.AstToString() failed: %v", err)
 			}
 			if folded != tc.folded {
-				t.Errorf("got %q, wanted %q", folded, tc.folded)
+				t.Errorf("folded got %q, wanted %q", folded, tc.folded)
 			}
 		})
 	}
@@ -270,6 +270,25 @@ func TestInliningOptimizerMultiStage(t *testing.T) {
 		inlined    string
 		folded     string
 	}{
+		{
+			expr: `has(a.b)`,
+			vars: []varDecl{
+				{
+					name: "a",
+					t:    cel.MapType(cel.StringType, cel.StringType),
+				},
+			},
+			inlineVars: []inlineVarExpr{
+				{
+					name:  "a.b",
+					alias: "alpha",
+					t:     cel.StringType,
+					expr:  `a.b_long`,
+				},
+			},
+			inlined: `has(a.b_long)`,
+			folded:  `has(a.b_long)`,
+		},
 		{
 			expr: `has(a.b) ? a.b : 'default'`,
 			vars: []varDecl{
@@ -477,34 +496,175 @@ func TestInliningOptimizerMultiStage(t *testing.T) {
 					name:  "msg.single_any",
 					t:     cel.IntType,
 					alias: "unpacked_nested",
-					expr:  `google.expr.proto3.test.NestedTestAllTypes{}.payload.single_int32`,
+					expr:  `proto3.test.NestedTestAllTypes{}.payload.single_int32`,
 				},
 			},
 			inlined: `has(google.expr.proto3.test.NestedTestAllTypes{}.payload.single_int32) ? google.expr.proto3.test.NestedTestAllTypes{}.payload.single_int32 : 42`,
 			folded:  `42`,
 		},
 		{
-			expr: `has(msg.single_any.single_int32) ? msg.single_any.single_int32 : 42`,
+			expr: `has(msg.single_any.processing_purpose)`,
 			vars: []varDecl{
 				{
 					name: "msg",
 					t:    cel.ObjectType("google.expr.proto3.test.TestAllTypes"),
 				},
 				{
-					name: "unpacked_any",
-					t:    cel.ObjectType("google.expr.proto3.test.TestAllTypes"),
+					name: "unpacked_purpose",
+					t:    cel.ListType(cel.IntType),
 				},
 			},
 			inlineVars: []inlineVarExpr{
 				{
-					name:  "msg.single_any",
-					t:     cel.ObjectType("google.expr.proto3.test.TestAllTypes"),
-					alias: "unpacked_any",
-					expr:  `google.expr.proto3.test.NestedTestAllTypes{}.payload`,
+					name:  "msg.single_any.processing_purpose",
+					t:     cel.ListType(cel.IntType),
+					alias: "unpacked_purpose",
+					expr:  `[1, 2, 3].map(i, i * 2)`,
 				},
 			},
-			inlined: `cel.bind(unpacked_any, google.expr.proto3.test.NestedTestAllTypes{}.payload, has(unpacked_any.single_int32) ? unpacked_any.single_int32 : 42)`,
-			folded:  `42`,
+			inlined: `[1, 2, 3].map(i, i * 2).size() != 0`,
+			folded:  `true`,
+		},
+		{
+			expr: `has(msg.single_any.processing_purpose) ? msg.single_any.processing_purpose[0] : 42`,
+			vars: []varDecl{
+				{
+					name: "msg",
+					t:    cel.ObjectType("google.expr.proto3.test.TestAllTypes"),
+				},
+				{
+					name: "unpacked_purpose",
+					t:    cel.ListType(cel.IntType),
+				},
+			},
+			inlineVars: []inlineVarExpr{
+				{
+					name:  "msg.single_any.processing_purpose",
+					t:     cel.ListType(cel.IntType),
+					alias: "unpacked_purpose",
+					expr:  `[1, 2, 3].map(i, i * 2)`,
+				},
+			},
+			inlined: `cel.bind(unpacked_purpose, [1, 2, 3].map(i, i * 2), (unpacked_purpose.size() != 0) ? (unpacked_purpose[0]) : 42)`,
+			folded:  `2`,
+		},
+		{
+			expr: `has(msg.single_any.processing_purpose) ? msg.single_any.processing_purpose.map(i, i * 2)[0] : 42`,
+			vars: []varDecl{
+				{
+					name: "msg",
+					t:    cel.ObjectType("google.expr.proto3.test.TestAllTypes"),
+				},
+				{
+					name: "unpacked_purpose",
+					t:    cel.ListType(cel.IntType),
+				},
+			},
+			inlineVars: []inlineVarExpr{
+				{
+					name:  "msg.single_any.processing_purpose",
+					t:     cel.ListType(cel.IntType),
+					alias: "unpacked_purpose",
+					expr:  `[1, 2, 3].map(i, i * 2)`,
+				},
+			},
+			inlined: `cel.bind(unpacked_purpose, [1, 2, 3].map(i, i * 2), (unpacked_purpose.size() != 0) ? (unpacked_purpose.map(i, i * 2)[0]) : 42)`,
+			folded:  `4`,
+		},
+		{
+			expr: `msg.single_any.processing_purpose.filter(j,
+							j < msg.single_any.processing_purpose.size()) == [2]`,
+			vars: []varDecl{
+				{
+					name: "msg",
+					t:    cel.ObjectType("google.expr.proto3.test.TestAllTypes"),
+				},
+				{
+					name: "unpacked_purpose",
+					t:    cel.ListType(cel.IntType),
+				},
+			},
+			inlineVars: []inlineVarExpr{
+				{
+					name:  "msg.single_any.processing_purpose",
+					t:     cel.ListType(cel.IntType),
+					alias: "unpacked_purpose",
+					expr:  `[1, 2, 3].map(i, i * 2)`,
+				},
+			},
+			inlined: `cel.bind(unpacked_purpose, [1, 2, 3].map(i, i * 2), unpacked_purpose.filter(j, j < unpacked_purpose.size())) == [2]`,
+			folded:  `true`,
+		},
+		{
+			expr: `has(msg.single_any.listA) && msg.single_any.listB.size() > 0 &&
+				   msg.single_any.listB.all(b, b == msg.single_any.listA[0]) &&
+				   msg.single_any.listA.all(a, a == msg.single_any.listB[0])`,
+			vars: []varDecl{
+				{
+					name: "msg",
+					t:    cel.ObjectType("google.expr.proto3.test.TestAllTypes"),
+				},
+				{
+					name: "listA",
+					t:    cel.ListType(cel.IntType),
+				},
+				{
+					name: "listB",
+					t:    cel.ListType(cel.IntType),
+				},
+			},
+			inlineVars: []inlineVarExpr{
+				{
+					name:  "msg.single_any.listA",
+					t:     cel.ListType(cel.IntType),
+					alias: "listA",
+					expr:  `[1, 1]`,
+				},
+				{
+					name:  "msg.single_any.listB",
+					t:     cel.ListType(cel.IntType),
+					alias: "listB",
+					expr:  `[1, 1, 1]`,
+				},
+			},
+			inlined: "cel.bind(listA, [1, 1], cel.bind(listB, [1, 1, 1], listA.size() != 0 && listB.size() > 0 &&\nlistB.all(b, b == listA[0]) && listA.all(a, a == listB[0])))",
+			folded:  `true`,
+		},
+		{
+			expr: `((msg.single_any.listB.all(b, b == msg.single_any.listA[0]) &&
+				   msg.single_any.listA.all(a, a == msg.single_any.listB[0])) ||
+				   msg.single_any.listA.size() == 0) ||
+				   false`,
+			vars: []varDecl{
+				{
+					name: "msg",
+					t:    cel.ObjectType("google.expr.proto3.test.TestAllTypes"),
+				},
+				{
+					name: "listA",
+					t:    cel.ListType(cel.IntType),
+				},
+				{
+					name: "listB",
+					t:    cel.ListType(cel.IntType),
+				},
+			},
+			inlineVars: []inlineVarExpr{
+				{
+					name:  "msg.single_any.listA",
+					t:     cel.ListType(cel.IntType),
+					alias: "listA",
+					expr:  `[1, 1]`,
+				},
+				{
+					name:  "msg.single_any.listB",
+					t:     cel.ListType(cel.IntType),
+					alias: "listB",
+					expr:  `[1, 1, 1]`,
+				},
+			},
+			inlined: "cel.bind(listA, [1, 1], cel.bind(listB, [1, 1, 1], listB.all(b, b == listA[0]) &&\nlistA.all(a, a == listB[0])) || listA.size() == 0) || false",
+			folded:  `true`,
 		},
 	}
 	for _, tst := range tests {
@@ -554,7 +714,7 @@ func TestInliningOptimizerMultiStage(t *testing.T) {
 				t.Fatalf("cel.AstToString() failed: %v", err)
 			}
 			if inlined != tc.inlined {
-				t.Errorf("got %q, wanted %q", inlined, tc.inlined)
+				t.Errorf("inlined got %q, wanted %q", inlined, tc.inlined)
 			}
 			folder, err := cel.NewConstantFoldingOptimizer()
 			if err != nil {
@@ -570,7 +730,7 @@ func TestInliningOptimizerMultiStage(t *testing.T) {
 				t.Fatalf("cel.AstToString() failed: %v", err)
 			}
 			if folded != tc.folded {
-				t.Errorf("got %q, wanted %q", folded, tc.folded)
+				t.Errorf("folded got %q, wanted %q", folded, tc.folded)
 			}
 		})
 	}
