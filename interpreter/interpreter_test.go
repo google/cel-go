@@ -1549,6 +1549,13 @@ func TestInterpreter(t *testing.T) {
 						if !types.IsError(got) || !strings.Contains(got.(*types.Err).String(), tc.err) {
 							t.Errorf("Got %v (%T), wanted error: %s", got, got, tc.err)
 						}
+						type nodeIDer interface {
+							NodeID() int64
+						}
+						nodeErr, ok := got.(nodeIDer)
+						if !ok || nodeErr.NodeID() == 0 {
+							t.Errorf("Did not get AST node ID from error: %#v", got)
+						}
 					} else if got.Equal(want) != types.True {
 						t.Errorf("Got %v, wanted %v", got, want)
 					}
