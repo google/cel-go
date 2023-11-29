@@ -22,6 +22,8 @@ import (
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/checker"
+	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
 )
 
 func TestSets(t *testing.T) {
@@ -322,6 +324,108 @@ func TestSets(t *testing.T) {
 				}
 				if det.ActualCost() != nil && *det.ActualCost() != tc.actualCost {
 					t.Errorf("prg.Eval() had cost %v, wanted %v", *det.ActualCost(), tc.actualCost)
+				}
+			}
+		})
+	}
+}
+
+func TestSetsMembershipRewriter(t *testing.T) {
+	tests := []struct {
+		expr      string
+		optimized string
+		vars      []cel.EnvOption
+		in        map[string]any
+		out       ref.Val
+	}{
+		{
+			expr:      `a in [1, 2, 3, 4]`,
+			optimized: `a in {1: true, 2: true, 3: true, 4: true}`,
+			vars: []cel.EnvOption{
+				cel.Variable("a", cel.IntType),
+			},
+			in: map[string]any{
+				"a": 3,
+			},
+			out: types.True,
+		},
+		{
+			expr:      `a in ['1', '2', '3', 4]`,
+			optimized: `a in {"1": true, "2": true, "3": true, 4: true}`,
+			vars: []cel.EnvOption{
+				cel.Variable("a", cel.IntType),
+			},
+			in: map[string]any{
+				"a": 3,
+			},
+			out: types.False,
+		},
+		{
+			expr:      `a in [1u, '2', '3', 4]`,
+			optimized: `a in {1u: true, "2": true, "3": true, 4: true}`,
+			vars: []cel.EnvOption{
+				cel.Variable("a", cel.IntType),
+			},
+			in: map[string]any{
+				"a": 4,
+			},
+			out: types.True,
+		},
+		{
+			expr:      `a in [1u, 2.0, '3', 4]`,
+			optimized: `a in [1u, 2.0, "3", 4]`,
+			vars: []cel.EnvOption{
+				cel.Variable("a", cel.IntType),
+			},
+			in: map[string]any{
+				"a": 4,
+			},
+			out: types.True,
+		},
+	}
+	for _, tst := range tests {
+		tc := tst
+		t.Run(tc.expr, func(t *testing.T) {
+			env := testSetsEnv(t, tc.vars...)
+			var asts []*cel.Ast
+			a, iss := env.Compile(tc.expr)
+			if iss.Err() != nil {
+				t.Fatalf("env.Compile(%v) failed: %v", tc.expr, iss.Err())
+			}
+			asts = append(asts, a)
+			setsOpt, err := NewSetMembershipOptimizer()
+			if err != nil {
+				t.Fatalf("NewSetMembershipOptimizer() failed with error: %v", err)
+			}
+			opt := cel.NewStaticOptimizer(setsOpt)
+			optAST, iss := opt.Optimize(env, a)
+			if iss.Err() != nil {
+				t.Fatalf("opt.Optimize() failed: %v", iss.Err())
+			}
+			optExpr, err := cel.AstToString(optAST)
+			if err != nil {
+				t.Fatalf("cel.AstToString() failed :%v", err)
+			}
+			if tc.optimized != optExpr {
+				t.Errorf("got %v, wanted optimized expr %v", optExpr, tc.optimized)
+			}
+			asts = append(asts, optAST)
+
+			for _, ast := range asts {
+				prg, err := env.Program(ast)
+				if err != nil {
+					t.Fatalf("env.Program() failed: %v", err)
+				}
+				in := tc.in
+				if in == nil {
+					in = map[string]any{}
+				}
+				out, _, err := prg.Eval(in)
+				if err != nil {
+					t.Fatalf("prg.Eval() failed: %v", err)
+				}
+				if out != tc.out {
+					t.Errorf("prg.Eval() got %v, wanted %v for expr: %s", out, tc.out, tc.expr)
 				}
 			}
 		})
