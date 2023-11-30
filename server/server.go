@@ -123,7 +123,7 @@ func (s *ConformanceServer) Eval(ctx context.Context, in *confpb.EvalRequest) (*
 	res, _, err := prg.Eval(args)
 	resultExprVal, err := RefValueToExprValue(res, err)
 	if err != nil {
-		return nil, fmt.Errorf("con't convert result: %s", err)
+		return nil, fmt.Errorf("can't convert result: %s", err)
 	}
 	return &confpb.EvalResponse{Result: resultExprVal}, nil
 }
