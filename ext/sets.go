@@ -164,7 +164,7 @@ func matchInConstantList(a *ast.AST) ast.ExprMatcher {
 			return false
 		}
 		listVal := aggregateVal.AsList()
-		for i, elem := range listVal.Elements() {
+		for _, elem := range listVal.Elements() {
 			if r, found := a.ReferenceMap()[elem.ID()]; found {
 				if r.Value != nil {
 					continue
@@ -174,9 +174,6 @@ func matchInConstantList(a *ast.AST) ast.ExprMatcher {
 				return false
 			}
 			lit := elem.AsLiteral()
-			if listVal.IsOptional(int32(i)) {
-				return false
-			}
 			if !(lit.Type() == cel.StringType || lit.Type() == cel.IntType ||
 				lit.Type() == cel.UintType || lit.Type() == cel.BoolType) {
 				return false

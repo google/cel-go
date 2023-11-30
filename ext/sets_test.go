@@ -24,6 +24,7 @@ import (
 	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/test/proto3pb"
 )
 
 func TestSets(t *testing.T) {
@@ -334,14 +335,14 @@ func TestSetsMembershipRewriter(t *testing.T) {
 	tests := []struct {
 		expr      string
 		optimized string
-		vars      []cel.EnvOption
+		opts      []cel.EnvOption
 		in        map[string]any
 		out       ref.Val
 	}{
 		{
 			expr:      `a in [1, 2, 3, 4]`,
 			optimized: `a in {1: true, 2: true, 3: true, 4: true}`,
-			vars: []cel.EnvOption{
+			opts: []cel.EnvOption{
 				cel.Variable("a", cel.IntType),
 			},
 			in: map[string]any{
@@ -352,7 +353,7 @@ func TestSetsMembershipRewriter(t *testing.T) {
 		{
 			expr:      `a in ['1', '2', '3', 4]`,
 			optimized: `a in {"1": true, "2": true, "3": true, 4: true}`,
-			vars: []cel.EnvOption{
+			opts: []cel.EnvOption{
 				cel.Variable("a", cel.IntType),
 			},
 			in: map[string]any{
@@ -363,7 +364,7 @@ func TestSetsMembershipRewriter(t *testing.T) {
 		{
 			expr:      `a in [1u, '2', '3', 4]`,
 			optimized: `a in {1u: true, "2": true, "3": true, 4: true}`,
-			vars: []cel.EnvOption{
+			opts: []cel.EnvOption{
 				cel.Variable("a", cel.IntType),
 			},
 			in: map[string]any{
@@ -374,7 +375,7 @@ func TestSetsMembershipRewriter(t *testing.T) {
 		{
 			expr:      `a in [1u, 2.0, '3', 4]`,
 			optimized: `a in [1u, 2.0, "3", 4]`,
-			vars: []cel.EnvOption{
+			opts: []cel.EnvOption{
 				cel.Variable("a", cel.IntType),
 			},
 			in: map[string]any{
@@ -383,9 +384,37 @@ func TestSetsMembershipRewriter(t *testing.T) {
 			out: types.True,
 		},
 		{
+			expr:      `a in [b, 32]`,
+			optimized: `a in [b, 32]`,
+			opts: []cel.EnvOption{
+				cel.Variable("a", cel.IntType),
+				cel.Variable("b", cel.IntType),
+			},
+			in: map[string]any{
+				"a": 4,
+				"b": 4,
+			},
+			out: types.True,
+		},
+		{
+			expr:      `a in {b: c}`,
+			optimized: `a in {b: c}`,
+			opts: []cel.EnvOption{
+				cel.Variable("a", cel.IntType),
+				cel.Variable("b", cel.IntType),
+				cel.Variable("c", cel.IntType),
+			},
+			in: map[string]any{
+				"a": 4,
+				"b": 42,
+				"c": 123,
+			},
+			out: types.False,
+		},
+		{
 			expr:      `a in {3: true}`,
 			optimized: `a in {3: true}`,
-			vars: []cel.EnvOption{
+			opts: []cel.EnvOption{
 				cel.Variable("a", cel.IntType),
 			},
 			in: map[string]any{
@@ -393,11 +422,35 @@ func TestSetsMembershipRewriter(t *testing.T) {
 			},
 			out: types.False,
 		},
+		{
+			expr:      `a in ["hello", "world"].map(i, i in ["goodbye", "world"], i + i)`,
+			optimized: `a in ["hello", "world"].map(i, i in {"goodbye": true, "world": true}, i + i)`,
+			opts: []cel.EnvOption{
+				cel.Variable("a", cel.StringType),
+			},
+			in: map[string]any{
+				"a": "worldworld",
+			},
+			out: types.True,
+		},
+		{
+			expr:      `a in [test.GlobalEnum.GOO, test.GlobalEnum.GAR, test.GlobalEnum.GAZ]`,
+			optimized: `a in {0: true, 1: true, 2: true}`,
+			opts: []cel.EnvOption{
+				cel.Container("google.expr.proto3"),
+				cel.Variable("a", cel.IntType),
+				cel.Types(&proto3pb.TestAllTypes{}),
+			},
+			in: map[string]any{
+				"a": proto3pb.GlobalEnum_GAZ,
+			},
+			out: types.True,
+		},
 	}
 	for _, tst := range tests {
 		tc := tst
 		t.Run(tc.expr, func(t *testing.T) {
-			env := testSetsEnv(t, tc.vars...)
+			env := testSetsEnv(t, tc.opts...)
 			var asts []*cel.Ast
 			a, iss := env.Compile(tc.expr)
 			if iss.Err() != nil {
@@ -445,7 +498,7 @@ func TestSetsMembershipRewriter(t *testing.T) {
 
 func testSetsEnv(t *testing.T, opts ...cel.EnvOption) *cel.Env {
 	t.Helper()
-	baseOpts := []cel.EnvOption{Sets()}
+	baseOpts := []cel.EnvOption{cel.EnableMacroCallTracking(), Sets()}
 	env, err := cel.NewEnv(append(baseOpts, opts...)...)
 	if err != nil {
 		t.Fatalf("cel.NewEnv(Sets()) failed: %v", err)
