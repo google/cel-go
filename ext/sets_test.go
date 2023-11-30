@@ -382,6 +382,17 @@ func TestSetsMembershipRewriter(t *testing.T) {
 			},
 			out: types.True,
 		},
+		{
+			expr:      `a in {3: true}`,
+			optimized: `a in {3: true}`,
+			vars: []cel.EnvOption{
+				cel.Variable("a", cel.IntType),
+			},
+			in: map[string]any{
+				"a": 4,
+			},
+			out: types.False,
+		},
 	}
 	for _, tst := range tests {
 		tc := tst
