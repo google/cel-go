@@ -59,7 +59,7 @@ func TestTypeString(t *testing.T) {
 		},
 		{
 			in:  NewOptionalType(NewListType(StringType)),
-			out: "optional(list(string))",
+			out: "optional_type(list(string))",
 		},
 		{
 			in:  NewObjectType("my.type.Message"),
