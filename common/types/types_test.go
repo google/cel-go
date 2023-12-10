@@ -787,6 +787,17 @@ func TestTypeHasTrait(t *testing.T) {
 	}
 }
 
+func TestTypeWithTraits(t *testing.T) {
+	vec := NewOpaqueType("vector", NewTypeParamType("T"))
+	if vec.HasTrait(traits.SizerType) {
+		t.Error("vec.HasTrait(SizerType) returned true")
+	}
+	vec = vec.WithTraits(traits.SizerType | traits.ContainerType | traits.IndexerType)
+	if !vec.HasTrait(traits.SizerType) {
+		t.Errorf("vec.HasTrait(SizerType) returned false after WithTraits() call")
+	}
+}
+
 func TestTypeConvertToType(t *testing.T) {
 	if BoolType.ConvertToType(TypeType) != TypeType {
 		t.Error("ConvertToType(TypeType) did not produce type value")
