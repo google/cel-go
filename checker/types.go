@@ -137,7 +137,11 @@ func internalIsAssignable(m *mapping, t1, t2 *types.Type) bool {
 	case types.BoolKind, types.BytesKind, types.DoubleKind, types.IntKind, types.StringKind, types.UintKind,
 		types.AnyKind, types.DurationKind, types.TimestampKind,
 		types.StructKind:
-		return t1.IsAssignableType(t2)
+		// Test whether t2 is assignable from t1. The order of this check won't usually matter;
+		// however, there may be cases where type capabilities are expanded beyond what is supported
+		// in the current common/types package. For example, an interface designation for a group of
+		// Struct types.
+		return t2.IsAssignableType(t1)
 	case types.TypeKind:
 		return kind2 == types.TypeKind
 	case types.OpaqueKind, types.ListKind, types.MapKind:
