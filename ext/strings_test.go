@@ -714,6 +714,14 @@ func TestStringFormat(t *testing.T) {
 			expectedEstimatedCost: checker.CostEstimate{Min: 11, Max: 11},
 		},
 		{
+			name:                  "int support for string",
+			format:                "%s",
+			formatArgs:            `999999999999`,
+			expectedOutput:        "999999999999",
+			expectedRuntimeCost:   11,
+			expectedEstimatedCost: checker.CostEstimate{Min: 11, Max: 11},
+		},
+		{
 			name:                  "bytes support for string",
 			format:                "some bytes: %s",
 			formatArgs:            `b"xyz"`,
