@@ -31,8 +31,13 @@ import (
 
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protodesc"
+	"google.golang.org/protobuf/reflect/protoreflect"
 
+	test2pb "github.com/google/cel-spec/proto/test/v1/proto2/test_all_types"
+	test3pb "github.com/google/cel-spec/proto/test/v1/proto3/test_all_types"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	attrpb "google.golang.org/genproto/googleapis/rpc/context/attribute_context"
 	descpb "google.golang.org/protobuf/types/descriptorpb"
 )
 
@@ -656,12 +661,17 @@ func (e *Evaluator) applyContext() (*cel.Env, interpreter.Activation, error) {
 
 // typeOption implements optioner for loading a set of types defined by a protobuf file descriptor set.
 type typeOption struct {
-	path string
-	fds  *descpb.FileDescriptorSet
+	path  string
+	fds   *descpb.FileDescriptorSet
+	isPkg bool
 }
 
 func (o *typeOption) String() string {
-	return fmt.Sprintf("%%load_descriptors '%s'", o.path)
+	flags := ""
+	if o.isPkg {
+		flags = "--pkg"
+	}
+	return fmt.Sprintf("%%load_descriptors %s '%s'", flags, o.path)
 }
 
 func (o *typeOption) Option() cel.EnvOption {
@@ -826,28 +836,105 @@ func loadFileDescriptorSet(path string, textfmt bool) (*descpb.FileDescriptorSet
 	return &fds, nil
 }
 
-func (e *Evaluator) loadDescriptors(args []string) error {
-	if len(args) < 1 {
-		return errors.New("expected path for load descriptors")
+func deps(d protoreflect.FileDescriptor) []*descpb.FileDescriptorProto {
+	var descriptorProtos []*descpb.FileDescriptorProto
+
+	for i := 0; i < d.Imports().Len(); i++ {
+		descriptorProtos = append(descriptorProtos,
+			protodesc.ToFileDescriptorProto(d.Imports().Get(i)))
 	}
 
-	textfmt := true
+	return descriptorProtos
+}
 
-	flags := args[:len(args)-1]
+func (e *Evaluator) loadDescriptorFromPackage(pkg string) error {
+	if pkg == "cel-spec-test-types" {
+		fdp := (&test2pb.TestAllTypes{}).ProtoReflect().Type().Descriptor().ParentFile()
+		fdp2 := (&test3pb.TestAllTypes{}).ProtoReflect().Type().Descriptor().ParentFile()
 
-	for _, flag := range flags {
-		if flag == "--binarypb" {
-			textfmt = false
+		descriptorProtos := deps(fdp)
+
+		descriptorProtos = append(descriptorProtos,
+			protodesc.ToFileDescriptorProto(fdp),
+			protodesc.ToFileDescriptorProto(fdp2))
+
+		fds := descpb.FileDescriptorSet{
+			File: descriptorProtos,
 		}
+
+		return e.AddOption(&typeOption{pkg, &fds, true})
+	} else if pkg == "google-rpc" {
+		fdp := (&attrpb.AttributeContext{}).ProtoReflect().Type().Descriptor().ParentFile()
+
+		descriptorProtos := append(deps(fdp),
+			protodesc.ToFileDescriptorProto(fdp))
+
+		fds := descpb.FileDescriptorSet{
+			File: descriptorProtos,
+		}
+
+		return e.AddOption(&typeOption{pkg, &fds, true})
 	}
 
-	p := args[len(args)-1]
+	return fmt.Errorf("unknown type package: '%s'", pkg)
+}
+
+func (e *Evaluator) loadDescriptorFromFile(p string, textfmt bool) error {
 	fds, err := loadFileDescriptorSet(p, textfmt)
 	if err != nil {
 		return fmt.Errorf("error loading file: %v", err)
 	}
 
 	return e.AddOption(&typeOption{path: p, fds: fds})
+}
+
+func (e *Evaluator) loadDescriptors(args []string) error {
+	if len(args) < 1 {
+		return errors.New("expected args for load descriptors")
+	}
+
+	textfmt := true
+
+	var paths []string
+	var pkgs []string
+	nextIsPkg := false
+	for _, flag := range args {
+		switch flag {
+		case "--binarypb":
+			{
+				textfmt = false
+			}
+		case "--pkg":
+			{
+				nextIsPkg = true
+			}
+		default:
+			{
+				if nextIsPkg {
+					pkgs = append(pkgs, flag)
+					nextIsPkg = false
+				} else {
+					paths = append(paths, flag)
+				}
+			}
+		}
+	}
+
+	for _, p := range paths {
+		err := e.loadDescriptorFromFile(p, textfmt)
+		if err != nil {
+			return err
+		}
+	}
+
+	for _, p := range pkgs {
+		err := e.loadDescriptorFromPackage(p)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // Process processes the command provided.

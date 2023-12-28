@@ -178,6 +178,12 @@ func TestParse(t *testing.T) {
             optional language features.
             %option --container 'google.protobuf'
             %option --extension 'all'
+
+            LoadDescriptors loads a protobuf descriptor file (google.protobuf.FileDescriptorSet)
+            from disk or from a predefined package. Supported packages are "cel-spec-test-types"
+            (TestAllTypes) and "google-rpc" (AttributeContext).
+            %load_descriptors 'path/to/descriptor_set.binarypb'
+            %load_descriptors --pkg 'cel-spec-test-types'
             
             Help prints usage information for the commands supported by the REPL.
             %help

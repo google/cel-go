@@ -133,16 +133,23 @@ definition.
 
 #### load_descriptors
 
-`%load_descriptors` loads a file descriptor set from file into the context.
-Message types from the file are available for use in later expressions as
-CEL structs.
+`%load_descriptors` loads a file descriptor set from file into the context (a
+google.protobuf.FileDescriptorSet message). Message types from the file are
+available for use in later expressions as CEL structs.
 
-Accepts an argument for the filedescriptor file format: `--textproto` or
-`--binarypb`.
+`--textproto` expect the file format as protobuf text format.
+
+`--binarypb` expect the file format as serialized protobuf.
+
+`--pkg <string>` Alternatively, a few well known types are included in the
+binary and can be added with the `--pkg` flag. Available packages: `google-rpc`,
+`cel-spec-test-types`.
 
 example:
 
 `%load_descriptors --textproto "./testdata/attribute_context_fds.textproto"`
+
+`%load_descriptors --pkg "google-rpc"`
 
 #### option
 
