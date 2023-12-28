@@ -781,27 +781,66 @@ func TestProcess(t *testing.T) {
 			wantError: false,
 		},
 		{
-			name: "LoadDescriptorsPackageRpc",
+			name: "PartialEval",
 			commands: []Cmder{
-				&simpleCmd{
-					cmd: "load_descriptors",
-					args: []string{
-						"--pkg",
-						"google-rpc",
-					},
-				},
 				&simpleCmd{
 					cmd: "option",
 					args: []string{
-						"--container",
-						"google.rpc.context",
+						"--partial_eval",
 					},
 				},
+				&letVarCmd{
+					"x",
+					mustParseType(t, "bool"),
+					"",
+				},
+				&letVarCmd{
+					"y",
+					mustParseType(t, "bool"),
+					"",
+				},
+				&letVarCmd{
+					"z",
+					mustParseType(t, "bool"),
+					"",
+				},
 				&evalCmd{
-					expr: "AttributeContext{source: AttributeContext.Peer{ip: '192.168.0.1'}}.source.ip == '192.168.0.1'",
+					expr: "(x && y) || (z && false) ",
 				},
 			},
-			wantText:  `true : bool`,
+			wantText:  `UnknownSet{ x (1), y (2) } : bool`,
+			wantExit:  false,
+			wantError: false,
+		},
+		{
+			name: "PartialEvalQualified",
+			commands: []Cmder{
+				&simpleCmd{
+					cmd: "option",
+					args: []string{
+						"--partial_eval",
+					},
+				},
+				&letVarCmd{
+					"x.x",
+					mustParseType(t, "bool"),
+					"",
+				},
+				&letVarCmd{
+					"x.y",
+					mustParseType(t, "bool"),
+					"",
+				},
+				&letVarCmd{
+					"x.z",
+					mustParseType(t, "bool"),
+					"",
+				},
+				&evalCmd{
+					expr: "(x.x && x.y) || (x.z && false) ",
+				},
+			},
+			wantText:  `UnknownSet{ x.x (2), x.y (4) } : bool`,
 			wantExit:  false,
 			wantError: false,
 		},
@@ -819,6 +858,38 @@ func TestProcess(t *testing.T) {
 			wantText:  "",
 			wantExit:  false,
 			wantError: true,
+		},
+		{
+			name: "PartialEvalWithLet",
+			commands: []Cmder{
+				&simpleCmd{
+					cmd: "option",
+					args: []string{
+						"--partial_eval",
+					},
+				},
+				&letVarCmd{
+					"x.x",
+					mustParseType(t, "bool"),
+					"",
+				},
+				&letVarCmd{
+					"x.y",
+					mustParseType(t, "bool"),
+					"",
+				},
+				&letVarCmd{
+					"x.z",
+					mustParseType(t, "bool"),
+					"false",
+				},
+				&evalCmd{
+					expr: "(x.x && x.y) || (x.z && false) ",
+				},
+			},
+			wantText:  `UnknownSet{ x.x (2), x.y (4) } : bool`,
+			wantExit:  false,
+			wantError: false,
 		},
 		{
 			name: "Status",
@@ -853,7 +924,7 @@ func TestProcess(t *testing.T) {
 %let fn() : int -> 2
 
 // Variables
-%let x = 1
+%let x : int = 1
 `,
 			wantExit:  false,
 			wantError: false,
@@ -966,7 +1037,7 @@ func TestProcessOptionError(t *testing.T) {
 					"'bogus'",
 				},
 			},
-			errorMsg: "extension: Unknown option: 'bogus'. Available options are: ['strings', 'protos', 'math', 'encoders', 'bindings', 'optional', 'all']",
+			errorMsg: "extension: unknown option: 'bogus'. Available options are: ['strings', 'protos', 'math', 'encoders', 'bindings', 'optional', 'all']",
 		},
 	}
 

@@ -114,8 +114,15 @@ func (l *letFunction) updateImpl(env *cel.Env, deps []*functions.Overload) error
 		return iss.Err()
 	}
 
-	if !proto.Equal(ast.ResultType(), l.resultType) {
-		return fmt.Errorf("got result type %s for %s", UnparseType(ast.ResultType()), l)
+	outType := ast.OutputType()
+	resultType, err := types.TypeToExprType(outType)
+
+	if err != nil {
+		return err
+	}
+
+	if !proto.Equal(resultType, l.resultType) {
+		return fmt.Errorf("got result type %s for %s", UnparseType(resultType), l)
 	}
 
 	l.prog, err = l.fnEnv.Program(ast, cel.Functions(deps...))
@@ -201,7 +208,18 @@ func (l *letFunction) update(env *cel.Env, deps []*functions.Overload) error {
 }
 
 func (l letVariable) String() string {
-	return fmt.Sprintf("%s = %s", l.identifier, l.src)
+	var out strings.Builder
+	out.WriteString(
+		l.identifier)
+	if l.typeHint != nil {
+		out.WriteString(" : ")
+		out.WriteString(UnparseType(l.typeHint))
+	}
+	if l.src != "" {
+		out.WriteString(" = ")
+		out.WriteString(l.src)
+	}
+	return out.String()
 }
 
 func formatParams(params []letFunctionParam) string {
@@ -255,20 +273,31 @@ func (l *letVariable) clearPlan() {
 	l.prog = nil
 }
 
-// Optioner interface represents an option set on the base CEL environment used by
+// EngOptioner interface represents an option set on the base CEL environment used by
 // the evaluator.
-type Optioner interface {
+type EnvOptioner interface {
 	// Option returns the cel.EnvOption that should be applied to the
 	// environment.
 	Option() cel.EnvOption
 }
 
+type replOption func(*EvaluationContext) (*EvaluationContext, error)
+
+// EvalOptioner interface represents an option on the repl evaluator.
+type EvalOptioner interface {
+	// Option returns the cel.EnvOption that should be applied to the
+	// environment.
+	Option() replOption
+}
+
 // EvaluationContext context for the repl.
 // Handles maintaining state for multiple let expressions.
 type EvaluationContext struct {
-	letVars []letVariable
-	letFns  []letFunction
-	options []Optioner
+	letVars           []letVariable
+	letFns            []letFunction
+	celOptions        []EnvOptioner
+	replOptions       []EvalOptioner
+	enablePartialEval bool
 }
 
 func (ctx *EvaluationContext) indexLetVar(name string) int {
@@ -285,8 +314,8 @@ func (ctx *EvaluationContext) getEffectiveEnv(env *cel.Env) *cel.Env {
 		env = ctx.letVars[len(ctx.letVars)-1].env
 	} else if len(ctx.letFns) > 0 {
 		env = ctx.letFns[len(ctx.letFns)-1].env
-	} else if len(ctx.options) > 0 {
-		for _, opt := range ctx.options {
+	} else if len(ctx.celOptions) > 0 {
+		for _, opt := range ctx.celOptions {
 			env, _ = env.Extend(opt.Option())
 		}
 	}
@@ -305,8 +334,10 @@ func (ctx *EvaluationContext) indexLetFn(name string) int {
 
 func (ctx *EvaluationContext) copy() *EvaluationContext {
 	var cpy EvaluationContext
-	cpy.options = make([]Optioner, len(ctx.options))
-	copy(cpy.options, ctx.options)
+	cpy.celOptions = make([]EnvOptioner, len(ctx.celOptions))
+	copy(cpy.celOptions, ctx.celOptions)
+	cpy.replOptions = make([]EvalOptioner, len(ctx.replOptions))
+	copy(cpy.replOptions, ctx.replOptions)
 	cpy.letVars = make([]letVariable, len(ctx.letVars))
 	copy(cpy.letVars, ctx.letVars)
 	cpy.letFns = make([]letFunction, len(ctx.letFns))
@@ -391,6 +422,12 @@ func (ctx *EvaluationContext) resolveFn(name string) (string, *exprpb.Type) {
 	return name, nil
 }
 
+func (ctx *EvaluationContext) invalidateLetPrograms() {
+	for i := 0; i < len(ctx.letVars); i++ {
+		ctx.letVars[i].clearPlan()
+	}
+}
+
 // Add or update an existing let then invalidate any computed plans.
 func (ctx *EvaluationContext) addLetFn(name string, params []letFunctionParam, resultType *exprpb.Type, expr string) {
 	name, receiver := ctx.resolveFn(name)
@@ -402,29 +439,28 @@ func (ctx *EvaluationContext) addLetFn(name string, params []letFunctionParam, r
 		ctx.letFns[idx] = newFn
 	}
 
-	for i := 0; i < len(ctx.letVars); i++ {
-		// invalidate dependant let exprs
-		ctx.letVars[i].clearPlan()
-	}
+	ctx.invalidateLetPrograms()
 }
 
-func (ctx *EvaluationContext) addOption(opt Optioner) {
-	ctx.options = append(ctx.options, opt)
+func (ctx *EvaluationContext) addOption(opt EnvOptioner) {
+	ctx.celOptions = append(ctx.celOptions, opt)
 
-	for i := 0; i < len(ctx.letVars); i++ {
-		// invalidate dependant let exprs
-		ctx.letVars[i].clearPlan()
-	}
+	ctx.invalidateLetPrograms()
 }
 
 // programOptions generates the program options for planning.
 // Assumes context has been planned.
-func (ctx *EvaluationContext) programOptions() cel.ProgramOption {
+func (ctx *EvaluationContext) programOptions() []cel.ProgramOption {
 	var fns = make([]*functions.Overload, len(ctx.letFns))
 	for i, fn := range ctx.letFns {
 		fns[i] = fn.generateFunction()
 	}
-	return cel.Functions(fns...)
+	var opts []cel.ProgramOption
+	if ctx.enablePartialEval {
+		opts = append(opts, cel.EvalOptions(cel.OptPartialEval))
+	}
+	opts = append(opts, cel.Functions(fns...))
+	return opts
 }
 
 // Evaluator provides basic environment for evaluating an expression with
@@ -449,9 +485,16 @@ func NewEvaluator() (*Evaluator, error) {
 // The planned expressions are evaluated as needed when evaluating a (non-let) CEL expression.
 // Return an error if any of the updates fail.
 func updateContextPlans(ctx *EvaluationContext, env *cel.Env) error {
-	for _, opt := range ctx.options {
+	for _, opt := range ctx.celOptions {
 		var err error
 		env, err = env.Extend(opt.Option())
+		if err != nil {
+			return err
+		}
+	}
+	for _, opt := range ctx.replOptions {
+		var err error
+		ctx, err = opt.Option()(ctx)
 		if err != nil {
 			return err
 		}
@@ -479,17 +522,22 @@ func updateContextPlans(ctx *EvaluationContext, env *cel.Env) error {
 				return fmt.Errorf("error updating %v\n%w", el, iss.Err())
 			}
 
-			if el.typeHint != nil && !proto.Equal(ast.ResultType(), el.typeHint) {
+			resultType, err := types.TypeToExprType(ast.OutputType())
+			if err != nil {
+				return err
+			}
+			if el.typeHint != nil && !proto.Equal(resultType, el.typeHint) {
 				return fmt.Errorf("error updating %v\ntype mismatch got %v expected %v",
 					el,
-					UnparseType(ast.ResultType()),
+					UnparseType(resultType),
 					UnparseType(el.typeHint))
 			}
 
 			el.ast = ast
-			el.resultType = ast.ResultType()
 
-			plan, err := env.Program(ast, ctx.programOptions())
+			el.resultType = resultType
+
+			plan, err := env.Program(ast, ctx.programOptions()...)
 			if err != nil {
 				return err
 			}
@@ -498,12 +546,13 @@ func updateContextPlans(ctx *EvaluationContext, env *cel.Env) error {
 			// Variable is declared but not defined, just update the type checking environment
 			el.resultType = el.typeHint
 		}
+
 		if el.env == nil {
-			env, err := env.Extend(cel.Declarations(decls.NewVar(el.identifier, el.resultType)))
+			elEnv, err := env.Extend(cel.Declarations(decls.NewVar(el.identifier, el.resultType)))
 			if err != nil {
 				return err
 			}
-			el.env = env
+			el.env = elEnv
 		}
 		env = el.env
 	}
@@ -515,13 +564,13 @@ func updateContextPlans(ctx *EvaluationContext, env *cel.Env) error {
 func (e *Evaluator) AddLetVar(name string, expr string, typeHint *exprpb.Type) error {
 	// copy the current context and attempt to update dependant expressions.
 	// if successful, swap the current context with the updated copy.
-	ctx := e.ctx.copy()
-	ctx.addLetVar(name, expr, typeHint)
-	err := updateContextPlans(ctx, e.env)
+	cpy := e.ctx.copy()
+	cpy.addLetVar(name, expr, typeHint)
+	err := updateContextPlans(cpy, e.env)
 	if err != nil {
 		return err
 	}
-	e.ctx = *ctx
+	e.ctx = *cpy
 	return nil
 }
 
@@ -542,13 +591,13 @@ func (e *Evaluator) AddLetFn(name string, params []letFunctionParam, resultType 
 // AddDeclVar declares a variable in the environment but doesn't register an expr with it.
 // This allows planning to succeed, but with no value for the variable at runtime.
 func (e *Evaluator) AddDeclVar(name string, typeHint *exprpb.Type) error {
-	ctx := e.ctx.copy()
-	ctx.addLetVar(name, "", typeHint)
-	err := updateContextPlans(ctx, e.env)
+	cpy := e.ctx.copy()
+	cpy.addLetVar(name, "", typeHint)
+	err := updateContextPlans(cpy, e.env)
 	if err != nil {
 		return err
 	}
-	e.ctx = *ctx
+	e.ctx = *cpy
 	return nil
 }
 
@@ -568,7 +617,7 @@ func (e *Evaluator) AddDeclFn(name string, params []letFunctionParam, typeHint *
 // AddOption adds an option to the basic environment.
 // Options are applied before evaluating any of the let statements.
 // Returns an error if setting the option prevents planning any of the defined let expressions.
-func (e *Evaluator) AddOption(opt Optioner) error {
+func (e *Evaluator) AddOption(opt EnvOptioner) error {
 	cpy := e.ctx.copy()
 	cpy.addOption(opt)
 	err := updateContextPlans(cpy, e.env)
@@ -609,7 +658,11 @@ func (e *Evaluator) DelLetFn(name string) error {
 func (e *Evaluator) Status() string {
 	var options, funcs, vars string
 
-	for _, opt := range e.ctx.options {
+	for _, opt := range e.ctx.celOptions {
+		options = options + fmt.Sprintf("%s\n", opt)
+	}
+
+	for _, opt := range e.ctx.replOptions {
 		options = options + fmt.Sprintf("%s\n", opt)
 	}
 
@@ -642,21 +695,35 @@ func (e *Evaluator) applyContext() (*cel.Env, interpreter.Activation, error) {
 			// Declared but not defined variable so nothing to evaluate
 			continue
 		}
-
-		val, _, err := el.prog.Eval(vars)
+		var act interpreter.Activation
+		var err error
+		act, err = interpreter.NewActivation(vars)
+		if e.ctx.enablePartialEval {
+			act, err = el.env.PartialVars(vars)
+		}
+		if err != nil {
+			return nil, nil, err
+		}
+		val, _, err := el.prog.Eval(act)
 		if val != nil {
 			vars[el.identifier] = val
 		} else if err != nil {
 			return nil, nil, err
 		}
 	}
+	var act interpreter.Activation
+	var err error
+	env2 := e.ctx.getEffectiveEnv(e.env)
 
-	act, err := interpreter.NewActivation(vars)
+	act, err = interpreter.NewActivation(vars)
+	if e.ctx.enablePartialEval {
+		act, err = env2.PartialVars(vars)
+	}
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return e.ctx.getEffectiveEnv(e.env), act, nil
+	return env2, act, nil
 }
 
 // typeOption implements optioner for loading a set of types defined by a protobuf file descriptor set.
@@ -682,6 +749,20 @@ type containerOption struct {
 	container string
 }
 
+// enablePartialEvalOption implements optioner for enabling partial eval.
+type enablePartialEvalOption struct{}
+
+func (o *enablePartialEvalOption) String() string {
+	return "%option --partial_eval"
+}
+
+func (o *enablePartialEvalOption) Option() replOption {
+	return func(ctx *EvaluationContext) (*EvaluationContext, error) {
+		ctx.enablePartialEval = true
+		return ctx, nil
+	}
+}
+
 func (o *containerOption) String() string {
 	return fmt.Sprintf("%%option --container '%s'", o.container)
 }
@@ -690,7 +771,7 @@ func (o *containerOption) Option() cel.EnvOption {
 	return cel.Container(o.container)
 }
 
-// extensionOption implements optional for loading a specific extension into the environment (String, Math, Proto, Encoder)
+// extensionOption implements optioner for loading a specific extension into the environment (String, Math, Proto, Encoder)
 type extensionOption struct {
 	extensionType string
 	option        cel.EnvOption
@@ -721,7 +802,7 @@ func newExtensionOption(extType string) (*extensionOption, error) {
 	case "encoders":
 		extOption = ext.Encoders()
 	default:
-		return nil, fmt.Errorf("Unknown option: %s. Available options are: ['strings', 'protos', 'math', 'encoders', 'bindings', 'optional', 'all']", op)
+		return nil, fmt.Errorf("unknown option: %s. Available options are: ['strings', 'protos', 'math', 'encoders', 'bindings', 'optional', 'all']", op)
 	}
 
 	return &extensionOption{extensionType: extType, option: extOption}, nil
@@ -747,6 +828,8 @@ func (e *Evaluator) setOption(args []string) error {
 			if err != nil {
 				issues = append(issues, fmt.Sprintf("extension: %v", err))
 			}
+		case "--partial_eval":
+			e.addPartialEvalOption()
 		default:
 			issues = append(issues, fmt.Sprintf("unsupported option '%s'", arg))
 		}
@@ -812,7 +895,11 @@ func (e *Evaluator) loadExtensionOptionType(extType string) error {
 	}
 
 	return nil
+}
 
+func (e *Evaluator) addPartialEvalOption() {
+	e.ctx.replOptions = append(e.ctx.replOptions, &enablePartialEvalOption{})
+	e.ctx.invalidateLetPrograms()
 }
 
 func loadFileDescriptorSet(path string, textfmt bool) (*descpb.FileDescriptorSet, error) {
@@ -937,6 +1024,22 @@ func (e *Evaluator) loadDescriptors(args []string) error {
 	return nil
 }
 
+func formatOutputValue(v ref.Val) string {
+
+	if types.IsUnknown(v) {
+		unk := v.(*types.Unknown)
+		return fmt.Sprintf("UnknownSet{ %v }", unk)
+	}
+
+	s, err := ext.FormatString(v, "")
+	if err == nil {
+		return s
+	}
+
+	// Default format if type is unsupported by ext.Strings formatter.
+	return fmt.Sprint(v.Value())
+}
+
 // Process processes the command provided.
 func (e *Evaluator) Process(cmd Cmder) (string, bool, error) {
 	switch cmd := cmd.(type) {
@@ -957,11 +1060,7 @@ func (e *Evaluator) Process(cmd Cmder) (string, bool, error) {
 		}
 		if val != nil {
 			t := UnparseType(resultT)
-			v, err := ext.FormatString(val, "")
-			if err != nil {
-				// Default format if type is unsupported by ext.Strings formatter.
-				return fmt.Sprintf("%v : %s", val.Value(), t), false, nil
-			}
+			v := formatOutputValue(val)
 			return fmt.Sprintf("%s : %s", v, t), false, nil
 		}
 	case *letVarCmd:
@@ -1029,7 +1128,7 @@ func (e *Evaluator) Evaluate(expr string) (ref.Val, *exprpb.Type, error) {
 		return nil, nil, iss.Err()
 	}
 
-	p, err := env.Program(ast, e.ctx.programOptions())
+	p, err := env.Program(ast, e.ctx.programOptions()...)
 	if err != nil {
 		return nil, nil, err
 	}

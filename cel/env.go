@@ -308,18 +308,14 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 	chkOptsCopy := make([]checker.Option, len(e.chkOpts))
 	copy(chkOptsCopy, e.chkOpts)
 
-	// Copy the declarations if needed.
-	varsCopy := []*decls.VariableDecl{}
 	if chk != nil {
 		// If the type-checker has already been instantiated, then the e.declarations have been
 		// validated within the chk instance.
 		chkOptsCopy = append(chkOptsCopy, checker.ValidatedDeclarations(chk))
-	} else {
-		// If the type-checker has not been instantiated, ensure the unvalidated declarations are
-		// provided to the extended Env instance.
-		varsCopy = make([]*decls.VariableDecl, len(e.variables))
-		copy(varsCopy, e.variables)
 	}
+	// vars are used by PartialVars to infer unknown attribute paths.
+	varsCopy := make([]*decls.VariableDecl, len(e.variables))
+	copy(varsCopy, e.variables)
 
 	// Copy macros and program options
 	macsCopy := make([]parser.Macro, len(e.macros))
