@@ -33,12 +33,17 @@ import (
 
 // NewDynamicMap returns a traits.Mapper value with dynamic key, value pairs.
 func NewDynamicMap(adapter Adapter, value any) traits.Mapper {
+	return NewDynamicMapWithType(adapter, value, MapType)
+}
+
+func NewDynamicMapWithType(adapter Adapter, value any, valueType ref.Type) traits.Mapper {
 	refValue := reflect.ValueOf(value)
 	return &baseMap{
 		Adapter:     adapter,
 		mapAccessor: newReflectMapAccessor(adapter, refValue),
 		value:       value,
 		size:        refValue.Len(),
+		valueType:   valueType,
 	}
 }
 
@@ -53,6 +58,7 @@ func NewJSONStruct(adapter Adapter, value *structpb.Struct) traits.Mapper {
 		mapAccessor: newJSONStructAccessor(adapter, fields),
 		value:       value,
 		size:        len(fields),
+		valueType:   MapType,
 	}
 }
 
@@ -63,6 +69,7 @@ func NewRefValMap(adapter Adapter, value map[ref.Val]ref.Val) traits.Mapper {
 		mapAccessor: newRefValMapAccessor(value),
 		value:       value,
 		size:        len(value),
+		valueType:   MapType,
 	}
 }
 
@@ -73,6 +80,7 @@ func NewStringInterfaceMap(adapter Adapter, value map[string]any) traits.Mapper 
 		mapAccessor: newStringIfaceMapAccessor(adapter, value),
 		value:       value,
 		size:        len(value),
+		valueType:   MapType,
 	}
 }
 
@@ -83,6 +91,7 @@ func NewStringStringMap(adapter Adapter, value map[string]string) traits.Mapper 
 		mapAccessor: newStringMapAccessor(value),
 		value:       value,
 		size:        len(value),
+		valueType:   MapType,
 	}
 }
 
@@ -122,6 +131,8 @@ type baseMap struct {
 
 	// size is the number of entries in the map.
 	size int
+
+	valueType ref.Type
 }
 
 // Contains implements the traits.Container interface method.
@@ -299,7 +310,7 @@ func (m *baseMap) String() string {
 
 // Type implements the ref.Val interface method.
 func (m *baseMap) Type() ref.Type {
-	return MapType
+	return m.valueType
 }
 
 // Value implements the ref.Val interface method.

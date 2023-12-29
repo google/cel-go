@@ -390,6 +390,21 @@ func (t *Type) WithTraits(traits int) *Type {
 	}
 }
 
+// WithRuntimeTypeName creates a copy of the current Type and sets its runtime type name.
+func (t *Type) WithRuntimeTypeName(runtimeTypeName string) *Type {
+	if t == nil {
+		return nil
+	}
+	return &Type{
+		kind:                    t.kind,
+		parameters:              t.parameters,
+		runtimeTypeName:         runtimeTypeName,
+		isAssignableType:        t.isAssignableType,
+		isAssignableRuntimeType: t.isAssignableRuntimeType,
+		traitMask:               t.traitMask,
+	}
+}
+
 // String returns a human-readable definition of the type name.
 func (t *Type) String() string {
 	if len(t.Parameters()) == 0 {

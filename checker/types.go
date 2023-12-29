@@ -144,9 +144,11 @@ func internalIsAssignable(m *mapping, t1, t2 *types.Type) bool {
 		return t2.IsAssignableType(t1)
 	case types.TypeKind:
 		return kind2 == types.TypeKind
-	case types.OpaqueKind, types.ListKind, types.MapKind:
+	case types.OpaqueKind, types.ListKind:
 		return t1.Kind() == t2.Kind() && t1.TypeName() == t2.TypeName() &&
 			internalIsAssignableList(m, t1.Parameters(), t2.Parameters())
+	case types.MapKind:
+		return t1.Kind() == t2.Kind() && internalIsAssignableList(m, t1.Parameters(), t2.Parameters())
 	default:
 		return false
 	}

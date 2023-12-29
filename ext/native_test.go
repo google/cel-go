@@ -63,6 +63,7 @@ func TestNativeTypes(t *testing.T) {
 					},
 				],
 				MapVal: {'map-key': ext.TestAllTypes{BoolVal: true}},
+				CustomMapVal: {'foo': ['bar', 'baz']},
 			}`,
 			out: &TestAllTypes{
 				NestedVal:    &TestNestedType{NestedMapVal: map[int64]bool{1: false}},
@@ -83,7 +84,8 @@ func TestNativeTypes(t *testing.T) {
 						NestedMapVal:  map[int64]bool{42: true},
 					},
 				},
-				MapVal: map[string]TestAllTypes{"map-key": {BoolVal: true}},
+				MapVal:       map[string]TestAllTypes{"map-key": {BoolVal: true}},
+				CustomMapVal: map[string][]string{"foo": {"bar", "baz"}},
 			},
 		},
 		{
@@ -118,8 +120,21 @@ func TestNativeTypes(t *testing.T) {
 				"tests": []*TestAllTypes{{Int32Val: 18}, {Int32Val: 19}, {Int32Val: 20}},
 			},
 		},
+		{expr: `ext.TestAllTypes{CustomMapVal: {'foo': ['bar', 'baz']}}.CustomMapVal.Contains("foo")`},
 	}
-	env := testNativeEnv(t)
+	env := testNativeEnv(t,
+		cel.Function("Contains",
+			cel.MemberOverload(
+				"ext_TestMapType_Contains",
+				[]*cel.Type{cel.MapType(cel.StringType, cel.ListType(cel.StringType)).WithRuntimeTypeName("ext.TestMapType"), cel.StringType},
+				cel.BoolType,
+				cel.FunctionBinding(func(args ...ref.Val) ref.Val {
+					v := args[0].Value().(TestMapType).Contains(args[1].Value().(string))
+					return types.DefaultTypeAdapter.NativeToValue(v)
+				}),
+			),
+		),
+	)
 	for i, tst := range nativeTests {
 		tc := tst
 		t.Run(fmt.Sprintf("[%d]", i), func(t *testing.T) {
@@ -687,6 +702,7 @@ type TestAllTypes struct {
 	ListVal         []*TestNestedType
 	MapVal          map[string]TestAllTypes
 	PbVal           *proto3pb.TestAllTypes
+	CustomMapVal    TestMapType
 
 	// channel types are not supported
 	UnsupportedVal     chan string
@@ -695,4 +711,11 @@ type TestAllTypes struct {
 
 	// unexported types can be found but not set or accessed
 	privateVal map[string]string
+}
+
+type TestMapType map[string][]string
+
+func (cm TestMapType) Contains(key string) bool {
+	_, ok := cm[key]
+	return ok
 }

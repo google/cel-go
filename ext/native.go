@@ -248,7 +248,11 @@ func (tp *nativeTypeProvider) NativeToValue(val any) ref.Val {
 			return types.NewDynamicList(tp, val)
 		}
 	case reflect.Map:
-		return types.NewDynamicMap(tp, val)
+		valType := types.MapType
+		if refType := refVal.Type(); refType.Name() != "" {
+			valType = valType.WithRuntimeTypeName(typeName(refType))
+		}
+		return types.NewDynamicMapWithType(tp, val, valType)
 	case reflect.Struct:
 		switch val := val.(type) {
 		case proto.Message, *pb.Map, protoreflect.List, protoreflect.Message, protoreflect.Value,
@@ -297,14 +301,16 @@ func convertToCelType(refType reflect.Type) (*cel.Type, bool) {
 		if !ok {
 			return nil, false
 		}
-		return cel.MapType(keyType, elemType), true
+		mt := cel.MapType(keyType, elemType)
+		if refType.Name() != "" {
+			mt = mt.WithRuntimeTypeName(typeName(refType))
+		}
+		return mt, true
 	case reflect.Struct:
 		if refType == timestampType {
 			return cel.TimestampType, true
 		}
-		return cel.ObjectType(
-			fmt.Sprintf("%s.%s", simplePkgAlias(refType.PkgPath()), refType.Name()),
-		), true
+		return cel.ObjectType(typeName(refType)), true
 	case reflect.Pointer:
 		if refType.Implements(pbMsgInterfaceType) {
 			pbMsg := reflect.New(refType.Elem()).Interface().(protoreflect.ProtoMessage)
@@ -474,7 +480,7 @@ func newNativeType(rawType reflect.Type) (*nativeType, error) {
 		return nil, fmt.Errorf("unsupported reflect.Type %v, must be reflect.Struct", rawType)
 	}
 	return &nativeType{
-		typeName: fmt.Sprintf("%s.%s", simplePkgAlias(refType.PkgPath()), refType.Name()),
+		typeName: typeName(refType),
 		refType:  refType,
 	}, nil
 }
@@ -567,6 +573,10 @@ func simplePkgAlias(pkgPath string) string {
 		return ""
 	}
 	return paths[len(paths)-1]
+}
+
+func typeName(refType reflect.Type) string {
+	return fmt.Sprintf("%s.%s", simplePkgAlias(refType.PkgPath()), refType.Name())
 }
 
 func isValidObjectType(refType reflect.Type) bool {
