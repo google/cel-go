@@ -2366,6 +2366,10 @@ func TestOptionalValuesEval(t *testing.T) {
 			out: true,
 		},
 		{
+			expr: `type(optional.none()) == optional_type`,
+			out:  true,
+		},
+		{
 			// return the value of m.c['dashed-index'], no magic in the optional.of() call.
 			expr: `optional.ofNonZeroValue('').or(optional.of(m.c['dashed-index'])).orValue('default value')`,
 			in: map[string]any{

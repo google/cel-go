@@ -41,7 +41,7 @@ func isError(t *types.Type) bool {
 
 func isOptional(t *types.Type) bool {
 	if t.Kind() == types.OpaqueKind {
-		return t.TypeName() == "optional"
+		return t.TypeName() == "optional_type"
 	}
 	return false
 }

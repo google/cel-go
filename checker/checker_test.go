@@ -2044,7 +2044,26 @@ _&&_(_==_(list~type(list(dyn))^list,
 			out: `_?._(
 			a~map(string, string)^a,
 			"b"
-		  )~optional(string)^select_optional_field`,
+		  )~optional_type(string)^select_optional_field`,
+		},
+		{
+			in: `type(a.?b) == optional_type`,
+			env: testEnv{
+				optionalSyntax: true,
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("a", types.NewMapType(types.StringType, types.StringType)),
+				},
+			},
+			outType: types.BoolType,
+			out: `_==_(
+				type(
+				  _?._(
+					a~map(string, string)^a,
+					"b"
+				  )~optional_type(string)^select_optional_field
+				)~type(optional_type(string))^type,
+				optional_type~type(optional_type)^optional_type
+			  )~bool^equals`,
 		},
 		{
 			in: `a.b`,
@@ -2054,7 +2073,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 				},
 			},
 			outType: types.NewOptionalType(types.StringType),
-			out:     `a~optional(map(string, string))^a.b~optional(string)`,
+			out:     `a~optional_type(map(string, string))^a.b~optional_type(string)`,
 		},
 		{
 			in: `a.dynamic`,
@@ -2064,7 +2083,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 				},
 			},
 			outType: types.NewOptionalType(types.DynType),
-			out:     `a~optional(dyn)^a.dynamic~optional(dyn)`,
+			out:     `a~optional_type(dyn)^a.dynamic~optional_type(dyn)`,
 		},
 		{
 			in: `has(a.dynamic)`,
@@ -2074,7 +2093,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 				},
 			},
 			outType: types.BoolType,
-			out:     `a~optional(dyn)^a.dynamic~test-only~~bool`,
+			out:     `a~optional_type(dyn)^a.dynamic~test-only~~bool`,
 		},
 		{
 			in: `has(a.?b.c)`,
@@ -2086,9 +2105,9 @@ _&&_(_==_(list~type(list(dyn))^list,
 			},
 			outType: types.BoolType,
 			out: `_?._(
-			a~optional(map(string, dyn))^a,
+			a~optional_type(map(string, dyn))^a,
 			"b"
-		  )~optional(dyn)^select_optional_field.c~test-only~~bool`,
+		  )~optional_type(dyn)^select_optional_field.c~test-only~~bool`,
 		},
 		{
 			in:      `{?'key': {'a': 'b'}.?value}`,
@@ -2100,7 +2119,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 				"a"~string:"b"~string
 			  }~map(string, string),
 			  "value"
-			)~optional(string)^select_optional_field
+			)~optional_type(string)^select_optional_field
 		  }~map(string, string)`,
 		},
 		{
@@ -2113,7 +2132,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 				"a"~string:"b"~string
 			  }~map(string, string),
 			  "value"
-			)~optional(string)^select_optional_field
+			)~optional_type(string)^select_optional_field
 		  }~map(string, string).key~string`,
 		},
 		{
@@ -2126,13 +2145,13 @@ _&&_(_==_(list~type(list(dyn))^list,
 			},
 			outType: types.NewMapType(types.StringType, types.StringType),
 			out: `{
-			?"nested"~string:a~optional(map(string, string))^a.b~optional(string)
+			?"nested"~string:a~optional_type(map(string, string))^a.b~optional_type(string)
 		  }~map(string, string)`,
 		},
 		{
 			in:  `{?'key': 'hi'}`,
 			env: testEnv{optionalSyntax: true},
-			err: `ERROR: <input>:1:10: expected type 'optional(string)' but found 'string'
+			err: `ERROR: <input>:1:10: expected type 'optional_type(string)' but found 'string'
 		| {?'key': 'hi'}
 		| .........^`,
 		},
@@ -2147,15 +2166,15 @@ _&&_(_==_(list~type(list(dyn))^list,
 			},
 			outType: types.NewListType(types.StringType),
 			out: `[
-			a~optional(string)^a,
-			b~optional(string)^b,
+			a~optional_type(string)^a,
+			b~optional_type(string)^b,
 			"world"~string
 		  ]~list(string)`,
 		},
 		{
 			in:  `[?'value']`,
 			env: testEnv{optionalSyntax: true},
-			err: `ERROR: <input>:1:3: expected type 'optional(string)' but found 'string'
+			err: `ERROR: <input>:1:3: expected type 'optional_type(string)' but found 'string'
 		| [?'value']
 		| ..^`,
 		},
@@ -2167,7 +2186,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 			?single_int32:_?._(
 			  {}~map(dyn, int),
 			  "i"
-			)~optional(int)^select_optional_field
+			)~optional_type(int)^select_optional_field
 		  }~google.expr.proto2.test.TestAllTypes^google.expr.proto2.test.TestAllTypes`,
 			outType: types.NewObjectType(
 				"google.expr.proto2.test.TestAllTypes",
@@ -2177,7 +2196,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 			in:        `TestAllTypes{?single_int32: 1}`,
 			container: "google.expr.proto2.test",
 			env:       testEnv{optionalSyntax: true},
-			err: `ERROR: <input>:1:29: expected type 'optional(int)' but found 'int'
+			err: `ERROR: <input>:1:29: expected type 'optional_type(int)' but found 'int'
 		| TestAllTypes{?single_int32: 1}
 		| ............................^`,
 		},
@@ -2307,6 +2326,12 @@ func TestCheck(t *testing.T) {
 			}
 
 			reg, err := types.NewRegistry(&proto2pb.TestAllTypes{}, &proto3pb.TestAllTypes{})
+			if tc.env.optionalSyntax {
+				err = reg.RegisterType(types.OptionalType)
+				if err != nil {
+					t.Fatalf("reg.RegisterType(optional_type) failed: %v", err)
+				}
+			}
 			if err != nil {
 				t.Fatalf("types.NewRegistry() failed: %v", err)
 			}

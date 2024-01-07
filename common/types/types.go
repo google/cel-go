@@ -513,7 +513,7 @@ func NewNullableType(wrapped *Type) *Type {
 
 // NewOptionalType creates an abstract parameterized type instance corresponding to CEL's notion of optional.
 func NewOptionalType(param *Type) *Type {
-	return NewOpaqueType("optional", param)
+	return NewOpaqueType("optional_type", param)
 }
 
 // NewOpaqueType creates an abstract parameterized type with a given name.
