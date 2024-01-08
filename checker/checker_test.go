@@ -2233,6 +2233,35 @@ _&&_(_==_(list~type(list(dyn))^list,
 			| NotAMessage{}
 			| ...........^`,
 		},
+		{
+			in: `{}.map(c,[c,type(c)])`,
+			out: `__comprehension__(
+				// Variable
+				c,
+				// Target
+				{}~map(dyn, dyn),
+				// Accumulator
+				__result__,
+				// Init
+				[]~list(list(dyn)),
+				// LoopCondition
+				true~bool,
+				// LoopStep
+				_+_(
+				  __result__~list(list(dyn))^__result__,
+				  [
+					[
+					  c~dyn^c,
+					  type(
+						c~dyn^c
+					  )~type(dyn)^type
+					]~list(dyn)
+				  ]~list(list(dyn))
+				)~list(list(dyn))^add_list,
+				// Result
+				__result__~list(list(dyn))^__result__)~list(list(dyn))`,
+			outType: types.NewListType(types.NewListType(types.DynType)),
+		},
 	}
 }
 

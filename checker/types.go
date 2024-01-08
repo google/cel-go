@@ -260,7 +260,7 @@ func notReferencedIn(m *mapping, t, withinType *types.Type) bool {
 			return true
 		}
 		return notReferencedIn(m, t, wtSub)
-	case types.OpaqueKind, types.ListKind, types.MapKind:
+	case types.OpaqueKind, types.ListKind, types.MapKind, types.TypeKind:
 		for _, pt := range withinType.Parameters() {
 			if !notReferencedIn(m, t, pt) {
 				return false
@@ -292,7 +292,8 @@ func substitute(m *mapping, t *types.Type, typeParamToDyn bool) *types.Type {
 			substitute(m, t.Parameters()[1], typeParamToDyn))
 	case types.TypeKind:
 		if len(t.Parameters()) > 0 {
-			return types.NewTypeTypeWithParam(substitute(m, t.Parameters()[0], typeParamToDyn))
+			tParam := t.Parameters()[0]
+			return types.NewTypeTypeWithParam(substitute(m, tParam, typeParamToDyn))
 		}
 		return t
 	default:
