@@ -666,6 +666,29 @@ func TestInliningOptimizerMultiStage(t *testing.T) {
 			inlined: "cel.bind(listA, [1, 1], cel.bind(listB, [1, 1, 1], listB.all(b, b == listA[0]) &&\nlistA.all(a, a == listB[0])) || listA.size() == 0) || false",
 			folded:  `true`,
 		},
+		{
+			expr: `has(m.child) && has(m.child.payload)`,
+			vars: []varDecl{
+				{
+					name: "m",
+					t:    cel.ObjectType("google.expr.proto3.test.NestedTestAllTypes"),
+				},
+				{
+					name: "m_view",
+					t:    cel.MapType(cel.StringType, cel.ObjectType("google.expr.proto3.test.NestedTestAllTypes")),
+				},
+			},
+			inlineVars: []inlineVarExpr{
+				{
+					name:  "m.child",
+					t:     cel.ObjectType("google.expr.proto3.test.NestedTestAllTypes"),
+					alias: "child",
+					expr:  "m_view.nested.child",
+				},
+			},
+			inlined: "has(m_view.nested.child) && has(m_view.nested.child.payload)",
+			folded:  "has(m_view.nested.child) && has(m_view.nested.child.payload)",
+		},
 	}
 	for _, tst := range tests {
 		tc := tst
