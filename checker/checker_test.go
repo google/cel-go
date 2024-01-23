@@ -2413,7 +2413,7 @@ func TestCheck(t *testing.T) {
 			}
 
 			if tc.out != "" {
-				actualStr := Print(pAst.Expr(), cAst)
+				actualStr := Print(cAst.Expr(), cAst)
 				if !test.Compare(actualStr, tc.out) {
 					t.Error(test.DiffMessage("Structure error", actualStr, tc.out))
 				}
@@ -2504,7 +2504,7 @@ func BenchmarkCheck(b *testing.B) {
 				}
 
 				if tc.out != "" {
-					actualStr := Print(pAst.Expr(), cAst)
+					actualStr := Print(cAst.Expr(), cAst)
 					if !test.Compare(actualStr, tc.out) {
 						b.Error(test.DiffMessage("Structure error", actualStr, tc.out))
 					}
