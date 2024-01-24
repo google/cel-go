@@ -84,6 +84,26 @@ func TestAttributesAbsoluteAttrType(t *testing.T) {
 	}
 }
 
+func TestAttributesAbsoluteAttrError(t *testing.T) {
+	reg := newTestRegistry(t)
+	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
+	vars, err := NewActivation(map[string]any{
+		"err": types.NewErr("invalid variable computation"),
+	})
+	if err != nil {
+		t.Fatalf("NewActivation() failed: %v", err)
+	}
+
+	// acme.a.b[4][false]
+	attr := attrs.AbsoluteAttribute(1, "err")
+	qualMsg := makeQualifier(t, attrs, nil, 2, "message")
+	attr.AddQualifier(qualMsg)
+	out, err := attr.Resolve(vars)
+	if err == nil {
+		t.Errorf("attr.Resolve('err') got %v, wanted error", out)
+	}
+}
+
 func TestAttributesRelativeAttr(t *testing.T) {
 	reg := newTestRegistry(t)
 	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
