@@ -48,9 +48,10 @@ type checker struct {
 // registry.
 func Check(parsed *ast.AST, source common.Source, env *Env) (*ast.AST, *common.Errors) {
 	errs := common.NewErrors(source)
-	checked := ast.Copy(parsed)
+	typeMap := make(map[int64]*types.Type)
+	refMap := make(map[int64]*ast.ReferenceInfo)
 	c := checker{
-		AST:                checked,
+		AST:                ast.NewCheckedAST(parsed, typeMap, refMap),
 		ExprFactory:        ast.NewExprFactory(),
 		env:                env,
 		errors:             &typeErrors{errs: errs},
