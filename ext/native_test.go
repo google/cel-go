@@ -63,6 +63,8 @@ func TestNativeTypes(t *testing.T) {
 					},
 				],
 				MapVal: {'map-key': ext.TestAllTypes{BoolVal: true}},
+				CustomSliceVal: [ext.TestNestedSliceType{Value: 'none'}],
+				CustomMapVal: {'even': ext.TestMapVal{Value: 'more'}},
 			}`,
 			out: &TestAllTypes{
 				NestedVal:    &TestNestedType{NestedMapVal: map[int64]bool{1: false}},
@@ -83,7 +85,9 @@ func TestNativeTypes(t *testing.T) {
 						NestedMapVal:  map[int64]bool{42: true},
 					},
 				},
-				MapVal: map[string]TestAllTypes{"map-key": {BoolVal: true}},
+				MapVal:         map[string]TestAllTypes{"map-key": {BoolVal: true}},
+				CustomSliceVal: []TestNestedSliceType{{Value: "none"}},
+				CustomMapVal:   map[string]TestMapVal{"even": {Value: "more"}},
 			},
 		},
 		{
@@ -645,7 +649,6 @@ func testNativeEnv(t *testing.T, opts ...cel.EnvOption) *cel.Env {
 	envOpts = append(envOpts, opts...)
 	envOpts = append(envOpts,
 		NativeTypes(
-			reflect.TypeOf(&TestNestedType{}),
 			reflect.ValueOf(&TestAllTypes{}),
 		),
 	)
@@ -687,6 +690,8 @@ type TestAllTypes struct {
 	ListVal         []*TestNestedType
 	MapVal          map[string]TestAllTypes
 	PbVal           *proto3pb.TestAllTypes
+	CustomSliceVal  []TestNestedSliceType
+	CustomMapVal    map[string]TestMapVal
 
 	// channel types are not supported
 	UnsupportedVal     chan string
@@ -695,4 +700,12 @@ type TestAllTypes struct {
 
 	// unexported types can be found but not set or accessed
 	privateVal map[string]string
+}
+
+type TestNestedSliceType struct {
+	Value string
+}
+
+type TestMapVal struct {
+	Value string
 }
