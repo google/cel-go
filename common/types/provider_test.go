@@ -566,6 +566,21 @@ func TestConvertToNative(t *testing.T) {
 	// Proto conversion tests.
 	parsedExpr := &exprpb.ParsedExpr{}
 	expectValueToNative(t, reg.NativeToValue(parsedExpr), parsedExpr)
+
+	// Custom scalars
+	expectValueToNative(t, Int(1), testInt(1))
+	expectValueToNative(t, Int(1), testInt8(1))
+	expectValueToNative(t, Int(1), testInt16(1))
+	expectValueToNative(t, Int(1), testInt32(1))
+	expectValueToNative(t, Int(1), testInt64(1))
+	expectValueToNative(t, Uint(1), testUint(1))
+	expectValueToNative(t, Uint(1), testUint8(1))
+	expectValueToNative(t, Uint(1), testUint16(1))
+	expectValueToNative(t, Uint(1), testUint32(1))
+	expectValueToNative(t, Uint(1), testUint64(1))
+	expectValueToNative(t, Double(4.5), testFloat32(4.5))
+	expectValueToNative(t, Double(-5.1), testFloat64(-5.1))
+	expectValueToNative(t, String("foo"), testString("foo"))
 }
 
 func TestNativeToValue_Any(t *testing.T) {
@@ -758,12 +773,19 @@ func TestNativeToValue_Primitive(t *testing.T) {
 	expectNativeToValue(t, &rBytes, rBytes)
 
 	// Extensions to core types.
+	expectNativeToValue(t, testInt(1), Int(1))
+	expectNativeToValue(t, testInt8(1), Int(1))
+	expectNativeToValue(t, testInt16(1), Int(1))
 	expectNativeToValue(t, testInt32(1), Int(1))
 	expectNativeToValue(t, testInt64(-100), Int(-100))
+	expectNativeToValue(t, testUint(1), Uint(1))
+	expectNativeToValue(t, testUint8(1), Uint(1))
+	expectNativeToValue(t, testUint16(1), Uint(1))
 	expectNativeToValue(t, testUint32(2), Uint(2))
 	expectNativeToValue(t, testUint64(3), Uint(3))
 	expectNativeToValue(t, testFloat32(4.5), Double(4.5))
 	expectNativeToValue(t, testFloat64(-5.1), Double(-5.1))
+	expectNativeToValue(t, testString("foo"), String("foo"))
 
 	// Null conversion test.
 	expectNativeToValue(t, nil, NullValue)
@@ -795,7 +817,7 @@ func expectValueToNative(t *testing.T, in ref.Val, out any) {
 		}
 		if !equals {
 			t.Errorf("Unexpected conversion from expr to proto.\n"+
-				"expected: %T, actual: %T", val, out)
+				"expected: %T, actual: %T", out, val)
 		}
 	}
 }
@@ -870,12 +892,20 @@ func BenchmarkTypeProviderCopy(b *testing.B) {
 type nonConvertible struct {
 	Field string
 }
+type testBool bool
+type testInt int
+type testInt8 int8
+type testInt16 int16
 type testInt32 int32
 type testInt64 int64
+type testUint uint
+type testUint8 uint8
+type testUint16 uint16
 type testUint32 uint32
 type testUint64 uint64
 type testFloat32 float32
 type testFloat64 float64
+type testString string
 
 func newTestRegistry(t *testing.T, types ...proto.Message) *Registry {
 	t.Helper()
