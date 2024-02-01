@@ -62,6 +62,12 @@ func TestNativeTypes(t *testing.T) {
 						NestedMapVal: {42: true},
 					},
 				],
+				ArrayVal: [
+					ext.TestNestedType{
+						NestedListVal:['goodbye', 'cruel', 'world'],
+						NestedMapVal: {42: true},
+					},
+				],
 				MapVal: {'map-key': ext.TestAllTypes{BoolVal: true}},
 				CustomSliceVal: [ext.TestNestedSliceType{Value: 'none'}],
 				CustomMapVal: {'even': ext.TestMapVal{Value: 'more'}},
@@ -85,6 +91,10 @@ func TestNativeTypes(t *testing.T) {
 						NestedMapVal:  map[int64]bool{42: true},
 					},
 				},
+				ArrayVal: [1]*TestNestedType{{
+					NestedListVal: []string{"goodbye", "cruel", "world"},
+					NestedMapVal:  map[int64]bool{42: true},
+				}},
 				MapVal:         map[string]TestAllTypes{"map-key": {BoolVal: true}},
 				CustomSliceVal: []TestNestedSliceType{{Value: "none"}},
 				CustomMapVal:   map[string]TestMapVal{"even": {Value: "more"}},
@@ -688,6 +698,7 @@ type TestAllTypes struct {
 	Uint32Val       uint32
 	Uint64Val       uint64
 	ListVal         []*TestNestedType
+	ArrayVal        [1]*TestNestedType
 	MapVal          map[string]TestAllTypes
 	PbVal           *proto3pb.TestAllTypes
 	CustomSliceVal  []TestNestedSliceType
