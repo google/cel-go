@@ -106,6 +106,17 @@ func TestStringConvertToNative_String(t *testing.T) {
 	}
 }
 
+type customString string
+
+func TestStringConvertToNative_CustomString(t *testing.T) {
+	val, err := String("hello").ConvertToNative(reflect.TypeOf(customString("")))
+	if err != nil {
+		t.Error(err)
+	} else if v, ok := val.(customString); !ok || v != "hello" {
+		t.Errorf("Got %T with val '%v', expected %T with val 'hello'", val, v, customString(""))
+	}
+}
+
 func TestStringConvertToNative_Wrapper(t *testing.T) {
 	val, err := String("hello").ConvertToNative(stringWrapperType)
 	if err != nil {

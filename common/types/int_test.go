@@ -165,6 +165,36 @@ func TestIntConvertToNative_Error(t *testing.T) {
 	}
 }
 
+func TestIntConvertToNative_Int8(t *testing.T) {
+	val, err := Int(127).ConvertToNative(reflect.TypeOf(int8(0)))
+	if err != nil {
+		t.Fatalf("Int.ConvertToNative(int8) failed: %v", err)
+	}
+	if val.(int8) != 127 {
+		t.Errorf("Got '%v', expected 20050", val)
+	}
+	val, err = Int(math.MaxInt8 + 1).ConvertToNative(reflect.TypeOf(int8(0)))
+	if err == nil {
+		t.Errorf("(MaxInt+1).ConvertToNative(int8) did not error, got: %v", val)
+	} else if !strings.Contains(err.Error(), "integer overflow") {
+		t.Errorf("ConvertToNative(int8) returned unexpected error: %v, wanted integer overflow", err)
+	}
+}
+func TestIntConvertToNative_Int16(t *testing.T) {
+	val, err := Int(20050).ConvertToNative(reflect.TypeOf(int16(0)))
+	if err != nil {
+		t.Fatalf("Int.ConvertToNative(int16) failed: %v", err)
+	}
+	if val.(int16) != 20050 {
+		t.Errorf("Got '%v', expected 20050", val)
+	}
+	val, err = Int(math.MaxInt16 + 1).ConvertToNative(reflect.TypeOf(int16(0)))
+	if err == nil {
+		t.Errorf("(MaxInt+1).ConvertToNative(int16) did not error, got: %v", val)
+	} else if !strings.Contains(err.Error(), "integer overflow") {
+		t.Errorf("ConvertToNative(int32) returned unexpected error: %v, wanted integer overflow", err)
+	}
+}
 func TestIntConvertToNative_Int32(t *testing.T) {
 	val, err := Int(20050).ConvertToNative(reflect.TypeOf(int32(0)))
 	if err != nil {

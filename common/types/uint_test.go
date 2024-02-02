@@ -172,6 +172,38 @@ func TestUintConvertToNative_Json(t *testing.T) {
 	}
 }
 
+func TestUintConvertToNative_Uint8(t *testing.T) {
+	val, err := Uint(128).ConvertToNative(reflect.TypeOf(uint8(0)))
+	if err != nil {
+		t.Fatalf("Uint.ConvertToNative(uint8) failed: %v", err)
+	}
+	if val.(uint8) != 128 {
+		t.Errorf("Got '%v', expected 128", val)
+	}
+	val, err = Uint(math.MaxUint8 + 1).ConvertToNative(reflect.TypeOf(uint8(0)))
+	if err == nil {
+		t.Errorf("(MaxUint+1).ConvertToNative(uint8) did not error, got: %v", val)
+	} else if !strings.Contains(err.Error(), "unsigned integer overflow") {
+		t.Errorf("ConvertToNative(uint8) returned unexpected error: %v, wanted unsigned integer overflow", err)
+	}
+}
+
+func TestUintConvertToNative_Uint16(t *testing.T) {
+	val, err := Uint(20050).ConvertToNative(reflect.TypeOf(uint16(0)))
+	if err != nil {
+		t.Fatalf("Uint.ConvertToNative(uint16) failed: %v", err)
+	}
+	if val.(uint16) != 20050 {
+		t.Errorf("Got '%v', expected 20050", val)
+	}
+	val, err = Uint(math.MaxUint16 + 1).ConvertToNative(reflect.TypeOf(uint16(0)))
+	if err == nil {
+		t.Errorf("(MaxUint+1).ConvertToNative(uint16) did not error, got: %v", val)
+	} else if !strings.Contains(err.Error(), "unsigned integer overflow") {
+		t.Errorf("ConvertToNative(uint16) returned unexpected error: %v, wanted unsigned integer overflow", err)
+	}
+}
+
 func TestUintConvertToNative_Uint32(t *testing.T) {
 	val, err := Uint(20050).ConvertToNative(reflect.TypeOf(uint32(0)))
 	if err != nil {
