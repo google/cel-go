@@ -791,6 +791,70 @@ func TestRuntimeCost(t *testing.T) {
 			in:   map[string]any{},
 			want: 77,
 		},
+		{
+			name: "list map literal",
+			expr: `[{'k1': 1}, {'k2': 2}].all(x, true)`,
+			vars: []*decls.VariableDecl{},
+			in:   map[string]any{},
+			want: 77,
+		},
+		{
+			name: ".filter list literal",
+			expr: `[1,2,3,4,5].filter(x, x % 2 == 0)`,
+			vars: []*decls.VariableDecl{},
+			in:   map[string]any{},
+			want: 62,
+		},
+		{
+			name: ".map list literal",
+			expr: `[1,2,3,4,5].map(x, x)`,
+			vars: []*decls.VariableDecl{},
+			in:   map[string]any{},
+			want: 86,
+		},
+		{
+			name: ".map.filter list literal",
+			expr: `[1,2,3,4,5].map(x, x).filter(x, x % 2 == 0)`,
+			vars: []*decls.VariableDecl{},
+			in:   map[string]any{},
+			want: 138,
+		},
+		{
+			name: ".map.exists list literal",
+			expr: `[1,2,3,4,5].map(x, x).exists(x, x == 5) == true`,
+			vars: []*decls.VariableDecl{},
+			in:   map[string]any{},
+			want: 118,
+		},
+		{
+			name: ".map.map list literal",
+			expr: `[1,2,3,4,5].map(x, x).map(x, x)`,
+			vars: []*decls.VariableDecl{},
+			in:   map[string]any{},
+			want: 162,
+		},
+		{
+			name: ".map.map list literal",
+			expr: `[1,2,3,4,5].map(x, [x, x]).filter(z, z.size() == 2)`,
+			vars: []*decls.VariableDecl{},
+			in:   map[string]any{},
+			want: 232,
+		},
+		{
+			name: "comprehension on nested list",
+			expr: `[1,2,3,4,5].map(x, [x, x]).all(y, y.all(y, y == 1))`,
+			want: 171,
+		},
+		{
+			name: "comprehension size",
+			expr: `[1,2,3,4,5].map(x, x).map(x, x) + [1]`,
+			want: 173,
+		},
+		{
+			name: "nested comprehension",
+			expr: `[1,2,3].all(i, i in [1,2,3].map(j, j + j))`,
+			want: 86,
+		},
 	}
 
 	for _, tc := range cases {
