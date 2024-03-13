@@ -6,7 +6,7 @@ require (
 	github.com/golang/glog v1.0.0
 	github.com/google/cel-go v0.13.0
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230803162519-f966b187b2e5
-	google.golang.org/protobuf v1.31.0
+	google.golang.org/protobuf v1.33.0
 )
 
 require (
