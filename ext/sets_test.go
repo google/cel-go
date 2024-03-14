@@ -43,7 +43,7 @@ func TestSets(t *testing.T) {
 			in:    map[string]any{"x": []int64{5, 4, 3, 2, 1}},
 			hints: map[string]uint64{"x": 10},
 			// min cost is input 'x' length 0, 10 for list creation, 2 for arg costs
-			// max cost is input 'x' lenght 10, 10 for list creation, 2 for arg costs
+			// max cost is input 'x' length 10, 10 for list creation, 2 for arg costs
 			estimatedCost: checker.CostEstimate{Min: 12, Max: 42},
 			// actual cost is 'x' length 5 * list literal length 3, 10 for list creation, 2 for arg cost
 			actualCost: 27,

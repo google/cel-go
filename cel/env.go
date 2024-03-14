@@ -790,7 +790,7 @@ type interopCELTypeProvider struct {
 
 // FindStructType returns a types.Type instance for the given fully-qualified typeName if one exists.
 //
-// This method proxies to the underyling ref.TypeProvider's FindType method and converts protobuf type
+// This method proxies to the underlying ref.TypeProvider's FindType method and converts protobuf type
 // into a native type representation. If the conversion fails, the type is listed as not found.
 func (p *interopCELTypeProvider) FindStructType(typeName string) (*types.Type, bool) {
 	if et, found := p.FindType(typeName); found {
@@ -813,7 +813,7 @@ func (p *interopCELTypeProvider) FindStructFieldNames(typeName string) ([]string
 // FindStructFieldType returns a types.FieldType instance for the given fully-qualified typeName and field
 // name, if one exists.
 //
-// This method proxies to the underyling ref.TypeProvider's FindFieldType method and converts protobuf type
+// This method proxies to the underlying ref.TypeProvider's FindFieldType method and converts protobuf type
 // into a native type representation. If the conversion fails, the type is listed as not found.
 func (p *interopCELTypeProvider) FindStructFieldType(structType, fieldName string) (*types.FieldType, bool) {
 	if ft, found := p.FindFieldType(structType, fieldName); found {
