@@ -7,7 +7,7 @@ require (
 	github.com/stoewer/go-strcase v1.2.0
 	golang.org/x/text v0.9.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20230803162519-f966b187b2e5
-	google.golang.org/protobuf v1.31.0
+	google.golang.org/protobuf v1.33.0
 )
 
 require (
