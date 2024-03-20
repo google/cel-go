@@ -20,3 +20,5 @@ require (
 )
 
 replace github.com/google/cel-go => ../.
+
+replace github.com/google/cel-spec/tests v0.14.0 => github.com/l46kok/cel-spec/tests v0.0.0-20240319231845-95c1c0162ada

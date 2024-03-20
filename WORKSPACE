@@ -119,8 +119,8 @@ go_repository(
 # CEL Spec deps
 go_repository(
     name = "com_google_cel_spec",
-    commit = "910da5b5d08378a9a1f3ea3ba1979e16e6c6dbc1", # v 0.14.0
-    importpath = "github.com/google/cel-spec",
+    commit = "95c1c0162adaa53d6884cfa64845091239f20100",
+    importpath = "github.com/l46kok/cel-spec",
 )
 
 # strcase deps
