@@ -1688,6 +1688,71 @@ func TestPartialVars(t *testing.T) {
 	}
 }
 
+func TestPartialVarsExtendedEnv(t *testing.T) {
+	env := testEnv(t,
+		Variable("x", IntType),
+		Variable("y", IntType),
+	)
+
+	// Use env to make sure internals are all initialized.
+	ast, iss := env.Compile("x == y")
+
+	if iss.Err() != nil {
+		t.Fatalf("env.Compile() failed: %v", iss.Err())
+	}
+	prg, err := env.Program(ast, EvalOptions(OptPartialEval))
+	if err != nil {
+		t.Fatalf("env.Program() failed: %v", err)
+	}
+
+	act, err := env.PartialVars(map[string]any{"x": 1, "y": 1})
+
+	if err != nil {
+		t.Fatalf("env.PartialVars failed: %v", err)
+	}
+	val, _, err := prg.Eval(act)
+	if err != nil {
+		t.Fatalf("Eval failed: %v", err)
+	}
+
+	if val != types.True {
+		t.Fatalf("want: %v, got: %v", types.True, val)
+	}
+
+	// Now test that a sub environment is correctly copied.
+	env2, err := env.Extend(Variable("z", IntType))
+	if err != nil {
+		t.Fatalf("env.Extend failed: %v", err)
+	}
+
+	ast, iss = env2.Compile("x == y && y == z")
+
+	if iss.Err() != nil {
+		t.Fatalf("env.Compile() failed: %v", iss.Err())
+	}
+	prg, err = env2.Program(ast, EvalOptions(OptPartialEval))
+	if err != nil {
+		t.Fatalf("env.Program() failed: %v", err)
+	}
+
+	act, err = env2.PartialVars(map[string]any{"z": 1, "y": 1})
+
+	if err != nil {
+		t.Fatalf("env.PartialVars failed: %v", err)
+	}
+	val, _, err = prg.Eval(act)
+	if err != nil {
+		t.Fatalf("Eval failed: %v", err)
+	}
+	if !types.IsUnknown(val) {
+		t.Fatalf("Wanted unknown, got %v", val)
+	}
+
+	if !reflect.DeepEqual(val, types.NewUnknown(1, types.NewAttributeTrail("x"))) {
+		t.Fatalf("Wanted Unknown(x (1)), got: %v", val)
+	}
+}
+
 func TestResidualAstAttributeQualifiers(t *testing.T) {
 	env := testEnv(t,
 		Variable("x", MapType(StringType, DynType)),

@@ -222,7 +222,9 @@ func (u *Unknown) Equal(other ref.Val) ref.Val {
 // String implements the Stringer interface
 func (u *Unknown) String() string {
 	var str strings.Builder
-	for id, attrs := range u.attributeTrails {
+	ids := u.IDs()
+	for _, id := range ids {
+		attrs := u.attributeTrails[id]
 		if str.Len() != 0 {
 			str.WriteString(", ")
 		}
