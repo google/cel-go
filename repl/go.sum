@@ -9,8 +9,8 @@ github.com/chzyer/test v1.0.0/go.mod h1:2JlltgoNkt4TW/z9V/IzDdFaMTM2JPIi26O1pF38
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/google/cel-spec v0.14.0 h1:vVw8oKDC6TTksmM5qwOxx2r+PLDUDV16eqLzeMWVenk=
-github.com/google/cel-spec v0.14.0/go.mod h1:sBeqYG7I0bX68Z49T0ydlXLxJK1+TBX8musTpcSjMcY=
+github.com/google/cel-spec/tests v0.0.0-20240326213136-ae15d293dc49 h1:wah55a0+fkelFlU9Y3PdzR1ocFc6zSpt7AINt2rH7Os=
+github.com/google/cel-spec/tests v0.0.0-20240326213136-ae15d293dc49/go.mod h1:GbU6gMXFr+sJ94kaZQtIEPRUhpDsju7N6WOY/GwWw8U=
 github.com/google/go-cmp v0.5.9 h1:O2Tfq5qg4qc4AmwVlvv0oLiVAGB7enBSJ2x2DqQFi38=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
