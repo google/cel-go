@@ -45,6 +45,7 @@ func (s *ConformanceServer) Parse(ctx context.Context, in *confpb.ParseRequest) 
 	if in.DisableMacros {
 		parseOptions = append(parseOptions, cel.ClearMacros())
 	}
+	parseOptions = append(parseOptions, cel.OptionalTypes())
 	env, _ := cel.NewEnv(parseOptions...)
 	past, iss := env.Parse(in.CelSource)
 	resp := confpb.ParseResponse{}
@@ -75,6 +76,7 @@ func (s *ConformanceServer) Check(ctx context.Context, in *confpb.CheckRequest) 
 	checkOptions = append(checkOptions, cel.Declarations(in.TypeEnv...))
 	checkOptions = append(checkOptions, cel.Types(&test2pb.TestAllTypes{}))
 	checkOptions = append(checkOptions, cel.Types(&test3pb.TestAllTypes{}))
+	checkOptions = append(checkOptions, cel.OptionalTypes())
 	env, _ := cel.NewCustomEnv(checkOptions...)
 
 	// Check the expression.
@@ -254,5 +256,6 @@ var evalEnv *cel.Env
 func init() {
 	evalEnv, _ = cel.NewEnv(
 		cel.Types(&test2pb.TestAllTypes{}, &test3pb.TestAllTypes{}),
-		cel.EagerlyValidateDeclarations(true))
+		cel.EagerlyValidateDeclarations(true),
+		cel.OptionalTypes())
 }
