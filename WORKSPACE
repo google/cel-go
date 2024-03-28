@@ -48,11 +48,11 @@ http_archive(
     urls = ["https://github.com/protocolbuffers/protobuf/archive/v3.21.5.zip"],
 )
 
-load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
 load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies", "go_repository")
 load("@com_google_googleapis//:repository_rules.bzl", "switched_rules_by_language")
-load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
 load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
+load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
+load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
 
 switched_rules_by_language(
     name = "com_google_googleapis_imports",
@@ -116,10 +116,10 @@ go_repository(
     version = "v4.13.0",
 )
 
-# CEL Spec deps
+# CEL Spec deps v0.15.0
 go_repository(
     name = "com_google_cel_spec",
-    commit = "910da5b5d08378a9a1f3ea3ba1979e16e6c6dbc1", # v 0.14.0
+    commit = "ae15d293dc49482180e967942612fb85e33bcde9",
     importpath = "github.com/google/cel-spec",
 )
 
