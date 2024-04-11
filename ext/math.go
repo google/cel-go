@@ -88,7 +88,7 @@ import (
 //	math.least(a, b)     // check-time error if a or b is non-numeric
 //	math.least(dyn('string')) // runtime error
 func Math() cel.EnvOption {
-	return cel.Lib(&mathLib{})
+	return cel.Lib(&mathLib{version: math.MaxUint32})
 }
 
 const (
@@ -225,6 +225,14 @@ func (lib *mathLib) CompileOptions() []cel.EnvOption {
 	}
 	if lib.version >= 1 {
 		opts = append(opts,
+			cel.Macros(
+				// math.bitOr(num, ...)
+				cel.ReceiverVarArgMacro(bitOrMacro, mathBitLogic(bitOrFunc)),
+				// math.bitAnd(num, ...)
+				cel.ReceiverVarArgMacro(bitAndMacro, mathBitLogic(bitAndFunc)),
+				// math.bitXor(num, ...)
+				cel.ReceiverVarArgMacro(bitXorMacro, mathBitLogic(bitXorFunc)),
+			),
 			// Rounding function declarations
 			cel.Function(ceilFunc,
 				cel.Overload("math_ceil_double", []*cel.Type{cel.DoubleType}, cel.DoubleType,
@@ -333,7 +341,7 @@ func mathLeast(meh cel.MacroExprFactory, target ast.Expr, args []ast.Expr) (ast.
 	case 0:
 		return nil, meh.NewError(target.ID(), "math.least() requires at least one argument")
 	case 1:
-		if isListLiteralWithValidArgs(args[0]) || isValidArgType(args[0]) {
+		if isListLiteralWithNumericArgs(args[0]) || isNumericArgType(args[0]) {
 			return meh.NewCall(minFunc, args[0]), nil
 		}
 		return nil, meh.NewError(args[0].ID(), "math.least() invalid single argument value")
@@ -360,7 +368,7 @@ func mathGreatest(mef cel.MacroExprFactory, target ast.Expr, args []ast.Expr) (a
 	case 0:
 		return nil, mef.NewError(target.ID(), "math.greatest() requires at least one argument")
 	case 1:
-		if isListLiteralWithValidArgs(args[0]) || isValidArgType(args[0]) {
+		if isListLiteralWithNumericArgs(args[0]) || isNumericArgType(args[0]) {
 			return mef.NewCall(maxFunc, args[0]), nil
 		}
 		return nil, mef.NewError(args[0].ID(), "math.greatest() invalid single argument value")
@@ -376,6 +384,36 @@ func mathGreatest(mef cel.MacroExprFactory, target ast.Expr, args []ast.Expr) (a
 			return nil, err
 		}
 		return mef.NewCall(maxFunc, mef.NewList(args...)), nil
+	}
+}
+
+func mathBitLogic(bitFuncName string) cel.MacroFactory {
+	return func(mef cel.MacroExprFactory, target ast.Expr, args []ast.Expr) (ast.Expr, *cel.Error) {
+		bitFuncDisplayName := bitFuncName + "()"
+		if !macroTargetMatchesNamespace(mathNamespace, target) {
+			return nil, nil
+		}
+		switch len(args) {
+		case 0:
+			return nil, mef.NewError(target.ID(), bitFuncDisplayName+" requires at least one argument")
+		case 1:
+			if isListLiteralWithNumericArgs(args[0]) || isNumericArgType(args[0]) {
+				return mef.NewCall(bitFuncName, mef.NewList(args[0])), nil
+			}
+			return nil, mef.NewError(args[0].ID(), bitFuncDisplayName+" invalid single argument value")
+		case 2:
+			err := checkInvalidArgs(mef, bitFuncDisplayName, args)
+			if err != nil {
+				return nil, err
+			}
+			return mef.NewCall(bitFuncName, args...), nil
+		default:
+			err := checkInvalidArgs(mef, bitFuncDisplayName, args)
+			if err != nil {
+				return nil, err
+			}
+			return mef.NewCall(bitFuncName, mef.NewList(args...)), nil
+		}
 	}
 }
 
@@ -656,13 +694,13 @@ func checkInvalidArgs(meh cel.MacroExprFactory, funcName string, args []ast.Expr
 }
 
 func checkInvalidArgLiteral(funcName string, arg ast.Expr) error {
-	if !isValidArgType(arg) {
+	if !isNumericArgType(arg) {
 		return fmt.Errorf("%s simple literal arguments must be numeric", funcName)
 	}
 	return nil
 }
 
-func isValidArgType(arg ast.Expr) bool {
+func isNumericArgType(arg ast.Expr) bool {
 	switch arg.Kind() {
 	case ast.LiteralKind:
 		c := ref.Val(arg.AsLiteral())
@@ -679,7 +717,7 @@ func isValidArgType(arg ast.Expr) bool {
 	}
 }
 
-func isListLiteralWithValidArgs(arg ast.Expr) bool {
+func isListLiteralWithNumericArgs(arg ast.Expr) bool {
 	switch arg.Kind() {
 	case ast.ListKind:
 		list := arg.AsList()
@@ -687,7 +725,7 @@ func isListLiteralWithValidArgs(arg ast.Expr) bool {
 			return false
 		}
 		for _, e := range list.Elements() {
-			if !isValidArgType(e) {
+			if !isNumericArgType(e) {
 				return false
 			}
 		}
