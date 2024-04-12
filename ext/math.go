@@ -306,9 +306,9 @@ func (lib *mathLib) CompileOptions() []cel.EnvOption {
 					cel.UnaryBinding(bitXorListUint)),
 			),
 			cel.Function(bitNotFunc,
-				cel.Overload("math_bitNot_uint_int", []*cel.Type{cel.UintType}, cel.IntType,
+				cel.Overload("math_bitNot_int_int", []*cel.Type{cel.IntType}, cel.IntType,
 					cel.UnaryBinding(bitNotInt)),
-				cel.Overload("math_bitNot_int_uint", []*cel.Type{cel.IntType}, cel.UintType,
+				cel.Overload("math_bitNot_uint_uint", []*cel.Type{cel.UintType}, cel.UintType,
 					cel.UnaryBinding(bitNotUint)),
 			),
 			cel.Function(bitShiftLeftFunc,
@@ -585,7 +585,7 @@ func bitShiftLeftIntInt(value, bits ref.Val) ref.Val {
 	v := value.(types.Int)
 	bs := bits.(types.Int)
 	if bs < types.IntZero {
-		return types.NewErr("math.bitShiftLeft() invalid shift count: %d", bs)
+		return types.NewErr("math.bitShiftLeft() negative offset: %d", bs)
 	}
 	return v << bs
 }
@@ -594,7 +594,7 @@ func bitShiftLeftUintInt(value, bits ref.Val) ref.Val {
 	v := value.(types.Uint)
 	bs := bits.(types.Int)
 	if bs < types.IntZero {
-		return types.NewErr("math.bitShiftLeft() invalid shift count: %d", bs)
+		return types.NewErr("math.bitShiftLeft() negative offset: %d", bs)
 	}
 	return v << bs
 }
@@ -603,7 +603,7 @@ func bitShiftRightIntInt(value, bits ref.Val) ref.Val {
 	v := value.(types.Int)
 	bs := bits.(types.Int)
 	if bs < types.IntZero {
-		return types.NewErr("math.bitShiftRight() invalid shift count: %d", bs)
+		return types.NewErr("math.bitShiftRight() negative offset: %d", bs)
 	}
 	return v >> bs
 }
@@ -612,7 +612,7 @@ func bitShiftRightUintInt(value, bits ref.Val) ref.Val {
 	v := value.(types.Uint)
 	bs := bits.(types.Int)
 	if bs < types.IntZero {
-		return types.NewErr("math.bitShiftRight() invalid shift count: %d", bs)
+		return types.NewErr("math.bitShiftRight() negative offset: %d", bs)
 	}
 	return v >> bs
 }
