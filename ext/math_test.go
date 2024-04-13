@@ -283,6 +283,40 @@ func TestMathStaticErrors(t *testing.T) {
 			expr: "math.greatest(1, 2, true)",
 			err:  "math.greatest() simple literal arguments must be numeric",
 		},
+
+		// Tests for math.bitOr, math.bitAnd, math.bitXor
+		{
+			expr: "math.bitOr()",
+			err:  "math.bitOr() requires at least one argument",
+		},
+		{
+			expr: "math.bitAnd()",
+			err:  "math.bitAnd() requires at least one argument",
+		},
+		{
+			expr: "math.bitXor()",
+			err:  "math.bitXor() requires at least one argument",
+		},
+		{
+			expr: "math.bitXor({})",
+			err:  "math.bitXor() invalid single argument value",
+		},
+		{
+			expr: "math.bitXor(2.0, 1)",
+			err:  "no matching overload for 'math.@bitXor'",
+		},
+		{
+			expr: "math.bitXor(2.0, '1')",
+			err:  "math.bitXor() simple literal arguments must be numeric",
+		},
+		{
+			expr: "math.bitXor(2.0, 1, '1')",
+			err:  "math.bitXor() simple literal arguments must be numeric",
+		},
+		{
+			expr: "'math'.bitXor(2.0, 1)",
+			err:  "undeclared reference to 'bitXor'",
+		},
 	}
 
 	env := testMathEnv(t)
@@ -395,11 +429,47 @@ func TestMathRuntimeErrors(t *testing.T) {
 			expr: "math.greatest(dyn('string'))",
 			err:  "no such overload: math.@max",
 		},
+
+		{
+			expr: "math.bitXor(a)",
+			err:  "math.bitXor(list) requires int or uint typed inputs",
+			in: map[string]any{
+				"a": []any{1, true, 2},
+			},
+		},
+		{
+			expr: "math.bitXor(ints)",
+			err:  "math.bitXor(list) argument must not be empty",
+			in: map[string]any{
+				"ints": []int64{},
+			},
+		},
+		{
+			expr: "math.bitXor(dyn('string'))",
+			err:  "no such overload: math.@bitXor",
+		},
+		{
+			expr: "math.bitShiftLeft(1, -2) == 4",
+			err:  "math.bitShiftLeft() negative offset",
+		},
+		{
+			expr: "math.bitShiftLeft(1u, -2) == 0u",
+			err:  "math.bitShiftLeft() negative offset",
+		},
+		{
+			expr: "math.bitShiftRight(-1024, -3) == -128",
+			err:  "math.bitShiftRight() negative offset",
+		},
+		{
+			expr: "math.bitShiftRight(1024u, -4) == 1u",
+			err:  "math.bitShiftRight() negative offset",
+		},
 	}
 
 	env := testMathEnv(t,
 		cel.Variable("a", cel.DynType),
 		cel.Variable("b", cel.IntType),
+		cel.Variable("ints", cel.ListType(cel.IntType)),
 		cel.Variable("numbers", cel.ListType(cel.DoubleType)),
 	)
 	for i, tst := range mathTests {

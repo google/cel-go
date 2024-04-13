@@ -227,11 +227,11 @@ func (lib *mathLib) CompileOptions() []cel.EnvOption {
 		opts = append(opts,
 			cel.Macros(
 				// math.bitOr(num, ...)
-				cel.ReceiverVarArgMacro(bitOrMacro, mathBitLogic(bitOrFunc)),
+				cel.ReceiverVarArgMacro(bitOrMacro, mathBitLogic(bitOrFunc, "math.bitOr()")),
 				// math.bitAnd(num, ...)
-				cel.ReceiverVarArgMacro(bitAndMacro, mathBitLogic(bitAndFunc)),
+				cel.ReceiverVarArgMacro(bitAndMacro, mathBitLogic(bitAndFunc, "math.bitAnd()")),
 				// math.bitXor(num, ...)
-				cel.ReceiverVarArgMacro(bitXorMacro, mathBitLogic(bitXorFunc)),
+				cel.ReceiverVarArgMacro(bitXorMacro, mathBitLogic(bitXorFunc, "math.bitXor()")),
 			),
 			// Rounding function declarations
 			cel.Function(ceilFunc,
@@ -276,6 +276,8 @@ func (lib *mathLib) CompileOptions() []cel.EnvOption {
 
 			// Bitwise operator declarations
 			cel.Function(bitAndFunc,
+				cel.Overload("math_@bitAnd_int", []*cel.Type{cel.IntType}, cel.IntType, cel.UnaryBinding(identity)),
+				cel.Overload("math_@bitAnd_uint", []*cel.Type{cel.UintType}, cel.UintType, cel.UnaryBinding(identity)),
 				cel.Overload("math_@bitAnd_int_int", []*cel.Type{cel.IntType, cel.IntType}, cel.IntType,
 					cel.BinaryBinding(bitAndPairInt)),
 				cel.Overload("math_@bitAnd_uint_uint", []*cel.Type{cel.UintType, cel.UintType}, cel.UintType,
@@ -286,6 +288,8 @@ func (lib *mathLib) CompileOptions() []cel.EnvOption {
 					cel.UnaryBinding(bitAndListUint)),
 			),
 			cel.Function(bitOrFunc,
+				cel.Overload("math_@bitOr_int", []*cel.Type{cel.IntType}, cel.IntType, cel.UnaryBinding(identity)),
+				cel.Overload("math_@bitOr_uint", []*cel.Type{cel.UintType}, cel.UintType, cel.UnaryBinding(identity)),
 				cel.Overload("math_@bitOr_int_int", []*cel.Type{cel.IntType, cel.IntType}, cel.IntType,
 					cel.BinaryBinding(bitOrPairInt)),
 				cel.Overload("math_@bitOr_uint_uint", []*cel.Type{cel.UintType, cel.UintType}, cel.UintType,
@@ -296,6 +300,8 @@ func (lib *mathLib) CompileOptions() []cel.EnvOption {
 					cel.UnaryBinding(bitOrListUint)),
 			),
 			cel.Function(bitXorFunc,
+				cel.Overload("math_@bitXor_int", []*cel.Type{cel.IntType}, cel.IntType, cel.UnaryBinding(identity)),
+				cel.Overload("math_@bitXor_uint", []*cel.Type{cel.UintType}, cel.UintType, cel.UnaryBinding(identity)),
 				cel.Overload("math_@bitXor_int_int", []*cel.Type{cel.IntType, cel.IntType}, cel.IntType,
 					cel.BinaryBinding(bitXorPairInt)),
 				cel.Overload("math_@bitXor_uint_uint", []*cel.Type{cel.UintType, cel.UintType}, cel.UintType,
@@ -387,9 +393,8 @@ func mathGreatest(mef cel.MacroExprFactory, target ast.Expr, args []ast.Expr) (a
 	}
 }
 
-func mathBitLogic(bitFuncName string) cel.MacroFactory {
+func mathBitLogic(bitFuncName, bitFuncDisplayName string) cel.MacroFactory {
 	return func(mef cel.MacroExprFactory, target ast.Expr, args []ast.Expr) (ast.Expr, *cel.Error) {
-		bitFuncDisplayName := bitFuncName + "()"
 		if !macroTargetMatchesNamespace(mathNamespace, target) {
 			return nil, nil
 		}
@@ -398,7 +403,7 @@ func mathBitLogic(bitFuncName string) cel.MacroFactory {
 			return nil, mef.NewError(target.ID(), bitFuncDisplayName+" requires at least one argument")
 		case 1:
 			if isListLiteralWithNumericArgs(args[0]) || isNumericArgType(args[0]) {
-				return mef.NewCall(bitFuncName, mef.NewList(args[0])), nil
+				return mef.NewCall(bitFuncName, args[0]), nil
 			}
 			return nil, mef.NewError(args[0].ID(), bitFuncDisplayName+" invalid single argument value")
 		case 2:
@@ -530,7 +535,11 @@ func bitOpList(values ref.Val, bitOpName string, bitOp func(value, bits ref.Val)
 	}
 	result := l.Get(types.IntZero)
 	for i := types.IntOne; i < size; i++ {
-		result = bitOp(result, l.Get(i))
+		next := l.Get(i)
+		if result.Type() != next.Type() {
+			return types.NewErr("%s requires int or uint typed inputs", bitOpName)
+		}
+		result = bitOp(result, next)
 	}
 	return result
 }
