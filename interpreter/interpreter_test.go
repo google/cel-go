@@ -26,6 +26,8 @@ import (
 	"time"
 
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/common"
@@ -40,9 +42,7 @@ import (
 	"github.com/google/cel-go/parser"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
-	structpb "google.golang.org/protobuf/types/known/structpb"
 	tpb "google.golang.org/protobuf/types/known/timestamppb"
-	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 
 	proto2pb "github.com/google/cel-go/test/proto2pb"
 	proto3pb "github.com/google/cel-go/test/proto3pb"
@@ -1444,6 +1444,16 @@ func testData(t testing.TB) []testCase {
 				},
 			}, NewAttributePattern("a").QualInt(0)),
 			out: types.NewUnknown(2, types.QualifyAttribute[uint64](types.NewAttributeTrail("a"), 0)),
+		},
+		{
+			name: "invalid_presence_test_on_int_literal",
+			expr: `has(dyn(1).invalid)`,
+			err:  "no such key: invalid",
+		},
+		{
+			name: "invalid_presence_test_on_list_literal",
+			expr: `has(dyn([]).invalid)`,
+			err:  "unsupported index type 'string' in list",
 		},
 	}
 }
