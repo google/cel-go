@@ -464,6 +464,10 @@ func TestMathRuntimeErrors(t *testing.T) {
 			expr: "math.bitShiftRight(1024u, -4) == 1u",
 			err:  "math.bitShiftRight() negative offset",
 		},
+		{
+			expr: "math.abs(-9223372036854775808)",
+			err:  "overflow",
+		},
 	}
 
 	env := testMathEnv(t,
