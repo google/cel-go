@@ -87,6 +87,249 @@ import (
 //	math.least('string') // parse error
 //	math.least(a, b)     // check-time error if a or b is non-numeric
 //	math.least(dyn('string')) // runtime error
+//
+// # Math.BitOr
+//
+// Introduced at version: 1
+//
+// Var-args macro which accepts a variable quantity of [1, 32) integers and
+// performs a bitwise-OR operation on all of them. The macro is expanded into
+// a call to the internal-only overload of math.@bitOr(number),
+// math.@bitOr(number, number), or math.@bitOr(list)
+//
+// The numbers must be signed or unsigned integers, and for list based
+// arguments the numbers must all be of the same type. An emtpy list provided
+// as input will be a runtime error.
+//
+//	math.bitOr(<int>, <int>) -> <int>
+//	math.bitOr(<uint>, <uint>) -> <uint>
+//
+// Examples:
+//
+//	math.bitOr(1u, 2u)    // returns 3u
+//	math.bitOr(-2, -4)    // returns -2
+//
+// # Math.BitAnd
+//
+// Introduced at version: 1
+//
+// Performs a bitwise-AND operation over two int or uint values.
+//
+//	math.bitAnd(<int>, <int>) -> <int>
+//	math.bitAnd(<uint>, <uint>) -> <uint>
+//
+// Examples:
+//
+//	math.bitAnd(3u, 2u)   // return 2u
+//	math.bitAnd(3, 5)     // returns 3
+//	math.bitAnd(-3, -5)   // returns -7
+//
+// # Math.BitXor
+//
+// Introduced at version: 1
+//
+//	math.bitXor(<int>, <int>) -> <int>
+//	math.bitXor(<uint>, <uint>) -> <uint>
+//
+// Performs a bitwise-XOR  operation over two int or uint values.
+//
+// Examples:
+//
+//	math.bitXor(3u, 5u) // returns 6u
+//	math.bitXor(1, 3)   // returns 2
+//
+// # Math.BitNot
+//
+// Introduced at version: 1
+//
+// Function which accepts a single int or uint and performs a bitwise-NOT
+// ones-complement of the given binary value.
+//
+//	math.bitNot(<int>) -> <int>
+//	math.bitNot(<uint>) -> <uint>
+//
+// Examples
+//
+//	math.bitNot(1)  // returns -1
+//	math.bitNot(-1) // return 0
+//	math.bitNot(0u) // returns 18446744073709551615u
+//
+// # Math.BitShiftLeft
+//
+// Introduced at version: 1
+//
+// Perform a left shift of bits on the first parameter, by the amount of bits
+// specified in the second parameter. The first parameter is either a uint or
+// an int. The second parameter must be an int.
+//
+// When the second parameter is 64 or greater, 0 will be always be returned
+// since the number of bits shifted is greater than or equal to the total bit
+// length of the number being shifted.
+//
+//	math.bitShiftLeft(<int>, <int>) -> <int>
+//	math.bitShiftLeft(<uint>, <int>) -> <uint>
+//
+// Examples
+//
+//	math.bitShiftLeft(1, 2)    // returns 4
+//	math.bitShiftLeft(-1, 2)   // returns -4
+//	math.bitShiftLeft(1u, 2)   // return 4u
+//	math.bitShiftLeft(1u, 200) // returns 0u
+//
+// # Math.BitShiftRight
+//
+// Introduced at version: 1
+//
+// Perform a right shift of bits on the first parameter, by the amount of bits
+// specified in the second parameter. The first parameter is either a uint or
+// an int. The second parameter must be an int.
+//
+// When the second parameter is 64 or greater, 0 will always be returned since
+// the number of bits shifted is greater than or equal to the total bit length
+// of the number being shifted.
+//
+// The sign bit extension will not be preserved for this operation: vacant bits
+// on the left are filled with 0.
+//
+//	math.bitShiftRight(<int>, <int>) -> <int>
+//	math.bitShiftRight(<uint>, <int>) -> <uint>
+//
+// Examples
+//
+//	math.bitShiftRight(1024, 2)    // returns 256
+//	math.bitShiftRight(1024u, 2)   // returns 256u
+//	math.bitShiftRight(1024u, 64)  // returns 0u
+//
+// # Math.Ceil
+//
+// Introduced at version: 1
+//
+// Compute the ceiling of a double value.
+//
+//	math.ceil(<double>) -> <double>
+//
+// Examples:
+//
+//	math.ceil(1.2)   // returns 2.0
+//	math.ceil(-1.2)  // returns -1.0
+//
+// # Math.Floor
+//
+// Introduced at version: 1
+//
+// Compute the floor of a double value.
+//
+//	math.floor(<double>) -> <double>
+//
+// Examples:
+//
+//	math.floor(1.2)   // returns 1.0
+//	math.floor(-1.2)  // returns -2.0
+//
+// # Math.Round
+//
+// Introduced at version: 1
+//
+// Rounds the double value to the nearest whole number with ties rounding away
+// from zero, e.g. 1.5 -> 2.0, -1.5 -> -2.0.
+//
+//	math.round(<double>) -> <double>
+//
+// Examples:
+//
+//	math.round(1.2)  // returns 1.0
+//	math.round(1.5)  // returns 2.0
+//	math.round(-1.5) // returns -2.0
+//
+// # Math.Trunc
+//
+// Introduced at version: 1
+//
+// Truncates the fractional portion of the double value.
+//
+//	math.trunc(<double>) -> <double>
+//
+// Examples:
+//
+//	math.trunc(-1.3)  // returns -1.0
+//	math.trunc(1.3)   // returns 1.0
+//
+// # Math.Abs
+//
+// Introduced at version: 1
+//
+// Returns the absolute value of the numeric type provided as input. If the
+// value is NaN, the output is NaN. If the input is int64 min, the function
+// will result in an overflow error.
+//
+//	math.abs(<double>) -> <double>
+//	math.abs(<int>) -> <int>
+//	math.abs(<uint>) -> <uint>
+//
+// Examples:
+//
+//	math.abs(-1)  // returns 1
+//	math.abs(1)   // returns 1
+//	math.abs(-9223372036854775808) // overlflow error
+//
+// # Math.Sign
+//
+// Introduced at version: 1
+//
+// Returns the sign of the numeric type, either -1, 0, 1 as an int, double, or
+// uint depending on the overload. For floating point values, if NaN is
+// provided as input, the output is also NaN. The implementation does not
+// differentiate between positive and negative zero.
+//
+//	math.sign(<double>) -> <double>
+//	math.sign(<int>) -> <int>
+//	math.sign(<uint>) -> <uint>
+//
+// Examples:
+//
+//	math.sign(-42) // returns -1
+//	math.sign(0)   // returns 0
+//	math.sign(42)  // returns 1
+//
+// # Math.IsInf
+//
+// Introduced at version: 1
+//
+// Returns true if the input double value is -Inf or +Inf.
+//
+//	math.isInf(<double>) -> <bool>
+//
+// Examples:
+//
+//	math.isInf(1.0/0.0)  // returns true
+//	math.isInf(1.2)      // returns false
+//
+// # Math.IsNaN
+//
+// Introduced at version: 1
+//
+// Returns true if the input double value is NaN, false otherwise.
+//
+//	math.isNaN(<double>) -> <bool>
+//
+// Examples:
+//
+//	math.isNaN(0.0/0.0)  // returns true
+//	math.isNaN(1.2)      // returns false
+//
+// # Math.IsFinite
+//
+// Introduced at version: 1
+//
+// Returns true if the value is a finite number. Equivalent in behavior to:
+// !math.isNaN(double) && !math.isInf(double)
+//
+//	math.isFinite(<double>) -> <bool>
+//
+// Examples:
+//
+//	math.isFinite(0.0/0.0)  // returns false
+//	math.isFinite(1.2)      // returns true
 func Math() cel.EnvOption {
 	return cel.Lib(&mathLib{version: math.MaxUint32})
 }
@@ -95,9 +338,6 @@ const (
 	mathNamespace = "math"
 	leastMacro    = "least"
 	greatestMacro = "greatest"
-	bitAndMacro   = "bitAnd"
-	bitOrMacro    = "bitOr"
-	bitXorMacro   = "bitXor"
 
 	// Min-max functions
 	minFunc = "math.@min"
@@ -119,9 +359,9 @@ const (
 	signFunc = "math.sign"
 
 	// Bitwise functions
-	bitAndFunc        = "math.@bitAnd"
-	bitOrFunc         = "math.@bitOr"
-	bitXorFunc        = "math.@bitXor"
+	bitAndFunc        = "math.bitAnd"
+	bitOrFunc         = "math.bitOr"
+	bitXorFunc        = "math.bitXor"
 	bitNotFunc        = "math.bitNot"
 	bitShiftLeftFunc  = "math.bitShiftLeft"
 	bitShiftRightFunc = "math.bitShiftRight"
@@ -225,14 +465,6 @@ func (lib *mathLib) CompileOptions() []cel.EnvOption {
 	}
 	if lib.version >= 1 {
 		opts = append(opts,
-			cel.Macros(
-				// math.bitOr(num, ...)
-				cel.ReceiverVarArgMacro(bitOrMacro, mathBitLogic(bitOrFunc, "math.bitOr()")),
-				// math.bitAnd(num, ...)
-				cel.ReceiverVarArgMacro(bitAndMacro, mathBitLogic(bitAndFunc, "math.bitAnd()")),
-				// math.bitXor(num, ...)
-				cel.ReceiverVarArgMacro(bitXorMacro, mathBitLogic(bitXorFunc, "math.bitXor()")),
-			),
 			// Rounding function declarations
 			cel.Function(ceilFunc,
 				cel.Overload("math_ceil_double", []*cel.Type{cel.DoubleType}, cel.DoubleType,
@@ -276,40 +508,22 @@ func (lib *mathLib) CompileOptions() []cel.EnvOption {
 
 			// Bitwise operator declarations
 			cel.Function(bitAndFunc,
-				cel.Overload("math_@bitAnd_int", []*cel.Type{cel.IntType}, cel.IntType, cel.UnaryBinding(identity)),
-				cel.Overload("math_@bitAnd_uint", []*cel.Type{cel.UintType}, cel.UintType, cel.UnaryBinding(identity)),
-				cel.Overload("math_@bitAnd_int_int", []*cel.Type{cel.IntType, cel.IntType}, cel.IntType,
+				cel.Overload("math_bitAnd_int_int", []*cel.Type{cel.IntType, cel.IntType}, cel.IntType,
 					cel.BinaryBinding(bitAndPairInt)),
-				cel.Overload("math_@bitAnd_uint_uint", []*cel.Type{cel.UintType, cel.UintType}, cel.UintType,
+				cel.Overload("math_bitAnd_uint_uint", []*cel.Type{cel.UintType, cel.UintType}, cel.UintType,
 					cel.BinaryBinding(bitAndPairUint)),
-				cel.Overload("math_@bitAnd_list_int", []*cel.Type{cel.ListType(cel.IntType)}, cel.IntType,
-					cel.UnaryBinding(bitAndListInt)),
-				cel.Overload("math_@bitAnd_list_uint", []*cel.Type{cel.ListType(cel.UintType)}, cel.UintType,
-					cel.UnaryBinding(bitAndListUint)),
 			),
 			cel.Function(bitOrFunc,
-				cel.Overload("math_@bitOr_int", []*cel.Type{cel.IntType}, cel.IntType, cel.UnaryBinding(identity)),
-				cel.Overload("math_@bitOr_uint", []*cel.Type{cel.UintType}, cel.UintType, cel.UnaryBinding(identity)),
-				cel.Overload("math_@bitOr_int_int", []*cel.Type{cel.IntType, cel.IntType}, cel.IntType,
+				cel.Overload("math_bitOr_int_int", []*cel.Type{cel.IntType, cel.IntType}, cel.IntType,
 					cel.BinaryBinding(bitOrPairInt)),
-				cel.Overload("math_@bitOr_uint_uint", []*cel.Type{cel.UintType, cel.UintType}, cel.UintType,
+				cel.Overload("math_bitOr_uint_uint", []*cel.Type{cel.UintType, cel.UintType}, cel.UintType,
 					cel.BinaryBinding(bitOrPairUint)),
-				cel.Overload("math_@bitOr_list_int", []*cel.Type{cel.ListType(cel.IntType)}, cel.IntType,
-					cel.UnaryBinding(bitOrListInt)),
-				cel.Overload("math_@bitOr_list_uint", []*cel.Type{cel.ListType(cel.UintType)}, cel.UintType,
-					cel.UnaryBinding(bitOrListUint)),
 			),
 			cel.Function(bitXorFunc,
-				cel.Overload("math_@bitXor_int", []*cel.Type{cel.IntType}, cel.IntType, cel.UnaryBinding(identity)),
-				cel.Overload("math_@bitXor_uint", []*cel.Type{cel.UintType}, cel.UintType, cel.UnaryBinding(identity)),
-				cel.Overload("math_@bitXor_int_int", []*cel.Type{cel.IntType, cel.IntType}, cel.IntType,
+				cel.Overload("math_bitXor_int_int", []*cel.Type{cel.IntType, cel.IntType}, cel.IntType,
 					cel.BinaryBinding(bitXorPairInt)),
-				cel.Overload("math_@bitXor_uint_uint", []*cel.Type{cel.UintType, cel.UintType}, cel.UintType,
+				cel.Overload("math_bitXor_uint_uint", []*cel.Type{cel.UintType, cel.UintType}, cel.UintType,
 					cel.BinaryBinding(bitXorPairUint)),
-				cel.Overload("math_@bitXor_list_int", []*cel.Type{cel.ListType(cel.IntType)}, cel.IntType,
-					cel.UnaryBinding(bitXorListInt)),
-				cel.Overload("math_@bitXor_list_uint", []*cel.Type{cel.ListType(cel.UintType)}, cel.UintType,
-					cel.UnaryBinding(bitXorListUint)),
 			),
 			cel.Function(bitNotFunc,
 				cel.Overload("math_bitNot_int_int", []*cel.Type{cel.IntType}, cel.IntType,
@@ -393,35 +607,6 @@ func mathGreatest(mef cel.MacroExprFactory, target ast.Expr, args []ast.Expr) (a
 	}
 }
 
-func mathBitLogic(bitFuncName, bitFuncDisplayName string) cel.MacroFactory {
-	return func(mef cel.MacroExprFactory, target ast.Expr, args []ast.Expr) (ast.Expr, *cel.Error) {
-		if !macroTargetMatchesNamespace(mathNamespace, target) {
-			return nil, nil
-		}
-		switch len(args) {
-		case 0:
-			return nil, mef.NewError(target.ID(), bitFuncDisplayName+" requires at least one argument")
-		case 1:
-			if isListLiteralWithNumericArgs(args[0]) || isNumericArgType(args[0]) {
-				return mef.NewCall(bitFuncName, args[0]), nil
-			}
-			return nil, mef.NewError(args[0].ID(), bitFuncDisplayName+" invalid single argument value")
-		case 2:
-			err := checkInvalidArgs(mef, bitFuncDisplayName, args)
-			if err != nil {
-				return nil, err
-			}
-			return mef.NewCall(bitFuncName, args...), nil
-		default:
-			err := checkInvalidArgs(mef, bitFuncDisplayName, args)
-			if err != nil {
-				return nil, err
-			}
-			return mef.NewCall(bitFuncName, mef.NewList(args...)), nil
-		}
-	}
-}
-
 func identity(val ref.Val) ref.Val {
 	return val
 }
@@ -501,47 +686,6 @@ func sign(val ref.Val) ref.Val {
 	default:
 		return maybeSuffixError(val, "math.sign")
 	}
-}
-
-func bitAndListInt(values ref.Val) ref.Val {
-	return bitOpList(values, "math.bitAnd(list)", bitAndPairInt)
-}
-
-func bitAndListUint(values ref.Val) ref.Val {
-	return bitOpList(values, "math.bitAnd(list)", bitAndPairUint)
-}
-
-func bitOrListInt(values ref.Val) ref.Val {
-	return bitOpList(values, "math.bitOr(list)", bitOrPairInt)
-}
-
-func bitOrListUint(values ref.Val) ref.Val {
-	return bitOpList(values, "math.bitOr(list)", bitOrPairUint)
-}
-
-func bitXorListInt(values ref.Val) ref.Val {
-	return bitOpList(values, "math.bitXor(list)", bitXorPairInt)
-}
-
-func bitXorListUint(values ref.Val) ref.Val {
-	return bitOpList(values, "math.bitXor(list)", bitXorPairUint)
-}
-
-func bitOpList(values ref.Val, bitOpName string, bitOp func(value, bits ref.Val) ref.Val) ref.Val {
-	l := values.(traits.Lister)
-	size := l.Size().(types.Int)
-	if size == types.IntZero {
-		return types.NewErr("%s argument must not be empty", bitOpName)
-	}
-	result := l.Get(types.IntZero)
-	for i := types.IntOne; i < size; i++ {
-		next := l.Get(i)
-		if result.Type() != next.Type() {
-			return types.NewErr("%s requires int or uint typed inputs", bitOpName)
-		}
-		result = bitOp(result, next)
-	}
-	return result
 }
 
 func bitAndPairInt(first, second ref.Val) ref.Val {

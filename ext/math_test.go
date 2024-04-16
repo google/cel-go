@@ -115,17 +115,12 @@ func TestMath(t *testing.T) {
 
 		// Tests for math bitwise operators
 		// Signed bitwise ops
-		{expr: "math.bitAnd(1) == 1"},
 		{expr: "math.bitAnd(1, 2) == 0"},
 		{expr: "math.bitAnd(1, -1) == 1"},
 		{expr: "math.bitAnd(1, 3) == 1"},
-		{expr: "math.bitAnd(3, 5, 7) == 1"},
 		{expr: "math.bitOr(1, 2) == 3"},
-		{expr: "math.bitOr(1, 2, 4) == 7"},
 		{expr: "math.bitXor(1, 3) == 2"},
 		{expr: "math.bitXor(3, 5) == 6"},
-		{expr: "math.bitXor(1, 2, 5) == 6"},
-		{expr: "math.bitXor(-1, 2, 3) == -2"},
 		{expr: "math.bitNot(1) == -2"},
 		{expr: "math.bitNot(0) == -1"},
 		{expr: "math.bitNot(-1) == 0"},
@@ -137,15 +132,11 @@ func TestMath(t *testing.T) {
 		{expr: "math.bitShiftRight(-1024, 3) == -128"},
 		{expr: "math.bitShiftRight(-1024, 64) == -1"},
 		// Unsigned bitwise ops
-		{expr: "math.bitAnd(1u) == 1u"},
 		{expr: "math.bitAnd(1u, 2u) == 0u"},
 		{expr: "math.bitAnd(1u, 3u) == 1u"},
-		{expr: "math.bitAnd(3u, 5u, 7u) == 1u"},
 		{expr: "math.bitOr(1u, 2u) == 3u"},
-		{expr: "math.bitOr(1u, 2u, 4u) == 7u"},
 		{expr: "math.bitXor(1u, 3u) == 2u"},
 		{expr: "math.bitXor(3u, 5u) == 6u"},
-		{expr: "math.bitXor(1u, 2u, 5u) == 6u"},
 		{expr: "math.bitNot(1u) == 18446744073709551614u"},
 		{expr: "math.bitNot(0u) == 18446744073709551615u"},
 		{expr: "math.bitShiftLeft(1u, 2) == 4u"},
@@ -168,6 +159,7 @@ func TestMath(t *testing.T) {
 		{expr: "math.round(1.2) == 1.0"},
 		{expr: "math.round(1.5) == 2.0"},
 		{expr: "math.round(-1.5) == -2.0"},
+		{expr: "math.isNaN(math.round(0.0/0.0))"},
 		{expr: "math.round(-1.2) == -1.0"},
 		{expr: "math.trunc(-1.3) == -1.0"},
 		{expr: "math.trunc(1.3) == 1.0"},
@@ -283,40 +275,6 @@ func TestMathStaticErrors(t *testing.T) {
 			expr: "math.greatest(1, 2, true)",
 			err:  "math.greatest() simple literal arguments must be numeric",
 		},
-
-		// Tests for math.bitOr, math.bitAnd, math.bitXor
-		{
-			expr: "math.bitOr()",
-			err:  "math.bitOr() requires at least one argument",
-		},
-		{
-			expr: "math.bitAnd()",
-			err:  "math.bitAnd() requires at least one argument",
-		},
-		{
-			expr: "math.bitXor()",
-			err:  "math.bitXor() requires at least one argument",
-		},
-		{
-			expr: "math.bitXor({})",
-			err:  "math.bitXor() invalid single argument value",
-		},
-		{
-			expr: "math.bitXor(2.0, 1)",
-			err:  "no matching overload for 'math.@bitXor'",
-		},
-		{
-			expr: "math.bitXor(2.0, '1')",
-			err:  "math.bitXor() simple literal arguments must be numeric",
-		},
-		{
-			expr: "math.bitXor(2.0, 1, '1')",
-			err:  "math.bitXor() simple literal arguments must be numeric",
-		},
-		{
-			expr: "'math'.bitXor(2.0, 1)",
-			err:  "undeclared reference to 'bitXor'",
-		},
 	}
 
 	env := testMathEnv(t)
@@ -428,25 +386,6 @@ func TestMathRuntimeErrors(t *testing.T) {
 		{
 			expr: "math.greatest(dyn('string'))",
 			err:  "no such overload: math.@max",
-		},
-
-		{
-			expr: "math.bitXor(a)",
-			err:  "math.bitXor(list) requires int or uint typed inputs",
-			in: map[string]any{
-				"a": []any{1, true, 2},
-			},
-		},
-		{
-			expr: "math.bitXor(ints)",
-			err:  "math.bitXor(list) argument must not be empty",
-			in: map[string]any{
-				"ints": []int64{},
-			},
-		},
-		{
-			expr: "math.bitXor(dyn('string'))",
-			err:  "no such overload: math.@bitXor",
 		},
 		{
 			expr: "math.bitShiftLeft(1, -2) == 4",
