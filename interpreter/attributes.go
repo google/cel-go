@@ -1283,9 +1283,6 @@ func refQualify(adapter types.Adapter, obj any, idx ref.Val, presenceTest, prese
 		}
 		return val, true, nil
 	default:
-		if presenceTest {
-			return nil, false, nil
-		}
 		return nil, false, missingKey(idx)
 	}
 }
