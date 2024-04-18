@@ -407,12 +407,75 @@ func TestMathRuntimeErrors(t *testing.T) {
 			expr: "math.abs(-9223372036854775808)",
 			err:  "overflow",
 		},
+		{
+			expr: "math.bitOr(dyn(1.2), 1)",
+			err:  "no such overload: math.bitOr(double, int)",
+		},
+		{
+			expr: "math.bitAnd(2u, dyn(''))",
+			err:  "no such overload: math.bitAnd(uint, string)",
+		},
+		{
+			expr: "math.bitXor(dyn(1), dyn(1u))",
+			err:  "no such overload: math.bitXor(int, uint)",
+		},
+		{
+			expr: "math.bitXor(dyn([]), dyn([1]))",
+			err:  "no such overload: math.bitXor(list, list)",
+		},
+		{
+			expr: "math.bitNot(dyn([1]))",
+			err:  "no such overload: math.bitNot(list)",
+		},
+		{
+			expr: "math.bitShiftLeft(dyn([1]), 1)",
+			err:  "no such overload: math.bitShiftLeft(list, int)",
+		},
+		{
+			expr: "math.bitShiftRight(dyn({}), 1)",
+			err:  "no such overload: math.bitShiftRight(map, int)",
+		},
+		{
+			expr: "math.isInf(dyn(1u))",
+			err:  "no such overload: math.isInf(uint)",
+		},
+		{
+			expr: "math.isFinite(dyn(1u))",
+			err:  "no such overload: math.isFinite(uint)",
+		},
+		{
+			expr: "math.isNaN(dyn(1u))",
+			err:  "no such overload: math.isNaN(uint)",
+		},
+		{
+			expr: "math.sign(dyn(''))",
+			err:  "no such overload: math.sign(string)",
+		},
+		{
+			expr: "math.abs(dyn(''))",
+			err:  "no such overload: math.abs(string)",
+		},
+		{
+			expr: "math.ceil(dyn(''))",
+			err:  "no such overload: math.ceil(string)",
+		},
+		{
+			expr: "math.floor(dyn(''))",
+			err:  "no such overload: math.floor(string)",
+		},
+		{
+			expr: "math.round(dyn(1))",
+			err:  "no such overload: math.round(int)",
+		},
+		{
+			expr: "math.trunc(dyn(1u))",
+			err:  "no such overload: math.trunc(uint)",
+		},
 	}
 
 	env := testMathEnv(t,
 		cel.Variable("a", cel.DynType),
 		cel.Variable("b", cel.IntType),
-		cel.Variable("ints", cel.ListType(cel.IntType)),
 		cel.Variable("numbers", cel.ListType(cel.DoubleType)),
 	)
 	for i, tst := range mathTests {

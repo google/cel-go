@@ -122,14 +122,7 @@ Examples:
 
 Introduced at version: 1
 
-Var-args macro which accepts a variable quantity of [1, 32) integers and
-performs a bitwise-OR operation on all of them. The macro is expanded into
-a call to the internal-only overload of math.@bitOr(number),
-math.@bitOr(number, number), or math.@bitOr(list)
-
-The numbers must be signed or unsigned integers, and for list based
-arguments the numbers must all be of the same type. An emtpy list provided
-as input will be a runtime error.
+Performs a bitwise-OR operation over two int or uint values.
 
     math.bitOr(<int>, <int>) -> <int>
     math.bitOr(<uint>, <uint>) -> <uint>
@@ -161,7 +154,7 @@ Introduced at version: 1
     math.bitXor(<int>, <int>) -> <int>
     math.bitXor(<uint>, <uint>) -> <uint>
 
-Performs a bitwise-XOR  operation over two int or uint values.
+Performs a bitwise-XOR operation over two int or uint values.
 
 Examples:
 

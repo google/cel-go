@@ -92,14 +92,7 @@ import (
 //
 // Introduced at version: 1
 //
-// Var-args macro which accepts a variable quantity of [1, 32) integers and
-// performs a bitwise-OR operation on all of them. The macro is expanded into
-// a call to the internal-only overload of math.@bitOr(number),
-// math.@bitOr(number, number), or math.@bitOr(list)
-//
-// The numbers must be signed or unsigned integers, and for list based
-// arguments the numbers must all be of the same type. An emtpy list provided
-// as input will be a runtime error.
+// Performs a bitwise-OR operation over two int or uint values.
 //
 //	math.bitOr(<int>, <int>) -> <int>
 //	math.bitOr(<uint>, <uint>) -> <uint>
@@ -131,7 +124,7 @@ import (
 //	math.bitXor(<int>, <int>) -> <int>
 //	math.bitXor(<uint>, <uint>) -> <uint>
 //
-// Performs a bitwise-XOR  operation over two int or uint values.
+// Performs a bitwise-XOR operation over two int or uint values.
 //
 // Examples:
 //
@@ -270,7 +263,7 @@ import (
 //
 //	math.abs(-1)  // returns 1
 //	math.abs(1)   // returns 1
-//	math.abs(-9223372036854775808) // overlflow error
+//	math.abs(-9223372036854775808) // overflow error
 //
 // # Math.Sign
 //
@@ -500,10 +493,12 @@ func (lib *mathLib) CompileOptions() []cel.EnvOption {
 					cel.UnaryBinding(identity)),
 			),
 			cel.Function(signFunc,
-				cel.Overload("math_sign_double", []*cel.Type{cel.DoubleType}, cel.DoubleType),
-				cel.Overload("math_sign_int", []*cel.Type{cel.IntType}, cel.IntType),
-				cel.Overload("math_sign_uint", []*cel.Type{cel.UintType}, cel.UintType),
-				cel.SingletonUnaryBinding(sign),
+				cel.Overload("math_sign_double", []*cel.Type{cel.DoubleType}, cel.DoubleType,
+					cel.UnaryBinding(sign)),
+				cel.Overload("math_sign_int", []*cel.Type{cel.IntType}, cel.IntType,
+					cel.UnaryBinding(sign)),
+				cel.Overload("math_sign_uint", []*cel.Type{cel.UintType}, cel.UintType,
+					cel.UnaryBinding(sign)),
 			),
 
 			// Bitwise operator declarations
