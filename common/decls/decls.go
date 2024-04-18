@@ -16,6 +16,7 @@
 package decls
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -242,7 +243,7 @@ func (f *FunctionDecl) Bindings() ([]*functions.Overload, error) {
 	// All of the defined overloads are wrapped into a top-level function which
 	// performs dynamic dispatch to the proper overload based on the argument types.
 	bindings := append([]*functions.Overload{}, overloads...)
-	funcDispatch := func(args ...ref.Val) ref.Val {
+	funcDispatch := func(ctx context.Context, args ...ref.Val) ref.Val {
 		for _, oID := range f.overloadOrdinals {
 			o := f.overloads[oID]
 			// During dynamic dispatch over multiple functions, signature agreement checks
@@ -250,15 +251,15 @@ func (f *FunctionDecl) Bindings() ([]*functions.Overload, error) {
 			switch len(args) {
 			case 1:
 				if o.unaryOp != nil && o.matchesRuntimeSignature( /* disableTypeGuards=*/ false, args...) {
-					return o.unaryOp(args[0])
+					return o.unaryOp(ctx, args[0])
 				}
 			case 2:
 				if o.binaryOp != nil && o.matchesRuntimeSignature( /* disableTypeGuards=*/ false, args...) {
-					return o.binaryOp(args[0], args[1])
+					return o.binaryOp(ctx, args[0], args[1])
 				}
 			}
 			if o.functionOp != nil && o.matchesRuntimeSignature( /* disableTypeGuards=*/ false, args...) {
-				return o.functionOp(args...)
+				return o.functionOp(ctx, args...)
 			}
 			// eventually this will fall through to the noSuchOverload below.
 		}
@@ -333,8 +334,10 @@ func SingletonUnaryBinding(fn functions.UnaryOp, traits ...int) FunctionOpt {
 			return nil, fmt.Errorf("function already has a singleton binding: %s", f.Name())
 		}
 		f.singleton = &functions.Overload{
-			Operator:     f.Name(),
-			Unary:        fn,
+			Operator: f.Name(),
+			Unary: func(ctx context.Context, val ref.Val) ref.Val {
+				return fn(val)
+			},
 			OperandTrait: trait,
 		}
 		return f, nil
@@ -355,8 +358,10 @@ func SingletonBinaryBinding(fn functions.BinaryOp, traits ...int) FunctionOpt {
 			return nil, fmt.Errorf("function already has a singleton binding: %s", f.Name())
 		}
 		f.singleton = &functions.Overload{
-			Operator:     f.Name(),
-			Binary:       fn,
+			Operator: f.Name(),
+			Binary: func(ctx context.Context, lhs ref.Val, rhs ref.Val) ref.Val {
+				return fn(lhs, rhs)
+			},
 			OperandTrait: trait,
 		}
 		return f, nil
@@ -377,8 +382,10 @@ func SingletonFunctionBinding(fn functions.FunctionOp, traits ...int) FunctionOp
 			return nil, fmt.Errorf("function already has a singleton binding: %s", f.Name())
 		}
 		f.singleton = &functions.Overload{
-			Operator:     f.Name(),
-			Function:     fn,
+			Operator: f.Name(),
+			Function: func(ctx context.Context, values ...ref.Val) ref.Val {
+				return fn(values...)
+			},
 			OperandTrait: trait,
 		}
 		return f, nil
@@ -460,11 +467,11 @@ type OverloadDecl struct {
 
 	// Function implementation options. Optional, but encouraged.
 	// unaryOp is a function binding that takes a single argument.
-	unaryOp functions.UnaryOp
+	unaryOp functions.UnaryContextOp
 	// binaryOp is a function binding that takes two arguments.
-	binaryOp functions.BinaryOp
+	binaryOp functions.BinaryContextOp
 	// functionOp is a catch-all for zero-arity and three-plus arity functions.
-	functionOp functions.FunctionOp
+	functionOp functions.FunctionContextOp
 }
 
 // ID mirrors the overload signature and provides a unique id which may be referenced within the type-checker
@@ -580,41 +587,41 @@ func (o *OverloadDecl) hasBinding() bool {
 }
 
 // guardedUnaryOp creates an invocation guard around the provided unary operator, if one is defined.
-func (o *OverloadDecl) guardedUnaryOp(funcName string, disableTypeGuards bool) functions.UnaryOp {
+func (o *OverloadDecl) guardedUnaryOp(funcName string, disableTypeGuards bool) functions.UnaryContextOp {
 	if o.unaryOp == nil {
 		return nil
 	}
-	return func(arg ref.Val) ref.Val {
+	return func(ctx context.Context, arg ref.Val) ref.Val {
 		if !o.matchesRuntimeUnarySignature(disableTypeGuards, arg) {
 			return MaybeNoSuchOverload(funcName, arg)
 		}
-		return o.unaryOp(arg)
+		return o.unaryOp(ctx, arg)
 	}
 }
 
 // guardedBinaryOp creates an invocation guard around the provided binary operator, if one is defined.
-func (o *OverloadDecl) guardedBinaryOp(funcName string, disableTypeGuards bool) functions.BinaryOp {
+func (o *OverloadDecl) guardedBinaryOp(funcName string, disableTypeGuards bool) functions.BinaryContextOp {
 	if o.binaryOp == nil {
 		return nil
 	}
-	return func(arg1, arg2 ref.Val) ref.Val {
+	return func(ctx context.Context, arg1, arg2 ref.Val) ref.Val {
 		if !o.matchesRuntimeBinarySignature(disableTypeGuards, arg1, arg2) {
 			return MaybeNoSuchOverload(funcName, arg1, arg2)
 		}
-		return o.binaryOp(arg1, arg2)
+		return o.binaryOp(ctx, arg1, arg2)
 	}
 }
 
 // guardedFunctionOp creates an invocation guard around the provided variadic function binding, if one is provided.
-func (o *OverloadDecl) guardedFunctionOp(funcName string, disableTypeGuards bool) functions.FunctionOp {
+func (o *OverloadDecl) guardedFunctionOp(funcName string, disableTypeGuards bool) functions.FunctionContextOp {
 	if o.functionOp == nil {
 		return nil
 	}
-	return func(args ...ref.Val) ref.Val {
+	return func(ctx context.Context, args ...ref.Val) ref.Val {
 		if !o.matchesRuntimeSignature(disableTypeGuards, args...) {
 			return MaybeNoSuchOverload(funcName, args...)
 		}
-		return o.functionOp(args...)
+		return o.functionOp(ctx, args...)
 	}
 }
 
@@ -667,6 +674,30 @@ type OverloadOpt func(*OverloadDecl) (*OverloadDecl, error)
 // UnaryBinding provides the implementation of a unary overload. The provided function is protected by a runtime
 // type-guard which ensures runtime type agreement between the overload signature and runtime argument types.
 func UnaryBinding(binding functions.UnaryOp) OverloadOpt {
+	return UnaryBindingContext(func(ctx context.Context, val ref.Val) ref.Val {
+		return binding(val)
+	})
+}
+
+// BinaryBinding provides the implementation of a binary overload. The provided function is protected by a runtime
+// type-guard which ensures runtime type agreement between the overload signature and runtime argument types.
+func BinaryBinding(binding functions.BinaryOp) OverloadOpt {
+	return BinaryBindingContext(func(ctx context.Context, lhs ref.Val, rhs ref.Val) ref.Val {
+		return binding(lhs, rhs)
+	})
+}
+
+// FunctionBinding provides the implementation of a variadic overload. The provided function is protected by a runtime
+// type-guard which ensures runtime type agreement between the overload signature and runtime argument types.
+func FunctionBinding(binding functions.FunctionOp) OverloadOpt {
+	return FunctionBindingContext(func(ctx context.Context, values ...ref.Val) ref.Val {
+		return binding(values...)
+	})
+}
+
+// UnaryBindingContext provides the implementation of a unary overload. The provided function is protected by a runtime
+// type-guard which ensures runtime type agreement between the overload signature and runtime argument types.
+func UnaryBindingContext(binding functions.UnaryContextOp) OverloadOpt {
 	return func(o *OverloadDecl) (*OverloadDecl, error) {
 		if o.hasBinding() {
 			return nil, fmt.Errorf("overload already has a binding: %s", o.ID())
@@ -679,9 +710,9 @@ func UnaryBinding(binding functions.UnaryOp) OverloadOpt {
 	}
 }
 
-// BinaryBinding provides the implementation of a binary overload. The provided function is protected by a runtime
+// BinaryBindingContext provides the implementation of a binary overload. The provided function is protected by a runtime
 // type-guard which ensures runtime type agreement between the overload signature and runtime argument types.
-func BinaryBinding(binding functions.BinaryOp) OverloadOpt {
+func BinaryBindingContext(binding functions.BinaryContextOp) OverloadOpt {
 	return func(o *OverloadDecl) (*OverloadDecl, error) {
 		if o.hasBinding() {
 			return nil, fmt.Errorf("overload already has a binding: %s", o.ID())
@@ -694,9 +725,9 @@ func BinaryBinding(binding functions.BinaryOp) OverloadOpt {
 	}
 }
 
-// FunctionBinding provides the implementation of a variadic overload. The provided function is protected by a runtime
+// FunctionBindingContext provides the implementation of a variadic overload. The provided function is protected by a runtime
 // type-guard which ensures runtime type agreement between the overload signature and runtime argument types.
-func FunctionBinding(binding functions.FunctionOp) OverloadOpt {
+func FunctionBindingContext(binding functions.FunctionContextOp) OverloadOpt {
 	return func(o *OverloadDecl) (*OverloadDecl, error) {
 		if o.hasBinding() {
 			return nil, fmt.Errorf("overload already has a binding: %s", o.ID())

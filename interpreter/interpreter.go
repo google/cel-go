@@ -18,6 +18,8 @@
 package interpreter
 
 import (
+	"context"
+
 	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/types"
@@ -118,7 +120,7 @@ func InterruptableEval() InterpretableDecorator {
 // Optimize will pre-compute operations such as list and map construction and optimize
 // call arguments to set membership tests. The set of optimizations will increase over time.
 func Optimize() InterpretableDecorator {
-	return decOptimize()
+	return decOptimize(context.TODO())
 }
 
 // RegexOptimization provides a way to replace an InterpretableCall for a regex function when the

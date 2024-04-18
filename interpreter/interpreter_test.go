@@ -594,7 +594,7 @@ func testData(t testing.TB) []testCase {
 		{
 			name: "literal_bytes_string2",
 			expr: `string(b"""Kim\t""")`,
-			out:  `Kim	`,
+			out: `Kim	`,
 		},
 		{
 			name:      "literal_pb3_msg",
@@ -1472,7 +1472,7 @@ func BenchmarkInterpreter(b *testing.B) {
 			b.ResetTimer()
 			b.ReportAllocs()
 			for i := 0; i < b.N; i++ {
-				prg.Eval(vars)
+				prg.Eval(context.Background(), vars)
 			}
 		})
 	}
@@ -1492,7 +1492,7 @@ func BenchmarkInterpreterParallel(b *testing.B) {
 			func(b *testing.B) {
 				b.RunParallel(func(pb *testing.PB) {
 					for pb.Next() {
-						prg.Eval(vars)
+						prg.Eval(context.Background(), vars)
 					}
 				})
 			})
@@ -1513,7 +1513,7 @@ func TestInterpreter(t *testing.T) {
 			if tc.out != nil {
 				want = tc.out.(ref.Val)
 			}
-			got := prg.Eval(vars)
+			got := prg.Eval(context.Background(), vars)
 			_, expectUnk := want.(*types.Unknown)
 			if expectUnk {
 				if !reflect.DeepEqual(got, want) {
@@ -1549,7 +1549,7 @@ func TestInterpreter(t *testing.T) {
 					t.Fatal(err)
 				}
 				t.Run(mode, func(t *testing.T) {
-					got := prg.Eval(vars)
+					got := prg.Eval(context.Background(), vars)
 					_, expectUnk := want.(*types.Unknown)
 					if expectUnk {
 						if !reflect.DeepEqual(got, want) {
@@ -1648,7 +1648,7 @@ func TestInterpreter_ExhaustiveConditionalExpr(t *testing.T) {
 		"a": types.True,
 		"b": types.Double(0.999),
 		"c": types.NewStringList(reg, []string{"hello"})})
-	result := interpretable.Eval(vars)
+	result := interpretable.Eval(context.Background(), vars)
 	// Operator "_==_" is at Expr 7, should be evaluated in exhaustive mode
 	// even though "a" is true
 	ev, _ := state.Value(7)
@@ -1696,7 +1696,7 @@ func TestInterpreter_InterruptableEval(t *testing.T) {
 			}
 		},
 	}
-	out := prg.Eval(ctxVars)
+	out := prg.Eval(context.Background(), ctxVars)
 	if !types.IsError(out) || out.(*types.Err).String() != "operation interrupted" {
 		t.Errorf("Got %v, wanted operation interrupted error", out)
 	}
@@ -1731,7 +1731,7 @@ func TestInterpreter_ExhaustiveLogicalOrEquals(t *testing.T) {
 		"a": true,
 		"b": "b",
 	})
-	result := i.Eval(vars)
+	result := i.Eval(context.Background(), vars)
 	rhv, _ := state.Value(3)
 	// "==" should be evaluated in exhaustive mode though unnecessary
 	if rhv != types.True {
@@ -1791,7 +1791,7 @@ func TestInterpreter_SetProto2PrimitiveFields(t *testing.T) {
 	vars, _ := NewActivation(map[string]any{
 		"input": reg.NativeToValue(input),
 	})
-	result := eval.Eval(vars)
+	result := eval.Eval(context.Background(), vars)
 	got, ok := result.Value().(bool)
 	if !ok {
 		t.Fatalf("Got '%v', wanted 'true'.", result)
@@ -1826,12 +1826,12 @@ func TestInterpreter_MissingIdentInSelect(t *testing.T) {
 			},
 		},
 		NewAttributePattern("a.b").QualString("c"))
-	result := i.Eval(vars)
+	result := i.Eval(context.Background(), vars)
 	if !types.IsUnknown(result) {
 		t.Errorf("Got %v, wanted unknown", result)
 	}
 
-	result = i.Eval(EmptyActivation())
+	result = i.Eval(context.Background(), EmptyActivation())
 	if !types.IsError(result) {
 		t.Errorf("Got %v, wanted error", result)
 	}
@@ -1897,7 +1897,7 @@ func TestInterpreter_TypeConversionOpt(t *testing.T) {
 			if err2 != nil {
 				t.Fatalf("got error, wanted interpretable: %v", i2)
 			}
-			errVal := i2.Eval(EmptyActivation())
+			errVal := i2.Eval(context.Background(), EmptyActivation())
 			errValStr := errVal.(*types.Err).Error()
 			if errValStr != err.Error() {
 				t.Errorf("got error %s, wanted error %s", errValStr, err.Error())

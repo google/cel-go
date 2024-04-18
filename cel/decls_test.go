@@ -15,6 +15,7 @@
 package cel
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"reflect"
@@ -673,7 +674,7 @@ func TestExprDeclToDeclaration(t *testing.T) {
 	}
 	prg, err := e.Program(ast, Functions(&functions.Overload{
 		Operator: overloads.SizeString,
-		Unary: func(arg ref.Val) ref.Val {
+		Unary: func(ctx context.Context, arg ref.Val) ref.Val {
 			str, ok := arg.(types.String)
 			if !ok {
 				return types.MaybeNoSuchOverloadErr(arg)
@@ -682,7 +683,7 @@ func TestExprDeclToDeclaration(t *testing.T) {
 		},
 	}, &functions.Overload{
 		Operator: overloads.SizeStringInst,
-		Unary: func(arg ref.Val) ref.Val {
+		Unary: func(ctx context.Context, arg ref.Val) ref.Val {
 			str, ok := arg.(types.String)
 			if !ok {
 				return types.MaybeNoSuchOverloadErr(arg)

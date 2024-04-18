@@ -264,6 +264,11 @@ func (p *prog) initInterpretable(a *Ast, decs []interpreter.InterpretableDecorat
 
 // Eval implements the Program interface method.
 func (p *prog) Eval(input any) (v ref.Val, det *EvalDetails, err error) {
+	return p.eval(context.Background(), input)
+}
+
+// Eval implements the Program interface method.
+func (p *prog) eval(ctx context.Context, input any) (v ref.Val, det *EvalDetails, err error) {
 	// Configure error recovery for unexpected panics during evaluation. Note, the use of named
 	// return values makes it possible to modify the error response during the recovery
 	// function.
@@ -291,7 +296,7 @@ func (p *prog) Eval(input any) (v ref.Val, det *EvalDetails, err error) {
 	if p.defaultVars != nil {
 		vars = interpreter.NewHierarchicalActivation(p.defaultVars, vars)
 	}
-	v = p.interpretable.Eval(vars)
+	v = p.interpretable.Eval(ctx, vars)
 	// The output of an internal Eval may have a value (`v`) that is a types.Err. This step
 	// translates the CEL value to a Go error response. This interface does not quite match the
 	// RPC signature which allows for multiple errors to be returned, but should be sufficient.
@@ -321,7 +326,7 @@ func (p *prog) ContextEval(ctx context.Context, input any) (ref.Val, *EvalDetail
 	default:
 		return nil, nil, fmt.Errorf("invalid input, wanted Activation or map[string]any, got: (%T)%v", input, input)
 	}
-	return p.Eval(vars)
+	return p.eval(ctx, vars)
 }
 
 // progFactory is a helper alias for marking a program creation factory function.
@@ -349,6 +354,11 @@ func newProgGen(factory progFactory) (Program, error) {
 
 // Eval implements the Program interface method.
 func (gen *progGen) Eval(input any) (ref.Val, *EvalDetails, error) {
+	return gen.eval(context.Background(), input)
+}
+
+// Eval implements the Program interface method.
+func (gen *progGen) eval(ctx context.Context, input any) (ref.Val, *EvalDetails, error) {
 	// The factory based Eval() differs from the standard evaluation model in that it generates a
 	// new EvalState instance for each call to ensure that unique evaluations yield unique stateful
 	// results.
@@ -368,7 +378,7 @@ func (gen *progGen) Eval(input any) (ref.Val, *EvalDetails, error) {
 	}
 
 	// Evaluate the input, returning the result and the 'state' within EvalDetails.
-	v, _, err := p.Eval(input)
+	v, _, err := p.ContextEval(ctx, input)
 	if err != nil {
 		return v, det, err
 	}

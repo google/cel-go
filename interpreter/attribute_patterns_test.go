@@ -15,6 +15,7 @@
 package interpreter
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -201,7 +202,7 @@ func TestAttributePattern_UnknownResolution(t *testing.T) {
 					fac := NewPartialAttributeFactory(cont, reg, reg)
 					attr := genAttr(fac, m)
 					partVars, _ := NewPartialActivation(EmptyActivation(), tst.pattern)
-					val, err := attr.Resolve(partVars)
+					val, err := attr.Resolve(context.Background(), partVars)
 					if err != nil {
 						t.Fatalf("Got error: %s, wanted unknown", err)
 					}
@@ -225,7 +226,7 @@ func TestAttributePattern_UnknownResolution(t *testing.T) {
 					fac := NewPartialAttributeFactory(cont, reg, reg)
 					attr := genAttr(fac, m)
 					partVars, _ := NewPartialActivation(EmptyActivation(), tst.pattern)
-					val, err := attr.Resolve(partVars)
+					val, err := attr.Resolve(context.Background(), partVars)
 					if err == nil {
 						t.Fatalf("Got value: %s, wanted error", val)
 					}
@@ -236,18 +237,19 @@ func TestAttributePattern_UnknownResolution(t *testing.T) {
 }
 
 func TestAttributePattern_CrossReference(t *testing.T) {
+	ctx := context.Background()
 	reg := newTestRegistry(t)
 	fac := NewPartialAttributeFactory(containers.DefaultContainer, reg, reg)
 	a := fac.AbsoluteAttribute(1, "a")
 	b := fac.AbsoluteAttribute(2, "b")
-	a.AddQualifier(b)
+	a.AddQualifier(ctx, b)
 
 	// Ensure that var a[b], the dynamic index into var 'a' is the unknown value
 	// returned from attribute resolution.
 	partVars, _ := NewPartialActivation(
 		map[string]any{"a": []int64{1, 2}},
 		NewAttributePattern("b"))
-	val, err := a.Resolve(partVars)
+	val, err := a.Resolve(ctx, partVars)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -263,7 +265,7 @@ func TestAttributePattern_CrossReference(t *testing.T) {
 		map[string]any{"a": []int64{1, 2}},
 		NewAttributePattern("a").QualInt(0),
 		NewAttributePattern("b"))
-	val, err = a.Resolve(partVars)
+	val, err = a.Resolve(ctx, partVars)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -277,7 +279,7 @@ func TestAttributePattern_CrossReference(t *testing.T) {
 	partVars, _ = NewPartialActivation(
 		map[string]any{"a": []int64{1, 2}, "b": 0},
 		NewAttributePattern("a").QualInt(0).QualString("c"))
-	val, err = a.Resolve(partVars)
+	val, err = a.Resolve(ctx, partVars)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -292,7 +294,7 @@ func TestAttributePattern_CrossReference(t *testing.T) {
 	// is the partial attribute factory.
 	partVars, _ = NewPartialActivation(
 		map[string]any{"a": []int64{1, 2}, "b": 0})
-	val, err = a.Resolve(partVars)
+	val, err = a.Resolve(ctx, partVars)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -306,9 +308,9 @@ func TestAttributePattern_CrossReference(t *testing.T) {
 		NewAttributePattern("a").QualInt(0).QualString("c"))
 	// Qualify a[b] with 'c', a[b].c
 	c, _ := fac.NewQualifier(nil, 3, "c", false)
-	a.AddQualifier(c)
+	a.AddQualifier(ctx, c)
 	// The resolve step should return unknown
-	val, err = a.Resolve(partVars)
+	val, err = a.Resolve(ctx, partVars)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -331,7 +333,7 @@ func genAttr(fac AttributeFactory, a attr) Attribute {
 	}
 	for _, q := range a.quals {
 		qual, _ := fac.NewQualifier(nil, id, q, false)
-		attr.AddQualifier(qual)
+		attr.AddQualifier(context.Background(), qual)
 		id++
 	}
 	return attr

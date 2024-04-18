@@ -15,6 +15,7 @@
 package interpreter
 
 import (
+	"context"
 	"testing"
 
 	"github.com/google/cel-go/common"
@@ -471,7 +472,7 @@ func TestPrune(t *testing.T) {
 		if err != nil {
 			t.Fatalf("NewUncheckedInterpretable() failed: %v", err)
 		}
-		interpretable.Eval(testActivation(t, tst.in))
+		interpretable.Eval(context.Background(), testActivation(t, tst.in))
 		newExpr := PruneAst(parsed.Expr(), parsed.SourceInfo().MacroCalls(), state)
 		if tst.iterRange != "" {
 			if newExpr.Expr().Kind() != ast.ComprehensionKind {
