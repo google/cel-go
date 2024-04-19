@@ -53,7 +53,11 @@ type policyString struct {
 	value string
 }
 
-func parse(src *Source) (*policy, *cel.Issues) {
+// Parse generates an internal parsed policy representation from a YAML input file.
+// The internal representation ensures that CEL expressions are tracked relative to
+// where they occur within the file, thus making error messages relative to the whole
+// file rather than the individual expression.
+func Parse(src *Source) (*policy, *cel.Issues) {
 	info := ast.NewSourceInfo(src)
 	errs := common.NewErrors(src)
 	iss := cel.NewIssuesWithSourceInfo(errs, info)

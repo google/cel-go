@@ -1,6 +1,8 @@
 package policy
 
 import (
+	"fmt"
+
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/ast"
@@ -30,7 +32,8 @@ type compiledMatch struct {
 	nestedRule *compiledRule
 }
 
-func compile(env *cel.Env, p *policy) (*cel.Ast, *cel.Issues) {
+// Compile generates a single CEL AST from a collection of policy expressions associated with a CEL environment.
+func Compile(env *cel.Env, p *policy) (*cel.Ast, *cel.Issues) {
 	c := &compiler{
 		env:  env,
 		info: p.info,
@@ -56,7 +59,7 @@ func (c *compiler) compileRule(r *rule, ruleEnv *cel.Env, iss *cel.Issues) (*com
 		exprSrc := c.relSource(v.expression)
 		varAST, exprIss := ruleEnv.CompileSource(exprSrc)
 		if exprIss.Err() == nil {
-			ruleEnv, err = ruleEnv.Extend(cel.Variable(v.name.value, varAST.OutputType()))
+			ruleEnv, err = ruleEnv.Extend(cel.Variable(fmt.Sprintf("variables.%s", v.name.value), varAST.OutputType()))
 			if err != nil {
 				iss.ReportErrorAtID(v.expression.id, "invalid variable declaration")
 			}
@@ -162,7 +165,7 @@ func optimizeRule(ctx *cel.OptimizerContext, r *compiledRule) ast.Expr {
 		// Build up the bindings in reverse order, starting from root, all the way up to the outermost
 		// binding:
 		//    currExpr = cel.bind(outerVar, outerExpr, currExpr)
-		inlined, bindMacro := ctx.NewBindMacro(matchExpr.ID(), v.name, varAST, matchExpr)
+		inlined, bindMacro := ctx.NewBindMacro(matchExpr.ID(), fmt.Sprintf("variables.%s", v.name), varAST, matchExpr)
 		ctx.SetMacroCall(inlined.ID(), bindMacro)
 		matchExpr = inlined
 	}

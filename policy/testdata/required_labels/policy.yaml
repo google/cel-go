@@ -16,17 +16,17 @@ name: "required_labels"
 rule:
   variables:
     - name: want
-      expression: rule.labels
+      expression: spec.labels
     - name: missing
-      expression: want.filter(l, !(l in resource.labels))
+      expression: variables.want.filter(l, !(l in resource.labels))
     - name: invalid
       expression: >
         resource.labels.filter(l,
-          l in want && want[l] != resource.labels[l])
+          l in variables.want && variables.want[l] != resource.labels[l])
   match:
-    - condition: missing.size() > 0
+    - condition: variables.missing.size() > 0
       output: |
-        "missing one or more required labels"
-    - condition: invalid.size() > 0    
+        "missing one or more required labels: %s".format([variables.missing])
+    - condition: variables.invalid.size() > 0    
       output: |
-        "invalid values provided on one or more labels"
+        "invalid values provided on one or more labels: %s".format([variables.invalid])
