@@ -1,8 +1,23 @@
+# Copyright 2024 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 description: "Basic conformance tests that all implementations should pass."
 section:
-  - name: "labels_valid"
-    test:
-     - input: 
+  - name: "valid"
+    tests:
+     - name: "matching"
+       input: 
          spec:
            labels:
              env: prod
@@ -13,9 +28,10 @@ section:
              experiment: "group b"
              release: "v0.1.0"
        output: "optional.none()"
-  - name: "missing_env"
-    test:
-     - input: 
+  - name: "missing"
+    tests:
+     - name: "env"
+       input: 
          spec:
            labels:
              env: prod
@@ -26,9 +42,8 @@ section:
              release: "v0.1.0"
        output: >
          "missing one or more required labels: [\"env\"]"
-  - name: "missing_experiment"
-    test:
-     - input: 
+     - name: "experiment"
+       input: 
          spec:
            labels:
              env: prod
@@ -39,9 +54,10 @@ section:
              release: "v0.1.0"
        output: >
          "missing one or more required labels: [\"experiment\"]"
-  - name: "invalid_env"
-    test:
-     - input: 
+  - name: "invalid"
+    tests:
+     - name: "env"
+       input: 
          spec:
            labels:
              env: prod

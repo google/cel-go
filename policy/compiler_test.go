@@ -1,3 +1,17 @@
+// Copyright 2024 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package policy
 
 import (
@@ -6,7 +20,6 @@ import (
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
-	celext "github.com/google/cel-go/ext"
 )
 
 func TestCompile(t *testing.T) {
@@ -37,6 +50,7 @@ type runner struct {
 }
 
 func (r *runner) setup(t testing.TB) {
+	config := readPolicyConfig(t, fmt.Sprintf("testdata/%s/config.yaml", r.name))
 	srcFile := readPolicy(t, fmt.Sprintf("testdata/%s/policy.yaml", r.name))
 	p, iss := Parse(srcFile)
 	if iss.Err() != nil {
@@ -45,15 +59,17 @@ func (r *runner) setup(t testing.TB) {
 	if p.name.value != r.name {
 		t.Errorf("policy name is %v, wanted %s", p.name, r.name)
 	}
-	envOpts := append([]cel.EnvOption{
+	env, err := cel.NewEnv(
 		cel.OptionalTypes(),
 		cel.EnableMacroCallTracking(),
 		cel.ExtendedValidations(),
-		celext.Strings(),
-	}, r.envOptions...)
-	env, err := cel.NewEnv(envOpts...)
+	)
 	if err != nil {
 		t.Fatalf("cel.NewEnv() failed: %v", err)
+	}
+	env, err = env.Extend(config.AsEnvOptions(env)...)
+	if err != nil {
+		t.Fatalf("env.Extend() with config options %v, failed: %v", config, err)
 	}
 	ast, iss := Compile(env, p)
 	if iss.Err() != nil {
@@ -70,9 +86,10 @@ func (r *runner) setup(t testing.TB) {
 func (r *runner) run(t *testing.T) {
 	tests := readTestSuite(t, fmt.Sprintf("testdata/%s/tests.yaml", r.name))
 	for _, s := range tests.Sections {
-		for i, tst := range s.Tests {
+		section := s.Name
+		for _, tst := range s.Tests {
 			tc := tst
-			t.Run(fmt.Sprintf("%s:%d", s.Name, i), func(t *testing.T) {
+			t.Run(fmt.Sprintf("%s/%s", section, tc.Name), func(t *testing.T) {
 				out, _, err := r.prg.Eval(tc.Input)
 				if err != nil {
 					t.Fatalf("prg.Eval(tc.Input) failed: %v", err)
@@ -106,9 +123,10 @@ func (r *runner) run(t *testing.T) {
 func (r *runner) bench(b *testing.B) {
 	tests := readTestSuite(b, fmt.Sprintf("testdata/%s/tests.yaml", r.name))
 	for _, s := range tests.Sections {
+		section := s.Name
 		for _, tst := range s.Tests {
 			tc := tst
-			b.Run(fmt.Sprintf("%s", s.Name), func(b *testing.B) {
+			b.Run(fmt.Sprintf("%s/%s", section, tc.Name), func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
 					_, _, err := r.prg.Eval(tc.Input)
 					if err != nil {
