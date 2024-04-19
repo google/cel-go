@@ -16,6 +16,7 @@
 package repl
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -232,17 +233,17 @@ func (l *letFunction) generateFunction() *functions.Overload {
 	case 1:
 		return &functions.Overload{
 			Operator: l.identifier,
-			Unary:    func(v ref.Val) ref.Val { return l.impl(v) },
+			Unary:    func(ctx context.Context, v ref.Val) ref.Val { return l.impl(v) },
 		}
 	case 2:
 		return &functions.Overload{
 			Operator: l.identifier,
-			Binary:   func(lhs ref.Val, rhs ref.Val) ref.Val { return l.impl(lhs, rhs) },
+			Binary:   func(ctx context.Context, lhs ref.Val, rhs ref.Val) ref.Val { return l.impl(lhs, rhs) },
 		}
 	default:
 		return &functions.Overload{
 			Operator: l.identifier,
-			Function: l.impl,
+			Function: func(ctx context.Context, values ...ref.Val) ref.Val { return l.impl(values...) },
 		}
 	}
 }
