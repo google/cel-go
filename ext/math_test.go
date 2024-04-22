@@ -82,7 +82,7 @@ func TestMath(t *testing.T) {
 		{expr: "math.greatest(-1, 0, 1) == 1"},
 		{expr: "math.greatest(-1, -1, -1) == -1"},
 		{expr: "math.greatest(1u, 42u, 0u) == 42u"},
-		// math.least two arg overloads across type.
+		// math.greatest two arg overloads across type.
 		{expr: "math.greatest(1, 1.0) == 1"},
 		{expr: "math.greatest(1, -2.0) == 1"},
 		{expr: "math.greatest(2, 1u) == 2"},
@@ -112,6 +112,74 @@ func TestMath(t *testing.T) {
 				"numbers": []float64{-21.0, -10.5, 1.0},
 			},
 		},
+
+		// Tests for math bitwise operators
+		// Signed bitwise ops
+		{expr: "math.bitAnd(1, 2) == 0"},
+		{expr: "math.bitAnd(1, -1) == 1"},
+		{expr: "math.bitAnd(1, 3) == 1"},
+		{expr: "math.bitOr(1, 2) == 3"},
+		{expr: "math.bitXor(1, 3) == 2"},
+		{expr: "math.bitXor(3, 5) == 6"},
+		{expr: "math.bitNot(1) == -2"},
+		{expr: "math.bitNot(0) == -1"},
+		{expr: "math.bitNot(-1) == 0"},
+		{expr: "math.bitShiftLeft(1, 2) == 4"},
+		{expr: "math.bitShiftLeft(1, 200) == 0"},
+		{expr: "math.bitShiftLeft(-1, 200) == 0"},
+		{expr: "math.bitShiftRight(1024, 2) == 256"},
+		{expr: "math.bitShiftRight(1024, 64) == 0"},
+		{expr: "math.bitShiftRight(-1024, 3) == -128"},
+		{expr: "math.bitShiftRight(-1024, 64) == -1"},
+		// Unsigned bitwise ops
+		{expr: "math.bitAnd(1u, 2u) == 0u"},
+		{expr: "math.bitAnd(1u, 3u) == 1u"},
+		{expr: "math.bitOr(1u, 2u) == 3u"},
+		{expr: "math.bitXor(1u, 3u) == 2u"},
+		{expr: "math.bitXor(3u, 5u) == 6u"},
+		{expr: "math.bitNot(1u) == 18446744073709551614u"},
+		{expr: "math.bitNot(0u) == 18446744073709551615u"},
+		{expr: "math.bitShiftLeft(1u, 2) == 4u"},
+		{expr: "math.bitShiftLeft(1u, 200) == 0u"},
+		{expr: "math.bitShiftRight(1024u, 2) == 256u"},
+		{expr: "math.bitShiftRight(1024u, 64) == 0u"},
+
+		// Tests for floating point helpers
+		{expr: "math.isNaN(0.0/0.0)"},
+		{expr: "!math.isNaN(1.0/0.0)"},
+		{expr: "math.isFinite(1.0/1.5)"},
+		{expr: "!math.isFinite(1.0/0.0)"},
+		{expr: "math.isInf(1.0/0.0)"},
+
+		// Tests for rounding functions
+		{expr: "math.ceil(1.2) == 2.0"},
+		{expr: "math.ceil(-1.2) == -1.0"},
+		{expr: "math.floor(1.2) == 1.0"},
+		{expr: "math.floor(-1.2) == -2.0"},
+		{expr: "math.round(1.2) == 1.0"},
+		{expr: "math.round(1.5) == 2.0"},
+		{expr: "math.round(-1.5) == -2.0"},
+		{expr: "math.isNaN(math.round(0.0/0.0))"},
+		{expr: "math.round(-1.2) == -1.0"},
+		{expr: "math.trunc(-1.3) == -1.0"},
+		{expr: "math.trunc(1.3) == 1.0"},
+
+		// Tests for signedness related functions
+		{expr: "math.sign(-42) == -1"},
+		{expr: "math.sign(0) == 0"},
+		{expr: "math.sign(42) == 1"},
+		{expr: "math.sign(0u) == 0u"},
+		{expr: "math.sign(42u) == 1u"},
+		{expr: "math.sign(-0.3) == -1.0"},
+		{expr: "math.sign(0.0) == 0.0"},
+		{expr: "math.isNaN(math.sign(0.0/0.0))"},
+		{expr: "math.sign(1.0/0.0) == 1.0"},
+		{expr: "math.sign(-1.0/0.0) == -1.0"},
+		{expr: "math.sign(0.3) == 1.0"},
+		{expr: "math.abs(-1) == 1"},
+		{expr: "math.abs(1) == 1"},
+		{expr: "math.abs(-234.5) == 234.5"},
+		{expr: "math.abs(234.5) == 234.5"},
 	}
 
 	env := testMathEnv(t,
@@ -318,6 +386,90 @@ func TestMathRuntimeErrors(t *testing.T) {
 		{
 			expr: "math.greatest(dyn('string'))",
 			err:  "no such overload: math.@max",
+		},
+		{
+			expr: "math.bitShiftLeft(1, -2) == 4",
+			err:  "math.bitShiftLeft() negative offset",
+		},
+		{
+			expr: "math.bitShiftLeft(1u, -2) == 0u",
+			err:  "math.bitShiftLeft() negative offset",
+		},
+		{
+			expr: "math.bitShiftRight(-1024, -3) == -128",
+			err:  "math.bitShiftRight() negative offset",
+		},
+		{
+			expr: "math.bitShiftRight(1024u, -4) == 1u",
+			err:  "math.bitShiftRight() negative offset",
+		},
+		{
+			expr: "math.abs(-9223372036854775808)",
+			err:  "overflow",
+		},
+		{
+			expr: "math.bitOr(dyn(1.2), 1)",
+			err:  "no such overload: math.bitOr(double, int)",
+		},
+		{
+			expr: "math.bitAnd(2u, dyn(''))",
+			err:  "no such overload: math.bitAnd(uint, string)",
+		},
+		{
+			expr: "math.bitXor(dyn(1), dyn(1u))",
+			err:  "no such overload: math.bitXor(int, uint)",
+		},
+		{
+			expr: "math.bitXor(dyn([]), dyn([1]))",
+			err:  "no such overload: math.bitXor(list, list)",
+		},
+		{
+			expr: "math.bitNot(dyn([1]))",
+			err:  "no such overload: math.bitNot(list)",
+		},
+		{
+			expr: "math.bitShiftLeft(dyn([1]), 1)",
+			err:  "no such overload: math.bitShiftLeft(list, int)",
+		},
+		{
+			expr: "math.bitShiftRight(dyn({}), 1)",
+			err:  "no such overload: math.bitShiftRight(map, int)",
+		},
+		{
+			expr: "math.isInf(dyn(1u))",
+			err:  "no such overload: math.isInf(uint)",
+		},
+		{
+			expr: "math.isFinite(dyn(1u))",
+			err:  "no such overload: math.isFinite(uint)",
+		},
+		{
+			expr: "math.isNaN(dyn(1u))",
+			err:  "no such overload: math.isNaN(uint)",
+		},
+		{
+			expr: "math.sign(dyn(''))",
+			err:  "no such overload: math.sign(string)",
+		},
+		{
+			expr: "math.abs(dyn(''))",
+			err:  "no such overload: math.abs(string)",
+		},
+		{
+			expr: "math.ceil(dyn(''))",
+			err:  "no such overload: math.ceil(string)",
+		},
+		{
+			expr: "math.floor(dyn(''))",
+			err:  "no such overload: math.floor(string)",
+		},
+		{
+			expr: "math.round(dyn(1))",
+			err:  "no such overload: math.round(int)",
+		},
+		{
+			expr: "math.trunc(dyn(1u))",
+			err:  "no such overload: math.trunc(uint)",
 		},
 	}
 
