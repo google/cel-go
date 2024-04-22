@@ -80,25 +80,17 @@ func (td *TypeDecl) AsCelType(baseEnv *cel.Env) *cel.Type {
 	case "dyn":
 		return cel.DynType
 	case "map":
-		switch len(td.Params) {
-		case 0:
-			return cel.DynType
-		case 2:
+		if len(td.Params) == 2 {
 			return cel.MapType(
 				td.Params[0].AsCelType(baseEnv),
 				td.Params[1].AsCelType(baseEnv))
-		default:
-			panic(fmt.Sprintf("map type has unexpected type params: %v", td.Params))
 		}
+		panic(fmt.Sprintf("map type has unexpected type params: %v", td.Params))
 	case "list":
-		switch len(td.Params) {
-		case 0:
-			return cel.DynType
-		case 1:
+		if len(td.Params) == 1 {
 			return cel.ListType(td.Params[0].AsCelType(baseEnv))
-		default:
-			panic(fmt.Sprintf("list type has unexpected params: %v", td.Params))
 		}
+		panic(fmt.Sprintf("list type has unexpected params: %v", td.Params))
 	default:
 		if td.IsTypeParam {
 			return cel.TypeParamType(td.TypeName)

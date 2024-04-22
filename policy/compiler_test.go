@@ -23,16 +23,12 @@ import (
 )
 
 func TestCompile(t *testing.T) {
-	r := newRunner(t, "required_labels",
-		cel.Variable("spec", cel.MapType(cel.StringType, cel.DynType)),
-		cel.Variable("resource", cel.MapType(cel.StringType, cel.DynType)))
+	r := newRunner(t, "required_labels")
 	r.run(t)
 }
 
 func BenchmarkCompile(b *testing.B) {
-	r := newRunner(b, "required_labels",
-		cel.Variable("spec", cel.MapType(cel.StringType, cel.DynType)),
-		cel.Variable("resource", cel.MapType(cel.StringType, cel.DynType)))
+	r := newRunner(b, "required_labels")
 	r.bench(b)
 }
 
