@@ -20,10 +20,26 @@ import (
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
 )
 
 func TestCompile(t *testing.T) {
 	r := newRunner(t, "required_labels")
+	r.run(t)
+
+	r = newRunner(t, "restricted_destinations",
+		cel.Function("locationCode",
+			cel.Overload("locationCode_string", []*cel.Type{cel.StringType}, cel.StringType,
+				cel.UnaryBinding(func(ip ref.Val) ref.Val {
+					switch ip.(types.String) {
+					case types.String("10.0.0.1"):
+						return types.String("us")
+					case types.String("10.0.0.2"):
+						return types.String("de")
+					default:
+						return types.String("ir")
+					}
+				}))))
 	r.run(t)
 }
 
@@ -58,18 +74,23 @@ func (r *runner) setup(t testing.TB) {
 	env, err := cel.NewEnv(
 		cel.OptionalTypes(),
 		cel.EnableMacroCallTracking(),
-		cel.ExtendedValidations(),
-	)
+		cel.ExtendedValidations())
 	if err != nil {
 		t.Fatalf("cel.NewEnv() failed: %v", err)
 	}
+	// Configure declarations
 	env, err = env.Extend(config.AsEnvOptions(env)...)
+	if err != nil {
+		t.Fatalf("env.Extend() with config options %v, failed: %v", config, err)
+	}
+	// Configure any implementations
+	env, err = env.Extend(r.envOptions...)
 	if err != nil {
 		t.Fatalf("env.Extend() with config options %v, failed: %v", config, err)
 	}
 	ast, iss := Compile(env, p)
 	if iss.Err() != nil {
-		t.Errorf("Compile() failed: %v", iss.Err())
+		t.Fatalf("Compile() failed: %v", iss.Err())
 	}
 	prg, err := env.Program(ast, cel.EvalOptions(cel.OptOptimize))
 	if err != nil {
@@ -85,7 +106,7 @@ func (r *runner) run(t *testing.T) {
 		section := s.Name
 		for _, tst := range s.Tests {
 			tc := tst
-			t.Run(fmt.Sprintf("%s/%s", section, tc.Name), func(t *testing.T) {
+			t.Run(fmt.Sprintf("%s/%s/%s", r.name, section, tc.Name), func(t *testing.T) {
 				out, _, err := r.prg.Eval(tc.Input)
 				if err != nil {
 					t.Fatalf("prg.Eval(tc.Input) failed: %v", err)

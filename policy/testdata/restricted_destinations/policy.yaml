@@ -17,26 +17,26 @@ rule:
   variables:
     - name: matches_origin_ip
       expression: >
-        locationCode(origin.ip) == rule.origin
+        locationCode(origin.ip) == spec.origin
     - name: has_nationality
       expression: >
         has(request.auth.claims.nationality)
     - name: matches_nationality
       expression: >
-        has_nationality && request.auth.claims.nationality == rule.origin
+        variables.has_nationality && request.auth.claims.nationality == spec.origin
     - name: matches_dest_ip
       expression: >
-        locationCode(destination.ip) in rule.restricted_destinations
+        locationCode(destination.ip) in spec.restricted_destinations
     - name: matches_dest_label
       expression: >
-        resource.labels.location in rule.restricted_destinations
+        resource.labels.location in spec.restricted_destinations
     - name: matches_dest
       expression: >
-        matches_dest_ip || matches_dest_label
-match:
-  - condition: matches_nationality && matches_dest
-    output: true
-  - condition: >
-      !has_nationality && matches_origin_ip && matches_dest
-    output: true
-  - output: false
+        variables.matches_dest_ip || variables.matches_dest_label
+  match:
+    - condition: variables.matches_nationality && variables.matches_dest
+      output: "true"
+    - condition: >
+        !variables.has_nationality && variables.matches_origin_ip && variables.matches_dest
+      output: "true"
+    - output: "false"

@@ -52,11 +52,6 @@ type RelativeSource struct {
 	absLoc   common.Location
 }
 
-// AbsoluteLocation returns the location within the parent Source where the RelativeSource starts.
-func (rel *RelativeSource) AbsoluteLocation() common.Location {
-	return rel.absLoc
-}
-
 // Content returns the embedded source snippet.
 func (rel *RelativeSource) Content() string {
 	return rel.localSrc.Content()
@@ -69,17 +64,4 @@ func (rel *RelativeSource) OffsetLocation(offset int32) (common.Location, bool) 
 		return common.NoLocation, false
 	}
 	return rel.Source.OffsetLocation(absOffset + offset)
-}
-
-// NewLocation creates an absolute common.Location based on a local line, column
-// position from a relative source.
-func (rel *RelativeSource) NewLocation(line, col int) common.Location {
-	localLoc := common.NewLocation(line, col)
-	relOffset, found := rel.localSrc.LocationOffset(localLoc)
-	if !found {
-		return common.NoLocation
-	}
-	offset, _ := rel.Source.LocationOffset(rel.absLoc)
-	absLoc, _ := rel.Source.OffsetLocation(offset + relOffset)
-	return absLoc
 }

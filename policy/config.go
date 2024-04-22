@@ -140,7 +140,7 @@ func (od *OverloadDecl) AsFunctionOption(baseEnv *cel.Env) cel.FunctionOpt {
 		args[i] = a.AsCelType(baseEnv)
 	}
 	result := od.Return.AsCelType(baseEnv)
-	if od.Target == nil {
+	if od.Target != nil {
 		t := od.Target.AsCelType(baseEnv)
 		args = append([]*cel.Type{t}, args...)
 		return cel.MemberOverload(od.OverloadID, args, result)

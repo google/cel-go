@@ -135,14 +135,15 @@ type ruleComposer struct {
 }
 
 func (opt *ruleComposer) Optimize(ctx *cel.OptimizerContext, a *ast.AST) *ast.AST {
-	ruleExpr := optimizeRule(ctx, opt.rule)
+	ruleExpr, _ := optimizeRule(ctx, opt.rule)
 	ctx.UpdateExpr(a.Expr(), ruleExpr)
 	return ctx.NewAST(ruleExpr)
 }
 
-func optimizeRule(ctx *cel.OptimizerContext, r *compiledRule) ast.Expr {
+func optimizeRule(ctx *cel.OptimizerContext, r *compiledRule) (ast.Expr, bool) {
 	matchExpr := ctx.NewCall("optional.none")
 	matches := r.matches
+	optionalResult := true
 	for i := len(matches) - 1; i >= 0; i-- {
 		m := matches[i]
 		cond := ctx.CopyASTAndMetadata(m.cond.NativeRep())
@@ -151,16 +152,21 @@ func optimizeRule(ctx *cel.OptimizerContext, r *compiledRule) ast.Expr {
 			out := ctx.CopyASTAndMetadata(m.output.NativeRep())
 			if triviallyTrue {
 				matchExpr = out
+				optionalResult = false
 				continue
+			}
+			if optionalResult {
+				out = ctx.NewCall("optional.of", out)
 			}
 			matchExpr = ctx.NewCall(
 				operators.Conditional,
 				cond,
-				ctx.NewCall("optional.of", out),
+				out,
 				matchExpr)
 			continue
 		}
-		nestedRule := optimizeRule(ctx, m.nestedRule)
+		nestedRule, nestedOptional := optimizeRule(ctx, m.nestedRule)
+		optionalResult = optionalResult || nestedOptional
 		if triviallyTrue {
 			matchExpr = nestedRule
 			continue
@@ -183,5 +189,5 @@ func optimizeRule(ctx *cel.OptimizerContext, r *compiledRule) ast.Expr {
 		ctx.SetMacroCall(inlined.ID(), bindMacro)
 		matchExpr = inlined
 	}
-	return matchExpr
+	return matchExpr, optionalResult
 }
