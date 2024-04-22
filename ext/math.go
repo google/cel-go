@@ -157,7 +157,8 @@ import (
 //
 // When the second parameter is 64 or greater, 0 will be always be returned
 // since the number of bits shifted is greater than or equal to the total bit
-// length of the number being shifted.
+// length of the number being shifted. Negative valued bit shifts will result
+// in a runtime error.
 //
 //	math.bitShiftLeft(<int>, <int>) -> <int>
 //	math.bitShiftLeft(<uint>, <int>) -> <uint>
@@ -179,7 +180,8 @@ import (
 //
 // When the second parameter is 64 or greater, 0 will always be returned since
 // the number of bits shifted is greater than or equal to the total bit length
-// of the number being shifted.
+// of the number being shifted. Negative valued bit shifts will result in a
+// runtime error.
 //
 // The sign bit extension will not be preserved for this operation: vacant bits
 // on the left are filled with 0.
