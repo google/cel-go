@@ -15,6 +15,7 @@ go_library(
         "//cel:go_default_library",
         "//common/types:go_default_library",
         "//common/types/ref:go_default_library",
+        "//ext:go_default_library",
         "@com_google_cel_spec//proto/test/v1/proto2:test_all_types_go_proto",
         "@com_google_cel_spec//proto/test/v1/proto3:test_all_types_go_proto",
         "@org_golang_google_genproto_googleapis_api//expr/conformance/v1alpha1:go_default_library",

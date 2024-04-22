@@ -22,6 +22,7 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/ext"
 
 	test2pb "github.com/google/cel-spec/proto/test/v1/proto2/test_all_types"
 	test3pb "github.com/google/cel-spec/proto/test/v1/proto3/test_all_types"
@@ -41,7 +42,11 @@ func (s *ConformanceServer) Parse(ctx context.Context, in *confpb.ParseRequest) 
 		return nil, invalidArgument("No source code.")
 	}
 	// NOTE: syntax_version isn't currently used
-	var parseOptions []cel.EnvOption
+	parseOptions := []cel.EnvOption{
+		ext.Math(),
+		ext.Protos(),
+		ext.Bindings(),
+	}
 	if in.DisableMacros {
 		parseOptions = append(parseOptions, cel.ClearMacros())
 	}
@@ -68,7 +73,12 @@ func (s *ConformanceServer) Check(ctx context.Context, in *confpb.CheckRequest) 
 		return nil, invalidArgument("No source info.")
 	}
 	// Build the environment.
-	var checkOptions []cel.EnvOption = []cel.EnvOption{cel.StdLib()}
+	checkOptions := []cel.EnvOption{
+		cel.StdLib(),
+		ext.Strings(),
+		ext.Math(),
+		ext.Encoders(),
+	}
 	if in.NoStdEnv {
 		checkOptions = []cel.EnvOption{}
 	}
@@ -255,6 +265,9 @@ var evalEnv *cel.Env
 
 func init() {
 	evalEnv, _ = cel.NewEnv(
+		ext.Strings(),
+		ext.Math(),
+		ext.Encoders(),
 		cel.Types(&test2pb.TestAllTypes{}, &test3pb.TestAllTypes{}),
 		cel.EagerlyValidateDeclarations(true),
 		cel.OptionalTypes())
