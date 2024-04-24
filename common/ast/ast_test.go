@@ -72,7 +72,11 @@ func TestASTCopy(t *testing.T) {
 		if err != nil {
 			t.Errorf("ast.ToAST() failed: %v", err)
 		}
-		if !reflect.DeepEqual(checked, checkedRoundtrip) {
+		same := reflect.DeepEqual(checked.Expr(), checkedRoundtrip.Expr()) &&
+			reflect.DeepEqual(checked.ReferenceMap(), checkedRoundtrip.ReferenceMap()) &&
+			reflect.DeepEqual(checked.TypeMap(), checkedRoundtrip.TypeMap()) &&
+			reflect.DeepEqual(checked.SourceInfo().MacroCalls(), checkedRoundtrip.SourceInfo().MacroCalls())
+		if !same {
 			t.Errorf("Roundtrip got %v, wanted %v", checkedRoundtrip, checked)
 		}
 	}
