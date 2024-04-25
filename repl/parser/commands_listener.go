@@ -3,7 +3,6 @@
 package parser // Commands
 import "github.com/antlr4-go/antlr/v4"
 
-
 // CommandsListener is a complete listener for a parse tree produced by CommandsParser.
 type CommandsListener interface {
 	antlr.ParseTreeListener
@@ -43,6 +42,9 @@ type CommandsListener interface {
 
 	// EnterCompile is called when entering the compile production.
 	EnterCompile(c *CompileContext)
+
+	// EnterParse is called when entering the parse production.
+	EnterParse(c *ParseContext)
 
 	// EnterExprCmd is called when entering the exprCmd production.
 	EnterExprCmd(c *ExprCmdContext)
@@ -196,6 +198,9 @@ type CommandsListener interface {
 
 	// ExitCompile is called when exiting the compile production.
 	ExitCompile(c *CompileContext)
+
+	// ExitParse is called when exiting the parse production.
+	ExitParse(c *ParseContext)
 
 	// ExitExprCmd is called when exiting the exprCmd production.
 	ExitExprCmd(c *ExprCmdContext)

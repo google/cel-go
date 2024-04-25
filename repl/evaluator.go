@@ -950,6 +950,16 @@ func (e *Evaluator) Process(cmd Cmder) (string, bool, error) {
 			return "", false, fmt.Errorf("compile failed:\n%v", err)
 		}
 		return prototext.Format(cAST), false, nil
+	case *parseCmd:
+		ast, err := e.Parse(cmd.expr)
+		if err != nil {
+			return "", false, fmt.Errorf("parse failed:\n%v", err)
+		}
+		pAST, err := cel.AstToParsedExpr(ast)
+		if err != nil {
+			return "", false, fmt.Errorf("parse failed:\n%v", err)
+		}
+		return prototext.Format(pAST), false, nil
 	case *evalCmd:
 		val, resultT, err := e.Evaluate(cmd.expr)
 		if err != nil {
@@ -1046,6 +1056,19 @@ func (e *Evaluator) Compile(expr string) (*cel.Ast, error) {
 		return nil, err
 	}
 	ast, iss := env.Compile(expr)
+	if iss.Err() != nil {
+		return nil, iss.Err()
+	}
+	return ast, nil
+}
+
+// Parse parses the input expression using the current REPL context.
+func (e *Evaluator) Parse(expr string) (*cel.Ast, error) {
+	env, _, err := e.applyContext()
+	if err != nil {
+		return nil, err
+	}
+	ast, iss := env.Parse(expr)
 	if iss.Err() != nil {
 		return nil, iss.Err()
 	}

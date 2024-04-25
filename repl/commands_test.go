@@ -161,6 +161,9 @@ func TestParse(t *testing.T) {
 			commandLine: `%help`,
 			wantErr: errors.New(`Compile emits a textproto representation of the compiled expression.
             %compile <expr>
+
+            Parse emits a textproto representation of the parsed expression.
+            %parse <expr>
             
             Declare introduces a variable or function for type checking, but
             doesn't define a value for it:

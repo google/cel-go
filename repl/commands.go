@@ -30,6 +30,9 @@ var (
 	compileUsage = `Compile emits a textproto representation of the compiled expression.
 %compile <expr>`
 
+	parseUsage = `Parse emits a textproto representation of the parsed expression.
+%parse <expr>`
+
 	declareUsage = `Declare introduces a variable or function for type checking, but
 doesn't define a value for it:
 %declare <identifier> : <type>
@@ -86,6 +89,10 @@ type compileCmd struct {
 	expr string
 }
 
+type parseCmd struct {
+	expr string
+}
+
 type evalCmd struct {
 	expr string
 }
@@ -122,6 +129,10 @@ func (c *simpleCmd) Cmd() string {
 
 func (c *compileCmd) Cmd() string {
 	return "compile"
+}
+
+func (c *parseCmd) Cmd() string {
+	return "parse"
 }
 
 func (c *evalCmd) Cmd() string {
@@ -186,6 +197,7 @@ func Parse(line string) (Cmder, error) {
 	if listener.cmd.Cmd() == "help" {
 		return nil, errors.New(strings.Join([]string{
 			compileUsage,
+			parseUsage,
 			declareUsage,
 			deleteUsage,
 			letUsage,
@@ -281,6 +293,10 @@ func (c *commandParseListener) EnterCompile(ctx *parser.CompileContext) {
 	c.cmd = &compileCmd{}
 }
 
+func (c *commandParseListener) EnterParse(ctx *parser.ParseContext) {
+	c.cmd = &parseCmd{}
+}
+
 func (c *commandParseListener) EnterExprCmd(ctx *parser.ExprCmdContext) {
 	c.cmd = &evalCmd{}
 }
@@ -365,6 +381,8 @@ func (c *commandParseListener) ExitExpr(ctx *parser.ExprContext) {
 	expr := extractSourceText(ctx)
 	switch cmd := c.cmd.(type) {
 	case *compileCmd:
+		cmd.expr = expr
+	case *parseCmd:
 		cmd.expr = expr
 	case *evalCmd:
 		cmd.expr = expr
