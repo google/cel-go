@@ -25,6 +25,7 @@ command: help |
          delete |
          simple |
          compile |
+         parse |
          exprCmd |
          empty;
 
@@ -48,6 +49,8 @@ empty: ;
 
 compile: '%compile' e=expr;
 
+parse: '%parse' e=expr;
+
 exprCmd: '%eval'? e=expr;
 
 qualId: leadingDot='.'? rid=IDENTIFIER ('.' qualifiers+=IDENTIFIER)*;
@@ -69,4 +72,3 @@ COMMAND: '%' IDENTIFIER;
 FLAG: '-'? '-' IDENTIFIER;
 ARROW: '->';
 EQUAL_ASSIGN: '=';
-

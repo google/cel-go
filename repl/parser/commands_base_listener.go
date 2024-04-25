@@ -92,6 +92,12 @@ func (s *BaseCommandsListener) EnterCompile(ctx *CompileContext) {}
 // ExitCompile is called when production compile is exited.
 func (s *BaseCommandsListener) ExitCompile(ctx *CompileContext) {}
 
+// EnterParse is called when production parse is entered.
+func (s *BaseCommandsListener) EnterParse(ctx *ParseContext) {}
+
+// ExitParse is called when production parse is exited.
+func (s *BaseCommandsListener) ExitParse(ctx *ParseContext) {}
+
 // EnterExprCmd is called when production exprCmd is entered.
 func (s *BaseCommandsListener) EnterExprCmd(ctx *ExprCmdContext) {}
 

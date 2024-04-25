@@ -3,7 +3,6 @@
 package parser // Commands
 import "github.com/antlr4-go/antlr/v4"
 
-
 type BaseCommandsVisitor struct {
 	*antlr.BaseParseTreeVisitor
 }
@@ -53,6 +52,10 @@ func (v *BaseCommandsVisitor) VisitEmpty(ctx *EmptyContext) interface{} {
 }
 
 func (v *BaseCommandsVisitor) VisitCompile(ctx *CompileContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseCommandsVisitor) VisitParse(ctx *ParseContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

@@ -3,7 +3,6 @@
 package parser // Commands
 import "github.com/antlr4-go/antlr/v4"
 
-
 // A complete Visitor for a parse tree produced by CommandsParser.
 type CommandsVisitor interface {
 	antlr.ParseTreeVisitor
@@ -43,6 +42,9 @@ type CommandsVisitor interface {
 
 	// Visit a parse tree produced by CommandsParser#compile.
 	VisitCompile(ctx *CompileContext) interface{}
+
+	// Visit a parse tree produced by CommandsParser#parse.
+	VisitParse(ctx *ParseContext) interface{}
 
 	// Visit a parse tree produced by CommandsParser#exprCmd.
 	VisitExprCmd(ctx *ExprCmdContext) interface{}
@@ -160,5 +162,4 @@ type CommandsVisitor interface {
 
 	// Visit a parse tree produced by CommandsParser#Null.
 	VisitNull(ctx *NullContext) interface{}
-
 }
