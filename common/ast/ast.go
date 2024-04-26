@@ -310,6 +310,13 @@ func (s *SourceInfo) SetOffsetRange(id int64, o OffsetRange) {
 	s.offsetRanges[id] = o
 }
 
+// ClearMacroCall removes the OffsetRange for the given expression id.
+func (s *SourceInfo) ClearOffsetRange(id int64) {
+	if s != nil {
+		delete(s.offsetRanges, id)
+	}
+}
+
 // GetStartLocation calculates the human-readable 1-based line and 0-based column of the first character
 // of the expression node at the id.
 func (s *SourceInfo) GetStartLocation(id int64) common.Location {

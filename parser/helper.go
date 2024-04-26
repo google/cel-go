@@ -164,6 +164,13 @@ func (p *parserHelper) id(ctx any) int64 {
 	return id
 }
 
+func (p *parserHelper) deleteId(id int64) {
+	p.sourceInfo.ClearOffsetRange(id)
+	if id == p.nextID-1 {
+		p.nextID--
+	}
+}
+
 func (p *parserHelper) getLocation(id int64) common.Location {
 	return p.sourceInfo.GetStartLocation(id)
 }
