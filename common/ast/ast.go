@@ -310,7 +310,7 @@ func (s *SourceInfo) SetOffsetRange(id int64, o OffsetRange) {
 	s.offsetRanges[id] = o
 }
 
-// ClearMacroCall removes the OffsetRange for the given expression id.
+// ClearOffsetRange removes the OffsetRange for the given expression id.
 func (s *SourceInfo) ClearOffsetRange(id int64) {
 	if s != nil {
 		delete(s.offsetRanges, id)
