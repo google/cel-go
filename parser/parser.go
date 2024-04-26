@@ -916,10 +916,12 @@ func (p *parser) expandMacro(exprID int64, function string, target ast.Expr, arg
 	expr, err := macro.Expander()(eh, target, args)
 	// An error indicates that the macro was matched, but the arguments were not well-formed.
 	if err != nil {
-		if err.Location != nil {
-			return p.reportError(err.Location, err.Message), true
+		loc := err.Location
+		if loc == nil {
+			loc = p.helper.getLocation(exprID)
 		}
-		return p.reportError(p.helper.getLocation(exprID), err.Message), true
+		p.helper.deleteId(exprID)
+		return p.reportError(loc, err.Message), true
 	}
 	// A nil value from the macro indicates that the macro implementation decided that
 	// an expansion should not be performed.
@@ -929,6 +931,7 @@ func (p *parser) expandMacro(exprID int64, function string, target ast.Expr, arg
 	if p.populateMacroCalls {
 		p.helper.addMacroCall(expr.ID(), function, target, args...)
 	}
+	p.helper.deleteId(exprID)
 	return expr, true
 }
 
