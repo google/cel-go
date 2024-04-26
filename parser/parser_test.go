@@ -506,25 +506,25 @@ var testCases = []testInfo{
 			// Init
 			0^#5:*expr.Constant_Int64Value#,
 			// LoopCondition
-			true^#7:*expr.Constant_BoolValue#,
+			true^#6:*expr.Constant_BoolValue#,
 			// LoopStep
 			_?_:_(
 				f^#4:*expr.Expr_IdentExpr#,
 				_+_(
-					  __result__^#8:*expr.Expr_IdentExpr#,
-				  1^#6:*expr.Constant_Int64Value#
+					  __result__^#7:*expr.Expr_IdentExpr#,
+				  1^#8:*expr.Constant_Int64Value#
 				)^#9:*expr.Expr_CallExpr#,
 				__result__^#10:*expr.Expr_IdentExpr#
 			)^#11:*expr.Expr_CallExpr#,
 			// Result
 			_==_(
 				__result__^#12:*expr.Expr_IdentExpr#,
-				1^#6:*expr.Constant_Int64Value#
-			)^#13:*expr.Expr_CallExpr#)^#14:*expr.Expr_ComprehensionExpr#`,
+				1^#13:*expr.Constant_Int64Value#
+			)^#14:*expr.Expr_CallExpr#)^#15:*expr.Expr_ComprehensionExpr#`,
 		M: `m^#1:*expr.Expr_IdentExpr#.exists_one(
 			v^#3:*expr.Expr_IdentExpr#,
 			f^#4:*expr.Expr_IdentExpr#
-		  	)^#14:exists_one#`,
+		  	)^#15:exists_one#`,
 	},
 	{
 		I: `m.map(v, f)`,
@@ -1112,7 +1112,7 @@ var testCases = []testInfo{
 		| ..............^
 		ERROR: <input>:1:15: argument is not an identifier
 		| [1, 2, 3].map(var, var * var)
-		| ..............^		
+		| ..............^
 		ERROR: <input>:1:20: reserved identifier: var
 		| [1, 2, 3].map(var, var * var)
 		| ...................^
