@@ -285,16 +285,8 @@ func TestSourceInfoToProto(t *testing.T) {
           value: 15
         }
         positions: {
-          key: 7
-          value: 28
-        }
-        positions: {
           key: 8
           value: 29
-        }
-        positions: {
-          key: 9
-          value: 35
         }
         positions: {
           key: 10
