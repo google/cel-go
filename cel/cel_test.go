@@ -2659,6 +2659,71 @@ func TestOptionalValuesEval(t *testing.T) {
 	}
 }
 
+func TestOptionalValuesEvalNoneIfNull(t *testing.T) {
+	env := testEnv(t,
+		OptionalTypes(),
+		OptionalFieldSelectionNoneIfNull(true),
+	)
+	adapter := env.TypeAdapter()
+	tests := []struct {
+		expr string
+		in   map[string]any
+		out  any
+	}{
+		{
+			expr: `{}.?invalid`,
+			out:  types.OptionalNone,
+		},
+		{
+			expr: `{'null_field': dyn(null)}.?null_field`,
+			out:  types.OptionalNone,
+		},
+		{
+			expr: `{'null_field': dyn(null)}.?null_field.?nested`,
+			out:  types.OptionalNone,
+		},
+		{
+			expr: `{'zero_field': dyn(0)}.?zero_field.?invalid`,
+			out:  "no such key: invalid",
+		},
+		{
+			expr: `{0: dyn(0)}[?0].?invalid`,
+			out:  "no such key: invalid",
+		},
+		{
+			expr: `{true: dyn(0)}[?false].?invalid`,
+			out:  types.OptionalNone,
+		},
+		{
+			expr: `{true: dyn(0)}[?true].?invalid`,
+			out:  "no such key: invalid",
+		},
+	}
+
+	for i, tst := range tests {
+		tc := tst
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			ast, iss := env.Compile(tc.expr)
+			if iss.Err() != nil {
+				t.Fatalf("%v failed: %v", tc.expr, iss.Err())
+			}
+			prg, err := env.Program(ast)
+			if err != nil {
+				t.Errorf("env.Program() failed: %v", err)
+			}
+			out, _, err := prg.Eval(tc.in)
+			if err != nil && err.Error() != tc.out {
+				t.Errorf("prg.Eval() got %v, wanted %v", err, tc.out)
+			}
+			want := adapter.NativeToValue(tc.out)
+			if err == nil && out.Equal(want) != types.True {
+				t.Errorf("prg.Eval() got %v, wanted %v", out, want)
+			}
+		})
+	}
+
+}
+
 func TestOptionalMacroError(t *testing.T) {
 	env := testEnv(t,
 		OptionalTypes(),

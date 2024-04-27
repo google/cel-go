@@ -61,6 +61,9 @@ const (
 	// compressing the logic graph to a single call when multiple like-operator
 	// expressions occur: e.g. a && b && c && d -> call(_&&_, [a, b, c, d])
 	featureVariadicLogicalASTs
+
+	// Enable optional field selection to treat null values as optional.none()
+	featureOptionalFieldSelectionNoneIfNull
 )
 
 // EnvOption is a functional interface for configuring the environment.
