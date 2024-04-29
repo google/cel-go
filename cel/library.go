@@ -446,6 +446,10 @@ func enableOptionalSyntax() EnvOption {
 	}
 }
 
+func OptionalFieldSelectionNoneIfNull(value bool) EnvOption {
+	return features(featureOptionalFieldSelectionNoneIfNull, value)
+}
+
 func decorateOptionalOr(i interpreter.Interpretable) (interpreter.Interpretable, error) {
 	call, ok := i.(interpreter.InterpretableCall)
 	if !ok {

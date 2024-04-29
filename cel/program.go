@@ -187,10 +187,13 @@ func newProgram(e *Env, a *Ast, opts []ProgramOption) (Program, error) {
 
 	// Set the attribute factory after the options have been set.
 	var attrFactory interpreter.AttributeFactory
+	attrFactorOpts := []interpreter.AttrFactoryOption{
+		interpreter.OptionalFieldSelectionNoneIfNull(p.HasFeature(featureOptionalFieldSelectionNoneIfNull)),
+	}
 	if p.evalOpts&OptPartialEval == OptPartialEval {
-		attrFactory = interpreter.NewPartialAttributeFactory(e.Container, e.adapter, e.provider)
+		attrFactory = interpreter.NewPartialAttributeFactory(e.Container, e.adapter, e.provider, attrFactorOpts...)
 	} else {
-		attrFactory = interpreter.NewAttributeFactory(e.Container, e.adapter, e.provider)
+		attrFactory = interpreter.NewAttributeFactory(e.Container, e.adapter, e.provider, attrFactorOpts...)
 	}
 	interp := interpreter.NewInterpreter(disp, e.Container, e.provider, e.adapter, attrFactory)
 	p.interpreter = interp

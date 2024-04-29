@@ -126,21 +126,39 @@ type NamespacedAttribute interface {
 	Qualifiers() []Qualifier
 }
 
+// AttrFactoryOption specifies a functional option for configuring an attribute factory.
+type AttrFactoryOption func(*attrFactory) *attrFactory
+
+// OptionalFieldSelectionNoneIfNull indicates that when a null value is encountered during
+// optional field selection that it is treated as optional.none() rather than as optional.of(null).
+func OptionalFieldSelectionNoneIfNull(value bool) AttrFactoryOption {
+	return func(fac *attrFactory) *attrFactory {
+		fac.optionalFieldSelectionNoneIfNull = value
+		return fac
+	}
+}
+
 // NewAttributeFactory returns a default AttributeFactory which is produces Attribute values
 // capable of resolving types by simple names and qualify the values using the supported qualifier
 // types: bool, int, string, and uint.
-func NewAttributeFactory(cont *containers.Container, a types.Adapter, p types.Provider) AttributeFactory {
-	return &attrFactory{
+func NewAttributeFactory(cont *containers.Container, a types.Adapter, p types.Provider, opts ...AttrFactoryOption) AttributeFactory {
+	fac := &attrFactory{
 		container: cont,
 		adapter:   a,
 		provider:  p,
 	}
+	for _, o := range opts {
+		fac = o(fac)
+	}
+	return fac
 }
 
 type attrFactory struct {
 	container *containers.Container
 	adapter   types.Adapter
 	provider  types.Provider
+
+	optionalFieldSelectionNoneIfNull bool
 }
 
 // AbsoluteAttribute refers to a variable value and an optional qualifier path.
@@ -149,12 +167,13 @@ type attrFactory struct {
 // resolution rules.
 func (r *attrFactory) AbsoluteAttribute(id int64, names ...string) NamespacedAttribute {
 	return &absoluteAttribute{
-		id:             id,
-		namespaceNames: names,
-		qualifiers:     []Qualifier{},
-		adapter:        r.adapter,
-		provider:       r.provider,
-		fac:            r,
+		id:                               id,
+		namespaceNames:                   names,
+		qualifiers:                       []Qualifier{},
+		adapter:                          r.adapter,
+		provider:                         r.provider,
+		fac:                              r,
+		optionalFieldSelectionNoneIfNull: r.optionalFieldSelectionNoneIfNull,
 	}
 }
 
@@ -188,11 +207,12 @@ func (r *attrFactory) MaybeAttribute(id int64, name string) Attribute {
 // RelativeAttribute refers to an expression and an optional qualifier path.
 func (r *attrFactory) RelativeAttribute(id int64, operand Interpretable) Attribute {
 	return &relativeAttribute{
-		id:         id,
-		operand:    operand,
-		qualifiers: []Qualifier{},
-		adapter:    r.adapter,
-		fac:        r,
+		id:                               id,
+		operand:                          operand,
+		qualifiers:                       []Qualifier{},
+		adapter:                          r.adapter,
+		fac:                              r,
+		optionalFieldSelectionNoneIfNull: r.optionalFieldSelectionNoneIfNull,
 	}
 }
 
@@ -226,6 +246,8 @@ type absoluteAttribute struct {
 	adapter        types.Adapter
 	provider       types.Provider
 	fac            AttributeFactory
+
+	optionalFieldSelectionNoneIfNull bool
 }
 
 // ID implements the Attribute interface method.
@@ -290,7 +312,7 @@ func (a *absoluteAttribute) Resolve(vars Activation) (any, error) {
 			if celErr, ok := obj.(*types.Err); ok {
 				return nil, celErr.Unwrap()
 			}
-			obj, isOpt, err := applyQualifiers(vars, obj, a.qualifiers)
+			obj, isOpt, err := applyQualifiers(vars, obj, a.qualifiers, a.optionalFieldSelectionNoneIfNull)
 			if err != nil {
 				return nil, err
 			}
@@ -514,6 +536,8 @@ type relativeAttribute struct {
 	qualifiers []Qualifier
 	adapter    types.Adapter
 	fac        AttributeFactory
+
+	optionalFieldSelectionNoneIfNull bool
 }
 
 // ID is an implementation of the Attribute interface method.
@@ -558,7 +582,7 @@ func (a *relativeAttribute) Resolve(vars Activation) (any, error) {
 	if types.IsUnknown(v) {
 		return v, nil
 	}
-	obj, isOpt, err := applyQualifiers(vars, v, a.qualifiers)
+	obj, isOpt, err := applyQualifiers(vars, v, a.qualifiers, a.optionalFieldSelectionNoneIfNull)
 	if err != nil {
 		return nil, err
 	}
@@ -1160,7 +1184,7 @@ func (q *unknownQualifier) Value() ref.Val {
 	return q.value
 }
 
-func applyQualifiers(vars Activation, obj any, qualifiers []Qualifier) (any, bool, error) {
+func applyQualifiers(vars Activation, obj any, qualifiers []Qualifier, noneIfNull bool) (any, bool, error) {
 	optObj, isOpt := obj.(*types.Optional)
 	if isOpt {
 		if !optObj.HasValue() {
@@ -1183,6 +1207,9 @@ func applyQualifiers(vars Activation, obj any, qualifiers []Qualifier) (any, boo
 				// We return optional none here with a presence of 'false' as the layers
 				// above will attempt to call types.OptionalOf() on a present value if any
 				// of the qualifiers is optional.
+				return types.OptionalNone, false, nil
+			}
+			if noneIfNull && qualObj == types.NullValue {
 				return types.OptionalNone, false, nil
 			}
 		} else {

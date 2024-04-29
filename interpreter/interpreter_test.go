@@ -1455,6 +1455,20 @@ func testData(t testing.TB) []testCase {
 			expr: `has(dyn([]).invalid)`,
 			err:  "unsupported index type 'string' in list",
 		},
+
+		{
+			name: "optional_select_on_undefined",
+			expr: `{}.?invalid`,
+
+			out: types.OptionalNone,
+		},
+		{
+			name: "optional_select_on_null_literal",
+			expr: `{"invalid": dyn(null)}.?invalid.?nested`,
+			out:  types.OptionalNone,
+			attrs: NewAttributeFactory(testContainer(""), types.DefaultTypeAdapter, types.NewEmptyRegistry(),
+				OptionalFieldSelectionNoneIfNull(true)),
+		},
 	}
 }
 
