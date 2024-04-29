@@ -19,7 +19,35 @@ import (
 	"os"
 	"testing"
 
+	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
+
 	"gopkg.in/yaml.v3"
+)
+
+var (
+	policyTests = []struct {
+		name    string
+		envOpts []cel.EnvOption
+	}{
+		{name: "nested_rule"},
+		{name: "required_labels"},
+		{name: "restricted_destinations", envOpts: []cel.EnvOption{
+			cel.Function("locationCode",
+				cel.Overload("locationCode_string", []*cel.Type{cel.StringType}, cel.StringType,
+					cel.UnaryBinding(func(ip ref.Val) ref.Val {
+						switch ip.(types.String) {
+						case types.String("10.0.0.1"):
+							return types.String("us")
+						case types.String("10.0.0.2"):
+							return types.String("de")
+						default:
+							return types.String("ir")
+						}
+					}))),
+		}},
+	}
 )
 
 func readPolicy(t testing.TB, fileName string) *Source {
@@ -40,7 +68,7 @@ func readPolicyConfig(t testing.TB, fileName string) *Config {
 	config := &Config{}
 	err = yaml.Unmarshal(testCaseBytes, config)
 	if err != nil {
-		log.Fatalf("error: %v", err)
+		log.Fatalf("yaml.Unmarshal(%s) error: %v", fileName, err)
 	}
 	return config
 }
@@ -54,21 +82,27 @@ func readTestSuite(t testing.TB, fileName string) *TestSuite {
 	suite := &TestSuite{}
 	err = yaml.Unmarshal(testCaseBytes, suite)
 	if err != nil {
-		log.Fatalf("error: %v", err)
+		log.Fatalf("yaml.Unmarshal(%s) error: %v", fileName, err)
 	}
 	return suite
 }
 
+// TestSuite describes a set of tests divided by section.
 type TestSuite struct {
-	Description string     `yaml:"description"`
-	Sections    []*Section `yaml:"section"`
+	Description string         `yaml:"description"`
+	Sections    []*TestSection `yaml:"section"`
 }
 
-type Section struct {
+// TestSection describes a related set of tests associated with a behavior.
+type TestSection struct {
 	Name  string      `yaml:"name"`
 	Tests []*TestCase `yaml:"tests"`
 }
 
+// TestCase describes a named test scenario with a set of inputs and expected outputs.
+//
+// Note, when a test requires additional functions to be provided to execute, the test harness
+// must supply these functions.
 type TestCase struct {
 	Name   string                 `yaml:"name"`
 	Input  map[string]interface{} `yaml:"input"`

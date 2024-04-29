@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package policy provides an extensible parser and compiler for composing
+// a graph of CEL expressions into a single evaluable expression.
 package policy
 
 import (
@@ -166,16 +168,18 @@ func optimizeRule(ctx *cel.OptimizerContext, r *compiledRule) (ast.Expr, bool) {
 			continue
 		}
 		nestedRule, nestedOptional := optimizeRule(ctx, m.nestedRule)
-		optionalResult = optionalResult || nestedOptional
-		if triviallyTrue {
-			matchExpr = nestedRule
+		if optionalResult && !nestedOptional {
+			nestedRule = ctx.NewCall("optional.of", nestedRule)
+		}
+		if !optionalResult && nestedOptional {
+			matchExpr = ctx.NewCall("optional.of", matchExpr)
+			optionalResult = true
+		}
+		if !optionalResult && !nestedOptional {
+			ctx.ReportErrorAtID(nestedRule.ID(), "subrule early terminates policy")
 			continue
 		}
-		matchExpr = ctx.NewCall(
-			operators.Conditional,
-			cond,
-			nestedRule,
-			matchExpr)
+		matchExpr = ctx.NewMemberCall("or", nestedRule, matchExpr)
 	}
 
 	vars := r.variables

@@ -20,32 +20,20 @@ import (
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
-	"github.com/google/cel-go/common/types/ref"
 )
 
 func TestCompile(t *testing.T) {
-	r := newRunner(t, "required_labels")
-	r.run(t)
-
-	r = newRunner(t, "restricted_destinations",
-		cel.Function("locationCode",
-			cel.Overload("locationCode_string", []*cel.Type{cel.StringType}, cel.StringType,
-				cel.UnaryBinding(func(ip ref.Val) ref.Val {
-					switch ip.(types.String) {
-					case types.String("10.0.0.1"):
-						return types.String("us")
-					case types.String("10.0.0.2"):
-						return types.String("de")
-					default:
-						return types.String("ir")
-					}
-				}))))
-	r.run(t)
+	for _, tst := range policyTests {
+		r := newRunner(t, tst.name, tst.envOpts...)
+		r.run(t)
+	}
 }
 
 func BenchmarkCompile(b *testing.B) {
-	r := newRunner(b, "required_labels")
-	r.bench(b)
+	for _, tst := range policyTests {
+		r := newRunner(b, tst.name, tst.envOpts...)
+		r.bench(b)
+	}
 }
 
 func newRunner(t testing.TB, name string, opts ...cel.EnvOption) *runner {
@@ -79,7 +67,11 @@ func (r *runner) setup(t testing.TB) {
 		t.Fatalf("cel.NewEnv() failed: %v", err)
 	}
 	// Configure declarations
-	env, err = env.Extend(config.AsEnvOptions(env)...)
+	configOpts, err := config.AsEnvOptions(env)
+	if err != nil {
+		t.Fatalf("config.AsEnvOptions() failed: %v", err)
+	}
+	env, err = env.Extend(configOpts...)
 	if err != nil {
 		t.Fatalf("env.Extend() with config options %v, failed: %v", config, err)
 	}
@@ -143,7 +135,7 @@ func (r *runner) bench(b *testing.B) {
 		section := s.Name
 		for _, tst := range s.Tests {
 			tc := tst
-			b.Run(fmt.Sprintf("%s/%s", section, tc.Name), func(b *testing.B) {
+			b.Run(fmt.Sprintf("%s/%s/%s", r.name, section, tc.Name), func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
 					_, _, err := r.prg.Eval(tc.Input)
 					if err != nil {

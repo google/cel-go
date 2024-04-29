@@ -14,12 +14,8 @@ import (
 type semanticType int
 
 const (
-	Unspecified semanticType = iota
-	FirstMatch
-	LastMatch
-	LogicalAnd
-	LogicalOr
-	Accumulate
+	unspecified semanticType = iota
+	firstMatch
 )
 
 type policy struct {
@@ -127,10 +123,6 @@ func (p *parser) parse(node *yaml.Node) *policy {
 		p.collectMetadata(id, key)
 		fieldName := key.Value
 		val := node.Content[i+1]
-		if val.Style == yaml.FoldedStyle || val.Style == yaml.LiteralStyle {
-			val.Line++
-			val.Column = key.Column + 2
-		}
 		switch fieldName {
 		case "name":
 			pol.name = p.parseString(val)
@@ -254,6 +246,9 @@ func (p *parser) parseMatch(node *yaml.Node) *match {
 		}
 		switch fieldName {
 		case "condition":
+			if m.rule != nil {
+				p.reportErrorAtID(id, "only the rule or the condition may be set")
+			}
 			m.condition = p.parseString(val)
 		case "output":
 			outputExpr := p.parseString(val)

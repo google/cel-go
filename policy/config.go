@@ -21,6 +21,7 @@ import (
 	"github.com/google/cel-go/ext"
 )
 
+// Config represents a YAML serializable CEL environment configuration.
 type Config struct {
 	Name        string             `yaml:"name"`
 	Description string             `yaml:"description"`
@@ -30,103 +31,167 @@ type Config struct {
 	Functions   []*FunctionDecl    `yaml:"functions"`
 }
 
-func (c *Config) AsEnvOptions(baseEnv *cel.Env) []cel.EnvOption {
+// AsEnvOptions converts the Config value to a collection of cel environment options.
+func (c *Config) AsEnvOptions(baseEnv *cel.Env) ([]cel.EnvOption, error) {
 	envOpts := []cel.EnvOption{}
 	if c.Container != "" {
 		envOpts = append(envOpts, cel.Container(c.Container))
 	}
 	for _, e := range c.Extensions {
-		envOpts = append(envOpts, e.AsEnvOption(baseEnv))
+		opt, err := e.AsEnvOption(baseEnv)
+		if err != nil {
+			return nil, err
+		}
+		envOpts = append(envOpts, opt)
 	}
 	for _, v := range c.Variables {
-		envOpts = append(envOpts, v.AsEnvOption(baseEnv))
+		opt, err := v.AsEnvOption(baseEnv)
+		if err != nil {
+			return nil, err
+		}
+		envOpts = append(envOpts, opt)
 	}
 	for _, f := range c.Functions {
-		envOpts = append(envOpts, f.AsEnvOption(baseEnv))
+		opt, err := f.AsEnvOption(baseEnv)
+		if err != nil {
+			return nil, err
+		}
+		envOpts = append(envOpts, opt)
 	}
-	return envOpts
+	return envOpts, nil
 }
 
+// ExtensionFactory accepts a version number and produces a CEL environment associated with the versioned
+// extension.
+type ExtensionFactory func(uint32) cel.EnvOption
+
+// ExtensionResolver provides a way to lookup ExtensionFactory instances by extension name.
+type ExtensionResolver interface {
+	// ResolveExtension returns an ExtensionFactory bound to the given name, if one exists.
+	ResolveExtension(name string) (ExtensionFactory, bool)
+}
+
+// ExtensionConfig represents a YAML serializable definition of a versioned extension library reference.
 type ExtensionConfig struct {
 	Name    string `yaml:"name"`
 	Version int    `yaml:"version"`
+	ExtensionResolver
 }
 
-func (ec *ExtensionConfig) AsEnvOption(baseEnv *cel.Env) cel.EnvOption {
+// AsEnvOption converts an ExtensionConfig value to a CEL environment option.
+func (ec *ExtensionConfig) AsEnvOption(baseEnv *cel.Env) (cel.EnvOption, error) {
 	fac, found := extFactories[ec.Name]
-	if !found {
-		panic(fmt.Sprintf("unrecognized extension: %s", ec.Name))
+	if !found && ec.ExtensionResolver != nil {
+		fac, found = ec.ResolveExtension(ec.Name)
 	}
-	return fac(uint32(ec.Version))
+	if !found {
+		return nil, fmt.Errorf("unrecognized extension: %s", ec.Name)
+	}
+	return fac(uint32(ec.Version)), nil
 }
 
+// VariableDecl represents a YAML serializable CEL variable declaration.
 type VariableDecl struct {
 	Name string    `yaml:"name"`
 	Type *TypeDecl `yaml:"type"`
 }
 
-func (vd *VariableDecl) AsEnvOption(baseEnv *cel.Env) cel.EnvOption {
-	return cel.Variable(vd.Name, vd.Type.AsCelType(baseEnv))
+// AsEnvOption converts a VariableDecl type to a CEL environment option.
+//
+// Note, variable definitions with differing type definitions will result in an error during
+// the compile step.
+func (vd *VariableDecl) AsEnvOption(baseEnv *cel.Env) (cel.EnvOption, error) {
+	t, err := vd.Type.AsCELType(baseEnv)
+	if err != nil {
+		return nil, err
+	}
+	return cel.Variable(vd.Name, t), nil
 }
 
+// TypeDecl represents a YAML serializable CEL type reference.
 type TypeDecl struct {
 	TypeName    string      `yaml:"type_name"`
 	Params      []*TypeDecl `yaml:"params"`
 	IsTypeParam bool        `yaml:"is_type_param"`
 }
 
-func (td *TypeDecl) AsCelType(baseEnv *cel.Env) *cel.Type {
+// AsCELType converts the TypeDecl value to a cel.Type value using the input base environment.
+//
+// All extension types referenced by name within the `TypeDecl.TypeName` field must be configured
+// within the base CEL environment argument.
+func (td *TypeDecl) AsCELType(baseEnv *cel.Env) (*cel.Type, error) {
+	var err error
 	switch td.TypeName {
 	case "dyn":
-		return cel.DynType
+		return cel.DynType, nil
 	case "map":
 		if len(td.Params) == 2 {
-			return cel.MapType(
-				td.Params[0].AsCelType(baseEnv),
-				td.Params[1].AsCelType(baseEnv))
+			kt, err := td.Params[0].AsCELType(baseEnv)
+			if err != nil {
+				return nil, err
+			}
+			vt, err := td.Params[1].AsCELType(baseEnv)
+			if err != nil {
+				return nil, err
+			}
+			return cel.MapType(kt, vt), nil
 		}
-		panic(fmt.Sprintf("map type has unexpected type params: %v", td.Params))
+		return nil, fmt.Errorf("map type has unexpected param count: %d", len(td.Params))
 	case "list":
 		if len(td.Params) == 1 {
-			return cel.ListType(td.Params[0].AsCelType(baseEnv))
+			et, err := td.Params[0].AsCELType(baseEnv)
+			if err != nil {
+				return nil, err
+			}
+			return cel.ListType(et), nil
 		}
-		panic(fmt.Sprintf("list type has unexpected params: %v", td.Params))
+		return nil, fmt.Errorf("list type has unexpected param count: %d", len(td.Params))
 	default:
 		if td.IsTypeParam {
-			return cel.TypeParamType(td.TypeName)
+			return cel.TypeParamType(td.TypeName), nil
 		}
 		if msgType, found := baseEnv.CELTypeProvider().FindStructType(td.TypeName); found {
-			return msgType
+			return msgType, nil
 		}
 		t, found := baseEnv.CELTypeProvider().FindIdent(td.TypeName)
 		if !found {
-			panic(fmt.Sprintf("undefined type name: %v", td))
+			return nil, fmt.Errorf("undefined type name: %v", td.TypeName)
 		}
 		_, ok := t.(*cel.Type)
 		if ok && len(td.Params) == 0 {
-			return t.(*cel.Type)
+			return t.(*cel.Type), nil
 		}
 		params := make([]*cel.Type, len(td.Params))
 		for i, p := range td.Params {
-			params[i] = p.AsCelType(baseEnv)
+			params[i], err = p.AsCELType(baseEnv)
+			if err != nil {
+				return nil, err
+			}
 		}
-		return cel.OpaqueType(td.TypeName, params...)
+		return cel.OpaqueType(td.TypeName, params...), nil
 	}
 }
 
+// FunctionDecl represents a YAML serializable declaration of a CEL function.
 type FunctionDecl struct {
 	Name      string          `yaml:"name"`
 	Overloads []*OverloadDecl `yaml:"overloads"`
 }
 
-func (fd *FunctionDecl) AsEnvOption(baseEnv *cel.Env) cel.EnvOption {
+// AsEnvOption converts a FunctionDecl value into a cel.EnvOption using the input environment.
+func (fd *FunctionDecl) AsEnvOption(baseEnv *cel.Env) (cel.EnvOption, error) {
 	overloads := make([]cel.FunctionOpt, len(fd.Overloads))
+	var err error
 	for i, o := range fd.Overloads {
-		overloads[i] = o.AsFunctionOption(baseEnv)
+		overloads[i], err = o.AsFunctionOption(baseEnv)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return cel.Function(fd.Name, overloads...)
+	return cel.Function(fd.Name, overloads...), nil
 }
 
+// OverloadDecl represents a YAML serializable declaration of a CEL function overload.
 type OverloadDecl struct {
 	OverloadID string      `yaml:"id"`
 	Target     *TypeDecl   `yaml:"target"`
@@ -134,23 +199,32 @@ type OverloadDecl struct {
 	Return     *TypeDecl   `yaml:"return"`
 }
 
-func (od *OverloadDecl) AsFunctionOption(baseEnv *cel.Env) cel.FunctionOpt {
+// AsFunctionOption converts an OverloadDecl value into a cel.FunctionOpt using the input environment.
+func (od *OverloadDecl) AsFunctionOption(baseEnv *cel.Env) (cel.FunctionOpt, error) {
 	args := make([]*cel.Type, len(od.Args))
+	var err error
 	for i, a := range od.Args {
-		args[i] = a.AsCelType(baseEnv)
+		args[i], err = a.AsCELType(baseEnv)
+		if err != nil {
+			return nil, err
+		}
 	}
-	result := od.Return.AsCelType(baseEnv)
+	result, err := od.Return.AsCELType(baseEnv)
+	if err != nil {
+		return nil, err
+	}
 	if od.Target != nil {
-		t := od.Target.AsCelType(baseEnv)
+		t, err := od.Target.AsCELType(baseEnv)
+		if err != nil {
+			return nil, err
+		}
 		args = append([]*cel.Type{t}, args...)
-		return cel.MemberOverload(od.OverloadID, args, result)
+		return cel.MemberOverload(od.OverloadID, args, result), nil
 	}
-	return cel.Overload(od.OverloadID, args, result)
+	return cel.Overload(od.OverloadID, args, result), nil
 }
 
-type extVersionFactory func(uint32) cel.EnvOption
-
-var extFactories = map[string]extVersionFactory{
+var extFactories = map[string]ExtensionFactory{
 	"bindings": func(version uint32) cel.EnvOption {
 		return ext.Bindings()
 	},
