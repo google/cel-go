@@ -270,5 +270,6 @@ func init() {
 		ext.Encoders(),
 		cel.Types(&test2pb.TestAllTypes{}, &test3pb.TestAllTypes{}),
 		cel.EagerlyValidateDeclarations(true),
+		cel.EnableErrorOnBadPresenceTest(true),
 		cel.OptionalTypes())
 }

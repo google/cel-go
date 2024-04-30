@@ -129,8 +129,8 @@ type NamespacedAttribute interface {
 // AttrFactoryOption specifies a functional option for configuring an attribute factory.
 type AttrFactoryOption func(*attrFactory) *attrFactory
 
-// EnableErrorOnBadPresenceTest indicates that when a null value is encountered during
-// optional field selection that it is treated as optional.none() rather than as optional.of(null).
+// EnableErrorOnBadPresenceTest error generation when a presence test or optional field selection
+// is performed on a primitive type.
 func EnableErrorOnBadPresenceTest(value bool) AttrFactoryOption {
 	return func(fac *attrFactory) *attrFactory {
 		fac.errorOnBadPresenceTest = value
