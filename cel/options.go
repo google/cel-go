@@ -63,7 +63,7 @@ const (
 	featureVariadicLogicalASTs
 
 	// Enable optional field selection to treat null values as optional.none()
-	featureOptionalFieldSelectionNoneIfNull
+	featureEnableErrorOnBadPresenceTest
 )
 
 // EnvOption is a functional interface for configuring the environment.

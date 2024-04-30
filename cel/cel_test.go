@@ -2254,6 +2254,34 @@ func TestOptionalValuesEval(t *testing.T) {
 		out  any
 	}{
 		{
+			expr: `{}.?invalid`,
+			out:  types.OptionalNone,
+		},
+		{
+			expr: `{'null_field': dyn(null)}.?null_field`,
+			out:  types.OptionalOf(types.NullValue),
+		},
+		{
+			expr: `{'null_field': dyn(null)}.?null_field.?nested`,
+			out:  types.OptionalNone,
+		},
+		{
+			expr: `{'zero_field': dyn(0)}.?zero_field.?invalid`,
+			out:  types.OptionalNone,
+		},
+		{
+			expr: `{0: dyn(0)}[?0].?invalid`,
+			out:  types.OptionalNone,
+		},
+		{
+			expr: `{true: dyn(0)}[?false].?invalid`,
+			out:  types.OptionalNone,
+		},
+		{
+			expr: `{true: dyn(0)}[?true].?invalid`,
+			out:  types.OptionalNone,
+		},
+		{
 			expr: `x.or(y).orValue(z)`,
 			in: map[string]any{
 				"x": types.OptionalNone,
@@ -2659,10 +2687,10 @@ func TestOptionalValuesEval(t *testing.T) {
 	}
 }
 
-func TestOptionalValuesEvalNoneIfNull(t *testing.T) {
+func TestEnableErrorOnBadPresenceTest(t *testing.T) {
 	env := testEnv(t,
 		OptionalTypes(),
-		OptionalFieldSelectionNoneIfNull(true),
+		EnableErrorOnBadPresenceTest(true),
 	)
 	adapter := env.TypeAdapter()
 	tests := []struct {
@@ -2676,11 +2704,11 @@ func TestOptionalValuesEvalNoneIfNull(t *testing.T) {
 		},
 		{
 			expr: `{'null_field': dyn(null)}.?null_field`,
-			out:  types.OptionalNone,
+			out:  types.OptionalOf(types.NullValue),
 		},
 		{
 			expr: `{'null_field': dyn(null)}.?null_field.?nested`,
-			out:  types.OptionalNone,
+			out:  "no such key: nested",
 		},
 		{
 			expr: `{'zero_field': dyn(0)}.?zero_field.?invalid`,
