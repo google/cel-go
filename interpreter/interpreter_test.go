@@ -1449,25 +1449,26 @@ func testData(t testing.TB) []testCase {
 			name: "invalid_presence_test_on_int_literal",
 			expr: `has(dyn(1).invalid)`,
 			err:  "no such key: invalid",
+			attrs: NewAttributeFactory(testContainer(""), types.DefaultTypeAdapter, types.NewEmptyRegistry(),
+				EnableErrorOnBadPresenceTest(true)),
 		},
 		{
 			name: "invalid_presence_test_on_list_literal",
 			expr: `has(dyn([]).invalid)`,
 			err:  "unsupported index type 'string' in list",
+			attrs: NewAttributeFactory(testContainer(""), types.DefaultTypeAdapter, types.NewEmptyRegistry(),
+				EnableErrorOnBadPresenceTest(true)),
 		},
 
 		{
 			name: "optional_select_on_undefined",
 			expr: `{}.?invalid`,
-
-			out: types.OptionalNone,
+			out:  types.OptionalNone,
 		},
 		{
 			name: "optional_select_on_null_literal",
 			expr: `{"invalid": dyn(null)}.?invalid.?nested`,
 			out:  types.OptionalNone,
-			attrs: NewAttributeFactory(testContainer(""), types.DefaultTypeAdapter, types.NewEmptyRegistry(),
-				OptionalFieldSelectionNoneIfNull(true)),
 		},
 	}
 }

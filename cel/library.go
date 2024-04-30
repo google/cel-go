@@ -446,8 +446,10 @@ func enableOptionalSyntax() EnvOption {
 	}
 }
 
-func OptionalFieldSelectionNoneIfNull(value bool) EnvOption {
-	return features(featureOptionalFieldSelectionNoneIfNull, value)
+// EnableErrorOnBadPresenceTest enables error generation when a presence test or optional field
+// selection is performed on a primitive type.
+func EnableErrorOnBadPresenceTest(value bool) EnvOption {
+	return features(featureEnableErrorOnBadPresenceTest, value)
 }
 
 func decorateOptionalOr(i interpreter.Interpretable) (interpreter.Interpretable, error) {

@@ -62,8 +62,9 @@ const (
 	// expressions occur: e.g. a && b && c && d -> call(_&&_, [a, b, c, d])
 	featureVariadicLogicalASTs
 
-	// Enable optional field selection to treat null values as optional.none()
-	featureOptionalFieldSelectionNoneIfNull
+	// Enable error generation when a presence test or optional field selection is
+	// performed on a primitive type.
+	featureEnableErrorOnBadPresenceTest
 )
 
 // EnvOption is a functional interface for configuring the environment.
