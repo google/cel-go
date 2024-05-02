@@ -18,7 +18,7 @@ package repl
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/google/cel-go/cel"
@@ -816,7 +816,7 @@ func (e *Evaluator) loadExtensionOptionType(extType string) error {
 }
 
 func loadFileDescriptorSet(path string, textfmt bool) (*descpb.FileDescriptorSet, error) {
-	data, err := ioutil.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
