@@ -1,3 +1,17 @@
+// Copyright 2024 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//	https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package policy
 
 import (
@@ -18,6 +32,7 @@ const (
 	firstMatch
 )
 
+// Policy declares a name, rule, and evaluation semantic for a given expression graph.
 type Policy struct {
 	name     ValueString
 	rule     *Rule
@@ -26,30 +41,37 @@ type Policy struct {
 	source   *Source
 }
 
+// Source returns the policy file contents as a CEL source object.
 func (p *Policy) Source() *Source {
 	return p.source
 }
 
+// SourceInfo returns the policy file metadata about expression positions.
 func (p *Policy) SourceInfo() *ast.SourceInfo {
 	return p.info
 }
 
+// Name returns the name of the policy.
 func (p *Policy) Name() ValueString {
 	return p.name
 }
 
+// Rule returns the rule entry point of the policy.
 func (p *Policy) Rule() *Rule {
 	return p.rule
 }
 
+// SetName configures the policy name.
 func (p *Policy) SetName(name ValueString) {
 	p.name = name
 }
 
+// SetRule configures the policy rule entry point.
 func (p *Policy) SetRule(r *Rule) {
 	p.rule = r
 }
 
+// Rule declares a rule identifier, description, along with a set of variables and match statements.
 type Rule struct {
 	id          *ValueString
 	description *ValueString
@@ -57,6 +79,7 @@ type Rule struct {
 	matches     []*Match
 }
 
+// ID returns the id value of the rule if it is set.
 func (r *Rule) ID() ValueString {
 	if r.id != nil {
 		return *r.id
@@ -64,6 +87,7 @@ func (r *Rule) ID() ValueString {
 	return ValueString{}
 }
 
+// Description returns the rule description if it is set.
 func (r *Rule) Description() ValueString {
 	if r.description != nil {
 		return *r.description
@@ -71,65 +95,81 @@ func (r *Rule) Description() ValueString {
 	return ValueString{}
 }
 
+// Matches returns the ordered set of Match declarations.
 func (r *Rule) Matches() []*Match {
 	return r.matches[:]
 }
 
+// Variables returns the order set of Variable tuples.
 func (r *Rule) Variables() []*Variable {
 	return r.variables[:]
 }
 
+// SetID configures the id for the rule.
 func (r *Rule) SetID(id ValueString) {
 	r.id = &id
 }
 
+// SetDescription configures the description for the rule.
 func (r *Rule) SetDescription(desc ValueString) {
 	r.description = &desc
 }
 
+// AddMatch addes a Match to the rule.
 func (r *Rule) AddMatch(m *Match) {
 	r.matches = append(r.matches, m)
 }
 
+// AddVariable adds a variable to the rule.
 func (r *Rule) AddVariable(v *Variable) {
 	r.variables = append(r.variables, v)
 }
 
+// Variable is a named expression which may be referenced in subsequent expressions.
 type Variable struct {
 	name       ValueString
 	expression ValueString
 }
 
+// Name returns the variable name.
 func (v *Variable) Name() ValueString {
 	return v.name
 }
 
+// Expression returns the variable expression.
 func (v *Variable) Expression() ValueString {
 	return v.expression
 }
 
+// SetName sets the variable name.
 func (v *Variable) SetName(name ValueString) {
 	v.name = name
 }
 
+// SetExpression sets the variable expression.
 func (v *Variable) SetExpression(e ValueString) {
 	v.expression = e
 }
 
+// Match declares a condition (defaults to true) as well as an output or a rule.
+// Either the output or the rule field may be set, but not both.
 type Match struct {
 	condition ValueString
 	output    *ValueString
 	rule      *Rule
 }
 
+// Condition returns the condition CEL expression.
 func (m *Match) Condition() ValueString {
 	return m.condition
 }
 
+// HasOutput indicates whether the output field is set of the match.
 func (m *Match) HasOutput() bool {
 	return m.output != nil
 }
 
+// Output returns the output expression, or empty expression if output is not set.
 func (m *Match) Output() ValueString {
 	if m.HasOutput() {
 		return *m.output
@@ -137,43 +177,69 @@ func (m *Match) Output() ValueString {
 	return ValueString{}
 }
 
+// HasRule indicates whether the rule field is set on a match.
 func (m *Match) HasRule() bool {
 	return m.rule != nil
 }
 
+// Rule returns the rule value, or nil if the rule is not set.
 func (m *Match) Rule() *Rule {
 	return m.rule
 }
 
+// SetCondition sets the CEL condition for the match.
 func (m *Match) SetCondition(c ValueString) {
 	m.condition = c
 }
 
+// SetOutput sets the output expression for the match.
 func (m *Match) SetOutput(o ValueString) {
 	m.output = &o
 }
 
+// SetRule sets the rule for the match.
 func (m *Match) SetRule(r *Rule) {
 	m.rule = r
 }
 
+// ValueString contains an identifier corresponding to source metadata and a simple string.
 type ValueString struct {
 	ID    int64
 	Value string
 }
 
+// ParserContext declares a set of interfaces for creating and managing metadata for parsed policies.
 type ParserContext interface {
+	// NextID returns a monotonically increasing identifier for a source fragment.
+	// This ID is implicitly created and tracked within the CollectMetadata method.
 	NextID() int64
+
+	// CollectMetadata records the source position information of a given YAML node, and returns
+	// the id associated with the source metadata which is returned in the Policy SourceInfo object.
 	CollectMetadata(*yaml.Node) int64
+
+	// ReportErrorAtID logs an error during parsing which is included in the issue set returned from
+	// a failed parse.
 	ReportErrorAtID(id int64, msg string, args ...any)
 
+	// NewPolicy creates a new Policy instance with an ID associated with the YAML node.
 	NewPolicy(*yaml.Node) (*Policy, int64)
+
+	// NewRule creates a new Rule instance with an ID associated with the YAML node.
 	NewRule(*yaml.Node) (*Rule, int64)
+
+	// NewVariable creates a new Variable instance with an ID associated with the YAML node.
 	NewVariable(*yaml.Node) (*Variable, int64)
+
+	// NewMatch creates a new Match instance with an ID associated with the YAML node.
 	NewMatch(*yaml.Node) (*Match, int64)
+
+	// NewString creates a new ValueString from the YAML node.
 	NewString(*yaml.Node) ValueString
 }
 
+// TagVisitor declares a set of interfaces for handling custom tags which would otherwise be unsupported
+// within the policy, rule, match, or variable objects.
 type TagVisitor interface {
 	PolicyTag(ctx ParserContext, id int64, fieldName string, val *yaml.Node, p *Policy)
 	RuleTag(ctx ParserContext, id int64, fieldName string, val *yaml.Node, r *Rule)
@@ -199,12 +265,25 @@ func (defaultTagVisitor) VariableTag(ctx ParserContext, id int64, fieldName stri
 	ctx.ReportErrorAtID(id, "unsupported match tag: %s", fieldName)
 }
 
+// Parser parses policy files into a canonical Policy representation.
 type Parser struct {
-	tagVisitor TagVisitor
+	TagVisitor
 }
 
-func NewParser() *Parser {
-	return &Parser{tagVisitor: defaultTagVisitor{}}
+// ParserOption is a function parser option for configuring Parser behavior.
+type ParserOption func(*Parser) (*Parser, error)
+
+// NewParser creates a new Parser object with a set of functional options.
+func NewParser(opts ...ParserOption) (*Parser, error) {
+	p := &Parser{TagVisitor: defaultTagVisitor{}}
+	var err error
+	for _, o := range opts {
+		p, err = o(p)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return p, nil
 }
 
 // Parse generates an internal parsed policy representation from a YAML input file.
@@ -215,7 +294,7 @@ func (parser *Parser) Parse(src *Source) (*Policy, *cel.Issues) {
 	info := ast.NewSourceInfo(src)
 	errs := common.NewErrors(src)
 	iss := cel.NewIssuesWithSourceInfo(errs, info)
-	p := newParserImpl(parser.tagVisitor, info, src, iss)
+	p := newParserImpl(parser.TagVisitor, info, src, iss)
 	policy := p.parseYaml(src)
 	if iss.Err() != nil {
 		return nil, iss
@@ -352,7 +431,7 @@ func (p *parserImpl) parsePolicy(ctx ParserContext, node *yaml.Node) *Policy {
 	}
 	for i := 0; i < len(node.Content); i += 2 {
 		key := node.Content[i]
-		p.CollectMetadata(key)
+		keyID := p.CollectMetadata(key)
 		fieldName := key.Value
 		val := node.Content[i+1]
 		switch fieldName {
@@ -361,8 +440,7 @@ func (p *parserImpl) parsePolicy(ctx ParserContext, node *yaml.Node) *Policy {
 		case "rule":
 			policy.SetRule(p.parseRule(ctx, val))
 		default:
-			id := ctx.CollectMetadata(val)
-			p.visitor.PolicyTag(ctx, id, fieldName, val, policy)
+			p.visitor.PolicyTag(ctx, keyID, fieldName, val, policy)
 		}
 	}
 	return policy
@@ -375,7 +453,7 @@ func (p *parserImpl) parseRule(ctx ParserContext, node *yaml.Node) *Rule {
 	}
 	for i := 0; i < len(node.Content); i += 2 {
 		key := node.Content[i]
-		ctx.CollectMetadata(key)
+		tagID := ctx.CollectMetadata(key)
 		fieldName := key.Value
 		val := node.Content[i+1]
 		if val.Style == yaml.FoldedStyle || val.Style == yaml.LiteralStyle {
@@ -392,8 +470,7 @@ func (p *parserImpl) parseRule(ctx ParserContext, node *yaml.Node) *Rule {
 		case "match":
 			p.parseMatches(ctx, r, val)
 		default:
-			id := ctx.CollectMetadata(val)
-			p.visitor.RuleTag(ctx, id, fieldName, val, r)
+			p.visitor.RuleTag(ctx, tagID, fieldName, val, r)
 		}
 	}
 	return r
@@ -416,7 +493,7 @@ func (p *parserImpl) parseVariable(ctx ParserContext, node *yaml.Node) *Variable
 	}
 	for i := 0; i < len(node.Content); i += 2 {
 		key := node.Content[i]
-		ctx.CollectMetadata(key)
+		keyID := ctx.CollectMetadata(key)
 		fieldName := key.Value
 		val := node.Content[i+1]
 		if val.Style == yaml.FoldedStyle || val.Style == yaml.LiteralStyle {
@@ -429,8 +506,7 @@ func (p *parserImpl) parseVariable(ctx ParserContext, node *yaml.Node) *Variable
 		case "expression":
 			v.SetExpression(ctx.NewString(val))
 		default:
-			id := ctx.CollectMetadata(node)
-			p.visitor.VariableTag(ctx, id, fieldName, val, v)
+			p.visitor.VariableTag(ctx, keyID, fieldName, val, v)
 		}
 	}
 	return v
@@ -454,7 +530,7 @@ func (p *parserImpl) parseMatch(ctx ParserContext, node *yaml.Node) *Match {
 	m.SetCondition(ValueString{ID: ctx.NextID(), Value: "true"})
 	for i := 0; i < len(node.Content); i += 2 {
 		key := node.Content[i]
-		id := ctx.CollectMetadata(key)
+		keyID := ctx.CollectMetadata(key)
 		fieldName := key.Value
 		val := node.Content[i+1]
 		if val.Style == yaml.FoldedStyle || val.Style == yaml.LiteralStyle {
@@ -463,17 +539,19 @@ func (p *parserImpl) parseMatch(ctx ParserContext, node *yaml.Node) *Match {
 		}
 		switch fieldName {
 		case "condition":
-			if m.HasRule() {
-				p.ReportErrorAtID(id, "only the rule or the condition may be set")
-			}
 			m.SetCondition(ctx.NewString(val))
 		case "output":
+			if m.HasRule() {
+				p.ReportErrorAtID(keyID, "only the rule or the output may be set")
+			}
 			m.SetOutput(ctx.NewString(val))
 		case "rule":
+			if m.HasOutput() {
+				p.ReportErrorAtID(keyID, "only the rule or the output may be set")
+			}
 			m.SetRule(p.parseRule(ctx, val))
 		default:
-			id := ctx.CollectMetadata(node)
-			p.visitor.MatchTag(ctx, id, fieldName, val, m)
+			p.visitor.MatchTag(ctx, keyID, fieldName, val, m)
 		}
 	}
 	return m
@@ -511,6 +589,15 @@ const (
 	yamlMap
 	yamlTimestamp
 )
+
+func (yt yamlNodeType) String() string {
+	for k, v := range yamlTypes {
+		if v == yt {
+			return k
+		}
+	}
+	return fmt.Sprintf("%d", yt)
+}
 
 var (
 	// yamlTypes map of the long tag names supported by the Go YAML v3 library.

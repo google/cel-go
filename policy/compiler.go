@@ -75,7 +75,7 @@ func (c *compiler) compileRule(r *Rule, ruleEnv *cel.Env, iss *cel.Issues) (*com
 		exprSrc := c.relSource(v.Expression())
 		varAST, exprIss := ruleEnv.CompileSource(exprSrc)
 		if exprIss.Err() == nil {
-			ruleEnv, err = ruleEnv.Extend(cel.Variable(fmt.Sprintf("variables.%s", v.name.Value), varAST.OutputType()))
+			ruleEnv, err = ruleEnv.Extend(cel.Variable(fmt.Sprintf("variables.%s", v.Name().Value), varAST.OutputType()))
 			if err != nil {
 				iss.ReportErrorAtID(v.Expression().ID, "invalid variable declaration")
 			}
@@ -136,6 +136,8 @@ type ruleComposer struct {
 	rule *compiledRule
 }
 
+// Optimize implements an AST optimizer for CEL which composes an expression graph into a single
+// expression value.
 func (opt *ruleComposer) Optimize(ctx *cel.OptimizerContext, a *ast.AST) *ast.AST {
 	ruleExpr, _ := optimizeRule(ctx, opt.rule)
 	ctx.UpdateExpr(a.Expr(), ruleExpr)

@@ -20,15 +20,123 @@ import (
 )
 
 func TestParse(t *testing.T) {
-	parser := NewParser()
+	parser, err := NewParser()
+	if err != nil {
+		t.Fatalf("NewParser() failed: %v", err)
+	}
 	for _, tst := range policyTests {
 		srcFile := readPolicy(t, fmt.Sprintf("testdata/%s/policy.yaml", tst.name))
 		p, iss := parser.Parse(srcFile)
 		if iss.Err() != nil {
 			t.Fatalf("parse() failed: %v", iss.Err())
 		}
-		if p.name.Value != tst.name {
+		if p.Name().Value != tst.name {
 			t.Errorf("policy name is %v, wanted 'required_labels'", p.name)
+		}
+	}
+}
+
+func TestParseError(t *testing.T) {
+	tests := []struct {
+		txt string
+		err string
+	}{
+		{
+			txt: `
+name:
+  illegal: yaml-type`,
+			err: `ERROR: <input>:3:3: got yaml node type tag:yaml.org,2002:map, wanted type(s) [tag:yaml.org,2002:str !txt]
+ |   illegal: yaml-type
+ | ..^`,
+		},
+		{
+			txt: `
+rule:
+  custom: yaml-type`,
+			err: `ERROR: <input>:3:3: unsupported rule tag: custom
+ |   custom: yaml-type
+ | ..^`,
+		},
+		{
+			txt: `
+inputs:
+  - name: a
+  - name: b`,
+			err: `ERROR: <input>:1:2: unsupported policy tag: inputs
+ | 
+ | ^`,
+		},
+		{
+			txt: `
+rule:
+  variables:
+    - name: "true"
+      alt_name: "bool_true"`,
+			err: `ERROR: <input>:5:7: unsupported match tag: alt_name
+ |       alt_name: "bool_true"
+ | ......^`,
+		},
+		{
+			txt: `
+rule:
+  match:
+    - name: "true"
+      alt_name: "bool_true"`,
+			err: `ERROR: <input>:4:7: unsupported match tag: name
+ |     - name: "true"
+ | ......^
+ERROR: <input>:5:7: unsupported match tag: alt_name
+ |       alt_name: "bool_true"
+ | ......^`,
+		},
+		{
+			txt: `
+- rule:
+    id: a`,
+			err: `ERROR: <input>:1:2: got yaml node type tag:yaml.org,2002:seq, wanted type(s) [tag:yaml.org,2002:map]
+ | 
+ | ^`,
+		},
+		{
+			txt: `
+rule:
+  match:
+    - condition: "true"
+      output: "world"
+      rule:
+        match:
+          - output: "hello"`,
+			err: `ERROR: <input>:6:7: only the rule or the output may be set
+ |       rule:
+ | ......^`,
+		},
+		{
+			txt: `
+rule:
+  match:
+    - condition: "true"
+      rule:
+        match:
+          - output: "hello"
+      output: "world"`,
+			err: `ERROR: <input>:8:7: only the rule or the output may be set
+ |       output: "world"
+ | ......^`,
+		},
+	}
+
+	for _, tst := range tests {
+		parser, err := NewParser()
+		if err != nil {
+			t.Fatalf("NewParser() failed: %v", err)
+		}
+		_, iss := parser.Parse(StringSource(tst.txt, "<input>"))
+		if iss.Err() == nil {
+			t.Fatalf("parser.Parse(%q) did not error, wanted %s", tst.txt, tst.err)
+		}
+
+		if iss.Err().Error() != tst.err {
+			t.Errorf("parser.Parse(%q) got error %v, wanted error %s", tst.txt, iss.Err(), tst.err)
 		}
 	}
 }
