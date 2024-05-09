@@ -52,11 +52,12 @@ type runner struct {
 func (r *runner) setup(t testing.TB) {
 	config := readPolicyConfig(t, fmt.Sprintf("testdata/%s/config.yaml", r.name))
 	srcFile := readPolicy(t, fmt.Sprintf("testdata/%s/policy.yaml", r.name))
-	p, iss := Parse(srcFile)
+	parser := NewParser()
+	p, iss := parser.Parse(srcFile)
 	if iss.Err() != nil {
 		t.Fatalf("parse() failed: %v", iss.Err())
 	}
-	if p.name.value != r.name {
+	if p.name.Value != r.name {
 		t.Errorf("policy name is %v, wanted %s", p.name, r.name)
 	}
 	env, err := cel.NewEnv(

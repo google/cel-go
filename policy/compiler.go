@@ -49,15 +49,15 @@ type compiledMatch struct {
 }
 
 // Compile generates a single CEL AST from a collection of policy expressions associated with a CEL environment.
-func Compile(env *cel.Env, p *policy) (*cel.Ast, *cel.Issues) {
+func Compile(env *cel.Env, p *Policy) (*cel.Ast, *cel.Issues) {
 	c := &compiler{
 		env:  env,
-		info: p.info,
-		src:  p.source,
+		info: p.SourceInfo(),
+		src:  p.Source(),
 	}
 	errs := common.NewErrors(c.src)
 	iss := cel.NewIssuesWithSourceInfo(errs, c.info)
-	rule, ruleIss := c.compileRule(p.rule, c.env, iss)
+	rule, ruleIss := c.compileRule(p.Rule(), c.env, iss)
 	iss = iss.Append(ruleIss)
 	if iss.Err() != nil {
 		return nil, iss
@@ -68,35 +68,35 @@ func Compile(env *cel.Env, p *policy) (*cel.Ast, *cel.Issues) {
 	return ruleExprAST, iss.Append(iss)
 }
 
-func (c *compiler) compileRule(r *rule, ruleEnv *cel.Env, iss *cel.Issues) (*compiledRule, *cel.Issues) {
+func (c *compiler) compileRule(r *Rule, ruleEnv *cel.Env, iss *cel.Issues) (*compiledRule, *cel.Issues) {
 	var err error
-	compiledVars := make([]*compiledVariable, len(r.variables))
-	for i, v := range r.variables {
-		exprSrc := c.relSource(v.expression)
+	compiledVars := make([]*compiledVariable, len(r.Variables()))
+	for i, v := range r.Variables() {
+		exprSrc := c.relSource(v.Expression())
 		varAST, exprIss := ruleEnv.CompileSource(exprSrc)
 		if exprIss.Err() == nil {
-			ruleEnv, err = ruleEnv.Extend(cel.Variable(fmt.Sprintf("variables.%s", v.name.value), varAST.OutputType()))
+			ruleEnv, err = ruleEnv.Extend(cel.Variable(fmt.Sprintf("variables.%s", v.name.Value), varAST.OutputType()))
 			if err != nil {
-				iss.ReportErrorAtID(v.expression.id, "invalid variable declaration")
+				iss.ReportErrorAtID(v.Expression().ID, "invalid variable declaration")
 			}
 			compiledVars[i] = &compiledVariable{
-				name: v.name.value,
+				name: v.name.Value,
 				expr: varAST,
 			}
 		}
 		iss = iss.Append(exprIss)
 	}
 	compiledMatches := []*compiledMatch{}
-	for _, m := range r.matches {
-		condSrc := c.relSource(m.condition)
+	for _, m := range r.Matches() {
+		condSrc := c.relSource(m.Condition())
 		condAST, condIss := ruleEnv.CompileSource(condSrc)
 		iss = iss.Append(condIss)
-		if m.output != nil && m.rule != nil {
-			iss.ReportErrorAtID(m.condition.id, "either output or rule may be set but not both")
+		if m.HasOutput() && m.HasRule() {
+			iss.ReportErrorAtID(m.Condition().ID, "either output or rule may be set but not both")
 			continue
 		}
-		if m.output != nil {
-			outSrc := c.relSource(*m.output)
+		if m.HasOutput() {
+			outSrc := c.relSource(m.Output())
 			outAST, outIss := ruleEnv.CompileSource(outSrc)
 			iss = iss.Append(outIss)
 			compiledMatches = append(compiledMatches, &compiledMatch{
@@ -105,8 +105,8 @@ func (c *compiler) compileRule(r *rule, ruleEnv *cel.Env, iss *cel.Issues) (*com
 			})
 			continue
 		}
-		if m.rule != nil {
-			nestedRule, ruleIss := c.compileRule(m.rule, ruleEnv, iss)
+		if m.HasRule() {
+			nestedRule, ruleIss := c.compileRule(m.Rule(), ruleEnv, iss)
 			iss = iss.Append(ruleIss)
 			compiledMatches = append(compiledMatches, &compiledMatch{
 				cond:       condAST,
@@ -120,16 +120,16 @@ func (c *compiler) compileRule(r *rule, ruleEnv *cel.Env, iss *cel.Issues) (*com
 	}, iss
 }
 
-func (c *compiler) relSource(pstr policyString) *RelativeSource {
+func (c *compiler) relSource(pstr ValueString) *RelativeSource {
 	line := 0
 	col := 1
-	if offset, found := c.info.GetOffsetRange(pstr.id); found {
+	if offset, found := c.info.GetOffsetRange(pstr.ID); found {
 		if loc, found := c.src.OffsetLocation(offset.Start); found {
 			line = loc.Line()
 			col = loc.Column()
 		}
 	}
-	return c.src.Relative(pstr.value, line, col)
+	return c.src.Relative(pstr.Value, line, col)
 }
 
 type ruleComposer struct {

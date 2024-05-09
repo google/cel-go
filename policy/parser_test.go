@@ -20,13 +20,14 @@ import (
 )
 
 func TestParse(t *testing.T) {
+	parser := NewParser()
 	for _, tst := range policyTests {
 		srcFile := readPolicy(t, fmt.Sprintf("testdata/%s/policy.yaml", tst.name))
-		p, iss := Parse(srcFile)
+		p, iss := parser.Parse(srcFile)
 		if iss.Err() != nil {
 			t.Fatalf("parse() failed: %v", iss.Err())
 		}
-		if p.name.value != tst.name {
+		if p.name.Value != tst.name {
 			t.Errorf("policy name is %v, wanted 'required_labels'", p.name)
 		}
 	}
