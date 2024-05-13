@@ -15,6 +15,7 @@
 package ext
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"sort"
@@ -60,17 +61,20 @@ func TestNativeTypes(t *testing.T) {
 					ext.TestNestedType{
 						NestedListVal:['goodbye', 'cruel', 'world'],
 						NestedMapVal: {42: true},
+            custom_name: 'name',
 					},
 				],
 				ArrayVal: [
 					ext.TestNestedType{
 						NestedListVal:['goodbye', 'cruel', 'world'],
 						NestedMapVal: {42: true},
+            custom_name: 'name',
 					},
 				],
 				MapVal: {'map-key': ext.TestAllTypes{BoolVal: true}},
 				CustomSliceVal: [ext.TestNestedSliceType{Value: 'none'}],
 				CustomMapVal: {'even': ext.TestMapVal{Value: 'more'}},
+        custom_name: 'name',
 			}`,
 			out: &TestAllTypes{
 				NestedVal:    &TestNestedType{NestedMapVal: map[int64]bool{1: false}},
@@ -87,17 +91,20 @@ func TestNativeTypes(t *testing.T) {
 				Uint64Val:    uint64(200),
 				ListVal: []*TestNestedType{
 					{
-						NestedListVal: []string{"goodbye", "cruel", "world"},
-						NestedMapVal:  map[int64]bool{42: true},
+						NestedListVal:    []string{"goodbye", "cruel", "world"},
+						NestedMapVal:     map[int64]bool{42: true},
+						NestedCustomName: "name",
 					},
 				},
 				ArrayVal: [1]*TestNestedType{{
-					NestedListVal: []string{"goodbye", "cruel", "world"},
-					NestedMapVal:  map[int64]bool{42: true},
+					NestedListVal:    []string{"goodbye", "cruel", "world"},
+					NestedMapVal:     map[int64]bool{42: true},
+					NestedCustomName: "name",
 				}},
 				MapVal:         map[string]TestAllTypes{"map-key": {BoolVal: true}},
 				CustomSliceVal: []TestNestedSliceType{{Value: "none"}},
 				CustomMapVal:   map[string]TestMapVal{"even": {Value: "more"}},
+				CustomName:     "name",
 			},
 		},
 		{
@@ -126,6 +133,7 @@ func TestNativeTypes(t *testing.T) {
 		{expr: `ext.TestAllTypes{}.TimestampVal == timestamp(0)`},
 		{expr: `test.TestAllTypes{}.single_timestamp == timestamp(0)`},
 		{expr: `[TestAllTypes{BoolVal: true}, TestAllTypes{BoolVal: false}].exists(t, t.BoolVal == true)`},
+		{expr: `[TestAllTypes{custom_name: 'Alice'}, TestAllTypes{custom_name: 'Bob'}].exists(t, t.custom_name == 'Alice')`},
 		{
 			expr: `tests.all(t, t.Int32Val > 17)`,
 			in: map[string]any{
@@ -186,7 +194,7 @@ func TestNativeFindStructFieldNames(t *testing.T) {
 	}{
 		{
 			typeName: "ext.TestNestedType",
-			fields:   []string{"NestedListVal", "NestedMapVal"},
+			fields:   []string{"NestedListVal", "NestedMapVal", "custom_name"},
 		},
 		{
 			typeName: "google.expr.proto3.test.TestAllTypes.NestedMessage",
@@ -287,7 +295,8 @@ func TestNativeTypesJsonSerialization(t *testing.T) {
 				NestedVal: TestNestedType{
 					NestedListVal: ["first", "second"],
 				},
-				StringVal: "string"
+				StringVal: "string",
+        custom_name: "name",
 			}`,
 			out: `{
 				"BoolVal":  true,
@@ -307,7 +316,8 @@ func TestNativeTypesJsonSerialization(t *testing.T) {
 					  "second"
 					]
 				},
-				"StringVal":  "string"
+				"StringVal":  "string",
+        "custom_name": "name"
 			  }`,
 		},
 	}
@@ -647,6 +657,16 @@ func TestNativeTypeValue(t *testing.T) {
 	}
 }
 
+func TestNativeStructWithMultileSameFieldNames(t *testing.T) {
+	_, err := newNativeType(reflect.TypeOf(TestStructWithMultipleSameNames{}))
+	if err == nil {
+		t.Fatal("newNativeType() did not fail as expected")
+	}
+  if !errors.Is(err, errDuplicatedFieldName) {
+    t.Fatalf("newNativeType() exepected duplicated field name error, but got: %v", err)
+  }
+}
+
 // testEnv initializes the test environment common to all tests.
 func testNativeEnv(t *testing.T, opts ...cel.EnvOption) *cel.Env {
 	t.Helper()
@@ -678,9 +698,15 @@ func mustParseTime(t *testing.T, timestamp string) time.Time {
 	return out
 }
 
+type TestStructWithMultipleSameNames struct {
+	Name        string
+	custom_name string `cel:"Name"`
+}
+
 type TestNestedType struct {
-	NestedListVal []string
-	NestedMapVal  map[int64]bool
+	NestedListVal    []string
+	NestedMapVal     map[int64]bool
+	NestedCustomName string `cel:"custom_name"`
 }
 
 type TestAllTypes struct {
@@ -703,6 +729,7 @@ type TestAllTypes struct {
 	PbVal           *proto3pb.TestAllTypes
 	CustomSliceVal  []TestNestedSliceType
 	CustomMapVal    map[string]TestMapVal
+	CustomName      string `cel:"custom_name"`
 
 	// channel types are not supported
 	UnsupportedVal     chan string

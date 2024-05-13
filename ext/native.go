@@ -15,6 +15,7 @@
 package ext
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -155,6 +156,14 @@ func (tp *nativeTypeProvider) FindStructType(typeName string) (*types.Type, bool
 	return tp.baseProvider.FindStructType(typeName)
 }
 
+func toFieldName(f reflect.StructField) string {
+	if name, found := f.Tag.Lookup("cel"); found {
+		return name
+	}
+
+	return f.Name
+}
+
 // FindStructFieldNames looks up the type definition first from the native types, then from
 // the backing provider type set. If found, a set of field names corresponding to the type
 // will be returned.
@@ -163,7 +172,7 @@ func (tp *nativeTypeProvider) FindStructFieldNames(typeName string) ([]string, b
 		fieldCount := t.refType.NumField()
 		fields := make([]string, fieldCount)
 		for i := 0; i < fieldCount; i++ {
-			fields[i] = t.refType.Field(i).Name
+			fields[i] = toFieldName(t.refType.Field(i))
 		}
 		return fields, true
 	}
@@ -171,6 +180,18 @@ func (tp *nativeTypeProvider) FindStructFieldNames(typeName string) ([]string, b
 		return celTypeFields, true
 	}
 	return tp.baseProvider.FindStructFieldNames(typeName)
+}
+
+// valueFieldByName retrieves the corresponding reflect.Value field for the given field name, by
+// searching for a matching field tag value or field name.
+func valueFieldByName(target reflect.Value, fieldName string) reflect.Value {
+	for i := 0; i < target.Type().NumField(); i++ {
+		f := target.Type().Field(i)
+		if toFieldName(f) == fieldName {
+			return target.FieldByIndex(f.Index)
+		}
+	}
+	return reflect.Value{}
 }
 
 // FindStructFieldType looks up a native type's field definition, and if the type name is not a native
@@ -192,12 +213,12 @@ func (tp *nativeTypeProvider) FindStructFieldType(typeName, fieldName string) (*
 		Type: celType,
 		IsSet: func(obj any) bool {
 			refVal := reflect.Indirect(reflect.ValueOf(obj))
-			refField := refVal.FieldByName(fieldName)
+			refField := valueFieldByName(refVal, fieldName)
 			return !refField.IsZero()
 		},
 		GetFrom: func(obj any) (any, error) {
 			refVal := reflect.Indirect(reflect.ValueOf(obj))
-			refField := refVal.FieldByName(fieldName)
+			refField := valueFieldByName(refVal, fieldName)
 			return getFieldValue(tp, refField), nil
 		},
 	}, true
@@ -372,12 +393,13 @@ func (o *nativeObj) ConvertToNative(typeDesc reflect.Type) (any, error) {
 			if !fieldValue.IsValid() || fieldValue.IsZero() {
 				continue
 			}
+			fieldName := toFieldName(fieldType)
 			fieldCELVal := o.NativeToValue(fieldValue.Interface())
 			fieldJSONVal, err := fieldCELVal.ConvertToNative(jsonValueType)
 			if err != nil {
 				return nil, err
 			}
-			fields[fieldType.Name] = fieldJSONVal.(*structpb.Value)
+			fields[fieldName] = fieldJSONVal.(*structpb.Value)
 		}
 		return &structpb.Struct{Fields: fields}, nil
 	}
@@ -505,6 +527,10 @@ func newNativeTypes(rawType reflect.Type) ([]*nativeType, error) {
 	return result, err
 }
 
+var (
+	errDuplicatedFieldName = errors.New("field name already exists in struct")
+)
+
 func newNativeType(rawType reflect.Type) (*nativeType, error) {
 	refType := rawType
 	if refType.Kind() == reflect.Pointer {
@@ -512,6 +538,18 @@ func newNativeType(rawType reflect.Type) (*nativeType, error) {
 	}
 	if !isValidObjectType(refType) {
 		return nil, fmt.Errorf("unsupported reflect.Type %v, must be reflect.Struct", rawType)
+	}
+	fieldNames := make(map[string]struct{})
+
+	for idx := 0; idx < refType.NumField(); idx++ {
+		field := refType.Field(idx)
+		fieldName := toFieldName(field)
+
+		if _, found := fieldNames[fieldName]; found {
+			return nil, fmt.Errorf("invalid field name `%s` in struct `%s`: %w", fieldName, refType.Name(), errDuplicatedFieldName)
+		} else {
+			fieldNames[fieldName] = struct{}{}
+		}
 	}
 	return &nativeType{
 		typeName: fmt.Sprintf("%s.%s", simplePkgAlias(refType.PkgPath()), refType.Name()),
@@ -569,9 +607,22 @@ func (t *nativeType) Value() any {
 	return t.typeName
 }
 
+// fieldByName returns the corresponding reflect.StructField for the give name either by matching
+// field tag or field name.
+func (t *nativeType) fieldByName(fieldName string) (reflect.StructField, bool) {
+	for i := 0; i < t.refType.NumField(); i++ {
+		f := t.refType.Field(i)
+		if toFieldName(f) == fieldName {
+			return f, true
+		}
+	}
+
+	return reflect.StructField{}, false
+}
+
 // hasField returns whether a field name has a corresponding Golang reflect.StructField
 func (t *nativeType) hasField(fieldName string) (reflect.StructField, bool) {
-	f, found := t.refType.FieldByName(fieldName)
+	f, found := t.fieldByName(fieldName)
 	if !found || !f.IsExported() || !isSupportedType(f.Type) {
 		return reflect.StructField{}, false
 	}
