@@ -78,6 +78,23 @@ var (
 // same advice holds if you are using custom type adapters and type providers. The native type
 // provider composes over whichever type adapter and provider is configured in the cel.Env at
 // the time that it is invoked.
+//
+// There is also the possibility to rename the fields of native structs by setting the `cel` tag
+// for fields you want to override. In order to enable this feature, pass in the `EnableStructTag`
+// option. Here is an example to see it in action:
+//
+// ```go
+// package identity
+//
+//		type Account struct {
+//		  ID int
+//	   OwnerName string `cel:"owner"`
+//		}
+//
+// ```
+//
+// The `OwnerName` field is now accessible in CEL via `owner`, e.g. `identity.Account{owner: 'bob'}`.
+// In case there are duplicated field names in the struct, an error will be returned.
 func NativeTypes(args ...any) cel.EnvOption {
 	return func(env *cel.Env) (*cel.Env, error) {
 		nativeTypes := make([]any, 0, len(args))
