@@ -15,6 +15,7 @@
 package cel
 
 import (
+	"context"
 	"errors"
 	"sync"
 
@@ -452,6 +453,11 @@ func (e *Env) ParseSource(src Source) (*Ast, *Issues) {
 
 // Program generates an evaluable instance of the Ast within the environment (Env).
 func (e *Env) Program(ast *Ast, opts ...ProgramOption) (Program, error) {
+	return e.ProgramContext(context.Background(), ast, opts...)
+}
+
+// ProgramContext generates an evaluable instance of the Ast within the environment (Env).
+func (e *Env) ProgramContext(ctx context.Context, ast *Ast, opts ...ProgramOption) (Program, error) {
 	optSet := e.progOpts
 	if len(opts) != 0 {
 		mergedOpts := []ProgramOption{}
@@ -459,7 +465,7 @@ func (e *Env) Program(ast *Ast, opts ...ProgramOption) (Program, error) {
 		mergedOpts = append(mergedOpts, opts...)
 		optSet = mergedOpts
 	}
-	return newProgram(e, ast, optSet)
+	return newProgram(ctx, e, ast, optSet)
 }
 
 // CELTypeAdapter returns the `types.Adapter` configured for the environment.
