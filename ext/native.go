@@ -188,16 +188,17 @@ func (tp *nativeTypeProvider) FindStructFieldType(typeName, fieldName string) (*
 	if !ok {
 		return nil, false
 	}
+	refFieldName := refField.Name
 	return &types.FieldType{
 		Type: celType,
 		IsSet: func(obj any) bool {
 			refVal := reflect.Indirect(reflect.ValueOf(obj))
-			refField := refVal.FieldByName(fieldName)
+			refField := refVal.FieldByName(refFieldName)
 			return !refField.IsZero()
 		},
 		GetFrom: func(obj any) (any, error) {
 			refVal := reflect.Indirect(reflect.ValueOf(obj))
-			refField := refVal.FieldByName(fieldName)
+			refField := refVal.FieldByName(refFieldName)
 			return getFieldValue(tp, refField), nil
 		},
 	}, true
