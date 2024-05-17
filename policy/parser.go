@@ -262,7 +262,7 @@ func (defaultTagVisitor) MatchTag(ctx ParserContext, id int64, fieldName string,
 }
 
 func (defaultTagVisitor) VariableTag(ctx ParserContext, id int64, fieldName string, node *yaml.Node, v *Variable) {
-	ctx.ReportErrorAtID(id, "unsupported match tag: %s", fieldName)
+	ctx.ReportErrorAtID(id, "unsupported variable tag: %s", fieldName)
 }
 
 // Parser parses policy files into a canonical Policy representation.
@@ -310,6 +310,7 @@ func (p *parserImpl) parseYaml(src *Source) *Policy {
 		p.iss.ReportErrorAtID(0, err.Error())
 		return nil
 	}
+	// Entry point always has a single Content node
 	return p.parsePolicy(p, docNode.Content[0])
 }
 
@@ -426,7 +427,7 @@ func (p *parserImpl) CollectMetadata(node *yaml.Node) int64 {
 func (p *parserImpl) parsePolicy(ctx ParserContext, node *yaml.Node) *Policy {
 	ctx.CollectMetadata(node)
 	policy, id := ctx.NewPolicy(node)
-	if p.assertYamlType(id, node, yamlMap) == nil {
+	if p.assertYamlType(id, node, yamlMap) == nil || !p.checkMapValid(ctx, id, node) {
 		return policy
 	}
 	for i := 0; i < len(node.Content); i += 2 {
@@ -448,7 +449,7 @@ func (p *parserImpl) parsePolicy(ctx ParserContext, node *yaml.Node) *Policy {
 
 func (p *parserImpl) parseRule(ctx ParserContext, node *yaml.Node) *Rule {
 	r, id := ctx.NewRule(node)
-	if p.assertYamlType(id, node, yamlMap) == nil {
+	if p.assertYamlType(id, node, yamlMap) == nil || !p.checkMapValid(ctx, id, node) {
 		return r
 	}
 	for i := 0; i < len(node.Content); i += 2 {
@@ -458,7 +459,7 @@ func (p *parserImpl) parseRule(ctx ParserContext, node *yaml.Node) *Rule {
 		val := node.Content[i+1]
 		if val.Style == yaml.FoldedStyle || val.Style == yaml.LiteralStyle {
 			val.Line++
-			val.Column = key.Column + 2
+			val.Column = key.Column + 1
 		}
 		switch fieldName {
 		case "id":
@@ -488,7 +489,7 @@ func (p *parserImpl) parseVariables(ctx ParserContext, r *Rule, node *yaml.Node)
 
 func (p *parserImpl) parseVariable(ctx ParserContext, node *yaml.Node) *Variable {
 	v, id := ctx.NewVariable(node)
-	if p.assertYamlType(id, node, yamlMap) == nil {
+	if p.assertYamlType(id, node, yamlMap) == nil || !p.checkMapValid(ctx, id, node) {
 		return v
 	}
 	for i := 0; i < len(node.Content); i += 2 {
@@ -498,7 +499,7 @@ func (p *parserImpl) parseVariable(ctx ParserContext, node *yaml.Node) *Variable
 		val := node.Content[i+1]
 		if val.Style == yaml.FoldedStyle || val.Style == yaml.LiteralStyle {
 			val.Line++
-			val.Column = key.Column + 2
+			val.Column = key.Column + 1
 		}
 		switch fieldName {
 		case "name":
@@ -524,7 +525,7 @@ func (p *parserImpl) parseMatches(ctx ParserContext, r *Rule, node *yaml.Node) {
 
 func (p *parserImpl) parseMatch(ctx ParserContext, node *yaml.Node) *Match {
 	m, id := ctx.NewMatch(node)
-	if p.assertYamlType(id, node, yamlMap) == nil {
+	if p.assertYamlType(id, node, yamlMap) == nil || !p.checkMapValid(ctx, id, node) {
 		return m
 	}
 	m.SetCondition(ValueString{ID: ctx.NextID(), Value: "true"})
@@ -535,7 +536,7 @@ func (p *parserImpl) parseMatch(ctx ParserContext, node *yaml.Node) *Match {
 		val := node.Content[i+1]
 		if val.Style == yaml.FoldedStyle || val.Style == yaml.LiteralStyle {
 			val.Line++
-			val.Column = key.Column + 2
+			val.Column = key.Column + 1
 		}
 		switch fieldName {
 		case "condition":
@@ -574,6 +575,14 @@ func (p *parserImpl) assertYamlType(id int64, node *yaml.Node, nodeTypes ...yaml
 
 func (p *parserImpl) ReportErrorAtID(id int64, format string, args ...interface{}) {
 	p.iss.ReportErrorAtID(id, format, args...)
+}
+
+func (p *parserImpl) checkMapValid(ctx ParserContext, id int64, node *yaml.Node) bool {
+	valid := len(node.Content)%2 == 0
+	if !valid {
+		ctx.ReportErrorAtID(id, "mismatched key-value pairs in map")
+	}
+	return valid
 }
 
 type yamlNodeType int

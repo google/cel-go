@@ -64,8 +64,8 @@ func Compile(env *cel.Env, p *Policy) (*cel.Ast, *cel.Issues) {
 	}
 	ruleRoot, _ := env.Compile("true")
 	opt := cel.NewStaticOptimizer(&ruleComposer{rule: rule})
-	ruleExprAST, iss := opt.Optimize(env, ruleRoot)
-	return ruleExprAST, iss.Append(iss)
+	ruleExprAST, optIss := opt.Optimize(env, ruleRoot)
+	return ruleExprAST, iss.Append(optIss)
 }
 
 func (c *compiler) compileRule(r *Rule, ruleEnv *cel.Env, iss *cel.Issues) (*compiledRule, *cel.Issues) {
@@ -75,7 +75,7 @@ func (c *compiler) compileRule(r *Rule, ruleEnv *cel.Env, iss *cel.Issues) (*com
 		exprSrc := c.relSource(v.Expression())
 		varAST, exprIss := ruleEnv.CompileSource(exprSrc)
 		if exprIss.Err() == nil {
-			ruleEnv, err = ruleEnv.Extend(cel.Variable(fmt.Sprintf("variables.%s", v.Name().Value), varAST.OutputType()))
+			ruleEnv, err = ruleEnv.Extend(cel.Variable(fmt.Sprintf("%s.%s", variablePrefix, v.Name().Value), varAST.OutputType()))
 			if err != nil {
 				iss.ReportErrorAtID(v.Expression().ID, "invalid variable declaration")
 			}
@@ -91,6 +91,9 @@ func (c *compiler) compileRule(r *Rule, ruleEnv *cel.Env, iss *cel.Issues) (*com
 		condSrc := c.relSource(m.Condition())
 		condAST, condIss := ruleEnv.CompileSource(condSrc)
 		iss = iss.Append(condIss)
+		// This case cannot happen when the Policy object is parsed from yaml, but could happen
+		// with a non-YAML generation of the Policy object.
+		// TODO: Test this case once there's an alternative method of constructing Policy objects
 		if m.HasOutput() && m.HasRule() {
 			iss.ReportErrorAtID(m.Condition().ID, "either output or rule may be set but not both")
 			continue
@@ -139,6 +142,8 @@ type ruleComposer struct {
 // Optimize implements an AST optimizer for CEL which composes an expression graph into a single
 // expression value.
 func (opt *ruleComposer) Optimize(ctx *cel.OptimizerContext, a *ast.AST) *ast.AST {
+	// The input to optimize is a dummy expression which is completely replaced according
+	// to the configuration of the rule composition graph.
 	ruleExpr, _ := optimizeRule(ctx, opt.rule)
 	ctx.UpdateExpr(a.Expr(), ruleExpr)
 	return ctx.NewAST(ruleExpr)
@@ -191,9 +196,14 @@ func optimizeRule(ctx *cel.OptimizerContext, r *compiledRule) (ast.Expr, bool) {
 		// Build up the bindings in reverse order, starting from root, all the way up to the outermost
 		// binding:
 		//    currExpr = cel.bind(outerVar, outerExpr, currExpr)
-		inlined, bindMacro := ctx.NewBindMacro(matchExpr.ID(), fmt.Sprintf("variables.%s", v.name), varAST, matchExpr)
+		inlined, bindMacro := ctx.NewBindMacro(matchExpr.ID(), fmt.Sprintf("%s.%s", variablePrefix, v.name), varAST, matchExpr)
 		ctx.SetMacroCall(inlined.ID(), bindMacro)
 		matchExpr = inlined
 	}
 	return matchExpr, optionalResult
 }
+
+const (
+	// Consider making the variables namespace configurable.
+	variablePrefix = "variables"
+)

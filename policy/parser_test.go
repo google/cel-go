@@ -72,7 +72,7 @@ rule:
   variables:
     - name: "true"
       alt_name: "bool_true"`,
-			err: `ERROR: <input>:5:7: unsupported match tag: alt_name
+			err: `ERROR: <input>:5:7: unsupported variable tag: alt_name
  |       alt_name: "bool_true"
  | ......^`,
 		},
