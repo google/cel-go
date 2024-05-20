@@ -16,6 +16,7 @@ package policy
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/google/cel-go/cel"
@@ -24,20 +25,20 @@ import (
 
 func TestCompile(t *testing.T) {
 	for _, tst := range policyTests {
-		r := newRunner(t, tst.name, tst.envOpts...)
+		r := newRunner(t, tst.name, tst.expr, tst.envOpts...)
 		r.run(t)
 	}
 }
 
 func BenchmarkCompile(b *testing.B) {
 	for _, tst := range policyTests {
-		r := newRunner(b, tst.name, tst.envOpts...)
+		r := newRunner(b, tst.name, tst.expr, tst.envOpts...)
 		r.bench(b)
 	}
 }
 
-func newRunner(t testing.TB, name string, opts ...cel.EnvOption) *runner {
-	r := &runner{name: name, envOptions: opts}
+func newRunner(t testing.TB, name, expr string, opts ...cel.EnvOption) *runner {
+	r := &runner{name: name, envOptions: opts, expr: expr}
 	r.setup(t)
 	return r
 }
@@ -46,6 +47,7 @@ type runner struct {
 	name       string
 	envOptions []cel.EnvOption
 	env        *cel.Env
+	expr       string
 	prg        cel.Program
 }
 
@@ -87,6 +89,13 @@ func (r *runner) setup(t testing.TB) {
 	ast, iss := Compile(env, policy)
 	if iss.Err() != nil {
 		t.Fatalf("Compile() failed: %v", iss.Err())
+	}
+	pExpr, err := cel.AstToString(ast)
+	if err != nil {
+		t.Fatalf("cel.AstToString() failed: %v", err)
+	}
+	if r.expr != "" && normalize(pExpr) != normalize(r.expr) {
+		t.Errorf("cel.AstToString() got %s, wanted %s", pExpr, r.expr)
 	}
 	prg, err := env.Program(ast, cel.EvalOptions(cel.OptOptimize))
 	if err != nil {
@@ -149,4 +158,11 @@ func (r *runner) bench(b *testing.B) {
 			})
 		}
 	}
+}
+
+func normalize(s string) string {
+	return strings.ReplaceAll(
+		strings.ReplaceAll(
+			strings.ReplaceAll(s, " ", ""), "\n", ""),
+		"\t", "")
 }

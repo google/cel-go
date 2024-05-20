@@ -145,7 +145,6 @@ func (opt *ruleComposer) Optimize(ctx *cel.OptimizerContext, a *ast.AST) *ast.AS
 	// The input to optimize is a dummy expression which is completely replaced according
 	// to the configuration of the rule composition graph.
 	ruleExpr, _ := optimizeRule(ctx, opt.rule)
-	ctx.UpdateExpr(a.Expr(), ruleExpr)
 	return ctx.NewAST(ruleExpr)
 }
 
@@ -196,9 +195,10 @@ func optimizeRule(ctx *cel.OptimizerContext, r *compiledRule) (ast.Expr, bool) {
 		// Build up the bindings in reverse order, starting from root, all the way up to the outermost
 		// binding:
 		//    currExpr = cel.bind(outerVar, outerExpr, currExpr)
-		inlined, bindMacro := ctx.NewBindMacro(matchExpr.ID(), fmt.Sprintf("%s.%s", variablePrefix, v.name), varAST, matchExpr)
-		ctx.SetMacroCall(inlined.ID(), bindMacro)
-		matchExpr = inlined
+		varName := fmt.Sprintf("%s.%s", variablePrefix, v.name)
+		inlined, bindMacro := ctx.NewBindMacro(matchExpr.ID(), varName, varAST, matchExpr)
+		ctx.UpdateExpr(matchExpr, inlined)
+		ctx.SetMacroCall(matchExpr.ID(), bindMacro)
 	}
 	return matchExpr, optionalResult
 }
