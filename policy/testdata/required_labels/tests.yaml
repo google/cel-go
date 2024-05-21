@@ -17,7 +17,7 @@ section:
   - name: "valid"
     tests:
      - name: "matching"
-       input: 
+       input:
          spec:
            labels:
              env: prod
@@ -31,7 +31,7 @@ section:
   - name: "missing"
     tests:
      - name: "env"
-       input: 
+       input:
          spec:
            labels:
              env: prod
@@ -43,7 +43,7 @@ section:
        output: >
          "missing one or more required labels: [\"env\"]"
      - name: "experiment"
-       input: 
+       input:
          spec:
            labels:
              env: prod
@@ -57,7 +57,7 @@ section:
   - name: "invalid"
     tests:
      - name: "env"
-       input: 
+       input:
          spec:
            labels:
              env: prod

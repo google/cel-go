@@ -20,8 +20,9 @@ import (
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/ext"
-	"google.golang.org/genproto/googleapis/rpc/context/attribute_context"
 	"gopkg.in/yaml.v3"
+
+	acpb "google.golang.org/genproto/googleapis/rpc/context/attribute_context"
 )
 
 func TestConfig(t *testing.T) {
@@ -95,7 +96,7 @@ variables:
 	}
 	baseEnv, err := cel.NewEnv(
 		cel.OptionalTypes(),
-		cel.Types(&attribute_context.AttributeContext_Request{}),
+		cel.Types(&acpb.AttributeContext_Request{}),
 	)
 	if err != nil {
 		t.Fatalf("cel.NewEnv() failed: %v", err)
@@ -204,7 +205,7 @@ functions:
 	}
 	baseEnv, err := cel.NewEnv(
 		cel.OptionalTypes(),
-		cel.Types(&attribute_context.AttributeContext_Request{}),
+		cel.Types(&acpb.AttributeContext_Request{}),
 	)
 	if err != nil {
 		t.Fatalf("cel.NewEnv() failed: %v", err)

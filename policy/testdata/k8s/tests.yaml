@@ -12,24 +12,3 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-description: Nested rule conformance tests
-section:
-  - name: "banned"
-    tests:
-      - name: "restricted_origin"
-        input:
-          resource:
-            origin: "ir"
-        output: "{'banned': true}"
-      - name: "by_default"
-        input:
-          resource:
-            origin: "de"
-        output: "{'banned': true}"
-  - name: "permitted"
-    tests:
-      - name: "valid_origin"
-        input:
-          resource:
-            origin: "uk"
-        output: "{'banned': false}"
