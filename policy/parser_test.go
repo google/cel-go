@@ -20,12 +20,12 @@ import (
 )
 
 func TestParse(t *testing.T) {
-	parser, err := NewParser()
-	if err != nil {
-		t.Fatalf("NewParser() failed: %v", err)
-	}
 	for _, tst := range policyTests {
 		srcFile := readPolicy(t, fmt.Sprintf("testdata/%s/policy.yaml", tst.name))
+		parser, err := NewParser(tst.parseOpts...)
+		if err != nil {
+			t.Fatalf("NewParser() failed: %v", err)
+		}
 		p, iss := parser.Parse(srcFile)
 		if iss.Err() != nil {
 			t.Fatalf("parse() failed: %v", iss.Err())

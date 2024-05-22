@@ -259,10 +259,6 @@ type ParserContext interface {
 	// the id associated with the source metadata which is returned in the Policy SourceInfo object.
 	CollectMetadata(*yaml.Node) int64
 
-	// ReportErrorAtID logs an error during parsing which is included in the issue set returned from
-	// a failed parse.
-	ReportErrorAtID(id int64, msg string, args ...any)
-
 	// NewPolicy creates a new Policy instance with an ID associated with the YAML node.
 	NewPolicy(*yaml.Node) (*Policy, int64)
 
@@ -277,6 +273,22 @@ type ParserContext interface {
 
 	// NewString creates a new ValueString from the YAML node.
 	NewString(*yaml.Node) ValueString
+
+	// ParsePolicy will parse the target yaml node as though it is the top-level policy.
+	ParsePolicy(ParserContext, *yaml.Node) *Policy
+
+	// ParseRule will parse the current yaml node as though it is the entry point to a rule.
+	ParseRule(ParserContext, *Policy, *yaml.Node) *Rule
+
+	// ParseMatch  will parse the current yaml node as though it is the entry point to a match.
+	ParseMatch(ParserContext, *Policy, *yaml.Node) *Match
+
+	// ParseVariable will parse the current yaml node as though it is the entry point to a variable.
+	ParseVariable(ParserContext, *Policy, *yaml.Node) *Variable
+
+	// ReportErrorAtID logs an error during parsing which is included in the issue set returned from
+	// a failed parse.
+	ReportErrorAtID(id int64, msg string, args ...any)
 }
 
 // TagVisitor declares a set of interfaces for handling custom tags which would otherwise be unsupported
@@ -301,20 +313,20 @@ type TagVisitor interface {
 
 type defaultTagVisitor struct{}
 
-func (defaultTagVisitor) PolicyTag(ctx ParserContext, id int64, fieldName string, node *yaml.Node, p *Policy) {
-	ctx.ReportErrorAtID(id, "unsupported policy tag: %s", fieldName)
+func (defaultTagVisitor) PolicyTag(ctx ParserContext, id int64, tagName string, node *yaml.Node, p *Policy) {
+	ctx.ReportErrorAtID(id, "unsupported policy tag: %s", tagName)
 }
 
-func (defaultTagVisitor) RuleTag(ctx ParserContext, id int64, fieldName string, node *yaml.Node, p *Policy, r *Rule) {
-	ctx.ReportErrorAtID(id, "unsupported rule tag: %s", fieldName)
+func (defaultTagVisitor) RuleTag(ctx ParserContext, id int64, tagName string, node *yaml.Node, p *Policy, r *Rule) {
+	ctx.ReportErrorAtID(id, "unsupported rule tag: %s", tagName)
 }
 
-func (defaultTagVisitor) MatchTag(ctx ParserContext, id int64, fieldName string, node *yaml.Node, p *Policy, m *Match) {
-	ctx.ReportErrorAtID(id, "unsupported match tag: %s", fieldName)
+func (defaultTagVisitor) MatchTag(ctx ParserContext, id int64, tagName string, node *yaml.Node, p *Policy, m *Match) {
+	ctx.ReportErrorAtID(id, "unsupported match tag: %s", tagName)
 }
 
-func (defaultTagVisitor) VariableTag(ctx ParserContext, id int64, fieldName string, node *yaml.Node, p *Policy, v *Variable) {
-	ctx.ReportErrorAtID(id, "unsupported variable tag: %s", fieldName)
+func (defaultTagVisitor) VariableTag(ctx ParserContext, id int64, tagName string, node *yaml.Node, p *Policy, v *Variable) {
+	ctx.ReportErrorAtID(id, "unsupported variable tag: %s", tagName)
 }
 
 // Parser parses policy files into a canonical Policy representation.
@@ -363,7 +375,7 @@ func (p *parserImpl) parseYaml(src *Source) *Policy {
 		return nil
 	}
 	// Entry point always has a single Content node
-	return p.parsePolicy(p, docNode.Content[0])
+	return p.ParsePolicy(p, docNode.Content[0])
 }
 
 func sourceToYaml(src *Source, docNode *yaml.Node) error {
@@ -473,7 +485,7 @@ func (p *parserImpl) CollectMetadata(node *yaml.Node) int64 {
 	return id
 }
 
-func (p *parserImpl) parsePolicy(ctx ParserContext, node *yaml.Node) *Policy {
+func (p *parserImpl) ParsePolicy(ctx ParserContext, node *yaml.Node) *Policy {
 	ctx.CollectMetadata(node)
 	policy, id := ctx.NewPolicy(node)
 	if p.assertYamlType(id, node, yamlMap) == nil || !p.checkMapValid(ctx, id, node) {
@@ -488,7 +500,7 @@ func (p *parserImpl) parsePolicy(ctx ParserContext, node *yaml.Node) *Policy {
 		case "name":
 			policy.SetName(ctx.NewString(val))
 		case "rule":
-			policy.SetRule(p.parseRule(ctx, policy, val))
+			policy.SetRule(p.ParseRule(ctx, policy, val))
 		default:
 			p.visitor.PolicyTag(ctx, keyID, fieldName, val, policy)
 		}
@@ -496,7 +508,7 @@ func (p *parserImpl) parsePolicy(ctx ParserContext, node *yaml.Node) *Policy {
 	return policy
 }
 
-func (p *parserImpl) parseRule(ctx ParserContext, policy *Policy, node *yaml.Node) *Rule {
+func (p *parserImpl) ParseRule(ctx ParserContext, policy *Policy, node *yaml.Node) *Rule {
 	r, id := ctx.NewRule(node)
 	if p.assertYamlType(id, node, yamlMap) == nil || !p.checkMapValid(ctx, id, node) {
 		return r
@@ -532,11 +544,11 @@ func (p *parserImpl) parseVariables(ctx ParserContext, policy *Policy, r *Rule, 
 		return
 	}
 	for _, val := range node.Content {
-		r.AddVariable(p.parseVariable(ctx, policy, val))
+		r.AddVariable(p.ParseVariable(ctx, policy, val))
 	}
 }
 
-func (p *parserImpl) parseVariable(ctx ParserContext, policy *Policy, node *yaml.Node) *Variable {
+func (p *parserImpl) ParseVariable(ctx ParserContext, policy *Policy, node *yaml.Node) *Variable {
 	v, id := ctx.NewVariable(node)
 	if p.assertYamlType(id, node, yamlMap) == nil || !p.checkMapValid(ctx, id, node) {
 		return v
@@ -568,11 +580,11 @@ func (p *parserImpl) parseMatches(ctx ParserContext, policy *Policy, r *Rule, no
 		return
 	}
 	for _, val := range node.Content {
-		r.AddMatch(p.parseMatch(ctx, policy, val))
+		r.AddMatch(p.ParseMatch(ctx, policy, val))
 	}
 }
 
-func (p *parserImpl) parseMatch(ctx ParserContext, policy *Policy, node *yaml.Node) *Match {
+func (p *parserImpl) ParseMatch(ctx ParserContext, policy *Policy, node *yaml.Node) *Match {
 	m, id := ctx.NewMatch(node)
 	if p.assertYamlType(id, node, yamlMap) == nil || !p.checkMapValid(ctx, id, node) {
 		return m
@@ -599,7 +611,7 @@ func (p *parserImpl) parseMatch(ctx ParserContext, policy *Policy, node *yaml.No
 			if m.HasOutput() {
 				p.ReportErrorAtID(keyID, "only the rule or the output may be set")
 			}
-			m.SetRule(p.parseRule(ctx, policy, val))
+			m.SetRule(p.ParseRule(ctx, policy, val))
 		default:
 			p.visitor.MatchTag(ctx, keyID, fieldName, val, policy, m)
 		}

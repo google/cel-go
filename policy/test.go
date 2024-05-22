@@ -22,16 +22,35 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/ext"
 
 	"gopkg.in/yaml.v3"
 )
 
 var (
 	policyTests = []struct {
-		name    string
-		envOpts []cel.EnvOption
-		expr    string
+		name      string
+		envOpts   []cel.EnvOption
+		parseOpts []ParserOption
+		expr      string
 	}{
+		{
+			name: "k8s",
+			parseOpts: []ParserOption{func(p *Parser) (*Parser, error) {
+				p.TagVisitor = k8sAdmissionTagHandler{}
+				return p, nil
+			}},
+			envOpts: []cel.EnvOption{
+				ext.Strings(),
+			},
+			expr: `
+    cel.bind(variables.env, resource.labels.?environment.orValue("prod"),
+	  cel.bind(variables.break_glass, resource.labels.?break_glass.orValue("false") == "true",
+	   !(variables.break_glass ||
+		 resource.containers.all(c, c.startsWith(variables.env + "."))) 
+	   ? optional.of("only %s containers are allowed in namespace %s".format([variables.env, resource.namespace])) 
+	   : optional.none()))`,
+		},
 		{
 			name: "nested_rule",
 			expr: `
@@ -91,6 +110,81 @@ var (
 	}
 )
 
+type k8sAdmissionTagHandler struct {
+	defaultTagVisitor
+}
+
+func (k8sAdmissionTagHandler) PolicyTag(ctx ParserContext, id int64, tagName string, node *yaml.Node, policy *Policy) {
+	switch tagName {
+	case "kind":
+		policy.SetMetadata("kind", ctx.NewString(node).Value)
+	case "metadata":
+		m := k8sMetadata{}
+		if err := node.Decode(&m); err != nil {
+			ctx.ReportErrorAtID(id, "invalid yaml metadata node: %v, error: %w", node, err)
+			return
+		}
+	case "spec":
+		spec := ctx.ParseRule(ctx, policy, node)
+		policy.SetRule(spec)
+	default:
+		ctx.ReportErrorAtID(id, "unsupported policy tag: %s", tagName)
+	}
+}
+
+func (k8sAdmissionTagHandler) RuleTag(ctx ParserContext, id int64, tagName string, node *yaml.Node, policy *Policy, r *Rule) {
+	switch tagName {
+	case "failurePolicy":
+		policy.SetMetadata(tagName, ctx.NewString(node).Value)
+	case "matchConstraints":
+		m := k8sMatchConstraints{}
+		if err := node.Decode(&m); err != nil {
+			ctx.ReportErrorAtID(id, "invalid yaml matchConstraints node: %v, error: %w", node, err)
+			return
+		}
+	case "validations":
+		id := ctx.CollectMetadata(node)
+		if node.LongTag() != "tag:yaml.org,2002:seq" {
+			ctx.ReportErrorAtID(id, "invalid 'validations' type, expected list got: %s", node.LongTag())
+			return
+		}
+		for _, val := range node.Content {
+			r.AddMatch(ctx.ParseMatch(ctx, policy, val))
+		}
+	default:
+		ctx.ReportErrorAtID(id, "unsupported rule tag: %s", tagName)
+	}
+}
+
+func (k8sAdmissionTagHandler) MatchTag(ctx ParserContext, id int64, tagName string, node *yaml.Node, policy *Policy, m *Match) {
+	if m.Output().Value == "" {
+		m.SetOutput(ValueString{Value: "'invalid admission request'"})
+	}
+	switch tagName {
+	case "expression":
+		// The K8s expression to validate must return false in order to generate a violation message.
+		condition := ctx.NewString(node)
+		condition.Value = "!(" + condition.Value + ")"
+		m.SetCondition(condition)
+	case "messageExpression":
+		m.SetOutput(ctx.NewString(node))
+	}
+}
+
+type k8sMetadata struct {
+	Name string `yaml:"name"`
+}
+
+type k8sMatchConstraints struct {
+	ResourceRules []k8sResourceRule `yaml:"resourceRules"`
+}
+
+type k8sResourceRule struct {
+	APIGroups   []string `yaml:"apiGroups"`
+	APIVersions []string `yaml:"apiVersions"`
+	Operations  []string `yaml:"operations"`
+}
+
 func readPolicy(t testing.TB, fileName string) *Source {
 	t.Helper()
 	policyBytes, err := os.ReadFile(fileName)
@@ -126,26 +220,4 @@ func readTestSuite(t testing.TB, fileName string) *TestSuite {
 		log.Fatalf("yaml.Unmarshal(%s) error: %v", fileName, err)
 	}
 	return suite
-}
-
-// TestSuite describes a set of tests divided by section.
-type TestSuite struct {
-	Description string         `yaml:"description"`
-	Sections    []*TestSection `yaml:"section"`
-}
-
-// TestSection describes a related set of tests associated with a behavior.
-type TestSection struct {
-	Name  string      `yaml:"name"`
-	Tests []*TestCase `yaml:"tests"`
-}
-
-// TestCase describes a named test scenario with a set of inputs and expected outputs.
-//
-// Note, when a test requires additional functions to be provided to execute, the test harness
-// must supply these functions.
-type TestCase struct {
-	Name   string         `yaml:"name"`
-	Input  map[string]any `yaml:"input"`
-	Output string         `yaml:"output"`
 }

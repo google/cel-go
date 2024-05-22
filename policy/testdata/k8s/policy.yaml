@@ -21,7 +21,7 @@ spec:
   matchConstraints:
     resourceRules:
     - apiGroups:   ["services"]
-      apiVersions: ["v2"]
+      apiVersions: ["v3"]
       operations:  ["CREATE", "UPDATE"]
   variables:
   - name: env
@@ -29,5 +29,9 @@ spec:
   - name: break_glass
     expression: "resource.labels.?break_glass.orValue('false') == 'true'"
   validations:
-  - expression: "variables.break_glass || resource.containers.all(c, c.startsWith(variables.env + '.'))"
-    messageExpression: "'only %s containers are allowed in namespace %s".format([variables.env, resource.namespace])
+  - expression: >
+      variables.break_glass || 
+        resource.containers.all(c, c.startsWith(variables.env + '.'))
+    messageExpression: >
+      'only %s containers are allowed in namespace %s'
+        .format([variables.env, resource.namespace])
