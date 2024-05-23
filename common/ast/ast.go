@@ -343,12 +343,11 @@ func (s *SourceInfo) GetLocationByOffset(offset int32) common.Location {
 	line := 1
 	col := int(offset)
 	for _, lineOffset := range s.LineOffsets() {
-		if lineOffset <= offset {
-			line++
-			col = int(offset - lineOffset)
-		} else {
+		if lineOffset > offset {
 			break
 		}
+		line++
+		col = int(offset - lineOffset)
 	}
 	return common.NewLocation(line, col)
 }

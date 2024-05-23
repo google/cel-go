@@ -419,35 +419,42 @@ type parserImpl struct {
 	iss     *cel.Issues
 }
 
+// NextID returns a monotonically increasing identifier for a source fragment.
+// This ID is implicitly created and tracked within the CollectMetadata method.
 func (p *parserImpl) NextID() int64 {
 	p.id++
 	return p.id
 }
 
+// NewPolicy creates a new Policy instance with an ID associated with the YAML node.
 func (p *parserImpl) NewPolicy(node *yaml.Node) (*Policy, int64) {
 	policy := NewPolicy(p.src, p.info)
 	id := p.CollectMetadata(node)
 	return policy, id
 }
 
+// NewRule creates a new Rule instance with an ID associated with the YAML node.
 func (p *parserImpl) NewRule(node *yaml.Node) (*Rule, int64) {
 	r := NewRule()
 	id := p.CollectMetadata(node)
 	return r, id
 }
 
+// NewVariable creates a new Variable instance with an ID associated with the YAML node.
 func (p *parserImpl) NewVariable(node *yaml.Node) (*Variable, int64) {
 	v := NewVariable()
 	id := p.CollectMetadata(node)
 	return v, id
 }
 
+// NewMatch creates a new Match instance with an ID associated with the YAML node.
 func (p *parserImpl) NewMatch(node *yaml.Node) (*Match, int64) {
 	m := NewMatch()
 	id := p.CollectMetadata(node)
 	return m, id
 }
 
+// NewString creates a new ValueString from the YAML node.
 func (p *parserImpl) NewString(node *yaml.Node) ValueString {
 	id := p.CollectMetadata(node)
 	nodeType := p.assertYamlType(id, node, yamlString, yamlText)
@@ -482,6 +489,8 @@ func (p *parserImpl) NewString(node *yaml.Node) ValueString {
 	return ValueString{ID: id, Value: node.Value}
 }
 
+// CollectMetadata records the source position information of a given YAML node, and returns
+// the id associated with the source metadata which is returned in the Policy SourceInfo object.
 func (p *parserImpl) CollectMetadata(node *yaml.Node) int64 {
 	id := p.NextID()
 	line := node.Line
@@ -498,6 +507,7 @@ func (p *parserImpl) CollectMetadata(node *yaml.Node) int64 {
 	return id
 }
 
+// ParsePolicy will parse the target yaml node as though it is the top-level policy.
 func (p *parserImpl) ParsePolicy(ctx ParserContext, node *yaml.Node) *Policy {
 	ctx.CollectMetadata(node)
 	policy, id := ctx.NewPolicy(node)
@@ -521,6 +531,7 @@ func (p *parserImpl) ParsePolicy(ctx ParserContext, node *yaml.Node) *Policy {
 	return policy
 }
 
+// ParseRule will parse the current yaml node as though it is the entry point to a rule.
 func (p *parserImpl) ParseRule(ctx ParserContext, policy *Policy, node *yaml.Node) *Rule {
 	r, id := ctx.NewRule(node)
 	if p.assertYamlType(id, node, yamlMap) == nil || !p.checkMapValid(ctx, id, node) {
@@ -561,6 +572,7 @@ func (p *parserImpl) parseVariables(ctx ParserContext, policy *Policy, r *Rule, 
 	}
 }
 
+// ParseVariable will parse the current yaml node as though it is the entry point to a variable.
 func (p *parserImpl) ParseVariable(ctx ParserContext, policy *Policy, node *yaml.Node) *Variable {
 	v, id := ctx.NewVariable(node)
 	if p.assertYamlType(id, node, yamlMap) == nil || !p.checkMapValid(ctx, id, node) {
@@ -597,6 +609,7 @@ func (p *parserImpl) parseMatches(ctx ParserContext, policy *Policy, r *Rule, no
 	}
 }
 
+// ParseMatch  will parse the current yaml node as though it is the entry point to a match.
 func (p *parserImpl) ParseMatch(ctx ParserContext, policy *Policy, node *yaml.Node) *Match {
 	m, id := ctx.NewMatch(node)
 	if p.assertYamlType(id, node, yamlMap) == nil || !p.checkMapValid(ctx, id, node) {
@@ -647,6 +660,8 @@ func (p *parserImpl) assertYamlType(id int64, node *yaml.Node, nodeTypes ...yaml
 	return nil
 }
 
+// ReportErrorAtID logs an error during parsing which is included in the issue set returned from
+// a failed parse.
 func (p *parserImpl) ReportErrorAtID(id int64, format string, args ...any) {
 	p.iss.ReportErrorAtID(id, format, args...)
 }
