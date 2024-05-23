@@ -856,7 +856,8 @@ func (p *parser) reportError(ctx any, format string, args ...any) ast.Expr {
 
 // ANTLR Parse listener implementations
 func (p *parser) SyntaxError(recognizer antlr.Recognizer, offendingSymbol any, line, column int, msg string, e antlr.RecognitionException) {
-	l := p.helper.source.NewLocation(line, column)
+	offset := p.helper.sourceInfo.ComputeOffset(int32(line), int32(column))
+	l := p.helper.getLocationByOffset(offset)
 	// Hack to keep existing error messages consistent with previous versions of CEL when a reserved word
 	// is used as an identifier. This behavior needs to be overhauled to provide consistent, normalized error
 	// messages out of ANTLR to prevent future breaking changes related to error message content.

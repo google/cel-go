@@ -37,7 +37,7 @@ var (
 		{
 			name: "k8s",
 			parseOpts: []ParserOption{func(p *Parser) (*Parser, error) {
-				p.TagVisitor = k8sAdmissionTagHandler{}
+				p.TagVisitor = k8sTagHandler()
 				return p, nil
 			}},
 			envOpts: []cel.EnvOption{
@@ -110,8 +110,12 @@ var (
 	}
 )
 
+func k8sTagHandler() TagVisitor {
+	return k8sAdmissionTagHandler{TagVisitor: DefaultTagVisitor()}
+}
+
 type k8sAdmissionTagHandler struct {
-	defaultTagVisitor
+	TagVisitor
 }
 
 func (k8sAdmissionTagHandler) PolicyTag(ctx ParserContext, id int64, tagName string, node *yaml.Node, policy *Policy) {

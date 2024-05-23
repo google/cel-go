@@ -74,17 +74,21 @@ func (c *compiler) compileRule(r *Rule, ruleEnv *cel.Env, iss *cel.Issues) (*com
 	for i, v := range r.Variables() {
 		exprSrc := c.relSource(v.Expression())
 		varAST, exprIss := ruleEnv.CompileSource(exprSrc)
-		if exprIss.Err() == nil {
-			ruleEnv, err = ruleEnv.Extend(cel.Variable(fmt.Sprintf("%s.%s", variablePrefix, v.Name().Value), varAST.OutputType()))
-			if err != nil {
-				iss.ReportErrorAtID(v.Expression().ID, "invalid variable declaration")
-			}
-			compiledVars[i] = &compiledVariable{
-				name: v.name.Value,
-				expr: varAST,
-			}
+		varName := v.Name().Value
+		varType := cel.DynType
+		if exprIss.Err() != nil {
+			iss = iss.Append(exprIss)
+		} else {
+			varType = varAST.OutputType()
 		}
-		iss = iss.Append(exprIss)
+		ruleEnv, err = ruleEnv.Extend(cel.Variable(fmt.Sprintf("%s.%s", variablePrefix, varName), varType))
+		if err != nil {
+			iss.ReportErrorAtID(v.Expression().ID, "invalid variable declaration")
+		}
+		compiledVars[i] = &compiledVariable{
+			name: v.name.Value,
+			expr: varAST,
+		}
 	}
 	compiledMatches := []*compiledMatch{}
 	for _, m := range r.Matches() {

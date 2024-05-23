@@ -62,8 +62,8 @@ rule:
 inputs:
   - name: a
   - name: b`,
-			err: `ERROR: <input>:1:2: unsupported policy tag: inputs
- | 
+			err: `ERROR: <input>:2:1: unsupported policy tag: inputs
+ | inputs:
  | ^`,
 		},
 		{
@@ -93,8 +93,8 @@ ERROR: <input>:5:7: unsupported match tag: alt_name
 			txt: `
 - rule:
     id: a`,
-			err: `ERROR: <input>:1:2: got yaml node type tag:yaml.org,2002:seq, wanted type(s) [tag:yaml.org,2002:map]
- | 
+			err: `ERROR: <input>:2:1: got yaml node type tag:yaml.org,2002:seq, wanted type(s) [tag:yaml.org,2002:map]
+ | - rule:
  | ^`,
 		},
 		{

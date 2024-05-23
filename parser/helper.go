@@ -172,6 +172,10 @@ func (p *parserHelper) getLocation(id int64) common.Location {
 	return p.sourceInfo.GetStartLocation(id)
 }
 
+func (p *parserHelper) getLocationByOffset(offset int32) common.Location {
+	return p.getSourceInfo().GetLocationByOffset(offset)
+}
+
 // buildMacroCallArg iterates the expression and returns a new expression
 // where all macros have been replaced by their IDs in MacroCalls
 func (p *parserHelper) buildMacroCallArg(expr ast.Expr) ast.Expr {

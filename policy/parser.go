@@ -79,6 +79,15 @@ func (p *Policy) Metadata(name string) (any, bool) {
 	return value, found
 }
 
+// MetadataKeys returns a list of metadata keys set on the policy.
+func (p *Policy) MetadataKeys() []string {
+	keys := make([]string, 0, len(p.metadata))
+	for k := range p.metadata {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
 // SetName configures the policy name.
 func (p *Policy) SetName(name ValueString) {
 	p.name = name
@@ -309,6 +318,10 @@ type TagVisitor interface {
 	// VariableTag accepts a parser context, field id, tag name, yaml node, as well as the parent policy and
 	// current variable to allow for continued parsing within custom tags.
 	VariableTag(ParserContext, int64, string, *yaml.Node, *Policy, *Variable)
+}
+
+func DefaultTagVisitor() TagVisitor {
+	return defaultTagVisitor{}
 }
 
 type defaultTagVisitor struct{}
