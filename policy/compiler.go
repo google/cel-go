@@ -75,12 +75,19 @@ func (c *compiler) compileRule(r *Rule, ruleEnv *cel.Env, iss *cel.Issues) (*com
 		exprSrc := c.relSource(v.Expression())
 		varAST, exprIss := ruleEnv.CompileSource(exprSrc)
 		varName := v.Name().Value
-		varType := cel.DynType
+
+		// Determine the variable type. If the expression is an error then record the error and
+		// mark the variable type as dyn to permit compilation to continue.
+		varType := types.DynType
 		if exprIss.Err() != nil {
 			iss = iss.Append(exprIss)
 		} else {
+			// Otherwise, the expression compiled successfully and we use its output type.
 			varType = varAST.OutputType()
 		}
+
+		// Introduce the variable into the environment. By extending the environment, the variables
+		// are effectively scoped such that they must be declared before use.
 		ruleEnv, err = ruleEnv.Extend(cel.Variable(fmt.Sprintf("%s.%s", variablePrefix, varName), varType))
 		if err != nil {
 			iss.ReportErrorAtID(v.Expression().ID, "invalid variable declaration")

@@ -138,6 +138,15 @@ go_repository(
     importpath = "github.com/chzyer/readline",
 )
 
+# gopkg.in/yaml.v3 for policy module
+go_repository(
+    name = "in_gopkg_yaml_v3",
+    build_file_proto_mode = "disable_global",
+    importpath = "gopkg.in/yaml.v3",
+    sum = "h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=",
+    version = "v3.0.1",
+)
+
 # golang.org/x/exp deps
 go_repository(
     name = "org_golang_x_exp",

@@ -20,9 +20,10 @@ import (
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/ext"
+
 	"gopkg.in/yaml.v3"
 
-	acpb "google.golang.org/genproto/googleapis/rpc/context/attribute_context"
+	proto3pb "github.com/google/cel-go/test/proto3pb"
 )
 
 func TestConfig(t *testing.T) {
@@ -91,12 +92,12 @@ variables:
 variables:
 - name: "request"
   type:
-    type_name: "google.rpc.context.AttributeContext.Request"
+    type_name: "google.expr.proto3.test.TestAllTypes"
 `,
 	}
 	baseEnv, err := cel.NewEnv(
 		cel.OptionalTypes(),
-		cel.Types(&acpb.AttributeContext_Request{}),
+		cel.Types(&proto3pb.TestAllTypes{}),
 	)
 	if err != nil {
 		t.Fatalf("cel.NewEnv() failed: %v", err)
@@ -203,10 +204,7 @@ functions:
 			err: "undefined type name: unknown",
 		},
 	}
-	baseEnv, err := cel.NewEnv(
-		cel.OptionalTypes(),
-		cel.Types(&acpb.AttributeContext_Request{}),
-	)
+	baseEnv, err := cel.NewEnv(cel.OptionalTypes())
 	if err != nil {
 		t.Fatalf("cel.NewEnv() failed: %v", err)
 	}
