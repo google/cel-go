@@ -12,22 +12,42 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: k8s
+name: "labels"
 extensions:
-  - name: "strings"
-    version: 2
+  - name: "lists"
+  - name: "sets"
 variables:
-  - name: "resource.labels"
+  - name: "destination.ip"
     type:
-      type_name: "map"
-      params:
-        - type_name: "string"
-        - type_name: "string"
-  - name: "resource.containers"
+      type_name: "string"
+  - name: "origin.ip"
+    type:
+      type_name: "string"
+  - name: "spec.restricted_destinations"
     type:
       type_name: "list"
       params:
         - type_name: "string"
-  - name: "resource.namespace"
+  - name: "spec.origin"
     type:
       type_name: "string"
+  - name: "request"
+    type:
+      type_name: "map"
+      params:
+        - type_name: "string"
+        - type_name: "dyn"
+  - name: "resource"
+    type:
+      type_name: "map"
+      params:
+        - type_name: "string"
+        - type_name: "dyn"
+functions:
+  - name: "locationCode"
+    overloads:
+      - id: "locationCode_string"
+        args:
+          - type_name: "string"
+        return:
+          type_name: "string"

@@ -22,7 +22,6 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/ext"
 
 	"gopkg.in/yaml.v3"
 )
@@ -40,9 +39,6 @@ var (
 				p.TagVisitor = k8sTagHandler()
 				return p, nil
 			}},
-			envOpts: []cel.EnvOption{
-				ext.Strings(),
-			},
 			expr: `
     cel.bind(variables.env, resource.labels.?environment.orValue("prod"),
 	  cel.bind(variables.break_glass, resource.labels.?break_glass.orValue("false") == "true",
@@ -107,6 +103,33 @@ var (
 							}
 						}))),
 			}},
+	}
+
+	policyErrorTests = []struct {
+		name string
+		err  string
+	}{
+		{
+			name: "errors",
+			err: `ERROR: testdata/errors/policy.yaml:19:19: undeclared reference to 'spec' (in container '')
+ |       expression: spec.labels
+ | ..................^
+ERROR: testdata/errors/policy.yaml:21:50: Syntax error: mismatched input 'resource' expecting ')'
+ |       expression: variables.want.filter(l, !(lin resource.labels))
+ | .................................................^
+ERROR: testdata/errors/policy.yaml:21:66: Syntax error: extraneous input ')' expecting <EOF>
+ |       expression: variables.want.filter(l, !(lin resource.labels))
+ | .................................................................^
+ERROR: testdata/errors/policy.yaml:23:27: Syntax error: mismatched input '2' expecting {'}', ','}
+ |       expression: "{1:305 2:569}"
+ | ..........................^
+ERROR: testdata/errors/policy.yaml:31:75: Syntax error: extraneous input ']' expecting ')'
+ |         "missing one or more required labels: %s".format(variables.missing])
+ | ..........................................................................^
+ERROR: testdata/errors/policy.yaml:34:67: undeclared reference to 'format' (in container '')
+ |         "invalid values provided on one or more labels: %s".format([variables.invalid])
+ | ..................................................................^`,
+		},
 	}
 )
 

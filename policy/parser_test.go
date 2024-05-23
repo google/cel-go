@@ -28,10 +28,10 @@ func TestParse(t *testing.T) {
 		}
 		p, iss := parser.Parse(srcFile)
 		if iss.Err() != nil {
-			t.Fatalf("parse() failed: %v", iss.Err())
+			t.Fatalf("parser.Parse() failed: %v", iss.Err())
 		}
 		if p.Name().Value != tst.name {
-			t.Errorf("policy name is %v, wanted 'required_labels'", p.name)
+			t.Errorf("policy name is %v, wanted %q", p.name, tst.name)
 		}
 	}
 }
