@@ -12,13 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: "required_labels"
+name: "errors"
 rule:
   variables:
     - name: want
       expression: spec.labels
     - name: missing
-      expression: variables.want.filter(l, !(l in resource.labels))
+      expression: variables.want.filter(l, !(lin resource.labels))
+    - name: bad_data
+      expression: "{1:305 2:569}"
     - name: invalid
       expression: >
         resource.labels.filter(l,
@@ -26,7 +28,7 @@ rule:
   match:
     - condition: variables.missing.size() > 0
       output: |
-        "missing one or more required labels: %s".format([variables.missing])
+        "missing one or more required labels: %s".format(variables.missing])
     - condition: variables.invalid.size() > 0
       output: |
         "invalid values provided on one or more labels: %s".format([variables.invalid])

@@ -9,6 +9,7 @@ package(
         "//ext:__subpackages__",
         "//interpreter:__subpackages__",
         "//parser:__subpackages__",
+        "//policy:__subpackages__",
         "//server:__subpackages__",
         "//test:__subpackages__",
     ],

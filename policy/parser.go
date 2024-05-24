@@ -32,6 +32,16 @@ const (
 	firstMatch
 )
 
+// NewPolicy creates a policy object which references a policy source and source information.
+func NewPolicy(src *Source, info *ast.SourceInfo) *Policy {
+	return &Policy{
+		metadata: map[string]any{},
+		source:   src,
+		info:     info,
+		semantic: firstMatch,
+	}
+}
+
 // Policy declares a name, rule, and evaluation semantic for a given expression graph.
 type Policy struct {
 	name     ValueString
@@ -39,6 +49,8 @@ type Policy struct {
 	semantic semanticType
 	info     *ast.SourceInfo
 	source   *Source
+
+	metadata map[string]any
 }
 
 // Source returns the policy file contents as a CEL source object.
@@ -61,6 +73,21 @@ func (p *Policy) Rule() *Rule {
 	return p.rule
 }
 
+// Metadata returns a named metadata object if one exists within the policy.
+func (p *Policy) Metadata(name string) (any, bool) {
+	value, found := p.metadata[name]
+	return value, found
+}
+
+// MetadataKeys returns a list of metadata keys set on the policy.
+func (p *Policy) MetadataKeys() []string {
+	keys := make([]string, 0, len(p.metadata))
+	for k := range p.metadata {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
 // SetName configures the policy name.
 func (p *Policy) SetName(name ValueString) {
 	p.name = name
@@ -69,6 +96,19 @@ func (p *Policy) SetName(name ValueString) {
 // SetRule configures the policy rule entry point.
 func (p *Policy) SetRule(r *Rule) {
 	p.rule = r
+}
+
+// SetMetadata updates a named metadata key with the given value.
+func (p *Policy) SetMetadata(name string, value any) {
+	p.metadata[name] = value
+}
+
+// NewRule creates a Rule instance.
+func NewRule() *Rule {
+	return &Rule{
+		variables: []*Variable{},
+		matches:   []*Match{},
+	}
 }
 
 // Rule declares a rule identifier, description, along with a set of variables and match statements.
@@ -125,6 +165,11 @@ func (r *Rule) AddVariable(v *Variable) {
 	r.variables = append(r.variables, v)
 }
 
+// NewVariable creates a variable instance.
+func NewVariable() *Variable {
+	return &Variable{}
+}
+
 // Variable is a named expression which may be referenced in subsequent expressions.
 type Variable struct {
 	name       ValueString
@@ -149,6 +194,11 @@ func (v *Variable) SetName(name ValueString) {
 // SetExpression sets the variable expression.
 func (v *Variable) SetExpression(e ValueString) {
 	v.expression = e
+}
+
+// NewMatch creates a match instance.
+func NewMatch() *Match {
+	return &Match{}
 }
 
 // Match declares a condition (defaults to true) as well as an output or a rule.
@@ -218,10 +268,6 @@ type ParserContext interface {
 	// the id associated with the source metadata which is returned in the Policy SourceInfo object.
 	CollectMetadata(*yaml.Node) int64
 
-	// ReportErrorAtID logs an error during parsing which is included in the issue set returned from
-	// a failed parse.
-	ReportErrorAtID(id int64, msg string, args ...any)
-
 	// NewPolicy creates a new Policy instance with an ID associated with the YAML node.
 	NewPolicy(*yaml.Node) (*Policy, int64)
 
@@ -236,33 +282,64 @@ type ParserContext interface {
 
 	// NewString creates a new ValueString from the YAML node.
 	NewString(*yaml.Node) ValueString
+
+	// ParsePolicy will parse the target yaml node as though it is the top-level policy.
+	ParsePolicy(ParserContext, *yaml.Node) *Policy
+
+	// ParseRule will parse the current yaml node as though it is the entry point to a rule.
+	ParseRule(ParserContext, *Policy, *yaml.Node) *Rule
+
+	// ParseMatch  will parse the current yaml node as though it is the entry point to a match.
+	ParseMatch(ParserContext, *Policy, *yaml.Node) *Match
+
+	// ParseVariable will parse the current yaml node as though it is the entry point to a variable.
+	ParseVariable(ParserContext, *Policy, *yaml.Node) *Variable
+
+	// ReportErrorAtID logs an error during parsing which is included in the issue set returned from
+	// a failed parse.
+	ReportErrorAtID(id int64, msg string, args ...any)
 }
 
 // TagVisitor declares a set of interfaces for handling custom tags which would otherwise be unsupported
 // within the policy, rule, match, or variable objects.
 type TagVisitor interface {
-	PolicyTag(ctx ParserContext, id int64, fieldName string, val *yaml.Node, p *Policy)
-	RuleTag(ctx ParserContext, id int64, fieldName string, val *yaml.Node, r *Rule)
-	MatchTag(ctx ParserContext, id int64, fieldName string, val *yaml.Node, m *Match)
-	VariableTag(ctx ParserContext, id int64, fieldName string, val *yaml.Node, v *Variable)
+	// PolicyTag accepts a parser context, field id, tag name, yaml node, and parent Policy to allow for
+	// continued parsing within a custom tag.
+	PolicyTag(ParserContext, int64, string, *yaml.Node, *Policy)
+
+	// RuleTag accepts a parser context, field id, tag name, yaml node, as well as the parent policy and
+	// current rule to allow for continued parsing within custom tags.
+	RuleTag(ParserContext, int64, string, *yaml.Node, *Policy, *Rule)
+
+	// MatchTag accepts a parser context, field id, tag name, yaml node, as well as the parent policy and
+	// current match to allow for continued parsing within custom tags.
+	MatchTag(ParserContext, int64, string, *yaml.Node, *Policy, *Match)
+
+	// VariableTag accepts a parser context, field id, tag name, yaml node, as well as the parent policy and
+	// current variable to allow for continued parsing within custom tags.
+	VariableTag(ParserContext, int64, string, *yaml.Node, *Policy, *Variable)
+}
+
+func DefaultTagVisitor() TagVisitor {
+	return defaultTagVisitor{}
 }
 
 type defaultTagVisitor struct{}
 
-func (defaultTagVisitor) PolicyTag(ctx ParserContext, id int64, fieldName string, node *yaml.Node, p *Policy) {
-	ctx.ReportErrorAtID(id, "unsupported policy tag: %s", fieldName)
+func (defaultTagVisitor) PolicyTag(ctx ParserContext, id int64, tagName string, node *yaml.Node, p *Policy) {
+	ctx.ReportErrorAtID(id, "unsupported policy tag: %s", tagName)
 }
 
-func (defaultTagVisitor) RuleTag(ctx ParserContext, id int64, fieldName string, node *yaml.Node, r *Rule) {
-	ctx.ReportErrorAtID(id, "unsupported rule tag: %s", fieldName)
+func (defaultTagVisitor) RuleTag(ctx ParserContext, id int64, tagName string, node *yaml.Node, p *Policy, r *Rule) {
+	ctx.ReportErrorAtID(id, "unsupported rule tag: %s", tagName)
 }
 
-func (defaultTagVisitor) MatchTag(ctx ParserContext, id int64, fieldName string, node *yaml.Node, m *Match) {
-	ctx.ReportErrorAtID(id, "unsupported match tag: %s", fieldName)
+func (defaultTagVisitor) MatchTag(ctx ParserContext, id int64, tagName string, node *yaml.Node, p *Policy, m *Match) {
+	ctx.ReportErrorAtID(id, "unsupported match tag: %s", tagName)
 }
 
-func (defaultTagVisitor) VariableTag(ctx ParserContext, id int64, fieldName string, node *yaml.Node, v *Variable) {
-	ctx.ReportErrorAtID(id, "unsupported variable tag: %s", fieldName)
+func (defaultTagVisitor) VariableTag(ctx ParserContext, id int64, tagName string, node *yaml.Node, p *Policy, v *Variable) {
+	ctx.ReportErrorAtID(id, "unsupported variable tag: %s", tagName)
 }
 
 // Parser parses policy files into a canonical Policy representation.
@@ -311,7 +388,7 @@ func (p *parserImpl) parseYaml(src *Source) *Policy {
 		return nil
 	}
 	// Entry point always has a single Content node
-	return p.parsePolicy(p, docNode.Content[0])
+	return p.ParsePolicy(p, docNode.Content[0])
 }
 
 func sourceToYaml(src *Source, docNode *yaml.Node) error {
@@ -342,38 +419,42 @@ type parserImpl struct {
 	iss     *cel.Issues
 }
 
+// NextID returns a monotonically increasing identifier for a source fragment.
+// This ID is implicitly created and tracked within the CollectMetadata method.
 func (p *parserImpl) NextID() int64 {
 	p.id++
 	return p.id
 }
 
+// NewPolicy creates a new Policy instance with an ID associated with the YAML node.
 func (p *parserImpl) NewPolicy(node *yaml.Node) (*Policy, int64) {
-	policy := &Policy{}
-	policy.source = p.src
-	policy.info = p.info
-	policy.semantic = firstMatch
+	policy := NewPolicy(p.src, p.info)
 	id := p.CollectMetadata(node)
 	return policy, id
 }
 
+// NewRule creates a new Rule instance with an ID associated with the YAML node.
 func (p *parserImpl) NewRule(node *yaml.Node) (*Rule, int64) {
-	r := &Rule{}
+	r := NewRule()
 	id := p.CollectMetadata(node)
 	return r, id
 }
 
+// NewVariable creates a new Variable instance with an ID associated with the YAML node.
 func (p *parserImpl) NewVariable(node *yaml.Node) (*Variable, int64) {
-	v := &Variable{}
+	v := NewVariable()
 	id := p.CollectMetadata(node)
 	return v, id
 }
 
+// NewMatch creates a new Match instance with an ID associated with the YAML node.
 func (p *parserImpl) NewMatch(node *yaml.Node) (*Match, int64) {
-	m := &Match{}
+	m := NewMatch()
 	id := p.CollectMetadata(node)
 	return m, id
 }
 
+// NewString creates a new ValueString from the YAML node.
 func (p *parserImpl) NewString(node *yaml.Node) ValueString {
 	id := p.CollectMetadata(node)
 	nodeType := p.assertYamlType(id, node, yamlString, yamlText)
@@ -408,6 +489,8 @@ func (p *parserImpl) NewString(node *yaml.Node) ValueString {
 	return ValueString{ID: id, Value: node.Value}
 }
 
+// CollectMetadata records the source position information of a given YAML node, and returns
+// the id associated with the source metadata which is returned in the Policy SourceInfo object.
 func (p *parserImpl) CollectMetadata(node *yaml.Node) int64 {
 	id := p.NextID()
 	line := node.Line
@@ -424,7 +507,8 @@ func (p *parserImpl) CollectMetadata(node *yaml.Node) int64 {
 	return id
 }
 
-func (p *parserImpl) parsePolicy(ctx ParserContext, node *yaml.Node) *Policy {
+// ParsePolicy will parse the target yaml node as though it is the top-level policy.
+func (p *parserImpl) ParsePolicy(ctx ParserContext, node *yaml.Node) *Policy {
 	ctx.CollectMetadata(node)
 	policy, id := ctx.NewPolicy(node)
 	if p.assertYamlType(id, node, yamlMap) == nil || !p.checkMapValid(ctx, id, node) {
@@ -439,7 +523,7 @@ func (p *parserImpl) parsePolicy(ctx ParserContext, node *yaml.Node) *Policy {
 		case "name":
 			policy.SetName(ctx.NewString(val))
 		case "rule":
-			policy.SetRule(p.parseRule(ctx, val))
+			policy.SetRule(p.ParseRule(ctx, policy, val))
 		default:
 			p.visitor.PolicyTag(ctx, keyID, fieldName, val, policy)
 		}
@@ -447,7 +531,8 @@ func (p *parserImpl) parsePolicy(ctx ParserContext, node *yaml.Node) *Policy {
 	return policy
 }
 
-func (p *parserImpl) parseRule(ctx ParserContext, node *yaml.Node) *Rule {
+// ParseRule will parse the current yaml node as though it is the entry point to a rule.
+func (p *parserImpl) ParseRule(ctx ParserContext, policy *Policy, node *yaml.Node) *Rule {
 	r, id := ctx.NewRule(node)
 	if p.assertYamlType(id, node, yamlMap) == nil || !p.checkMapValid(ctx, id, node) {
 		return r
@@ -467,27 +552,28 @@ func (p *parserImpl) parseRule(ctx ParserContext, node *yaml.Node) *Rule {
 		case "description":
 			r.SetDescription(ctx.NewString(val))
 		case "variables":
-			p.parseVariables(ctx, r, val)
+			p.parseVariables(ctx, policy, r, val)
 		case "match":
-			p.parseMatches(ctx, r, val)
+			p.parseMatches(ctx, policy, r, val)
 		default:
-			p.visitor.RuleTag(ctx, tagID, fieldName, val, r)
+			p.visitor.RuleTag(ctx, tagID, fieldName, val, policy, r)
 		}
 	}
 	return r
 }
 
-func (p *parserImpl) parseVariables(ctx ParserContext, r *Rule, node *yaml.Node) {
+func (p *parserImpl) parseVariables(ctx ParserContext, policy *Policy, r *Rule, node *yaml.Node) {
 	id := ctx.CollectMetadata(node)
 	if p.assertYamlType(id, node, yamlList) == nil {
 		return
 	}
 	for _, val := range node.Content {
-		r.AddVariable(p.parseVariable(ctx, val))
+		r.AddVariable(p.ParseVariable(ctx, policy, val))
 	}
 }
 
-func (p *parserImpl) parseVariable(ctx ParserContext, node *yaml.Node) *Variable {
+// ParseVariable will parse the current yaml node as though it is the entry point to a variable.
+func (p *parserImpl) ParseVariable(ctx ParserContext, policy *Policy, node *yaml.Node) *Variable {
 	v, id := ctx.NewVariable(node)
 	if p.assertYamlType(id, node, yamlMap) == nil || !p.checkMapValid(ctx, id, node) {
 		return v
@@ -507,23 +593,24 @@ func (p *parserImpl) parseVariable(ctx ParserContext, node *yaml.Node) *Variable
 		case "expression":
 			v.SetExpression(ctx.NewString(val))
 		default:
-			p.visitor.VariableTag(ctx, keyID, fieldName, val, v)
+			p.visitor.VariableTag(ctx, keyID, fieldName, val, policy, v)
 		}
 	}
 	return v
 }
 
-func (p *parserImpl) parseMatches(ctx ParserContext, r *Rule, node *yaml.Node) {
+func (p *parserImpl) parseMatches(ctx ParserContext, policy *Policy, r *Rule, node *yaml.Node) {
 	id := ctx.CollectMetadata(node)
 	if p.assertYamlType(id, node, yamlList) == nil {
 		return
 	}
 	for _, val := range node.Content {
-		r.AddMatch(p.parseMatch(ctx, val))
+		r.AddMatch(p.ParseMatch(ctx, policy, val))
 	}
 }
 
-func (p *parserImpl) parseMatch(ctx ParserContext, node *yaml.Node) *Match {
+// ParseMatch  will parse the current yaml node as though it is the entry point to a match.
+func (p *parserImpl) ParseMatch(ctx ParserContext, policy *Policy, node *yaml.Node) *Match {
 	m, id := ctx.NewMatch(node)
 	if p.assertYamlType(id, node, yamlMap) == nil || !p.checkMapValid(ctx, id, node) {
 		return m
@@ -550,9 +637,9 @@ func (p *parserImpl) parseMatch(ctx ParserContext, node *yaml.Node) *Match {
 			if m.HasOutput() {
 				p.ReportErrorAtID(keyID, "only the rule or the output may be set")
 			}
-			m.SetRule(p.parseRule(ctx, val))
+			m.SetRule(p.ParseRule(ctx, policy, val))
 		default:
-			p.visitor.MatchTag(ctx, keyID, fieldName, val, m)
+			p.visitor.MatchTag(ctx, keyID, fieldName, val, policy, m)
 		}
 	}
 	return m
@@ -573,7 +660,9 @@ func (p *parserImpl) assertYamlType(id int64, node *yaml.Node, nodeTypes ...yaml
 	return nil
 }
 
-func (p *parserImpl) ReportErrorAtID(id int64, format string, args ...interface{}) {
+// ReportErrorAtID logs an error during parsing which is included in the issue set returned from
+// a failed parse.
+func (p *parserImpl) ReportErrorAtID(id int64, format string, args ...any) {
 	p.iss.ReportErrorAtID(id, format, args...)
 }
 

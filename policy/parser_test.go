@@ -20,18 +20,18 @@ import (
 )
 
 func TestParse(t *testing.T) {
-	parser, err := NewParser()
-	if err != nil {
-		t.Fatalf("NewParser() failed: %v", err)
-	}
 	for _, tst := range policyTests {
 		srcFile := readPolicy(t, fmt.Sprintf("testdata/%s/policy.yaml", tst.name))
+		parser, err := NewParser(tst.parseOpts...)
+		if err != nil {
+			t.Fatalf("NewParser() failed: %v", err)
+		}
 		p, iss := parser.Parse(srcFile)
 		if iss.Err() != nil {
-			t.Fatalf("parse() failed: %v", iss.Err())
+			t.Fatalf("parser.Parse() failed: %v", iss.Err())
 		}
 		if p.Name().Value != tst.name {
-			t.Errorf("policy name is %v, wanted 'required_labels'", p.name)
+			t.Errorf("policy name is %v, wanted %q", p.name, tst.name)
 		}
 	}
 }
@@ -62,8 +62,8 @@ rule:
 inputs:
   - name: a
   - name: b`,
-			err: `ERROR: <input>:1:2: unsupported policy tag: inputs
- | 
+			err: `ERROR: <input>:2:1: unsupported policy tag: inputs
+ | inputs:
  | ^`,
 		},
 		{
@@ -93,8 +93,8 @@ ERROR: <input>:5:7: unsupported match tag: alt_name
 			txt: `
 - rule:
     id: a`,
-			err: `ERROR: <input>:1:2: got yaml node type tag:yaml.org,2002:seq, wanted type(s) [tag:yaml.org,2002:map]
- | 
+			err: `ERROR: <input>:2:1: got yaml node type tag:yaml.org,2002:seq, wanted type(s) [tag:yaml.org,2002:map]
+ | - rule:
  | ^`,
 		},
 		{

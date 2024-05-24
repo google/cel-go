@@ -163,9 +163,8 @@ func (s *sourceImpl) findLine(characterOffset int32) (int32, int32) {
 	for _, lineOffset := range s.lineOffsets {
 		if lineOffset > characterOffset {
 			break
-		} else {
-			line++
 		}
+		line++
 	}
 	if line == 1 {
 		return line, 0

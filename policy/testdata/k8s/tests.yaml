@@ -12,26 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-description: Restricted destinations conformance tests.
+description: K8s admission control tests
 section:
-  - name: "valid"
+  - name: "invalid"
     tests:
-     - name: "allowed"
-       input:
-         "spec.origin": "us"
-         "spec.restricted_destinations":
-             - "cu"
-             - "ir"
-             - "kp"
-             - "sd"
-             - "sy"
-         "destination.ip": "10.0.0.1"
-         "origin.ip": "10.0.0.1"
-         request:
-           auth:
-             claims: {}
-         resource:
-           name: "/company/acme/secrets/doomsday-device"
-           labels:
-             location: "us"
-       output: "true"
+      - name: "restricted_container"
+        input:
+          resource.namespace: "dev.cel"
+          resource.labels:
+            environment: "staging"
+          resource.containers:
+            - staging.dev.cel.container1
+            - staging.dev.cel.container2
+            - preprod.dev.cel.container3
+        output: "'only staging containers are allowed in namespace dev.cel'"

@@ -25,36 +25,53 @@ import (
 
 func TestCompile(t *testing.T) {
 	for _, tst := range policyTests {
-		r := newRunner(t, tst.name, tst.expr, tst.envOpts...)
+		r := newRunner(t, tst.name, tst.expr, tst.parseOpts, tst.envOpts...)
 		r.run(t)
+	}
+}
+
+func TestCompileError(t *testing.T) {
+	for _, tst := range policyErrorTests {
+		_, _, iss := compile(t, tst.name, []ParserOption{}, []cel.EnvOption{})
+		if iss.Err() == nil {
+			t.Fatalf("compile(%s) did not error, wanted %s", tst.name, tst.err)
+		}
+		if iss.Err().Error() != tst.err {
+			t.Errorf("compile(%s) got error %s, wanted %s", tst.name, iss.Err().Error(), tst.err)
+		}
 	}
 }
 
 func BenchmarkCompile(b *testing.B) {
 	for _, tst := range policyTests {
-		r := newRunner(b, tst.name, tst.expr, tst.envOpts...)
+		r := newRunner(b, tst.name, tst.expr, tst.parseOpts, tst.envOpts...)
 		r.bench(b)
 	}
 }
 
-func newRunner(t testing.TB, name, expr string, opts ...cel.EnvOption) *runner {
-	r := &runner{name: name, envOptions: opts, expr: expr}
+func newRunner(t testing.TB, name, expr string, parseOpts []ParserOption, opts ...cel.EnvOption) *runner {
+	r := &runner{
+		name:      name,
+		envOpts:   opts,
+		parseOpts: parseOpts,
+		expr:      expr}
 	r.setup(t)
 	return r
 }
 
 type runner struct {
-	name       string
-	envOptions []cel.EnvOption
-	env        *cel.Env
-	expr       string
-	prg        cel.Program
+	name      string
+	envOpts   []cel.EnvOption
+	parseOpts []ParserOption
+	env       *cel.Env
+	expr      string
+	prg       cel.Program
 }
 
-func (r *runner) setup(t testing.TB) {
-	config := readPolicyConfig(t, fmt.Sprintf("testdata/%s/config.yaml", r.name))
-	srcFile := readPolicy(t, fmt.Sprintf("testdata/%s/policy.yaml", r.name))
-	parser, err := NewParser()
+func compile(t testing.TB, name string, parseOpts []ParserOption, envOpts []cel.EnvOption) (*cel.Env, *cel.Ast, *cel.Issues) {
+	config := readPolicyConfig(t, fmt.Sprintf("testdata/%s/config.yaml", name))
+	srcFile := readPolicy(t, fmt.Sprintf("testdata/%s/policy.yaml", name))
+	parser, err := NewParser(parseOpts...)
 	if err != nil {
 		t.Fatalf("NewParser() failed: %v", err)
 	}
@@ -62,8 +79,8 @@ func (r *runner) setup(t testing.TB) {
 	if iss.Err() != nil {
 		t.Fatalf("Parse() failed: %v", iss.Err())
 	}
-	if policy.name.Value != r.name {
-		t.Errorf("policy name is %v, wanted %s", policy.name, r.name)
+	if policy.name.Value != name {
+		t.Errorf("policy name is %v, wanted %q", policy.name, name)
 	}
 	env, err := cel.NewEnv(
 		cel.OptionalTypes(),
@@ -82,11 +99,16 @@ func (r *runner) setup(t testing.TB) {
 		t.Fatalf("env.Extend() with config options %v, failed: %v", config, err)
 	}
 	// Configure any implementations
-	env, err = env.Extend(r.envOptions...)
+	env, err = env.Extend(envOpts...)
 	if err != nil {
 		t.Fatalf("env.Extend() with config options %v, failed: %v", config, err)
 	}
 	ast, iss := Compile(env, policy)
+	return env, ast, iss
+}
+
+func (r *runner) setup(t testing.TB) {
+	env, ast, iss := compile(t, r.name, r.parseOpts, r.envOpts)
 	if iss.Err() != nil {
 		t.Fatalf("Compile() failed: %v", iss.Err())
 	}

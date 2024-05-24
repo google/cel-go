@@ -12,24 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-description: Nested rule conformance tests
-section:
-  - name: "banned"
-    tests:
-      - name: "restricted_origin"
-        input:
-          resource:
-            origin: "ir"
-        output: "{'banned': true}"
-      - name: "by_default"
-        input:
-          resource:
-            origin: "de"
-        output: "{'banned': true}"
-  - name: "permitted"
-    tests:
-      - name: "valid_origin"
-        input:
-          resource:
-            origin: "uk"
-        output: "{'banned': false}"
+name: k8s
+extensions:
+  - name: "strings"
+    version: 2
+variables:
+  - name: "resource.labels"
+    type:
+      type_name: "map"
+      params:
+        - type_name: "string"
+        - type_name: "string"
+  - name: "resource.containers"
+    type:
+      type_name: "list"
+      params:
+        - type_name: "string"
+  - name: "resource.namespace"
+    type:
+      type_name: "string"
