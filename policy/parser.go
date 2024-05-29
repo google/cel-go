@@ -204,9 +204,10 @@ func NewMatch() *Match {
 // Match declares a condition (defaults to true) as well as an output or a rule.
 // Either the output or the rule field may be set, but not both.
 type Match struct {
-	condition ValueString
-	output    *ValueString
-	rule      *Rule
+	condition   ValueString
+	output      *ValueString
+	explanation *ValueString
+	rule        *Rule
 }
 
 // Condition returns the condition CEL expression.
@@ -223,6 +224,19 @@ func (m *Match) HasOutput() bool {
 func (m *Match) Output() ValueString {
 	if m.HasOutput() {
 		return *m.output
+	}
+	return ValueString{}
+}
+
+// HasExplanation indicates whether the explanation field is set of the match.
+func (m *Match) HasExplanation() bool {
+	return m.explanation != nil
+}
+
+// Explanation returns the explanation expression, or empty expression if output is not set.
+func (m *Match) Explanation() ValueString {
+	if m.HasExplanation() {
+		return *m.explanation
 	}
 	return ValueString{}
 }
@@ -245,6 +259,11 @@ func (m *Match) SetCondition(c ValueString) {
 // SetOutput sets the output expression for the match.
 func (m *Match) SetOutput(o ValueString) {
 	m.output = &o
+}
+
+// SetExplanation sets the explanation expression for the match.
+func (m *Match) SetExplanation(e ValueString) {
+	m.explanation = &e
 }
 
 // SetRule sets the rule for the match.
@@ -633,9 +652,17 @@ func (p *parserImpl) ParseMatch(ctx ParserContext, policy *Policy, node *yaml.No
 				p.ReportErrorAtID(keyID, "only the rule or the output may be set")
 			}
 			m.SetOutput(ctx.NewString(val))
+		case "explanation":
+			if m.HasRule() {
+				p.ReportErrorAtID(keyID, "explanation can only be set on output match cases, not nested rules")
+			}
+			m.SetExplanation(ctx.NewString(val))
 		case "rule":
 			if m.HasOutput() {
 				p.ReportErrorAtID(keyID, "only the rule or the output may be set")
+			}
+			if m.HasExplanation() {
+				p.ReportErrorAtID(keyID, "explanation can only be set on output match cases, not nested rules")
 			}
 			m.SetRule(p.ParseRule(ctx, policy, val))
 		default:

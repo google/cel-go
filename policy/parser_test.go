@@ -123,6 +123,32 @@ rule:
  |       output: "world"
  | ......^`,
 		},
+		{
+			txt: `
+rule:
+  match:
+    - condition: "true"
+      explanation: "hi"
+      rule:
+        match:
+          - output: "hello"`,
+			err: `ERROR: <input>:6:7: explanation can only be set on output match cases, not nested rules
+ |       rule:
+ | ......^`,
+		},
+		{
+			txt: `
+rule:
+  match:
+    - condition: "true"
+      rule:
+        match:
+          - output: "hello"
+      explanation: "hi"`,
+			err: `ERROR: <input>:8:7: explanation can only be set on output match cases, not nested rules
+ |       explanation: "hi"
+ | ......^`,
+		},
 	}
 
 	for _, tst := range tests {
