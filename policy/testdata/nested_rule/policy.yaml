@@ -32,6 +32,7 @@ rule:
               resource.origin in variables.banned_regions &&
               !(resource.origin in variables.permitted_regions)
             output: "{'banned': true}"
+            explanation: "'resource is in the banned region ' + resource.origin"
     - condition: resource.origin in variables.permitted_regions
       output: "{'banned': false}"
     - output: "{'banned': true}"
