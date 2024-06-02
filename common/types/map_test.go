@@ -136,6 +136,38 @@ func TestDynamicMapConvertToNative_Any(t *testing.T) {
 	}
 }
 
+func TestDynamicMapWithInitializerConvertToNative_Any(t *testing.T) {
+	reg := newTestRegistry(t)
+	initCounter := 0
+	m := map[string]map[string]float32{
+		"nested": {"1": -1.0}}
+	mapVal := NewDynamicMapWithInitializer(reg, map[string]map[string]float32{}, func() (interface{}, int, error) {
+		initCounter++
+		return m, len(m), nil
+	})
+	val, err := mapVal.ConvertToNative(anyValueType)
+	if err != nil {
+		t.Error(err)
+	}
+	jsonMap := &structpb.Struct{}
+	err = protojson.Unmarshal([]byte(`{"nested":{"1":-1}}`), jsonMap)
+	if err != nil {
+		t.Fatalf("protojson.Unmarshal() failed: %v", err)
+	}
+	want, err := anypb.New(jsonMap)
+	if err != nil {
+		t.Error(err)
+	}
+	if !proto.Equal(val.(proto.Message), want) {
+		t.Errorf("Got %v, wanted %v", val, want)
+	}
+
+	// check the counter
+	if initCounter != 1 {
+		t.Errorf("map value loaded %d times, expect to only load once", initCounter)
+	}
+}
+
 func TestDynamicMapConvertToNative_Error(t *testing.T) {
 	reg := newTestRegistry(t)
 	mapVal := NewDynamicMap(reg, map[string]map[string]float32{
@@ -143,6 +175,26 @@ func TestDynamicMapConvertToNative_Error(t *testing.T) {
 	val, err := mapVal.ConvertToNative(reflect.TypeOf(""))
 	if err == nil {
 		t.Errorf("mapVal.ConvertToNative(string) got '%v', expected error", val)
+	}
+}
+
+func TestDynamicMapWithInitializerConvertToNative_Error(t *testing.T) {
+	reg := newTestRegistry(t)
+	initCounter := 0
+	m := map[string]map[string]float32{
+		"nested": {"1": -1.0}}
+	mapVal := NewDynamicMapWithInitializer(reg, map[string]map[string]float32{}, func() (interface{}, int, error) {
+		initCounter++
+		return m, len(m), nil
+	})
+	val, err := mapVal.ConvertToNative(reflect.TypeOf(""))
+	if err == nil {
+		t.Errorf("mapVal.ConvertToNative(string) got '%v', expected error", val)
+	}
+
+	// check the counter
+	if initCounter != 1 {
+		t.Errorf("map value loaded %d times, expect to only load once", initCounter)
 	}
 }
 
@@ -161,6 +213,34 @@ func TestDynamicMapConvertToNative_Json(t *testing.T) {
 	jsonTxt := string(jsonBytes)
 	if jsonTxt != `{"nested":{"1":-1}}` {
 		t.Error(jsonTxt)
+	}
+}
+
+func TestDynamicMapWithInitializerConvertToNative_Json(t *testing.T) {
+	reg := newTestRegistry(t)
+	initCounter := 0
+	m := map[string]map[string]float32{
+		"nested": {"1": -1.0}}
+	mapVal := NewDynamicMapWithInitializer(reg, m, func() (interface{}, int, error) {
+		initCounter++
+		return m, len(m), nil
+	})
+	json, err := mapVal.ConvertToNative(jsonValueType)
+	if err != nil {
+		t.Error(err)
+	}
+	jsonBytes, err := protojson.Marshal(json.(proto.Message))
+	if err != nil {
+		t.Fatalf("protojson.Marshal(%v) failed: %v", json, err)
+	}
+	jsonTxt := string(jsonBytes)
+	if jsonTxt != `{"nested":{"1":-1}}` {
+		t.Error(jsonTxt)
+	}
+
+	// check the counter
+	if initCounter != 1 {
+		t.Errorf("map value loaded %d times, expect to only load once", initCounter)
 	}
 }
 
@@ -450,6 +530,52 @@ func TestDynamicMapGet(t *testing.T) {
 	}
 }
 
+func TestDynamicMapWithInitializerGet(t *testing.T) {
+	reg := newTestRegistry(t)
+	initCounter := 0
+	mapVal := NewDynamicMapWithInitializer(reg, map[string]map[int32]float32{}, func() (interface{}, int, error) {
+		m := map[string]map[int32]float32{
+			"nested": {1: -1.0, 2: 2.0},
+			"empty":  {}}
+
+		initCounter++
+		return m, len(m), nil
+	})
+	nestedVal, ok := mapVal.Get(String("nested")).(traits.Mapper)
+	if !ok {
+		t.Fatalf("mapVal.Get('nested') got %v, wanted map value", mapVal.Get(String("nested")))
+	}
+	floatVal := nestedVal.(traits.Indexer).Get(Int(1))
+	if floatVal.Equal(Double(-1.0)) != True {
+		t.Errorf("nestedVal.Get(1) got %v, wanted -1.0", floatVal)
+	}
+	err := mapVal.Get(String("absent"))
+	if !IsError(err) || err.(*Err).Error() != "no such key: absent" {
+		t.Errorf("mapVal.Get('absent') got %v, wanted no such key: absent.", err)
+	}
+	err = nestedVal.Get(String("bad_key"))
+	if !IsError(err) || err.(*Err).Error() != "no such key: bad_key" {
+		t.Errorf("nestedVal.Get('bad_key') errored %v, wanted no such key: bad_key.", err)
+	}
+	empty, ok := mapVal.Get(String("empty")).(traits.Mapper)
+	if !ok {
+		t.Fatalf("mapVal.Get('empty') got %v, wanted empty map", mapVal.Get(String("empty")))
+	}
+	err = empty.Get(String("hello"))
+	if !IsError(err) || err.(*Err).Error() != "no such key: hello" {
+		t.Errorf("empty.Get('hello') got %v, wanted no such key: hello", err)
+	}
+	err = empty.Get(Double(-1.0))
+	if !IsError(err) || err.(*Err).Error() != "no such key: -1" {
+		t.Errorf("empty.Get(-1.0) got %v, wanted no such key: -1", err)
+	}
+
+	// check the counter
+	if initCounter != 1 {
+		t.Errorf("map value loaded %d times, expect to only load once", initCounter)
+	}
+}
+
 func TestStringIfaceMapGet(t *testing.T) {
 	reg := newTestRegistry(t)
 	mapVal := NewStringInterfaceMap(reg, map[string]any{
@@ -646,6 +772,40 @@ func TestDynamicMapIterator(t *testing.T) {
 	}
 }
 
+func TestDynamicMapWithInitializerIterator(t *testing.T) {
+	reg := newTestRegistry(t)
+	initCounter := 0
+	m := map[string]map[int32]float32{
+		"nested": {1: -1.0, 2: 2.0},
+		"empty":  {}}
+	mapVal := NewDynamicMapWithInitializer(reg, map[string]map[int32]float32{}, func() (interface{}, int, error) {
+		initCounter++
+		return m, len(m), nil
+	})
+	it := mapVal.Iterator()
+	var i = 0
+	var fieldNames []any
+	for ; it.HasNext() == True; i++ {
+		fieldName := it.Next()
+		if value := mapVal.Get(fieldName); IsError(value) {
+			t.Error(value)
+		} else {
+			fieldNames = append(fieldNames, fieldName)
+		}
+	}
+	if len(fieldNames) != 2 {
+		t.Errorf("Did not find the correct number of fields: %v", fieldNames)
+	}
+	if it.Next() != nil {
+		t.Error("Iterator ran off the end of the field names")
+	}
+
+	// check the counter
+	if initCounter != 1 {
+		t.Errorf("map value loaded %d times, expect to only load once", initCounter)
+	}
+}
+
 func TestStringMapIterator(t *testing.T) {
 	reg := newTestRegistry(t)
 	mapVal := NewStringStringMap(reg, map[string]string{
@@ -694,6 +854,26 @@ func TestDynamicMapSize(t *testing.T) {
 		"second": 2})
 	if mapVal.Size() != Int(2) {
 		t.Errorf("mapVal.Size() got '%v', expected 2", mapVal.Size())
+	}
+}
+
+func TestDynamicMapWithInitializerSize(t *testing.T) {
+	reg := newTestRegistry(t)
+	initCounter := 0
+	m := map[string]int{
+		"first":  1,
+		"second": 2}
+	mapVal := NewDynamicMapWithInitializer(reg, map[string]int{}, func() (interface{}, int, error) {
+		initCounter++
+		return m, len(m), nil
+	})
+	if mapVal.Size() != Int(2) {
+		t.Errorf("mapVal.Size() got '%v', expected 2", mapVal.Size())
+	}
+
+	// check the counter
+	if initCounter != 1 {
+		t.Errorf("map value loaded %d times, expect to only load once", initCounter)
 	}
 }
 
