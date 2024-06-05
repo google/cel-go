@@ -339,6 +339,7 @@ type TagVisitor interface {
 	VariableTag(ParserContext, int64, string, *yaml.Node, *Policy, *Variable)
 }
 
+// DefaultTagVisitor creates a tag visitor which produces errors for any non-canonical YAML tag.
 func DefaultTagVisitor() TagVisitor {
 	return defaultTagVisitor{}
 }

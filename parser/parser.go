@@ -921,7 +921,7 @@ func (p *parser) expandMacro(exprID int64, function string, target ast.Expr, arg
 		if loc == nil {
 			loc = p.helper.getLocation(exprID)
 		}
-		p.helper.deleteId(exprID)
+		p.helper.deleteID(exprID)
 		return p.reportError(loc, err.Message), true
 	}
 	// A nil value from the macro indicates that the macro implementation decided that
@@ -932,7 +932,7 @@ func (p *parser) expandMacro(exprID int64, function string, target ast.Expr, arg
 	if p.populateMacroCalls {
 		p.helper.addMacroCall(expr.ID(), function, target, args...)
 	}
-	p.helper.deleteId(exprID)
+	p.helper.deleteID(exprID)
 	return expr, true
 }
 

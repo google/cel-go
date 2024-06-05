@@ -24,7 +24,8 @@ import (
 	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/test/proto3pb"
+
+	proto3pb "github.com/google/cel-go/test/proto3pb"
 )
 
 func TestSets(t *testing.T) {

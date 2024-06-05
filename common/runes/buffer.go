@@ -131,8 +131,8 @@ func NewBuffer(data string) Buffer {
 	return buf
 }
 
-// NewBuffer returns an efficient implementation of Buffer for the given text based on the ranges of
-// the encoded code points contained within, as well as returning the line offsets.
+// NewBufferAndLineOffsets returns an efficient implementation of Buffer for the given text based on
+// the ranges of the encoded code points contained within, as well as returning the line offsets.
 //
 // Code points are represented as an array of byte, uint16, or rune. This approach ensures that
 // each index represents a code point by itself without needing to use an array of rune. At first

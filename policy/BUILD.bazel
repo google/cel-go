@@ -46,8 +46,8 @@ go_test(
     srcs = [
         "compiler_test.go",
         "config_test.go",
+        "helper_test.go",        
         "parser_test.go",
-        "test.go",
     ],
     data = glob(["testdata/**"]),
     embed = [":go_default_library"],
