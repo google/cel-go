@@ -27,3 +27,7 @@ func BenchmarkReferenceCases(b *testing.B) {
 	}
 	RunReferenceCases(b, stdenv)
 }
+
+func BenchmarkReferenceCheckerCases(b *testing.B) {
+	RunReferenceCheckerCases(b)
+}

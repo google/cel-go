@@ -40,6 +40,20 @@ type Case struct {
 	Out ref.Val
 }
 
+type EvalCase struct {
+	// Expr is a human-readable expression which is expected to compile.
+	Expr string
+
+	// Options indicate additional pieces of configuration such as CEL libraries, variables, and functions.
+	Options func(b *testing.B) *cel.Env
+
+	// In is expected to be a map[string]any or interpreter.Activation instance representing the input to the expression.
+	In any
+
+	// Out is the expected CEL valued output.
+	Out ref.Val
+}
+
 var (
 	// ReferenceCases represent canonical CEL expressions for common use cases.
 	ReferenceCases = []*Case{
@@ -178,6 +192,53 @@ var (
 	}
 )
 
+var (
+	ReferenceCheckerCases = []*EvalCase{
+		{
+			Expr: `a+b`,
+			Options: func(b *testing.B) *cel.Env {
+				stdenv, err := cel.NewEnv(cel.Variable("a", cel.IntType), cel.Variable("b", cel.IntType))
+				if err != nil {
+					b.Fatalf("cel.NewEnv() failed: %v", err)
+				}
+				return stdenv
+			},
+		},
+		{
+			Expr: `x == y && y == z`,
+			Options: func(b *testing.B) *cel.Env {
+
+				stdenv, err := cel.NewEnv(cel.Variable("x", cel.IntType), cel.Variable("y", cel.IntType))
+				if err != nil {
+					b.Fatalf("cel.NewEnv() failed: %v", err)
+				}
+				stdenv.Compile("x == y")
+				stdenv, err = stdenv.Extend(cel.Variable("z", cel.IntType))
+				if err != nil {
+					b.Fatalf("cel.Extend() failed: %v", err)
+				}
+				return stdenv
+			},
+		},
+		{
+			Expr: `x + y + z`,
+			Options: func(b *testing.B) *cel.Env {
+
+				stdenv, err := cel.NewEnv(cel.Variable("x", cel.IntType), cel.Variable("y", cel.IntType))
+				if err != nil {
+					b.Fatalf("cel.NewEnv() failed: %v", err)
+				}
+				stdenv.Compile("x + y")
+				stdenv, err = stdenv.Extend(cel.Variable("z", cel.IntType))
+				if err != nil {
+					b.Fatalf("cel.Extend() failed: %v", err)
+				}
+				return stdenv
+			},
+		},
+	}
+)
+
 // RunReferenceCases evaluates the set of ReferenceCases against a custom CEL environment.
 //
 // See: bench_test.go for an example.
@@ -185,6 +246,13 @@ func RunReferenceCases(b *testing.B, env *cel.Env) {
 	b.Helper()
 	for _, rc := range ReferenceCases {
 		RunCase(b, env, rc)
+	}
+}
+
+func RunReferenceCheckerCases(b *testing.B) {
+	b.Helper()
+	for _, rc := range ReferenceCheckerCases {
+		RunEvalCase(b, rc)
 	}
 }
 
@@ -240,4 +308,18 @@ func RunCase(b *testing.B, env *cel.Env, bc *Case) {
 			}
 		})
 	}
+}
+
+func RunEvalCase(b *testing.B, bc *EvalCase) {
+	b.Helper()
+	b.Run(bc.Expr, func(b *testing.B) {
+		env := bc.Options(b)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_, err := env.Compile(bc.Expr)
+			if err != nil {
+				b.Fatalf("env.Compile(%v) failed: %v", bc.Expr, err)
+			}
+		}
+	})
 }

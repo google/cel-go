@@ -314,7 +314,6 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 		// validated within the chk instance.
 		chkOptsCopy = append(chkOptsCopy, checker.ValidatedDeclarations(chk))
 	}
-	//
 	varsCopy := make([]*decls.VariableDecl, len(e.variables))
 	copy(varsCopy, e.variables)
 

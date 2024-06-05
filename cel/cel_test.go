@@ -1771,9 +1771,7 @@ func TestPartialVarsExtendedEnv(t *testing.T) {
 		Variable("y", IntType),
 	)
 
-	//To:DO
-	//then make pr to clone, repl add cmd to enable partial eval and add support for command and then add another pr
-
+	env.Compile("x == y")
 	// Now test that a sub environment is correctly copied.
 	env2, err := env.Extend(Variable("z", IntType))
 	if err != nil {
