@@ -325,7 +325,16 @@ func (tp *nativeTypeProvider) NativeToValue(val any) ref.Val {
 	// This isn't quite right if you're also supporting proto,
 	// but maybe an acceptable limitation.
 	switch refVal.Kind() {
-	case reflect.Array, reflect.Slice:
+	case reflect.Array:
+		refElem := refVal.Type().Elem()
+		if refElem == reflect.TypeOf(byte(0)) {
+			tmp := reflect.New(refVal.Type())
+			tmp.Elem().Set(refVal)
+
+			return types.Bytes(tmp.Elem().Bytes())
+		}
+		return types.NewDynamicList(tp, val)
+	case reflect.Slice:
 		switch val := val.(type) {
 		case []byte:
 			return tp.baseAdapter.NativeToValue(val)

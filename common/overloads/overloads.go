@@ -265,6 +265,7 @@ const (
 // Bytes conversion functions.
 const (
 	BytesToBytes  = "bytes_to_bytes"
+	IntsToBytes  = "ints_to_bytes"
 	StringToBytes = "string_to_bytes"
 )
 

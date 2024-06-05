@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"encoding/hex"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 
@@ -76,6 +77,7 @@ func TestNativeTypes(t *testing.T) {
 				CustomSliceVal: [ext.TestNestedSliceType{Value: 'none'}],
 				CustomMapVal: {'even': ext.TestMapVal{Value: 'more'}},
         custom_name: 'name',
+        ByteArray: bytes('abcdef')
 			}`,
 			out: &TestAllTypes{
 				NestedVal:    &TestNestedType{NestedMapVal: map[int64]bool{1: false}},
@@ -106,6 +108,7 @@ func TestNativeTypes(t *testing.T) {
 				CustomSliceVal: []TestNestedSliceType{{Value: "none"}},
 				CustomMapVal:   map[string]TestMapVal{"even": {Value: "more"}},
 				CustomName:     "name",
+				ByteArray:      [4]byte{'a', 'b', 'c', 'd'},
 			},
 			envOpts: []any{ParseStructTags(true)},
 		},
@@ -602,25 +605,70 @@ func TestNativeTypesConvertToNative(t *testing.T) {
 			out: &proto3pb.TestAllTypes{},
 			err: "type conversion error",
 		},
+		{
+			in:  [4]byte{1, 2, 3, 4},
+			out: types.Bytes([]byte{1, 2, 3, 4}),
+		},
 	}
-	for _, c := range conversions {
-		inVal := adapter.NativeToValue(c.in)
-		if types.IsError(inVal) {
-			t.Fatalf("adapter.NativeToValue(%v) failed: %v", c.in, inVal)
-		}
-		out, err := inVal.ConvertToNative(reflect.TypeOf(c.out))
-		if err != nil {
-			if c.err != "" {
-				if !strings.Contains(err.Error(), c.err) {
-					t.Fatalf("%v.ConvertToNative(%T) got %v, wanted error %v", c.in, c.out, err, c.err)
-				}
-				return
+	for i, c := range conversions {
+		t.Run(fmt.Sprintf("[%d]", i), func(t *testing.T) {
+			inVal := adapter.NativeToValue(c.in)
+			if types.IsError(inVal) {
+				t.Fatalf("adapter.NativeToValue(%v) failed: %v", c.in, inVal)
 			}
-			t.Fatalf("%v.ConvertToNative(%T) failed: %v", c.in, c.out, err)
-		}
-		if !reflect.DeepEqual(out, c.out) {
-			t.Errorf("%v.ConvertToNative(%T) got %v, wanted %v", c.in, c.out, out, c.out)
-		}
+			out, err := inVal.ConvertToNative(reflect.TypeOf(c.out))
+			if err != nil {
+				if c.err != "" {
+					if !strings.Contains(err.Error(), c.err) {
+						t.Fatalf("%v.ConvertToNative(%T) got %v, wanted error %v", c.in, c.out, err, c.err)
+					}
+					return
+				}
+				t.Fatalf("%v.ConvertToNative(%T) failed: %v", c.in, c.out, err)
+			}
+			if !reflect.DeepEqual(out, c.out) {
+				t.Errorf("%v.ConvertToNative(%T) got %v, wanted %v", c.in, c.out, out, c.out)
+			}
+		})
+	}
+}
+
+func TestNativeToValue(t *testing.T) {
+	env := testNativeEnv(t, NativeTypes(reflect.TypeOf(TestNestedType{})))
+	adapter := env.CELTypeAdapter()
+	conversions := []struct {
+		in            any
+		outNativeType bool
+		outType       ref.Type
+		err           string
+	}{
+		{
+			in:            &TestAllTypes{BoolVal: true},
+			outNativeType: true,
+		},
+		{
+			in:      nil,
+			outType: types.NullType,
+		},
+		{
+			in:      [4]byte{1, 2, 3, 4},
+			outType: types.BytesType,
+		},
+	}
+	for i, c := range conversions {
+		t.Run(fmt.Sprintf("[%d]", i), func(t *testing.T) {
+			val := adapter.NativeToValue(c.in)
+			if types.IsError(val) {
+				t.Fatalf("adapter.NativeToValue(%v) failed: %v", c.in, val)
+			}
+			if c.outNativeType {
+				if _, ok := val.Type().(*nativeType); !ok {
+					t.Errorf("adapter.NativeToValue(%T) got type %v, wanted native type", c.in, val.Type())
+				}
+			} else if val.Type() != c.outType {
+				t.Errorf("adapter.NativeToValue(%T) got type %v, wanted type %v", c.in, val.Type(), c.outType)
+			}
+		})
 	}
 }
 
@@ -777,6 +825,44 @@ func TestNativeStructWithMultileSameFieldNames(t *testing.T) {
 	}
 }
 
+func TestFunctionOverloadForNative(t *testing.T) {
+	env := testNativeEnv(t,
+		cel.Variable("data", cel.ObjectType("ext.TestAllTypes")),
+		cel.Function("hex",
+			cel.Overload("bytes_hex", []*cel.Type{types.BytesType}, types.StringType,
+				cel.UnaryBinding(func(value ref.Val) ref.Val {
+					bytes := value.(types.Bytes)
+
+					return types.String(hex.EncodeToString(bytes))
+				}))))
+	expr := `hex(data.ByteArray)`
+	ast, iss := env.Compile(expr)
+	if iss.Err() != nil {
+		t.Fatalf("env.Compile(%v) failed: %v", expr, iss.Err())
+	}
+	prg, err := env.Program(ast)
+	if err != nil {
+		t.Fatalf("env.Program() failed: %v", err)
+	}
+
+	out, _, err := prg.Eval(map[string]any{
+		"data": TestAllTypes{
+			ByteArray: [4]byte{0xFF, 0xFF, 0xFF, 0xFF},
+		},
+	})
+	if err != nil {
+		t.Fatalf("prg.Eval() failed: %v", err)
+	}
+	str, ok := out.(types.String)
+	if !ok {
+		t.Fatalf("prg.Eval() output is expected to be types.String, but was %T", out)
+	}
+
+	if str != "ffffffff" {
+		t.Fatalf("prg.Eval() output is expected to be 'ffffffff', but was %s", str)
+	}
+}
+
 // testEnv initializes the test environment common to all tests.
 func testNativeEnv(t *testing.T, opts ...any) *cel.Env {
 	t.Helper()
@@ -853,6 +939,7 @@ type TestAllTypes struct {
 	CustomSliceVal  []TestNestedSliceType
 	CustomMapVal    map[string]TestMapVal
 	CustomName      string `cel:"custom_name"`
+	ByteArray       [4]byte
 
 	// channel types are not supported
 	UnsupportedVal     chan string
