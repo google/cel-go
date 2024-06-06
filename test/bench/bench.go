@@ -40,7 +40,8 @@ type Case struct {
 	Out ref.Val
 }
 
-type EvalCase struct {
+// Case represents an expression compiled in a dynamic environment.
+type DynamicEnvCase struct {
 	// Expr is a human-readable expression which is expected to compile.
 	Expr string
 
@@ -190,10 +191,9 @@ var (
 			Out: types.String(`formatted list: ["abc", "cde"], size: 2`),
 		},
 	}
-)
-
-var (
-	ReferenceCheckerCases = []*EvalCase{
+	// ReferenceDynamicEnvCases represent CEL expressions compiled in an extended environment.
+	ReferenceDynamicEnvCases = []*DynamicEnvCase{
+		// Base case without extended environment.
 		{
 			Expr: `a+b`,
 			Options: func(b *testing.B) *cel.Env {
@@ -249,10 +249,11 @@ func RunReferenceCases(b *testing.B, env *cel.Env) {
 	}
 }
 
+// RunReferenceCheckerCases evaluates the set of ReferenceDynamicEnvCases.
 func RunReferenceCheckerCases(b *testing.B) {
 	b.Helper()
-	for _, rc := range ReferenceCheckerCases {
-		RunEvalCase(b, rc)
+	for _, rc := range ReferenceDynamicEnvCases {
+		RunDynamicEnvCase(b, rc)
 	}
 }
 
@@ -310,7 +311,8 @@ func RunCase(b *testing.B, env *cel.Env, bc *Case) {
 	}
 }
 
-func RunEvalCase(b *testing.B, bc *EvalCase) {
+// RunDynamicEnvCase runs a singular DynamicEnvCase.
+func RunDynamicEnvCase(b *testing.B, bc *DynamicEnvCase) {
 	b.Helper()
 	b.Run(bc.Expr, func(b *testing.B) {
 		env := bc.Options(b)

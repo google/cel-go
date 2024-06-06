@@ -585,6 +585,7 @@ func (e *Evaluator) AddOption(opt Optioner) error {
 	return nil
 }
 
+// EnablePartialEval enables the option to allow partial evaluations.
 func (e *Evaluator) EnablePartialEval() error {
 	cpy := e.ctx.copy()
 	cpy.enablePartialEval = true
