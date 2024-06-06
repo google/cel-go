@@ -161,6 +161,8 @@ may take string arguments.
 `--extension <extensionType>` enables CEL extensions. Valid options are: 
 `strings`, `protos`, `math`, `encoders`, `optional`, `bindings`, and `all`.
 
+`--enable_partial_eval` enables partial evaluations
+
 example:
 
 `%option --container 'google.protobuf'` 
@@ -168,6 +170,8 @@ example:
 `%option --extension 'strings'`
 
 `%option --extension 'all'` (Loads all extensions)
+
+`%option --enable_partial_eval`
 
 #### reset
 
