@@ -17,6 +17,7 @@ package types
 import (
 	"bytes"
 	"reflect"
+	"strings"
 	"testing"
 
 	"google.golang.org/protobuf/proto"
@@ -68,6 +69,23 @@ func TestBytesConvertToNative_ByteSlice(t *testing.T) {
 	val, err := Bytes("123").ConvertToNative(reflect.TypeOf([]byte{}))
 	if err != nil || !bytes.Equal(val.([]byte), []byte{49, 50, 51}) {
 		t.Error("Got unexpected value, wanted []byte{49, 50, 51}", err, val)
+	}
+}
+
+func TestBytesConvertToNative_ByteArray(t *testing.T) {
+	val, err := Bytes("123").ConvertToNative(reflect.TypeOf([3]byte{}))
+	if err != nil {
+		t.Error("Got unexpected value, wanted []byte{49, 50, 51}", err, val)
+	}
+	if val.([3]byte) != [3]byte{49, 50, 51} {
+		t.Errorf("Got %v, wanted [3]byte{49, 50, 51}", val)
+	}
+}
+
+func TestBytesConvertToNative_ByteArrayError(t *testing.T) {
+	_, err := Bytes("123").ConvertToNative(reflect.TypeOf([1]byte{}))
+	if !strings.Contains(err.Error(), "[3]byte not assignable to [1]byte") {
+		t.Errorf("Got unexpected error %v, wanted not assignable error", err)
 	}
 }
 

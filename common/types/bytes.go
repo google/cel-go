@@ -59,6 +59,9 @@ func (b Bytes) Compare(other ref.Val) ref.Val {
 func (b Bytes) ConvertToNative(typeDesc reflect.Type) (any, error) {
 	switch typeDesc.Kind() {
 	case reflect.Array:
+		if len(b) != typeDesc.Len() {
+			return nil, fmt.Errorf("[%d]byte not assignable to [%d]byte array", len(b), typeDesc.Len())
+		}
 		refArrPtr := reflect.New(reflect.ArrayOf(len(b), typeDesc.Elem()))
 		refArr := refArrPtr.Elem()
 		for i, byt := range b {
