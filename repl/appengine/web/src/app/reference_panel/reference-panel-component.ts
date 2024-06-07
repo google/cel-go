@@ -108,6 +108,16 @@ const examples = new Map<string, Example>([
       ]
     }
   }],
+  ["partial-evaluations", {
+    "request": {
+      commands: [
+        `%option --enable_partial_eval`,
+        `%declare x : int`,
+        `%let y : int = 10`,
+        `x > y || y > 10`,
+      ]
+    }
+  }],
   ["optionals",
   {
     request: {
@@ -160,7 +170,7 @@ const examples = new Map<string, Example>([
         `cel.bind(allow, [1, 2, 3, 4], [3, 2, 1, 1, 4].all(x, x in allow))`
       ]
     }
-  }]
+  }],
 ]);
 
 /**
