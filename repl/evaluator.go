@@ -266,9 +266,10 @@ type Optioner interface {
 // EvaluationContext context for the repl.
 // Handles maintaining state for multiple let expressions.
 type EvaluationContext struct {
-	letVars []letVariable
-	letFns  []letFunction
-	options []Optioner
+	letVars           []letVariable
+	letFns            []letFunction
+	options           []Optioner
+	enablePartialEval bool
 }
 
 func (ctx *EvaluationContext) indexLetVar(name string) int {
@@ -311,6 +312,7 @@ func (ctx *EvaluationContext) copy() *EvaluationContext {
 	copy(cpy.letVars, ctx.letVars)
 	cpy.letFns = make([]letFunction, len(ctx.letFns))
 	copy(cpy.letFns, ctx.letFns)
+	cpy.enablePartialEval = ctx.enablePartialEval
 	return &cpy
 }
 
@@ -419,12 +421,16 @@ func (ctx *EvaluationContext) addOption(opt Optioner) {
 
 // programOptions generates the program options for planning.
 // Assumes context has been planned.
-func (ctx *EvaluationContext) programOptions() cel.ProgramOption {
+func (ctx *EvaluationContext) programOptions() []cel.ProgramOption {
 	var fns = make([]*functions.Overload, len(ctx.letFns))
 	for i, fn := range ctx.letFns {
 		fns[i] = fn.generateFunction()
 	}
-	return cel.Functions(fns...)
+	result := []cel.ProgramOption{cel.Functions(fns...)}
+	if ctx.enablePartialEval {
+		result = append(result, cel.EvalOptions(cel.OptPartialEval))
+	}
+	return result
 }
 
 // Evaluator provides basic environment for evaluating an expression with
@@ -489,7 +495,7 @@ func updateContextPlans(ctx *EvaluationContext, env *cel.Env) error {
 			el.ast = ast
 			el.resultType = ast.ResultType()
 
-			plan, err := env.Program(ast, ctx.programOptions())
+			plan, err := env.Program(ast, ctx.programOptions()...)
 			if err != nil {
 				return err
 			}
@@ -571,6 +577,18 @@ func (e *Evaluator) AddDeclFn(name string, params []letFunctionParam, typeHint *
 func (e *Evaluator) AddOption(opt Optioner) error {
 	cpy := e.ctx.copy()
 	cpy.addOption(opt)
+	err := updateContextPlans(cpy, e.env)
+	if err != nil {
+		return err
+	}
+	e.ctx = *cpy
+	return nil
+}
+
+// EnablePartialEval enables the option to allow partial evaluations.
+func (e *Evaluator) EnablePartialEval() error {
+	cpy := e.ctx.copy()
+	cpy.enablePartialEval = true
 	err := updateContextPlans(cpy, e.env)
 	if err != nil {
 		return err
@@ -746,6 +764,11 @@ func (e *Evaluator) setOption(args []string) error {
 			idx++
 			if err != nil {
 				issues = append(issues, fmt.Sprintf("extension: %v", err))
+			}
+		case "--enable_partial_eval":
+			err := e.EnablePartialEval()
+			if err != nil {
+				issues = append(issues, fmt.Sprintf("enable_partial_eval: %v", err))
 			}
 		default:
 			issues = append(issues, fmt.Sprintf("unsupported option '%s'", arg))
@@ -967,7 +990,12 @@ func (e *Evaluator) Process(cmd Cmder) (string, bool, error) {
 		}
 		if val != nil {
 			t := UnparseType(resultT)
+			unknown, ok := val.Value().(*types.Unknown)
+			if ok {
+				return fmt.Sprintf("Unknown %v", unknown), false, nil
+			}
 			v, err := ext.FormatString(val, "")
+
 			if err != nil {
 				// Default format if type is unsupported by ext.Strings formatter.
 				return fmt.Sprintf("%v : %s", val.Value(), t), false, nil
@@ -1039,11 +1067,12 @@ func (e *Evaluator) Evaluate(expr string) (ref.Val, *exprpb.Type, error) {
 		return nil, nil, iss.Err()
 	}
 
-	p, err := env.Program(ast, e.ctx.programOptions())
+	p, err := env.Program(ast, e.ctx.programOptions()...)
 	if err != nil {
 		return nil, nil, err
 	}
 
+	act, _ = env.PartialVars(act)
 	val, _, err := p.Eval(act)
 	// expression can be well-formed and result in an error
 	return val, ast.ResultType(), err

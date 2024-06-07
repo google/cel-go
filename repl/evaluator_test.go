@@ -716,7 +716,81 @@ func TestProcess(t *testing.T) {
 			wantExit:  false,
 			wantError: false,
 		},
-
+		{
+			name: "OptionEnablePartialEval",
+			commands: []Cmder{
+				&simpleCmd{
+					cmd: "option",
+					args: []string{
+						"--enable_partial_eval",
+					},
+				},
+				&letVarCmd{
+					identifier: "x",
+					typeHint:   mustParseType(t, "int"),
+					src:        "",
+				},
+				&letVarCmd{
+					identifier: "y",
+					typeHint:   mustParseType(t, "int"),
+					src:        "10",
+				},
+				&evalCmd{
+					expr: "x + y > 10 || y > 10",
+				},
+			},
+			wantText:  "Unknown x (1)",
+			wantExit:  false,
+			wantError: false,
+		},
+		{
+			name: "PartialEvalDisabled",
+			commands: []Cmder{
+				&letVarCmd{
+					identifier: "x",
+					typeHint:   mustParseType(t, "int"),
+					src:        "",
+				},
+				&letVarCmd{
+					identifier: "y",
+					typeHint:   mustParseType(t, "int"),
+					src:        "10",
+				},
+				&evalCmd{
+					expr: "x + y > 10 || y > 10",
+				},
+			},
+			wantText:  "",
+			wantExit:  false,
+			wantError: true,
+		},
+		{
+			name: "PartialEvalFiltered",
+			commands: []Cmder{
+				&simpleCmd{
+					cmd: "option",
+					args: []string{
+						"--enable_partial_eval",
+					},
+				},
+				&letVarCmd{
+					identifier: "x",
+					typeHint:   mustParseType(t, "int"),
+					src:        "",
+				},
+				&letVarCmd{
+					identifier: "y",
+					typeHint:   mustParseType(t, "int"),
+					src:        "11",
+				},
+				&evalCmd{
+					expr: "x + y > 10 || y > 10",
+				},
+			},
+			wantText:  "true : bool",
+			wantExit:  false,
+			wantError: false,
+		},
 		{
 			name: "LoadDescriptorsError",
 			commands: []Cmder{
