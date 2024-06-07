@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"reflect"
 	"strings"
 	"sync"
@@ -416,7 +416,7 @@ func TestCustomTypes(t *testing.T) {
 }
 
 func TestTypeIsolation(t *testing.T) {
-	b, err := ioutil.ReadFile("testdata/team.fds")
+	b, err := os.ReadFile("testdata/team.fds")
 	if err != nil {
 		t.Fatal("can't read fds file: ", err)
 	}
@@ -441,9 +441,9 @@ func TestTypeIsolation(t *testing.T) {
 }
 
 func TestDynamicProto(t *testing.T) {
-	b, err := ioutil.ReadFile("testdata/team.fds")
+	b, err := os.ReadFile("testdata/team.fds")
 	if err != nil {
-		t.Fatalf("ioutil.ReadFile() failed: %v", err)
+		t.Fatalf("os.ReadFile() failed: %v", err)
 	}
 	var fds descpb.FileDescriptorSet
 	if err = proto.Unmarshal(b, &fds); err != nil {
@@ -496,9 +496,9 @@ func TestDynamicProto(t *testing.T) {
 }
 
 func TestDynamicProtoFileDescriptors(t *testing.T) {
-	b, err := ioutil.ReadFile("testdata/team.fds")
+	b, err := os.ReadFile("testdata/team.fds")
 	if err != nil {
-		t.Fatalf("ioutil.ReadFile() failed: %v", err)
+		t.Fatalf("os.ReadFile() failed: %v", err)
 	}
 	var fds descpb.FileDescriptorSet
 	if err = proto.Unmarshal(b, &fds); err != nil {

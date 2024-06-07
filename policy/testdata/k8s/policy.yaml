@@ -30,7 +30,7 @@ spec:
     expression: "resource.labels.?break_glass.orValue('false') == 'true'"
   validations:
   - expression: >
-      variables.break_glass || 
+      variables.break_glass ||
         resource.containers.all(c, c.startsWith(variables.env + '.'))
     messageExpression: >
       'only %s containers are allowed in namespace %s'
