@@ -40,7 +40,7 @@ type Case struct {
 	Out ref.Val
 }
 
-// Case represents an expression compiled in a dynamic environment.
+// DynamicEnvCase represents an expression compiled in a dynamic environment.
 type DynamicEnvCase struct {
 	// Expr is a human-readable expression which is expected to compile.
 	Expr string
@@ -249,8 +249,8 @@ func RunReferenceCases(b *testing.B, env *cel.Env) {
 	}
 }
 
-// RunReferenceCheckerCases evaluates the set of ReferenceDynamicEnvCases.
-func RunReferenceCheckerCases(b *testing.B) {
+// RunReferenceDynamicEnvCases evaluates the set of ReferenceDynamicEnvCases.
+func RunReferenceDynamicEnvCases(b *testing.B) {
 	b.Helper()
 	for _, rc := range ReferenceDynamicEnvCases {
 		RunDynamicEnvCase(b, rc)

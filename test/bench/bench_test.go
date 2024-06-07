@@ -29,5 +29,5 @@ func BenchmarkReferenceCases(b *testing.B) {
 }
 
 func BenchmarkReferenceCheckerCases(b *testing.B) {
-	RunReferenceCheckerCases(b)
+	RunReferenceDynamicEnvCases(b)
 }
