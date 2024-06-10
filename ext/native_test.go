@@ -201,6 +201,8 @@ func TestNativeTypes(t *testing.T) {
 		{expr: `[TestAllTypes{BoolVal: true}, TestAllTypes{BoolVal: false}].exists(t, t.BoolVal == true)`},
 		{expr: `[TestAllTypes{CustomName: 'Alice'}, TestAllTypes{CustomName: 'Bob'}].exists(t, t.CustomName == 'Alice')`},
 		{expr: `[TestAllTypes{custom_name: 'Alice'}, TestAllTypes{custom_name: 'Bob'}].exists(t, t.custom_name == 'Alice')`, envOpts: []any{ParseStructTags(true)}},
+		{expr: `TestAllTypes{BytesArrayVal: b'1234'}.BytesArrayVal != b'123'`},
+		{expr: `TestAllTypes{BytesArrayVal: b'1234'}.BytesArrayVal == b'1234'`},
 		{
 			expr: `tests.all(t, t.Int32Val > 17)`,
 			in: map[string]any{
@@ -577,36 +579,60 @@ func TestNativeTypesConvertToNative(t *testing.T) {
 	env := testNativeEnv(t, NativeTypes(reflect.TypeOf(TestNestedType{})))
 	adapter := env.CELTypeAdapter()
 	conversions := []struct {
-		in  any
-		out any
-		err string
+		in     any
+		inType *cel.Type
+		out    any
+		err    string
 	}{
 		{
-			in:  &TestAllTypes{BoolVal: true},
-			out: &TestAllTypes{BoolVal: true},
+			in:     &TestAllTypes{BoolVal: true},
+			inType: cel.ObjectType("ext.TestAllTypes"),
+			out:    &TestAllTypes{BoolVal: true},
 		},
 		{
-			in:  TestAllTypes{BoolVal: true},
-			out: &TestAllTypes{BoolVal: true},
+			in:     TestAllTypes{BoolVal: true},
+			inType: cel.ObjectType("ext.TestAllTypes"),
+			out:    &TestAllTypes{BoolVal: true},
 		},
 		{
-			in:  &TestAllTypes{BoolVal: true},
-			out: TestAllTypes{BoolVal: true},
+			in:     &TestAllTypes{BoolVal: true},
+			inType: cel.ObjectType("ext.TestAllTypes"),
+			out:    TestAllTypes{BoolVal: true},
 		},
 		{
-			in:  nil,
-			out: types.NullValue,
+			in:     nil,
+			inType: cel.NullType,
+			out:    types.NullValue,
 		},
 		{
-			in:  &TestAllTypes{BoolVal: true},
-			out: &proto3pb.TestAllTypes{},
-			err: "type conversion error",
+			in:     &TestAllTypes{BoolVal: true},
+			inType: cel.ObjectType("ext.TestAllTypes"),
+			out:    &proto3pb.TestAllTypes{},
+			err:    "type conversion error",
+		},
+		{
+			in:     [3]int32{1, 2, 3},
+			inType: cel.ListType(cel.IntType),
+			out:    []int32{1, 2, 3},
+		},
+		{
+			in:     &[3]byte{1, 2, 3},
+			inType: cel.BytesType,
+			out:    []byte{1, 2, 3},
+		},
+		{
+			in:     [3]byte{1, 2, 3},
+			inType: cel.BytesType,
+			out:    []byte{1, 2, 3},
 		},
 	}
 	for _, c := range conversions {
 		inVal := adapter.NativeToValue(c.in)
 		if types.IsError(inVal) {
 			t.Fatalf("adapter.NativeToValue(%v) failed: %v", c.in, inVal)
+		}
+		if inVal.Type().TypeName() != c.inType.TypeName() {
+			t.Fatalf("adapter.NativeToValue() got type %v, wanted type %v", inVal.Type(), c.inType)
 		}
 		out, err := inVal.ConvertToNative(reflect.TypeOf(c.out))
 		if err != nil {
@@ -848,6 +874,7 @@ type TestAllTypes struct {
 	Uint64Val       uint64
 	ListVal         []*TestNestedType
 	ArrayVal        [1]*TestNestedType
+	BytesArrayVal   [4]byte
 	MapVal          map[string]TestAllTypes
 	PbVal           *proto3pb.TestAllTypes
 	CustomSliceVal  []TestNestedSliceType

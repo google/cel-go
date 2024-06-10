@@ -330,6 +330,9 @@ func (tp *nativeTypeProvider) NativeToValue(val any) ref.Val {
 		case []byte:
 			return tp.baseAdapter.NativeToValue(val)
 		default:
+			if refVal.Type().Elem() == reflect.TypeOf(byte(0)) {
+				return tp.baseAdapter.NativeToValue(val)
+			}
 			return types.NewDynamicList(tp, val)
 		}
 	case reflect.Map:

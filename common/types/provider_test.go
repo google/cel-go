@@ -728,6 +728,8 @@ func TestNativeToValue_Primitive(t *testing.T) {
 	expectNativeToValue(t, float64(-5.5), Double(-5.5))
 	expectNativeToValue(t, "hello", String("hello"))
 	expectNativeToValue(t, []byte("world"), Bytes("world"))
+	expectNativeToValue(t, [4]byte{1, 2, 3, 4}, Bytes([]byte{1, 2, 3, 4}))
+	expectNativeToValue(t, &[4]byte{1, 2, 3, 4}, Bytes([]byte{1, 2, 3, 4}))
 	expectNativeToValue(t, time.Duration(500), Duration{Duration: time.Duration(500)})
 	expectNativeToValue(t, time.Unix(12345, 0), Timestamp{Time: time.Unix(12345, 0)})
 	expectNativeToValue(t, dpb.New(time.Duration(500)), Duration{Duration: time.Duration(500)})
