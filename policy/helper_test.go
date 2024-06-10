@@ -22,6 +22,7 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/test/proto3pb"
 
 	"gopkg.in/yaml.v3"
 )
@@ -57,6 +58,15 @@ var (
 		? optional.of({"banned": true}) : optional.none()).or(
 			optional.of((resource.origin in variables.permitted_regions) 
 			? {"banned": false} : {"banned": true})))`,
+		},
+		{
+			name: "pb",
+			expr: `(spec.single_int32 > 10) 
+			? optional.of("invalid spec, got single_int32=%d, wanted <= 10".format([spec.single_int32])) 
+			: optional.none()`,
+			envOpts: []cel.EnvOption{
+				cel.Types(&proto3pb.TestAllTypes{}),
+			},
 		},
 		{
 			name: "required_labels",

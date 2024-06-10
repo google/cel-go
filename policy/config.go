@@ -151,7 +151,8 @@ func (td *TypeDecl) AsCELType(baseEnv *cel.Env) (*cel.Type, error) {
 			return cel.TypeParamType(td.TypeName), nil
 		}
 		if msgType, found := baseEnv.CELTypeProvider().FindStructType(td.TypeName); found {
-			return msgType, nil
+			// First parameter is the type name.
+			return msgType.Parameters()[0], nil
 		}
 		t, found := baseEnv.CELTypeProvider().FindIdent(td.TypeName)
 		if !found {
