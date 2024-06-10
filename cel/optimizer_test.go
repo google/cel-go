@@ -15,7 +15,6 @@
 package cel_test
 
 import (
-	"reflect"
 	"sort"
 	"testing"
 
@@ -23,7 +22,12 @@ import (
 	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/ext"
 
+	"google.golang.org/protobuf/encoding/prototext"
+	"google.golang.org/protobuf/proto"
+
 	proto3pb "github.com/google/cel-go/test/proto3pb"
+
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 func TestStaticOptimizerUpdateExpr(t *testing.T) {
@@ -48,6 +52,118 @@ func TestStaticOptimizerUpdateExpr(t *testing.T) {
 	optString, err := cel.AstToString(optAST)
 	if err != nil {
 		t.Fatalf("cel.AstToString() failed: %v", err)
+	}
+	sourceInfo := optAST.NativeRep().SourceInfo()
+	sourceInfoPB, err := ast.SourceInfoToProto(sourceInfo)
+	if err != nil {
+		t.Fatalf("cel.AstToCheckedExpr() failed: %v", err)
+	}
+	wantTextPB := `
+		location:  "<input>"
+        line_offsets:  9
+        positions:  {
+          key:  2
+          value:  4
+        }
+        positions:  {
+          key:  3
+          value:  5
+        }
+        positions:  {
+          key:  4
+          value:  3
+        }
+        macro_calls:  {
+          key:  1
+          value:  {
+            call_expr:  {
+              function:  "has"
+              args:  {
+                id:  21
+                select_expr:  {
+                  operand:  {
+                    id:  2
+                    call_expr:  {
+                      function:  "_[_]"
+                      args:  {
+                        id:  3
+                      }
+                      args:  {
+                        id:  20
+                        const_expr:  {
+                          int64_value:  0
+                        }
+                      }
+                    }
+                  }
+                  field:  "z"
+                }
+              }
+            }
+          }
+        }
+        macro_calls:  {
+          key:  3
+          value:  {
+            call_expr:  {
+              target:  {
+                id:  4
+                list_expr:  {
+                  elements:  {
+                    id:  5
+                    ident_expr:  {
+                      name:  "x"
+                    }
+                  }
+                  elements:  {
+                    id:  6
+                    ident_expr:  {
+                      name:  "y"
+                    }
+                  }
+                }
+              }
+              function:  "filter"
+              args:  {
+                id:  17
+                ident_expr:  {
+                  name:  "i"
+                }
+              }
+              args:  {
+                id:  10
+                call_expr:  {
+                  function:  "_>_"
+                  args:  {
+                    id:  11
+                    call_expr:  {
+                      target:  {
+                        id:  12
+                        ident_expr:  {
+                          name:  "i"
+                        }
+                      }
+                      function:  "size"
+                    }
+                  }
+                  args:  {
+                    id:  13
+                    const_expr:  {
+                      int64_value:  0
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+	`
+	var wantSourceInfoPB exprpb.SourceInfo
+	if err := prototext.Unmarshal([]byte(wantTextPB), &wantSourceInfoPB); err != nil {
+		t.Fatalf("prototext.Unmarshal() failed: %v", err)
+	}
+	if !proto.Equal(&wantSourceInfoPB, sourceInfoPB) {
+		t.Errorf("got source info: %s, wanted %s", prototext.Format(sourceInfoPB), wantTextPB)
 	}
 	expected := `has([x, y].filter(i, i.size() > 0)[0].z)`
 	if expected != optString {
@@ -107,30 +223,16 @@ type testOptimizer struct {
 
 func (opt *testOptimizer) Optimize(ctx *cel.OptimizerContext, a *ast.AST) *ast.AST {
 	opt.t.Helper()
-	copy, info := ctx.CopyAST(opt.inlineExpr)
-	infoMacroKeys := getMacroKeys(info.MacroCalls())
-	for id, call := range info.MacroCalls() {
-		a.SourceInfo().SetMacroCall(id, call)
-	}
+	copy := ctx.CopyASTAndMetadata(opt.inlineExpr)
 	origID := a.Expr().ID()
-	exprID := origID + 100
-	presenceTest, hasMacro := ctx.NewHasMacro(exprID, copy)
-	macroKeys := getMacroKeys(a.SourceInfo().MacroCalls())
+	presenceTest, hasMacro := ctx.NewHasMacro(origID, copy)
+	macroKeys := getMacroKeys(ctx.MacroCalls())
 	if len(macroKeys) != 2 {
 		opt.t.Errorf("Got %v macro calls, wanted 2", macroKeys)
 	}
 	ctx.UpdateExpr(a.Expr(), presenceTest)
-	macroKeys = getMacroKeys(a.SourceInfo().MacroCalls())
-	if _, found := a.SourceInfo().GetMacroCall(origID); found {
-		opt.t.Errorf("Got %v macro calls, wanted 1", macroKeys)
-	}
-
-	a.SourceInfo().SetMacroCall(exprID, hasMacro)
-	macroKeys = getMacroKeys(a.SourceInfo().MacroCalls())
-	if !reflect.DeepEqual(macroKeys, append(infoMacroKeys, int(exprID))) {
-		opt.t.Errorf("Got %v macro calls, wanted 2", macroKeys)
-	}
-	return a
+	ctx.SetMacroCall(origID, hasMacro)
+	return ctx.NewAST(a.Expr())
 }
 
 func getMacroKeys(macroCalls map[int64]ast.Expr) []int {
