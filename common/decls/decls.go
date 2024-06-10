@@ -162,7 +162,7 @@ func (f *FunctionDecl) AddOverload(overload *OverloadDecl) error {
 		if oID == overload.ID() {
 			if o.SignatureEquals(overload) && o.IsNonStrict() == overload.IsNonStrict() {
 				// Allow redefinition of an overload implementation so long as the signatures match.
-				if !o.hasBinding() || overload.hasBinding() {
+				if overload.hasBinding() {
 					f.overloads[oID] = overload
 				}
 				return nil
