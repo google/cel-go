@@ -21,6 +21,7 @@ import (
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
 )
 
 func TestCompile(t *testing.T) {
@@ -89,17 +90,17 @@ func compile(t testing.TB, name string, parseOpts []ParserOption, envOpts []cel.
 	if err != nil {
 		t.Fatalf("cel.NewEnv() failed: %v", err)
 	}
+	// Configure any custom environment options.
+	env, err = env.Extend(envOpts...)
+	if err != nil {
+		t.Fatalf("env.Extend() with env options %v, failed: %v", config, err)
+	}
 	// Configure declarations
 	configOpts, err := config.AsEnvOptions(env)
 	if err != nil {
 		t.Fatalf("config.AsEnvOptions() failed: %v", err)
 	}
 	env, err = env.Extend(configOpts...)
-	if err != nil {
-		t.Fatalf("env.Extend() with config options %v, failed: %v", config, err)
-	}
-	// Configure any implementations
-	env, err = env.Extend(envOpts...)
 	if err != nil {
 		t.Fatalf("env.Extend() with config options %v, failed: %v", config, err)
 	}
@@ -134,22 +135,19 @@ func (r *runner) run(t *testing.T) {
 		for _, tst := range s.Tests {
 			tc := tst
 			t.Run(fmt.Sprintf("%s/%s/%s", r.name, section, tc.Name), func(t *testing.T) {
-				out, _, err := r.prg.Eval(tc.Input)
+				input := map[string]any{}
+				for k, v := range tc.Input {
+					if v.Expr == "" {
+						input[k] = v.Value
+						continue
+					}
+					input[k] = r.eval(t, v.Expr)
+				}
+				out, _, err := r.prg.Eval(input)
 				if err != nil {
-					t.Fatalf("prg.Eval(tc.Input) failed: %v", err)
+					t.Fatalf("prg.Eval(input) failed: %v", err)
 				}
-				wantExpr, iss := r.env.Compile(tc.Output)
-				if iss.Err() != nil {
-					t.Fatalf("env.Compile(%q) failed :%v", tc.Output, iss.Err())
-				}
-				testPrg, err := r.env.Program(wantExpr)
-				if err != nil {
-					t.Fatalf("env.Program(wantExpr) failed: %v", err)
-				}
-				testOut, _, err := testPrg.Eval(cel.NoVars())
-				if err != nil {
-					t.Fatalf("testPrg.Eval() failed: %v", err)
-				}
+				testOut := r.eval(t, tc.Output)
 				if optOut, ok := out.(*types.Optional); ok {
 					if optOut.Equal(types.OptionalNone) == types.True {
 						if testOut.Equal(types.OptionalNone) != types.True {
@@ -180,6 +178,22 @@ func (r *runner) bench(b *testing.B) {
 			})
 		}
 	}
+}
+
+func (r *runner) eval(t testing.TB, expr string) ref.Val {
+	wantExpr, iss := r.env.Compile(expr)
+	if iss.Err() != nil {
+		t.Fatalf("env.Compile(%q) failed :%v", expr, iss.Err())
+	}
+	prg, err := r.env.Program(wantExpr)
+	if err != nil {
+		t.Fatalf("env.Program(wantExpr) failed: %v", err)
+	}
+	out, _, err := prg.Eval(cel.NoVars())
+	if err != nil {
+		t.Fatalf("prg.Eval() failed: %v", err)
+	}
+	return out
 }
 
 func normalize(s string) string {

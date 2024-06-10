@@ -18,20 +18,26 @@ section:
     tests:
      - name: "allowed"
        input:
-         "spec.origin": "us"
+         "spec.origin": 
+           value: "us"
          "spec.restricted_destinations":
+           value:
              - "cu"
              - "ir"
              - "kp"
              - "sd"
              - "sy"
-         "destination.ip": "10.0.0.1"
-         "origin.ip": "10.0.0.1"
+         "destination.ip": 
+           value: "10.0.0.1"
+         "origin.ip": 
+           value: "10.0.0.1"
          request:
-           auth:
-             claims: {}
+           value:
+             auth:
+               claims: {}
          resource:
-           name: "/company/acme/secrets/doomsday-device"
-           labels:
-             location: "us"
+           value:
+             name: "/company/acme/secrets/doomsday-device"
+             labels:
+               location: "us"
        output: "true"

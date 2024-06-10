@@ -12,27 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-description: Nested rule conformance tests
-section:
-  - name: "banned"
-    tests:
-      - name: "restricted_origin"
-        input:
-          resource:
-            value:
-              origin: "ir"
-        output: "{'banned': true}"
-      - name: "by_default"
-        input:
-          resource:
-            value:
-              origin: "de"
-        output: "{'banned': true}"
-  - name: "permitted"
-    tests:
-      - name: "valid_origin"
-        input:
-          resource:
-            value:
-              origin: "uk"
-        output: "{'banned': false}"
+name: "pb"
+container: "google.expr.proto3.test"
+extensions:
+  - name: "strings"
+    version: 2
+variables:
+  - name: "spec"
+    type:
+      type_name: "google.expr.proto3.test.TestAllTypes"

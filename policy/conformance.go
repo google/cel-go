@@ -31,7 +31,12 @@ type TestSection struct {
 // Note, when a test requires additional functions to be provided to execute, the test harness
 // must supply these functions.
 type TestCase struct {
-	Name   string         `yaml:"name"`
-	Input  map[string]any `yaml:"input"`
-	Output string         `yaml:"output"`
+	Name   string               `yaml:"name"`
+	Input  map[string]TestInput `yaml:"input"`
+	Output string               `yaml:"output"`
+}
+
+type TestInput struct {
+	Value any    `yaml:"value"`
+	Expr  string `yaml:"expr"`
 }

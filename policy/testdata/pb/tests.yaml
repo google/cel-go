@@ -12,27 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-description: Nested rule conformance tests
+description: "Protobuf input tests"
 section:
-  - name: "banned"
+  - name: "valid"
     tests:
-      - name: "restricted_origin"
-        input:
-          resource:
-            value:
-              origin: "ir"
-        output: "{'banned': true}"
-      - name: "by_default"
-        input:
-          resource:
-            value:
-              origin: "de"
-        output: "{'banned': true}"
-  - name: "permitted"
+     - name: "good spec"
+       input:
+         spec: 
+           expr: >
+             TestAllTypes{single_int32: 10}
+       output: "optional.none()"
+  - name: "invalid"
     tests:
-      - name: "valid_origin"
-        input:
-          resource:
-            value:
-              origin: "uk"
-        output: "{'banned': false}"
+     - name: "bad spec"
+       input:
+         spec: 
+           expr: >
+             TestAllTypes{single_int32: 11}
+       output: >
+         "invalid spec, got single_int32=11, wanted <= 10"
+       

@@ -413,6 +413,27 @@ func TestFunctionAddDuplicateOverloads(t *testing.T) {
 	}
 }
 
+func TestFunctionAddDuplicateOverloadsPreservesBinding(t *testing.T) {
+	f, err := NewFunction("max",
+		Overload("max_int", []*types.Type{types.IntType}, types.IntType),
+		Overload("max_int", []*types.Type{types.IntType}, types.IntType,
+			UnaryBinding(func(v ref.Val) ref.Val {
+				return v
+			})),
+		Overload("max_int", []*types.Type{types.IntType}, types.IntType),
+	)
+	if err != nil {
+		t.Fatalf("NewFunction() with duplicate overload signature failed: %v", err)
+	}
+	if len(f.overloads) != 1 {
+		t.Fatal("Duplicate overloads were not merged")
+	}
+	o := f.overloads["max_int"]
+	if o.unaryOp == nil {
+		t.Error("Duplicate overloads purged the overload binding")
+	}
+}
+
 func TestFunctionAddCollidingOverloads(t *testing.T) {
 	_, err := NewFunction("max",
 		Overload("max_int", []*types.Type{types.IntType}, types.IntType),
