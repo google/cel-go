@@ -58,16 +58,16 @@ functions:
           - type_name: "null_type"
           - type_name: "int"
         return:
-          type_name: "int"          
+          type_name: "int"
       - id: "int_coalesce_int"
-        target: 
+        target:
           type_name: "int"
         args:
           - type_name: "int"
-        return: 
+        return:
           type_name: "int"
       - id: "optional_T_coalesce_T"
-        target: 
+        target:
           type_name: "optional_type"
           params:
             - type_name: "T"
@@ -75,9 +75,9 @@ functions:
         args:
           - type_name: "T"
             is_type_param: true
-        return: 
+        return:
           type_name: "T"
-          is_type_param: true  
+          is_type_param: true
 `,
 		`
 variables:
