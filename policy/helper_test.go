@@ -44,25 +44,25 @@ var (
     cel.bind(variables.env, resource.labels.?environment.orValue("prod"),
 	  cel.bind(variables.break_glass, resource.labels.?break_glass.orValue("false") == "true",
 	   !(variables.break_glass ||
-		 resource.containers.all(c, c.startsWith(variables.env + "."))) 
-	   ? optional.of("only %s containers are allowed in namespace %s".format([variables.env, resource.namespace])) 
+		 resource.containers.all(c, c.startsWith(variables.env + ".")))
+	   ? optional.of("only %s containers are allowed in namespace %s".format([variables.env, resource.namespace]))
 	   : optional.none()))`,
 		},
 		{
 			name: "nested_rule",
 			expr: `
-	cel.bind(variables.permitted_regions, ["us", "uk", "es"], 
-	  cel.bind(variables.banned_regions, {"us": false, "ru": false, "ir": false}, 
+	cel.bind(variables.permitted_regions, ["us", "uk", "es"],
+	  cel.bind(variables.banned_regions, {"us": false, "ru": false, "ir": false},
 	  (resource.origin in variables.banned_regions &&
-		!(resource.origin in variables.permitted_regions)) 
+		!(resource.origin in variables.permitted_regions))
 		? optional.of({"banned": true}) : optional.none()).or(
-			optional.of((resource.origin in variables.permitted_regions) 
+			optional.of((resource.origin in variables.permitted_regions)
 			? {"banned": false} : {"banned": true})))`,
 		},
 		{
 			name: "pb",
-			expr: `(spec.single_int32 > 10) 
-			? optional.of("invalid spec, got single_int32=%d, wanted <= 10".format([spec.single_int32])) 
+			expr: `(spec.single_int32 > 10)
+			? optional.of("invalid spec, got single_int32=%d, wanted <= 10".format([spec.single_int32]))
 			: optional.none()`,
 			envOpts: []cel.EnvOption{
 				cel.Types(&proto3pb.TestAllTypes{}),
@@ -71,33 +71,33 @@ var (
 		{
 			name: "required_labels",
 			expr: `
-	cel.bind(variables.want, spec.labels, 
-		cel.bind(variables.missing, variables.want.filter(l, !(l in resource.labels)), 
-		cel.bind(variables.invalid, 
+	cel.bind(variables.want, spec.labels,
+		cel.bind(variables.missing, variables.want.filter(l, !(l in resource.labels)),
+		cel.bind(variables.invalid,
 			resource.labels.filter(l, l in variables.want &&
-				variables.want[l] != resource.labels[l]), 
-				(variables.missing.size() > 0) 
-				? optional.of("missing one or more required labels: %s".format([variables.missing])) 
-				: ((variables.invalid.size() > 0) 
+				variables.want[l] != resource.labels[l]),
+				(variables.missing.size() > 0)
+				? optional.of("missing one or more required labels: %s".format([variables.missing]))
+				: ((variables.invalid.size() > 0)
 				? optional.of("invalid values provided on one or more labels: %s".format([variables.invalid])) : optional.none()))))`,
 		},
 		{
 			name: "restricted_destinations",
 			expr: `
-	cel.bind(variables.matches_origin_ip, 
-	  locationCode(origin.ip) == spec.origin, 
-	  cel.bind(variables.has_nationality, has(request.auth.claims.nationality), 
-	    cel.bind(variables.matches_nationality, 
+	cel.bind(variables.matches_origin_ip,
+	  locationCode(origin.ip) == spec.origin,
+	  cel.bind(variables.has_nationality, has(request.auth.claims.nationality),
+	    cel.bind(variables.matches_nationality,
 		  variables.has_nationality && request.auth.claims.nationality == spec.origin,
-		  cel.bind(variables.matches_dest_ip, 
-			locationCode(destination.ip) in spec.restricted_destinations, 
-			cel.bind(variables.matches_dest_label, 
+		  cel.bind(variables.matches_dest_ip,
+			locationCode(destination.ip) in spec.restricted_destinations,
+			cel.bind(variables.matches_dest_label,
 			  resource.labels.location in spec.restricted_destinations,
-              cel.bind(variables.matches_dest, 
-				variables.matches_dest_ip || variables.matches_dest_label, 
-				(variables.matches_nationality && variables.matches_dest) 
-				? true 
-				: ((!variables.has_nationality && variables.matches_origin_ip && variables.matches_dest) 
+              cel.bind(variables.matches_dest,
+				variables.matches_dest_ip || variables.matches_dest_label,
+				(variables.matches_nationality && variables.matches_dest)
+				? true
+				: ((!variables.has_nationality && variables.matches_origin_ip && variables.matches_dest)
 		        ? true : false)))))))`,
 			envOpts: []cel.EnvOption{
 				cel.Function("locationCode",
