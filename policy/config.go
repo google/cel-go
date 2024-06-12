@@ -210,6 +210,10 @@ func (od *OverloadDecl) AsFunctionOption(baseEnv *cel.Env) (cel.FunctionOpt, err
 			return nil, err
 		}
 	}
+
+	if od.Return == nil {
+		return nil, fmt.Errorf("missing return type on overload: %v", od.OverloadID)
+	}
 	result, err := od.Return.AsCELType(baseEnv)
 	if err != nil {
 		return nil, err
