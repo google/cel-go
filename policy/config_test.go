@@ -203,6 +203,16 @@ functions:
           type_name: "null_type"`,
 			err: "undefined type name: unknown",
 		},
+		{
+			config: `
+functions:
+  - name: "missing_return"
+    overloads:
+      - id: "unary_global"
+        args:
+          - type_name: "null_type"`,
+			err: "missing return type on overload: unary_global",
+		},
 	}
 	baseEnv, err := cel.NewEnv(cel.OptionalTypes())
 	if err != nil {
