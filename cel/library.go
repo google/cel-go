@@ -15,6 +15,7 @@
 package cel
 
 import (
+	"context"
 	"math"
 	"strconv"
 	"strings"
@@ -500,9 +501,9 @@ func (opt *evalOptionalOr) ID() int64 {
 
 // Eval evaluates the left-hand side optional to determine whether it contains a value, else
 // proceeds with the right-hand side evaluation.
-func (opt *evalOptionalOr) Eval(ctx interpreter.Activation) ref.Val {
+func (opt *evalOptionalOr) Eval(ctx context.Context, vars interpreter.Activation) ref.Val {
 	// short-circuit lhs.
-	optLHS := opt.lhs.Eval(ctx)
+	optLHS := opt.lhs.Eval(ctx, vars)
 	optVal, ok := optLHS.(*types.Optional)
 	if !ok {
 		return optLHS
@@ -510,7 +511,7 @@ func (opt *evalOptionalOr) Eval(ctx interpreter.Activation) ref.Val {
 	if optVal.HasValue() {
 		return optVal
 	}
-	return opt.rhs.Eval(ctx)
+	return opt.rhs.Eval(ctx, vars)
 }
 
 // evalOptionalOrValue selects between an optional or a concrete value. If the optional has a value,
@@ -528,9 +529,9 @@ func (opt *evalOptionalOrValue) ID() int64 {
 
 // Eval evaluates the left-hand side optional to determine whether it contains a value, else
 // proceeds with the right-hand side evaluation.
-func (opt *evalOptionalOrValue) Eval(ctx interpreter.Activation) ref.Val {
+func (opt *evalOptionalOrValue) Eval(ctx context.Context, vars interpreter.Activation) ref.Val {
 	// short-circuit lhs.
-	optLHS := opt.lhs.Eval(ctx)
+	optLHS := opt.lhs.Eval(ctx, vars)
 	optVal, ok := optLHS.(*types.Optional)
 	if !ok {
 		return optLHS
@@ -538,7 +539,7 @@ func (opt *evalOptionalOrValue) Eval(ctx interpreter.Activation) ref.Val {
 	if optVal.HasValue() {
 		return optVal.GetValue()
 	}
-	return opt.rhs.Eval(ctx)
+	return opt.rhs.Eval(ctx, vars)
 }
 
 type timeUTCLibrary struct{}

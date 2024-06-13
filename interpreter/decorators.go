@@ -15,6 +15,8 @@
 package interpreter
 
 import (
+	"context"
+
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
@@ -104,19 +106,19 @@ func decDisableShortcircuits() InterpretableDecorator {
 // conditionally precomputing the result.
 // - build list and map values with constant elements.
 // - convert 'in' operations to set membership tests if possible.
-func decOptimize() InterpretableDecorator {
+func decOptimize(ctx context.Context) InterpretableDecorator {
 	return func(i Interpretable) (Interpretable, error) {
 		switch inst := i.(type) {
 		case *evalList:
-			return maybeBuildListLiteral(i, inst)
+			return maybeBuildListLiteral(ctx, i, inst)
 		case *evalMap:
-			return maybeBuildMapLiteral(i, inst)
+			return maybeBuildMapLiteral(ctx, i, inst)
 		case InterpretableCall:
 			if inst.OverloadID() == overloads.InList {
 				return maybeOptimizeSetMembership(i, inst)
 			}
 			if overloads.IsTypeConversionFunction(inst.Function()) {
-				return maybeOptimizeConstUnary(i, inst)
+				return maybeOptimizeConstUnary(ctx, i, inst)
 			}
 		}
 		return i, nil
@@ -165,7 +167,7 @@ func decRegexOptimizer(regexOptimizations ...*RegexOptimization) InterpretableDe
 	}
 }
 
-func maybeOptimizeConstUnary(i Interpretable, call InterpretableCall) (Interpretable, error) {
+func maybeOptimizeConstUnary(ctx context.Context, i Interpretable, call InterpretableCall) (Interpretable, error) {
 	args := call.Args()
 	if len(args) != 1 {
 		return i, nil
@@ -174,24 +176,24 @@ func maybeOptimizeConstUnary(i Interpretable, call InterpretableCall) (Interpret
 	if !isConst {
 		return i, nil
 	}
-	val := call.Eval(EmptyActivation())
+	val := call.Eval(ctx, EmptyActivation())
 	if types.IsError(val) {
 		return nil, val.(*types.Err)
 	}
 	return NewConstValue(call.ID(), val), nil
 }
 
-func maybeBuildListLiteral(i Interpretable, l *evalList) (Interpretable, error) {
+func maybeBuildListLiteral(ctx context.Context, i Interpretable, l *evalList) (Interpretable, error) {
 	for _, elem := range l.elems {
 		_, isConst := elem.(InterpretableConst)
 		if !isConst {
 			return i, nil
 		}
 	}
-	return NewConstValue(l.ID(), l.Eval(EmptyActivation())), nil
+	return NewConstValue(l.ID(), l.Eval(ctx, EmptyActivation())), nil
 }
 
-func maybeBuildMapLiteral(i Interpretable, mp *evalMap) (Interpretable, error) {
+func maybeBuildMapLiteral(ctx context.Context, i Interpretable, mp *evalMap) (Interpretable, error) {
 	for idx, key := range mp.keys {
 		_, isConst := key.(InterpretableConst)
 		if !isConst {
@@ -202,7 +204,7 @@ func maybeBuildMapLiteral(i Interpretable, mp *evalMap) (Interpretable, error) {
 			return i, nil
 		}
 	}
-	return NewConstValue(mp.ID(), mp.Eval(EmptyActivation())), nil
+	return NewConstValue(mp.ID(), mp.Eval(ctx, EmptyActivation())), nil
 }
 
 // maybeOptimizeSetMembership may convert an 'in' operation against a list to map key membership

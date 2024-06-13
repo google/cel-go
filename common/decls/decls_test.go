@@ -15,6 +15,7 @@
 package decls
 
 import (
+	"context"
 	"reflect"
 	"strings"
 	"testing"
@@ -75,11 +76,11 @@ func TestFunctionBindings(t *testing.T) {
 			t.Errorf("binding missing unary implementation: %v", binding.Operator)
 			continue
 		}
-		if binding.Unary(in) != types.Int(2) {
-			t.Errorf("binding invocation got %v, wanted 2", binding.Unary(in))
+		if binding.Unary(context.Background(), in) != types.Int(2) {
+			t.Errorf("binding invocation got %v, wanted 2", binding.Unary(context.Background(), in))
 		}
-		if binding.Unary(empty) != types.IntZero {
-			t.Errorf("binding invocation got %v, wanted 0", binding.Unary(empty))
+		if binding.Unary(context.Background(), empty) != types.IntZero {
+			t.Errorf("binding invocation got %v, wanted 0", binding.Unary(context.Background(), empty))
 		}
 	}
 }
@@ -121,48 +122,49 @@ func TestFunctionVariableArgBindings(t *testing.T) {
 	if len(bindings) != 4 {
 		t.Errorf("sizeFunc.Bindings() produced %d bindings, wanted 4", len(bindings))
 	}
+	ctx := context.Background()
 	in := types.String("hi")
 	sep := types.String("")
 	out := types.DefaultTypeAdapter.NativeToValue([]string{"h", "i"})
 	for _, binding := range bindings {
 		if binding.Unary != nil {
-			if binding.Unary(in).Equal(out) != types.True {
-				t.Errorf("binding invocation got %v, wanted %v", binding.Unary(in), out)
+			if binding.Unary(ctx, in).Equal(out) != types.True {
+				t.Errorf("binding invocation got %v, wanted %v", binding.Unary(ctx, in), out)
 			}
-			celErr := binding.Unary(types.Bytes("hi"))
+			celErr := binding.Unary(ctx, types.Bytes("hi"))
 			if !types.IsError(celErr) || !strings.Contains(celErr.(*types.Err).String(), "no such overload") {
 				t.Errorf("binding.Unary(bytes) got %v, wanted no such overload", celErr)
 			}
 		}
 		if binding.Binary != nil {
-			if binding.Binary(in, sep).Equal(out) != types.True {
-				t.Errorf("binding invocation got %v, wanted %v", binding.Binary(in, sep), out)
+			if binding.Binary(ctx, in, sep).Equal(out) != types.True {
+				t.Errorf("binding invocation got %v, wanted %v", binding.Binary(ctx, in, sep), out)
 			}
-			celErr := binding.Binary(types.Bytes("hi"), sep)
+			celErr := binding.Binary(ctx, types.Bytes("hi"), sep)
 			if !types.IsError(celErr) || !strings.Contains(celErr.(*types.Err).String(), "no such overload") {
 				t.Errorf("binding.Binary(bytes, string) got %v, wanted no such overload", celErr)
 			}
-			celUnk := binding.Binary(types.Bytes("hi"), types.NewUnknown(1, types.NewAttributeTrail("x")))
+			celUnk := binding.Binary(ctx, types.Bytes("hi"), types.NewUnknown(1, types.NewAttributeTrail("x")))
 			if !types.IsUnknown(celUnk) {
 				t.Errorf("binding.Binary(bytes, unk) got %v, wanted unknown{1}", celUnk)
 			}
 		}
 		if binding.Function != nil {
-			if binding.Function(in, sep, types.IntNegOne).Equal(out) != types.True {
-				t.Errorf("binding invocation got %v, wanted %v", binding.Function(in, sep, types.IntNegOne), out)
+			if binding.Function(ctx, in, sep, types.IntNegOne).Equal(out) != types.True {
+				t.Errorf("binding invocation got %v, wanted %v", binding.Function(ctx, in, sep, types.IntNegOne), out)
 			}
-			celErr := binding.Function(types.Bytes("hi"), sep, types.IntOne)
+			celErr := binding.Function(ctx, types.Bytes("hi"), sep, types.IntOne)
 			if !types.IsError(celErr) || !strings.Contains(celErr.(*types.Err).String(), "no such overload") {
 				t.Errorf("binding.Function(bytes, string, int) got %v, wanted no such overload", celErr)
 			}
 			if binding.Operator == "split" {
-				if binding.Function(in).Equal(out) != types.True {
-					t.Errorf("binding invocation got %v, wanted %v", binding.Function(in), out)
+				if binding.Function(ctx, in).Equal(out) != types.True {
+					t.Errorf("binding invocation got %v, wanted %v", binding.Function(ctx, in), out)
 				}
-				if binding.Function(in, sep).Equal(out) != types.True {
-					t.Errorf("binding invocation got %v, wanted %v", binding.Function(in, sep), out)
+				if binding.Function(ctx, in, sep).Equal(out) != types.True {
+					t.Errorf("binding invocation got %v, wanted %v", binding.Function(ctx, in, sep), out)
 				}
-				out := binding.Function()
+				out := binding.Function(ctx)
 				if !types.IsError(out) || out.(*types.Err).String() != "no such overload: split()" {
 					t.Fatalf("binding.Function() got %v, wanted error", out)
 				}
@@ -189,7 +191,7 @@ func TestFunctionZeroArityBinding(t *testing.T) {
 	if len(bindings) != 1 {
 		t.Errorf("nowFunc.Bindings() produced %d bindings, wanted one", len(bindings))
 	}
-	out := bindings[0].Function()
+	out := bindings[0].Function(context.Background())
 	if out != now {
 		t.Errorf("now() got %v, wanted %v", out, now)
 	}
@@ -231,12 +233,13 @@ func TestFunctionSingletonBinding(t *testing.T) {
 	if bindings[0].Unary == nil {
 		t.Fatalf("size.Bindings() missing singleton unary binding")
 	}
-	result := bindings[0].Unary(types.String("hello"))
+	ctx := context.Background()
+	result := bindings[0].Unary(ctx, types.String("hello"))
 	if result.Equal(types.Int(5)) != types.True {
 		t.Errorf("size('hello') got %v, wanted 5", result)
 	}
 	// Invalid at type-check, but valid since type guard checks have been disabled
-	result = bindings[0].Unary(types.Bytes("hello"))
+	result = bindings[0].Unary(ctx, types.Bytes("hello"))
 	if result.Equal(types.Int(5)) != types.True {
 		t.Errorf("size(b'hello') got %v, wanted 5", result)
 	}
@@ -624,16 +627,17 @@ func TestOverloadIsNonStrict(t *testing.T) {
 	if err != nil {
 		t.Fatalf("fn.Binding() failed: %v", err)
 	}
+	ctx := context.Background()
 	m := types.DefaultTypeAdapter.NativeToValue(map[string]string{"hello": "world"})
-	out := bindings[0].Function(m, types.String("hello"), types.String("goodbye"))
+	out := bindings[0].Function(ctx, m, types.String("hello"), types.String("goodbye"))
 	if out.Equal(types.String("world")) != types.True {
 		t.Errorf("function got %v, wanted 'world'", out)
 	}
-	out = bindings[0].Function(m, types.String("missing"), types.String("goodbye"))
+	out = bindings[0].Function(ctx, m, types.String("missing"), types.String("goodbye"))
 	if out.Equal(types.String("goodbye")) != types.True {
 		t.Errorf("function got %v, wanted 'goodbye'", out)
 	}
-	out = bindings[0].Function(m, types.NewErr("no such key"), types.String("goodbye"))
+	out = bindings[0].Function(ctx, m, types.NewErr("no such key"), types.String("goodbye"))
 	if out.Equal(types.String("goodbye")) != types.True {
 		t.Errorf("function got %v, wanted 'goodbye'", out)
 	}
@@ -668,16 +672,17 @@ func TestOverloadOperandTrait(t *testing.T) {
 		t.Fatalf("fn.Binding() failed: %v", err)
 	}
 	m := types.DefaultTypeAdapter.NativeToValue(map[string]string{"hello": "world"})
-	out := bindings[0].Function(m, types.String("hello"), types.String("goodbye"))
+	ctx := context.Background()
+	out := bindings[0].Function(ctx, m, types.String("hello"), types.String("goodbye"))
 	if out.Equal(types.String("world")) != types.True {
 		t.Errorf("function got %v, wanted 'world'", out)
 	}
-	out = bindings[0].Function(m, types.String("missing"), types.String("goodbye"))
+	out = bindings[0].Function(ctx, m, types.String("missing"), types.String("goodbye"))
 	if out.Equal(types.String("goodbye")) != types.True {
 		t.Errorf("function got %v, wanted 'goodbye'", out)
 	}
 	noSuchKey := types.NewErr("no such key")
-	out = bindings[0].Function(m, noSuchKey, types.String("goodbye"))
+	out = bindings[0].Function(ctx, m, noSuchKey, types.String("goodbye"))
 	if out != noSuchKey {
 		t.Errorf("function got %v, wanted 'no such key'", out)
 	}

@@ -1014,6 +1014,41 @@ func TestContextEval(t *testing.T) {
 	}
 }
 
+func TestContextEvalPropagation(t *testing.T) {
+	env, err := NewEnv(Function("test",
+		Overload("test_int", []*Type{}, IntType,
+			FunctionBindingContext(func(ctx context.Context, _ ...ref.Val) ref.Val {
+				md := ctx.Value("metadata")
+				if md == nil {
+					return types.NewErr("cannot find metadata value")
+				}
+				return types.Int(md.(int))
+			}),
+		),
+	))
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	ast, iss := env.Compile("test()")
+	if iss.Err() != nil {
+		t.Fatalf("env.Compile(expr) failed: %v", iss.Err())
+	}
+	prg, err := env.Program(ast)
+	if err != nil {
+		t.Fatalf("env.Program() failed: %v", err)
+	}
+
+	expected := 10
+	ctx := context.WithValue(context.Background(), "metadata", expected)
+	out, _, err := prg.ContextEval(ctx, map[string]interface{}{})
+	if err != nil {
+		t.Fatalf("prg.ContextEval() failed: %v", err)
+	}
+	if out != types.Int(expected) {
+		t.Errorf("prg.ContextEval() got %v, but wanted %d", out, expected)
+	}
+}
+
 func BenchmarkContextEval(b *testing.B) {
 	env := testEnv(b,
 		Variable("items", ListType(IntType)),
@@ -1428,7 +1463,7 @@ func TestCustomInterpreterDecorator(t *testing.T) {
 			if !lhsIsConst || !rhsIsConst {
 				return i, nil
 			}
-			val := call.Eval(interpreter.EmptyActivation())
+			val := call.Eval(context.Background(), interpreter.EmptyActivation())
 			if types.IsError(val) {
 				return nil, val.(*types.Err)
 			}
