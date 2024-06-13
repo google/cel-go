@@ -960,18 +960,18 @@ func unnest(tree antlr.ParseTree) antlr.ParseTree {
 			// conditionalOr
 			tree = t.GetE()
 		case *gen.ConditionalOrContext:
-			// conditionalAnd (ops=|| conditionalAnd)*
+			// conditionalOr (ops=|| conditionalOr)*
+			if t.GetOps() != nil && len(t.GetOps()) > 0 {
+				return t
+			}
+			// conditionalOr
+			tree = t.GetE()
+		case *gen.ConditionalAndContext:
+			// conditionalAnd (ops=&& conditionalAnd)*
 			if t.GetOps() != nil && len(t.GetOps()) > 0 {
 				return t
 			}
 			// conditionalAnd
-			tree = t.GetE()
-		case *gen.ConditionalAndContext:
-			// relation (ops=&& relation)*
-			if t.GetOps() != nil && len(t.GetOps()) > 0 {
-				return t
-			}
-			// relation
 			tree = t.GetE()
 		case *gen.RelationContext:
 			// relation op relation
