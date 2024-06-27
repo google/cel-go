@@ -18,6 +18,8 @@
 package interpreter
 
 import (
+	"context"
+
 	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/types"
@@ -29,6 +31,14 @@ type Interpreter interface {
 	// NewInterpretable creates an Interpretable from a checked expression and an
 	// optional list of InterpretableDecorator values.
 	NewInterpretable(exprAST *ast.AST, decorators ...InterpretableDecorator) (Interpretable, error)
+}
+
+// InterpreterContext.
+type InterpreterContext interface {
+	Interpreter
+	// NewInterpretableContext creates an Interpretable from a checked expression and an
+	// optional list of InterpretableDecorator values.
+	NewInterpretableContext(ctx context.Context, exprAST *ast.AST, decorators ...InterpretableDecoratorContext) (InterpretableContext, error)
 }
 
 // EvalObserver is a functional interface that accepts an expression id and an observed value.
@@ -48,6 +58,10 @@ func Observe(observers ...EvalObserver) InterpretableDecorator {
 		}
 	}
 	return decObserveEval(observeFn)
+}
+
+func ObserveContext(observers ...EvalObserver) InterpretableDecoratorContext {
+	return ToInterpretableDecoratorContext(Observe(observers...))
 }
 
 // EvalCancelledError represents a cancelled program evaluation operation.
@@ -106,6 +120,15 @@ func ExhaustiveEval() InterpretableDecorator {
 	}
 }
 
+// ExhaustiveEvalCOntext replaces operations that short-circuit with versions that evaluate
+// expressions and couples this behavior with the TrackState() decorator to provide
+// insight into the evaluation state of the entire expression. EvalState must be
+// provided to the decorator. This decorator is not thread-safe, and the EvalState
+// must be reset between Eval() calls.
+func ExhaustiveEvalContext() InterpretableDecoratorContext {
+	return ToInterpretableDecoratorContext(decDisableShortcircuits())
+}
+
 // InterruptableEval annotates comprehension loops with information that indicates they
 // should check the `#interrupted` state within a custom Activation.
 //
@@ -115,10 +138,25 @@ func InterruptableEval() InterpretableDecorator {
 	return decInterruptFolds()
 }
 
+// InterruptableEvalContext annotates comprehension loops with information that indicates they
+// should check the `#interrupted` state within a custom Activation.
+//
+// The custom activation is currently managed higher up in the stack within the 'cel' package
+// and should not require any custom support on behalf of callers.
+func InterruptableEvalContext() InterpretableDecoratorContext {
+	return ToInterpretableDecoratorContext(decInterruptFolds())
+}
+
 // Optimize will pre-compute operations such as list and map construction and optimize
 // call arguments to set membership tests. The set of optimizations will increase over time.
 func Optimize() InterpretableDecorator {
 	return decOptimize()
+}
+
+// OptimizeContext will pre-compute operations such as list and map construction and optimize
+// call arguments to set membership tests. The set of optimizations will increase over time.
+func OptimizeContext() InterpretableDecoratorContext {
+	return ToInterpretableDecoratorContext(decOptimize())
 }
 
 // RegexOptimization provides a way to replace an InterpretableCall for a regex function when the
@@ -146,12 +184,18 @@ func CompileRegexConstants(regexOptimizations ...*RegexOptimization) Interpretab
 	return decRegexOptimizer(regexOptimizations...)
 }
 
+// CompileRegexConstantsContext compiles regex pattern string constants at program creation time and reports any regex pattern
+// compile errors.
+func CompileRegexConstantsContext(regexOptimizations ...*RegexOptimization) InterpretableDecoratorContext {
+	return ToInterpretableDecoratorContext(decRegexOptimizer(regexOptimizations...))
+}
+
 type exprInterpreter struct {
-	dispatcher  Dispatcher
+	dispatcher  DispatcherContext
 	container   *containers.Container
 	provider    types.Provider
 	adapter     types.Adapter
-	attrFactory AttributeFactory
+	attrFactory AttributeFactoryContext
 }
 
 // NewInterpreter builds an Interpreter from a Dispatcher and TypeProvider which will be used
@@ -161,6 +205,21 @@ func NewInterpreter(dispatcher Dispatcher,
 	provider types.Provider,
 	adapter types.Adapter,
 	attrFactory AttributeFactory) Interpreter {
+	return &exprInterpreter{
+		dispatcher:  ToDispatcherContext(dispatcher),
+		container:   container,
+		provider:    provider,
+		adapter:     adapter,
+		attrFactory: ToAttributeFactoryContext(attrFactory),
+	}
+}
+
+// NewInterpreterContext.
+func NewInterpreterContext(dispatcher DispatcherContext,
+	container *containers.Container,
+	provider types.Provider,
+	adapter types.Adapter,
+	attrFactory AttributeFactoryContext) InterpreterContext {
 	return &exprInterpreter{
 		dispatcher:  dispatcher,
 		container:   container,
@@ -173,6 +232,28 @@ func NewInterpreter(dispatcher Dispatcher,
 func (i *exprInterpreter) NewInterpretable(
 	checked *ast.AST,
 	decorators ...InterpretableDecorator) (Interpretable, error) {
+	decs := make([]InterpretableDecoratorContext, len(decorators))
+	for idx, dec := range decorators {
+		dec := dec
+		decs[idx] = ToInterpretableDecoratorContext(dec)
+	}
+
+	p := newPlanner(
+		i.dispatcher,
+		i.provider,
+		i.adapter,
+		i.attrFactory,
+		i.container,
+		checked,
+		decs...)
+	return p.Plan(context.Background(), checked.Expr())
+}
+
+// NewIntepretableContext implements the InterpreterContext interface method.
+func (i *exprInterpreter) NewInterpretableContext(
+	ctx context.Context,
+	checked *ast.AST,
+	decorators ...InterpretableDecoratorContext) (InterpretableContext, error) {
 	p := newPlanner(
 		i.dispatcher,
 		i.provider,
@@ -181,5 +262,5 @@ func (i *exprInterpreter) NewInterpretable(
 		i.container,
 		checked,
 		decorators...)
-	return p.Plan(checked.Expr())
+	return p.Plan(ctx, checked.Expr())
 }

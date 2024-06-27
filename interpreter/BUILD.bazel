@@ -20,6 +20,7 @@ go_library(
         "planner.go",
         "prune.go",
         "runtimecost.go",
+        "context.go",
     ],
     importpath = "github.com/google/cel-go/interpreter",
     deps = [

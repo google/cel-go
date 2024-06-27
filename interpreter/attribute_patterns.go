@@ -15,6 +15,7 @@
 package interpreter
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/google/cel-go/common/containers"
@@ -179,17 +180,29 @@ func numericValueEquals(value any, celValue ref.Val) bool {
 // NewPartialAttributeFactory returns an AttributeFactory implementation capable of performing
 // AttributePattern matches with PartialActivation inputs.
 func NewPartialAttributeFactory(container *containers.Container, adapter types.Adapter, provider types.Provider, opts ...AttrFactoryOption) AttributeFactory {
-	fac := NewAttributeFactory(container, adapter, provider, opts...)
+	fac := NewAttributeFactoryContext(container, adapter, provider, opts...)
 	return &partialAttributeFactory{
-		AttributeFactory: fac,
-		container:        container,
-		adapter:          adapter,
-		provider:         provider,
+		AttributeFactoryContext: fac,
+		container:               container,
+		adapter:                 adapter,
+		provider:                provider,
+	}
+}
+
+// NewPartialAttributeFactoryContext returns an AttributeFactoryContext implementation capable of performing
+// AttributePattern matches with PartialActivation inputs.
+func NewPartialAttributeFactoryContext(container *containers.Container, adapter types.Adapter, provider types.Provider, opts ...AttrFactoryOption) AttributeFactoryContext {
+	fac := NewAttributeFactoryContext(container, adapter, provider, opts...)
+	return &partialAttributeFactory{
+		AttributeFactoryContext: fac,
+		container:               container,
+		adapter:                 adapter,
+		provider:                provider,
 	}
 }
 
 type partialAttributeFactory struct {
-	AttributeFactory
+	AttributeFactoryContext
 	container *containers.Container
 	adapter   types.Adapter
 	provider  types.Provider
@@ -199,18 +212,32 @@ type partialAttributeFactory struct {
 // NamespacedAttribute resolution in an internal attributeMatcher object to dynamically match
 // unknown patterns from PartialActivation inputs if given.
 func (fac *partialAttributeFactory) AbsoluteAttribute(id int64, names ...string) NamespacedAttribute {
-	attr := fac.AttributeFactory.AbsoluteAttribute(id, names...)
-	return &attributeMatcher{fac: fac, NamespacedAttribute: attr}
+	return fac.AbsoluteAttributeContext(context.Background(), id, names...)
+}
+
+// AbsoluteAttributeContext implementation of the AttributeFactoryContext interface which wraps the
+// NamespacedAttribute resolution in an internal attributeMatcher object to dynamically match
+// unknown patterns from PartialActivation inputs if given.
+func (fac *partialAttributeFactory) AbsoluteAttributeContext(ctx context.Context, id int64, names ...string) NamespacedAttributeContext {
+	attr := fac.AttributeFactoryContext.AbsoluteAttributeContext(ctx, id, names...)
+	return &attributeMatcher{fac: fac, NamespacedAttributeContext: attr}
 }
 
 // MaybeAttribute implementation of the AttributeFactory interface which ensure that the set of
 // 'maybe' NamespacedAttribute values are produced using the partialAttributeFactory rather than
 // the base AttributeFactory implementation.
 func (fac *partialAttributeFactory) MaybeAttribute(id int64, name string) Attribute {
+	return fac.MaybeAttributeContext(context.Background(), id, name)
+}
+
+// MaybeAttributeContext implementation of the AttributeFactoryContext interface which ensure that the set of
+// 'maybe' NamespacedAttribute values are produced using the partialAttributeFactory rather than
+// the base AttributeFactory implementation.
+func (fac *partialAttributeFactory) MaybeAttributeContext(ctx context.Context, id int64, name string) AttributeContext {
 	return &maybeAttribute{
 		id: id,
-		attrs: []NamespacedAttribute{
-			fac.AbsoluteAttribute(id, fac.container.ResolveCandidateNames(name)...),
+		attrs: []NamespacedAttributeContext{
+			fac.AbsoluteAttributeContext(ctx, id, fac.container.ResolveCandidateNames(name)...),
 		},
 		adapter:  fac.adapter,
 		provider: fac.provider,
@@ -238,6 +265,7 @@ func (fac *partialAttributeFactory) MaybeAttribute(id int64, name string) Attrib
 // example, the expression id representing variable `a` would be listed in the Unknown result,
 // whereas in the other pattern examples, the qualifier `b` would be returned as the Unknown.
 func (fac *partialAttributeFactory) matchesUnknownPatterns(
+	ctx context.Context,
 	vars PartialActivation,
 	attrID int64,
 	variableNames []string,
@@ -330,17 +358,22 @@ func (fac *partialAttributeFactory) matchesUnknownPatterns(
 // AttributePattern matching against Attribute values without having to modify the code paths that
 // identify Attributes in expressions.
 type attributeMatcher struct {
-	NamespacedAttribute
+	NamespacedAttributeContext
 	qualifiers []Qualifier
 	fac        *partialAttributeFactory
 }
 
 // AddQualifier implements the Attribute interface method.
 func (m *attributeMatcher) AddQualifier(qual Qualifier) (Attribute, error) {
+	return m.AddQualifierContext(context.Background(), qual)
+}
+
+// AddQualifierContext implements the AttributeContext interface method.
+func (m *attributeMatcher) AddQualifierContext(ctx context.Context, qual Qualifier) (AttributeContext, error) {
 	// Add the qualifier to the embedded NamespacedAttribute. If the input to the Resolve
 	// method is not a PartialActivation, or does not match an unknown attribute pattern, the
 	// Resolve method is directly invoked on the underlying NamespacedAttribute.
-	_, err := m.NamespacedAttribute.AddQualifier(qual)
+	_, err := m.NamespacedAttributeContext.AddQualifierContext(ctx, qual)
 	if err != nil {
 		return nil, err
 	}
@@ -356,15 +389,24 @@ func (m *attributeMatcher) AddQualifier(qual Qualifier) (Attribute, error) {
 // for matching unknown attribute patterns and returns types.Unknown if present. Otherwise,
 // the standard Resolve logic applies.
 func (m *attributeMatcher) Resolve(vars Activation) (any, error) {
-	id := m.NamespacedAttribute.ID()
+	return m.ResolveContext(context.Background(), vars)
+}
+
+// ResolveContext is an implementation of the NamespacedAttributeContext interface method which tests
+// for matching unknown attribute patterns and returns types.Unknown if present. Otherwise,
+// the standard Resolve logic applies.
+func (m *attributeMatcher) ResolveContext(ctx context.Context, vars Activation) (any, error) {
+	id := m.NamespacedAttributeContext.ID()
 	// Bug in how partial activation is resolved, should search parents as well.
 	partial, isPartial := toPartialActivation(vars)
 	if isPartial {
 		unk, err := m.fac.matchesUnknownPatterns(
+			ctx,
 			partial,
 			id,
 			m.CandidateVariableNames(),
-			m.qualifiers)
+			m.qualifiers,
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -372,17 +414,27 @@ func (m *attributeMatcher) Resolve(vars Activation) (any, error) {
 			return unk, nil
 		}
 	}
-	return m.NamespacedAttribute.Resolve(vars)
+	return m.NamespacedAttributeContext.ResolveContext(ctx, vars)
 }
 
 // Qualify is an implementation of the Qualifier interface method.
 func (m *attributeMatcher) Qualify(vars Activation, obj any) (any, error) {
-	return attrQualify(m.fac, vars, obj, m)
+	return m.QualifyContext(context.Background(), vars, obj)
+}
+
+// QualifyContext is an implementation of the QualifierContext interface method.
+func (m *attributeMatcher) QualifyContext(ctx context.Context, vars Activation, obj any) (any, error) {
+	return attrQualify(ctx, m.fac, vars, obj, m)
 }
 
 // QualifyIfPresent is an implementation of the Qualifier interface method.
 func (m *attributeMatcher) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
-	return attrQualifyIfPresent(m.fac, vars, obj, m, presenceOnly)
+	return m.QualifyIfPresentContext(context.Background(), vars, obj, presenceOnly)
+}
+
+// QualifyIfPresentContext is an implementation of the QualifierContext interface method.
+func (m *attributeMatcher) QualifyIfPresentContext(ctx context.Context, vars Activation, obj any, presenceOnly bool) (any, bool, error) {
+	return attrQualifyIfPresent(ctx, m.fac, vars, obj, m, presenceOnly)
 }
 
 func toPartialActivation(vars Activation) (PartialActivation, bool) {

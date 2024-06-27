@@ -37,7 +37,8 @@ type ActualCostEstimator interface {
 // CostObserver provides an observer that tracks runtime cost.
 func CostObserver(tracker *CostTracker) EvalObserver {
 	observer := func(id int64, programStep any, val ref.Val) {
-		switch t := programStep.(type) {
+		v := unwrapContextImpl(programStep)
+		switch t := v.(type) {
 		case ConstantQualifier:
 			// TODO: Push identifiers on to the stack before observing constant qualifiers that apply to them
 			// and enable the below pop. Once enabled this can case can be collapsed into the Qualifier case.
@@ -45,7 +46,8 @@ func CostObserver(tracker *CostTracker) EvalObserver {
 		case InterpretableConst:
 			// zero cost
 		case InterpretableAttribute:
-			switch a := t.Attr().(type) {
+			attr := unwrapContextImpl(t.Attr())
+			switch a := attr.(type) {
 			case *conditionalAttribute:
 				// Ternary has no direct cost. All cost is from the conditional and the true/false branch expressions.
 				tracker.stack.drop(a.falsy.ID(), a.truthy.ID(), a.expr.ID())
@@ -54,7 +56,7 @@ func CostObserver(tracker *CostTracker) EvalObserver {
 				tracker.cost += common.SelectAndIdentCost
 			}
 			if !tracker.presenceTestHasCost {
-				if _, isTestOnly := programStep.(*evalTestOnly); isTestOnly {
+				if _, isTestOnly := v.(*evalTestOnly); isTestOnly {
 					tracker.cost -= common.SelectAndIdentCost
 				}
 			}

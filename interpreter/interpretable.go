@@ -15,6 +15,7 @@
 package interpreter
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/google/cel-go/common/functions"
@@ -36,10 +37,23 @@ type Interpretable interface {
 	Eval(activation Activation) ref.Val
 }
 
+// InterpretableContext is an adaptation of Interpretable for context.Context.
+type InterpretableContext interface {
+	Interpretable
+	// EvalContext an Activation to produce an output.
+	EvalContext(ctx context.Context, activation Activation) ref.Val
+}
+
 // InterpretableConst interface for tracking whether the Interpretable is a constant value.
 type InterpretableConst interface {
 	Interpretable
 
+	// Value returns the constant value of the instruction.
+	Value() ref.Val
+}
+
+type InterpretableConstContext interface {
+	InterpretableContext
 	// Value returns the constant value of the instruction.
 	Value() ref.Val
 }
@@ -78,6 +92,34 @@ type InterpretableAttribute interface {
 	Resolve(Activation) (any, error)
 }
 
+type InterpretableAttributeContext interface {
+	InterpretableAttribute
+	InterpretableContext
+
+	// Attr returns the Attribute value.
+	AttrContext(context.Context) AttributeContext
+
+	// AddQualifierContext proxies the Attribute.AddQualifier method.
+	//
+	// Note, this method may mutate the current attribute state. If the desire is to clone the
+	// Attribute, the Attribute should first be copied before adding the qualifier. Attributes
+	// are not copyable by default, so this is a capable that would need to be added to the
+	// AttributeFactory or specifically to the underlying Attribute implementation.
+	AddQualifierContext(ctx context.Context, q Qualifier) (AttributeContext, error)
+
+	// QualifyContext replicates the Attribute.Qualify method to permit extension and interception
+	// of object qualification.
+	QualifyContext(ctx context.Context, vars Activation, obj any) (any, error)
+
+	// QualifyIfPresentContext qualifies the object if the qualifier is declared or defined on the object.
+	// The 'presenceOnly' flag indicates that the value is not necessary, just a boolean status as
+	// to whether the qualifier is present.
+	QualifyIfPresentContext(ctx context.Context, vars Activation, obj any, presenceOnly bool) (any, bool, error)
+
+	// ResolveContext returns the value of the Attribute given the current Activation.
+	ResolveContext(ctx context.Context, vars Activation) (any, error)
+}
+
 // InterpretableCall interface for inspecting Interpretable instructions related to function calls.
 type InterpretableCall interface {
 	Interpretable
@@ -96,6 +138,11 @@ type InterpretableCall interface {
 	Args() []Interpretable
 }
 
+type InterpretableCallContext interface {
+	InterpretableCall
+	InterpretableContext
+}
+
 // InterpretableConstructor interface for inspecting  Interpretable instructions that initialize a list, map
 // or struct.
 type InterpretableConstructor interface {
@@ -108,11 +155,16 @@ type InterpretableConstructor interface {
 	Type() ref.Type
 }
 
+type InterpretableConstructorContext interface {
+	InterpretableContext
+	InterpretableConstructor
+}
+
 // Core Interpretable implementations used during the program planning phase.
 
 type evalTestOnly struct {
 	id int64
-	InterpretableAttribute
+	InterpretableAttributeContext
 }
 
 // ID implements the Interpretable interface method.
@@ -121,8 +173,13 @@ func (test *evalTestOnly) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (test *evalTestOnly) Eval(ctx Activation) ref.Val {
-	val, err := test.Resolve(ctx)
+func (test *evalTestOnly) Eval(vars Activation) ref.Val {
+	return test.EvalContext(context.Background(), vars)
+}
+
+// EvalContext implements the InterpretableContext interface method.
+func (test *evalTestOnly) EvalContext(ctx context.Context, vars Activation) ref.Val {
+	val, err := test.ResolveContext(ctx, vars)
 	// Return an error if the resolve step fails
 	if err != nil {
 		return types.LabelErrNode(test.id, types.WrapErr(err))
@@ -135,20 +192,30 @@ func (test *evalTestOnly) Eval(ctx Activation) ref.Val {
 
 // AddQualifier appends a qualifier that will always and only perform a presence test.
 func (test *evalTestOnly) AddQualifier(q Qualifier) (Attribute, error) {
-	cq, ok := q.(ConstantQualifier)
+	return test.AddQualifierContext(context.Background(), q)
+}
+
+// AddQualifierContext appends a qualifier that will always and only perform a presence test.
+func (test *evalTestOnly) AddQualifierContext(ctx context.Context, q Qualifier) (AttributeContext, error) {
+	cq, ok := q.(ConstantQualifierContext)
 	if !ok {
 		return nil, fmt.Errorf("test only expressions must have constant qualifiers: %v", q)
 	}
-	return test.InterpretableAttribute.AddQualifier(&testOnlyQualifier{ConstantQualifier: cq})
+	return test.InterpretableAttributeContext.AddQualifierContext(ctx, &testOnlyQualifier{ConstantQualifierContext: cq})
 }
 
 type testOnlyQualifier struct {
-	ConstantQualifier
+	ConstantQualifierContext
 }
 
 // Qualify determines whether the test-only qualifier is present on the input object.
 func (q *testOnlyQualifier) Qualify(vars Activation, obj any) (any, error) {
-	out, present, err := q.ConstantQualifier.QualifyIfPresent(vars, obj, true)
+	return q.QualifyContext(context.Background(), vars, obj)
+}
+
+// QualifyContext determines whether the test-only qualifier is present on the input object.
+func (q *testOnlyQualifier) QualifyContext(ctx context.Context, vars Activation, obj any) (any, error) {
+	out, present, err := q.ConstantQualifierContext.QualifyIfPresentContext(ctx, vars, obj, true)
 	if err != nil {
 		return nil, err
 	}
@@ -163,18 +230,31 @@ func (q *testOnlyQualifier) Qualify(vars Activation, obj any) (any, error) {
 
 // QualifyIfPresent returns whether the target field in the test-only expression is present.
 func (q *testOnlyQualifier) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
+	return q.QualifyIfPresentContext(context.Background(), vars, obj, presenceOnly)
+}
+
+// QualifyIfPresentContext returns whether the target field in the test-only expression is present.
+func (q *testOnlyQualifier) QualifyIfPresentContext(ctx context.Context, vars Activation, obj any, presenceOnly bool) (any, bool, error) {
 	// Only ever test for presence.
-	return q.ConstantQualifier.QualifyIfPresent(vars, obj, true)
+	return q.ConstantQualifierContext.QualifyIfPresentContext(ctx, vars, obj, true)
 }
 
 // QualifierValueEquals determines whether the test-only constant qualifier equals the input value.
 func (q *testOnlyQualifier) QualifierValueEquals(value any) bool {
 	// The input qualifier will always be of type string
-	return q.ConstantQualifier.Value().Value() == value
+	return q.ConstantQualifierContext.Value().Value() == value
 }
 
 // NewConstValue creates a new constant valued Interpretable.
 func NewConstValue(id int64, val ref.Val) InterpretableConst {
+	return &evalConst{
+		id:  id,
+		val: val,
+	}
+}
+
+// NewConstValueContext creates a new constant valued InterpretableContext.
+func NewConstValueContext(id int64, val ref.Val) InterpretableConstContext {
 	return &evalConst{
 		id:  id,
 		val: val,
@@ -192,7 +272,12 @@ func (cons *evalConst) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (cons *evalConst) Eval(ctx Activation) ref.Val {
+func (cons *evalConst) Eval(vars Activation) ref.Val {
+	return cons.EvalContext(context.Background(), vars)
+}
+
+// EvalContext implements the Interpretable interface method.
+func (cons *evalConst) EvalContext(ctx context.Context, vars Activation) ref.Val {
 	return cons.val
 }
 
@@ -203,7 +288,7 @@ func (cons *evalConst) Value() ref.Val {
 
 type evalOr struct {
 	id    int64
-	terms []Interpretable
+	terms []InterpretableContext
 }
 
 // ID implements the Interpretable interface method.
@@ -212,11 +297,16 @@ func (or *evalOr) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (or *evalOr) Eval(ctx Activation) ref.Val {
+func (or *evalOr) Eval(vars Activation) ref.Val {
+	return or.EvalContext(context.Background(), vars)
+}
+
+// EvalContext implements the InterpretableContext interface method.
+func (or *evalOr) EvalContext(ctx context.Context, vars Activation) ref.Val {
 	var err ref.Val = nil
 	var unk *types.Unknown
 	for _, term := range or.terms {
-		val := term.Eval(ctx)
+		val := term.EvalContext(ctx, vars)
 		boolVal, ok := val.(types.Bool)
 		// short-circuit on true.
 		if ok && boolVal == types.True {
@@ -246,7 +336,7 @@ func (or *evalOr) Eval(ctx Activation) ref.Val {
 
 type evalAnd struct {
 	id    int64
-	terms []Interpretable
+	terms []InterpretableContext
 }
 
 // ID implements the Interpretable interface method.
@@ -254,12 +344,16 @@ func (and *evalAnd) ID() int64 {
 	return and.id
 }
 
-// Eval implements the Interpretable interface method.
-func (and *evalAnd) Eval(ctx Activation) ref.Val {
+func (and *evalAnd) Eval(vars Activation) ref.Val {
+	return and.EvalContext(context.Background(), vars)
+}
+
+// EvalContext implements the Interpretable interface method.
+func (and *evalAnd) EvalContext(ctx context.Context, vars Activation) ref.Val {
 	var err ref.Val = nil
 	var unk *types.Unknown
 	for _, term := range and.terms {
-		val := term.Eval(ctx)
+		val := term.EvalContext(ctx, vars)
 		boolVal, ok := val.(types.Bool)
 		// short-circuit on false.
 		if ok && boolVal == types.False {
@@ -289,8 +383,8 @@ func (and *evalAnd) Eval(ctx Activation) ref.Val {
 
 type evalEq struct {
 	id  int64
-	lhs Interpretable
-	rhs Interpretable
+	lhs InterpretableContext
+	rhs InterpretableContext
 }
 
 // ID implements the Interpretable interface method.
@@ -299,9 +393,14 @@ func (eq *evalEq) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (eq *evalEq) Eval(ctx Activation) ref.Val {
-	lVal := eq.lhs.Eval(ctx)
-	rVal := eq.rhs.Eval(ctx)
+func (eq *evalEq) Eval(vars Activation) ref.Val {
+	return eq.EvalContext(context.Background(), vars)
+}
+
+// EvalContext implements the InterpretableContext interface method.
+func (eq *evalEq) EvalContext(ctx context.Context, vars Activation) ref.Val {
+	lVal := eq.lhs.EvalContext(ctx, vars)
+	rVal := eq.rhs.EvalContext(ctx, vars)
 	if types.IsUnknownOrError(lVal) {
 		return lVal
 	}
@@ -328,8 +427,8 @@ func (eq *evalEq) Args() []Interpretable {
 
 type evalNe struct {
 	id  int64
-	lhs Interpretable
-	rhs Interpretable
+	lhs InterpretableContext
+	rhs InterpretableContext
 }
 
 // ID implements the Interpretable interface method.
@@ -338,9 +437,14 @@ func (ne *evalNe) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (ne *evalNe) Eval(ctx Activation) ref.Val {
-	lVal := ne.lhs.Eval(ctx)
-	rVal := ne.rhs.Eval(ctx)
+func (ne *evalNe) Eval(vars Activation) ref.Val {
+	return ne.EvalContext(context.Background(), vars)
+}
+
+// EvalContext implements the InterpretableContext interface method.
+func (ne *evalNe) EvalContext(ctx context.Context, vars Activation) ref.Val {
+	lVal := ne.lhs.EvalContext(ctx, vars)
+	rVal := ne.rhs.EvalContext(ctx, vars)
 	if types.IsUnknownOrError(lVal) {
 		return lVal
 	}
@@ -369,7 +473,7 @@ type evalZeroArity struct {
 	id       int64
 	function string
 	overload string
-	impl     functions.FunctionOp
+	impl     functions.FunctionOpContext
 }
 
 // ID implements the Interpretable interface method.
@@ -378,8 +482,13 @@ func (zero *evalZeroArity) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (zero *evalZeroArity) Eval(ctx Activation) ref.Val {
-	return types.LabelErrNode(zero.id, zero.impl())
+func (zero *evalZeroArity) Eval(vars Activation) ref.Val {
+	return zero.EvalContext(context.Background(), vars)
+}
+
+// EvalContext implements the InterpretableContext interface method.
+func (zero *evalZeroArity) EvalContext(ctx context.Context, vars Activation) ref.Val {
+	return types.LabelErrNode(zero.id, zero.impl(ctx))
 }
 
 // Function implements the InterpretableCall interface method.
@@ -401,9 +510,9 @@ type evalUnary struct {
 	id        int64
 	function  string
 	overload  string
-	arg       Interpretable
+	arg       InterpretableContext
 	trait     int
-	impl      functions.UnaryOp
+	impl      functions.UnaryOpContext
 	nonStrict bool
 }
 
@@ -413,8 +522,13 @@ func (un *evalUnary) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (un *evalUnary) Eval(ctx Activation) ref.Val {
-	argVal := un.arg.Eval(ctx)
+func (un *evalUnary) Eval(vars Activation) ref.Val {
+	return un.EvalContext(context.Background(), vars)
+}
+
+// EvalContext implements the InterpretableContext interface method.
+func (un *evalUnary) EvalContext(ctx context.Context, vars Activation) ref.Val {
+	argVal := un.arg.EvalContext(ctx, vars)
 	// Early return if the argument to the function is unknown or error.
 	strict := !un.nonStrict
 	if strict && types.IsUnknownOrError(argVal) {
@@ -423,7 +537,7 @@ func (un *evalUnary) Eval(ctx Activation) ref.Val {
 	// If the implementation is bound and the argument value has the right traits required to
 	// invoke it, then call the implementation.
 	if un.impl != nil && (un.trait == 0 || (!strict && types.IsUnknownOrError(argVal)) || argVal.Type().HasTrait(un.trait)) {
-		return types.LabelErrNode(un.id, un.impl(argVal))
+		return types.LabelErrNode(un.id, un.impl(ctx, argVal))
 	}
 	// Otherwise, if the argument is a ReceiverType attempt to invoke the receiver method on the
 	// operand (arg0).
@@ -452,10 +566,10 @@ type evalBinary struct {
 	id        int64
 	function  string
 	overload  string
-	lhs       Interpretable
-	rhs       Interpretable
+	lhs       InterpretableContext
+	rhs       InterpretableContext
 	trait     int
-	impl      functions.BinaryOp
+	impl      functions.BinaryOpContext
 	nonStrict bool
 }
 
@@ -465,9 +579,14 @@ func (bin *evalBinary) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (bin *evalBinary) Eval(ctx Activation) ref.Val {
-	lVal := bin.lhs.Eval(ctx)
-	rVal := bin.rhs.Eval(ctx)
+func (bin *evalBinary) Eval(vars Activation) ref.Val {
+	return bin.EvalContext(context.Background(), vars)
+}
+
+// EvalContext implements the InterpretableContext interface method.
+func (bin *evalBinary) EvalContext(ctx context.Context, vars Activation) ref.Val {
+	lVal := bin.lhs.EvalContext(ctx, vars)
+	rVal := bin.rhs.EvalContext(ctx, vars)
 	// Early return if any argument to the function is unknown or error.
 	strict := !bin.nonStrict
 	if strict {
@@ -481,7 +600,7 @@ func (bin *evalBinary) Eval(ctx Activation) ref.Val {
 	// If the implementation is bound and the argument value has the right traits required to
 	// invoke it, then call the implementation.
 	if bin.impl != nil && (bin.trait == 0 || (!strict && types.IsUnknownOrError(lVal)) || lVal.Type().HasTrait(bin.trait)) {
-		return types.LabelErrNode(bin.id, bin.impl(lVal, rVal))
+		return types.LabelErrNode(bin.id, bin.impl(ctx, lVal, rVal))
 	}
 	// Otherwise, if the argument is a ReceiverType attempt to invoke the receiver method on the
 	// operand (arg0).
@@ -510,14 +629,25 @@ type evalVarArgs struct {
 	id        int64
 	function  string
 	overload  string
-	args      []Interpretable
+	args      []InterpretableContext
 	trait     int
-	impl      functions.FunctionOp
+	impl      functions.FunctionOpContext
 	nonStrict bool
 }
 
 // NewCall creates a new call Interpretable.
 func NewCall(id int64, function, overload string, args []Interpretable, impl functions.FunctionOp) InterpretableCall {
+	newArgs := make([]InterpretableContext, len(args))
+	for idx, arg := range args {
+		newArgs[idx] = ToInterpretableContext(arg)
+	}
+	return NewCallContext(id, function, overload, newArgs, func(_ context.Context, values ...ref.Val) ref.Val {
+		return impl(values...)
+	})
+}
+
+// NewCallContext creates a new call InterpretableContext.
+func NewCallContext(id int64, function, overload string, args []InterpretableContext, impl functions.FunctionOpContext) InterpretableCall {
 	return &evalVarArgs{
 		id:       id,
 		function: function,
@@ -533,12 +663,17 @@ func (fn *evalVarArgs) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (fn *evalVarArgs) Eval(ctx Activation) ref.Val {
+func (fn *evalVarArgs) Eval(vars Activation) ref.Val {
+	return fn.EvalContext(context.Background(), vars)
+}
+
+// EvalContext implements the Interpretable interface method.
+func (fn *evalVarArgs) EvalContext(ctx context.Context, vars Activation) ref.Val {
 	argVals := make([]ref.Val, len(fn.args))
 	// Early return if any argument to the function is unknown or error.
 	strict := !fn.nonStrict
 	for i, arg := range fn.args {
-		argVals[i] = arg.Eval(ctx)
+		argVals[i] = arg.EvalContext(ctx, vars)
 		if strict && types.IsUnknownOrError(argVals[i]) {
 			return argVals[i]
 		}
@@ -547,7 +682,7 @@ func (fn *evalVarArgs) Eval(ctx Activation) ref.Val {
 	// invoke it, then call the implementation.
 	arg0 := argVals[0]
 	if fn.impl != nil && (fn.trait == 0 || (!strict && types.IsUnknownOrError(arg0)) || arg0.Type().HasTrait(fn.trait)) {
-		return types.LabelErrNode(fn.id, fn.impl(argVals...))
+		return types.LabelErrNode(fn.id, fn.impl(ctx, argVals...))
 	}
 	// Otherwise, if the argument is a ReceiverType attempt to invoke the receiver method on the
 	// operand (arg0).
@@ -569,12 +704,16 @@ func (fn *evalVarArgs) OverloadID() string {
 
 // Args returns the argument to the unary function.
 func (fn *evalVarArgs) Args() []Interpretable {
-	return fn.args
+	ret := make([]Interpretable, len(fn.args))
+	for idx, arg := range fn.args {
+		ret[idx] = arg.(Interpretable)
+	}
+	return ret
 }
 
 type evalList struct {
 	id           int64
-	elems        []Interpretable
+	elems        []InterpretableContext
 	optionals    []bool
 	hasOptionals bool
 	adapter      types.Adapter
@@ -586,11 +725,16 @@ func (l *evalList) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (l *evalList) Eval(ctx Activation) ref.Val {
+func (l *evalList) Eval(vars Activation) ref.Val {
+	return l.EvalContext(context.Background(), vars)
+}
+
+// EvalContext implements the InterpretableContext interface method.
+func (l *evalList) EvalContext(ctx context.Context, vars Activation) ref.Val {
 	elemVals := make([]ref.Val, 0, len(l.elems))
 	// If any argument is unknown or error early terminate.
 	for i, elem := range l.elems {
-		elemVal := elem.Eval(ctx)
+		elemVal := elem.EvalContext(ctx, vars)
 		if types.IsUnknownOrError(elemVal) {
 			return elemVal
 		}
@@ -610,7 +754,11 @@ func (l *evalList) Eval(ctx Activation) ref.Val {
 }
 
 func (l *evalList) InitVals() []Interpretable {
-	return l.elems
+	ret := make([]Interpretable, len(l.elems))
+	for idx, elem := range l.elems {
+		ret[idx] = elem.(Interpretable)
+	}
+	return ret
 }
 
 func (l *evalList) Type() ref.Type {
@@ -619,8 +767,8 @@ func (l *evalList) Type() ref.Type {
 
 type evalMap struct {
 	id           int64
-	keys         []Interpretable
-	vals         []Interpretable
+	keys         []InterpretableContext
+	vals         []InterpretableContext
 	optionals    []bool
 	hasOptionals bool
 	adapter      types.Adapter
@@ -632,15 +780,20 @@ func (m *evalMap) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (m *evalMap) Eval(ctx Activation) ref.Val {
+func (m *evalMap) Eval(vars Activation) ref.Val {
+	return m.EvalContext(context.Background(), vars)
+}
+
+// EvalContext implements the InterpretableContext interface method.
+func (m *evalMap) EvalContext(ctx context.Context, vars Activation) ref.Val {
 	entries := make(map[ref.Val]ref.Val)
 	// If any argument is unknown or error early terminate.
 	for i, key := range m.keys {
-		keyVal := key.Eval(ctx)
+		keyVal := key.EvalContext(ctx, vars)
 		if types.IsUnknownOrError(keyVal) {
 			return keyVal
 		}
-		valVal := m.vals[i].Eval(ctx)
+		valVal := m.vals[i].EvalContext(ctx, vars)
 		if types.IsUnknownOrError(valVal) {
 			return valVal
 		}
@@ -667,8 +820,8 @@ func (m *evalMap) InitVals() []Interpretable {
 	result := make([]Interpretable, len(m.keys)+len(m.vals))
 	idx := 0
 	for i, k := range m.keys {
-		v := m.vals[i]
-		result[idx] = k
+		v := m.vals[i].(Interpretable)
+		result[idx] = k.(Interpretable)
 		idx++
 		result[idx] = v
 		idx++
@@ -684,7 +837,7 @@ type evalObj struct {
 	id           int64
 	typeName     string
 	fields       []string
-	vals         []Interpretable
+	vals         []InterpretableContext
 	optionals    []bool
 	hasOptionals bool
 	provider     types.Provider
@@ -696,11 +849,16 @@ func (o *evalObj) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (o *evalObj) Eval(ctx Activation) ref.Val {
+func (o *evalObj) Eval(vars Activation) ref.Val {
+	return o.EvalContext(context.Background(), vars)
+}
+
+// EvalContext implements the InterpretableContext interface method.
+func (o *evalObj) EvalContext(ctx context.Context, vars Activation) ref.Val {
 	fieldVals := make(map[string]ref.Val)
 	// If any argument is unknown or error early terminate.
 	for i, field := range o.fields {
-		val := o.vals[i].Eval(ctx)
+		val := o.vals[i].EvalContext(ctx, vars)
 		if types.IsUnknownOrError(val) {
 			return val
 		}
@@ -721,7 +879,11 @@ func (o *evalObj) Eval(ctx Activation) ref.Val {
 }
 
 func (o *evalObj) InitVals() []Interpretable {
-	return o.vals
+	ret := make([]Interpretable, len(o.vals))
+	for idx, val := range o.vals {
+		ret[idx] = val.(Interpretable)
+	}
+	return ret
 }
 
 func (o *evalObj) Type() ref.Type {
@@ -732,11 +894,11 @@ type evalFold struct {
 	id            int64
 	accuVar       string
 	iterVar       string
-	iterRange     Interpretable
-	accu          Interpretable
-	cond          Interpretable
-	step          Interpretable
-	result        Interpretable
+	iterRange     InterpretableContext
+	accu          InterpretableContext
+	cond          InterpretableContext
+	step          InterpretableContext
+	result        InterpretableContext
 	adapter       types.Adapter
 	exhaustive    bool
 	interruptable bool
@@ -748,16 +910,21 @@ func (fold *evalFold) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (fold *evalFold) Eval(ctx Activation) ref.Val {
-	foldRange := fold.iterRange.Eval(ctx)
+func (fold *evalFold) Eval(vars Activation) ref.Val {
+	return fold.EvalContext(context.Background(), vars)
+}
+
+// EvalContext implements the InterpretableContext interface method.
+func (fold *evalFold) EvalContext(ctx context.Context, vars Activation) ref.Val {
+	foldRange := fold.iterRange.EvalContext(ctx, vars)
 	if !foldRange.Type().HasTrait(traits.IterableType) {
 		return types.ValOrErr(foldRange, "got '%T', expected iterable type", foldRange)
 	}
 	// Configure the fold activation with the accumulator initial value.
 	accuCtx := varActivationPool.Get().(*varActivation)
-	accuCtx.parent = ctx
+	accuCtx.parent = vars
 	accuCtx.name = fold.accuVar
-	accuCtx.val = fold.accu.Eval(ctx)
+	accuCtx.val = fold.accu.EvalContext(ctx, vars)
 	// If the accumulator starts as an empty list, then the comprehension will build a list
 	// so create a mutable list to optimize the cost of the inner loop.
 	l, ok := accuCtx.val.(traits.Lister)
@@ -777,15 +944,15 @@ func (fold *evalFold) Eval(ctx Activation) ref.Val {
 		iterCtx.val = it.Next()
 
 		// Evaluate the condition, terminate the loop if false.
-		cond := fold.cond.Eval(iterCtx)
+		cond := fold.cond.EvalContext(ctx, iterCtx)
 		condBool, ok := cond.(types.Bool)
 		if !fold.exhaustive && ok && condBool != types.True {
 			break
 		}
 		// Evaluate the evaluation step into accu var.
-		accuCtx.val = fold.step.Eval(iterCtx)
+		accuCtx.val = fold.step.EvalContext(ctx, iterCtx)
 		if fold.interruptable {
-			if stop, found := ctx.ResolveName("#interrupted"); found && stop == true {
+			if stop, found := vars.ResolveName("#interrupted"); found && stop == true {
 				interrupted = true
 				break
 			}
@@ -798,7 +965,7 @@ func (fold *evalFold) Eval(ctx Activation) ref.Val {
 	}
 
 	// Compute the result.
-	res := fold.result.Eval(accuCtx)
+	res := fold.result.EvalContext(ctx, accuCtx)
 	varActivationPool.Put(accuCtx)
 	// Convert a mutable list to an immutable one, if the comprehension has generated a list as a result.
 	if !types.IsUnknownOrError(res) && buildingList {
@@ -815,8 +982,8 @@ func (fold *evalFold) Eval(ctx Activation) ref.Val {
 // evalSetMembership is an Interpretable implementation which tests whether an input value
 // exists within the set of map keys used to model a set.
 type evalSetMembership struct {
-	inst     Interpretable
-	arg      Interpretable
+	inst     InterpretableContext
+	arg      InterpretableContext
 	valueSet map[ref.Val]ref.Val
 }
 
@@ -826,8 +993,13 @@ func (e *evalSetMembership) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (e *evalSetMembership) Eval(ctx Activation) ref.Val {
-	val := e.arg.Eval(ctx)
+func (e *evalSetMembership) Eval(vars Activation) ref.Val {
+	return e.EvalContext(context.Background(), vars)
+}
+
+// EvalContext implements the InterpretableContext interface method.
+func (e *evalSetMembership) EvalContext(ctx context.Context, vars Activation) ref.Val {
+	val := e.arg.EvalContext(ctx, vars)
 	if types.IsUnknownOrError(val) {
 		return val
 	}
@@ -840,14 +1012,19 @@ func (e *evalSetMembership) Eval(ctx Activation) ref.Val {
 // evalWatch is an Interpretable implementation that wraps the execution of a given
 // expression so that it may observe the computed value and send it to an observer.
 type evalWatch struct {
-	Interpretable
+	InterpretableContext
 	observer EvalObserver
 }
 
 // Eval implements the Interpretable interface method.
-func (e *evalWatch) Eval(ctx Activation) ref.Val {
-	val := e.Interpretable.Eval(ctx)
-	e.observer(e.ID(), e.Interpretable, val)
+func (e *evalWatch) Eval(vars Activation) ref.Val {
+	return e.EvalContext(context.Background(), vars)
+}
+
+// EvalContext implements the InterpretableContext interface method.
+func (e *evalWatch) EvalContext(ctx context.Context, vars Activation) ref.Val {
+	val := e.InterpretableContext.EvalContext(ctx, vars)
+	e.observer(e.ID(), e.InterpretableContext, val)
 	return val
 }
 
@@ -856,28 +1033,44 @@ func (e *evalWatch) Eval(ctx Activation) ref.Val {
 // Since the watcher may be selected against at a later stage in program planning, the watcher
 // must implement the InterpretableAttribute interface by proxy.
 type evalWatchAttr struct {
-	InterpretableAttribute
+	InterpretableAttributeContext
 	observer EvalObserver
 }
 
 // AddQualifier creates a wrapper over the incoming qualifier which observes the qualification
 // result.
 func (e *evalWatchAttr) AddQualifier(q Qualifier) (Attribute, error) {
+	return e.AddQualifierContext(context.Background(), q)
+}
+
+// AddQualifierContext creates a wrapper over the incoming qualifier which observes the qualification
+// result.
+func (e *evalWatchAttr) AddQualifierContext(ctx context.Context, q Qualifier) (AttributeContext, error) {
 	switch qual := q.(type) {
 	// By default, the qualifier is either a constant or an attribute
 	// There may be some custom cases where the attribute is neither.
-	case ConstantQualifier:
+	case ConstantQualifierContext:
 		// Expose a method to test whether the qualifier matches the input pattern.
 		q = &evalWatchConstQual{
-			ConstantQualifier: qual,
-			observer:          e.observer,
-			adapter:           e.Adapter(),
+			ConstantQualifierContext: qual,
+			observer:                 e.observer,
+			adapter:                  e.Adapter(),
 		}
 	case *evalWatchAttr:
 		// Unwrap the evalWatchAttr since the observation will be applied during Qualify or
 		// QualifyIfPresent rather than Eval.
 		q = &evalWatchAttrQual{
-			Attribute: qual.InterpretableAttribute,
+			Attribute: qual.InterpretableAttributeContext,
+			observer:  e.observer,
+			adapter:   e.Adapter(),
+		}
+	case AttributeContext:
+		// Expose methods which intercept the qualification prior to being applied as a qualifier.
+		// Using this interface ensures that the qualifier is converted to a constant value one
+		// time during attribute pattern matching as the method embeds the Attribute interface
+		// needed to trip the conversion to a constant.
+		q = &evalWatchAttrQual{
+			Attribute: qual,
 			observer:  e.observer,
 			adapter:   e.Adapter(),
 		}
@@ -899,41 +1092,56 @@ func (e *evalWatchAttr) AddQualifier(q Qualifier) (Attribute, error) {
 			adapter:   e.Adapter(),
 		}
 	}
-	_, err := e.InterpretableAttribute.AddQualifier(q)
+	_, err := e.InterpretableAttributeContext.AddQualifierContext(ctx, q)
 	return e, err
 }
 
 // Eval implements the Interpretable interface method.
 func (e *evalWatchAttr) Eval(vars Activation) ref.Val {
-	val := e.InterpretableAttribute.Eval(vars)
-	e.observer(e.ID(), e.InterpretableAttribute, val)
+	return e.EvalContext(context.Background(), vars)
+}
+
+// EvalContext implements the InterpretableContext interface method.
+func (e *evalWatchAttr) EvalContext(ctx context.Context, vars Activation) ref.Val {
+	val := e.InterpretableAttributeContext.EvalContext(ctx, vars)
+	e.observer(e.ID(), e.InterpretableAttributeContext, val)
 	return val
 }
 
 // evalWatchConstQual observes the qualification of an object using a constant boolean, int,
 // string, or uint.
 type evalWatchConstQual struct {
-	ConstantQualifier
+	ConstantQualifierContext
 	observer EvalObserver
 	adapter  types.Adapter
 }
 
 // Qualify observes the qualification of a object via a constant boolean, int, string, or uint.
 func (e *evalWatchConstQual) Qualify(vars Activation, obj any) (any, error) {
-	out, err := e.ConstantQualifier.Qualify(vars, obj)
+	return e.QualifyContext(context.Background(), vars, obj)
+}
+
+// QualifyContext observes the qualification of a object via a constant boolean, int, string, or uint.
+func (e *evalWatchConstQual) QualifyContext(ctx context.Context, vars Activation, obj any) (any, error) {
+	out, err := e.ConstantQualifierContext.QualifyContext(ctx, vars, obj)
 	var val ref.Val
 	if err != nil {
 		val = types.LabelErrNode(e.ID(), types.WrapErr(err))
 	} else {
 		val = e.adapter.NativeToValue(out)
 	}
-	e.observer(e.ID(), e.ConstantQualifier, val)
+	e.observer(e.ID(), e.ConstantQualifierContext, val)
 	return out, err
 }
 
 // QualifyIfPresent conditionally qualifies the variable and only records a value if one is present.
 func (e *evalWatchConstQual) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
-	out, present, err := e.ConstantQualifier.QualifyIfPresent(vars, obj, presenceOnly)
+	return e.QualifyIfPresentContext(context.Background(), vars, obj, presenceOnly)
+}
+
+// QualifyIfPresentContext conditionally qualifies the variable and only records a value if one is present.
+func (e *evalWatchConstQual) QualifyIfPresentContext(ctx context.Context, vars Activation, obj any, presenceOnly bool) (any, bool, error) {
+	out, present, err := e.ConstantQualifierContext.QualifyIfPresentContext(ctx, vars, obj, presenceOnly)
 	var val ref.Val
 	if err != nil {
 		val = types.LabelErrNode(e.ID(), types.WrapErr(err))
@@ -943,14 +1151,14 @@ func (e *evalWatchConstQual) QualifyIfPresent(vars Activation, obj any, presence
 		val = types.Bool(present)
 	}
 	if present || presenceOnly {
-		e.observer(e.ID(), e.ConstantQualifier, val)
+		e.observer(e.ID(), e.ConstantQualifierContext, val)
 	}
 	return out, present, err
 }
 
 // QualifierValueEquals tests whether the incoming value is equal to the qualifying constant.
 func (e *evalWatchConstQual) QualifierValueEquals(value any) bool {
-	qve, ok := e.ConstantQualifier.(qualifierValueEquator)
+	qve, ok := e.ConstantQualifierContext.(qualifierValueEquator)
 	return ok && qve.QualifierValueEquals(value)
 }
 
@@ -1036,6 +1244,11 @@ type evalWatchConst struct {
 
 // Eval implements the Interpretable interface method.
 func (e *evalWatchConst) Eval(vars Activation) ref.Val {
+	return e.EvalContext(context.Background(), vars)
+}
+
+// EvalContext implements the InterpretableContext interface method.
+func (e *evalWatchConst) EvalContext(ctx context.Context, vars Activation) ref.Val {
 	val := e.Value()
 	e.observer(e.ID(), e.InterpretableConst, val)
 	return val
@@ -1044,7 +1257,7 @@ func (e *evalWatchConst) Eval(vars Activation) ref.Val {
 // evalExhaustiveOr is just like evalOr, but does not short-circuit argument evaluation.
 type evalExhaustiveOr struct {
 	id    int64
-	terms []Interpretable
+	terms []InterpretableContext
 }
 
 // ID implements the Interpretable interface method.
@@ -1053,12 +1266,17 @@ func (or *evalExhaustiveOr) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (or *evalExhaustiveOr) Eval(ctx Activation) ref.Val {
+func (or *evalExhaustiveOr) Eval(vars Activation) ref.Val {
+	return or.EvalContext(context.Background(), vars)
+}
+
+// EvalContext implements the InterpretableContext interface method.
+func (or *evalExhaustiveOr) EvalContext(ctx context.Context, vars Activation) ref.Val {
 	var err ref.Val = nil
 	var unk *types.Unknown
 	isTrue := false
 	for _, term := range or.terms {
-		val := term.Eval(ctx)
+		val := term.EvalContext(ctx, vars)
 		boolVal, ok := val.(types.Bool)
 		// flag the result as true
 		if ok && boolVal == types.True {
@@ -1091,7 +1309,7 @@ func (or *evalExhaustiveOr) Eval(ctx Activation) ref.Val {
 // evalExhaustiveAnd is just like evalAnd, but does not short-circuit argument evaluation.
 type evalExhaustiveAnd struct {
 	id    int64
-	terms []Interpretable
+	terms []InterpretableContext
 }
 
 // ID implements the Interpretable interface method.
@@ -1100,12 +1318,17 @@ func (and *evalExhaustiveAnd) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (and *evalExhaustiveAnd) Eval(ctx Activation) ref.Val {
+func (and *evalExhaustiveAnd) Eval(vars Activation) ref.Val {
+	return and.EvalContext(context.Background(), vars)
+}
+
+// EvalContext implements the InterpretableContext interface method.
+func (and *evalExhaustiveAnd) EvalContext(ctx context.Context, vars Activation) ref.Val {
 	var err ref.Val = nil
 	var unk *types.Unknown
 	isFalse := false
 	for _, term := range and.terms {
-		val := term.Eval(ctx)
+		val := term.EvalContext(ctx, vars)
 		boolVal, ok := val.(types.Bool)
 		// short-circuit on false.
 		if ok && boolVal == types.False {
@@ -1149,10 +1372,15 @@ func (cond *evalExhaustiveConditional) ID() int64 {
 }
 
 // Eval implements the Interpretable interface method.
-func (cond *evalExhaustiveConditional) Eval(ctx Activation) ref.Val {
-	cVal := cond.attr.expr.Eval(ctx)
-	tVal, tErr := cond.attr.truthy.Resolve(ctx)
-	fVal, fErr := cond.attr.falsy.Resolve(ctx)
+func (cond *evalExhaustiveConditional) Eval(vars Activation) ref.Val {
+	return cond.EvalContext(context.Background(), vars)
+}
+
+// EvalContext implements the InterpretableContext interface method.
+func (cond *evalExhaustiveConditional) EvalContext(ctx context.Context, vars Activation) ref.Val {
+	cVal := cond.attr.expr.EvalContext(ctx, vars)
+	tVal, tErr := cond.attr.truthy.ResolveContext(ctx, vars)
+	fVal, fErr := cond.attr.falsy.ResolveContext(ctx, vars)
 	cBool, ok := cVal.(types.Bool)
 	if !ok {
 		return types.ValOrErr(cVal, "no such overload")
@@ -1172,7 +1400,7 @@ func (cond *evalExhaustiveConditional) Eval(ctx Activation) ref.Val {
 // evalAttr evaluates an Attribute value.
 type evalAttr struct {
 	adapter  types.Adapter
-	attr     Attribute
+	attr     AttributeContext
 	optional bool
 }
 
@@ -1185,13 +1413,24 @@ func (a *evalAttr) ID() int64 {
 
 // AddQualifier implements the InterpretableAttribute interface method.
 func (a *evalAttr) AddQualifier(qual Qualifier) (Attribute, error) {
-	attr, err := a.attr.AddQualifier(qual)
+	attr, err := a.AddQualifierContext(context.Background(), qual)
+	return attr.(Attribute), err
+}
+
+// AddQualifierContext implements the InterpretableAttributeContext interface method.
+func (a *evalAttr) AddQualifierContext(ctx context.Context, qual Qualifier) (AttributeContext, error) {
+	attr, err := a.attr.AddQualifierContext(ctx, qual)
 	a.attr = attr
 	return attr, err
 }
 
 // Attr implements the InterpretableAttribute interface method.
 func (a *evalAttr) Attr() Attribute {
+	return unwrapContextImpl(a.attr).(Attribute)
+}
+
+// AttrContext implements the InterpretableAttributeContext interface method.
+func (a *evalAttr) AttrContext(ctx context.Context) AttributeContext {
 	return a.attr
 }
 
@@ -1201,8 +1440,13 @@ func (a *evalAttr) Adapter() types.Adapter {
 }
 
 // Eval implements the Interpretable interface method.
-func (a *evalAttr) Eval(ctx Activation) ref.Val {
-	v, err := a.attr.Resolve(ctx)
+func (a *evalAttr) Eval(vars Activation) ref.Val {
+	return a.EvalContext(context.Background(), vars)
+}
+
+// EvalContext implements the InterpretableContext interface method.
+func (a *evalAttr) EvalContext(ctx context.Context, vars Activation) ref.Val {
+	v, err := a.attr.Resolve(vars)
 	if err != nil {
 		return types.LabelErrNode(a.ID(), types.WrapErr(err))
 	}
@@ -1214,9 +1458,19 @@ func (a *evalAttr) Qualify(ctx Activation, obj any) (any, error) {
 	return a.attr.Qualify(ctx, obj)
 }
 
+// QualifyContext proxies to the AttributeContext's Qualify method.
+func (a *evalAttr) QualifyContext(ctx context.Context, vars Activation, obj any) (any, error) {
+	return a.attr.Qualify(vars, obj)
+}
+
 // QualifyIfPresent proxies to the Attribute's QualifyIfPresent method.
 func (a *evalAttr) QualifyIfPresent(ctx Activation, obj any, presenceOnly bool) (any, bool, error) {
 	return a.attr.QualifyIfPresent(ctx, obj, presenceOnly)
+}
+
+// QualifyIfPresentContext proxies to the AttributeContext's QualifyIfPresent method.
+func (a *evalAttr) QualifyIfPresentContext(ctx context.Context, vars Activation, obj any, presenceOnly bool) (any, bool, error) {
+	return a.attr.QualifyIfPresentContext(ctx, vars, obj, presenceOnly)
 }
 
 func (a *evalAttr) IsOptional() bool {
@@ -1228,8 +1482,13 @@ func (a *evalAttr) Resolve(ctx Activation) (any, error) {
 	return a.attr.Resolve(ctx)
 }
 
+// ResolveContext proxies to the AttributeContext's Resolve method.
+func (a *evalAttr) ResolveContext(ctx context.Context, vars Activation) (any, error) {
+	return a.attr.ResolveContext(ctx, vars)
+}
+
 type evalWatchConstructor struct {
-	constructor InterpretableConstructor
+	constructor InterpretableConstructorContext
 	observer    EvalObserver
 }
 
@@ -1249,8 +1508,13 @@ func (c *evalWatchConstructor) ID() int64 {
 }
 
 // Eval implements the Interpretable Eval function.
-func (c *evalWatchConstructor) Eval(ctx Activation) ref.Val {
-	val := c.constructor.Eval(ctx)
+func (c *evalWatchConstructor) Eval(vars Activation) ref.Val {
+	return c.EvalContext(context.Background(), vars)
+}
+
+// Eval implements the Interpretable Eval function.
+func (c *evalWatchConstructor) EvalContext(ctx context.Context, vars Activation) ref.Val {
+	val := c.constructor.EvalContext(ctx, vars)
 	c.observer(c.ID(), c.constructor, val)
 	return val
 }

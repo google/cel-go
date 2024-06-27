@@ -15,6 +15,7 @@
 package interpreter
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -62,6 +63,16 @@ type AttributeFactory interface {
 	NewQualifier(objType *types.Type, qualID int64, val any, opt bool) (Qualifier, error)
 }
 
+type AttributeFactoryContext interface {
+	AttributeFactory
+
+	AbsoluteAttributeContext(ctx context.Context, id int64, names ...string) NamespacedAttributeContext
+	ConditionalAttributeContext(ctx context.Context, id int64, expr InterpretableContext, t, f AttributeContext) AttributeContext
+	MaybeAttributeContext(ctx context.Context, id int64, name string) AttributeContext
+	RelativeAttributeContext(ctx context.Context, id int64, operand InterpretableContext) AttributeContext
+	NewQualifierContext(ctx context.Context, objType *types.Type, qualID int64, val any, opt bool) (QualifierContext, error)
+}
+
 // Qualifier marker interface for designating different qualifier values and where they appear
 // within field selections and index call expressions (`_[_]`).
 type Qualifier interface {
@@ -85,12 +96,33 @@ type Qualifier interface {
 	QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error)
 }
 
+type QualifierContext interface {
+	Qualifier
+
+	// QualifyContext performs a qualification, e.g. field selection, on the input object and returns
+	// the value of the access and whether the value was set. A non-nil value with a false presence
+	// test result indicates that the value being returned is the default value.
+	QualifyContext(ctx context.Context, vars Activation, obj any) (any, error)
+
+	// QualifyIfPresentContext qualifies the object if the qualifier is declared or defined on the object.
+	// The 'presenceOnly' flag indicates that the value is not necessary, just a boolean status as
+	// to whether the qualifier is present.
+	QualifyIfPresentContext(ctx context.Context, vars Activation, obj any, presenceOnly bool) (any, bool, error)
+}
+
 // ConstantQualifier interface embeds the Qualifier interface and provides an option to inspect the
 // qualifier's constant value.
 //
 // Non-constant qualifiers are of Attribute type.
 type ConstantQualifier interface {
 	Qualifier
+
+	// Value returns the constant value associated with the qualifier.
+	Value() ref.Val
+}
+
+type ConstantQualifierContext interface {
+	QualifierContext
 
 	// Value returns the constant value associated with the qualifier.
 	Value() ref.Val
@@ -113,6 +145,22 @@ type Attribute interface {
 	Resolve(Activation) (any, error)
 }
 
+type AttributeContext interface {
+	Attribute
+	QualifierContext
+
+	// AddQualifierContext adds a qualifier on the AttributeContext or error if the qualification is not a valid qualifier type.
+	AddQualifierContext(ctx context.Context, qual Qualifier) (AttributeContext, error)
+
+	// ResolveContext returns the value of the Attribute and whether it was present given an Activation.
+	// For objects which support safe traversal, the value may be non-nil and the presence flag be false.
+	//
+	// If an error is encountered during attribute resolution, it will be returned immediately.
+	// If the attribute cannot be resolved within the Activation, the result must be: `nil`, `error`
+	// with the error indicating which variable was missing.
+	ResolveContext(context.Context, Activation) (any, error)
+}
+
 // NamespacedAttribute values are a variable within a namespace, and an optional set of qualifiers
 // such as field, key, or index accesses.
 type NamespacedAttribute interface {
@@ -124,6 +172,11 @@ type NamespacedAttribute interface {
 
 	// Qualifiers returns the list of qualifiers associated with the Attribute.
 	Qualifiers() []Qualifier
+}
+
+type NamespacedAttributeContext interface {
+	NamespacedAttribute
+	AttributeContext
 }
 
 // AttrFactoryOption specifies a functional option for configuring an attribute factory.
@@ -153,6 +206,21 @@ func NewAttributeFactory(cont *containers.Container, a types.Adapter, p types.Pr
 	return fac
 }
 
+// NewAttributeFactoryContext returns a default AttributeFactoryContext which is produces Attribute values
+// capable of resolving types by simple names and qualify the values using the supported qualifier
+// types: bool, int, string, and uint.
+func NewAttributeFactoryContext(cont *containers.Container, a types.Adapter, p types.Provider, opts ...AttrFactoryOption) AttributeFactoryContext {
+	fac := &attrFactory{
+		container: cont,
+		adapter:   a,
+		provider:  p,
+	}
+	for _, o := range opts {
+		fac = o(fac)
+	}
+	return fac
+}
+
 type attrFactory struct {
 	container *containers.Container
 	adapter   types.Adapter
@@ -169,7 +237,23 @@ func (r *attrFactory) AbsoluteAttribute(id int64, names ...string) NamespacedAtt
 	return &absoluteAttribute{
 		id:                     id,
 		namespaceNames:         names,
-		qualifiers:             []Qualifier{},
+		qualifiers:             []QualifierContext{},
+		adapter:                r.adapter,
+		provider:               r.provider,
+		fac:                    r,
+		errorOnBadPresenceTest: r.errorOnBadPresenceTest,
+	}
+}
+
+// AbsoluteAttributeContext refers to a variable value and an optional qualifier path.
+//
+// The namespaceNames represent the names the variable could have based on namespace
+// resolution rules.
+func (r *attrFactory) AbsoluteAttributeContext(ctx context.Context, id int64, names ...string) NamespacedAttributeContext {
+	return &absoluteAttribute{
+		id:                     id,
+		namespaceNames:         names,
+		qualifiers:             []QualifierContext{},
 		adapter:                r.adapter,
 		provider:               r.provider,
 		fac:                    r,
@@ -182,7 +266,20 @@ func (r *attrFactory) AbsoluteAttribute(id int64, names ...string) NamespacedAtt
 func (r *attrFactory) ConditionalAttribute(id int64, expr Interpretable, t, f Attribute) Attribute {
 	return &conditionalAttribute{
 		id:      id,
-		expr:    expr,
+		expr:    ToInterpretableContext(expr),
+		truthy:  ToAttributeContext(t),
+		falsy:   ToAttributeContext(f),
+		adapter: r.adapter,
+		fac:     r,
+	}
+}
+
+// ConditionalAttributeContext supports the case where an attribute selection may occur on a conditional
+// expression, e.g. (cond ? a : b).c
+func (r *attrFactory) ConditionalAttributeContext(ctx context.Context, id int64, expr InterpretableContext, t, f AttributeContext) AttributeContext {
+	return &conditionalAttribute{
+		id:      id,
+		expr:    ToInterpretableContext(expr),
 		truthy:  t,
 		falsy:   f,
 		adapter: r.adapter,
@@ -195,8 +292,22 @@ func (r *attrFactory) ConditionalAttribute(id int64, expr Interpretable, t, f At
 func (r *attrFactory) MaybeAttribute(id int64, name string) Attribute {
 	return &maybeAttribute{
 		id: id,
-		attrs: []NamespacedAttribute{
-			r.AbsoluteAttribute(id, r.container.ResolveCandidateNames(name)...),
+		attrs: []NamespacedAttributeContext{
+			r.AbsoluteAttributeContext(context.Background(), id, r.container.ResolveCandidateNames(name)...),
+		},
+		adapter:  r.adapter,
+		provider: r.provider,
+		fac:      r,
+	}
+}
+
+// MaybeAttributeContext collects variants of unchecked AbsoluteAttributeContext values which could either be
+// direct variable accesses or some combination of variable access with qualification.
+func (r *attrFactory) MaybeAttributeContext(ctx context.Context, id int64, name string) AttributeContext {
+	return &maybeAttribute{
+		id: id,
+		attrs: []NamespacedAttributeContext{
+			r.AbsoluteAttributeContext(ctx, id, r.container.ResolveCandidateNames(name)...),
 		},
 		adapter:  r.adapter,
 		provider: r.provider,
@@ -208,8 +319,20 @@ func (r *attrFactory) MaybeAttribute(id int64, name string) Attribute {
 func (r *attrFactory) RelativeAttribute(id int64, operand Interpretable) Attribute {
 	return &relativeAttribute{
 		id:                     id,
+		operand:                ToInterpretableContext(operand),
+		qualifiers:             []QualifierContext{},
+		adapter:                r.adapter,
+		fac:                    r,
+		errorOnBadPresenceTest: r.errorOnBadPresenceTest,
+	}
+}
+
+// RelativeAttributeContext refers to an expression and an optional qualifier path.
+func (r *attrFactory) RelativeAttributeContext(ctx context.Context, id int64, operand InterpretableContext) AttributeContext {
+	return &relativeAttribute{
+		id:                     id,
 		operand:                operand,
-		qualifiers:             []Qualifier{},
+		qualifiers:             []QualifierContext{},
 		adapter:                r.adapter,
 		fac:                    r,
 		errorOnBadPresenceTest: r.errorOnBadPresenceTest,
@@ -237,15 +360,36 @@ func (r *attrFactory) NewQualifier(objType *types.Type, qualID int64, val any, o
 	return newQualifier(r.adapter, qualID, val, opt, r.errorOnBadPresenceTest)
 }
 
+// NewQualifierContext is an implementation of the AttributeFactoryContext interface.
+func (r *attrFactory) NewQualifierContext(ctx context.Context, objType *types.Type, qualID int64, val any, opt bool) (QualifierContext, error) {
+	// Before creating a new qualifier check to see if this is a protobuf message field access.
+	// If so, use the precomputed GetFrom qualification method rather than the standard
+	// stringQualifier.
+	str, isStr := val.(string)
+	if isStr && objType != nil && objType.Kind() == types.StructKind {
+		ft, found := r.provider.FindStructFieldType(objType.TypeName(), str)
+		if found && ft.IsSet != nil && ft.GetFrom != nil {
+			return &fieldQualifier{
+				id:        qualID,
+				Name:      str,
+				FieldType: ft,
+				adapter:   r.adapter,
+				optional:  opt,
+			}, nil
+		}
+	}
+	return newQualifier(r.adapter, qualID, val, opt, r.errorOnBadPresenceTest)
+}
+
 type absoluteAttribute struct {
 	id int64
 	// namespaceNames represent the names the variable could have based on declared container
 	// (package) of the expression.
 	namespaceNames []string
-	qualifiers     []Qualifier
+	qualifiers     []QualifierContext
 	adapter        types.Adapter
 	provider       types.Provider
-	fac            AttributeFactory
+	fac            AttributeFactoryContext
 
 	errorOnBadPresenceTest bool
 }
@@ -268,7 +412,12 @@ func (a *absoluteAttribute) IsOptional() bool {
 
 // AddQualifier implements the Attribute interface method.
 func (a *absoluteAttribute) AddQualifier(qual Qualifier) (Attribute, error) {
-	a.qualifiers = append(a.qualifiers, qual)
+	return a.AddQualifierContext(context.Background(), qual)
+}
+
+// AddQualifierContext implements the AttributeContext interface method.
+func (a *absoluteAttribute) AddQualifierContext(ctx context.Context, qual Qualifier) (AttributeContext, error) {
+	a.qualifiers = append(a.qualifiers, ToQualifierContext(qual))
 	return a, nil
 }
 
@@ -279,17 +428,31 @@ func (a *absoluteAttribute) CandidateVariableNames() []string {
 
 // Qualifiers returns the list of Qualifier instances associated with the namespaced attribute.
 func (a *absoluteAttribute) Qualifiers() []Qualifier {
-	return a.qualifiers
+	ret := make([]Qualifier, len(a.qualifiers))
+	for idx, q := range a.qualifiers {
+		ret[idx] = unwrapContextImpl(q).(Qualifier)
+	}
+	return ret
 }
 
 // Qualify is an implementation of the Qualifier interface method.
 func (a *absoluteAttribute) Qualify(vars Activation, obj any) (any, error) {
-	return attrQualify(a.fac, vars, obj, a)
+	return a.QualifyContext(context.Background(), vars, obj)
+}
+
+// QualifyContext is an implementation of the QualifierContext interface method.
+func (a *absoluteAttribute) QualifyContext(ctx context.Context, vars Activation, obj any) (any, error) {
+	return attrQualify(ctx, a.fac, vars, obj, a)
 }
 
 // QualifyIfPresent is an implementation of the Qualifier interface method.
 func (a *absoluteAttribute) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
-	return attrQualifyIfPresent(a.fac, vars, obj, a, presenceOnly)
+	return a.QualifyIfPresentContext(context.Background(), vars, obj, presenceOnly)
+}
+
+// QualifyIfPresentContext is an implementation of the QualifierContext interface method.
+func (a *absoluteAttribute) QualifyIfPresentContext(ctx context.Context, vars Activation, obj any, presenceOnly bool) (any, bool, error) {
+	return attrQualifyIfPresent(ctx, a.fac, vars, obj, a, presenceOnly)
 }
 
 // String implements the Stringer interface method.
@@ -304,6 +467,16 @@ func (a *absoluteAttribute) String() string {
 // a type, then the result is `nil`, `error` with the error indicating the name of the first
 // variable searched as missing.
 func (a *absoluteAttribute) Resolve(vars Activation) (any, error) {
+	return a.ResolveContext(context.Background(), vars)
+}
+
+// ResolveContext returns the resolved Attribute value given the Activation, or error if the Attribute
+// variable is not found, or if its Qualifiers cannot be applied successfully.
+//
+// If the variable name cannot be found as an Activation variable or in the TypeProvider as
+// a type, then the result is `nil`, `error` with the error indicating the name of the first
+// variable searched as missing.
+func (a *absoluteAttribute) ResolveContext(ctx context.Context, vars Activation) (any, error) {
 	for _, nm := range a.namespaceNames {
 		// If the variable is found, process it. Otherwise, wait until the checks to
 		// determine whether the type is unknown before returning.
@@ -312,7 +485,7 @@ func (a *absoluteAttribute) Resolve(vars Activation) (any, error) {
 			if celErr, ok := obj.(*types.Err); ok {
 				return nil, celErr.Unwrap()
 			}
-			obj, isOpt, err := applyQualifiers(vars, obj, a.qualifiers)
+			obj, isOpt, err := applyQualifiers(ctx, vars, obj, a.qualifiers)
 			if err != nil {
 				return nil, err
 			}
@@ -345,11 +518,11 @@ func (a *absoluteAttribute) Resolve(vars Activation) (any, error) {
 
 type conditionalAttribute struct {
 	id      int64
-	expr    Interpretable
-	truthy  Attribute
-	falsy   Attribute
+	expr    InterpretableContext
+	truthy  AttributeContext
+	falsy   AttributeContext
 	adapter types.Adapter
-	fac     AttributeFactory
+	fac     AttributeFactoryContext
 }
 
 // ID is an implementation of the Attribute interface method.
@@ -372,6 +545,12 @@ func (a *conditionalAttribute) IsOptional() bool {
 // AddQualifier appends the same qualifier to both sides of the conditional, in effect managing
 // the qualification of alternate attributes.
 func (a *conditionalAttribute) AddQualifier(qual Qualifier) (Attribute, error) {
+	return a.AddQualifierContext(context.Background(), qual)
+}
+
+// AddQualifierContext appends the same qualifier to both sides of the conditional, in effect managing
+// the qualification of alternate attributes.
+func (a *conditionalAttribute) AddQualifierContext(ctx context.Context, qual Qualifier) (AttributeContext, error) {
 	_, err := a.truthy.AddQualifier(qual)
 	if err != nil {
 		return nil, err
@@ -385,22 +564,37 @@ func (a *conditionalAttribute) AddQualifier(qual Qualifier) (Attribute, error) {
 
 // Qualify is an implementation of the Qualifier interface method.
 func (a *conditionalAttribute) Qualify(vars Activation, obj any) (any, error) {
-	return attrQualify(a.fac, vars, obj, a)
+	return a.QualifyContext(context.Background(), vars, obj)
+}
+
+// QualifyContext is an implementation of the QualifierContext interface method.
+func (a *conditionalAttribute) QualifyContext(ctx context.Context, vars Activation, obj any) (any, error) {
+	return attrQualify(ctx, a.fac, vars, obj, a)
 }
 
 // QualifyIfPresent is an implementation of the Qualifier interface method.
 func (a *conditionalAttribute) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
-	return attrQualifyIfPresent(a.fac, vars, obj, a, presenceOnly)
+	return a.QualifyIfPresentContext(context.Background(), vars, obj, presenceOnly)
+}
+
+// QualifyIfPresentContext is an implementation of the QualifierContext interface method.
+func (a *conditionalAttribute) QualifyIfPresentContext(ctx context.Context, vars Activation, obj any, presenceOnly bool) (any, bool, error) {
+	return attrQualifyIfPresent(ctx, a.fac, vars, obj, a, presenceOnly)
 }
 
 // Resolve evaluates the condition, and then resolves the truthy or falsy branch accordingly.
 func (a *conditionalAttribute) Resolve(vars Activation) (any, error) {
-	val := a.expr.Eval(vars)
+	return a.ResolveContext(context.Background(), vars)
+}
+
+// ResolveContext evaluates the condition, and then resolves the truthy or falsy branch accordingly.
+func (a *conditionalAttribute) ResolveContext(ctx context.Context, vars Activation) (any, error) {
+	val := a.expr.EvalContext(ctx, vars)
 	if val == types.True {
-		return a.truthy.Resolve(vars)
+		return a.truthy.ResolveContext(ctx, vars)
 	}
 	if val == types.False {
-		return a.falsy.Resolve(vars)
+		return a.falsy.ResolveContext(ctx, vars)
 	}
 	if types.IsUnknown(val) {
 		return val, nil
@@ -415,10 +609,10 @@ func (a *conditionalAttribute) String() string {
 
 type maybeAttribute struct {
 	id       int64
-	attrs    []NamespacedAttribute
+	attrs    []NamespacedAttributeContext
 	adapter  types.Adapter
 	provider types.Provider
-	fac      AttributeFactory
+	fac      AttributeFactoryContext
 }
 
 // ID is an implementation of the Attribute interface method.
@@ -458,6 +652,34 @@ func (a *maybeAttribute) IsOptional() bool {
 //
 // If none of the attributes within the maybe resolves a value, the result is an error.
 func (a *maybeAttribute) AddQualifier(qual Qualifier) (Attribute, error) {
+	return a.AddQualifierContext(context.Background(), qual)
+}
+
+// AddQualifierContext adds a qualifier to each possible attribute variant, and also creates
+// a new namespaced variable from the qualified value.
+//
+// The algorithm for building the maybe attribute is as follows:
+//
+// 1. Create a maybe attribute from a simple identifier when it occurs in a parsed-only expression
+//
+//	mb = MaybeAttribute(<id>, "a")
+//
+// Initializing the maybe attribute creates an absolute attribute internally which includes the
+// possible namespaced names of the attribute. In this example, let's assume we are in namespace
+// 'ns', then the maybe is either one of the following variable names:
+//
+//	possible variables names -- ns.a, a
+//
+// 2. Adding a qualifier to the maybe means that the variable name could be a longer qualified
+// name, or a field selection on one of the possible variable names produced earlier:
+//
+//	mb.AddQualifierContext(ctx, "b")
+//
+//	possible variables names -- ns.a.b, a.b
+//	possible field selection -- ns.a['b'], a['b']
+//
+// If none of the attributes within the maybe resolves a value, the result is an error.
+func (a *maybeAttribute) AddQualifierContext(ctx context.Context, qual Qualifier) (AttributeContext, error) {
 	str := ""
 	isStr := false
 	cq, isConst := qual.(ConstantQualifier)
@@ -481,27 +703,43 @@ func (a *maybeAttribute) AddQualifier(qual Qualifier) (Attribute, error) {
 	}
 	// Next, ensure the most specific variable / type reference is searched first.
 	if len(augmentedNames) != 0 {
-		a.attrs = append([]NamespacedAttribute{a.fac.AbsoluteAttribute(qual.ID(), augmentedNames...)}, a.attrs...)
+		a.attrs = append([]NamespacedAttributeContext{a.fac.AbsoluteAttributeContext(ctx, qual.ID(), augmentedNames...)}, a.attrs...)
 	}
 	return a, nil
 }
 
 // Qualify is an implementation of the Qualifier interface method.
 func (a *maybeAttribute) Qualify(vars Activation, obj any) (any, error) {
-	return attrQualify(a.fac, vars, obj, a)
+	return a.QualifyContext(context.Background(), vars, obj)
+}
+
+// QualifyContext is an implementation of the QualifierContext interface method.
+func (a *maybeAttribute) QualifyContext(ctx context.Context, vars Activation, obj any) (any, error) {
+	return attrQualify(ctx, a.fac, vars, obj, a)
 }
 
 // QualifyIfPresent is an implementation of the Qualifier interface method.
 func (a *maybeAttribute) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
-	return attrQualifyIfPresent(a.fac, vars, obj, a, presenceOnly)
+	return a.QualifyIfPresentContext(context.Background(), vars, obj, presenceOnly)
+}
+
+// QualifyIfPresentContext is an implementation of the QualifierContext interface method.
+func (a *maybeAttribute) QualifyIfPresentContext(ctx context.Context, vars Activation, obj any, presenceOnly bool) (any, bool, error) {
+	return attrQualifyIfPresent(ctx, a.fac, vars, obj, a, presenceOnly)
 }
 
 // Resolve follows the variable resolution rules to determine whether the attribute is a variable
 // or a field selection.
 func (a *maybeAttribute) Resolve(vars Activation) (any, error) {
+	return a.ResolveContext(context.Background(), vars)
+}
+
+// ResolveContext follows the variable resolution rules to determine whether the attribute is a variable
+// or a field selection.
+func (a *maybeAttribute) ResolveContext(ctx context.Context, vars Activation) (any, error) {
 	var maybeErr error
 	for _, attr := range a.attrs {
-		obj, err := attr.Resolve(vars)
+		obj, err := attr.ResolveContext(ctx, vars)
 		// Return an error if one is encountered.
 		if err != nil {
 			resErr, ok := err.(*resolutionError)
@@ -532,10 +770,10 @@ func (a *maybeAttribute) String() string {
 
 type relativeAttribute struct {
 	id         int64
-	operand    Interpretable
-	qualifiers []Qualifier
+	operand    InterpretableContext
+	qualifiers []QualifierContext
 	adapter    types.Adapter
-	fac        AttributeFactory
+	fac        AttributeFactoryContext
 
 	errorOnBadPresenceTest bool
 }
@@ -558,31 +796,51 @@ func (a *relativeAttribute) IsOptional() bool {
 
 // AddQualifier implements the Attribute interface method.
 func (a *relativeAttribute) AddQualifier(qual Qualifier) (Attribute, error) {
-	a.qualifiers = append(a.qualifiers, qual)
+	return a.AddQualifierContext(context.Background(), qual)
+}
+
+// AddQualifierContext implements the AttributeContext interface method.
+func (a *relativeAttribute) AddQualifierContext(ctx context.Context, qual Qualifier) (AttributeContext, error) {
+	a.qualifiers = append(a.qualifiers, ToQualifierContext(qual))
 	return a, nil
 }
 
 // Qualify is an implementation of the Qualifier interface method.
 func (a *relativeAttribute) Qualify(vars Activation, obj any) (any, error) {
-	return attrQualify(a.fac, vars, obj, a)
+	return a.QualifyContext(context.Background(), vars, obj)
+}
+
+// QualifyContext is an implementation of the QualifierContext interface method.
+func (a *relativeAttribute) QualifyContext(ctx context.Context, vars Activation, obj any) (any, error) {
+	return attrQualify(ctx, a.fac, vars, obj, a)
 }
 
 // QualifyIfPresent is an implementation of the Qualifier interface method.
 func (a *relativeAttribute) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
-	return attrQualifyIfPresent(a.fac, vars, obj, a, presenceOnly)
+	return a.QualifyIfPresentContext(context.Background(), vars, obj, presenceOnly)
+}
+
+// QualifyIfPresentContext is an implementation of the QualifierContext interface method.
+func (a *relativeAttribute) QualifyIfPresentContext(ctx context.Context, vars Activation, obj any, presenceOnly bool) (any, bool, error) {
+	return attrQualifyIfPresent(ctx, a.fac, vars, obj, a, presenceOnly)
 }
 
 // Resolve expression value and qualifier relative to the expression result.
 func (a *relativeAttribute) Resolve(vars Activation) (any, error) {
+	return a.ResolveContext(context.Background(), vars)
+}
+
+// ResolveContext expression value and qualifier relative to the expression result.
+func (a *relativeAttribute) ResolveContext(ctx context.Context, vars Activation) (any, error) {
 	// First, evaluate the operand.
-	v := a.operand.Eval(vars)
+	v := a.operand.EvalContext(ctx, vars)
 	if types.IsError(v) {
 		return nil, v.(*types.Err)
 	}
 	if types.IsUnknown(v) {
 		return v, nil
 	}
-	obj, isOpt, err := applyQualifiers(vars, v, a.qualifiers)
+	obj, isOpt, err := applyQualifiers(ctx, vars, v, a.qualifiers)
 	if err != nil {
 		return nil, err
 	}
@@ -601,18 +859,18 @@ func (a *relativeAttribute) String() string {
 	return fmt.Sprintf("id: %v, operand: %v", a.id, a.operand)
 }
 
-func newQualifier(adapter types.Adapter, id int64, v any, opt, errorOnBadPresenceTest bool) (Qualifier, error) {
-	var qual Qualifier
+func newQualifier(adapter types.Adapter, id int64, v any, opt, errorOnBadPresenceTest bool) (QualifierContext, error) {
+	var qual QualifierContext
 	switch val := v.(type) {
-	case Attribute:
+	case AttributeContext:
 		// Note, attributes are initially identified as non-optional since they represent a top-level
 		// field access; however, when used as a relative qualifier, e.g. a[?b.c], then an attrQualifier
 		// is created which intercepts the IsOptional check for the attribute in order to return the
 		// correct result.
 		return &attrQualifier{
-			id:        id,
-			Attribute: val,
-			optional:  opt,
+			id:               id,
+			AttributeContext: val,
+			optional:         opt,
 		}, nil
 	case string:
 		qual = &stringQualifier{
@@ -752,7 +1010,7 @@ func newQualifier(adapter types.Adapter, id int64, v any, opt, errorOnBadPresenc
 	case *types.Unknown:
 		qual = &unknownQualifier{id: id, value: val}
 	default:
-		if q, ok := v.(Qualifier); ok {
+		if q, ok := v.(QualifierContext); ok {
 			return q, nil
 		}
 		return nil, fmt.Errorf("invalid qualifier type: %T", v)
@@ -762,7 +1020,7 @@ func newQualifier(adapter types.Adapter, id int64, v any, opt, errorOnBadPresenc
 
 type attrQualifier struct {
 	id int64
-	Attribute
+	AttributeContext
 	optional bool
 }
 
@@ -798,16 +1056,26 @@ func (q *stringQualifier) IsOptional() bool {
 
 // Qualify implements the Qualifier interface method.
 func (q *stringQualifier) Qualify(vars Activation, obj any) (any, error) {
-	val, _, err := q.qualifyInternal(vars, obj, false, false)
+	return q.QualifyContext(context.Background(), vars, obj)
+}
+
+// QualifyContext implements the QualifierContext interface method.
+func (q *stringQualifier) QualifyContext(ctx context.Context, vars Activation, obj any) (any, error) {
+	val, _, err := q.qualifyInternal(ctx, vars, obj, false, false)
 	return val, err
 }
 
 // QualifyIfPresent is an implementation of the Qualifier interface method.
 func (q *stringQualifier) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
-	return q.qualifyInternal(vars, obj, true, presenceOnly)
+	return q.QualifyIfPresentContext(context.Background(), vars, obj, presenceOnly)
 }
 
-func (q *stringQualifier) qualifyInternal(vars Activation, obj any, presenceTest, presenceOnly bool) (any, bool, error) {
+// QualifyIfPresentContext is an implementation of the QualifierContext interface method.
+func (q *stringQualifier) QualifyIfPresentContext(ctx context.Context, vars Activation, obj any, presenceOnly bool) (any, bool, error) {
+	return q.qualifyInternal(ctx, vars, obj, true, presenceOnly)
+}
+
+func (q *stringQualifier) qualifyInternal(ctx context.Context, vars Activation, obj any, presenceTest, presenceOnly bool) (any, bool, error) {
 	s := q.value
 	switch o := obj.(type) {
 	case map[string]any:
@@ -866,7 +1134,7 @@ func (q *stringQualifier) qualifyInternal(vars Activation, obj any, presenceTest
 			return obj, true, nil
 		}
 	default:
-		return refQualify(q.adapter, obj, q.celValue, presenceTest, presenceOnly, q.errorOnBadPresenceTest)
+		return refQualify(ctx, q.adapter, obj, q.celValue, presenceTest, presenceOnly, q.errorOnBadPresenceTest)
 	}
 	if presenceTest {
 		return nil, false, nil
@@ -900,16 +1168,26 @@ func (q *intQualifier) IsOptional() bool {
 
 // Qualify implements the Qualifier interface method.
 func (q *intQualifier) Qualify(vars Activation, obj any) (any, error) {
-	val, _, err := q.qualifyInternal(vars, obj, false, false)
+	return q.QualifyContext(context.Background(), vars, obj)
+}
+
+// QualifyContext implements the QualifierContext interface method.
+func (q *intQualifier) QualifyContext(ctx context.Context, vars Activation, obj any) (any, error) {
+	val, _, err := q.qualifyInternal(ctx, vars, obj, false, false)
 	return val, err
 }
 
 // QualifyIfPresent is an implementation of the Qualifier interface method.
 func (q *intQualifier) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
-	return q.qualifyInternal(vars, obj, true, presenceOnly)
+	return q.QualifyIfPresentContext(context.Background(), vars, obj, presenceOnly)
 }
 
-func (q *intQualifier) qualifyInternal(vars Activation, obj any, presenceTest, presenceOnly bool) (any, bool, error) {
+// QualifyIfPresentContext is an implementation of the QualifierContext interface method.
+func (q *intQualifier) QualifyIfPresentContext(ctx context.Context, vars Activation, obj any, presenceOnly bool) (any, bool, error) {
+	return q.qualifyInternal(ctx, vars, obj, true, presenceOnly)
+}
+
+func (q *intQualifier) qualifyInternal(ctx context.Context, vars Activation, obj any, presenceTest, presenceOnly bool) (any, bool, error) {
 	i := q.value
 	var isMap bool
 	switch o := obj.(type) {
@@ -991,7 +1269,7 @@ func (q *intQualifier) qualifyInternal(vars Activation, obj any, presenceTest, p
 			return o[i], true, nil
 		}
 	default:
-		return refQualify(q.adapter, obj, q.celValue, presenceTest, presenceOnly, q.errorOnBadPresenceTest)
+		return refQualify(ctx, q.adapter, obj, q.celValue, presenceTest, presenceOnly, q.errorOnBadPresenceTest)
 	}
 	if presenceTest {
 		return nil, false, nil
@@ -1028,16 +1306,26 @@ func (q *uintQualifier) IsOptional() bool {
 
 // Qualify implements the Qualifier interface method.
 func (q *uintQualifier) Qualify(vars Activation, obj any) (any, error) {
-	val, _, err := q.qualifyInternal(vars, obj, false, false)
+	return q.QualifyContext(context.Background(), vars, obj)
+}
+
+// QualifyContext implements the QualifierContext interface method.
+func (q *uintQualifier) QualifyContext(ctx context.Context, vars Activation, obj any) (any, error) {
+	val, _, err := q.qualifyInternal(ctx, vars, obj, false, false)
 	return val, err
 }
 
 // QualifyIfPresent is an implementation of the Qualifier interface method.
 func (q *uintQualifier) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
-	return q.qualifyInternal(vars, obj, true, presenceOnly)
+	return q.QualifyIfPresentContext(context.Background(), vars, obj, presenceOnly)
 }
 
-func (q *uintQualifier) qualifyInternal(vars Activation, obj any, presenceTest, presenceOnly bool) (any, bool, error) {
+// QualifyIfPresentContext is an implementation of the QualifierContext interface method.
+func (q *uintQualifier) QualifyIfPresentContext(ctx context.Context, vars Activation, obj any, presenceOnly bool) (any, bool, error) {
+	return q.qualifyInternal(ctx, vars, obj, true, presenceOnly)
+}
+
+func (q *uintQualifier) qualifyInternal(ctx context.Context, vars Activation, obj any, presenceTest, presenceOnly bool) (any, bool, error) {
 	u := q.value
 	switch o := obj.(type) {
 	// The specialized map types supported by a uint qualifier are considerably fewer than the set
@@ -1060,7 +1348,7 @@ func (q *uintQualifier) qualifyInternal(vars Activation, obj any, presenceTest, 
 			return obj, true, nil
 		}
 	default:
-		return refQualify(q.adapter, obj, q.celValue, presenceTest, presenceOnly, q.errorOnBadPresenceTest)
+		return refQualify(ctx, q.adapter, obj, q.celValue, presenceTest, presenceOnly, q.errorOnBadPresenceTest)
 	}
 	if presenceTest {
 		return nil, false, nil
@@ -1094,16 +1382,26 @@ func (q *boolQualifier) IsOptional() bool {
 
 // Qualify implements the Qualifier interface method.
 func (q *boolQualifier) Qualify(vars Activation, obj any) (any, error) {
-	val, _, err := q.qualifyInternal(vars, obj, false, false)
+	return q.QualifyContext(context.Background(), vars, obj)
+}
+
+// QualifyContext implements the QualifierContext interface method.
+func (q *boolQualifier) QualifyContext(ctx context.Context, vars Activation, obj any) (any, error) {
+	val, _, err := q.qualifyInternal(ctx, vars, obj, false, false)
 	return val, err
 }
 
 // QualifyIfPresent is an implementation of the Qualifier interface method.
 func (q *boolQualifier) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
-	return q.qualifyInternal(vars, obj, true, presenceOnly)
+	return q.QualifyIfPresentContext(context.Background(), vars, obj, presenceOnly)
 }
 
-func (q *boolQualifier) qualifyInternal(vars Activation, obj any, presenceTest, presenceOnly bool) (any, bool, error) {
+// QualifyIfPresentContext is an implementation of the QualifierContext interface method.
+func (q *boolQualifier) QualifyIfPresentContext(ctx context.Context, vars Activation, obj any, presenceOnly bool) (any, bool, error) {
+	return q.qualifyInternal(ctx, vars, obj, true, presenceOnly)
+}
+
+func (q *boolQualifier) qualifyInternal(ctx context.Context, vars Activation, obj any, presenceTest, presenceOnly bool) (any, bool, error) {
 	b := q.value
 	switch o := obj.(type) {
 	case map[bool]any:
@@ -1112,7 +1410,7 @@ func (q *boolQualifier) qualifyInternal(vars Activation, obj any, presenceTest, 
 			return obj, true, nil
 		}
 	default:
-		return refQualify(q.adapter, obj, q.celValue, presenceTest, presenceOnly, q.errorOnBadPresenceTest)
+		return refQualify(ctx, q.adapter, obj, q.celValue, presenceTest, presenceOnly, q.errorOnBadPresenceTest)
 	}
 	if presenceTest {
 		return nil, false, nil
@@ -1148,6 +1446,11 @@ func (q *fieldQualifier) IsOptional() bool {
 
 // Qualify implements the Qualifier interface method.
 func (q *fieldQualifier) Qualify(vars Activation, obj any) (any, error) {
+	return q.QualifyContext(context.Background(), vars, obj)
+}
+
+// QualifyContext implements the QualifierContext interface method.
+func (q *fieldQualifier) QualifyContext(ctx context.Context, vars Activation, obj any) (any, error) {
 	if rv, ok := obj.(ref.Val); ok {
 		obj = rv.Value()
 	}
@@ -1160,6 +1463,11 @@ func (q *fieldQualifier) Qualify(vars Activation, obj any) (any, error) {
 
 // QualifyIfPresent is an implementation of the Qualifier interface method.
 func (q *fieldQualifier) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
+	return q.QualifyIfPresentContext(context.Background(), vars, obj, presenceOnly)
+}
+
+// QualifyIfPresentContext is an implementation of the QualifierContext interface method.
+func (q *fieldQualifier) QualifyIfPresentContext(ctx context.Context, vars Activation, obj any, presenceOnly bool) (any, bool, error) {
 	if rv, ok := obj.(ref.Val); ok {
 		obj = rv.Value()
 	}
@@ -1207,16 +1515,25 @@ func (q *doubleQualifier) IsOptional() bool {
 
 // Qualify implements the Qualifier interface method.
 func (q *doubleQualifier) Qualify(vars Activation, obj any) (any, error) {
-	val, _, err := q.qualifyInternal(vars, obj, false, false)
+	return q.QualifyContext(context.Background(), vars, obj)
+}
+
+// QualifyContext implements the QualifierContext interface method.
+func (q *doubleQualifier) QualifyContext(ctx context.Context, vars Activation, obj any) (any, error) {
+	val, _, err := q.qualifyInternal(ctx, vars, obj, false, false)
 	return val, err
 }
 
 func (q *doubleQualifier) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
-	return q.qualifyInternal(vars, obj, true, presenceOnly)
+	return q.QualifyIfPresentContext(context.Background(), vars, obj, presenceOnly)
 }
 
-func (q *doubleQualifier) qualifyInternal(vars Activation, obj any, presenceTest, presenceOnly bool) (any, bool, error) {
-	return refQualify(q.adapter, obj, q.celValue, presenceTest, presenceOnly, q.errorOnBadPresenceTest)
+func (q *doubleQualifier) QualifyIfPresentContext(ctx context.Context, vars Activation, obj any, presenceOnly bool) (any, bool, error) {
+	return q.qualifyInternal(ctx, vars, obj, true, presenceOnly)
+}
+
+func (q *doubleQualifier) qualifyInternal(ctx context.Context, vars Activation, obj any, presenceTest, presenceOnly bool) (any, bool, error) {
+	return refQualify(ctx, q.adapter, obj, q.celValue, presenceTest, presenceOnly, q.errorOnBadPresenceTest)
 }
 
 // Value implements the ConstantQualifier interface
@@ -1243,11 +1560,21 @@ func (q *unknownQualifier) IsOptional() bool {
 
 // Qualify returns the unknown value associated with this qualifier.
 func (q *unknownQualifier) Qualify(vars Activation, obj any) (any, error) {
+	return q.QualifyContext(context.Background(), vars, obj)
+}
+
+// QualifyContext returns the unknown value associated with this qualifier.
+func (q *unknownQualifier) QualifyContext(ctx context.Context, vars Activation, obj any) (any, error) {
 	return q.value, nil
 }
 
 // QualifyIfPresent is an implementation of the Qualifier interface method.
 func (q *unknownQualifier) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
+	return q.QualifyIfPresentContext(context.Background(), vars, obj, presenceOnly)
+}
+
+// QualifyIfPresentContext is an implementation of the QualifierContext interface method.
+func (q *unknownQualifier) QualifyIfPresentContext(ctx context.Context, vars Activation, obj any, presenceOnly bool) (any, bool, error) {
 	return q.value, true, nil
 }
 
@@ -1256,7 +1583,7 @@ func (q *unknownQualifier) Value() ref.Val {
 	return q.value
 }
 
-func applyQualifiers(vars Activation, obj any, qualifiers []Qualifier) (any, bool, error) {
+func applyQualifiers(ctx context.Context, vars Activation, obj any, qualifiers []QualifierContext) (any, bool, error) {
 	optObj, isOpt := obj.(*types.Optional)
 	if isOpt {
 		if !optObj.HasValue() {
@@ -1271,7 +1598,7 @@ func applyQualifiers(vars Activation, obj any, qualifiers []Qualifier) (any, boo
 		isOpt = isOpt || qual.IsOptional()
 		if isOpt {
 			var present bool
-			qualObj, present, err = qual.QualifyIfPresent(vars, obj, false)
+			qualObj, present, err = qual.QualifyIfPresentContext(ctx, vars, obj, false)
 			if err != nil {
 				return nil, false, err
 			}
@@ -1282,7 +1609,7 @@ func applyQualifiers(vars Activation, obj any, qualifiers []Qualifier) (any, boo
 				return types.OptionalNone, false, nil
 			}
 		} else {
-			qualObj, err = qual.Qualify(vars, obj)
+			qualObj, err = qual.QualifyContext(ctx, vars, obj)
 			if err != nil {
 				return nil, false, err
 			}
@@ -1293,36 +1620,36 @@ func applyQualifiers(vars Activation, obj any, qualifiers []Qualifier) (any, boo
 }
 
 // attrQualify performs a qualification using the result of an attribute evaluation.
-func attrQualify(fac AttributeFactory, vars Activation, obj any, qualAttr Attribute) (any, error) {
-	val, err := qualAttr.Resolve(vars)
+func attrQualify(ctx context.Context, fac AttributeFactoryContext, vars Activation, obj any, qualAttr AttributeContext) (any, error) {
+	val, err := qualAttr.ResolveContext(ctx, vars)
 	if err != nil {
 		return nil, err
 	}
-	qual, err := fac.NewQualifier(nil, qualAttr.ID(), val, qualAttr.IsOptional())
+	qual, err := fac.NewQualifierContext(ctx, nil, qualAttr.ID(), val, qualAttr.IsOptional())
 	if err != nil {
 		return nil, err
 	}
-	return qual.Qualify(vars, obj)
+	return qual.QualifyContext(ctx, vars, obj)
 }
 
 // attrQualifyIfPresent conditionally performs the qualification of the result of attribute is present
 // on the target object.
-func attrQualifyIfPresent(fac AttributeFactory, vars Activation, obj any, qualAttr Attribute,
+func attrQualifyIfPresent(ctx context.Context, fac AttributeFactoryContext, vars Activation, obj any, qualAttr AttributeContext,
 	presenceOnly bool) (any, bool, error) {
-	val, err := qualAttr.Resolve(vars)
+	val, err := qualAttr.ResolveContext(ctx, vars)
 	if err != nil {
 		return nil, false, err
 	}
-	qual, err := fac.NewQualifier(nil, qualAttr.ID(), val, qualAttr.IsOptional())
+	qual, err := fac.NewQualifierContext(ctx, nil, qualAttr.ID(), val, qualAttr.IsOptional())
 	if err != nil {
 		return nil, false, err
 	}
-	return qual.QualifyIfPresent(vars, obj, presenceOnly)
+	return qual.QualifyIfPresentContext(ctx, vars, obj, presenceOnly)
 }
 
 // refQualify attempts to convert the value to a CEL value and then uses reflection methods to try and
 // apply the qualifier with the option to presence test field accesses before retrieving field values.
-func refQualify(adapter types.Adapter, obj any, idx ref.Val, presenceTest, presenceOnly, errorOnBadPresenceTest bool) (ref.Val, bool, error) {
+func refQualify(ctx context.Context, adapter types.Adapter, obj any, idx ref.Val, presenceTest, presenceOnly, errorOnBadPresenceTest bool) (ref.Val, bool, error) {
 	celVal := adapter.NativeToValue(obj)
 	switch v := celVal.(type) {
 	case *types.Unknown:

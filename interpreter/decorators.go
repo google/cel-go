@@ -25,6 +25,10 @@ import (
 // Interpretable expression nodes at construction time.
 type InterpretableDecorator func(Interpretable) (Interpretable, error)
 
+// InterpretableDecoratorContext is a functional interface for decorating or replacing
+// InterpretableContext expression nodes at construction time.
+type InterpretableDecoratorContext func(InterpretableContext) (InterpretableContext, error)
+
 // decObserveEval records evaluation state into an EvalState object.
 func decObserveEval(observer EvalObserver) InterpretableDecorator {
 	return func(i Interpretable) (Interpretable, error) {
@@ -34,23 +38,38 @@ func decObserveEval(observer EvalObserver) InterpretableDecorator {
 			return i, nil
 		case InterpretableAttribute:
 			return &evalWatchAttr{
-				InterpretableAttribute: inst,
-				observer:               observer,
+				InterpretableAttributeContext: ToInterpretableAttributeContext(inst),
+				observer:                      observer,
+			}, nil
+		case InterpretableAttributeContext:
+			return &evalWatchAttr{
+				InterpretableAttributeContext: inst,
+				observer:                      observer,
 			}, nil
 		case InterpretableConst:
 			return &evalWatchConst{
 				InterpretableConst: inst,
 				observer:           observer,
 			}, nil
+		case InterpretableConstContext:
+			return &evalWatchConst{
+				InterpretableConst: inst,
+				observer:           observer,
+			}, nil
 		case InterpretableConstructor:
+			return &evalWatchConstructor{
+				constructor: ToInterpretableConstructorContext(inst),
+				observer:    observer,
+			}, nil
+		case InterpretableConstructorContext:
 			return &evalWatchConstructor{
 				constructor: inst,
 				observer:    observer,
 			}, nil
 		default:
 			return &evalWatch{
-				Interpretable: i,
-				observer:      observer,
+				InterpretableContext: ToInterpretableContext(i),
+				observer:             observer,
 			}, nil
 		}
 	}
@@ -265,8 +284,8 @@ func maybeOptimizeSetMembership(i Interpretable, inlist InterpretableCall) (Inte
 		}
 	}
 	return &evalSetMembership{
-		inst:     inlist,
-		arg:      lhs,
+		inst:     ToInterpretableContext(inlist),
+		arg:      ToInterpretableContext(lhs),
 		valueSet: valueSet,
 	}, nil
 }
