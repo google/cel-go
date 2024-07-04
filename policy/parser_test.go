@@ -166,3 +166,55 @@ rule:
 		}
 	}
 }
+
+func TestGetExplanationOutputPolicy(t *testing.T) {
+	tst := `
+rule:
+  match:
+    - condition: "false"
+      rule:
+        match:
+          - condition: "1 > 2"
+            output: "false"
+            explanation: "'bad_inner'"
+          - output: "true"
+            explanation: "'good_inner'"
+    - output: "true"
+      explanation: "'good_outer'"
+    `
+
+	parser, err := NewParser()
+	if err != nil {
+		t.Fatalf("NewParser() failed: %v", err)
+	}
+	policy, iss := parser.Parse(StringSource(tst, "<input>"))
+	if iss != nil {
+		t.Fatalf("Parse() failed: %v", err)
+	}
+
+	explanationPolicy := policy.GetExplanationOutputPolicy()
+
+	want := "'bad_inner'"
+	got := explanationPolicy.Rule().Matches()[0].rule.Matches()[0].output.Value
+	if got != want {
+		t.Errorf("First inner output = %v, wanted %v", got, want)
+	}
+
+	want = "1 > 2"
+	got = explanationPolicy.Rule().Matches()[0].rule.Matches()[0].condition.Value
+	if got != want {
+		t.Errorf("First inner condition = %v, wanted %v", got, want)
+	}
+
+	want = "'good_inner'"
+	got = explanationPolicy.Rule().Matches()[0].rule.Matches()[1].output.Value
+	if got != want {
+		t.Errorf("Second inner output = %v, wanted %v", got, want)
+	}
+
+	want = "'good_outer'"
+	got = explanationPolicy.Rule().Matches()[1].output.Value
+	if got != want {
+		t.Errorf("Second outer output = %v, wanted %v", got, want)
+	}
+}
