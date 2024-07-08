@@ -271,6 +271,22 @@ func TestLibraries(t *testing.T) {
 	}
 }
 
+func TestFunctions(t *testing.T) {
+	e, err := NewEnv(OptionalTypes())
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	for _, expected := range []string{"optional.of", "or"} {
+		if !e.HasFunction(expected) {
+			t.Errorf("Expected HasFunction() to return true for '%s'", expected)
+		}
+
+		if _, ok := e.Functions()[expected]; !ok {
+			t.Errorf("Expected Functions() to include '%s'", expected)
+		}
+	}
+}
+
 func BenchmarkNewCustomEnvLazy(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
