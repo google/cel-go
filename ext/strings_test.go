@@ -1746,6 +1746,56 @@ func evalWithCEL(input string, expectedRuntimeCost uint64, expectedEstimatedCost
 	return out.Value().(string)
 }
 
+func TestFunctionsForVersions(t *testing.T) {
+	tests := []struct {
+		version             uint32
+		introducedFunctions []string
+	}{
+		{
+			version:             0,
+			introducedFunctions: []string{"lastIndexOf", "lowerAscii", "split", "trim", "join", "charAt", "indexOf", "replace", "substring", "upperAscii"},
+		},
+		{
+			version:             1,
+			introducedFunctions: []string{"strings.quote", "format"},
+		},
+		{
+			version:             2,
+			introducedFunctions: []string{}, // join changed, no functions added
+		},
+		{
+			version:             3,
+			introducedFunctions: []string{"reverse"},
+		},
+	}
+	var functions []string
+	for _, tt := range tests {
+		functions = append(functions, tt.introducedFunctions...)
+		t.Run(fmt.Sprintf("version %d", tt.version), func(t *testing.T) {
+			e, err := cel.NewCustomEnv(Strings(StringsVersion(tt.version)))
+			if err != nil {
+				t.Fatalf("NewEnv() failed: %v", err)
+			}
+			if len(functions) != len(e.Functions()) {
+				var functionNames []string
+				for name := range e.Functions() {
+					functionNames = append(functionNames, name)
+				}
+				t.Fatalf("Expected functions: %#v, got %#v", functions, functionNames)
+			}
+			for _, expected := range functions {
+				if !e.HasFunction(expected) {
+					t.Errorf("Expected HasFunction() to return true for '%s'", expected)
+				}
+
+				if _, ok := e.Functions()[expected]; !ok {
+					t.Errorf("Expected Functions() to include '%s'", expected)
+				}
+			}
+		})
+	}
+}
+
 func FuzzQuote(f *testing.F) {
 	tests := []string{
 		"this is a test",

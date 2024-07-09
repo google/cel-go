@@ -412,6 +412,17 @@ func (e *Env) Libraries() []string {
 	return libraries
 }
 
+// HasFunction returns whether a specific function has been configured in the environment
+func (e *Env) HasFunction(functionName string) bool {
+	_, ok := e.functions[functionName]
+	return ok
+}
+
+// Functions returns map of Functions, keyed by function name, that have been configured in the environment.
+func (e *Env) Functions() map[string]*decls.FunctionDecl {
+	return e.functions
+}
+
 // HasValidator returns whether a specific ASTValidator has been configured in the environment.
 func (e *Env) HasValidator(name string) bool {
 	for _, v := range e.validators {
