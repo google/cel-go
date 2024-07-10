@@ -35,6 +35,18 @@ import (
 //
 //	[1,2,3,4].slice(1, 3) // return [2, 3]
 //	[1,2,3,4].slice(2, 4) // return [3 ,4]
+//
+// # Flatten
+//
+// Flattens the given list of nested lists.
+//
+//	<list>.flatten(<list>) -> <list>
+//
+// Examples:
+//
+// [1,[2,3],[4]].flatten() // return [1, 2, 3, 4]
+// [1,[2,3],[],[],[4]].flatten() // return [1, 2, 3, 4]
+// [1,[2,3],[[[4]]]].flatten() // return [1, 2, 3, 4]
 func Lists() cel.EnvOption {
 	return cel.Lib(listsLib{})
 }
@@ -65,6 +77,16 @@ func (listsLib) CompileOptions() []cel.EnvOption {
 				}),
 			),
 		),
+		cel.Function("flatten",
+			cel.MemberOverload("list_flatten",
+				[]*cel.Type{listType}, listType,
+				cel.UnaryBinding(func(arg ref.Val) ref.Val {
+					list := arg.(traits.Lister)
+					flatList := flatten(list)
+					return types.DefaultTypeAdapter.NativeToValue(flatList)
+				}),
+			),
+		),
 	}
 }
 
@@ -91,4 +113,21 @@ func slice(list traits.Lister, start, end types.Int) (ref.Val, error) {
 		newList = append(newList, val)
 	}
 	return types.DefaultTypeAdapter.NativeToValue(newList), nil
+}
+
+func flatten(list traits.Lister) []ref.Val {
+	iter := list.Iterator()
+	var newList []ref.Val
+
+	for iter.HasNext() == types.True {
+		val := iter.Next()
+
+		if nestedList, ok := val.(traits.Lister); ok {
+			newList = append(newList, flatten(nestedList)...)
+		} else {
+			newList = append(newList, val)
+		}
+	}
+
+	return newList
 }
