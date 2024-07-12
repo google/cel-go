@@ -711,6 +711,9 @@ func getFieldValue(adapter types.Adapter, refField reflect.Value) any {
 	if refField.IsZero() {
 		switch refField.Kind() {
 		case reflect.Array, reflect.Slice:
+			if refField.Type().Elem() == reflect.TypeOf(byte(0)) {
+				return refField.Interface()
+			}
 			return types.NewDynamicList(adapter, []ref.Val{})
 		case reflect.Map:
 			return types.NewDynamicMap(adapter, map[ref.Val]ref.Val{})
