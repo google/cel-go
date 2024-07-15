@@ -38,9 +38,12 @@ func TestLists(t *testing.T) {
 		{expr: `[1,2,3,4].slice(-5, -3)`, err: "cannot slice(-5, -3), negative indexes not supported"},
 		{expr: `[].flatten() == []`},
 		{expr: `[1,2,3,4].flatten() == [1,2,3,4]`},
-		{expr: `[1,[2,3],[4]].flatten() == [1,2,3,4]`},
-		{expr: `[1,[2,3],[],[],[4]].flatten() == [1,2,3,4]`},
-		{expr: `[1,[2,3],[[[4]]]].flatten() == [1,2,3,4]`},
+		{expr: `[1,[2,[3,4]]].flatten() == [1,2,[3,4]]`},
+		{expr: `[1,2,[],[],[3,4]].flatten() == [1,2,3,4]`},
+		{expr: `[].flattenDeep() == []`},
+		{expr: `[1,2,3,4].flattenDeep() == [1,2,3,4]`},
+		{expr: `[1,[2,[3,4]]].flattenDeep() == [1,2,3,4]`},
+		{expr: `[1,[2,[3,[4]]]].flattenDeep() == [1,2,3,4]`},
 	}
 
 	env := testListsEnv(t)

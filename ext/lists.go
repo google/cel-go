@@ -38,15 +38,27 @@ import (
 //
 // # Flatten
 //
-// Flattens the given list of nested lists.
+// Flattens the given list to a single level.
 //
 //	<list>.flatten(<list>) -> <list>
 //
 // Examples:
 //
 // [1,[2,3],[4]].flatten() // return [1, 2, 3, 4]
-// [1,[2,3],[],[],[4]].flatten() // return [1, 2, 3, 4]
-// [1,[2,3],[[[4]]]].flatten() // return [1, 2, 3, 4]
+// [1,[2,[3,4]]].flatten() // return [1, 2, [3, 4]]
+// [1,2,[],[],[3,4]].flatten() // return [1, 2, 3, 4]
+//
+// # FlattenDeep
+//
+// Flattens the given list to the deepest level.
+//
+//	<list>.flattenDeep(<list>) -> <list>
+//
+// Examples:
+//
+// [1,[2,3],[4]].flattenDeep() // return [1, 2, 3, 4]
+// [1,[2,[3,4]]].flattenDeep() // return [1, 2, 3, 4]
+// [1,[2,[3,[4]]]].flattenDeep() // return [1, 2, 3, 4]
 func Lists() cel.EnvOption {
 	return cel.Lib(listsLib{})
 }
@@ -82,7 +94,17 @@ func (listsLib) CompileOptions() []cel.EnvOption {
 				[]*cel.Type{listType}, listType,
 				cel.UnaryBinding(func(arg ref.Val) ref.Val {
 					list := arg.(traits.Lister)
-					flatList := flatten(list)
+					flatList := flattenHelper(list, false)
+					return types.DefaultTypeAdapter.NativeToValue(flatList)
+				}),
+			),
+		),
+		cel.Function("flattenDeep",
+			cel.MemberOverload("list_flatten_deep",
+				[]*cel.Type{listType}, listType,
+				cel.UnaryBinding(func(arg ref.Val) ref.Val {
+					list := arg.(traits.Lister)
+					flatList := flattenHelper(list, true)
 					return types.DefaultTypeAdapter.NativeToValue(flatList)
 				}),
 			),
@@ -115,7 +137,7 @@ func slice(list traits.Lister, start, end types.Int) (ref.Val, error) {
 	return types.DefaultTypeAdapter.NativeToValue(newList), nil
 }
 
-func flatten(list traits.Lister) []ref.Val {
+func flattenHelper(list traits.Lister, deep bool) []ref.Val {
 	iter := list.Iterator()
 	var newList []ref.Val
 
@@ -123,7 +145,14 @@ func flatten(list traits.Lister) []ref.Val {
 		val := iter.Next()
 
 		if nestedList, ok := val.(traits.Lister); ok {
-			newList = append(newList, flatten(nestedList)...)
+			if deep {
+				newList = append(newList, flattenHelper(nestedList, true)...)
+			} else {
+				nestedIter := nestedList.Iterator()
+				for nestedIter.HasNext() == types.True {
+					newList = append(newList, nestedIter.Next())
+				}
+			}
 		} else {
 			newList = append(newList, val)
 		}
