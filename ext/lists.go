@@ -73,6 +73,7 @@ func (listsLib) LibraryName() string {
 // CompileOptions implements the Library interface method.
 func (listsLib) CompileOptions() []cel.EnvOption {
 	listType := cel.ListType(cel.TypeParamType("T"))
+	listDyn := cel.ListType(cel.DynType)
 	return []cel.EnvOption{
 		cel.Function("slice",
 			cel.MemberOverload("list_slice",
@@ -91,7 +92,7 @@ func (listsLib) CompileOptions() []cel.EnvOption {
 		),
 		cel.Function("flatten",
 			cel.MemberOverload("list_flatten",
-				[]*cel.Type{listType}, listType,
+				[]*cel.Type{listDyn}, listDyn,
 				cel.UnaryBinding(func(arg ref.Val) ref.Val {
 					list := arg.(traits.Lister)
 					flatList := flattenHelper(list, false)
@@ -101,7 +102,7 @@ func (listsLib) CompileOptions() []cel.EnvOption {
 		),
 		cel.Function("flattenDeep",
 			cel.MemberOverload("list_flatten_deep",
-				[]*cel.Type{listType}, listType,
+				[]*cel.Type{listDyn}, listDyn,
 				cel.UnaryBinding(func(arg ref.Val) ref.Val {
 					list := arg.(traits.Lister)
 					flatList := flattenHelper(list, true)
