@@ -755,7 +755,7 @@ func bitShiftRightIntInt(value, bits ref.Val) ref.Val {
 	if bs < types.IntZero {
 		return types.NewErr("math.bitShiftRight() negative offset: %d", bs)
 	}
-	return v >> bs
+	return types.Int(types.Uint(v) >> bs)
 }
 
 func bitShiftRightUintInt(value, bits ref.Val) ref.Val {
