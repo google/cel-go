@@ -129,8 +129,8 @@ func TestMath(t *testing.T) {
 		{expr: "math.bitShiftLeft(-1, 200) == 0"},
 		{expr: "math.bitShiftRight(1024, 2) == 256"},
 		{expr: "math.bitShiftRight(1024, 64) == 0"},
-		{expr: "math.bitShiftRight(-1024, 3) == -128"},
-		{expr: "math.bitShiftRight(-1024, 64) == -1"},
+		{expr: "math.bitShiftRight(-1024, 3) == 2305843009213693824"},
+		{expr: "math.bitShiftRight(-1024, 64) == 0"},
 		// Unsigned bitwise ops
 		{expr: "math.bitAnd(1u, 2u) == 0u"},
 		{expr: "math.bitAnd(1u, 3u) == 1u"},
