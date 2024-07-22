@@ -103,6 +103,22 @@ func (p *Policy) SetMetadata(name string, value any) {
 	p.metadata[name] = value
 }
 
+// GetExplanationOutputPolicy returns a copy of the policy, except the output of each match block
+// is replaced by the expression in the explanation field.
+func (p *Policy) GetExplanationOutputPolicy() *Policy {
+	ep := Policy{
+		name:     p.name,
+		semantic: p.semantic,
+		info:     &*p.info,
+		metadata: p.metadata,
+		source:   &*p.source,
+	}
+	if p.rule != nil {
+		ep.rule = p.rule.getExplanationOutputRule()
+	}
+	return &ep
+}
+
 // NewRule creates a Rule instance.
 func NewRule() *Rule {
 	return &Rule{
@@ -163,6 +179,28 @@ func (r *Rule) AddMatch(m *Match) {
 // AddVariable adds a variable to the rule.
 func (r *Rule) AddVariable(v *Variable) {
 	r.variables = append(r.variables, v)
+}
+
+func (r *Rule) getExplanationOutputRule() *Rule {
+	if r == nil {
+		return nil
+	}
+	er := Rule{
+		id:          r.id,
+		description: r.description,
+	}
+	for _, variable := range r.variables {
+		er.variables = append(er.variables, &*variable)
+	}
+	for _, match := range r.matches {
+		em := Match{
+			condition: match.condition,
+			output:    match.explanation,
+			rule:      match.rule.getExplanationOutputRule(),
+		}
+		er.matches = append(er.matches, &em)
+	}
+	return &er
 }
 
 // NewVariable creates a variable instance.
