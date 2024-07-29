@@ -24,6 +24,7 @@ go_library(
     srcs = [
         "compiler.go",
         "conformance.go",
+        "composer.go",
         "config.go",
         "parser.go",
         "source.go",
@@ -33,6 +34,7 @@ go_library(
         "//cel:go_default_library",
         "//common:go_default_library",
         "//common/ast:go_default_library",
+        "//common/decls:go_default_library",
         "//common/operators:go_default_library",
         "//common/types:go_default_library",
         "//ext:go_default_library",
@@ -46,7 +48,7 @@ go_test(
     srcs = [
         "compiler_test.go",
         "config_test.go",
-        "helper_test.go",        
+        "helper_test.go",
         "parser_test.go",
     ],
     data = glob(["testdata/**"]),
