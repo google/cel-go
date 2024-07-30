@@ -24,7 +24,10 @@ import (
 // NewRuleComposer creates a rule composer which stitches together rules within a policy into
 // a single CEL expression.
 func NewRuleComposer(env *cel.Env, p *Policy) *RuleComposer {
-	return &RuleComposer{env: env, p: p}
+	return &RuleComposer{
+		env: env,
+		p:   p,
+	}
 }
 
 // RuleComposer optimizes a set of expressions into a single expression.
@@ -41,7 +44,8 @@ func (c *RuleComposer) Compose(r *CompiledRule) (*cel.Ast, *cel.Issues) {
 }
 
 type ruleComposerImpl struct {
-	rule *CompiledRule
+	rule                     *CompiledRule
+	maxNestedExpressionLimit int
 }
 
 // Optimize implements an AST optimizer for CEL which composes an expression graph into a single
@@ -49,14 +53,17 @@ type ruleComposerImpl struct {
 func (opt *ruleComposerImpl) Optimize(ctx *cel.OptimizerContext, a *ast.AST) *ast.AST {
 	// The input to optimize is a dummy expression which is completely replaced according
 	// to the configuration of the rule composition graph.
-	ruleExpr, _ := optimizeRule(ctx, opt.rule)
+	ruleExpr, _ := opt.optimizeRule(ctx, opt.rule)
 	return ctx.NewAST(ruleExpr)
 }
 
-func optimizeRule(ctx *cel.OptimizerContext, r *CompiledRule) (ast.Expr, bool) {
+func (opt *ruleComposerImpl) optimizeRule(ctx *cel.OptimizerContext, r *CompiledRule) (ast.Expr, bool) {
 	matchExpr := ctx.NewCall("optional.none")
 	matches := r.Matches()
+	vars := r.Variables()
 	optionalResult := true
+
+	// Build the rule subgraph.
 	for i := len(matches) - 1; i >= 0; i-- {
 		m := matches[i]
 		cond := ctx.CopyASTAndMetadata(m.Condition().NativeRep())
@@ -78,7 +85,7 @@ func optimizeRule(ctx *cel.OptimizerContext, r *CompiledRule) (ast.Expr, bool) {
 				matchExpr)
 			continue
 		}
-		nestedRule, nestedOptional := optimizeRule(ctx, m.NestedRule())
+		nestedRule, nestedOptional := opt.optimizeRule(ctx, m.NestedRule())
 		if optionalResult && !nestedOptional {
 			nestedRule = ctx.NewCall("optional.of", nestedRule)
 		}
@@ -90,10 +97,19 @@ func optimizeRule(ctx *cel.OptimizerContext, r *CompiledRule) (ast.Expr, bool) {
 			ctx.ReportErrorAtID(nestedRule.ID(), "subrule early terminates policy")
 			continue
 		}
-		matchExpr = ctx.NewMemberCall("or", nestedRule, matchExpr)
+		if triviallyTrue {
+			matchExpr = ctx.NewMemberCall("or", nestedRule, matchExpr)
+		} else {
+			matchExpr = ctx.NewCall(
+				operators.Conditional,
+				cond,
+				nestedRule,
+				matchExpr,
+			)
+		}
 	}
 
-	vars := r.Variables()
+	// Bind variables in reverse order to declaration on top of rule-subgraph.
 	for i := len(vars) - 1; i >= 0; i-- {
 		v := vars[i]
 		varAST := ctx.CopyASTAndMetadata(v.Expr().NativeRep())

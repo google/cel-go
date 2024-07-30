@@ -33,7 +33,7 @@ func TestCompile(t *testing.T) {
 
 func TestCompileError(t *testing.T) {
 	for _, tst := range policyErrorTests {
-		_, _, iss := compile(t, tst.name, []ParserOption{}, []cel.EnvOption{})
+		_, _, iss := compile(t, tst.name, []ParserOption{}, []cel.EnvOption{}, tst.compilerOpts)
 		if iss.Err() == nil {
 			t.Fatalf("compile(%s) did not error, wanted %s", tst.name, tst.err)
 		}
@@ -61,15 +61,16 @@ func newRunner(t testing.TB, name, expr string, parseOpts []ParserOption, opts .
 }
 
 type runner struct {
-	name      string
-	envOpts   []cel.EnvOption
-	parseOpts []ParserOption
-	env       *cel.Env
-	expr      string
-	prg       cel.Program
+	name         string
+	envOpts      []cel.EnvOption
+	parseOpts    []ParserOption
+	compilerOpts []CompilerOption
+	env          *cel.Env
+	expr         string
+	prg          cel.Program
 }
 
-func compile(t testing.TB, name string, parseOpts []ParserOption, envOpts []cel.EnvOption) (*cel.Env, *cel.Ast, *cel.Issues) {
+func compile(t testing.TB, name string, parseOpts []ParserOption, envOpts []cel.EnvOption, compilerOpts []CompilerOption) (*cel.Env, *cel.Ast, *cel.Issues) {
 	config := readPolicyConfig(t, fmt.Sprintf("testdata/%s/config.yaml", name))
 	srcFile := readPolicy(t, fmt.Sprintf("testdata/%s/policy.yaml", name))
 	parser, err := NewParser(parseOpts...)
@@ -84,6 +85,7 @@ func compile(t testing.TB, name string, parseOpts []ParserOption, envOpts []cel.
 		t.Errorf("policy name is %v, wanted %q", policy.name, name)
 	}
 	env, err := cel.NewEnv(
+		cel.DefaultUTCTimeZone(true),
 		cel.OptionalTypes(),
 		cel.EnableMacroCallTracking(),
 		cel.ExtendedValidations())
@@ -104,12 +106,12 @@ func compile(t testing.TB, name string, parseOpts []ParserOption, envOpts []cel.
 	if err != nil {
 		t.Fatalf("env.Extend() with config options %v, failed: %v", config, err)
 	}
-	ast, iss := Compile(env, policy)
+	ast, iss := Compile(env, policy, compilerOpts...)
 	return env, ast, iss
 }
 
 func (r *runner) setup(t testing.TB) {
-	env, ast, iss := compile(t, r.name, r.parseOpts, r.envOpts)
+	env, ast, iss := compile(t, r.name, r.parseOpts, r.envOpts, r.compilerOpts)
 	if iss.Err() != nil {
 		t.Fatalf("Compile() failed: %v", iss.Err())
 	}

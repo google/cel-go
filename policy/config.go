@@ -16,6 +16,8 @@ package policy
 
 import (
 	"fmt"
+	"math"
+	"strconv"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/ext"
@@ -74,7 +76,7 @@ type ExtensionResolver interface {
 // ExtensionConfig represents a YAML serializable definition of a versioned extension library reference.
 type ExtensionConfig struct {
 	Name    string `yaml:"name"`
-	Version int    `yaml:"version"`
+	Version string `yaml:"version"`
 	ExtensionResolver
 }
 
@@ -87,7 +89,18 @@ func (ec *ExtensionConfig) AsEnvOption(baseEnv *cel.Env) (cel.EnvOption, error) 
 	if !found {
 		return nil, fmt.Errorf("unrecognized extension: %s", ec.Name)
 	}
-	return fac(uint32(ec.Version)), nil
+	// If the version is 'latest', set the version value to the max uint.
+	if ec.Version == "latest" {
+		return fac(math.MaxUint32), nil
+	}
+	if ec.Version == "" {
+		return fac(0), nil
+	}
+	ver, err := strconv.ParseUint(ec.Version, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing uint version: %w", err)
+	}
+	return fac(uint32(ver)), nil
 }
 
 // VariableDecl represents a YAML serializable CEL variable declaration.

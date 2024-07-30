@@ -33,6 +33,11 @@ type CompiledRule struct {
 	matches   []*CompiledMatch
 }
 
+// SourceID returns the source metadata identifier associated with the compiled rule.
+func (r *CompiledRule) SourceID() int64 {
+	return r.ID().ID
+}
+
 // ID returns the expression id associated with the rule.
 func (r *CompiledRule) ID() *ValueString {
 	return r.id
@@ -50,9 +55,15 @@ func (r *CompiledRule) Matches() []*CompiledMatch {
 
 // CompiledVariable represents the variable name, expression, and associated type-check declaration.
 type CompiledVariable struct {
+	id      int64
 	name    string
 	expr    *cel.Ast
 	varDecl *decls.VariableDecl
+}
+
+// SourceID returns the source metadata identifier associated with the variable.
+func (v *CompiledVariable) SourceID() int64 {
+	return v.id
 }
 
 // Name returns the variable name.
@@ -110,12 +121,28 @@ func (o *OutputValue) Expr() *cel.Ast {
 	return o.expr
 }
 
+// CompilerOption specifies a functional option to be applied to new RuleComposer instances.
+type CompilerOption func(*compiler) error
+
+// MaxNestedExpressions limits the number of variable and nested rule expressions during compilation.
+//
+// Defaults to 100 if not set.
+func MaxNestedExpressions(limit int) CompilerOption {
+	return func(c *compiler) error {
+		if limit <= 0 {
+			return fmt.Errorf("nested expression limit must be non-negative, non-zero value: %d", limit)
+		}
+		c.maxNestedExpressions = limit
+		return nil
+	}
+}
+
 // Compile combines the policy compilation and composition steps into a single call.
 //
 // This generates a single CEL AST from a collection of policy expressions associated with a
 // CEL environment.
-func Compile(env *cel.Env, p *Policy) (*cel.Ast, *cel.Issues) {
-	rule, iss := CompileRule(env, p)
+func Compile(env *cel.Env, p *Policy, opts ...CompilerOption) (*cel.Ast, *cel.Issues) {
+	rule, iss := CompileRule(env, p, opts...)
 	if iss.Err() != nil {
 		return nil, iss
 	}
@@ -126,14 +153,21 @@ func Compile(env *cel.Env, p *Policy) (*cel.Ast, *cel.Issues) {
 // CompileRule creates a compiled rules from the policy which contains a set of compiled variables and
 // match statements. The compiled rule defines an expression graph, which can be composed into a single
 // expression via the RuleComposer.Compose method.
-func CompileRule(env *cel.Env, p *Policy) (*CompiledRule, *cel.Issues) {
+func CompileRule(env *cel.Env, p *Policy, opts ...CompilerOption) (*CompiledRule, *cel.Issues) {
 	c := &compiler{
-		env:  env,
-		info: p.SourceInfo(),
-		src:  p.Source(),
+		env:                  env,
+		info:                 p.SourceInfo(),
+		src:                  p.Source(),
+		maxNestedExpressions: defaultMaxNestedExpressions,
 	}
 	errs := common.NewErrors(c.src)
 	iss := cel.NewIssuesWithSourceInfo(errs, c.info)
+	for _, o := range opts {
+		if err := o(c); err != nil {
+			iss.ReportErrorAtID(p.Name().ID, "error configuring compiler option: %s", err)
+			return nil, iss
+		}
+	}
 	rule, ruleIss := c.compileRule(p.Rule(), c.env, iss)
 	iss = iss.Append(ruleIss)
 	return rule, iss
@@ -143,6 +177,9 @@ type compiler struct {
 	env  *cel.Env
 	info *ast.SourceInfo
 	src  *Source
+
+	maxNestedExpressions int
+	nestedCount          int
 }
 
 func (c *compiler) compileRule(r *Rule, ruleEnv *cel.Env, iss *cel.Issues) (*CompiledRule, *cel.Issues) {
@@ -170,12 +207,22 @@ func (c *compiler) compileRule(r *Rule, ruleEnv *cel.Env, iss *cel.Issues) (*Com
 		if err != nil {
 			iss.ReportErrorAtID(v.Expression().ID, "invalid variable declaration")
 		}
-		compiledVars[i] = &CompiledVariable{
+		compiledVar := &CompiledVariable{
+			id:      v.name.ID,
 			name:    v.name.Value,
 			expr:    varAST,
 			varDecl: varDecl,
 		}
+		compiledVars[i] = compiledVar
+
+		// Increment the nesting count post-compile.
+		c.nestedCount++
+		if c.nestedCount == c.maxNestedExpressions+1 {
+			iss.ReportErrorAtID(compiledVar.SourceID(), "variable exceeds nested expression limit")
+		}
 	}
+
+	// Compile the set of match conditions under the rule.
 	compiledMatches := []*CompiledMatch{}
 	for _, m := range r.Matches() {
 		condSrc := c.relSource(m.Condition())
@@ -208,6 +255,12 @@ func (c *compiler) compileRule(r *Rule, ruleEnv *cel.Env, iss *cel.Issues) (*Com
 				cond:       condAST,
 				nestedRule: nestedRule,
 			})
+
+			// Increment the nesting count post-compile.
+			c.nestedCount++
+			if c.nestedCount == c.maxNestedExpressions+1 {
+				iss.ReportErrorAtID(nestedRule.SourceID(), "rule exceeds nested expression limit")
+			}
 		}
 	}
 	return &CompiledRule{
@@ -232,4 +285,6 @@ func (c *compiler) relSource(pstr ValueString) *RelativeSource {
 const (
 	// Consider making the variables namespace configurable.
 	variablePrefix = "variables"
+
+	defaultMaxNestedExpressions = 100
 )

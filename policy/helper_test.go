@@ -112,12 +112,33 @@ var (
 								return types.String("ir")
 							}
 						}))),
-			}},
+			},
+		},
+		{
+			name: "limits",
+			expr: `
+	cel.bind(variables.greeting, "hello",
+	cel.bind(variables.farewell, "goodbye",
+	cel.bind(variables.person, "me",
+	cel.bind(variables.message_fmt, "%s, %s",
+	  (now.getHours() >= 20)
+	  ? cel.bind(variables.message, variables.message_fmt.format([variables.farewell, variables.person]),
+	    (now.getHours() < 21)
+		  ? optional.of(variables.message + "!")
+		  : ((now.getHours() < 22)
+		    ? optional.of(variables.message + "!!")
+			: ((now.getHours() < 24)
+			  ? optional.of(variables.message + "!!!")
+			  : optional.none())))
+	   : optional.of(variables.message_fmt.format([variables.greeting, variables.person]))
+	 ))))`,
+		},
 	}
 
 	policyErrorTests = []struct {
-		name string
-		err  string
+		name         string
+		err          string
+		compilerOpts []CompilerOption
 	}{
 		{
 			name: "errors",
@@ -139,6 +160,21 @@ ERROR: testdata/errors/policy.yaml:31:75: Syntax error: extraneous input ']' exp
 ERROR: testdata/errors/policy.yaml:34:67: undeclared reference to 'format' (in container '')
  |         "invalid values provided on one or more labels: %s".format([variables.invalid])
  | ..................................................................^`,
+		},
+		{
+			name: "limits",
+			err: `ERROR: testdata/limits/policy.yaml:22:14: variable exceeds nested expression limit
+ |     - name: "person"
+ | .............^`,
+			compilerOpts: []CompilerOption{MaxNestedExpressions(2)},
+		},
+
+		{
+			name: "limits",
+			err: `ERROR: testdata/limits/policy.yaml:30:14: rule exceeds nested expression limit
+ |         id: "farewells"
+ | .............^`,
+			compilerOpts: []CompilerOption{MaxNestedExpressions(5)},
 		},
 	}
 )
