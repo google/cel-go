@@ -15,7 +15,7 @@
 name: "limits"
 extensions:
   - name: "strings"
-    version: -1
+    version: latest
 variables:
   - name: "now"
     type:

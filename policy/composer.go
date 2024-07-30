@@ -63,7 +63,7 @@ func (opt *ruleComposerImpl) optimizeRule(ctx *cel.OptimizerContext, r *Compiled
 	vars := r.Variables()
 	optionalResult := true
 
-	// Build the rule sub-graph.
+	// Build the rule subgraph.
 	for i := len(matches) - 1; i >= 0; i-- {
 		m := matches[i]
 		cond := ctx.CopyASTAndMetadata(m.Condition().NativeRep())
@@ -109,7 +109,7 @@ func (opt *ruleComposerImpl) optimizeRule(ctx *cel.OptimizerContext, r *Compiled
 		}
 	}
 
-	// Bind variables in reverse order to declaration on top of rule-subgrap
+	// Bind variables in reverse order to declaration on top of rule-subgraph.
 	for i := len(vars) - 1; i >= 0; i-- {
 		v := vars[i]
 		varAST := ctx.CopyASTAndMetadata(v.Expr().NativeRep())
