@@ -16,6 +16,7 @@ package policy
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/ext"
@@ -87,7 +88,12 @@ func (ec *ExtensionConfig) AsEnvOption(baseEnv *cel.Env) (cel.EnvOption, error) 
 	if !found {
 		return nil, fmt.Errorf("unrecognized extension: %s", ec.Name)
 	}
-	return fac(uint32(ec.Version)), nil
+	// If the version is less than or equal to zero set the version to the max value.
+	ver := ec.Version
+	if ver < 0 {
+		ver = math.MaxUint32
+	}
+	return fac(uint32(ver)), nil
 }
 
 // VariableDecl represents a YAML serializable CEL variable declaration.

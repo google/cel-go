@@ -36,6 +36,7 @@ type TestCase struct {
 	Output string               `yaml:"output"`
 }
 
+// TestInput represents an input literal value or expression.
 type TestInput struct {
 	Value any    `yaml:"value"`
 	Expr  string `yaml:"expr"`
