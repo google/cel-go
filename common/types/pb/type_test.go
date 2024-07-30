@@ -355,36 +355,72 @@ func TestTypeDescriptionMaybeUnwrap(t *testing.T) {
 			out: true,
 		},
 		{
+			in:  (*wrapperspb.BoolValue)(nil),
+			out: nil,
+		},
+		{
 			in:  wrapperspb.Bytes([]byte("hello")),
 			out: []byte("hello"),
+		},
+		{
+			in:  (*wrapperspb.BytesValue)(nil),
+			out: nil,
 		},
 		{
 			in:  wrapperspb.Double(-4.2),
 			out: -4.2,
 		},
 		{
+			in:  (*wrapperspb.DoubleValue)(nil),
+			out: nil,
+		},
+		{
 			in:  wrapperspb.Float(4.5),
 			out: 4.5,
+		},
+		{
+			in:  (*wrapperspb.FloatValue)(nil),
+			out: nil,
 		},
 		{
 			in:  wrapperspb.Int32(123),
 			out: int64(123),
 		},
 		{
+			in:  (*wrapperspb.Int32Value)(nil),
+			out: nil,
+		},
+		{
 			in:  wrapperspb.Int64(456),
 			out: int64(456),
+		},
+		{
+			in:  (*wrapperspb.Int64Value)(nil),
+			out: nil,
 		},
 		{
 			in:  wrapperspb.String("goodbye"),
 			out: "goodbye",
 		},
 		{
+			in:  (*wrapperspb.StringValue)(nil),
+			out: nil,
+		},
+		{
 			in:  wrapperspb.UInt32(1234),
 			out: uint64(1234),
 		},
 		{
+			in:  (*wrapperspb.UInt32Value)(nil),
+			out: nil,
+		},
+		{
 			in:  wrapperspb.UInt64(5678),
 			out: uint64(5678),
+		},
+		{
+			in:  (*wrapperspb.UInt64Value)(nil),
+			out: nil,
 		},
 		{
 			in:  tpb.New(time.Unix(12345, 0).UTC()),
