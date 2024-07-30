@@ -141,6 +141,10 @@ var stringTests = []struct {
 	{expr: `strings.quote("\U0001F431\U0001F600\U0001F61B") == "\"\U0001F431\U0001F600\U0001F61B\""`},
 	{expr: `strings.quote("ta©o©αT") == "\"ta©o©αT\""`},
 	{expr: `strings.quote("") == "\"\""`},
+	// Format tests with a non-literal as the format string
+	{
+		expr: `strings.quote('%s %s').format(['hello', 'world']) == "\"hello world\""`,
+	},
 	// Error test cases based on checked expression usage.
 	{
 		expr: `'tacocat'.charAt(30) == ''`,
