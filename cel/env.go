@@ -760,10 +760,10 @@ func (i *Issues) Append(other *Issues) *Issues {
 	if i == nil {
 		return other
 	}
-	if other == nil {
+	if other == nil || i == other {
 		return i
 	}
-	return NewIssues(i.errs.Append(other.errs.GetErrors()))
+	return NewIssuesWithSourceInfo(i.errs.Append(other.errs.GetErrors()), i.info)
 }
 
 // String converts the issues to a suitable display string.

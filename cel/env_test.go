@@ -81,6 +81,21 @@ func TestIssuesEmpty(t *testing.T) {
 	}
 }
 
+func TestIssuesAppendSelf(t *testing.T) {
+	e, err := NewEnv()
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	_, iss := e.Compile("a")
+	if len(iss.Errors()) != 1 {
+		t.Errorf("iss.Errors() got %v, wanted 1 error", iss.Errors())
+	}
+	iss = iss.Append(iss)
+	if len(iss.Errors()) != 1 {
+		t.Errorf("iss.Errors() got %v, wanted 1 error", iss.Errors())
+	}
+}
+
 func TestIssues(t *testing.T) {
 	e, err := NewEnv()
 	if err != nil {
