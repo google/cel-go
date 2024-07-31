@@ -279,7 +279,7 @@ func (tp *nativeTypeProvider) FindStructFieldType(typeName, fieldName string) (*
 		GetFrom: func(obj any) (any, error) {
 			refVal := reflect.Indirect(reflect.ValueOf(obj))
 			refField := valueFieldByName(tp.options.parseStructTags, refVal, fieldName)
-			return getFieldValue(tp, refField), nil
+			return getFieldValue(refField), nil
 		},
 	}, true
 }
@@ -704,21 +704,16 @@ func (t *nativeType) hasField(fieldName string) (reflect.StructField, bool) {
 }
 
 func adaptFieldValue(adapter types.Adapter, refField reflect.Value) ref.Val {
-	return adapter.NativeToValue(getFieldValue(adapter, refField))
+	return adapter.NativeToValue(getFieldValue(refField))
 }
 
-func getFieldValue(adapter types.Adapter, refField reflect.Value) any {
+func getFieldValue(refField reflect.Value) any {
 	if refField.IsZero() {
 		switch refField.Kind() {
-		case reflect.Array, reflect.Slice:
-			return types.NewDynamicList(adapter, []ref.Val{})
-		case reflect.Map:
-			return types.NewDynamicMap(adapter, map[ref.Val]ref.Val{})
 		case reflect.Struct:
 			if refField.Type() == timestampType {
-				return types.Timestamp{Time: time.Unix(0, 0)}
+				return time.Unix(0, 0)
 			}
-			return reflect.New(refField.Type()).Elem().Interface()
 		case reflect.Pointer:
 			return reflect.New(refField.Type().Elem()).Interface()
 		}
