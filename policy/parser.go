@@ -120,8 +120,9 @@ func (p *Policy) GetExplanationOutputPolicy() *Policy {
 }
 
 // NewRule creates a Rule instance.
-func NewRule() *Rule {
+func NewRule(exprID int64) *Rule {
 	return &Rule{
+		exprID:    exprID,
 		variables: []*Variable{},
 		matches:   []*Match{},
 	}
@@ -129,6 +130,7 @@ func NewRule() *Rule {
 
 // Rule declares a rule identifier, description, along with a set of variables and match statements.
 type Rule struct {
+	exprID      int64
 	id          *ValueString
 	description *ValueString
 	variables   []*Variable
@@ -204,12 +206,13 @@ func (r *Rule) getExplanationOutputRule() *Rule {
 }
 
 // NewVariable creates a variable instance.
-func NewVariable() *Variable {
-	return &Variable{}
+func NewVariable(exprID int64) *Variable {
+	return &Variable{exprID: exprID}
 }
 
 // Variable is a named expression which may be referenced in subsequent expressions.
 type Variable struct {
+	exprID     int64
 	name       ValueString
 	expression ValueString
 }
@@ -235,13 +238,14 @@ func (v *Variable) SetExpression(e ValueString) {
 }
 
 // NewMatch creates a match instance.
-func NewMatch() *Match {
-	return &Match{}
+func NewMatch(exprID int64) *Match {
+	return &Match{exprID: exprID}
 }
 
 // Match declares a condition (defaults to true) as well as an output or a rule.
 // Either the output or the rule field may be set, but not both.
 type Match struct {
+	exprID      int64
 	condition   ValueString
 	output      *ValueString
 	explanation *ValueString
@@ -493,22 +497,22 @@ func (p *parserImpl) NewPolicy(node *yaml.Node) (*Policy, int64) {
 
 // NewRule creates a new Rule instance with an ID associated with the YAML node.
 func (p *parserImpl) NewRule(node *yaml.Node) (*Rule, int64) {
-	r := NewRule()
 	id := p.CollectMetadata(node)
+	r := NewRule(id)
 	return r, id
 }
 
 // NewVariable creates a new Variable instance with an ID associated with the YAML node.
 func (p *parserImpl) NewVariable(node *yaml.Node) (*Variable, int64) {
-	v := NewVariable()
 	id := p.CollectMetadata(node)
+	v := NewVariable(id)
 	return v, id
 }
 
 // NewMatch creates a new Match instance with an ID associated with the YAML node.
 func (p *parserImpl) NewMatch(node *yaml.Node) (*Match, int64) {
-	m := NewMatch()
 	id := p.CollectMetadata(node)
+	m := NewMatch(id)
 	return m, id
 }
 

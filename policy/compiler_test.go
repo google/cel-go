@@ -158,12 +158,8 @@ func (r *runner) run(t *testing.T) {
 					} else if testOut.Equal(optOut.GetValue()) != types.True {
 						t.Errorf("policy eval got %v, wanted %v", out, testOut)
 					}
-				} else if boolOut, ok := out.(types.Bool); ok {
-					if testOut.Equal(boolOut) != types.True {
-						t.Errorf("policy eval got %v, wanted %v", boolOut, testOut)
-					}
-				} else {
-					t.Errorf("unexpected policy output type %v", out)
+				} else if testOut.Equal(out) != types.True {
+					t.Errorf("policy eval got %v, wanted %v", out, testOut)
 				}
 			})
 		}
