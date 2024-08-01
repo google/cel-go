@@ -63,26 +63,26 @@ var (
 		{
 			name: "nested_rule2",
 			expr: `
-	cel.bind(variables.permitted_regions, ["us", "uk", "es"], 
-	  resource.?user.orValue("").startsWith("bad") 
-	  ? cel.bind(variables.banned_regions, {"us": false, "ru": false, "ir": false}, 
+	cel.bind(variables.permitted_regions, ["us", "uk", "es"],
+	  resource.?user.orValue("").startsWith("bad")
+	  ? cel.bind(variables.banned_regions, {"us": false, "ru": false, "ir": false},
 	    (resource.origin in variables.banned_regions &&
-        !(resource.origin in variables.permitted_regions)) 
-		? {"banned": "restricted_region"} : {"banned": "bad_actor"}) 
-	  : (!(resource.origin in variables.permitted_regions) 
+        !(resource.origin in variables.permitted_regions))
+		? {"banned": "restricted_region"} : {"banned": "bad_actor"})
+	  : (!(resource.origin in variables.permitted_regions)
 	    ? {"banned": "unconfigured_region"} : {}))`,
 		},
 		{
 			name: "nested_rule3",
 			expr: `
-	cel.bind(variables.permitted_regions, ["us", "uk", "es"], 
-	  resource.?user.orValue("").startsWith("bad") 
+	cel.bind(variables.permitted_regions, ["us", "uk", "es"],
+	  resource.?user.orValue("").startsWith("bad")
 	  ? optional.of(
 	      cel.bind(variables.banned_regions, {"us": false, "ru": false, "ir": false},
 		  (resource.origin in variables.banned_regions &&
-          !(resource.origin in variables.permitted_regions)) 
-		  ? {"banned": "restricted_region"} : {"banned": "bad_actor"})) 
-	  : (!(resource.origin in variables.permitted_regions) 
+          !(resource.origin in variables.permitted_regions))
+		  ? {"banned": "restricted_region"} : {"banned": "bad_actor"}))
+	  : (!(resource.origin in variables.permitted_regions)
 	    ? optional.of({"banned": "unconfigured_region"}) : optional.none()))`,
 		},
 		{
@@ -172,31 +172,34 @@ var (
 	}{
 		{
 			name: "errors",
-			err: `ERROR: testdata/errors/policy.yaml:17:12: error configuring imports: invalid qualified name: bad import, wanted name of the form 'qualified.name'
+			err: `ERROR: testdata/errors/policy.yaml:19:1: error configuring import: invalid qualified name: punc.Import!, wanted name of the form 'qualified.name'
+ |       punc.Import!
+ | ^
+ERROR: testdata/errors/policy.yaml:20:12: error configuring import: invalid qualified name: bad import, wanted name of the form 'qualified.name'
  |   - name: "bad import"
  | ...........^
-ERROR: testdata/errors/policy.yaml:21:19: undeclared reference to 'spec' (in container '')
+ERROR: testdata/errors/policy.yaml:24:19: undeclared reference to 'spec' (in container '')
  |       expression: spec.labels
  | ..................^
-ERROR: testdata/errors/policy.yaml:22:7: invalid variable declaration: overlapping identifier for name 'variables.want'
+ERROR: testdata/errors/policy.yaml:25:7: invalid variable declaration: overlapping identifier for name 'variables.want'
  |     - name: want
  | ......^
-ERROR: testdata/errors/policy.yaml:25:50: Syntax error: mismatched input 'resource' expecting ')'
+ERROR: testdata/errors/policy.yaml:28:50: Syntax error: mismatched input 'resource' expecting ')'
  |       expression: variables.want.filter(l, !(lin resource.labels))
  | .................................................^
-ERROR: testdata/errors/policy.yaml:25:66: Syntax error: extraneous input ')' expecting <EOF>
+ERROR: testdata/errors/policy.yaml:28:66: Syntax error: extraneous input ')' expecting <EOF>
  |       expression: variables.want.filter(l, !(lin resource.labels))
  | .................................................................^
-ERROR: testdata/errors/policy.yaml:27:27: Syntax error: mismatched input '2' expecting {'}', ','}
+ERROR: testdata/errors/policy.yaml:30:27: Syntax error: mismatched input '2' expecting {'}', ','}
  |       expression: "{1:305 2:569}"
  | ..........................^
-ERROR: testdata/errors/policy.yaml:35:75: Syntax error: extraneous input ']' expecting ')'
+ERROR: testdata/errors/policy.yaml:38:75: Syntax error: extraneous input ']' expecting ')'
  |         "missing one or more required labels: %s".format(variables.missing])
  | ..........................................................................^
-ERROR: testdata/errors/policy.yaml:38:67: undeclared reference to 'format' (in container '')
+ERROR: testdata/errors/policy.yaml:41:67: undeclared reference to 'format' (in container '')
  |         "invalid values provided on one or more labels: %s".format([variables.invalid])
  | ..................................................................^
-ERROR: testdata/errors/policy.yaml:38:16: incompatible output types: bool not assignable to string
+ERROR: testdata/errors/policy.yaml:45:16: incompatible output types: bool not assignable to string
  |       output: "'false'"
  | ...............^`,
 		},

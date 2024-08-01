@@ -15,8 +15,10 @@
 name: "pb"
 
 imports:
+   - name: google.expr.proto3.test.TestAllTypes
    - name: google.expr.proto3.test.TestAllTypes.NestedEnum
-   - name: google.expr.proto3.test.ImportedGlobalEnum
+   - name: |
+      google.expr.proto3.test.ImportedGlobalEnum
 
 rule:
   match:

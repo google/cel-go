@@ -14,6 +14,9 @@
 
 name: "errors"
 imports:
+  - name: " untrimmed.Import1  "
+  - name: >
+      punc.Import!
   - name: "bad import"
 rule:
   variables:

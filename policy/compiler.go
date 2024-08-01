@@ -22,6 +22,7 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/ast"
+	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
@@ -228,14 +229,20 @@ func CompileRule(env *cel.Env, p *Policy, opts ...CompilerOption) (*CompiledRule
 
 	importCount := len(p.Imports())
 	if importCount > 0 {
-		importNames := make([]string, importCount)
-		for i, imp := range p.Imports() {
+		importNames := make([]string, 0, importCount)
+		for _, imp := range p.Imports() {
 			typeName := imp.Name().Value
-			importNames[i] = typeName
+			_, err := containers.NewContainer(containers.Abbrevs(typeName))
+			if err != nil {
+				iss.ReportErrorAtID(imp.Name().ID, "error configuring import: %s", err)
+			} else {
+				importNames = append(importNames, typeName)
+			}
 		}
 		env, err := c.env.Extend(cel.Abbrevs(importNames...))
 		if err != nil {
-			iss.ReportErrorAtID(p.Imports()[0].Name().ID, "error configuring imports: %s", err)
+			// validation happens earlier in the sequence, so this should be unreachable.
+			iss.ReportErrorAtID(p.Imports()[0].SourceID(), "error configuring imports: %s", err)
 		} else {
 			c.env = env
 		}
