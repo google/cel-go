@@ -39,12 +39,14 @@ func NewPolicy(src *Source, info *ast.SourceInfo) *Policy {
 		source:   src,
 		info:     info,
 		semantic: firstMatch,
+		imports:  []*Import{},
 	}
 }
 
 // Policy declares a name, rule, and evaluation semantic for a given expression graph.
 type Policy struct {
 	name     ValueString
+	imports  []*Import
 	rule     *Rule
 	semantic semanticType
 	info     *ast.SourceInfo
@@ -61,6 +63,10 @@ func (p *Policy) Source() *Source {
 // SourceInfo returns the policy file metadata about expression positions.
 func (p *Policy) SourceInfo() *ast.SourceInfo {
 	return p.info
+}
+
+func (p *Policy) Imports() []*Import {
+	return p.imports
 }
 
 // Name returns the name of the policy.
@@ -86,6 +92,10 @@ func (p *Policy) MetadataKeys() []string {
 		keys = append(keys, k)
 	}
 	return keys
+}
+
+func (p *Policy) AddImport(name ValueString) {
+	p.imports = append(p.imports, &Import{name: name})
 }
 
 // SetName configures the policy name.
@@ -117,6 +127,22 @@ func (p *Policy) GetExplanationOutputPolicy() *Policy {
 		ep.rule = p.rule.getExplanationOutputRule()
 	}
 	return &ep
+}
+
+func NewImport() *Import {
+	return &Import{}
+}
+
+type Import struct {
+	name ValueString
+}
+
+func (i *Import) Name() ValueString {
+	return i.name
+}
+
+func (i *Import) SetName(name ValueString) {
+	i.name = name
 }
 
 // NewRule creates a Rule instance.
@@ -582,6 +608,8 @@ func (p *parserImpl) ParsePolicy(ctx ParserContext, node *yaml.Node) *Policy {
 		fieldName := key.Value
 		val := node.Content[i+1]
 		switch fieldName {
+		case "imports":
+			p.parseImports(ctx, policy, val)
 		case "name":
 			policy.SetName(ctx.NewString(val))
 		case "rule":
@@ -591,6 +619,39 @@ func (p *parserImpl) ParsePolicy(ctx ParserContext, node *yaml.Node) *Policy {
 		}
 	}
 	return policy
+}
+
+func (p *parserImpl) parseImports(ctx ParserContext, policy *Policy, node *yaml.Node) {
+	id := ctx.CollectMetadata(node)
+	if p.assertYamlType(id, node, yamlList) == nil {
+		return
+	}
+	for _, val := range node.Content {
+		policy.AddImport(p.parseImport(ctx, policy, val).Name())
+	}
+}
+
+func (p *parserImpl) parseImport(ctx ParserContext, _ *Policy, node *yaml.Node) *Import {
+	id := ctx.CollectMetadata(node)
+	imp := NewImport()
+	if p.assertYamlType(id, node, yamlMap) == nil || !p.checkMapValid(ctx, id, node) {
+		return imp
+	}
+	for i := 0; i < len(node.Content); i += 2 {
+		key := node.Content[i]
+		ctx.CollectMetadata(key)
+		fieldName := key.Value
+		val := node.Content[i+1]
+		if val.Style == yaml.FoldedStyle || val.Style == yaml.LiteralStyle {
+			val.Line++
+			val.Column = key.Column + 1
+		}
+		switch fieldName {
+		case "name":
+			imp.SetName(ctx.NewString(val))
+		}
+	}
+	return imp
 }
 
 // ParseRule will parse the current yaml node as though it is the entry point to a rule.

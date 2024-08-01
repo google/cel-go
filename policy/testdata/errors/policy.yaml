@@ -13,10 +13,14 @@
 # limitations under the License.
 
 name: "errors"
+imports:
+  - name: "bad import"
 rule:
   variables:
     - name: want
       expression: spec.labels
+    - name: want
+      expression: "2"
     - name: missing
       expression: variables.want.filter(l, !(lin resource.labels))
     - name: bad_data

@@ -87,9 +87,13 @@ var (
 		},
 		{
 			name: "pb",
-			expr: `(spec.single_int32 > 10)
-			? optional.of("invalid spec, got single_int32=%d, wanted <= 10".format([spec.single_int32]))
-			: optional.none()`,
+			expr: `
+	(spec.single_int32 > google.expr.proto3.test.TestAllTypes{single_int64: 10}.single_int64)
+	? optional.of("invalid spec, got single_int32=%d, wanted <= 10".format([spec.single_int32]))
+	: ((spec.standalone_enum == google.expr.proto3.test.TestAllTypes.NestedEnum.BAR ||
+      google.expr.proto3.test.ImportedGlobalEnum.IMPORT_BAR in spec.imported_enums)
+	  ? optional.of("invalid spec, neither nested nor imported enums may refer to BAR or IMPORT_BAR")
+	  : optional.none())`,
 			envOpts: []cel.EnvOption{
 				cel.Types(&proto3pb.TestAllTypes{}),
 			},
@@ -168,22 +172,28 @@ var (
 	}{
 		{
 			name: "errors",
-			err: `ERROR: testdata/errors/policy.yaml:19:19: undeclared reference to 'spec' (in container '')
+			err: `ERROR: testdata/errors/policy.yaml:17:12: error configuring imports: invalid qualified name: bad import, wanted name of the form 'qualified.name'
+ |   - name: "bad import"
+ | ...........^
+ERROR: testdata/errors/policy.yaml:21:19: undeclared reference to 'spec' (in container '')
  |       expression: spec.labels
  | ..................^
-ERROR: testdata/errors/policy.yaml:21:50: Syntax error: mismatched input 'resource' expecting ')'
+ERROR: testdata/errors/policy.yaml:22:7: invalid variable declaration: overlapping identifier for name 'variables.want'
+ |     - name: want
+ | ......^
+ERROR: testdata/errors/policy.yaml:25:50: Syntax error: mismatched input 'resource' expecting ')'
  |       expression: variables.want.filter(l, !(lin resource.labels))
  | .................................................^
-ERROR: testdata/errors/policy.yaml:21:66: Syntax error: extraneous input ')' expecting <EOF>
+ERROR: testdata/errors/policy.yaml:25:66: Syntax error: extraneous input ')' expecting <EOF>
  |       expression: variables.want.filter(l, !(lin resource.labels))
  | .................................................................^
-ERROR: testdata/errors/policy.yaml:23:27: Syntax error: mismatched input '2' expecting {'}', ','}
+ERROR: testdata/errors/policy.yaml:27:27: Syntax error: mismatched input '2' expecting {'}', ','}
  |       expression: "{1:305 2:569}"
  | ..........................^
-ERROR: testdata/errors/policy.yaml:31:75: Syntax error: extraneous input ']' expecting ')'
+ERROR: testdata/errors/policy.yaml:35:75: Syntax error: extraneous input ']' expecting ')'
  |         "missing one or more required labels: %s".format(variables.missing])
  | ..........................................................................^
-ERROR: testdata/errors/policy.yaml:34:67: undeclared reference to 'format' (in container '')
+ERROR: testdata/errors/policy.yaml:38:67: undeclared reference to 'format' (in container '')
  |         "invalid values provided on one or more labels: %s".format([variables.invalid])
  | ..................................................................^
 ERROR: testdata/errors/policy.yaml:38:16: incompatible output types: bool not assignable to string

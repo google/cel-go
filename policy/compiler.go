@@ -211,17 +211,36 @@ func CompileRule(env *cel.Env, p *Policy, opts ...CompilerOption) (*CompiledRule
 		src:                  p.Source(),
 		maxNestedExpressions: defaultMaxNestedExpressions,
 	}
+	var err error
 	errs := common.NewErrors(c.src)
 	iss := cel.NewIssuesWithSourceInfo(errs, c.info)
 	for _, o := range opts {
-		if err := o(c); err != nil {
+		if err = o(c); err != nil {
 			iss.ReportErrorAtID(p.Name().ID, "error configuring compiler option: %s", err)
 			return nil, iss
 		}
 	}
-	rule, ruleIss := c.compileRule(p.Rule(), c.env, iss)
-	iss = iss.Append(ruleIss)
-	return rule, iss
+	c.env, err = c.env.Extend(cel.EagerlyValidateDeclarations(true))
+	if err != nil {
+		iss.ReportErrorAtID(p.Name().ID, "error configuring environment: %s", err)
+		return nil, iss
+	}
+
+	importCount := len(p.Imports())
+	if importCount > 0 {
+		importNames := make([]string, importCount)
+		for i, imp := range p.Imports() {
+			typeName := imp.Name().Value
+			importNames[i] = typeName
+		}
+		env, err := c.env.Extend(cel.Abbrevs(importNames...))
+		if err != nil {
+			iss.ReportErrorAtID(p.Imports()[0].Name().ID, "error configuring imports: %s", err)
+		} else {
+			c.env = env
+		}
+	}
+	return c.compileRule(p.Rule(), c.env, iss)
 }
 
 type compiler struct {
@@ -234,7 +253,6 @@ type compiler struct {
 }
 
 func (c *compiler) compileRule(r *Rule, ruleEnv *cel.Env, iss *cel.Issues) (*CompiledRule, *cel.Issues) {
-	var err error
 	compiledVars := make([]*CompiledVariable, len(r.Variables()))
 	for i, v := range r.Variables() {
 		exprSrc := c.relSource(v.Expression())
@@ -254,9 +272,11 @@ func (c *compiler) compileRule(r *Rule, ruleEnv *cel.Env, iss *cel.Issues) (*Com
 		// Introduce the variable into the environment. By extending the environment, the variables
 		// are effectively scoped such that they must be declared before use.
 		varDecl := decls.NewVariable(fmt.Sprintf("%s.%s", variablePrefix, varName), varType)
-		ruleEnv, err = ruleEnv.Extend(cel.Variable(varDecl.Name(), varDecl.Type()))
+		varEnv, err := ruleEnv.Extend(cel.Variable(varDecl.Name(), varDecl.Type()))
 		if err != nil {
-			iss.ReportErrorAtID(v.Expression().ID, "invalid variable declaration")
+			iss.ReportErrorAtID(v.exprID, "invalid variable declaration: %s", err.Error())
+		} else {
+			ruleEnv = varEnv
 		}
 		compiledVar := &CompiledVariable{
 			exprID:  v.name.ID,
