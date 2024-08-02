@@ -44,6 +44,9 @@ type Ast struct {
 
 // NativeRep converts the AST to a Go-native representation.
 func (ast *Ast) NativeRep() *celast.AST {
+	if ast == nil {
+		return nil
+	}
 	return ast.impl
 }
 
@@ -55,16 +58,13 @@ func (ast *Ast) Expr() *exprpb.Expr {
 	if ast == nil {
 		return nil
 	}
-	pbExpr, _ := celast.ExprToProto(ast.impl.Expr())
+	pbExpr, _ := celast.ExprToProto(ast.NativeRep().Expr())
 	return pbExpr
 }
 
 // IsChecked returns whether the Ast value has been successfully type-checked.
 func (ast *Ast) IsChecked() bool {
-	if ast == nil {
-		return false
-	}
-	return ast.impl.IsChecked()
+	return ast.NativeRep().IsChecked()
 }
 
 // SourceInfo returns character offset and newline position information about expression elements.
@@ -72,7 +72,7 @@ func (ast *Ast) SourceInfo() *exprpb.SourceInfo {
 	if ast == nil {
 		return nil
 	}
-	pbInfo, _ := celast.SourceInfoToProto(ast.impl.SourceInfo())
+	pbInfo, _ := celast.SourceInfoToProto(ast.NativeRep().SourceInfo())
 	return pbInfo
 }
 
@@ -95,7 +95,7 @@ func (ast *Ast) OutputType() *Type {
 	if ast == nil {
 		return types.ErrorType
 	}
-	return ast.impl.GetType(ast.impl.Expr().ID())
+	return ast.NativeRep().GetType(ast.NativeRep().Expr().ID())
 }
 
 // Source returns a view of the input used to create the Ast. This source may be complete or
@@ -218,12 +218,12 @@ func (e *Env) Check(ast *Ast) (*Ast, *Issues) {
 	if err != nil {
 		errs := common.NewErrors(ast.Source())
 		errs.ReportError(common.NoLocation, err.Error())
-		return nil, NewIssuesWithSourceInfo(errs, ast.impl.SourceInfo())
+		return nil, NewIssuesWithSourceInfo(errs, ast.NativeRep().SourceInfo())
 	}
 
-	checked, errs := checker.Check(ast.impl, ast.Source(), chk)
+	checked, errs := checker.Check(ast.NativeRep(), ast.Source(), chk)
 	if len(errs.GetErrors()) > 0 {
-		return nil, NewIssuesWithSourceInfo(errs, ast.impl.SourceInfo())
+		return nil, NewIssuesWithSourceInfo(errs, ast.NativeRep().SourceInfo())
 	}
 	// Manually create the Ast to ensure that the Ast source information (which may be more
 	// detailed than the information provided by Check), is returned to the caller.
@@ -244,7 +244,7 @@ func (e *Env) Check(ast *Ast) (*Ast, *Issues) {
 		}
 	}
 	// Apply additional validators on the type-checked result.
-	iss := NewIssuesWithSourceInfo(errs, ast.impl.SourceInfo())
+	iss := NewIssuesWithSourceInfo(errs, ast.NativeRep().SourceInfo())
 	for _, v := range e.validators {
 		v.Validate(e, vConfig, checked, iss)
 	}

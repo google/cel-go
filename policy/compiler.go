@@ -68,6 +68,7 @@ func (r *CompiledRule) OutputType() *cel.Type {
 // HasOptionalOutput returns whether the rule returns a concrete or optional value.
 // The rule may return an optional value if all match expressions under the rule are conditional.
 func (r *CompiledRule) HasOptionalOutput() bool {
+	optionalOutput := false
 	for _, m := range r.Matches() {
 		if m.NestedRule() != nil && m.NestedRule().HasOptionalOutput() {
 			return true
@@ -75,8 +76,9 @@ func (r *CompiledRule) HasOptionalOutput() bool {
 		if m.ConditionIsLiteral(types.True) {
 			return false
 		}
+		optionalOutput = true
 	}
-	return true
+	return optionalOutput
 }
 
 // CompiledVariable represents the variable name, expression, and associated type-check declaration.
@@ -116,6 +118,7 @@ type CompiledMatch struct {
 	nestedRule *CompiledRule
 }
 
+// SourceID returns the source identifier associated with the compiled match.
 func (m *CompiledMatch) SourceID() int64 {
 	return m.exprID
 }

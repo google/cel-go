@@ -43,6 +43,49 @@ func TestCompileError(t *testing.T) {
 	}
 }
 
+func TestCompiledRuleHasOptionalOutput(t *testing.T) {
+	env, err := cel.NewEnv()
+	if err != nil {
+		t.Fatalf("cel.NewEnv() failed: %v", err)
+	}
+	tests := []struct {
+		rule     *CompiledRule
+		optional bool
+	}{
+		{rule: &CompiledRule{}, optional: false},
+		{
+			rule: &CompiledRule{
+				matches: []*CompiledMatch{{}},
+			},
+			optional: true,
+		},
+		{
+			rule: &CompiledRule{
+				matches: []*CompiledMatch{{}},
+			},
+			optional: true,
+		},
+		{
+			rule: &CompiledRule{
+				matches: []*CompiledMatch{{cond: mustCompileExpr(t, env, "true")}},
+			},
+			optional: false,
+		},
+		{
+			rule: &CompiledRule{
+				matches: []*CompiledMatch{{cond: mustCompileExpr(t, env, "1 < 0")}},
+			},
+			optional: true,
+		},
+	}
+	for _, tst := range tests {
+		got := tst.rule.HasOptionalOutput()
+		if got != tst.optional {
+			t.Errorf("rule.HasOptionalOutput() got %v, wanted, %v", got, tst.optional)
+		}
+	}
+}
+
 func BenchmarkCompile(b *testing.B) {
 	for _, tst := range policyTests {
 		r := newRunner(b, tst.name, tst.expr, tst.parseOpts, tst.envOpts...)
@@ -70,7 +113,17 @@ type runner struct {
 	prg          cel.Program
 }
 
+func mustCompileExpr(t testing.TB, env *cel.Env, expr string) *cel.Ast {
+	t.Helper()
+	out, iss := env.Compile(expr)
+	if iss.Err() != nil {
+		t.Fatalf("env.Compile(%s) failed: %v", expr, iss.Err())
+	}
+	return out
+}
+
 func compile(t testing.TB, name string, parseOpts []ParserOption, envOpts []cel.EnvOption, compilerOpts []CompilerOption) (*cel.Env, *cel.Ast, *cel.Issues) {
+	t.Helper()
 	config := readPolicyConfig(t, fmt.Sprintf("testdata/%s/config.yaml", name))
 	srcFile := readPolicy(t, fmt.Sprintf("testdata/%s/policy.yaml", name))
 	parser, err := NewParser(parseOpts...)
