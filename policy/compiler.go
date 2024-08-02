@@ -53,6 +53,16 @@ func (r *CompiledRule) Matches() []*CompiledMatch {
 	return r.matches[:]
 }
 
+// OutputType returns the output type of the first match clause as all match clauses
+// are validated for agreement prior to construction fo the CompiledRule.
+func (r *CompiledRule) OutputType() *cel.Type {
+	// It's a compilation error if the output types of the matches don't agree
+	for _, m := range r.Matches() {
+		return m.OutputType()
+	}
+	return cel.DynType
+}
+
 // CompiledVariable represents the variable name, expression, and associated type-check declaration.
 type CompiledVariable struct {
 	id      int64
@@ -103,6 +113,17 @@ func (m *CompiledMatch) Output() *OutputValue {
 // NestedRule returns the nested rule, if set.
 func (m *CompiledMatch) NestedRule() *CompiledRule {
 	return m.nestedRule
+}
+
+// OutputType returns the cel.Type associated with output expression.
+func (m *CompiledMatch) OutputType() *cel.Type {
+	if m.output != nil {
+		return m.output.Expr().OutputType()
+	}
+	if m.nestedRule != nil {
+		return m.nestedRule.OutputType()
+	}
+	return cel.DynType
 }
 
 // OutputValue represents the output expression associated with a match block.
@@ -263,11 +284,36 @@ func (c *compiler) compileRule(r *Rule, ruleEnv *cel.Env, iss *cel.Issues) (*Com
 			}
 		}
 	}
-	return &CompiledRule{
+
+	rule := &CompiledRule{
 		id:        r.id,
 		variables: compiledVars,
 		matches:   compiledMatches,
-	}, iss
+	}
+	// Validate type agreement between the different match outputs
+	c.checkMatchOutputTypesAgree(rule, iss)
+	return rule, iss
+}
+
+func (c *compiler) checkMatchOutputTypesAgree(rule *CompiledRule, iss *cel.Issues) {
+	var outputType *cel.Type
+	for _, m := range rule.Matches() {
+		if outputType == nil {
+			outputType = m.OutputType()
+			if outputType.TypeName() == "error" {
+				outputType = nil
+				continue
+			}
+		}
+		matchOutputType := m.OutputType()
+		if matchOutputType.TypeName() == "error" {
+			continue
+		}
+		if !outputType.IsAssignableType(matchOutputType) {
+			iss.ReportErrorAtID(m.Output().ID(), "incompatible output types: %s not assignable to %s", outputType, matchOutputType)
+			return
+		}
+	}
 }
 
 func (c *compiler) relSource(pstr ValueString) *RelativeSource {

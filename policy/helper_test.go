@@ -159,7 +159,10 @@ ERROR: testdata/errors/policy.yaml:31:75: Syntax error: extraneous input ']' exp
  | ..........................................................................^
 ERROR: testdata/errors/policy.yaml:34:67: undeclared reference to 'format' (in container '')
  |         "invalid values provided on one or more labels: %s".format([variables.invalid])
- | ..................................................................^`,
+ | ..................................................................^
+ERROR: testdata/errors/policy.yaml:38:16: incompatible output types: bool not assignable to string
+ |       output: "'false'"
+ | ...............^`,
 		},
 		{
 			name: "limits",
