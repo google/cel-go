@@ -35,6 +35,30 @@ import (
 //
 //	[1,2,3,4].slice(1, 3) // return [2, 3]
 //	[1,2,3,4].slice(2, 4) // return [3 ,4]
+//
+// # Flatten
+//
+// Flattens the given list to a single level.
+//
+//	<list>.flatten(<list>) -> <list>
+//
+// Examples:
+//
+// [1,[2,3],[4]].flatten() // return [1, 2, 3, 4]
+// [1,[2,[3,4]]].flatten() // return [1, 2, [3, 4]]
+// [1,2,[],[],[3,4]].flatten() // return [1, 2, 3, 4]
+//
+// # FlattenDeep
+//
+// Flattens the given list to the deepest level.
+//
+//	<list>.flattenDeep(<list>) -> <list>
+//
+// Examples:
+//
+// [1,[2,3],[4]].flattenDeep() // return [1, 2, 3, 4]
+// [1,[2,[3,4]]].flattenDeep() // return [1, 2, 3, 4]
+// [1,[2,[3,[4]]]].flattenDeep() // return [1, 2, 3, 4]
 func Lists() cel.EnvOption {
 	return cel.Lib(listsLib{})
 }
@@ -49,6 +73,7 @@ func (listsLib) LibraryName() string {
 // CompileOptions implements the Library interface method.
 func (listsLib) CompileOptions() []cel.EnvOption {
 	listType := cel.ListType(cel.TypeParamType("T"))
+	listDyn := cel.ListType(cel.DynType)
 	return []cel.EnvOption{
 		cel.Function("slice",
 			cel.MemberOverload("list_slice",
@@ -62,6 +87,26 @@ func (listsLib) CompileOptions() []cel.EnvOption {
 						return types.WrapErr(err)
 					}
 					return result
+				}),
+			),
+		),
+		cel.Function("flatten",
+			cel.MemberOverload("list_flatten",
+				[]*cel.Type{listDyn}, listDyn,
+				cel.UnaryBinding(func(arg ref.Val) ref.Val {
+					list := arg.(traits.Lister)
+					flatList := flattenHelper(list, false)
+					return types.DefaultTypeAdapter.NativeToValue(flatList)
+				}),
+			),
+		),
+		cel.Function("flattenDeep",
+			cel.MemberOverload("list_flatten_deep",
+				[]*cel.Type{listDyn}, listDyn,
+				cel.UnaryBinding(func(arg ref.Val) ref.Val {
+					list := arg.(traits.Lister)
+					flatList := flattenHelper(list, true)
+					return types.DefaultTypeAdapter.NativeToValue(flatList)
 				}),
 			),
 		),
@@ -91,4 +136,28 @@ func slice(list traits.Lister, start, end types.Int) (ref.Val, error) {
 		newList = append(newList, val)
 	}
 	return types.DefaultTypeAdapter.NativeToValue(newList), nil
+}
+
+func flattenHelper(list traits.Lister, deep bool) []ref.Val {
+	iter := list.Iterator()
+	var newList []ref.Val
+
+	for iter.HasNext() == types.True {
+		val := iter.Next()
+
+		if nestedList, ok := val.(traits.Lister); ok {
+			if deep {
+				newList = append(newList, flattenHelper(nestedList, true)...)
+			} else {
+				nestedIter := nestedList.Iterator()
+				for nestedIter.HasNext() == types.True {
+					newList = append(newList, nestedIter.Next())
+				}
+			}
+		} else {
+			newList = append(newList, val)
+		}
+	}
+
+	return newList
 }
