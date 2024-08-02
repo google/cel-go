@@ -13,7 +13,7 @@
 # limitations under the License.
 
 name: "pb"
-container: "google.expr.proto3.test"
+container: "google.expr.proto3"
 extensions:
   - name: "strings"
     version: 2

@@ -13,8 +13,21 @@
 # limitations under the License.
 
 name: "pb"
+
+imports:
+   - name: google.expr.proto3.test.TestAllTypes
+   - name: google.expr.proto3.test.TestAllTypes.NestedEnum
+   - name: |
+      google.expr.proto3.test.ImportedGlobalEnum
+
 rule:
   match:
-    - condition: spec.single_int32 > 10
+    - condition: >
+        spec.single_int32 > TestAllTypes{single_int64: 10}.single_int64
       output: |
         "invalid spec, got single_int32=%d, wanted <= 10".format([spec.single_int32])
+    - condition: >
+        spec.standalone_enum == NestedEnum.BAR ||
+        ImportedGlobalEnum.IMPORT_BAR in spec.imported_enums
+      output: |
+        "invalid spec, neither nested nor imported enums may refer to BAR or IMPORT_BAR"
