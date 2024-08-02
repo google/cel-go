@@ -37,6 +37,7 @@ go_library(
         "//common/decls:go_default_library",
         "//common/operators:go_default_library",
         "//common/types:go_default_library",
+        "//common/types/ref:go_default_library",
         "//ext:go_default_library",
         "@in_gopkg_yaml_v3//:go_default_library",
     ],

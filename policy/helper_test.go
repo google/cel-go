@@ -33,6 +33,7 @@ var (
 		envOpts   []cel.EnvOption
 		parseOpts []ParserOption
 		expr      string
+		expr2     string
 	}{
 		{
 			name: "k8s",
@@ -58,6 +59,31 @@ var (
 		? optional.of({"banned": true}) : optional.none()).or(
 			optional.of((resource.origin in variables.permitted_regions)
 			? {"banned": false} : {"banned": true})))`,
+		},
+		{
+			name: "nested_rule2",
+			expr: `
+	cel.bind(variables.permitted_regions, ["us", "uk", "es"], 
+	  resource.?user.orValue("").startsWith("bad") 
+	  ? cel.bind(variables.banned_regions, {"us": false, "ru": false, "ir": false}, 
+	    (resource.origin in variables.banned_regions &&
+        !(resource.origin in variables.permitted_regions)) 
+		? {"banned": "restricted_region"} : {"banned": "bad_actor"}) 
+	  : (!(resource.origin in variables.permitted_regions) 
+	    ? {"banned": "unconfigured_region"} : {}))`,
+		},
+		{
+			name: "nested_rule3",
+			expr: `
+	cel.bind(variables.permitted_regions, ["us", "uk", "es"], 
+	  resource.?user.orValue("").startsWith("bad") 
+	  ? optional.of(
+	      cel.bind(variables.banned_regions, {"us": false, "ru": false, "ir": false},
+		  (resource.origin in variables.banned_regions &&
+          !(resource.origin in variables.permitted_regions)) 
+		  ? {"banned": "restricted_region"} : {"banned": "bad_actor"})) 
+	  : (!(resource.origin in variables.permitted_regions) 
+	    ? optional.of({"banned": "unconfigured_region"}) : optional.none()))`,
 		},
 		{
 			name: "pb",
@@ -171,13 +197,21 @@ ERROR: testdata/errors/policy.yaml:38:16: incompatible output types: bool not as
  | .............^`,
 			compilerOpts: []CompilerOption{MaxNestedExpressions(2)},
 		},
-
 		{
 			name: "limits",
-			err: `ERROR: testdata/limits/policy.yaml:30:14: rule exceeds nested expression limit
+			err: `ERROR: testdata/limits/policy.yaml:30:9: rule exceeds nested expression limit
  |         id: "farewells"
- | .............^`,
+ | ........^`,
 			compilerOpts: []CompilerOption{MaxNestedExpressions(5)},
+		},
+		{
+			name: "errors_unreachable",
+			err: `ERROR: testdata/errors_unreachable/policy.yaml:28:9: rule creates unreachable outputs
+ |         match:
+ | ........^
+ERROR: testdata/errors_unreachable/policy.yaml:36:13: match creates unreachable outputs
+ |           - output: |
+ | ............^`,
 		},
 	}
 )

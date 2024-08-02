@@ -24,10 +24,12 @@ import (
 	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
 )
 
 // CompiledRule represents the variables and match blocks associated with a rule block.
 type CompiledRule struct {
+	exprID    int64
 	id        *ValueString
 	variables []*CompiledVariable
 	matches   []*CompiledMatch
@@ -35,7 +37,7 @@ type CompiledRule struct {
 
 // SourceID returns the source metadata identifier associated with the compiled rule.
 func (r *CompiledRule) SourceID() int64 {
-	return r.ID().ID
+	return r.exprID
 }
 
 // ID returns the expression id associated with the rule.
@@ -63,9 +65,25 @@ func (r *CompiledRule) OutputType() *cel.Type {
 	return cel.DynType
 }
 
+// HasOptionalOutput returns whether the rule returns a concrete or optional value.
+// The rule may return an optional value if all match expressions under the rule are conditional.
+func (r *CompiledRule) HasOptionalOutput() bool {
+	optionalOutput := false
+	for _, m := range r.Matches() {
+		if m.NestedRule() != nil && m.NestedRule().HasOptionalOutput() {
+			return true
+		}
+		if m.ConditionIsLiteral(types.True) {
+			return false
+		}
+		optionalOutput = true
+	}
+	return optionalOutput
+}
+
 // CompiledVariable represents the variable name, expression, and associated type-check declaration.
 type CompiledVariable struct {
-	id      int64
+	exprID  int64
 	name    string
 	expr    *cel.Ast
 	varDecl *decls.VariableDecl
@@ -73,7 +91,7 @@ type CompiledVariable struct {
 
 // SourceID returns the source metadata identifier associated with the variable.
 func (v *CompiledVariable) SourceID() int64 {
-	return v.id
+	return v.exprID
 }
 
 // Name returns the variable name.
@@ -94,15 +112,27 @@ func (v *CompiledVariable) Declaration() *decls.VariableDecl {
 // CompiledMatch represents a match block which has an optional condition (true, by default) as well
 // as an output or a nested rule (one or the other, but not both).
 type CompiledMatch struct {
+	exprID     int64
 	cond       *cel.Ast
 	output     *OutputValue
 	nestedRule *CompiledRule
+}
+
+// SourceID returns the source identifier associated with the compiled match.
+func (m *CompiledMatch) SourceID() int64 {
+	return m.exprID
 }
 
 // Condition returns the compiled predicate expression which must evaluate to true before the output
 // or subrule is entered.
 func (m *CompiledMatch) Condition() *cel.Ast {
 	return m.cond
+}
+
+// ConditionIsLiteral indicates whether the condition for the match is a literal with a given value.
+func (m *CompiledMatch) ConditionIsLiteral(val ref.Val) bool {
+	c := m.cond.NativeRep().Expr()
+	return c.Kind() == ast.LiteralKind && c.AsLiteral().Equal(val) == types.True
 }
 
 // Output returns the compiled output expression associated with the match block, if set.
@@ -128,13 +158,13 @@ func (m *CompiledMatch) OutputType() *cel.Type {
 
 // OutputValue represents the output expression associated with a match block.
 type OutputValue struct {
-	id   int64
-	expr *cel.Ast
+	exprID int64
+	expr   *cel.Ast
 }
 
-// ID returns the expression id associated with the output expression.
-func (o *OutputValue) ID() int64 {
-	return o.id
+// SourceID returns the expression id associated with the output expression.
+func (o *OutputValue) SourceID() int64 {
+	return o.exprID
 }
 
 // Expr returns the compiled expression associated with the output.
@@ -229,7 +259,7 @@ func (c *compiler) compileRule(r *Rule, ruleEnv *cel.Env, iss *cel.Issues) (*Com
 			iss.ReportErrorAtID(v.Expression().ID, "invalid variable declaration")
 		}
 		compiledVar := &CompiledVariable{
-			id:      v.name.ID,
+			exprID:  v.name.ID,
 			name:    v.name.Value,
 			expr:    varAST,
 			varDecl: varDecl,
@@ -261,10 +291,11 @@ func (c *compiler) compileRule(r *Rule, ruleEnv *cel.Env, iss *cel.Issues) (*Com
 			outAST, outIss := ruleEnv.CompileSource(outSrc)
 			iss = iss.Append(outIss)
 			compiledMatches = append(compiledMatches, &CompiledMatch{
-				cond: condAST,
+				exprID: m.exprID,
+				cond:   condAST,
 				output: &OutputValue{
-					id:   m.Output().ID,
-					expr: outAST,
+					exprID: m.Output().ID,
+					expr:   outAST,
 				},
 			})
 			continue
@@ -273,6 +304,7 @@ func (c *compiler) compileRule(r *Rule, ruleEnv *cel.Env, iss *cel.Issues) (*Com
 			nestedRule, ruleIss := c.compileRule(m.Rule(), ruleEnv, iss)
 			iss = iss.Append(ruleIss)
 			compiledMatches = append(compiledMatches, &CompiledMatch{
+				exprID:     m.exprID,
 				cond:       condAST,
 				nestedRule: nestedRule,
 			})
@@ -285,13 +317,20 @@ func (c *compiler) compileRule(r *Rule, ruleEnv *cel.Env, iss *cel.Issues) (*Com
 		}
 	}
 
+	// Validate that all branches in the rule are reachable
 	rule := &CompiledRule{
+		exprID:    r.exprID,
 		id:        r.id,
 		variables: compiledVars,
 		matches:   compiledMatches,
 	}
+
+	// Note: Consider supporting configurable policy validators that take the policy, rule, and issues
 	// Validate type agreement between the different match outputs
 	c.checkMatchOutputTypesAgree(rule, iss)
+	// Validate that all branches in the policy are reachable
+	c.checkUnreachableCode(rule, iss)
+
 	return rule, iss
 }
 
@@ -309,9 +348,31 @@ func (c *compiler) checkMatchOutputTypesAgree(rule *CompiledRule, iss *cel.Issue
 		if matchOutputType.TypeName() == "error" {
 			continue
 		}
-		if !outputType.IsAssignableType(matchOutputType) {
-			iss.ReportErrorAtID(m.Output().ID(), "incompatible output types: %s not assignable to %s", outputType, matchOutputType)
+		// Handle assignability as the output type is assignable to the match output or vice versa.
+		// During composition, this is roughly how the type-checker will handle the type agreement check.
+		if !(outputType.IsAssignableType(matchOutputType) || matchOutputType.IsAssignableType(outputType)) {
+			iss.ReportErrorAtID(m.Output().SourceID(), "incompatible output types: %s not assignable to %s", outputType, matchOutputType)
 			return
+		}
+	}
+}
+
+func (c *compiler) checkUnreachableCode(rule *CompiledRule, iss *cel.Issues) {
+	ruleHasOptional := rule.HasOptionalOutput()
+	compiledMatches := rule.Matches()
+	matchCount := len(compiledMatches)
+	for i := matchCount - 1; i >= 0; i-- {
+		m := compiledMatches[i]
+		triviallyTrue := m.ConditionIsLiteral(types.True)
+
+		if triviallyTrue && !ruleHasOptional && i != matchCount-1 {
+			if m.Output() != nil {
+				iss.ReportErrorAtID(m.SourceID(), "match creates unreachable outputs")
+			}
+			if m.NestedRule() != nil {
+				iss.ReportErrorAtID(m.NestedRule().SourceID(), "rule creates unreachable outputs")
+			}
+			break
 		}
 	}
 }
