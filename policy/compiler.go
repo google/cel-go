@@ -115,11 +115,15 @@ func (m *CompiledMatch) NestedRule() *CompiledRule {
 	return m.nestedRule
 }
 
+// OutputType returns the cel.Type associated with output expression.
 func (m *CompiledMatch) OutputType() *cel.Type {
 	if m.output != nil {
 		return m.output.Expr().OutputType()
 	}
-	return m.nestedRule.OutputType()
+	if m.nestedRule != nil {
+		return m.nestedRule.OutputType()
+	}
+	return cel.DynType
 }
 
 // OutputValue represents the output expression associated with a match block.
