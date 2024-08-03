@@ -16,6 +16,7 @@ package interpreter
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/google/cel-go/common/functions"
 	"github.com/google/cel-go/common/operators"
@@ -720,18 +721,21 @@ func (o *evalObj) Eval(ctx Activation) ref.Val {
 	return types.LabelErrNode(o.id, o.provider.NewValue(o.typeName, fieldVals))
 }
 
+// InitVals implements the InterpretableConstructor interface method.
 func (o *evalObj) InitVals() []Interpretable {
 	return o.vals
 }
 
+// Type implements the InterpretableConstructor interface method.
 func (o *evalObj) Type() ref.Type {
-	return types.NewObjectTypeValue(o.typeName)
+	return types.NewObjectType(o.typeName)
 }
 
 type evalFold struct {
 	id            int64
 	accuVar       string
 	iterVar       string
+	iterVar2      string
 	iterRange     Interpretable
 	accu          Interpretable
 	cond          Interpretable
@@ -750,6 +754,21 @@ func (fold *evalFold) ID() int64 {
 // Eval implements the Interpretable interface method.
 func (fold *evalFold) Eval(ctx Activation) ref.Val {
 	foldRange := fold.iterRange.Eval(ctx)
+
+	// If the incoming type can be folded using the new traits.Foldable interface, then do so.
+	if foldable, ok := foldRange.(traits.Foldable); ok {
+		f := newFolder(fold, ctx)
+		defer releaseFolder(f)
+		foldable.Fold(f)
+		return f.evalResult()
+	}
+
+	// Validate that the comprehension was not intended for folding if the type is not foldable.
+	if fold.iterVar2 != "" {
+		return types.NewErr("comprehensions v2 ranges must implememnt traits.Foldable: %T", foldRange)
+	}
+
+	// Otherwise, default to a comprehension over the iterable type.
 	if !foldRange.Type().HasTrait(traits.IterableType) {
 		return types.ValOrErr(foldRange, "got '%T', expected iterable type", foldRange)
 	}
@@ -758,6 +777,7 @@ func (fold *evalFold) Eval(ctx Activation) ref.Val {
 	accuCtx.parent = ctx
 	accuCtx.name = fold.accuVar
 	accuCtx.val = fold.accu.Eval(ctx)
+
 	// If the accumulator starts as an empty list, then the comprehension will build a list
 	// so create a mutable list to optimize the cost of the inner loop.
 	l, ok := accuCtx.val.(traits.Lister)
@@ -1262,3 +1282,143 @@ func invalidOptionalEntryInit(field any, value ref.Val) ref.Val {
 func invalidOptionalElementInit(value ref.Val) ref.Val {
 	return types.NewErr("cannot initialize optional list element from non-optional value %v", value)
 }
+
+// newFolder creates or initializes a pooled folder instance.
+func newFolder(eval *evalFold, ctx Activation) *folder {
+	f := folderPool.Get().(*folder)
+	f.evalFold = eval
+	f.Activation = ctx
+	return f
+}
+
+// releaseFolder resets and releases a pooled folder instance.
+func releaseFolder(f *folder) {
+	f.reset()
+	folderPool.Put(f)
+}
+
+// folder tracks the state associated with folding a list or map with a comprehension v2 style macro.
+//
+// The folder embeds an interpreter.Activation and Interpretable evalFold value as well as implements
+// the traits.Folder interface methods.
+//
+// Instances of a folder are intended to be pooled to minimize allocation overhead with this temporary
+// bookkeeping object which supports lazy evaluation of the accumulator init expression which is useful
+// in preserving evaluation order semantics which might otherwise be disrupted through the use of
+// cel.bind or cel.@block.
+type folder struct {
+	*evalFold
+	Activation
+
+	// fold state objects.
+	accuVal     ref.Val
+	iterVar1Val any
+	iterVar2Val any
+
+	// bookkeeping flags to modify Activation and fold behaviors.
+	initialized   bool
+	buildingList  bool
+	interrupted   bool
+	computeResult bool
+}
+
+// FoldEntry will either fold comprehension v1 style macros if iterVar2 is unset, or comprehension v2 style
+// macros if both the iterVar and iterVar2 are set to non-empty strings.
+func (f *folder) FoldEntry(t ref.Type, key, val any) bool {
+	// Default to referencing both values.
+	f.iterVar1Val = key
+	f.iterVar2Val = val
+	// If the fold is a comprehension v1 style use the list value as the first iteration variable.
+	if f.iterVar2 == "" && t.TypeName() == "list" {
+		f.iterVar1Val = val
+		f.iterVar2Val = nil
+	}
+
+	// Terminate evaluation if evaluation is interrupted or the condition is not true and exhaustive
+	// eval is not enabled.
+	cond := f.cond.Eval(f)
+	condBool, ok := cond.(types.Bool)
+	if f.interrupted || (!f.exhaustive && ok && condBool != types.True) {
+		return false
+	}
+
+	// Update the accumulation value and check for eval interuption.
+	f.accuVal = f.step.Eval(f)
+	f.initialized = true
+	if f.interruptable {
+		if stop, found := f.Activation.ResolveName("#interrupted"); found && stop == true {
+			f.interrupted = true
+			return false
+		}
+	}
+	return true
+}
+
+// ResolveName overrides the default Activation lookup to perform lazy initialization of the accumulator
+// and specialized lookups of iteration values with consideration for whether the final result is being
+// computed and the iteration variables should be ignored.
+func (f *folder) ResolveName(name string) (any, bool) {
+	if name == f.accuVar {
+		if !f.initialized {
+			f.initialized = true
+			initVal := f.accu.Eval(f.Activation)
+			l, isList := initVal.(traits.Lister)
+			if !f.exhaustive && isList && l.Size() == types.IntZero {
+				initVal = types.NewMutableList(f.adapter)
+				f.buildingList = true
+			}
+			f.accuVal = initVal
+		}
+		return f.accuVal, true
+	}
+	if !f.computeResult {
+		if name == f.iterVar {
+			f.iterVar1Val = f.adapter.NativeToValue(f.iterVar1Val)
+			return f.iterVar1Val, true
+		}
+		if name == f.iterVar2 {
+			f.iterVar2Val = f.adapter.NativeToValue(f.iterVar2Val)
+			return f.iterVar2Val, true
+		}
+	}
+	return f.Activation.ResolveName(name)
+}
+
+// evalResult computes the final result of the fold after all entries have been folded and accumulated.
+func (f *folder) evalResult() ref.Val {
+	f.computeResult = true
+	if f.interrupted {
+		return types.NewErr("operation interrupted")
+	}
+	res := f.result.Eval(f)
+	// Convert a mutable list to an immutable one, if the comprehension has generated a list as a result.
+	if !types.IsUnknownOrError(res) && f.buildingList {
+		if _, ok := res.(traits.MutableLister); ok {
+			res = res.(traits.MutableLister).ToImmutableList()
+		}
+	}
+	return res
+}
+
+// reset clears any state associated with folder evaluation.
+func (f *folder) reset() {
+	f.evalFold = nil
+	f.Activation = nil
+	f.accuVal = nil
+	f.iterVar1Val = nil
+	f.iterVar2Val = nil
+
+	f.initialized = false
+	f.buildingList = false
+	f.interrupted = false
+	f.computeResult = false
+}
+
+var (
+	// pool of var folders to reduce allocations during folds.
+	folderPool = &sync.Pool{
+		New: func() any {
+			return &folder{}
+		},
+	}
+)

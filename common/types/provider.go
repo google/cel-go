@@ -427,6 +427,8 @@ func nativeToValue(a Adapter, value any) (ref.Val, bool) {
 	switch v := value.(type) {
 	case nil:
 		return NullValue, true
+	case ref.Val:
+		return v, true
 	case *Bool:
 		if v != nil {
 			return *v, true
@@ -549,8 +551,6 @@ func nativeToValue(a Adapter, value any) (ref.Val, bool) {
 		return NewJSONList(a, v), true
 	case *structpb.Struct:
 		return NewJSONStruct(a, v), true
-	case ref.Val:
-		return v, true
 	case protoreflect.EnumNumber:
 		return Int(v), true
 	case proto.Message:

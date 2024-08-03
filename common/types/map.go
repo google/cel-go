@@ -105,6 +105,9 @@ type mapAccessor interface {
 
 	// Iterator returns an Iterator over the map key set.
 	Iterator() traits.Iterator
+
+	// Fold calls the FoldEntry method for each (key, value) pair in the map.
+	Fold(traits.Folder)
 }
 
 // baseMap is a reflection based map implementation designed to handle a variety of map-like types.
@@ -350,6 +353,15 @@ func (a *jsonStructAccessor) Iterator() traits.Iterator {
 	}
 }
 
+// Fold calls the FoldEntry method for each (key, value) pair in the map.
+func (a *jsonStructAccessor) Fold(f traits.Folder) {
+	for k, v := range a.st {
+		if !f.FoldEntry(MapType, k, v) {
+			break
+		}
+	}
+}
+
 func newReflectMapAccessor(adapter Adapter, value reflect.Value) mapAccessor {
 	keyType := value.Type().Key()
 	return &reflectMapAccessor{
@@ -424,6 +436,16 @@ func (m *reflectMapAccessor) Iterator() traits.Iterator {
 	}
 }
 
+// Fold calls the FoldEntry method for each (key, value) pair in the map.
+func (m *reflectMapAccessor) Fold(f traits.Folder) {
+	mapRange := m.refValue.MapRange()
+	for mapRange.Next() {
+		if !f.FoldEntry(MapType, mapRange.Key(), mapRange.Next()) {
+			break
+		}
+	}
+}
+
 func newRefValMapAccessor(mapVal map[ref.Val]ref.Val) mapAccessor {
 	return &refValMapAccessor{mapVal: mapVal}
 }
@@ -477,6 +499,15 @@ func (a *refValMapAccessor) Iterator() traits.Iterator {
 	}
 }
 
+// Fold calls the FoldEntry method for each (key, value) pair in the map.
+func (a *refValMapAccessor) Fold(f traits.Folder) {
+	for k, v := range a.mapVal {
+		if !f.FoldEntry(MapType, k, v) {
+			break
+		}
+	}
+}
+
 func newStringMapAccessor(strMap map[string]string) mapAccessor {
 	return &stringMapAccessor{mapVal: strMap}
 }
@@ -512,6 +543,15 @@ func (a *stringMapAccessor) Iterator() traits.Iterator {
 	return &stringKeyIterator{
 		mapKeys: mapKeys,
 		len:     len(mapKeys),
+	}
+}
+
+// Fold calls the FoldEntry method for each (key, value) pair in the map.
+func (a *stringMapAccessor) Fold(f traits.Folder) {
+	for k, v := range a.mapVal {
+		if !f.FoldEntry(MapType, k, v) {
+			break
+		}
 	}
 }
 
@@ -554,6 +594,15 @@ func (a *stringIfaceMapAccessor) Iterator() traits.Iterator {
 	return &stringKeyIterator{
 		mapKeys: mapKeys,
 		len:     len(mapKeys),
+	}
+}
+
+// Fold calls the FoldEntry method for each (key, value) pair in the map.
+func (a *stringIfaceMapAccessor) Fold(f traits.Folder) {
+	for k, v := range a.mapVal {
+		if !f.FoldEntry(MapType, k, v) {
+			break
+		}
 	}
 }
 
@@ -767,6 +816,13 @@ func (m *protoMap) Iterator() traits.Iterator {
 		mapKeys: mapKeys,
 		len:     m.value.Len(),
 	}
+}
+
+// Fold calls the FoldEntry method for each (key, value) pair in the map.
+func (m *protoMap) Fold(f traits.Folder) {
+	m.value.Range(func(k protoreflect.MapKey, v protoreflect.Value) bool {
+		return f.FoldEntry(MapType, k.Interface(), v.Interface())
+	})
 }
 
 // Size returns the number of entries in the protoreflect.Map.
