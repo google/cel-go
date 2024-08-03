@@ -60,12 +60,11 @@ func decObserveEval(observer EvalObserver) InterpretableDecorator {
 // where the interrupt state is communicated via a hidden variable on the Activation.
 func decInterruptFolds() InterpretableDecorator {
 	return func(i Interpretable) (Interpretable, error) {
-		fold, ok := i.(*evalFold)
-		if !ok {
-			return i, nil
+		if fold, ok := i.(*evalFold); ok {
+			fold.interruptable = true
+			return fold, nil
 		}
-		fold.interruptable = true
-		return fold, nil
+		return i, nil
 	}
 }
 
