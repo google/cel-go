@@ -275,16 +275,34 @@ func UnaryBinding(binding functions.UnaryOp) OverloadOpt {
 	return decls.UnaryBinding(binding)
 }
 
+// UnaryBindingContext provides the implementation of a unary overload. The provided function is protected by a runtime
+// type-guard which ensures runtime type agreement between the overload signature and runtime argument types.
+func UnaryBindingContext(binding functions.UnaryOpContext) OverloadOpt {
+	return decls.UnaryBindingContext(binding)
+}
+
 // BinaryBinding provides the implementation of a binary overload. The provided function is protected by a runtime
 // type-guard which ensures runtime type agreement between the overload signature and runtime argument types.
 func BinaryBinding(binding functions.BinaryOp) OverloadOpt {
 	return decls.BinaryBinding(binding)
 }
 
+// BinaryBindingContext provides the implementation of a binary overload. The provided function is protected by a runtime
+// type-guard which ensures runtime type agreement between the overload signature and runtime argument types.
+func BinaryBindingContext(binding functions.BinaryOpContext) OverloadOpt {
+	return decls.BinaryBindingContext(binding)
+}
+
 // FunctionBinding provides the implementation of a variadic overload. The provided function is protected by a runtime
 // type-guard which ensures runtime type agreement between the overload signature and runtime argument types.
 func FunctionBinding(binding functions.FunctionOp) OverloadOpt {
 	return decls.FunctionBinding(binding)
+}
+
+// FunctionBindingContext provides the implementation of a variadic overload. The provided function is protected by a runtime
+// type-guard which ensures runtime type agreement between the overload signature and runtime argument types.
+func FunctionBindingContext(binding functions.FunctionOpContext) OverloadOpt {
+	return decls.FunctionBindingContext(binding)
 }
 
 // OverloadIsNonStrict enables the function to be called with error and unknown argument values.
