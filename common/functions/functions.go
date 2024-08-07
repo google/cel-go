@@ -15,7 +15,11 @@
 // Package functions defines the standard builtin functions supported by the interpreter
 package functions
 
-import "github.com/google/cel-go/common/types/ref"
+import (
+	"context"
+
+	"github.com/google/cel-go/common/types/ref"
+)
 
 // Overload defines a named overload of a function, indicating an operand trait
 // which must be present on the first argument to the overload as well as one
@@ -36,14 +40,14 @@ type Overload struct {
 	OperandTrait int
 
 	// Unary defines the overload with a UnaryOp implementation. May be nil.
-	Unary UnaryOp
+	Unary UnaryContextOp
 
 	// Binary defines the overload with a BinaryOp implementation. May be nil.
-	Binary BinaryOp
+	Binary BinaryContextOp
 
 	// Function defines the overload with a FunctionOp implementation. May be
 	// nil.
-	Function FunctionOp
+	Function FunctionContextOp
 
 	// NonStrict specifies whether the Overload will tolerate arguments that
 	// are types.Err or types.Unknown.
@@ -51,7 +55,7 @@ type Overload struct {
 }
 
 // UnaryOp is a function that takes a single value and produces an output.
-type UnaryOp func(value ref.Val) ref.Val
+type UnaryOp func(ref.Val) ref.Val
 
 // BinaryOp is a function that takes two values and produces an output.
 type BinaryOp func(lhs ref.Val, rhs ref.Val) ref.Val
@@ -59,3 +63,13 @@ type BinaryOp func(lhs ref.Val, rhs ref.Val) ref.Val
 // FunctionOp is a function with accepts zero or more arguments and produces
 // a value or error as a result.
 type FunctionOp func(values ...ref.Val) ref.Val
+
+// UnaryContextOp is a contextual function that takes a single value and produces an output.
+type UnaryContextOp func(context.Context, ref.Val) ref.Val
+
+// BinaryContextOp is a contextual function that takes two values and produces an output.
+type BinaryContextOp func(ctx context.Context, lhs ref.Val, rhs ref.Val) ref.Val
+
+// FunctionContextOp is a contextual function with accepts zero or more arguments and produces
+// a value or error as a result.
+type FunctionContextOp func(ctx context.Context, values ...ref.Val) ref.Val

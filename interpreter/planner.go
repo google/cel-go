@@ -15,6 +15,7 @@
 package interpreter
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -201,7 +202,7 @@ func (p *planner) planSelect(expr ast.Expr) (Interpretable, error) {
 		}
 	}
 	// Append the qualifier on the attribute.
-	_, err = attr.AddQualifier(qual)
+	_, err = attr.AddQualifier(context.TODO(), qual)
 	return attr, err
 }
 
@@ -306,7 +307,7 @@ func (p *planner) planCallUnary(expr ast.Expr,
 	overload string,
 	impl *functions.Overload,
 	args []Interpretable) (Interpretable, error) {
-	var fn functions.UnaryOp
+	var fn functions.UnaryContextOp
 	var trait int
 	var nonStrict bool
 	if impl != nil {
@@ -334,7 +335,7 @@ func (p *planner) planCallBinary(expr ast.Expr,
 	overload string,
 	impl *functions.Overload,
 	args []Interpretable) (Interpretable, error) {
-	var fn functions.BinaryOp
+	var fn functions.BinaryContextOp
 	var trait int
 	var nonStrict bool
 	if impl != nil {
@@ -363,7 +364,7 @@ func (p *planner) planCallVarArgs(expr ast.Expr,
 	overload string,
 	impl *functions.Overload,
 	args []Interpretable) (Interpretable, error) {
-	var fn functions.FunctionOp
+	var fn functions.FunctionContextOp
 	var trait int
 	var nonStrict bool
 	if impl != nil {
@@ -478,7 +479,7 @@ func (p *planner) planCallIndex(expr ast.Expr, args []Interpretable, optional bo
 	}
 
 	// Add the qualifier to the attribute
-	_, err = attr.AddQualifier(qual)
+	_, err = attr.AddQualifier(context.TODO(), qual)
 	return attr, err
 }
 

@@ -15,6 +15,7 @@
 package interpreter
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/google/cel-go/common/containers"
@@ -238,6 +239,7 @@ func (fac *partialAttributeFactory) MaybeAttribute(id int64, name string) Attrib
 // example, the expression id representing variable `a` would be listed in the Unknown result,
 // whereas in the other pattern examples, the qualifier `b` would be returned as the Unknown.
 func (fac *partialAttributeFactory) matchesUnknownPatterns(
+	ctx context.Context,
 	vars PartialActivation,
 	attrID int64,
 	variableNames []string,
@@ -265,7 +267,7 @@ func (fac *partialAttributeFactory) matchesUnknownPatterns(
 	for i, qual := range qualifiers {
 		attr, isAttr := qual.(Attribute)
 		if isAttr {
-			val, err := attr.Resolve(vars)
+			val, err := attr.Resolve(ctx, vars)
 			if err != nil {
 				return nil, err
 			}
@@ -336,11 +338,11 @@ type attributeMatcher struct {
 }
 
 // AddQualifier implements the Attribute interface method.
-func (m *attributeMatcher) AddQualifier(qual Qualifier) (Attribute, error) {
+func (m *attributeMatcher) AddQualifier(ctx context.Context, qual Qualifier) (Attribute, error) {
 	// Add the qualifier to the embedded NamespacedAttribute. If the input to the Resolve
 	// method is not a PartialActivation, or does not match an unknown attribute pattern, the
 	// Resolve method is directly invoked on the underlying NamespacedAttribute.
-	_, err := m.NamespacedAttribute.AddQualifier(qual)
+	_, err := m.NamespacedAttribute.AddQualifier(ctx, qual)
 	if err != nil {
 		return nil, err
 	}
@@ -355,12 +357,13 @@ func (m *attributeMatcher) AddQualifier(qual Qualifier) (Attribute, error) {
 // Resolve is an implementation of the NamespacedAttribute interface method which tests
 // for matching unknown attribute patterns and returns types.Unknown if present. Otherwise,
 // the standard Resolve logic applies.
-func (m *attributeMatcher) Resolve(vars Activation) (any, error) {
+func (m *attributeMatcher) Resolve(ctx context.Context, vars Activation) (any, error) {
 	id := m.NamespacedAttribute.ID()
 	// Bug in how partial activation is resolved, should search parents as well.
 	partial, isPartial := toPartialActivation(vars)
 	if isPartial {
 		unk, err := m.fac.matchesUnknownPatterns(
+			ctx,
 			partial,
 			id,
 			m.CandidateVariableNames(),
@@ -372,17 +375,17 @@ func (m *attributeMatcher) Resolve(vars Activation) (any, error) {
 			return unk, nil
 		}
 	}
-	return m.NamespacedAttribute.Resolve(vars)
+	return m.NamespacedAttribute.Resolve(ctx, vars)
 }
 
 // Qualify is an implementation of the Qualifier interface method.
-func (m *attributeMatcher) Qualify(vars Activation, obj any) (any, error) {
-	return attrQualify(m.fac, vars, obj, m)
+func (m *attributeMatcher) Qualify(ctx context.Context, vars Activation, obj any) (any, error) {
+	return attrQualify(ctx, m.fac, vars, obj, m)
 }
 
 // QualifyIfPresent is an implementation of the Qualifier interface method.
-func (m *attributeMatcher) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
-	return attrQualifyIfPresent(m.fac, vars, obj, m, presenceOnly)
+func (m *attributeMatcher) QualifyIfPresent(ctx context.Context, vars Activation, obj any, presenceOnly bool) (any, bool, error) {
+	return attrQualifyIfPresent(ctx, m.fac, vars, obj, m, presenceOnly)
 }
 
 func toPartialActivation(vars Activation) (PartialActivation, bool) {

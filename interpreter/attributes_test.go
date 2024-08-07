@@ -15,6 +15,7 @@
 package interpreter
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"reflect"
@@ -36,6 +37,7 @@ import (
 )
 
 func TestAttributesAbsoluteAttr(t *testing.T) {
+	ctx := context.Background()
 	reg := newTestRegistry(t)
 	cont, err := containers.NewContainer(containers.Name("acme.ns"))
 	if err != nil {
@@ -57,10 +59,10 @@ func TestAttributesAbsoluteAttr(t *testing.T) {
 	qualB := makeQualifier(t, attrs, nil, 2, "b")
 	qual4 := makeQualifier(t, attrs, nil, 3, uint64(4))
 	qualFalse := makeQualifier(t, attrs, nil, 4, false)
-	attr.AddQualifier(qualB)
-	attr.AddQualifier(qual4)
-	attr.AddQualifier(qualFalse)
-	out, err := attr.Resolve(vars)
+	attr.AddQualifier(ctx, qualB)
+	attr.AddQualifier(ctx, qual4)
+	attr.AddQualifier(ctx, qualFalse)
+	out, err := attr.Resolve(ctx, vars)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +77,7 @@ func TestAttributesAbsoluteAttrType(t *testing.T) {
 
 	// int
 	attr := attrs.AbsoluteAttribute(1, "int")
-	out, err := attr.Resolve(EmptyActivation())
+	out, err := attr.Resolve(context.Background(), EmptyActivation())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,6 +87,7 @@ func TestAttributesAbsoluteAttrType(t *testing.T) {
 }
 
 func TestAttributesAbsoluteAttrError(t *testing.T) {
+	ctx := context.Background()
 	reg := newTestRegistry(t)
 	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
 	vars, err := NewActivation(map[string]any{
@@ -97,14 +100,15 @@ func TestAttributesAbsoluteAttrError(t *testing.T) {
 	// acme.a.b[4][false]
 	attr := attrs.AbsoluteAttribute(1, "err")
 	qualMsg := makeQualifier(t, attrs, nil, 2, "message")
-	attr.AddQualifier(qualMsg)
-	out, err := attr.Resolve(vars)
+	attr.AddQualifier(ctx, qualMsg)
+	out, err := attr.Resolve(ctx, vars)
 	if err == nil {
 		t.Errorf("attr.Resolve('err') got %v, wanted error", out)
 	}
 }
 
 func TestAttributesRelativeAttr(t *testing.T) {
+	ctx := context.Background()
 	reg := newTestRegistry(t)
 	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
 	data := map[string]any{
@@ -126,10 +130,10 @@ func TestAttributesRelativeAttr(t *testing.T) {
 	attr := attrs.RelativeAttribute(1, op)
 	qualA := makeQualifier(t, attrs, nil, 2, "a")
 	qualNeg1 := makeQualifier(t, attrs, nil, 3, int64(-1))
-	attr.AddQualifier(qualA)
-	attr.AddQualifier(qualNeg1)
-	attr.AddQualifier(attrs.AbsoluteAttribute(4, "b"))
-	out, err := attr.Resolve(vars)
+	attr.AddQualifier(ctx, qualA)
+	attr.AddQualifier(ctx, qualNeg1)
+	attr.AddQualifier(ctx, attrs.AbsoluteAttribute(4, "b"))
+	out, err := attr.Resolve(ctx, vars)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -139,6 +143,7 @@ func TestAttributesRelativeAttr(t *testing.T) {
 }
 
 func TestAttributesRelativeAttrOneOf(t *testing.T) {
+	ctx := context.Background()
 	reg := newTestRegistry(t)
 	cont, err := containers.NewContainer(containers.Name("acme.ns"))
 	if err != nil {
@@ -171,10 +176,10 @@ func TestAttributesRelativeAttrOneOf(t *testing.T) {
 	attr := attrs.RelativeAttribute(1, op)
 	qualA := makeQualifier(t, attrs, nil, 2, "a")
 	qualNeg1 := makeQualifier(t, attrs, nil, 3, int64(-1))
-	attr.AddQualifier(qualA)
-	attr.AddQualifier(qualNeg1)
-	attr.AddQualifier(attrs.MaybeAttribute(4, "b"))
-	out, err := attr.Resolve(vars)
+	attr.AddQualifier(ctx, qualA)
+	attr.AddQualifier(ctx, qualNeg1)
+	attr.AddQualifier(ctx, attrs.MaybeAttribute(4, "b"))
+	out, err := attr.Resolve(ctx, vars)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -184,6 +189,7 @@ func TestAttributesRelativeAttrOneOf(t *testing.T) {
 }
 
 func TestAttributesRelativeAttrConditional(t *testing.T) {
+	ctx := context.Background()
 	reg := newTestRegistry(t)
 	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
 	data := map[string]any{
@@ -211,16 +217,16 @@ func TestAttributesRelativeAttrConditional(t *testing.T) {
 		attrs.AbsoluteAttribute(5, "b"),
 		attrs.AbsoluteAttribute(6, "c"))
 	qual0 := makeQualifier(t, attrs, nil, 7, 0)
-	condAttr.AddQualifier(qual0)
+	condAttr.AddQualifier(ctx, qual0)
 
 	obj := NewConstValue(1, reg.NativeToValue(data))
 	attr := attrs.RelativeAttribute(1, obj)
 	qualA := makeQualifier(t, attrs, nil, 2, "a")
 	qualNeg1 := makeQualifier(t, attrs, nil, 3, int64(-1))
-	attr.AddQualifier(qualA)
-	attr.AddQualifier(qualNeg1)
-	attr.AddQualifier(condAttr)
-	out, err := attr.Resolve(vars)
+	attr.AddQualifier(ctx, qualA)
+	attr.AddQualifier(ctx, qualNeg1)
+	attr.AddQualifier(ctx, condAttr)
+	out, err := attr.Resolve(ctx, vars)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -230,6 +236,7 @@ func TestAttributesRelativeAttrConditional(t *testing.T) {
 }
 
 func TestAttributesRelativeAttrRelativeQualifier(t *testing.T) {
+	ctx := context.Background()
 	cont, err := containers.NewContainer(containers.Name("acme.ns"))
 	if err != nil {
 		t.Fatal(err)
@@ -282,15 +289,15 @@ func TestAttributesRelativeAttrRelativeQualifier(t *testing.T) {
 	}))
 	relAttr := attrs.RelativeAttribute(4, mp)
 	qualB := makeQualifier(t, attrs, nil, 5, attrs.AbsoluteAttribute(5, "b"))
-	relAttr.AddQualifier(qualB)
+	relAttr.AddQualifier(ctx, qualB)
 	attr := attrs.RelativeAttribute(1, obj)
 	qualA := makeQualifier(t, attrs, nil, 2, "a")
 	qualNeg1 := makeQualifier(t, attrs, nil, 3, int64(-1))
-	attr.AddQualifier(qualA)
-	attr.AddQualifier(qualNeg1)
-	attr.AddQualifier(relAttr)
+	attr.AddQualifier(ctx, qualA)
+	attr.AddQualifier(ctx, qualNeg1)
+	attr.AddQualifier(ctx, relAttr)
 
-	out, err := attr.Resolve(vars)
+	out, err := attr.Resolve(ctx, vars)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -300,6 +307,7 @@ func TestAttributesRelativeAttrRelativeQualifier(t *testing.T) {
 }
 
 func TestAttributesOneofAttr(t *testing.T) {
+	ctx := context.Background()
 	reg := newTestRegistry(t)
 	cont, err := containers.NewContainer(containers.Name("acme.ns"))
 	if err != nil {
@@ -318,8 +326,8 @@ func TestAttributesOneofAttr(t *testing.T) {
 	// a.b -> should resolve to acme.ns.a.b per namespace resolution rules.
 	attr := attrs.MaybeAttribute(1, "a")
 	qualB := makeQualifier(t, attrs, nil, 2, "b")
-	attr.AddQualifier(qualB)
-	out, err := attr.Resolve(vars)
+	attr.AddQualifier(ctx, qualB)
+	out, err := attr.Resolve(ctx, vars)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -329,6 +337,7 @@ func TestAttributesOneofAttr(t *testing.T) {
 }
 
 func TestAttributesConditionalAttrTrueBranch(t *testing.T) {
+	ctx := context.Background()
 	reg := newTestRegistry(t)
 	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
 	data := map[string]any{
@@ -347,13 +356,13 @@ func TestAttributesConditionalAttrTrueBranch(t *testing.T) {
 	tv := attrs.AbsoluteAttribute(2, "a")
 	fv := attrs.MaybeAttribute(3, "b")
 	qualC := makeQualifier(t, attrs, nil, 4, "c")
-	fv.AddQualifier(qualC)
+	fv.AddQualifier(ctx, qualC)
 	cond := attrs.ConditionalAttribute(1, NewConstValue(0, types.True), tv, fv)
 	qualNeg1 := makeQualifier(t, attrs, nil, 5, int64(-1))
 	qual1 := makeQualifier(t, attrs, nil, 6, int64(1))
-	cond.AddQualifier(qualNeg1)
-	cond.AddQualifier(qual1)
-	out, err := cond.Resolve(vars)
+	cond.AddQualifier(ctx, qualNeg1)
+	cond.AddQualifier(ctx, qual1)
+	out, err := cond.Resolve(ctx, vars)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -363,6 +372,7 @@ func TestAttributesConditionalAttrTrueBranch(t *testing.T) {
 }
 
 func TestAttributesConditionalAttrFalseBranch(t *testing.T) {
+	ctx := context.Background()
 	reg := newTestRegistry(t)
 	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
 	data := map[string]any{
@@ -381,13 +391,13 @@ func TestAttributesConditionalAttrFalseBranch(t *testing.T) {
 	tv := attrs.AbsoluteAttribute(2, "a")
 	fv := attrs.MaybeAttribute(3, "b")
 	qualC := makeQualifier(t, attrs, nil, 4, "c")
-	fv.AddQualifier(qualC)
+	fv.AddQualifier(ctx, qualC)
 	cond := attrs.ConditionalAttribute(1, NewConstValue(0, types.False), tv, fv)
 	qualNeg1 := makeQualifier(t, attrs, nil, 5, int64(-1))
 	qual1 := makeQualifier(t, attrs, nil, 6, int64(1))
-	cond.AddQualifier(qualNeg1)
-	cond.AddQualifier(qual1)
-	out, err := cond.Resolve(vars)
+	cond.AddQualifier(ctx, qualNeg1)
+	cond.AddQualifier(ctx, qual1)
+	out, err := cond.Resolve(ctx, vars)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -715,21 +725,22 @@ func TestAttributesOptional(t *testing.T) {
 	for i, tst := range tests {
 		tc := tst
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			ctx := context.Background()
 			i := int64(1)
 			attr := attrs.AbsoluteAttribute(i, tc.varName)
 			for _, q := range tc.quals {
 				i++
-				attr.AddQualifier(makeQualifier(t, attrs, nil, i, q))
+				attr.AddQualifier(ctx, makeQualifier(t, attrs, nil, i, q))
 			}
 			for _, oq := range tc.optQuals {
 				i++
-				attr.AddQualifier(makeOptQualifier(t, attrs, nil, i, oq))
+				attr.AddQualifier(ctx, makeOptQualifier(t, attrs, nil, i, oq))
 			}
 			vars, err := NewActivation(tc.vars)
 			if err != nil {
 				t.Fatalf("NewActivation() failed: %v", err)
 			}
-			out, err := attr.Resolve(vars)
+			out, err := attr.Resolve(ctx, vars)
 			if err != nil {
 				if tc.err != nil {
 					if tc.err.Error() == err.Error() {
@@ -747,6 +758,7 @@ func TestAttributesOptional(t *testing.T) {
 }
 
 func TestAttributesConditionalAttrErrorUnknown(t *testing.T) {
+	ctx := context.Background()
 	reg := newTestRegistry(t)
 	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
 
@@ -754,14 +766,14 @@ func TestAttributesConditionalAttrErrorUnknown(t *testing.T) {
 	tv := attrs.AbsoluteAttribute(2, "a")
 	fv := attrs.MaybeAttribute(3, "b")
 	cond := attrs.ConditionalAttribute(1, NewConstValue(0, types.NewErr("test error")), tv, fv)
-	out, err := cond.Resolve(EmptyActivation())
+	out, err := cond.Resolve(ctx, EmptyActivation())
 	if err == nil {
 		t.Errorf("Got %v, wanted error", out)
 	}
 
 	// unk ? a : b
 	condUnk := attrs.ConditionalAttribute(1, NewConstValue(0, types.NewUnknown(1, nil)), tv, fv)
-	out, err = condUnk.Resolve(EmptyActivation())
+	out, err = condUnk.Resolve(ctx, EmptyActivation())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -771,6 +783,7 @@ func TestAttributesConditionalAttrErrorUnknown(t *testing.T) {
 }
 
 func BenchmarkResolverFieldQualifier(b *testing.B) {
+	ctx := context.Background()
 	msg := &proto3pb.TestAllTypes{
 		NestedType: &proto3pb.TestAllTypes_SingleNestedMessage{
 			SingleNestedMessage: &proto3pb.TestAllTypes_NestedMessage{
@@ -792,11 +805,11 @@ func BenchmarkResolverFieldQualifier(b *testing.B) {
 	if !found {
 		b.Fatal("FindType() could not find NestedMessage")
 	}
-	attr.AddQualifier(makeQualifier(b, attrs, testExprTypeToType(b, opType), 2, "single_nested_message"))
-	attr.AddQualifier(makeQualifier(b, attrs, testExprTypeToType(b, fieldType), 3, "bb"))
+	attr.AddQualifier(ctx, makeQualifier(b, attrs, testExprTypeToType(b, opType), 2, "single_nested_message"))
+	attr.AddQualifier(ctx, makeQualifier(b, attrs, testExprTypeToType(b, fieldType), 3, "bb"))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := attr.Resolve(vars)
+		_, err := attr.Resolve(ctx, vars)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -804,6 +817,7 @@ func BenchmarkResolverFieldQualifier(b *testing.B) {
 }
 
 func TestResolverCustomQualifier(t *testing.T) {
+	ctx := context.Background()
 	reg := newTestRegistry(t)
 	attrs := &custAttrFactory{
 		AttributeFactory: NewAttributeFactory(containers.DefaultContainer, reg, reg),
@@ -817,8 +831,8 @@ func TestResolverCustomQualifier(t *testing.T) {
 	attr := attrs.AbsoluteAttribute(1, "msg")
 	fieldType := types.NewObjectType("google.expr.proto3.test.TestAllTypes.NestedMessage")
 	qualBB := makeQualifier(t, attrs, fieldType, 2, "bb")
-	attr.AddQualifier(qualBB)
-	out, err := attr.Resolve(vars)
+	attr.AddQualifier(ctx, qualBB)
+	out, err := attr.Resolve(ctx, vars)
 	if err != nil {
 		t.Error(err)
 	}
@@ -828,6 +842,7 @@ func TestResolverCustomQualifier(t *testing.T) {
 }
 
 func TestAttributesMissingMsg(t *testing.T) {
+	ctx := context.Background()
 	reg := newTestRegistry(t)
 	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
 	anyPB, _ := anypb.New(&proto3pb.TestAllTypes{})
@@ -838,8 +853,8 @@ func TestAttributesMissingMsg(t *testing.T) {
 	// missing_msg.field
 	attr := attrs.AbsoluteAttribute(1, "missing_msg")
 	field := makeQualifier(t, attrs, nil, 2, "field")
-	attr.AddQualifier(field)
-	out, err := attr.Resolve(vars)
+	attr.AddQualifier(ctx, field)
+	out, err := attr.Resolve(ctx, vars)
 	if err == nil {
 		t.Fatalf("got %v, wanted error", out)
 	}
@@ -849,6 +864,7 @@ func TestAttributesMissingMsg(t *testing.T) {
 }
 
 func TestAttributeMissingMsgUnknownField(t *testing.T) {
+	ctx := context.Background()
 	reg := newTestRegistry(t)
 	attrs := NewPartialAttributeFactory(containers.DefaultContainer, reg, reg)
 	anyPB, _ := anypb.New(&proto3pb.TestAllTypes{})
@@ -859,8 +875,8 @@ func TestAttributeMissingMsgUnknownField(t *testing.T) {
 	// missing_msg.field
 	attr := attrs.AbsoluteAttribute(1, "missing_msg")
 	field := makeQualifier(t, attrs, nil, 2, "field")
-	attr.AddQualifier(field)
-	out, err := attr.Resolve(vars)
+	attr.AddQualifier(ctx, field)
+	out, err := attr.Resolve(ctx, vars)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1158,7 +1174,7 @@ func TestAttributeStateTracking(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			out := i.Eval(in)
+			out := i.Eval(context.Background(), in)
 			if types.IsUnknown(tc.out) && types.IsUnknown(out) {
 				if !reflect.DeepEqual(tc.out, out) {
 					t.Errorf("got %v, wanted %v", out, tc.out)
@@ -1186,6 +1202,7 @@ func TestAttributeStateTracking(t *testing.T) {
 }
 
 func BenchmarkResolverCustomQualifier(b *testing.B) {
+	ctx := context.Background()
 	reg := newTestRegistry(b)
 	attrs := &custAttrFactory{
 		AttributeFactory: NewAttributeFactory(containers.DefaultContainer, reg, reg),
@@ -1199,9 +1216,9 @@ func BenchmarkResolverCustomQualifier(b *testing.B) {
 	attr := attrs.AbsoluteAttribute(1, "msg")
 	fieldType := types.NewObjectType("google.expr.proto3.test.TestAllTypes.NestedMessage")
 	qualBB := makeQualifier(b, attrs, fieldType, 2, "bb")
-	attr.AddQualifier(qualBB)
+	attr.AddQualifier(ctx, qualBB)
 	for i := 0; i < b.N; i++ {
-		attr.Resolve(vars)
+		attr.Resolve(ctx, vars)
 	}
 }
 
@@ -1235,12 +1252,12 @@ func (q *nestedMsgQualifier) IsOptional() bool {
 	return q.opt
 }
 
-func (q *nestedMsgQualifier) Qualify(vars Activation, obj any) (any, error) {
+func (q *nestedMsgQualifier) Qualify(ctx context.Context, vars Activation, obj any) (any, error) {
 	pb := obj.(*proto3pb.TestAllTypes_NestedMessage)
 	return pb.GetBb(), nil
 }
 
-func (q *nestedMsgQualifier) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
+func (q *nestedMsgQualifier) QualifyIfPresent(ctx context.Context, vars Activation, obj any, presenceOnly bool) (any, bool, error) {
 	pb := obj.(*proto3pb.TestAllTypes_NestedMessage)
 	if pb.GetBb() == 0 {
 		return nil, false, nil
@@ -1250,7 +1267,7 @@ func (q *nestedMsgQualifier) QualifyIfPresent(vars Activation, obj any, presence
 
 func addQualifier(t testing.TB, attr Attribute, qual Qualifier) Attribute {
 	t.Helper()
-	_, err := attr.AddQualifier(qual)
+	_, err := attr.AddQualifier(context.Background(), qual)
 	if err != nil {
 		t.Fatalf("attr.AddQualifier(%v) failed: %v", qual, err)
 	}
