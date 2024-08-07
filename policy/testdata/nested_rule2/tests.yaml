@@ -18,7 +18,7 @@ section:
     tests:
       - name: "restricted_origin"
         input:
-          resource:            
+          resource:
             value:
               user: "bad-user"
               origin: "ir"
@@ -36,7 +36,7 @@ section:
             value:
               user: "good-user"
               origin: "de"
-        output: "{'banned': 'unconfigured_region'}"        
+        output: "{'banned': 'unconfigured_region'}"
   - name: "permitted"
     tests:
       - name: "valid_origin"

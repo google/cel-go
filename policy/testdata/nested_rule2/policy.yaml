@@ -17,7 +17,7 @@ rule:
   variables:
     - name: "permitted_regions"
       expression: "['us', 'uk', 'es']"
-  match:  
+  match:
     - condition: resource.?user.orValue("").startsWith("bad")
       rule:
         id: "banned regions"

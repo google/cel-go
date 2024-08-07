@@ -85,6 +85,7 @@ func (s *ConformanceServer) Check(ctx context.Context, in *confpb.CheckRequest) 
 	checkOptions = append(checkOptions, cel.Container(in.Container))
 	checkOptions = append(checkOptions, cel.Declarations(in.TypeEnv...))
 	checkOptions = append(checkOptions, cel.Types(&test2pb.TestAllTypes{}))
+	checkOptions = append(checkOptions, cel.Types(&test2pb.Proto2ExtensionScopedMessage{}))
 	checkOptions = append(checkOptions, cel.Types(&test3pb.TestAllTypes{}))
 	checkOptions = append(checkOptions, cel.OptionalTypes())
 	env, _ := cel.NewCustomEnv(checkOptions...)
@@ -268,7 +269,7 @@ func init() {
 		ext.Strings(),
 		ext.Math(),
 		ext.Encoders(),
-		cel.Types(&test2pb.TestAllTypes{}, &test3pb.TestAllTypes{}),
+		cel.Types(&test2pb.TestAllTypes{}, &test2pb.Proto2ExtensionScopedMessage{}, &test3pb.TestAllTypes{}),
 		cel.EagerlyValidateDeclarations(true),
 		cel.EnableErrorOnBadPresenceTest(true),
 		cel.OptionalTypes())

@@ -109,9 +109,9 @@ func (p *Policy) GetExplanationOutputPolicy() *Policy {
 	ep := Policy{
 		name:     p.name,
 		semantic: p.semantic,
-		info:     &*p.info,
+		info:     p.info,
 		metadata: p.metadata,
-		source:   &*p.source,
+		source:   p.source,
 	}
 	if p.rule != nil {
 		ep.rule = p.rule.getExplanationOutputRule()
@@ -192,7 +192,7 @@ func (r *Rule) getExplanationOutputRule() *Rule {
 		description: r.description,
 	}
 	for _, variable := range r.variables {
-		er.variables = append(er.variables, &*variable)
+		er.variables = append(er.variables, variable)
 	}
 	for _, match := range r.matches {
 		em := Match{
