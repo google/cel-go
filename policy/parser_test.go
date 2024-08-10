@@ -149,6 +149,65 @@ rule:
  |       explanation: "hi"
  | ......^`,
 		},
+		{
+			txt: `
+imports:
+  - first`,
+			err: `ERROR: <input>:3:5: got yaml node type tag:yaml.org,2002:str, wanted type(s) [tag:yaml.org,2002:map]
+ |   - first
+ | ....^`,
+		},
+		{
+			txt: `
+imports:
+  first: name`,
+			err: `ERROR: <input>:3:3: got yaml node type tag:yaml.org,2002:map, wanted type(s) [tag:yaml.org,2002:seq]
+ |   first: name
+ | ..^`,
+		},
+		{
+			txt: `
+rule:
+  - variables: name`,
+			err: `ERROR: <input>:3:3: got yaml node type tag:yaml.org,2002:seq, wanted type(s) [tag:yaml.org,2002:map]
+ |   - variables: name
+ | ..^`,
+		},
+		{
+			txt: `
+rule:
+  variables: name`,
+			err: `ERROR: <input>:3:14: got yaml node type tag:yaml.org,2002:str, wanted type(s) [tag:yaml.org,2002:seq]
+ |   variables: name
+ | .............^`,
+		},
+		{
+			txt: `
+rule:
+  variables: 
+    - name`,
+			err: `ERROR: <input>:4:7: got yaml node type tag:yaml.org,2002:str, wanted type(s) [tag:yaml.org,2002:map]
+ |     - name
+ | ......^`,
+		},
+		{
+			txt: `
+rule:
+  match: 
+    name: value`,
+			err: `ERROR: <input>:4:5: got yaml node type tag:yaml.org,2002:map, wanted type(s) [tag:yaml.org,2002:seq]
+ |     name: value
+ | ....^`,
+		},
+		{
+			txt: `
+rule:
+  match: 
+    - name`,
+			err: `ERROR: <input>:4:7: got yaml node type tag:yaml.org,2002:str, wanted type(s) [tag:yaml.org,2002:map]
+ |     - name
+ | ......^`,
+		},
 	}
 
 	for _, tst := range tests {
