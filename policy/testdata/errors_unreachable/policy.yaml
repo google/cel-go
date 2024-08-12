@@ -18,7 +18,7 @@ rule:
     - name: want
       expression: request.labels
     - name: missing
-      expression: variables.want.filter(l, !(l in resource.labels))    
+      expression: variables.want.filter(l, !(l in resource.labels))
     - name: invalid
       expression: >
         resource.labels.filter(l,
