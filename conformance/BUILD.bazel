@@ -51,7 +51,6 @@ _TESTS_TO_SKIP = [
 go_test(
     name = "go_default_test",
     size = "small",
-    testonly = True,
     srcs = [
         "conformance_test.go",
     ],
