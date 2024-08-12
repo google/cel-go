@@ -16,6 +16,7 @@ package ext
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
@@ -38,43 +39,64 @@ import (
 //
 // # Flatten
 //
-// Flattens the given list to a single level.
+// Flattens a list recursively.
+// If an optional depth is provided, the list is flattened to a the specificied level.
+// A negative depth value flattens the list recursively to its deepest level.
 //
 //	<list>.flatten(<list>) -> <list>
+//	<list>.flatten(<list>, <int>) -> <list>
 //
 // Examples:
 //
 // [1,[2,3],[4]].flatten() // return [1, 2, 3, 4]
 // [1,[2,[3,4]]].flatten() // return [1, 2, [3, 4]]
 // [1,2,[],[],[3,4]].flatten() // return [1, 2, 3, 4]
-//
-// # FlattenDeep
-//
-// Flattens the given list to the deepest level.
-//
-//	<list>.flattenDeep(<list>) -> <list>
-//
-// Examples:
-//
-// [1,[2,3],[4]].flattenDeep() // return [1, 2, 3, 4]
-// [1,[2,[3,4]]].flattenDeep() // return [1, 2, 3, 4]
-// [1,[2,[3,[4]]]].flattenDeep() // return [1, 2, 3, 4]
-func Lists() cel.EnvOption {
-	return cel.Lib(listsLib{})
+// [1,[2,[3,[4]]]].flatten(2) // return [1, 2, 3, [4]]
+// [1,[2,[3,[4]]]].flatten(-1) // return [1, 2, 3, 4]
+func Lists(options ...ListsOption) cel.EnvOption {
+	l := &listsLib{
+		version: math.MaxUint32,
+	}
+	for _, o := range options {
+		l = o(l)
+	}
+
+	return cel.Lib(l)
 }
 
-type listsLib struct{}
+type listsLib struct {
+	version uint32
+}
 
 // LibraryName implements the SingletonLibrary interface method.
 func (listsLib) LibraryName() string {
 	return "cel.lib.ext.lists"
 }
 
+// ListsOption is a functional interface for configuring the strings library.
+type ListsOption func(*listsLib) *listsLib
+
+// ListsVersion configures the version of the string library.
+//
+// The version limits which functions are available. Only functions introduced
+// below or equal to the given version included in the library. If this option
+// is not set, all functions are available.
+//
+// See the library documentation to determine which version a function was introduced.
+// If the documentation does not state which version a function was introduced, it can
+// be assumed to be introduced at version 0, when the library was first created.
+func ListsVersion(version uint32) ListsOption {
+	return func(lib *listsLib) *listsLib {
+		lib.version = version
+		return lib
+	}
+}
+
 // CompileOptions implements the Library interface method.
-func (listsLib) CompileOptions() []cel.EnvOption {
+func (lib listsLib) CompileOptions() []cel.EnvOption {
 	listType := cel.ListType(cel.TypeParamType("T"))
 	listDyn := cel.ListType(cel.DynType)
-	return []cel.EnvOption{
+	opts := []cel.EnvOption{
 		cel.Function("slice",
 			cel.MemberOverload("list_slice",
 				[]*cel.Type{listType, cel.IntType, cel.IntType}, listType,
@@ -90,27 +112,34 @@ func (listsLib) CompileOptions() []cel.EnvOption {
 				}),
 			),
 		),
-		cel.Function("flatten",
-			cel.MemberOverload("list_flatten",
-				[]*cel.Type{listDyn}, listDyn,
-				cel.UnaryBinding(func(arg ref.Val) ref.Val {
-					list := arg.(traits.Lister)
-					flatList := flattenHelper(list, false)
-					return types.DefaultTypeAdapter.NativeToValue(flatList)
-				}),
-			),
-		),
-		cel.Function("flattenDeep",
-			cel.MemberOverload("list_flatten_deep",
-				[]*cel.Type{listDyn}, listDyn,
-				cel.UnaryBinding(func(arg ref.Val) ref.Val {
-					list := arg.(traits.Lister)
-					flatList := flattenHelper(list, true)
-					return types.DefaultTypeAdapter.NativeToValue(flatList)
-				}),
-			),
-		),
 	}
+	if lib.version >= 1 {
+		opts = append(opts,
+			cel.Function("flatten",
+				cel.MemberOverload("list_flatten",
+					[]*cel.Type{listDyn}, listDyn,
+					cel.UnaryBinding(func(arg ref.Val) ref.Val {
+						list := arg.(traits.Lister)
+						flatList := flatten(list, 1)
+						return types.DefaultTypeAdapter.NativeToValue(flatList)
+					}),
+				),
+			),
+			cel.Function("flatten",
+				cel.MemberOverload("list_flatten_int",
+					[]*cel.Type{listDyn, types.IntType}, listDyn,
+					cel.BinaryBinding(func(arg1, arg2 ref.Val) ref.Val {
+						list := arg1.(traits.Lister)
+						depth := arg2.(types.Int)
+						flatList := flatten(list, int64(depth))
+						return types.DefaultTypeAdapter.NativeToValue(flatList)
+					}),
+				),
+			),
+		)
+	}
+
+	return opts
 }
 
 // ProgramOptions implements the Library interface method.
@@ -138,24 +167,19 @@ func slice(list traits.Lister, start, end types.Int) (ref.Val, error) {
 	return types.DefaultTypeAdapter.NativeToValue(newList), nil
 }
 
-func flattenHelper(list traits.Lister, deep bool) []ref.Val {
-	iter := list.Iterator()
+func flatten(list traits.Lister, depth int64) []ref.Val {
 	var newList []ref.Val
+	iter := list.Iterator()
 
 	for iter.HasNext() == types.True {
 		val := iter.Next()
+		nestedList, isList := val.(traits.Lister)
 
-		if nestedList, ok := val.(traits.Lister); ok {
-			if deep {
-				newList = append(newList, flattenHelper(nestedList, true)...)
-			} else {
-				nestedIter := nestedList.Iterator()
-				for nestedIter.HasNext() == types.True {
-					newList = append(newList, nestedIter.Next())
-				}
-			}
-		} else {
+		if !isList || depth == 0 {
 			newList = append(newList, val)
+			continue
+		} else {
+			newList = append(newList, flatten(nestedList, depth-1)...)
 		}
 	}
 

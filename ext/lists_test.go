@@ -40,10 +40,8 @@ func TestLists(t *testing.T) {
 		{expr: `[1,2,3,4].flatten() == [1,2,3,4]`},
 		{expr: `[1,[2,[3,4]]].flatten() == [1,2,[3,4]]`},
 		{expr: `[1,2,[],[],[3,4]].flatten() == [1,2,3,4]`},
-		{expr: `[].flattenDeep() == []`},
-		{expr: `[1,2,3,4].flattenDeep() == [1,2,3,4]`},
-		{expr: `[1,[2,[3,4]]].flattenDeep() == [1,2,3,4]`},
-		{expr: `[1,[2,[3,[4]]]].flattenDeep() == [1,2,3,4]`},
+		{expr: `[1,[2,[3,4]]].flatten(2) == [1,2,3,4]`},
+		{expr: `[1,[2,[3,[4]]]].flatten(-1) == [1,2,3,4]`},
 	}
 
 	env := testListsEnv(t)
