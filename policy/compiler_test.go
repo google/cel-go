@@ -240,8 +240,16 @@ func (r *runner) bench(b *testing.B) {
 		for _, tst := range s.Tests {
 			tc := tst
 			b.Run(fmt.Sprintf("%s/%s/%s", r.name, section, tc.Name), func(b *testing.B) {
+				input := map[string]any{}
+				for k, v := range tc.Input {
+					if v.Expr == "" {
+						input[k] = v.Value
+						continue
+					}
+					input[k] = r.eval(b, v.Expr)
+				}
 				for i := 0; i < b.N; i++ {
-					_, _, err := r.prg.Eval(tc.Input)
+					_, _, err := r.prg.Eval(input)
 					if err != nil {
 						b.Fatalf("policy eval failed: %v", err)
 					}
