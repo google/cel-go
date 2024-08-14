@@ -85,6 +85,9 @@ rule:
 			err: `ERROR: <input>:4:7: unsupported match tag: name
  |     - name: "true"
  | ......^
+ERROR: <input>:4:7: match does not specify a rule or output
+ |     - name: "true"
+ | ......^
 ERROR: <input>:5:7: unsupported match tag: alt_name
  |       alt_name: "bool_true"
  | ......^`,

@@ -785,6 +785,9 @@ func (p *parserImpl) ParseMatch(ctx ParserContext, policy *Policy, node *yaml.No
 			p.visitor.MatchTag(ctx, keyID, fieldName, val, policy, m)
 		}
 	}
+	if !m.HasOutput() && !m.HasRule() {
+		p.ReportErrorAtID(id, "match does not specify a rule or output")
+	}
 	return m
 }
 
