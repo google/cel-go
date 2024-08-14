@@ -17,6 +17,7 @@
 package parser
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -141,6 +142,39 @@ var reservedIds = map[string]struct{}{
 	"var":       {},
 	"void":      {},
 	"while":     {},
+}
+
+func unescapeIdent(s string) (string, error) {
+	esc := false
+	var out string
+	for _, c := range s[1 : len(s)-1] {
+		if esc {
+			switch c {
+			case '\\':
+			case '`':
+				out += string(c)
+			default:
+				return "", fmt.Errorf("unsupported escape: %c", c)
+			}
+			esc = false
+			continue
+		}
+		out += string(c)
+
+	}
+	return out, nil
+}
+
+// normalizeIdent returns the interpreted identifier, unescaping as needed.
+func normalizeIdent(ctx gen.IEscapeIdentContext) (string, error) {
+	switch ident := ctx.(type) {
+	case *gen.SimpleIdentifierContext:
+		return ident.GetId().GetText(), nil
+	case *gen.EscapedIdentifierContext:
+		escaped := ident.GetId().GetText()
+		return unescapeIdent(escaped)
+	}
+	return "", errors.New("Unsupported ident kind.")
 }
 
 // Parse converts a source input a parsed expression.
@@ -369,8 +403,10 @@ func (p *parser) Visit(tree antlr.ParseTree) any {
 		return out
 	case *gen.LogicalNotContext:
 		return p.VisitLogicalNot(tree)
-	case *gen.IdentOrGlobalCallContext:
-		return p.VisitIdentOrGlobalCall(tree)
+	case *gen.IdentContext:
+		return p.VisitIdent(tree)
+	case *gen.GlobalCallContext:
+		return p.VisitGlobalCall(tree)
 	case *gen.SelectContext:
 		p.checkAndIncrementRecursionDepth()
 		out := p.VisitSelect(tree)
@@ -538,7 +574,10 @@ func (p *parser) VisitSelect(ctx *gen.SelectContext) any {
 	if ctx.GetId() == nil || ctx.GetOp() == nil {
 		return p.helper.newExpr(ctx)
 	}
-	id := ctx.GetId().GetText()
+	id, err := normalizeIdent(ctx.GetId())
+	if err != nil {
+		p.reportError(ctx, "%v", err)
+	}
 	if ctx.GetOpt() != nil {
 		if !p.enableOptionalSyntax {
 			return p.reportError(ctx.GetOp(), "unsupported syntax '.?'")
@@ -622,12 +661,16 @@ func (p *parser) VisitIFieldInitializerList(ctx gen.IFieldInitializerListContext
 			p.reportError(optField, "unsupported syntax '?'")
 			continue
 		}
-		// The field may be empty due to a prior error.
-		id := optField.IDENTIFIER()
-		if id == nil {
+
+		if optField.EscapeIdent() == nil {
 			return []ast.EntryExpr{}
 		}
-		fieldName := id.GetText()
+		// The field may be empty due to a prior error.
+		fieldName, err := normalizeIdent(optField.EscapeIdent())
+		if err != nil {
+			return p.reportError(ctx, "%v", err)
+		}
+
 		value := p.Visit(vals[i]).(ast.Expr)
 		field := p.helper.newObjectField(initID, fieldName, value, optional)
 		result[i] = field
@@ -635,8 +678,8 @@ func (p *parser) VisitIFieldInitializerList(ctx gen.IFieldInitializerListContext
 	return result
 }
 
-// Visit a parse tree produced by CELParser#IdentOrGlobalCall.
-func (p *parser) VisitIdentOrGlobalCall(ctx *gen.IdentOrGlobalCallContext) any {
+// Visit a parse tree produced by CELParser#Ident.
+func (p *parser) VisitIdent(ctx *gen.IdentContext) any {
 	identName := ""
 	if ctx.GetLeadingDot() != nil {
 		identName = "."
@@ -651,11 +694,28 @@ func (p *parser) VisitIdentOrGlobalCall(ctx *gen.IdentOrGlobalCallContext) any {
 		return p.reportError(ctx, "reserved identifier: %s", id)
 	}
 	identName += id
-	if ctx.GetOp() != nil {
-		opID := p.helper.id(ctx.GetOp())
-		return p.globalCallOrMacro(opID, identName, p.visitExprList(ctx.GetArgs())...)
-	}
 	return p.helper.newIdent(ctx.GetId(), identName)
+}
+
+// Visit a parse tree produced by CELParser#GlobalCallContext.
+func (p *parser) VisitGlobalCall(ctx *gen.GlobalCallContext) any {
+	identName := ""
+	if ctx.GetLeadingDot() != nil {
+		identName = "."
+	}
+	// Handle the error case where no valid identifier is specified.
+	if ctx.GetId() == nil {
+		return p.helper.newExpr(ctx)
+	}
+	// Handle reserved identifiers.
+	id := ctx.GetId().GetText()
+	if _, ok := reservedIds[id]; ok {
+		return p.reportError(ctx, "reserved identifier: %s", id)
+	}
+	identName += id
+	opID := p.helper.id(ctx.GetOp())
+	return p.globalCallOrMacro(opID, identName, p.visitExprList(ctx.GetArgs())...)
+
 }
 
 // Visit a parse tree produced by CELParser#CreateList.

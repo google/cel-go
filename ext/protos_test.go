@@ -43,11 +43,17 @@ func TestProtos(t *testing.T) {
 		{expr: `proto.getExt(ExampleType{}, google.expr.proto2.test.ExtendedExampleType.extended_examples) == []`},
 		{expr: `proto.getExt(ExampleType{}, google.expr.proto2.test.ExtendedExampleType.enum_ext) == GlobalEnum.GOO`},
 		{expr: `proto.getExt(msg, google.expr.proto2.test.int32_ext) == 42`},
+		{expr: "msg.`google.expr.proto2.test.int32_ext` == 42"},
 		{expr: `proto.getExt(msg, google.expr.proto2.test.int32_wrapper_ext) == 21`},
+		{expr: "msg.`google.expr.proto2.test.int32_wrapper_ext` == 21"},
 		{expr: `proto.hasExt(msg, google.expr.proto2.test.nested_example)`},
+		{expr: "has(msg.`google.expr.proto2.test.nested_example`)"},
 		{expr: `proto.getExt(msg, google.expr.proto2.test.nested_example) == ExampleType{name: 'nested'}`},
+		{expr: "msg.`google.expr.proto2.test.nested_example` == ExampleType{name: 'nested'}"},
 		{expr: `proto.getExt(msg, google.expr.proto2.test.ExtendedExampleType.extended_examples) == ['example1', 'example2']`},
+		{expr: "msg.`google.expr.proto2.test.ExtendedExampleType.extended_examples` == ['example1', 'example2']"},
 		{expr: `proto.getExt(msg, google.expr.proto2.test.ExtendedExampleType.enum_ext) == GlobalEnum.GAZ`},
+		{expr: "msg.`google.expr.proto2.test.ExtendedExampleType.enum_ext` == GlobalEnum.GAZ"},
 	}
 
 	env := testProtosEnv(t)
