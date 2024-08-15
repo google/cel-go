@@ -42,6 +42,9 @@ func TestProtos(t *testing.T) {
 		{expr: `proto.getExt(ExampleType{}, google.expr.proto2.test.nested_example) == ExampleType{}`},
 		{expr: `proto.getExt(ExampleType{}, google.expr.proto2.test.ExtendedExampleType.extended_examples) == []`},
 		{expr: `proto.getExt(ExampleType{}, google.expr.proto2.test.ExtendedExampleType.enum_ext) == GlobalEnum.GOO`},
+		{expr: "ExampleType{`in`: 64}.`in` == 64"},
+		// TODO(): can't assign extension fields, only read. Unclear if needed.
+		// ExampleType{`google.expr.proto2.test.int32_ext`: 42}.`google.expr.proto2.test.int32_ext` == 42
 		{expr: `proto.getExt(msg, google.expr.proto2.test.int32_ext) == 42`},
 		{expr: "msg.`google.expr.proto2.test.int32_ext` == 42"},
 		{expr: `proto.getExt(msg, google.expr.proto2.test.int32_wrapper_ext) == 21`},
@@ -179,6 +182,15 @@ func TestProtosParseErrors(t *testing.T) {
 			err: `ERROR: <input>:1:40: invalid extension field
 		| proto.getExt(ExtendedExampleType{}, has(google.expr.proto2.test.int32_ext))
 		| .......................................^`,
+		},
+		{
+			expr: `ExampleType{}.in`,
+			err: `ERROR: <input>:1:15: Syntax error: no viable alternative at input '.in'
+			| ExampleType{}.in
+			| ..............^
+		   ERROR: <input>:1:17: Syntax error: mismatched input '<EOF>' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
+			| ExampleType{}.in
+			| ................^`,
 		},
 	}
 	env := testProtosEnv(t)
