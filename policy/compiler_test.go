@@ -16,12 +16,16 @@ package policy
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
+
+	"google.golang.org/protobuf/proto"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/interpreter"
 )
 
 func TestCompile(t *testing.T) {
@@ -205,14 +209,31 @@ func (r *runner) run(t *testing.T) {
 			tc := tst
 			t.Run(fmt.Sprintf("%s/%s/%s", r.name, section, tc.Name), func(t *testing.T) {
 				input := map[string]any{}
+				var err error
+				var activation interpreter.Activation
 				for k, v := range tc.Input {
-					if v.Expr == "" {
-						input[k] = v.Value
+					if v.Expr != "" {
+						input[k] = r.eval(t, v.Expr)
 						continue
 					}
-					input[k] = r.eval(t, v.Expr)
+					if v.ContextExpr != "" {
+						ctx, err := r.eval(t, v.ContextExpr).ConvertToNative(
+							reflect.TypeOf(((*proto.Message)(nil))).Elem())
+						if err != nil {
+							t.Fatalf("context variable is not a valid proto: %v", err)
+						}
+						activation, err = cel.ContextProtoVars(ctx.(proto.Message))
+						break
+					}
+					input[k] = v.Value
 				}
-				out, _, err := r.prg.Eval(input)
+				if activation == nil {
+					activation, err = interpreter.NewActivation(input)
+					if err != nil {
+						t.Fatalf("interpreter.NewActivation(input) failed: %v", err)
+					}
+				}
+				out, _, err := r.prg.Eval(activation)
 				if err != nil {
 					t.Fatalf("prg.Eval(input) failed: %v", err)
 				}
@@ -241,15 +262,32 @@ func (r *runner) bench(b *testing.B) {
 			tc := tst
 			b.Run(fmt.Sprintf("%s/%s/%s", r.name, section, tc.Name), func(b *testing.B) {
 				input := map[string]any{}
+				var err error
+				var activation interpreter.Activation
 				for k, v := range tc.Input {
-					if v.Expr == "" {
-						input[k] = v.Value
+					if v.Expr != "" {
+						input[k] = r.eval(b, v.Expr)
 						continue
 					}
-					input[k] = r.eval(b, v.Expr)
+					if v.ContextExpr != "" {
+						ctx, err := r.eval(b, v.ContextExpr).ConvertToNative(
+							reflect.TypeOf(((*proto.Message)(nil))).Elem())
+						if err != nil {
+							b.Fatalf("context variable is not a valid proto: %v", err)
+						}
+						activation, err = cel.ContextProtoVars(ctx.(proto.Message))
+						break
+					}
+					input[k] = v.Value
+				}
+				if activation == nil {
+					activation, err = interpreter.NewActivation(input)
+					if err != nil {
+						b.Fatalf("interpreter.NewActivation(input) failed: %v", err)
+					}
 				}
 				for i := 0; i < b.N; i++ {
-					_, _, err := r.prg.Eval(input)
+					_, _, err := r.prg.Eval(activation)
 					if err != nil {
 						b.Fatalf("policy eval failed: %v", err)
 					}

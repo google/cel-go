@@ -128,7 +128,7 @@ variables:
   - name: "bad_type"
     type:
       type_name: "strings"`,
-			err: "undefined type name: strings",
+			err: "invalid variable type for 'bad_type': undefined type name: strings",
 		},
 		{
 			config: `
@@ -136,7 +136,7 @@ variables:
   - name: "bad_list"
     type:
       type_name: "list"`,
-			err: "list type has unexpected param count: 0",
+			err: "invalid variable type for 'bad_list': list type has unexpected param count: 0",
 		},
 		{
 			config: `
@@ -146,7 +146,7 @@ variables:
       type_name: "map"
       params:
         - type_name: "string"`,
-			err: "map type has unexpected param count: 1",
+			err: "invalid variable type for 'bad_map': map type has unexpected param count: 1",
 		},
 		{
 			config: `
@@ -156,7 +156,7 @@ variables:
       type_name: "list"
       params:
         - type_name: "number"`,
-			err: "undefined type name: number",
+			err: "invalid variable type for 'bad_list_type_param': undefined type name: number",
 		},
 		{
 			config: `
@@ -167,8 +167,23 @@ variables:
       params:
         - type_name: "string"
         - type_name: "optional"`,
-			err: "undefined type name: optional",
+			err: "invalid variable type for 'bad_map_type_param': undefined type name: optional",
 		},
+		{
+			config: `
+variables:
+  - context_proto: "bad.proto.MessageType"
+`,
+			err: "could not find context proto type name: bad.proto.MessageType",
+		},
+		{
+			config: `
+variables:
+  - type: 
+      type_name: "no variable name"`,
+			err: "invalid variable, must set 'name' or 'context_proto' field",
+		},
+
 		{
 			config: `
 functions:

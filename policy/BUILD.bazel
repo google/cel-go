@@ -41,6 +41,9 @@ go_library(
         "//common/types/ref:go_default_library",
         "//ext:go_default_library",
         "@in_gopkg_yaml_v3//:go_default_library",
+        "@org_golang_google_protobuf//proto:go_default_library",
+        "@org_golang_google_protobuf//reflect/protoreflect:go_default_library",
+        "@org_golang_google_protobuf//reflect/protoregistry:go_default_library",
     ],
 )
 
@@ -58,6 +61,7 @@ go_test(
     deps = [
         "//cel:go_default_library",
         "//common/types:go_default_library",
+        "//interpreter:go_default_library",
         "//common/types/ref:go_default_library",
         "//test/proto3pb:go_default_library",
         "@in_gopkg_yaml_v3//:go_default_library",
