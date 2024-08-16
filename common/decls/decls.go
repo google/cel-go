@@ -251,15 +251,15 @@ func (f *FunctionDecl) Bindings() ([]*functions.Overload, error) {
 			// are preserved in order to assist with the function resolution step.
 			switch len(args) {
 			case 1:
-				if o.unaryOp != nil && o.matchesRuntimeSignature( /* disableTypeGuards=*/ false, args...) {
+				if o.unaryOp != nil && o.matchesRuntimeSignature(f.disableTypeGuards, args...) {
 					return o.unaryOp(args[0])
 				}
 			case 2:
-				if o.binaryOp != nil && o.matchesRuntimeSignature( /* disableTypeGuards=*/ false, args...) {
+				if o.binaryOp != nil && o.matchesRuntimeSignature(f.disableTypeGuards, args...) {
 					return o.binaryOp(args[0], args[1])
 				}
 			}
-			if o.functionOp != nil && o.matchesRuntimeSignature( /* disableTypeGuards=*/ false, args...) {
+			if o.functionOp != nil && o.matchesRuntimeSignature(f.disableTypeGuards, args...) {
 				return o.functionOp(args...)
 			}
 			// eventually this will fall through to the noSuchOverload below.
