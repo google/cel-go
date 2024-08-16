@@ -19,6 +19,7 @@ import (
 	"math"
 
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
@@ -95,6 +96,7 @@ func ListsVersion(version uint32) ListsOption {
 // CompileOptions implements the Library interface method.
 func (lib listsLib) CompileOptions() []cel.EnvOption {
 	listType := cel.ListType(cel.TypeParamType("T"))
+	listListType := cel.ListType(listType)
 	listDyn := cel.ListType(cel.DynType)
 	opts := []cel.EnvOption{
 		cel.Function("slice",
@@ -117,24 +119,35 @@ func (lib listsLib) CompileOptions() []cel.EnvOption {
 		opts = append(opts,
 			cel.Function("flatten",
 				cel.MemberOverload("list_flatten",
-					[]*cel.Type{listDyn}, listDyn,
+					[]*cel.Type{listListType}, listType,
 					cel.UnaryBinding(func(arg ref.Val) ref.Val {
-						list := arg.(traits.Lister)
+						list, ok := arg.(traits.Lister)
+						if !ok {
+							return types.MaybeNoSuchOverloadErr(arg)
+						}
 						flatList := flatten(list, 1)
 						return types.DefaultTypeAdapter.NativeToValue(flatList)
 					}),
 				),
-			),
-			cel.Function("flatten",
 				cel.MemberOverload("list_flatten_int",
 					[]*cel.Type{listDyn, types.IntType}, listDyn,
 					cel.BinaryBinding(func(arg1, arg2 ref.Val) ref.Val {
-						list := arg1.(traits.Lister)
-						depth := arg2.(types.Int)
+						list, ok := arg1.(traits.Lister)
+						if !ok {
+							return types.MaybeNoSuchOverloadErr(arg1)
+						}
+						depth, ok := arg2.(types.Int)
+						if !ok {
+							return types.MaybeNoSuchOverloadErr(arg2)
+						}
 						flatList := flatten(list, int64(depth))
 						return types.DefaultTypeAdapter.NativeToValue(flatList)
 					}),
 				),
+				// To handle the case where a variable of just `list(T)` is provided at runtime
+				// with a graceful failure more, disable the type guards since the implementation
+				// can handle lists which are already flat.
+				decls.DisableTypeGuards(true),
 			),
 		)
 	}
