@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/google/cel-go/cel"
@@ -39,6 +40,19 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	attrpb "google.golang.org/genproto/googleapis/rpc/context/attribute_context"
 	descpb "google.golang.org/protobuf/types/descriptorpb"
+)
+
+var (
+	extensionMap = map[string]cel.EnvOption{
+		"optional": cel.OptionalTypes(),
+		"bindings": ext.Bindings(),
+		"strings":  ext.Strings(),
+		"protos":   ext.Protos(),
+		"math":     ext.Math(),
+		"encoders": ext.Encoders(),
+		"sets":     ext.Sets(),
+		"lists":    ext.Lists(),
+	}
 )
 
 // letVariable let variable representation
@@ -723,26 +737,22 @@ func (o extensionOption) Option() cel.EnvOption {
 }
 
 func newExtensionOption(extType string) (*extensionOption, error) {
-	var extOption cel.EnvOption
 	extType = strings.ToLower(extType)
-	switch op := extType; op {
-	case "bindings":
-		extOption = ext.Bindings()
-	case "optional":
-		extOption = cel.OptionalTypes()
-	case "strings":
-		extOption = ext.Strings()
-	case "protos":
-		extOption = ext.Protos()
-	case "math":
-		extOption = ext.Math()
-	case "encoders":
-		extOption = ext.Encoders()
-	default:
-		return nil, fmt.Errorf("Unknown option: %s. Available options are: ['strings', 'protos', 'math', 'encoders', 'bindings', 'optional', 'all']", op)
+	if extOption, found := extensionMap[extType]; found {
+		return &extensionOption{extensionType: extType, option: extOption}, nil
+	} else {
+		keys := make([]string, 0)
+		for k, _ := range extensionMap {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		extKeyName := make([]string, 0, len(keys))
+		for _, k := range keys {
+			extKeyName = append(extKeyName, "'"+k+"'")
+		}
+		joinedOptions := "['all', " + strings.Join(extKeyName, ", ") + "]"
+		return nil, fmt.Errorf("Unknown option: %s. Available options are: %s", extType, joinedOptions)
 	}
-
-	return &extensionOption{extensionType: extType, option: extOption}, nil
 }
 
 // setOption sets a number of options on the environment. returns an error if
@@ -811,8 +821,7 @@ func (e *Evaluator) loadExtensionOption(idx int, args []string) error {
 	argExtType := args[idx]
 	if argExtType == "all" {
 		// Load all extension types as a convenience
-		var extensionTypes = []string{"optional", "strings", "protos", "math", "encoders", "bindings"}
-		for _, val := range extensionTypes {
+		for val, _ := range extensionMap {
 			err := e.loadExtensionOptionType(val)
 			if err != nil {
 				return err
