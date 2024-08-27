@@ -38,6 +38,12 @@ type TestCase struct {
 
 // TestInput represents an input literal value or expression.
 type TestInput struct {
-	Value any    `yaml:"value"`
-	Expr  string `yaml:"expr"`
+	// Value is a simple literal value.
+	Value any `yaml:"value"`
+
+	// Expr is a CEL expression based input.
+	Expr string `yaml:"expr"`
+
+	// ContextExpr is a CEL expression which is used as cel.ContextProtoVars
+	ContextExpr string `yaml:"context_expr"`
 }

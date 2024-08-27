@@ -15,9 +15,13 @@
 package policy
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
+
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/ext"
@@ -105,8 +109,9 @@ func (ec *ExtensionConfig) AsEnvOption(baseEnv *cel.Env) (cel.EnvOption, error) 
 
 // VariableDecl represents a YAML serializable CEL variable declaration.
 type VariableDecl struct {
-	Name string    `yaml:"name"`
-	Type *TypeDecl `yaml:"type"`
+	Name         string    `yaml:"name"`
+	Type         *TypeDecl `yaml:"type"`
+	ContextProto string    `yaml:"context_proto"`
 }
 
 // AsEnvOption converts a VariableDecl type to a CEL environment option.
@@ -114,11 +119,24 @@ type VariableDecl struct {
 // Note, variable definitions with differing type definitions will result in an error during
 // the compile step.
 func (vd *VariableDecl) AsEnvOption(baseEnv *cel.Env) (cel.EnvOption, error) {
-	t, err := vd.Type.AsCELType(baseEnv)
-	if err != nil {
-		return nil, err
+	if vd.Name != "" {
+		t, err := vd.Type.AsCELType(baseEnv)
+		if err != nil {
+			return nil, fmt.Errorf("invalid variable type for '%s': %w", vd.Name, err)
+		}
+		return cel.Variable(vd.Name, t), nil
 	}
-	return cel.Variable(vd.Name, t), nil
+	if vd.ContextProto != "" {
+		if _, found := baseEnv.CELTypeProvider().FindStructType(vd.ContextProto); !found {
+			return nil, fmt.Errorf("could not find context proto type name: %s", vd.ContextProto)
+		}
+		messageType, err := protoregistry.GlobalTypes.FindMessageByName(protoreflect.FullName(vd.ContextProto))
+		if err == protoregistry.NotFound {
+			return nil, fmt.Errorf("could not find context proto type name: %s", vd.ContextProto)
+		}
+		return cel.DeclareContextProto(messageType.Descriptor()), nil
+	}
+	return nil, errors.New("invalid variable, must set 'name' or 'context_proto' field")
 }
 
 // TypeDecl represents a YAML serializable CEL type reference.

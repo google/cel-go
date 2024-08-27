@@ -86,6 +86,19 @@ var (
 	    ? optional.of({"banned": "unconfigured_region"}) : optional.none()))`,
 		},
 		{
+			name: "context_pb",
+			expr: `
+	(single_int32 > google.expr.proto3.test.TestAllTypes{single_int64: 10}.single_int64)
+	? optional.of("invalid spec, got single_int32=%d, wanted <= 10".format([single_int32]))
+	: ((standalone_enum == google.expr.proto3.test.TestAllTypes.NestedEnum.BAR ||
+      google.expr.proto3.test.ImportedGlobalEnum.IMPORT_BAR in imported_enums)
+	  ? optional.of("invalid spec, neither nested nor imported enums may refer to BAR or IMPORT_BAR")
+	  : optional.none())`,
+			envOpts: []cel.EnvOption{
+				cel.Types(&proto3pb.TestAllTypes{}),
+			},
+		},
+		{
 			name: "pb",
 			expr: `
 	(spec.single_int32 > google.expr.proto3.test.TestAllTypes{single_int64: 10}.single_int64)
