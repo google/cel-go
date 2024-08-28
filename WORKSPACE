@@ -68,22 +68,22 @@ go_repository(
     tag = "v1.28.1",
 )
 
-# Generated Google APIs protos for Golang 08/03/2023
+# Generated Google APIs protos for Golang 08/24/2024
 go_repository(
     name = "org_golang_google_genproto_googleapis_api",
     build_file_proto_mode = "disable_global",
     importpath = "google.golang.org/genproto/googleapis/api",
-    sum = "h1:nIgk/EEq3/YlnmVVXVnm14rC2oxgs1o0ong4sD/rd44=",
-    version = "v0.0.0-20230803162519-f966b187b2e5",
+    sum = "h1:YcyjlL1PRr2Q17/I0dPk2JmYS5CDXfcdb2Z3YRioEbw=",
+    version = "v0.0.0-20240826202546-f6391c0de4c7",
 )
 
-# Generated Google APIs protos for Golang 08/03/2023
+# Generated Google APIs protos for Golang 08/24/2024
 go_repository(
     name = "org_golang_google_genproto_googleapis_rpc",
     build_file_proto_mode = "disable_global",
     importpath = "google.golang.org/genproto/googleapis/rpc",
-    sum = "h1:eSaPbMR4T7WfH9FvABk36NBMacoTUKdWCvV0dx+KfOg=",
-    version = "v0.0.0-20230803162519-f966b187b2e5",
+    sum = "h1:Kqjm4WpoWvwhMPcrAczoTyMySQmYa9Wy2iL6Con4zn8=",
+    version = "v0.0.0-20240823204242-4ba0660f739c",
 )
 
 # gRPC deps for v1.49.0 (including x/text and x/net)
@@ -116,12 +116,17 @@ go_repository(
     version = "v4.13.0",
 )
 
-# CEL Spec deps
+# CEL Spec deps (v0.16.1)
 go_repository(
     name = "com_google_cel_spec",
-    commit = "5299974f1c69103e4bb4eec48f7d9b24413ca3c7",
-    importpath = "github.com/google/cel-spec",
+    commit = "aa4eb92b7d469b32ff1a767ef4ef340b2d05a5d0",
+    importpath = "cel.dev/expr",
 )
+
+# local_repository(
+#     name = "com_google_cel_spec",
+#     path = "<abs/path>/github.com/google/cel-spec",
+# )
 
 # strcase deps
 go_repository(

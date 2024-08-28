@@ -9,19 +9,20 @@ import (
 	"strings"
 	"testing"
 
+	"cel.dev/expr/proto/test/v1/testpb"
+
 	"github.com/bazelbuild/rules_go/go/runfiles"
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/ext"
-	"github.com/google/cel-spec/proto/test/v1/testpb"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/testing/protocmp"
 
-	test2pb "github.com/google/cel-spec/proto/test/v1/proto2/test_all_types"
-	test3pb "github.com/google/cel-spec/proto/test/v1/proto3/test_all_types"
+	test2pb "cel.dev/expr/proto/test/v1/proto2/test_all_types"
+	test3pb "cel.dev/expr/proto/test/v1/proto3/test_all_types"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 

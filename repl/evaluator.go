@@ -35,8 +35,8 @@ import (
 	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"
 
-	test2pb "github.com/google/cel-spec/proto/test/v1/proto2/test_all_types"
-	test3pb "github.com/google/cel-spec/proto/test/v1/proto3/test_all_types"
+	test2pb "cel.dev/expr/proto/test/v1/proto2/test_all_types"
+	test3pb "cel.dev/expr/proto/test/v1/proto3/test_all_types"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	attrpb "google.golang.org/genproto/googleapis/rpc/context/attribute_context"
 	descpb "google.golang.org/protobuf/types/descriptorpb"
