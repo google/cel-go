@@ -17,7 +17,8 @@ package main
 
 import (
 	"github.com/google/cel-go/server"
-	"github.com/google/cel-spec/tools/celrpc"
+
+	"cel.dev/expr/tools/celrpc"
 )
 
 func main() {

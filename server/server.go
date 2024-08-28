@@ -24,8 +24,9 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/ext"
 
-	test2pb "github.com/google/cel-spec/proto/test/v1/proto2/test_all_types"
-	test3pb "github.com/google/cel-spec/proto/test/v1/proto3/test_all_types"
+	test2pb "cel.dev/expr/proto/test/v1/proto2/test_all_types"
+	test3pb "cel.dev/expr/proto/test/v1/proto3/test_all_types"
+
 	confpb "google.golang.org/genproto/googleapis/api/expr/conformance/v1alpha1"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	codepb "google.golang.org/genproto/googleapis/rpc/code"
