@@ -2,8 +2,6 @@ module github.com/google/cel-go/server
 
 go 1.21
 
-toolchain go1.23.0
-
 require (
 	cel.dev/expr v0.16.1
 	github.com/google/cel-go v0.0.0-00010101000000-000000000000

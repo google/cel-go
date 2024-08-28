@@ -2,8 +2,6 @@ module github.com/google/cel-go/codelab
 
 go 1.21
 
-toolchain go1.23.0
-
 require (
 	github.com/golang/glog v1.0.0
 	github.com/google/cel-go v0.21.0

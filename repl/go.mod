@@ -2,8 +2,6 @@ module github.com/google/cel-go/repl
 
 go 1.21
 
-toolchain go1.23.0
-
 require (
 	cel.dev/expr v0.16.1
 	github.com/antlr4-go/antlr/v4 v4.13.0
