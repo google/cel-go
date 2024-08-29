@@ -223,6 +223,9 @@ func (r *runner) run(t *testing.T) {
 							t.Fatalf("context variable is not a valid proto: %v", err)
 						}
 						activation, err = cel.ContextProtoVars(ctx.(proto.Message))
+						if err != nil {
+							t.Fatalf("cel.ContextProtoVars() failed: %v", err)
+						}
 						break
 					}
 					input[k] = v.Value
@@ -276,6 +279,9 @@ func (r *runner) bench(b *testing.B) {
 							b.Fatalf("context variable is not a valid proto: %v", err)
 						}
 						activation, err = cel.ContextProtoVars(ctx.(proto.Message))
+						if err != nil {
+							b.Fatalf("cel.ContextProtoVars() failed: %v", err)
+						}
 						break
 					}
 					input[k] = v.Value

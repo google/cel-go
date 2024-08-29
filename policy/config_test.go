@@ -179,7 +179,7 @@ variables:
 		{
 			config: `
 variables:
-  - type: 
+  - type:
       type_name: "no variable name"`,
 			err: "invalid variable, must set 'name' or 'context_proto' field",
 		},
