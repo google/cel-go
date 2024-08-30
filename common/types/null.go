@@ -66,7 +66,7 @@ func (n Null) ConvertToNative(typeDesc reflect.Type) (any, error) {
 			uint64WrapperType, durationValueType, timestampValueType, protoIfaceType:
 			return nil, nil
 		case jsonListValueType, jsonStructType:
-			break
+			// skip handling
 		default:
 			if typeDesc.Implements(protoIfaceType) {
 				return nil, nil

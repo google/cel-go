@@ -22,9 +22,10 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/test/proto3pb"
 
 	"gopkg.in/yaml.v3"
+
+	proto3pb "github.com/google/cel-go/test/proto3pb"
 )
 
 var (

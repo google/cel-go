@@ -742,7 +742,7 @@ func newExtensionOption(extType string) (*extensionOption, error) {
 		return &extensionOption{extensionType: extType, option: extOption}, nil
 	} else {
 		keys := make([]string, 0)
-		for k, _ := range extensionMap {
+		for k := range extensionMap {
 			keys = append(keys, k)
 		}
 		sort.Strings(keys)
@@ -821,7 +821,7 @@ func (e *Evaluator) loadExtensionOption(idx int, args []string) error {
 	argExtType := args[idx]
 	if argExtType == "all" {
 		// Load all extension types as a convenience
-		for val, _ := range extensionMap {
+		for val := range extensionMap {
 			err := e.loadExtensionOptionType(val)
 			if err != nil {
 				return err
