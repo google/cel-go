@@ -20,10 +20,10 @@ import (
 	"math"
 	"strconv"
 
-	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/reflect/protoregistry"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/ext"
 )
 
@@ -130,11 +130,13 @@ func (vd *VariableDecl) AsEnvOption(baseEnv *cel.Env) (cel.EnvOption, error) {
 		if _, found := baseEnv.CELTypeProvider().FindStructType(vd.ContextProto); !found {
 			return nil, fmt.Errorf("could not find context proto type name: %s", vd.ContextProto)
 		}
-		messageType, err := protoregistry.GlobalTypes.FindMessageByName(protoreflect.FullName(vd.ContextProto))
-		if err == protoregistry.NotFound {
-			return nil, fmt.Errorf("could not find context proto type name: %s", vd.ContextProto)
+		// Attempt to instantiate the proto in order to reflect to its descriptor
+		msg := baseEnv.CELTypeProvider().NewValue(vd.ContextProto, map[string]ref.Val{})
+		pbMsg, ok := msg.Value().(proto.Message)
+		if !ok {
+			return nil, fmt.Errorf("type name was not a protobuf: %T", msg.Value())
 		}
-		return cel.DeclareContextProto(messageType.Descriptor()), nil
+		return cel.DeclareContextProto(pbMsg.ProtoReflect().Descriptor()), nil
 	}
 	return nil, errors.New("invalid variable, must set 'name' or 'context_proto' field")
 }
