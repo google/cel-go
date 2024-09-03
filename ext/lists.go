@@ -42,7 +42,7 @@ import (
 //
 // Flattens a list recursively.
 // If an optional depth is provided, the list is flattened to a the specificied level.
-// A negative depth value flattens the list recursively to its deepest level.
+// A negative depth value will result in an error.
 //
 //	<list>.flatten(<list>) -> <list>
 //	<list>.flatten(<list>, <int>) -> <list>
@@ -53,7 +53,7 @@ import (
 // [1,[2,[3,4]]].flatten() // return [1, 2, [3, 4]]
 // [1,2,[],[],[3,4]].flatten() // return [1, 2, 3, 4]
 // [1,[2,[3,[4]]]].flatten(2) // return [1, 2, 3, [4]]
-// [1,[2,[3,[4]]]].flatten(-1) // return [1, 2, 3, 4]
+// [1,[2,[3,[4]]]].flatten(-1) // error
 func Lists(options ...ListsOption) cel.EnvOption {
 	l := &listsLib{
 		version: math.MaxUint32,
@@ -125,7 +125,11 @@ func (lib listsLib) CompileOptions() []cel.EnvOption {
 						if !ok {
 							return types.MaybeNoSuchOverloadErr(arg)
 						}
-						flatList := flatten(list, 1)
+						flatList, err := flatten(list, 1)
+						if err != nil {
+							return types.WrapErr(err)
+						}
+
 						return types.DefaultTypeAdapter.NativeToValue(flatList)
 					}),
 				),
@@ -140,7 +144,11 @@ func (lib listsLib) CompileOptions() []cel.EnvOption {
 						if !ok {
 							return types.MaybeNoSuchOverloadErr(arg2)
 						}
-						flatList := flatten(list, int64(depth))
+						flatList, err := flatten(list, int64(depth))
+						if err != nil {
+							return types.WrapErr(err)
+						}
+
 						return types.DefaultTypeAdapter.NativeToValue(flatList)
 					}),
 				),
@@ -180,7 +188,11 @@ func slice(list traits.Lister, start, end types.Int) (ref.Val, error) {
 	return types.DefaultTypeAdapter.NativeToValue(newList), nil
 }
 
-func flatten(list traits.Lister, depth int64) []ref.Val {
+func flatten(list traits.Lister, depth int64) ([]ref.Val, error) {
+	if depth < 0 {
+		return nil, fmt.Errorf("level must be non-negative")
+	}
+
 	var newList []ref.Val
 	iter := list.Iterator()
 
@@ -192,9 +204,14 @@ func flatten(list traits.Lister, depth int64) []ref.Val {
 			newList = append(newList, val)
 			continue
 		} else {
-			newList = append(newList, flatten(nestedList, depth-1)...)
+			flattenedList, err := flatten(nestedList, depth-1)
+			if err != nil {
+				return nil, err
+			}
+
+			newList = append(newList, flattenedList...)
 		}
 	}
 
-	return newList
+	return newList, nil
 }
