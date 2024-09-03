@@ -1,4 +1,4 @@
-package conformance
+package conformance_test
 
 import (
 	"errors"
@@ -8,8 +8,6 @@ import (
 	"os"
 	"strings"
 	"testing"
-
-	"cel.dev/expr/proto/test/v1/testpb"
 
 	"github.com/bazelbuild/rules_go/go/runfiles"
 
@@ -25,6 +23,7 @@ import (
 
 	test2pb "cel.dev/expr/proto/test/v1/proto2/test_all_types"
 	test3pb "cel.dev/expr/proto/test/v1/proto3/test_all_types"
+	testpb "cel.dev/expr/proto/test/v1/testpb"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
@@ -79,18 +78,26 @@ func init() {
 	flag.Var(&tests, "tests", "Paths to run, separate by a comma.")
 	flag.Var(&skipTests, "skip_tests", "Tests to skip, separate by a comma.")
 
-	var err error
-	envWithMacros, err = cel.NewCustomEnv(cel.StdLib(), cel.OptionalTypes(),
+	stdOpts := []cel.EnvOption{
+		cel.StdLib(),
+		cel.ClearMacros(),
+		cel.OptionalTypes(),
 		cel.EagerlyValidateDeclarations(true),
 		cel.EnableErrorOnBadPresenceTest(true),
-		cel.Types(&test2pb.TestAllTypes{}, &test3pb.TestAllTypes{}), cel.Macros(cel.StandardMacros...), ext.Bindings(), ext.Encoders(), ext.Math(), ext.Protos(), ext.Strings())
+		cel.Types(&test2pb.TestAllTypes{}, &test2pb.Proto2ExtensionScopedMessage{}, &test3pb.TestAllTypes{}),
+		ext.Bindings(),
+		ext.Encoders(),
+		ext.Math(),
+		ext.Protos(),
+		ext.Strings(),
+	}
+
+	var err error
+	envNoMacros, err = cel.NewCustomEnv(stdOpts...)
 	if err != nil {
 		log.Fatalf("cel.NewCustomEnv() = %v", err)
 	}
-	envNoMacros, err = cel.NewCustomEnv(cel.StdLib(), cel.OptionalTypes(),
-		cel.EagerlyValidateDeclarations(true),
-		cel.EnableErrorOnBadPresenceTest(true),
-		cel.Types(&test2pb.TestAllTypes{}, &test3pb.TestAllTypes{}), ext.Bindings(), ext.Encoders(), ext.Math(), ext.Protos(), ext.Strings(), cel.ClearMacros())
+	envWithMacros, err = envNoMacros.Extend(cel.Macros(cel.StandardMacros...))
 	if err != nil {
 		log.Fatalf("cel.NewCustomEnv() = %v", err)
 	}
