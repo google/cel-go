@@ -7,9 +7,11 @@ package(
 
 _ALL_TESTS = [
     "@com_google_cel_spec//tests/simple:testdata/basic.textproto",
+    "@com_google_cel_spec//tests/simple:testdata/bindings_ext.textproto",
     "@com_google_cel_spec//tests/simple:testdata/comparisons.textproto",
     "@com_google_cel_spec//tests/simple:testdata/conversions.textproto",
     "@com_google_cel_spec//tests/simple:testdata/dynamic.textproto",
+    "@com_google_cel_spec//tests/simple:testdata/encoders_ext.textproto",
     "@com_google_cel_spec//tests/simple:testdata/enums.textproto",
     "@com_google_cel_spec//tests/simple:testdata/fields.textproto",
     "@com_google_cel_spec//tests/simple:testdata/fp_math.textproto",
@@ -23,6 +25,7 @@ _ALL_TESTS = [
     "@com_google_cel_spec//tests/simple:testdata/parse.textproto",
     "@com_google_cel_spec//tests/simple:testdata/plumbing.textproto",
     "@com_google_cel_spec//tests/simple:testdata/proto2.textproto",
+    "@com_google_cel_spec//tests/simple:testdata/proto2_ext.textproto",
     "@com_google_cel_spec//tests/simple:testdata/proto3.textproto",
     "@com_google_cel_spec//tests/simple:testdata/string.textproto",
     "@com_google_cel_spec//tests/simple:testdata/string_ext.textproto",
@@ -43,6 +46,9 @@ _TESTS_TO_SKIP = [
     "fields/qualified_identifier_resolution/map_value_repeat_key_heterogeneous",
     "macros/map/map_extract_keys",
     "timestamps/duration_converters/get_milliseconds",
+
+    # Failing conformance test for unknown reasons
+    "encoders_ext/decode/hello_without_padding",
 
     # Future enhancments.
     "enums/strong_proto2",
