@@ -33,8 +33,9 @@ import (
 	"github.com/google/cel-go/common/types/traits"
 	"github.com/google/cel-go/test"
 
-	proto3pb "github.com/google/cel-go/test/proto3pb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
+
+	proto3pb "github.com/google/cel-go/test/proto3pb"
 )
 
 func TestNativeTypes(t *testing.T) {
@@ -108,6 +109,72 @@ func TestNativeTypes(t *testing.T) {
 				CustomName:     "name",
 			},
 			envOpts: []any{ParseStructTags(true)},
+		},
+
+		{
+			expr: `ext.TestAllTypes{
+				nestedVal: ext.TestNestedType{NestedMapVal: {1: false}},
+				boolVal: true,
+				BytesVal: b'hello',
+				DurationVal: duration('5s'),
+				DoubleVal: 1.5,
+				FloatVal: 2.5,
+				Int32Val: 10,
+				Int64Val: 20,
+				StringVal: 'hello world',
+				TimestampVal: timestamp('2011-08-06T01:23:45Z'),
+				Uint32Val: 100u,
+				Uint64Val: 200u,
+				ListVal: [
+					ext.TestNestedType{
+						NestedListVal:['goodbye', 'cruel', 'world'],
+						NestedMapVal: {42: true},
+            custom_name: 'name',
+					},
+				],
+				ArrayVal: [
+					ext.TestNestedType{
+						NestedListVal:['goodbye', 'cruel', 'world'],
+						NestedMapVal: {42: true},
+            custom_name: 'name',
+					},
+				],
+				MapVal: {'map-key': ext.TestAllTypes{boolVal: true}},
+				CustomSliceVal: [ext.TestNestedSliceType{Value: 'none'}],
+				CustomMapVal: {'even': ext.TestMapVal{Value: 'more'}},
+        CustomName: 'name',
+			}`,
+			out: &TestAllTypes{
+				NestedVal:    &TestNestedType{NestedMapVal: map[int64]bool{1: false}},
+				BoolVal:      true,
+				BytesVal:     []byte("hello"),
+				DurationVal:  time.Second * 5,
+				DoubleVal:    1.5,
+				FloatVal:     2.5,
+				Int32Val:     10,
+				Int64Val:     20,
+				StringVal:    "hello world",
+				TimestampVal: mustParseTime(t, "2011-08-06T01:23:45Z"),
+				Uint32Val:    uint32(100),
+				Uint64Val:    uint64(200),
+				ListVal: []*TestNestedType{
+					{
+						NestedListVal:    []string{"goodbye", "cruel", "world"},
+						NestedMapVal:     map[int64]bool{42: true},
+						NestedCustomName: "name",
+					},
+				},
+				ArrayVal: [1]*TestNestedType{{
+					NestedListVal:    []string{"goodbye", "cruel", "world"},
+					NestedMapVal:     map[int64]bool{42: true},
+					NestedCustomName: "name",
+				}},
+				MapVal:         map[string]TestAllTypes{"map-key": {BoolVal: true}},
+				CustomSliceVal: []TestNestedSliceType{{Value: "none"}},
+				CustomMapVal:   map[string]TestMapVal{"even": {Value: "more"}},
+				CustomName:     "name",
+			},
+			envOpts: []any{ParseStructTag("json")},
 		},
 		{
 			expr: `ext.TestAllTypes{
@@ -750,20 +817,32 @@ func TestNativeTypesWithOptional(t *testing.T) {
 }
 
 func TestNativeTypeConvertToType(t *testing.T) {
-	nt, err := newNativeType(true, reflect.TypeOf(&TestAllTypes{}))
-	if err != nil {
-		t.Fatalf("newNativeType() failed: %v", err)
+	var nativeTests = []struct {
+		tag string
+	}{
+		{tag: "cel"},
+		{tag: "json"},
 	}
-	if nt.ConvertToType(types.TypeType) != types.TypeType {
-		t.Error("ConvertToType(Type) failed")
-	}
-	if !types.IsError(nt.ConvertToType(types.StringType)) {
-		t.Errorf("ConvertToType(String) got %v, wanted error", nt.ConvertToType(types.StringType))
+
+	for i, tst := range nativeTests {
+		tc := tst
+		t.Run(fmt.Sprintf("[%d]", i), func(t *testing.T) {
+			nt, err := newNativeType(tc.tag, reflect.TypeOf(&TestAllTypes{}))
+			if err != nil {
+				t.Fatalf("newNativeType() failed: %v", err)
+			}
+			if nt.ConvertToType(types.TypeType) != types.TypeType {
+				t.Error("ConvertToType(Type) failed")
+			}
+			if !types.IsError(nt.ConvertToType(types.StringType)) {
+				t.Errorf("ConvertToType(String) got %v, wanted error", nt.ConvertToType(types.StringType))
+			}
+		})
 	}
 }
 
 func TestNativeTypeConvertToNative(t *testing.T) {
-	nt, err := newNativeType(true, reflect.TypeOf(&TestAllTypes{}))
+	nt, err := newNativeType("cel", reflect.TypeOf(&TestAllTypes{}))
 	if err != nil {
 		t.Fatalf("newNativeType() failed: %v", err)
 	}
@@ -774,7 +853,7 @@ func TestNativeTypeConvertToNative(t *testing.T) {
 }
 
 func TestNativeTypeHasTrait(t *testing.T) {
-	nt, err := newNativeType(true, reflect.TypeOf(&TestAllTypes{}))
+	nt, err := newNativeType("cel", reflect.TypeOf(&TestAllTypes{}))
 	if err != nil {
 		t.Fatalf("newNativeType() failed: %v", err)
 	}
@@ -784,7 +863,7 @@ func TestNativeTypeHasTrait(t *testing.T) {
 }
 
 func TestNativeTypeValue(t *testing.T) {
-	nt, err := newNativeType(true, reflect.TypeOf(&TestAllTypes{}))
+	nt, err := newNativeType("cel", reflect.TypeOf(&TestAllTypes{}))
 	if err != nil {
 		t.Fatalf("newNativeType() failed: %v", err)
 	}
@@ -793,13 +872,71 @@ func TestNativeTypeValue(t *testing.T) {
 	}
 }
 
-func TestNativeStructWithMultileSameFieldNames(t *testing.T) {
-	_, err := newNativeType(true, reflect.TypeOf(TestStructWithMultipleSameNames{}))
+func TestNativeStructWithMultipleSameFieldNames(t *testing.T) {
+	_, err := newNativeType("cel", reflect.TypeOf(TestStructWithMultipleSameNames{}))
 	if err == nil {
 		t.Fatal("newNativeType() did not fail as expected")
 	}
 	if !errors.Is(err, errDuplicatedFieldName) {
 		t.Fatalf("newNativeType() exepected duplicated field name error, but got: %v", err)
+	}
+}
+
+func TestNativeStructEmbedded(t *testing.T) {
+	var nativeTests = []struct {
+		expr string
+		in   any
+	}{
+		{
+			expr: `test.embedded.custom_name == "name"`,
+			in: map[string]any{
+				"test": &TestEmbeddedTypes{TestNestedType{NestedCustomName: "name"}},
+			},
+		},
+	}
+
+	envOpts := []cel.EnvOption{
+		NativeTypes(
+			reflect.TypeOf(&TestEmbeddedTypes{}),
+			reflect.TypeOf(&TestNestedType{}),
+			ParseStructTag("json"),
+		),
+		cel.Variable("test", cel.ObjectType("ext.TestEmbeddedTypes")),
+	}
+
+	env, err := cel.NewEnv(envOpts...)
+	if err != nil {
+		t.Fatalf("cel.NewEnv(NativeTypes()) failed: %v", err)
+	}
+
+	for i, tst := range nativeTests {
+		tc := tst
+		t.Run(fmt.Sprintf("[%d]", i), func(t *testing.T) {
+			var asts []*cel.Ast
+			pAst, iss := env.Parse(tc.expr)
+			if iss.Err() != nil {
+				t.Fatalf("env.Parse(%v) failed: %v", tc.expr, iss.Err())
+			}
+			asts = append(asts, pAst)
+			cAst, iss := env.Check(pAst)
+			if iss.Err() != nil {
+				t.Fatalf("env.Check(%v) failed: %v", tc.expr, iss.Err())
+			}
+			asts = append(asts, cAst)
+			for _, ast := range asts {
+				prg, err := env.Program(ast)
+				if err != nil {
+					t.Fatal(err)
+				}
+				out, _, err := prg.Eval(tc.in)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !reflect.DeepEqual(out.Value(), true) {
+					t.Errorf("got %v, wanted true for expr: %s", out.Value(), tc.expr)
+				}
+			}
+		})
 	}
 }
 
@@ -855,13 +992,13 @@ type TestStructWithMultipleSameNames struct {
 type TestNestedType struct {
 	NestedListVal    []string
 	NestedMapVal     map[int64]bool
-	NestedCustomName string `cel:"custom_name"`
+	NestedCustomName string `cel:"custom_name" json:"custom_name"`
 }
 
 type TestAllTypes struct {
-	NestedVal       *TestNestedType
-	NestedStructVal TestNestedType
-	BoolVal         bool
+	NestedVal       *TestNestedType `json:"nestedVal,omitempty"`
+	NestedStructVal TestNestedType  `json:"nestedStructVal"`
+	BoolVal         bool            `json:"boolVal"`
 	BytesVal        []byte
 	DurationVal     time.Duration
 	DoubleVal       float64
@@ -896,4 +1033,8 @@ type TestNestedSliceType struct {
 
 type TestMapVal struct {
 	Value string
+}
+
+type TestEmbeddedTypes struct {
+	TestNestedType `json:"embedded,omitempty"`
 }
