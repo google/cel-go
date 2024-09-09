@@ -29,10 +29,7 @@ func TestEncoders(t *testing.T) {
 		parseOnly bool
 	}{
 		{expr: "base64.decode('aGVsbG8=') == b'hello'"},
-		{
-			expr: "base64.decode('aGVsbG8') == b'error'",
-			err:  "illegal base64 data at input byte 4",
-		},
+		{expr: "base64.decode('aGVsbG8') == b'hello'"},
 		{
 			expr:      "base64.decode(b'aGVsbG8=') == b'hello'",
 			err:       "no such overload",
