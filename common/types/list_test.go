@@ -700,6 +700,119 @@ func TestValueListConvertToNative_Json(t *testing.T) {
 	}
 }
 
+func TestMutableList(t *testing.T) {
+	l := NewMutableList(DefaultTypeAdapter)
+	l.Add(NewRefValList(DefaultTypeAdapter, []ref.Val{String("hello")}))
+	l.Add(NewRefValList(DefaultTypeAdapter, []ref.Val{String("world")}))
+	il := l.ToImmutableList()
+	if il.Size() != Int(2) {
+		t.Errorf("il.Size() got %d, wanted size 2", il.Size())
+	}
+	l.Add(NewRefValList(DefaultTypeAdapter, []ref.Val{String("!")}))
+	if il.Size() != Int(2) {
+		t.Errorf("il.Size() got %d, wanted size 2", il.Size())
+	}
+}
+
+func TestListFold(t *testing.T) {
+
+	tests := []struct {
+		l         any
+		folds     int
+		foldLimit int
+	}{
+		{
+			l:         []string{"hello", "world"},
+			folds:     2,
+			foldLimit: 2,
+		},
+		{
+			l:         []string{"hello", "world"},
+			folds:     1,
+			foldLimit: 1,
+		},
+		{
+			l:         []string{"hello"},
+			folds:     1,
+			foldLimit: 2,
+		},
+		{
+			l:         []ref.Val{},
+			folds:     0,
+			foldLimit: 20,
+		},
+		{
+			l: []ref.Val{
+				String("hello"),
+				String("world"),
+				String("goodbye"),
+				String("cruel world"),
+			},
+			folds:     1,
+			foldLimit: 1,
+		},
+		{
+			l: []ref.Val{
+				String("hello"),
+				String("world"),
+				String("goodbye"),
+				String("cruel world"),
+			},
+			folds:     4,
+			foldLimit: 10,
+		},
+		{
+			l: DefaultTypeAdapter.NativeToValue([]ref.Val{
+				String("hello"),
+				String("world"),
+			}).(traits.Lister).Add(DefaultTypeAdapter.NativeToValue([]ref.Val{
+				String("goodbye"),
+				String("cruel world"),
+			})),
+			folds:     4,
+			foldLimit: 10,
+		},
+		{
+			l: DefaultTypeAdapter.NativeToValue([]ref.Val{
+				String("hello"),
+				String("world"),
+			}).(traits.Lister).Add(DefaultTypeAdapter.NativeToValue([]ref.Val{
+				String("goodbye"),
+				String("cruel world"),
+			})),
+			folds:     3,
+			foldLimit: 3,
+		},
+	}
+	reg := NewEmptyRegistry()
+	for i, tst := range tests {
+		tc := tst
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			f := &testListFolder{foldLimit: tc.foldLimit}
+			l := reg.NativeToValue(tc.l).(traits.Foldable)
+			l.Fold(f)
+			if f.folds != tc.folds {
+				t.Errorf("m.Fold(f) got %d, wanted %d folds", f.folds, tc.folds)
+			}
+		})
+	}
+}
+
+type testListFolder struct {
+	foldLimit int
+	folds     int
+}
+
+func (f *testListFolder) FoldEntry(t ref.Type, k, v any) bool {
+	if f.foldLimit != 0 {
+		if f.folds >= f.foldLimit {
+			return false
+		}
+	}
+	f.folds++
+	return true
+}
+
 func getElem(t *testing.T, list traits.Indexer, index ref.Val) any {
 	t.Helper()
 	val := list.Get(index)

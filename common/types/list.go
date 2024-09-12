@@ -256,6 +256,15 @@ func (l *baseList) IsZeroValue() bool {
 	return l.size == 0
 }
 
+// Fold calls the FoldEntry method for each (index, value) pair in the list.
+func (l *baseList) Fold(f traits.Folder) {
+	for i := 0; i < l.size; i++ {
+		if !f.FoldEntry(ListType, i, l.get(i)) {
+			break
+		}
+	}
+}
+
 // Iterator implements the traits.Iterable interface method.
 func (l *baseList) Iterator() traits.Iterator {
 	return newListIterator(l)
@@ -431,6 +440,15 @@ func (l *concatList) Get(index ref.Val) ref.Val {
 // IsZeroValue returns true if the list is empty.
 func (l *concatList) IsZeroValue() bool {
 	return l.Size().(Int) == 0
+}
+
+// Fold calls the FoldEntry method for each (index, value) pair in the list.
+func (l *concatList) Fold(f traits.Folder) {
+	for i := Int(0); i < l.Size().(Int); i++ {
+		if !f.FoldEntry(ListType, i, l.Get(i)) {
+			break
+		}
+	}
 }
 
 // Iterator implements the traits.Iterable interface method.
