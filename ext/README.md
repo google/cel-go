@@ -405,6 +405,19 @@ Examples:
     [1,2,3,4].slice(1, 3) // return [2, 3]
     [1,2,3,4].slice(2, 4) // return [3 ,4]
 
+### Sort
+
+Sorts a list with comparable elements. If the element type is not comparable
+
+    <list(T)>.sort() -> <list(T)>
+
+Examples:
+
+    [3, 2, 1].sort() // return [1, 2, 3]
+    ["b", "c", "a"].sort() // return ["a", "b", "c"]
+    [1, "b"].sort() // error
+    [[1, 2, 3]].sort() // error
+
 ## Sets
 
 Sets provides set relationship tests.

@@ -17,6 +17,7 @@ package ext
 import (
 	"fmt"
 	"math"
+	"slices"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/decls"
@@ -54,6 +55,20 @@ import (
 // [1,2,[],[],[3,4]].flatten() // return [1, 2, 3, 4]
 // [1,[2,[3,[4]]]].flatten(2) // return [1, 2, 3, [4]]
 // [1,[2,[3,[4]]]].flatten(-1) // error
+//
+// # Sort
+//
+// Sorts a list with comparable elements. If the element type is not comparable
+//
+//	<list(T)>.sort() -> <list(T)>
+//
+// Examples:
+//
+//	[3, 2, 1].sort() // return [1, 2, 3]
+//	["b", "c", "a"].sort() // return ["a", "b", "c"]
+//	[1, "b"].sort() // error
+//	[[1, 2, 3]].sort() // error
+
 func Lists(options ...ListsOption) cel.EnvOption {
 	l := &listsLib{
 		version: math.MaxUint32,
@@ -159,6 +174,27 @@ func (lib listsLib) CompileOptions() []cel.EnvOption {
 			),
 		)
 	}
+	if lib.version >= 2 {
+		opts = append(opts,
+			cel.Function("sort",
+				cel.MemberOverload("list_sort",
+					[]*cel.Type{listType}, listType,
+					cel.UnaryBinding(func(arg ref.Val) ref.Val {
+						list, ok := arg.(traits.Lister)
+						if !ok {
+							return types.MaybeNoSuchOverloadErr(arg)
+						}
+						sorted, err := sortList(list)
+						if err != nil {
+							return types.WrapErr(err)
+						}
+
+						return sorted
+					}),
+				),
+			),
+		)
+	}
 
 	return opts
 }
@@ -214,4 +250,30 @@ func flatten(list traits.Lister, depth int64) ([]ref.Val, error) {
 	}
 
 	return newList, nil
+}
+
+func sortList(list traits.Lister) (ref.Val, error) {
+	listLength := list.Size().(types.Int)
+	if listLength == 0 {
+		return list, nil
+	}
+	elem := list.Get(types.IntZero)
+	if _, ok := elem.(traits.Comparer); !ok {
+		return nil, fmt.Errorf("list elements must be comparable")
+	}
+
+	sorted := make([]ref.Val, 0, listLength)
+	for i := types.IntZero; i < listLength; i++ {
+		val := list.Get(i)
+		if val.Type() != elem.Type() {
+			return nil, fmt.Errorf("list elements must have the same type")
+		}
+		sorted = append(sorted, val)
+	}
+
+	slices.SortFunc(sorted, func(a, b ref.Val) int {
+		return int(a.(traits.Comparer).Compare(b).Value().(int64))
+	})
+
+	return types.DefaultTypeAdapter.NativeToValue(sorted), nil
 }
