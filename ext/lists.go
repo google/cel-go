@@ -26,6 +26,17 @@ import (
 	"github.com/google/cel-go/common/types/traits"
 )
 
+var comparableTypes = []*cel.Type{
+	cel.IntType,
+	cel.UintType,
+	cel.DoubleType,
+	cel.BoolType,
+	cel.DurationType,
+	cel.TimestampType,
+	cel.StringType,
+	cel.BytesType,
+}
+
 // Lists returns a cel.EnvOption to configure extended functions for list manipulation.
 // As a general note, all indices are zero-based.
 // # Slice
@@ -59,8 +70,10 @@ import (
 // # Sort
 //
 // Sorts a list with comparable elements. If the element type is not comparable
+// or the element types are not the same, the function will produce an error.
 //
 //	<list(T)>.sort() -> <list(T)>
+//	T in {int, uint, double, bool, duration, timestamp, string, bytes}
 //
 // Examples:
 //
@@ -175,10 +188,11 @@ func (lib listsLib) CompileOptions() []cel.EnvOption {
 		)
 	}
 	if lib.version >= 2 {
-		opts = append(opts,
-			cel.Function("sort",
-				cel.MemberOverload("list_sort",
-					[]*cel.Type{listType}, listType,
+		sortDecl := cel.Function("sort",
+			templatedOverloads(comparableTypes, func(t *cel.Type) cel.FunctionOpt {
+				return cel.MemberOverload(
+					fmt.Sprintf("list_%s_sort", t.TypeName()),
+					[]*cel.Type{cel.ListType(t)}, cel.ListType(t),
 					cel.UnaryBinding(func(arg ref.Val) ref.Val {
 						list, ok := arg.(traits.Lister)
 						if !ok {
@@ -191,9 +205,10 @@ func (lib listsLib) CompileOptions() []cel.EnvOption {
 
 						return sorted
 					}),
-				),
-			),
+				)
+			})...,
 		)
+		opts = append(opts, sortDecl)
 	}
 
 	return opts
@@ -276,4 +291,12 @@ func sortList(list traits.Lister) (ref.Val, error) {
 	})
 
 	return types.DefaultTypeAdapter.NativeToValue(sorted), nil
+}
+
+func templatedOverloads(types []*cel.Type, template func(t *cel.Type) cel.FunctionOpt) []cel.FunctionOpt {
+	overloads := make([]cel.FunctionOpt, len(types))
+	for i, t := range types {
+		overloads[i] = template(t)
+	}
+	return overloads
 }

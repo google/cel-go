@@ -408,8 +408,10 @@ Examples:
 ### Sort
 
 Sorts a list with comparable elements. If the element type is not comparable
+or the element types are not the same, the function will produce an error.
 
     <list(T)>.sort() -> <list(T)>
+    T in {int, uint, double, bool, duration, timestamp, string, bytes}
 
 Examples:
 

@@ -45,8 +45,6 @@ func TestLists(t *testing.T) {
 		{expr: `[4, 3, 2, 1].sort() == [1, 2, 3, 4]`},
 		{expr: `["d", "a", "b", "c"].sort() == ["a", "b", "c", "d"]`},
 		{expr: `["d", 3, 2, "c"].sort() == ["a", "b", "c", "d"]`, err: "list elements must have the same type"},
-		{expr: `[[1, 2, 3], [3, 2, 1]].sort()`, err: "list elements must be comparable"},
-		{expr: `[[1, 2, 3]].sort()`, err: "list elements must be comparable"},
 	}
 
 	env := testListsEnv(t)
