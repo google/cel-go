@@ -17,7 +17,7 @@ package ext
 import (
 	"fmt"
 	"math"
-	"slices"
+	"sort"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/decls"
@@ -286,8 +286,8 @@ func sortList(list traits.Lister) (ref.Val, error) {
 		sorted = append(sorted, val)
 	}
 
-	slices.SortFunc(sorted, func(a, b ref.Val) int {
-		return int(a.(traits.Comparer).Compare(b).Value().(int64))
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].(traits.Comparer).Compare(sorted[j]) == types.IntNegOne
 	})
 
 	return types.DefaultTypeAdapter.NativeToValue(sorted), nil
