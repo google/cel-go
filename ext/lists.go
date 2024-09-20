@@ -189,11 +189,15 @@ func (lib listsLib) CompileOptions() []cel.EnvOption {
 	}
 	if lib.version >= 2 {
 		sortDecl := cel.Function("sort",
-			templatedOverloads(comparableTypes, func(t *cel.Type) cel.FunctionOpt {
-				return cel.MemberOverload(
-					fmt.Sprintf("list_%s_sort", t.TypeName()),
-					[]*cel.Type{cel.ListType(t)}, cel.ListType(t),
-					cel.UnaryBinding(func(arg ref.Val) ref.Val {
+			append(
+				templatedOverloads(comparableTypes, func(t *cel.Type) cel.FunctionOpt {
+					return cel.MemberOverload(
+						fmt.Sprintf("list_%s_sort", t.TypeName()),
+						[]*cel.Type{cel.ListType(t)}, cel.ListType(t),
+					)
+				}),
+				cel.SingletonUnaryBinding(
+					func(arg ref.Val) ref.Val {
 						list, ok := arg.(traits.Lister)
 						if !ok {
 							return types.MaybeNoSuchOverloadErr(arg)
@@ -204,9 +208,15 @@ func (lib listsLib) CompileOptions() []cel.EnvOption {
 						}
 
 						return sorted
-					}),
-				)
-			})...,
+					},
+					// List traits
+					traits.AdderType,
+					traits.ContainerType,
+					traits.IndexerType,
+					traits.IterableType,
+					traits.SizerType,
+				),
+			)...,
 		)
 		opts = append(opts, sortDecl)
 	}
