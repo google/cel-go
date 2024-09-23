@@ -43,7 +43,7 @@ type Foldable interface {
 
 // Folder performs a fold on a given entry and indicates whether to continue folding.
 type Folder interface {
-	// FoldEntry indicates the calling type and the (key, value) pair associated with the entry.
+	// FoldEntry indicates the key, value pair associated with the entry.
 	// If the output is true, continue folding. Otherwise, terminate the fold.
-	FoldEntry(t ref.Type, key, val any) bool
+	FoldEntry(key, val any) bool
 }

@@ -396,7 +396,7 @@ func (a *jsonStructAccessor) Iterator() traits.Iterator {
 // Fold calls the FoldEntry method for each (key, value) pair in the map.
 func (a *jsonStructAccessor) Fold(f traits.Folder) {
 	for k, v := range a.st {
-		if !f.FoldEntry(MapType, k, v) {
+		if !f.FoldEntry(k, v) {
 			break
 		}
 	}
@@ -480,7 +480,7 @@ func (m *reflectMapAccessor) Iterator() traits.Iterator {
 func (m *reflectMapAccessor) Fold(f traits.Folder) {
 	mapRange := m.refValue.MapRange()
 	for mapRange.Next() {
-		if !f.FoldEntry(MapType, mapRange.Key().Interface(), mapRange.Value().Interface()) {
+		if !f.FoldEntry(mapRange.Key().Interface(), mapRange.Value().Interface()) {
 			break
 		}
 	}
@@ -542,7 +542,7 @@ func (a *refValMapAccessor) Iterator() traits.Iterator {
 // Fold calls the FoldEntry method for each (key, value) pair in the map.
 func (a *refValMapAccessor) Fold(f traits.Folder) {
 	for k, v := range a.mapVal {
-		if !f.FoldEntry(MapType, k, v) {
+		if !f.FoldEntry(k, v) {
 			break
 		}
 	}
@@ -589,7 +589,7 @@ func (a *stringMapAccessor) Iterator() traits.Iterator {
 // Fold calls the FoldEntry method for each (key, value) pair in the map.
 func (a *stringMapAccessor) Fold(f traits.Folder) {
 	for k, v := range a.mapVal {
-		if !f.FoldEntry(MapType, k, v) {
+		if !f.FoldEntry(k, v) {
 			break
 		}
 	}
@@ -640,7 +640,7 @@ func (a *stringIfaceMapAccessor) Iterator() traits.Iterator {
 // Fold calls the FoldEntry method for each (key, value) pair in the map.
 func (a *stringIfaceMapAccessor) Fold(f traits.Folder) {
 	for k, v := range a.mapVal {
-		if !f.FoldEntry(MapType, k, v) {
+		if !f.FoldEntry(k, v) {
 			break
 		}
 	}
@@ -861,7 +861,7 @@ func (m *protoMap) Iterator() traits.Iterator {
 // Fold calls the FoldEntry method for each (key, value) pair in the map.
 func (m *protoMap) Fold(f traits.Folder) {
 	m.value.Range(func(k protoreflect.MapKey, v protoreflect.Value) bool {
-		return f.FoldEntry(MapType, k.Interface(), v.Interface())
+		return f.FoldEntry(k.Interface(), v.Interface())
 	})
 }
 

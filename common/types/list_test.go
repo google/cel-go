@@ -803,7 +803,7 @@ type testListFolder struct {
 	folds     int
 }
 
-func (f *testListFolder) FoldEntry(t ref.Type, k, v any) bool {
+func (f *testListFolder) FoldEntry(k, v any) bool {
 	if f.foldLimit != 0 {
 		if f.folds >= f.foldLimit {
 			return false

@@ -1106,7 +1106,7 @@ type testMapFolder struct {
 	folds     int
 }
 
-func (f *testMapFolder) FoldEntry(t ref.Type, k, v any) bool {
+func (f *testMapFolder) FoldEntry(k, v any) bool {
 	if f.foldLimit != 0 {
 		if f.folds >= f.foldLimit {
 			return false

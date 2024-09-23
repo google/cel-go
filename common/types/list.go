@@ -259,7 +259,7 @@ func (l *baseList) IsZeroValue() bool {
 // Fold calls the FoldEntry method for each (index, value) pair in the list.
 func (l *baseList) Fold(f traits.Folder) {
 	for i := 0; i < l.size; i++ {
-		if !f.FoldEntry(ListType, i, l.get(i)) {
+		if !f.FoldEntry(i, l.get(i)) {
 			break
 		}
 	}
@@ -445,7 +445,7 @@ func (l *concatList) IsZeroValue() bool {
 // Fold calls the FoldEntry method for each (index, value) pair in the list.
 func (l *concatList) Fold(f traits.Folder) {
 	for i := Int(0); i < l.Size().(Int); i++ {
-		if !f.FoldEntry(ListType, i, l.Get(i)) {
+		if !f.FoldEntry(i, l.Get(i)) {
 			break
 		}
 	}
