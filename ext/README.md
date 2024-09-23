@@ -407,6 +407,8 @@ Examples:
 
 ### Sort
 
+**Introduced in version 2**
+
 Sorts a list with comparable elements. If the element type is not comparable
 or the element types are not the same, the function will produce an error.
 
