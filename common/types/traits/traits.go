@@ -62,3 +62,15 @@ const (
 	// SubtractorType type support '-' operations.
 	SubtractorType
 )
+
+const (
+	// ListerType supports a set of traits necessary for list operations.
+	//
+	// The ListerType is syntactic sugar and not intended to be a perfect reflection of all List operators.
+	ListerType = AdderType | ContainerType | IndexerType | IterableType | SizerType
+
+	// MapperType supports a set of traits necessary for map operations.
+	//
+	// The MapperType is syntactic sugar and not intended to be a perfect reflection of all Map operators.
+	MapperType = ContainerType | IndexerType | IterableType | SizerType
+)
