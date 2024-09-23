@@ -210,11 +210,7 @@ func (lib listsLib) CompileOptions() []cel.EnvOption {
 						return sorted
 					},
 					// List traits
-					traits.AdderType,
-					traits.ContainerType,
-					traits.IndexerType,
-					traits.IterableType,
-					traits.SizerType,
+					traits.ListerType,
 				),
 			)...,
 		)
