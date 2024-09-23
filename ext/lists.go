@@ -17,6 +17,7 @@ package ext
 import (
 	"fmt"
 	"math"
+	"sort"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/decls"
@@ -24,6 +25,17 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 )
+
+var comparableTypes = []*cel.Type{
+	cel.IntType,
+	cel.UintType,
+	cel.DoubleType,
+	cel.BoolType,
+	cel.DurationType,
+	cel.TimestampType,
+	cel.StringType,
+	cel.BytesType,
+}
 
 // Lists returns a cel.EnvOption to configure extended functions for list manipulation.
 // As a general note, all indices are zero-based.
@@ -54,6 +66,24 @@ import (
 // [1,2,[],[],[3,4]].flatten() // return [1, 2, 3, 4]
 // [1,[2,[3,[4]]]].flatten(2) // return [1, 2, 3, [4]]
 // [1,[2,[3,[4]]]].flatten(-1) // error
+//
+// # Sort
+//
+// Introduced in version: 2
+//
+// Sorts a list with comparable elements. If the element type is not comparable
+// or the element types are not the same, the function will produce an error.
+//
+//	<list(T)>.sort() -> <list(T)>
+//	T in {int, uint, double, bool, duration, timestamp, string, bytes}
+//
+// Examples:
+//
+//	[3, 2, 1].sort() // return [1, 2, 3]
+//	["b", "c", "a"].sort() // return ["a", "b", "c"]
+//	[1, "b"].sort() // error
+//	[[1, 2, 3]].sort() // error
+
 func Lists(options ...ListsOption) cel.EnvOption {
 	l := &listsLib{
 		version: math.MaxUint32,
@@ -159,6 +189,35 @@ func (lib listsLib) CompileOptions() []cel.EnvOption {
 			),
 		)
 	}
+	if lib.version >= 2 {
+		sortDecl := cel.Function("sort",
+			append(
+				templatedOverloads(comparableTypes, func(t *cel.Type) cel.FunctionOpt {
+					return cel.MemberOverload(
+						fmt.Sprintf("list_%s_sort", t.TypeName()),
+						[]*cel.Type{cel.ListType(t)}, cel.ListType(t),
+					)
+				}),
+				cel.SingletonUnaryBinding(
+					func(arg ref.Val) ref.Val {
+						list, ok := arg.(traits.Lister)
+						if !ok {
+							return types.MaybeNoSuchOverloadErr(arg)
+						}
+						sorted, err := sortList(list)
+						if err != nil {
+							return types.WrapErr(err)
+						}
+
+						return sorted
+					},
+					// List traits
+					traits.ListerType,
+				),
+			)...,
+		)
+		opts = append(opts, sortDecl)
+	}
 
 	return opts
 }
@@ -214,4 +273,38 @@ func flatten(list traits.Lister, depth int64) ([]ref.Val, error) {
 	}
 
 	return newList, nil
+}
+
+func sortList(list traits.Lister) (ref.Val, error) {
+	listLength := list.Size().(types.Int)
+	if listLength == 0 {
+		return list, nil
+	}
+	elem := list.Get(types.IntZero)
+	if _, ok := elem.(traits.Comparer); !ok {
+		return nil, fmt.Errorf("list elements must be comparable")
+	}
+
+	sorted := make([]ref.Val, 0, listLength)
+	for i := types.IntZero; i < listLength; i++ {
+		val := list.Get(i)
+		if val.Type() != elem.Type() {
+			return nil, fmt.Errorf("list elements must have the same type")
+		}
+		sorted = append(sorted, val)
+	}
+
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].(traits.Comparer).Compare(sorted[j]) == types.IntNegOne
+	})
+
+	return types.DefaultTypeAdapter.NativeToValue(sorted), nil
+}
+
+func templatedOverloads(types []*cel.Type, template func(t *cel.Type) cel.FunctionOpt) []cel.FunctionOpt {
+	overloads := make([]cel.FunctionOpt, len(types))
+	for i, t := range types {
+		overloads[i] = template(t)
+	}
+	return overloads
 }
