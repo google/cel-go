@@ -15,7 +15,7 @@
  */
 
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { HttpClientTestingModule } from '@angular/common/http/testing';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
@@ -24,6 +24,7 @@ import { ReplConsoleComponent } from './repl-console-component';
 import { ReplResultDetailComponent } from './repl-result-detail-component';
 import { SharedModule } from '../shared/shared-module';
 import { EvaluateRequest } from '../shared/repl-api-service';
+import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 
 describe('ReplConsoleComponent', () => {
   let component: ReplConsoleComponent;
@@ -31,10 +32,11 @@ describe('ReplConsoleComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [ HttpClientTestingModule, MatFormFieldModule, MatIconModule,
-        MatInputModule, SharedModule, NoopAnimationsModule ],
-      declarations: [ ReplConsoleComponent, ReplResultDetailComponent ]
-    })
+    declarations: [ReplConsoleComponent, ReplResultDetailComponent],
+    imports: [MatFormFieldModule, MatIconModule,
+        MatInputModule, SharedModule, NoopAnimationsModule],
+    providers: [provideHttpClient(withInterceptorsFromDi()), provideHttpClientTesting()]
+})
     .compileComponents();
 
     fixture = TestBed.createComponent(ReplConsoleComponent);
