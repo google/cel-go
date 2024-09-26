@@ -59,8 +59,11 @@ const (
 	// SizerType types support the size() method.
 	SizerType
 
-	// SubtractorType type support '-' operations.
+	// SubtractorType types support '-' operations.
 	SubtractorType
+
+	// FoldableType types support comprehensions v2 macros which iterate over (key, value) pairs.
+	FoldableType
 )
 
 const (

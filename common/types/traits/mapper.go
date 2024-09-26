@@ -31,3 +31,15 @@ type Mapper interface {
 	// (Unknown|Err, false).
 	Find(key ref.Val) (ref.Val, bool)
 }
+
+// MutableMapper interface which emits an immutable result after an intermediate computation.
+type MutableMapper interface {
+	Mapper
+
+	// Insert a key, value pair into the map, returning true if key does not already exist in the map
+	// to indicate the insert is successful.
+	Insert(k, v ref.Val) bool
+
+	// ToImmutableMap converts a mutable map into an immutable map.
+	ToImmutableMap() Mapper
+}

@@ -966,3 +966,161 @@ func TestProtoMapConvertToNative_NestedProto(t *testing.T) {
 		}
 	}
 }
+
+func TestMutableMap(t *testing.T) {
+	m := NewMutableMap(
+		DefaultTypeAdapter,
+		map[ref.Val]ref.Val{String("hello"): String("world")})
+	m.Insert(String("goodbye"), String("cruel world"))
+	im := m.ToImmutableMap()
+	if im.Size() != Int(2) {
+		t.Errorf("m.ToImmutableMap() had size %d, wanted 2", im.Size())
+	}
+	if m.Insert(String("goodbye"), String("happy world")) {
+		t.Error("m.Insert('goodbye', 'happy world') got true, wanted false")
+	}
+	m.Insert(String("well"), String("well"))
+	if im.Size() != Int(2) {
+		t.Errorf("m.Insert() mutated storage for immutable map: had size %d, wanted 2", im.Size())
+	}
+}
+
+func TestMapFold(t *testing.T) {
+	pbDB := pb.NewDb()
+	fd, err := pbDB.RegisterMessage(&proto3pb.TestAllTypes{})
+	if err != nil {
+		t.Fatalf("pbdb.RegisterMessage(TestAllTypes) failed: %v", err)
+	}
+	td, found := fd.GetTypeDescription(string((&proto3pb.TestAllTypes{}).ProtoReflect().Descriptor().FullName()))
+	if !found {
+		t.Fatal("fd.GetTypeDescription() failed")
+	}
+	mapStrStrFD, found := td.FieldByName("map_string_string")
+	if !found {
+		t.Fatal("Could not find map_string_string field")
+	}
+
+	mapStrDesc := (&proto3pb.TestAllTypes{}).ProtoReflect().Descriptor().Fields().ByName("map_string_string")
+	tests := []struct {
+		m         any
+		folds     int
+		foldLimit int
+	}{
+		{
+			m:         map[string]any{"a": 1, "b": 2},
+			folds:     2,
+			foldLimit: 2,
+		},
+		{
+			m:         map[string]string{"hello": "world"},
+			folds:     1,
+			foldLimit: 2,
+		},
+		{
+			m:         map[string]string{"hello": "world", "goodbye": "cruel world"},
+			folds:     1,
+			foldLimit: 1,
+		},
+		{
+			m:         map[ref.Val]ref.Val{},
+			folds:     0,
+			foldLimit: 20,
+		},
+		{
+			m: map[ref.Val]ref.Val{
+				(String("hello")):   String("world"),
+				(String("goodbye")): String("cruel world"),
+			},
+			folds:     1,
+			foldLimit: 1,
+		},
+		{
+			m: testCreateStruct(t, map[string]any{
+				"hello": []any{},
+				"world": map[string]any{},
+			}),
+			folds:     2,
+			foldLimit: 2,
+		},
+		{
+			m: testCreateStruct(t, map[string]any{
+				"hello": []any{},
+				"world": map[string]any{},
+			}),
+			folds:     1,
+			foldLimit: 1,
+		},
+		{
+			m: (&proto3pb.TestAllTypes{
+				MapInt64NestedType: map[int64]*proto3pb.NestedTestAllTypes{
+					1: {},
+					2: {},
+					3: {},
+				},
+			}).GetMapInt64NestedType(),
+			folds:     3,
+			foldLimit: 3,
+		},
+		{
+			m: (&proto3pb.TestAllTypes{
+				MapInt64NestedType: map[int64]*proto3pb.NestedTestAllTypes{
+					1: {},
+					2: {},
+					3: {},
+				},
+			}).GetMapInt64NestedType(),
+			folds:     2,
+			foldLimit: 2,
+		},
+		{
+			m: &pb.Map{
+				Map: (&proto3pb.TestAllTypes{
+					MapStringString: map[string]string{
+						"1": "one",
+						"2": "two",
+					},
+				}).ProtoReflect().Get(mapStrDesc).Map(),
+				KeyType:   mapStrStrFD.KeyType,
+				ValueType: mapStrStrFD.ValueType,
+			},
+			folds:     1,
+			foldLimit: 1,
+		},
+	}
+	reg := NewEmptyRegistry()
+	for i, tst := range tests {
+		tc := tst
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			f := &testMapFolder{foldLimit: tc.foldLimit}
+			m := reg.NativeToValue(tc.m).(traits.Foldable)
+			m.Fold(f)
+			if f.folds != tc.folds {
+				t.Errorf("m.Fold(f) got %d, wanted %d folds", f.folds, tc.folds)
+			}
+		})
+	}
+}
+
+type testMapFolder struct {
+	foldLimit int
+	folds     int
+}
+
+func (f *testMapFolder) FoldEntry(k, v any) bool {
+	if f.foldLimit != 0 {
+		if f.folds >= f.foldLimit {
+			return false
+		}
+	}
+	f.folds++
+	return true
+}
+
+func testCreateStruct(t *testing.T, m map[string]any) *structpb.Struct {
+	t.Helper()
+	v, err := structpb.NewStruct(m)
+	if err != nil {
+		t.Fatalf("structpb.NewStruct(m) failed: %v", err)
+	}
+	return v
+}
