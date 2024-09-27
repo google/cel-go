@@ -23,6 +23,7 @@ import { Example, ReplExampleService } from '../shared/repl-example-service';
  * Handles input for requests against the REPL api.
  */
 @Component({
+  standalone: false,
   selector: 'app-repl-console',
   templateUrl: './repl-console-component.html',
   styleUrls: ['./repl-console-component.scss']

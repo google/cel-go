@@ -21,6 +21,7 @@ import { Pipe, PipeTransform } from '@angular/core';
  * with an elipsis).
  */
 @Pipe({
+  standalone: false,
   name: 'trim'
 })
 export class TrimPipe implements PipeTransform {
