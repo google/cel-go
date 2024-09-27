@@ -38,15 +38,17 @@ $theme: mat.m2-define-light-theme(
   )
 );
 
-// Include theme styles for "core" features like ripples and elevation.
-@include mat.core-theme($theme);
+html {
+  // Include theme styles for "core" features like ripples and elevation.
+  @include mat.core-theme($theme);
 
-// Include theme styles for each component used in the application.
-@include mat.button-theme($theme);
-@include mat.fab-theme($theme);
-@include mat.icon-theme($theme);
-@include mat.form-field-theme($theme);
-@include mat.input-theme($theme);
-@include mat.sidenav-theme($theme);
-@include mat.expansion-theme($theme);
-@include mat.list-theme($theme);
+  // Include theme styles for each component used in the application.
+  @include mat.button-theme($theme);
+  @include mat.fab-theme($theme);
+  @include mat.icon-theme($theme);
+  @include mat.form-field-theme($theme);
+  @include mat.input-theme($theme);
+  @include mat.sidenav-theme($theme);
+  @include mat.expansion-theme($theme);
+  @include mat.list-theme($theme);
+}
