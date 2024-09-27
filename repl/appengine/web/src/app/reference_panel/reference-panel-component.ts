@@ -112,9 +112,20 @@ const examples = new Map<string, Example>([
     "request": {
       commands: [
         `%option --enable_partial_eval`,
-        `%declare x : int`,
-        `%let y : int = 10`,
-        `x > y || y > 10`,
+        `%declare unk_a : bool`,
+        `%declare unk_b : bool`,
+        `%let err = 1 / 0 > 2`,
+        `true || false`,
+        `true || unk_a`,
+        `true || err`,
+        `false || unk_a`,
+        `false || err`,
+        `unk_a || true`,
+        `unk_a || false`,
+        `unk_a || err`,
+        `unk_a || unk_a`,
+        `unk_a || unk_b`,
+        `unk_a || true || err`,
       ]
     }
   }],
@@ -168,6 +179,19 @@ const examples = new Map<string, Example>([
         `%option --extension "bindings"`,
         `cel.bind(x, 20, x * x)`,
         `cel.bind(allow, [1, 2, 3, 4], [3, 2, 1, 1, 4].all(x, x in allow))`
+      ]
+    }
+  }],
+  [
+    "cel-spec-test",
+  {
+    request: {
+      commands: [
+        `%load_descriptors --pkg 'cel-spec-test-types'`,
+        `%option --container "google.api.expr.test.v1"`,
+        `%let pb3 = proto3.TestAllTypes{}`,
+        `%let pb2 = proto2.TestAllTypes`,
+        `pb3 == proto3.TestAllTypes{}`
       ]
     }
   }],
