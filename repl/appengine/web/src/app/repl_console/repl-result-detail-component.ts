@@ -22,6 +22,7 @@ import { CommandResponse } from '../shared/repl-api-service';
  * API.
  */
 @Component({
+  standalone: false,
   selector: 'app-repl-result-detail',
   templateUrl: './repl-result-detail-component.html',
   styleUrls: ['./repl-result-detail-component.scss']

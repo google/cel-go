@@ -22,6 +22,7 @@ import { ReplConsoleComponent } from './repl_console/repl-console-component';
  * Top level component for the CEL REPL app.
  */
 @Component({
+  standalone: false,
   selector: 'app-root',
   templateUrl: './app-component.html',
   styleUrls: ['./app-component.scss']

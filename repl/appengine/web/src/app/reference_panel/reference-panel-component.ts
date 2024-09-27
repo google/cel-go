@@ -178,6 +178,7 @@ const examples = new Map<string, Example>([
  * Provides links to information about CEL and the REPL mini-language.
  */
 @Component({
+  standalone: false,
   selector: 'app-reference-panel',
   templateUrl: './reference-panel-component.html',
   styleUrls: ['./reference-panel-component.scss']
