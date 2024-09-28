@@ -15,7 +15,7 @@ go_library(
         "navigable.go",
     ],
     importpath = "github.com/google/cel-go/common/ast",
-    deps = [    
+    deps = [
         "//common:go_default_library",
         "//common/types:go_default_library",
         "//common/types/ref:go_default_library",
@@ -35,12 +35,13 @@ go_test(
     embed = [
         ":go_default_library",
     ],
-    deps = [    
+    deps = [
         "//checker:go_default_library",
         "//checker/decls:go_default_library",
         "//common:go_default_library",
         "//common/containers:go_default_library",
         "//common/decls:go_default_library",
+        "//common/operators:go_default_library",
         "//common/overloads:go_default_library",
         "//common/stdlib:go_default_library",
         "//common/types:go_default_library",

@@ -26,6 +26,7 @@ import (
 	chkdecls "github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/ast"
+	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
@@ -35,6 +36,7 @@ import (
 )
 
 func TestConvertAST(t *testing.T) {
+	fac := ast.NewExprFactory()
 	tests := []struct {
 		goAST *ast.AST
 		pbAST *exprpb.CheckedExpr
@@ -68,6 +70,115 @@ func TestConvertAST(t *testing.T) {
 				},
 			},
 		},
+		{
+			goAST: ast.NewAST(
+				fac.NewComprehensionTwoVar(1,
+					fac.NewIdent(2, "data"),
+					"i",
+					"v",
+					"__result__",
+					fac.NewList(3, []ast.Expr{}, []int32{}),
+					fac.NewLiteral(4, types.True),
+					fac.NewCall(8, operators.Add,
+						fac.NewAccuIdent(9),
+						fac.NewCall(5, operators.Add,
+							fac.NewIdent(6, "i"),
+							fac.NewIdent(7, "v"),
+						)),
+					fac.NewAccuIdent(10),
+				), nil),
+			pbAST: &exprpb.CheckedExpr{
+				Expr: &exprpb.Expr{
+					Id: 1,
+					ExprKind: &exprpb.Expr_ComprehensionExpr{
+						ComprehensionExpr: &exprpb.Expr_Comprehension{
+							IterRange: &exprpb.Expr{
+								Id: 2,
+								ExprKind: &exprpb.Expr_IdentExpr{
+									IdentExpr: &exprpb.Expr_Ident{
+										Name: "data",
+									},
+								},
+							},
+							IterVar:  "i",
+							IterVar2: "v",
+							AccuVar:  "__result__",
+							AccuInit: &exprpb.Expr{
+								Id: 3,
+								ExprKind: &exprpb.Expr_ListExpr{
+									ListExpr: &exprpb.Expr_CreateList{},
+								},
+							},
+							LoopCondition: &exprpb.Expr{
+								Id: 4,
+								ExprKind: &exprpb.Expr_ConstExpr{
+									ConstExpr: &exprpb.Constant{
+										ConstantKind: &exprpb.Constant_BoolValue{
+											BoolValue: true,
+										},
+									},
+								},
+							},
+							LoopStep: &exprpb.Expr{
+								Id: 8,
+								ExprKind: &exprpb.Expr_CallExpr{
+									CallExpr: &exprpb.Expr_Call{
+										Function: operators.Add,
+										Args: []*exprpb.Expr{
+											{
+												Id: 9,
+												ExprKind: &exprpb.Expr_IdentExpr{
+													IdentExpr: &exprpb.Expr_Ident{
+														Name: "__result__",
+													},
+												},
+											},
+											{
+												Id: 5,
+												ExprKind: &exprpb.Expr_CallExpr{
+													CallExpr: &exprpb.Expr_Call{
+														Function: operators.Add,
+														Args: []*exprpb.Expr{
+															{
+																Id: 6,
+																ExprKind: &exprpb.Expr_IdentExpr{
+																	IdentExpr: &exprpb.Expr_Ident{
+																		Name: "i",
+																	},
+																},
+															},
+															{
+																Id: 7,
+																ExprKind: &exprpb.Expr_IdentExpr{
+																	IdentExpr: &exprpb.Expr_Ident{
+																		Name: "v",
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+							Result: &exprpb.Expr{
+								Id: 10,
+								ExprKind: &exprpb.Expr_IdentExpr{
+									IdentExpr: &exprpb.Expr_Ident{
+										Name: "__result__",
+									},
+								},
+							},
+						},
+					},
+				},
+				SourceInfo:   &exprpb.SourceInfo{},
+				TypeMap:      map[int64]*exprpb.Type{},
+				ReferenceMap: map[int64]*exprpb.Reference{},
+			},
+		},
 	}
 
 	for i, tst := range tests {
@@ -83,16 +194,102 @@ func TestConvertAST(t *testing.T) {
 				!reflect.DeepEqual(checkedAST.TypeMap(), goAST.TypeMap()) {
 				t.Errorf("conversion to AST did not produce identical results: got %v, wanted %v", checkedAST, goAST)
 			}
-			if !checkedAST.ReferenceMap()[1].Equals(goAST.ReferenceMap()[1]) ||
-				!checkedAST.ReferenceMap()[2].Equals(goAST.ReferenceMap()[2]) {
-				t.Error("converted reference info values not equal")
+			if len(checkedAST.ReferenceMap()) > 2 {
+				if !checkedAST.ReferenceMap()[1].Equals(goAST.ReferenceMap()[1]) ||
+					!checkedAST.ReferenceMap()[2].Equals(goAST.ReferenceMap()[2]) {
+					t.Error("converted reference info values not equal")
+				}
 			}
-			checkedExpr, err := ast.ToProto(goAST)
+			checkedExpr, err := ast.ToProto(checkedAST)
 			if err != nil {
 				t.Fatalf("ASTToProto() failed: %v", err)
 			}
 			if !proto.Equal(checkedExpr, pbAST) {
 				t.Errorf("conversion to protobuf did not produce identical results: got %v, wanted %v", checkedExpr, pbAST)
+			}
+		})
+	}
+}
+
+func TestConvertProtoToEntryExpr(t *testing.T) {
+	fac := ast.NewExprFactory()
+	tests := []struct {
+		goAST ast.EntryExpr
+		pbAST *exprpb.Expr_CreateStruct_Entry
+	}{
+		{
+			goAST: fac.NewMapEntry(1,
+				fac.NewIdent(2, "var_key"),
+				fac.NewLiteral(3, types.String("hello")),
+				true),
+			pbAST: &exprpb.Expr_CreateStruct_Entry{
+				Id: 1,
+				KeyKind: &exprpb.Expr_CreateStruct_Entry_MapKey{
+					MapKey: &exprpb.Expr{
+						Id: 2,
+						ExprKind: &exprpb.Expr_IdentExpr{
+							IdentExpr: &exprpb.Expr_Ident{
+								Name: "var_key",
+							},
+						},
+					},
+				},
+				Value: &exprpb.Expr{
+					Id: 3,
+					ExprKind: &exprpb.Expr_ConstExpr{
+						ConstExpr: &exprpb.Constant{
+							ConstantKind: &exprpb.Constant_StringValue{
+								StringValue: "hello",
+							},
+						},
+					},
+				},
+				OptionalEntry: true,
+			},
+		},
+		{
+			goAST: fac.NewStructField(1,
+				"field_name",
+				fac.NewLiteral(2, types.String("hello")),
+				false),
+			pbAST: &exprpb.Expr_CreateStruct_Entry{
+				Id: 1,
+				KeyKind: &exprpb.Expr_CreateStruct_Entry_FieldKey{
+					FieldKey: "field_name",
+				},
+				Value: &exprpb.Expr{
+					Id: 2,
+					ExprKind: &exprpb.Expr_ConstExpr{
+						ConstExpr: &exprpb.Constant{
+							ConstantKind: &exprpb.Constant_StringValue{
+								StringValue: "hello",
+							},
+						},
+					},
+				},
+				OptionalEntry: false,
+			},
+		},
+	}
+
+	for i, tst := range tests {
+		tc := tst
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			goAST := tc.goAST
+			pbAST := tc.pbAST
+			gotGoAST, err := ast.ProtoToEntryExpr(pbAST)
+			if err != nil {
+				t.Fatalf("ProtoToEntryExpr() failed: %v", err)
+			}
+			if !reflect.DeepEqual(goAST, gotGoAST) {
+				t.Errorf("conversion to go AST did not produce identical results: got %v, wanted %v", gotGoAST, goAST)
+			}
+			gotProtoAST, err := ast.EntryExprToProto(gotGoAST)
+			if err != nil {
+				t.Fatalf("EntryExprToProto() failed: %v", err)
+			}
+			if !proto.Equal(gotProtoAST, pbAST) {
+				t.Errorf("conversion to protobuf did not produce identical results: got %v, wanted %v", gotProtoAST, pbAST)
 			}
 		})
 	}

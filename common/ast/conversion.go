@@ -173,9 +173,10 @@ func exprComprehension(factory ExprFactory, id int64, comp *exprpb.Expr_Comprehe
 	if err != nil {
 		return nil, err
 	}
-	return factory.NewComprehension(id,
+	return factory.NewComprehensionTwoVar(id,
 		iterRange,
 		comp.GetIterVar(),
+		comp.GetIterVar2(),
 		comp.GetAccuVar(),
 		accuInit,
 		loopCond,
@@ -363,6 +364,7 @@ func protoComprehension(id int64, comp ComprehensionExpr) (*exprpb.Expr, error) 
 		ExprKind: &exprpb.Expr_ComprehensionExpr{
 			ComprehensionExpr: &exprpb.Expr_Comprehension{
 				IterVar:       comp.IterVar(),
+				IterVar2:      comp.IterVar2(),
 				IterRange:     iterRange,
 				AccuVar:       comp.AccuVar(),
 				AccuInit:      accuInit,
