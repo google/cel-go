@@ -787,14 +787,20 @@ func TestListFold(t *testing.T) {
 	reg := NewEmptyRegistry()
 	for i, tst := range tests {
 		tc := tst
-		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-			f := &testListFolder{foldLimit: tc.foldLimit}
-			l := reg.NativeToValue(tc.l).(traits.Foldable)
-			l.Fold(f)
-			if f.folds != tc.folds {
-				t.Errorf("m.Fold(f) got %d, wanted %d folds", f.folds, tc.folds)
-			}
-		})
+		l := reg.NativeToValue(tc.l).(traits.Lister)
+		foldKinds := map[string]traits.Foldable{
+			"modern": ToFoldableList(l),
+			"legacy": ToFoldableList(proxyLegacyList{proxy: l}),
+		}
+		for foldKind, foldable := range foldKinds {
+			t.Run(fmt.Sprintf("[%d]%s", i, foldKind), func(t *testing.T) {
+				f := &testListFolder{foldLimit: tc.foldLimit}
+				foldable.Fold(f)
+				if f.folds != tc.folds {
+					t.Errorf("m.Fold(f) got %d, wanted %d folds", f.folds, tc.folds)
+				}
+			})
+		}
 	}
 }
 
@@ -811,6 +817,51 @@ func (f *testListFolder) FoldEntry(k, v any) bool {
 	}
 	f.folds++
 	return true
+}
+
+// proxyLegacyList omits the foldable interfaces associated with all core Lister implementations
+type proxyLegacyList struct {
+	proxy traits.Lister
+}
+
+func (m proxyLegacyList) ConvertToNative(typeDesc reflect.Type) (any, error) {
+	return m.proxy.ConvertToNative(typeDesc)
+}
+
+func (m proxyLegacyList) ConvertToType(typeValue ref.Type) ref.Val {
+	return m.proxy.ConvertToType(typeValue)
+}
+
+func (m proxyLegacyList) Equal(other ref.Val) ref.Val {
+	return m.proxy.Equal(other)
+}
+
+func (m proxyLegacyList) Type() ref.Type {
+	return m.proxy.Type()
+}
+
+func (m proxyLegacyList) Value() any {
+	return m.proxy.Value()
+}
+
+func (m proxyLegacyList) Add(other ref.Val) ref.Val {
+	return m.proxy.Add(other)
+}
+
+func (m proxyLegacyList) Contains(value ref.Val) ref.Val {
+	return m.proxy.Contains(value)
+}
+
+func (m proxyLegacyList) Get(index ref.Val) ref.Val {
+	return m.proxy.Get(index)
+}
+
+func (m proxyLegacyList) Iterator() traits.Iterator {
+	return m.proxy.Iterator()
+}
+
+func (m proxyLegacyList) Size() ref.Val {
+	return m.proxy.Size()
 }
 
 func getElem(t *testing.T, list traits.Indexer, index ref.Val) any {

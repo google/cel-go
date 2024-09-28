@@ -976,8 +976,8 @@ func TestMutableMap(t *testing.T) {
 	if im.Size() != Int(2) {
 		t.Errorf("m.ToImmutableMap() had size %d, wanted 2", im.Size())
 	}
-	if m.Insert(String("goodbye"), String("happy world")) {
-		t.Error("m.Insert('goodbye', 'happy world') got true, wanted false")
+	if !IsError(m.Insert(String("goodbye"), String("happy world"))) {
+		t.Error("m.Insert('goodbye', 'happy world') suceeded, wanted error")
 	}
 	m.Insert(String("well"), String("well"))
 	if im.Size() != Int(2) {
@@ -1090,14 +1090,62 @@ func TestMapFold(t *testing.T) {
 	reg := NewEmptyRegistry()
 	for i, tst := range tests {
 		tc := tst
-		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-			f := &testMapFolder{foldLimit: tc.foldLimit}
-			m := reg.NativeToValue(tc.m).(traits.Foldable)
-			m.Fold(f)
-			if f.folds != tc.folds {
-				t.Errorf("m.Fold(f) got %d, wanted %d folds", f.folds, tc.folds)
-			}
-		})
+		m := reg.NativeToValue(tc.m).(traits.Mapper)
+		foldKinds := map[string]traits.Foldable{
+			"modern": ToFoldableMap(m),
+			"legacy": ToFoldableMap(proxyLegacyMap{proxy: m}),
+		}
+		for foldKind, foldable := range foldKinds {
+			t.Run(fmt.Sprintf("[%d]%s", i, foldKind), func(t *testing.T) {
+				f := &testMapFolder{foldLimit: tc.foldLimit}
+				foldable.Fold(f)
+				if f.folds != tc.folds {
+					t.Errorf("m.Fold(f) got %d, wanted %d folds", f.folds, tc.folds)
+				}
+			})
+		}
+	}
+}
+
+func TestInsertMapKeyValue_MutableMapper(t *testing.T) {
+	m := NewMutableMap(DefaultTypeAdapter, map[ref.Val]ref.Val{String("first"): Int(1)})
+	modified := InsertMapKeyValue(m, String("second"), Int(2))
+	if IsError(modified) {
+		t.Fatalf("InsertMapKeyValue() got error: %v, wanted insertion", modified)
+	}
+	if modified != m {
+		t.Fatalf("InsertMapKeyValue() created a new map for a mutable input: %v", modified)
+	}
+	im := m.ToImmutableMap()
+	if _, found := im.Find(String("first")); !found {
+		t.Errorf("InsertMapKeyValue() did not preserve entry 'first': %v", im)
+	}
+	if _, found := im.Find(String("second")); !found {
+		t.Errorf("InsertMapKeyValue() did not insert entry 'second': %v", im)
+	}
+	if !IsError(InsertMapKeyValue(m, String("second"), Int(3))) {
+		t.Errorf("InsertMapKeyValue('second', 3) modified the map instead of erroring: %v", m)
+	}
+}
+
+func TestInsertMapKeyValue_Mapper(t *testing.T) {
+	m := NewRefValMap(DefaultTypeAdapter, map[ref.Val]ref.Val{String("first"): Int(1)})
+	modified := InsertMapKeyValue(m, String("second"), Int(2))
+	if IsError(modified) {
+		t.Fatalf("InsertMapKeyValue() got error: %v, wanted insertion", modified)
+	}
+	if modified == m {
+		t.Fatalf("InsertMapKeyValue() modified an immutable input: %v", modified)
+	}
+	im := modified.(traits.Mapper)
+	if _, found := im.Find(String("first")); !found {
+		t.Errorf("InsertMapKeyValue() did not preserve entry 'first': %v", im)
+	}
+	if _, found := im.Find(String("second")); !found {
+		t.Errorf("InsertMapKeyValue() did not insert entry 'second': %v", im)
+	}
+	if !IsError(InsertMapKeyValue(im, String("second"), Int(3))) {
+		t.Errorf("InsertMapKeyValue('second', 3) modified the map instead of erroring: %v", m)
 	}
 }
 
@@ -1123,4 +1171,49 @@ func testCreateStruct(t *testing.T, m map[string]any) *structpb.Struct {
 		t.Fatalf("structpb.NewStruct(m) failed: %v", err)
 	}
 	return v
+}
+
+// proxyLegacyMap omits the foldable interfaces associated with all core Mapper implementations
+type proxyLegacyMap struct {
+	proxy traits.Mapper
+}
+
+func (m proxyLegacyMap) ConvertToNative(typeDesc reflect.Type) (any, error) {
+	return m.proxy.ConvertToNative(typeDesc)
+}
+
+func (m proxyLegacyMap) ConvertToType(typeValue ref.Type) ref.Val {
+	return m.proxy.ConvertToType(typeValue)
+}
+
+func (m proxyLegacyMap) Equal(other ref.Val) ref.Val {
+	return m.proxy.Equal(other)
+}
+
+func (m proxyLegacyMap) Type() ref.Type {
+	return m.proxy.Type()
+}
+
+func (m proxyLegacyMap) Value() any {
+	return m.proxy.Value()
+}
+
+func (m proxyLegacyMap) Contains(value ref.Val) ref.Val {
+	return m.proxy.Contains(value)
+}
+
+func (m proxyLegacyMap) Find(key ref.Val) (ref.Val, bool) {
+	return m.proxy.Find(key)
+}
+
+func (m proxyLegacyMap) Get(index ref.Val) ref.Val {
+	return m.proxy.Get(index)
+}
+
+func (m proxyLegacyMap) Iterator() traits.Iterator {
+	return m.proxy.Iterator()
+}
+
+func (m proxyLegacyMap) Size() ref.Val {
+	return m.proxy.Size()
 }
