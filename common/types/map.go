@@ -336,12 +336,12 @@ type mutableMap struct {
 
 // Insert implements the traits.MutableMapper interface method, returning true if the key insertion
 // succeeds.
-func (m *mutableMap) Insert(k, v ref.Val) bool {
+func (m *mutableMap) Insert(k, v ref.Val) ref.Val {
 	if _, found := m.mutableValues[k]; found {
-		return false
+		return NewErr("insert failed: key %v already exists", k)
 	}
 	m.mutableValues[k] = v
-	return true
+	return m
 }
 
 // ToImmutableMap implements the traits.MutableMapper interface method, converting a mutable map
@@ -947,4 +947,56 @@ func (it *stringKeyIterator) Next() ref.Val {
 		return String(it.mapKeys[index])
 	}
 	return nil
+}
+
+// ToFoldableMap will create a Foldable version of a map suitable for key-value pair iteration.
+//
+// For values which are already Foldable, this call is a no-op. For all other values, the fold
+// is driven via the Iterator HasNext() and Next() calls as well as the map's Get() method
+// which means that the folding will function, but take a performance hit.
+func ToFoldableMap(m traits.Mapper) traits.Foldable {
+	if f, ok := m.(traits.Foldable); ok {
+		return f
+	}
+	return interopFoldableMap{Mapper: m}
+}
+
+type interopFoldableMap struct {
+	traits.Mapper
+}
+
+func (m interopFoldableMap) Fold(f traits.Folder) {
+	it := m.Iterator()
+	for it.HasNext() == True {
+		k := it.Next()
+		if !f.FoldEntry(k, m.Get(k)) {
+			break
+		}
+	}
+}
+
+// InsertMapKeyValue inserts a key, value pair into the target map if the target map does not
+// already contain the given key.
+//
+// If the map is mutable, it is modified in-place per the MutableMapper contract.
+// If the map is not mutable, a copy containing the new key, value pair is made.
+func InsertMapKeyValue(m traits.Mapper, k, v ref.Val) ref.Val {
+	if mutable, ok := m.(traits.MutableMapper); ok {
+		return mutable.Insert(k, v)
+	}
+
+	// Otherwise perform the slow version of the insertion which makes a copy of the incoming map.
+	if _, found := m.Find(k); !found {
+		size := m.Size().(Int)
+		copy := make(map[ref.Val]ref.Val, size+1)
+		copy[k] = v
+		it := m.Iterator()
+		for it.HasNext() == True {
+			nextK := it.Next()
+			nextV := m.Get(nextK)
+			copy[nextK] = nextV
+		}
+		return DefaultTypeAdapter.NativeToValue(copy)
+	}
+	return NewErr("insert failed: key %v already exists", k)
 }

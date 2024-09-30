@@ -33,12 +33,15 @@ type Mapper interface {
 }
 
 // MutableMapper interface which emits an immutable result after an intermediate computation.
+//
+// Note, this interface is intended only to be used within Comprehensions where the mutable
+// value is not directly observable within the user-authored CEL expression.
 type MutableMapper interface {
 	Mapper
 
-	// Insert a key, value pair into the map, returning true if key does not already exist in the map
-	// to indicate the insert is successful.
-	Insert(k, v ref.Val) bool
+	// Insert a key, value pair into the map, returning the map if the insert is successful
+	// and an error if key already exists in the mutable map.
+	Insert(k, v ref.Val) ref.Val
 
 	// ToImmutableMap converts a mutable map into an immutable map.
 	ToImmutableMap() Mapper
