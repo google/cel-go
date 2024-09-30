@@ -488,6 +488,12 @@ func TestNavigableComprehensionExpr(t *testing.T) {
 	if comp.IterVar() != "i" {
 		t.Errorf("IterVar() got %s, wanted 'i'", comp.IterVar())
 	}
+	if comp.HasIterVar2() {
+		t.Error("HasIterVar2() returned true, wanted false")
+	}
+	if comp.IterVar2() != "" {
+		t.Errorf("IterVar2() returned %s, wanted empty string", comp.IterVar2())
+	}
 	if comp.AccuVar() != "__result__" {
 		t.Errorf("AccuVar() got %s, wanted '__result__'", comp.AccuVar())
 	}
