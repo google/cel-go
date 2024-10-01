@@ -53,7 +53,7 @@ against some input. Checking is optional, but strongly encouraged.
 
 ### Environment Setup
 
-Let's expose `name` and  `group` variables to CEL using the `cel.Declarations`
+Let's expose `name` and  `group` variables to CEL using the `cel.Variable`
 environment option:
 
 ```go
@@ -93,7 +93,7 @@ if err != nil {
 The `cel.Program` generated at the end of parse and check is stateless,
 thread-safe, and cachable.
 
-Type-checking in an optional, but strongly encouraged, step that can reject some
+Type-checking is an optional, but strongly encouraged step that can reject some
 semantically invalid expressions using static analysis. Additionally, the check
 produces metadata which can improve function invocation performance and object
 field selection at evaluation-time.
@@ -244,8 +244,8 @@ too may offer a WASM evaluator with direct to WASM compilation.
 
 ### Do I need to Parse _and_ Check?
 
-Checking is an optional, but strongly suggested, step in CEL expression
-validation. It is sufficient in some cases to simply Parse and rely on the
+Checking is an optional, but strongly suggested step in CEL expression
+validation. It is sufficient in some cases to simply parse and rely on the
 runtime bindings and error handling to do the right thing.
 
 ### Where can I learn more about the language?
