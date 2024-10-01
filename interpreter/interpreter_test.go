@@ -33,6 +33,7 @@ import (
 	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/functions"
+	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/stdlib"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
@@ -1941,6 +1942,99 @@ func TestInterpreter_PlanOptionalElements(t *testing.T) {
 	}
 }
 
+func TestInterpreter_PlanListComprehensionTwoVar(t *testing.T) {
+	fac := ast.NewExprFactory()
+	listTwoArgTuples := fac.NewComprehensionTwoVar(1,
+		fac.NewList(2, []ast.Expr{
+			fac.NewLiteral(3, types.Int(2)),
+			fac.NewLiteral(4, types.Int(3)),
+		}, []int32{}),
+		"i",
+		"v",
+		"__result__",
+		fac.NewList(5, []ast.Expr{}, []int32{}),
+		fac.NewLiteral(6, types.True),
+		fac.NewCall(7, operators.Add, fac.NewAccuIdent(8),
+			fac.NewList(9, []ast.Expr{fac.NewIdent(10, "i"), fac.NewIdent(11, "v")}, []int32{})),
+		fac.NewAccuIdent(12),
+	)
+	cont := containers.DefaultContainer
+	reg := newTestRegistry(t)
+	attrs := NewAttributeFactory(cont, reg, reg)
+	interp := newStandardInterpreter(t, cont, reg, reg, attrs)
+	expr, err := interp.NewInterpretable(ast.NewAST(listTwoArgTuples, nil), Optimize())
+	if err != nil {
+		t.Fatalf("interp.NewInterpretable() failed for two-variable comprehension: %v", err)
+	}
+	result := expr.Eval(EmptyActivation())
+	if types.IsError(result) {
+		t.Fatalf("expr.Eval() yielded error: %v", result)
+	}
+	want := []int64{0, 2, 1, 3}
+	out, err := result.ConvertToNative(reflect.TypeOf(want))
+	if err != nil {
+		t.Fatalf("result.ConvertToNative() failed: %v", err)
+	}
+	if !reflect.DeepEqual(out, want) {
+		t.Errorf("got %v, wanted %v", out, want)
+	}
+}
+
+func TestInterpreter_PlanMapComprehensionTwoVar(t *testing.T) {
+	fac := ast.NewExprFactory()
+	listTwoArgTuples := fac.NewComprehensionTwoVar(1,
+		fac.NewMap(2, []ast.EntryExpr{
+			fac.NewMapEntry(3, fac.NewLiteral(4, types.Int(0)), fac.NewLiteral(5, types.String("first")), false),
+			fac.NewMapEntry(6, fac.NewLiteral(7, types.Int(1)), fac.NewLiteral(8, types.String("second")), false),
+		}),
+		"k",
+		"v",
+		"__result__",
+		fac.NewMap(9, []ast.EntryExpr{}),
+		fac.NewLiteral(10, types.True),
+		fac.NewCall(11, "cel.@mapInsert",
+			fac.NewAccuIdent(12),
+			fac.NewCall(13, operators.Add, fac.NewIdent(14, "k"), fac.NewLiteral(15, types.IntOne)),
+			fac.NewIdent(16, "v"),
+		),
+		fac.NewAccuIdent(17),
+	)
+	cont := containers.DefaultContainer
+	reg := newTestRegistry(t)
+	attrs := NewAttributeFactory(cont, reg, reg)
+	interp := newStandardInterpreter(t, cont, reg, reg, attrs,
+		funcDecl(t, "cel.@mapInsert",
+			decls.Overload("cel.@mapInsert",
+				[]*types.Type{
+					types.NewMapType(types.IntType, types.StringType),
+					types.IntType,
+					types.StringType,
+				}, types.NewMapType(types.IntType, types.StringType)),
+			decls.SingletonFunctionBinding(func(args ...ref.Val) ref.Val {
+				m := args[0].(traits.Mapper)
+				k := args[1]
+				v := args[2]
+				return types.InsertMapKeyValue(m, k, v)
+			}),
+		))
+	expr, err := interp.NewInterpretable(ast.NewAST(listTwoArgTuples, nil), Optimize())
+	if err != nil {
+		t.Fatalf("interp.NewInterpretable() failed for two-variable comprehension: %v", err)
+	}
+	result := expr.Eval(EmptyActivation())
+	if types.IsError(result) {
+		t.Fatalf("expr.Eval() yielded error: %v", result)
+	}
+	want := map[int64]string{1: "first", 2: "second"}
+	out, err := result.ConvertToNative(reflect.TypeOf(want))
+	if err != nil {
+		t.Fatalf("result.ConvertToNative() failed: %v", err)
+	}
+	if !reflect.DeepEqual(out, want) {
+		t.Errorf("got %v, wanted %v", out, want)
+	}
+}
+
 func testContainer(name string) *containers.Container {
 	cont, _ := containers.NewContainer(containers.Name(name))
 	return cont
@@ -2124,11 +2218,22 @@ func newStandardInterpreter(t *testing.T,
 	container *containers.Container,
 	provider types.Provider,
 	adapter types.Adapter,
-	resolver AttributeFactory) Interpreter {
+	resolver AttributeFactory,
+	optFuncs ...*decls.FunctionDecl) Interpreter {
 	t.Helper()
-	dispatcher := NewDispatcher()
-	addFunctionBindings(t, dispatcher)
-	return NewInterpreter(dispatcher, container, provider, adapter, resolver)
+	disp := NewDispatcher()
+	addFunctionBindings(t, disp)
+	for _, fn := range optFuncs {
+		bindings, err := fn.Bindings()
+		if err != nil {
+			t.Fatalf("fn.Bindings() failed for function %v. error: %v", fn.Name(), err)
+		}
+		err = disp.Add(bindings...)
+		if err != nil {
+			t.Fatalf("dispatcher.Add() failed: %v", err)
+		}
+	}
+	return NewInterpreter(disp, container, provider, adapter, resolver)
 }
 
 func addFunctionBindings(t testing.TB, dispatcher Dispatcher) {
