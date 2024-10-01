@@ -1,3 +1,17 @@
+// Copyright 2024 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package ext
 
 import (
@@ -61,6 +75,34 @@ func TestTwoVarComprehensions(t *testing.T) {
 		  l.transformList(i, v, v.startsWith('greeting'), "[%d]%s".format([i, v]))
 		) == []
 		`},
+		// list.transformMap()
+		{expr: `
+		cel.bind(l, ['Hello', 'world'],
+		  l.transformMap(i, v, [v.lowerAscii()])
+		) == {0: ['hello'], 1: ['world']}
+		`},
+		{expr: `
+		cel.bind(l, ['world', 'Hello'],
+		  l.transformMap(i, v, [v.lowerAscii()])
+		).transformList(k, v, v)
+		 .flatten()
+		 .sort() == ['hello', 'world']
+		`},
+		// list.transformMapEntry()
+		{expr: `
+		"key1:value1 key2:value2 key3:value3".split(" ")
+		.transformMapEntry(i, v,
+		  cel.bind(entry, v.split(":"),
+		    entry.size() == 2 ? {entry[0]: entry[1]} : {}
+		  )
+		) == {'key1': 'value1', 'key2': 'value2', 'key3': 'value3'}
+		`},
+		{expr: `
+		"key1:value1:extra key2:value2 key3".split(" ")
+		.transformMapEntry(i, v,
+		  cel.bind(entry, v.split(":"), {?entry[0]: entry[?1]})
+		) == {'key1': 'value1', 'key2': 'value2'}
+		`},
 		// map.all()
 		{expr: `
 		cel.bind(m, {'hello': 'world', 'hello!': 'world'},
@@ -109,13 +151,24 @@ func TestTwoVarComprehensions(t *testing.T) {
 		// map.transformMap()
 		{expr: `
 		cel.bind(m, {'hello': 'world', 'goodbye': 'cruel world'},
-			m.transformMap(k, v, "%s, %s!".format([k, v]))
+		  m.transformMap(k, v, "%s, %s!".format([k, v]))
 		) == {'hello': 'hello, world!', 'goodbye': 'goodbye, cruel world!'}
 		`},
 		{expr: `
 		cel.bind(m, {'hello': 'world', 'goodbye': 'cruel world'},
-			m.transformMap(k, v, v.startsWith('world'), "%s, %s!".format([k, v]))
+		  m.transformMap(k, v, v.startsWith('world'), "%s, %s!".format([k, v]))
 		) == {'hello': 'hello, world!'}
+		`},
+		// map.transformMapEntry()
+		{expr: `
+		{'hello': 'world', 'greetings': 'tacocat'}
+		.transformMapEntry(k, v, {k.reverse(): v.reverse()})
+		  == {'olleh': 'dlrow', 'sgniteerg': 'tacocat'}
+		`},
+		{expr: `
+		{'hello': 'world', 'greetings': 'tacocat'}
+		.transformMapEntry(k, v, v.reverse() == v, {k.reverse(): v.reverse()})
+		  == {'sgniteerg': 'tacocat'}
 		`},
 	}
 
@@ -157,6 +210,7 @@ func testCompreEnv(t *testing.T, opts ...cel.EnvOption) *cel.Env {
 	baseOpts := []cel.EnvOption{
 		TwoVarComprehensions(),
 		Bindings(),
+		Lists(),
 		Strings(),
 		cel.OptionalTypes(),
 		cel.EnableMacroCallTracking()}
