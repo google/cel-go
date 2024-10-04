@@ -40,6 +40,19 @@ var comparableTypes = []*cel.Type{
 // Lists returns a cel.EnvOption to configure extended functions for list manipulation.
 // As a general note, all indices are zero-based.
 //
+// # Range
+//
+// Introduced in version: 2
+//
+// Returns a list of integers from 0 to n-1.
+//
+//	lists.range(<int>) -> <list(int)>
+//
+// Examples:
+//
+//	lists.range(5) -> [0, 1, 2, 3, 4]
+//
+//
 // # Slice
 //
 // Returns a new sub-list using the indexes provided.
@@ -218,6 +231,20 @@ func (lib listsLib) CompileOptions() []cel.EnvOption {
 			)...,
 		)
 		opts = append(opts, sortDecl)
+
+		opts = append(opts, cel.Function("lists.range",
+			cel.Overload("lists_range",
+				[]*cel.Type{cel.IntType}, cel.ListType(cel.IntType),
+				cel.FunctionBinding(func(args ...ref.Val) ref.Val {
+					n := args[0].(types.Int)
+					result, err := genRange(n)
+					if err != nil {
+						return types.WrapErr(err)
+					}
+					return result
+				}),
+			),
+		))
 	}
 
 	return opts
@@ -226,6 +253,14 @@ func (lib listsLib) CompileOptions() []cel.EnvOption {
 // ProgramOptions implements the Library interface method.
 func (listsLib) ProgramOptions() []cel.ProgramOption {
 	return []cel.ProgramOption{}
+}
+
+func genRange(n types.Int) (ref.Val, error) {
+	var newList []ref.Val
+	for i := types.Int(0); i < n; i++ {
+		newList = append(newList, i)
+	}
+	return types.DefaultTypeAdapter.NativeToValue(newList), nil
 }
 
 func slice(list traits.Lister, start, end types.Int) (ref.Val, error) {

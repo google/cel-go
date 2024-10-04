@@ -393,6 +393,19 @@ Example:
 Extended functions for list manipulation. As a general note, all indices are
 zero-based.
 
+### Range
+
+**Introduced in version 2**
+
+Returns a list of integers from 0 to n-1.
+
+	lists.range(<int>) -> <list(int)>
+
+Examples:
+
+	lists.range(5) -> [0, 1, 2, 3, 4]
+
+
 ### Slice
 
 
