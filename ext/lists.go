@@ -20,10 +20,12 @@ import (
 	"sort"
 
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
+	"github.com/google/cel-go/parser"
 )
 
 var comparableTypes = []*cel.Type{
@@ -122,6 +124,25 @@ var comparableTypes = []*cel.Type{
 //	["b", "c", "a"].sort() // return ["a", "b", "c"]
 //	[1, "b"].sort() // error
 //	[[1, 2, 3]].sort() // error
+//
+// # SortBy
+//
+// Sorts a list by a key value, i.e., the order is determined by the result of
+// an expression applied to each element of the list.
+// The output of the key expression must be a comparable type, otherwise the
+// function will return an error.
+//
+//	<list(T)>.sortBy(<bindingName>, <keyExpr>) -> <list(T)>
+//	keyExpr returns a value in {int, uint, double, bool, duration, timestamp, string, bytes}
+
+// Examples:
+//
+//	[
+//	  Player { name: "foo", score: 0 },
+//	  Player { name: "bar", score: -10 },
+//	  Player { name: "baz", score: 1000 },
+//	].sortBy(e, e.score).map(e, e.name)
+//	== ["bar", "foo", "baz"]
 
 func Lists(options ...ListsOption) cel.EnvOption {
 	l := &listsLib{
@@ -256,6 +277,37 @@ func (lib listsLib) CompileOptions() []cel.EnvOption {
 			)...,
 		)
 		opts = append(opts, sortDecl)
+		opts = append(opts, cel.Macros(cel.ReceiverMacro("sortBy", 2, sortByMacro)))
+		opts = append(opts, cel.Function("@sortByAssociatedKeys",
+			append(
+				templatedOverloads(comparableTypes, func(u *cel.Type) cel.FunctionOpt {
+					return cel.MemberOverload(
+						fmt.Sprintf("list_%s_sortByAssociatedKeys", u.TypeName()),
+						[]*cel.Type{listType, cel.ListType(u)}, listType,
+					)
+				}),
+				cel.SingletonBinaryBinding(
+					func(arg1 ref.Val, arg2 ref.Val) ref.Val {
+						list, ok := arg1.(traits.Lister)
+						if !ok {
+							return types.MaybeNoSuchOverloadErr(arg1)
+						}
+						keys, ok := arg2.(traits.Lister)
+						if !ok {
+							return types.MaybeNoSuchOverloadErr(arg2)
+						}
+						sorted, err := sortListByAssociatedKeys(list, keys)
+						if err != nil {
+							return types.WrapErr(err)
+						}
+
+						return sorted
+					},
+					// List traits
+					traits.ListerType,
+				),
+			)...,
+		))
 
 		opts = append(opts, cel.Function("lists.range",
 			cel.Overload("lists_range",
@@ -372,29 +424,104 @@ func flatten(list traits.Lister, depth int64) ([]ref.Val, error) {
 }
 
 func sortList(list traits.Lister) (ref.Val, error) {
+	return sortListByAssociatedKeys(list, list)
+}
+
+// Internal function used for the implementation of sort() and sortBy().
+//
+// Sorts a list of arbitrary elements, according to the order produced by sorting
+// another list of comparable elements. If the element type of the keys is not
+// comparable or the element types are not the same, the function will produce an error.
+//
+//	<list(T)>.@sortByAssociatedKeys(<list(U)>) -> <list(T)>
+//	U in {int, uint, double, bool, duration, timestamp, string, bytes}
+//
+// Example:
+//
+//	["foo", "bar", "baz"].@sortByAssociatedKeys([3, 1, 2]) // return ["bar", "baz", "foo"]
+func sortListByAssociatedKeys(list, keys traits.Lister) (ref.Val, error) {
 	listLength := list.Size().(types.Int)
+	keysLength := keys.Size().(types.Int)
+	if listLength != keysLength {
+		return nil, fmt.Errorf(
+			"@sortByAssociatedKeys() expected a list of the same size as the associated keys list, but got %d and %d elements respectively",
+			listLength,
+			keysLength,
+		)
+	}
 	if listLength == 0 {
 		return list, nil
 	}
-	elem := list.Get(types.IntZero)
+	elem := keys.Get(types.IntZero)
 	if _, ok := elem.(traits.Comparer); !ok {
 		return nil, fmt.Errorf("list elements must be comparable")
 	}
 
-	sorted := make([]ref.Val, 0, listLength)
+	sortedIndices := make([]ref.Val, 0, listLength)
 	for i := types.IntZero; i < listLength; i++ {
-		val := list.Get(i)
-		if val.Type() != elem.Type() {
+		if keys.Get(i).Type() != elem.Type() {
 			return nil, fmt.Errorf("list elements must have the same type")
 		}
-		sorted = append(sorted, val)
+		sortedIndices = append(sortedIndices, i)
 	}
 
-	sort.Slice(sorted, func(i, j int) bool {
-		return sorted[i].(traits.Comparer).Compare(sorted[j]) == types.IntNegOne
+	sort.Slice(sortedIndices, func(i, j int) bool {
+		iKey := keys.Get(sortedIndices[i])
+		jKey := keys.Get(sortedIndices[j])
+		return iKey.(traits.Comparer).Compare(jKey) == types.IntNegOne
 	})
 
+	sorted := make([]ref.Val, 0, listLength)
+
+	for _, sortedIdx := range sortedIndices {
+		sorted = append(sorted, list.Get(sortedIdx))
+	}
 	return types.DefaultTypeAdapter.NativeToValue(sorted), nil
+}
+
+// sortByMacro transforms an expression like:
+//
+//	mylistExpr.sortBy(e, -math.abs(e))
+//
+// into:
+//
+//		cel.bind(
+//	   __sortBy_input__,
+//	   myListExpr,
+//	   __sortBy_input__.@sortByAssociatedKeys(__sortBy_input__.map(e, -math.abs(e))
+//	 )
+func sortByMacro(meh cel.MacroExprFactory, target ast.Expr, args []ast.Expr) (ast.Expr, *cel.Error) {
+	varIdent := meh.NewIdent("@__sortBy_input__")
+	varName := varIdent.AsIdent()
+
+	targetKind := target.Kind()
+	if targetKind != ast.ListKind &&
+		targetKind != ast.SelectKind &&
+		targetKind != ast.IdentKind &&
+		targetKind != ast.ComprehensionKind && targetKind != ast.CallKind {
+		return nil, meh.NewError(target.ID(), fmt.Sprintf("sortBy can only be applied to a list, identifier, comprehension, call or select expression"))
+	}
+
+	mapCompr, err := parser.MakeMap(meh, meh.Copy(varIdent), args)
+	if err != nil {
+		return nil, err
+	}
+	callExpr := meh.NewMemberCall("@sortByAssociatedKeys",
+		meh.Copy(varIdent),
+		mapCompr,
+	)
+
+	bindExpr := meh.NewComprehension(
+		meh.NewList(),
+		"#unused",
+		varName,
+		target,
+		meh.NewLiteral(types.False),
+		varIdent,
+		callExpr,
+	)
+
+	return bindExpr, nil
 }
 
 func distinctList(list traits.Lister) (ref.Val, error) {

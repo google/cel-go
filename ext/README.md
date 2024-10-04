@@ -481,6 +481,25 @@ Examples:
     [1, "b"].sort() // error
     [[1, 2, 3]].sort() // error
 
+### SortBy
+
+**Introduced in version 2**
+
+Sorts a list by a key value, i.e., the order is determined by the result of
+an expression applied to each element of the list.
+
+    <list(T)>.sortBy(<bindingName>, <keyExpr>) -> <list(T)>
+    keyExpr returns a value in {int, uint, double, bool, duration, timestamp, string, bytes}
+
+Examples:
+
+	[
+	  Player { name: "foo", score: 0 },
+	  Player { name: "bar", score: -10 },
+	  Player { name: "baz", score: 1000 },
+	].sortBy(e, e.score).map(e, e.name)
+	== ["bar", "foo", "baz"]
+
 ## Sets
 
 Sets provides set relationship tests.
