@@ -74,11 +74,11 @@ var comparableTypes = []*cel.Type{
 //
 // Returns the elements of a list in reverse order.
 //
-// 	<list(T)>.reverse() -> <list(T)>
+//	<list(T)>.reverse() -> <list(T)>
 //
 // Examples:
 //
-// 	[5, 3, 1, 2].reverse() // return [2, 1, 3, 5]
+//	[5, 3, 1, 2].reverse() // return [2, 1, 3, 5]
 //
 // # Slice
 //
@@ -483,13 +483,13 @@ func sortListByAssociatedKeys(list, keys traits.Lister) (ref.Val, error) {
 //
 //	mylistExpr.sortBy(e, -math.abs(e))
 //
-// into:
+// into something equivalent to:
 //
-//		cel.bind(
+//	cel.bind(
 //	   __sortBy_input__,
 //	   myListExpr,
 //	   __sortBy_input__.@sortByAssociatedKeys(__sortBy_input__.map(e, -math.abs(e))
-//	 )
+//	)
 func sortByMacro(meh cel.MacroExprFactory, target ast.Expr, args []ast.Expr) (ast.Expr, *cel.Error) {
 	varIdent := meh.NewIdent("@__sortBy_input__")
 	varName := varIdent.AsIdent()
