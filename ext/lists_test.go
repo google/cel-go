@@ -43,6 +43,7 @@ func TestLists(t *testing.T) {
 		{expr: `[1,2,3,4].slice(0, 10)`, err: "cannot slice(0, 10), list is length 4"},
 		{expr: `[1,2,3,4].slice(-5, 10)`, err: "cannot slice(-5, 10), negative indexes not supported"},
 		{expr: `[1,2,3,4].slice(-5, -3)`, err: "cannot slice(-5, -3), negative indexes not supported"},
+
 		{expr: `dyn([]).flatten() == []`},
 		{expr: `dyn([1,2,3,4]).flatten() == [1,2,3,4]`},
 		{expr: `[1,[2,[3,4]]].flatten() == [1,2,[3,4]]`},

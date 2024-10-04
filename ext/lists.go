@@ -52,6 +52,17 @@ var comparableTypes = []*cel.Type{
 //
 //	lists.range(5) -> [0, 1, 2, 3, 4]
 //
+// # Reverse
+//
+// Introduced in version: 2
+//
+// Returns the elements of a list in reverse order.
+//
+// 	<list(T)>.reverse() -> <list(T)>
+//
+// Examples:
+//
+// 	[5, 3, 1, 2].reverse() // return [2, 1, 3, 5]
 //
 // # Slice
 //
@@ -245,6 +256,19 @@ func (lib listsLib) CompileOptions() []cel.EnvOption {
 				}),
 			),
 		))
+		opts = append(opts, cel.Function("reverse",
+			cel.MemberOverload("list_reverse",
+				[]*cel.Type{listType}, listType,
+				cel.FunctionBinding(func(args ...ref.Val) ref.Val {
+					list := args[0].(traits.Lister)
+					result, err := reverseList(list)
+					if err != nil {
+						return types.WrapErr(err)
+					}
+					return result
+				}),
+			),
+		))
 	}
 
 	return opts
@@ -259,6 +283,16 @@ func genRange(n types.Int) (ref.Val, error) {
 	var newList []ref.Val
 	for i := types.Int(0); i < n; i++ {
 		newList = append(newList, i)
+	}
+	return types.DefaultTypeAdapter.NativeToValue(newList), nil
+}
+
+func reverseList(list traits.Lister) (ref.Val, error) {
+	var newList []ref.Val
+	listLength := list.Size().(types.Int)
+	for i := types.Int(0); i < listLength; i++ {
+		val := list.Get(listLength - i - 1)
+		newList = append(newList, val)
 	}
 	return types.DefaultTypeAdapter.NativeToValue(newList), nil
 }
