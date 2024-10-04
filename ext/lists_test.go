@@ -27,6 +27,13 @@ func TestLists(t *testing.T) {
 		expr string
 		err  string
 	}{
+		{expr: `lists.range(4) == [0,1,2,3]`},
+		{expr: `lists.range(0) == []`},
+		{expr: `[5,1,2,3].reverse() == [3,2,1,5]`},
+		{expr: `[].reverse() == []`},
+		{expr: `[1].reverse() == [1]`},
+		{expr: `['are', 'you', 'as', 'bored', 'as', 'I', 'am'].reverse() == ['am', 'I', 'as', 'bored', 'as', 'you', 'are']`},
+		{expr: `[false, true, true].reverse().reverse() == [false, true, true]`},
 		{expr: `[1,2,3,4].slice(0, 4) == [1,2,3,4]`},
 		{expr: `[1,2,3,4].slice(0, 0) == []`},
 		{expr: `[1,2,3,4].slice(1, 1) == []`},
