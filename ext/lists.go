@@ -40,6 +40,20 @@ var comparableTypes = []*cel.Type{
 // Lists returns a cel.EnvOption to configure extended functions for list manipulation.
 // As a general note, all indices are zero-based.
 //
+// # Distinct
+//
+// Introduced in version: 2
+//
+// Returns the distinct elements of a list.
+//
+//	<list(T)>.distinct() -> <list(T)>
+//
+// Examples:
+//
+//	[1, 2, 2, 3, 3, 3].distinct() // return [1, 2, 3]
+//	["b", "b", "c", "a", "c"].distinct() // return ["b", "c", "a"]
+//	[1, "b", 2, "b"].distinct() // return [1, "b", 2]
+//
 // # Range
 //
 // Introduced in version: 2
@@ -269,6 +283,18 @@ func (lib listsLib) CompileOptions() []cel.EnvOption {
 				}),
 			),
 		))
+		opts = append(opts, cel.Function("distinct",
+			cel.MemberOverload("list_distinct",
+				[]*cel.Type{listType}, listType,
+				cel.UnaryBinding(func(list ref.Val) ref.Val {
+					result, err := distinctList(list.(traits.Lister))
+					if err != nil {
+						return types.WrapErr(err)
+					}
+					return result
+				}),
+			),
+		))
 	}
 
 	return opts
@@ -369,6 +395,33 @@ func sortList(list traits.Lister) (ref.Val, error) {
 	})
 
 	return types.DefaultTypeAdapter.NativeToValue(sorted), nil
+}
+
+func distinctList(list traits.Lister) (ref.Val, error) {
+	listLength := list.Size().(types.Int)
+	if listLength == 0 {
+		return list, nil
+	}
+	uniqueList := make([]ref.Val, 0, listLength)
+	for i := types.IntZero; i < listLength; i++ {
+		val := list.Get(i)
+		seen := false
+		for j := types.IntZero; j < types.Int(len(uniqueList)); j++ {
+			if i == j {
+				continue
+			}
+			other := uniqueList[j]
+			if val.Equal(other) == types.True {
+				seen = true
+				break
+			}
+		}
+		if !seen {
+			uniqueList = append(uniqueList, val)
+		}
+	}
+
+	return types.DefaultTypeAdapter.NativeToValue(uniqueList), nil
 }
 
 func templatedOverloads(types []*cel.Type, template func(t *cel.Type) cel.FunctionOpt) []cel.FunctionOpt {

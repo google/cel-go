@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/cel"
+	proto2pb "github.com/google/cel-go/test/proto2pb"
 )
 
 func TestLists(t *testing.T) {
@@ -50,9 +51,19 @@ func TestLists(t *testing.T) {
 		{expr: `[1,2,[],[],[3,4]].flatten() == [1,2,3,4]`},
 		{expr: `[1,[2,[3,4]]].flatten(2) == [1,2,3,4]`},
 		{expr: `[1,[2,[3,[4]]]].flatten(-1) == [1,2,3,4]`, err: "level must be non-negative"},
+		{expr: `[].sort() == []`},
+		{expr: `[1].sort() == [1]`},
 		{expr: `[4, 3, 2, 1].sort() == [1, 2, 3, 4]`},
 		{expr: `["d", "a", "b", "c"].sort() == ["a", "b", "c", "d"]`},
 		{expr: `["d", 3, 2, "c"].sort() == ["a", "b", "c", "d"]`, err: "list elements must have the same type"},
+		{expr: `[].distinct() == []`},
+		{expr: `[1].distinct() == [1]`},
+		{expr: `[-2, 5, -2, 1, 1, 5, -2, 1].distinct() == [-2, 5, 1]`},
+		{expr: `['c', 'a', 'a', 'b', 'a', 'b', 'c', 'c'].distinct() == ['c', 'a', 'b']`},
+		{expr: `[1, 2.0, "c", 3, "c", 1].distinct() == [1, 2.0, "c", 3]`},
+		{expr: `[1, 1.0, 2].distinct() == [1, 2]`},
+		{expr: `[[1], [1], [2]].distinct() == [[1], [2]]`},
+		{expr: `[ExampleType{name: 'a'}, ExampleType{name: 'b'}, ExampleType{name: 'a'}].distinct() == [ExampleType{name: 'a'}, ExampleType{name: 'b'}]`},
 	}
 
 	env := testListsEnv(t)
@@ -97,7 +108,12 @@ func TestLists(t *testing.T) {
 
 func testListsEnv(t *testing.T, opts ...cel.EnvOption) *cel.Env {
 	t.Helper()
-	baseOpts := []cel.EnvOption{Lists()}
+	baseOpts := []cel.EnvOption{
+		Lists(),
+		cel.Container("google.expr.proto2.test"),
+		cel.Types(&proto2pb.ExampleType{},
+			&proto2pb.ExternalMessageType{},
+		)}
 	env, err := cel.NewEnv(append(baseOpts, opts...)...)
 	if err != nil {
 		t.Fatalf("cel.NewEnv(Lists()) failed: %v", err)
