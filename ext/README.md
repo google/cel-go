@@ -393,6 +393,42 @@ Example:
 Extended functions for list manipulation. As a general note, all indices are
 zero-based.
 
+### Distinct
+
+**Introduced in version 2**
+
+Returns the distinct elements of a list. If the element type is not comparable
+or the element types are not the same, the function will produce an error.
+
+	<list(T)>.distinct() -> <list(T)>
+	T in {int, uint, double, bool, duration, timestamp, string, bytes}
+
+Examples:
+
+	[1, 2, 2, 3, 3, 3].distinct() // return [1, 2, 3]
+	["b", "c", "a"].sort() // return ["a", "b", "c"]
+	[1, "b"].distinct() // error
+	[[1, 2, 3]].distinct() // error
+
+### Flatten
+
+**Introduced in version 1**
+
+Flattens a list recursively.
+If an optional depth is provided, the list is flattened to a the specificied level.
+A negative depth value will result in an error.
+
+	<list>.flatten(<list>) -> <list>
+	<list>.flatten(<list>, <int>) -> <list>
+
+Examples:
+
+    [1,[2,3],[4]].flatten() // return [1, 2, 3, 4]
+    [1,[2,[3,4]]].flatten() // return [1, 2, [3, 4]]
+    [1,2,[],[],[3,4]].flatten() // return [1, 2, 3, 4]
+    [1,[2,[3,[4]]]].flatten(2) // return [1, 2, 3, [4]]
+    [1,[2,[3,[4]]]].flatten(-1) // error
+
 ### Range
 
 **Introduced in version 2**
@@ -416,7 +452,7 @@ Returns a new sub-list using the indexes provided.
 Examples:
 
     [1,2,3,4].slice(1, 3) // return [2, 3]
-    [1,2,3,4].slice(2, 4) // return [3 ,4]
+    [1,2,3,4].slice(2, 4) // return [3, 4]
 
 ### Sort
 
