@@ -442,6 +442,19 @@ Examples:
 	lists.range(5) -> [0, 1, 2, 3, 4]
 
 
+### Reverse
+
+**Introduced in version 2**
+
+Returns the elements of a list in reverse order.
+
+	<list(T)>.reverse() -> <list(T)>
+
+Examples:
+
+	[5, 3, 1, 2].reverse() // return [2, 1, 3, 5]
+
+
 ### Slice
 
 
