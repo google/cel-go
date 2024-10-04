@@ -397,16 +397,14 @@ zero-based.
 
 **Introduced in version 2**
 
-Returns the distinct elements of a list. If the element type is not comparable
-or the element types are not the same, the function will produce an error.
+Returns the distinct elements of a list.
 
 	<list(T)>.distinct() -> <list(T)>
-	T in {int, uint, double, bool, duration, timestamp, string, bytes}
 
 Examples:
 
 	[1, 2, 2, 3, 3, 3].distinct() // return [1, 2, 3]
-	["b", "c", "a"].sort() // return ["a", "b", "c"]
+	["b", "c", "a"].distinct() // return ["a", "b", "c"]
 	[1, "b"].distinct() // error
 	[[1, 2, 3]].distinct() // error
 

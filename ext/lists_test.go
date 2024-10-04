@@ -50,9 +50,17 @@ func TestLists(t *testing.T) {
 		{expr: `[1,2,[],[],[3,4]].flatten() == [1,2,3,4]`},
 		{expr: `[1,[2,[3,4]]].flatten(2) == [1,2,3,4]`},
 		{expr: `[1,[2,[3,[4]]]].flatten(-1) == [1,2,3,4]`, err: "level must be non-negative"},
+		{expr: `[].sort() == []`},
+		{expr: `[1].sort() == [1]`},
 		{expr: `[4, 3, 2, 1].sort() == [1, 2, 3, 4]`},
 		{expr: `["d", "a", "b", "c"].sort() == ["a", "b", "c", "d"]`},
 		{expr: `["d", 3, 2, "c"].sort() == ["a", "b", "c", "d"]`, err: "list elements must have the same type"},
+		{expr: `[].distinct() == []`},
+		{expr: `[1].distinct() == [1]`},
+		{expr: `[-2, 5, -2, 1, 1, 5, -2, 1].distinct() == [-2, 5, 1]`},
+		{expr: `['c', 'a', 'a', 'b', 'a', 'b', 'c', 'c'].distinct() == ['c', 'a', 'b']`},
+		{expr: `[1, 2.0, "c", 3, "c", 1].distinct() == [1, 2.0, "c", 3]`},
+		{expr: `[1, 1.0, 2].distinct() == [1, 2]`},
 	}
 
 	env := testListsEnv(t)
