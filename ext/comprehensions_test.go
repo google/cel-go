@@ -16,6 +16,7 @@ package ext
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/google/cel-go/cel"
@@ -66,27 +67,35 @@ func TestTwoVarComprehensions(t *testing.T) {
 		`},
 		// list.transformList()
 		{expr: `
-		cel.bind(l, ['Hello', 'world'],
-		  l.transformList(i, v, "[%d]%s".format([i, v.lowerAscii()]))
-		) == ["[0]hello", "[1]world"]
+		['Hello', 'world'].transformList(i, v, "[%d]%s".format([i, v.lowerAscii()])) == ["[0]hello", "[1]world"]
 		`},
 		{expr: `
-		cel.bind(l, ['hello', 'world'],
-		  l.transformList(i, v, v.startsWith('greeting'), "[%d]%s".format([i, v]))
-		) == []
+		['hello', 'world'].transformList(i, v, v.startsWith('greeting'), "[%d]%s".format([i, v])) == []
+		`},
+		{expr: `
+		[1, 2, 3].transformList(indexVar, valueVar, (indexVar * valueVar) + valueVar) == [1, 4, 9]
+		`},
+		{expr: `
+		[1, 2, 3].transformList(indexVar, valueVar, indexVar % 2 == 0, (indexVar * valueVar) + valueVar) == [1, 9]
 		`},
 		// list.transformMap()
 		{expr: `
-		cel.bind(l, ['Hello', 'world'],
-		  l.transformMap(i, v, [v.lowerAscii()])
-		) == {0: ['hello'], 1: ['world']}
+		['Hello', 'world'].transformMap(i, v, [v.lowerAscii()]) == {0: ['hello'], 1: ['world']}
 		`},
 		{expr: `
-		cel.bind(l, ['world', 'Hello'],
-		  l.transformMap(i, v, [v.lowerAscii()])
-		).transformList(k, v, v)
-		 .flatten()
-		 .sort() == ['hello', 'world']
+		// round-tripping example
+		['world', 'Hello'].transformMap(i, v, [v.lowerAscii()])
+		  .transformList(k, v, v) // extract the list back form the map
+		  .flatten()
+		  .sort() == ['hello', 'world']
+		`},
+		{expr: `
+		[1, 2, 3].transformMap(indexVar, valueVar,
+	      (indexVar * valueVar) + valueVar) == {0: 1, 1: 4, 2: 9}
+        `},
+		{expr: `
+		[1, 2, 3].transformMap(indexVar, valueVar, indexVar % 2 == 0,
+	  	  (indexVar * valueVar) + valueVar) == {0: 1, 2: 9}
 		`},
 		// list.transformMapEntry()
 		{expr: `
@@ -105,70 +114,61 @@ func TestTwoVarComprehensions(t *testing.T) {
 		`},
 		// map.all()
 		{expr: `
-		cel.bind(m, {'hello': 'world', 'hello!': 'world'},
-		  m.all(k, v, k.startsWith('hello') && v == 'world')
-		)
+		{'hello': 'world', 'hello!': 'world'}.all(k, v, k.startsWith('hello') && v == 'world')
 		`},
 		{expr: `
-		cel.bind(m, {'hello': 'world', 'hello!': 'worlds'},
-		  m.all(k, v, k.startsWith('hello') && v.endsWith('world'))
-		) == false
+		{'hello': 'world', 'hello!': 'worlds'}.all(k, v, k.startsWith('hello') && v.endsWith('world')) == false
 		`},
 		// map.exists()
 		{expr: `
-		cel.bind(m, {'hello': 'world', 'hello!': 'worlds'},
-		  m.exists(k, v, k.startsWith('hello') && v.endsWith('world'))
-		)
+		{'hello': 'world', 'hello!': 'worlds'}.exists(k, v, k.startsWith('hello') && v.endsWith('world'))
 		`},
 		// map.existsOne()
 		{expr: `
-		cel.bind(m, {'hello': 'world', 'hello!': 'worlds'},
-		  m.existsOne(k, v, k.startsWith('hello') && v.endsWith('world'))
-		)
+		{'hello': 'world', 'hello!': 'worlds'}.existsOne(k, v, k.startsWith('hello') && v.endsWith('world'))
 		`},
 		// map.exists_one()
 		{expr: `
-		cel.bind(m, {'hello': 'world', 'hello!': 'worlds'},
-		  m.exists_one(k, v, k.startsWith('hello') && v.endsWith('world'))
-		)
+		{'hello': 'world', 'hello!': 'worlds'}.exists_one(k, v, k.startsWith('hello') && v.endsWith('world'))
 		`},
 		{expr: `
-		cel.bind(m, {'hello': 'world', 'hello!': 'wow, world'},
-		  m.exists_one(k, v, k.startsWith('hello') && v.endsWith('world'))
-		) == false
+		{'hello': 'world', 'hello!': 'wow, world'}.exists_one(k, v, k.startsWith('hello') && v.endsWith('world')) == false
 		`},
 		// map.transformList()
 		{expr: `
-		cel.bind(m, {'Hello': 'world'},
-		  m.transformList(k, v, "%s=%s".format([k.lowerAscii(), v]))
-		) == ["hello=world"]
+		{'Hello': 'world'}.transformList(k, v, "%s=%s".format([k.lowerAscii(), v])) == ["hello=world"]
 		`},
 		{expr: `
-		cel.bind(m, {'hello': 'world'},
-		  m.transformList(k, v, k.startsWith('greeting'), "%s=%s".format([k, v]))
-		) == []
+		{'hello': 'world'}.transformList(k, v, k.startsWith('greeting'), "%s=%s".format([k, v])) == []
+		`},
+		{expr: `
+		{'greeting': 'hello', 'farewell': 'goodbye'}
+		  .transformList(k, _, k).sort() == ['farewell', 'greeting']
+		`},
+		{expr: `
+		{'greeting': 'hello', 'farewell': 'goodbye'}
+		  .transformList(_, v, v).sort() == ['goodbye', 'hello']
 		`},
 		// map.transformMap()
 		{expr: `
-		cel.bind(m, {'hello': 'world', 'goodbye': 'cruel world'},
-		  m.transformMap(k, v, "%s, %s!".format([k, v]))
-		) == {'hello': 'hello, world!', 'goodbye': 'goodbye, cruel world!'}
+		{'hello': 'world', 'goodbye': 'cruel world'}.transformMap(k, v, "%s, %s!".format([k, v]))
+		   == {'hello': 'hello, world!', 'goodbye': 'goodbye, cruel world!'}
 		`},
 		{expr: `
-		cel.bind(m, {'hello': 'world', 'goodbye': 'cruel world'},
-		  m.transformMap(k, v, v.startsWith('world'), "%s, %s!".format([k, v]))
-		) == {'hello': 'hello, world!'}
+		{'hello': 'world', 'goodbye': 'cruel world'}.transformMap(k, v, v.startsWith('world'), "%s, %s!".format([k, v]))
+		   == {'hello': 'hello, world!'}
 		`},
 		// map.transformMapEntry()
 		{expr: `
-		{'hello': 'world', 'greetings': 'tacocat'}
-		.transformMapEntry(k, v, {k.reverse(): v.reverse()})
-		  == {'olleh': 'dlrow', 'sgniteerg': 'tacocat'}
+		{'hello': 'world', 'greetings': 'tacocat'}.transformMapEntry(k, v, {k.reverse(): v.reverse()})
+		   == {'olleh': 'dlrow', 'sgniteerg': 'tacocat'}
 		`},
 		{expr: `
-		{'hello': 'world', 'greetings': 'tacocat'}
-		.transformMapEntry(k, v, v.reverse() == v, {k.reverse(): v.reverse()})
-		  == {'sgniteerg': 'tacocat'}
+		{'hello': 'world', 'greetings': 'tacocat'}.transformMapEntry(k, v, v.reverse() == v, {k.reverse(): v.reverse()})
+		   == {'sgniteerg': 'tacocat'}
+		`},
+		{expr: `
+		{'hello': 'world', 'greetings': 'tacocat'}.transformMapEntry(k, v, {}) == {}
 		`},
 	}
 
@@ -200,6 +200,130 @@ func TestTwoVarComprehensions(t *testing.T) {
 				if out.Value() != true {
 					t.Errorf("prg.Eval() got %v, wanted true for expr: %s", out.Value(), tc.expr)
 				}
+			}
+		})
+	}
+}
+
+func TestTwoVarComprehensionsStaticErrors(t *testing.T) {
+	tests := []struct {
+		expr string
+		err  string
+	}{
+		{
+			expr: "[].all(i.j, k, i.j < k)",
+			err:  "argument must be a simple name",
+		},
+		{
+			expr: "[].all(j, i.k, j < i.k)",
+			err:  "argument must be a simple name",
+		},
+		{
+			expr: "1.all(j, k, j < k)",
+			err:  "cannot be range",
+		},
+		{
+			expr: "[].exists(i.j, k, i.j < k)",
+			err:  "argument must be a simple name",
+		},
+		{
+			expr: "[].exists(j, i.k, j < i.k)",
+			err:  "argument must be a simple name",
+		},
+		{
+			expr: "''.exists(j, k, j < k)",
+			err:  "cannot be range",
+		},
+		{
+			expr: "[].exists_one(i.j, k, i.j < k)",
+			err:  "argument must be a simple name",
+		},
+		{
+			expr: "[].existsOne(j, i.k, j < i.k)",
+			err:  "argument must be a simple name",
+		},
+		{
+			expr: "[].exists_one(i.j, k, i.j < k)",
+			err:  "argument must be a simple name",
+		},
+		{
+			expr: "''.existsOne(j, k, j < k)",
+			err:  "cannot be range",
+		},
+		{
+			expr: "[].transformList(i.j, k, i.j + k)",
+			err:  "argument must be a simple name",
+		},
+		{
+			expr: "[].transformList(j, i.k, j + i.k)",
+			err:  "argument must be a simple name",
+		},
+		{
+			expr: "{}.transformMap(i.j, k, i.j + k)",
+			err:  "argument must be a simple name",
+		},
+		{
+			expr: "{}.transformMap(j, i.k, j + i.k)",
+			err:  "argument must be a simple name",
+		},
+		{
+			expr: "{}.transformMapEntry(j, i.k, {j: i.k})",
+			err:  "argument must be a simple name",
+		},
+		{
+			expr: "{}.transformMapEntry(i.j, k, {k: i.j})",
+			err:  "argument must be a simple name",
+		},
+		{
+			expr: "{}.transformMapEntry(j, k, 'bad filter', {k: j})",
+			err:  "no matching overload",
+		},
+		{
+			expr: "[1, 2].transformList(i, v, v % 2 == 0 ? [v] : v)",
+			err:  "no matching overload",
+		},
+		{
+			expr: `{'hello': 'world', 'greetings': 'tacocat'}.transformMapEntry(k, v, []) == {}`,
+			err:  "no matching overload"},
+	}
+	env := testCompreEnv(t)
+	for i, tst := range tests {
+		tc := tst
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			_, iss := env.Compile(tc.expr)
+			if iss.Err() == nil || !strings.Contains(iss.Err().Error(), tc.err) {
+				t.Errorf("env.Compile(%q) got %v, wanted error %v", tc.expr, iss.Err(), tc.err)
+			}
+		})
+	}
+}
+
+func TestTwoVarComprehensionsRuntimeErrors(t *testing.T) {
+	tests := []struct {
+		expr string
+		err  string
+	}{
+		{
+			expr: "[1, 1].transformMapEntry(i, v, {v: i})",
+			err:  "insert failed: key 1 already exists",
+		},
+	}
+	env := testCompreEnv(t)
+	for i, tst := range tests {
+		tc := tst
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			ast, iss := env.Compile(tc.expr)
+			if iss.Err() != nil {
+				t.Fatalf("env.Compile(%q) failed with error %v", tc.expr, iss.Err())
+			}
+			prg, err := env.Program(ast)
+			if err != nil {
+				t.Fatalf("env.Program(ast) failed: %v", err)
+			}
+			in := cel.NoVars()
+			_, _, err = prg.Eval(in)
+			if err == nil || !strings.Contains(err.Error(), tc.err) {
+				t.Errorf("prg.Eval() got %v, wanted %v", err, tc.err)
 			}
 		})
 	}

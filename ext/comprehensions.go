@@ -37,16 +37,136 @@ const (
 // The notable distinction for two-variable comprehensions is the introduction of
 // `transformList`, `transformMap`, and `transformMapEntry` support for list and map types
 // rather than the more traditional `map` and `filter` macros.
+//
+// # All
+//
+// Comprehension which tests whether all elements in the list or map satisfy a given
+// predicate. The `all` macro evaluates in a manner consistent with logical AND and will
+// short-circuit when encountering a `false` value.
+//
+//	<list>.all(indexVar, valueVar, <predicate>) -> bool
+//	<map>.all(keyVar, valueVar, <predicate>) -> bool
+//
+// Examples:
+//
+//	[1, 2, 3].all(i, j, i < j) // returns true
+//	{'hello': 'world', 'taco': 'taco'}.all(k, v, k != v) // returns false
+//
+//	// Combines two-variable comprehension with single variable
+//	{'h': ['hello', 'hi'], 'j': ['joke', 'jog']}
+//	    .all(k, vals, vals.all(v, v.startsWith(k))) // returns true
+//
+// # Exists
+//
+// Comprehension which tests whether any element in a list or map exists which satisfies
+// a given predicate. The `exists` macro evaluates in a manner consistent with logical OR
+// and will short-circuit when encountering a `true` value.
+//
+//	<list>.exists(indexVar, valueVar, <predicate>) -> bool
+//	<map>.exists(keyVar, valueVar, <predicate>) -> bool
+//
+// Examples:
+//
+//	{'greeting': 'hello', 'farewell': 'goodbye'}
+//	    .exists(k, v, k.startsWith('good') || v.endsWith('bye')) // returns true
+//	[1, 2, 4, 8, 16].exists(i, v, v == 1024 && i == 10) // returns false
+//
+// # ExistsOne
+//
+// Comprehension which tests whether exactly one element in a list or map exists which
+// satisfies a given predicate expression. This comprehension does not short-circuit in
+// keeping with the one-variable exists one macro semantics.
+//
+//	<list>.existsOne(indexVar, valueVar, <predicate>)
+//	<map>.existsOne(keyVar, valueVar, <predicate>)
+//
+// This macro may also be used with the `exists_one` function name, for compatibility
+// with the one-variable macro of the same name.
+//
+// Examples:
+//
+//	[1, 2, 1, 3, 1, 4].existsOne(i, v, i == 1 || v == 1) // returns false
+//	[1, 1, 2, 2, 3, 3].existsOne(i, v, i == 2 && v == 2) // returns true
+//	{'i': 0, 'j': 1, 'k': 2}.existsOne(i, v, i == 'l' || v == 1) // returns true
+//
+// # TransformList
+//
+// Comprehension which converts a map or a list into a list value. The output expression
+// of the comprehension determines the contents of the output list. Elements in the list
+// may optionally be filtered according to a predicate expression, where elements that
+// satisfy the predicate are transformed.
+//
+//	<list>.transformList(indexVar, valueVar, <transform>)
+//	<list>.transformList(indexVar, valueVar, <filter>, <transform>)
+//	<map>.transformList(keyVar, valueVar, <transform>)
+//	<map>.transformList(keyVar, valueVar, <filter>, <transform>)
+//
+// Examples:
+//
+//	[1, 2, 3].transformList(indexVar, valueVar,
+//	  (indexVar * valueVar) + valueVar) // returns [1, 4, 9]
+//	[1, 2, 3].transformList(indexVar, valueVar, indexVar % 2 == 0
+//	  (indexVar * valueVar) + valueVar) // returns [1, 9]
+//	{'greeting': 'hello', 'farewell': 'goodbye'}
+//	  .transformList(k, _, k) // returns ['greeting', 'farewell']
+//	{'greeting': 'hello', 'farewell': 'goodbye'}
+//	  .transformList(_, v, v) // returns ['hello', 'goodbye']
+//
+// # TransformMap
+//
+// Comprehension which converts a map or a list into a map value. The output expression
+// of the comprehension determines the value of the output map entry; however, the key
+// remains fixed. Elements in the map may optionally be filtered according to a predicate
+// expression, where elements that satisfy the predicate are transformed.
+//
+//	<list>.transformMap(indexVar, valueVar, <transform>)
+//	<list>.transformMap(indexVar, valueVar, <filter>, <transform>)
+//	<map>.transformMap(keyVar, valueVar, <transform>)
+//	<map>.transformMap(keyVar, valueVar, <filter>, <transform>)
+//
+// Examples:
+//
+//	[1, 2, 3].transformMap(indexVar, valueVar,
+//	  (indexVar * valueVar) + valueVar) // returns {0: 1, 1: 4, 2: 9}
+//	[1, 2, 3].transformMap(indexVar, valueVar, indexVar % 2 == 0
+//	  (indexVar * valueVar) + valueVar) // returns {0: 1, 2: 9}
+//	{'greeting': 'hello'}.transformMap(k, v, v + '!') // returns {'greeting': 'hello!'}
+//
+// # TransformMapEntry
+//
+// Comprehension which converts a map or a list into a map value; however, this transform
+// expects the entry expression be a map literal. If the tranform produces an entry which
+// duplicates a key in the target map, the comprehension will error.
+//
+// Elements in the map may optionally be filtered according to a predicate expression, where
+// elements that satisfy the predicate are transformed.
+//
+//	<list>.transformMap(indexVar, valueVar, <transform>)
+//	<list>.transformMap(indexVar, valueVar, <filter>, <transform>)
+//	<map>.transformMap(keyVar, valueVar, <transform>)
+//	<map>.transformMap(keyVar, valueVar, <filter>, <transform>)
+//
+// Examples:
+//
+//	// returns {'hello': 'greeting'}
+//	{'greeting': 'hello'}.transformMapEntry(keyVar, valueVar, {valueVar: keyVar})
+//	// reverse lookup, require all values in list be unique
+//	[1, 2, 3].transformMapEntry(indexVar, valueVar, {valueVar: indexVar})
+//
+//	{'greeting': 'aloha', 'farewell': 'aloha'}
+//	  .transformMapEntry(keyVar, valueVar, {valueVar: keyVar}) // error, duplicate key
 func TwoVarComprehensions() cel.EnvOption {
 	return cel.Lib(compreV2Lib{})
 }
 
 type compreV2Lib struct{}
 
+// LibraryName implements that SingletonLibrary interface method.
 func (compreV2Lib) LibraryName() string {
 	return "cel.lib.ext.comprev2"
 }
 
+// CompileOptions implements the cel.Library interface method.
 func (compreV2Lib) CompileOptions() []cel.EnvOption {
 	kType := cel.TypeParamType("K")
 	vType := cel.TypeParamType("V")
@@ -92,6 +212,7 @@ func (compreV2Lib) CompileOptions() []cel.EnvOption {
 	return opts
 }
 
+// ProgramOptions implements the cel.Library interface method
 func (compreV2Lib) ProgramOptions() []cel.ProgramOption {
 	return []cel.ProgramOption{}
 }
@@ -279,7 +400,7 @@ func transformMapEntry(mef cel.MacroExprFactory, target ast.Expr, args []ast.Exp
 func extractIterVar(meh cel.MacroExprFactory, target ast.Expr) (string, *cel.Error) {
 	iterVar, found := extractIdent(target)
 	if !found {
-		return "", meh.NewError(target.ID(), "iteration variable must be a simple name")
+		return "", meh.NewError(target.ID(), "argument must be a simple name")
 	}
 	return iterVar, nil
 }
