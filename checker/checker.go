@@ -507,13 +507,13 @@ func (c *checker) checkComprehension(e ast.Expr) {
 	var varType, var2Type *types.Type
 	switch rangeType.Kind() {
 	case types.ListKind:
-		// varType represents the list element type for oen-variable comprehensions.
+		// varType represents the list element type for one-variable comprehensions.
 		varType = rangeType.Parameters()[0]
 		if comp.HasIterVar2() {
 			// varType represents the list index (int) for two-variable comprehensions,
 			// and var2Type represents the list element type.
+			var2Type = varType
 			varType = types.IntType
-			var2Type = rangeType.Parameters()[0]
 		}
 	case types.MapKind:
 		// varType represents the map entry key for all comprehension types.
