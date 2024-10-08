@@ -39,6 +39,7 @@ var comparableTypes = []*cel.Type{
 
 // Lists returns a cel.EnvOption to configure extended functions for list manipulation.
 // As a general note, all indices are zero-based.
+//
 // # Slice
 //
 // Returns a new sub-list using the indexes provided.
