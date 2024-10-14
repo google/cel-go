@@ -827,7 +827,8 @@ func TestNativeTypeConvertToType(t *testing.T) {
 	for i, tst := range nativeTests {
 		tc := tst
 		t.Run(fmt.Sprintf("[%d]", i), func(t *testing.T) {
-			nt, err := newNativeType(tc.tag, reflect.TypeOf(&TestAllTypes{}))
+			handler := fieldNameByTag(tc.tag)
+			nt, err := newNativeType(handler, reflect.TypeOf(&TestAllTypes{}))
 			if err != nil {
 				t.Fatalf("newNativeType() failed: %v", err)
 			}
@@ -842,7 +843,7 @@ func TestNativeTypeConvertToType(t *testing.T) {
 }
 
 func TestNativeTypeConvertToNative(t *testing.T) {
-	nt, err := newNativeType("cel", reflect.TypeOf(&TestAllTypes{}))
+	nt, err := newNativeType(fieldNameByTag("cel"), reflect.TypeOf(&TestAllTypes{}))
 	if err != nil {
 		t.Fatalf("newNativeType() failed: %v", err)
 	}
@@ -853,7 +854,7 @@ func TestNativeTypeConvertToNative(t *testing.T) {
 }
 
 func TestNativeTypeHasTrait(t *testing.T) {
-	nt, err := newNativeType("cel", reflect.TypeOf(&TestAllTypes{}))
+	nt, err := newNativeType(fieldNameByTag("cel"), reflect.TypeOf(&TestAllTypes{}))
 	if err != nil {
 		t.Fatalf("newNativeType() failed: %v", err)
 	}
@@ -863,7 +864,7 @@ func TestNativeTypeHasTrait(t *testing.T) {
 }
 
 func TestNativeTypeValue(t *testing.T) {
-	nt, err := newNativeType("cel", reflect.TypeOf(&TestAllTypes{}))
+	nt, err := newNativeType(fieldNameByTag("cel"), reflect.TypeOf(&TestAllTypes{}))
 	if err != nil {
 		t.Fatalf("newNativeType() failed: %v", err)
 	}
@@ -873,7 +874,7 @@ func TestNativeTypeValue(t *testing.T) {
 }
 
 func TestNativeStructWithMultipleSameFieldNames(t *testing.T) {
-	_, err := newNativeType("cel", reflect.TypeOf(TestStructWithMultipleSameNames{}))
+	_, err := newNativeType(fieldNameByTag("cel"), reflect.TypeOf(TestStructWithMultipleSameNames{}))
 	if err == nil {
 		t.Fatal("newNativeType() did not fail as expected")
 	}
