@@ -136,7 +136,9 @@ const (
 //
 // Comprehension which converts a map or a list into a map value; however, this transform
 // expects the entry expression be a map literal. If the tranform produces an entry which
-// duplicates a key in the target map, the comprehension will error.
+// duplicates a key in the target map, the comprehension will error.  Note, that key
+// equality is determined using CEL equality which asserts that numeric values which are
+// equal, even if they don't have the same type will cause a key collision.
 //
 // Elements in the map may optionally be filtered according to a predicate expression, where
 // elements that satisfy the predicate are transformed.

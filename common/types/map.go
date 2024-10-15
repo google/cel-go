@@ -337,7 +337,7 @@ type mutableMap struct {
 // Insert implements the traits.MutableMapper interface method, returning true if the key insertion
 // succeeds.
 func (m *mutableMap) Insert(k, v ref.Val) ref.Val {
-	if _, found := m.mutableValues[k]; found {
+	if _, found := m.Find(k); found {
 		return NewErr("insert failed: key %v already exists", k)
 	}
 	m.mutableValues[k] = v
