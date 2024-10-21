@@ -520,7 +520,7 @@ func (lib *stringLib) CompileOptions() []cel.EnvOption {
 	if lib.version >= 3 {
 		opts = append(opts,
 			cel.Function("reverse",
-				cel.MemberOverload("reverse", []*cel.Type{cel.StringType}, cel.StringType,
+				cel.MemberOverload("string_reverse", []*cel.Type{cel.StringType}, cel.StringType,
 					cel.UnaryBinding(func(str ref.Val) ref.Val {
 						s := str.(types.String)
 						return stringOrError(reverse(string(s)))
