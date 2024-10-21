@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common"
+	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/ext"
@@ -90,6 +91,7 @@ func init() {
 		ext.Math(),
 		ext.Protos(),
 		ext.Strings(),
+		cel.Lib(celBlockLib{}),
 	}
 
 	var err error
@@ -273,4 +275,90 @@ func TestConformance(t *testing.T) {
 			}
 		}
 	}
+}
+
+type celBlockLib struct{}
+
+func (celBlockLib) LibraryName() string {
+	return "cel.lib.ext.cel.block.conformance"
+}
+
+func (celBlockLib) CompileOptions() []cel.EnvOption {
+	// Simulate indexed arguments which would normally have strong types associated
+	// with the values as part of a static optimization pass
+	maxIndices := 30
+	indexOpts := make([]cel.EnvOption, maxIndices)
+	for i := 0; i < maxIndices; i++ {
+		indexOpts[i] = cel.Variable(fmt.Sprintf("@index%d", i), cel.DynType)
+	}
+	return append([]cel.EnvOption{
+		cel.Macros(
+			// cel.block([args], expr)
+			cel.ReceiverMacro("block", 2, celBlock),
+			// cel.index(int)
+			cel.ReceiverMacro("index", 1, celIndex),
+			// cel.iterVar(int, int)
+			cel.ReceiverMacro("iterVar", 2, celCompreVar("cel.iterVar", "@it")),
+			// cel.accuVar(int, int)
+			cel.ReceiverMacro("accuVar", 2, celCompreVar("cel.accuVar", "@ac")),
+		),
+	}, indexOpts...)
+}
+
+func (celBlockLib) ProgramOptions() []cel.ProgramOption {
+	return []cel.ProgramOption{}
+}
+
+func celBlock(mef cel.MacroExprFactory, target ast.Expr, args []ast.Expr) (ast.Expr, *cel.Error) {
+	if !isCELNamespace(target) {
+		return nil, nil
+	}
+	bindings := args[0]
+	if bindings.Kind() != ast.ListKind {
+		return bindings, mef.NewError(bindings.ID(), "cel.block requires the first arg to be a list literal")
+	}
+	return mef.NewCall("cel.@block", args...), nil
+}
+
+func celIndex(mef cel.MacroExprFactory, target ast.Expr, args []ast.Expr) (ast.Expr, *cel.Error) {
+	if !isCELNamespace(target) {
+		return nil, nil
+	}
+	index := args[0]
+	if !isNonNegativeInt(index) {
+		return index, mef.NewError(index.ID(), "cel.index requires a single non-negative int constant arg")
+	}
+	indexVal := index.AsLiteral().(types.Int)
+	return mef.NewIdent(fmt.Sprintf("@index%d", indexVal)), nil
+}
+
+func celCompreVar(funcName, varPrefix string) cel.MacroFactory {
+	return func(mef cel.MacroExprFactory, target ast.Expr, args []ast.Expr) (ast.Expr, *cel.Error) {
+		if !isCELNamespace(target) {
+			return nil, nil
+		}
+		depth := args[0]
+		if !isNonNegativeInt(depth) {
+			return depth, mef.NewError(depth.ID(), fmt.Sprintf("%s requires two non-negative int constant args", funcName))
+		}
+		unique := args[1]
+		if !isNonNegativeInt(unique) {
+			return unique, mef.NewError(unique.ID(), fmt.Sprintf("%s requires two non-negative int constant args", funcName))
+		}
+		depthVal := depth.AsLiteral().(types.Int)
+		uniqueVal := unique.AsLiteral().(types.Int)
+		return mef.NewIdent(fmt.Sprintf("%s:%d:%d", varPrefix, depthVal, uniqueVal)), nil
+	}
+}
+
+func isCELNamespace(target ast.Expr) bool {
+	return target.Kind() == ast.IdentKind && target.AsIdent() == "cel"
+}
+
+func isNonNegativeInt(expr ast.Expr) bool {
+	if expr.Kind() != ast.LiteralKind {
+		return false
+	}
+	val := expr.AsLiteral()
+	return val.Type() == cel.IntType && val.(types.Int) >= 0
 }
