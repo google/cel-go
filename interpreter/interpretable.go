@@ -97,7 +97,7 @@ type InterpretableCall interface {
 	Args() []Interpretable
 }
 
-// InterpretableConstructor interface for inspecting  Interpretable instructions that initialize a list, map
+// InterpretableConstructor interface for inspecting Interpretable instructions that initialize a list, map
 // or struct.
 type InterpretableConstructor interface {
 	Interpretable
