@@ -32,6 +32,7 @@ _ALL_TESTS = [
     "@dev_cel_expr//tests/simple:testdata/timestamps.textproto",
     "@dev_cel_expr//tests/simple:testdata/unknowns.textproto",
     "@dev_cel_expr//tests/simple:testdata/wrappers.textproto",
+    "@dev_cel_expr//tests/simple:testdata/block_ext.textproto",
 ]
 
 _TESTS_TO_SKIP = [
