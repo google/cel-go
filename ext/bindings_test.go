@@ -20,22 +20,25 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/ast"
+	"github.com/google/cel-go/common/operators"
+	"github.com/google/cel-go/common/types"
 )
 
 var bindingTests = []struct {
 	expr      string
 	parseOnly bool
 }{
-	{expr: `cel.bind(a, 'hell' + 'o' + '!', [a, a, a].join(', ')) == 
+	{expr: `cel.bind(a, 'hell' + 'o' + '!', [a, a, a].join(', ')) ==
 	        ['hell' + 'o' + '!', 'hell' + 'o' + '!', 'hell' + 'o' + '!'].join(', ')`},
 	// Variable shadowing
-	{expr: `cel.bind(a, 
-		        cel.bind(a, 'world', a + '!'), 
+	{expr: `cel.bind(a,
+		        cel.bind(a, 'world', a + '!'),
 		   		'hello ' + a) == 'hello ' + 'world' + '!'`},
 }
 
 func TestBindings(t *testing.T) {
-	env, err := cel.NewEnv(Bindings(), Strings())
+	env, err := cel.NewEnv(Bindings(BindingsVersion(0)), Strings())
 	if err != nil {
 		t.Fatalf("cel.NewEnv(Bindings(), Strings()) failed: %v", err)
 	}
@@ -123,5 +126,122 @@ func BenchmarkBindings(b *testing.B) {
 				prg.Eval(cel.NoVars())
 			}
 		})
+	}
+}
+
+func TestBlockEval(t *testing.T) {
+	fac := ast.NewExprFactory()
+	blockExpr := fac.NewCall(
+		1, "cel.@block",
+		fac.NewList(2, []ast.Expr{
+			fac.NewIdent(3, "x"),
+			fac.NewIdent(4, "@index0"),
+			fac.NewIdent(5, "@index1"),
+		}, []int32{}),
+		fac.NewCall(9, operators.Add,
+			fac.NewCall(6, operators.Add,
+				fac.NewIdent(7, "@index2"),
+				fac.NewIdent(8, "@index1")),
+			fac.NewIdent(10, "@index0"),
+		),
+	)
+	blockAST := ast.NewAST(blockExpr, nil)
+	env, err := cel.NewEnv(
+		Bindings(),
+		cel.Variable("x", cel.StringType),
+	)
+	if err != nil {
+		t.Fatalf("cel.NewEnv(Bindings()) failed: %v", err)
+	}
+	prg, err := env.PlanProgram(blockAST)
+	if err != nil {
+		t.Fatalf("PlanProgram() failed: %v", err)
+	}
+	out, _, err := prg.Eval(map[string]any{"x": "hello"})
+	if err != nil {
+		t.Fatalf("prg.Eval() failed: %v", err)
+	}
+	if out.Equal(types.String("hellohellohello")) != types.True {
+		t.Errorf("got %v, wanted 'hellohelloehello'", out)
+	}
+}
+
+func TestBlockEval_BadPlan(t *testing.T) {
+	fac := ast.NewExprFactory()
+	blockExpr := fac.NewCall(
+		1, "cel.@block",
+		fac.NewList(2, []ast.Expr{
+			fac.NewIdent(3, "x"),
+			fac.NewIdent(4, "@index0"),
+		}, []int32{}),
+		fac.NewCall(6, operators.Add,
+			fac.NewIdent(7, "@index1"),
+			fac.NewIdent(8, "@index0")),
+		fac.NewIdent(9, "x"),
+	)
+	blockAST := ast.NewAST(blockExpr, nil)
+	env, err := cel.NewEnv(
+		Bindings(BindingsVersion(1)),
+		cel.Variable("x", cel.StringType),
+	)
+	if err != nil {
+		t.Fatalf("cel.NewEnv(Bindings()) failed: %v", err)
+	}
+	_, err = env.PlanProgram(blockAST)
+	if err == nil {
+		t.Fatal("PlanProgram() succeeded, expected error")
+	}
+}
+
+func TestBlockEval_BadBlock(t *testing.T) {
+	fac := ast.NewExprFactory()
+	blockExpr := fac.NewCall(
+		1, "cel.@block",
+		fac.NewCall(2, operators.Add,
+			fac.NewIdent(3, "@index1"),
+			fac.NewIdent(4, "@index0")),
+		fac.NewIdent(5, "x"),
+	)
+	blockAST := ast.NewAST(blockExpr, nil)
+	env, err := cel.NewEnv(
+		Bindings(BindingsVersion(1)),
+		cel.Variable("x", cel.StringType),
+	)
+	if err != nil {
+		t.Fatalf("cel.NewEnv(Bindings()) failed: %v", err)
+	}
+	_, err = env.PlanProgram(blockAST)
+	if err == nil {
+		t.Fatal("PlanProgram() succeeded, expected error")
+	}
+}
+
+func TestBlockEval_BadIndex(t *testing.T) {
+	fac := ast.NewExprFactory()
+	blockExpr := fac.NewCall(
+		1, "cel.@block",
+		fac.NewList(2, []ast.Expr{
+			fac.NewIdent(3, "x"),
+			fac.NewIdent(4, "@indexNext"),
+		}, []int32{}),
+		fac.NewCall(6, operators.Add,
+			fac.NewIdent(7, "@indexNext"),
+			fac.NewIdent(8, "@index0")),
+	)
+	blockAST := ast.NewAST(blockExpr, nil)
+	env, err := cel.NewEnv(
+		Bindings(BindingsVersion(1)),
+		cel.Variable("x", cel.StringType),
+	)
+	if err != nil {
+		t.Fatalf("cel.NewEnv(Bindings()) failed: %v", err)
+	}
+	prg, err := env.PlanProgram(blockAST)
+	if err != nil {
+		t.Fatalf("PlanProgram() failed: %v", err)
+	}
+	_, _, err = prg.Eval(map[string]any{"x": "hello"})
+	if !strings.Contains(err.Error(), "no such attribute") {
+		t.Fatalf("prg.Eval() got %v, expected no such attribute error", err)
 	}
 }
