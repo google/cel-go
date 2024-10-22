@@ -112,10 +112,10 @@ go_repository(
     version = "v4.13.0",
 )
 
-# CEL Spec deps (v0.16.1)
+# CEL Spec deps (v0.16.1+)
 go_repository(
     name = "com_google_cel_spec",
-    commit = "aa4eb92b7d469b32ff1a767ef4ef340b2d05a5d0",
+    commit = "55cd8c398b2dcdafdd618564de4d1828f116281b",
     importpath = "cel.dev/expr",
 )
 
