@@ -97,7 +97,7 @@ go_repository(
     version = "v4.13.0",
 )
 
-#CEL Spec deps
+# CEL Spec deps
 go_repository(
     name = "dev_cel_expr",
     importpath = "cel.dev/expr",
@@ -107,7 +107,7 @@ go_repository(
 
 # local_repository(
 #     name = "dev_cel_expr",
-#     path = "/usr/local/google/home/tswadell/go/src/github.com/google/cel-spec",
+#     path = "</abs/path>/github.com/google/cel-spec",
 # )
 
 # strcase deps
