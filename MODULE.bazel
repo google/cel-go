@@ -49,8 +49,9 @@ go_deps.gazelle_default_attributes(
 go_deps.gazelle_override(
     # Force Gazelle to wipe out the existing build files before regenerate them.
     build_file_generation = "on",
-    directives = [      
+    directives = [
         "gazelle:go_generate_proto false",
+        # Provide hints to gazelle about how includes and imports map to build targets
         "gazelle:resolve go cel.dev/expr @dev_cel_expr//:expr",
         "gazelle:resolve proto go google/rpc/status.proto @org_golang_google_genproto_googleapis_rpc//status",
         "gazelle:resolve proto proto google/rpc/status.proto @googleapis//google/rpc:status_proto",
@@ -72,9 +73,6 @@ go_deps.module(
     path = "github.com/google/go-cmp",
     sum = "h1:O2Tfq5qg4qc4AmwVlvv0oLiVAGB7enBSJ2x2DqQFi38=",
     version = "v0.5.9",
-)
-go_deps.module(
-    path = "
 )
 use_repo(
     go_deps,

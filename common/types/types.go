@@ -672,6 +672,7 @@ func ExprTypeToType(t *exprpb.Type) (*Type, error) {
 	return AlphaProtoAsType(t)
 }
 
+// AlphaProtoAsType converts a CEL v1alpha1.Type protobuf type to a CEL-native type representation.
 func AlphaProtoAsType(t *exprpb.Type) (*Type, error) {
 	canonical := &celpb.Type{}
 	if err := convertProto(t, canonical); err != nil {
@@ -680,6 +681,7 @@ func AlphaProtoAsType(t *exprpb.Type) (*Type, error) {
 	return ProtoAsType(canonical)
 }
 
+// ProtoAsType converts a canonical CEL celpb.Type protobuf type to a CEL-native type representation.
 func ProtoAsType(t *celpb.Type) (*Type, error) {
 	switch t.GetTypeKind().(type) {
 	case *celpb.Type_Dyn:

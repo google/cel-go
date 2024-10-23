@@ -616,6 +616,7 @@ func ConstantToVal(c *exprpb.Constant) (ref.Val, error) {
 	return AlphaProtoConstantAsVal(c)
 }
 
+// AlphaProtoConstantAsVal converts a v1alpha1.Constant protobuf to a CEL-native ref.Val.
 func AlphaProtoConstantAsVal(c *exprpb.Constant) (ref.Val, error) {
 	if c == nil {
 		return nil, nil
@@ -627,6 +628,7 @@ func AlphaProtoConstantAsVal(c *exprpb.Constant) (ref.Val, error) {
 	return ProtoConstantAsVal(canonical)
 }
 
+// ProtoConstantAsVal converts a canonical celpb.Constant protobuf to a CEL-native ref.Val.
 func ProtoConstantAsVal(c *celpb.Constant) (ref.Val, error) {
 	switch c.GetConstantKind().(type) {
 	case *celpb.Constant_BoolValue:

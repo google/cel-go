@@ -187,7 +187,7 @@ func conformanceTest(t *testing.T, name string, pb *testpb.SimpleTest) {
 		opts = append(opts, cel.Container(pb.GetContainer()))
 	}
 	for _, d := range pb.GetTypeEnv() {
-		opt, err := cel.ExprDeclToDeclaration(d)
+		opt, err := cel.ProtoAsDeclaration(d)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -312,17 +312,11 @@ func ExprTypeToType(t *exprpb.Type) (*Type, error) {
 }
 
 // ExprDeclToDeclaration converts a protobuf CEL declaration to a CEL-native declaration, either a Variable or Function.
-func ExprDeclToDeclaration(d any) (EnvOption, error) {
-	switch pb := d.(type) {
-	case *exprpb.Decl:
-		return AlphaProtoAsDeclaration(pb)
-	case *celpb.Decl:
-		return ProtoAsDeclaration(pb)
-	default:
-		return nil, fmt.Errorf("unsupported declaration type: %v", d)
-	}
+func ExprDeclToDeclaration(d *exprpb.Decl) (EnvOption, error) {
+	return AlphaProtoAsDeclaration(d)
 }
 
+// AlphaProtoAsDeclaration converts a v1alpha1.Decl value describing a variable or function into an EnvOption.
 func AlphaProtoAsDeclaration(d *exprpb.Decl) (EnvOption, error) {
 	canonical := &celpb.Decl{}
 	if err := convertProto(d, canonical); err != nil {
@@ -331,6 +325,7 @@ func AlphaProtoAsDeclaration(d *exprpb.Decl) (EnvOption, error) {
 	return ProtoAsDeclaration(canonical)
 }
 
+// ProtoAsDeclaration converts a canonical celpb.Decl value describing a variable or function into an EnvOption.
 func ProtoAsDeclaration(d *celpb.Decl) (EnvOption, error) {
 	switch d.GetDeclKind().(type) {
 	case *celpb.Decl_Function:
