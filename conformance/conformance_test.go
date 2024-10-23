@@ -21,11 +21,10 @@ import (
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/testing/protocmp"
 
-	test2pb "cel.dev/expr/proto/test/v1/proto2/test_all_types"
-	test3pb "cel.dev/expr/proto/test/v1/proto3/test_all_types"
-	testpb "cel.dev/expr/proto/test/v1/testpb"
-
-	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	celpb "cel.dev/expr"
+	test2pb "cel.dev/expr/conformance/proto2"
+	test3pb "cel.dev/expr/conformance/proto3"
+	testpb "cel.dev/expr/conformance/test"
 )
 
 type testsFlag []string
@@ -124,28 +123,28 @@ func shouldSkipTest(s string) bool {
 	return false
 }
 
-func refValueToExprValue(res ref.Val) (*exprpb.ExprValue, error) {
+func refValueToExprValue(res ref.Val) (*celpb.ExprValue, error) {
 	if types.IsUnknown(res) {
-		return &exprpb.ExprValue{
-			Kind: &exprpb.ExprValue_Unknown{
-				Unknown: &exprpb.UnknownSet{
+		return &celpb.ExprValue{
+			Kind: &celpb.ExprValue_Unknown{
+				Unknown: &celpb.UnknownSet{
 					Exprs: res.Value().([]int64),
 				},
 			}}, nil
 	}
-	v, err := cel.RefValueToValue(res)
+	v, err := cel.ValueAsProto(res)
 	if err != nil {
 		return nil, err
 	}
-	return &exprpb.ExprValue{
-		Kind: &exprpb.ExprValue_Value{Value: v}}, nil
+	return &celpb.ExprValue{
+		Kind: &celpb.ExprValue_Value{Value: v}}, nil
 }
 
-func exprValueToRefValue(adapter types.Adapter, ev *exprpb.ExprValue) (ref.Val, error) {
+func exprValueToRefValue(adapter types.Adapter, ev *celpb.ExprValue) (ref.Val, error) {
 	switch ev.Kind.(type) {
-	case *exprpb.ExprValue_Value:
-		return cel.ValueToRefValue(adapter, ev.GetValue())
-	case *exprpb.ExprValue_Error:
+	case *celpb.ExprValue_Value:
+		return cel.ProtoAsValue(adapter, ev.GetValue())
+	case *celpb.ExprValue_Error:
 		// An error ExprValue is a repeated set of statuspb.Status
 		// messages, with no convention for the status details.
 		// To convert this to a types.Err, we need to convert
@@ -154,7 +153,7 @@ func exprValueToRefValue(adapter types.Adapter, ev *exprpb.ExprValue) (ref.Val, 
 		// round-trip arbitrary ExprValue messages.
 		// TODO(jimlarson) make a convention for this.
 		return types.NewErr("XXX add details later"), nil
-	case *exprpb.ExprValue_Unknown:
+	case *celpb.ExprValue_Unknown:
 		var unk *types.Unknown
 		for _, id := range ev.GetUnknown().GetExprs() {
 			if unk == nil {
@@ -187,7 +186,13 @@ func conformanceTest(t *testing.T, name string, pb *testpb.SimpleTest) {
 	if pb.GetContainer() != "" {
 		opts = append(opts, cel.Container(pb.GetContainer()))
 	}
-	opts = append(opts, cel.Declarations(pb.GetTypeEnv()...))
+	for _, d := range pb.GetTypeEnv() {
+		opt, err := cel.ExprDeclToDeclaration(d)
+		if err != nil {
+			t.Fatal(err)
+		}
+		opts = append(opts, opt)
+	}
 	var err error
 	env, err = env.Extend(opts...)
 	if err != nil {
@@ -220,7 +225,7 @@ func conformanceTest(t *testing.T, name string, pb *testpb.SimpleTest) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if diff := cmp.Diff(&exprpb.ExprValue{Kind: &exprpb.ExprValue_Value{Value: m.Value}}, val, protocmp.Transform(), protocmp.SortRepeatedFields(&exprpb.MapValue{}, "entries")); diff != "" {
+		if diff := cmp.Diff(&celpb.ExprValue{Kind: &celpb.ExprValue_Value{Value: m.Value}}, val, protocmp.Transform(), protocmp.SortRepeatedFields(&celpb.MapValue{}, "entries")); diff != "" {
 			t.Errorf("program.Eval() diff (-want +got):\n%s", diff)
 		}
 	case *testpb.SimpleTest_EvalError:
@@ -260,8 +265,8 @@ func TestConformance(t *testing.T) {
 				name := fmt.Sprintf("%s/%s/%s", file.GetName(), section.GetName(), test.GetName())
 				if test.GetResultMatcher() == nil {
 					test.ResultMatcher = &testpb.SimpleTest_Value{
-						Value: &exprpb.Value{
-							Kind: &exprpb.Value_BoolValue{
+						Value: &celpb.Value{
+							Kind: &celpb.Value_BoolValue{
 								BoolValue: true,
 							},
 						},

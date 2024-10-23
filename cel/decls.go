@@ -23,6 +23,7 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 
+	celpb "cel.dev/expr"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
@@ -311,21 +312,40 @@ func ExprTypeToType(t *exprpb.Type) (*Type, error) {
 }
 
 // ExprDeclToDeclaration converts a protobuf CEL declaration to a CEL-native declaration, either a Variable or Function.
-func ExprDeclToDeclaration(d *exprpb.Decl) (EnvOption, error) {
+func ExprDeclToDeclaration(d any) (EnvOption, error) {
+	switch pb := d.(type) {
+	case *exprpb.Decl:
+		return AlphaProtoAsDeclaration(pb)
+	case *celpb.Decl:
+		return ProtoAsDeclaration(pb)
+	default:
+		return nil, fmt.Errorf("unsupported declaration type: %v", d)
+	}
+}
+
+func AlphaProtoAsDeclaration(d *exprpb.Decl) (EnvOption, error) {
+	canonical := &celpb.Decl{}
+	if err := convertProto(d, canonical); err != nil {
+		return nil, err
+	}
+	return ProtoAsDeclaration(canonical)
+}
+
+func ProtoAsDeclaration(d *celpb.Decl) (EnvOption, error) {
 	switch d.GetDeclKind().(type) {
-	case *exprpb.Decl_Function:
+	case *celpb.Decl_Function:
 		overloads := d.GetFunction().GetOverloads()
 		opts := make([]FunctionOpt, len(overloads))
 		for i, o := range overloads {
 			args := make([]*Type, len(o.GetParams()))
 			for j, p := range o.GetParams() {
-				a, err := types.ExprTypeToType(p)
+				a, err := types.ProtoAsType(p)
 				if err != nil {
 					return nil, err
 				}
 				args[j] = a
 			}
-			res, err := types.ExprTypeToType(o.GetResultType())
+			res, err := types.ProtoAsType(o.GetResultType())
 			if err != nil {
 				return nil, err
 			}
@@ -336,15 +356,15 @@ func ExprDeclToDeclaration(d *exprpb.Decl) (EnvOption, error) {
 			}
 		}
 		return Function(d.GetName(), opts...), nil
-	case *exprpb.Decl_Ident:
-		t, err := types.ExprTypeToType(d.GetIdent().GetType())
+	case *celpb.Decl_Ident:
+		t, err := types.ProtoAsType(d.GetIdent().GetType())
 		if err != nil {
 			return nil, err
 		}
 		if d.GetIdent().GetValue() == nil {
 			return Variable(d.GetName(), t), nil
 		}
-		val, err := ast.ConstantToVal(d.GetIdent().GetValue())
+		val, err := ast.ProtoConstantAsVal(d.GetIdent().GetValue())
 		if err != nil {
 			return nil, err
 		}

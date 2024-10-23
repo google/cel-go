@@ -113,16 +113,16 @@ go_repository(
 )
 
 # CEL Spec deps (v0.16.1)
-go_repository(
-    name = "com_google_cel_spec",
-    commit = "aa4eb92b7d469b32ff1a767ef4ef340b2d05a5d0",
-    importpath = "cel.dev/expr",
-)
-
-# local_repository(
-#     name = "com_google_cel_spec",
-#     path = "<abs/path>/github.com/google/cel-spec",
+# go_repository(
+#     name = "dev_cel_expr",
+#     commit = "aa4eb92b7d469b32ff1a767ef4ef340b2d05a5d0",
+#     importpath = "cel.dev/expr",
 # )
+
+local_repository(
+    name = "dev_cel_expr",
+    path = "/Users/tswadell/go/src/github.com/google/cel-spec",
+)
 
 # strcase deps
 go_repository(
