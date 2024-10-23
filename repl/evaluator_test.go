@@ -843,7 +843,7 @@ func TestProcess(t *testing.T) {
 					cmd: "option",
 					args: []string{
 						"--container",
-						"google.api.expr.test.v1",
+						"cel.expr.conformance",
 					},
 				},
 				&evalCmd{

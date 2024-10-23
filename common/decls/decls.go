@@ -777,8 +777,13 @@ func (v *VariableDecl) DeclarationIsEquivalent(other *VariableDecl) bool {
 	return v.Name() == other.Name() && v.Type().IsEquivalentType(other.Type())
 }
 
-// VariableDeclToExprDecl converts a go-native variable declaration into a protobuf-type variable declaration.
-func VariableDeclToExprDecl(v *VariableDecl) (*exprpb.Decl, error) {
+// TypeVariable creates a new type identifier for use within a types.Provider
+func TypeVariable(t *types.Type) *VariableDecl {
+	return NewVariable(t.TypeName(), types.NewTypeTypeWithParam(t))
+}
+
+// variableDeclToExprDecl converts a go-native variable declaration into a protobuf-type variable declaration.
+func variableDeclToExprDecl(v *VariableDecl) (*exprpb.Decl, error) {
 	varType, err := types.TypeToExprType(v.Type())
 	if err != nil {
 		return nil, err
@@ -786,13 +791,8 @@ func VariableDeclToExprDecl(v *VariableDecl) (*exprpb.Decl, error) {
 	return chkdecls.NewVar(v.Name(), varType), nil
 }
 
-// TypeVariable creates a new type identifier for use within a types.Provider
-func TypeVariable(t *types.Type) *VariableDecl {
-	return NewVariable(t.TypeName(), types.NewTypeTypeWithParam(t))
-}
-
-// FunctionDeclToExprDecl converts a go-native function declaration into a protobuf-typed function declaration.
-func FunctionDeclToExprDecl(f *FunctionDecl) (*exprpb.Decl, error) {
+// functionDeclToExprDecl converts a go-native function declaration into a protobuf-typed function declaration.
+func functionDeclToExprDecl(f *FunctionDecl) (*exprpb.Decl, error) {
 	overloads := make([]*exprpb.Decl_FunctionDecl_Overload, len(f.overloads))
 	for i, oID := range f.overloadOrdinals {
 		o := f.overloads[oID]
