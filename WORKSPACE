@@ -121,7 +121,7 @@ go_repository(
 
 local_repository(
     name = "dev_cel_expr",
-    path = "/Users/tswadell/go/src/github.com/google/cel-spec",
+    path = "/usr/local/google/home/tswadell/go/src/github.com/google/cel-spec",
 )
 
 # strcase deps
