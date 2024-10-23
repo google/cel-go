@@ -612,21 +612,14 @@ func ValToConstant(v ref.Val) (*exprpb.Constant, error) {
 }
 
 // ConstantToVal converts a protobuf Constant to a CEL-native ref.Val.
-func ConstantToVal(c any) (ref.Val, error) {
-	if c == nil {
-		return nil, nil
-	}
-	switch pb := c.(type) {
-	case *celpb.Constant:
-		return ProtoConstantAsVal(pb)
-	case *exprpb.Constant:
-		return AlphaProtoConstantAsVal(pb)
-	default:
-		return nil, fmt.Errorf("unsupported constant format: %v", c)
-	}
+func ConstantToVal(c *exprpb.Constant) (ref.Val, error) {
+	return AlphaProtoConstantAsVal(c)
 }
 
 func AlphaProtoConstantAsVal(c *exprpb.Constant) (ref.Val, error) {
+	if c == nil {
+		return nil, nil
+	}
 	canonical := &celpb.Constant{}
 	if err := convertProto(c, canonical); err != nil {
 		return nil, err

@@ -82,21 +82,6 @@ go_repository(
     version = "v0.0.0-20240823204242-4ba0660f739c",
 )
 
-# gRPC deps for v1.49.0 (including x/text and x/net)
-go_repository(
-    name = "org_golang_google_grpc",
-    build_file_proto_mode = "disable_global",
-    importpath = "google.golang.org/grpc",
-    tag = "v1.49.0",
-)
-
-go_repository(
-    name = "org_golang_x_net",
-    importpath = "golang.org/x/net",
-    sum = "h1:oWX7TPOiFAMXLq8o0ikBYfCJVlRHBcsciT5bXOrH628=",
-    version = "v0.0.0-20190311183353-d8887717615a",
-)
-
 go_repository(
     name = "org_golang_x_text",
     importpath = "golang.org/x/text",
@@ -112,17 +97,18 @@ go_repository(
     version = "v4.13.0",
 )
 
-# CEL Spec deps (v0.16.1)
-# go_repository(
-#     name = "dev_cel_expr",
-#     commit = "aa4eb92b7d469b32ff1a767ef4ef340b2d05a5d0",
-#     importpath = "cel.dev/expr",
-# )
-
-local_repository(
+#CEL Spec deps
+go_repository(
     name = "dev_cel_expr",
-    path = "/usr/local/google/home/tswadell/go/src/github.com/google/cel-spec",
+    importpath = "cel.dev/expr",
+    sum = "h1:CJ6drgk+Hf96lkLikr4rFf19WrU0BOWEihyZnI2TAzo=",
+    version = "v0.18.0",
 )
+
+# local_repository(
+#     name = "dev_cel_expr",
+#     path = "/usr/local/google/home/tswadell/go/src/github.com/google/cel-spec",
+# )
 
 # strcase deps
 go_repository(
@@ -167,7 +153,7 @@ go_repository(
 # of the above repositories but at different versions, so ours must come first.
 go_rules_dependencies()
 
-go_register_toolchains(version = "1.21.0")
+go_register_toolchains(version = "1.21.1")
 
 gazelle_dependencies()
 
