@@ -561,8 +561,12 @@ func indexOfOffset(str, substr string, offset int64) (int64, error) {
 	off := int(offset)
 	runes := []rune(str)
 	subrunes := []rune(substr)
-	if off < 0 || off >= len(runes) {
+	if off < 0 {
 		return -1, fmt.Errorf("index out of range: %d", off)
+	}
+	// If the offset exceeds the length, return -1 rather than error.
+	if off >= len(runes) {
+		return -1, nil
 	}
 	for i := off; i < len(runes)-(len(subrunes)-1); i++ {
 		found := true
@@ -594,8 +598,12 @@ func lastIndexOfOffset(str, substr string, offset int64) (int64, error) {
 	off := int(offset)
 	runes := []rune(str)
 	subrunes := []rune(substr)
-	if off < 0 || off >= len(runes) {
+	if off < 0 {
 		return -1, fmt.Errorf("index out of range: %d", off)
+	}
+	// If the offset is far greater than the length return -1
+	if off >= len(runes) {
+		return -1, nil
 	}
 	if off > len(runes)-len(subrunes) {
 		off = len(runes) - len(subrunes)
