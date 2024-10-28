@@ -3,7 +3,7 @@ module github.com/google/cel-go/repl
 go 1.21.1
 
 require (
-	cel.dev/expr v0.17.0
+	cel.dev/expr v0.18.0
 	github.com/antlr4-go/antlr/v4 v4.13.0
 	github.com/chzyer/readline v1.5.1
 	github.com/google/cel-go v0.0.0-00010101000000-000000000000
