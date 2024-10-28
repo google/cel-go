@@ -216,32 +216,78 @@ func TestBlockEval_BadBlock(t *testing.T) {
 	}
 }
 
-func TestBlockEval_BadIndex(t *testing.T) {
+func TestBlockEval_RuntimeErrors(t *testing.T) {
 	fac := ast.NewExprFactory()
-	blockExpr := fac.NewCall(
-		1, "cel.@block",
-		fac.NewList(2, []ast.Expr{
-			fac.NewIdent(3, "x"),
-			fac.NewIdent(4, "@indexNext"),
-		}, []int32{}),
-		fac.NewCall(6, operators.Add,
-			fac.NewIdent(7, "@indexNext"),
-			fac.NewIdent(8, "@index0")),
-	)
-	blockAST := ast.NewAST(blockExpr, nil)
-	env, err := cel.NewEnv(
-		Bindings(BindingsVersion(1)),
-		cel.Variable("x", cel.StringType),
-	)
-	if err != nil {
-		t.Fatalf("cel.NewEnv(Bindings()) failed: %v", err)
+	tests := []struct {
+		name string
+		expr ast.Expr
+	}{
+		{
+			name: "bad index",
+			expr: fac.NewCall(
+				1, "cel.@block",
+				fac.NewList(2, []ast.Expr{
+					fac.NewIdent(3, "x"),
+					fac.NewIdent(4, "@indexNext"),
+				}, []int32{}),
+				fac.NewCall(6, operators.Add,
+					fac.NewIdent(7, "@indexNext"),
+					fac.NewIdent(8, "@index0")),
+			),
+		},
+		{
+			name: "infinite recursion",
+			expr: fac.NewCall(
+				1, "cel.@block",
+				fac.NewList(2, []ast.Expr{
+					fac.NewIdent(3, "@index0"),
+					fac.NewIdent(4, "@index0"),
+				}, []int32{}),
+				fac.NewIdent(10, "@index0"),
+			),
+		},
+		{
+			name: "negative index",
+			expr: fac.NewCall(
+				1, "cel.@block",
+				fac.NewList(2, []ast.Expr{
+					fac.NewIdent(3, "@index-1"),
+					fac.NewIdent(4, "@index0"),
+				}, []int32{}),
+				fac.NewIdent(10, "@index0"),
+			),
+		},
+		{
+			name: "out of range index",
+			expr: fac.NewCall(
+				1, "cel.@block",
+				fac.NewList(2, []ast.Expr{
+					fac.NewIdent(3, "@index100"),
+					fac.NewIdent(4, "@index0"),
+				}, []int32{}),
+				fac.NewIdent(10, "@index0"),
+			),
+		},
 	}
-	prg, err := env.PlanProgram(blockAST)
-	if err != nil {
-		t.Fatalf("PlanProgram() failed: %v", err)
-	}
-	_, _, err = prg.Eval(map[string]any{"x": "hello"})
-	if !strings.Contains(err.Error(), "no such attribute") {
-		t.Fatalf("prg.Eval() got %v, expected no such attribute error", err)
+	for _, tst := range tests {
+		tc := tst
+		t.Run(tc.name, func(t *testing.T) {
+			blockAST := ast.NewAST(tc.expr, nil)
+			env, err := cel.NewEnv(
+				Bindings(BindingsVersion(1)),
+				cel.Variable("x", cel.StringType),
+			)
+			if err != nil {
+				t.Fatalf("cel.NewEnv(Bindings()) failed: %v", err)
+			}
+			prg, err := env.PlanProgram(blockAST)
+			if err != nil {
+				t.Fatalf("PlanProgram() failed: %v", err)
+			}
+			_, _, err = prg.Eval(map[string]any{"x": "hello"})
+			if !strings.Contains(err.Error(), "no such attribute") {
+				t.Fatalf("prg.Eval() got %v, expected no such attribute error", err)
+			}
+		})
 	}
 }
