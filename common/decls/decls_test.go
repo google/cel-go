@@ -984,28 +984,13 @@ func TestFunctionDeclToExprDecl(t *testing.T) {
 		},
 	}
 	for _, tst := range tests {
-		exDecl, err := FunctionDeclToExprDecl(tst.fn)
+		exDecl, err := functionDeclToExprDecl(tst.fn)
 		if err != nil {
 			t.Fatalf("FunctionDeclToExprDecl(%v) failed: %v", tst.fn, err)
 		}
 		if !proto.Equal(exDecl, tst.exDecl) {
 			t.Errorf("got not equal, wanted %v == %v", exDecl, tst.exDecl)
 		}
-	}
-}
-
-func TestFunctionDeclToExprDeclInvalid(t *testing.T) {
-	fn1 := testFunction(t, "bad_equals",
-		MemberOverload("bad_equals_param", []*types.Type{{}, types.UintType}, types.BoolType))
-	ex1, err := FunctionDeclToExprDecl(fn1)
-	if err == nil {
-		t.Errorf("FunctionDeclToExprDecl(bad_equals) succeeded: %v, wanted error", ex1)
-	}
-	fn2 := testFunction(t, "bad_equals",
-		Overload("bad_equals_out", []*types.Type{types.IntType, types.UintType}, &types.Type{}))
-	ex2, err := FunctionDeclToExprDecl(fn2)
-	if err == nil {
-		t.Errorf("FunctionDeclToExprDecl(bad_equals) succeeded: %v, wanted error", ex2)
 	}
 }
 
@@ -1063,7 +1048,7 @@ func TestTypeVariable(t *testing.T) {
 }
 
 func TestVariableDeclToExprDecl(t *testing.T) {
-	a, err := VariableDeclToExprDecl(NewVariable("a", types.BoolType))
+	a, err := variableDeclToExprDecl(NewVariable("a", types.BoolType))
 	if err != nil {
 		t.Fatalf("VariableDeclToExprDecl() failed: %v", err)
 	}
@@ -1074,7 +1059,7 @@ func TestVariableDeclToExprDecl(t *testing.T) {
 }
 
 func TestVariableDeclToExprDeclInvalid(t *testing.T) {
-	out, err := VariableDeclToExprDecl(NewVariable("bad", &types.Type{}))
+	out, err := variableDeclToExprDecl(NewVariable("bad", &types.Type{}))
 	if err == nil {
 		t.Fatalf("VariableDeclToExprDecl() succeeded: %v, wanted error", out)
 	}
