@@ -593,7 +593,8 @@ Examples:
     'hello mellow'.indexOf('jello')    // returns -1
     'hello mellow'.indexOf('', 2)      // returns 2
     'hello mellow'.indexOf('ello', 2)  // returns 7
-    'hello mellow'.indexOf('ello', 20) // error
+    'hello mellow'.indexOf('ello', 20) // returns -1
+    'hello mellow'.indexOf('ello', -1) // error
 
 ### Join
 
@@ -631,6 +632,7 @@ Examples:
     'hello mellow'.lastIndexOf('ello')     // returns 7
     'hello mellow'.lastIndexOf('jello')    // returns -1
     'hello mellow'.lastIndexOf('ello', 6)  // returns 1
+    'hello mellow'.lastIndexOf('ello', 20) // returns -1
     'hello mellow'.lastIndexOf('ello', -1) // error
 
 ### LowerAscii

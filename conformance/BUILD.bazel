@@ -47,6 +47,9 @@ _TESTS_TO_SKIP = [
     "macros/map/map_extract_keys",
     "timestamps/duration_converters/get_milliseconds",
 
+    # Temporarily failing tests, need a spec update
+    "string_ext/value_errors/indexof_out_of_range,lastindexof_out_of_range",
+
     # Future enhancments.
     "enums/strong_proto2",
     "enums/strong_proto3",

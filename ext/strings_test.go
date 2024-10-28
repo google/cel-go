@@ -150,18 +150,12 @@ var stringTests = []struct {
 		expr: `'tacocat'.charAt(30) == ''`,
 		err:  "index out of range: 30",
 	},
-	{
-		expr: `'tacocat'.indexOf('a', 30) == -1`,
-		err:  "index out of range: 30",
-	},
+	{expr: `'tacocat'.indexOf('a', 30) == -1`},
 	{
 		expr: `'tacocat'.lastIndexOf('a', -1) == -1`,
 		err:  "index out of range: -1",
 	},
-	{
-		expr: `'tacocat'.lastIndexOf('a', 30) == -1`,
-		err:  "index out of range: 30",
-	},
+	{expr: `'tacocat'.lastIndexOf('a', 30) == -1`},
 	{
 		expr: `"tacocat".substring(40) == "cat"`,
 		err:  "index out of range: 40",
