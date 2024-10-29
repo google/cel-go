@@ -26,6 +26,7 @@ import (
 	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/common/types/traits"
 	"github.com/google/cel-go/interpreter"
 )
 
@@ -100,6 +101,7 @@ func (lib *celBindings) CompileOptions() []cel.EnvOption {
 				cel.Overload("cel_block_list",
 					[]*cel.Type{cel.ListType(cel.DynType), paramType}, paramType)),
 		)
+		opts = append(opts, cel.ASTValidators(blockValidationExemption{}))
 	}
 	return opts
 }
@@ -117,13 +119,23 @@ func (lib *celBindings) ProgramOptions() []cel.ProgramOption {
 				if len(args) != 2 {
 					return nil, fmt.Errorf("cel.@block expects two arguments, but got %d", len(args))
 				}
-				block, ok := args[0].(interpreter.InterpretableConstructor)
-				if !ok {
-					return nil, errors.New("cel.@block expects a list constructor as the first argument")
-				}
-				slotExprs := block.InitVals()
 				expr := args[1]
-				return newBlockScope(slotExprs, expr), nil
+				// Non-empty block
+				if block, ok := args[0].(interpreter.InterpretableConstructor); ok {
+					slotExprs := block.InitVals()
+					return newDynamicBlock(slotExprs, expr), nil
+				}
+				// Constant valued block which can happen during runtime optimization.
+				if cons, ok := args[0].(interpreter.InterpretableConst); ok {
+					if cons.Value().Type() == types.ListType {
+						l := cons.Value().(traits.Lister)
+						if l.Size().Equal(types.IntZero) == types.True {
+							return args[1], nil
+						}
+						return newConstantBlock(l, expr), nil
+					}
+				}
+				return nil, errors.New("cel.@block expects a list constructor as the first argument")
 			default:
 				return i, nil
 			}
@@ -131,6 +143,26 @@ func (lib *celBindings) ProgramOptions() []cel.ProgramOption {
 		return []cel.ProgramOption{cel.CustomDecorator(celBlockPlan)}
 	}
 	return []cel.ProgramOption{}
+}
+
+type blockValidationExemption struct{}
+
+// Name returns the name of the validator.
+func (blockValidationExemption) Name() string {
+	return "cel.lib.ext.validate.functions.cel.block"
+}
+
+// Configure implements the ASTValidatorConfigurer interface and augments the list of functions to skip
+// during homogeneous aggregate literal type-checks.
+func (blockValidationExemption) Configure(config cel.MutableValidatorConfig) error {
+	functions := config.GetOrDefault(cel.HomogeneousAggregateLiteralExemptFunctions, []string{}).([]string)
+	functions = append(functions, "cel.@block")
+	return config.Set(cel.HomogeneousAggregateLiteralExemptFunctions, functions)
+}
+
+// Validate is a no-op as the intent is to simply disable strong type-checks for list literals during
+// when they occur within cel.@block calls as the arg types have already been validated.
+func (blockValidationExemption) Validate(env *cel.Env, _ cel.ValidatorConfig, a *ast.AST, iss *cel.Issues) {
 }
 
 func celBind(mef cel.MacroExprFactory, target ast.Expr, args []ast.Expr) (ast.Expr, *cel.Error) {
@@ -158,15 +190,15 @@ func celBind(mef cel.MacroExprFactory, target ast.Expr, args []ast.Expr) (ast.Ex
 	), nil
 }
 
-func newBlockScope(slotExprs []interpreter.Interpretable, expr interpreter.Interpretable) *blockScope {
-	bs := &blockScope{
+func newDynamicBlock(slotExprs []interpreter.Interpretable, expr interpreter.Interpretable) interpreter.Interpretable {
+	bs := &dynamicBlock{
 		slotExprs: slotExprs,
 		expr:      expr,
 	}
 	bs.slotActivationPool = &sync.Pool{
 		New: func() any {
 			slotCount := len(slotExprs)
-			sa := &slotActivation{
+			sa := &dynamicSlotActivation{
 				slotExprs: slotExprs,
 				slotCount: slotCount,
 				slotVals:  make([]*slotVal, slotCount),
@@ -180,28 +212,28 @@ func newBlockScope(slotExprs []interpreter.Interpretable, expr interpreter.Inter
 	return bs
 }
 
-type blockScope struct {
+type dynamicBlock struct {
 	slotExprs          []interpreter.Interpretable
 	expr               interpreter.Interpretable
 	slotActivationPool *sync.Pool
 }
 
 // ID implements the Interpretable interface method.
-func (bs *blockScope) ID() int64 {
-	return bs.expr.ID()
+func (b *dynamicBlock) ID() int64 {
+	return b.expr.ID()
 }
 
 // Eval implements the Interpretable interface method.
-func (bs *blockScope) Eval(activation interpreter.Activation) ref.Val {
-	sa := bs.slotActivationPool.Get().(*slotActivation)
+func (b *dynamicBlock) Eval(activation interpreter.Activation) ref.Val {
+	sa := b.slotActivationPool.Get().(*dynamicSlotActivation)
 	sa.Activation = activation
-	defer bs.clearSlots(sa)
-	return bs.expr.Eval(sa)
+	defer b.clearSlots(sa)
+	return b.expr.Eval(sa)
 }
 
-func (bs *blockScope) clearSlots(sa *slotActivation) {
+func (b *dynamicBlock) clearSlots(sa *dynamicSlotActivation) {
 	sa.reset()
-	bs.slotActivationPool.Put(sa)
+	b.slotActivationPool.Put(sa)
 }
 
 type slotVal struct {
@@ -209,7 +241,7 @@ type slotVal struct {
 	visited bool
 }
 
-type slotActivation struct {
+type dynamicSlotActivation struct {
 	interpreter.Activation
 	slotExprs []interpreter.Interpretable
 	slotCount int
@@ -219,17 +251,8 @@ type slotActivation struct {
 // ResolveName implements the Activation interface method but handles variables prefixed with `@index`
 // as special variables which exist within the slot-based memory of the cel.@block() where each slot
 // refers to an expression which must be computed only once.
-func (sa *slotActivation) ResolveName(name string) (any, bool) {
-	if idx, found := strings.CutPrefix(name, indexPrefix); found {
-		idx, err := strconv.Atoi(idx)
-		// Return not found if the index is not numeric
-		if err != nil {
-			return nil, false
-		}
-		// Return not found if the index is not a valid slot
-		if idx < 0 || idx >= sa.slotCount {
-			return nil, false
-		}
+func (sa *dynamicSlotActivation) ResolveName(name string) (any, bool) {
+	if idx, found := matchSlot(name, sa.slotCount); found {
 		v := sa.slotVals[idx]
 		if v.visited {
 			// Return not found if the index expression refers to itself
@@ -246,12 +269,66 @@ func (sa *slotActivation) ResolveName(name string) (any, bool) {
 	return sa.Activation.ResolveName(name)
 }
 
-func (sa *slotActivation) reset() {
+func (sa *dynamicSlotActivation) reset() {
 	sa.Activation = nil
 	for _, sv := range sa.slotVals {
 		sv.visited = false
 		sv.value = nil
 	}
+}
+
+func newConstantBlock(slots traits.Lister, expr interpreter.Interpretable) interpreter.Interpretable {
+	count := slots.Size().(types.Int)
+	return &constantBlock{slots: slots, slotCount: int(count), expr: expr}
+}
+
+type constantBlock struct {
+	slots     traits.Lister
+	slotCount int
+	expr      interpreter.Interpretable
+}
+
+// ID implements the interpreter.Interpretable interface method.
+func (b *constantBlock) ID() int64 {
+	return b.expr.ID()
+}
+
+// Eval implements the interpreter.Interpretable interface method, and will proxy @index prefixed variable
+// lookups into a set of constant slots determined from the plan step.
+func (b *constantBlock) Eval(activation interpreter.Activation) ref.Val {
+	vars := constantSlotActivation{Activation: activation, slots: b.slots, slotCount: b.slotCount}
+	return b.expr.Eval(vars)
+}
+
+type constantSlotActivation struct {
+	interpreter.Activation
+	slots     traits.Lister
+	slotCount int
+}
+
+// ResolveName implements Activation interface method and proxies @index prefixed lookups into the slot
+// activation associated with the block scope.
+func (sa constantSlotActivation) ResolveName(name string) (any, bool) {
+	if idx, found := matchSlot(name, sa.slotCount); found {
+		return sa.slots.Get(types.Int(idx)), true
+	}
+	return sa.Activation.ResolveName(name)
+}
+
+func matchSlot(name string, slotCount int) (int, bool) {
+	if idx, found := strings.CutPrefix(name, indexPrefix); found {
+		idx, err := strconv.Atoi(idx)
+		// Return not found if the index is not numeric
+		if err != nil {
+			return -1, false
+		}
+		// Return not found if the index is not a valid slot
+		if idx < 0 || idx >= slotCount {
+			return -1, false
+		}
+		return idx, true
+	}
+	return -1, false
 }
 
 var (
