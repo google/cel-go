@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/cel"
+	proto2pb "github.com/google/cel-go/test/proto2pb"
 )
 
 func TestLists(t *testing.T) {
@@ -27,6 +28,13 @@ func TestLists(t *testing.T) {
 		expr string
 		err  string
 	}{
+		{expr: `lists.range(4) == [0,1,2,3]`},
+		{expr: `lists.range(0) == []`},
+		{expr: `[5,1,2,3].reverse() == [3,2,1,5]`},
+		{expr: `[].reverse() == []`},
+		{expr: `[1].reverse() == [1]`},
+		{expr: `['are', 'you', 'as', 'bored', 'as', 'I', 'am'].reverse() == ['am', 'I', 'as', 'bored', 'as', 'you', 'are']`},
+		{expr: `[false, true, true].reverse().reverse() == [false, true, true]`},
 		{expr: `[1,2,3,4].slice(0, 4) == [1,2,3,4]`},
 		{expr: `[1,2,3,4].slice(0, 0) == []`},
 		{expr: `[1,2,3,4].slice(1, 1) == []`},
@@ -36,15 +44,33 @@ func TestLists(t *testing.T) {
 		{expr: `[1,2,3,4].slice(0, 10)`, err: "cannot slice(0, 10), list is length 4"},
 		{expr: `[1,2,3,4].slice(-5, 10)`, err: "cannot slice(-5, 10), negative indexes not supported"},
 		{expr: `[1,2,3,4].slice(-5, -3)`, err: "cannot slice(-5, -3), negative indexes not supported"},
+
 		{expr: `dyn([]).flatten() == []`},
 		{expr: `dyn([1,2,3,4]).flatten() == [1,2,3,4]`},
 		{expr: `[1,[2,[3,4]]].flatten() == [1,2,[3,4]]`},
 		{expr: `[1,2,[],[],[3,4]].flatten() == [1,2,3,4]`},
 		{expr: `[1,[2,[3,4]]].flatten(2) == [1,2,3,4]`},
 		{expr: `[1,[2,[3,[4]]]].flatten(-1) == [1,2,3,4]`, err: "level must be non-negative"},
+		{expr: `[].sort() == []`},
+		{expr: `[1].sort() == [1]`},
 		{expr: `[4, 3, 2, 1].sort() == [1, 2, 3, 4]`},
 		{expr: `["d", "a", "b", "c"].sort() == ["a", "b", "c", "d"]`},
 		{expr: `["d", 3, 2, "c"].sort() == ["a", "b", "c", "d"]`, err: "list elements must have the same type"},
+		{expr: `[].sortBy(e, e) == []`},
+		{expr: `["a"].sortBy(e, e) == ["a"]`},
+		{expr: `[-3, 1, -5, -2, 4].sortBy(e, -(e * e)) == [-5, 4, -3, -2, 1]`},
+		{expr: `[-3, 1, -5, -2, 4].map(e, e * 2).sortBy(e, -(e * e)) == [-10, 8, -6, -4, 2]`},
+		{expr: `lists.range(3).sortBy(e, -e) == [2, 1, 0]`},
+		{expr: `["a", "c", "b", "first"].sortBy(e, e == "first" ? "" : e) == ["first", "a", "b", "c"]`},
+		{expr: `[ExampleType{name: 'foo'}, ExampleType{name: 'bar'}, ExampleType{name: 'baz'}].sortBy(e, e.name) == [ExampleType{name: 'bar'}, ExampleType{name: 'baz'}, ExampleType{name: 'foo'}]`},
+		{expr: `[].distinct() == []`},
+		{expr: `[1].distinct() == [1]`},
+		{expr: `[-2, 5, -2, 1, 1, 5, -2, 1].distinct() == [-2, 5, 1]`},
+		{expr: `['c', 'a', 'a', 'b', 'a', 'b', 'c', 'c'].distinct() == ['c', 'a', 'b']`},
+		{expr: `[1, 2.0, "c", 3, "c", 1].distinct() == [1, 2.0, "c", 3]`},
+		{expr: `[1, 1.0, 2].distinct() == [1, 2]`},
+		{expr: `[[1], [1], [2]].distinct() == [[1], [2]]`},
+		{expr: `[ExampleType{name: 'a'}, ExampleType{name: 'b'}, ExampleType{name: 'a'}].distinct() == [ExampleType{name: 'a'}, ExampleType{name: 'b'}]`},
 	}
 
 	env := testListsEnv(t)
@@ -89,7 +115,12 @@ func TestLists(t *testing.T) {
 
 func testListsEnv(t *testing.T, opts ...cel.EnvOption) *cel.Env {
 	t.Helper()
-	baseOpts := []cel.EnvOption{Lists()}
+	baseOpts := []cel.EnvOption{
+		Lists(),
+		cel.Container("google.expr.proto2.test"),
+		cel.Types(&proto2pb.ExampleType{},
+			&proto2pb.ExternalMessageType{},
+		)}
 	env, err := cel.NewEnv(append(baseOpts, opts...)...)
 	if err != nil {
 		t.Fatalf("cel.NewEnv(Lists()) failed: %v", err)

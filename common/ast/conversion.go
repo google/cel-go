@@ -17,12 +17,14 @@ package ast
 import (
 	"fmt"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 
-	structpb "google.golang.org/protobuf/types/known/structpb"
-
+	celpb "cel.dev/expr"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 )
 
 // ToProto converts an AST to a CheckedExpr protobouf.
@@ -611,24 +613,47 @@ func ValToConstant(v ref.Val) (*exprpb.Constant, error) {
 
 // ConstantToVal converts a protobuf Constant to a CEL-native ref.Val.
 func ConstantToVal(c *exprpb.Constant) (ref.Val, error) {
+	return AlphaProtoConstantAsVal(c)
+}
+
+// AlphaProtoConstantAsVal converts a v1alpha1.Constant protobuf to a CEL-native ref.Val.
+func AlphaProtoConstantAsVal(c *exprpb.Constant) (ref.Val, error) {
 	if c == nil {
 		return nil, nil
 	}
+	canonical := &celpb.Constant{}
+	if err := convertProto(c, canonical); err != nil {
+		return nil, err
+	}
+	return ProtoConstantAsVal(canonical)
+}
+
+// ProtoConstantAsVal converts a canonical celpb.Constant protobuf to a CEL-native ref.Val.
+func ProtoConstantAsVal(c *celpb.Constant) (ref.Val, error) {
 	switch c.GetConstantKind().(type) {
-	case *exprpb.Constant_BoolValue:
+	case *celpb.Constant_BoolValue:
 		return types.Bool(c.GetBoolValue()), nil
-	case *exprpb.Constant_BytesValue:
+	case *celpb.Constant_BytesValue:
 		return types.Bytes(c.GetBytesValue()), nil
-	case *exprpb.Constant_DoubleValue:
+	case *celpb.Constant_DoubleValue:
 		return types.Double(c.GetDoubleValue()), nil
-	case *exprpb.Constant_Int64Value:
+	case *celpb.Constant_Int64Value:
 		return types.Int(c.GetInt64Value()), nil
-	case *exprpb.Constant_NullValue:
+	case *celpb.Constant_NullValue:
 		return types.NullValue, nil
-	case *exprpb.Constant_StringValue:
+	case *celpb.Constant_StringValue:
 		return types.String(c.GetStringValue()), nil
-	case *exprpb.Constant_Uint64Value:
+	case *celpb.Constant_Uint64Value:
 		return types.Uint(c.GetUint64Value()), nil
 	}
 	return nil, fmt.Errorf("unsupported constant kind: %v", c.GetConstantKind())
+}
+
+func convertProto(src, dst proto.Message) error {
+	pb, err := proto.Marshal(src)
+	if err != nil {
+		return err
+	}
+	err = proto.Unmarshal(pb, dst)
+	return err
 }

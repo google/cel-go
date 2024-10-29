@@ -365,7 +365,7 @@ func TestStrings(t *testing.T) {
 	}
 }
 
-func TestVersions(t *testing.T) {
+func TestStringsVersions(t *testing.T) {
 	versionCases := []struct {
 		version            uint32
 		supportedFunctions map[string]string

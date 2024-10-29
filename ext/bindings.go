@@ -165,9 +165,14 @@ func newBlockScope(slotExprs []interpreter.Interpretable, expr interpreter.Inter
 	}
 	bs.slotActivationPool = &sync.Pool{
 		New: func() any {
+			slotCount := len(slotExprs)
 			sa := &slotActivation{
 				slotExprs: slotExprs,
-				slotVals:  make([]ref.Val, len(slotExprs)),
+				slotCount: slotCount,
+				slotVals:  make([]*slotVal, slotCount),
+			}
+			for i := 0; i < slotCount; i++ {
+				sa.slotVals[i] = &slotVal{}
 			}
 			return sa
 		},
@@ -181,10 +186,12 @@ type blockScope struct {
 	slotActivationPool *sync.Pool
 }
 
+// ID implements the Interpretable interface method.
 func (bs *blockScope) ID() int64 {
 	return bs.expr.ID()
 }
 
+// Eval implements the Interpretable interface method.
 func (bs *blockScope) Eval(activation interpreter.Activation) ref.Val {
 	sa := bs.slotActivationPool.Get().(*slotActivation)
 	sa.Activation = activation
@@ -197,32 +204,54 @@ func (bs *blockScope) clearSlots(sa *slotActivation) {
 	bs.slotActivationPool.Put(sa)
 }
 
+type slotVal struct {
+	value   *ref.Val
+	visited bool
+}
+
 type slotActivation struct {
 	interpreter.Activation
 	slotExprs []interpreter.Interpretable
-	slotVals  []ref.Val
+	slotCount int
+	slotVals  []*slotVal
 }
 
+// ResolveName implements the Activation interface method but handles variables prefixed with `@index`
+// as special variables which exist within the slot-based memory of the cel.@block() where each slot
+// refers to an expression which must be computed only once.
 func (sa *slotActivation) ResolveName(name string) (any, bool) {
 	if idx, found := strings.CutPrefix(name, indexPrefix); found {
 		idx, err := strconv.Atoi(idx)
+		// Return not found if the index is not numeric
 		if err != nil {
 			return nil, false
 		}
-		v := sa.slotVals[idx]
-		if v != nil {
-			return v, true
+		// Return not found if the index is not a valid slot
+		if idx < 0 || idx >= sa.slotCount {
+			return nil, false
 		}
-		v = sa.slotExprs[idx].Eval(sa)
-		sa.slotVals[idx] = v
-		return v, true
+		v := sa.slotVals[idx]
+		if v.visited {
+			// Return not found if the index expression refers to itself
+			if v.value == nil {
+				return nil, false
+			}
+			return *v.value, true
+		}
+		v.visited = true
+		val := sa.slotExprs[idx].Eval(sa)
+		v.value = &val
+		return val, true
 	}
 	return sa.Activation.ResolveName(name)
 }
 
 func (sa *slotActivation) reset() {
 	sa.Activation = nil
-	clear(sa.slotVals)
+	for _, sv := range sa.slotVals {
+		sv.visited = false
+		sv.value = nil
+	}
 }
 
 var (

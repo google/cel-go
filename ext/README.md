@@ -393,6 +393,65 @@ Example:
 Extended functions for list manipulation. As a general note, all indices are
 zero-based.
 
+### Distinct
+
+**Introduced in version 2**
+
+Returns the distinct elements of a list.
+
+	<list(T)>.distinct() -> <list(T)>
+
+Examples:
+
+    [1, 2, 2, 3, 3, 3].distinct() // return [1, 2, 3]
+    ["b", "b", "c", "a", "c"].distinct() // return ["b", "c", "a"]
+    [1, "b", 2, "b"].distinct() // return [1, "b", 2]
+
+### Flatten
+
+**Introduced in version 1**
+
+Flattens a list recursively.
+If an optional depth is provided, the list is flattened to a the specificied level.
+A negative depth value will result in an error.
+
+	<list>.flatten(<list>) -> <list>
+	<list>.flatten(<list>, <int>) -> <list>
+
+Examples:
+
+    [1,[2,3],[4]].flatten() // return [1, 2, 3, 4]
+    [1,[2,[3,4]]].flatten() // return [1, 2, [3, 4]]
+    [1,2,[],[],[3,4]].flatten() // return [1, 2, 3, 4]
+    [1,[2,[3,[4]]]].flatten(2) // return [1, 2, 3, [4]]
+    [1,[2,[3,[4]]]].flatten(-1) // error
+
+### Range
+
+**Introduced in version 2**
+
+Returns a list of integers from 0 to n-1.
+
+	lists.range(<int>) -> <list(int)>
+
+Examples:
+
+	lists.range(5) -> [0, 1, 2, 3, 4]
+
+
+### Reverse
+
+**Introduced in version 2**
+
+Returns the elements of a list in reverse order.
+
+	<list(T)>.reverse() -> <list(T)>
+
+Examples:
+
+	[5, 3, 1, 2].reverse() // return [2, 1, 3, 5]
+
+
 ### Slice
 
 
@@ -403,7 +462,7 @@ Returns a new sub-list using the indexes provided.
 Examples:
 
     [1,2,3,4].slice(1, 3) // return [2, 3]
-    [1,2,3,4].slice(2, 4) // return [3 ,4]
+    [1,2,3,4].slice(2, 4) // return [3, 4]
 
 ### Sort
 
@@ -421,6 +480,25 @@ Examples:
     ["b", "c", "a"].sort() // return ["a", "b", "c"]
     [1, "b"].sort() // error
     [[1, 2, 3]].sort() // error
+
+### SortBy
+
+**Introduced in version 2**
+
+Sorts a list by a key value, i.e., the order is determined by the result of
+an expression applied to each element of the list.
+
+    <list(T)>.sortBy(<bindingName>, <keyExpr>) -> <list(T)>
+    keyExpr returns a value in {int, uint, double, bool, duration, timestamp, string, bytes}
+
+Examples:
+
+	[
+	  Player { name: "foo", score: 0 },
+	  Player { name: "bar", score: -10 },
+	  Player { name: "baz", score: 1000 },
+	].sortBy(e, e.score).map(e, e.name)
+	== ["bar", "foo", "baz"]
 
 ## Sets
 
