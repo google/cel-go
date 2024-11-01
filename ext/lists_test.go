@@ -71,9 +71,15 @@ func TestLists(t *testing.T) {
 		{expr: `[1, 1.0, 2].distinct() == [1, 2]`},
 		{expr: `[[1], [1], [2]].distinct() == [[1], [2]]`},
 		{expr: `[ExampleType{name: 'a'}, ExampleType{name: 'b'}, ExampleType{name: 'a'}].distinct() == [ExampleType{name: 'a'}, ExampleType{name: 'b'}]`},
+		{expr: `![].first().hasValue()`},
+		{expr: `[1, 2, 3].first().value() == 1`},
+		{expr: `![].last().hasValue()`},
+		{expr: `[1, 2, 3].last().value() == 3`},
+		{expr: `'/path/to'.split('/').filter(t, t.size() > 0).first().value() == 'path'`},
+		{expr: `'/path/to'.split('/').filter(t, t.size() > 0).last().value() == 'to'`},
 	}
 
-	env := testListsEnv(t)
+	env := testListsEnv(t, cel.OptionalTypes(), Strings())
 	for i, tst := range listsTests {
 		tc := tst
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {

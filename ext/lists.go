@@ -144,6 +144,36 @@ var comparableTypes = []*cel.Type{
 //	].sortBy(e, e.score).map(e, e.name)
 //	== ["bar", "foo", "baz"]
 
+// # Last
+//
+// Introduced in version: 3
+//
+// Returns the last element in a list as an Optional value.
+//
+// This can shorten a long expression instead of
+// nested.elements[nested.elements.size()-1] you can rewrite this as
+// nested.elements.last().value()
+//
+//	<list(T)>.last() -> <list(T)[len()-1]>
+//
+// Examples:
+//
+//	[1, 2, 3].last().value() // return 3
+
+// # First
+//
+// Introduced in version: 3
+//
+// Returns the first element in a list as an Optional value.
+//
+// This is syntactic sugar to complement last().
+//
+//	<list(T)>.first() -> <list(T)[0]>
+//
+// Examples:
+//
+//	[1, 2, 3].first().value() // return 1
+
 func Lists(options ...ListsOption) cel.EnvOption {
 	l := &listsLib{
 		version: math.MaxUint32,
@@ -349,6 +379,28 @@ func (lib listsLib) CompileOptions() []cel.EnvOption {
 		))
 	}
 
+	if lib.version >= 3 {
+		paramTypeV := cel.TypeParamType("V")
+		optionalTypeV := cel.OptionalType(paramTypeV)
+
+		opts = append(opts, cel.Function("last",
+			cel.MemberOverload("list_last", []*cel.Type{listDyn}, optionalTypeV,
+				cel.UnaryBinding(func(list ref.Val) ref.Val {
+					return lastList(list.(traits.Lister))
+				}),
+			),
+		))
+
+		opts = append(opts, cel.Function("first",
+			cel.MemberOverload("list_first", []*cel.Type{listDyn}, optionalTypeV,
+				cel.UnaryBinding(func(list ref.Val) ref.Val {
+					return firstList(list.(traits.Lister))
+				}),
+			),
+		))
+
+	}
+
 	return opts
 }
 
@@ -549,6 +601,26 @@ func distinctList(list traits.Lister) (ref.Val, error) {
 	}
 
 	return types.DefaultTypeAdapter.NativeToValue(uniqueList), nil
+}
+
+func firstList(list traits.Lister) ref.Val {
+	sz := list.Size().Value().(int64)
+
+	if sz == 0 {
+		return types.OptionalNone
+	}
+
+	return types.OptionalOf(list.Get(types.Int(0)))
+}
+
+func lastList(list traits.Lister) ref.Val {
+	sz := list.Size().Value().(int64)
+
+	if sz == 0 {
+		return types.OptionalNone
+	}
+
+	return types.OptionalOf(list.Get(types.Int(sz - 1)))
 }
 
 func templatedOverloads(types []*cel.Type, template func(t *cel.Type) cel.FunctionOpt) []cel.FunctionOpt {
