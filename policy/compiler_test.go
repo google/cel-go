@@ -25,6 +25,7 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/ext"
 	"github.com/google/cel-go/interpreter"
 )
 
@@ -159,7 +160,8 @@ func compile(t testing.TB, name string, parseOpts []ParserOption, envOpts []cel.
 		cel.DefaultUTCTimeZone(true),
 		cel.OptionalTypes(),
 		cel.EnableMacroCallTracking(),
-		cel.ExtendedValidations())
+		cel.ExtendedValidations(),
+		ext.Bindings())
 	if err != nil {
 		t.Fatalf("cel.NewEnv() failed: %v", err)
 	}

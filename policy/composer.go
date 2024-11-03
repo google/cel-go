@@ -15,6 +15,9 @@
 package policy
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/operators"
@@ -39,12 +42,23 @@ type RuleComposer struct {
 // Compose stitches together a set of expressions within a CompiledRule into a single CEL ast.
 func (c *RuleComposer) Compose(r *CompiledRule) (*cel.Ast, *cel.Issues) {
 	ruleRoot, _ := c.env.Compile("true")
-	opt := cel.NewStaticOptimizer(&ruleComposerImpl{rule: r})
+	opt := cel.NewStaticOptimizer(&ruleComposerImpl{rule: r, varIndices: []varIndex{}})
 	return opt.Optimize(c.env, ruleRoot)
 }
 
+type varIndex struct {
+	index    int
+	indexVar string
+	localVar string
+	expr     ast.Expr
+	cv       *CompiledVariable
+}
+
 type ruleComposerImpl struct {
-	rule                     *CompiledRule
+	rule         *CompiledRule
+	nextVarIndex int
+	varIndices   []varIndex
+
 	maxNestedExpressionLimit int
 }
 
@@ -54,14 +68,34 @@ func (opt *ruleComposerImpl) Optimize(ctx *cel.OptimizerContext, a *ast.AST) *as
 	// The input to optimize is a dummy expression which is completely replaced according
 	// to the configuration of the rule composition graph.
 	ruleExpr := opt.optimizeRule(ctx, opt.rule)
-	return ctx.NewAST(ruleExpr)
+	allVars := opt.sortedVariables()
+	// If there were no variables, return the expression.
+	if len(allVars) == 0 {
+		return ctx.NewAST(ruleExpr)
+	}
+
+	// Otherwise populate the block.
+	varExprs := make([]ast.Expr, len(allVars))
+	for i, vi := range allVars {
+		varExprs[i] = vi.expr
+		err := ctx.ExtendEnv(cel.Variable(vi.indexVar, vi.cv.Declaration().Type()))
+		if err != nil {
+			ctx.ReportErrorAtID(ruleExpr.ID(), err.Error())
+		}
+	}
+	blockExpr := ctx.NewCall("cel.@block", ctx.NewList(varExprs, []int32{}), ruleExpr)
+	return ctx.NewAST(blockExpr)
 }
 
 func (opt *ruleComposerImpl) optimizeRule(ctx *cel.OptimizerContext, r *CompiledRule) ast.Expr {
 	matchExpr := ctx.NewCall("optional.none")
 	matches := r.Matches()
 	matchCount := len(matches)
+	// Visitor to rewrite variables-prefixed identifiers with index names.
 	vars := r.Variables()
+	for _, v := range vars {
+		opt.registerVariable(ctx, v)
+	}
 
 	optionalResult := true
 	// Build the rule subgraph.
@@ -121,17 +155,43 @@ func (opt *ruleComposerImpl) optimizeRule(ctx *cel.OptimizerContext, r *Compiled
 		)
 	}
 
-	// Bind variables in reverse order to declaration on top of rule-subgraph.
-	for i := len(vars) - 1; i >= 0; i-- {
-		v := vars[i]
-		varAST := ctx.CopyASTAndMetadata(v.Expr().NativeRep())
-		// Build up the bindings in reverse order, starting from root, all the way up to the outermost
-		// binding:
-		//    currExpr = cel.bind(outerVar, outerExpr, currExpr)
-		varName := v.Declaration().Name()
-		inlined, bindMacro := ctx.NewBindMacro(matchExpr.ID(), varName, varAST, matchExpr)
-		ctx.UpdateExpr(matchExpr, inlined)
-		ctx.SetMacroCall(matchExpr.ID(), bindMacro)
-	}
+	identVisitor := opt.rewriteVariableName(ctx)
+	ast.PostOrderVisit(matchExpr, identVisitor)
+
 	return matchExpr
+}
+
+func (opt *ruleComposerImpl) rewriteVariableName(ctx *cel.OptimizerContext) ast.Visitor {
+	return ast.NewExprVisitor(func(expr ast.Expr) {
+		if expr.Kind() != ast.IdentKind || !strings.HasPrefix(expr.AsIdent(), "variables.") {
+			return
+		}
+		varName := expr.AsIdent()
+		for i := len(opt.varIndices) - 1; i >= 0; i-- {
+			v := opt.varIndices[i]
+			if v.localVar == varName {
+				ctx.UpdateExpr(expr, ctx.NewIdent(v.indexVar))
+				return
+			}
+		}
+	})
+}
+
+func (opt *ruleComposerImpl) registerVariable(ctx *cel.OptimizerContext, v *CompiledVariable) {
+	varName := fmt.Sprintf("variables.%s", v.Name())
+	indexVar := fmt.Sprintf("@index%d", opt.nextVarIndex)
+	varExpr := ctx.CopyASTAndMetadata(v.Expr().NativeRep())
+	ast.PostOrderVisit(varExpr, opt.rewriteVariableName(ctx))
+	vi := varIndex{
+		index:    opt.nextVarIndex,
+		indexVar: indexVar,
+		localVar: varName,
+		expr:     varExpr,
+		cv:       v}
+	opt.varIndices = append(opt.varIndices, vi)
+	opt.nextVarIndex++
+}
+
+func (opt *ruleComposerImpl) sortedVariables() []varIndex {
+	return opt.varIndices
 }

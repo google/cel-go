@@ -43,48 +43,48 @@ var (
 				return p, nil
 			}},
 			expr: `
-    cel.bind(variables.env, resource.labels.?environment.orValue("prod"),
-	  cel.bind(variables.break_glass, resource.labels.?break_glass.orValue("false") == "true",
-	   !(variables.break_glass ||
-		 resource.containers.all(c, c.startsWith(variables.env + ".")))
-	   ? optional.of("only %s containers are allowed in namespace %s".format([variables.env, resource.namespace]))
-	   : optional.none()))`,
+	cel.@block([
+	  resource.labels.?environment.orValue("prod"),
+	  resource.labels.?break_glass.orValue("false") == "true"],
+	  !(@index1 || resource.containers.all(c, c.startsWith(@index0 + ".")))
+	    ? optional.of("only %s containers are allowed in namespace %s".format([@index0, resource.namespace]))
+	    : optional.none())`,
 		},
 		{
 			name: "nested_rule",
 			expr: `
-	cel.bind(variables.permitted_regions, ["us", "uk", "es"],
-	  cel.bind(variables.banned_regions, {"us": false, "ru": false, "ir": false},
-	  (resource.origin in variables.banned_regions &&
-		!(resource.origin in variables.permitted_regions))
-		? optional.of({"banned": true}) : optional.none()).or(
-			optional.of((resource.origin in variables.permitted_regions)
-			? {"banned": false} : {"banned": true})))`,
+	cel.@block([
+	  ["us", "uk", "es"],
+	  {"us": false, "ru": false, "ir": false}],
+	  ((resource.origin in @index1 && !(resource.origin in @index0))
+	    ? optional.of({"banned": true}) : optional.none()).or(
+	      optional.of((resource.origin in @index0)
+	      ? {"banned": false} : {"banned": true})))`,
 		},
 		{
 			name: "nested_rule2",
 			expr: `
-	cel.bind(variables.permitted_regions, ["us", "uk", "es"],
+	cel.@block([
+	  ["us", "uk", "es"],
+	  {"us": false, "ru": false, "ir": false}],
 	  resource.?user.orValue("").startsWith("bad")
-	  ? cel.bind(variables.banned_regions, {"us": false, "ru": false, "ir": false},
-	    (resource.origin in variables.banned_regions &&
-        !(resource.origin in variables.permitted_regions))
-		? {"banned": "restricted_region"} : {"banned": "bad_actor"})
-	  : (!(resource.origin in variables.permitted_regions)
+	  ? ((resource.origin in @index1 && !(resource.origin in @index0))
+	    ? {"banned": "restricted_region"}
+	    : {"banned": "bad_actor"})
+	  : (!(resource.origin in @index0)
 	    ? {"banned": "unconfigured_region"} : {}))`,
 		},
 		{
 			name: "nested_rule3",
 			expr: `
-	cel.bind(variables.permitted_regions, ["us", "uk", "es"],
+	cel.@block([
+	  ["us", "uk", "es"],
+	  {"us": false, "ru": false, "ir": false}],
 	  resource.?user.orValue("").startsWith("bad")
-	  ? optional.of(
-	      cel.bind(variables.banned_regions, {"us": false, "ru": false, "ir": false},
-		  (resource.origin in variables.banned_regions &&
-          !(resource.origin in variables.permitted_regions))
-		  ? {"banned": "restricted_region"} : {"banned": "bad_actor"}))
-	  : (!(resource.origin in variables.permitted_regions)
-	    ? optional.of({"banned": "unconfigured_region"}) : optional.none()))`,
+	  ? optional.of((resource.origin in @index1 && !(resource.origin in @index0))
+	    ? {"banned": "restricted_region"} : {"banned": "bad_actor"})
+		: (!(resource.origin in @index0)
+		  ? optional.of({"banned": "unconfigured_region"}) : optional.none()))`,
 		},
 		{
 			name: "context_pb",
@@ -115,34 +115,27 @@ var (
 		{
 			name: "required_labels",
 			expr: `
-	cel.bind(variables.want, spec.labels,
-		cel.bind(variables.missing, variables.want.filter(l, !(l in resource.labels)),
-		cel.bind(variables.invalid,
-			resource.labels.filter(l, l in variables.want &&
-				variables.want[l] != resource.labels[l]),
-				(variables.missing.size() > 0)
-				? optional.of("missing one or more required labels: %s".format([variables.missing]))
-				: ((variables.invalid.size() > 0)
-				? optional.of("invalid values provided on one or more labels: %s".format([variables.invalid])) : optional.none()))))`,
+	cel.@block([
+	  spec.labels,
+	  @index0.filter(l, !(l in resource.labels)),
+	  resource.labels.filter(l, l in @index0 && @index0[l] != resource.labels[l])],
+	(@index1.size() > 0)
+	  ? optional.of("missing one or more required labels: %s".format([@index1]))
+	  : ((@index2.size() > 0)
+	    ? optional.of("invalid values provided on one or more labels: %s".format([@index2]))
+		: optional.none()))`,
 		},
 		{
 			name: "restricted_destinations",
 			expr: `
-	cel.bind(variables.matches_origin_ip,
+    cel.@block([
 	  locationCode(origin.ip) == spec.origin,
-	  cel.bind(variables.has_nationality, has(request.auth.claims.nationality),
-	    cel.bind(variables.matches_nationality,
-		  variables.has_nationality && request.auth.claims.nationality == spec.origin,
-		  cel.bind(variables.matches_dest_ip,
-			locationCode(destination.ip) in spec.restricted_destinations,
-			cel.bind(variables.matches_dest_label,
-			  resource.labels.location in spec.restricted_destinations,
-              cel.bind(variables.matches_dest,
-				variables.matches_dest_ip || variables.matches_dest_label,
-				(variables.matches_nationality && variables.matches_dest)
-				? true
-				: ((!variables.has_nationality && variables.matches_origin_ip && variables.matches_dest)
-		        ? true : false)))))))`,
+	  has(request.auth.claims.nationality),
+	  @index1 && request.auth.claims.nationality == spec.origin,
+	  locationCode(destination.ip) in spec.restricted_destinations,
+	  resource.labels.location in spec.restricted_destinations,
+	  @index3 || @index4],
+	  (@index2 && @index5) ? true : ((!@index1 && @index0 && @index5) ? true : false))`,
 			envOpts: []cel.EnvOption{
 				cel.Function("locationCode",
 					cel.Overload("locationCode_string", []*cel.Type{cel.StringType}, cel.StringType,
@@ -161,21 +154,21 @@ var (
 		{
 			name: "limits",
 			expr: `
-	cel.bind(variables.greeting, "hello",
-	cel.bind(variables.farewell, "goodbye",
-	cel.bind(variables.person, "me",
-	cel.bind(variables.message_fmt, "%s, %s",
+    cel.@block([
+	  "hello",
+	  "goodbye",
+	  "me",
+	  "%s, %s",
+	  @index3.format([@index1, @index2])],
 	  (now.getHours() >= 20)
-	  ? cel.bind(variables.message, variables.message_fmt.format([variables.farewell, variables.person]),
-	    (now.getHours() < 21)
-		  ? optional.of(variables.message + "!")
-		  : ((now.getHours() < 22)
-		    ? optional.of(variables.message + "!!")
-			: ((now.getHours() < 24)
-			  ? optional.of(variables.message + "!!!")
-			  : optional.none())))
-	   : optional.of(variables.message_fmt.format([variables.greeting, variables.person]))
-	 ))))`,
+	  ? ((now.getHours() < 21)
+	    ? optional.of(@index4 + "!")
+		: ((now.getHours() < 22)
+		  ? optional.of(@index4 + "!!")
+		  : ((now.getHours() < 24)
+		    ? optional.of(@index4 + "!!!")
+			: optional.none())))
+	  : optional.of(@index3.format([@index0, @index2])))`,
 		},
 	}
 
