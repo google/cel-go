@@ -211,6 +211,18 @@ func TestTwoVarComprehensionsStaticErrors(t *testing.T) {
 		err  string
 	}{
 		{
+			expr: "[].all(i, i, i < i)",
+			err:  "duplicate variable name: i",
+		},
+		{
+			expr: "[].all(__result__, i, __result__ < i)",
+			err:  "iteration variable overwrites accumulator variable",
+		},
+		{
+			expr: "[].all(j, __result__, __result__ < j)",
+			err:  "iteration variable overwrites accumulator variable",
+		},
+		{
 			expr: "[].all(i.j, k, i.j < k)",
 			err:  "argument must be a simple name",
 		},
