@@ -439,6 +439,13 @@ var testCases = []testInfo{
 		  )^#4:has#`,
 	},
 	{
+		I: `has(m)`,
+		E: `ERROR: <input>:1:5: invalid argument to has() macro
+             | has(m)
+             | ....^`,
+	},
+
+	{
 		I: `m.exists(v, f)`,
 		P: `__comprehension__(
 			// Variable
@@ -495,7 +502,7 @@ var testCases = []testInfo{
 		  	)^#11:all#`,
 	},
 	{
-		I: `m.exists_one(v, f)`,
+		I: `m.existsOne(v, f)`,
 		P: `__comprehension__(
 			// Variable
 			v,
@@ -521,10 +528,16 @@ var testCases = []testInfo{
 				__result__^#12:*expr.Expr_IdentExpr#,
 				1^#13:*expr.Constant_Int64Value#
 			)^#14:*expr.Expr_CallExpr#)^#15:*expr.Expr_ComprehensionExpr#`,
-		M: `m^#1:*expr.Expr_IdentExpr#.exists_one(
+		M: `m^#1:*expr.Expr_IdentExpr#.existsOne(
 			v^#3:*expr.Expr_IdentExpr#,
 			f^#4:*expr.Expr_IdentExpr#
-		  	)^#15:exists_one#`,
+		  	)^#15:existsOne#`,
+	},
+	{
+		I: `[].existsOne(__result__, __result__)`,
+		E: `ERROR: <input>:1:14: iteration variable overwrites accumulator variable
+             | [].existsOne(__result__, __result__)
+             | .............^`,
 	},
 	{
 		I: `m.map(v, f)`,
@@ -553,7 +566,12 @@ var testCases = []testInfo{
 			f^#4:*expr.Expr_IdentExpr#
 		  	)^#11:map#`,
 	},
-
+	{
+		I: `m.map(__result__, __result__)`,
+		E: `ERROR: <input>:1:7: iteration variable overwrites accumulator variable
+             | m.map(__result__, __result__)
+             | ......^`,
+	},
 	{
 		I: `m.map(v, p, f)`,
 		P: `__comprehension__(
@@ -617,6 +635,18 @@ var testCases = []testInfo{
 			v^#3:*expr.Expr_IdentExpr#,
 			p^#4:*expr.Expr_IdentExpr#
 		  	)^#13:filter#`,
+	},
+	{
+		I: `m.filter(__result__, false)`,
+		E: `ERROR: <input>:1:10: iteration variable overwrites accumulator variable
+             | m.filter(__result__, false)
+             | .........^`,
+	},
+	{
+		I: `m.filter(a.b, false)`,
+		E: `ERROR: <input>:1:11: argument is not an identifier
+             | m.filter(a.b, false)
+             | ..........^`,
 	},
 
 	// Tests from C++ parser
