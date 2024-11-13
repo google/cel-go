@@ -71,16 +71,91 @@ func TestLists(t *testing.T) {
 		{expr: `[1, 1.0, 2].distinct() == [1, 2]`},
 		{expr: `[[1], [1], [2]].distinct() == [[1], [2]]`},
 		{expr: `[ExampleType{name: 'a'}, ExampleType{name: 'b'}, ExampleType{name: 'a'}].distinct() == [ExampleType{name: 'a'}, ExampleType{name: 'b'}]`},
-		{expr: `![].first().hasValue()`},
-		{expr: `[1, 2, 3].first().value() == 1`},
-		{expr: `![].last().hasValue()`},
-		{expr: `[1, 2, 3].last().value() == 3`},
-		{expr: `'/path/to'.split('/').filter(t, t.size() > 0).first().value() == 'path'`},
-		{expr: `'/path/to'.split('/').filter(t, t.size() > 0).last().value() == 'to'`},
 	}
 
-	env := testListsEnv(t, cel.OptionalTypes(), Strings())
+	env := testListsEnv(t)
 	for i, tst := range listsTests {
+		tc := tst
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			var asts []*cel.Ast
+			pAst, iss := env.Parse(tc.expr)
+			if iss.Err() != nil {
+				t.Fatalf("env.Parse(%v) failed: %v", tc.expr, iss.Err())
+			}
+			asts = append(asts, pAst)
+			cAst, iss := env.Check(pAst)
+			if iss.Err() != nil {
+				t.Fatalf("env.Check(%v) failed: %v", tc.expr, iss.Err())
+			}
+			asts = append(asts, cAst)
+
+			for _, ast := range asts {
+				prg, err := env.Program(ast)
+				if err != nil {
+					t.Fatalf("env.Program() failed: %v", err)
+				}
+				out, _, err := prg.Eval(cel.NoVars())
+				if tc.err != "" {
+					if err == nil {
+						t.Fatalf("got value %v, wanted error %s for expr: %s",
+							out.Value(), tc.err, tc.expr)
+					}
+					if !strings.Contains(err.Error(), tc.err) {
+						t.Errorf("got error %v, wanted error %s for expr: %s", err, tc.err, tc.expr)
+					}
+				} else if err != nil {
+					t.Fatal(err)
+				} else if out.Value() != true {
+					t.Errorf("got %v, wanted true for expr: %s", out.Value(), tc.expr)
+				}
+			}
+		})
+	}
+}
+
+func TestListsWithOptionals(t *testing.T) {
+	optionalEnv := []cel.EnvOption{cel.OptionalTypes()}
+	optionalStringsEnv := []cel.EnvOption{cel.OptionalTypes(), Strings()}
+
+	newOptionalEnv := func(withOptions bool, opts ...cel.EnvOption) *cel.Env {
+		var optionalOpts []ListsOption
+		if withOptions {
+			optionalOpts = []ListsOption{ListsOptionals()}
+		}
+
+		baseOpts := []cel.EnvOption{
+			Lists(optionalOpts...),
+		}
+		env, err := cel.NewEnv(append(baseOpts, opts...)...)
+		if err != nil {
+			t.Fatalf("cel.NewEnv(Lists()) failed: %v", err)
+		}
+
+		return env
+	}
+
+	listsTests := []struct {
+		expr        string
+		withOptions bool
+		celOptions  []cel.EnvOption
+		err         string
+	}{
+		{expr: `[].first() == null`},
+		{expr: `['a','b','c'].first() == 'a'`},
+		{expr: `[].last() == null`},
+		{expr: `['a','b','c'].last() == 'c'`},
+		{expr: `'/path/to'.split('/').filter(t, t.size() > 0).first() == 'path'`, celOptions: optionalStringsEnv},
+		{expr: `'/path/to'.split('/').filter(t, t.size() > 0).last() == 'to'`, celOptions: optionalStringsEnv},
+		{expr: `![].first().hasValue()`, celOptions: optionalEnv, withOptions: true},
+		{expr: `[1, 2, 3].first().value() == 1`, celOptions: optionalEnv, withOptions: true},
+		{expr: `![].last().hasValue()`, celOptions: optionalEnv, withOptions: true},
+		{expr: `[1, 2, 3].last().value() == 3`, celOptions: optionalEnv, withOptions: true},
+		{expr: `'/path/to'.split('/').filter(t, t.size() > 0).first().value() == 'path'`, celOptions: optionalStringsEnv, withOptions: true},
+		{expr: `'/path/to'.split('/').filter(t, t.size() > 0).last().value() == 'to'`, celOptions: optionalStringsEnv, withOptions: true},
+	}
+
+	for i, tst := range listsTests {
+		env := newOptionalEnv(tst.withOptions, tst.celOptions...)
 		tc := tst
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			var asts []*cel.Ast
