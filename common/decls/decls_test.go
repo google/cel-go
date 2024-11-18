@@ -984,7 +984,7 @@ func TestFunctionDeclToExprDecl(t *testing.T) {
 		},
 	}
 	for _, tst := range tests {
-		exDecl, err := functionDeclToExprDecl(tst.fn)
+		exDecl, err := FunctionDeclToExprDecl(tst.fn)
 		if err != nil {
 			t.Fatalf("FunctionDeclToExprDecl(%v) failed: %v", tst.fn, err)
 		}
@@ -1048,7 +1048,7 @@ func TestTypeVariable(t *testing.T) {
 }
 
 func TestVariableDeclToExprDecl(t *testing.T) {
-	a, err := variableDeclToExprDecl(NewVariable("a", types.BoolType))
+	a, err := VariableDeclToExprDecl(NewVariable("a", types.BoolType))
 	if err != nil {
 		t.Fatalf("VariableDeclToExprDecl() failed: %v", err)
 	}
@@ -1059,7 +1059,7 @@ func TestVariableDeclToExprDecl(t *testing.T) {
 }
 
 func TestVariableDeclToExprDeclInvalid(t *testing.T) {
-	out, err := variableDeclToExprDecl(NewVariable("bad", &types.Type{}))
+	out, err := VariableDeclToExprDecl(NewVariable("bad", &types.Type{}))
 	if err == nil {
 		t.Fatalf("VariableDeclToExprDecl() succeeded: %v, wanted error", out)
 	}
