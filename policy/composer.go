@@ -80,7 +80,7 @@ func (opt *ruleComposerImpl) Optimize(ctx *cel.OptimizerContext, a *ast.AST) *as
 		varExprs[i] = vi.expr
 		err := ctx.ExtendEnv(cel.Variable(vi.indexVar, vi.cv.Declaration().Type()))
 		if err != nil {
-			ctx.ReportErrorAtID(ruleExpr.ID(), err.Error())
+			ctx.ReportErrorAtID(ruleExpr.ID(), "%s", err.Error())
 		}
 	}
 	blockExpr := ctx.NewCall("cel.@block", ctx.NewList(varExprs, []int32{}), ruleExpr)
