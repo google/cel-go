@@ -1195,6 +1195,14 @@ func TestResidualAstMacros(t *testing.T) {
 	}
 }
 
+func TestResidualAstNil(t *testing.T) {
+	env := testEnv(t)
+	ast, err := env.ResidualAst(nil, nil)
+	if err == nil || !strings.Contains(err.Error(), "unsupported expr") {
+		t.Errorf("env.ResidualAst() got (%v, %v) wanted unsupported expr error", ast, err)
+	}
+}
+
 func BenchmarkEvalOptions(b *testing.B) {
 	env := testEnv(b,
 		Variable("ai", IntType),
@@ -1323,7 +1331,7 @@ func TestEnvExtensionIsolation(t *testing.T) {
 func TestVariadicLogicalOperators(t *testing.T) {
 	env := testEnv(t, variadicLogicalOperatorASTs())
 	ast, iss := env.Compile(
-		`(false || false || false || false || true) && 
+		`(false || false || false || false || true) &&
 		 (true && true && true && true && false)`)
 	if iss.Err() != nil {
 		t.Fatalf("Compile() failed: %v", iss.Err())
@@ -2293,7 +2301,7 @@ func TestOptionalValuesCompile(t *testing.T) {
 			if iss.Err() != nil {
 				t.Fatalf("%v failed: %v", tc.expr, iss.Err())
 			}
-			for id, reference := range ast.impl.ReferenceMap() {
+			for id, reference := range ast.NativeRep().ReferenceMap() {
 				other, found := tc.references[id]
 				if !found {
 					t.Errorf("Compile(%v) expected reference %d: %v", tc.expr, id, reference)
@@ -2953,6 +2961,15 @@ func BenchmarkDynamicDispatch(b *testing.B) {
 			prgDyn.Eval(NoVars())
 		}
 	})
+}
+
+func TestAstProgramNilValue(t *testing.T) {
+	var ast *Ast = nil
+	env := testEnv(t)
+	prg, err := env.Program(ast)
+	if err == nil || !strings.Contains(err.Error(), "unsupported expr") {
+		t.Errorf("env.Program() got (%v,%v) wanted unsupported expr error", prg, err)
+	}
 }
 
 // TODO: ideally testCostEstimator and testRuntimeCostEstimator would be shared in a test fixtures package
