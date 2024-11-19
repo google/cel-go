@@ -62,7 +62,7 @@ func AstToCheckedExpr(a *Ast) (*exprpb.CheckedExpr, error) {
 	if !a.IsChecked() {
 		return nil, fmt.Errorf("cannot convert unchecked ast")
 	}
-	return ast.ToProto(a.impl)
+	return ast.ToProto(a.NativeRep())
 }
 
 // ParsedExprToAst converts a parsed expression proto message to an Ast.
@@ -99,7 +99,7 @@ func AstToParsedExpr(a *Ast) (*exprpb.ParsedExpr, error) {
 // Note, the conversion may not be an exact replica of the original expression, but will produce
 // a string that is semantically equivalent and whose textual representation is stable.
 func AstToString(a *Ast) (string, error) {
-	return parser.Unparse(a.impl.Expr(), a.impl.SourceInfo())
+	return parser.Unparse(a.NativeRep().Expr(), a.NativeRep().SourceInfo())
 }
 
 // RefValueToValue converts between ref.Val and google.api.expr.v1alpha1.Value.

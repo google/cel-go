@@ -16,6 +16,7 @@ package cel_test
 
 import (
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/google/cel-go/cel"
@@ -198,6 +199,15 @@ func TestStaticOptimizerNewAST(t *testing.T) {
 				t.Errorf("identity optimizer got %q, wanted %q", optString, tc)
 			}
 		})
+	}
+}
+
+func TestStaticOptimizerNilAST(t *testing.T) {
+	env := optimizerEnv(t)
+	opt := cel.NewStaticOptimizer(&identityOptimizer{t: t})
+	optAST, iss := opt.Optimize(env, nil)
+	if iss.Err() == nil || !strings.Contains(iss.Err().Error(), "unexpected unspecified type") {
+		t.Errorf("opt.Optimize(env, nil) got (%v, %v), wanted unexpected unspecified type", optAST, iss)
 	}
 }
 
