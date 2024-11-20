@@ -260,6 +260,27 @@ func (stdLibrary) ProgramOptions() []ProgramOption {
 // be expressed with `optMap`.
 //
 //	msg.?elements.optFlatMap(e, e[?0]) // return the first element if present.
+
+// # First
+//
+// Introduced in version: 2
+//
+// Returns an optional with the first value from the right hand list, or
+// optional.None.
+//
+// [1, 2, 3].first().value() == 1
+
+// # Last
+//
+// Introduced in version: 2
+//
+// Returns an optional with the last value from the right hand list, or
+// optional.None.
+//
+// [1, 2, 3].last().value() == 3
+//
+// This is syntactic sugar for msg.elements[msg.elements.size()-1].
+
 func OptionalTypes(opts ...OptionalTypesOption) EnvOption {
 	lib := &optionalLib{version: math.MaxUint32}
 	for _, opt := range opts {
@@ -375,6 +396,39 @@ func (lib *optionalLib) CompileOptions() []EnvOption {
 	if lib.version >= 1 {
 		opts = append(opts, Macros(ReceiverMacro(optFlatMapMacro, 2, optFlatMap)))
 	}
+
+	if lib.version >= 2 {
+		opts = append(opts, Function("last",
+			MemberOverload("list_last", []*Type{listTypeV}, optionalTypeV,
+				UnaryBinding(func(v ref.Val) ref.Val {
+					list := v.(traits.Lister)
+					sz := list.Size().Value().(int64)
+
+					if sz == 0 {
+						return types.OptionalNone
+					}
+
+					return types.OptionalOf(list.Get(types.Int(sz - 1)))
+				}),
+			),
+		))
+
+		opts = append(opts, Function("first",
+			MemberOverload("list_first", []*Type{listTypeV}, optionalTypeV,
+				UnaryBinding(func(v ref.Val) ref.Val {
+					list := v.(traits.Lister)
+					sz := list.Size().Value().(int64)
+
+					if sz == 0 {
+						return types.OptionalNone
+					}
+
+					return types.OptionalOf(list.Get(types.Int(0)))
+				}),
+			),
+		))
+	}
+
 	return opts
 }
 

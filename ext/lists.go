@@ -144,36 +144,6 @@ var comparableTypes = []*cel.Type{
 //	].sortBy(e, e.score).map(e, e.name)
 //	== ["bar", "foo", "baz"]
 
-// # Last
-//
-// Introduced in version: 3
-//
-// Returns the last element in a list as an Optional value.
-//
-// This can shorten a long expression instead of
-// nested.elements[nested.elements.size()-1] you can rewrite this as
-// nested.elements.last().value()
-//
-//	<list(T)>.last() -> <Optional<list(T)[len()-1]>>
-//
-// Examples:
-//
-//	[1, 2, 3].last().value() // return 3
-
-// # First
-//
-// Introduced in version: 3
-//
-// Returns the first element in a list as an Optional value.
-//
-// This is syntactic sugar to complement last().
-//
-//	<list(T)>.first() -> <Optional<list(T)[0]>>
-//
-// Examples:
-//
-//	[1, 2, 3].first().value() // return 1
-
 func Lists(options ...ListsOption) cel.EnvOption {
 	l := &listsLib{
 		version: math.MaxUint32,
@@ -186,8 +156,7 @@ func Lists(options ...ListsOption) cel.EnvOption {
 }
 
 type listsLib struct {
-	version      uint32
-	withOptional bool
+	version uint32
 }
 
 // LibraryName implements the SingletonLibrary interface method.
@@ -198,7 +167,7 @@ func (listsLib) LibraryName() string {
 // ListsOption is a functional interface for configuring the strings library.
 type ListsOption func(*listsLib) *listsLib
 
-// ListsVersion configures the version of the lists library.
+// ListsVersion configures the version of the string library.
 //
 // The version limits which functions are available. Only functions introduced
 // below or equal to the given version included in the library. If this option
@@ -210,15 +179,6 @@ type ListsOption func(*listsLib) *listsLib
 func ListsVersion(version uint32) ListsOption {
 	return func(lib *listsLib) *listsLib {
 		lib.version = version
-		return lib
-	}
-}
-
-// ListsOptionals configures the lists library to use cel.Optional values where
-// appropriate.
-func ListsOptionals() ListsOption {
-	return func(lib *listsLib) *listsLib {
-		lib.withOptional = true
 		return lib
 	}
 }
@@ -389,39 +349,6 @@ func (lib listsLib) CompileOptions() []cel.EnvOption {
 		))
 	}
 
-	if lib.version >= 3 {
-		paramTypeV := cel.TypeParamType("V")
-		optionalTypeV := cel.OptionalType(paramTypeV)
-
-		var resultType *cel.Type = cel.DynType
-		if lib.withOptional {
-			resultType = optionalTypeV
-		}
-
-		opts = append(opts, cel.Function("last",
-			cel.MemberOverload("list_last", []*cel.Type{listDyn}, resultType,
-				cel.UnaryBinding(func(list ref.Val) ref.Val {
-					if lib.withOptional {
-						return lastListOptional(list.(traits.Lister))
-					}
-					return lastList(list.(traits.Lister))
-				}),
-			),
-		))
-
-		opts = append(opts, cel.Function("first",
-			cel.MemberOverload("list_first", []*cel.Type{listDyn}, resultType,
-				cel.UnaryBinding(func(list ref.Val) ref.Val {
-					if lib.withOptional {
-						return firstListOptional(list.(traits.Lister))
-					}
-					return firstList(list.(traits.Lister))
-				}),
-			),
-		))
-
-	}
-
 	return opts
 }
 
@@ -572,7 +499,7 @@ func sortByMacro(meh cel.MacroExprFactory, target ast.Expr, args []ast.Expr) (as
 		targetKind != ast.SelectKind &&
 		targetKind != ast.IdentKind &&
 		targetKind != ast.ComprehensionKind && targetKind != ast.CallKind {
-		return nil, meh.NewError(target.ID(), "sortBy can only be applied to a list, identifier, comprehension, call or select expression")
+		return nil, meh.NewError(target.ID(), fmt.Sprintf("sortBy can only be applied to a list, identifier, comprehension, call or select expression"))
 	}
 
 	mapCompr, err := parser.MakeMap(meh, meh.Copy(varIdent), args)
@@ -622,46 +549,6 @@ func distinctList(list traits.Lister) (ref.Val, error) {
 	}
 
 	return types.DefaultTypeAdapter.NativeToValue(uniqueList), nil
-}
-
-func firstList(list traits.Lister) ref.Val {
-	sz := list.Size().Value().(int64)
-
-	if sz == 0 {
-		return types.NullValue
-	}
-
-	return list.Get(types.Int(0))
-}
-
-func lastList(list traits.Lister) ref.Val {
-	sz := list.Size().Value().(int64)
-
-	if sz == 0 {
-		return types.NullValue
-	}
-
-	return list.Get(types.Int(sz - 1))
-}
-
-func firstListOptional(list traits.Lister) ref.Val {
-	sz := list.Size().Value().(int64)
-
-	if sz == 0 {
-		return types.OptionalNone
-	}
-
-	return types.OptionalOf(list.Get(types.Int(0)))
-}
-
-func lastListOptional(list traits.Lister) ref.Val {
-	sz := list.Size().Value().(int64)
-
-	if sz == 0 {
-		return types.OptionalNone
-	}
-
-	return types.OptionalOf(list.Get(types.Int(sz - 1)))
 }
 
 func templatedOverloads(types []*cel.Type, template func(t *cel.Type) cel.FunctionOpt) []cel.FunctionOpt {
