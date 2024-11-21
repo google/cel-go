@@ -287,4 +287,7 @@ var extFactories = map[string]ExtensionFactory{
 	"strings": func(version uint32) cel.EnvOption {
 		return ext.Strings(ext.StringsVersion(version))
 	},
+	"two-var-comprehensions": func(version uint32) cel.EnvOption {
+		return ext.TwoVarComprehensions()
+	},
 }

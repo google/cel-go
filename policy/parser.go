@@ -472,17 +472,17 @@ func (parser *Parser) Parse(src *Source) (*Policy, *cel.Issues) {
 	errs := common.NewErrors(src)
 	iss := cel.NewIssuesWithSourceInfo(errs, info)
 	p := newParserImpl(parser.TagVisitor, info, src, iss)
-	policy := p.parseYaml(src)
+	policy := p.parseYAML(src)
 	if iss.Err() != nil {
 		return nil, iss
 	}
 	return policy, nil
 }
 
-func (p *parserImpl) parseYaml(src *Source) *Policy {
+func (p *parserImpl) parseYAML(src *Source) *Policy {
 	// Parse yaml representation from the source to an object model.
 	var docNode yaml.Node
-	err := sourceToYaml(src, &docNode)
+	err := sourceToYAML(src, &docNode)
 	if err != nil {
 		p.iss.ReportErrorAtID(0, err.Error())
 		return nil
@@ -491,7 +491,7 @@ func (p *parserImpl) parseYaml(src *Source) *Policy {
 	return p.ParsePolicy(p, docNode.Content[0])
 }
 
-func sourceToYaml(src *Source, docNode *yaml.Node) error {
+func sourceToYAML(src *Source, docNode *yaml.Node) error {
 	err := yaml.Unmarshal([]byte(src.Content()), docNode)
 	if err != nil {
 		return err

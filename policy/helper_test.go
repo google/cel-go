@@ -118,12 +118,12 @@ var (
 	cel.@block([
 	  spec.labels,
 	  @index0.filter(l, !(l in resource.labels)),
-	  resource.labels.filter(l, l in @index0 && @index0[l] != resource.labels[l])],
-	(@index1.size() > 0)
-	  ? optional.of("missing one or more required labels: %s".format([@index1]))
-	  : ((@index2.size() > 0)
-	    ? optional.of("invalid values provided on one or more labels: %s".format([@index2]))
-		: optional.none()))`,
+	    resource.labels.transformList(l, value, l in @index0 && value != @index0[l], l)],
+      (@index1.size() > 0)
+	   ? optional.of("missing one or more required labels: %s".format([@index1]))
+	   : ((@index2.size() > 0)
+	     ? optional.of("invalid values provided on one or more labels: %s".format([@index2]))
+		 : optional.none()))`,
 		},
 		{
 			name: "restricted_destinations",
