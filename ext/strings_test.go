@@ -387,6 +387,12 @@ func TestStringsVersions(t *testing.T) {
 				"quote":  `strings.quote('\a \b "double quotes"') == '"\\a \\b \\"double quotes\\""'`,
 			},
 		},
+		{
+			version: 3,
+			supportedFunctions: map[string]string{
+				"reverse": "'taco'.reverse() == 'ocat'",
+			},
+		},
 	}
 	for _, lib := range versionCases {
 		env, err := cel.NewEnv(Strings(StringsVersion(lib.version)))
@@ -425,10 +431,6 @@ func TestStringsVersions(t *testing.T) {
 			}
 		})
 	}
-}
-
-func version(v uint32) *uint32 {
-	return &v
 }
 
 func TestStringsWithExtension(t *testing.T) {

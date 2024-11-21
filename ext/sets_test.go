@@ -497,6 +497,13 @@ func TestSetsMembershipRewriter(t *testing.T) {
 	}
 }
 
+func TestSetsVersion(t *testing.T) {
+	_, err := cel.NewEnv(Sets(SetsVersion(0)))
+	if err != nil {
+		t.Fatalf("SetsVersion(0) failed: %v", err)
+	}
+}
+
 func testSetsEnv(t *testing.T, opts ...cel.EnvOption) *cel.Env {
 	t.Helper()
 	baseOpts := []cel.EnvOption{cel.EnableMacroCallTracking(), Sets()}

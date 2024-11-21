@@ -16,6 +16,7 @@ package ext
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/ast"
@@ -159,19 +160,36 @@ const (
 //
 //	{'greeting': 'aloha', 'farewell': 'aloha'}
 //	  .transformMapEntry(keyVar, valueVar, {valueVar: keyVar}) // error, duplicate key
-func TwoVarComprehensions() cel.EnvOption {
-	return cel.Lib(compreV2Lib{})
+func TwoVarComprehensions(options ...TwoVarComprehensionsOption) cel.EnvOption {
+	l := &compreV2Lib{version: math.MaxUint32}
+	for _, o := range options {
+		l = o(l)
+	}
+	return cel.Lib(l)
 }
 
-type compreV2Lib struct{}
+// TwoVarComprehensionsOption declares a functional operator for configuring two-variable comprehensions.
+type TwoVarComprehensionsOption func(*compreV2Lib) *compreV2Lib
+
+// TwoVarComprehensionsVersion sets the library version for two-variable comprehensions.
+func TwoVarComprehensionsVersion(version uint32) TwoVarComprehensionsOption {
+	return func(lib *compreV2Lib) *compreV2Lib {
+		lib.version = version
+		return lib
+	}
+}
+
+type compreV2Lib struct {
+	version uint32
+}
 
 // LibraryName implements that SingletonLibrary interface method.
-func (compreV2Lib) LibraryName() string {
+func (*compreV2Lib) LibraryName() string {
 	return "cel.lib.ext.comprev2"
 }
 
 // CompileOptions implements the cel.Library interface method.
-func (compreV2Lib) CompileOptions() []cel.EnvOption {
+func (*compreV2Lib) CompileOptions() []cel.EnvOption {
 	kType := cel.TypeParamType("K")
 	vType := cel.TypeParamType("V")
 	mapKVType := cel.MapType(kType, vType)
@@ -217,7 +235,7 @@ func (compreV2Lib) CompileOptions() []cel.EnvOption {
 }
 
 // ProgramOptions implements the cel.Library interface method
-func (compreV2Lib) ProgramOptions() []cel.ProgramOption {
+func (*compreV2Lib) ProgramOptions() []cel.ProgramOption {
 	return []cel.ProgramOption{}
 }
 
