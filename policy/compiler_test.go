@@ -192,6 +192,10 @@ func (r *runner) setup(t testing.TB) {
 	if err != nil {
 		t.Fatalf("cel.AstToString() failed: %v", err)
 	}
+	_, err = cel.AstToCheckedExpr(ast)
+	if err != nil {
+		t.Fatalf("cel.AstToCheckedExpr() failed: %v", err)
+	}
 	if r.expr != "" && normalize(pExpr) != normalize(r.expr) {
 		t.Errorf("cel.AstToString() got %s, wanted %s", pExpr, r.expr)
 	}
