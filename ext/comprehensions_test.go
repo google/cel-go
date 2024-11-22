@@ -139,6 +139,9 @@ func TestTwoVarComprehensions(t *testing.T) {
 		{'Hello': 'world'}.transformList(k, v, "%s=%s".format([k.lowerAscii(), v])) == ["hello=world"]
 		`},
 		{expr: `
+		dyn({'Hello': 'world'}).transformList(k, v, "%s=%s".format([k.lowerAscii(), v])) == ["hello=world"]
+		`},
+		{expr: `
 		{'hello': 'world'}.transformList(k, v, k.startsWith('greeting'), "%s=%s".format([k, v])) == []
 		`},
 		{expr: `
@@ -152,6 +155,10 @@ func TestTwoVarComprehensions(t *testing.T) {
 		// map.transformMap()
 		{expr: `
 		{'hello': 'world', 'goodbye': 'cruel world'}.transformMap(k, v, "%s, %s!".format([k, v]))
+		   == {'hello': 'hello, world!', 'goodbye': 'goodbye, cruel world!'}
+		`},
+		{expr: `
+		dyn({'hello': 'world', 'goodbye': 'cruel world'}).transformMap(k, v, "%s, %s!".format([k, v]))
 		   == {'hello': 'hello, world!', 'goodbye': 'goodbye, cruel world!'}
 		`},
 		{expr: `
