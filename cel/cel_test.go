@@ -2743,6 +2743,10 @@ func TestOptionalValuesEval(t *testing.T) {
 				RepeatedString: []string{"greetings", "world"},
 			},
 		},
+		{expr: `[].first()`, out: types.OptionalNone},
+		{expr: `['a','b','c'].first()`, out: types.OptionalOf(types.String("a"))},
+		{expr: `[].last()`, out: types.OptionalNone},
+		{expr: `[1, 2, 3].last()`, out: types.OptionalOf(types.Int(3))},
 	}
 
 	for i, tst := range tests {
