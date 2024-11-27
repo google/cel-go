@@ -290,6 +290,16 @@ var testCases = []testInfo{
 		P: `a^#1:*expr.Expr_IdentExpr#.b^#2:*expr.Expr_SelectExpr#.c^#3:*expr.Expr_SelectExpr#`,
 	},
 	{
+		I: "a.`$b`",
+		P: `a^#1:*expr.Expr_IdentExpr#.$b^#2:*expr.Expr_SelectExpr#`,
+	},
+	{
+		I: "a.`$b`()",
+		E: `ERROR: <input>:1:7: Syntax error: mismatched input '(' expecting <EOF>
+		| a.` + "`" + "$b" + "`" + `()
+		| ......^`,
+	},
+	{
 		I: `a[b]`,
 		P: `_[_](
 			a^#1:*expr.Expr_IdentExpr#,
@@ -1152,7 +1162,7 @@ var testCases = []testInfo{
 	},
 	{
 		I: "func{{a}}",
-		E: `ERROR: <input>:1:6: Syntax error: extraneous input '{' expecting {'}', ',', '?', IDENTIFIER}
+		E: `ERROR: <input>:1:6: Syntax error: extraneous input '{' expecting {'}', ',', '?', IDENTIFIER, ESC_IDENTIFIER}
 		| func{{a}}
 		| .....^
 	    ERROR: <input>:1:8: Syntax error: mismatched input '}' expecting ':'
@@ -1164,7 +1174,7 @@ var testCases = []testInfo{
 	},
 	{
 		I: "msg{:a}",
-		E: `ERROR: <input>:1:5: Syntax error: extraneous input ':' expecting {'}', ',', '?', IDENTIFIER}
+		E: `ERROR: <input>:1:5: Syntax error: extraneous input ':' expecting {'}', ',', '?', IDENTIFIER, ESC_IDENTIFIER}
 		| msg{:a}
 		| ....^
 	    ERROR: <input>:1:7: Syntax error: mismatched input '}' expecting ':'
@@ -1754,14 +1764,14 @@ var testCases = []testInfo{
 		ERROR: <input>:1:3: unsupported syntax '?'
 		 | x{?.
 		 | ..^
-	    ERROR: <input>:1:4: Syntax error: mismatched input '.' expecting IDENTIFIER
+	    ERROR: <input>:1:4: Syntax error: mismatched input '.' expecting {IDENTIFIER, ESC_IDENTIFIER}
 		 | x{?.
 		 | ...^`,
 	},
 	{
 		I: `x{.`,
 		E: `
-		ERROR: <input>:1:3: Syntax error: mismatched input '.' expecting {'}', ',', '?', IDENTIFIER}
+		ERROR: <input>:1:3: Syntax error: mismatched input '.' expecting {'}', ',', '?', IDENTIFIER, ESC_IDENTIFIER}
 		 | x{.
 		 | ..^`,
 	},
