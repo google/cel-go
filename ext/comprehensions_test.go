@@ -359,6 +359,62 @@ func TestTwoVarComprehensionsVersion(t *testing.T) {
 	}
 }
 
+func TestTwoVarComprehensionsUnparse(t *testing.T) {
+	tests := []struct {
+		name     string
+		expr     string
+		unparsed string
+	}{
+		{
+			name:     "transform map entry",
+			expr:     `[0, 0u].transformMapEntry(i, v, {v: i})`,
+			unparsed: `[0, 0u].transformMapEntry(i, v, {v: i})`,
+		},
+		{
+			name:     "transform map",
+			expr:     `{'a': 'world', 'b': 'hello'}.transformMap(i, v, i == 'a' ? v.upperAscii() : v)`,
+			unparsed: `{"a": "world", "b": "hello"}.transformMap(i, v, (i == "a") ? v.upperAscii() : v)`,
+		},
+		{
+			name:     "transform list",
+			expr:     `[1.0, 2.0, 2.0].transformList(i, v, i / 2.0 == 1.0)`,
+			unparsed: `[1.0, 2.0, 2.0].transformList(i, v, i / 2.0 == 1.0)`,
+		},
+		{
+			name:     "existsOne",
+			expr:     `{'a': 'b', 'c': 'd'}.existsOne(k, v, k == 'b' || v == 'b')`,
+			unparsed: `{"a": "b", "c": "d"}.existsOne(k, v, k == "b" || v == "b")`,
+		},
+		{
+			name:     "exists",
+			expr:     `{'a': 'b', 'c': 'd'}.exists(k, v, k == 'b' || v == 'b')`,
+			unparsed: `{"a": "b", "c": "d"}.exists(k, v, k == "b" || v == "b")`,
+		},
+		{
+			name:     "all",
+			expr:     `[null, null, 'hello', string].all(i, v, i == 0 || type(v) != int)`,
+			unparsed: `[null, null, "hello", string].all(i, v, i == 0 || type(v) != int)`,
+		},
+	}
+	env := testCompreEnv(t)
+	for _, tst := range tests {
+		tc := tst
+		t.Run(tc.name, func(t *testing.T) {
+			ast, iss := env.Parse(tc.expr)
+			if iss.Err() != nil {
+				t.Fatalf("env.Parse(%q) failed: %v", tc.expr, iss.Err())
+			}
+			unparsed, err := cel.AstToString(ast)
+			if err != nil {
+				t.Fatalf("cel.AstToString() failed: %v", err)
+			}
+			if unparsed != tc.unparsed {
+				t.Errorf("cel.AstToString() got %q, wanted %q", unparsed, tc.unparsed)
+			}
+		})
+	}
+}
+
 func testCompreEnv(t *testing.T, opts ...cel.EnvOption) *cel.Env {
 	t.Helper()
 	baseOpts := []cel.EnvOption{

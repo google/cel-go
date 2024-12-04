@@ -284,6 +284,9 @@ func (p *astPruner) prune(node ast.Expr) (ast.Expr, bool) {
 		if node.Kind() == ast.ComprehensionKind {
 			compre := node.AsComprehension()
 			visit(macro, clearIterVarVisitor(compre.IterVar(), p.state))
+			if compre.HasIterVar2() {
+				visit(macro, clearIterVarVisitor(compre.IterVar2(), p.state))
+			}
 		}
 		// prune the expression in terms of the macro call instead of the expanded form.
 		if newMacro, pruned := p.prune(macro); pruned {
@@ -421,6 +424,19 @@ func (p *astPruner) prune(node ast.Expr) (ast.Expr, bool) {
 		// the last iteration of the comprehension and not each step in the evaluation which
 		// means that the any residuals computed in between might be inaccurate.
 		if newRange, pruned := p.maybePrune(compre.IterRange()); pruned {
+			if compre.HasIterVar2() {
+				return p.NewComprehensionTwoVar(
+					node.ID(),
+					newRange,
+					compre.IterVar(),
+					compre.IterVar2(),
+					compre.AccuVar(),
+					compre.AccuInit(),
+					compre.LoopCondition(),
+					compre.LoopStep(),
+					compre.Result(),
+				), true
+			}
 			return p.NewComprehension(
 				node.ID(),
 				newRange,
