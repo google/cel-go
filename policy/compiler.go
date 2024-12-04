@@ -378,7 +378,7 @@ func (c *compiler) checkMatchOutputTypesAgree(rule *CompiledRule, iss *cel.Issue
 		// Handle assignability as the output type is assignable to the match output or vice versa.
 		// During composition, this is roughly how the type-checker will handle the type agreement check.
 		if !(outputType.IsAssignableType(matchOutputType) || matchOutputType.IsAssignableType(outputType)) {
-			iss.ReportErrorAtID(m.Output().SourceID(), "incompatible output types: %s not assignable to %s", outputType, matchOutputType)
+			iss.ReportErrorAtID(m.Output().SourceID(), "incompatible output types: match block has output type %s, but previous match blocks have output type %s", matchOutputType, outputType)
 			return
 		}
 	}
