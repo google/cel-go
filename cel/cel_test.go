@@ -1159,39 +1159,72 @@ func TestResidualAstComplex(t *testing.T) {
 }
 
 func TestResidualAstMacros(t *testing.T) {
-	env := testEnv(t,
-		Variable("x", ListType(IntType)),
-		Variable("y", IntType),
-		EnableMacroCallTracking(),
-	)
-	unkVars, _ := PartialVars(map[string]any{"y": 11}, AttributePattern("x"))
-	ast, iss := env.Compile(`x.exists(i, i < 10) && [11, 12, 13].all(i, i in [y, 12, 13])`)
-	if iss.Err() != nil {
-		t.Fatalf("env.Compile() failed: %v", iss.Err())
+	tests := []struct {
+		env      *Env
+		in       map[string]any
+		unks     []*interpreter.AttributePattern
+		expr     string
+		residual string
+	}{
+		{
+			env: testEnv(t,
+				Variable("x", ListType(IntType)),
+				Variable("y", IntType),
+				EnableMacroCallTracking()),
+			in:       map[string]any{"y": 11},
+			unks:     []*interpreter.AttributePattern{AttributePattern("x")},
+			expr:     `x.exists(i, i < 10) && [11, 12, 13].all(i, i in [y, 12, 13])`,
+			residual: `x.exists(i, i < 10)`,
+		},
+		{
+			env: testEnv(t,
+				Variable("bar", MapType(StringType, DynType)),
+				Variable("foo", MapType(StringType, DynType)),
+				EnableMacroCallTracking()),
+			in: map[string]any{"foo": map[string]any{"a": "b"}},
+			unks: []*interpreter.AttributePattern{
+				AttributePattern("bar").QualString("baz").Wildcard(),
+			},
+			expr:     `foo.exists(t, t == bar.baz.x)`,
+			residual: `{"a": "b"}.exists(t, t == bar.baz.x)`,
+		},
 	}
-	prg, err := env.Program(ast,
-		EvalOptions(OptTrackState, OptPartialEval),
-	)
-	if err != nil {
-		t.Fatalf("env.Program() failed: %v", err)
-	}
-	out, det, err := prg.Eval(unkVars)
-	if !types.IsUnknown(out) {
-		t.Fatalf("got %v, expected unknown", out)
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
-	residual, err := env.ResidualAst(ast, det)
-	if err != nil {
-		t.Fatal(err)
-	}
-	expr, err := AstToString(residual)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if expr != "x.exists(i, i < 10)" {
-		t.Errorf("got expr: %s, wanted x.exists(i, i < 10)", expr)
+
+	for i, tst := range tests {
+		tc := tst
+		t.Run(fmt.Sprintf("[%d]", i), func(t *testing.T) {
+			env := tc.env
+			unkVars, err := PartialVars(tc.in, tc.unks...)
+			if err != nil {
+				t.Fatalf("PartialVars() failed: %v", err)
+			}
+			ast, iss := env.Compile(tc.expr)
+			if iss.Err() != nil {
+				t.Fatalf("env.Compile() failed: %v", iss.Err())
+			}
+			prg, err := env.Program(ast, EvalOptions(OptTrackState, OptPartialEval))
+			if err != nil {
+				t.Fatalf("env.Program() failed: %v", err)
+			}
+			out, det, err := prg.Eval(unkVars)
+			if !types.IsUnknown(out) {
+				t.Fatalf("got %v, expected unknown", out)
+			}
+			if err != nil {
+				t.Fatalf("prg.Eval() failed: %v", err)
+			}
+			residual, err := env.ResidualAst(ast, det)
+			if err != nil {
+				t.Fatalf("env.ResidualAst() failed: %v", err)
+			}
+			expr, err := AstToString(residual)
+			if err != nil {
+				t.Fatalf("AstToString() failed: %v", err)
+			}
+			if expr != tc.residual {
+				t.Errorf("got expr: %s, wanted %s", expr, tc.residual)
+			}
+		})
 	}
 }
 
