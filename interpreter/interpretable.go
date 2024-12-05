@@ -1241,7 +1241,7 @@ func invalidOptionalElementInit(value ref.Val) ref.Val {
 func newFolder(eval *evalFold, ctx Activation) *folder {
 	f := folderPool.Get().(*folder)
 	f.evalFold = eval
-	f.Activation = ctx
+	f.activation = ctx
 	return f
 }
 
@@ -1262,7 +1262,7 @@ func releaseFolder(f *folder) {
 // cel.bind or cel.@block.
 type folder struct {
 	*evalFold
-	Activation
+	activation Activation
 
 	// fold state objects.
 	accuVal     ref.Val
@@ -1290,7 +1290,7 @@ func (f *folder) foldIterable(iterable traits.Iterable) ref.Val {
 		// Update the accumulation value and check for eval interuption.
 		f.accuVal = f.step.Eval(f)
 		f.initialized = true
-		if f.interruptable && checkInterrupt(f.Activation) {
+		if f.interruptable && checkInterrupt(f.activation) {
 			f.interrupted = true
 			return f.evalResult()
 		}
@@ -1316,7 +1316,7 @@ func (f *folder) FoldEntry(key, val any) bool {
 	// Update the accumulation value and check for eval interuption.
 	f.accuVal = f.step.Eval(f)
 	f.initialized = true
-	if f.interruptable && checkInterrupt(f.Activation) {
+	if f.interruptable && checkInterrupt(f.activation) {
 		f.interrupted = true
 		return false
 	}
@@ -1330,7 +1330,7 @@ func (f *folder) ResolveName(name string) (any, bool) {
 	if name == f.accuVar {
 		if !f.initialized {
 			f.initialized = true
-			initVal := f.accu.Eval(f.Activation)
+			initVal := f.accu.Eval(f.activation)
 			if !f.exhaustive {
 				if l, isList := initVal.(traits.Lister); isList && l.Size() == types.IntZero {
 					initVal = types.NewMutableList(f.adapter)
@@ -1355,7 +1355,12 @@ func (f *folder) ResolveName(name string) (any, bool) {
 			return f.iterVar2Val, true
 		}
 	}
-	return f.Activation.ResolveName(name)
+	return f.activation.ResolveName(name)
+}
+
+// Parent returns the activation embedded into the folder.
+func (f *folder) Parent() Activation {
+	return f.activation
 }
 
 // evalResult computes the final result of the fold after all entries have been folded and accumulated.
@@ -1381,7 +1386,7 @@ func (f *folder) evalResult() ref.Val {
 // reset clears any state associated with folder evaluation.
 func (f *folder) reset() {
 	f.evalFold = nil
-	f.Activation = nil
+	f.activation = nil
 	f.accuVal = nil
 	f.iterVar1Val = nil
 	f.iterVar2Val = nil
