@@ -219,6 +219,13 @@ func TestProtosWithExtension(t *testing.T) {
 	}
 }
 
+func TestProtosVersion(t *testing.T) {
+	_, err := cel.NewEnv(Protos(ProtosVersion(0)))
+	if err != nil {
+		t.Fatalf("ProtosVersion(0) failed: %v", err)
+	}
+}
+
 // msgWithExtensions generates a new example message with all possible extensions set.
 func msgWithExtensions() *proto2pb.ExampleType {
 	msg := &proto2pb.ExampleType{

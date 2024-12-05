@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/types"
 	proto2pb "github.com/google/cel-go/test/proto2pb"
 )
 
@@ -107,6 +108,118 @@ func TestLists(t *testing.T) {
 					t.Fatal(err)
 				} else if out.Value() != true {
 					t.Errorf("got %v, wanted true for expr: %s", out.Value(), tc.expr)
+				}
+			}
+		})
+	}
+}
+
+func TestListsRuntimeErrors(t *testing.T) {
+	env, err := cel.NewEnv(Lists(ListsVersion(1)))
+	if err != nil {
+		t.Fatalf("cel.NewEnv() failed: %v", err)
+	}
+	listsTests := []struct {
+		expr string
+		err  string
+	}{
+		{
+			expr: "dyn({}).flatten()",
+			err:  "no such overload",
+		},
+		{
+			expr: "dyn({}).flatten(0)",
+			err:  "no such overload",
+		},
+		{
+			expr: "[].flatten(-1)",
+			err:  "level must be non-negative",
+		},
+		{
+			expr: "[].flatten(dyn('1'))",
+			err:  "no such overload",
+		},
+	}
+	for i, tst := range listsTests {
+		tc := tst
+		t.Run(fmt.Sprintf("[%d]", i), func(t *testing.T) {
+			ast, iss := env.Compile(tc.expr)
+			if iss.Err() != nil {
+				t.Fatalf("env.Compile(%q) failed: %v", tc.expr, iss.Err())
+			}
+			prg, err := env.Program(ast)
+			if err != nil {
+				t.Fatalf("env.Program() failed: %v", err)
+			}
+			_, _, err = prg.Eval(cel.NoVars())
+			if err == nil || !strings.Contains(err.Error(), tc.err) {
+				t.Errorf("prg.Eval() got %v, wanted %v", err, tc.err)
+			}
+		})
+	}
+}
+
+func TestListsVersion(t *testing.T) {
+	versionCases := []struct {
+		version            uint32
+		supportedFunctions map[string]string
+	}{
+		{
+			version: 0,
+			supportedFunctions: map[string]string{
+				"slice": "[1, 2, 3, 4, 5].slice(2, 4) == [3, 4]",
+			},
+		},
+		{
+			version: 1,
+			supportedFunctions: map[string]string{
+				"flatten": "[[1, 2], [3, 4]].flatten() == [1, 2, 3, 4]",
+			},
+		},
+		{
+			version: 2,
+			supportedFunctions: map[string]string{
+				"distinct": "[1, 2, 2, 1].distinct() == [1, 2]",
+				"range":    "lists.range(5) == [0, 1, 2, 3, 4]",
+				"reverse":  "[1, 2, 3].reverse() == [3, 2, 1]",
+				"sort":     "[2, 1, 3].sort() == [1, 2, 3]",
+				"sortBy":   "[{'field': 'lo'}, {'field': 'hi'}].sortBy(m, m.field) == [{'field': 'hi'}, {'field': 'lo'}]",
+			},
+		},
+	}
+	for _, lib := range versionCases {
+		env, err := cel.NewEnv(Lists(ListsVersion(lib.version)))
+		if err != nil {
+			t.Fatalf("cel.NewEnv(Lists(ListsVersion(%d))) failed: %v", lib.version, err)
+		}
+		t.Run(fmt.Sprintf("version=%d", lib.version), func(t *testing.T) {
+			for _, tc := range versionCases {
+				for name, expr := range tc.supportedFunctions {
+					supported := lib.version >= tc.version
+					t.Run(fmt.Sprintf("%s-supported=%t", name, supported), func(t *testing.T) {
+						ast, iss := env.Compile(expr)
+						if supported {
+							if iss.Err() != nil {
+								t.Errorf("unexpected error: %v", iss.Err())
+							}
+						} else {
+							if iss.Err() == nil || !strings.Contains(iss.Err().Error(), "undeclared reference") {
+								t.Errorf("got error %v, wanted error %s for expr: %s, version: %d", iss.Err(), "undeclared reference", expr, tc.version)
+							}
+							return
+						}
+						prg, err := env.Program(ast)
+						if err != nil {
+							t.Fatalf("env.Program() failed: %v", err)
+						}
+						out, _, err := prg.Eval(cel.NoVars())
+						if err != nil {
+							t.Fatalf("prg.Eval() failed: %v", err)
+						}
+						if out != types.True {
+							t.Errorf("prg.Eval() got %v, wanted true", out)
+						}
+					})
 				}
 			}
 		})

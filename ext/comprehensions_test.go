@@ -352,6 +352,13 @@ func TestTwoVarComprehensionsRuntimeErrors(t *testing.T) {
 	}
 }
 
+func TestTwoVarComprehensionsVersion(t *testing.T) {
+	_, err := cel.NewEnv(TwoVarComprehensions(TwoVarComprehensionsVersion(0)))
+	if err != nil {
+		t.Fatalf("TwoVarComprehensionVersion(0) failed: %v", err)
+	}
+}
+
 func testCompreEnv(t *testing.T, opts ...cel.EnvOption) *cel.Env {
 	t.Helper()
 	baseOpts := []cel.EnvOption{
