@@ -762,6 +762,9 @@ func (fold *evalFold) Eval(ctx Activation) ref.Val {
 	defer releaseFolder(f)
 
 	foldRange := fold.iterRange.Eval(ctx)
+	if types.IsUnknownOrError(foldRange) {
+		return foldRange
+	}
 	if fold.iterVar2 != "" {
 		var foldable traits.Foldable
 		switch r := foldRange.(type) {
@@ -1361,6 +1364,26 @@ func (f *folder) ResolveName(name string) (any, bool) {
 // Parent returns the activation embedded into the folder.
 func (f *folder) Parent() Activation {
 	return f.activation
+}
+
+// UnknownAttributePatterns implements the PartialActivation interface returning the unknown patterns
+// if they were provided to the input activation, or an empty set if the proxied activation is not partial.
+func (f *folder) UnknownAttributePatterns() []*AttributePattern {
+	if pv, ok := f.activation.(partialActivationConverter); ok {
+		if partial, isPartial := pv.asPartialActivation(); isPartial {
+			return partial.UnknownAttributePatterns()
+		}
+	}
+	return []*AttributePattern{}
+}
+
+func (f *folder) asPartialActivation() (PartialActivation, bool) {
+	if pv, ok := f.activation.(partialActivationConverter); ok {
+		if _, isPartial := pv.asPartialActivation(); isPartial {
+			return f, true
+		}
+	}
+	return nil, false
 }
 
 // evalResult computes the final result of the fold after all entries have been folded and accumulated.
