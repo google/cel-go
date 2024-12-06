@@ -281,13 +281,35 @@ func (p *astPruner) prune(node ast.Expr) (ast.Expr, bool) {
 	}
 	if macro, found := p.macroCalls[node.ID()]; found {
 		// Ensure that intermediate values for the comprehension are cleared during pruning
+		pruneMacroCall := node.Kind() != ast.UnspecifiedExprKind
 		if node.Kind() == ast.ComprehensionKind {
 			compre := node.AsComprehension()
 			visit(macro, clearIterVarVisitor(compre.IterVar(), p.state))
+			if compre.HasIterVar2() {
+				visit(macro, clearIterVarVisitor(compre.IterVar2(), p.state))
+			}
+			loopCond := compre.LoopCondition()
+			iterRange := compre.IterRange()
+			pruneMacroCall =
+				(loopCond.Kind() == ast.LiteralKind && loopCond.AsLiteral() == types.False) &&
+					(iterRange.Kind() == ast.ListKind && iterRange.AsList().Size() == 0)
 		}
-		// prune the expression in terms of the macro call instead of the expanded form.
-		if newMacro, pruned := p.prune(macro); pruned {
-			p.macroCalls[node.ID()] = newMacro
+		if pruneMacroCall {
+			// prune the expression in terms of the macro call instead of the expanded form when
+			// dealing with macro call tracking references.
+			if newMacro, pruned := p.prune(macro); pruned {
+				p.macroCalls[node.ID()] = newMacro
+			}
+		} else {
+			// Otherwise just prune the macro target in keeping with the pruning behavior of the
+			// comprehensions later in the call graph.
+			macroCall := macro.AsCall()
+			if macroCall.Target() != nil {
+				if newTarget, pruned := p.prune(macroCall.Target()); pruned {
+					macro = p.NewMemberCall(macro.ID(), macroCall.FunctionName(), newTarget, macroCall.Args()...)
+					p.macroCalls[node.ID()] = macro
+				}
+			}
 		}
 	}
 
@@ -421,6 +443,19 @@ func (p *astPruner) prune(node ast.Expr) (ast.Expr, bool) {
 		// the last iteration of the comprehension and not each step in the evaluation which
 		// means that the any residuals computed in between might be inaccurate.
 		if newRange, pruned := p.maybePrune(compre.IterRange()); pruned {
+			if compre.HasIterVar2() {
+				return p.NewComprehensionTwoVar(
+					node.ID(),
+					newRange,
+					compre.IterVar(),
+					compre.IterVar2(),
+					compre.AccuVar(),
+					compre.AccuInit(),
+					compre.LoopCondition(),
+					compre.LoopStep(),
+					compre.Result(),
+				), true
+			}
 			return p.NewComprehension(
 				node.ID(),
 				newRange,
