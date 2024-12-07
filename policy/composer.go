@@ -88,42 +88,29 @@ func (opt *ruleComposerImpl) Optimize(ctx *cel.OptimizerContext, a *ast.AST) *as
 }
 
 func (opt *ruleComposerImpl) optimizeRule(ctx *cel.OptimizerContext, r *CompiledRule) ast.Expr {
-	matchExpr := ctx.NewCall("optional.none")
-	matches := r.Matches()
-	matchCount := len(matches)
 	// Visitor to rewrite variables-prefixed identifiers with index names.
 	vars := r.Variables()
 	for _, v := range vars {
 		opt.registerVariable(ctx, v)
 	}
 
-	optionalResult := true
+	matches := r.Matches()
+	matchCount := len(matches)
+	var output outputStep = nil
+	if r.HasOptionalOutput() {
+		output = newOptionalOutputStep(ctx, ctx.NewLiteral(types.True), ctx.NewCall("optional.none"))
+	}
 	// Build the rule subgraph.
 	for i := matchCount - 1; i >= 0; i-- {
 		m := matches[i]
 		cond := ctx.CopyASTAndMetadata(m.Condition().NativeRep())
-		// If the condition is trivially true, not of the matches in the rule causes the result
-		// to become optional, and the rule is not the last match, then this will introduce
-		// unreachable outputs or rules.
-		triviallyTrue := m.ConditionIsLiteral(types.True)
 
 		// If the output is non-nil, then determine whether the output should be wrapped
 		// into an optional value, a conditional, or both.
 		if m.Output() != nil {
 			out := ctx.CopyASTAndMetadata(m.Output().Expr().NativeRep())
-			if triviallyTrue {
-				matchExpr = out
-				optionalResult = false
-				continue
-			}
-			if optionalResult {
-				out = ctx.NewCall("optional.of", out)
-			}
-			matchExpr = ctx.NewCall(
-				operators.Conditional,
-				cond,
-				out,
-				matchExpr)
+			step := newNonOptionalOutputStep(ctx, cond, out)
+			output = step.combine(output)
 			continue
 		}
 
@@ -132,29 +119,16 @@ func (opt *ruleComposerImpl) optimizeRule(ctx *cel.OptimizerContext, r *Compiled
 		child := m.NestedRule()
 		nestedRule := opt.optimizeRule(ctx, child)
 		nestedHasOptional := child.HasOptionalOutput()
-		if optionalResult && !nestedHasOptional {
-			nestedRule = ctx.NewCall("optional.of", nestedRule)
+		if nestedHasOptional {
+			step := newOptionalOutputStep(ctx, cond, nestedRule)
+			output = step.combine(output)
+		} else {
+			step := newNonOptionalOutputStep(ctx, cond, nestedRule)
+			output = step.combine(output)
 		}
-		if !optionalResult && nestedHasOptional {
-			matchExpr = ctx.NewCall("optional.of", matchExpr)
-			optionalResult = true
-		}
-		// If either the nested rule or current condition output are optional then
-		// use optional.or() to specify the combination of the first and second results
-		// Note, the argument order is reversed due to the traversal of matches in
-		// reverse order.
-		if optionalResult && triviallyTrue {
-			matchExpr = ctx.NewMemberCall("or", nestedRule, matchExpr)
-			continue
-		}
-		matchExpr = ctx.NewCall(
-			operators.Conditional,
-			cond,
-			nestedRule,
-			matchExpr,
-		)
 	}
 
+	matchExpr := output.expr()
 	identVisitor := opt.rewriteVariableName(ctx)
 	ast.PostOrderVisit(matchExpr, identVisitor)
 
@@ -194,4 +168,151 @@ func (opt *ruleComposerImpl) registerVariable(ctx *cel.OptimizerContext, v *Comp
 
 func (opt *ruleComposerImpl) sortedVariables() []varIndex {
 	return opt.varIndices
+}
+
+type outputStep interface {
+	isOptional() bool
+
+	condition() ast.Expr
+
+	isConditional() bool
+
+	expr() ast.Expr
+
+	combine(other outputStep) outputStep
+}
+
+type baseOutputStep struct {
+	ctx  *cel.OptimizerContext
+	cond ast.Expr
+	out  ast.Expr
+}
+
+func (b baseOutputStep) condition() ast.Expr {
+	return b.cond
+}
+
+func (b baseOutputStep) isConditional() bool {
+	c := b.cond
+	return c.Kind() != ast.LiteralKind || c.AsLiteral() != types.True
+}
+
+func (b baseOutputStep) expr() ast.Expr {
+	return b.out
+}
+
+func newNonOptionalOutputStep(ctx *cel.OptimizerContext, cond, out ast.Expr) nonOptionalOutputStep {
+	return nonOptionalOutputStep{
+		baseOutputStep: &baseOutputStep{
+			ctx:  ctx,
+			cond: cond,
+			out:  out,
+		},
+	}
+}
+
+type nonOptionalOutputStep struct {
+	*baseOutputStep
+}
+
+func (nonOptionalOutputStep) isOptional() bool {
+	return false
+}
+
+func (s nonOptionalOutputStep) combine(step outputStep) outputStep {
+	if step == nil {
+		return s
+	}
+	ctx := s.ctx
+	trueCondition := ctx.NewLiteral(types.True)
+	if step.isOptional() {
+		// If the step is optional, convert the non-optional value to an optional one and return a ternary
+		if s.isConditional() {
+			return newOptionalOutputStep(ctx,
+				trueCondition,
+				ctx.NewCall(operators.Conditional,
+					s.condition(),
+					ctx.NewCall("optional.of", s.expr()),
+					step.expr()),
+			)
+		}
+		// The step is effectively pruned away by a `true` condition for the non-optional step `s`
+		return s
+	}
+	return newNonOptionalOutputStep(ctx,
+		trueCondition,
+		ctx.NewCall(operators.Conditional,
+			s.condition(),
+			s.expr(),
+			step.expr()))
+}
+
+func newOptionalOutputStep(ctx *cel.OptimizerContext, cond, out ast.Expr) optionalOutputStep {
+	return optionalOutputStep{
+		baseOutputStep: &baseOutputStep{
+			ctx:  ctx,
+			cond: cond,
+			out:  out,
+		},
+	}
+}
+
+type optionalOutputStep struct {
+	*baseOutputStep
+}
+
+func (optionalOutputStep) isOptional() bool {
+	return true
+}
+
+func (s optionalOutputStep) combine(step outputStep) outputStep {
+	if step == nil {
+		// I don't think this is possible.
+		return s
+	}
+	ctx := s.ctx
+	trueCondition := ctx.NewLiteral(types.True)
+	if step.isOptional() {
+		// Introduce a ternary to capture the conditional return
+		if s.isConditional() {
+			return newOptionalOutputStep(ctx,
+				trueCondition,
+				ctx.NewCall(operators.Conditional,
+					s.condition(),
+					s.expr(),
+					step.expr()),
+			)
+		}
+		// The current step may be the output associated with a rule and it is
+		// possible the current rule does not have a condition itself, though its
+		// result is conditional and should fall-through.
+		if !isOptionalNone(step.expr()) {
+			return newOptionalOutputStep(ctx,
+				trueCondition,
+				ctx.NewMemberCall("or", s.expr(), step.expr()))
+		}
+		return s
+	}
+	if s.isConditional() {
+		// Introduce a ternary to capture the conditional return while wrapping the
+		// non-optional result from a lower step into an optional value.
+		return newOptionalOutputStep(ctx,
+			trueCondition,
+			ctx.NewCall(operators.Conditional,
+				s.condition(),
+				s.expr(),
+				ctx.NewCall("optional.of", step.expr())))
+	}
+	// If the current step is not conditional and the step is non-optional, attempt
+	// to convert to a non-optional value with `orValue`
+	return newNonOptionalOutputStep(ctx,
+		trueCondition,
+		ctx.NewMemberCall("orValue", s.expr(), step.expr()),
+	)
+}
+
+func isOptionalNone(e ast.Expr) bool {
+	return e.Kind() == ast.CallKind &&
+		e.AsCall().FunctionName() == "optional.none" &&
+		len(e.AsCall().Args()) == 0
 }

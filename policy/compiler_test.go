@@ -184,9 +184,10 @@ func compile(t testing.TB, name string, parseOpts []ParserOption, envOpts []cel.
 }
 
 func (r *runner) setup(t testing.TB) {
+	t.Helper()
 	env, ast, iss := compile(t, r.name, r.parseOpts, r.envOpts, r.compilerOpts)
 	if iss.Err() != nil {
-		t.Fatalf("Compile() failed: %v", iss.Err())
+		t.Fatalf("Compile(%s) failed: %v", r.name, iss.Err())
 	}
 	pExpr, err := cel.AstToString(ast)
 	if err != nil {

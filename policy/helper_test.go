@@ -57,9 +57,8 @@ var (
 	  ["us", "uk", "es"],
 	  {"us": false, "ru": false, "ir": false}],
 	  ((resource.origin in @index1 && !(resource.origin in @index0))
-	    ? optional.of({"banned": true}) : optional.none()).or(
-	      optional.of((resource.origin in @index0)
-	      ? {"banned": false} : {"banned": true})))`,
+	    ? optional.of({"banned": true}) : optional.none()).orValue(
+	     (resource.origin in @index0) ? {"banned": false} : {"banned": true}))`,
 		},
 		{
 			name: "nested_rule2",
@@ -85,6 +84,38 @@ var (
 	    ? {"banned": "restricted_region"} : {"banned": "bad_actor"})
 		: (!(resource.origin in @index0)
 		  ? optional.of({"banned": "unconfigured_region"}) : optional.none()))`,
+		},
+		{
+			name: "nested_rule4",
+			expr: `cel.@block([1], (@index0 > 0) ? true : false)`,
+		},
+		{
+			name: "nested_rule5",
+			expr: `
+	cel.@block([1],
+	  (@index0 > 0)
+	  ? ((@index0 > 2)
+	    ? optional.of(true) : optional.none())
+	  : ((@index0 > 1)
+	    ? ((@index0 > 3)
+		  ? optional.of(true) : optional.none())
+		: optional.of(false)))`,
+		},
+		{
+			name: "nested_rule6",
+			expr: `
+	cel.@block([1],
+	  ((@index0 > 2) ? optional.of(true) : optional.none())
+	  .orValue(((@index0 > 3) ? optional.of(true) : optional.none())
+	  .orValue(false)))`,
+		},
+		{
+			name: "nested_rule7",
+			expr: `
+	cel.@block([1],
+	  ((@index0 > 2) ? optional.of(true) : optional.none())
+	  .or(((@index0 > 3) ? optional.of(true) : optional.none())
+	  .or((@index0 > 1) ? optional.of(false) : optional.none()))`,
 		},
 		{
 			name: "context_pb",
