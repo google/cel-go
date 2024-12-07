@@ -168,6 +168,23 @@ func exprValueToRefValue(adapter types.Adapter, ev *valuepb.ExprValue) (ref.Val,
 	return nil, errors.New("unknown ExprValue kind")
 }
 
+func diffType(want *valuepb.Type, t *cel.Type) (string, error) {
+	got, err := types.TypeToProto(t)
+	if err != nil {
+		return "", err
+	}
+	return cmp.Diff(want, got, protocmp.Transform()), nil
+
+}
+
+func diffValue(want *valuepb.Value, got *valuepb.ExprValue) string {
+	return cmp.Diff(
+		&valuepb.ExprValue{Kind: &valuepb.ExprValue_Value{Value: want}},
+		got,
+		protocmp.Transform(),
+		protocmp.SortRepeatedFields(&valuepb.MapValue{}, "entries"))
+}
+
 func conformanceTest(t *testing.T, name string, pb *testpb.SimpleTest) {
 	if shouldSkipTest(name) {
 		t.SkipNow()
@@ -206,6 +223,16 @@ func conformanceTest(t *testing.T, name string, pb *testpb.SimpleTest) {
 			t.Fatal(err)
 		}
 	}
+	if pb.GetCheckOnly() {
+		m, ok := pb.GetResultMatcher().(*testpb.SimpleTest_TypedResult)
+		if !ok {
+			t.Fatalf("unexpected matcher kind for check only test: %T", pb.GetResultMatcher())
+		}
+		if diff, err := diffType(m.TypedResult.DeducedType, ast.OutputType()); err != nil || diff != "" {
+			t.Errorf("env.Check() output type err: %v (-want +got):\n%s", err, diff)
+		}
+		return
+	}
 	program, err := env.Program(ast)
 	if err != nil {
 		t.Fatal(err)
@@ -227,8 +254,22 @@ func conformanceTest(t *testing.T, name string, pb *testpb.SimpleTest) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if diff := cmp.Diff(&valuepb.ExprValue{Kind: &valuepb.ExprValue_Value{Value: m.Value}}, val, protocmp.Transform(), protocmp.SortRepeatedFields(&valuepb.MapValue{}, "entries")); diff != "" {
+		if diff := diffValue(m.Value, val); diff != "" {
 			t.Errorf("program.Eval() diff (-want +got):\n%s", diff)
+		}
+	case *testpb.SimpleTest_TypedResult:
+		if err != nil {
+			t.Fatalf("program.Eval(): got %v, want nil", err)
+		}
+		val, err := refValueToExprValue(ret)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if diff := diffValue(m.TypedResult.Result, val); diff != "" {
+			t.Errorf("program.Eval() diff (-want +got):\n%s", diff)
+		}
+		if diff, err := diffType(m.TypedResult.DeducedType, ast.OutputType()); err != nil || diff != "" {
+			t.Errorf("env.Check() output type err: %v (-want +got):\n%s", err, diff)
 		}
 	case *testpb.SimpleTest_EvalError:
 		if err == nil && types.IsError(ret) {
