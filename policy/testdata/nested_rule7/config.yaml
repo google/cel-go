@@ -13,3 +13,7 @@
 # limitations under the License.
 
 name: "nested_rule7"
+variables:
+  - name: x
+    type:
+      type_name: int

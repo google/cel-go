@@ -122,10 +122,10 @@ func (opt *ruleComposerImpl) optimizeRule(ctx *cel.OptimizerContext, r *Compiled
 		if nestedHasOptional {
 			step := newOptionalOutputStep(ctx, cond, nestedRule)
 			output = step.combine(output)
-		} else {
-			step := newNonOptionalOutputStep(ctx, cond, nestedRule)
-			output = step.combine(output)
+			continue
 		}
+		step := newNonOptionalOutputStep(ctx, cond, nestedRule)
+		output = step.combine(output)
 	}
 
 	matchExpr := output.expr()
@@ -151,6 +151,8 @@ func (opt *ruleComposerImpl) rewriteVariableName(ctx *cel.OptimizerContext) ast.
 	})
 }
 
+// registerVariable creates an entry for a variable name within the cel.@block used to enumerate
+// variables within composed policy expression.
 func (opt *ruleComposerImpl) registerVariable(ctx *cel.OptimizerContext, v *CompiledVariable) {
 	varName := fmt.Sprintf("variables.%s", v.Name())
 	indexVar := fmt.Sprintf("@index%d", opt.nextVarIndex)
@@ -166,22 +168,32 @@ func (opt *ruleComposerImpl) registerVariable(ctx *cel.OptimizerContext, v *Comp
 	opt.nextVarIndex++
 }
 
+// sortedVariables returns the variables ordered by their declaration index.
 func (opt *ruleComposerImpl) sortedVariables() []varIndex {
 	return opt.varIndices
 }
 
+// outputStep interface represents a policy output expression.
 type outputStep interface {
+	// isOptional indicates whether the output step has an optional result.
+	//
+	// Individual conditional attributes are not optional; however, rules and subrules can have optional output.
 	isOptional() bool
 
+	// condition returns the condition associated with the output.
 	condition() ast.Expr
 
+	// isConditional returns true if the condition expression is not trivially true.
 	isConditional() bool
 
+	// expr returns the output expression for the step.
 	expr() ast.Expr
 
+	// combine assembles two output expressions into a single output step.
 	combine(other outputStep) outputStep
 }
 
+// baseOutputStep encapsulates the common features of an outputStep implementation.
 type baseOutputStep struct {
 	ctx  *cel.OptimizerContext
 	cond ast.Expr
@@ -201,6 +213,7 @@ func (b baseOutputStep) expr() ast.Expr {
 	return b.out
 }
 
+// newNonOptionalOutputStep returns an output step whose output is not optional.
 func newNonOptionalOutputStep(ctx *cel.OptimizerContext, cond, out ast.Expr) nonOptionalOutputStep {
 	return nonOptionalOutputStep{
 		baseOutputStep: &baseOutputStep{
@@ -215,12 +228,22 @@ type nonOptionalOutputStep struct {
 	*baseOutputStep
 }
 
+// isOptional returns false
 func (nonOptionalOutputStep) isOptional() bool {
 	return false
 }
 
+// combine assembles a new outputStep from the target output step an an input output step.
+//
+// non-optional.combine(non-optional) // non-optional
+// (non-optional && conditional).combine(optional) // optional
+// (non-optional && unconditional).combine(optional) // non-optional
+//
+// The last combination case is unusual, but effectively it means that the non-optional value prunes away
+// the potential optional output.
 func (s nonOptionalOutputStep) combine(step outputStep) outputStep {
 	if step == nil {
+		// The input `step`` may be nil if this is the first outputStep
 		return s
 	}
 	ctx := s.ctx
@@ -236,7 +259,7 @@ func (s nonOptionalOutputStep) combine(step outputStep) outputStep {
 					step.expr()),
 			)
 		}
-		// The step is effectively pruned away by a `true` condition for the non-optional step `s`
+		// The `step` is pruned away by a unconditional non-optional step `s`.
 		return s
 	}
 	return newNonOptionalOutputStep(ctx,
@@ -247,6 +270,7 @@ func (s nonOptionalOutputStep) combine(step outputStep) outputStep {
 			step.expr()))
 }
 
+// newOptionalOutputStep returns an output step with an optional policy output.
 func newOptionalOutputStep(ctx *cel.OptimizerContext, cond, out ast.Expr) optionalOutputStep {
 	return optionalOutputStep{
 		baseOutputStep: &baseOutputStep{
@@ -261,19 +285,29 @@ type optionalOutputStep struct {
 	*baseOutputStep
 }
 
+// isOptional returns true.
 func (optionalOutputStep) isOptional() bool {
 	return true
 }
 
+// combine assembles a new outputStep from the target output step an an input output step.
+//
+// optional.combine(optional) // optional
+// (optional && conditional).combine(non-optional) // optional
+// (optional && unconditional).combine(non-optional) // non-optional
+//
+// The last combination case indicates that an optional value in one case should be resolved
+// to a non-optional value as
 func (s optionalOutputStep) combine(step outputStep) outputStep {
 	if step == nil {
-		// I don't think this is possible.
+		// This is likely unreachable for an optional step, but worth adding as a safeguard
 		return s
 	}
 	ctx := s.ctx
 	trueCondition := ctx.NewLiteral(types.True)
 	if step.isOptional() {
-		// Introduce a ternary to capture the conditional return
+		// Introduce a ternary to capture the conditional return when combining a
+		// conditional optional with another optional.
 		if s.isConditional() {
 			return newOptionalOutputStep(ctx,
 				trueCondition,
@@ -283,14 +317,15 @@ func (s optionalOutputStep) combine(step outputStep) outputStep {
 					step.expr()),
 			)
 		}
-		// The current step may be the output associated with a rule and it is
-		// possible the current rule does not have a condition itself, though its
-		// result is conditional and should fall-through.
+		// When an optional is unconditionally combined with another optional, rely
+		// on the optional 'or' to fall-through from one optional to another.
 		if !isOptionalNone(step.expr()) {
 			return newOptionalOutputStep(ctx,
 				trueCondition,
 				ctx.NewMemberCall("or", s.expr(), step.expr()))
 		}
+		// Otherwise, the current step 's' is unconditional and effectively prunes away
+		// the other input 'step'.
 		return s
 	}
 	if s.isConditional() {
@@ -303,8 +338,9 @@ func (s optionalOutputStep) combine(step outputStep) outputStep {
 				s.expr(),
 				ctx.NewCall("optional.of", step.expr())))
 	}
-	// If the current step is not conditional and the step is non-optional, attempt
-	// to convert to a non-optional value with `orValue`
+	// If the current step is unconditional and the step is non-optional, attempt
+	// to convert to the optional step 's' to a non-optional value using `orValue`
+	// with the 'step' expression value.
 	return newNonOptionalOutputStep(ctx,
 		trueCondition,
 		ctx.NewMemberCall("orValue", s.expr(), step.expr()),

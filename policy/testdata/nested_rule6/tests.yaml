@@ -16,5 +16,8 @@ description: "Nested rule tests which explore optional vs non-optional returns"
 section:
   - name: "valid"
     tests:
-     - name: "basic"
-       output: "false"
+      - name: "x=0"
+        input:
+          x:
+            value: 0
+        output: "false"

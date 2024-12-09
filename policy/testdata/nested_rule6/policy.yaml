@@ -14,18 +14,15 @@
 
 name: nested_rule6
 rule:
-  variables:
-    - name: x
-      expression: "1"
   match:
     - rule:
         match:
           - rule:
               match:
-                - condition: "variables.x > 2"
+                - condition: "x > 2"
                   output: "true"
     - rule:
         match:
-          - condition: "variables.x > 3"
+          - condition: "x > 3"
             output: "true"
     - output: "false"

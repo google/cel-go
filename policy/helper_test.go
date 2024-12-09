@@ -87,35 +87,30 @@ var (
 		},
 		{
 			name: "nested_rule4",
-			expr: `cel.@block([1], (@index0 > 0) ? true : false)`,
+			expr: `(x > 0) ? true : false`,
 		},
 		{
 			name: "nested_rule5",
 			expr: `
-	cel.@block([1],
-	  (@index0 > 0)
-	  ? ((@index0 > 2)
-	    ? optional.of(true) : optional.none())
-	  : ((@index0 > 1)
-	    ? ((@index0 > 3)
-		  ? optional.of(true) : optional.none())
-		: optional.of(false)))`,
+	(x > 0)
+	  ? ((x > 2) ? optional.of(true) : optional.none())
+	  : ((x > 1)
+	    ? ((x >= 2) ? optional.of(true) : optional.none())
+		: optional.of(false))`,
 		},
 		{
 			name: "nested_rule6",
 			expr: `
-	cel.@block([1],
-	  ((@index0 > 2) ? optional.of(true) : optional.none())
-	  .orValue(((@index0 > 3) ? optional.of(true) : optional.none())
-	  .orValue(false)))`,
+	((x > 2) ? optional.of(true) : optional.none())
+	  .orValue(((x > 3) ? optional.of(true) : optional.none())
+	  .orValue(false))`,
 		},
 		{
 			name: "nested_rule7",
 			expr: `
-	cel.@block([1],
-	  ((@index0 > 2) ? optional.of(true) : optional.none())
-	  .or(((@index0 > 3) ? optional.of(true) : optional.none())
-	  .or((@index0 > 1) ? optional.of(false) : optional.none()))`,
+	((x > 2) ? optional.of(true) : optional.none())
+	.or(((x > 3) ? optional.of(true) : optional.none())
+	.or((x > 1) ? optional.of(false) : optional.none()))`,
 		},
 		{
 			name: "context_pb",

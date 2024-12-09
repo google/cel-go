@@ -14,11 +14,8 @@
 
 name: nested_rule4
 rule:
-  variables:
-    - name: x
-      expression: "1"
   match:
-    - condition: variables.x > 0
+    - condition: x > 0
       rule:
         match:
           - rule:
