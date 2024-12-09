@@ -283,16 +283,10 @@ func (p *astPruner) prune(node ast.Expr) (ast.Expr, bool) {
 		// Ensure that intermediate values for the comprehension are cleared during pruning
 		pruneMacroCall := node.Kind() != ast.UnspecifiedExprKind
 		if node.Kind() == ast.ComprehensionKind {
-			compre := node.AsComprehension()
-			visit(macro, clearIterVarVisitor(compre.IterVar(), p.state))
-			if compre.HasIterVar2() {
-				visit(macro, clearIterVarVisitor(compre.IterVar2(), p.state))
-			}
-			loopCond := compre.LoopCondition()
-			iterRange := compre.IterRange()
-			pruneMacroCall =
-				(loopCond.Kind() == ast.LiteralKind && loopCond.AsLiteral() == types.False) &&
-					(iterRange.Kind() == ast.ListKind && iterRange.AsList().Size() == 0)
+			// Only prune cel.bind() calls since the variables of the comprehension are all
+			// visible to the user, so there's no chance of an incorrect value being observed
+			// as a result of looking at intermediate computations within a comprehension.
+			pruneMacroCall = isCelBindMacro(macro)
 		}
 		if pruneMacroCall {
 			// prune the expression in terms of the macro call instead of the expanded form when
@@ -503,16 +497,6 @@ func getMaxID(expr ast.Expr) int64 {
 	return maxID
 }
 
-func clearIterVarVisitor(varName string, state EvalState) astVisitor {
-	return astVisitor{
-		visitExpr: func(e ast.Expr) {
-			if e.Kind() == ast.IdentKind && e.AsIdent() == varName {
-				state.SetValue(e.ID(), nil)
-			}
-		},
-	}
-}
-
 func maxIDVisitor(maxID *int64) astVisitor {
 	return astVisitor{
 		visitExpr: func(e ast.Expr) {
@@ -575,4 +559,16 @@ func visit(expr ast.Expr, visitor astVisitor) {
 			}
 		}
 	}
+}
+
+func isCelBindMacro(macro ast.Expr) bool {
+	if macro.Kind() != ast.CallKind {
+		return false
+	}
+	macroCall := macro.AsCall()
+	target := macroCall.Target()
+	return macroCall.FunctionName() == "bind" &&
+		macroCall.IsMemberFunction() &&
+		target.Kind() == ast.IdentKind &&
+		target.AsIdent() == "cel"
 }
