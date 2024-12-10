@@ -2197,7 +2197,8 @@ func TestQuotedFields(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.expr, func(t *testing.T) {
-			env := testEnv(t, ParserRecursionLimit(10))
+			env := testEnv(t, ParserRecursionLimit(10),
+				EnableIdentifierEscapeSyntax())
 			out, err := interpret(t, env,
 				tc.expr, map[string]any{})
 

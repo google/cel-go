@@ -110,6 +110,9 @@ func TestUnparse(t *testing.T) {
 		{name: "list_lit_opt", in: `[?a, ?b, c]`},
 		{name: "map_lit_opt", in: `{?a: b, c: d}`},
 		{name: "msg_fields_opt", in: `v1alpha1.Expr{?id: id, call_expr: v1alpha1.Call_Expr{function: "name"}}`},
+		{name: "select_quoted", in: "a.`b-c`"},
+		{name: "opt_select_quoted", in: "a.?`b.c`"},
+		{name: "message_create_quoted", in: "MyType{`in`: false}"},
 
 		// Equivalent expressions form unparse which do not match the originals.
 		{name: "call_add_equiv", in: `a+b-c`, out: `a + b - c`},
@@ -456,6 +459,7 @@ func TestUnparse(t *testing.T) {
 				Macros(AllMacros...),
 				PopulateMacroCalls(tc.requiresMacroCalls),
 				EnableOptionalSyntax(true),
+				EnableIdentEscapeSyntax(true),
 			)
 			if err != nil {
 				t.Fatalf("NewParser() failed: %v", err)
