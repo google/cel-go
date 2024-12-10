@@ -97,6 +97,9 @@ func (opt *ruleComposerImpl) optimizeRule(ctx *cel.OptimizerContext, r *Compiled
 	matches := r.Matches()
 	matchCount := len(matches)
 	var output outputStep = nil
+	// If the rule has an optional output, the last result in the ternary should return
+	// `optional.none`. This output is implicit and created here to reflect the desired
+	// last possible output of this type of rule.
 	if r.HasOptionalOutput() {
 		output = newOptionalOutputStep(ctx, ctx.NewLiteral(types.True), ctx.NewCall("optional.none"))
 	}
@@ -105,8 +108,10 @@ func (opt *ruleComposerImpl) optimizeRule(ctx *cel.OptimizerContext, r *Compiled
 		m := matches[i]
 		cond := ctx.CopyASTAndMetadata(m.Condition().NativeRep())
 
-		// If the output is non-nil, then determine whether the output should be wrapped
-		// into an optional value, a conditional, or both.
+		// If the output is non-nil, then it is considered a non-optional output since
+		// it is explictly stated. If the rule itself is optional, then the base case value
+		// of output being optional.none() will convert the non-optional value to an optional
+		// one.
 		if m.Output() != nil {
 			out := ctx.CopyASTAndMetadata(m.Output().Expr().NativeRep())
 			step := newNonOptionalOutputStep(ctx, cond, out)
@@ -173,7 +178,12 @@ func (opt *ruleComposerImpl) sortedVariables() []varIndex {
 	return opt.varIndices
 }
 
-// outputStep interface represents a policy output expression.
+// outputStep interface represents an intermediate stage of rule and match expression composition
+//
+// The CompiledRule and CompiledMatch types are meant to represent standalone tuples of condition
+// and output expressions, and have no notion of how the order of combination would impact composition
+// since composition rules may vary based on the policy execution semantic, e.g. first-match versus
+// logical-or, logical-and, or accumulation.
 type outputStep interface {
 	// isOptional indicates whether the output step has an optional result.
 	//
