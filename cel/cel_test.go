@@ -2171,6 +2171,53 @@ func TestParserRecursionLimit(t *testing.T) {
 	}
 }
 
+func TestQuotedFields(t *testing.T) {
+	testCases := []struct {
+		expr        string
+		errorSubstr string
+		out         ref.Val
+	}{
+		{
+			expr: "{'key-1': 64}.`key-1`",
+			out:  types.Int(64),
+		},
+		{
+			expr:        "{'key-1': 64}.`key-2`",
+			errorSubstr: "no such key: key-2",
+		},
+		{
+			expr: "has({'key-1': 64}.`key-1`)",
+			out:  types.True,
+		},
+		{
+			expr: "has({'key-1': 64}.`key-2`)",
+			out:  types.False,
+		},
+	}
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.expr, func(t *testing.T) {
+			env := testEnv(t, ParserRecursionLimit(10),
+				EnableIdentifierEscapeSyntax())
+			out, err := interpret(t, env,
+				tc.expr, map[string]any{})
+
+			if tc.errorSubstr != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.errorSubstr) {
+					t.Fatalf("prg.Eval() wanted error containing '%s' got %v", tc.errorSubstr, err)
+				}
+			}
+
+			if tc.out != nil {
+				if tc.out != out {
+					t.Errorf("prg.Eval() wanted %v got %v", tc.out, out)
+				}
+			}
+		})
+
+	}
+}
+
 func TestDynamicDispatch(t *testing.T) {
 	env := testEnv(t,
 		HomogeneousAggregateLiterals(),
