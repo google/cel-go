@@ -756,7 +756,7 @@ func (p *parser) VisitDouble(ctx *gen.DoubleContext) any {
 
 // Visit a parse tree produced by CELParser#String.
 func (p *parser) VisitString(ctx *gen.StringContext) any {
-	s := p.unquote(ctx, ctx.GetText(), false)
+	s := p.unquote(ctx, ctx.GetTok().GetText(), false)
 	return p.helper.newLiteralString(ctx, s)
 }
 

@@ -1780,6 +1780,13 @@ var testCases = []testInfo{
 		 | ..................^
 		`,
 	},
+	{
+		I: `'\udead' == '\ufffd'`,
+		E: `
+		ERROR: <input>:1:1: invalid unicode code point
+         | '\udead' == '\ufffd'
+         | ^`,
+	},
 }
 
 type testInfo struct {
