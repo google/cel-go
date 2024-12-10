@@ -204,4 +204,4 @@ STRING
 BYTES : ('b' | 'B') STRING;
 
 IDENTIFIER : (LETTER | '_') ( LETTER | DIGIT | '_')*;
-ESC_IDENTIFIER : '`' (BACKSLASH '`' | BACKSLASH BACKSLASH | ~('\r'|'\n'|'\\'|'`'))* '`';
+ESC_IDENTIFIER : '`' (LETTER | DIGIT | '_' | '.' | '-' | '/' | ' ')+ '`';

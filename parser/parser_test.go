@@ -290,16 +290,6 @@ var testCases = []testInfo{
 		P: `a^#1:*expr.Expr_IdentExpr#.b^#2:*expr.Expr_SelectExpr#.c^#3:*expr.Expr_SelectExpr#`,
 	},
 	{
-		I: "a.`$b`",
-		P: `a^#1:*expr.Expr_IdentExpr#.$b^#2:*expr.Expr_SelectExpr#`,
-	},
-	{
-		I: "a.`$b`()",
-		E: `ERROR: <input>:1:7: Syntax error: mismatched input '(' expecting <EOF>
-		| a.` + "`" + "$b" + "`" + `()
-		| ......^`,
-	},
-	{
 		I: `a[b]`,
 		P: `_[_](
 			a^#1:*expr.Expr_IdentExpr#,
@@ -1741,6 +1731,106 @@ var testCases = []testInfo{
 	    ERROR: <input>:1:24: unsupported syntax '?'
 		 | Msg{?field: value} && {?'key': value}
 		 | .......................^`,
+	},
+	{
+		I:    "a.`b-c`",
+		Opts: []Option{EnableIdentEscapeSyntax(true)},
+		P:    `a^#1:*expr.Expr_IdentExpr#.b-c^#2:*expr.Expr_SelectExpr#`,
+	},
+	{I: "a.`b c`",
+		Opts: []Option{EnableIdentEscapeSyntax(true)},
+		P:    `a^#1:*expr.Expr_IdentExpr#.b c^#2:*expr.Expr_SelectExpr#`,
+	},
+	{
+		I:    "a.`b.c`",
+		Opts: []Option{EnableIdentEscapeSyntax(true)},
+		P:    `a^#1:*expr.Expr_IdentExpr#.b.c^#2:*expr.Expr_SelectExpr#`,
+	},
+	{
+		I:    "a.`in`",
+		Opts: []Option{EnableIdentEscapeSyntax(true)},
+		P:    `a^#1:*expr.Expr_IdentExpr#.in^#2:*expr.Expr_SelectExpr#`,
+	},
+	{
+		I:    "a.`/foo`",
+		Opts: []Option{EnableIdentEscapeSyntax(true)},
+		P:    `a^#1:*expr.Expr_IdentExpr#./foo^#2:*expr.Expr_SelectExpr#`,
+	},
+	{
+		I:    "Message{`in`: true}",
+		Opts: []Option{EnableIdentEscapeSyntax(true)},
+		P: `Message{
+			in:true^#3:*expr.Constant_BoolValue#^#2:*expr.Expr_CreateStruct_Entry#
+		  }^#1:*expr.Expr_StructExpr#`,
+	},
+	{
+		I:    "`b-c`",
+		Opts: []Option{EnableIdentEscapeSyntax(true)},
+		E: "ERROR: <input>:1:1: Syntax error: mismatched input '`b-c`' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}\n" +
+			"| `b-c`\n" +
+			"| ^",
+	},
+	{
+		I:    "`b-c`()",
+		Opts: []Option{EnableIdentEscapeSyntax(true)},
+		E: "ERROR: <input>:1:1: Syntax error: extraneous input '`b-c`' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}\n" +
+			"| `b-c`()\n" +
+			"| ^\n" +
+			"ERROR: <input>:1:7: Syntax error: mismatched input ')' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}\n" +
+			"| `b-c`()\n" +
+			"| ......^",
+	},
+	{
+		I:    "a.`$b`",
+		Opts: []Option{EnableIdentEscapeSyntax(true)},
+		E: "ERROR: <input>:1:3: Syntax error: token recognition error at: '`$'\n" +
+			"| a.`$b`\n" +
+			"| ..^\n" +
+			"ERROR: <input>:1:6: Syntax error: token recognition error at: '`'\n" +
+			"| a.`$b`\n" +
+			"| .....^",
+	},
+	{
+		I:    "a.`b.c`()",
+		Opts: []Option{EnableIdentEscapeSyntax(true)},
+		E: "ERROR: <input>:1:8: Syntax error: mismatched input '(' expecting <EOF>\n" +
+			"| a.`b.c`()\n" +
+			"| .......^\n",
+	},
+	{
+		I:    "a.`b-c`",
+		Opts: []Option{EnableIdentEscapeSyntax(false)},
+		E: "ERROR: <input>:1:3: unsupported syntax: '`'\n" +
+			"| a.`b-c`\n" +
+			"| ..^",
+	},
+	{
+		I:    "a.`b.c`",
+		Opts: []Option{EnableIdentEscapeSyntax(false)},
+		E: "ERROR: <input>:1:3: unsupported syntax: '`'\n" +
+			"| a.`b.c`\n" +
+			"| ..^\n",
+	},
+	{
+		I:    "a.`in`",
+		Opts: []Option{EnableIdentEscapeSyntax(false)},
+		E: "ERROR: <input>:1:3: unsupported syntax: '`'\n" +
+			"| a.`in`\n" +
+			"| ..^",
+	},
+	{
+		I:    "a.`/foo`",
+		Opts: []Option{EnableIdentEscapeSyntax(false)},
+		E: "ERROR: <input>:1:3: unsupported syntax: '`'\n" +
+			"| a.`/foo`\n" +
+			"| ..^",
+	},
+	{
+		I:    "Message{`in`: true}",
+		Opts: []Option{EnableIdentEscapeSyntax(false)},
+		E: "ERROR: <input>:1:9: unsupported syntax: '`'\n" +
+			"| Message{`in`: true}\n" +
+			"| ........^",
 	},
 	{
 		I: `noop_macro(123)`,

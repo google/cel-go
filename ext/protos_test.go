@@ -216,6 +216,7 @@ func testProtosEnv(t *testing.T, opts ...cel.EnvOption) *cel.Env {
 		cel.Container("google.expr.proto2.test"),
 		cel.Types(&proto2pb.ExampleType{}, &proto2pb.ExternalMessageType{}),
 		cel.Variable("msg", cel.ObjectType("google.expr.proto2.test.ExampleType")),
+		cel.EnableIdentifierEscapeSyntax(),
 		Protos(),
 	}
 	env, err := cel.NewEnv(append(baseOpts, opts...)...)

@@ -2178,19 +2178,19 @@ func TestQuotedFields(t *testing.T) {
 		out         ref.Val
 	}{
 		{
-			expr: "{'$key': 64}.`$key`",
+			expr: "{'key-1': 64}.`key-1`",
 			out:  types.Int(64),
 		},
 		{
-			expr:        "{'$key': 64}.`$key2`",
-			errorSubstr: "no such key: $key2",
+			expr:        "{'key-1': 64}.`key-2`",
+			errorSubstr: "no such key: key-2",
 		},
 		{
-			expr: "has({'$key': 64}.`$key`)",
+			expr: "has({'key-1': 64}.`key-1`)",
 			out:  types.True,
 		},
 		{
-			expr: "has({'$key': 64}.`$key2`)",
+			expr: "has({'key-1': 64}.`key-2`)",
 			out:  types.False,
 		},
 	}

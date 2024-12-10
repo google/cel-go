@@ -102,6 +102,7 @@ func (p *Parser) Parse(source common.Source) (*ast.AST, *common.Errors) {
 		populateMacroCalls:               p.populateMacroCalls,
 		enableOptionalSyntax:             p.enableOptionalSyntax,
 		enableVariadicOperatorASTs:       p.enableVariadicOperatorASTs,
+		enableIdentEscapeSyntax:          p.enableIdentEscapeSyntax,
 	}
 	buf, ok := source.(runes.Buffer)
 	if !ok {
@@ -144,35 +145,23 @@ var reservedIds = map[string]struct{}{
 	"while":     {},
 }
 
-func unescapeIdent(s string) (string, error) {
-	esc := false
-	var out string
-	for _, c := range s[1 : len(s)-1] {
-		if esc {
-			switch c {
-			case '\\':
-			case '`':
-				out += string(c)
-			default:
-				return "", fmt.Errorf("unsupported escape: %c", c)
-			}
-			esc = false
-			continue
-		}
-		out += string(c)
-
+func unescapeIdent(in string) (string, error) {
+	if len(in) <= 2 {
+		return "", errors.New("invalid escaped identifier: underflow")
 	}
-	return out, nil
+	return in[1 : len(in)-1], nil
 }
 
-// normalizeIdent returns the interpreted identifier, unescaping as needed.
-func normalizeIdent(ctx gen.IEscapeIdentContext) (string, error) {
+// normalizeIdent returns the interpreted identifier.
+func (p *parser) normalizeIdent(ctx gen.IEscapeIdentContext) (string, error) {
 	switch ident := ctx.(type) {
 	case *gen.SimpleIdentifierContext:
 		return ident.GetId().GetText(), nil
 	case *gen.EscapedIdentifierContext:
-		escaped := ident.GetId().GetText()
-		return unescapeIdent(escaped)
+		if !p.enableIdentEscapeSyntax {
+			return "", errors.New("unsupported syntax: '`'")
+		}
+		return unescapeIdent(ident.GetId().GetText())
 	}
 	return "", errors.New("Unsupported ident kind.")
 }
@@ -330,6 +319,7 @@ type parser struct {
 	populateMacroCalls               bool
 	enableOptionalSyntax             bool
 	enableVariadicOperatorASTs       bool
+	enableIdentEscapeSyntax          bool
 }
 
 var _ gen.CELVisitor = (*parser)(nil)
@@ -574,9 +564,9 @@ func (p *parser) VisitSelect(ctx *gen.SelectContext) any {
 	if ctx.GetId() == nil || ctx.GetOp() == nil {
 		return p.helper.newExpr(ctx)
 	}
-	id, err := normalizeIdent(ctx.GetId())
+	id, err := p.normalizeIdent(ctx.GetId())
 	if err != nil {
-		p.reportError(ctx, "%v", err)
+		p.reportError(ctx.GetId(), "%v", err)
 	}
 	if ctx.GetOpt() != nil {
 		if !p.enableOptionalSyntax {
@@ -662,13 +652,11 @@ func (p *parser) VisitIFieldInitializerList(ctx gen.IFieldInitializerListContext
 			continue
 		}
 
-		if optField.EscapeIdent() == nil {
-			return []ast.EntryExpr{}
-		}
 		// The field may be empty due to a prior error.
-		fieldName, err := normalizeIdent(optField.EscapeIdent())
+		fieldName, err := p.normalizeIdent(optField.EscapeIdent())
 		if err != nil {
-			return p.reportError(ctx, "%v", err)
+			p.reportError(ctx, "%v", err)
+			continue
 		}
 
 		value := p.Visit(vals[i]).(ast.Expr)

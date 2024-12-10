@@ -615,6 +615,9 @@ func (e *Env) configure(opts []EnvOption) (*Env, error) {
 	if e.HasFeature(featureVariadicLogicalASTs) {
 		prsrOpts = append(prsrOpts, parser.EnableVariadicOperatorASTs(true))
 	}
+	if e.HasFeature(featureIdentEscapeSyntax) {
+		prsrOpts = append(prsrOpts, parser.EnableIdentEscapeSyntax(true))
+	}
 	e.prsr, err = parser.NewParser(prsrOpts...)
 	if err != nil {
 		return nil, err
