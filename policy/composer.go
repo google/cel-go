@@ -96,12 +96,12 @@ func (opt *ruleComposerImpl) optimizeRule(ctx *cel.OptimizerContext, r *Compiled
 
 	matches := r.Matches()
 	matchCount := len(matches)
-	var output outputStep = nil
+	var output compositionStep = nil
 	// If the rule has an optional output, the last result in the ternary should return
 	// `optional.none`. This output is implicit and created here to reflect the desired
 	// last possible output of this type of rule.
 	if r.HasOptionalOutput() {
-		output = newOptionalOutputStep(ctx, ctx.NewLiteral(types.True), ctx.NewCall("optional.none"))
+		output = newOptionalCompositionStep(ctx, ctx.NewLiteral(types.True), ctx.NewCall("optional.none"))
 	}
 	// Build the rule subgraph.
 	for i := matchCount - 1; i >= 0; i-- {
@@ -114,7 +114,7 @@ func (opt *ruleComposerImpl) optimizeRule(ctx *cel.OptimizerContext, r *Compiled
 		// one.
 		if m.Output() != nil {
 			out := ctx.CopyASTAndMetadata(m.Output().Expr().NativeRep())
-			step := newNonOptionalOutputStep(ctx, cond, out)
+			step := newNonOptionalCompositionStep(ctx, cond, out)
 			output = step.combine(output)
 			continue
 		}
@@ -125,11 +125,11 @@ func (opt *ruleComposerImpl) optimizeRule(ctx *cel.OptimizerContext, r *Compiled
 		nestedRule := opt.optimizeRule(ctx, child)
 		nestedHasOptional := child.HasOptionalOutput()
 		if nestedHasOptional {
-			step := newOptionalOutputStep(ctx, cond, nestedRule)
+			step := newOptionalCompositionStep(ctx, cond, nestedRule)
 			output = step.combine(output)
 			continue
 		}
-		step := newNonOptionalOutputStep(ctx, cond, nestedRule)
+		step := newNonOptionalCompositionStep(ctx, cond, nestedRule)
 		output = step.combine(output)
 	}
 
@@ -178,13 +178,13 @@ func (opt *ruleComposerImpl) sortedVariables() []varIndex {
 	return opt.varIndices
 }
 
-// outputStep interface represents an intermediate stage of rule and match expression composition
+// compositionStep interface represents an intermediate stage of rule and match expression composition
 //
 // The CompiledRule and CompiledMatch types are meant to represent standalone tuples of condition
 // and output expressions, and have no notion of how the order of combination would impact composition
 // since composition rules may vary based on the policy execution semantic, e.g. first-match versus
 // logical-or, logical-and, or accumulation.
-type outputStep interface {
+type compositionStep interface {
 	// isOptional indicates whether the output step has an optional result.
 	//
 	// Individual conditional attributes are not optional; however, rules and subrules can have optional output.
@@ -200,33 +200,33 @@ type outputStep interface {
 	expr() ast.Expr
 
 	// combine assembles two output expressions into a single output step.
-	combine(other outputStep) outputStep
+	combine(other compositionStep) compositionStep
 }
 
-// baseOutputStep encapsulates the common features of an outputStep implementation.
-type baseOutputStep struct {
+// baseCompositionStep encapsulates the common features of an compositionStep implementation.
+type baseCompositionStep struct {
 	ctx  *cel.OptimizerContext
 	cond ast.Expr
 	out  ast.Expr
 }
 
-func (b baseOutputStep) condition() ast.Expr {
+func (b baseCompositionStep) condition() ast.Expr {
 	return b.cond
 }
 
-func (b baseOutputStep) isConditional() bool {
+func (b baseCompositionStep) isConditional() bool {
 	c := b.cond
 	return c.Kind() != ast.LiteralKind || c.AsLiteral() != types.True
 }
 
-func (b baseOutputStep) expr() ast.Expr {
+func (b baseCompositionStep) expr() ast.Expr {
 	return b.out
 }
 
-// newNonOptionalOutputStep returns an output step whose output is not optional.
-func newNonOptionalOutputStep(ctx *cel.OptimizerContext, cond, out ast.Expr) nonOptionalOutputStep {
-	return nonOptionalOutputStep{
-		baseOutputStep: &baseOutputStep{
+// newNonOptionalCompositionStep returns an output step whose output is not optional.
+func newNonOptionalCompositionStep(ctx *cel.OptimizerContext, cond, out ast.Expr) nonOptionalCompositionStep {
+	return nonOptionalCompositionStep{
+		baseCompositionStep: &baseCompositionStep{
 			ctx:  ctx,
 			cond: cond,
 			out:  out,
@@ -234,16 +234,16 @@ func newNonOptionalOutputStep(ctx *cel.OptimizerContext, cond, out ast.Expr) non
 	}
 }
 
-type nonOptionalOutputStep struct {
-	*baseOutputStep
+type nonOptionalCompositionStep struct {
+	*baseCompositionStep
 }
 
 // isOptional returns false
-func (nonOptionalOutputStep) isOptional() bool {
+func (nonOptionalCompositionStep) isOptional() bool {
 	return false
 }
 
-// combine assembles a new outputStep from the target output step an an input output step.
+// combine assembles a new compositionStep from the target output step an an input output step.
 //
 // non-optional.combine(non-optional) // non-optional
 // (non-optional && conditional).combine(optional) // optional
@@ -251,9 +251,9 @@ func (nonOptionalOutputStep) isOptional() bool {
 //
 // The last combination case is unusual, but effectively it means that the non-optional value prunes away
 // the potential optional output.
-func (s nonOptionalOutputStep) combine(step outputStep) outputStep {
+func (s nonOptionalCompositionStep) combine(step compositionStep) compositionStep {
 	if step == nil {
-		// The input `step`` may be nil if this is the first outputStep
+		// The input `step` may be nil if this is the first compositionStep
 		return s
 	}
 	ctx := s.ctx
@@ -261,7 +261,7 @@ func (s nonOptionalOutputStep) combine(step outputStep) outputStep {
 	if step.isOptional() {
 		// If the step is optional, convert the non-optional value to an optional one and return a ternary
 		if s.isConditional() {
-			return newOptionalOutputStep(ctx,
+			return newOptionalCompositionStep(ctx,
 				trueCondition,
 				ctx.NewCall(operators.Conditional,
 					s.condition(),
@@ -272,7 +272,7 @@ func (s nonOptionalOutputStep) combine(step outputStep) outputStep {
 		// The `step` is pruned away by a unconditional non-optional step `s`.
 		return s
 	}
-	return newNonOptionalOutputStep(ctx,
+	return newNonOptionalCompositionStep(ctx,
 		trueCondition,
 		ctx.NewCall(operators.Conditional,
 			s.condition(),
@@ -280,10 +280,10 @@ func (s nonOptionalOutputStep) combine(step outputStep) outputStep {
 			step.expr()))
 }
 
-// newOptionalOutputStep returns an output step with an optional policy output.
-func newOptionalOutputStep(ctx *cel.OptimizerContext, cond, out ast.Expr) optionalOutputStep {
-	return optionalOutputStep{
-		baseOutputStep: &baseOutputStep{
+// newOptionalCompositionStep returns an output step with an optional policy output.
+func newOptionalCompositionStep(ctx *cel.OptimizerContext, cond, out ast.Expr) optionalCompositionStep {
+	return optionalCompositionStep{
+		baseCompositionStep: &baseCompositionStep{
 			ctx:  ctx,
 			cond: cond,
 			out:  out,
@@ -291,16 +291,16 @@ func newOptionalOutputStep(ctx *cel.OptimizerContext, cond, out ast.Expr) option
 	}
 }
 
-type optionalOutputStep struct {
-	*baseOutputStep
+type optionalCompositionStep struct {
+	*baseCompositionStep
 }
 
 // isOptional returns true.
-func (optionalOutputStep) isOptional() bool {
+func (optionalCompositionStep) isOptional() bool {
 	return true
 }
 
-// combine assembles a new outputStep from the target output step an an input output step.
+// combine assembles a new compositionStep from the target output step an an input output step.
 //
 // optional.combine(optional) // optional
 // (optional && conditional).combine(non-optional) // optional
@@ -308,7 +308,7 @@ func (optionalOutputStep) isOptional() bool {
 //
 // The last combination case indicates that an optional value in one case should be resolved
 // to a non-optional value as
-func (s optionalOutputStep) combine(step outputStep) outputStep {
+func (s optionalCompositionStep) combine(step compositionStep) compositionStep {
 	if step == nil {
 		// This is likely unreachable for an optional step, but worth adding as a safeguard
 		return s
@@ -319,7 +319,7 @@ func (s optionalOutputStep) combine(step outputStep) outputStep {
 		// Introduce a ternary to capture the conditional return when combining a
 		// conditional optional with another optional.
 		if s.isConditional() {
-			return newOptionalOutputStep(ctx,
+			return newOptionalCompositionStep(ctx,
 				trueCondition,
 				ctx.NewCall(operators.Conditional,
 					s.condition(),
@@ -330,7 +330,7 @@ func (s optionalOutputStep) combine(step outputStep) outputStep {
 		// When an optional is unconditionally combined with another optional, rely
 		// on the optional 'or' to fall-through from one optional to another.
 		if !isOptionalNone(step.expr()) {
-			return newOptionalOutputStep(ctx,
+			return newOptionalCompositionStep(ctx,
 				trueCondition,
 				ctx.NewMemberCall("or", s.expr(), step.expr()))
 		}
@@ -341,7 +341,7 @@ func (s optionalOutputStep) combine(step outputStep) outputStep {
 	if s.isConditional() {
 		// Introduce a ternary to capture the conditional return while wrapping the
 		// non-optional result from a lower step into an optional value.
-		return newOptionalOutputStep(ctx,
+		return newOptionalCompositionStep(ctx,
 			trueCondition,
 			ctx.NewCall(operators.Conditional,
 				s.condition(),
@@ -351,7 +351,7 @@ func (s optionalOutputStep) combine(step outputStep) outputStep {
 	// If the current step is unconditional and the step is non-optional, attempt
 	// to convert to the optional step 's' to a non-optional value using `orValue`
 	// with the 'step' expression value.
-	return newNonOptionalOutputStep(ctx,
+	return newNonOptionalCompositionStep(ctx,
 		trueCondition,
 		ctx.NewMemberCall("orValue", s.expr(), step.expr()),
 	)
