@@ -88,42 +88,34 @@ func (opt *ruleComposerImpl) Optimize(ctx *cel.OptimizerContext, a *ast.AST) *as
 }
 
 func (opt *ruleComposerImpl) optimizeRule(ctx *cel.OptimizerContext, r *CompiledRule) ast.Expr {
-	matchExpr := ctx.NewCall("optional.none")
-	matches := r.Matches()
-	matchCount := len(matches)
 	// Visitor to rewrite variables-prefixed identifiers with index names.
 	vars := r.Variables()
 	for _, v := range vars {
 		opt.registerVariable(ctx, v)
 	}
 
-	optionalResult := true
+	matches := r.Matches()
+	matchCount := len(matches)
+	var output compositionStep = nil
+	// If the rule has an optional output, the last result in the ternary should return
+	// `optional.none`. This output is implicit and created here to reflect the desired
+	// last possible output of this type of rule.
+	if r.HasOptionalOutput() {
+		output = newOptionalCompositionStep(ctx, ctx.NewLiteral(types.True), ctx.NewCall("optional.none"))
+	}
 	// Build the rule subgraph.
 	for i := matchCount - 1; i >= 0; i-- {
 		m := matches[i]
 		cond := ctx.CopyASTAndMetadata(m.Condition().NativeRep())
-		// If the condition is trivially true, not of the matches in the rule causes the result
-		// to become optional, and the rule is not the last match, then this will introduce
-		// unreachable outputs or rules.
-		triviallyTrue := m.ConditionIsLiteral(types.True)
 
-		// If the output is non-nil, then determine whether the output should be wrapped
-		// into an optional value, a conditional, or both.
+		// If the output is non-nil, then it is considered a non-optional output since
+		// it is explictly stated. If the rule itself is optional, then the base case value
+		// of output being optional.none() will convert the non-optional value to an optional
+		// one.
 		if m.Output() != nil {
 			out := ctx.CopyASTAndMetadata(m.Output().Expr().NativeRep())
-			if triviallyTrue {
-				matchExpr = out
-				optionalResult = false
-				continue
-			}
-			if optionalResult {
-				out = ctx.NewCall("optional.of", out)
-			}
-			matchExpr = ctx.NewCall(
-				operators.Conditional,
-				cond,
-				out,
-				matchExpr)
+			step := newNonOptionalCompositionStep(ctx, cond, out)
+			output = step.combine(output)
 			continue
 		}
 
@@ -132,29 +124,16 @@ func (opt *ruleComposerImpl) optimizeRule(ctx *cel.OptimizerContext, r *Compiled
 		child := m.NestedRule()
 		nestedRule := opt.optimizeRule(ctx, child)
 		nestedHasOptional := child.HasOptionalOutput()
-		if optionalResult && !nestedHasOptional {
-			nestedRule = ctx.NewCall("optional.of", nestedRule)
-		}
-		if !optionalResult && nestedHasOptional {
-			matchExpr = ctx.NewCall("optional.of", matchExpr)
-			optionalResult = true
-		}
-		// If either the nested rule or current condition output are optional then
-		// use optional.or() to specify the combination of the first and second results
-		// Note, the argument order is reversed due to the traversal of matches in
-		// reverse order.
-		if optionalResult && triviallyTrue {
-			matchExpr = ctx.NewMemberCall("or", nestedRule, matchExpr)
+		if nestedHasOptional {
+			step := newOptionalCompositionStep(ctx, cond, nestedRule)
+			output = step.combine(output)
 			continue
 		}
-		matchExpr = ctx.NewCall(
-			operators.Conditional,
-			cond,
-			nestedRule,
-			matchExpr,
-		)
+		step := newNonOptionalCompositionStep(ctx, cond, nestedRule)
+		output = step.combine(output)
 	}
 
+	matchExpr := output.expr()
 	identVisitor := opt.rewriteVariableName(ctx)
 	ast.PostOrderVisit(matchExpr, identVisitor)
 
@@ -177,6 +156,8 @@ func (opt *ruleComposerImpl) rewriteVariableName(ctx *cel.OptimizerContext) ast.
 	})
 }
 
+// registerVariable creates an entry for a variable name within the cel.@block used to enumerate
+// variables within composed policy expression.
 func (opt *ruleComposerImpl) registerVariable(ctx *cel.OptimizerContext, v *CompiledVariable) {
 	varName := fmt.Sprintf("variables.%s", v.Name())
 	indexVar := fmt.Sprintf("@index%d", opt.nextVarIndex)
@@ -192,6 +173,192 @@ func (opt *ruleComposerImpl) registerVariable(ctx *cel.OptimizerContext, v *Comp
 	opt.nextVarIndex++
 }
 
+// sortedVariables returns the variables ordered by their declaration index.
 func (opt *ruleComposerImpl) sortedVariables() []varIndex {
 	return opt.varIndices
+}
+
+// compositionStep interface represents an intermediate stage of rule and match expression composition
+//
+// The CompiledRule and CompiledMatch types are meant to represent standalone tuples of condition
+// and output expressions, and have no notion of how the order of combination would impact composition
+// since composition rules may vary based on the policy execution semantic, e.g. first-match versus
+// logical-or, logical-and, or accumulation.
+type compositionStep interface {
+	// isOptional indicates whether the output step has an optional result.
+	//
+	// Individual conditional attributes are not optional; however, rules and subrules can have optional output.
+	isOptional() bool
+
+	// condition returns the condition associated with the output.
+	condition() ast.Expr
+
+	// isConditional returns true if the condition expression is not trivially true.
+	isConditional() bool
+
+	// expr returns the output expression for the step.
+	expr() ast.Expr
+
+	// combine assembles two output expressions into a single output step.
+	combine(other compositionStep) compositionStep
+}
+
+// baseCompositionStep encapsulates the common features of an compositionStep implementation.
+type baseCompositionStep struct {
+	ctx  *cel.OptimizerContext
+	cond ast.Expr
+	out  ast.Expr
+}
+
+func (b baseCompositionStep) condition() ast.Expr {
+	return b.cond
+}
+
+func (b baseCompositionStep) isConditional() bool {
+	c := b.cond
+	return c.Kind() != ast.LiteralKind || c.AsLiteral() != types.True
+}
+
+func (b baseCompositionStep) expr() ast.Expr {
+	return b.out
+}
+
+// newNonOptionalCompositionStep returns an output step whose output is not optional.
+func newNonOptionalCompositionStep(ctx *cel.OptimizerContext, cond, out ast.Expr) nonOptionalCompositionStep {
+	return nonOptionalCompositionStep{
+		baseCompositionStep: &baseCompositionStep{
+			ctx:  ctx,
+			cond: cond,
+			out:  out,
+		},
+	}
+}
+
+type nonOptionalCompositionStep struct {
+	*baseCompositionStep
+}
+
+// isOptional returns false
+func (nonOptionalCompositionStep) isOptional() bool {
+	return false
+}
+
+// combine assembles a new compositionStep from the target output step an an input output step.
+//
+// non-optional.combine(non-optional) // non-optional
+// (non-optional && conditional).combine(optional) // optional
+// (non-optional && unconditional).combine(optional) // non-optional
+//
+// The last combination case is unusual, but effectively it means that the non-optional value prunes away
+// the potential optional output.
+func (s nonOptionalCompositionStep) combine(step compositionStep) compositionStep {
+	if step == nil {
+		// The input `step` may be nil if this is the first compositionStep
+		return s
+	}
+	ctx := s.ctx
+	trueCondition := ctx.NewLiteral(types.True)
+	if step.isOptional() {
+		// If the step is optional, convert the non-optional value to an optional one and return a ternary
+		if s.isConditional() {
+			return newOptionalCompositionStep(ctx,
+				trueCondition,
+				ctx.NewCall(operators.Conditional,
+					s.condition(),
+					ctx.NewCall("optional.of", s.expr()),
+					step.expr()),
+			)
+		}
+		// The `step` is pruned away by a unconditional non-optional step `s`.
+		return s
+	}
+	return newNonOptionalCompositionStep(ctx,
+		trueCondition,
+		ctx.NewCall(operators.Conditional,
+			s.condition(),
+			s.expr(),
+			step.expr()))
+}
+
+// newOptionalCompositionStep returns an output step with an optional policy output.
+func newOptionalCompositionStep(ctx *cel.OptimizerContext, cond, out ast.Expr) optionalCompositionStep {
+	return optionalCompositionStep{
+		baseCompositionStep: &baseCompositionStep{
+			ctx:  ctx,
+			cond: cond,
+			out:  out,
+		},
+	}
+}
+
+type optionalCompositionStep struct {
+	*baseCompositionStep
+}
+
+// isOptional returns true.
+func (optionalCompositionStep) isOptional() bool {
+	return true
+}
+
+// combine assembles a new compositionStep from the target output step an an input output step.
+//
+// optional.combine(optional) // optional
+// (optional && conditional).combine(non-optional) // optional
+// (optional && unconditional).combine(non-optional) // non-optional
+//
+// The last combination case indicates that an optional value in one case should be resolved
+// to a non-optional value as
+func (s optionalCompositionStep) combine(step compositionStep) compositionStep {
+	if step == nil {
+		// This is likely unreachable for an optional step, but worth adding as a safeguard
+		return s
+	}
+	ctx := s.ctx
+	trueCondition := ctx.NewLiteral(types.True)
+	if step.isOptional() {
+		// Introduce a ternary to capture the conditional return when combining a
+		// conditional optional with another optional.
+		if s.isConditional() {
+			return newOptionalCompositionStep(ctx,
+				trueCondition,
+				ctx.NewCall(operators.Conditional,
+					s.condition(),
+					s.expr(),
+					step.expr()),
+			)
+		}
+		// When an optional is unconditionally combined with another optional, rely
+		// on the optional 'or' to fall-through from one optional to another.
+		if !isOptionalNone(step.expr()) {
+			return newOptionalCompositionStep(ctx,
+				trueCondition,
+				ctx.NewMemberCall("or", s.expr(), step.expr()))
+		}
+		// Otherwise, the current step 's' is unconditional and effectively prunes away
+		// the other input 'step'.
+		return s
+	}
+	if s.isConditional() {
+		// Introduce a ternary to capture the conditional return while wrapping the
+		// non-optional result from a lower step into an optional value.
+		return newOptionalCompositionStep(ctx,
+			trueCondition,
+			ctx.NewCall(operators.Conditional,
+				s.condition(),
+				s.expr(),
+				ctx.NewCall("optional.of", step.expr())))
+	}
+	// If the current step is unconditional and the step is non-optional, attempt
+	// to convert to the optional step 's' to a non-optional value using `orValue`
+	// with the 'step' expression value.
+	return newNonOptionalCompositionStep(ctx,
+		trueCondition,
+		ctx.NewMemberCall("orValue", s.expr(), step.expr()),
+	)
+}
+
+func isOptionalNone(e ast.Expr) bool {
+	return e.Kind() == ast.CallKind &&
+		e.AsCall().FunctionName() == "optional.none" &&
+		len(e.AsCall().Args()) == 0
 }
