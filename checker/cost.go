@@ -672,9 +672,13 @@ func (c *coster) addPath(e ast.Expr, path []string) {
 	c.exprPath[e.ID()] = path
 }
 
+func isAccumulatorVar(name string) bool {
+	return name == parser.AccumulatorName || name == parser.HiddenAccumulatorName
+}
+
 func (c *coster) newAstNode(e ast.Expr) *astNode {
 	path := c.getPath(e)
-	if len(path) > 0 && path[0] == parser.AccumulatorName {
+	if len(path) > 0 && isAccumulatorVar(path[0]) {
 		// only provide paths to root vars; omit accumulator vars
 		path = nil
 	}

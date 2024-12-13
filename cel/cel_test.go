@@ -777,18 +777,9 @@ func TestMacroInterop(t *testing.T) {
 }
 
 func TestMacroModern(t *testing.T) {
-	existsOneMacro := ReceiverMacro("exists_one", 2,
-		func(mef MacroExprFactory, iterRange celast.Expr, args []celast.Expr) (celast.Expr, *Error) {
-			return parser.MakeExistsOne(mef, iterRange, args)
-		})
-	transformMacro := ReceiverMacro("transform", 2,
-		func(mef MacroExprFactory, iterRange celast.Expr, args []celast.Expr) (celast.Expr, *Error) {
-			return parser.MakeMap(mef, iterRange, args)
-		})
-	filterMacro := ReceiverMacro("filter", 2,
-		func(mef MacroExprFactory, iterRange celast.Expr, args []celast.Expr) (celast.Expr, *Error) {
-			return parser.MakeFilter(mef, iterRange, args)
-		})
+	existsOneMacro := ReceiverMacro("exists_one", 2, parser.MakeExistsOne)
+	transformMacro := ReceiverMacro("transform", 2, parser.MakeMap)
+	filterMacro := ReceiverMacro("filter", 2, parser.MakeFilter)
 	pairMacro := GlobalMacro("pair", 2,
 		func(mef MacroExprFactory, iterRange celast.Expr, args []celast.Expr) (celast.Expr, *Error) {
 			return mef.NewMap(mef.NewMapEntry(args[0], args[1], false)), nil

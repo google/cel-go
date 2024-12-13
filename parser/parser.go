@@ -89,7 +89,11 @@ func mustNewParser(opts ...Option) *Parser {
 // Parse parses the expression represented by source and returns the result.
 func (p *Parser) Parse(source common.Source) (*ast.AST, *common.Errors) {
 	errs := common.NewErrors(source)
-	fac := ast.NewExprFactory()
+	accu := AccumulatorName
+	if p.enableHiddenAccumulatorName {
+		accu = HiddenAccumulatorName
+	}
+	fac := ast.NewExprFactoryWithAccumulator(accu)
 	impl := parser{
 		errors:                           &parseErrors{errs},
 		exprFactory:                      fac,
