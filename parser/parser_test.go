@@ -1887,6 +1887,241 @@ var testCases = []testInfo{
          | '\udead' == '\ufffd'
          | ^`,
 	},
+	// Macro tests with new accumulator name
+	{
+		I: `m.exists(v, f)`,
+		Opts: []Option{
+			EnableHiddenAccumulatorName(true),
+		},
+		P: `__comprehension__(
+				// Variable
+				v,
+				// Target
+				m^#1:*expr.Expr_IdentExpr#,
+				// Accumulator
+				@result,
+				// Init
+				false^#5:*expr.Constant_BoolValue#,
+				// LoopCondition
+				@not_strictly_false(
+					!_(
+					  @result^#6:*expr.Expr_IdentExpr#
+					)^#7:*expr.Expr_CallExpr#
+				)^#8:*expr.Expr_CallExpr#,
+				// LoopStep
+				_||_(
+					@result^#9:*expr.Expr_IdentExpr#,
+					f^#4:*expr.Expr_IdentExpr#
+				)^#10:*expr.Expr_CallExpr#,
+				// Result
+				@result^#11:*expr.Expr_IdentExpr#)^#12:*expr.Expr_ComprehensionExpr#`,
+		M: `m^#1:*expr.Expr_IdentExpr#.exists(
+				v^#3:*expr.Expr_IdentExpr#,
+				f^#4:*expr.Expr_IdentExpr#
+				  )^#12:exists#`,
+	},
+	{
+		I: `m.all(v, f)`,
+		Opts: []Option{
+			EnableHiddenAccumulatorName(true),
+		},
+		P: `__comprehension__(
+				// Variable
+				v,
+				// Target
+				m^#1:*expr.Expr_IdentExpr#,
+				// Accumulator
+				@result,
+				// Init
+				true^#5:*expr.Constant_BoolValue#,
+				// LoopCondition
+				@not_strictly_false(
+					@result^#6:*expr.Expr_IdentExpr#
+				)^#7:*expr.Expr_CallExpr#,
+				// LoopStep
+				_&&_(
+					@result^#8:*expr.Expr_IdentExpr#,
+					f^#4:*expr.Expr_IdentExpr#
+				)^#9:*expr.Expr_CallExpr#,
+				// Result
+				@result^#10:*expr.Expr_IdentExpr#)^#11:*expr.Expr_ComprehensionExpr#`,
+		M: `m^#1:*expr.Expr_IdentExpr#.all(
+				v^#3:*expr.Expr_IdentExpr#,
+				f^#4:*expr.Expr_IdentExpr#
+				  )^#11:all#`,
+	},
+	{
+		I: `m.existsOne(v, f)`,
+		Opts: []Option{
+			EnableHiddenAccumulatorName(true),
+		},
+		P: `__comprehension__(
+				// Variable
+				v,
+				// Target
+				m^#1:*expr.Expr_IdentExpr#,
+				// Accumulator
+				@result,
+				// Init
+				0^#5:*expr.Constant_Int64Value#,
+				// LoopCondition
+				true^#6:*expr.Constant_BoolValue#,
+				// LoopStep
+				_?_:_(
+					f^#4:*expr.Expr_IdentExpr#,
+					_+_(
+						  @result^#7:*expr.Expr_IdentExpr#,
+					  1^#8:*expr.Constant_Int64Value#
+					)^#9:*expr.Expr_CallExpr#,
+					@result^#10:*expr.Expr_IdentExpr#
+				)^#11:*expr.Expr_CallExpr#,
+				// Result
+				_==_(
+					@result^#12:*expr.Expr_IdentExpr#,
+					1^#13:*expr.Constant_Int64Value#
+				)^#14:*expr.Expr_CallExpr#)^#15:*expr.Expr_ComprehensionExpr#`,
+		M: `m^#1:*expr.Expr_IdentExpr#.existsOne(
+				v^#3:*expr.Expr_IdentExpr#,
+				f^#4:*expr.Expr_IdentExpr#
+				  )^#15:existsOne#`,
+	},
+	{
+		I: `m.map(v, f)`,
+		Opts: []Option{
+			EnableHiddenAccumulatorName(true),
+		},
+		P: `__comprehension__(
+				// Variable
+				v,
+				// Target
+				m^#1:*expr.Expr_IdentExpr#,
+				// Accumulator
+				@result,
+				// Init
+				[]^#5:*expr.Expr_ListExpr#,
+				// LoopCondition
+				true^#6:*expr.Constant_BoolValue#,
+				// LoopStep
+				_+_(
+					@result^#7:*expr.Expr_IdentExpr#,
+					[
+						f^#4:*expr.Expr_IdentExpr#
+					]^#8:*expr.Expr_ListExpr#
+				)^#9:*expr.Expr_CallExpr#,
+				// Result
+				@result^#10:*expr.Expr_IdentExpr#)^#11:*expr.Expr_ComprehensionExpr#`,
+		M: `m^#1:*expr.Expr_IdentExpr#.map(
+				v^#3:*expr.Expr_IdentExpr#,
+				f^#4:*expr.Expr_IdentExpr#
+				  )^#11:map#`,
+	},
+	{
+		I: `m.map(v, p, f)`,
+		Opts: []Option{
+			EnableHiddenAccumulatorName(true),
+		},
+		P: `__comprehension__(
+				// Variable
+				v,
+				// Target
+				m^#1:*expr.Expr_IdentExpr#,
+				// Accumulator
+				@result,
+				// Init
+				[]^#6:*expr.Expr_ListExpr#,
+				// LoopCondition
+				true^#7:*expr.Constant_BoolValue#,
+				// LoopStep
+				_?_:_(
+					p^#4:*expr.Expr_IdentExpr#,
+					_+_(
+						@result^#8:*expr.Expr_IdentExpr#,
+						[
+							f^#5:*expr.Expr_IdentExpr#
+						]^#9:*expr.Expr_ListExpr#
+					)^#10:*expr.Expr_CallExpr#,
+					@result^#11:*expr.Expr_IdentExpr#
+				)^#12:*expr.Expr_CallExpr#,
+				// Result
+				@result^#13:*expr.Expr_IdentExpr#)^#14:*expr.Expr_ComprehensionExpr#`,
+		M: `m^#1:*expr.Expr_IdentExpr#.map(
+				v^#3:*expr.Expr_IdentExpr#,
+				p^#4:*expr.Expr_IdentExpr#,
+				f^#5:*expr.Expr_IdentExpr#
+				  )^#14:map#`,
+	},
+
+	{
+		I: `m.filter(v, p)`,
+		Opts: []Option{
+			EnableHiddenAccumulatorName(true),
+		},
+		P: `__comprehension__(
+				// Variable
+				v,
+				// Target
+				m^#1:*expr.Expr_IdentExpr#,
+				// Accumulator
+				@result,
+				// Init
+				[]^#5:*expr.Expr_ListExpr#,
+				// LoopCondition
+				true^#6:*expr.Constant_BoolValue#,
+				// LoopStep
+				_?_:_(
+					p^#4:*expr.Expr_IdentExpr#,
+					_+_(
+						@result^#7:*expr.Expr_IdentExpr#,
+						[
+							v^#3:*expr.Expr_IdentExpr#
+						]^#8:*expr.Expr_ListExpr#
+					)^#9:*expr.Expr_CallExpr#,
+					@result^#10:*expr.Expr_IdentExpr#
+				)^#11:*expr.Expr_CallExpr#,
+				// Result
+				@result^#12:*expr.Expr_IdentExpr#)^#13:*expr.Expr_ComprehensionExpr#`,
+		M: `m^#1:*expr.Expr_IdentExpr#.filter(
+				v^#3:*expr.Expr_IdentExpr#,
+				p^#4:*expr.Expr_IdentExpr#
+				  )^#13:filter#`,
+	},
+	// Preserve restriction on old accumulator var name for consistency until new name is defaulted.
+	{
+		I: `m.filter(__result__, false)`,
+		Opts: []Option{
+			EnableHiddenAccumulatorName(true),
+		},
+		E: `ERROR: <input>:1:10: iteration variable overwrites accumulator variable
+             | m.filter(__result__, false)
+             | .........^`,
+	},
+	{
+		I: `m.map(__result__, __result__)`,
+		Opts: []Option{
+			EnableHiddenAccumulatorName(true),
+		},
+		E: `ERROR: <input>:1:7: iteration variable overwrites accumulator variable
+             | m.map(__result__, __result__)
+             | ......^`,
+	},
+	{
+		I: `[].existsOne(__result__, __result__)`,
+		Opts: []Option{
+			EnableHiddenAccumulatorName(true),
+		},
+		E: `ERROR: <input>:1:14: iteration variable overwrites accumulator variable
+             | [].existsOne(__result__, __result__)
+             | .............^`,
+	},
+	{
+		I: `m.filter(a.b, false)`,
+		Opts: []Option{
+			EnableHiddenAccumulatorName(true),
+		},
+		E: `ERROR: <input>:1:11: argument is not an identifier
+				 | m.filter(a.b, false)
+				 | ..........^`,
+	},
 }
 
 type testInfo struct {
