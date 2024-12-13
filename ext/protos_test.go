@@ -43,7 +43,7 @@ func TestProtos(t *testing.T) {
 		{expr: `proto.getExt(ExampleType{}, google.expr.proto2.test.ExtendedExampleType.extended_examples) == []`},
 		{expr: `proto.getExt(ExampleType{}, google.expr.proto2.test.ExtendedExampleType.enum_ext) == GlobalEnum.GOO`},
 		{expr: "ExampleType{`in`: 64}.`in` == 64"},
-		// TODO(jnthntatum): legal parse, but can't assign extension fields without updates to type checker and runtime
+		// TODO(issue/1095): legal parse, but can't assign extension fields without updates to type checker and runtime
 		// ExampleType{`google.expr.proto2.test.int32_ext`: 42}.`google.expr.proto2.test.int32_ext` == 42
 		{expr: `proto.getExt(msg, google.expr.proto2.test.int32_ext) == 42`},
 		{expr: "msg.`google.expr.proto2.test.int32_ext` == 42"},
