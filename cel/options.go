@@ -65,6 +65,9 @@ const (
 	// Enable error generation when a presence test or optional field selection is
 	// performed on a primitive type.
 	featureEnableErrorOnBadPresenceTest
+
+	// Enable escape syntax for field identifiers (`).
+	featureIdentEscapeSyntax
 )
 
 // EnvOption is a functional interface for configuring the environment.
@@ -616,6 +619,12 @@ func ContextProtoVars(ctx proto.Message) (interpreter.Activation, error) {
 // are tracked in the `SourceInfo` of parsed and checked expressions.
 func EnableMacroCallTracking() EnvOption {
 	return features(featureEnableMacroCallTracking, true)
+}
+
+// EnableIdentifierEscapeSyntax enables identifier escaping (`) syntax for
+// fields.
+func EnableIdentifierEscapeSyntax() EnvOption {
+	return features(featureIdentEscapeSyntax, true)
 }
 
 // CrossTypeNumericComparisons makes it possible to compare across numeric types, e.g. double < int

@@ -42,12 +42,21 @@ func TestProtos(t *testing.T) {
 		{expr: `proto.getExt(ExampleType{}, google.expr.proto2.test.nested_example) == ExampleType{}`},
 		{expr: `proto.getExt(ExampleType{}, google.expr.proto2.test.ExtendedExampleType.extended_examples) == []`},
 		{expr: `proto.getExt(ExampleType{}, google.expr.proto2.test.ExtendedExampleType.enum_ext) == GlobalEnum.GOO`},
+		{expr: "ExampleType{`in`: 64}.`in` == 64"},
+		// TODO(issue/1095): legal parse, but can't assign extension fields without updates to type checker and runtime
+		// ExampleType{`google.expr.proto2.test.int32_ext`: 42}.`google.expr.proto2.test.int32_ext` == 42
 		{expr: `proto.getExt(msg, google.expr.proto2.test.int32_ext) == 42`},
+		{expr: "msg.`google.expr.proto2.test.int32_ext` == 42"},
 		{expr: `proto.getExt(msg, google.expr.proto2.test.int32_wrapper_ext) == 21`},
+		{expr: "msg.`google.expr.proto2.test.int32_wrapper_ext` == 21"},
 		{expr: `proto.hasExt(msg, google.expr.proto2.test.nested_example)`},
+		{expr: "has(msg.`google.expr.proto2.test.nested_example`)"},
 		{expr: `proto.getExt(msg, google.expr.proto2.test.nested_example) == ExampleType{name: 'nested'}`},
+		{expr: "msg.`google.expr.proto2.test.nested_example` == ExampleType{name: 'nested'}"},
 		{expr: `proto.getExt(msg, google.expr.proto2.test.ExtendedExampleType.extended_examples) == ['example1', 'example2']`},
+		{expr: "msg.`google.expr.proto2.test.ExtendedExampleType.extended_examples` == ['example1', 'example2']"},
 		{expr: `proto.getExt(msg, google.expr.proto2.test.ExtendedExampleType.enum_ext) == GlobalEnum.GAZ`},
+		{expr: "msg.`google.expr.proto2.test.ExtendedExampleType.enum_ext` == GlobalEnum.GAZ"},
 	}
 
 	env := testProtosEnv(t)
@@ -174,6 +183,15 @@ func TestProtosParseErrors(t *testing.T) {
 		| proto.getExt(ExtendedExampleType{}, has(google.expr.proto2.test.int32_ext))
 		| .......................................^`,
 		},
+		{
+			expr: `ExampleType{}.in`,
+			err: `ERROR: <input>:1:15: Syntax error: no viable alternative at input '.in'
+			| ExampleType{}.in
+			| ..............^
+		   ERROR: <input>:1:17: Syntax error: mismatched input '<EOF>' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
+			| ExampleType{}.in
+			| ................^`,
+		},
 	}
 	env := testProtosEnv(t)
 	for i, tst := range protosTests {
@@ -198,6 +216,7 @@ func testProtosEnv(t *testing.T, opts ...cel.EnvOption) *cel.Env {
 		cel.Container("google.expr.proto2.test"),
 		cel.Types(&proto2pb.ExampleType{}, &proto2pb.ExternalMessageType{}),
 		cel.Variable("msg", cel.ObjectType("google.expr.proto2.test.ExampleType")),
+		cel.EnableIdentifierEscapeSyntax(),
 		Protos(),
 	}
 	env, err := cel.NewEnv(append(baseOpts, opts...)...)

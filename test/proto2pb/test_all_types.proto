@@ -112,7 +112,7 @@ message NestedTestAllTypes {
 // with fully qualified names.
 message ExampleType {
   optional string name = 1;
-
+  optional int64 in = 2;
   extensions 100 to max;
 }
 

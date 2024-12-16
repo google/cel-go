@@ -26,6 +26,7 @@ type options struct {
 	populateMacroCalls               bool
 	enableOptionalSyntax             bool
 	enableVariadicOperatorASTs       bool
+	enableIdentEscapeSyntax          bool
 }
 
 // Option configures the behavior of the parser.
@@ -123,6 +124,15 @@ func PopulateMacroCalls(populateMacroCalls bool) Option {
 func EnableOptionalSyntax(optionalSyntax bool) Option {
 	return func(opts *options) error {
 		opts.enableOptionalSyntax = optionalSyntax
+		return nil
+	}
+}
+
+// EnableIdentEscapeSyntax enables backtick (`) escaped field identifiers. This
+// supports extended types of characters in identifiers, e.g. foo.`baz-bar`.
+func EnableIdentEscapeSyntax(enableIdentEscapeSyntax bool) Option {
+	return func(opts *options) error {
+		opts.enableIdentEscapeSyntax = enableIdentEscapeSyntax
 		return nil
 	}
 }
