@@ -731,7 +731,7 @@ var (
 func timestampGetFullYear(ts, tz ref.Val) ref.Val {
 	t, err := inTimeZone(ts, tz)
 	if err != nil {
-		return types.NewErr(err.Error())
+		return types.NewErr("%v", err)
 	}
 	return types.Int(t.Year())
 }
@@ -739,7 +739,7 @@ func timestampGetFullYear(ts, tz ref.Val) ref.Val {
 func timestampGetMonth(ts, tz ref.Val) ref.Val {
 	t, err := inTimeZone(ts, tz)
 	if err != nil {
-		return types.NewErr(err.Error())
+		return types.NewErr("%v", err)
 	}
 	// CEL spec indicates that the month should be 0-based, but the Time value
 	// for Month() is 1-based.
@@ -749,7 +749,7 @@ func timestampGetMonth(ts, tz ref.Val) ref.Val {
 func timestampGetDayOfYear(ts, tz ref.Val) ref.Val {
 	t, err := inTimeZone(ts, tz)
 	if err != nil {
-		return types.NewErr(err.Error())
+		return types.NewErr("%v", err)
 	}
 	return types.Int(t.YearDay() - 1)
 }
@@ -757,7 +757,7 @@ func timestampGetDayOfYear(ts, tz ref.Val) ref.Val {
 func timestampGetDayOfMonthZeroBased(ts, tz ref.Val) ref.Val {
 	t, err := inTimeZone(ts, tz)
 	if err != nil {
-		return types.NewErr(err.Error())
+		return types.NewErr("%v", err)
 	}
 	return types.Int(t.Day() - 1)
 }
@@ -765,7 +765,7 @@ func timestampGetDayOfMonthZeroBased(ts, tz ref.Val) ref.Val {
 func timestampGetDayOfMonthOneBased(ts, tz ref.Val) ref.Val {
 	t, err := inTimeZone(ts, tz)
 	if err != nil {
-		return types.NewErr(err.Error())
+		return types.NewErr("%v", err)
 	}
 	return types.Int(t.Day())
 }
@@ -773,7 +773,7 @@ func timestampGetDayOfMonthOneBased(ts, tz ref.Val) ref.Val {
 func timestampGetDayOfWeek(ts, tz ref.Val) ref.Val {
 	t, err := inTimeZone(ts, tz)
 	if err != nil {
-		return types.NewErr(err.Error())
+		return types.NewErr("%v", err)
 	}
 	return types.Int(t.Weekday())
 }
@@ -781,7 +781,7 @@ func timestampGetDayOfWeek(ts, tz ref.Val) ref.Val {
 func timestampGetHours(ts, tz ref.Val) ref.Val {
 	t, err := inTimeZone(ts, tz)
 	if err != nil {
-		return types.NewErr(err.Error())
+		return types.NewErr("%v", err)
 	}
 	return types.Int(t.Hour())
 }
@@ -789,7 +789,7 @@ func timestampGetHours(ts, tz ref.Val) ref.Val {
 func timestampGetMinutes(ts, tz ref.Val) ref.Val {
 	t, err := inTimeZone(ts, tz)
 	if err != nil {
-		return types.NewErr(err.Error())
+		return types.NewErr("%v", err)
 	}
 	return types.Int(t.Minute())
 }
@@ -797,7 +797,7 @@ func timestampGetMinutes(ts, tz ref.Val) ref.Val {
 func timestampGetSeconds(ts, tz ref.Val) ref.Val {
 	t, err := inTimeZone(ts, tz)
 	if err != nil {
-		return types.NewErr(err.Error())
+		return types.NewErr("%v", err)
 	}
 	return types.Int(t.Second())
 }
@@ -805,7 +805,7 @@ func timestampGetSeconds(ts, tz ref.Val) ref.Val {
 func timestampGetMilliseconds(ts, tz ref.Val) ref.Val {
 	t, err := inTimeZone(ts, tz)
 	if err != nil {
-		return types.NewErr(err.Error())
+		return types.NewErr("%v", err)
 	}
 	return types.Int(t.Nanosecond() / 1000000)
 }

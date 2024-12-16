@@ -970,7 +970,7 @@ func (p *parser) expandMacro(exprID int64, function string, target ast.Expr, arg
 			loc = p.helper.getLocation(exprID)
 		}
 		p.helper.deleteID(exprID)
-		return p.reportError(loc, err.Message), true
+		return p.reportError(loc, "%s", err.Message), true
 	}
 	// A nil value from the macro indicates that the macro implementation decided that
 	// an expansion should not be performed.

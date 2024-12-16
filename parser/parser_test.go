@@ -2039,7 +2039,7 @@ func TestParse(t *testing.T) {
 				if tc.E == "" {
 					t.Fatalf("Unexpected errors: %v", actualErr)
 				} else if !test.Compare(actualErr, tc.E) {
-					t.Fatalf(test.DiffMessage("Error mismatch", actualErr, tc.E))
+					t.Fatal(test.DiffMessage("Error mismatch", actualErr, tc.E))
 				}
 				return
 			} else if tc.E != "" {

@@ -217,7 +217,7 @@ func (e *Env) Check(ast *Ast) (*Ast, *Issues) {
 	chk, err := e.initChecker()
 	if err != nil {
 		errs := common.NewErrors(ast.Source())
-		errs.ReportError(common.NoLocation, err.Error())
+		errs.ReportError(common.NoLocation, "%v", err.Error())
 		return nil, NewIssuesWithSourceInfo(errs, ast.NativeRep().SourceInfo())
 	}
 
