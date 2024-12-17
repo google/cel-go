@@ -249,7 +249,7 @@ func quantifierAll(mef cel.MacroExprFactory, target ast.Expr, args []ast.Expr) (
 		target,
 		iterVar1,
 		iterVar2,
-		parser.AccumulatorName,
+		mef.AccuIdentName(),
 		/*accuInit=*/ mef.NewLiteral(types.True),
 		/*condition=*/ mef.NewCall(operators.NotStrictlyFalse, mef.NewAccuIdent()),
 		/*step=*/ mef.NewCall(operators.LogicalAnd, mef.NewAccuIdent(), args[2]),
@@ -267,7 +267,7 @@ func quantifierExists(mef cel.MacroExprFactory, target ast.Expr, args []ast.Expr
 		target,
 		iterVar1,
 		iterVar2,
-		parser.AccumulatorName,
+		mef.AccuIdentName(),
 		/*accuInit=*/ mef.NewLiteral(types.False),
 		/*condition=*/ mef.NewCall(operators.NotStrictlyFalse, mef.NewCall(operators.LogicalNot, mef.NewAccuIdent())),
 		/*step=*/ mef.NewCall(operators.LogicalOr, mef.NewAccuIdent(), args[2]),
@@ -285,7 +285,7 @@ func quantifierExistsOne(mef cel.MacroExprFactory, target ast.Expr, args []ast.E
 		target,
 		iterVar1,
 		iterVar2,
-		parser.AccumulatorName,
+		mef.AccuIdentName(),
 		/*accuInit=*/ mef.NewLiteral(types.Int(0)),
 		/*condition=*/ mef.NewLiteral(types.True),
 		/*step=*/ mef.NewCall(operators.Conditional, args[2],
@@ -311,10 +311,10 @@ func transformList(mef cel.MacroExprFactory, target ast.Expr, args []ast.Expr) (
 		transform = args[2]
 	}
 
-	//  __result__ = __result__ + [transform]
+	//  accumulator = accumulator + [transform]
 	step := mef.NewCall(operators.Add, mef.NewAccuIdent(), mef.NewList(transform))
 	if filter != nil {
-		//  __result__ = (filter) ? __result__ + [transform] : __result__
+		//  accumulator = (filter) ? accumulator + [transform] : accumulator
 		step = mef.NewCall(operators.Conditional, filter, step, mef.NewAccuIdent())
 	}
 
@@ -322,7 +322,7 @@ func transformList(mef cel.MacroExprFactory, target ast.Expr, args []ast.Expr) (
 		target,
 		iterVar1,
 		iterVar2,
-		parser.AccumulatorName,
+		mef.AccuIdentName(),
 		/*accuInit=*/ mef.NewList(),
 		/*condition=*/ mef.NewLiteral(types.True),
 		step,
@@ -346,17 +346,17 @@ func transformMap(mef cel.MacroExprFactory, target ast.Expr, args []ast.Expr) (a
 		transform = args[2]
 	}
 
-	// __result__ = cel.@mapInsert(__result__, iterVar1, transform)
+	// accumulator = cel.@mapInsert(accumulator, iterVar1, transform)
 	step := mef.NewCall(mapInsert, mef.NewAccuIdent(), mef.NewIdent(iterVar1), transform)
 	if filter != nil {
-		// __result__ = (filter) ? cel.@mapInsert(__result__, iterVar1, transform) : __result__
+		// accumulator = (filter) ? cel.@mapInsert(accumulator, iterVar1, transform) : accumulator
 		step = mef.NewCall(operators.Conditional, filter, step, mef.NewAccuIdent())
 	}
 	return mef.NewComprehensionTwoVar(
 		target,
 		iterVar1,
 		iterVar2,
-		parser.AccumulatorName,
+		mef.AccuIdentName(),
 		/*accuInit=*/ mef.NewMap(),
 		/*condition=*/ mef.NewLiteral(types.True),
 		step,
@@ -380,17 +380,17 @@ func transformMapEntry(mef cel.MacroExprFactory, target ast.Expr, args []ast.Exp
 		transform = args[2]
 	}
 
-	// __result__ = cel.@mapInsert(__result__, transform)
+	// accumulator = cel.@mapInsert(accumulator, transform)
 	step := mef.NewCall(mapInsert, mef.NewAccuIdent(), transform)
 	if filter != nil {
-		// __result__ = (filter) ? cel.@mapInsert(__result__, transform) : __result__
+		// accumulator = (filter) ? cel.@mapInsert(accumulator, transform) : accumulator
 		step = mef.NewCall(operators.Conditional, filter, step, mef.NewAccuIdent())
 	}
 	return mef.NewComprehensionTwoVar(
 		target,
 		iterVar1,
 		iterVar2,
-		parser.AccumulatorName,
+		mef.AccuIdentName(),
 		/*accuInit=*/ mef.NewMap(),
 		/*condition=*/ mef.NewLiteral(types.True),
 		step,
@@ -410,10 +410,10 @@ func extractIterVars(mef cel.MacroExprFactory, arg0, arg1 ast.Expr) (string, str
 	if iterVar1 == iterVar2 {
 		return "", "", mef.NewError(arg1.ID(), fmt.Sprintf("duplicate variable name: %s", iterVar1))
 	}
-	if iterVar1 == parser.AccumulatorName {
+	if iterVar1 == mef.AccuIdentName() || iterVar1 == parser.AccumulatorName {
 		return "", "", mef.NewError(arg0.ID(), "iteration variable overwrites accumulator variable")
 	}
-	if iterVar2 == parser.AccumulatorName {
+	if iterVar2 == mef.AccuIdentName() || iterVar2 == parser.AccumulatorName {
 		return "", "", mef.NewError(arg1.ID(), "iteration variable overwrites accumulator variable")
 	}
 	return iterVar1, iterVar2, nil

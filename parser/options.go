@@ -27,6 +27,7 @@ type options struct {
 	enableOptionalSyntax             bool
 	enableVariadicOperatorASTs       bool
 	enableIdentEscapeSyntax          bool
+	enableHiddenAccumulatorName      bool
 }
 
 // Option configures the behavior of the parser.
@@ -133,6 +134,18 @@ func EnableOptionalSyntax(optionalSyntax bool) Option {
 func EnableIdentEscapeSyntax(enableIdentEscapeSyntax bool) Option {
 	return func(opts *options) error {
 		opts.enableIdentEscapeSyntax = enableIdentEscapeSyntax
+		return nil
+	}
+}
+
+// EnableHiddenAccumulatorName uses an accumulator variable name that is not a
+// normally accessible identifier in source for comprehension macros. Compatibility notes:
+// with this option enabled, a parsed AST would be semantically the same as if disabled, but would
+// have different internal identifiers in any of the built-in comprehension sub-expressions. When
+// disabled, it is possible but almost certainly a logic error to access the accumulator variable.
+func EnableHiddenAccumulatorName(enabled bool) Option {
+	return func(opts *options) error {
+		opts.enableHiddenAccumulatorName = enabled
 		return nil
 	}
 }
