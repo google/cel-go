@@ -343,7 +343,7 @@ func (tp *nativeTypeProvider) NewValue(typeName string, fields map[string]ref.Va
 		}
 		fieldVal, err := val.ConvertToNative(refFieldDef.Type)
 		if err != nil {
-			return types.NewErr(err.Error())
+			return types.NewErrFromString(err.Error())
 		}
 		refField := refVal.FieldByIndex(refFieldDef.Index)
 		refFieldVal := reflect.ValueOf(fieldVal)
@@ -450,7 +450,7 @@ func convertToCelType(refType reflect.Type) (*cel.Type, bool) {
 func (tp *nativeTypeProvider) newNativeObject(val any, refValue reflect.Value) ref.Val {
 	valType, err := newNativeType(tp.options.fieldNameHandler, refValue.Type())
 	if err != nil {
-		return types.NewErr(err.Error())
+		return types.NewErrFromString(err.Error())
 	}
 	return &nativeObj{
 		Adapter:  tp,

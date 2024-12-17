@@ -1120,7 +1120,7 @@ func TestAttributeStateTracking(t *testing.T) {
 			}
 			parsed, errors := p.Parse(src)
 			if len(errors.GetErrors()) != 0 {
-				t.Fatalf(errors.ToDisplayString())
+				t.Fatal(errors.ToDisplayString())
 			}
 			cont := containers.DefaultContainer
 			reg := newTestRegistry(t)
@@ -1135,7 +1135,7 @@ func TestAttributeStateTracking(t *testing.T) {
 			}
 			checked, errors := checker.Check(parsed, src, env)
 			if len(errors.GetErrors()) != 0 {
-				t.Fatalf(errors.ToDisplayString())
+				t.Fatal(errors.ToDisplayString())
 			}
 			in, err := NewActivation(tc.in)
 			if err != nil {
