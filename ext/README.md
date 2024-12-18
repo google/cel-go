@@ -11,7 +11,7 @@ in expressions.
 ### Cel.Bind
 
 Binds a simple identifier to an initialization expression which may be used
-in a subsequenct result expression. Bindings may also be nested within each
+in a subsequent result expression. Bindings may also be nested within each
 other.
 
     cel.bind(<varName>, <initExpr>, <resultExpr>)
@@ -29,7 +29,7 @@ Local bindings are not guaranteed to be evaluated before use.
 
 ## Encoders
 
-Encoding utilies for marshalling data into standardized representations.
+Encoding utilities for marshalling data into standardized representations.
 
 ### Base64.Decode
 
@@ -507,11 +507,11 @@ Examples:
 Returns an optional with the last value from the list or `optional.None` if the
 list is empty.
 
-    <list(T)>.list() -> <Optional(T)>
+    <list(T)>.last() -> <Optional(T)>
 
 Examples:
 
-    [1, 2, 3].list().value() == 3
+    [1, 2, 3].last().value() == 3
     [].last().orValue('test') == 'test'
 
 This is syntactic sugar for list[list.size()-1].
