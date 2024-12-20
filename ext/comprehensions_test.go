@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/interpreter"
 )
@@ -209,6 +210,184 @@ func TestTwoVarComprehensions(t *testing.T) {
 				if out.Value() != true {
 					t.Errorf("prg.Eval() got %v, wanted true for expr: %s", out.Value(), tc.expr)
 				}
+			}
+		})
+	}
+}
+
+func TestTwoVarComprehensionsCost(t *testing.T) {
+	tests := []struct {
+		name          string
+		expr          string
+		vars          []cel.EnvOption
+		in            map[string]any
+		hints         map[string]uint64
+		estimatedCost checker.CostEstimate
+		actualCost    uint64
+	}{
+		{
+			name:          "all list literal",
+			expr:          `[1, 2, 3, 4].all(i, v, i < 5 && v > 0)`,
+			estimatedCost: checker.CostEstimate{Min: 23, Max: 39},
+			actualCost:    39,
+		},
+		{
+			name:          "all map literal - true",
+			expr:          `{1: 1, 2: 2, 3: 3}.all(i, v, i < 5 && v > 0)`,
+			estimatedCost: checker.CostEstimate{Min: 40, Max: 52},
+			actualCost:    52,
+		},
+		{
+			name:          "all map literal - false",
+			expr:          `!{0: 0}.all(i, v, i < 5 && v > 0)`,
+			estimatedCost: checker.CostEstimate{Min: 35, Max: 39},
+			actualCost:    39,
+		},
+		{
+			name: "all map(int,int) variable",
+			expr: `m.all(i, v, i < 5 && v > 0)`,
+			vars: []cel.EnvOption{cel.Variable("m", cel.MapType(cel.IntType, cel.IntType))},
+			hints: map[string]uint64{
+				"m": 3,
+			},
+			in: map[string]any{
+				"m": map[int]int{1: 1, 2: 2},
+			},
+			estimatedCost: checker.CostEstimate{Min: 2, Max: 23},
+			actualCost:    16,
+		},
+		{
+			name: "all map(string,string) variable",
+			expr: `m.all(k, v, k < v)`,
+			vars: []cel.EnvOption{cel.Variable("m", cel.MapType(cel.StringType, cel.StringType))},
+			hints: map[string]uint64{
+				"m":         3,
+				"m.@keys":   16,
+				"m.@values": 128,
+			},
+			in: map[string]any{
+				"m": map[string]string{"he": "hello", "go": "goodbye"},
+			},
+			estimatedCost: checker.CostEstimate{Min: 2, Max: 23},
+			actualCost:    14,
+		},
+		{
+			name:          "transformList empty",
+			expr:          `[].transformList(i, v, v) == []`,
+			estimatedCost: checker.FixedCostEstimate(31),
+			actualCost:    31,
+		},
+		{
+			name:          "transformList single element",
+			expr:          `[1].transformList(i, v, i) == [0]`,
+			estimatedCost: checker.FixedCostEstimate(45),
+			actualCost:    45,
+		},
+		{
+			name:          "transformList with filter",
+			expr:          `[3, 2, 1].transformList(i, v, v > i, v) == [3, 2]`,
+			estimatedCost: checker.CostEstimate{Min: 44, Max: 80},
+			actualCost:    67,
+		},
+		{
+			name:          "tranformMap empty list",
+			expr:          `[].transformMap(k, v, v + 1) == {}`,
+			estimatedCost: checker.FixedCostEstimate(71),
+			actualCost:    71,
+		},
+		{
+			name:          "tranformMap empty map",
+			expr:          `{}.transformMap(k, v, v + 1) == {}`,
+			estimatedCost: checker.FixedCostEstimate(91),
+			actualCost:    91,
+		},
+		{
+			name:          "tranformMap literal scalar map",
+			expr:          `{1: 2}.transformMap(k, v, v + 1) == {1: 3}`,
+			estimatedCost: checker.FixedCostEstimate(97),
+			actualCost:    97,
+		},
+		{
+			name: "tranformMap local bind",
+			expr: `cel.bind(m, {"hello": "hello"},
+			                m.transformMap(k, v, v + "world")) == {"hello": "helloworld"}`,
+			estimatedCost: checker.FixedCostEstimate(108),
+			actualCost:    108,
+		},
+		{
+			name:          "tranformMap filter map",
+			expr:          `{1: 2, 3: 4, 5: 6}.transformMap(k, v, k % 3 == 0, v + 1) == {3: 5}`,
+			estimatedCost: checker.CostEstimate{Min: 104, Max: 116},
+			actualCost:    106,
+		},
+		{
+			name: "tranformMap variable input",
+			expr: `m.transformMap(k, v, k.startsWith('legacy') && v.size() == 1, v + [2]) == {'legacy-solo': [1, 2]}`,
+			vars: []cel.EnvOption{
+				cel.Variable("m", cel.MapType(cel.StringType, cel.ListType(cel.IntType))),
+			},
+			in: map[string]any{
+				"m": map[string][]int{
+					"legacy-solo": {1},
+					"legacy-pair": {3, 2},
+				},
+			},
+			hints: map[string]uint64{
+				"m":                5,
+				"m.@keys":          16,
+				"m.@values":        10,
+				"m.@values.@items": 2,
+			},
+			estimatedCost: checker.CostEstimate{Min: 73, Max: 173},
+			actualCost:    100,
+		},
+		{
+			name:          "transformMapEntry literal input",
+			expr:          `{1: 2}.transformMapEntry(k, v, {v: k}) == {2: 1}`,
+			estimatedCost: checker.FixedCostEstimate(126),
+			actualCost:    126,
+		},
+		{
+			name: "transformMapEntry variable input",
+			expr: `m.transformMapEntry(k, v, {v: k}) == m.transformMapEntry(k, v, {v: k})`,
+			vars: []cel.EnvOption{
+				cel.Variable("m", cel.MapType(cel.StringType, cel.IntType)),
+			},
+			in: map[string]any{
+				"m": map[string]int{
+					"legacy-solo": 1,
+					"legacy-pair": 2,
+				},
+			},
+			hints: map[string]uint64{
+				"m":         5,
+				"m.@keys":   16,
+				"m.@values": 10,
+			},
+			estimatedCost: checker.CostEstimate{Min: 65, Max: 405},
+			actualCost:    201,
+		},
+	}
+
+	for _, tst := range tests {
+		tc := tst
+		t.Run(tc.name, func(t *testing.T) {
+			env := testCompreEnv(t, tc.vars...)
+			var asts []*cel.Ast
+			pAst, iss := env.Parse(tc.expr)
+			if iss.Err() != nil {
+				t.Fatalf("env.Parse(%v) failed: %v", tc.expr, iss.Err())
+			}
+			asts = append(asts, pAst)
+			cAst, iss := env.Check(pAst)
+			if iss.Err() != nil {
+				t.Fatalf("env.Check(%v) failed: %v", tc.expr, iss.Err())
+			}
+
+			testCheckCost(t, env, cAst, tc.hints, tc.estimatedCost)
+			asts = append(asts, cAst)
+			for _, ast := range asts {
+				testEvalWithCost(t, env, ast, tc.in, tc.actualCost)
 			}
 		})
 	}

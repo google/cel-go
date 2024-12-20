@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/types"
@@ -27,49 +28,93 @@ import (
 )
 
 var bindingTests = []struct {
-	expr      string
-	parseOnly bool
+	name          string
+	expr          string
+	vars          []cel.EnvOption
+	in            map[string]any
+	hints         map[string]uint64
+	estimatedCost checker.CostEstimate
+	actualCost    uint64
 }{
-	{expr: `cel.bind(a, 'hell' + 'o' + '!', [a, a, a].join(', ')) ==
-	        ['hell' + 'o' + '!', 'hell' + 'o' + '!', 'hell' + 'o' + '!'].join(', ')`},
-	// Variable shadowing
-	{expr: `cel.bind(a,
-		        cel.bind(a, 'world', a + '!'),
-		   		'hello ' + a) == 'hello ' + 'world' + '!'`},
+	{
+		name: "single bind",
+		expr: `cel.bind(a, 'hell' + 'o' + '!', "%s, %s, %s".format([a, a, a])) ==
+	                       'hello!, hello!, hello' + '!'`,
+		estimatedCost: checker.CostEstimate{Min: 30, Max: 32},
+		actualCost:    32,
+	},
+	{
+		name: "multiple binds",
+		expr: `cel.bind(a, 'hello!',
+		       cel.bind(b, 'goodbye',
+				 a + ' and, ' + b)) == 'hello! and, goodbye'`,
+		estimatedCost: checker.CostEstimate{Min: 27, Max: 28},
+		actualCost:    28,
+	},
+	{
+		name: "shadow binds",
+		expr: `cel.bind(a,
+		       cel.bind(a, 'world', a + '!'),
+		   	    'hello ' + a) == 'hello ' + 'world' + '!'`,
+		estimatedCost: checker.CostEstimate{Min: 30, Max: 31},
+		actualCost:    31,
+	},
+	{
+		name: "nested bind with int list",
+		expr: `cel.bind(a, x,
+			   cel.bind(b, a[0],
+			   cel.bind(c, a[1], b + c))) == 10`,
+		vars: []cel.EnvOption{cel.Variable("x", cel.ListType(cel.IntType))},
+		in: map[string]any{
+			"x": []int64{3, 7},
+		},
+		hints: map[string]uint64{
+			"x": 3,
+		},
+		estimatedCost: checker.CostEstimate{Min: 39, Max: 39},
+		actualCost:    39,
+	},
+	{
+		name: "nested bind with string list",
+		expr: `cel.bind(a, x,
+			   cel.bind(b, a[0],
+			   cel.bind(c, a[1], b + c))) == "threeseven"`,
+		vars: []cel.EnvOption{cel.Variable("x", cel.ListType(cel.StringType))},
+		in: map[string]any{
+			"x": []string{"three", "seven"},
+		},
+		hints: map[string]uint64{
+			"x":        3,
+			"x.@items": 10,
+		},
+		estimatedCost: checker.CostEstimate{Min: 38, Max: 40},
+		actualCost:    39,
+	},
 }
 
 func TestBindings(t *testing.T) {
-	env, err := cel.NewEnv(Bindings(BindingsVersion(0)), Strings())
-	if err != nil {
-		t.Fatalf("cel.NewEnv(Bindings(), Strings()) failed: %v", err)
-	}
-	for i, tst := range bindingTests {
+	for _, tst := range bindingTests {
 		tc := tst
-		t.Run(fmt.Sprintf("[%d]", i), func(t *testing.T) {
+		t.Run(tc.name, func(t *testing.T) {
 			var asts []*cel.Ast
+			opts := append([]cel.EnvOption{Bindings(BindingsVersion(0)), Strings()}, tc.vars...)
+			env, err := cel.NewEnv(opts...)
+			if err != nil {
+				t.Fatalf("cel.NewEnv(Bindings(), Strings()) failed: %v", err)
+			}
 			pAst, iss := env.Parse(tc.expr)
 			if iss.Err() != nil {
 				t.Fatalf("env.Parse(%v) failed: %v", tc.expr, iss.Err())
 			}
 			asts = append(asts, pAst)
-			if !tc.parseOnly {
-				cAst, iss := env.Check(pAst)
-				if iss.Err() != nil {
-					t.Fatalf("env.Check(%v) failed: %v", tc.expr, iss.Err())
-				}
-				asts = append(asts, cAst)
+			cAst, iss := env.Check(pAst)
+			if iss.Err() != nil {
+				t.Fatalf("env.Check(%v) failed: %v", tc.expr, iss.Err())
 			}
+			testCheckCost(t, env, cAst, tc.hints, tc.estimatedCost)
+			asts = append(asts, cAst)
 			for _, ast := range asts {
-				prg, err := env.Program(ast)
-				if err != nil {
-					t.Fatal(err)
-				}
-				out, _, err := prg.Eval(cel.NoVars())
-				if err != nil {
-					t.Fatal(err)
-				} else if out.Value() != true {
-					t.Errorf("got %v, wanted true for expr: %s", out.Value(), tc.expr)
-				}
+				testEvalWithCost(t, env, ast, tc.in, tc.actualCost)
 			}
 		})
 	}

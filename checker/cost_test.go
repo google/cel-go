@@ -544,21 +544,26 @@ func TestCost(t *testing.T) {
 			wanted: CostEstimate{Min: 81, Max: 81},
 		},
 		{
-			// Estimated cost does not track the sizes of nested aggregate types
-			// (lists, maps, ...) and so assumes a worst case cost when an
-			// expression applies a comprehension to a nested aggregated type,
-			// even if the size information is available.
-			// TODO: This should be fixed.
 			name:   "comprehension on nested list",
 			expr:   `[1,2,3,4,5].map(x, [x, x]).all(y, y.all(y, y == 1))`,
-			wanted: CostEstimate{Min: 157, Max: 18446744073709551615},
+			wanted: CostEstimate{Min: 157, Max: 292},
 		},
 		{
-			// Make sure we're accounting for not just the iteration range size,
-			// but also the overall comprehension size. The chained map calls
-			// will treat the result of one map as the iteration range of the other,
-			// so they're planned in reverse; however, the `+` should verify that
-			// the comprehension result has a size.
+			name:   "comprehension on nested list of strings",
+			expr:   `["a", "ab", "abc", "abcd", "abcde"].map(x, [x, x]).all(y, y.all(y, y.startsWith('a')))`,
+			wanted: CostEstimate{Min: 157, Max: 292},
+		},
+		{
+			name: "comprehension on nested list of strings",
+			expr: `input.map(x, [x, x]).all(y, y.all(y, y.startsWith('a')))`,
+			vars: []*decls.VariableDecl{decls.NewVariable("input", types.NewListType(types.StringType))},
+			hints: map[string]uint64{
+				"input":        5,
+				"input.@items": 10,
+			},
+			wanted: CostEstimate{Min: 13, Max: 283},
+		},
+		{
 			name:   "comprehension size",
 			expr:   `[1,2,3,4,5].map(x, x).map(x, x) + [1]`,
 			wanted: CostEstimate{Min: 173, Max: 173},
@@ -568,9 +573,25 @@ func TestCost(t *testing.T) {
 			expr:   `[1,2,3].all(i, i in [1,2,3].map(j, j + j))`,
 			wanted: CostEstimate{Min: 20, Max: 230},
 		},
+		{
+			name:   "nested dyn comprehension",
+			expr:   `dyn([1,2,3]).all(i, i in dyn([1,2,3]).map(j, j + j))`,
+			wanted: CostEstimate{Min: 21, Max: 234},
+		},
+		{
+			name:   "literal map access",
+			expr:   `{'hello': 'hi'}['hello'] != {'hello': 'bye'}['hello']`,
+			wanted: CostEstimate{Min: 63, Max: 63},
+		},
+		{
+			name:   "literal list access",
+			expr:   `['hello', 'hi'][0] != ['hello', 'bye'][1]`,
+			wanted: CostEstimate{Min: 23, Max: 23},
+		},
 	}
 
-	for _, tc := range cases {
+	for _, tst := range cases {
+		tc := tst
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.hints == nil {
 				tc.hints = map[string]uint64{}
