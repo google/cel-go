@@ -622,7 +622,7 @@ func testCompreEnv(t *testing.T, opts ...cel.EnvOption) *cel.Env {
 		Strings(),
 		cel.OptionalTypes(),
 		cel.EnableMacroCallTracking(),
-		cel.EnableHiddenAccumulatorName(),
+		cel.EnableHiddenAccumulatorName(true),
 	}
 	env, err := cel.NewEnv(append(baseOpts, opts...)...)
 	if err != nil {

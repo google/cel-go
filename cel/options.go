@@ -666,9 +666,9 @@ func ParserExpressionSizeLimit(limit int) EnvOption {
 
 // EnableHiddenAccumulatorName sets the parser to use the identifier '@result' for accumulators
 // which is not normally accessible from CEL source.
-func EnableHiddenAccumulatorName() EnvOption {
+func EnableHiddenAccumulatorName(enabled bool) EnvOption {
 	return func(e *Env) (*Env, error) {
-		e.prsrOpts = append(e.prsrOpts, parser.EnableHiddenAccumulatorName(true))
+		e.prsrOpts = append(e.prsrOpts, parser.EnableHiddenAccumulatorName(enabled))
 		return e, nil
 	}
 }
