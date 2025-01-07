@@ -236,15 +236,71 @@ func multiplyByCostFactor(x uint64, y float64) uint64 {
 	return uint64(ceil)
 }
 
+// CostOption configures flags which affect cost computations.
+type CostOption func(*coster) error
+
+// PresenceTestHasCost determines whether presence testing has a cost of one or zero.
+//
+// Defaults to presence test has a cost of one.
+func PresenceTestHasCost(hasCost bool) CostOption {
+	return func(c *coster) error {
+		if hasCost {
+			c.presenceTestCost = selectAndIdentCost
+			return nil
+		}
+		c.presenceTestCost = FixedCostEstimate(0)
+		return nil
+	}
+}
+
+// FunctionEstimator provides a CallEstimate given the target and arguments for a specific function, overload pair.
+type FunctionEstimator func(estimator CostEstimator, target *AstNode, args []AstNode) *CallEstimate
+
+// OverloadCostEstimate binds a FunctionCoster to a specific function overload ID.
+//
+// When a OverloadCostEstimate is provided, it will override the cost calculation of the CostEstimator provided to
+// the Cost() call.
+func OverloadCostEstimate(overloadID string, functionCoster FunctionEstimator) CostOption {
+	return func(c *coster) error {
+		c.overloadEstimators[overloadID] = functionCoster
+		return nil
+	}
+}
+
+// Cost estimates the cost of the parsed and type checked CEL expression.
+func Cost(checked *ast.AST, estimator CostEstimator, opts ...CostOption) (CostEstimate, error) {
+	c := &coster{
+		checkedAST:         checked,
+		estimator:          estimator,
+		overloadEstimators: map[string]FunctionEstimator{},
+		exprPaths:          map[int64][]string{},
+		localVars:          make(scopes),
+		iterVars:           make(iterScopes),
+		computedSizes:      map[int64]SizeEstimate{},
+		computedElemSizes:  map[int64]SizeEstimate{},
+		presenceTestCost:   FixedCostEstimate(1),
+	}
+	for _, opt := range opts {
+		err := opt(c)
+		if err != nil {
+			return CostEstimate{}, err
+		}
+	}
+	return c.cost(checked.Expr()), nil
+}
+
 type coster struct {
-	// exprPath maps from Expr Id to field path.
-	exprPath map[int64][]string
+	// exprPaths maps from Expr Id to field path.
+	exprPaths map[int64][]string
 	// iterVars tracks the iterRange of each iterVar.
 	iterVars iterScopes
 	// localVars tracks the local variables possibly assigned during cel.bind()-like calls
 	localVars scopes
 	// computedSizes tracks the computed sizes of call results.
-	computedSizes      map[int64]SizeEstimate
+	computedSizes map[int64]SizeEstimate
+	// computedElemSizes tracks the size of list and map elements
+	computedElemSizes map[int64]SizeEstimate
+
 	checkedAST         *ast.AST
 	estimator          CostEstimator
 	overloadEstimators map[string]FunctionEstimator
@@ -288,23 +344,35 @@ const (
 
 // iterVar indicates the iteration variable kind and the associated id
 type iterVar struct {
-	id   int64
-	kind iterVarKind
-	size *SizeEstimate
+	rangeID int64
+	kind    iterVarKind
+	size    *SizeEstimate
 }
 
 type iterScopes map[string][]*iterVar
 
-func (is iterScopes) pushSingle(varName string, expr ast.Expr, size *SizeEstimate) {
-	is[varName] = append(is[varName], &iterVar{id: expr.ID(), kind: iterVarKindSingle, size: size})
+func (is iterScopes) pushSingle(varName string, rangeExpr ast.Expr, size *SizeEstimate) {
+	is[varName] = append(is[varName], &iterVar{
+		rangeID: rangeExpr.ID(),
+		kind:    iterVarKindSingle,
+		size:    size,
+	})
 }
 
-func (is iterScopes) pushKey(varName string, expr ast.Expr, size *SizeEstimate) {
-	is[varName] = append(is[varName], &iterVar{id: expr.ID(), kind: iterVarKindKey, size: size})
+func (is iterScopes) pushKey(varName string, rangeExpr ast.Expr, size *SizeEstimate) {
+	is[varName] = append(is[varName], &iterVar{
+		rangeID: rangeExpr.ID(),
+		kind:    iterVarKindKey,
+		size:    size,
+	})
 }
 
-func (is iterScopes) pushValue(varName string, expr ast.Expr, size *SizeEstimate) {
-	is[varName] = append(is[varName], &iterVar{id: expr.ID(), kind: iterVarKindValue, size: size})
+func (is iterScopes) pushValue(varName string, rangeExpr ast.Expr, size *SizeEstimate) {
+	is[varName] = append(is[varName], &iterVar{
+		rangeID: rangeExpr.ID(),
+		kind:    iterVarKindValue,
+		size:    size,
+	})
 }
 
 func (is iterScopes) pop(varName string) {
@@ -320,56 +388,48 @@ func (is iterScopes) peek(varName string) (*iterVar, bool) {
 	return nil, false
 }
 
-// CostOption configures flags which affect cost computations.
-type CostOption func(*coster) error
-
-// PresenceTestHasCost determines whether presence testing has a cost of one or zero.
-//
-// Defaults to presence test has a cost of one.
-func PresenceTestHasCost(hasCost bool) CostOption {
-	return func(c *coster) error {
-		if hasCost {
-			c.presenceTestCost = selectAndIdentCost
-			return nil
-		}
-		c.presenceTestCost = FixedCostEstimate(0)
-		return nil
+func (c *coster) pushIterKey(varName string, rangeExpr ast.Expr) {
+	var size *SizeEstimate
+	if sz, found := c.computedElemSizes[rangeExpr.ID()]; found {
+		size = &sz
 	}
+	c.iterVars.pushKey(varName, rangeExpr, size)
 }
 
-// FunctionEstimator provides a CallEstimate given the target and arguments for a specific function, overload pair.
-type FunctionEstimator func(estimator CostEstimator, target *AstNode, args []AstNode) *CallEstimate
-
-// OverloadCostEstimate binds a FunctionCoster to a specific function overload ID.
-//
-// When a OverloadCostEstimate is provided, it will override the cost calculation of the CostEstimator provided to
-// the Cost() call.
-func OverloadCostEstimate(overloadID string, functionCoster FunctionEstimator) CostOption {
-	return func(c *coster) error {
-		c.overloadEstimators[overloadID] = functionCoster
-		return nil
+func (c *coster) pushIterValue(varName string, rangeExpr ast.Expr) {
+	var size *SizeEstimate
+	if sz, found := c.computedElemSizes[rangeExpr.ID()]; found {
+		size = &sz
 	}
+	c.iterVars.pushValue(varName, rangeExpr, size)
 }
 
-// Cost estimates the cost of the parsed and type checked CEL expression.
-func Cost(checked *ast.AST, estimator CostEstimator, opts ...CostOption) (CostEstimate, error) {
-	c := &coster{
-		checkedAST:         checked,
-		estimator:          estimator,
-		overloadEstimators: map[string]FunctionEstimator{},
-		exprPath:           map[int64][]string{},
-		localVars:          make(scopes),
-		iterVars:           make(iterScopes),
-		computedSizes:      map[int64]SizeEstimate{},
-		presenceTestCost:   FixedCostEstimate(1),
+func (c *coster) pushIterSingle(varName string, rangeExpr ast.Expr) {
+	var size *SizeEstimate
+	if sz, found := c.computedElemSizes[rangeExpr.ID()]; found {
+		size = &sz
 	}
-	for _, opt := range opts {
-		err := opt(c)
-		if err != nil {
-			return CostEstimate{}, err
-		}
-	}
-	return c.cost(checked.Expr()), nil
+	c.iterVars.pushSingle(varName, rangeExpr, size)
+}
+
+func (c *coster) peekIterVar(varName string) (*iterVar, bool) {
+	return c.iterVars.peek(varName)
+}
+
+func (c *coster) popIterVar(varName string) {
+	c.iterVars.pop(varName)
+}
+
+func (c *coster) pushLocalVar(varName string, e ast.Expr) {
+	c.localVars.push(varName, e, c.computeSize(e))
+}
+
+func (c *coster) peekLocalVar(varName string) (*localVar, bool) {
+	return c.localVars.peek(varName)
+}
+
+func (c *coster) popLocalVar(varName string) {
+	c.localVars.pop(varName)
 }
 
 func (c *coster) cost(e ast.Expr) CostEstimate {
@@ -408,19 +468,20 @@ func (c *coster) costIdent(e ast.Expr) CostEstimate {
 	identName := e.AsIdent()
 	// build and track the field path
 	if iterVar, ok := c.peekIterVar(identName); ok {
-		switch c.getTypeByID(iterVar.id).Kind() {
+		rangePath := c.exprPaths[iterVar.rangeID]
+		switch c.getTypeByID(iterVar.rangeID).Kind() {
 		case types.ListKind:
 			path := "@indices"
 			if iterVar.kind == iterVarKindValue || iterVar.kind == iterVarKindSingle {
 				path = "@items"
 			}
-			c.addPath(e, append(c.exprPath[iterVar.id], path))
+			c.addPath(e, append(rangePath, path))
 		case types.MapKind:
 			path := "@keys"
 			if iterVar.kind == iterVarKindValue {
 				path = "@values"
 			}
-			c.addPath(e, append(c.exprPath[iterVar.id], path))
+			c.addPath(e, append(rangePath, path))
 		}
 	} else {
 		c.addPath(e, []string{identName})
@@ -495,55 +556,29 @@ func (c *coster) costCall(e ast.Expr) CostEstimate {
 				resultSize = &size
 			}
 		}
-		if resultSize == nil {
-			resultSize = computeTypeSize(c.getType(e))
-		}
 		// build and track the field path for index operations
 		switch overload {
 		case overloads.IndexList:
 			if len(args) > 0 {
-				c.addPath(e, append(c.getPath(args[0]), "@items"))
-				if resultSize == nil && args[0].Kind() == ast.ListKind {
-					resultSize = c.computeListItemSize(argTypes[0])
+				if elemSize, ok := c.computedElemSizes[args[0].ID()]; ok {
+					resultSize = &elemSize
 				}
+				c.addPath(e, append(c.getPath(args[0]), "@items"))
 			}
 		case overloads.IndexMap:
 			if len(args) > 0 {
-				c.addPath(e, append(c.getPath(args[0]), "@values"))
-				if resultSize == nil && args[0].Kind() == ast.MapKind {
-					resultSize = c.computeMapValueSize(argTypes[0])
+				if elemSize, ok := c.computedElemSizes[args[0].ID()]; ok {
+					resultSize = &elemSize
 				}
+				c.addPath(e, append(c.getPath(args[0]), "@values"))
 			}
+		}
+		if resultSize == nil {
+			resultSize = c.computeSize(e)
 		}
 	}
 	c.setSize(e, resultSize)
 	return sum.Add(fnCost)
-}
-
-func (c *coster) computeListItemSize(node AstNode) *SizeEstimate {
-	l := node.Expr().AsList()
-	size := SizeEstimate{Min: math.MaxUint64, Max: 0}
-	for _, e := range l.Elements() {
-		elemSize := computeExprSize(e)
-		if elemSize == nil {
-			return nil
-		}
-		size = size.Union(*elemSize)
-	}
-	return &size
-}
-
-func (c *coster) computeMapValueSize(node AstNode) *SizeEstimate {
-	l := node.Expr().AsMap()
-	size := SizeEstimate{Min: math.MaxUint64, Max: 0}
-	for _, e := range l.Entries() {
-		valueSize := computeExprSize(e.AsMapEntry().Value())
-		if valueSize == nil {
-			return nil
-		}
-		size = size.Union(*valueSize)
-	}
-	return &size
 }
 
 func (c *coster) maybeUnwrapDynCall(e ast.Expr) *CostEstimate {
@@ -561,20 +596,30 @@ func (c *coster) maybeUnwrapDynCall(e ast.Expr) *CostEstimate {
 func (c *coster) costCreateList(e ast.Expr) CostEstimate {
 	create := e.AsList()
 	var sum CostEstimate
+	itemSize := SizeEstimate{Min: math.MaxUint64, Max: 0}
 	for _, e := range create.Elements() {
 		sum = sum.Add(c.cost(e))
+		itemNode := c.newAstNode(e)
+		is := c.sizeEstimate(itemNode)
+		itemSize = itemSize.Union(is)
 	}
+	c.setElemSize(e, &itemSize)
 	return sum.Add(createListBaseCost)
 }
 
 func (c *coster) costCreateMap(e ast.Expr) CostEstimate {
 	mapVal := e.AsMap()
 	var sum CostEstimate
+	valueSize := SizeEstimate{Min: math.MaxUint64, Max: 0}
 	for _, ent := range mapVal.Entries() {
 		entry := ent.AsMapEntry()
 		sum = sum.Add(c.cost(entry.Key()))
 		sum = sum.Add(c.cost(entry.Value()))
+		valueNode := c.newAstNode(entry.Value())
+		vs := c.sizeEstimate(valueNode)
+		valueSize = valueSize.Union(vs)
 	}
+	c.setElemSize(e, &valueSize)
 	return sum.Add(createMapBaseCost)
 }
 
@@ -593,7 +638,7 @@ func (c *coster) costComprehension(e ast.Expr) CostEstimate {
 	var sum CostEstimate
 	sum = sum.Add(c.cost(comp.IterRange()))
 	sum = sum.Add(c.cost(comp.AccuInit()))
-	initSize := c.newAstNode(comp.AccuInit()).ComputedSize()
+	initSize := c.computeSize(comp.AccuInit())
 	c.localVars.push(comp.AccuVar(), comp.AccuInit(), initSize)
 
 	// Track the iterRange of each IterVar and AccuVar for field path construction
@@ -624,7 +669,7 @@ func (c *coster) costComprehension(e ast.Expr) CostEstimate {
 	sum = sum.Add(rangeCost)
 
 	if comp.AccuInit().Kind() == ast.LiteralKind {
-		c.setSize(e, computeExprSize(comp.AccuInit()))
+		c.setSize(e, c.computeSize(comp.AccuInit()))
 	} else {
 		c.setSize(e, &rangeCnt)
 	}
@@ -652,7 +697,7 @@ func (c *coster) costBind(e ast.Expr) CostEstimate {
 	c.popLocalVar(comp.AccuVar())
 
 	// Associate the bind output size with the result size.
-	if resultSize := c.findSize(comp.Result()); resultSize != nil {
+	if resultSize := c.computeSize(comp.Result()); resultSize != nil {
 		c.setSize(e, resultSize)
 	}
 	return sum
@@ -793,38 +838,6 @@ func (c *coster) functionCost(function, overloadID string, target *AstNode, args
 	return CallEstimate{CostEstimate: FixedCostEstimate(1).Add(argCostSum())}
 }
 
-func (c *coster) pushIterKey(varName string, e ast.Expr) {
-	c.iterVars.pushKey(varName, e, c.findSize(e))
-}
-
-func (c *coster) pushIterValue(varName string, e ast.Expr) {
-	c.iterVars.pushValue(varName, e, c.findSize(e))
-}
-
-func (c *coster) pushIterSingle(varName string, e ast.Expr) {
-	c.iterVars.pushSingle(varName, e, c.findSize(e))
-}
-
-func (c *coster) peekIterVar(varName string) (*iterVar, bool) {
-	return c.iterVars.peek(varName)
-}
-
-func (c *coster) popIterVar(varName string) {
-	c.iterVars.pop(varName)
-}
-
-func (c *coster) pushLocalVar(varName string, e ast.Expr) {
-	c.localVars.push(varName, e, c.findSize(e))
-}
-
-func (c *coster) peekLocalVar(varName string) (*localVar, bool) {
-	return c.localVars.peek(varName)
-}
-
-func (c *coster) popLocalVar(varName string) {
-	c.localVars.pop(varName)
-}
-
 func (c *coster) getTypeByID(id int64) *types.Type {
 	return c.checkedAST.GetType(id)
 }
@@ -834,7 +847,7 @@ func (c *coster) getType(e ast.Expr) *types.Type {
 }
 
 func (c *coster) getPathByID(id int64) []string {
-	return c.exprPath[id]
+	return c.exprPaths[id]
 }
 
 func (c *coster) getPath(e ast.Expr) []string {
@@ -845,13 +858,13 @@ func (c *coster) addPath(e ast.Expr, path []string) {
 	if len(path) == 1 {
 		name := path[0]
 		if iterVar, found := c.peekIterVar(name); found {
-			path = c.getPathByID(iterVar.id)
+			path = c.getPathByID(iterVar.rangeID)
 		}
 		if localVar, found := c.peekLocalVar(name); found {
 			path = c.getPathByID(localVar.id)
 		}
 	}
-	c.exprPath[e.ID()] = path
+	c.exprPaths[e.ID()] = path
 }
 
 func (c *coster) newAstNode(e ast.Expr) *astNode {
@@ -864,10 +877,10 @@ func (c *coster) newAstNode(e ast.Expr) *astNode {
 		path:        path,
 		t:           c.getType(e),
 		expr:        e,
-		derivedSize: c.findSize(e)}
+		derivedSize: c.computeSize(e)}
 }
 
-func (c *coster) findSize(e ast.Expr) *SizeEstimate {
+func (c *coster) computeSize(e ast.Expr) *SizeEstimate {
 	if size, ok := c.computedSizes[e.ID()]; ok {
 		return &size
 	}
@@ -909,9 +922,16 @@ func (c *coster) setSize(e ast.Expr, size *SizeEstimate) {
 	}
 }
 
-// EstimateSize computes the estimated size of the given AstNode using a combination of the
-// node's computed size or the estimator's assessment of the size. If no size can be established
-// the result is an `UnknownSizeEstimate`.
+func (c *coster) setElemSize(e ast.Expr, size *SizeEstimate) {
+	if size == nil {
+		return
+	}
+	c.computedElemSizes[e.ID()] = *size
+}
+
+// sizeEstimate computes the estimated size of the given AstNode using a combination of the node's
+// computed size or the estimator's assessment of the size. If no size can be established the
+// result is an `UnknownSizeEstimate`.
 func (c *coster) sizeEstimate(node AstNode) SizeEstimate {
 	if l := node.ComputedSize(); l != nil {
 		return *l

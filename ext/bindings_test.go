@@ -47,7 +47,7 @@ var bindingTests = []struct {
 		name: "multiple binds",
 		expr: `cel.bind(a, 'hello!',
 		       cel.bind(b, 'goodbye',
-				 a + ' and, ' + b)) == 'hello! and, goodbye'`,
+				a + ' and, ' + b)) == 'hello! and, goodbye'`,
 		estimatedCost: checker.CostEstimate{Min: 27, Max: 28},
 		actualCost:    28,
 	},

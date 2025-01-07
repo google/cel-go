@@ -738,8 +738,8 @@ func TestRuntimeCost(t *testing.T) {
 			options: []CostTrackerOption{
 				OverloadCostTracker(overloads.ContainsString,
 					func(args []ref.Val, result ref.Val) *uint64 {
-						strCost := uint64(math.Ceil(float64(ActualSize(args[0])) * 0.2))
-						substrCost := uint64(math.Ceil(float64(ActualSize(args[1])) * 0.2))
+						strCost := uint64(math.Ceil(float64(actualSize(args[0])) * 0.2))
+						substrCost := uint64(math.Ceil(float64(actualSize(args[1])) * 0.2))
 						cost := strCost * substrCost
 						return &cost
 					}),

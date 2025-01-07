@@ -40,7 +40,7 @@ func TestCost(t *testing.T) {
 	nestedMap := types.NewMapType(types.StringType, allMap)
 
 	zeroCost := CostEstimate{}
-	oneCost := CostEstimate{Min: 1, Max: 1}
+	oneCost := FixedCostEstimate(1)
 	cases := []struct {
 		name    string
 		expr    string
@@ -256,6 +256,11 @@ func TestCost(t *testing.T) {
 			wanted: oneCost,
 		},
 		{
+			name:   "bytes size",
+			expr:   `size(b"123")`,
+			wanted: oneCost,
+		},
+		{
 			name:   "bytes to string conversion",
 			vars:   []*decls.VariableDecl{decls.NewVariable("input", types.BytesType)},
 			hints:  map[string]uint64{"input": 500},
@@ -463,6 +468,36 @@ func TestCost(t *testing.T) {
 			wanted: CostEstimate{Min: 5, Max: 5},
 		},
 		{
+			name: "list size from concat",
+			expr: `([x, y] + list1 + list2).size()`,
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("x", types.IntType),
+				decls.NewVariable("y", types.IntType),
+				decls.NewVariable("list1", types.NewListType(types.IntType)),
+				decls.NewVariable("list2", types.NewListType(types.IntType)),
+			},
+			hints: map[string]uint64{
+				"list1": 10,
+				"list2": 20,
+			},
+			wanted: CostEstimate{Min: 17, Max: 17},
+		},
+		{
+			name: "list cost tracking through comprehension",
+			expr: `[list1, list2].exists(l, l.exists(v, v.startsWith('hi')))`,
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("list1", types.NewListType(types.StringType)),
+				decls.NewVariable("list2", types.NewListType(types.StringType)),
+			},
+			hints: map[string]uint64{
+				"list1":        10,
+				"list1.@items": 64,
+				"list2":        20,
+				"list2.@items": 128,
+			},
+			wanted: CostEstimate{Min: 21, Max: 265},
+		},
+		{
 			name: "str endsWith equality",
 			expr: `str1.endsWith("abcdefghijklmnopqrstuvwxyz") == str2.endsWith("abcdefghijklmnopqrstuvwxyz")`,
 			vars: []*decls.VariableDecl{
@@ -546,12 +581,12 @@ func TestCost(t *testing.T) {
 		{
 			name:   "comprehension on nested list",
 			expr:   `[1,2,3,4,5].map(x, [x, x]).all(y, y.all(y, y == 1))`,
-			wanted: CostEstimate{Min: 157, Max: 292},
+			wanted: CostEstimate{Min: 157, Max: 217},
 		},
 		{
 			name:   "comprehension on nested list of strings",
 			expr:   `["a", "ab", "abc", "abcd", "abcde"].map(x, [x, x]).all(y, y.all(y, y.startsWith('a')))`,
-			wanted: CostEstimate{Min: 157, Max: 292},
+			wanted: CostEstimate{Min: 157, Max: 217},
 		},
 		{
 			name: "comprehension on nested list of strings",
@@ -561,7 +596,7 @@ func TestCost(t *testing.T) {
 				"input":        5,
 				"input.@items": 10,
 			},
-			wanted: CostEstimate{Min: 13, Max: 283},
+			wanted: CostEstimate{Min: 13, Max: 208},
 		},
 		{
 			name:   "comprehension size",
