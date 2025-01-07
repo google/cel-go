@@ -88,7 +88,7 @@ type baseExprFactory struct {
 // NewExprFactory creates an ExprFactory instance.
 func NewExprFactory() ExprFactory {
 	return &baseExprFactory{
-		"__result__",
+		"@result",
 	}
 }
 

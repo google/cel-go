@@ -453,22 +453,22 @@ var testCases = []testInfo{
 			// Target
 			m^#1:*expr.Expr_IdentExpr#,
 			// Accumulator
-			__result__,
+			@result,
 			// Init
 			false^#5:*expr.Constant_BoolValue#,
 			// LoopCondition
 			@not_strictly_false(
                 !_(
-                  __result__^#6:*expr.Expr_IdentExpr#
+                  @result^#6:*expr.Expr_IdentExpr#
                 )^#7:*expr.Expr_CallExpr#
 			)^#8:*expr.Expr_CallExpr#,
 			// LoopStep
 			_||_(
-                __result__^#9:*expr.Expr_IdentExpr#,
+                @result^#9:*expr.Expr_IdentExpr#,
                 f^#4:*expr.Expr_IdentExpr#
 			)^#10:*expr.Expr_CallExpr#,
 			// Result
-			__result__^#11:*expr.Expr_IdentExpr#)^#12:*expr.Expr_ComprehensionExpr#`,
+			@result^#11:*expr.Expr_IdentExpr#)^#12:*expr.Expr_ComprehensionExpr#`,
 		M: `m^#1:*expr.Expr_IdentExpr#.exists(
 			v^#3:*expr.Expr_IdentExpr#,
 			f^#4:*expr.Expr_IdentExpr#
@@ -482,20 +482,20 @@ var testCases = []testInfo{
 			// Target
 			m^#1:*expr.Expr_IdentExpr#,
 			// Accumulator
-			__result__,
+			@result,
 			// Init
 			true^#5:*expr.Constant_BoolValue#,
 			// LoopCondition
 			@not_strictly_false(
-                __result__^#6:*expr.Expr_IdentExpr#
+                @result^#6:*expr.Expr_IdentExpr#
             )^#7:*expr.Expr_CallExpr#,
 			// LoopStep
 			_&&_(
-                __result__^#8:*expr.Expr_IdentExpr#,
+                @result^#8:*expr.Expr_IdentExpr#,
                 f^#4:*expr.Expr_IdentExpr#
             )^#9:*expr.Expr_CallExpr#,
 			// Result
-			__result__^#10:*expr.Expr_IdentExpr#)^#11:*expr.Expr_ComprehensionExpr#`,
+			@result^#10:*expr.Expr_IdentExpr#)^#11:*expr.Expr_ComprehensionExpr#`,
 		M: `m^#1:*expr.Expr_IdentExpr#.all(
 			v^#3:*expr.Expr_IdentExpr#,
 			f^#4:*expr.Expr_IdentExpr#
@@ -509,7 +509,7 @@ var testCases = []testInfo{
 			// Target
 			m^#1:*expr.Expr_IdentExpr#,
 			// Accumulator
-			__result__,
+			@result,
 			// Init
 			0^#5:*expr.Constant_Int64Value#,
 			// LoopCondition
@@ -518,14 +518,14 @@ var testCases = []testInfo{
 			_?_:_(
 				f^#4:*expr.Expr_IdentExpr#,
 				_+_(
-					  __result__^#7:*expr.Expr_IdentExpr#,
+					  @result^#7:*expr.Expr_IdentExpr#,
 				  1^#8:*expr.Constant_Int64Value#
 				)^#9:*expr.Expr_CallExpr#,
-				__result__^#10:*expr.Expr_IdentExpr#
+				@result^#10:*expr.Expr_IdentExpr#
 			)^#11:*expr.Expr_CallExpr#,
 			// Result
 			_==_(
-				__result__^#12:*expr.Expr_IdentExpr#,
+				@result^#12:*expr.Expr_IdentExpr#,
 				1^#13:*expr.Constant_Int64Value#
 			)^#14:*expr.Expr_CallExpr#)^#15:*expr.Expr_ComprehensionExpr#`,
 		M: `m^#1:*expr.Expr_IdentExpr#.existsOne(
@@ -547,20 +547,20 @@ var testCases = []testInfo{
 			// Target
 			m^#1:*expr.Expr_IdentExpr#,
 			// Accumulator
-			__result__,
+			@result,
 			// Init
 			[]^#5:*expr.Expr_ListExpr#,
 			// LoopCondition
 			true^#6:*expr.Constant_BoolValue#,
 			// LoopStep
 			_+_(
-				__result__^#7:*expr.Expr_IdentExpr#,
+				@result^#7:*expr.Expr_IdentExpr#,
 				[
 					f^#4:*expr.Expr_IdentExpr#
 				]^#8:*expr.Expr_ListExpr#
 			)^#9:*expr.Expr_CallExpr#,
 			// Result
-			__result__^#10:*expr.Expr_IdentExpr#)^#11:*expr.Expr_ComprehensionExpr#`,
+			@result^#10:*expr.Expr_IdentExpr#)^#11:*expr.Expr_ComprehensionExpr#`,
 		M: `m^#1:*expr.Expr_IdentExpr#.map(
 			v^#3:*expr.Expr_IdentExpr#,
 			f^#4:*expr.Expr_IdentExpr#
@@ -580,7 +580,7 @@ var testCases = []testInfo{
 			// Target
 			m^#1:*expr.Expr_IdentExpr#,
 			// Accumulator
-			__result__,
+			@result,
 			// Init
 			[]^#6:*expr.Expr_ListExpr#,
 			// LoopCondition
@@ -589,15 +589,15 @@ var testCases = []testInfo{
 			_?_:_(
 				p^#4:*expr.Expr_IdentExpr#,
 				_+_(
-					__result__^#8:*expr.Expr_IdentExpr#,
+					@result^#8:*expr.Expr_IdentExpr#,
 					[
 						f^#5:*expr.Expr_IdentExpr#
 					]^#9:*expr.Expr_ListExpr#
 				)^#10:*expr.Expr_CallExpr#,
-				__result__^#11:*expr.Expr_IdentExpr#
+				@result^#11:*expr.Expr_IdentExpr#
 			)^#12:*expr.Expr_CallExpr#,
 			// Result
-			__result__^#13:*expr.Expr_IdentExpr#)^#14:*expr.Expr_ComprehensionExpr#`,
+			@result^#13:*expr.Expr_IdentExpr#)^#14:*expr.Expr_ComprehensionExpr#`,
 		M: `m^#1:*expr.Expr_IdentExpr#.map(
 			v^#3:*expr.Expr_IdentExpr#,
 			p^#4:*expr.Expr_IdentExpr#,
@@ -613,7 +613,7 @@ var testCases = []testInfo{
 			// Target
 			m^#1:*expr.Expr_IdentExpr#,
 			// Accumulator
-			__result__,
+			@result,
 			// Init
 			[]^#5:*expr.Expr_ListExpr#,
 			// LoopCondition
@@ -622,15 +622,15 @@ var testCases = []testInfo{
 			_?_:_(
 				p^#4:*expr.Expr_IdentExpr#,
 				_+_(
-					__result__^#7:*expr.Expr_IdentExpr#,
+					@result^#7:*expr.Expr_IdentExpr#,
 					[
 						v^#3:*expr.Expr_IdentExpr#
 					]^#8:*expr.Expr_ListExpr#
 				)^#9:*expr.Expr_CallExpr#,
-				__result__^#10:*expr.Expr_IdentExpr#
+				@result^#10:*expr.Expr_IdentExpr#
 			)^#11:*expr.Expr_CallExpr#,
 			// Result
-			__result__^#12:*expr.Expr_IdentExpr#)^#13:*expr.Expr_ComprehensionExpr#`,
+			@result^#12:*expr.Expr_IdentExpr#)^#13:*expr.Expr_ComprehensionExpr#`,
 		M: `m^#1:*expr.Expr_IdentExpr#.filter(
 			v^#3:*expr.Expr_IdentExpr#,
 			p^#4:*expr.Expr_IdentExpr#
@@ -1318,7 +1318,7 @@ var testCases = []testInfo{
 			// Target
 			x^#1:*expr.Expr_IdentExpr#,
 			// Accumulator
-			__result__,
+			@result,
 			// Init
 			[]^#19:*expr.Expr_ListExpr#,
 			// LoopCondition
@@ -1331,7 +1331,7 @@ var testCases = []testInfo{
 				// Target
 				y^#4:*expr.Expr_IdentExpr#,
 				// Accumulator
-				__result__,
+				@result,
 				// Init
 				[]^#10:*expr.Expr_ListExpr#,
 				// LoopCondition
@@ -1343,25 +1343,25 @@ var testCases = []testInfo{
 					0^#9:*expr.Constant_Int64Value#
 				  )^#8:*expr.Expr_CallExpr#,
 				  _+_(
-					__result__^#12:*expr.Expr_IdentExpr#,
+					@result^#12:*expr.Expr_IdentExpr#,
 					[
 					  z^#6:*expr.Expr_IdentExpr#
 					]^#13:*expr.Expr_ListExpr#
 				  )^#14:*expr.Expr_CallExpr#,
-				  __result__^#15:*expr.Expr_IdentExpr#
+				  @result^#15:*expr.Expr_IdentExpr#
 				)^#16:*expr.Expr_CallExpr#,
 				// Result
-				__result__^#17:*expr.Expr_IdentExpr#)^#18:*expr.Expr_ComprehensionExpr#,
+				@result^#17:*expr.Expr_IdentExpr#)^#18:*expr.Expr_ComprehensionExpr#,
 			  _+_(
-				__result__^#21:*expr.Expr_IdentExpr#,
+				@result^#21:*expr.Expr_IdentExpr#,
 				[
 				  y^#3:*expr.Expr_IdentExpr#
 				]^#22:*expr.Expr_ListExpr#
 			  )^#23:*expr.Expr_CallExpr#,
-			  __result__^#24:*expr.Expr_IdentExpr#
+			  @result^#24:*expr.Expr_IdentExpr#
 			)^#25:*expr.Expr_CallExpr#,
 			// Result
-			__result__^#26:*expr.Expr_IdentExpr#)^#27:*expr.Expr_ComprehensionExpr#`,
+			@result^#26:*expr.Expr_IdentExpr#)^#27:*expr.Expr_ComprehensionExpr#`,
 		M: `x^#1:*expr.Expr_IdentExpr#.filter(
 			y^#3:*expr.Expr_IdentExpr#,
 			^#18:filter#
@@ -1382,7 +1382,7 @@ var testCases = []testInfo{
 			// Target
 			a^#2:*expr.Expr_IdentExpr#.b~test-only~^#4:*expr.Expr_SelectExpr#,
 			// Accumulator
-			__result__,
+			@result,
 			// Init
 			[]^#8:*expr.Expr_ListExpr#,
 			// LoopCondition
@@ -1391,15 +1391,15 @@ var testCases = []testInfo{
 			_?_:_(
 			  c^#7:*expr.Expr_IdentExpr#,
 			  _+_(
-				__result__^#10:*expr.Expr_IdentExpr#,
+				@result^#10:*expr.Expr_IdentExpr#,
 				[
 				  c^#6:*expr.Expr_IdentExpr#
 				]^#11:*expr.Expr_ListExpr#
 			  )^#12:*expr.Expr_CallExpr#,
-			  __result__^#13:*expr.Expr_IdentExpr#
+			  @result^#13:*expr.Expr_IdentExpr#
 			)^#14:*expr.Expr_CallExpr#,
 			// Result
-			__result__^#15:*expr.Expr_IdentExpr#)^#16:*expr.Expr_ComprehensionExpr#`,
+			@result^#15:*expr.Expr_IdentExpr#)^#16:*expr.Expr_ComprehensionExpr#`,
 		M: `^#4:has#.filter(
 			c^#6:*expr.Expr_IdentExpr#,
 			c^#7:*expr.Expr_IdentExpr#
@@ -1416,7 +1416,7 @@ var testCases = []testInfo{
 			// Target
 			x^#1:*expr.Expr_IdentExpr#,
 			// Accumulator
-			__result__,
+			@result,
 			// Init
 			[]^#35:*expr.Expr_ListExpr#,
 			// LoopCondition
@@ -1430,55 +1430,55 @@ var testCases = []testInfo{
 				  // Target
 				  y^#4:*expr.Expr_IdentExpr#,
 				  // Accumulator
-				  __result__,
+				  @result,
 				  // Init
 				  false^#11:*expr.Constant_BoolValue#,
 				  // LoopCondition
 				  @not_strictly_false(
 					!_(
-					  __result__^#12:*expr.Expr_IdentExpr#
+					  @result^#12:*expr.Expr_IdentExpr#
 					)^#13:*expr.Expr_CallExpr#
 				  )^#14:*expr.Expr_CallExpr#,
 				  // LoopStep
 				  _||_(
-					__result__^#15:*expr.Expr_IdentExpr#,
+					@result^#15:*expr.Expr_IdentExpr#,
 					z^#8:*expr.Expr_IdentExpr#.a~test-only~^#10:*expr.Expr_SelectExpr#
 				  )^#16:*expr.Expr_CallExpr#,
 				  // Result
-				  __result__^#17:*expr.Expr_IdentExpr#)^#18:*expr.Expr_ComprehensionExpr#,
+				  @result^#17:*expr.Expr_IdentExpr#)^#18:*expr.Expr_ComprehensionExpr#,
 				__comprehension__(
 				  // Variable
 				  z,
 				  // Target
 				  y^#19:*expr.Expr_IdentExpr#,
 				  // Accumulator
-				  __result__,
+				  @result,
 				  // Init
 				  false^#26:*expr.Constant_BoolValue#,
 				  // LoopCondition
 				  @not_strictly_false(
 					!_(
-					  __result__^#27:*expr.Expr_IdentExpr#
+					  @result^#27:*expr.Expr_IdentExpr#
 					)^#28:*expr.Expr_CallExpr#
 				  )^#29:*expr.Expr_CallExpr#,
 				  // LoopStep
 				  _||_(
-					__result__^#30:*expr.Expr_IdentExpr#,
+					@result^#30:*expr.Expr_IdentExpr#,
 					z^#23:*expr.Expr_IdentExpr#.b~test-only~^#25:*expr.Expr_SelectExpr#
 				  )^#31:*expr.Expr_CallExpr#,
 				  // Result
-				  __result__^#32:*expr.Expr_IdentExpr#)^#33:*expr.Expr_ComprehensionExpr#
+				  @result^#32:*expr.Expr_IdentExpr#)^#33:*expr.Expr_ComprehensionExpr#
 			  )^#34:*expr.Expr_CallExpr#,
 			  _+_(
-				__result__^#37:*expr.Expr_IdentExpr#,
+				@result^#37:*expr.Expr_IdentExpr#,
 				[
 				  y^#3:*expr.Expr_IdentExpr#
 				]^#38:*expr.Expr_ListExpr#
 			  )^#39:*expr.Expr_CallExpr#,
-			  __result__^#40:*expr.Expr_IdentExpr#
+			  @result^#40:*expr.Expr_IdentExpr#
 			)^#41:*expr.Expr_CallExpr#,
 			// Result
-			__result__^#42:*expr.Expr_IdentExpr#)^#43:*expr.Expr_ComprehensionExpr#`,
+			@result^#42:*expr.Expr_IdentExpr#)^#43:*expr.Expr_ComprehensionExpr#`,
 		M: `x^#1:*expr.Expr_IdentExpr#.filter(
 			y^#3:*expr.Expr_IdentExpr#,
 			_&&_(
@@ -1522,22 +1522,22 @@ var testCases = []testInfo{
 			// Target
 			a^#2:*expr.Expr_IdentExpr#.b~test-only~^#4:*expr.Expr_SelectExpr#.asList()^#5:*expr.Expr_CallExpr#,
 			// Accumulator
-			__result__,
+			@result,
 			// Init
 			false^#9:*expr.Constant_BoolValue#,
 			// LoopCondition
 			@not_strictly_false(
 			  !_(
-				__result__^#10:*expr.Expr_IdentExpr#
+				@result^#10:*expr.Expr_IdentExpr#
 			  )^#11:*expr.Expr_CallExpr#
 			)^#12:*expr.Expr_CallExpr#,
 			// LoopStep
 			_||_(
-			  __result__^#13:*expr.Expr_IdentExpr#,
+			  @result^#13:*expr.Expr_IdentExpr#,
 			  c^#8:*expr.Expr_IdentExpr#
 			)^#14:*expr.Expr_CallExpr#,
 			// Result
-			__result__^#15:*expr.Expr_IdentExpr#)^#16:*expr.Expr_ComprehensionExpr#`,
+			@result^#15:*expr.Expr_IdentExpr#)^#16:*expr.Expr_ComprehensionExpr#`,
 		M: `^#4:has#.asList()^#5:*expr.Expr_CallExpr#.exists(
 			c^#7:*expr.Expr_IdentExpr#,
 			c^#8:*expr.Expr_IdentExpr#
@@ -1557,22 +1557,22 @@ var testCases = []testInfo{
 			  c^#7:*expr.Expr_IdentExpr#.d~test-only~^#9:*expr.Expr_SelectExpr#
 			]^#1:*expr.Expr_ListExpr#,
 			// Accumulator
-			__result__,
+			@result,
 			// Init
 			false^#13:*expr.Constant_BoolValue#,
 			// LoopCondition
 			@not_strictly_false(
 			  !_(
-				__result__^#14:*expr.Expr_IdentExpr#
+				@result^#14:*expr.Expr_IdentExpr#
 			  )^#15:*expr.Expr_CallExpr#
 			)^#16:*expr.Expr_CallExpr#,
 			// LoopStep
 			_||_(
-			  __result__^#17:*expr.Expr_IdentExpr#,
+			  @result^#17:*expr.Expr_IdentExpr#,
 			  e^#12:*expr.Expr_IdentExpr#
 			)^#18:*expr.Expr_CallExpr#,
 			// Result
-			__result__^#19:*expr.Expr_IdentExpr#)^#20:*expr.Expr_ComprehensionExpr#`,
+			@result^#19:*expr.Expr_IdentExpr#)^#20:*expr.Expr_ComprehensionExpr#`,
 		M: `[
 			^#5:has#,
 			^#9:has#
@@ -1887,11 +1887,11 @@ var testCases = []testInfo{
          | '\udead' == '\ufffd'
          | ^`,
 	},
-	// Macro tests with new accumulator name
+	// Macro tests for old accumulator name
 	{
 		I: `m.exists(v, f)`,
 		Opts: []Option{
-			EnableHiddenAccumulatorName(true),
+			EnableHiddenAccumulatorName(false),
 		},
 		P: `__comprehension__(
 				// Variable
@@ -1899,22 +1899,22 @@ var testCases = []testInfo{
 				// Target
 				m^#1:*expr.Expr_IdentExpr#,
 				// Accumulator
-				@result,
+				__result__,
 				// Init
 				false^#5:*expr.Constant_BoolValue#,
 				// LoopCondition
 				@not_strictly_false(
 					!_(
-					  @result^#6:*expr.Expr_IdentExpr#
+					  __result__^#6:*expr.Expr_IdentExpr#
 					)^#7:*expr.Expr_CallExpr#
 				)^#8:*expr.Expr_CallExpr#,
 				// LoopStep
 				_||_(
-					@result^#9:*expr.Expr_IdentExpr#,
+					__result__^#9:*expr.Expr_IdentExpr#,
 					f^#4:*expr.Expr_IdentExpr#
 				)^#10:*expr.Expr_CallExpr#,
 				// Result
-				@result^#11:*expr.Expr_IdentExpr#)^#12:*expr.Expr_ComprehensionExpr#`,
+				__result__^#11:*expr.Expr_IdentExpr#)^#12:*expr.Expr_ComprehensionExpr#`,
 		M: `m^#1:*expr.Expr_IdentExpr#.exists(
 				v^#3:*expr.Expr_IdentExpr#,
 				f^#4:*expr.Expr_IdentExpr#
@@ -1923,7 +1923,7 @@ var testCases = []testInfo{
 	{
 		I: `m.all(v, f)`,
 		Opts: []Option{
-			EnableHiddenAccumulatorName(true),
+			EnableHiddenAccumulatorName(false),
 		},
 		P: `__comprehension__(
 				// Variable
@@ -1931,20 +1931,20 @@ var testCases = []testInfo{
 				// Target
 				m^#1:*expr.Expr_IdentExpr#,
 				// Accumulator
-				@result,
+				__result__,
 				// Init
 				true^#5:*expr.Constant_BoolValue#,
 				// LoopCondition
 				@not_strictly_false(
-					@result^#6:*expr.Expr_IdentExpr#
+					__result__^#6:*expr.Expr_IdentExpr#
 				)^#7:*expr.Expr_CallExpr#,
 				// LoopStep
 				_&&_(
-					@result^#8:*expr.Expr_IdentExpr#,
+					__result__^#8:*expr.Expr_IdentExpr#,
 					f^#4:*expr.Expr_IdentExpr#
 				)^#9:*expr.Expr_CallExpr#,
 				// Result
-				@result^#10:*expr.Expr_IdentExpr#)^#11:*expr.Expr_ComprehensionExpr#`,
+				__result__^#10:*expr.Expr_IdentExpr#)^#11:*expr.Expr_ComprehensionExpr#`,
 		M: `m^#1:*expr.Expr_IdentExpr#.all(
 				v^#3:*expr.Expr_IdentExpr#,
 				f^#4:*expr.Expr_IdentExpr#
@@ -1953,7 +1953,7 @@ var testCases = []testInfo{
 	{
 		I: `m.existsOne(v, f)`,
 		Opts: []Option{
-			EnableHiddenAccumulatorName(true),
+			EnableHiddenAccumulatorName(false),
 		},
 		P: `__comprehension__(
 				// Variable
@@ -1961,7 +1961,7 @@ var testCases = []testInfo{
 				// Target
 				m^#1:*expr.Expr_IdentExpr#,
 				// Accumulator
-				@result,
+				__result__,
 				// Init
 				0^#5:*expr.Constant_Int64Value#,
 				// LoopCondition
@@ -1970,14 +1970,14 @@ var testCases = []testInfo{
 				_?_:_(
 					f^#4:*expr.Expr_IdentExpr#,
 					_+_(
-						  @result^#7:*expr.Expr_IdentExpr#,
+						  __result__^#7:*expr.Expr_IdentExpr#,
 					  1^#8:*expr.Constant_Int64Value#
 					)^#9:*expr.Expr_CallExpr#,
-					@result^#10:*expr.Expr_IdentExpr#
+					__result__^#10:*expr.Expr_IdentExpr#
 				)^#11:*expr.Expr_CallExpr#,
 				// Result
 				_==_(
-					@result^#12:*expr.Expr_IdentExpr#,
+					__result__^#12:*expr.Expr_IdentExpr#,
 					1^#13:*expr.Constant_Int64Value#
 				)^#14:*expr.Expr_CallExpr#)^#15:*expr.Expr_ComprehensionExpr#`,
 		M: `m^#1:*expr.Expr_IdentExpr#.existsOne(
@@ -1988,7 +1988,7 @@ var testCases = []testInfo{
 	{
 		I: `m.map(v, f)`,
 		Opts: []Option{
-			EnableHiddenAccumulatorName(true),
+			EnableHiddenAccumulatorName(false),
 		},
 		P: `__comprehension__(
 				// Variable
@@ -1996,20 +1996,20 @@ var testCases = []testInfo{
 				// Target
 				m^#1:*expr.Expr_IdentExpr#,
 				// Accumulator
-				@result,
+				__result__,
 				// Init
 				[]^#5:*expr.Expr_ListExpr#,
 				// LoopCondition
 				true^#6:*expr.Constant_BoolValue#,
 				// LoopStep
 				_+_(
-					@result^#7:*expr.Expr_IdentExpr#,
+					__result__^#7:*expr.Expr_IdentExpr#,
 					[
 						f^#4:*expr.Expr_IdentExpr#
 					]^#8:*expr.Expr_ListExpr#
 				)^#9:*expr.Expr_CallExpr#,
 				// Result
-				@result^#10:*expr.Expr_IdentExpr#)^#11:*expr.Expr_ComprehensionExpr#`,
+				__result__^#10:*expr.Expr_IdentExpr#)^#11:*expr.Expr_ComprehensionExpr#`,
 		M: `m^#1:*expr.Expr_IdentExpr#.map(
 				v^#3:*expr.Expr_IdentExpr#,
 				f^#4:*expr.Expr_IdentExpr#
@@ -2018,7 +2018,7 @@ var testCases = []testInfo{
 	{
 		I: `m.map(v, p, f)`,
 		Opts: []Option{
-			EnableHiddenAccumulatorName(true),
+			EnableHiddenAccumulatorName(false),
 		},
 		P: `__comprehension__(
 				// Variable
@@ -2026,7 +2026,7 @@ var testCases = []testInfo{
 				// Target
 				m^#1:*expr.Expr_IdentExpr#,
 				// Accumulator
-				@result,
+				__result__,
 				// Init
 				[]^#6:*expr.Expr_ListExpr#,
 				// LoopCondition
@@ -2035,15 +2035,15 @@ var testCases = []testInfo{
 				_?_:_(
 					p^#4:*expr.Expr_IdentExpr#,
 					_+_(
-						@result^#8:*expr.Expr_IdentExpr#,
+						__result__^#8:*expr.Expr_IdentExpr#,
 						[
 							f^#5:*expr.Expr_IdentExpr#
 						]^#9:*expr.Expr_ListExpr#
 					)^#10:*expr.Expr_CallExpr#,
-					@result^#11:*expr.Expr_IdentExpr#
+					__result__^#11:*expr.Expr_IdentExpr#
 				)^#12:*expr.Expr_CallExpr#,
 				// Result
-				@result^#13:*expr.Expr_IdentExpr#)^#14:*expr.Expr_ComprehensionExpr#`,
+				__result__^#13:*expr.Expr_IdentExpr#)^#14:*expr.Expr_ComprehensionExpr#`,
 		M: `m^#1:*expr.Expr_IdentExpr#.map(
 				v^#3:*expr.Expr_IdentExpr#,
 				p^#4:*expr.Expr_IdentExpr#,
@@ -2054,7 +2054,7 @@ var testCases = []testInfo{
 	{
 		I: `m.filter(v, p)`,
 		Opts: []Option{
-			EnableHiddenAccumulatorName(true),
+			EnableHiddenAccumulatorName(false),
 		},
 		P: `__comprehension__(
 				// Variable
@@ -2062,7 +2062,7 @@ var testCases = []testInfo{
 				// Target
 				m^#1:*expr.Expr_IdentExpr#,
 				// Accumulator
-				@result,
+				__result__,
 				// Init
 				[]^#5:*expr.Expr_ListExpr#,
 				// LoopCondition
@@ -2071,56 +2071,19 @@ var testCases = []testInfo{
 				_?_:_(
 					p^#4:*expr.Expr_IdentExpr#,
 					_+_(
-						@result^#7:*expr.Expr_IdentExpr#,
+						__result__^#7:*expr.Expr_IdentExpr#,
 						[
 							v^#3:*expr.Expr_IdentExpr#
 						]^#8:*expr.Expr_ListExpr#
 					)^#9:*expr.Expr_CallExpr#,
-					@result^#10:*expr.Expr_IdentExpr#
+					__result__^#10:*expr.Expr_IdentExpr#
 				)^#11:*expr.Expr_CallExpr#,
 				// Result
-				@result^#12:*expr.Expr_IdentExpr#)^#13:*expr.Expr_ComprehensionExpr#`,
+				__result__^#12:*expr.Expr_IdentExpr#)^#13:*expr.Expr_ComprehensionExpr#`,
 		M: `m^#1:*expr.Expr_IdentExpr#.filter(
 				v^#3:*expr.Expr_IdentExpr#,
 				p^#4:*expr.Expr_IdentExpr#
 				  )^#13:filter#`,
-	},
-	// Preserve restriction on old accumulator var name for consistency until new name is defaulted.
-	{
-		I: `m.filter(__result__, false)`,
-		Opts: []Option{
-			EnableHiddenAccumulatorName(true),
-		},
-		E: `ERROR: <input>:1:10: iteration variable overwrites accumulator variable
-             | m.filter(__result__, false)
-             | .........^`,
-	},
-	{
-		I: `m.map(__result__, __result__)`,
-		Opts: []Option{
-			EnableHiddenAccumulatorName(true),
-		},
-		E: `ERROR: <input>:1:7: iteration variable overwrites accumulator variable
-             | m.map(__result__, __result__)
-             | ......^`,
-	},
-	{
-		I: `[].existsOne(__result__, __result__)`,
-		Opts: []Option{
-			EnableHiddenAccumulatorName(true),
-		},
-		E: `ERROR: <input>:1:14: iteration variable overwrites accumulator variable
-             | [].existsOne(__result__, __result__)
-             | .............^`,
-	},
-	{
-		I: `m.filter(a.b, false)`,
-		Opts: []Option{
-			EnableHiddenAccumulatorName(true),
-		},
-		E: `ERROR: <input>:1:11: argument is not an identifier
-				 | m.filter(a.b, false)
-				 | ..........^`,
 	},
 }
 
