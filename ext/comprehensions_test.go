@@ -621,7 +621,9 @@ func testCompreEnv(t *testing.T, opts ...cel.EnvOption) *cel.Env {
 		Lists(),
 		Strings(),
 		cel.OptionalTypes(),
-		cel.EnableMacroCallTracking()}
+		cel.EnableMacroCallTracking(),
+		cel.EnableHiddenAccumulatorName(true),
+	}
 	env, err := cel.NewEnv(append(baseOpts, opts...)...)
 	if err != nil {
 		t.Fatalf("cel.NewEnv(TwoVarComprehensions()) failed: %v", err)

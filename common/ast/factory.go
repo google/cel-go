@@ -43,6 +43,9 @@ type ExprFactory interface {
 	//comprehension.
 	NewAccuIdent(id int64) Expr
 
+	// AccuIdentName reports the name of the accumulator variable to be used within a comprehension.
+	AccuIdentName() string
+
 	// NewLiteral creates an Expr value representing a literal value, such as a string or integer.
 	NewLiteral(id int64, value ref.Val) Expr
 
@@ -78,11 +81,23 @@ type ExprFactory interface {
 	isExprFactory()
 }
 
-type baseExprFactory struct{}
+type baseExprFactory struct {
+	accumulatorName string
+}
 
 // NewExprFactory creates an ExprFactory instance.
 func NewExprFactory() ExprFactory {
-	return &baseExprFactory{}
+	return &baseExprFactory{
+		"__result__",
+	}
+}
+
+// NewExprFactoryWithAccumulator creates an ExprFactory instance with a custom
+// accumulator identifier name.
+func NewExprFactoryWithAccumulator(id string) ExprFactory {
+	return &baseExprFactory{
+		id,
+	}
 }
 
 func (fac *baseExprFactory) NewCall(id int64, function string, args ...Expr) Expr {
@@ -138,7 +153,11 @@ func (fac *baseExprFactory) NewIdent(id int64, name string) Expr {
 }
 
 func (fac *baseExprFactory) NewAccuIdent(id int64) Expr {
-	return fac.NewIdent(id, "__result__")
+	return fac.NewIdent(id, fac.AccuIdentName())
+}
+
+func (fac *baseExprFactory) AccuIdentName() string {
+	return fac.accumulatorName
 }
 
 func (fac *baseExprFactory) NewLiteral(id int64, value ref.Val) Expr {
