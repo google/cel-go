@@ -574,29 +574,34 @@ func TestCost(t *testing.T) {
 			wanted: CostEstimate{Min: 61, Max: 61},
 		},
 		{
-			name:   "nested array selection",
+			name:   "nested map selection",
 			expr:   `{'a': [1,2], 'b': [1,2], 'c': [1,2], 'd': [1,2], 'e': [1,2]}.b`,
 			wanted: CostEstimate{Min: 81, Max: 81},
 		},
 		{
 			name:   "comprehension on nested list",
+			expr:   `[[1, 1], [2, 2], [3, 3], [4, 4], [5, 5]].all(y, y.all(y, y == 1))`,
+			wanted: CostEstimate{Min: 76, Max: 136},
+		},
+		{
+			name:   "comprehension on transformed nested list",
 			expr:   `[1,2,3,4,5].map(x, [x, x]).all(y, y.all(y, y == 1))`,
-			wanted: CostEstimate{Min: 157, Max: 217},
+			wanted: CostEstimate{Min: 157, Max: 192},
 		},
 		{
-			name:   "comprehension on nested list of strings",
+			name:   "comprehension on nested literal list",
 			expr:   `["a", "ab", "abc", "abcd", "abcde"].map(x, [x, x]).all(y, y.all(y, y.startsWith('a')))`,
-			wanted: CostEstimate{Min: 157, Max: 217},
+			wanted: CostEstimate{Min: 157, Max: 192},
 		},
 		{
-			name: "comprehension on nested list of strings",
+			name: "comprehension on nested variable list",
 			expr: `input.map(x, [x, x]).all(y, y.all(y, y.startsWith('a')))`,
 			vars: []*decls.VariableDecl{decls.NewVariable("input", types.NewListType(types.StringType))},
 			hints: map[string]uint64{
 				"input":        5,
 				"input.@items": 10,
 			},
-			wanted: CostEstimate{Min: 13, Max: 208},
+			wanted: CostEstimate{Min: 13, Max: 183},
 		},
 		{
 			name:   "comprehension size",

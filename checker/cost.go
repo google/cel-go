@@ -277,7 +277,7 @@ func Cost(checked *ast.AST, estimator CostEstimator, opts ...CostOption) (CostEs
 		localVars:          make(scopes),
 		iterVars:           make(iterScopes),
 		computedSizes:      map[int64]SizeEstimate{},
-		computedElemSizes:  map[int64]SizeEstimate{},
+		computedEntrySizes: map[int64]entrySizeEstimate{},
 		presenceTestCost:   FixedCostEstimate(1),
 	}
 	for _, opt := range opts {
@@ -298,8 +298,8 @@ type coster struct {
 	localVars scopes
 	// computedSizes tracks the computed sizes of call results.
 	computedSizes map[int64]SizeEstimate
-	// computedElemSizes tracks the size of list and map elements
-	computedElemSizes map[int64]SizeEstimate
+	// computedEntrySizes tracks the size of list and map entries
+	computedEntrySizes map[int64]entrySizeEstimate
 
 	checkedAST         *ast.AST
 	estimator          CostEstimator
@@ -308,16 +308,53 @@ type coster struct {
 	presenceTestCost CostEstimate
 }
 
+// entrySizeEstimate captures the container kind and associated key/index and value SizeEstimate values.
+//
+// An entrySizeEstimate only exists if both the key/index and the value have SizeEstimate values, otherwise
+// a nil entrySizeEstimate should be used.
+type entrySizeEstimate struct {
+	containerKind types.Kind
+	key           SizeEstimate
+	val           SizeEstimate
+}
+
+// container returns the container kind (list or map) of the entry.
+func (s *entrySizeEstimate) container() types.Kind {
+	if s == nil {
+		return types.UnknownKind
+	}
+	return s.containerKind
+}
+
+// keySize returns the SizeEstimate for the key if one exists.
+func (s *entrySizeEstimate) keySize() *SizeEstimate {
+	if s == nil {
+		return nil
+	}
+	return &s.key
+}
+
+// valSize returns the SizeEstimate for the value if one exists.
+func (s *entrySizeEstimate) valSize() *SizeEstimate {
+	if s == nil {
+		return nil
+	}
+	return &s.val
+}
+
+// localVar captures the local variable size and entrySize estimates if they exist for variables
 type localVar struct {
-	id   int64
-	size *SizeEstimate
+	id        int64
+	path      []string
+	size      *SizeEstimate
+	entrySize *entrySizeEstimate
 }
 
 // scopes is a stack of variable name to integer id stack to handle scopes created by cel.bind() like macros
 type scopes map[string][]*localVar
 
-func (s scopes) push(varName string, expr ast.Expr, size *SizeEstimate) {
-	s[varName] = append(s[varName], &localVar{id: expr.ID(), size: size})
+func (s scopes) push(varName string, expr ast.Expr, size *SizeEstimate, entrySize *entrySizeEstimate) {
+	s[varName] = append(s[varName], &localVar{id: expr.ID(), size: size, entrySize: entrySize})
 }
 
 func (s scopes) pop(varName string) {
@@ -388,27 +425,15 @@ func (is iterScopes) peek(varName string) (*iterVar, bool) {
 	return nil, false
 }
 
-func (c *coster) pushIterKey(varName string, rangeExpr ast.Expr) {
-	var size *SizeEstimate
-	if sz, found := c.computedElemSizes[rangeExpr.ID()]; found {
-		size = &sz
-	}
+func (c *coster) pushIterKey(varName string, rangeExpr ast.Expr, size *SizeEstimate) {
 	c.iterVars.pushKey(varName, rangeExpr, size)
 }
 
-func (c *coster) pushIterValue(varName string, rangeExpr ast.Expr) {
-	var size *SizeEstimate
-	if sz, found := c.computedElemSizes[rangeExpr.ID()]; found {
-		size = &sz
-	}
+func (c *coster) pushIterValue(varName string, rangeExpr ast.Expr, size *SizeEstimate) {
 	c.iterVars.pushValue(varName, rangeExpr, size)
 }
 
-func (c *coster) pushIterSingle(varName string, rangeExpr ast.Expr) {
-	var size *SizeEstimate
-	if sz, found := c.computedElemSizes[rangeExpr.ID()]; found {
-		size = &sz
-	}
+func (c *coster) pushIterSingle(varName string, rangeExpr ast.Expr, size *SizeEstimate) {
 	c.iterVars.pushSingle(varName, rangeExpr, size)
 }
 
@@ -421,7 +446,8 @@ func (c *coster) popIterVar(varName string) {
 }
 
 func (c *coster) pushLocalVar(varName string, e ast.Expr) {
-	c.localVars.push(varName, e, c.computeSize(e))
+	entrySize := c.computeEntrySize(e)
+	c.localVars.push(varName, e, c.computeSize(e), entrySize)
 }
 
 func (c *coster) peekLocalVar(varName string) (*localVar, bool) {
@@ -511,7 +537,6 @@ func (c *coster) costSelect(e ast.Expr) CostEstimate {
 
 	// build and track the field path
 	c.addPath(e, append(c.getPath(sel.Operand()), sel.FieldName()))
-
 	return sum
 }
 
@@ -560,16 +585,12 @@ func (c *coster) costCall(e ast.Expr) CostEstimate {
 		switch overload {
 		case overloads.IndexList:
 			if len(args) > 0 {
-				if elemSize, ok := c.computedElemSizes[args[0].ID()]; ok {
-					resultSize = &elemSize
-				}
+				resultSize = c.computeEntrySize(args[0]).valSize()
 				c.addPath(e, append(c.getPath(args[0]), "@items"))
 			}
 		case overloads.IndexMap:
 			if len(args) > 0 {
-				if elemSize, ok := c.computedElemSizes[args[0].ID()]; ok {
-					resultSize = &elemSize
-				}
+				resultSize = c.computeEntrySize(args[0]).valSize()
 				c.addPath(e, append(c.getPath(args[0]), "@values"))
 			}
 		}
@@ -589,6 +610,9 @@ func (c *coster) maybeUnwrapDynCall(e ast.Expr) *CostEstimate {
 	arg := call.Args()[0]
 	argCost := c.cost(arg)
 	c.setSize(e, c.newAstNode(arg).ComputedSize())
+	if entrySize := c.computeEntrySize(arg); entrySize != nil {
+		c.setEntrySize(e, entrySize)
+	}
 	callCost := FixedCostEstimate(1).Add(argCost)
 	return &callCost
 }
@@ -597,29 +621,44 @@ func (c *coster) costCreateList(e ast.Expr) CostEstimate {
 	create := e.AsList()
 	var sum CostEstimate
 	itemSize := SizeEstimate{Min: math.MaxUint64, Max: 0}
+	if create.Size() == 0 {
+		itemSize.Min = 0
+	}
 	for _, e := range create.Elements() {
 		sum = sum.Add(c.cost(e))
 		itemNode := c.newAstNode(e)
 		is := c.sizeEstimate(itemNode)
 		itemSize = itemSize.Union(is)
 	}
-	c.setElemSize(e, &itemSize)
+	c.setEntrySize(e, &entrySizeEstimate{containerKind: types.ListKind, key: FixedSizeEstimate(1), val: itemSize})
 	return sum.Add(createListBaseCost)
 }
 
 func (c *coster) costCreateMap(e ast.Expr) CostEstimate {
 	mapVal := e.AsMap()
 	var sum CostEstimate
-	valueSize := SizeEstimate{Min: math.MaxUint64, Max: 0}
+	keySize := SizeEstimate{Min: math.MaxUint64, Max: 0}
+	valSize := SizeEstimate{Min: math.MaxUint64, Max: 0}
+	if mapVal.Size() == 0 {
+		valSize.Min = 0
+		keySize.Min = 0
+	}
 	for _, ent := range mapVal.Entries() {
 		entry := ent.AsMapEntry()
 		sum = sum.Add(c.cost(entry.Key()))
 		sum = sum.Add(c.cost(entry.Value()))
+
+		// Compute the key size range
+		keyNode := c.newAstNode(entry.Key())
+		ks := c.sizeEstimate(keyNode)
+		keySize = keySize.Union(ks)
+
+		// Compute the value size range
 		valueNode := c.newAstNode(entry.Value())
 		vs := c.sizeEstimate(valueNode)
-		valueSize = valueSize.Union(vs)
+		valSize = valSize.Union(vs)
 	}
-	c.setElemSize(e, &valueSize)
+	c.setEntrySize(e, &entrySizeEstimate{containerKind: types.MapKind, key: keySize, val: valSize})
 	return sum.Add(createMapBaseCost)
 }
 
@@ -639,19 +678,29 @@ func (c *coster) costComprehension(e ast.Expr) CostEstimate {
 	sum = sum.Add(c.cost(comp.IterRange()))
 	sum = sum.Add(c.cost(comp.AccuInit()))
 	initSize := c.computeSize(comp.AccuInit())
-	c.localVars.push(comp.AccuVar(), comp.AccuInit(), initSize)
+	initEntrySize := c.computeEntrySize(comp.AccuInit())
+	c.localVars.push(comp.AccuVar(), comp.AccuInit(), initSize, initEntrySize)
+	entrySize := c.computeEntrySize(comp.IterRange())
 
 	// Track the iterRange of each IterVar and AccuVar for field path construction
 	if comp.HasIterVar2() {
-		c.pushIterKey(comp.IterVar(), comp.IterRange())
-		c.pushIterValue(comp.IterVar2(), comp.IterRange())
+		c.pushIterKey(comp.IterVar(), comp.IterRange(), entrySize.keySize())
+		c.pushIterValue(comp.IterVar2(), comp.IterRange(), entrySize.valSize())
 	} else {
-		c.pushIterSingle(comp.IterVar(), comp.IterRange())
+		var sz *SizeEstimate
+		switch entrySize.container() {
+		case types.ListKind:
+			sz = entrySize.valSize()
+		case types.MapKind:
+			sz = entrySize.keySize()
+		}
+		c.pushIterSingle(comp.IterVar(), comp.IterRange(), sz)
 	}
 
 	// Determine the cost for each element in the loop
 	loopCost := c.cost(comp.LoopCondition())
 	stepCost := c.cost(comp.LoopStep())
+	stepSize := c.computeSize(comp.LoopStep())
 
 	// Clear the intermediate variable tracking.
 	c.popIterVar(comp.IterVar())
@@ -668,10 +717,22 @@ func (c *coster) costComprehension(e ast.Expr) CostEstimate {
 	rangeCost := rangeCnt.MultiplyByCost(stepCost.Add(loopCost))
 	sum = sum.Add(rangeCost)
 
-	if comp.AccuInit().Kind() == ast.LiteralKind {
+	switch k := comp.AccuInit().Kind(); k {
+	case ast.LiteralKind:
 		c.setSize(e, c.computeSize(comp.AccuInit()))
-	} else {
+	case ast.ListKind, ast.MapKind:
+		kind := types.ListKind
+		if k == ast.MapKind {
+			kind = types.MapKind
+		}
 		c.setSize(e, &rangeCnt)
+		if entrySize != nil && stepSize != nil {
+			c.setEntrySize(e, &entrySizeEstimate{
+				containerKind: kind,
+				key:           *entrySize.keySize(),
+				val:           *stepSize,
+			})
+		}
 	}
 	return sum
 }
@@ -699,6 +760,9 @@ func (c *coster) costBind(e ast.Expr) CostEstimate {
 	// Associate the bind output size with the result size.
 	if resultSize := c.computeSize(comp.Result()); resultSize != nil {
 		c.setSize(e, resultSize)
+	}
+	if entrySize := c.computeEntrySize(comp.Result()); entrySize != nil {
+		c.setEntrySize(e, entrySize)
 	}
 	return sum
 }
@@ -880,6 +944,43 @@ func (c *coster) newAstNode(e ast.Expr) *astNode {
 		derivedSize: c.computeSize(e)}
 }
 
+func (c *coster) setSize(e ast.Expr, size *SizeEstimate) {
+	if size == nil {
+		return
+	}
+	// Store the computed size with the expression
+	c.computedSizes[e.ID()] = *size
+	if e.Kind() != ast.IdentKind {
+		return
+	}
+	// If the expression is an identifier, then determine whether it's a local variable
+	// of some kind and store the size with the local variable for future accesses.
+	varName := e.AsIdent()
+	if localVar, ok := c.peekLocalVar(varName); ok {
+		localVar.size = size
+	}
+}
+
+func (c *coster) setEntrySize(e ast.Expr, size *entrySizeEstimate) {
+	if size == nil {
+		return
+	}
+	c.computedEntrySizes[e.ID()] = *size
+}
+
+// sizeEstimate computes the estimated size of the given AstNode using a combination of the node's
+// computed size or the estimator's assessment of the size. If no size can be established the
+// result is an `UnknownSizeEstimate`.
+func (c *coster) sizeEstimate(node AstNode) SizeEstimate {
+	if l := node.ComputedSize(); l != nil {
+		return *l
+	}
+	if size := c.estimator.EstimateSize(node); size != nil {
+		return *size
+	}
+	return UnknownSizeEstimate()
+}
+
 func (c *coster) computeSize(e ast.Expr) *SizeEstimate {
 	if size, ok := c.computedSizes[e.ID()]; ok {
 		return &size
@@ -902,44 +1003,54 @@ func (c *coster) computeSize(e ast.Expr) *SizeEstimate {
 	return nil
 }
 
-func (c *coster) setSize(e ast.Expr, size *SizeEstimate) {
-	if size == nil {
-		return
+func (c *coster) computeEntrySize(e ast.Expr) *entrySizeEstimate {
+	if sz, found := c.computedEntrySizes[e.ID()]; found {
+		return &sz
 	}
-	// Store the computed size with the expression
-	c.computedSizes[e.ID()] = *size
-	if e.Kind() != ast.IdentKind {
-		return
+	if e.Kind() == ast.IdentKind {
+		varName := e.AsIdent()
+		if localVar, ok := c.peekLocalVar(varName); ok {
+			return localVar.entrySize
+		}
 	}
-	// If the expression is an identifier, then determine whether it's a local variable
-	// of some kind and store the size with the local variable for future accesses.
-	varName := e.AsIdent()
-	if iterVar, ok := c.peekIterVar(varName); ok {
-		iterVar.size = size
+	path, found := c.exprPaths[e.ID()]
+	if !found {
+		return nil
 	}
-	if localVar, ok := c.peekLocalVar(varName); ok {
-		localVar.size = size
+	pathLen := len(path)
+	elemPath := make([]string, pathLen+1)
+	copy(elemPath, path)
+	entryNode := astNode{path: elemPath}
+	switch kind := c.getType(e).Kind(); kind {
+	case types.ListKind:
+		elemPath[pathLen] = "@items"
+		itemSize := c.estimator.EstimateSize(entryNode)
+		if itemSize == nil {
+			return nil
+		}
+		return &entrySizeEstimate{
+			containerKind: kind,
+			key:           FixedSizeEstimate(1),
+			val:           *itemSize,
+		}
+	case types.MapKind:
+		elemPath[pathLen] = "@keys"
+		keySize := c.estimator.EstimateSize(entryNode)
+		if keySize == nil {
+			return nil
+		}
+		elemPath[pathLen] = "@values"
+		valSize := c.estimator.EstimateSize(entryNode)
+		if valSize == nil {
+			return nil
+		}
+		return &entrySizeEstimate{
+			containerKind: kind,
+			key:           *keySize,
+			val:           *valSize,
+		}
 	}
-}
-
-func (c *coster) setElemSize(e ast.Expr, size *SizeEstimate) {
-	if size == nil {
-		return
-	}
-	c.computedElemSizes[e.ID()] = *size
-}
-
-// sizeEstimate computes the estimated size of the given AstNode using a combination of the node's
-// computed size or the estimator's assessment of the size. If no size can be established the
-// result is an `UnknownSizeEstimate`.
-func (c *coster) sizeEstimate(node AstNode) SizeEstimate {
-	if l := node.ComputedSize(); l != nil {
-		return *l
-	}
-	if size := c.estimator.EstimateSize(node); size != nil {
-		return *size
-	}
-	return UnknownSizeEstimate()
+	return nil
 }
 
 func computeExprSize(expr ast.Expr) *SizeEstimate {
