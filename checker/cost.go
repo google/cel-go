@@ -348,6 +348,19 @@ func (s *entrySizeEstimate) valSize() *SizeEstimate {
 	return &s.val
 }
 
+func (s *entrySizeEstimate) union(other *entrySizeEstimate) *entrySizeEstimate {
+	if s == nil || other == nil {
+		return nil
+	}
+	sk := s.key.Union(other.key)
+	sv := s.val.Union(other.val)
+	return &entrySizeEstimate{
+		containerKind: s.containerKind,
+		key:           sk,
+		val:           sv,
+	}
+}
+
 // localVar captures the local variable size and entrySize estimates if they exist for variables
 type localVar struct {
 	exprID    int64
@@ -385,8 +398,12 @@ func (c *coster) pushIterKey(varName string, rangeExpr ast.Expr) {
 	entrySize := c.computeEntrySize(rangeExpr)
 	size := entrySize.keySize()
 	path := c.getPath(rangeExpr)
+	container := entrySize.container()
+	if container == types.UnknownKind {
+		container = c.getType(rangeExpr).Kind()
+	}
 	subpath := "@keys"
-	if entrySize.container() == types.ListKind {
+	if container == types.ListKind {
 		subpath = "@indices"
 	}
 	c.localVars.push(varName, rangeExpr, append(path, subpath), size, nil)
@@ -394,10 +411,14 @@ func (c *coster) pushIterKey(varName string, rangeExpr ast.Expr) {
 
 func (c *coster) pushIterValue(varName string, rangeExpr ast.Expr) {
 	entrySize := c.computeEntrySize(rangeExpr)
-	size := entrySize.keySize()
+	size := entrySize.valSize()
 	path := c.getPath(rangeExpr)
+	container := entrySize.container()
+	if container == types.UnknownKind {
+		container = c.getType(rangeExpr).Kind()
+	}
 	subpath := "@values"
-	if entrySize.container() == types.ListKind {
+	if container == types.ListKind {
 		subpath = "@items"
 	}
 	c.localVars.push(varName, rangeExpr, append(path, subpath), size, nil)
@@ -407,7 +428,11 @@ func (c *coster) pushIterSingle(varName string, rangeExpr ast.Expr) {
 	entrySize := c.computeEntrySize(rangeExpr)
 	size := entrySize.keySize()
 	subpath := "@keys"
-	if entrySize.container() == types.ListKind {
+	container := entrySize.container()
+	if container == types.UnknownKind {
+		container = c.getType(rangeExpr).Kind()
+	}
+	if container == types.ListKind {
 		size = entrySize.valSize()
 		subpath = "@items"
 	}
@@ -417,6 +442,8 @@ func (c *coster) pushIterSingle(varName string, rangeExpr ast.Expr) {
 
 func (c *coster) pushLocalVar(varName string, e ast.Expr) {
 	path := c.getPath(e)
+	// note: retrieve the entry size for the local variable based on the size of the binding expression
+	// since the binding expression could be a list or map, the entry size should also be propagated
 	entrySize := c.computeEntrySize(e)
 	c.localVars.push(varName, e, path, c.computeSize(e), entrySize)
 }
@@ -527,7 +554,7 @@ func (c *coster) costCall(e ast.Expr) CostEstimate {
 	fnCost := CostEstimate{Min: uint64(math.MaxUint64), Max: 0}
 	var resultSize *SizeEstimate
 	for _, overload := range overloadIDs {
-		overloadCost := c.functionCost(call.FunctionName(), overload, &targetType, argTypes, argCosts)
+		overloadCost := c.functionCost(e, call.FunctionName(), overload, &targetType, argTypes, argCosts)
 		fnCost = fnCost.Union(overloadCost.CostEstimate)
 		if overloadCost.ResultSize != nil {
 			if resultSize == nil {
@@ -541,6 +568,7 @@ func (c *coster) costCall(e ast.Expr) CostEstimate {
 		switch overload {
 		case overloads.IndexList:
 			if len(args) > 0 {
+				// note: assigning resultSize here could be redundant with the path-based lookup later
 				resultSize = c.computeEntrySize(args[0]).valSize()
 				c.addPath(e, append(c.getPath(args[0]), "@items"))
 			}
@@ -565,10 +593,7 @@ func (c *coster) maybeUnwrapDynCall(e ast.Expr) *CostEstimate {
 	}
 	arg := call.Args()[0]
 	argCost := c.cost(arg)
-	c.setSize(e, c.computeSize(arg))
-	if entrySize := c.computeEntrySize(arg); entrySize != nil {
-		c.setEntrySize(e, entrySize)
-	}
+	c.copySizeEstimates(e, arg)
 	callCost := FixedCostEstimate(1).Add(argCost)
 	return &callCost
 }
@@ -582,8 +607,7 @@ func (c *coster) costCreateList(e ast.Expr) CostEstimate {
 	}
 	for _, e := range create.Elements() {
 		sum = sum.Add(c.cost(e))
-		itemNode := c.newAstNode(e)
-		is := c.sizeEstimate(itemNode)
+		is := c.sizeOrUnknown(e)
 		itemSize = itemSize.Union(is)
 	}
 	c.setEntrySize(e, &entrySizeEstimate{containerKind: types.ListKind, key: FixedSizeEstimate(1), val: itemSize})
@@ -603,15 +627,11 @@ func (c *coster) costCreateMap(e ast.Expr) CostEstimate {
 		entry := ent.AsMapEntry()
 		sum = sum.Add(c.cost(entry.Key()))
 		sum = sum.Add(c.cost(entry.Value()))
-
 		// Compute the key size range
-		keyNode := c.newAstNode(entry.Key())
-		ks := c.sizeEstimate(keyNode)
+		ks := c.sizeOrUnknown(entry.Key())
 		keySize = keySize.Union(ks)
-
 		// Compute the value size range
-		valueNode := c.newAstNode(entry.Value())
-		vs := c.sizeEstimate(valueNode)
+		vs := c.sizeOrUnknown(entry.Value())
 		valSize = valSize.Union(vs)
 	}
 	c.setEntrySize(e, &entrySizeEstimate{containerKind: types.MapKind, key: keySize, val: valSize})
@@ -634,7 +654,6 @@ func (c *coster) costComprehension(e ast.Expr) CostEstimate {
 	sum = sum.Add(c.cost(comp.IterRange()))
 	sum = sum.Add(c.cost(comp.AccuInit()))
 	c.pushLocalVar(comp.AccuVar(), comp.AccuInit())
-	entrySize := c.computeEntrySize(comp.IterRange())
 
 	// Track the iterRange of each IterVar and AccuVar for field path construction
 	if comp.HasIterVar2() {
@@ -647,7 +666,6 @@ func (c *coster) costComprehension(e ast.Expr) CostEstimate {
 	// Determine the cost for each element in the loop
 	loopCost := c.cost(comp.LoopCondition())
 	stepCost := c.cost(comp.LoopStep())
-	stepSize := c.computeSize(comp.LoopStep())
 
 	// Clear the intermediate variable tracking.
 	c.popLocalVar(comp.IterVar())
@@ -660,7 +678,7 @@ func (c *coster) costComprehension(e ast.Expr) CostEstimate {
 	c.localVars.pop(comp.AccuVar())
 
 	// Estimate the cost of the loop.
-	rangeCnt := c.sizeEstimate(c.newAstNode(comp.IterRange()))
+	rangeCnt := c.sizeOrUnknown(comp.IterRange())
 	rangeCost := rangeCnt.MultiplyByCost(stepCost.Add(loopCost))
 	sum = sum.Add(rangeCost)
 
@@ -668,17 +686,12 @@ func (c *coster) costComprehension(e ast.Expr) CostEstimate {
 	case ast.LiteralKind:
 		c.setSize(e, c.computeSize(comp.AccuInit()))
 	case ast.ListKind, ast.MapKind:
-		kind := types.MapKind
-		if k == ast.ListKind {
-			kind = types.ListKind
-		}
 		c.setSize(e, &rangeCnt)
-		if entrySize != nil && stepSize != nil {
-			c.setEntrySize(e, &entrySizeEstimate{
-				containerKind: kind,
-				key:           *entrySize.keySize(),
-				val:           *stepSize,
-			})
+		// For a step which produces a container value, it will have an entry size associated
+		// with its expression id.
+		if stepEntrySize := c.computeEntrySize(comp.LoopStep()); stepEntrySize != nil {
+			c.setEntrySize(e, stepEntrySize)
+			break
 		}
 	}
 	return sum
@@ -705,16 +718,11 @@ func (c *coster) costBind(e ast.Expr) CostEstimate {
 	c.popLocalVar(comp.AccuVar())
 
 	// Associate the bind output size with the result size.
-	if resultSize := c.computeSize(comp.Result()); resultSize != nil {
-		c.setSize(e, resultSize)
-	}
-	if entrySize := c.computeEntrySize(comp.Result()); entrySize != nil {
-		c.setEntrySize(e, entrySize)
-	}
+	c.copySizeEstimates(e, comp.Result())
 	return sum
 }
 
-func (c *coster) functionCost(function, overloadID string, target *AstNode, args []AstNode, argCosts []CostEstimate) CallEstimate {
+func (c *coster) functionCost(e ast.Expr, function, overloadID string, target *AstNode, args []AstNode, argCosts []CostEstimate) CallEstimate {
 	argCostSum := func() CostEstimate {
 		var sum CostEstimate
 		for _, a := range argCosts {
@@ -740,11 +748,11 @@ func (c *coster) functionCost(function, overloadID string, target *AstNode, args
 		if target != nil {
 			// ResultSize not calculated because we can't bound the max size.
 			return CallEstimate{
-				CostEstimate: c.sizeEstimate(*target).MultiplyByCostFactor(common.StringTraversalCostFactor).Add(argCostSum())}
+				CostEstimate: c.sizeOrUnknown(*target).MultiplyByCostFactor(common.StringTraversalCostFactor).Add(argCostSum())}
 		}
 	case overloads.StringToBytes:
 		if len(args) == 1 {
-			sz := c.sizeEstimate(args[0])
+			sz := c.sizeOrUnknown(args[0])
 			// ResultSize max is when each char converts to 4 bytes.
 			return CallEstimate{
 				CostEstimate: sz.MultiplyByCostFactor(common.StringTraversalCostFactor).Add(argCostSum()),
@@ -752,7 +760,7 @@ func (c *coster) functionCost(function, overloadID string, target *AstNode, args
 		}
 	case overloads.BytesToString:
 		if len(args) == 1 {
-			sz := c.sizeEstimate(args[0])
+			sz := c.sizeOrUnknown(args[0])
 			// ResultSize min is when 4 bytes convert to 1 char.
 			return CallEstimate{
 				CostEstimate: sz.MultiplyByCostFactor(common.StringTraversalCostFactor).Add(argCostSum()),
@@ -760,7 +768,7 @@ func (c *coster) functionCost(function, overloadID string, target *AstNode, args
 		}
 	case overloads.ExtQuoteString:
 		if len(args) == 1 {
-			sz := c.sizeEstimate(args[0])
+			sz := c.sizeOrUnknown(args[0])
 			// ResultSize max is when each char is escaped. 2 quote chars always added.
 			return CallEstimate{
 				CostEstimate: sz.MultiplyByCostFactor(common.StringTraversalCostFactor).Add(argCostSum()),
@@ -768,13 +776,13 @@ func (c *coster) functionCost(function, overloadID string, target *AstNode, args
 		}
 	case overloads.StartsWithString, overloads.EndsWithString:
 		if len(args) == 1 {
-			return CallEstimate{CostEstimate: c.sizeEstimate(args[0]).MultiplyByCostFactor(common.StringTraversalCostFactor).Add(argCostSum())}
+			return CallEstimate{CostEstimate: c.sizeOrUnknown(args[0]).MultiplyByCostFactor(common.StringTraversalCostFactor).Add(argCostSum())}
 		}
 	case overloads.InList:
 		// If a list is composed entirely of constant values this is O(1), but we don't account for that here.
 		// We just assume all list containment checks are O(n).
 		if len(args) == 2 {
-			return CallEstimate{CostEstimate: c.sizeEstimate(args[1]).MultiplyByCostFactor(1).Add(argCostSum())}
+			return CallEstimate{CostEstimate: c.sizeOrUnknown(args[1]).MultiplyByCostFactor(1).Add(argCostSum())}
 		}
 	// O(nm) functions
 	case overloads.MatchesString:
@@ -782,19 +790,19 @@ func (c *coster) functionCost(function, overloadID string, target *AstNode, args
 		if target != nil && len(args) == 1 {
 			// Add one to string length for purposes of cost calculation to prevent product of string and regex to be 0
 			// in case where string is empty but regex is still expensive.
-			strCost := c.sizeEstimate(*target).Add(SizeEstimate{Min: 1, Max: 1}).MultiplyByCostFactor(common.StringTraversalCostFactor)
+			strCost := c.sizeOrUnknown(*target).Add(SizeEstimate{Min: 1, Max: 1}).MultiplyByCostFactor(common.StringTraversalCostFactor)
 			// We don't know how many expressions are in the regex, just the string length (a huge
 			// improvement here would be to somehow get a count the number of expressions in the regex or
 			// how many states are in the regex state machine and use that to measure regex cost).
 			// For now, we're making a guess that each expression in a regex is typically at least 4 chars
 			// in length.
-			regexCost := c.sizeEstimate(args[0]).MultiplyByCostFactor(common.RegexStringLengthCostFactor)
+			regexCost := c.sizeOrUnknown(args[0]).MultiplyByCostFactor(common.RegexStringLengthCostFactor)
 			return CallEstimate{CostEstimate: strCost.Multiply(regexCost).Add(argCostSum())}
 		}
 	case overloads.ContainsString:
 		if target != nil && len(args) == 1 {
-			strCost := c.sizeEstimate(*target).MultiplyByCostFactor(common.StringTraversalCostFactor)
-			substrCost := c.sizeEstimate(args[0]).MultiplyByCostFactor(common.StringTraversalCostFactor)
+			strCost := c.sizeOrUnknown(*target).MultiplyByCostFactor(common.StringTraversalCostFactor)
+			substrCost := c.sizeOrUnknown(args[0]).MultiplyByCostFactor(common.StringTraversalCostFactor)
 			return CallEstimate{CostEstimate: strCost.Multiply(substrCost).Add(argCostSum())}
 		}
 	case overloads.LogicalOr, overloads.LogicalAnd:
@@ -804,7 +812,9 @@ func (c *coster) functionCost(function, overloadID string, target *AstNode, args
 		argCost := CostEstimate{Min: lhs.Min, Max: lhs.Add(rhs).Max}
 		return CallEstimate{CostEstimate: argCost}
 	case overloads.Conditional:
-		size := c.sizeEstimate(args[1]).Union(c.sizeEstimate(args[2]))
+		size := c.sizeOrUnknown(args[1]).Union(c.sizeOrUnknown(args[2]))
+		resultEntrySize := c.computeEntrySize(args[1].Expr()).union(c.computeEntrySize(args[2].Expr()))
+		c.setEntrySize(e, resultEntrySize)
 		conditionalCost := argCosts[0]
 		ifTrueCost := argCosts[1]
 		ifFalseCost := argCosts[2]
@@ -812,9 +822,15 @@ func (c *coster) functionCost(function, overloadID string, target *AstNode, args
 		return CallEstimate{CostEstimate: argCost, ResultSize: &size}
 	case overloads.AddString, overloads.AddBytes, overloads.AddList:
 		if len(args) == 2 {
-			lhsSize := c.sizeEstimate(args[0])
-			rhsSize := c.sizeEstimate(args[1])
+			lhsSize := c.sizeOrUnknown(args[0])
+			rhsSize := c.sizeOrUnknown(args[1])
 			resultSize := lhsSize.Add(rhsSize)
+			rhsEntrySize := c.computeEntrySize(args[0].Expr())
+			lhsEntrySize := c.computeEntrySize(args[1].Expr())
+			resultEntrySize := rhsEntrySize.union(lhsEntrySize)
+			if resultEntrySize != nil {
+				c.setEntrySize(e, resultEntrySize)
+			}
 			switch overloadID {
 			case overloads.AddList:
 				// list concatenation is O(1), but we handle it here to track size
@@ -826,8 +842,8 @@ func (c *coster) functionCost(function, overloadID string, target *AstNode, args
 	case overloads.LessString, overloads.GreaterString, overloads.LessEqualsString, overloads.GreaterEqualsString,
 		overloads.LessBytes, overloads.GreaterBytes, overloads.LessEqualsBytes, overloads.GreaterEqualsBytes,
 		overloads.Equals, overloads.NotEquals:
-		lhsCost := c.sizeEstimate(args[0])
-		rhsCost := c.sizeEstimate(args[1])
+		lhsCost := c.sizeOrUnknown(args[0])
+		rhsCost := c.sizeOrUnknown(args[1])
 		min := uint64(0)
 		smallestMax := lhsCost.Max
 		if rhsCost.Max < smallestMax {
@@ -849,29 +865,20 @@ func (c *coster) functionCost(function, overloadID string, target *AstNode, args
 	return CallEstimate{CostEstimate: FixedCostEstimate(1).Add(argCostSum())}
 }
 
-func (c *coster) getTypeByID(id int64) *types.Type {
-	return c.checkedAST.GetType(id)
-}
-
 func (c *coster) getType(e ast.Expr) *types.Type {
-	return c.getTypeByID(e.ID())
-}
-
-func (c *coster) getPathByID(id int64) []string {
-	return c.exprPaths[id][:]
+	return c.checkedAST.GetType(e.ID())
 }
 
 func (c *coster) getPath(e ast.Expr) []string {
-	return c.getPathByID(e.ID())
+	if e.Kind() == ast.IdentKind {
+		if v, found := c.peekLocalVar(e.AsIdent()); found {
+			return v.path[:]
+		}
+	}
+	return c.exprPaths[e.ID()][:]
 }
 
 func (c *coster) addPath(e ast.Expr, path []string) {
-	if len(path) == 1 {
-		name := path[0]
-		if v, found := c.peekLocalVar(name); found {
-			path = v.path
-		}
-	}
 	c.exprPaths[e.ID()] = path
 }
 
@@ -896,24 +903,23 @@ func (c *coster) setSize(e ast.Expr, size *SizeEstimate) {
 	c.computedSizes[e.ID()] = *size
 }
 
-func (c *coster) setEntrySize(e ast.Expr, size *entrySizeEstimate) {
-	if size == nil {
-		return
-	}
-	c.computedEntrySizes[e.ID()] = *size
-}
-
-// sizeEstimate computes the estimated size of the given AstNode using a combination of the node's
-// computed size or the estimator's assessment of the size. If no size can be established the
-// result is an `UnknownSizeEstimate`.
-func (c *coster) sizeEstimate(node AstNode) SizeEstimate {
-	if l := node.ComputedSize(); l != nil {
-		return *l
-	}
-	if size := c.estimator.EstimateSize(node); size != nil {
-		return *size
+func (c *coster) sizeOrUnknown(node any) SizeEstimate {
+	switch v := node.(type) {
+	case ast.Expr:
+		if sz := c.computeSize(v); sz != nil {
+			return *sz
+		}
+	case AstNode:
+		if sz := v.ComputedSize(); sz != nil {
+			return *sz
+		}
 	}
 	return UnknownSizeEstimate()
+}
+
+func (c *coster) copySizeEstimates(dst, src ast.Expr) {
+	c.setSize(dst, c.computeSize(src))
+	c.setEntrySize(dst, c.computeEntrySize(src))
 }
 
 func (c *coster) computeSize(e ast.Expr) *SizeEstimate {
@@ -928,11 +934,24 @@ func (c *coster) computeSize(e ast.Expr) *SizeEstimate {
 	}
 	if e.Kind() == ast.IdentKind {
 		varName := e.AsIdent()
-		if v, ok := c.peekLocalVar(varName); ok {
+		if v, ok := c.peekLocalVar(varName); ok && v.size != nil {
 			return v.size
 		}
 	}
+	node := astNode{expr: e, path: c.getPath(e), t: c.getType(e)}
+	if size := c.estimator.EstimateSize(node); size != nil {
+		// storing the computed size should reduce calls to EstimateSize()
+		c.computedSizes[e.ID()] = *size
+		return size
+	}
 	return nil
+}
+
+func (c *coster) setEntrySize(e ast.Expr, size *entrySizeEstimate) {
+	if size == nil {
+		return
+	}
+	c.computedEntrySizes[e.ID()] = *size
 }
 
 func (c *coster) computeEntrySize(e ast.Expr) *entrySizeEstimate {
@@ -941,52 +960,8 @@ func (c *coster) computeEntrySize(e ast.Expr) *entrySizeEstimate {
 	}
 	if e.Kind() == ast.IdentKind {
 		varName := e.AsIdent()
-		if v, ok := c.peekLocalVar(varName); ok {
+		if v, ok := c.peekLocalVar(varName); ok && v.entrySize != nil {
 			return v.entrySize
-		}
-	}
-	path, found := c.exprPaths[e.ID()]
-	if !found {
-		return nil
-	}
-	pathLen := len(path)
-	elemPath := make([]string, pathLen+1)
-	copy(elemPath, path)
-	entryNode := astNode{path: elemPath}
-	exprType := c.getType(e)
-	switch kind := exprType.Kind(); kind {
-	case types.ListKind:
-		entryNode.t = exprType.Parameters()[0]
-		elemPath[pathLen] = "@items"
-		itemSize := c.estimator.EstimateSize(entryNode)
-		if itemSize == nil {
-			return nil
-		}
-		return &entrySizeEstimate{
-			containerKind: kind,
-			key:           FixedSizeEstimate(1),
-			val:           *itemSize,
-		}
-	case types.MapKind:
-		entryNode.t = exprType.Parameters()[0]
-		elemPath[pathLen] = "@keys"
-		keySize := c.estimator.EstimateSize(entryNode)
-		entryNode.t = exprType.Parameters()[1]
-		elemPath[pathLen] = "@values"
-		valSize := c.estimator.EstimateSize(entryNode)
-		if keySize == nil && valSize == nil {
-			return nil
-		}
-		if keySize == nil {
-			keySize = &unknownSizeEstimate
-		}
-		if valSize == nil {
-			valSize = &unknownSizeEstimate
-		}
-		return &entrySizeEstimate{
-			containerKind: kind,
-			key:           *keySize,
-			val:           *valSize,
 		}
 	}
 	return nil

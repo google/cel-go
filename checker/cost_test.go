@@ -586,12 +586,12 @@ func TestCost(t *testing.T) {
 		{
 			name:   "comprehension on transformed nested list",
 			expr:   `[1,2,3,4,5].map(x, [x, x]).all(y, y.all(y, y == 1))`,
-			wanted: CostEstimate{Min: 157, Max: 192},
+			wanted: CostEstimate{Min: 157, Max: 217},
 		},
 		{
 			name:   "comprehension on nested literal list",
 			expr:   `["a", "ab", "abc", "abcd", "abcde"].map(x, [x, x]).all(y, y.all(y, y.startsWith('a')))`,
-			wanted: CostEstimate{Min: 157, Max: 192},
+			wanted: CostEstimate{Min: 157, Max: 217},
 		},
 		{
 			name: "comprehension on nested variable list",
@@ -601,10 +601,10 @@ func TestCost(t *testing.T) {
 				"input":        5,
 				"input.@items": 10,
 			},
-			wanted: CostEstimate{Min: 13, Max: 183},
+			wanted: CostEstimate{Min: 13, Max: 208},
 		},
 		{
-			name:   "comprehension size",
+			name:   "comprehension chaining with concat",
 			expr:   `[1,2,3,4,5].map(x, x).map(x, x) + [1]`,
 			wanted: CostEstimate{Min: 173, Max: 173},
 		},
