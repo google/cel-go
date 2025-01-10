@@ -28,15 +28,20 @@ import (
 
 // CostEstimator estimates the sizes of variable length input data and the costs of functions.
 type CostEstimator interface {
-	// EstimateSize returns a SizeEstimate for the given AstNode, or nil if
-	// the estimator has no estimate to provide. The size is equivalent to the result of the CEL `size()` function:
-	// length of strings and bytes, number of map entries or number of list items.
-	// EstimateSize is only called for AstNodes where
-	// CEL does not know the size; EstimateSize is not called for values defined inline in CEL where the size
-	// is already obvious to CEL.
+	// EstimateSize returns a SizeEstimate for the given AstNode, or nil if the estimator has no
+	// estimate to provide.
+	//
+	// The size is equivalent to the result of the CEL `size()` function:
+	//  * Number of unicode characters in a string
+	//  * Number of bytes in a sequence
+	//  * Number of map entries or number of list items.
+	//
+	// EstimateSize is only called for AstNodes where CEL does not know the size; EstimateSize is not
+	// called for values defined inline in CEL where the size is already obvious to CEL.
 	EstimateSize(element AstNode) *SizeEstimate
-	// EstimateCallCost returns the estimated cost of an invocation, or nil if
-	// the estimator has no estimate to provide.
+
+	// EstimateCallCost returns the estimated cost of an invocation, or nil if the estimator has no
+	// estimate to provide.
 	EstimateCallCost(function, overloadID string, target *AstNode, args []AstNode) *CallEstimate
 }
 
@@ -44,6 +49,7 @@ type CostEstimator interface {
 // The ResultSize should only be provided if the call results in a map, list, string or bytes.
 type CallEstimate struct {
 	CostEstimate
+
 	ResultSize *SizeEstimate
 }
 
@@ -53,10 +59,13 @@ type AstNode interface {
 	// represent type directly reachable from the provided type declarations.
 	// The first path element is a variable. All subsequent path elements are one of: field name, '@items', '@keys', '@values'.
 	Path() []string
+
 	// Type returns the deduced type of the AstNode.
 	Type() *types.Type
+
 	// Expr returns the expression of the AstNode.
 	Expr() ast.Expr
+
 	// ComputedSize returns a size estimate of the AstNode derived from information available in the CEL expression.
 	// For constants and inline list and map declarations, the exact size is returned. For concatenated list, strings
 	// and bytes, the size is derived from the size estimates of the operands. nil is returned if there is no
@@ -275,7 +284,6 @@ func Cost(checked *ast.AST, estimator CostEstimator, opts ...CostOption) (CostEs
 		overloadEstimators: map[string]FunctionEstimator{},
 		exprPaths:          map[int64][]string{},
 		localVars:          make(scopes),
-		iterVars:           make(iterScopes),
 		computedSizes:      map[int64]SizeEstimate{},
 		computedEntrySizes: map[int64]entrySizeEstimate{},
 		presenceTestCost:   FixedCostEstimate(1),
@@ -292,9 +300,7 @@ func Cost(checked *ast.AST, estimator CostEstimator, opts ...CostOption) (CostEs
 type coster struct {
 	// exprPaths maps from Expr Id to field path.
 	exprPaths map[int64][]string
-	// iterVars tracks the iterRange of each iterVar.
-	iterVars iterScopes
-	// localVars tracks the local variables possibly assigned during cel.bind()-like calls
+	// localVars tracks the local and iteration variables assigned during evaluation.
 	localVars scopes
 	// computedSizes tracks the computed sizes of call results.
 	computedSizes map[int64]SizeEstimate
@@ -344,7 +350,7 @@ func (s *entrySizeEstimate) valSize() *SizeEstimate {
 
 // localVar captures the local variable size and entrySize estimates if they exist for variables
 type localVar struct {
-	id        int64
+	exprID    int64
 	path      []string
 	size      *SizeEstimate
 	entrySize *entrySizeEstimate
@@ -353,8 +359,13 @@ type localVar struct {
 // scopes is a stack of variable name to integer id stack to handle scopes created by cel.bind() like macros
 type scopes map[string][]*localVar
 
-func (s scopes) push(varName string, expr ast.Expr, size *SizeEstimate, entrySize *entrySizeEstimate) {
-	s[varName] = append(s[varName], &localVar{id: expr.ID(), size: size, entrySize: entrySize})
+func (s scopes) push(varName string, expr ast.Expr, path []string, size *SizeEstimate, entrySize *entrySizeEstimate) {
+	s[varName] = append(s[varName], &localVar{
+		exprID:    expr.ID(),
+		path:      path,
+		size:      size,
+		entrySize: entrySize,
+	})
 }
 
 func (s scopes) pop(varName string) {
@@ -370,84 +381,44 @@ func (s scopes) peek(varName string) (*localVar, bool) {
 	return nil, false
 }
 
-// iterVarKind enumerates the different kinds of iteration variables
-type iterVarKind int
-
-const (
-	iterVarKindSingle = iota + 1
-	iterVarKindKey
-	iterVarKindValue
-)
-
-// iterVar indicates the iteration variable kind and the associated id
-type iterVar struct {
-	rangeID int64
-	kind    iterVarKind
-	size    *SizeEstimate
-}
-
-type iterScopes map[string][]*iterVar
-
-func (is iterScopes) pushSingle(varName string, rangeExpr ast.Expr, size *SizeEstimate) {
-	is[varName] = append(is[varName], &iterVar{
-		rangeID: rangeExpr.ID(),
-		kind:    iterVarKindSingle,
-		size:    size,
-	})
-}
-
-func (is iterScopes) pushKey(varName string, rangeExpr ast.Expr, size *SizeEstimate) {
-	is[varName] = append(is[varName], &iterVar{
-		rangeID: rangeExpr.ID(),
-		kind:    iterVarKindKey,
-		size:    size,
-	})
-}
-
-func (is iterScopes) pushValue(varName string, rangeExpr ast.Expr, size *SizeEstimate) {
-	is[varName] = append(is[varName], &iterVar{
-		rangeID: rangeExpr.ID(),
-		kind:    iterVarKindValue,
-		size:    size,
-	})
-}
-
-func (is iterScopes) pop(varName string) {
-	varStack := is[varName]
-	is[varName] = varStack[:len(varStack)-1]
-}
-
-func (is iterScopes) peek(varName string) (*iterVar, bool) {
-	varStack := is[varName]
-	if len(varStack) > 0 {
-		return varStack[len(varStack)-1], true
+func (c *coster) pushIterKey(varName string, rangeExpr ast.Expr) {
+	entrySize := c.computeEntrySize(rangeExpr)
+	size := entrySize.keySize()
+	path := c.getPath(rangeExpr)
+	subpath := "@keys"
+	if entrySize.container() == types.ListKind {
+		subpath = "@indices"
 	}
-	return nil, false
+	c.localVars.push(varName, rangeExpr, append(path, subpath), size, nil)
 }
 
-func (c *coster) pushIterKey(varName string, rangeExpr ast.Expr, size *SizeEstimate) {
-	c.iterVars.pushKey(varName, rangeExpr, size)
+func (c *coster) pushIterValue(varName string, rangeExpr ast.Expr) {
+	entrySize := c.computeEntrySize(rangeExpr)
+	size := entrySize.keySize()
+	path := c.getPath(rangeExpr)
+	subpath := "@values"
+	if entrySize.container() == types.ListKind {
+		subpath = "@items"
+	}
+	c.localVars.push(varName, rangeExpr, append(path, subpath), size, nil)
 }
 
-func (c *coster) pushIterValue(varName string, rangeExpr ast.Expr, size *SizeEstimate) {
-	c.iterVars.pushValue(varName, rangeExpr, size)
-}
-
-func (c *coster) pushIterSingle(varName string, rangeExpr ast.Expr, size *SizeEstimate) {
-	c.iterVars.pushSingle(varName, rangeExpr, size)
-}
-
-func (c *coster) peekIterVar(varName string) (*iterVar, bool) {
-	return c.iterVars.peek(varName)
-}
-
-func (c *coster) popIterVar(varName string) {
-	c.iterVars.pop(varName)
+func (c *coster) pushIterSingle(varName string, rangeExpr ast.Expr) {
+	entrySize := c.computeEntrySize(rangeExpr)
+	size := entrySize.keySize()
+	subpath := "@keys"
+	if entrySize.container() == types.ListKind {
+		size = entrySize.valSize()
+		subpath = "@items"
+	}
+	path := c.getPath(rangeExpr)
+	c.localVars.push(varName, rangeExpr, append(path, subpath), size, nil)
 }
 
 func (c *coster) pushLocalVar(varName string, e ast.Expr) {
+	path := c.getPath(e)
 	entrySize := c.computeEntrySize(e)
-	c.localVars.push(varName, e, c.computeSize(e), entrySize)
+	c.localVars.push(varName, e, path, c.computeSize(e), entrySize)
 }
 
 func (c *coster) peekLocalVar(varName string) (*localVar, bool) {
@@ -493,26 +464,11 @@ func (c *coster) cost(e ast.Expr) CostEstimate {
 func (c *coster) costIdent(e ast.Expr) CostEstimate {
 	identName := e.AsIdent()
 	// build and track the field path
-	if iterVar, ok := c.peekIterVar(identName); ok {
-		rangePath := c.exprPaths[iterVar.rangeID]
-		switch c.getTypeByID(iterVar.rangeID).Kind() {
-		case types.ListKind:
-			path := "@indices"
-			if iterVar.kind == iterVarKindValue || iterVar.kind == iterVarKindSingle {
-				path = "@items"
-			}
-			c.addPath(e, append(rangePath, path))
-		case types.MapKind:
-			path := "@keys"
-			if iterVar.kind == iterVarKindValue {
-				path = "@values"
-			}
-			c.addPath(e, append(rangePath, path))
-		}
+	if v, ok := c.peekLocalVar(identName); ok {
+		c.addPath(e, v.path)
 	} else {
 		c.addPath(e, []string{identName})
 	}
-
 	return selectAndIdentCost
 }
 
@@ -609,7 +565,7 @@ func (c *coster) maybeUnwrapDynCall(e ast.Expr) *CostEstimate {
 	}
 	arg := call.Args()[0]
 	argCost := c.cost(arg)
-	c.setSize(e, c.newAstNode(arg).ComputedSize())
+	c.setSize(e, c.computeSize(arg))
 	if entrySize := c.computeEntrySize(arg); entrySize != nil {
 		c.setEntrySize(e, entrySize)
 	}
@@ -677,24 +633,15 @@ func (c *coster) costComprehension(e ast.Expr) CostEstimate {
 	var sum CostEstimate
 	sum = sum.Add(c.cost(comp.IterRange()))
 	sum = sum.Add(c.cost(comp.AccuInit()))
-	initSize := c.computeSize(comp.AccuInit())
-	initEntrySize := c.computeEntrySize(comp.AccuInit())
-	c.localVars.push(comp.AccuVar(), comp.AccuInit(), initSize, initEntrySize)
+	c.pushLocalVar(comp.AccuVar(), comp.AccuInit())
 	entrySize := c.computeEntrySize(comp.IterRange())
 
 	// Track the iterRange of each IterVar and AccuVar for field path construction
 	if comp.HasIterVar2() {
-		c.pushIterKey(comp.IterVar(), comp.IterRange(), entrySize.keySize())
-		c.pushIterValue(comp.IterVar2(), comp.IterRange(), entrySize.valSize())
+		c.pushIterKey(comp.IterVar(), comp.IterRange())
+		c.pushIterValue(comp.IterVar2(), comp.IterRange())
 	} else {
-		var sz *SizeEstimate
-		switch entrySize.container() {
-		case types.ListKind:
-			sz = entrySize.valSize()
-		case types.MapKind:
-			sz = entrySize.keySize()
-		}
-		c.pushIterSingle(comp.IterVar(), comp.IterRange(), sz)
+		c.pushIterSingle(comp.IterVar(), comp.IterRange())
 	}
 
 	// Determine the cost for each element in the loop
@@ -703,9 +650,9 @@ func (c *coster) costComprehension(e ast.Expr) CostEstimate {
 	stepSize := c.computeSize(comp.LoopStep())
 
 	// Clear the intermediate variable tracking.
-	c.popIterVar(comp.IterVar())
+	c.popLocalVar(comp.IterVar())
 	if comp.HasIterVar2() {
-		c.popIterVar(comp.IterVar2())
+		c.popLocalVar(comp.IterVar2())
 	}
 
 	// Determine the result cost.
@@ -721,9 +668,9 @@ func (c *coster) costComprehension(e ast.Expr) CostEstimate {
 	case ast.LiteralKind:
 		c.setSize(e, c.computeSize(comp.AccuInit()))
 	case ast.ListKind, ast.MapKind:
-		kind := types.ListKind
-		if k == ast.MapKind {
-			kind = types.MapKind
+		kind := types.MapKind
+		if k == ast.ListKind {
+			kind = types.ListKind
 		}
 		c.setSize(e, &rangeCnt)
 		if entrySize != nil && stepSize != nil {
@@ -911,7 +858,7 @@ func (c *coster) getType(e ast.Expr) *types.Type {
 }
 
 func (c *coster) getPathByID(id int64) []string {
-	return c.exprPaths[id]
+	return c.exprPaths[id][:]
 }
 
 func (c *coster) getPath(e ast.Expr) []string {
@@ -921,11 +868,8 @@ func (c *coster) getPath(e ast.Expr) []string {
 func (c *coster) addPath(e ast.Expr, path []string) {
 	if len(path) == 1 {
 		name := path[0]
-		if iterVar, found := c.peekIterVar(name); found {
-			path = c.getPathByID(iterVar.rangeID)
-		}
-		if localVar, found := c.peekLocalVar(name); found {
-			path = c.getPathByID(localVar.id)
+		if v, found := c.peekLocalVar(name); found {
+			path = v.path
 		}
 	}
 	c.exprPaths[e.ID()] = path
@@ -950,15 +894,6 @@ func (c *coster) setSize(e ast.Expr, size *SizeEstimate) {
 	}
 	// Store the computed size with the expression
 	c.computedSizes[e.ID()] = *size
-	if e.Kind() != ast.IdentKind {
-		return
-	}
-	// If the expression is an identifier, then determine whether it's a local variable
-	// of some kind and store the size with the local variable for future accesses.
-	varName := e.AsIdent()
-	if localVar, ok := c.peekLocalVar(varName); ok {
-		localVar.size = size
-	}
 }
 
 func (c *coster) setEntrySize(e ast.Expr, size *entrySizeEstimate) {
@@ -993,11 +928,8 @@ func (c *coster) computeSize(e ast.Expr) *SizeEstimate {
 	}
 	if e.Kind() == ast.IdentKind {
 		varName := e.AsIdent()
-		if iterVar, ok := c.peekIterVar(varName); ok {
-			return iterVar.size
-		}
-		if localVar, ok := c.peekLocalVar(varName); ok {
-			return localVar.size
+		if v, ok := c.peekLocalVar(varName); ok {
+			return v.size
 		}
 	}
 	return nil
@@ -1009,8 +941,8 @@ func (c *coster) computeEntrySize(e ast.Expr) *entrySizeEstimate {
 	}
 	if e.Kind() == ast.IdentKind {
 		varName := e.AsIdent()
-		if localVar, ok := c.peekLocalVar(varName); ok {
-			return localVar.entrySize
+		if v, ok := c.peekLocalVar(varName); ok {
+			return v.entrySize
 		}
 	}
 	path, found := c.exprPaths[e.ID()]
@@ -1021,8 +953,10 @@ func (c *coster) computeEntrySize(e ast.Expr) *entrySizeEstimate {
 	elemPath := make([]string, pathLen+1)
 	copy(elemPath, path)
 	entryNode := astNode{path: elemPath}
-	switch kind := c.getType(e).Kind(); kind {
+	exprType := c.getType(e)
+	switch kind := exprType.Kind(); kind {
 	case types.ListKind:
+		entryNode.t = exprType.Parameters()[0]
 		elemPath[pathLen] = "@items"
 		itemSize := c.estimator.EstimateSize(entryNode)
 		if itemSize == nil {
@@ -1034,15 +968,20 @@ func (c *coster) computeEntrySize(e ast.Expr) *entrySizeEstimate {
 			val:           *itemSize,
 		}
 	case types.MapKind:
+		entryNode.t = exprType.Parameters()[0]
 		elemPath[pathLen] = "@keys"
 		keySize := c.estimator.EstimateSize(entryNode)
-		if keySize == nil {
-			return nil
-		}
+		entryNode.t = exprType.Parameters()[1]
 		elemPath[pathLen] = "@values"
 		valSize := c.estimator.EstimateSize(entryNode)
-		if valSize == nil {
+		if keySize == nil && valSize == nil {
 			return nil
+		}
+		if keySize == nil {
+			keySize = &unknownSizeEstimate
+		}
+		if valSize == nil {
+			valSize = &unknownSizeEstimate
 		}
 		return &entrySizeEstimate{
 			containerKind: kind,

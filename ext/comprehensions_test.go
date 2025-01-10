@@ -371,9 +371,6 @@ func TestTwoVarComprehensionsCost(t *testing.T) {
 
 	for _, tst := range tests {
 		tc := tst
-		if tc.name != "transformMap local bind" {
-			continue
-		}
 		t.Run(tc.name, func(t *testing.T) {
 			env := testCompreEnv(t, tc.vars...)
 			var asts []*cel.Ast
