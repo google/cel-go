@@ -167,7 +167,7 @@ func (p *parser) normalizeIdent(ctx gen.IEscapeIdentContext) (string, error) {
 		}
 		return unescapeIdent(ident.GetId().GetText())
 	}
-	return "", errors.New("Unsupported ident kind.")
+	return "", errors.New("unsupported ident kind")
 }
 
 // Parse converts a source input a parsed expression.

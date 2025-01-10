@@ -20,6 +20,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	"google.golang.org/protobuf/encoding/prototext"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 
 	valuepb "cel.dev/expr"
@@ -168,7 +169,7 @@ func exprValueToRefValue(adapter types.Adapter, ev *valuepb.ExprValue) (ref.Val,
 	return nil, errors.New("unknown ExprValue kind")
 }
 
-func diffType(want *valuepb.Type, t *cel.Type) (string, error) {
+func diffType(want proto.Message, t *cel.Type) (string, error) {
 	got, err := types.TypeToProto(t)
 	if err != nil {
 		return "", err
