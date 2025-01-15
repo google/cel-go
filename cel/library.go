@@ -15,6 +15,7 @@
 package cel
 
 import (
+	"fmt"
 	"math"
 	"strconv"
 	"strings"
@@ -35,6 +36,7 @@ const (
 	optMapMacro                = "optMap"
 	optFlatMapMacro            = "optFlatMap"
 	hasValueFunc               = "hasValue"
+	elideOptFunc               = "elideOpt"
 	optionalNoneFunc           = "optional.none"
 	optionalOfFunc             = "optional.of"
 	optionalOfNonZeroValueFunc = "optional.ofNonZeroValue"
@@ -281,6 +283,14 @@ func (stdLibrary) ProgramOptions() []ProgramOption {
 //
 // This is syntactic sugar for msg.elements[msg.elements.size()-1].
 
+// # ElideOpt
+//
+// Introduced in version: 2
+//
+// Returns a list of all the values that are not none in the input list of optional values.
+//
+// [optional.of(42), optional.none()].elideOpt() == [42]
+
 func OptionalTypes(opts ...OptionalTypesOption) EnvOption {
 	lib := &optionalLib{version: math.MaxUint32}
 	for _, opt := range opts {
@@ -324,6 +334,7 @@ func (lib *optionalLib) CompileOptions() []EnvOption {
 	optionalTypeV := OptionalType(paramTypeV)
 	listTypeV := ListType(paramTypeV)
 	mapTypeKV := MapType(paramTypeK, paramTypeV)
+	listOptionalTypeV := ListType(optionalTypeV)
 
 	opts := []EnvOption{
 		// Enable the optional syntax in the parser.
@@ -427,6 +438,25 @@ func (lib *optionalLib) CompileOptions() []EnvOption {
 				}),
 			),
 		))
+
+		opts = append(opts, Function(elideOptFunc,
+			MemberOverload("optional_elideOpt", []*Type{listOptionalTypeV}, listTypeV,
+				UnaryBinding(func(value ref.Val) ref.Val {
+					list := value.(traits.Lister)
+					var elidedList []ref.Val
+					iter := list.Iterator()
+					for iter.HasNext() == types.True {
+						val := iter.Next()
+						opt, isOpt := val.(*types.Optional)
+						if !isOpt {
+							return types.WrapErr(fmt.Errorf("value %v is not optional", val))
+						}
+						if opt.HasValue() {
+							elidedList = append(elidedList, opt.GetValue())
+						}
+					}
+					return types.DefaultTypeAdapter.NativeToValue(elidedList)
+				}))))
 	}
 
 	return opts
