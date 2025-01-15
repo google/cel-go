@@ -86,3 +86,10 @@ func TestEncoders(t *testing.T) {
 		})
 	}
 }
+
+func TestEncodersVersion(t *testing.T) {
+	_, err := cel.NewEnv(Encoders(EncodersVersion(0)))
+	if err != nil {
+		t.Fatalf("EncodersVersion(0) failed: %v", err)
+	}
+}

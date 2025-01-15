@@ -777,18 +777,9 @@ func TestMacroInterop(t *testing.T) {
 }
 
 func TestMacroModern(t *testing.T) {
-	existsOneMacro := ReceiverMacro("exists_one", 2,
-		func(mef MacroExprFactory, iterRange celast.Expr, args []celast.Expr) (celast.Expr, *Error) {
-			return parser.MakeExistsOne(mef, iterRange, args)
-		})
-	transformMacro := ReceiverMacro("transform", 2,
-		func(mef MacroExprFactory, iterRange celast.Expr, args []celast.Expr) (celast.Expr, *Error) {
-			return parser.MakeMap(mef, iterRange, args)
-		})
-	filterMacro := ReceiverMacro("filter", 2,
-		func(mef MacroExprFactory, iterRange celast.Expr, args []celast.Expr) (celast.Expr, *Error) {
-			return parser.MakeFilter(mef, iterRange, args)
-		})
+	existsOneMacro := ReceiverMacro("exists_one", 2, parser.MakeExistsOne)
+	transformMacro := ReceiverMacro("transform", 2, parser.MakeMap)
+	filterMacro := ReceiverMacro("filter", 2, parser.MakeFilter)
 	pairMacro := GlobalMacro("pair", 2,
 		func(mef MacroExprFactory, iterRange celast.Expr, args []celast.Expr) (celast.Expr, *Error) {
 			return mef.NewMap(mef.NewMapEntry(args[0], args[1], false)), nil
@@ -1159,39 +1150,80 @@ func TestResidualAstComplex(t *testing.T) {
 }
 
 func TestResidualAstMacros(t *testing.T) {
-	env := testEnv(t,
-		Variable("x", ListType(IntType)),
-		Variable("y", IntType),
-		EnableMacroCallTracking(),
-	)
-	unkVars, _ := PartialVars(map[string]any{"y": 11}, AttributePattern("x"))
-	ast, iss := env.Compile(`x.exists(i, i < 10) && [11, 12, 13].all(i, i in [y, 12, 13])`)
-	if iss.Err() != nil {
-		t.Fatalf("env.Compile() failed: %v", iss.Err())
+	tests := []struct {
+		env      *Env
+		in       map[string]any
+		unks     []*interpreter.AttributePattern
+		expr     string
+		residual string
+	}{
+		{
+			env: testEnv(t,
+				Variable("x", ListType(IntType)),
+				Variable("y", IntType),
+				EnableMacroCallTracking()),
+			in:       map[string]any{"y": 11},
+			unks:     []*interpreter.AttributePattern{AttributePattern("x")},
+			expr:     `x.exists(i, i < 10) && [11, 12, 13].all(i, i in [y, 12, 13])`,
+			residual: `x.exists(i, i < 10)`,
+		},
+		{
+			env: testEnv(t,
+				Variable("bar", MapType(StringType, DynType)),
+				Variable("foo", MapType(StringType, DynType)),
+				EnableMacroCallTracking()),
+			in: map[string]any{"foo": map[string]any{"a": "b"}},
+			unks: []*interpreter.AttributePattern{
+				AttributePattern("bar").QualString("baz").Wildcard(),
+			},
+			expr:     `foo.exists(t, t == bar.baz.x)`,
+			residual: `{"a": "b"}.exists(t, t == bar.baz.x)`,
+		},
 	}
-	prg, err := env.Program(ast,
-		EvalOptions(OptTrackState, OptPartialEval),
-	)
-	if err != nil {
-		t.Fatalf("env.Program() failed: %v", err)
+
+	for i, tst := range tests {
+		tc := tst
+		t.Run(fmt.Sprintf("[%d]", i), func(t *testing.T) {
+			env := tc.env
+			unkVars, err := PartialVars(tc.in, tc.unks...)
+			if err != nil {
+				t.Fatalf("PartialVars() failed: %v", err)
+			}
+			ast, iss := env.Compile(tc.expr)
+			if iss.Err() != nil {
+				t.Fatalf("env.Compile() failed: %v", iss.Err())
+			}
+			prg, err := env.Program(ast, EvalOptions(OptTrackState, OptPartialEval))
+			if err != nil {
+				t.Fatalf("env.Program() failed: %v", err)
+			}
+			out, det, err := prg.Eval(unkVars)
+			if !types.IsUnknown(out) {
+				t.Fatalf("got %v, expected unknown", out)
+			}
+			if err != nil {
+				t.Fatalf("prg.Eval() failed: %v", err)
+			}
+			residual, err := env.ResidualAst(ast, det)
+			if err != nil {
+				t.Fatalf("env.ResidualAst() failed: %v", err)
+			}
+			expr, err := AstToString(residual)
+			if err != nil {
+				t.Fatalf("AstToString() failed: %v", err)
+			}
+			if expr != tc.residual {
+				t.Errorf("got expr: %s, wanted %s", expr, tc.residual)
+			}
+		})
 	}
-	out, det, err := prg.Eval(unkVars)
-	if !types.IsUnknown(out) {
-		t.Fatalf("got %v, expected unknown", out)
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
-	residual, err := env.ResidualAst(ast, det)
-	if err != nil {
-		t.Fatal(err)
-	}
-	expr, err := AstToString(residual)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if expr != "x.exists(i, i < 10)" {
-		t.Errorf("got expr: %s, wanted x.exists(i, i < 10)", expr)
+}
+
+func TestResidualAstNil(t *testing.T) {
+	env := testEnv(t)
+	ast, err := env.ResidualAst(nil, nil)
+	if err == nil || !strings.Contains(err.Error(), "unsupported expr") {
+		t.Errorf("env.ResidualAst() got (%v, %v) wanted unsupported expr error", ast, err)
 	}
 }
 
@@ -1323,7 +1355,7 @@ func TestEnvExtensionIsolation(t *testing.T) {
 func TestVariadicLogicalOperators(t *testing.T) {
 	env := testEnv(t, variadicLogicalOperatorASTs())
 	ast, iss := env.Compile(
-		`(false || false || false || false || true) && 
+		`(false || false || false || false || true) &&
 		 (true && true && true && true && false)`)
 	if iss.Err() != nil {
 		t.Fatalf("Compile() failed: %v", iss.Err())
@@ -2130,6 +2162,53 @@ func TestParserRecursionLimit(t *testing.T) {
 	}
 }
 
+func TestQuotedFields(t *testing.T) {
+	testCases := []struct {
+		expr        string
+		errorSubstr string
+		out         ref.Val
+	}{
+		{
+			expr: "{'key-1': 64}.`key-1`",
+			out:  types.Int(64),
+		},
+		{
+			expr:        "{'key-1': 64}.`key-2`",
+			errorSubstr: "no such key: key-2",
+		},
+		{
+			expr: "has({'key-1': 64}.`key-1`)",
+			out:  types.True,
+		},
+		{
+			expr: "has({'key-1': 64}.`key-2`)",
+			out:  types.False,
+		},
+	}
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.expr, func(t *testing.T) {
+			env := testEnv(t, ParserRecursionLimit(10),
+				EnableIdentifierEscapeSyntax())
+			out, err := interpret(t, env,
+				tc.expr, map[string]any{})
+
+			if tc.errorSubstr != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.errorSubstr) {
+					t.Fatalf("prg.Eval() wanted error containing '%s' got %v", tc.errorSubstr, err)
+				}
+			}
+
+			if tc.out != nil {
+				if tc.out != out {
+					t.Errorf("prg.Eval() wanted %v got %v", tc.out, out)
+				}
+			}
+		})
+
+	}
+}
+
 func TestDynamicDispatch(t *testing.T) {
 	env := testEnv(t,
 		HomogeneousAggregateLiterals(),
@@ -2293,7 +2372,7 @@ func TestOptionalValuesCompile(t *testing.T) {
 			if iss.Err() != nil {
 				t.Fatalf("%v failed: %v", tc.expr, iss.Err())
 			}
-			for id, reference := range ast.impl.ReferenceMap() {
+			for id, reference := range ast.NativeRep().ReferenceMap() {
 				other, found := tc.references[id]
 				if !found {
 					t.Errorf("Compile(%v) expected reference %d: %v", tc.expr, id, reference)
@@ -2735,6 +2814,10 @@ func TestOptionalValuesEval(t *testing.T) {
 				RepeatedString: []string{"greetings", "world"},
 			},
 		},
+		{expr: `[].first()`, out: types.OptionalNone},
+		{expr: `['a','b','c'].first()`, out: types.OptionalOf(types.String("a"))},
+		{expr: `[].last()`, out: types.OptionalNone},
+		{expr: `[1, 2, 3].last()`, out: types.OptionalOf(types.Int(3))},
 	}
 
 	for i, tst := range tests {
@@ -2953,6 +3036,15 @@ func BenchmarkDynamicDispatch(b *testing.B) {
 			prgDyn.Eval(NoVars())
 		}
 	})
+}
+
+func TestAstProgramNilValue(t *testing.T) {
+	var ast *Ast = nil
+	env := testEnv(t)
+	prg, err := env.Program(ast)
+	if err == nil || !strings.Contains(err.Error(), "unsupported expr") {
+		t.Errorf("env.Program() got (%v,%v) wanted unsupported expr error", prg, err)
+	}
 }
 
 // TODO: ideally testCostEstimator and testRuntimeCostEstimator would be shared in a test fixtures package

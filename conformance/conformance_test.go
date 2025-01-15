@@ -20,9 +20,10 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	"google.golang.org/protobuf/encoding/prototext"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 
-	celpb "cel.dev/expr"
+	valuepb "cel.dev/expr"
 	test2pb "cel.dev/expr/conformance/proto2"
 	test3pb "cel.dev/expr/conformance/proto3"
 	testpb "cel.dev/expr/conformance/test"
@@ -125,11 +126,11 @@ func shouldSkipTest(s string) bool {
 	return false
 }
 
-func refValueToExprValue(res ref.Val) (*celpb.ExprValue, error) {
+func refValueToExprValue(res ref.Val) (*valuepb.ExprValue, error) {
 	if types.IsUnknown(res) {
-		return &celpb.ExprValue{
-			Kind: &celpb.ExprValue_Unknown{
-				Unknown: &celpb.UnknownSet{
+		return &valuepb.ExprValue{
+			Kind: &valuepb.ExprValue_Unknown{
+				Unknown: &valuepb.UnknownSet{
 					Exprs: res.Value().([]int64),
 				},
 			}}, nil
@@ -138,15 +139,15 @@ func refValueToExprValue(res ref.Val) (*celpb.ExprValue, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &celpb.ExprValue{
-		Kind: &celpb.ExprValue_Value{Value: v}}, nil
+	return &valuepb.ExprValue{
+		Kind: &valuepb.ExprValue_Value{Value: v}}, nil
 }
 
-func exprValueToRefValue(adapter types.Adapter, ev *celpb.ExprValue) (ref.Val, error) {
+func exprValueToRefValue(adapter types.Adapter, ev *valuepb.ExprValue) (ref.Val, error) {
 	switch ev.Kind.(type) {
-	case *celpb.ExprValue_Value:
+	case *valuepb.ExprValue_Value:
 		return cel.ProtoAsValue(adapter, ev.GetValue())
-	case *celpb.ExprValue_Error:
+	case *valuepb.ExprValue_Error:
 		// An error ExprValue is a repeated set of statuspb.Status
 		// messages, with no convention for the status details.
 		// To convert this to a types.Err, we need to convert
@@ -155,7 +156,7 @@ func exprValueToRefValue(adapter types.Adapter, ev *celpb.ExprValue) (ref.Val, e
 		// round-trip arbitrary ExprValue messages.
 		// TODO(jimlarson) make a convention for this.
 		return types.NewErr("XXX add details later"), nil
-	case *celpb.ExprValue_Unknown:
+	case *valuepb.ExprValue_Unknown:
 		var unk *types.Unknown
 		for _, id := range ev.GetUnknown().GetExprs() {
 			if unk == nil {
@@ -166,6 +167,23 @@ func exprValueToRefValue(adapter types.Adapter, ev *celpb.ExprValue) (ref.Val, e
 		return unk, nil
 	}
 	return nil, errors.New("unknown ExprValue kind")
+}
+
+func diffType(want proto.Message, t *cel.Type) (string, error) {
+	got, err := types.TypeToProto(t)
+	if err != nil {
+		return "", err
+	}
+	return cmp.Diff(want, got, protocmp.Transform()), nil
+
+}
+
+func diffValue(want *valuepb.Value, got *valuepb.ExprValue) string {
+	return cmp.Diff(
+		&valuepb.ExprValue{Kind: &valuepb.ExprValue_Value{Value: want}},
+		got,
+		protocmp.Transform(),
+		protocmp.SortRepeatedFields(&valuepb.MapValue{}, "entries"))
 }
 
 func conformanceTest(t *testing.T, name string, pb *testpb.SimpleTest) {
@@ -206,6 +224,16 @@ func conformanceTest(t *testing.T, name string, pb *testpb.SimpleTest) {
 			t.Fatal(err)
 		}
 	}
+	if pb.GetCheckOnly() {
+		m, ok := pb.GetResultMatcher().(*testpb.SimpleTest_TypedResult)
+		if !ok {
+			t.Fatalf("unexpected matcher kind for check only test: %T", pb.GetResultMatcher())
+		}
+		if diff, err := diffType(m.TypedResult.DeducedType, ast.OutputType()); err != nil || diff != "" {
+			t.Errorf("env.Check() output type err: %v (-want +got):\n%s", err, diff)
+		}
+		return
+	}
 	program, err := env.Program(ast)
 	if err != nil {
 		t.Fatal(err)
@@ -227,8 +255,22 @@ func conformanceTest(t *testing.T, name string, pb *testpb.SimpleTest) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if diff := cmp.Diff(&celpb.ExprValue{Kind: &celpb.ExprValue_Value{Value: m.Value}}, val, protocmp.Transform(), protocmp.SortRepeatedFields(&celpb.MapValue{}, "entries")); diff != "" {
+		if diff := diffValue(m.Value, val); diff != "" {
 			t.Errorf("program.Eval() diff (-want +got):\n%s", diff)
+		}
+	case *testpb.SimpleTest_TypedResult:
+		if err != nil {
+			t.Fatalf("program.Eval(): got %v, want nil", err)
+		}
+		val, err := refValueToExprValue(ret)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if diff := diffValue(m.TypedResult.Result, val); diff != "" {
+			t.Errorf("program.Eval() diff (-want +got):\n%s", diff)
+		}
+		if diff, err := diffType(m.TypedResult.DeducedType, ast.OutputType()); err != nil || diff != "" {
+			t.Errorf("env.Check() output type err: %v (-want +got):\n%s", err, diff)
 		}
 	case *testpb.SimpleTest_EvalError:
 		if err == nil && types.IsError(ret) {
@@ -267,8 +309,8 @@ func TestConformance(t *testing.T) {
 				name := fmt.Sprintf("%s/%s/%s", file.GetName(), section.GetName(), test.GetName())
 				if test.GetResultMatcher() == nil {
 					test.ResultMatcher = &testpb.SimpleTest_Value{
-						Value: &celpb.Value{
-							Kind: &celpb.Value_BoolValue{
+						Value: &valuepb.Value{
+							Kind: &valuepb.Value_BoolValue{
 								BoolValue: true,
 							},
 						},

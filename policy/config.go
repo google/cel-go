@@ -264,27 +264,30 @@ func (od *OverloadDecl) AsFunctionOption(baseEnv *cel.Env) (cel.FunctionOpt, err
 
 var extFactories = map[string]ExtensionFactory{
 	"bindings": func(version uint32) cel.EnvOption {
-		return ext.Bindings()
+		return ext.Bindings(ext.BindingsVersion(version))
 	},
 	"encoders": func(version uint32) cel.EnvOption {
-		return ext.Encoders()
+		return ext.Encoders(ext.EncodersVersion(version))
 	},
 	"lists": func(version uint32) cel.EnvOption {
-		return ext.Lists()
+		return ext.Lists(ext.ListsVersion(version))
 	},
 	"math": func(version uint32) cel.EnvOption {
-		return ext.Math()
+		return ext.Math(ext.MathVersion(version))
 	},
 	"optional": func(version uint32) cel.EnvOption {
 		return cel.OptionalTypes(cel.OptionalTypesVersion(version))
 	},
 	"protos": func(version uint32) cel.EnvOption {
-		return ext.Protos()
+		return ext.Protos(ext.ProtosVersion(version))
 	},
 	"sets": func(version uint32) cel.EnvOption {
-		return ext.Sets()
+		return ext.Sets(ext.SetsVersion(version))
 	},
 	"strings": func(version uint32) cel.EnvOption {
 		return ext.Strings(ext.StringsVersion(version))
+	},
+	"two-var-comprehensions": func(version uint32) cel.EnvOption {
+		return ext.TwoVarComprehensions(ext.TwoVarComprehensionsVersion(version))
 	},
 }

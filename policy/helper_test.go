@@ -57,9 +57,8 @@ var (
 	  ["us", "uk", "es"],
 	  {"us": false, "ru": false, "ir": false}],
 	  ((resource.origin in @index1 && !(resource.origin in @index0))
-	    ? optional.of({"banned": true}) : optional.none()).or(
-	      optional.of((resource.origin in @index0)
-	      ? {"banned": false} : {"banned": true})))`,
+	    ? optional.of({"banned": true}) : optional.none()).orValue(
+	     (resource.origin in @index0) ? {"banned": false} : {"banned": true}))`,
 		},
 		{
 			name: "nested_rule2",
@@ -85,6 +84,33 @@ var (
 	    ? {"banned": "restricted_region"} : {"banned": "bad_actor"})
 		: (!(resource.origin in @index0)
 		  ? optional.of({"banned": "unconfigured_region"}) : optional.none()))`,
+		},
+		{
+			name: "nested_rule4",
+			expr: `(x > 0) ? true : false`,
+		},
+		{
+			name: "nested_rule5",
+			expr: `
+	(x > 0)
+	  ? ((x > 2) ? optional.of(true) : optional.none())
+	  : ((x > 1)
+	    ? ((x >= 2) ? optional.of(true) : optional.none())
+		: optional.of(false))`,
+		},
+		{
+			name: "nested_rule6",
+			expr: `
+	((x > 2) ? optional.of(true) : optional.none())
+	  .orValue(((x > 3) ? optional.of(true) : optional.none())
+	  .orValue(false))`,
+		},
+		{
+			name: "nested_rule7",
+			expr: `
+	((x > 2) ? optional.of(true) : optional.none())
+	.or(((x > 3) ? optional.of(true) : optional.none())
+	.or((x > 1) ? optional.of(false) : optional.none()))`,
 		},
 		{
 			name: "context_pb",
@@ -118,12 +144,12 @@ var (
 	cel.@block([
 	  spec.labels,
 	  @index0.filter(l, !(l in resource.labels)),
-	  resource.labels.filter(l, l in @index0 && @index0[l] != resource.labels[l])],
-	(@index1.size() > 0)
-	  ? optional.of("missing one or more required labels: %s".format([@index1]))
-	  : ((@index2.size() > 0)
-	    ? optional.of("invalid values provided on one or more labels: %s".format([@index2]))
-		: optional.none()))`,
+	    resource.labels.transformList(l, value, l in @index0 && value != @index0[l], l)],
+      (@index1.size() > 0)
+	   ? optional.of("missing one or more required labels: %s".format([@index1]))
+	   : ((@index2.size() > 0)
+	     ? optional.of("invalid values provided on one or more labels: %s".format([@index2]))
+		 : optional.none()))`,
 		},
 		{
 			name: "restricted_destinations",
@@ -206,7 +232,7 @@ ERROR: testdata/errors/policy.yaml:38:75: Syntax error: extraneous input ']' exp
 ERROR: testdata/errors/policy.yaml:41:67: undeclared reference to 'format' (in container '')
  |         "invalid values provided on one or more labels: %s".format([variables.invalid])
  | ..................................................................^
-ERROR: testdata/errors/policy.yaml:45:16: incompatible output types: bool not assignable to string
+ERROR: testdata/errors/policy.yaml:45:16: incompatible output types: block has output type string, but previous outputs have type bool
  |       output: "'false'"
  | ...............^`,
 		},
@@ -232,6 +258,12 @@ ERROR: testdata/errors/policy.yaml:45:16: incompatible output types: bool not as
 ERROR: testdata/errors_unreachable/policy.yaml:36:13: match creates unreachable outputs
  |           - output: |
  | ............^`,
+		},
+		{
+			name: "nested_incompatible_outputs",
+			err: `ERROR: testdata/nested_incompatible_outputs/policy.yaml:22:9: incompatible output types: block has output type string, but previous outputs have type bool
+ |         match:
+ | ........^`,
 		},
 	}
 )

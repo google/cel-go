@@ -941,6 +941,13 @@ func TestNativeStructEmbedded(t *testing.T) {
 	}
 }
 
+func TestNativeTypesVersion(t *testing.T) {
+	_, err := cel.NewEnv(NativeTypes(NativeTypesVersion(0)))
+	if err != nil {
+		t.Fatalf("NewEnv(NativeTypes(NativeTypesVersion(0))) failed: %v", err)
+	}
+}
+
 // testEnv initializes the test environment common to all tests.
 func testNativeEnv(t *testing.T, opts ...any) *cel.Env {
 	t.Helper()

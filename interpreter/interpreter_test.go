@@ -1780,7 +1780,7 @@ func TestInterpreter_SetProto2PrimitiveFields(t *testing.T) {
 			types.NewObjectType("google.expr.proto2.test.TestAllTypes")))
 	checked, errors := checker.Check(parsed, src, env)
 	if len(errors.GetErrors()) != 0 {
-		t.Errorf(errors.ToDisplayString())
+		t.Error(errors.ToDisplayString())
 	}
 
 	attrs := NewAttributeFactory(cont, reg, reg)
@@ -1829,7 +1829,7 @@ func TestInterpreter_MissingIdentInSelect(t *testing.T) {
 	env.AddIdents(decls.NewVariable("a.b", types.DynType))
 	checked, errors := checker.Check(parsed, src, env)
 	if len(errors.GetErrors()) != 0 {
-		t.Fatalf(errors.ToDisplayString())
+		t.Fatal(errors.ToDisplayString())
 	}
 
 	attrs := NewPartialAttributeFactory(cont, reg, reg)
@@ -1885,7 +1885,7 @@ func TestInterpreter_TypeConversionOpt(t *testing.T) {
 		env := newTestEnv(t, cont, reg)
 		checked, errors := checker.Check(parsed, src, env)
 		if len(errors.GetErrors()) != 0 {
-			t.Fatalf(errors.ToDisplayString())
+			t.Fatal(errors.ToDisplayString())
 		}
 		attrs := NewAttributeFactory(cont, reg, reg)
 		interp := newStandardInterpreter(t, cont, reg, reg, attrs)

@@ -17,6 +17,7 @@ package parser
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -63,6 +64,15 @@ func Unparse(expr ast.Expr, info *ast.SourceInfo, opts ...UnparserOption) (strin
 		return "", err
 	}
 	return un.str.String(), nil
+}
+
+var identifierPartPattern *regexp.Regexp = regexp.MustCompile(`^[A-Za-z_][0-9A-Za-z_]*$`)
+
+func maybeQuoteField(field string) string {
+	if !identifierPartPattern.MatchString(field) || field == "in" {
+		return "`" + field + "`"
+	}
+	return field
 }
 
 // unparser visits an expression to reconstruct a human-readable string from an AST.
@@ -352,7 +362,7 @@ func (un *unparser) visitSelectInternal(operand ast.Expr, testOnly bool, op stri
 		return err
 	}
 	un.str.WriteString(op)
-	un.str.WriteString(field)
+	un.str.WriteString(maybeQuoteField(field))
 	if testOnly {
 		un.str.WriteString(")")
 	}
@@ -370,7 +380,7 @@ func (un *unparser) visitStructMsg(expr ast.Expr) error {
 		if field.IsOptional() {
 			un.str.WriteString("?")
 		}
-		un.str.WriteString(f)
+		un.str.WriteString(maybeQuoteField(f))
 		un.str.WriteString(": ")
 		v := field.Value()
 		err := un.visit(v)

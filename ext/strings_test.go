@@ -387,6 +387,12 @@ func TestStringsVersions(t *testing.T) {
 				"quote":  `strings.quote('\a \b "double quotes"') == '"\\a \\b \\"double quotes\\""'`,
 			},
 		},
+		{
+			version: 3,
+			supportedFunctions: map[string]string{
+				"reverse": "'taco'.reverse() == 'ocat'",
+			},
+		},
 	}
 	for _, lib := range versionCases {
 		env, err := cel.NewEnv(Strings(StringsVersion(lib.version)))
@@ -425,10 +431,6 @@ func TestStringsVersions(t *testing.T) {
 			}
 		})
 	}
-}
-
-func version(v uint32) *uint32 {
-	return &v
 }
 
 func TestStringsWithExtension(t *testing.T) {
@@ -536,6 +538,14 @@ func TestStringFormat(t *testing.T) {
 			expectedEstimatedCost: checker.CostEstimate{Min: 13, Max: 13},
 		},
 		{
+			name:                  "negative binary formatting clause",
+			format:                "this is -5 in binary: %b",
+			formatArgs:            "-5",
+			expectedOutput:        "this is -5 in binary: -101",
+			expectedRuntimeCost:   13,
+			expectedEstimatedCost: checker.CostEstimate{Min: 13, Max: 13},
+		},
+		{
 			name:                  "uint support for binary formatting",
 			format:                "unsigned 64 in binary: %b",
 			formatArgs:            "uint(64)",
@@ -560,6 +570,14 @@ func TestStringFormat(t *testing.T) {
 			expectedEstimatedCost: checker.CostEstimate{Min: 11, Max: 11},
 		},
 		{
+			name:                  "negative octal formatting clause",
+			format:                "%o",
+			formatArgs:            "-11",
+			expectedOutput:        "-13",
+			expectedRuntimeCost:   11,
+			expectedEstimatedCost: checker.CostEstimate{Min: 11, Max: 11},
+		},
+		{
 			name:                  "uint support for octal formatting clause",
 			format:                "this is an unsigned octal: %o",
 			formatArgs:            "uint(65535)",
@@ -569,9 +587,9 @@ func TestStringFormat(t *testing.T) {
 		},
 		{
 			name:                  "lowercase hexadecimal formatting clause",
-			format:                "%x is 20 in hexadecimal",
+			format:                "%x is 30 in hexadecimal",
 			formatArgs:            "30",
-			expectedOutput:        "1e is 20 in hexadecimal",
+			expectedOutput:        "1e is 30 in hexadecimal",
 			expectedRuntimeCost:   13,
 			expectedEstimatedCost: checker.CostEstimate{Min: 13, Max: 13},
 		},
@@ -580,6 +598,14 @@ func TestStringFormat(t *testing.T) {
 			format:                "%X is 20 in hexadecimal",
 			formatArgs:            "30",
 			expectedOutput:        "1E is 20 in hexadecimal",
+			expectedRuntimeCost:   13,
+			expectedEstimatedCost: checker.CostEstimate{Min: 13, Max: 13},
+		},
+		{
+			name:                  "negative hexadecimal formatting clause",
+			format:                "%x is -30 in hexadecimal",
+			formatArgs:            "-30",
+			expectedOutput:        "-1e is -30 in hexadecimal",
 			expectedRuntimeCost:   13,
 			expectedEstimatedCost: checker.CostEstimate{Min: 13, Max: 13},
 		},
@@ -612,6 +638,14 @@ func TestStringFormat(t *testing.T) {
 			format:                "%x",
 			formatArgs:            `b"byte string"`,
 			expectedOutput:        "6279746520737472696e67",
+			expectedRuntimeCost:   11,
+			expectedEstimatedCost: checker.CostEstimate{Min: 11, Max: 11},
+		},
+		{
+			name:                  "byte support with hexadecimal formatting clause leading zero",
+			format:                "%x",
+			formatArgs:            `b"\x00\x00byte string\x00"`,
+			expectedOutput:        "00006279746520737472696e6700",
 			expectedRuntimeCost:   11,
 			expectedEstimatedCost: checker.CostEstimate{Min: 11, Max: 11},
 		},
@@ -660,6 +694,42 @@ func TestStringFormat(t *testing.T) {
 			locale:                "en_US",
 		},
 		{
+			name:                  "default precision for string",
+			format:                "%s",
+			formatArgs:            "2.71",
+			expectedOutput:        "2.71",
+			expectedRuntimeCost:   11,
+			expectedEstimatedCost: checker.CostEstimate{Min: 11, Max: 11},
+			locale:                "en_US",
+		},
+		{
+			name:                  "default list precision for string",
+			format:                "%s",
+			formatArgs:            "[2.71]",
+			expectedOutput:        "[2.710000]",
+			expectedRuntimeCost:   21,
+			expectedEstimatedCost: checker.CostEstimate{Min: 21, Max: 21},
+			locale:                "en_US",
+		},
+		{
+			name:                  "default scientific notation for string",
+			format:                "%s",
+			formatArgs:            "0.000000002",
+			expectedOutput:        "2e-09",
+			expectedRuntimeCost:   11,
+			expectedEstimatedCost: checker.CostEstimate{Min: 11, Max: 11},
+			locale:                "en_US",
+		},
+		{
+			name:                  "default list scientific notation for string",
+			format:                "%s",
+			formatArgs:            "[0.000000002]",
+			expectedOutput:        "[0.000000]",
+			expectedRuntimeCost:   21,
+			expectedEstimatedCost: checker.CostEstimate{Min: 21, Max: 21},
+			locale:                "en_US",
+		},
+		{
 			name:                  "unicode output for scientific notation",
 			format:                "unescaped unicode: %e, escaped unicode: %e",
 			formatArgs:            "2.71828, 2.71828",
@@ -694,6 +764,30 @@ func TestStringFormat(t *testing.T) {
 			expectedRuntimeCost:   11,
 			expectedEstimatedCost: checker.CostEstimate{Min: 11, Max: 11},
 			locale:                "en_US",
+		},
+		{
+			name:           "NaN support for string",
+			format:         "%s",
+			formatArgs:     `double("NaN")`,
+			expectedOutput: "NaN",
+		},
+		{
+			name:           "positive infinity support for string",
+			format:         "%s",
+			formatArgs:     `double("Inf")`,
+			expectedOutput: "+Inf",
+		},
+		{
+			name:           "negative infinity support for string",
+			format:         "%s",
+			formatArgs:     `double("-Inf")`,
+			expectedOutput: "-Inf",
+		},
+		{
+			name:           "infinity list support for string",
+			format:         "%s",
+			formatArgs:     `[double("NaN"),double("+Inf"), double("-Inf")]`,
+			expectedOutput: `["NaN", "+Inf", "-Inf"]`,
 		},
 		{
 			name:                  "uint support for decimal clause",
@@ -748,6 +842,14 @@ func TestStringFormat(t *testing.T) {
 			format:                "%s",
 			formatArgs:            `duration("1h45m47s")`,
 			expectedOutput:        "6347s",
+			expectedRuntimeCost:   12,
+			expectedEstimatedCost: checker.CostEstimate{Min: 12, Max: 12},
+		},
+		{
+			name:                  "small duration support for string",
+			format:                "%s",
+			formatArgs:            `duration("2ns")`,
+			expectedOutput:        "0.000000002s",
 			expectedRuntimeCost:   12,
 			expectedEstimatedCost: checker.CostEstimate{Min: 12, Max: 12},
 		},

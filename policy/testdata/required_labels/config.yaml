@@ -17,6 +17,7 @@ extensions:
   - name: "bindings"
   - name: "strings"
     version: 2
+  - name: "two-var-comprehensions"
 variables:
   - name: "spec"
     type:

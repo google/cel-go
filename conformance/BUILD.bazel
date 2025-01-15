@@ -30,6 +30,7 @@ _ALL_TESTS = [
     "@dev_cel_expr//tests/simple:testdata/string.textproto",
     "@dev_cel_expr//tests/simple:testdata/string_ext.textproto",
     "@dev_cel_expr//tests/simple:testdata/timestamps.textproto",
+    "@dev_cel_expr//tests/simple:testdata/type_deduction.textproto",
     "@dev_cel_expr//tests/simple:testdata/unknowns.textproto",
     "@dev_cel_expr//tests/simple:testdata/wrappers.textproto",
     "@dev_cel_expr//tests/simple:testdata/block_ext.textproto",
@@ -81,6 +82,7 @@ go_test(
         "@io_bazel_rules_go//go/runfiles",
         "@org_golang_google_genproto_googleapis_api//expr/v1alpha1:go_default_library",
         "@org_golang_google_protobuf//encoding/prototext:go_default_library",
+        "@org_golang_google_protobuf//proto:go_default_library",
         "@org_golang_google_protobuf//testing/protocmp:go_default_library",
     ],
 )

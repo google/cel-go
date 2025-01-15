@@ -20,6 +20,8 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/interpreter"
 )
 
 func TestTwoVarComprehensions(t *testing.T) {
@@ -139,6 +141,9 @@ func TestTwoVarComprehensions(t *testing.T) {
 		{'Hello': 'world'}.transformList(k, v, "%s=%s".format([k.lowerAscii(), v])) == ["hello=world"]
 		`},
 		{expr: `
+		dyn({'Hello': 'world'}).transformList(k, v, "%s=%s".format([k.lowerAscii(), v])) == ["hello=world"]
+		`},
+		{expr: `
 		{'hello': 'world'}.transformList(k, v, k.startsWith('greeting'), "%s=%s".format([k, v])) == []
 		`},
 		{expr: `
@@ -152,6 +157,10 @@ func TestTwoVarComprehensions(t *testing.T) {
 		// map.transformMap()
 		{expr: `
 		{'hello': 'world', 'goodbye': 'cruel world'}.transformMap(k, v, "%s, %s!".format([k, v]))
+		   == {'hello': 'hello, world!', 'goodbye': 'goodbye, cruel world!'}
+		`},
+		{expr: `
+		dyn({'hello': 'world', 'goodbye': 'cruel world'}).transformMap(k, v, "%s, %s!".format([k, v]))
 		   == {'hello': 'hello, world!', 'goodbye': 'goodbye, cruel world!'}
 		`},
 		{expr: `
@@ -345,6 +354,265 @@ func TestTwoVarComprehensionsRuntimeErrors(t *testing.T) {
 	}
 }
 
+func TestTwoVarComprehensionsVersion(t *testing.T) {
+	_, err := cel.NewEnv(TwoVarComprehensions(TwoVarComprehensionsVersion(0)))
+	if err != nil {
+		t.Fatalf("TwoVarComprehensionVersion(0) failed: %v", err)
+	}
+}
+
+func TestTwoVarComprehensionsUnparse(t *testing.T) {
+	tests := []struct {
+		name     string
+		expr     string
+		unparsed string
+	}{
+		{
+			name:     "transform map entry",
+			expr:     `[0, 0u].transformMapEntry(i, v, {v: i})`,
+			unparsed: `[0, 0u].transformMapEntry(i, v, {v: i})`,
+		},
+		{
+			name:     "transform map",
+			expr:     `{'a': 'world', 'b': 'hello'}.transformMap(i, v, i == 'a' ? v.upperAscii() : v)`,
+			unparsed: `{"a": "world", "b": "hello"}.transformMap(i, v, (i == "a") ? v.upperAscii() : v)`,
+		},
+		{
+			name:     "transform list",
+			expr:     `[1.0, 2.0, 2.0].transformList(i, v, i / 2.0 == 1.0)`,
+			unparsed: `[1.0, 2.0, 2.0].transformList(i, v, i / 2.0 == 1.0)`,
+		},
+		{
+			name:     "existsOne",
+			expr:     `{'a': 'b', 'c': 'd'}.existsOne(k, v, k == 'b' || v == 'b')`,
+			unparsed: `{"a": "b", "c": "d"}.existsOne(k, v, k == "b" || v == "b")`,
+		},
+		{
+			name:     "exists",
+			expr:     `{'a': 'b', 'c': 'd'}.exists(k, v, k == 'b' || v == 'b')`,
+			unparsed: `{"a": "b", "c": "d"}.exists(k, v, k == "b" || v == "b")`,
+		},
+		{
+			name:     "all",
+			expr:     `[null, null, 'hello', string].all(i, v, i == 0 || type(v) != int)`,
+			unparsed: `[null, null, "hello", string].all(i, v, i == 0 || type(v) != int)`,
+		},
+	}
+	env := testCompreEnv(t)
+	for _, tst := range tests {
+		tc := tst
+		t.Run(tc.name, func(t *testing.T) {
+			ast, iss := env.Parse(tc.expr)
+			if iss.Err() != nil {
+				t.Fatalf("env.Parse(%q) failed: %v", tc.expr, iss.Err())
+			}
+			unparsed, err := cel.AstToString(ast)
+			if err != nil {
+				t.Fatalf("cel.AstToString() failed: %v", err)
+			}
+			if unparsed != tc.unparsed {
+				t.Errorf("cel.AstToString() got %q, wanted %q", unparsed, tc.unparsed)
+			}
+		})
+	}
+}
+
+func TestTwoVarComprehensionsResidualAST(t *testing.T) {
+	tests := []struct {
+		name     string
+		in       map[string]any
+		varOpts  []cel.EnvOption
+		unks     []*interpreter.AttributePattern
+		expr     string
+		residual string
+	}{
+		{
+			name: "transform map entry residual compare",
+			varOpts: []cel.EnvOption{
+				cel.Variable("x", cel.ListType(cel.DynType)),
+				cel.Variable("y", cel.IntType),
+			},
+			in: map[string]any{
+				"x": []any{0, uint(1)},
+			},
+			unks:     []*interpreter.AttributePattern{cel.AttributePattern("y")},
+			expr:     `x.transformMapEntry(i, v, {v: i}).size() < y`,
+			residual: `2 < y`,
+		},
+		{
+			name: "transform map entry residual transform",
+			varOpts: []cel.EnvOption{
+				cel.Variable("x", cel.ListType(cel.DynType)),
+				cel.Variable("y", cel.IntType),
+			},
+			in: map[string]any{
+				"x": []any{0, uint(1)},
+			},
+			unks:     []*interpreter.AttributePattern{cel.AttributePattern("y")},
+			expr:     `x.transformMapEntry(i, v, i < y, {v: i})`,
+			residual: `[0, 1u].transformMapEntry(i, v, i < y, {v: i})`,
+		},
+		{
+			name: "nested exists unknown inner range",
+			varOpts: []cel.EnvOption{
+				cel.Variable("x", cel.ListType(cel.IntType)),
+				cel.Variable("y", cel.MapType(cel.IntType, cel.DynType)),
+			},
+			in: map[string]any{
+				"x": []any{1, 2, 3},
+			},
+			unks:     []*interpreter.AttributePattern{cel.AttributePattern("y")},
+			expr:     `x.exists(val, y.exists(key, _, key == val))`,
+			residual: `[1, 2, 3].exists(val, y.exists(key, _, key == val))`,
+		},
+		{
+			name: "nested exists unknown inner range",
+			varOpts: []cel.EnvOption{
+				cel.Variable("x", cel.ListType(cel.IntType)),
+				cel.Variable("y", cel.MapType(cel.IntType, cel.DynType)),
+			},
+			in: map[string]any{
+				"y": map[int]string{1: "hi", 2: "hello", 3: "howdy"},
+			},
+			unks:     []*interpreter.AttributePattern{cel.AttributePattern("x")},
+			expr:     `x.exists(val, y.exists(key, _, key == val))`,
+			residual: `x.exists(val, y.exists(key, _, key == val))`,
+		},
+		{
+			name: "nested exists unknown outer range with extra predicate",
+			varOpts: []cel.EnvOption{
+				cel.Variable("x", cel.ListType(cel.IntType)),
+				cel.Variable("y", cel.MapType(cel.IntType, cel.DynType)),
+			},
+			in: map[string]any{
+				"y": map[int]string{1: "hi", 2: "hello", 3: "howdy"},
+			},
+			unks:     []*interpreter.AttributePattern{cel.AttributePattern("x")},
+			expr:     `x.exists(val, y.exists(key, _, key == val)) && y.all(key, val, val.startsWith('h'))`,
+			residual: `x.exists(val, y.exists(key, _, key == val))`,
+		},
+		{
+			name: "nested exists partial unknown outer range",
+			varOpts: []cel.EnvOption{
+				cel.Variable("x", cel.ListType(cel.IntType)),
+				cel.Variable("y", cel.MapType(cel.IntType, cel.DynType)),
+			},
+			in: map[string]any{
+				"x": []int{42, 0, 43},
+				"y": map[int]string{1: "hi", 2: "hello", 3: "howdy"},
+			},
+			unks:     []*interpreter.AttributePattern{cel.AttributePattern("x").QualInt(1)},
+			expr:     `x.exists(val, y.exists(key, _, key == val)) || x[0] == 0 || x[1] == 1 || x[2] == 2`,
+			residual: `x.exists(val, y.exists(key, _, key == val)) || x[1] == 1`,
+		},
+		{
+			name: "nested exists partial unknown outer range with optionals",
+			varOpts: []cel.EnvOption{
+				cel.Variable("x", cel.ListType(cel.IntType)),
+				cel.Variable("y", cel.MapType(cel.IntType, cel.DynType)),
+			},
+			in: map[string]any{
+				"x": []int{42, 0, 43},
+				"y": map[int]string{1: "hi", 2: "hello", 3: "howdy"},
+			},
+			unks:     []*interpreter.AttributePattern{cel.AttributePattern("x").QualInt(1)},
+			expr:     `x.exists(val, y.exists(key, _, key == val)) || (x[?0].hasValue() && x[?1].hasValue())`,
+			residual: `x.exists(val, y.exists(key, _, key == val)) || x[?1].hasValue()`,
+		},
+		{
+			name: "inner value partial unknown two-var",
+			varOpts: []cel.EnvOption{
+				cel.Variable("x", cel.ListType(cel.StringType)),
+				cel.Variable("y", cel.MapType(cel.IntType, cel.StringType)),
+			},
+			in: map[string]any{
+				"x": []string{"howdy", "hello", "hi"},
+				"y": map[int]string{0: "hi", 1: "hello", 2: "howdy"},
+			},
+			unks:     []*interpreter.AttributePattern{cel.AttributePattern("y").QualInt(1)},
+			expr:     `x.exists(key, val, y[?key] == optional.of(val))`,
+			residual: `["howdy", "hello", "hi"].exists(key, val, y[?key] == optional.of(val))`,
+		},
+		{
+			name: "inner value partial unknown one-var",
+			varOpts: []cel.EnvOption{
+				cel.Variable("x", cel.ListType(cel.StringType)),
+				cel.Variable("y", cel.MapType(cel.IntType, cel.StringType)),
+			},
+			in: map[string]any{
+				"x": []string{"howdy"},
+				"y": map[int]string{0: "hello"},
+			},
+			unks:     []*interpreter.AttributePattern{cel.AttributePattern("x").QualInt(0)},
+			expr:     `y.exists(key, y[?key] == x[?key])`,
+			residual: `{0: "hello"}.exists(key, y[?key] == x[?key])`,
+		},
+		{
+			name: "simple bind",
+			varOpts: []cel.EnvOption{
+				cel.Variable("y", cel.MapType(cel.IntType, cel.StringType)),
+			},
+			in: map[string]any{
+				"y": map[int]string{0: "hi", 1: "hello", 2: "howdy"},
+			},
+			unks:     []*interpreter.AttributePattern{cel.AttributePattern("y").QualInt(1)},
+			expr:     `cel.bind(z, y[0], z + y[1])`,
+			residual: `cel.bind(z, "hi", "hi" + y[1])`,
+		},
+		{
+			name: "bind with comprehension",
+			varOpts: []cel.EnvOption{
+				cel.Variable("x", cel.ListType(cel.StringType)),
+				cel.Variable("y", cel.MapType(cel.IntType, cel.StringType)),
+			},
+			in: map[string]any{
+				"x": []string{"hi", "hello", "howdy"},
+				"y": map[int]string{0: "hi", 1: "hello", 2: "howdy"},
+			},
+			unks:     []*interpreter.AttributePattern{cel.AttributePattern("y").QualInt(1)},
+			expr:     `cel.bind(z, y[0], x.all(i, val, val == z || optional.of(val) == y[?i]))`,
+			residual: `cel.bind(z, "hi", ["hi", "hello", "howdy"].all(i, val, val == z || optional.of(val) == y[?i]))`,
+		},
+	}
+	for _, tst := range tests {
+		tc := tst
+		t.Run(tc.name, func(t *testing.T) {
+			env := testCompreEnv(t, tc.varOpts...)
+			ast, iss := env.Compile(tc.expr)
+			if iss.Err() != nil {
+				t.Fatalf("env.Compile(%q) failed: %v", tc.expr, iss.Err())
+			}
+			prg, err := env.Program(ast,
+				cel.EvalOptions(cel.OptTrackState, cel.OptPartialEval))
+			if err != nil {
+				t.Fatalf("env.Program() failed: %v", err)
+			}
+			unkVars, err := cel.PartialVars(tc.in, tc.unks...)
+			if err != nil {
+				t.Fatalf("PartialVars() failed: %v", err)
+			}
+			out, det, err := prg.Eval(unkVars)
+			if !types.IsUnknown(out) {
+				t.Fatalf("got %v, expected unknown", out)
+			}
+			if err != nil {
+				t.Fatalf("prg.Eval() failed: %v", err)
+			}
+			residual, err := env.ResidualAst(ast, det)
+			if err != nil {
+				t.Fatalf("env.ResidualAst() failed: %v", err)
+			}
+			expr, err := cel.AstToString(residual)
+			if err != nil {
+				t.Fatalf("cel.AstToString() failed: %v", err)
+			}
+			if expr != tc.residual {
+				t.Errorf("got expr: %s, wanted %s", expr, tc.residual)
+			}
+		})
+	}
+}
+
 func testCompreEnv(t *testing.T, opts ...cel.EnvOption) *cel.Env {
 	t.Helper()
 	baseOpts := []cel.EnvOption{
@@ -353,7 +621,9 @@ func testCompreEnv(t *testing.T, opts ...cel.EnvOption) *cel.Env {
 		Lists(),
 		Strings(),
 		cel.OptionalTypes(),
-		cel.EnableMacroCallTracking()}
+		cel.EnableMacroCallTracking(),
+		cel.EnableHiddenAccumulatorName(true),
+	}
 	env, err := cel.NewEnv(append(baseOpts, opts...)...)
 	if err != nil {
 		t.Fatalf("cel.NewEnv(TwoVarComprehensions()) failed: %v", err)

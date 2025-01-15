@@ -1152,7 +1152,7 @@ var testCases = []testInfo{
 	},
 	{
 		I: "func{{a}}",
-		E: `ERROR: <input>:1:6: Syntax error: extraneous input '{' expecting {'}', ',', '?', IDENTIFIER}
+		E: `ERROR: <input>:1:6: Syntax error: extraneous input '{' expecting {'}', ',', '?', IDENTIFIER, ESC_IDENTIFIER}
 		| func{{a}}
 		| .....^
 	    ERROR: <input>:1:8: Syntax error: mismatched input '}' expecting ':'
@@ -1164,7 +1164,7 @@ var testCases = []testInfo{
 	},
 	{
 		I: "msg{:a}",
-		E: `ERROR: <input>:1:5: Syntax error: extraneous input ':' expecting {'}', ',', '?', IDENTIFIER}
+		E: `ERROR: <input>:1:5: Syntax error: extraneous input ':' expecting {'}', ',', '?', IDENTIFIER, ESC_IDENTIFIER}
 		| msg{:a}
 		| ....^
 	    ERROR: <input>:1:7: Syntax error: mismatched input '}' expecting ':'
@@ -1733,6 +1733,106 @@ var testCases = []testInfo{
 		 | .......................^`,
 	},
 	{
+		I:    "a.`b-c`",
+		Opts: []Option{EnableIdentEscapeSyntax(true)},
+		P:    `a^#1:*expr.Expr_IdentExpr#.b-c^#2:*expr.Expr_SelectExpr#`,
+	},
+	{I: "a.`b c`",
+		Opts: []Option{EnableIdentEscapeSyntax(true)},
+		P:    `a^#1:*expr.Expr_IdentExpr#.b c^#2:*expr.Expr_SelectExpr#`,
+	},
+	{
+		I:    "a.`b.c`",
+		Opts: []Option{EnableIdentEscapeSyntax(true)},
+		P:    `a^#1:*expr.Expr_IdentExpr#.b.c^#2:*expr.Expr_SelectExpr#`,
+	},
+	{
+		I:    "a.`in`",
+		Opts: []Option{EnableIdentEscapeSyntax(true)},
+		P:    `a^#1:*expr.Expr_IdentExpr#.in^#2:*expr.Expr_SelectExpr#`,
+	},
+	{
+		I:    "a.`/foo`",
+		Opts: []Option{EnableIdentEscapeSyntax(true)},
+		P:    `a^#1:*expr.Expr_IdentExpr#./foo^#2:*expr.Expr_SelectExpr#`,
+	},
+	{
+		I:    "Message{`in`: true}",
+		Opts: []Option{EnableIdentEscapeSyntax(true)},
+		P: `Message{
+			in:true^#3:*expr.Constant_BoolValue#^#2:*expr.Expr_CreateStruct_Entry#
+		  }^#1:*expr.Expr_StructExpr#`,
+	},
+	{
+		I:    "`b-c`",
+		Opts: []Option{EnableIdentEscapeSyntax(true)},
+		E: "ERROR: <input>:1:1: Syntax error: mismatched input '`b-c`' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}\n" +
+			"| `b-c`\n" +
+			"| ^",
+	},
+	{
+		I:    "`b-c`()",
+		Opts: []Option{EnableIdentEscapeSyntax(true)},
+		E: "ERROR: <input>:1:1: Syntax error: extraneous input '`b-c`' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}\n" +
+			"| `b-c`()\n" +
+			"| ^\n" +
+			"ERROR: <input>:1:7: Syntax error: mismatched input ')' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}\n" +
+			"| `b-c`()\n" +
+			"| ......^",
+	},
+	{
+		I:    "a.`$b`",
+		Opts: []Option{EnableIdentEscapeSyntax(true)},
+		E: "ERROR: <input>:1:3: Syntax error: token recognition error at: '`$'\n" +
+			"| a.`$b`\n" +
+			"| ..^\n" +
+			"ERROR: <input>:1:6: Syntax error: token recognition error at: '`'\n" +
+			"| a.`$b`\n" +
+			"| .....^",
+	},
+	{
+		I:    "a.`b.c`()",
+		Opts: []Option{EnableIdentEscapeSyntax(true)},
+		E: "ERROR: <input>:1:8: Syntax error: mismatched input '(' expecting <EOF>\n" +
+			"| a.`b.c`()\n" +
+			"| .......^\n",
+	},
+	{
+		I:    "a.`b-c`",
+		Opts: []Option{EnableIdentEscapeSyntax(false)},
+		E: "ERROR: <input>:1:3: unsupported syntax: '`'\n" +
+			"| a.`b-c`\n" +
+			"| ..^",
+	},
+	{
+		I:    "a.`b.c`",
+		Opts: []Option{EnableIdentEscapeSyntax(false)},
+		E: "ERROR: <input>:1:3: unsupported syntax: '`'\n" +
+			"| a.`b.c`\n" +
+			"| ..^\n",
+	},
+	{
+		I:    "a.`in`",
+		Opts: []Option{EnableIdentEscapeSyntax(false)},
+		E: "ERROR: <input>:1:3: unsupported syntax: '`'\n" +
+			"| a.`in`\n" +
+			"| ..^",
+	},
+	{
+		I:    "a.`/foo`",
+		Opts: []Option{EnableIdentEscapeSyntax(false)},
+		E: "ERROR: <input>:1:3: unsupported syntax: '`'\n" +
+			"| a.`/foo`\n" +
+			"| ..^",
+	},
+	{
+		I:    "Message{`in`: true}",
+		Opts: []Option{EnableIdentEscapeSyntax(false)},
+		E: "ERROR: <input>:1:9: unsupported syntax: '`'\n" +
+			"| Message{`in`: true}\n" +
+			"| ........^",
+	},
+	{
 		I: `noop_macro(123)`,
 		Opts: []Option{
 			Macros(NewGlobalVarArgMacro("noop_macro",
@@ -1754,14 +1854,14 @@ var testCases = []testInfo{
 		ERROR: <input>:1:3: unsupported syntax '?'
 		 | x{?.
 		 | ..^
-	    ERROR: <input>:1:4: Syntax error: mismatched input '.' expecting IDENTIFIER
+	    ERROR: <input>:1:4: Syntax error: mismatched input '.' expecting {IDENTIFIER, ESC_IDENTIFIER}
 		 | x{?.
 		 | ...^`,
 	},
 	{
 		I: `x{.`,
 		E: `
-		ERROR: <input>:1:3: Syntax error: mismatched input '.' expecting {'}', ',', '?', IDENTIFIER}
+		ERROR: <input>:1:3: Syntax error: mismatched input '.' expecting {'}', ',', '?', IDENTIFIER, ESC_IDENTIFIER}
 		 | x{.
 		 | ..^`,
 	},
@@ -1779,6 +1879,248 @@ var testCases = []testInfo{
 		 | '3# < 10" '& tru ^^
 		 | ..................^
 		`,
+	},
+	{
+		I: `'\udead' == '\ufffd'`,
+		E: `
+		ERROR: <input>:1:1: invalid unicode code point
+         | '\udead' == '\ufffd'
+         | ^`,
+	},
+	// Macro tests with new accumulator name
+	{
+		I: `m.exists(v, f)`,
+		Opts: []Option{
+			EnableHiddenAccumulatorName(true),
+		},
+		P: `__comprehension__(
+				// Variable
+				v,
+				// Target
+				m^#1:*expr.Expr_IdentExpr#,
+				// Accumulator
+				@result,
+				// Init
+				false^#5:*expr.Constant_BoolValue#,
+				// LoopCondition
+				@not_strictly_false(
+					!_(
+					  @result^#6:*expr.Expr_IdentExpr#
+					)^#7:*expr.Expr_CallExpr#
+				)^#8:*expr.Expr_CallExpr#,
+				// LoopStep
+				_||_(
+					@result^#9:*expr.Expr_IdentExpr#,
+					f^#4:*expr.Expr_IdentExpr#
+				)^#10:*expr.Expr_CallExpr#,
+				// Result
+				@result^#11:*expr.Expr_IdentExpr#)^#12:*expr.Expr_ComprehensionExpr#`,
+		M: `m^#1:*expr.Expr_IdentExpr#.exists(
+				v^#3:*expr.Expr_IdentExpr#,
+				f^#4:*expr.Expr_IdentExpr#
+				  )^#12:exists#`,
+	},
+	{
+		I: `m.all(v, f)`,
+		Opts: []Option{
+			EnableHiddenAccumulatorName(true),
+		},
+		P: `__comprehension__(
+				// Variable
+				v,
+				// Target
+				m^#1:*expr.Expr_IdentExpr#,
+				// Accumulator
+				@result,
+				// Init
+				true^#5:*expr.Constant_BoolValue#,
+				// LoopCondition
+				@not_strictly_false(
+					@result^#6:*expr.Expr_IdentExpr#
+				)^#7:*expr.Expr_CallExpr#,
+				// LoopStep
+				_&&_(
+					@result^#8:*expr.Expr_IdentExpr#,
+					f^#4:*expr.Expr_IdentExpr#
+				)^#9:*expr.Expr_CallExpr#,
+				// Result
+				@result^#10:*expr.Expr_IdentExpr#)^#11:*expr.Expr_ComprehensionExpr#`,
+		M: `m^#1:*expr.Expr_IdentExpr#.all(
+				v^#3:*expr.Expr_IdentExpr#,
+				f^#4:*expr.Expr_IdentExpr#
+				  )^#11:all#`,
+	},
+	{
+		I: `m.existsOne(v, f)`,
+		Opts: []Option{
+			EnableHiddenAccumulatorName(true),
+		},
+		P: `__comprehension__(
+				// Variable
+				v,
+				// Target
+				m^#1:*expr.Expr_IdentExpr#,
+				// Accumulator
+				@result,
+				// Init
+				0^#5:*expr.Constant_Int64Value#,
+				// LoopCondition
+				true^#6:*expr.Constant_BoolValue#,
+				// LoopStep
+				_?_:_(
+					f^#4:*expr.Expr_IdentExpr#,
+					_+_(
+						  @result^#7:*expr.Expr_IdentExpr#,
+					  1^#8:*expr.Constant_Int64Value#
+					)^#9:*expr.Expr_CallExpr#,
+					@result^#10:*expr.Expr_IdentExpr#
+				)^#11:*expr.Expr_CallExpr#,
+				// Result
+				_==_(
+					@result^#12:*expr.Expr_IdentExpr#,
+					1^#13:*expr.Constant_Int64Value#
+				)^#14:*expr.Expr_CallExpr#)^#15:*expr.Expr_ComprehensionExpr#`,
+		M: `m^#1:*expr.Expr_IdentExpr#.existsOne(
+				v^#3:*expr.Expr_IdentExpr#,
+				f^#4:*expr.Expr_IdentExpr#
+				  )^#15:existsOne#`,
+	},
+	{
+		I: `m.map(v, f)`,
+		Opts: []Option{
+			EnableHiddenAccumulatorName(true),
+		},
+		P: `__comprehension__(
+				// Variable
+				v,
+				// Target
+				m^#1:*expr.Expr_IdentExpr#,
+				// Accumulator
+				@result,
+				// Init
+				[]^#5:*expr.Expr_ListExpr#,
+				// LoopCondition
+				true^#6:*expr.Constant_BoolValue#,
+				// LoopStep
+				_+_(
+					@result^#7:*expr.Expr_IdentExpr#,
+					[
+						f^#4:*expr.Expr_IdentExpr#
+					]^#8:*expr.Expr_ListExpr#
+				)^#9:*expr.Expr_CallExpr#,
+				// Result
+				@result^#10:*expr.Expr_IdentExpr#)^#11:*expr.Expr_ComprehensionExpr#`,
+		M: `m^#1:*expr.Expr_IdentExpr#.map(
+				v^#3:*expr.Expr_IdentExpr#,
+				f^#4:*expr.Expr_IdentExpr#
+				  )^#11:map#`,
+	},
+	{
+		I: `m.map(v, p, f)`,
+		Opts: []Option{
+			EnableHiddenAccumulatorName(true),
+		},
+		P: `__comprehension__(
+				// Variable
+				v,
+				// Target
+				m^#1:*expr.Expr_IdentExpr#,
+				// Accumulator
+				@result,
+				// Init
+				[]^#6:*expr.Expr_ListExpr#,
+				// LoopCondition
+				true^#7:*expr.Constant_BoolValue#,
+				// LoopStep
+				_?_:_(
+					p^#4:*expr.Expr_IdentExpr#,
+					_+_(
+						@result^#8:*expr.Expr_IdentExpr#,
+						[
+							f^#5:*expr.Expr_IdentExpr#
+						]^#9:*expr.Expr_ListExpr#
+					)^#10:*expr.Expr_CallExpr#,
+					@result^#11:*expr.Expr_IdentExpr#
+				)^#12:*expr.Expr_CallExpr#,
+				// Result
+				@result^#13:*expr.Expr_IdentExpr#)^#14:*expr.Expr_ComprehensionExpr#`,
+		M: `m^#1:*expr.Expr_IdentExpr#.map(
+				v^#3:*expr.Expr_IdentExpr#,
+				p^#4:*expr.Expr_IdentExpr#,
+				f^#5:*expr.Expr_IdentExpr#
+				  )^#14:map#`,
+	},
+
+	{
+		I: `m.filter(v, p)`,
+		Opts: []Option{
+			EnableHiddenAccumulatorName(true),
+		},
+		P: `__comprehension__(
+				// Variable
+				v,
+				// Target
+				m^#1:*expr.Expr_IdentExpr#,
+				// Accumulator
+				@result,
+				// Init
+				[]^#5:*expr.Expr_ListExpr#,
+				// LoopCondition
+				true^#6:*expr.Constant_BoolValue#,
+				// LoopStep
+				_?_:_(
+					p^#4:*expr.Expr_IdentExpr#,
+					_+_(
+						@result^#7:*expr.Expr_IdentExpr#,
+						[
+							v^#3:*expr.Expr_IdentExpr#
+						]^#8:*expr.Expr_ListExpr#
+					)^#9:*expr.Expr_CallExpr#,
+					@result^#10:*expr.Expr_IdentExpr#
+				)^#11:*expr.Expr_CallExpr#,
+				// Result
+				@result^#12:*expr.Expr_IdentExpr#)^#13:*expr.Expr_ComprehensionExpr#`,
+		M: `m^#1:*expr.Expr_IdentExpr#.filter(
+				v^#3:*expr.Expr_IdentExpr#,
+				p^#4:*expr.Expr_IdentExpr#
+				  )^#13:filter#`,
+	},
+	// Preserve restriction on old accumulator var name for consistency until new name is defaulted.
+	{
+		I: `m.filter(__result__, false)`,
+		Opts: []Option{
+			EnableHiddenAccumulatorName(true),
+		},
+		E: `ERROR: <input>:1:10: iteration variable overwrites accumulator variable
+             | m.filter(__result__, false)
+             | .........^`,
+	},
+	{
+		I: `m.map(__result__, __result__)`,
+		Opts: []Option{
+			EnableHiddenAccumulatorName(true),
+		},
+		E: `ERROR: <input>:1:7: iteration variable overwrites accumulator variable
+             | m.map(__result__, __result__)
+             | ......^`,
+	},
+	{
+		I: `[].existsOne(__result__, __result__)`,
+		Opts: []Option{
+			EnableHiddenAccumulatorName(true),
+		},
+		E: `ERROR: <input>:1:14: iteration variable overwrites accumulator variable
+             | [].existsOne(__result__, __result__)
+             | .............^`,
+	},
+	{
+		I: `m.filter(a.b, false)`,
+		Opts: []Option{
+			EnableHiddenAccumulatorName(true),
+		},
+		E: `ERROR: <input>:1:11: argument is not an identifier
+				 | m.filter(a.b, false)
+				 | ..........^`,
 	},
 }
 
@@ -1932,7 +2274,7 @@ func TestParse(t *testing.T) {
 				if tc.E == "" {
 					t.Fatalf("Unexpected errors: %v", actualErr)
 				} else if !test.Compare(actualErr, tc.E) {
-					t.Fatalf(test.DiffMessage("Error mismatch", actualErr, tc.E))
+					t.Fatal(test.DiffMessage("Error mismatch", actualErr, tc.E))
 				}
 				return
 			} else if tc.E != "" {

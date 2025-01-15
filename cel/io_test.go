@@ -16,6 +16,7 @@ package cel
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -141,6 +142,27 @@ func TestAstToString(t *testing.T) {
 	}
 	if expr != in {
 		t.Errorf("got %v, wanted %v", expr, in)
+	}
+}
+
+func TestAstToStringNil(t *testing.T) {
+	expr, err := AstToString(nil)
+	if err == nil || !strings.Contains(err.Error(), "unsupported expr") {
+		t.Errorf("env.AstToString() got (%v, %v) wanted unsupported expr error", expr, err)
+	}
+}
+
+func TestAstToCheckedExprNil(t *testing.T) {
+	expr, err := AstToCheckedExpr(nil)
+	if err == nil || !strings.Contains(err.Error(), "cannot convert unchecked ast") {
+		t.Errorf("env.AstToCheckedExpr() got (%v, %v) wanted conversion error", expr, err)
+	}
+}
+
+func TestAstToParsedExprNil(t *testing.T) {
+	expr, err := AstToParsedExpr(nil)
+	if err != nil {
+		t.Errorf("env.AstToParsedExpr() got (%v, %v) wanted conversion error", expr, err)
 	}
 }
 

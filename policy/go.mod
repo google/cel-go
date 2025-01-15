@@ -3,7 +3,7 @@ module github.com/google/cel-go/policy
 go 1.22
 
 require (
-	github.com/google/cel-go v0.21.0
+	github.com/google/cel-go v0.22.0
 	google.golang.org/protobuf v1.34.2
 	gopkg.in/yaml.v3 v3.0.1
 )

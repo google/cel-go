@@ -312,7 +312,7 @@ func ParseType(t string) (*exprpb.Type, error) {
 		for i, e := range errs {
 			msgs[i] = e.Error()
 		}
-		err = fmt.Errorf("errors parsing type:\n" + strings.Join(msgs, "\n"))
+		err = fmt.Errorf("errors parsing type:\n%s", strings.Join(msgs, "\n"))
 	}
 
 	return result, err
