@@ -371,7 +371,7 @@ func TestConvertExpr(t *testing.T) {
 			wantExpr: fac.NewComprehension(12,
 				fac.NewList(1, []ast.Expr{}, []int32{}),
 				"i",
-				"__result__",
+				fac.AccuIdentName(),
 				fac.NewLiteral(5, types.False),
 				fac.NewCall(8, "@not_strictly_false", fac.NewCall(7, "!_", fac.NewAccuIdent(6))),
 				fac.NewCall(10, "_||_", fac.NewAccuIdent(9), fac.NewIdent(4, "i")),

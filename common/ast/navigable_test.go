@@ -494,8 +494,8 @@ func TestNavigableComprehensionExpr(t *testing.T) {
 	if comp.IterVar2() != "" {
 		t.Errorf("IterVar2() returned %s, wanted empty string", comp.IterVar2())
 	}
-	if comp.AccuVar() != "__result__" {
-		t.Errorf("AccuVar() got %s, wanted '__result__'", comp.AccuVar())
+	if comp.AccuVar() != "@result" {
+		t.Errorf("AccuVar() got %s, wanted '@result'", comp.AccuVar())
 	}
 	if comp.AccuInit().AsLiteral() != types.False {
 		t.Errorf("AccuInit() returned %v, wanted false", comp.AccuInit().AsLiteral())
@@ -509,8 +509,8 @@ func TestNavigableComprehensionExpr(t *testing.T) {
 	if comp.LoopStep().Kind() != ast.CallKind {
 		t.Errorf("LoopStep() returned %v, wanted call", comp.LoopStep())
 	}
-	if comp.Result().AsIdent() != "__result__" {
-		t.Errorf("AsIdent() returned %v, wanted __result__", comp.Result().AsIdent())
+	if comp.Result().AsIdent() != "@result" {
+		t.Errorf("AsIdent() returned %v, wanted @result", comp.Result().AsIdent())
 	}
 }
 

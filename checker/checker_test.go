@@ -561,23 +561,23 @@ _==_(size(x~google.expr.proto3.test.TestAllTypes^x.map_int64_nested_type
 		// Target
 		x~bool^x,
 		// Accumulator
-		__result__,
+		@result,
 		// Init
 		true~bool,
 		// LoopCondition
 		@not_strictly_false(
-			__result__~bool^__result__
+			@result~bool^@result
 		)~bool^not_strictly_false,
 		// LoopStep
 		_&&_(
-			__result__~bool^__result__,
+			@result~bool^@result,
 			_==_(
 			y~!error!^y,
 			true~bool
 			)~bool^equals
 		)~bool^logical_and,
 		// Result
-		__result__~bool^__result__)~bool
+		@result~bool^@result)~bool
 		`,
 			err: `ERROR: <input>:1:1: expression of type 'bool' cannot be range of a comprehension (must be list, map, or dynamic)
 		| x.all(y, y == true)
@@ -597,14 +597,14 @@ _==_(size(x~google.expr.proto3.test.TestAllTypes^x.map_int64_nested_type
     		  // Target
     		  x~google.expr.proto3.test.TestAllTypes^x.repeated_int64~list(int),
     		  // Accumulator
-    		  __result__,
+    		  @result,
     		  // Init
     		  []~list(double),
     		  // LoopCondition
     		  true~bool,
     		  // LoopStep
     		  _+_(
-    		    __result__~list(double)^__result__,
+    		    @result~list(double)^@result,
     		    [
     		      double(
     		        x~int^x
@@ -612,7 +612,7 @@ _==_(size(x~google.expr.proto3.test.TestAllTypes^x.map_int64_nested_type
     		    ]~list(double)
     		  )~list(double)^add_list,
     		  // Result
-    		  __result__~list(double)^__result__)~list(double)
+    		  @result~list(double)^@result)~list(double)
 		`,
 			outType: types.NewListType(types.DoubleType),
 		},
@@ -630,7 +630,7 @@ _==_(size(x~google.expr.proto3.test.TestAllTypes^x.map_int64_nested_type
     		  // Target
     		  x~google.expr.proto3.test.TestAllTypes^x.repeated_int64~list(int),
     		  // Accumulator
-    		  __result__,
+    		  @result,
     		  // Init
     		  []~list(double),
     		  // LoopCondition
@@ -642,17 +642,17 @@ _==_(size(x~google.expr.proto3.test.TestAllTypes^x.map_int64_nested_type
     		      0~int
     		    )~bool^greater_int64,
     		    _+_(
-    		      __result__~list(double)^__result__,
+    		      @result~list(double)^@result,
     		      [
     		        double(
     		          x~int^x
     		        )~double^int64_to_double
     		      ]~list(double)
     		    )~list(double)^add_list,
-    		    __result__~list(double)^__result__
+    		    @result~list(double)^@result
     		  )~list(double)^conditional,
     		  // Result
-    		  __result__~list(double)^__result__)~list(double)
+    		  @result~list(double)^@result)~list(double)
 		`,
 			outType: types.NewListType(types.DoubleType),
 		},
@@ -887,48 +887,48 @@ ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, nul
 				// Target
 				x~google.expr.proto3.test.TestAllTypes^x.repeated_int64~list(int),
 				// Accumulator
-				__result__,
+				@result,
 				// Init
 				true~bool,
 				// LoopCondition
 				@not_strictly_false(
-				  __result__~bool^__result__
+				  @result~bool^@result
 				)~bool^not_strictly_false,
 				// LoopStep
 				_&&_(
-				  __result__~bool^__result__,
+				  @result~bool^@result,
 				  _>_(
 					e~int^e,
 					0~int
 				  )~bool^greater_int64
 				)~bool^logical_and,
 				// Result
-				__result__~bool^__result__)~bool,
+				@result~bool^@result)~bool,
 			  __comprehension__(
 				// Variable
 				e,
 				// Target
 				x~google.expr.proto3.test.TestAllTypes^x.repeated_int64~list(int),
 				// Accumulator
-				__result__,
+				@result,
 				// Init
 				false~bool,
 				// LoopCondition
 				@not_strictly_false(
 				  !_(
-					__result__~bool^__result__
+					@result~bool^@result
 				  )~bool^logical_not
 				)~bool^not_strictly_false,
 				// LoopStep
 				_||_(
-				  __result__~bool^__result__,
+				  @result~bool^@result,
 				  _<_(
 					e~int^e,
 					0~int
 				  )~bool^less_int64
 				)~bool^logical_or,
 				// Result
-				__result__~bool^__result__)~bool
+				@result~bool^@result)~bool
 			)~bool^logical_and,
 			__comprehension__(
 			  // Variable
@@ -936,7 +936,7 @@ ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, nul
 			  // Target
 			  x~google.expr.proto3.test.TestAllTypes^x.repeated_int64~list(int),
 			  // Accumulator
-			  __result__,
+			  @result,
 			  // Init
 			  0~int,
 			  // LoopCondition
@@ -948,14 +948,14 @@ ERROR: <input>:1:16: found no matching overload for '_!=_' applied to '(int, nul
 				  0~int
 				)~bool^equals,
 				_+_(
-				  __result__~int^__result__,
+				  @result~int^@result,
 				  1~int
 				)~int^add_int64,
-				__result__~int^__result__
+				@result~int^@result
 			  )~int^conditional,
 			  // Result
 			  _==_(
-				__result__~int^__result__,
+				@result~int^@result,
 				1~int
 			  )~bool^equals)~bool
 		  )~bool^logical_and`,
@@ -986,7 +986,7 @@ ERROR: <input>:1:10: expected type 'bool' but found 'int'
 			// Target
 			lists~dyn^lists,
 			// Accumulator
-			__result__,
+			@result,
 			// Init
 			[]~list(dyn),
 			// LoopCondition
@@ -998,15 +998,15 @@ ERROR: <input>:1:10: expected type 'bool' but found 'int'
 				1.5~double
 			  )~bool^greater_double|greater_int64_double|greater_uint64_double,
 			  _+_(
-				__result__~list(dyn)^__result__,
+				@result~list(dyn)^@result,
 				[
 				  x~dyn^x
 				]~list(dyn)
 			  )~list(dyn)^add_list,
-			  __result__~list(dyn)^__result__
+			  @result~list(dyn)^@result
 			)~list(dyn)^conditional,
 			// Result
-			__result__~list(dyn)^__result__)~list(dyn)`,
+			@result~list(dyn)^@result)~list(dyn)`,
 			outType: types.NewListType(types.DynType),
 			env: testEnv{
 				idents: []*decls.VariableDecl{
@@ -1381,7 +1381,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 			"myextension"~string
 			)~dyn^index_map.customAttributes~dyn,
 			// Accumulator
-			__result__,
+			@result,
 			// Init
 			[]~list(dyn),
 			// LoopCondition
@@ -1393,15 +1393,15 @@ _&&_(_==_(list~type(list(dyn))^list,
 				"hobbies"~string
 			)~bool^equals,
 			_+_(
-				__result__~list(dyn)^__result__,
+				@result~list(dyn)^@result,
 				[
 				x~dyn^x
 				]~list(dyn)
 			)~list(dyn)^add_list,
-			__result__~list(dyn)^__result__
+			@result~list(dyn)^@result
 			)~list(dyn)^conditional,
 			// Result
-			__result__~list(dyn)^__result__)~list(dyn)`,
+			@result~list(dyn)^@result)~list(dyn)`,
 			env: testEnv{
 				idents: []*decls.VariableDecl{
 					decls.NewVariable("args", types.NewMapType(types.StringType, types.DynType)),
@@ -1867,14 +1867,14 @@ _&&_(_==_(list~type(list(dyn))^list,
 				1~int
 			  ]~list(int),
 			  // Accumulator
-			  __result__,
+			  @result,
 			  // Init
 			  []~list(list(int)),
 			  // LoopCondition
 			  true~bool,
 			  // LoopStep
 			  _+_(
-				__result__~list(list(int))^__result__,
+				@result~list(list(int))^@result,
 				[
 				  [
 					x~int^x,
@@ -1883,16 +1883,16 @@ _&&_(_==_(list~type(list(dyn))^list,
 				]~list(list(int))
 			  )~list(list(int))^add_list,
 			  // Result
-			  __result__~list(list(int))^__result__)~list(list(int)),
+			  @result~list(list(int))^@result)~list(list(int)),
 			// Accumulator
-			__result__,
+			@result,
 			// Init
 			[]~list(list(list(int))),
 			// LoopCondition
 			true~bool,
 			// LoopStep
 			_+_(
-			  __result__~list(list(list(int)))^__result__,
+			  @result~list(list(list(int)))^@result,
 			  [
 				[
 				  x~list(int)^x,
@@ -1901,7 +1901,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 			  ]~list(list(list(int)))
 			)~list(list(list(int)))^add_list,
 			// Result
-			__result__~list(list(list(int)))^__result__)~list(list(list(int)))
+			@result~list(list(list(int)))^@result)~list(list(list(int)))
 		  `,
 		},
 		{
@@ -1922,7 +1922,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 			  // Target
 			  values~list(map(string, string))^values,
 			  // Accumulator
-			  __result__,
+			  @result,
 			  // Init
 			  []~list(map(string, string)),
 			  // LoopCondition
@@ -1934,30 +1934,30 @@ _&&_(_==_(list~type(list(dyn))^list,
 				  ""~string
 				)~bool^not_equals,
 				_+_(
-				  __result__~list(map(string, string))^__result__,
+				  @result~list(map(string, string))^@result,
 				  [
 					i~map(string, string)^i
 				  ]~list(map(string, string))
 				)~list(map(string, string))^add_list,
-				__result__~list(map(string, string))^__result__
+				@result~list(map(string, string))^@result
 			  )~list(map(string, string))^conditional,
 			  // Result
-			  __result__~list(map(string, string))^__result__)~list(map(string, string)),
+			  @result~list(map(string, string))^@result)~list(map(string, string)),
 			// Accumulator
-			__result__,
+			@result,
 			// Init
 			[]~list(string),
 			// LoopCondition
 			true~bool,
 			// LoopStep
 			_+_(
-			  __result__~list(string)^__result__,
+			  @result~list(string)^@result,
 			  [
 				i~map(string, string)^i.content~string
 			  ]~list(string)
 			)~list(string)^add_list,
 			// Result
-			__result__~list(string)^__result__)~list(string)`,
+			@result~list(string)^@result)~list(string)`,
 		},
 		{
 			in:      `[{}.map(c,c,c)]+[{}.map(c,c,c)]`,
@@ -1970,7 +1970,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 				// Target
 				{}~map(bool, dyn),
 				// Accumulator
-				__result__,
+				@result,
 				// Init
 				[]~list(bool),
 				// LoopCondition
@@ -1979,15 +1979,15 @@ _&&_(_==_(list~type(list(dyn))^list,
 				_?_:_(
 				  c~bool^c,
 				  _+_(
-					__result__~list(bool)^__result__,
+					@result~list(bool)^@result,
 					[
 					  c~bool^c
 					]~list(bool)
 				  )~list(bool)^add_list,
-				  __result__~list(bool)^__result__
+				  @result~list(bool)^@result
 				)~list(bool)^conditional,
 				// Result
-				__result__~list(bool)^__result__)~list(bool)
+				@result~list(bool)^@result)~list(bool)
 			]~list(list(bool)),
 			[
 			  __comprehension__(
@@ -1996,7 +1996,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 				// Target
 				{}~map(bool, dyn),
 				// Accumulator
-				__result__,
+				@result,
 				// Init
 				[]~list(bool),
 				// LoopCondition
@@ -2005,15 +2005,15 @@ _&&_(_==_(list~type(list(dyn))^list,
 				_?_:_(
 				  c~bool^c,
 				  _+_(
-					__result__~list(bool)^__result__,
+					@result~list(bool)^@result,
 					[
 					  c~bool^c
 					]~list(bool)
 				  )~list(bool)^add_list,
-				  __result__~list(bool)^__result__
+				  @result~list(bool)^@result
 				)~list(bool)^conditional,
 				// Result
-				__result__~list(bool)^__result__)~list(bool)
+				@result~list(bool)^@result)~list(bool)
 			]~list(list(bool))
 		  )~list(list(bool))^add_list`,
 		},
@@ -2241,14 +2241,14 @@ _&&_(_==_(list~type(list(dyn))^list,
 				// Target
 				{}~map(dyn, dyn),
 				// Accumulator
-				__result__,
+				@result,
 				// Init
 				[]~list(list(dyn)),
 				// LoopCondition
 				true~bool,
 				// LoopStep
 				_+_(
-				  __result__~list(list(dyn))^__result__,
+				  @result~list(list(dyn))^@result,
 				  [
 					[
 					  c~dyn^c,
@@ -2259,7 +2259,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 				  ]~list(list(dyn))
 				)~list(list(dyn))^add_list,
 				// Result
-				__result__~list(list(dyn))^__result__)~list(list(dyn))`,
+				@result~list(list(dyn))^@result)~list(list(dyn))`,
 			outType: types.NewListType(types.NewListType(types.DynType)),
 		},
 	}
