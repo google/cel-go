@@ -40,7 +40,7 @@ type ExprFactory interface {
 	NewIdent(id int64, name string) Expr
 
 	// NewAccuIdent creates an Expr value representing an accumulator identifier within a
-	//comprehension.
+	// comprehension.
 	NewAccuIdent(id int64) Expr
 
 	// AccuIdentName reports the name of the accumulator variable to be used within a comprehension.
@@ -51,7 +51,7 @@ type ExprFactory interface {
 
 	// NewList creates an Expr value representing a list literal expression with optional indices.
 	//
-	// Optional indicies will typically be empty unless the CEL optional types are enabled.
+	// Optional indices will typically be empty unless the CEL optional types are enabled.
 	NewList(id int64, elems []Expr, optIndices []int32) Expr
 
 	// NewMap creates an Expr value representing a map literal expression
