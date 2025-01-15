@@ -30,7 +30,6 @@ import (
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/common/types/traits"
 	"github.com/google/cel-go/parser"
 
 	proto3pb "github.com/google/cel-go/test/proto3pb"
@@ -230,7 +229,7 @@ func (tc testCostEstimator) EstimateSize(element checker.AstNode) *checker.SizeE
 func (tc testCostEstimator) EstimateCallCost(function, overloadID string, target *checker.AstNode, args []checker.AstNode) *checker.CallEstimate {
 	switch overloadID {
 	case overloads.TimestampToYear:
-		return &checker.CallEstimate{CostEstimate: checker.CostEstimate{Min: 7, Max: 7}}
+		return &checker.CallEstimate{CostEstimate: checker.FixedCostEstimate(7)}
 	}
 	return nil
 }
@@ -887,11 +886,4 @@ func TestRuntimeCost(t *testing.T) {
 			}
 		})
 	}
-}
-
-func actualSize(val ref.Val) uint64 {
-	if sz, ok := val.(traits.Sizer); ok {
-		return uint64(sz.Size().(types.Int))
-	}
-	return 1
 }
