@@ -88,7 +88,7 @@ func PruneAst(expr ast.Expr, macroCalls map[int64]ast.Expr, state EvalState) *as
 
 func (p *astPruner) maybeCreateLiteral(id int64, val ref.Val) (ast.Expr, bool) {
 	switch v := val.(type) {
-	case types.Bool, types.Bytes, types.Double, types.Int, types.Null, types.String, types.Uint:
+	case types.Bool, types.Bytes, types.Double, types.Int, types.Null, types.String, types.Uint, *types.Optional:
 		p.state.SetValue(id, val)
 		return p.NewLiteral(id, val), true
 	case types.Duration:

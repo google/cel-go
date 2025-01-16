@@ -275,6 +275,16 @@ func (un *unparser) visitCallUnary(expr ast.Expr) error {
 
 func (un *unparser) visitConst(expr ast.Expr) error {
 	val := expr.AsLiteral()
+	optional := false
+	if optVal, ok := val.(*types.Optional); ok {
+		if !optVal.HasValue() {
+			un.str.WriteString("optional.none()")
+			return nil
+		}
+		optional = true
+		un.str.WriteString("optional.of(")
+		val = optVal.GetValue()
+	}
 	switch val := val.(type) {
 	case types.Bool:
 		un.str.WriteString(strconv.FormatBool(bool(val)))
@@ -305,6 +315,9 @@ func (un *unparser) visitConst(expr ast.Expr) error {
 		un.str.WriteString("u")
 	default:
 		return fmt.Errorf("unsupported constant: %v", expr)
+	}
+	if optional {
+		un.str.WriteString(")")
 	}
 	return nil
 }
