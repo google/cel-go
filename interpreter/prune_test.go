@@ -34,6 +34,7 @@ type testInfo struct {
 	expr      string
 	out       string
 	iterRange string
+	enabled   bool
 }
 
 var testCases = []testInfo{
@@ -222,9 +223,14 @@ var testCases = []testInfo{
 		out:  `optional.of(10)`,
 	},
 	{
-		in:   partialActivation(map[string]any{"a": map[string]any{"b": "hi"}}),
-		expr: `a.?b`,
-		out:  `optional.of("hi")`,
+		in:   partialActivation(map[string]any{"a": map[string]any{"b": 10}}),
+		expr: `a[?"b"]`,
+		out:  `optional.of(10)`,
+	},
+	{
+		in:   unknownActivation(),
+		expr: `{'b': optional.of(10)}.?b`,
+		out:  `optional.of(optional.of(10))`,
 	},
 	{
 		in:   partialActivation(map[string]any{"a": map[string]any{}}),
