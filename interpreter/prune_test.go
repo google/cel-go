@@ -35,7 +35,6 @@ type testInfo struct {
 	expr      string
 	out       string
 	iterRange string
-	enabled   bool
 }
 
 var testCases = []testInfo{
