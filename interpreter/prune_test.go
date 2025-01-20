@@ -23,6 +23,7 @@ import (
 	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/common/types/traits"
 	"github.com/google/cel-go/parser"
 	"github.com/google/cel-go/test"
 
@@ -238,9 +239,14 @@ var testCases = []testInfo{
 		out:  `optional.none()`,
 	},
 	{
-		in:   partialActivation(map[string]any{"a": map[string]any{"b": 10}}),
-		expr: `a.b`,
-		out:  "10",
+		in:   unknownActivation(),
+		expr: `[10].last()`,
+		out:  "optional.of(10)",
+	},
+	{
+		in:   unknownActivation(),
+		expr: `[].last()`,
+		out:  "optional.none()",
 	},
 	{
 		in:   unknownActivation("a"),
@@ -586,6 +592,19 @@ func optionalDecls(t *testing.T) []*decls.FunctionDecl {
 				types.NewMapType(types.NewTypeParamType("K"), paramType),
 				types.NewTypeParamType("K"),
 			}, optionalType),
+		),
+		funcDecl(t, "last", decls.Overload("list_last", []*types.Type{paramType}, optionalType,
+			decls.UnaryBinding(func(v ref.Val) ref.Val {
+				list := v.(traits.Lister)
+				sz := list.Size().Value().(int64)
+
+				if sz == 0 {
+					return types.OptionalNone
+				}
+
+				return types.OptionalOf(list.Get(types.Int(sz - 1)))
+			}),
+		),
 		),
 	}
 }
