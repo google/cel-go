@@ -24,6 +24,7 @@ import (
 	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
 )
 
 // Unparse takes an input expression and source position information and generates a human-readable
@@ -273,8 +274,17 @@ func (un *unparser) visitCallUnary(expr ast.Expr) error {
 	return un.visitMaybeNested(args[0], nested)
 }
 
-func (un *unparser) visitConst(expr ast.Expr) error {
-	val := expr.AsLiteral()
+func (un *unparser) visitConstVal(val ref.Val) error {
+	optional := false
+	if optVal, ok := val.(*types.Optional); ok {
+		if !optVal.HasValue() {
+			un.str.WriteString("optional.none()")
+			return nil
+		}
+		optional = true
+		un.str.WriteString("optional.of(")
+		val = optVal.GetValue()
+	}
 	switch val := val.(type) {
 	case types.Bool:
 		un.str.WriteString(strconv.FormatBool(bool(val)))
@@ -303,7 +313,21 @@ func (un *unparser) visitConst(expr ast.Expr) error {
 		ui := strconv.FormatUint(uint64(val), 10)
 		un.str.WriteString(ui)
 		un.str.WriteString("u")
+	case *types.Optional:
+		if err := un.visitConstVal(val); err != nil {
+			return err
+		}
 	default:
+		return errors.New("unsupported constant")
+	}
+	if optional {
+		un.str.WriteString(")")
+	}
+	return nil
+}
+func (un *unparser) visitConst(expr ast.Expr) error {
+	val := expr.AsLiteral()
+	if err := un.visitConstVal(val); err != nil {
 		return fmt.Errorf("unsupported constant: %v", expr)
 	}
 	return nil
