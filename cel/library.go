@@ -15,6 +15,7 @@
 package cel
 
 import (
+	"fmt"
 	"math"
 	"strconv"
 	"strings"
@@ -35,9 +36,11 @@ const (
 	optMapMacro                = "optMap"
 	optFlatMapMacro            = "optFlatMap"
 	hasValueFunc               = "hasValue"
+	unwrapOptFunc              = "unwrapOpt"
 	optionalNoneFunc           = "optional.none"
 	optionalOfFunc             = "optional.of"
 	optionalOfNonZeroValueFunc = "optional.ofNonZeroValue"
+	optionalUnwrapFunc         = "optional.unwrap"
 	valueFunc                  = "value"
 	unusedIterVar              = "#unused"
 )
@@ -281,6 +284,16 @@ func (stdLibrary) ProgramOptions() []ProgramOption {
 //
 // This is syntactic sugar for msg.elements[msg.elements.size()-1].
 
+// # Unwrap / UnwrapOpt
+//
+// Introduced in version: 2
+//
+// Returns a list of all the values that are not none in the input list of optional values.
+// Can be used as optional.unwrap(List[T]) or with postfix notation: List[T].unwrapOpt()
+//
+// optional.unwrap([optional.of(42), optional.none()]) == [42]
+// [optional.of(42), optional.none()].unwrapOpt() == [42]
+
 func OptionalTypes(opts ...OptionalTypesOption) EnvOption {
 	lib := &optionalLib{version: math.MaxUint32}
 	for _, opt := range opts {
@@ -324,6 +337,7 @@ func (lib *optionalLib) CompileOptions() []EnvOption {
 	optionalTypeV := OptionalType(paramTypeV)
 	listTypeV := ListType(paramTypeV)
 	mapTypeKV := MapType(paramTypeK, paramTypeV)
+	listOptionalTypeV := ListType(optionalTypeV)
 
 	opts := []EnvOption{
 		// Enable the optional syntax in the parser.
@@ -427,6 +441,13 @@ func (lib *optionalLib) CompileOptions() []EnvOption {
 				}),
 			),
 		))
+
+		opts = append(opts, Function(optionalUnwrapFunc,
+			Overload("optional_unwrap", []*Type{listOptionalTypeV}, listTypeV,
+				UnaryBinding(optUnwrap))))
+		opts = append(opts, Function(unwrapOptFunc,
+			MemberOverload("optional_unwrapOpt", []*Type{listOptionalTypeV}, listTypeV,
+				UnaryBinding(optUnwrap))))
 	}
 
 	return opts
@@ -491,6 +512,23 @@ func optFlatMap(meh MacroExprFactory, target ast.Expr, args []ast.Expr) (ast.Exp
 		),
 		meh.NewCall(optionalNoneFunc),
 	), nil
+}
+
+func optUnwrap(value ref.Val) ref.Val {
+	list := value.(traits.Lister)
+	var unwrappedList []ref.Val
+	iter := list.Iterator()
+	for iter.HasNext() == types.True {
+		val := iter.Next()
+		opt, isOpt := val.(*types.Optional)
+		if !isOpt {
+			return types.WrapErr(fmt.Errorf("value %v is not optional", val))
+		}
+		if opt.HasValue() {
+			unwrappedList = append(unwrappedList, opt.GetValue())
+		}
+	}
+	return types.DefaultTypeAdapter.NativeToValue(unwrappedList)
 }
 
 func enableOptionalSyntax() EnvOption {

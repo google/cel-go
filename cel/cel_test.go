@@ -2818,6 +2818,14 @@ func TestOptionalValuesEval(t *testing.T) {
 		{expr: `['a','b','c'].first()`, out: types.OptionalOf(types.String("a"))},
 		{expr: `[].last()`, out: types.OptionalNone},
 		{expr: `[1, 2, 3].last()`, out: types.OptionalOf(types.Int(3))},
+		{expr: `optional.unwrap([])`, out: []any{}},
+		{expr: `optional.unwrap([optional.none(), optional.none()])`, out: []any{}},
+		{expr: `optional.unwrap([optional.of(42), optional.none(), optional.of("a")])`, out: []any{types.Int(42), types.String("a")}},
+		{expr: `optional.unwrap([optional.of(42), optional.of("a")])`, out: []any{types.Int(42), types.String("a")}},
+		{expr: `[].unwrapOpt()`, out: []any{}},
+		{expr: `[optional.none(), optional.none()].unwrapOpt()`, out: []any{}},
+		{expr: `[optional.of(42), optional.none(), optional.of("a")].unwrapOpt()`, out: []any{types.Int(42), types.String("a")}},
+		{expr: `[optional.of(42), optional.of("a")].unwrapOpt()`, out: []any{types.Int(42), types.String("a")}},
 	}
 
 	for i, tst := range tests {
