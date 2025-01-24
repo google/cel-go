@@ -67,8 +67,7 @@ func clauseForType(argType ref.Type) (clauseImpl, error) {
 			if !ok {
 				return "", fmt.Errorf("couldn't convert %s to float64", arg.Type().TypeName())
 			}
-			fmtStr := fmt.Sprintf("%%.%df", defaultPrecision)
-			return fmt.Sprintf(fmtStr, argDouble), nil
+			return string(types.Double(argDouble).ConvertToType(types.StringType).(types.String)), nil
 		}, nil
 	case types.TypeType:
 		return func(arg ref.Val, locale string) (string, error) {
@@ -333,7 +332,7 @@ func (c *stringFormatter) Scientific(precision *int) func(ref.Val, string) (stri
 			return "", fmt.Errorf("error matching locale: %w", err)
 		}
 		fmtStr := fmt.Sprintf("%%%de", *precision)
-		return message.NewPrinter(matchedLocale).Sprintf(fmtStr, argFloat), nil
+		return strings.ReplaceAll(message.NewPrinter(matchedLocale).Sprintf(fmtStr, argFloat), "\u202f", ""), nil
 	}
 }
 

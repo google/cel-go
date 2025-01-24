@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"strconv"
+	"strings"
 
 	"github.com/google/cel-go/common/types/ref"
 
@@ -136,7 +138,20 @@ func (d Double) ConvertToType(typeVal ref.Type) ref.Val {
 	case DoubleType:
 		return d
 	case StringType:
-		return String(fmt.Sprintf("%g", float64(d)))
+		if math.IsInf(float64(d), 1) {
+			return String("+Inf")
+		}
+		if math.IsInf(float64(d), -1) {
+			return String("-Inf")
+		}
+		if math.IsNaN(float64(d)) {
+			return String("NaN")
+		}
+		s := strconv.FormatFloat(float64(d), 'f', -1, 64)
+		if !strings.ContainsRune(s, '.') {
+			s = s + ".0"
+		}
+		return String(s)
 	case TypeType:
 		return DoubleType
 	}

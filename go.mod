@@ -5,7 +5,7 @@ go 1.21.1
 toolchain go1.23.0
 
 require (
-	cel.dev/expr v0.19.1
+	cel.dev/expr v0.19.2
 	github.com/antlr4-go/antlr/v4 v4.13.0
 	github.com/stoewer/go-strcase v1.2.0
 	golang.org/x/text v0.16.0

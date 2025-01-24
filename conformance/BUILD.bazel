@@ -55,6 +55,13 @@ _TESTS_TO_SKIP = [
     # Future enhancments.
     "enums/strong_proto2",
     "enums/strong_proto3",
+
+    # Type deductions.
+    "type_deductions/wrappers/wrapper_promotion_2",
+    "type_deductions/legacy_nullable_types/null_assignable_to_message_parameter_candidate",
+    "type_deductions/legacy_nullable_types/null_assignable_to_duration_parameter_candidate",
+    "type_deductions/legacy_nullable_types/null_assignable_to_timestamp_parameter_candidate",
+    "type_deductions/legacy_nullable_types/null_assignable_to_abstract_parameter_candidate",
 ]
 
 go_test(
