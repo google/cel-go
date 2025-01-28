@@ -628,6 +628,93 @@ func TestCost(t *testing.T) {
 			expr:   `['hello', 'hi'][0] != ['hello', 'bye'][1]`,
 			wanted: CostEstimate{Min: 23, Max: 23},
 		},
+		{
+			name:   "type call",
+			expr:   `type(1)`,
+			wanted: CostEstimate{Min: 1, Max: 1},
+		},
+		{
+			name: "type call variable",
+			expr: `type(self.val1)`,
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("self", types.NewMapType(types.StringType, types.IntType)),
+			},
+			wanted: CostEstimate{Min: 3, Max: 3},
+		},
+		{
+			name: "type call variable equality",
+			expr: `type(self.val1) == int`,
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("self", types.NewMapType(types.StringType, types.IntType)),
+			},
+			wanted: CostEstimate{Min: 5, Max: 1844674407370955268},
+		},
+		{
+			name:   "type literal equality cost",
+			expr:   `type(1) == int`,
+			wanted: CostEstimate{Min: 3, Max: 1844674407370955266},
+		},
+		{
+			name:   "type variable equality cost",
+			expr:   `type(1) == int`,
+			wanted: CostEstimate{Min: 3, Max: 1844674407370955266},
+		},
+		{
+			name: "namespace variable equality",
+			expr: `self.val1 == 1.0`,
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("self.val1", types.DoubleType),
+			},
+			wanted: CostEstimate{Min: 2, Max: 2},
+		},
+		{
+			name: "simple map variable equality",
+			expr: `self.val1 == 1.0`,
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("self", types.NewMapType(types.StringType, types.DoubleType)),
+			},
+			wanted: CostEstimate{Min: 3, Max: 3},
+		},
+		{
+			name: "date-time math",
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("self", types.NewMapType(types.StringType, types.TimestampType)),
+			},
+			expr:   `self.val1 == timestamp('2011-08-18T00:00:00.000+01:00') + duration('19h3m37s10ms')`,
+			wanted: FixedCostEstimate(6),
+		},
+		{
+			name: "date-time math self-conversion",
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("self", types.NewMapType(types.StringType, types.TimestampType)),
+			},
+			expr:   `timestamp(self.val1) == timestamp('2011-08-18T00:00:00.000+01:00') + duration('19h3m37s10ms')`,
+			wanted: FixedCostEstimate(7),
+		},
+		{
+			name: "boolean vars equal",
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("self", types.NewMapType(types.StringType, types.BoolType)),
+			},
+			expr:   `self.val1 != self.val2`,
+			wanted: FixedCostEstimate(5),
+		},
+		{
+			name: "boolean var equals literal",
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("self", types.NewMapType(types.StringType, types.BoolType)),
+			},
+			expr:   `self.val1 != true`,
+			wanted: FixedCostEstimate(3),
+		},
+		{
+			name: "double var equals literal",
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("self", types.NewMapType(types.StringType, types.DoubleType)),
+			},
+			expr:   `self.val1 == 1.0`,
+			wanted: FixedCostEstimate(3),
+		},
 	}
 
 	for _, tst := range cases {
