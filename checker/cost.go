@@ -101,16 +101,6 @@ type SizeEstimate struct {
 	Min, Max uint64
 }
 
-// UnknownSizeEstimate returns a size between 0 and max uint
-func UnknownSizeEstimate() SizeEstimate {
-	return unknownSizeEstimate
-}
-
-// FixedSizeEstimate returns a size estimate with a fixed min and max range.
-func FixedSizeEstimate(size uint64) SizeEstimate {
-	return SizeEstimate{Min: size, Max: size}
-}
-
 // Add adds to another SizeEstimate and returns the sum.
 // If add would result in an uint64 overflow, the result is math.MaxUint64.
 func (se SizeEstimate) Add(sizeEstimate SizeEstimate) SizeEstimate {
@@ -163,16 +153,6 @@ func (se SizeEstimate) Union(size SizeEstimate) SizeEstimate {
 // that do not overflow.
 type CostEstimate struct {
 	Min, Max uint64
-}
-
-// UnknownCostEstimate returns a cost with an unknown impact.
-func UnknownCostEstimate() CostEstimate {
-	return unknownCostEstimate
-}
-
-// FixedCostEstimate returns a cost with a fixed min and max range.
-func FixedCostEstimate(cost uint64) CostEstimate {
-	return CostEstimate{Min: cost, Max: cost}
 }
 
 // Add adds the costs and returns the sum.
@@ -1039,3 +1019,23 @@ var (
 	createMapBaseCost     = FixedCostEstimate(common.MapCreateBaseCost)
 	createMessageBaseCost = FixedCostEstimate(common.StructCreateBaseCost)
 )
+
+// UnknownSizeEstimate returns a size between 0 and max uint
+func UnknownSizeEstimate() SizeEstimate {
+	return unknownSizeEstimate
+}
+
+// FixedSizeEstimate returns a size estimate with a fixed min and max range.
+func FixedSizeEstimate(size uint64) SizeEstimate {
+	return SizeEstimate{Min: size, Max: size}
+}
+
+// UnknownCostEstimate returns a cost with an unknown impact.
+func UnknownCostEstimate() CostEstimate {
+	return unknownCostEstimate
+}
+
+// FixedCostEstimate returns a cost with a fixed min and max range.
+func FixedCostEstimate(cost uint64) CostEstimate {
+	return CostEstimate{Min: cost, Max: cost}
+}
