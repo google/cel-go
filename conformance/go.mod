@@ -3,7 +3,7 @@ module github.com/google/cel-go/conformance
 go 1.21.1
 
 require (
-	cel.dev/expr v0.19.1
+	cel.dev/expr v0.19.2
 	github.com/bazelbuild/rules_go v0.49.0
 	github.com/google/cel-go v0.21.0
 	github.com/google/go-cmp v0.6.0
