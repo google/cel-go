@@ -148,6 +148,60 @@ func (f *FunctionDecl) Merge(other *FunctionDecl) (*FunctionDecl, error) {
 	return merged, nil
 }
 
+// OverloadSelector selects an overload associated with a given function when it returns true.
+//
+// Used in combination with the Subset method.
+type OverloadSelector func(overload *OverloadDecl) bool
+
+// IncludeOverloads defines an OverloadSelector which allow-lists a set of overloads by their ids.
+func IncludeOverloads(overloadIDs ...string) OverloadSelector {
+	return func(overload *OverloadDecl) bool {
+		for _, oID := range overloadIDs {
+			if overload.id == oID {
+				return true
+			}
+		}
+		return false
+	}
+}
+
+// ExcludeOverloads defines an OverloadSelector which deny-lists a set of overloads by their ids.
+func ExcludeOverloads(overloadIDs ...string) OverloadSelector {
+	return func(overload *OverloadDecl) bool {
+		for _, oID := range overloadIDs {
+			if overload.id == oID {
+				return false
+			}
+		}
+		return true
+	}
+}
+
+// Subset returns a new function declaration which contains only the overloads with the specified IDs.
+func (f *FunctionDecl) Subset(selector OverloadSelector) *FunctionDecl {
+	if f == nil {
+		return nil
+	}
+	overloads := make(map[string]*OverloadDecl)
+	overloadOrdinals := make([]string, 0, len(f.overloadOrdinals))
+	for _, oID := range f.overloadOrdinals {
+		overload := f.overloads[oID]
+		if selector(overload) {
+			overloads[oID] = overload
+			overloadOrdinals = append(overloadOrdinals, oID)
+		}
+	}
+	subset := &FunctionDecl{
+		name:              f.Name(),
+		overloads:         overloads,
+		singleton:         f.singleton,
+		disableTypeGuards: f.disableTypeGuards,
+		state:             f.state,
+		overloadOrdinals:  overloadOrdinals,
+	}
+	return subset
+}
+
 // AddOverload ensures that the new overload does not collide with an existing overload signature;
 // however, if the function signatures are identical, the implementation may be rewritten as its
 // difficult to compare functions by object identity.
