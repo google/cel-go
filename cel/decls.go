@@ -194,6 +194,38 @@ func Function(name string, opts ...FunctionOpt) EnvOption {
 	}
 }
 
+// OverloadSelector selects an overload associated with a given function when it returns true.
+//
+// Used in combination with the FunctionDecl.Subset method.
+type OverloadSelector = decls.OverloadSelector
+
+// IncludeOverloads defines an OverloadSelector which allow-lists a set of overloads by their ids.
+func IncludeOverloads(overloadIDs ...string) OverloadSelector {
+	return decls.IncludeOverloads(overloadIDs...)
+}
+
+// ExcludeOverloads defines an OverloadSelector which deny-lists a set of overloads by their ids.
+func ExcludeOverloads(overloadIDs ...string) OverloadSelector {
+	return decls.ExcludeOverloads(overloadIDs...)
+}
+
+// FunctionDecls provides one or more fully formed function declaration to be added to the environment.
+func FunctionDecls(funcs ...*decls.FunctionDecl) EnvOption {
+	return func(e *Env) (*Env, error) {
+		var err error
+		for _, fn := range funcs {
+			if existing, found := e.functions[fn.Name()]; found {
+				fn, err = existing.Merge(fn)
+				if err != nil {
+					return nil, err
+				}
+			}
+			e.functions[fn.Name()] = fn
+		}
+		return e, nil
+	}
+}
+
 // FunctionOpt defines a functional  option for configuring a function declaration.
 type FunctionOpt = decls.FunctionOpt
 
