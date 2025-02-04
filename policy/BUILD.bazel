@@ -28,8 +28,10 @@ go_library(
         "config.go",
         "parser.go",
         "source.go",
+        "test_tag_handler_k8s.go",
     ],
     importpath = "github.com/google/cel-go/policy",
+    compatible_with = ["//buildenv/target:non_prod"],
     deps = [
         "//cel:go_default_library",
         "//common:go_default_library",
