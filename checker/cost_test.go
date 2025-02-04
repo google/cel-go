@@ -40,7 +40,7 @@ func TestCost(t *testing.T) {
 	nestedMap := types.NewMapType(types.StringType, allMap)
 
 	zeroCost := CostEstimate{}
-	oneCost := CostEstimate{Min: 1, Max: 1}
+	oneCost := FixedCostEstimate(1)
 	cases := []struct {
 		name    string
 		expr    string
@@ -256,6 +256,11 @@ func TestCost(t *testing.T) {
 			wanted: oneCost,
 		},
 		{
+			name:   "bytes size",
+			expr:   `size(b"123")`,
+			wanted: oneCost,
+		},
+		{
 			name:   "bytes to string conversion",
 			vars:   []*decls.VariableDecl{decls.NewVariable("input", types.BytesType)},
 			hints:  map[string]uint64{"input": 500},
@@ -463,6 +468,36 @@ func TestCost(t *testing.T) {
 			wanted: CostEstimate{Min: 5, Max: 5},
 		},
 		{
+			name: "list size from concat",
+			expr: `([x, y] + list1 + list2).size()`,
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("x", types.IntType),
+				decls.NewVariable("y", types.IntType),
+				decls.NewVariable("list1", types.NewListType(types.IntType)),
+				decls.NewVariable("list2", types.NewListType(types.IntType)),
+			},
+			hints: map[string]uint64{
+				"list1": 10,
+				"list2": 20,
+			},
+			wanted: CostEstimate{Min: 17, Max: 17},
+		},
+		{
+			name: "list cost tracking through comprehension",
+			expr: `[list1, list2].exists(l, l.exists(v, v.startsWith('hi')))`,
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("list1", types.NewListType(types.StringType)),
+				decls.NewVariable("list2", types.NewListType(types.StringType)),
+			},
+			hints: map[string]uint64{
+				"list1":        10,
+				"list1.@items": 64,
+				"list2":        20,
+				"list2.@items": 128,
+			},
+			wanted: CostEstimate{Min: 21, Max: 265},
+		},
+		{
 			name: "str endsWith equality",
 			expr: `str1.endsWith("abcdefghijklmnopqrstuvwxyz") == str2.endsWith("abcdefghijklmnopqrstuvwxyz")`,
 			vars: []*decls.VariableDecl{
@@ -539,27 +574,37 @@ func TestCost(t *testing.T) {
 			wanted: CostEstimate{Min: 61, Max: 61},
 		},
 		{
-			name:   "nested array selection",
+			name:   "nested map selection",
 			expr:   `{'a': [1,2], 'b': [1,2], 'c': [1,2], 'd': [1,2], 'e': [1,2]}.b`,
 			wanted: CostEstimate{Min: 81, Max: 81},
 		},
 		{
-			// Estimated cost does not track the sizes of nested aggregate types
-			// (lists, maps, ...) and so assumes a worst case cost when an
-			// expression applies a comprehension to a nested aggregated type,
-			// even if the size information is available.
-			// TODO: This should be fixed.
 			name:   "comprehension on nested list",
-			expr:   `[1,2,3,4,5].map(x, [x, x]).all(y, y.all(y, y == 1))`,
-			wanted: CostEstimate{Min: 157, Max: 18446744073709551615},
+			expr:   `[[1, 1], [2, 2], [3, 3], [4, 4], [5, 5]].all(y, y.all(y, y == 1))`,
+			wanted: CostEstimate{Min: 76, Max: 136},
 		},
 		{
-			// Make sure we're accounting for not just the iteration range size,
-			// but also the overall comprehension size. The chained map calls
-			// will treat the result of one map as the iteration range of the other,
-			// so they're planned in reverse; however, the `+` should verify that
-			// the comprehension result has a size.
-			name:   "comprehension size",
+			name:   "comprehension on transformed nested list",
+			expr:   `[1,2,3,4,5].map(x, [x, x]).all(y, y.all(y, y == 1))`,
+			wanted: CostEstimate{Min: 157, Max: 217},
+		},
+		{
+			name:   "comprehension on nested literal list",
+			expr:   `["a", "ab", "abc", "abcd", "abcde"].map(x, [x, x]).all(y, y.all(y, y.startsWith('a')))`,
+			wanted: CostEstimate{Min: 157, Max: 217},
+		},
+		{
+			name: "comprehension on nested variable list",
+			expr: `input.map(x, [x, x]).all(y, y.all(y, y.startsWith('a')))`,
+			vars: []*decls.VariableDecl{decls.NewVariable("input", types.NewListType(types.StringType))},
+			hints: map[string]uint64{
+				"input":        5,
+				"input.@items": 10,
+			},
+			wanted: CostEstimate{Min: 13, Max: 208},
+		},
+		{
+			name:   "comprehension chaining with concat",
 			expr:   `[1,2,3,4,5].map(x, x).map(x, x) + [1]`,
 			wanted: CostEstimate{Min: 173, Max: 173},
 		},
@@ -568,9 +613,137 @@ func TestCost(t *testing.T) {
 			expr:   `[1,2,3].all(i, i in [1,2,3].map(j, j + j))`,
 			wanted: CostEstimate{Min: 20, Max: 230},
 		},
+		{
+			name:   "nested dyn comprehension",
+			expr:   `dyn([1,2,3]).all(i, i in dyn([1,2,3]).map(j, j + j))`,
+			wanted: CostEstimate{Min: 21, Max: 234},
+		},
+		{
+			name:   "literal map access",
+			expr:   `{'hello': 'hi'}['hello'] != {'hello': 'bye'}['hello']`,
+			wanted: CostEstimate{Min: 63, Max: 63},
+		},
+		{
+			name:   "literal list access",
+			expr:   `['hello', 'hi'][0] != ['hello', 'bye'][1]`,
+			wanted: CostEstimate{Min: 23, Max: 23},
+		},
+		{
+			name:   "type call",
+			expr:   `type(1)`,
+			wanted: CostEstimate{Min: 1, Max: 1},
+		},
+		{
+			name: "type call variable",
+			expr: `type(self.val1)`,
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("self", types.NewMapType(types.StringType, types.IntType)),
+			},
+			wanted: CostEstimate{Min: 3, Max: 3},
+		},
+		{
+			name: "type call variable equality",
+			expr: `type(self.val1) == int`,
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("self", types.NewMapType(types.StringType, types.IntType)),
+			},
+			wanted: CostEstimate{Min: 5, Max: 1844674407370955268},
+		},
+		{
+			name:   "type literal equality cost",
+			expr:   `type(1) == int`,
+			wanted: CostEstimate{Min: 3, Max: 1844674407370955266},
+		},
+		{
+			name:   "type variable equality cost",
+			expr:   `type(1) == int`,
+			wanted: CostEstimate{Min: 3, Max: 1844674407370955266},
+		},
+		{
+			name: "namespace variable equality",
+			expr: `self.val1 == 1.0`,
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("self.val1", types.DoubleType),
+			},
+			wanted: CostEstimate{Min: 2, Max: 2},
+		},
+		{
+			name: "simple map variable equality",
+			expr: `self.val1 == 1.0`,
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("self", types.NewMapType(types.StringType, types.DoubleType)),
+			},
+			wanted: CostEstimate{Min: 3, Max: 3},
+		},
+		{
+			name: "date-time math",
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("self", types.NewMapType(types.StringType, types.TimestampType)),
+			},
+			expr:   `self.val1 == timestamp('2011-08-18T00:00:00.000+01:00') + duration('19h3m37s10ms')`,
+			wanted: FixedCostEstimate(6),
+		},
+		{
+			name: "date-time math self-conversion",
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("self", types.NewMapType(types.StringType, types.TimestampType)),
+			},
+			expr:   `timestamp(self.val1) == timestamp('2011-08-18T00:00:00.000+01:00') + duration('19h3m37s10ms')`,
+			wanted: FixedCostEstimate(7),
+		},
+		{
+			name: "boolean vars equal",
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("self", types.NewMapType(types.StringType, types.BoolType)),
+			},
+			expr:   `self.val1 != self.val2`,
+			wanted: FixedCostEstimate(5),
+		},
+		{
+			name: "boolean var equals literal",
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("self", types.NewMapType(types.StringType, types.BoolType)),
+			},
+			expr:   `self.val1 != true`,
+			wanted: FixedCostEstimate(3),
+		},
+		{
+			name: "double var equals literal",
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("self", types.NewMapType(types.StringType, types.DoubleType)),
+			},
+			expr:   `self.val1 == 1.0`,
+			wanted: FixedCostEstimate(3),
+		},
+		{
+			name: "bytes list max",
+			expr: "[bytes('012345678901'), bytes('012345678901'), bytes('012345678901'), bytes('012345678901'), bytes('012345678901')].max()",
+			options: []CostOption{
+				OverloadCostEstimate("list_bytes_max",
+					func(estimator CostEstimator, target *AstNode, args []AstNode) *CallEstimate {
+						if target != nil {
+							// Charge 1 cost for comparing each element in the list
+							elCost := CostEstimate{Min: 1, Max: 1}
+							// If the list contains strings or bytes, add the cost of traversing all the strings/bytes as a way
+							// of estimating the additional comparison cost.
+							if elNode := listElementNode(*target); elNode != nil {
+								k := elNode.Type().Kind()
+								if k == types.StringKind || k == types.BytesKind {
+									sz := sizeEstimate(estimator, elNode)
+									elCost = elCost.Add(sz.MultiplyByCostFactor(common.StringTraversalCostFactor))
+								}
+								return &CallEstimate{CostEstimate: sizeEstimate(estimator, *target).MultiplyByCost(elCost)}
+							}
+						}
+						return nil
+					}),
+			},
+			wanted: CostEstimate{Min: 25, Max: 35},
+		},
 	}
 
-	for _, tc := range cases {
+	for _, tst := range cases {
+		tc := tst
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.hints == nil {
 				tc.hints = map[string]uint64{}
@@ -594,6 +767,14 @@ func TestCost(t *testing.T) {
 				t.Fatalf("NewEnv() failed: %v", err)
 			}
 			err = e.AddFunctions(stdlib.Functions()...)
+			if err != nil {
+				t.Fatalf("environment creation error: %v", err)
+			}
+			maxFunc, _ := decls.NewFunction("max",
+				decls.MemberOverload("list_bytes_max",
+					[]*types.Type{types.NewListType(types.BytesType)},
+					types.BytesType))
+			err = e.AddFunctions(maxFunc)
 			if err != nil {
 				t.Fatalf("environment creation error: %v", err)
 			}
@@ -625,6 +806,9 @@ func (tc testCostEstimator) EstimateSize(element AstNode) *SizeEstimate {
 	if l, ok := tc.hints[strings.Join(element.Path(), ".")]; ok {
 		return &SizeEstimate{Min: 0, Max: l}
 	}
+	if element.Type() == types.BytesType {
+		return &SizeEstimate{Min: 0, Max: 12}
+	}
 	return nil
 }
 
@@ -642,6 +826,35 @@ func estimateSize(estimator CostEstimator, node AstNode) SizeEstimate {
 	}
 	if l := estimator.EstimateSize(node); l != nil {
 		return *l
+	}
+	return SizeEstimate{Min: 0, Max: math.MaxUint64}
+}
+
+func listElementNode(list AstNode) AstNode {
+	if params := list.Type().Parameters(); len(params) > 0 {
+		lt := params[0]
+		nodePath := list.Path()
+		if nodePath != nil {
+			// Provide path if we have it so that a OpenAPIv3 maxLength validation can be looked up, if it exists
+			// for this node.
+			path := make([]string, len(nodePath)+1)
+			copy(path, nodePath)
+			path[len(nodePath)] = "@items"
+			return &astNode{path: path, t: lt, expr: nil}
+		} else {
+			// Provide just the type if no path is available so that worst case size can be looked up based on type.
+			return &astNode{t: lt, expr: nil}
+		}
+	}
+	return nil
+}
+
+func sizeEstimate(estimator CostEstimator, t AstNode) SizeEstimate {
+	if sz := t.ComputedSize(); sz != nil {
+		return *sz
+	}
+	if sz := estimator.EstimateSize(t); sz != nil {
+		return *sz
 	}
 	return SizeEstimate{Min: 0, Max: math.MaxUint64}
 }

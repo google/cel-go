@@ -26,6 +26,7 @@ import (
 	"github.com/google/cel-go/common/functions"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/overloads"
+	"github.com/google/cel-go/common/stdlib"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
@@ -775,6 +776,187 @@ func TestExprDeclToDeclarationInvalid(t *testing.T) {
 			_, err := ExprDeclToDeclaration(tc.in)
 			if err == nil || !strings.Contains(err.Error(), tc.out) {
 				t.Fatalf("ExprDeclToDeclarations(%v) got %v, wanted error %v", tc.in, err, tc.out)
+			}
+		})
+	}
+}
+
+func TestFunctionDeclExcludeOverloads(t *testing.T) {
+	funcs := []*decls.FunctionDecl{}
+	for _, fn := range stdlib.Functions() {
+		if fn.Name() == operators.Add {
+			fn = fn.Subset(ExcludeOverloads(overloads.AddList, overloads.AddBytes, overloads.AddString))
+		}
+		funcs = append(funcs, fn)
+	}
+	env, err := NewCustomEnv(FunctionDecls(funcs...))
+	if err != nil {
+		t.Fatalf("NewCustomEnv() failed: %v", err)
+	}
+
+	successTests := []struct {
+		name string
+		expr string
+		want ref.Val
+	}{
+		{
+			name: "ints",
+			expr: "1 + 1",
+			want: types.Int(2),
+		},
+		{
+			name: "doubles",
+			expr: "1.5 + 1.5",
+			want: types.Double(3.0),
+		},
+		{
+			name: "uints",
+			expr: "1u + 2u",
+			want: types.Uint(3),
+		},
+		{
+			name: "timestamp plus duration",
+			expr: "timestamp('2001-01-01T00:00:00Z') + duration('1h') == timestamp('2001-01-01T01:00:00Z')",
+			want: types.True,
+		},
+		{
+			name: "durations",
+			expr: "duration('1h') + duration('1m') == duration('1h1m')",
+			want: types.True,
+		},
+	}
+	for _, tst := range successTests {
+		tc := tst
+		t.Run(tc.name, func(t *testing.T) {
+			ast, iss := env.Compile(tc.expr)
+			if iss.Err() != nil {
+				t.Fatalf("env.Compile() failed: %v", iss.Err())
+			}
+			prg, err := env.Program(ast)
+			if err != nil {
+				t.Fatalf("env.Program() failed: %v", err)
+			}
+			out, _, err := prg.Eval(NoVars())
+			if err != nil {
+				t.Fatalf("prg.Eval() errored: %v", err)
+			}
+			if out.Equal(tc.want) != types.True {
+				t.Errorf("Eval() got %v, wanted %v", out, tc.want)
+			}
+		})
+	}
+	failureTests := []struct {
+		name string
+		expr string
+	}{
+		{
+			name: "strings",
+			expr: "'a' + 'b'",
+		},
+		{
+			name: "bytes",
+			expr: "b'123' + b'456'",
+		},
+		{
+			name: "lists",
+			expr: "[1] + [2, 3]",
+		},
+	}
+	for _, tst := range failureTests {
+		tc := tst
+		t.Run(tc.name, func(t *testing.T) {
+			_, iss := env.Compile(tc.expr)
+			if iss.Err() == nil {
+				t.Error("env.Compile() got ast, wanted error")
+			}
+		})
+	}
+}
+
+func TestFunctionDeclIncludeOverloads(t *testing.T) {
+	funcs := []*decls.FunctionDecl{}
+	for _, fn := range stdlib.Functions() {
+		if fn.Name() == operators.Add {
+			fn = fn.Subset(IncludeOverloads(overloads.AddInt64, overloads.AddDouble))
+		}
+		funcs = append(funcs, fn)
+	}
+	env, err := NewCustomEnv(FunctionDecls(funcs...))
+	if err != nil {
+		t.Fatalf("NewCustomEnv() failed: %v", err)
+	}
+
+	successTests := []struct {
+		name string
+		expr string
+		want ref.Val
+	}{
+		{
+			name: "ints",
+			expr: "1 + 1",
+			want: types.Int(2),
+		},
+		{
+			name: "doubles",
+			expr: "1.5 + 1.5",
+			want: types.Double(3.0),
+		},
+	}
+	for _, tst := range successTests {
+		tc := tst
+		t.Run(tc.name, func(t *testing.T) {
+			ast, iss := env.Compile(tc.expr)
+			if iss.Err() != nil {
+				t.Fatalf("env.Compile() failed: %v", iss.Err())
+			}
+			prg, err := env.Program(ast)
+			if err != nil {
+				t.Fatalf("env.Program() failed: %v", err)
+			}
+			out, _, err := prg.Eval(NoVars())
+			if err != nil {
+				t.Fatalf("prg.Eval() errored: %v", err)
+			}
+			if out.Equal(tc.want) != types.True {
+				t.Errorf("Eval() got %v, wanted %v", out, tc.want)
+			}
+		})
+	}
+	failureTests := []struct {
+		name string
+		expr string
+	}{
+		{
+			name: "strings",
+			expr: "'a' + 'b'",
+		},
+		{
+			name: "bytes",
+			expr: "b'123' + b'456'",
+		},
+		{
+			name: "lists",
+			expr: "[1] + [2, 3]",
+		},
+		{
+			name: "uints",
+			expr: "1u + 2u",
+		},
+		{
+			name: "timestamp plus duration",
+			expr: "timestamp('2001-01-01T00:00:00Z') + duration('1h') == timestamp('2001-01-01T01:00:00Z')",
+		},
+		{
+			name: "durations",
+			expr: "duration('1h') + duration('1m') == duration('1h1m')",
+		},
+	}
+	for _, tst := range failureTests {
+		tc := tst
+		t.Run(tc.name, func(t *testing.T) {
+			_, iss := env.Compile(tc.expr)
+			if iss.Err() == nil {
+				t.Error("env.Compile() got ast, wanted error")
 			}
 		})
 	}

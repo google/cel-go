@@ -41,6 +41,7 @@ type Parser struct {
 // NewParser builds and returns a new Parser using the provided options.
 func NewParser(opts ...Option) (*Parser, error) {
 	p := &Parser{}
+	p.enableHiddenAccumulatorName = true
 	for _, opt := range opts {
 		if err := opt(&p.options); err != nil {
 			return nil, err
