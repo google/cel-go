@@ -33,7 +33,7 @@ type Case struct {
 	// Options indicate additional pieces of configuration such as CEL libraries, variables, and functions.
 	Options []cel.EnvOption
 
-	// In is expected to be a map[string]any or interpreter.Activation instance representing the input to the expression.
+	// In is expected to be a map[string]any or cel.Activation instance representing the input to the expression.
 	In any
 
 	// Out is the expected CEL valued output.
@@ -48,7 +48,7 @@ type DynamicEnvCase struct {
 	// Options indicate additional pieces of configuration such as CEL libraries, variables, and functions.
 	Options func(b *testing.B) *cel.Env
 
-	// In is expected to be a map[string]any or interpreter.Activation instance representing the input to the expression.
+	// In is expected to be a map[string]any or cel.Activation instance representing the input to the expression.
 	In any
 
 	// Out is the expected CEL valued output.
