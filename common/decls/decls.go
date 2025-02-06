@@ -148,6 +148,10 @@ func (f *FunctionDecl) Merge(other *FunctionDecl) (*FunctionDecl, error) {
 	return merged, nil
 }
 
+// FunctionSubsetter subsets a function declaration or returns nil and false if the function
+// subset was empty.
+type FunctionSubsetter func(fn *FunctionDecl) (*FunctionDecl, bool)
+
 // OverloadSelector selects an overload associated with a given function when it returns true.
 //
 // Used in combination with the Subset method.

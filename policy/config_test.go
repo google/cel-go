@@ -15,11 +15,10 @@
 package policy
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/google/cel-go/cel"
-	"github.com/google/cel-go/ext"
+	"github.com/google/cel-go/common/env"
 
 	"gopkg.in/yaml.v3"
 
@@ -104,7 +103,7 @@ variables:
 	}
 	for _, tst := range tests {
 		c := parseConfigYaml(t, tst)
-		_, err := c.AsEnvOptions(baseEnv)
+		_, err := c.AsEnvOptions(baseEnv.CELTypeProvider())
 		if err != nil {
 			t.Errorf("AsEnvOptions() generated error: %v", err)
 		}
@@ -171,8 +170,8 @@ variables:
 		},
 		{
 			config: `
-variables:
-  - context_proto: "bad.proto.MessageType"
+context_variable:
+  type_name: "bad.proto.MessageType"
 `,
 			err: "could not find context proto type name: bad.proto.MessageType",
 		},
@@ -181,7 +180,7 @@ variables:
 variables:
   - type:
       type_name: "no variable name"`,
-			err: "invalid variable, must set 'name' or 'context_proto' field",
+			err: "invalid variable, must declare a name",
 		},
 
 		{
@@ -235,60 +234,17 @@ functions:
 	}
 	for _, tst := range tests {
 		c := parseConfigYaml(t, tst.config)
-		_, err := c.AsEnvOptions(baseEnv)
+		_, err := c.AsEnvOptions(baseEnv.CELTypeProvider())
 		if err == nil || err.Error() != tst.err {
 			t.Errorf("AsEnvOptions() got error: %v, wanted %s", err, tst.err)
 		}
 	}
 }
 
-func TestExtensionResolver(t *testing.T) {
-	ext := `
-extensions:
-  - name: "math"
-  - name: "strings_en_US"
-    version: 1`
-
-	baseEnv, err := cel.NewEnv()
-	if err != nil {
-		t.Fatalf("cel.NewEnv() failed: %v", err)
-	}
-	c := parseConfigYaml(t, ext)
-	for _, e := range c.Extensions {
-		e.ExtensionResolver = stringLocaleResolver{}
-	}
-	opts, err := c.AsEnvOptions(baseEnv)
-	if err != nil {
-		t.Errorf("AsEnvOptions() generated error: %v", err)
-	}
-	extEnv, err := baseEnv.Extend(opts...)
-	if err != nil {
-		t.Fatalf("baseEnv.Extend() failed: %v", err)
-	}
-	if !extEnv.HasLibrary("cel.lib.ext.strings") || !extEnv.HasLibrary("cel.lib.ext.math") {
-		t.Error("extended env did not contain standardized or custom extensions")
-	}
-}
-
 func parseConfigYaml(t *testing.T, doc string) *Config {
-	config := &Config{}
+	config := &env.Config{}
 	if err := yaml.Unmarshal([]byte(doc), config); err != nil {
 		t.Fatalf("yaml.Unmarshal(%q) failed: %v", doc, err)
 	}
-	return config
-}
-
-type stringLocaleResolver struct{}
-
-func (stringLocaleResolver) ResolveExtension(name string) (ExtensionFactory, bool) {
-	parts := strings.SplitN(name, "_", 2)
-	if len(parts) == 2 && parts[0] == "strings" {
-		return func(version uint32) cel.EnvOption {
-			return ext.Strings(
-				ext.StringsLocale(parts[1]),
-				ext.StringsVersion(version),
-			)
-		}, true
-	}
-	return nil, false
+	return NewConfig(config)
 }

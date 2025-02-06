@@ -17,5 +17,5 @@ container: "google.expr.proto3"
 extensions:
   - name: "strings"
     version: 2
-variables:
-  - context_proto: "google.expr.proto3.test.TestAllTypes"
+context_variable:
+  type_name: "google.expr.proto3.test.TestAllTypes"

@@ -92,11 +92,11 @@ func TestTypeString(t *testing.T) {
 		},
 		{
 			in:  ListType,
-			out: "list()",
+			out: "list(dyn)",
 		},
 		{
 			in:  MapType,
-			out: "map(, )",
+			out: "map(dyn, dyn)",
 		},
 	}
 	for _, tst := range tests {

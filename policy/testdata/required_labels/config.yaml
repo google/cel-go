@@ -20,14 +20,12 @@ extensions:
   - name: "two-var-comprehensions"
 variables:
   - name: "spec"
-    type:
-      type_name: "map"
-      params:
-        - type_name: "string"
-        - type_name: "dyn"
+    type_name: "map"
+    params:
+      - type_name: "string"
+      - type_name: "dyn"
   - name: "resource"
-    type:
-      type_name: "map"
-      params:
-        - type_name: "string"
-        - type_name: "dyn"
+    type_name: "map"
+    params:
+      - type_name: "string"
+      - type_name: "dyn"

@@ -26,16 +26,6 @@ import (
 	"github.com/google/cel-go/parser"
 )
 
-func TestOverlappingIdentifier(t *testing.T) {
-	env := newStdEnv(t)
-	err := env.AddIdents(decls.NewVariable("int", types.TypeType))
-	if err == nil {
-		t.Error("Got nil, wanted error")
-	} else if !strings.Contains(err.Error(), "overlapping identifier") {
-		t.Errorf("Got %v, wanted overlapping identifier error", err)
-	}
-}
-
 func TestOverlappingMacro(t *testing.T) {
 	env := newStdEnv(t)
 	hasFn, err := decls.NewFunction("has",
@@ -92,10 +82,6 @@ func BenchmarkCopyDeclarations(b *testing.B) {
 	if err != nil {
 		b.Fatalf("NewEnv() failed: %v", err)
 	}
-	err = env.AddIdents(stdlib.Types()...)
-	if err != nil {
-		b.Fatalf("env.AddIdents(stdlib.Types()...) failed: %v", err)
-	}
 	err = env.AddFunctions(stdlib.Functions()...)
 	if err != nil {
 		b.Fatalf("env.AddFunctions(stdlib.Functions()...) failed: %v", err)
@@ -111,13 +97,9 @@ func newStdEnv(t *testing.T) *Env {
 	if err != nil {
 		t.Fatalf("NewEnv() failed: %v", err)
 	}
-	err = env.AddIdents(stdlib.Types()...)
-	if err != nil {
-		t.Fatalf("env.Add(stdlib.TypeExprDecls()...) failed: %v", err)
-	}
 	err = env.AddFunctions(stdlib.Functions()...)
 	if err != nil {
-		t.Fatalf("env.Add(stdlib.FunctionExprDecls()...) failed: %v", err)
+		t.Fatalf("env.Add(stdlib.Functions()...) failed: %v", err)
 	}
 	return env
 }
