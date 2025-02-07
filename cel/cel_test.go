@@ -1042,7 +1042,7 @@ func TestContextEvalUnknowns(t *testing.T) {
 	if err != nil {
 		t.Fatalf("prg.ContextEval() failed: %v", err)
 	}
-	if out.Equal(ctxOut) != types.True {
+	if !reflect.DeepEqual(out, ctxOut) {
 		t.Errorf("got %v, wanted %v", out, ctxOut)
 	}
 }
