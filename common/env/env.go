@@ -16,6 +16,7 @@
 package env
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -74,6 +75,9 @@ type Variable struct {
 }
 
 // GetType returns the variable type description.
+//
+// Note, if both the embedded TypeDesc and the field Type are non-nil, the embedded TypeDesc will
+// take precedence.
 func (vd *Variable) GetType() *TypeDesc {
 	if vd == nil {
 		return nil
@@ -89,8 +93,11 @@ func (vd *Variable) GetType() *TypeDesc {
 
 // AsCELVariable converts the serializable form of the Variable into a CEL environment declaration.
 func (vd *Variable) AsCELVariable(tp types.Provider) (*decls.VariableDecl, error) {
+	if vd == nil {
+		return nil, errors.New("nil Variable cannot be converted to a VariableDecl")
+	}
 	if vd.Name == "" {
-		return nil, fmt.Errorf("invalid variable, must declare a name")
+		return nil, errors.New("invalid variable, must declare a name")
 	}
 	if vd.GetType() != nil {
 		t, err := vd.GetType().AsCELType(tp)
@@ -119,6 +126,15 @@ type Function struct {
 
 // AsCELFunction converts the serializable form of the Function into CEL environment declaration.
 func (fn *Function) AsCELFunction(tp types.Provider) (*decls.FunctionDecl, error) {
+	if fn == nil {
+		return nil, errors.New("nil Function cannot be converted to a FunctionDecl")
+	}
+	if fn.Name == "" {
+		return nil, errors.New("invalid function, must declare a name")
+	}
+	if len(fn.Overloads) == 0 {
+		return nil, fmt.Errorf("invalid function %s, must declare an overload", fn.Name)
+	}
 	overloads := make([]decls.FunctionOpt, len(fn.Overloads))
 	var err error
 	for i, o := range fn.Overloads {
@@ -141,6 +157,9 @@ type Overload struct {
 
 // AsFunctionOption converts the serializable form of the Overload into a function declaration option.
 func (od *Overload) AsFunctionOption(tp types.Provider) (decls.FunctionOpt, error) {
+	if od == nil {
+		return nil, errors.New("nil Overload cannot be converted to a FunctionOpt")
+	}
 	args := make([]*types.Type, len(od.Args))
 	var err error
 	for i, a := range od.Args {
@@ -178,6 +197,9 @@ type Extension struct {
 
 // GetVersion returns the parsed version string, or an error if the version cannot be parsed.
 func (e *Extension) GetVersion() (uint32, error) {
+	if e == nil {
+		return 0, errors.New("nil Extension cannot produce a version")
+	}
 	if e.Version == "latest" {
 		return math.MaxUint32, nil
 	}
@@ -226,6 +248,10 @@ type LibrarySubset struct {
 // whole function definition is excluded. If overloads are set, then a new function which
 // includes only the permitted overloads is produced.
 func (lib *LibrarySubset) SubsetFunction(fn *decls.FunctionDecl) (*decls.FunctionDecl, bool) {
+	// When lib is null, it should indicate that all values are included in the subset.
+	if lib == nil {
+		return fn, true
+	}
 	if len(lib.IncludeFunctions) != 0 {
 		for _, include := range lib.IncludeFunctions {
 			if include.Name != fn.Name() {
@@ -263,6 +289,10 @@ func (lib *LibrarySubset) SubsetFunction(fn *decls.FunctionDecl) (*decls.Functio
 
 // SubsetMacro indicates whether the macro function should be included in the library subset.
 func (lib *LibrarySubset) SubsetMacro(macroFunction string) bool {
+	// When lib is null, it should indicate that all values are included in the subset.
+	if lib == nil {
+		return true
+	}
 	if lib.DisableMacros {
 		return false
 	}
@@ -294,6 +324,12 @@ type TypeDesc struct {
 
 // AsCELType converts the serializable object to a *types.Type value.
 func (td *TypeDesc) AsCELType(tp types.Provider) (*types.Type, error) {
+	if td == nil {
+		return nil, errors.New("nil TypeDesc cannot be converted to a Type instance")
+	}
+	if td.TypeName == "" {
+		return nil, errors.New("invalid type description, declare a type name")
+	}
 	var err error
 	switch td.TypeName {
 	case "dyn":
@@ -320,6 +356,15 @@ func (td *TypeDesc) AsCELType(tp types.Provider) (*types.Type, error) {
 			return types.NewListType(et), nil
 		}
 		return nil, fmt.Errorf("list type has unexpected param count: %d", len(td.Params))
+	case "optional", "optional_type":
+		if len(td.Params) == 1 {
+			et, err := td.Params[0].AsCELType(tp)
+			if err != nil {
+				return nil, err
+			}
+			return types.NewOptionalType(et), nil
+		}
+		return nil, fmt.Errorf("optional_type has unexpected param count: %d", len(td.Params))
 	default:
 		if td.IsTypeParam {
 			return types.NewTypeParamType(td.TypeName), nil
