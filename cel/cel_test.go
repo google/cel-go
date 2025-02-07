@@ -1005,6 +1005,48 @@ func TestContextEval(t *testing.T) {
 	}
 }
 
+func TestContextEvalUnknowns(t *testing.T) {
+	env, err := NewEnv(
+		Variable("groups", ListType(IntType)),
+		Variable("id", IntType),
+	)
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+
+	pvars, err := PartialVars(
+		map[string]any{
+			"groups": []int{1, 2, 3},
+		},
+		AttributePattern("id"),
+	)
+	if err != nil {
+		t.Fatalf("PartialVars() failed: %v", err)
+	}
+
+	ast, iss := env.Compile(`groups.exists(t, t == id)`)
+	if iss.Err() != nil {
+		t.Fatalf("env.Compile() failed: %v", iss.Err())
+	}
+
+	prg, err := env.Program(ast, EvalOptions(OptTrackState, OptPartialEval), InterruptCheckFrequency(100))
+	if err != nil {
+		t.Fatalf("env.Program() failed: %v", err)
+	}
+
+	out, _, err := prg.Eval(pvars)
+	if err != nil {
+		t.Fatalf("prg.Eval() failed: %v", err)
+	}
+	ctxOut, _, err := prg.ContextEval(context.Background(), pvars)
+	if err != nil {
+		t.Fatalf("prg.ContextEval() failed: %v", err)
+	}
+	if out.Equal(ctxOut) != types.True {
+		t.Errorf("got %v, wanted %v", out, ctxOut)
+	}
+}
+
 func BenchmarkContextEval(b *testing.B) {
 	env := testEnv(b,
 		Variable("items", ListType(IntType)),
