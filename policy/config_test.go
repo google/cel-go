@@ -165,8 +165,8 @@ variables:
       type_name: "map"
       params:
         - type_name: "string"
-        - type_name: "optional"`,
-			err: "invalid variable type for 'bad_map_type_param': undefined type name: optional",
+        - type_name: "invalid_opaque_type"`,
+			err: "invalid variable type for 'bad_map_type_param': undefined type name: invalid_opaque_type",
 		},
 		{
 			config: `
