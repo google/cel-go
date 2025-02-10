@@ -466,6 +466,11 @@ func (a *ctxEvalActivation) Parent() Activation {
 	return a.parent
 }
 
+func (a *ctxEvalActivation) AsPartialActivation() (interpreter.PartialActivation, bool) {
+	pa, ok := a.parent.(interpreter.PartialActivation)
+	return pa, ok
+}
+
 func newCtxEvalActivationPool() *ctxEvalActivationPool {
 	return &ctxEvalActivationPool{
 		Pool: sync.Pool{
