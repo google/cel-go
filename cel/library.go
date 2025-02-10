@@ -263,7 +263,7 @@ func (stdLibrary) ProgramOptions() []ProgramOption {
 // be expressed with `optMap`.
 //
 //	msg.?elements.optFlatMap(e, e[?0]) // return the first element if present.
-
+//
 // # First
 //
 // Introduced in version: 2
@@ -272,7 +272,7 @@ func (stdLibrary) ProgramOptions() []ProgramOption {
 // optional.None.
 //
 // [1, 2, 3].first().value() == 1
-
+//
 // # Last
 //
 // Introduced in version: 2
@@ -283,7 +283,7 @@ func (stdLibrary) ProgramOptions() []ProgramOption {
 // [1, 2, 3].last().value() == 3
 //
 // This is syntactic sugar for msg.elements[msg.elements.size()-1].
-
+//
 // # Unwrap / UnwrapOpt
 //
 // Introduced in version: 2
@@ -293,7 +293,6 @@ func (stdLibrary) ProgramOptions() []ProgramOption {
 //
 // optional.unwrap([optional.of(42), optional.none()]) == [42]
 // [optional.of(42), optional.none()].unwrapOpt() == [42]
-
 func OptionalTypes(opts ...OptionalTypesOption) EnvOption {
 	lib := &optionalLib{version: math.MaxUint32}
 	for _, opt := range opts {
