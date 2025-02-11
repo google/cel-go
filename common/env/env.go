@@ -356,7 +356,7 @@ func (td *TypeDesc) AsCELType(tp types.Provider) (*types.Type, error) {
 			return types.NewListType(et), nil
 		}
 		return nil, fmt.Errorf("list type has unexpected param count: %d", len(td.Params))
-	case "optional", "optional_type":
+	case "optional_type":
 		if len(td.Params) == 1 {
 			et, err := td.Params[0].AsCELType(tp)
 			if err != nil {
