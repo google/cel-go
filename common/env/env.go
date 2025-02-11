@@ -27,12 +27,9 @@ import (
 )
 
 // NewConfig creates an instance of a YAML serializable CEL environment configuration.
-func NewConfig() *Config {
+func NewConfig(name string) *Config {
 	return &Config{
-		Imports:    []*Import{},
-		Extensions: []*Extension{},
-		Variables:  []*Variable{},
-		Functions:  []*Function{},
+		Name: name,
 	}
 }
 
@@ -53,6 +50,12 @@ type Config struct {
 	Functions       []*Function      `yaml:"functions,omitempty"`
 }
 
+// SetContainer configures the container name for this configuration.
+func (c *Config) SetContainer(container string) *Config {
+	c.Container = container
+	return c
+}
+
 // AddVariableDecls adds one or more variables to the config, converting them to serializable values first.
 //
 // VariableDecl inputs are expected to be well-formed.
@@ -70,6 +73,12 @@ func (c *Config) AddVariableDecls(vars ...*decls.VariableDecl) *Config {
 // AddVariables adds one or more vairables to the config.
 func (c *Config) AddVariables(vars ...*Variable) *Config {
 	c.Variables = append(c.Variables, vars...)
+	return c
+}
+
+// SetContextVariable configures the ContextVariable for this configuration.
+func (c *Config) SetContextVariable(ctx *ContextVariable) *Config {
+	c.ContextVariable = ctx
 	return c
 }
 
@@ -104,6 +113,24 @@ func (c *Config) AddFunctionDecls(funcs ...*decls.FunctionDecl) *Config {
 // AddFunctions adds one or more functions to the config.
 func (c *Config) AddFunctions(funcs ...*Function) *Config {
 	c.Functions = append(c.Functions, funcs...)
+	return c
+}
+
+// SetStdLib configures the LibrarySubset for the standard library.
+func (c *Config) SetStdLib(subset *LibrarySubset) *Config {
+	c.StdLib = subset
+	return c
+}
+
+// AddImports appends a set of imports to the config.
+func (c *Config) AddImports(imps ...*Import) *Config {
+	c.Imports = append(c.Imports, imps...)
+	return c
+}
+
+// AddExtensions appends a set of extensions to the config.
+func (c *Config) AddExtensions(exts ...*Extension) *Config {
+	c.Extensions = append(c.Extensions, exts...)
 	return c
 }
 
@@ -311,12 +338,7 @@ func (e *Extension) GetVersion() (uint32, error) {
 
 // NewLibrarySubset returns an empty library subsetting config which permits all library features.
 func NewLibrarySubset() *LibrarySubset {
-	return &LibrarySubset{
-		IncludeMacros:    []string{},
-		ExcludeMacros:    []string{},
-		IncludeFunctions: []*Function{},
-		ExcludeFunctions: []*Function{},
-	}
+	return &LibrarySubset{}
 }
 
 // LibrarySubset indicates a subset of the macros and function supported by a subsettable library.
@@ -362,6 +384,9 @@ func (lib *LibrarySubset) SubsetFunction(fn *decls.FunctionDecl) (*decls.Functio
 	if lib == nil {
 		return fn, true
 	}
+	if lib.Disabled {
+		return nil, false
+	}
 	if len(lib.IncludeFunctions) != 0 {
 		for _, include := range lib.IncludeFunctions {
 			if include.Name != fn.Name() {
@@ -403,7 +428,7 @@ func (lib *LibrarySubset) SubsetMacro(macroFunction string) bool {
 	if lib == nil {
 		return true
 	}
-	if lib.DisableMacros {
+	if lib.Disabled || lib.DisableMacros {
 		return false
 	}
 	if len(lib.IncludeMacros) != 0 {
@@ -423,6 +448,46 @@ func (lib *LibrarySubset) SubsetMacro(macroFunction string) bool {
 		return true
 	}
 	return true
+}
+
+// SetDisabled disables or enables the library.
+func (lib *LibrarySubset) SetDisabled(value bool) *LibrarySubset {
+	lib.Disabled = value
+	return lib
+}
+
+// SetDisableMacros disables the macros for the library.
+func (lib *LibrarySubset) SetDisableMacros(value bool) *LibrarySubset {
+	lib.DisableMacros = value
+	return lib
+}
+
+// AddIncludedMacros allow-lists one or more macros by function name.
+//
+// Note, this option will override any excluded macros.
+func (lib *LibrarySubset) AddIncludedMacros(macros ...string) *LibrarySubset {
+	lib.IncludeMacros = append(lib.IncludeMacros, macros...)
+	return lib
+}
+
+// AddExcludedMacros deny-lists one or more macros by function name.
+func (lib *LibrarySubset) AddExcludedMacros(macros ...string) *LibrarySubset {
+	lib.ExcludeMacros = append(lib.ExcludeMacros, macros...)
+	return lib
+}
+
+// AddIncludedFunctions allow-lists one or more functions from the subset.
+//
+// Note, this option will override any excluded functions.
+func (lib *LibrarySubset) AddIncludedFunctions(funcs ...*Function) *LibrarySubset {
+	lib.IncludeFunctions = append(lib.IncludeFunctions, funcs...)
+	return lib
+}
+
+// AddExcludedFunctions deny-lists one or more functions from the subset.
+func (lib *LibrarySubset) AddExcludedFunctions(funcs ...*Function) *LibrarySubset {
+	lib.ExcludeFunctions = append(lib.ExcludeFunctions, funcs...)
+	return lib
 }
 
 // NewTypeDesc describes a simple or complex type with parameters.

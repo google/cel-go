@@ -16,11 +16,13 @@ package cel
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"sync"
 	"testing"
 
 	"github.com/google/cel-go/common"
+	"github.com/google/cel-go/common/env"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
@@ -299,6 +301,126 @@ func TestFunctions(t *testing.T) {
 		if _, ok := e.Functions()[expected]; !ok {
 			t.Errorf("Expected Functions() to include '%s'", expected)
 		}
+	}
+}
+
+func TestEnvConfig(t *testing.T) {
+	tests := []struct {
+		name       string
+		opts       []EnvOption
+		wantConfig *env.Config
+	}{
+		{
+			name:       "std env",
+			wantConfig: env.NewConfig("std env"),
+		},
+		{
+			name: "std env - container",
+			opts: []EnvOption{
+				Container("example.container"),
+			},
+			wantConfig: env.NewConfig("std env - container").SetContainer("example.container"),
+		},
+		{
+			name: "std env - aliases",
+			opts: []EnvOption{
+				Abbrevs("example.type.name"),
+			},
+			wantConfig: env.NewConfig("std env - aliases").AddImports(env.NewImport("example.type.name")),
+		},
+		{
+			name: "std env disabled",
+			opts: []EnvOption{
+				func(*Env) (*Env, error) {
+					return NewCustomEnv()
+				},
+			},
+			wantConfig: env.NewConfig("std env disabled").SetStdLib(
+				env.NewLibrarySubset().SetDisabled(true)),
+		},
+		{
+			name: "std env - with variable",
+			opts: []EnvOption{
+				Variable("var", IntType),
+			},
+			wantConfig: env.NewConfig("std env - with variable").AddVariables(env.NewVariable("var", env.NewTypeDesc("int"))),
+		},
+		{
+			name: "std env - with function",
+			opts: []EnvOption{Function("hello", Overload("hello_string", []*Type{StringType}, StringType))},
+			wantConfig: env.NewConfig("std env - with function").AddFunctions(
+				env.NewFunction("hello", []*env.Overload{
+					env.NewOverload("hello_string",
+						[]*env.TypeDesc{env.NewTypeDesc("string")}, env.NewTypeDesc("string"))},
+				)),
+		},
+		{
+			name: "optional lib",
+			opts: []EnvOption{
+				OptionalTypes(),
+			},
+			wantConfig: env.NewConfig("optional lib").AddExtensions(env.NewExtension("optional", math.MaxUint32)),
+		},
+		{
+			name: "optional lib - versioned",
+			opts: []EnvOption{
+				OptionalTypes(OptionalTypesVersion(1)),
+			},
+			wantConfig: env.NewConfig("optional lib - versioned").AddExtensions(env.NewExtension("optional", 1)),
+		},
+		{
+			name: "optional lib - alt last()",
+			opts: []EnvOption{
+				OptionalTypes(),
+				Function("last", MemberOverload("string_last", []*Type{StringType}, StringType)),
+			},
+			wantConfig: env.NewConfig("optional lib - alt last()").
+				AddExtensions(env.NewExtension("optional", math.MaxUint32)).
+				AddFunctions(env.NewFunction("last", []*env.Overload{
+					env.NewMemberOverload("string_last", env.NewTypeDesc("string"), []*env.TypeDesc{}, env.NewTypeDesc("string")),
+				})),
+		},
+		{
+			name: "context proto - with extra variable",
+			opts: []EnvOption{
+				DeclareContextProto((&proto3pb.TestAllTypes{}).ProtoReflect().Descriptor()),
+				Variable("extra", StringType),
+			},
+			wantConfig: env.NewConfig("context proto - with extra variable").
+				SetContextVariable(env.NewContextVariable("google.expr.proto3.test.TestAllTypes")).
+				AddVariables(env.NewVariable("extra", env.NewTypeDesc("string"))),
+		},
+		{
+			name: "context proto",
+			opts: []EnvOption{
+				DeclareContextProto((&proto3pb.TestAllTypes{}).ProtoReflect().Descriptor()),
+			},
+			wantConfig: env.NewConfig("context proto").SetContextVariable(env.NewContextVariable("google.expr.proto3.test.TestAllTypes")),
+		},
+		{
+			name: "context proto - with extra variable",
+			opts: []EnvOption{
+				DeclareContextProto((&proto3pb.TestAllTypes{}).ProtoReflect().Descriptor()),
+				Variable("extra", StringType),
+			},
+			wantConfig: env.NewConfig("context proto - with extra variable").
+				SetContextVariable(env.NewContextVariable("google.expr.proto3.test.TestAllTypes")).
+				AddVariables(env.NewVariable("extra", env.NewTypeDesc("string"))),
+		},
+	}
+
+	for _, tst := range tests {
+		tc := tst
+		t.Run(tc.name, func(t *testing.T) {
+			e, err := NewEnv(tc.opts...)
+			if err != nil {
+				t.Fatalf("NewEnv() failed: %v", err)
+			}
+			gotConfig := e.Config(tc.name)
+			if !reflect.DeepEqual(gotConfig, tc.wantConfig) {
+				t.Errorf("e.Config() got %v, wanted %v", gotConfig, tc.wantConfig)
+			}
+		})
 	}
 }
 

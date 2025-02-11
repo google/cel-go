@@ -165,14 +165,14 @@ type Env struct {
 // the serialize method. Since optimizers are a separate construct from the environment
 // and the standard expression components (parse, check, evalute), they are also not
 // supported by the serialize method.
-func (e *Env) Config() *env.Config {
-	conf := env.NewConfig()
+func (e *Env) Config(name string) *env.Config {
+	conf := env.NewConfig(name)
 	// Container settings
 	if e.Container != containers.DefaultContainer {
-		conf.Container = e.Container.Name()
-		for _, typeName := range e.Container.AliasSet() {
-			conf.Imports = append(conf.Imports, env.NewImport(typeName))
-		}
+		conf.SetContainer(e.Container.Name())
+	}
+	for _, typeName := range e.Container.AliasSet() {
+		conf.AddImports(env.NewImport(typeName))
 	}
 
 	libOverloads := map[string][]string{}
@@ -202,25 +202,24 @@ func (e *Env) Config() *env.Config {
 			libName = alias
 		}
 		if libName == "stdlib" && canSubset {
-			conf.StdLib = subsetLib.LibrarySubset()
+			conf.SetStdLib(subsetLib.LibrarySubset())
 			continue
 		}
 		version := uint32(math.MaxUint32)
 		if versionLib, isVersioned := lib.(LibraryVersioner); isVersioned {
 			version = versionLib.LibraryVersion()
 		}
-		conf.Extensions = append(conf.Extensions, env.NewExtension(libName, version))
+		conf.AddExtensions(env.NewExtension(libName, version))
 	}
 
 	// If this is a custom environment without the standard env, mark the stdlib as disabled.
 	if conf.StdLib == nil && !e.HasLibrary("cel.lib.std") {
-		conf.StdLib = env.NewLibrarySubset()
-		conf.StdLib.Disabled = true
+		conf.SetStdLib(env.NewLibrarySubset().SetDisabled(true))
 	}
 
 	// Serialize the variables
 	if e.contextProto != nil {
-		conf.ContextVariable = env.NewContextVariable(string(e.contextProto.FullName()))
+		conf.SetContextVariable(env.NewContextVariable(string(e.contextProto.FullName())))
 		skipVariables := map[string]bool{}
 		fields := e.contextProto.Fields()
 		for i := 0; i < fields.Len(); i++ {

@@ -38,13 +38,12 @@ func TestConfig(t *testing.T) {
 	}{
 		{
 			name: "context_env",
-			want: &Config{
-				Name:      "context-env",
-				Container: "google.expr",
-				Imports:   []*Import{NewImport("google.expr.proto3.test.TestAllTypes")},
-				StdLib: &LibrarySubset{
-					IncludeMacros: []string{"has"},
-					IncludeFunctions: []*Function{
+			want: NewConfig("context-env").
+				SetContainer("google.expr").
+				AddImports(NewImport("google.expr.proto3.test.TestAllTypes")).
+				SetStdLib(NewLibrarySubset().
+					AddIncludedMacros("has").
+					AddIncludedFunctions([]*Function{
 						{Name: operators.Equals},
 						{Name: operators.NotEquals},
 						{Name: operators.LogicalNot},
@@ -52,14 +51,10 @@ func TestConfig(t *testing.T) {
 						{Name: operators.LessEquals},
 						{Name: operators.Greater},
 						{Name: operators.GreaterEquals},
-					},
-				},
-				Extensions: []*Extension{
-					NewExtension("optional", math.MaxUint32),
-					NewExtension("strings", 1),
-				},
-				ContextVariable: NewContextVariable("google.expr.proto3.test.TestAllTypes"),
-				Functions: []*Function{
+					}...)).
+				AddExtensions(NewExtension("optional", math.MaxUint32), NewExtension("strings", 1)).
+				SetContextVariable(NewContextVariable("google.expr.proto3.test.TestAllTypes")).
+				AddFunctions(
 					NewFunction("coalesce", []*Overload{
 						NewOverload("coalesce_wrapped_int",
 							[]*TypeDesc{NewTypeDesc("google.protobuf.Int64Value"), NewTypeDesc("int")},
@@ -71,60 +66,53 @@ func TestConfig(t *testing.T) {
 							[]*TypeDesc{NewTypeDesc("google.protobuf.UInt64Value"), NewTypeDesc("uint")},
 							NewTypeDesc("uint")),
 					}),
-				},
-			},
+				),
 		},
 		{
 			name: "extended_env",
-			want: &Config{
-				Name:      "extended-env",
-				Container: "google.expr",
-				Extensions: []*Extension{
+			want: NewConfig("extended-env").
+				SetContainer("google.expr").
+				AddExtensions(
 					NewExtension("optional", 2),
 					NewExtension("math", math.MaxUint32),
-				},
-				Variables: []*Variable{
-					NewVariable("msg", NewTypeDesc("google.expr.proto3.test.TestAllTypes")),
-				},
-				Functions: []*Function{
-					NewFunction("isEmpty", []*Overload{
-						NewMemberOverload("wrapper_string_isEmpty",
-							NewTypeDesc("google.protobuf.StringValue"), nil,
-							NewTypeDesc("bool")),
-						NewMemberOverload("list_isEmpty",
-							NewTypeDesc("list", NewTypeParam("T")), nil,
-							NewTypeDesc("bool")),
-					}),
-				},
-			},
+				).AddVariables(
+				NewVariable("msg", NewTypeDesc("google.expr.proto3.test.TestAllTypes")),
+			).AddFunctions(
+				NewFunction("isEmpty", []*Overload{
+					NewMemberOverload("wrapper_string_isEmpty",
+						NewTypeDesc("google.protobuf.StringValue"), nil,
+						NewTypeDesc("bool")),
+					NewMemberOverload("list_isEmpty",
+						NewTypeDesc("list", NewTypeParam("T")), nil,
+						NewTypeDesc("bool")),
+				}),
+			),
 		},
 		{
 			name: "subset_env",
-			want: &Config{
-				Name: "subset-env",
-				StdLib: &LibrarySubset{
-					ExcludeMacros: []string{"map", "filter"},
-					ExcludeFunctions: []*Function{
-						{Name: operators.Add, Overloads: []*Overload{
-							{ID: overloads.AddBytes},
-							{ID: overloads.AddList},
-							{ID: overloads.AddString},
-						}},
-						{Name: overloads.Matches},
-						{Name: overloads.TypeConvertTimestamp, Overloads: []*Overload{
-							{ID: overloads.StringToTimestamp},
-						}},
-						{Name: overloads.TypeConvertDuration, Overloads: []*Overload{
-							{ID: overloads.StringToDuration},
-						}},
-					},
-				},
-				Variables: []*Variable{
-					NewVariable("x", NewTypeDesc("int")),
-					NewVariable("y", NewTypeDesc("double")),
-					NewVariable("z", NewTypeDesc("uint")),
-				},
-			},
+			want: NewConfig("subset-env").
+				SetStdLib(NewLibrarySubset().
+					AddExcludedMacros("map", "filter").
+					AddExcludedFunctions(
+						[]*Function{
+							{Name: operators.Add, Overloads: []*Overload{
+								{ID: overloads.AddBytes},
+								{ID: overloads.AddList},
+								{ID: overloads.AddString},
+							}},
+							{Name: overloads.Matches},
+							{Name: overloads.TypeConvertTimestamp, Overloads: []*Overload{
+								{ID: overloads.StringToTimestamp},
+							}},
+							{Name: overloads.TypeConvertDuration, Overloads: []*Overload{
+								{ID: overloads.StringToDuration},
+							}},
+						}...,
+					)).AddVariables(
+				NewVariable("x", NewTypeDesc("int")),
+				NewVariable("y", NewTypeDesc("double")),
+				NewVariable("z", NewTypeDesc("uint")),
+			),
 		},
 	}
 	for _, tst := range tests {
@@ -228,7 +216,7 @@ func TestConfigAddVariableDecls(t *testing.T) {
 	for _, tst := range tests {
 		tc := tst
 		t.Run(tc.name, func(t *testing.T) {
-			conf := NewConfig().AddVariableDecls(tc.in)
+			conf := NewConfig(tc.name).AddVariableDecls(tc.in)
 			if len(conf.Variables) != 1 {
 				t.Fatalf("AddVariableDecls() did not add declaration to conf: %v", conf)
 			}
@@ -240,7 +228,7 @@ func TestConfigAddVariableDecls(t *testing.T) {
 }
 
 func TestConfigAddVariableDeclsEmpty(t *testing.T) {
-	if len(NewConfig().AddVariables().Variables) != 0 {
+	if len(NewConfig("").AddVariables().Variables) != 0 {
 		t.Error("AddVariables() with no args failed")
 	}
 }
@@ -287,7 +275,7 @@ func TestConfigAddFunctionDecls(t *testing.T) {
 	for _, tst := range tests {
 		tc := tst
 		t.Run(tc.name, func(t *testing.T) {
-			conf := NewConfig().AddFunctionDecls(tc.in)
+			conf := NewConfig(tc.name).AddFunctionDecls(tc.in)
 			if len(conf.Functions) != 1 {
 				t.Fatalf("AddFunctionDecls() did not add declaration to conf: %v", conf)
 			}
@@ -699,39 +687,39 @@ func TestSubsetFunction(t *testing.T) {
 		},
 		{
 			name:     "empty, included",
-			lib:      &LibrarySubset{},
+			lib:      NewLibrarySubset(),
 			orig:     mustNewFunction(t, "size", decls.Overload("size_string", []*types.Type{types.StringType}, types.IntType)),
 			subset:   mustNewFunction(t, "size", decls.Overload("size_string", []*types.Type{types.StringType}, types.IntType)),
 			included: true,
 		},
 		{
+			name:     "empty, disabled",
+			lib:      NewLibrarySubset().SetDisabled(true),
+			orig:     mustNewFunction(t, "size", decls.Overload("size_string", []*types.Type{types.StringType}, types.IntType)),
+			included: false,
+		},
+		{
 			name: "lib, not included allow-list",
-			lib: &LibrarySubset{
-				IncludeFunctions: []*Function{
-					{Name: "int"},
-				},
-			},
+			lib: NewLibrarySubset().AddIncludedFunctions([]*Function{
+				{Name: "int"},
+			}...),
 			orig:     mustNewFunction(t, "size", decls.Overload("size_string", []*types.Type{types.StringType}, types.IntType)),
 			included: false,
 		},
 		{
 			name: "lib, included whole function",
-			lib: &LibrarySubset{
-				IncludeFunctions: []*Function{
-					{Name: "size"},
-				},
-			},
+			lib: NewLibrarySubset().AddIncludedFunctions([]*Function{
+				{Name: "size"},
+			}...),
 			orig:     mustNewFunction(t, "size", decls.Overload("size_string", []*types.Type{types.StringType}, types.IntType)),
 			subset:   mustNewFunction(t, "size", decls.Overload("size_string", []*types.Type{types.StringType}, types.IntType)),
 			included: true,
 		},
 		{
 			name: "lib, included overload subset",
-			lib: &LibrarySubset{
-				IncludeFunctions: []*Function{
-					{Name: "size", Overloads: []*Overload{{ID: "size_string"}}},
-				},
-			},
+			lib: NewLibrarySubset().AddIncludedFunctions([]*Function{
+				{Name: "size", Overloads: []*Overload{{ID: "size_string"}}},
+			}...),
 			orig: mustNewFunction(t, "size",
 				decls.Overload("size_string", []*types.Type{types.StringType}, types.IntType),
 				decls.Overload("size_list", []*types.Type{types.NewListType(types.NewTypeParamType("T"))}, types.IntType),
@@ -741,32 +729,26 @@ func TestSubsetFunction(t *testing.T) {
 		},
 		{
 			name: "lib, included deny-list",
-			lib: &LibrarySubset{
-				ExcludeFunctions: []*Function{
-					{Name: "int"},
-				},
-			},
+			lib: NewLibrarySubset().AddExcludedFunctions([]*Function{
+				{Name: "int"},
+			}...),
 			orig:     mustNewFunction(t, "size", decls.Overload("size_string", []*types.Type{types.StringType}, types.IntType)),
 			subset:   mustNewFunction(t, "size", decls.Overload("size_string", []*types.Type{types.StringType}, types.IntType)),
 			included: true,
 		},
 		{
 			name: "lib, excluded whole function",
-			lib: &LibrarySubset{
-				ExcludeFunctions: []*Function{
-					{Name: "size"},
-				},
-			},
+			lib: NewLibrarySubset().AddExcludedFunctions([]*Function{
+				{Name: "size"},
+			}...),
 			orig:     mustNewFunction(t, "size", decls.Overload("size_string", []*types.Type{types.StringType}, types.IntType)),
 			included: false,
 		},
 		{
 			name: "lib, excluded partial function",
-			lib: &LibrarySubset{
-				ExcludeFunctions: []*Function{
-					{Name: "size", Overloads: []*Overload{{ID: "size_list"}}},
-				},
-			},
+			lib: NewLibrarySubset().AddExcludedFunctions([]*Function{
+				{Name: "size", Overloads: []*Overload{{ID: "size_list"}}},
+			}...),
 			orig: mustNewFunction(t, "size",
 				decls.Overload("size_string", []*types.Type{types.StringType}, types.IntType),
 				decls.Overload("size_list", []*types.Type{types.NewListType(types.NewTypeParamType("T"))}, types.IntType),
@@ -809,40 +791,38 @@ func TestSubsetMacro(t *testing.T) {
 			included:  true,
 		},
 		{
+			name:      "empty, disabled",
+			lib:       NewLibrarySubset().SetDisabled(true),
+			macroName: "has",
+			included:  false,
+		},
+		{
 			name:      "empty, included",
-			lib:       &LibrarySubset{DisableMacros: true},
+			lib:       NewLibrarySubset().SetDisableMacros(true),
 			macroName: "has",
 			included:  false,
 		},
 		{
-			name: "lib, not included allow-list",
-			lib: &LibrarySubset{
-				IncludeMacros: []string{"exists"},
-			},
+			name:      "lib, not included allow-list",
+			lib:       NewLibrarySubset().AddIncludedMacros("exists"),
 			macroName: "has",
 			included:  false,
 		},
 		{
-			name: "lib, included allow-list",
-			lib: &LibrarySubset{
-				IncludeMacros: []string{"exists"},
-			},
+			name:      "lib, included allow-list",
+			lib:       NewLibrarySubset().AddIncludedMacros("exists"),
 			macroName: "exists",
 			included:  true,
 		},
 		{
-			name: "lib, not included deny-list",
-			lib: &LibrarySubset{
-				ExcludeMacros: []string{"exists"},
-			},
+			name:      "lib, not included deny-list",
+			lib:       NewLibrarySubset().AddExcludedMacros("exists"),
 			macroName: "exists",
 			included:  false,
 		},
 		{
-			name: "lib, included deny-list",
-			lib: &LibrarySubset{
-				ExcludeMacros: []string{"exists"},
-			},
+			name:      "lib, included deny-list",
+			lib:       NewLibrarySubset().AddExcludedMacros("exists"),
 			macroName: "has",
 			included:  true,
 		},
