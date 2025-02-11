@@ -18,31 +18,25 @@ extensions:
   - name: "sets"
 variables:
   - name: "destination.ip"
-    type:
-      type_name: "string"
+    type_name: "string"
   - name: "origin.ip"
-    type:
-      type_name: "string"
+    type_name: "string"
   - name: "spec.restricted_destinations"
-    type:
-      type_name: "list"
-      params:
-        - type_name: "string"
+    type_name: "list"
+    params:
+      - type_name: "string"
   - name: "spec.origin"
-    type:
-      type_name: "string"
+    type_name: "string"
   - name: "request"
-    type:
-      type_name: "map"
-      params:
-        - type_name: "string"
-        - type_name: "dyn"
+    type_name: "map"
+    params:
+      - type_name: "string"
+      - type_name: "dyn"
   - name: "resource"
-    type:
-      type_name: "map"
-      params:
-        - type_name: "string"
-        - type_name: "dyn"
+    type_name: "map"
+    params:
+      - type_name: "string"
+      - type_name: "dyn"
 functions:
   - name: "locationCode"
     overloads:

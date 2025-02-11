@@ -401,10 +401,10 @@ func Functions(funcs ...*functions.Overload) ProgramOption {
 // variables with the same name provided to the Eval() call. If Globals is used in a Library with
 // a Lib EnvOption, vars may shadow variables provided by previously added libraries.
 //
-// The vars value may either be an `interpreter.Activation` instance or a `map[string]any`.
+// The vars value may either be an `cel.Activation` instance or a `map[string]any`.
 func Globals(vars any) ProgramOption {
 	return func(p *prog) (*prog, error) {
-		defaultVars, err := interpreter.NewActivation(vars)
+		defaultVars, err := NewActivation(vars)
 		if err != nil {
 			return nil, err
 		}
@@ -588,7 +588,7 @@ func DeclareContextProto(descriptor protoreflect.MessageDescriptor) EnvOption {
 //
 // Consider using with `DeclareContextProto` to simplify variable type declarations and publishing when using
 // protocol buffers.
-func ContextProtoVars(ctx proto.Message) (interpreter.Activation, error) {
+func ContextProtoVars(ctx proto.Message) (Activation, error) {
 	if ctx == nil || !ctx.ProtoReflect().IsValid() {
 		return interpreter.EmptyActivation(), nil
 	}
@@ -612,7 +612,7 @@ func ContextProtoVars(ctx proto.Message) (interpreter.Activation, error) {
 		}
 		vars[field.TextName()] = fieldVal
 	}
-	return interpreter.NewActivation(vars)
+	return NewActivation(vars)
 }
 
 // EnableMacroCallTracking ensures that call expressions which are replaced by macros

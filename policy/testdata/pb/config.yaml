@@ -19,5 +19,4 @@ extensions:
     version: 2
 variables:
   - name: "spec"
-    type:
-      type_name: "google.expr.proto3.test.TestAllTypes"
+    type_name: "google.expr.proto3.test.TestAllTypes"

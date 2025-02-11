@@ -502,31 +502,30 @@ func (e *Env) TypeProvider() ref.TypeProvider {
 	return &interopLegacyTypeProvider{Provider: e.provider}
 }
 
-// UnknownVars returns an interpreter.PartialActivation which marks all variables declared in the
-// Env as unknown AttributePattern values.
+// UnknownVars returns a PartialActivation which marks all variables declared in the Env as
+// unknown AttributePattern values.
 //
-// Note, the UnknownVars will behave the same as an interpreter.EmptyActivation unless the
-// PartialAttributes option is provided as a ProgramOption.
-func (e *Env) UnknownVars() interpreter.PartialActivation {
+// Note, the UnknownVars will behave the same as an cel.NoVars() unless the PartialAttributes
+// option is provided as a ProgramOption.
+func (e *Env) UnknownVars() PartialActivation {
 	act := interpreter.EmptyActivation()
 	part, _ := PartialVars(act, e.computeUnknownVars(act)...)
 	return part
 }
 
-// PartialVars returns an interpreter.PartialActivation where all variables not in the input variable
+// PartialVars returns a PartialActivation where all variables not in the input variable
 // set, but which have been configured in the environment, are marked as unknown.
 //
-// The `vars` value may either be an interpreter.Activation or any valid input to the
-// interpreter.NewActivation call.
+// The `vars` value may either be an Activation or any valid input to the cel.NewActivation call.
 //
 // Note, this is equivalent to calling cel.PartialVars and manually configuring the set of unknown
 // variables. For more advanced use cases of partial state where portions of an object graph, rather
 // than top-level variables, are missing the PartialVars() method may be a more suitable choice.
 //
-// Note, the PartialVars will behave the same as an interpreter.EmptyActivation unless the
-// PartialAttributes option is provided as a ProgramOption.
-func (e *Env) PartialVars(vars any) (interpreter.PartialActivation, error) {
-	act, err := interpreter.NewActivation(vars)
+// Note, the PartialVars will behave the same as cel.NoVars() unless the PartialAttributes
+// option is provided as a ProgramOption.
+func (e *Env) PartialVars(vars any) (PartialActivation, error) {
+	act, err := NewActivation(vars)
 	if err != nil {
 		return nil, err
 	}
@@ -708,7 +707,7 @@ func (e *Env) maybeApplyFeature(feature int, option EnvOption) (*Env, error) {
 
 // computeUnknownVars determines a set of missing variables based on the input activation and the
 // environment's configured declaration set.
-func (e *Env) computeUnknownVars(vars interpreter.Activation) []*interpreter.AttributePattern {
+func (e *Env) computeUnknownVars(vars Activation) []*interpreter.AttributePattern {
 	var unknownPatterns []*interpreter.AttributePattern
 	for _, v := range e.variables {
 		varName := v.Name()

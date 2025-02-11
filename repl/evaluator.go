@@ -28,7 +28,6 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/ext"
-	"github.com/google/cel-go/interpreter"
 
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
@@ -666,7 +665,7 @@ func (e *Evaluator) Status() string {
 // applyContext evaluates the let expressions in the context to build an activation for the given expression.
 // returns the environment for compiling and planning the top level CEL expression and an activation with the
 // values of the let expressions.
-func (e *Evaluator) applyContext() (*cel.Env, interpreter.Activation, error) {
+func (e *Evaluator) applyContext() (*cel.Env, cel.Activation, error) {
 	var vars = make(map[string]any)
 
 	for _, el := range e.ctx.letVars {
@@ -683,7 +682,7 @@ func (e *Evaluator) applyContext() (*cel.Env, interpreter.Activation, error) {
 		}
 	}
 
-	act, err := interpreter.NewActivation(vars)
+	act, err := cel.NewActivation(vars)
 	if err != nil {
 		return nil, nil, err
 	}

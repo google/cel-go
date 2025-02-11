@@ -22,6 +22,8 @@ import (
 	"time"
 
 	"github.com/google/cel-go/common/ast"
+	"github.com/google/cel-go/common/decls"
+	"github.com/google/cel-go/common/env"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/stdlib"
@@ -94,26 +96,61 @@ func Lib(l Library) EnvOption {
 	}
 }
 
+// StdLibOption specifies a functional option for configuring the standard CEL library.
+type StdLibOption func(*stdLibrary) *stdLibrary
+
+// StdLibSubset configures the standard library to use a subset of its functions and macros.
+func StdLibSubset(subset *env.LibrarySubset) StdLibOption {
+	return func(lib *stdLibrary) *stdLibrary {
+		lib.subset = subset
+		return lib
+	}
+}
+
 // StdLib returns an EnvOption for the standard library of CEL functions and macros.
-func StdLib() EnvOption {
-	return Lib(stdLibrary{})
+func StdLib(opts ...StdLibOption) EnvOption {
+	lib := &stdLibrary{}
+	for _, o := range opts {
+		lib = o(lib)
+	}
+	return Lib(lib)
 }
 
 // stdLibrary implements the Library interface and provides functional options for the core CEL
 // features documented in the specification.
-type stdLibrary struct{}
+type stdLibrary struct {
+	subset *env.LibrarySubset
+}
 
 // LibraryName implements the SingletonLibrary interface method.
-func (stdLibrary) LibraryName() string {
+func (*stdLibrary) LibraryName() string {
 	return "cel.lib.std"
 }
 
 // CompileOptions returns options for the standard CEL function declarations and macros.
-func (stdLibrary) CompileOptions() []EnvOption {
+func (lib *stdLibrary) CompileOptions() []EnvOption {
+	funcs := stdlib.Functions()
+	macros := StandardMacros
+	if lib.subset != nil {
+		subMacros := []Macro{}
+		for _, m := range macros {
+			if lib.subset.SubsetMacro(m.Function()) {
+				subMacros = append(subMacros, m)
+			}
+		}
+		macros = subMacros
+		subFuncs := []*decls.FunctionDecl{}
+		for _, fn := range funcs {
+			if f, include := lib.subset.SubsetFunction(fn); include {
+				subFuncs = append(subFuncs, f)
+			}
+		}
+		funcs = subFuncs
+	}
 	return []EnvOption{
 		func(e *Env) (*Env, error) {
 			var err error
-			for _, fn := range stdlib.Functions() {
+			for _, fn := range funcs {
 				existing, found := e.functions[fn.Name()]
 				if found {
 					fn, err = existing.Merge(fn)
@@ -125,16 +162,12 @@ func (stdLibrary) CompileOptions() []EnvOption {
 			}
 			return e, nil
 		},
-		func(e *Env) (*Env, error) {
-			e.variables = append(e.variables, stdlib.Types()...)
-			return e, nil
-		},
-		Macros(StandardMacros...),
+		Macros(macros...),
 	}
 }
 
 // ProgramOptions returns function implementations for the standard CEL functions.
-func (stdLibrary) ProgramOptions() []ProgramOption {
+func (*stdLibrary) ProgramOptions() []ProgramOption {
 	return []ProgramOption{}
 }
 
@@ -263,7 +296,7 @@ func (stdLibrary) ProgramOptions() []ProgramOption {
 // be expressed with `optMap`.
 //
 //	msg.?elements.optFlatMap(e, e[?0]) // return the first element if present.
-
+//
 // # First
 //
 // Introduced in version: 2
@@ -272,7 +305,7 @@ func (stdLibrary) ProgramOptions() []ProgramOption {
 // optional.None.
 //
 // [1, 2, 3].first().value() == 1
-
+//
 // # Last
 //
 // Introduced in version: 2
@@ -283,7 +316,7 @@ func (stdLibrary) ProgramOptions() []ProgramOption {
 // [1, 2, 3].last().value() == 3
 //
 // This is syntactic sugar for msg.elements[msg.elements.size()-1].
-
+//
 // # Unwrap / UnwrapOpt
 //
 // Introduced in version: 2
@@ -293,7 +326,6 @@ func (stdLibrary) ProgramOptions() []ProgramOption {
 //
 // optional.unwrap([optional.of(42), optional.none()]) == [42]
 // [optional.of(42), optional.none()].unwrapOpt() == [42]
-
 func OptionalTypes(opts ...OptionalTypesOption) EnvOption {
 	lib := &optionalLib{version: math.MaxUint32}
 	for _, opt := range opts {

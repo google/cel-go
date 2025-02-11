@@ -2377,7 +2377,6 @@ func TestCheck(t *testing.T) {
 				t.Fatalf("NewEnv(cont, reg) failed: %v", err)
 			}
 			if !tc.disableStdEnv {
-				env.AddIdents(stdlib.Types()...)
 				env.AddFunctions(stdlib.Functions()...)
 			}
 			if tc.env.idents != nil {
@@ -2467,7 +2466,6 @@ func BenchmarkCheck(b *testing.B) {
 				b.Fatalf("NewEnv(cont, reg) failed: %v", err)
 			}
 			if !tc.disableStdEnv {
-				env.AddIdents(stdlib.Types()...)
 				env.AddFunctions(stdlib.Functions()...)
 			}
 			if tc.env.idents != nil {
@@ -2583,7 +2581,6 @@ func TestCheckErrorData(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewEnv(cont, reg) failed: %v", err)
 	}
-	env.AddIdents(stdlib.Types()...)
 	env.AddFunctions(stdlib.Functions()...)
 	_, iss = Check(ast, src, env)
 	if len(iss.GetErrors()) != 1 {

@@ -278,8 +278,6 @@ bazel test ...
 
 Released under the [Apache License](LICENSE).
 
-Disclaimer: This is not an official Google product.
-
 [1]:  https://github.com/google/cel-spec
 [2]:  https://groups.google.com/forum/#!forum/cel-go-discuss
 [3]:  https://github.com/google/cel-cpp
