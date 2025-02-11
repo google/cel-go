@@ -31,8 +31,10 @@ import (
 
 func TestCompile(t *testing.T) {
 	for _, tst := range policyTests {
-		r := newRunner(t, tst.name, tst.expr, tst.parseOpts, tst.envOpts...)
-		r.run(t)
+		t.Run(tst.name, func(t *testing.T) {
+			r := newRunner(t, tst.name, tst.expr, tst.parseOpts, tst.envOpts...)
+			r.run(t)
+		})
 	}
 }
 
@@ -171,7 +173,7 @@ func compile(t testing.TB, name string, parseOpts []ParserOption, envOpts []cel.
 		t.Fatalf("env.Extend() with env options %v, failed: %v", config, err)
 	}
 	// Configure declarations
-	configOpts, err := config.AsEnvOptions(env)
+	configOpts, err := config.AsEnvOptions(env.CELTypeProvider())
 	if err != nil {
 		t.Fatalf("config.AsEnvOptions() failed: %v", err)
 	}

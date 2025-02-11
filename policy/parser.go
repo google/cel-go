@@ -484,7 +484,7 @@ func (p *parserImpl) parseYAML(src *Source) *Policy {
 	var docNode yaml.Node
 	err := sourceToYAML(src, &docNode)
 	if err != nil {
-		p.iss.ReportErrorAtID(0, err.Error())
+		p.iss.ReportErrorAtID(0, "%s", err.Error())
 		return nil
 	}
 	// Entry point always has a single Content node

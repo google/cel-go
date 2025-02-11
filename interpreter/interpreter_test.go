@@ -2183,10 +2183,6 @@ func newTestEnv(t testing.TB, cont *containers.Container, reg *types.Registry) *
 	if err != nil {
 		t.Fatalf("checker.NewEnv(%v, %v) failed: %v", cont, reg, err)
 	}
-	err = env.AddIdents(stdlib.Types()...)
-	if err != nil {
-		t.Fatalf("env.Add(stdlib.Types()...) failed: %v", err)
-	}
 	err = env.AddFunctions(stdlib.Functions()...)
 	if err != nil {
 		t.Fatalf("env.Add(stdlib.Functions()...) failed: %v", err)

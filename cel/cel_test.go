@@ -31,6 +31,7 @@ import (
 
 	"github.com/google/cel-go/checker"
 	celast "github.com/google/cel-go/common/ast"
+	"github.com/google/cel-go/common/env"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types"
@@ -356,6 +357,89 @@ func TestExtendStdlibFunction(t *testing.T) {
 	}
 	if out != types.True {
 		t.Errorf("contains check got %v, wanted true", out)
+	}
+}
+
+func TestSubsetStdLib(t *testing.T) {
+	env, err := NewCustomEnv(StdLib(StdLibSubset(
+		&env.LibrarySubset{
+			IncludeMacros: []string{"has"},
+			IncludeFunctions: []*env.Function{
+				{Name: operators.Equals},
+				{Name: operators.NotEquals},
+				{Name: operators.LogicalAnd},
+				{Name: operators.LogicalOr},
+				{Name: operators.LogicalNot},
+				{Name: overloads.Size, Overloads: []*env.Overload{{ID: "list_size"}}},
+			},
+		},
+	)))
+	if err != nil {
+		t.Fatalf("StdLib() subsetting failed: %v", err)
+	}
+	tests := []struct {
+		name     string
+		expr     string
+		compiles bool
+		want     ref.Val
+	}{
+		{
+			name:     "has macro",
+			expr:     "!has({}.a)",
+			compiles: true,
+			want:     types.True,
+		},
+		{
+			name:     "not equals",
+			expr:     "has({}.a) != true",
+			compiles: true,
+			want:     types.True,
+		},
+		{
+			name:     "logical operators",
+			expr:     "has({}.a) != true && has({'b': 1}.b) == true",
+			compiles: true,
+			want:     types.True,
+		},
+		{
+			name:     "list size - allowed",
+			expr:     "[1, 2, 3].size()",
+			compiles: true,
+			want:     types.Int(3),
+		},
+		{
+			name:     "excluded macro",
+			expr:     "[1, 2, 3].exists(i, i != 0)",
+			compiles: false,
+		},
+		{
+			name:     "string size - not allowed",
+			expr:     "'hello'.size()",
+			compiles: false,
+		},
+	}
+	for _, tst := range tests {
+		tc := tst
+		t.Run(tc.name, func(t *testing.T) {
+			ast, iss := env.Compile(tc.expr)
+			if tc.compiles && iss.Err() != nil {
+				t.Fatalf("env.Compile(%q) failed: %v", tc.expr, iss.Err())
+			}
+			if !tc.compiles && iss.Err() != nil {
+				return
+			}
+			prg, err := env.Program(ast)
+			if err != nil {
+				t.Fatalf("env.Program() failed: %v", err)
+			}
+			out, _, err := prg.Eval(NoVars())
+			if err != nil {
+				t.Fatalf("prg.Eval() failed: %s", err)
+			}
+			if out.Equal(tc.want) != types.True {
+				t.Errorf("prg.Eval() got %v, wanted %v", out, tc.want)
+			}
+		})
 	}
 }
 
