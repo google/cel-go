@@ -612,13 +612,13 @@ func TestTypeDescAsCELTypeErrors(t *testing.T) {
 			want: errors.New("invalid type"),
 		},
 		{
-			name: "invalid optional",
-			t:    &TypeDesc{TypeName: "optional"},
+			name: "invalid optional_type",
+			t:    &TypeDesc{TypeName: "optional_type"},
 			want: errors.New("unexpected param count"),
 		},
 		{
 			name: "invalid optional param type",
-			t:    &TypeDesc{TypeName: "optional", Params: []*TypeDesc{{}}},
+			t:    &TypeDesc{TypeName: "optional_type", Params: []*TypeDesc{{}}},
 			want: errors.New("invalid type"),
 		},
 		{
