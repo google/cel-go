@@ -2234,8 +2234,7 @@ func TestDefaultUTCTimeZoneError(t *testing.T) {
 		|| x.getMilliseconds('Am/Ph') == 1
 	`, map[string]any{
 		"x": time.Unix(7506, 1000000).Local(),
-	},
-	)
+	})
 	if err == nil {
 		t.Fatalf("prg.Eval() got %v wanted error", out)
 	}

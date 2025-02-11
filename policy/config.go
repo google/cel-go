@@ -43,9 +43,18 @@ func (c *Config) AsEnvOptions(provider types.Provider) ([]cel.EnvOption, error) 
 	envOpts := []cel.EnvOption{}
 	// Configure the standard lib subset.
 	if c.StdLib != nil {
-		envOpts = append(envOpts, func(e *cel.Env) (*cel.Env, error) {
-			return cel.NewCustomEnv(cel.StdLib(cel.StdLibSubset(c.StdLib)))
-		})
+		if c.StdLib.Disabled {
+			envOpts = append(envOpts, func(e *cel.Env) (*cel.Env, error) {
+				if !e.HasLibrary("cel.lib.std") {
+					return e, nil
+				}
+				return cel.NewCustomEnv()
+			})
+		} else {
+			envOpts = append(envOpts, func(e *cel.Env) (*cel.Env, error) {
+				return cel.NewCustomEnv(cel.StdLib(cel.StdLibSubset(c.StdLib)))
+			})
+		}
 	}
 
 	// Configure the container

@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"strings"
 
 	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/types"
@@ -37,12 +38,11 @@ func NewConfig() *Config {
 
 // Config represents a serializable form of the CEL environment configuration.
 //
-// Note: custom validations, feature flags, and performance tuning parameters are
-// not (yet) considered part of the core CEL environment configuration and should
-// be managed separately until a common convention for such configuration settings
-// can be developed.
+// Note: custom validations, feature flags, and performance tuning parameters are not (yet)
+// considered part of the core CEL environment configuration and should be managed separately
+// until a common convention for such configuration settings is developed.
 type Config struct {
-	Name            string           `yaml:"name"`
+	Name            string           `yaml:"name,omitempty"`
 	Description     string           `yaml:"description,omitempty"`
 	Container       string           `yaml:"container,omitempty"`
 	Imports         []*Import        `yaml:"imports,omitempty"`
@@ -53,17 +53,81 @@ type Config struct {
 	Functions       []*Function      `yaml:"functions,omitempty"`
 }
 
+// AddVariableDecls adds one or more variables to the config, converting them to serializable values first.
+//
+// VariableDecl inputs are expected to be well-formed.
+func (c *Config) AddVariableDecls(vars ...*decls.VariableDecl) *Config {
+	convVars := make([]*Variable, len(vars))
+	for i, v := range vars {
+		if v == nil {
+			continue
+		}
+		convVars[i] = NewVariable(v.Name(), serializeTypeDesc(v.Type()))
+	}
+	return c.AddVariables(convVars...)
+}
+
+// AddVariables adds one or more vairables to the config.
+func (c *Config) AddVariables(vars ...*Variable) *Config {
+	c.Variables = append(c.Variables, vars...)
+	return c
+}
+
+// AddFunctionDecls adds one or more functions to the config, converting them to serializable values first.
+//
+// FunctionDecl inputs are expected to be well-formed.
+func (c *Config) AddFunctionDecls(funcs ...*decls.FunctionDecl) *Config {
+	convFuncs := make([]*Function, len(funcs))
+	for i, fn := range funcs {
+		if fn == nil {
+			continue
+		}
+		overloads := make([]*Overload, 0, len(fn.OverloadDecls()))
+		for _, o := range fn.OverloadDecls() {
+			overloadID := o.ID()
+			args := make([]*TypeDesc, 0, len(o.ArgTypes()))
+			for _, a := range o.ArgTypes() {
+				args = append(args, serializeTypeDesc(a))
+			}
+			ret := serializeTypeDesc(o.ResultType())
+			if o.IsMemberFunction() {
+				overloads = append(overloads, NewMemberOverload(overloadID, args[0], args[1:], ret))
+			} else {
+				overloads = append(overloads, NewOverload(overloadID, args, ret))
+			}
+		}
+		convFuncs[i] = NewFunction(fn.Name(), overloads)
+	}
+	return c.AddFunctions(convFuncs...)
+}
+
+// AddFunctions adds one or more functions to the config.
+func (c *Config) AddFunctions(funcs ...*Function) *Config {
+	c.Functions = append(c.Functions, funcs...)
+	return c
+}
+
+// NewImport returns a serializable import value from the qualified type name.
+func NewImport(name string) *Import {
+	return &Import{Name: name}
+}
+
 // Import represents a type name that will be appreviated by its simple name using
 // the cel.Abbrevs() option.
 type Import struct {
 	Name string `yaml:"name"`
 }
 
+// NewVariable returns a serializable variable from a name and type definition
+func NewVariable(name string, t *TypeDesc) *Variable {
+	return &Variable{Name: name, TypeDesc: t}
+}
+
 // Variable represents a typed variable declaration which will be published via the
 // cel.VariableDecls() option.
 type Variable struct {
 	Name        string `yaml:"name"`
-	Description string `yaml:"description"`
+	Description string `yaml:"description,omitempty"`
 
 	// Type represents the type declaration for the variable.
 	//
@@ -109,6 +173,11 @@ func (vd *Variable) AsCELVariable(tp types.Provider) (*decls.VariableDecl, error
 	return nil, fmt.Errorf("invalid variable '%s', no type specified", vd.Name)
 }
 
+// NewContextVariable returns a serializable context variable with a specific type name.
+func NewContextVariable(typeName string) *ContextVariable {
+	return &ContextVariable{TypeName: typeName}
+}
+
 // ContextVariable represents a structured message whose fields are to be treated as the top-level
 // variable identifiers within CEL expressions.
 type ContextVariable struct {
@@ -117,11 +186,16 @@ type ContextVariable struct {
 	TypeName string `yaml:"type_name"`
 }
 
+// NewFunction creates a serializable function and overload set.
+func NewFunction(name string, overloads []*Overload) *Function {
+	return &Function{Name: name, Overloads: overloads}
+}
+
 // Function represents the serializable format of a function and its overloads.
 type Function struct {
 	Name        string      `yaml:"name"`
-	Description string      `yaml:"description"`
-	Overloads   []*Overload `yaml:"overloads"`
+	Description string      `yaml:"description,omitempty"`
+	Overloads   []*Overload `yaml:"overloads,omitempty"`
 }
 
 // AsCELFunction converts the serializable form of the Function into CEL environment declaration.
@@ -146,13 +220,23 @@ func (fn *Function) AsCELFunction(tp types.Provider) (*decls.FunctionDecl, error
 	return decls.NewFunction(fn.Name, overloads...)
 }
 
+// NewOverload returns a new serializable representation of a global overload.
+func NewOverload(id string, args []*TypeDesc, ret *TypeDesc) *Overload {
+	return &Overload{ID: id, Args: args, Return: ret}
+}
+
+// NewMemberOverload returns a new serializable representation of a member (receiver) overload.
+func NewMemberOverload(id string, target *TypeDesc, args []*TypeDesc, ret *TypeDesc) *Overload {
+	return &Overload{ID: id, Target: target, Args: args, Return: ret}
+}
+
 // Overload represents the serializable format of a function overload.
 type Overload struct {
 	ID          string      `yaml:"id"`
-	Description string      `yaml:"description"`
-	Target      *TypeDesc   `yaml:"target"`
-	Args        []*TypeDesc `yaml:"args"`
-	Return      *TypeDesc   `yaml:"return"`
+	Description string      `yaml:"description,omitempty"`
+	Target      *TypeDesc   `yaml:"target,omitempty"`
+	Args        []*TypeDesc `yaml:"args,omitempty"`
+	Return      *TypeDesc   `yaml:"return,omitempty"`
 }
 
 // AsFunctionOption converts the serializable form of the Overload into a function declaration option.
@@ -186,6 +270,18 @@ func (od *Overload) AsFunctionOption(tp types.Provider) (decls.FunctionOpt, erro
 	return decls.Overload(od.ID, args, result), nil
 }
 
+// NewExtension creates a serializable Extension from a name and version string.
+func NewExtension(name string, version uint32) *Extension {
+	versionString := "latest"
+	if version < math.MaxUint32 {
+		versionString = strconv.FormatUint(uint64(version), 10)
+	}
+	return &Extension{
+		Name:    name,
+		Version: versionString,
+	}
+}
+
 // Extension represents a named and optionally versioned extension library configured in the environment.
 type Extension struct {
 	// Name is either the LibraryName() or some short-hand simple identifier which is understood by the config-handler.
@@ -213,28 +309,42 @@ func (e *Extension) GetVersion() (uint32, error) {
 	return uint32(ver), nil
 }
 
+// NewLibrarySubset returns an empty library subsetting config which permits all library features.
+func NewLibrarySubset() *LibrarySubset {
+	return &LibrarySubset{
+		IncludeMacros:    []string{},
+		ExcludeMacros:    []string{},
+		IncludeFunctions: []*Function{},
+		ExcludeFunctions: []*Function{},
+	}
+}
+
 // LibrarySubset indicates a subset of the macros and function supported by a subsettable library.
 type LibrarySubset struct {
+	// Disabled indicates whether the library has been disabled, typically only used for
+	// default-enabled libraries like stdlib.
+	Disabled bool `yaml:"disabled,omitempty"`
+
 	// DisableMacros disables macros for the given library.
-	DisableMacros bool `yaml:"disable_macros"`
+	DisableMacros bool `yaml:"disable_macros,omitempty"`
 
 	// IncludeMacros specifies a set of macro function names to include in the subset.
-	IncludeMacros []string `yaml:"include_macros"`
+	IncludeMacros []string `yaml:"include_macros,omitempty"`
 
 	// ExcludeMacros specifies a set of macro function names to exclude from the subset.
 	// Note: if IncludeMacros is non-empty, then ExcludeFunctions is ignored.
-	ExcludeMacros []string `yaml:"exclude_macros"`
+	ExcludeMacros []string `yaml:"exclude_macros,omitempty"`
 
 	// IncludeFunctions specifies a set of functions to include in the subset.
 	//
 	// Note: the overloads specified in the subset need only specify their ID.
 	// Note: if IncludeFunctions is non-empty, then ExcludeFunctions is ignored.
-	IncludeFunctions []*Function `yaml:"include_functions"`
+	IncludeFunctions []*Function `yaml:"include_functions,omitempty"`
 
 	// ExcludeFunctions specifies the set of functions to exclude from the subset.
 	//
 	// Note: the overloads specified in the subset need only specify their ID.
-	ExcludeFunctions []*Function `yaml:"exclude_functions"`
+	ExcludeFunctions []*Function `yaml:"exclude_functions,omitempty"`
 }
 
 // SubsetFunction produces a function declaration which matches the supported subset, or nil
@@ -315,11 +425,34 @@ func (lib *LibrarySubset) SubsetMacro(macroFunction string) bool {
 	return true
 }
 
+// NewTypeDesc describes a simple or complex type with parameters.
+func NewTypeDesc(typeName string, params ...*TypeDesc) *TypeDesc {
+	return &TypeDesc{TypeName: typeName, Params: params}
+}
+
+// NewTypeParam describe a type-param type.
+func NewTypeParam(paramName string) *TypeDesc {
+	return &TypeDesc{TypeName: paramName, IsTypeParam: true}
+}
+
 // TypeDesc represents the serializable format of a CEL *types.Type value.
 type TypeDesc struct {
 	TypeName    string      `yaml:"type_name"`
-	Params      []*TypeDesc `yaml:"params"`
-	IsTypeParam bool        `yaml:"is_type_param"`
+	Params      []*TypeDesc `yaml:"params,omitempty"`
+	IsTypeParam bool        `yaml:"is_type_param,omitempty"`
+}
+
+// String implements the strings.Stringer interface method.
+func (td *TypeDesc) String() string {
+	ps := make([]string, len(td.Params))
+	for i, p := range td.Params {
+		ps[i] = p.String()
+	}
+	typeName := td.TypeName
+	if len(ps) != 0 {
+		typeName = fmt.Sprintf("%s(%s)", typeName, strings.Join(ps, ","))
+	}
+	return typeName
 }
 
 // AsCELType converts the serializable object to a *types.Type value.
@@ -390,4 +523,30 @@ func (td *TypeDesc) AsCELType(tp types.Provider) (*types.Type, error) {
 		}
 		return types.NewOpaqueType(td.TypeName, params...), nil
 	}
+}
+
+func serializeTypeDesc(t *types.Type) *TypeDesc {
+	typeName := t.TypeName()
+	if t.Kind() == types.TypeParamKind {
+		return NewTypeParam(typeName)
+	}
+	if t != types.NullType && t.IsAssignableType(types.NullType) {
+		if wrapperTypeName, found := wrapperTypes[t.Kind()]; found {
+			return NewTypeDesc(wrapperTypeName)
+		}
+	}
+	var params []*TypeDesc
+	for _, p := range t.Parameters() {
+		params = append(params, serializeTypeDesc(p))
+	}
+	return NewTypeDesc(typeName, params...)
+}
+
+var wrapperTypes = map[types.Kind]string{
+	types.BoolKind:   "google.protobuf.BoolValue",
+	types.BytesKind:  "google.protobuf.BytesValue",
+	types.DoubleKind: "google.protobuf.DoubleValue",
+	types.IntKind:    "google.protobuf.Int64Value",
+	types.StringKind: "google.protobuf.StringValue",
+	types.UintKind:   "google.protobuf.UInt64Value",
 }
