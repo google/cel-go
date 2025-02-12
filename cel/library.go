@@ -198,6 +198,10 @@ func (lib *stdLibrary) CompileOptions() []EnvOption {
 			}
 			return e, nil
 		},
+		func(e *Env) (*Env, error) {
+			e.variables = append(e.variables, stdlib.Types()...)
+			return e, nil
+		},
 		Macros(macros...),
 	}
 }

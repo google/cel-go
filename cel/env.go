@@ -26,6 +26,7 @@ import (
 	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/env"
+	"github.com/google/cel-go/common/stdlib"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter"
@@ -218,6 +219,17 @@ func (e *Env) Config(name string) *env.Config {
 	}
 
 	// Serialize the variables
+	vars := make([]*decls.VariableDecl, 0, len(e.Variables()))
+	stdTypeVars := map[string]*decls.VariableDecl{}
+	for _, v := range stdlib.Types() {
+		stdTypeVars[v.Name()] = v
+	}
+	for _, v := range e.Variables() {
+		if _, isStdType := stdTypeVars[v.Name()]; isStdType {
+			continue
+		}
+		vars = append(vars, v)
+	}
 	if e.contextProto != nil {
 		conf.SetContextVariable(env.NewContextVariable(string(e.contextProto.FullName())))
 		skipVariables := map[string]bool{}
@@ -230,13 +242,13 @@ func (e *Env) Config(name string) *env.Config {
 			}
 			skipVariables[variable.Name()] = true
 		}
-		for _, v := range e.Variables() {
+		for _, v := range vars {
 			if _, found := skipVariables[v.Name()]; !found {
 				conf.AddVariableDecls(v)
 			}
 		}
 	} else {
-		conf.AddVariableDecls(e.Variables()...)
+		conf.AddVariableDecls(vars...)
 	}
 
 	// Serialize functions which are distinct from the ones configured by libraries.
