@@ -16,6 +16,7 @@ package cel
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"sync"
 
@@ -156,7 +157,7 @@ type Env struct {
 	progOpts []ProgramOption
 }
 
-// Config produces a YAML-serializable env.Config object from the given environment.
+// ToConfig produces a YAML-serializable env.Config object from the given environment.
 //
 // The serialized configuration value is intended to represent a baseline set of config
 // options which could be used as input to an EnvOption to configure the majority of the
@@ -166,7 +167,7 @@ type Env struct {
 // the serialize method. Since optimizers are a separate construct from the environment
 // and the standard expression components (parse, check, evalute), they are also not
 // supported by the serialize method.
-func (e *Env) Config(name string) *env.Config {
+func (e *Env) ToConfig(name string) (*env.Config, error) {
 	conf := env.NewConfig(name)
 	// Container settings
 	if e.Container != containers.DefaultContainer {
@@ -238,7 +239,7 @@ func (e *Env) Config(name string) *env.Config {
 			field := fields.Get(i)
 			variable, err := fieldToVariable(field)
 			if err != nil {
-				continue
+				return nil, fmt.Errorf("could not serialize context field variable %q, reason: %w", field.FullName(), err)
 			}
 			skipVariables[variable.Name()] = true
 		}
@@ -262,7 +263,7 @@ func (e *Env) Config(name string) *env.Config {
 		}
 	}
 
-	return conf
+	return conf, nil
 }
 
 // NewEnv creates a program environment configured with the standard library of CEL functions and

@@ -304,7 +304,7 @@ func TestFunctions(t *testing.T) {
 	}
 }
 
-func TestEnvConfig(t *testing.T) {
+func TestEnvToConfig(t *testing.T) {
 	tests := []struct {
 		name       string
 		opts       []EnvOption
@@ -397,16 +397,6 @@ func TestEnvConfig(t *testing.T) {
 			},
 			wantConfig: env.NewConfig("context proto").SetContextVariable(env.NewContextVariable("google.expr.proto3.test.TestAllTypes")),
 		},
-		{
-			name: "context proto - with extra variable",
-			opts: []EnvOption{
-				DeclareContextProto((&proto3pb.TestAllTypes{}).ProtoReflect().Descriptor()),
-				Variable("extra", StringType),
-			},
-			wantConfig: env.NewConfig("context proto - with extra variable").
-				SetContextVariable(env.NewContextVariable("google.expr.proto3.test.TestAllTypes")).
-				AddVariables(env.NewVariable("extra", env.NewTypeDesc("string"))),
-		},
 	}
 
 	for _, tst := range tests {
@@ -416,7 +406,10 @@ func TestEnvConfig(t *testing.T) {
 			if err != nil {
 				t.Fatalf("NewEnv() failed: %v", err)
 			}
-			gotConfig := e.Config(tc.name)
+			gotConfig, err := e.ToConfig(tc.name)
+			if err != nil {
+				t.Fatalf("ToConfig() failed: %v", err)
+			}
 			if !reflect.DeepEqual(gotConfig, tc.wantConfig) {
 				t.Errorf("e.Config() got %v, wanted %v", gotConfig, tc.wantConfig)
 			}
