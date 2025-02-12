@@ -103,7 +103,7 @@ variables:
 	}
 	for _, tst := range tests {
 		c := parseConfigYaml(t, tst)
-		_, err := c.AsEnvOptions(baseEnv.CELTypeProvider())
+		_, err := baseEnv.Extend(FromConfig(c))
 		if err != nil {
 			t.Errorf("AsEnvOptions() generated error: %v", err)
 		}
@@ -234,17 +234,17 @@ functions:
 	}
 	for _, tst := range tests {
 		c := parseConfigYaml(t, tst.config)
-		_, err := c.AsEnvOptions(baseEnv.CELTypeProvider())
+		_, err := baseEnv.Extend(FromConfig(c))
 		if err == nil || err.Error() != tst.err {
 			t.Errorf("AsEnvOptions() got error: %v, wanted %s", err, tst.err)
 		}
 	}
 }
 
-func parseConfigYaml(t *testing.T, doc string) *Config {
+func parseConfigYaml(t *testing.T, doc string) *env.Config {
 	config := &env.Config{}
 	if err := yaml.Unmarshal([]byte(doc), config); err != nil {
 		t.Fatalf("yaml.Unmarshal(%q) failed: %v", doc, err)
 	}
-	return NewConfig(config)
+	return config
 }

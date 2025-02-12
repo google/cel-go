@@ -15,6 +15,7 @@
 package cel
 
 import (
+	"errors"
 	"fmt"
 
 	"google.golang.org/protobuf/proto"
@@ -26,6 +27,7 @@ import (
 	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/decls"
+	"github.com/google/cel-go/common/env"
 	"github.com/google/cel-go/common/functions"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/pb"
@@ -425,6 +427,111 @@ func OptimizeRegex(regexOptimizations ...*interpreter.RegexOptimization) Program
 		p.regexOptimizations = append(p.regexOptimizations, regexOptimizations...)
 		return p, nil
 	}
+}
+
+type ConfigElementFactory func(any) (EnvOption, bool)
+
+func FromConfig(config *env.Config, optFactories ...ConfigElementFactory) EnvOption {
+	return func(env *Env) (*Env, error) {
+		opts, err := configToEnvOptions(config, env.CELTypeProvider(), optFactories)
+		if err != nil {
+			return nil, err
+		}
+		for _, o := range opts {
+			env, err = o(env)
+			if err != nil {
+				return nil, err
+			}
+		}
+		return env, nil
+	}
+}
+
+func configToEnvOptions(config *env.Config, provider types.Provider, optFactories []ConfigElementFactory) ([]EnvOption, error) {
+	envOpts := []EnvOption{}
+	// Configure the standard lib subset.
+	if config.StdLib != nil {
+		if config.StdLib.Disabled {
+			envOpts = append(envOpts, func(e *Env) (*Env, error) {
+				if !e.HasLibrary("cel.lib.std") {
+					return e, nil
+				}
+				return NewCustomEnv()
+			})
+		} else {
+			envOpts = append(envOpts, func(e *Env) (*Env, error) {
+				return NewCustomEnv(StdLib(StdLibSubset(config.StdLib)))
+			})
+		}
+	}
+
+	// Configure the container
+	if config.Container != "" {
+		envOpts = append(envOpts, Container(config.Container))
+	}
+
+	// Configure abbreviations
+	for _, imp := range config.Imports {
+		envOpts = append(envOpts, Abbrevs(imp.Name))
+	}
+
+	// Configure the context variable declaration
+	if config.ContextVariable != nil {
+		if len(config.Variables) > 0 {
+			return nil, errors.New("either the context_variable or the variables may be set, but not both")
+		}
+		typeName := config.ContextVariable.TypeName
+		if typeName == "" {
+			return nil, errors.New("invalid context variable, must set type name field")
+		}
+		if _, found := provider.FindStructType(typeName); !found {
+			return nil, fmt.Errorf("could not find context proto type name: %s", typeName)
+		}
+		// Attempt to instantiate the proto in order to reflect to its descriptor
+		msg := provider.NewValue(typeName, map[string]ref.Val{})
+		pbMsg, ok := msg.Value().(proto.Message)
+		if !ok {
+			return nil, fmt.Errorf("type name was not a protobuf: %T", msg.Value())
+		}
+		envOpts = append(envOpts, DeclareContextProto(pbMsg.ProtoReflect().Descriptor()))
+	}
+
+	if len(config.Variables) != 0 {
+		vars := make([]*decls.VariableDecl, 0, len(config.Variables))
+		for _, v := range config.Variables {
+			vDef, err := v.AsCELVariable(provider)
+			if err != nil {
+				return nil, err
+			}
+			vars = append(vars, vDef)
+		}
+		envOpts = append(envOpts, VariableDecls(vars...))
+	}
+	if len(config.Functions) != 0 {
+		funcs := make([]*decls.FunctionDecl, 0, len(config.Functions))
+		for _, f := range config.Functions {
+			fnDef, err := f.AsCELFunction(provider)
+			if err != nil {
+				return nil, err
+			}
+			funcs = append(funcs, fnDef)
+		}
+		envOpts = append(envOpts, FunctionDecls(funcs...))
+	}
+	for _, e := range config.Extensions {
+		extHandled := false
+		for _, optFac := range optFactories {
+			if opt, useOption := optFac(e); useOption {
+				envOpts = append(envOpts, opt)
+				extHandled = true
+				break
+			}
+		}
+		if !extHandled {
+			return nil, fmt.Errorf("unrecognized extension: %s", e.Name)
+		}
+	}
+	return envOpts, nil
 }
 
 // EvalOption indicates an evaluation option that may affect the evaluation behavior or information
