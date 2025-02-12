@@ -16,19 +16,273 @@ package env
 
 import (
 	"errors"
+	"fmt"
 	"math"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/google/cel-go/common/decls"
+	"github.com/google/cel-go/common/operators"
+	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types"
 )
 
 func TestConfig(t *testing.T) {
-	conf := NewConfig()
-	if conf == nil {
-		t.Fatal("got nil config, wanted non-nil value")
+	tests := []struct {
+		name string
+		want *Config
+	}{
+		{
+			name: "context_env",
+			want: NewConfig("context-env").
+				SetContainer("google.expr").
+				AddImports(NewImport("google.expr.proto3.test.TestAllTypes")).
+				SetStdLib(NewLibrarySubset().
+					AddIncludedMacros("has").
+					AddIncludedFunctions([]*Function{
+						{Name: operators.Equals},
+						{Name: operators.NotEquals},
+						{Name: operators.LogicalNot},
+						{Name: operators.Less},
+						{Name: operators.LessEquals},
+						{Name: operators.Greater},
+						{Name: operators.GreaterEquals},
+					}...)).
+				AddExtensions(NewExtension("optional", math.MaxUint32), NewExtension("strings", 1)).
+				SetContextVariable(NewContextVariable("google.expr.proto3.test.TestAllTypes")).
+				AddFunctions(
+					NewFunction("coalesce", []*Overload{
+						NewOverload("coalesce_wrapped_int",
+							[]*TypeDesc{NewTypeDesc("google.protobuf.Int64Value"), NewTypeDesc("int")},
+							NewTypeDesc("int")),
+						NewOverload("coalesce_wrapped_double",
+							[]*TypeDesc{NewTypeDesc("google.protobuf.DoubleValue"), NewTypeDesc("double")},
+							NewTypeDesc("double")),
+						NewOverload("coalesce_wrapped_uint",
+							[]*TypeDesc{NewTypeDesc("google.protobuf.UInt64Value"), NewTypeDesc("uint")},
+							NewTypeDesc("uint")),
+					}),
+				),
+		},
+		{
+			name: "extended_env",
+			want: NewConfig("extended-env").
+				SetContainer("google.expr").
+				AddExtensions(
+					NewExtension("optional", 2),
+					NewExtension("math", math.MaxUint32),
+				).AddVariables(
+				NewVariable("msg", NewTypeDesc("google.expr.proto3.test.TestAllTypes")),
+			).AddFunctions(
+				NewFunction("isEmpty", []*Overload{
+					NewMemberOverload("wrapper_string_isEmpty",
+						NewTypeDesc("google.protobuf.StringValue"), nil,
+						NewTypeDesc("bool")),
+					NewMemberOverload("list_isEmpty",
+						NewTypeDesc("list", NewTypeParam("T")), nil,
+						NewTypeDesc("bool")),
+				}),
+			),
+		},
+		{
+			name: "subset_env",
+			want: NewConfig("subset-env").
+				SetStdLib(NewLibrarySubset().
+					AddExcludedMacros("map", "filter").
+					AddExcludedFunctions(
+						[]*Function{
+							{Name: operators.Add, Overloads: []*Overload{
+								{ID: overloads.AddBytes},
+								{ID: overloads.AddList},
+								{ID: overloads.AddString},
+							}},
+							{Name: overloads.Matches},
+							{Name: overloads.TypeConvertTimestamp, Overloads: []*Overload{
+								{ID: overloads.StringToTimestamp},
+							}},
+							{Name: overloads.TypeConvertDuration, Overloads: []*Overload{
+								{ID: overloads.StringToDuration},
+							}},
+						}...,
+					)).AddVariables(
+				NewVariable("x", NewTypeDesc("int")),
+				NewVariable("y", NewTypeDesc("double")),
+				NewVariable("z", NewTypeDesc("uint")),
+			),
+		},
+	}
+	for _, tst := range tests {
+		tc := tst
+		t.Run(tc.name, func(t *testing.T) {
+			fileName := fmt.Sprintf("testdata/%s.yaml", tc.name)
+			data, err := os.ReadFile(fileName)
+			if err != nil {
+				t.Fatalf("os.ReadFile(%q) failed: %v", fileName, err)
+			}
+			got := unmarshalYAML(t, data)
+			if got.Container != tc.want.Container {
+				t.Errorf("Container got %s, wanted %s", got.Container, tc.want.Container)
+			}
+			if !reflect.DeepEqual(got.Imports, tc.want.Imports) {
+				t.Errorf("Imports got %v, wanted %v", got.Imports, tc.want.Imports)
+			}
+			if !reflect.DeepEqual(got.StdLib, tc.want.StdLib) {
+				t.Errorf("StdLib got %v, wanted %v", got.StdLib, tc.want.StdLib)
+			}
+			if !reflect.DeepEqual(got.ContextVariable, tc.want.ContextVariable) {
+				t.Errorf("ContextVariable got %v, wanted %v", got.ContextVariable, tc.want.ContextVariable)
+			}
+			if len(got.Variables) != len(tc.want.Variables) {
+				t.Errorf("Variables count got %d, wanted %d", len(got.Variables), len(tc.want.Variables))
+			} else {
+				for i, v := range got.Variables {
+					wv := tc.want.Variables[i]
+					if !reflect.DeepEqual(v, wv) {
+						t.Errorf("Variables[%d] not equal, got %v, wanted %v", i, v, wv)
+					}
+				}
+			}
+			if len(got.Functions) != len(tc.want.Functions) {
+				t.Errorf("Functions count got %d, wanted %d", len(got.Functions), len(tc.want.Functions))
+			} else {
+				for i, f := range got.Functions {
+					wf := tc.want.Functions[i]
+					if f.Name != wf.Name {
+						t.Errorf("Functions[%d] not equal, got %v, wanted %v", i, f.Name, wf.Name)
+					}
+					if len(f.Overloads) != len(wf.Overloads) {
+						t.Errorf("Function %s got overload count: %d, wanted %d", f.Name, len(f.Overloads), len(wf.Overloads))
+					}
+					for j, o := range f.Overloads {
+						wo := wf.Overloads[j]
+						if !reflect.DeepEqual(o, wo) {
+							t.Errorf("Overload[%d] got %v, wanted %v", j, o, wo)
+						}
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestNewImport(t *testing.T) {
+	imp := NewImport("qualified.type.name")
+	if imp.Name != "qualified.type.name" {
+		t.Errorf("NewImport() got name: %s, wanted %s", imp.Name, "qualified.type.name")
+	}
+}
+
+func TestNewContextVariable(t *testing.T) {
+	ctx := NewContextVariable("qualified.type.name")
+	if ctx.TypeName != "qualified.type.name" {
+		t.Errorf("NewContextVariable() got name: %s, wanted %s", ctx.TypeName, "qualified.type.name")
+	}
+}
+
+func TestConfigAddVariableDecls(t *testing.T) {
+	tests := []struct {
+		name string
+		in   *decls.VariableDecl
+		out  *Variable
+	}{
+		{
+			name: "nil var decl",
+		},
+		{
+			name: "simple var decl",
+			in:   decls.NewVariable("var", types.StringType),
+			out:  NewVariable("var", NewTypeDesc("string")),
+		},
+		{
+			name: "parameterized var decl",
+			in:   decls.NewVariable("var", types.NewListType(types.NewTypeParamType("T"))),
+			out:  NewVariable("var", NewTypeDesc("list", NewTypeParam("T"))),
+		},
+		{
+			name: "opaque var decl",
+			in:   decls.NewVariable("var", types.NewOpaqueType("bitvector")),
+			out:  NewVariable("var", NewTypeDesc("bitvector")),
+		},
+		{
+			name: "proto var decl",
+			in:   decls.NewVariable("var", types.NewObjectType("google.type.Expr")),
+			out:  NewVariable("var", NewTypeDesc("google.type.Expr")),
+		},
+	}
+	for _, tst := range tests {
+		tc := tst
+		t.Run(tc.name, func(t *testing.T) {
+			conf := NewConfig(tc.name).AddVariableDecls(tc.in)
+			if len(conf.Variables) != 1 {
+				t.Fatalf("AddVariableDecls() did not add declaration to conf: %v", conf)
+			}
+			if !reflect.DeepEqual(conf.Variables[0], tc.out) {
+				t.Errorf("AddVariableDecls() added %v, wanted %v", conf.Variables, tc.out)
+			}
+		})
+	}
+}
+
+func TestConfigAddVariableDeclsEmpty(t *testing.T) {
+	if len(NewConfig("").AddVariables().Variables) != 0 {
+		t.Error("AddVariables() with no args failed")
+	}
+}
+
+func TestConfigAddFunctionDecls(t *testing.T) {
+	tests := []struct {
+		name string
+		in   *decls.FunctionDecl
+		out  *Function
+	}{
+		{
+			name: "nil function decl",
+		},
+		{
+			name: "global function decl",
+			in: mustNewFunction(t, "size",
+				decls.Overload("size_string", []*types.Type{types.StringType}, types.IntType),
+			),
+			out: NewFunction("size", []*Overload{
+				NewOverload("size_string", []*TypeDesc{NewTypeDesc("string")}, NewTypeDesc("int")),
+			}),
+		},
+		{
+			name: "global function decl - nullable arg",
+			in: mustNewFunction(t, "size",
+				decls.Overload("size_wrapper_string", []*types.Type{types.NewNullableType(types.StringType)}, types.IntType),
+			),
+			out: NewFunction("size", []*Overload{
+				NewOverload("size_wrapper_string", []*TypeDesc{NewTypeDesc("google.protobuf.StringValue")}, NewTypeDesc("int")),
+			}),
+		},
+		{
+			name: "member function decl - nullable arg",
+			in: mustNewFunction(t, "size",
+				decls.MemberOverload("list_size", []*types.Type{types.NewListType(types.NewTypeParamType("T"))}, types.IntType),
+				decls.MemberOverload("string_size", []*types.Type{types.StringType}, types.IntType),
+			),
+			out: NewFunction("size", []*Overload{
+				NewMemberOverload("list_size", NewTypeDesc("list", NewTypeParam("T")), []*TypeDesc{}, NewTypeDesc("int")),
+				NewMemberOverload("string_size", NewTypeDesc("string"), []*TypeDesc{}, NewTypeDesc("int")),
+			}),
+		},
+	}
+	for _, tst := range tests {
+		tc := tst
+		t.Run(tc.name, func(t *testing.T) {
+			conf := NewConfig(tc.name).AddFunctionDecls(tc.in)
+			if len(conf.Functions) != 1 {
+				t.Fatalf("AddFunctionDecls() did not add declaration to conf: %v", conf)
+			}
+			if !reflect.DeepEqual(conf.Functions[0], tc.out) {
+				t.Errorf("AddFunctionDecls() added %v, wanted %v", conf.Functions, tc.out)
+			}
+		})
 	}
 }
 
@@ -111,17 +365,14 @@ func TestVariableAsCELVariable(t *testing.T) {
 		},
 		{
 			name: "int type",
-			v: &Variable{
-				Name:     "int_var",
-				TypeDesc: &TypeDesc{TypeName: "int"},
-			},
+			v:    NewVariable("int_var", NewTypeDesc("int")),
 			want: decls.NewVariable("int_var", types.IntType),
 		},
 		{
 			name: "uint type",
 			v: &Variable{
 				Name:     "uint_var",
-				TypeDesc: &TypeDesc{TypeName: "uint"},
+				TypeDesc: NewTypeDesc("uint"),
 			},
 			want: decls.NewVariable("uint_var", types.UintType),
 		},
@@ -129,7 +380,7 @@ func TestVariableAsCELVariable(t *testing.T) {
 			name: "dyn type",
 			v: &Variable{
 				Name:     "dyn_var",
-				TypeDesc: &TypeDesc{TypeName: "dyn"},
+				TypeDesc: NewTypeDesc("dyn"),
 			},
 			want: decls.NewVariable("dyn_var", types.DynType),
 		},
@@ -137,7 +388,7 @@ func TestVariableAsCELVariable(t *testing.T) {
 			name: "list type",
 			v: &Variable{
 				Name:     "list_var",
-				TypeDesc: &TypeDesc{TypeName: "list", Params: []*TypeDesc{{TypeName: "T", IsTypeParam: true}}},
+				TypeDesc: NewTypeDesc("list", NewTypeParam("T")),
 			},
 			want: decls.NewVariable("list_var", types.NewListType(types.NewTypeParamType("T"))),
 		},
@@ -148,9 +399,8 @@ func TestVariableAsCELVariable(t *testing.T) {
 				TypeDesc: &TypeDesc{
 					TypeName: "map",
 					Params: []*TypeDesc{
-						{TypeName: "string"},
-						{TypeName: "optional_type",
-							Params: []*TypeDesc{{TypeName: "T", IsTypeParam: true}}},
+						NewTypeDesc("string"),
+						NewTypeDesc("optional_type", NewTypeParam("T")),
 					},
 				},
 			},
@@ -160,13 +410,8 @@ func TestVariableAsCELVariable(t *testing.T) {
 		{
 			name: "set type",
 			v: &Variable{
-				Name: "set_var",
-				TypeDesc: &TypeDesc{
-					TypeName: "set",
-					Params: []*TypeDesc{
-						{TypeName: "string"},
-					},
-				},
+				Name:     "set_var",
+				TypeDesc: NewTypeDesc("set", NewTypeDesc("string")),
 			},
 			want: decls.NewVariable("set_var", types.NewOpaqueType("set", types.StringType)),
 		},
@@ -174,8 +419,8 @@ func TestVariableAsCELVariable(t *testing.T) {
 			name: "string type - nested type precedence",
 			v: &Variable{
 				Name:     "hello",
-				TypeDesc: &TypeDesc{TypeName: "string"},
-				Type:     &TypeDesc{TypeName: "int"},
+				TypeDesc: NewTypeDesc("string"),
+				Type:     NewTypeDesc("int"),
 			},
 			want: decls.NewVariable("hello", types.StringType),
 		},
@@ -183,7 +428,7 @@ func TestVariableAsCELVariable(t *testing.T) {
 			name: "wrapper type variable",
 			v: &Variable{
 				Name:     "msg",
-				TypeDesc: &TypeDesc{TypeName: "google.protobuf.StringValue"},
+				TypeDesc: NewTypeDesc("google.protobuf.StringValue"),
 			},
 			want: decls.NewVariable("msg", types.NewNullableType(types.StringType)),
 		},
@@ -215,6 +460,22 @@ func TestVariableAsCELVariable(t *testing.T) {
 	}
 }
 
+func TestTypeDescString(t *testing.T) {
+	tests := []struct {
+		desc *TypeDesc
+		want string
+	}{
+		{desc: NewTypeDesc("string"), want: "string"},
+		{desc: NewTypeDesc("list", NewTypeParam("T")), want: "list(T)"},
+		{desc: NewTypeDesc("map", NewTypeDesc("string"), NewTypeParam("T")), want: "map(string,T)"},
+	}
+	for _, tc := range tests {
+		if tc.desc.String() != tc.want {
+			t.Errorf("String() got %s, wanted %s", tc.desc.String(), tc.want)
+		}
+	}
+}
+
 func TestFunctionAsCELFunction(t *testing.T) {
 	tests := []struct {
 		name string
@@ -233,47 +494,33 @@ func TestFunctionAsCELFunction(t *testing.T) {
 		},
 		{
 			name: "no overloads",
-			f:    &Function{Name: "no_overloads"},
+			f:    NewFunction("no_overloads", []*Overload{}),
 			want: errors.New("must declare an overload"),
 		},
 		{
 			name: "nil overload",
-			f:    &Function{Name: "no_overloads", Overloads: []*Overload{nil}},
+			f:    NewFunction("no_overloads", []*Overload{nil}),
 			want: errors.New("nil Overload"),
 		},
 		{
 			name: "no return type",
-			f: &Function{Name: "size",
-				Overloads: []*Overload{
-					{ID: "size_string",
-						Args: []*TypeDesc{{TypeName: "string"}},
-					},
-				},
-			},
+			f: NewFunction("size", []*Overload{
+				NewOverload("size_string", []*TypeDesc{NewTypeDesc("string")}, nil),
+			}),
 			want: errors.New("missing return type"),
 		},
 		{
 			name: "bad return type",
-			f: &Function{Name: "size",
-				Overloads: []*Overload{
-					{ID: "size_string",
-						Args:   []*TypeDesc{{TypeName: "string"}},
-						Return: &TypeDesc{},
-					},
-				},
-			},
+			f: NewFunction("size", []*Overload{
+				NewOverload("size_string", []*TypeDesc{NewTypeDesc("string")}, NewTypeDesc("")),
+			}),
 			want: errors.New("invalid type"),
 		},
 		{
 			name: "bad arg type",
-			f: &Function{Name: "size",
-				Overloads: []*Overload{
-					{ID: "size_string",
-						Args:   []*TypeDesc{{}},
-						Return: &TypeDesc{},
-					},
-				},
-			},
+			f: NewFunction("size", []*Overload{
+				NewOverload("size_string", []*TypeDesc{NewTypeDesc("")}, NewTypeDesc("")),
+			}),
 			want: errors.New("invalid type"),
 		},
 		{
@@ -353,13 +600,13 @@ func TestTypeDescAsCELTypeErrors(t *testing.T) {
 			want: errors.New("invalid type"),
 		},
 		{
-			name: "invalid optional",
-			t:    &TypeDesc{TypeName: "optional"},
+			name: "invalid optional_type",
+			t:    &TypeDesc{TypeName: "optional_type"},
 			want: errors.New("unexpected param count"),
 		},
 		{
 			name: "invalid optional param type",
-			t:    &TypeDesc{TypeName: "optional", Params: []*TypeDesc{{}}},
+			t:    &TypeDesc{TypeName: "optional_type", Params: []*TypeDesc{{}}},
 			want: errors.New("invalid type"),
 		},
 		{
@@ -440,39 +687,39 @@ func TestSubsetFunction(t *testing.T) {
 		},
 		{
 			name:     "empty, included",
-			lib:      &LibrarySubset{},
+			lib:      NewLibrarySubset(),
 			orig:     mustNewFunction(t, "size", decls.Overload("size_string", []*types.Type{types.StringType}, types.IntType)),
 			subset:   mustNewFunction(t, "size", decls.Overload("size_string", []*types.Type{types.StringType}, types.IntType)),
 			included: true,
 		},
 		{
+			name:     "empty, disabled",
+			lib:      NewLibrarySubset().SetDisabled(true),
+			orig:     mustNewFunction(t, "size", decls.Overload("size_string", []*types.Type{types.StringType}, types.IntType)),
+			included: false,
+		},
+		{
 			name: "lib, not included allow-list",
-			lib: &LibrarySubset{
-				IncludeFunctions: []*Function{
-					{Name: "int"},
-				},
-			},
+			lib: NewLibrarySubset().AddIncludedFunctions([]*Function{
+				{Name: "int"},
+			}...),
 			orig:     mustNewFunction(t, "size", decls.Overload("size_string", []*types.Type{types.StringType}, types.IntType)),
 			included: false,
 		},
 		{
 			name: "lib, included whole function",
-			lib: &LibrarySubset{
-				IncludeFunctions: []*Function{
-					{Name: "size"},
-				},
-			},
+			lib: NewLibrarySubset().AddIncludedFunctions([]*Function{
+				{Name: "size"},
+			}...),
 			orig:     mustNewFunction(t, "size", decls.Overload("size_string", []*types.Type{types.StringType}, types.IntType)),
 			subset:   mustNewFunction(t, "size", decls.Overload("size_string", []*types.Type{types.StringType}, types.IntType)),
 			included: true,
 		},
 		{
 			name: "lib, included overload subset",
-			lib: &LibrarySubset{
-				IncludeFunctions: []*Function{
-					{Name: "size", Overloads: []*Overload{{ID: "size_string"}}},
-				},
-			},
+			lib: NewLibrarySubset().AddIncludedFunctions([]*Function{
+				{Name: "size", Overloads: []*Overload{{ID: "size_string"}}},
+			}...),
 			orig: mustNewFunction(t, "size",
 				decls.Overload("size_string", []*types.Type{types.StringType}, types.IntType),
 				decls.Overload("size_list", []*types.Type{types.NewListType(types.NewTypeParamType("T"))}, types.IntType),
@@ -482,32 +729,26 @@ func TestSubsetFunction(t *testing.T) {
 		},
 		{
 			name: "lib, included deny-list",
-			lib: &LibrarySubset{
-				ExcludeFunctions: []*Function{
-					{Name: "int"},
-				},
-			},
+			lib: NewLibrarySubset().AddExcludedFunctions([]*Function{
+				{Name: "int"},
+			}...),
 			orig:     mustNewFunction(t, "size", decls.Overload("size_string", []*types.Type{types.StringType}, types.IntType)),
 			subset:   mustNewFunction(t, "size", decls.Overload("size_string", []*types.Type{types.StringType}, types.IntType)),
 			included: true,
 		},
 		{
 			name: "lib, excluded whole function",
-			lib: &LibrarySubset{
-				ExcludeFunctions: []*Function{
-					{Name: "size"},
-				},
-			},
+			lib: NewLibrarySubset().AddExcludedFunctions([]*Function{
+				{Name: "size"},
+			}...),
 			orig:     mustNewFunction(t, "size", decls.Overload("size_string", []*types.Type{types.StringType}, types.IntType)),
 			included: false,
 		},
 		{
 			name: "lib, excluded partial function",
-			lib: &LibrarySubset{
-				ExcludeFunctions: []*Function{
-					{Name: "size", Overloads: []*Overload{{ID: "size_list"}}},
-				},
-			},
+			lib: NewLibrarySubset().AddExcludedFunctions([]*Function{
+				{Name: "size", Overloads: []*Overload{{ID: "size_list"}}},
+			}...),
 			orig: mustNewFunction(t, "size",
 				decls.Overload("size_string", []*types.Type{types.StringType}, types.IntType),
 				decls.Overload("size_list", []*types.Type{types.NewListType(types.NewTypeParamType("T"))}, types.IntType),
@@ -545,45 +786,43 @@ func TestSubsetMacro(t *testing.T) {
 		},
 		{
 			name:      "empty, included",
-			lib:       &LibrarySubset{},
+			lib:       NewLibrarySubset(),
 			macroName: "has",
 			included:  true,
+		},
+		{
+			name:      "empty, disabled",
+			lib:       NewLibrarySubset().SetDisabled(true),
+			macroName: "has",
+			included:  false,
 		},
 		{
 			name:      "empty, included",
-			lib:       &LibrarySubset{DisableMacros: true},
+			lib:       NewLibrarySubset().SetDisableMacros(true),
 			macroName: "has",
 			included:  false,
 		},
 		{
-			name: "lib, not included allow-list",
-			lib: &LibrarySubset{
-				IncludeMacros: []string{"exists"},
-			},
+			name:      "lib, not included allow-list",
+			lib:       NewLibrarySubset().AddIncludedMacros("exists"),
 			macroName: "has",
 			included:  false,
 		},
 		{
-			name: "lib, included allow-list",
-			lib: &LibrarySubset{
-				IncludeMacros: []string{"exists"},
-			},
+			name:      "lib, included allow-list",
+			lib:       NewLibrarySubset().AddIncludedMacros("exists"),
 			macroName: "exists",
 			included:  true,
 		},
 		{
-			name: "lib, not included deny-list",
-			lib: &LibrarySubset{
-				ExcludeMacros: []string{"exists"},
-			},
+			name:      "lib, not included deny-list",
+			lib:       NewLibrarySubset().AddExcludedMacros("exists"),
 			macroName: "exists",
 			included:  false,
 		},
 		{
-			name: "lib, included deny-list",
-			lib: &LibrarySubset{
-				ExcludeMacros: []string{"exists"},
-			},
+			name:      "lib, included deny-list",
+			lib:       NewLibrarySubset().AddExcludedMacros("exists"),
 			macroName: "has",
 			included:  true,
 		},
@@ -594,6 +833,34 @@ func TestSubsetMacro(t *testing.T) {
 			included := tc.lib.SubsetMacro(tc.macroName)
 			if included != tc.included {
 				t.Fatalf("SubsetMacro() got included %t, wanted %t", included, tc.included)
+			}
+		})
+	}
+}
+
+func TestNewExtension(t *testing.T) {
+	tests := []struct {
+		name    string
+		version uint32
+		want    *Extension
+	}{
+		{
+			name:    "strings",
+			version: math.MaxUint32,
+			want:    &Extension{Name: "strings", Version: "latest"},
+		},
+		{
+			name:    "bindings",
+			version: 1,
+			want:    &Extension{Name: "bindings", Version: "1"},
+		},
+	}
+	for _, tst := range tests {
+		tc := tst
+		t.Run(tc.name, func(t *testing.T) {
+			got := NewExtension(tc.name, tc.version)
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("NewExtension() got %v, wanted %v", got, tc.want)
 			}
 		})
 	}
@@ -698,4 +965,22 @@ func assertFuncEquals(t *testing.T, got, want *decls.FunctionDecl) {
 			t.Errorf("got result type %v, wanted %v", gotOverload.ResultType(), wantOverload.ResultType())
 		}
 	}
+}
+
+func unmarshalYAML(t *testing.T, data []byte) *Config {
+	t.Helper()
+	config := &Config{}
+	if err := yaml.Unmarshal(data, config); err != nil {
+		t.Fatalf("yaml.Unmarshal(%q) failed: %v", string(data), err)
+	}
+	return config
+}
+
+func marshalYAML(t *testing.T, config *Config) []byte {
+	t.Helper()
+	data, err := yaml.Marshal(config)
+	if err != nil {
+		t.Fatalf("yaml.Marshal(%q) failed: %v", string(data), err)
+	}
+	return data
 }

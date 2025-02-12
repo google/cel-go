@@ -186,8 +186,8 @@ func TestContainers_Extend_Alias(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.aliasSet()["alias"] != "test.alias" {
-		t.Errorf("got alias %v wanted 'test.alias'", c.aliasSet())
+	if c.AliasSet()["alias"] != "test.alias" {
+		t.Errorf("got alias %v wanted 'test.alias'", c.AliasSet())
 	}
 	c, err = c.Extend(Name("with.container"))
 	if err != nil {
@@ -196,8 +196,8 @@ func TestContainers_Extend_Alias(t *testing.T) {
 	if c.Name() != "with.container" {
 		t.Errorf("got container name %s, wanted 'with.container'", c.Name())
 	}
-	if c.aliasSet()["alias"] != "test.alias" {
-		t.Errorf("got alias %v wanted 'test.alias'", c.aliasSet())
+	if c.AliasSet()["alias"] != "test.alias" {
+		t.Errorf("got alias %v wanted 'test.alias'", c.AliasSet())
 	}
 }
 

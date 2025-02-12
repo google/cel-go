@@ -16,6 +16,8 @@ package cel
 
 import (
 	"errors"
+	"fmt"
+	"math"
 	"sync"
 
 	"github.com/google/cel-go/checker"
@@ -24,12 +26,15 @@ import (
 	celast "github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/decls"
+	"github.com/google/cel-go/common/env"
+	"github.com/google/cel-go/common/stdlib"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter"
 	"github.com/google/cel-go/parser"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 // Source interface representing a user-provided expression.
@@ -127,12 +132,13 @@ type Env struct {
 	Container       *containers.Container
 	variables       []*decls.VariableDecl
 	functions       map[string]*decls.FunctionDecl
-	macros          []parser.Macro
+	macros          []Macro
+	contextProto    protoreflect.MessageDescriptor
 	adapter         types.Adapter
 	provider        types.Provider
 	features        map[int]bool
 	appliedFeatures map[int]bool
-	libraries       map[string]bool
+	libraries       map[string]SingletonLibrary
 	validators      []ASTValidator
 	costOptions     []checker.CostOption
 
@@ -149,6 +155,115 @@ type Env struct {
 
 	// Program options tied to the environment
 	progOpts []ProgramOption
+}
+
+// ToConfig produces a YAML-serializable env.Config object from the given environment.
+//
+// The serialized configuration value is intended to represent a baseline set of config
+// options which could be used as input to an EnvOption to configure the majority of the
+// environment from a file.
+//
+// Note: validators, features, flags, and safe-guard settings are not yet supported by
+// the serialize method. Since optimizers are a separate construct from the environment
+// and the standard expression components (parse, check, evalute), they are also not
+// supported by the serialize method.
+func (e *Env) ToConfig(name string) (*env.Config, error) {
+	conf := env.NewConfig(name)
+	// Container settings
+	if e.Container != containers.DefaultContainer {
+		conf.SetContainer(e.Container.Name())
+	}
+	for _, typeName := range e.Container.AliasSet() {
+		conf.AddImports(env.NewImport(typeName))
+	}
+
+	libOverloads := map[string][]string{}
+	for libName, lib := range e.libraries {
+		// Track the options which have been configured by a library and
+		// then diff the library version against the configured function
+		// to detect incremental overloads or rewrites.
+		libEnv, _ := NewCustomEnv()
+		libEnv, _ = Lib(lib)(libEnv)
+		for fnName, fnDecl := range libEnv.Functions() {
+			if len(fnDecl.OverloadDecls()) == 0 {
+				continue
+			}
+			overloads, exist := libOverloads[fnName]
+			if !exist {
+				overloads = make([]string, 0, len(fnDecl.OverloadDecls()))
+			}
+			for _, o := range fnDecl.OverloadDecls() {
+				overloads = append(overloads, o.ID())
+			}
+			libOverloads[fnName] = overloads
+		}
+		subsetLib, canSubset := lib.(LibrarySubsetter)
+		alias := ""
+		if aliasLib, canAlias := lib.(LibraryAliaser); canAlias {
+			alias = aliasLib.LibraryAlias()
+			libName = alias
+		}
+		if libName == "stdlib" && canSubset {
+			conf.SetStdLib(subsetLib.LibrarySubset())
+			continue
+		}
+		version := uint32(math.MaxUint32)
+		if versionLib, isVersioned := lib.(LibraryVersioner); isVersioned {
+			version = versionLib.LibraryVersion()
+		}
+		conf.AddExtensions(env.NewExtension(libName, version))
+	}
+
+	// If this is a custom environment without the standard env, mark the stdlib as disabled.
+	if conf.StdLib == nil && !e.HasLibrary("cel.lib.std") {
+		conf.SetStdLib(env.NewLibrarySubset().SetDisabled(true))
+	}
+
+	// Serialize the variables
+	vars := make([]*decls.VariableDecl, 0, len(e.Variables()))
+	stdTypeVars := map[string]*decls.VariableDecl{}
+	for _, v := range stdlib.Types() {
+		stdTypeVars[v.Name()] = v
+	}
+	for _, v := range e.Variables() {
+		if _, isStdType := stdTypeVars[v.Name()]; isStdType {
+			continue
+		}
+		vars = append(vars, v)
+	}
+	if e.contextProto != nil {
+		conf.SetContextVariable(env.NewContextVariable(string(e.contextProto.FullName())))
+		skipVariables := map[string]bool{}
+		fields := e.contextProto.Fields()
+		for i := 0; i < fields.Len(); i++ {
+			field := fields.Get(i)
+			variable, err := fieldToVariable(field)
+			if err != nil {
+				return nil, fmt.Errorf("could not serialize context field variable %q, reason: %w", field.FullName(), err)
+			}
+			skipVariables[variable.Name()] = true
+		}
+		for _, v := range vars {
+			if _, found := skipVariables[v.Name()]; !found {
+				conf.AddVariableDecls(v)
+			}
+		}
+	} else {
+		conf.AddVariableDecls(vars...)
+	}
+
+	// Serialize functions which are distinct from the ones configured by libraries.
+	for fnName, fnDecl := range e.Functions() {
+		if excludedOverloads, found := libOverloads[fnName]; found {
+			if newDecl := fnDecl.Subset(decls.ExcludeOverloads(excludedOverloads...)); newDecl != nil {
+				conf.AddFunctionDecls(newDecl)
+			}
+		} else {
+			conf.AddFunctionDecls(fnDecl)
+		}
+	}
+
+	return conf, nil
 }
 
 // NewEnv creates a program environment configured with the standard library of CEL functions and
@@ -194,7 +309,7 @@ func NewCustomEnv(opts ...EnvOption) (*Env, error) {
 		provider:        registry,
 		features:        map[int]bool{},
 		appliedFeatures: map[int]bool{},
-		libraries:       map[string]bool{},
+		libraries:       map[string]SingletonLibrary{},
 		validators:      []ASTValidator{},
 		progOpts:        []ProgramOption{},
 		costOptions:     []checker.CostOption{},
@@ -362,7 +477,7 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 	for k, v := range e.functions {
 		funcsCopy[k] = v
 	}
-	libsCopy := make(map[string]bool, len(e.libraries))
+	libsCopy := make(map[string]SingletonLibrary, len(e.libraries))
 	for k, v := range e.libraries {
 		libsCopy[k] = v
 	}
@@ -376,6 +491,7 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 		variables:       varsCopy,
 		functions:       funcsCopy,
 		macros:          macsCopy,
+		contextProto:    e.contextProto,
 		progOpts:        progOptsCopy,
 		adapter:         adapter,
 		features:        featuresCopy,
@@ -399,8 +515,8 @@ func (e *Env) HasFeature(flag int) bool {
 
 // HasLibrary returns whether a specific SingletonLibrary has been configured in the environment.
 func (e *Env) HasLibrary(libName string) bool {
-	configured, exists := e.libraries[libName]
-	return exists && configured
+	_, exists := e.libraries[libName]
+	return exists
 }
 
 // Libraries returns a list of SingletonLibrary that have been configured in the environment.
@@ -421,6 +537,11 @@ func (e *Env) HasFunction(functionName string) bool {
 // Functions returns map of Functions, keyed by function name, that have been configured in the environment.
 func (e *Env) Functions() map[string]*decls.FunctionDecl {
 	return e.functions
+}
+
+// Variables returns the set of variables associated with the environment.
+func (e *Env) Variables() []*decls.VariableDecl {
+	return e.variables
 }
 
 // HasValidator returns whether a specific ASTValidator has been configured in the environment.

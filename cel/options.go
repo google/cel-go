@@ -25,6 +25,7 @@ import (
 
 	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/common/containers"
+	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/functions"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/pb"
@@ -534,7 +535,7 @@ func fieldToCELType(field protoreflect.FieldDescriptor) (*Type, error) {
 	return nil, fmt.Errorf("field %s type %s not implemented", field.FullName(), field.Kind().String())
 }
 
-func fieldToVariable(field protoreflect.FieldDescriptor) (EnvOption, error) {
+func fieldToVariable(field protoreflect.FieldDescriptor) (*decls.VariableDecl, error) {
 	name := string(field.Name())
 	if field.IsMap() {
 		mapKey := field.MapKey()
@@ -547,20 +548,20 @@ func fieldToVariable(field protoreflect.FieldDescriptor) (EnvOption, error) {
 		if err != nil {
 			return nil, err
 		}
-		return Variable(name, MapType(keyType, valueType)), nil
+		return decls.NewVariable(name, MapType(keyType, valueType)), nil
 	}
 	if field.IsList() {
 		elemType, err := fieldToCELType(field)
 		if err != nil {
 			return nil, err
 		}
-		return Variable(name, ListType(elemType)), nil
+		return decls.NewVariable(name, ListType(elemType)), nil
 	}
 	celType, err := fieldToCELType(field)
 	if err != nil {
 		return nil, err
 	}
-	return Variable(name, celType), nil
+	return decls.NewVariable(name, celType), nil
 }
 
 // DeclareContextProto returns an option to extend CEL environment with declarations from the given context proto.
@@ -568,17 +569,25 @@ func fieldToVariable(field protoreflect.FieldDescriptor) (EnvOption, error) {
 // https://github.com/google/cel-spec/blob/master/doc/langdef.md#evaluation-environment
 func DeclareContextProto(descriptor protoreflect.MessageDescriptor) EnvOption {
 	return func(e *Env) (*Env, error) {
+		if e.contextProto != nil {
+			return nil, fmt.Errorf("context proto already declared as %q, got %q",
+				e.contextProto.FullName(), descriptor.FullName())
+		}
+		e.contextProto = descriptor
 		fields := descriptor.Fields()
+		vars := make([]*decls.VariableDecl, 0, fields.Len())
 		for i := 0; i < fields.Len(); i++ {
 			field := fields.Get(i)
 			variable, err := fieldToVariable(field)
 			if err != nil {
 				return nil, err
 			}
-			e, err = variable(e)
-			if err != nil {
-				return nil, err
-			}
+			vars = append(vars, variable)
+		}
+		var err error
+		e, err = VariableDecls(vars...)(e)
+		if err != nil {
+			return nil, err
 		}
 		return Types(dynamicpb.NewMessage(descriptor))(e)
 	}

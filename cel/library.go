@@ -73,6 +73,23 @@ type SingletonLibrary interface {
 	LibraryName() string
 }
 
+// LibraryAliaser generates a simple named alias for the library, for use during environment serialization.
+type LibraryAliaser interface {
+	LibraryAlias() string
+}
+
+// LibrarySubsetter provides the subset description associated with the library, nil if not subset.
+type LibrarySubsetter interface {
+	LibrarySubset() *env.LibrarySubset
+}
+
+// LibraryVersioner provides a version number for the library.
+//
+// If not implemented, the library version will be flagged as 'latest' during environment serialization.
+type LibraryVersioner interface {
+	LibraryVersion() uint32
+}
+
 // Lib creates an EnvOption out of a Library, allowing libraries to be provided as functional args,
 // and to be linked to each other.
 func Lib(l Library) EnvOption {
@@ -82,7 +99,7 @@ func Lib(l Library) EnvOption {
 			if e.HasLibrary(singleton.LibraryName()) {
 				return e, nil
 			}
-			e.libraries[singleton.LibraryName()] = true
+			e.libraries[singleton.LibraryName()] = singleton
 		}
 		var err error
 		for _, opt := range l.CompileOptions() {
@@ -100,6 +117,10 @@ func Lib(l Library) EnvOption {
 type StdLibOption func(*stdLibrary) *stdLibrary
 
 // StdLibSubset configures the standard library to use a subset of its functions and macros.
+//
+// Since the StdLib is a singleton library, only the first instance of the StdLib() environment options
+// will be configured on the environment which means only the StdLibSubset() initially configured with
+// the library will be used.
 func StdLibSubset(subset *env.LibrarySubset) StdLibOption {
 	return func(lib *stdLibrary) *stdLibrary {
 		lib.subset = subset
@@ -125,6 +146,21 @@ type stdLibrary struct {
 // LibraryName implements the SingletonLibrary interface method.
 func (*stdLibrary) LibraryName() string {
 	return "cel.lib.std"
+}
+
+// LibraryAlias returns the simple name of the library.
+func (*stdLibrary) LibraryAlias() string {
+	return "stdlib"
+}
+
+// LibraryVersion returns the version of the library.
+func (*stdLibrary) LibraryVersion() uint32 {
+	return math.MaxUint32
+}
+
+// LibrarySubset returns the env.LibrarySubset definition associated with the CEL Library.
+func (lib *stdLibrary) LibrarySubset() *env.LibrarySubset {
+	return lib.subset
 }
 
 // CompileOptions returns options for the standard CEL function declarations and macros.
@@ -160,6 +196,10 @@ func (lib *stdLibrary) CompileOptions() []EnvOption {
 				}
 				e.functions[fn.Name()] = fn
 			}
+			return e, nil
+		},
+		func(e *Env) (*Env, error) {
+			e.variables = append(e.variables, stdlib.Types()...)
 			return e, nil
 		},
 		Macros(macros...),
@@ -358,8 +398,18 @@ func OptionalTypesVersion(version uint32) OptionalTypesOption {
 }
 
 // LibraryName implements the SingletonLibrary interface method.
-func (lib *optionalLib) LibraryName() string {
+func (*optionalLib) LibraryName() string {
 	return "cel.lib.optional"
+}
+
+// LibraryAlias returns the simple name of the library.
+func (*optionalLib) LibraryAlias() string {
+	return "optional"
+}
+
+// LibraryVersion returns the version of the library.
+func (lib *optionalLib) LibraryVersion() uint32 {
+	return lib.version
 }
 
 // CompileOptions implements the Library interface method.
@@ -490,6 +540,11 @@ func (lib *optionalLib) ProgramOptions() []ProgramOption {
 	return []ProgramOption{
 		CustomDecorator(decorateOptionalOr),
 	}
+}
+
+// Version returns the current version of the library.
+func (lib *optionalLib) Version() uint32 {
+	return lib.version
 }
 
 func optMap(meh MacroExprFactory, target ast.Expr, args []ast.Expr) (ast.Expr, *Error) {
