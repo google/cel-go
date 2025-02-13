@@ -22,6 +22,11 @@ import (
 	"github.com/google/cel-go/ext"
 )
 
+// FromConfig configures a CEL policy environment from a config file.
+//
+// This option supports all extensions supported by policies, whereas the cel.FromConfig supports
+// a set of configuration ConfigOptionFactory values to handle extensions and other config features
+// which may be defined outside of the `cel` package.
 func FromConfig(config *env.Config) cel.EnvOption {
 	return cel.FromConfig(config, extensionOptionFactory)
 }

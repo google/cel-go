@@ -37,7 +37,7 @@ func NewConfig(name string) *Config {
 //
 // Note: custom validations, feature flags, and performance tuning parameters are not (yet)
 // considered part of the core CEL environment configuration and should be managed separately
-// until a common convention for such configuration settings is developed.
+// until a common convention for such settings is developed.
 type Config struct {
 	Name            string           `yaml:"name,omitempty"`
 	Description     string           `yaml:"description,omitempty"`
@@ -48,6 +48,44 @@ type Config struct {
 	ContextVariable *ContextVariable `yaml:"context_variable,omitempty"`
 	Variables       []*Variable      `yaml:"variables,omitempty"`
 	Functions       []*Function      `yaml:"functions,omitempty"`
+}
+
+// Validate validates the whole configuration is well-formed.
+func (c *Config) Validate() error {
+	if c == nil {
+		return nil
+	}
+	var errs []error
+	for _, imp := range c.Imports {
+		if err := imp.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if err := c.StdLib.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	for _, ext := range c.Extensions {
+		if err := ext.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if err := c.ContextVariable.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if c.ContextVariable != nil && len(c.Variables) != 0 {
+		errs = append(errs, errors.New("invalid config: either context variable or variables may be set, but not both"))
+	}
+	for _, v := range c.Variables {
+		if err := v.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	for _, fn := range c.Functions {
+		if err := fn.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
 }
 
 // SetContainer configures the container name for this configuration.
@@ -105,7 +143,7 @@ func (c *Config) AddFunctionDecls(funcs ...*decls.FunctionDecl) *Config {
 				overloads = append(overloads, NewOverload(overloadID, args, ret))
 			}
 		}
-		convFuncs[i] = NewFunction(fn.Name(), overloads)
+		convFuncs[i] = NewFunction(fn.Name(), overloads...)
 	}
 	return c.AddFunctions(convFuncs...)
 }
@@ -145,6 +183,17 @@ type Import struct {
 	Name string `yaml:"name"`
 }
 
+// Validate validates the import configuration is well-formed.
+func (imp *Import) Validate() error {
+	if imp == nil {
+		return errors.New("invalid import: nil")
+	}
+	if imp.Name == "" {
+		return errors.New("invalid import: missing type name")
+	}
+	return nil
+}
+
 // NewVariable returns a serializable variable from a name and type definition
 func NewVariable(name string, t *TypeDesc) *Variable {
 	return &Variable{Name: name, TypeDesc: t}
@@ -165,39 +214,47 @@ type Variable struct {
 	*TypeDesc `yaml:",inline"`
 }
 
+// Validate validates the variable configuration is well-formed.
+func (v *Variable) Validate() error {
+	if v == nil {
+		return errors.New("invalid variable: nil")
+	}
+	if v.Name == "" {
+		return errors.New("invalid variable: missing variable name")
+	}
+	if err := v.GetType().Validate(); err != nil {
+		return fmt.Errorf("invalid variable %q: %w", v.Name, err)
+	}
+	return nil
+}
+
 // GetType returns the variable type description.
 //
 // Note, if both the embedded TypeDesc and the field Type are non-nil, the embedded TypeDesc will
 // take precedence.
-func (vd *Variable) GetType() *TypeDesc {
-	if vd == nil {
+func (v *Variable) GetType() *TypeDesc {
+	if v == nil {
 		return nil
 	}
-	if vd.TypeDesc != nil {
-		return vd.TypeDesc
+	if v.TypeDesc != nil {
+		return v.TypeDesc
 	}
-	if vd.Type != nil {
-		return vd.Type
+	if v.Type != nil {
+		return v.Type
 	}
 	return nil
 }
 
 // AsCELVariable converts the serializable form of the Variable into a CEL environment declaration.
-func (vd *Variable) AsCELVariable(tp types.Provider) (*decls.VariableDecl, error) {
-	if vd == nil {
-		return nil, errors.New("nil Variable cannot be converted to a VariableDecl")
+func (v *Variable) AsCELVariable(tp types.Provider) (*decls.VariableDecl, error) {
+	if err := v.Validate(); err != nil {
+		return nil, err
 	}
-	if vd.Name == "" {
-		return nil, errors.New("invalid variable, must declare a name")
+	t, err := v.GetType().AsCELType(tp)
+	if err != nil {
+		return nil, fmt.Errorf("invalid variable %q: %w", v.Name, err)
 	}
-	if vd.GetType() != nil {
-		t, err := vd.GetType().AsCELType(tp)
-		if err != nil {
-			return nil, fmt.Errorf("invalid variable type for '%s': %w", vd.Name, err)
-		}
-		return decls.NewVariable(vd.Name, t), nil
-	}
-	return nil, fmt.Errorf("invalid variable '%s', no type specified", vd.Name)
+	return decls.NewVariable(v.Name, t), nil
 }
 
 // NewContextVariable returns a serializable context variable with a specific type name.
@@ -213,8 +270,19 @@ type ContextVariable struct {
 	TypeName string `yaml:"type_name"`
 }
 
+// Validate validates the context-variable configuration is well-formed.
+func (ctx *ContextVariable) Validate() error {
+	if ctx == nil {
+		return nil
+	}
+	if ctx.TypeName == "" {
+		return errors.New("invalid context variable: missing type name")
+	}
+	return nil
+}
+
 // NewFunction creates a serializable function and overload set.
-func NewFunction(name string, overloads []*Overload) *Function {
+func NewFunction(name string, overloads ...*Overload) *Function {
 	return &Function{Name: name, Overloads: overloads}
 }
 
@@ -225,23 +293,37 @@ type Function struct {
 	Overloads   []*Overload `yaml:"overloads,omitempty"`
 }
 
-// AsCELFunction converts the serializable form of the Function into CEL environment declaration.
-func (fn *Function) AsCELFunction(tp types.Provider) (*decls.FunctionDecl, error) {
+// Validate validates the function configuration is well-formed.
+func (fn *Function) Validate() error {
 	if fn == nil {
-		return nil, errors.New("nil Function cannot be converted to a FunctionDecl")
+		return errors.New("invalid function: nil")
 	}
 	if fn.Name == "" {
-		return nil, errors.New("invalid function, must declare a name")
+		return errors.New("invalid function: missing function name")
 	}
 	if len(fn.Overloads) == 0 {
-		return nil, fmt.Errorf("invalid function %s, must declare an overload", fn.Name)
+		return fmt.Errorf("invalid function %q: missing overloads", fn.Name)
 	}
-	overloads := make([]decls.FunctionOpt, len(fn.Overloads))
+	var errs []error
+	for _, o := range fn.Overloads {
+		if err := o.Validate(); err != nil {
+			errs = append(errs, fmt.Errorf("invalid function %q: %w", fn.Name, err))
+		}
+	}
+	return errors.Join(errs...)
+}
+
+// AsCELFunction converts the serializable form of the Function into CEL environment declaration.
+func (fn *Function) AsCELFunction(tp types.Provider) (*decls.FunctionDecl, error) {
+	if err := fn.Validate(); err != nil {
+		return nil, err
+	}
 	var err error
+	overloads := make([]decls.FunctionOpt, len(fn.Overloads))
 	for i, o := range fn.Overloads {
 		overloads[i], err = o.AsFunctionOption(tp)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("invalid function %q: %w", fn.Name, err)
 		}
 	}
 	return decls.NewFunction(fn.Name, overloads...)
@@ -266,33 +348,59 @@ type Overload struct {
 	Return      *TypeDesc   `yaml:"return,omitempty"`
 }
 
+// Validate validates the overload configuration is well-formed.
+func (od *Overload) Validate() error {
+	if od == nil {
+		return errors.New("invalid overload: nil")
+	}
+	if od.ID == "" {
+		return errors.New("invalid overload: missing overload id")
+	}
+	var errs []error
+	if od.Target != nil {
+		if err := od.Target.Validate(); err != nil {
+			errs = append(errs, fmt.Errorf("invalid overload %q target: %w", od.ID, err))
+		}
+	}
+	for i, arg := range od.Args {
+		if err := arg.Validate(); err != nil {
+			errs = append(errs, fmt.Errorf("invalid overload %q arg[%d]: %w", od.ID, i, err))
+		}
+	}
+	if err := od.Return.Validate(); err != nil {
+		errs = append(errs, fmt.Errorf("invalid overload %q return: %w", od.ID, err))
+	}
+	return errors.Join(errs...)
+}
+
 // AsFunctionOption converts the serializable form of the Overload into a function declaration option.
 func (od *Overload) AsFunctionOption(tp types.Provider) (decls.FunctionOpt, error) {
-	if od == nil {
-		return nil, errors.New("nil Overload cannot be converted to a FunctionOpt")
+	if err := od.Validate(); err != nil {
+		return nil, err
 	}
 	args := make([]*types.Type, len(od.Args))
 	var err error
+	var errs []error
 	for i, a := range od.Args {
 		args[i], err = a.AsCELType(tp)
 		if err != nil {
-			return nil, err
+			errs = append(errs, err)
 		}
-	}
-	if od.Return == nil {
-		return nil, fmt.Errorf("missing return type on overload: %v", od.ID)
 	}
 	result, err := od.Return.AsCELType(tp)
 	if err != nil {
-		return nil, err
+		errs = append(errs, err)
 	}
 	if od.Target != nil {
 		t, err := od.Target.AsCELType(tp)
 		if err != nil {
-			return nil, err
+			return nil, errors.Join(append(errs, err)...)
 		}
 		args = append([]*types.Type{t}, args...)
 		return decls.MemberOverload(od.ID, args, result), nil
+	}
+	if len(errs) != 0 {
+		return nil, errors.Join(errs...)
 	}
 	return decls.Overload(od.ID, args, result), nil
 }
@@ -318,20 +426,29 @@ type Extension struct {
 	Version string `yaml:"version,omitempty"`
 }
 
+// Validate validates the extension configuration is well-formed.
+func (e *Extension) Validate() error {
+	_, err := e.GetVersion()
+	return err
+}
+
 // GetVersion returns the parsed version string, or an error if the version cannot be parsed.
 func (e *Extension) GetVersion() (uint32, error) {
 	if e == nil {
-		return 0, errors.New("nil Extension cannot produce a version")
+		return 0, fmt.Errorf("invalid extension: nil")
+	}
+	if e.Name == "" {
+		return 0, fmt.Errorf("invalid extension: missing name")
 	}
 	if e.Version == "latest" {
 		return math.MaxUint32, nil
 	}
 	if e.Version == "" {
-		return uint32(0), nil
+		return 0, nil
 	}
 	ver, err := strconv.ParseUint(e.Version, 10, 32)
 	if err != nil {
-		return 0, fmt.Errorf("error parsing uint version: %w", err)
+		return 0, fmt.Errorf("invalid extension %q version: %w", e.Name, err)
 	}
 	return uint32(ver), nil
 }
@@ -367,6 +484,24 @@ type LibrarySubset struct {
 	//
 	// Note: the overloads specified in the subset need only specify their ID.
 	ExcludeFunctions []*Function `yaml:"exclude_functions,omitempty"`
+}
+
+// Validate validates the library configuration is well-formed.
+//
+// For example, setting both the IncludeMacros and ExcludeMacros together could be confusing
+// and create a broken expectation, likewise for IncludeFunctions and ExcludeFunctions.
+func (lib *LibrarySubset) Validate() error {
+	if lib == nil {
+		return nil
+	}
+	var errs []error
+	if len(lib.IncludeMacros) != 0 && len(lib.ExcludeMacros) != 0 {
+		errs = append(errs, errors.New("invalid subset: cannot both include and exclude macros"))
+	}
+	if len(lib.IncludeFunctions) != 0 && len(lib.ExcludeFunctions) != 0 {
+		errs = append(errs, errors.New("invalid subset: cannot both include and exclude functions"))
+	}
+	return errors.Join(errs...)
 }
 
 // SubsetFunction produces a function declaration which matches the supported subset, or nil
@@ -520,49 +655,74 @@ func (td *TypeDesc) String() string {
 	return typeName
 }
 
-// AsCELType converts the serializable object to a *types.Type value.
-func (td *TypeDesc) AsCELType(tp types.Provider) (*types.Type, error) {
+// Validate validates the type configuration is well-formed.
+func (td *TypeDesc) Validate() error {
 	if td == nil {
-		return nil, errors.New("nil TypeDesc cannot be converted to a Type instance")
+		return errors.New("invalid type: nil")
 	}
 	if td.TypeName == "" {
-		return nil, errors.New("invalid type description, declare a type name")
+		return errors.New("invalid type: missing type name")
 	}
-	var err error
+	if td.IsTypeParam && len(td.Params) != 0 {
+		return errors.New("invalid type: param type cannot have parameters")
+	}
+	switch td.TypeName {
+	case "list":
+		if len(td.Params) != 1 {
+			return fmt.Errorf("invalid type: list expects 1 parameter, got %d", len(td.Params))
+		}
+		return td.Params[0].Validate()
+	case "map":
+		if len(td.Params) != 2 {
+			return fmt.Errorf("invalid type: map expects 2 parameters, got %d", len(td.Params))
+		}
+		if err := td.Params[0].Validate(); err != nil {
+			return err
+		}
+		if err := td.Params[1].Validate(); err != nil {
+			return err
+		}
+	case "optional_type":
+		if len(td.Params) != 1 {
+			return fmt.Errorf("invalid type: optional_type expects 1 parameter, got %d", len(td.Params))
+		}
+		return td.Params[0].Validate()
+	default:
+	}
+	return nil
+}
+
+// AsCELType converts the serializable object to a *types.Type value.
+func (td *TypeDesc) AsCELType(tp types.Provider) (*types.Type, error) {
+	err := td.Validate()
+	if err != nil {
+		return nil, err
+	}
 	switch td.TypeName {
 	case "dyn":
 		return types.DynType, nil
 	case "map":
-		if len(td.Params) == 2 {
-			kt, err := td.Params[0].AsCELType(tp)
-			if err != nil {
-				return nil, err
-			}
-			vt, err := td.Params[1].AsCELType(tp)
-			if err != nil {
-				return nil, err
-			}
-			return types.NewMapType(kt, vt), nil
+		kt, err := td.Params[0].AsCELType(tp)
+		if err != nil {
+			return nil, err
 		}
-		return nil, fmt.Errorf("map type has unexpected param count: %d", len(td.Params))
+		vt, err := td.Params[1].AsCELType(tp)
+		if err != nil {
+			return nil, err
+		}
+		return types.NewMapType(kt, vt), nil
 	case "list":
-		if len(td.Params) == 1 {
-			et, err := td.Params[0].AsCELType(tp)
-			if err != nil {
-				return nil, err
-			}
-			return types.NewListType(et), nil
+		et, err := td.Params[0].AsCELType(tp)
+		if err != nil {
+			return nil, err
 		}
-		return nil, fmt.Errorf("list type has unexpected param count: %d", len(td.Params))
+		return types.NewListType(et), nil
 	case "optional_type":
-		if len(td.Params) == 1 {
-			et, err := td.Params[0].AsCELType(tp)
-			if err != nil {
-				return nil, err
-			}
-			return types.NewOptionalType(et), nil
+		et, err := td.Params[0].AsCELType(tp)
+		if err != nil {
+			return nil, err
 		}
-		return nil, fmt.Errorf("optional_type has unexpected param count: %d", len(td.Params))
+		return types.NewOptionalType(et), nil
 	default:
 		if td.IsTypeParam {
 			return types.NewTypeParamType(td.TypeName), nil
@@ -573,7 +733,7 @@ func (td *TypeDesc) AsCELType(tp types.Provider) (*types.Type, error) {
 		}
 		t, found := tp.FindIdent(td.TypeName)
 		if !found {
-			return nil, fmt.Errorf("undefined type name: %v", td.TypeName)
+			return nil, fmt.Errorf("undefined type name: %q", td.TypeName)
 		}
 		_, ok := t.(*types.Type)
 		if ok && len(td.Params) == 0 {

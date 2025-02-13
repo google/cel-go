@@ -55,7 +55,7 @@ func TestConfig(t *testing.T) {
 				AddExtensions(NewExtension("optional", math.MaxUint32), NewExtension("strings", 1)).
 				SetContextVariable(NewContextVariable("google.expr.proto3.test.TestAllTypes")).
 				AddFunctions(
-					NewFunction("coalesce", []*Overload{
+					NewFunction("coalesce",
 						NewOverload("coalesce_wrapped_int",
 							[]*TypeDesc{NewTypeDesc("google.protobuf.Int64Value"), NewTypeDesc("int")},
 							NewTypeDesc("int")),
@@ -65,7 +65,7 @@ func TestConfig(t *testing.T) {
 						NewOverload("coalesce_wrapped_uint",
 							[]*TypeDesc{NewTypeDesc("google.protobuf.UInt64Value"), NewTypeDesc("uint")},
 							NewTypeDesc("uint")),
-					}),
+					),
 				),
 		},
 		{
@@ -78,14 +78,14 @@ func TestConfig(t *testing.T) {
 				).AddVariables(
 				NewVariable("msg", NewTypeDesc("google.expr.proto3.test.TestAllTypes")),
 			).AddFunctions(
-				NewFunction("isEmpty", []*Overload{
+				NewFunction("isEmpty",
 					NewMemberOverload("wrapper_string_isEmpty",
 						NewTypeDesc("google.protobuf.StringValue"), nil,
 						NewTypeDesc("bool")),
 					NewMemberOverload("list_isEmpty",
 						NewTypeDesc("list", NewTypeParam("T")), nil,
 						NewTypeDesc("bool")),
-				}),
+				),
 			),
 		},
 		{
@@ -124,6 +124,9 @@ func TestConfig(t *testing.T) {
 				t.Fatalf("os.ReadFile(%q) failed: %v", fileName, err)
 			}
 			got := unmarshalYAML(t, data)
+			if err := got.Validate(); err != nil {
+				t.Errorf("Validate() got %v, wanted nil error", err)
+			}
 			if got.Container != tc.want.Container {
 				t.Errorf("Container got %s, wanted %s", got.Container, tc.want.Container)
 			}
@@ -169,17 +172,64 @@ func TestConfig(t *testing.T) {
 	}
 }
 
-func TestNewImport(t *testing.T) {
-	imp := NewImport("qualified.type.name")
-	if imp.Name != "qualified.type.name" {
-		t.Errorf("NewImport() got name: %s, wanted %s", imp.Name, "qualified.type.name")
+func TestConfigValidateErrors(t *testing.T) {
+	tests := []struct {
+		name string
+		in   *Config
+		want error
+	}{
+		{
+			name: "nil config valid",
+		},
+		{
+			name: "invalid import",
+			in:   NewConfig("invalid import").AddImports(NewImport("")),
+			want: errors.New("invalid import"),
+		},
+		{
+			name: "invalid subset",
+			in:   NewConfig("invalid subset").SetStdLib(NewLibrarySubset().AddExcludedMacros("has").AddIncludedMacros("exists")),
+			want: errors.New("invalid subset"),
+		},
+		{
+			name: "invalid extension",
+			in:   NewConfig("invalid extension").AddExtensions(NewExtension("", 0)),
+			want: errors.New("invalid extension"),
+		},
+		{
+			name: "invalid context variable",
+			in:   NewConfig("invalid context variable").SetContextVariable(NewContextVariable("")),
+			want: errors.New("invalid context variable"),
+		},
+		{
+			name: "invalid variable",
+			in:   NewConfig("invalid variable").AddVariables(NewVariable("", nil)),
+			want: errors.New("invalid variable"),
+		},
+		{
+			name: "invalid function",
+			in:   NewConfig("invalid function").AddFunctions(NewFunction("", nil)),
+			want: errors.New("invalid function"),
+		},
 	}
-}
 
-func TestNewContextVariable(t *testing.T) {
-	ctx := NewContextVariable("qualified.type.name")
-	if ctx.TypeName != "qualified.type.name" {
-		t.Errorf("NewContextVariable() got name: %s, wanted %s", ctx.TypeName, "qualified.type.name")
+	for _, tst := range tests {
+		tc := tst
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.in.Validate()
+			if err == nil && tc.want == nil {
+				return
+			}
+			if err == nil && tc.want != nil {
+				t.Fatalf("config.Validate() got valid, wanted error %v", tc.want)
+			}
+			if err != nil && tc.want == nil {
+				t.Fatalf("config.Validate() got error %v, wanted nil error", err)
+			}
+			if !strings.Contains(err.Error(), tc.want.Error()) {
+				t.Errorf("config.Validate() got error %v, wanted %v", err, tc.want)
+			}
+		})
 	}
 }
 
@@ -247,18 +297,18 @@ func TestConfigAddFunctionDecls(t *testing.T) {
 			in: mustNewFunction(t, "size",
 				decls.Overload("size_string", []*types.Type{types.StringType}, types.IntType),
 			),
-			out: NewFunction("size", []*Overload{
+			out: NewFunction("size",
 				NewOverload("size_string", []*TypeDesc{NewTypeDesc("string")}, NewTypeDesc("int")),
-			}),
+			),
 		},
 		{
 			name: "global function decl - nullable arg",
 			in: mustNewFunction(t, "size",
 				decls.Overload("size_wrapper_string", []*types.Type{types.NewNullableType(types.StringType)}, types.IntType),
 			),
-			out: NewFunction("size", []*Overload{
+			out: NewFunction("size",
 				NewOverload("size_wrapper_string", []*TypeDesc{NewTypeDesc("google.protobuf.StringValue")}, NewTypeDesc("int")),
-			}),
+			),
 		},
 		{
 			name: "member function decl - nullable arg",
@@ -266,10 +316,10 @@ func TestConfigAddFunctionDecls(t *testing.T) {
 				decls.MemberOverload("list_size", []*types.Type{types.NewListType(types.NewTypeParamType("T"))}, types.IntType),
 				decls.MemberOverload("string_size", []*types.Type{types.StringType}, types.IntType),
 			),
-			out: NewFunction("size", []*Overload{
+			out: NewFunction("size",
 				NewMemberOverload("list_size", NewTypeDesc("list", NewTypeParam("T")), []*TypeDesc{}, NewTypeDesc("int")),
 				NewMemberOverload("string_size", NewTypeDesc("string"), []*TypeDesc{}, NewTypeDesc("int")),
-			}),
+			),
 		},
 	}
 	for _, tst := range tests {
@@ -283,6 +333,42 @@ func TestConfigAddFunctionDecls(t *testing.T) {
 				t.Errorf("AddFunctionDecls() added %v, wanted %v", conf.Functions, tc.out)
 			}
 		})
+	}
+}
+
+func TestNewImport(t *testing.T) {
+	imp := NewImport("qualified.type.name")
+	if imp.Name != "qualified.type.name" {
+		t.Errorf("NewImport() got name: %s, wanted %s", imp.Name, "qualified.type.name")
+	}
+}
+
+func TestImportValidate(t *testing.T) {
+	var imp *Import
+	err := imp.Validate()
+	if err == nil || !strings.Contains(err.Error(), "invalid import") {
+		t.Errorf("imp.Validate() got %v, wanted error 'invalid import'", err)
+	}
+
+	imp = NewImport("")
+	err = imp.Validate()
+	if err == nil || !strings.Contains(err.Error(), "invalid import") {
+		t.Errorf("imp.Validate() got %v, wanted error 'invalid import'", err)
+	}
+}
+
+func TestNewContextVariable(t *testing.T) {
+	ctx := NewContextVariable("qualified.type.name")
+	if ctx.TypeName != "qualified.type.name" {
+		t.Errorf("NewContextVariable() got name: %s, wanted %s", ctx.TypeName, "qualified.type.name")
+	}
+}
+
+func TestContextVariableValidate(t *testing.T) {
+	ctx := NewContextVariable("")
+	err := ctx.Validate()
+	if err == nil || !strings.Contains(err.Error(), "invalid context variable") {
+		t.Errorf("ctx.Validate() got %v, wanted error 'invalid context variable'", err)
 	}
 }
 
@@ -341,7 +427,7 @@ func TestVariableAsCELVariable(t *testing.T) {
 		{
 			name: "nil-safety check",
 			v:    nil,
-			want: errors.New("nil Variable"),
+			want: errors.New("invalid variable: nil"),
 		},
 		{
 			name: "no variable name",
@@ -353,7 +439,7 @@ func TestVariableAsCELVariable(t *testing.T) {
 			v: &Variable{
 				Name: "hello",
 			},
-			want: errors.New("no type specified"),
+			want: errors.New("invalid type: nil"),
 		},
 		{
 			name: "bad type",
@@ -361,7 +447,15 @@ func TestVariableAsCELVariable(t *testing.T) {
 				Name:     "hello",
 				TypeDesc: &TypeDesc{},
 			},
-			want: errors.New("declare a type name"),
+			want: errors.New("missing type name"),
+		},
+		{
+			name: "undefined type",
+			v: &Variable{
+				Name:     "hello",
+				TypeDesc: &TypeDesc{TypeName: "undefined"},
+			},
+			want: errors.New("undefined type name"),
 		},
 		{
 			name: "int type",
@@ -449,7 +543,7 @@ func TestVariableAsCELVariable(t *testing.T) {
 					t.Fatalf("AsCELVariable() got error %v, wanted %v", err, tc.want)
 				}
 				if !strings.Contains(err.Error(), wantErr.Error()) {
-					t.Fatalf("AsCELVariable() got error %v, wanted error contining %v", err, wantErr)
+					t.Fatalf("AsCELVariable() got error %v, wanted error containing %v", err, wantErr)
 				}
 				return
 			}
@@ -485,43 +579,69 @@ func TestFunctionAsCELFunction(t *testing.T) {
 		{
 			name: "nil function",
 			f:    nil,
-			want: errors.New("nil Function"),
+			want: errors.New("invalid function: nil"),
 		},
 		{
 			name: "unnamed function",
 			f:    &Function{},
-			want: errors.New("must declare a name"),
+			want: errors.New("invalid function"),
 		},
 		{
 			name: "no overloads",
-			f:    NewFunction("no_overloads", []*Overload{}),
-			want: errors.New("must declare an overload"),
+			f:    NewFunction("no_overloads"),
+			want: errors.New("missing overloads"),
 		},
 		{
 			name: "nil overload",
-			f:    NewFunction("no_overloads", []*Overload{nil}),
-			want: errors.New("nil Overload"),
+			f:    NewFunction("no_overloads", nil),
+			want: errors.New("invalid overload: nil"),
+		},
+		{
+			name: "missing overload id",
+			f:    NewFunction("size", &Overload{}),
+			want: errors.New("missing overload id"),
 		},
 		{
 			name: "no return type",
-			f: NewFunction("size", []*Overload{
+			f: NewFunction("size",
 				NewOverload("size_string", []*TypeDesc{NewTypeDesc("string")}, nil),
-			}),
-			want: errors.New("missing return type"),
+			),
+			want: errors.New("return: invalid type"),
 		},
 		{
 			name: "bad return type",
-			f: NewFunction("size", []*Overload{
+			f: NewFunction("size",
 				NewOverload("size_string", []*TypeDesc{NewTypeDesc("string")}, NewTypeDesc("")),
-			}),
+			),
 			want: errors.New("invalid type"),
 		},
 		{
 			name: "bad arg type",
-			f: NewFunction("size", []*Overload{
+			f: NewFunction("size",
 				NewOverload("size_string", []*TypeDesc{NewTypeDesc("")}, NewTypeDesc("")),
-			}),
+			),
 			want: errors.New("invalid type"),
+		},
+		{
+			name: "undefined arg type",
+			f: NewFunction("size",
+				NewOverload("size_undefined", []*TypeDesc{NewTypeDesc("undefined")}, NewTypeDesc("int")),
+			),
+			want: errors.New("undefined type"),
+		},
+		{
+			name: "undefined return type",
+			f: NewFunction("size",
+				NewOverload("size_undefined", []*TypeDesc{NewTypeDesc("string")}, NewTypeDesc("undefined")),
+			),
+			want: errors.New("undefined type"),
+		},
+		{
+			name: "undefined target type",
+			f: NewFunction("size",
+				NewMemberOverload("size_undefined", NewTypeDesc("undefined"), []*TypeDesc{NewTypeDesc("string")}, NewTypeDesc("int")),
+			),
+			want: errors.New("undefined type"),
 		},
 		{
 			name: "bad target type",
@@ -574,7 +694,7 @@ func TestFunctionAsCELFunction(t *testing.T) {
 					t.Fatalf("AsCELFunction() got error %v, wanted %v", err, tc.want)
 				}
 				if !strings.Contains(err.Error(), wantErr.Error()) {
-					t.Fatalf("AsCELFunction() got error %v, wanted error contining %v", err, wantErr)
+					t.Fatalf("AsCELFunction() got error %v, wanted error containing %v", err, wantErr)
 				}
 				return
 			}
@@ -592,17 +712,17 @@ func TestTypeDescAsCELTypeErrors(t *testing.T) {
 		{
 			name: "nil-safety check",
 			t:    nil,
-			want: errors.New("nil TypeDesc"),
+			want: errors.New("invalid type: nil"),
 		},
 		{
 			name: "no type name",
 			t:    &TypeDesc{},
-			want: errors.New("invalid type"),
+			want: errors.New("missing type name"),
 		},
 		{
 			name: "invalid optional_type",
 			t:    &TypeDesc{TypeName: "optional_type"},
-			want: errors.New("unexpected param count"),
+			want: errors.New("expects 1 parameter"),
 		},
 		{
 			name: "invalid optional param type",
@@ -610,9 +730,19 @@ func TestTypeDescAsCELTypeErrors(t *testing.T) {
 			want: errors.New("invalid type"),
 		},
 		{
+			name: "undefined optional param type",
+			t:    &TypeDesc{TypeName: "optional_type", Params: []*TypeDesc{{TypeName: "undefined"}}},
+			want: errors.New("undefined type"),
+		},
+		{
+			name: "invalid param type",
+			t:    &TypeDesc{TypeName: "T", IsTypeParam: true, Params: []*TypeDesc{{TypeName: "string"}}},
+			want: errors.New("invalid type: param type"),
+		},
+		{
 			name: "invalid list",
 			t:    &TypeDesc{TypeName: "list"},
-			want: errors.New("unexpected param count"),
+			want: errors.New("expects 1 parameter"),
 		},
 		{
 			name: "invalid list param type",
@@ -620,9 +750,14 @@ func TestTypeDescAsCELTypeErrors(t *testing.T) {
 			want: errors.New("invalid type"),
 		},
 		{
+			name: "undefined list param type",
+			t:    &TypeDesc{TypeName: "list", Params: []*TypeDesc{{TypeName: "undefined"}}},
+			want: errors.New("undefined type name"),
+		},
+		{
 			name: "invalid map",
 			t:    &TypeDesc{TypeName: "map"},
-			want: errors.New("unexpected param count"),
+			want: errors.New("expects 2 parameters"),
 		},
 		{
 			name: "invalid map key type",
@@ -635,13 +770,23 @@ func TestTypeDescAsCELTypeErrors(t *testing.T) {
 			want: errors.New("invalid type"),
 		},
 		{
+			name: "undefined map key type",
+			t:    &TypeDesc{TypeName: "map", Params: []*TypeDesc{{TypeName: "undefined"}, {TypeName: "undefined"}}},
+			want: errors.New("undefined type name"),
+		},
+		{
+			name: "undefined map value type",
+			t:    &TypeDesc{TypeName: "map", Params: []*TypeDesc{{TypeName: "string"}, {TypeName: "undefined"}}},
+			want: errors.New("undefined type name"),
+		},
+		{
 			name: "invalid set",
 			t:    &TypeDesc{TypeName: "set", Params: []*TypeDesc{{}}},
 			want: errors.New("invalid type"),
 		},
 		{
 			name: "undefined type identifier",
-			t:    &TypeDesc{TypeName: "vector"},
+			t:    &TypeDesc{TypeName: "undefined"},
 			want: errors.New("undefined type"),
 		},
 	}
@@ -660,12 +805,78 @@ func TestTypeDescAsCELTypeErrors(t *testing.T) {
 					t.Fatalf("AsCELType() got error %v, wanted %v", err, tc.want)
 				}
 				if !strings.Contains(err.Error(), wantErr.Error()) {
-					t.Fatalf("AsCELType() got error %v, wanted error contining %v", err, wantErr)
+					t.Fatalf("AsCELType() got error %v, wanted error containing %v", err, wantErr)
 				}
 				return
 			}
 			if !reflect.DeepEqual(gotVar, tc.want.(*decls.VariableDecl)) {
 				t.Errorf("AsCELType() got %v, wanted %v", gotVar, tc.want)
+			}
+		})
+	}
+}
+
+func TestLibrarySubsetValidate(t *testing.T) {
+	tests := []struct {
+		name string
+		lib  *LibrarySubset
+		want error
+	}{
+		{
+			name: "nil library",
+			lib:  NewLibrarySubset(),
+		},
+		{
+			name: "empty library",
+			lib:  NewLibrarySubset(),
+		},
+		{
+			name: "only excluded funcs",
+			lib:  NewLibrarySubset().AddExcludedFunctions(NewFunction("size", nil)),
+		},
+		{
+			name: "only included funcs",
+			lib:  NewLibrarySubset().AddIncludedFunctions(NewFunction("size", nil)),
+		},
+		{
+			name: "only excluded macros",
+			lib:  NewLibrarySubset().AddExcludedMacros("has"),
+		},
+		{
+			name: "only included macros",
+			lib:  NewLibrarySubset().AddIncludedMacros("exists"),
+		},
+		{
+			name: "both included and excluded funcs",
+			lib: NewLibrarySubset().
+				AddIncludedFunctions(NewFunction("size", nil)).
+				AddExcludedFunctions(NewFunction("size", nil)),
+			want: errors.New("invalid subset"),
+		},
+		{
+			name: "both included and excluded macros",
+			lib: NewLibrarySubset().
+				AddIncludedMacros("has").
+				AddExcludedMacros("exists"),
+			want: errors.New("invalid subset"),
+		},
+	}
+
+	for _, tst := range tests {
+		tc := tst
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.lib.Validate()
+			if err == nil && tc.want == nil {
+				return
+			}
+			if err == nil && tc.want != nil {
+				t.Fatalf("lib.Validate() got valid, wanted error %v", tc.want)
+			}
+			if err != nil && tc.want == nil {
+				t.Fatalf("lib.Validate() got error %v, wanted nil error", err)
+			}
+			if !strings.Contains(err.Error(), tc.want.Error()) {
+				t.Errorf("lib.Validate() got error %v, wanted %v", err, tc.want)
 			}
 		})
 	}
@@ -874,26 +1085,31 @@ func TestExtensionGetVersion(t *testing.T) {
 	}{
 		{
 			name: "nil extension",
-			want: errors.New("nil Extension"),
+			want: errors.New("invalid extension: nil"),
+		},
+		{
+			name: "missing name",
+			ext:  &Extension{},
+			want: errors.New("missing name"),
 		},
 		{
 			name: "unset version",
-			ext:  &Extension{},
+			ext:  &Extension{Name: "test"},
 			want: uint32(0),
 		},
 		{
 			name: "numeric version",
-			ext:  &Extension{Version: "1"},
+			ext:  &Extension{Name: "test", Version: "1"},
 			want: uint32(1),
 		},
 		{
 			name: "latest version",
-			ext:  &Extension{Version: "latest"},
+			ext:  &Extension{Name: "test", Version: "latest"},
 			want: uint32(math.MaxUint32),
 		},
 		{
 			name: "bad version",
-			ext:  &Extension{Version: "1.0"},
+			ext:  &Extension{Name: "test", Version: "1.0"},
 			want: errors.New("invalid syntax"),
 		},
 	}
@@ -907,7 +1123,7 @@ func TestExtensionGetVersion(t *testing.T) {
 					t.Fatalf("GetVersion() got error %v, wanted %v", err, tc.want)
 				}
 				if !strings.Contains(err.Error(), wantErr.Error()) {
-					t.Fatalf("GetVersion() got error %v, wanted error contining %v", err, wantErr)
+					t.Fatalf("GetVersion() got error %v, wanted error containing %v", err, wantErr)
 				}
 				return
 			}

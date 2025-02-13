@@ -150,11 +150,6 @@ func (*stdLibrary) LibraryAlias() string {
 	return "stdlib"
 }
 
-// LibraryVersion returns the version of the library.
-func (*stdLibrary) LibraryVersion() uint32 {
-	return math.MaxUint32
-}
-
 // LibrarySubset returns the env.LibrarySubset definition associated with the CEL Library.
 func (lib *stdLibrary) LibrarySubset() *env.LibrarySubset {
 	return lib.subset
@@ -183,6 +178,10 @@ func (lib *stdLibrary) CompileOptions() []EnvOption {
 	return []EnvOption{
 		func(e *Env) (*Env, error) {
 			var err error
+			if err = lib.subset.Validate(); err != nil {
+				return nil, err
+			}
+			e.variables = append(e.variables, stdlib.Types()...)
 			for _, fn := range funcs {
 				existing, found := e.functions[fn.Name()]
 				if found {
@@ -193,10 +192,6 @@ func (lib *stdLibrary) CompileOptions() []EnvOption {
 				}
 				e.functions[fn.Name()] = fn
 			}
-			return e, nil
-		},
-		func(e *Env) (*Env, error) {
-			e.variables = append(e.variables, stdlib.Types()...)
 			return e, nil
 		},
 		Macros(macros...),

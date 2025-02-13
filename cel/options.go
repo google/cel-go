@@ -115,6 +115,8 @@ func CustomTypeProvider(provider any) EnvOption {
 // Note: Declarations will by default be appended to the pre-existing declaration set configured
 // for the environment. The NewEnv call builds on top of the standard CEL declarations. For a
 // purely custom set of declarations use NewCustomEnv.
+//
+// Deprecated: use FunctionDecls and VariableDecls or FromConfig instead.
 func Declarations(decls ...*exprpb.Decl) EnvOption {
 	declOpts := []EnvOption{}
 	var err error
@@ -429,10 +431,35 @@ func OptimizeRegex(regexOptimizations ...*interpreter.RegexOptimization) Program
 	}
 }
 
-type ConfigElementFactory func(any) (EnvOption, bool)
+// ConfigOptionFactory declares a signature which accepts a configuration element, e.g. env.Extension
+// and optionally produces an EnvOption in response.
+//
+// If there are multiple ConfigOptionFactory values which could apply to the same configuration node
+// the first one that returns an EnvOption and a `true` response will be used, and the config node
+// will not be passed along to any other option factory.
+//
+// Only the *env.Extension type is provided at this time, but validators, optimizers, and other tuning
+// parameters may be supported in the future.
+type ConfigOptionFactory func(any) (EnvOption, bool)
 
-func FromConfig(config *env.Config, optFactories ...ConfigElementFactory) EnvOption {
+// FromConfig produces and applies a set of EnvOption values derived from an env.Config object.
+//
+// For configuration elements which refer to features outside of the `cel` package, an optional set of
+// ConfigOptionFactory values may be passed in to support the conversion from static configuration to
+// configured cel.Env value.
+//
+// Note: disabling the standard library will clear the EnvOptions values previously set for the
+// environment with the exception of propagating types and adapters over to the new environment.
+//
+// Note: to support custom types referenced in the configuration file, you must ensure that one of
+// the following options appears before the FromConfig option: Types, TypeDescs, or CustomTypeProvider
+// as the type provider configured at the time when the config is processed is the one used to derive
+// type references from the configuration.
+func FromConfig(config *env.Config, optFactories ...ConfigOptionFactory) EnvOption {
 	return func(env *Env) (*Env, error) {
+		if err := config.Validate(); err != nil {
+			return nil, err
+		}
 		opts, err := configToEnvOptions(config, env.CELTypeProvider(), optFactories)
 		if err != nil {
 			return nil, err
@@ -447,22 +474,24 @@ func FromConfig(config *env.Config, optFactories ...ConfigElementFactory) EnvOpt
 	}
 }
 
-func configToEnvOptions(config *env.Config, provider types.Provider, optFactories []ConfigElementFactory) ([]EnvOption, error) {
+// configToEnvOptions generates a set of EnvOption values (or error) based on a config, a type provider,
+// and an optional set of environment options.
+func configToEnvOptions(config *env.Config, provider types.Provider, optFactories []ConfigOptionFactory) ([]EnvOption, error) {
+	// note: ported from cel-go/policy/config.go
 	envOpts := []EnvOption{}
 	// Configure the standard lib subset.
 	if config.StdLib != nil {
-		if config.StdLib.Disabled {
-			envOpts = append(envOpts, func(e *Env) (*Env, error) {
-				if !e.HasLibrary("cel.lib.std") {
-					return e, nil
-				}
-				return NewCustomEnv()
-			})
-		} else {
-			envOpts = append(envOpts, func(e *Env) (*Env, error) {
-				return NewCustomEnv(StdLib(StdLibSubset(config.StdLib)))
-			})
+		envOpts = append(envOpts, func(e *Env) (*Env, error) {
+			if e.HasLibrary("cel.lib.std") {
+				return nil, errors.New("invalid subset of stdlib: create a custom env")
+			}
+			return e, nil
+		})
+		if !config.StdLib.Disabled {
+			envOpts = append(envOpts, StdLib(StdLibSubset(config.StdLib)))
 		}
+	} else {
+		envOpts = append(envOpts, StdLib())
 	}
 
 	// Configure the container
@@ -477,21 +506,15 @@ func configToEnvOptions(config *env.Config, provider types.Provider, optFactorie
 
 	// Configure the context variable declaration
 	if config.ContextVariable != nil {
-		if len(config.Variables) > 0 {
-			return nil, errors.New("either the context_variable or the variables may be set, but not both")
-		}
 		typeName := config.ContextVariable.TypeName
-		if typeName == "" {
-			return nil, errors.New("invalid context variable, must set type name field")
-		}
 		if _, found := provider.FindStructType(typeName); !found {
-			return nil, fmt.Errorf("could not find context proto type name: %s", typeName)
+			return nil, fmt.Errorf("invalid context proto type: %q", typeName)
 		}
 		// Attempt to instantiate the proto in order to reflect to its descriptor
 		msg := provider.NewValue(typeName, map[string]ref.Val{})
 		pbMsg, ok := msg.Value().(proto.Message)
 		if !ok {
-			return nil, fmt.Errorf("type name was not a protobuf: %T", msg.Value())
+			return nil, fmt.Errorf("unsupported context type: %T", msg.Value())
 		}
 		envOpts = append(envOpts, DeclareContextProto(pbMsg.ProtoReflect().Descriptor()))
 	}

@@ -361,19 +361,20 @@ func TestExtendStdlibFunction(t *testing.T) {
 }
 
 func TestSubsetStdLib(t *testing.T) {
-	env, err := NewCustomEnv(StdLib(StdLibSubset(
-		&env.LibrarySubset{
-			IncludeMacros: []string{"has"},
-			IncludeFunctions: []*env.Function{
-				{Name: operators.Equals},
-				{Name: operators.NotEquals},
-				{Name: operators.LogicalAnd},
-				{Name: operators.LogicalOr},
-				{Name: operators.LogicalNot},
-				{Name: overloads.Size, Overloads: []*env.Overload{{ID: "list_size"}}},
+	env, err := NewCustomEnv(
+		StdLib(StdLibSubset(
+			&env.LibrarySubset{
+				IncludeMacros: []string{"has"},
+				IncludeFunctions: []*env.Function{
+					{Name: operators.Equals},
+					{Name: operators.NotEquals},
+					{Name: operators.LogicalAnd},
+					{Name: operators.LogicalOr},
+					{Name: operators.LogicalNot},
+					{Name: overloads.Size, Overloads: []*env.Overload{{ID: "list_size"}}},
+				},
 			},
-		},
-	)))
+		)))
 	if err != nil {
 		t.Fatalf("StdLib() subsetting failed: %v", err)
 	}
@@ -440,6 +441,42 @@ func TestSubsetStdLib(t *testing.T) {
 				t.Errorf("prg.Eval() got %v, wanted %v", out, tc.want)
 			}
 		})
+	}
+}
+
+func TestSubsetStdLibError(t *testing.T) {
+	_, err := NewCustomEnv(
+		StdLib(StdLibSubset(
+			env.NewLibrarySubset().AddIncludedMacros("has").AddExcludedMacros("exists")),
+		))
+	if err == nil || !strings.Contains(err.Error(), "invalid subset") {
+		t.Errorf("StdLib() subsetting got %v, wanted error 'invalid subset'", err)
+	}
+}
+
+func TestSubsetStdLibMerge(t *testing.T) {
+	_, err := NewCustomEnv(
+		Function("size", MemberOverload("string_size", []*Type{StringType}, IntType)),
+		StdLib(StdLibSubset(
+			env.NewLibrarySubset().AddIncludedFunctions([]*env.Function{
+				{Name: overloads.Size, Overloads: []*env.Overload{{ID: "string_size"}}},
+			}...),
+		)))
+	if err != nil {
+		t.Errorf("StdLib() subsetting failed to merge: %v", err)
+	}
+}
+
+func TestSubsetStdLibMergeError(t *testing.T) {
+	_, err := NewCustomEnv(
+		Function("size", MemberOverload("string_size", []*Type{StringType}, UintType)),
+		StdLib(StdLibSubset(
+			env.NewLibrarySubset().AddIncludedFunctions([]*env.Function{
+				{Name: overloads.Size, Overloads: []*env.Overload{{ID: "string_size"}}},
+			}...),
+		)))
+	if err == nil || !strings.Contains(err.Error(), "merge failed") {
+		t.Errorf("StdLib() subsetting got %v, wanted error 'merge failed'", err)
 	}
 }
 

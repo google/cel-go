@@ -158,7 +158,7 @@ func compile(t testing.TB, name string, parseOpts []ParserOption, envOpts []cel.
 	if policy.name.Value != name {
 		t.Errorf("policy name is %v, wanted %q", policy.name, name)
 	}
-	env, err := cel.NewEnv(
+	env, err := cel.NewCustomEnv(
 		cel.OptionalTypes(),
 		cel.EnableMacroCallTracking(),
 		cel.ExtendedValidations(),
