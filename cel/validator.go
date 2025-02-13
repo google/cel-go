@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	homogeneousValidatorName = "cel.lib.std.validate.types.homogeneous"
+	homogeneousValidatorName = "cel.validator.homogeneous_types"
 
 	// HomogeneousAggregateLiteralExemptFunctions is the ValidatorConfig key used to configure
 	// the set of function names which are exempt from homogeneous type checks. The expected type
@@ -196,7 +196,7 @@ type formatValidator struct {
 
 // Name returns the unique name of this function format validator.
 func (v formatValidator) Name() string {
-	return fmt.Sprintf("cel.lib.std.validate.functions.%s", v.funcName)
+	return fmt.Sprintf("cel.validator.%s", v.funcName)
 }
 
 // Validate searches the AST for uses of a given function name with a constant argument and performs a check
@@ -337,7 +337,7 @@ type nestingLimitValidator struct {
 }
 
 func (v nestingLimitValidator) Name() string {
-	return "cel.lib.std.validate.comprehension_nesting_limit"
+	return "cel.validator.comprehension_nesting_limit"
 }
 
 func (v nestingLimitValidator) Validate(e *Env, _ ValidatorConfig, a *ast.AST, iss *Issues) {

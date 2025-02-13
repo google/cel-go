@@ -73,6 +73,26 @@ const (
 	featureIdentEscapeSyntax
 )
 
+var featureIDsToNames = map[int]string{
+	featureEnableMacroCallTracking:     "cel.feature.macro_call_tracking",
+	featureCrossTypeNumericComparisons: "cel.feature.cross_type_numeric_comparisons",
+	featureIdentEscapeSyntax:           "cel.feature.backtick_identifier_syntax",
+}
+
+func featureNameByID(id int) (string, bool) {
+	name, found := featureIDsToNames[id]
+	return name, found
+}
+
+func featureIDByName(name string) (int, bool) {
+	for id, n := range featureIDsToNames {
+		if n == name {
+			return id, true
+		}
+	}
+	return 0, false
+}
+
 // EnvOption is a functional interface for configuring the environment.
 type EnvOption func(e *Env) (*Env, error)
 

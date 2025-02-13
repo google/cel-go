@@ -48,6 +48,8 @@ type Config struct {
 	ContextVariable *ContextVariable `yaml:"context_variable,omitempty"`
 	Variables       []*Variable      `yaml:"variables,omitempty"`
 	Functions       []*Function      `yaml:"functions,omitempty"`
+	Validators      []*Validator     `yaml:"validators,omitempty"`
+	Features        []*Feature       `yaml:"features,omitempty"`
 }
 
 // Validate validates the whole configuration is well-formed.
@@ -82,6 +84,11 @@ func (c *Config) Validate() error {
 	}
 	for _, fn := range c.Functions {
 		if err := fn.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	for _, val := range c.Validators {
+		if err := val.Validate(); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -169,6 +176,16 @@ func (c *Config) AddImports(imps ...*Import) *Config {
 // AddExtensions appends a set of extensions to the config.
 func (c *Config) AddExtensions(exts ...*Extension) *Config {
 	c.Extensions = append(c.Extensions, exts...)
+	return c
+}
+
+func (c *Config) AddValidators(vals ...*Validator) *Config {
+	c.Validators = append(c.Validators, vals...)
+	return c
+}
+
+func (c *Config) AddFeatures(feats ...*Feature) *Config {
+	c.Features = append(c.Features, feats...)
 	return c
 }
 
@@ -623,6 +640,43 @@ func (lib *LibrarySubset) AddIncludedFunctions(funcs ...*Function) *LibrarySubse
 func (lib *LibrarySubset) AddExcludedFunctions(funcs ...*Function) *LibrarySubset {
 	lib.ExcludeFunctions = append(lib.ExcludeFunctions, funcs...)
 	return lib
+}
+
+func NewValidator(name string) *Validator {
+	return &Validator{Name: name}
+}
+
+type Validator struct {
+	Name string `yaml:"name"`
+}
+
+func (v *Validator) Validate() error {
+	if v == nil {
+		return errors.New("invalid validator: nil")
+	}
+	if v.Name == "" {
+		return errors.New("invalid validator: missing name")
+	}
+	return nil
+}
+
+func NewFeature(name string, enabled bool) *Feature {
+	return &Feature{Name: name, Enabled: enabled}
+}
+
+type Feature struct {
+	Name    string `yaml:"name"`
+	Enabled bool   `yaml:"enabled"`
+}
+
+func (feat *Feature) Validate() error {
+	if feat == nil {
+		return errors.New("invalid feature: nil")
+	}
+	if feat.Name == "" {
+		return errors.New("invalid feature: missing name")
+	}
+	return nil
 }
 
 // NewTypeDesc describes a simple or complex type with parameters.
