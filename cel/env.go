@@ -718,10 +718,15 @@ func (e *Env) configure(opts []EnvOption) (*Env, error) {
 		}
 	}
 
-	// If the default UTC timezone fix has been enabled, make sure the library is configured
-	e, err = e.maybeApplyFeature(featureDefaultUTCTimeZone, Lib(timeUTCLibrary{}))
-	if err != nil {
-		return nil, err
+	// If the default UTC timezone has been disabled, configure the legacy overloads
+	if utcTime, isSet := e.features[featureDefaultUTCTimeZone]; isSet && !utcTime {
+		if !e.appliedFeatures[featureDefaultUTCTimeZone] {
+			e.appliedFeatures[featureDefaultUTCTimeZone] = true
+			e, err = Lib(timeLegacyLibrary{})(e)
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	// Configure the parser.
@@ -803,27 +808,6 @@ func (e *Env) getCheckerOrError() (*checker.Env, error) {
 	e.chkMutex.Lock()
 	defer e.chkMutex.Unlock()
 	return e.chk, e.chkErr
-}
-
-// maybeApplyFeature determines whether the feature-guarded option is enabled, and if so applies
-// the feature if it has not already been enabled.
-func (e *Env) maybeApplyFeature(feature int, option EnvOption) (*Env, error) {
-	if !e.HasFeature(feature) {
-		return e, nil
-	}
-	_, applied := e.appliedFeatures[feature]
-	if applied {
-		return e, nil
-	}
-	e, err := option(e)
-	if err != nil {
-		return nil, err
-	}
-	// record that the feature has been applied since it will generate declarations
-	// and functions which will be propagated on Extend() calls and which should only
-	// be registered once.
-	e.appliedFeatures[feature] = true
-	return e, nil
 }
 
 // computeUnknownVars determines a set of missing variables based on the input activation and the

@@ -708,6 +708,46 @@ func testData(t testing.TB) []testCase {
 			expr: `timestamp(2) >= timestamp(2)`,
 		},
 		{
+			name: "timestamp_methods",
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("x", types.TimestampType),
+			},
+			in: map[string]any{
+				"x": time.Unix(7506, 1000000).Local(),
+			},
+			expr: `
+			x.getFullYear() == 1970
+			&& x.getMonth() == 0
+			&& x.getDayOfYear() == 0
+			&& x.getDayOfMonth() == 0
+			&& x.getDate() == 1
+			&& x.getDayOfWeek() == 4
+			&& x.getHours() == 2
+			&& x.getMinutes() == 5
+			&& x.getSeconds() == 6
+			&& x.getMilliseconds() == 1
+			&& x.getFullYear('-07:30') == 1969
+			&& x.getDayOfYear('-07:30') == 364
+			&& x.getMonth('-07:30') == 11
+			&& x.getDayOfMonth('-07:30') == 30
+			&& x.getDate('-07:30') == 31
+			&& x.getDayOfWeek('-07:30') == 3
+			&& x.getHours('-07:30') == 18
+			&& x.getMinutes('-07:30') == 35
+			&& x.getSeconds('-07:30') == 6
+			&& x.getMilliseconds('-07:30') == 1
+			&& x.getFullYear('23:15') == 1970
+			&& x.getDayOfYear('23:15') == 1
+			&& x.getMonth('23:15') == 0
+			&& x.getDayOfMonth('23:15') == 1
+			&& x.getDate('23:15') == 2
+			&& x.getDayOfWeek('23:15') == 5
+			&& x.getHours('23:15') == 1
+			&& x.getMinutes('23:15') == 20
+			&& x.getSeconds('23:15') == 6
+			&& x.getMilliseconds('23:15') == 1`,
+		},
+		{
 			name: "string_to_timestamp",
 			expr: `timestamp('1986-04-26T01:23:40Z')`,
 			out:  &tpb.Timestamp{Seconds: 514862620},
