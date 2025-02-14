@@ -103,7 +103,7 @@ variables:
 	}
 	for _, tst := range tests {
 		c := parseConfigYaml(t, tst)
-		_, err := c.AsEnvOptions(baseEnv.CELTypeProvider())
+		_, err := baseEnv.Extend(FromConfig(c))
 		if err != nil {
 			t.Errorf("AsEnvOptions() generated error: %v", err)
 		}
@@ -127,7 +127,7 @@ variables:
   - name: "bad_type"
     type:
       type_name: "strings"`,
-			err: "invalid variable type for 'bad_type': undefined type name: strings",
+			err: `invalid variable "bad_type": undefined type name: "strings"`,
 		},
 		{
 			config: `
@@ -135,7 +135,7 @@ variables:
   - name: "bad_list"
     type:
       type_name: "list"`,
-			err: "invalid variable type for 'bad_list': list type has unexpected param count: 0",
+			err: `invalid variable "bad_list": invalid type: list expects 1 parameter, got 0`,
 		},
 		{
 			config: `
@@ -145,7 +145,7 @@ variables:
       type_name: "map"
       params:
         - type_name: "string"`,
-			err: "invalid variable type for 'bad_map': map type has unexpected param count: 1",
+			err: `invalid variable "bad_map": invalid type: map expects 2 parameters, got 1`,
 		},
 		{
 			config: `
@@ -155,7 +155,7 @@ variables:
       type_name: "list"
       params:
         - type_name: "number"`,
-			err: "invalid variable type for 'bad_list_type_param': undefined type name: number",
+			err: `invalid variable "bad_list_type_param": undefined type name: "number"`,
 		},
 		{
 			config: `
@@ -166,21 +166,21 @@ variables:
       params:
         - type_name: "string"
         - type_name: "invalid_opaque_type"`,
-			err: "invalid variable type for 'bad_map_type_param': undefined type name: invalid_opaque_type",
+			err: `invalid variable "bad_map_type_param": undefined type name: "invalid_opaque_type"`,
 		},
 		{
 			config: `
 context_variable:
   type_name: "bad.proto.MessageType"
 `,
-			err: "could not find context proto type name: bad.proto.MessageType",
+			err: `invalid context proto type: "bad.proto.MessageType"`,
 		},
 		{
 			config: `
 variables:
   - type:
       type_name: "no variable name"`,
-			err: "invalid variable, must declare a name",
+			err: "invalid variable: missing variable name",
 		},
 
 		{
@@ -191,7 +191,7 @@ functions:
       - id: "zero_arity"
         return:
           type_name: "mystery"`,
-			err: "undefined type name: mystery",
+			err: `invalid function "bad_return": undefined type name: "mystery"`,
 		},
 		{
 			config: `
@@ -203,7 +203,7 @@ functions:
           type_name: "unknown"
         return:
           type_name: "null_type"`,
-			err: "undefined type name: unknown",
+			err: `invalid function "bad_target": undefined type name: "unknown"`,
 		},
 		{
 			config: `
@@ -215,7 +215,7 @@ functions:
           - type_name: "unknown"
         return:
           type_name: "null_type"`,
-			err: "undefined type name: unknown",
+			err: `invalid function "bad_arg": undefined type name: "unknown"`,
 		},
 		{
 			config: `
@@ -225,7 +225,7 @@ functions:
       - id: "unary_global"
         args:
           - type_name: "null_type"`,
-			err: "missing return type on overload: unary_global",
+			err: `invalid function "missing_return": invalid overload "unary_global" return: invalid type: nil`,
 		},
 	}
 	baseEnv, err := cel.NewEnv(cel.OptionalTypes())
@@ -234,17 +234,17 @@ functions:
 	}
 	for _, tst := range tests {
 		c := parseConfigYaml(t, tst.config)
-		_, err := c.AsEnvOptions(baseEnv.CELTypeProvider())
+		_, err := baseEnv.Extend(FromConfig(c))
 		if err == nil || err.Error() != tst.err {
 			t.Errorf("AsEnvOptions() got error: %v, wanted %s", err, tst.err)
 		}
 	}
 }
 
-func parseConfigYaml(t *testing.T, doc string) *Config {
+func parseConfigYaml(t *testing.T, doc string) *env.Config {
 	config := &env.Config{}
 	if err := yaml.Unmarshal([]byte(doc), config); err != nil {
 		t.Fatalf("yaml.Unmarshal(%q) failed: %v", doc, err)
 	}
-	return NewConfig(config)
+	return config
 }

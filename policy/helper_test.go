@@ -278,7 +278,7 @@ func readPolicy(t testing.TB, fileName string) *Source {
 	return ByteSource(policyBytes, fileName)
 }
 
-func readPolicyConfig(t testing.TB, fileName string) *Config {
+func readPolicyConfig(t testing.TB, fileName string) *env.Config {
 	t.Helper()
 	testCaseBytes, err := os.ReadFile(fileName)
 	if err != nil {
@@ -289,7 +289,7 @@ func readPolicyConfig(t testing.TB, fileName string) *Config {
 	if err != nil {
 		log.Fatalf("yaml.Unmarshal(%s) error: %v", fileName, err)
 	}
-	return NewConfig(config)
+	return config
 }
 
 func readTestSuite(t testing.TB, fileName string) *TestSuite {

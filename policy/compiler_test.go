@@ -158,7 +158,7 @@ func compile(t testing.TB, name string, parseOpts []ParserOption, envOpts []cel.
 	if policy.name.Value != name {
 		t.Errorf("policy name is %v, wanted %q", policy.name, name)
 	}
-	env, err := cel.NewEnv(
+	env, err := cel.NewCustomEnv(
 		cel.OptionalTypes(),
 		cel.EnableMacroCallTracking(),
 		cel.ExtendedValidations(),
@@ -172,11 +172,7 @@ func compile(t testing.TB, name string, parseOpts []ParserOption, envOpts []cel.
 		t.Fatalf("env.Extend() with env options %v, failed: %v", config, err)
 	}
 	// Configure declarations
-	configOpts, err := config.AsEnvOptions(env.CELTypeProvider())
-	if err != nil {
-		t.Fatalf("config.AsEnvOptions() failed: %v", err)
-	}
-	env, err = env.Extend(configOpts...)
+	env, err = env.Extend(FromConfig(config))
 	if err != nil {
 		t.Fatalf("env.Extend() with config options %v, failed: %v", config, err)
 	}

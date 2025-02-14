@@ -15,123 +15,40 @@
 package policy
 
 import (
-	"errors"
 	"fmt"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/google/cel-go/cel"
-	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/env"
-	"github.com/google/cel-go/common/types"
-	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/ext"
 )
 
-// NewConfig returns a YAML serializable policy environment.
-func NewConfig(e *env.Config) *Config {
-	return &Config{Config: e}
+// FromConfig configures a CEL policy environment from a config file.
+//
+// This option supports all extensions supported by policies, whereas the cel.FromConfig supports
+// a set of configuration ConfigOptionFactory values to handle extensions and other config features
+// which may be defined outside of the `cel` package.
+func FromConfig(config *env.Config) cel.EnvOption {
+	return cel.FromConfig(config, extensionOptionFactory)
 }
 
-// Config represents a YAML serializable CEL environment configuration.
-type Config struct {
-	*env.Config
-}
-
-// AsEnvOptions converts the Config value to a collection of cel environment options.
-func (c *Config) AsEnvOptions(provider types.Provider) ([]cel.EnvOption, error) {
-	envOpts := []cel.EnvOption{}
-	// Configure the standard lib subset.
-	if c.StdLib != nil {
-		if c.StdLib.Disabled {
-			envOpts = append(envOpts, func(e *cel.Env) (*cel.Env, error) {
-				if !e.HasLibrary("cel.lib.std") {
-					return e, nil
-				}
-				return cel.NewCustomEnv()
-			})
-		} else {
-			envOpts = append(envOpts, func(e *cel.Env) (*cel.Env, error) {
-				return cel.NewCustomEnv(cel.StdLib(cel.StdLibSubset(c.StdLib)))
-			})
-		}
+// extensionOptionFactory converts an ExtensionConfig value to a CEL environment option.
+func extensionOptionFactory(configElement any) (cel.EnvOption, bool) {
+	ext, isExtension := configElement.(*env.Extension)
+	if !isExtension {
+		return nil, false
 	}
-
-	// Configure the container
-	if c.Container != "" {
-		envOpts = append(envOpts, cel.Container(c.Container))
-	}
-
-	// Configure abbreviations
-	for _, imp := range c.Imports {
-		envOpts = append(envOpts, cel.Abbrevs(imp.Name))
-	}
-
-	// Configure the context variable declaration
-	if c.ContextVariable != nil {
-		if len(c.Variables) > 0 {
-			return nil, errors.New("either the context_variable or the variables may be set, but not both")
-		}
-		typeName := c.ContextVariable.TypeName
-		if typeName == "" {
-			return nil, errors.New("invalid context variable, must set type name field")
-		}
-		if _, found := provider.FindStructType(typeName); !found {
-			return nil, fmt.Errorf("could not find context proto type name: %s", typeName)
-		}
-		// Attempt to instantiate the proto in order to reflect to its descriptor
-		msg := provider.NewValue(typeName, map[string]ref.Val{})
-		pbMsg, ok := msg.Value().(proto.Message)
-		if !ok {
-			return nil, fmt.Errorf("type name was not a protobuf: %T", msg.Value())
-		}
-		envOpts = append(envOpts, cel.DeclareContextProto(pbMsg.ProtoReflect().Descriptor()))
-	}
-
-	if len(c.Variables) != 0 {
-		vars := make([]*decls.VariableDecl, 0, len(c.Variables))
-		for _, v := range c.Variables {
-			vDef, err := v.AsCELVariable(provider)
-			if err != nil {
-				return nil, err
-			}
-			vars = append(vars, vDef)
-		}
-		envOpts = append(envOpts, cel.VariableDecls(vars...))
-	}
-	if len(c.Functions) != 0 {
-		funcs := make([]*decls.FunctionDecl, 0, len(c.Functions))
-		for _, f := range c.Functions {
-			fnDef, err := f.AsCELFunction(provider)
-			if err != nil {
-				return nil, err
-			}
-			funcs = append(funcs, fnDef)
-		}
-		envOpts = append(envOpts, cel.FunctionDecls(funcs...))
-	}
-	for _, e := range c.Extensions {
-		opt, err := extensionEnvOption(e)
-		if err != nil {
-			return nil, err
-		}
-		envOpts = append(envOpts, opt)
-	}
-	return envOpts, nil
-}
-
-// extensionEnvOption converts an ExtensionConfig value to a CEL environment option.
-func extensionEnvOption(ec *env.Extension) (cel.EnvOption, error) {
-	fac, found := extFactories[ec.Name]
+	fac, found := extFactories[ext.Name]
 	if !found {
-		return nil, fmt.Errorf("unrecognized extension: %s", ec.Name)
+		return nil, false
 	}
 	// If the version is 'latest', set the version value to the max uint.
-	ver, err := ec.GetVersion()
+	ver, err := ext.GetVersion()
 	if err != nil {
-		return nil, err
+		return func(*cel.Env) (*cel.Env, error) {
+			return nil, fmt.Errorf("invalid extension version: %s - %s", ext.Name, ext.Version)
+		}, true
 	}
-	return fac(ver), nil
+	return fac(ver), true
 }
 
 // extensionFactory accepts a version and produces a CEL environment associated with the versioned extension.
