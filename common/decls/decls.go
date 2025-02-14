@@ -182,6 +182,8 @@ func ExcludeOverloads(overloadIDs ...string) OverloadSelector {
 }
 
 // Subset returns a new function declaration which contains only the overloads with the specified IDs.
+// If the subset function contains no overloads, then nil is returned to indicate the function is not
+// functional.
 func (f *FunctionDecl) Subset(selector OverloadSelector) *FunctionDecl {
 	if f == nil {
 		return nil
@@ -194,6 +196,9 @@ func (f *FunctionDecl) Subset(selector OverloadSelector) *FunctionDecl {
 			overloads[oID] = overload
 			overloadOrdinals = append(overloadOrdinals, oID)
 		}
+	}
+	if len(overloads) == 0 {
+		return nil
 	}
 	subset := &FunctionDecl{
 		name:              f.Name(),

@@ -361,19 +361,20 @@ func TestExtendStdlibFunction(t *testing.T) {
 }
 
 func TestSubsetStdLib(t *testing.T) {
-	env, err := NewCustomEnv(StdLib(StdLibSubset(
-		&env.LibrarySubset{
-			IncludeMacros: []string{"has"},
-			IncludeFunctions: []*env.Function{
-				{Name: operators.Equals},
-				{Name: operators.NotEquals},
-				{Name: operators.LogicalAnd},
-				{Name: operators.LogicalOr},
-				{Name: operators.LogicalNot},
-				{Name: overloads.Size, Overloads: []*env.Overload{{ID: "list_size"}}},
+	env, err := NewCustomEnv(
+		StdLib(StdLibSubset(
+			&env.LibrarySubset{
+				IncludeMacros: []string{"has"},
+				IncludeFunctions: []*env.Function{
+					{Name: operators.Equals},
+					{Name: operators.NotEquals},
+					{Name: operators.LogicalAnd},
+					{Name: operators.LogicalOr},
+					{Name: operators.LogicalNot},
+					{Name: overloads.Size, Overloads: []*env.Overload{{ID: "list_size"}}},
+				},
 			},
-		},
-	)))
+		)))
 	if err != nil {
 		t.Fatalf("StdLib() subsetting failed: %v", err)
 	}
@@ -440,6 +441,42 @@ func TestSubsetStdLib(t *testing.T) {
 				t.Errorf("prg.Eval() got %v, wanted %v", out, tc.want)
 			}
 		})
+	}
+}
+
+func TestSubsetStdLibError(t *testing.T) {
+	_, err := NewCustomEnv(
+		StdLib(StdLibSubset(
+			env.NewLibrarySubset().AddIncludedMacros("has").AddExcludedMacros("exists")),
+		))
+	if err == nil || !strings.Contains(err.Error(), "invalid subset") {
+		t.Errorf("StdLib() subsetting got %v, wanted error 'invalid subset'", err)
+	}
+}
+
+func TestSubsetStdLibMerge(t *testing.T) {
+	_, err := NewCustomEnv(
+		Function("size", MemberOverload("string_size", []*Type{StringType}, IntType)),
+		StdLib(StdLibSubset(
+			env.NewLibrarySubset().AddIncludedFunctions([]*env.Function{
+				{Name: overloads.Size, Overloads: []*env.Overload{{ID: "string_size"}}},
+			}...),
+		)))
+	if err != nil {
+		t.Errorf("StdLib() subsetting failed to merge: %v", err)
+	}
+}
+
+func TestSubsetStdLibMergeError(t *testing.T) {
+	_, err := NewCustomEnv(
+		Function("size", MemberOverload("string_size", []*Type{StringType}, UintType)),
+		StdLib(StdLibSubset(
+			env.NewLibrarySubset().AddIncludedFunctions([]*env.Function{
+				{Name: overloads.Size, Overloads: []*env.Overload{{ID: "string_size"}}},
+			}...),
+		)))
+	if err == nil || !strings.Contains(err.Error(), "merge failed") {
+		t.Errorf("StdLib() subsetting got %v, wanted error 'merge failed'", err)
 	}
 }
 
@@ -2146,47 +2183,150 @@ func TestRegexOptimizer(t *testing.T) {
 	}
 }
 
-func TestDefaultUTCTimeZone(t *testing.T) {
-	env := testEnv(t, Variable("x", TimestampType), DefaultUTCTimeZone(true))
-	out, err := interpret(t, env, `
-		x.getFullYear() == 1970
-		&& x.getMonth() == 0
-		&& x.getDayOfYear() == 0
-		&& x.getDayOfMonth() == 0
-		&& x.getDate() == 1
-		&& x.getDayOfWeek() == 4
-		&& x.getHours() == 2
-		&& x.getMinutes() == 5
-		&& x.getSeconds() == 6
-		&& x.getMilliseconds() == 1
-		&& x.getFullYear('-07:30') == 1969
-		&& x.getDayOfYear('-07:30') == 364
-		&& x.getMonth('-07:30') == 11
-		&& x.getDayOfMonth('-07:30') == 30
-		&& x.getDate('-07:30') == 31
-		&& x.getDayOfWeek('-07:30') == 3
-		&& x.getHours('-07:30') == 18
-		&& x.getMinutes('-07:30') == 35
-		&& x.getSeconds('-07:30') == 6
-		&& x.getMilliseconds('-07:30') == 1
-		&& x.getFullYear('23:15') == 1970
-		&& x.getDayOfYear('23:15') == 1
-		&& x.getMonth('23:15') == 0
-		&& x.getDayOfMonth('23:15') == 1
-		&& x.getDate('23:15') == 2
-		&& x.getDayOfWeek('23:15') == 5
-		&& x.getHours('23:15') == 1
-		&& x.getMinutes('23:15') == 20
-		&& x.getSeconds('23:15') == 6
-		&& x.getMilliseconds('23:15') == 1`,
-		map[string]any{
-			"x": time.Unix(7506, 1000000).Local(),
-		})
-	if err != nil {
-		t.Fatalf("prg.Eval() failed: %v", err)
+func TestDefaultUTCTimeZoneDisabled(t *testing.T) {
+	testEnvs := []struct {
+		name string
+		env  *Env
+	}{
+		{"default", testEnv(t, Variable("x", TimestampType))},
+		{"enabled", testEnv(t, Variable("x", TimestampType), DefaultUTCTimeZone(true))},
+		{"disabled", testEnv(t, Variable("x", TimestampType), DefaultUTCTimeZone(false))},
 	}
-	if out != types.True {
-		t.Errorf("Eval() got %v, wanted true", out)
+	exprs := []struct {
+		name   string
+		value  string
+		envOut map[string]ref.Val
+	}{
+		{
+			name: "default-timezone",
+			value: `
+			x.getFullYear() == 1970
+			&& x.getMonth() == 0
+			&& x.getDayOfYear() == 0
+			&& x.getDayOfMonth() == 0
+			&& x.getDate() == 1
+			&& x.getDayOfWeek() == 4
+			&& x.getHours() == 2
+			&& x.getMinutes() == 5
+			&& x.getSeconds() == 6
+			&& x.getMilliseconds() == 1`,
+			envOut: map[string]ref.Val{
+				"default":  types.True,
+				"enabled":  types.True,
+				"disabled": types.False,
+			},
+		},
+		{
+			name:  "default-local-year",
+			value: `x.getFullYear()`,
+			envOut: map[string]ref.Val{
+				"default":  types.Int(1970),
+				"enabled":  types.Int(1970),
+				"disabled": types.Int(1969),
+			},
+		},
+		{
+			name:  "default-local-day-of-year",
+			value: `x.getDayOfYear()`,
+			envOut: map[string]ref.Val{
+				"default":  types.Int(0),
+				"enabled":  types.Int(0),
+				"disabled": types.Int(364),
+			},
+		},
+		{
+			name:  "default-local-month",
+			value: `x.getMonth()`,
+			envOut: map[string]ref.Val{
+				"default":  types.Int(0),
+				"enabled":  types.Int(0),
+				"disabled": types.Int(11),
+			},
+		},
+		{
+			name: "default-local-day-of-month",
+			value: `
+			x.getDayOfMonth() == 30
+			&& x.getDate() == 31`,
+			envOut: map[string]ref.Val{
+				"default":  types.False,
+				"enabled":  types.False,
+				"disabled": types.True,
+			},
+		},
+		{
+			name:  "default-local-dates",
+			value: `x.getDayOfWeek()`,
+			envOut: map[string]ref.Val{
+				"default":  types.Int(4),
+				"enabled":  types.Int(4),
+				"disabled": types.Int(3),
+			},
+		},
+		{
+			name: "default-local-times",
+			value: `
+			x.getHours() == 18
+			&& x.getMinutes() == 5
+			&& x.getSeconds() == 6
+			&& x.getMilliseconds() == 1`,
+			envOut: map[string]ref.Val{
+				"default":  types.False,
+				"enabled":  types.False,
+				"disabled": types.True,
+			},
+		},
+		{
+			name: "explicit",
+			value: `
+			x.getFullYear('-07:30') == 1969
+			&& x.getDayOfYear('-07:30') == 364
+			&& x.getMonth('-07:30') == 11
+			&& x.getDayOfMonth('-07:30') == 30
+			&& x.getDate('-07:30') == 31
+			&& x.getDayOfWeek('-07:30') == 3
+			&& x.getHours('-07:30') == 18
+			&& x.getMinutes('-07:30') == 35
+			&& x.getSeconds('-07:30') == 6
+			&& x.getMilliseconds('-07:30') == 1
+			&& x.getFullYear('23:15') == 1970
+			&& x.getDayOfYear('23:15') == 1
+			&& x.getMonth('23:15') == 0
+			&& x.getDayOfMonth('23:15') == 1
+			&& x.getDate('23:15') == 2
+			&& x.getDayOfWeek('23:15') == 5
+			&& x.getHours('23:15') == 1
+			&& x.getMinutes('23:15') == 20
+			&& x.getSeconds('23:15') == 6
+			&& x.getMilliseconds('23:15') == 1`,
+			envOut: map[string]ref.Val{
+				"default":  types.True,
+				"enabled":  types.True,
+				"disabled": types.True,
+			},
+		},
+	}
+
+	offset, _ := time.ParseDuration("-8h")
+	vars := map[string]any{
+		"x": time.Unix(7506, 1000000).In(time.FixedZone("", int(offset.Seconds()))),
+	}
+	for _, e := range testEnvs {
+		te := e
+		for _, expr := range exprs {
+			ex := expr
+			t.Run(fmt.Sprintf("%s/%s", te.name, ex.name), func(t *testing.T) {
+				env := te.env
+				expr := ex.value
+				out, err := interpret(t, env, expr, vars)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if out.Equal(ex.envOut[te.name]) != types.True {
+					t.Errorf("interpret got %v, wanted %v", out, ex.envOut[te.name])
+				}
+			})
+		}
 	}
 }
 
@@ -2194,7 +2334,6 @@ func TestDefaultUTCTimeZoneExtension(t *testing.T) {
 	env := testEnv(t,
 		Variable("x", TimestampType),
 		Variable("y", DurationType),
-		DefaultUTCTimeZone(true),
 	)
 	env, err := env.Extend()
 	if err != nil {
@@ -2220,7 +2359,7 @@ func TestDefaultUTCTimeZoneExtension(t *testing.T) {
 }
 
 func TestDefaultUTCTimeZoneError(t *testing.T) {
-	env := testEnv(t, Variable("x", TimestampType), DefaultUTCTimeZone(true))
+	env := testEnv(t, Variable("x", TimestampType))
 	out, err := interpret(t, env, `
 		x.getFullYear(':xx') == 1969
 		|| x.getDayOfYear('xx:') == 364
@@ -2234,8 +2373,7 @@ func TestDefaultUTCTimeZoneError(t *testing.T) {
 		|| x.getMilliseconds('Am/Ph') == 1
 	`, map[string]any{
 		"x": time.Unix(7506, 1000000).Local(),
-	},
-	)
+	})
 	if err == nil {
 		t.Fatalf("prg.Eval() got %v wanted error", out)
 	}
