@@ -15,9 +15,11 @@
 package cel
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 
@@ -414,6 +416,307 @@ func TestEnvToConfig(t *testing.T) {
 			}
 			if !reflect.DeepEqual(gotConfig, tc.want) {
 				t.Errorf("e.Config() got %v, wanted %v", gotConfig, tc.want)
+			}
+		})
+	}
+}
+
+func TestEnvFromConfig(t *testing.T) {
+	type exprCase struct {
+		name string
+		in   any
+		expr string
+		iss  error
+		out  ref.Val
+	}
+	tests := []struct {
+		name       string
+		beforeOpts []EnvOption
+		afterOpts  []EnvOption
+		conf       *env.Config
+		exprs      []exprCase
+	}{
+		{
+			name: "std env",
+			conf: env.NewConfig("std env"),
+			exprs: []exprCase{
+				{
+					name: "literal",
+					expr: "'hello world'",
+					out:  types.String("hello world"),
+				},
+				{
+					name: "size",
+					expr: "'hello world'.size()",
+					out:  types.Int(11),
+				},
+			},
+		},
+		{
+			name:       "std env - imports",
+			beforeOpts: []EnvOption{Types(&proto3pb.TestAllTypes{})},
+			conf: env.NewConfig("std env - context proto").
+				AddImports(env.NewImport("google.expr.proto3.test.TestAllTypes")),
+			exprs: []exprCase{
+				{
+					name: "literal",
+					expr: "TestAllTypes{single_int64: 15}.single_int64",
+					out:  types.Int(15),
+				},
+			},
+		},
+		{
+			name:       "std env - context proto",
+			beforeOpts: []EnvOption{Types(&proto3pb.TestAllTypes{})},
+			conf: env.NewConfig("std env - context proto").
+				SetContainer("google.expr.proto3.test").
+				SetContextVariable(env.NewContextVariable("google.expr.proto3.test.TestAllTypes")),
+			exprs: []exprCase{
+				{
+					name: "field select literal",
+					in:   mustContextProto(t, &proto3pb.TestAllTypes{SingleInt64: 10}),
+					expr: "TestAllTypes{single_int64: single_int64}.single_int64",
+					out:  types.Int(10),
+				},
+			},
+		},
+		{
+			name:       "custom env - variables",
+			beforeOpts: []EnvOption{Types(&proto3pb.TestAllTypes{})},
+			conf: env.NewConfig("custom env - variables").
+				SetStdLib(env.NewLibrarySubset().SetDisabled(true)).
+				SetContainer("google.expr.proto3.test").
+				AddVariables(env.NewVariable("single_int64", env.NewTypeDesc("int"))),
+			exprs: []exprCase{
+				{
+					name: "field select literal",
+					in:   map[string]any{"single_int64": 42},
+					expr: "TestAllTypes{single_int64: single_int64}.single_int64",
+					out:  types.Int(42),
+				},
+				{
+					name: "invalid operator",
+					in:   map[string]any{"single_int64": 42},
+					expr: "TestAllTypes{single_int64: single_int64}.single_int64 + 1",
+					iss:  errors.New("undeclared reference"),
+				},
+			},
+		},
+		{
+			name: "custom env - functions",
+			afterOpts: []EnvOption{
+				Function("plus",
+					MemberOverload("int_plus_int", []*Type{IntType, IntType}, IntType,
+						BinaryBinding(func(lhs, rhs ref.Val) ref.Val {
+							l := lhs.(types.Int)
+							r := rhs.(types.Int)
+							return l + r
+						}),
+					),
+				)},
+			conf: env.NewConfig("custom env - functions").
+				SetStdLib(env.NewLibrarySubset().SetDisabled(true)).
+				AddVariables(env.NewVariable("x", env.NewTypeDesc("int"))).
+				AddFunctions(env.NewFunction("plus",
+					env.NewMemberOverload("int_plus_int",
+						env.NewTypeDesc("int"),
+						[]*env.TypeDesc{env.NewTypeDesc("int")},
+						env.NewTypeDesc("int"),
+					),
+				)),
+			exprs: []exprCase{
+				{
+					name: "plus",
+					in:   map[string]any{"x": 42},
+					expr: "x.plus(2)",
+					out:  types.Int(44),
+				},
+				{
+					name: "plus invalid type",
+					in:   map[string]any{"x": 42},
+					expr: "x.plus(2.0)",
+					iss:  errors.New("no matching overload"),
+				},
+			},
+		},
+		{
+			name: "pure custom env",
+			beforeOpts: []EnvOption{func(*Env) (*Env, error) {
+				return NewCustomEnv()
+			}},
+			conf: env.NewConfig("pure custom env").SetStdLib(
+				env.NewLibrarySubset().AddIncludedFunctions([]*env.Function{{Name: "_==_"}}...),
+			),
+			exprs: []exprCase{
+				{
+					name: "equals",
+					expr: "'hello world' == 'hello'",
+					out:  types.False,
+				},
+				{
+					name: "not equals - invalid",
+					expr: "'hello world' != 'hello'",
+					iss:  errors.New("undeclared reference"),
+				},
+			},
+		},
+		{
+			name: "std env - allow subset",
+			conf: env.NewConfig("std env - allow subset").SetStdLib(
+				env.NewLibrarySubset().AddIncludedFunctions([]*env.Function{{Name: "_==_"}}...),
+			),
+			exprs: []exprCase{
+				{
+					name: "equals",
+					expr: "'hello world' == 'hello'",
+					out:  types.False,
+				},
+				{
+					name: "not equals - invalid",
+					expr: "'hello world' != 'hello'",
+					iss:  errors.New("undeclared reference"),
+				},
+			},
+		},
+		{
+			name: "std env - deny subset",
+			conf: env.NewConfig("std env - deny subset").SetStdLib(
+				env.NewLibrarySubset().AddExcludedFunctions([]*env.Function{{Name: "size"}}...),
+			),
+			exprs: []exprCase{
+				{
+					name: "size - invalid",
+					expr: "'hello world'.size()",
+					iss:  errors.New("undeclared reference"),
+				},
+				{
+					name: "equals",
+					expr: "'hello world' == 'hello'",
+					out:  types.False,
+				},
+			},
+		},
+		{
+			name: "extensions",
+			conf: env.NewConfig("extensions").
+				AddVariables(
+					env.NewVariable("m",
+						env.NewTypeDesc("map", env.NewTypeDesc("string"), env.NewTypeDesc("string")))).
+				AddExtensions(env.NewExtension("optional", math.MaxUint32)),
+			exprs: []exprCase{
+				{
+					name: "optional none",
+					expr: "optional.none()",
+					out:  types.OptionalNone,
+				},
+				{
+					name: "optional key",
+					expr: "m.?key.hasValue()",
+					in:   map[string]any{"m": map[string]string{"key": "value"}},
+					out:  types.True,
+				},
+			},
+		},
+	}
+	for _, tst := range tests {
+		tc := tst
+		t.Run(tc.name, func(t *testing.T) {
+			opts := tc.beforeOpts
+			opts = append(opts, FromConfig(tc.conf, func(elem any) (EnvOption, bool) {
+				if ext, ok := elem.(*env.Extension); ok && ext.Name == "optional" {
+					ver, _ := ext.GetVersion()
+					return OptionalTypes(OptionalTypesVersion(ver)), true
+				}
+				return nil, false
+			}))
+			opts = append(opts, tc.afterOpts...)
+			var e *Env
+			var err error
+			if tc.conf.StdLib != nil {
+				e, err = NewCustomEnv(opts...)
+			} else {
+				e, err = NewEnv(opts...)
+			}
+			if err != nil {
+				t.Fatalf("NewEnv(FromConfig()) failed: %v", err)
+			}
+			for _, ex := range tc.exprs {
+				t.Run(ex.name, func(t *testing.T) {
+					ast, iss := e.Compile(ex.expr)
+					if iss.Err() != nil {
+						if ex.iss == nil || !strings.Contains(iss.Err().Error(), ex.iss.Error()) {
+							t.Errorf("e.Compile() failed with %v, wanted %v", iss.Err(), ex.iss)
+						}
+						return
+					}
+					if ex.iss != nil {
+						t.Fatalf("e.Compile() succeeded, wanted error %v", ex.iss)
+					}
+					prg, err := e.Program(ast)
+					if err != nil {
+						t.Fatalf("e.Program() failed: %v", err)
+					}
+					var in any = map[string]any{}
+					if ex.in != nil {
+						in = ex.in
+					}
+					out, _, err := prg.Eval(in)
+					if err != nil {
+						t.Fatalf("prg.Eval() failed: %v", err)
+					}
+					if out.Equal(ex.out) != types.True {
+						t.Errorf("prg.Eval() got %v, wanted %v", out, ex.out)
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestEnvFromConfigErrors(t *testing.T) {
+	tests := []struct {
+		name string
+		conf *env.Config
+		want error
+	}{
+		{
+			name: "invalid subset",
+			conf: env.NewConfig("invalid subset").SetStdLib(env.NewLibrarySubset().SetDisableMacros(true)),
+			want: errors.New("invalid subset"),
+		},
+		{
+			name: "invalid import",
+			conf: env.NewConfig("invalid import").AddImports(env.NewImport("")),
+			want: errors.New("invalid import"),
+		},
+		{
+			name: "invalid context proto",
+			conf: env.NewConfig("invalid context proto").SetContextVariable(env.NewContextVariable("invalid")),
+			want: errors.New("invalid context proto type"),
+		},
+		{
+			name: "undefined variable type",
+			conf: env.NewConfig("undefined variable type").AddVariables(env.NewVariable("undef", env.NewTypeDesc("undefined"))),
+			want: errors.New("invalid variable"),
+		},
+		{
+			name: "undefined function type",
+			conf: env.NewConfig("undefined function type").AddFunctions(env.NewFunction("invalid", env.NewOverload("invalid", []*env.TypeDesc{}, env.NewTypeDesc("undefined")))),
+			want: errors.New("invalid function"),
+		},
+		{
+			name: "unrecognized extension",
+			conf: env.NewConfig("unrecognized extension").
+				AddExtensions(env.NewExtension("optional", math.MaxUint32)),
+			want: errors.New("unrecognized extension"),
+		},
+	}
+	for _, tst := range tests {
+		tc := tst
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := NewEnv(FromConfig(tc.conf))
+			if err == nil || !strings.Contains(err.Error(), tc.want.Error()) {
+				t.Fatalf("NewEnv(FromConfig()) got %v, wanted error containing %v", err, tc.want)
 			}
 		})
 	}
