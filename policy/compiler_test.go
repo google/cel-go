@@ -159,7 +159,6 @@ func compile(t testing.TB, name string, parseOpts []ParserOption, envOpts []cel.
 		t.Errorf("policy name is %v, wanted %q", policy.name, name)
 	}
 	env, err := cel.NewEnv(
-		cel.DefaultUTCTimeZone(true),
 		cel.OptionalTypes(),
 		cel.EnableMacroCallTracking(),
 		cel.ExtendedValidations(),
