@@ -149,7 +149,7 @@ type blockValidationExemption struct{}
 
 // Name returns the name of the validator.
 func (blockValidationExemption) Name() string {
-	return "cel.lib.ext.validate.functions.cel.block"
+	return "cel.validator.cel_block"
 }
 
 // Configure implements the ASTValidatorConfigurer interface and augments the list of functions to skip

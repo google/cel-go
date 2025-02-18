@@ -265,11 +265,15 @@ func (e *Env) ToConfig(name string) (*env.Config, error) {
 
 	// Serialize validators
 	for _, val := range e.Validators() {
-		conf.AddValidators(env.NewValidator(val.Name()))
+		// Only add configurable validators to the env.Config as all others are
+		// expected to be implicitly enabled via extension libraries.
+		if confVal, ok := val.(ConfigurableASTValidator); ok {
+			conf.AddValidators(confVal.ToConfig())
+		}
 	}
 
 	// Serialize features
-	for featID, enabled := range e.appliedFeatures {
+	for featID, enabled := range e.features {
 		featName, found := featureNameByID(featID)
 		if !found {
 			// If the feature isn't named, it isn't intended to be publicly exposed

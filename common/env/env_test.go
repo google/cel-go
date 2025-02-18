@@ -86,6 +86,14 @@ func TestConfig(t *testing.T) {
 						NewTypeDesc("list", NewTypeParam("T")), nil,
 						NewTypeDesc("bool")),
 				),
+			).AddFeatures(
+				NewFeature("cel.feature.macro_call_tracking", true),
+			).AddValidators(
+				NewValidator("cel.validator.duration"),
+				NewValidator("cel.validator.matches"),
+				NewValidator("cel.validator.timestamp"),
+				NewValidator("cel.validator.nesting_comprehension_limit").
+					SetConfig(map[string]any{"limit": 2}),
 			),
 		},
 		{
@@ -168,6 +176,32 @@ func TestConfig(t *testing.T) {
 					}
 				}
 			}
+			if len(got.Features) != len(tc.want.Features) {
+				t.Errorf("Features count got %d, wanted %d", len(got.Features), len(tc.want.Features))
+			} else {
+				for i, f := range got.Features {
+					wf := tc.want.Features[i]
+					if f.Name != wf.Name {
+						t.Errorf("Features[%d] got name %s, wanted %s", i, f.Name, wf.Name)
+					}
+					if f.Enabled != wf.Enabled {
+						t.Errorf("Features[%d] got enabled %t, wanted %t", i, f.Enabled, wf.Enabled)
+					}
+				}
+			}
+			if len(got.Validators) != len(tc.want.Validators) {
+				t.Errorf("Validators count got %d, wanted %d", len(got.Validators), len(tc.want.Validators))
+			} else {
+				for i, f := range got.Validators {
+					wf := tc.want.Validators[i]
+					if f.Name != wf.Name {
+						t.Errorf("Validators[%d] got name %s, wanted %s", i, f.Name, wf.Name)
+					}
+					if !reflect.DeepEqual(f.Config, wf.Config) {
+						t.Errorf("Validators[%d] got enabled %v, wanted %v", i, f.Config, wf.Config)
+					}
+				}
+			}
 		})
 	}
 }
@@ -207,9 +241,26 @@ func TestConfigValidateErrors(t *testing.T) {
 			want: errors.New("invalid variable"),
 		},
 		{
+			name: "colliding context variable",
+			in: NewConfig("colliding context variable").
+				SetContextVariable(NewContextVariable("msg.type.Name")).
+				AddVariables(NewVariable("local", NewTypeDesc("string"))),
+			want: errors.New("invalid config"),
+		},
+		{
 			name: "invalid function",
 			in:   NewConfig("invalid function").AddFunctions(NewFunction("", nil)),
 			want: errors.New("invalid function"),
+		},
+		{
+			name: "invalid feature",
+			in:   NewConfig("invalid feature").AddFeatures(NewFeature("", false)),
+			want: errors.New("invalid feature"),
+		},
+		{
+			name: "invalid validator",
+			in:   NewConfig("invalid validator").AddValidators(NewValidator("")),
+			want: errors.New("invalid validator"),
 		},
 	}
 
@@ -1116,7 +1167,7 @@ func TestExtensionGetVersion(t *testing.T) {
 	for _, tst := range tests {
 		tc := tst
 		t.Run(tc.name, func(t *testing.T) {
-			ver, err := tc.ext.GetVersion()
+			ver, err := tc.ext.VersionNumber()
 			if err != nil {
 				wantErr, ok := tc.want.(error)
 				if !ok {
@@ -1129,6 +1180,96 @@ func TestExtensionGetVersion(t *testing.T) {
 			}
 			if tc.want.(uint32) != ver {
 				t.Fatalf("GetVersion() got %d, wanted %v", ver, tc.want)
+			}
+		})
+	}
+}
+
+func TestValidatorValidate(t *testing.T) {
+	tests := []struct {
+		name string
+		v    *Validator
+		want error
+	}{
+		{
+			name: "nil validator",
+			v:    nil,
+			want: errors.New("invalid validator: nil"),
+		},
+		{
+			name: "empty validator",
+			v:    NewValidator(""),
+			want: errors.New("missing name"),
+		},
+	}
+
+	for _, tst := range tests {
+		tc := tst
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.v.Validate()
+			if err == nil && tc.want == nil {
+				return
+			}
+			if err == nil && tc.want != nil {
+				t.Fatalf("v.Validate() got valid, wanted error %v", tc.want)
+			}
+			if err != nil && tc.want == nil {
+				t.Fatalf("v.Validate() got error %v, wanted nil error", err)
+			}
+			if !strings.Contains(err.Error(), tc.want.Error()) {
+				t.Errorf("v.Validate() got error %v, wanted %v", err, tc.want)
+			}
+		})
+	}
+}
+
+func TestValidatorConfigValue(t *testing.T) {
+	var v *Validator
+	if _, found := v.ConfigValue("limit"); found {
+		t.Error("v.ConfigValue() got value from nil validator")
+	}
+	v = NewValidator("validator").SetConfig(map[string]any{"limit": 2})
+	if _, found := v.ConfigValue("absent"); found {
+		t.Error("v.ConfigValue() found absent key")
+	}
+	if val, found := v.ConfigValue("limit"); !found || val != 2 {
+		t.Errorf("v.ConfigValue() got %v, %t -- wanted 2, true", val, found)
+	}
+}
+
+func TestFeatureValidate(t *testing.T) {
+	tests := []struct {
+		name string
+		f    *Feature
+		want error
+	}{
+		{
+			name: "nil feature",
+			f:    nil,
+			want: errors.New("invalid feature: nil"),
+		},
+		{
+			name: "empty feature",
+			f:    NewFeature("", true),
+			want: errors.New("missing name"),
+		},
+	}
+
+	for _, tst := range tests {
+		tc := tst
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.f.Validate()
+			if err == nil && tc.want == nil {
+				return
+			}
+			if err == nil && tc.want != nil {
+				t.Fatalf("f.Validate() got valid, wanted error %v", tc.want)
+			}
+			if err != nil && tc.want == nil {
+				t.Fatalf("f.Validate() got error %v, wanted nil error", err)
+			}
+			if !strings.Contains(err.Error(), tc.want.Error()) {
+				t.Errorf("f.Validate() got error %v, wanted %v", err, tc.want)
 			}
 		})
 	}

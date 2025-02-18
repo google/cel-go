@@ -42,7 +42,7 @@ func extensionOptionFactory(configElement any) (cel.EnvOption, bool) {
 		return nil, false
 	}
 	// If the version is 'latest', set the version value to the max uint.
-	ver, err := ext.GetVersion()
+	ver, err := ext.VersionNumber()
 	if err != nil {
 		return func(*cel.Env) (*cel.Env, error) {
 			return nil, fmt.Errorf("invalid extension version: %s - %s", ext.Name, ext.Version)
@@ -66,9 +66,6 @@ var extFactories = map[string]extensionFactory{
 	},
 	"math": func(version uint32) cel.EnvOption {
 		return ext.Math(ext.MathVersion(version))
-	},
-	"optional": func(version uint32) cel.EnvOption {
-		return cel.OptionalTypes(cel.OptionalTypesVersion(version))
 	},
 	"protos": func(version uint32) cel.EnvOption {
 		return ext.Protos(ext.ProtosVersion(version))
