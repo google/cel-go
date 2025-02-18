@@ -551,7 +551,7 @@ func configToEnvOptions(config *env.Config, provider types.Provider, optFactorie
 		envOpts = append(envOpts, VariableDecls(vars...))
 	}
 
-	// Cnofigure functions
+	// Configure functions
 	if len(config.Functions) != 0 {
 		funcs := make([]*decls.FunctionDecl, 0, len(config.Functions))
 		for _, f := range config.Functions {
@@ -566,6 +566,10 @@ func configToEnvOptions(config *env.Config, provider types.Provider, optFactorie
 
 	// Configure features
 	for _, feat := range config.Features {
+		// Note, if a feature is not found, it is skipped as it is possible the feature
+		// is not intended to be supported publicly. In the future, a refinement of
+		// to this strategy to report unrecognized features and validators should probably
+		// be covered as a standard ConfigOptionFactory
 		if id, found := featureIDByName(feat.Name); found {
 			envOpts = append(envOpts, features(id, feat.Enabled))
 		}
