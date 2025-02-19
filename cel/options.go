@@ -73,6 +73,26 @@ const (
 	featureIdentEscapeSyntax
 )
 
+var featureIDsToNames = map[int]string{
+	featureEnableMacroCallTracking:     "cel.feature.macro_call_tracking",
+	featureCrossTypeNumericComparisons: "cel.feature.cross_type_numeric_comparisons",
+	featureIdentEscapeSyntax:           "cel.feature.backtick_escape_syntax",
+}
+
+func featureNameByID(id int) (string, bool) {
+	name, found := featureIDsToNames[id]
+	return name, found
+}
+
+func featureIDByName(name string) (int, bool) {
+	for id, n := range featureIDsToNames {
+		if n == name {
+			return id, true
+		}
+	}
+	return 0, false
+}
+
 // EnvOption is a functional interface for configuring the environment.
 type EnvOption func(e *Env) (*Env, error)
 
@@ -456,28 +476,27 @@ type ConfigOptionFactory func(any) (EnvOption, bool)
 // as the type provider configured at the time when the config is processed is the one used to derive
 // type references from the configuration.
 func FromConfig(config *env.Config, optFactories ...ConfigOptionFactory) EnvOption {
-	return func(env *Env) (*Env, error) {
+	return func(e *Env) (*Env, error) {
 		if err := config.Validate(); err != nil {
 			return nil, err
 		}
-		opts, err := configToEnvOptions(config, env.CELTypeProvider(), optFactories)
+		opts, err := configToEnvOptions(config, e.CELTypeProvider(), optFactories)
 		if err != nil {
 			return nil, err
 		}
 		for _, o := range opts {
-			env, err = o(env)
+			e, err = o(e)
 			if err != nil {
 				return nil, err
 			}
 		}
-		return env, nil
+		return e, nil
 	}
 }
 
 // configToEnvOptions generates a set of EnvOption values (or error) based on a config, a type provider,
 // and an optional set of environment options.
 func configToEnvOptions(config *env.Config, provider types.Provider, optFactories []ConfigOptionFactory) ([]EnvOption, error) {
-	// note: ported from cel-go/policy/config.go
 	envOpts := []EnvOption{}
 	// Configure the standard lib subset.
 	if config.StdLib != nil {
@@ -519,6 +538,7 @@ func configToEnvOptions(config *env.Config, provider types.Provider, optFactorie
 		envOpts = append(envOpts, DeclareContextProto(pbMsg.ProtoReflect().Descriptor()))
 	}
 
+	// Configure variables
 	if len(config.Variables) != 0 {
 		vars := make([]*decls.VariableDecl, 0, len(config.Variables))
 		for _, v := range config.Variables {
@@ -530,6 +550,8 @@ func configToEnvOptions(config *env.Config, provider types.Provider, optFactorie
 		}
 		envOpts = append(envOpts, VariableDecls(vars...))
 	}
+
+	// Configure functions
 	if len(config.Functions) != 0 {
 		funcs := make([]*decls.FunctionDecl, 0, len(config.Functions))
 		for _, f := range config.Functions {
@@ -541,20 +563,60 @@ func configToEnvOptions(config *env.Config, provider types.Provider, optFactorie
 		}
 		envOpts = append(envOpts, FunctionDecls(funcs...))
 	}
-	for _, e := range config.Extensions {
-		extHandled := false
-		for _, optFac := range optFactories {
-			if opt, useOption := optFac(e); useOption {
-				envOpts = append(envOpts, opt)
-				extHandled = true
-				break
-			}
-		}
-		if !extHandled {
-			return nil, fmt.Errorf("unrecognized extension: %s", e.Name)
+
+	// Configure features
+	for _, feat := range config.Features {
+		// Note, if a feature is not found, it is skipped as it is possible the feature
+		// is not intended to be supported publicly. In the future, a refinement of
+		// to this strategy to report unrecognized features and validators should probably
+		// be covered as a standard ConfigOptionFactory
+		if id, found := featureIDByName(feat.Name); found {
+			envOpts = append(envOpts, features(id, feat.Enabled))
 		}
 	}
+
+	// Configure validators
+	for _, val := range config.Validators {
+		if fac, found := astValidatorFactories[val.Name]; found {
+			envOpts = append(envOpts, func(e *Env) (*Env, error) {
+				validator, err := fac(val)
+				if err != nil {
+					return nil, fmt.Errorf("%w", err)
+				}
+				return ASTValidators(validator)(e)
+			})
+		} else if opt, handled := handleExtendedConfigOption(val, optFactories); handled {
+			envOpts = append(envOpts, opt)
+		}
+		// we don't error when the validator isn't found as it may be part
+		// of an extension library and enabled implicitly.
+	}
+
+	// Configure extensions
+	for _, ext := range config.Extensions {
+		// version number has been validated by the call to `Validate`
+		ver, _ := ext.VersionNumber()
+		if ext.Name == "optional" {
+			envOpts = append(envOpts, OptionalTypes(OptionalTypesVersion(ver)))
+		} else {
+			opt, handled := handleExtendedConfigOption(ext, optFactories)
+			if !handled {
+				return nil, fmt.Errorf("unrecognized extension: %s", ext.Name)
+			}
+			envOpts = append(envOpts, opt)
+		}
+	}
+
 	return envOpts, nil
+}
+
+func handleExtendedConfigOption(conf any, optFactories []ConfigOptionFactory) (EnvOption, bool) {
+	for _, optFac := range optFactories {
+		if opt, useOption := optFac(conf); useOption {
+			return opt, true
+		}
+	}
+	return nil, false
 }
 
 // EvalOption indicates an evaluation option that may affect the evaluation behavior or information
