@@ -38,3 +38,13 @@ functions:
               is_type_param: true
         return:
           type_name: "bool"
+validators:
+  - name: cel.validator.duration
+  - name: cel.validator.matches
+  - name: cel.validator.timestamp
+  - name: cel.validator.nesting_comprehension_limit
+    config:
+      limit: 2
+features:
+  - name: cel.feature.macro_call_tracking
+    enabled: true

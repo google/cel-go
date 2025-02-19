@@ -48,6 +48,8 @@ type Config struct {
 	ContextVariable *ContextVariable `yaml:"context_variable,omitempty"`
 	Variables       []*Variable      `yaml:"variables,omitempty"`
 	Functions       []*Function      `yaml:"functions,omitempty"`
+	Validators      []*Validator     `yaml:"validators,omitempty"`
+	Features        []*Feature       `yaml:"features,omitempty"`
 }
 
 // Validate validates the whole configuration is well-formed.
@@ -82,6 +84,16 @@ func (c *Config) Validate() error {
 	}
 	for _, fn := range c.Functions {
 		if err := fn.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	for _, feat := range c.Features {
+		if err := feat.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	for _, val := range c.Validators {
+		if err := val.Validate(); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -169,6 +181,18 @@ func (c *Config) AddImports(imps ...*Import) *Config {
 // AddExtensions appends a set of extensions to the config.
 func (c *Config) AddExtensions(exts ...*Extension) *Config {
 	c.Extensions = append(c.Extensions, exts...)
+	return c
+}
+
+// AddValidators appends one or more validators to the config.
+func (c *Config) AddValidators(vals ...*Validator) *Config {
+	c.Validators = append(c.Validators, vals...)
+	return c
+}
+
+// AddFeatures appends one or more features to the config.
+func (c *Config) AddFeatures(feats ...*Feature) *Config {
+	c.Features = append(c.Features, feats...)
 	return c
 }
 
@@ -428,12 +452,12 @@ type Extension struct {
 
 // Validate validates the extension configuration is well-formed.
 func (e *Extension) Validate() error {
-	_, err := e.GetVersion()
+	_, err := e.VersionNumber()
 	return err
 }
 
-// GetVersion returns the parsed version string, or an error if the version cannot be parsed.
-func (e *Extension) GetVersion() (uint32, error) {
+// VersionNumber returns the parsed version string, or an error if the version cannot be parsed.
+func (e *Extension) VersionNumber() (uint32, error) {
 	if e == nil {
 		return 0, fmt.Errorf("invalid extension: nil")
 	}
@@ -623,6 +647,68 @@ func (lib *LibrarySubset) AddIncludedFunctions(funcs ...*Function) *LibrarySubse
 func (lib *LibrarySubset) AddExcludedFunctions(funcs ...*Function) *LibrarySubset {
 	lib.ExcludeFunctions = append(lib.ExcludeFunctions, funcs...)
 	return lib
+}
+
+// NewValidator returns a named Validator instance.
+func NewValidator(name string) *Validator {
+	return &Validator{Name: name}
+}
+
+// Validator represents a named validator with an optional map-based configuration object.
+//
+// Note: the map-keys must directly correspond to the internal representation of the original
+// validator, and should only use primitive scalar types as values at this time.
+type Validator struct {
+	Name   string         `yaml:"name"`
+	Config map[string]any `yaml:"config,omitempty"`
+}
+
+// Validate validates the configuration of the validator object.
+func (v *Validator) Validate() error {
+	if v == nil {
+		return errors.New("invalid validator: nil")
+	}
+	if v.Name == "" {
+		return errors.New("invalid validator: missing name")
+	}
+	return nil
+}
+
+// SetConfig sets the set of map key-value pairs associated with this validator's configuration.
+func (v *Validator) SetConfig(config map[string]any) *Validator {
+	v.Config = config
+	return v
+}
+
+// ConfigValue retrieves the value associated with the config key name, if one exists.
+func (v *Validator) ConfigValue(name string) (any, bool) {
+	if v == nil {
+		return nil, false
+	}
+	value, found := v.Config[name]
+	return value, found
+}
+
+// NewFeature creates a new feature flag with a boolean enablement flag.
+func NewFeature(name string, enabled bool) *Feature {
+	return &Feature{Name: name, Enabled: enabled}
+}
+
+// Feature represents a named boolean feature flag supported by CEL.
+type Feature struct {
+	Name    string `yaml:"name"`
+	Enabled bool   `yaml:"enabled"`
+}
+
+// Validate validates whether the feature is well-configured.
+func (feat *Feature) Validate() error {
+	if feat == nil {
+		return errors.New("invalid feature: nil")
+	}
+	if feat.Name == "" {
+		return errors.New("invalid feature: missing name")
+	}
+	return nil
 }
 
 // NewTypeDesc describes a simple or complex type with parameters.

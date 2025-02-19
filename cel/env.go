@@ -263,6 +263,25 @@ func (e *Env) ToConfig(name string) (*env.Config, error) {
 		}
 	}
 
+	// Serialize validators
+	for _, val := range e.Validators() {
+		// Only add configurable validators to the env.Config as all others are
+		// expected to be implicitly enabled via extension libraries.
+		if confVal, ok := val.(ConfigurableASTValidator); ok {
+			conf.AddValidators(confVal.ToConfig())
+		}
+	}
+
+	// Serialize features
+	for featID, enabled := range e.features {
+		featName, found := featureNameByID(featID)
+		if !found {
+			// If the feature isn't named, it isn't intended to be publicly exposed
+			continue
+		}
+		conf.AddFeatures(env.NewFeature(featName, enabled))
+	}
+
 	return conf, nil
 }
 
@@ -541,7 +560,7 @@ func (e *Env) Functions() map[string]*decls.FunctionDecl {
 
 // Variables returns the set of variables associated with the environment.
 func (e *Env) Variables() []*decls.VariableDecl {
-	return e.variables
+	return e.variables[:]
 }
 
 // HasValidator returns whether a specific ASTValidator has been configured in the environment.
@@ -552,6 +571,11 @@ func (e *Env) HasValidator(name string) bool {
 		}
 	}
 	return false
+}
+
+// Validators returns the set of ASTValidators configured on the environment.
+func (e *Env) Validators() []ASTValidator {
+	return e.validators[:]
 }
 
 // Parse parses the input expression value `txt` to a Ast and/or a set of Issues.
