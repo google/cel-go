@@ -25,8 +25,6 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"golang.org/x/text/language"
-
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
@@ -298,7 +296,6 @@ func Strings(options ...StringsOption) cel.EnvOption {
 }
 
 type stringLib struct {
-	locale         string
 	version        uint32
 	validateFormat bool
 }
@@ -310,16 +307,6 @@ func (*stringLib) LibraryName() string {
 
 // StringsOption is a functional interface for configuring the strings library.
 type StringsOption func(*stringLib) *stringLib
-
-// StringsLocale configures the library with the given locale. The locale tag will
-// be checked for validity at the time that EnvOptions are configured. If this option
-// is not passed, string.format will behave as if en_US was passed as the locale.
-func StringsLocale(locale string) StringsOption {
-	return func(sl *stringLib) *stringLib {
-		sl.locale = locale
-		return sl
-	}
-}
 
 // StringsVersion configures the version of the string library.
 //
@@ -350,20 +337,6 @@ func StringsValidateFormatCalls(value bool) StringsOption {
 
 // CompileOptions implements the Library interface method.
 func (lib *stringLib) CompileOptions() []cel.EnvOption {
-	formatLocale := "en_US"
-	if lib.locale != "" {
-		// ensure locale is properly-formed if set
-		_, err := language.Parse(lib.locale)
-		if err != nil {
-			return []cel.EnvOption{
-				func(e *cel.Env) (*cel.Env, error) {
-					return nil, fmt.Errorf("failed to parse locale: %w", err)
-				},
-			}
-		}
-		formatLocale = lib.locale
-	}
-
 	opts := []cel.EnvOption{
 		cel.Function("charAt",
 			cel.MemberOverload("string_char_at_int", []*cel.Type{cel.StringType, cel.IntType}, cel.StringType,
@@ -471,7 +444,7 @@ func (lib *stringLib) CompileOptions() []cel.EnvOption {
 				cel.FunctionBinding(func(args ...ref.Val) ref.Val {
 					s := string(args[0].(types.String))
 					formatArgs := args[1].(traits.Lister)
-					return stringOrError(parseFormatString(s, &stringFormatter{}, &stringArgList{formatArgs}, formatLocale))
+					return stringOrError(parseFormatString(s, &stringFormatter{}, &stringArgList{formatArgs}))
 				}))),
 			cel.Function("strings.quote", cel.Overload("strings_quote", []*cel.Type{cel.StringType}, cel.StringType,
 				cel.UnaryBinding(func(str ref.Val) ref.Val {

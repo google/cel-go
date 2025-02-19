@@ -450,7 +450,6 @@ func TestStringFormat(t *testing.T) {
 		format                string
 		dynArgs               map[string]any
 		formatArgs            string
-		locale                string
 		err                   string
 		expectedOutput        string
 		expectedRuntimeCost   uint64
@@ -527,7 +526,6 @@ func TestStringFormat(t *testing.T) {
 			expectedOutput:        "1.234",
 			expectedRuntimeCost:   11,
 			expectedEstimatedCost: checker.CostEstimate{Min: 11, Max: 11},
-			locale:                "en_US",
 		},
 		{
 			name:                  "binary formatting clause",
@@ -661,17 +659,7 @@ func TestStringFormat(t *testing.T) {
 			name:                  "scientific notation formatting clause",
 			format:                "%.6e",
 			formatArgs:            "1052.032911275",
-			expectedOutput:        "1.052033\u202f\u00d7\u202f10\u2070\u00b3",
-			expectedRuntimeCost:   11,
-			expectedEstimatedCost: checker.CostEstimate{Min: 11, Max: 11},
-			locale:                "en_US",
-		},
-		{
-			name:                  "locale support",
-			format:                "%.3f",
-			formatArgs:            "3.14",
-			locale:                "fr_FR",
-			expectedOutput:        "3,140",
+			expectedOutput:        "1.052033e+03",
 			expectedRuntimeCost:   11,
 			expectedEstimatedCost: checker.CostEstimate{Min: 11, Max: 11},
 		},
@@ -682,16 +670,14 @@ func TestStringFormat(t *testing.T) {
 			expectedOutput:        "2.718280",
 			expectedRuntimeCost:   11,
 			expectedEstimatedCost: checker.CostEstimate{Min: 11, Max: 11},
-			locale:                "en_US",
 		},
 		{
 			name:                  "default precision for scientific notation",
 			format:                "%e",
 			formatArgs:            "2.71828",
-			expectedOutput:        "2.718280\u202f\u00d7\u202f10\u2070\u2070",
+			expectedOutput:        "2.718280e+00",
 			expectedRuntimeCost:   11,
 			expectedEstimatedCost: checker.CostEstimate{Min: 11, Max: 11},
-			locale:                "en_US",
 		},
 		{
 			name:                  "default precision for string",
@@ -700,70 +686,54 @@ func TestStringFormat(t *testing.T) {
 			expectedOutput:        "2.71",
 			expectedRuntimeCost:   11,
 			expectedEstimatedCost: checker.CostEstimate{Min: 11, Max: 11},
-			locale:                "en_US",
 		},
 		{
 			name:                  "default list precision for string",
 			format:                "%s",
 			formatArgs:            "[2.71]",
-			expectedOutput:        "[2.710000]",
+			expectedOutput:        "[2.71]",
 			expectedRuntimeCost:   21,
 			expectedEstimatedCost: checker.CostEstimate{Min: 21, Max: 21},
-			locale:                "en_US",
 		},
 		{
-			name:                  "default scientific notation for string",
+			name:                  "default format for string",
 			format:                "%s",
 			formatArgs:            "0.000000002",
-			expectedOutput:        "2e-09",
+			expectedOutput:        "0.000000002",
 			expectedRuntimeCost:   11,
 			expectedEstimatedCost: checker.CostEstimate{Min: 11, Max: 11},
-			locale:                "en_US",
 		},
 		{
 			name:                  "default list scientific notation for string",
 			format:                "%s",
 			formatArgs:            "[0.000000002]",
-			expectedOutput:        "[0.000000]",
+			expectedOutput:        "[0.000000002]",
 			expectedRuntimeCost:   21,
 			expectedEstimatedCost: checker.CostEstimate{Min: 21, Max: 21},
-			locale:                "en_US",
-		},
-		{
-			name:                  "unicode output for scientific notation",
-			format:                "unescaped unicode: %e, escaped unicode: %e",
-			formatArgs:            "2.71828, 2.71828",
-			expectedOutput:        "unescaped unicode: 2.718280 × 10⁰⁰, escaped unicode: 2.718280\u202f\u00d7\u202f10\u2070\u2070",
-			expectedRuntimeCost:   15,
-			expectedEstimatedCost: checker.CostEstimate{Min: 15, Max: 15},
-			locale:                "en_US",
 		},
 		{
 			name:                  "NaN support for fixed-point",
 			format:                "%f",
-			formatArgs:            `"NaN"`,
+			formatArgs:            `double("NaN")`,
 			expectedOutput:        "NaN",
-			expectedRuntimeCost:   11,
-			expectedEstimatedCost: checker.CostEstimate{Min: 11, Max: 11},
-			locale:                "en_US",
+			expectedRuntimeCost:   12,
+			expectedEstimatedCost: checker.CostEstimate{Min: 12, Max: 12},
 		},
 		{
 			name:                  "positive infinity support for fixed-point",
 			format:                "%f",
-			formatArgs:            `"Infinity"`,
-			expectedOutput:        "∞",
-			expectedRuntimeCost:   11,
-			expectedEstimatedCost: checker.CostEstimate{Min: 11, Max: 11},
-			locale:                "en_US",
+			formatArgs:            `double("Infinity")`,
+			expectedOutput:        "Infinity",
+			expectedRuntimeCost:   12,
+			expectedEstimatedCost: checker.CostEstimate{Min: 12, Max: 12},
 		},
 		{
 			name:                  "negative infinity support for fixed-point",
 			format:                "%f",
-			formatArgs:            `"-Infinity"`,
-			expectedOutput:        "-∞",
-			expectedRuntimeCost:   11,
-			expectedEstimatedCost: checker.CostEstimate{Min: 11, Max: 11},
-			locale:                "en_US",
+			formatArgs:            `double("-Infinity")`,
+			expectedOutput:        "-Infinity",
+			expectedRuntimeCost:   12,
+			expectedEstimatedCost: checker.CostEstimate{Min: 12, Max: 12},
 		},
 		{
 			name:           "NaN support for string",
@@ -774,20 +744,20 @@ func TestStringFormat(t *testing.T) {
 		{
 			name:           "positive infinity support for string",
 			format:         "%s",
-			formatArgs:     `double("Inf")`,
-			expectedOutput: "+Inf",
+			formatArgs:     `double("Infinity")`,
+			expectedOutput: "Infinity",
 		},
 		{
 			name:           "negative infinity support for string",
 			format:         "%s",
-			formatArgs:     `double("-Inf")`,
-			expectedOutput: "-Inf",
+			formatArgs:     `double("-Infinity")`,
+			expectedOutput: "-Infinity",
 		},
 		{
 			name:           "infinity list support for string",
 			format:         "%s",
-			formatArgs:     `[double("NaN"),double("+Inf"), double("-Inf")]`,
-			expectedOutput: `["NaN", "+Inf", "-Inf"]`,
+			formatArgs:     `[double("NaN"),double("+Infinity"), double("-Infinity")]`,
+			expectedOutput: `[NaN, Infinity, -Infinity]`,
 		},
 		{
 			name:                  "uint support for decimal clause",
@@ -857,7 +827,7 @@ func TestStringFormat(t *testing.T) {
 			name:                  "list support for string",
 			format:                "%s",
 			formatArgs:            `["abc", 3.14, null, [9, 8, 7, 6], timestamp("2023-02-03T23:31:20Z")]`,
-			expectedOutput:        `["abc", 3.140000, null, [9, 8, 7, 6], timestamp("2023-02-03T23:31:20Z")]`,
+			expectedOutput:        `[abc, 3.14, null, [9, 8, 7, 6], 2023-02-03T23:31:20Z]`,
 			expectedRuntimeCost:   32,
 			expectedEstimatedCost: checker.CostEstimate{Min: 32, Max: 32},
 		},
@@ -865,8 +835,7 @@ func TestStringFormat(t *testing.T) {
 			name:                  "map support for string",
 			format:                "%s",
 			formatArgs:            `{"key1": b"xyz", "key5": null, "key2": duration("2h"), "key4": true, "key3": 2.71828}`,
-			locale:                "nl_NL",
-			expectedOutput:        `{"key1":b"xyz", "key2":duration("7200s"), "key3":2.718280, "key4":true, "key5":null}`,
+			expectedOutput:        `{key1: xyz, key2: 7200s, key3: 2.71828, key4: true, key5: null}`,
 			expectedRuntimeCost:   42,
 			expectedEstimatedCost: checker.CostEstimate{Min: 42, Max: 42},
 		},
@@ -874,7 +843,7 @@ func TestStringFormat(t *testing.T) {
 			name:                  "map support (all key types)",
 			format:                "map with multiple key types: %s",
 			formatArgs:            `{1: "value1", uint(2): "value2", true: double("NaN")}`,
-			expectedOutput:        `map with multiple key types: {1:"value1", 2:"value2", true:"NaN"}`,
+			expectedOutput:        `map with multiple key types: {1: value1, 2: value2, true: NaN}`,
 			expectedRuntimeCost:   46,
 			expectedEstimatedCost: checker.CostEstimate{Min: 46, Max: 46},
 		},
@@ -908,7 +877,6 @@ func TestStringFormat(t *testing.T) {
 			expectedOutput:        "dynIntStr: 32 dynDoubleStr: 56.8",
 			expectedRuntimeCost:   15,
 			expectedEstimatedCost: checker.CostEstimate{Min: 15, Max: 15},
-			locale:                "en_US",
 		},
 		{
 			name:       "dyntype support for integer formatting clause",
@@ -975,19 +943,6 @@ func TestStringFormat(t *testing.T) {
 			expectedOutput:        "dynamic double: 4.500",
 			expectedRuntimeCost:   13,
 			expectedEstimatedCost: checker.CostEstimate{Min: 13, Max: 13},
-			locale:                "en_US",
-		},
-		{
-			name:       "dyntype support for fixed-point formatting clause (comma separator locale)",
-			format:     "dynamic double: %f",
-			formatArgs: `dynDouble`,
-			dynArgs: map[string]any{
-				"dynDouble": 4.5,
-			},
-			expectedOutput:        "dynamic double: 4,500000",
-			expectedRuntimeCost:   13,
-			expectedEstimatedCost: checker.CostEstimate{Min: 13, Max: 13},
-			locale:                "fr_FR",
 		},
 		{
 			name:       "dyntype support for scientific notation",
@@ -996,10 +951,9 @@ func TestStringFormat(t *testing.T) {
 			dynArgs: map[string]any{
 				"dynE": 2.71828,
 			},
-			expectedOutput:        "(dyntype) e: 2.718280\u202f\u00d7\u202f10\u2070\u2070",
+			expectedOutput:        "(dyntype) e: 2.718280e+00",
 			expectedRuntimeCost:   13,
 			expectedEstimatedCost: checker.CostEstimate{Min: 13, Max: 13},
-			locale:                "en_US",
 		},
 		{
 			name:       "dyntype NaN/infinity support for fixed-point",
@@ -1009,7 +963,7 @@ func TestStringFormat(t *testing.T) {
 				"dynNaN": math.NaN(),
 				"dynInf": math.Inf(1),
 			},
-			expectedOutput:        "NaN: NaN, infinity: ∞",
+			expectedOutput:        "NaN: NaN, infinity: Infinity",
 			expectedRuntimeCost:   15,
 			expectedEstimatedCost: checker.CostEstimate{Min: 15, Max: 15},
 		},
@@ -1042,7 +996,7 @@ func TestStringFormat(t *testing.T) {
 			dynArgs: map[string]any{
 				"dynList": []any{6, 4.2, "a string"},
 			},
-			expectedOutput:        `dyntype list: [6, 4.200000, "a string"]`,
+			expectedOutput:        `dyntype list: [6, 4.2, a string]`,
 			expectedRuntimeCost:   13,
 			expectedEstimatedCost: checker.CostEstimate{Min: 13, Max: 13},
 		},
@@ -1057,7 +1011,7 @@ func TestStringFormat(t *testing.T) {
 					int64(6): mustParseDuration("7m2s"),
 				},
 			},
-			expectedOutput:        `dyntype map: {"strKey":"x", 6:duration("422s"), true:42}`,
+			expectedOutput:        `dyntype map: {6: 422s, strKey: x, true: 42}`,
 			expectedRuntimeCost:   13,
 			expectedEstimatedCost: checker.CostEstimate{Min: 13, Max: 13},
 		},
@@ -1071,7 +1025,6 @@ func TestStringFormat(t *testing.T) {
 					SingleDouble: 1.0,
 				},
 			},
-			locale:         "en_US",
 			expectedOutput: `message field msg.single_int32: 2, msg.single_double: 1.0`,
 		},
 		{
@@ -1093,28 +1046,28 @@ func TestStringFormat(t *testing.T) {
 			format:           "string is %b",
 			formatArgs:       `"abc"`,
 			skipCompileCheck: true,
-			err:              "error during formatting: only integers and bools can be formatted as binary, was given string",
+			err:              "error during formatting: only ints, uints, and bools can be formatted as binary, was given string",
 		},
 		{
 			name:             "duration substitution not allowed with decimal clause",
 			format:           "%d",
 			formatArgs:       `duration("30m2s")`,
 			skipCompileCheck: true,
-			err:              "error during formatting: decimal clause can only be used on integers, was given google.protobuf.Duration",
+			err:              "error during formatting: decimal clause can only be used on ints, uints, and doubles, was given google.protobuf.Duration",
 		},
 		{
 			name:             "string substitution not allowed with octal clause",
 			format:           "octal: %o",
 			formatArgs:       `"a string"`,
 			skipCompileCheck: true,
-			err:              "error during formatting: octal clause can only be used on integers, was given string",
+			err:              "error during formatting: octal clause can only be used on ints and uints, was given string",
 		},
 		{
 			name:             "double substitution not allowed with hex clause",
 			format:           "double is %x",
 			formatArgs:       "0.5",
 			skipCompileCheck: true,
-			err:              "error during formatting: only integers, byte buffers, and strings can be formatted as hex, was given double",
+			err:              "error during formatting: only ints, uints, bytes, and strings can be formatted as hex, was given double",
 		},
 		{
 			name:             "uppercase not allowed for scientific clause",
@@ -1149,49 +1102,49 @@ func TestStringFormat(t *testing.T) {
 			format:           "null: %d",
 			formatArgs:       "null",
 			skipCompileCheck: true,
-			err:              "error during formatting: decimal clause can only be used on integers, was given null_type",
+			err:              "error during formatting: decimal clause can only be used on ints, uints, and doubles, was given null_type",
 		},
 		{
 			name:             "null not allowed for %e",
 			format:           "null: %e",
 			formatArgs:       "null",
 			skipCompileCheck: true,
-			err:              "error during formatting: scientific clause can only be used on doubles, was given null_type",
+			err:              "error during formatting: scientific clause can only be used on ints, uints, and doubles, was given null_type",
 		},
 		{
 			name:             "null not allowed for %f",
 			format:           "null: %f",
 			formatArgs:       "null",
 			skipCompileCheck: true,
-			err:              "error during formatting: fixed-point clause can only be used on doubles, was given null_type",
+			err:              "error during formatting: fixed-point clause can only be used on ints, uints, and doubles, was given null_type",
 		},
 		{
 			name:             "null not allowed for %x",
 			format:           "null: %x",
 			formatArgs:       "null",
 			skipCompileCheck: true,
-			err:              "error during formatting: only integers, byte buffers, and strings can be formatted as hex, was given null_type",
+			err:              "error during formatting: only ints, uints, bytes, and strings can be formatted as hex, was given null_type",
 		},
 		{
 			name:             "null not allowed for %X",
 			format:           "null: %X",
 			formatArgs:       "null",
 			skipCompileCheck: true,
-			err:              "error during formatting: only integers, byte buffers, and strings can be formatted as hex, was given null_type",
+			err:              "error during formatting: only ints, uints, bytes, and strings can be formatted as hex, was given null_type",
 		},
 		{
 			name:             "null not allowed for %b",
 			format:           "null: %b",
 			formatArgs:       "null",
 			skipCompileCheck: true,
-			err:              "error during formatting: only integers and bools can be formatted as binary, was given null_type",
+			err:              "error during formatting: only ints, uints, and bools can be formatted as binary, was given null_type",
 		},
 		{
 			name:             "null not allowed for %o",
 			format:           "null: %o",
 			formatArgs:       "null",
 			skipCompileCheck: true,
-			err:              "error during formatting: octal clause can only be used on integers, was given null_type",
+			err:              "error during formatting: octal clause can only be used on ints and uints, was given null_type",
 		},
 		{
 			name:       "compile-time cardinality check (too few for string)",
@@ -1233,14 +1186,14 @@ func TestStringFormat(t *testing.T) {
 		{
 			name:       "compile-time %d check",
 			format:     "int is %d",
-			formatArgs: "5.2",
-			err:        "error during formatting: decimal clause can only be used on integers",
+			formatArgs: "null",
+			err:        "error during formatting: decimal clause can only be used on ints, uints, and doubles, was given null_type",
 		},
 		{
 			name:       "compile-time %f check",
 			format:     "double is %f",
 			formatArgs: "true",
-			err:        "error during formatting: fixed-point clause can only be used on doubles",
+			err:        "error during formatting: fixed-point clause can only be used on ints, uints, and doubles, was given bool",
 		},
 		{
 			name:       "compile-time precision syntax check",
@@ -1252,31 +1205,31 @@ func TestStringFormat(t *testing.T) {
 			name:       "compile-time %e check",
 			format:     "double is %e",
 			formatArgs: "true",
-			err:        "error during formatting: scientific clause can only be used on doubles",
+			err:        "error during formatting: scientific clause can only be used on ints, uints, and doubles, was given bool",
 		},
 		{
 			name:       "compile-time %b check",
 			format:     "string is %b",
 			formatArgs: `"a string"`,
-			err:        "error during formatting: only integers and bools can be formatted as binary",
+			err:        "error during formatting: only ints, uints, and bools can be formatted as binary, was given string",
 		},
 		{
 			name:       "compile-time %x check",
 			format:     "%x is a double",
 			formatArgs: "2.5",
-			err:        "error during formatting: only integers, byte buffers, and strings can be formatted as hex",
+			err:        "error during formatting: only ints, uints, bytes, and strings can be formatted as hex, was given double",
 		},
 		{
 			name:       "compile-time %X check",
 			format:     "%X is a double",
 			formatArgs: "2.5",
-			err:        "error during formatting: only integers, byte buffers, and strings can be formatted as hex",
+			err:        "error during formatting: only ints, uints, bytes, and strings can be formatted as hex, was given double",
 		},
 		{
 			name:       "compile-time %o check",
 			format:     "an octal: %o",
 			formatArgs: "3.14",
-			err:        "error during formatting: octal clause can only be used on integers",
+			err:        "octal clause can only be used on ints and uints, was given double",
 		},
 	}
 	evalExpr := func(env *cel.Env, expr string, evalArgs any, expectedRuntimeCost uint64, expectedEstimatedCost checker.CostEstimate, t *testing.T) (ref.Val, error) {
@@ -1364,9 +1317,9 @@ func TestStringFormat(t *testing.T) {
 		}
 		return opts
 	}
-	buildOpts := func(skipCompileCheck bool, locale string, variables []cel.EnvOption) []cel.EnvOption {
+	buildOpts := func(skipCompileCheck bool, variables []cel.EnvOption) []cel.EnvOption {
 		opts := []cel.EnvOption{
-			Strings(StringsLocale(locale), StringsValidateFormatCalls(!skipCompileCheck)),
+			Strings(StringsValidateFormatCalls(!skipCompileCheck)),
 			cel.Container("ext"),
 			cel.Abbrevs("google.expr.proto3.test"),
 			cel.Types(&proto3pb.TestAllTypes{}),
@@ -1379,8 +1332,8 @@ func TestStringFormat(t *testing.T) {
 		opts = append(opts, variables...)
 		return opts
 	}
-	runCase := func(format, formatArgs, locale string, dynArgs map[string]any, skipCompileCheck bool, expectedRuntimeCost uint64, expectedEstimatedCost checker.CostEstimate, t *testing.T) (ref.Val, error) {
-		env, err := cel.NewEnv(buildOpts(skipCompileCheck, locale, buildVariables(dynArgs))...)
+	runCase := func(format, formatArgs string, dynArgs map[string]any, skipCompileCheck bool, expectedRuntimeCost uint64, expectedEstimatedCost checker.CostEstimate, t *testing.T) (ref.Val, error) {
+		env, err := cel.NewEnv(buildOpts(skipCompileCheck, buildVariables(dynArgs))...)
 		if err != nil {
 			t.Fatalf("cel.NewEnv() failed: %v", err)
 		}
@@ -1412,16 +1365,8 @@ func TestStringFormat(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			out, err := runCase(tt.format, tt.formatArgs, tt.locale, tt.dynArgs, tt.skipCompileCheck, tt.expectedRuntimeCost, tt.expectedEstimatedCost, t)
+			out, err := runCase(tt.format, tt.formatArgs, tt.dynArgs, tt.skipCompileCheck, tt.expectedRuntimeCost, tt.expectedEstimatedCost, t)
 			checkCase(out, tt.expectedOutput, err, tt.err, t)
-			if tt.locale == "" {
-				// if the test has no locale specified, then that means it
-				// should have the same output regardless of locale
-				t.Run("no change on locale", func(t *testing.T) {
-					out, err := runCase(tt.format, tt.formatArgs, "da_DK", tt.dynArgs, tt.skipCompileCheck, tt.expectedRuntimeCost, tt.expectedEstimatedCost, t)
-					checkCase(out, tt.expectedOutput, err, tt.err, t)
-				})
-			}
 		})
 	}
 }
@@ -1433,7 +1378,7 @@ func TestStringFormatHeterogeneousLiterals(t *testing.T) {
 	}{
 		{
 			expr: `"list: %s".format([[[1, 2, [3.0, 4]]]])`,
-			out:  `list: [[1, 2, [3.000000, 4]]]`,
+			out:  `list: [[1, 2, [3, 4]]]`,
 		},
 		{
 			expr: `"list size: %d".format([[[1, 2, [3.0, 4]]].size()])`,
@@ -1441,7 +1386,7 @@ func TestStringFormatHeterogeneousLiterals(t *testing.T) {
 		},
 		{
 			expr: `"list element: %s".format([[[1, 2, [3.0, 4]]][0]])`,
-			out:  `list element: [1, 2, [3.000000, 4]]`,
+			out:  `list element: [1, 2, [3, 4]]`,
 		},
 	}
 	env, err := cel.NewEnv(Strings(), cel.ASTValidators(cel.ValidateHomogeneousAggregateLiterals()))
@@ -1465,83 +1410,6 @@ func TestStringFormatHeterogeneousLiterals(t *testing.T) {
 			}
 			if out.Value() != tc.out {
 				t.Errorf("Eval() got %v, wanted %v", out, tc.out)
-			}
-		})
-	}
-}
-
-func TestBadLocale(t *testing.T) {
-	_, err := cel.NewEnv(Strings(StringsLocale("bad-locale")))
-	if err != nil {
-		if err.Error() != "failed to parse locale: language: subtag \"locale\" is well-formed but unknown" {
-			t.Errorf("expected error messaged to be \"failed to parse locale: language: subtag \"locale\" is well-formed but unknown\", got %q", err)
-		}
-	} else {
-		t.Error("expected NewEnv to fail during locale parsing")
-	}
-}
-
-func TestLiteralOutput(t *testing.T) {
-	tests := []struct {
-		name          string
-		formatLiteral string
-		expectedType  string
-	}{
-		{
-			name:          "map literal support",
-			formatLiteral: `{"key1": b"xyz", false: [11, 12, 13, timestamp("2019-10-12T07:20:50.52Z")], 42: {uint(64): 2.7}, "key5": type(int), "key2": duration("2h"), "key4": true, "key3": 2.71828, "null": null}`,
-			expectedType:  `map`,
-		},
-		{
-			name:          "list literal support",
-			formatLiteral: `["abc", 3.14, uint(32), b"def", null, type(string), duration("7m"), [9, 8, 7, 6], timestamp("2023-02-03T23:31:20Z")]`,
-			expectedType:  `list`,
-		},
-	}
-	for _, tt := range tests {
-		parseAndEval := func(expr string, t *testing.T) (ref.Val, error) {
-			env, err := cel.NewEnv(Strings())
-			if err != nil {
-				t.Fatalf("cel.NewEnv(Strings()) failed: %v", err)
-			}
-			parsedAst, issues := env.Parse(expr)
-			if issues.Err() != nil {
-				t.Fatalf("env.Parse(%v) failed: %v", expr, issues.Err())
-			}
-			checkedAst, issues := env.Check(parsedAst)
-			if issues.Err() != nil {
-				t.Fatalf("env.Check(%v) failed: %v", expr, issues.Err())
-			}
-			program, err := env.Program(checkedAst)
-			if err != nil {
-				t.Fatal(err)
-			}
-			out, _, err := program.Eval(cel.NoVars())
-			return out, err
-		}
-		t.Run(tt.name, func(t *testing.T) {
-			expr := fmt.Sprintf(`"%%s".format([%s])`, tt.formatLiteral)
-			literalVal, err := parseAndEval(expr, t)
-			if err != nil {
-				t.Fatalf("program.Eval failed: %v", err)
-			}
-			out, err := parseAndEval(literalVal.Value().(string), t)
-			if err != nil {
-				t.Fatalf("literal evaluation failed: %v", err)
-			}
-			if out.Type().TypeName() != tt.expectedType {
-				t.Errorf("expected literal to evaluate to type %s, got %s", tt.expectedType, out.Type().TypeName())
-			}
-			equivalentVal, err := parseAndEval(literalVal.Value().(string)+" == "+tt.formatLiteral, t)
-			if err != nil {
-				t.Fatalf("equality evaluation failed: %v:", err)
-			}
-			if equivalentVal.Type().TypeName() != "bool" {
-				t.Errorf("expected equality expression to evaluation to type bool, got %s", equivalentVal.Type().TypeName())
-			}
-			equivalent := equivalentVal.Value().(bool)
-			if !equivalent {
-				t.Errorf("%q (observed) and %q (expected) not considered equivalent", literalVal.Value().(string), tt.formatLiteral)
 			}
 		})
 	}
