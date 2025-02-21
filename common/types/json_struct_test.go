@@ -172,7 +172,7 @@ func TestJsonStructGet(t *testing.T) {
 	}
 
 	e, isError := mapVal.Get(String("third")).(*Err)
-	if !isError || e.Error() != "no such key: third" {
+	if !isError || e.Error() != "no such key: \"third\"" {
 		t.Errorf("Got %v, wanted no such key: third", e)
 	}
 }

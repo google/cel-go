@@ -129,7 +129,7 @@ func (o *protoObj) IsSet(field ref.Val) ref.Val {
 	protoFieldStr := string(protoFieldName)
 	fd, found := o.typeDesc.FieldByName(protoFieldStr)
 	if !found {
-		return NewErr("no such field '%s'", field)
+		return NewErr("no such field %s", field)
 	}
 	if fd.IsSet(o.value) {
 		return True
@@ -150,7 +150,7 @@ func (o *protoObj) Get(index ref.Val) ref.Val {
 	protoFieldStr := string(protoFieldName)
 	fd, found := o.typeDesc.FieldByName(protoFieldStr)
 	if !found {
-		return NewErr("no such field '%s'", index)
+		return NewErr("no such field %s", index)
 	}
 	fv, err := fd.GetFrom(o.value)
 	if err != nil {
