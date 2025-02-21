@@ -250,6 +250,10 @@ func (i Uint) Value() any {
 	return uint64(i)
 }
 
+func (i Uint) String() string {
+	return strconv.FormatUint(uint64(i), 10) + "u"
+}
+
 // isJSONSafe indicates whether the uint is safely representable as a floating point value in JSON.
 func (i Uint) isJSONSafe() bool {
 	return i <= maxIntJSON

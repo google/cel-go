@@ -17,6 +17,7 @@ package types
 import (
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 
 	"github.com/stoewer/go-strcase"
@@ -299,20 +300,35 @@ func (m *baseMap) Size() ref.Val {
 	return Int(m.size)
 }
 
+type baseMapEntry struct {
+	key string
+	val string
+}
+
 // String converts the map into a human-readable string.
 func (m *baseMap) String() string {
 	var sb strings.Builder
 	sb.WriteString("{")
 	it := m.Iterator()
-	i := 0
+	var ents []baseMapEntry
+	if s, ok := m.Size().(Int); ok {
+		ents = make([]baseMapEntry, 0, int(s))
+	}
 	for it.HasNext() == True {
 		k := it.Next()
 		v, _ := m.Find(k)
-		sb.WriteString(fmt.Sprintf("%v: %v", k, v))
-		if i != m.size-1 {
+		ents = append(ents, baseMapEntry{fmt.Sprintf("%s", k), fmt.Sprintf("%s", v)})
+	}
+	sort.SliceStable(ents, func(i, j int) bool {
+		return ents[i].key < ents[j].key
+	})
+	for i, ent := range ents {
+		if i > 0 {
 			sb.WriteString(", ")
 		}
-		i++
+		sb.WriteString(ent.key)
+		sb.WriteString(": ")
+		sb.WriteString(ent.val)
 	}
 	sb.WriteString("}")
 	return sb.String()

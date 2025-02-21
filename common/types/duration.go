@@ -185,6 +185,10 @@ func (d Duration) Value() any {
 	return d.Duration
 }
 
+func (d Duration) String() string {
+	return fmt.Sprintf("duration(\"%ss\")", strconv.FormatFloat(d.Seconds(), 'f', -1, 64))
+}
+
 // DurationGetHours returns the duration in hours.
 func DurationGetHours(val ref.Val) ref.Val {
 	dur, ok := val.(Duration)

@@ -290,6 +290,10 @@ func (i Int) Value() any {
 	return int64(i)
 }
 
+func (i Int) String() string {
+	return strconv.FormatInt(int64(i), 10)
+}
+
 // isJSONSafe indicates whether the int is safely representable as a floating point value in JSON.
 func (i Int) isJSONSafe() bool {
 	return i >= minIntJSON && i <= maxIntJSON

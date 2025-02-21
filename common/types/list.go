@@ -290,7 +290,7 @@ func (l *baseList) String() string {
 	var sb strings.Builder
 	sb.WriteString("[")
 	for i := 0; i < l.size; i++ {
-		sb.WriteString(fmt.Sprintf("%v", l.get(i)))
+		sb.WriteString(fmt.Sprintf("%s", l.Get(Int(i))))
 		if i != l.size-1 {
 			sb.WriteString(", ")
 		}
