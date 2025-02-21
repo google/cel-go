@@ -708,7 +708,7 @@ func (o *evalObj) Eval(ctx Activation) ref.Val {
 		if o.hasOptionals && o.optionals[i] {
 			optVal, ok := val.(*types.Optional)
 			if !ok {
-				return types.LabelErrNode(o.id, invalidOptionalEntryInit(field, val))
+				return types.LabelErrNode(o.id, invalidOptionalEntryInit(types.String(field), val))
 			}
 			if !optVal.HasValue() {
 				delete(fieldVals, field)
@@ -1233,11 +1233,11 @@ func (c *evalWatchConstructor) Eval(ctx Activation) ref.Val {
 }
 
 func invalidOptionalEntryInit(field any, value ref.Val) ref.Val {
-	return types.NewErr("cannot initialize optional entry '%v' from non-optional value %v", field, value)
+	return types.NewErr("cannot initialize optional entry %s from non-optional value %s", field, value)
 }
 
 func invalidOptionalElementInit(value ref.Val) ref.Val {
-	return types.NewErr("cannot initialize optional list element from non-optional value %v", value)
+	return types.NewErr("cannot initialize optional list element from non-optional value %s", value)
 }
 
 // newFolder creates or initializes a pooled folder instance.

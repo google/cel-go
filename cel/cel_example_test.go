@@ -68,7 +68,7 @@ func Example() {
 	}
 
 	fmt.Println(out)
-	// Output:Hello world! Nice to meet you, I'm CEL.
+	// Output:"Hello \"world\"! Nice to meet you, I'm \"CEL\".\n"
 }
 
 func Example_globalOverload() {
@@ -116,7 +116,7 @@ func Example_globalOverload() {
 	}
 
 	fmt.Println(out)
-	// Output:CEL and world are shaking hands.
+	// Output:"\"CEL\" and \"world\" are shaking hands.\n"
 }
 
 func Example_statefulOverload() {

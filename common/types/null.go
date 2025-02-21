@@ -117,3 +117,7 @@ func (n Null) Type() ref.Type {
 func (n Null) Value() any {
 	return structpb.NullValue_NULL_VALUE
 }
+
+func (n Null) String() string {
+	return "null"
+}

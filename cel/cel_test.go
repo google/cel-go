@@ -2438,7 +2438,7 @@ func TestQuotedFields(t *testing.T) {
 		},
 		{
 			expr:        "{'key-1': 64}.`key-2`",
-			errorSubstr: "no such key: key-2",
+			errorSubstr: "no such key: \"key-2\"",
 		},
 		{
 			expr: "has({'key-1': 64}.`key-1`)",
@@ -2951,7 +2951,7 @@ func TestOptionalValuesEval(t *testing.T) {
 					},
 				},
 			},
-			out: "no such key: a",
+			out: "no such key: \"a\"",
 		},
 		{
 			expr: `m.?c.missing.or(m.?c['dashed-index']).orValue('').size()`,
@@ -3136,15 +3136,15 @@ func TestEnableErrorOnBadPresenceTest(t *testing.T) {
 		},
 		{
 			expr: `{'null_field': dyn(null)}.?null_field.?nested`,
-			out:  "no such key: nested",
+			out:  "no such key: \"nested\"",
 		},
 		{
 			expr: `{'zero_field': dyn(0)}.?zero_field.?invalid`,
-			out:  "no such key: invalid",
+			out:  "no such key: \"invalid\"",
 		},
 		{
 			expr: `{0: dyn(0)}[?0].?invalid`,
-			out:  "no such key: invalid",
+			out:  "no such key: \"invalid\"",
 		},
 		{
 			expr: `{true: dyn(0)}[?false].?invalid`,
@@ -3152,7 +3152,7 @@ func TestEnableErrorOnBadPresenceTest(t *testing.T) {
 		},
 		{
 			expr: `{true: dyn(0)}[?true].?invalid`,
-			out:  "no such key: invalid",
+			out:  "no such key: \"invalid\"",
 		},
 	}
 

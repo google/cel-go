@@ -559,11 +559,11 @@ func TestNativeTypesRuntimeErrors(t *testing.T) {
 		},
 		{
 			expr: `ext.TestAllTypes{}.UnsupportedMapVal`,
-			err:  `no such field: UnsupportedMapVal`,
+			err:  `no such field: "UnsupportedMapVal"`,
 		},
 		{
 			expr: `ext.TestAllTypes{}.privateVal`,
-			err:  `no such field: privateVal`,
+			err:  `no such field: "privateVal"`,
 		},
 		{
 			expr: `ext.TestAllTypes{BoolVal: 'false'}`,
@@ -571,7 +571,7 @@ func TestNativeTypesRuntimeErrors(t *testing.T) {
 		},
 		{
 			expr: `has(ext.TestAllTypes{}.BadFieldName)`,
-			err:  `no such field: BadFieldName`,
+			err:  `no such field: "BadFieldName"`,
 		},
 		{
 			expr: `ext.TestAllTypes{}[42]`,

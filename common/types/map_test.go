@@ -429,24 +429,24 @@ func TestDynamicMapGet(t *testing.T) {
 		t.Errorf("nestedVal.Get(1) got %v, wanted -1.0", floatVal)
 	}
 	err := mapVal.Get(String("absent"))
-	if !IsError(err) || err.(*Err).Error() != "no such key: absent" {
-		t.Errorf("mapVal.Get('absent') got %v, wanted no such key: absent.", err)
+	if !IsError(err) || err.(*Err).Error() != "no such key: \"absent\"" {
+		t.Errorf("mapVal.Get('absent') got %v, wanted no such key: \"absent\".", err)
 	}
 	err = nestedVal.Get(String("bad_key"))
-	if !IsError(err) || err.(*Err).Error() != "no such key: bad_key" {
-		t.Errorf("nestedVal.Get('bad_key') errored %v, wanted no such key: bad_key.", err)
+	if !IsError(err) || err.(*Err).Error() != "no such key: \"bad_key\"" {
+		t.Errorf("nestedVal.Get('bad_key') errored %v, wanted no such key: \"bad_key\".", err)
 	}
 	empty, ok := mapVal.Get(String("empty")).(traits.Mapper)
 	if !ok {
 		t.Fatalf("mapVal.Get('empty') got %v, wanted empty map", mapVal.Get(String("empty")))
 	}
 	err = empty.Get(String("hello"))
-	if !IsError(err) || err.(*Err).Error() != "no such key: hello" {
-		t.Errorf("empty.Get('hello') got %v, wanted no such key: hello", err)
+	if !IsError(err) || err.(*Err).Error() != "no such key: \"hello\"" {
+		t.Errorf("empty.Get('hello') got %v, wanted no such key: \"hello\"", err)
 	}
 	err = empty.Get(Double(-1.0))
-	if !IsError(err) || err.(*Err).Error() != "no such key: -1" {
-		t.Errorf("empty.Get(-1.0) got %v, wanted no such key: -1", err)
+	if !IsError(err) || err.(*Err).Error() != "no such key: -1.0" {
+		t.Errorf("empty.Get(-1.0) got %v, wanted no such key: -1.0", err)
 	}
 }
 
@@ -465,24 +465,24 @@ func TestStringIfaceMapGet(t *testing.T) {
 		t.Errorf("nestedVal.Get(1) got %v, wanted -1.0", floatVal)
 	}
 	err := mapVal.Get(String("absent"))
-	if !IsError(err) || err.(*Err).Error() != "no such key: absent" {
-		t.Errorf("mapVal.Get('absent') got %v, wanted no such key: absent.", err)
+	if !IsError(err) || err.(*Err).Error() != "no such key: \"absent\"" {
+		t.Errorf("mapVal.Get('absent') got %v, wanted no such key: \"absent\".", err)
 	}
 	err = nestedVal.Get(String("bad_key"))
-	if !IsError(err) || err.(*Err).Error() != "no such key: bad_key" {
-		t.Errorf("nestedVal.Get('bad_key') got %v, no such key: bad_key", err)
+	if !IsError(err) || err.(*Err).Error() != "no such key: \"bad_key\"" {
+		t.Errorf("nestedVal.Get('bad_key') got %v, no such key: \"bad_key\"", err)
 	}
 	empty, ok := mapVal.Get(String("empty")).(traits.Mapper)
 	if !ok {
 		t.Fatalf("mapVal.Get('empty') got %v, wanted empty map", mapVal.Get(String("empty")))
 	}
 	err = empty.Get(String("hello"))
-	if !IsError(err) || err.(*Err).Error() != "no such key: hello" {
-		t.Errorf("empty.Get('hello') got %v, wanted no such key: hello", err)
+	if !IsError(err) || err.(*Err).Error() != "no such key: \"hello\"" {
+		t.Errorf("empty.Get('hello') got %v, wanted no such key: \"hello\"", err)
 	}
 	err = empty.Get(Double(-1.0))
-	if !IsError(err) || err.(*Err).Error() != "no such key: -1" {
-		t.Errorf("empty.Get(-1.0) got %v, wanted no such key: -1", err)
+	if !IsError(err) || err.(*Err).Error() != "no such key: -1.0" {
+		t.Errorf("empty.Get(-1.0) got %v, wanted no such key: -1.0", err)
 	}
 }
 
@@ -520,24 +520,24 @@ func TestRefValMapGet(t *testing.T) {
 		t.Errorf("nestedVal.Get(1) got %v, wanted -1.0", floatVal)
 	}
 	err := mapVal.Get(String("absent"))
-	if !IsError(err) || err.(*Err).Error() != "no such key: absent" {
+	if !IsError(err) || err.(*Err).Error() != "no such key: \"absent\"" {
 		t.Errorf("mapVal.Get('absent') got %v, wanted no such key: absent.", err)
 	}
 	err = nestedVal.Get(String("bad_key"))
-	if !IsError(err) || err.(*Err).Error() != "no such key: bad_key" {
-		t.Errorf("nestedVal.Get('bad_key') got %v, wanted no such key: bad_key.", err)
+	if !IsError(err) || err.(*Err).Error() != "no such key: \"bad_key\"" {
+		t.Errorf("nestedVal.Get('bad_key') got %v, wanted no such key: \"bad_key\".", err)
 	}
 	empty, ok := mapVal.Get(String("empty")).(traits.Mapper)
 	if !ok {
 		t.Fatalf("mapVal.Get('empty') got %v, wanted empty map", mapVal.Get(String("empty")))
 	}
 	err = empty.Get(String("hello"))
-	if !IsError(err) || err.(*Err).Error() != "no such key: hello" {
-		t.Errorf("empty.Get('hello') got %v, wanted no such key: hello", err)
+	if !IsError(err) || err.(*Err).Error() != "no such key: \"hello\"" {
+		t.Errorf("empty.Get('hello') got %v, wanted no such key: \"hello\"", err)
 	}
 	err = empty.Get(Double(-1.0))
-	if !IsError(err) || err.(*Err).Error() != "no such key: -1" {
-		t.Errorf("empty.Get(-1.0) got %v, wanted no such key: -1", err)
+	if !IsError(err) || err.(*Err).Error() != "no such key: -1.0" {
+		t.Errorf("empty.Get(-1.0) got %v, wanted no such key: -1.0", err)
 	}
 }
 
@@ -842,7 +842,7 @@ func TestProtoMapString(t *testing.T) {
 	}
 	reg := newTestRegistry(t)
 	m := reg.NativeToValue(strMap)
-	want := `{hello: world}`
+	want := `{"hello": "world"}`
 	if fmt.Sprintf("%v", m) != want {
 		t.Errorf("map.String() got %v, wanted %v", m, want)
 	}
