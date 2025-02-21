@@ -26,9 +26,14 @@ steps:
           args: ['scripts/verify-vendor.sh']
         - name: 'gcr.io/cloud-builders/bazel'
           entrypoint: bazel
-          args: ['test', '--test_output=errors', '...']
+          args:
+          - 'test'
+          - '--test_output=errors'
+          - '--remote_cache=https://storage.googleapis.com/cel-go-remote-cache'
+          - '--google_default_credentials'
+          -  '...'
           id: bazel-test
           waitFor: ['-']
 timeout: 10m
 options:
-        machineType: 'N1_HIGHCPU_8'
+        machineType: 'E2_HIGHCPU_32'
