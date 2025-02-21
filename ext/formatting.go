@@ -21,8 +21,10 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 	"unicode"
+
+	"golang.org/x/text/language"
+	"golang.org/x/text/message"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/ast"
@@ -32,366 +34,368 @@ import (
 	"github.com/google/cel-go/common/types/traits"
 )
 
-type clauseImpl func(ref.Val) (string, error)
+type clauseImpl func(ref.Val, string) (string, error)
 
-type appendingFormatter struct {
-	buf []byte
-}
-
-type formattedMapEntry struct {
-	key string
-	val string
-}
-
-func (af *appendingFormatter) format(arg ref.Val) error {
-	switch arg.Type() {
-	case types.BoolType:
-		argBool, ok := arg.Value().(bool)
-		if !ok {
-			return fmt.Errorf("type conversion error from '%s' to '%s'", arg.Type(), types.BoolType)
-		}
-		af.buf = strconv.AppendBool(af.buf, argBool)
-		return nil
-	case types.IntType:
-		argInt, ok := arg.Value().(int64)
-		if !ok {
-			return fmt.Errorf("type conversion error from '%s' to '%s'", arg.Type(), types.IntType)
-		}
-		af.buf = strconv.AppendInt(af.buf, argInt, 10)
-		return nil
-	case types.UintType:
-		argUint, ok := arg.Value().(uint64)
-		if !ok {
-			return fmt.Errorf("type conversion error from '%s' to '%s'", arg.Type(), types.UintType)
-		}
-		af.buf = strconv.AppendUint(af.buf, argUint, 10)
-		return nil
-	case types.DoubleType:
-		argDbl, ok := arg.Value().(float64)
-		if !ok {
-			return fmt.Errorf("type conversion error from '%s' to '%s'", arg.Type(), types.DoubleType)
-		}
-		if math.IsNaN(argDbl) {
-			af.buf = append(af.buf, "NaN"...)
-			return nil
-		}
-		if math.IsInf(argDbl, -1) {
-			af.buf = append(af.buf, "-Infinity"...)
-			return nil
-		}
-		if math.IsInf(argDbl, 1) {
-			af.buf = append(af.buf, "Infinity"...)
-			return nil
-		}
-		af.buf = strconv.AppendFloat(af.buf, argDbl, 'f', -1, 64)
-		return nil
-	case types.BytesType:
-		argBytes, ok := arg.Value().([]byte)
-		if !ok {
-			return fmt.Errorf("type conversion error from '%s' to '%s'", arg.Type(), types.BytesType)
-		}
-		af.buf = append(af.buf, argBytes...)
-		return nil
-	case types.StringType:
-		argStr, ok := arg.Value().(string)
-		if !ok {
-			return fmt.Errorf("type conversion error from '%s' to '%s'", arg.Type(), types.StringType)
-		}
-		af.buf = append(af.buf, argStr...)
-		return nil
-	case types.DurationType:
-		argDur, ok := arg.Value().(time.Duration)
-		if !ok {
-			return fmt.Errorf("type conversion error from '%s' to '%s'", arg.Type(), types.DurationType)
-		}
-		af.buf = strconv.AppendFloat(af.buf, argDur.Seconds(), 'f', -1, 64)
-		af.buf = append(af.buf, "s"...)
-		return nil
-	case types.TimestampType:
-		argTime, ok := arg.Value().(time.Time)
-		if !ok {
-			return fmt.Errorf("type conversion error from '%s' to '%s'", arg.Type(), types.TimestampType)
-		}
-		af.buf = argTime.UTC().AppendFormat(af.buf, time.RFC3339Nano)
-		return nil
-	case types.NullType:
-		af.buf = append(af.buf, "null"...)
-		return nil
-	case types.TypeType:
-		argType, ok := arg.Value().(string)
-		if !ok {
-			return fmt.Errorf("type conversion error from '%s' to '%s'", arg.Type(), types.TypeType)
-		}
-		af.buf = append(af.buf, argType...)
-		return nil
+func clauseForType(argType ref.Type) (clauseImpl, error) {
+	switch argType {
+	case types.IntType, types.UintType:
+		return formatDecimal, nil
+	case types.StringType, types.BytesType, types.BoolType, types.NullType, types.TypeType:
+		return FormatString, nil
+	case types.TimestampType, types.DurationType:
+		// special case to ensure timestamps/durations get printed as CEL literals
+		return func(arg ref.Val, locale string) (string, error) {
+			argStrVal := arg.ConvertToType(types.StringType)
+			argStr := argStrVal.Value().(string)
+			if arg.Type() == types.TimestampType {
+				return fmt.Sprintf("timestamp(%q)", argStr), nil
+			}
+			if arg.Type() == types.DurationType {
+				return fmt.Sprintf("duration(%q)", argStr), nil
+			}
+			return "", fmt.Errorf("cannot convert argument of type %s to timestamp/duration", arg.Type().TypeName())
+		}, nil
 	case types.ListType:
-		argList, ok := arg.(traits.Lister)
-		if !ok {
-			return fmt.Errorf("type conversion error from '%s' to '%s'", arg.Type(), types.ListType)
-		}
-		argIter := argList.Iterator()
-		af.buf = append(af.buf, "["...)
-		if argIter.HasNext() == types.True {
-			if err := af.format(argIter.Next()); err != nil {
-				return err
-			}
-			for argIter.HasNext() == types.True {
-				af.buf = append(af.buf, ", "...)
-				if err := af.format(argIter.Next()); err != nil {
-					return err
-				}
-			}
-		}
-		af.buf = append(af.buf, "]"...)
-		return nil
+		return formatList, nil
 	case types.MapType:
-		argMap, ok := arg.(traits.Mapper)
-		if !ok {
-			return fmt.Errorf("type conversion error from '%s' to '%s'", arg.Type(), types.MapType)
-		}
-		argIter := argMap.Iterator()
-		ents := []formattedMapEntry{}
-		for argIter.HasNext() == types.True {
-			key := argIter.Next()
-			val, ok := argMap.Find(key)
+		return formatMap, nil
+	case types.DoubleType:
+		// avoid formatFixed so we can output a period as the decimal separator in order
+		// to always be a valid CEL literal
+		return func(arg ref.Val, locale string) (string, error) {
+			argDouble, ok := arg.Value().(float64)
 			if !ok {
-				return fmt.Errorf("key missing from map: '%s'", key)
+				return "", fmt.Errorf("couldn't convert %s to float64", arg.Type().TypeName())
 			}
-			keyStr, err := FormatString(key)
-			if err != nil {
-				return err
-			}
-			valStr, err := FormatString(val)
-			if err != nil {
-				return err
-			}
-			ents = append(ents, formattedMapEntry{keyStr, valStr})
-		}
-		sort.SliceStable(ents, func(x, y int) bool {
-			return ents[x].key < ents[y].key
-		})
-		af.buf = append(af.buf, "{"...)
-		for i, e := range ents {
-			if i > 0 {
-				af.buf = append(af.buf, ", "...)
-			}
-			af.buf = append(af.buf, e.key...)
-			af.buf = append(af.buf, ": "...)
-			af.buf = append(af.buf, e.val...)
-		}
-		af.buf = append(af.buf, "}"...)
-		return nil
+			fmtStr := fmt.Sprintf("%%.%df", defaultPrecision)
+			return fmt.Sprintf(fmtStr, argDouble), nil
+		}, nil
+	case types.TypeType:
+		return func(arg ref.Val, locale string) (string, error) {
+			return fmt.Sprintf("type(%s)", arg.Value().(string)), nil
+		}, nil
 	default:
-		return stringFormatError(runtimeID, arg.Type().TypeName())
+		return nil, fmt.Errorf("no formatting function for %s", argType.TypeName())
+	}
+}
+
+func formatList(arg ref.Val, locale string) (string, error) {
+	argList := arg.(traits.Lister)
+	argIterator := argList.Iterator()
+	var listStrBuilder strings.Builder
+	_, err := listStrBuilder.WriteRune('[')
+	if err != nil {
+		return "", fmt.Errorf("error writing to list string: %w", err)
+	}
+	for argIterator.HasNext() == types.True {
+		member := argIterator.Next()
+		memberFormat, err := clauseForType(member.Type())
+		if err != nil {
+			return "", err
+		}
+		unquotedStr, err := memberFormat(member, locale)
+		if err != nil {
+			return "", err
+		}
+		str := quoteForCEL(member, unquotedStr)
+		_, err = listStrBuilder.WriteString(str)
+		if err != nil {
+			return "", fmt.Errorf("error writing to list string: %w", err)
+		}
+		if argIterator.HasNext() == types.True {
+			_, err = listStrBuilder.WriteString(", ")
+			if err != nil {
+				return "", fmt.Errorf("error writing to list string: %w", err)
+			}
+		}
+	}
+	_, err = listStrBuilder.WriteRune(']')
+	if err != nil {
+		return "", fmt.Errorf("error writing to list string: %w", err)
+	}
+	return listStrBuilder.String(), nil
+}
+
+func formatMap(arg ref.Val, locale string) (string, error) {
+	argMap := arg.(traits.Mapper)
+	argIterator := argMap.Iterator()
+	type mapPair struct {
+		key   string
+		value string
+	}
+	argPairs := make([]mapPair, argMap.Size().Value().(int64))
+	i := 0
+	for argIterator.HasNext() == types.True {
+		key := argIterator.Next()
+		var keyFormat clauseImpl
+		switch key.Type() {
+		case types.StringType, types.BoolType:
+			keyFormat = FormatString
+		case types.IntType, types.UintType:
+			keyFormat = formatDecimal
+		default:
+			return "", fmt.Errorf("no formatting function for map key of type %s", key.Type().TypeName())
+		}
+		unquotedKeyStr, err := keyFormat(key, locale)
+		if err != nil {
+			return "", err
+		}
+		keyStr := quoteForCEL(key, unquotedKeyStr)
+		value, found := argMap.Find(key)
+		if !found {
+			return "", fmt.Errorf("could not find key: %q", key)
+		}
+		valueFormat, err := clauseForType(value.Type())
+		if err != nil {
+			return "", err
+		}
+		unquotedValueStr, err := valueFormat(value, locale)
+		if err != nil {
+			return "", err
+		}
+		valueStr := quoteForCEL(value, unquotedValueStr)
+		argPairs[i] = mapPair{keyStr, valueStr}
+		i++
+	}
+	sort.SliceStable(argPairs, func(x, y int) bool {
+		return argPairs[x].key < argPairs[y].key
+	})
+	var mapStrBuilder strings.Builder
+	_, err := mapStrBuilder.WriteRune('{')
+	if err != nil {
+		return "", fmt.Errorf("error writing to map string: %w", err)
+	}
+	for i, entry := range argPairs {
+		_, err = mapStrBuilder.WriteString(fmt.Sprintf("%s:%s", entry.key, entry.value))
+		if err != nil {
+			return "", fmt.Errorf("error writing to map string: %w", err)
+		}
+		if i < len(argPairs)-1 {
+			_, err = mapStrBuilder.WriteString(", ")
+			if err != nil {
+				return "", fmt.Errorf("error writing to map string: %w", err)
+			}
+		}
+	}
+	_, err = mapStrBuilder.WriteRune('}')
+	if err != nil {
+		return "", fmt.Errorf("error writing to map string: %w", err)
+	}
+	return mapStrBuilder.String(), nil
+}
+
+// quoteForCEL takes a formatted, unquoted value and quotes it in a manner suitable
+// for embedding directly in CEL.
+func quoteForCEL(refVal ref.Val, unquotedValue string) string {
+	switch refVal.Type() {
+	case types.StringType:
+		return fmt.Sprintf("%q", unquotedValue)
+	case types.BytesType:
+		return fmt.Sprintf("b%q", unquotedValue)
+	case types.DoubleType:
+		// special case to handle infinity/NaN
+		num := refVal.Value().(float64)
+		if math.IsInf(num, 1) || math.IsInf(num, -1) || math.IsNaN(num) {
+			return fmt.Sprintf("%q", unquotedValue)
+		}
+		return unquotedValue
+	default:
+		return unquotedValue
 	}
 }
 
 // FormatString returns the string representation of a CEL value.
 //
 // It is used to implement the %s specifier in the (string).format() extension function.
-func FormatString(arg ref.Val) (string, error) {
-	var fmter appendingFormatter
-	if err := fmter.format(arg); err != nil {
-		return "", err
+func FormatString(arg ref.Val, locale string) (string, error) {
+	switch arg.Type() {
+	case types.ListType:
+		return formatList(arg, locale)
+	case types.MapType:
+		return formatMap(arg, locale)
+	case types.IntType, types.UintType, types.DoubleType,
+		types.BoolType, types.StringType, types.TimestampType, types.BytesType, types.DurationType, types.TypeType:
+		argStrVal := arg.ConvertToType(types.StringType)
+		argStr, ok := argStrVal.Value().(string)
+		if !ok {
+			return "", fmt.Errorf("could not convert argument %q to string", argStrVal)
+		}
+		return argStr, nil
+	case types.NullType:
+		return "null", nil
+	default:
+		return "", stringFormatError(runtimeID, arg.Type().TypeName())
 	}
-	return string(fmter.buf), nil
 }
 
-type stringFormatter struct{}
-
-func (c *stringFormatter) String(arg ref.Val) (string, error) {
-	return FormatString(arg)
-}
-
-func (c *stringFormatter) Decimal(arg ref.Val) (string, error) {
+func formatDecimal(arg ref.Val, locale string) (string, error) {
 	switch arg.Type() {
 	case types.IntType:
-		argInt, ok := arg.Value().(int64)
+		argInt, ok := arg.ConvertToType(types.IntType).Value().(int64)
 		if !ok {
-			return "", fmt.Errorf("type conversion error from '%s' to '%s'", arg.Type(), types.IntType)
+			return "", fmt.Errorf("could not convert \"%s\" to int64", arg.Value())
 		}
-		return strconv.FormatInt(argInt, 10), nil
+		return fmt.Sprintf("%d", argInt), nil
 	case types.UintType:
-		argUint, ok := arg.Value().(uint64)
+		argInt, ok := arg.ConvertToType(types.UintType).Value().(uint64)
 		if !ok {
-			return "", fmt.Errorf("type conversion error from '%s' to '%s'", arg.Type(), types.UintType)
+			return "", fmt.Errorf("could not convert \"%s\" to uint64", arg.Value())
 		}
-		return strconv.FormatUint(argUint, 10), nil
-	case types.DoubleType:
-		argDbl, ok := arg.Value().(float64)
-		if !ok {
-			return "", fmt.Errorf("type conversion error from '%s' to '%s'", arg.Type(), types.DoubleType)
-		}
-		if math.IsNaN(argDbl) {
-			return "NaN", nil
-		}
-		if math.IsInf(argDbl, -1) {
-			return "-Infinity", nil
-		}
-		if math.IsInf(argDbl, 1) {
-			return "Infinity", nil
-		}
-		return strconv.FormatFloat(argDbl, 'f', -1, 64), nil
+		return fmt.Sprintf("%d", argInt), nil
 	default:
 		return "", decimalFormatError(runtimeID, arg.Type().TypeName())
 	}
 }
 
-func (c *stringFormatter) Fixed(precision int) func(ref.Val) (string, error) {
-	return func(arg ref.Val) (string, error) {
-		fmtStr := fmt.Sprintf("%%.%df", precision)
-		switch arg.Type() {
-		case types.IntType:
-			argInt, ok := arg.Value().(int64)
-			if !ok {
-				return "", fmt.Errorf("type conversion error from '%s' to '%s'", arg.Type(), types.IntType)
+func matchLanguage(locale string) (language.Tag, error) {
+	matcher, err := makeMatcher(locale)
+	if err != nil {
+		return language.Und, err
+	}
+	tag, _ := language.MatchStrings(matcher, locale)
+	return tag, nil
+}
+
+func makeMatcher(locale string) (language.Matcher, error) {
+	tags := make([]language.Tag, 0)
+	tag, err := language.Parse(locale)
+	if err != nil {
+		return nil, err
+	}
+	tags = append(tags, tag)
+	return language.NewMatcher(tags), nil
+}
+
+type stringFormatter struct{}
+
+func (c *stringFormatter) String(arg ref.Val, locale string) (string, error) {
+	return FormatString(arg, locale)
+}
+
+func (c *stringFormatter) Decimal(arg ref.Val, locale string) (string, error) {
+	return formatDecimal(arg, locale)
+}
+
+func (c *stringFormatter) Fixed(precision *int) func(ref.Val, string) (string, error) {
+	if precision == nil {
+		precision = new(int)
+		*precision = defaultPrecision
+	}
+	return func(arg ref.Val, locale string) (string, error) {
+		strException := false
+		if arg.Type() == types.StringType {
+			argStr := arg.Value().(string)
+			if argStr == "NaN" || argStr == "Infinity" || argStr == "-Infinity" {
+				strException = true
 			}
-			return fmt.Sprintf(fmtStr, argInt), nil
-		case types.UintType:
-			argUint, ok := arg.Value().(uint64)
-			if !ok {
-				return "", fmt.Errorf("type conversion error from '%s' to '%s'", arg.Type(), types.UintType)
-			}
-			return fmt.Sprintf(fmtStr, argUint), nil
-		case types.DoubleType:
-			argDbl, ok := arg.Value().(float64)
-			if !ok {
-				return "", fmt.Errorf("type conversion error from '%s' to '%s'", arg.Type(), types.DoubleType)
-			}
-			if math.IsNaN(argDbl) {
-				return "NaN", nil
-			}
-			if math.IsInf(argDbl, -1) {
-				return "-Infinity", nil
-			}
-			if math.IsInf(argDbl, 1) {
-				return "Infinity", nil
-			}
-			return fmt.Sprintf(fmtStr, argDbl), nil
-		default:
+		}
+		if arg.Type() != types.DoubleType && !strException {
 			return "", fixedPointFormatError(runtimeID, arg.Type().TypeName())
 		}
+		argFloatVal := arg.ConvertToType(types.DoubleType)
+		argFloat, ok := argFloatVal.Value().(float64)
+		if !ok {
+			return "", fmt.Errorf("could not convert \"%s\" to float64", argFloatVal.Value())
+		}
+		fmtStr := fmt.Sprintf("%%.%df", *precision)
+
+		matchedLocale, err := matchLanguage(locale)
+		if err != nil {
+			return "", fmt.Errorf("error matching locale: %w", err)
+		}
+		return message.NewPrinter(matchedLocale).Sprintf(fmtStr, argFloat), nil
 	}
 }
 
-func (c *stringFormatter) Scientific(precision int) func(ref.Val) (string, error) {
-	return func(arg ref.Val) (string, error) {
-		fmtStr := fmt.Sprintf("%%1.%de", precision)
-		switch arg.Type() {
-		case types.IntType:
-			argInt, ok := arg.Value().(int64)
-			if !ok {
-				return "", fmt.Errorf("type conversion error from '%s' to '%s'", arg.Type(), types.IntType)
+func (c *stringFormatter) Scientific(precision *int) func(ref.Val, string) (string, error) {
+	if precision == nil {
+		precision = new(int)
+		*precision = defaultPrecision
+	}
+	return func(arg ref.Val, locale string) (string, error) {
+		strException := false
+		if arg.Type() == types.StringType {
+			argStr := arg.Value().(string)
+			if argStr == "NaN" || argStr == "Infinity" || argStr == "-Infinity" {
+				strException = true
 			}
-			return fmt.Sprintf(fmtStr, argInt), nil
-		case types.UintType:
-			argUint, ok := arg.Value().(uint64)
-			if !ok {
-				return "", fmt.Errorf("type conversion error from '%s' to '%s'", arg.Type(), types.UintType)
-			}
-			return fmt.Sprintf(fmtStr, argUint), nil
-		case types.DoubleType:
-			argDbl, ok := arg.Value().(float64)
-			if !ok {
-				return "", fmt.Errorf("type conversion error from '%s' to '%s'", arg.Type(), types.DoubleType)
-			}
-			if math.IsNaN(argDbl) {
-				return "NaN", nil
-			}
-			if math.IsInf(argDbl, -1) {
-				return "-Infinity", nil
-			}
-			if math.IsInf(argDbl, 1) {
-				return "Infinity", nil
-			}
-			return fmt.Sprintf(fmtStr, argDbl), nil
-		default:
+		}
+		if arg.Type() != types.DoubleType && !strException {
 			return "", scientificFormatError(runtimeID, arg.Type().TypeName())
 		}
+		argFloatVal := arg.ConvertToType(types.DoubleType)
+		argFloat, ok := argFloatVal.Value().(float64)
+		if !ok {
+			return "", fmt.Errorf("could not convert \"%v\" to float64", argFloatVal.Value())
+		}
+		matchedLocale, err := matchLanguage(locale)
+		if err != nil {
+			return "", fmt.Errorf("error matching locale: %w", err)
+		}
+		fmtStr := fmt.Sprintf("%%%de", *precision)
+		return message.NewPrinter(matchedLocale).Sprintf(fmtStr, argFloat), nil
 	}
 }
 
-func (c *stringFormatter) Binary(arg ref.Val) (string, error) {
+func (c *stringFormatter) Binary(arg ref.Val, locale string) (string, error) {
 	switch arg.Type() {
+	case types.IntType:
+		argInt := arg.Value().(int64)
+		// locale is intentionally unused as integers formatted as binary
+		// strings are locale-independent
+		return fmt.Sprintf("%b", argInt), nil
+	case types.UintType:
+		argInt := arg.Value().(uint64)
+		return fmt.Sprintf("%b", argInt), nil
 	case types.BoolType:
-		argBool, ok := arg.Value().(bool)
-		if !ok {
-			return "", fmt.Errorf("type conversion error from '%s' to '%s'", arg.Type(), types.BoolType)
-		}
+		argBool := arg.Value().(bool)
 		if argBool {
 			return "1", nil
 		}
 		return "0", nil
-	case types.IntType:
-		argInt, ok := arg.Value().(int64)
-		if !ok {
-			return "", fmt.Errorf("type conversion error from '%s' to '%s'", arg.Type(), types.IntType)
-		}
-		return strconv.FormatInt(argInt, 2), nil
-	case types.UintType:
-		argUint, ok := arg.Value().(uint64)
-		if !ok {
-			return "", fmt.Errorf("type conversion error from '%s' to '%s'", arg.Type(), types.UintType)
-		}
-		return strconv.FormatUint(argUint, 2), nil
 	default:
 		return "", binaryFormatError(runtimeID, arg.Type().TypeName())
 	}
 }
 
-func (c *stringFormatter) Hex(useUpper bool) func(ref.Val) (string, error) {
-	return func(arg ref.Val) (string, error) {
-		var fmtStr string
+func (c *stringFormatter) Hex(useUpper bool) func(ref.Val, string) (string, error) {
+	return func(arg ref.Val, locale string) (string, error) {
+		fmtStr := "%x"
 		if useUpper {
 			fmtStr = "%X"
-		} else {
-			fmtStr = "%x"
 		}
 		switch arg.Type() {
+		case types.StringType, types.BytesType:
+			if arg.Type() == types.BytesType {
+				return fmt.Sprintf(fmtStr, arg.Value().([]byte)), nil
+			}
+			return fmt.Sprintf(fmtStr, arg.Value().(string)), nil
 		case types.IntType:
 			argInt, ok := arg.Value().(int64)
 			if !ok {
-				return "", fmt.Errorf("type conversion error from '%s' to '%s'", arg.Type(), types.IntType)
+				return "", fmt.Errorf("could not convert \"%s\" to int64", arg.Value())
 			}
 			return fmt.Sprintf(fmtStr, argInt), nil
 		case types.UintType:
-			argUint, ok := arg.Value().(uint64)
+			argInt, ok := arg.Value().(uint64)
 			if !ok {
-				return "", fmt.Errorf("type conversion error from '%s' to '%s'", arg.Type(), types.UintType)
+				return "", fmt.Errorf("could not convert \"%s\" to uint64", arg.Value())
 			}
-			return fmt.Sprintf(fmtStr, argUint), nil
-		case types.StringType:
-			argStr, ok := arg.Value().(string)
-			if !ok {
-				return "", fmt.Errorf("type conversion error from '%s' to '%s'", arg.Type(), types.StringType)
-			}
-			return fmt.Sprintf(fmtStr, argStr), nil
-		case types.BytesType:
-			argBytes, ok := arg.Value().([]byte)
-			if !ok {
-				return "", fmt.Errorf("type conversion error from '%s' to '%s'", arg.Type(), types.BytesType)
-			}
-			return fmt.Sprintf(fmtStr, argBytes), nil
+			return fmt.Sprintf(fmtStr, argInt), nil
 		default:
 			return "", hexFormatError(runtimeID, arg.Type().TypeName())
 		}
 	}
 }
 
-func (c *stringFormatter) Octal(arg ref.Val) (string, error) {
+func (c *stringFormatter) Octal(arg ref.Val, locale string) (string, error) {
 	switch arg.Type() {
 	case types.IntType:
-		argInt, ok := arg.Value().(int64)
-		if !ok {
-			return "", fmt.Errorf("type conversion error from '%s' to '%s'", arg.Type(), types.IntType)
-		}
-		return strconv.FormatInt(argInt, 8), nil
+		argInt := arg.Value().(int64)
+		return fmt.Sprintf("%o", argInt), nil
 	case types.UintType:
-		argUint, ok := arg.Value().(uint64)
-		if !ok {
-			return "", fmt.Errorf("type conversion error from '%s' to '%s'", arg.Type(), types.UintType)
-		}
-		return strconv.FormatUint(argUint, 8), nil
+		argInt := arg.Value().(uint64)
+		return fmt.Sprintf("%o", argInt), nil
 	default:
 		return "", octalFormatError(runtimeID, arg.Type().TypeName())
 	}
@@ -428,7 +432,7 @@ func (stringFormatValidator) Validate(env *cel.Env, _ cel.ValidatorConfig, a *as
 			ast:  a,
 		}
 		// use a placeholder locale, since locale doesn't affect syntax
-		_, err := parseFormatString(formatStr, formatCheck, formatCheck)
+		_, err := parseFormatString(formatStr, formatCheck, formatCheck, "en_US")
 		if err != nil {
 			iss.ReportErrorAtID(getErrorExprID(e.ID(), err), "%v", err)
 			continue
@@ -500,7 +504,7 @@ type stringFormatChecker struct {
 	ast           *ast.AST
 }
 
-func (c *stringFormatChecker) String(arg ref.Val) (string, error) {
+func (c *stringFormatChecker) String(arg ref.Val, locale string) (string, error) {
 	formatArg := c.args[c.currArgIndex]
 	valid, badID := c.verifyString(formatArg)
 	if !valid {
@@ -509,19 +513,20 @@ func (c *stringFormatChecker) String(arg ref.Val) (string, error) {
 	return "", nil
 }
 
-func (c *stringFormatChecker) Decimal(arg ref.Val) (string, error) {
+func (c *stringFormatChecker) Decimal(arg ref.Val, locale string) (string, error) {
 	id := c.args[c.currArgIndex].ID()
-	valid := c.verifyTypeOneOf(id, types.IntType, types.UintType, types.DoubleType)
+	valid := c.verifyTypeOneOf(id, types.IntType, types.UintType)
 	if !valid {
 		return "", decimalFormatError(id, c.typeOf(id).TypeName())
 	}
 	return "", nil
 }
 
-func (c *stringFormatChecker) Fixed(precision int) func(ref.Val) (string, error) {
-	return func(arg ref.Val) (string, error) {
+func (c *stringFormatChecker) Fixed(precision *int) func(ref.Val, string) (string, error) {
+	return func(arg ref.Val, locale string) (string, error) {
 		id := c.args[c.currArgIndex].ID()
-		valid := c.verifyTypeOneOf(id, types.IntType, types.UintType, types.DoubleType)
+		// we allow StringType since "NaN", "Infinity", and "-Infinity" are also valid values
+		valid := c.verifyTypeOneOf(id, types.DoubleType, types.StringType)
 		if !valid {
 			return "", fixedPointFormatError(id, c.typeOf(id).TypeName())
 		}
@@ -529,10 +534,10 @@ func (c *stringFormatChecker) Fixed(precision int) func(ref.Val) (string, error)
 	}
 }
 
-func (c *stringFormatChecker) Scientific(precision int) func(ref.Val) (string, error) {
-	return func(arg ref.Val) (string, error) {
+func (c *stringFormatChecker) Scientific(precision *int) func(ref.Val, string) (string, error) {
+	return func(arg ref.Val, locale string) (string, error) {
 		id := c.args[c.currArgIndex].ID()
-		valid := c.verifyTypeOneOf(id, types.IntType, types.UintType, types.DoubleType)
+		valid := c.verifyTypeOneOf(id, types.DoubleType, types.StringType)
 		if !valid {
 			return "", scientificFormatError(id, c.typeOf(id).TypeName())
 		}
@@ -540,17 +545,17 @@ func (c *stringFormatChecker) Scientific(precision int) func(ref.Val) (string, e
 	}
 }
 
-func (c *stringFormatChecker) Binary(arg ref.Val) (string, error) {
+func (c *stringFormatChecker) Binary(arg ref.Val, locale string) (string, error) {
 	id := c.args[c.currArgIndex].ID()
-	valid := c.verifyTypeOneOf(id, types.BoolType, types.IntType, types.UintType)
+	valid := c.verifyTypeOneOf(id, types.IntType, types.UintType, types.BoolType)
 	if !valid {
 		return "", binaryFormatError(id, c.typeOf(id).TypeName())
 	}
 	return "", nil
 }
 
-func (c *stringFormatChecker) Hex(useUpper bool) func(ref.Val) (string, error) {
-	return func(arg ref.Val) (string, error) {
+func (c *stringFormatChecker) Hex(useUpper bool) func(ref.Val, string) (string, error) {
+	return func(arg ref.Val, locale string) (string, error) {
 		id := c.args[c.currArgIndex].ID()
 		valid := c.verifyTypeOneOf(id, types.IntType, types.UintType, types.StringType, types.BytesType)
 		if !valid {
@@ -560,7 +565,7 @@ func (c *stringFormatChecker) Hex(useUpper bool) func(ref.Val) (string, error) {
 	}
 }
 
-func (c *stringFormatChecker) Octal(arg ref.Val) (string, error) {
+func (c *stringFormatChecker) Octal(arg ref.Val, locale string) (string, error) {
 	id := c.args[c.currArgIndex].ID()
 	valid := c.verifyTypeOneOf(id, types.IntType, types.UintType)
 	if !valid {
@@ -642,27 +647,27 @@ func (c *stringFormatChecker) verifyString(sub ast.Expr) (bool, int64) {
 // runtime execution.
 
 func binaryFormatError(id int64, badType string) error {
-	return newFormatError(id, "only ints, uints, and bools can be formatted as binary, was given %s", badType)
+	return newFormatError(id, "only integers and bools can be formatted as binary, was given %s", badType)
 }
 
 func decimalFormatError(id int64, badType string) error {
-	return newFormatError(id, "decimal clause can only be used on ints, uints, and doubles, was given %s", badType)
+	return newFormatError(id, "decimal clause can only be used on integers, was given %s", badType)
 }
 
 func fixedPointFormatError(id int64, badType string) error {
-	return newFormatError(id, "fixed-point clause can only be used on ints, uints, and doubles, was given %s", badType)
+	return newFormatError(id, "fixed-point clause can only be used on doubles, was given %s", badType)
 }
 
 func hexFormatError(id int64, badType string) error {
-	return newFormatError(id, "only ints, uints, bytes, and strings can be formatted as hex, was given %s", badType)
+	return newFormatError(id, "only integers, byte buffers, and strings can be formatted as hex, was given %s", badType)
 }
 
 func octalFormatError(id int64, badType string) error {
-	return newFormatError(id, "octal clause can only be used on ints and uints, was given %s", badType)
+	return newFormatError(id, "octal clause can only be used on integers, was given %s", badType)
 }
 
 func scientificFormatError(id int64, badType string) error {
-	return newFormatError(id, "scientific clause can only be used on ints, uints, and doubles, was given %s", badType)
+	return newFormatError(id, "scientific clause can only be used on doubles, was given %s", badType)
 }
 
 func stringFormatError(id int64, badType string) error {
@@ -712,33 +717,33 @@ func (c *stringArgList) Size() int64 {
 type formatStringInterpolator interface {
 	// String takes a ref.Val and a string representing the current locale identifier
 	// and returns the Val formatted as a string, or an error if one occurred.
-	String(ref.Val) (string, error)
+	String(ref.Val, string) (string, error)
 
 	// Decimal takes a ref.Val and a string representing the current locale identifier
 	// and returns the Val formatted as a decimal integer, or an error if one occurred.
-	Decimal(ref.Val) (string, error)
+	Decimal(ref.Val, string) (string, error)
 
 	// Fixed takes an int pointer representing precision (or nil if none was given) and
 	// returns a function operating in a similar manner to String and Decimal, taking a
 	// ref.Val and locale and returning the appropriate string. A closure is returned
 	// so precision can be set without needing an additional function call/configuration.
-	Fixed(int) func(ref.Val) (string, error)
+	Fixed(*int) func(ref.Val, string) (string, error)
 
 	// Scientific functions identically to Fixed, except the string returned from the closure
 	// is expected to be in scientific notation.
-	Scientific(int) func(ref.Val) (string, error)
+	Scientific(*int) func(ref.Val, string) (string, error)
 
 	// Binary takes a ref.Val and a string representing the current locale identifier
 	// and returns the Val formatted as a binary integer, or an error if one occurred.
-	Binary(ref.Val) (string, error)
+	Binary(ref.Val, string) (string, error)
 
 	// Hex takes a boolean that, if true, indicates the hex string output by the returned
 	// closure should use uppercase letters for A-F.
-	Hex(bool) func(ref.Val) (string, error)
+	Hex(bool) func(ref.Val, string) (string, error)
 
 	// Octal takes a ref.Val and a string representing the current locale identifier and
 	// returns the Val formatted in octal, or an error if one occurred.
-	Octal(ref.Val) (string, error)
+	Octal(ref.Val, string) (string, error)
 }
 
 // formatListArgs is an interface that allows user-defined list-like datatypes to be used
@@ -753,7 +758,7 @@ type formatListArgs interface {
 
 // parseFormatString formats a string according to the string.format syntax, taking the clause implementations
 // from the provided FormatCallback and the args from the given FormatList.
-func parseFormatString(formatStr string, callback formatStringInterpolator, list formatListArgs) (string, error) {
+func parseFormatString(formatStr string, callback formatStringInterpolator, list formatListArgs, locale string) (string, error) {
 	i := 0
 	argIndex := 0
 	var builtStr strings.Builder
@@ -777,7 +782,7 @@ func parseFormatString(formatStr string, callback formatStringInterpolator, list
 				if int64(argIndex) >= list.Size() {
 					return "", fmt.Errorf("index %d out of range", argIndex)
 				}
-				numRead, val, refErr := parseAndFormatClause(formatStr[i:], argAny, callback, list)
+				numRead, val, refErr := parseAndFormatClause(formatStr[i:], argAny, callback, list, locale)
 				if refErr != nil {
 					return "", refErr
 				}
@@ -801,7 +806,7 @@ func parseFormatString(formatStr string, callback formatStringInterpolator, list
 
 // parseAndFormatClause parses the format clause at the start of the given string with val, and returns
 // how many characters were consumed and the substituted string form of val, or an error if one occurred.
-func parseAndFormatClause(formatStr string, val ref.Val, callback formatStringInterpolator, list formatListArgs) (int, string, error) {
+func parseAndFormatClause(formatStr string, val ref.Val, callback formatStringInterpolator, list formatListArgs, locale string) (int, string, error) {
 	i := 1
 	read, formatter, err := parseFormattingClause(formatStr[i:], callback)
 	i += read
@@ -809,7 +814,7 @@ func parseAndFormatClause(formatStr string, val ref.Val, callback formatStringIn
 		return -1, "", newParseFormatError("could not parse formatting clause", err)
 	}
 
-	valStr, err := formatter(val)
+	valStr, err := formatter(val, locale)
 	if err != nil {
 		return -1, "", newParseFormatError("error during formatting", err)
 	}
@@ -845,16 +850,16 @@ func parseFormattingClause(formatStr string, callback formatStringInterpolator) 
 	}
 }
 
-func parsePrecision(formatStr string) (int, int, error) {
+func parsePrecision(formatStr string) (int, *int, error) {
 	i := 0
 	if formatStr[i] != '.' {
-		return i, defaultPrecision, nil
+		return i, nil, nil
 	}
 	i++
 	var buffer strings.Builder
 	for {
 		if i >= len(formatStr) {
-			return -1, -1, errors.New("could not find end of precision specifier")
+			return -1, nil, errors.New("could not find end of precision specifier")
 		}
 		if !isASCIIDigit(rune(formatStr[i])) {
 			break
@@ -864,12 +869,9 @@ func parsePrecision(formatStr string) (int, int, error) {
 	}
 	precision, err := strconv.Atoi(buffer.String())
 	if err != nil {
-		return -1, -1, fmt.Errorf("error while converting precision to integer: %w", err)
+		return -1, nil, fmt.Errorf("error while converting precision to integer: %w", err)
 	}
-	if precision < 0 {
-		return -1, -1, fmt.Errorf("negative precision: %d", precision)
-	}
-	return i, precision, nil
+	return i, &precision, nil
 }
 
 func isASCIIDigit(r rune) bool {
