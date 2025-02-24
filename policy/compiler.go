@@ -198,7 +198,8 @@ func Compile(env *cel.Env, p *Policy, opts ...CompilerOption) (*cel.Ast, *cel.Is
 	if iss.Err() != nil {
 		return nil, iss
 	}
-	composer := NewRuleComposer(env, p)
+	// An error cannot happen when composing without supplying options
+	composer, _ := NewRuleComposer(env)
 	return composer.Compose(rule)
 }
 

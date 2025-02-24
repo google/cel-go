@@ -31,8 +31,55 @@ import (
 
 func TestCompile(t *testing.T) {
 	for _, tst := range policyTests {
-		t.Run(tst.name, func(t *testing.T) {
-			r := newRunner(t, tst.name, tst.expr, tst.parseOpts, tst.envOpts...)
+		tc := tst
+		t.Run(tc.name, func(t *testing.T) {
+			r := newRunner(tc.name, tc.expr, tc.parseOpts)
+			env, ast, iss := r.compile(t, tc.envOpts, []CompilerOption{})
+			if iss.Err() != nil {
+				t.Fatalf("Compile(%s) failed: %v", r.name, iss.Err())
+			}
+			r.setup(t, env, ast)
+			r.run(t)
+		})
+	}
+}
+
+func TestRuleComposerError(t *testing.T) {
+	env, err := cel.NewEnv()
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	_, err = NewRuleComposer(env, FirstMatchUnnestHeight(-1))
+	if err == nil || !strings.Contains(err.Error(), "invalid unnest") {
+		t.Errorf("NewRuleComposer() got %v, wanted 'invalid unnest'", err)
+	}
+}
+
+func TestRuleComposerUnnest(t *testing.T) {
+	for _, tst := range composerUnnestTests {
+		tc := tst
+		t.Run(tc.name, func(t *testing.T) {
+			r := newRunner(tc.name, tc.expr, []ParserOption{})
+			env, rule, iss := r.compileRule(t)
+			if iss.Err() != nil {
+				t.Fatalf("CompileRule() failed: %v", iss.Err())
+			}
+			rc, err := NewRuleComposer(env, tc.composerOpts...)
+			if err != nil {
+				t.Fatalf("NewRuleComposer() failed: %v", err)
+			}
+			ast, iss := rc.Compose(rule)
+			if iss.Err() != nil {
+				t.Fatalf("Compose(rule) failed: %v", iss.Err())
+			}
+			unparsed, err := cel.AstToString(ast)
+			if err != nil {
+				t.Fatalf("cel.AstToString() failed: %v", err)
+			}
+			if normalize(unparsed) != normalize(tc.composed) {
+				t.Errorf("cel.AstToString() got %s, wanted %s", unparsed, tc.composed)
+			}
+			r.setup(t, env, ast)
 			r.run(t)
 		})
 	}
@@ -40,7 +87,8 @@ func TestCompile(t *testing.T) {
 
 func TestCompileError(t *testing.T) {
 	for _, tst := range policyErrorTests {
-		_, _, iss := compile(t, tst.name, []ParserOption{}, []cel.EnvOption{}, tst.compilerOpts)
+		policy := parsePolicy(t, tst.name, []ParserOption{})
+		_, _, iss := compile(t, tst.name, policy, []cel.EnvOption{}, tst.compilerOpts)
 		if iss.Err() == nil {
 			t.Fatalf("compile(%s) did not error, wanted %s", tst.name, tst.err)
 		}
@@ -98,7 +146,8 @@ func TestMaxNestedExpressions_Error(t *testing.T) {
 	wantError := `ERROR: testdata/required_labels/policy.yaml:15:8: error configuring compiler option: nested expression limit must be non-negative, non-zero value: -1
  | name: "required_labels"
  | .......^`
-	_, _, iss := compile(t, policyName, []ParserOption{}, []cel.EnvOption{}, []CompilerOption{MaxNestedExpressions(-1)})
+	policy := parsePolicy(t, policyName, []ParserOption{})
+	_, _, iss := compile(t, policyName, policy, []cel.EnvOption{}, []CompilerOption{MaxNestedExpressions(-1)})
 	if iss.Err() == nil {
 		t.Fatalf("compile(%s) did not error, wanted %s", policyName, wantError)
 	}
@@ -109,55 +158,40 @@ func TestMaxNestedExpressions_Error(t *testing.T) {
 
 func BenchmarkCompile(b *testing.B) {
 	for _, tst := range policyTests {
-		r := newRunner(b, tst.name, tst.expr, tst.parseOpts, tst.envOpts...)
+		r := newRunner(tst.name, tst.expr, tst.parseOpts)
+		env, ast, iss := r.compile(b, tst.envOpts, []CompilerOption{})
+		if iss.Err() != nil {
+			b.Fatalf("Compile() failed: %v", iss.Err())
+		}
+		r.setup(b, env, ast)
 		r.bench(b)
 	}
 }
 
-func newRunner(t testing.TB, name, expr string, parseOpts []ParserOption, opts ...cel.EnvOption) *runner {
-	r := &runner{
+func newRunner(name, expr string, parseOpts []ParserOption, opts ...cel.EnvOption) *runner {
+	return &runner{
 		name:      name,
-		envOpts:   opts,
 		parseOpts: parseOpts,
 		expr:      expr}
-	r.setup(t)
-	return r
 }
 
 type runner struct {
-	name         string
-	envOpts      []cel.EnvOption
-	parseOpts    []ParserOption
-	compilerOpts []CompilerOption
-	env          *cel.Env
-	expr         string
-	prg          cel.Program
+	name      string
+	parseOpts []ParserOption
+	env       *cel.Env
+	expr      string
+	prg       cel.Program
 }
 
-func mustCompileExpr(t testing.TB, env *cel.Env, expr string) *cel.Ast {
-	t.Helper()
-	out, iss := env.Compile(expr)
-	if iss.Err() != nil {
-		t.Fatalf("env.Compile(%s) failed: %v", expr, iss.Err())
-	}
-	return out
+func (r *runner) compile(t testing.TB, envOpts []cel.EnvOption, compilerOpts []CompilerOption) (*cel.Env, *cel.Ast, *cel.Issues) {
+	policy := parsePolicy(t, r.name, r.parseOpts)
+	return compile(t, r.name, policy, envOpts, compilerOpts)
 }
 
-func compile(t testing.TB, name string, parseOpts []ParserOption, envOpts []cel.EnvOption, compilerOpts []CompilerOption) (*cel.Env, *cel.Ast, *cel.Issues) {
+func (r *runner) compileRule(t testing.TB) (*cel.Env, *CompiledRule, *cel.Issues) {
 	t.Helper()
-	config := readPolicyConfig(t, fmt.Sprintf("testdata/%s/config.yaml", name))
-	srcFile := readPolicy(t, fmt.Sprintf("testdata/%s/policy.yaml", name))
-	parser, err := NewParser(parseOpts...)
-	if err != nil {
-		t.Fatalf("NewParser() failed: %v", err)
-	}
-	policy, iss := parser.Parse(srcFile)
-	if iss.Err() != nil {
-		t.Fatalf("Parse() failed: %v", iss.Err())
-	}
-	if policy.name.Value != name {
-		t.Errorf("policy name is %v, wanted %q", policy.name, name)
-	}
+	config := readPolicyConfig(t, fmt.Sprintf("testdata/%s/config.yaml", r.name))
+	policy := parsePolicy(t, r.name, r.parseOpts)
 	env, err := cel.NewCustomEnv(
 		cel.OptionalTypes(),
 		cel.EnableMacroCallTracking(),
@@ -166,26 +200,17 @@ func compile(t testing.TB, name string, parseOpts []ParserOption, envOpts []cel.
 	if err != nil {
 		t.Fatalf("cel.NewEnv() failed: %v", err)
 	}
-	// Configure any custom environment options.
-	env, err = env.Extend(envOpts...)
-	if err != nil {
-		t.Fatalf("env.Extend() with env options %v, failed: %v", config, err)
-	}
 	// Configure declarations
 	env, err = env.Extend(FromConfig(config))
 	if err != nil {
 		t.Fatalf("env.Extend() with config options %v, failed: %v", config, err)
 	}
-	ast, iss := Compile(env, policy, compilerOpts...)
-	return env, ast, iss
+	rule, iss := CompileRule(env, policy)
+	return env, rule, iss
 }
 
-func (r *runner) setup(t testing.TB) {
+func (r *runner) setup(t testing.TB, env *cel.Env, ast *cel.Ast) {
 	t.Helper()
-	env, ast, iss := compile(t, r.name, r.parseOpts, r.envOpts, r.compilerOpts)
-	if iss.Err() != nil {
-		t.Fatalf("Compile(%s) failed: %v", r.name, iss.Err())
-	}
 	pExpr, err := cel.AstToString(ast)
 	if err != nil {
 		t.Fatalf("cel.AstToString() failed: %v", err)
@@ -321,6 +346,56 @@ func (r *runner) eval(t testing.TB, expr string) ref.Val {
 		t.Fatalf("prg.Eval() failed: %v", err)
 	}
 	return out
+}
+
+func mustCompileExpr(t testing.TB, env *cel.Env, expr string) *cel.Ast {
+	t.Helper()
+	out, iss := env.Compile(expr)
+	if iss.Err() != nil {
+		t.Fatalf("env.Compile(%s) failed: %v", expr, iss.Err())
+	}
+	return out
+}
+
+func parsePolicy(t testing.TB, name string, parseOpts []ParserOption) *Policy {
+	t.Helper()
+	srcFile := readPolicy(t, fmt.Sprintf("testdata/%s/policy.yaml", name))
+	parser, err := NewParser(parseOpts...)
+	if err != nil {
+		t.Fatalf("NewParser() failed: %v", err)
+	}
+	policy, iss := parser.Parse(srcFile)
+	if iss.Err() != nil {
+		t.Fatalf("Parse() failed: %v", iss.Err())
+	}
+	if policy.name.Value != name {
+		t.Errorf("policy name is %v, wanted %q", policy.name, name)
+	}
+	return policy
+}
+
+func compile(t testing.TB, name string, policy *Policy, envOpts []cel.EnvOption, compilerOpts []CompilerOption) (*cel.Env, *cel.Ast, *cel.Issues) {
+	config := readPolicyConfig(t, fmt.Sprintf("testdata/%s/config.yaml", name))
+	env, err := cel.NewCustomEnv(
+		cel.OptionalTypes(),
+		cel.EnableMacroCallTracking(),
+		cel.ExtendedValidations(),
+		ext.Bindings())
+	if err != nil {
+		t.Fatalf("cel.NewEnv() failed: %v", err)
+	}
+	// Configure any custom environment options.
+	env, err = env.Extend(envOpts...)
+	if err != nil {
+		t.Fatalf("env.Extend() with env options %v, failed: %v", config, err)
+	}
+	// Configure declarations
+	env, err = env.Extend(FromConfig(config))
+	if err != nil {
+		t.Fatalf("env.Extend() with config options %v, failed: %v", config, err)
+	}
+	ast, iss := Compile(env, policy, compilerOpts...)
+	return env, ast, iss
 }
 
 func normalize(s string) string {
