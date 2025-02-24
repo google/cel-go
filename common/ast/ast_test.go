@@ -339,6 +339,31 @@ func TestMaxID(t *testing.T) {
 	}
 }
 
+func TestHeights(t *testing.T) {
+	tests := []struct {
+		expr   string
+		height int
+	}{
+		{`'a' == 'b'`, 1},
+		{`'a'.size()`, 1},
+		{`[1, 2].size()`, 2},
+		{`size('a')`, 1},
+		{`has({'a': 1}.a)`, 2},
+		{`{'a': 1}`, 1},
+		{`{'a': 1}['a']`, 2},
+		{`[1, 2, 3].exists(i, i % 2 == 1)`, 4},
+		{`google.expr.proto3.test.TestAllTypes{}`, 1},
+		{`google.expr.proto3.test.TestAllTypes{repeated_int32: [1, 2]}`, 2},
+	}
+	for _, tst := range tests {
+		checked := mustTypeCheck(t, tst.expr)
+		maxHeight := ast.Heights(checked)[checked.Expr().ID()]
+		if maxHeight != tst.height {
+			t.Errorf("ast.Heights(%q) got max height %d, wanted %d", tst.expr, maxHeight, tst.height)
+		}
+	}
+}
+
 func mockRelativeSource(t testing.TB, text string, lineOffsets []int32, baseLocation common.Location) common.Source {
 	t.Helper()
 	return &mockSource{

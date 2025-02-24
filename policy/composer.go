@@ -200,12 +200,12 @@ func (opt *ruleComposerImpl) maybeUnnestRule(ctx *cel.OptimizerContext, ruleExpr
 	ruleAST := ctx.NewAST(ruleExpr)
 	ruleNav := ast.NavigateAST(ruleAST)
 	// Branches are ordered from leaf to root via the ast.MatchDescendants call.
-	calculator := newHeightCalculator()
+	heights := ast.Heights(ruleAST)
 	branchMap := map[int64]int{}
 	branches := []ast.NavigableExpr{}
 	ast.MatchDescendants(ruleNav, func(e ast.NavigableExpr) bool {
-		// Compute and record the height of the expression
-		calculator.computeHeight(e)
+		// // Compute and record the height of the expression
+		// calculator.computeHeight(e)
 
 		// If the expression is a comprehension, then all branches captured previously that relate to
 		// the comprehension body should be removed from the list of candidate branches for unnesting.
@@ -241,11 +241,11 @@ func (opt *ruleComposerImpl) maybeUnnestRule(ctx *cel.OptimizerContext, ruleExpr
 		if _, found := branchMap[branch.ID()]; !found {
 			continue
 		}
-		height := calculator.heights[branch.ID()]
+		height := heights[branch.ID()]
 		if height < opt.firstMatchUnnestHeight {
 			continue
 		}
-		calculator.reduceHeight(branch, opt.firstMatchUnnestHeight)
+		reduceHeight(heights, branch, opt.firstMatchUnnestHeight)
 		opt.registerBranchVariable(ctx, branch)
 	}
 	return ruleExpr
@@ -503,39 +503,13 @@ func enumerateExprIDs(exprs ...ast.NavigableExpr) []int64 {
 	return ids
 }
 
-func newHeightCalculator() *heightCalculator {
-	return &heightCalculator{
-		heights: make(map[int64]int),
-	}
-}
-
-type heightCalculator struct {
-	heights map[int64]int
-}
-
-func (c *heightCalculator) reduceHeight(e ast.NavigableExpr, amount int) {
-	height := c.heights[e.ID()]
+func reduceHeight(heights map[int64]int, e ast.NavigableExpr, amount int) {
+	height := heights[e.ID()]
 	if height < amount {
 		return
 	}
-	c.heights[e.ID()] = height - amount
+	heights[e.ID()] = height - amount
 	if parent, hasParent := e.Parent(); hasParent {
-		c.reduceHeight(parent, amount)
+		reduceHeight(heights, parent, amount)
 	}
-}
-
-func (c *heightCalculator) computeHeight(e ast.NavigableExpr) int {
-	_, found := c.heights[e.ID()]
-	if !found {
-		c.heights[e.ID()] = 0
-	}
-	parent, hasParent := e.Parent()
-	for i := 0; i < e.Depth() && hasParent; i++ {
-		ph, found := c.heights[parent.ID()]
-		if !found || ph < i+1 {
-			c.heights[parent.ID()] = i + 1
-		}
-		parent, hasParent = parent.Parent()
-	}
-	return c.heights[e.ID()]
 }
