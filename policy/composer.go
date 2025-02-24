@@ -45,7 +45,7 @@ func NewRuleComposer(env *cel.Env, opts ...ComposerOption) (*RuleComposer, error
 	composer := &RuleComposer{
 		env: env,
 		// set the default match nesting depth to something reasonable.
-		firstMatchUnnestHeight: 10,
+		firstMatchUnnestHeight: 25,
 	}
 	var err error
 	for _, opt := range opts {
