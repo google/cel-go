@@ -134,6 +134,10 @@ func tryFold(ctx *OptimizerContext, a *ast.AST, expr ast.Expr) error {
 	if err != nil {
 		return err
 	}
+	// Don't update the expression if it's an unknown value.
+	if out.Type() == types.UnknownType {
+		return nil
+	}
 	// Update the fold expression to be a literal.
 	ctx.UpdateExpr(expr, ctx.NewLiteral(out))
 	return nil
