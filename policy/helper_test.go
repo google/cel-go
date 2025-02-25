@@ -212,6 +212,24 @@ var (
 			spec.labels,
 			@index0.filter(l, !(l in resource.labels)),
 			resource.labels.transformList(l, value, l in @index0 && value != @index0[l], l),
+			@index1.size(), @index3 > 0,
+			"missing one or more required labels: %s".format([@index1]),
+			optional.of(@index5),
+			@index2.size(),
+			@index7 > 0,
+			"invalid values provided on one or more labels: %s".format([@index2]),
+			optional.of(@index9),
+			optional.none()],
+			@index4 ? @index6 : (@index8 ? @index10 : @index11))`,
+		},
+		{
+			name:         "required_labels",
+			composerOpts: []ComposerOption{FirstMatchUnnestHeight(4)},
+			composed: `
+		cel.@block([
+			spec.labels,
+			@index0.filter(l, !(l in resource.labels)),
+			resource.labels.transformList(l, value, l in @index0 && value != @index0[l], l),
 			(@index2.size() > 0)
 			  ? optional.of("invalid values provided on one or more labels: %s".format([@index2]))
 			  : optional.none()
@@ -222,7 +240,7 @@ var (
 		},
 		{
 			name:         "nested_rule2",
-			composerOpts: []ComposerOption{FirstMatchUnnestHeight(3)},
+			composerOpts: []ComposerOption{FirstMatchUnnestHeight(4)},
 			composed: `
 	cel.@block([
 	  ["us", "uk", "es"],
@@ -251,37 +269,6 @@ var (
 		},
 		{
 			name:         "limits",
-			composerOpts: []ComposerOption{FirstMatchUnnestHeight(1)},
-			composed: `
-	cel.@block([
-		"hello",
-		"goodbye",
-		"me",
-		"%s, %s",
-		@index3.format([@index1, @index2]),
-		(now.getHours() < 24) ? optional.of(@index4 + "!!!") : optional.none(),
-		(now.getHours() < 22) ? optional.of(@index4 + "!!") : @index5,
-		(now.getHours() < 21) ? optional.of(@index4 + "!") : @index6],
-		(now.getHours() >= 20) ? @index7 : optional.of(@index3.format([@index0, @index2])))`,
-		},
-		{
-			name:         "limits",
-			composerOpts: []ComposerOption{FirstMatchUnnestHeight(2)},
-			composed: `
-	cel.@block([
-		"hello",
-		"goodbye",
-		"me",
-		"%s, %s",
-		@index3.format([@index1, @index2]),
-		(now.getHours() < 24) ? optional.of(@index4 + "!!!") : optional.none(),
-		(now.getHours() < 22) ? optional.of(@index4 + "!!") : @index5],
-		(now.getHours() >= 20)
-		? ((now.getHours() < 21) ? optional.of(@index4 + "!") : @index6)
-		: optional.of(@index3.format([@index0, @index2])))`,
-		},
-		{
-			name:         "limits",
 			composerOpts: []ComposerOption{FirstMatchUnnestHeight(3)},
 			composed: `
 	cel.@block([
@@ -290,12 +277,44 @@ var (
 		"me",
 		"%s, %s",
 		@index3.format([@index1, @index2]),
-		(now.getHours() < 24) ? optional.of(@index4 + "!!!") : optional.none()],
+		(now.getHours() < 24) ? optional.of(@index4 + "!!!") : optional.none(),
+		optional.of(@index3.format([@index0, @index2]))],
 		(now.getHours() >= 20)
-		? ((now.getHours() < 21)
-		    ? optional.of(@index4 + "!") : ((now.getHours() < 22)
-			? optional.of(@index4 + "!!") : @index5))
-		: optional.of(@index3.format([@index0, @index2])))`,
+		? ((now.getHours() < 21) ? optional.of(@index4 + "!") :
+		  ((now.getHours() < 22) ? optional.of(@index4 + "!!") : @index5))
+		: @index6)`,
+		},
+		{
+			name:         "limits",
+			composerOpts: []ComposerOption{FirstMatchUnnestHeight(4)},
+			composed: `
+	cel.@block([
+		"hello",
+		"goodbye",
+		"me",
+		"%s, %s",
+		@index3.format([@index1, @index2]),
+		(now.getHours() < 22) ? optional.of(@index4 + "!!") :
+		((now.getHours() < 24) ? optional.of(@index4 + "!!!") : optional.none())],
+		(now.getHours() >= 20)
+		? ((now.getHours() < 21) ? optional.of(@index4 + "!") : @index5)
+		: optional.of(@index3.format([@index0, @index2])))
+		`,
+		},
+		{
+			name:         "limits",
+			composerOpts: []ComposerOption{FirstMatchUnnestHeight(5)},
+			composed: `
+	cel.@block([
+		"hello",
+		"goodbye",
+		"me",
+		"%s, %s",
+		@index3.format([@index1, @index2]),
+		(now.getHours() < 21) ? optional.of(@index4 + "!") :
+		((now.getHours() < 22) ? optional.of(@index4 + "!!") :
+		((now.getHours() < 24) ? optional.of(@index4 + "!!!") : optional.none()))],
+		(now.getHours() >= 20) ? @index5 : optional.of(@index3.format([@index0, @index2])))`,
 		},
 	}
 

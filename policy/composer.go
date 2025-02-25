@@ -201,33 +201,27 @@ func (opt *ruleComposerImpl) maybeUnnestRule(ctx *cel.OptimizerContext, ruleExpr
 	ruleNav := ast.NavigateAST(ruleAST)
 	// Branches are ordered from leaf to root via the ast.MatchDescendants call.
 	heights := ast.Heights(ruleAST)
-	branchMap := map[int64]int{}
-	branches := []ast.NavigableExpr{}
+	unnestMap := map[int64]int{}
+	unnestExprs := []ast.NavigableExpr{}
 	ast.MatchDescendants(ruleNav, func(e ast.NavigableExpr) bool {
-		// // Compute and record the height of the expression
-		// calculator.computeHeight(e)
-
 		// If the expression is a comprehension, then all branches captured previously that relate to
 		// the comprehension body should be removed from the list of candidate branches for unnesting.
 		if e.Kind() == ast.ComprehensionKind {
 			// This only removes branches from the map, but not from the list of branches.
-			removeIneligibleConditions(e, branchMap)
+			removeIneligibleConditions(e, unnestMap)
 			return false
 		}
 		// Otherwise, if the expression is not a call, don't include it.
 		if e.Kind() != ast.CallKind {
 			return false
 		}
-
-		// Include all calls for ?:, &&, and || as possible branches for splitting.
-		call := e.AsCall()
-		function := call.FunctionName()
-		if function == operators.Conditional || function == operators.LogicalAnd || function == operators.LogicalOr {
-			branchMap[e.ID()] = len(branches)
-			branches = append(branches, e)
-			return true
+		height := heights[e.ID()]
+		if height < opt.firstMatchUnnestHeight {
+			return false
 		}
-		return false
+		unnestMap[e.ID()] = len(unnestExprs)
+		unnestExprs = append(unnestExprs, e)
+		return true
 	})
 
 	// Prune the list of branch splits down to only those not included in comprehensions.
@@ -236,17 +230,17 @@ func (opt *ruleComposerImpl) maybeUnnestRule(ctx *cel.OptimizerContext, ruleExpr
 	// @index1: match ? result : @index0
 	// @index2: match ? result : @index1
 	// match ? result : @index2
-	for idx := 0; idx < len(branches)-1; idx++ {
-		branch := branches[idx]
-		if _, found := branchMap[branch.ID()]; !found {
+	for idx := range len(unnestExprs) - 1 {
+		e := unnestExprs[idx]
+		if _, found := unnestMap[e.ID()]; !found {
 			continue
 		}
-		height := heights[branch.ID()]
+		height := heights[e.ID()]
 		if height < opt.firstMatchUnnestHeight {
 			continue
 		}
-		reduceHeight(heights, branch, opt.firstMatchUnnestHeight)
-		opt.registerBranchVariable(ctx, branch)
+		reduceHeight(heights, e, opt.firstMatchUnnestHeight)
+		opt.registerBranchVariable(ctx, e)
 	}
 	return ruleExpr
 }

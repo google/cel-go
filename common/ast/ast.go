@@ -465,6 +465,9 @@ func (v *maxIDVisitor) VisitEntryExpr(e EntryExpr) {
 
 type heightVisitor map[int64]int
 
+// VisitExpr computes the height of a given node as the max height of its children plus one.
+//
+// Identifiers and literals are treated as having a height of zero.
 func (hv heightVisitor) VisitExpr(e Expr) {
 	// default includes IdentKind, LiteralKind
 	hv[e.ID()] = 0
@@ -496,6 +499,7 @@ func (hv heightVisitor) VisitExpr(e Expr) {
 	}
 }
 
+// VisitEntryExpr computes the max height of a map or struct entry and associates the height with the entry id.
 func (hv heightVisitor) VisitEntryExpr(e EntryExpr) {
 	hv[e.ID()] = 0
 	switch e.Kind() {
