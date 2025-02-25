@@ -15,7 +15,9 @@
 package policy
 
 import (
+	"cmp"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/google/cel-go/cel"
@@ -27,14 +29,14 @@ import (
 // ComposerOption is a functional option used to configure a RuleComposer
 type ComposerOption func(*RuleComposer) (*RuleComposer, error)
 
-// FirstMatchUnnestHeight determines the depth at which nested matches are split into local
+// ExpressionUnnestHeight determines the height at which nested expressions are split into local
 // variables within the cel.@block declaration.
-func FirstMatchUnnestHeight(height int) ComposerOption {
+func ExpressionUnnestHeight(height int) ComposerOption {
 	return func(c *RuleComposer) (*RuleComposer, error) {
 		if height <= 0 {
 			return nil, fmt.Errorf("invalid unnest height: value must be positive: %d", height)
 		}
-		c.firstMatchUnnestHeight = height
+		c.exprUnnestHeight = height
 		return c, nil
 	}
 }
@@ -44,8 +46,8 @@ func FirstMatchUnnestHeight(height int) ComposerOption {
 func NewRuleComposer(env *cel.Env, opts ...ComposerOption) (*RuleComposer, error) {
 	composer := &RuleComposer{
 		env: env,
-		// set the default match nesting depth to something reasonable.
-		firstMatchUnnestHeight: 25,
+		// set the default nesting height to something reasonable.
+		exprUnnestHeight: 25,
 	}
 	var err error
 	for _, opt := range opts {
@@ -61,10 +63,10 @@ func NewRuleComposer(env *cel.Env, opts ...ComposerOption) (*RuleComposer, error
 type RuleComposer struct {
 	env *cel.Env
 
-	// firstMatchUnnestHeight determines the depth at which nested matches are split into
+	// exprUnnestHeight determines the height at which nested matches are split into
 	// index variables within a cel.@block index declaration when composing matches under
 	// the first-match semantic.
-	firstMatchUnnestHeight int
+	exprUnnestHeight int
 }
 
 // Compose stitches together a set of expressions within a CompiledRule into a single CEL ast.
@@ -72,9 +74,9 @@ func (c *RuleComposer) Compose(r *CompiledRule) (*cel.Ast, *cel.Issues) {
 	ruleRoot, _ := c.env.Compile("true")
 	opt := cel.NewStaticOptimizer(
 		&ruleComposerImpl{
-			rule:                   r,
-			varIndices:             []varIndex{},
-			firstMatchUnnestHeight: c.firstMatchUnnestHeight,
+			rule:             r,
+			varIndices:       []varIndex{},
+			exprUnnestHeight: c.exprUnnestHeight,
 		})
 	return opt.Optimize(c.env, ruleRoot)
 }
@@ -92,7 +94,7 @@ type ruleComposerImpl struct {
 	nextVarIndex int
 	varIndices   []varIndex
 
-	firstMatchUnnestHeight int
+	exprUnnestHeight int
 }
 
 // Optimize implements an AST optimizer for CEL which composes an expression graph into a single
@@ -196,12 +198,12 @@ func (opt *ruleComposerImpl) rewriteVariableName(ctx *cel.OptimizerContext) ast.
 }
 
 func (opt *ruleComposerImpl) maybeUnnestRule(ctx *cel.OptimizerContext, ruleExpr ast.Expr) ast.Expr {
-	// Split the expr into local variables based on expression depth within ternaries
+	// Split the expr into local variables based on expression height
 	ruleAST := ctx.NewAST(ruleExpr)
 	ruleNav := ast.NavigateAST(ruleAST)
 	// Unnest expressions are ordered from leaf to root via the ast.MatchDescendants call.
 	heights := ast.Heights(ruleAST)
-	unnestMap := map[int64]int{}
+	unnestMap := map[int64]bool{}
 	unnestExprs := []ast.NavigableExpr{}
 	ast.MatchDescendants(ruleNav, func(e ast.NavigableExpr) bool {
 		// If the expression is a comprehension, then all unnest candidates captured previously that relate
@@ -216,25 +218,31 @@ func (opt *ruleComposerImpl) maybeUnnestRule(ctx *cel.OptimizerContext, ruleExpr
 			return false
 		}
 		height := heights[e.ID()]
-		if height < opt.firstMatchUnnestHeight {
+		if height < opt.exprUnnestHeight {
 			return false
 		}
-		unnestMap[e.ID()] = len(unnestExprs)
+		unnestMap[e.ID()] = true
 		unnestExprs = append(unnestExprs, e)
 		return true
+	})
+
+	slices.SortStableFunc(unnestExprs, func(a, b ast.NavigableExpr) int {
+		heightA := heights[a.ID()]
+		heightB := heights[b.ID()]
+		return cmp.Compare(heightA, heightB)
 	})
 
 	// Prune the expression set to unnest down to only those not included in comprehensions.
 	for idx := 0; idx < len(unnestExprs)-1; idx++ {
 		e := unnestExprs[idx]
-		if _, found := unnestMap[e.ID()]; !found {
+		if present, found := unnestMap[e.ID()]; !found || !present {
 			continue
 		}
 		height := heights[e.ID()]
-		if height < opt.firstMatchUnnestHeight {
+		if height < opt.exprUnnestHeight {
 			continue
 		}
-		reduceHeight(heights, e, opt.firstMatchUnnestHeight)
+		reduceHeight(heights, e, opt.exprUnnestHeight)
 		opt.registerBranchVariable(ctx, e)
 	}
 	return ruleExpr
@@ -261,7 +269,7 @@ func (opt *ruleComposerImpl) registerVariable(ctx *cel.OptimizerContext, v *Comp
 // a deeply nested logical branch or logical operator.
 func (opt *ruleComposerImpl) registerBranchVariable(ctx *cel.OptimizerContext, varExpr ast.NavigableExpr) {
 	indexVar := fmt.Sprintf("@index%d", opt.nextVarIndex)
-	varExprCopy, _ := ctx.CopyAST(ctx.NewAST(varExpr))
+	varExprCopy := ctx.CopyASTAndMetadata(ctx.NewAST(varExpr))
 	vi := varIndex{
 		index:    opt.nextVarIndex,
 		indexVar: indexVar,
@@ -464,7 +472,7 @@ func isOptionalNone(e ast.Expr) bool {
 		len(e.AsCall().Args()) == 0
 }
 
-func removeIneligibleSubExprs(e ast.NavigableExpr, unnestMap map[int64]int) {
+func removeIneligibleSubExprs(e ast.NavigableExpr, unnestMap map[int64]bool) {
 	for _, id := range comprehensionSubExprIDs(e) {
 		if _, found := unnestMap[id]; found {
 			delete(unnestMap, id)

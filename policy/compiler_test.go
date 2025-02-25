@@ -49,7 +49,7 @@ func TestRuleComposerError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewEnv() failed: %v", err)
 	}
-	_, err = NewRuleComposer(env, FirstMatchUnnestHeight(-1))
+	_, err = NewRuleComposer(env, ExpressionUnnestHeight(-1))
 	if err == nil || !strings.Contains(err.Error(), "invalid unnest") {
 		t.Errorf("NewRuleComposer() got %v, wanted 'invalid unnest'", err)
 	}

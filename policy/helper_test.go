@@ -113,6 +113,19 @@ var (
 	.or((x > 1) ? optional.of(false) : optional.none()))`,
 		},
 		{
+			name: "unnest",
+			expr: `
+	cel.@block([values.filter(x, x > 2)],
+	((@index0.size() == 0) ? false : @index0.all(x, x % 2 == 0))
+	? optional.of("some divisible by 2")
+	: (values.map(x, x * 3).exists(x, x % 4 == 0)
+	   ? optional.of("at least one divisible by 4")
+	   : (values.map(x, x * x * x).exists(x, x % 6 == 0)
+	     ? optional.of("at least one power of 6")
+		 : optional.none())))
+			`,
+		},
+		{
 			name: "context_pb",
 			expr: `
 	(single_int32 > google.expr.proto3.test.TestAllTypes{single_int64: 10}.single_int64)
@@ -144,7 +157,7 @@ var (
 	cel.@block([
 	  spec.labels,
 	  @index0.filter(l, !(l in resource.labels)),
-	    resource.labels.transformList(l, value, l in @index0 && value != @index0[l], l)],
+	  resource.labels.transformList(l, value, l in @index0 && value != @index0[l], l)],
       (@index1.size() > 0)
 	   ? optional.of("missing one or more required labels: %s".format([@index1]))
 	   : ((@index2.size() > 0)
@@ -205,26 +218,40 @@ var (
 		composerOpts []ComposerOption
 	}{
 		{
+			name:         "unnest",
+			composerOpts: []ComposerOption{ExpressionUnnestHeight(2)},
+			composed: `
+	cel.@block([
+	  values.filter(x, x > 2),
+	  @index0.size() == 0,
+	  @index1 ? false : @index0.all(x, x % 2 == 0),
+	  values.map(x, x * x * x).exists(x, x % 6 == 0)
+	    ? optional.of("at least one power of 6")
+		: optional.none(),
+	  values.map(x, x * 3).exists(x, x % 4 == 0)
+	    ? optional.of("at least one divisible by 4")
+		: @index3],
+	  @index2 ? optional.of("some divisible by 2") : @index4)
+			`,
+		},
+		{
 			name:         "required_labels",
-			composerOpts: []ComposerOption{FirstMatchUnnestHeight(1)},
+			composerOpts: []ComposerOption{ExpressionUnnestHeight(2)},
 			composed: `
 		cel.@block([
 			spec.labels,
 			@index0.filter(l, !(l in resource.labels)),
 			resource.labels.transformList(l, value, l in @index0 && value != @index0[l], l),
-			@index1.size(), @index3 > 0,
+			@index1.size() > 0,
 			"missing one or more required labels: %s".format([@index1]),
-			optional.of(@index5),
-			@index2.size(),
-			@index7 > 0,
-			"invalid values provided on one or more labels: %s".format([@index2]),
-			optional.of(@index9),
-			optional.none()],
-			@index4 ? @index6 : (@index8 ? @index10 : @index11))`,
+			@index2.size() > 0,
+			"invalid values provided on one or more labels: %s".format([@index2])],
+			@index3 ? optional.of(@index4) : (@index5 ? optional.of(@index6) : optional.none()))
+			`,
 		},
 		{
 			name:         "required_labels",
-			composerOpts: []ComposerOption{FirstMatchUnnestHeight(4)},
+			composerOpts: []ComposerOption{ExpressionUnnestHeight(4)},
 			composed: `
 		cel.@block([
 			spec.labels,
@@ -240,7 +267,7 @@ var (
 		},
 		{
 			name:         "nested_rule2",
-			composerOpts: []ComposerOption{FirstMatchUnnestHeight(4)},
+			composerOpts: []ComposerOption{ExpressionUnnestHeight(4)},
 			composed: `
 	cel.@block([
 	  ["us", "uk", "es"],
@@ -253,7 +280,7 @@ var (
 		},
 		{
 			name:         "nested_rule2",
-			composerOpts: []ComposerOption{FirstMatchUnnestHeight(5)},
+			composerOpts: []ComposerOption{ExpressionUnnestHeight(5)},
 			composed: `
 	cel.@block([
 	  ["us", "uk", "es"],
@@ -269,7 +296,7 @@ var (
 		},
 		{
 			name:         "limits",
-			composerOpts: []ComposerOption{FirstMatchUnnestHeight(3)},
+			composerOpts: []ComposerOption{ExpressionUnnestHeight(3)},
 			composed: `
 	cel.@block([
 		"hello",
@@ -286,7 +313,7 @@ var (
 		},
 		{
 			name:         "limits",
-			composerOpts: []ComposerOption{FirstMatchUnnestHeight(4)},
+			composerOpts: []ComposerOption{ExpressionUnnestHeight(4)},
 			composed: `
 	cel.@block([
 		"hello",
@@ -303,7 +330,7 @@ var (
 		},
 		{
 			name:         "limits",
-			composerOpts: []ComposerOption{FirstMatchUnnestHeight(5)},
+			composerOpts: []ComposerOption{ExpressionUnnestHeight(5)},
 			composed: `
 	cel.@block([
 		"hello",
