@@ -183,7 +183,7 @@ func TestBaseListGet(t *testing.T) {
 
 func TestBaseListString(t *testing.T) {
 	l := DefaultTypeAdapter.NativeToValue([]any{1, "hello", 2.1, true, []string{"world"}})
-	want := `[1, "hello", 2.1, true, ["world"]]`
+	want := `[1, hello, 2.1, true, [world]]`
 	if fmt.Sprintf("%v", l) != want {
 		t.Errorf("l.String() got %v, wanted %v", l, want)
 	}
@@ -192,7 +192,7 @@ func TestBaseListString(t *testing.T) {
 func TestConcatListString(t *testing.T) {
 	l := DefaultTypeAdapter.NativeToValue([]any{1, "hello", 2.1, true}).(traits.Lister)
 	c := l.Add(DefaultTypeAdapter.NativeToValue([]string{"world"}))
-	want := `[1, "hello", 2.1, true, "world"]`
+	want := `[1, hello, 2.1, true, world]`
 	if fmt.Sprintf("%v", c) != want {
 		t.Errorf("c.String() got %v, wanted %v", c, want)
 	}

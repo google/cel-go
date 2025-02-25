@@ -17,6 +17,7 @@ package types
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"google.golang.org/protobuf/proto"
 
@@ -118,6 +119,6 @@ func (n Null) Value() any {
 	return structpb.NullValue_NULL_VALUE
 }
 
-func (n Null) String() string {
-	return "null"
+func (n Null) format(sb *strings.Builder) {
+	sb.WriteString("null")
 }

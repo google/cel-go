@@ -129,7 +129,7 @@ func (o *protoObj) IsSet(field ref.Val) ref.Val {
 	protoFieldStr := string(protoFieldName)
 	fd, found := o.typeDesc.FieldByName(protoFieldStr)
 	if !found {
-		return NewErr("no such field %s", field)
+		return NewErr("no such field '%s'", field)
 	}
 	if fd.IsSet(o.value) {
 		return True
@@ -150,7 +150,7 @@ func (o *protoObj) Get(index ref.Val) ref.Val {
 	protoFieldStr := string(protoFieldName)
 	fd, found := o.typeDesc.FieldByName(protoFieldStr)
 	if !found {
-		return NewErr("no such field %s", index)
+		return NewErr("no such field '%s'", index)
 	}
 	fv, err := fd.GetFrom(o.value)
 	if err != nil {
@@ -172,7 +172,7 @@ type protoObjField struct {
 	v  protoreflect.Value
 }
 
-func (o *protoObj) String() string {
+func (o *protoObj) format(sb *strings.Builder) {
 	var fields []protoreflect.FieldDescriptor
 	o.value.ProtoReflect().Range(func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool {
 		fields = append(fields, fd)
@@ -181,7 +181,6 @@ func (o *protoObj) String() string {
 	sort.SliceStable(fields, func(i, j int) bool {
 		return fields[i].Number() < fields[j].Number()
 	})
-	var sb strings.Builder
 	sb.WriteString(o.Type().TypeName())
 	sb.WriteString("{")
 	for i, field := range fields {
@@ -189,8 +188,7 @@ func (o *protoObj) String() string {
 			sb.WriteString(", ")
 		}
 		sb.WriteString(fmt.Sprintf("%s: ", field.Name()))
-		sb.WriteString(fmt.Sprintf("%s", o.Get(String(field.Name()))))
+		formatTo(sb, o.Get(String(field.Name())))
 	}
 	sb.WriteString("}")
-	return sb.String()
 }

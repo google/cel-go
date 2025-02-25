@@ -19,6 +19,7 @@ import (
 	"math"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/cel-go/common/types/ref"
@@ -290,8 +291,8 @@ func (i Int) Value() any {
 	return int64(i)
 }
 
-func (i Int) String() string {
-	return strconv.FormatInt(int64(i), 10)
+func (i Int) format(sb *strings.Builder) {
+	sb.WriteString(strconv.FormatInt(int64(i), 10))
 }
 
 // isJSONSafe indicates whether the int is safely representable as a floating point value in JSON.

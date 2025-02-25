@@ -1002,7 +1002,7 @@ func (e *Evaluator) Process(cmd Cmder) (string, bool, error) {
 			if ok {
 				return fmt.Sprintf("Unknown %v", unknown), false, nil
 			}
-			return fmt.Sprintf("%s : %s", val, t), false, nil
+			return fmt.Sprintf("%s : %s", types.Format(val), t), false, nil
 		}
 	case *letVarCmd:
 		var err error

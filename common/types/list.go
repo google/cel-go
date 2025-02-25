@@ -290,13 +290,29 @@ func (l *baseList) String() string {
 	var sb strings.Builder
 	sb.WriteString("[")
 	for i := 0; i < l.size; i++ {
-		sb.WriteString(fmt.Sprintf("%s", l.Get(Int(i))))
+		sb.WriteString(fmt.Sprintf("%v", l.get(i)))
 		if i != l.size-1 {
 			sb.WriteString(", ")
 		}
 	}
 	sb.WriteString("]")
 	return sb.String()
+}
+
+func formatList(l traits.Lister, sb *strings.Builder) {
+	sb.WriteString("[")
+	n, _ := l.Size().(Int)
+	for i := 0; i < int(n); i++ {
+		formatTo(sb, l.Get(Int(i)))
+		if i != int(n)-1 {
+			sb.WriteString(", ")
+		}
+	}
+	sb.WriteString("]")
+}
+
+func (l *baseList) format(sb *strings.Builder) {
+	formatList(l, sb)
 }
 
 // mutableList aggregates values into its internal storage. For use with internal CEL variables only.

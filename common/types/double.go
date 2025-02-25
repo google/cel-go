@@ -212,19 +212,22 @@ func (d Double) Value() any {
 	return float64(d)
 }
 
-func (d Double) String() string {
+func (d Double) format(sb *strings.Builder) {
 	if math.IsNaN(float64(d)) {
-		return "double(\"NaN\")"
+		sb.WriteString(`double("NaN")`)
+		return
 	}
 	if math.IsInf(float64(d), -1) {
-		return "double(\"-Infinity\")"
+		sb.WriteString(`double("-Infinity")`)
+		return
 	}
 	if math.IsInf(float64(d), 1) {
-		return "double(\"Infinity\")"
+		sb.WriteString(`double("Infinity")`)
+		return
 	}
 	s := strconv.FormatFloat(float64(d), 'f', -1, 64)
+	sb.WriteString(s)
 	if !strings.ContainsRune(s, '.') {
-		s = s + ".0"
+		sb.WriteString(".0")
 	}
-	return s
 }

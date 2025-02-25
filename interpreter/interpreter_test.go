@@ -311,7 +311,7 @@ func testData(t testing.TB) []testCase {
 				"a": int32(1),
 				"b": int32(2),
 			},
-			err: "no such key: \"c\"",
+			err: "no such key: c",
 		},
 		{
 			name: "in_empty_list",
@@ -806,7 +806,7 @@ func testData(t testing.TB) []testCase {
 			types:     []proto.Message{&proto2pb.TestAllTypes{}},
 			unchecked: true,
 			expr:      `has(TestAllTypes{}.invalid_field)`,
-			err:       "no such field \"invalid_field\"",
+			err:       "no such field 'invalid_field'",
 		},
 		{
 			name:      "macro_has_pb2_field",
@@ -1408,7 +1408,7 @@ func testData(t testing.TB) []testCase {
 			name:      "literal_map_optional_field_bad_init",
 			expr:      `{?'hi': 'world'}`,
 			unchecked: true,
-			err:       `cannot initialize optional entry "hi" from non-optional`,
+			err:       `cannot initialize optional entry 'hi' from non-optional`,
 		},
 		{
 			name:      "literal_pb_optional_field",
@@ -1425,7 +1425,7 @@ func testData(t testing.TB) []testCase {
 			container: "google.expr.proto3.test",
 			types:     []proto.Message{&proto3pb.TestAllTypes{}},
 			unchecked: true,
-			err:       `cannot initialize optional entry "single_int32" from non-optional`,
+			err:       `cannot initialize optional entry 'single_int32' from non-optional`,
 		},
 		{
 			name: "literal_list_optional_element",
@@ -1489,7 +1489,7 @@ func testData(t testing.TB) []testCase {
 		{
 			name: "invalid_presence_test_on_int_literal",
 			expr: `has(dyn(1).invalid)`,
-			err:  "no such key: \"invalid\"",
+			err:  "no such key: invalid",
 			attrs: NewAttributeFactory(testContainer(""), types.DefaultTypeAdapter, types.NewEmptyRegistry(),
 				EnableErrorOnBadPresenceTest(true)),
 		},

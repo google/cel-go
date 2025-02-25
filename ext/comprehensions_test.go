@@ -509,7 +509,7 @@ func TestTwoVarComprehensionsRuntimeErrors(t *testing.T) {
 		},
 		{
 			expr: `[0, 0u].transformMapEntry(i, v, {v: i})`,
-			err:  "insert failed: key 0u already exists",
+			err:  "insert failed: key 0 already exists",
 		},
 	}
 	env := testCompreEnv(t)

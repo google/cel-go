@@ -140,8 +140,8 @@ func (b Bytes) Value() any {
 	return []byte(b)
 }
 
-func (b Bytes) String() string {
-	return fmt.Sprintf("b\"%s\"", bytesToOctets([]byte(b)))
+func (b Bytes) format(sb *strings.Builder) {
+	fmt.Fprintf(sb, "b\"%s\"", bytesToOctets([]byte(b)))
 }
 
 // bytesToOctets converts byte sequences to a string using a three digit octal encoded value

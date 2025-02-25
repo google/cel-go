@@ -476,7 +476,7 @@ func TestAttributesOptional(t *testing.T) {
 					"b": map[uint]any{},
 				},
 			},
-			err: errors.New("no such key: 1u"),
+			err: errors.New("no such key: 1"),
 		},
 		{
 			// a.b[?1] with no value where 'b' is a []int
@@ -645,7 +645,7 @@ func TestAttributesOptional(t *testing.T) {
 				},
 				"c.d": map[string]any{},
 			},
-			err: errors.New("no such key: \"e\""),
+			err: errors.New("no such key: e"),
 		},
 		{
 			// a[?c.d.e] where the c.d.e errors
@@ -659,7 +659,7 @@ func TestAttributesOptional(t *testing.T) {
 				},
 				"c.d": map[string]any{},
 			},
-			err: errors.New("no such key: \"e\""),
+			err: errors.New("no such key: e"),
 		},
 		{
 			// a.?single_int32 with a value.
@@ -702,7 +702,7 @@ func TestAttributesOptional(t *testing.T) {
 			vars: map[string]any{
 				"a": map[string]any{},
 			},
-			err: errors.New("no such key: \"c\""),
+			err: errors.New("no such key: c"),
 		},
 		{
 			// a, no bindings

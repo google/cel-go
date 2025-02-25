@@ -17,6 +17,8 @@ package types
 import (
 	"fmt"
 	"reflect"
+	"strconv"
+	"strings"
 
 	"github.com/google/cel-go/common/types/ref"
 
@@ -92,7 +94,7 @@ func (b Bool) ConvertToNative(typeDesc reflect.Type) (any, error) {
 func (b Bool) ConvertToType(typeVal ref.Type) ref.Val {
 	switch typeVal {
 	case StringType:
-		return String(b.String())
+		return String(strconv.FormatBool(bool(b)))
 	case BoolType:
 		return b
 	case TypeType:
@@ -127,11 +129,12 @@ func (b Bool) Value() any {
 	return bool(b)
 }
 
-func (b Bool) String() string {
+func (b Bool) format(sb *strings.Builder) {
 	if b {
-		return "true"
+		sb.WriteString("true")
+	} else {
+		sb.WriteString("false")
 	}
-	return "false"
 }
 
 // IsBool returns whether the input ref.Val or ref.Type is equal to BoolType.

@@ -300,15 +300,31 @@ func (m *baseMap) Size() ref.Val {
 	return Int(m.size)
 }
 
+// String converts the map into a human-readable string.
+func (m *baseMap) String() string {
+	var sb strings.Builder
+	sb.WriteString("{")
+	it := m.Iterator()
+	i := 0
+	for it.HasNext() == True {
+		k := it.Next()
+		v, _ := m.Find(k)
+		sb.WriteString(fmt.Sprintf("%v: %v", k, v))
+		if i != m.size-1 {
+			sb.WriteString(", ")
+		}
+		i++
+	}
+	sb.WriteString("}")
+	return sb.String()
+}
+
 type baseMapEntry struct {
 	key string
 	val string
 }
 
-// String converts the map into a human-readable string.
-func (m *baseMap) String() string {
-	var sb strings.Builder
-	sb.WriteString("{")
+func formatMap(m traits.Mapper, sb *strings.Builder) {
 	it := m.Iterator()
 	var ents []baseMapEntry
 	if s, ok := m.Size().(Int); ok {
@@ -317,11 +333,12 @@ func (m *baseMap) String() string {
 	for it.HasNext() == True {
 		k := it.Next()
 		v, _ := m.Find(k)
-		ents = append(ents, baseMapEntry{fmt.Sprintf("%s", k), fmt.Sprintf("%s", v)})
+		ents = append(ents, baseMapEntry{Format(k), Format(v)})
 	}
 	sort.SliceStable(ents, func(i, j int) bool {
 		return ents[i].key < ents[j].key
 	})
+	sb.WriteString("{")
 	for i, ent := range ents {
 		if i > 0 {
 			sb.WriteString(", ")
@@ -331,7 +348,10 @@ func (m *baseMap) String() string {
 		sb.WriteString(ent.val)
 	}
 	sb.WriteString("}")
-	return sb.String()
+}
+
+func (m *baseMap) format(sb *strings.Builder) {
+	formatMap(m, sb)
 }
 
 // Type implements the ref.Val interface method.
