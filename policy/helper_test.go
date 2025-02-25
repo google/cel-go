@@ -35,7 +35,6 @@ var (
 		envOpts   []cel.EnvOption
 		parseOpts []ParserOption
 		expr      string
-		expr2     string
 	}{
 		{
 			name: "k8s",
@@ -114,6 +113,19 @@ var (
 	.or((x > 1) ? optional.of(false) : optional.none()))`,
 		},
 		{
+			name: "unnest",
+			expr: `
+	cel.@block([values.filter(x, x > 2)],
+	((@index0.size() == 0) ? false : @index0.all(x, x % 2 == 0))
+	? optional.of("some divisible by 2")
+	: (values.map(x, x * 3).exists(x, x % 4 == 0)
+	   ? optional.of("at least one divisible by 4")
+	   : (values.map(x, x * x * x).exists(x, x % 6 == 0)
+	     ? optional.of("at least one power of 6")
+		 : optional.none())))
+			`,
+		},
+		{
 			name: "context_pb",
 			expr: `
 	(single_int32 > google.expr.proto3.test.TestAllTypes{single_int64: 10}.single_int64)
@@ -145,7 +157,7 @@ var (
 	cel.@block([
 	  spec.labels,
 	  @index0.filter(l, !(l in resource.labels)),
-	    resource.labels.transformList(l, value, l in @index0 && value != @index0[l], l)],
+	  resource.labels.transformList(l, value, l in @index0 && value != @index0[l], l)],
       (@index1.size() > 0)
 	   ? optional.of("missing one or more required labels: %s".format([@index1]))
 	   : ((@index2.size() > 0)
@@ -196,6 +208,140 @@ var (
 		    ? optional.of(@index4 + "!!!")
 			: optional.none())))
 	  : optional.of(@index3.format([@index0, @index2])))`,
+		},
+	}
+
+	composerUnnestTests = []struct {
+		name         string
+		expr         string
+		composed     string
+		composerOpts []ComposerOption
+	}{
+		{
+			name:         "unnest",
+			composerOpts: []ComposerOption{ExpressionUnnestHeight(2)},
+			composed: `
+	cel.@block([
+	  values.filter(x, x > 2),
+	  @index0.size() == 0,
+	  @index1 ? false : @index0.all(x, x % 2 == 0),
+	  values.map(x, x * x * x).exists(x, x % 6 == 0)
+	    ? optional.of("at least one power of 6")
+		: optional.none(),
+	  values.map(x, x * 3).exists(x, x % 4 == 0)
+	    ? optional.of("at least one divisible by 4")
+		: @index3],
+	  @index2 ? optional.of("some divisible by 2") : @index4)
+			`,
+		},
+		{
+			name:         "required_labels",
+			composerOpts: []ComposerOption{ExpressionUnnestHeight(2)},
+			composed: `
+		cel.@block([
+			spec.labels,
+			@index0.filter(l, !(l in resource.labels)),
+			resource.labels.transformList(l, value, l in @index0 && value != @index0[l], l),
+			@index1.size() > 0,
+			"missing one or more required labels: %s".format([@index1]),
+			@index2.size() > 0,
+			"invalid values provided on one or more labels: %s".format([@index2])],
+			@index3 ? optional.of(@index4) : (@index5 ? optional.of(@index6) : optional.none()))
+			`,
+		},
+		{
+			name:         "required_labels",
+			composerOpts: []ComposerOption{ExpressionUnnestHeight(4)},
+			composed: `
+		cel.@block([
+			spec.labels,
+			@index0.filter(l, !(l in resource.labels)),
+			resource.labels.transformList(l, value, l in @index0 && value != @index0[l], l),
+			(@index2.size() > 0)
+			  ? optional.of("invalid values provided on one or more labels: %s".format([@index2]))
+			  : optional.none()
+		],
+		(@index1.size() > 0)
+		  ? optional.of("missing one or more required labels: %s".format([@index1]))
+		  : @index3)`,
+		},
+		{
+			name:         "nested_rule2",
+			composerOpts: []ComposerOption{ExpressionUnnestHeight(4)},
+			composed: `
+	cel.@block([
+	  ["us", "uk", "es"],
+	  {"us": false, "ru": false, "ir": false},
+	  resource.origin in @index1 && !(resource.origin in @index0),
+	  !(resource.origin in @index0) ? {"banned": "unconfigured_region"} : {}],
+	  resource.?user.orValue("").startsWith("bad")
+	    ? (@index2 ? {"banned": "restricted_region"} : {"banned": "bad_actor"})
+		: @index3)`,
+		},
+		{
+			name:         "nested_rule2",
+			composerOpts: []ComposerOption{ExpressionUnnestHeight(5)},
+			composed: `
+	cel.@block([
+	  ["us", "uk", "es"],
+	  {"us": false, "ru": false, "ir": false},
+	  (resource.origin in @index1 && !(resource.origin in @index0))
+	    ? {"banned": "restricted_region"}
+	    : {"banned": "bad_actor"}],
+	  resource.?user.orValue("").startsWith("bad")
+	    ? @index2
+	    : (!(resource.origin in @index0)
+	      ? {"banned": "unconfigured_region"}
+		  : {}))`,
+		},
+		{
+			name:         "limits",
+			composerOpts: []ComposerOption{ExpressionUnnestHeight(3)},
+			composed: `
+	cel.@block([
+		"hello",
+		"goodbye",
+		"me",
+		"%s, %s",
+		@index3.format([@index1, @index2]),
+		(now.getHours() < 24) ? optional.of(@index4 + "!!!") : optional.none(),
+		optional.of(@index3.format([@index0, @index2]))],
+		(now.getHours() >= 20)
+		? ((now.getHours() < 21) ? optional.of(@index4 + "!") :
+		  ((now.getHours() < 22) ? optional.of(@index4 + "!!") : @index5))
+		: @index6)`,
+		},
+		{
+			name:         "limits",
+			composerOpts: []ComposerOption{ExpressionUnnestHeight(4)},
+			composed: `
+	cel.@block([
+		"hello",
+		"goodbye",
+		"me",
+		"%s, %s",
+		@index3.format([@index1, @index2]),
+		(now.getHours() < 22) ? optional.of(@index4 + "!!") :
+		((now.getHours() < 24) ? optional.of(@index4 + "!!!") : optional.none())],
+		(now.getHours() >= 20)
+		? ((now.getHours() < 21) ? optional.of(@index4 + "!") : @index5)
+		: optional.of(@index3.format([@index0, @index2])))
+		`,
+		},
+		{
+			name:         "limits",
+			composerOpts: []ComposerOption{ExpressionUnnestHeight(5)},
+			composed: `
+	cel.@block([
+		"hello",
+		"goodbye",
+		"me",
+		"%s, %s",
+		@index3.format([@index1, @index2]),
+		(now.getHours() < 21) ? optional.of(@index4 + "!") :
+		((now.getHours() < 22) ? optional.of(@index4 + "!!") :
+		((now.getHours() < 24) ? optional.of(@index4 + "!!!") : optional.none()))],
+		(now.getHours() >= 20) ? @index5 : optional.of(@index3.format([@index0, @index2])))`,
 		},
 	}
 
