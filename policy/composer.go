@@ -199,16 +199,16 @@ func (opt *ruleComposerImpl) maybeUnnestRule(ctx *cel.OptimizerContext, ruleExpr
 	// Split the expr into local variables based on expression depth within ternaries
 	ruleAST := ctx.NewAST(ruleExpr)
 	ruleNav := ast.NavigateAST(ruleAST)
-	// Branches are ordered from leaf to root via the ast.MatchDescendants call.
+	// Unnest expressions are ordered from leaf to root via the ast.MatchDescendants call.
 	heights := ast.Heights(ruleAST)
 	unnestMap := map[int64]int{}
 	unnestExprs := []ast.NavigableExpr{}
 	ast.MatchDescendants(ruleNav, func(e ast.NavigableExpr) bool {
-		// If the expression is a comprehension, then all branches captured previously that relate to
-		// the comprehension body should be removed from the list of candidate branches for unnesting.
+		// If the expression is a comprehension, then all unnest candidates captured previously that relate
+		// to the comprehension body should be removed from the list of candidate branches for unnesting.
 		if e.Kind() == ast.ComprehensionKind {
 			// This only removes branches from the map, but not from the list of branches.
-			removeIneligibleConditions(e, unnestMap)
+			removeIneligibleSubExprs(e, unnestMap)
 			return false
 		}
 		// Otherwise, if the expression is not a call, don't include it.
@@ -224,13 +224,8 @@ func (opt *ruleComposerImpl) maybeUnnestRule(ctx *cel.OptimizerContext, ruleExpr
 		return true
 	})
 
-	// Prune the list of branch splits down to only those not included in comprehensions.
-	// Reorganize the conditional nesting by splitting at nesting limit depths.
-	// @index0: match ? result : default
-	// @index1: match ? result : @index0
-	// @index2: match ? result : @index1
-	// match ? result : @index2
-	for idx := range len(unnestExprs) - 1 {
+	// Prune the expression set to unnest down to only those not included in comprehensions.
+	for idx := 0; idx < len(unnestExprs)-1; idx++ {
 		e := unnestExprs[idx]
 		if _, found := unnestMap[e.ID()]; !found {
 			continue
@@ -469,10 +464,10 @@ func isOptionalNone(e ast.Expr) bool {
 		len(e.AsCall().Args()) == 0
 }
 
-func removeIneligibleConditions(e ast.NavigableExpr, conditionMap map[int64]int) {
+func removeIneligibleSubExprs(e ast.NavigableExpr, unnestMap map[int64]int) {
 	for _, id := range comprehensionSubExprIDs(e) {
-		if _, found := conditionMap[id]; found {
-			delete(conditionMap, id)
+		if _, found := unnestMap[id]; found {
+			delete(unnestMap, id)
 		}
 	}
 }
