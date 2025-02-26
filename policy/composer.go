@@ -222,9 +222,11 @@ type ruleUnnesterImpl struct {
 }
 
 func (opt *ruleUnnesterImpl) Optimize(ctx *cel.OptimizerContext, a *ast.AST) *ast.AST {
-	// If the input AST does not start with a cel.@block, return
+	// Since the optimizer is based on the original environment provided to the composer,
+	// a second pass on the `cel.@block` will require a rebuilding of the cel environment
 	ruleExpr := ast.NavigateAST(a)
 	var varExprs []ast.Expr
+	var varDecls []cel.EnvOption
 	if ruleExpr.Kind() == ast.CallKind && ruleExpr.AsCall().FunctionName() == "cel.@block" {
 		// Extract the expr from the cel.@block, args[1], as a navigable expr value.
 		// Also extract the variable declarations and all associated types from the cel.@block as
@@ -233,42 +235,36 @@ func (opt *ruleUnnesterImpl) Optimize(ctx *cel.OptimizerContext, a *ast.AST) *as
 		ruleExpr = block.Args()[1].(ast.NavigableExpr)
 
 		// Collect the list of variables associated with the block
-		varSet := block.Args()[0].(ast.NavigableExpr)
-		vars := varSet.AsList()
+		blockList := block.Args()[0].(ast.NavigableExpr)
+		vars := blockList.AsList()
 		varExprs = make([]ast.Expr, vars.Size())
+		varDecls = make([]cel.EnvOption, vars.Size())
 		copy(varExprs, vars.Elements())
-		for i := 0; i < vars.Size(); i++ {
-			v := varExprs[i]
+		for i, v := range varExprs {
+			// Track the variable he varDecls set.
 			indexVar := fmt.Sprintf("@index%d", i)
-			t := a.GetType(v.ID())
-			vi := varIndex{
-				index:    i,
-				indexVar: indexVar,
-				localVar: indexVar,
-				expr:     v,
-				celType:  t,
-			}
-			opt.varIndices = append(opt.varIndices, vi)
+			celType := a.GetType(v.ID())
+			varDecls[i] = cel.Variable(indexVar, celType)
 			opt.nextVarIndex++
-
-			err := ctx.ExtendEnv(cel.Variable(vi.indexVar, vi.celType))
-			if err != nil {
-				ctx.ReportErrorAtID(ruleExpr.ID(), "%s", err.Error())
-			}
+		}
+	}
+	if len(varDecls) != 0 {
+		err := ctx.ExtendEnv(varDecls...)
+		if err != nil {
+			ctx.ReportErrorAtID(ruleExpr.ID(), "%s", err.Error())
 		}
 	}
 
 	// Attempt to unnest the rule.
-	blockVarCount := len(varExprs)
 	ruleExpr = opt.maybeUnnestRule(ctx, ruleExpr)
 	// If there were no variables, return the expression.
-	if len(opt.varIndices) == blockVarCount {
+	if len(opt.varIndices) == 0 {
 		return a
 	}
 
 	// Otherwise populate the cel.@block with the variable declarations and wrap the expression
 	// in the block.
-	for i := blockVarCount; i < len(opt.varIndices); i++ {
+	for i := 0; i < len(opt.varIndices); i++ {
 		vi := opt.varIndices[i]
 		varExprs = append(varExprs, vi.expr)
 		err := ctx.ExtendEnv(cel.Variable(vi.indexVar, vi.celType))
