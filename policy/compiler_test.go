@@ -79,6 +79,9 @@ func TestRuleComposerUnnest(t *testing.T) {
 			if normalize(unparsed) != normalize(tc.composed) {
 				t.Errorf("cel.AstToString() got %s, wanted %s", unparsed, tc.composed)
 			}
+			if !ast.OutputType().IsEquivalentType(tc.outputType) {
+				t.Errorf("ast.OutputType() got %v, wanted %v", ast.OutputType(), tc.outputType)
+			}
 			r.setup(t, env, ast)
 			r.run(t)
 		})
