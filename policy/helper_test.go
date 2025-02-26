@@ -216,6 +216,7 @@ var (
 		expr         string
 		composed     string
 		composerOpts []ComposerOption
+		outputType   *cel.Type
 	}{
 		{
 			name:         "unnest",
@@ -233,6 +234,7 @@ var (
 		: @index3],
 	  @index2 ? optional.of("some divisible by 2") : @index4)
 			`,
+			outputType: cel.OptionalType(cel.StringType),
 		},
 		{
 			name:         "required_labels",
@@ -248,6 +250,7 @@ var (
 			"invalid values provided on one or more labels: %s".format([@index2])],
 			@index3 ? optional.of(@index4) : (@index5 ? optional.of(@index6) : optional.none()))
 			`,
+			outputType: cel.OptionalType(cel.StringType),
 		},
 		{
 			name:         "required_labels",
@@ -264,6 +267,7 @@ var (
 		(@index1.size() > 0)
 		  ? optional.of("missing one or more required labels: %s".format([@index1]))
 		  : @index3)`,
+			outputType: cel.OptionalType(cel.StringType),
 		},
 		{
 			name:         "nested_rule2",
@@ -277,6 +281,7 @@ var (
 	  resource.?user.orValue("").startsWith("bad")
 	    ? (@index2 ? {"banned": "restricted_region"} : {"banned": "bad_actor"})
 		: @index3)`,
+			outputType: cel.MapType(cel.StringType, cel.StringType),
 		},
 		{
 			name:         "nested_rule2",
@@ -293,6 +298,7 @@ var (
 	    : (!(resource.origin in @index0)
 	      ? {"banned": "unconfigured_region"}
 		  : {}))`,
+			outputType: cel.MapType(cel.StringType, cel.StringType),
 		},
 		{
 			name:         "limits",
@@ -310,6 +316,7 @@ var (
 		? ((now.getHours() < 21) ? optional.of(@index4 + "!") :
 		  ((now.getHours() < 22) ? optional.of(@index4 + "!!") : @index5))
 		: @index6)`,
+			outputType: cel.OptionalType(cel.StringType),
 		},
 		{
 			name:         "limits",
@@ -327,6 +334,7 @@ var (
 		? ((now.getHours() < 21) ? optional.of(@index4 + "!") : @index5)
 		: optional.of(@index3.format([@index0, @index2])))
 		`,
+			outputType: cel.OptionalType(cel.StringType),
 		},
 		{
 			name:         "limits",
@@ -342,6 +350,7 @@ var (
 		((now.getHours() < 22) ? optional.of(@index4 + "!!") :
 		((now.getHours() < 24) ? optional.of(@index4 + "!!!") : optional.none()))],
 		(now.getHours() >= 20) ? @index5 : optional.of(@index3.format([@index0, @index2])))`,
+			outputType: cel.OptionalType(cel.StringType),
 		},
 	}
 
