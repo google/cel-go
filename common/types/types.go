@@ -376,6 +376,10 @@ func (t *Type) TypeName() string {
 	return t.runtimeTypeName
 }
 
+func (t *Type) format(sb *strings.Builder) {
+	sb.WriteString(t.TypeName())
+}
+
 // WithTraits creates a copy of the current Type and sets the trait mask to the traits parameter.
 //
 // This method should be used with Opaque types where the type acts like a container, e.g. vector.

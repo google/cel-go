@@ -1002,13 +1002,7 @@ func (e *Evaluator) Process(cmd Cmder) (string, bool, error) {
 			if ok {
 				return fmt.Sprintf("Unknown %v", unknown), false, nil
 			}
-			v, err := ext.FormatString(val, "")
-
-			if err != nil {
-				// Default format if type is unsupported by ext.Strings formatter.
-				return fmt.Sprintf("%v : %s", val.Value(), t), false, nil
-			}
-			return fmt.Sprintf("%s : %s", v, t), false, nil
+			return fmt.Sprintf("%s : %s", types.Format(val), t), false, nil
 		}
 	case *letVarCmd:
 		var err error
