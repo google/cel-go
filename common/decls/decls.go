@@ -53,7 +53,8 @@ func NewFunction(name string, opts ...FunctionOpt) (*FunctionDecl, error) {
 // FunctionDecl defines a function name, overload set, and optionally a singleton definition for all
 // overload instances.
 type FunctionDecl struct {
-	name string
+	name        string
+	description string
 
 	// overloads associated with the function name.
 	overloads map[string]*OverloadDecl
@@ -90,6 +91,13 @@ func (f *FunctionDecl) Name() string {
 		return ""
 	}
 	return f.name
+}
+
+func (f *FunctionDecl) Description() string {
+	if f == nil {
+		return ""
+	}
+	return f.description
 }
 
 // IsDeclarationDisabled indicates that the function implementation should be added to the dispatcher, but the
@@ -513,6 +521,7 @@ func newOverloadInternal(overloadID string,
 // implementation.
 type OverloadDecl struct {
 	id               string
+	description      string
 	argTypes         []*types.Type
 	resultType       *types.Type
 	isMemberFunction bool
@@ -543,6 +552,13 @@ func (o *OverloadDecl) ID() string {
 		return ""
 	}
 	return o.id
+}
+
+func (o *OverloadDecl) Description() string {
+	if o == nil {
+		return ""
+	}
+	return o.description
 }
 
 // ArgTypes contains the set of argument types expected by the overload.
@@ -802,9 +818,10 @@ func NewVariable(name string, t *types.Type) *VariableDecl {
 
 // VariableDecl defines a variable declaration which may optionally have a constant value.
 type VariableDecl struct {
-	name    string
-	varType *types.Type
-	value   ref.Val
+	name        string
+	description string
+	varType     *types.Type
+	value       ref.Val
 }
 
 // Name returns the fully-qualified variable name
@@ -813,6 +830,13 @@ func (v *VariableDecl) Name() string {
 		return ""
 	}
 	return v.name
+}
+
+func (v *VariableDecl) Description() string {
+	if v == nil {
+		return ""
+	}
+	return v.description
 }
 
 // Type returns the types.Type value associated with the variable.
@@ -890,6 +914,7 @@ func functionDeclToExprDecl(f *FunctionDecl) (*exprpb.Decl, error) {
 			} else {
 				overloads[i] = chkdecls.NewOverload(oID, argTypes, resultType)
 			}
+			overloads[i].Doc = o.Description()
 		} else {
 			params := []string{}
 			for pn := range paramNames {
