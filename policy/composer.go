@@ -15,7 +15,9 @@
 package policy
 
 import (
+	"cmp"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/google/cel-go/cel"
@@ -24,26 +26,67 @@ import (
 	"github.com/google/cel-go/common/types"
 )
 
+// ComposerOption is a functional option used to configure a RuleComposer
+type ComposerOption func(*RuleComposer) (*RuleComposer, error)
+
+// ExpressionUnnestHeight determines the height at which nested expressions are split into local
+// variables within the cel.@block declaration.
+func ExpressionUnnestHeight(height int) ComposerOption {
+	return func(c *RuleComposer) (*RuleComposer, error) {
+		if height <= 0 {
+			return nil, fmt.Errorf("invalid unnest height: value must be positive: %d", height)
+		}
+		c.exprUnnestHeight = height
+		return c, nil
+	}
+}
+
 // NewRuleComposer creates a rule composer which stitches together rules within a policy into
 // a single CEL expression.
-func NewRuleComposer(env *cel.Env, p *Policy) *RuleComposer {
-	return &RuleComposer{
+func NewRuleComposer(env *cel.Env, opts ...ComposerOption) (*RuleComposer, error) {
+	composer := &RuleComposer{
 		env: env,
-		p:   p,
+		// set the default nesting height to something reasonable.
+		exprUnnestHeight: 25,
 	}
+	var err error
+	for _, opt := range opts {
+		composer, err = opt(composer)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return composer, nil
 }
 
 // RuleComposer optimizes a set of expressions into a single expression.
 type RuleComposer struct {
 	env *cel.Env
-	p   *Policy
+
+	// exprUnnestHeight determines the height at which nested matches are split into
+	// index variables within a cel.@block index declaration when composing matches under
+	// the first-match semantic.
+	exprUnnestHeight int
 }
 
 // Compose stitches together a set of expressions within a CompiledRule into a single CEL ast.
 func (c *RuleComposer) Compose(r *CompiledRule) (*cel.Ast, *cel.Issues) {
 	ruleRoot, _ := c.env.Compile("true")
-	opt := cel.NewStaticOptimizer(&ruleComposerImpl{rule: r, varIndices: []varIndex{}})
-	return opt.Optimize(c.env, ruleRoot)
+	composer := &ruleComposerImpl{
+		rule:       r,
+		varIndices: []varIndex{},
+	}
+	opt := cel.NewStaticOptimizer(composer)
+	ast, iss := opt.Optimize(c.env, ruleRoot)
+	if iss.Err() != nil {
+		return nil, iss
+	}
+	unnester := &ruleUnnesterImpl{
+		varIndices:       []varIndex{},
+		exprUnnestHeight: c.exprUnnestHeight,
+	}
+	opt = cel.NewStaticOptimizer(unnester)
+	return opt.Optimize(c.env, ast)
 }
 
 type varIndex struct {
@@ -51,15 +94,13 @@ type varIndex struct {
 	indexVar string
 	localVar string
 	expr     ast.Expr
-	cv       *CompiledVariable
+	celType  *types.Type
 }
 
 type ruleComposerImpl struct {
 	rule         *CompiledRule
 	nextVarIndex int
 	varIndices   []varIndex
-
-	maxNestedExpressionLimit int
 }
 
 // Optimize implements an AST optimizer for CEL which composes an expression graph into a single
@@ -68,17 +109,18 @@ func (opt *ruleComposerImpl) Optimize(ctx *cel.OptimizerContext, a *ast.AST) *as
 	// The input to optimize is a dummy expression which is completely replaced according
 	// to the configuration of the rule composition graph.
 	ruleExpr := opt.optimizeRule(ctx, opt.rule)
-	allVars := opt.sortedVariables()
+
 	// If there were no variables, return the expression.
-	if len(allVars) == 0 {
+	if len(opt.varIndices) == 0 {
 		return ctx.NewAST(ruleExpr)
 	}
 
-	// Otherwise populate the block.
-	varExprs := make([]ast.Expr, len(allVars))
-	for i, vi := range allVars {
+	// Otherwise populate the cel.@block with the variable declarations and wrap the expression
+	// in the block.
+	varExprs := make([]ast.Expr, len(opt.varIndices))
+	for i, vi := range opt.varIndices {
 		varExprs[i] = vi.expr
-		err := ctx.ExtendEnv(cel.Variable(vi.indexVar, vi.cv.Declaration().Type()))
+		err := ctx.ExtendEnv(cel.Variable(vi.indexVar, vi.celType))
 		if err != nil {
 			ctx.ReportErrorAtID(ruleExpr.ID(), "%s", err.Error())
 		}
@@ -168,14 +210,134 @@ func (opt *ruleComposerImpl) registerVariable(ctx *cel.OptimizerContext, v *Comp
 		indexVar: indexVar,
 		localVar: varName,
 		expr:     varExpr,
-		cv:       v}
+		celType:  v.Declaration().Type()}
 	opt.varIndices = append(opt.varIndices, vi)
 	opt.nextVarIndex++
 }
 
-// sortedVariables returns the variables ordered by their declaration index.
-func (opt *ruleComposerImpl) sortedVariables() []varIndex {
-	return opt.varIndices
+type ruleUnnesterImpl struct {
+	nextVarIndex     int
+	varIndices       []varIndex
+	exprUnnestHeight int
+}
+
+func (opt *ruleUnnesterImpl) Optimize(ctx *cel.OptimizerContext, a *ast.AST) *ast.AST {
+	// Since the optimizer is based on the original environment provided to the composer,
+	// a second pass on the `cel.@block` will require a rebuilding of the cel environment
+	ruleExpr := ast.NavigateAST(a)
+	var varExprs []ast.Expr
+	var varDecls []cel.EnvOption
+	if ruleExpr.Kind() == ast.CallKind && ruleExpr.AsCall().FunctionName() == "cel.@block" {
+		// Extract the expr from the cel.@block, args[1], as a navigable expr value.
+		// Also extract the variable declarations and all associated types from the cel.@block as
+		// varIndex values, but without doing any rewrites as the types are all correct already.
+		block := ruleExpr.AsCall()
+		ruleExpr = block.Args()[1].(ast.NavigableExpr)
+
+		// Collect the list of variables associated with the block
+		blockList := block.Args()[0].(ast.NavigableExpr)
+		vars := blockList.AsList()
+		varExprs = make([]ast.Expr, vars.Size())
+		varDecls = make([]cel.EnvOption, vars.Size())
+		copy(varExprs, vars.Elements())
+		for i, v := range varExprs {
+			// Track the variable he varDecls set.
+			indexVar := fmt.Sprintf("@index%d", i)
+			celType := a.GetType(v.ID())
+			varDecls[i] = cel.Variable(indexVar, celType)
+			opt.nextVarIndex++
+		}
+	}
+	if len(varDecls) != 0 {
+		err := ctx.ExtendEnv(varDecls...)
+		if err != nil {
+			ctx.ReportErrorAtID(ruleExpr.ID(), "%s", err.Error())
+		}
+	}
+
+	// Attempt to unnest the rule.
+	ruleExpr = opt.maybeUnnestRule(ctx, ruleExpr)
+	// If there were no variables, return the expression.
+	if len(opt.varIndices) == 0 {
+		return a
+	}
+
+	// Otherwise populate the cel.@block with the variable declarations and wrap the expression
+	// in the block.
+	for i := 0; i < len(opt.varIndices); i++ {
+		vi := opt.varIndices[i]
+		varExprs = append(varExprs, vi.expr)
+		err := ctx.ExtendEnv(cel.Variable(vi.indexVar, vi.celType))
+		if err != nil {
+			ctx.ReportErrorAtID(ruleExpr.ID(), "%s", err.Error())
+		}
+	}
+	blockExpr := ctx.NewCall("cel.@block", ctx.NewList(varExprs, []int32{}), ruleExpr)
+	return ctx.NewAST(blockExpr)
+}
+
+func (opt *ruleUnnesterImpl) maybeUnnestRule(ctx *cel.OptimizerContext, ruleExpr ast.NavigableExpr) ast.NavigableExpr {
+	// Unnest expressions are ordered from leaf to root via the ast.MatchDescendants call.
+	heights := ast.Heights(ast.NewAST(ruleExpr, nil))
+	unnestMap := map[int64]bool{}
+	unnestExprs := []ast.NavigableExpr{}
+	ast.MatchDescendants(ruleExpr, func(e ast.NavigableExpr) bool {
+		// If the expression is a comprehension, then all unnest candidates captured previously that relate
+		// to the comprehension body should be removed from the list of candidate branches for unnesting.
+		if e.Kind() == ast.ComprehensionKind {
+			// This only removes branches from the map, but not from the list of branches.
+			removeIneligibleSubExprs(e, unnestMap)
+			return false
+		}
+		// Otherwise, if the expression is not a call, don't include it.
+		if e.Kind() != ast.CallKind {
+			return false
+		}
+		height := heights[e.ID()]
+		if height < opt.exprUnnestHeight {
+			return false
+		}
+		unnestMap[e.ID()] = true
+		unnestExprs = append(unnestExprs, e)
+		return true
+	})
+
+	slices.SortStableFunc(unnestExprs, func(a, b ast.NavigableExpr) int {
+		heightA := heights[a.ID()]
+		heightB := heights[b.ID()]
+		return cmp.Compare(heightA, heightB)
+	})
+
+	// Prune the expression set to unnest down to only those not included in comprehensions.
+	for idx := 0; idx < len(unnestExprs)-1; idx++ {
+		e := unnestExprs[idx]
+		if present, found := unnestMap[e.ID()]; !found || !present {
+			continue
+		}
+		height := heights[e.ID()]
+		if height < opt.exprUnnestHeight {
+			continue
+		}
+		reduceHeight(heights, e, opt.exprUnnestHeight)
+		opt.registerUnnestVariable(ctx, e)
+	}
+	return ruleExpr
+}
+
+// registerUnnestVariable creates an entry for a variable name within the cel.@block used to unnest
+// a deeply nested logical branch or logical operator.
+func (opt *ruleUnnesterImpl) registerUnnestVariable(ctx *cel.OptimizerContext, varExpr ast.NavigableExpr) {
+	indexVar := fmt.Sprintf("@index%d", opt.nextVarIndex)
+	varExprCopy := ctx.CopyASTAndMetadata(ctx.NewAST(varExpr))
+	vi := varIndex{
+		index:    opt.nextVarIndex,
+		indexVar: indexVar,
+		expr:     varExprCopy,
+		celType:  varExpr.Type(),
+	}
+	ctx.UpdateExpr(varExpr, ctx.NewIdent(vi.indexVar))
+	opt.varIndices = append(opt.varIndices, vi)
+	opt.nextVarIndex++
 }
 
 // compositionStep interface represents an intermediate stage of rule and match expression composition
@@ -270,6 +432,7 @@ func (s nonOptionalCompositionStep) combine(step compositionStep) compositionSte
 			)
 		}
 		// The `step` is pruned away by a unconditional non-optional step `s`.
+		// Likely a candidate for dead-code warnings.
 		return s
 	}
 	return newNonOptionalCompositionStep(ctx,
@@ -361,4 +524,43 @@ func isOptionalNone(e ast.Expr) bool {
 	return e.Kind() == ast.CallKind &&
 		e.AsCall().FunctionName() == "optional.none" &&
 		len(e.AsCall().Args()) == 0
+}
+
+func removeIneligibleSubExprs(e ast.NavigableExpr, unnestMap map[int64]bool) {
+	for _, id := range comprehensionSubExprIDs(e) {
+		if _, found := unnestMap[id]; found {
+			delete(unnestMap, id)
+		}
+	}
+}
+
+func comprehensionSubExprIDs(e ast.NavigableExpr) []int64 {
+	compre := e.AsComprehension()
+	// Almost the same as e.Children(), but skips the iteration range
+	return enumerateExprIDs(
+		compre.AccuInit().(ast.NavigableExpr),
+		compre.LoopCondition().(ast.NavigableExpr),
+		compre.LoopStep().(ast.NavigableExpr),
+		compre.Result().(ast.NavigableExpr),
+	)
+}
+
+func enumerateExprIDs(exprs ...ast.NavigableExpr) []int64 {
+	ids := make([]int64, 0, len(exprs))
+	for _, e := range exprs {
+		ids = append(ids, e.ID())
+		ids = append(ids, enumerateExprIDs(e.Children()...)...)
+	}
+	return ids
+}
+
+func reduceHeight(heights map[int64]int, e ast.NavigableExpr, amount int) {
+	height := heights[e.ID()]
+	if height < amount {
+		return
+	}
+	heights[e.ID()] = height - amount
+	if parent, hasParent := e.Parent(); hasParent {
+		reduceHeight(heights, parent, amount)
+	}
 }
