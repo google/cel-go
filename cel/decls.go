@@ -309,6 +309,32 @@ func MemberOverload(overloadID string, args []*Type, resultType *Type, opts ...O
 	return decls.MemberOverload(overloadID, args, resultType, opts...)
 }
 
+// FunctionDeclOverloadToFunctionOpt converts a list of protobuf CEL FunctionDecl_Overload instances
+// to a list of FunctionOpt instances.
+func FunctionDeclOverloadToFunctionOpt(overloads []*celpb.Decl_FunctionDecl_Overload) ([]FunctionOpt, error) {
+	opts := make([]FunctionOpt, len(overloads))
+	for i, o := range overloads {
+		args := make([]*Type, len(o.GetParams()))
+		for j, p := range o.GetParams() {
+			a, err := types.ProtoAsType(p)
+			if err != nil {
+				return nil, err
+			}
+			args[j] = a
+		}
+		res, err := types.ProtoAsType(o.GetResultType())
+		if err != nil {
+			return nil, err
+		}
+		if o.IsInstanceFunction {
+			opts[i] = decls.MemberOverload(o.GetOverloadId(), args, res)
+		} else {
+			opts[i] = decls.Overload(o.GetOverloadId(), args, res)
+		}
+	}
+	return opts, nil
+}
+
 // OverloadOpt is a functional option for configuring a function overload.
 type OverloadOpt = decls.OverloadOpt
 
@@ -372,25 +398,9 @@ func ProtoAsDeclaration(d *celpb.Decl) (EnvOption, error) {
 	switch d.GetDeclKind().(type) {
 	case *celpb.Decl_Function:
 		overloads := d.GetFunction().GetOverloads()
-		opts := make([]FunctionOpt, len(overloads))
-		for i, o := range overloads {
-			args := make([]*Type, len(o.GetParams()))
-			for j, p := range o.GetParams() {
-				a, err := types.ProtoAsType(p)
-				if err != nil {
-					return nil, err
-				}
-				args[j] = a
-			}
-			res, err := types.ProtoAsType(o.GetResultType())
-			if err != nil {
-				return nil, err
-			}
-			if o.IsInstanceFunction {
-				opts[i] = decls.MemberOverload(o.GetOverloadId(), args, res)
-			} else {
-				opts[i] = decls.Overload(o.GetOverloadId(), args, res)
-			}
+		opts, err := FunctionDeclOverloadToFunctionOpt(overloads)
+		if err != nil {
+			return nil, err
 		}
 		return Function(d.GetName(), opts...), nil
 	case *celpb.Decl_Ident:

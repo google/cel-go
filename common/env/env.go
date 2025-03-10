@@ -141,23 +141,31 @@ func (c *Config) AddFunctionDecls(funcs ...*decls.FunctionDecl) *Config {
 		if fn == nil {
 			continue
 		}
-		overloads := make([]*Overload, 0, len(fn.OverloadDecls()))
-		for _, o := range fn.OverloadDecls() {
-			overloadID := o.ID()
-			args := make([]*TypeDesc, 0, len(o.ArgTypes()))
-			for _, a := range o.ArgTypes() {
-				args = append(args, serializeTypeDesc(a))
-			}
-			ret := serializeTypeDesc(o.ResultType())
-			if o.IsMemberFunction() {
-				overloads = append(overloads, NewMemberOverload(overloadID, args[0], args[1:], ret))
-			} else {
-				overloads = append(overloads, NewOverload(overloadID, args, ret))
-			}
-		}
-		convFuncs[i] = NewFunction(fn.Name(), overloads...)
+		convFuncs[i] = FunctionDeclToFunction(fn)
 	}
 	return c.AddFunctions(convFuncs...)
+}
+
+// FunctionDeclToFunction converts a protobuf CEL FunctionDecl to a serializable Function definition
+// which can be added to the config.
+//
+// FunctionDecl inputs are expected to be well-formed.
+func FunctionDeclToFunction(fn *decls.FunctionDecl) *Function {
+	overloads := make([]*Overload, 0, len(fn.OverloadDecls()))
+	for _, o := range fn.OverloadDecls() {
+		overloadID := o.ID()
+		args := make([]*TypeDesc, 0, len(o.ArgTypes()))
+		for _, a := range o.ArgTypes() {
+			args = append(args, serializeTypeDesc(a))
+		}
+		ret := serializeTypeDesc(o.ResultType())
+		if o.IsMemberFunction() {
+			overloads = append(overloads, NewMemberOverload(overloadID, args[0], args[1:], ret))
+		} else {
+			overloads = append(overloads, NewOverload(overloadID, args, ret))
+		}
+	}
+	return NewFunction(fn.Name(), overloads...)
 }
 
 // AddFunctions adds one or more functions to the config.
