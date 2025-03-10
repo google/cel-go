@@ -649,6 +649,21 @@ func ProtoConstantAsVal(c *celpb.Constant) (ref.Val, error) {
 	return nil, fmt.Errorf("unsupported constant kind: %v", c.GetConstantKind())
 }
 
+// ProtoStructValueAsVal converts a canonical structpb.Value protobuf to a CEL-native ref.Val.
+func ProtoStructValueAsVal(c *structpb.Value) (ref.Val, error) {
+	switch c.GetKind().(type) {
+	case *structpb.Value_NullValue:
+		return types.NullValue, nil
+	case *structpb.Value_NumberValue:
+		return types.Double(c.GetNumberValue()), nil
+	case *structpb.Value_StringValue:
+		return types.String(c.GetStringValue()), nil
+	case *structpb.Value_BoolValue:
+		return types.Bool(c.GetBoolValue()), nil
+	}
+	return nil, fmt.Errorf("unsupported value kind: %v", c.GetKind())
+}
+
 func convertProto(src, dst proto.Message) error {
 	pb, err := proto.Marshal(src)
 	if err != nil {
