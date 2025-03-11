@@ -115,7 +115,7 @@ func (c *Config) AddVariableDecls(vars ...*decls.VariableDecl) *Config {
 		if v == nil {
 			continue
 		}
-		convVars[i] = NewVariable(v.Name(), serializeTypeDesc(v.Type()))
+		convVars[i] = NewVariable(v.Name(), SerializeTypeDesc(v.Type()))
 	}
 	return c.AddVariables(convVars...)
 }
@@ -146,9 +146,9 @@ func (c *Config) AddFunctionDecls(funcs ...*decls.FunctionDecl) *Config {
 			overloadID := o.ID()
 			args := make([]*TypeDesc, 0, len(o.ArgTypes()))
 			for _, a := range o.ArgTypes() {
-				args = append(args, serializeTypeDesc(a))
+				args = append(args, SerializeTypeDesc(a))
 			}
-			ret := serializeTypeDesc(o.ResultType())
+			ret := SerializeTypeDesc(o.ResultType())
 			if o.IsMemberFunction() {
 				overloads = append(overloads, NewMemberOverload(overloadID, args[0], args[1:], ret))
 			} else {
@@ -836,7 +836,8 @@ func (td *TypeDesc) AsCELType(tp types.Provider) (*types.Type, error) {
 	}
 }
 
-func serializeTypeDesc(t *types.Type) *TypeDesc {
+// SerializeTypeDesc converts *types.Type to a serialized format TypeDesc
+func SerializeTypeDesc(t *types.Type) *TypeDesc {
 	typeName := t.TypeName()
 	if t.Kind() == types.TypeParamKind {
 		return NewTypeParam(typeName)
@@ -848,7 +849,7 @@ func serializeTypeDesc(t *types.Type) *TypeDesc {
 	}
 	var params []*TypeDesc
 	for _, p := range t.Parameters() {
-		params = append(params, serializeTypeDesc(p))
+		params = append(params, SerializeTypeDesc(p))
 	}
 	return NewTypeDesc(typeName, params...)
 }

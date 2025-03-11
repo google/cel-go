@@ -10,6 +10,7 @@ go_library(
         "bindings.go",
         "comprehensions.go",
         "encoders.go",
+        "extension_option_factory.go",
         "formatting.go",
         "guards.go",
         "lists.go",
@@ -26,6 +27,7 @@ go_library(
         "//checker:go_default_library",
         "//common/ast:go_default_library",
         "//common/decls:go_default_library",
+        "//common/env:go_default_library",
         "//common/overloads:go_default_library",
         "//common/operators:go_default_library",
         "//common/types:go_default_library",
@@ -48,7 +50,8 @@ go_test(
     srcs = [
         "bindings_test.go",
         "comprehensions_test.go",
-        "encoders_test.go",        
+        "encoders_test.go",
+        "extension_option_factory_test.go",
         "lists_test.go",
         "math_test.go",
         "native_test.go",
@@ -62,6 +65,7 @@ go_test(
     deps = [
         "//cel:go_default_library",
         "//checker:go_default_library",
+        "//common/env:go_default_library",
         "//common/types:go_default_library",
         "//common/types/ref:go_default_library",
         "//common/types/traits:go_default_library",
