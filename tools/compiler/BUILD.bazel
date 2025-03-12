@@ -19,7 +19,7 @@ package(
     licenses = ["notice"],
 )
 
-o_library(
+go_library(
     name = "go_default_library",
     srcs = [
         "compiler.go",
