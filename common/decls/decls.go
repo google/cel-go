@@ -232,6 +232,9 @@ func (f *FunctionDecl) AddOverload(overload *OverloadDecl) error {
 			}
 			return fmt.Errorf("overload redefinition in function. %s: %s has multiple definitions", f.Name(), oID)
 		}
+		if overload.HasLateBinding() != o.HasLateBinding() {
+			return fmt.Errorf("overload with late binding cannot be added to function %s: cannot mix late and non-late bindings", f.Name())
+		}
 	}
 	f.overloadOrdinals = append(f.overloadOrdinals, overload.ID())
 	f.overloads[overload.ID()] = overload
@@ -250,6 +253,19 @@ func (f *FunctionDecl) OverloadDecls() []*OverloadDecl {
 	return overloads
 }
 
+// Returns true if the function has late bindings. A function cannot mix late bindings with other bindings.
+func (f *FunctionDecl) HasLateBinding() bool {
+	if f == nil {
+		return false
+	}
+	for _, oID := range f.overloadOrdinals {
+		if f.overloads[oID].HasLateBinding() {
+			return true
+		}
+	}
+	return false
+}
+
 // Bindings produces a set of function bindings, if any are defined.
 func (f *FunctionDecl) Bindings() ([]*functions.Overload, error) {
 	if f == nil {
@@ -257,8 +273,10 @@ func (f *FunctionDecl) Bindings() ([]*functions.Overload, error) {
 	}
 	overloads := []*functions.Overload{}
 	nonStrict := false
+	hasLateBinding := false
 	for _, oID := range f.overloadOrdinals {
 		o := f.overloads[oID]
+		hasLateBinding = hasLateBinding || o.HasLateBinding()
 		if o.hasBinding() {
 			overload := &functions.Overload{
 				Operator:     o.ID(),
@@ -275,6 +293,9 @@ func (f *FunctionDecl) Bindings() ([]*functions.Overload, error) {
 	if f.singleton != nil {
 		if len(overloads) != 0 {
 			return nil, fmt.Errorf("singleton function incompatible with specialized overloads: %s", f.Name())
+		}
+		if hasLateBinding {
+			return nil, fmt.Errorf("singleton function incompatible with late bindings: %s", f.Name())
 		}
 		overloads = []*functions.Overload{
 			{
@@ -516,6 +537,9 @@ type OverloadDecl struct {
 	argTypes         []*types.Type
 	resultType       *types.Type
 	isMemberFunction bool
+	// hasLateBinding indicates that the function has a binding which is not known at compile time.
+	// This is useful for functions which have side-effects or are not deterministically computable.
+	hasLateBinding bool
 	// nonStrict indicates that the function will accept error and unknown arguments as inputs.
 	nonStrict bool
 	// operandTrait indicates whether the member argument should have a specific type-trait.
@@ -569,6 +593,14 @@ func (o *OverloadDecl) IsNonStrict() bool {
 		return false
 	}
 	return o.nonStrict
+}
+
+// HasLateBinding returns whether the overload has a binding which is not known at compile time.
+func (o *OverloadDecl) HasLateBinding() bool {
+	if o == nil {
+		return false
+	}
+	return o.hasLateBinding
 }
 
 // OperandTrait returns the trait mask of the first operand to the overload call, e.g.
@@ -739,6 +771,9 @@ func UnaryBinding(binding functions.UnaryOp) OverloadOpt {
 		if len(o.ArgTypes()) != 1 {
 			return nil, fmt.Errorf("unary function bound to non-unary overload: %s", o.ID())
 		}
+		if o.hasLateBinding {
+			return nil, fmt.Errorf("overload already has a late binding: %s", o.ID())
+		}
 		o.unaryOp = binding
 		return o, nil
 	}
@@ -754,6 +789,9 @@ func BinaryBinding(binding functions.BinaryOp) OverloadOpt {
 		if len(o.ArgTypes()) != 2 {
 			return nil, fmt.Errorf("binary function bound to non-binary overload: %s", o.ID())
 		}
+		if o.hasLateBinding {
+			return nil, fmt.Errorf("overload already has a late binding: %s", o.ID())
+		}
 		o.binaryOp = binding
 		return o, nil
 	}
@@ -766,7 +804,22 @@ func FunctionBinding(binding functions.FunctionOp) OverloadOpt {
 		if o.hasBinding() {
 			return nil, fmt.Errorf("overload already has a binding: %s", o.ID())
 		}
+		if o.hasLateBinding {
+			return nil, fmt.Errorf("overload already has a late binding: %s", o.ID())
+		}
 		o.functionOp = binding
+		return o, nil
+	}
+}
+
+// LateFunctionBinding indicates that the function has a binding which is not known at compile time.
+// This is useful for functions which have side-effects or are not deterministically computable.
+func LateFunctionBinding() OverloadOpt {
+	return func(o *OverloadDecl) (*OverloadDecl, error) {
+		if o.hasBinding() {
+			return nil, fmt.Errorf("overload already has a binding: %s", o.ID())
+		}
+		o.hasLateBinding = true
 		return o, nil
 	}
 }
