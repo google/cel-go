@@ -13,8 +13,6 @@
 # limitations under the License.
 
 name: "custom_policy_config"
-stdLib:
-  disbaled: false
 extensions:
 - name: "optional"
   version: "latest"
