@@ -17,12 +17,14 @@ package cel
 import (
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/google/cel-go/common/ast"
+	"github.com/google/cel-go/common/types/ref"
 
 	proto3pb "github.com/google/cel-go/test/proto3pb"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
@@ -299,6 +301,89 @@ func TestConstantFoldingOptimizer(t *testing.T) {
 			}
 			opt := NewStaticOptimizer(folder)
 			optimized, iss := opt.Optimize(e, checked)
+			if iss.Err() != nil {
+				t.Fatalf("Optimize() generated an invalid AST: %v", iss.Err())
+			}
+			folded, err := AstToString(optimized)
+			if err != nil {
+				t.Fatalf("AstToString() failed: %v", err)
+			}
+			if folded != tc.folded {
+				t.Errorf("got %q, wanted %q", folded, tc.folded)
+			}
+		})
+	}
+}
+
+func TestConstantFoldingCallsWithSideEffects(t *testing.T) {
+	tests := []struct {
+		expr   string
+		folded string
+		error  string
+	}{
+		{
+			expr:   `noSideEffect(3)`,
+			folded: `3`,
+		},
+		{
+			expr:   `withSideEffect(3)`,
+			folded: `withSideEffect(3)`,
+		},
+		{
+			expr:   `[{}, {"a": 1}, {"b": 2}].exists(i, has(i.b) && withSideEffect(i.b) == 1)`,
+			folded: `[{}, {"a": 1}, {"b": 2}].exists(i, has(i.b) && withSideEffect(i.b) == 1)`,
+		},
+		{
+			expr:   `[{}, {"a": 1}, {"b": 2}].exists(i, has(i.b) && noSideEffect(i.b) == 2)`,
+			folded: `true`,
+		},
+		{
+			expr:  `noImpl(3)`,
+			error: `constant-folding evaluation failed: no such overload: noImpl`,
+		},
+	}
+	e, err := NewEnv(
+		OptionalTypes(),
+		EnableMacroCallTracking(),
+		Function("noSideEffect",
+			Overload("noSideEffect_int_int",
+				[]*Type{IntType},
+				IntType, FunctionBinding(func(args ...ref.Val) ref.Val {
+					return args[0]
+				}))),
+		Function("withSideEffect",
+			Overload("withSideEffect_int_int",
+				[]*Type{IntType},
+				IntType, LateFunctionBinding())),
+		Function("noImpl",
+			Overload("noImpl_int_int",
+				[]*Type{IntType},
+				IntType)),
+	)
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	for _, tst := range tests {
+		tc := tst
+		t.Run(tc.expr, func(t *testing.T) {
+			checked, iss := e.Compile(tc.expr)
+			if iss.Err() != nil {
+				t.Fatalf("Compile() failed: %v", iss.Err())
+			}
+			folder, err := NewConstantFoldingOptimizer()
+			if err != nil {
+				t.Fatalf("NewConstantFoldingOptimizer() failed: %v", err)
+			}
+			opt := NewStaticOptimizer(folder)
+			optimized, iss := opt.Optimize(e, checked)
+			if tc.error != "" {
+				if iss.Err() == nil {
+					t.Errorf("got nil, wanted error containing %q", tc.error)
+				} else if !strings.Contains(iss.Err().Error(), tc.error) {
+					t.Errorf("got %q, wanted error containing %q", iss.Err().Error(), tc.error)
+				}
+				return
+			}
 			if iss.Err() != nil {
 				t.Fatalf("Optimize() generated an invalid AST: %v", iss.Err())
 			}

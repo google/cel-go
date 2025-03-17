@@ -330,6 +330,12 @@ func FunctionBinding(binding functions.FunctionOp) OverloadOpt {
 	return decls.FunctionBinding(binding)
 }
 
+// LateFunctionBinding indicates that the function has a binding which is not known at compile time.
+// This is useful for functions which have side-effects or are not deterministically computable.
+func LateFunctionBinding() OverloadOpt {
+	return decls.LateFunctionBinding()
+}
+
 // OverloadIsNonStrict enables the function to be called with error and unknown argument values.
 //
 // Note: do not use this option unless absoluately necessary as it should be an uncommon feature.
