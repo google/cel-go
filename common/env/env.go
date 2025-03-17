@@ -836,7 +836,7 @@ func (td *TypeDesc) AsCELType(tp types.Provider) (*types.Type, error) {
 	}
 }
 
-// SerializeTypeDesc converts a CEL native *types.Type to a serialized  TypeDesc.
+// SerializeTypeDesc converts a CEL native *types.Type to a serializable TypeDesc.
 func SerializeTypeDesc(t *types.Type) *TypeDesc {
 	typeName := t.TypeName()
 	if t.Kind() == types.TypeParamKind {
