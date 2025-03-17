@@ -62,7 +62,7 @@ const (
 //
 // The policy metadata map is generally produced as a byproduct of the parsing the policy and it can
 // be optionally customised by providing a custom policy parser.
-type PolicyMetadataEnvOption func(metadata map[string]any) cel.EnvOption
+type PolicyMetadataEnvOption func(map[string]any) cel.EnvOption
 
 // Compiler interface is used to set up a compiler with the following capabilities:
 // - create a CEL environment
@@ -85,20 +85,20 @@ type Compiler interface {
 }
 
 type compiler struct {
-	envOptions            []cel.EnvOption
-	policyParserOptions   []policy.ParserOption
-	policyCompilerOptions []policy.CompilerOption
-	policyEnvOptions      []PolicyMetadataEnvOption
-	env                   *cel.Env
+	envOptions               []cel.EnvOption
+	policyParserOptions      []policy.ParserOption
+	policyCompilerOptions    []policy.CompilerOption
+	policyMetadataEnvOptions []PolicyMetadataEnvOption
+	env                      *cel.Env
 }
 
 // NewCompiler creates a new compiler with a set of functional options.
 func NewCompiler(opts ...any) (Compiler, error) {
 	c := &compiler{
-		envOptions:            []cel.EnvOption{},
-		policyParserOptions:   []policy.ParserOption{},
-		policyCompilerOptions: []policy.CompilerOption{},
-		policyEnvOptions:      []PolicyMetadataEnvOption{},
+		envOptions:               []cel.EnvOption{},
+		policyParserOptions:      []policy.ParserOption{},
+		policyCompilerOptions:    []policy.CompilerOption{},
+		policyMetadataEnvOptions: []PolicyMetadataEnvOption{},
 	}
 	for _, opt := range opts {
 		switch opt := opt.(type) {
@@ -109,7 +109,7 @@ func NewCompiler(opts ...any) (Compiler, error) {
 		case policy.CompilerOption:
 			c.policyCompilerOptions = append(c.policyCompilerOptions, opt)
 		case PolicyMetadataEnvOption:
-			c.policyEnvOptions = append(c.policyEnvOptions, opt)
+			c.policyMetadataEnvOptions = append(c.policyMetadataEnvOptions, opt)
 		default:
 			return nil, fmt.Errorf("unsupported compiler option: %v", opt)
 		}
@@ -138,7 +138,7 @@ func (c *compiler) PolicyCompilerOptions() []policy.CompilerOption {
 }
 
 func (c *compiler) PolicyMetadataEnvOptions() []PolicyMetadataEnvOption {
-	return c.policyEnvOptions
+	return c.policyMetadataEnvOptions
 }
 
 func loadFile(path string) ([]byte, error) {
