@@ -195,10 +195,12 @@ func formatStringV2(arg ref.Val) (string, error) {
 
 type stringFormatterV2 struct{}
 
+// String implements formatStringInterpolatorV2.String.
 func (c *stringFormatterV2) String(arg ref.Val) (string, error) {
 	return formatStringV2(arg)
 }
 
+// Decimal implements formatStringInterpolatorV2.Decimal.
 func (c *stringFormatterV2) Decimal(arg ref.Val) (string, error) {
 	switch arg.Type() {
 	case types.IntType:
@@ -233,6 +235,7 @@ func (c *stringFormatterV2) Decimal(arg ref.Val) (string, error) {
 	}
 }
 
+// Fixed implements formatStringInterpolatorV2.Fixed.
 func (c *stringFormatterV2) Fixed(precision int) func(ref.Val) (string, error) {
 	return func(arg ref.Val) (string, error) {
 		fmtStr := fmt.Sprintf("%%.%df", precision)
@@ -270,6 +273,7 @@ func (c *stringFormatterV2) Fixed(precision int) func(ref.Val) (string, error) {
 	}
 }
 
+// Scientific implements formatStringInterpolatorV2.Scientific.
 func (c *stringFormatterV2) Scientific(precision int) func(ref.Val) (string, error) {
 	return func(arg ref.Val) (string, error) {
 		fmtStr := fmt.Sprintf("%%1.%de", precision)
@@ -307,6 +311,7 @@ func (c *stringFormatterV2) Scientific(precision int) func(ref.Val) (string, err
 	}
 }
 
+// Binary implements formatStringInterpolatorV2.Binary.
 func (c *stringFormatterV2) Binary(arg ref.Val) (string, error) {
 	switch arg.Type() {
 	case types.BoolType:
@@ -335,6 +340,7 @@ func (c *stringFormatterV2) Binary(arg ref.Val) (string, error) {
 	}
 }
 
+// Hex implements formatStringInterpolatorV2.Hex.
 func (c *stringFormatterV2) Hex(useUpper bool) func(ref.Val) (string, error) {
 	return func(arg ref.Val) (string, error) {
 		var fmtStr string
@@ -374,6 +380,7 @@ func (c *stringFormatterV2) Hex(useUpper bool) func(ref.Val) (string, error) {
 	}
 }
 
+// Octal implements formatStringInterpolatorV2.Octal.
 func (c *stringFormatterV2) Octal(arg ref.Val) (string, error) {
 	switch arg.Type() {
 	case types.IntType:
@@ -445,6 +452,7 @@ type stringFormatCheckerV2 struct {
 	ast           *ast.AST
 }
 
+// String implements formatStringInterpolatorV2.String.
 func (c *stringFormatCheckerV2) String(arg ref.Val) (string, error) {
 	formatArg := c.args[c.currArgIndex]
 	valid, badID := c.verifyString(formatArg)
@@ -454,6 +462,7 @@ func (c *stringFormatCheckerV2) String(arg ref.Val) (string, error) {
 	return "", nil
 }
 
+// Decimal implements formatStringInterpolatorV2.Decimal.
 func (c *stringFormatCheckerV2) Decimal(arg ref.Val) (string, error) {
 	id := c.args[c.currArgIndex].ID()
 	valid := c.verifyTypeOneOf(id, types.IntType, types.UintType, types.DoubleType)
@@ -463,6 +472,7 @@ func (c *stringFormatCheckerV2) Decimal(arg ref.Val) (string, error) {
 	return "", nil
 }
 
+// Fixed implements formatStringInterpolatorV2.Fixed.
 func (c *stringFormatCheckerV2) Fixed(precision int) func(ref.Val) (string, error) {
 	return func(arg ref.Val) (string, error) {
 		id := c.args[c.currArgIndex].ID()
@@ -474,6 +484,7 @@ func (c *stringFormatCheckerV2) Fixed(precision int) func(ref.Val) (string, erro
 	}
 }
 
+// Scientific implements formatStringInterpolatorV2.Scientific.
 func (c *stringFormatCheckerV2) Scientific(precision int) func(ref.Val) (string, error) {
 	return func(arg ref.Val) (string, error) {
 		id := c.args[c.currArgIndex].ID()
@@ -485,6 +496,7 @@ func (c *stringFormatCheckerV2) Scientific(precision int) func(ref.Val) (string,
 	}
 }
 
+// Binary implements formatStringInterpolatorV2.Binary.
 func (c *stringFormatCheckerV2) Binary(arg ref.Val) (string, error) {
 	id := c.args[c.currArgIndex].ID()
 	valid := c.verifyTypeOneOf(id, types.BoolType, types.IntType, types.UintType)
@@ -494,6 +506,7 @@ func (c *stringFormatCheckerV2) Binary(arg ref.Val) (string, error) {
 	return "", nil
 }
 
+// Hex implements formatStringInterpolatorV2.Hex.
 func (c *stringFormatCheckerV2) Hex(useUpper bool) func(ref.Val) (string, error) {
 	return func(arg ref.Val) (string, error) {
 		id := c.args[c.currArgIndex].ID()
@@ -505,6 +518,7 @@ func (c *stringFormatCheckerV2) Hex(useUpper bool) func(ref.Val) (string, error)
 	}
 }
 
+// Octal implements formatStringInterpolatorV2.Octal.
 func (c *stringFormatCheckerV2) Octal(arg ref.Val) (string, error) {
 	id := c.args[c.currArgIndex].ID()
 	valid := c.verifyTypeOneOf(id, types.IntType, types.UintType)
@@ -514,6 +528,7 @@ func (c *stringFormatCheckerV2) Octal(arg ref.Val) (string, error) {
 	return "", nil
 }
 
+// Arg implements formatListArgs.Arg.
 func (c *stringFormatCheckerV2) Arg(index int64) (ref.Val, error) {
 	c.argsRequested++
 	c.currArgIndex = index
@@ -522,6 +537,7 @@ func (c *stringFormatCheckerV2) Arg(index int64) (ref.Val, error) {
 	return types.Int(0), nil
 }
 
+// Size implements formatListArgs.Size.
 func (c *stringFormatCheckerV2) Size() int64 {
 	return int64(len(c.args))
 }
