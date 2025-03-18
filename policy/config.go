@@ -15,8 +15,6 @@
 package policy
 
 import (
-	"fmt"
-
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/env"
 	"github.com/google/cel-go/ext"
@@ -28,55 +26,5 @@ import (
 // a set of configuration ConfigOptionFactory values to handle extensions and other config features
 // which may be defined outside of the `cel` package.
 func FromConfig(config *env.Config) cel.EnvOption {
-	return cel.FromConfig(config, extensionOptionFactory)
-}
-
-// extensionOptionFactory converts an ExtensionConfig value to a CEL environment option.
-func extensionOptionFactory(configElement any) (cel.EnvOption, bool) {
-	ext, isExtension := configElement.(*env.Extension)
-	if !isExtension {
-		return nil, false
-	}
-	fac, found := extFactories[ext.Name]
-	if !found {
-		return nil, false
-	}
-	// If the version is 'latest', set the version value to the max uint.
-	ver, err := ext.VersionNumber()
-	if err != nil {
-		return func(*cel.Env) (*cel.Env, error) {
-			return nil, fmt.Errorf("invalid extension version: %s - %s", ext.Name, ext.Version)
-		}, true
-	}
-	return fac(ver), true
-}
-
-// extensionFactory accepts a version and produces a CEL environment associated with the versioned extension.
-type extensionFactory func(uint32) cel.EnvOption
-
-var extFactories = map[string]extensionFactory{
-	"bindings": func(version uint32) cel.EnvOption {
-		return ext.Bindings(ext.BindingsVersion(version))
-	},
-	"encoders": func(version uint32) cel.EnvOption {
-		return ext.Encoders(ext.EncodersVersion(version))
-	},
-	"lists": func(version uint32) cel.EnvOption {
-		return ext.Lists(ext.ListsVersion(version))
-	},
-	"math": func(version uint32) cel.EnvOption {
-		return ext.Math(ext.MathVersion(version))
-	},
-	"protos": func(version uint32) cel.EnvOption {
-		return ext.Protos(ext.ProtosVersion(version))
-	},
-	"sets": func(version uint32) cel.EnvOption {
-		return ext.Sets(ext.SetsVersion(version))
-	},
-	"strings": func(version uint32) cel.EnvOption {
-		return ext.Strings(ext.StringsVersion(version))
-	},
-	"two-var-comprehensions": func(version uint32) cel.EnvOption {
-		return ext.TwoVarComprehensions(ext.TwoVarComprehensionsVersion(version))
-	},
+	return cel.FromConfig(config, ext.ExtensionOptionFactory)
 }
