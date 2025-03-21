@@ -4,23 +4,30 @@ import (
 	"reflect"
 	"testing"
 
+	"cel.dev/expr"
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/env"
 	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/ext"
 	"github.com/google/cel-go/policy"
+	"google.golang.org/protobuf/types/known/structpb"
 	"gopkg.in/yaml.v3"
+
+	celpb "cel.dev/expr"
+	configpb "cel.dev/expr/conformance"
 )
 
 func TestEnvironmentFileCompareTextprotoAndYAML(t *testing.T) {
 	t.Run("compare textproto and yaml environment files", func(t *testing.T) {
-		protoConfig, err := parseEnv(t, "proto_config", "testdata/config.textproto")
+		pbEnv := testEnvProto()
+		protoConfig, err := configFromEnvProto(t, pbEnv)
 		if err != nil {
-			t.Fatalf("parseProtoEnv() failed: %v", err)
+			t.Fatalf("configFromEnvProto(%v) failed: %v", pbEnv, err)
 		}
 		config, err := parseEnv(t, "yaml_config", "testdata/config.yaml")
 		if err != nil {
-			t.Fatalf("parseYamlEnv() failed: %v", err)
+			t.Fatalf("parseEnv(%s) failed: %v", "testdata/config.yaml", err)
 		}
 		if protoConfig.Container != config.Container {
 			t.Fatalf("Container got %q, wanted %q", protoConfig.Container, config.Container)
@@ -94,10 +101,258 @@ func TestEnvironmentFileCompareTextprotoAndYAML(t *testing.T) {
 	})
 }
 
+func testEnvProto() *configpb.Environment {
+	return &configpb.Environment{
+		Name:        "test-environment",
+		Description: "Test environment",
+		Container:   "google.expr",
+		Imports: []*configpb.Environment_Import{
+			{Name: "google.expr.proto3.test.TestAllTypes"},
+		},
+		Stdlib: &configpb.LibrarySubset{
+			IncludeMacros: []string{"has", "exists"},
+			IncludeFunctions: []*expr.Decl{
+				{
+					Name: "_==_",
+					DeclKind: &celpb.Decl_Function{
+						Function: &celpb.Decl_FunctionDecl{
+							Overloads: []*celpb.Decl_FunctionDecl_Overload{
+								{
+									OverloadId: "equals",
+									Params: []*celpb.Type{
+										{
+											TypeKind: &celpb.Type_Primitive{
+												Primitive: celpb.Type_STRING,
+											},
+										},
+										{
+											TypeKind: &celpb.Type_Primitive{
+												Primitive: celpb.Type_STRING,
+											},
+										},
+									},
+									ResultType: &celpb.Type{
+										TypeKind: &celpb.Type_Primitive{
+											Primitive: celpb.Type_BOOL,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					Name: "_||_",
+					DeclKind: &celpb.Decl_Function{
+						Function: &celpb.Decl_FunctionDecl{
+							Overloads: []*celpb.Decl_FunctionDecl_Overload{
+								{
+									OverloadId: "logical_or",
+									Params: []*celpb.Type{
+										{
+											TypeKind: &celpb.Type_Primitive{
+												Primitive: celpb.Type_BOOL,
+											},
+										},
+										{
+											TypeKind: &celpb.Type_Primitive{
+												Primitive: celpb.Type_BOOL,
+											},
+										},
+									},
+									ResultType: &celpb.Type{
+										TypeKind: &celpb.Type_Primitive{
+											Primitive: celpb.Type_BOOL,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Extensions: []*configpb.Extension{
+			{
+				Name:    "optional",
+				Version: "latest",
+			},
+			{
+				Name:    "lists",
+				Version: "latest",
+			},
+			{
+				Name:    "sets",
+				Version: "latest",
+			},
+		},
+		Declarations: []*celpb.Decl{
+			{
+				Name: "destination.ip",
+				DeclKind: &celpb.Decl_Ident{
+					Ident: &celpb.Decl_IdentDecl{
+						Type: &celpb.Type{
+							TypeKind: &celpb.Type_Primitive{
+								Primitive: celpb.Type_STRING,
+							},
+						},
+					},
+				},
+			},
+			{
+				Name: "origin.ip",
+				DeclKind: &celpb.Decl_Ident{
+					Ident: &celpb.Decl_IdentDecl{
+						Type: &celpb.Type{
+							TypeKind: &celpb.Type_Primitive{
+								Primitive: celpb.Type_STRING,
+							},
+						},
+					},
+				},
+			},
+			{
+				Name: "spec.restricted_destinations",
+				DeclKind: &celpb.Decl_Ident{
+					Ident: &celpb.Decl_IdentDecl{
+						Type: &celpb.Type{
+							TypeKind: &celpb.Type_ListType_{
+								ListType: &celpb.Type_ListType{
+									ElemType: &celpb.Type{
+										TypeKind: &celpb.Type_Primitive{
+											Primitive: celpb.Type_STRING,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			{
+				Name: "spec.origin",
+				DeclKind: &celpb.Decl_Ident{
+					Ident: &celpb.Decl_IdentDecl{
+						Type: &celpb.Type{
+							TypeKind: &celpb.Type_Primitive{
+								Primitive: celpb.Type_STRING,
+							},
+						},
+					},
+				},
+			},
+			{
+				Name: "request",
+				DeclKind: &celpb.Decl_Ident{
+					Ident: &celpb.Decl_IdentDecl{
+						Type: &celpb.Type{
+							TypeKind: &celpb.Type_MapType_{
+								MapType: &celpb.Type_MapType{
+									KeyType: &celpb.Type{
+										TypeKind: &celpb.Type_Primitive{
+											Primitive: celpb.Type_STRING,
+										},
+									},
+									ValueType: &celpb.Type{
+										TypeKind: &celpb.Type_WellKnown{
+											WellKnown: celpb.Type_ANY,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			{
+				Name: "resource",
+				DeclKind: &celpb.Decl_Ident{
+					Ident: &celpb.Decl_IdentDecl{
+						Type: &celpb.Type{
+							TypeKind: &celpb.Type_MapType_{
+								MapType: &celpb.Type_MapType{
+									KeyType: &celpb.Type{
+										TypeKind: &celpb.Type_Primitive{
+											Primitive: celpb.Type_STRING,
+										},
+									},
+									ValueType: &celpb.Type{
+										TypeKind: &celpb.Type_WellKnown{
+											WellKnown: celpb.Type_ANY,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			{
+				Name: "locationCode",
+				DeclKind: &celpb.Decl_Function{
+					Function: &celpb.Decl_FunctionDecl{
+						Overloads: []*celpb.Decl_FunctionDecl_Overload{
+							{
+								OverloadId: "locationCode_string",
+								Params: []*celpb.Type{
+									{
+										TypeKind: &celpb.Type_Primitive{
+											Primitive: celpb.Type_STRING,
+										},
+									},
+								},
+								ResultType: &celpb.Type{
+									TypeKind: &celpb.Type_Primitive{
+										Primitive: celpb.Type_STRING,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Validators: []*configpb.Validator{
+			{Name: "cel.validator.duration"},
+			{
+				Name: "cel.validator.nesting_comprehension_limit",
+				Config: map[string]*structpb.Value{
+					"limits": structpb.NewNumberValue(2),
+				},
+			},
+		},
+		Features: []*configpb.Feature{
+			{
+				Name:    "cel.feature.macro_call_tracking",
+				Enabled: true,
+			},
+		},
+	}
+}
+
+func configFromEnvProto(t *testing.T, pbEnv *configpb.Environment) (*env.Config, error) {
+	t.Helper()
+	envConfig, fileDescriptorSet, err := envProtoToConfig(pbEnv)
+	if err != nil {
+		return nil, err
+	}
+	var envOpts []cel.EnvOption
+	if fileDescriptorSet != nil {
+		envOpts = append(envOpts, cel.TypeDescs(fileDescriptorSet))
+	}
+	envOpts = append(envOpts, cel.FromConfig(envConfig, ext.ExtensionOptionFactory))
+	return envOptionToConfig(t, envConfig.Name, envOpts...)
+}
+
 func parseEnv(t *testing.T, name, path string) (*env.Config, error) {
 	t.Helper()
 	opts := EnvironmentFile(path)
-	e, err := cel.NewCustomEnv(opts)
+	return envOptionToConfig(t, name, opts)
+}
+
+func envOptionToConfig(t *testing.T, name string, opts ...cel.EnvOption) (*env.Config, error) {
+	t.Helper()
+	e, err := cel.NewCustomEnv(opts...)
 	if err != nil {
 		return nil, err
 	}

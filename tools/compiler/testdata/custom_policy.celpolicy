@@ -13,13 +13,13 @@
 # limitations under the License.
 
 name: "custom_policy"
-rule:
-  match:
-    - condition: |
-        variable1 == 1 || variable2 == "known"
-      output: "true"
 variable_types:
   - variable_name: "variable1"
     variable_type: "int"
   - variable_name: "variable2"
     variable_type: "string"
+rule:
+  match:
+    - condition: |
+        variable1 == 1 || variable2 == "known"
+      output: "true"

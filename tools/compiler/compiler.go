@@ -60,7 +60,7 @@ const (
 // PolicyMetadataEnvOption represents a function which accepts a policy metadata map and returns an
 // environment option used to extend the CEL environment.
 //
-// The policy metadata map is generally produced as a byproduct of the parsing the policy and it can
+// The policy metadata map is generally produced as a byproduct of parsing the policy and it can
 // be optionally customised by providing a custom policy parser.
 type PolicyMetadataEnvOption func(map[string]any) cel.EnvOption
 
@@ -181,9 +181,9 @@ func inferFileFormat(path string) FileFormat {
 
 // EnvironmentFile returns an EnvOption which loads a serialized CEL environment from a file.
 // The file must be in one of the following formats:
-// - textproto
-// - yaml
-// - binarypb
+// - Textproto
+// - YAML
+// - Binarypb
 func EnvironmentFile(path string) cel.EnvOption {
 	return func(e *cel.Env) (*cel.Env, error) {
 		format := inferFileFormat(path)
@@ -195,45 +195,11 @@ func EnvironmentFile(path string) cel.EnvOption {
 		switch format {
 		case TextProto, BinaryProto:
 			pbEnv := &configpb.Environment{}
-			if err := loadProtoFile(path, format, pbEnv); err != nil {
+			var err error
+			if err = loadProtoFile(path, format, pbEnv); err != nil {
 				return nil, err
 			}
-			envConfig = env.NewConfig(pbEnv.GetName())
-			envConfig.Description = pbEnv.GetDescription()
-			envConfig.SetContainer(pbEnv.GetContainer())
-			for _, imp := range pbEnv.GetImports() {
-				envConfig.AddImports(env.NewImport(imp.GetName()))
-			}
-			stdLib, err := envToStdLib(pbEnv)
-			if err != nil {
-				return nil, err
-			}
-			envConfig.SetStdLib(stdLib)
-			extensions := make([]*env.Extension, 0, len(pbEnv.GetExtensions()))
-			for _, extension := range pbEnv.GetExtensions() {
-				extensions = append(extensions, &env.Extension{Name: extension.GetName(), Version: extension.GetVersion()})
-			}
-			envConfig.AddExtensions(extensions...)
-			if contextVariable := pbEnv.GetContextVariable(); contextVariable != nil {
-				envConfig.SetContextVariable(env.NewContextVariable(contextVariable.GetTypeName()))
-			}
-			functions, variables, err := protoDeclToFunctionsAndVariables(pbEnv.GetDeclarations())
-			if err != nil {
-				return nil, err
-			}
-			envConfig.AddFunctions(functions...)
-			envConfig.AddVariables(variables...)
-			validators, err := envToValidators(pbEnv)
-			if err != nil {
-				return nil, err
-			}
-			envConfig.AddValidators(validators...)
-			features, err := envToFeatures(pbEnv)
-			if err != nil {
-				return nil, err
-			}
-			envConfig.AddFeatures(features...)
-			fileDescriptorSet = pbEnv.GetMessageTypeExtension()
+			envConfig, fileDescriptorSet, err = envProtoToConfig(pbEnv)
 		case TextYAML:
 			envConfig = &env.Config{}
 			data, err := loadFile(path)
@@ -259,6 +225,49 @@ func EnvironmentFile(path string) cel.EnvOption {
 		}
 		return e, nil
 	}
+}
+
+func envProtoToConfig(pbEnv *configpb.Environment) (*env.Config, *descpb.FileDescriptorSet, error) {
+	if pbEnv == nil {
+		return nil, nil, fmt.Errorf("proto environment is not set")
+	}
+	envConfig := env.NewConfig(pbEnv.GetName())
+	envConfig.Description = pbEnv.GetDescription()
+	envConfig.SetContainer(pbEnv.GetContainer())
+	for _, imp := range pbEnv.GetImports() {
+		envConfig.AddImports(env.NewImport(imp.GetName()))
+	}
+	stdLib, err := envToStdLib(pbEnv)
+	if err != nil {
+		return nil, nil, err
+	}
+	envConfig.SetStdLib(stdLib)
+	extensions := make([]*env.Extension, 0, len(pbEnv.GetExtensions()))
+	for _, extension := range pbEnv.GetExtensions() {
+		extensions = append(extensions, &env.Extension{Name: extension.GetName(), Version: extension.GetVersion()})
+	}
+	envConfig.AddExtensions(extensions...)
+	if contextVariable := pbEnv.GetContextVariable(); contextVariable != nil {
+		envConfig.SetContextVariable(env.NewContextVariable(contextVariable.GetTypeName()))
+	}
+	functions, variables, err := protoDeclToFunctionsAndVariables(pbEnv.GetDeclarations())
+	if err != nil {
+		return nil, nil, err
+	}
+	envConfig.AddFunctions(functions...)
+	envConfig.AddVariables(variables...)
+	validators, err := envToValidators(pbEnv)
+	if err != nil {
+		return nil, nil, err
+	}
+	envConfig.AddValidators(validators...)
+	features, err := envToFeatures(pbEnv)
+	if err != nil {
+		return nil, nil, err
+	}
+	envConfig.AddFeatures(features...)
+	fileDescriptorSet := pbEnv.GetMessageTypeExtension()
+	return envConfig, fileDescriptorSet, nil
 }
 
 func envToFeatures(pbEnv *configpb.Environment) ([]*env.Feature, error) {
@@ -415,8 +424,8 @@ type CompiledExpression struct {
 
 // CreateAst creates a CEL AST from a checked expression file.
 // The file must be in one of the following formats:
-// - .binarypb
-// - .textproto
+// - Binarypb
+// - Textproto
 func (c *CompiledExpression) CreateAst(_ Compiler) (*cel.Ast, map[string]any, error) {
 	var expr exprpb.CheckedExpr
 	format := inferFileFormat(c.Path)
