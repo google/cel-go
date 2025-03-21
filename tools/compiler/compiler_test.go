@@ -4,7 +4,6 @@ import (
 	"reflect"
 	"testing"
 
-	"cel.dev/expr"
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/env"
@@ -111,7 +110,7 @@ func testEnvProto() *configpb.Environment {
 		},
 		Stdlib: &configpb.LibrarySubset{
 			IncludeMacros: []string{"has", "exists"},
-			IncludeFunctions: []*expr.Decl{
+			IncludeFunctions: []*celpb.Decl{
 				{
 					Name: "_==_",
 					DeclKind: &celpb.Decl_Function{
