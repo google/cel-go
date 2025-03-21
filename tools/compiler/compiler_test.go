@@ -11,11 +11,11 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/ext"
 	"github.com/google/cel-go/policy"
-	"google.golang.org/protobuf/types/known/structpb"
 	"gopkg.in/yaml.v3"
 
 	celpb "cel.dev/expr"
 	configpb "cel.dev/expr/conformance"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 )
 
 func TestEnvironmentFileCompareTextprotoAndYAML(t *testing.T) {
