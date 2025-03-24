@@ -200,6 +200,9 @@ func EnvironmentFile(path string) cel.EnvOption {
 				return nil, err
 			}
 			envConfig, fileDescriptorSet, err = envProtoToConfig(pbEnv)
+			if err != nil {
+				return nil, err
+			}
 		case TextYAML:
 			envConfig = &env.Config{}
 			data, err := loadFile(path)
