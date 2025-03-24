@@ -320,40 +320,43 @@ func protoDeclToFunctionsAndVariables(declarations []*celpb.Decl) ([]*env.Functi
 
 func envToStdLib(pbEnv *configpb.Environment) (*env.LibrarySubset, error) {
 	stdLib := env.NewLibrarySubset()
-	if pbEnv.GetDisableStandardCelDeclarations() {
-		stdLib.SetDisabled(true)
-	}
-	if pbEnvStdLib := pbEnv.GetStdlib(); pbEnvStdLib != nil {
-		if !stdLib.Disabled {
-			stdLib.SetDisabled(pbEnvStdLib.GetDisabled())
+	pbEnvStdLib := pbEnv.GetStdlib()
+	if pbEnvStdLib == nil {
+		if pbEnv.GetDisableStandardCelDeclarations() {
+			stdLib.SetDisabled(true)
+			return stdLib, nil
 		}
-		stdLib.SetDisableMacros(pbEnvStdLib.GetDisableMacros())
-		stdLib.AddIncludedMacros(pbEnvStdLib.GetIncludeMacros()...)
-		stdLib.AddExcludedMacros(pbEnvStdLib.GetExcludeMacros()...)
-		if pbEnvStdLib.GetIncludeFunctions() != nil {
-			for _, includeFn := range pbEnvStdLib.GetIncludeFunctions() {
-				if includeFn.GetFunction() != nil {
-					fn, err := protoDeclToFunction(includeFn)
-					if err != nil {
-						return nil, err
-					}
-					stdLib.AddIncludedFunctions(fn)
-				} else {
-					return nil, fmt.Errorf("IncludeFunctions must specify a function decl")
+		return nil, nil
+	}
+	if !stdLib.Disabled {
+		stdLib.SetDisabled(pbEnvStdLib.GetDisabled())
+	}
+	stdLib.SetDisableMacros(pbEnvStdLib.GetDisableMacros())
+	stdLib.AddIncludedMacros(pbEnvStdLib.GetIncludeMacros()...)
+	stdLib.AddExcludedMacros(pbEnvStdLib.GetExcludeMacros()...)
+	if pbEnvStdLib.GetIncludeFunctions() != nil {
+		for _, includeFn := range pbEnvStdLib.GetIncludeFunctions() {
+			if includeFn.GetFunction() != nil {
+				fn, err := protoDeclToFunction(includeFn)
+				if err != nil {
+					return nil, err
 				}
+				stdLib.AddIncludedFunctions(fn)
+			} else {
+				return nil, fmt.Errorf("IncludeFunctions must specify a function decl")
 			}
 		}
-		if pbEnvStdLib.GetExcludeFunctions() != nil {
-			for _, excludeFn := range pbEnvStdLib.GetExcludeFunctions() {
-				if excludeFn.GetFunction() != nil {
-					fn, err := protoDeclToFunction(excludeFn)
-					if err != nil {
-						return nil, err
-					}
-					stdLib.AddExcludedFunctions(fn)
-				} else {
-					return nil, fmt.Errorf("ExcludeFunctions must specify a function decl")
+	}
+	if pbEnvStdLib.GetExcludeFunctions() != nil {
+		for _, excludeFn := range pbEnvStdLib.GetExcludeFunctions() {
+			if excludeFn.GetFunction() != nil {
+				fn, err := protoDeclToFunction(excludeFn)
+				if err != nil {
+					return nil, err
 				}
+				stdLib.AddExcludedFunctions(fn)
+			} else {
+				return nil, fmt.Errorf("ExcludeFunctions must specify a function decl")
 			}
 		}
 	}
