@@ -3,7 +3,7 @@ module github.com/google/cel-go/tools
 go 1.23.0
 
 require (
-	cel.dev/expr v0.22.0
+	cel.dev/expr v0.22.1
 	github.com/google/cel-go v0.22.0
 	github.com/google/cel-go/policy v0.0.0-20250311174852-f5ea07b389a1
 	google.golang.org/genproto/googleapis/api v0.0.0-20250311190419-81fb87f6b8bf
