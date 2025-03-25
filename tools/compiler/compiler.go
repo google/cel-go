@@ -74,7 +74,7 @@ type PolicyMetadataEnvOption func(map[string]any) cel.EnvOption
 // abstraction layer which can create the different components needed for parsing and compiling CEL
 // expressions and policies.
 type Compiler interface {
-	// CreateEnv creates a CEL environment with the configured environment options.
+	// CreateEnv creates a singleton CEL environment with the configured environment options.
 	CreateEnv() (*cel.Env, error)
 	// CreatePolicyParser creates a policy parser using the optionally configured parser options.
 	CreatePolicyParser() (*policy.Parser, error)
@@ -117,6 +117,7 @@ func NewCompiler(opts ...any) (Compiler, error) {
 	return c, nil
 }
 
+// CreateEnv creates a singleton CEL environment with the configured environment options.
 func (c *compiler) CreateEnv() (*cel.Env, error) {
 	if c.env != nil {
 		return c.env, nil
@@ -129,14 +130,17 @@ func (c *compiler) CreateEnv() (*cel.Env, error) {
 	return c.env, nil
 }
 
+// CreatePolicyParser creates a policy parser using the optionally configured parser options.
 func (c *compiler) CreatePolicyParser() (*policy.Parser, error) {
 	return policy.NewParser(c.policyParserOptions...)
 }
 
+// PolicyCompilerOptions returns the policy compiler options configured in the compiler.
 func (c *compiler) PolicyCompilerOptions() []policy.CompilerOption {
 	return c.policyCompilerOptions
 }
 
+// PolicyMetadataEnvOptions returns the policy metadata environment options configured in the compiler.
 func (c *compiler) PolicyMetadataEnvOptions() []PolicyMetadataEnvOption {
 	return c.policyMetadataEnvOptions
 }
@@ -419,8 +423,8 @@ func TypeDescriptorSetFile(path string) cel.EnvOption {
 // InputExpression is an interface for an expression which can be compiled into a CEL AST and return
 // an optional policy metadata map.
 type InputExpression interface {
-	// CreateAst creates a CEL AST from the input expression using the provided compiler.
-	CreateAst(Compiler) (*cel.Ast, map[string]any, error)
+	// CreateAST creates a CEL AST from the input expression using the provided compiler.
+	CreateAST(Compiler) (*cel.Ast, map[string]any, error)
 }
 
 // CompiledExpression is an InputExpression which loads a CheckedExpr from a file.
@@ -428,11 +432,11 @@ type CompiledExpression struct {
 	Path string
 }
 
-// CreateAst creates a CEL AST from a checked expression file.
+// CreateAST creates a CEL AST from a checked expression file.
 // The file must be in one of the following formats:
 // - Binarypb
 // - Textproto
-func (c *CompiledExpression) CreateAst(_ Compiler) (*cel.Ast, map[string]any, error) {
+func (c *CompiledExpression) CreateAST(_ Compiler) (*cel.Ast, map[string]any, error) {
 	var expr exprpb.CheckedExpr
 	format := inferFileFormat(c.Path)
 	if format != BinaryProto && format != TextProto {
@@ -449,7 +453,7 @@ type FileExpression struct {
 	Path string
 }
 
-// CreateAst creates a CEL AST from a file using the provided compiler:
+// CreateAST creates a CEL AST from a file using the provided compiler:
 // - All policy metadata options as executed using the policy metadata map to extend the
 // environment.
 // - All policy compiler options are passed on to compile the parsed policy.
@@ -457,7 +461,7 @@ type FileExpression struct {
 // The file must be in one of the following formats:
 // - .cel: CEL string expression
 // - .celpolicy: CEL policy
-func (f *FileExpression) CreateAst(compiler Compiler) (*cel.Ast, map[string]any, error) {
+func (f *FileExpression) CreateAST(compiler Compiler) (*cel.Ast, map[string]any, error) {
 	e, err := compiler.CreateEnv()
 	if err != nil {
 		return nil, nil, err
@@ -516,8 +520,8 @@ type RawExpression struct {
 	Value string
 }
 
-// CreateAst creates a CEL AST from a raw CEL expression using the provided compiler.
-func (r *RawExpression) CreateAst(compiler Compiler) (*cel.Ast, map[string]any, error) {
+// CreateAST creates a CEL AST from a raw CEL expression using the provided compiler.
+func (r *RawExpression) CreateAST(compiler Compiler) (*cel.Ast, map[string]any, error) {
 	e, err := compiler.CreateEnv()
 	if err != nil {
 		return nil, nil, err

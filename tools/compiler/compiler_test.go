@@ -1,3 +1,17 @@
+// Copyright 2025 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package compiler
 
 import (
@@ -377,12 +391,12 @@ func TestFileExpressionCustomPolicyParser(t *testing.T) {
 		policyFile := &FileExpression{
 			Path: "../../policy/testdata/k8s/policy.yaml",
 		}
-		k8sAst, _, err := policyFile.CreateAst(compiler)
+		k8sAst, _, err := policyFile.CreateAST(compiler)
 		if err != nil {
-			t.Fatalf("CreateAst() failed: %v", err)
+			t.Fatalf("CreateAST() failed: %v", err)
 		}
 		if k8sAst == nil {
-			t.Fatalf("CreateAst() returned nil ast")
+			t.Fatalf("CreateAST() returned nil ast")
 		}
 	})
 }
@@ -403,12 +417,12 @@ func TestFileExpressionPolicyMetadataOptions(t *testing.T) {
 		policyFile := &FileExpression{
 			Path: "testdata/custom_policy.celpolicy",
 		}
-		ast, _, err := policyFile.CreateAst(compiler)
+		ast, _, err := policyFile.CreateAST(compiler)
 		if err != nil {
-			t.Fatalf("CreateAst() failed: %v", err)
+			t.Fatalf("CreateAST() failed: %v", err)
 		}
 		if ast == nil {
-			t.Fatalf("CreateAst() returned nil ast")
+			t.Fatalf("CreateAST() returned nil ast")
 		}
 	})
 }
@@ -467,12 +481,12 @@ func TestRawExpressionCreateAst(t *testing.T) {
 		rawExpr := &RawExpression{
 			Value: "locationCode(destination.ip)==locationCode(origin.ip)",
 		}
-		ast, _, err := rawExpr.CreateAst(compiler)
+		ast, _, err := rawExpr.CreateAST(compiler)
 		if err != nil {
-			t.Fatalf("CreateAst() failed: %v", err)
+			t.Fatalf("CreateAST() failed: %v", err)
 		}
 		if ast == nil {
-			t.Fatalf("CreateAst() returned nil ast")
+			t.Fatalf("CreateAST() returned nil ast")
 		}
 	})
 }
