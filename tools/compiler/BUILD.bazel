@@ -44,13 +44,21 @@ go_library(
     ],
 )
 
+filegroup(
+    name = "compiler_testdata",
+    srcs = glob(["testdata/**"]),
+)
+
 go_test(
     name = "go_default_test",
     size = "small",
     srcs = [
         "compiler_test.go",
     ],
-    data = glob(["testdata/**"]),
+    data = [
+        ":compiler_testdata",
+        "//policy:k8s_policy_testdata",
+    ],
     embed = [":go_default_library"],
     deps = [
         "//cel:go_default_library",

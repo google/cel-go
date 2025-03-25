@@ -70,3 +70,8 @@ go_test(
         "@in_gopkg_yaml_v3//:go_default_library",
     ],
 )
+
+filegroup(
+    name = "k8s_policy_testdata",
+    srcs = glob(["testdata/k8s/*"]),
+)
