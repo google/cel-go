@@ -13,12 +13,16 @@ bazel_dep(
 )
 bazel_dep(
     name = "googleapis",
-    version = "0.0.0-20240819-fe8ba054a",
+    version = "0.0.0-20241220-5e258e33.bcr.1",
     repo_name = "com_google_googleapis",
 )
 bazel_dep(
+    name = "googleapis-go",
+    version = "1.0.0",
+)
+bazel_dep(
     name = "protobuf",
-    version = "26.0",
+    version = "27.0",
     repo_name = "com_google_protobuf",
 )
 bazel_dep(
@@ -30,12 +34,6 @@ bazel_dep(
     name = "rules_proto",
     version = "6.0.0",
 )
-
-switched_rules = use_extension("@com_google_googleapis//:extensions.bzl", "switched_rules")
-switched_rules.use_languages(
-    go = True,
-)
-use_repo(switched_rules, "com_google_googleapis_imports")
 
 go_sdk = use_extension("@io_bazel_rules_go//go:extensions.bzl", "go_sdk")
 go_sdk.download(version = "1.21.1")
@@ -53,6 +51,7 @@ go_deps.gazelle_override(
         "gazelle:go_generate_proto false",
         # Provide hints to gazelle about how includes and imports map to build targets
         "gazelle:resolve go cel.dev/expr @dev_cel_expr//:expr",
+        "gazelle:resolve go cel.dev/expr/conformance @dev_cel_expr//conformance:go_default_library",
         "gazelle:resolve proto go google/rpc/status.proto @org_golang_google_genproto_googleapis_rpc//status",
         "gazelle:resolve proto proto google/rpc/status.proto @googleapis//google/rpc:status_proto",
     ],
