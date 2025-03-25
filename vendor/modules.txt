@@ -1,4 +1,4 @@
-# cel.dev/expr v0.19.1
+# cel.dev/expr v0.21.2
 ## explicit; go 1.21.1
 cel.dev/expr
 # github.com/antlr4-go/antlr/v4 v4.13.0
@@ -11,7 +11,7 @@ github.com/stoewer/go-strcase
 ## explicit; go 1.20
 golang.org/x/exp/constraints
 golang.org/x/exp/slices
-# golang.org/x/text v0.16.0
+# golang.org/x/text v0.22.0
 ## explicit; go 1.18
 golang.org/x/text/feature/plural
 golang.org/x/text/internal

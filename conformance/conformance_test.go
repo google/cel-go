@@ -92,6 +92,7 @@ func init() {
 		ext.Protos(),
 		ext.Strings(),
 		cel.Lib(celBlockLib{}),
+		cel.EnableIdentifierEscapeSyntax(),
 	}
 
 	var err error
