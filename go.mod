@@ -5,7 +5,7 @@ go 1.21.1
 toolchain go1.23.0
 
 require (
-	cel.dev/expr v0.19.1
+	cel.dev/expr v0.22.1
 	github.com/antlr4-go/antlr/v4 v4.13.0
 	github.com/stoewer/go-strcase v1.2.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20240826202546-f6391c0de4c7
