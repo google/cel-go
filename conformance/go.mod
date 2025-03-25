@@ -1,6 +1,6 @@
 module github.com/google/cel-go/conformance
 
-go 1.21.1
+go 1.22.0
 
 require (
 	cel.dev/expr v0.22.1
