@@ -148,6 +148,14 @@ func Variable(name string, t *Type) EnvOption {
 	}
 }
 
+// VariableWithDoc creates an instance of a variable declaration with a variable name, type, and doc string.
+func VariableWithDoc(name string, t *Type, doc string) EnvOption {
+	return func(e *Env) (*Env, error) {
+		e.variables = append(e.variables, decls.NewVariableWithDoc(name, t, doc))
+		return e, nil
+	}
+}
+
 // VariableDecls configures a set of fully defined cel.VariableDecl instances in the environment.
 func VariableDecls(vars ...*decls.VariableDecl) EnvOption {
 	return func(e *Env) (*Env, error) {
@@ -239,6 +247,13 @@ func FunctionDecls(funcs ...*decls.FunctionDecl) EnvOption {
 // FunctionOpt defines a functional  option for configuring a function declaration.
 type FunctionOpt = decls.FunctionOpt
 
+// FunctionDoc provides a general usage documentation for the function.
+//
+// Use OverloadDoc to provide example usage instructions for specific overloads.
+func FunctionDoc(desc any) FunctionOpt {
+	return decls.FunctionDoc(desc)
+}
+
 // SingletonUnaryBinding creates a singleton function definition to be used for all function overloads.
 //
 // Note, this approach works well if operand is expected to have a specific trait which it implements,
@@ -311,6 +326,11 @@ func MemberOverload(overloadID string, args []*Type, resultType *Type, opts ...O
 
 // OverloadOpt is a functional option for configuring a function overload.
 type OverloadOpt = decls.OverloadOpt
+
+// OverloadDoc configures an example of how to invoke the overload.
+func OverloadDoc(docs ...any) OverloadOpt {
+	return decls.OverloadDoc(docs)
+}
 
 // UnaryBinding provides the implementation of a unary overload. The provided function is protected by a runtime
 // type-guard which ensures runtime type agreement between the overload signature and runtime argument types.

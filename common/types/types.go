@@ -399,6 +399,9 @@ func (t *Type) WithTraits(traits int) *Type {
 
 // String returns a human-readable definition of the type name.
 func (t *Type) String() string {
+	if t.Kind() == TypeParamKind {
+		return fmt.Sprintf("<%s>", t.DeclaredTypeName())
+	}
 	if len(t.Parameters()) == 0 {
 		return t.DeclaredTypeName()
 	}

@@ -83,7 +83,7 @@ func TestTypeString(t *testing.T) {
 		},
 		{
 			in:  NewTypeParamType("T"),
-			out: "T",
+			out: "<T>",
 		},
 		// nil-safety tests
 		{
