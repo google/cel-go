@@ -1,6 +1,6 @@
 module github.com/google/cel-go/repl/appengine
 
-go 1.21
+go 1.22.0
 
 require github.com/google/cel-go/repl v0.0.0-20230406155237-b081aea03865
 

@@ -83,6 +83,7 @@ go_test(
         "//ext:go_default_library",
         "@com_github_google_go_cmp//cmp:go_default_library",
         "@dev_cel_expr//:expr",
+        "@dev_cel_expr//conformance:go_default_library",
         "@dev_cel_expr//conformance/test:go_default_library",
         "@dev_cel_expr//conformance/proto2:go_default_library",
         "@dev_cel_expr//conformance/proto3:go_default_library",

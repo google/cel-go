@@ -1,9 +1,9 @@
 module github.com/google/cel-go/repl
 
-go 1.21.1
+go 1.22.0
 
 require (
-	cel.dev/expr v0.21.2
+	cel.dev/expr v0.22.1
 	github.com/antlr4-go/antlr/v4 v4.13.0
 	github.com/chzyer/readline v1.5.1
 	github.com/google/cel-go v0.0.0-00010101000000-000000000000

@@ -1,6 +1,7 @@
 module github.com/google/cel-go/codelab
 
-go 1.21
+go 1.22.0
+
 toolchain go1.22.5
 
 require (
@@ -11,7 +12,7 @@ require (
 )
 
 require (
-	cel.dev/expr v0.19.1 // indirect
+	cel.dev/expr v0.22.1 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
 	github.com/stoewer/go-strcase v1.2.0 // indirect
 	golang.org/x/exp v0.0.0-20230515195305-f3d0a9c9a5cc // indirect
