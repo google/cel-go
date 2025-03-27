@@ -454,7 +454,7 @@ type FileExpression struct {
 }
 
 // CreateAST creates a CEL AST from a file using the provided compiler:
-// - All policy metadata options as executed using the policy metadata map to extend the
+// - All policy metadata options are executed using the policy metadata map to extend the
 // environment.
 // - All policy compiler options are passed on to compile the parsed policy.
 //

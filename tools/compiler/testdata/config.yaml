@@ -16,69 +16,69 @@ name: "test-environment"
 description: "Test environment"
 container: "google.expr"
 imports:
-- name: "google.expr.proto3.test.TestAllTypes"
+  - name: "google.expr.proto3.test.TestAllTypes"
 stdlib:
   include_macros:
-  - has
-  - exists
+    - has
+    - exists
   include_functions:
-  - name: "_==_"
-    overloads:
-    - id: equals
-      args:
-      - type_name: "string"
-      - type_name: "string"
-      return:
-        type_name: "bool"
-  - name: "_||_"
-    overloads:
-    - id: logical_or
-      args:
-      - type_name: "bool"
-      - type_name: "bool"
-      return:
-        type_name: "bool"
+    - name: "_==_"
+      overloads:
+        - id: equals
+          args:
+            - type_name: "string"
+            - type_name: "string"
+          return:
+            type_name: "bool"
+    - name: "_||_"
+      overloads:
+        - id: logical_or
+          args:
+            - type_name: "bool"
+            - type_name: "bool"
+          return:
+            type_name: "bool"
 extensions:
-- name: "optional"
-  version: "latest"
-- name: "lists"
-  version: "latest"
-- name: "sets"
-  version: "latest"
+  - name: "optional"
+    version: "latest"
+  - name: "lists"
+    version: "latest"
+  - name: "sets"
+    version: "latest"
 variables:
-- name: "destination.ip"
-  type_name: "string"
-- name: "origin.ip"
-  type_name: "string"
-- name: "spec.restricted_destinations"
-  type_name: "list"
-  params:
-  - type_name: "string"
-- name: "spec.origin"
-  type_name: "string"
-- name: "request"
-  type_name: "map"
-  params:
-  - type_name: "string"
-  - type_name: "dyn"
-- name: "resource"
-  type_name: "map"
-  params:
-  - type_name: "string"
-  - type_name: "dyn"
+  - name: "destination.ip"
+    type_name: "string"
+  - name: "origin.ip"
+    type_name: "string"
+  - name: "spec.restricted_destinations"
+    type_name: "list"
+    params:
+      - type_name: "string"
+  - name: "spec.origin"
+    type_name: "string"
+  - name: "request"
+    type_name: "map"
+    params:
+      - type_name: "string"
+      - type_name: "dyn"
+  - name: "resource"
+    type_name: "map"
+    params:
+      - type_name: "string"
+      - type_name: "dyn"
 functions:
-- name: "locationCode"
-  overloads:
-  - id: "locationCode_string"
-    args:
-    - type_name: "string"
-    return:
-      type_name: "string"
+  - name: "locationCode"
+    overloads:
+      - id: "locationCode_string"
+        args:
+          - type_name: "string"
+        return:
+          type_name: "string"
 validators:
-- name: cel.validator.duration
-- name: cel.validator.nesting_comprehension_limit
-  config:
-    limit: 2
+  - name: cel.validator.duration
+  - name: cel.validator.nesting_comprehension_limit
+    config:
+      limit: 2
 features:
-- name: cel.feature.macro_call_tracking
-  enabled: true
+  - name: cel.feature.macro_call_tracking
+    enabled: true

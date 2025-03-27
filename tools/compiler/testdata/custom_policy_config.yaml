@@ -14,5 +14,5 @@
 
 name: "custom_policy_config"
 extensions:
-- name: "optional"
-  version: "latest"
+  - name: "optional"
+    version: "latest"
