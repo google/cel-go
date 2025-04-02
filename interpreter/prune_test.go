@@ -498,7 +498,7 @@ func TestPrune(t *testing.T) {
 		dispatcher.Add(funcBindings(t, optionalDecls(t)...)...)
 		interp := NewInterpreter(dispatcher, containers.DefaultContainer, reg, reg, attrs)
 		interpretable, err := interp.NewInterpretable(parsed,
-			ExhaustiveEval(), Observe(EvalStateObserver(state)))
+			ExhaustiveEval(), EvalStateObserver(EvalStateFactory(func() EvalState { return state })))
 		if err != nil {
 			t.Fatalf("NewUncheckedInterpretable() failed: %v", err)
 		}
