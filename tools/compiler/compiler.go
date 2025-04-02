@@ -57,6 +57,22 @@ const (
 	CELPolicy
 )
 
+// ExpressionType is an enum for the type of input expression.
+type ExpressionType int
+
+const (
+	// ExpressionTypeUnspecified is used when the expression type is not specified.
+	ExpressionTypeUnspecified ExpressionType = iota
+	// CompiledExpressionFile is file containing a checked expression.
+	CompiledExpressionFile
+	// PolicyFile is a file containing a CEL policy.
+	PolicyFile
+	// ExpressionFile is a file containing a CEL expression.
+	ExpressionFile
+	// RawExpressionString is a raw CEL expression string.
+	RawExpressionString
+)
+
 // PolicyMetadataEnvOption represents a function which accepts a policy metadata map and returns an
 // environment option used to extend the CEL environment.
 //
@@ -165,7 +181,8 @@ func loadProtoFile(path string, format FileFormat, out protoreflect.ProtoMessage
 	return unmarshaller(data, out)
 }
 
-func inferFileFormat(path string) FileFormat {
+// InferFileFormat infers the file format from the file path.
+func InferFileFormat(path string) FileFormat {
 	extension := filepath.Ext(path)
 	switch extension {
 	case ".textproto":
@@ -190,7 +207,7 @@ func inferFileFormat(path string) FileFormat {
 // - Binarypb
 func EnvironmentFile(path string) cel.EnvOption {
 	return func(e *cel.Env) (*cel.Env, error) {
-		format := inferFileFormat(path)
+		format := InferFileFormat(path)
 		if format != TextProto && format != TextYAML && format != BinaryProto {
 			return nil, fmt.Errorf("file extension must be one of .textproto, .yaml, .binarypb: found %v", format)
 		}
@@ -403,7 +420,7 @@ func protoDeclToFunction(decl *celpb.Decl) (*env.Function, error) {
 // The file must be in binary format.
 func TypeDescriptorSetFile(path string) cel.EnvOption {
 	return func(e *cel.Env) (*cel.Env, error) {
-		format := inferFileFormat(path)
+		format := InferFileFormat(path)
 		if format != BinaryProto {
 			return nil, fmt.Errorf("type descriptor must be in binary format")
 		}
@@ -438,7 +455,7 @@ type CompiledExpression struct {
 // - Textproto
 func (c *CompiledExpression) CreateAST(_ Compiler) (*cel.Ast, map[string]any, error) {
 	var expr exprpb.CheckedExpr
-	format := inferFileFormat(c.Path)
+	format := InferFileFormat(c.Path)
 	if format != BinaryProto && format != TextProto {
 		return nil, nil, fmt.Errorf("file extension must be .binarypb or .textproto: found %v", format)
 	}
@@ -470,7 +487,7 @@ func (f *FileExpression) CreateAST(compiler Compiler) (*cel.Ast, map[string]any,
 	if err != nil {
 		return nil, nil, err
 	}
-	format := inferFileFormat(f.Path)
+	format := InferFileFormat(f.Path)
 	switch format {
 	case CELString:
 		src := common.NewStringSource(string(data), f.Path)
