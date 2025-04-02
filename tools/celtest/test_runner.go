@@ -95,12 +95,12 @@ type TestSuiteParserTextproto func(*testing.T, any) (*conformancepb.TestSuite, e
 // The object can be serialized in a YAML file or derived programamtically.
 type TestSuiteParserYAML func(*testing.T, any) (*test.Suite, error)
 
-// TriggerTestsFromCompiler triggers tests for a CEL checked expression with the provided
-// set of options. The options can be used to:
+// TriggerTests triggers tests for a CEL policy, expression or checked expression
+// with the provided set of options. The options can be used to:
 // - configure the Compiler used for parsing and compiling the expression
 // - configure the Test Runner used for parsing and executing the tests
-func TriggerTestsFromCompiler(t *testing.T, opts ...any) {
-	opts = append([]any{TestRunnerOption(testSuiteParser)}, opts...)
+func TriggerTests(t *testing.T, opts ...any) {
+	opts = append([]any{TestSuiteParser(testSuitePath)}, opts...)
 	tr, err := NewTestRunner(opts...)
 	if err != nil {
 		t.Fatalf("error creating test runner: %v", err)
@@ -123,21 +123,25 @@ func TriggerTestsFromCompiler(t *testing.T, opts ...any) {
 	}
 }
 
-func testSuiteParser(tr *TestRunner) (*TestRunner, error) {
-	if testSuitePath == "" {
+// TestSuiteParser provides a TestRunnerOption that sets the test suite file path and the test
+// suite parser based on the file format: YAML or Textproto.
+func TestSuiteParser(path string) TestRunnerOption {
+	return func(tr *TestRunner) (*TestRunner, error) {
+		if testSuitePath == "" {
+			return tr, nil
+		}
+		tr.TestSuiteFilePath = testSuitePath
+		testSuiteFormat := compiler.InferFileFormat(testSuitePath)
+		switch testSuiteFormat {
+		case compiler.TextProto:
+			tr.TestSuiteParserTextproto = DefaultTestSuiteParserTextproto
+		case compiler.TextYAML:
+			tr.TestSuiteParserYAML = DefaultTestSuiteParserYAML
+		default:
+			return nil, fmt.Errorf("unsupported test suite file format: %v", testSuiteFormat)
+		}
 		return tr, nil
 	}
-	tr.TestSuiteFilePath = testSuitePath
-	testSuiteFormat := compiler.InferFileFormat(testSuitePath)
-	switch testSuiteFormat {
-	case compiler.TextProto:
-		tr.TestSuiteParserTextproto = DefaultTestSuiteParserTextproto
-	case compiler.TextYAML:
-		tr.TestSuiteParserYAML = DefaultTestSuiteParserYAML
-	default:
-		return nil, fmt.Errorf("unsupported test suite file format: %v", testSuiteFormat)
-	}
-	return tr, nil
 }
 
 // TestRunner provides a structure to hold the different components required to execute tests for
