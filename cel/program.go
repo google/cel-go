@@ -162,12 +162,6 @@ type prog struct {
 	costLimit         *uint64
 }
 
-type perEvalCtx struct {
-	details     *EvalDetails
-	costTracker *interpreter.CostTracker
-	init        func()
-}
-
 // newProgram creates a program instance with an environment, an ast, and an optional list of
 // ProgramOption values.
 //
