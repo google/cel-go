@@ -15,6 +15,7 @@
 package cel
 
 import (
+	_ "embed"
 	"sort"
 	"strings"
 	"text/template"
@@ -23,6 +24,9 @@ import (
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/overloads"
 )
+
+//go:embed templates/authoring.tmpl
+var authoringPrompt string
 
 // AuthoringPrompt creates a prompt template from a CEL environment for the purpose of AI-assisted authoring.
 func AuthoringPrompt(env *Env) (*Prompt, error) {
@@ -136,63 +140,6 @@ Aggregate types include list and map:
 * Maps containing HTTP headers must always use lower-cased string keys.
 
 Comments start with two-forward slashes followed by text and a newline.`
-
-	authoringPrompt = `{{define "variable"}}{{.Name}} is a {{.Type}}
-{{- end -}}
-
-{{define "macro" -}}
-{{.Name}} macro{{if .Description}} - {{range .Description}}{{.}} {{end}}
-{{end}}
-{{range .Children}}{{range .Description}}      {{.}}
-{{end}}
-{{- end -}}
-{{- end -}}
-
-{{define "overload" -}}
-{{if .Children}}{{range .Children}}{{range .Description}}      {{.}}
-{{end}}
-{{- end -}}
-{{else}}      {{.Signature}}
-{{end}}
-{{- end -}}
-
-{{define "function" -}}
-{{.Name}}{{if .Description}} - {{range .Description}}{{.}} {{end}}
-{{end}}
-{{range .Children}}{{template "overload" .}}{{end}}
-{{- end -}}
-
-{{.Persona}}
-
-{{.FormatRules}}
-
-{{if or .Variables .Macros .Functions -}}
-Only use the following variables, macros, and functions in expressions.
-{{if .Variables}}
-Variables:
-
-{{range .Variables}}* {{template "variable" .}}
-{{end -}}
-
-{{end -}}
-{{if .Macros}}
-Macros:
-
-{{range .Macros}}* {{template "macro" . }}
-{{end -}}
-
-{{end -}}
-{{if .Functions}}
-Functions:
-
-{{range .Functions}}* {{template "function" .}}
-{{end -}}
-
-{{end -}}
-{{- end -}}
-{{.GeneralUsage}}
-
-{{.UserPrompt}}`
 )
 
 var (
