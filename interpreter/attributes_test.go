@@ -1150,8 +1150,15 @@ func TestAttributeStateTracking(t *testing.T) {
 			}
 			interp := newStandardInterpreter(t, cont, reg, reg, attrs)
 			// Show that program planning will now produce an error.
-			st := NewEvalState()
-			i, err := interp.NewInterpretable(checked, Optimize(), Observe(EvalStateObserver(st)))
+			type stateHolder struct {
+				st EvalState
+			}
+			holder := stateHolder{}
+			i, err := interp.NewInterpretable(checked, Optimize(),
+				EvalStateObserver(EvalStateFactory(func() EvalState {
+					holder.st = NewEvalState()
+					return holder.st
+				})))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1167,10 +1174,10 @@ func TestAttributeStateTracking(t *testing.T) {
 				t.Errorf("got %v, wanted %v", out, tc.out)
 			}
 			for id, val := range tc.state {
-				stVal, found := st.Value(id)
+				stVal, found := holder.st.Value(id)
 				if !found {
-					for _, id := range st.IDs() {
-						v, _ := st.Value(id)
+					for _, id := range holder.st.IDs() {
+						v, _ := holder.st.Value(id)
 						t.Error(id, v)
 					}
 					t.Errorf("state not found for %d=%v", id, val)

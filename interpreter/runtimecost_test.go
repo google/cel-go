@@ -143,7 +143,10 @@ func computeCost(t *testing.T, expr string, vars []*decls.VariableDecl, ctx Acti
 		t.Fatalf("checker.Cost() failed: %v", err)
 	}
 	interp := newStandardInterpreter(t, cont, reg, reg, attrs)
-	prg, err := interp.NewInterpretable(checked, Observe(CostObserver(costTracker)))
+	prg, err := interp.NewInterpretable(checked,
+		CostObserver(CostTrackerFactory(func() (*CostTracker, error) {
+			return costTracker, nil
+		})))
 	if err != nil {
 		t.Fatalf(`Failed to check expression "%s", error: %v`, expr, errs.GetErrors())
 	}
