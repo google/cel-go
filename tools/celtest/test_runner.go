@@ -130,7 +130,7 @@ func TestSuiteParser(path string) TestRunnerOption {
 		if testSuitePath == "" {
 			return tr, nil
 		}
-		tr.TestSuiteFilePath = testSuitePath
+		tr.TestSuiteFilePath = path
 		testSuiteFormat := compiler.InferFileFormat(testSuitePath)
 		switch testSuiteFormat {
 		case compiler.TextProto:
