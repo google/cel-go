@@ -22,6 +22,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/types"
 )
@@ -115,7 +116,9 @@ func (c *Config) AddVariableDecls(vars ...*decls.VariableDecl) *Config {
 		if v == nil {
 			continue
 		}
-		convVars[i] = NewVariable(v.Name(), SerializeTypeDesc(v.Type()))
+		cv := NewVariable(v.Name(), SerializeTypeDesc(v.Type()))
+		cv.Description = v.Description()
+		convVars[i] = cv
 	}
 	return c.AddVariables(convVars...)
 }
@@ -149,13 +152,18 @@ func (c *Config) AddFunctionDecls(funcs ...*decls.FunctionDecl) *Config {
 				args = append(args, SerializeTypeDesc(a))
 			}
 			ret := SerializeTypeDesc(o.ResultType())
+			var overload *Overload
 			if o.IsMemberFunction() {
-				overloads = append(overloads, NewMemberOverload(overloadID, args[0], args[1:], ret))
+				overload = NewMemberOverload(overloadID, args[0], args[1:], ret)
 			} else {
-				overloads = append(overloads, NewOverload(overloadID, args, ret))
+				overload = NewOverload(overloadID, args, ret)
 			}
+			overload.Description = o.Description()
+			overloads = append(overloads, overload)
 		}
-		convFuncs[i] = NewFunction(fn.Name(), overloads...)
+		cf := NewFunction(fn.Name(), overloads...)
+		cf.Description = fn.Description()
+		convFuncs[i] = cf
 	}
 	return c.AddFunctions(convFuncs...)
 }
@@ -278,7 +286,7 @@ func (v *Variable) AsCELVariable(tp types.Provider) (*decls.VariableDecl, error)
 	if err != nil {
 		return nil, fmt.Errorf("invalid variable %q: %w", v.Name, err)
 	}
-	return decls.NewVariable(v.Name, t), nil
+	return decls.NewVariableWithDoc(v.Name, t, v.Description), nil
 }
 
 // NewContextVariable returns a serializable context variable with a specific type name.
@@ -342,15 +350,16 @@ func (fn *Function) AsCELFunction(tp types.Provider) (*decls.FunctionDecl, error
 	if err := fn.Validate(); err != nil {
 		return nil, err
 	}
-	var err error
-	overloads := make([]decls.FunctionOpt, len(fn.Overloads))
-	for i, o := range fn.Overloads {
-		overloads[i], err = o.AsFunctionOption(tp)
+	opts := make([]decls.FunctionOpt, 0, len(fn.Overloads)+1)
+	for _, o := range fn.Overloads {
+		opt, err := o.AsFunctionOption(tp)
+		opts = append(opts, opt)
 		if err != nil {
 			return nil, fmt.Errorf("invalid function %q: %w", fn.Name, err)
 		}
 	}
-	return decls.NewFunction(fn.Name, overloads...)
+	opts = append(opts, decls.FunctionDoc(common.ParseDescription(fn.Description)))
+	return decls.NewFunction(fn.Name, opts...)
 }
 
 // NewOverload returns a new serializable representation of a global overload.
@@ -426,7 +435,7 @@ func (od *Overload) AsFunctionOption(tp types.Provider) (decls.FunctionOpt, erro
 	if len(errs) != 0 {
 		return nil, errors.Join(errs...)
 	}
-	return decls.Overload(od.ID, args, result), nil
+	return decls.Overload(od.ID, args, result, decls.OverloadDoc(common.ParseDescriptions(od.Description))), nil
 }
 
 // NewExtension creates a serializable Extension from a name and version string.
