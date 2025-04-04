@@ -15,10 +15,21 @@
 package cel
 
 import (
+	_ "embed"
 	"testing"
 
 	"github.com/google/cel-go/common/env"
+	"github.com/google/cel-go/test"
 )
+
+//go:embed testdata/basic.prompt.md
+var wantBasicPrompt string
+
+//go:embed testdata/macros.prompt.md
+var wantMacrosPrompt string
+
+//go:embed testdata/standard_env.prompt.md
+var wantStandardEnvPrompt string
 
 func TestPromptTemplate(t *testing.T) {
 	tests := []struct {
@@ -28,47 +39,17 @@ func TestPromptTemplate(t *testing.T) {
 	}{
 		{
 			name: "basic",
-			out: `You are a software engineer with expertise in networking and application security
-authoring boolean Common Expression Language (CEL) expressions to ensure firewall,
-networking, authentication, and data access is only permitted when all conditions
-are satisified.
-
-Output your response as a CEL expression.
-
-Write the expression with the comment on the first line and the expression on the
-subsequent lines. Format the expression using 80-character line limits commonly
-found in C++ or Java code.
-`,
+			out:  wantBasicPrompt,
 		},
 		{
 			name:    "macros",
 			envOpts: []EnvOption{Macros(StandardMacros...)},
-			out: `You are a software engineer with expertise in networking and application security
-authoring boolean Common Expression Language (CEL) expressions to ensure firewall,
-networking, authentication, and data access is only permitted when all conditions
-are satisified.
-
-Output your response as a CEL expression.
-
-Write the expression with the comment on the first line and the expression on the
-subsequent lines. Format the expression using 80-character line limits commonly
-found in C++ or Java cod
-`,
+			out:     wantMacrosPrompt,
 		},
 		{
 			name:    "standard_env",
 			envOpts: []EnvOption{StdLib(StdLibSubset(env.NewLibrarySubset().SetDisableMacros(true)))},
-			out: `You are a software engineer with expertise in networking and application security
-authoring boolean Common Expression Language (CEL) expressions to ensure firewall,
-networking, authentication, and data access is only permitted when all conditions
-are satisified.
-
-Output your response as a CEL expression.
-
-Write the expression with the comment on the first line and the expression on the
-subsequent lines. Format the expression using 80-character line limits commonly
-found in C++ or Java cod
-`,
+			out:     wantStandardEnvPrompt,
 		},
 	}
 
@@ -84,7 +65,7 @@ found in C++ or Java cod
 				t.Fatalf("cel.AuthoringPrompt() failed: %v", err)
 			}
 			out := prompt.Render("<USER_PROMPT>")
-			if out != tc.out {
+			if !test.Compare(out, tc.out) {
 				t.Errorf("got %s, wanted %s", out, tc.out)
 			}
 		})

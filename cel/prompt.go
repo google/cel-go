@@ -150,12 +150,3 @@ var (
 		operators.NotStrictlyFalse:    true,
 	}
 )
-
-var (
-	hiddenFunctions = map[string]bool{
-		overloads.DeprecatedIn:        true,
-		operators.OldIn:               true,
-		operators.OldNotStrictlyFalse: true,
-		operators.NotStrictlyFalse:    true,
-	}
-)

@@ -408,7 +408,7 @@ var (
 			`['apple', 'banana'].map(fruit, fruit.upperAscii()) // ['APPLE', 'BANANA']`,
 			common.MultilineDescription{
 				`// Combine all map key-value pairs into a list`,
-				`{'hi': 'you', 'howzit': 'bruv'}.map(k, `,
+				`{'hi': 'you', 'howzit': 'bruv'}.map(k,`,
 				`    k + ":" + {'hi': 'you', 'howzit': 'bruv'}[k]) // ['hi:you', 'howzit:bruv']`},
 		))
 

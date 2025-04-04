@@ -672,22 +672,29 @@ func init() {
 		function(overloads.TypeConvertTimestamp,
 			decls.FunctionDoc(`convert a value to a google.protobuf.Timestamp`),
 			decls.Overload(overloads.TimestampToTimestamp, argTypes(types.TimestampType), types.TimestampType,
+				decls.OverloadDoc(`timestamp(timestamp('2023-01-01T00:00:00Z')) // timestamp('2023-01-01T00:00:00Z')`),
 				decls.UnaryBinding(identity)),
 			decls.Overload(overloads.IntToTimestamp, argTypes(types.IntType), types.TimestampType,
+				decls.OverloadDoc(`timestamp(1) // timestamp('1970-01-01T00:00:01Z')`), // Epoch seconds to Timestamp
 				decls.UnaryBinding(convertToType(types.TimestampType))),
 			decls.Overload(overloads.StringToTimestamp, argTypes(types.StringType), types.TimestampType,
+				decls.OverloadDoc(`timestamp('2025-01-01T12:34:56Z') // timestamp('2025-01-01T12:34:56Z')`),
 				decls.UnaryBinding(convertToType(types.TimestampType)))),
 
 		// Uint conversions
 		function(overloads.TypeConvertUint,
 			decls.FunctionDoc(`convert a value to a uint`),
 			decls.Overload(overloads.UintToUint, argTypes(types.UintType), types.UintType,
+				decls.OverloadDoc(`uint(123u) // 123u`),
 				decls.UnaryBinding(identity)),
 			decls.Overload(overloads.DoubleToUint, argTypes(types.DoubleType), types.UintType,
+				decls.OverloadDoc(`uint(123.45) // 123u`),
 				decls.UnaryBinding(convertToType(types.UintType))),
 			decls.Overload(overloads.IntToUint, argTypes(types.IntType), types.UintType,
+				decls.OverloadDoc(`uint(123) // 123u`),
 				decls.UnaryBinding(convertToType(types.UintType))),
 			decls.Overload(overloads.StringToUint, argTypes(types.StringType), types.UintType,
+				decls.OverloadDoc(`uint('123') // 123u`),
 				decls.UnaryBinding(convertToType(types.UintType)))),
 
 		// String functions
@@ -695,25 +702,40 @@ func init() {
 			decls.FunctionDoc(`test whether a string contains a substring`),
 			decls.MemberOverload(overloads.ContainsString,
 				argTypes(types.StringType, types.StringType), types.BoolType,
+				decls.OverloadDoc(
+					`'hello world'.contains('o w') // true`,
+					`'hello world'.contains('goodbye') // false`),
 				decls.BinaryBinding(types.StringContains)),
 			decls.DisableTypeGuards(true)),
 		function(overloads.EndsWith,
 			decls.FunctionDoc(`test whether a string ends with a substring suffix`),
 			decls.MemberOverload(overloads.EndsWithString,
 				argTypes(types.StringType, types.StringType), types.BoolType,
+				decls.OverloadDoc(
+					`'hello world'.endsWith('world') // true`,
+					`'hello world'.endsWith('hello') // false`),
 				decls.BinaryBinding(types.StringEndsWith)),
 			decls.DisableTypeGuards(true)),
 		function(overloads.StartsWith,
 			decls.FunctionDoc(`test whether a string starts with a substring prefix`),
 			decls.MemberOverload(overloads.StartsWithString,
 				argTypes(types.StringType, types.StringType), types.BoolType,
+				decls.OverloadDoc(
+					`'hello world'.startsWith('hello') // true`,
+					`'hello world'.startsWith('world') // false`),
 				decls.BinaryBinding(types.StringStartsWith)),
 			decls.DisableTypeGuards(true)),
 		function(overloads.Matches,
 			decls.FunctionDoc(`test whether a string matches an RE2 regular expression`),
-			decls.Overload(overloads.Matches, argTypes(types.StringType, types.StringType), types.BoolType),
+			decls.Overload(overloads.Matches, argTypes(types.StringType, types.StringType), types.BoolType,
+				decls.OverloadDoc(
+					`matches('123-456', '^[0-9]+(-[0-9]+)?$') // true`,
+					`matches('hello', '^h.*o$') // true`)),
 			decls.MemberOverload(overloads.MatchesString,
-				argTypes(types.StringType, types.StringType), types.BoolType),
+				argTypes(types.StringType, types.StringType), types.BoolType,
+				decls.OverloadDoc(
+					`'123-456'.matches('^[0-9]+(-[0-9]+)?$') // true`,
+					`'hello'.matches('^h.*o$') // true`)),
 			decls.SingletonBinaryBinding(func(str, pat ref.Val) ref.Val {
 				return str.(traits.Matcher).Match(pat)
 			}, traits.MatcherType)),
@@ -723,119 +745,142 @@ func init() {
 			decls.FunctionDoc(`get the 0-based full year from a timestamp, UTC unless an IANA timezone is specified.`),
 			decls.MemberOverload(overloads.TimestampToYear,
 				argTypes(types.TimestampType), types.IntType,
+				decls.OverloadDoc(`timestamp('2023-07-14T10:30:45.123Z').getFullYear() // 2023`),
 				decls.UnaryBinding(func(ts ref.Val) ref.Val {
 					return timestampGetFullYear(ts, utcTZ)
 				})),
 			decls.MemberOverload(overloads.TimestampToYearWithTz,
 				argTypes(types.TimestampType, types.StringType), types.IntType,
+				decls.OverloadDoc(`timestamp('2023-01-01T05:30:00Z').getFullYear('-08:00') // 2022`),
 				decls.BinaryBinding(timestampGetFullYear))),
 
 		function(overloads.TimeGetMonth,
 			decls.FunctionDoc(`get the 0-based month from a timestamp, UTC unless an IANA timezone is specified.`),
 			decls.MemberOverload(overloads.TimestampToMonth,
 				argTypes(types.TimestampType), types.IntType,
+				decls.OverloadDoc(`timestamp('2023-07-14T10:30:45.123Z').getMonth() // 6`), // July is month 6
 				decls.UnaryBinding(func(ts ref.Val) ref.Val {
 					return timestampGetMonth(ts, utcTZ)
 				})),
 			decls.MemberOverload(overloads.TimestampToMonthWithTz,
 				argTypes(types.TimestampType, types.StringType), types.IntType,
+				decls.OverloadDoc(`timestamp('2023-01-01T05:30:00Z').getMonth('America/Los_Angeles') // 11`), // December is month 11
 				decls.BinaryBinding(timestampGetMonth))),
 
 		function(overloads.TimeGetDayOfYear,
 			decls.FunctionDoc(`get the 0-based day of the year from a timestamp, UTC unless an IANA timezone is specified.`),
 			decls.MemberOverload(overloads.TimestampToDayOfYear,
 				argTypes(types.TimestampType), types.IntType,
+				decls.OverloadDoc(`timestamp('2023-01-02T00:00:00Z').getDayOfYear() // 1`),
 				decls.UnaryBinding(func(ts ref.Val) ref.Val {
 					return timestampGetDayOfYear(ts, utcTZ)
 				})),
 			decls.MemberOverload(overloads.TimestampToDayOfYearWithTz,
 				argTypes(types.TimestampType, types.StringType), types.IntType,
+				decls.OverloadDoc(`timestamp('2023-01-01T05:00:00Z').getDayOfYear('America/Los_Angeles') // 364`),
 				decls.BinaryBinding(timestampGetDayOfYear))),
 
 		function(overloads.TimeGetDayOfMonth,
 			decls.FunctionDoc(`get the 0-based day of the month from a timestamp, UTC unless an IANA timezone is specified.`),
 			decls.MemberOverload(overloads.TimestampToDayOfMonthZeroBased,
 				argTypes(types.TimestampType), types.IntType,
+				decls.OverloadDoc(`timestamp('2023-07-14T10:30:45.123Z').getDayOfMonth() // 13`),
 				decls.UnaryBinding(func(ts ref.Val) ref.Val {
 					return timestampGetDayOfMonthZeroBased(ts, utcTZ)
 				})),
 			decls.MemberOverload(overloads.TimestampToDayOfMonthZeroBasedWithTz,
 				argTypes(types.TimestampType, types.StringType), types.IntType,
+				decls.OverloadDoc(`timestamp('2023-07-01T05:00:00Z').getDayOfMonth('America/Los_Angeles') // 29`),
 				decls.BinaryBinding(timestampGetDayOfMonthZeroBased))),
 
 		function(overloads.TimeGetDate,
 			decls.FunctionDoc(`get the 1-based day of the month from a timestamp, UTC unless an IANA timezone is specified.`),
 			decls.MemberOverload(overloads.TimestampToDayOfMonthOneBased,
 				argTypes(types.TimestampType), types.IntType,
+				decls.OverloadDoc(`timestamp('2023-07-14T10:30:45.123Z').getDate() // 14`),
 				decls.UnaryBinding(func(ts ref.Val) ref.Val {
 					return timestampGetDayOfMonthOneBased(ts, utcTZ)
 				})),
 			decls.MemberOverload(overloads.TimestampToDayOfMonthOneBasedWithTz,
 				argTypes(types.TimestampType, types.StringType), types.IntType,
+				decls.OverloadDoc(`timestamp('2023-07-01T05:00:00Z').getDate('America/Los_Angeles') // 30`),
 				decls.BinaryBinding(timestampGetDayOfMonthOneBased))),
 
 		function(overloads.TimeGetDayOfWeek,
 			decls.FunctionDoc(`get the 0-based day of the week from a timestamp, UTC unless an IANA timezone is specified.`),
 			decls.MemberOverload(overloads.TimestampToDayOfWeek,
 				argTypes(types.TimestampType), types.IntType,
+				decls.OverloadDoc(`timestamp('2023-07-14T10:30:45.123Z').getDayOfWeek() // 5`), // Friday is day 5
 				decls.UnaryBinding(func(ts ref.Val) ref.Val {
 					return timestampGetDayOfWeek(ts, utcTZ)
 				})),
 			decls.MemberOverload(overloads.TimestampToDayOfWeekWithTz,
 				argTypes(types.TimestampType, types.StringType), types.IntType,
+				decls.OverloadDoc(`timestamp('2023-07-16T05:00:00Z').getDayOfWeek('America/Los_Angeles') // 6`), // Saturday is day 6
 				decls.BinaryBinding(timestampGetDayOfWeek))),
 
 		function(overloads.TimeGetHours,
 			decls.FunctionDoc(`get the hours portion from a timestamp, or convert a duration to hours`),
 			decls.MemberOverload(overloads.TimestampToHours,
 				argTypes(types.TimestampType), types.IntType,
+				decls.OverloadDoc(`timestamp('2023-07-14T10:30:45.123Z').getHours() // 10`),
 				decls.UnaryBinding(func(ts ref.Val) ref.Val {
 					return timestampGetHours(ts, utcTZ)
 				})),
 			decls.MemberOverload(overloads.TimestampToHoursWithTz,
 				argTypes(types.TimestampType, types.StringType), types.IntType,
+				decls.OverloadDoc(`timestamp('2023-07-14T10:30:45.123Z').getHours('America/Los_Angeles') // 2`),
 				decls.BinaryBinding(timestampGetHours)),
 			decls.MemberOverload(overloads.DurationToHours,
 				argTypes(types.DurationType), types.IntType,
+				decls.OverloadDoc(`duration('3723s').getHours() // 1`),
 				decls.UnaryBinding(types.DurationGetHours))),
 
 		function(overloads.TimeGetMinutes,
 			decls.FunctionDoc(`get the minutes portion from a timestamp, or convert a duration to minutes`),
 			decls.MemberOverload(overloads.TimestampToMinutes,
 				argTypes(types.TimestampType), types.IntType,
+				decls.OverloadDoc(`timestamp('2023-07-14T10:30:45.123Z').getMinutes() // 30`),
 				decls.UnaryBinding(func(ts ref.Val) ref.Val {
 					return timestampGetMinutes(ts, utcTZ)
 				})),
 			decls.MemberOverload(overloads.TimestampToMinutesWithTz,
 				argTypes(types.TimestampType, types.StringType), types.IntType,
+				decls.OverloadDoc(`timestamp('2023-07-14T10:30:45.123Z').getMinutes('America/Los_Angeles') // 30`),
 				decls.BinaryBinding(timestampGetMinutes)),
 			decls.MemberOverload(overloads.DurationToMinutes,
 				argTypes(types.DurationType), types.IntType,
+				decls.OverloadDoc(`duration('3723s').getMinutes() // 62`),
 				decls.UnaryBinding(types.DurationGetMinutes))),
 
 		function(overloads.TimeGetSeconds,
 			decls.FunctionDoc(`get the seconds portion from a timestamp, or convert a duration to seconds`),
 			decls.MemberOverload(overloads.TimestampToSeconds,
 				argTypes(types.TimestampType), types.IntType,
+				decls.OverloadDoc(`timestamp('2023-07-14T10:30:45.123Z').getSeconds() // 45`),
 				decls.UnaryBinding(func(ts ref.Val) ref.Val {
 					return timestampGetSeconds(ts, utcTZ)
 				})),
 			decls.MemberOverload(overloads.TimestampToSecondsWithTz,
 				argTypes(types.TimestampType, types.StringType), types.IntType,
+				decls.OverloadDoc(`timestamp('2023-07-14T10:30:45.123Z').getSeconds('America/Los_Angeles') // 45`),
 				decls.BinaryBinding(timestampGetSeconds)),
 			decls.MemberOverload(overloads.DurationToSeconds,
 				argTypes(types.DurationType), types.IntType,
+				decls.OverloadDoc(`duration('3723.456s').getSeconds() // 3723`),
 				decls.UnaryBinding(types.DurationGetSeconds))),
 
 		function(overloads.TimeGetMilliseconds,
 			decls.FunctionDoc(`get the milliseconds portion from a timestamp`),
 			decls.MemberOverload(overloads.TimestampToMilliseconds,
 				argTypes(types.TimestampType), types.IntType,
+				decls.OverloadDoc(`timestamp('2023-07-14T10:30:45.123Z').getMilliseconds() // 123`),
 				decls.UnaryBinding(func(ts ref.Val) ref.Val {
 					return timestampGetMilliseconds(ts, utcTZ)
 				})),
 			decls.MemberOverload(overloads.TimestampToMillisecondsWithTz,
 				argTypes(types.TimestampType, types.StringType), types.IntType,
+				decls.OverloadDoc(`timestamp('2023-07-14T10:30:45.123Z').getMilliseconds('America/Los_Angeles') // 123`),
 				decls.BinaryBinding(timestampGetMilliseconds)),
 			decls.MemberOverload(overloads.DurationToMilliseconds,
 				argTypes(types.DurationType), types.IntType,
