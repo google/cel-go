@@ -395,53 +395,50 @@ func (tr *TestRunner) createTestsFromTextproto(t *testing.T, testSuite *conforma
 func (tr *TestRunner) createTestInputFromPB(t *testing.T, testCase *conformancepb.TestCase) (interpreter.Activation, error) {
 	t.Helper()
 	input := map[string]any{}
-	if testCase.GetInput() == nil {
-		return interpreter.NewActivation(input)
-	}
 	e, err := tr.CreateEnv()
 	if err != nil {
 		return nil, err
 	}
-	switch testInput := testCase.GetInput().GetInputKind().(type) {
-	case *conformancepb.TestInput_ContextExpr:
-		refVal, err := tr.eval(testInput.ContextExpr)
-		if err != nil {
-			return nil, fmt.Errorf("eval(%q) failed: %w", testInput.ContextExpr, err)
+	if testCase.GetInputContext() != nil {
+		if len(testCase.GetInput()) != 0 {
+			return nil, fmt.Errorf("only one of input and input_context can be provided at a time")
 		}
-		ctx, err := refVal.ConvertToNative(
-			reflect.TypeOf((*proto.Message)(nil)).Elem())
-		if err != nil {
-			return nil, fmt.Errorf("context variable is not a valid proto: %w", err)
+		switch testInput := testCase.GetInputContext().GetInputContextKind().(type) {
+		case *conformancepb.InputContext_ContextExpr:
+			refVal, err := tr.eval(testInput.ContextExpr)
+			if err != nil {
+				return nil, fmt.Errorf("eval(%q) failed: %w", testInput.ContextExpr, err)
+			}
+			ctx, err := refVal.ConvertToNative(
+				reflect.TypeOf((*proto.Message)(nil)).Elem())
+			if err != nil {
+				return nil, fmt.Errorf("context variable is not a valid proto: %w", err)
+			}
+			return cel.ContextProtoVars(ctx.(proto.Message))
+		case *conformancepb.InputContext_ContextMessage:
+			refVal := e.CELTypeAdapter().NativeToValue(testInput.ContextMessage)
+			ctx, err := refVal.ConvertToNative(reflect.TypeOf((*proto.Message)(nil)).Elem())
+			if err != nil {
+				return nil, fmt.Errorf("context variable is not a valid proto: %w", err)
+			}
+			return cel.ContextProtoVars(ctx.(proto.Message))
 		}
-		return cel.ContextProtoVars(ctx.(proto.Message))
-	case *conformancepb.TestInput_Bindings:
-		if testInput.Bindings.GetValues() == nil {
-			return nil, fmt.Errorf("bindings is nil")
-		}
-		for k, v := range testInput.Bindings.GetValues() {
-			switch v.GetKind().(type) {
-			case *conformancepb.InputValue_Value:
-				input[k], err = cel.ProtoAsValue(e.CELTypeAdapter(), v.GetValue())
-				if err != nil {
-					return nil, fmt.Errorf("cel.ProtoAsValue(%q) failed: %w", v, err)
-				}
-			case *conformancepb.InputValue_Expr:
-				input[k], err = tr.eval(v.GetExpr())
-				if err != nil {
-					return nil, fmt.Errorf("eval(%q) failed: %w", v.GetExpr(), err)
-				}
+	}
+	for k, v := range testCase.GetInput() {
+		switch v.GetKind().(type) {
+		case *conformancepb.InputValue_Value:
+			input[k], err = cel.ProtoAsValue(e.CELTypeAdapter(), v.GetValue())
+			if err != nil {
+				return nil, fmt.Errorf("cel.ProtoAsValue(%q) failed: %w", v, err)
+			}
+		case *conformancepb.InputValue_Expr:
+			input[k], err = tr.eval(v.GetExpr())
+			if err != nil {
+				return nil, fmt.Errorf("eval(%q) failed: %w", v.GetExpr(), err)
 			}
 		}
-		return interpreter.NewActivation(input)
-	case *conformancepb.TestInput_ContextMessage:
-		refVal := e.CELTypeAdapter().NativeToValue(testInput.ContextMessage)
-		ctx, err := refVal.ConvertToNative(reflect.TypeOf((*proto.Message)(nil)).Elem())
-		if err != nil {
-			return nil, fmt.Errorf("context variable is not a valid proto: %w", err)
-		}
-		return cel.ContextProtoVars(ctx.(proto.Message))
 	}
-	return nil, nil
+	return interpreter.NewActivation(input)
 }
 
 func (tr *TestRunner) createResultMatcherFromPB(t *testing.T, testCase *conformancepb.TestCase) (func(ref.Val, error) TestResult, error) {
