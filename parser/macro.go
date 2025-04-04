@@ -404,7 +404,7 @@ var (
 			common.MultilineDescription(
 				`// Combine all map key-value pairs into a list`,
 				`{'hi': 'you', 'howzit': 'bruv'}.map(k,`,
-				`    k + ":" + {'hi': 'you', 'howzit': 'bruv'}[k]) // ['hi:you', 'howzit:bruv']`),
+				`    k + ":" + {'hi': 'you', 'howzit': 'bruv'}[k]) // ['hi:you', 'howzit:bruv']`},
 		))
 
 	// MapFilterMacro expands "range.map(var, predicate, function)" into a comprehension which

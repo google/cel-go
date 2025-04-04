@@ -449,7 +449,7 @@ func (od *Overload) AsFunctionOption(tp types.Provider) (decls.FunctionOpt, erro
 	if len(errs) != 0 {
 		return nil, errors.Join(errs...)
 	}
-	return decls.Overload(od.ID, args, result, decls.OverloadExamples(od.Examples...)), nil
+	return decls.Overload(od.ID, args, result, decls.FunctionExampleDoc(common.ParseDescriptions(od.Description))), nil
 }
 
 // NewExtension creates a serializable Extension from a name and version string.

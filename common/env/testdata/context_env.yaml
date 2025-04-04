@@ -57,7 +57,7 @@ functions:
           type_name: "double"
       - id: "coalesce_wrapped_uint"
         examples:
-          - "coalesce(null, 14u) // 14u"
+          - "coalesce(null, 14u) // 14u
         args:
           - type_name: "google.protobuf.UInt64Value"
           - type_name: "uint"

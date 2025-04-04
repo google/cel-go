@@ -16,10 +16,10 @@ package cel
 
 import (
 	_ "embed"
-	"fmt"
 	"testing"
 
 	"github.com/google/cel-go/common/env"
+	"github.com/google/cel-go/test"
 )
 
 //go:embed testdata/basic.prompt.md
@@ -65,8 +65,7 @@ func TestPromptTemplate(t *testing.T) {
 				t.Fatalf("cel.AuthoringPrompt() failed: %v", err)
 			}
 			out := prompt.Render("<USER_PROMPT>")
-			if out != tc.out {
-				fmt.Println(out)
+			if !test.Compare(out, tc.out) {
 				t.Errorf("got %s, wanted %s", out, tc.out)
 			}
 		})

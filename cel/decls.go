@@ -247,9 +247,11 @@ func FunctionDecls(funcs ...*decls.FunctionDecl) EnvOption {
 // FunctionOpt defines a functional  option for configuring a function declaration.
 type FunctionOpt = decls.FunctionOpt
 
-// FunctionDocs configures documentation from a list of strings separated by newlines.
-func FunctionDocs(docs ...string) FunctionOpt {
-	return decls.FunctionDocs(docs...)
+// FunctionDoc provides a general usage documentation for the function.
+//
+// Use FunctionExampleDoc to provide example usage instructions for specific overloads.
+func FunctionDoc(desc any) FunctionOpt {
+	return decls.FunctionDoc(desc)
 }
 
 // SingletonUnaryBinding creates a singleton function definition to be used for all function overloads.
@@ -325,9 +327,9 @@ func MemberOverload(overloadID string, args []*Type, resultType *Type, opts ...O
 // OverloadOpt is a functional option for configuring a function overload.
 type OverloadOpt = decls.OverloadOpt
 
-// OverloadExamples configures an example of how to invoke the overload.
-func OverloadExamples(examples ...string) OverloadOpt {
-	return decls.OverloadExamples(examples...)
+// FunctionExampleDoc configures an example of how to invoke the overload.
+func FunctionExampleDoc(docs ...any) OverloadOpt {
+	return decls.FunctionExampleDoc(docs)
 }
 
 // UnaryBinding provides the implementation of a unary overload. The provided function is protected by a runtime
