@@ -30,7 +30,10 @@ var authoringPrompt string
 
 // AuthoringPrompt creates a prompt template from a CEL environment for the purpose of AI-assisted authoring.
 func AuthoringPrompt(env *Env) (*Prompt, error) {
-	tmpl := template.New("cel")
+	funcMap := template.FuncMap{
+		"split": func(str string) []string { return strings.Split(str, "\n") },
+	}
+	tmpl := template.New("cel").Funcs(funcMap)
 	tmpl, err := tmpl.Parse(authoringPrompt)
 	if err != nil {
 		return nil, err
@@ -140,15 +143,6 @@ Aggregate types include list and map:
 * Maps containing HTTP headers must always use lower-cased string keys.
 
 Comments start with two-forward slashes followed by text and a newline.`
-)
-
-var (
-	hiddenFunctions = map[string]bool{
-		overloads.DeprecatedIn:        true,
-		operators.OldIn:               true,
-		operators.OldNotStrictlyFalse: true,
-		operators.NotStrictlyFalse:    true,
-	}
 )
 
 var (

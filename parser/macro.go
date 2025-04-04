@@ -24,29 +24,22 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 )
 
+// MacroOpt defines a functional option for configuring macro behavior.
 type MacroOpt func(*macro) *macro
 
-func MacroDoc(doc string) MacroOpt {
+// MacroDocs configures a list of strings into a multiline description for the macro.
+func MacroDocs(docs ...string) MacroOpt {
 	return func(m *macro) *macro {
-		m.doc = common.ParseDescription(doc)
+		m.doc = common.MultilineDescription(docs...)
 		return m
 	}
 }
 
-func MacroExamples(examples ...any) MacroOpt {
+// MacroExamples configures a list of examples, either as a string or common.MultilineString,
+// into an example set to be provided with the macro Documentation() call.
+func MacroExamples(examples ...string) MacroOpt {
 	return func(m *macro) *macro {
-		var exampleSet []common.MultilineDescription
-		for _, e := range examples {
-			switch v := e.(type) {
-			case string:
-				exampleSet = append(exampleSet, common.MultilineDescription{v})
-			case common.MultilineDescription:
-				exampleSet = append(exampleSet, v)
-			default:
-				exampleSet = append(exampleSet, common.MultilineDescription{fmt.Sprintf("invalid example: %v", v)})
-			}
-		}
-		m.examples = exampleSet
+		m.examples = examples
 		return m
 	}
 }
@@ -138,8 +131,8 @@ type macro struct {
 	varArgStyle   bool
 	argCount      int
 	expander      MacroExpander
-	doc           common.MultilineDescription
-	examples      []common.MultilineDescription
+	doc           string
+	examples      []string
 }
 
 // Function returns the macro's function name (i.e. the function whose syntax it mimics).
@@ -181,7 +174,7 @@ func (m *macro) Documentation() *common.Doc {
 	return &common.Doc{
 		Kind:        common.DocMacro,
 		Name:        m.Function(),
-		Description: m.doc,
+		Description: common.ParseDescription(m.doc),
 		Children:    examples,
 	}
 }
@@ -312,134 +305,137 @@ var (
 	// HasMacro expands "has(m.f)" which tests the presence of a field, avoiding the need to
 	// specify the field as a string.
 	HasMacro = NewGlobalMacro(operators.Has, 1, MakeHas,
-		MacroDoc("check a protocol buffer message for the presence of a field, or check a map\n"+
-			"for the presence of a string key.\n"+
-			"Only map accesses using the select notation are supported."),
+		MacroDocs(
+			`check a protocol buffer message for the presence of a field, or check a map`,
+			`for the presence of a string key.`,
+			`Only map accesses using the select notation are supported.`),
 		MacroExamples(
-			common.MultilineDescription{
+			common.MultilineDescription(
 				`// true if the 'address' field exists in the 'user' message`,
-				`has(user.address)`},
-			common.MultilineDescription{
+				`has(user.address)`),
+			common.MultilineDescription(
 				`// test whether the 'key_name' is set on the map which defines it`,
-				`has({'key_name': 'value'}.key_name) // true`},
-			common.MultilineDescription{
+				`has({'key_name': 'value'}.key_name) // true`),
+			common.MultilineDescription(
 				`// test whether the 'id' field is set to a non-default value on the Expr{} message literal`,
-				`has(Expr{}.id) // false`},
+				`has(Expr{}.id) // false`),
 		))
 
 	// AllMacro expands "range.all(var, predicate)" into a comprehension which ensures that all
 	// elements in the range satisfy the predicate.
 	AllMacro = NewReceiverMacro(operators.All, 2, MakeAll,
-		MacroDoc("tests whether all elements in the input list or all keys in a map\n"+
-			"satisfy the given predicate. The all macro behaves in a manner consistent with\n"+
-			"the Logical AND operator including in how it absorbs errors and short-circuits."),
+		MacroDocs(`tests whether all elements in the input list or all keys in a map`,
+			`satisfy the given predicate. The all macro behaves in a manner consistent with`,
+			`the Logical AND operator including in how it absorbs errors and short-circuits.`),
 		MacroExamples(
 			`[1, 2, 3].all(x, x > 0) // true`,
 			`[1, 2, 0].all(x, x > 0) // false`,
 			`['apple', 'banana', 'cherry'].all(fruit, fruit.size() > 3) // true`,
 			`[3.14, 2.71, 1.61].all(num, num < 3.0) // false`,
 			`{'a': 1, 'b': 2, 'c': 3}.all(key, key != 'b') // false`,
-			common.MultilineDescription{
+			common.MultilineDescription(
 				`// an empty list or map as the range will result in a trivially true result`,
-				`[].all(x, x > 0) // true`},
+				`[].all(x, x > 0) // true`),
 		))
 
 	// ExistsMacro expands "range.exists(var, predicate)" into a comprehension which ensures that
 	// some element in the range satisfies the predicate.
 	ExistsMacro = NewReceiverMacro(operators.Exists, 2, MakeExists,
-		MacroDoc("tests whether any value in the list or any key in the map\n"+
-			"satisfies the predicate expression. The exists macro behaves in a manner\n"+
-			"consistent with the Logical OR operator including in how it absorbs errors and\n"+
-			"short-circuits."),
+		MacroDocs(`tests whether any value in the list or any key in the map`,
+			`satisfies the predicate expression. The exists macro behaves in a manner`,
+			`consistent with the Logical OR operator including in how it absorbs errors and`,
+			`short-circuits.`),
 		MacroExamples(
 			`[1, 2, 3].exists(i, i % 2 != 0) // true`,
 			`[0, -1, 5].exists(num, num < 0) // true`,
 			`{'x': 'foo', 'y': 'bar'}.exists(key, key.startsWith('z')) // false`,
-			common.MultilineDescription{
+			common.MultilineDescription(
 				`// an empty list or map as the range will result in a trivially false result`,
-				`[].exists(i, i > 0) // false`},
-			common.MultilineDescription{
+				`[].exists(i, i > 0) // false`),
+			common.MultilineDescription(
 				`// test whether a key name equalling 'iss' exists in the map and the`,
 				`// value contains the substring 'cel.dev'`,
 				`// tokens = {'sub': 'me', 'iss': 'https://issuer.cel.dev'}`,
-				`tokens.exists(k, k == 'iss' && tokens[k].contains('cel.dev'))`},
+				`tokens.exists(k, k == 'iss' && tokens[k].contains('cel.dev'))`),
 		))
 
 	// ExistsOneMacro expands "range.exists_one(var, predicate)", which is true if for exactly one
 	// element in range the predicate holds.
 	// Deprecated: Use ExistsOneMacroNew
 	ExistsOneMacro = NewReceiverMacro(operators.ExistsOne, 2, MakeExistsOne,
-		MacroDoc("tests whether exactly one list element or map key satisfies\n"+
-			"the predicate expression. This macro does not short-circuit in order to remain\n"+
-			"consistent with logical operators being the only operators which can absorb\n"+
-			"errors within CEL."),
+		MacroDocs(`tests whether exactly one list element or map key satisfies`,
+			`the predicate expression. This macro does not short-circuit in order to remain`,
+			`consistent with logical operators being the only operators which can absorb`,
+			`errors within CEL.`),
 		MacroExamples(
 			`[1, 2, 2].exists_one(i, i < 2) // true`,
 			`{'a': 'hello', 'aa': 'hellohello'}.exists_one(k, k.startsWith('a')) // false`,
 			`[1, 2, 3, 4].exists_one(num, num % 2 == 0) // false`,
-			common.MultilineDescription{
+			common.MultilineDescription(
 				`// ensure exactly one key in the map ends in @acme.co`,
-				`{'wiley@acme.co': 'coyote', 'aa@milne.co': 'bear'}.exists_one(k, k.endsWith('@acme.co')) // true`},
+				`{'wiley@acme.co': 'coyote', 'aa@milne.co': 'bear'}.exists_one(k, k.endsWith('@acme.co')) // true`),
 		))
 
 	// ExistsOneMacroNew expands "range.existsOne(var, predicate)", which is true if for exactly one
 	// element in range the predicate holds.
 	ExistsOneMacroNew = NewReceiverMacro("existsOne", 2, MakeExistsOne,
-		MacroDoc("tests whether exactly one list element or map key satisfies\n"+
-			"the predicate expression. This macro does not short-circuit in order to remain\n"+
-			"consistent with logical operators being the only operators which can absorb\n"+
-			"errors within CEL."),
+		MacroDocs(
+			`tests whether exactly one list element or map key satisfies the predicate`,
+			`expression. This macro does not short-circuit in order to remain consistent`,
+			`with logical operators being the only operators which can absorb errors`,
+			`within CEL.`),
 		MacroExamples(
 			`[1, 2, 2].existsOne(i, i < 2) // true`,
 			`{'a': 'hello', 'aa': 'hellohello'}.existsOne(k, k.startsWith('a')) // false`,
 			`[1, 2, 3, 4].existsOne(num, num % 2 == 0) // false`,
-			common.MultilineDescription{
+			common.MultilineDescription(
 				`// ensure exactly one key in the map ends in @acme.co`,
-				`{'wiley@acme.co': 'coyote', 'aa@milne.co': 'bear'}.existsOne(k, k.endsWith('@acme.co')) // true`},
+				`{'wiley@acme.co': 'coyote', 'aa@milne.co': 'bear'}.existsOne(k, k.endsWith('@acme.co')) // true`),
 		))
 
 	// MapMacro expands "range.map(var, function)" into a comprehension which applies the function
 	// to each element in the range to produce a new list.
 	MapMacro = NewReceiverMacro(operators.Map, 2, MakeMap,
-		MacroDoc("the three-argument form of map transforms all elements in the input range."),
+		MacroDocs("the three-argument form of map transforms all elements in the input range."),
 		MacroExamples(
 			`[1, 2, 3].map(x, x * 2) // [2, 4, 6]`,
 			`[5, 10, 15].map(x, x / 5) // [1, 2, 3]`,
 			`['apple', 'banana'].map(fruit, fruit.upperAscii()) // ['APPLE', 'BANANA']`,
-			common.MultilineDescription{
+			common.MultilineDescription(
 				`// Combine all map key-value pairs into a list`,
-				`{'hi': 'you', 'howzit': 'bruv'}.map(k, `,
-				`    k + ":" + {'hi': 'you', 'howzit': 'bruv'}[k]) // ['hi:you', 'howzit:bruv']`},
+				`{'hi': 'you', 'howzit': 'bruv'}.map(k,`,
+				`    k + ":" + {'hi': 'you', 'howzit': 'bruv'}[k]) // ['hi:you', 'howzit:bruv']`),
 		))
 
 	// MapFilterMacro expands "range.map(var, predicate, function)" into a comprehension which
 	// first filters the elements in the range by the predicate, then applies the transform function
 	// to produce a new list.
 	MapFilterMacro = NewReceiverMacro(operators.Map, 3, MakeMap,
-		MacroDoc("the four-argument form of the map transforms only elements which satisfy the predicate\n"+
-			"which is equivalent to chaining the filter and three-argument map macros together."),
+		MacroDocs(`the four-argument form of the map transforms only elements which satisfy`,
+			`the predicate which is equivalent to chaining the filter and three-argument`,
+			`map macros together.`),
 		MacroExamples(
-			common.MultilineDescription{
+			common.MultilineDescription(
 				`// multiply only numbers divisible two, by 2`,
-				`[1, 2, 3, 4].map(num, num % 2 == 0, num * 2) // [4, 8]`},
+				`[1, 2, 3, 4].map(num, num % 2 == 0, num * 2) // [4, 8]`),
 		))
 
 	// FilterMacro expands "range.filter(var, predicate)" into a comprehension which filters
 	// elements in the range, producing a new list from the elements that satisfy the predicate.
 	FilterMacro = NewReceiverMacro(operators.Filter, 2, MakeFilter,
-		MacroDoc("returns a list containing only the elements from the input list\n"+
-			"that satisfy the given predicate"),
+		MacroDocs(`returns a list containing only the elements from the input list`,
+			`that satisfy the given predicate`),
 		MacroExamples(
 			`[1, 2, 3].filter(x, x > 1) // [2, 3]`,
 			`['cat', 'dog', 'bird', 'fish'].filter(pet, pet.size() == 3) // ['cat', 'dog']`,
 			`[{'a': 10, 'b': 5, 'c': 20}].map(m, m.filter(key, m[key] > 10)) // [['c']]`,
-			common.MultilineDescription{
+			common.MultilineDescription(
 				`// filter a list to select only emails with the @cel.dev suffix`,
-				`['alice@buf.io', 'tristan@cel.dev'].filter(v, v.endsWith('@cel.dev')) // ['tristan@cel.dev']`},
-			common.MultilineDescription{
+				`['alice@buf.io', 'tristan@cel.dev'].filter(v, v.endsWith('@cel.dev')) // ['tristan@cel.dev']`),
+			common.MultilineDescription(
 				`// filter a map into a list, selecting only the values for keys that start with 'http-auth'`,
 				`{'http-auth-agent': 'secret', 'user-agent': 'mozilla'}.filter(k,`,
-				`     k.startsWith('http-auth')) // ['secret']`},
+				`     k.startsWith('http-auth')) // ['secret']`),
 		))
 
 	// AllMacros includes the list of all spec-supported macros.

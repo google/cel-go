@@ -22,7 +22,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/types"
 )
@@ -158,7 +157,10 @@ func (c *Config) AddFunctionDecls(funcs ...*decls.FunctionDecl) *Config {
 			} else {
 				overload = NewOverload(overloadID, args, ret)
 			}
-			overload.Description = o.Description()
+			exampleCount := len(o.Examples())
+			if exampleCount > 0 {
+				overload.Examples = o.Examples()
+			}
 			overloads = append(overloads, overload)
 		}
 		cf := NewFunction(fn.Name(), overloads...)
@@ -358,7 +360,9 @@ func (fn *Function) AsCELFunction(tp types.Provider) (*decls.FunctionDecl, error
 			return nil, fmt.Errorf("invalid function %q: %w", fn.Name, err)
 		}
 	}
-	opts = append(opts, decls.FunctionDoc(common.ParseDescription(fn.Description)))
+	if len(fn.Description) != 0 {
+		opts = append(opts, decls.FunctionDocs(fn.Description))
+	}
 	return decls.NewFunction(fn.Name, opts...)
 }
 
@@ -374,11 +378,11 @@ func NewMemberOverload(id string, target *TypeDesc, args []*TypeDesc, ret *TypeD
 
 // Overload represents the serializable format of a function overload.
 type Overload struct {
-	ID          string      `yaml:"id"`
-	Description string      `yaml:"description,omitempty"`
-	Target      *TypeDesc   `yaml:"target,omitempty"`
-	Args        []*TypeDesc `yaml:"args,omitempty"`
-	Return      *TypeDesc   `yaml:"return,omitempty"`
+	ID       string      `yaml:"id"`
+	Examples []string    `yaml:"examples,omitempty"`
+	Target   *TypeDesc   `yaml:"target,omitempty"`
+	Args     []*TypeDesc `yaml:"args,omitempty"`
+	Return   *TypeDesc   `yaml:"return,omitempty"`
 }
 
 // Validate validates the overload configuration is well-formed.
@@ -435,7 +439,7 @@ func (od *Overload) AsFunctionOption(tp types.Provider) (decls.FunctionOpt, erro
 	if len(errs) != 0 {
 		return nil, errors.Join(errs...)
 	}
-	return decls.Overload(od.ID, args, result, decls.OverloadDoc(common.ParseDescriptions(od.Description))), nil
+	return decls.Overload(od.ID, args, result, decls.OverloadExamples(od.Examples...)), nil
 }
 
 // NewExtension creates a serializable Extension from a name and version string.

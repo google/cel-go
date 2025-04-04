@@ -15,63 +15,15 @@
 package common
 
 import (
-	"errors"
 	"reflect"
-	"strings"
 	"testing"
 )
-
-func TestFormatDescription(t *testing.T) {
-	tests := []struct {
-		name string
-		in   []any
-		out  string
-		err  error
-	}{
-		{
-			name: "two separate examples as strings",
-			in:   []any{"hello", "world"},
-			out:  "hello\n\nworld",
-		},
-		{
-			name: "single example as multiline string",
-			in:   []any{MultilineDescription{"hello", "world"}},
-			out:  "hello\nworld",
-		},
-		{
-			name: "two examples as a list of multiline strings",
-			in:   []any{[]MultilineDescription{{"hello", "world"}, {"goodbye", "cruel world"}}},
-			out:  "hello\nworld\n\ngoodbye\ncruel world",
-		},
-		{
-			name: "invalid description",
-			in:   []any{1},
-			err:  errors.New("unsupported description type"),
-		},
-	}
-
-	for _, tst := range tests {
-		tc := tst
-		t.Run(tc.name, func(t *testing.T) {
-			out, err := FormatDescription(tc.in...)
-			if err != nil {
-				if tc.err == nil || !strings.Contains(err.Error(), tc.err.Error()) {
-					t.Fatalf("FormatDescription() errored with %v, wanted %v", err, tc)
-				}
-				return
-			}
-			if out != tc.out {
-				t.Errorf("FormatDescription() got %s, wanted %v", out, tc)
-			}
-		})
-	}
-}
 
 func TestParseDescription(t *testing.T) {
 	tests := []struct {
 		name string
 		in   string
-		out  MultilineDescription
+		out  string
 	}{
 		{
 			name: "empty",
@@ -79,12 +31,12 @@ func TestParseDescription(t *testing.T) {
 		{
 			name: "single",
 			in:   "hello",
-			out:  MultilineDescription{"hello"},
+			out:  "hello",
 		},
 		{
 			name: "multi",
 			in:   "hello\n\n\nworld",
-			out:  MultilineDescription{"hello", "world"},
+			out:  "hello\nworld",
 		},
 	}
 
@@ -103,7 +55,7 @@ func TestParseDescriptions(t *testing.T) {
 	tests := []struct {
 		name string
 		in   string
-		out  []MultilineDescription
+		out  []string
 	}{
 		{
 			name: "empty",
@@ -111,17 +63,17 @@ func TestParseDescriptions(t *testing.T) {
 		{
 			name: "single",
 			in:   "hello",
-			out:  []MultilineDescription{{"hello"}},
+			out:  []string{"hello"},
 		},
 		{
 			name: "multi",
 			in:   "bar\nbaz\n\nfoo",
-			out:  []MultilineDescription{{"bar", "baz"}, {"foo"}},
+			out:  []string{"bar\nbaz", "foo"},
 		},
 		{
 			name: "multi",
 			in:   "hello\n\n\nworld",
-			out:  []MultilineDescription{{"hello"}, {"world"}},
+			out:  []string{"hello", "world"},
 		},
 	}
 
@@ -143,17 +95,17 @@ func TestNewDoc(t *testing.T) {
 		name       string
 		celType    string
 		sig        string
-		desc       MultilineDescription
+		desc       string
 		childCount int
 	}{
 		{
 			newDoc: func() *Doc {
 				return NewMacroDoc("map", "map converts a list or map of values to a list",
-					NewExampleDoc(MultilineDescription{"[1, 2].map(i, i * 2) // [2, 4]"}))
+					NewExampleDoc("[1, 2].map(i, i * 2) // [2, 4]"))
 			},
 			kind:       DocMacro,
 			name:       "map",
-			desc:       MultilineDescription{"map converts a list or map of values to a list"},
+			desc:       "map converts a list or map of values to a list",
 			childCount: 1,
 		},
 		{
@@ -166,7 +118,7 @@ func TestNewDoc(t *testing.T) {
 			kind:       DocVariable,
 			name:       "request",
 			celType:    "google.rpc.context.AttributeContext.Request",
-			desc:       MultilineDescription{"parameters related to an HTTP API request"},
+			desc:       "parameters related to an HTTP API request",
 			childCount: 0,
 		},
 		{
@@ -174,11 +126,11 @@ func TestNewDoc(t *testing.T) {
 				return NewFunctionDoc("getToken",
 					"get the JWT token from a request\nas deserialized JSON",
 					NewOverloadDoc("request_getToken", "request.getToken() -> map(string, dyn)",
-						NewExampleDoc(MultilineDescription{"has(request.getToken().sub) // false"})))
+						NewExampleDoc("has(request.getToken().sub) // false")))
 			},
 			kind:       DocFunction,
 			name:       "getToken",
-			desc:       MultilineDescription{"get the JWT token from a request", "as deserialized JSON"},
+			desc:       "get the JWT token from a request\nas deserialized JSON",
 			childCount: 1,
 		},
 	}

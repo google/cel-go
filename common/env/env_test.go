@@ -165,12 +165,16 @@ func TestConfig(t *testing.T) {
 					if f.Name != wf.Name {
 						t.Errorf("Functions[%d] not equal, got %v, wanted %v", i, f.Name, wf.Name)
 					}
+					if f.Description != wf.Description {
+						t.Errorf("Functions[%d] description not equal, got %v, wanted %v", i, f.Description, wf.Description)
+					}
 					if len(f.Overloads) != len(wf.Overloads) {
 						t.Errorf("Function %s got overload count: %d, wanted %d", f.Name, len(f.Overloads), len(wf.Overloads))
 					}
 					for j, o := range f.Overloads {
 						wo := wf.Overloads[j]
 						if !reflect.DeepEqual(o, wo) {
+							t.Error(o.Examples)
 							t.Errorf("Overload[%d] got %v, wanted %v", j, o, wo)
 						}
 					}

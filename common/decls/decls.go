@@ -87,19 +87,21 @@ const (
 	declarationEnabled
 )
 
+// Documentation generates documentation about the Function and its overloads as a common.Doc object.
 func (f *FunctionDecl) Documentation() *common.Doc {
 	children := make([]*common.Doc, len(f.OverloadDecls()))
 	for i, o := range f.OverloadDecls() {
-		od := o.Documentation()
-		od.Signature = formatSignature(f.Name(), o)
+		var examples []*common.Doc
+		for _, ex := range o.Examples() {
+			examples = append(examples, common.NewExampleDoc(ex))
+		}
+		od := common.NewOverloadDoc(o.ID(), formatSignature(f.Name(), o), examples...)
 		children[i] = od
 	}
-	return &common.Doc{
-		Kind:        common.DocFunction,
-		Name:        f.Name(),
-		Description: common.ParseDescription(f.Description()),
-		Children:    children,
-	}
+	return common.NewFunctionDoc(
+		f.Name(),
+		f.Description(),
+		children...)
 }
 
 // Name returns the function name in human-readable terms, e.g. 'contains' of 'math.least'
@@ -390,14 +392,10 @@ func MaybeNoSuchOverload(funcName string, args ...ref.Val) ref.Val {
 // FunctionOpt defines a functional option for mutating a function declaration.
 type FunctionOpt func(*FunctionDecl) (*FunctionDecl, error)
 
-// FunctionDoc configures the general usage documentation for the funciton.
-func FunctionDoc(doc any) FunctionOpt {
+// FunctionDocs configures documentation from a list of strings separated by newlines.
+func FunctionDocs(docs ...string) FunctionOpt {
 	return func(fn *FunctionDecl) (*FunctionDecl, error) {
-		d, err := common.FormatDescription(doc)
-		if err != nil {
-			return nil, err
-		}
-		fn.doc = d
+		fn.doc = common.MultilineDescription(docs...)
 		return fn, nil
 	}
 }
@@ -574,13 +572,9 @@ type OverloadDecl struct {
 	functionOp functions.FunctionOp
 }
 
-func (o *OverloadDecl) Documentation() *common.Doc {
-	var examples []*common.Doc
-	descs := common.ParseDescriptions(o.doc)
-	for _, d := range descs {
-		examples = append(examples, common.NewExampleDoc(d))
-	}
-	return common.NewOverloadDoc(o.ID(), "", "", examples...)
+// Examples returns a list of string examples for the overload.
+func (o *OverloadDecl) Examples() []string {
+	return common.ParseDescriptions(o.doc)
 }
 
 // ID mirrors the overload signature and provides a unique id which may be referenced within the type-checker
@@ -594,14 +588,6 @@ func (o *OverloadDecl) ID() string {
 		return ""
 	}
 	return o.id
-}
-
-// Description returns the usage description for the overload.
-func (o *OverloadDecl) Description() string {
-	if o == nil {
-		return ""
-	}
-	return o.doc
 }
 
 // ArgTypes contains the set of argument types expected by the overload.
@@ -788,16 +774,10 @@ func matchOperandTrait(trait int, arg ref.Val) bool {
 // OverloadOpt is a functional option for configuring a function overload.
 type OverloadOpt func(*OverloadDecl) (*OverloadDecl, error)
 
-// OverloadDoc sets the documentation string for the overload.
-//
-// It is recommended the description string be a valid CEL expression demonstrating usage of the overload.
-func OverloadDoc(examples ...any) OverloadOpt {
+// OverloadExamples configures example expressions for the overload.
+func OverloadExamples(examples ...string) OverloadOpt {
 	return func(o *OverloadDecl) (*OverloadDecl, error) {
-		doc, err := common.FormatDescription(examples...)
-		if err != nil {
-			return nil, err
-		}
-		o.doc = doc
+		o.doc = common.MultilineDescription(examples...)
 		return o, nil
 	}
 }
@@ -983,7 +963,8 @@ func functionDeclToExprDecl(f *FunctionDecl) (*exprpb.Decl, error) {
 			} else {
 				overloads[i] = chkdecls.NewOverload(oID, argTypes, resultType)
 			}
-			overloads[i].Doc = o.Description()
+			desc := common.MultilineDescription(o.Examples()...)
+			overloads[i].Doc = desc
 		} else {
 			params := []string{}
 			for pn := range paramNames {

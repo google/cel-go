@@ -2,15 +2,15 @@
 {{- end -}}
 
 {{define "macro" -}}
-{{.Name}} macro{{if .Description}} - {{range .Description}}{{.}} {{end}}
+{{.Name}} macro{{if .Description}} - {{range split .Description}}{{.}} {{end}}
 {{end}}
-{{range .Children}}{{range .Description}}      {{.}}
+{{range .Children}}{{range split .Description}}      {{.}}
 {{end}}
 {{- end -}}
 {{- end -}}
 
 {{define "overload" -}}
-{{if .Children}}{{range .Children}}{{range .Description}}      {{.}}
+{{if .Children}}{{range .Children}}{{range split .Description}}      {{.}}
 {{end}}
 {{- end -}}
 {{else}}      {{.Signature}}
@@ -18,7 +18,7 @@
 {{- end -}}
 
 {{define "function" -}}
-{{.Name}}{{if .Description}} - {{range .Description}}{{.}} {{end}}
+{{.Name}}{{if .Description}} - {{range split .Description}}{{.}} {{end}}
 {{end}}
 {{range .Children}}{{template "overload" .}}{{end}}
 {{- end -}}
@@ -39,7 +39,7 @@ Variables:
 {{if .Macros}}
 Macros:
 
-{{range .Macros}}* {{template "macro" . }}
+{{range .Macros}}* {{template "macro" .}}
 {{end -}}
 
 {{end -}}
