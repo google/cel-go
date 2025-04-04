@@ -3,9 +3,10 @@ module github.com/google/cel-go/tools
 go 1.23.0
 
 require (
-	cel.dev/expr v0.22.1
+	cel.dev/expr v0.23.0
 	github.com/google/cel-go v0.22.0
 	github.com/google/cel-go/policy v0.0.0-20250311174852-f5ea07b389a1
+	github.com/google/go-cmp v0.6.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20250311190419-81fb87f6b8bf
 	google.golang.org/protobuf v1.36.5
 	gopkg.in/yaml.v3 v3.0.1
