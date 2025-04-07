@@ -101,8 +101,8 @@ go_repository(
 go_repository(
     name = "dev_cel_expr",
     importpath = "cel.dev/expr",
-    sum = "h1:wUb94w6OYQS4uXraxo9U+wUAs9jT47Xvl4iPgAwM2ss=",
-    version = "v0.23.0",
+    sum = "h1:K4KOtPCJQjVggkARsjG9RWXP6O4R73aHeJMa/dmCQQg=",
+    version = "v0.23.1",
 )
 
 # local_repository(
