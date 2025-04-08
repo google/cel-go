@@ -17,7 +17,6 @@
 package common
 
 import (
-	"fmt"
 	"strings"
 	"unicode"
 )
@@ -40,10 +39,6 @@ const (
 	DocExample
 )
 
-// MultilineDescription represents a description that can span multiple lines,
-// stored as a slice of strings.
-type MultilineDescription []string
-
 // Doc holds the documentation details for a specific program element like
 // a variable, function, macro, or example.
 type Doc struct {
@@ -60,59 +55,24 @@ type Doc struct {
 	Signature string
 
 	// Description holds the textual description of the element, potentially spanning multiple lines.
-	Description MultilineDescription
+	Description string
 
 	// Children holds nested documentation elements, such as overloads for a function
 	// or examples for a function/macro.
 	Children []*Doc
 }
 
-// FormatDescription joins multiple description elements (string, MultilineDescription,
-// or []MultilineDescription) into a single string, separated by double newlines ("\n\n").
-// It returns the formatted string or an error if an unsupported type is encountered.
-func FormatDescription(descs ...any) (string, error) {
-	return FormatDescriptionSeparator("\n\n", descs...)
-}
-
-// FormatDescriptionSeparator joins multiple description elements (string, MultilineDescription,
-// or []MultilineDescription) into a single string using the specified separator.
-// It returns the formatted string or an error if an unsupported description type is passed.
-func FormatDescriptionSeparator(sep string, descs ...any) (string, error) {
-	var builder strings.Builder
-	hasDoc := false
-	for _, d := range descs {
-		if hasDoc {
-			builder.WriteString(sep)
-		}
-		switch v := d.(type) {
-		case string:
-			builder.WriteString(v)
-		case MultilineDescription:
-			str := strings.Join(v, "\n")
-			builder.WriteString(str)
-		case []MultilineDescription:
-			for _, md := range v {
-				if hasDoc {
-					builder.WriteString(sep)
-				}
-				str := strings.Join(md, "\n")
-				builder.WriteString(str)
-				hasDoc = true
-			}
-		default:
-			return "", fmt.Errorf("unsupported description type: %T", d)
-		}
-		hasDoc = true
-	}
-	return builder.String(), nil
+// MultilineDescription combines multiple lines into a newline separated string.
+func MultilineDescription(lines ...string) string {
+	return strings.Join(lines, "\n")
 }
 
 // ParseDescription takes a single string containing newline characters and splits
-// it into a MultilineDescription. All empty lines will be skipped.
+// it into a multiline description. All empty lines will be skipped.
 //
-// Returns an empty MultilineDescription if the input string is empty.
-func ParseDescription(doc string) MultilineDescription {
-	var lines MultilineDescription
+// Returns an empty string if the input string is empty.
+func ParseDescription(doc string) string {
+	var lines []string
 	if len(doc) != 0 {
 		// Split the input string by newline characters.
 		for _, line := range strings.Split(doc, "\n") {
@@ -124,13 +84,13 @@ func ParseDescription(doc string) MultilineDescription {
 		}
 	}
 	// Return an empty slice if the input is empty.
-	return lines
+	return MultilineDescription(lines...)
 }
 
-// ParseDescriptions splits a documentation string into multiple MultilineDescription
+// ParseDescriptions splits a documentation string into multiple multi-line description
 // sections, using blank lines as delimiters.
-func ParseDescriptions(doc string) []MultilineDescription {
-	var examples []MultilineDescription
+func ParseDescriptions(doc string) []string {
+	var examples []string
 	if len(doc) != 0 {
 		lines := strings.Split(doc, "\n")
 		lineStart := 0
@@ -142,14 +102,14 @@ func ParseDescriptions(doc string) []MultilineDescription {
 				// Start the next section after the blank line.
 				ex := lines[lineStart:i]
 				if len(ex) != 0 {
-					examples = append(examples, ex)
+					examples = append(examples, MultilineDescription(ex...))
 				}
 				lineStart = i + 1
 			}
 		}
 		// Append the last section if it wasn't terminated by a blank line.
 		if lineStart < len(lines) {
-			examples = append(examples, lines[lineStart:])
+			examples = append(examples, MultilineDescription(lines[lineStart:]...))
 		}
 	}
 	return examples
@@ -196,7 +156,7 @@ func NewMacroDoc(name, description string, examples ...*Doc) *Doc {
 }
 
 // NewExampleDoc creates a new Doc struct specifically for holding an example.
-func NewExampleDoc(ex MultilineDescription) *Doc {
+func NewExampleDoc(ex string) *Doc {
 	return &Doc{
 		Kind:        DocExample,
 		Description: ex,

@@ -36,20 +36,28 @@ context_variable:
   type_name: "google.expr.proto3.test.TestAllTypes"
 functions:
   - name: "coalesce"
+    description: "Converts a potentially null wrapper-type to a default value."
     overloads:
       - id: "coalesce_wrapped_int"
+        examples:
+          - "coalesce(null, 1) // 1"
+          - "coalesce(2, 1) // 2"
         args:
           - type_name: "google.protobuf.Int64Value"
           - type_name: "int"
         return:
           type_name: "int"
       - id: "coalesce_wrapped_double"
+        examples:
+          - "coalesce(null, 1.3) // 1.3"
         args:
           - type_name: "google.protobuf.DoubleValue"
           - type_name: "double"
         return:
           type_name: "double"
       - id: "coalesce_wrapped_uint"
+        examples:
+          - "coalesce(null, 14u) // 14u"
         args:
           - type_name: "google.protobuf.UInt64Value"
           - type_name: "uint"
