@@ -32,16 +32,16 @@ type Section struct {
 // encompasses evaluation of the compiled expression using the provided input
 // bindings and asserting the result against the expected result.
 type Case struct {
-	Name        string `yaml:"name"`
-	Description string `yaml:"description"`
-	Input       Input  `yaml:"input"`
-	Output      Output `yaml:"output"`
+	Name          string                 `yaml:"name"`
+	Description   string                 `yaml:"description"`
+	Input         map[string]*InputValue `yaml:"input,omitempty"`
+	*InputContext `yaml:",inline,omitempty"`
+	Output        *Output `yaml:"output"`
 }
 
-// Input represents an input map or a context expression.
-type Input struct {
-	Bindings    map[string]InputValue `yaml:"bindings"`
-	ContextExpr string                `yaml:"context_expr"`
+// InputContext represents an optional context expression.
+type InputContext struct {
+	ContextExpr string `yaml:"context_expr"`
 }
 
 // InputValue represents an input value for a binding which can be either a simple literal value or
