@@ -22,15 +22,26 @@ extensions:
 variables:
   - name: "msg"
     type_name: "google.expr.proto3.test.TestAllTypes"
+    description: >-
+      msg represents all possible type permutation which
+      CEL understands from a proto perspective
 functions:
   - name: "isEmpty"
+    description: |-
+      determines whether a list is empty,
+      or a string has no characters
     overloads:
       - id: "wrapper_string_isEmpty"
+        examples:
+          - "''.isEmpty() // true"
         target:
           type_name: "google.protobuf.StringValue"
         return:
           type_name: "bool"
       - id: "list_isEmpty"
+        examples:
+          - "[].isEmpty() // true"
+          - "[1].isEmpty() // false"
         target:
           type_name: "list"
           params:

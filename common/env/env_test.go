@@ -25,6 +25,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/overloads"
@@ -55,16 +56,21 @@ func TestConfig(t *testing.T) {
 				AddExtensions(NewExtension("optional", math.MaxUint32), NewExtension("strings", 1)).
 				SetContextVariable(NewContextVariable("google.expr.proto3.test.TestAllTypes")).
 				AddFunctions(
-					NewFunction("coalesce",
+					NewFunctionWithDoc("coalesce",
+						"Converts a potentially null wrapper-type to a default value.",
 						NewOverload("coalesce_wrapped_int",
 							[]*TypeDesc{NewTypeDesc("google.protobuf.Int64Value"), NewTypeDesc("int")},
-							NewTypeDesc("int")),
+							NewTypeDesc("int"),
+							`coalesce(null, 1) // 1`,
+							`coalesce(2, 1) // 2`),
 						NewOverload("coalesce_wrapped_double",
 							[]*TypeDesc{NewTypeDesc("google.protobuf.DoubleValue"), NewTypeDesc("double")},
-							NewTypeDesc("double")),
+							NewTypeDesc("double"),
+							`coalesce(null, 1.3) // 1.3`),
 						NewOverload("coalesce_wrapped_uint",
 							[]*TypeDesc{NewTypeDesc("google.protobuf.UInt64Value"), NewTypeDesc("uint")},
-							NewTypeDesc("uint")),
+							NewTypeDesc("uint"),
+							`coalesce(null, 14u) // 14u`),
 					),
 				),
 		},
@@ -76,15 +82,23 @@ func TestConfig(t *testing.T) {
 					NewExtension("optional", 2),
 					NewExtension("math", math.MaxUint32),
 				).AddVariables(
-				NewVariable("msg", NewTypeDesc("google.expr.proto3.test.TestAllTypes")),
+				NewVariableWithDoc("msg",
+					NewTypeDesc("google.expr.proto3.test.TestAllTypes"),
+					`msg represents all possible type permutation which CEL understands from a proto perspective`),
 			).AddFunctions(
-				NewFunction("isEmpty",
+				NewFunctionWithDoc("isEmpty",
+					common.MultilineDescription(
+						`determines whether a list is empty,`,
+						`or a string has no characters`),
 					NewMemberOverload("wrapper_string_isEmpty",
 						NewTypeDesc("google.protobuf.StringValue"), nil,
-						NewTypeDesc("bool")),
+						NewTypeDesc("bool"),
+						`''.isEmpty() // true`),
 					NewMemberOverload("list_isEmpty",
 						NewTypeDesc("list", NewTypeParam("T")), nil,
-						NewTypeDesc("bool")),
+						NewTypeDesc("bool"),
+						`[].isEmpty() // true`,
+						`[1].isEmpty() // false`),
 				),
 			).AddFeatures(
 				NewFeature("cel.feature.macro_call_tracking", true),
@@ -153,7 +167,7 @@ func TestConfig(t *testing.T) {
 				for i, v := range got.Variables {
 					wv := tc.want.Variables[i]
 					if !reflect.DeepEqual(v, wv) {
-						t.Errorf("Variables[%d] not equal, got %v, wanted %v", i, v, wv)
+						t.Errorf("Variables[%d] not equal, got %v, wanted %v", i, v.Description, wv.Description)
 					}
 				}
 			}
@@ -317,6 +331,11 @@ func TestConfigAddVariableDecls(t *testing.T) {
 			in:   decls.NewVariable("var", types.NewObjectType("google.type.Expr")),
 			out:  NewVariable("var", NewTypeDesc("google.type.Expr")),
 		},
+		{
+			name: "proto var decl with doc",
+			in:   decls.NewVariableWithDoc("var", types.NewObjectType("google.type.Expr"), "API-friendly CEL expression type"),
+			out:  NewVariableWithDoc("var", NewTypeDesc("google.type.Expr"), "API-friendly CEL expression type"),
+		},
 	}
 	for _, tst := range tests {
 		tc := tst
@@ -374,6 +393,19 @@ func TestConfigAddFunctionDecls(t *testing.T) {
 			out: NewFunction("size",
 				NewMemberOverload("list_size", NewTypeDesc("list", NewTypeParam("T")), []*TypeDesc{}, NewTypeDesc("int")),
 				NewMemberOverload("string_size", NewTypeDesc("string"), []*TypeDesc{}, NewTypeDesc("int")),
+			),
+		},
+		{
+			name: "global function decl - with doc",
+			in: mustNewFunction(t, "size",
+				decls.FunctionDocs("return the number of unicode code points", "in a string"),
+				decls.Overload("size_string", []*types.Type{types.StringType}, types.IntType,
+					decls.OverloadExamples(`'hello'.size() // 5`)),
+			),
+			out: NewFunctionWithDoc("size",
+				"return the number of unicode code points\nin a string",
+				NewOverload("size_string", []*TypeDesc{NewTypeDesc("string")}, NewTypeDesc("int"),
+					`'hello'.size() // 5`),
 			),
 		},
 	}
@@ -732,6 +764,27 @@ func TestFunctionAsCELFunction(t *testing.T) {
 				},
 			},
 			want: mustNewFunction(t, "size", decls.MemberOverload("string_size", []*types.Type{types.StringType}, types.IntType)),
+		},
+		{
+			name: "member function",
+			f: &Function{Name: "size",
+				Description: "return the number of unicode code points in a string",
+				Overloads: []*Overload{{
+					ID:     "string_size",
+					Target: &TypeDesc{TypeName: "string"},
+					Return: &TypeDesc{TypeName: "int"},
+					Examples: []string{
+						`'hello'.size() // 5`,
+						`'hello world'.size() // 11`,
+					},
+				}},
+			},
+			want: mustNewFunction(t, "size",
+				decls.FunctionDocs("return the number of unicode code points in a string"),
+				decls.MemberOverload("string_size", []*types.Type{types.StringType}, types.IntType,
+					decls.OverloadExamples(
+						`'hello'.size() // 5`,
+						`'hello world'.size() // 11`))),
 		},
 	}
 	tp, err := types.NewRegistry()

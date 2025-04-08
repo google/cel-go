@@ -230,7 +230,12 @@ func (imp *Import) Validate() error {
 
 // NewVariable returns a serializable variable from a name and type definition
 func NewVariable(name string, t *TypeDesc) *Variable {
-	return &Variable{Name: name, TypeDesc: t}
+	return NewVariableWithDoc(name, t, "")
+}
+
+// NewVariable returns a serializable variable from a name, type definition, and doc string.
+func NewVariableWithDoc(name string, t *TypeDesc, doc string) *Variable {
+	return &Variable{Name: name, TypeDesc: t, Description: doc}
 }
 
 // Variable represents a typed variable declaration which will be published via the
@@ -320,6 +325,11 @@ func NewFunction(name string, overloads ...*Overload) *Function {
 	return &Function{Name: name, Overloads: overloads}
 }
 
+// NewFunctionWithDoc creates a serializable function and overload set.
+func NewFunctionWithDoc(name, doc string, overloads ...*Overload) *Function {
+	return &Function{Name: name, Description: doc, Overloads: overloads}
+}
+
 // Function represents the serializable format of a function and its overloads.
 type Function struct {
 	Name        string      `yaml:"name"`
@@ -367,13 +377,13 @@ func (fn *Function) AsCELFunction(tp types.Provider) (*decls.FunctionDecl, error
 }
 
 // NewOverload returns a new serializable representation of a global overload.
-func NewOverload(id string, args []*TypeDesc, ret *TypeDesc) *Overload {
-	return &Overload{ID: id, Args: args, Return: ret}
+func NewOverload(id string, args []*TypeDesc, ret *TypeDesc, examples ...string) *Overload {
+	return &Overload{ID: id, Args: args, Return: ret, Examples: examples}
 }
 
 // NewMemberOverload returns a new serializable representation of a member (receiver) overload.
-func NewMemberOverload(id string, target *TypeDesc, args []*TypeDesc, ret *TypeDesc) *Overload {
-	return &Overload{ID: id, Target: target, Args: args, Return: ret}
+func NewMemberOverload(id string, target *TypeDesc, args []*TypeDesc, ret *TypeDesc, examples ...string) *Overload {
+	return &Overload{ID: id, Target: target, Args: args, Return: ret, Examples: examples}
 }
 
 // Overload represents the serializable format of a function overload.
