@@ -115,6 +115,11 @@ func TestParseDescriptions(t *testing.T) {
 		},
 		{
 			name: "multi",
+			in:   "bar\nbaz\n\nfoo",
+			out:  []MultilineDescription{{"bar", "baz"}, {"foo"}},
+		},
+		{
+			name: "multi",
 			in:   "hello\n\n\nworld",
 			out:  []MultilineDescription{{"hello"}, {"world"}},
 		},
