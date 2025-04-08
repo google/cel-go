@@ -59,7 +59,7 @@ type testCase struct {
 	funcs     []*decls.FunctionDecl
 	attrs     AttributeFactory
 	unchecked bool
-	extraOpts []InterpretableDecorator
+	extraOpts []PlannerOption
 
 	in      any
 	out     any
@@ -900,7 +900,7 @@ func testData(t testing.TB) []testCase {
 			in: map[string]any{
 				"input": "kathmandu",
 			},
-			extraOpts: []InterpretableDecorator{CompileRegexConstants(MatchesRegexOptimization)},
+			extraOpts: []PlannerOption{CompileRegexConstants(MatchesRegexOptimization)},
 			// unoptimized program should report a regex compile error at runtime
 			err: "unexpected ): `)k.*`",
 			// optimized program should report a regex compile at program creation time
@@ -1584,10 +1584,11 @@ func TestInterpreter(t *testing.T) {
 			}
 
 			state := NewEvalState()
-			opts := map[string][]InterpretableDecorator{
-				"optimize":   {Optimize()},
-				"exhaustive": {ExhaustiveEval(), Observe(EvalStateObserver(state))},
-				"track":      {Observe(EvalStateObserver(state))},
+			opts := map[string][]PlannerOption{
+				"optimize": {Optimize()},
+				"exhaustive": {ExhaustiveEval(),
+					EvalStateObserver(EvalStateFactory(func() EvalState { return state }))},
+				"track": {EvalStateObserver(EvalStateFactory(func() EvalState { return state }))},
 			}
 			for mode, opt := range opts {
 				opts := opt
@@ -1698,8 +1699,8 @@ func TestInterpreter_ExhaustiveConditionalExpr(t *testing.T) {
 	reg := newTestRegistry(t, &exprpb.ParsedExpr{})
 	attrs := NewAttributeFactory(cont, reg, reg)
 	intr := newStandardInterpreter(t, cont, reg, reg, attrs)
-	interpretable, _ := intr.NewInterpretable(parsed,
-		ExhaustiveEval(), Observe(EvalStateObserver(state)))
+	interpretable, _ := intr.NewInterpretable(parsed, ExhaustiveEval(),
+		EvalStateObserver(EvalStateFactory(func() EvalState { return state })))
 	vars, _ := NewActivation(map[string]any{
 		"a": types.True,
 		"b": types.Double(0.999),
@@ -1781,8 +1782,8 @@ func TestInterpreter_ExhaustiveLogicalOrEquals(t *testing.T) {
 	cont := testContainer("test")
 	attrs := NewAttributeFactory(cont, reg, reg)
 	interp := newStandardInterpreter(t, cont, reg, reg, attrs)
-	i, _ := interp.NewInterpretable(parsed,
-		ExhaustiveEval(), Observe(EvalStateObserver(state)))
+	i, _ := interp.NewInterpretable(parsed, ExhaustiveEval(),
+		EvalStateObserver(EvalStateFactory(func() EvalState { return state })))
 	vars, _ := NewActivation(map[string]any{
 		"a": true,
 		"b": "b",
@@ -2080,7 +2081,7 @@ func testContainer(name string) *containers.Container {
 	return cont
 }
 
-func program(t testing.TB, tst *testCase, opts ...InterpretableDecorator) (Interpretable, Activation, error) {
+func program(t testing.TB, tst *testCase, opts ...PlannerOption) (Interpretable, Activation, error) {
 	// Configure the package.
 	cont := containers.DefaultContainer
 	if tst.container != "" {
