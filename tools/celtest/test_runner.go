@@ -108,13 +108,9 @@ type TestSuiteParserYAML func(*testing.T, any) (*test.Suite, error)
 // with the provided set of options. The options can be used to:
 // - configure the Compiler used for parsing and compiling the expression
 // - configure the Test Runner used for parsing and executing the tests
-func TriggerTests(t *testing.T, opts ...TestRunnerOption) {
-	compilerOpt := testRunnerCompilerFromFlags()
-	testSuiteParserOpt := TestSuiteParser(testSuitePath)
-	fileDescriptorSetOpt := AddFileDescriptorSet(fileDescriptorSetPath)
-	testRunnerExprOpt := testRunnerExpressionsFromFlags()
-	opts = append([]TestRunnerOption{compilerOpt, testSuiteParserOpt, fileDescriptorSetOpt, testRunnerExprOpt}, opts...)
-	tr, err := NewTestRunner(opts...)
+func TriggerTests(t *testing.T, opts ...any) {
+	testRunnerOptions := testRunnerOptions(opts...)
+	tr, err := NewTestRunner(testRunnerOptions...)
 	if err != nil {
 		t.Fatalf("error creating test runner: %v", err)
 	}
@@ -136,7 +132,24 @@ func TriggerTests(t *testing.T, opts ...TestRunnerOption) {
 	}
 }
 
-func testRunnerCompilerFromFlags() TestRunnerOption {
+func testRunnerOptions(opts ...any) []TestRunnerOption {
+	testRunnerOpts := make([]TestRunnerOption, 0, len(opts))
+	testCompilerOpts := make([]any, 0, len(opts))
+	for _, opt := range opts {
+		if _, ok := opt.(TestRunnerOption); ok {
+			testRunnerOpts = append(testRunnerOpts, opt.(TestRunnerOption))
+		} else {
+			testCompilerOpts = append(testCompilerOpts, opt)
+		}
+	}
+	compilerOpt := testRunnerCompilerFromFlags(testCompilerOpts...)
+	testSuiteParserOpt := TestSuiteParser(testSuitePath)
+	fileDescriptorSetOpt := AddFileDescriptorSet(fileDescriptorSetPath)
+	testRunnerExprOpt := testRunnerExpressionsFromFlags()
+	return append([]TestRunnerOption{compilerOpt, testSuiteParserOpt, fileDescriptorSetOpt, testRunnerExprOpt}, testRunnerOpts...)
+}
+
+func testRunnerCompilerFromFlags(testCompilerOpts ...any) TestRunnerOption {
 	var opts []any
 	if fileDescriptorSetPath != "" {
 		opts = append(opts, compiler.TypeDescriptorSetFile(fileDescriptorSetPath))
@@ -147,6 +160,7 @@ func testRunnerCompilerFromFlags() TestRunnerOption {
 	if configPath != "" {
 		opts = append(opts, compiler.EnvironmentFile(configPath))
 	}
+	opts = append(opts, testCompilerOpts...)
 	return func(tr *TestRunner) (*TestRunner, error) {
 		c, err := compiler.NewCompiler(opts...)
 		if err != nil {
