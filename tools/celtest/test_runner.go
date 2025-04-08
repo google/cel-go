@@ -79,28 +79,41 @@ func loadInput(path string, format compiler.FileFormat, out protoreflect.ProtoMe
 	return unmarshaller(data, out)
 }
 
-// TestRunnerOption is a functional interface that can be used to configure a Test Runner in the
-// following ways:
+// TestRunnerOption is used to configure the following attributes of the Test Runner:
 // - set the Compiler
 // - add Input Expressions
 // - set the test suite file path
 // - set the test suite parser based on the file format: YAML or Textproto
 type TestRunnerOption func(*TestRunner) (*TestRunner, error)
 
-// TestSuiteParserTextproto is a functional interface that provides a cel.expr.conformance.test.TestSuite
-// message. The message can be serialized in a Textproto file or derived programmatically.
+// TestSuiteParserTextproto returns a cel.expr.conformance.test.TestSuite
+// message which is used to set up Tests.
+// - In case the message is serialized in a Textproto file, TestSuiteParserTextproto
+// is invoked with the path of the file passed as an argument.
+// - Alternatively, TestSuiteParserTextproto can also be invoked to generate the
+// cel.expr.conformance.test.TestSuite message at runtime.
 type TestSuiteParserTextproto func(*testing.T, any) (*conformancepb.TestSuite, error)
 
-// TestSuiteParserYAML is a functional interface that provides a TestSuite object.
-// The object can be serialized in a YAML file or derived programamtically.
+// TestSuiteParserYAML returns a test.TestSuite object which is used to set up Tests.
+// - In case the object is serialized in a YAML file, TestSuiteParserYAML is invoked
+// with the path of the file passed as an argument.
+// - Alternatively, TestSuiteParserYAML can also be invoked to generate the test.TestSuite
+// object at runtime.
+//
+// Note: If TestSuiteParserTextproto is already configured then TestSuiteParserYAML
+// will not be invoked.
 type TestSuiteParserYAML func(*testing.T, any) (*test.Suite, error)
 
 // TriggerTests triggers tests for a CEL policy, expression or checked expression
 // with the provided set of options. The options can be used to:
 // - configure the Compiler used for parsing and compiling the expression
 // - configure the Test Runner used for parsing and executing the tests
-func TriggerTests(t *testing.T, opts ...any) {
-	opts = append([]any{TestSuiteParser(testSuitePath)}, opts...)
+func TriggerTests(t *testing.T, opts ...TestRunnerOption) {
+	compilerOpt := testRunnerCompilerFromFlags()
+	testSuiteParserOpt := TestSuiteParser(testSuitePath)
+	fileDescriptorSetOpt := AddFileDescriptorSet(fileDescriptorSetPath)
+	testRunnerExprOpt := testRunnerExpressionsFromFlags()
+	opts = append([]TestRunnerOption{compilerOpt, testSuiteParserOpt, fileDescriptorSetOpt, testRunnerExprOpt}, opts...)
 	tr, err := NewTestRunner(opts...)
 	if err != nil {
 		t.Fatalf("error creating test runner: %v", err)
@@ -114,12 +127,51 @@ func TriggerTests(t *testing.T, opts ...any) {
 		t.Fatalf("error creating tests: %v", err)
 	}
 	for _, test := range tests {
-		t.Run(test.Name, func(t *testing.T) {
+		t.Run(test.name, func(t *testing.T) {
 			err := tr.ExecuteTest(t, programs, test)
 			if err != nil {
 				t.Fatalf("error executing test: %v", err)
 			}
 		})
+	}
+}
+
+func testRunnerCompilerFromFlags() TestRunnerOption {
+	var opts []any
+	if fileDescriptorSetPath != "" {
+		opts = append(opts, compiler.TypeDescriptorSetFile(fileDescriptorSetPath))
+	}
+	if baseConfigPath != "" {
+		opts = append(opts, compiler.EnvironmentFile(baseConfigPath))
+	}
+	if configPath != "" {
+		opts = append(opts, compiler.EnvironmentFile(configPath))
+	}
+	return func(tr *TestRunner) (*TestRunner, error) {
+		c, err := compiler.NewCompiler(opts...)
+		if err != nil {
+			return nil, err
+		}
+		tr.Compiler = c
+		return tr, nil
+	}
+}
+
+func testRunnerExpressionsFromFlags() TestRunnerOption {
+	return func(tr *TestRunner) (*TestRunner, error) {
+		if celExpression != "" {
+			switch expressionType {
+			case compiler.CompiledExpressionFile:
+				tr.Expressions = append(tr.Expressions, &compiler.CompiledExpression{Path: celExpression})
+			case compiler.PolicyFile, compiler.ExpressionFile:
+				tr.Expressions = append(tr.Expressions, &compiler.FileExpression{Path: celExpression})
+			case compiler.RawExpressionString:
+				tr.Expressions = append(tr.Expressions, &compiler.RawExpression{Value: celExpression})
+			default:
+				return nil, fmt.Errorf("unsupported expression type: %v", expressionType)
+			}
+		}
+		return tr, nil
 	}
 }
 
@@ -134,9 +186,9 @@ func TestSuiteParser(path string) TestRunnerOption {
 		testSuiteFormat := compiler.InferFileFormat(testSuitePath)
 		switch testSuiteFormat {
 		case compiler.TextProto:
-			tr.TestSuiteParserTextproto = DefaultTestSuiteParserTextproto
+			tr.TestSuiteParserTextproto = defaultTestSuiteParserTextproto
 		case compiler.TextYAML:
-			tr.TestSuiteParserYAML = DefaultTestSuiteParserYAML
+			tr.TestSuiteParserYAML = defaultTestSuiteParserYAML
 		default:
 			return nil, fmt.Errorf("unsupported test suite file format: %v", testSuiteFormat)
 		}
@@ -150,11 +202,10 @@ func TestSuiteParser(path string) TestRunnerOption {
 // - Input Expressions: The list of input expressions to be tested.
 // - Test Suite File Path: The path to the test suite file.
 // - File Descriptor Set Path: The path to the file descriptor set file.
-// - Test Suite Parser Textproto: A parser for a custom test suite file serialized in a Textproto
-// file. This option is required if the provided test suite is not a
-// cel.spec.expr.conformance.test.TestSuite message.
-// - Test Suite Parser YAML: A parser for a custom test suite file serialized in a YAML file.
-// This option is required if the provided test suite is not a TestSuite object.
+// - Test Suite Parser Textproto: A parser for a custom test suite file serialized in Textproto
+// format. This option is required if the provided test suite is not a cel.spec.expr.conformance.test.TestSuite message.
+// - Test Suite Parser YAML: A parser for a custom test suite file serialized in YAML format.
+// This option is required if the provided test suite is not a test.TestSuite object.
 //
 // The TestRunner provides the following methods:
 // - Programs: Creates a list of CEL programs from the input expressions.
@@ -170,18 +221,30 @@ type TestRunner struct {
 }
 
 // Test represents a single test case to be executed. It encompasses the following:
-// - Name: The name of the test case.
-// - Input: The input to be used for evaluating the CEL expression.
-// - ResultMatcher: A function that takes in the result of evaluating the CEL expression and
+// - name: The name of the test case.
+// - input: The input to be used for evaluating the CEL expression.
+// - resultMatcher: A function that takes in the result of evaluating the CEL expression and
 // returns a TestResult.
 type Test struct {
-	Name          string
-	Input         interpreter.Activation
-	ResultMatcher func(ref.Val, error) TestResult
+	name          string
+	input         interpreter.Activation
+	resultMatcher func(ref.Val, error) TestResult
+}
+
+// NewTest creates a new Test with the provided name, input and result matcher.
+func NewTest(name string, input interpreter.Activation, resultMatcher func(ref.Val, error) TestResult) *Test {
+	return &Test{
+		name:          name,
+		input:         input,
+		resultMatcher: resultMatcher,
+	}
 }
 
 // TestResult represents the result of a test case execution. It contains the validation result
 // along with the expected result and any errors encountered during the execution.
+// - Success: Whether the result matcher condition validating the test case was satisfied.
+// - Wanted: The expected result of the test case.
+// - Error: Any error encountered during the execution.
 type TestResult struct {
 	Success bool
 	Wanted  string
@@ -192,47 +255,10 @@ type TestResult struct {
 // The options can be used to:
 // - configure the Compiler used for parsing and compiling the input expressions
 // - configure the Test Runner used for parsing and executing the tests
-func NewTestRunner(opts ...any) (*TestRunner, error) {
-	testRunnerOpts := make([]TestRunnerOption, 0, len(opts)+1)
-	testCompilerOpts := make([]any, 0, len(opts))
-	if fileDescriptorSetPath != "" {
-		testCompilerOpts = append(testCompilerOpts, compiler.TypeDescriptorSetFile(fileDescriptorSetPath))
-		testRunnerOpts = append(testRunnerOpts, AddFileDescriptorSet(fileDescriptorSetPath))
-	}
-	if baseConfigPath != "" {
-		testCompilerOpts = append(testCompilerOpts, compiler.EnvironmentFile(baseConfigPath))
-	}
-	if configPath != "" {
-		testCompilerOpts = append(testCompilerOpts, compiler.EnvironmentFile(configPath))
-	}
-	for _, opt := range opts {
-		switch opt := opt.(type) {
-		case TestRunnerOption:
-			testRunnerOpts = append(testRunnerOpts, opt)
-		default:
-			testCompilerOpts = append(testCompilerOpts, opt)
-		}
-	}
-	var err error
+func NewTestRunner(opts ...TestRunnerOption) (*TestRunner, error) {
 	tr := &TestRunner{}
-	tr.Compiler, err = compiler.NewCompiler(testCompilerOpts...)
-	if err != nil {
-		return nil, err
-	}
-	if celExpression != "" {
-		switch expressionType {
-		case compiler.CompiledExpressionFile:
-			tr.Expressions = append(tr.Expressions, &compiler.CompiledExpression{Path: celExpression})
-		case compiler.PolicyFile, compiler.ExpressionFile:
-			tr.Expressions = append(tr.Expressions, &compiler.FileExpression{Path: celExpression})
-		case compiler.RawExpressionString:
-			tr.Expressions = append(tr.Expressions, &compiler.RawExpression{Value: celExpression})
-		case compiler.ExpressionTypeUnspecified:
-		default:
-			return nil, fmt.Errorf("unsupported expression type: %v", expressionType)
-		}
-	}
-	for _, opt := range testRunnerOpts {
+	var err error
+	for _, opt := range opts {
 		tr, err = opt(tr)
 		if err != nil {
 			return nil, err
@@ -245,7 +271,9 @@ func NewTestRunner(opts ...any) (*TestRunner, error) {
 // runner. The file descriptor set is used to register proto messages in the global proto registry.
 func AddFileDescriptorSet(path string) TestRunnerOption {
 	return func(tr *TestRunner) (*TestRunner, error) {
-		tr.FileDescriptorSetPath = path
+		if path != "" {
+			tr.FileDescriptorSetPath = path
+		}
 		return tr, nil
 	}
 }
@@ -294,18 +322,14 @@ func fileDescriptorSet(path string) (*descpb.FileDescriptorSet, error) {
 	return fds, nil
 }
 
-// DefaultTestSuiteParserTextproto is a default parser for a test suite file serialized in a
-// Textproto file. The test suite is a cel.expr.conformance.test.TestSuite message.
-func DefaultTestSuiteParserTextproto(t *testing.T, path any) (*conformancepb.TestSuite, error) {
+func defaultTestSuiteParserTextproto(t *testing.T, path any) (*conformancepb.TestSuite, error) {
 	t.Helper()
 	testSuite := &conformancepb.TestSuite{}
 	err := loadInput(path.(string), compiler.TextProto, testSuite)
 	return testSuite, err
 }
 
-// DefaultTestSuiteParserYAML is a default parser for a test suite file serialized in a YAML file.
-// The test suite is a test.Suite object.
-func DefaultTestSuiteParserYAML(t *testing.T, path any) (*test.Suite, error) {
+func defaultTestSuiteParserYAML(t *testing.T, path any) (*test.Suite, error) {
 	t.Helper()
 	testSuiteBytes, err := os.ReadFile(path.(string))
 	if err != nil {
@@ -370,23 +394,20 @@ func (tr *TestRunner) Tests(t *testing.T) ([]*Test, error) {
 }
 
 func (tr *TestRunner) createTestsFromTextproto(t *testing.T, testSuite *conformancepb.TestSuite) ([]*Test, error) {
-	tests := []*Test{}
+	var tests []*Test
 	for _, section := range testSuite.GetSections() {
 		sectionName := section.GetName()
 		for _, testCase := range section.GetTests() {
-			test := &Test{
-				Name: fmt.Sprintf("%s/%s", sectionName, testCase.GetName()),
-			}
-			var err error
-			test.Input, err = tr.createTestInputFromPB(t, testCase)
+			testName := fmt.Sprintf("%s/%s", sectionName, testCase.GetName())
+			testInput, err := tr.createTestInputFromPB(t, testCase)
 			if err != nil {
 				return nil, err
 			}
-			test.ResultMatcher, err = tr.createResultMatcherFromPB(t, testCase)
+			testResultMatcher, err := tr.createResultMatcherFromPB(t, testCase)
 			if err != nil {
 				return nil, err
 			}
-			tests = append(tests, test)
+			tests = append(tests, NewTest(testName, testInput, testResultMatcher))
 		}
 	}
 	return tests, nil
@@ -571,33 +592,34 @@ func (tr *TestRunner) eval(expr string) (ref.Val, error) {
 }
 
 func (tr *TestRunner) createTestsFromYAML(t *testing.T, testSuite *test.Suite) ([]*Test, error) {
-	tests := []*Test{}
+	var tests []*Test
 	for _, section := range testSuite.Sections {
 		for _, testCase := range section.Tests {
-			test := &Test{
-				Name: fmt.Sprintf("%s/%s", section.Name, testCase.Name),
-			}
-			var err error
-			test.Input, err = tr.createTestInput(t, testCase.Input)
+			testName := fmt.Sprintf("%s/%s", section.Name, testCase.Name)
+			testInput, err := tr.createTestInput(t, testCase)
 			if err != nil {
 				return nil, err
 			}
-			test.ResultMatcher, err = tr.createResultMatcher(t, testCase.Output)
+			testResultMatcher, err := tr.createResultMatcher(t, testCase.Output)
 			if err != nil {
 				return nil, err
 			}
-			tests = append(tests, test)
+			tests = append(tests, NewTest(testName, testInput, testResultMatcher))
 		}
 	}
 	return tests, nil
 }
 
-func (tr *TestRunner) createTestInput(t *testing.T, testInput test.Input) (interpreter.Activation, error) {
+func (tr *TestRunner) createTestInput(t *testing.T, testCase *test.Case) (interpreter.Activation, error) {
 	t.Helper()
-	if testInput.ContextExpr != "" {
-		out, err := tr.eval(testInput.ContextExpr)
+	if testCase.InputContext != nil && testCase.InputContext.ContextExpr != "" {
+		if len(testCase.Input) != 0 {
+			return nil, fmt.Errorf("only one of input and input_context can be provided at a time")
+		}
+		contextExpr := testCase.InputContext.ContextExpr
+		out, err := tr.eval(contextExpr)
 		if err != nil {
-			return nil, fmt.Errorf("eval(%q) failed: %w", testInput.ContextExpr, err)
+			return nil, fmt.Errorf("eval(%q) failed: %w", contextExpr, err)
 		}
 		ctx, err := out.ConvertToNative(reflect.TypeOf((*proto.Message)(nil)).Elem())
 		if err != nil {
@@ -606,7 +628,7 @@ func (tr *TestRunner) createTestInput(t *testing.T, testInput test.Input) (inter
 		return cel.ContextProtoVars(ctx.(proto.Message))
 	}
 	input := map[string]any{}
-	for k, v := range testInput.Bindings {
+	for k, v := range testCase.Input {
 		if v.Expr != "" {
 			val, err := tr.eval(v.Expr)
 			if err != nil {
@@ -620,7 +642,7 @@ func (tr *TestRunner) createTestInput(t *testing.T, testInput test.Input) (inter
 	return interpreter.NewActivation(input)
 }
 
-func (tr *TestRunner) createResultMatcher(t *testing.T, testOutput test.Output) (func(ref.Val, error) TestResult, error) {
+func (tr *TestRunner) createResultMatcher(t *testing.T, testOutput *test.Output) (func(ref.Val, error) TestResult, error) {
 	t.Helper()
 	e, err := tr.CreateEnv()
 	if err != nil {
@@ -685,13 +707,14 @@ func (tr *TestRunner) createResultMatcher(t *testing.T, testOutput test.Output) 
 // ExecuteTest executes the test case against the provided list of programs and returns an error if
 // the test fails.
 func (tr *TestRunner) ExecuteTest(t *testing.T, programs []cel.Program, test *Test) error {
+	t.Helper()
 	if tr.Compiler == nil {
 		return fmt.Errorf("compiler is not set")
 	}
 	for _, program := range programs {
-		out, _, err := program.Eval(test.Input)
-		if testResult := test.ResultMatcher(out, err); !testResult.Success {
-			return fmt.Errorf("test %s failed: %v", test.Name, testResult.Error)
+		out, _, err := program.Eval(test.input)
+		if testResult := test.resultMatcher(out, err); !testResult.Success {
+			return fmt.Errorf("test: %s \n wanted: %v \n failed: %v", test.name, testResult.Wanted, testResult.Error)
 		}
 	}
 	return nil
