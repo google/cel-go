@@ -75,7 +75,7 @@ func NewActivation(bindings any) (Activation, error) {
 	return interpreter.NewActivation(bindings)
 }
 
-// PartialActivation extends the Activation interface with a set of UnknownAttributePatterns.
+// PartialActivation extends the Activation interface with a set of unknown AttributePatterns.
 type PartialActivation = interpreter.PartialActivation
 
 // NoVars returns an empty Activation.
@@ -91,7 +91,7 @@ func NoVars() Activation {
 //
 // The `vars` value may either be an Activation or any valid input to the NewActivation call.
 func PartialVars(vars any,
-	unknowns ...*interpreter.AttributePattern) (PartialActivation, error) {
+	unknowns ...*AttributePatternType) (PartialActivation, error) {
 	return interpreter.NewPartialActivation(vars, unknowns...)
 }
 
@@ -108,12 +108,15 @@ func PartialVars(vars any,
 // fully qualified variable name may be `ns.app.a`, `ns.a`, or `a` per the CEL namespace resolution
 // rules. Pick the fully qualified variable name that makes sense within the container as the
 // AttributePattern `varName` argument.
+func AttributePattern(varName string) *AttributePatternType {
+	return interpreter.NewAttributePattern(varName)
+}
+
+// AttributePatternType represents a top-level variable with an optional set of qualifier patterns.
 //
 // See the interpreter.AttributePattern and interpreter.AttributeQualifierPattern for more info
 // about how to create and manipulate AttributePattern values.
-func AttributePattern(varName string) *interpreter.AttributePattern {
-	return interpreter.NewAttributePattern(varName)
-}
+type AttributePatternType = interpreter.AttributePattern
 
 // EvalDetails holds additional information observed during the Eval() call.
 type EvalDetails struct {
