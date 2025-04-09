@@ -35,7 +35,6 @@ import (
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protodesc"
-	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/testing/protocmp"
 
@@ -48,8 +47,6 @@ import (
 
 var (
 	celExpression         string
-	celExpressionType     int
-	expressionType        compiler.ExpressionType
 	testSuitePath         string
 	fileDescriptorSetPath string
 	configPath            string
@@ -62,21 +59,7 @@ func init() {
 	flag.StringVar(&configPath, "config_path", "", "path to a config file")
 	flag.StringVar(&baseConfigPath, "base_config_path", "", "path to a base config file")
 	flag.StringVar(&celExpression, "cel_expr", "", "CEL expression to test")
-	flag.IntVar(&celExpressionType, "cel_expression_type", 0, "type of the CEL expression")
 	flag.Parse()
-	expressionType = compiler.ExpressionType(celExpressionType)
-}
-
-func loadInput(path string, format compiler.FileFormat, out protoreflect.ProtoMessage) error {
-	unmarshaller := proto.Unmarshal
-	if format == compiler.TextProto {
-		unmarshaller = prototext.Unmarshal
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return fmt.Errorf("failed to read file %q: %v", path, err)
-	}
-	return unmarshaller(data, out)
 }
 
 // TestRunnerOption is used to configure the following attributes of the Test Runner:
@@ -86,30 +69,12 @@ func loadInput(path string, format compiler.FileFormat, out protoreflect.ProtoMe
 // - set the test suite parser based on the file format: YAML or Textproto
 type TestRunnerOption func(*TestRunner) (*TestRunner, error)
 
-// TestSuiteParserTextproto returns a cel.expr.conformance.test.TestSuite
-// message which is used to set up Tests.
-// - In case the message is serialized in a Textproto file, TestSuiteParserTextproto
-// is invoked with the path of the file passed as an argument.
-// - Alternatively, TestSuiteParserTextproto can also be invoked to generate the
-// cel.expr.conformance.test.TestSuite message at runtime.
-type TestSuiteParserTextproto func(*testing.T, any) (*conformancepb.TestSuite, error)
-
-// TestSuiteParserYAML returns a test.TestSuite object which is used to set up Tests.
-// - In case the object is serialized in a YAML file, TestSuiteParserYAML is invoked
-// with the path of the file passed as an argument.
-// - Alternatively, TestSuiteParserYAML can also be invoked to generate the test.TestSuite
-// object at runtime.
-//
-// Note: If TestSuiteParserTextproto is already configured then TestSuiteParserYAML
-// will not be invoked.
-type TestSuiteParserYAML func(*testing.T, any) (*test.Suite, error)
-
 // TriggerTests triggers tests for a CEL policy, expression or checked expression
 // with the provided set of options. The options can be used to:
 // - configure the Compiler used for parsing and compiling the expression
 // - configure the Test Runner used for parsing and executing the tests
-func TriggerTests(t *testing.T, opts ...any) {
-	testRunnerOptions := testRunnerOptions(opts...)
+func TriggerTests(t *testing.T, testRunnerOpts []TestRunnerOption, testCompilerOpts ...any) {
+	testRunnerOptions := testRunnerOptions(testRunnerOpts, testCompilerOpts...)
 	tr, err := NewTestRunner(testRunnerOptions...)
 	if err != nil {
 		t.Fatalf("error creating test runner: %v", err)
@@ -132,18 +97,9 @@ func TriggerTests(t *testing.T, opts ...any) {
 	}
 }
 
-func testRunnerOptions(opts ...any) []TestRunnerOption {
-	testRunnerOpts := make([]TestRunnerOption, 0, len(opts))
-	testCompilerOpts := make([]any, 0, len(opts))
-	for _, opt := range opts {
-		if _, ok := opt.(TestRunnerOption); ok {
-			testRunnerOpts = append(testRunnerOpts, opt.(TestRunnerOption))
-		} else {
-			testCompilerOpts = append(testCompilerOpts, opt)
-		}
-	}
+func testRunnerOptions(testRunnerOpts []TestRunnerOption, testCompilerOpts ...any) []TestRunnerOption {
 	compilerOpt := testRunnerCompilerFromFlags(testCompilerOpts...)
-	testSuiteParserOpt := TestSuiteParser(testSuitePath)
+	testSuiteParserOpt := DefaultTestSuiteParser(testSuitePath)
 	fileDescriptorSetOpt := AddFileDescriptorSet(fileDescriptorSetPath)
 	testRunnerExprOpt := testRunnerExpressionsFromFlags()
 	return append([]TestRunnerOption{compilerOpt, testSuiteParserOpt, fileDescriptorSetOpt, testRunnerExprOpt}, testRunnerOpts...)
@@ -174,38 +130,72 @@ func testRunnerCompilerFromFlags(testCompilerOpts ...any) TestRunnerOption {
 func testRunnerExpressionsFromFlags() TestRunnerOption {
 	return func(tr *TestRunner) (*TestRunner, error) {
 		if celExpression != "" {
-			switch expressionType {
-			case compiler.CompiledExpressionFile:
-				tr.Expressions = append(tr.Expressions, &compiler.CompiledExpression{Path: celExpression})
-			case compiler.PolicyFile, compiler.ExpressionFile:
-				tr.Expressions = append(tr.Expressions, &compiler.FileExpression{Path: celExpression})
-			case compiler.RawExpressionString:
-				tr.Expressions = append(tr.Expressions, &compiler.RawExpression{Value: celExpression})
-			default:
-				return nil, fmt.Errorf("unsupported expression type: %v", expressionType)
-			}
+			tr.Expressions = append(tr.Expressions, &compiler.CompiledExpression{Path: celExpression})
+			tr.Expressions = append(tr.Expressions, &compiler.FileExpression{Path: celExpression})
+			tr.Expressions = append(tr.Expressions, &compiler.RawExpression{Value: celExpression})
 		}
 		return tr, nil
 	}
 }
 
-// TestSuiteParser provides a TestRunnerOption that sets the test suite file path and the test
-// suite parser based on the file format: YAML or Textproto.
-func TestSuiteParser(path string) TestRunnerOption {
+// TestSuiteParser is an interface for parsing a test suite:
+// - ParseTextproto: Returns a cel.spec.expr.conformance.test.TestSuite message.
+// - ParseYAML: Returns a test.Suite object.
+// In case the test suite is serialized in a Textproto/YAML file, the path of the file is passed as
+// an argument to the parse method.
+type TestSuiteParser interface {
+	ParseTextproto(any) (*conformancepb.TestSuite, error)
+	ParseYAML(any) (*test.Suite, error)
+}
+
+type tsParser struct {
+	TestSuiteParser
+}
+
+// ParseTextproto parses a test suite file in Textproto format.
+func (p *tsParser) ParseTextproto(path any) (*conformancepb.TestSuite, error) {
+	filePath := path.(string)
+	if filePath == "" {
+		return nil, nil
+	}
+	if fileFormat := compiler.InferFileFormat(filePath); fileFormat != compiler.TextProto {
+		return nil, fmt.Errorf("invalid file extension wanted: .textproto: found %v", fileFormat)
+	}
+	testSuite := &conformancepb.TestSuite{}
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("runfiles.ReadFile(%q) failed: %v", path, err)
+	}
+	err = prototext.Unmarshal(data, testSuite)
+	return testSuite, err
+}
+
+// ParseYAML parses a test suite file in YAML format.
+func (p *tsParser) ParseYAML(path any) (*test.Suite, error) {
+	filePath := path.(string)
+	if filePath == "" {
+		return nil, nil
+	}
+	if fileFormat := compiler.InferFileFormat(filePath); fileFormat != compiler.TextYAML {
+		return nil, fmt.Errorf("invalid file extension wanted: .yaml: found %v", fileFormat)
+	}
+	testSuiteBytes, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("runfiles.ReadFile(%q) failed: %v", filePath, err)
+	}
+	testSuite := &test.Suite{}
+	err = yaml.Unmarshal(testSuiteBytes, testSuite)
+	return testSuite, err
+}
+
+// DefaultTestSuiteParser returns a TestRunnerOption which configures the test runner with a test suite parser.
+func DefaultTestSuiteParser(path string) TestRunnerOption {
 	return func(tr *TestRunner) (*TestRunner, error) {
-		if testSuitePath == "" {
+		if path == "" {
 			return tr, nil
 		}
 		tr.TestSuiteFilePath = path
-		testSuiteFormat := compiler.InferFileFormat(testSuitePath)
-		switch testSuiteFormat {
-		case compiler.TextProto:
-			tr.TestSuiteParserTextproto = defaultTestSuiteParserTextproto
-		case compiler.TextYAML:
-			tr.TestSuiteParserYAML = defaultTestSuiteParserYAML
-		default:
-			return nil, fmt.Errorf("unsupported test suite file format: %v", testSuiteFormat)
-		}
+		tr.testSuiteParser = &tsParser{}
 		return tr, nil
 	}
 }
@@ -216,10 +206,7 @@ func TestSuiteParser(path string) TestRunnerOption {
 // - Input Expressions: The list of input expressions to be tested.
 // - Test Suite File Path: The path to the test suite file.
 // - File Descriptor Set Path: The path to the file descriptor set file.
-// - Test Suite Parser Textproto: A parser for a custom test suite file serialized in Textproto
-// format. This option is required if the provided test suite is not a cel.spec.expr.conformance.test.TestSuite message.
-// - Test Suite Parser YAML: A parser for a custom test suite file serialized in YAML format.
-// This option is required if the provided test suite is not a test.TestSuite object.
+// - test Suite Parser: A parser for a test suite file serialized in Textproto/YAML format.
 //
 // The TestRunner provides the following methods:
 // - Programs: Creates a list of CEL programs from the input expressions.
@@ -227,11 +214,10 @@ func TestSuiteParser(path string) TestRunnerOption {
 // - ExecuteTest: Executes a single
 type TestRunner struct {
 	compiler.Compiler
-	Expressions              []compiler.InputExpression
-	TestSuiteFilePath        string
-	FileDescriptorSetPath    string
-	TestSuiteParserTextproto TestSuiteParserTextproto
-	TestSuiteParserYAML      TestSuiteParserYAML
+	Expressions           []compiler.InputExpression
+	TestSuiteFilePath     string
+	FileDescriptorSetPath string
+	testSuiteParser       TestSuiteParser
 }
 
 // Test represents a single test case to be executed. It encompasses the following:
@@ -336,24 +322,6 @@ func fileDescriptorSet(path string) (*descpb.FileDescriptorSet, error) {
 	return fds, nil
 }
 
-func defaultTestSuiteParserTextproto(t *testing.T, path any) (*conformancepb.TestSuite, error) {
-	t.Helper()
-	testSuite := &conformancepb.TestSuite{}
-	err := loadInput(path.(string), compiler.TextProto, testSuite)
-	return testSuite, err
-}
-
-func defaultTestSuiteParserYAML(t *testing.T, path any) (*test.Suite, error) {
-	t.Helper()
-	testSuiteBytes, err := os.ReadFile(path.(string))
-	if err != nil {
-		return nil, fmt.Errorf("os.ReadFile(%q) failed: %v", path.(string), err)
-	}
-	testSuite := &test.Suite{}
-	err = yaml.Unmarshal(testSuiteBytes, testSuite)
-	return testSuite, err
-}
-
 // Programs creates a list of CEL programs from the input expressions configured in the test runner
 // using the provided program options.
 func (tr *TestRunner) Programs(t *testing.T, opts ...cel.ProgramOption) ([]cel.Program, error) {
@@ -373,6 +341,10 @@ func (tr *TestRunner) Programs(t *testing.T, opts ...cel.ProgramOption) ([]cel.P
 		}
 		prg, err := e.Program(ast, opts...)
 		if err != nil {
+			if strings.Contains(err.Error(), "invalid file extension") ||
+				strings.Contains(err.Error(), "invalid raw expression") {
+				continue
+			}
 			return nil, err
 		}
 		programs = append(programs, prg)
@@ -386,23 +358,24 @@ func (tr *TestRunner) Tests(t *testing.T) ([]*Test, error) {
 	if tr.Compiler == nil {
 		return nil, fmt.Errorf("compiler is not set")
 	}
-	if tr.TestSuiteParserTextproto != nil {
-		err := registerMessages(tr.FileDescriptorSetPath)
-		if err != nil {
-			return nil, fmt.Errorf("registerMessages(%q) failed: %v", tr.FileDescriptorSetPath, err)
-		}
-		testSuite, err := tr.TestSuiteParserTextproto(t, tr.TestSuiteFilePath)
-		if err != nil {
-			return nil, err
-		}
-		return tr.createTestsFromTextproto(t, testSuite)
+	if tr.testSuiteParser == nil {
+		return nil, fmt.Errorf("test suite parser is not set")
 	}
-	if tr.TestSuiteParserYAML != nil {
-		testSuite, err := tr.TestSuiteParserYAML(t, tr.TestSuiteFilePath)
-		if err != nil {
-			return nil, err
-		}
+	if testSuite, err := tr.testSuiteParser.ParseYAML(tr.TestSuiteFilePath); err != nil &&
+		!strings.Contains(err.Error(), "invalid file extension") {
+		return nil, fmt.Errorf("tr.testSuiteParser.ParseYAML(%q) failed: %v", tr.TestSuiteFilePath, err)
+	} else if testSuite != nil {
 		return tr.createTestsFromYAML(t, testSuite)
+	}
+	err := registerMessages(tr.FileDescriptorSetPath)
+	if err != nil {
+		return nil, fmt.Errorf("registerMessages(%q) failed: %v", tr.FileDescriptorSetPath, err)
+	}
+	if testSuite, err := tr.testSuiteParser.ParseTextproto(tr.TestSuiteFilePath); err != nil &&
+		!strings.Contains(err.Error(), "invalid file extension") {
+		return nil, fmt.Errorf("tr.testSuiteParser.ParseTextproto(%q) failed: %v", tr.TestSuiteFilePath, err)
+	} else if testSuite != nil {
+		return tr.createTestsFromTextproto(t, testSuite)
 	}
 	return nil, nil
 }

@@ -457,7 +457,7 @@ func (c *CompiledExpression) CreateAST(_ Compiler) (*cel.Ast, map[string]any, er
 	var expr exprpb.CheckedExpr
 	format := InferFileFormat(c.Path)
 	if format != BinaryProto && format != TextProto {
-		return nil, nil, fmt.Errorf("file extension must be .binarypb or .textproto: found %v", format)
+		return nil, nil, fmt.Errorf("invalid file extension wanted: .binarypb or .textproto found: %v", format)
 	}
 	if err := loadProtoFile(c.Path, format, &expr); err != nil {
 		return nil, nil, err
@@ -483,13 +483,13 @@ func (f *FileExpression) CreateAST(compiler Compiler) (*cel.Ast, map[string]any,
 	if err != nil {
 		return nil, nil, err
 	}
-	data, err := loadFile(f.Path)
-	if err != nil {
-		return nil, nil, err
-	}
 	format := InferFileFormat(f.Path)
 	switch format {
 	case CELString:
+		data, err := loadFile(f.Path)
+		if err != nil {
+			return nil, nil, err
+		}
 		src := common.NewStringSource(string(data), f.Path)
 		ast, iss := e.CompileSource(src)
 		if iss.Err() != nil {
@@ -497,6 +497,10 @@ func (f *FileExpression) CreateAST(compiler Compiler) (*cel.Ast, map[string]any,
 		}
 		return ast, nil, nil
 	case CELPolicy, TextYAML:
+		data, err := loadFile(f.Path)
+		if err != nil {
+			return nil, nil, err
+		}
 		src := policy.ByteSource(data, f.Path)
 		parser, err := compiler.CreatePolicyParser()
 		if err != nil {
@@ -518,7 +522,7 @@ func (f *FileExpression) CreateAST(compiler Compiler) (*cel.Ast, map[string]any,
 		}
 		return ast, policyMetadata, nil
 	default:
-		return nil, nil, fmt.Errorf("unsupported file format: %v", format)
+		return nil, nil, fmt.Errorf("invalid file extension wanted: .cel or .celpolicy or .yaml found: %v", format)
 	}
 }
 
@@ -542,6 +546,10 @@ func (r *RawExpression) CreateAST(compiler Compiler) (*cel.Ast, map[string]any, 
 	e, err := compiler.CreateEnv()
 	if err != nil {
 		return nil, nil, err
+	}
+	format := InferFileFormat(r.Value)
+	if format != Unspecified {
+		return nil, nil, fmt.Errorf("invalid raw expression found file with extension: %v", format)
 	}
 	ast, iss := e.Compile(r.Value)
 	if iss.Err() != nil {
