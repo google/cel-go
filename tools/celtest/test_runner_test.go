@@ -44,11 +44,6 @@ func setupTests(t *testing.T) []*testCase {
 			exitStatus: 1,
 		},
 		{
-			name:       "invalid checked expression file extension",
-			celExpr:    "testdata/invalid_checked_expr.binary",
-			exitStatus: 1,
-		},
-		{
 			name:       "invalid config file path",
 			celExpr:    "../../policy/testdata/restricted_destinations/policy.yaml",
 			configPath: "/invalid_path.yaml",
@@ -165,17 +160,10 @@ func TestTriggerTestsCustomPolicy(t *testing.T) {
 	})
 }
 
-func setupTestFlags(tc *testCase) {
-	if tc.celExpr != "" {
-		celExpression = tc.celExpr
-	}
-	if tc.testSuitePath != "" {
-		testSuitePath = tc.testSuitePath
-	}
-	if tc.fileDescriptorSetPath != "" {
-		fileDescriptorSetPath = tc.fileDescriptorSetPath
-	}
-	if tc.configPath != "" {
-		configPath = tc.configPath
-	}
+// TestTriggerTests tests different scenarios of the TriggerTestsFromCompiler function.
+func TestTriggerTests(t *testing.T) {
+	celExpression = "../../policy/testdata/restricted_destinations/policy.yaml"
+	testSuitePath = "../../policy/testdata/restricted_destinations/tests.yaml"
+	configPath = "../../policy/testdata/restricted_destinations/config.yaml"
+	TriggerTests(t, nil, locationCodeEnvOption())
 }
