@@ -188,7 +188,6 @@ func TestConfig(t *testing.T) {
 					for j, o := range f.Overloads {
 						wo := wf.Overloads[j]
 						if !reflect.DeepEqual(o, wo) {
-							t.Error(o.Description)
 							t.Errorf("Overload[%d] got %v, wanted %v", j, o, wo)
 						}
 					}

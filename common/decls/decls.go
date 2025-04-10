@@ -91,7 +91,11 @@ const (
 func (f *FunctionDecl) Documentation() *common.Doc {
 	children := make([]*common.Doc, len(f.OverloadDecls()))
 	for i, o := range f.OverloadDecls() {
-		od := common.NewOverloadDoc(o.ID(), formatSignature(f.Name(), o), o.Examples()...)
+		var examples []*common.Doc
+		for _, ex := range o.Examples() {
+			examples = append(examples, common.NewExampleDoc(ex))
+		}
+		od := common.NewOverloadDoc(o.ID(), formatSignature(f.Name(), o), examples...)
 		children[i] = od
 	}
 	return common.NewFunctionDoc(
@@ -569,13 +573,8 @@ type OverloadDecl struct {
 }
 
 // Examples generates a common.Doc object describing a set of examples.
-func (o *OverloadDecl) Examples() []*common.Doc {
-	var examples []*common.Doc
-	descs := common.ParseDescriptions(o.doc)
-	for _, d := range descs {
-		examples = append(examples, common.NewExampleDoc(d))
-	}
-	return examples
+func (o *OverloadDecl) Examples() []string {
+	return common.ParseDescriptions(o.doc)
 }
 
 // ID mirrors the overload signature and provides a unique id which may be referenced within the type-checker
@@ -775,8 +774,8 @@ func matchOperandTrait(trait int, arg ref.Val) bool {
 // OverloadOpt is a functional option for configuring a function overload.
 type OverloadOpt func(*OverloadDecl) (*OverloadDecl, error)
 
-// FunctionExampleDoc configures an example expression for the overload.
-func FunctionExampleDoc(examples ...any) OverloadOpt {
+// OverloadExamples configures an example expression for the overload.
+func OverloadExamples(examples ...string) OverloadOpt {
 	return func(o *OverloadDecl) (*OverloadDecl, error) {
 		o.doc = common.MultilineDescription(examples...)
 		return o, nil
