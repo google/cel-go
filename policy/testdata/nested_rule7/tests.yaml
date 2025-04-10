@@ -20,19 +20,23 @@ section:
        input:
           x:
             value: 1
-       output: "optional.none()"
+       output:
+         expr: "optional.none()"
      - name: "x=2"
        input:
           x:
             value: 2
-       output: "false"
+       output:
+         value: false
      - name: "x=3"
        input:
           x:
             value: 3
-       output: "true"
+       output:
+         value: true
      - name: "x=4"
        input:
           x:
             value: 4
-       output: "true"
+       output:
+         value: true

@@ -1,4 +1,4 @@
-# Copyright 2024 Google LLC
+# Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,19 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-description: "Nested rule tests which explore optional vs non-optional returns"
-section:
-  - name: "valid"
-    tests:
-      - name: "x=0"
-        input:
-          x:
-            value: 0
-        output:
-          value: false
-      - name: "x=2"
-        input:
-          x:
-            value: 2
-        output:
-          value: true
+name: "invalid_context_message_config"
+extensions:
+- name: "lists"
+  version: "latest"
+- name: "sets"
+  version: "latest"
+# invalid context message proto type context_message_type will result in an error.
+context_variable:
+  type_name: "context_message_type"
