@@ -28,4 +28,5 @@ section:
               - staging.dev.cel.container1
               - staging.dev.cel.container2
               - preprod.dev.cel.container3
-        output: "'only staging containers are allowed in namespace dev.cel'"
+        output:
+          value: "only staging containers are allowed in namespace dev.cel"

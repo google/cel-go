@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"gopkg.in/yaml.v3"
 
@@ -38,6 +39,8 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	descpb "google.golang.org/protobuf/types/descriptorpb"
 )
+
+var doOnce sync.Once
 
 // FileFormat represents the format of the file being loaded.
 type FileFormat int
@@ -111,7 +114,7 @@ type compiler struct {
 // NewCompiler creates a new compiler with a set of functional options.
 func NewCompiler(opts ...any) (Compiler, error) {
 	c := &compiler{
-		envOptions:               []cel.EnvOption{},
+		envOptions:               []cel.EnvOption{optionalExtensionOpt()},
 		policyParserOptions:      []policy.ParserOption{},
 		policyCompilerOptions:    []policy.CompilerOption{},
 		policyMetadataEnvOptions: []PolicyMetadataEnvOption{},
@@ -133,17 +136,25 @@ func NewCompiler(opts ...any) (Compiler, error) {
 	return c, nil
 }
 
+func optionalExtensionOpt() cel.EnvOption {
+	return func(e *cel.Env) (*cel.Env, error) {
+		envConfig := &env.Config{
+			Extensions: []*env.Extension{
+				&env.Extension{Name: "optional", Version: "latest"},
+				&env.Extension{Name: "bindings", Version: "latest"},
+			},
+		}
+		return e.Extend(cel.FromConfig(envConfig, ext.ExtensionOptionFactory))
+	}
+}
+
 // CreateEnv creates a singleton CEL environment with the configured environment options.
 func (c *compiler) CreateEnv() (*cel.Env, error) {
-	if c.env != nil {
-		return c.env, nil
-	}
-	env, err := cel.NewCustomEnv(c.envOptions...)
-	if err != nil {
-		return nil, err
-	}
-	c.env = env
-	return c.env, nil
+	var err error
+	doOnce.Do(func() {
+		c.env, err = cel.NewCustomEnv(c.envOptions...)
+	})
+	return c.env, err
 }
 
 // CreatePolicyParser creates a policy parser using the optionally configured parser options.

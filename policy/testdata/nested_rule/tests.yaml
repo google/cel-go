@@ -21,13 +21,15 @@ section:
           resource:
             value:
               origin: "ir"
-        output: "{'banned': true}"
+        output:
+          expr: "{'banned': true}"
       - name: "by_default"
         input:
           resource:
             value:
               origin: "de"
-        output: "{'banned': true}"
+        output:
+          expr: "{'banned': true}"
   - name: "permitted"
     tests:
       - name: "valid_origin"
@@ -35,4 +37,5 @@ section:
           resource:
             value:
               origin: "uk"
-        output: "{'banned': false}"
+        output:
+          expr: "{'banned': false}"

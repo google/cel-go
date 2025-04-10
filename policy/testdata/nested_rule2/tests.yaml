@@ -22,21 +22,24 @@ section:
             value:
               user: "bad-user"
               origin: "ir"
-        output: "{'banned': 'restricted_region'}"
+        output:
+          expr: "{'banned': 'restricted_region'}"
       - name: "by_default"
         input:
           resource:
             value:
               user: "bad-user"
               origin: "de"
-        output: "{'banned': 'bad_actor'}"
+        output:
+          expr: "{'banned': 'bad_actor'}"
       - name: "unconfigured_region"
         input:
           resource:
             value:
               user: "good-user"
               origin: "de"
-        output: "{'banned': 'unconfigured_region'}"
+        output:
+          expr: "{'banned': 'unconfigured_region'}"
   - name: "permitted"
     tests:
       - name: "valid_origin"
@@ -45,4 +48,5 @@ section:
             value:
               user: "good-user"
               origin: "uk"
-        output: "{}"
+        output:
+          expr: "{}"
