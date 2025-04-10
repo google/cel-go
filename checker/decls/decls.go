@@ -98,7 +98,7 @@ func NewFunctionWithDoc(name, doc string,
 		Name: name,
 		DeclKind: &exprpb.Decl_Function{
 			Function: &exprpb.Decl_FunctionDecl{
-				// Doc: doc,
+				// Doc: desc,
 				Overloads: overloads}}}
 }
 
