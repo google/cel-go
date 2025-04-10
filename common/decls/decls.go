@@ -991,8 +991,6 @@ func functionDeclToExprDecl(f *FunctionDecl) (*exprpb.Decl, error) {
 			} else {
 				overloads[i] = chkdecls.NewOverload(oID, argTypes, resultType)
 			}
-			desc := common.MultilineDescription(o.Examples()...)
-			overloads[i].Doc = desc
 		} else {
 			params := []string{}
 			for pn := range paramNames {
