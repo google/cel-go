@@ -187,10 +187,6 @@ func testEnvProto() *configpb.Environment {
 		},
 		Extensions: []*configpb.Extension{
 			{
-				Name:    "optional",
-				Version: "latest",
-			},
-			{
 				Name:    "lists",
 				Version: "latest",
 			},
