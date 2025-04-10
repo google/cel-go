@@ -92,17 +92,13 @@ func NewFunction(name string,
 }
 
 // NewFunctionWithDoc creates a named function declaration with a description and one or more overloads.
-<<<<<<< HEAD
 func NewFunctionWithDoc(name, doc string,
-=======
-func NewFunctionWithDoc(name, desc string,
->>>>>>> d4210be (Support for documentation and example strings in CEL environments)
 	overloads ...*exprpb.Decl_FunctionDecl_Overload) *exprpb.Decl {
 	return &exprpb.Decl{
 		Name: name,
 		DeclKind: &exprpb.Decl_Function{
 			Function: &exprpb.Decl_FunctionDecl{
-				// Doc: desc,
+				// Doc: doc,
 				Overloads: overloads}}}
 }
 
