@@ -40,8 +40,6 @@ import (
 	descpb "google.golang.org/protobuf/types/descriptorpb"
 )
 
-var doOnce sync.Once
-
 // FileFormat represents the format of the file being loaded.
 type FileFormat int
 
@@ -109,12 +107,13 @@ type compiler struct {
 	policyCompilerOptions    []policy.CompilerOption
 	policyMetadataEnvOptions []PolicyMetadataEnvOption
 	env                      *cel.Env
+	doOnce                   sync.Once
 }
 
 // NewCompiler creates a new compiler with a set of functional options.
 func NewCompiler(opts ...any) (Compiler, error) {
 	c := &compiler{
-		envOptions:               []cel.EnvOption{optionalExtensionOpt()},
+		envOptions:               []cel.EnvOption{},
 		policyParserOptions:      []policy.ParserOption{},
 		policyCompilerOptions:    []policy.CompilerOption{},
 		policyMetadataEnvOptions: []PolicyMetadataEnvOption{},
@@ -133,10 +132,11 @@ func NewCompiler(opts ...any) (Compiler, error) {
 			return nil, fmt.Errorf("unsupported compiler option: %v", opt)
 		}
 	}
+	c.envOptions = append(c.envOptions, extensionOpt())
 	return c, nil
 }
 
-func optionalExtensionOpt() cel.EnvOption {
+func extensionOpt() cel.EnvOption {
 	return func(e *cel.Env) (*cel.Env, error) {
 		envConfig := &env.Config{
 			Extensions: []*env.Extension{
@@ -151,7 +151,7 @@ func optionalExtensionOpt() cel.EnvOption {
 // CreateEnv creates a singleton CEL environment with the configured environment options.
 func (c *compiler) CreateEnv() (*cel.Env, error) {
 	var err error
-	doOnce.Do(func() {
+	c.doOnce.Do(func() {
 		c.env, err = cel.NewCustomEnv(c.envOptions...)
 	})
 	return c.env, err
