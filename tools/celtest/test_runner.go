@@ -337,14 +337,14 @@ func (tr *TestRunner) Programs(t *testing.T, opts ...cel.ProgramOption) ([]cel.P
 	for _, expr := range tr.Expressions {
 		ast, _, err := expr.CreateAST(tr.Compiler)
 		if err != nil {
-			return nil, err
-		}
-		prg, err := e.Program(ast, opts...)
-		if err != nil {
 			if strings.Contains(err.Error(), "invalid file extension") ||
 				strings.Contains(err.Error(), "invalid raw expression") {
 				continue
 			}
+			return nil, err
+		}
+		prg, err := e.Program(ast, opts...)
+		if err != nil {
 			return nil, err
 		}
 		programs = append(programs, prg)
