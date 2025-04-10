@@ -20,7 +20,9 @@ import (
 	"strings"
 
 	chkdecls "github.com/google/cel-go/checker/decls"
+	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/functions"
+	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 
@@ -54,6 +56,7 @@ func NewFunction(name string, opts ...FunctionOpt) (*FunctionDecl, error) {
 // overload instances.
 type FunctionDecl struct {
 	name string
+	doc  string
 
 	// overloads associated with the function name.
 	overloads map[string]*OverloadDecl
@@ -84,6 +87,26 @@ const (
 	declarationEnabled
 )
 
+// Documentation generates documentation about the Function and its overloads as a common.Doc object.
+func (f *FunctionDecl) Documentation() *common.Doc {
+	if f == nil {
+		return nil
+	}
+	children := make([]*common.Doc, len(f.OverloadDecls()))
+	for i, o := range f.OverloadDecls() {
+		var examples []*common.Doc
+		for _, ex := range o.Examples() {
+			examples = append(examples, common.NewExampleDoc(ex))
+		}
+		od := common.NewOverloadDoc(o.ID(), formatSignature(f.Name(), o), examples...)
+		children[i] = od
+	}
+	return common.NewFunctionDoc(
+		f.Name(),
+		f.Description(),
+		children...)
+}
+
 // Name returns the function name in human-readable terms, e.g. 'contains' of 'math.least'
 func (f *FunctionDecl) Name() string {
 	if f == nil {
@@ -92,9 +115,22 @@ func (f *FunctionDecl) Name() string {
 	return f.name
 }
 
+// Description provides an overview of the function's purpose.
+//
+// Usage examples should be included on specific overloads.
+func (f *FunctionDecl) Description() string {
+	if f == nil {
+		return ""
+	}
+	return f.doc
+}
+
 // IsDeclarationDisabled indicates that the function implementation should be added to the dispatcher, but the
 // declaration should not be exposed for use in expressions.
 func (f *FunctionDecl) IsDeclarationDisabled() bool {
+	if f == nil {
+		return true
+	}
 	return f.state == declarationDisabled
 }
 
@@ -107,8 +143,8 @@ func (f *FunctionDecl) Merge(other *FunctionDecl) (*FunctionDecl, error) {
 	if f == other {
 		return f, nil
 	}
-	if f.Name() != other.Name() {
-		return nil, fmt.Errorf("cannot merge unrelated functions. %s and %s", f.Name(), other.Name())
+	if f == nil || other == nil || f.Name() != other.Name() {
+		return nil, fmt.Errorf("cannot merge unrelated functions. %q and %q", f.Name(), other.Name())
 	}
 	merged := &FunctionDecl{
 		name:             f.Name(),
@@ -120,11 +156,16 @@ func (f *FunctionDecl) Merge(other *FunctionDecl) (*FunctionDecl, error) {
 		disableTypeGuards: f.disableTypeGuards && other.disableTypeGuards,
 		// default to the current functions declaration state.
 		state: f.state,
+		doc:   f.doc,
 	}
 	// If the other state indicates that the declaration should be explicitly enabled or
 	// disabled, then update the merged state with the most recent value.
 	if other.state != declarationStateUnset {
 		merged.state = other.state
+	}
+	// Allow for non-empty overrides of documentation
+	if len(other.doc) != 0 && f.doc != other.doc {
+		f.doc = other.doc
 	}
 	// baseline copy of the overloads and their ordinals
 	copy(merged.overloadOrdinals, f.overloadOrdinals)
@@ -202,6 +243,7 @@ func (f *FunctionDecl) Subset(selector OverloadSelector) *FunctionDecl {
 	}
 	subset := &FunctionDecl{
 		name:              f.Name(),
+		doc:               f.doc,
 		overloads:         overloads,
 		singleton:         f.singleton,
 		disableTypeGuards: f.disableTypeGuards,
@@ -218,6 +260,9 @@ func (f *FunctionDecl) AddOverload(overload *OverloadDecl) error {
 	if f == nil {
 		return fmt.Errorf("nil function cannot add overload: %s", overload.ID())
 	}
+	if overload == nil {
+		return fmt.Errorf("cannot add nil overload to funciton: %s", f.Name())
+	}
 	for oID, o := range f.overloads {
 		if oID != overload.ID() && o.SignatureOverlaps(overload) {
 			return fmt.Errorf("overload signature collision in function %s: %s collides with %s", f.Name(), oID, overload.ID())
@@ -227,6 +272,10 @@ func (f *FunctionDecl) AddOverload(overload *OverloadDecl) error {
 				// Allow redefinition of an overload implementation so long as the signatures match.
 				if overload.hasBinding() {
 					f.overloads[oID] = overload
+				}
+				// Allow redefinition of the doc string.
+				if len(overload.doc) != 0 && o.doc != overload.doc {
+					o.doc = overload.doc
 				}
 				return nil
 			}
@@ -240,8 +289,9 @@ func (f *FunctionDecl) AddOverload(overload *OverloadDecl) error {
 
 // OverloadDecls returns the overload declarations in the order in which they were declared.
 func (f *FunctionDecl) OverloadDecls() []*OverloadDecl {
+	var emptySet []*OverloadDecl
 	if f == nil {
-		return []*OverloadDecl{}
+		return emptySet
 	}
 	overloads := make([]*OverloadDecl, 0, len(f.overloads))
 	for _, oID := range f.overloadOrdinals {
@@ -252,8 +302,9 @@ func (f *FunctionDecl) OverloadDecls() []*OverloadDecl {
 
 // Bindings produces a set of function bindings, if any are defined.
 func (f *FunctionDecl) Bindings() ([]*functions.Overload, error) {
+	var emptySet []*functions.Overload
 	if f == nil {
-		return []*functions.Overload{}, nil
+		return emptySet, nil
 	}
 	overloads := []*functions.Overload{}
 	nonStrict := false
@@ -360,6 +411,14 @@ func MaybeNoSuchOverload(funcName string, args ...ref.Val) ref.Val {
 
 // FunctionOpt defines a functional option for mutating a function declaration.
 type FunctionOpt func(*FunctionDecl) (*FunctionDecl, error)
+
+// FunctionDocs configures documentation from a list of strings separated by newlines.
+func FunctionDocs(docs ...string) FunctionOpt {
+	return func(fn *FunctionDecl) (*FunctionDecl, error) {
+		fn.doc = common.MultilineDescription(docs...)
+		return fn, nil
+	}
+}
 
 // DisableTypeGuards disables automatically generated function invocation guards on direct overload calls.
 // Type guards remain on during dynamic dispatch for parsed-only expressions.
@@ -513,6 +572,7 @@ func newOverloadInternal(overloadID string,
 // implementation.
 type OverloadDecl struct {
 	id               string
+	doc              string
 	argTypes         []*types.Type
 	resultType       *types.Type
 	isMemberFunction bool
@@ -530,6 +590,15 @@ type OverloadDecl struct {
 	binaryOp functions.BinaryOp
 	// functionOp is a catch-all for zero-arity and three-plus arity functions.
 	functionOp functions.FunctionOp
+}
+
+// Examples returns a list of string examples for the overload.
+func (o *OverloadDecl) Examples() []string {
+	var emptySet []string
+	if o == nil || len(o.doc) == 0 {
+		return emptySet
+	}
+	return common.ParseDescriptions(o.doc)
 }
 
 // ID mirrors the overload signature and provides a unique id which may be referenced within the type-checker
@@ -729,6 +798,14 @@ func matchOperandTrait(trait int, arg ref.Val) bool {
 // OverloadOpt is a functional option for configuring a function overload.
 type OverloadOpt func(*OverloadDecl) (*OverloadDecl, error)
 
+// OverloadExamples configures example expressions for the overload.
+func OverloadExamples(examples ...string) OverloadOpt {
+	return func(o *OverloadDecl) (*OverloadDecl, error) {
+		o.doc = common.MultilineDescription(examples...)
+		return o, nil
+	}
+}
+
 // UnaryBinding provides the implementation of a unary overload. The provided function is protected by a runtime
 // type-guard which ensures runtime type agreement between the overload signature and runtime argument types.
 func UnaryBinding(binding functions.UnaryOp) OverloadOpt {
@@ -800,11 +877,25 @@ func NewVariable(name string, t *types.Type) *VariableDecl {
 	return &VariableDecl{name: name, varType: t}
 }
 
+// NewVariableWithDoc creates a new variable declaration with usage documentation.
+func NewVariableWithDoc(name string, t *types.Type, doc string) *VariableDecl {
+	return &VariableDecl{name: name, varType: t, doc: doc}
+}
+
 // VariableDecl defines a variable declaration which may optionally have a constant value.
 type VariableDecl struct {
 	name    string
+	doc     string
 	varType *types.Type
 	value   ref.Val
+}
+
+// Documentation returns name, type, and description for the variable.
+func (v *VariableDecl) Documentation() *common.Doc {
+	if v == nil {
+		return nil
+	}
+	return common.NewVariableDoc(v.Name(), describeCELType(v.Type()), v.Description())
 }
 
 // Name returns the fully-qualified variable name
@@ -813,6 +904,16 @@ func (v *VariableDecl) Name() string {
 		return ""
 	}
 	return v.name
+}
+
+// Description returns the usage documentation for the variable, if set.
+//
+// Good usage instructions provide information about the valid formats, ranges, sizes for the variable type.
+func (v *VariableDecl) Description() string {
+	if v == nil {
+		return ""
+	}
+	return v.doc
 }
 
 // Type returns the types.Type value associated with the variable.
@@ -856,7 +957,7 @@ func variableDeclToExprDecl(v *VariableDecl) (*exprpb.Decl, error) {
 	if err != nil {
 		return nil, err
 	}
-	return chkdecls.NewVar(v.Name(), varType), nil
+	return chkdecls.NewVarWithDoc(v.Name(), varType, v.doc), nil
 }
 
 // FunctionDeclToExprDecl converts a go-native function declaration into a protobuf-typed function declaration.
@@ -901,8 +1002,10 @@ func functionDeclToExprDecl(f *FunctionDecl) (*exprpb.Decl, error) {
 				overloads[i] = chkdecls.NewParameterizedOverload(oID, argTypes, resultType, params)
 			}
 		}
+		doc := common.MultilineDescription(o.Examples()...)
+		overloads[i].Doc = doc
 	}
-	return chkdecls.NewFunction(f.Name(), overloads...), nil
+	return chkdecls.NewFunctionWithDoc(f.Name(), f.Description(), overloads...), nil
 }
 
 func collectParamNames(paramNames map[string]struct{}, arg *types.Type) {
@@ -914,6 +1017,60 @@ func collectParamNames(paramNames map[string]struct{}, arg *types.Type) {
 	}
 }
 
+func formatSignature(fnName string, o *OverloadDecl) string {
+	if opName, isOperator := operators.FindReverse(fnName); isOperator {
+		if opName == "" {
+			opName = fnName
+		}
+		return formatOperator(opName, o)
+	}
+	return formatCall(fnName, o)
+}
+
+func formatOperator(opName string, o *OverloadDecl) string {
+	args := o.ArgTypes()
+	argTypes := make([]string, len(o.ArgTypes()))
+	for j, a := range args {
+		argTypes[j] = describeCELType(a)
+	}
+	ret := describeCELType(o.ResultType())
+	switch len(args) {
+	case 1:
+		return fmt.Sprintf("%s%s -> %s", opName, argTypes[0], ret)
+	case 2:
+		if opName == operators.Index {
+			return fmt.Sprintf("%s[%s] -> %s", argTypes[0], argTypes[1], ret)
+		}
+		return fmt.Sprintf("%s %s %s -> %s", argTypes[0], opName, argTypes[1], ret)
+	default:
+		if opName == operators.Conditional {
+			return fmt.Sprint("bool ? <T> : <T> -> <T>")
+		}
+		return formatCall(opName, o)
+	}
+}
+
+func formatCall(funcName string, o *OverloadDecl) string {
+	args := make([]string, len(o.ArgTypes()))
+	ret := describeCELType(o.ResultType())
+	for j, a := range o.ArgTypes() {
+		args[j] = describeCELType(a)
+	}
+	if o.IsMemberFunction() {
+		target := args[0]
+		args = args[1:]
+		return fmt.Sprintf("%s.%s(%s) -> %s", target, funcName, strings.Join(args, ", "), ret)
+	}
+	return fmt.Sprintf("%s(%s) -> %s", funcName, strings.Join(args, ", "), ret)
+}
+
+func describeCELType(t *types.Type) string {
+	if t.Kind() == types.TypeKind {
+		return "type"
+	}
+	return t.String()
+}
+
 var (
-	emptyArgs = []*types.Type{}
+	emptyArgs []*types.Type
 )
