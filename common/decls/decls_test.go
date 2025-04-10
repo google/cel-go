@@ -23,6 +23,9 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	chkdecls "github.com/google/cel-go/checker/decls"
+	"github.com/google/cel-go/common"
+	"github.com/google/cel-go/common/operators"
+	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
@@ -242,8 +245,141 @@ func TestFunctionSingletonBinding(t *testing.T) {
 	}
 }
 
+func TestVariableDocumentation(t *testing.T) {
+	v := NewVariableWithDoc("var", types.StringType, "string variable")
+	doc := v.Documentation()
+	if doc.Description != v.Description() {
+		t.Errorf("doc.Description got %s, wanted %s", doc.Description, v.Description())
+	}
+	if doc.Name != v.Name() {
+		t.Errorf("doc.Name got %s, wanted %s", doc.Name, v.Name())
+	}
+	if doc.Type != "string" {
+		t.Errorf("doc.Type got %s, wanted string", doc.Type)
+	}
+}
+
+func TestFunctionDocumentation(t *testing.T) {
+	tests := []struct {
+		name       string
+		fn         *FunctionDecl
+		signatures []string
+		examples   []string
+	}{
+		{
+			name: "function",
+			fn: testFunction(t, "size",
+				FunctionDocs(`compute the number of entries in a list or map`),
+				MemberOverload("list_size",
+					[]*types.Type{types.NewListType(types.NewTypeParamType("T"))}, types.IntType,
+					OverloadExamples(`[].size() // 0`, `[1, 2, 3].size() // 3`)),
+				Overload("size_list",
+					[]*types.Type{types.NewListType(types.NewTypeParamType("T"))}, types.IntType,
+					OverloadExamples(`size([]) // 0`, `size([1, 2, 3]) // 3`))),
+			signatures: []string{
+				"list(<T>).size() -> int",
+				"size(list(<T>)) -> int",
+			},
+			examples: []string{
+				`[].size() // 0`,
+				`[1, 2, 3].size() // 3`,
+				`size([]) // 0`,
+				`size([1, 2, 3]) // 3`,
+			},
+		},
+		{
+			name: "type",
+			fn: testFunction(t, overloads.TypeConvertType,
+				Overload(overloads.TypeConvertType,
+					[]*types.Type{types.NewTypeTypeWithParam(types.NewTypeParamType("T"))},
+					types.TypeType,
+					OverloadExamples(`type(int) // type`))),
+			signatures: []string{"type(type) -> type"},
+			examples:   []string{`type(int) // type`},
+		},
+		{
+			name: "unary operator",
+			fn: testFunction(t, operators.Negate,
+				FunctionDocs(`negate a numeric value`),
+				Overload(overloads.NegateInt64, []*types.Type{types.IntType}, types.IntType,
+					OverloadExamples(`-(1) // -1`))),
+			signatures: []string{"-int -> int"},
+			examples:   []string{`-(1) // -1`},
+		},
+		{
+			name: "binary operator",
+			fn: testFunction(t, operators.Add,
+				FunctionDocs(`add two numeric values`),
+				Overload(overloads.AddInt64, []*types.Type{types.IntType, types.IntType}, types.IntType,
+					OverloadExamples(`1 + 2 // 3`))),
+			signatures: []string{"int + int -> int"},
+			examples:   []string{`1 + 2 // 3`},
+		},
+		{
+			name: "index operator",
+			fn: testFunction(t, operators.Index,
+				FunctionDocs(`access a list by numeric index, zero-based`),
+				Overload(overloads.IndexList, []*types.Type{types.NewListType(types.NewTypeParamType("T")), types.IntType}, types.NewTypeParamType("T"),
+					OverloadExamples(`[1, 2, 3, 4][2] // 3`))),
+			signatures: []string{"list(<T>)[int] -> <T>"},
+			examples:   []string{`[1, 2, 3, 4][2] // 3`},
+		},
+		{
+			name: "conditional",
+			fn: testFunction(t, operators.Conditional,
+				FunctionDocs(`ternary operator`),
+				Overload(overloads.Conditional,
+					[]*types.Type{types.BoolType, types.NewTypeParamType("T"), types.NewTypeParamType("T")},
+					types.NewTypeParamType("T"),
+					OverloadExamples(`true ? 1 : 2 // 1`))),
+			signatures: []string{"bool ? <T> : <T> -> <T>"},
+			examples:   []string{`true ? 1 : 2 // 1`},
+		},
+	}
+	for _, tst := range tests {
+		tc := tst
+		t.Run(tc.name, func(t *testing.T) {
+			doc := tc.fn.Documentation()
+			if doc.Kind != common.DocFunction {
+				t.Errorf("fn.Documentation() kind got %v, wanted common.DocFunction", doc.Kind)
+			}
+			if doc.Description != tc.fn.Description() {
+				t.Errorf("doc.Description got %s, wanted %s", doc.Description, tc.fn.Description())
+			}
+			if len(doc.Children) != len(tc.fn.OverloadDecls()) {
+				t.Fatalf("doc.Children count was %d, wanted %d", len(doc.Children), len(tc.fn.OverloadDecls()))
+			}
+			for _, child := range doc.Children {
+				found := false
+				for _, sig := range tc.signatures {
+					if child.Signature == sig {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("unable to find signature: %s", child.Signature)
+				}
+				for _, childEx := range child.Children {
+					found = false
+					for _, ex := range tc.examples {
+						if strings.Contains(childEx.Description, ex) {
+							found = true
+							break
+						}
+					}
+					if !found {
+						t.Errorf("unable to find example: %v", childEx.Description)
+					}
+				}
+			}
+		})
+	}
+}
+
 func TestFunctionMerge(t *testing.T) {
 	sizeFunc, err := NewFunction("size",
+		FunctionDocs(`compute the number of entries in a list or map`),
 		MemberOverload("list_size",
 			[]*types.Type{types.NewListType(types.NewTypeParamType("T"))}, types.IntType),
 		MemberOverload("map_size",
@@ -278,6 +414,10 @@ func TestFunctionMerge(t *testing.T) {
 	}
 	if len(sizeMerged.overloads) != 3 {
 		t.Errorf("Merge() produced %d overloads, wanted 3", len(sizeFunc.overloads))
+	}
+	if sizeMerged.Description() != "compute the number of entries in a list or map" {
+		t.Errorf("Description() got %s, wanted %s", sizeMerged.Description(),
+			"compute the number of entries in a list or map")
 	}
 	overloads := map[string]bool{
 		"list_size":   true,
@@ -934,12 +1074,18 @@ func TestFunctionDeclToExprDecl(t *testing.T) {
 		{
 			fn: testMerge(t,
 				testFunction(t, "equals",
-					Overload("int_equals_uint", []*types.Type{types.IntType, types.UintType}, types.BoolType),
-					Overload("uint_equals_int", []*types.Type{types.UintType, types.IntType}, types.BoolType)),
+					FunctionDocs(`test equality between an int and uint only`),
+					Overload("int_equals_uint", []*types.Type{types.IntType, types.UintType}, types.BoolType,
+						OverloadExamples(`1 == 1u // true`)),
+					Overload("uint_equals_int", []*types.Type{types.UintType, types.IntType}, types.BoolType,
+						OverloadExamples(`1u == -1 // false`))),
 				testFunction(t, "equals",
-					Overload("int_equals_int", []*types.Type{types.IntType, types.IntType}, types.BoolType),
+					FunctionDocs(`test equality between two int-like values`),
+					Overload("int_equals_int", []*types.Type{types.IntType, types.IntType}, types.BoolType,
+						OverloadExamples(`1 == 1 // true`, `1 == 2 // false`)),
 					Overload("int_equals_uint", []*types.Type{types.IntType, types.UintType}, types.BoolType),
-					Overload("uint_equals_uint", []*types.Type{types.UintType, types.UintType}, types.BoolType))),
+					Overload("uint_equals_uint", []*types.Type{types.UintType, types.UintType}, types.BoolType,
+						OverloadExamples(`1u == 1u // true`)))),
 			exDecl: &exprpb.Decl{
 				Name: "equals",
 				DeclKind: &exprpb.Decl_Function{
@@ -952,6 +1098,7 @@ func TestFunctionDeclToExprDecl(t *testing.T) {
 									chkdecls.Uint,
 								},
 								ResultType: chkdecls.Bool,
+								Doc:        "1 == 1u // true",
 							},
 							{
 								OverloadId: "uint_equals_int",
@@ -960,6 +1107,7 @@ func TestFunctionDeclToExprDecl(t *testing.T) {
 									chkdecls.Int,
 								},
 								ResultType: chkdecls.Bool,
+								Doc:        "1u == -1 // false",
 							},
 							{
 								OverloadId: "int_equals_int",
@@ -968,6 +1116,7 @@ func TestFunctionDeclToExprDecl(t *testing.T) {
 									chkdecls.Int,
 								},
 								ResultType: chkdecls.Bool,
+								Doc:        "1 == 1 // true\n1 == 2 // false",
 							},
 							{
 								OverloadId: "uint_equals_uint",
@@ -976,6 +1125,7 @@ func TestFunctionDeclToExprDecl(t *testing.T) {
 									chkdecls.Uint,
 								},
 								ResultType: chkdecls.Bool,
+								Doc:        "1u == 1u // true",
 							},
 						},
 					},
@@ -1056,12 +1206,74 @@ func TestVariableDeclToExprDecl(t *testing.T) {
 		t.Error("proto.Equal() returned false, wanted true")
 	}
 
+	docVar := NewVariableWithDoc("a", types.BoolType, "doc")
+	a, err = VariableDeclToExprDecl(docVar)
+	if err != nil {
+		t.Fatalf("VariableDeclToExprDecl() failed: %v", err)
+	}
+	if docVar.Description() != a.GetIdent().GetDoc() {
+		t.Errorf("docVar.Description() got %s, wanted %s", docVar.Description(), a.GetIdent().GetDoc())
+	}
+	if !proto.Equal(a, chkdecls.NewVarWithDoc("a", chkdecls.Bool, "doc")) {
+		t.Error("proto.Equal() returned false, wanted true")
+	}
 }
 
 func TestVariableDeclToExprDeclInvalid(t *testing.T) {
 	out, err := VariableDeclToExprDecl(NewVariable("bad", &types.Type{}))
 	if err == nil {
 		t.Fatalf("VariableDeclToExprDecl() succeeded: %v, wanted error", out)
+	}
+}
+
+func TestNilFunction(t *testing.T) {
+	var f *FunctionDecl
+	if f.Name() != "" {
+		t.Errorf("f.Name() got %s, wanted ''", f.Name())
+	}
+	if f.Description() != "" {
+		t.Errorf("f.Description() got %s, wanted ''", f.Description())
+	}
+	if f.Documentation() != nil {
+		t.Errorf("f.Documentation() got %v, wanted nil", f.Documentation())
+	}
+	if !f.IsDeclarationDisabled() {
+		t.Errorf("f.IsDeclarationDisabled() got %t, wanted true", f.IsDeclarationDisabled())
+	}
+	if len(f.OverloadDecls()) != 0 {
+		t.Errorf("f.OverloadDecls() got %d overloads, wanted 0", len(f.OverloadDecls()))
+	}
+	if b, err := f.Bindings(); err != nil || len(b) != 0 {
+		t.Error("f.Bindings() got non-empty result")
+	}
+	other := &FunctionDecl{}
+	if fn, err := f.Merge(other); err == nil {
+		t.Errorf("f.Merge(nil) wanted error, got %v", fn)
+	}
+	if err := f.AddOverload(nil); err == nil {
+		t.Error("f.AddOverload(nil) did not error")
+	}
+	if err := other.AddOverload(nil); err == nil {
+		t.Error("f.AddOverload(nil) did not error")
+	}
+}
+
+func TestNilVariable(t *testing.T) {
+	var v *VariableDecl
+	if v.Name() != "" {
+		t.Errorf("v.Name() got %s, wanted ''", v.Name())
+	}
+	if v.Type() != nil {
+		t.Errorf("v.Type() got %v, wanted nil", v.Type())
+	}
+	if v.Value() != nil {
+		t.Errorf("v.Type() got %v, wanted nil", v.Value())
+	}
+	if v.Description() != "" {
+		t.Errorf("v.Description() got %s, wanted ''", v.Description())
+	}
+	if v.Documentation() != nil {
+		t.Errorf("v.Documentation() got %v, wanted nil", v.Documentation())
 	}
 }
 

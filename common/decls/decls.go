@@ -89,6 +89,9 @@ const (
 
 // Documentation generates documentation about the Function and its overloads as a common.Doc object.
 func (f *FunctionDecl) Documentation() *common.Doc {
+	if f == nil {
+		return nil
+	}
 	children := make([]*common.Doc, len(f.OverloadDecls()))
 	for i, o := range f.OverloadDecls() {
 		var examples []*common.Doc
@@ -125,6 +128,9 @@ func (f *FunctionDecl) Description() string {
 // IsDeclarationDisabled indicates that the function implementation should be added to the dispatcher, but the
 // declaration should not be exposed for use in expressions.
 func (f *FunctionDecl) IsDeclarationDisabled() bool {
+	if f == nil {
+		return true
+	}
 	return f.state == declarationDisabled
 }
 
@@ -137,8 +143,8 @@ func (f *FunctionDecl) Merge(other *FunctionDecl) (*FunctionDecl, error) {
 	if f == other {
 		return f, nil
 	}
-	if f.Name() != other.Name() {
-		return nil, fmt.Errorf("cannot merge unrelated functions. %s and %s", f.Name(), other.Name())
+	if f == nil || other == nil || f.Name() != other.Name() {
+		return nil, fmt.Errorf("cannot merge unrelated functions. %q and %q", f.Name(), other.Name())
 	}
 	merged := &FunctionDecl{
 		name:             f.Name(),
@@ -150,11 +156,16 @@ func (f *FunctionDecl) Merge(other *FunctionDecl) (*FunctionDecl, error) {
 		disableTypeGuards: f.disableTypeGuards && other.disableTypeGuards,
 		// default to the current functions declaration state.
 		state: f.state,
+		doc:   f.doc,
 	}
 	// If the other state indicates that the declaration should be explicitly enabled or
 	// disabled, then update the merged state with the most recent value.
 	if other.state != declarationStateUnset {
 		merged.state = other.state
+	}
+	// Allow for non-empty overrides of documentation
+	if len(other.doc) != 0 && f.doc != other.doc {
+		f.doc = other.doc
 	}
 	// baseline copy of the overloads and their ordinals
 	copy(merged.overloadOrdinals, f.overloadOrdinals)
@@ -249,6 +260,9 @@ func (f *FunctionDecl) AddOverload(overload *OverloadDecl) error {
 	if f == nil {
 		return fmt.Errorf("nil function cannot add overload: %s", overload.ID())
 	}
+	if overload == nil {
+		return fmt.Errorf("cannot add nil overload to funciton: %s", f.Name())
+	}
 	for oID, o := range f.overloads {
 		if oID != overload.ID() && o.SignatureOverlaps(overload) {
 			return fmt.Errorf("overload signature collision in function %s: %s collides with %s", f.Name(), oID, overload.ID())
@@ -258,6 +272,10 @@ func (f *FunctionDecl) AddOverload(overload *OverloadDecl) error {
 				// Allow redefinition of an overload implementation so long as the signatures match.
 				if overload.hasBinding() {
 					f.overloads[oID] = overload
+				}
+				// Allow redefinition of the doc string.
+				if len(overload.doc) != 0 && o.doc != overload.doc {
+					o.doc = overload.doc
 				}
 				return nil
 			}
@@ -271,8 +289,9 @@ func (f *FunctionDecl) AddOverload(overload *OverloadDecl) error {
 
 // OverloadDecls returns the overload declarations in the order in which they were declared.
 func (f *FunctionDecl) OverloadDecls() []*OverloadDecl {
+	var emptySet []*OverloadDecl
 	if f == nil {
-		return []*OverloadDecl{}
+		return emptySet
 	}
 	overloads := make([]*OverloadDecl, 0, len(f.overloads))
 	for _, oID := range f.overloadOrdinals {
@@ -283,8 +302,9 @@ func (f *FunctionDecl) OverloadDecls() []*OverloadDecl {
 
 // Bindings produces a set of function bindings, if any are defined.
 func (f *FunctionDecl) Bindings() ([]*functions.Overload, error) {
+	var emptySet []*functions.Overload
 	if f == nil {
-		return []*functions.Overload{}, nil
+		return emptySet, nil
 	}
 	overloads := []*functions.Overload{}
 	nonStrict := false
@@ -574,6 +594,10 @@ type OverloadDecl struct {
 
 // Examples returns a list of string examples for the overload.
 func (o *OverloadDecl) Examples() []string {
+	var emptySet []string
+	if o == nil || len(o.doc) == 0 {
+		return emptySet
+	}
 	return common.ParseDescriptions(o.doc)
 }
 
@@ -866,7 +890,11 @@ type VariableDecl struct {
 	value   ref.Val
 }
 
+// Documentation returns name, type, and description for the variable.
 func (v *VariableDecl) Documentation() *common.Doc {
+	if v == nil {
+		return nil
+	}
 	return common.NewVariableDoc(v.Name(), describeCELType(v.Type()), v.Description())
 }
 
@@ -963,8 +991,6 @@ func functionDeclToExprDecl(f *FunctionDecl) (*exprpb.Decl, error) {
 			} else {
 				overloads[i] = chkdecls.NewOverload(oID, argTypes, resultType)
 			}
-			desc := common.MultilineDescription(o.Examples()...)
-			overloads[i].Doc = desc
 		} else {
 			params := []string{}
 			for pn := range paramNames {
@@ -976,6 +1002,8 @@ func functionDeclToExprDecl(f *FunctionDecl) (*exprpb.Decl, error) {
 				overloads[i] = chkdecls.NewParameterizedOverload(oID, argTypes, resultType, params)
 			}
 		}
+		doc := common.MultilineDescription(o.Examples()...)
+		overloads[i].Doc = doc
 	}
 	return chkdecls.NewFunctionWithDoc(f.Name(), f.Description(), overloads...), nil
 }
@@ -1044,5 +1072,5 @@ func describeCELType(t *types.Type) string {
 }
 
 var (
-	emptyArgs = []*types.Type{}
+	emptyArgs []*types.Type
 )

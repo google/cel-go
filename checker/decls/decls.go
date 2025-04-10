@@ -92,7 +92,7 @@ func NewFunction(name string,
 }
 
 // NewFunctionWithDoc creates a named function declaration with a description and one or more overloads.
-func NewFunctionWithDoc(name, desc string,
+func NewFunctionWithDoc(name, doc string,
 	overloads ...*exprpb.Decl_FunctionDecl_Overload) *exprpb.Decl {
 	return &exprpb.Decl{
 		Name: name,
@@ -139,8 +139,7 @@ func NewVarWithDoc(name string, t *exprpb.Type, desc string) *exprpb.Decl {
 
 // NewInstanceOverload creates a instance function overload contract.
 // First element of argTypes is instance.
-func NewInstanceOverload(id string, argTypes []*exprpb.Type,
-	resultType *exprpb.Type) *exprpb.Decl_FunctionDecl_Overload {
+func NewInstanceOverload(id string, argTypes []*exprpb.Type, resultType *exprpb.Type) *exprpb.Decl_FunctionDecl_Overload {
 	return &exprpb.Decl_FunctionDecl_Overload{
 		OverloadId:         id,
 		ResultType:         resultType,
@@ -175,8 +174,7 @@ func NewObjectType(typeName string) *exprpb.Type {
 // NewOverload creates a function overload declaration which contains a unique
 // overload id as well as the expected argument and result types. Overloads
 // must be aggregated within a Function declaration.
-func NewOverload(id string, argTypes []*exprpb.Type,
-	resultType *exprpb.Type) *exprpb.Decl_FunctionDecl_Overload {
+func NewOverload(id string, argTypes []*exprpb.Type, resultType *exprpb.Type) *exprpb.Decl_FunctionDecl_Overload {
 	return &exprpb.Decl_FunctionDecl_Overload{
 		OverloadId:         id,
 		ResultType:         resultType,
