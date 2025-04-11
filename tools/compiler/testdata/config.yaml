@@ -39,8 +39,6 @@ stdlib:
           return:
             type_name: "bool"
 extensions:
-  - name: "optional"
-    version: "latest"
   - name: "lists"
     version: "latest"
   - name: "sets"

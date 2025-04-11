@@ -15,6 +15,8 @@
 package policy
 
 // TestSuite describes a set of tests divided by section.
+//
+// Deprecated: Use google3/third_party/cel/go/test/suite.go instead.
 type TestSuite struct {
 	Description string         `yaml:"description"`
 	Sections    []*TestSection `yaml:"section"`

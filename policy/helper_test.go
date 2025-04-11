@@ -23,6 +23,7 @@ import (
 	"github.com/google/cel-go/common/env"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/test"
 
 	"gopkg.in/yaml.v3"
 
@@ -447,13 +448,13 @@ func readPolicyConfig(t testing.TB, fileName string) *env.Config {
 	return config
 }
 
-func readTestSuite(t testing.TB, fileName string) *TestSuite {
+func readTestSuite(t testing.TB, fileName string) *test.Suite {
 	t.Helper()
 	testCaseBytes, err := os.ReadFile(fileName)
 	if err != nil {
 		t.Fatalf("os.ReadFile(%s) failed: %v", fileName, err)
 	}
-	suite := &TestSuite{}
+	suite := &test.Suite{}
 	err = yaml.Unmarshal(testCaseBytes, suite)
 	if err != nil {
 		log.Fatalf("yaml.Unmarshal(%s) error: %v", fileName, err)

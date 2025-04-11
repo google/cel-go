@@ -63,6 +63,7 @@ go_test(
     embed = [":go_default_library"],
     deps = [
         "//cel:go_default_library",
+        "//test:go_default_library",
         "//common/types:go_default_library",
         "//interpreter:go_default_library",
         "//common/types/ref:go_default_library",
@@ -74,4 +75,9 @@ go_test(
 filegroup(
     name = "k8s_policy_testdata",
     srcs = glob(["testdata/k8s/*"]),
+)
+
+filegroup(
+    name = "restricted_destinations_policy_test_data",
+    srcs = glob(["testdata/restricted_destinations/*"]),
 )
