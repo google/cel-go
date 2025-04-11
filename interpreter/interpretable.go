@@ -194,9 +194,6 @@ func (q *testOnlyQualifier) Qualify(vars Activation, obj any) (any, error) {
 	if unk, isUnk := out.(types.Unknown); isUnk {
 		return unk, nil
 	}
-	if opt, isOpt := out.(types.Optional); isOpt {
-		return opt.HasValue(), nil
-	}
 	return present, nil
 }
 
