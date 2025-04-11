@@ -16,3 +16,8 @@ genrule(
            "--descriptor_set_out=$@ $(SRCS)"),
     tools = ["@com_google_protobuf//:protoc"],
 )
+
+filegroup(
+    name = "prompts",
+    srcs = glob(["*.prompt.md"]),
+)
