@@ -116,7 +116,7 @@ const (
 	defaultPersona = `You are a software engineer with expertise in networking and application security
 authoring boolean Common Expression Language (CEL) expressions to ensure firewall,
 networking, authentication, and data access is only permitted when all conditions
-are satisified.`
+are satisfied.`
 
 	defaultFormatRules = `Output your response as a CEL expression.
 
