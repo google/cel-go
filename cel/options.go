@@ -653,6 +653,12 @@ const (
 	//
 	// Deprecated: use ext.StringsValidateFormatCalls() as this option is now a no-op.
 	OptCheckStringFormat EvalOption = 1 << iota
+
+	// OptLateBindCalls enables overriding the binding of function overloads at evaluation time.
+	//
+	// This option works in concert with the a specific implementation of the activation that is
+	// wraps dispatcher, otherwise it defaults to standard behaviour.
+	OptLateBindCalls EvalOption = 1 << iota
 )
 
 // EvalOptions sets one or more evaluation options which may affect the evaluation or Result.
