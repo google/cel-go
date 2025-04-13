@@ -264,6 +264,12 @@ func newProgram(e *Env, a *ast.AST, opts []ProgramOption) (Program, error) {
 			plannerOptions = append(plannerOptions, observers...)
 		}
 	}
+
+	// add behaviour for latebinding calls.
+	if p.evalOpts&OptLateBindCalls != 0 {
+		plannerOptions = append(plannerOptions, interpreter.LateBindCalls())
+	}
+
 	return p.initInterpretable(a, plannerOptions)
 }
 
@@ -309,6 +315,18 @@ func (p *prog) Eval(input any) (out ref.Val, det *EvalDetails, err error) {
 	if p.defaultVars != nil {
 		vars = interpreter.NewHierarchicalActivation(p.defaultVars, vars)
 	}
+
+	// before executing the evaluation if the late bind option was
+	// configured we ensure that the activation does have compatible
+	// overloads with the one maintained in the dispatcher.
+	if p.evalOpts&OptLateBindCalls != 0 {
+
+		err := interpreter.ValidateOverloads(p.dispatcher, vars)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
 	if p.observable != nil {
 		det = &EvalDetails{}
 		out = p.observable.ObserveEval(vars, func(observed any) {
