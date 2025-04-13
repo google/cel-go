@@ -1,15 +1,43 @@
 package interpreter
 
 import (
-
+	"errors"
 	"fmt"
 
 	"github.com/google/cel-go/common/functions"
 	"github.com/google/cel-go/common/types/ref"
 )
 
+const (
+	errorInvalidSignature = "function overload (id: %s) is not matched (type: %s, ref: %s, override: %s)"
+	errorMismatch         = "function overload (id: %s) has different attributes (name: %s, ref: %v, override: %v)"
+	errorNilActivation    = "cannot create a late bind activation with a nil activation"
+	errorOverloadNotFound = "unexpected: overload (id: %s) not found."
+)
+
+// NewLateBindActivation creates an activation that wraps the given activation and
+// exposes the given function overloads to the evaluation. If the list of overloads
+// has duplicates or the given activation is nil, it will return an error.
+func NewLateBindActivation(activation Activation, overloads ...*functions.Overload) (Activation, error) {
+
+	dispatcher := NewDispatcher()
+	err := dispatcher.Add(overloads...)
+	if err != nil {
+		return nil, err
+	}
+
+	if activation == nil {
+		return nil, errors.New(errorNilActivation)
+	}
+
+	return &lateBindActivation{
+		vars:       activation,
+		dispatcher: dispatcher,
+	}, nil
+}
+
 // lateBindActivation is an Activation implementation
-// that carries a dispatcher which can be used to 
+// that carries a dispatcher which can be used to
 // supply overrides for function overloads during
 // evaluation.
 type lateBindActivation struct {
@@ -24,12 +52,11 @@ func (activation *lateBindActivation) ResolveName(name string) (any, bool) {
 	return activation.vars.ResolveName(name)
 }
 
-// Parent implements Activation.Parent() and returns the 
+// Parent implements Activation.Parent() and returns the
 // activation that is wrapped by this struct.
 func (activation *lateBindActivation) Parent() Activation {
 	return activation.vars
 }
-
 
 // decLateBinding returns an InterpretableDecorator
 // that transforms the Interpretable to wrap all the
@@ -44,31 +71,31 @@ func decLateBinding() InterpretableDecorator {
 // InterpretableCall implementation that inspect the activat
 //
 // The implementation is recursive and cater for all instances
-// of Interpretable that carry expressions. The implemented 
+// of Interpretable that carry expressions. The implemented
 // logic operates as follows:
 //
-// - evalZeroArity, evalUnary, evalBinary, and evalVarArgs are
-//   directly replaced with the corresponding lateBindXXX 
-//   implementation.
+//   - evalZeroArity, evalUnary, evalBinary, and evalVarArgs are
+//     directly replaced with the corresponding lateBindXXX
+//     implementation.
 //
-// - evalAnd, evalOr, evalEq, evalNe, evalExhaustiveOr, and 
-//   evalExhaustiveAnd are mutated by applying lateBind to 
-//   their term expressions.
+//   - evalAnd, evalOr, evalEq, evalNe, evalExhaustiveOr, and
+//     evalExhaustiveAnd are mutated by applying lateBind to
+//     their term expressions.
 //
-// - evalList, evalMap, evalObj are mutated by applying lateBind
-//   to their elements, keys and values, or field values.
+//   - evalList, evalMap, evalObj are mutated by applying lateBind
+//     to their elements, keys and values, or field values.
 //
-// - evalFold is mutated by applying lateBind to the condition
-//   the iteration range expressions, and the step expression.
+//   - evalFold is mutated by applying lateBind to the condition
+//     the iteration range expressions, and the step expression.
 //
-// - evalSetMembership is mutated by applying lateBind to both
-//   the argument and the set definition.
+//   - evalSetMembership is mutated by applying lateBind to both
+//     the argument and the set definition.
 //
-// - evalWatch is mutated by applying lateBind to wrapped
-//   Interpretable implementation.
+//   - evalWatch is mutated by applying lateBind to wrapped
+//     Interpretable implementation.
 //
-// - evalWatchConstructor is mutated by applying lateBind to the
-//   watcheed InterepretableConstructor implementation.
+//   - evalWatchConstructor is mutated by applying lateBind to the
+//     watcheed InterepretableConstructor implementation.
 //
 // All other evalXXX entities are left untouched.
 //
@@ -81,7 +108,7 @@ func lateBind(i Interpretable) (Interpretable, error) {
 	}
 
 	switch expr := i.(type) {
-	
+
 	// Group 1: function calls
 	// -----------------------
 	// evalZeroArity, evalUnary, evalBinary, and evalVarArgs
@@ -144,7 +171,7 @@ func lateBind(i Interpretable) (Interpretable, error) {
 		}
 		expr.lhs = lhs
 		expr.rhs = rhs
-		
+
 		return expr, nil
 
 	case *evalNe:
@@ -155,9 +182,8 @@ func lateBind(i Interpretable) (Interpretable, error) {
 		}
 		expr.lhs = lhs
 		expr.rhs = rhs
-		
-		return expr, nil
 
+		return expr, nil
 
 	case *evalOr:
 		mapped, err := lateBindSlice(expr.terms)
@@ -166,7 +192,7 @@ func lateBind(i Interpretable) (Interpretable, error) {
 		}
 		expr.terms = mapped
 		return expr, nil
-		
+
 	case *evalAnd:
 		mapped, err := lateBindSlice(expr.terms)
 		if err != nil {
@@ -177,7 +203,7 @@ func lateBind(i Interpretable) (Interpretable, error) {
 
 	// exhaustive cases need to be handled too
 	// to ensure that when we apply the decorator
-	// for exhaustive evaluation we don't loose 
+	// for exhaustive evaluation we don't loose
 	// calls in the modified versions of OR and AND.
 	case *evalExhaustiveOr:
 		mapped, err := lateBindSlice(expr.terms)
@@ -199,7 +225,7 @@ func lateBind(i Interpretable) (Interpretable, error) {
 	// ---------------------------
 	// List, maps, and objects in general can have expressions
 	// as values for their elements, keys and values, and fields.
-	// We need to apply late binding transformations to all of 
+	// We need to apply late binding transformations to all of
 	// these.
 
 	case *evalList:
@@ -222,12 +248,12 @@ func lateBind(i Interpretable) (Interpretable, error) {
 		if err != nil {
 			return nil, err
 		}
-		
+
 		expr.keys = keys
 		expr.vals = values
 
 		return expr, nil
-		
+
 	case *evalObj:
 		values, err := lateBindSlice(expr.vals)
 		if err != nil {
@@ -269,7 +295,6 @@ func lateBind(i Interpretable) (Interpretable, error) {
 
 		return expr, nil
 
-
 	// Group 6: Set Membership
 	// -----------------------
 	// the 'in' operator can have calls to function functions on both
@@ -287,7 +312,6 @@ func lateBind(i Interpretable) (Interpretable, error) {
 
 		return expr, nil
 
-
 	// evalWatch is a pass-through we need to recursively
 	// apply the late binding to the expression that is
 	// being watched which may be anything.
@@ -301,7 +325,6 @@ func lateBind(i Interpretable) (Interpretable, error) {
 		expr.Interpretable = interpretable
 
 		return expr, nil
-
 
 	case *evalWatchConstructor:
 
@@ -317,8 +340,6 @@ func lateBind(i Interpretable) (Interpretable, error) {
 
 		return expr, nil
 	}
-
-	
 
 	return i, nil
 }
@@ -358,10 +379,9 @@ func lateBindPair(lhs Interpretable, rhs Interpretable) (Interpretable, Interpre
 	return mappedLhs, mappedRhs, err
 }
 
-
 // LateBindCalls returns a PlannerOption that allows for mutating
 // the Intepretable with injections for replacing at evaluation
-// time the bindings to the function calls. 
+// time the bindings to the function calls.
 func LateBindCalls() PlannerOption {
 	return CustomDecorator(decLateBinding())
 }
@@ -373,7 +393,7 @@ type lateBindEvalZeroArity struct {
 }
 
 // ID implements the Interpretable.ID() interface method.
-// The unique identifier returned is the one associated 
+// The unique identifier returned is the one associated
 // to the wrapped evalZeroArity reference.
 func (zero *lateBindEvalZeroArity) ID() int64 {
 	return zero.target.ID()
@@ -394,12 +414,11 @@ func (zero *lateBindEvalZeroArity) OverloadID() string {
 }
 
 // Args implements the InterpretableCall.Args() interface method.
-// The arguments returned are those associated to the wrapped 
+// The arguments returned are those associated to the wrapped
 // evalZeroArity reference.
 func (zero *lateBindEvalZeroArity) Args() []Interpretable {
 	return zero.target.Args()
 }
-
 
 // Eval implements the Intepretable.Eval(Activation) interface method.
 // The implementation first resolves the overload of the function being
@@ -409,17 +428,17 @@ func (zero *lateBindEvalZeroArity) Args() []Interpretable {
 // created struct.
 //
 // NOTE: the reason why we create a fresh new instance of evalZeroArity is
-//       to make sure that the substitution of the overload only affects
-//       the current call to Eval and it is not permanently stored in the
-//       original evalZeroArity reference. This enables to reuse cached
-//       programs multiple times with different types of activations and
-//       maintains a consistent result all the times:
 //
-//       - if the activation context has an overload for this call that one
-//         is used.
-//       - if the activation context does not have an overload for this call
-//         the one originally bound during the planning phase is used. 
-// 
+//	to make sure that the substitution of the overload only affects
+//	the current call to Eval and it is not permanently stored in the
+//	original evalZeroArity reference. This enables to reuse cached
+//	programs multiple times with different types of activations and
+//	maintains a consistent result all the times:
+//
+//	- if the activation context has an overload for this call that one
+//	  is used.
+//	- if the activation context does not have an overload for this call
+//	  the one originally bound during the planning phase is used.
 func (zero *lateBindEvalZeroArity) Eval(ctx Activation) ref.Val {
 
 	overloadId := zero.target.OverloadID()
@@ -444,7 +463,7 @@ type lateBindEvalUnary struct {
 }
 
 // ID implements the Interpretable.ID() interface method.
-// The unique identifier returned is the one associated 
+// The unique identifier returned is the one associated
 // to the wrapped evalUnary reference.
 func (un *lateBindEvalUnary) ID() int64 {
 	return un.target.ID()
@@ -465,7 +484,7 @@ func (un *lateBindEvalUnary) OverloadID() string {
 }
 
 // Args implements the InterpretableCall.Args() interface method.
-// The arguments returned are those associated to the wrapped 
+// The arguments returned are those associated to the wrapped
 // evalUnary reference.
 func (un *lateBindEvalUnary) Args() []Interpretable {
 	return un.target.Args()
@@ -479,17 +498,17 @@ func (un *lateBindEvalUnary) Args() []Interpretable {
 // created struct.
 //
 // NOTE: the reason why we create a fresh new instance of evalUnary is to
-//       make sure that the substitution of the overload only affects the
-//       current call to Eval and it is not permanently stored in the
-//       original evalUnary reference. This enables to reuse cached program
-//       multiple times with different types of activations and maintains a
-//       consistent result all the times:
 //
-//       - if the activation context has an overload for this call that one
-//         is used.
-//       - if the activation context does not have an overload for this call
-//         the one originally bound during the planning phase is used. 
-// 
+//	make sure that the substitution of the overload only affects the
+//	current call to Eval and it is not permanently stored in the
+//	original evalUnary reference. This enables to reuse cached program
+//	multiple times with different types of activations and maintains a
+//	consistent result all the times:
+//
+//	- if the activation context has an overload for this call that one
+//	  is used.
+//	- if the activation context does not have an overload for this call
+//	  the one originally bound during the planning phase is used.
 func (un *lateBindEvalUnary) Eval(ctx Activation) ref.Val {
 
 	overloadId := un.target.OverloadID()
@@ -515,14 +534,12 @@ type lateBindEvalBinary struct {
 	target *evalBinary
 }
 
-
 // ID implements the Interpretable.ID() interface method.
-// The unique identifier returned is the one associated 
+// The unique identifier returned is the one associated
 // to the wrapped evalBinary reference.
 func (bin *lateBindEvalBinary) ID() int64 {
 	return bin.target.ID()
 }
-
 
 // Function implements the InterpretableCall.Function() interface method.
 // The name of the function returned is the one associated to the wrapped
@@ -539,7 +556,7 @@ func (bin *lateBindEvalBinary) OverloadID() string {
 }
 
 // Args implements the InterpretableCall.Args() interface method.
-// The arguments returned are those associated to the wrapped 
+// The arguments returned are those associated to the wrapped
 // evalBinary reference.
 func (bin *lateBindEvalBinary) Args() []Interpretable {
 	return bin.target.Args()
@@ -553,17 +570,17 @@ func (bin *lateBindEvalBinary) Args() []Interpretable {
 // created struct.
 //
 // NOTE: the reason why we create a fresh new instance of evalBinary is to
-//       make sure that the substitution of the overload only affects the
-//       current call to Eval and it is not permanently stored in the
-//       original evalBinary reference. This enables to reuse cached program
-//       multiple times with different types of activations and maintains a
-//       consistent result all the times:
 //
-//       - if the activation context has an overload for this call that one
-//         is used.
-//       - if the activation context does not have an overload for this call
-//         the one originally bound during the planning phase is used. 
-// 
+//	make sure that the substitution of the overload only affects the
+//	current call to Eval and it is not permanently stored in the
+//	original evalBinary reference. This enables to reuse cached program
+//	multiple times with different types of activations and maintains a
+//	consistent result all the times:
+//
+//	- if the activation context has an overload for this call that one
+//	  is used.
+//	- if the activation context does not have an overload for this call
+//	  the one originally bound during the planning phase is used.
 func (bin *lateBindEvalBinary) Eval(ctx Activation) ref.Val {
 
 	overloadId := bin.target.OverloadID()
@@ -573,7 +590,7 @@ func (bin *lateBindEvalBinary) Eval(ctx Activation) ref.Val {
 		args := bin.target.Args()
 		subject = &evalBinary{
 			id:        bin.target.ID(),
-			function: bin.target.Function(),
+			function:  bin.target.Function(),
 			overload:  overloadId,
 			lhs:       args[0],
 			rhs:       args[1],
@@ -586,21 +603,18 @@ func (bin *lateBindEvalBinary) Eval(ctx Activation) ref.Val {
 
 }
 
-
 // lateBindEvalVarArgs is the late bind counterpart of
 // evalVarArgs and wraps a reference to evalVarArgs.
 type lateBindEvalVarArgs struct {
 	target *evalVarArgs
 }
 
-
 // ID implements the Interpretable.ID() interface method.
-// The unique identifier returned is the one associated 
+// The unique identifier returned is the one associated
 // to the wrapped evalVarArgs reference.
 func (fn *lateBindEvalVarArgs) ID() int64 {
 	return fn.target.ID()
 }
-
 
 // Function implements the InterpretableCall.Function() interface method.
 // The name of the function returned is the one associated to the wrapped
@@ -617,11 +631,12 @@ func (fn *lateBindEvalVarArgs) OverloadID() string {
 }
 
 // Args implements the InterpretableCall.Args() interface method.
-// The arguments returned are those associated to the wrapped 
+// The arguments returned are those associated to the wrapped
 // evalVarArgs reference.
 func (fn *lateBindEvalVarArgs) Args() []Interpretable {
 	return fn.target.Args()
 }
+
 // Eval implements the Intepretable.Eval(Activation) interface method.
 // The implementation first resolves the overload of the function being
 // invoked from the activation context, if there is any override and then
@@ -630,17 +645,17 @@ func (fn *lateBindEvalVarArgs) Args() []Interpretable {
 // created struct.
 //
 // NOTE: the reason why we create a fresh new instance of evalVarArgs is to
-//       make sure that the substitution of the overload only affects the
-//       current call to Eval and it is not permanently stored in the
-//       original evalBinary reference. This enables to reuse cached program
-//       multiple times with different types of activations and maintains a
-//       consistent result all the times:
 //
-//       - if the activation context has an overload for this call that one
-//         is used.
-//       - if the activation context does not have an overload for this call
-//         the one originally bound during the planning phase is used. 
-// 
+//	make sure that the substitution of the overload only affects the
+//	current call to Eval and it is not permanently stored in the
+//	original evalBinary reference. This enables to reuse cached program
+//	multiple times with different types of activations and maintains a
+//	consistent result all the times:
+//
+//	- if the activation context has an overload for this call that one
+//	  is used.
+//	- if the activation context does not have an overload for this call
+//	  the one originally bound during the planning phase is used.
 func (fn *lateBindEvalVarArgs) Eval(ctx Activation) ref.Val {
 
 	overloadId := fn.target.OverloadID()
@@ -651,7 +666,7 @@ func (fn *lateBindEvalVarArgs) Eval(ctx Activation) ref.Val {
 			id:        fn.target.ID(),
 			function:  fn.target.Function(),
 			overload:  overloadId,
-			args: 	   fn.Args(),
+			args:      fn.Args(),
 			impl:      overload.Function,
 			trait:     overload.OperandTrait,
 			nonStrict: overload.NonStrict,
@@ -661,20 +676,187 @@ func (fn *lateBindEvalVarArgs) Eval(ctx Activation) ref.Val {
 
 }
 
-// resolveOverload implements the shared functionality used to remap a function
-// binding by using the list of overloads that are supplied with the given activation
+// resolveOverload travels the hierarchy of activations originating from the given
+// Activation implementation to find the overload associatd to overloadId. Since the
+// Activation APIs allow for different types of activations and compositions we need
+// to ensure that if there is any valid overload that is mapped to overloadId we can
+// find it.
 func resolveOverload(overloadId string, activation Activation) *functions.Overload {
 
-	lba, ok := activation.(*lateBindActivation)
-	if !ok {
+	if activation == nil {
 		return nil
 	}
 
-	if lba.dispatcher != nil {
-		overload, found := lba.dispatcher.FindOverload(overloadId)
+	switch act := activation.(type) {
+	case *mapActivation:
+		return nil
+	case *emptyActivation:
+		return nil
+	case *partActivation:
+		return resolveOverload(overloadId, act.Activation)
+	case *hierarchicalActivation:
+		ovl := resolveOverload(overloadId, act.parent)
+		if ovl == nil {
+			return resolveOverload(overloadId, act.child)
+		}
+		return ovl
+	case *lateBindActivation:
+
+		if act.dispatcher != nil {
+			ovl, found := act.dispatcher.FindOverload(overloadId)
+			if found {
+				return ovl
+			}
+		}
+		return nil
+	}
+
+	// this is to ensure that if there are
+	// more types of activations added we
+	// can default to nil.
+	return nil
+
+}
+
+// ValidateOverloads ensures that if the activation contains an overload function
+// its signature matches the one associated to the same overload identifier in
+// the dispatcher otherwise throws an error. If the activation defines more function
+// overloads, those won't be considered in the validation.
+func ValidateOverloads(original Dispatcher, activation Activation) error {
+
+	// we create a
+	aggregate := NewDispatcher()
+	resolveAllOverloads(aggregate, activation)
+
+	overloads := original.OverloadIds()
+	for _, overloadId := range overloads {
+
+		refOvl, found := original.FindOverload(overloadId)
+		if !found {
+			return fmt.Errorf(errorOverloadNotFound, overloadId)
+		}
+
+		ovl, found := aggregate.FindOverload(overloadId)
 		if found {
-			return overload
+			// we need to make sure that the overloads are
+			// matching.
+
+			result := matchSignature(overloadId, refOvl, ovl)
+			if result != nil {
+				return result
+			}
 		}
 	}
+
+	return nil
+}
+
+// resolveAllOverloads aggregates all function overloads defined in the
+// activation into a single dispatcher so that they can be easily checked
+// at once when we validate the overloads.
+func resolveAllOverloads(aggregate Dispatcher, activation Activation) {
+
+	if activation == nil {
+		return
+	}
+	switch act := activation.(type) {
+	case *mapActivation:
+		return
+	case *emptyActivation:
+		return
+	case *partActivation:
+		resolveAllOverloads(aggregate, act.Activation)
+	case *hierarchicalActivation:
+		resolveAllOverloads(aggregate, act.parent)
+		resolveAllOverloads(aggregate, act.child)
+	case *lateBindActivation:
+
+		if act.dispatcher != nil {
+
+			for _, overloadId := range act.dispatcher.OverloadIds() {
+
+				ovl, found := act.dispatcher.FindOverload(overloadId)
+				if found {
+					// note we don't need to check an error because if there
+					// is an error the overload is already defined. This may
+					// happen because we nest multiple activation with late
+					// binding capabilities and one may shadow another as it
+					// happens for variable names. Since the activations are
+					// visitedin the correct order this is expected behaviour.
+					aggregate.Add(ovl)
+				}
+			}
+		}
+	}
+
+}
+
+// matchSignature compares the two overload definitions and returns an error
+// if the overload function does not have a matching signature with the
+// reference overload. The only check we can implement is over the number of
+// parameters and the attributes of the overload.
+//
+// The impmlementation verifies the following:
+//
+// - if refOvl.Unary is not nil, the expectation is that ovl.Unary is not nil.
+// - if refOvl.Binry is not nil, the expectation is that ovl.Binary is not nil.
+// - if refOvl.Function not nil, the expectation is that ovl.Fnuction is not nil.
+// - refOvl.NotStrict and ovl.NonStrict must be the same.
+// - refOvl.OperandTrait and ovl.OperandTrait must be the same.
+// - refOvl.Operator and ovl.Operator must be the same.
+func matchSignature(overloadId string, refOvl *functions.Overload, ovl *functions.Overload) error {
+
+	if refOvl.Unary != nil {
+
+		if ovl.Unary == nil {
+
+			return fmt.Errorf(errorInvalidSignature, overloadId, "unary", "<not-nil>", "<nil>")
+		}
+	} else if ovl.Unary != nil {
+
+		return fmt.Errorf(errorInvalidSignature, overloadId, "unary", "<nil>", "<not-nil>")
+	}
+
+	if refOvl.Binary != nil {
+
+		if ovl.Binary == nil {
+
+			return fmt.Errorf(errorInvalidSignature, overloadId, "binary", "<not-nil>", "<nil>")
+
+		}
+
+	} else if ovl.Binary != nil {
+
+		return fmt.Errorf(errorInvalidSignature, overloadId, "binary", "<nil>", "<not-nil>")
+
+	}
+
+	if refOvl.Function != nil {
+
+		if ovl.Function == nil {
+
+			return fmt.Errorf(errorInvalidSignature, overloadId, "varargs", "<not-nil>", "<nil>")
+
+		}
+
+	} else if ovl.Function == nil {
+
+		return fmt.Errorf(errorInvalidSignature, overloadId, "varargs", "<nil>", "<not-nil>")
+
+	}
+
+	if refOvl.NonStrict != ovl.NonStrict {
+
+		return fmt.Errorf(errorMismatch, overloadId, "NonStrict", refOvl.NonStrict, ovl.NonStrict)
+	}
+	if refOvl.OperandTrait != ovl.OperandTrait {
+
+		return fmt.Errorf(errorMismatch, overloadId, "OperandTrait", refOvl.OperandTrait, ovl.OperandTrait)
+	}
+	if refOvl.Operator != ovl.Operator {
+
+		return fmt.Errorf(errorMismatch, overloadId, "Operator", refOvl.Operator, ovl.Operator)
+	}
+
 	return nil
 }
