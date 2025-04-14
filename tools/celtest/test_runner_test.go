@@ -19,10 +19,12 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/policy"
 	"github.com/google/cel-go/tools/compiler"
+	"gopkg.in/yaml.v3"
 )
 
 type testCase struct {
@@ -49,6 +51,12 @@ func setupTests() []*testCase {
 			testSuitePath: "../../policy/testdata/restricted_destinations/tests.yaml",
 			configPath:    "../../policy/testdata/restricted_destinations/config.yaml",
 			opts:          []any{locationCodeEnvOption()},
+		},
+		{
+			name:          "policy test with custom policy metadata",
+			celExpression: "testdata/custom_policy.celpolicy",
+			testSuitePath: "testdata/custom_policy_tests.yaml",
+			opts:          []any{customPolicyParserOption(), compiler.PolicyMetadataEnvOption(ParsePolicyVariables)},
 		},
 	}
 	return testCases
@@ -101,6 +109,56 @@ func TestTriggerTestsWithRunnerOptions(t *testing.T) {
 		opts := []TestRunnerOption{compilerOpt, testSuiteParser, testCELPolicy}
 		TriggerTests(t, opts)
 	})
+}
+
+func customPolicyParserOption() policy.ParserOption {
+	return func(p *policy.Parser) (*policy.Parser, error) {
+		p.TagVisitor = customTagHandler{TagVisitor: policy.DefaultTagVisitor()}
+		return p, nil
+	}
+}
+func ParsePolicyVariables(metadata map[string]any) cel.EnvOption {
+	var variables []*decls.VariableDecl
+	for n, t := range metadata {
+		variables = append(variables, decls.NewVariable(n, parseCustomPolicyVariableType(t.(string))))
+	}
+	return cel.VariableDecls(variables...)
+}
+
+func parseCustomPolicyVariableType(t string) *types.Type {
+	switch t {
+	case "int":
+		return types.IntType
+	case "string":
+		return types.StringType
+	default:
+		return types.UnknownType
+	}
+}
+
+type variableType struct {
+	VariableName string `yaml:"variable_name"`
+	VariableType string `yaml:"variable_type"`
+}
+
+type customTagHandler struct {
+	policy.TagVisitor
+}
+
+func (customTagHandler) PolicyTag(ctx policy.ParserContext, id int64, tagName string, node *yaml.Node, p *policy.Policy) {
+	switch tagName {
+	case "variable_types":
+		var varList []*variableType
+		if err := node.Decode(&varList); err != nil {
+			ctx.ReportErrorAtID(id, "invalid yaml variable_types node: %v, error: %w", node, err)
+			return
+		}
+		for _, v := range varList {
+			p.SetMetadata(v.VariableName, v.VariableType)
+		}
+	default:
+		ctx.ReportErrorAtID(id, "unsupported policy tag: %s", tagName)
+	}
 }
 
 // TestTriggerTests tests different scenarios of the TriggerTestsFromCompiler function.

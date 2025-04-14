@@ -56,15 +56,22 @@ go_test(
         "test_runner_test.go",
     ],
     data = [
-        "//policy:k8s_policy_testdata",
-        "//policy:restricted_destinations_policy_test_data",
+        ":testdata",
+        "//policy:testdata",
     ],
     embed = [":go_default_library"],
     deps = [
         "//cel:go_default_library",
+        "//common/decls:go_default_library",
         "//common/types:go_default_library",
         "//common/types/ref:go_default_library",
         "//policy:go_default_library",
         "//tools/compiler:go_default_library",
+        "@in_gopkg_yaml_v3//:go_default_library",
     ]
+)
+
+filegroup(
+    name = "testdata",
+    srcs = glob(["testdata/**"]),
 )

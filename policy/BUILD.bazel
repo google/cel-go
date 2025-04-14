@@ -73,11 +73,6 @@ go_test(
 )
 
 filegroup(
-    name = "k8s_policy_testdata",
-    srcs = glob(["testdata/k8s/*"]),
-)
-
-filegroup(
-    name = "restricted_destinations_policy_test_data",
-    srcs = glob(["testdata/restricted_destinations/*"]),
+    name = "testdata",
+    srcs = glob(["testdata/**"]),
 )

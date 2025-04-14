@@ -164,7 +164,7 @@ func (p *tsParser) ParseTextproto(path any) (*conformancepb.TestSuite, error) {
 	testSuite := &conformancepb.TestSuite{}
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("runfiles.ReadFile(%q) failed: %v", path, err)
+		return nil, fmt.Errorf("os.ReadFile(%q) failed: %v", path, err)
 	}
 	err = prototext.Unmarshal(data, testSuite)
 	return testSuite, err
@@ -181,7 +181,7 @@ func (p *tsParser) ParseYAML(path any) (*test.Suite, error) {
 	}
 	testSuiteBytes, err := os.ReadFile(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("runfiles.ReadFile(%q) failed: %v", filePath, err)
+		return nil, fmt.Errorf("os.ReadFile(%q) failed: %v", filePath, err)
 	}
 	testSuite := &test.Suite{}
 	err = yaml.Unmarshal(testSuiteBytes, testSuite)
