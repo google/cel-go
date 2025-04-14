@@ -613,6 +613,24 @@ func TestSingletonOverloadCollision(t *testing.T) {
 	}
 }
 
+func TestSingletonOverloadLateBindingCollision(t *testing.T) {
+	fn, err := NewFunction("id",
+		Overload("id_any", []*types.Type{types.AnyType}, types.AnyType,
+			LateFunctionBinding(),
+		),
+		SingletonUnaryBinding(func(arg ref.Val) ref.Val {
+			return arg
+		}),
+	)
+	if err != nil {
+		t.Fatalf("NewFunction() failed: %v", err)
+	}
+	_, err = fn.Bindings()
+	if err == nil || !strings.Contains(err.Error(), "incompatible with late bindings") {
+		t.Errorf("NewFunction() got %v, wanted incompatible with late bindings", err)
+	}
+}
+
 func TestSingletonUnaryBindingRedefinition(t *testing.T) {
 	_, err := NewFunction("id",
 		Overload("id_any", []*types.Type{types.AnyType}, types.AnyType),
@@ -729,6 +747,74 @@ func TestOverloadFunctionBindingRedefinition(t *testing.T) {
 	)
 	if err == nil || !strings.Contains(err.Error(), "already has a binding") {
 		t.Errorf("NewCustomEnv() got %v, wanted already has a binding", err)
+	}
+}
+
+func TestOverloadFunctionLateBinding(t *testing.T) {
+	function, err := NewFunction("id",
+		Overload("id_bool", []*types.Type{types.BoolType}, types.AnyType, LateFunctionBinding(), LateFunctionBinding()),
+	)
+	if err != nil {
+		t.Fatalf("NewFunction() failed: %v", err)
+	}
+	if len(function.OverloadDecls()) != 1 {
+		t.Fatalf("NewFunction() got %v, wanted 1 overload", function.OverloadDecls())
+	}
+	if !function.OverloadDecls()[0].HasLateBinding() {
+		t.Errorf("overload %v did not have a late binding", function.OverloadDecls()[0])
+	}
+}
+
+func TestOverloadFunctionMixLateAndNonLateBinding(t *testing.T) {
+	_, err := NewFunction("id",
+		Overload("id_bool", []*types.Type{types.BoolType}, types.AnyType, LateFunctionBinding()),
+		Overload("id_int", []*types.Type{types.IntType}, types.AnyType),
+	)
+	if err == nil || !strings.Contains(err.Error(), "cannot mix late and non-late bindings") {
+		t.Errorf("NewCustomEnv() got %v, wanted cannot mix late and non-late bindings", err)
+	}
+}
+
+func TestOverloadFunctionBindingWithLateBinding(t *testing.T) {
+	_, err := NewFunction("id",
+		Overload("id_bool", []*types.Type{types.BoolType}, types.AnyType, FunctionBinding(func(args ...ref.Val) ref.Val {
+			return args[0]
+		}), LateFunctionBinding()),
+	)
+	if err == nil || !strings.Contains(err.Error(), "already has a binding") {
+		t.Errorf("NewCustomEnv() got %v, wanted already has a binding", err)
+	}
+}
+
+func TestOverloadFunctionLateBindingWithBinding(t *testing.T) {
+	_, err := NewFunction("id",
+		Overload("id_bool", []*types.Type{types.BoolType}, types.AnyType, LateFunctionBinding(),
+			FunctionBinding(func(args ...ref.Val) ref.Val {
+				return args[0]
+			})),
+	)
+	if err == nil || !strings.Contains(err.Error(), "already has a late binding") {
+		t.Errorf("NewCustomEnv() got %v, wanted already has a late binding", err)
+	}
+
+	_, err = NewFunction("id",
+		Overload("id_bool", []*types.Type{types.BoolType}, types.AnyType, LateFunctionBinding(),
+			UnaryBinding(func(arg ref.Val) ref.Val {
+				return arg
+			})),
+	)
+	if err == nil || !strings.Contains(err.Error(), "already has a late binding") {
+		t.Errorf("NewCustomEnv() got %v, wanted already has a late binding", err)
+	}
+
+	_, err = NewFunction("id",
+		Overload("id_bool", []*types.Type{types.BoolType, types.BoolType}, types.AnyType, LateFunctionBinding(),
+			BinaryBinding(func(arg1 ref.Val, arg2 ref.Val) ref.Val {
+				return arg1
+			})),
+	)
+	if err == nil || !strings.Contains(err.Error(), "already has a late binding") {
+		t.Errorf("NewCustomEnv() got %v, wanted already has a late binding", err)
 	}
 }
 
