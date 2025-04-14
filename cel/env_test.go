@@ -378,11 +378,14 @@ func TestEnvToConfig(t *testing.T) {
 			name: "optional lib - alt last()",
 			opts: []EnvOption{
 				OptionalTypes(),
-				Function("last", MemberOverload("string_last", []*Type{StringType}, StringType)),
+				Function("last",
+					FunctionDocs(`return the last value in a list, or last character in a string`),
+					MemberOverload("string_last", []*Type{StringType}, StringType)),
 			},
 			want: env.NewConfig("optional lib - alt last()").
 				AddExtensions(env.NewExtension("optional", math.MaxUint32)).
-				AddFunctions(env.NewFunction("last",
+				AddFunctions(env.NewFunctionWithDoc("last",
+					`return the last value in a list, or last character in a string`,
 					env.NewMemberOverload("string_last", env.NewTypeDesc("string"), []*env.TypeDesc{}, env.NewTypeDesc("string")),
 				)),
 		},

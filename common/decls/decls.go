@@ -165,7 +165,7 @@ func (f *FunctionDecl) Merge(other *FunctionDecl) (*FunctionDecl, error) {
 	}
 	// Allow for non-empty overrides of documentation
 	if len(other.doc) != 0 && f.doc != other.doc {
-		f.doc = other.doc
+		merged.doc = other.doc
 	}
 	// baseline copy of the overloads and their ordinals
 	copy(merged.overloadOrdinals, f.overloadOrdinals)
