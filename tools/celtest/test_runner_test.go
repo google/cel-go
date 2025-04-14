@@ -58,6 +58,20 @@ func setupTests() []*testCase {
 			testSuitePath: "testdata/custom_policy_tests.yaml",
 			opts:          []any{customPolicyParserOption(), compiler.PolicyMetadataEnvOption(ParsePolicyVariables)},
 		},
+		{
+			name:          "raw expression file test",
+			celExpression: "testdata/raw_expr.cel",
+			testSuitePath: "testdata/raw_expr_tests",
+			configPath:    "testdata/config.yaml",
+			opts:          []any{fnEnvOption()},
+		},
+		{
+			name:          "raw expression test",
+			celExpression: "'i + fn(j) == 42'",
+			testSuitePath: "testdata/raw_expr_tests",
+			configPath:    "testdata/config.yaml",
+			opts:          []any{fnEnvOption()},
+		},
 	}
 	return testCases
 }
@@ -159,6 +173,15 @@ func (customTagHandler) PolicyTag(ctx policy.ParserContext, id int64, tagName st
 	default:
 		ctx.ReportErrorAtID(id, "unsupported policy tag: %s", tagName)
 	}
+}
+
+func fnEnvOption() cel.EnvOption {
+	return cel.Function("fn",
+		cel.Overload("fn_int", []*cel.Type{cel.IntType}, cel.IntType,
+			cel.UnaryBinding(func(in ref.Val) ref.Val {
+				i := in.(types.Int)
+				return i / types.Int(2)
+			})))
 }
 
 // TestTriggerTests tests different scenarios of the TriggerTestsFromCompiler function.
