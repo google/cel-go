@@ -144,8 +144,8 @@ func testRunnerExpressionsFromFlags() TestRunnerOption {
 // In case the test suite is serialized in a Textproto/YAML file, the path of the file is passed as
 // an argument to the parse method.
 type TestSuiteParser interface {
-	ParseTextproto(any) (*conformancepb.TestSuite, error)
-	ParseYAML(any) (*test.Suite, error)
+	ParseTextproto(string) (*conformancepb.TestSuite, error)
+	ParseYAML(string) (*test.Suite, error)
 }
 
 type tsParser struct {
@@ -153,16 +153,15 @@ type tsParser struct {
 }
 
 // ParseTextproto parses a test suite file in Textproto format.
-func (p *tsParser) ParseTextproto(path any) (*conformancepb.TestSuite, error) {
-	filePath := path.(string)
-	if filePath == "" {
+func (p *tsParser) ParseTextproto(path string) (*conformancepb.TestSuite, error) {
+	if path == "" {
 		return nil, nil
 	}
-	if fileFormat := compiler.InferFileFormat(filePath); fileFormat != compiler.TextProto {
+	if fileFormat := compiler.InferFileFormat(path); fileFormat != compiler.TextProto {
 		return nil, fmt.Errorf("invalid file extension wanted: .textproto: found %v", fileFormat)
 	}
 	testSuite := &conformancepb.TestSuite{}
-	data, err := os.ReadFile(filePath)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("os.ReadFile(%q) failed: %v", path, err)
 	}
@@ -171,17 +170,16 @@ func (p *tsParser) ParseTextproto(path any) (*conformancepb.TestSuite, error) {
 }
 
 // ParseYAML parses a test suite file in YAML format.
-func (p *tsParser) ParseYAML(path any) (*test.Suite, error) {
-	filePath := path.(string)
-	if filePath == "" {
+func (p *tsParser) ParseYAML(path string) (*test.Suite, error) {
+	if path == "" {
 		return nil, nil
 	}
-	if fileFormat := compiler.InferFileFormat(filePath); fileFormat != compiler.TextYAML {
+	if fileFormat := compiler.InferFileFormat(path); fileFormat != compiler.TextYAML {
 		return nil, fmt.Errorf("invalid file extension wanted: .yaml: found %v", fileFormat)
 	}
-	testSuiteBytes, err := os.ReadFile(filePath)
+	testSuiteBytes, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("os.ReadFile(%q) failed: %v", filePath, err)
+		return nil, fmt.Errorf("os.ReadFile(%q) failed: %v", path, err)
 	}
 	testSuite := &test.Suite{}
 	err = yaml.Unmarshal(testSuiteBytes, testSuite)
@@ -335,6 +333,7 @@ func (tr *TestRunner) Programs(t *testing.T, opts ...cel.ProgramOption) ([]cel.P
 	}
 	var programs []cel.Program
 	for _, expr := range tr.Expressions {
+		// TODO: propagate metadata map along with the program instance as a struct.
 		ast, _, err := expr.CreateAST(tr.Compiler)
 		if err != nil {
 			if strings.Contains(err.Error(), "invalid file extension") ||
