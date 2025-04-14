@@ -22,13 +22,13 @@ import (
 	"github.com/google/cel-go/test"
 )
 
-//go:embed testdata/basic.prompt.md
+//go:embed testdata/basic.prompt.txt
 var wantBasicPrompt string
 
-//go:embed testdata/macros.prompt.md
+//go:embed testdata/macros.prompt.txt
 var wantMacrosPrompt string
 
-//go:embed testdata/standard_env.prompt.md
+//go:embed testdata/standard_env.prompt.txt
 var wantStandardEnvPrompt string
 
 func TestPromptTemplate(t *testing.T) {

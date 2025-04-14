@@ -19,5 +19,5 @@ genrule(
 
 filegroup(
     name = "prompts",
-    srcs = glob(["*.prompt.md"]),
+    srcs = glob(["*.prompt.txt"]),
 )

@@ -233,7 +233,7 @@ func NewVariable(name string, t *TypeDesc) *Variable {
 	return NewVariableWithDoc(name, t, "")
 }
 
-// NewVariable returns a serializable variable from a name, type definition, and doc string.
+// NewVariableWithDoc returns a serializable variable from a name, type definition, and doc string.
 func NewVariableWithDoc(name string, t *TypeDesc, doc string) *Variable {
 	return &Variable{Name: name, TypeDesc: t, Description: doc}
 }
