@@ -1,4 +1,4 @@
-# Copyright 2024 Google LLC
+# Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,19 +12,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-description: "Nested rule tests which explore optional vs non-optional returns"
+description: "Custom policy tests"
 section:
-  - name: "valid"
+  - name: "output true"
     tests:
-      - name: "x=0"
+      - name: "variable 1 match"
         input:
-          x:
-            value: 0
-        output:
-          value: false
-      - name: "x=2"
-        input:
-          x:
-            value: 2
+          variable1:
+            value: 1
         output:
           value: true
+      - name: "variable 2 match"
+        input:
+          variable1:
+            value: 2
+          variable2:
+            value: "known"
+        output:
+          value: true
+  - name: "output false"
+    tests:
+      - name: "variable mismatch"
+        input:
+          variable1:
+            value: 2
+          variable2:
+            value: "unknown"
+        output:
+          value: false

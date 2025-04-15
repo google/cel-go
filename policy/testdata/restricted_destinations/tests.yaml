@@ -40,7 +40,8 @@ section:
              name: "/company/acme/secrets/doomsday-device"
              labels:
                location: "us"
-       output: "false" # false means unrestricted
+       output:
+         value: false # false means unrestricted
      - name: "nationality_allowed"
        input:
          "spec.origin":
@@ -64,7 +65,8 @@ section:
              name: "/company/acme/secrets/doomsday-device"
              labels:
                location: "us"
-       output: "false"
+       output:
+         value: false
   - name: "invalid"
     tests:
      - name: "destination_ip_prohibited"
@@ -91,7 +93,8 @@ section:
              name: "/company/acme/secrets/doomsday-device"
              labels:
                location: "us"
-       output: "true" # true means restricted
+       output:
+         value: true # true means restricted
      - name: "resource_nationality_prohibited"
        input:
          "spec.origin":
@@ -115,4 +118,5 @@ section:
              name: "/company/acme/secrets/doomsday-device"
              labels:
                location: "cu"
-       output: "true"
+       output:
+         value: true

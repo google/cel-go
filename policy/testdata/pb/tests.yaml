@@ -21,7 +21,8 @@ section:
          spec:
            expr: >
              test.TestAllTypes{single_int32: 10}
-       output: "optional.none()"
+       output:
+         expr: "optional.none()"
   - name: "invalid"
     tests:
      - name: "bad spec"
@@ -29,5 +30,5 @@ section:
          spec:
            expr: >
              test.TestAllTypes{single_int32: 11}
-       output: >
-         "invalid spec, got single_int32=11, wanted <= 10"
+       output:
+         value: "invalid spec, got single_int32=11, wanted <= 10"

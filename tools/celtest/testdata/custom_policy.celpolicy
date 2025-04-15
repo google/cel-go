@@ -23,3 +23,4 @@ rule:
     - condition: |
         variable1 == 1 || variable2 == "known"
       output: "true"
+    - output: "false"
