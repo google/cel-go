@@ -9,16 +9,20 @@ import (
 )
 
 const (
-	errorInvalidSignature = "function overload (id: %s) is not matched (type: %s, ref: %s, override: %s)"
-	errorMismatch         = "function overload (id: %s) has different attributes (name: %s, ref: %v, override: %v)"
+	errorInvalidSignature = "function overload (id: %s) is not matched (got: %s, want: %s)"
+	errorMismatch         = "function overload (id: %s) has different attributes (name: %s, got: %v, want: %v)"
 	errorNilActivation    = "cannot create a late bind activation with a nil activation"
 	errorOverloadNotFound = "unexpected: overload (id: %s) not found."
+
+	unarySignature    = "unary{ func(ref.Val) ref.Val }"
+	binarySignature   = "binary{ func(ref.Val, ref.Val) ref.Val }"
+	functionSignature = "varargs{ func(...ref.Val) ref.Val }"
 )
 
 // NewLateBindActivation creates an activation that wraps the given activation and
 // exposes the given function overloads to the evaluation. If the list of overloads
 // has duplicates or the given activation is nil, it will return an error.
-func NewLateBindActivation(activation Activation, overloads ...*functions.Overload) (Activation, error) {
+func NewLateBindActivation(activation Activation, overloads ...*functions.Overload) (LateBindActivation, error) {
 
 	dispatcher := NewDispatcher()
 	err := dispatcher.Add(overloads...)
@@ -34,6 +38,30 @@ func NewLateBindActivation(activation Activation, overloads ...*functions.Overlo
 		vars:       activation,
 		dispatcher: dispatcher,
 	}, nil
+}
+
+// LateBindActivation provides an interface that defines
+// the contract for exposing function overloads during
+// the evaluation.
+//
+// This interface enables the integration of external
+// implementations of the late bind behaviour, without
+// limiting the design to a given concrete type.
+type LateBindActivation interface {
+	Activation
+	// ResolveOverload resolves the function overload that is
+	// mapped to overloadId. Implementations of this function
+	// are expected to recursively navigate the activation tree
+	// by respecting the parent-child relationships to find the
+	// first overload definition that is mapped to overloadId.
+	ResolveOverload(overloadId string) *functions.Overload
+	// ResolveOverloads returns a Dispatcher implementation that maintains all
+	// the overload functions that are defined starting from the instance of the
+	// concrete type implementing this method. The list is guaranteed to be
+	// unique (i.e. with no duplicates). Should duplicates be found, only the
+	// first occurrence of the overload is added to the list, thus ensuring
+	// that the correct behaviour is being implemented.
+	ResolveOverloads() Dispatcher
 }
 
 // lateBindActivation is an Activation implementation
@@ -56,6 +84,43 @@ func (activation *lateBindActivation) ResolveName(name string) (any, bool) {
 // activation that is wrapped by this struct.
 func (activation *lateBindActivation) Parent() Activation {
 	return activation.vars
+}
+
+// ResolveOverload resolves function overload that is mapped by
+// the given overloadId. The implementation first checks if the
+// dispatcher configured with the current activation defines an
+// overload for overloadId, and if found it returns such overload.
+// If the dispatcher does not define such overloads the function
+// recursively checks the activation to find any LateBindActivation
+// that might declare such overload.
+func (activation *lateBindActivation) ResolveOverload(overloadId string) *functions.Overload {
+
+	if activation.dispatcher != nil {
+		ovl, found := activation.dispatcher.FindOverload(overloadId)
+		if found {
+			return ovl
+		}
+	}
+
+	return resolveOverload(overloadId, activation.vars)
+}
+
+// ResolveOverloads returns a Dispatcher implementation that aggregates
+// all function overloads definition that are accessible from the current
+// activation reference. The preference is given to the overloads of the
+// defined dispatcher, and then the hierarchy of activations originating
+// from the configured parent activation. If there are any duplicates
+func (activation *lateBindActivation) ResolveOverloads() Dispatcher {
+
+	dispatcher := NewDispatcher()
+	for _, ovlId := range activation.dispatcher.OverloadIds() {
+		ovl, _ := activation.dispatcher.FindOverload(ovlId)
+		dispatcher.Add(ovl)
+	}
+
+	resolveAllOverloads(dispatcher, activation.vars)
+
+	return dispatcher
 }
 
 // decLateBinding returns an InterpretableDecorator
@@ -695,20 +760,14 @@ func resolveOverload(overloadId string, activation Activation) *functions.Overlo
 	case *partActivation:
 		return resolveOverload(overloadId, act.Activation)
 	case *hierarchicalActivation:
-		ovl := resolveOverload(overloadId, act.parent)
+		ovl := resolveOverload(overloadId, act.child)
 		if ovl == nil {
-			return resolveOverload(overloadId, act.child)
+			return resolveOverload(overloadId, act.parent)
 		}
 		return ovl
-	case *lateBindActivation:
+	case LateBindActivation:
 
-		if act.dispatcher != nil {
-			ovl, found := act.dispatcher.FindOverload(overloadId)
-			if found {
-				return ovl
-			}
-		}
-		return nil
+		return act.ResolveOverload(overloadId)
 	}
 
 	// this is to ensure that if there are
@@ -767,24 +826,23 @@ func resolveAllOverloads(aggregate Dispatcher, activation Activation) {
 	case *partActivation:
 		resolveAllOverloads(aggregate, act.Activation)
 	case *hierarchicalActivation:
-		resolveAllOverloads(aggregate, act.parent)
 		resolveAllOverloads(aggregate, act.child)
-	case *lateBindActivation:
+		resolveAllOverloads(aggregate, act.parent)
+	case LateBindActivation:
 
-		if act.dispatcher != nil {
-
-			for _, overloadId := range act.dispatcher.OverloadIds() {
-
-				ovl, found := act.dispatcher.FindOverload(overloadId)
-				if found {
-					// note we don't need to check an error because if there
-					// is an error the overload is already defined. This may
-					// happen because we nest multiple activation with late
-					// binding capabilities and one may shadow another as it
-					// happens for variable names. Since the activations are
-					// visitedin the correct order this is expected behaviour.
-					aggregate.Add(ovl)
-				}
+		// the implementation of Overloads() is expected to be
+		// recursive, therefore we don't need to look any further.
+		dispatcher := act.ResolveOverloads()
+		for _, ovlId := range dispatcher.OverloadIds() {
+			ovl, found := dispatcher.FindOverload(ovlId)
+			if found {
+				// note we don't need to check an error because if there
+				// is an error the overload is already defined. This may
+				// happen because we nest multiple activation with late
+				// binding capabilities and one may shadow another as it
+				// happens for variable names. Since the activations are
+				// visitedin the correct order this is expected behaviour
+				aggregate.Add(ovl)
 			}
 		}
 	}
@@ -806,52 +864,55 @@ func resolveAllOverloads(aggregate Dispatcher, activation Activation) {
 // - refOvl.Operator and ovl.Operator must be the same.
 func matchSignature(overloadId string, refOvl *functions.Overload, ovl *functions.Overload) error {
 
+	got := "<nil>"
+
 	if refOvl.Unary != nil {
 
 		if ovl.Unary == nil {
 
-			return fmt.Errorf(errorInvalidSignature, overloadId, "unary", "<not-nil>", "<nil>")
+			if ovl.Binary != nil {
+				got = binarySignature
+
+			} else if ovl.Function != nil {
+				got = functionSignature
+			}
+			return fmt.Errorf(errorInvalidSignature, overloadId, got, unarySignature)
 		}
-	} else if ovl.Unary != nil {
-
-		return fmt.Errorf(errorInvalidSignature, overloadId, "unary", "<nil>", "<not-nil>")
-	}
-
-	if refOvl.Binary != nil {
+	} else if refOvl.Binary != nil {
 
 		if ovl.Binary == nil {
 
-			return fmt.Errorf(errorInvalidSignature, overloadId, "binary", "<not-nil>", "<nil>")
+			if ovl.Unary != nil {
+				got = unarySignature
+			} else if ovl.Function != nil {
+				got = functionSignature
+			}
 
+			return fmt.Errorf(errorInvalidSignature, overloadId, got, binarySignature)
 		}
 
-	} else if ovl.Binary != nil {
-
-		return fmt.Errorf(errorInvalidSignature, overloadId, "binary", "<nil>", "<not-nil>")
-
-	}
-
-	if refOvl.Function != nil {
+	} else if refOvl.Function != nil {
 
 		if ovl.Function == nil {
 
-			return fmt.Errorf(errorInvalidSignature, overloadId, "varargs", "<not-nil>", "<nil>")
+			if ovl.Unary != nil {
+				got = unarySignature
+			} else if ovl.Binary != nil {
+				got = binarySignature
+			}
+
+			return fmt.Errorf(errorInvalidSignature, overloadId, got, functionSignature)
 
 		}
-
-	} else if ovl.Function == nil {
-
-		return fmt.Errorf(errorInvalidSignature, overloadId, "varargs", "<nil>", "<not-nil>")
-
 	}
 
 	if refOvl.NonStrict != ovl.NonStrict {
 
-		return fmt.Errorf(errorMismatch, overloadId, "NonStrict", refOvl.NonStrict, ovl.NonStrict)
+		return fmt.Errorf(errorMismatch, overloadId, "NonStrict", ovl.NonStrict, refOvl.NonStrict)
 	}
 	if refOvl.OperandTrait != ovl.OperandTrait {
 
-		return fmt.Errorf(errorMismatch, overloadId, "OperandTrait", refOvl.OperandTrait, ovl.OperandTrait)
+		return fmt.Errorf(errorMismatch, overloadId, "OperandTrait", ovl.OperandTrait, refOvl.OperandTrait)
 	}
 	if refOvl.Operator != ovl.Operator {
 
