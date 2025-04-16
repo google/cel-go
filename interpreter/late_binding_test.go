@@ -805,7 +805,7 @@ func TestValidateOverloads(t *testing.T) {
 	}
 }
 
-// TestLateBindEvalZeroArityID verifies the implemented behaviour of latebindEvalZeroArity.ID().
+// TestLateBindEvalZeroArityID verifies the implemented behaviour of lateBindEvalZeroArity.ID().
 // The expectation is for the function to forward the call to the wrapped evalZeroArity reference.
 func TestLateBindEvalZeroArityID(t *testing.T) {
 
@@ -818,14 +818,7 @@ func TestLateBindEvalZeroArityID(t *testing.T) {
 		},
 	}
 
-	candidate := &lateBindEvalZeroArity{
-		target: expected,
-	}
-
-	actualID := candidate.ID()
-	if expected.ID() != actualID {
-		t.Errorf("id mismatch (got: %d, want: %d)", actualID, expected.ID())
-	}
+	testInterpretableCallID(t, &lateBindEvalZeroArity{target: expected}, expected)
 }
 
 // TestLateBindEvalZeroArityFunction verifies the implemented behaviour of latebindEvalZeroArity.Function().
@@ -841,14 +834,7 @@ func TestLateBindEvalZeroArityFunction(t *testing.T) {
 		},
 	}
 
-	candidate := &lateBindEvalZeroArity{
-		target: expected,
-	}
-
-	actualFunction := candidate.Function()
-	if expected.Function() != actualFunction {
-		t.Errorf("id mismatch (got: %s, want: %s)", actualFunction, expected.Function())
-	}
+	testInterpretableCallFunction(t, &lateBindEvalZeroArity{target: expected}, expected)
 }
 
 // TestLateBindEvalZeroArityOverloadID verifies the implemented behaviour of latebindEvalZeroArity.OverloadID().
@@ -864,14 +850,8 @@ func TestLateBindEvalZeroArityOverloadID(t *testing.T) {
 		},
 	}
 
-	candidate := &lateBindEvalZeroArity{
-		target: expected,
-	}
+	testInterpretableCallOverloadID(t, &lateBindEvalZeroArity{target: expected}, expected)
 
-	actualOverloadID := candidate.OverloadID()
-	if expected.OverloadID() != actualOverloadID {
-		t.Errorf("id mismatch (got: %s, want: %s)", actualOverloadID, expected.OverloadID())
-	}
 }
 
 // TestLateBindEvalZeroArityArgs verifies the implemented behaviour of latebindEvalZeroArity.Args().
@@ -887,68 +867,14 @@ func TestLateBindEvalZeroArityArgs(t *testing.T) {
 		},
 	}
 
-	candidate := &lateBindEvalZeroArity{
-		target: expected,
-	}
-
-	compareArgs(t, expected.Args(), candidate.Args())
-}
-
-// interpretableTestCase defines the structure used to model test cases
-// for all Interpretable.Eval(Activation) that are tested in this file.
-type interpretableTestCase struct {
-	name       string
-	candidate  Interpretable
-	activation Activation
-	expect     func(t *testing.T, target Interpretable, actual ref.Val)
-}
-
-// testInterpretable tests the implementation of Interpretable that is
-// configured in each of the test cases by invoking the Eval(Activation)
-// method and then validating the outcome via the expectation function
-// defined in the test case.
-func testInterpretable(t *testing.T, testCases []interpretableTestCase) {
-
-	for _, testCase := range testCases {
-
-		t.Run(testCase.name, func(t *testing.T) {
-
-			actual := testCase.candidate.Eval(testCase.activation)
-			testCase.expect(t, testCase.candidate, actual)
-		})
-	}
-}
-
-// expectValue is a convenience function that produces an expectation function that checks
-// that the value returned by the execution of Interpretable.Eval(Activation) matches the
-// given expected value otherwise it fails the test.
-func expectValue(expected ref.Val) func(t *testing.T, target Interpretable, actual ref.Val) {
-
-	return func(t *testing.T, _ Interpretable, actual ref.Val) {
-		if expected.Equal(actual) == types.False {
-			t.Errorf("unexpected value (got: %v, want: %v)", actual, expected)
-		}
-	}
-}
-
-// chain is a convenience function that can be used to run in sequence multiple expectation
-// functions that are passed as argument. The function returns an expectation function that
-// executes all the functions in the checks array, with the actual arguments passed to the
-// function.
-func chain(checks ...func(t *testing.T, target Interpretable, actual ref.Val)) func(t *testing.T, target Interpretable, actual ref.Val) {
-
-	return func(t *testing.T, target Interpretable, actual ref.Val) {
-
-		for _, check := range checks {
-			check(t, target, actual)
-		}
-	}
+	testInterpretableCallArgs(t, &lateBindEvalZeroArity{target: expected}, expected)
 }
 
 // TestLateBindEvalZeroArityEval verifies the implemented behaviour of lateBindZeroArity.Eval(Activation).
 // The expectation is that the method inspects the activation tree and if it finds a function overload
 // declaration for the specified overload identifier, it creates a new instance of evalZeroArity and it
-// configures it with the new overload.
+// configures it with the new overload, before calling Eval(Activation) on the new evalZeroArity struct
+// reference.
 func TestLateBindEvalZeroArityEval(t *testing.T) {
 
 	expectUnchanged := func(expected *evalZeroArity) func(t *testing.T, target Interpretable, _ ref.Val) {
@@ -1013,7 +939,7 @@ func TestLateBindEvalZeroArityEval(t *testing.T) {
 	t2 := zeroArity(51, "f1", "f1_int", func(values ...ref.Val) ref.Val { return types.Int(50) })
 	t3 := zeroArity(52, "f3", "f3_string", func(values ...ref.Val) ref.Val { return types.String("f3_original_string") })
 
-	testInterpretable(t, []interpretableTestCase{
+	testInterpretableEval(t, []interpretableTestCase{
 		{
 			name:       "OK_Simple_Case_No_Overload",
 			activation: &emptyActivation{},
@@ -1046,12 +972,340 @@ func TestLateBindEvalZeroArityEval(t *testing.T) {
 			),
 		},
 	})
+}
+
+// TestLateBindEvalUnaryID verifies the implemented behaviour of lateBindEvalUnary.ID().
+// The expectation is for the function to forward the call to the wrapped evalUnary and
+// therefore return the same value returned by an invocation of the same method on the
+// wrapped reference.
+func TestLateBindEvalUnaryID(t *testing.T) {
+
+	expected := &evalUnary{
+		id:       45,
+		function: "f3",
+		overload: "f3_int",
+		arg:      NewConstValue(53, types.Int(3)),
+		impl: func(arg ref.Val) ref.Val {
+			return types.Int(0)
+		},
+	}
+
+	testInterpretableCallID(t, &lateBindEvalUnary{target: expected}, expected)
+}
+
+// TestLateBindEvalUnaryFunction verifies the implemented behaviour of lateBindEvalUnary.Function().
+// The expectation is for the function to forward the call to the wrapped evalUnary and therefore
+// return the same value returned by an invocation of the same method on the wrapped reference.
+func TestLateBindEvalUnaryFunction(t *testing.T) {
+
+	expected := &evalUnary{
+		id:       45,
+		function: "f3",
+		overload: "f3_int",
+		arg:      NewConstValue(53, types.Int(3)),
+		impl: func(arg ref.Val) ref.Val {
+			return types.Int(0)
+		},
+	}
+
+	testInterpretableCallFunction(t, &lateBindEvalUnary{target: expected}, expected)
 
 }
 
-// compareArgs is conveneience function used to verify that the given list
-// of arguments are identical.
-func compareArgs(t *testing.T, expected []Interpretable, actual []Interpretable) {
+// TestLateBindEvalUnaryOverloadID verifies the implemented behaviour of lateBindEvalUnary.OverloadID().
+// The expectation is for the function to forward the call to the wrapped evalUnary and therefore return
+// the same value returned by an invocation of the same method on the wrapped reference.
+func TestLateBindEvalUnaryOverloadID(t *testing.T) {
+
+	expected := &evalUnary{
+		id:       45,
+		function: "f3",
+		overload: "f3_int",
+		arg:      NewConstValue(53, types.Int(3)),
+		impl: func(arg ref.Val) ref.Val {
+			return types.Int(0)
+		},
+	}
+
+	testInterpretableCallOverloadID(t, &lateBindEvalUnary{target: expected}, expected)
+}
+
+// TestLateBindEvalUnaryArgs verifies the implemented behaviour of lateBindEvalUnary.Args().
+// The expectation is for the function to forward the call to the wrapped evalUnary and
+// therefore return the same slice it would be returned by an invocation of the same method
+// on the wrapped reference.
+func TestLateBindEvalUnaryArgs(t *testing.T) {
+
+	expected := &evalUnary{
+		id:       45,
+		function: "f3",
+		overload: "f3_int",
+		arg:      NewConstValue(53, types.Int(3)),
+		impl: func(arg ref.Val) ref.Val {
+			return types.Int(0)
+		},
+	}
+
+	testInterpretableCallArgs(t, &lateBindEvalUnary{target: expected}, expected)
+
+}
+
+// TestLateBindEvalUnaryEval verifies the implemented behaviour of lateBindEvalUnary.Eval(Activation).
+// The expectation is that the method inspects the activation tree and if it finds a function overload
+// declaration for the specified overload identifier, it creates a new instance of evalUnary and it
+// configures it with the new overload, before calling Eval(Activation) on the new evalUnary struct.
+func TestLateBindEvalUnaryEval(t *testing.T) {
+
+	testInterpretableEval(t, []interpretableTestCase{})
+}
+
+// TestLateBindEvalBinaryID verifies the implemented behaviour of lateBindEvalBinary.ID().
+// The expectation is for the function to forward the call to the wrapped evalBinary and
+// therefore return the same value returned by an invocation of the same method on the
+// wrapped reference.
+func TestLateBindEvalBinaryID(t *testing.T) {
+
+	expected := &evalBinary{
+		id:       45,
+		function: "f3",
+		overload: "f3_int",
+		lhs:      NewConstValue(53, types.Int(3)),
+		rhs:      NewConstValue(54, types.Int(6)),
+		impl: func(lhs ref.Val, rhs ref.Val) ref.Val {
+			return types.Int(0)
+		},
+	}
+
+	testInterpretableCallID(t, &lateBindEvalBinary{target: expected}, expected)
+}
+
+// TestLateBindEvalBinaryFunction verifies the implemented behaviour of lateBindEvalBinary.Function().
+// The expectation is for the function to forward the call to the wrapped evalBinary and therefore return
+// the same value returned by an invocation of the same method on the wrapped reference.
+func TestLateBindEvalBinaryFunction(t *testing.T) {
+
+	expected := &evalBinary{
+		id:       45,
+		function: "f3",
+		overload: "f3_int",
+		lhs:      NewConstValue(53, types.Int(3)),
+		rhs:      NewConstValue(54, types.Int(6)),
+		impl: func(lhs ref.Val, rhs ref.Val) ref.Val {
+			return types.Int(0)
+		},
+	}
+
+	testInterpretableCallFunction(t, &lateBindEvalBinary{target: expected}, expected)
+}
+
+// TestLateBindEvalBinaryOverloadID verifies the implemented behaviour of lateBindEvalBinary.OverloadID().
+// The expectation is for the function to forward the call to the wrapped evalBinary and therefore return
+// the same value returned by an invocation of the same method on the wrapped reference.
+func TestLateBindEvalBinaryOverloadID(t *testing.T) {
+
+	expected := &evalBinary{
+		id:       45,
+		function: "f3",
+		overload: "f3_int",
+		lhs:      NewConstValue(53, types.Int(3)),
+		rhs:      NewConstValue(54, types.Int(6)),
+		impl: func(lhs ref.Val, rhs ref.Val) ref.Val {
+			return types.Int(0)
+		},
+	}
+
+	testInterpretableCallOverloadID(t, &lateBindEvalBinary{target: expected}, expected)
+}
+
+// TestLateBindEvalBinaryArgs verifies the implemented behaviour of lateBindEvalBinary.Args().
+// The expectation is for the function to forward the call to the wrapped evalBinary and
+// therefore return the same slice it would be returned by an invocation of the same method
+// on the wrapped reference.
+func TestLateBindEvalBinaryArgs(t *testing.T) {
+
+	expected := &evalBinary{
+		id:       45,
+		function: "f3",
+		overload: "f3_int",
+		lhs:      NewConstValue(53, types.Int(3)),
+		rhs:      NewConstValue(54, types.Int(6)),
+		impl: func(lhs ref.Val, rhs ref.Val) ref.Val {
+			return types.Int(0)
+		},
+	}
+
+	testInterpretableCallArgs(t, &lateBindEvalBinary{target: expected}, expected)
+}
+
+// TestLateBindBinaryEval verifies the implemented behaviour of lateBindEvalBinary.Eval(Activation).
+// The expectation is that the method inspects the activation tree and if it finds a function overload
+// declaration for the specified overload identifier, it creates a new instance of evalBinary and it
+// configures it with the new overload, before calling Eval(Activation) on the new evalBinary struct
+// reference.
+func TestLateBindBinaryEval(t *testing.T) {
+
+	testInterpretableEval(t, []interpretableTestCase{})
+}
+
+// TestLateBindEvalVarArgsID verifies the implemented behaviour of lateBindEvalVarArgs.ID().
+// The expectation is for the function to forward the call to the wrapped evalVarArgs and
+// therefore return the same value returned by an invocation of the same method on the
+// wrapped reference.
+func TestLateBindEvalVarArgsID(t *testing.T) {
+
+	expected := &evalVarArgs{
+		id:       65,
+		function: "f4",
+		overload: "f4_bool",
+		args: []Interpretable{
+			NewConstValue(66, types.True),
+			NewConstValue(67, types.False),
+			NewConstValue(67, types.False),
+		},
+		trait:     0,
+		nonStrict: false,
+		impl: func(_ ...ref.Val) ref.Val {
+			return types.False
+		},
+	}
+
+	testInterpretableCallID(t, &lateBindEvalVarArgs{target: expected}, expected)
+}
+
+// TestLateBindEvalVarArgsFunction verifies the implemented behaviour of lateBindEvalVarArgs.Function().
+// The expectation is for the function to forward the call to the wrapped evalVarArgs and therefore
+// return the same value returned by an invocation of the same method on the wrapped reference.
+func TestLateBindEvalVarArgsFunction(t *testing.T) {
+
+	expected := &evalVarArgs{
+		id:       65,
+		function: "f4",
+		overload: "f4_bool",
+		args: []Interpretable{
+			NewConstValue(66, types.True),
+			NewConstValue(67, types.False),
+			NewConstValue(67, types.False),
+		},
+		trait:     0,
+		nonStrict: false,
+		impl: func(_ ...ref.Val) ref.Val {
+			return types.False
+		},
+	}
+
+	testInterpretableCallFunction(t, &lateBindEvalVarArgs{target: expected}, expected)
+}
+
+// TestLateBindEvalVarArgsOverloadID verifies the implemented behaviour of lateBindEvalVarArgs.OverloadID().
+// The expectation is for the function to forward the call to the wrapped evalVarArgs and therefore return
+// the same value returned by an invocation of the same method on the wrapped reference.
+func TestLateBindEvalVarArgsOverloadID(t *testing.T) {
+
+	expected := &evalVarArgs{
+		id:       65,
+		function: "f4",
+		overload: "f4_bool",
+		args: []Interpretable{
+			NewConstValue(66, types.True),
+			NewConstValue(67, types.False),
+			NewConstValue(67, types.False),
+		},
+		trait:     0,
+		nonStrict: false,
+		impl: func(_ ...ref.Val) ref.Val {
+			return types.False
+		},
+	}
+
+	testInterpretableCallOverloadID(t, &lateBindEvalVarArgs{target: expected}, expected)
+}
+
+// TestLateBindEvalVarArgsArgs verifies the implemented behaviour of lateBindEvalVarArgs.Args().
+// The expectation is for the function to forward the call to the wrapped evalVarArgs and
+// therefore return the same slice it would be returned by an invocation of the same method on
+// the wrapped reference.
+func TestLateBindEvalVarArgsArgs(t *testing.T) {
+
+	expected := &evalVarArgs{
+		id:       65,
+		function: "f4",
+		overload: "f4_bool",
+		args: []Interpretable{
+			NewConstValue(66, types.True),
+			NewConstValue(67, types.False),
+			NewConstValue(67, types.False),
+		},
+		trait:     0,
+		nonStrict: false,
+		impl: func(_ ...ref.Val) ref.Val {
+			return types.False
+		},
+	}
+
+	testInterpretableCallArgs(t, &lateBindEvalVarArgs{target: expected}, expected)
+}
+
+// TestLateBindEvalVargArgsEval verifies the implemented behaviour of lateBindEvalVarArgs.Eval(Activation).
+// The expectation is that the method inspects the activation tree and if it finds a function overload
+// declaration for the specified overload identifier, it creates a new instance of evalVarArgs and it
+// configures it with the new overload, before calling Eval(Activation) on the new evalVarArgs struct
+// reference.
+func TestLateBindEvalVargArgsEval(t *testing.T) {
+
+	testInterpretableEval(t, []interpretableTestCase{})
+}
+
+// testInterpretableCallID is a convenience function that verifies that the value
+// returned by wrapper.ID() is the same as the value return by target.ID(). This
+// logic has been extracted out, so that we can more easily test all late bind
+// evaluation implementation.s
+func testInterpretableCallID[W, T InterpretableCall](t *testing.T, wrapper W, target T) {
+
+	actual := wrapper.ID()
+	expected := target.ID()
+
+	if actual != expected {
+		t.Errorf("identifier mismatch (got: %d, want: %d)", actual, expected)
+	}
+}
+
+// testInterpretableCallFunction is a convenience function that verifies that the value
+// returned by wrapper.Function() is the same as the value return by target.Function().
+// This logic has been extracted out, so that we can more easily test all late bind
+// evaluation implementations.
+func testInterpretableCallFunction[W, T InterpretableCall](t *testing.T, wrapper W, target T) {
+
+	actual := wrapper.Function()
+	expected := target.Function()
+
+	if actual != expected {
+		t.Errorf("function mismatch (got %s, want: %s)", actual, expected)
+	}
+}
+
+// testInterpretableCallOverloadID is a convenience function that verifies that the value
+// returned by wrapper.OverloadID() is the same as the value return by target.OverloadID().
+// This logic has been extracted out, so that we can more easily test all late bind
+// evaluation implementations.
+func testInterpretableCallOverloadID[W, T InterpretableCall](t *testing.T, wrapper W, target T) {
+
+	actual := wrapper.OverloadID()
+	expected := target.OverloadID()
+
+	if actual != expected {
+		t.Errorf("overload identifier mismatch (got %s, want: %s)", actual, expected)
+	}
+
+}
+
+// testInterpretableCallArgs is a convenience function that verifies that the slice
+// returned by wrapper.Args() has the same content (and order) of the slice returned
+// by target.Args(). This logic has been extracted out, so that we can more easily
+// test all late bind evaluation implementations.
+func testInterpretableCallArgs[W, T InterpretableCall](t *testing.T, wrapper W, target T) {
+
+	actual := wrapper.Args()
+	expected := target.Args()
 
 	if len(expected) != len(actual) {
 		t.Errorf("args size mismatch (got: %d, want: %d)", len(actual), len(expected))
@@ -1063,6 +1317,57 @@ func compareArgs(t *testing.T, expected []Interpretable, actual []Interpretable)
 		aArg := actual[index]
 		if eArg != aArg {
 			t.Errorf("arg (index: %d) mismatch (got: %v, want: %v)", index, aArg, eArg)
+		}
+	}
+}
+
+// interpretableTestCase defines the structure used to model test cases
+// for all Interpretable.Eval(Activation) that are tested in this file.
+type interpretableTestCase struct {
+	name       string
+	candidate  Interpretable
+	activation Activation
+	expect     func(t *testing.T, target Interpretable, actual ref.Val)
+}
+
+// testInterpretableEval tests the implementation of Interpretable that is
+// configured in each of the test cases by invoking the Eval(Activation)
+// method and then validating the outcome via the expectation function
+// defined in the test case.
+func testInterpretableEval(t *testing.T, testCases []interpretableTestCase) {
+
+	for _, testCase := range testCases {
+
+		t.Run(testCase.name, func(t *testing.T) {
+
+			actual := testCase.candidate.Eval(testCase.activation)
+			testCase.expect(t, testCase.candidate, actual)
+		})
+	}
+}
+
+// expectValue is a convenience function that produces an expectation function that checks
+// that the value returned by the execution of Interpretable.Eval(Activation) matches the
+// given expected value otherwise it fails the test.
+func expectValue(expected ref.Val) func(t *testing.T, target Interpretable, actual ref.Val) {
+
+	return func(t *testing.T, _ Interpretable, actual ref.Val) {
+		if expected.Equal(actual) == types.False {
+			t.Errorf("unexpected value (got: %v, want: %v)", actual, expected)
+		}
+	}
+}
+
+// chain is a convenience function that can be used to run in sequence multiple expectation
+// functions that are passed as argument. The function returns an expectation function that
+// executes all the functions in the checks array, with the actual arguments passed to the
+// function.
+func chain(checks ...func(t *testing.T, target Interpretable, actual ref.Val)) func(t *testing.T, target Interpretable, actual ref.Val) {
+
+	return func(t *testing.T, target Interpretable, actual ref.Val) {
+
+		for _, check := range checks {
+			check(t, target, actual)
 		}
 	}
 }
