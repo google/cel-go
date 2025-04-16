@@ -805,6 +805,268 @@ func TestValidateOverloads(t *testing.T) {
 	}
 }
 
+// TestLateBindEvalZeroArityID verifies the implemented behaviour of latebindEvalZeroArity.ID().
+// The expectation is for the function to forward the call to the wrapped evalZeroArity reference.
+func TestLateBindEvalZeroArityID(t *testing.T) {
+
+	expected := &evalZeroArity{
+		id:       12,
+		function: "f1",
+		overload: "f1_zero",
+		impl: func(args ...ref.Val) ref.Val {
+			return types.Int(0)
+		},
+	}
+
+	candidate := &lateBindEvalZeroArity{
+		target: expected,
+	}
+
+	actualID := candidate.ID()
+	if expected.ID() != actualID {
+		t.Errorf("id mismatch (got: %d, want: %d)", actualID, expected.ID())
+	}
+}
+
+// TestLateBindEvalZeroArityFunction verifies the implemented behaviour of latebindEvalZeroArity.Function().
+// The expectation is for the function to forward the call to the wrapped evalZeroArity reference.
+func TestLateBindEvalZeroArityFunction(t *testing.T) {
+
+	expected := &evalZeroArity{
+		id:       12,
+		function: "f1",
+		overload: "f1_zero",
+		impl: func(args ...ref.Val) ref.Val {
+			return types.Int(0)
+		},
+	}
+
+	candidate := &lateBindEvalZeroArity{
+		target: expected,
+	}
+
+	actualFunction := candidate.Function()
+	if expected.Function() != actualFunction {
+		t.Errorf("id mismatch (got: %s, want: %s)", actualFunction, expected.Function())
+	}
+}
+
+// TestLateBindEvalZeroArityOverloadID verifies the implemented behaviour of latebindEvalZeroArity.OverloadID().
+// The expectation is for the function to forward the call to the wrapped evalZeroArity reference.
+func TestLateBindEvalZeroArityOverloadID(t *testing.T) {
+
+	expected := &evalZeroArity{
+		id:       12,
+		function: "f1",
+		overload: "f1_zero",
+		impl: func(args ...ref.Val) ref.Val {
+			return types.Int(0)
+		},
+	}
+
+	candidate := &lateBindEvalZeroArity{
+		target: expected,
+	}
+
+	actualOverloadID := candidate.OverloadID()
+	if expected.OverloadID() != actualOverloadID {
+		t.Errorf("id mismatch (got: %s, want: %s)", actualOverloadID, expected.OverloadID())
+	}
+}
+
+// TestLateBindEvalZeroArityArgs verifies the implemented behaviour of latebindEvalZeroArity.Args().
+// The expectation is for the function to forward the call to the wrapped evalZeroArity reference.
+func TestLateBindEvalZeroArityArgs(t *testing.T) {
+
+	expected := &evalZeroArity{
+		id:       12,
+		function: "f1",
+		overload: "f1_zero",
+		impl: func(args ...ref.Val) ref.Val {
+			return types.Int(0)
+		},
+	}
+
+	candidate := &lateBindEvalZeroArity{
+		target: expected,
+	}
+
+	compareArgs(t, expected.Args(), candidate.Args())
+}
+
+// interpretableTestCase defines the structure used to model test cases
+// for all Interpretable.Eval(Activation) that are tested in this file.
+type interpretableTestCase struct {
+	name       string
+	candidate  Interpretable
+	activation Activation
+	expect     func(t *testing.T, target Interpretable, actual ref.Val)
+}
+
+// testInterpretable tests the implementation of Interpretable that is
+// configured in each of the test cases by invoking the Eval(Activation)
+// method and then validating the outcome via the expectation function
+// defined in the test case.
+func testInterpretable(t *testing.T, testCases []interpretableTestCase) {
+
+	for _, testCase := range testCases {
+
+		t.Run(testCase.name, func(t *testing.T) {
+
+			actual := testCase.candidate.Eval(testCase.activation)
+			testCase.expect(t, testCase.candidate, actual)
+		})
+	}
+}
+
+// expectValue is a convenience function that produces an expectation function that checks
+// that the value returned by the execution of Interpretable.Eval(Activation) matches the
+// given expected value otherwise it fails the test.
+func expectValue(expected ref.Val) func(t *testing.T, target Interpretable, actual ref.Val) {
+
+	return func(t *testing.T, _ Interpretable, actual ref.Val) {
+		if expected.Equal(actual) == types.False {
+			t.Errorf("unexpected value (got: %v, want: %v)", actual, expected)
+		}
+	}
+}
+
+// chain is a convenience function that can be used to run in sequence multiple expectation
+// functions that are passed as argument. The function returns an expectation function that
+// executes all the functions in the checks array, with the actual arguments passed to the
+// function.
+func chain(checks ...func(t *testing.T, target Interpretable, actual ref.Val)) func(t *testing.T, target Interpretable, actual ref.Val) {
+
+	return func(t *testing.T, target Interpretable, actual ref.Val) {
+
+		for _, check := range checks {
+			check(t, target, actual)
+		}
+	}
+}
+
+// TestLateBindEvalZeroArityEval verifies the implemented behaviour of lateBindZeroArity.Eval(Activation).
+// The expectation is that the method inspects the activation tree and if it finds a function overload
+// declaration for the specified overload identifier, it creates a new instance of evalZeroArity and it
+// configures it with the new overload.
+func TestLateBindEvalZeroArityEval(t *testing.T) {
+
+	expectUnchanged := func(expected *evalZeroArity) func(t *testing.T, target Interpretable, _ ref.Val) {
+		return func(t *testing.T, target Interpretable, _ ref.Val) {
+
+			lba, ok := target.(*lateBindEvalZeroArity)
+			if !ok {
+				t.Errorf("unexpected type in test case (got: %T, want: %T)", target, &lateBindEvalZeroArity{})
+				t.FailNow()
+			}
+			actual := lba.target
+			if target == nil {
+				t.Errorf("unexpected nil reference in lateBindEvalZeroArity")
+			}
+
+			if expected.id != expected.id {
+				t.Errorf("identifier mismatch (got: %d, want: %d)", actual.id, expected.id)
+			}
+
+			if expected.function != actual.function {
+				t.Errorf("function mismatch (got: %s, want: %s)", actual.function, expected.function)
+			}
+
+			if expected.overload != actual.overload {
+				t.Errorf("overload mismatch (got: %s, want: %s)", actual.overload, expected.overload)
+			}
+
+			// we can't compare function pointers, we then invoke the
+			// functions to be sure that they yeld the expected result.
+			eVal := expected.impl()
+			aVal := actual.impl()
+
+			if eVal.Equal(aVal) == types.False {
+				t.Errorf("function overload has been mutated on original target (invoke, got: %v, want: %v)", aVal, eVal)
+			}
+		}
+	}
+
+	// zeroArity is a function returns a function that upon call produces always a new instance
+	// of evalZeroArity configured in the same way. This behaviour is required to ensure that the
+	// invocation to Eval(Activation) does not mutate the original evalZeroArity wrapped in the
+	// lateBindEvalZeroArity. The reason why we need to introduce this complexity is because the
+	// Interpretable are pointers. Therefore, we can't rely on the reference stored in the test
+	// case to determine whether it has remained unchanged or not, but we need a fresh instance
+	// that is identical to the original configured with the test case.
+	zeroArity := func(id int64, function string, overload string, impl func(...ref.Val) ref.Val) func() *evalZeroArity {
+
+		return func() *evalZeroArity {
+
+			return &evalZeroArity{
+				id:       id,
+				function: function,
+				overload: overload,
+				impl:     impl,
+			}
+		}
+	}
+
+	nestedActivation, _ := prepareNestedActivation()
+
+	t1 := zeroArity(50, "f1", "f1_int", func(values ...ref.Val) ref.Val { return types.Int(30) })
+	t2 := zeroArity(51, "f1", "f1_int", func(values ...ref.Val) ref.Val { return types.Int(50) })
+	t3 := zeroArity(52, "f3", "f3_string", func(values ...ref.Val) ref.Val { return types.String("f3_original_string") })
+
+	testInterpretable(t, []interpretableTestCase{
+		{
+			name:       "OK_Simple_Case_No_Overload",
+			activation: &emptyActivation{},
+			candidate: &lateBindEvalZeroArity{
+				target: t1(),
+			},
+			expect: chain(
+				expectUnchanged(t1()),
+				expectValue(types.Int(30)),
+			),
+		}, {
+			name:       "OK_Complex_Case_No_Overload",
+			activation: nestedActivation(),
+			candidate: &lateBindEvalZeroArity{
+				target: t2(),
+			},
+			expect: chain(
+				expectUnchanged(t2()),
+				expectValue(types.Int(50)),
+			),
+		}, {
+			name:       "OK_Complex_Case_With_Overload",
+			activation: nestedActivation(),
+			candidate: &lateBindEvalZeroArity{
+				target: t3(),
+			},
+			expect: chain(
+				expectUnchanged(t3()),
+				expectValue(types.String("f3_string")),
+			),
+		},
+	})
+
+}
+
+// compareArgs is conveneience function used to verify that the given list
+// of arguments are identical.
+func compareArgs(t *testing.T, expected []Interpretable, actual []Interpretable) {
+
+	if len(expected) != len(actual) {
+		t.Errorf("args size mismatch (got: %d, want: %d)", len(actual), len(expected))
+		t.FailNow()
+	}
+
+	for index, eArg := range expected {
+
+		aArg := actual[index]
+		if eArg != aArg {
+			t.Errorf("arg (index: %d) mismatch (got: %v, want: %v)", index, aArg, eArg)
+		}
+	}
+}
+
 // prepareNestedActivation generates a map of overloads and a function that produces a
 // lateBindActivation reference which holds a tree of activations with implementations
 // of LateBindActivation in the tree. The resulting activation is as structured as shown
