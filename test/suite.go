@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package test provides a YAML-serializable test suite for CEL tests.
 package test
 
 // Suite is a collection of tests designed to evaluate the correctness of
