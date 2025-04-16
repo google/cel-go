@@ -31,34 +31,34 @@ section:
                 release: "v0.1.0"
         output:
           expr: "optional.none()"
-      - name: "missing"
-        tests:
-         - name: "env"
-           input:
-             spec:
-               value:
-                 labels:
-                   env: prod
-                   experiment: "group b"
-             resource:
-               value:
-                 labels:
-                   experiment: "group b"
-                   release: "v0.1.0"
-           output:
-             value: "missing one or more required labels: [\"env\"]"
+  - name: "missing"
+    tests:
+      - name: "env"
+        input:
+          spec:
+            value:
+              labels:
+                env: prod
+                experiment: "group b"
+          resource:
+            value:
+              labels:
+                experiment: "group b"
+                release: "v0.1.0"
+        output:
+          value: "missing one or more required labels: [\"env\"]"
       - name: "experiment"
         input:
           spec:
-          value:
-            labels:
-              env: prod
-              experiment: "group b"
-        resource:
-          value:
-            labels:
-              env: staging
-              release: "v0.1.0"
+            value:
+              labels:
+                env: prod
+                experiment: "group b"
+          resource:
+            value:
+              labels:
+                env: staging
+                release: "v0.1.0"
         output:
           value: "missing one or more required labels: [\"experiment\"]"
   - name: "invalid"
