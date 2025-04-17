@@ -74,8 +74,8 @@ type TestRunnerOption func(*TestRunner) (*TestRunner, error)
 // - configure the Compiler used for parsing and compiling the expression
 // - configure the Test Runner used for parsing and executing the tests
 func TriggerTests(t *testing.T, testRunnerOpts []TestRunnerOption, testCompilerOpts ...any) {
-	testRunnerOptions := testRunnerOptions(testRunnerOpts, testCompilerOpts...)
-	tr, err := NewTestRunner(testRunnerOptions...)
+	testRunnerOption := TestRunnerOptionsFromFlags(testRunnerOpts, testCompilerOpts...)
+	tr, err := NewTestRunner(testRunnerOption)
 	if err != nil {
 		t.Fatalf("error creating test runner: %v", err)
 	}
@@ -97,12 +97,34 @@ func TriggerTests(t *testing.T, testRunnerOpts []TestRunnerOption, testCompilerO
 	}
 }
 
-func testRunnerOptions(testRunnerOpts []TestRunnerOption, testCompilerOpts ...any) []TestRunnerOption {
-	compilerOpt := testRunnerCompilerFromFlags(testCompilerOpts...)
-	testSuiteParserOpt := DefaultTestSuiteParser(testSuitePath)
-	fileDescriptorSetOpt := AddFileDescriptorSet(fileDescriptorSetPath)
-	testRunnerExprOpt := testRunnerExpressionsFromFlags()
-	return append([]TestRunnerOption{compilerOpt, testSuiteParserOpt, fileDescriptorSetOpt, testRunnerExprOpt}, testRunnerOpts...)
+// TestRunnerOptionsFromFlags returns a TestRunnerOption which configures the following attributes
+// of the test runner using the parsed flags and the optionally provided test runner and test compiler options:
+//   - Test compiler - The `file_descriptor_set`, `base_config_path` and `config_path` flags are used
+//     to set up the test compiler. The optionally provided test compiler options are also used to
+//     augment the test compiler.
+//   - Test suite parser - The `test_suite_path` flag is used to set up the test suite parser.
+//   - File descriptor set path - The value of the `file_descriptor_set` flag is set as the
+//     File Descriptor Set Path of the test runner.
+//   - Test expression - The `cel_expr` flag is used to populate the test expressions which need to be
+//     evaluated by the test runner.
+func TestRunnerOptionsFromFlags(testRunnerOpts []TestRunnerOption, testCompilerOpts ...any) TestRunnerOption {
+	return func(tr *TestRunner) (*TestRunner, error) {
+		opts := []TestRunnerOption{
+			testRunnerCompilerFromFlags(testCompilerOpts...),
+			DefaultTestSuiteParser(testSuitePath),
+			AddFileDescriptorSet(fileDescriptorSetPath),
+			testRunnerExpressionsFromFlags(),
+		}
+		opts = append(opts, testRunnerOpts...)
+		var err error
+		for _, opt := range opts {
+			tr, err = opt(tr)
+			if err != nil {
+				return nil, err
+			}
+		}
+		return tr, nil
+	}
 }
 
 func testRunnerCompilerFromFlags(testCompilerOpts ...any) TestRunnerOption {
