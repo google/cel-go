@@ -512,13 +512,15 @@ func TestLateBindActivationResolveOverloads(t *testing.T) {
 			expected: &defaultDispatcher{
 				parent: nil,
 				overloads: overloadMap{
-					"f1_string": overloads["f1_string"],
-					"f2_string": overloads["f2_string_parent"],
-					"f3_string": overloads["f3_string"],
-					"f4_string": overloads["f4_string"],
-					"f5_string": overloads["f5_string_nested_child"],
-					"f6_string": overloads["f6_string_nested_child"],
-					"f7_string": overloads["f7_string_nested_parent"],
+					"f1_string":               overloads["f1_string"],
+					"f1_string_string":        overloads["f1_string_string"],
+					"f1_string_string_string": overloads["f1_string_string_string"],
+					"f2_string":               overloads["f2_string_parent"],
+					"f3_string":               overloads["f3_string"],
+					"f4_string":               overloads["f4_string"],
+					"f5_string":               overloads["f5_string_nested_child"],
+					"f6_string":               overloads["f6_string_nested_child"],
+					"f7_string":               overloads["f7_string_nested_parent"],
 				},
 			},
 		},
@@ -1056,7 +1058,124 @@ func TestLateBindEvalUnaryArgs(t *testing.T) {
 // configures it with the new overload, before calling Eval(Activation) on the new evalUnary struct.
 func TestLateBindEvalUnaryEval(t *testing.T) {
 
-	testInterpretableEval(t, []interpretableTestCase{})
+	// expectUnchanged generates an expectation function that is used to check that the evalUnary reference
+	// wrapped by the given Interpretable (i.e. lateBindEvalUnary) is equivalent to the evalUnary reference
+	// passed as argument. The attributes are checked one by one,
+	expectUnchanged := func(expected *evalUnary, ctx Activation) func(t *testing.T, target Interpretable, _ ref.Val) {
+		return func(t *testing.T, target Interpretable, _ ref.Val) {
+			lba, ok := target.(*lateBindEvalUnary)
+			if !ok {
+				t.Errorf("unexpected type in test case (got: %T, want: %T)", target, &lateBindEvalUnary{})
+				t.FailNow()
+			}
+			actual := lba.target
+			if target == nil {
+				t.Errorf("unexpected nil reference in lateBindEvalUnary")
+			}
+			if expected.id != expected.id {
+				t.Errorf("identifier mismatch (got: %d, want: %d)", actual.id, expected.id)
+			}
+
+			if expected.function != actual.function {
+				t.Errorf("function mismatch (got: %s, want: %s)", actual.function, expected.function)
+			}
+
+			if expected.overload != actual.overload {
+				t.Errorf("overload mismatch (got: %s, want: %s)", actual.overload, expected.overload)
+			}
+
+			if expected.trait != actual.trait {
+				t.Errorf("trait mismatch (got: %d, want: %d)", actual.trait, expected.trait)
+			}
+
+			if expected.nonStrict != actual.nonStrict {
+				t.Errorf("nonStrict mismatch (got: %v, want: %v)", actual.nonStrict, expected.nonStrict)
+			}
+
+			// we can't compare function pointers, we then invoke the
+			// functions to be sure that they yeld the expected result.
+			eVal := expected.Eval(ctx)
+			aVal := actual.Eval(ctx)
+
+			if eVal.Equal(aVal) == types.False {
+				t.Errorf("function overload has been mutated on original target (invoke, got: %v, want: %v)", aVal, eVal)
+			}
+		}
+	}
+
+	// unaryInterpretable generates a function that always returns a reference to evalUnary configured
+	// with the parameters passed as argument and defaulting trait to 0 and nonStrict to false. This
+	// function is used to produce a neew struct every time with always the same values, so that it is
+	// possible to have a constant term of comparison which is not affected by the execution.
+	unaryInterpretable := func(id int64, function string, overload string, arg Interpretable, impl functions.UnaryOp) func() *evalUnary {
+
+		return func() *evalUnary {
+			return &evalUnary{
+				id:        id,
+				function:  function,
+				overload:  overload,
+				arg:       arg,
+				impl:      impl,
+				trait:     0,
+				nonStrict: false,
+			}
+		}
+	}
+
+	t1 := unaryInterpretable(45, "f1", "f1_int_int", NewConstValue(46, types.Int(5)), func(arg ref.Val) ref.Val {
+
+		number, _ := arg.(types.Int)
+		return number.Multiply(types.Int(2))
+	})
+
+	t2 := unaryInterpretable(47, "f1", "f1_int_int", NewConstValue(48, types.Int(7)), func(arg ref.Val) ref.Val {
+
+		number, _ := arg.(types.Int)
+		return number.Subtract(types.Int(2))
+	})
+
+	t3 := unaryInterpretable(49, "f1", "f1_string_string", NewConstValue(50, types.String("hola")), func(arg ref.Val) ref.Val {
+
+		text, _ := arg.(types.String)
+		return text.Add(types.String("_amigo"))
+	})
+
+	nestedActivation, _ := prepareNestedActivation()
+
+	testInterpretableEval(t, []interpretableTestCase{
+		{
+
+			name:       "OK_Simple_Case_No_Overload",
+			activation: &emptyActivation{},
+			candidate: &lateBindEvalUnary{
+				target: t1(),
+			},
+			expect: chain(
+				expectUnchanged(t1(), &emptyActivation{}),
+				expectValue(types.Int(10)),
+			),
+		}, {
+			name:       "OK_Complex_Case_No_Overload",
+			activation: nestedActivation(),
+			candidate: &lateBindEvalUnary{
+				target: t2(),
+			},
+			expect: chain(
+				expectUnchanged(t2(), nestedActivation()),
+				expectValue(types.Int(5)),
+			),
+		}, {
+			name:       "OK_Complex_Case_With_Overload",
+			activation: nestedActivation(),
+			candidate: &lateBindEvalUnary{
+				target: t3(),
+			},
+			expect: chain(
+				expectUnchanged(t3(), nestedActivation()),
+				expectValue(types.String("HOLA")),
+			),
+		},
+	})
 }
 
 // TestLateBindEvalBinaryID verifies the implemented behaviour of lateBindEvalBinary.ID().
@@ -1144,7 +1263,129 @@ func TestLateBindEvalBinaryArgs(t *testing.T) {
 // reference.
 func TestLateBindBinaryEval(t *testing.T) {
 
-	testInterpretableEval(t, []interpretableTestCase{})
+	// expectUnchanged generates an expectation function that is used to check that the evalUnary reference
+	// wrapped by the given Interpretable (i.e. lateBindEvalBinary) is equivalent to the evalUnary reference
+	// passed as argument. The attributes are checked one by one, except for the function implementation which
+	// is tested for equality by invoking the Eval method.
+	expectUnchanged := func(expected *evalBinary, ctx Activation) func(t *testing.T, target Interpretable, _ ref.Val) {
+		return func(t *testing.T, target Interpretable, _ ref.Val) {
+			lba, ok := target.(*lateBindEvalBinary)
+			if !ok {
+				t.Errorf("unexpected type in test case (got: %T, want: %T)", target, &lateBindEvalBinary{})
+				t.FailNow()
+			}
+			actual := lba.target
+			if target == nil {
+				t.Errorf("unexpected nil reference in lateBindEvalBinary")
+			}
+			if expected.id != expected.id {
+				t.Errorf("identifier mismatch (got: %d, want: %d)", actual.id, expected.id)
+			}
+
+			if expected.function != actual.function {
+				t.Errorf("function mismatch (got: %s, want: %s)", actual.function, expected.function)
+			}
+
+			if expected.overload != actual.overload {
+				t.Errorf("overload mismatch (got: %s, want: %s)", actual.overload, expected.overload)
+			}
+
+			if expected.trait != actual.trait {
+				t.Errorf("trait mismatch (got: %d, want: %d)", actual.trait, expected.trait)
+			}
+
+			if expected.nonStrict != actual.nonStrict {
+				t.Errorf("nonStrict mismatch (got: %v, want: %v)", actual.nonStrict, expected.nonStrict)
+			}
+
+			// we can't compare function pointers, we then invoke the
+			// functions to be sure that they yeld the expected result.
+			eVal := expected.Eval(ctx)
+			aVal := actual.Eval(ctx)
+
+			if eVal.Equal(aVal) == types.False {
+				t.Errorf("function overload has been mutated on original target (invoke, got: %v, want: %v)", aVal, eVal)
+			}
+		}
+	}
+
+	// binaryInterpretable generates a function that always returns a reference to evalBinary configured
+	// with the parameters passed as argument and defaulting trait to 0 and nonStrict to false. This
+	// function is used to produce a neew struct every time with always the same values, so that it is
+	// possible to have a constant term of comparison which is not affected by the execution.
+	binaryInterpretable := func(id int64, function string, overload string, lhs Interpretable, rhs Interpretable, impl functions.BinaryOp) func() *evalBinary {
+
+		return func() *evalBinary {
+			return &evalBinary{
+				id:        id,
+				function:  function,
+				overload:  overload,
+				lhs:       lhs,
+				rhs:       rhs,
+				impl:      impl,
+				trait:     0,
+				nonStrict: false,
+			}
+		}
+	}
+
+	t1 := binaryInterpretable(45, "f1", "f1_int_int_int", NewConstValue(46, types.Int(5)), NewConstValue(47, types.Int(8)), func(lhs ref.Val, rhs ref.Val) ref.Val {
+
+		a, _ := lhs.(types.Int)
+		b, _ := rhs.(types.Int)
+		return a.Add(b)
+	})
+
+	t2 := binaryInterpretable(48, "f1", "f1_int_int_int", NewConstValue(49, types.Int(7)), NewConstValue(50, types.Int(7)), func(lhs ref.Val, rhs ref.Val) ref.Val {
+
+		a, _ := lhs.(types.Int)
+		b, _ := rhs.(types.Int)
+		return a.Subtract(b)
+	})
+
+	t3 := binaryInterpretable(51, "f1", "f1_string_string_string", NewConstValue(52, types.String("hola")), NewConstValue(53, types.String("amigo")), func(lhs ref.Val, rhs ref.Val) ref.Val {
+
+		first, _ := lhs.(types.String)
+		second, _ := rhs.(types.String)
+		return first.Add(second)
+	})
+
+	nestedActivation, _ := prepareNestedActivation()
+
+	testInterpretableEval(t, []interpretableTestCase{
+		{
+
+			name:       "OK_Simple_Case_No_Overload",
+			activation: &emptyActivation{},
+			candidate: &lateBindEvalBinary{
+				target: t1(),
+			},
+			expect: chain(
+				expectUnchanged(t1(), &emptyActivation{}),
+				expectValue(types.Int(13)),
+			),
+		}, {
+			name:       "OK_Complex_Case_No_Overload",
+			activation: nestedActivation(),
+			candidate: &lateBindEvalBinary{
+				target: t2(),
+			},
+			expect: chain(
+				expectUnchanged(t2(), nestedActivation()),
+				expectValue(types.Int(0)),
+			),
+		}, {
+			name:       "OK_Complex_Case_With_Overload",
+			activation: nestedActivation(),
+			candidate: &lateBindEvalBinary{
+				target: t3(),
+			},
+			expect: chain(
+				expectUnchanged(t3(), nestedActivation()),
+				expectValue(types.String("amigo hola")),
+			),
+		},
+	})
 }
 
 // TestLateBindEvalVarArgsID verifies the implemented behaviour of lateBindEvalVarArgs.ID().
@@ -1406,6 +1647,8 @@ func chain(checks ...func(t *testing.T, target Interpretable, actual ref.Val)) f
 //	                │               └─ "f2_string": f2_string_parent
 //	                └─ overloads:
 //	                    ├─ "f1_string": f1_string
+//	                    ├─ "f1_string_string": f1_string_string
+//	                    ├─ "f1_string_string_string": f1_string_stirng_string
 //	                    ├─ "f3_string": f3_string
 //	                    └─ "f4_string": f4_string
 func prepareNestedActivation() (func() *lateBindActivation, map[string]*functions.Overload) {
@@ -1414,7 +1657,22 @@ func prepareNestedActivation() (func() *lateBindActivation, map[string]*function
 	f3_string := function("f3_string", 0, false, func(args ...ref.Val) ref.Val { return types.String("f3_string") })
 	f4_string := function("f4_string", 0, false, func(args ...ref.Val) ref.Val { return types.String("f4_string") })
 
-	f1_string_string := unary("f1_string_string", 0, false, func(arg ref.Val) ref.Val { return types.String("f1_string_string") })
+	// this function creates an upper case version of the original string passed as
+	// argument (see: TestLateBindEvalUnaryEval).
+	f1_string_string := unary("f1_string_string", 0, false, func(arg ref.Val) ref.Val {
+		text, _ := arg.(types.String)
+		return types.String(strings.ToUpper(string(text)))
+	})
+
+	// this function composes the two strings passed as arguments in inverse order and with
+	// a space in the middle (see TestLateBindEvalBinaryEval).
+	f1_string_string_string := binary("f1_string_string_string", 0, false, func(lhs ref.Val, rhs ref.Val) ref.Val {
+
+		a, _ := lhs.(types.String)
+		b, _ := rhs.(types.String)
+
+		return b.Add(types.String(" ")).(types.String).Add(a)
+	})
 	f1_string_parent := function("f1_string", 0, false, func(args ...ref.Val) ref.Val { return types.String("f1_string_parent") })
 	f2_string_parent := function("f2_string", 0, false, func(args ...ref.Val) ref.Val { return types.String("f2_string_parent") })
 
@@ -1429,6 +1687,7 @@ func prepareNestedActivation() (func() *lateBindActivation, map[string]*function
 	overloads := map[string]*functions.Overload{
 		"f1_string":               f1_string,
 		"f1_string_string":        f1_string_string,
+		"f1_string_string_string": f1_string_string_string,
 		"f1_string_parent":        f1_string_parent,
 		"f2_string_parent":        f2_string_parent,
 		"f3_string":               f3_string,
@@ -1480,9 +1739,11 @@ func prepareNestedActivation() (func() *lateBindActivation, map[string]*function
 					},
 				},
 				overloads: overloadMap{
-					"f1_string": f1_string,
-					"f3_string": f3_string,
-					"f4_string": f4_string,
+					"f1_string":               f1_string,
+					"f1_string_string":        f1_string_string,
+					"f1_string_string_string": f1_string_string_string,
+					"f3_string":               f3_string,
+					"f4_string":               f4_string,
 				},
 			},
 		}

@@ -584,6 +584,7 @@ func (un *lateBindEvalUnary) Eval(ctx Activation) ref.Val {
 			id:        un.target.ID(),
 			function:  un.target.Function(),
 			overload:  overloadId,
+			arg:       un.target.Args()[0],
 			impl:      overload.Unary,
 			trait:     overload.OperandTrait,
 			nonStrict: overload.NonStrict,
