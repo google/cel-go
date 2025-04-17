@@ -879,40 +879,19 @@ func TestLateBindEvalZeroArityArgs(t *testing.T) {
 // reference.
 func TestLateBindEvalZeroArityEval(t *testing.T) {
 
-	expectUnchanged := func(expected *evalZeroArity) func(t *testing.T, target Interpretable, _ ref.Val) {
-		return func(t *testing.T, target Interpretable, _ ref.Val) {
+	unwrap := func(target Interpretable) *evalZeroArity {
 
-			lba, ok := target.(*lateBindEvalZeroArity)
-			if !ok {
-				t.Errorf("unexpected type in test case (got: %T, want: %T)", target, &lateBindEvalZeroArity{})
-				t.FailNow()
-			}
-			actual := lba.target
-			if target == nil {
-				t.Errorf("unexpected nil reference in lateBindEvalZeroArity")
-			}
-
-			if expected.id != expected.id {
-				t.Errorf("identifier mismatch (got: %d, want: %d)", actual.id, expected.id)
-			}
-
-			if expected.function != actual.function {
-				t.Errorf("function mismatch (got: %s, want: %s)", actual.function, expected.function)
-			}
-
-			if expected.overload != actual.overload {
-				t.Errorf("overload mismatch (got: %s, want: %s)", actual.overload, expected.overload)
-			}
-
-			// we can't compare function pointers, we then invoke the
-			// functions to be sure that they yeld the expected result.
-			eVal := expected.impl()
-			aVal := actual.impl()
-
-			if eVal.Equal(aVal) == types.False {
-				t.Errorf("function overload has been mutated on original target (invoke, got: %v, want: %v)", aVal, eVal)
-			}
+		lba, ok := target.(*lateBindEvalZeroArity)
+		if !ok {
+			t.Errorf("unexpected type in test case (got: %T, want: %T)", target, &lateBindEvalZeroArity{})
+			t.FailNow()
 		}
+		actual := lba.target
+		if actual == nil {
+			t.Errorf("unexpected nil reference in lateBindEvalBinary")
+		}
+
+		return actual
 	}
 
 	// zeroArity is a function returns a function that upon call produces always a new instance
@@ -949,7 +928,7 @@ func TestLateBindEvalZeroArityEval(t *testing.T) {
 				target: t1(),
 			},
 			expect: chain(
-				expectUnchanged(t1()),
+				expectEqual(t1(), unwrap, nil, &emptyActivation{}),
 				expectValue(types.Int(30)),
 			),
 		}, {
@@ -959,7 +938,7 @@ func TestLateBindEvalZeroArityEval(t *testing.T) {
 				target: t2(),
 			},
 			expect: chain(
-				expectUnchanged(t2()),
+				expectEqual(t2(), unwrap, nil, nestedActivation()),
 				expectValue(types.Int(50)),
 			),
 		}, {
@@ -969,7 +948,7 @@ func TestLateBindEvalZeroArityEval(t *testing.T) {
 				target: t3(),
 			},
 			expect: chain(
-				expectUnchanged(t3()),
+				expectEqual(t3(), unwrap, nil, nestedActivation()),
 				expectValue(types.String("f3_string")),
 			),
 		},
@@ -1058,48 +1037,29 @@ func TestLateBindEvalUnaryArgs(t *testing.T) {
 // configures it with the new overload, before calling Eval(Activation) on the new evalUnary struct.
 func TestLateBindEvalUnaryEval(t *testing.T) {
 
-	// expectUnchanged generates an expectation function that is used to check that the evalUnary reference
-	// wrapped by the given Interpretable (i.e. lateBindEvalUnary) is equivalent to the evalUnary reference
-	// passed as argument. The attributes are checked one by one,
-	expectUnchanged := func(expected *evalUnary, ctx Activation) func(t *testing.T, target Interpretable, _ ref.Val) {
-		return func(t *testing.T, target Interpretable, _ ref.Val) {
-			lba, ok := target.(*lateBindEvalUnary)
-			if !ok {
-				t.Errorf("unexpected type in test case (got: %T, want: %T)", target, &lateBindEvalUnary{})
-				t.FailNow()
-			}
-			actual := lba.target
-			if target == nil {
-				t.Errorf("unexpected nil reference in lateBindEvalUnary")
-			}
-			if expected.id != expected.id {
-				t.Errorf("identifier mismatch (got: %d, want: %d)", actual.id, expected.id)
-			}
+	unwrap := func(target Interpretable) *evalUnary {
 
-			if expected.function != actual.function {
-				t.Errorf("function mismatch (got: %s, want: %s)", actual.function, expected.function)
-			}
+		lba, ok := target.(*lateBindEvalUnary)
+		if !ok {
+			t.Errorf("unexpected type in test case (got: %T, want: %T)", target, &lateBindEvalUnary{})
+			t.FailNow()
+		}
+		actual := lba.target
+		if actual == nil {
+			t.Errorf("unexpected nil reference in lateBindEvalBinary")
+		}
 
-			if expected.overload != actual.overload {
-				t.Errorf("overload mismatch (got: %s, want: %s)", actual.overload, expected.overload)
-			}
+		return actual
+	}
 
-			if expected.trait != actual.trait {
-				t.Errorf("trait mismatch (got: %d, want: %d)", actual.trait, expected.trait)
-			}
+	extra := func(t *testing.T, actual *evalUnary, expected *evalUnary) {
 
-			if expected.nonStrict != actual.nonStrict {
-				t.Errorf("nonStrict mismatch (got: %v, want: %v)", actual.nonStrict, expected.nonStrict)
-			}
+		if expected.trait != actual.trait {
+			t.Errorf("trait mismatch (got: %d, want: %d)", actual.trait, expected.trait)
+		}
 
-			// we can't compare function pointers, we then invoke the
-			// functions to be sure that they yeld the expected result.
-			eVal := expected.Eval(ctx)
-			aVal := actual.Eval(ctx)
-
-			if eVal.Equal(aVal) == types.False {
-				t.Errorf("function overload has been mutated on original target (invoke, got: %v, want: %v)", aVal, eVal)
-			}
+		if expected.nonStrict != actual.nonStrict {
+			t.Errorf("nonStrict mismatch (got: %v, want: %v)", actual.nonStrict, expected.nonStrict)
 		}
 	}
 
@@ -1151,7 +1111,7 @@ func TestLateBindEvalUnaryEval(t *testing.T) {
 				target: t1(),
 			},
 			expect: chain(
-				expectUnchanged(t1(), &emptyActivation{}),
+				expectEqual(t1(), unwrap, extra, &emptyActivation{}),
 				expectValue(types.Int(10)),
 			),
 		}, {
@@ -1161,7 +1121,7 @@ func TestLateBindEvalUnaryEval(t *testing.T) {
 				target: t2(),
 			},
 			expect: chain(
-				expectUnchanged(t2(), nestedActivation()),
+				expectEqual(t2(), unwrap, extra, nestedActivation()),
 				expectValue(types.Int(5)),
 			),
 		}, {
@@ -1171,7 +1131,7 @@ func TestLateBindEvalUnaryEval(t *testing.T) {
 				target: t3(),
 			},
 			expect: chain(
-				expectUnchanged(t3(), nestedActivation()),
+				expectEqual(t3(), unwrap, extra, nestedActivation()),
 				expectValue(types.String("HOLA")),
 			),
 		},
@@ -1263,49 +1223,29 @@ func TestLateBindEvalBinaryArgs(t *testing.T) {
 // reference.
 func TestLateBindBinaryEval(t *testing.T) {
 
-	// expectUnchanged generates an expectation function that is used to check that the evalUnary reference
-	// wrapped by the given Interpretable (i.e. lateBindEvalBinary) is equivalent to the evalUnary reference
-	// passed as argument. The attributes are checked one by one, except for the function implementation which
-	// is tested for equality by invoking the Eval method.
-	expectUnchanged := func(expected *evalBinary, ctx Activation) func(t *testing.T, target Interpretable, _ ref.Val) {
-		return func(t *testing.T, target Interpretable, _ ref.Val) {
-			lba, ok := target.(*lateBindEvalBinary)
-			if !ok {
-				t.Errorf("unexpected type in test case (got: %T, want: %T)", target, &lateBindEvalBinary{})
-				t.FailNow()
-			}
-			actual := lba.target
-			if target == nil {
-				t.Errorf("unexpected nil reference in lateBindEvalBinary")
-			}
-			if expected.id != expected.id {
-				t.Errorf("identifier mismatch (got: %d, want: %d)", actual.id, expected.id)
-			}
+	unwrap := func(target Interpretable) *evalBinary {
 
-			if expected.function != actual.function {
-				t.Errorf("function mismatch (got: %s, want: %s)", actual.function, expected.function)
-			}
+		lba, ok := target.(*lateBindEvalBinary)
+		if !ok {
+			t.Errorf("unexpected type in test case (got: %T, want: %T)", target, &lateBindEvalBinary{})
+			t.FailNow()
+		}
+		actual := lba.target
+		if actual == nil {
+			t.Errorf("unexpected nil reference in lateBindEvalBinary")
+		}
 
-			if expected.overload != actual.overload {
-				t.Errorf("overload mismatch (got: %s, want: %s)", actual.overload, expected.overload)
-			}
+		return actual
+	}
 
-			if expected.trait != actual.trait {
-				t.Errorf("trait mismatch (got: %d, want: %d)", actual.trait, expected.trait)
-			}
+	extra := func(t *testing.T, actual *evalBinary, expected *evalBinary) {
 
-			if expected.nonStrict != actual.nonStrict {
-				t.Errorf("nonStrict mismatch (got: %v, want: %v)", actual.nonStrict, expected.nonStrict)
-			}
+		if expected.trait != actual.trait {
+			t.Errorf("trait mismatch (got: %d, want: %d)", actual.trait, expected.trait)
+		}
 
-			// we can't compare function pointers, we then invoke the
-			// functions to be sure that they yeld the expected result.
-			eVal := expected.Eval(ctx)
-			aVal := actual.Eval(ctx)
-
-			if eVal.Equal(aVal) == types.False {
-				t.Errorf("function overload has been mutated on original target (invoke, got: %v, want: %v)", aVal, eVal)
-			}
+		if expected.nonStrict != actual.nonStrict {
+			t.Errorf("nonStrict mismatch (got: %v, want: %v)", actual.nonStrict, expected.nonStrict)
 		}
 	}
 
@@ -1361,7 +1301,7 @@ func TestLateBindBinaryEval(t *testing.T) {
 				target: t1(),
 			},
 			expect: chain(
-				expectUnchanged(t1(), &emptyActivation{}),
+				expectEqual(t1(), unwrap, extra, &emptyActivation{}),
 				expectValue(types.Int(13)),
 			),
 		}, {
@@ -1371,7 +1311,7 @@ func TestLateBindBinaryEval(t *testing.T) {
 				target: t2(),
 			},
 			expect: chain(
-				expectUnchanged(t2(), nestedActivation()),
+				expectEqual(t2(), unwrap, extra, nestedActivation()),
 				expectValue(types.Int(0)),
 			),
 		}, {
@@ -1381,7 +1321,7 @@ func TestLateBindBinaryEval(t *testing.T) {
 				target: t3(),
 			},
 			expect: chain(
-				expectUnchanged(t3(), nestedActivation()),
+				expectEqual(t3(), unwrap, extra, nestedActivation()),
 				expectValue(types.String("amigo hola")),
 			),
 		},
@@ -1497,65 +1437,58 @@ func TestLateBindEvalVargArgsEval(t *testing.T) {
 }
 
 // testInterpretableCallID is a convenience function that verifies that the value
-// returned by wrapper.ID() is the same as the value return by target.ID(). This
-// logic has been extracted out, so that we can more easily test all late bind
-// evaluation implementation.s
-func testInterpretableCallID[W, T InterpretableCall](t *testing.T, wrapper W, target T) {
+// returned by actual.ID() is the same as the value return by expected.ID().
+func testInterpretableCallID[A, E InterpretableCall](t *testing.T, actual A, expected E) {
 
-	actual := wrapper.ID()
-	expected := target.ID()
+	aID := actual.ID()
+	eID := expected.ID()
 
-	if actual != expected {
-		t.Errorf("identifier mismatch (got: %d, want: %d)", actual, expected)
+	if aID != eID {
+		t.Errorf("identifier mismatch (got: %d, want: %d)", aID, eID)
 	}
 }
 
 // testInterpretableCallFunction is a convenience function that verifies that the value
-// returned by wrapper.Function() is the same as the value return by target.Function().
-// This logic has been extracted out, so that we can more easily test all late bind
-// evaluation implementations.
-func testInterpretableCallFunction[W, T InterpretableCall](t *testing.T, wrapper W, target T) {
+// returned by actual.Function() is the same as the value return by expected.Function().
+func testInterpretableCallFunction[A, E InterpretableCall](t *testing.T, actual A, expected E) {
 
-	actual := wrapper.Function()
-	expected := target.Function()
+	af := actual.Function()
+	ef := expected.Function()
 
-	if actual != expected {
-		t.Errorf("function mismatch (got %s, want: %s)", actual, expected)
+	if af != ef {
+		t.Errorf("function mismatch (got %s, want: %s)", af, ef)
 	}
 }
 
 // testInterpretableCallOverloadID is a convenience function that verifies that the value
-// returned by wrapper.OverloadID() is the same as the value return by target.OverloadID().
-// This logic has been extracted out, so that we can more easily test all late bind
-// evaluation implementations.
-func testInterpretableCallOverloadID[W, T InterpretableCall](t *testing.T, wrapper W, target T) {
+// returned by actual.OverloadID() is the same as the value return by expected.OverloadID().
+func testInterpretableCallOverloadID[A, E InterpretableCall](t *testing.T, actual A, expected E) {
 
-	actual := wrapper.OverloadID()
-	expected := target.OverloadID()
+	aOvl := actual.OverloadID()
+	eOvl := expected.OverloadID()
 
-	if actual != expected {
-		t.Errorf("overload identifier mismatch (got %s, want: %s)", actual, expected)
+	if aOvl != eOvl {
+		t.Errorf("overload identifier mismatch (got %s, want: %s)", aOvl, eOvl)
 	}
 
 }
 
 // testInterpretableCallArgs is a convenience function that verifies that the slice
-// returned by wrapper.Args() has the same content (and order) of the slice returned
-// by target.Args(). This logic has been extracted out, so that we can more easily
-// test all late bind evaluation implementations.
-func testInterpretableCallArgs[W, T InterpretableCall](t *testing.T, wrapper W, target T) {
+// returned by actual.Args() has the same content (and order) of the slice returned
+// by expected.Args().
+func testInterpretableCallArgs[A, E InterpretableCall](t *testing.T, actual A, expected E) {
 
-	actual := wrapper.Args()
-	expected := target.Args()
+	aArgs := actual.Args()
+	eArgs := expected.Args()
 
-	if len(expected) != len(actual) {
-		t.Errorf("args size mismatch (got: %d, want: %d)", len(actual), len(expected))
+	if len(eArgs) != len(aArgs) {
+		t.Errorf("args size mismatch (got: %d, want: %d)", len(aArgs), len(eArgs))
 		t.FailNow()
 	}
 
-	for index, eArg := range expected {
+	for index, eArg := range eArgs {
 
-		aArg := actual[index]
+		aArg := aArgs[index]
 		if eArg != aArg {
 			t.Errorf("arg (index: %d) mismatch (got: %v, want: %v)", index, aArg, eArg)
 		}
@@ -1595,6 +1528,42 @@ func expectValue(expected ref.Val) func(t *testing.T, target Interpretable, actu
 	return func(t *testing.T, _ Interpretable, actual ref.Val) {
 		if expected.Equal(actual) == types.False {
 			t.Errorf("unexpected value (got: %v, want: %v)", actual, expected)
+		}
+	}
+}
+
+// expectEqual produces an expectation function that verifies that the given Interpretable contains
+// a reference that is equal to the supplied value passed to expectEqual. The function first invokes
+// the unwrap function to resolve the actual entity to compare, then it tests all the fields that are
+// exposed by the InterpretableCall interface to ensure that they are the same as those exposed by the
+// expected IntepretableCall. If the extra function is not nil, it is then invoked to allow for the
+// customisation of further checks, and finally it invokes the Eval method on both to compare the
+// results.
+func expectEqual[I InterpretableCall](
+	expected I,
+	unwrap func(wrapper Interpretable) I,
+	extra func(t *testing.T, actual I, expected I),
+	ctx Activation,
+) func(t *testing.T, target Interpretable, _ ref.Val) {
+
+	return func(t *testing.T, target Interpretable, _ ref.Val) {
+
+		actual := unwrap(target)
+		testInterpretableCallID(t, actual, expected)
+		testInterpretableCallFunction(t, actual, expected)
+		testInterpretableCallOverloadID(t, actual, expected)
+		testInterpretableCallArgs(t, actual, expected)
+		if extra != nil {
+			extra(t, actual, expected)
+		}
+
+		// we cannot compare functions, therefore we need
+		// invoke their execution.
+		aVal := actual.Eval(ctx)
+		eVal := actual.Eval(ctx)
+
+		if eVal.Equal(aVal) == types.False {
+			t.Errorf("function overload has been mutated on original target (invoke, got: %v, want: %v)", aVal, eVal)
 		}
 	}
 }
