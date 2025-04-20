@@ -181,6 +181,14 @@ func TestMath(t *testing.T) {
 		{expr: "math.abs(1) == 1"},
 		{expr: "math.abs(-234.5) == 234.5"},
 		{expr: "math.abs(234.5) == 234.5"},
+
+		// Tests for Square root function
+		{expr: "math.sqrt(49.0) == 7.0"},
+		{expr: "math.sqrt(0) == 0.0"},
+		{expr: "math.sqrt(1) == 1.0"},
+		{expr: "math.sqrt(25u) == 5.0"},
+		{expr: "math.sqrt(82) == 9.055385138137417"},
+		{expr: "math.sqrt(985.25) == 31.388692231439016"},
 	}
 
 	env := testMathEnv(t,
@@ -472,6 +480,10 @@ func TestMathRuntimeErrors(t *testing.T) {
 			expr: "math.trunc(dyn(1u))",
 			err:  "no such overload: math.trunc(uint)",
 		},
+		{
+			expr: "math.sqrt(dyn(''))",
+			err:  "no such overload: math.sqrt(string)",
+		},
 	}
 
 	env := testMathEnv(t,
@@ -591,6 +603,7 @@ func TestMathVersions(t *testing.T) {
 				"isFinite":      `math.isFinite(0.0)`,
 				"abs":           `math.abs(1.2) == 1.2`,
 				"sign":          `math.sign(-1) == -1`,
+				"sqrt":          `math.sqrt(25) == 5.0`,
 				"bitAnd":        `math.bitAnd(1, 2) == 0`,
 				"bitOr":         `math.bitOr(1, 2) == 3`,
 				"bitXor":        `math.bitXor(1, 3) == 2`,
