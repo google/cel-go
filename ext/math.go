@@ -730,7 +730,7 @@ func sqrt(val ref.Val) ref.Val {
 	case types.Uint:
 	  return types.Double(math.Sqrt(float64(v)))
 	default:
-		return types.NewErr("Input must be non-negative")
+	  return types.NewErr("Input must be non-negative")
 	}
 }
 
