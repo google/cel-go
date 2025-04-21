@@ -50,7 +50,7 @@ into a protocol buffer text format representing the type-checked AST.
 
 `%compile <expr>`
 
-Example: 
+Example:
 
 ```
 > %compile 3u
@@ -158,14 +158,15 @@ may take string arguments.
 
 `--container <string>` sets the expression container for name resolution.
 
-`--extension <extensionType>` enables CEL extensions. Valid options are: 
-`strings`, `protos`, `math`, `encoders`, `optional`, `bindings`, and `all`.
+`--extension <extensionType>` enables CEL extensions. Valid options are:
+`strings`, `protos`, `math`, `encoders`, `optional`, `bindings`,
+`two_var_comprehensions` and `all` (enables all extensions).
 
 `--enable_partial_eval` enables partial evaluations
 
 example:
 
-`%option --container 'google.protobuf'` 
+`%option --container 'google.protobuf'`
 
 `%option --extension 'strings'`
 
@@ -175,7 +176,7 @@ example:
 
 #### reset
 
-`%reset` drops all options and let expressions, returning the evaluator to a 
+`%reset` drops all options and let expressions, returning the evaluator to a
 starting empty state.
 
 ### Evaluation Model

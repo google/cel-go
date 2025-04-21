@@ -709,7 +709,8 @@ func TestProcess(t *testing.T) {
 					expr: "'test'.substring(2) == 'st' && " +
 						"proto.getExt(google.expr.proto2.test.ExampleType{}, google.expr.proto2.test.int32_ext) == 0 && " +
 						"math.greatest(1,2) == 2 && " +
-						"base64.encode(b'hello') == 'aGVsbG8='",
+						"base64.encode(b'hello') == 'aGVsbG8=' && " +
+						"{'key': 1}.exists(k, v, k == 'key' && v == 1)",
 				},
 			},
 			wantText:  "true : bool",
@@ -1040,7 +1041,7 @@ func TestProcessOptionError(t *testing.T) {
 					"'bogus'",
 				},
 			},
-			errorMsg: "extension: Unknown option: 'bogus'. Available options are: ['all', 'bindings', 'encoders', 'lists', 'math', 'optional', 'protos', 'sets', 'strings']",
+			errorMsg: "extension: Unknown option: 'bogus'. Available options are: ['all', 'bindings', 'encoders', 'lists', 'math', 'optional', 'protos', 'sets', 'strings', 'two_var_comprehensions']",
 		},
 	}
 
