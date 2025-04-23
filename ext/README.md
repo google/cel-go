@@ -356,6 +356,22 @@ Examples:
     math.isFinite(0.0/0.0)  // returns false
     math.isFinite(1.2)      // returns true
 
+### Math.Sqrt
+
+Introduced at version: 1
+
+Returns the square root of the given input as double
+Throws error for negative or non-numeric inputs
+
+    math.sqrt(<double>) -> <double>
+    math.sqrt(<int>) -> <double>
+    math.sqrt(<uint>) -> <double>
+
+Examples:
+
+    math.sqrt(81) // returns 9.0
+    math.sqrt(985.25)   // returns 31.388692231439016
+
 ## Protos
 
 Protos configure extended macros and functions for proto manipulation.
