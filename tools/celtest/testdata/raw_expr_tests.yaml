@@ -29,6 +29,6 @@ section:
           i:
             value: 22
           j:
-            value:42
+            value: 42
         output:
           value: false
