@@ -8,6 +8,7 @@ import (
 	"github.com/google/cel-go/common/functions"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/common/types/traits"
 )
 
 // TestNewLateBindingActivation verifies the implementation of NewLateBindingActivation. The
@@ -1433,7 +1434,80 @@ func TestLateBindEvalVarArgsArgs(t *testing.T) {
 // reference.
 func TestLateBindEvalVargArgsEval(t *testing.T) {
 
-	testInterpretableEval(t, []interpretableTestCase{})
+	nestedActivation, _ := prepareNestedActivation()
+
+	varArgsIntepretable := func(id int64, function string, overload string, impl functions.FunctionOp, args ...Interpretable) *evalVarArgs {
+
+		return &evalVarArgs{
+			id:        id,
+			function:  function,
+			overload:  overload,
+			args:      args,
+			impl:      impl,
+			nonStrict: false,
+			trait:     0,
+		}
+	}
+
+	// original concatenate in reverse order the strings
+	// that are passed as argument.
+	original := func(args ...ref.Val) ref.Val {
+
+		result := types.String("")
+		for i := len(args); i > 0; i-- {
+			text := args[i-1].(types.String)
+			result = result.Add(text).(types.String)
+		}
+		return result
+	}
+
+	t1 := varArgsIntepretable(67, "f9", "f9_varargs_string", original,
+		NewConstValue(68, types.String("one")),
+		NewConstValue(69, types.String(" ")),
+		NewConstValue(70, types.String("two")),
+		NewConstValue(71, types.String(" ")),
+		NewConstValue(72, types.String("three")),
+	)
+	t2 := varArgsIntepretable(73, "f10", "f10_varargs_string", original,
+		NewConstValue(74, types.String("one")),
+		NewConstValue(75, types.String(",")),
+		NewConstValue(76, types.String("two")),
+	)
+	t3 := varArgsIntepretable(77, "f6", "f6_string", original,
+		NewConstValue(78, types.String("one")),
+		NewConstValue(79, types.String(":")),
+		NewConstValue(80, types.String("two")),
+	)
+
+	testInterpretableEval(t, []interpretableTestCase{
+		{
+			name: "OK_Simple_Case_No_Overload",
+			candidate: &lateBindEvalVarArgs{
+				target: t1,
+			},
+			activation: &mapActivation{
+				bindings: map[string]any{
+					"a": 5,
+					"b": true,
+				},
+			},
+			expect: expectValue(types.String("three two one")),
+		}, {
+			name: "OK_Complex_Case_No_Overload",
+			candidate: &lateBindEvalVarArgs{
+				target: t2,
+			},
+			activation: nestedActivation(),
+			expect:     expectValue(types.String("two,one")),
+		}, {
+			name: "OK_Complex_Case_With_Overload",
+			candidate: &lateBindEvalVarArgs{
+				target: t3,
+			},
+			activation: nestedActivation(),
+			expect:     expectValue(types.String("one:two")),
+		},
+	})
 }
 
 // testInterpretableCallID is a convenience function that verifies that the value
@@ -1651,7 +1725,16 @@ func prepareNestedActivation() (func() *lateBindActivation, map[string]*function
 
 	f4_string_nested_child := function("f4_string", 0, false, func(args ...ref.Val) ref.Val { return types.String("f4_string_nested_child") })
 	f5_string_nested_child := function("f5_string", 0, false, func(args ...ref.Val) ref.Val { return types.String("f5_string_nested_child") })
-	f6_string_nested_child := function("f6_string", 0, false, func(args ...ref.Val) ref.Val { return types.String("f6_string_nested_child") })
+	f6_string_nested_child := function("f6_string", 0, false, func(args ...ref.Val) ref.Val {
+
+		var result traits.Adder = types.String("")
+
+		for _, arg := range args {
+			text, _ := arg.(types.String)
+			result = result.Add(text).(traits.Adder)
+		}
+		return result.(ref.Val)
+	})
 
 	overloads := map[string]*functions.Overload{
 		"f1_string":               f1_string,
