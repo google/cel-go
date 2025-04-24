@@ -9,15 +9,25 @@ import (
 )
 
 const (
-	errorInvalidSignature = "function overload (id: %s) is not matched (got: %s, want: %s)"
-	errorMismatch         = "function overload (id: %s) has different attributes (name: %s, got: %v, want: %v)"
-	errorNilActivation    = "cannot create a late bind activation with a nil activation"
-	errorOverloadNotFound = "unexpected: overload (id: %s) not found."
+	errorInvalidSignature        = "function overload (id: %s) is not matched (got: %s, want: %s)"
+	errorMismatch                = "function overload (id: %s) has different attributes (name: %s, got: %v, want: %v)"
+	errorNilActivation           = "cannot create a late bind activation with a nil activation"
+	errorOverloadNotFound        = "unexpected: overload (id: %s) not found"
+	errorUnexpectedType          = "unexpected type during late bind transformation (id: %d, got: %T, want: %T)"
+	errorUnexpectedTypeInterface = "unexpected type during late bind transformation (id: %d, got: %T, want: interface[%s])"
+	errorUncheckedAst            = "cannot decorate an un-checked AST for late binding, unchecked ASTs are the result of env.Parse(...), while late binding requires ASTs produced by env.Compile(...) or env.Check(...)"
 
 	unarySignature    = "unary{ func(ref.Val) ref.Val }"
 	binarySignature   = "binary{ func(ref.Val, ref.Val) ref.Val }"
 	functionSignature = "varargs{ func(...ref.Val) ref.Val }"
 )
+
+// UncheckedAstError returns an error implementation that notifies the
+// caller that the AST is unchecked and therefore it is not possible to
+// apply the late binding decorator to the resulting Inteprepretable.
+func UncheckedAstError() error {
+	return errors.New(errorUncheckedAst)
+}
 
 // NewLateBindActivation creates an activation that wraps the given activation and
 // exposes the given function overloads to the evaluation. If the list of overloads
@@ -128,45 +138,46 @@ func (activation *lateBindActivation) ResolveOverloads() Dispatcher {
 // calls to function to late bindg evaluation structures.
 func decLateBinding() InterpretableDecorator {
 
-	return lateBind
+	return lateBindInterpretable
 }
 
-// lateBind matches the signature of InterpretableDecorator
-// and wraps any occurrence of a call to a function with an
-// InterpretableCall implementation that inspect the activat
+// lateBindInterpretable matches the signature of InterpretableDecorator and
+// wraps any occurrence of a call to a function with an InterpretableCall
+// implementation that inspect the activation passed as argument to check if
+// overload matching the function called is available and uses such overload
+// insted of the statically configured one.
 //
-// The implementation is recursive and cater for all instances
-// of Interpretable that carry expressions. The implemented
-// logic operates as follows:
+// The implementation is recursive and cater for all instances of Interpretable
+// that carry expressions. The implemented logic operates as follows:
 //
-//   - evalZeroArity, evalUnary, evalBinary, and evalVarArgs are
-//     directly replaced with the corresponding lateBindXXX
-//     implementation.
+//   - evalZeroArity, evalUnary, evalBinary, and evalVarArgs are substituted
+//     with the corresponding lateBindXXX implementation.
 //
-//   - evalAnd, evalOr, evalEq, evalNe, evalExhaustiveOr, and
-//     evalExhaustiveAnd are mutated by applying lateBind to
-//     their term expressions.
+//   - evalAnd, evalOr, evalEq, evalNe, evalExhaustiveOr, and evalExhaustiveAnd
+//     are mutated by applying lateBindInterpretable to their term expressions.
 //
-//   - evalList, evalMap, evalObj are mutated by applying lateBind
+//   - evalAttr (implements ternary expression) and evalExhaustiveConditional
+//
+//   - evalList, evalMap, evalObj are mutated by applying lateBindInterpretable
 //     to their elements, keys and values, or field values.
 //
-//   - evalFold is mutated by applying lateBind to the condition
+//   - evalFold is mutated by applying lateBindInterpretable to the condition
 //     the iteration range expressions, and the step expression.
 //
-//   - evalSetMembership is mutated by applying lateBind to both
+//   - evalSetMembership is mutated by applying lateBindInterpretable to both
 //     the argument and the set definition.
 //
-//   - evalWatch is mutated by applying lateBind to wrapped
+//   - evalWatch is mutated by applying lateBindInterpretable to wrapped
 //     Interpretable implementation.
 //
-//   - evalWatchConstructor is mutated by applying lateBind to the
+//   - evalWatchConstructor is mutated by applying lateBindInterpretable to the
 //     watcheed InterepretableConstructor implementation.
 //
 // All other evalXXX entities are left untouched.
 //
 // If there is any error in applying the transformation the function
 // returns a nil Intepretable and such error.
-func lateBind(i Interpretable) (Interpretable, error) {
+func lateBindInterpretable(i Interpretable) (Interpretable, error) {
 
 	if i == nil {
 		return nil, nil
@@ -174,7 +185,7 @@ func lateBind(i Interpretable) (Interpretable, error) {
 
 	switch expr := i.(type) {
 
-	// Group 1: function calls
+	// Group 1: Function Calls
 	// -----------------------
 	// evalZeroArity, evalUnary, evalBinary, and evalVarArgs
 	// are explicit calls to functions, these are directly
@@ -189,7 +200,7 @@ func lateBind(i Interpretable) (Interpretable, error) {
 
 	case *evalUnary:
 
-		arg, err := lateBind(expr.arg)
+		arg, err := lateBindInterpretable(expr.arg)
 		if err != nil {
 			return nil, err
 		}
@@ -201,7 +212,7 @@ func lateBind(i Interpretable) (Interpretable, error) {
 
 	case *evalBinary:
 
-		lhs, rhs, err := lateBindPair(expr.lhs, expr.rhs)
+		lhs, rhs, err := lateBindInterpretablePair(expr.lhs, expr.rhs)
 		if err != nil {
 			return nil, err
 		}
@@ -214,7 +225,7 @@ func lateBind(i Interpretable) (Interpretable, error) {
 
 	case *evalVarArgs:
 
-		args, err := lateBindSlice(expr.args)
+		args, err := lateBindInterpretableSlice(expr.args)
 		if err != nil {
 			return nil, err
 		}
@@ -224,13 +235,13 @@ func lateBind(i Interpretable) (Interpretable, error) {
 			target: expr,
 		}, nil
 
-	// Group 2: logical operators
-	// --------------------------
-	// These have expressions as arguments (or terms). We need
-	// to apply late binding to all the terms a of the operator.
+	// Group 02: Equality Operators
+	// ----------------------------
+	// These have expressions as arguments. We need to apply the
+	// late binding to both of the two arguments of the operators.
 
 	case *evalEq:
-		lhs, rhs, err := lateBindPair(expr.lhs, expr.rhs)
+		lhs, rhs, err := lateBindInterpretablePair(expr.lhs, expr.rhs)
 		if err != nil {
 			return nil, err
 		}
@@ -241,7 +252,7 @@ func lateBind(i Interpretable) (Interpretable, error) {
 
 	case *evalNe:
 
-		lhs, rhs, err := lateBindPair(expr.lhs, expr.rhs)
+		lhs, rhs, err := lateBindInterpretablePair(expr.lhs, expr.rhs)
 		if err != nil {
 			return nil, err
 		}
@@ -250,8 +261,13 @@ func lateBind(i Interpretable) (Interpretable, error) {
 
 		return expr, nil
 
+	// Group 03: Logical Operators
+	// --------------------------
+	// These have expressions as arguments (or terms). We need
+	// to apply late binding to all the terms a of the operator.
+
 	case *evalOr:
-		mapped, err := lateBindSlice(expr.terms)
+		mapped, err := lateBindInterpretableSlice(expr.terms)
 		if err != nil {
 			return nil, err
 		}
@@ -259,7 +275,7 @@ func lateBind(i Interpretable) (Interpretable, error) {
 		return expr, nil
 
 	case *evalAnd:
-		mapped, err := lateBindSlice(expr.terms)
+		mapped, err := lateBindInterpretableSlice(expr.terms)
 		if err != nil {
 			return nil, err
 		}
@@ -271,7 +287,7 @@ func lateBind(i Interpretable) (Interpretable, error) {
 	// for exhaustive evaluation we don't loose
 	// calls in the modified versions of OR and AND.
 	case *evalExhaustiveOr:
-		mapped, err := lateBindSlice(expr.terms)
+		mapped, err := lateBindInterpretableSlice(expr.terms)
 		if err != nil {
 			return nil, err
 		}
@@ -279,14 +295,49 @@ func lateBind(i Interpretable) (Interpretable, error) {
 		return expr, nil
 
 	case *evalExhaustiveAnd:
-		mapped, err := lateBindSlice(expr.terms)
+		mapped, err := lateBindInterpretableSlice(expr.terms)
 		if err != nil {
 			return nil, err
 		}
 		expr.terms = mapped
 		return expr, nil
 
-	// Group 3: complex structures
+	// Group 04: Conditional Operators
+	// ------------------------------
+	// These have an expression which is an interpretable
+	// and then two branches which are attributes that may
+	// wrap other interpretable implementations.
+
+	// evalAttr is used for implementing conditional
+	// expressions, hence it has been put in this
+	// group.
+	case *evalAttr:
+
+		mapped, err := lateBindAttribute(expr.attr)
+		if err != nil {
+			return nil, err
+		}
+		expr.attr = mapped
+		return expr, nil
+
+	case *evalExhaustiveConditional:
+		mapped, err := lateBindAttribute(expr.attr)
+		if err != nil {
+			return nil, err
+		}
+		// lateBindAttribute will not change the top
+		// level type of what is passed in, but it
+		// operate on inner attributes, therefore this
+		// cast should be always safe.
+		a, ok := mapped.(*conditionalAttribute)
+		if !ok {
+			return nil, fmt.Errorf(errorUnexpectedType, expr.id, mapped, &conditionalAttribute{})
+		}
+		expr.attr = a
+
+		return expr, nil
+
+	// Group 05: Complex Structures
 	// ---------------------------
 	// List, maps, and objects in general can have expressions
 	// as values for their elements, keys and values, and fields.
@@ -295,7 +346,7 @@ func lateBind(i Interpretable) (Interpretable, error) {
 
 	case *evalList:
 
-		mapped, err := lateBindSlice(expr.elems)
+		mapped, err := lateBindInterpretableSlice(expr.elems)
 		if err != nil {
 			return nil, err
 		}
@@ -305,11 +356,11 @@ func lateBind(i Interpretable) (Interpretable, error) {
 
 	case *evalMap:
 
-		keys, err := lateBindSlice(expr.keys)
+		keys, err := lateBindInterpretableSlice(expr.keys)
 		if err != nil {
 			return nil, err
 		}
-		values, err := lateBindSlice(expr.vals)
+		values, err := lateBindInterpretableSlice(expr.vals)
 		if err != nil {
 			return nil, err
 		}
@@ -320,14 +371,14 @@ func lateBind(i Interpretable) (Interpretable, error) {
 		return expr, nil
 
 	case *evalObj:
-		values, err := lateBindSlice(expr.vals)
+		values, err := lateBindInterpretableSlice(expr.vals)
 		if err != nil {
 			return nil, err
 		}
 		expr.vals = values
 		return expr, nil
 
-	// Group 5: Macro
+	// Group 06: Macro
 	// --------------
 	// Macros can have expressions in it, different types of macros
 	// have different parameters. In principle we should only operate
@@ -338,18 +389,18 @@ func lateBind(i Interpretable) (Interpretable, error) {
 
 	case *evalFold:
 
-		iterRange, err := lateBind(expr.iterRange)
+		iterRange, err := lateBindInterpretable(expr.iterRange)
 		if err != nil {
 			return nil, err
 		}
 
-		cond, err := lateBind(expr.cond)
+		cond, err := lateBindInterpretable(expr.cond)
 		if err != nil {
 			return nil, err
 		}
 
 		// this is needed for map macros?
-		step, err := lateBind(expr.step)
+		step, err := lateBindInterpretable(expr.step)
 		if err != nil {
 			return nil, err
 		}
@@ -360,14 +411,14 @@ func lateBind(i Interpretable) (Interpretable, error) {
 
 		return expr, nil
 
-	// Group 6: Set Membership
+	// Group 07: Set Membership
 	// -----------------------
 	// the 'in' operator can have calls to function functions on both
 	// sides of the operator, we need to apply late binding transforms
 	// to both.
 	case *evalSetMembership:
 
-		inst, arg, err := lateBindPair(expr.inst, expr.arg)
+		inst, arg, err := lateBindInterpretablePair(expr.inst, expr.arg)
 		if err != nil {
 			return nil, err
 		}
@@ -377,13 +428,16 @@ func lateBind(i Interpretable) (Interpretable, error) {
 
 		return expr, nil
 
+	// Group 08: EvalObserver Alterations
+	// ---------------------------------
+
 	// evalWatch is a pass-through we need to recursively
 	// apply the late binding to the expression that is
 	// being watched which may be anything.
 
 	case *evalWatch:
 
-		interpretable, err := lateBind(expr.Interpretable)
+		interpretable, err := lateBindInterpretable(expr.Interpretable)
 		if err != nil {
 			return nil, err
 		}
@@ -391,15 +445,33 @@ func lateBind(i Interpretable) (Interpretable, error) {
 
 		return expr, nil
 
+	case *evalWatchAttr:
+
+		attribute, err := lateBindAttribute(expr.InterpretableAttribute)
+		if err != nil {
+			return nil, err
+		}
+		intAttr, ok := attribute.(InterpretableAttribute)
+		if !ok {
+			id := expr.ID()
+			if attribute != nil {
+				id = attribute.ID()
+			}
+			return nil, fmt.Errorf(errorUnexpectedTypeInterface, id, attribute, "InterpretableAttribute")
+		}
+		expr.InterpretableAttribute = intAttr
+
+		return expr, nil
+
 	case *evalWatchConstructor:
 
-		interpretable, err := lateBind(expr.constructor)
+		interpretable, err := lateBindInterpretable(expr.constructor)
 		if err != nil {
 			return nil, err
 		}
 		constructor, ok := interpretable.(InterpretableConstructor)
 		if !ok {
-			return nil, fmt.Errorf("late bind decorator failed to map ('%T')", expr)
+			return nil, fmt.Errorf(errorUnexpectedTypeInterface, expr.ID(), expr, "InterpretableConstructor")
 		}
 		expr.constructor = constructor
 
@@ -409,17 +481,16 @@ func lateBind(i Interpretable) (Interpretable, error) {
 	return i, nil
 }
 
-// lateBindSlice is a convenience function that iterates lateBind over
-// each of the elements of the array of Interpretable passed as argument.
-// If there is any error in the execution of lateBind the function stops
-// the execution and returns a nil Intepretable and such error. The
-// elements rather than being mutated in place are returned in a new
-// slice of the same size of the original by preserving the order.
-func lateBindSlice(interpretables []Interpretable) ([]Interpretable, error) {
+// lateBindInterpretableSlice is a convenience function that iterates lateBindInterpretable over
+// each of the elements of the array of Interpretable passed as argument. If there is any error
+// in the execution of lateBindInterpretbale the function stops the execution and returns a nil
+// Intepretable and such error. The elements rather than being mutated in place are returned in a
+// new slice of the same size of the original by preserving the order.
+func lateBindInterpretableSlice(interpretables []Interpretable) ([]Interpretable, error) {
 
 	mapped := make([]Interpretable, len(interpretables))
 	for index, interpretable := range interpretables {
-		m, err := lateBind(interpretable)
+		m, err := lateBindInterpretable(interpretable)
 		if err != nil {
 			return nil, err
 		}
@@ -428,20 +499,200 @@ func lateBindSlice(interpretables []Interpretable) ([]Interpretable, error) {
 	return mapped, nil
 }
 
-// lateBindPair is a convenience function that executes lateBind on the two
-// arguments. This function executes lateBind on the first argument and then
-// then on the second argument. If there is any error during the process the
-// execution stops and a nil Intepretable pair with the error is returned.
-func lateBindPair(lhs Interpretable, rhs Interpretable) (Interpretable, Interpretable, error) {
-	mappedLhs, err := lateBind(lhs)
+// lateBindInterpretablePair is a convenience function that executes lateBindInterpretable on the
+// two arguments. This function executes lateBind on the first argument and then on the second
+// argument. If there is any error during the process the execution stops and a (nil, error) pair
+// is returned.
+func lateBindInterpretablePair(lhs Interpretable, rhs Interpretable) (Interpretable, Interpretable, error) {
+	mappedLhs, err := lateBindInterpretable(lhs)
 	if err != nil {
 		return nil, nil, err
 	}
-	mappedRhs, err := lateBind(rhs)
+	mappedRhs, err := lateBindInterpretable(rhs)
 	if err != nil {
 		return nil, nil, err
 	}
 	return mappedLhs, mappedRhs, err
+}
+
+// lateBindAttribute navigates the tree structure that originates
+// from the given attribute and if it finds instances implementing
+// the Intepretable interface, applies the lateBind transformation.
+//
+// The current implementation support the following mutations:
+//
+//   - absoluteAttribute: the list of qualifiers is traversed by
+//     invoking lateBindQualifierSlice to determine whether any
+//     late-binding needs applying for any Qualifier implementation.
+//
+//   - conditionaAttribute: the expression is late-bound and then
+//     the truthy and falsy attributes are traversed to apply late
+//     binding.
+//
+//   - maybeAttribute: the list of NamespacedAttribute implementations
+//     is traverse by invoking lateBindAttributeSlice to determine if
+//     any late-binding needs applying.
+//
+//   - relativeAttribute: the operand is late-bound and the qualifiers
+//     are traversed to determine whether any late-binding needs to be
+//     applied, by invoking lateBindQualifierSlice.
+//
+//   - evalAttr: the attribute implementation is also an Interpretable
+//     and therefore, this is traversed by calling lateBindInterepretable.
+//
+// All the other types of attributes are left unchanged.
+func lateBindAttribute(attr Attribute) (Attribute, error) {
+
+	if attr == nil {
+		return nil, nil
+	}
+
+	// perhaps we should be navigating down the
+	// three of attributes as well to see whether
+	// we have other nested intepretables?
+	switch a := attr.(type) {
+
+	case *absoluteAttribute:
+		mapped, err := lateBindQualifierSlice(a.qualifiers)
+		if err != nil {
+			return nil, err
+		}
+		a.qualifiers = mapped
+
+	case *conditionalAttribute:
+		mapped, err := lateBindInterpretable(a.expr)
+		if err != nil {
+			return nil, err
+		}
+		a.expr = mapped
+
+		mt, err := lateBindAttribute(a.truthy)
+		if err != nil {
+			return nil, err
+		}
+		a.truthy = mt
+
+		mf, err := lateBindAttribute(a.falsy)
+		if err != nil {
+			return nil, err
+		}
+		a.falsy = mf
+
+	case *maybeAttribute:
+		nm := make([]NamespacedAttribute, len(a.attrs))
+		for i, attr := range a.attrs {
+			mapped, err := lateBindAttribute(attr)
+			if err != nil {
+				return nil, err
+			}
+			nattr, ok := mapped.(NamespacedAttribute)
+			if !ok {
+				return nil, fmt.Errorf(errorUnexpectedTypeInterface, attr.ID(), nattr, "NamespacedAttribute")
+			}
+			nm[i] = nattr
+		}
+		a.attrs = nm
+
+	case *relativeAttribute:
+		mapped, err := lateBindInterpretable(a.operand)
+		if err != nil {
+			return nil, err
+		}
+		a.operand = mapped
+
+		qualifiers, err := lateBindQualifierSlice(a.qualifiers)
+		if err != nil {
+			return nil, err
+		}
+
+		a.qualifiers = qualifiers
+
+	case *evalAttr:
+		mapped, err := lateBindAttribute(a.attr)
+		if err != nil {
+			return nil, err
+		}
+		a.attr = mapped
+	}
+
+	return attr, nil
+}
+
+// lateBindQualifierSlice traverses the list of Qualifier implementation
+// and applies the late-binding to all the qualifiers in the list by
+// invoking lateBindQualifer. If the slice is nil or empty, it is returned
+// as it is.
+func lateBindQualifierSlice(qualifiers []Qualifier) ([]Qualifier, error) {
+	if len(qualifiers) == 0 {
+		return qualifiers, nil
+	}
+
+	mapped := make([]Qualifier, len(qualifiers))
+	for i, qualifier := range qualifiers {
+		q, err := lateBindQualifier(qualifier)
+		if err != nil {
+			return nil, err
+		}
+		mapped[i] = q
+	}
+
+	return mapped, nil
+}
+
+// lateBindQualifier applies late-binding to the given Qualifier
+// implementation. At present time only two classes of qualifiers
+// are subject to late binding:
+//
+//   - attrQualifier: this wraps an attribute, which in turn may
+//     lead to traversing all the options associated to attributes
+//   - Attribute implementations: these are traversed by invoking
+//     lateBindAttribute, since we already have implemented this
+//     logic for attribute traversal.
+//
+// All the other qualifiers are dead-ends and don't require any
+// alteration or further traversal.
+//
+// NOTE:
+//
+//	 not sure whether it is necessary to check specific Attribute
+//		implementation when inspecting qualifiers, because it may not
+//		be the case that these types ever occur in the qualifiers list
+//		that triggered this invocation (see lateBindAttribute).
+func lateBindQualifier(qualifier Qualifier) (Qualifier, error) {
+
+	switch q := qualifier.(type) {
+	case *attrQualifier:
+		mapped, err := lateBindAttribute(q.Attribute)
+		if err != nil {
+			return nil, err
+		}
+		q.Attribute = mapped
+		return q, nil
+
+	// NOTE: these are all implementing qualifier and since
+	//       Attribute embeds the Qualifier interface and I
+	//       am not sure whether it is a legitimate case.
+	case Attribute:
+		return lateBindAttribute(q)
+
+	// NOTE: this case covers all the other qualifiers that
+	//       are the following:
+	//
+	//       - boolQualifier
+	//       - intQualifier
+	//       - uintQualifier
+	//       - doubleQualifier
+	//       - stringQualifier
+	//       - unknownQualifier
+	//       - fieldQualifier
+	//
+	//       None of these wraps an Attribute and therefore
+	//       they don't require further traversal.
+	default:
+
+		return q, nil
+	}
+
 }
 
 // LateBindCalls returns a PlannerOption that allows for mutating
@@ -769,12 +1020,12 @@ func resolveOverload(overloadId string, activation Activation) *functions.Overlo
 	case LateBindActivation:
 
 		return act.ResolveOverload(overloadId)
+	default:
+		// this is to cater for all other implementations
+		// that we don't known about but that rightfully
+		// implement the Activation interface.
+		return resolveOverload(overloadId, act.Parent())
 	}
-
-	// this is to ensure that if there are
-	// more types of activations added we
-	// can default to nil.
-	return nil
 
 }
 
@@ -842,10 +1093,15 @@ func resolveAllOverloads(aggregate Dispatcher, activation Activation) {
 				// happen because we nest multiple activation with late
 				// binding capabilities and one may shadow another as it
 				// happens for variable names. Since the activations are
-				// visitedin the correct order this is expected behaviour
+				// visited in the correct order this is expected behaviour.
 				aggregate.Add(ovl)
 			}
 		}
+	default:
+		// this is to cater for all other implementations
+		// that we don't known about but that rightfully
+		// implement the Activation interface.
+		resolveAllOverloads(aggregate, act.Parent())
 	}
 
 }

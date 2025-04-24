@@ -2,14 +2,30 @@ package interpreter
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/functions"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 )
+
+// TestUncheckedAstError verifies the implemented behaviour of UncheckedAstError. The expectation
+// is for the function to return a non-nil error implementation that contains the message defined
+// by the constant errrorUncheckedAst.
+func TestUncheckedAstError(t *testing.T) {
+
+	candidate := UncheckedAstError()
+	if candidate == nil {
+		t.Fatalf("UncheckedAstError returned nil, a non-nil error implementation is expected")
+	}
+	if candidate.Error() != errorUncheckedAst {
+		t.Errorf("UncheckedAstError has unexpected message (got: %s, want: %s)", candidate.Error(), errorUncheckedAst)
+	}
+}
 
 // TestNewLateBindingActivation verifies the implementation of NewLateBindingActivation. The
 // expectation is for the constructor function to produce a LateBindActivation implementation
@@ -534,8 +550,7 @@ func TestLateBindActivationResolveOverloads(t *testing.T) {
 			actual := activation.ResolveOverloads()
 
 			if actual == nil {
-				t.Error("unexpected nil reference returned by ResolveOverloads")
-				t.FailNow()
+				t.Fatal("unexpected nil reference returned by ResolveOverloads")
 			}
 
 			expectedIds := testCase.expected.OverloadIds()
@@ -549,8 +564,7 @@ func TestLateBindActivationResolveOverloads(t *testing.T) {
 
 				expectedOverload, found := testCase.expected.FindOverload(ovlId)
 				if !found {
-					t.Errorf("unexpected: overload (id: %s) declared but not found", ovlId)
-					t.FailNow()
+					t.Fatalf("unexpected: overload (id: %s) declared but not found", ovlId)
 				}
 				actualOverload, found := actual.FindOverload(ovlId)
 				if !found {
@@ -884,8 +898,7 @@ func TestLateBindEvalZeroArityEval(t *testing.T) {
 
 		lba, ok := target.(*lateBindEvalZeroArity)
 		if !ok {
-			t.Errorf("unexpected type in test case (got: %T, want: %T)", target, &lateBindEvalZeroArity{})
-			t.FailNow()
+			t.Fatalf("unexpected type in test case (got: %T, want: %T)", target, &lateBindEvalZeroArity{})
 		}
 		actual := lba.target
 		if actual == nil {
@@ -1042,8 +1055,7 @@ func TestLateBindEvalUnaryEval(t *testing.T) {
 
 		lba, ok := target.(*lateBindEvalUnary)
 		if !ok {
-			t.Errorf("unexpected type in test case (got: %T, want: %T)", target, &lateBindEvalUnary{})
-			t.FailNow()
+			t.Fatalf("unexpected type in test case (got: %T, want: %T)", target, &lateBindEvalUnary{})
 		}
 		actual := lba.target
 		if actual == nil {
@@ -1228,8 +1240,7 @@ func TestLateBindBinaryEval(t *testing.T) {
 
 		lba, ok := target.(*lateBindEvalBinary)
 		if !ok {
-			t.Errorf("unexpected type in test case (got: %T, want: %T)", target, &lateBindEvalBinary{})
-			t.FailNow()
+			t.Fatalf("unexpected type in test case (got: %T, want: %T)", target, &lateBindEvalBinary{})
 		}
 		actual := lba.target
 		if actual == nil {
@@ -1510,6 +1521,905 @@ func TestLateBindEvalVargArgsEval(t *testing.T) {
 	})
 }
 
+// TestLateBindingDecorator verifies the implemented behaviour of decLateBind().
+// The expectation is for the function to return an InterepretableDecorator that
+// applies the late bind behaviour.
+func TestLateBindingDecorator(t *testing.T) {
+
+	/*
+
+		// declaractions generates an array of function declaration that are used
+		// as a baseline of function overloads statically bound to the expression
+		// in the AST. The array contains a single entry (f1) with the following
+		// overloads:
+		// - f1_int: zero arguments, returns 0
+		// - fi_string_int: one string argument, returns the size of the string
+		// - f1_int_int_int: two int arguments, returns the sum of the the two
+		// - f1_bool_bool_bool_int: three bool arguments, returns the number of
+		//   true values in the arguments.
+		declarations := func(t *testing.T) map[string]*decls.FunctionDecl {
+
+			return []*decls.FunctionDecl{
+				funcDecl(t, "f1",
+					decls.Overload(
+						"f1_int",
+						[]*types.Type{},
+						types.IntType,
+						decls.FunctionBinding(func(args ...ref.Val) ref.Val {
+							return types.Int(0)
+						}),
+					),
+					decls.Overload(
+						"f1_string_int",
+						[]*types.Type{types.StringType},
+						types.IntType,
+						decls.UnaryBinding(func(arg ref.Val) ref.Val {
+							text := arg.(types.String)
+
+							return text.Size()
+						}),
+					),
+					decls.Overload(
+						"f1_int_int_int",
+						[]*types.Type{types.IntType, types.IntType},
+						types.IntType,
+						decls.BinaryBinding(func(lhs ref.Val, rhs ref.Val) ref.Val {
+
+							l := lhs.(types.Int)
+							r := rhs.(types.Int)
+
+							return l.Add(r)
+						}),
+					),
+					decls.Overload(
+						"f1_bool_bool_bool_int",
+						[]*types.Type{types.BoolType, types.BoolType, types.BoolType},
+						types.IntType,
+						decls.FunctionBinding(func(args ...ref.Val) ref.Val {
+
+							count := 0
+							for _, arg := range args {
+								b := arg.(types.Bool)
+								if b == types.True {
+									count = count + 1
+								}
+							}
+
+							return types.Int(count)
+						}),
+					),
+				),
+			}
+		}
+	*/
+
+	f1_int := func(args ...ref.Val) ref.Val {
+		return types.Int(0)
+	}
+
+	f1_string_int := func(arg ref.Val) ref.Val {
+		text := arg.(types.String)
+		return text.Size()
+	}
+
+	f1_int_int_int := func(lhs ref.Val, rhs ref.Val) ref.Val {
+
+		l := lhs.(types.Int)
+		r := rhs.(types.Int)
+
+		return l.Add(r)
+	}
+
+	f1_bool_bool_bool_int := func(args ...ref.Val) ref.Val {
+
+		count := 0
+		for _, arg := range args {
+			b := arg.(types.Bool)
+			if b == types.True {
+				count = count + 1
+			}
+		}
+
+		return types.Int(count)
+	}
+
+	// activation returns a lateBindActivation that is configured
+	// with the given variables and function overloads.
+	activation := func(vars map[string]any, ovls ...*functions.Overload) *lateBindActivation {
+
+		d := &defaultDispatcher{
+			parent:    nil,
+			overloads: overloadMap{},
+		}
+		for _, ovl := range ovls {
+			d.overloads[ovl.Operator] = ovl
+		}
+		return &lateBindActivation{
+			vars:       &mapActivation{bindings: vars},
+			dispatcher: d,
+		}
+	}
+
+	// this is used to simplify the creation of attributes for the purpose of
+	// testing.
+	attrFactory := NewAttributeFactory(containers.DefaultContainer, types.DefaultTypeAdapter, types.NewEmptyRegistry())
+
+	// this is used to verify that the late-bind of the object creation
+	// expression does what is expected to do. By no means this is a full
+	// implementation of the Provider interface.
+	exampleProvider := &testProvider{
+		adapter:  types.DefaultTypeAdapter,
+		typeName: "example",
+		fields: map[string]*types.Type{
+			"quantity":  types.IntType,
+			"frequency": types.IntType,
+		},
+	}
+
+	testCases := []struct {
+		name          string
+		interpretable Interpretable
+		activation    Activation
+		options       []PlannerOption
+		expect        func(t *testing.T, expr Interpretable, result ref.Val)
+	}{
+
+		// Test Group 01.A - No Overloads, expressions with single function call.
+		{
+			name: "01.A.01__No_Overloads_Zero_Arity",
+			interpretable: &evalZeroArity{
+				id:       1,
+				function: "f1",
+				overload: "f1_int",
+				impl:     f1_int,
+			},
+			activation: EmptyActivation(),
+			expect: chain(
+				expectType(&lateBindEvalZeroArity{}),
+				expectValue(types.Int(0)),
+			),
+		},
+		{
+			name: "01.A.02__No_Overloads_Unary",
+			interpretable: &evalUnary{
+				id:        1,
+				function:  "f1",
+				overload:  "f1_string_int",
+				trait:     0,
+				nonStrict: false,
+				arg:       NewConstValue(2, types.String("banana")),
+				impl:      f1_string_int,
+			},
+			activation: EmptyActivation(),
+			expect: chain(
+				expectType(&lateBindEvalUnary{}),
+				expectValue(types.Int(6)),
+			),
+		},
+		{
+			name: "01.A.03__No_Overloads_Binary",
+			interpretable: &evalBinary{
+				id:        1,
+				function:  "f1",
+				overload:  "f1_int_int_int",
+				trait:     0,
+				nonStrict: false,
+				lhs:       NewConstValue(2, types.Int(2)),
+				rhs:       NewConstValue(3, types.Int(3)),
+				impl:      f1_int_int_int,
+			},
+			activation: NewHierarchicalActivation(
+				&mapActivation{bindings: map[string]any{"a": 2, "b": 5}},
+				&mapActivation{bindings: map[string]any{"c": 3, "d": 6}},
+			),
+			expect: chain(
+				expectType(&lateBindEvalBinary{}),
+				expectValue(types.Int(5)),
+			),
+		},
+		{
+			name: "01.A.04__No_Overloads_VarArgs",
+			interpretable: &evalVarArgs{
+				id:        1,
+				function:  "f1",
+				overload:  "f1_bool_bool_bool_int",
+				trait:     0,
+				nonStrict: false,
+				args: []Interpretable{
+					NewConstValue(2, types.True),
+					NewConstValue(2, types.False),
+					NewConstValue(2, types.True),
+				},
+				impl: f1_bool_bool_bool_int,
+			},
+			activation: NewHierarchicalActivation(
+				&mapActivation{bindings: map[string]any{"a": 6, "b": 3}},
+				activation(
+					map[string]any{"d": 3, "f": 2},
+					function("f2", 0, false, func(args ...ref.Val) ref.Val { return types.String("f2") }),
+					function("f3", 0, false, func(args ...ref.Val) ref.Val { return types.String("f3") }),
+				),
+			),
+			expect: chain(
+				expectType(&lateBindEvalVarArgs{}),
+				expectValue(types.Int(2)),
+			),
+		},
+
+		// Test Group 01.B - Simple Function Calls with Activation Overloads
+		{
+			name: "01.B.01__With_Overloads_Zero_Arity",
+			// without override evaluates to 0
+			interpretable: &evalZeroArity{
+				id:       1,
+				function: "f1",
+				overload: "f1_int",
+				impl:     f1_int,
+			},
+			activation: &lateBindActivation{
+				vars: EmptyActivation(),
+				dispatcher: &defaultDispatcher{
+					overloads: overloadMap{
+						"f1_int": function("f1_int", 0, false, func(_ ...ref.Val) ref.Val { return types.Int(-1) }),
+					},
+				},
+			},
+			expect: chain(
+				expectType(&lateBindEvalZeroArity{}),
+				expectValue(types.Int(-1)),
+			),
+		},
+		{
+			name: "01.B.02__With_Overloads_Unary",
+			// without override evaluates to 6
+			interpretable: &evalUnary{
+				id:        1,
+				function:  "f1",
+				overload:  "f1_string_int",
+				trait:     0,
+				nonStrict: false,
+				arg:       NewConstValue(2, types.String("banana")),
+				impl:      f1_string_int,
+			},
+			activation: &hierarchicalActivation{
+				parent: &mapActivation{
+					bindings: map[string]any{"a": 3, "b": 4},
+				},
+				child: activation(
+					map[string]any{},
+					unary("f1_string_int", 0, false, func(arg ref.Val) ref.Val {
+						text := arg.(types.String)
+						size := text.Size().(types.Int)
+						return size.Add(size)
+					}),
+				),
+			},
+			expect: chain(
+				expectType(&lateBindEvalUnary{}),
+				expectValue(types.Int(12)),
+			),
+		},
+		{
+			name: "01.B.03__With_Overloads_Binary",
+			// without override evaluates to 5
+			interpretable: &evalBinary{
+				id:        1,
+				function:  "f1",
+				overload:  "f1_int_int_int",
+				trait:     0,
+				nonStrict: false,
+				lhs:       NewConstValue(2, types.Int(2)),
+				rhs:       NewConstValue(3, types.Int(3)),
+				impl:      f1_int_int_int,
+			},
+			activation: NewHierarchicalActivation(
+				activation(
+					map[string]any{},
+					binary("f1_int_int_int", 0, false, func(lhs ref.Val, rhs ref.Val) ref.Val {
+
+						l := lhs.(types.Int)
+						r := rhs.(types.Int)
+						t := l.Add(r).(types.Int)
+						return t.Multiply(types.Int(2))
+					}),
+				),
+				&mapActivation{bindings: map[string]any{"c": 3, "d": 6}},
+			),
+			expect: chain(
+				expectType(&lateBindEvalBinary{}),
+				expectValue(types.Int(10)),
+			),
+		},
+		{
+			name: "01.B.04__With_Overloads_VarArgs",
+			// without override evaluates to 2
+			interpretable: &evalVarArgs{
+				id:        1,
+				function:  "f1",
+				overload:  "f1_bool_bool_bool_int",
+				trait:     0,
+				nonStrict: false,
+				args: []Interpretable{
+					NewConstValue(2, types.True),
+					NewConstValue(2, types.False),
+					NewConstValue(2, types.True),
+				},
+				impl: f1_bool_bool_bool_int,
+			},
+			activation: NewHierarchicalActivation(
+				&mapActivation{bindings: map[string]any{"a": 6, "b": 3}},
+				activation(
+					map[string]any{"d": 3, "f": 2},
+					function("f2", 0, false, func(args ...ref.Val) ref.Val { return types.String("f2") }),
+					function("f3", 0, false, func(args ...ref.Val) ref.Val { return types.String("f3") }),
+					function("f1_bool_bool_bool_int", 0, false, func(args ...ref.Val) ref.Val {
+						counter := 0
+						for _, arg := range args {
+
+							b := arg.(ref.Val)
+							if b == types.False {
+								counter++
+							}
+						}
+						return types.Int(counter)
+					}),
+				),
+			),
+			expect: chain(
+				expectType(&lateBindEvalVarArgs{}),
+				expectValue(types.Int(1)),
+			),
+		},
+
+		// Test Group 02 - Equality Operators with Function Calls
+		{
+			name: "02.01__Equal_Operator_With_Function_Calls",
+			// witohut overrides evaluates to true
+			interpretable: &evalEq{
+				id: 50,
+				lhs: &evalZeroArity{
+					id:       51,
+					function: "f1",
+					overload: "f1_int",
+					// returns 0
+					impl: f1_int,
+				},
+				rhs: NewConstValue(52, types.Int(0)),
+			},
+			activation: activation(
+				map[string]any{},
+				function("f1_int", 0, false, func(args ...ref.Val) ref.Val { return types.Int(10) }),
+			),
+			expect: chain(
+				expectType(&evalEq{}),
+				expectValue(types.False),
+			),
+		},
+		{
+			name: "02.02__Not_Equal_Operator_With_Function_Calls",
+			// without override evaluates to false
+			interpretable: &evalNe{
+				id: 50,
+				lhs: &evalZeroArity{
+					id:       51,
+					function: "f1",
+					overload: "f1_int",
+					// returns 0
+					impl: f1_int,
+				},
+				rhs: NewConstValue(52, types.Int(0)),
+			},
+			activation: activation(
+				map[string]any{},
+				function("f1_int", 0, false, func(args ...ref.Val) ref.Val { return types.Int(10) }),
+			),
+			expect: chain(
+				expectType(&evalNe{}),
+				expectValue(types.True),
+			),
+		},
+		// Test Group 03 - Logical Operators with Function Calls
+		{
+			name: "03.01__And_Operator_With_Function_Calls",
+			// 2 == f1() && f1(example) == 14
+			interpretable: &evalAnd{
+				id: 50,
+				terms: []Interpretable{
+					// without override evaluates to false
+					&evalEq{
+						id:  51,
+						lhs: NewConstValue(52, types.Int(2)),
+						rhs: &evalZeroArity{
+							id:       53,
+							function: "f1",
+							overload: "f1_int",
+							// returns 0
+							impl: f1_int,
+						},
+					},
+					// without override evaluates to false
+					&evalEq{
+						id: 54,
+						lhs: &evalUnary{
+							id:       55,
+							function: "f1",
+							overload: "f1_string_int",
+							// returns len(example) = 7
+							impl: f1_string_int,
+							arg:  NewConstValue(56, types.String("example")),
+						},
+						rhs: NewConstValue(57, types.Int(14)),
+					},
+				},
+			},
+			activation: activation(
+				map[string]any{},
+				function("f1_int", 0, false, func(args ...ref.Val) ref.Val { return types.Int(2) }),
+				unary("f1_string_int", 0, false, func(arg ref.Val) ref.Val {
+					text := arg.(types.String)
+					return types.Int(2 * len(text.Value().(string)))
+				}),
+			),
+			expect: chain(
+				expectType(&evalAnd{}),
+				expectValue(types.True),
+			),
+		},
+		{
+			name: "03.02__Or_Operator_With_Function_Calls",
+			// f1() == 0 || f1(true, true, true) == 3
+			interpretable: &evalOr{
+				id: 51,
+				terms: []Interpretable{
+					// without override evaluates to true
+					&evalEq{
+						id: 51,
+						lhs: &evalZeroArity{
+							id:       52,
+							function: "f1",
+							overload: "f1_int",
+							// returns 0
+							impl: f1_int,
+						},
+						rhs: NewConstValue(53, types.Int(0)),
+					},
+					// without override evaluates to true
+					&evalEq{
+						id: 54,
+						lhs: &evalVarArgs{
+							id: 55,
+							args: []Interpretable{
+								NewConstValue(56, types.True),
+								NewConstValue(57, types.True),
+								NewConstValue(58, types.True),
+							},
+							function: "f1",
+							overload: "f1_bool_bool_bool_int",
+							// returns 3 (all three parameters are true)
+							impl:      f1_bool_bool_bool_int,
+							trait:     0,
+							nonStrict: false,
+						},
+						rhs: NewConstValue(59, types.Int(3)),
+					},
+				},
+			},
+			activation: activation(
+				map[string]any{},
+				function("f1_int", 0, false, func(args ...ref.Val) ref.Val { return types.Int(2) }),
+				function("f1_bool_bool_bool_int", 0, false, func(args ...ref.Val) ref.Val { return types.Int(6) }),
+			),
+			expect: chain(
+				expectType(&evalOr{}),
+				expectValue(types.False),
+			),
+		},
+		{
+			name: "03.03__Exhaustive_Or_With_Function_Calls",
+			// f1() == 0 || f1(2,3) == 5 || f1("hello") != 5
+			interpretable: &evalExhaustiveOr{
+				id: 51,
+				terms: []Interpretable{
+					// without override evaluates to true
+					&evalEq{
+						id: 52,
+						lhs: &evalZeroArity{
+							id:       53,
+							function: "f1",
+							overload: "f1_int",
+							// returns 0
+							impl: f1_int,
+						},
+						rhs: NewConstValue(54, types.Int(0)),
+					},
+					// without override evaluates to true
+					&evalEq{
+						id: 55,
+						lhs: &evalBinary{
+							id:       56,
+							lhs:      NewConstValue(56, types.Int(2)),
+							rhs:      NewConstValue(57, types.Int(3)),
+							function: "f1",
+							overload: "f1_int_int_int",
+							// returns 2 + 3 = 5
+							impl:      f1_int_int_int,
+							trait:     0,
+							nonStrict: false,
+						},
+						rhs: NewConstValue(58, types.Int(5)),
+					},
+					// without override evaluates to true
+					&evalNe{
+						id: 59,
+						lhs: &evalUnary{
+							id:       60,
+							arg:      NewConstValue(61, types.String("hello")),
+							function: "f1",
+							overload: "f1_string_int",
+							// returns len(hello) = 5
+							impl:      f1_string_int,
+							trait:     0,
+							nonStrict: false,
+						},
+						rhs: NewConstValue(62, types.Int(7)),
+					},
+				},
+			},
+			activation: activation(
+				map[string]any{},
+				function("f1_int", 0, false, func(_ ...ref.Val) ref.Val { return types.Int(10) }),
+				binary("f1_int_int_int", 0, false, func(lhs ref.Val, rhs ref.Val) ref.Val { return types.Int(12) }),
+				unary("f1_string_int", 0, false, func(arg ref.Val) ref.Val { return types.Int(7) }),
+			),
+			expect: chain(
+				expectType(&evalExhaustiveOr{}),
+				expectValue(types.False),
+			),
+		},
+		{
+			name: "03.04__Exhaustive_And_With_Function_Calls",
+			// f1() == f1(0,0) && f1() != f1("")
+			interpretable: &evalExhaustiveAnd{
+				id: 51,
+				terms: []Interpretable{
+					// evaluates to true (there are no overrides)
+					&evalEq{
+						id: 52,
+						lhs: &evalZeroArity{
+							id:       53,
+							function: "f1",
+							overload: "f1_int",
+							// returns 0
+							impl: f1_int,
+						},
+						rhs: &evalBinary{
+							id:       54,
+							lhs:      NewConstValue(55, types.IntZero),
+							rhs:      NewConstValue(56, types.IntZero),
+							function: "f1",
+							overload: "f1_int_int_int",
+							// returns 0 + 0 = 0
+							impl:      f1_int_int_int,
+							trait:     0,
+							nonStrict: false,
+						},
+					},
+					// without overrides evaluates to false
+					&evalNe{
+						id: 57,
+						lhs: &evalZeroArity{
+							id:       58,
+							function: "f1",
+							overload: "f1_int",
+							// returns 0
+							impl: f1_int,
+						},
+						rhs: &evalUnary{
+							id:       59,
+							arg:      NewConstValue(60, types.String("")),
+							function: "f1",
+							overload: "f1_string_int",
+							// returns len("") = 0
+							impl:      f1_string_int,
+							trait:     0,
+							nonStrict: false,
+						},
+					},
+				},
+			},
+			activation: activation(
+				map[string]any{},
+				unary("f1_string_int", 0, false, func(arg ref.Val) ref.Val { return types.Int(100) }),
+			),
+			expect: chain(
+				expectType(&evalExhaustiveAnd{}),
+				expectValue(types.True),
+			),
+		},
+
+		// Test Group 04 - Conditional Operators with Function Calls
+		{
+			name: "04.01__Conditional_With_Function_Calls",
+			// without overrides evaluates to a = 10
+			interpretable: &evalAttr{
+				adapter:  types.DefaultTypeAdapter,
+				optional: false,
+				// f1() == 0 ? a : b
+				attr: &conditionalAttribute{
+					id: 51,
+					expr: &evalEq{
+						id: 52,
+						lhs: &evalZeroArity{
+							id:       53,
+							function: "f1",
+							overload: "f1_int",
+							// returns 0
+							impl: f1_int,
+						},
+						rhs: NewConstValue(54, types.Int(0)),
+					},
+					truthy: attrFactory.AbsoluteAttribute(55, "a"),
+					falsy:  attrFactory.AbsoluteAttribute(56, "b"),
+				},
+			},
+			activation: activation(
+				map[string]any{
+					"a": 10,
+					"b": 20,
+				},
+				function("f1_int", 0, false, func(_ ...ref.Val) ref.Val { return types.Int(1) }),
+			),
+			expect: chain(
+				expectType(&evalAttr{}),
+				expectValue(types.Int(20)),
+			),
+		},
+		{
+			name: "04.02__Exhaustive_Conditional_With_Function_Calls",
+			// without overrides evaluates to b = 20
+			interpretable: &evalExhaustiveConditional{
+				id:      51,
+				adapter: types.DefaultTypeAdapter,
+				// f1() != 0 ? a : b
+				attr: &conditionalAttribute{
+					id: 52,
+					expr: &evalNe{
+						id: 53,
+						lhs: &evalZeroArity{
+							id:       54,
+							function: "f1",
+							overload: "f1_int",
+							// returns 0
+							impl: f1_int,
+						},
+						rhs: NewConstValue(55, types.Int(0)),
+					},
+					truthy: attrFactory.AbsoluteAttribute(56, "a"),
+					falsy:  attrFactory.AbsoluteAttribute(57, "b"),
+				},
+			},
+			activation: activation(
+				map[string]any{
+					"a": 10,
+					"b": 20,
+				},
+				function("f1_int", 0, false, func(_ ...ref.Val) ref.Val { return types.IntOne }),
+			),
+			expect: chain(
+				expectType(&evalExhaustiveConditional{}),
+				expectValue(types.Int(10)),
+			),
+		},
+
+		// Test Group 05 - Complex Data Structures with Function Calls
+		{
+			name: "05.01__Map_With_Function_Calls",
+			//
+			// {
+			//    f1():       f1(1,2),
+			//    f1("hi"):   10,
+			// }
+			// without overrides evaluates to:
+			// {
+			//    0: 3,
+			//    2: 10,
+			// }
+			interpretable: &evalMap{
+				id:           51,
+				adapter:      types.DefaultTypeAdapter,
+				hasOptionals: false,
+				optionals:    []bool{},
+				keys: []Interpretable{
+					&evalZeroArity{
+						id:       52,
+						function: "f1",
+						overload: "f1_int",
+						// returns 0
+						impl: f1_int,
+					},
+					&evalUnary{
+						id:       53,
+						function: "f1",
+						overload: "f1_string_int",
+						arg:      NewConstValue(54, types.String("hi")),
+						// returns len(hi) = 2
+						impl:      f1_string_int,
+						trait:     0,
+						nonStrict: false,
+					},
+				},
+				vals: []Interpretable{
+					&evalBinary{
+						id:       55,
+						lhs:      NewConstValue(56, types.Int(1)),
+						rhs:      NewConstValue(57, types.Int(2)),
+						function: "f1",
+						overload: "f1_int_int_int",
+						// returns 1 + 2 = 3
+						impl:      f1_int_int_int,
+						trait:     0,
+						nonStrict: false,
+					},
+					NewConstValue(58, types.Int(10)),
+				},
+			},
+			activation: activation(
+				map[string]any{},
+				function("f1_int", 0, false, func(_ ...ref.Val) ref.Val { return types.Int(1) }),
+				unary("f1_string_int", 0, false, func(_ ref.Val) ref.Val { return types.Int(2) }),
+				binary("f1_int_int_int", 0, false, func(_ ref.Val, _ ref.Val) ref.Val { return types.Int(0) }),
+			),
+			expect: chain(
+				expectType(&evalMap{}),
+				expectValue(types.DefaultTypeAdapter.NativeToValue(map[ref.Val]ref.Val{
+					types.Int(1): types.Int(0),
+					types.Int(2): types.Int(10),
+				})),
+			),
+		},
+		{
+			name: "05.02__List_With_Function_Calls",
+			//
+			// [ f1(), f1("hi"), f1(1,3), f1(true,true,true) ]
+			//
+			// without overrides evaluates to [ 0, 2, 4, 3 ]
+			interpretable: &evalList{
+				id: 51,
+				elems: []Interpretable{
+					&evalZeroArity{
+						id:       52,
+						function: "f1",
+						overload: "f1_int",
+						// returns 0
+						impl: f1_int,
+					},
+					&evalUnary{
+						id:       53,
+						function: "f1",
+						overload: "f1_string_int",
+						arg:      NewConstValue(54, types.String("hi")),
+						// returns len(hi) = 2
+						impl:      f1_string_int,
+						trait:     0,
+						nonStrict: false,
+					},
+					&evalBinary{
+						id:       55,
+						function: "f1",
+						overload: "f1_int_int_int",
+						lhs:      NewConstValue(56, types.Int(1)),
+						rhs:      NewConstValue(57, types.Int(3)),
+						// returns 1 + 3 = 4
+						impl:      f1_int_int_int,
+						trait:     0,
+						nonStrict: false,
+					},
+					&evalVarArgs{
+						id:       58,
+						function: "f1",
+						overload: "f1_bool_bool_bool_int",
+						args: []Interpretable{
+							NewConstValue(59, types.True),
+							NewConstValue(60, types.True),
+							NewConstValue(61, types.True),
+						},
+						// returns 3 (three true values in arguments)
+						impl:      f1_bool_bool_bool_int,
+						trait:     0,
+						nonStrict: false,
+					},
+				},
+				optionals:    []bool{},
+				hasOptionals: false,
+				adapter:      types.DefaultTypeAdapter,
+			},
+			activation: activation(
+				map[string]any{},
+				function("f1_int", 0, false, func(_ ...ref.Val) ref.Val { return types.Int(1) }),
+				unary("f1_string_int", 0, false, func(_ ref.Val) ref.Val { return types.Int(2) }),
+				binary("f1_int_int_int", 0, false, func(_ ref.Val, _ ref.Val) ref.Val { return types.Int(3) }),
+				function("f1_bool_bool_bool_int", 0, false, func(_ ...ref.Val) ref.Val { return types.Int(4) }),
+			),
+			expect: chain(
+				expectType(&evalList{}),
+				expectValue(types.DefaultTypeAdapter.NativeToValue([]ref.Val{
+					types.Int(1),
+					types.Int(2),
+					types.Int(3),
+					types.Int(4),
+				})),
+			),
+		},
+		{
+			name: "05.03__Object_With_Function_Calls",
+			interpretable: &evalObj{
+				id:       51,
+				typeName: "example",
+				fields: []string{
+					"quantity",
+					"frequency",
+				},
+				vals: []Interpretable{
+					&evalZeroArity{
+						id:       52,
+						function: "f1",
+						overload: "f1_int",
+						// returns 0
+						impl: f1_int,
+					},
+					&evalUnary{
+						id:       53,
+						function: "f1",
+						overload: "f1_string_int",
+						// returns len("weekly") = 6
+						impl:      f1_string_int,
+						trait:     0,
+						nonStrict: false,
+						arg:       NewConstValue(54, types.String("weekly")),
+					},
+				},
+				optionals:    []bool{},
+				hasOptionals: false,
+				provider:     exampleProvider,
+			},
+			activation: activation(
+				map[string]any{},
+				function("f1_int", 0, false, func(_ ...ref.Val) ref.Val { return types.Int(10) }),
+				unary("f1_string_int", 0, false, func(_ ref.Val) ref.Val { return types.Int(3) }),
+			),
+			expect: chain(
+				expectType(&evalObj{}),
+				expectValue(exampleProvider.NewValue("example", map[string]ref.Val{
+					"weekly":   types.Int(3),
+					"quantity": types.Int(10),
+				})),
+			),
+		},
+		// Test Group 06 - Macros
+		// Test Group 07 - Set Membership
+		// Test Group 08 - EvalObserver Alterations
+	}
+
+	for _, testCase := range testCases {
+
+		t.Run(testCase.name, func(t *testing.T) {
+
+			candidate := decLateBinding()
+			if candidate == nil {
+				t.Fatal("pre-condition failed: intepretable decorator is nil")
+			}
+
+			interpretable, err := candidate(testCase.interpretable)
+			if err != nil {
+				t.Fatalf("unexpected error while applying late binding decorator (cause: %v)", err)
+			}
+			result := interpretable.Eval(testCase.activation)
+			testCase.expect(t, interpretable, result)
+		})
+	}
+
+}
+
 // testInterpretableCallID is a convenience function that verifies that the value
 // returned by actual.ID() is the same as the value return by expected.ID().
 func testInterpretableCallID[A, E InterpretableCall](t *testing.T, actual A, expected E) {
@@ -1556,8 +2466,7 @@ func testInterpretableCallArgs[A, E InterpretableCall](t *testing.T, actual A, e
 	eArgs := expected.Args()
 
 	if len(eArgs) != len(aArgs) {
-		t.Errorf("args size mismatch (got: %d, want: %d)", len(aArgs), len(eArgs))
-		t.FailNow()
+		t.Fatalf("args size mismatch (got: %d, want: %d)", len(aArgs), len(eArgs))
 	}
 
 	for index, eArg := range eArgs {
@@ -1600,6 +2509,9 @@ func testInterpretableEval(t *testing.T, testCases []interpretableTestCase) {
 func expectValue(expected ref.Val) func(t *testing.T, target Interpretable, actual ref.Val) {
 
 	return func(t *testing.T, _ Interpretable, actual ref.Val) {
+
+		t.Helper()
+
 		if expected.Equal(actual) == types.False {
 			t.Errorf("unexpected value (got: %v, want: %v)", actual, expected)
 		}
@@ -1622,6 +2534,8 @@ func expectEqual[I InterpretableCall](
 
 	return func(t *testing.T, target Interpretable, _ ref.Val) {
 
+		t.Helper()
+
 		actual := unwrap(target)
 		testInterpretableCallID(t, actual, expected)
 		testInterpretableCallFunction(t, actual, expected)
@@ -1638,6 +2552,23 @@ func expectEqual[I InterpretableCall](
 
 		if eVal.Equal(aVal) == types.False {
 			t.Errorf("function overload has been mutated on original target (invoke, got: %v, want: %v)", aVal, eVal)
+		}
+	}
+}
+
+// expectType generates an expectation function that is used to validate that the name
+// of Interpretable expression is the same of the name of the given type.
+func expectType(expected Interpretable) func(t *testing.T, target Interpretable, actual ref.Val) {
+
+	return func(t *testing.T, target Interpretable, _ ref.Val) {
+
+		t.Helper()
+
+		expectedType := reflect.TypeOf(expected).Name()
+		actualType := reflect.TypeOf(target).Name()
+
+		if expectedType != actualType {
+			t.Errorf("unexpected type: (got: %s, want: %s)", actualType, expectedType)
 		}
 	}
 }
@@ -1839,4 +2770,102 @@ func function(operator string, operandTrait int, nonStrict bool, function functi
 		NonStrict:    nonStrict,
 		Function:     function,
 	}
+}
+
+// testProvider is a stripped down implementation used for the purpose
+// of testing the late bind decorator. It can be configured with a type
+// name and a list of fields, which is then implemented as a map.
+type testProvider struct {
+	adapter  types.Adapter
+	typeName string
+	fields   map[string]*types.Type
+}
+
+// EnumValue is a dummy implementation of Provider.EnumValue(string) and
+// returns a types.Err since the provider does not support any enumeration
+// definition.
+func (et *testProvider) EnumValue(enumName string) ref.Val {
+	return types.NewErr("unknown enum name '%s'", enumName)
+}
+
+// FindIdent is a dummy implementatio of Provider.FindIdent(string) and
+// returns a pair (nil, false) for all values of identName.
+func (et *testProvider) FindIdent(identName string) (ref.Val, bool) {
+
+	return nil, false
+}
+
+// FindStructType checks whether the structType matches the pre-configured
+// type and if so, it does return the corresponding map type definition
+// for the type.
+func (et *testProvider) FindStructType(structType string) (*types.Type, bool) {
+
+	if et.typeName != structType {
+
+		return nil, false
+	}
+
+	return types.NewMapType(types.StringType, types.DynType), true
+}
+
+// FindStructFieldNames checks whether the structType matches the pre-configured
+// type and if so, it does return the list of fields configured with the provider.
+func (et *testProvider) FindStructFieldNames(structType string) ([]string, bool) {
+
+	if et.typeName != structType {
+
+		return nil, false
+	}
+
+	names := make([]string, len(et.fields))
+	index := 0
+	for k, _ := range et.fields {
+		names[index] = k
+		index++
+	}
+
+	return names, true
+}
+
+// FindStructFieldType checks whether the structType matches the pre-configured type and if so, it
+// returns a FieldType reference that provides information about the type, but without the IsSet and
+// GetFrom accessor functions. If either structType or fieldName do not match the pre-configured type
+// and fields the pair (nil, false) is returned.
+func (er *testProvider) FindStructFieldType(structType, fieldName string) (*types.FieldType, bool) {
+
+	if er.typeName != structType {
+		return nil, false
+	}
+
+	fType, found := er.fields[fieldName]
+	if !found {
+		return nil, false
+	}
+
+	return &types.FieldType{
+		Type:    fType,
+		IsSet:   nil,
+		GetFrom: nil,
+	}, true
+}
+
+// NewValue checks whether the structType matches the pre-configured type and if so, it
+// creates a dynamic map that is configured with the fields that are passed as arguments.
+// If any of these fields is not contained in the map of pre-configured fields the function
+// returns an error.
+func (et *testProvider) NewValue(structType string, fields map[string]ref.Val) ref.Val {
+
+	if structType != et.typeName {
+		return types.NewErr("unknown struct '%s'", structType)
+	}
+
+	for name, _ := range fields {
+		_, found := et.fields[name]
+		if !found {
+			return types.NewErr("field '%s' does not exist in struct '%s'", name, structType)
+		}
+	}
+
+	return types.NewDynamicMap(et.adapter, fields)
+
 }
