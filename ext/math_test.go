@@ -189,6 +189,7 @@ func TestMath(t *testing.T) {
 		{expr: "math.sqrt(25u) == 5.0"},
 		{expr: "math.sqrt(82) == 9.055385138137417"},
 		{expr: "math.sqrt(985.25) == 31.388692231439016"},
+		{expr: "math.isNaN(math.sqrt(-15.34))"},
 	}
 
 	env := testMathEnv(t,

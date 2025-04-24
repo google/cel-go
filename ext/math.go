@@ -341,6 +341,7 @@ import (
 //
 //	math.sqrt(81) // returns 9.0
 //	math.sqrt(985.25)   // returns 31.388692231439016
+//      math.sqrt(-15)  // returns NaN
 func Math(options ...MathOption) cel.EnvOption {
 	m := &mathLib{version: math.MaxUint32}
 	for _, o := range options {
@@ -730,7 +731,7 @@ func sqrt(val ref.Val) ref.Val {
 	case types.Uint:
 	  return types.Double(math.Sqrt(float64(v)))
 	default:
-	  return types.NewErr("Input must be non-negative")
+	  return types.NewErr("no such overload: sqrt")
 	}
 }
 

@@ -371,6 +371,7 @@ Examples:
 
     math.sqrt(81) // returns 9.0
     math.sqrt(985.25)   // returns 31.388692231439016
+    math.sqrt(-15)  // returns NaN
 
 ## Protos
 
