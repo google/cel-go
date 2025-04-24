@@ -61,14 +61,14 @@ func setupTests() []*testCase {
 		{
 			name:          "raw expression file test",
 			celExpression: "testdata/raw_expr.cel",
-			testSuitePath: "testdata/raw_expr_tests",
+			testSuitePath: "testdata/raw_expr_tests.yaml",
 			configPath:    "testdata/config.yaml",
 			opts:          []any{fnEnvOption()},
 		},
 		{
 			name:          "raw expression test",
-			celExpression: "'i + fn(j) == 42'",
-			testSuitePath: "testdata/raw_expr_tests",
+			celExpression: "i + fn(j) == 42",
+			testSuitePath: "testdata/raw_expr_tests.yaml",
 			configPath:    "testdata/config.yaml",
 			opts:          []any{fnEnvOption()},
 		},

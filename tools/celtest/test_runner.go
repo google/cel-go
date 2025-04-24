@@ -83,9 +83,15 @@ func TriggerTests(t *testing.T, testRunnerOpts []TestRunnerOption, testCompilerO
 	if err != nil {
 		t.Fatalf("error creating programs: %v", err)
 	}
+	if len(programs) == 0 {
+		t.Fatalf("no programs created for the provided expressions")
+	}
 	tests, err := tr.Tests(t)
 	if err != nil {
 		t.Fatalf("error creating tests: %v", err)
+	}
+	if len(tests) == 0 {
+		t.Fatalf("no tests found")
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
