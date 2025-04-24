@@ -267,6 +267,14 @@ func newProgram(e *Env, a *ast.AST, opts []ProgramOption) (Program, error) {
 
 	// add behaviour for latebinding calls.
 	if p.evalOpts&OptLateBindCalls != 0 {
+
+		// we need to ensure that the AST is checked otherwise
+		// we won't be able to resolve overloaded functions by
+		// overload identifiers
+		if !a.IsChecked() {
+			return nil, interpreter.UncheckedAstError()
+		}
+
 		plannerOptions = append(plannerOptions, interpreter.LateBindCalls())
 	}
 
