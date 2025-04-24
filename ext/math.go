@@ -328,7 +328,7 @@ import (
 //
 // # Math.Sqrt
 //
-// Introduced at version: 1
+// Introduced at version: 2
 //
 // Returns the square root of the given input as double
 // Throws error for negative or non-numeric inputs
@@ -529,16 +529,6 @@ func (lib *mathLib) CompileOptions() []cel.EnvOption {
 					cel.UnaryBinding(sign)),
 			),
 
-      // SquareRoot function
-			cel.Function(sqrtFunc,
-				cel.Overload("math_sqrt_double", []*cel.Type{cel.DoubleType}, cel.DoubleType,
-					cel.UnaryBinding(sqrt)),
-				cel.Overload("math_sqrt_int", []*cel.Type{cel.IntType}, cel.DoubleType,
-					cel.UnaryBinding(sqrt)),
-				cel.Overload("math_sqrt_uint", []*cel.Type{cel.UintType}, cel.DoubleType,
-					cel.UnaryBinding(sqrt)),
-			),
-
 			// Bitwise operator declarations
 			cel.Function(bitAndFunc,
 				cel.Overload("math_bitAnd_int_int", []*cel.Type{cel.IntType, cel.IntType}, cel.IntType,
@@ -575,6 +565,18 @@ func (lib *mathLib) CompileOptions() []cel.EnvOption {
 					cel.BinaryBinding(bitShiftRightIntInt)),
 				cel.Overload("math_bitShiftRight_uint_int", []*cel.Type{cel.UintType, cel.IntType}, cel.UintType,
 					cel.BinaryBinding(bitShiftRightUintInt)),
+			),
+		)
+	}
+	if lib.version >= 2 {
+		opts = append(opts,
+			cel.Function(sqrtFunc,
+				cel.Overload("math_sqrt_double", []*cel.Type{cel.DoubleType}, cel.DoubleType,
+					cel.UnaryBinding(sqrt)),
+				cel.Overload("math_sqrt_int", []*cel.Type{cel.IntType}, cel.DoubleType,
+					cel.UnaryBinding(sqrt)),
+				cel.Overload("math_sqrt_uint", []*cel.Type{cel.UintType}, cel.DoubleType,
+					cel.UnaryBinding(sqrt)),
 			),
 		)
 	}

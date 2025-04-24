@@ -358,7 +358,7 @@ Examples:
 
 ### Math.Sqrt
 
-Introduced at version: 1
+Introduced at version: 2
 
 Returns the square root of the given input as double
 Throws error for negative or non-numeric inputs

@@ -604,13 +604,18 @@ func TestMathVersions(t *testing.T) {
 				"isFinite":      `math.isFinite(0.0)`,
 				"abs":           `math.abs(1.2) == 1.2`,
 				"sign":          `math.sign(-1) == -1`,
-				"sqrt":          `math.sqrt(25) == 5.0`,
 				"bitAnd":        `math.bitAnd(1, 2) == 0`,
 				"bitOr":         `math.bitOr(1, 2) == 3`,
 				"bitXor":        `math.bitXor(1, 3) == 2`,
 				"bitNot":        `math.bitNot(-1) == 0`,
 				"bitShiftLeft":  `math.bitShiftLeft(4, 2) == 16`,
 				"bitShiftRight": `math.bitShiftRight(4, 2) == 1`,
+			},
+		},
+		{
+			version: 2,
+			supportedFunctions: map[string]string{
+				"sqrt":          `math.sqrt(25) == 5.0`,
 			},
 		},
 	}
