@@ -181,6 +181,15 @@ func TestMath(t *testing.T) {
 		{expr: "math.abs(1) == 1"},
 		{expr: "math.abs(-234.5) == 234.5"},
 		{expr: "math.abs(234.5) == 234.5"},
+
+		// Tests for Square root function
+		{expr: "math.sqrt(49.0) == 7.0"},
+		{expr: "math.sqrt(0) == 0.0"},
+		{expr: "math.sqrt(1) == 1.0"},
+		{expr: "math.sqrt(25u) == 5.0"},
+		{expr: "math.sqrt(82) == 9.055385138137417"},
+		{expr: "math.sqrt(985.25) == 31.388692231439016"},
+		{expr: "math.isNaN(math.sqrt(-15.34))"},
 	}
 
 	env := testMathEnv(t,
@@ -472,6 +481,10 @@ func TestMathRuntimeErrors(t *testing.T) {
 			expr: "math.trunc(dyn(1u))",
 			err:  "no such overload: math.trunc(uint)",
 		},
+		{
+			expr: "math.sqrt(dyn(''))",
+			err:  "no such overload: math.sqrt(string)",
+		},
 	}
 
 	env := testMathEnv(t,
@@ -597,6 +610,12 @@ func TestMathVersions(t *testing.T) {
 				"bitNot":        `math.bitNot(-1) == 0`,
 				"bitShiftLeft":  `math.bitShiftLeft(4, 2) == 16`,
 				"bitShiftRight": `math.bitShiftRight(4, 2) == 1`,
+			},
+		},
+		{
+			version: 2,
+			supportedFunctions: map[string]string{
+				"sqrt":          `math.sqrt(25) == 5.0`,
 			},
 		},
 	}
