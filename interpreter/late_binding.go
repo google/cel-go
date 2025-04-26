@@ -197,7 +197,10 @@ func matchSignature(overloadId string, refOvl *functions.Overload, ovl *function
 	}
 	if refOvl.Operator != ovl.Operator {
 
-		return OverloadMismatchError(overloadId, "Operator", refOvl.Operator, ovl.Operator)
+		// unless we test directly matchSignature, this branch can only be reached
+		// with misconfiguration that are unlikely to occur (see test cases for
+		// ValidateOverloads -> ERROR_Misconfigured_Dispatcher).
+		return OverloadMismatchError(overloadId, "Operator", ovl.Operator, refOvl.Operator)
 	}
 
 	return nil

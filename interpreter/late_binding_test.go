@@ -205,6 +205,18 @@ func TestValidateOverloads(t *testing.T) {
 		err       error
 	}{
 		{
+			name:      "OK_Nil_Activation",
+			reference: referenceDispatcher(),
+			candidate: func() Activation { return nil },
+			err:       nil,
+		},
+		{
+			name:      "OK_Unknown_Activation_Type",
+			reference: referenceDispatcher(),
+			candidate: func() Activation { return &dummyActivation{} },
+			err:       nil,
+		},
+		{
 			name:      "OK_Matching_Overloads",
 			reference: referenceDispatcher(),
 			candidate: candidateActivation("", nil),
@@ -289,6 +301,27 @@ func TestValidateOverloads(t *testing.T) {
 			candidate: candidateActivation("f1_string_string", f1_string_non_strict),
 			err:       fmt.Errorf(errorOverloadMismatch, "f1_string_string", "NonStrict", false, true),
 		},
+		// NOTE: in this scenario a misconfiguration of the key of the original
+		//       dispacher that is mapped to an overload with a different operator
+		//       causes a signature error, when the same key has a match in the
+		//       Activation implementation passed to ValidateOverloads
+		{
+			name: "ERROR_Misconfigured_Dispatcher",
+			reference: &defaultDispatcher{
+				overloads: overloadMap{
+					"f7_string_string": f1_string_string,
+				},
+			},
+			candidate: candidateActivation("f7_string_string", &functions.Overload{
+				Operator:     "f7_string_string",
+				OperandTrait: 0,
+				NonStrict:    true,
+				Unary: func(_ ref.Val) ref.Val {
+					return types.String("")
+				},
+			}),
+			err: fmt.Errorf(errorOverloadMismatch, "f7_string_string", "Operator", "f7_string_string", "f1_string_string"),
+		},
 	}
 
 	for _, testCase := range testCases {
@@ -314,6 +347,18 @@ func TestValidateOverloads(t *testing.T) {
 		})
 	}
 }
+
+type dummyActivation struct {
+	Activation
+}
+
+func (da *dummyActivation) ResolveName(name string) (any, bool) {
+	if da.Activation != nil {
+		return da.Activation.ResolveName(name)
+	}
+	return nil, false
+}
+func (da *dummyActivation) Parent() Activation { return da.Activation }
 
 // evalLateBindTestCase is a convenience structure used to test
 // the different methods of evalLateBind.

@@ -518,6 +518,34 @@ func TestLateBindActivation_ResolveOverload(t *testing.T) {
 			overloadId: "f1_string_string_string",
 			expected:   nil,
 		}, {
+			name:       "FALSE_Simple_Case_With_Nil",
+			overloadId: "f1_string",
+			candidate: func() *lateBindActivation {
+
+				return &lateBindActivation{
+					vars: &hierarchicalActivation{
+						parent: nil,
+						child:  &emptyActivation{},
+					},
+				}
+			},
+			expected: nil,
+		}, {
+			name:       "FALSE_Simple_Case_With_Partial_Activation",
+			overloadId: "f1_string",
+			candidate: func() *lateBindActivation {
+
+				return &lateBindActivation{
+					vars: &hierarchicalActivation{
+						parent: &partActivation{
+							Activation: &emptyActivation{},
+						},
+						child: &emptyActivation{},
+					},
+				}
+			},
+			expected: nil,
+		}, {
 			name:       "TRUE_Complex_Case_With_Nesting_Top_Level",
 			candidate:  nestedActivation,
 			overloadId: "f1_string",
@@ -697,7 +725,8 @@ func TestLateBindActivation_ResolveOverloads(t *testing.T) {
 // lateBindActivation:
 //
 //	├─ vars ---> hierarchicalActivation:
-//	│  ├─ parent ---> emptyActivation
+//	│  ├─ parent ---> partActivation:
+//	│                 └─ Activation: emptyActivation
 //	│  └─ child  ---> hierarchicalActivation:
 //	│                 ├─ parent ---> lateBindActivation:
 //	│                 │               ├─ vars: mapActivation,
@@ -789,7 +818,9 @@ func prepareNestedActivation() (func() *lateBindActivation, map[string]*function
 
 		return &lateBindActivation{
 			vars: &hierarchicalActivation{
-				parent: &emptyActivation{},
+				parent: &partActivation{
+					Activation: &emptyActivation{},
+				},
 				child: &hierarchicalActivation{
 					parent: &lateBindActivation{
 						vars: &mapActivation{},

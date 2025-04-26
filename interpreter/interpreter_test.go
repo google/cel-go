@@ -2505,11 +2505,17 @@ func TestInterpreter_LateBindCalls(t *testing.T) {
 		{
 			name: "T05.05__OK_Map_Map",
 			// without overrides:
-			// - f1(6,3) -> 9
+			// - f1(5,3) -> 8
 			// - f1(true,true,false) -> 2
-			// result: [2, 4, 14]
-			// with overrides: [1, 2]
-			expr:      `m.map(k, k < f1(6,3), k * f1(true, true, false))`,
+			// result: [1 < 8, 2 < 8, 7 < 8] = [1 * 2, 2 * 2, 7 * 2] = [2, 4, 14]
+			// with overrides:
+			// - f1(5,3) -> 2
+			// - f1(true,true,false) -> 1
+			// result: [1]
+			//
+			// NOTE: ensure the expected result is only one, so we don't get flakiness
+			// due to variable key ordering of the map iterator.
+			expr:      `m.map(k, k < f1(5,3), k * f1(true, true, false))`,
 			funcs:     []*decls.FunctionDecl{f1(t)},
 			unchecked: false,
 			vars: []*decls.VariableDecl{
@@ -2526,7 +2532,7 @@ func TestInterpreter_LateBindCalls(t *testing.T) {
 				f1_int_int_int,
 				f1_bool_bool_bool_int,
 			),
-			out: types.NewDynamicList(types.DefaultTypeAdapter, []int{1, 2}),
+			out: types.NewDynamicList(types.DefaultTypeAdapter, []int{1}),
 		},
 		{
 			name: "T05.06__OK_List_Filter",
