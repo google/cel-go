@@ -317,8 +317,14 @@ func lateBind(config *lateBindConfig, i Interpretable) (Interpretable, error) {
 		return i, nil
 	}
 
-	// store the interpretable in the cache.
-	config.cache[id] = i
+	// we need to make sure that we process nodes that wrap other
+	// nodes that have the same identifiers. Therefore, we add the
+	// node only when we complete this scope, otherwise the recursion
+	// won't do anything on a node wrapping another.
+	defer func() {
+		// store the interpretable in the cache.
+		config.cache[id] = i
+	}()
 
 	switch interpretable := i.(type) {
 
@@ -330,6 +336,10 @@ func lateBind(config *lateBindConfig, i Interpretable) (Interpretable, error) {
 		// and non equality behaviour.
 		case *evalEq:
 		case *evalNe:
+		// we don't want to double down on our own late binding
+		// in case we have multiple late bind calls options in
+		// planner.
+		case *evalLateBind:
 			return i, nil
 
 		// all the other implementations of InterpretableCall are
@@ -349,11 +359,19 @@ func lateBind(config *lateBindConfig, i Interpretable) (Interpretable, error) {
 			return &evalLateBind{
 				target:         evalCall,
 				injectOverload: injector,
+				flags:          config.flags,
 			}, nil
 		}
 
 	case *evalWatch:
-		return lateBind(config, interpretable.Interpretable)
+
+		mapped, err := lateBind(config, interpretable.Interpretable)
+		if err != nil {
+			return nil, err
+		}
+		interpretable.Interpretable = mapped
+
+		return interpretable, nil
 	}
 
 	// all the other cases aren't relevant.

@@ -203,13 +203,22 @@ func matchSignature(overloadId string, refOvl *functions.Overload, ovl *function
 	return nil
 }
 
+// LateBindFlags is a bitmask that is reserved for future uses to pass parameters
+// to the late binding algorithm both during the program planning phase and the
+// runtime dispatch behaviour.
+type LateBindFlags int
+
+const (
+	LateBindFlagsNone LateBindFlags = iota
+)
+
 // OverloadInjector defines the signature of the function that is used to create a replica
 // of the given InterpretableCall configured with the new function Overload passed as the
 // second argument. The contract defined by this signature requires implementations to
 // create a new instance of the InterpretableCall, which is identical to the one passed as
 // argument, except for the overload used for the function. If the injection is not possible
 // the function will return an error.
-type OverloadInjector func(InterpretableCall, *functions.Overload) (InterpretableCall, error)
+type OverloadInjector func(InterpretableCall, *functions.Overload, LateBindFlags) (InterpretableCall, error)
 
 // evalLateBind implements the decorator pattern for function call nodes that implement
 // InterpretableCall. This type is shallow wrapper around an InterpretableCall implementation
@@ -218,6 +227,7 @@ type OverloadInjector func(InterpretableCall, *functions.Overload) (Interpretabl
 type evalLateBind struct {
 	target         InterpretableCall
 	injectOverload OverloadInjector
+	flags          LateBindFlags
 }
 
 // ID implements Interpretable.ID() and returns the node identifier
@@ -246,7 +256,7 @@ func (elb *evalLateBind) Eval(ctx Activation) ref.Val {
 		// this creates a new instance of the original
 		// node, to ensure that the original remains
 		// unchanged.
-		subject, err = elb.injectOverload(elb.target, ovl)
+		subject, err = elb.injectOverload(elb.target, ovl, elb.flags)
 		if err != nil {
 			return types.NewErrWithNodeID(elb.target.ID(), errorOverloadInjection, err)
 		}
@@ -300,6 +310,7 @@ func Injector(t InterpretableCall, injector OverloadInjector) LateBindCallOption
 type lateBindConfig struct {
 	cache     map[int64]Interpretable
 	injectors map[reflect.Type]OverloadInjector
+	flags     LateBindFlags
 }
 
 // defaultInjectors is implements a LateBindCallOption that is
@@ -319,7 +330,7 @@ func defaultInjectors(c *lateBindConfig) *lateBindConfig {
 // of InterpretableCall. This implementation expects a varargs function to be defined
 // by the overload in order to be substituted to the function implementation that is
 // statically linked to the node during the planning phase.
-func injectZeroArity(target InterpretableCall, overload *functions.Overload) (InterpretableCall, error) {
+func injectZeroArity(target InterpretableCall, overload *functions.Overload, _ LateBindFlags) (InterpretableCall, error) {
 
 	zeroArity := target.(*evalZeroArity)
 
@@ -340,7 +351,7 @@ func injectZeroArity(target InterpretableCall, overload *functions.Overload) (In
 // InterpretableCall. This implementation expects a unary function to be defined
 // by the overload in order to be substituted to the function implementation that
 // is statically linked to the node during the planning phase.
-func injectUnary(target InterpretableCall, overload *functions.Overload) (InterpretableCall, error) {
+func injectUnary(target InterpretableCall, overload *functions.Overload, _ LateBindFlags) (InterpretableCall, error) {
 
 	unary := target.(*evalUnary)
 
@@ -365,7 +376,7 @@ func injectUnary(target InterpretableCall, overload *functions.Overload) (Interp
 // InterpretableCall. This implementation expects a binary function to be defined by
 // the overload in order to be substituted to the function implementation that is
 // statically linked to the node during the planning phase.
-func injectBinary(target InterpretableCall, overload *functions.Overload) (InterpretableCall, error) {
+func injectBinary(target InterpretableCall, overload *functions.Overload, _ LateBindFlags) (InterpretableCall, error) {
 	binary := target.(*evalBinary)
 
 	if overload.Binary == nil {
@@ -390,7 +401,7 @@ func injectBinary(target InterpretableCall, overload *functions.Overload) (Inter
 // InterpretableCall. This implementation expects a varargs function to be defined by
 // the overload in order to be substituted to the function implementation that is
 // statically linked to the node during the planning phase.
-func injectVarArgs(target InterpretableCall, overload *functions.Overload) (InterpretableCall, error) {
+func injectVarArgs(target InterpretableCall, overload *functions.Overload, _ LateBindFlags) (InterpretableCall, error) {
 
 	varArgs := target.(*evalVarArgs)
 

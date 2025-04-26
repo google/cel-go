@@ -873,9 +873,9 @@ func TestInjector(t *testing.T) {
 	// invoked. This is used as a control mechanism to ensure that we are actually invoking this
 	// function. We are not really interested in the implementation of the injector, rather that
 	// if we supply one that is the one used.
-	expectation := func(match *bool) func(target InterpretableCall, overload *functions.Overload) (InterpretableCall, error) {
+	expectation := func(match *bool) func(target InterpretableCall, overload *functions.Overload, _ LateBindFlags) (InterpretableCall, error) {
 
-		return func(target InterpretableCall, overload *functions.Overload) (InterpretableCall, error) {
+		return func(target InterpretableCall, overload *functions.Overload, _ LateBindFlags) (InterpretableCall, error) {
 
 			*match = true
 
@@ -933,7 +933,7 @@ func TestInjector(t *testing.T) {
 		},
 	}
 
-	actual(target, overload)
+	actual(target, overload, LateBindFlagsNone)
 	if !isMatchingInjector {
 		t.Errorf("Injector did not configured the supplied OverloadInjector for key '%s'", key)
 	}
