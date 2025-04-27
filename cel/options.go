@@ -671,6 +671,18 @@ func EvalOptions(opts ...EvalOption) ProgramOption {
 	}
 }
 
+// LateBindOptions sets one of more LateBindCallOption and automatically
+// add the OptLateBindCalls to the evaluation options, to enable the late
+// binding behaviour.
+func LateBindOptions(opts ...interpreter.LateBindCallOption) ProgramOption {
+	return func(p *prog) (*prog, error) {
+		p.lateBindOptions = append(p.lateBindOptions, opts...)
+		p.evalOpts |= OptLateBindCalls
+		return p, nil
+	}
+
+}
+
 // InterruptCheckFrequency configures the number of iterations within a comprehension to evaluate
 // before checking whether the function evaluation has been interrupted.
 func InterruptCheckFrequency(checkFrequency uint) ProgramOption {

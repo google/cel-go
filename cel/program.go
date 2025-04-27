@@ -163,6 +163,8 @@ type prog struct {
 	callCostEstimator interpreter.ActualCostEstimator
 	costOptions       []interpreter.CostTrackerOption
 	costLimit         *uint64
+
+	lateBindOptions []interpreter.LateBindCallOption
 }
 
 // newProgram creates a program instance with an environment, an ast, and an optional list of
@@ -176,10 +178,11 @@ func newProgram(e *Env, a *ast.AST, opts []ProgramOption) (Program, error) {
 	// Ensure the default attribute factory is set after the adapter and provider are
 	// configured.
 	p := &prog{
-		Env:            e,
-		plannerOptions: []interpreter.PlannerOption{},
-		dispatcher:     disp,
-		costOptions:    []interpreter.CostTrackerOption{},
+		Env:             e,
+		plannerOptions:  []interpreter.PlannerOption{},
+		dispatcher:      disp,
+		costOptions:     []interpreter.CostTrackerOption{},
+		lateBindOptions: []interpreter.LateBindCallOption{},
 	}
 
 	// Configure the program via the ProgramOption values.
@@ -275,7 +278,7 @@ func newProgram(e *Env, a *ast.AST, opts []ProgramOption) (Program, error) {
 			return nil, interpreter.UncheckedAstError()
 		}
 
-		plannerOptions = append(plannerOptions, interpreter.LateBindCalls())
+		plannerOptions = append(plannerOptions, interpreter.LateBindCalls(p.lateBindOptions...))
 	}
 
 	return p.initInterpretable(a, plannerOptions)
