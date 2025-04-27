@@ -138,6 +138,9 @@ func (oi *ObservableInterpretable) ObserveEval(vars Activation, observer func(an
 		if err != nil {
 			return types.WrapErr(err)
 		}
+		// Provide an initial reference to the state to ensure state is available
+		// even in cases of interrupting errors generated during evaluation.
+		observer(obs.GetState(vars))
 	}
 	result := oi.Interpretable.Eval(vars)
 	// Get the state which needs to be reported back as having been observed.

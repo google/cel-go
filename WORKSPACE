@@ -101,8 +101,8 @@ go_repository(
 go_repository(
     name = "dev_cel_expr",
     importpath = "cel.dev/expr",
-    sum = "h1:xoFEsNh972Yzey8N9TCPx2nDvMN7TMhQEzxLuj/iRrI=",
-    version = "v0.22.1",
+    sum = "h1:K4KOtPCJQjVggkARsjG9RWXP6O4R73aHeJMa/dmCQQg=",
+    version = "v0.23.1",
 )
 
 # local_repository(
@@ -153,7 +153,7 @@ go_repository(
 # of the above repositories but at different versions, so ours must come first.
 go_rules_dependencies()
 
-go_register_toolchains(version = "1.21.1")
+go_register_toolchains(version = "1.22.0")
 
 gazelle_dependencies()
 

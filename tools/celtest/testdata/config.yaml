@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: "custom_policy_config"
-extensions:
-  - name: "optional"
-    version: "latest"
+name: "simple expression config"
+variables:
+  - name: "i"
+    type_name: "int"
+  - name: "j"
+    type_name: "int"

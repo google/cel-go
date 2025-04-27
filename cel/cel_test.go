@@ -17,6 +17,7 @@ package cel
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"reflect"
@@ -1761,6 +1762,95 @@ func TestEstimateCostAndRuntimeCost(t *testing.T) {
 			if est.Min > *actualCost || est.Max < *actualCost {
 				t.Errorf("EvalDetails.ActualCost() failed to return a runtime cost %d is the range of estimate cost [%d, %d]", *actualCost,
 					est.Min, est.Max)
+			}
+		})
+	}
+}
+
+func TestCostLimit(t *testing.T) {
+	cases := []struct {
+		name      string
+		expr      string
+		decls     []EnvOption
+		costLimit uint64
+		in        any
+		err       error
+	}{
+		{
+			name: "greater",
+			expr: `val1 > val2`,
+			decls: []EnvOption{
+				Variable("val1", IntType),
+				Variable("val2", IntType),
+			},
+			in:        map[string]any{"val1": 1, "val2": 2},
+			costLimit: 10,
+		},
+		{
+			name: "greater - error",
+			expr: `val1 > val2`,
+			decls: []EnvOption{
+				Variable("val1", IntType),
+				Variable("val2", IntType),
+			},
+			in:        map[string]any{"val1": 1, "val2": 2},
+			costLimit: 0,
+			err:       errors.New("actual cost limit exceeded"),
+		},
+	}
+
+	for _, tst := range cases {
+		tc := tst
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			envOpts := []EnvOption{
+				CostEstimatorOptions(
+					checker.OverloadCostEstimate(overloads.TimestampToYear, estimateTimestampToYear),
+				),
+			}
+			envOpts = append(envOpts, tc.decls...)
+			env := testEnv(t, envOpts...)
+			ast, iss := env.Compile(tc.expr)
+			if iss.Err() != nil {
+				t.Fatalf("env.Compile(%v) failed: %v", tc.expr, iss.Err())
+			}
+			est, err := env.EstimateCost(ast, testCostEstimator{hints: map[string]uint64{}})
+			if err != nil {
+				t.Fatalf("Env.EstimateCost(ast *Ast, estimator checker.CostEstimator) failed to estimate cost: %s\n", err)
+			}
+
+			checkedAst, iss := env.Check(ast)
+			if iss.Err() != nil {
+				t.Fatalf(`Env.Check(ast *Ast) failed to check expression: %v`, iss.Err())
+			}
+			// Evaluate expression.
+			program, err := env.Program(checkedAst,
+				CostTracking(testRuntimeCostEstimator{}),
+				CostTrackerOptions(
+					interpreter.OverloadCostTracker(overloads.TimestampToYear, trackTimestampToYear),
+				),
+				CostLimit(tc.costLimit),
+			)
+			if err != nil {
+				t.Fatalf(`Env.Program(ast *Ast, opts ...ProgramOption) failed to construct program: %v`, err)
+			}
+			_, details, err := program.Eval(tc.in)
+			if err != nil && tc.err == nil {
+				t.Fatalf(`Program.Eval(vars any) failed to evaluate expression: %v`, err)
+			}
+			actualCost := details.ActualCost()
+			if actualCost == nil {
+				t.Errorf(`EvalDetails.ActualCost() got nil for "%s" cost, wanted %d`, tc.expr, actualCost)
+			}
+			if err == nil {
+				if est.Min > *actualCost || est.Max < *actualCost {
+					t.Errorf("EvalDetails.ActualCost() failed to return a runtime cost %d is the range of estimate cost [%d, %d]", *actualCost,
+						est.Min, est.Max)
+				}
+			} else {
+				if !strings.Contains(err.Error(), tc.err.Error()) {
+					t.Fatalf("program.Eval() got error %v, wanted error containing %v", err, tc.err)
+				}
 			}
 		})
 	}

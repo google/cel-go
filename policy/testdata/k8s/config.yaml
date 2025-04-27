@@ -14,10 +14,6 @@
 
 name: k8s
 extensions:
-  - name: "optional"
-    version: "latest"
-  - name: "bindings"
-    version: "latest"
   - name: "strings"
     version: 2
 variables:

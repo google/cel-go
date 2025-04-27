@@ -16,18 +16,13 @@ description: "Protobuf input tests"
 section:
   - name: "valid"
     tests:
-     - name: "good spec"
-       input:
-         spec:
-           context_expr: >
-             test.TestAllTypes{single_int32: 10}
-       output: "optional.none()"
+      - name: "good spec"
+        context_expr: "test.TestAllTypes{single_int32: 10}"
+        output:
+          expr: "optional.none()"
   - name: "invalid"
     tests:
-     - name: "bad spec"
-       input:
-         spec:
-           context_expr: >
-             test.TestAllTypes{single_int32: 11}
-       output: >
-         "invalid spec, got single_int32=11, wanted <= 10"
+      - name: "bad spec"
+        context_expr: "test.TestAllTypes{single_int32: 11}"
+        output:
+          value: "invalid spec, got single_int32=11, wanted <= 10"

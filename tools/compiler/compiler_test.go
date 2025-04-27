@@ -19,12 +19,9 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/cel"
-	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/env"
-	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/ext"
 	"github.com/google/cel-go/policy"
-	"gopkg.in/yaml.v3"
 
 	celpb "cel.dev/expr"
 	configpb "cel.dev/expr/conformance"
@@ -75,7 +72,7 @@ func TestEnvironmentFileCompareTextprotoAndYAML(t *testing.T) {
 			for i, v := range protoConfig.Variables {
 				for j, p := range v.TypeDesc.Params {
 					if p.TypeName == "google.protobuf.Any" &&
-						config.Variables[i].TypeDesc.Params[j].TypeName == "dyn" {
+							config.Variables[i].TypeDesc.Params[j].TypeName == "dyn" {
 						p.TypeName = "dyn"
 					}
 				}
@@ -186,10 +183,6 @@ func testEnvProto() *configpb.Environment {
 			},
 		},
 		Extensions: []*configpb.Extension{
-			{
-				Name:    "optional",
-				Version: "latest",
-			},
 			{
 				Name:    "lists",
 				Version: "latest",
@@ -399,76 +392,6 @@ func TestFileExpressionCustomPolicyParser(t *testing.T) {
 			t.Fatalf("CreateAST() returned nil ast")
 		}
 	})
-}
-
-func TestFileExpressionPolicyMetadataOptions(t *testing.T) {
-	t.Run("test file expression policy metadata options", func(t *testing.T) {
-		envOpt := EnvironmentFile("testdata/custom_policy_config.yaml")
-		parserOpt := policy.ParserOption(func(p *policy.Parser) (*policy.Parser, error) {
-			p.TagVisitor = customTagHandler{TagVisitor: policy.DefaultTagVisitor()}
-			return p, nil
-		})
-		policyMetadataOpt := PolicyMetadataEnvOption(ParsePolicyVariables)
-		compilerOpts := []any{envOpt, parserOpt, policyMetadataOpt}
-		compiler, err := NewCompiler(compilerOpts...)
-		if err != nil {
-			t.Fatalf("NewCompiler() failed: %v", err)
-		}
-		policyFile := &FileExpression{
-			Path: "testdata/custom_policy.celpolicy",
-		}
-		ast, _, err := policyFile.CreateAST(compiler)
-		if err != nil {
-			t.Fatalf("CreateAST() failed: %v", err)
-		}
-		if ast == nil {
-			t.Fatalf("CreateAST() returned nil ast")
-		}
-	})
-}
-
-func ParsePolicyVariables(metadata map[string]any) cel.EnvOption {
-	variables := []*decls.VariableDecl{}
-	for n, t := range metadata {
-		variables = append(variables, decls.NewVariable(n, parseCustomPolicyVariableType(t.(string))))
-	}
-	return cel.VariableDecls(variables...)
-}
-
-func parseCustomPolicyVariableType(t string) *types.Type {
-	switch t {
-	case "int":
-		return types.IntType
-	case "string":
-		return types.StringType
-	default:
-		return types.UnknownType
-	}
-}
-
-type variableType struct {
-	VariableName string `yaml:"variable_name"`
-	VariableType string `yaml:"variable_type"`
-}
-
-type customTagHandler struct {
-	policy.TagVisitor
-}
-
-func (customTagHandler) PolicyTag(ctx policy.ParserContext, id int64, tagName string, node *yaml.Node, p *policy.Policy) {
-	switch tagName {
-	case "variable_types":
-		varList := []*variableType{}
-		if err := node.Decode(&varList); err != nil {
-			ctx.ReportErrorAtID(id, "invalid yaml variable_types node: %v, error: %w", node, err)
-			return
-		}
-		for _, v := range varList {
-			p.SetMetadata(v.VariableName, v.VariableType)
-		}
-	default:
-		ctx.ReportErrorAtID(id, "unsupported policy tag: %s", tagName)
-	}
 }
 
 func TestRawExpressionCreateAst(t *testing.T) {

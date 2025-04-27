@@ -2595,6 +2595,46 @@ func TestCheckErrorData(t *testing.T) {
 	}
 }
 
+func TestCheckInvalidOptSelectMember(t *testing.T) {
+	fac := ast.NewExprFactory()
+	target := fac.NewStruct(1, "Foo", nil)
+	arg1 := fac.NewStruct(2, "Foo", nil)
+	arg2 := fac.NewLiteral(3, types.String("field"))
+	call := fac.NewMemberCall(4, "_?._", target, arg1, arg2)
+
+	// This is not valid syntax, just for illustration purposes.
+	src := common.NewTextSource("Foo{}._?._(Foo{}, 'field')")
+	parsed := ast.NewAST(call, ast.NewSourceInfo(src))
+	reg := newTestRegistry(t)
+	env, err := NewEnv(containers.DefaultContainer, reg)
+	if err != nil {
+		t.Fatalf("NewEnv(cont, reg) failed: %v", err)
+	}
+	_, iss := Check(parsed, src, env)
+	if !strings.Contains(iss.ToDisplayString(), "incorrect signature. member call") {
+		t.Errorf("got %s, wanted 'incorrect signature. member call'", iss.ToDisplayString())
+	}
+}
+
+func TestCheckInvalidOptSelectMissingArg(t *testing.T) {
+	fac := ast.NewExprFactory()
+	arg1 := fac.NewStruct(1, "Foo", nil)
+	call := fac.NewCall(2, "_?._", arg1)
+
+	// This is not valid syntax, just for illustration purposes.
+	src := common.NewTextSource("_?._(Foo{})")
+	parsed := ast.NewAST(call, ast.NewSourceInfo(src))
+	reg := newTestRegistry(t)
+	env, err := NewEnv(containers.DefaultContainer, reg)
+	if err != nil {
+		t.Fatalf("NewEnv(cont, reg) failed: %v", err)
+	}
+	_, iss := Check(parsed, src, env)
+	if !strings.Contains(iss.ToDisplayString(), "incorrect signature. argument count: 1") {
+		t.Errorf("got %s, wanted 'incorrect signature. argument count: 1'", iss.ToDisplayString())
+	}
+}
+
 func TestCheckInvalidLiteral(t *testing.T) {
 	fac := ast.NewExprFactory()
 	durLiteral := fac.NewLiteral(1, types.Duration{Duration: time.Second})

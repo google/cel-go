@@ -142,10 +142,7 @@ func Constant(name string, t *Type, v ref.Val) EnvOption {
 
 // Variable creates an instance of a variable declaration with a variable name and type.
 func Variable(name string, t *Type) EnvOption {
-	return func(e *Env) (*Env, error) {
-		e.variables = append(e.variables, decls.NewVariable(name, t))
-		return e, nil
-	}
+	return VariableWithDoc(name, t, "")
 }
 
 // VariableWithDoc creates an instance of a variable declaration with a variable name, type, and doc string.
@@ -201,14 +198,7 @@ func Function(name string, opts ...FunctionOpt) EnvOption {
 		if err != nil {
 			return nil, err
 		}
-		if existing, found := e.functions[fn.Name()]; found {
-			fn, err = existing.Merge(fn)
-			if err != nil {
-				return nil, err
-			}
-		}
-		e.functions[fn.Name()] = fn
-		return e, nil
+		return FunctionDecls(fn)(e)
 	}
 }
 
@@ -348,6 +338,12 @@ func BinaryBinding(binding functions.BinaryOp) OverloadOpt {
 // type-guard which ensures runtime type agreement between the overload signature and runtime argument types.
 func FunctionBinding(binding functions.FunctionOp) OverloadOpt {
 	return decls.FunctionBinding(binding)
+}
+
+// LateFunctionBinding indicates that the function has a binding which is not known at compile time.
+// This is useful for functions which have side-effects or are not deterministically computable.
+func LateFunctionBinding() OverloadOpt {
+	return decls.LateFunctionBinding()
 }
 
 // OverloadIsNonStrict enables the function to be called with error and unknown argument values.

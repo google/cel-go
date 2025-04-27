@@ -23,6 +23,8 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/google/cel-go/checker/decls"
+	celast "github.com/google/cel-go/common/ast"
+	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/types"
 
 	proto3pb "github.com/google/cel-go/test/proto3pb"
@@ -142,6 +144,52 @@ func TestAstToString(t *testing.T) {
 	}
 	if expr != in {
 		t.Errorf("got %v, wanted %v", expr, in)
+	}
+}
+
+func TestExprToString(t *testing.T) {
+	stdEnv, err := NewEnv(EnableMacroCallTracking())
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	in := "[a, b].filter(i, (i > 0) ? (-i + 4) : i)"
+	ast, iss := stdEnv.Parse(in)
+	if iss.Err() != nil {
+		t.Fatalf("stdEnv.Parse(%q) failed: %v", in, iss.Err())
+	}
+	expr, err := ExprToString(ast.NativeRep().Expr(), ast.NativeRep().SourceInfo())
+	if err != nil {
+		t.Fatalf("ExprToString(ast) failed: %v", err)
+	}
+	if expr != in {
+		t.Errorf("got %v, wanted %v", expr, in)
+	}
+
+	// Test sub-expression unparsing.
+	navExpr := celast.NavigateAST(ast.NativeRep())
+	condExpr := celast.MatchDescendants(navExpr, celast.FunctionMatcher(operators.Conditional))[0]
+	want := `(i > 0) ? (-i + 4) : i`
+	expr, err = ExprToString(condExpr, ast.NativeRep().SourceInfo())
+	if err != nil {
+		t.Fatalf("ExprToString(ast) failed: %v", err)
+	}
+	if expr != want {
+		t.Errorf("got %v, wanted %v", expr, want)
+	}
+
+	// Also passes with a nil source info, but only because the sub-expr doesn't contain macro calls.
+	expr, err = ExprToString(condExpr, nil)
+	if err != nil {
+		t.Fatalf("ExprToString(ast) failed: %v", err)
+	}
+	if expr != want {
+		t.Errorf("got %v, wanted %v", expr, want)
+	}
+
+	// Fails do to missing macro information.
+	_, err = ExprToString(ast.NativeRep().Expr(), nil)
+	if err == nil {
+		t.Error("ExprToString() succeeded, wanted error")
 	}
 }
 
