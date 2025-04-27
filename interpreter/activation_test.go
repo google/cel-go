@@ -279,7 +279,7 @@ func TestNewLateBindingActivation(t *testing.T) {
 					NonStrict: false,
 				},
 			},
-			expect: expectError(errorNilActivation),
+			expect: expectError("cannot create a late bind activation with a nil activation"),
 		},
 		{
 			name:       "ERROR_Duplicate_Overloads",

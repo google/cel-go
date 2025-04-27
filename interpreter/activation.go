@@ -204,7 +204,7 @@ func NewLateBindActivation(activation Activation, overloads ...*functions.Overlo
 	}
 
 	if activation == nil {
-		return nil, errors.New(errorNilActivation)
+		return nil, errors.New("cannot create a late bind activation with a nil activation")
 	}
 
 	return &lateBindActivation{

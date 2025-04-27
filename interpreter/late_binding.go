@@ -14,6 +14,7 @@ const (
 	errorUncheckedAst      = "cannot decorate an un-checked AST for late binding, unchecked ASTs are the result of env.Parse(...), while late binding requires ASTs produced by env.Compile(...) or env.Check(...)"
 	errorOverloadMismatch  = "function overload (id: %s) has different attributes (name: %s, got: %v, want: %v)"
 	errorOverloadSignature = "function overload (name: %s, id: %s) is not matched (got: %s, want: %s)"
+	errorOverloadNotFound  = "unexpected: overload (id: %s) not found"
 	errorUnknownCallNode   = "cannot apply late binding decoration to node (id: %d, type: %T): unsupported type"
 	errorOverloadInjection = "runtime dispatch error (cause: %v)"
 
