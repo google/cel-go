@@ -163,20 +163,13 @@ func (m *macro) MacroKey() string {
 	return makeMacroKey(m.function, m.argCount, m.receiverStyle)
 }
 
+// Documentation generates documentation and examples for the macro.
 func (m *macro) Documentation() *common.Doc {
 	examples := make([]*common.Doc, len(m.examples))
 	for i, ex := range m.examples {
-		examples[i] = &common.Doc{
-			Kind:        common.DocExample,
-			Description: ex,
-		}
+		examples[i] = common.NewExampleDoc(ex)
 	}
-	return &common.Doc{
-		Kind:        common.DocMacro,
-		Name:        m.Function(),
-		Description: common.ParseDescription(m.doc),
-		Children:    examples,
-	}
+	return common.NewMacroDoc(m.Function(), m.doc, examples...)
 }
 
 func makeMacroKey(name string, args int, receiverStyle bool) string {

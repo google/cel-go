@@ -9,6 +9,8 @@ package(
         "//interpreter:__subpackages__",
         "//parser:__subpackages__",
         "//server:__subpackages__",
+        "//tools:__subpackages__",
+        "//policy:__subpackages__",
     ],
     licenses = ["notice"],  # Apache 2.0
 )
@@ -18,6 +20,7 @@ go_library(
     srcs = [
         "compare.go",
         "expr.go",
+        "suite.go",
     ],
     importpath = "github.com/google/cel-go/test",
     deps = [

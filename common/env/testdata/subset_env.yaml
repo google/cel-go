@@ -33,7 +33,6 @@ stdlib:
 variables:
   - name: "x"
     type_name: "int"
-    description: 
   - name: "y"
     type_name: "double"
   - name: "z"

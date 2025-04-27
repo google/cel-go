@@ -15,8 +15,6 @@
 name: "context_pb"
 container: "google.expr.proto3"
 extensions:
-  - name: "optional"
-    version: "latest"
   - name: "strings"
     version: 2
 context_variable:

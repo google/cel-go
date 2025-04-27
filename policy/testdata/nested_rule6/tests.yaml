@@ -20,4 +20,5 @@ section:
         input:
           x:
             value: 0
-        output: "false"
+        output:
+          value: false

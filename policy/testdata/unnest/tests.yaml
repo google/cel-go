@@ -16,35 +16,37 @@ description: "Unnest tests unnesting of comprehension sequences"
 section:
   - name: "divisible by 2"
     tests:
-     - name: "true"
-       input:
+      - name: "true"
+        input:
           values:
             expr: "[4, 6]"
-       output: >
-        "some divisible by 2"
-     - name: "false"
-       input:
-         values:
-           expr: "[1, 3, 5]"
-       output: "optional.none()"
-     - name: "empty-set"
-       input:
-         values:
-           expr: "[1, 2]"
-       output: "optional.none()"
+        output:
+          value: "some divisible by 2"
+      - name: "false"
+        input:
+          values:
+            expr: "[1, 3, 5]"
+        output:
+          expr: "optional.none()"
+      - name: "empty-set"
+        input:
+          values:
+            expr: "[1, 2]"
+        output:
+          expr: "optional.none()"
   - name: "divisible by 4"
     tests:
-     - name: "true"
-       input:
+      - name: "true"
+        input:
           values:
             expr: "[4, 7]"
-       output: >
-        "at least one divisible by 4"
+        output:
+          value: "at least one divisible by 4"
   - name: "power of 6"
     tests:
-     - name: "true"
-       input:
+      - name: "true"
+        input:
           values:
             expr: "[6, 7]"
-       output: >
-        "at least one power of 6"
+        output:
+          value: "at least one power of 6"

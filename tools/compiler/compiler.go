@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"gopkg.in/yaml.v3"
 
@@ -57,6 +58,22 @@ const (
 	CELPolicy
 )
 
+// ExpressionType is an enum for the type of input expression.
+type ExpressionType int
+
+const (
+	// ExpressionTypeUnspecified is used when the expression type is not specified.
+	ExpressionTypeUnspecified ExpressionType = iota
+	// CompiledExpressionFile is file containing a checked expression.
+	CompiledExpressionFile
+	// PolicyFile is a file containing a CEL policy.
+	PolicyFile
+	// ExpressionFile is a file containing a CEL expression.
+	ExpressionFile
+	// RawExpressionString is a raw CEL expression string.
+	RawExpressionString
+)
+
 // PolicyMetadataEnvOption represents a function which accepts a policy metadata map and returns an
 // environment option used to extend the CEL environment.
 //
@@ -90,6 +107,7 @@ type compiler struct {
 	policyCompilerOptions    []policy.CompilerOption
 	policyMetadataEnvOptions []PolicyMetadataEnvOption
 	env                      *cel.Env
+	doOnce                   sync.Once
 }
 
 // NewCompiler creates a new compiler with a set of functional options.
@@ -114,20 +132,29 @@ func NewCompiler(opts ...any) (Compiler, error) {
 			return nil, fmt.Errorf("unsupported compiler option: %v", opt)
 		}
 	}
+	c.envOptions = append(c.envOptions, extensionOpt())
 	return c, nil
+}
+
+func extensionOpt() cel.EnvOption {
+	return func(e *cel.Env) (*cel.Env, error) {
+		envConfig := &env.Config{
+			Extensions: []*env.Extension{
+				&env.Extension{Name: "optional", Version: "latest"},
+				&env.Extension{Name: "bindings", Version: "latest"},
+			},
+		}
+		return e.Extend(cel.FromConfig(envConfig, ext.ExtensionOptionFactory))
+	}
 }
 
 // CreateEnv creates a singleton CEL environment with the configured environment options.
 func (c *compiler) CreateEnv() (*cel.Env, error) {
-	if c.env != nil {
-		return c.env, nil
-	}
-	env, err := cel.NewCustomEnv(c.envOptions...)
-	if err != nil {
-		return nil, err
-	}
-	c.env = env
-	return c.env, nil
+	var err error
+	c.doOnce.Do(func() {
+		c.env, err = cel.NewCustomEnv(c.envOptions...)
+	})
+	return c.env, err
 }
 
 // CreatePolicyParser creates a policy parser using the optionally configured parser options.
@@ -165,7 +192,8 @@ func loadProtoFile(path string, format FileFormat, out protoreflect.ProtoMessage
 	return unmarshaller(data, out)
 }
 
-func inferFileFormat(path string) FileFormat {
+// InferFileFormat infers the file format from the file path.
+func InferFileFormat(path string) FileFormat {
 	extension := filepath.Ext(path)
 	switch extension {
 	case ".textproto":
@@ -190,7 +218,7 @@ func inferFileFormat(path string) FileFormat {
 // - Binarypb
 func EnvironmentFile(path string) cel.EnvOption {
 	return func(e *cel.Env) (*cel.Env, error) {
-		format := inferFileFormat(path)
+		format := InferFileFormat(path)
 		if format != TextProto && format != TextYAML && format != BinaryProto {
 			return nil, fmt.Errorf("file extension must be one of .textproto, .yaml, .binarypb: found %v", format)
 		}
@@ -403,7 +431,7 @@ func protoDeclToFunction(decl *celpb.Decl) (*env.Function, error) {
 // The file must be in binary format.
 func TypeDescriptorSetFile(path string) cel.EnvOption {
 	return func(e *cel.Env) (*cel.Env, error) {
-		format := inferFileFormat(path)
+		format := InferFileFormat(path)
 		if format != BinaryProto {
 			return nil, fmt.Errorf("type descriptor must be in binary format")
 		}
@@ -438,9 +466,9 @@ type CompiledExpression struct {
 // - Textproto
 func (c *CompiledExpression) CreateAST(_ Compiler) (*cel.Ast, map[string]any, error) {
 	var expr exprpb.CheckedExpr
-	format := inferFileFormat(c.Path)
+	format := InferFileFormat(c.Path)
 	if format != BinaryProto && format != TextProto {
-		return nil, nil, fmt.Errorf("file extension must be .binarypb or .textproto: found %v", format)
+		return nil, nil, fmt.Errorf("invalid file extension wanted: .binarypb or .textproto found: %v", format)
 	}
 	if err := loadProtoFile(c.Path, format, &expr); err != nil {
 		return nil, nil, err
@@ -466,13 +494,13 @@ func (f *FileExpression) CreateAST(compiler Compiler) (*cel.Ast, map[string]any,
 	if err != nil {
 		return nil, nil, err
 	}
-	data, err := loadFile(f.Path)
-	if err != nil {
-		return nil, nil, err
-	}
-	format := inferFileFormat(f.Path)
+	format := InferFileFormat(f.Path)
 	switch format {
 	case CELString:
+		data, err := loadFile(f.Path)
+		if err != nil {
+			return nil, nil, err
+		}
 		src := common.NewStringSource(string(data), f.Path)
 		ast, iss := e.CompileSource(src)
 		if iss.Err() != nil {
@@ -480,6 +508,10 @@ func (f *FileExpression) CreateAST(compiler Compiler) (*cel.Ast, map[string]any,
 		}
 		return ast, nil, nil
 	case CELPolicy, TextYAML:
+		data, err := loadFile(f.Path)
+		if err != nil {
+			return nil, nil, err
+		}
 		src := policy.ByteSource(data, f.Path)
 		parser, err := compiler.CreatePolicyParser()
 		if err != nil {
@@ -501,7 +533,7 @@ func (f *FileExpression) CreateAST(compiler Compiler) (*cel.Ast, map[string]any,
 		}
 		return ast, policyMetadata, nil
 	default:
-		return nil, nil, fmt.Errorf("unsupported file format: %v", format)
+		return nil, nil, fmt.Errorf("invalid file extension wanted: .cel or .celpolicy or .yaml found: %v", format)
 	}
 }
 
@@ -525,6 +557,10 @@ func (r *RawExpression) CreateAST(compiler Compiler) (*cel.Ast, map[string]any, 
 	e, err := compiler.CreateEnv()
 	if err != nil {
 		return nil, nil, err
+	}
+	format := InferFileFormat(r.Value)
+	if format != Unspecified {
+		return nil, nil, fmt.Errorf("invalid raw expression found file with extension: %v", format)
 	}
 	ast, iss := e.Compile(r.Value)
 	if iss.Err() != nil {

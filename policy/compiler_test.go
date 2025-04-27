@@ -243,24 +243,25 @@ func (r *runner) run(t *testing.T) {
 				input := map[string]any{}
 				var err error
 				var activation interpreter.Activation
-				for k, v := range tc.Input {
-					if v.Expr != "" {
-						input[k] = r.eval(t, v.Expr)
-						continue
+				if tc.InputContext != nil && tc.InputContext.ContextExpr != "" {
+					ctxExpr := tc.InputContext.ContextExpr
+					ctx, err := r.eval(t, ctxExpr).ConvertToNative(
+						reflect.TypeOf(((*proto.Message)(nil))).Elem())
+					if err != nil {
+						t.Fatalf("context variable is not a valid proto: %v", err)
 					}
-					if v.ContextExpr != "" {
-						ctx, err := r.eval(t, v.ContextExpr).ConvertToNative(
-							reflect.TypeOf(((*proto.Message)(nil))).Elem())
-						if err != nil {
-							t.Fatalf("context variable is not a valid proto: %v", err)
-						}
-						activation, err = cel.ContextProtoVars(ctx.(proto.Message))
-						if err != nil {
-							t.Fatalf("cel.ContextProtoVars() failed: %v", err)
-						}
-						break
+					activation, err = cel.ContextProtoVars(ctx.(proto.Message))
+					if err != nil {
+						t.Fatalf("cel.ContextProtoVars() failed: %v", err)
 					}
-					input[k] = v.Value
+				} else if len(tc.Input) != 0 {
+					for k, v := range tc.Input {
+						if v.Expr != "" {
+							input[k] = r.eval(t, v.Expr)
+							continue
+						}
+						input[k] = v.Value
+					}
 				}
 				if activation == nil {
 					activation, err = interpreter.NewActivation(input)
@@ -272,7 +273,12 @@ func (r *runner) run(t *testing.T) {
 				if err != nil {
 					t.Fatalf("prg.Eval(input) failed: %v", err)
 				}
-				testOut := r.eval(t, tc.Output)
+				var testOut ref.Val
+				if tc.Output.Expr != "" {
+					testOut = r.eval(t, tc.Output.Expr)
+				} else if tc.Output.Value != nil {
+					testOut = r.env.CELTypeAdapter().NativeToValue(tc.Output.Value)
+				}
 				if optOut, ok := out.(*types.Optional); ok {
 					if optOut.Equal(types.OptionalNone) == types.True {
 						if testOut.Equal(types.OptionalNone) != types.True {
@@ -299,24 +305,25 @@ func (r *runner) bench(b *testing.B) {
 				input := map[string]any{}
 				var err error
 				var activation interpreter.Activation
-				for k, v := range tc.Input {
-					if v.Expr != "" {
-						input[k] = r.eval(b, v.Expr)
-						continue
+				if tc.InputContext != nil && tc.InputContext.ContextExpr != "" {
+					ctxExpr := tc.InputContext.ContextExpr
+					ctx, err := r.eval(b, ctxExpr).ConvertToNative(
+						reflect.TypeOf(((*proto.Message)(nil))).Elem())
+					if err != nil {
+						b.Fatalf("context variable is not a valid proto: %v", err)
 					}
-					if v.ContextExpr != "" {
-						ctx, err := r.eval(b, v.ContextExpr).ConvertToNative(
-							reflect.TypeOf(((*proto.Message)(nil))).Elem())
-						if err != nil {
-							b.Fatalf("context variable is not a valid proto: %v", err)
-						}
-						activation, err = cel.ContextProtoVars(ctx.(proto.Message))
-						if err != nil {
-							b.Fatalf("cel.ContextProtoVars() failed: %v", err)
-						}
-						break
+					activation, err = cel.ContextProtoVars(ctx.(proto.Message))
+					if err != nil {
+						b.Fatalf("cel.ContextProtoVars() failed: %v", err)
 					}
-					input[k] = v.Value
+				} else if tc.Input != nil {
+					for k, v := range tc.Input {
+						if v.Expr != "" {
+							input[k] = r.eval(b, v.Expr)
+							continue
+						}
+						input[k] = v.Value
+					}
 				}
 				if activation == nil {
 					activation, err = interpreter.NewActivation(input)

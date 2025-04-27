@@ -14,26 +14,26 @@
 
 name: "labels"
 extensions:
-- name: "lists"
-- name: "sets"
+  - name: "lists"
+  - name: "sets"
 variables:
-- name: "destination.ip"
-  type_name: "string"
-- name: "origin.ip"
-  type_name: "string"
-- name: "spec.restricted_destinations"
-  type_name: "list"
-  params:
-  - type_name: "string"
-- name: "spec.origin"
-  type_name: "string"
-- name: "request"
-  type_name: "map"
-  params:
-  - type_name: "string"
-  - type_name: "dyn"
-- name: "resource"
-  type_name: "map"
-  params:
-  - type_name: "string"
-  - type_name: "dyn"
+  - name: "destination.ip"
+    type_name: "string"
+  - name: "origin.ip"
+    type_name: "string"
+  - name: "spec.restricted_destinations"
+    type_name: "list"
+    params:
+      - type_name: "string"
+  - name: "spec.origin"
+    type_name: "string"
+  - name: "request"
+    type_name: "map"
+    params:
+      - type_name: "string"
+      - type_name: "dyn"
+  - name: "resource"
+    type_name: "map"
+    params:
+      - type_name: "string"
+      - type_name: "dyn"

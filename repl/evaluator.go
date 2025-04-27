@@ -43,14 +43,15 @@ import (
 
 var (
 	extensionMap = map[string]cel.EnvOption{
-		"optional": cel.OptionalTypes(),
-		"bindings": ext.Bindings(),
-		"strings":  ext.Strings(),
-		"protos":   ext.Protos(),
-		"math":     ext.Math(),
-		"encoders": ext.Encoders(),
-		"sets":     ext.Sets(),
-		"lists":    ext.Lists(),
+		"optional":               cel.OptionalTypes(),
+		"bindings":               ext.Bindings(),
+		"strings":                ext.Strings(),
+		"protos":                 ext.Protos(),
+		"math":                   ext.Math(),
+		"encoders":               ext.Encoders(),
+		"sets":                   ext.Sets(),
+		"lists":                  ext.Lists(),
+		"two_var_comprehensions": ext.TwoVarComprehensions(),
 	}
 )
 
