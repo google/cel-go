@@ -53,6 +53,7 @@ var stringTests = []struct {
 	{expr: `'hello wello'.indexOf('ello', 6) == 7`},
 	{expr: `'hello wello'.indexOf('elbo room!!') == -1`},
 	{expr: `'hello wello'.indexOf('elbo room!!!') == -1`},
+	{expr: `''.lastIndexOf('@@') == -1`},
 	{expr: `'tacocat'.lastIndexOf('') == 7`},
 	{expr: `'tacocat'.lastIndexOf('at') == 5`},
 	{expr: `'tacocat'.lastIndexOf('none') == -1`},
