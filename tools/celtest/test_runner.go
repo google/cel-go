@@ -59,7 +59,6 @@ func init() {
 	flag.StringVar(&configPath, "config_path", "", "path to a config file")
 	flag.StringVar(&baseConfigPath, "base_config_path", "", "path to a base config file")
 	flag.StringVar(&celExpression, "cel_expr", "", "CEL expression to test")
-	flag.Parse()
 }
 
 // TestRunnerOption is used to configure the following attributes of the Test Runner:
@@ -73,9 +72,8 @@ type TestRunnerOption func(*TestRunner) (*TestRunner, error)
 // with the provided set of options. The options can be used to:
 // - configure the Compiler used for parsing and compiling the expression
 // - configure the Test Runner used for parsing and executing the tests
-func TriggerTests(t *testing.T, testRunnerOpts []TestRunnerOption, testCompilerOpts ...any) {
-	testRunnerOption := TestRunnerOptionsFromFlags(testRunnerOpts, testCompilerOpts...)
-	tr, err := NewTestRunner(testRunnerOption)
+func TriggerTests(t *testing.T, testRunnerOpts ...TestRunnerOption) {
+	tr, err := NewTestRunner(testRunnerOpts...)
 	if err != nil {
 		t.Fatalf("error creating test runner: %v", err)
 	}
@@ -114,12 +112,15 @@ func TriggerTests(t *testing.T, testRunnerOpts []TestRunnerOption, testCompilerO
 //   - Test expression - The `cel_expr` flag is used to populate the test expressions which need to be
 //     evaluated by the test runner.
 func TestRunnerOptionsFromFlags(testRunnerOpts []TestRunnerOption, testCompilerOpts ...any) TestRunnerOption {
+	if !flag.Parsed() {
+		flag.Parse()
+	}
 	return func(tr *TestRunner) (*TestRunner, error) {
 		opts := []TestRunnerOption{
 			testRunnerCompilerFromFlags(testCompilerOpts...),
 			DefaultTestSuiteParser(testSuitePath),
 			AddFileDescriptorSet(fileDescriptorSetPath),
-			testRunnerExpressionsFromFlags(),
+			TestExpression(celExpression),
 		}
 		opts = append(opts, testRunnerOpts...)
 		var err error
@@ -145,25 +146,7 @@ func testRunnerCompilerFromFlags(testCompilerOpts ...any) TestRunnerOption {
 		opts = append(opts, compiler.EnvironmentFile(configPath))
 	}
 	opts = append(opts, testCompilerOpts...)
-	return func(tr *TestRunner) (*TestRunner, error) {
-		c, err := compiler.NewCompiler(opts...)
-		if err != nil {
-			return nil, err
-		}
-		tr.Compiler = c
-		return tr, nil
-	}
-}
-
-func testRunnerExpressionsFromFlags() TestRunnerOption {
-	return func(tr *TestRunner) (*TestRunner, error) {
-		if celExpression != "" {
-			tr.Expressions = append(tr.Expressions, &compiler.CompiledExpression{Path: celExpression})
-			tr.Expressions = append(tr.Expressions, &compiler.FileExpression{Path: celExpression})
-			tr.Expressions = append(tr.Expressions, &compiler.RawExpression{Value: celExpression})
-		}
-		return tr, nil
-	}
+	return TestCompiler(opts...)
 }
 
 // TestSuiteParser is an interface for parsing a test suite:
@@ -291,6 +274,33 @@ func NewTestRunner(opts ...TestRunnerOption) (*TestRunner, error) {
 		}
 	}
 	return tr, nil
+}
+
+// TestExpression returns a TestRunnerOption which configures a policy file, expression file, or raw expression
+// for testing
+func TestExpression(value string) TestRunnerOption {
+	return func(tr *TestRunner) (*TestRunner, error) {
+		if value != "" {
+			tr.Expressions = append(tr.Expressions,
+				&compiler.CompiledExpression{Path: value},
+				&compiler.FileExpression{Path: value},
+				&compiler.RawExpression{Value: value},
+			)
+		}
+		return tr, nil
+	}
+}
+
+// TestCompiler configures a compiler to use for testing.
+func TestCompiler(compileOpts ...any) TestRunnerOption {
+	return func(tr *TestRunner) (*TestRunner, error) {
+		c, err := compiler.NewCompiler(compileOpts...)
+		if err != nil {
+			return nil, err
+		}
+		tr.Compiler = c
+		return tr, nil
+	}
 }
 
 // AddFileDescriptorSet creates a Test Runner Option which adds a file descriptor set to the test
