@@ -200,7 +200,7 @@ func InferFileFormat(path string) FileFormat {
 		return TextProto
 	case ".yaml":
 		return TextYAML
-	case ".binarypb", ".fds":
+	case ".binarypb", ".fds", ".pb":
 		return BinaryProto
 	case ".cel":
 		return CELString

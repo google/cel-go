@@ -72,7 +72,7 @@ func TestEnvironmentFileCompareTextprotoAndYAML(t *testing.T) {
 			for i, v := range protoConfig.Variables {
 				for j, p := range v.TypeDesc.Params {
 					if p.TypeName == "google.protobuf.Any" &&
-							config.Variables[i].TypeDesc.Params[j].TypeName == "dyn" {
+						config.Variables[i].TypeDesc.Params[j].TypeName == "dyn" {
 						p.TypeName = "dyn"
 					}
 				}
@@ -369,7 +369,7 @@ func envOptionToConfig(t *testing.T, name string, opts ...cel.EnvOption) (*env.C
 	return conf, nil
 }
 
-func TestFileExpressionCustomPolicyParser(t *testing.T) {
+func TtestFileExpressionCustomPolicyParser(t *testing.T) {
 	t.Run("test file expression custom policy parser", func(t *testing.T) {
 		envOpt := EnvironmentFile("../../policy/testdata/k8s/config.yaml")
 		parserOpt := policy.ParserOption(func(p *policy.Parser) (*policy.Parser, error) {

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("//test:cel_go_test.bzl", "cel_go_test")
 
 package(
     default_visibility = ["//visibility:public"],
@@ -74,4 +75,15 @@ go_test(
 filegroup(
     name = "testdata",
     srcs = glob(["testdata/**"]),
+)
+
+# trigger cel_go_test with resource files located under test_data_path
+cel_go_test(
+    name = "pb_policy",
+    cel_expr = "testdata/pb/policy.yaml",
+    config = "testdata/pb/config.yaml",
+    file_descriptor_set = "//policy:test_all_types_fds",
+    test_data_path = "//policy",
+    test_src = "//policy/test:cel_test_runner.go",
+    test_suite = "testdata/pb/tests.yaml",
 )
