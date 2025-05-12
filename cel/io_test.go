@@ -27,10 +27,10 @@ import (
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/types"
 
-    anypb "google.golang.org/protobuf/types/known/anypb"
 	proto3pb "github.com/google/cel-go/test/proto3pb"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	rpcpb "google.golang.org/genproto/googleapis/rpc/status"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 )
 
 func TestRefValueToValueRoundTrip(t *testing.T) {
@@ -256,7 +256,6 @@ func TestRPCStatusToEvalErrorStatus(t *testing.T) {
 		})
 	}
 }
-
 
 func TestAstToStringNil(t *testing.T) {
 	expr, err := AstToString(nil)

@@ -30,8 +30,8 @@ import (
 
 	celpb "cel.dev/expr"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
-	anypb "google.golang.org/protobuf/types/known/anypb"
 	rpcpb "google.golang.org/genproto/googleapis/rpc/status"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 )
 
 // CheckedExprToAst converts a checked expression proto message to an Ast.
