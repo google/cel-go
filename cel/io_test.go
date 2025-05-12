@@ -27,8 +27,10 @@ import (
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/types"
 
+    anypb "google.golang.org/protobuf/types/known/anypb"
 	proto3pb "github.com/google/cel-go/test/proto3pb"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	rpcpb "google.golang.org/genproto/googleapis/rpc/status"
 )
 
 func TestRefValueToValueRoundTrip(t *testing.T) {
@@ -192,6 +194,69 @@ func TestExprToString(t *testing.T) {
 		t.Error("ExprToString() succeeded, wanted error")
 	}
 }
+
+func TestRPCStatusToEvalErrorStatus(t *testing.T) {
+	tests := []struct {
+		name            string
+		rpcStatus       *rpcpb.Status
+		expectedCode    int32
+		expectedMessage string
+		expectedDetails []*anypb.Any
+	}{
+		{
+			name:            "empty status",
+			rpcStatus:       &rpcpb.Status{},
+			expectedCode:    0,
+			expectedMessage: "",
+			expectedDetails: nil,
+		},
+		{
+			name: "status with code and message",
+			rpcStatus: &rpcpb.Status{
+				Code:    int32(3),
+				Message: "test message",
+			},
+			expectedCode:    3,
+			expectedMessage: "test message",
+			expectedDetails: nil,
+		},
+		{
+			name: "status with code, message and details",
+			rpcStatus: &rpcpb.Status{
+				Code:    int32(3),
+				Message: "test message",
+				Details: []*anypb.Any{&anypb.Any{Value: []byte("test detail")}},
+			},
+			expectedCode:    3,
+			expectedMessage: "test message",
+			expectedDetails: []*anypb.Any{&anypb.Any{Value: []byte("test detail")}},
+		},
+	}
+	for _, tst := range tests {
+		tc := tst
+		t.Run(tc.name, func(t *testing.T) {
+			evalStatus, err := RPCStatusToEvalErrorStatus(tc.rpcStatus)
+			if err != nil {
+				t.Fatalf("RPCStatusToEvalErrorStatus(%v) failed: %v", tc.rpcStatus, err)
+			}
+			if evalStatus.GetCode() != tc.expectedCode {
+				t.Errorf("got code %v, wanted %v", evalStatus.GetCode(), tc.expectedCode)
+			}
+			if evalStatus.GetMessage() != tc.expectedMessage {
+				t.Errorf("got message %v, wanted %v", evalStatus.GetMessage(), tc.expectedMessage)
+			}
+			if len(evalStatus.GetDetails()) != len(tc.expectedDetails) {
+				t.Errorf("got details %v, wanted %v", evalStatus.GetDetails(), tc.expectedDetails)
+			}
+			for i, detail := range evalStatus.GetDetails() {
+				if !proto.Equal(detail, tc.expectedDetails[i]) {
+					t.Errorf("got detail %v, wanted %v", detail, tc.expectedDetails[i])
+				}
+			}
+		})
+	}
+}
+
 
 func TestAstToStringNil(t *testing.T) {
 	expr, err := AstToString(nil)

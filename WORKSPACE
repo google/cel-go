@@ -1,5 +1,6 @@
 workspace(name = "cel_go")
 
+load("@bazel//tools/build_defs/repo:local.bzl", "local_repository")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
@@ -45,10 +46,10 @@ http_archive(
     urls = ["https://github.com/protocolbuffers/protobuf/archive/v3.21.5.zip"],
 )
 
-load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
 load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies", "go_repository")
 load("@com_google_googleapis//:repository_rules.bzl", "switched_rules_by_language")
 load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
+load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
 
 switched_rules_by_language(
     name = "com_google_googleapis_imports",
@@ -101,8 +102,8 @@ go_repository(
 go_repository(
     name = "dev_cel_expr",
     importpath = "cel.dev/expr",
-    sum = "h1:K4KOtPCJQjVggkARsjG9RWXP6O4R73aHeJMa/dmCQQg=",
-    version = "v0.23.1",
+    sum = "h1:56OvJKSH3hDGL0ml5uSxZmz3/3Pq4tJ+fb1unVLAFcY=",
+    version = "v0.24.0",
 )
 
 # local_repository(
@@ -158,12 +159,15 @@ go_register_toolchains(version = "1.22.0")
 gazelle_dependencies()
 
 load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies")
+
 rules_proto_dependencies()
 
 load("@rules_proto//proto:setup.bzl", "rules_proto_setup")
+
 rules_proto_setup()
 
 load("@rules_proto//proto:toolchains.bzl", "rules_proto_toolchains")
+
 rules_proto_toolchains()
 
 protobuf_deps()

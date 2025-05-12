@@ -31,6 +31,7 @@ import (
 	celpb "cel.dev/expr"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	anypb "google.golang.org/protobuf/types/known/anypb"
+	rpcpb "google.golang.org/genproto/googleapis/rpc/status"
 )
 
 // CheckedExprToAst converts a checked expression proto message to an Ast.
@@ -112,6 +113,21 @@ func ExprToString(e ast.Expr, info *ast.SourceInfo) (string, error) {
 // The result Value is the serialized proto form. The ref.Val must not be error or unknown.
 func RefValueToValue(res ref.Val) (*exprpb.Value, error) {
 	return ValueAsAlphaProto(res)
+}
+
+// RPCStatusToEvalErrorStatus converts an RPC status to a celpb status. Status value is intended to
+// be wire and field compatible with `google.rpc.Status`.
+func RPCStatusToEvalErrorStatus(s *rpcpb.Status) (*celpb.Status, error) {
+	var celpbStatus celpb.Status
+	statusVal, err := proto.Marshal(s)
+	if err != nil {
+		return nil, err
+	}
+	err = proto.Unmarshal(statusVal, &celpbStatus)
+	if err != nil {
+		return nil, err
+	}
+	return &celpbStatus, nil
 }
 
 // ValueAsAlphaProto converts between ref.Val and google.api.expr.v1alpha1.Value.
