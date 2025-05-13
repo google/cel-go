@@ -15,6 +15,7 @@
 package test
 
 import (
+	"os"
 	"testing"
 
 	"github.com/google/cel-go/policy"
@@ -27,7 +28,8 @@ import (
 // custom CEL environment options.
 func TestK8sCEL(t *testing.T) {
 	parserOpt := policy.ParserOption(testK8sPolicyParser)
-	testRunnerOpt := celtest.TestRunnerOptionsFromFlags(nil, parserOpt)
+	testResourcesDir := os.Getenv("RUNFILES_DIR")
+	testRunnerOpt := celtest.TestRunnerOptionsFromFlags(testResourcesDir, nil, parserOpt)
 	celtest.TriggerTests(t, testRunnerOpt)
 }
 

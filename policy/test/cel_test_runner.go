@@ -15,6 +15,7 @@
 package test
 
 import (
+	"os"
 	"testing"
 
 	"github.com/google/cel-go/cel"
@@ -27,7 +28,8 @@ import (
 // the compiler tool and test runner.
 func TestCEL(t *testing.T) {
 	opts := []any{locationCodeEnvOption()}
-	testRunnerOpt := celtest.TestRunnerOptionsFromFlags(nil, opts...)
+	testResourcesDir := os.Getenv("RUNFILES_DIR")
+	testRunnerOpt := celtest.TestRunnerOptionsFromFlags(testResourcesDir, nil, opts...)
 	celtest.TriggerTests(t, testRunnerOpt)
 }
 

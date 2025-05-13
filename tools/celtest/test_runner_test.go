@@ -16,6 +16,7 @@
 package celtest
 
 import (
+	"os"
 	"testing"
 
 	"github.com/google/cel-go/cel"
@@ -107,7 +108,7 @@ func TestTriggerTestsWithRunnerOptions(t *testing.T) {
 		configPath := "policy/testdata/k8s/config.yaml"
 		testSuitePath := "policy/testdata/k8s/tests.yaml"
 		policyPath := "policy/testdata/k8s/policy.yaml"
-		updateRunfilesPaths([]*string{&configPath, &testSuitePath, &policyPath})
+		UpdateTestResourcesPaths(os.Getenv("RUNFILES_DIR"), []*string{&configPath, &testSuitePath, &policyPath})
 		envOpt := compiler.EnvironmentFile(configPath)
 		testSuiteParser := DefaultTestSuiteParser(testSuitePath)
 		testCELPolicy := TestRunnerOption(func(tr *TestRunner) (*TestRunner, error) {
@@ -207,7 +208,7 @@ func TestTriggerTests(t *testing.T) {
 			if compiler.InferFileFormat(tc.celExpression) != compiler.Unspecified {
 				paths = append(paths, &tc.celExpression)
 			}
-			updateRunfilesPaths(paths)
+			UpdateTestResourcesPaths(os.Getenv("RUNFILES_DIR"), paths)
 			for _, opt := range tc.opts {
 				compileOpts = append(compileOpts, opt)
 			}
