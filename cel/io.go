@@ -20,6 +20,7 @@ import (
 	"reflect"
 
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/grpc/status"
 
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/ast"
@@ -115,6 +116,18 @@ func RefValueToValue(res ref.Val) (*exprpb.Value, error) {
 	return ValueAsAlphaProto(res)
 }
 
+// ValueAsAlphaProto converts between ref.Val and google.api.expr.v1alpha1.Value.
+// The result Value is the serialized proto form. The ref.Val must not be error or unknown.
+func ValueAsAlphaProto(res ref.Val) (*exprpb.Value, error) {
+	canonical, err := ValueAsProto(res)
+	if err != nil {
+		return nil, err
+	}
+	alpha := &exprpb.Value{}
+	err = convertProto(canonical, alpha)
+	return alpha, err
+}
+
 // RPCStatusToEvalErrorStatus converts an RPC status to a celpb status. Status value is intended to
 // be wire and field compatible with `google.rpc.Status`.
 func RPCStatusToEvalErrorStatus(s *rpcpb.Status) (*celpb.Status, error) {
@@ -130,16 +143,38 @@ func RPCStatusToEvalErrorStatus(s *rpcpb.Status) (*celpb.Status, error) {
 	return &celpbStatus, nil
 }
 
-// ValueAsAlphaProto converts between ref.Val and google.api.expr.v1alpha1.Value.
-// The result Value is the serialized proto form. The ref.Val must not be error or unknown.
-func ValueAsAlphaProto(res ref.Val) (*exprpb.Value, error) {
-	canonical, err := ValueAsProto(res)
-	if err != nil {
-		return nil, err
+// RefValToExprValue converts between ref.Val and cel.expr.ExprValue.
+// The result ExprValue is the serialized proto form.
+func RefValToExprValue(res ref.Val) (*celpb.ExprValue, error) {
+	switch res := res.(type) {
+	case *types.Unknown:
+		return &celpb.ExprValue{
+			Kind: &celpb.ExprValue_Unknown{
+				Unknown: &celpb.UnknownSet{
+					Exprs: res.IDs(),
+				},
+			}}, nil
+	case *types.Err:
+		s := status.Convert(res.Unwrap()).Proto()
+		statusVal, err := RPCStatusToEvalErrorStatus(s)
+		if err != nil {
+			return nil, err
+		}
+		return &celpb.ExprValue{
+			Kind: &celpb.ExprValue_Error{
+				Error: &celpb.ErrorSet{
+					Errors: []*celpb.Status{statusVal},
+				},
+			},
+		}, nil
+	default:
+		val, err := ValueAsProto(res)
+		if err != nil {
+			return nil, err
+		}
+		return &celpb.ExprValue{
+			Kind: &celpb.ExprValue_Value{Value: val}}, nil
 	}
-	alpha := &exprpb.Value{}
-	err = convertProto(canonical, alpha)
-	return alpha, err
 }
 
 // ValueAsProto converts between ref.Val and cel.expr.Value.

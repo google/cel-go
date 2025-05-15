@@ -25,6 +25,7 @@ import (
 	"github.com/google/cel-go/checker/decls"
 	celast "github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/operators"
+	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types"
 
 	proto3pb "github.com/google/cel-go/test/proto3pb"
@@ -251,6 +252,58 @@ func TestRPCStatusToEvalErrorStatus(t *testing.T) {
 			for i, detail := range evalStatus.GetDetails() {
 				if !proto.Equal(detail, tc.expectedDetails[i]) {
 					t.Errorf("got detail %v, wanted %v", detail, tc.expectedDetails[i])
+				}
+			}
+		})
+	}
+}
+
+func TestRefValToExprValue(t *testing.T) {
+	tests := []struct {
+		name        string
+		refVal      ref.Val
+		expectError bool
+	}{
+		{
+			name:        "unknown value",
+			refVal:      types.NewUnknown(1, nil),
+			expectError: false,
+		},
+		{
+			name:        "error value",
+			refVal:      types.NewErr("test error"),
+			expectError: false,
+		},
+		{
+			name:        "bool value",
+			refVal:      types.Bool(true),
+			expectError: false,
+		},
+		{
+			name:        "string value",
+			refVal:      types.String("test"),
+			expectError: false,
+		},
+		{
+			name:        "int value",
+			refVal:      types.Int(1),
+			expectError: false,
+		},
+	}
+	for _, tst := range tests {
+		tc := tst
+		t.Run(tc.name, func(t *testing.T) {
+			exprVal, err := RefValToExprValue(tc.refVal)
+			if tc.expectError {
+				if err == nil {
+					t.Errorf("RefValToExprValue(%v) expected error, got %v", tc.refVal, exprVal)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("RefValToExprValue(%v) failed with error: %v", tc.refVal, err)
+				}
+				if exprVal == nil {
+					t.Errorf("RefValToExprValue(%v) expected value, got nil", tc.refVal)
 				}
 			}
 		})
