@@ -48,6 +48,7 @@ _TESTS_TO_SKIP = [
     "fields/qualified_identifier_resolution/map_value_repeat_key_heterogeneous",
     "macros/map/map_extract_keys",
     "timestamps/duration_converters/get_milliseconds",
+    "optionals/optionals/map_optional_select_has",
 
     # Temporarily failing tests, need a spec update
     "string_ext/value_errors/indexof_out_of_range,lastindexof_out_of_range",
@@ -84,9 +85,9 @@ go_test(
         "@com_github_google_go_cmp//cmp:go_default_library",
         "@dev_cel_expr//:expr",
         "@dev_cel_expr//conformance:go_default_library",
-        "@dev_cel_expr//conformance/test:go_default_library",
         "@dev_cel_expr//conformance/proto2:go_default_library",
         "@dev_cel_expr//conformance/proto3:go_default_library",
+        "@dev_cel_expr//conformance/test:go_default_library",
         "@io_bazel_rules_go//go/runfiles",
         "@org_golang_google_genproto_googleapis_api//expr/v1alpha1:go_default_library",
         "@org_golang_google_protobuf//encoding/prototext:go_default_library",

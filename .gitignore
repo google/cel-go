@@ -10,3 +10,4 @@ proto/checked.pb.go
 proto/syntax.pb.go
 *~
 MODULE.bazel.lock
+.ijwb/
