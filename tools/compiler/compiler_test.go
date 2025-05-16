@@ -72,7 +72,7 @@ func TestEnvironmentFileCompareTextprotoAndYAML(t *testing.T) {
 			for i, v := range protoConfig.Variables {
 				for j, p := range v.TypeDesc.Params {
 					if p.TypeName == "google.protobuf.Any" &&
-							config.Variables[i].TypeDesc.Params[j].TypeName == "dyn" {
+						config.Variables[i].TypeDesc.Params[j].TypeName == "dyn" {
 						p.TypeName = "dyn"
 					}
 				}

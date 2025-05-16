@@ -19,6 +19,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -59,6 +60,61 @@ func init() {
 	flag.StringVar(&configPath, "config_path", "", "path to a config file")
 	flag.StringVar(&baseConfigPath, "base_config_path", "", "path to a base config file")
 	flag.StringVar(&celExpression, "cel_expr", "", "CEL expression to test")
+}
+
+func updateRunfilesPathForFlags(testResourcesDir string) error {
+	if testResourcesDir == "" {
+		return nil
+	}
+	paths := make([]*string, 0, 5)
+	if compiler.InferFileFormat(testSuitePath) != compiler.Unspecified {
+		paths = append(paths, &testSuitePath)
+	}
+	if compiler.InferFileFormat(fileDescriptorSetPath) != compiler.Unspecified {
+		paths = append(paths, &fileDescriptorSetPath)
+	}
+	if compiler.InferFileFormat(configPath) != compiler.Unspecified {
+		paths = append(paths, &configPath)
+	}
+	if compiler.InferFileFormat(baseConfigPath) != compiler.Unspecified {
+		paths = append(paths, &baseConfigPath)
+	}
+	if compiler.InferFileFormat(celExpression) != compiler.Unspecified {
+		paths = append(paths, &celExpression)
+	}
+	return UpdateTestResourcesPaths(testResourcesDir, paths)
+}
+
+// UpdateTestResourcesPaths updates the list of paths with their absolute paths as per their location
+// in the testResourcesDir directory. This will allow the executable targets to locate and access the
+// data dependencies needed to trigger the tests.
+// For example: In case of Bazel, this method can be used to update the file paths with the corresponding
+// location in the runfiles directory tree:
+//
+//	UpdateTestResourcesPaths(os.Getenv("RUNFILES_DIR"), <file_paths_list>)
+func UpdateTestResourcesPaths(testResourcesDir string, paths []*string) error {
+	if testResourcesDir == "" {
+		return nil
+	}
+	err := filepath.Walk(testResourcesDir, func(p string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+		relPath, err := filepath.Rel(testResourcesDir, p)
+		if err != nil {
+			return err
+		}
+		for _, path := range paths {
+			if strings.Contains(relPath, *path) {
+				*path = p
+			}
+		}
+		return nil
+	})
+	return err
 }
 
 // TestRunnerOption is used to configure the following attributes of the Test Runner:
@@ -111,9 +167,12 @@ func TriggerTests(t *testing.T, testRunnerOpts ...TestRunnerOption) {
 //     File Descriptor Set Path of the test runner.
 //   - Test expression - The `cel_expr` flag is used to populate the test expressions which need to be
 //     evaluated by the test runner.
-func TestRunnerOptionsFromFlags(testRunnerOpts []TestRunnerOption, testCompilerOpts ...any) TestRunnerOption {
+func TestRunnerOptionsFromFlags(testResourcesDir string, testRunnerOpts []TestRunnerOption, testCompilerOpts ...any) TestRunnerOption {
 	if !flag.Parsed() {
 		flag.Parse()
+	}
+	if err := updateRunfilesPathForFlags(testResourcesDir); err != nil {
+		return nil
 	}
 	return func(tr *TestRunner) (*TestRunner, error) {
 		opts := []TestRunnerOption{
@@ -358,9 +417,18 @@ func fileDescriptorSet(path string) (*descpb.FileDescriptorSet, error) {
 	return fds, nil
 }
 
+// Program represents the result of creating CEL programs for the configured expressions in the
+// test runner. It encompasses the following:
+// - CELProgram - the evaluable CEL program
+// - PolicyMetadata - the metadata map obtained while creating the CEL AST from the expression
+type Program struct {
+	cel.Program
+	PolicyMetadata map[string]any
+}
+
 // Programs creates a list of CEL programs from the input expressions configured in the test runner
 // using the provided program options.
-func (tr *TestRunner) Programs(t *testing.T, opts ...cel.ProgramOption) ([]cel.Program, error) {
+func (tr *TestRunner) Programs(t *testing.T, opts ...cel.ProgramOption) ([]Program, error) {
 	t.Helper()
 	if tr.Compiler == nil {
 		return nil, fmt.Errorf("compiler is not set")
@@ -369,10 +437,9 @@ func (tr *TestRunner) Programs(t *testing.T, opts ...cel.ProgramOption) ([]cel.P
 	if err != nil {
 		return nil, err
 	}
-	var programs []cel.Program
+	programs := make([]Program, 0, len(tr.Expressions))
 	for _, expr := range tr.Expressions {
-		// TODO: propagate metadata map along with the program instance as a struct.
-		ast, _, err := expr.CreateAST(tr.Compiler)
+		ast, policyMetadata, err := expr.CreateAST(tr.Compiler)
 		if err != nil {
 			if strings.Contains(err.Error(), "invalid file extension") ||
 				strings.Contains(err.Error(), "invalid raw expression") {
@@ -384,7 +451,10 @@ func (tr *TestRunner) Programs(t *testing.T, opts ...cel.ProgramOption) ([]cel.P
 		if err != nil {
 			return nil, err
 		}
-		programs = append(programs, prg)
+		programs = append(programs, Program{
+			Program:        prg,
+			PolicyMetadata: policyMetadata,
+		})
 	}
 	return programs, nil
 }
@@ -730,13 +800,16 @@ func (tr *TestRunner) createResultMatcher(t *testing.T, testOutput *test.Output)
 
 // ExecuteTest executes the test case against the provided list of programs and returns an error if
 // the test fails.
-func (tr *TestRunner) ExecuteTest(t *testing.T, programs []cel.Program, test *Test) error {
+func (tr *TestRunner) ExecuteTest(t *testing.T, programs []Program, test *Test) error {
 	t.Helper()
 	if tr.Compiler == nil {
 		return fmt.Errorf("compiler is not set")
 	}
-	for _, program := range programs {
-		out, _, err := program.Eval(test.input)
+	for _, pr := range programs {
+		if pr.Program == nil {
+			return fmt.Errorf("CEL program not set")
+		}
+		out, _, err := pr.Eval(test.input)
 		if testResult := test.resultMatcher(out, err); !testResult.Success {
 			return fmt.Errorf("test: %s \n wanted: %v \n failed: %v", test.name, testResult.Wanted, testResult.Error)
 		}
