@@ -16,7 +16,6 @@
 package celtest
 
 import (
-	"os"
 	"testing"
 
 	"github.com/google/cel-go/cel"
@@ -41,36 +40,36 @@ func setupTests() []*testCase {
 	testCases := []*testCase{
 		{
 			name:          "policy test with custom policy parser",
-			celExpression: "policy/testdata/k8s/policy.yaml",
-			testSuitePath: "policy/testdata/k8s/tests.yaml",
-			configPath:    "policy/testdata/k8s/config.yaml",
+			celExpression: "testdata/k8s/policy.yaml",
+			testSuitePath: "testdata/k8s/tests.yaml",
+			configPath:    "testdata/k8s/config.yaml",
 			opts:          []any{k8sParserOpts()},
 		},
 		{
 			name:          "policy test with function binding",
-			celExpression: "policy/testdata/restricted_destinations/policy.yaml",
-			testSuitePath: "policy/testdata/restricted_destinations/tests.yaml",
-			configPath:    "policy/testdata/restricted_destinations/config.yaml",
+			celExpression: "testdata/restricted_destinations/policy.yaml",
+			testSuitePath: "testdata/restricted_destinations/tests.yaml",
+			configPath:    "testdata/restricted_destinations/config.yaml",
 			opts:          []any{locationCodeEnvOption()},
 		},
 		{
 			name:          "policy test with custom policy metadata",
-			celExpression: "tools/celtest/testdata/custom_policy.celpolicy",
-			testSuitePath: "tools/celtest/testdata/custom_policy_tests.yaml",
+			celExpression: "testdata/custom_policy.celpolicy",
+			testSuitePath: "testdata/custom_policy_tests.yaml",
 			opts:          []any{customPolicyParserOption(), compiler.PolicyMetadataEnvOption(ParsePolicyVariables)},
 		},
 		{
 			name:          "raw expression file test",
-			celExpression: "tools/celtest/testdata/raw_expr.cel",
-			testSuitePath: "tools/celtest/testdata/raw_expr_tests.yaml",
-			configPath:    "tools/celtest/testdata/config.yaml",
+			celExpression: "testdata/raw_expr.cel",
+			testSuitePath: "testdata/raw_expr_tests.yaml",
+			configPath:    "testdata/config.yaml",
 			opts:          []any{fnEnvOption()},
 		},
 		{
 			name:          "raw expression test",
 			celExpression: "i + fn(j) == 42",
-			testSuitePath: "tools/celtest/testdata/raw_expr_tests.yaml",
-			configPath:    "tools/celtest/testdata/config.yaml",
+			testSuitePath: "testdata/raw_expr_tests.yaml",
+			configPath:    "testdata/config.yaml",
 			opts:          []any{fnEnvOption()},
 		},
 	}
@@ -105,10 +104,9 @@ func k8sParserOpts() policy.ParserOption {
 // by providing test runner and compiler options without setting the flag variables.
 func TestTriggerTestsWithRunnerOptions(t *testing.T) {
 	t.Run("test trigger tests custom policy", func(t *testing.T) {
-		configPath := "policy/testdata/k8s/config.yaml"
-		testSuitePath := "policy/testdata/k8s/tests.yaml"
-		policyPath := "policy/testdata/k8s/policy.yaml"
-		UpdateTestResourcesPaths(os.Getenv("RUNFILES_DIR"), []*string{&configPath, &testSuitePath, &policyPath})
+		configPath := "testdata/k8s/config.yaml"
+		testSuitePath := "testdata/k8s/tests.yaml"
+		policyPath := "testdata/k8s/policy.yaml"
 		envOpt := compiler.EnvironmentFile(configPath)
 		testSuiteParser := DefaultTestSuiteParser(testSuitePath)
 		testCELPolicy := TestRunnerOption(func(tr *TestRunner) (*TestRunner, error) {
@@ -195,20 +193,6 @@ func TestTriggerTests(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var testOpts []TestRunnerOption
 			compileOpts := make([]any, 0, len(tc.opts)+2)
-			paths := make([]*string, 0, 4)
-			if compiler.InferFileFormat(tc.testSuitePath) != compiler.Unspecified {
-				paths = append(paths, &tc.testSuitePath)
-			}
-			if compiler.InferFileFormat(tc.fileDescriptorSetPath) != compiler.Unspecified {
-				paths = append(paths, &tc.fileDescriptorSetPath)
-			}
-			if compiler.InferFileFormat(tc.configPath) != compiler.Unspecified {
-				paths = append(paths, &tc.configPath)
-			}
-			if compiler.InferFileFormat(tc.celExpression) != compiler.Unspecified {
-				paths = append(paths, &tc.celExpression)
-			}
-			UpdateTestResourcesPaths(os.Getenv("RUNFILES_DIR"), paths)
 			for _, opt := range tc.opts {
 				compileOpts = append(compileOpts, opt)
 			}

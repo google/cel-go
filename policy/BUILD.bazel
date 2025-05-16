@@ -79,6 +79,16 @@ filegroup(
     srcs = glob(["testdata/**"]),
 )
 
+filegroup(
+    name = "restricted_destinations_testdata",
+    srcs = glob(["testdata/restricted_destinations/**"]),
+)
+
+filegroup(
+    name = "k8s_testdata",
+    srcs = glob(["testdata/k8s/**"]),
+)
+
 proto_descriptor_set(
     name = "test_all_types_fds",
     deps = [

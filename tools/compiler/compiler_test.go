@@ -369,7 +369,7 @@ func envOptionToConfig(t *testing.T, name string, opts ...cel.EnvOption) (*env.C
 	return conf, nil
 }
 
-func TtestFileExpressionCustomPolicyParser(t *testing.T) {
+func TestFileExpressionCustomPolicyParser(t *testing.T) {
 	t.Run("test file expression custom policy parser", func(t *testing.T) {
 		envOpt := EnvironmentFile("../../policy/testdata/k8s/config.yaml")
 		parserOpt := policy.ParserOption(func(p *policy.Parser) (*policy.Parser, error) {
