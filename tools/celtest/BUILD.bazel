@@ -50,46 +50,6 @@ go_library(
     ],
 )
 
-genrule(
-    name = "restricted_destinations_testdata_copy",
-    srcs = [
-        "//policy:restricted_destinations_testdata",
-    ],
-    outs = [
-        "testdata/restricted_destinations/config.yaml",
-        "testdata/restricted_destinations/policy.yaml",
-        "testdata/restricted_destinations/tests.yaml",
-    ],
-    cmd = """
-        mkdir -p $(RULEDIR)/testdata/restricted_destinations
-        cp $(SRCS) $(RULEDIR)/testdata/restricted_destinations
-    """,
-)
-
-genrule(
-    name = "k8s_testdata_copy",
-    srcs = [
-        "//policy:k8s_testdata",
-    ],
-    outs = [
-        "testdata/k8s/config.yaml",
-        "testdata/k8s/policy.yaml",
-        "testdata/k8s/tests.yaml",
-    ],
-    cmd = """
-        mkdir -p $(RULEDIR)/testdata/k8s
-        cp $(SRCS) $(RULEDIR)/testdata/k8s
-    """,
-)
-
-filegroup(
-    name = "testdata_copy",
-    srcs = [
-        ":restricted_destinations_testdata_copy",
-        ":k8s_testdata_copy"
-    ],
-)
-
 go_test(
     name = "go_default_test",
     size = "small",
@@ -98,7 +58,7 @@ go_test(
     ],
     data = [
         ":testdata",
-        ":testdata_copy",
+        "//policy:testdata",
     ],
     embed = [":go_default_library"],
     deps = [

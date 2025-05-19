@@ -40,16 +40,16 @@ func setupTests() []*testCase {
 	testCases := []*testCase{
 		{
 			name:          "policy test with custom policy parser",
-			celExpression: "testdata/k8s/policy.yaml",
-			testSuitePath: "testdata/k8s/tests.yaml",
-			configPath:    "testdata/k8s/config.yaml",
+			celExpression: "../../policy/testdata/k8s/policy.yaml",
+			testSuitePath: "../../policy/testdata/k8s/tests.yaml",
+			configPath:    "../../policy/testdata/k8s/config.yaml",
 			opts:          []any{k8sParserOpts()},
 		},
 		{
 			name:          "policy test with function binding",
-			celExpression: "testdata/restricted_destinations/policy.yaml",
-			testSuitePath: "testdata/restricted_destinations/tests.yaml",
-			configPath:    "testdata/restricted_destinations/config.yaml",
+			celExpression: "../../policy/testdata/restricted_destinations/policy.yaml",
+			testSuitePath: "../../policy/testdata/restricted_destinations/tests.yaml",
+			configPath:    "../../policy/testdata/restricted_destinations/config.yaml",
 			opts:          []any{locationCodeEnvOption()},
 		},
 		{
@@ -104,11 +104,11 @@ func k8sParserOpts() policy.ParserOption {
 // by providing test runner and compiler options without setting the flag variables.
 func TestTriggerTestsWithRunnerOptions(t *testing.T) {
 	t.Run("test trigger tests custom policy", func(t *testing.T) {
-		envOpt := compiler.EnvironmentFile("testdata/k8s/config.yaml")
-		testSuiteParser := DefaultTestSuiteParser("testdata/k8s/tests.yaml")
+		envOpt := compiler.EnvironmentFile("../../policy/testdata/k8s/config.yaml")
+		testSuiteParser := DefaultTestSuiteParser("../../policy/testdata/k8s/tests.yaml")
 		testCELPolicy := TestRunnerOption(func(tr *TestRunner) (*TestRunner, error) {
 			tr.Expressions = append(tr.Expressions, &compiler.FileExpression{
-				Path: "testdata/k8s/policy.yaml",
+				Path: "../../policy/testdata/k8s/policy.yaml",
 			})
 			return tr, nil
 		})
