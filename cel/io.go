@@ -141,8 +141,8 @@ func RefValToExprValue(res ref.Val) (*celpb.ExprValue, error) {
 		return &celpb.ExprValue{
 			Kind: &celpb.ExprValue_Error{
 				Error: &celpb.ErrorSet{
-				    // Keeping the error code as UNKNOWN since there's no error codes associated with
-                    					// Cel-Go runtime errors.
+					// Keeping the error code as UNKNOWN since there's no error codes associated with
+					// Cel-Go runtime errors.
 					Errors: []*celpb.Status{{Code: 2, Message: res.Error()}},
 				},
 			},
