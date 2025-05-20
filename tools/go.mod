@@ -4,6 +4,7 @@ go 1.23.0
 
 require (
 	cel.dev/expr v0.23.1
+	github.com/bazelbuild/rules_go v0.54.0
 	github.com/google/cel-go v0.22.0
 	github.com/google/cel-go/policy v0.0.0-20250311174852-f5ea07b389a1
 	github.com/google/go-cmp v0.6.0

@@ -13,6 +13,8 @@
 # limitations under the License.
 
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@rules_proto//proto:defs.bzl", "proto_descriptor_set")
+load("//test:cel_go_test.bzl", "cel_go_test")
 
 package(
     default_visibility = [
@@ -75,4 +77,126 @@ go_test(
 filegroup(
     name = "testdata",
     srcs = glob(["testdata/**"]),
+)
+
+proto_descriptor_set(
+    name = "test_all_types_fds",
+    deps = [
+        "//test/proto3pb:test_all_types_proto",
+    ],
+)
+
+cel_go_test(
+    name = "context_pb_policy",
+    cel_expr = "testdata/context_pb/policy.yaml",
+    config = "testdata/context_pb/config.yaml",
+    file_descriptor_set = ":test_all_types_fds",
+    test_src = "//policy/test:cel_test_runner.go",
+    test_suite = "testdata/context_pb/tests.yaml",
+)
+
+cel_go_test(
+    name = "k8s_policy",
+    cel_expr = "testdata/k8s/policy.yaml",
+    config = "testdata/k8s/config.yaml",
+    deps = ["//policy:go_default_library"],
+    test_src = "//policy/test:k8s_cel_test_runner.go",
+    test_suite = "testdata/k8s/tests.yaml",
+)
+
+cel_go_test(
+    name = "limits_policy",
+    cel_expr = "testdata/limits/policy.yaml",
+    config = "testdata/limits/config.yaml",
+    test_src = "//policy/test:cel_test_runner.go",
+    test_suite = "testdata/limits/tests.yaml",
+)
+
+cel_go_test(
+    name = "nested_rule_policy",
+    cel_expr = "testdata/nested_rule/policy.yaml",
+    config = "testdata/nested_rule/config.yaml",
+    test_src = "//policy/test:cel_test_runner.go",
+    test_suite = "testdata/nested_rule/tests.yaml",
+)
+
+cel_go_test(
+    name = "nested_rule2_policy",
+    cel_expr = "testdata/nested_rule2/policy.yaml",
+    config = "testdata/nested_rule2/config.yaml",
+    test_src = "//policy/test:cel_test_runner.go",
+    test_suite = "testdata/nested_rule2/tests.yaml",
+)
+
+cel_go_test(
+    name = "nested_rule3_policy",
+    cel_expr = "testdata/nested_rule3/policy.yaml",
+    config = "testdata/nested_rule3/config.yaml",
+    test_src = "//policy/test:cel_test_runner.go",
+    test_suite = "testdata/nested_rule3/tests.yaml",
+)
+
+cel_go_test(
+    name = "nested_rule4_policy",
+    cel_expr = "testdata/nested_rule4/policy.yaml",
+    config = "testdata/nested_rule4/config.yaml",
+    test_src = "//policy/test:cel_test_runner.go",
+    test_suite = "testdata/nested_rule4/tests.yaml",
+)
+
+cel_go_test(
+    name = "nested_rule5_policy",
+    cel_expr = "testdata/nested_rule5/policy.yaml",
+    config = "testdata/nested_rule5/config.yaml",
+    test_src = "//policy/test:cel_test_runner.go",
+    test_suite = "testdata/nested_rule5/tests.yaml",
+)
+
+cel_go_test(
+    name = "nested_rule6_policy",
+    cel_expr = "testdata/nested_rule6/policy.yaml",
+    config = "testdata/nested_rule6/config.yaml",
+    test_src = "//policy/test:cel_test_runner.go",
+    test_suite = "testdata/nested_rule6/tests.yaml",
+)
+
+cel_go_test(
+    name = "nested_rule7_policy",
+    cel_expr = "testdata/nested_rule7/policy.yaml",
+    config = "testdata/nested_rule7/config.yaml",
+    test_src = "//policy/test:cel_test_runner.go",
+    test_suite = "testdata/nested_rule7/tests.yaml",
+)
+
+cel_go_test(
+    name = "pb_policy",
+    cel_expr = "testdata/pb/policy.yaml",
+    config = "testdata/pb/config.yaml",
+    file_descriptor_set = ":test_all_types_fds",
+    test_src = "//policy/test:cel_test_runner.go",
+    test_suite = "testdata/pb/tests.yaml",
+)
+
+cel_go_test(
+    name = "required_labels_policy",
+    cel_expr = "testdata/required_labels/policy.yaml",
+    config = "testdata/required_labels/config.yaml",
+    test_src = "//policy/test:cel_test_runner.go",
+    test_suite = "testdata/required_labels/tests.yaml",
+)
+
+cel_go_test(
+    name = "restricted_destinations_policy",
+    cel_expr = "testdata/restricted_destinations/policy.yaml",
+    config = "testdata/restricted_destinations/config.yaml",
+    test_src = "//policy/test:cel_test_runner.go",
+    test_suite = "testdata/restricted_destinations/tests.yaml",
+)
+
+cel_go_test(
+    name = "unnest_policy",
+    cel_expr = "testdata/unnest/policy.yaml",
+    config = "testdata/unnest/config.yaml",
+    test_src = "//policy/test:cel_test_runner.go",
+    test_suite = "testdata/unnest/tests.yaml",
 )

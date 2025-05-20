@@ -187,10 +187,9 @@ func fnEnvOption() cel.EnvOption {
 // TestTriggerTests tests different scenarios of the TriggerTestsFromCompiler function.
 func TestTriggerTests(t *testing.T) {
 	for _, tc := range setupTests() {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			var testOpts []TestRunnerOption
-			var compileOpts []any = make([]any, 0, len(tc.opts)+2)
+			compileOpts := make([]any, 0, len(tc.opts)+2)
 			for _, opt := range tc.opts {
 				compileOpts = append(compileOpts, opt)
 			}
