@@ -20,7 +20,6 @@ import (
 	"reflect"
 
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/grpc/status"
 
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/ast"
@@ -31,7 +30,6 @@ import (
 
 	celpb "cel.dev/expr"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
-	rpcpb "google.golang.org/genproto/googleapis/rpc/status"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 )
 
@@ -128,21 +126,6 @@ func ValueAsAlphaProto(res ref.Val) (*exprpb.Value, error) {
 	return alpha, err
 }
 
-// RPCStatusToEvalErrorStatus converts an RPC status to a celpb status. Status value is intended to
-// be wire and field compatible with `google.rpc.Status`.
-func RPCStatusToEvalErrorStatus(s *rpcpb.Status) (*celpb.Status, error) {
-	var celpbStatus celpb.Status
-	statusVal, err := proto.Marshal(s)
-	if err != nil {
-		return nil, err
-	}
-	err = proto.Unmarshal(statusVal, &celpbStatus)
-	if err != nil {
-		return nil, err
-	}
-	return &celpbStatus, nil
-}
-
 // RefValToExprValue converts between ref.Val and cel.expr.ExprValue.
 // The result ExprValue is the serialized proto form.
 func RefValToExprValue(res ref.Val) (*celpb.ExprValue, error) {
@@ -155,15 +138,12 @@ func RefValToExprValue(res ref.Val) (*celpb.ExprValue, error) {
 				},
 			}}, nil
 	case *types.Err:
-		s := status.Convert(res.Unwrap()).Proto()
-		statusVal, err := RPCStatusToEvalErrorStatus(s)
-		if err != nil {
-			return nil, err
-		}
 		return &celpb.ExprValue{
 			Kind: &celpb.ExprValue_Error{
 				Error: &celpb.ErrorSet{
-					Errors: []*celpb.Status{statusVal},
+				    // Keeping the error code as UNKNOWN since there's no error codes associated with
+                    					// Cel-Go runtime errors.
+					Errors: []*celpb.Status{{Code: 2, Message: res.Error()}},
 				},
 			},
 		}, nil
