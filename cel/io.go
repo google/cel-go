@@ -126,7 +126,7 @@ func ValueAsAlphaProto(res ref.Val) (*exprpb.Value, error) {
 	return alpha, err
 }
 
-// RefValToExprValue converts between ref.Val and cel.expr.ExprValue.
+// RefValToExprValue converts between ref.Val and google.api.expr.v1alpha1.ExprValue.
 // The result ExprValue is the serialized proto form.
 func RefValToExprValue(res ref.Val) (*exprpb.ExprValue, error) {
 	return ExprValueAsAlphaProto(res)
