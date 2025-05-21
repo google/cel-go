@@ -128,7 +128,25 @@ func ValueAsAlphaProto(res ref.Val) (*exprpb.Value, error) {
 
 // RefValToExprValue converts between ref.Val and cel.expr.ExprValue.
 // The result ExprValue is the serialized proto form.
-func RefValToExprValue(res ref.Val) (*celpb.ExprValue, error) {
+func RefValToExprValue(res ref.Val) (*exprpb.ExprValue, error) {
+	return ExprValueAsAlphaProto(res)
+}
+
+// ExprValueAsAlphaProto converts between ref.Val and google.api.expr.v1alpha1.ExprValue.
+// The result ExprValue is the serialized proto form.
+func ExprValueAsAlphaProto(res ref.Val) (*exprpb.ExprValue, error) {
+	canonical, err := ExprValueAsProto(res)
+	if err != nil {
+		return nil, err
+	}
+	alpha := &exprpb.ExprValue{}
+	err = convertProto(canonical, alpha)
+	return alpha, err
+}
+
+// ExprValueAsProto converts between ref.Val and cel.expr.ExprValue.
+// The result ExprValue is the serialized proto form.
+func ExprValueAsProto(res ref.Val) (*celpb.ExprValue, error) {
 	switch res := res.(type) {
 	case *types.Unknown:
 		return &celpb.ExprValue{

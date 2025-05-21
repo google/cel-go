@@ -229,7 +229,7 @@ func TestRefValToExprValue(t *testing.T) {
 	for _, tst := range tests {
 		tc := tst
 		t.Run(tc.name, func(t *testing.T) {
-			exprVal, err := RefValToExprValue(tc.refVal)
+			exprVal, err := ExprValueAsProto(tc.refVal)
 			if tc.expectError {
 				if err == nil {
 					t.Errorf("RefValToExprValue(%v) expected error, got %v", tc.refVal, exprVal)
