@@ -188,7 +188,7 @@ const examples = new Map<string, Example>([
     request: {
       commands: [
         `%load_descriptors --pkg 'cel-spec-test-types'`,
-        `%option --container "google.api.expr.test.v1"`,
+        `%option --container "cel.expr.conformance"`,
         `%let pb3 = proto3.TestAllTypes{}`,
         `%let pb2 = proto2.TestAllTypes`,
         `pb3 == proto3.TestAllTypes{}`
