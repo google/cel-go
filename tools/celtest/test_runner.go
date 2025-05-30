@@ -133,7 +133,7 @@ func TriggerTests(t *testing.T, testRunnerOpts ...TestRunnerOption) {
 	if err != nil {
 		t.Fatalf("error creating test runner: %v", err)
 	}
-	programs, err := tr.Programs(t)
+	programs, err := tr.Programs(t, tr.testProgramOptions...)
 	if err != nil {
 		t.Fatalf("error creating programs: %v", err)
 	}
@@ -275,6 +275,7 @@ func DefaultTestSuiteParser(path string) TestRunnerOption {
 // - Test Suite File Path: The path to the test suite file.
 // - File Descriptor Set Path: The path to the file descriptor set file.
 // - test Suite Parser: A parser for a test suite file serialized in Textproto/YAML format.
+// - test Program Options: A list of options to be used when creating the CEL programs.
 //
 // The TestRunner provides the following methods:
 // - Programs: Creates a list of CEL programs from the input expressions.
@@ -286,6 +287,7 @@ type TestRunner struct {
 	TestSuiteFilePath     string
 	FileDescriptorSetPath string
 	testSuiteParser       TestSuiteParser
+	testProgramOptions    []cel.ProgramOption
 }
 
 // Test represents a single test case to be executed. It encompasses the following:
@@ -295,12 +297,12 @@ type TestRunner struct {
 // returns a TestResult.
 type Test struct {
 	name          string
-	input         interpreter.Activation
+	input         interpreter.PartialActivation
 	resultMatcher func(ref.Val, error) TestResult
 }
 
 // NewTest creates a new Test with the provided name, input and result matcher.
-func NewTest(name string, input interpreter.Activation, resultMatcher func(ref.Val, error) TestResult) *Test {
+func NewTest(name string, input interpreter.PartialActivation, resultMatcher func(ref.Val, error) TestResult) *Test {
 	return &Test{
 		name:          name,
 		input:         input,
@@ -417,6 +419,17 @@ func fileDescriptorSet(path string) (*descpb.FileDescriptorSet, error) {
 	return fds, nil
 }
 
+// PartialEvalProgramOption returns a TestRunnerOption which enables partial evaluation for the CEL
+// program.
+//
+// Note: Partial evaluation where only root level variables are missing is supported.
+func PartialEvalProgramOption() TestRunnerOption {
+	return func(tr *TestRunner) (*TestRunner, error) {
+		tr.testProgramOptions = append(tr.testProgramOptions, cel.EvalOptions(cel.OptPartialEval))
+		return tr, nil
+	}
+}
+
 // Program represents the result of creating CEL programs for the configured expressions in the
 // test runner. It encompasses the following:
 // - CELProgram - the evaluable CEL program
@@ -507,13 +520,14 @@ func (tr *TestRunner) createTestsFromTextproto(t *testing.T, testSuite *conforma
 	return tests, nil
 }
 
-func (tr *TestRunner) createTestInputFromPB(t *testing.T, testCase *conformancepb.TestCase) (interpreter.Activation, error) {
+func (tr *TestRunner) createTestInputFromPB(t *testing.T, testCase *conformancepb.TestCase) (interpreter.PartialActivation, error) {
 	t.Helper()
 	input := map[string]any{}
 	e, err := tr.CreateEnv()
 	if err != nil {
 		return nil, err
 	}
+	var activation interpreter.Activation
 	if testCase.GetInputContext() != nil {
 		if len(testCase.GetInput()) != 0 {
 			return nil, fmt.Errorf("only one of input and input_context can be provided at a time")
@@ -529,15 +543,22 @@ func (tr *TestRunner) createTestInputFromPB(t *testing.T, testCase *conformancep
 			if err != nil {
 				return nil, fmt.Errorf("context variable is not a valid proto: %w", err)
 			}
-			return cel.ContextProtoVars(ctx.(proto.Message))
+			activation, err = cel.ContextProtoVars(ctx.(proto.Message))
+			if err != nil {
+				return nil, fmt.Errorf("cel.ContextProtoVars() failed: %w", err)
+			}
 		case *conformancepb.InputContext_ContextMessage:
 			refVal := e.CELTypeAdapter().NativeToValue(testInput.ContextMessage)
 			ctx, err := refVal.ConvertToNative(reflect.TypeOf((*proto.Message)(nil)).Elem())
 			if err != nil {
 				return nil, fmt.Errorf("context variable is not a valid proto: %w", err)
 			}
-			return cel.ContextProtoVars(ctx.(proto.Message))
+			activation, err = cel.ContextProtoVars(ctx.(proto.Message))
+			if err != nil {
+				return nil, fmt.Errorf("cel.ContextProtoVars() failed: %w", err)
+			}
 		}
+		return e.PartialVars(activation)
 	}
 	for k, v := range testCase.GetInput() {
 		switch v.GetKind().(type) {
@@ -553,7 +574,11 @@ func (tr *TestRunner) createTestInputFromPB(t *testing.T, testCase *conformancep
 			}
 		}
 	}
-	return interpreter.NewActivation(input)
+	activation, err = interpreter.NewActivation(input)
+	if err != nil {
+		return nil, fmt.Errorf("interpreter.NewActivation(%q) failed: %w", input, err)
+	}
+	return e.PartialVars(activation)
 }
 
 func (tr *TestRunner) createResultMatcherFromPB(t *testing.T, testCase *conformancepb.TestCase) (func(ref.Val, error) TestResult, error) {
@@ -627,7 +652,30 @@ func (tr *TestRunner) createResultMatcherFromPB(t *testing.T, testCase *conforma
 			return failureResult
 		}, nil
 	case *conformancepb.TestOutput_Unknown:
-		//  TODO: to implement
+		// Validate that all expected unknown expression ids are returned by the evaluation result.
+		return func(out ref.Val, err error) TestResult {
+			expectedUnknownIDs := testOutput.Unknown.GetExprs()
+			if err == nil && types.IsUnknown(out) {
+				actualUnknownIDs := out.Value().(*types.Unknown).IDs()
+				if len(expectedUnknownIDs) != len(actualUnknownIDs) {
+					return TestResult{Success: false, Wanted: fmt.Sprintf("unknown value %v", expectedUnknownIDs), Error: fmt.Errorf("wanted unknown value %v found %v", expectedUnknownIDs, actualUnknownIDs)}
+				}
+				for _, exprID := range actualUnknownIDs {
+					found := false
+					for _, want := range expectedUnknownIDs {
+						if exprID == want {
+							found = true
+							break
+						}
+					}
+					if !found {
+						return TestResult{Success: false, Wanted: fmt.Sprintf("unknown value %v", expectedUnknownIDs), Error: fmt.Errorf("unknown value %v not found in %v", exprID, expectedUnknownIDs)}
+					}
+				}
+				return successResult
+			}
+			return TestResult{Success: false, Wanted: fmt.Sprintf("unknown value %v", expectedUnknownIDs), Error: err}
+		}, nil
 	}
 	return nil, nil
 }
@@ -704,8 +752,13 @@ func (tr *TestRunner) createTestsFromYAML(t *testing.T, testSuite *test.Suite) (
 	return tests, nil
 }
 
-func (tr *TestRunner) createTestInput(t *testing.T, testCase *test.Case) (interpreter.Activation, error) {
+func (tr *TestRunner) createTestInput(t *testing.T, testCase *test.Case) (interpreter.PartialActivation, error) {
 	t.Helper()
+	e, err := tr.CreateEnv()
+	if err != nil {
+		return nil, err
+	}
+	var activation interpreter.Activation
 	if testCase.InputContext != nil && testCase.InputContext.ContextExpr != "" {
 		if len(testCase.Input) != 0 {
 			return nil, fmt.Errorf("only one of input and input_context can be provided at a time")
@@ -719,7 +772,11 @@ func (tr *TestRunner) createTestInput(t *testing.T, testCase *test.Case) (interp
 		if err != nil {
 			return nil, fmt.Errorf("context variable is not a valid proto: %w", err)
 		}
-		return cel.ContextProtoVars(ctx.(proto.Message))
+		activation, err = cel.ContextProtoVars(ctx.(proto.Message))
+		if err != nil {
+			return nil, fmt.Errorf("cel.ContextProtoVars() failed: %w", err)
+		}
+		return e.PartialVars(activation)
 	}
 	input := map[string]any{}
 	for k, v := range testCase.Input {
@@ -733,7 +790,11 @@ func (tr *TestRunner) createTestInput(t *testing.T, testCase *test.Case) (interp
 		}
 		input[k] = v.Value
 	}
-	return interpreter.NewActivation(input)
+	activation, err = interpreter.NewActivation(input)
+	if err != nil {
+		return nil, fmt.Errorf("interpreter.NewActivation(%q) failed: %w", input, err)
+	}
+	return e.PartialVars(activation)
 }
 
 func (tr *TestRunner) createResultMatcher(t *testing.T, testOutput *test.Output) (func(ref.Val, error) TestResult, error) {
@@ -793,7 +854,28 @@ func (tr *TestRunner) createResultMatcher(t *testing.T, testOutput *test.Output)
 		}, nil
 	}
 	if testOutput.UnknownSet != nil {
-		//  TODO: to implement
+		return func(out ref.Val, err error) TestResult {
+			if err == nil && types.IsUnknown(out) {
+				unknownIDs := out.Value().(*types.Unknown).IDs()
+				if len(testOutput.UnknownSet) != len(unknownIDs) {
+					return TestResult{Success: false, Wanted: fmt.Sprintf("unknown value %v", testOutput.UnknownSet), Error: fmt.Errorf("wanted unknown value %v found %v", testOutput.UnknownSet, unknownIDs)}
+				}
+				for _, exprID := range unknownIDs {
+					found := false
+					for _, want := range testOutput.UnknownSet {
+						if exprID == want {
+							found = true
+							break
+						}
+					}
+					if !found {
+						return TestResult{Success: false, Wanted: fmt.Sprintf("unknown value %v", testOutput.UnknownSet), Error: fmt.Errorf("unknown value %v not found in %v", exprID, testOutput.UnknownSet)}
+					}
+				}
+				return successResult
+			}
+			return TestResult{Success: false, Wanted: fmt.Sprintf("unknown value %v", testOutput.UnknownSet), Error: err}
+		}, nil
 	}
 	return nil, nil
 }

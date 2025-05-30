@@ -32,3 +32,19 @@ section:
             value: 42
         output:
           value: false
+  - name: "unknown"
+    tests:
+      - name: "unknown j"
+        input:
+          i:
+            value: 21
+        output:
+          unknown_set:
+            - 4
+      - name: "unknown i"
+        input:
+          j:
+            value: 42
+        output:
+          unknown_set:
+            - 1
