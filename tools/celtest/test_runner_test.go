@@ -67,7 +67,7 @@ func setupTests() []*testCase {
 		},
 		{
 			name:          "raw expression test",
-			celExpression: "i + fn(j) == 42",
+			celExpression: "a || i + fn(j) == 42",
 			testSuitePath: "testdata/raw_expr_tests.yaml",
 			configPath:    "testdata/config.yaml",
 			opts:          []any{fnEnvOption()},
@@ -204,6 +204,7 @@ func TestTriggerTests(t *testing.T) {
 				DefaultTestSuiteParser(tc.testSuitePath),
 				AddFileDescriptorSet(tc.fileDescriptorSetPath),
 				TestExpression(tc.celExpression),
+				PartialEvalProgramOption(),
 			)
 			TriggerTests(t, testOpts...)
 		})
