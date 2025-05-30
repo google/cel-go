@@ -204,6 +204,7 @@ func TestTriggerTests(t *testing.T) {
 				DefaultTestSuiteParser(tc.testSuitePath),
 				AddFileDescriptorSet(tc.fileDescriptorSetPath),
 				TestExpression(tc.celExpression),
+				PartialEvalProgramOption(),
 			)
 			TriggerTests(t, testOpts...)
 		})
