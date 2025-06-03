@@ -22,6 +22,8 @@ section:
             value: 21
           j:
             value: 42
+          a:
+            value: false
         output:
           value: true
       - name: "false"
@@ -30,5 +32,40 @@ section:
             value: 22
           j:
             value: 42
+          a:
+            value: false
         output:
           value: false
+      - name: "true a"
+        input:
+          a:
+            value: true
+        output:
+          value: true
+  - name: "unknown"
+    tests:
+      - name: "unknown i"
+        input:
+          j:
+            value: 42
+          a:
+            value: false
+        output:
+          unknown_set:
+            - 2
+      - name: "unknown a and j"
+        input:
+          i:
+            value: 21
+        output:
+          unknown_set:
+            - 1
+            - 5
+      - name: "unknown a and i"
+        input:
+          j:
+            value: 42
+        output:
+          unknown_set:
+            - 1
+            - 2
