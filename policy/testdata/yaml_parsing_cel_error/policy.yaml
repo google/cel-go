@@ -1,0 +1,24 @@
+name: yaml_parsing_cel_error
+
+description: |
+    A block literal description with mutliple lines.
+
+rule:
+  match:
+    - condition: "match_id == 'folded_error_presentation'"
+      output: >
+        "foo" +
+        ("bar" + 1)
+    - condition: "match_id == 'folded_error_presentation_indent'"
+      output: >
+          "foo" +
+          ("bar" + 1)
+    - condition: "match_id == 'literal_error_presentation'"
+      output: |
+        "foo" +
+        ("bar" + 1)
+    - condition: "match_id == 'literal_error_presentation_indent'"
+      output: |
+          "foo" +
+          ("bar" + 1)
+    - output: "'no match encountered'"

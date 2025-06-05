@@ -21,6 +21,11 @@ combined and ordered according to the policy evaluation semantic. The default
 semantic is `FIRST_MATCH`. The supported top-level fields in a policy include:
 `name`, `description`, `imports`, and `rule.`
 
+- `name (string)`: a system-specific identifier for the policy
+- `description (string)`: a human-readable description of the policy
+- `imports (list[string])`: a list of aliases. see description below
+- `rule (object)`: the entry point for the policy. see description below
+
 ### Rule
 
 The `rule` node in a policy is the primary entry point to CEL computations.
@@ -161,6 +166,24 @@ This configuration is invalid and will trigger a compilation error:
 incompatible output types: bool not assignable to string
 ```
 
+#### Nesting
+
+Rules may be nested as part of a `match`. A `match` that nests a rule specifies
+only a `condition` and the nested `rule`.
+
+Example:
+```
+rule:
+  match:
+    - condition: "outer == 'condition_a'"
+      rule:
+        match:
+          - condition: "inner == 'condition_a_1'"
+            output: "'outer_a_inner_1'"
+          - output: "'outer_a_inner_default'"
+    - output: "'outer_default'"
+```
+
 ### Imports
 
 When constructing complex object types such as protocol buffers, `imports` can
@@ -221,4 +244,32 @@ rule:
           created_at: timestamp("2024-09-20T16:50:00Z")
         }]
       }
+```
+
+### Non-standard YAML Behaviors
+
+CEL Expression values follow special parsing rules to preserve source location
+information inside the policy document. This means that the indent and any
+newline characters are included in the effective CEL expression. There is no
+difference in behavior for the literal or folded style for multiline
+expressions.
+
+Example:
+
+```yaml
+name: policy
+
+rule:
+  match:
+    - condition: 'true'
+    - output: >
+      strings.quote('''A mutiline string
+      second line''')
+
+```
+
+Results in:
+
+```
+"A multiline string\n      second line"
 ```

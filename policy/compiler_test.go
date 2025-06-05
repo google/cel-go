@@ -27,6 +27,7 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/ext"
 	"github.com/google/cel-go/interpreter"
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestCompile(t *testing.T) {
@@ -156,6 +157,107 @@ func TestMaxNestedExpressions_Error(t *testing.T) {
 	}
 	if iss.Err().Error() != wantError {
 		t.Errorf("compile(%s) got error %s, wanted %s", policyName, iss.Err().Error(), wantError)
+	}
+}
+
+func TestWhitespaceHanlding(t *testing.T) {
+
+	testCases := []struct {
+		matchID string
+		want    string
+	}{
+		{
+			matchID: "folded_unambiguous",
+			want:    "a string expression that is folded",
+		},
+		{
+			matchID: "folded_line_break",
+			// 8 spaces (4 indents)
+			want: "a string expression that\n        is folded",
+		},
+		{
+			matchID: "folded_line_break_indent",
+			// 10 spaces (5 indents)
+			want: "a string expression that\n          is folded",
+		},
+		{
+			matchID: "literal_unambiguous",
+			want:    "a string expression that is a literal block",
+		},
+		{
+			matchID: "literal_line_break",
+			// 8 spaces (4 indents)
+			want: "a string expression that\n        is a literal block",
+		},
+		{
+			matchID: "literal_line_break_indent",
+			// 10 spaces (5 indents)
+			want: "a string expression that\n          is a literal block",
+		},
+	}
+
+	policy := parsePolicy(t, "yaml_parsing", []ParserOption{})
+	env, ast, iss := compile(t, "yaml_parsing", policy, []cel.EnvOption{}, []CompilerOption{})
+	if iss.Err() != nil {
+		t.Fatalf("compile('yaml_parsing') failed, %s", iss.Err().Error())
+	}
+
+	p, err := env.PlanProgram(ast.NativeRep())
+
+	if err != nil {
+		t.Fatalf("env.PlanProgram() failed, %s", err.Error())
+	}
+
+	for _, tst := range testCases {
+		t.Run(tst.matchID, func(t *testing.T) {
+
+			in := map[string]any{"match_id": types.String(tst.matchID)}
+
+			result, _, err := p.Eval(in)
+			if err != nil {
+				t.Fatalf("p.Eval(match_id: '%s') failed, %s", tst.matchID, err.Error())
+			}
+			s, ok := result.(types.String)
+			if !ok {
+				t.Fatalf("p.Eval(match_id: '%s') got %v, wanted string", tst.matchID, result)
+			}
+			if dx := cmp.Diff(tst.want, s.Value()); dx != "" {
+				t.Errorf("p.Eval(match_id: '%s') has diffs. (-want, +got): %s", tst.matchID, dx)
+			}
+		})
+	}
+}
+
+func TestWhitespaceHandlingErrorPresentation(t *testing.T) {
+	policy := parsePolicy(t, "yaml_parsing_cel_error", []ParserOption{})
+	_, _, iss := compile(t, "yaml_parsing_cel_error", policy, []cel.EnvOption{}, []CompilerOption{})
+	if iss.Err() == nil {
+		t.Fatalf("compile('yaml_parsing_cel_error') did not error, wanted error")
+	}
+
+	wantErrors := []string{
+		`ERROR: testdata/yaml_parsing_cel_error/policy.yaml:11:16: found no matching overload for '_+_' applied to '(string, int)'
+ |         ("bar" + 1)
+ | ...............^`,
+		`ERROR: testdata/yaml_parsing_cel_error/policy.yaml:15:18: found no matching overload for '_+_' applied to '(string, int)'
+ |           ("bar" + 1)
+ | .................^`,
+		`ERROR: testdata/yaml_parsing_cel_error/policy.yaml:19:16: found no matching overload for '_+_' applied to '(string, int)'
+ |         ("bar" + 1)
+ | ...............^`,
+		`ERROR: testdata/yaml_parsing_cel_error/policy.yaml:23:18: found no matching overload for '_+_' applied to '(string, int)'
+ |           ("bar" + 1)
+ | .................^`,
+	}
+	found := false
+	for _, wantError := range wantErrors {
+		if !strings.Contains(iss.Err().Error(), wantError) {
+			found = true
+			t.Errorf("compile('yaml_parsing_cel_error') does not contain error %s", wantError)
+		}
+	}
+	if found {
+		t.Errorf("compile('yaml_parsing_cel_error') missing errors, got: %s", iss.Err().Error())
 	}
 }
 

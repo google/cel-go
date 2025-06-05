@@ -45,12 +45,13 @@ func NewPolicy(src *Source, info *ast.SourceInfo) *Policy {
 
 // Policy declares a name, rule, and evaluation semantic for a given expression graph.
 type Policy struct {
-	name     ValueString
-	imports  []*Import
-	rule     *Rule
-	semantic semanticType
-	info     *ast.SourceInfo
-	source   *Source
+	name        ValueString
+	description ValueString
+	imports     []*Import
+	rule        *Rule
+	semantic    semanticType
+	info        *ast.SourceInfo
+	source      *Source
 
 	metadata map[string]any
 }
@@ -73,6 +74,11 @@ func (p *Policy) Imports() []*Import {
 // Name returns the name of the policy.
 func (p *Policy) Name() ValueString {
 	return p.name
+}
+
+// Description returns the description for the policy.
+func (p *Policy) Description() ValueString {
+	return p.description
 }
 
 // Rule returns the rule entry point of the policy.
@@ -103,6 +109,11 @@ func (p *Policy) AddImport(i *Import) {
 // SetName configures the policy name.
 func (p *Policy) SetName(name ValueString) {
 	p.name = name
+}
+
+// SetDescription configures the policy description.
+func (p *Policy) SetDescription(description ValueString) {
+	p.description = description
 }
 
 // SetRule configures the policy rule entry point.
@@ -427,6 +438,9 @@ func DefaultTagVisitor() TagVisitor {
 type defaultTagVisitor struct{}
 
 func (defaultTagVisitor) PolicyTag(ctx ParserContext, id int64, tagName string, node *yaml.Node, p *Policy) {
+	if tagName == "description" {
+		return
+	}
 	ctx.ReportErrorAtID(id, "unsupported policy tag: %s", tagName)
 }
 
@@ -477,6 +491,18 @@ func (parser *Parser) Parse(src *Source) (*Policy, *cel.Issues) {
 		return nil, iss
 	}
 	return policy, nil
+}
+
+// normalizeEntry extracts a key, value pair as the next two elements from the
+// content slice. val source position information is normalized depending on style.
+func normalizeEntry(content []*yaml.Node, i int) (key *yaml.Node, val *yaml.Node) {
+	key = content[i]
+	val = content[i+1]
+	if val.Style == yaml.FoldedStyle || val.Style == yaml.LiteralStyle {
+		val.Line++
+		val.Column = key.Column + 1
+	}
+	return key, val
 }
 
 func (p *parserImpl) parseYAML(src *Source) *Policy {
@@ -589,6 +615,18 @@ func (p *parserImpl) NewString(node *yaml.Node) ValueString {
 	return ValueString{ID: id, Value: node.Value}
 }
 
+// newStrictString creates a new ValueString from the YAML node, but as a string with no special
+// source position information. Intended for use in descriptions, where the string is just
+// a human-readable string for presentation.
+func (p *parserImpl) newStrictString(node *yaml.Node) ValueString {
+	id := p.CollectMetadata(node)
+	nodeType := p.assertYamlType(id, node, yamlString, yamlText)
+	if nodeType == nil {
+		return ValueString{ID: id, Value: "*error*"}
+	}
+	return ValueString{ID: id, Value: node.Value}
+}
+
 // CollectMetadata records the source position information of a given YAML node, and returns
 // the id associated with the source metadata which is returned in the Policy SourceInfo object.
 func (p *parserImpl) CollectMetadata(node *yaml.Node) int64 {
@@ -615,15 +653,19 @@ func (p *parserImpl) ParsePolicy(ctx ParserContext, node *yaml.Node) *Policy {
 		return policy
 	}
 	for i := 0; i < len(node.Content); i += 2 {
-		key := node.Content[i]
+		key, val := normalizeEntry(node.Content, i)
 		keyID := p.CollectMetadata(key)
 		fieldName := key.Value
-		val := node.Content[i+1]
 		switch fieldName {
 		case "imports":
 			p.parseImports(ctx, policy, val)
 		case "name":
 			policy.SetName(ctx.NewString(val))
+		case "description":
+			policy.SetDescription(p.newStrictString(val))
+			// Since the description field was not supported initially, some
+			// clients rely on the ability to intercept it.
+			p.visitor.PolicyTag(ctx, keyID, fieldName, val, policy)
 		case "rule":
 			policy.SetRule(p.ParseRule(ctx, policy, val))
 		default:
@@ -650,14 +692,9 @@ func (p *parserImpl) parseImport(ctx ParserContext, _ *Policy, node *yaml.Node) 
 		return imp
 	}
 	for i := 0; i < len(node.Content); i += 2 {
-		key := node.Content[i]
+		key, val := normalizeEntry(node.Content, i)
 		ctx.CollectMetadata(key)
 		fieldName := key.Value
-		val := node.Content[i+1]
-		if val.Style == yaml.FoldedStyle || val.Style == yaml.LiteralStyle {
-			val.Line++
-			val.Column = key.Column + 1
-		}
 		switch fieldName {
 		case "name":
 			imp.SetName(ctx.NewString(val))
@@ -673,14 +710,9 @@ func (p *parserImpl) ParseRule(ctx ParserContext, policy *Policy, node *yaml.Nod
 		return r
 	}
 	for i := 0; i < len(node.Content); i += 2 {
-		key := node.Content[i]
+		key, val := normalizeEntry(node.Content, i)
 		tagID := ctx.CollectMetadata(key)
 		fieldName := key.Value
-		val := node.Content[i+1]
-		if val.Style == yaml.FoldedStyle || val.Style == yaml.LiteralStyle {
-			val.Line++
-			val.Column = key.Column + 1
-		}
 		switch fieldName {
 		case "id":
 			r.SetID(ctx.NewString(val))
@@ -714,14 +746,9 @@ func (p *parserImpl) ParseVariable(ctx ParserContext, policy *Policy, node *yaml
 		return v
 	}
 	for i := 0; i < len(node.Content); i += 2 {
-		key := node.Content[i]
+		key, val := normalizeEntry(node.Content, i)
 		keyID := ctx.CollectMetadata(key)
 		fieldName := key.Value
-		val := node.Content[i+1]
-		if val.Style == yaml.FoldedStyle || val.Style == yaml.LiteralStyle {
-			val.Line++
-			val.Column = key.Column + 1
-		}
 		switch fieldName {
 		case "name":
 			v.SetName(ctx.NewString(val))
@@ -752,14 +779,9 @@ func (p *parserImpl) ParseMatch(ctx ParserContext, policy *Policy, node *yaml.No
 	}
 	m.SetCondition(ValueString{ID: ctx.NextID(), Value: "true"})
 	for i := 0; i < len(node.Content); i += 2 {
-		key := node.Content[i]
+		key, val := normalizeEntry(node.Content, i)
 		keyID := ctx.CollectMetadata(key)
 		fieldName := key.Value
-		val := node.Content[i+1]
-		if val.Style == yaml.FoldedStyle || val.Style == yaml.LiteralStyle {
-			val.Line++
-			val.Column = key.Column + 1
-		}
 		switch fieldName {
 		case "condition":
 			m.SetCondition(ctx.NewString(val))
