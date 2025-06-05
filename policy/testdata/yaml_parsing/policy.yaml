@@ -1,0 +1,34 @@
+name: yaml_parsing
+
+description: |
+  A block literal description with mutliple lines.
+   - line 2
+   - line 3
+
+rule:
+  match:
+    - condition: "match_id == 'folded_unambiguous'"
+      output: >
+        "a string expression that " +
+        "is folded"
+    - condition: "match_id == 'folded_line_break'"
+      output: >
+        '''a string expression that
+        is folded'''
+    - condition: "match_id == 'folded_line_break_indent'"
+      output: >
+          '''a string expression that
+          is folded'''
+    - condition: "match_id == 'literal_unambiguous'"
+      output: |
+          "a string expression that " +
+          "is a literal block"
+    - condition: "match_id == 'literal_line_break'"
+      output: |
+        '''a string expression that
+        is a literal block'''
+    - condition: "match_id == 'literal_line_break_indent'"
+      output: |
+          '''a string expression that
+          is a literal block'''
+    - output: "'no match encountered'"

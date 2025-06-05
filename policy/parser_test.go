@@ -17,6 +17,9 @@ package policy
 import (
 	"fmt"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
+	"gopkg.in/yaml.v3"
 )
 
 func TestParse(t *testing.T) {
@@ -278,5 +281,48 @@ rule:
 	got = explanationPolicy.Rule().Matches()[1].output.Value
 	if got != want {
 		t.Errorf("Second outer output = %v, wanted %v", got, want)
+	}
+}
+
+type testTagHandler struct {
+	defaultTagVisitor
+
+	description string
+}
+
+func (t *testTagHandler) PolicyTag(ctx ParserContext, id int64, tagName string, node *yaml.Node, p *Policy) {
+	if tagName == "description" {
+		t.description = node.Value
+	}
+}
+
+func TestDescriptionTag(t *testing.T) {
+	tst := `name: "test"
+description: |-2
+   A test description.
+rule:
+  match:
+    - condition: "true"
+      output: "true"
+
+`
+
+	parser, err := NewParser()
+	if err != nil {
+		t.Fatalf("NewParser() failed: %v", err)
+	}
+	handler := &testTagHandler{}
+	parser.TagVisitor = handler
+	policy, iss := parser.Parse(StringSource(tst, "<input>"))
+	if iss != nil {
+		t.Fatalf("Parse() failed: %v", iss.Err())
+	}
+
+	if dx := cmp.Diff(" A test description.", handler.description); dx != "" {
+		t.Errorf("handler.description (+got, -want): %s", dx)
+	}
+
+	if dx := cmp.Diff(" A test description.", policy.Description().Value); dx != "" {
+		t.Errorf("policy.Description() (+got, -want): %s", dx)
 	}
 }
