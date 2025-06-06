@@ -24,6 +24,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/google/cel-go/common/ast"
+	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 
 	proto3pb "github.com/google/cel-go/test/proto3pb"
@@ -32,8 +33,9 @@ import (
 
 func TestConstantFoldingOptimizer(t *testing.T) {
 	tests := []struct {
-		expr   string
-		folded string
+		expr        string
+		folded      string
+		knownValues map[string]any
 	}{
 		{
 			expr:   `[1, 1 + 2, 1 + (2 + 3)]`,
@@ -279,14 +281,69 @@ func TestConstantFoldingOptimizer(t *testing.T) {
 			expr:   `1 + 2 + x ==  x + 2 + 1`,
 			folded: `3 + x == x + 2 + 1`,
 		},
+		{
+			expr:        `google.expr.proto3.test.ImportedGlobalEnum.IMPORT_BAR`,
+			folded:      `1`,
+			knownValues: map[string]any{},
+		},
+		{
+			expr:   `google.expr.proto3.test.ImportedGlobalEnum.IMPORT_BAR`,
+			folded: `google.expr.proto3.test.ImportedGlobalEnum.IMPORT_BAR`,
+		},
+		{
+			expr:        `c == google.expr.proto3.test.ImportedGlobalEnum.IMPORT_BAZ ? "BAZ" : "Unknown"`,
+			folded:      `"BAZ"`,
+			knownValues: map[string]any{},
+		},
+		{
+			expr: `[
+						google.expr.proto3.test.ImportedGlobalEnum.IMPORT_BAR,
+						c,
+						google.expr.proto3.test.ImportedGlobalEnum.IMPORT_FOO
+					].exists(e, e == google.expr.proto3.test.ImportedGlobalEnum.IMPORT_FOO)
+						? "has Foo" : "no Foo"`,
+			folded:      `"has Foo"`,
+			knownValues: map[string]any{},
+		},
+		{
+			expr:   `l.exists(e, e == "foo") ? "has Foo" : "no Foo"`,
+			folded: `"has Foo"`,
+			knownValues: map[string]any{
+				"l": []string{"foo", "bar", "baz"},
+			},
+		},
+		{
+			expr:   `"foo" in l`,
+			folded: `true`,
+			knownValues: map[string]any{
+				"l": []string{"foo", "bar", "baz"},
+			},
+		},
+		{
+			expr:   `o.repeated_int32`,
+			folded: `[1, 2, 3]`,
+			knownValues: map[string]any{
+				"o": &proto3pb.TestAllTypes{RepeatedInt32: []int32{1, 2, 3}},
+			},
+		},
 	}
 	e, err := NewEnv(
 		OptionalTypes(),
 		EnableMacroCallTracking(),
 		Types(&proto3pb.TestAllTypes{}),
-		Variable("x", DynType))
+		Variable("x", DynType),
+		Constant("c", IntType, types.Int(proto3pb.ImportedGlobalEnum_IMPORT_BAZ)),
+	)
 	if err != nil {
 		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	e, err = e.Extend(Variable("l", ListType(StringType)))
+	if err != nil {
+		t.Fatalf("Extend() failed: %v", err)
+	}
+	e, err = e.Extend(Variable("o", ObjectType("google.expr.proto3.test.TestAllTypes")))
+	if err != nil {
+		t.Fatalf("Extend() failed: %v", err)
 	}
 	for _, tst := range tests {
 		tc := tst
@@ -295,7 +352,15 @@ func TestConstantFoldingOptimizer(t *testing.T) {
 			if iss.Err() != nil {
 				t.Fatalf("Compile() failed: %v", iss.Err())
 			}
-			folder, err := NewConstantFoldingOptimizer()
+			var foldingOpts []ConstantFoldingOption
+			if tc.knownValues != nil {
+				knownValues, err := NewActivation(tc.knownValues)
+				if err != nil {
+					t.Fatalf("NewActivation() failed: %v", err)
+				}
+				foldingOpts = append(foldingOpts, FoldKnownValues(knownValues))
+			}
+			folder, err := NewConstantFoldingOptimizer(foldingOpts...)
 			if err != nil {
 				t.Fatalf("NewConstantFoldingOptimizer() failed: %v", err)
 			}
