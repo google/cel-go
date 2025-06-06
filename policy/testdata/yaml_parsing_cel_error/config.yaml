@@ -1,0 +1,4 @@
+name: "yaml_parsing_cel_error"
+variables:
+  - name: "match_id"
+    type_name: "string"

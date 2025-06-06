@@ -19,7 +19,9 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -59,7 +61,61 @@ func init() {
 	flag.StringVar(&configPath, "config_path", "", "path to a config file")
 	flag.StringVar(&baseConfigPath, "base_config_path", "", "path to a base config file")
 	flag.StringVar(&celExpression, "cel_expr", "", "CEL expression to test")
-	flag.Parse()
+}
+
+func updateRunfilesPathForFlags(testResourcesDir string) error {
+	if testResourcesDir == "" {
+		return nil
+	}
+	paths := make([]*string, 0, 5)
+	if compiler.InferFileFormat(testSuitePath) != compiler.Unspecified {
+		paths = append(paths, &testSuitePath)
+	}
+	if compiler.InferFileFormat(fileDescriptorSetPath) != compiler.Unspecified {
+		paths = append(paths, &fileDescriptorSetPath)
+	}
+	if compiler.InferFileFormat(configPath) != compiler.Unspecified {
+		paths = append(paths, &configPath)
+	}
+	if compiler.InferFileFormat(baseConfigPath) != compiler.Unspecified {
+		paths = append(paths, &baseConfigPath)
+	}
+	if compiler.InferFileFormat(celExpression) != compiler.Unspecified {
+		paths = append(paths, &celExpression)
+	}
+	return UpdateTestResourcesPaths(testResourcesDir, paths)
+}
+
+// UpdateTestResourcesPaths updates the list of paths with their absolute paths as per their location
+// in the testResourcesDir directory. This will allow the executable targets to locate and access the
+// data dependencies needed to trigger the tests.
+// For example: In case of Bazel, this method can be used to update the file paths with the corresponding
+// location in the runfiles directory tree:
+//
+//	UpdateTestResourcesPaths(os.Getenv("RUNFILES_DIR"), <file_paths_list>)
+func UpdateTestResourcesPaths(testResourcesDir string, paths []*string) error {
+	if testResourcesDir == "" {
+		return nil
+	}
+	err := filepath.Walk(testResourcesDir, func(p string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+		relPath, err := filepath.Rel(testResourcesDir, p)
+		if err != nil {
+			return err
+		}
+		for _, path := range paths {
+			if strings.Contains(relPath, *path) {
+				*path = p
+			}
+		}
+		return nil
+	})
+	return err
 }
 
 // TestRunnerOption is used to configure the following attributes of the Test Runner:
@@ -73,13 +129,12 @@ type TestRunnerOption func(*TestRunner) (*TestRunner, error)
 // with the provided set of options. The options can be used to:
 // - configure the Compiler used for parsing and compiling the expression
 // - configure the Test Runner used for parsing and executing the tests
-func TriggerTests(t *testing.T, testRunnerOpts []TestRunnerOption, testCompilerOpts ...any) {
-	testRunnerOption := TestRunnerOptionsFromFlags(testRunnerOpts, testCompilerOpts...)
-	tr, err := NewTestRunner(testRunnerOption)
+func TriggerTests(t *testing.T, testRunnerOpts ...TestRunnerOption) {
+	tr, err := NewTestRunner(testRunnerOpts...)
 	if err != nil {
 		t.Fatalf("error creating test runner: %v", err)
 	}
-	programs, err := tr.Programs(t)
+	programs, err := tr.Programs(t, tr.testProgramOptions...)
 	if err != nil {
 		t.Fatalf("error creating programs: %v", err)
 	}
@@ -113,13 +168,19 @@ func TriggerTests(t *testing.T, testRunnerOpts []TestRunnerOption, testCompilerO
 //     File Descriptor Set Path of the test runner.
 //   - Test expression - The `cel_expr` flag is used to populate the test expressions which need to be
 //     evaluated by the test runner.
-func TestRunnerOptionsFromFlags(testRunnerOpts []TestRunnerOption, testCompilerOpts ...any) TestRunnerOption {
+func TestRunnerOptionsFromFlags(testResourcesDir string, testRunnerOpts []TestRunnerOption, testCompilerOpts ...any) TestRunnerOption {
+	if !flag.Parsed() {
+		flag.Parse()
+	}
+	if err := updateRunfilesPathForFlags(testResourcesDir); err != nil {
+		return nil
+	}
 	return func(tr *TestRunner) (*TestRunner, error) {
 		opts := []TestRunnerOption{
 			testRunnerCompilerFromFlags(testCompilerOpts...),
 			DefaultTestSuiteParser(testSuitePath),
 			AddFileDescriptorSet(fileDescriptorSetPath),
-			testRunnerExpressionsFromFlags(),
+			TestExpression(celExpression),
 		}
 		opts = append(opts, testRunnerOpts...)
 		var err error
@@ -145,25 +206,7 @@ func testRunnerCompilerFromFlags(testCompilerOpts ...any) TestRunnerOption {
 		opts = append(opts, compiler.EnvironmentFile(configPath))
 	}
 	opts = append(opts, testCompilerOpts...)
-	return func(tr *TestRunner) (*TestRunner, error) {
-		c, err := compiler.NewCompiler(opts...)
-		if err != nil {
-			return nil, err
-		}
-		tr.Compiler = c
-		return tr, nil
-	}
-}
-
-func testRunnerExpressionsFromFlags() TestRunnerOption {
-	return func(tr *TestRunner) (*TestRunner, error) {
-		if celExpression != "" {
-			tr.Expressions = append(tr.Expressions, &compiler.CompiledExpression{Path: celExpression})
-			tr.Expressions = append(tr.Expressions, &compiler.FileExpression{Path: celExpression})
-			tr.Expressions = append(tr.Expressions, &compiler.RawExpression{Value: celExpression})
-		}
-		return tr, nil
-	}
+	return TestCompiler(opts...)
 }
 
 // TestSuiteParser is an interface for parsing a test suite:
@@ -233,6 +276,7 @@ func DefaultTestSuiteParser(path string) TestRunnerOption {
 // - Test Suite File Path: The path to the test suite file.
 // - File Descriptor Set Path: The path to the file descriptor set file.
 // - test Suite Parser: A parser for a test suite file serialized in Textproto/YAML format.
+// - test Program Options: A list of options to be used when creating the CEL programs.
 //
 // The TestRunner provides the following methods:
 // - Programs: Creates a list of CEL programs from the input expressions.
@@ -244,6 +288,7 @@ type TestRunner struct {
 	TestSuiteFilePath     string
 	FileDescriptorSetPath string
 	testSuiteParser       TestSuiteParser
+	testProgramOptions    []cel.ProgramOption
 }
 
 // Test represents a single test case to be executed. It encompasses the following:
@@ -253,12 +298,12 @@ type TestRunner struct {
 // returns a TestResult.
 type Test struct {
 	name          string
-	input         interpreter.Activation
+	input         interpreter.PartialActivation
 	resultMatcher func(ref.Val, error) TestResult
 }
 
 // NewTest creates a new Test with the provided name, input and result matcher.
-func NewTest(name string, input interpreter.Activation, resultMatcher func(ref.Val, error) TestResult) *Test {
+func NewTest(name string, input interpreter.PartialActivation, resultMatcher func(ref.Val, error) TestResult) *Test {
 	return &Test{
 		name:          name,
 		input:         input,
@@ -291,6 +336,33 @@ func NewTestRunner(opts ...TestRunnerOption) (*TestRunner, error) {
 		}
 	}
 	return tr, nil
+}
+
+// TestExpression returns a TestRunnerOption which configures a policy file, expression file, or raw expression
+// for testing
+func TestExpression(value string) TestRunnerOption {
+	return func(tr *TestRunner) (*TestRunner, error) {
+		if value != "" {
+			tr.Expressions = append(tr.Expressions,
+				&compiler.CompiledExpression{Path: value},
+				&compiler.FileExpression{Path: value},
+				&compiler.RawExpression{Value: value},
+			)
+		}
+		return tr, nil
+	}
+}
+
+// TestCompiler configures a compiler to use for testing.
+func TestCompiler(compileOpts ...any) TestRunnerOption {
+	return func(tr *TestRunner) (*TestRunner, error) {
+		c, err := compiler.NewCompiler(compileOpts...)
+		if err != nil {
+			return nil, err
+		}
+		tr.Compiler = c
+		return tr, nil
+	}
 }
 
 // AddFileDescriptorSet creates a Test Runner Option which adds a file descriptor set to the test
@@ -348,9 +420,29 @@ func fileDescriptorSet(path string) (*descpb.FileDescriptorSet, error) {
 	return fds, nil
 }
 
+// PartialEvalProgramOption returns a TestRunnerOption which enables partial evaluation for the CEL
+// program by setting the OptPartialEval eval option.
+//
+// Note: The test setup uses env.PartialVars() for creating PartialActivation.
+func PartialEvalProgramOption() TestRunnerOption {
+	return func(tr *TestRunner) (*TestRunner, error) {
+		tr.testProgramOptions = append(tr.testProgramOptions, cel.EvalOptions(cel.OptPartialEval))
+		return tr, nil
+	}
+}
+
+// Program represents the result of creating CEL programs for the configured expressions in the
+// test runner. It encompasses the following:
+// - CELProgram - the evaluable CEL program
+// - PolicyMetadata - the metadata map obtained while creating the CEL AST from the expression
+type Program struct {
+	cel.Program
+	PolicyMetadata map[string]any
+}
+
 // Programs creates a list of CEL programs from the input expressions configured in the test runner
 // using the provided program options.
-func (tr *TestRunner) Programs(t *testing.T, opts ...cel.ProgramOption) ([]cel.Program, error) {
+func (tr *TestRunner) Programs(t *testing.T, opts ...cel.ProgramOption) ([]Program, error) {
 	t.Helper()
 	if tr.Compiler == nil {
 		return nil, fmt.Errorf("compiler is not set")
@@ -359,10 +451,9 @@ func (tr *TestRunner) Programs(t *testing.T, opts ...cel.ProgramOption) ([]cel.P
 	if err != nil {
 		return nil, err
 	}
-	var programs []cel.Program
+	programs := make([]Program, 0, len(tr.Expressions))
 	for _, expr := range tr.Expressions {
-		// TODO: propagate metadata map along with the program instance as a struct.
-		ast, _, err := expr.CreateAST(tr.Compiler)
+		ast, policyMetadata, err := expr.CreateAST(tr.Compiler)
 		if err != nil {
 			if strings.Contains(err.Error(), "invalid file extension") ||
 				strings.Contains(err.Error(), "invalid raw expression") {
@@ -374,13 +465,18 @@ func (tr *TestRunner) Programs(t *testing.T, opts ...cel.ProgramOption) ([]cel.P
 		if err != nil {
 			return nil, err
 		}
-		programs = append(programs, prg)
+		programs = append(programs, Program{
+			Program:        prg,
+			PolicyMetadata: policyMetadata,
+		})
 	}
 	return programs, nil
 }
 
 // Tests creates a list of tests from the test suite file and test suite parser configured in the
 // test runner.
+//
+// Note: The test setup uses env.PartialVars() for creating PartialActivation.
 func (tr *TestRunner) Tests(t *testing.T) ([]*Test, error) {
 	if tr.Compiler == nil {
 		return nil, fmt.Errorf("compiler is not set")
@@ -427,13 +523,14 @@ func (tr *TestRunner) createTestsFromTextproto(t *testing.T, testSuite *conforma
 	return tests, nil
 }
 
-func (tr *TestRunner) createTestInputFromPB(t *testing.T, testCase *conformancepb.TestCase) (interpreter.Activation, error) {
+func (tr *TestRunner) createTestInputFromPB(t *testing.T, testCase *conformancepb.TestCase) (interpreter.PartialActivation, error) {
 	t.Helper()
 	input := map[string]any{}
 	e, err := tr.CreateEnv()
 	if err != nil {
 		return nil, err
 	}
+	var activation interpreter.Activation
 	if testCase.GetInputContext() != nil {
 		if len(testCase.GetInput()) != 0 {
 			return nil, fmt.Errorf("only one of input and input_context can be provided at a time")
@@ -449,15 +546,22 @@ func (tr *TestRunner) createTestInputFromPB(t *testing.T, testCase *conformancep
 			if err != nil {
 				return nil, fmt.Errorf("context variable is not a valid proto: %w", err)
 			}
-			return cel.ContextProtoVars(ctx.(proto.Message))
+			activation, err = cel.ContextProtoVars(ctx.(proto.Message))
+			if err != nil {
+				return nil, fmt.Errorf("cel.ContextProtoVars() failed: %w", err)
+			}
 		case *conformancepb.InputContext_ContextMessage:
 			refVal := e.CELTypeAdapter().NativeToValue(testInput.ContextMessage)
 			ctx, err := refVal.ConvertToNative(reflect.TypeOf((*proto.Message)(nil)).Elem())
 			if err != nil {
 				return nil, fmt.Errorf("context variable is not a valid proto: %w", err)
 			}
-			return cel.ContextProtoVars(ctx.(proto.Message))
+			activation, err = cel.ContextProtoVars(ctx.(proto.Message))
+			if err != nil {
+				return nil, fmt.Errorf("cel.ContextProtoVars() failed: %w", err)
+			}
 		}
+		return e.PartialVars(activation)
 	}
 	for k, v := range testCase.GetInput() {
 		switch v.GetKind().(type) {
@@ -473,7 +577,11 @@ func (tr *TestRunner) createTestInputFromPB(t *testing.T, testCase *conformancep
 			}
 		}
 	}
-	return interpreter.NewActivation(input)
+	activation, err = interpreter.NewActivation(input)
+	if err != nil {
+		return nil, fmt.Errorf("interpreter.NewActivation(%q) failed: %w", input, err)
+	}
+	return e.PartialVars(activation)
 }
 
 func (tr *TestRunner) createResultMatcherFromPB(t *testing.T, testCase *conformancepb.TestCase) (func(ref.Val, error) TestResult, error) {
@@ -547,9 +655,32 @@ func (tr *TestRunner) createResultMatcherFromPB(t *testing.T, testCase *conforma
 			return failureResult
 		}, nil
 	case *conformancepb.TestOutput_Unknown:
-		//  TODO: to implement
+		// Validate that all expected unknown expression ids are returned by the evaluation result.
+		return func(out ref.Val, err error) TestResult {
+			expectedUnknownIDs := testOutput.Unknown.GetExprs()
+			if err == nil && types.IsUnknown(out) {
+				actualUnknownIDs := out.Value().(*types.Unknown).IDs()
+				return compareUnknownIDs(expectedUnknownIDs, actualUnknownIDs)
+			}
+			return TestResult{Success: false, Wanted: fmt.Sprintf("unknown value %v", expectedUnknownIDs), Error: err}
+		}, nil
 	}
 	return nil, nil
+}
+
+func compareUnknownIDs(expectedUnknownIDs, actualUnknownIDs []int64) TestResult {
+	sortOption := cmp.Transformer("Sort", func(in []int64) []int64 {
+		out := append([]int64{}, in...)
+		slices.Sort(out)
+		return out
+	})
+	if diff := cmp.Diff(expectedUnknownIDs, actualUnknownIDs, sortOption); diff != "" {
+		return TestResult{
+			Success: false,
+			Wanted:  fmt.Sprintf("unknown value %v", expectedUnknownIDs),
+			Error:   fmt.Errorf("mismatched test output with diff (-got +want):\n%s", diff)}
+	}
+	return TestResult{Success: true}
 }
 
 func refValueToExprValue(refVal ref.Val) (*exprpb.ExprValue, error) {
@@ -624,8 +755,13 @@ func (tr *TestRunner) createTestsFromYAML(t *testing.T, testSuite *test.Suite) (
 	return tests, nil
 }
 
-func (tr *TestRunner) createTestInput(t *testing.T, testCase *test.Case) (interpreter.Activation, error) {
+func (tr *TestRunner) createTestInput(t *testing.T, testCase *test.Case) (interpreter.PartialActivation, error) {
 	t.Helper()
+	e, err := tr.CreateEnv()
+	if err != nil {
+		return nil, err
+	}
+	var activation interpreter.Activation
 	if testCase.InputContext != nil && testCase.InputContext.ContextExpr != "" {
 		if len(testCase.Input) != 0 {
 			return nil, fmt.Errorf("only one of input and input_context can be provided at a time")
@@ -639,7 +775,11 @@ func (tr *TestRunner) createTestInput(t *testing.T, testCase *test.Case) (interp
 		if err != nil {
 			return nil, fmt.Errorf("context variable is not a valid proto: %w", err)
 		}
-		return cel.ContextProtoVars(ctx.(proto.Message))
+		activation, err = cel.ContextProtoVars(ctx.(proto.Message))
+		if err != nil {
+			return nil, fmt.Errorf("cel.ContextProtoVars() failed: %w", err)
+		}
+		return e.PartialVars(activation)
 	}
 	input := map[string]any{}
 	for k, v := range testCase.Input {
@@ -653,7 +793,11 @@ func (tr *TestRunner) createTestInput(t *testing.T, testCase *test.Case) (interp
 		}
 		input[k] = v.Value
 	}
-	return interpreter.NewActivation(input)
+	activation, err = interpreter.NewActivation(input)
+	if err != nil {
+		return nil, fmt.Errorf("interpreter.NewActivation(%q) failed: %w", input, err)
+	}
+	return e.PartialVars(activation)
 }
 
 func (tr *TestRunner) createResultMatcher(t *testing.T, testOutput *test.Output) (func(ref.Val, error) TestResult, error) {
@@ -713,20 +857,29 @@ func (tr *TestRunner) createResultMatcher(t *testing.T, testOutput *test.Output)
 		}, nil
 	}
 	if testOutput.UnknownSet != nil {
-		//  TODO: to implement
+		return func(out ref.Val, err error) TestResult {
+			if err == nil && types.IsUnknown(out) {
+				unknownIDs := out.Value().(*types.Unknown).IDs()
+				return compareUnknownIDs(testOutput.UnknownSet, unknownIDs)
+			}
+			return TestResult{Success: false, Wanted: fmt.Sprintf("unknown value %v", testOutput.UnknownSet), Error: err}
+		}, nil
 	}
 	return nil, nil
 }
 
 // ExecuteTest executes the test case against the provided list of programs and returns an error if
 // the test fails.
-func (tr *TestRunner) ExecuteTest(t *testing.T, programs []cel.Program, test *Test) error {
+func (tr *TestRunner) ExecuteTest(t *testing.T, programs []Program, test *Test) error {
 	t.Helper()
 	if tr.Compiler == nil {
 		return fmt.Errorf("compiler is not set")
 	}
-	for _, program := range programs {
-		out, _, err := program.Eval(test.input)
+	for _, pr := range programs {
+		if pr.Program == nil {
+			return fmt.Errorf("CEL program not set")
+		}
+		out, _, err := pr.Eval(test.input)
 		if testResult := test.resultMatcher(out, err); !testResult.Success {
 			return fmt.Errorf("test: %s \n wanted: %v \n failed: %v", test.name, testResult.Wanted, testResult.Error)
 		}

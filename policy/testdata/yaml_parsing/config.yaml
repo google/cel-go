@@ -1,0 +1,5 @@
+name: "yaml_parsing"
+
+variables:
+  - name: "match_id"
+    type_name: "string"

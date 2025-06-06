@@ -18,3 +18,5 @@ variables:
     type_name: "int"
   - name: "j"
     type_name: "int"
+  - name: "a"
+    type_name: "bool"

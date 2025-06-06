@@ -67,7 +67,7 @@ func setupTests() []*testCase {
 		},
 		{
 			name:          "raw expression test",
-			celExpression: "i + fn(j) == 42",
+			celExpression: "a || i + fn(j) == 42",
 			testSuitePath: "testdata/raw_expr_tests.yaml",
 			configPath:    "testdata/config.yaml",
 			opts:          []any{fnEnvOption()},
@@ -121,7 +121,7 @@ func TestTriggerTestsWithRunnerOptions(t *testing.T) {
 			return tr, nil
 		})
 		opts := []TestRunnerOption{compilerOpt, testSuiteParser, testCELPolicy}
-		TriggerTests(t, opts)
+		TriggerTests(t, opts...)
 	})
 }
 
@@ -187,10 +187,26 @@ func fnEnvOption() cel.EnvOption {
 // TestTriggerTests tests different scenarios of the TriggerTestsFromCompiler function.
 func TestTriggerTests(t *testing.T) {
 	for _, tc := range setupTests() {
-		celExpression = tc.celExpression
-		testSuitePath = tc.testSuitePath
-		configPath = tc.configPath
-		fileDescriptorSetPath = tc.fileDescriptorSetPath
-		TriggerTests(t, nil, tc.opts...)
+		t.Run(tc.name, func(t *testing.T) {
+			var testOpts []TestRunnerOption
+			compileOpts := make([]any, 0, len(tc.opts)+2)
+			for _, opt := range tc.opts {
+				compileOpts = append(compileOpts, opt)
+			}
+			if tc.fileDescriptorSetPath != "" {
+				compileOpts = append(compileOpts, compiler.TypeDescriptorSetFile(tc.fileDescriptorSetPath))
+			}
+			if tc.configPath != "" {
+				compileOpts = append(compileOpts, compiler.EnvironmentFile(tc.configPath))
+			}
+			testOpts = append(testOpts,
+				TestCompiler(compileOpts...),
+				DefaultTestSuiteParser(tc.testSuitePath),
+				AddFileDescriptorSet(tc.fileDescriptorSetPath),
+				TestExpression(tc.celExpression),
+				PartialEvalProgramOption(),
+			)
+			TriggerTests(t, testOpts...)
+		})
 	}
 }
