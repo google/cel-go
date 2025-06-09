@@ -68,23 +68,11 @@ func (r *regexLib) CompileOptions() []cel.EnvOption {
 
 	opts := []cel.EnvOption{
 		cel.Function(capture, cel.Overload("regex_capture_string_string", []*cel.Type{cel.StringType, cel.StringType}, optionalString,
-			cel.BinaryBinding(func(target, regexStr ref.Val) ref.Val {
-				t := target.(types.String)
-				r := regexStr.(types.String)
-				return captureFirstMatch(string(t), string(r))
-			}))),
+			cel.BinaryBinding(captureFirstMatch))),
 		cel.Function(captureAll, cel.Overload("regex_captureAll_string_string", []*cel.Type{cel.StringType, cel.StringType}, cel.ListType(cel.StringType),
-			cel.BinaryBinding(func(target, regexStr ref.Val) ref.Val {
-				t := target.(types.String)
-				r := regexStr.(types.String)
-				return captureAllMatches(string(t), string(r))
-			}))),
+			cel.BinaryBinding(captureAllMatches))),
 		cel.Function(captureAllNamed, cel.Overload("regex_captureAllNamed_string_string", []*cel.Type{cel.StringType, cel.StringType}, cel.MapType(cel.StringType, cel.StringType),
-			cel.BinaryBinding(func(target, regexStr ref.Val) ref.Val {
-				t := target.(types.String)
-				r := regexStr.(types.String)
-				return captureAllNamedGroups(string(t), string(r))
-			}))),
+			cel.BinaryBinding(captureAllNamedGroups))),
 		cel.Function(regexReplace,
 			cel.Overload("regex_replace_string_string_string", []*cel.Type{cel.StringType, cel.StringType, cel.StringType}, cel.StringType,
 				cel.FunctionBinding(func(args ...ref.Val) ref.Val {
@@ -118,13 +106,15 @@ func compileRegex(regexStr string) (*regexp.Regexp, error) {
 	return re, nil
 }
 
-func captureFirstMatch(target, regexStr string) ref.Val {
-	re, err := compileRegex(regexStr)
+func captureFirstMatch(target, regexStr ref.Val) ref.Val {
+	t := string(target.(types.String))
+	r := string(regexStr.(types.String))
+	re, err := compileRegex(r)
 	if err != nil {
 		return types.WrapErr(err)
 	}
 
-	matches := re.FindStringSubmatch(target)
+	matches := re.FindStringSubmatch(t)
 	if len(matches) == 0 {
 		return types.OptionalNone
 	}
@@ -136,13 +126,15 @@ func captureFirstMatch(target, regexStr string) ref.Val {
 	return types.OptionalOf(types.String(matches[0]))
 }
 
-func captureAllMatches(target, regexStr string) ref.Val {
-	re, err := compileRegex(regexStr)
+func captureAllMatches(target, regexStr ref.Val) ref.Val {
+	t := string(target.(types.String))
+	r := string(regexStr.(types.String))
+	re, err := compileRegex(r)
 	if err != nil {
 		return types.WrapErr(err)
 	}
 
-	matches := re.FindAllStringSubmatch(target, -1)
+	matches := re.FindAllStringSubmatch(t, -1)
 	var result []string
 	if len(matches) == 0 {
 		return types.NewStringList(types.DefaultTypeAdapter, result)
@@ -163,14 +155,16 @@ func captureAllMatches(target, regexStr string) ref.Val {
 	return types.NewStringList(types.DefaultTypeAdapter, result)
 }
 
-func captureAllNamedGroups(target, regexStr string) ref.Val {
-	re, err := compileRegex(regexStr)
+func captureAllNamedGroups(target, regexStr ref.Val) ref.Val {
+	t := string(target.(types.String))
+	r := string(regexStr.(types.String))
+	re, err := compileRegex(r)
 	if err != nil {
 		return types.WrapErr(err)
 	}
 
 	result := make(map[string]string)
-	matches := re.FindAllStringSubmatch(target, -1)
+	matches := re.FindAllStringSubmatch(t, -1)
 	if len(matches) == 0 {
 		return types.NewStringStringMap(types.DefaultTypeAdapter, result)
 	}
@@ -201,10 +195,10 @@ func replaceCount(target, regexStr, replaceStr string, replaceCount int64) ref.V
 		return types.WrapErr(err)
 	}
 
-	if replaceCount == -1 {
+	if replaceCount == -1 { //remove if there is no precedence
 		return types.String(re.ReplaceAllString(target, replaceStr))
 	}
-
+	//add the error for overflow when truncation happens. prolly in proto buff
 	matches := re.FindAllStringSubmatchIndex(target, int(replaceCount))
 	if len(matches) == 0 || replaceCount == 0 {
 		return types.String(target)
