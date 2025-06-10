@@ -36,6 +36,61 @@ const (
 	captureAllNamed = "regex.captureAllNamed"
 )
 
+// Regex introduces support for regular expressions in CEL.
+//
+// This library provides functions for capturing groups, replacing strings using regex patterns,
+//
+// # Replace
+//
+// The `regex.replace` function replaces all occurrences of a regex pattern in a string
+// with a replacement string. Optionally, you can limit the number of replacements by
+// providing a count argument. Both numeric ($N) and named (${name}) capture group
+// references are supported in the replacement string, with validation for correctness.
+//
+// regex.replace(target: string, pattern: string, replacement: string) -> string
+// regex.replace(target: string, pattern: string, replacement: string, count: int) -> string
+//
+// Examples:
+//
+// regex.replace('banana', 'a', 'x', 0) == 'banana'
+// regex.replace('banana', 'a', 'x', 1) == 'bxnana'
+// regex.replace('banana', 'a', 'x', 2) == 'bxnxna'
+//
+// # Capture
+//
+// The `regex.capture` function captures the first match of a regex pattern in a string.
+// If the pattern contains capturing groups, it returns the first captured group.
+// If no match is found, it returns an optional none value.
+//
+// regex.capture(target: string, pattern: string) -> optional<string>
+//
+// Examples:
+// regex.capture('hello world', 'hello(.*)') == optional.of(' world')
+// regex.capture('item-A, item-B', 'item-(\\w+)') == optional.of('A')
+//
+// # Capture All
+//
+// The `regex.captureAll` function captures all matches of a regex pattern in a target string.
+// It returns a list of all captured groups. If no matches are found, it returns an empty list.
+//
+// regex.captureAll(target: string, pattern: string) -> list<string>
+//
+// Examples:
+// regex.captureAll('id:123, id:456', 'id:\\d+') == ['id:123', 'id:456']
+// regex.captureAll('testuser@', '(?P<username>.*)@') == ['testuser']
+//
+// # Capture All Named
+//
+// The `regex.captureAllNamed` function captures all named groups from a regex pattern in a target string.
+// It returns a map where keys are the group names and values are the captured strings. map<namedCaptureGroup, matchedString>
+// If no matches are found, it returns an empty map.
+//
+// regex.captureAllNamed(target: string, pattern: string) -> map<string, string>
+//
+// Examples:
+// regex.captureAllNamed('id:123, id:456', 'id:(?P<id>\\d+)') == {'id': '123', 'id': '456'}
+// regex.captureAllNamed('testuser@', '(?P<username>.*)@') == {'username': 'testuser'}
+
 func Regex(options ...RegexOptions) cel.EnvOption {
 	s := &regexLib{
 		version: math.MaxUint32,
