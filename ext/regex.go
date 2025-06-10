@@ -21,11 +21,19 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+)
+
+const (
+	regexReplace    = "regex.replace"
+	capture         = "regex.capture"
+	captureAll      = "regex.captureAll"
+	captureAllNamed = "regex.captureAllNamed"
 )
 
 func Regex(options ...RegexOptions) cel.EnvOption {
@@ -37,13 +45,6 @@ func Regex(options ...RegexOptions) cel.EnvOption {
 	}
 	return cel.Lib(s)
 }
-
-const (
-	regexReplace    = "regex.replace"
-	capture         = "regex.capture"
-	captureAll      = "regex.captureAll"
-	captureAllNamed = "regex.captureAllNamed"
-)
 
 type RegexOptions func(*regexLib) *regexLib
 
@@ -65,7 +66,6 @@ func (r *regexLib) LibraryName() string {
 // CompileOptions implements cel.Library.
 func (r *regexLib) CompileOptions() []cel.EnvOption {
 	optionalString := cel.OptionalType(cel.StringType)
-
 	opts := []cel.EnvOption{
 		cel.Function(capture, cel.Overload("regex_capture_string_string", []*cel.Type{cel.StringType, cel.StringType}, optionalString,
 			cel.BinaryBinding(captureFirstMatch))),
@@ -93,7 +93,7 @@ func (r *regexLib) CompileOptions() []cel.EnvOption {
 	return opts
 }
 
-// ProgramOptions implements cel.Library.
+// ProgramOptions implements the cel.Library interface method
 func (r *regexLib) ProgramOptions() []cel.ProgramOption {
 	return []cel.ProgramOption{}
 }
@@ -104,6 +104,62 @@ func compileRegex(regexStr string) (*regexp.Regexp, error) {
 		return nil, fmt.Errorf("given regex is invalid: %w", err)
 	}
 	return re, nil
+}
+
+// Initializing regular expression patterns for validating replacement strings.
+var (
+	reGroupNum     = regexp.MustCompile(`\$(\d+)`)
+	reGroupName    = regexp.MustCompile(`\$\{([a-zA-Z_][a-zA-Z0-9_]*)\}`)
+	reGroupInvalid = regexp.MustCompile(`\$[a-zA-Z_][a-zA-Z0-9_]*`)
+)
+
+func validateReplacementString(re *regexp.Regexp, replaceStr string) error {
+	// If there are no $N or ${name} patterns, skip validation.
+	if !strings.Contains(replaceStr, "$") {
+		return nil
+	}
+
+	groupNames := re.SubexpNames()
+	groupCount := len(groupNames) - 1 // Exclude group 0 (whole match)
+	// Find all $N patterns in the replacement string and validate them.
+	matches := reGroupNum.FindAllStringSubmatch(replaceStr, -1)
+	for _, m := range matches {
+		if len(m) > 1 {
+			idx, _ := strconv.Atoi(m[1])
+			if idx < 0 || idx > groupCount {
+				return fmt.Errorf("replacement string references group $%d, but regex has only %d group(s)", idx, groupCount)
+			}
+		}
+	}
+
+	if strings.Contains(replaceStr, "${") {
+		validNames := make(map[string]struct{})
+		for _, name := range groupNames {
+			if name != "" {
+				validNames[name] = struct{}{}
+			}
+		}
+		// If there are named groups, validate them against the defined group names.
+		nameMatches := reGroupName.FindAllStringSubmatch(replaceStr, -1)
+		for _, m := range nameMatches {
+			if len(m) > 1 {
+				if _, ok := validNames[m[1]]; !ok {
+					return fmt.Errorf("invalid capture group name in replacement string: %s", m[1])
+				}
+			}
+		}
+	}
+
+	// Check for invalid $word references (e.g., $a)
+	invalids := reGroupInvalid.FindAllString(replaceStr, -1)
+	for _, m := range invalids {
+		// If not matched by $N, it's invalid
+		if !reGroupNum.MatchString(m) {
+			return fmt.Errorf("invalid group reference: %s", m)
+		}
+	}
+
+	return nil
 }
 
 func captureFirstMatch(target, regexStr ref.Val) ref.Val {
@@ -121,6 +177,11 @@ func captureFirstMatch(target, regexStr ref.Val) ref.Val {
 
 	// If there is a capturing group, return the first group; otherwise, return the whole match.
 	if len(matches) > 1 {
+		capturedGroup := matches[1]
+		// If optional group is empty, return OptionalNone.
+		if capturedGroup == "" {
+			return types.OptionalNone
+		}
 		return types.OptionalOf(types.String(matches[1]))
 	}
 	return types.OptionalOf(types.String(matches[0]))
@@ -172,7 +233,7 @@ func captureAllNamedGroups(target, regexStr ref.Val) ref.Val {
 	groupNames := re.SubexpNames()
 	for _, match := range matches {
 		for i, name := range groupNames {
-			if i < len(match) && name != "" && match[i] != "" {
+			if i < len(match) && name != "" {
 				result[name] = match[i]
 			}
 		}
@@ -186,36 +247,52 @@ func replaceAll(target, regexStr, replaceStr string) ref.Val {
 		return types.WrapErr(err)
 	}
 
+	if err := validateReplacementString(re, replaceStr); err != nil {
+		return types.WrapErr(err)
+	}
 	return types.String(re.ReplaceAllString(target, replaceStr))
 }
 
 func replaceCount(target, regexStr, replaceStr string, replaceCount int64) ref.Val {
-	re, err := regexp.Compile(regexStr)
+	re, err := compileRegex(regexStr)
 	if err != nil {
 		return types.WrapErr(err)
 	}
 
-	if replaceCount == -1 { //remove if there is no precedence
+	if err := validateReplacementString(re, replaceStr); err != nil {
+		return types.WrapErr(err)
+	}
+
+	if replaceCount == -1 {
 		return types.String(re.ReplaceAllString(target, replaceStr))
 	}
-	//add the error for overflow when truncation happens. prolly in proto buff
+
+	if replaceCount <= 0 {
+		return types.String(target)
+	}
+
+	if replaceCount > math.MaxInt32 {
+		return errIntOverflow
+	}
+
 	matches := re.FindAllStringSubmatchIndex(target, int(replaceCount))
-	if len(matches) == 0 || replaceCount == 0 {
+	if len(matches) == 0 {
 		return types.String(target)
 	}
 
 	var builder strings.Builder
+	builder.Grow(len(target))
 	lastIndex := 0
+	// Reuse this buffer to reduce allocations
+	var expanded []byte
 	for _, match := range matches {
 		builder.WriteString(target[lastIndex:match[0]])
-
-		var expanded []byte
+		// Reset slice length but keep capacity
+		expanded = expanded[:0]
 		expanded = re.ExpandString(expanded, replaceStr, target, match)
 		builder.Write(expanded)
-
 		lastIndex = match[1]
 	}
-
 	builder.WriteString(target[lastIndex:])
 	return types.String(builder.String())
 }

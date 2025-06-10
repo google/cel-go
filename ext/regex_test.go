@@ -20,6 +20,7 @@ package ext
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/google/cel-go/cel"
@@ -46,7 +47,7 @@ func TestRegex(t *testing.T) {
 		{expr: "regex.replace('banana', 'a', 'x', 2) == 'bxnxna'"},
 		{expr: "regex.replace('banana', 'a', 'x', 100) == 'bxnxnx'"},
 		{expr: "regex.replace('banana', 'a', 'x', -1) == 'bxnxnx'"},
-		// {expr: "regex.replace('banana', 'a', 'x', -100) == 'banana'"},
+		{expr: "regex.replace('banana', 'a', 'x', -100) == 'banana'"},
 		{expr: "regex.replace('cat-dog dog-cat cat-dog dog-cat', '(cat)-(dog)', '$2-$1', 1) == 'dog-cat dog-cat cat-dog dog-cat'"},
 		{expr: "regex.replace('cat-dog dog-cat cat-dog dog-cat', '(cat)-(dog)', '$2-$1', 2) == 'dog-cat dog-cat dog-cat dog-cat'"},
 		{expr: "regex.replace('a.b.c', '\\\\.', '-', 1) == 'a-b.c'"},
@@ -59,6 +60,10 @@ func TestRegex(t *testing.T) {
 		{expr: "regex.capture('The color is red', 'The color is \\\\w+') == optional.of('The color is red')"},
 		{expr: "regex.capture('phone: 415-5551212', 'phone: ((\\\\d{3})-)?') == optional.of('415-')"},
 		{expr: "regex.capture('brand', 'brand') == optional.of('brand')"},
+		{expr: "regex.capture('hello world', 'goodbye (.*)') == optional.none()"},
+		{expr: "regex.capture('phone: 5551212', 'phone: ((\\\\d{3})-)?') == optional.none()"},
+		{expr: "regex.capture('HELLO', 'hello') == optional.none()"},
+		{expr: "regex.capture('', '\\\\w+') == optional.none()"},
 
 		// Tests for captureAll Function
 		{expr: "regex.captureAll('id:123, id:456', 'assa') == []"},
@@ -78,6 +83,8 @@ func TestRegex(t *testing.T) {
 		{expr: "regex.captureAllNamed('testuser@testdomain', '(.*)@([^.]*)') == {}"},
 		{expr: "regex.captureAllNamed('The user testuser belongs to testdomain', 'The (user|domain) (?P<Username>.*) belongs to (?P<Domain>.*)') == {'Username': 'testuser', 'Domain': 'testdomain'}"},
 		{expr: "regex.captureAllNamed('', '(?P<name>\\\\w+)') == {}"},
+		{expr: "regex.captureAllNamed('id=', 'id=(?P<idValue>.*)') == {'idValue': ''}"},
+		{expr: "regex.captureAllNamed('id=123', 'id=(?P<idValue>\\\\d+)') == {'idValue': '123'}"},
 	}
 
 	env := testRegexEnv(t)
@@ -110,6 +117,91 @@ func TestRegex(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestRegexStaticErrors(t *testing.T) {
+	tests := []struct {
+		expr string
+		err  string
+	}{
+		{
+			expr: "regex.capture('foo bar', 1)",
+			err:  "found no matching overload for 'regex.capture' applied to '(string, int)'",
+		},
+		{
+			expr: "regex.capture('foo bar', 1, 'bar')",
+			err:  "found no matching overload for 'regex.capture' applied to '(string, int, string)'",
+		},
+	}
+	env := testRegexEnv(t)
+	for i, tst := range tests {
+		tr := tst
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			_, iss := env.Compile(tr.expr)
+			if iss.Err() == nil || !strings.Contains(iss.Err().Error(), tr.err) {
+				t.Errorf("env.Compile(%q) got error %v, wanted %v", tr.expr, iss.Err(), tr.err)
+			}
+		})
+	}
+}
+
+func TestRegexRuntimeErrors(t *testing.T) {
+	tests := []struct {
+		expr string
+		err  string
+	}{
+		{
+			expr: "regex.capture('foo bar', '(')",
+			err:  "given regex is invalid: error parsing regexp: missing closing ): `(`",
+		},
+		{
+			expr: "regex.captureAll('foo bar', '[a-z')",
+			err:  "given regex is invalid: error parsing regexp: missing closing ]: `[a-z`",
+		},
+		{
+			expr: "regex.replace('foo', '(f)(o)(o)', '$a')",
+			err:  "invalid group reference: $a",
+		},
+		{
+			expr: "regex.replace('test', '(.)', '$2')",
+			err:  "replacement string references group $2, but regex has only 1 group(s)",
+		},
+		{
+			expr: "regex.replace('id=123', 'id=(?P<value>\\\\d+)', 'value: ${values}')",
+			err:  "invalid capture group name in replacement string: values",
+		},
+		{
+			expr: `regex.replace('foofoo', 'foo', 'bar', 9223372036854775807)`,
+			err:  "integer overflow",
+		},
+	}
+
+	env := testRegexEnv(t)
+	for i, tst := range tests {
+		tr := tst
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			ast, iss := env.Compile(tr.expr)
+			if iss.Err() != nil {
+				t.Fatalf("env.Compile(%q) failed with error %v", tr.expr, iss.Err())
+			}
+			prg, err := env.Program(ast)
+			if err != nil {
+				t.Fatalf("env.Program(ast) failed: %v", err)
+			}
+			in := cel.NoVars()
+			_, _, err = prg.Eval(in)
+			if err == nil || !strings.Contains(err.Error(), tr.err) {
+				t.Errorf("prg.Eval() got %v, wanted %v", err, tr.err)
+			}
+		})
+	}
+}
+
+func TestRegexVersion(t *testing.T) {
+	_, err := cel.NewEnv(Regex(RegexVersion(0)))
+	if err != nil {
+		t.Fatalf("TwoVarComprehensionVersion(0) failed: %v", err)
 	}
 }
 
