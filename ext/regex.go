@@ -39,6 +39,10 @@ const (
 // Regex introduces support for regular expressions in CEL.
 //
 // This library provides functions for capturing groups, replacing strings using regex patterns,
+// Regex configures namespaced regex helper functions.
+// Note, all functions use the 'regex' namespace. If you are
+// currently using a variable named 'regex', the macro will likely work just as
+// intended; however, there is some chance for collision.
 //
 // # Replace
 //
