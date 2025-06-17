@@ -31,9 +31,8 @@ import (
 
 const (
 	regexReplace    = "regex.replace"
-	capture         = "regex.capture"
-	captureAll      = "regex.captureAll"
-	captureAllNamed = "regex.captureAllNamed"
+	regexExtract    = "regex.extract"
+	regexExtractAll = "regex.extractAll"
 )
 
 // Regex introduces support for regular expressions in CEL.
@@ -46,54 +45,58 @@ const (
 //
 // # Replace
 //
-// The `regex.replace` function replaces all occurrences of a regex pattern in a string
-// with a replacement string. Optionally, you can limit the number of replacements by
-// providing a count argument. Both numeric ($N) and named (${name}) capture group
-// references are supported in the replacement string, with validation for correctness.
+// The `regex.replace` function replaces all occurrences of a regex pattern in a
+// string with a replacement string. Optionally, you can limit the number of
+// replacements by providing a count argument. Both numeric ($N) and named
+// (${name}) capture group references are supported in the replacement string, with
+// validation for correctness. An error will be thrown for invalid regex or replace
+// string.
 //
-// regex.replace(target: string, pattern: string, replacement: string) -> string
-// regex.replace(target: string, pattern: string, replacement: string, count: int) -> string
+//  regex.replace(target: string, pattern: string, replacement: string) -> string
+//  regex.replace(target: string, pattern: string, replacement: string, count: int) -> string
+//
+// Examples:
+//
+//  regex.replace('banana', 'a', 'x', 0) == 'banana'
+//  regex.replace('banana', 'a', 'x', 1) == 'bxnana'
+//  regex.replace('banana', 'a', 'x', 2) == 'bxnxna'
+//  regex.replace('foo bar', '(fo)o (ba)r', '$2 $1') == 'ba fo'
+//
+//  regex.replace('test', '(.)', '$2') // Runtime Error invalid replace string
+//  regex.replace('foo bar', '(', '$2 $1') // Runtime Error invalid regex string
+//  regex.replace('id=123', 'id=(?P<value>\\\\d+)', 'value: ${values}') // Runtime Error invalid replace string
+//
+// # Extract
+//
+// The `regex.extract` function returns the first match of a regex pattern in a
+// string. If no match is found, it returns an optional none value. An error will
+// be thrown for invalid regex or for multiple capture groups.
+//
+//  regex.extract(target: string, pattern: string) -> optional<string>
 //
 // Examples:
 //
-// regex.replace('banana', 'a', 'x', 0) == 'banana'
-// regex.replace('banana', 'a', 'x', 1) == 'bxnana'
-// regex.replace('banana', 'a', 'x', 2) == 'bxnxna'
+//  regex.extract('hello world', 'hello(.*)') == optional.of(' world')
+//  regex.extract('item-A, item-B', 'item-(\\w+)') == optional.of('A')
+//  regex.extract('HELLO', 'hello') == optional.empty()
 //
-// # Capture
+//  regex.extract('testuser@testdomain', '(.*)@([^.]*)') // Runtime Error multiple capture group
 //
-// The `regex.capture` function captures the first match of a regex pattern in a string.
-// If the pattern contains capturing groups, it returns the first captured group.
-// If no match is found, it returns an optional none value.
+// # Extract All
 //
-// regex.capture(target: string, pattern: string) -> optional<string>
+// The `regex.extractAll` function returns a list of all matches of a regex
+// pattern in a target string. If no matches are found, it returns an empty list. An error will
+// be thrown for invalid regex or for multiple capture groups.
 //
-// Examples:
-// regex.capture('hello world', 'hello(.*)') == optional.of(' world')
-// regex.capture('item-A, item-B', 'item-(\\w+)') == optional.of('A')
-//
-// # Capture All
-//
-// The `regex.captureAll` function captures all matches of a regex pattern in a target string.
-// It returns a list of all captured groups. If no matches are found, it returns an empty list.
-//
-// regex.captureAll(target: string, pattern: string) -> list<string>
+//  regex.extractAll(target: string, pattern: string) -> list<string>
 //
 // Examples:
-// regex.captureAll('id:123, id:456', 'id:\\d+') == ['id:123', 'id:456']
-// regex.captureAll('testuser@', '(?P<username>.*)@') == ['testuser']
 //
-// # Capture All Named
+//  regex.extractAll('id:123, id:456', 'id:\\d+') == ['id:123', 'id:456']
+//  regex.extractAll('id:123, id:456', 'assa') == []
 //
-// The `regex.captureAllNamed` function captures all named groups from a regex pattern in a target string.
-// It returns a map where keys are the group names and values are the captured strings. map<namedCaptureGroup, matchedString>
-// If no matches are found, it returns an empty map.
+//  regex.extractAll('testuser@testdomain', '(.*)@([^.]*)') // Runtime Error multiple capture group
 //
-// regex.captureAllNamed(target: string, pattern: string) -> map<string, string>
-//
-// Examples:
-// regex.captureAllNamed('id:123, id:456', 'id:(?P<id>\\d+)') == {'id': '123', 'id': '456'}
-// regex.captureAllNamed('testuser@', '(?P<username>.*)@') == {'username': 'testuser'}
 
 func Regex(options ...RegexOptions) cel.EnvOption {
 	s := &regexLib{
@@ -126,12 +129,10 @@ func (r *regexLib) LibraryName() string {
 func (r *regexLib) CompileOptions() []cel.EnvOption {
 	optionalString := cel.OptionalType(cel.StringType)
 	opts := []cel.EnvOption{
-		cel.Function(capture, cel.Overload("regex_capture_string_string", []*cel.Type{cel.StringType, cel.StringType}, optionalString,
-			cel.BinaryBinding(captureFirstMatch))),
-		cel.Function(captureAll, cel.Overload("regex_captureAll_string_string", []*cel.Type{cel.StringType, cel.StringType}, cel.ListType(cel.StringType),
-			cel.BinaryBinding(captureAllMatches))),
-		cel.Function(captureAllNamed, cel.Overload("regex_captureAllNamed_string_string", []*cel.Type{cel.StringType, cel.StringType}, cel.MapType(cel.StringType, cel.StringType),
-			cel.BinaryBinding(captureAllNamedGroups))),
+		cel.Function(regexExtract, cel.Overload("regex_extract_string_string", []*cel.Type{cel.StringType, cel.StringType}, optionalString,
+			cel.BinaryBinding(extract))),
+		cel.Function(regexExtractAll, cel.Overload("regex_extractAll_string_string", []*cel.Type{cel.StringType, cel.StringType}, cel.ListType(cel.StringType),
+			cel.BinaryBinding(extractAll))),
 		cel.Function(regexReplace,
 			cel.Overload("regex_replace_string_string_string", []*cel.Type{cel.StringType, cel.StringType, cel.StringType}, cel.StringType,
 				cel.FunctionBinding(func(args ...ref.Val) ref.Val {
@@ -221,12 +222,16 @@ func validateReplacementString(re *regexp.Regexp, replaceStr string) error {
 	return nil
 }
 
-func captureFirstMatch(target, regexStr ref.Val) ref.Val {
+func extract(target, regexStr ref.Val) ref.Val {
 	t := string(target.(types.String))
 	r := string(regexStr.(types.String))
 	re, err := compileRegex(r)
 	if err != nil {
 		return types.WrapErr(err)
+	}
+
+	if len(re.SubexpNames())-1 > 1 {
+		return types.WrapErr(fmt.Errorf("regular expression has more than one capturing group: %q", r))
 	}
 
 	matches := re.FindStringSubmatch(t)
@@ -234,19 +239,19 @@ func captureFirstMatch(target, regexStr ref.Val) ref.Val {
 		return types.OptionalNone
 	}
 
-	// If there is a capturing group, return the first group; otherwise, return the whole match.
+	// If there is a capturing group, return the first match; otherwise, return the whole match.
 	if len(matches) > 1 {
 		capturedGroup := matches[1]
 		// If optional group is empty, return OptionalNone.
 		if capturedGroup == "" {
 			return types.OptionalNone
 		}
-		return types.OptionalOf(types.String(matches[1]))
+		return types.OptionalOf(types.String(capturedGroup))
 	}
 	return types.OptionalOf(types.String(matches[0]))
 }
 
-func captureAllMatches(target, regexStr ref.Val) ref.Val {
+func extractAll(target, regexStr ref.Val) ref.Val {
 	t := string(target.(types.String))
 	r := string(regexStr.(types.String))
 	re, err := compileRegex(r)
@@ -254,50 +259,29 @@ func captureAllMatches(target, regexStr ref.Val) ref.Val {
 		return types.WrapErr(err)
 	}
 
+	groupCount := len(re.SubexpNames()) - 1
+	if groupCount > 1 {
+		return types.WrapErr(fmt.Errorf("regular expression has more than one capturing group: %q", r))
+	}
+
 	matches := re.FindAllStringSubmatch(t, -1)
-	var result []string
+	result := make([]string, 0, len(matches))
 	if len(matches) == 0 {
 		return types.NewStringList(types.DefaultTypeAdapter, result)
 	}
 
-	hasCaptureGroups := len(matches[0]) > 1
-	for _, match := range matches {
-		if hasCaptureGroups {
-			for i := 1; i < len(match); i++ {
-				if match[i] != "" {
-					result = append(result, match[i])
-				}
+	if groupCount == 1 {
+		for _, match := range matches {
+			if match[1] != "" {
+				result = append(result, match[1])
 			}
-		} else {
+		}
+	} else {
+		for _, match := range matches {
 			result = append(result, match[0])
 		}
 	}
 	return types.NewStringList(types.DefaultTypeAdapter, result)
-}
-
-func captureAllNamedGroups(target, regexStr ref.Val) ref.Val {
-	t := string(target.(types.String))
-	r := string(regexStr.(types.String))
-	re, err := compileRegex(r)
-	if err != nil {
-		return types.WrapErr(err)
-	}
-
-	result := make(map[string]string)
-	matches := re.FindAllStringSubmatch(t, -1)
-	if len(matches) == 0 {
-		return types.NewStringStringMap(types.DefaultTypeAdapter, result)
-	}
-
-	groupNames := re.SubexpNames()
-	for _, match := range matches {
-		for i, name := range groupNames {
-			if i < len(match) && name != "" {
-				result[name] = match[i]
-			}
-		}
-	}
-	return types.NewStringStringMap(types.DefaultTypeAdapter, result)
 }
 
 func replaceAll(target, regexStr, replaceStr string) ref.Val {
@@ -309,7 +293,8 @@ func replaceAll(target, regexStr, replaceStr string) ref.Val {
 	if err := validateReplacementString(re, replaceStr); err != nil {
 		return types.WrapErr(err)
 	}
-	return types.String(re.ReplaceAllString(target, replaceStr))
+	a := types.String(re.ReplaceAllString(target, replaceStr))
+	return a
 }
 
 func replaceCount(target, regexStr, replaceStr string, replaceCount int64) ref.Val {

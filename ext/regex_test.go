@@ -36,12 +36,13 @@ func TestRegex(t *testing.T) {
 		{expr: "regex.replace('abc', 'b(.)', 'x$1') == 'axc'"},
 		{expr: "regex.replace('hello world hello', 'hello', 'hi') == 'hi world hi'"},
 		{expr: "regex.replace('apple pie', 'p', 'X') == 'aXXle Xie'"},
-		{expr: "regex.replace('remove all spaces', '\\\\s', '') == 'removeallspaces'"},
-		{expr: "regex.replace('digit:99919291992', '\\\\d+', '3') == 'digit:3'"},
-		{expr: "regex.replace('foo bar baz', '\\\\w+', '($0)') == '(foo) (bar) (baz)'"},
+		{expr: `regex.replace('remove all spaces', r'\s', '') == 'removeallspaces'`},
+		{expr: `regex.replace('digit:99919291992', r'\d+', '3') == 'digit:3'`},
+		{expr: `regex.replace('foo bar baz', r'\w+', '($0)') == '(foo) (bar) (baz)'`},
 		{expr: "regex.replace('', 'a', 'b') == ''"},
 		{expr: "regex.replace('', 'a', 'b') == ''"},
 		{expr: "regex.replace('banana', 'a', 'x') == 'bxnxnx'"},
+		{expr: `regex.replace(regex.replace('%(foo) %(bar) %2', r'%\((\w+)\)', r'$${$1}'),r'%(\d+)', r'$$$1') == '${foo} ${bar} $2'`},
 		{expr: "regex.replace('banana', 'a', 'x', 0) == 'banana'"},
 		{expr: "regex.replace('banana', 'a', 'x', 1) == 'bxnana'"},
 		{expr: "regex.replace('banana', 'a', 'x', 2) == 'bxnxna'"},
@@ -50,41 +51,24 @@ func TestRegex(t *testing.T) {
 		{expr: "regex.replace('banana', 'a', 'x', -100) == 'banana'"},
 		{expr: "regex.replace('cat-dog dog-cat cat-dog dog-cat', '(cat)-(dog)', '$2-$1', 1) == 'dog-cat dog-cat cat-dog dog-cat'"},
 		{expr: "regex.replace('cat-dog dog-cat cat-dog dog-cat', '(cat)-(dog)', '$2-$1', 2) == 'dog-cat dog-cat dog-cat dog-cat'"},
-		{expr: "regex.replace('a.b.c', '\\\\.', '-', 1) == 'a-b.c'"},
-		{expr: "regex.replace('a.b.c', '\\\\.', '-', -1) == 'a-b-c'"},
+		{expr: `regex.replace('a.b.c', r'\.', '-', 1) == 'a-b.c'`},
+		{expr: `regex.replace('a.b.c', r'\.', '-', -1) == 'a-b-c'`},
 
-		// Tests for capture Function
-		{expr: "regex.capture('hello world', 'hello(.*)') == optional.of(' world')"},
-		{expr: "regex.capture('item-A, item-B', 'item-(\\\\w+)') == optional.of('A')"},
-		{expr: "regex.capture('The color is red', 'The color is (\\\\w+)') == optional.of('red')"},
-		{expr: "regex.capture('The color is red', 'The color is \\\\w+') == optional.of('The color is red')"},
-		{expr: "regex.capture('phone: 415-5551212', 'phone: ((\\\\d{3})-)?') == optional.of('415-')"},
-		{expr: "regex.capture('brand', 'brand') == optional.of('brand')"},
-		{expr: "regex.capture('hello world', 'goodbye (.*)') == optional.none()"},
-		{expr: "regex.capture('phone: 5551212', 'phone: ((\\\\d{3})-)?') == optional.none()"},
-		{expr: "regex.capture('HELLO', 'hello') == optional.none()"},
-		{expr: "regex.capture('', '\\\\w+') == optional.none()"},
+		// Tests for extract Function
+		{expr: "regex.extract('hello world', 'hello(.*)') == optional.of(' world')"},
+		{expr: `regex.extract('item-A, item-B', r'item-(\w+)') == optional.of('A')`},
+		{expr: `regex.extract('The color is red', r'The color is (\w+)') == optional.of('red')`},
+		{expr: `regex.extract('The color is red', r'The color is \w+') == optional.of('The color is red')`},
+		{expr: "regex.extract('brand', 'brand') == optional.of('brand')"},
+		{expr: "regex.extract('hello world', 'goodbye (.*)') == optional.none()"},
+		{expr: "regex.extract('HELLO', 'hello') == optional.none()"},
+		{expr: `regex.extract('', r'\w+') == optional.none()`},
 
-		// Tests for captureAll Function
-		{expr: "regex.captureAll('id:123, id:456', 'assa') == []"},
-		{expr: "regex.captureAll('phone: 5551212', 'phone: ((\\\\d{3})-)?') == []"},
-		{expr: "regex.captureAll('id:123, id:456', 'id:\\\\d+') == ['id:123', 'id:456']"},
-		{expr: "regex.captureAll('testuser@', '(?P<username>.*)@') == ['testuser']"},
-		{expr: "regex.captureAll('banananana', '(ana)') == ['ana', 'ana']"},
-		{expr: "regex.captureAll('Name: John Doe, Age:321', 'Name: (?P<Name>.*), Age:(?P<Age>\\\\d+)')== ['John Doe', '321']"},
-		{expr: "regex.captureAll('testuser@testdomain', '(.*)@([^.]*)') == ['testuser', 'testdomain']"},
-		{expr: "regex.captureAll('The user testuser belongs to testdomain', 'The (user|domain) (?P<Username>.*) belongs (to) (?P<Domain>.*)') == ['user', 'testuser', 'to', 'testdomain']"},
-
-		// Tests for captureAllNamed Function
-		{expr: "regex.captureAllNamed('testuser@', '(?P<username>.*)@') == {'username': 'testuser'}"},
-		{expr: "regex.captureAllNamed('Name: John Doe, Age:321', 'Name: (?P<Name>.*), Age:(?P<Age>\\\\d+)') == {'Name': 'John Doe', 'Age': '321'}"},
-		{expr: "regex.captureAllNamed('id:123, id:456', 'assa') == {}"},
-		{expr: "regex.captureAllNamed('id:123, id:456', 'id:\\\\d+') == {}"},
-		{expr: "regex.captureAllNamed('testuser@testdomain', '(.*)@([^.]*)') == {}"},
-		{expr: "regex.captureAllNamed('The user testuser belongs to testdomain', 'The (user|domain) (?P<Username>.*) belongs to (?P<Domain>.*)') == {'Username': 'testuser', 'Domain': 'testdomain'}"},
-		{expr: "regex.captureAllNamed('', '(?P<name>\\\\w+)') == {}"},
-		{expr: "regex.captureAllNamed('id=', 'id=(?P<idValue>.*)') == {'idValue': ''}"},
-		{expr: "regex.captureAllNamed('id=123', 'id=(?P<idValue>\\\\d+)') == {'idValue': '123'}"},
+		// Tests for extractAll Function
+		{expr: "regex.extractAll('id:123, id:456', 'assa') == []"},
+		{expr: `regex.extractAll('id:123, id:456', r'id:\d+') == ['id:123', 'id:456']`},
+		{expr: "regex.extractAll('testuser@', '(?P<username>.*)@') == ['testuser']"},
+		{expr: "regex.extractAll('banananana', '(ana)') == ['ana', 'ana']"},
 	}
 
 	env := testRegexEnv(t)
@@ -126,12 +110,12 @@ func TestRegexStaticErrors(t *testing.T) {
 		err  string
 	}{
 		{
-			expr: "regex.capture('foo bar', 1)",
-			err:  "found no matching overload for 'regex.capture' applied to '(string, int)'",
+			expr: "regex.extract('foo bar', 1)",
+			err:  "found no matching overload for 'regex.extract' applied to '(string, int)'",
 		},
 		{
-			expr: "regex.capture('foo bar', 1, 'bar')",
-			err:  "found no matching overload for 'regex.capture' applied to '(string, int, string)'",
+			expr: "regex.extract('foo bar', 1, 'bar')",
+			err:  "found no matching overload for 'regex.extract' applied to '(string, int, string)'",
 		},
 	}
 	env := testRegexEnv(t)
@@ -152,11 +136,11 @@ func TestRegexRuntimeErrors(t *testing.T) {
 		err  string
 	}{
 		{
-			expr: "regex.capture('foo bar', '(')",
+			expr: "regex.extract('foo bar', '(')",
 			err:  "given regex is invalid: error parsing regexp: missing closing ): `(`",
 		},
 		{
-			expr: "regex.captureAll('foo bar', '[a-z')",
+			expr: "regex.extractAll('foo bar', '[a-z')",
 			err:  "given regex is invalid: error parsing regexp: missing closing ]: `[a-z`",
 		},
 		{
@@ -168,12 +152,28 @@ func TestRegexRuntimeErrors(t *testing.T) {
 			err:  "replacement string references group $2, but regex has only 1 group(s)",
 		},
 		{
-			expr: "regex.replace('id=123', 'id=(?P<value>\\\\d+)', 'value: ${values}')",
+			expr: `regex.replace('id=123', r'id=(?P<value>\d+)', 'value: ${values}')`,
 			err:  "invalid capture group name in replacement string: values",
 		},
 		{
 			expr: `regex.replace('foofoo', 'foo', 'bar', 9223372036854775807)`,
 			err:  "integer overflow",
+		},
+		{
+			expr: `regex.extract('phone: 415-5551212', r'phone: ((\d{3})-)?')`,
+			err:  `regular expression has more than one capturing group: "phone: ((\\d{3})-)?"`,
+		},
+		{
+			expr: `regex.extractAll('Name: John Doe, Age:321', r'Name: (?P<Name>.*), Age:(?P<Age>\d+)')`,
+			err:  `regular expression has more than one capturing group: "Name: (?P<Name>.*), Age:(?P<Age>\\d+)"`,
+		},
+		{
+			expr: `regex.extractAll('testuser@testdomain', '(.*)@([^.]*)')`,
+			err:  `regular expression has more than one capturing group: "(.*)@([^.]*)"`,
+		},
+		{
+			expr: `regex.extractAll('The user testuser belongs to testdomain', 'The (user|domain) (?P<Username>.*) belongs (to) (?P<Domain>.*)')`,
+			err:  `regular expression has more than one capturing group: "The (user|domain) (?P<Username>.*) belongs (to) (?P<Domain>.*)"`,
 		},
 	}
 
