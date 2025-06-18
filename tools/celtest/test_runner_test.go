@@ -119,10 +119,7 @@ func TestTriggerTestsWithRunnerOptions(t *testing.T) {
 		if err != nil {
 			t.Fatalf("compiler.NewCompiler() failed: %v", err)
 		}
-		compilerOpt := TestRunnerOption(func(tr *TestRunner) (*TestRunner, error) {
-			tr.Compiler = c
-			return tr, nil
-		})
+		compilerOpt := CustomTestCompiler(c)
 		opts := []TestRunnerOption{compilerOpt, testSuiteParser, testCELPolicy}
 		TriggerTests(t, opts...)
 	})

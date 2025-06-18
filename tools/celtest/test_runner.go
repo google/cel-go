@@ -363,13 +363,23 @@ func TestExpression(value string) TestRunnerOption {
 	}
 }
 
-// TestCompiler configures a compiler to use for testing.
+// TestCompiler returns a TestRunnerOption which configures the test runner with
+// a compiler created using the set of compiler options.
 func TestCompiler(compileOpts ...any) TestRunnerOption {
 	return func(tr *TestRunner) (*TestRunner, error) {
 		c, err := compiler.NewCompiler(compileOpts...)
 		if err != nil {
 			return nil, err
 		}
+		tr.Compiler = c
+		return tr, nil
+	}
+}
+
+// CustomTestCompiler returns a TestRunnerOption which configures the test runner with
+// a custom compiler.
+func CustomTestCompiler(c compiler.Compiler) TestRunnerOption {
+	return func(tr *TestRunner) (*TestRunner, error) {
 		tr.Compiler = c
 		return tr, nil
 	}
