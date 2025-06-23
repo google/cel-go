@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"math"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/google/cel-go/cel"
@@ -184,7 +183,7 @@ func regReplaceN(args ...ref.Val) ref.Val {
 	}
 
 	if replaceCount > math.MaxInt32 {
-		return errIntOverflow
+		return types.NewErr("integer overflow")
 	}
 
 	// If replaceCount is negative, just do a replaceAll.
@@ -224,6 +223,7 @@ func regReplaceN(args ...ref.Val) ref.Val {
 }
 
 func replaceStrValidator(target string, re *regexp.Regexp, match []int, replacement string) (string, error) {
+	groupCount := re.NumSubexp()
 	var sb strings.Builder
 	for i := 0; i < len(replacement); i++ {
 		c := replacement[i]
@@ -236,14 +236,10 @@ func replaceStrValidator(target string, re *regexp.Regexp, match []int, replacem
 		if i+1 >= len(replacement) {
 			return "", errors.New("invalid replacement string: \\ not allowed at end")
 		}
-
 		i++
 		nextChar := replacement[i]
-
 		if nextChar >= '0' && nextChar <= '9' {
-			groupNum, _ := strconv.Atoi(string(nextChar))
-			groupCount := re.NumSubexp()
-
+			groupNum := int(nextChar - '0')
 			if groupNum > groupCount {
 				return "", fmt.Errorf("replacement string references group %d but regex has only %d group(s)", groupNum, groupCount)
 			}
