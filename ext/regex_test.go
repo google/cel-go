@@ -31,28 +31,42 @@ func TestRegex(t *testing.T) {
 		expr string
 	}{
 		// Tests for replace Function
-		{expr: "regex.replace('foo bar', '(fo)o (ba)r', '$2 $1') == 'ba fo'"},
+		{expr: "regex.replace('abc', '^', 'start_') == 'start_abc'"},
+		{expr: "regex.replace('abc', '$', '_end') == 'abc_end'"},
+		{expr: `regex.replace('a-b', r'\b', '|') == '|a|-|b|'`},
+		{expr: `regex.replace('foo bar', '(fo)o (ba)r', r'\2 \1') == 'ba fo'`},
+		{expr: `regex.replace('foo bar', 'foo', r'\\') == '\\ bar'`},
 		{expr: "regex.replace('banana', 'ana', 'x') == 'bxna'"},
-		{expr: "regex.replace('abc', 'b(.)', 'x$1') == 'axc'"},
+		{expr: `regex.replace('abc', 'b(.)', r'x\1') == 'axc'`},
 		{expr: "regex.replace('hello world hello', 'hello', 'hi') == 'hi world hi'"},
+		{expr: `regex.replace('ac', 'a(b)?c', r'[\1]') == '[]'`},
 		{expr: "regex.replace('apple pie', 'p', 'X') == 'aXXle Xie'"},
 		{expr: `regex.replace('remove all spaces', r'\s', '') == 'removeallspaces'`},
 		{expr: `regex.replace('digit:99919291992', r'\d+', '3') == 'digit:3'`},
-		{expr: `regex.replace('foo bar baz', r'\w+', '($0)') == '(foo) (bar) (baz)'`},
+		{expr: `regex.replace('foo bar baz', r'\w+', r'(\0)') == '(foo) (bar) (baz)'`},
 		{expr: "regex.replace('', 'a', 'b') == ''"},
-		{expr: "regex.replace('', 'a', 'b') == ''"},
+		{expr: `regex.replace('User: Alice, Age: 30', r'User: (?P<name>\w+), Age: (?P<age>\d+)', '${name} is ${age} years old') == '${name} is ${age} years old'`},
+		{expr: `regex.replace('User: Alice, Age: 30', r'User: (?P<name>\w+), Age: (?P<age>\d+)', r'\1 is \2 years old') == 'Alice is 30 years old'`},
+		{expr: "regex.replace('hello ☃', '☃', '❄') == 'hello ❄'"},
+		{expr: `regex.replace('id=123', r'id=(?P<value>\d+)', r'value: \1') == 'value: 123'`},
 		{expr: "regex.replace('banana', 'a', 'x') == 'bxnxnx'"},
-		{expr: `regex.replace(regex.replace('%(foo) %(bar) %2', r'%\((\w+)\)', r'$${$1}'),r'%(\d+)', r'$$$1') == '${foo} ${bar} $2'`},
+		{expr: `regex.replace(regex.replace('%(foo) %(bar) %2', r'%\((\w+)\)', r'${\1}'),r'%(\d+)', r'$\1') == '${foo} ${bar} $2'`},
+
+		// Tests for replace Function with count variable
 		{expr: "regex.replace('banana', 'a', 'x', 0) == 'banana'"},
 		{expr: "regex.replace('banana', 'a', 'x', 1) == 'bxnana'"},
 		{expr: "regex.replace('banana', 'a', 'x', 2) == 'bxnxna'"},
 		{expr: "regex.replace('banana', 'a', 'x', 100) == 'bxnxnx'"},
 		{expr: "regex.replace('banana', 'a', 'x', -1) == 'bxnxnx'"},
-		{expr: "regex.replace('banana', 'a', 'x', -100) == 'banana'"},
-		{expr: "regex.replace('cat-dog dog-cat cat-dog dog-cat', '(cat)-(dog)', '$2-$1', 1) == 'dog-cat dog-cat cat-dog dog-cat'"},
-		{expr: "regex.replace('cat-dog dog-cat cat-dog dog-cat', '(cat)-(dog)', '$2-$1', 2) == 'dog-cat dog-cat dog-cat dog-cat'"},
+		{expr: "regex.replace('banana', 'a', 'x', -100) == 'bxnxnx'"},
+		{expr: `regex.replace('cat-dog dog-cat cat-dog dog-cat', '(cat)-(dog)', r'\2-\1', 1) == 'dog-cat dog-cat cat-dog dog-cat'`},
+		{expr: `regex.replace('cat-dog dog-cat cat-dog dog-cat', '(cat)-(dog)', r'\2-\1', 2) == 'dog-cat dog-cat dog-cat dog-cat'`},
 		{expr: `regex.replace('a.b.c', r'\.', '-', 1) == 'a-b.c'`},
 		{expr: `regex.replace('a.b.c', r'\.', '-', -1) == 'a-b-c'`},
+		{expr: `regex.replace('abc def', r'(abc)', '$1') == '$1 def'`},
+		{expr: `regex.replace('abc def', r'(abc)', '$$2') == '$$2 def'`},
+		{expr: `regex.replace('abc def', r'(abc)', '$${word}') == '$${word} def'`},
+		{expr: `regex.replace('abc def', r'(abc)', '$$word') == '$$word def'`},
 
 		// Tests for extract Function
 		{expr: "regex.extract('hello world', 'hello(.*)') == optional.of(' world')"},
@@ -110,12 +124,24 @@ func TestRegexStaticErrors(t *testing.T) {
 		err  string
 	}{
 		{
+			expr: "regex.replace('abc', '^', 1)",
+			err:  "found no matching overload for 'regex.replace' applied to '(string, string, int)'",
+		},
+		{
+			expr: "regex.replace('abc', '^', '1','')",
+			err:  "found no matching overload for 'regex.replace' applied to '(string, string, string, string)'",
+		},
+		{
 			expr: "regex.extract('foo bar', 1)",
 			err:  "found no matching overload for 'regex.extract' applied to '(string, int)'",
 		},
 		{
 			expr: "regex.extract('foo bar', 1, 'bar')",
 			err:  "found no matching overload for 'regex.extract' applied to '(string, int, string)'",
+		},
+		{
+			expr: "regex.extractAll()",
+			err:  "found no matching overload for 'regex.extractAll' applied to '()'",
 		},
 	}
 	env := testRegexEnv(t)
@@ -144,16 +170,16 @@ func TestRegexRuntimeErrors(t *testing.T) {
 			err:  "given regex is invalid: error parsing regexp: missing closing ]: `[a-z`",
 		},
 		{
-			expr: "regex.replace('foo', '(f)(o)(o)', '$a')",
-			err:  "invalid group reference: $a",
+			expr: `regex.replace('id=123', r'id=(?P<value>\d+)', r'value: \values')`,
+			err:  `invalid replacement string: \ must be followed by a digit`,
 		},
 		{
-			expr: "regex.replace('test', '(.)', '$2')",
-			err:  "replacement string references group $2, but regex has only 1 group(s)",
+			expr: `regex.replace('test', '(.)', r'\2')`,
+			err:  "replacement string references group 2 but regex has only 1 group(s)",
 		},
 		{
-			expr: `regex.replace('id=123', r'id=(?P<value>\d+)', 'value: ${values}')`,
-			err:  "invalid capture group name in replacement string: values",
+			expr: `regex.replace('id=123', r'id=(?P<value>\d+)', r'value: \')`,
+			err:  `invalid replacement string: \ not allowed at end`,
 		},
 		{
 			expr: `regex.replace('foofoo', 'foo', 'bar', 9223372036854775807)`,
@@ -201,7 +227,7 @@ func TestRegexRuntimeErrors(t *testing.T) {
 func TestRegexVersion(t *testing.T) {
 	_, err := cel.NewEnv(Regex(RegexVersion(0)))
 	if err != nil {
-		t.Fatalf("TwoVarComprehensionVersion(0) failed: %v", err)
+		t.Fatalf("Regex(0) failed: %v", err)
 	}
 }
 

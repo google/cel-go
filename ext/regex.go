@@ -18,6 +18,7 @@
 package ext
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"regexp"
@@ -45,26 +46,31 @@ const (
 //
 // # Replace
 //
-// The `regex.replace` function replaces all occurrences of a regex pattern in a
-// string with a replacement string. Optionally, you can limit the number of
-// replacements by providing a count argument. Both numeric ($N) and named
-// (${name}) capture group references are supported in the replacement string, with
-// validation for correctness. An error will be thrown for invalid regex or replace
-// string.
+// The `regex.replace` function replaces all non-overlapping substring of a regex
+// pattern in the target string with a replacement string. Optionally, you can
+// limit the number of replacements by providing a count argument. When the count
+// is a negative number, the function acts as replace all. Only numeric (\N)
+// capture group references are supported in the replacement string, with
+// validation for correctness. Backslashed-escaped digits (\1 to \9) within the
+// replacement argument can be used to insert text matching the corresponding
+// parenthesized group in the regexp pattern. An error will be thrown for invalid
+// regex or replace string.
 //
 //  regex.replace(target: string, pattern: string, replacement: string) -> string
 //  regex.replace(target: string, pattern: string, replacement: string, count: int) -> string
 //
 // Examples:
 //
-//  regex.replace('banana', 'a', 'x', 0) == 'banana'
-//  regex.replace('banana', 'a', 'x', 1) == 'bxnana'
-//  regex.replace('banana', 'a', 'x', 2) == 'bxnxna'
-//  regex.replace('foo bar', '(fo)o (ba)r', '$2 $1') == 'ba fo'
+// regex.replace('hello world hello', 'hello', 'hi') == 'hi world hi'
+// regex.replace('banana', 'a', 'x', 0) == 'banana'
+// regex.replace('banana', 'a', 'x', 1) == 'bxnana'
+// regex.replace('banana', 'a', 'x', 2) == 'bxnxna'
+// regex.replace('banana', 'a', 'x', -12) == 'bxnxnx'
+// regex.replace('foo bar', '(fo)o (ba)r', r'\2 \1') == 'ba fo'
 //
-//  regex.replace('test', '(.)', '$2') // Runtime Error invalid replace string
-//  regex.replace('foo bar', '(', '$2 $1') // Runtime Error invalid regex string
-//  regex.replace('id=123', 'id=(?P<value>\\\\d+)', 'value: ${values}') // Runtime Error invalid replace string
+// regex.replace('test', '(.)', r'\2') \\ Runtime Error invalid replace string
+// regex.replace('foo bar', '(', '$2 $1') \\ Runtime Error invalid regex string
+// regex.replace('id=123', r'id=(?P<value>\d+)', r'value: \values') \\ Runtime Error invalid replace string
 //
 // # Extract
 //
@@ -96,7 +102,6 @@ const (
 //  regex.extractAll('id:123, id:456', 'assa') == []
 //
 //  regex.extractAll('testuser@testdomain', '(.*)@([^.]*)') // Runtime Error multiple capture group
-//
 
 func Regex(options ...RegexOptions) cel.EnvOption {
 	s := &regexLib{
@@ -129,26 +134,20 @@ func (r *regexLib) LibraryName() string {
 func (r *regexLib) CompileOptions() []cel.EnvOption {
 	optionalString := cel.OptionalType(cel.StringType)
 	opts := []cel.EnvOption{
-		cel.Function(regexExtract, cel.Overload("regex_extract_string_string", []*cel.Type{cel.StringType, cel.StringType}, optionalString,
-			cel.BinaryBinding(extract))),
-		cel.Function(regexExtractAll, cel.Overload("regex_extractAll_string_string", []*cel.Type{cel.StringType, cel.StringType}, cel.ListType(cel.StringType),
-			cel.BinaryBinding(extractAll))),
+		cel.Function(regexExtract,
+			cel.Overload("regex_extract_string_string", []*cel.Type{cel.StringType, cel.StringType}, optionalString,
+				cel.BinaryBinding(extract))),
+
+		cel.Function(regexExtractAll,
+			cel.Overload("regex_extractAll_string_string", []*cel.Type{cel.StringType, cel.StringType}, cel.ListType(cel.StringType),
+				cel.BinaryBinding(extractAll))),
+
 		cel.Function(regexReplace,
 			cel.Overload("regex_replace_string_string_string", []*cel.Type{cel.StringType, cel.StringType, cel.StringType}, cel.StringType,
-				cel.FunctionBinding(func(args ...ref.Val) ref.Val {
-					target := args[0].(types.String)
-					regexStr := args[1].(types.String)
-					replaceStr := args[2].(types.String)
-					return replaceAll(string(target), string(regexStr), string(replaceStr))
-				})),
+				cel.FunctionBinding(regReplace)),
 			cel.Overload("regex_replace_string_string_string_int", []*cel.Type{cel.StringType, cel.StringType, cel.StringType, cel.IntType}, cel.StringType,
-				cel.FunctionBinding(func(args ...ref.Val) ref.Val {
-					target := args[0].(types.String)
-					regexStr := args[1].(types.String)
-					replaceStr := args[2].(types.String)
-					count := args[3].(types.Int)
-					return replaceCount(string(target), string(regexStr), string(replaceStr), int64(count))
-				}))),
+				cel.FunctionBinding((regReplaceN))),
+		),
 	}
 	return opts
 }
@@ -166,60 +165,99 @@ func compileRegex(regexStr string) (*regexp.Regexp, error) {
 	return re, nil
 }
 
-// Initializing regular expression patterns for validating replacement strings.
-var (
-	reGroupNum     = regexp.MustCompile(`\$(\d+)`)
-	reGroupName    = regexp.MustCompile(`\$\{([a-zA-Z_][a-zA-Z0-9_]*)\}`)
-	reGroupInvalid = regexp.MustCompile(`\$[a-zA-Z_][a-zA-Z0-9_]*`)
-)
+func regReplace(args ...ref.Val) ref.Val {
+	target := args[0].(types.String)
+	regexStr := args[1].(types.String)
+	replaceStr := args[2].(types.String)
 
-func validateReplacementString(re *regexp.Regexp, replaceStr string) error {
-	// If there are no $N or ${name} patterns, skip validation.
-	if !strings.Contains(replaceStr, "$") {
-		return nil
+	return regReplaceN(target, regexStr, replaceStr, types.Int(-1))
+}
+
+func regReplaceN(args ...ref.Val) ref.Val {
+	target := string(args[0].(types.String))
+	regexStr := string(args[1].(types.String))
+	replaceStr := string(args[2].(types.String))
+	replaceCount := int64(args[3].(types.Int))
+
+	if replaceCount == 0 {
+		return types.String(target)
 	}
 
-	groupNames := re.SubexpNames()
-	groupCount := len(groupNames) - 1 // Exclude group 0 (whole match)
-	// Find all $N patterns in the replacement string and validate them.
-	matches := reGroupNum.FindAllStringSubmatch(replaceStr, -1)
-	for _, m := range matches {
-		if len(m) > 1 {
-			idx, _ := strconv.Atoi(m[1])
-			if idx < 0 || idx > groupCount {
-				return fmt.Errorf("replacement string references group $%d, but regex has only %d group(s)", idx, groupCount)
+	if replaceCount > math.MaxInt32 {
+		return errIntOverflow
+	}
+
+	// If replaceCount is negative, just do a replaceAll.
+	if replaceCount < 0 {
+		replaceCount = -1
+	}
+
+	re, err := regexp.Compile(regexStr)
+	if err != nil {
+		return types.WrapErr(err)
+	}
+
+	var resultBuilder strings.Builder
+	var lastIndex int
+	counter := int64(0)
+
+	matches := re.FindAllStringSubmatchIndex(target, -1)
+
+	for _, match := range matches {
+		if replaceCount != -1 && counter >= replaceCount {
+			break
+		}
+
+		processedReplacement, err := replaceStrValidator(target, re, match, replaceStr)
+		if err != nil {
+			return types.WrapErr(err)
+		}
+
+		resultBuilder.WriteString(target[lastIndex:match[0]])
+		resultBuilder.WriteString(processedReplacement)
+		lastIndex = match[1]
+		counter++
+	}
+
+	resultBuilder.WriteString(target[lastIndex:])
+	return types.String(resultBuilder.String())
+}
+
+func replaceStrValidator(target string, re *regexp.Regexp, match []int, replacement string) (string, error) {
+	var sb strings.Builder
+	for i := 0; i < len(replacement); i++ {
+		c := replacement[i]
+
+		if c != '\\' {
+			sb.WriteByte(c)
+			continue
+		}
+
+		if i+1 >= len(replacement) {
+			return "", errors.New("invalid replacement string: \\ not allowed at end")
+		}
+
+		i++
+		nextChar := replacement[i]
+
+		if nextChar >= '0' && nextChar <= '9' {
+			groupNum, _ := strconv.Atoi(string(nextChar))
+			groupCount := re.NumSubexp()
+
+			if groupNum > groupCount {
+				return "", fmt.Errorf("replacement string references group %d but regex has only %d group(s)", groupNum, groupCount)
 			}
-		}
-	}
 
-	if strings.Contains(replaceStr, "${") {
-		validNames := make(map[string]struct{})
-		for _, name := range groupNames {
-			if name != "" {
-				validNames[name] = struct{}{}
+			if match[2*groupNum] != -1 {
+				sb.WriteString(target[match[2*groupNum]:match[2*groupNum+1]])
 			}
-		}
-		// If there are named groups, validate them against the defined group names.
-		nameMatches := reGroupName.FindAllStringSubmatch(replaceStr, -1)
-		for _, m := range nameMatches {
-			if len(m) > 1 {
-				if _, ok := validNames[m[1]]; !ok {
-					return fmt.Errorf("invalid capture group name in replacement string: %s", m[1])
-				}
-			}
+		} else if nextChar == '\\' {
+			sb.WriteByte('\\')
+		} else {
+			return "", errors.New("invalid replacement string: \\ must be followed by a digit")
 		}
 	}
-
-	// Check for invalid $word references (e.g., $a)
-	invalids := reGroupInvalid.FindAllString(replaceStr, -1)
-	for _, m := range invalids {
-		// If not matched by $N, it's invalid
-		if !reGroupNum.MatchString(m) {
-			return fmt.Errorf("invalid group reference: %s", m)
-		}
-	}
-
-	return nil
+	return sb.String(), nil
 }
 
 func extract(target, regexStr ref.Val) ref.Val {
@@ -282,61 +320,4 @@ func extractAll(target, regexStr ref.Val) ref.Val {
 		}
 	}
 	return types.NewStringList(types.DefaultTypeAdapter, result)
-}
-
-func replaceAll(target, regexStr, replaceStr string) ref.Val {
-	re, err := compileRegex(regexStr)
-	if err != nil {
-		return types.WrapErr(err)
-	}
-
-	if err := validateReplacementString(re, replaceStr); err != nil {
-		return types.WrapErr(err)
-	}
-	a := types.String(re.ReplaceAllString(target, replaceStr))
-	return a
-}
-
-func replaceCount(target, regexStr, replaceStr string, replaceCount int64) ref.Val {
-	re, err := compileRegex(regexStr)
-	if err != nil {
-		return types.WrapErr(err)
-	}
-
-	if err := validateReplacementString(re, replaceStr); err != nil {
-		return types.WrapErr(err)
-	}
-
-	if replaceCount == -1 {
-		return types.String(re.ReplaceAllString(target, replaceStr))
-	}
-
-	if replaceCount <= 0 {
-		return types.String(target)
-	}
-
-	if replaceCount > math.MaxInt32 {
-		return errIntOverflow
-	}
-
-	matches := re.FindAllStringSubmatchIndex(target, int(replaceCount))
-	if len(matches) == 0 {
-		return types.String(target)
-	}
-
-	var builder strings.Builder
-	builder.Grow(len(target))
-	lastIndex := 0
-	// Reuse this buffer to reduce allocations
-	var expanded []byte
-	for _, match := range matches {
-		builder.WriteString(target[lastIndex:match[0]])
-		// Reset slice length but keep capacity
-		expanded = expanded[:0]
-		expanded = re.ExpandString(expanded, replaceStr, target, match)
-		builder.Write(expanded)
-		lastIndex = match[1]
-	}
-	builder.WriteString(target[lastIndex:])
-	return types.String(builder.String())
 }
