@@ -63,10 +63,10 @@ func TestRegex(t *testing.T) {
 		{expr: `regex.replace('cat-dog dog-cat cat-dog dog-cat', '(cat)-(dog)', r'\2-\1', 2) == 'dog-cat dog-cat dog-cat dog-cat'`},
 		{expr: `regex.replace('a.b.c', r'\.', '-', 1) == 'a-b.c'`},
 		{expr: `regex.replace('a.b.c', r'\.', '-', -1) == 'a-b-c'`},
-		{expr: `regex.replace('abc def', r'(abc)', '$1') == '$1 def'`},
-		{expr: `regex.replace('abc def', r'(abc)', '$$2') == '$$2 def'`},
-		{expr: `regex.replace('abc def', r'(abc)', '$${word}') == '$${word} def'`},
-		{expr: `regex.replace('abc def', r'(abc)', '$$word') == '$$word def'`},
+		{expr: `regex.replace('abc def', r'(abc)', r'\\1') == r'\1 def'`},
+		{expr: `regex.replace('abc def', r'(abc)', r'\\2') == r'\2 def'`},
+		{expr: `regex.replace('abc def', r'(abc)', r'\\{word}') == '\\{word} def'`},
+		{expr: `regex.replace('abc def', r'(abc)', r'\\word') == '\\word def'`},
 
 		// Tests for extract Function
 		{expr: "regex.extract('hello world', 'hello(.*)') == optional.of(' world')"},
@@ -81,8 +81,15 @@ func TestRegex(t *testing.T) {
 		// Tests for extractAll Function
 		{expr: "regex.extractAll('id:123, id:456', 'assa') == []"},
 		{expr: `regex.extractAll('id:123, id:456', r'id:\d+') == ['id:123', 'id:456']`},
+		{expr: `regex.extractAll('Files: f_1.txt, f_2.csv', r'f_(\d+)') == ['1', '2']`},
 		{expr: "regex.extractAll('testuser@', '(?P<username>.*)@') == ['testuser']"},
+		{expr: "regex.extractAll('testuser@gmail.com, a@y.com, 2312321wsamkldjq2w2@sdad.com', '(?P<username>.*)@') == ['testuser@gmail.com, a@y.com, 2312321wsamkldjq2w2']"},
+		{expr: `regex.extractAll('testuser@gmail.com, a@y.com, 2312321wsamkldjq2w2@sdad.com', r'(?P<username>\w+)@') == ['testuser', 'a', '2312321wsamkldjq2w2']`},
 		{expr: "regex.extractAll('banananana', '(ana)') == ['ana', 'ana']"},
+		{expr: `regex.extractAll('item:a1, topic:b2', r'(?:item:|topic:)([a-z]\d)') == ['a1', 'b2']`},
+		{expr: "regex.extractAll('val=a, val=, val=c', 'val=([^,]*)') == ['a', 'c']"},
+		{expr: "regex.extractAll('key=, key=, key=', 'key=([^,]*)') == []"},
+		{expr: `regex.extractAll('a b c', r'(\S*)\s*') == ['a', 'b', 'c']`},
 	}
 
 	env := testRegexEnv(t)
@@ -171,7 +178,7 @@ func TestRegexRuntimeErrors(t *testing.T) {
 		},
 		{
 			expr: `regex.replace('id=123', r'id=(?P<value>\d+)', r'value: \values')`,
-			err:  `invalid replacement string: \ must be followed by a digit`,
+			err:  `invalid replacement string: 'value: \values' \ must be followed by a digit`,
 		},
 		{
 			expr: `regex.replace('test', '(.)', r'\2')`,
@@ -179,7 +186,7 @@ func TestRegexRuntimeErrors(t *testing.T) {
 		},
 		{
 			expr: `regex.replace('id=123', r'id=(?P<value>\d+)', r'value: \')`,
-			err:  `invalid replacement string: \ not allowed at end`,
+			err:  `invalid replacement string: 'value: \' \ not allowed at end`,
 		},
 		{
 			expr: `regex.replace('foofoo', 'foo', 'bar', 9223372036854775807)`,

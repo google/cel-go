@@ -18,10 +18,10 @@
 package ext
 
 import (
-	"errors"
 	"fmt"
 	"math"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/google/cel-go/cel"
@@ -225,32 +225,43 @@ func regReplaceN(args ...ref.Val) ref.Val {
 func replaceStrValidator(target string, re *regexp.Regexp, match []int, replacement string) (string, error) {
 	groupCount := re.NumSubexp()
 	var sb strings.Builder
-	for i := 0; i < len(replacement); i++ {
-		c := replacement[i]
+	runes := []rune(replacement)
+
+	for i := 0; i < len(runes); i++ {
+		c := runes[i]
 
 		if c != '\\' {
-			sb.WriteByte(c)
+			sb.WriteRune(c)
 			continue
 		}
 
-		if i+1 >= len(replacement) {
-			return "", errors.New("invalid replacement string: \\ not allowed at end")
+		if i+1 >= len(runes) {
+			return "", fmt.Errorf("invalid replacement string: '%s' \\ not allowed at end", replacement)
 		}
-		i++
-		nextChar := replacement[i]
-		if nextChar >= '0' && nextChar <= '9' {
-			groupNum := int(nextChar - '0')
-			if groupNum > groupCount {
-				return "", fmt.Errorf("replacement string references group %d but regex has only %d group(s)", groupNum, groupCount)
-			}
 
-			if match[2*groupNum] != -1 {
-				sb.WriteString(target[match[2*groupNum]:match[2*groupNum+1]])
-			}
-		} else if nextChar == '\\' {
-			sb.WriteByte('\\')
-		} else {
-			return "", errors.New("invalid replacement string: \\ must be followed by a digit")
+		i++
+		nextChar := runes[i]
+
+		if (nextChar < '0' || nextChar > '9') && nextChar != '\\' {
+			return "", fmt.Errorf("invalid replacement string: '%s' \\ must be followed by a digit", replacement)
+		}
+
+		if nextChar == '\\' {
+			sb.WriteRune('\\')
+			continue
+		}
+
+		groupNum, err := strconv.Atoi(string(nextChar))
+		if err != nil {
+			return "", fmt.Errorf("internal error parsing digit: %w", err)
+		}
+
+		if groupNum > groupCount {
+			return "", fmt.Errorf("replacement string references group %d but regex has only %d group(s)", groupNum, groupCount)
+		}
+
+		if match[2*groupNum] != -1 {
+			sb.WriteString(target[match[2*groupNum]:match[2*groupNum+1]])
 		}
 	}
 	return sb.String(), nil
