@@ -315,15 +315,16 @@ func extractAll(target, regexStr ref.Val) ref.Val {
 		return types.NewStringList(types.DefaultTypeAdapter, result)
 	}
 
-	if groupCount == 1 {
-		for _, match := range matches {
-			if match[1] != "" {
-				result = append(result, match[1])
-			}
-		}
-	} else {
+	if groupCount != 1 {
 		for _, match := range matches {
 			result = append(result, match[0])
+		}
+		return types.NewStringList(types.DefaultTypeAdapter, result)
+	}
+
+	for _, match := range matches {
+		if match[1] != "" {
+			result = append(result, match[1])
 		}
 	}
 	return types.NewStringList(types.DefaultTypeAdapter, result)
