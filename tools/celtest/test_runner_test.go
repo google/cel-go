@@ -230,17 +230,19 @@ type tsparser struct {
 	TestSuiteParser
 }
 
+// ParseTextproto implements the ParseTextproto method of the TestSuiteParser interface.
 func (p *tsparser) ParseTextproto(_ string) (*conformancepb.TestSuite, error) {
 	return nil, nil
 }
 
+// ParseYAML implements the ParseYAML method of the TestSuiteParser interface.
 func (p *tsparser) ParseYAML(_ string) (*test.Suite, error) {
 	testCase := &test.Case{
 		Name: "sample test case",
 		Input: map[string]*test.InputValue{
-			"i": &test.InputValue{Value: 21},
-			"j": &test.InputValue{Value: 42},
-			"a": &test.InputValue{Value: false},
+			"i": {Value: 21},
+			"j": {Value: 42},
+			"a": {Value: false},
 		},
 		Output: &test.Output{Value: true},
 	}
