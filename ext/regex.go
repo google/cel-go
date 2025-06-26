@@ -41,7 +41,8 @@ const (
 // Regex configures namespaced regex helper functions.
 // Note, all functions use the 'regex' namespace. If you are
 // currently using a variable named 'regex', the macro will likely work just as
-// intended; however, there is some chance for collision.
+// intended; however, there is some chance for collision. Please ensure that the cel.OptionalTypes()
+// is enabled when using regex extensions, as its a dependancy for regex ext.
 //
 // # Replace
 //
@@ -131,10 +132,15 @@ func (r *regexLib) LibraryName() string {
 
 // CompileOptions implements cel.Library.
 func (r *regexLib) CompileOptions() []cel.EnvOption {
-	optionalString := cel.OptionalType(cel.StringType)
+	optionalTypesEnabled := func(env *cel.Env) (*cel.Env, error) {
+		if !env.HasLibrary("cel.lib.optional") {
+			return nil, fmt.Errorf("regex library requires the optional library to be loaded")
+		}
+		return env, nil
+	}
 	opts := []cel.EnvOption{
 		cel.Function(regexExtract,
-			cel.Overload("regex_extract_string_string", []*cel.Type{cel.StringType, cel.StringType}, optionalString,
+			cel.Overload("regex_extract_string_string", []*cel.Type{cel.StringType, cel.StringType}, cel.OptionalType(cel.StringType),
 				cel.BinaryBinding(extract))),
 
 		cel.Function(regexExtractAll,
@@ -147,6 +153,7 @@ func (r *regexLib) CompileOptions() []cel.EnvOption {
 			cel.Overload("regex_replace_string_string_string_int", []*cel.Type{cel.StringType, cel.StringType, cel.StringType, cel.IntType}, cel.StringType,
 				cel.FunctionBinding((regReplaceN))),
 		),
+		cel.EnvOption(optionalTypesEnabled),
 	}
 	return opts
 }
@@ -242,10 +249,6 @@ func replaceStrValidator(target string, re *regexp.Regexp, match []int, replacem
 		i++
 		nextChar := runes[i]
 
-		if (nextChar < '0' || nextChar > '9') && nextChar != '\\' {
-			return "", fmt.Errorf("invalid replacement string: '%s' \\ must be followed by a digit", replacement)
-		}
-
 		if nextChar == '\\' {
 			sb.WriteRune('\\')
 			continue
@@ -253,7 +256,7 @@ func replaceStrValidator(target string, re *regexp.Regexp, match []int, replacem
 
 		groupNum, err := strconv.Atoi(string(nextChar))
 		if err != nil {
-			return "", fmt.Errorf("internal error parsing digit: %w", err)
+			return "", fmt.Errorf("invalid replacement string: '%s' \\ must be followed by a digit or \\", replacement)
 		}
 
 		if groupNum > groupCount {

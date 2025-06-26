@@ -77,6 +77,8 @@ func TestRegex(t *testing.T) {
 		{expr: "regex.extract('hello world', 'goodbye (.*)') == optional.none()"},
 		{expr: "regex.extract('HELLO', 'hello') == optional.none()"},
 		{expr: `regex.extract('', r'\w+') == optional.none()`},
+		{expr: "regex.extract('4122345432', '22').or(optional.of('777')) == optional.of('22')"},
+		{expr: "regex.extract('4122345432', '22').orValue('777') == '22'"},
 
 		// Tests for extractAll Function
 		{expr: "regex.extractAll('id:123, id:456', 'assa') == []"},
@@ -231,8 +233,32 @@ func TestRegexRuntimeErrors(t *testing.T) {
 	}
 }
 
+func TestRegexEnvCreationErrors(t *testing.T) {
+	tests := []struct {
+		name string
+		opts []cel.EnvOption
+	}{
+		{
+			name: "no optional types",
+			opts: []cel.EnvOption{Regex()},
+		},
+		{
+			name: "optional types after regex",
+			opts: []cel.EnvOption{Regex(), cel.OptionalTypes()},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := cel.NewEnv(tc.opts...)
+			if err == nil || !strings.Contains(err.Error(), "regex library requires the optional library to be loaded") {
+				t.Fatalf("expected error about missing optional library, got: %v", err)
+			}
+		})
+	}
+}
+
 func TestRegexVersion(t *testing.T) {
-	_, err := cel.NewEnv(Regex(RegexVersion(0)))
+	_, err := cel.NewEnv(cel.OptionalTypes(), Regex(RegexVersion(0)))
 	if err != nil {
 		t.Fatalf("Regex(0) failed: %v", err)
 	}
@@ -241,8 +267,8 @@ func TestRegexVersion(t *testing.T) {
 func testRegexEnv(t *testing.T, opts ...cel.EnvOption) *cel.Env {
 	t.Helper()
 	baseOpts := []cel.EnvOption{
-		Regex(),
 		cel.OptionalTypes(),
+		Regex(),
 	}
 	env, err := cel.NewEnv(append(baseOpts, opts...)...)
 	if err != nil {
