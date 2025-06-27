@@ -250,8 +250,8 @@ func TestRegexEnvCreationErrors(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := cel.NewEnv(tc.opts...)
-			if err == nil || !strings.Contains(err.Error(), "regex library requires the optional library to be loaded") {
-				t.Fatalf("expected error about missing optional library, got: %v", err)
+			if err == nil || !strings.Contains(err.Error(), "regex library requires the optional library") {
+				t.Fatalf("prg.Eval() got %v, wanted regex library requires the optional library", err)
 			}
 		})
 	}
