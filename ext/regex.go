@@ -18,6 +18,7 @@
 package ext
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"regexp"
@@ -35,14 +36,15 @@ const (
 	regexExtractAll = "regex.extractAll"
 )
 
-// Regex introduces support for regular expressions in CEL.
+// Regex returns a cel.EnvOption to configure extended functions for regular
+// expression operations.
 //
-// This library provides functions for capturing groups, replacing strings using regex patterns,
-// Regex configures namespaced regex helper functions.
-// Note, all functions use the 'regex' namespace. If you are
-// currently using a variable named 'regex', the macro will likely work just as
-// intended; however, there is some chance for collision. Please ensure that the cel.OptionalTypes()
-// is enabled when using regex extensions, as its a dependancy for regex ext.
+// Note: all functions use the 'regex' namespace. If you are
+// currently using a variable named 'regex', the functions will likely work as
+// intended, however there is some chance for collision.
+//
+// This library depends on the CEL optional type. Please ensure that the
+// cel.OptionalTypes() is enabled when using regex extensions.
 //
 // # Replace
 //
@@ -61,16 +63,15 @@ const (
 //
 // Examples:
 //
-// regex.replace('hello world hello', 'hello', 'hi') == 'hi world hi'
-// regex.replace('banana', 'a', 'x', 0) == 'banana'
-// regex.replace('banana', 'a', 'x', 1) == 'bxnana'
-// regex.replace('banana', 'a', 'x', 2) == 'bxnxna'
-// regex.replace('banana', 'a', 'x', -12) == 'bxnxnx'
-// regex.replace('foo bar', '(fo)o (ba)r', r'\2 \1') == 'ba fo'
-//
-// regex.replace('test', '(.)', r'\2') \\ Runtime Error invalid replace string
-// regex.replace('foo bar', '(', '$2 $1') \\ Runtime Error invalid regex string
-// regex.replace('id=123', r'id=(?P<value>\d+)', r'value: \values') \\ Runtime Error invalid replace string
+// 	regex.replace('hello world hello', 'hello', 'hi') == 'hi world hi'
+// 	regex.replace('banana', 'a', 'x', 0) == 'banana'
+// 	regex.replace('banana', 'a', 'x', 1) == 'bxnana'
+// 	regex.replace('banana', 'a', 'x', 2) == 'bxnxna'
+// 	regex.replace('banana', 'a', 'x', -12) == 'bxnxnx'
+// 	regex.replace('foo bar', '(fo)o (ba)r', r'\2 \1') == 'ba fo'
+// 	regex.replace('test', '(.)', r'\2') \\ Runtime Error invalid replace string
+// 	regex.replace('foo bar', '(', '$2 $1') \\ Runtime Error invalid regex string
+// 	regex.replace('id=123', r'id=(?P<value>\d+)', r'value: \values') \\ Runtime Error invalid replace string
 //
 // # Extract
 //
@@ -85,7 +86,6 @@ const (
 //  regex.extract('hello world', 'hello(.*)') == optional.of(' world')
 //  regex.extract('item-A, item-B', 'item-(\\w+)') == optional.of('A')
 //  regex.extract('HELLO', 'hello') == optional.empty()
-//
 //  regex.extract('testuser@testdomain', '(.*)@([^.]*)') // Runtime Error multiple capture group
 //
 // # Extract All
@@ -100,7 +100,6 @@ const (
 //
 //  regex.extractAll('id:123, id:456', 'id:\\d+') == ['id:123', 'id:456']
 //  regex.extractAll('id:123, id:456', 'assa') == []
-//
 //  regex.extractAll('testuser@testdomain', '(.*)@([^.]*)') // Runtime Error multiple capture group
 
 func Regex(options ...RegexOptions) cel.EnvOption {
@@ -134,7 +133,7 @@ func (r *regexLib) LibraryName() string {
 func (r *regexLib) CompileOptions() []cel.EnvOption {
 	optionalTypesEnabled := func(env *cel.Env) (*cel.Env, error) {
 		if !env.HasLibrary("cel.lib.optional") {
-			return nil, fmt.Errorf("regex library requires the optional library to be loaded")
+			return nil, errors.New("regex library requires the optional library")
 		}
 		return env, nil
 	}
