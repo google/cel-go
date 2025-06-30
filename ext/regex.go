@@ -12,9 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package ext contains CEL extension libraries where each library defines a related set of
-// constants, functions, macros, or other configuration settings which may not be covered by
-// the core CEL spec.
 package ext
 
 import (
@@ -58,20 +55,20 @@ const (
 // parenthesized group in the regexp pattern. An error will be thrown for invalid
 // regex or replace string.
 //
-//  regex.replace(target: string, pattern: string, replacement: string) -> string
-//  regex.replace(target: string, pattern: string, replacement: string, count: int) -> string
+//	regex.replace(target: string, pattern: string, replacement: string) -> string
+//	regex.replace(target: string, pattern: string, replacement: string, count: int) -> string
 //
 // Examples:
 //
-// 	regex.replace('hello world hello', 'hello', 'hi') == 'hi world hi'
-// 	regex.replace('banana', 'a', 'x', 0) == 'banana'
-// 	regex.replace('banana', 'a', 'x', 1) == 'bxnana'
-// 	regex.replace('banana', 'a', 'x', 2) == 'bxnxna'
-// 	regex.replace('banana', 'a', 'x', -12) == 'bxnxnx'
-// 	regex.replace('foo bar', '(fo)o (ba)r', r'\2 \1') == 'ba fo'
-// 	regex.replace('test', '(.)', r'\2') \\ Runtime Error invalid replace string
-// 	regex.replace('foo bar', '(', '$2 $1') \\ Runtime Error invalid regex string
-// 	regex.replace('id=123', r'id=(?P<value>\d+)', r'value: \values') \\ Runtime Error invalid replace string
+//	regex.replace('hello world hello', 'hello', 'hi') == 'hi world hi'
+//	regex.replace('banana', 'a', 'x', 0) == 'banana'
+//	regex.replace('banana', 'a', 'x', 1) == 'bxnana'
+//	regex.replace('banana', 'a', 'x', 2) == 'bxnxna'
+//	regex.replace('banana', 'a', 'x', -12) == 'bxnxnx'
+//	regex.replace('foo bar', '(fo)o (ba)r', r'\2 \1') == 'ba fo'
+//	regex.replace('test', '(.)', r'\2') \\ Runtime Error invalid replace string
+//	regex.replace('foo bar', '(', '$2 $1') \\ Runtime Error invalid regex string
+//	regex.replace('id=123', r'id=(?P<value>\d+)', r'value: \values') \\ Runtime Error invalid replace string
 //
 // # Extract
 //
@@ -79,14 +76,14 @@ const (
 // string. If no match is found, it returns an optional none value. An error will
 // be thrown for invalid regex or for multiple capture groups.
 //
-//  regex.extract(target: string, pattern: string) -> optional<string>
+//	regex.extract(target: string, pattern: string) -> optional<string>
 //
 // Examples:
 //
-//  regex.extract('hello world', 'hello(.*)') == optional.of(' world')
-//  regex.extract('item-A, item-B', 'item-(\\w+)') == optional.of('A')
-//  regex.extract('HELLO', 'hello') == optional.empty()
-//  regex.extract('testuser@testdomain', '(.*)@([^.]*)') // Runtime Error multiple capture group
+//	regex.extract('hello world', 'hello(.*)') == optional.of(' world')
+//	regex.extract('item-A, item-B', 'item-(\\w+)') == optional.of('A')
+//	regex.extract('HELLO', 'hello') == optional.empty()
+//	regex.extract('testuser@testdomain', '(.*)@([^.]*)') // Runtime Error multiple capture group
 //
 // # Extract All
 //
@@ -94,14 +91,13 @@ const (
 // pattern in a target string. If no matches are found, it returns an empty list. An error will
 // be thrown for invalid regex or for multiple capture groups.
 //
-//  regex.extractAll(target: string, pattern: string) -> list<string>
+//	regex.extractAll(target: string, pattern: string) -> list<string>
 //
 // Examples:
 //
-//  regex.extractAll('id:123, id:456', 'id:\\d+') == ['id:123', 'id:456']
-//  regex.extractAll('id:123, id:456', 'assa') == []
-//  regex.extractAll('testuser@testdomain', '(.*)@([^.]*)') // Runtime Error multiple capture group
-
+//	regex.extractAll('id:123, id:456', 'id:\\d+') == ['id:123', 'id:456']
+//	regex.extractAll('id:123, id:456', 'assa') == []
+//	regex.extractAll('testuser@testdomain', '(.*)@([^.]*)') // Runtime Error multiple capture group
 func Regex(options ...RegexOptions) cel.EnvOption {
 	s := &regexLib{
 		version: math.MaxUint32,
