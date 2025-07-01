@@ -23,8 +23,11 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/policy"
+	"github.com/google/cel-go/test"
 	"github.com/google/cel-go/tools/compiler"
 	"gopkg.in/yaml.v3"
+
+	conformancepb "cel.dev/expr/conformance/test"
 )
 
 type testCase struct {
@@ -116,10 +119,7 @@ func TestTriggerTestsWithRunnerOptions(t *testing.T) {
 		if err != nil {
 			t.Fatalf("compiler.NewCompiler() failed: %v", err)
 		}
-		compilerOpt := TestRunnerOption(func(tr *TestRunner) (*TestRunner, error) {
-			tr.Compiler = c
-			return tr, nil
-		})
+		compilerOpt := CustomTestCompiler(c)
 		opts := []TestRunnerOption{compilerOpt, testSuiteParser, testCELPolicy}
 		TriggerTests(t, opts...)
 	})
@@ -209,4 +209,50 @@ func TestTriggerTests(t *testing.T) {
 			TriggerTests(t, testOpts...)
 		})
 	}
+}
+
+// TestCustomTestSuiteParser triggers the test runner where the tests are provided by a custom
+// test suite parser configured using TestSuiteParserOption.
+func TestCustomTestSuiteParser(t *testing.T) {
+	t.Run("test custom test suite parser", func(t *testing.T) {
+		celExpr := "a || i + fn(j) == 42"
+		compilerOpts := []any{compiler.EnvironmentFile("testdata/config.yaml"), fnEnvOption()}
+		testRunnerOpts := []TestRunnerOption{
+			TestCompiler(compilerOpts...),
+			TestExpression(celExpr),
+			TestSuiteParserOption(&tsparser{}),
+		}
+		TriggerTests(t, testRunnerOpts...)
+	})
+}
+
+type tsparser struct {
+	TestSuiteParser
+}
+
+// ParseTextproto implements the ParseTextproto method of the TestSuiteParser interface.
+func (p *tsparser) ParseTextproto(_ string) (*conformancepb.TestSuite, error) {
+	return nil, nil
+}
+
+// ParseYAML implements the ParseYAML method of the TestSuiteParser interface.
+func (p *tsparser) ParseYAML(_ string) (*test.Suite, error) {
+	testCase := &test.Case{
+		Name: "sample test case",
+		Input: map[string]*test.InputValue{
+			"i": {Value: 21},
+			"j": {Value: 42},
+			"a": {Value: false},
+		},
+		Output: &test.Output{Value: true},
+	}
+	testSection := &test.Section{
+		Name:  "sample test section",
+		Tests: []*test.Case{testCase},
+	}
+	suite := &test.Suite{
+		Description: "sample test suite",
+		Sections:    []*test.Section{testSection},
+	}
+	return suite, nil
 }
