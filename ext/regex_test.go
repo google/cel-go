@@ -12,10 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package ext contains CEL extension libraries where each library defines a related set of
-// constants, functions, macros, or other configuration settings which may not be covered by
-// the core CEL spec.
-
 package ext
 
 import (

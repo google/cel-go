@@ -108,8 +108,10 @@ func Regex(options ...RegexOptions) cel.EnvOption {
 	return cel.Lib(s)
 }
 
+// RegexOptions declares a functional operator for configuring regex extension.
 type RegexOptions func(*regexLib) *regexLib
 
+// RegexVersion configures the version of the Regex library definitions to use. See [Regex] for supported values.
 func RegexVersion(version uint32) RegexOptions {
 	return func(lib *regexLib) *regexLib {
 		lib.version = version
@@ -121,11 +123,12 @@ type regexLib struct {
 	version uint32
 }
 
+// LibraryName implements that SingletonLibrary interface method.
 func (r *regexLib) LibraryName() string {
 	return "cel.lib.ext.regex"
 }
 
-// CompileOptions implements cel.Library.
+// CompileOptions implements the cel.Library interface method.
 func (r *regexLib) CompileOptions() []cel.EnvOption {
 	optionalTypesEnabled := func(env *cel.Env) (*cel.Env, error) {
 		if !env.HasLibrary("cel.lib.optional") {
