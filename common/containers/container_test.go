@@ -62,6 +62,16 @@ func TestContainers_ResolveCandidateNames_EmptyContainer(t *testing.T) {
 	}
 }
 
+func TestContainers_Alias(t *testing.T) {
+	cont, err := DefaultContainer.Extend(Alias("my.example.pkg.verbose", "bigex"))
+	if err != nil {
+		t.Fatalf("Extend() failed: %v", err)
+	}
+	if !reflect.DeepEqual(cont.ResolveCandidateNames("bigex.Execute"), []string{"my.example.pkg.verbose.Execute"}) {
+		t.Errorf("ResolveCandidateNames() got %s, wanted %s", cont.ResolveCandidateNames("bigex.Execute"), "my.example.pkg.verbose.Execute")
+	}
+}
+
 func TestContainers_Abbrevs(t *testing.T) {
 	abbr, err := DefaultContainer.Extend(Abbrevs("my.alias.R"))
 	if err != nil {
