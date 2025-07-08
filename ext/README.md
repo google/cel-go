@@ -412,7 +412,7 @@ zero-based.
 
 ### Distinct
 
-**Introduced in version 2**
+**Introduced in version 2 (cost support in version 3)**
 
 Returns the distinct elements of a list.
 
@@ -426,7 +426,7 @@ Examples:
 
 ### Flatten
 
-**Introduced in version 1**
+**Introduced in version 1 (cost support in version 3)**
 
 Flattens a list recursively.
 If an optional depth is provided, the list is flattened to a the specificied level.
@@ -445,7 +445,7 @@ Examples:
 
 ### Range
 
-**Introduced in version 2**
+**Introduced in version 2 (cost support in version 3)**
 
 Returns a list of integers from 0 to n-1.
 
@@ -458,7 +458,7 @@ Examples:
 
 ### Reverse
 
-**Introduced in version 2**
+**Introduced in version 2 (cost support in version 3)**
 
 Returns the elements of a list in reverse order.
 
@@ -471,6 +471,7 @@ Examples:
 
 ### Slice
 
+**Introduced in version 0 (cost support in version 3)**
 
 Returns a new sub-list using the indexes provided.
 
@@ -483,7 +484,7 @@ Examples:
 
 ### Sort
 
-**Introduced in version 2**
+**Introduced in version 2 (cost support in version 3)**
 
 Sorts a list with comparable elements. If the element type is not comparable
 or the element types are not the same, the function will produce an error.
@@ -500,7 +501,7 @@ Examples:
 
 ### SortBy
 
-**Introduced in version 2**
+**Introduced in version 2 (cost support in version 3)**
 
 Sorts a list by a key value, i.e., the order is determined by the result of
 an expression applied to each element of the list.
