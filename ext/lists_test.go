@@ -20,7 +20,9 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/common/types"
+
 	proto2pb "github.com/google/cel-go/test/proto2pb"
 )
 
@@ -221,6 +223,285 @@ func TestListsVersion(t *testing.T) {
 						}
 					})
 				}
+			}
+		})
+	}
+}
+
+func TestListsCosts(t *testing.T) {
+	tests := []struct {
+		name          string
+		expr          string
+		vars          []cel.EnvOption
+		in            map[string]any
+		hints         map[string]uint64
+		estimatedCost checker.CostEstimate
+		actualCost    uint64
+	}{
+		{
+			// (1 array alloc + internal alloc) * 10
+			// + size(list)
+			// + 2 calls
+			name:          "list_range",
+			expr:          `lists.range(4) == [0, 1, 2, 3]`,
+			estimatedCost: checker.FixedCostEstimate(26),
+			actualCost:    26,
+		},
+		{
+			name:          "list_range_computed",
+			expr:          `lists.range(4 / 2) == [0, 1]`,
+			estimatedCost: checker.FixedCostEstimate(18446744073709551615),
+			actualCost:    25,
+		},
+		{
+			name:          "list_range_var",
+			expr:          `lists.range(x) == [0, 1, 2, 3, 4]`,
+			vars:          []cel.EnvOption{cel.Variable("x", cel.IntType)},
+			in:            map[string]any{"x": 5},
+			hints:         map[string]uint64{"x": 10},
+			estimatedCost: checker.FixedCostEstimate(18446744073709551615),
+			actualCost:    28,
+		},
+		{
+			// (3 array allocs + internal alloc) * 10 + size(list) + 2 calls
+			name:          "list_flatten_depth_one",
+			expr:          `[[1, 2], 3].flatten(1) == [1, 2, 3]`,
+			estimatedCost: checker.FixedCostEstimate(44),
+			actualCost:    44,
+		},
+		{
+			// (3 array allocs + internal alloc) * 10 + size(list) * 2 + 2 calls
+			name:          "list_flatten_depth_two",
+			expr:          `[[1, 2], 3].flatten(2) == [1, 2, 3]`,
+			estimatedCost: checker.FixedCostEstimate(46),
+			actualCost:    46,
+		},
+		{
+			// (3 array allocs + internal alloc) * 10 + size(list) * 3 + 2 calls
+			name:          "list_flatten_depth_three",
+			expr:          `[[1, 2], 3].flatten(3) == [1, 2, 3]`,
+			estimatedCost: checker.FixedCostEstimate(48),
+			actualCost:    48,
+		},
+		{
+			name:          "list_flatten",
+			expr:          `[[1], 2, 3].flatten() == [1, 2, 3]`,
+			estimatedCost: checker.FixedCostEstimate(45),
+			actualCost:    45,
+		},
+		{
+			name:          "list_flatten_var",
+			expr:          `x.flatten() == [1, 2, 3]`,
+			vars:          []cel.EnvOption{cel.Variable("x", cel.ListType(cel.DynType))},
+			in:            map[string]any{"x": []any{[]any{1}, 2, 3}},
+			hints:         map[string]uint64{"x": 3},
+			estimatedCost: checker.CostEstimate{Min: 23, Max: 26},
+			actualCost:    26,
+		},
+		{
+			name:          "list_flatten_depth_var",
+			expr:          `[[1, 2], 3].flatten(x) == [1, 2, 3]`,
+			vars:          []cel.EnvOption{cel.Variable("x", cel.IntType)},
+			in:            map[string]any{"x": 5},
+			hints:         map[string]uint64{"x": 10},
+			estimatedCost: checker.FixedCostEstimate(18446744073709551615),
+			actualCost:    53,
+		},
+		{
+			// (2 array allocs + 1 internal) * 10
+			// + size(list) * size(list) * 2
+			// + 2 calls
+			name:          "list_distinct_worst_case",
+			expr:          `[1, 2, 3].distinct() == [1, 2, 3]`,
+			estimatedCost: checker.FixedCostEstimate(50),
+			actualCost:    50,
+		},
+		{
+			// (2 array allocs + 1 internal) * 10
+			// + size(list) * size(list) * 2
+			// + 2 calls
+			name:          "list_distinct_best_case",
+			expr:          `[1, 1, 1].distinct() == [1]`,
+			estimatedCost: checker.FixedCostEstimate(50),
+			actualCost:    50,
+		},
+		{
+			// (1 array alloc + 1 internal) * 20
+			// + [0, size(x) * size(x)] * 2 --> [0, 18]
+			// + 2 calls
+			// + 1 ident lookup
+			name:          "list_distinct_var",
+			expr:          `x.distinct() == ['hello']`,
+			vars:          []cel.EnvOption{cel.Variable("x", cel.ListType(cel.StringType))},
+			in:            map[string]any{"x": []string{"hello", "hello"}},
+			hints:         map[string]uint64{"x": 3},
+			estimatedCost: checker.CostEstimate{Min: 23, Max: 41},
+			actualCost:    31,
+		},
+		{
+			// allocs: (2 + one internal) * 10
+			// max_slice cost: 5
+			// lookups: 2
+			// calls: 2
+			name: "list_slice_var_range",
+			expr: `[1, 2, 3, 4, 5].slice(x, y) == [2, 3]`,
+			vars: []cel.EnvOption{
+				cel.Variable("x", cel.IntType),
+				cel.Variable("y", cel.IntType),
+			},
+			in:            map[string]any{"x": 1, "y": 3},
+			estimatedCost: checker.FixedCostEstimate(39),
+			actualCost:    36,
+		},
+		{
+			// allocs: (1 + one internal) * 10
+			// max_slice cost: 2
+			// lookups: 1
+			// calls: 2
+			name: "list_slice_var_list",
+			expr: `z.slice(1, 3) == [2, 3]`,
+			vars: []cel.EnvOption{
+				cel.Variable("x", cel.IntType),
+				cel.Variable("y", cel.IntType),
+				cel.Variable("z", cel.ListType(cel.IntType)),
+			},
+			in:            map[string]any{"x": 1, "y": 3, "z": []int{1, 2, 3, 4, 5, 6, 7}},
+			hints:         map[string]uint64{"z": 10},
+			estimatedCost: checker.FixedCostEstimate(25),
+			actualCost:    25,
+		},
+		{
+			// allocs: (1 + one internal) * 10
+			// max_slice cost: 10
+			// lookups: 3
+			// calls: 2
+			name: "list_slice_var_list_var_range",
+			expr: `z.slice(x, y) == [2, 3]`,
+			vars: []cel.EnvOption{
+				cel.Variable("x", cel.IntType),
+				cel.Variable("y", cel.IntType),
+				cel.Variable("z", cel.ListType(cel.IntType)),
+			},
+			in:            map[string]any{"x": 1, "y": 3, "z": []int{1, 2, 3, 4, 5, 6, 7}},
+			hints:         map[string]uint64{"z": 10},
+			estimatedCost: checker.FixedCostEstimate(35),
+			actualCost:    27,
+		},
+		{
+			name:          "list_slice",
+			expr:          `[1, 2, 3].slice(1, 3) == [2, 3]`,
+			estimatedCost: checker.FixedCostEstimate(34),
+			actualCost:    34,
+		},
+		{
+			// allocs: (2 + one internal) * 10
+			// reverse cost: 3
+			// calls: 2
+			name:          "list_reverse",
+			expr:          `[3, 2, 1].reverse() == [1, 2, 3]`,
+			estimatedCost: checker.FixedCostEstimate(35),
+			actualCost:    35,
+		},
+		{
+			// allocs: (1 + one internal) * 10
+			// reverse cost: 5
+			// lookups: 1
+			// calls: 2
+			name: "list_var_reverse",
+			expr: `x.reverse() == [1, 2, 3]`,
+			vars: []cel.EnvOption{
+				cel.Variable("x", cel.ListType(cel.IntType)),
+			},
+			in:            map[string]any{"x": []int{3, 2, 1}},
+			hints:         map[string]uint64{"x": 5},
+			estimatedCost: checker.CostEstimate{Min: 23, Max: 28},
+			actualCost:    26,
+		},
+		{
+			// (2 allocs + 1 internal) * 10
+			// + size(list) * size(list) * 2
+			// + 2 calls
+			name:          "list_sort",
+			expr:          `[2, 3, 1].sort() == [1, 2, 3]`,
+			estimatedCost: checker.FixedCostEstimate(50),
+			actualCost:    50,
+		},
+		{
+			// (1 allocs + 1 internal) * 10
+			// + [0, size(x) * size(x)] * 2 --> [0, 50]
+			// + 2 calls
+			// + 1 ident lookup
+			name:          "list_sort_var",
+			expr:          `x.sort() == [1, 2, 3]`,
+			vars:          []cel.EnvOption{cel.Variable("x", cel.ListType(cel.IntType))},
+			in:            map[string]any{"x": []int{3, 2, 1}},
+			hints:         map[string]uint64{"x": 5},
+			estimatedCost: checker.CostEstimate{Min: 23, Max: 73},
+			actualCost:    41,
+		},
+		{
+			name:          "list_sort_var_string",
+			expr:          `x.sort() == ["a", "a", "b", "b", "c", "c"]`,
+			vars:          []cel.EnvOption{cel.Variable("x", cel.ListType(cel.StringType))},
+			in:            map[string]any{"x": []string{"b", "a", "b", "a", "c", "c"}},
+			hints:         map[string]uint64{"x": 10},
+			estimatedCost: checker.CostEstimate{Min: 23, Max: 233},
+			actualCost:    98,
+		},
+		{
+			name:          "list_sort_var_int_empty",
+			expr:          `x.sort() == []`,
+			vars:          []cel.EnvOption{cel.Variable("x", cel.ListType(cel.IntType))},
+			in:            map[string]any{"x": []int{}},
+			hints:         map[string]uint64{"x": 10},
+			estimatedCost: checker.CostEstimate{Min: 22, Max: 222},
+			actualCost:    22,
+		},
+		{
+			name:          "list_sortBy",
+			expr:          `[{'x':4}, {'x':3}].sortBy(m, m['x']) == [{'x':3}, {'x':4}]`,
+			estimatedCost: checker.FixedCostEstimate(211),
+			actualCost:    211,
+		},
+		{
+			name:          "list_sortBy_var",
+			expr:          `x.sortBy(m, m['x']) == [{'x':3}, {'x':4}]`,
+			vars:          []cel.EnvOption{cel.Variable("x", cel.ListType(cel.DynType))},
+			in:            map[string]any{"x": []any{map[string]any{"x": 4}, map[string]any{"x": 3}}},
+			hints:         map[string]uint64{"x": 5},
+			estimatedCost: checker.CostEstimate{Min: 106, Max: 226},
+			actualCost:    142,
+		},
+		{
+			name:          "list_sortBy_var_string",
+			expr:          `x.sortBy(m, m['x']) == [{'x': 'a'}, {'x': 'b'}, {'x': 'c'}]`,
+			vars:          []cel.EnvOption{cel.Variable("x", cel.ListType(cel.MapType(cel.StringType, cel.StringType)))},
+			in:            map[string]any{"x": []any{map[string]any{"x": "b"}, map[string]any{"x": "c"}, map[string]any{"x": "a"}}},
+			hints:         map[string]uint64{"x": 3},
+			estimatedCost: checker.CostEstimate{Min: 136, Max: 197},
+			actualCost:    196,
+		},
+	}
+
+	for _, tst := range tests {
+		tc := tst
+		t.Run(tc.name, func(t *testing.T) {
+			env := testListsEnv(t, tc.vars...)
+			var asts []*cel.Ast
+			pAst, iss := env.Parse(tc.expr)
+			if iss.Err() != nil {
+				t.Fatalf("env.Parse(%v) failed: %v", tc.expr, iss.Err())
+			}
+			asts = append(asts, pAst)
+			cAst, iss := env.Check(pAst)
+			if iss.Err() != nil {
+				t.Fatalf("env.Check(%v) failed: %v", tc.expr, iss.Err())
+			}
+
+			testCheckCost(t, env, cAst, tc.hints, tc.estimatedCost)
+			asts = append(asts, cAst)
+			for _, ast := range asts {
+				testEvalWithCost(t, env, ast, tc.in, tc.actualCost)
 			}
 		})
 	}
