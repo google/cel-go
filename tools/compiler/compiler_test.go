@@ -323,7 +323,7 @@ func testEnvProto() *configpb.Environment {
 			{
 				Name: "cel.validator.comprehension_nesting_limit",
 				Config: map[string]*structpb.Value{
-					"limits": structpb.NewNumberValue(2),
+					"limit": structpb.NewNumberValue(2),
 				},
 			},
 		},
