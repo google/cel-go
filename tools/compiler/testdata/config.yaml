@@ -74,7 +74,7 @@ functions:
           type_name: "string"
 validators:
   - name: cel.validator.duration
-  - name: cel.validator.nesting_comprehension_limit
+  - name: cel.validator.comprehension_nesting_limit
     config:
       limit: 2
 features:

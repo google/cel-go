@@ -321,7 +321,7 @@ func testEnvProto() *configpb.Environment {
 		Validators: []*configpb.Validator{
 			{Name: "cel.validator.duration"},
 			{
-				Name: "cel.validator.nesting_comprehension_limit",
+				Name: "cel.validator.comprehension_nesting_limit",
 				Config: map[string]*structpb.Value{
 					"limits": structpb.NewNumberValue(2),
 				},

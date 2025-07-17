@@ -106,7 +106,7 @@ func TestConfig(t *testing.T) {
 				NewValidator("cel.validator.duration"),
 				NewValidator("cel.validator.matches"),
 				NewValidator("cel.validator.timestamp"),
-				NewValidator("cel.validator.nesting_comprehension_limit").
+				NewValidator("cel.validator.comprehension_nesting_limit").
 					SetConfig(map[string]any{"limit": 2}),
 			),
 		},
