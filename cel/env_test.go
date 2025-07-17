@@ -877,10 +877,16 @@ func TestEnvFromConfigErrors(t *testing.T) {
 			want: errors.New("invalid validator"),
 		},
 		{
-			name: "invalid validator config type",
+			name: "invalid validator config type - unsupported type",
 			conf: env.NewConfig("invalid validator config").
-				AddValidators(env.NewValidator("cel.validator.comprehension_nesting_limit").SetConfig(map[string]any{"limit": 2.0})),
+				AddValidators(env.NewValidator("cel.validator.comprehension_nesting_limit").SetConfig(map[string]any{"limit": "2"})),
 			want: errors.New("invalid validator"),
+		},
+		{
+			name: "invalid validator config type - fractional",
+			conf: env.NewConfig("invalid validator config").
+				AddValidators(env.NewValidator("cel.validator.comprehension_nesting_limit").SetConfig(map[string]any{"limit": 2.5})),
+			want: errors.New("invalid validator: cel.validator.comprehension_nesting_limit, limit value is not a whole number: 2.5"),
 		},
 	}
 	for _, tst := range tests {

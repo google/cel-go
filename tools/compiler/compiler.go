@@ -323,7 +323,7 @@ func envToValidators(pbEnv *configpb.Environment) ([]*env.Validator, error) {
 		config := map[string]any{}
 		for k, v := range pbValidator.GetConfig() {
 			val := types.DefaultTypeAdapter.NativeToValue(v)
-			config[k] = val
+			config[k] = val.Value()
 		}
 		validator.SetConfig(config)
 		validators = append(validators, validator)
