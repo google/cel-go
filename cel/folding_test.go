@@ -332,7 +332,9 @@ func TestConstantFoldingOptimizer(t *testing.T) {
 		EnableMacroCallTracking(),
 		Types(&proto3pb.TestAllTypes{}),
 		Variable("x", DynType),
-		Constant("c", IntType, types.Int(proto3pb.ImportedGlobalEnum_IMPORT_BAZ)),
+		// work around different package convention in piper vs github.
+		// google.expr.proto3.test.ImportedGlobalEnum.IMPORT_BAZ
+		Constant("c", IntType, types.Int(2)),
 	)
 	if err != nil {
 		t.Fatalf("NewEnv() failed: %v", err)
