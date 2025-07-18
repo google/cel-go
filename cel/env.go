@@ -27,6 +27,7 @@ import (
 	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/env"
+	"github.com/google/cel-go/common/functions"
 	"github.com/google/cel-go/common/stdlib"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
@@ -129,18 +130,19 @@ func FormatCELType(t *Type) string {
 // Env encapsulates the context necessary to perform parsing, type checking, or generation of
 // evaluable programs for different expressions.
 type Env struct {
-	Container       *containers.Container
-	variables       []*decls.VariableDecl
-	functions       map[string]*decls.FunctionDecl
-	macros          []Macro
-	contextProto    protoreflect.MessageDescriptor
-	adapter         types.Adapter
-	provider        types.Provider
-	features        map[int]bool
-	appliedFeatures map[int]bool
-	libraries       map[string]SingletonLibrary
-	validators      []ASTValidator
-	costOptions     []checker.CostOption
+	Container        *containers.Container
+	variables        []*decls.VariableDecl
+	functions        map[string]*decls.FunctionDecl
+	functionBindings []*functions.Overload
+	macros           []Macro
+	contextProto     protoreflect.MessageDescriptor
+	adapter          types.Adapter
+	provider         types.Provider
+	features         map[int]bool
+	appliedFeatures  map[int]bool
+	libraries        map[string]SingletonLibrary
+	validators       []ASTValidator
+	costOptions      []checker.CostOption
 
 	// Internal parser representation
 	prsr     *parser.Parser
@@ -320,18 +322,19 @@ func NewCustomEnv(opts ...EnvOption) (*Env, error) {
 		return nil, err
 	}
 	return (&Env{
-		variables:       []*decls.VariableDecl{},
-		functions:       map[string]*decls.FunctionDecl{},
-		macros:          []parser.Macro{},
-		Container:       containers.DefaultContainer,
-		adapter:         registry,
-		provider:        registry,
-		features:        map[int]bool{},
-		appliedFeatures: map[int]bool{},
-		libraries:       map[string]SingletonLibrary{},
-		validators:      []ASTValidator{},
-		progOpts:        []ProgramOption{},
-		costOptions:     []checker.CostOption{},
+		variables:        []*decls.VariableDecl{},
+		functions:        map[string]*decls.FunctionDecl{},
+		functionBindings: []*functions.Overload{},
+		macros:           []parser.Macro{},
+		Container:        containers.DefaultContainer,
+		adapter:          registry,
+		provider:         registry,
+		features:         map[int]bool{},
+		appliedFeatures:  map[int]bool{},
+		libraries:        map[string]SingletonLibrary{},
+		validators:       []ASTValidator{},
+		progOpts:         []ProgramOption{},
+		costOptions:      []checker.CostOption{},
 	}).configure(opts)
 }
 
@@ -791,6 +794,16 @@ func (e *Env) configure(opts []EnvOption) (*Env, error) {
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	// Precalculate function bindings
+	e.functionBindings = []*functions.Overload{}
+	for _, fn := range e.functions {
+		bindings, err := fn.Bindings()
+		if err != nil {
+			return nil, err
+		}
+		e.functionBindings = append(e.functionBindings, bindings...)
 	}
 
 	return e, nil

@@ -157,17 +157,13 @@ func TestFunctionMerge(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "already has a singleton binding") {
 		t.Errorf("NewCustomEnv(size, size) did not produce the expected error: %v", err)
 	}
-	e, err = NewCustomEnv(size,
+	_, err = NewCustomEnv(size,
 		Function("size",
 			Overload("size_int", []*Type{IntType}, IntType,
 				UnaryBinding(func(arg ref.Val) ref.Val { return types.Int(2) }),
 			),
 		),
 	)
-	if err != nil {
-		t.Fatalf("NewCustomEnv(size, <custom>) failed: %v", err)
-	}
-	_, err = e.Program(ast)
 	if err == nil || !strings.Contains(err.Error(), "incompatible with specialized overloads") {
 		t.Errorf("NewCustomEnv(size, size_specialization) did not produce the expected error: %v", err)
 	}

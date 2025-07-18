@@ -192,15 +192,9 @@ func newProgram(e *Env, a *ast.AST, opts []ProgramOption) (Program, error) {
 	}
 
 	// Add the function bindings created via Function() options.
-	for _, fn := range e.functions {
-		bindings, err := fn.Bindings()
-		if err != nil {
-			return nil, err
-		}
-		err = disp.Add(bindings...)
-		if err != nil {
-			return nil, err
-		}
+	err = disp.Add(e.functionBindings...)
+	if err != nil {
+		return nil, err
 	}
 
 	// Set the attribute factory after the options have been set.
