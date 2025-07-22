@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/checker"
 )
 
 func TestRegex(t *testing.T) {
@@ -187,10 +188,6 @@ func TestRegexRuntimeErrors(t *testing.T) {
 			err:  `invalid replacement string: 'value: \' \ not allowed at end`,
 		},
 		{
-			expr: `regex.replace('foofoo', 'foo', 'bar', 9223372036854775807)`,
-			err:  "integer overflow",
-		},
-		{
 			expr: `regex.extract('phone: 415-5551212', r'phone: ((\d{3})-)?')`,
 			err:  `regular expression has more than one capturing group: "phone: ((\\d{3})-)?"`,
 		},
@@ -271,4 +268,118 @@ func testRegexEnv(t *testing.T, opts ...cel.EnvOption) *cel.Env {
 		t.Fatalf("cel.NewEnv(Regex()) failed: %v", err)
 	}
 	return env
+}
+
+func TestRegexCosts(t *testing.T) {
+	tests := []struct {
+		expr          string
+		vars          []cel.EnvOption
+		in            map[string]any
+		hints         map[string]uint64
+		estimatedCost checker.CostEstimate
+		actualCost    uint64
+	}{
+		{
+			expr:          `regex.extract('hello world', 'hello (.*)') == optional.of('world')`,
+			estimatedCost: checker.CostEstimate{Min: 8, Max: 9},
+			actualCost:    4,
+		},
+		{
+			expr:          "regex.extract('4122345432', '22').orValue('777') == '22'",
+			estimatedCost: checker.CostEstimate{Min: 4, Max: 4},
+			actualCost:    2,
+		},
+		{
+			expr:          "regex.extract('4122345432', '22').or(optional.of('777')) == optional.of('22')",
+			estimatedCost: checker.CostEstimate{Min: 6, Max: 1844674407370955269},
+			actualCost:    3,
+		},
+		{
+			expr:          "regex.extract('hello world', 'goodbye (.*)') == optional.none()",
+			estimatedCost: checker.CostEstimate{Min: 10, Max: 11},
+			actualCost:    4,
+		},
+		{
+			expr:          "regex.extractAll('id:123, id:456', 'assa') == []",
+			estimatedCost: checker.CostEstimate{Min: 24, Max: 38},
+			actualCost:    21,
+		},
+		{
+			expr:          `regex.extractAll('id:123, id:456', r'id:\d+') == ['id:123', 'id:456']`,
+			estimatedCost: checker.CostEstimate{Min: 25, Max: 39},
+			actualCost:    22,
+		},
+		{
+			expr:          `regex.extractAll('a b c', r'(\S*)\s*') == ['a', 'b', 'c']`,
+			estimatedCost: checker.CostEstimate{Min: 24, Max: 29},
+			actualCost:    22,
+		},
+		{
+			expr:          `regex.extractAll('testuser@gmail.com, a@y.com, 2312321wsamkldjq2w2@sdad.com', r'(?P<username>\w+)@') == ['testuser', 'a', '2312321wsamkldjq2w2']`,
+			estimatedCost: checker.CostEstimate{Min: 51, Max: 108},
+			actualCost:    32,
+		},
+		{
+			expr:          "regex.replace('hello world hello', 'hello', 'hi') == 'hi world hi'",
+			estimatedCost: checker.CostEstimate{Min: 22, Max: 23},
+			actualCost:    3,
+		},
+		{
+			expr:          `regex.replace('ac', 'a(b)?c', r'[\1]') == '[]'`,
+			estimatedCost: checker.CostEstimate{Min: 5, Max: 5},
+			actualCost:    2,
+		},
+		{
+			expr:          "regex.replace('apple pie', 'p', 'X') == 'aXXle Xie'",
+			estimatedCost: checker.CostEstimate{Min: 11, Max: 11},
+			actualCost:    2,
+		},
+		{
+			expr:          "regex.replace('aaaaaa', 'a', '-what-') == '-what--what--what--what--what--what-'",
+			estimatedCost: checker.CostEstimate{Min: 8, Max: 8},
+			actualCost:    5,
+		},
+		{
+			expr:          "regex.replace('banana', 'a', 'x', 0) == 'banana'",
+			estimatedCost: checker.CostEstimate{Min: 8, Max: 8},
+			actualCost:    2,
+		},
+		{
+			expr:          "regex.replace('banana', 'a', 'x', 1) == 'bxnana'",
+			estimatedCost: checker.CostEstimate{Min: 8, Max: 8},
+			actualCost:    2,
+		},
+		{
+			expr:          "regex.replace('banana', 'a', 'x', 2) == 'bxnxna'",
+			estimatedCost: checker.CostEstimate{Min: 8, Max: 8},
+			actualCost:    2,
+		},
+		{
+			expr:          "regex.replace('banana', 'a', 'x', 100) == 'bxnxnx'",
+			estimatedCost: checker.CostEstimate{Min: 8, Max: 8},
+			actualCost:    2,
+		},
+	}
+	for _, test := range tests {
+		tc := test
+		t.Run(tc.expr, func(t *testing.T) {
+			env := testRegexEnv(t, tc.vars...)
+			var asts []*cel.Ast
+			pAst, iss := env.Parse(tc.expr)
+			if iss.Err() != nil {
+				t.Fatalf("Parse(%s) failed: %v", tc.expr, iss.Err())
+			}
+			asts = append(asts, pAst)
+			cAst, iss := env.Check(pAst)
+			if iss.Err() != nil {
+				t.Fatalf("Check(%s) failed: %v", tc.expr, iss.Err())
+			}
+
+			testCheckCost(t, env, cAst, tc.hints, tc.estimatedCost)
+			asts = append(asts, cAst)
+			for _, ast := range asts {
+				testEvalWithCost(t, env, ast, tc.in, tc.actualCost)
+			}
+		})
+	}
 }

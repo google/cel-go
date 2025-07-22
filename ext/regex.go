@@ -23,8 +23,11 @@ import (
 	"strings"
 
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/checker"
+	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/interpreter"
 )
 
 const (
@@ -151,6 +154,12 @@ func (r *regexLib) CompileOptions() []cel.EnvOption {
 			cel.Overload("regex_replace_string_string_string_int", []*cel.Type{cel.StringType, cel.StringType, cel.StringType, cel.IntType}, cel.StringType,
 				cel.FunctionBinding((regReplaceN))),
 		),
+		cel.CostEstimatorOptions(
+			checker.OverloadCostEstimate("regex_extract_string_string", estimateExtractCost()),
+			checker.OverloadCostEstimate("regex_extractAll_string_string", estimateExtractAllCost()),
+			checker.OverloadCostEstimate("regex_replace_string_string_string", estimateReplaceCost()),
+			checker.OverloadCostEstimate("regex_replace_string_string_string_int", estimateReplaceCost()),
+		),
 		cel.EnvOption(optionalTypesEnabled),
 	}
 	return opts
@@ -158,7 +167,14 @@ func (r *regexLib) CompileOptions() []cel.EnvOption {
 
 // ProgramOptions implements the cel.Library interface method
 func (r *regexLib) ProgramOptions() []cel.ProgramOption {
-	return []cel.ProgramOption{}
+	return []cel.ProgramOption{
+		cel.CostTrackerOptions(
+			interpreter.OverloadCostTracker("regex_extract_string_string", trackExtractCost()),
+			interpreter.OverloadCostTracker("regex_extractAll_string_string", trackExtractAllCost()),
+			interpreter.OverloadCostTracker("regex_replace_string_string_string", trackReplaceCost()),
+			interpreter.OverloadCostTracker("regex_replace_string_string_string_int", trackReplaceCost()),
+		),
+	}
 }
 
 func compileRegex(regexStr string) (*regexp.Regexp, error) {
@@ -187,16 +203,12 @@ func regReplaceN(args ...ref.Val) ref.Val {
 		return types.String(target)
 	}
 
-	if replaceCount > math.MaxInt32 {
-		return types.NewErr("integer overflow")
-	}
-
 	// If replaceCount is negative, just do a replaceAll.
 	if replaceCount < 0 {
 		replaceCount = -1
 	}
 
-	re, err := regexp.Compile(regexStr)
+	re, err := compileRegex(regexStr)
 	if err != nil {
 		return types.WrapErr(err)
 	}
@@ -329,4 +341,81 @@ func extractAll(target, regexStr ref.Val) ref.Val {
 		}
 	}
 	return types.NewStringList(types.DefaultTypeAdapter, result)
+}
+
+func estimateExtractCost() checker.FunctionEstimator {
+	return func(c checker.CostEstimator, target *checker.AstNode, args []checker.AstNode) *checker.CallEstimate {
+		if len(args) == 2 {
+			targetSize := estimateSize(c, args[0])
+			targetCost := targetSize.Add(checker.FixedSizeEstimate(1)).MultiplyByCostFactor(common.StringTraversalCostFactor)
+			regexCost := estimateSize(c, args[1]).Add(checker.FixedSizeEstimate(1)).MultiplyByCostFactor(common.RegexStringLengthCostFactor)
+			return &checker.CallEstimate{CostEstimate: checker.CostEstimate(targetCost).Multiply(regexCost), ResultSize: &targetSize}
+		}
+		return nil
+	}
+}
+
+func estimateExtractAllCost() checker.FunctionEstimator {
+	return func(c checker.CostEstimator, target *checker.AstNode, args []checker.AstNode) *checker.CallEstimate {
+		if len(args) == 2 {
+
+			targetSize := estimateSize(c, args[0])
+			targetCost := targetSize.Add(checker.FixedSizeEstimate(1)).MultiplyByCostFactor(common.StringTraversalCostFactor)
+			regexCost := estimateSize(c, args[1]).Add(checker.FixedSizeEstimate(1)).MultiplyByCostFactor(common.RegexStringLengthCostFactor)
+
+			resultSize := checker.SizeEstimate{Min: 0, Max: targetSize.Max}
+			listAllocCost := resultSize.Add(checker.FixedSizeEstimate(common.ListCreateBaseCost)).MultiplyByCostFactor(1)
+
+			return &checker.CallEstimate{
+				CostEstimate: targetCost.Multiply(regexCost).Add(listAllocCost),
+				ResultSize:   &resultSize,
+			}
+		}
+		return nil
+	}
+}
+
+func estimateReplaceCost() checker.FunctionEstimator {
+	return func(c checker.CostEstimator, target *checker.AstNode, args []checker.AstNode) *checker.CallEstimate {
+		l := len(args)
+		if l == 3 || l == 4 {
+			targetSize := estimateSize(c, args[0])
+			resultSize := checker.SizeEstimate{Min: 0, Max: targetSize.Max}
+			targetCost := targetSize.Add(checker.FixedSizeEstimate(1)).MultiplyByCostFactor(common.StringTraversalCostFactor)
+
+			regexSize := estimateSize(c, args[1]).Add(checker.FixedSizeEstimate(1)).MultiplyByCostFactor(common.RegexStringLengthCostFactor)
+			replacementCost := estimateSize(c, args[2]).Add(checker.FixedSizeEstimate(1)).MultiplyByCostFactor(common.StringTraversalCostFactor)
+			cost := targetCost.Multiply(regexSize).Add(checker.CostEstimate(targetSize).Multiply(replacementCost))
+			return &checker.CallEstimate{CostEstimate: cost, ResultSize: &resultSize}
+		}
+		return nil
+	}
+}
+
+func trackExtractCost() interpreter.FunctionTracker {
+	return func(args []ref.Val, _ ref.Val) *uint64 {
+		targetSize := float64(actualSize(args[0])) * float64(common.StringTraversalCostFactor)
+		regexSize := float64(actualSize(args[1])) * float64(common.StringTraversalCostFactor)
+		cost := callCost + uint64(float64(targetSize*regexSize))
+		return &cost
+	}
+}
+
+func trackExtractAllCost() interpreter.FunctionTracker {
+	return func(args []ref.Val, _ ref.Val) *uint64 {
+		targetSize := float64(actualSize(args[0])) * float64(common.StringTraversalCostFactor)
+		regexSize := float64(actualSize(args[1])) * float64(common.StringTraversalCostFactor)
+		cost := callCost + uint64(float64(targetSize*regexSize)) + common.ListCreateBaseCost
+		return &cost
+	}
+}
+
+func trackReplaceCost() interpreter.FunctionTracker {
+	return func(args []ref.Val, _ ref.Val) *uint64 {
+		targetSize := float64(actualSize(args[0])) * float64(common.StringTraversalCostFactor)
+		regexSize := float64(actualSize(args[1])) * float64(common.StringTraversalCostFactor)
+		replacementSize := float64(actualSize(args[2])) * float64(common.StringTraversalCostFactor)
+		cost := callCost + uint64(float64(targetSize*regexSize)) + uint64(float64(targetSize*replacementSize))
+		return &cost
+	}
 }
