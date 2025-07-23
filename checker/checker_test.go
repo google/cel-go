@@ -2652,6 +2652,185 @@ func TestCheckInvalidLiteral(t *testing.T) {
 	}
 }
 
+func TestCheckInvalidComprehensionCondition(t *testing.T) {
+	t.Parallel()
+	// [1, 2, 3].map(x, 1, 2)
+	fac := ast.NewExprFactory()
+	list := fac.NewList(1, []ast.Expr{fac.NewLiteral(2, types.Int(1)), fac.NewLiteral(3, types.Int(2)), fac.NewLiteral(4, types.Int(3))}, nil)
+	accuInit := fac.NewLiteral(5, types.Int(0))
+	loopCond := fac.NewLiteral(6, types.Int(1))
+	loopStep := fac.NewLiteral(7, types.Int(2))
+	result := fac.NewIdent(8, "@result")
+	compre := fac.NewComprehension(9, list, "x", "@result", accuInit, loopCond, loopStep, result)
+
+	src := common.NewTextSource("[1, 2, 3].map(x, 1, 2)")
+	parsed := ast.NewAST(compre, ast.NewSourceInfo(src))
+	reg, err := types.NewRegistry()
+	if err != nil {
+		t.Fatalf("types.NewRegistry() failed: %v", err)
+	}
+	env, err := NewEnv(containers.DefaultContainer, reg)
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	env.AddFunctions(stdlib.Functions()...)
+	_, iss := Check(parsed, src, env)
+	if len(iss.GetErrors()) == 0 {
+		t.Fatal("Check() succeeded, expected error")
+	}
+	if !strings.Contains(iss.ToDisplayString(), "expected type 'bool' but found 'int'") {
+		t.Errorf("got %v, wanted error containing \"expected type 'bool' but found 'int'\"", iss.ToDisplayString())
+	}
+}
+
+func TestCheckInvalidComprehensionStep(t *testing.T) {
+	t.Parallel()
+	// [1, 2, 3].map(x, true, "hello")
+	fac := ast.NewExprFactory()
+	list := fac.NewList(1, []ast.Expr{fac.NewLiteral(2, types.Int(1)), fac.NewLiteral(3, types.Int(2)), fac.NewLiteral(4, types.Int(3))}, nil)
+	accuInit := fac.NewLiteral(5, types.Int(0))
+	loopCond := fac.NewLiteral(6, types.True)
+	loopStep := fac.NewLiteral(7, types.String("hello"))
+	result := fac.NewIdent(8, "@result")
+	compre := fac.NewComprehension(9, list, "x", "@result", accuInit, loopCond, loopStep, result)
+
+	src := common.NewTextSource(`[1, 2, 3].map(x, true, "hello")`)
+	parsed := ast.NewAST(compre, ast.NewSourceInfo(src))
+	reg, err := types.NewRegistry()
+	if err != nil {
+		t.Fatalf("types.NewRegistry() failed: %v", err)
+	}
+	env, err := NewEnv(containers.DefaultContainer, reg)
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	env.AddFunctions(stdlib.Functions()...)
+	_, iss := Check(parsed, src, env)
+	if len(iss.GetErrors()) == 0 {
+		t.Fatal("Check() succeeded, expected error")
+	}
+	if !strings.Contains(iss.ToDisplayString(), "expected type 'int' but found 'string'") {
+		t.Errorf("got %v, wanted error containing \"expected type 'int' but found 'string'\"", iss.ToDisplayString())
+	}
+}
+
+func TestCheckAugmentedListElement(t *testing.T) {
+	t.Parallel()
+	fac := ast.NewExprFactory()
+	// create the expression [x]
+	identX := fac.NewIdent(1, "x")
+	// create a stand-in for an annotation struct.
+	// this doesn't have to be a valid annotation, just a struct that is wrapped in a call.
+	annotation := fac.NewStruct(2, "cel.Annotation", []ast.EntryExpr{})
+	annotatedX := fac.NewCall(3, "cel.@annotation", identX, annotation)
+	list := fac.NewList(4, []ast.Expr{annotatedX}, []int32{})
+
+	// This is not valid syntax, just for illustration purposes.
+	src := common.NewTextSource("[x]")
+	parsed := ast.NewAST(list, ast.NewSourceInfo(src))
+	reg, err := types.NewRegistry()
+	if err != nil {
+		t.Fatalf("types.NewRegistry() failed: %v", err)
+	}
+	env, err := NewEnv(containers.DefaultContainer, reg)
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	err = env.AddIdents(decls.NewVariable("x", types.IntType))
+	if err != nil {
+		t.Fatalf("env.AddIdents() failed: %v", err)
+	}
+
+	checked, iss := Check(parsed, src, env)
+	if len(iss.GetErrors()) > 0 {
+		t.Fatalf("Check() failed: %v", iss.ToDisplayString())
+	}
+	expectedType := types.NewListType(types.IntType)
+	if !checked.GetType(list.ID()).IsEquivalentType(expectedType) {
+		t.Errorf("got %v, wanted %v", checked.GetType(list.ID()), expectedType)
+	}
+}
+
+func TestCheckAugmentedCallArgument(t *testing.T) {
+	t.Parallel()
+	fac := ast.NewExprFactory()
+	reg, err := types.NewRegistry()
+	if err != nil {
+		t.Fatalf("types.NewRegistry() failed: %v", err)
+	}
+
+	t.Run("static_call", func(t *testing.T) {
+		env, err := NewEnv(containers.DefaultContainer, reg)
+		if err != nil {
+			t.Fatalf("NewEnv() failed: %v", err)
+		}
+		env.AddFunctions(stdlib.Functions()...)
+
+		// create the expression size(x) where x is a list of ints.
+		identX := fac.NewIdent(1, "x")
+		// create a stand-in for an annotation struct.
+		annotation := fac.NewStruct(2, "cel.Annotation", []ast.EntryExpr{})
+		annotatedX := fac.NewCall(3, "cel.@annotation", identX, annotation)
+		// create the call size(annotatedX)
+		call := fac.NewCall(4, "size", annotatedX)
+
+		// The source is just for location info.
+		src := common.NewTextSource("size(x)")
+		parsed := ast.NewAST(call, ast.NewSourceInfo(src))
+
+		// Add variable x
+		err = env.AddIdents(decls.NewVariable("x", types.NewListType(types.IntType)))
+		if err != nil {
+			t.Fatalf("env.AddIdents() failed: %v", err)
+		}
+
+		checked, iss := Check(parsed, src, env)
+		if len(iss.GetErrors()) > 0 {
+			t.Fatalf("Check() failed: %v", iss.ToDisplayString())
+		}
+		expectedType := types.IntType
+		if !checked.GetType(call.ID()).IsEquivalentType(expectedType) {
+			t.Errorf("got %v, wanted %v", checked.GetType(call.ID()), expectedType)
+		}
+	})
+
+	t.Run("index_operator", func(t *testing.T) {
+		env, err := NewEnv(containers.DefaultContainer, reg)
+		if err != nil {
+			t.Fatalf("NewEnv() failed: %v", err)
+		}
+		env.AddFunctions(stdlib.Functions()...)
+		// test list[annotated_index]
+		listVar := fac.NewIdent(1, "x")
+		indexVar := fac.NewIdent(2, "i")
+		annotation := fac.NewStruct(3, "cel.Annotation", []ast.EntryExpr{})
+		annotatedIndex := fac.NewCall(4, "cel.@annotation", indexVar, annotation)
+		call := fac.NewCall(5, "_[_]", listVar, annotatedIndex)
+
+		src := common.NewTextSource("x[i]")
+		parsed := ast.NewAST(call, ast.NewSourceInfo(src))
+
+		err = env.AddIdents(decls.NewVariable("x", types.NewListType(types.IntType)))
+		if err != nil {
+			t.Fatalf("env.AddIdents() failed: %v", err)
+		}
+		err = env.AddIdents(decls.NewVariable("i", types.IntType))
+		if err != nil {
+			t.Fatalf("env.AddIdents() failed: %v", err)
+		}
+
+		checked, iss := Check(parsed, src, env)
+		if len(iss.GetErrors()) > 0 {
+			t.Fatalf("Check() for index failed: %v", iss.ToDisplayString())
+		}
+		// list of int, so element is int
+		expectedType := types.IntType
+		if !checked.GetType(call.ID()).IsEquivalentType(expectedType) {
+			t.Errorf("got %v for index, wanted %v", checked.GetType(call.ID()), expectedType)
+		}
+	})
+}
+
 func testFunction(t testing.TB, name string, opts ...decls.FunctionOpt) *decls.FunctionDecl {
 	t.Helper()
 	fn, err := decls.NewFunction(name, opts...)
