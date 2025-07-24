@@ -2722,9 +2722,9 @@ func TestCheckAugmentedListElement(t *testing.T) {
 	identX := fac.NewIdent(1, "x")
 	// create a stand-in for an annotation list.
 	// this doesn't have to be a valid annotation, just a list that is wrapped in a call.
-	annotation := fac.NewList(2, []ast.Expr{}, []int32{})
+	annotation := fac.NewList(2, []ast.Expr{}, nil)
 	annotatedX := fac.NewCall(3, "cel.@annotation", identX, annotation)
-	list := fac.NewList(4, []ast.Expr{annotatedX}, []int32{})
+	list := fac.NewList(4, []ast.Expr{annotatedX}, nil)
 
 	// This is not valid syntax, just for illustration purposes.
 	src := common.NewTextSource("[x]")
@@ -2770,7 +2770,7 @@ func TestCheckAugmentedCallArgument(t *testing.T) {
 		// create the expression size(x) where x is a list of ints.
 		identX := fac.NewIdent(1, "x")
 		// create a stand-in for an annotation list.
-		annotation := fac.NewList(2, []ast.Expr{}, []int32{})
+		annotation := fac.NewList(2, []ast.Expr{}, nil)
 		annotatedX := fac.NewCall(3, "cel.@annotation", identX, annotation)
 		// create the call size(annotatedX)
 		call := fac.NewCall(4, "size", annotatedX)
@@ -2804,7 +2804,7 @@ func TestCheckAugmentedCallArgument(t *testing.T) {
 		// test list[annotated_index]
 		listVar := fac.NewIdent(1, "x")
 		indexVar := fac.NewIdent(2, "i")
-		annotation := fac.NewList(3, []ast.Expr{}, []int32{})
+		annotation := fac.NewList(3, []ast.Expr{}, nil)
 		annotatedIndex := fac.NewCall(4, "cel.@annotation", indexVar, annotation)
 		call := fac.NewCall(5, "_[_]", listVar, annotatedIndex)
 
@@ -2850,7 +2850,7 @@ func TestCheckAugmentedMapKeyAndValue(t *testing.T) {
 	identX := fac.NewIdent(1, "x")
 	identY := fac.NewIdent(2, "y")
 	// create a stand-in for an annotation list.
-	annotation := fac.NewList(3, []ast.Expr{}, []int32{})
+	annotation := fac.NewList(3, []ast.Expr{}, nil)
 	annotatedX := fac.NewCall(4, "cel.@annotation", identX, annotation)
 	annotatedY := fac.NewCall(5, "cel.@annotation", identY, annotation)
 
@@ -2923,7 +2923,7 @@ func TestCheckAugmentedStructFields(t *testing.T) {
 	// create the expression TestAllTypes{single_int32: x} where x is an int.
 	identX := fac.NewIdent(1, "x")
 	// create a stand-in for an annotation list.
-	annotation := fac.NewList(2, []ast.Expr{}, []int32{})
+	annotation := fac.NewList(2, []ast.Expr{}, nil)
 	annotatedX := fac.NewCall(3, "cel.@annotation", identX, annotation)
 
 	field := fac.NewStructField(4, "single_int32", annotatedX, false)
@@ -2963,10 +2963,10 @@ func TestCheckAugmentedComprehension(t *testing.T) {
 
 	// create the expression [true].all(i, i == true)
 	// annotations on iterRange, accuInit, loopCond, loopStep, result
-	annotation := fac.NewList(1, []ast.Expr{}, []int32{})
+	annotation := fac.NewList(1, []ast.Expr{}, nil)
 
 	// iterRange: [true]
-	iterRange := fac.NewList(2, []ast.Expr{fac.NewLiteral(3, types.True)}, []int32{})
+	iterRange := fac.NewList(2, []ast.Expr{fac.NewLiteral(3, types.True)}, nil)
 	annotatedIterRange := fac.NewCall(4, "cel.@annotation", iterRange, annotation)
 
 	// accuInit: true
@@ -3018,7 +3018,7 @@ func TestCheckAugmentedSelectOperand(t *testing.T) {
 	// create the expression x.single_int32 where x is a TestAllTypes.
 	identX := fac.NewIdent(1, "x")
 	// create a stand-in for an annotation list.
-	annotation := fac.NewList(2, []ast.Expr{}, []int32{})
+	annotation := fac.NewList(2, []ast.Expr{}, nil)
 	annotatedX := fac.NewCall(3, "cel.@annotation", identX, annotation)
 
 	sel := fac.NewSelect(4, annotatedX, "single_int32")
