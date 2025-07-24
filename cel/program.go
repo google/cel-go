@@ -20,6 +20,7 @@ import (
 	"sync"
 
 	"github.com/google/cel-go/common/ast"
+	"github.com/google/cel-go/common/functions"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter"
@@ -189,6 +190,21 @@ func newProgram(e *Env, a *ast.AST, opts []ProgramOption) (Program, error) {
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	e.funcBindOnce.Do(func() {
+		var bindings []*functions.Overload
+		e.functionBindings = []*functions.Overload{}
+		for _, fn := range e.functions {
+			bindings, err = fn.Bindings()
+			if err != nil {
+				return
+			}
+			e.functionBindings = append(e.functionBindings, bindings...)
+		}
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	// Add the function bindings created via Function() options.

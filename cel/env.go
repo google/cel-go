@@ -130,19 +130,21 @@ func FormatCELType(t *Type) string {
 // Env encapsulates the context necessary to perform parsing, type checking, or generation of
 // evaluable programs for different expressions.
 type Env struct {
-	Container        *containers.Container
-	variables        []*decls.VariableDecl
-	functions        map[string]*decls.FunctionDecl
+	Container       *containers.Container
+	variables       []*decls.VariableDecl
+	functions       map[string]*decls.FunctionDecl
+	macros          []Macro
+	contextProto    protoreflect.MessageDescriptor
+	adapter         types.Adapter
+	provider        types.Provider
+	features        map[int]bool
+	appliedFeatures map[int]bool
+	libraries       map[string]SingletonLibrary
+	validators      []ASTValidator
+	costOptions     []checker.CostOption
+
+	funcBindOnce     sync.Once
 	functionBindings []*functions.Overload
-	macros           []Macro
-	contextProto     protoreflect.MessageDescriptor
-	adapter          types.Adapter
-	provider         types.Provider
-	features         map[int]bool
-	appliedFeatures  map[int]bool
-	libraries        map[string]SingletonLibrary
-	validators       []ASTValidator
-	costOptions      []checker.CostOption
 
 	// Internal parser representation
 	prsr     *parser.Parser
@@ -794,16 +796,6 @@ func (e *Env) configure(opts []EnvOption) (*Env, error) {
 		if err != nil {
 			return nil, err
 		}
-	}
-
-	// Precalculate function bindings
-	e.functionBindings = []*functions.Overload{}
-	for _, fn := range e.functions {
-		bindings, err := fn.Bindings()
-		if err != nil {
-			return nil, err
-		}
-		e.functionBindings = append(e.functionBindings, bindings...)
 	}
 
 	return e, nil
