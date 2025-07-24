@@ -24,6 +24,7 @@ import (
 	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/containers"
 	"github.com/google/cel-go/common/decls"
+	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/stdlib"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/parser"
@@ -2719,9 +2720,9 @@ func TestCheckAugmentedListElement(t *testing.T) {
 	fac := ast.NewExprFactory()
 	// create the expression [x]
 	identX := fac.NewIdent(1, "x")
-	// create a stand-in for an annotation struct.
-	// this doesn't have to be a valid annotation, just a struct that is wrapped in a call.
-	annotation := fac.NewStruct(2, "cel.Annotation", []ast.EntryExpr{})
+	// create a stand-in for an annotation list.
+	// this doesn't have to be a valid annotation, just a list that is wrapped in a call.
+	annotation := fac.NewList(2, []ast.Expr{}, []int32{})
 	annotatedX := fac.NewCall(3, "cel.@annotation", identX, annotation)
 	list := fac.NewList(4, []ast.Expr{annotatedX}, []int32{})
 
@@ -2768,8 +2769,8 @@ func TestCheckAugmentedCallArgument(t *testing.T) {
 
 		// create the expression size(x) where x is a list of ints.
 		identX := fac.NewIdent(1, "x")
-		// create a stand-in for an annotation struct.
-		annotation := fac.NewStruct(2, "cel.Annotation", []ast.EntryExpr{})
+		// create a stand-in for an annotation list.
+		annotation := fac.NewList(2, []ast.Expr{}, []int32{})
 		annotatedX := fac.NewCall(3, "cel.@annotation", identX, annotation)
 		// create the call size(annotatedX)
 		call := fac.NewCall(4, "size", annotatedX)
@@ -2803,7 +2804,7 @@ func TestCheckAugmentedCallArgument(t *testing.T) {
 		// test list[annotated_index]
 		listVar := fac.NewIdent(1, "x")
 		indexVar := fac.NewIdent(2, "i")
-		annotation := fac.NewStruct(3, "cel.Annotation", []ast.EntryExpr{})
+		annotation := fac.NewList(3, []ast.Expr{}, []int32{})
 		annotatedIndex := fac.NewCall(4, "cel.@annotation", indexVar, annotation)
 		call := fac.NewCall(5, "_[_]", listVar, annotatedIndex)
 
@@ -2829,6 +2830,215 @@ func TestCheckAugmentedCallArgument(t *testing.T) {
 			t.Errorf("got %v for index, wanted %v", checked.GetType(call.ID()), expectedType)
 		}
 	})
+}
+
+func TestCheckAugmentedMapKeyAndValue(t *testing.T) {
+	t.Parallel()
+	fac := ast.NewExprFactory()
+	reg, err := types.NewRegistry()
+	if err != nil {
+		t.Fatalf("types.NewRegistry() failed: %v", err)
+	}
+
+	env, err := NewEnv(containers.DefaultContainer, reg)
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	env.AddFunctions(stdlib.Functions()...)
+
+	// create the expression {x: y} where x is a string and y is an int.
+	identX := fac.NewIdent(1, "x")
+	identY := fac.NewIdent(2, "y")
+	// create a stand-in for an annotation list.
+	annotation := fac.NewList(3, []ast.Expr{}, []int32{})
+	annotatedX := fac.NewCall(4, "cel.@annotation", identX, annotation)
+	annotatedY := fac.NewCall(5, "cel.@annotation", identY, annotation)
+
+	// Test case 1: Annotated key
+	entry1 := fac.NewMapEntry(6, annotatedX, identY, false)
+	map1 := fac.NewMap(7, []ast.EntryExpr{entry1})
+	src1 := common.NewTextSource("{x: y}")
+	parsed1 := ast.NewAST(map1, ast.NewSourceInfo(src1))
+
+	// Test case 2: Annotated value
+	entry2 := fac.NewMapEntry(8, identX, annotatedY, false)
+	map2 := fac.NewMap(9, []ast.EntryExpr{entry2})
+	src2 := common.NewTextSource("{x: y}")
+	parsed2 := ast.NewAST(map2, ast.NewSourceInfo(src2))
+
+	// Test case 3: Annotated key and value
+	entry3 := fac.NewMapEntry(10, annotatedX, annotatedY, false)
+	map3 := fac.NewMap(11, []ast.EntryExpr{entry3})
+	src3 := common.NewTextSource("{x: y}")
+	parsed3 := ast.NewAST(map3, ast.NewSourceInfo(src3))
+
+	// Add variables x and y
+	err = env.AddIdents(decls.NewVariable("x", types.StringType))
+	if err != nil {
+		t.Fatalf("env.AddIdents() failed: %v", err)
+	}
+	err = env.AddIdents(decls.NewVariable("y", types.IntType))
+	if err != nil {
+		t.Fatalf("env.AddIdents() failed: %v", err)
+	}
+
+	tests := []struct {
+		name   string
+		parsed *ast.AST
+		src    common.Source
+	}{
+		{"annotated key", parsed1, src1},
+		{"annotated value", parsed2, src2},
+		{"annotated key and value", parsed3, src3},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			checked, iss := Check(tc.parsed, tc.src, env)
+			if len(iss.GetErrors()) > 0 {
+				t.Fatalf("Check() failed: %v", iss.ToDisplayString())
+			}
+			expectedType := types.NewMapType(types.StringType, types.IntType)
+			if !checked.GetType(tc.parsed.Expr().ID()).IsEquivalentType(expectedType) {
+				t.Errorf("got %v, wanted %v", checked.GetType(tc.parsed.Expr().ID()), expectedType)
+			}
+		})
+	}
+}
+
+func TestCheckAugmentedStructFields(t *testing.T) {
+	t.Parallel()
+	fac := ast.NewExprFactory()
+	reg, err := types.NewRegistry(&proto3pb.TestAllTypes{})
+	if err != nil {
+		t.Fatalf("types.NewRegistry() failed: %v", err)
+	}
+
+	env, err := NewEnv(containers.DefaultContainer, reg)
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	env.AddFunctions(stdlib.Functions()...)
+
+	// create the expression TestAllTypes{single_int32: x} where x is an int.
+	identX := fac.NewIdent(1, "x")
+	// create a stand-in for an annotation list.
+	annotation := fac.NewList(2, []ast.Expr{}, []int32{})
+	annotatedX := fac.NewCall(3, "cel.@annotation", identX, annotation)
+
+	field := fac.NewStructField(4, "single_int32", annotatedX, false)
+	str := fac.NewStruct(5, "google.expr.proto3.test.TestAllTypes", []ast.EntryExpr{field})
+	src := common.NewTextSource("google.expr.proto3.test.TestAllTypes{single_int32: x}")
+	parsed := ast.NewAST(str, ast.NewSourceInfo(src))
+
+	// Add variable x
+	err = env.AddIdents(decls.NewVariable("x", types.IntType))
+	if err != nil {
+		t.Fatalf("env.AddIdents() failed: %v", err)
+	}
+
+	checked, iss := Check(parsed, src, env)
+	if len(iss.GetErrors()) > 0 {
+		t.Fatalf("Check() failed: %v", iss.ToDisplayString())
+	}
+	expectedType := types.NewObjectType("google.expr.proto3.test.TestAllTypes")
+	if !checked.GetType(str.ID()).IsEquivalentType(expectedType) {
+		t.Errorf("got %v, wanted %v", checked.GetType(str.ID()), expectedType)
+	}
+}
+
+func TestCheckAugmentedComprehension(t *testing.T) {
+	t.Parallel()
+	fac := ast.NewExprFactory()
+	reg, err := types.NewRegistry()
+	if err != nil {
+		t.Fatalf("types.NewRegistry() failed: %v", err)
+	}
+
+	env, err := NewEnv(containers.DefaultContainer, reg)
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	env.AddFunctions(stdlib.Functions()...)
+
+	// create the expression [true].all(i, i == true)
+	// annotations on iterRange, accuInit, loopCond, loopStep, result
+	annotation := fac.NewList(1, []ast.Expr{}, []int32{})
+
+	// iterRange: [true]
+	iterRange := fac.NewList(2, []ast.Expr{fac.NewLiteral(3, types.True)}, []int32{})
+	annotatedIterRange := fac.NewCall(4, "cel.@annotation", iterRange, annotation)
+
+	// accuInit: true
+	accuInit := fac.NewLiteral(5, types.True)
+	annotatedAccuInit := fac.NewCall(6, "cel.@annotation", accuInit, annotation)
+
+	// loopCond: @result
+	loopCond := fac.NewIdent(7, "@result")
+	annotatedLoopCond := fac.NewCall(8, "cel.@annotation", loopCond, annotation)
+
+	// loopStep: @result && (i == true)
+	identI := fac.NewIdent(9, "i")
+	compareToTrue := fac.NewCall(10, operators.Equals, identI, fac.NewLiteral(11, types.True))
+	loopStep := fac.NewCall(12, operators.LogicalAnd, fac.NewIdent(13, "@result"), compareToTrue)
+	annotatedLoopStep := fac.NewCall(14, "cel.@annotation", loopStep, annotation)
+
+	// result: @result
+	result := fac.NewIdent(15, "@result")
+	annotatedResult := fac.NewCall(16, "cel.@annotation", result, annotation)
+
+	compre := fac.NewComprehension(17, annotatedIterRange, "i", "@result", annotatedAccuInit, annotatedLoopCond, annotatedLoopStep, annotatedResult)
+	src := common.NewTextSource("[true].all(i, i == true)")
+	parsed := ast.NewAST(compre, ast.NewSourceInfo(src))
+
+	checked, iss := Check(parsed, src, env)
+	if len(iss.GetErrors()) > 0 {
+		t.Fatalf("Check() failed: %v", iss.ToDisplayString())
+	}
+	expectedType := types.BoolType
+	if !checked.GetType(compre.ID()).IsEquivalentType(expectedType) {
+		t.Errorf("got %v, wanted %v", checked.GetType(compre.ID()), expectedType)
+	}
+}
+
+func TestCheckAugmentedSelectOperand(t *testing.T) {
+	t.Parallel()
+	fac := ast.NewExprFactory()
+	reg, err := types.NewRegistry(&proto3pb.TestAllTypes{})
+	if err != nil {
+		t.Fatalf("types.NewRegistry() failed: %v", err)
+	}
+
+	env, err := NewEnv(containers.DefaultContainer, reg)
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	env.AddFunctions(stdlib.Functions()...)
+
+	// create the expression x.single_int32 where x is a TestAllTypes.
+	identX := fac.NewIdent(1, "x")
+	// create a stand-in for an annotation list.
+	annotation := fac.NewList(2, []ast.Expr{}, []int32{})
+	annotatedX := fac.NewCall(3, "cel.@annotation", identX, annotation)
+
+	sel := fac.NewSelect(4, annotatedX, "single_int32")
+	src := common.NewTextSource("x.single_int32")
+	parsed := ast.NewAST(sel, ast.NewSourceInfo(src))
+
+	// Add variable x
+	err = env.AddIdents(decls.NewVariable("x", types.NewObjectType("google.expr.proto3.test.TestAllTypes")))
+	if err != nil {
+		t.Fatalf("env.AddIdents() failed: %v", err)
+	}
+
+	checked, iss := Check(parsed, src, env)
+	if len(iss.GetErrors()) > 0 {
+		t.Fatalf("Check() failed: %v", iss.ToDisplayString())
+	}
+	expectedType := types.IntType
+	if !checked.GetType(sel.ID()).IsEquivalentType(expectedType) {
+		t.Errorf("got %v, wanted %v", checked.GetType(sel.ID()), expectedType)
+	}
 }
 
 func testFunction(t testing.TB, name string, opts ...decls.FunctionOpt) *decls.FunctionDecl {
