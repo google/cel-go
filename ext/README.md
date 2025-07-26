@@ -950,7 +950,10 @@ Examples:
 
 Regex introduces functions for regular expressions in CEL.
 
-Note: all functions use the 'regex' namespace. If you are currently using a variable named 'regex', the functions will likely work as intended, however there is some chance for collision. This library depends on the CEL optional type. Please ensure that the cel.OptionalTypes() is enabled when using regex extensions.
+Note: all functions use the 'regex' namespace. If you are currently using a
+variable named 'regex', the functions will likely work as intended, however
+there is some chance for collision. This library depends on the CEL optional type.
+Please ensure that the cel.OptionalTypes() is enabled when using regex extensions.
 
 ### Replace
 
@@ -994,7 +997,7 @@ Examples:
 
     regex.extract('hello world', 'hello(.*)') == optional.of(' world')
     regex.extract('item-A, item-B', 'item-(\\w+)') == optional.of('A')
-    regex.extract('HELLO', 'hello') == optional.empty()
+    regex.extract('HELLO', 'hello') == optional.none()
 
     regex.extract('testuser@testdomain', '(.*)@([^.]*)')) \\ Runtime Error multiple extract group
 
