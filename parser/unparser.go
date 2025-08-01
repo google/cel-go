@@ -25,7 +25,6 @@ import (
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/common/types/traits"
 )
 
 // Unparse takes an input expression and source position information and generates a human-readable
@@ -318,8 +317,6 @@ func (un *unparser) visitConstVal(val ref.Val) error {
 		if err := un.visitConstVal(val); err != nil {
 			return err
 		}
-	case traits.Mapper:
-		un.str.WriteString(types.Format(val))
 	default:
 		return errors.New("unsupported constant")
 	}
