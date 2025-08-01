@@ -234,10 +234,10 @@ func createAnnotationNode(ctx *OptimizerContext, annotations []ast.Expr) ast.Exp
 
 // createAnnotationExpr creates an AST node for a single Annotation struct (a map literal).
 func createAnnotationExpr(ctx *OptimizerContext, ann *Annotation) ast.Expr {
-	annotationMap := map[string]any{
-		"name":    ann.Name,
-		"value":   ann.Value,
-		"is_expr": ann.IsExpr,
-	}
-	return ctx.NewLiteral(types.NewStringInterfaceMap(types.DefaultTypeAdapter, annotationMap))
+	return ctx.NewMap(
+		[]ast.EntryExpr{
+			ctx.NewMapEntry(ctx.NewLiteral(types.String("name")), ctx.NewLiteral(types.String(ann.Name)), false),
+			ctx.NewMapEntry(ctx.NewLiteral(types.String("value")), ctx.NewLiteral(types.DefaultTypeAdapter.NativeToValue(ann.Value)), false),
+			ctx.NewMapEntry(ctx.NewLiteral(types.String("is_expr")), ctx.NewLiteral(types.Bool(ann.IsExpr)), false),
+		})
 }

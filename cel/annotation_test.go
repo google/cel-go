@@ -75,7 +75,7 @@ func TestAnnotationOptimizer(t *testing.T) {
 				&testAnnotationFactory{name: "ann1", value: testValue},
 				&testAnnotationFactory{name: "ann2", value: testValue},
 			},
-			want: `cel.@annotation(1, [{"is_expr": false, "name": "ann1", "value": "test"}, {"is_expr": false, "name": "ann2", "value": "test"}])`,
+			want: `cel.@annotation(1, [{"name": "ann1", "value": "test", "is_expr": false}, {"name": "ann2", "value": "test", "is_expr": false}])`,
 		},
 		{
 			name: "annotation with nil value",
@@ -83,7 +83,7 @@ func TestAnnotationOptimizer(t *testing.T) {
 			factories: []AnnotationFactory{
 				&testAnnotationFactory{name: "nil_value_ann", value: nil, IsExpr: false},
 			},
-			want: `cel.@annotation(false, [{"is_expr": false, "name": "nil_value_ann", "value": null}])`,
+			want: `cel.@annotation(false, [{"name": "nil_value_ann", "value": null, "is_expr": false}])`,
 		},
 		{
 			name: "multiple factories, some returning nil annotation",
@@ -109,8 +109,8 @@ func TestAnnotationOptimizer(t *testing.T) {
 					applicable: func(e ast.Expr) bool { return false }, // Always returns nil
 				},
 			},
-			want: `cel.@annotation(true, [{"is_expr": false, "name": "true_ann", "value": "test"}]) &&
-cel.@annotation(false, [{"is_expr": false, "name": "false_ann", "value": "test"}])`,
+			want: `cel.@annotation(true, [{"name": "true_ann", "value": "test", "is_expr": false}]) &&
+cel.@annotation(false, [{"name": "false_ann", "value": "test", "is_expr": false}])`,
 		},
 		{
 			name: "Annotating call expression",
@@ -127,7 +127,7 @@ cel.@annotation(false, [{"is_expr": false, "name": "false_ann", "value": "test"}
 					applicable: func(e ast.Expr) bool { return e.Kind() == ast.LiteralKind },
 				},
 			},
-			want: `cel.@annotation(size(cel.@annotation("hello", [{"is_expr": false, "name": "literal_ann", "value": "test"}])), [{"is_expr": false, "name": "call_ann", "value": "test"}])`,
+			want: `cel.@annotation(size(cel.@annotation("hello", [{"name": "literal_ann", "value": "test", "is_expr": false}])), [{"name": "call_ann", "value": "test", "is_expr": false}])`,
 		},
 		{
 			name: "Annotating member call",
@@ -135,7 +135,7 @@ cel.@annotation(false, [{"is_expr": false, "name": "false_ann", "value": "test"}
 			factories: []AnnotationFactory{
 				&testAnnotationFactory{name: "ann", value: testValue},
 			},
-			want: `cel.@annotation(cel.@annotation("hello", [{"is_expr": false, "name": "ann", "value": "test"}]).size(), [{"is_expr": false, "name": "ann", "value": "test"}])`,
+			want: `cel.@annotation(cel.@annotation("hello", [{"name": "ann", "value": "test", "is_expr": false}]).size(), [{"name": "ann", "value": "test", "is_expr": false}])`,
 		},
 		{
 			name: "Annotating list",
@@ -143,7 +143,7 @@ cel.@annotation(false, [{"is_expr": false, "name": "false_ann", "value": "test"}
 			factories: []AnnotationFactory{
 				&testAnnotationFactory{name: "ann", value: testValue},
 			},
-			want: `cel.@annotation([cel.@annotation(1, [{"is_expr": false, "name": "ann", "value": "test"}]), cel.@annotation(2, [{"is_expr": false, "name": "ann", "value": "test"}])], [{"is_expr": false, "name": "ann", "value": "test"}])`,
+			want: `cel.@annotation([cel.@annotation(1, [{"name": "ann", "value": "test", "is_expr": false}]), cel.@annotation(2, [{"name": "ann", "value": "test", "is_expr": false}])], [{"name": "ann", "value": "test", "is_expr": false}])`,
 		},
 		{
 			name: "Annotating map",
@@ -151,7 +151,7 @@ cel.@annotation(false, [{"is_expr": false, "name": "false_ann", "value": "test"}
 			factories: []AnnotationFactory{
 				&testAnnotationFactory{name: "ann", value: testValue},
 			},
-			want: `cel.@annotation({cel.@annotation("a", [{"is_expr": false, "name": "ann", "value": "test"}]): cel.@annotation(1, [{"is_expr": false, "name": "ann", "value": "test"}]), cel.@annotation("b", [{"is_expr": false, "name": "ann", "value": "test"}]): cel.@annotation(2, [{"is_expr": false, "name": "ann", "value": "test"}])}, [{"is_expr": false, "name": "ann", "value": "test"}])`,
+			want: `cel.@annotation({cel.@annotation("a", [{"name": "ann", "value": "test", "is_expr": false}]): cel.@annotation(1, [{"name": "ann", "value": "test", "is_expr": false}]), cel.@annotation("b", [{"name": "ann", "value": "test", "is_expr": false}]): cel.@annotation(2, [{"name": "ann", "value": "test", "is_expr": false}])}, [{"name": "ann", "value": "test", "is_expr": false}])`,
 		},
 		{
 			name: "Annotating map with optional entry",
@@ -159,7 +159,7 @@ cel.@annotation(false, [{"is_expr": false, "name": "false_ann", "value": "test"}
 			factories: []AnnotationFactory{
 				&testAnnotationFactory{name: "ann", value: testValue},
 			},
-			want: `cel.@annotation({cel.@annotation("a", [{"is_expr": false, "name": "ann", "value": "test"}]): cel.@annotation(1, [{"is_expr": false, "name": "ann", "value": "test"}]), ?cel.@annotation("b", [{"is_expr": false, "name": "ann", "value": "test"}]): cel.@annotation(optional.of(cel.@annotation(2, [{"is_expr": false, "name": "ann", "value": "test"}])), [{"is_expr": false, "name": "ann", "value": "test"}])}, [{"is_expr": false, "name": "ann", "value": "test"}])`,
+			want: `cel.@annotation({cel.@annotation("a", [{"name": "ann", "value": "test", "is_expr": false}]): cel.@annotation(1, [{"name": "ann", "value": "test", "is_expr": false}]), ?cel.@annotation("b", [{"name": "ann", "value": "test", "is_expr": false}]): cel.@annotation(optional.of(cel.@annotation(2, [{"name": "ann", "value": "test", "is_expr": false}])), [{"name": "ann", "value": "test", "is_expr": false}])}, [{"name": "ann", "value": "test", "is_expr": false}])`,
 		},
 		{
 			name: "Annotating struct",
@@ -167,7 +167,7 @@ cel.@annotation(false, [{"is_expr": false, "name": "false_ann", "value": "test"}
 			factories: []AnnotationFactory{
 				&testAnnotationFactory{name: "ann", value: testValue},
 			},
-			want: `cel.@annotation(google.expr.proto3.test.TestAllTypes{single_int32: cel.@annotation(1, [{"is_expr": false, "name": "ann", "value": "test"}]), single_string: cel.@annotation("s", [{"is_expr": false, "name": "ann", "value": "test"}])}, [{"is_expr": false, "name": "ann", "value": "test"}])`,
+			want: `cel.@annotation(google.expr.proto3.test.TestAllTypes{single_int32: cel.@annotation(1, [{"name": "ann", "value": "test", "is_expr": false}]), single_string: cel.@annotation("s", [{"name": "ann", "value": "test", "is_expr": false}])}, [{"name": "ann", "value": "test", "is_expr": false}])`,
 		},
 		{
 			name: "Annotating struct with optional field",
@@ -175,7 +175,7 @@ cel.@annotation(false, [{"is_expr": false, "name": "false_ann", "value": "test"}
 			factories: []AnnotationFactory{
 				&testAnnotationFactory{name: "ann", value: testValue},
 			},
-			want: `cel.@annotation(google.expr.proto3.test.TestAllTypes{single_string: cel.@annotation("s", [{"is_expr": false, "name": "ann", "value": "test"}]), ?single_int32: cel.@annotation(optional.of(cel.@annotation(1, [{"is_expr": false, "name": "ann", "value": "test"}])), [{"is_expr": false, "name": "ann", "value": "test"}])}, [{"is_expr": false, "name": "ann", "value": "test"}])`,
+			want: `cel.@annotation(google.expr.proto3.test.TestAllTypes{single_string: cel.@annotation("s", [{"name": "ann", "value": "test", "is_expr": false}]), ?single_int32: cel.@annotation(optional.of(cel.@annotation(1, [{"name": "ann", "value": "test", "is_expr": false}])), [{"name": "ann", "value": "test", "is_expr": false}])}, [{"name": "ann", "value": "test", "is_expr": false}])`,
 		},
 		{
 			name: "Annotating select",
@@ -183,7 +183,7 @@ cel.@annotation(false, [{"is_expr": false, "name": "false_ann", "value": "test"}
 			factories: []AnnotationFactory{
 				&testAnnotationFactory{name: "ann", value: testValue},
 			},
-			want: `cel.@annotation(cel.@annotation(msg, [{"is_expr": false, "name": "ann", "value": "test"}]).single_int32, [{"is_expr": false, "name": "ann", "value": "test"}])`,
+			want: `cel.@annotation(cel.@annotation(msg, [{"name": "ann", "value": "test", "is_expr": false}]).single_int32, [{"name": "ann", "value": "test", "is_expr": false}])`,
 		},
 		{
 			name: "Annotating presence test",
@@ -191,7 +191,7 @@ cel.@annotation(false, [{"is_expr": false, "name": "false_ann", "value": "test"}
 			factories: []AnnotationFactory{
 				&testAnnotationFactory{name: "ann", value: testValue},
 			},
-			want: `cel.@annotation(has(cel.@annotation(msg, [{"is_expr": false, "name": "ann", "value": "test"}]).single_int32), [{"is_expr": false, "name": "ann", "value": "test"}])`,
+			want: `cel.@annotation(has(cel.@annotation(msg, [{"name": "ann", "value": "test", "is_expr": false}]).single_int32), [{"name": "ann", "value": "test", "is_expr": false}])`,
 		},
 		{
 			name: "Annotating comprehension",
@@ -225,11 +225,11 @@ cel.@annotation(false, [{"is_expr": false, "name": "false_ann", "value": "test"}
 						t.Errorf("%s got\n%s\nwant\n%s", name, got, want)
 					}
 				}
-				checkPart("iterRange", comp.IterRange(), `cel.@annotation([cel.@annotation(1, [{"is_expr": false, "name": "ann", "value": "test"}])], [{"is_expr": false, "name": "ann", "value": "test"}])`)
-				checkPart("accuInit", comp.AccuInit(), `cel.@annotation([], [{"is_expr": false, "name": "ann", "value": "test"}])`)
-				checkPart("loopCondition", comp.LoopCondition(), `cel.@annotation(true, [{"is_expr": false, "name": "ann", "value": "test"}])`)
-				checkPart("loopStep", comp.LoopStep(), `cel.@annotation(cel.@annotation(@result, [{"is_expr": false, "name": "ann", "value": "test"}]) + cel.@annotation([cel.@annotation(cel.@annotation(x, [{"is_expr": false, "name": "ann", "value": "test"}]) * cel.@annotation(2, [{"is_expr": false, "name": "ann", "value": "test"}]), [{"is_expr": false, "name": "ann", "value": "test"}])], [{"is_expr": false, "name": "ann", "value": "test"}]), [{"is_expr": false, "name": "ann", "value": "test"}])`)
-				checkPart("result", comp.Result(), `cel.@annotation(@result, [{"is_expr": false, "name": "ann", "value": "test"}])`)
+				checkPart("iterRange", comp.IterRange(), `cel.@annotation([cel.@annotation(1, [{"name": "ann", "value": "test", "is_expr": false}])], [{"name": "ann", "value": "test", "is_expr": false}])`)
+				checkPart("accuInit", comp.AccuInit(), `cel.@annotation([], [{"name": "ann", "value": "test", "is_expr": false}])`)
+				checkPart("loopCondition", comp.LoopCondition(), `cel.@annotation(true, [{"name": "ann", "value": "test", "is_expr": false}])`)
+				checkPart("loopStep", comp.LoopStep(), `cel.@annotation(cel.@annotation(@result, [{"name": "ann", "value": "test", "is_expr": false}]) + cel.@annotation([cel.@annotation(cel.@annotation(x, [{"name": "ann", "value": "test", "is_expr": false}]) * cel.@annotation(2, [{"name": "ann", "value": "test", "is_expr": false}]), [{"name": "ann", "value": "test", "is_expr": false}])], [{"name": "ann", "value": "test", "is_expr": false}]), [{"name": "ann", "value": "test", "is_expr": false}])`)
+				checkPart("result", comp.Result(), `cel.@annotation(@result, [{"name": "ann", "value": "test", "is_expr": false}])`)
 			},
 		},
 		{
@@ -264,12 +264,12 @@ cel.@annotation(false, [{"is_expr": false, "name": "false_ann", "value": "test"}
 						t.Errorf("%s got\n%s\nwant\n%s", name, got, want)
 					}
 				}
-				checkPart("iterRange", comp.IterRange(), `cel.@annotation({cel.@annotation("a", [{"is_expr": false, "name": "ann", "value": "test"}]): cel.@annotation("b", [{"is_expr": false, "name": "ann", "value": "test"}])}, [{"is_expr": false, "name": "ann", "value": "test"}])`)
-				checkPart("accuInit", comp.AccuInit(), `cel.@annotation(false, [{"is_expr": false, "name": "ann", "value": "test"}])`)
-				checkPart("loopCondition", comp.LoopCondition(), `cel.@annotation(@not_strictly_false(cel.@annotation(!(cel.@annotation(@result, [{"is_expr": false, "name": "ann", "value": "test"}])), [{"is_expr": false, "name": "ann", "value": "test"}])), [{"is_expr": false, "name": "ann", "value": "test"}])`)
-				checkPart("loopStep", comp.LoopStep(), `cel.@annotation(cel.@annotation(@result, [{"is_expr": false, "name": "ann", "value": "test"}]) ||
-cel.@annotation(cel.@annotation(k, [{"is_expr": false, "name": "ann", "value": "test"}]) == cel.@annotation(v, [{"is_expr": false, "name": "ann", "value": "test"}]), [{"is_expr": false, "name": "ann", "value": "test"}]), [{"is_expr": false, "name": "ann", "value": "test"}])`)
-				checkPart("result", comp.Result(), `cel.@annotation(@result, [{"is_expr": false, "name": "ann", "value": "test"}])`)
+				checkPart("iterRange", comp.IterRange(), `cel.@annotation({cel.@annotation("a", [{"name": "ann", "value": "test", "is_expr": false}]): cel.@annotation("b", [{"name": "ann", "value": "test", "is_expr": false}])}, [{"name": "ann", "value": "test", "is_expr": false}])`)
+				checkPart("accuInit", comp.AccuInit(), `cel.@annotation(false, [{"name": "ann", "value": "test", "is_expr": false}])`)
+				checkPart("loopCondition", comp.LoopCondition(), `cel.@annotation(@not_strictly_false(cel.@annotation(!(cel.@annotation(@result, [{"name": "ann", "value": "test", "is_expr": false}])), [{"name": "ann", "value": "test", "is_expr": false}])), [{"name": "ann", "value": "test", "is_expr": false}])`)
+				checkPart("loopStep", comp.LoopStep(), `cel.@annotation(cel.@annotation(@result, [{"name": "ann", "value": "test", "is_expr": false}]) ||
+cel.@annotation(cel.@annotation(k, [{"name": "ann", "value": "test", "is_expr": false}]) == cel.@annotation(v, [{"name": "ann", "value": "test", "is_expr": false}]), [{"name": "ann", "value": "test", "is_expr": false}]), [{"name": "ann", "value": "test", "is_expr": false}])`)
+				checkPart("result", comp.Result(), `cel.@annotation(@result, [{"name": "ann", "value": "test", "is_expr": false}])`)
 			},
 		},
 		{
@@ -278,7 +278,7 @@ cel.@annotation(cel.@annotation(k, [{"is_expr": false, "name": "ann", "value": "
 			factories: []AnnotationFactory{
 				&testAnnotationFactory{name: "literal_ann", value: testValue},
 			},
-			want: `cel.@annotation(true, [{"is_expr": false, "name": "literal_ann", "value": "test"}])`,
+			want: `cel.@annotation(true, [{"name": "literal_ann", "value": "test", "is_expr": false}])`,
 		},
 		{
 			name: "Annotating ident",
@@ -286,7 +286,7 @@ cel.@annotation(cel.@annotation(k, [{"is_expr": false, "name": "ann", "value": "
 			factories: []AnnotationFactory{
 				&testAnnotationFactory{name: "ann", value: testValue},
 			},
-			want: `cel.@annotation(x, [{"is_expr": false, "name": "ann", "value": "test"}])`,
+			want: `cel.@annotation(x, [{"name": "ann", "value": "test", "is_expr": false}])`,
 		},
 		{
 			name: "ternary operator",
@@ -294,7 +294,7 @@ cel.@annotation(cel.@annotation(k, [{"is_expr": false, "name": "ann", "value": "
 			factories: []AnnotationFactory{
 				&testAnnotationFactory{name: "tern_ann", value: testValue},
 			},
-			want: `cel.@annotation((cel.@annotation(true, [{"is_expr": false, "name": "tern_ann", "value": "test"}])) ? (cel.@annotation("yes", [{"is_expr": false, "name": "tern_ann", "value": "test"}])) : (cel.@annotation("no", [{"is_expr": false, "name": "tern_ann", "value": "test"}])), [{"is_expr": false, "name": "tern_ann", "value": "test"}])`,
+			want: `cel.@annotation((cel.@annotation(true, [{"name": "tern_ann", "value": "test", "is_expr": false}])) ? (cel.@annotation("yes", [{"name": "tern_ann", "value": "test", "is_expr": false}])) : (cel.@annotation("no", [{"name": "tern_ann", "value": "test", "is_expr": false}])), [{"name": "tern_ann", "value": "test", "is_expr": false}])`,
 		},
 	}
 
@@ -305,6 +305,7 @@ cel.@annotation(cel.@annotation(k, [{"is_expr": false, "name": "ann", "value": "
 		Variable("x", DynType),
 		Variable("v", types.StringType),
 		Variable("msg", types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
+		EnableAnnotations(),
 	)
 	if err != nil {
 		t.Fatalf("NewEnv() failed: %v", err)
