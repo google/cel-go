@@ -277,13 +277,10 @@ func Abbrevs(qualifiedNames ...string) EnvOption {
 
 // EnableAnnotations adds a function that is used internally to annotate expressions.
 func EnableAnnotations() EnvOption {
-	return func(e *Env) (*Env, error) {
-		e.functions["cel.@annotation"], _ = decls.NewFunction("cel.@annotation",
-			decls.Overload("cel.@annotation",
-				[]*types.Type{types.AnyType, types.NewListType(types.NewMapType(types.StringType, types.AnyType))}, types.DynType),
-		)
-		return e, nil
-	}
+	return Function("cel.@annotation",
+		decls.Overload("cel_annotation",
+			[]*types.Type{types.DynType, types.NewListType(types.NewMapType(types.StringType, types.DynType))}, types.DynType),
+	)
 }
 
 // customTypeRegistry is an internal-only interface containing the minimum methods required to support

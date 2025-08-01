@@ -72,7 +72,6 @@ func (c *checker) check(e ast.Expr) {
 	if e == nil {
 		return
 	}
-	e = maybeFetchExprFromAnnotationCall(e)
 	switch e.Kind() {
 	case ast.LiteralKind:
 		literal := ref.Val(e.AsLiteral())
@@ -136,8 +135,7 @@ func (c *checker) checkSelect(e ast.Expr) {
 		}
 	}
 
-	operand := maybeFetchExprFromAnnotationCall(sel.Operand())
-	resultType := c.checkSelectField(e, operand, sel.FieldName(), false)
+	resultType := c.checkSelectField(e, sel.Operand(), sel.FieldName(), false)
 	if sel.IsTestOnly() {
 		resultType = types.BoolType
 	}
@@ -158,8 +156,8 @@ func (c *checker) checkOptSelect(e ast.Expr) {
 		return
 	}
 
-	operand := maybeFetchExprFromAnnotationCall(call.Args()[0])
-	field := maybeFetchExprFromAnnotationCall(call.Args()[1])
+	operand := call.Args()[0]
+	field := call.Args()[1]
 	fieldName, isString := maybeUnwrapString(field)
 	if !isString {
 		c.errors.notAnOptionalFieldSelection(field.ID(), c.location(field), field)
@@ -228,12 +226,9 @@ func (c *checker) checkCall(e ast.Expr) {
 	}
 
 	args := call.Args()
-	var unaugmentedArgs []ast.Expr
 	// Traverse arguments.
 	for _, arg := range args {
-		arg = maybeFetchExprFromAnnotationCall(arg)
 		c.check(arg)
-		unaugmentedArgs = append(unaugmentedArgs, arg)
 	}
 
 	// Regular static call with simple name.
@@ -248,7 +243,7 @@ func (c *checker) checkCall(e ast.Expr) {
 		// Overwrite the function name with its fully qualified resolved name.
 		e.SetKindCase(c.NewCall(e.ID(), fn.Name(), args...))
 		// Check to see whether the overload resolves.
-		c.resolveOverloadOrError(e, fn, nil, unaugmentedArgs)
+		c.resolveOverloadOrError(e, fn, nil, args)
 		return
 	}
 
@@ -257,7 +252,7 @@ func (c *checker) checkCall(e ast.Expr) {
 	// target a.b.
 	//
 	// Check whether the target is a namespaced function name.
-	target := maybeFetchExprFromAnnotationCall(call.Target())
+	target := call.Target()
 	qualifiedPrefix, maybeQualified := containers.ToQualifiedName(target)
 	if maybeQualified {
 		maybeQualifiedName := qualifiedPrefix + "." + fnName
@@ -267,7 +262,7 @@ func (c *checker) checkCall(e ast.Expr) {
 			// be an inaccurate representation of the desired evaluation behavior.
 			// Overwrite with fully-qualified resolved function name sans receiver target.
 			e.SetKindCase(c.NewCall(e.ID(), fn.Name(), args...))
-			c.resolveOverloadOrError(e, fn, nil, unaugmentedArgs)
+			c.resolveOverloadOrError(e, fn, nil, args)
 			return
 		}
 	}
@@ -277,7 +272,7 @@ func (c *checker) checkCall(e ast.Expr) {
 	fn := c.env.LookupFunction(fnName)
 	// Function found, attempt overload resolution.
 	if fn != nil {
-		c.resolveOverloadOrError(e, fn, target, unaugmentedArgs)
+		c.resolveOverloadOrError(e, fn, target, args)
 		return
 	}
 	// Function name not declared, record error.
@@ -394,7 +389,6 @@ func (c *checker) checkCreateList(e ast.Expr) {
 		optionals[optInd] = true
 	}
 	for i, e := range create.Elements() {
-		e = maybeFetchExprFromAnnotationCall(e)
 		c.check(e)
 		elemType := c.getType(e)
 		if optionals[int32(i)] {
@@ -419,11 +413,11 @@ func (c *checker) checkCreateMap(e ast.Expr) {
 	var mapValueType *types.Type
 	for _, e := range mapVal.Entries() {
 		entry := e.AsMapEntry()
-		key := maybeFetchExprFromAnnotationCall(entry.Key())
+		key := entry.Key()
 		c.check(key)
 		mapKeyType = c.joinTypes(key, mapKeyType, c.getType(key))
 
-		val := maybeFetchExprFromAnnotationCall(entry.Value())
+		val := entry.Value()
 		c.check(val)
 		valType := c.getType(val)
 		if entry.IsOptional() {
@@ -486,7 +480,7 @@ func (c *checker) checkCreateStruct(e ast.Expr) {
 	for _, f := range msgVal.Fields() {
 		field := f.AsStructField()
 		fieldName := field.Name()
-		value := maybeFetchExprFromAnnotationCall(field.Value())
+		value := field.Value()
 		c.check(value)
 
 		fieldType := types.ErrorType
@@ -511,15 +505,13 @@ func (c *checker) checkCreateStruct(e ast.Expr) {
 
 func (c *checker) checkComprehension(e ast.Expr) {
 	comp := e.AsComprehension()
-	iterRange := maybeFetchExprFromAnnotationCall(comp.IterRange())
-	c.check(iterRange)
-	accuInit := maybeFetchExprFromAnnotationCall(comp.AccuInit())
-	c.check(accuInit)
-	rangeType := substitute(c.mappings, c.getType(iterRange), false)
+	c.check(comp.IterRange())
+	c.check(comp.AccuInit())
+	rangeType := substitute(c.mappings, c.getType(comp.IterRange()), false)
 
 	// Create a scope for the comprehension since it has a local accumulation variable.
 	// This scope will contain the accumulation variable used to compute the result.
-	accuType := c.getType(accuInit)
+	accuType := c.getType(comp.AccuInit())
 	c.env = c.env.enterScope()
 	c.env.AddIdents(decls.NewVariable(comp.AccuVar(), accuType))
 
@@ -566,19 +558,16 @@ func (c *checker) checkComprehension(e ast.Expr) {
 		c.env.AddIdents(decls.NewVariable(comp.IterVar2(), var2Type))
 	}
 	// Check the variable references in the condition and step.
-	loopCondition := maybeFetchExprFromAnnotationCall(comp.LoopCondition())
-	c.check(loopCondition)
-	c.assertType(loopCondition, types.BoolType)
-	loopStep := maybeFetchExprFromAnnotationCall(comp.LoopStep())
-	c.check(loopStep)
-	c.assertType(loopStep, accuType)
+	c.check(comp.LoopCondition())
+	c.assertType(comp.LoopCondition(), types.BoolType)
+	c.check(comp.LoopStep())
+	c.assertType(comp.LoopStep(), accuType)
 	// Exit the loop's block scope before checking the result.
 	c.env = c.env.exitScope()
-	result := maybeFetchExprFromAnnotationCall(comp.Result())
-	c.check(result)
+	c.check(comp.Result())
 	// Exit the comprehension scope.
 	c.env = c.env.exitScope()
-	c.setType(e, substitute(c.mappings, c.getType(result), false))
+	c.setType(e, substitute(c.mappings, c.getType(comp.Result()), false))
 }
 
 // Checks compatibility of joined types, and returns the most general common type.
@@ -718,22 +707,6 @@ func getWellKnownTypeName(t *types.Type) string {
 		return name
 	}
 	return ""
-}
-
-// isAnnotation returns true if the given expression is an cel.@annotation call,
-// where the first argument is the original expression being annotated and the second argument
-// is the node containing the annotations.
-func isAnnotation(e ast.Expr) bool {
-	return e.Kind() == ast.CallKind && e.AsCall().FunctionName() == "cel.@annotation" && len(e.AsCall().Args()) == 2
-}
-
-// maybeFetchExprFromAnnotationCall returns the first argument of an annotation call, which is the original expression
-// being annotated.
-func maybeFetchExprFromAnnotationCall(e ast.Expr) ast.Expr {
-	if isAnnotation(e) {
-		return e.AsCall().Args()[0]
-	}
-	return e
 }
 
 var (
