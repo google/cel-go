@@ -339,6 +339,7 @@ func estimateExtractCost() checker.FunctionEstimator {
 	return func(c checker.CostEstimator, target *checker.AstNode, args []checker.AstNode) *checker.CallEstimate {
 		if len(args) == 2 {
 			targetSize := estimateSize(c, args[0])
+			// Fixed size estimate of +1 is added for safety from zero size args.
 			// The target cost is the size of the target string, scaled by a traversal factor.
 			targetCost := targetSize.Add(checker.FixedSizeEstimate(1)).MultiplyByCostFactor(common.StringTraversalCostFactor)
 			// The regex cost is the size of the regex pattern, scaled by a complexity factor.
@@ -359,6 +360,7 @@ func estimateExtractAllCost() checker.FunctionEstimator {
 	return func(c checker.CostEstimator, target *checker.AstNode, args []checker.AstNode) *checker.CallEstimate {
 		if len(args) == 2 {
 			targetSize := estimateSize(c, args[0])
+			// Fixed size estimate of +1 is added for safety from zero size args.
 			// The target cost is the size of the target string, scaled by a traversal factor.
 			targetCost := targetSize.Add(checker.FixedSizeEstimate(1)).MultiplyByCostFactor(common.StringTraversalCostFactor)
 			// The regex cost is the size of the regex pattern, scaled by a complexity factor.
@@ -384,6 +386,7 @@ func estimateReplaceCost() checker.FunctionEstimator {
 		if l == 3 || l == 4 {
 			targetSize := estimateSize(c, args[0])
 			replacementSize := estimateSize(c, args[2])
+			// Fixed size estimate of +1 is added for safety from zero size args.
 			// The target cost is the size of the target string, scaled by a traversal factor.
 			targetCost := targetSize.Add(checker.FixedSizeEstimate(1)).MultiplyByCostFactor(common.StringTraversalCostFactor)
 			// The regex cost is the size of the regex pattern, scaled by a complexity factor.
