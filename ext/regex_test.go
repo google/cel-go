@@ -169,11 +169,11 @@ func TestRegexRuntimeErrors(t *testing.T) {
 	}{
 		{
 			expr: "regex.extract('foo bar', '(')",
-			err:  "given regex is invalid: error parsing regexp: missing closing ): `(`",
+			err:  "error parsing regexp: missing closing ): `(`",
 		},
 		{
 			expr: "regex.extractAll('foo bar', '[a-z')",
-			err:  "given regex is invalid: error parsing regexp: missing closing ]: `[a-z`",
+			err:  "error parsing regexp: missing closing ]: `[a-z`",
 		},
 		{
 			expr: `regex.replace('id=123', r'id=(?P<value>\d+)', r'value: \values')`,
@@ -305,9 +305,17 @@ func TestRegexCosts(t *testing.T) {
 			actualCost:    12,
 		},
 		{
-			expr:          `regex.extractAll('id:123, id:456', r'id:\d+') == ['id:123', 'id:456']`,
+			expr: `regex.extractAll('id:123, id:456', r'id:\d+') == ['id:123', 'id:456']`,
+			// Estimated Cost = search cost + a list allocation cost.
+			// - List Allocation Cost: This is the base cost to create a list plus the worst-case
+			//   size of its contents, which is the full target string's length (14).
+			// - Search Cost: A multiplicative cost based on target (len 14) and regex (len 5) length.
 			estimatedCost: checker.CostEstimate{Min: 25, Max: 39},
-			actualCost:    16,
+			// Actual Cost: The result is a list containing two strings: 'id:123' and 'id:456'.
+			// The combined length of the contents is 6 + 6 = 12.
+			// The cost is the content size plus overhead for the call, search, and list creation (~4),
+			// so 12 + 4 = 16.
+			actualCost: 16,
 		},
 		{
 			expr:          `regex.extractAll('a b c', r'(\S*)\s*') == ['a', 'b', 'c']`,
@@ -335,10 +343,30 @@ func TestRegexCosts(t *testing.T) {
 			actualCost:    11,
 		},
 		{
-			expr:          "regex.replace('aaaaaa', 'a', '-what-') == '-what--what--what--what--what--what-'",
+			expr: "regex.replace('aaaaaa', 'a', '-what-') == '-what--what--what--what--what--what-'",
+			// Estimated Cost = search cost + build cost.
+			// - Build Cost: pessimistic estimate: len(target) * (len(replacement) + 1) = 6 * (6 + 1) = 42
+			// - Search Cost: A smaller multiplicative cost based on target and regex length.
+			// The total is ~42 + search_cost, which aligns with the 44-47 range.
 			estimatedCost: checker.CostEstimate{Min: 44, Max: 47},
-			actualCost:    41,
+			// Actual Cost: The result string '-what--what--...-' has a length of 36.
+			// The actual cost is the length of the result plus a small, fixed overhead for the
+			// function call and search (~5), so 36 + 5 = 41.
+			actualCost: 41,
 		},
+		// --- Constant Cost Cases ---
+		// The next three tests are interesting because the estimated and actual costs
+		// remain constant, even though the number of replacements changes via the 'count' argument.
+		//
+		// Estimated Cost: Cost estimation is based on the static sizes of the target,
+		// regex, and replacement strings, without considering the 'count' argument.
+		// Since these inputs are identical for all three tests, the estimate is also identical.
+		// It's the sum of a pessimistic Build Cost (~12) and a Search Cost (~2).
+		//
+		// Actual Cost: This is constant because the replacement 'x' (len 1) has the
+		// same length as the matched pattern 'a' (len 1). Therefore, the final string's
+		// length is always 6, regardless of how many replacements are made. The cost is
+		// len(result) + base_overhead = 6 + 2 = 8.
 		{
 			expr:          "regex.replace('banana', 'a', 'x', 0) == 'banana'",
 			estimatedCost: checker.CostEstimate{Min: 14, Max: 14},
@@ -353,6 +381,16 @@ func TestRegexCosts(t *testing.T) {
 			expr:          "regex.replace('banana', 'a', 'x', 100) == 'bxnxnx'",
 			estimatedCost: checker.CostEstimate{Min: 14, Max: 14},
 			actualCost:    8,
+		},
+		{
+			expr:          `regex.replace('foo bar', r'(foo bar)', r'\1\1\1\1\1' ) == 'foo barfoo barfoo barfoo barfoo bar'`,
+			estimatedCost: checker.CostEstimate{Min: 81, Max: 84},
+			actualCost:    41,
+		},
+		{
+			expr:          `regex.replace('foo bar', r'(foo bar)', '') == ''`,
+			estimatedCost: checker.CostEstimate{Min: 10, Max: 10},
+			actualCost:    2,
 		},
 	}
 	for _, test := range tests {

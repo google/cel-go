@@ -950,10 +950,10 @@ Examples:
 
 Regex introduces functions for regular expressions in CEL.
 
-Note: all functions use the 'regex' namespace. If you are currently using a
-variable named 'regex', the functions will likely work as intended, however
-there is some chance for collision. This library depends on the CEL optional type.
-Please ensure that the cel.OptionalTypes() is enabled when using regex extensions.
+Note: Please ensure that the cel.OptionalTypes() is enabled when using regex
+extensions. All functions use the 'regex' namespace. If you are currently
+using a variable named 'regex', the functions will likely work as intended.
+However, there is some chance for collision.
 
 ### Replace
 
@@ -988,8 +988,8 @@ Examples:
 ### Extract
 
 The `regex.extract` function returns the first match of a regex pattern as an
-`optional` string. If no match is found, it returns an optional none value. An error will
-be thrown for invalid regex or for multiple capture groups.
+`optional` string. If no match is found, it returns an optional none value.
+An error will be thrown for invalid regex or for multiple capture groups.
 
     regex.extract(target: string, pattern: string) -> optional<string>
 

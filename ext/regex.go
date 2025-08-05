@@ -177,14 +177,6 @@ func (r *regexLib) ProgramOptions() []cel.ProgramOption {
 	}
 }
 
-func compileRegex(regexStr string) (*regexp.Regexp, error) {
-	re, err := regexp.Compile(regexStr)
-	if err != nil {
-		return nil, fmt.Errorf("given regex is invalid: %w", err)
-	}
-	return re, nil
-}
-
 func regReplace(args ...ref.Val) ref.Val {
 	target := args[0].(types.String)
 	regexStr := args[1].(types.String)
@@ -208,7 +200,7 @@ func regReplaceN(args ...ref.Val) ref.Val {
 		replaceCount = -1
 	}
 
-	re, err := compileRegex(regexStr)
+	re, err := regexp.Compile(regexStr)
 	if err != nil {
 		return types.WrapErr(err)
 	}
@@ -283,7 +275,7 @@ func replaceStrValidator(target string, re *regexp.Regexp, match []int, replacem
 func extract(target, regexStr ref.Val) ref.Val {
 	t := string(target.(types.String))
 	r := string(regexStr.(types.String))
-	re, err := compileRegex(r)
+	re, err := regexp.Compile(r)
 	if err != nil {
 		return types.WrapErr(err)
 	}
@@ -312,7 +304,7 @@ func extract(target, regexStr ref.Val) ref.Val {
 func extractAll(target, regexStr ref.Val) ref.Val {
 	t := string(target.(types.String))
 	r := string(regexStr.(types.String))
-	re, err := compileRegex(r)
+	re, err := regexp.Compile(r)
 	if err != nil {
 		return types.WrapErr(err)
 	}
@@ -356,7 +348,7 @@ func estimateExtractCost() checker.FunctionEstimator {
 			resultSize := &checker.SizeEstimate{Min: 0, Max: targetSize.Max}
 			// The total cost is the search cost (target * regex) plus the allocation cost for the result string.
 			return &checker.CallEstimate{
-				CostEstimate: checker.CostEstimate(targetCost).Multiply(regexCost).Add(checker.CostEstimate(targetSize)),
+				CostEstimate: targetCost.Multiply(regexCost).Add(checker.CostEstimate(targetSize)),
 				ResultSize:   resultSize}
 		}
 		return nil
@@ -397,19 +389,19 @@ func estimateReplaceCost() checker.FunctionEstimator {
 			// The regex cost is the size of the regex pattern, scaled by a complexity factor.
 			regexCost := estimateSize(c, args[1]).Add(checker.FixedSizeEstimate(1)).MultiplyByCostFactor(common.RegexStringLengthCostFactor)
 			// Estimate the build cost of the new string using a pessimistic upper bound.
-			replacementCost := targetSize.Multiply(replacementSize.Add(checker.FixedSizeEstimate(1)))
+			replacementSizeEstimate := targetSize.Multiply(replacementSize.Add(checker.FixedSizeEstimate(1)))
 
 			// Estimate the potential size range of the output string. The final size could be smaller
-			// (if the replacement is shorter than the match) or larger than the original.
+			// (if the replacement size is 0) or larger than the original.
 			allReplacedSize := targetSize.Max * replacementSize.Max
 			noneReplacedSize := targetSize.Max
 			resultSize := &checker.SizeEstimate{Min: noneReplacedSize, Max: allReplacedSize}
-			if noneReplacedSize > allReplacedSize {
+			if replacementSize.Max == 0 {
 				resultSize = &checker.SizeEstimate{Min: allReplacedSize, Max: noneReplacedSize}
 			}
 			// The total cost is the search cost (target * regex) plus the estimated build cost.
 			return &checker.CallEstimate{
-				CostEstimate: targetCost.Multiply(regexCost).Add(checker.CostEstimate(replacementCost)),
+				CostEstimate: targetCost.Multiply(regexCost).Add(checker.CostEstimate(replacementSizeEstimate)),
 				ResultSize:   resultSize,
 			}
 		}
