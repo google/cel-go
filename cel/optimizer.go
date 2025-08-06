@@ -454,35 +454,35 @@ func (opt *optimizerExprFactory) NewStructField(field string, value ast.Expr, is
 	return opt.fac.NewStructField(opt.nextID(), field, value, isOptional)
 }
 
-// NewComprehension creates a comprehension expression with a set of optional indices.
+// NewComprehension creates a comprehension expression with a set of given parameters.
 //
 // Examples:
 //
-// items.filter(i, i > 0)
+// items.map(x, x * 2)
 // - iterRange: items
-// - iterVar: i
-// - accuVar: __result__
+// - iterVar: x
+// - accuVar: @result
 // - accuInit: []
 // - loopCondition: true
-// - loopStep: __result__.append(i)
-// - result: __result__
+// - loopStep: @result + x * 2
+// - result: @result
 func (opt *optimizerExprFactory) NewComprehension(iterRange ast.Expr, iterVar string, accuVar string, accuInit ast.Expr, loopCondition ast.Expr, loopStep ast.Expr, result ast.Expr) ast.Expr {
 	return opt.fac.NewComprehension(opt.nextID(), iterRange, iterVar, accuVar, accuInit, loopCondition, loopStep, result)
 }
 
-// NewComprehensionTwoVar creates a comprehension expression with a set of optional indices.
+// NewComprehensionTwoVar creates a comprehension expression with a set of given parameters.
 //
 // Examples:
 //
-// data.map(i, v, __result__ + i + v)
+// data.exists(k, k == v)
 // - iterRange: data
-// - iterVar: i
+// - iterVar: k
 // - iterVar2: v
-// - accuVar: __result__
-// - accuInit: []
-// - loopCondition: true
-// - loopStep: __result__ + i + v
-// - result: __result__
+// - accuVar: @result
+// - accuInit: false
+// - loopCondition: @not_strictly_false(!@result)
+// - loopStep: @result || k == v
+// - result: @result
 func (opt *optimizerExprFactory) NewComprehensionTwoVar(iterRange ast.Expr, iterVar string, iterVar2 string, accuVar string, accuInit ast.Expr, loopCondition ast.Expr, loopStep ast.Expr, result ast.Expr) ast.Expr {
 	return opt.fac.NewComprehensionTwoVar(opt.nextID(), iterRange, iterVar, iterVar2, accuVar, accuInit, loopCondition, loopStep, result)
 }

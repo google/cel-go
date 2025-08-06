@@ -1,4 +1,4 @@
-// Copyright 2019 Google LLC
+// Copyright 2025 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,24 +19,39 @@ import (
 
 	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/decls"
 )
+
+// EnableAnnotations registers a function used internally to annotate expressions.
+//
+// Annotations are represented as a list associated with an expression.
+// This design enables annotations from optimized subtrees to be aggregated and preserved when constructing new nodes during optimization passes,
+// ensuring that annotations from different parts of the AST are retained without name conflicts.
+func EnableAnnotations() EnvOption {
+	t := types.NewTypeParamType("T")
+	// cel.@annotation(T, map(string, dyn)) -> T
+	return Function("cel.@annotation",
+		decls.Overload("cel_annotation",
+			[]*types.Type{t, types.NewListType(types.NewMapType(types.StringType, types.DynType))},
+			t,
+		),
+	)
+}
+
 
 // Annotation represents the structure of an annotation, used to associate metadata with a AST node.
 type Annotation struct {
 	Name   string
 	Value  any
-	IsExpr bool
 }
 
-// NewAnnotation creates a new annotation with the given name, value, and whether the value is an
-// evaluable CEL expression or a non-evaluable constant.
+// NewAnnotation creates a new annotation with the given name and value.
 //
-// Note: Evaluable CEL expressions are not supported yet.
-func NewAnnotation(name string, value any, isExpr bool) *Annotation {
+// Note: Evaluable CEL expressions as annotations are not supported yet.
+func NewAnnotation(name string, value any) *Annotation {
 	return &Annotation{
 		Name:   name,
 		Value:  value,
-		IsExpr: isExpr,
 	}
 }
 
@@ -238,6 +253,5 @@ func createAnnotationExpr(ctx *OptimizerContext, ann *Annotation) ast.Expr {
 		[]ast.EntryExpr{
 			ctx.NewMapEntry(ctx.NewLiteral(types.String("name")), ctx.NewLiteral(types.String(ann.Name)), false),
 			ctx.NewMapEntry(ctx.NewLiteral(types.String("value")), ctx.NewLiteral(types.DefaultTypeAdapter.NativeToValue(ann.Value)), false),
-			ctx.NewMapEntry(ctx.NewLiteral(types.String("is_expr")), ctx.NewLiteral(types.Bool(ann.IsExpr)), false),
 		})
 }
