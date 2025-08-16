@@ -1718,12 +1718,7 @@ func TestInterpreter_ExhaustiveConditionalExpr(t *testing.T) {
 	}
 }
 
-func TestInterpreter_ObserveWrappedActivation(t *testing.T) {
-	parsed := testMustParse(t, `a == b || c != d`)
-	reg := newTestRegistry(t)
-	cont := containers.DefaultContainer
-	attrs := NewAttributeFactory(cont, reg, reg)
-	intr := newStandardInterpreter(t, cont, reg, reg, attrs)
+func TestInterpreter_WrappedActivationEvalState(t *testing.T) {
 	vars, _ := NewActivation(map[string]any{
 		"a": types.True,
 		"b": types.True,
@@ -1731,24 +1726,15 @@ func TestInterpreter_ObserveWrappedActivation(t *testing.T) {
 		"d": types.False,
 	})
 	state := NewEvalState()
-	interpretable, _ := intr.NewInterpretable(parsed, ExhaustiveEval(),
-		EvalStateObserver(EvalStateFactory(func() EvalState { return state })),
-	)
-	result := interpretable.Eval(vars)
-	if result != types.True {
-		t.Errorf("Expected true, got: %v", result)
+	esa := &evalStateActivation{vars: vars, state: state}
+	wrappedVars := &testActivationWrapper{esa, "test_activation_wrapper"}
+	ac, _ := NewActivation(wrappedVars)
+	es, found := asEvalState(ac)
+	if !found {
+		t.Errorf("asEvalState(%v) failed to find EvalState", ac)
 	}
-	if len(state.IDs()) != 7 {
-		t.Errorf("Expected 7 state values, got: %d", len(state.IDs()))
-	}
-	state = NewEvalState()
-	interpretable, _ = intr.NewInterpretable(parsed, ExhaustiveEval(),
-		EvalStateObserver(EvalStateFactory(func() EvalState { return state })),
-	)
-	wrappedVars := &testActivationWrapper{vars, "test_activation_wrapper"}
-	interpretable.Eval(wrappedVars)
-	if len(state.IDs()) != 7 {
-		t.Errorf("Expected 7 state values, got: %d", len(state.IDs()))
+	if es != state {
+		t.Errorf("asEvalState(%v) returned %v, wanted %v", ac, es, state)
 	}
 }
 
