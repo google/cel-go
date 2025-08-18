@@ -941,6 +941,67 @@ func TestNativeStructEmbedded(t *testing.T) {
 	}
 }
 
+type TestNestedStruct struct {
+	ListVal []*TestNestedType
+}
+
+func TestNativeNestedStruct(t *testing.T) {
+	var nativeTests = []struct {
+		expr string
+		in   any
+	}{
+		{
+			expr: `test.ListVal.exists(x, x.custom_name == "name")`,
+			in: map[string]any{
+				"test": &TestNestedStruct{ListVal: []*TestNestedType{{NestedCustomName: "name"}}},
+			},
+		},
+	}
+
+	envOpts := []cel.EnvOption{
+		NativeTypes(
+			reflect.ValueOf(&TestNestedStruct{}),
+			ParseStructTag("json"),
+		),
+		cel.Variable("test", cel.ObjectType("ext.TestNestedStruct")),
+	}
+
+	env, err := cel.NewEnv(envOpts...)
+	if err != nil {
+		t.Fatalf("cel.NewEnv(NativeTypes()) failed: %v", err)
+	}
+
+	for i, tst := range nativeTests {
+		tc := tst
+		t.Run(fmt.Sprintf("[%d]", i), func(t *testing.T) {
+			var asts []*cel.Ast
+			pAst, iss := env.Parse(tc.expr)
+			if iss.Err() != nil {
+				t.Fatalf("env.Parse(%v) failed: %v", tc.expr, iss.Err())
+			}
+			asts = append(asts, pAst)
+			cAst, iss := env.Check(pAst)
+			if iss.Err() != nil {
+				t.Fatalf("env.Check(%v) failed: %v", tc.expr, iss.Err())
+			}
+			asts = append(asts, cAst)
+			for _, ast := range asts {
+				prg, err := env.Program(ast)
+				if err != nil {
+					t.Fatal(err)
+				}
+				out, _, err := prg.Eval(tc.in)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !reflect.DeepEqual(out.Value(), true) {
+					t.Errorf("got %v, wanted true for expr: %s", out.Value(), tc.expr)
+				}
+			}
+		})
+	}
+}
+
 func TestNativeTypesVersion(t *testing.T) {
 	_, err := cel.NewEnv(NativeTypes(NativeTypesVersion(0)))
 	if err != nil {
