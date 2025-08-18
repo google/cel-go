@@ -430,6 +430,10 @@ func TestTypeDescriptionMaybeUnwrap(t *testing.T) {
 			in:  dpb.New(time.Duration(345)),
 			out: time.Duration(345),
 		},
+		{
+			in:  struct{ proto.Message }{wrapperspb.Int32(1234)},
+			out: int32(1234),
+		},
 	}
 	for _, tc := range tests {
 		typeName := string(tc.in.ProtoReflect().Descriptor().FullName())
