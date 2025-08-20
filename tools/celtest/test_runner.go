@@ -1204,7 +1204,7 @@ func traverseAndCalculateCoverage(t *testing.T, expr ast.NavigableExpr, p Progra
 	}
 	// Check for Branch Coverage if the node is a boolean type
 	nodeType := expr.Type()
-	if nodeType == types.BoolType && expr.AsLiteral() == nil {
+	if nodeType == types.BoolType && expr.AsLiteral() == nil && expr.AsCall().FunctionName() != "cel.@block" {
 		cr.branches += 2
 		exprText, _ := cel.ExprToString(expr, p.Ast.NativeRep().SourceInfo())
 		if info, found := p.CoverageStats[nodeID]; !found {
