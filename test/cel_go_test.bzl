@@ -31,6 +31,7 @@ def cel_go_test(
         test_data_path = "",
         file_descriptor_set = "",
         filegroup = "",
+        enable_coverage = False,
         deps = [],
         data = [],
         **kwargs):
@@ -59,6 +60,7 @@ def cel_go_test(
           this must be in binary format with either a .binarypb or .pb or.fds extension. If you need
           to support a textformat file_descriptor_set, embed it in the environment file. (default None)
       filegroup: str label of a filegroup containing the test suite, config, and cel_expr.
+      enable_coverage: boolean indicating if coverage should be enabled for the test.
       deps: list of dependencies for the go_test rule
       data: list of data dependencies for the go_test rule
       **kwargs: additional arguments to pass to the go_test rule
@@ -104,6 +106,7 @@ def cel_go_test(
         "--test_suite_path=%s" % test_suite,
         "--config_path=%s" % config,
         "--base_config_path=%s" % base_config,
+        "--enable_coverage=%s" % enable_coverage,
     ]
 
     if cel_expr_format == ".cel" or cel_expr_format == ".celpolicy" or cel_expr_format == ".yaml":
