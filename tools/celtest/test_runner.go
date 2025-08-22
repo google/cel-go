@@ -1185,7 +1185,7 @@ type coverageReport struct {
 func traverseAndCalculateCoverage(t *testing.T, expr ast.NavigableExpr, p Program, logUnencounteredNodes,
 	logUnencounteredBranches bool, preceedingTabs string, cr *coverageReport) {
 	t.Helper()
-	if expr == nil {
+	if expr == nil || len(p.CoverageStats) == 0 {
 		return
 	}
 	nodeID := expr.ID()
@@ -1238,11 +1238,12 @@ func traverseAndCalculateCoverage(t *testing.T, expr ast.NavigableExpr, p Progra
 
 func printCoverageReport(t *testing.T, exprString string, cr *coverageReport) {
 	t.Helper()
-	// Log Node Coverage results
-	nodeCoverage := 0.0
-	if cr.nodes > 0 {
-		nodeCoverage = float64(cr.coveredNodes) / float64(cr.nodes) * 100.0
+	if cr.nodes == 0 {
+		t.Logf("AST Node Coverage: No coverage stats found")
+		return
 	}
+	// Log Node Coverage results
+	nodeCoverage := float64(cr.coveredNodes) / float64(cr.nodes) * 100.0
 	t.Logf("AST Node Coverage: %.2f%% (%d out of %d nodes covered)", nodeCoverage, cr.coveredNodes, cr.nodes)
 	if len(cr.unencounteredNodes) > 0 {
 		t.Logf("Interesting Unencountered Nodes:\n%s", strings.Join(cr.unencounteredNodes, "\n"))
