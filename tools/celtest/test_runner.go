@@ -1157,7 +1157,6 @@ func reportCoverage(t *testing.T, programs []Program) {
 			t.Logf("Error converting AST to string for a program: %v", err)
 			continue
 		}
-		t.Logf("--- Start Coverage Report ---\nExpression: %s", exprString)
 		rootNavigableExpr := ast.NavigateAST(p.Ast.NativeRep())
 		// Initialize coverage metrics
 		cr := &coverageReport{
@@ -1238,8 +1237,9 @@ func traverseAndCalculateCoverage(t *testing.T, expr ast.NavigableExpr, p Progra
 
 func printCoverageReport(t *testing.T, exprString string, cr *coverageReport) {
 	t.Helper()
+	t.Logf("--- Start Coverage Report ---\nExpression: %s", exprString)
 	if cr.nodes == 0 {
-		t.Logf("AST Node Coverage: No coverage stats found")
+		t.Logf("No coverage stats found")
 		return
 	}
 	// Log Node Coverage results
