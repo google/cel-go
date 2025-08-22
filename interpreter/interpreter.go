@@ -137,10 +137,24 @@ func (esa evalStateActivation) asEvalState() EvalState {
 	return esa.state
 }
 
+// activationWrapper identifies an object that can be unwrapped to access the underlying activation.
+type activationWrapper interface {
+	Unwrap() Activation
+}
+
 // asEvalState walks the Activation hierarchy and returns the first EvalState found, if present.
 func asEvalState(vars Activation) (EvalState, bool) {
 	if conv, ok := vars.(evalStateConverter); ok {
 		return conv.asEvalState(), true
+	}
+	// Check if the current activation wraps another activation. This is used to support
+	// wrappers such as the @block() activation which may be composed of a dynamicSlotActivation or a
+	// constantSlotActivation. In this case, the underlying activation is the portion which interacts
+	// with the EvalState.
+	if wrapper, ok := vars.(activationWrapper); ok {
+		unwrapped := wrapper.Unwrap()
+		// Recursively call asEvalState on the unwrapped activation. This will check the unwrapped value and its parents.
+		return asEvalState(unwrapped)
 	}
 	if vars.Parent() != nil {
 		return asEvalState(vars.Parent())
