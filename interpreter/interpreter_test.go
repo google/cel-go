@@ -1718,6 +1718,26 @@ func TestInterpreter_ExhaustiveConditionalExpr(t *testing.T) {
 	}
 }
 
+func TestInterpreter_WrappedActivationEvalState(t *testing.T) {
+	vars, _ := NewActivation(map[string]any{
+		"a": types.True,
+		"b": types.True,
+		"c": types.False,
+		"d": types.False,
+	})
+	state := NewEvalState()
+	esa := &evalStateActivation{vars: vars, state: state}
+	wrappedVars := &testActivationWrapper{esa, "test_activation_wrapper"}
+	ac, _ := NewActivation(wrappedVars)
+	es, found := asEvalState(ac)
+	if !found {
+		t.Errorf("asEvalState(%v) failed to find EvalState", ac)
+	}
+	if es != state {
+		t.Errorf("asEvalState(%v) returned %v, wanted %v", ac, es, state)
+	}
+}
+
 func TestInterpreter_InterruptableEval(t *testing.T) {
 	items := make([]int64, 5000)
 	for i := int64(0); i < 5000; i++ {
@@ -2307,4 +2327,13 @@ func funcBindings(t testing.TB, funcs ...*decls.FunctionDecl) []*functions.Overl
 		bindings = append(bindings, overloads...)
 	}
 	return bindings
+}
+
+type testActivationWrapper struct {
+	Activation
+	name string
+}
+
+func (tw *testActivationWrapper) Unwrap() Activation {
+	return tw.Activation
 }
