@@ -103,18 +103,13 @@ func k8sParserOpts() policy.ParserOption {
 	}
 }
 
-// TestTriggerTestsCustomPolicy tests the TriggerTestsFromCompiler function for a custom policy
+// TestTriggerTestsWithRunnerOptions tests the TriggerTestsFromCompiler function for a custom policy
 // by providing test runner and compiler options without setting the flag variables.
 func TestTriggerTestsWithRunnerOptions(t *testing.T) {
 	t.Run("test trigger tests custom policy", func(t *testing.T) {
 		envOpt := compiler.EnvironmentFile("../../policy/testdata/k8s/config.yaml")
 		testSuiteParser := DefaultTestSuiteParser("../../policy/testdata/k8s/tests.yaml")
-		testCELPolicy := TestRunnerOption(func(tr *TestRunner) (*TestRunner, error) {
-			tr.Expressions = append(tr.Expressions, &compiler.FileExpression{
-				Path: "../../policy/testdata/k8s/policy.yaml",
-			})
-			return tr, nil
-		})
+		testCELPolicy := TestExpression("../../policy/testdata/k8s/policy.yaml")
 		c, err := compiler.NewCompiler(envOpt, k8sParserOpts())
 		if err != nil {
 			t.Fatalf("compiler.NewCompiler() failed: %v", err)

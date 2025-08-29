@@ -23,11 +23,14 @@ package(
 go_library(
     name = "go_default_library",
     srcs = [
+        "test_coverage_reporter.go",
         "test_runner.go",
     ],
     importpath = "github.com/google/cel-go/tools/celtest",
     deps = [
         "//cel:go_default_library",
+        "//common/ast:go_default_library",
+        "//common/operators:go_default_library",
         "//common/types:go_default_library",
         "//common/types/ref:go_default_library",
         "//interpreter:go_default_library",
@@ -54,6 +57,7 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = [
+        "test_coverage_reporter_test.go",
         "test_runner_test.go",
     ],
     data = [
@@ -63,6 +67,7 @@ go_test(
     embed = [":go_default_library"],
     deps = [
         "//cel:go_default_library",
+        "//common/ast:go_default_library",
         "//common/decls:go_default_library",
         "//common/types:go_default_library",
         "//common/types/ref:go_default_library",
@@ -84,6 +89,7 @@ cel_go_test(
     name = "pb_policy",
     cel_expr = "testdata/pb/policy.yaml",
     config = "testdata/pb/config.yaml",
+    enable_coverage = True,
     file_descriptor_set = "//policy:test_all_types_fds",
     test_data_path = "//policy",
     test_src = "//policy/test:cel_test_runner.go",
