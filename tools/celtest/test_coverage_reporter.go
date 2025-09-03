@@ -20,9 +20,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/parser"
 )
 
 // reportCoverage reports the coverage information for the provided programs.
@@ -34,7 +34,8 @@ import (
 func reportCoverage(t *testing.T, programs []Program) {
 	t.Helper()
 	for _, p := range programs {
-		exprString, err := cel.AstToString(p.Ast)
+		a := p.Ast.NativeRep()
+		exprString, err := parser.Unparse(a.Expr(), a.SourceInfo(), parser.WrapOnColumn(70))
 		if err != nil {
 			t.Logf("Error converting AST to string for a program: %v", err)
 			continue
@@ -70,14 +71,23 @@ func traverseAndCalculateCoverage(t *testing.T, expr ast.NavigableExpr, p Progra
 		return
 	}
 	nodeID := expr.ID()
+	exprText, err := parser.Unparse(expr, p.Ast.NativeRep().SourceInfo(), parser.WrapOnColumn(70))
+	if err != nil {
+		t.Logf("Error converting AST to string for an expression: %v", err)
+		return
+	}
 	cr.nodes++
+	// Check for nodes which need to be logged for missing coverage:
+	// * node should be of boolean type
+	// * node should not a literal
+	// * cel.@block type function nodes are bypassed as they are just the container for
+	// the underlying expressions and the node itself does not offer any significant coverage information
 	interestingBoolNode := expr.Type() == types.BoolType && expr.AsLiteral() == nil && expr.AsCall().FunctionName() != "cel.@block"
-	// Check for Node Coverage
+	// Check for node coverage
 	if _, isCovered := p.CoverageStats[nodeID]; isCovered {
 		cr.coveredNodes++
 	} else if logUnencountered {
 		if interestingBoolNode {
-			exprText, _ := cel.ExprToString(expr, p.Ast.NativeRep().SourceInfo())
 			cr.unencounteredNodes = append(cr.unencounteredNodes,
 				fmt.Sprintf("\nExpression ID %d ('%s')", nodeID, exprText))
 		}
@@ -86,11 +96,10 @@ func traverseAndCalculateCoverage(t *testing.T, expr ast.NavigableExpr, p Progra
 	// Check for Branch Coverage if the node is a boolean type
 	if interestingBoolNode {
 		cr.branches += 2
-		exprText, _ := cel.ExprToString(expr, p.Ast.NativeRep().SourceInfo())
 		if info, found := p.CoverageStats[nodeID]; !found {
 			if logUnencountered {
 				cr.unencounteredBranches = append(cr.unencounteredBranches,
-					"\n"+preceedingTabs+fmt.Sprintf("Expression ID %d ('%s'): Never evaluated (neither true nor false)", nodeID, exprText))
+					"\n"+preceedingTabs+fmt.Sprintf("Expression ID %d ('%s'): No coverage", nodeID, exprText))
 				preceedingTabs = preceedingTabs + "\t\t"
 			}
 		} else {
@@ -98,7 +107,7 @@ func traverseAndCalculateCoverage(t *testing.T, expr ast.NavigableExpr, p Progra
 				cr.coveredBooleanOutcomes++
 			} else if logUnencountered {
 				cr.unencounteredBranches = append(cr.unencounteredBranches,
-					"\n"+preceedingTabs+fmt.Sprintf("Expression ID %d ('%s'): Never evaluated to 'true'", nodeID, exprText))
+					"\n"+preceedingTabs+fmt.Sprintf("Expression ID %d ('%s'): lacks 'true' coverage", nodeID, exprText))
 				preceedingTabs = preceedingTabs + "\t\t"
 
 			}
@@ -106,7 +115,7 @@ func traverseAndCalculateCoverage(t *testing.T, expr ast.NavigableExpr, p Progra
 				cr.coveredBooleanOutcomes++
 			} else if logUnencountered {
 				cr.unencounteredBranches = append(cr.unencounteredBranches,
-					"\n"+preceedingTabs+fmt.Sprintf("Expression ID %d ('%s'): Never evaluated to 'false'", nodeID, exprText))
+					"\n"+preceedingTabs+fmt.Sprintf("Expression ID %d ('%s'): lacks 'false' coverage", nodeID, exprText))
 				preceedingTabs = preceedingTabs + "\t\t"
 			}
 		}
