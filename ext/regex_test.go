@@ -281,116 +281,108 @@ func TestRegexCosts(t *testing.T) {
 	}{
 		{
 			expr:          `regex.extract('hello world', 'hello (.*)') == optional.of('world')`,
-			estimatedCost: checker.CostEstimate{Min: 19, Max: 20},
-			actualCost:    6,
+			estimatedCost: checker.CostEstimate{Min: 7, Max: 19},
+			actualCost:    8,
 		},
+		// - Estimated Cost (Min: 5): Derived from fixed costs of scanning 10-char
+		//   target string and compiling 2-char regex. Since the inputs are constant,
+		//   the Min estimate is very accurate.
+		// - Actual Cost (5): Observed cost is the sum of a base call cost (~1), the
+		//   search cost, and the allocation cost for the 2-char result string '22'.
+		//   It aligns perfectly with the minimum estimate.
 		{
 			expr:          "regex.extract('4122345432', '22').orValue('777') == '22'",
-			estimatedCost: checker.CostEstimate{Min: 14, Max: 14},
-			actualCost:    3,
+			estimatedCost: checker.CostEstimate{Min: 5, Max: 15},
+			actualCost:    5,
 		},
 		{
 			expr:          "regex.extract('4122345432', '22').or(optional.of('777')) == optional.of('22')",
-			estimatedCost: checker.CostEstimate{Min: 16, Max: 1844674407370955279},
-			actualCost:    4,
+			estimatedCost: checker.CostEstimate{Min: 7, Max: 1844674407370955280},
+			actualCost:    6,
 		},
 		{
 			expr:          "regex.extract('hello world', 'goodbye (.*)') == optional.none()",
-			estimatedCost: checker.CostEstimate{Min: 21, Max: 22},
-			actualCost:    7,
+			estimatedCost: checker.CostEstimate{Min: 8, Max: 20},
+			actualCost:    9,
 		},
 		{
 			expr:          "regex.extractAll('id:123, id:456', 'assa') == []",
 			estimatedCost: checker.CostEstimate{Min: 24, Max: 38},
-			actualCost:    12,
+			actualCost:    24,
 		},
+		// - Estimated Cost (Min: 25): Cost to scan the 14-char target and compile
+		//   5-char regex, plus a worst-case allocation cost for the result list's
+		//   contents, which is estimated as the full 14-char size of the target.
+		// - Actual Cost (28): Observed cost includes the search cost plus the actual
+		//   allocation cost, which is the base list creation cost plus the cost of
+		//   allocating the two result strings, totaling 12 chars of content.
 		{
-			expr: `regex.extractAll('id:123, id:456', r'id:\d+') == ['id:123', 'id:456']`,
-			// Estimated Cost = search cost + a list allocation cost.
-			// - List Allocation Cost: This is the base cost to create a list plus the worst-case
-			//   size of its contents, which is the full target string's length (14).
-			// - Search Cost: A multiplicative cost based on target (len 14) and regex (len 5) length.
+			expr:          `regex.extractAll('id:123, id:456', r'id:\d+') == ['id:123', 'id:456']`,
 			estimatedCost: checker.CostEstimate{Min: 25, Max: 39},
-			// Actual Cost: The result is a list containing two strings: 'id:123' and 'id:456'.
-			// The combined length of the contents is 6 + 6 = 12.
-			// The cost is the content size plus overhead for the call, search, and list creation (~4),
-			// so 12 + 4 = 16.
-			actualCost: 16,
+			actualCost:    28,
 		},
 		{
 			expr:          `regex.extractAll('a b c', r'(\S*)\s*') == ['a', 'b', 'c']`,
-			estimatedCost: checker.CostEstimate{Min: 24, Max: 29},
-			actualCost:    16,
+			estimatedCost: checker.CostEstimate{Min: 25, Max: 30},
+			actualCost:    28,
 		},
 		{
 			expr:          `regex.extractAll('testuser@gmail.com, a@y.com, 2312321wsamkldjq2w2@sdad.com', r'(?P<username>\w+)@') == ['testuser', 'a', '2312321wsamkldjq2w2']`,
-			estimatedCost: checker.CostEstimate{Min: 51, Max: 108},
-			actualCost:    40,
+			estimatedCost: checker.CostEstimate{Min: 32, Max: 89},
+			actualCost:    36,
 		},
 		{
 			expr:          "regex.replace('hello world hello', 'hello', 'hi') == 'hi world hi'",
-			estimatedCost: checker.CostEstimate{Min: 56, Max: 57},
-			actualCost:    16,
+			estimatedCost: checker.CostEstimate{Min: 22, Max: 40},
+			actualCost:    17,
 		},
 		{
 			expr:          `regex.replace('ac', 'a(b)?c', r'[\1]') == '[]'`,
-			estimatedCost: checker.CostEstimate{Min: 13, Max: 13},
-			actualCost:    4,
+			estimatedCost: checker.CostEstimate{Min: 6, Max: 12},
+			actualCost:    6,
 		},
 		{
 			expr:          "regex.replace('apple pie', 'p', 'X') == 'aXXle Xie'",
-			estimatedCost: checker.CostEstimate{Min: 20, Max: 20},
-			actualCost:    11,
+			estimatedCost: checker.CostEstimate{Min: 12, Max: 12},
+			actualCost:    12,
 		},
 		{
-			expr: "regex.replace('aaaaaa', 'a', '-what-') == '-what--what--what--what--what--what-'",
-			// Estimated Cost = search cost + build cost.
-			// - Build Cost: pessimistic estimate: len(target) * (len(replacement) + 1) = 6 * (6 + 1) = 42
-			// - Search Cost: A smaller multiplicative cost based on target and regex length.
-			// The total is ~42 + search_cost, which aligns with the 44-47 range.
-			estimatedCost: checker.CostEstimate{Min: 44, Max: 47},
-			// Actual Cost: The result string '-what--what--...-' has a length of 36.
-			// The actual cost is the length of the result plus a small, fixed overhead for the
-			// function call and search (~5), so 36 + 5 = 41.
-			actualCost: 41,
+			expr:          "regex.replace('aaaaaa', 'a', '-what-') == '-what--what--what--what--what--what-'",
+			estimatedCost: checker.CostEstimate{Min: 9, Max: 42},
+			actualCost:    42,
 		},
 		// --- Constant Cost Cases ---
-		// The next three tests are interesting because the estimated and actual costs
-		// remain constant, even though the number of replacements changes via the 'count' argument.
-		//
-		// Estimated Cost: Cost estimation is based on the static sizes of the target,
-		// regex, and replacement strings, without considering the 'count' argument.
-		// Since these inputs are identical for all three tests, the estimate is also identical.
-		// It's the sum of a pessimistic Build Cost (~12) and a Search Cost (~2).
-		//
-		// Actual Cost: This is constant because the replacement 'x' (len 1) has the
-		// same length as the matched pattern 'a' (len 1). Therefore, the final string's
-		// length is always 6, regardless of how many replacements are made. The cost is
-		// len(result) + base_overhead = 6 + 2 = 8.
+		// These cases demonstrate that the cost is independent of the `count` arg.
+		// - Estimated Cost (9): Estimator does not evaluate the value of `count`.
+		//  It assumes the worst case (all possible replacements) for any `count`.
+		// 	Since the other inputs are identical, the estimate is constant.
+		// - Actual Cost (9): The tracker's cost is also modeled on the worst case
+		//  for consistency. The search phase of the operation scans the whole
+		//  string for all matches, so the dominant cost is constant.
 		{
 			expr:          "regex.replace('banana', 'a', 'x', 0) == 'banana'",
-			estimatedCost: checker.CostEstimate{Min: 14, Max: 14},
-			actualCost:    8,
+			estimatedCost: checker.CostEstimate{Min: 9, Max: 9},
+			actualCost:    9,
 		},
 		{
 			expr:          "regex.replace('banana', 'a', 'x', 1) == 'bxnana'",
-			estimatedCost: checker.CostEstimate{Min: 14, Max: 14},
-			actualCost:    8,
+			estimatedCost: checker.CostEstimate{Min: 9, Max: 9},
+			actualCost:    9,
 		},
 		{
 			expr:          "regex.replace('banana', 'a', 'x', 100) == 'bxnxnx'",
-			estimatedCost: checker.CostEstimate{Min: 14, Max: 14},
-			actualCost:    8,
+			estimatedCost: checker.CostEstimate{Min: 9, Max: 9},
+			actualCost:    9,
 		},
 		{
 			expr:          `regex.replace('foo bar', r'(foo bar)', r'\1\1\1\1\1' ) == 'foo barfoo barfoo barfoo barfoo bar'`,
-			estimatedCost: checker.CostEstimate{Min: 81, Max: 84},
-			actualCost:    41,
+			estimatedCost: checker.CostEstimate{Min: 12, Max: 78},
+			actualCost:    43,
 		},
 		{
 			expr:          `regex.replace('foo bar', r'(foo bar)', '') == ''`,
-			estimatedCost: checker.CostEstimate{Min: 10, Max: 10},
-			actualCost:    2,
+			estimatedCost: checker.CostEstimate{Min: 4, Max: 11},
+			actualCost:    4,
 		},
 	}
 	for _, test := range tests {
