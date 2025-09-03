@@ -25,6 +25,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/cel-go/common/ast"
+	"github.com/google/cel-go/common/operators"
 	"gopkg.in/yaml.v3"
 
 	"github.com/google/cel-go/cel"
@@ -53,6 +55,7 @@ var (
 	fileDescriptorSetPath string
 	configPath            string
 	baseConfigPath        string
+	enableCoverage        bool
 )
 
 func init() {
@@ -61,6 +64,7 @@ func init() {
 	flag.StringVar(&configPath, "config_path", "", "path to a config file")
 	flag.StringVar(&baseConfigPath, "base_config_path", "", "path to a base config file")
 	flag.StringVar(&celExpression, "cel_expr", "", "CEL expression to test")
+	flag.BoolVar(&enableCoverage, "enable_coverage", false, "Enable coverage calculation and reporting.")
 }
 
 func updateRunfilesPathForFlags(testResourcesDir string) error {
@@ -156,6 +160,9 @@ func TriggerTests(t *testing.T, testRunnerOpts ...TestRunnerOption) {
 			}
 		})
 	}
+	if tr.EnableCoverage {
+		reportCoverage(t, programs)
+	}
 }
 
 // TestRunnerOptionsFromFlags returns a TestRunnerOption which configures the following attributes
@@ -168,6 +175,7 @@ func TriggerTests(t *testing.T, testRunnerOpts ...TestRunnerOption) {
 //     File Descriptor Set Path of the test runner.
 //   - Test expression - The `cel_expr` flag is used to populate the test expressions which need to be
 //     evaluated by the test runner.
+//   - Enable coverage - The `enable_coverage` flag is used to enable coverage calculation and reporting.
 func TestRunnerOptionsFromFlags(testResourcesDir string, testRunnerOpts []TestRunnerOption, testCompilerOpts ...any) TestRunnerOption {
 	if !flag.Parsed() {
 		flag.Parse()
@@ -181,6 +189,9 @@ func TestRunnerOptionsFromFlags(testResourcesDir string, testRunnerOpts []TestRu
 			DefaultTestSuiteParser(testSuitePath),
 			AddFileDescriptorSet(fileDescriptorSetPath),
 			TestExpression(celExpression),
+		}
+		if enableCoverage {
+			opts = append(opts, EnableCoverage())
 		}
 		opts = append(opts, testRunnerOpts...)
 		var err error
@@ -204,6 +215,9 @@ func testRunnerCompilerFromFlags(testCompilerOpts ...any) TestRunnerOption {
 	}
 	if configPath != "" {
 		opts = append(opts, compiler.EnvironmentFile(configPath))
+	}
+	if enableCoverage {
+		opts = append(opts, cel.EnableMacroCallTracking())
 	}
 	opts = append(opts, testCompilerOpts...)
 	return TestCompiler(opts...)
@@ -287,6 +301,7 @@ func TestSuiteParserOption(p TestSuiteParser) TestRunnerOption {
 // - File Descriptor Set Path: The path to the file descriptor set file.
 // - test Suite Parser: A parser for a test suite file serialized in Textproto/YAML format.
 // - test Program Options: A list of options to be used when creating the CEL programs.
+// - EnableCoverage: A boolean to enable coverage calculation.
 //
 // The TestRunner provides the following methods:
 // - Programs: Creates a list of CEL programs from the input expressions.
@@ -299,6 +314,7 @@ type TestRunner struct {
 	FileDescriptorSetPath string
 	testSuiteParser       TestSuiteParser
 	testProgramOptions    []cel.ProgramOption
+	EnableCoverage        bool
 }
 
 // Test represents a single test case to be executed. It encompasses the following:
@@ -451,14 +467,33 @@ func PartialEvalProgramOption() TestRunnerOption {
 	}
 }
 
+// EnableCoverage returns a TestRunnerOption which enables coverage calculation for the test run.
+func EnableCoverage() TestRunnerOption {
+	return func(tr *TestRunner) (*TestRunner, error) {
+		tr.EnableCoverage = true
+		tr.testProgramOptions = append(tr.testProgramOptions, cel.EvalOptions(cel.OptTrackState))
+		return tr, nil
+	}
+}
+
 // Program represents the result of creating CEL programs for the configured expressions in the
 // test runner. It encompasses the following:
 // - CELProgram - the evaluable CEL program
 // - PolicyMetadata - the metadata map obtained while creating the CEL AST from the expression
+// - Ast - the CEL AST created from the expression
+// - CoverageStats - the coverage report map obtained from calculating the coverage if enabled.
 type Program struct {
 	cel.Program
 	PolicyMetadata map[string]any
+	Ast            *cel.Ast
+	CoverageStats  map[int64]set
 }
+
+// set is a generic set implementation using a map where the keys are the elements of the set
+// and the values are empty structs. This approach is memory-efficient because an empty struct
+// occupies zero bytes. This will be used to store the values observed for each expression during
+// coverage calculation.
+type set map[ref.Val]struct{}
 
 // Programs creates a list of CEL programs from the input expressions configured in the test runner
 // using the provided program options.
@@ -488,6 +523,7 @@ func (tr *TestRunner) Programs(t *testing.T, opts ...cel.ProgramOption) ([]Progr
 		programs = append(programs, Program{
 			Program:        prg,
 			PolicyMetadata: policyMetadata,
+			Ast:            ast,
 		})
 	}
 	return programs, nil
@@ -890,19 +926,218 @@ func (tr *TestRunner) createResultMatcher(t *testing.T, testOutput *test.Output)
 
 // ExecuteTest executes the test case against the provided list of programs and returns an error if
 // the test fails.
+// During the test execution, the intermediate values encountered during the evaluation of each
+// program are collected and stored in the CoverageStats map of the TestRunner.
 func (tr *TestRunner) ExecuteTest(t *testing.T, programs []Program, test *Test) error {
 	t.Helper()
 	if tr.Compiler == nil {
 		return fmt.Errorf("compiler is not set")
 	}
-	for _, pr := range programs {
+	for i, pr := range programs {
 		if pr.Program == nil {
 			return fmt.Errorf("CEL program not set")
 		}
-		out, _, err := pr.Eval(test.input)
+		out, details, err := pr.Eval(test.input)
 		if testResult := test.resultMatcher(out, err); !testResult.Success {
 			return fmt.Errorf("test: %s \n wanted: %v \n failed: %v", test.name, testResult.Wanted, testResult.Error)
 		}
+		if tr.EnableCoverage {
+			collectCoverageStats(details, &pr)
+			programs[i] = pr
+		}
 	}
 	return nil
+}
+
+// collectCoverageStats collects the coverage stats from the EvalDetails and stores them in the
+// CoverageStats map of the Program.
+func collectCoverageStats(details *cel.EvalDetails, p *Program) {
+	if details == nil || details.State() == nil {
+		return
+	}
+	if p.CoverageStats == nil {
+		p.CoverageStats = make(map[int64]set)
+	}
+	state := details.State()
+	for _, id := range state.IDs() {
+		value, found := state.Value(id)
+		if !found {
+			continue
+		}
+		if _, ok := p.CoverageStats[id]; !ok {
+			p.CoverageStats[id] = make(set)
+		}
+		p.CoverageStats[id][value] = struct{}{}
+	}
+	// Propagate visitedness after collecting direct observations
+	propagateVisitedness(p.Ast, p.CoverageStats, state)
+}
+
+// propagateVisitedness implements two rules for extending the coverage report:
+// - If a node is visited, all its ancestors are visited.
+// - If a node is visited, and it has only one child, then the child is visited.
+func propagateVisitedness(root *cel.Ast, coverageStats map[int64]set, state interpreter.EvalState) {
+	if root == nil || coverageStats == nil {
+		return
+	}
+	// Propagate visitedness upwards for ancestors.
+	ast.PostOrderVisit(root.NativeRep().Expr(), parentVisitor{coverageStats: coverageStats, evalState: state})
+	// Propagate visitedness downwards for single-child nodes.
+	ast.PostOrderVisit(root.NativeRep().Expr(), childrenVisitor{coverageStats: coverageStats, evalState: state})
+}
+
+// childrenVisitor is a visitor that populates the coverageStats for the child nodes of a given expression.
+type childrenVisitor struct {
+	coverageStats map[int64]set
+	evalState     interpreter.EvalState
+}
+
+// VisitExpr sets the coverageStats for the child of the given expression when the expression has just one child.
+func (cv childrenVisitor) VisitExpr(e ast.Expr) {
+	if cv.coverageStats[e.ID()] == nil {
+		return
+	}
+	switch e.Kind() {
+	case ast.SelectKind:
+		selExprOperand := e.AsSelect().Operand()
+		if _, ok := cv.coverageStats[selExprOperand.ID()]; !ok {
+			cv.coverageStats[selExprOperand.ID()] = make(set)
+		}
+	case ast.CallKind:
+		if c := e.AsCall(); c.FunctionName() == operators.Negate || c.FunctionName() == operators.LogicalNot {
+			if _, ok := cv.coverageStats[c.Args()[0].ID()]; !ok {
+				cv.coverageStats[c.Args()[0].ID()] = make(set)
+			}
+		}
+	}
+}
+
+// VisitEntryExpr does not affect the coverageStats for the child nodes of the given entry expression.
+func (cv childrenVisitor) VisitEntryExpr(e ast.EntryExpr) {}
+
+// parentVisitor is a visitor that populates the coverageStats of a given expression based on the
+// coverageStats of its direct children.
+type parentVisitor struct {
+	coverageStats map[int64]set
+	evalState     interpreter.EvalState
+}
+
+// VisitExpr populates the coverageStats for the current expression based on the coverageStats of its direct children.
+func (pv parentVisitor) VisitExpr(e ast.Expr) {
+	switch e.Kind() {
+	case ast.SelectKind:
+		if pv.coverageStats[e.ID()] != nil {
+			return
+		}
+		if _, ok := pv.coverageStats[e.AsSelect().Operand().ID()]; ok {
+			pv.coverageStats[e.ID()] = make(set)
+		}
+	case ast.CallKind:
+		c := e.AsCall()
+		if c.FunctionName() == "cel.@block" {
+			pv.coverageStats[e.ID()] = pv.coverageStats[c.Args()[1].ID()]
+			return
+		}
+		if c.FunctionName() == operators.Conditional {
+			truthyID := c.Args()[1].ID()
+			if truthyVal, ok := pv.evalState.Value(truthyID); ok {
+				if pv.coverageStats[e.ID()] == nil {
+					pv.coverageStats[e.ID()] = make(set)
+				}
+				pv.coverageStats[e.ID()][truthyVal] = struct{}{}
+			}
+			falsyID := c.Args()[2].ID()
+			if falsyVal, ok := pv.evalState.Value(falsyID); ok {
+				if pv.coverageStats[e.ID()] == nil {
+					pv.coverageStats[e.ID()] = make(set)
+				}
+				pv.coverageStats[e.ID()][falsyVal] = struct{}{}
+			}
+			return
+		}
+		if pv.coverageStats[e.ID()] != nil {
+			return
+		}
+		for _, arg := range c.Args() {
+			if _, ok := pv.coverageStats[arg.ID()]; ok {
+				pv.coverageStats[e.ID()] = make(set)
+				break
+			}
+		}
+		if c.IsMemberFunction() && pv.coverageStats[c.Target().ID()] == nil && pv.coverageStats[e.ID()] != nil {
+			pv.coverageStats[c.Target().ID()] = make(set)
+		}
+	case ast.ListKind:
+		if pv.coverageStats[e.ID()] != nil {
+			return
+		}
+		l := e.AsList()
+		for _, element := range l.Elements() {
+			if _, ok := pv.coverageStats[element.ID()]; ok {
+				pv.coverageStats[e.ID()] = make(set)
+				break
+			}
+		}
+	case ast.MapKind:
+		if pv.coverageStats[e.ID()] != nil {
+			return
+		}
+		m := e.AsMap()
+		for _, entry := range m.Entries() {
+			if _, ok := pv.coverageStats[entry.ID()]; ok {
+				pv.coverageStats[e.ID()] = make(set)
+				break
+			}
+		}
+	case ast.StructKind:
+		if pv.coverageStats[e.ID()] != nil {
+			return
+		}
+		s := e.AsStruct()
+		for _, field := range s.Fields() {
+			if _, ok := pv.coverageStats[field.ID()]; ok {
+				pv.coverageStats[e.ID()] = make(set)
+				break
+			}
+		}
+	case ast.ComprehensionKind:
+		if pv.coverageStats[e.ID()] != nil {
+			return
+		}
+		comp := e.AsComprehension()
+		if _, ok := pv.coverageStats[comp.IterRange().ID()]; ok {
+			pv.coverageStats[e.ID()] = make(set)
+		} else if _, ok = pv.coverageStats[comp.AccuInit().ID()]; ok {
+			pv.coverageStats[e.ID()] = make(set)
+		} else if _, ok = pv.coverageStats[comp.LoopCondition().ID()]; ok {
+			pv.coverageStats[e.ID()] = make(set)
+		} else if _, ok = pv.coverageStats[comp.LoopStep().ID()]; ok {
+			pv.coverageStats[e.ID()] = make(set)
+		} else if _, ok = pv.coverageStats[comp.Result().ID()]; ok {
+			pv.coverageStats[e.ID()] = make(set)
+		}
+	}
+}
+
+// VisitEntryExpr populates the coverageStats for the current entry expression based on the coverageStats
+// of its direct children.
+func (pv parentVisitor) VisitEntryExpr(e ast.EntryExpr) {
+	if pv.coverageStats[e.ID()] != nil {
+		return
+	}
+	switch e.Kind() {
+	case ast.MapEntryKind:
+		me := e.AsMapEntry()
+		if _, ok := pv.coverageStats[me.Key().ID()]; ok {
+			pv.coverageStats[e.ID()] = make(set)
+		}
+		if _, ok := pv.coverageStats[me.Value().ID()]; ok {
+			pv.coverageStats[e.ID()] = make(set)
+		}
+	case ast.StructFieldKind:
+		sf := e.AsStructField()
+		if _, ok := pv.coverageStats[sf.Value().ID()]; ok {
+			pv.coverageStats[e.ID()] = make(set)
+		}
+	}
 }
