@@ -149,6 +149,10 @@ func TestRegexStaticErrors(t *testing.T) {
 			expr: "regex.extractAll()",
 			err:  "found no matching overload for 'regex.extractAll' applied to '()'",
 		},
+		{
+			expr: "regex.replace('banana', 'a', 'x', 18446744073709551615)",
+			err:  `ERROR: <input>:1:35: invalid int literal`,
+		},
 	}
 	env := testRegexEnv(t)
 	for i, tst := range tests {
