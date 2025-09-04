@@ -281,7 +281,7 @@ func TestRegexCosts(t *testing.T) {
 	}{
 		{
 			expr:          `regex.extract('hello world', 'hello (.*)') == optional.of('world')`,
-			estimatedCost: checker.CostEstimate{Min: 7, Max: 19},
+			estimatedCost: checker.CostEstimate{Min: 8, Max: 20},
 			actualCost:    8,
 		},
 		// - Estimated Cost (Min: 5): Derived from fixed costs of scanning 10-char
@@ -292,23 +292,26 @@ func TestRegexCosts(t *testing.T) {
 		//   It aligns perfectly with the minimum estimate.
 		{
 			expr:          "regex.extract('4122345432', '22').orValue('777') == '22'",
-			estimatedCost: checker.CostEstimate{Min: 5, Max: 15},
+			estimatedCost: checker.CostEstimate{Min: 4, Max: 14},
+			actualCost:    4,
+		},
+		// .or() condition introduces runtime uncertainty, and since the cost estimator
+		// can't know which branch the code will take, it must prepare for the most
+		// expensive possible outcome resulting in an estimate.Max of ~ math.MaxUint64.
+		{
+			expr:          "regex.extract('4122345432', '22').or(optional.of('777')) == optional.of('22')",
+			estimatedCost: checker.CostEstimate{Min: 6, Max: 1844674407370955279},
 			actualCost:    5,
 		},
 		{
-			expr:          "regex.extract('4122345432', '22').or(optional.of('777')) == optional.of('22')",
-			estimatedCost: checker.CostEstimate{Min: 7, Max: 1844674407370955280},
-			actualCost:    6,
-		},
-		{
 			expr:          "regex.extract('hello world', 'goodbye (.*)') == optional.none()",
-			estimatedCost: checker.CostEstimate{Min: 8, Max: 20},
-			actualCost:    9,
+			estimatedCost: checker.CostEstimate{Min: 10, Max: 22},
+			actualCost:    8,
 		},
 		{
 			expr:          "regex.extractAll('id:123, id:456', 'assa') == []",
 			estimatedCost: checker.CostEstimate{Min: 24, Max: 38},
-			actualCost:    24,
+			actualCost:    23,
 		},
 		// - Estimated Cost (Min: 25): Cost to scan the 14-char target and compile
 		//   5-char regex, plus a worst-case allocation cost for the result list's
@@ -319,37 +322,37 @@ func TestRegexCosts(t *testing.T) {
 		{
 			expr:          `regex.extractAll('id:123, id:456', r'id:\d+') == ['id:123', 'id:456']`,
 			estimatedCost: checker.CostEstimate{Min: 25, Max: 39},
-			actualCost:    28,
+			actualCost:    27,
 		},
 		{
 			expr:          `regex.extractAll('a b c', r'(\S*)\s*') == ['a', 'b', 'c']`,
-			estimatedCost: checker.CostEstimate{Min: 25, Max: 30},
-			actualCost:    28,
+			estimatedCost: checker.CostEstimate{Min: 24, Max: 29},
+			actualCost:    27,
 		},
 		{
 			expr:          `regex.extractAll('testuser@gmail.com, a@y.com, 2312321wsamkldjq2w2@sdad.com', r'(?P<username>\w+)@') == ['testuser', 'a', '2312321wsamkldjq2w2']`,
-			estimatedCost: checker.CostEstimate{Min: 32, Max: 89},
-			actualCost:    36,
+			estimatedCost: checker.CostEstimate{Min: 51, Max: 108},
+			actualCost:    53,
 		},
 		{
 			expr:          "regex.replace('hello world hello', 'hello', 'hi') == 'hi world hi'",
 			estimatedCost: checker.CostEstimate{Min: 22, Max: 40},
-			actualCost:    17,
+			actualCost:    16,
 		},
 		{
 			expr:          `regex.replace('ac', 'a(b)?c', r'[\1]') == '[]'`,
-			estimatedCost: checker.CostEstimate{Min: 6, Max: 12},
-			actualCost:    6,
+			estimatedCost: checker.CostEstimate{Min: 5, Max: 11},
+			actualCost:    4,
 		},
 		{
 			expr:          "regex.replace('apple pie', 'p', 'X') == 'aXXle Xie'",
-			estimatedCost: checker.CostEstimate{Min: 12, Max: 12},
-			actualCost:    12,
+			estimatedCost: checker.CostEstimate{Min: 11, Max: 11},
+			actualCost:    11,
 		},
 		{
 			expr:          "regex.replace('aaaaaa', 'a', '-what-') == '-what--what--what--what--what--what-'",
-			estimatedCost: checker.CostEstimate{Min: 9, Max: 42},
-			actualCost:    42,
+			estimatedCost: checker.CostEstimate{Min: 8, Max: 41},
+			actualCost:    41,
 		},
 		// --- Constant Cost Cases ---
 		// These cases demonstrate that the cost is independent of the `count` arg.
@@ -361,28 +364,28 @@ func TestRegexCosts(t *testing.T) {
 		//  string for all matches, so the dominant cost is constant.
 		{
 			expr:          "regex.replace('banana', 'a', 'x', 0) == 'banana'",
-			estimatedCost: checker.CostEstimate{Min: 9, Max: 9},
-			actualCost:    9,
+			estimatedCost: checker.CostEstimate{Min: 8, Max: 8},
+			actualCost:    8,
 		},
 		{
 			expr:          "regex.replace('banana', 'a', 'x', 1) == 'bxnana'",
-			estimatedCost: checker.CostEstimate{Min: 9, Max: 9},
-			actualCost:    9,
+			estimatedCost: checker.CostEstimate{Min: 8, Max: 8},
+			actualCost:    8,
 		},
 		{
 			expr:          "regex.replace('banana', 'a', 'x', 100) == 'bxnxnx'",
-			estimatedCost: checker.CostEstimate{Min: 9, Max: 9},
-			actualCost:    9,
+			estimatedCost: checker.CostEstimate{Min: 8, Max: 8},
+			actualCost:    8,
 		},
 		{
 			expr:          `regex.replace('foo bar', r'(foo bar)', r'\1\1\1\1\1' ) == 'foo barfoo barfoo barfoo barfoo bar'`,
-			estimatedCost: checker.CostEstimate{Min: 12, Max: 78},
-			actualCost:    43,
+			estimatedCost: checker.CostEstimate{Min: 11, Max: 77},
+			actualCost:    42,
 		},
 		{
 			expr:          `regex.replace('foo bar', r'(foo bar)', '') == ''`,
-			estimatedCost: checker.CostEstimate{Min: 4, Max: 11},
-			actualCost:    4,
+			estimatedCost: checker.CostEstimate{Min: 3, Max: 10},
+			actualCost:    3,
 		},
 	}
 	for _, test := range tests {

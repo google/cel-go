@@ -348,7 +348,7 @@ func estimateExtractCost() checker.FunctionEstimator {
 			resultSize := &checker.SizeEstimate{Min: 0, Max: targetSize.Max}
 			// The total cost is the search cost (target + regex) plus the allocation cost for the result string.
 			return &checker.CallEstimate{
-				CostEstimate: regexCost.Add(targetCost).Add(checker.CostEstimate(*resultSize)),
+				CostEstimate: regexCost.Multiply(targetCost).Add(checker.CostEstimate(*resultSize)),
 				ResultSize:   resultSize,
 			}
 		}
@@ -371,7 +371,7 @@ func estimateExtractAllCost() checker.FunctionEstimator {
 			allocationSize := resultSize.Add(checker.FixedSizeEstimate(common.ListCreateBaseCost))
 			// The total cost is the search cost (target + regex) plus the allocation cost for the result list.
 			return &checker.CallEstimate{
-				CostEstimate: targetCost.Add(regexCost).Add(checker.CostEstimate(allocationSize)),
+				CostEstimate: targetCost.Multiply(regexCost).Add(checker.CostEstimate(allocationSize)),
 				ResultSize:   resultSize,
 			}
 		}
@@ -401,7 +401,7 @@ func estimateReplaceCost() checker.FunctionEstimator {
 			}
 			// The final cost is result of search cost (target cost + regex cost) plus the allocation cost for the output string.
 			return &checker.CallEstimate{
-				CostEstimate: targetCost.Add(regexCost).Add(checker.CostEstimate(*resultSize)),
+				CostEstimate: targetCost.Multiply(regexCost).Add(checker.CostEstimate(*resultSize)),
 				ResultSize:   resultSize,
 			}
 		}
@@ -414,7 +414,7 @@ func extractCostTracker() interpreter.FunctionTracker {
 		targetCost := float64(actualSize(args[0])+1) * common.StringTraversalCostFactor
 		regexCost := float64(actualSize(args[1])+1) * common.RegexStringLengthCostFactor
 		// Actual search cost calculation = targetCost + regexCost
-		searchCost := targetCost + regexCost
+		searchCost := targetCost * regexCost
 		// The total cost is the base call cost + search cost + result string allocation.
 		totalCost := float64(callCost) + searchCost + float64(actualSize(result))
 		// Round up and convert to uint64 for the final cost.
@@ -428,7 +428,7 @@ func extractAllCostTracker() interpreter.FunctionTracker {
 		targetCost := float64(actualSize(args[0])+1) * common.StringTraversalCostFactor
 		regexCost := float64(actualSize(args[1])+1) * common.RegexStringLengthCostFactor
 		// Actual search cost calculation = targetCost + regexCost
-		searchCost := targetCost + regexCost
+		searchCost := targetCost * regexCost
 		// The total cost is the base call cost + search cost + result allocation + list creation cost factor.
 		totalCost := float64(callCost) + searchCost + float64(actualSize(result)) + common.ListCreateBaseCost
 		// Round up and convert to uint64 for the final cost.
@@ -442,7 +442,7 @@ func replaceCostTracker() interpreter.FunctionTracker {
 		targetCost := float64(actualSize(args[0])+1) * common.StringTraversalCostFactor
 		regexCost := float64(actualSize(args[1])+1) * common.RegexStringLengthCostFactor
 		// Actual search cost calculation = targetCost + regexCost
-		searchCost := targetCost + regexCost
+		searchCost := targetCost * regexCost
 		// The total cost is the base call cost + search cost + result string allocation.
 		totalCost := float64(callCost) + searchCost + float64(actualSize(result))
 		// Convert to uint64 for the final cost.
