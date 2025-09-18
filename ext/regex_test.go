@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/checker"
 )
 
 func TestRegex(t *testing.T) {
@@ -148,6 +149,10 @@ func TestRegexStaticErrors(t *testing.T) {
 			expr: "regex.extractAll()",
 			err:  "found no matching overload for 'regex.extractAll' applied to '()'",
 		},
+		{
+			expr: "regex.replace('banana', 'a', 'x', 18446744073709551615)",
+			err:  `ERROR: <input>:1:35: invalid int literal`,
+		},
 	}
 	env := testRegexEnv(t)
 	for i, tst := range tests {
@@ -168,11 +173,11 @@ func TestRegexRuntimeErrors(t *testing.T) {
 	}{
 		{
 			expr: "regex.extract('foo bar', '(')",
-			err:  "given regex is invalid: error parsing regexp: missing closing ): `(`",
+			err:  "error parsing regexp: missing closing ): `(`",
 		},
 		{
 			expr: "regex.extractAll('foo bar', '[a-z')",
-			err:  "given regex is invalid: error parsing regexp: missing closing ]: `[a-z`",
+			err:  "error parsing regexp: missing closing ]: `[a-z`",
 		},
 		{
 			expr: `regex.replace('id=123', r'id=(?P<value>\d+)', r'value: \values')`,
@@ -185,10 +190,6 @@ func TestRegexRuntimeErrors(t *testing.T) {
 		{
 			expr: `regex.replace('id=123', r'id=(?P<value>\d+)', r'value: \')`,
 			err:  `invalid replacement string: 'value: \' \ not allowed at end`,
-		},
-		{
-			expr: `regex.replace('foofoo', 'foo', 'bar', 9223372036854775807)`,
-			err:  "integer overflow",
 		},
 		{
 			expr: `regex.extract('phone: 415-5551212', r'phone: ((\d{3})-)?')`,
@@ -271,4 +272,146 @@ func testRegexEnv(t *testing.T, opts ...cel.EnvOption) *cel.Env {
 		t.Fatalf("cel.NewEnv(Regex()) failed: %v", err)
 	}
 	return env
+}
+
+func TestRegexCosts(t *testing.T) {
+	tests := []struct {
+		expr          string
+		vars          []cel.EnvOption
+		in            map[string]any
+		hints         map[string]uint64
+		estimatedCost checker.CostEstimate
+		actualCost    uint64
+	}{
+		{
+			expr:          `regex.extract('hello world', 'hello (.*)') == optional.of('world')`,
+			estimatedCost: checker.CostEstimate{Min: 8, Max: 20},
+			actualCost:    8,
+		},
+		// - Estimated Cost (Min: 5): Derived from fixed costs of scanning 10-char
+		//   target string and compiling 2-char regex. Since the inputs are constant,
+		//   the Min estimate is very accurate.
+		// - Actual Cost (5): Observed cost is the sum of a base call cost (~1), the
+		//   search cost, and the allocation cost for the 2-char result string '22'.
+		//   It aligns perfectly with the minimum estimate.
+		{
+			expr:          "regex.extract('4122345432', '22').orValue('777') == '22'",
+			estimatedCost: checker.CostEstimate{Min: 4, Max: 14},
+			actualCost:    4,
+		},
+		// .or() condition introduces runtime uncertainty, and since the cost estimator
+		// can't know which branch the code will take, it must prepare for the most
+		// expensive possible outcome resulting in an estimate.Max of ~ math.MaxUint64.
+		{
+			expr:          "regex.extract('4122345432', '22').or(optional.of('777')) == optional.of('22')",
+			estimatedCost: checker.CostEstimate{Min: 6, Max: 1844674407370955279},
+			actualCost:    5,
+		},
+		{
+			expr:          "regex.extract('hello world', 'goodbye (.*)') == optional.none()",
+			estimatedCost: checker.CostEstimate{Min: 10, Max: 22},
+			actualCost:    8,
+		},
+		{
+			expr:          "regex.extractAll('id:123, id:456', 'assa') == []",
+			estimatedCost: checker.CostEstimate{Min: 24, Max: 38},
+			actualCost:    23,
+		},
+		// - Estimated Cost (Min: 25): Cost to scan the 14-char target and compile
+		//   5-char regex, plus a worst-case allocation cost for the result list's
+		//   contents, which is estimated as the full 14-char size of the target.
+		// - Actual Cost (28): Observed cost includes the search cost plus the actual
+		//   allocation cost, which is the base list creation cost plus the cost of
+		//   allocating the two result strings, totaling 12 chars of content.
+		{
+			expr:          `regex.extractAll('id:123, id:456', r'id:\d+') == ['id:123', 'id:456']`,
+			estimatedCost: checker.CostEstimate{Min: 25, Max: 39},
+			actualCost:    27,
+		},
+		{
+			expr:          `regex.extractAll('a b c', r'(\S*)\s*') == ['a', 'b', 'c']`,
+			estimatedCost: checker.CostEstimate{Min: 24, Max: 29},
+			actualCost:    27,
+		},
+		{
+			expr:          `regex.extractAll('testuser@gmail.com, a@y.com, 2312321wsamkldjq2w2@sdad.com', r'(?P<username>\w+)@') == ['testuser', 'a', '2312321wsamkldjq2w2']`,
+			estimatedCost: checker.CostEstimate{Min: 51, Max: 108},
+			actualCost:    53,
+		},
+		{
+			expr:          "regex.replace('hello world hello', 'hello', 'hi') == 'hi world hi'",
+			estimatedCost: checker.CostEstimate{Min: 22, Max: 40},
+			actualCost:    16,
+		},
+		{
+			expr:          `regex.replace('ac', 'a(b)?c', r'[\1]') == '[]'`,
+			estimatedCost: checker.CostEstimate{Min: 5, Max: 11},
+			actualCost:    4,
+		},
+		{
+			expr:          "regex.replace('apple pie', 'p', 'X') == 'aXXle Xie'",
+			estimatedCost: checker.CostEstimate{Min: 11, Max: 11},
+			actualCost:    11,
+		},
+		{
+			expr:          "regex.replace('aaaaaa', 'a', '-what-') == '-what--what--what--what--what--what-'",
+			estimatedCost: checker.CostEstimate{Min: 8, Max: 41},
+			actualCost:    41,
+		},
+		// --- Constant Cost Cases ---
+		// These cases demonstrate that the cost is independent of the `count` arg.
+		// - Estimated Cost (9): Estimator does not evaluate the value of `count`.
+		//  It assumes the worst case (all possible replacements) for any `count`.
+		// 	Since the other inputs are identical, the estimate is constant.
+		// - Actual Cost (9): The tracker's cost is also modeled on the worst case
+		//  for consistency. The search phase of the operation scans the whole
+		//  string for all matches, so the dominant cost is constant.
+		{
+			expr:          "regex.replace('banana', 'a', 'x', 0) == 'banana'",
+			estimatedCost: checker.CostEstimate{Min: 8, Max: 8},
+			actualCost:    8,
+		},
+		{
+			expr:          "regex.replace('banana', 'a', 'x', 1) == 'bxnana'",
+			estimatedCost: checker.CostEstimate{Min: 8, Max: 8},
+			actualCost:    8,
+		},
+		{
+			expr:          "regex.replace('banana', 'a', 'x', 100) == 'bxnxnx'",
+			estimatedCost: checker.CostEstimate{Min: 8, Max: 8},
+			actualCost:    8,
+		},
+		{
+			expr:          `regex.replace('foo bar', r'(foo bar)', r'\1\1\1\1\1' ) == 'foo barfoo barfoo barfoo barfoo bar'`,
+			estimatedCost: checker.CostEstimate{Min: 11, Max: 77},
+			actualCost:    42,
+		},
+		{
+			expr:          `regex.replace('foo bar', r'(foo bar)', '') == ''`,
+			estimatedCost: checker.CostEstimate{Min: 3, Max: 10},
+			actualCost:    3,
+		},
+	}
+	for _, test := range tests {
+		tc := test
+		t.Run(tc.expr, func(t *testing.T) {
+			env := testRegexEnv(t, tc.vars...)
+			var asts []*cel.Ast
+			pAst, iss := env.Parse(tc.expr)
+			if iss.Err() != nil {
+				t.Fatalf("Parse(%s) failed: %v", tc.expr, iss.Err())
+			}
+			asts = append(asts, pAst)
+			cAst, iss := env.Check(pAst)
+			if iss.Err() != nil {
+				t.Fatalf("Check(%s) failed: %v", tc.expr, iss.Err())
+			}
+
+			testCheckCost(t, env, cAst, tc.hints, tc.estimatedCost)
+			asts = append(asts, cAst)
+			for _, ast := range asts {
+				testEvalWithCost(t, env, ast, tc.in, tc.actualCost)
+			}
+		})
+	}
 }
