@@ -96,27 +96,28 @@ func traverseAndCalculateCoverage(t *testing.T, expr ast.NavigableExpr, p Progra
 	// Check for Branch Coverage if the node is a boolean type
 	if interestingBoolNode {
 		cr.branches += 2
-		if info, found := p.CoverageStats[nodeID]; !found {
-			if logUnencountered {
-				cr.unencounteredBranches = append(cr.unencounteredBranches,
-					"\n"+preceedingTabs+fmt.Sprintf("Expression ID %d ('%s'): No coverage", nodeID, exprText))
-				preceedingTabs = preceedingTabs + "\t\t"
-			}
-		} else {
-			if _, ok := info[types.True]; ok {
+		if info, found := p.CoverageStats[nodeID]; found {
+			var trueFound, falseFound bool
+			if _, trueFound = info[types.True]; trueFound {
 				cr.coveredBooleanOutcomes++
-			} else if logUnencountered {
-				cr.unencounteredBranches = append(cr.unencounteredBranches,
-					"\n"+preceedingTabs+fmt.Sprintf("Expression ID %d ('%s'): lacks 'true' coverage", nodeID, exprText))
-				preceedingTabs = preceedingTabs + "\t\t"
-
 			}
-			if _, ok := info[types.False]; ok {
+			if _, falseFound = info[types.False]; falseFound {
 				cr.coveredBooleanOutcomes++
-			} else if logUnencountered {
-				cr.unencounteredBranches = append(cr.unencounteredBranches,
-					"\n"+preceedingTabs+fmt.Sprintf("Expression ID %d ('%s'): lacks 'false' coverage", nodeID, exprText))
-				preceedingTabs = preceedingTabs + "\t\t"
+			}
+			if logUnencountered && !(trueFound && falseFound) {
+				if falseFound {
+					cr.unencounteredBranches = append(cr.unencounteredBranches,
+						"\n"+preceedingTabs+fmt.Sprintf("Expression ID %d ('%s'): lacks 'true' coverage", nodeID, exprText))
+					preceedingTabs = preceedingTabs + "\t\t"
+				} else if trueFound {
+					cr.unencounteredBranches = append(cr.unencounteredBranches,
+						"\n"+preceedingTabs+fmt.Sprintf("Expression ID %d ('%s'): lacks 'false' coverage", nodeID, exprText))
+					preceedingTabs = preceedingTabs + "\t\t"
+				} else {
+					cr.unencounteredBranches = append(cr.unencounteredBranches,
+						"\n"+preceedingTabs+fmt.Sprintf("Expression ID %d ('%s'): No coverage", nodeID, exprText))
+					preceedingTabs = preceedingTabs + "\t\t"
+				}
 			}
 		}
 	}
