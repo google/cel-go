@@ -1,8 +1,0 @@
-{
-    "compilerOptions": {
-      "outDir": "web/assets",
-      "allowJs": true,
-      "target": "es5"
-    },
-    "include": ["./web/src/**/*"]
-}
