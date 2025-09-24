@@ -103,8 +103,11 @@ type CommandsVisitor interface {
 	// Visit a parse tree produced by CommandsParser#Index.
 	VisitIndex(ctx *IndexContext) interface{}
 
-	// Visit a parse tree produced by CommandsParser#IdentOrGlobalCall.
-	VisitIdentOrGlobalCall(ctx *IdentOrGlobalCallContext) interface{}
+	// Visit a parse tree produced by CommandsParser#Ident.
+	VisitIdent(ctx *IdentContext) interface{}
+
+	// Visit a parse tree produced by CommandsParser#GlobalCall.
+	VisitGlobalCall(ctx *GlobalCallContext) interface{}
 
 	// Visit a parse tree produced by CommandsParser#Nested.
 	VisitNested(ctx *NestedContext) interface{}
@@ -135,6 +138,12 @@ type CommandsVisitor interface {
 
 	// Visit a parse tree produced by CommandsParser#mapInitializerList.
 	VisitMapInitializerList(ctx *MapInitializerListContext) interface{}
+
+	// Visit a parse tree produced by CommandsParser#SimpleIdentifier.
+	VisitSimpleIdentifier(ctx *SimpleIdentifierContext) interface{}
+
+	// Visit a parse tree produced by CommandsParser#EscapedIdentifier.
+	VisitEscapedIdentifier(ctx *EscapedIdentifierContext) interface{}
 
 	// Visit a parse tree produced by CommandsParser#optExpr.
 	VisitOptExpr(ctx *OptExprContext) interface{}

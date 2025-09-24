@@ -751,7 +751,7 @@ func newExtensionOption(extType string) (*extensionOption, error) {
 			extKeyName = append(extKeyName, "'"+k+"'")
 		}
 		joinedOptions := "['all', " + strings.Join(extKeyName, ", ") + "]"
-		return nil, fmt.Errorf("Unknown option: %s. Available options are: %s", extType, joinedOptions)
+		return nil, fmt.Errorf("unknown option: %s. Available options are: %s", extType, joinedOptions)
 	}
 }
 
@@ -880,7 +880,8 @@ func deps(d protoreflect.FileDescriptor) []*descpb.FileDescriptorProto {
 }
 
 func (e *Evaluator) loadDescriptorFromPackage(pkg string) error {
-	if pkg == "cel-spec-test-types" {
+	switch pkg {
+	case "cel-spec-test-types":
 		fdp := (&test2pb.TestAllTypes{}).ProtoReflect().Type().Descriptor().ParentFile()
 		fdp2 := (&test3pb.TestAllTypes{}).ProtoReflect().Type().Descriptor().ParentFile()
 
@@ -895,7 +896,7 @@ func (e *Evaluator) loadDescriptorFromPackage(pkg string) error {
 		}
 
 		return e.AddOption(&typeOption{pkg, &fds, true})
-	} else if pkg == "google-rpc" {
+	case "google-rpc":
 		fdp := (&attrpb.AttributeContext{}).ProtoReflect().Type().Descriptor().ParentFile()
 
 		descriptorProtos := append(deps(fdp),
