@@ -816,6 +816,28 @@ func TestProcess(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "OptionEnableEscapedFields",
+			commands: []Cmder{
+				&simpleCmd{
+					cmd: "option",
+					args: []string{
+						"--enable_escaped_fields",
+					},
+				},
+				&letVarCmd{
+					identifier: "foo",
+					typeHint:   mustParseType(t, "map(string, string)"),
+					src:        "{'example.com': 'great'}",
+				},
+				&evalCmd{
+					expr: "foo.`example.com`",
+				},
+			},
+			wantText:  "\"great\" : string",
+			wantExit:  false,
+			wantError: false,
+		},
+		{
 			name: "LoadDescriptorsError",
 			commands: []Cmder{
 				&simpleCmd{
@@ -952,6 +974,7 @@ func TestProcess(t *testing.T) {
 
 // Variables
 %let x = 1
+
 `,
 			wantExit:  false,
 			wantError: false,
@@ -986,12 +1009,7 @@ func TestProcess(t *testing.T) {
 					args: []string{},
 				},
 			},
-			wantText: `// Options
-
-// Functions
-
-// Variables
-`,
+			wantText:  ``,
 			wantExit:  false,
 			wantError: false,
 		},

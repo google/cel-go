@@ -164,6 +164,8 @@ may take string arguments.
 
 `--enable_partial_eval` enables partial evaluations
 
+`--enable_escaped_fields` enables field escape syntax `` {"foo.bar": 1}.`foo.bar` ``
+
 example:
 
 `%option --container 'google.protobuf'`

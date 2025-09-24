@@ -639,28 +639,40 @@ func (e *Evaluator) DelLetFn(name string) error {
 
 // Status returns a stringified view of the current evaluator state.
 func (e *Evaluator) Status() string {
-	var options, funcs, vars string
+	var status strings.Builder
 
-	for _, opt := range e.ctx.options {
-		options = options + fmt.Sprintf("%s\n", opt)
-	}
-
-	for _, fn := range e.ctx.letFns {
-		cmd := "let"
-		if fn.src == "" {
-			cmd = "declare"
+	if len(e.ctx.options) > 0 {
+		status.WriteString("// Options\n")
+		for _, opt := range e.ctx.options {
+			status.WriteString(fmt.Sprintf("%s\n", opt))
 		}
-		funcs = funcs + fmt.Sprintf("%%%s %s\n", cmd, fn)
+		status.WriteString("\n")
 	}
 
-	for _, lVar := range e.ctx.letVars {
-		cmd := "let"
-		if lVar.src == "" {
-			cmd = "declare"
+	if len(e.ctx.letFns) > 0 {
+		status.WriteString("// Functions\n")
+		for _, fn := range e.ctx.letFns {
+			cmd := "let"
+			if fn.src == "" {
+				cmd = "declare"
+			}
+			status.WriteString(fmt.Sprintf("%%%s %s\n", cmd, fn))
 		}
-		vars = vars + fmt.Sprintf("%%%s %s\n", cmd, lVar)
+		status.WriteString("\n")
 	}
-	return fmt.Sprintf("// Options\n%s\n// Functions\n%s\n// Variables\n%s", options, funcs, vars)
+
+	if len(e.ctx.letVars) > 0 {
+		status.WriteString("// Variables\n")
+		for _, lVar := range e.ctx.letVars {
+			cmd := "let"
+			if lVar.src == "" {
+				cmd = "declare"
+			}
+			status.WriteString(fmt.Sprintf("%%%s %s\n", cmd, lVar))
+		}
+		status.WriteString("\n")
+	}
+	return status.String()
 }
 
 // applyContext evaluates the let expressions in the context to build an activation for the given expression.
@@ -704,6 +716,21 @@ func (o *typeOption) String() string {
 		flags = "--pkg"
 	}
 	return fmt.Sprintf("%%load_descriptors %s '%s'", flags, o.path)
+}
+
+type backtickOpt struct {
+	enabled bool
+}
+
+func (o *backtickOpt) Option() cel.EnvOption {
+	if o.enabled {
+		return cel.EnableIdentifierEscapeSyntax()
+	}
+	return func(e *cel.Env) (*cel.Env, error) { return e, nil }
+}
+
+func (o *backtickOpt) String() string {
+	return "%option --enable_escaped_fields"
 }
 
 func (o *typeOption) Option() cel.EnvOption {
@@ -774,6 +801,11 @@ func (e *Evaluator) setOption(args []string) error {
 			idx++
 			if err != nil {
 				issues = append(issues, fmt.Sprintf("extension: %v", err))
+			}
+		case "--enable_escaped_fields":
+			err := e.AddOption(&backtickOpt{enabled: true})
+			if err != nil {
+				issues = append(issues, fmt.Sprintf("enable_escaped_fields: %v", err))
 			}
 		case "--enable_partial_eval":
 			err := e.EnablePartialEval()
