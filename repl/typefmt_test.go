@@ -65,15 +65,15 @@ func TestUnparseType(t *testing.T) {
 		},
 		{
 			exprType: &exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_PRIMITIVE_TYPE_UNSPECIFIED}},
-			wantFmt:  "<unknown primitive>",
+			wantFmt:  "primitive_type_unspecified",
 		},
 		{
 			exprType: &exprpb.Type{TypeKind: &exprpb.Type_WellKnown{WellKnown: exprpb.Type_DURATION}},
-			wantFmt:  "google.protobuf.Duration",
+			wantFmt:  "duration",
 		},
 		{
 			exprType: &exprpb.Type{TypeKind: &exprpb.Type_WellKnown{WellKnown: exprpb.Type_TIMESTAMP}},
-			wantFmt:  "google.protobuf.Timestamp",
+			wantFmt:  "timestamp",
 		},
 		{
 			exprType: &exprpb.Type{TypeKind: &exprpb.Type_WellKnown{WellKnown: exprpb.Type_ANY}},
@@ -81,14 +81,14 @@ func TestUnparseType(t *testing.T) {
 		},
 		{
 			exprType: &exprpb.Type{TypeKind: &exprpb.Type_WellKnown{WellKnown: exprpb.Type_WELL_KNOWN_TYPE_UNSPECIFIED}},
-			wantFmt:  "<unknown well-known type>",
+			wantFmt:  "well_known:WELL_KNOWN_TYPE_UNSPECIFIED",
 		},
 		{
 			exprType: &exprpb.Type{TypeKind: &exprpb.Type_MapType_{MapType: &exprpb.Type_MapType{
 				KeyType:   &exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_STRING}},
 				ValueType: &exprpb.Type{TypeKind: &exprpb.Type_WellKnown{WellKnown: exprpb.Type_TIMESTAMP}},
 			}}},
-			wantFmt: "map(string, google.protobuf.Timestamp)",
+			wantFmt: "map(string, timestamp)",
 		},
 		{
 			exprType: &exprpb.Type{TypeKind: &exprpb.Type_ListType_{
@@ -107,7 +107,7 @@ func TestUnparseType(t *testing.T) {
 		},
 		{
 			exprType: &exprpb.Type{TypeKind: &exprpb.Type_Error{}},
-			wantFmt:  "*error*",
+			wantFmt:  "!error!",
 		},
 		{
 			exprType: &exprpb.Type{TypeKind: &exprpb.Type_MessageType{
@@ -151,7 +151,7 @@ func TestUnparseType(t *testing.T) {
 					Name: "MyAbstractType",
 				},
 			}},
-			wantFmt: "MyAbstractType",
+			wantFmt: "MyAbstractType()",
 		},
 		{
 			exprType: &exprpb.Type{TypeKind: &exprpb.Type_MapType_{MapType: &exprpb.Type_MapType{
@@ -234,7 +234,7 @@ func TestParseType(t *testing.T) {
 			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_Null{}},
 		},
 		{
-			fmt:          "any",
+			fmt:          "google.protobuf.Any",
 			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_WellKnown{WellKnown: exprpb.Type_ANY}},
 		},
 		{
@@ -243,6 +243,18 @@ func TestParseType(t *testing.T) {
 		},
 		{
 			fmt:          "google.protobuf.Duration",
+			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_WellKnown{WellKnown: exprpb.Type_DURATION}},
+		},
+		{
+			fmt:          "any",
+			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_WellKnown{WellKnown: exprpb.Type_ANY}},
+		},
+		{
+			fmt:          "timestamp",
+			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_WellKnown{WellKnown: exprpb.Type_TIMESTAMP}},
+		},
+		{
+			fmt:          "duration",
 			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_WellKnown{WellKnown: exprpb.Type_DURATION}},
 		},
 		{
@@ -291,6 +303,33 @@ func TestParseType(t *testing.T) {
 			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_Type{
 				Type: &exprpb.Type{TypeKind: &exprpb.Type_Type{
 					Type: &exprpb.Type{TypeKind: &exprpb.Type_Wrapper{Wrapper: exprpb.Type_INT64}}}}}},
+		},
+		{
+			fmt: "optional_type",
+			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_AbstractType_{
+				AbstractType: &exprpb.Type_AbstractType{
+					Name: "optional_type",
+					ParameterTypes: []*exprpb.Type{
+						{TypeKind: &exprpb.Type_Dyn{}},
+					}}}},
+		},
+		{
+			fmt: "optional_type(string)",
+			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_AbstractType_{
+				AbstractType: &exprpb.Type_AbstractType{
+					Name: "optional_type",
+					ParameterTypes: []*exprpb.Type{
+						{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_STRING}},
+					}}}},
+		},
+		{
+			fmt: "MyAbstractType(string)",
+			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_AbstractType_{
+				AbstractType: &exprpb.Type_AbstractType{
+					Name: "MyAbstractType",
+					ParameterTypes: []*exprpb.Type{
+						{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_STRING}},
+					}}}},
 		},
 	}
 

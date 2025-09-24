@@ -212,11 +212,17 @@ func (s *BaseCommandsListener) EnterIndex(ctx *IndexContext) {}
 // ExitIndex is called when production Index is exited.
 func (s *BaseCommandsListener) ExitIndex(ctx *IndexContext) {}
 
-// EnterIdentOrGlobalCall is called when production IdentOrGlobalCall is entered.
-func (s *BaseCommandsListener) EnterIdentOrGlobalCall(ctx *IdentOrGlobalCallContext) {}
+// EnterIdent is called when production Ident is entered.
+func (s *BaseCommandsListener) EnterIdent(ctx *IdentContext) {}
 
-// ExitIdentOrGlobalCall is called when production IdentOrGlobalCall is exited.
-func (s *BaseCommandsListener) ExitIdentOrGlobalCall(ctx *IdentOrGlobalCallContext) {}
+// ExitIdent is called when production Ident is exited.
+func (s *BaseCommandsListener) ExitIdent(ctx *IdentContext) {}
+
+// EnterGlobalCall is called when production GlobalCall is entered.
+func (s *BaseCommandsListener) EnterGlobalCall(ctx *GlobalCallContext) {}
+
+// ExitGlobalCall is called when production GlobalCall is exited.
+func (s *BaseCommandsListener) ExitGlobalCall(ctx *GlobalCallContext) {}
 
 // EnterNested is called when production Nested is entered.
 func (s *BaseCommandsListener) EnterNested(ctx *NestedContext) {}
@@ -277,6 +283,18 @@ func (s *BaseCommandsListener) EnterMapInitializerList(ctx *MapInitializerListCo
 
 // ExitMapInitializerList is called when production mapInitializerList is exited.
 func (s *BaseCommandsListener) ExitMapInitializerList(ctx *MapInitializerListContext) {}
+
+// EnterSimpleIdentifier is called when production SimpleIdentifier is entered.
+func (s *BaseCommandsListener) EnterSimpleIdentifier(ctx *SimpleIdentifierContext) {}
+
+// ExitSimpleIdentifier is called when production SimpleIdentifier is exited.
+func (s *BaseCommandsListener) ExitSimpleIdentifier(ctx *SimpleIdentifierContext) {}
+
+// EnterEscapedIdentifier is called when production EscapedIdentifier is entered.
+func (s *BaseCommandsListener) EnterEscapedIdentifier(ctx *EscapedIdentifierContext) {}
+
+// ExitEscapedIdentifier is called when production EscapedIdentifier is exited.
+func (s *BaseCommandsListener) ExitEscapedIdentifier(ctx *EscapedIdentifierContext) {}
 
 // EnterOptExpr is called when production optExpr is entered.
 func (s *BaseCommandsListener) EnterOptExpr(ctx *OptExprContext) {}

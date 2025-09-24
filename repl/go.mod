@@ -3,10 +3,10 @@ module github.com/google/cel-go/repl
 go 1.22.0
 
 require (
-	cel.dev/expr v0.23.1
+	cel.dev/expr v0.24.0
 	github.com/antlr4-go/antlr/v4 v4.13.0
 	github.com/chzyer/readline v1.5.1
-	github.com/google/cel-go v0.0.0-00010101000000-000000000000
+	github.com/google/cel-go v0.26.1
 	google.golang.org/genproto/googleapis/api v0.0.0-20240826202546-f6391c0de4c7
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240826202546-f6391c0de4c7
 	google.golang.org/protobuf v1.34.2

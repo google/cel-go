@@ -67,6 +67,7 @@ func TestAccept(t *testing.T) {
 		"%let fn () : int -> 10",
 		"%let fn (x:int, y : int) : int -> x + y",
 		"%let fn (x:int, y : int) : int -> x + y",
+		"%let x : Abstract() = MakeAbstract()",
 		"%let com.google.fn (x:int, y : int) : int -> x + y",
 		"%let int.plus (x: int) : int -> this + x",
 		"%delete id",

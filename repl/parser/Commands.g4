@@ -65,7 +65,7 @@ typeId :
     leadingDot='.'? id=(IDENTIFIER|NUL) ('.' qualifiers+=IDENTIFIER )* ;
 
 typeParamList:
-    '(' types+=type (',' types+=type)* ')' ;
+    '(' ( types+=type (',' types+=type)* )? ')' ;
 
 // lexer rules:
 COMMAND: '%' IDENTIFIER;

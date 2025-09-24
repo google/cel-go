@@ -29,8 +29,9 @@ go_library(
     importpath = "github.com/google/cel-go/repl",
     deps = [
         "//cel:go_default_library",
+        "//checker:go_default_library",
         "//checker/decls:go_default_library",
-        "//common/functions:go_default_library",        
+        "//common/functions:go_default_library",
         "//common/types:go_default_library",
         "//common/types/ref:go_default_library",
         "//ext:go_default_library",
@@ -41,11 +42,11 @@ go_library(
         "@org_golang_google_genproto_googleapis_api//expr/v1alpha1:go_default_library",
         "@org_golang_google_genproto_googleapis_rpc//context/attribute_context:go_default_library",
         "@org_golang_google_protobuf//encoding/prototext:go_default_library",
-        "@org_golang_google_protobuf//proto:go_default_library",        
-        "@org_golang_google_protobuf//reflect/protoreflect:go_default_library",
+        "@org_golang_google_protobuf//proto:go_default_library",
         "@org_golang_google_protobuf//reflect/protodesc:go_default_library",
+        "@org_golang_google_protobuf//reflect/protoreflect:go_default_library",
         "@org_golang_google_protobuf//types/descriptorpb:go_default_library",
-    ], 
+    ],
 )
 
 go_test(
