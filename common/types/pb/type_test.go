@@ -210,6 +210,75 @@ func TestFieldDescriptionGetFrom(t *testing.T) {
 	}
 }
 
+func TestFieldDescriptionGetFromJSON(t *testing.T) {
+	UseJSONFieldNames = true
+	defer func() { UseJSONFieldNames = false }()
+
+	pbdb := NewDb()
+	msg := &proto3pb.TestAllTypes{
+		SingleUint64:       12,
+		SingleDuration:     dpb.New(time.Duration(1234)),
+		SingleTimestamp:    tpb.New(time.Unix(12345, 0).UTC()),
+		SingleBoolWrapper:  wrapperspb.Bool(false),
+		SingleInt32Wrapper: wrapperspb.Int32(42),
+		StandaloneEnum:     proto3pb.TestAllTypes_BAR,
+		NestedType: &proto3pb.TestAllTypes_SingleNestedMessage{
+			SingleNestedMessage: &proto3pb.TestAllTypes_NestedMessage{
+				Bb: 123,
+			},
+		},
+		SingleValue: structpb.NewStringValue("hello world"),
+		SingleStruct: jsonStruct(t, map[string]any{
+			"null": nil,
+		}),
+	}
+	msgName := string(msg.ProtoReflect().Descriptor().FullName())
+	_, err := pbdb.RegisterMessage(msg)
+	if err != nil {
+		t.Fatalf("pbdb.RegisterMessage(%q) failed: %v", msgName, err)
+	}
+	td, found := pbdb.DescribeType(msgName)
+	if !found {
+		t.Fatalf("pbdb.DescribeType(%q) not found", msgName)
+	}
+	expected := map[string]any{
+		"singleUint64":       uint64(12),
+		"singleDuration":     time.Duration(1234),
+		"singleTimestamp":    time.Unix(12345, 0).UTC(),
+		"singleBoolWrapper":  false,
+		"singleInt32Wrapper": int32(42),
+		"singleInt64Wrapper": structpb.NullValue_NULL_VALUE,
+		"singleNestedMessage": &proto3pb.TestAllTypes_NestedMessage{
+			Bb: 123,
+		},
+		"standaloneEnum": int64(1),
+		"singleValue":    "hello world",
+		"singleStruct": jsonStruct(t, map[string]any{
+			"null": nil,
+		}),
+	}
+	for field, want := range expected {
+		f, found := td.FieldByName(field)
+		if !found {
+			t.Fatalf("td.FieldByName(%q) not found", field)
+		}
+		got, err := f.GetFrom(msg)
+		if err != nil {
+			t.Fatalf("field.GetFrom() failed: %v", err)
+		}
+		switch g := got.(type) {
+		case proto.Message:
+			if !proto.Equal(g, want.(proto.Message)) {
+				t.Errorf("got field %s value %v, wanted %v", field, g, want)
+			}
+		default:
+			if !reflect.DeepEqual(g, want) {
+				t.Errorf("got field %s value %v, wanted %v", field, g, want)
+			}
+		}
+	}
+}
+
 func TestFieldDescriptionIsSet(t *testing.T) {
 	pbdb := NewDb()
 	msg := &proto3pb.TestAllTypes{}
