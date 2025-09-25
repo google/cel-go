@@ -30,6 +30,22 @@ import (
 	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
+var (
+	// UseJSONFieldNames enables protobuf JSON field names for field access instead of the short name of the declaration.
+	//
+	// This should be set before any types are loaded into the Db.
+	//
+	// For example, given a proto field declaration:
+	//
+	//   message Sample {
+	//     int32 sample_field = 1;
+	//   }
+	//
+	// The default field name for access is "sample_field". If UseJSONFieldNames is set to true,
+	// the field name for access becomes "sampleField".
+	UseJSONFieldNames = false
+)
+
 // description is a private interface used to make it convenient to perform type unwrapping at
 // the TypeDescription or FieldDescription level.
 type description interface {
@@ -47,7 +63,11 @@ func newTypeDescription(typeName string, desc protoreflect.MessageDescriptor, ex
 	fields := desc.Fields()
 	for i := 0; i < fields.Len(); i++ {
 		f := fields.Get(i)
-		fieldMap[string(f.Name())] = newFieldDescription(f)
+		if UseJSONFieldNames {
+			fieldMap[string(f.JSONName())] = newFieldDescription(f)
+		} else {
+			fieldMap[string(f.Name())] = newFieldDescription(f)
+		}
 	}
 	return &TypeDescription{
 		typeName:    typeName,
