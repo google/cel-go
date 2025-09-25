@@ -162,6 +162,31 @@ func TestFieldDescriptionGetFrom(t *testing.T) {
 		SingleStruct: jsonStruct(t, map[string]any{
 			"null": nil,
 		}),
+		RepeatedInt32:         []int32{1, 2, 3},
+		RepeatedInt64:         []int64{1, 2, 3},
+		RepeatedUint32:        []uint32{1, 2, 3},
+		RepeatedUint64:        []uint64{1, 2, 3},
+		RepeatedSint32:        []int32{1, 2, 3},
+		RepeatedSint64:        []int64{1, 2, 3},
+		RepeatedFixed32:       []uint32{1, 2, 3},
+		RepeatedFixed64:       []uint64{1, 2, 3},
+		RepeatedSfixed32:      []int32{1, 2, 3},
+		RepeatedSfixed64:      []int64{1, 2, 3},
+		RepeatedFloat:         []float32{1.0, 2.0, 3.0},
+		RepeatedDouble:        []float64{1.0, 2.0, 3.0},
+		RepeatedBool:          []bool{true, false, true},
+		RepeatedString:        []string{"a", "b", "c"},
+		RepeatedBytes:         [][]byte{{1, 2, 3}, {4, 5, 6}},
+		RepeatedNestedMessage: []*proto3pb.TestAllTypes_NestedMessage{{Bb: 123}, {Bb: 456}},
+		RepeatedNestedEnum:    []proto3pb.TestAllTypes_NestedEnum{proto3pb.TestAllTypes_BAR, proto3pb.TestAllTypes_BAZ},
+		RepeatedStringPiece:   []string{"a", "b", "c"},
+		RepeatedCord:          []string{"a", "b", "c"},
+		RepeatedLazyMessage:   []*proto3pb.TestAllTypes_NestedMessage{{Bb: 123}, {Bb: 456}},
+		MapStringString:       map[string]string{"a": "1", "b": "2"},
+		MapInt64NestedType: map[int64]*proto3pb.NestedTestAllTypes{
+			1: {Payload: &proto3pb.TestAllTypes{SingleUint64: 12}},
+		},
+		ImportedEnums: []proto3pb.ImportedGlobalEnum{proto3pb.ImportedGlobalEnum_IMPORT_FOO},
 	}
 	msgName := string(msg.ProtoReflect().Descriptor().FullName())
 	_, err := pbdb.RegisterMessage(msg)
@@ -182,11 +207,36 @@ func TestFieldDescriptionGetFrom(t *testing.T) {
 		"single_nested_message": &proto3pb.TestAllTypes_NestedMessage{
 			Bb: 123,
 		},
-		"standalone_enum": int64(1),
+		"standalone_enum": proto3pb.TestAllTypes_BAR,
 		"single_value":    "hello world",
 		"single_struct": jsonStruct(t, map[string]any{
 			"null": nil,
 		}),
+		"repeated_int32":          []int32{1, 2, 3},
+		"repeated_int64":          []int64{1, 2, 3},
+		"repeated_uint32":         []uint32{1, 2, 3},
+		"repeated_uint64":         []uint64{1, 2, 3},
+		"repeated_sint32":         []int32{1, 2, 3},
+		"repeated_sint64":         []int64{1, 2, 3},
+		"repeated_fixed32":        []uint32{1, 2, 3},
+		"repeated_fixed64":        []uint64{1, 2, 3},
+		"repeated_sfixed32":       []int32{1, 2, 3},
+		"repeated_sfixed64":       []int64{1, 2, 3},
+		"repeated_float":          []float32{1.0, 2.0, 3.0},
+		"repeated_double":         []float64{1.0, 2.0, 3.0},
+		"repeated_bool":           []bool{true, false, true},
+		"repeated_string":         []string{"a", "b", "c"},
+		"repeated_bytes":          [][]byte{{1, 2, 3}, {4, 5, 6}},
+		"repeated_nested_message": []*proto3pb.TestAllTypes_NestedMessage{{Bb: 123}, {Bb: 456}},
+		"repeated_nested_enum":    []proto3pb.TestAllTypes_NestedEnum{proto3pb.TestAllTypes_BAR, proto3pb.TestAllTypes_BAZ},
+		"repeated_string_piece":   []string{"a", "b", "c"},
+		"repeated_cord":           []string{"a", "b", "c"},
+		"repeated_lazy_message":   []*proto3pb.TestAllTypes_NestedMessage{{Bb: 123}, {Bb: 456}},
+		"map_string_string":       map[string]string{"a": "1", "b": "2"},
+		"map_int64_nested_type": map[int64]*proto3pb.NestedTestAllTypes{
+			1: {Payload: &proto3pb.TestAllTypes{SingleUint64: 12}},
+		},
+		"imported_enums": []proto3pb.ImportedGlobalEnum{proto3pb.ImportedGlobalEnum_IMPORT_FOO},
 	}
 	for field, want := range expected {
 		f, found := td.FieldByName(field)
@@ -200,11 +250,23 @@ func TestFieldDescriptionGetFrom(t *testing.T) {
 		switch g := got.(type) {
 		case proto.Message:
 			if !proto.Equal(g, want.(proto.Message)) {
-				t.Errorf("got field %s value %v, wanted %v", field, g, want)
+				t.Errorf("got field %s type %T, value %v, wanted type %T, value %v", field, g, g, want, want)
+			}
+		case []*proto3pb.TestAllTypes_NestedMessage:
+			for i, gv := range g {
+				if !proto.Equal(gv, want.([]*proto3pb.TestAllTypes_NestedMessage)[i]) {
+					t.Errorf("got field %s[%d] type %T, value %v, wanted type %T, value %v", field, i, gv, gv, want.([]*proto3pb.TestAllTypes_NestedMessage)[i], want.([]*proto3pb.TestAllTypes_NestedMessage)[i])
+				}
+			}
+		case map[int64]*proto3pb.NestedTestAllTypes:
+			for k, gv := range g {
+				if !proto.Equal(gv, want.(map[int64]*proto3pb.NestedTestAllTypes)[k]) {
+					t.Errorf("got field %s[%d] type %T, value %v, wanted type %T, value %v", field, k, gv, gv, want.(map[int64]*proto3pb.NestedTestAllTypes)[k], want.(map[int64]*proto3pb.NestedTestAllTypes)[k])
+				}
 			}
 		default:
 			if !reflect.DeepEqual(g, want) {
-				t.Errorf("got field %s value %v, wanted %v", field, g, want)
+				t.Errorf("got field %s type %T, value %v, wanted type %T, value %v", field, g, g, want, want)
 			}
 		}
 	}
