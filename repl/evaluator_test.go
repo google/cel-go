@@ -624,6 +624,29 @@ func TestProcess(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "OptionExtensionOptionalTypeHint",
+			commands: []Cmder{
+				&simpleCmd{
+					cmd: "option",
+					args: []string{
+						"--extension",
+						"optional",
+					},
+				},
+				&letVarCmd{
+					identifier: "x",
+					typeHint:   mustParseType(t, "optional_type(string)"),
+					src:        "optional.of('foo')",
+				},
+				&evalCmd{
+					expr: "x.or(optional.of('bar'))",
+				},
+			},
+			wantText:  "optional.of(\"foo\") : optional_type(string)",
+			wantExit:  false,
+			wantError: false,
+		},
+		{
 			name: "OptionExtensionStrings",
 			commands: []Cmder{
 				&simpleCmd{
@@ -793,6 +816,28 @@ func TestProcess(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "OptionEnableEscapedFields",
+			commands: []Cmder{
+				&simpleCmd{
+					cmd: "option",
+					args: []string{
+						"--enable_escaped_fields",
+					},
+				},
+				&letVarCmd{
+					identifier: "foo",
+					typeHint:   mustParseType(t, "map(string, string)"),
+					src:        "{'example.com': 'great'}",
+				},
+				&evalCmd{
+					expr: "foo.`example.com`",
+				},
+			},
+			wantText:  "\"great\" : string",
+			wantExit:  false,
+			wantError: false,
+		},
+		{
 			name: "LoadDescriptorsError",
 			commands: []Cmder{
 				&simpleCmd{
@@ -929,6 +974,7 @@ func TestProcess(t *testing.T) {
 
 // Variables
 %let x = 1
+
 `,
 			wantExit:  false,
 			wantError: false,
@@ -963,19 +1009,13 @@ func TestProcess(t *testing.T) {
 					args: []string{},
 				},
 			},
-			wantText: `// Options
-
-// Functions
-
-// Variables
-`,
+			wantText:  ``,
 			wantExit:  false,
 			wantError: false,
 		},
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			eval, err := NewEvaluator()
 			if err != nil {
@@ -1041,12 +1081,11 @@ func TestProcessOptionError(t *testing.T) {
 					"'bogus'",
 				},
 			},
-			errorMsg: "extension: Unknown option: 'bogus'. Available options are: ['all', 'bindings', 'encoders', 'lists', 'math', 'optional', 'protos', 'sets', 'strings', 'two_var_comprehensions']",
+			errorMsg: "extension: unknown option: 'bogus'. Available options are: ['all', 'bindings', 'encoders', 'lists', 'math', 'optional', 'protos', 'sets', 'strings', 'two_var_comprehensions']",
 		},
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			eval, err := NewEvaluator()
 			if err != nil {
@@ -1067,8 +1106,8 @@ func TestProcessOptionError(t *testing.T) {
 }
 
 func stripWhitespace(a string) string {
-	a = strings.Replace(a, " ", "", -1)
-	a = strings.Replace(a, "\n", "", -1)
-	a = strings.Replace(a, "\t", "", -1)
-	return strings.Replace(a, "\r", "", -1)
+	a = strings.ReplaceAll(a, " ", "")
+	a = strings.ReplaceAll(a, "\n", "")
+	a = strings.ReplaceAll(a, "\t", "")
+	return strings.ReplaceAll(a, "\r", "")
 }

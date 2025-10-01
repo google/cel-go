@@ -103,8 +103,11 @@ type CommandsListener interface {
 	// EnterIndex is called when entering the Index production.
 	EnterIndex(c *IndexContext)
 
-	// EnterIdentOrGlobalCall is called when entering the IdentOrGlobalCall production.
-	EnterIdentOrGlobalCall(c *IdentOrGlobalCallContext)
+	// EnterIdent is called when entering the Ident production.
+	EnterIdent(c *IdentContext)
+
+	// EnterGlobalCall is called when entering the GlobalCall production.
+	EnterGlobalCall(c *GlobalCallContext)
 
 	// EnterNested is called when entering the Nested production.
 	EnterNested(c *NestedContext)
@@ -135,6 +138,12 @@ type CommandsListener interface {
 
 	// EnterMapInitializerList is called when entering the mapInitializerList production.
 	EnterMapInitializerList(c *MapInitializerListContext)
+
+	// EnterSimpleIdentifier is called when entering the SimpleIdentifier production.
+	EnterSimpleIdentifier(c *SimpleIdentifierContext)
+
+	// EnterEscapedIdentifier is called when entering the EscapedIdentifier production.
+	EnterEscapedIdentifier(c *EscapedIdentifierContext)
 
 	// EnterOptExpr is called when entering the optExpr production.
 	EnterOptExpr(c *OptExprContext)
@@ -259,8 +268,11 @@ type CommandsListener interface {
 	// ExitIndex is called when exiting the Index production.
 	ExitIndex(c *IndexContext)
 
-	// ExitIdentOrGlobalCall is called when exiting the IdentOrGlobalCall production.
-	ExitIdentOrGlobalCall(c *IdentOrGlobalCallContext)
+	// ExitIdent is called when exiting the Ident production.
+	ExitIdent(c *IdentContext)
+
+	// ExitGlobalCall is called when exiting the GlobalCall production.
+	ExitGlobalCall(c *GlobalCallContext)
 
 	// ExitNested is called when exiting the Nested production.
 	ExitNested(c *NestedContext)
@@ -291,6 +303,12 @@ type CommandsListener interface {
 
 	// ExitMapInitializerList is called when exiting the mapInitializerList production.
 	ExitMapInitializerList(c *MapInitializerListContext)
+
+	// ExitSimpleIdentifier is called when exiting the SimpleIdentifier production.
+	ExitSimpleIdentifier(c *SimpleIdentifierContext)
+
+	// ExitEscapedIdentifier is called when exiting the EscapedIdentifier production.
+	ExitEscapedIdentifier(c *EscapedIdentifierContext)
 
 	// ExitOptExpr is called when exiting the optExpr production.
 	ExitOptExpr(c *OptExprContext)

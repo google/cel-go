@@ -135,7 +135,11 @@ func (v *BaseCommandsVisitor) VisitIndex(ctx *IndexContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCommandsVisitor) VisitIdentOrGlobalCall(ctx *IdentOrGlobalCallContext) interface{} {
+func (v *BaseCommandsVisitor) VisitIdent(ctx *IdentContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseCommandsVisitor) VisitGlobalCall(ctx *GlobalCallContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -176,6 +180,14 @@ func (v *BaseCommandsVisitor) VisitOptField(ctx *OptFieldContext) interface{} {
 }
 
 func (v *BaseCommandsVisitor) VisitMapInitializerList(ctx *MapInitializerListContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseCommandsVisitor) VisitSimpleIdentifier(ctx *SimpleIdentifierContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseCommandsVisitor) VisitEscapedIdentifier(ctx *EscapedIdentifierContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

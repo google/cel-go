@@ -20,93 +20,20 @@ import (
 
 	antlr "github.com/antlr4-go/antlr/v4"
 
+	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/repl/parser"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
-func formatTypeArgs(ts []*exprpb.Type) string {
-	s := make([]string, len(ts))
-	for i, t := range ts {
-		s[i] = UnparseType(t)
-	}
-	return fmt.Sprintf("(%s)", strings.Join(s, ", "))
-}
-
-func formatFn(t *exprpb.Type_FunctionType) string {
-	return fmt.Sprintf("%s -> %s", formatTypeArgs(t.GetArgTypes()), UnparseType(t.GetResultType()))
-}
-
-func formatPrimitive(t exprpb.Type_PrimitiveType) string {
-	switch t {
-	case exprpb.Type_BOOL:
-		return "bool"
-	case exprpb.Type_STRING:
-		return "string"
-	case exprpb.Type_BYTES:
-		return "bytes"
-	case exprpb.Type_INT64:
-		return "int"
-	case exprpb.Type_UINT64:
-		return "uint"
-	case exprpb.Type_DOUBLE:
-		return "double"
-	}
-	return "<unknown primitive>"
-}
-
-func formatWellKnown(t exprpb.Type_WellKnownType) string {
-	switch t {
-	case exprpb.Type_ANY:
-		return "any"
-	case exprpb.Type_DURATION:
-		return "google.protobuf.Duration"
-	case exprpb.Type_TIMESTAMP:
-		return "google.protobuf.Timestamp"
-	}
-	return "<unknown well-known type>"
-}
-
 // UnparseType pretty-prints a type for the REPL.
-//
-// TODO(issue/538): This is slightly different from core CEL's built-in formatter. Should
-// converge if possible.
 func UnparseType(t *exprpb.Type) string {
-	if t == nil {
+	s := checker.FormatCheckedType(t)
+	if s == "" {
 		return "<unknown type>"
 	}
-	switch t.TypeKind.(type) {
-	case *exprpb.Type_Dyn:
-		return "dyn"
-	case *exprpb.Type_Null:
-		return "null"
-	case *exprpb.Type_Primitive:
-		return formatPrimitive(t.GetPrimitive())
-	case *exprpb.Type_WellKnown:
-		return formatWellKnown(t.GetWellKnown())
-	case *exprpb.Type_ListType_:
-		return fmt.Sprintf("list(%s)", UnparseType(t.GetListType().GetElemType()))
-	case *exprpb.Type_MapType_:
-		return fmt.Sprintf("map(%s, %s)", UnparseType(t.GetMapType().GetKeyType()), UnparseType(t.GetMapType().GetValueType()))
-	case *exprpb.Type_Type:
-		return fmt.Sprintf("type(%s)", UnparseType(t.GetType()))
-	case *exprpb.Type_Wrapper:
-		return fmt.Sprintf("wrapper(%s)", formatPrimitive(t.GetWrapper()))
-	case *exprpb.Type_Error:
-		return "*error*"
-	case *exprpb.Type_MessageType:
-		return t.GetMessageType()
-	case *exprpb.Type_TypeParam:
-		return t.GetTypeParam()
-	case *exprpb.Type_Function:
-		return formatFn(t.GetFunction())
-	case *exprpb.Type_AbstractType_:
-		if len(t.GetAbstractType().GetParameterTypes()) > 0 {
-			return t.GetAbstractType().GetName() + formatTypeArgs(t.GetAbstractType().GetParameterTypes())
-		}
-		return t.GetAbstractType().GetName()
-	}
-	return "<unknown type>"
+
+	return s
 }
 
 type errorListener struct {
@@ -156,13 +83,20 @@ func (t *typesVisitor) expectUnparameterized(p typeParams, id string) {
 	}
 }
 
+func makeAbstract(name string, params typeParams) *exprpb.Type {
+	return &exprpb.Type{TypeKind: &exprpb.Type_AbstractType_{
+		AbstractType: &exprpb.Type_AbstractType{
+			Name:           name,
+			ParameterTypes: params}}}
+}
+
 func checkWellKnown(name string) *exprpb.Type {
 	switch name {
-	case "google.protobuf.Timestamp", ".google.protobuf.Timestamp":
+	case "google.protobuf.Timestamp", ".google.protobuf.Timestamp", "timestamp":
 		return &exprpb.Type{TypeKind: &exprpb.Type_WellKnown{WellKnown: exprpb.Type_TIMESTAMP}}
-	case "google.protobuf.Duration", ".google.protobuf.Duration":
+	case "google.protobuf.Duration", ".google.protobuf.Duration", "duration":
 		return &exprpb.Type{TypeKind: &exprpb.Type_WellKnown{WellKnown: exprpb.Type_DURATION}}
-	case "any":
+	case "google.protobuf.Any", ".google.protobuf.Any", "any":
 		return &exprpb.Type{TypeKind: &exprpb.Type_WellKnown{WellKnown: exprpb.Type_ANY}}
 	}
 	return nil
@@ -274,19 +208,29 @@ func (t *typesVisitor) VisitType(ctx *parser.TypeContext) any {
 		}
 		p := params[0]
 		return &exprpb.Type{TypeKind: &exprpb.Type_Type{Type: p}}
+	case "optional_type":
+		if len(params) == 0 {
+			params = []*exprpb.Type{{TypeKind: &exprpb.Type_Dyn{}}}
+		}
+		if len(params) != 1 {
+			t.errs = append(t.errs, fmt.Errorf("expected exactly one parameter for optional_type"))
+			return emptyType
+		}
+		return makeAbstract("optional_type", params)
 	default:
-		// TODO(issue/538): need a way to distinguish message from abstract type
-		t.expectUnparameterized(params, typeID)
 		wkt := checkWellKnown(typeID)
 		if wkt != nil {
 			return wkt
+		}
+
+		if params != nil {
+			return makeAbstract(typeID, params)
 		}
 		return &exprpb.Type{TypeKind: &exprpb.Type_MessageType{MessageType: typeID}}
 	}
 }
 
 // ParseType parses a human readable type string into the protobuf representation.
-// TODO(issue/538): add support for abstract types and validating message types.
 func ParseType(t string) (*exprpb.Type, error) {
 	var errListener errorListener
 	visitor := &typesVisitor{}
