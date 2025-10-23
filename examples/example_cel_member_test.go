@@ -23,7 +23,7 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 )
 
-func ExampleCustomInstanceFunction() {
+func Example_cel_MemberOverload() {
 	env, err := cel.NewEnv(cel.Lib(customLib{}))
 	if err != nil {
 		log.Fatalf("environment creation error: %v\n", err)
