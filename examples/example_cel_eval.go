@@ -19,47 +19,28 @@ import (
 	"log"
 
 	"github.com/google/cel-go/cel"
-	"github.com/google/cel-go/common/types"
-	"github.com/google/cel-go/common/types/ref"
 )
 
-func ExampleCustomGlobalFunction() {
-	env, err := cel.NewEnv(
-		cel.Variable("i", cel.StringType),
-		cel.Variable("you", cel.StringType),
-		cel.Function("shake_hands",
-			cel.Overload("shake_hands_string_string",
-				[]*cel.Type{cel.StringType, cel.StringType},
-				cel.StringType,
-				cel.BinaryBinding(func(lhs, rhs ref.Val) ref.Val {
-					return types.String(
-						fmt.Sprintf("%s and %s are shaking hands.\n", lhs, rhs))
-				},
-				),
-			),
-		),
-	)
+func Example_cel_Eval() {
+	env, err := cel.NewEnv(cel.Variable("name", cel.StringType))
 	if err != nil {
 		log.Fatalf("environment creation error: %v\n", err)
 	}
-	// Check iss for error in both Parse and Check.
-	ast, iss := env.Compile(`shake_hands(i,you)`)
+	ast, iss := env.Compile(`"Hello world! I'm " + name + "."`)
+	// Check iss for compilation errors.
 	if iss.Err() != nil {
 		log.Fatalln(iss.Err())
 	}
 	prg, err := env.Program(ast)
 	if err != nil {
-		log.Fatalf("Program creation error: %v\n", err)
+		log.Fatalln(err)
 	}
-
 	out, _, err := prg.Eval(map[string]any{
-		"i":   "CEL",
-		"you": "world",
+		"name": "CEL",
 	})
 	if err != nil {
-		log.Fatalf("Evaluation error: %v\n", err)
+		log.Fatalln(err)
 	}
-
 	fmt.Println(out)
-	// Output:CEL and world are shaking hands.
+	// Output:Hello world! I'm CEL.
 }
