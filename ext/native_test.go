@@ -1009,6 +1009,51 @@ func TestNativeTypesVersion(t *testing.T) {
 	}
 }
 
+type Custom struct {
+	Name string `cel:"name"`
+}
+
+func TestTypeResolutionRace(t *testing.T) {
+	customType := reflect.TypeFor[*Custom]()
+	env, err := cel.NewEnv(
+		cel.Container("ext"),
+		NativeTypes(
+			ParseStructTag("cel"),
+			customType,
+		),
+	)
+	if err != nil {
+		t.Fatal("NewEnv:", err)
+	}
+
+	tests := []struct {
+		name string
+		expr string
+	}{
+		{name: "custom1", expr: `Custom{ name: "name1" }`},
+		{name: "custom2", expr: `Custom{ name: "name2" }`},
+		{name: "custom3", expr: `Custom{ name: "name3" }`},
+		{name: "custom4", expr: `Custom{ name: "name4" }`},
+		{name: "custom5", expr: `Custom{ name: "name5" }`},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			ast, iss := env.Compile(test.expr)
+			if err := iss.Err(); err != nil {
+				t.Fatal("Compile:", err)
+			}
+			prg, err := env.Program(ast)
+			if err != nil {
+				t.Fatalf("env.Program() failed: %s", err)
+			}
+			prg.Eval(cel.NoVars())
+		})
+	}
+}
+
 // testEnv initializes the test environment common to all tests.
 func testNativeEnv(t *testing.T, opts ...any) *cel.Env {
 	t.Helper()

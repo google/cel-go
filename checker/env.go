@@ -137,29 +137,20 @@ func (e *Env) LookupIdent(name string) *decls.VariableDecl {
 			return ident
 		}
 
-		// Next try to import the name as a reference to a message type. If found,
-		// the declaration is added to the outest (global) scope of the
-		// environment, so next time we can access it faster.
+		// Next try to import the name as a reference to a message type.
 		if t, found := e.provider.FindStructType(candidate); found {
-			decl := decls.NewVariable(candidate, t)
-			e.declarations.AddIdent(decl)
-			return decl
+			return decls.NewVariable(candidate, t)
 		}
-
 		if i, found := e.provider.FindIdent(candidate); found {
 			if t, ok := i.(*types.Type); ok {
-				decl := decls.NewVariable(candidate, types.NewTypeTypeWithParam(t))
-				e.declarations.AddIdent(decl)
-				return decl
+				return decls.NewVariable(candidate, types.NewTypeTypeWithParam(t))
 			}
 		}
 
 		// Next try to import this as an enum value by splitting the name in a type prefix and
 		// the enum inside.
 		if enumValue := e.provider.EnumValue(candidate); enumValue.Type() != types.ErrType {
-			decl := decls.NewConstant(candidate, types.IntType, enumValue)
-			e.declarations.AddIdent(decl)
-			return decl
+			return decls.NewConstant(candidate, types.IntType, enumValue)
 		}
 	}
 	return nil

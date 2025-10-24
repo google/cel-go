@@ -2355,14 +2355,13 @@ func TestCheck(t *testing.T) {
 			}
 
 			reg, err := types.NewRegistry(&proto2pb.TestAllTypes{}, &proto3pb.TestAllTypes{})
-			if tc.env.optionalSyntax {
-				err = reg.RegisterType(types.OptionalType)
-				if err != nil {
-					t.Fatalf("reg.RegisterType(optional_type) failed: %v", err)
-				}
-			}
 			if err != nil {
 				t.Fatalf("types.NewRegistry() failed: %v", err)
+			}
+			if tc.env.optionalSyntax {
+				if err := reg.RegisterType(types.OptionalType); err != nil {
+					t.Fatalf("reg.RegisterType(optional_type) failed: %v", err)
+				}
 			}
 			cont, err := containers.NewContainer(containers.Name(tc.container))
 			if err != nil {
@@ -2452,6 +2451,11 @@ func BenchmarkCheck(b *testing.B) {
 			reg, err := types.NewRegistry(&proto2pb.TestAllTypes{}, &proto3pb.TestAllTypes{})
 			if err != nil {
 				b.Fatalf("types.NewRegistry() failed: %v", err)
+			}
+			if tc.env.optionalSyntax {
+				if err := reg.RegisterType(types.OptionalType); err != nil {
+					b.Fatalf("reg.RegisterType(optional_type) failed: %v", err)
+				}
 			}
 			cont, err := containers.NewContainer(containers.Name(tc.container))
 			if err != nil {
