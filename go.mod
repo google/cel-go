@@ -1,16 +1,14 @@
 module github.com/google/cel-go
 
-go 1.22.0
-
-toolchain go1.23.0
+go 1.23.0
 
 require (
 	cel.dev/expr v0.24.0
 	github.com/antlr4-go/antlr/v4 v4.13.0
 	github.com/stoewer/go-strcase v1.2.0
+	go.yaml.in/yaml/v3 v3.0.4
 	google.golang.org/genproto/googleapis/api v0.0.0-20240826202546-f6391c0de4c7
-	google.golang.org/protobuf v1.34.2
-	gopkg.in/yaml.v3 v3.0.1
+	google.golang.org/protobuf v1.36.10
 )
 
 require (
