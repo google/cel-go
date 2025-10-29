@@ -25,7 +25,7 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/test"
 
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 
 	proto3pb "github.com/google/cel-go/test/proto3pb"
 )
