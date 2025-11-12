@@ -301,6 +301,11 @@ type Match struct {
 	rule        *Rule
 }
 
+// SourceID returns the source identifier associated with the match.
+func (m *Match) SourceID() int64 {
+	return m.exprID
+}
+
 // Condition returns the condition CEL expression.
 func (m *Match) Condition() ValueString {
 	return m.condition
