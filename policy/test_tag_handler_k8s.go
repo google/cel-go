@@ -15,7 +15,7 @@
 package policy
 
 import (
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 )
 
 // K8sTestTagHandler returns a TagVisitor which handles custom policy tags used in K8s policies. This is

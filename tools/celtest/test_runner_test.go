@@ -25,7 +25,8 @@ import (
 	"github.com/google/cel-go/policy"
 	"github.com/google/cel-go/test"
 	"github.com/google/cel-go/tools/compiler"
-	"gopkg.in/yaml.v3"
+
+	"go.yaml.in/yaml/v3"
 
 	conformancepb "cel.dev/expr/conformance/test"
 )

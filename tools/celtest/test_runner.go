@@ -25,22 +25,23 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/operators"
-	"gopkg.in/yaml.v3"
-
-	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter"
 	"github.com/google/cel-go/test"
 	"github.com/google/cel-go/tools/compiler"
 	"github.com/google/go-cmp/cmp"
+
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/testing/protocmp"
+
+	"go.yaml.in/yaml/v3"
 
 	celpb "cel.dev/expr"
 	conformancepb "cel.dev/expr/conformance/test"
