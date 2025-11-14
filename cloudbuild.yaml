@@ -21,13 +21,14 @@ steps:
         #   entrypoint: sh
         #   # deploys folder of test results (with build id as folder name) to GCS
         #   args: ['-c', 'gsutil cp -r $(cat _DATE) gs://cel-conformance/test-logs/']
-        - name: 'golang:1.22.0'
+        - name: 'golang:1.23.0'
           # check the integrity of the vendor directory
           args: ['scripts/verify-vendor.sh']
         - name: 'gcr.io/cloud-builders/bazel:7.3.2'
           entrypoint: bazel
           args:
           - 'test'
+          - '--enable_bzlmod'
           - '--test_output=errors'
           - '--remote_cache=https://storage.googleapis.com/cel-go-remote-cache'
           - '--google_default_credentials'
