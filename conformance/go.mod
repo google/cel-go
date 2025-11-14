@@ -1,13 +1,13 @@
 module github.com/google/cel-go/conformance
 
-go 1.22.0
+go 1.23.0
 
 require (
 	cel.dev/expr v0.24.0
 	github.com/bazelbuild/rules_go v0.49.0
 	github.com/google/cel-go v0.21.0
-	github.com/google/go-cmp v0.6.0
-	google.golang.org/protobuf v1.34.2
+	github.com/google/go-cmp v0.7.0
+	google.golang.org/protobuf v1.36.10
 )
 
 require (
