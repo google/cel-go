@@ -19,8 +19,8 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"unicode"
 
-	"github.com/stoewer/go-strcase"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 
@@ -226,7 +226,7 @@ func (m *baseMap) ConvertToNative(typeDesc reflect.Type) (any, error) {
 				return nil, fieldName.(*Err)
 			}
 			name := string(fieldName.(String))
-			name = strcase.UpperCamelCase(name)
+			name = upperCamelCase(name)
 			fieldRef := nativeStruct.FieldByName(name)
 			if !fieldRef.IsValid() {
 				return nil, fmt.Errorf("type conversion error, no such field '%s' in type '%v'", name, typeDesc)
@@ -1035,4 +1035,28 @@ func InsertMapKeyValue(m traits.Mapper, k, v ref.Val) ref.Val {
 		return DefaultTypeAdapter.NativeToValue(copy)
 	}
 	return NewErr("insert failed: key %v already exists", k)
+}
+
+func upperCamelCase(s string) string {
+	var newStr strings.Builder
+	replaceNext := false
+	for i, r := range s {
+		isDelim := r == '_' || r == '-'
+		isLower := r >= 'a' && r <= 'z'
+		if i == 0 && isLower {
+			newStr.WriteRune(unicode.ToUpper(r))
+			continue
+		}
+		if isDelim {
+			replaceNext = true
+			continue
+		}
+		if replaceNext {
+			newStr.WriteRune(unicode.ToUpper(r))
+			replaceNext = false
+		} else {
+			newStr.WriteRune(r)
+		}
+	}
+	return newStr.String()
 }

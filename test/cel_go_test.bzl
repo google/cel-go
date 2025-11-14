@@ -137,7 +137,7 @@ def cel_go_test(
             "@com_github_google_go_cmp//cmp:go_default_library",
             "@dev_cel_expr//:expr",
             "@dev_cel_expr//conformance/test:go_default_library",
-            "@in_gopkg_yaml_v3//:go_default_library",
+            "@in_yaml_go_yaml_v3//:go_default_library",
             "@io_bazel_rules_go//go/runfiles",
             "@org_golang_google_genproto_googleapis_api//expr/v1alpha1:go_default_library",
             "@org_golang_google_protobuf//encoding/prototext:go_default_library",

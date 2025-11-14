@@ -3,7 +3,7 @@ module github.com/google/cel-go/policy
 go 1.23.0
 
 require (
-	github.com/google/cel-go v0.22.0
+	github.com/google/cel-go v0.25.0
 	github.com/google/cel-go/tools v0.0.0-20251023215754-a36d461be521
 	github.com/google/go-cmp v0.7.0
 	go.yaml.in/yaml/v3 v3.0.4

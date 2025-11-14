@@ -36,7 +36,7 @@ bazel_dep(
 )
 
 go_sdk = use_extension("@io_bazel_rules_go//go:extensions.bzl", "go_sdk")
-go_sdk.download(version = "1.22.0")
+go_sdk.download(version = "1.23.0")
 
 go_deps = use_extension("@bazel_gazelle//:extensions.bzl", "go_deps")
 go_deps.gazelle_default_attributes(
@@ -59,11 +59,6 @@ go_deps.gazelle_override(
 )
 go_deps.from_file(go_mod = "//:go.mod")
 go_deps.module(
-    path = "gopkg.in/yaml.v3",
-    sum = "h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=",
-    version = "v3.0.1",
-)
-go_deps.module(
     path = "github.com/chzyer/readline",
     sum = "h1:upd/6fQk4src78LMRzh5vItIt361/o4uq553V8B5sGI=",
     version = "v1.5.1",
@@ -80,7 +75,7 @@ use_repo(
     "com_github_google_go_cmp",
     "com_github_stoewer_go_strcase",
     "dev_cel_expr",
-    "in_gopkg_yaml_v3",
+    "in_yaml_go_yaml_v3",
     "org_golang_google_genproto_googleapis_api",
     "org_golang_google_genproto_googleapis_rpc",
     "org_golang_google_protobuf",
