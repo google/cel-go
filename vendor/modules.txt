@@ -1,4 +1,4 @@
-# cel.dev/expr v0.25.1 => ../cel-spec
+# cel.dev/expr v0.25.1
 ## explicit; go 1.23.0
 cel.dev/expr
 # github.com/antlr4-go/antlr/v4 v4.13.0
@@ -76,4 +76,3 @@ google.golang.org/protobuf/types/known/wrapperspb
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
-# cel.dev/expr => ../cel-spec
