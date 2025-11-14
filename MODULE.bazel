@@ -73,7 +73,6 @@ use_repo(
     "com_github_antlr4_go_antlr_v4",
     "com_github_chzyer_readline",
     "com_github_google_go_cmp",
-    "com_github_stoewer_go_strcase",
     "dev_cel_expr",
     "in_yaml_go_yaml_v3",
     "org_golang_google_genproto_googleapis_api",
