@@ -30,7 +30,6 @@ steps:
           - 'test'
           - '--enable_bzlmod'
           - '--test_output=errors'
-          - '--remote_cache=https://storage.googleapis.com/cel-go-remote-cache'
           - '--google_default_credentials'
           -  '...'
           id: bazel-test
