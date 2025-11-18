@@ -31,6 +31,7 @@ steps:
           - '--enable_bzlmod'
           - '--test_output=errors'
           - '--google_default_credentials'
+          - '--remote_cache=https://storage.googleapis.com/cel-go-remote-cache'
           -  '...'
           id: bazel-test
           waitFor: ['-']
