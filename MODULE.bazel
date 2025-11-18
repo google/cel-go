@@ -8,7 +8,7 @@ bazel_dep(
 )
 bazel_dep(
     name = "gazelle",
-    version = "0.39.1",
+    version = "0.44.0",
     repo_name = "bazel_gazelle",
 )
 bazel_dep(
@@ -22,12 +22,12 @@ bazel_dep(
 )
 bazel_dep(
     name = "protobuf",
-    version = "27.0",
+    version = "27.1",
     repo_name = "com_google_protobuf",
 )
 bazel_dep(
     name = "rules_go",
-    version = "0.53.0",
+    version = "0.57.0",
     repo_name = "io_bazel_rules_go",
 )
 bazel_dep(
@@ -35,8 +35,18 @@ bazel_dep(
     version = "7.0.2",
 )
 
+# local_path_override(
+#     module_name = "cel-spec",
+#     path = "../cel-spec",
+# )
+bazel_dep(
+    name = "cel-spec",
+    version = "0.25.1",
+    repo_name = "dev_cel_expr",
+)
+
 go_sdk = use_extension("@io_bazel_rules_go//go:extensions.bzl", "go_sdk")
-go_sdk.download(version = "1.22.0")
+go_sdk.download(version = "1.23.0")
 
 go_deps = use_extension("@bazel_gazelle//:extensions.bzl", "go_deps")
 go_deps.gazelle_default_attributes(
@@ -59,19 +69,14 @@ go_deps.gazelle_override(
 )
 go_deps.from_file(go_mod = "//:go.mod")
 go_deps.module(
-    path = "gopkg.in/yaml.v3",
-    sum = "h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=",
-    version = "v3.0.1",
-)
-go_deps.module(
     path = "github.com/chzyer/readline",
     sum = "h1:upd/6fQk4src78LMRzh5vItIt361/o4uq553V8B5sGI=",
     version = "v1.5.1",
 )
 go_deps.module(
     path = "github.com/google/go-cmp",
-    sum = "h1:O2Tfq5qg4qc4AmwVlvv0oLiVAGB7enBSJ2x2DqQFi38=",
-    version = "v0.5.9",
+    sum = "h1:ofyhxvXcZhMsU5ulbFiLKl/XBFqE1GSq7atu8tAmTRI=",
+    version = "v0.6.0",
 )
 use_repo(
     go_deps,
@@ -79,8 +84,7 @@ use_repo(
     "com_github_chzyer_readline",
     "com_github_google_go_cmp",
     "com_github_stoewer_go_strcase",
-    "dev_cel_expr",
-    "in_gopkg_yaml_v3",
+    "in_yaml_go_yaml_v3",
     "org_golang_google_genproto_googleapis_api",
     "org_golang_google_genproto_googleapis_rpc",
     "org_golang_google_protobuf",
