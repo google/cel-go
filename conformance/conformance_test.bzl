@@ -38,7 +38,7 @@ def _expand_tests_to_skip(tests_to_skip):
 def _conformance_test_args(data, skip_tests, dashboard):
     args = []
     args.append("--skip_tests={}".format(",".join(_expand_tests_to_skip(skip_tests))))
-    args.append("--tests={}".format(",".join(["$(location " + test + ")" for test in data])))
+    args.append("--tests={}".format(",".join(["$(rlocationpath " + test + ")" for test in data])))
     if dashboard:
         args.append("--dashboard")
     return args
