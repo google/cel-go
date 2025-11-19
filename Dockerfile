@@ -1,6 +1,7 @@
 FROM gcr.io/cloud-marketplace/google/ubuntu2204:latest
 
 # minimal dependencies for getting bazel/bazelisk
+# tzdata needed for some conformance tests.
 RUN apt-get update && apt-get upgrade -y && \
      DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       build-essential \
@@ -29,11 +30,6 @@ RUN apt-get install /tmp/bazelisk.deb
 
 RUN mkdir -p /workspace
 RUN mkdir -p /bazel
-
-# cache bazel versions that we might test against.
-RUN USE_BAZEL_VERSION=8.4.2 bazelisk
-RUN USE_BAZEL_VERSION=7.3.2 bazelisk
-RUN USE_BAZEL_VERSION=7.7.1 bazelisk
 
 # note: /usr/bin/bazel is also a symlink to bazelisk
 ENTRYPOINT ["/usr/bin/bazelisk"]
