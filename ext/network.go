@@ -137,8 +137,8 @@ const (
 
 var (
 	// Definitions for the Opaque Types
-	networkIPType   = cel.ObjectType("network.IP", traits.ReceiverType)
-	networkCIDRType = cel.ObjectType("network.CIDR", traits.ReceiverType)
+	networkIPType   = types.NewTypeValue("network.IP", traits.ReceiverType)
+	networkCIDRType = types.NewTypeValue("network.CIDR", traits.ReceiverType)
 )
 
 type networkLib struct{}
@@ -147,13 +147,18 @@ func (*networkLib) LibraryName() string {
 	return "cel.lib.ext.network"
 }
 
-// CompileOptions implements the Library interface method.
 func (*networkLib) CompileOptions() []cel.EnvOption {
 	return []cel.EnvOption{
+		// 1. Register the types
 		cel.Types(
 			networkIPType,
 			networkCIDRType,
 		),
+		// 2. Register the Adapter (Correctly placed here)
+		cel.CustomTypeAdapter(&networkAdapter{
+			Adapter: types.DefaultTypeAdapter,
+		}),
+		// 3. Register the Functions
 		// Global Checkers
 		cel.Function(isIPFunc,
 			cel.Overload("isIP_string", []*cel.Type{cel.StringType}, cel.BoolType,
@@ -163,7 +168,6 @@ func (*networkLib) CompileOptions() []cel.EnvOption {
 			cel.Overload("isCIDR_string", []*cel.Type{cel.StringType}, cel.BoolType,
 				cel.UnaryBinding(netIsCIDR)),
 		),
-
 		// Constructors
 		cel.Function(ipFunc,
 			cel.Overload("ip_string", []*cel.Type{cel.StringType}, networkIPType,
@@ -173,7 +177,6 @@ func (*networkLib) CompileOptions() []cel.EnvOption {
 			cel.Overload("cidr_string", []*cel.Type{cel.StringType}, networkCIDRType,
 				cel.UnaryBinding(netCIDRString)),
 		),
-
 		// IP Member Functions
 		cel.Function(familyFunc,
 			cel.MemberOverload("ip_family", []*cel.Type{networkIPType}, cel.IntType,
@@ -203,7 +206,6 @@ func (*networkLib) CompileOptions() []cel.EnvOption {
 			cel.MemberOverload("ip_isLinkLocalUnicast", []*cel.Type{networkIPType}, cel.BoolType,
 				cel.UnaryBinding(netIPIsLinkLocalUnicast)),
 		),
-
 		// CIDR Member Functions
 		cel.Function(containsIPFunc,
 			cel.MemberOverload("cidr_containsIP_ip", []*cel.Type{networkCIDRType, networkIPType}, cel.BoolType,
@@ -236,6 +238,22 @@ func (*networkLib) ProgramOptions() []cel.ProgramOption {
 	return []cel.ProgramOption{}
 }
 
+// networkAdapter implements types.Adapter to handle net.IP and *net.IPNet conversion.
+type networkAdapter struct {
+	types.Adapter
+}
+
+func (a *networkAdapter) NativeToValue(value any) ref.Val {
+	switch v := value.(type) {
+	case net.IP:
+		// If passing a raw net.IP, we assume standard string representation
+		return IP{IP: v, Str: v.String()}
+	case *net.IPNet:
+		return CIDR{IPNet: v, Str: v.String()}
+	}
+	return a.Adapter.NativeToValue(value)
+}
+
 // --- Implementation Logic ---
 
 func netIsIP(val ref.Val) ref.Val {
@@ -265,8 +283,7 @@ func netIPString(val ref.Val) ref.Val {
 	if ip == nil {
 		return types.NewErr("invalid ip address: %s", str)
 	}
-	// Store both the logic (IP) and the representation (str)
-	return ipValue{IP: ip, str: str}
+	return IP{IP: ip, Str: str}
 }
 
 func netCIDRString(val ref.Val) ref.Val {
@@ -275,16 +292,16 @@ func netCIDRString(val ref.Val) ref.Val {
 		return types.MaybeNoSuchOverloadErr(val)
 	}
 	str := string(s)
-	// CHANGE: Capture 'ip' (the specific address) alongside 'ipNet'
 	ip, ipNet, err := net.ParseCIDR(str)
 	if err != nil {
 		return types.NewErr("invalid cidr range: %s", str)
 	}
-	return cidrValue{IPNet: ipNet, ExtraIP: ip, str: str}
+	// Store the specific IP (which might have host bits set) alongside the network
+	return CIDR{IPNet: ipNet, ExtraIP: ip, Str: str}
 }
 
 func netIPFamily(val ref.Val) ref.Val {
-	ip, ok := val.(ipValue)
+	ip, ok := val.(IP)
 	if !ok {
 		return types.MaybeNoSuchOverloadErr(val)
 	}
@@ -295,16 +312,15 @@ func netIPFamily(val ref.Val) ref.Val {
 }
 
 func netIPIsCanonical(val ref.Val) ref.Val {
-	ip, ok := val.(ipValue)
+	ip, ok := val.(IP)
 	if !ok {
 		return types.MaybeNoSuchOverloadErr(val)
 	}
-	// 1-to-1 Parity: Check if the input string matches the standard library output
-	return types.Bool(ip.str == ip.IP.String())
+	return types.Bool(ip.Str == ip.IP.String())
 }
 
 func netIPIsLoopback(val ref.Val) ref.Val {
-	ip, ok := val.(ipValue)
+	ip, ok := val.(IP)
 	if !ok {
 		return types.MaybeNoSuchOverloadErr(val)
 	}
@@ -312,7 +328,7 @@ func netIPIsLoopback(val ref.Val) ref.Val {
 }
 
 func netIPIsGlobalUnicast(val ref.Val) ref.Val {
-	ip, ok := val.(ipValue)
+	ip, ok := val.(IP)
 	if !ok {
 		return types.MaybeNoSuchOverloadErr(val)
 	}
@@ -320,7 +336,7 @@ func netIPIsGlobalUnicast(val ref.Val) ref.Val {
 }
 
 func netIPIsUnspecified(val ref.Val) ref.Val {
-	ip, ok := val.(ipValue)
+	ip, ok := val.(IP)
 	if !ok {
 		return types.MaybeNoSuchOverloadErr(val)
 	}
@@ -328,7 +344,7 @@ func netIPIsUnspecified(val ref.Val) ref.Val {
 }
 
 func netIPIsLinkLocalMulticast(val ref.Val) ref.Val {
-	ip, ok := val.(ipValue)
+	ip, ok := val.(IP)
 	if !ok {
 		return types.MaybeNoSuchOverloadErr(val)
 	}
@@ -336,7 +352,7 @@ func netIPIsLinkLocalMulticast(val ref.Val) ref.Val {
 }
 
 func netIPIsLinkLocalUnicast(val ref.Val) ref.Val {
-	ip, ok := val.(ipValue)
+	ip, ok := val.(IP)
 	if !ok {
 		return types.MaybeNoSuchOverloadErr(val)
 	}
@@ -344,11 +360,11 @@ func netIPIsLinkLocalUnicast(val ref.Val) ref.Val {
 }
 
 func netCIDRContainsIP(lhs, rhs ref.Val) ref.Val {
-	cidr, ok := lhs.(cidrValue)
+	cidr, ok := lhs.(CIDR)
 	if !ok {
 		return types.MaybeNoSuchOverloadErr(lhs)
 	}
-	ip, ok := rhs.(ipValue)
+	ip, ok := rhs.(IP)
 	if !ok {
 		return types.MaybeNoSuchOverloadErr(rhs)
 	}
@@ -356,7 +372,7 @@ func netCIDRContainsIP(lhs, rhs ref.Val) ref.Val {
 }
 
 func netCIDRContainsIPString(lhs, rhs ref.Val) ref.Val {
-	cidr, ok := lhs.(cidrValue)
+	cidr, ok := lhs.(CIDR)
 	if !ok {
 		return types.MaybeNoSuchOverloadErr(lhs)
 	}
@@ -372,11 +388,11 @@ func netCIDRContainsIPString(lhs, rhs ref.Val) ref.Val {
 }
 
 func netCIDRContainsCIDR(lhs, rhs ref.Val) ref.Val {
-	parent, ok := lhs.(cidrValue)
+	parent, ok := lhs.(CIDR)
 	if !ok {
 		return types.MaybeNoSuchOverloadErr(lhs)
 	}
-	child, ok := rhs.(cidrValue)
+	child, ok := rhs.(CIDR)
 	if !ok {
 		return types.MaybeNoSuchOverloadErr(rhs)
 	}
@@ -386,7 +402,7 @@ func netCIDRContainsCIDR(lhs, rhs ref.Val) ref.Val {
 }
 
 func netCIDRContainsCIDRString(lhs, rhs ref.Val) ref.Val {
-	parent, ok := lhs.(cidrValue)
+	parent, ok := lhs.(CIDR)
 	if !ok {
 		return types.MaybeNoSuchOverloadErr(lhs)
 	}
@@ -404,20 +420,17 @@ func netCIDRContainsCIDRString(lhs, rhs ref.Val) ref.Val {
 }
 
 func netCIDRMasked(val ref.Val) ref.Val {
-	cidr, ok := val.(cidrValue)
+	cidr, ok := val.(CIDR)
 	if !ok {
 		return types.MaybeNoSuchOverloadErr(val)
 	}
-	// Mask both the network struct AND our extra IP
 	maskedIP := cidr.IPNet.IP.Mask(cidr.IPNet.Mask)
 	newNet := &net.IPNet{IP: maskedIP, Mask: cidr.IPNet.Mask}
-
-	// In a masked CIDR, the specific IP is the same as the network IP
-	return cidrValue{IPNet: newNet, ExtraIP: maskedIP, str: newNet.String()}
+	return CIDR{IPNet: newNet, ExtraIP: maskedIP, Str: newNet.String()}
 }
 
 func netCIDRPrefixLength(val ref.Val) ref.Val {
-	cidr, ok := val.(cidrValue)
+	cidr, ok := val.(CIDR)
 	if !ok {
 		return types.MaybeNoSuchOverloadErr(val)
 	}
@@ -426,24 +439,23 @@ func netCIDRPrefixLength(val ref.Val) ref.Val {
 }
 
 func netCIDRIP(val ref.Val) ref.Val {
-	cidr, ok := val.(cidrValue)
+	cidr, ok := val.(CIDR)
 	if !ok {
 		return types.MaybeNoSuchOverloadErr(val)
 	}
-	// Extract IP. Use String() to ensure we have a valid canonical string representation
-	// for the new IP object. Return the specific host IP, not the network address
-	return ipValue{IP: cidr.ExtraIP, str: cidr.ExtraIP.String()}
+	return IP{IP: cidr.ExtraIP, Str: cidr.ExtraIP.String()}
 }
 
 // --- Opaque Type Wrappers ---
 
-// ipValue implements ref.Val
-type ipValue struct {
+// IP is an exported CEL value that wraps net.IP.
+// It implements ref.Val.
+type IP struct {
 	net.IP
-	str string // Kept for isCanonical checks
+	Str string
 }
 
-func (i ipValue) ConvertToNative(typeDesc reflect.Type) (any, error) {
+func (i IP) ConvertToNative(typeDesc reflect.Type) (any, error) {
 	if typeDesc == reflect.TypeOf(net.IP{}) {
 		return i.IP, nil
 	}
@@ -453,7 +465,7 @@ func (i ipValue) ConvertToNative(typeDesc reflect.Type) (any, error) {
 	return nil, fmt.Errorf("unsupported type conversion to '%v'", typeDesc)
 }
 
-func (i ipValue) ConvertToType(typeValue ref.Type) ref.Val {
+func (i IP) ConvertToType(typeValue ref.Type) ref.Val {
 	switch typeValue {
 	case types.StringType:
 		return types.String(i.IP.String())
@@ -465,33 +477,31 @@ func (i ipValue) ConvertToType(typeValue ref.Type) ref.Val {
 	return types.NewErr("type conversion error from '%s' to '%s'", networkIPType, typeValue)
 }
 
-func (i ipValue) Equal(other ref.Val) ref.Val {
-	o, ok := other.(ipValue)
+func (i IP) Equal(other ref.Val) ref.Val {
+	o, ok := other.(IP)
 	if !ok {
 		return types.ValOrErr(other, "no such overload")
 	}
-	// Correctness: Equality is based on the actual IP bytes,
-	// NOT the string representation.
-	// ip("127.0.0.1") == ip("127.000.000.001") -> True
 	return types.Bool(i.IP.Equal(o.IP))
 }
 
-func (i ipValue) Type() ref.Type {
+func (i IP) Type() ref.Type {
 	return networkIPType
 }
 
-func (i ipValue) Value() any {
+func (i IP) Value() any {
 	return i.IP
 }
 
-// cidrValue implements ref.Val
-type cidrValue struct {
+// CIDR is an exported CEL value that wraps *net.IPNet.
+// It implements ref.Val.
+type CIDR struct {
 	*net.IPNet
-	ExtraIP net.IP // IP Address with host bits set
-	str     string
+	ExtraIP net.IP
+	Str     string
 }
 
-func (c cidrValue) ConvertToNative(typeDesc reflect.Type) (any, error) {
+func (c CIDR) ConvertToNative(typeDesc reflect.Type) (any, error) {
 	if typeDesc == reflect.TypeOf(&net.IPNet{}) {
 		return c.IPNet, nil
 	}
@@ -501,7 +511,7 @@ func (c cidrValue) ConvertToNative(typeDesc reflect.Type) (any, error) {
 	return nil, fmt.Errorf("unsupported type conversion to '%v'", typeDesc)
 }
 
-func (c cidrValue) ConvertToType(typeValue ref.Type) ref.Val {
+func (c CIDR) ConvertToType(typeValue ref.Type) ref.Val {
 	switch typeValue {
 	case types.StringType:
 		return types.String(c.IPNet.String())
@@ -513,19 +523,18 @@ func (c cidrValue) ConvertToType(typeValue ref.Type) ref.Val {
 	return types.NewErr("type conversion error from '%s' to '%s'", networkCIDRType, typeValue)
 }
 
-func (c cidrValue) Equal(other ref.Val) ref.Val {
-	o, ok := other.(cidrValue)
+func (c CIDR) Equal(other ref.Val) ref.Val {
+	o, ok := other.(CIDR)
 	if !ok {
 		return types.ValOrErr(other, "no such overload")
 	}
-	// Correctness: Equality is based on the IP bytes AND the mask bytes.
 	return types.Bool(c.IPNet.IP.Equal(o.IPNet.IP) && c.IPNet.Mask.String() == o.IPNet.Mask.String())
 }
 
-func (c cidrValue) Type() ref.Type {
+func (c CIDR) Type() ref.Type {
 	return networkCIDRType
 }
 
-func (c cidrValue) Value() any {
+func (c CIDR) Value() any {
 	return c.IPNet
 }
