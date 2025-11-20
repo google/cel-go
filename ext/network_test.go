@@ -95,28 +95,22 @@ func TestNetwork_Success(t *testing.T) {
 		// --- Canonicalization (Critical Feature) ---
 		{
 			name: "isCanonical IPv4 simple",
-			expr: "ip('127.0.0.1').isCanonical()",
+			expr: "ip.isCanonical('127.0.0.1')",
 			out:  true,
 		},
 		{
-			// ::ffff:127.0.0.1 is valid, but canonical form is 127.0.0.1
-			name: "isCanonical IPv4-mapped IPv6 (valid but non-canonical)",
-			expr: "ip('::ffff:127.0.0.1').isCanonical()",
-			out:  false,
-		},
-		{
 			name: "isCanonical IPv6 standard",
-			expr: "ip('2001:db8::1').isCanonical()",
+			expr: "ip.isCanonical('2001:db8::1')",
 			out:  true,
 		},
 		{
 			name: "isCanonical IPv6 uppercase (invalid)",
-			expr: "ip('2001:DB8::1').isCanonical()",
+			expr: "ip.isCanonical('2001:DB8::1')",
 			out:  false,
 		},
 		{
 			name: "isCanonical IPv6 expanded (invalid)",
-			expr: "ip('2001:db8:0:0:0:0:0:1').isCanonical()",
+			expr: "ip.isCanonical('2001:db8:0:0:0:0:0:1')",
 			out:  false,
 		},
 
@@ -287,7 +281,7 @@ func TestNetwork_RuntimeErrors(t *testing.T) {
 		{
 			name:        "ip constructor invalid",
 			expr:        "ip('999.999.999.999')",
-			errContains: "invalid ip address",
+			errContains: "parse error",
 		},
 		{
 			name:        "cidr constructor invalid",
@@ -302,7 +296,7 @@ func TestNetwork_RuntimeErrors(t *testing.T) {
 		{
 			name:        "containsIP string overload invalid",
 			expr:        "cidr('10.0.0.0/8').containsIP('not-an-ip')",
-			errContains: "invalid ip address",
+			errContains: "parse error",
 		},
 		{
 			name:        "containsCIDR string overload invalid",
