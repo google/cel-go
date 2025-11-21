@@ -55,8 +55,7 @@ go_deps.gazelle_default_attributes(
     ],
 )
 go_deps.gazelle_override(
-    # Force Gazelle to wipe out the existing build files before regenerate them.
-    build_file_generation = "on",
+    build_file_generation = "off",
     directives = [
         "gazelle:go_generate_proto false",
         # Provide hints to gazelle about how includes and imports map to build targets
