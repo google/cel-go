@@ -22,7 +22,6 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/common/types/traits"
 )
 
 // Network returns a cel.EnvOption to configure extended functions for network
@@ -115,7 +114,17 @@ import (
 //	cidr('192.168.1.5/24').masked() == cidr('192.168.1.0/24')
 //	cidr('192.168.1.0/24').prefixLength() == 24
 func Network() cel.EnvOption {
-	return cel.Lib(&networkLib{})
+	return func(e *cel.Env) (*cel.Env, error) {
+		// Install the library (Types and Functions)
+		e, err := cel.Lib(&networkLib{})(e)
+		if err != nil {
+			return nil, err
+		}
+
+		// Install the Adapter (Wrapping the existing one)
+		adapter := &networkAdapter{Adapter: e.CELTypeAdapter()}
+		return cel.CustomTypeAdapter(adapter)(e)
+	}
 }
 
 const (
@@ -140,8 +149,8 @@ const (
 
 var (
 	// Definitions for the Opaque Types
-	networkIPType   = types.NewTypeValue("network.IP", traits.ReceiverType)
-	networkCIDRType = types.NewTypeValue("network.CIDR", traits.ReceiverType)
+	networkIPType   = types.NewOpaqueType("network.IP")
+	networkCIDRType = types.NewOpaqueType("network.CIDR")
 )
 
 type networkLib struct{}
@@ -157,11 +166,8 @@ func (*networkLib) CompileOptions() []cel.EnvOption {
 			networkIPType,
 			networkCIDRType,
 		),
-		// 2. Register Adapter (Bundled here so it applies automatically)
-		cel.CustomTypeAdapter(&networkAdapter{
-			Adapter: types.DefaultTypeAdapter,
-		}),
-		// 3. Register Functions
+
+		// 2. Register Functions
 		cel.Function(isIPFunc,
 			cel.Overload("isIP_string", []*cel.Type{cel.StringType}, cel.BoolType,
 				cel.UnaryBinding(netIsIP)),
@@ -237,7 +243,7 @@ func (*networkLib) ProgramOptions() []cel.ProgramOption {
 	return []cel.ProgramOption{}
 }
 
-// networkAdapter adapts netip types.
+// networkAdapter adapts netip types while preserving existing adapters.
 type networkAdapter struct {
 	types.Adapter
 }
@@ -249,6 +255,7 @@ func (a *networkAdapter) NativeToValue(value any) ref.Val {
 	case netip.Prefix:
 		return CIDR{Prefix: v}
 	}
+	// Delegate to the wrapped adapter (e.g., Protobuf adapter)
 	return a.Adapter.NativeToValue(value)
 }
 
