@@ -1046,10 +1046,12 @@ func upperCamelCase(s string) string {
 			if !isDelim(curr) {
 				newStr.WriteRune(unicode.ToUpper(curr))
 			}
-		} else if isLower(prev) {
-			newStr.WriteRune(curr)
-		} else {
-			newStr.WriteRune(unicode.ToLower(curr))
+		} else if !isDelim(curr) {
+			if isLower(prev) {
+				newStr.WriteRune(curr)
+			} else {
+				newStr.WriteRune(unicode.ToLower(curr))
+			}
 		}
 		prev = curr
 	}
