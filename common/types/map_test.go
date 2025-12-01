@@ -189,6 +189,16 @@ func TestDynamicMapConvertToNative_Struct(t *testing.T) {
 			"Details_ ":        []string{"world", "universe"},
 			" extra___details": "extra, extra!",
 		},
+		{
+			"_m":               "hello",
+			"Details_ ":        []string{"world", "universe"},
+			" extra___details": "extra, extra!",
+		},
+		{
+			"_M":               "hello",
+			"Details_ ":        []string{"world", "universe"},
+			" extra___details": "extra, extra!",
+		},
 	}
 	for i, tst := range tests {
 		tc := tst
