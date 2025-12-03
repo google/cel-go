@@ -22,7 +22,7 @@ bazel_dep(
 )
 bazel_dep(
     name = "protobuf",
-    version = "27.1",
+    version = "33.1",
     repo_name = "com_google_protobuf",
 )
 bazel_dep(
@@ -55,16 +55,7 @@ go_deps.gazelle_default_attributes(
     ],
 )
 go_deps.gazelle_override(
-    # Force Gazelle to wipe out the existing build files before regenerate them.
-    build_file_generation = "on",
-    directives = [
-        "gazelle:go_generate_proto false",
-        # Provide hints to gazelle about how includes and imports map to build targets
-        "gazelle:resolve go cel.dev/expr @dev_cel_expr//:expr",
-        "gazelle:resolve go cel.dev/expr/conformance @dev_cel_expr//conformance:go_default_library",
-        "gazelle:resolve proto go google/rpc/status.proto @org_golang_google_genproto_googleapis_rpc//status",
-        "gazelle:resolve proto proto google/rpc/status.proto @googleapis//google/rpc:status_proto",
-    ],
+    build_file_generation = "off",
     path = "cel.dev/expr",
 )
 go_deps.from_file(go_mod = "//:go.mod")
