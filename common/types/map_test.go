@@ -38,8 +38,9 @@ import (
 )
 
 type testStruct struct {
-	M       string
-	Details []string
+	M            string
+	Details      []string
+	ExtraDetails string
 }
 
 func TestMapContains(t *testing.T) {
@@ -166,17 +167,51 @@ func TestDynamicMapConvertToNative_Json(t *testing.T) {
 
 func TestDynamicMapConvertToNative_Struct(t *testing.T) {
 	reg := newTestRegistry(t)
-	mapVal := NewDynamicMap(reg, map[string]any{
-		"m":       "hello",
-		"details": []string{"world", "universe"},
-	})
-	ts, err := mapVal.ConvertToNative(reflect.TypeOf(testStruct{}))
-	if err != nil {
-		t.Error(err)
+	want := testStruct{M: "hello", Details: []string{"world", "universe"}, ExtraDetails: "extra, extra!"}
+	tests := []map[string]any{
+		{
+			"m":             "hello",
+			"details":       []string{"world", "universe"},
+			"extra_Details": "extra, extra!",
+		},
+		{
+			"M":             "hello",
+			"Details":       []string{"world", "universe"},
+			"extra_details": "extra, extra!",
+		},
+		{
+			"M":                "hello",
+			"Details":          []string{"world", "universe"},
+			" extra___details": "extra, extra!",
+		},
+		{
+			"M":                "hello",
+			"Details_ ":        []string{"world", "universe"},
+			" extra___details": "extra, extra!",
+		},
+		{
+			"_m":               "hello",
+			"Details_ ":        []string{"world", "universe"},
+			" extra___details": "extra, extra!",
+		},
+		{
+			"_M":               "hello",
+			"Details_ ":        []string{"world", "universe"},
+			" extra___details": "extra, extra!",
+		},
 	}
-	want := testStruct{M: "hello", Details: []string{"world", "universe"}}
-	if !reflect.DeepEqual(ts, want) {
-		t.Errorf("mapVal.ConvertToNative(struct) got %v, wanted %v", ts, want)
+	for i, tst := range tests {
+		tc := tst
+		t.Run(fmt.Sprintf("[%d]", i), func(t *testing.T) {
+			mapVal := NewDynamicMap(reg, tc)
+			ts, err := mapVal.ConvertToNative(reflect.TypeFor[testStruct]())
+			if err != nil {
+				t.Error(err)
+			}
+			if !reflect.DeepEqual(ts, want) {
+				t.Errorf("mapVal.ConvertToNative(struct) got %v, wanted %v", ts, want)
+			}
+		})
 	}
 }
 
