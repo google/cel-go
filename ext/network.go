@@ -20,12 +20,100 @@ import (
 	"reflect"
 
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/functions" // Required for ProgramOptions
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 )
 
 // Network returns a cel.EnvOption to configure extended functions for network
 // address parsing, inspection, and CIDR range manipulation.
+//
+// Note: This library defines global functions `ip`, `cidr`, `isIP`, `isCIDR`
+// and `ip.isCanonical`. If you are currently using variables named `ip` or
+// `cidr`, these functions will likely work as intended, however there is a
+// chance for collision.
+//
+// The library closely mirrors the behavior of the Kubernetes CEL network
+// libraries, treating IP addresses and CIDR ranges as opaque types. It parses
+// IPs strictly: IPv4-mapped IPv6 addresses and IP zones are not allowed.
+//
+// This library includes a TypeAdapter that allows `netip.Addr` and
+// `netip.Prefix` Go types to be passed directly into the CEL environment.
+//
+// # IP Addresses
+//
+// The `ip` function converts a string to an IP address (IPv4 or IPv6). If the
+// string is not a valid IP, an error is returned. The `isIP` function checks
+// if a string is a valid IP address without throwing an error.
+//
+//	ip(string) -> ip
+//	isIP(string) -> bool
+//
+// Examples:
+//
+//	ip('127.0.0.1')
+//	ip('::1')
+//	isIP('1.2.3.4') // true
+//	isIP('invalid') // false
+//
+// # CIDR Ranges
+//
+// The `cidr` function converts a string to a Classless Inter-Domain Routing
+// (CIDR) range. If the string is not valid, an error is returned. The `isCIDR`
+// function checks if a string is a valid CIDR notation.
+//
+//	cidr(string) -> cidr
+//	isCIDR(string) -> bool
+//
+// Examples:
+//
+//	cidr('192.168.0.0/24')
+//	cidr('::1/128')
+//	isCIDR('10.0.0.0/8') // true
+//
+// # IP Inspection and Canonicalization
+//
+// IP objects support various inspection methods.
+//
+//	<ip>.family() -> int
+//	<ip>.isLoopback() -> bool
+//	<ip>.isGlobalUnicast() -> bool
+//	<ip>.isLinkLocalMulticast() -> bool
+//	<ip>.isLinkLocalUnicast() -> bool
+//	<ip>.isUnspecified() -> bool
+//
+// The `ip.isCanonical` function takes a string and returns true if it matches
+// the RFC 5952 canonical string representation of that address.
+//
+//	ip.isCanonical(string) -> bool
+//
+// Examples:
+//
+//	ip('127.0.0.1').family() == 4
+//	ip('::1').family() == 6
+//	ip('127.0.0.1').isLoopback() == true
+//	ip.isCanonical('2001:db8::1') == true  // RFC 5952 format
+//	ip.isCanonical('2001:DB8::1') == false // Uppercase is not canonical
+//	ip.isCanonical('2001:db8:0:0:0:0:0:1') == false // Expanded is not canonical
+//
+// # CIDR Member Functions
+//
+// CIDR objects support containment checks and property extraction.
+//
+//	<cidr>.containsIP(ip|string) -> bool
+//	<cidr>.containsCIDR(cidr|string) -> bool
+//	<cidr>.ip() -> ip
+//	<cidr>.masked() -> cidr
+//	<cidr>.prefixLength() -> int
+//
+// Examples:
+//
+//	cidr('10.0.0.0/8').containsIP(ip('10.0.0.1')) == true
+//	cidr('10.0.0.0/8').containsIP('10.0.0.1') == true
+//	cidr('10.0.0.0/8').containsCIDR('10.1.0.0/16') == true
+//	cidr('192.168.1.5/24').ip() == ip('192.168.1.5')
+//	cidr('192.168.1.5/24').masked() == cidr('192.168.1.0/24')
+//	cidr('192.168.1.0/24').prefixLength() == 24
 func Network() cel.EnvOption {
 	return func(e *cel.Env) (*cel.Env, error) {
 		// Install the library (Types and Functions)
@@ -41,7 +129,6 @@ func Network() cel.EnvOption {
 }
 
 const (
-	// Function names matching Kubernetes implementation
 	isIPFunc             = "isIP"
 	isCIDRFunc           = "isCIDR"
 	ipFunc               = "ip"
@@ -79,7 +166,7 @@ func (*networkLib) CompileOptions() []cel.EnvOption {
 			CIDRType,
 		),
 
-		// 2. Register Functions
+		// 2. Register Functions (DECLARATIONS ONLY)
 		cel.Function(isIPFunc,
 			cel.Overload("is_ip", []*cel.Type{cel.StringType}, cel.BoolType,
 				cel.UnaryBinding(netIsIP)),
@@ -89,10 +176,8 @@ func (*networkLib) CompileOptions() []cel.EnvOption {
 				cel.UnaryBinding(netIsCIDR)),
 		),
 		cel.Function(ipFunc,
-			cel.Overload("ip", []*cel.Type{cel.StringType}, IPType,
-				cel.UnaryBinding(netIPString)),
-			cel.MemberOverload("cidr_ip", []*cel.Type{CIDRType}, IPType,
-				cel.UnaryBinding(netCIDRIP)),
+			cel.Overload("ip", []*cel.Type{cel.StringType}, IPType),
+			cel.MemberOverload("cidr_ip", []*cel.Type{CIDRType}, IPType),
 		),
 		cel.Function(cidrFunc,
 			cel.Overload("cidr", []*cel.Type{cel.StringType}, CIDRType,
@@ -150,7 +235,19 @@ func (*networkLib) CompileOptions() []cel.EnvOption {
 }
 
 func (*networkLib) ProgramOptions() []cel.ProgramOption {
-	return []cel.ProgramOption{}
+	// 3. Register Bindings (IMPLEMENTATIONS ONLY)
+	return []cel.ProgramOption{
+		cel.Functions(
+			&functions.Overload{
+				Operator: "ip",
+				Unary:    netIPString,
+			},
+			&functions.Overload{
+				Operator: "cidr_ip",
+				Unary:    netCIDRIP,
+			},
+		),
+	}
 }
 
 // networkAdapter adapts netip types while preserving existing adapters.
@@ -171,46 +268,31 @@ func (a *networkAdapter) NativeToValue(value any) ref.Val {
 
 // --- Implementation Logic ---
 
-// parseIPAddr parses a string into an IP address.
-// We use this function to parse IP addresses in the CEL library
-// so that we can share the common logic of rejecting IP addresses
-// that contain zones or are IPv4-mapped IPv6 addresses.
 func parseIPAddr(raw string) (netip.Addr, error) {
 	addr, err := netip.ParseAddr(raw)
 	if err != nil {
 		return netip.Addr{}, fmt.Errorf("IP Address %q parse error during conversion from string: %v", raw, err)
 	}
-
 	if addr.Zone() != "" {
 		return netip.Addr{}, fmt.Errorf("IP address %q with zone value is not allowed", raw)
 	}
-
 	if addr.Is4In6() {
 		return netip.Addr{}, fmt.Errorf("IPv4-mapped IPv6 address %q is not allowed", raw)
 	}
-
 	return addr, nil
 }
 
-// parseCIDR parses a string into a CIDR/Prefix.
-// We use this function to parse CIDRs in the CEL library
-// so that we can share the common logic of rejecting CIDRs
-// that contain zones or are IPv4-mapped IPv6 addresses.
 func parseCIDR(raw string) (netip.Prefix, error) {
 	prefix, err := netip.ParsePrefix(raw)
 	if err != nil {
 		return netip.Prefix{}, fmt.Errorf("CIDR %q parse error during conversion from string: %v", raw, err)
 	}
-
-	// netip.Prefix.Addr() returns the address part of the prefix
 	if prefix.Addr().Zone() != "" {
 		return netip.Prefix{}, fmt.Errorf("CIDR %q with zone value is not allowed", raw)
 	}
-
 	if prefix.Addr().Is4In6() {
 		return netip.Prefix{}, fmt.Errorf("IPv4-mapped IPv6 address %q is not allowed", raw)
 	}
-
 	return prefix, nil
 }
 
@@ -308,7 +390,6 @@ func netCIDRContainsIPString(lhs, rhs ref.Val) ref.Val {
 func netCIDRContainsCIDR(lhs, rhs ref.Val) ref.Val {
 	parent := lhs.(CIDR)
 	child := rhs.(CIDR)
-	// Matches K8s logic: Must overlap and parent must be "larger" (smaller or equal bit count)
 	return types.Bool(parent.Prefix.Overlaps(child.Prefix) && parent.Prefix.Bits() <= child.Prefix.Bits())
 }
 
@@ -339,14 +420,12 @@ func netCIDRIP(val ref.Val) ref.Val {
 
 // --- Opaque Type Wrappers ---
 
-// IP is an exported CEL value that wraps netip.Addr.
 type IP struct {
 	netip.Addr
 }
 
 func (i IP) ConvertToNative(typeDesc reflect.Type) (any, error) {
-	// Use reflect.TypeFor to avoid instantiating netip.Addr{}
-	if typeDesc == reflect.TypeFor[*netip.Addr]() {
+	if typeDesc == reflect.TypeFor[netip.Addr]() {
 		return i.Addr, nil
 	}
 	if typeDesc.Kind() == reflect.String {
@@ -383,13 +462,11 @@ func (i IP) Value() any {
 	return i.Addr
 }
 
-// CIDR is an exported CEL value that wraps netip.Prefix.
 type CIDR struct {
 	netip.Prefix
 }
 
 func (c CIDR) ConvertToNative(typeDesc reflect.Type) (any, error) {
-	// Use reflect.TypeFor to avoid instantiating netip.Prefix{}
 	if typeDesc == reflect.TypeFor[netip.Prefix]() {
 		return c.Prefix, nil
 	}
