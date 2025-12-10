@@ -20,7 +20,6 @@ import (
 	"reflect"
 
 	"github.com/google/cel-go/cel"
-	"github.com/google/cel-go/common/functions" // Required for ProgramOptions
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 )
@@ -129,6 +128,7 @@ func Network() cel.EnvOption {
 }
 
 const (
+	// Function names matching Kubernetes implementation
 	isIPFunc             = "isIP"
 	isCIDRFunc           = "isCIDR"
 	ipFunc               = "ip"
@@ -148,8 +148,8 @@ const (
 
 var (
 	// Definitions for the Opaque Types
-	IPType   = cel.OpaqueType("net.IP")
-	CIDRType = cel.OpaqueType("net.CIDR")
+	IPType   = types.NewOpaqueType("net.IP")
+	CIDRType = types.NewOpaqueType("net.CIDR")
 )
 
 type networkLib struct{}
@@ -166,7 +166,7 @@ func (*networkLib) CompileOptions() []cel.EnvOption {
 			CIDRType,
 		),
 
-		// 2. Register Functions (DECLARATIONS ONLY)
+		// 2. Register Functions
 		cel.Function(isIPFunc,
 			cel.Overload("is_ip", []*cel.Type{cel.StringType}, cel.BoolType,
 				cel.UnaryBinding(netIsIP)),
@@ -176,11 +176,13 @@ func (*networkLib) CompileOptions() []cel.EnvOption {
 				cel.UnaryBinding(netIsCIDR)),
 		),
 		cel.Function(ipFunc,
-			cel.Overload("ip", []*cel.Type{cel.StringType}, IPType),
-			cel.MemberOverload("cidr_ip", []*cel.Type{CIDRType}, IPType),
+			cel.Overload("string_to_ip", []*cel.Type{cel.StringType}, IPType,
+				cel.UnaryBinding(netIPString)),
+			cel.MemberOverload("cidr_ip", []*cel.Type{CIDRType}, IPType,
+				cel.UnaryBinding(netCIDRIP)),
 		),
 		cel.Function(cidrFunc,
-			cel.Overload("cidr", []*cel.Type{cel.StringType}, CIDRType,
+			cel.Overload("string_to_cidr", []*cel.Type{cel.StringType}, CIDRType,
 				cel.UnaryBinding(netCIDRString)),
 		),
 		cel.Function(familyFunc,
@@ -235,19 +237,7 @@ func (*networkLib) CompileOptions() []cel.EnvOption {
 }
 
 func (*networkLib) ProgramOptions() []cel.ProgramOption {
-	// 3. Register Bindings (IMPLEMENTATIONS ONLY)
-	return []cel.ProgramOption{
-		cel.Functions(
-			&functions.Overload{
-				Operator: "ip",
-				Unary:    netIPString,
-			},
-			&functions.Overload{
-				Operator: "cidr_ip",
-				Unary:    netCIDRIP,
-			},
-		),
-	}
+	return []cel.ProgramOption{}
 }
 
 // networkAdapter adapts netip types while preserving existing adapters.
