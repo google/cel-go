@@ -189,6 +189,49 @@ func MaxNestedExpressions(limit int) CompilerOption {
 	}
 }
 
+// MatchCompiler is an interface that provides the necessary functionality for compiling the output
+// of a match.
+type MatchCompiler interface {
+	// Env returns the rule environment for the match compiler.
+	Env() *cel.Env
+	// RelSource returns a RelativeSource for a given expression id.
+	RelSource(ValueString) *RelativeSource
+	// ReportErrorAtID reports an error at the given expression id.
+	ReportErrorAtID(int64, string, ...any)
+}
+
+type matchCompilerImpl struct {
+	env *cel.Env
+	c   *compiler
+	iss *cel.Issues
+}
+
+// Env returns the current environment available to the match expression being compiled.
+func (mc *matchCompilerImpl) Env() *cel.Env {
+	return mc.env
+}
+
+// RelSource exposes the compiler's relative source function.
+func (mc *matchCompilerImpl) RelSource(pstr ValueString) *RelativeSource {
+	return mc.c.relSource(pstr)
+}
+
+// ReportErrorAtID exposes the issue reporter for the match compiler.
+func (mc *matchCompilerImpl) ReportErrorAtID(id int64, message string, args ...any) {
+	mc.iss.ReportErrorAtID(id, message, args...)
+}
+
+// CompileMatchOutputFunc is a function that compiles the output of a match.
+type CompileMatchOutputFunc func(mc MatchCompiler, m *Match, p *Policy) (*cel.Ast, *cel.Issues)
+
+// CompileMatchOutput sets a custom match output compiling function.
+func CompileMatchOutput(f CompileMatchOutputFunc) CompilerOption {
+	return func(c *compiler) error {
+		c.compileMatchOutput = f
+		return nil
+	}
+}
+
 // Compile combines the policy compilation and composition steps into a single call.
 //
 // This generates a single CEL AST from a collection of policy expressions associated with a
@@ -211,6 +254,7 @@ func CompileRule(env *cel.Env, p *Policy, opts ...CompilerOption) (*CompiledRule
 		env:                  env,
 		info:                 p.SourceInfo(),
 		src:                  p.Source(),
+		compileMatchOutput:   defaultCompileMatchOutput,
 		maxNestedExpressions: defaultMaxNestedExpressions,
 	}
 	var err error
@@ -248,7 +292,7 @@ func CompileRule(env *cel.Env, p *Policy, opts ...CompilerOption) (*CompiledRule
 			c.env = env
 		}
 	}
-	return c.compileRule(p.Rule(), c.env, iss)
+	return c.compileRule(p.Rule(), p, c.env, iss)
 }
 
 type compiler struct {
@@ -256,11 +300,12 @@ type compiler struct {
 	info *ast.SourceInfo
 	src  *Source
 
+	compileMatchOutput   CompileMatchOutputFunc
 	maxNestedExpressions int
 	nestedCount          int
 }
 
-func (c *compiler) compileRule(r *Rule, ruleEnv *cel.Env, iss *cel.Issues) (*CompiledRule, *cel.Issues) {
+func (c *compiler) compileRule(r *Rule, p *Policy, ruleEnv *cel.Env, iss *cel.Issues) (*CompiledRule, *cel.Issues) {
 	compiledVars := make([]*CompiledVariable, len(r.Variables()))
 	for i, v := range r.Variables() {
 		exprSrc := c.relSource(v.Expression())
@@ -315,8 +360,8 @@ func (c *compiler) compileRule(r *Rule, ruleEnv *cel.Env, iss *cel.Issues) (*Com
 			continue
 		}
 		if m.HasOutput() {
-			outSrc := c.relSource(m.Output())
-			outAST, outIss := ruleEnv.CompileSource(outSrc)
+			mc := &matchCompilerImpl{env: ruleEnv, c: c, iss: iss}
+			outAST, outIss := c.compileMatchOutput(mc, m, p)
 			iss = iss.Append(outIss)
 			compiledMatches = append(compiledMatches, &CompiledMatch{
 				exprID: m.exprID,
@@ -329,7 +374,7 @@ func (c *compiler) compileRule(r *Rule, ruleEnv *cel.Env, iss *cel.Issues) (*Com
 			continue
 		}
 		if m.HasRule() {
-			nestedRule, ruleIss := c.compileRule(m.Rule(), ruleEnv, iss)
+			nestedRule, ruleIss := c.compileRule(m.Rule(), p, ruleEnv, iss)
 			iss = iss.Append(ruleIss)
 			compiledMatches = append(compiledMatches, &CompiledMatch{
 				exprID:     m.exprID,
@@ -360,6 +405,11 @@ func (c *compiler) compileRule(r *Rule, ruleEnv *cel.Env, iss *cel.Issues) (*Com
 	c.checkUnreachableCode(rule, iss)
 
 	return rule, iss
+}
+
+func defaultCompileMatchOutput(mc MatchCompiler, m *Match, p *Policy) (*cel.Ast, *cel.Issues) {
+	outSrc := mc.RelSource(m.Output())
+	return mc.Env().CompileSource(outSrc)
 }
 
 func (c *compiler) checkMatchOutputTypesAgree(rule *CompiledRule, iss *cel.Issues) {
