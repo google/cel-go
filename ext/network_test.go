@@ -80,6 +80,28 @@ func TestNetwork_Success(t *testing.T) {
 			out:  true,
 		},
 
+		// --- String Conversion ---
+		{
+			name: "ip to string IPv4",
+			expr: "string(ip('1.2.3.4'))",
+			out:  "1.2.3.4",
+		},
+		{
+			name: "ip to string IPv6",
+			expr: "string(ip('2001:db8::1'))",
+			out:  "2001:db8::1",
+		},
+		{
+			name: "cidr to string IPv4",
+			expr: "string(cidr('10.0.0.0/8'))",
+			out:  "10.0.0.0/8",
+		},
+		{
+			name: "cidr to string IPv6",
+			expr: "string(cidr('::1/128'))",
+			out:  "::1/128",
+		},
+
 		// --- Family ---
 		{
 			name: "family IPv4",
@@ -237,7 +259,7 @@ func TestNetwork_Success(t *testing.T) {
 	}
 
 	// Initialize the environment with the Network extension
-	env, err := cel.NewEnv(Network())
+	env, err := cel.NewEnv(Network(Version1))
 	if err != nil {
 		t.Fatalf("cel.NewEnv(Network()) failed: %v", err)
 	}
@@ -284,15 +306,13 @@ func TestNetwork_RuntimeErrors(t *testing.T) {
 			errContains: "parse error",
 		},
 		{
-			name: "cidr constructor invalid",
-			expr: "cidr('1.2.3.4')",
-			// Updated to match implementation: "CIDR ... parse error..."
+			name:        "cidr constructor invalid",
+			expr:        "cidr('1.2.3.4')",
 			errContains: "parse error",
 		},
 		{
-			name: "cidr constructor invalid mask",
-			expr: "cidr('10.0.0.0/999')",
-			// Updated to match implementation: "CIDR ... parse error..."
+			name:        "cidr constructor invalid mask",
+			expr:        "cidr('10.0.0.0/999')",
 			errContains: "parse error",
 		},
 		{
@@ -301,14 +321,13 @@ func TestNetwork_RuntimeErrors(t *testing.T) {
 			errContains: "parse error",
 		},
 		{
-			name: "containsCIDR string overload invalid",
-			expr: "cidr('10.0.0.0/8').containsCIDR('not-a-cidr')",
-			// Updated to match implementation: "CIDR ... parse error..."
+			name:        "containsCIDR string overload invalid",
+			expr:        "cidr('10.0.0.0/8').containsCIDR('not-a-cidr')",
 			errContains: "parse error",
 		},
 	}
 
-	env, err := cel.NewEnv(Network())
+	env, err := cel.NewEnv(Network(Version1))
 	if err != nil {
 		t.Fatalf("cel.NewEnv(Network()) failed: %v", err)
 	}
