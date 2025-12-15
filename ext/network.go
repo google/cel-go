@@ -24,6 +24,12 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 )
 
+const (
+	// Version1 is the initial version of the Network library, providing
+	// parity with Kubernetes v1.30+ CEL network functions.
+	Version1 uint32 = 1
+)
+
 // Network returns a cel.EnvOption to configure extended functions for network
 // address parsing, inspection, and CIDR range manipulation.
 //
@@ -113,10 +119,10 @@ import (
 //	cidr('192.168.1.5/24').ip() == ip('192.168.1.5')
 //	cidr('192.168.1.5/24').masked() == cidr('192.168.1.0/24')
 //	cidr('192.168.1.0/24').prefixLength() == 24
-func Network() cel.EnvOption {
+func Network(version uint32) cel.EnvOption {
 	return func(e *cel.Env) (*cel.Env, error) {
 		// Install the library (Types and Functions)
-		e, err := cel.Lib(&networkLib{})(e)
+		e, err := cel.Lib(&networkLib{version: version})(e)
 		if err != nil {
 			return nil, err
 		}
@@ -144,6 +150,8 @@ const (
 	containsCIDRFunc     = "containsCIDR"
 	maskedFunc           = "masked"
 	prefixLengthFunc     = "prefixLength"
+	cidrToString         = "string"
+	ipToString           = "string"
 )
 
 var (
@@ -152,7 +160,9 @@ var (
 	CIDRType = types.NewOpaqueType("net.CIDR")
 )
 
-type networkLib struct{}
+type networkLib struct {
+	version uint32
+}
 
 func (*networkLib) LibraryName() string {
 	return "cel.lib.ext.network"
@@ -171,17 +181,28 @@ func (*networkLib) CompileOptions() []cel.EnvOption {
 			cel.Overload("is_ip", []*cel.Type{cel.StringType}, cel.BoolType,
 				cel.UnaryBinding(netIsIP)),
 		),
+		cel.Function(ipToString,
+			cel.Overload("ip_to_string", []*cel.Type{IPType}, cel.StringType,
+				cel.UnaryBinding(netIPToString)),
+		),
 		cel.Function(isCIDRFunc,
 			cel.Overload("is_cidr", []*cel.Type{cel.StringType}, cel.BoolType,
 				cel.UnaryBinding(netIsCIDR)),
 		),
+		cel.Function(cidrToString,
+			cel.Overload("cidr_to_string", []*cel.Type{CIDRType}, cel.StringType,
+				cel.UnaryBinding(netCIDRToString)),
+		),
 		cel.Function(ipFunc,
+			// K8s Parity: The global overload is named "string_to_ip"
 			cel.Overload("string_to_ip", []*cel.Type{cel.StringType}, IPType,
 				cel.UnaryBinding(netIPString)),
+			// K8s Parity: The member overload is named "cidr_ip"
 			cel.MemberOverload("cidr_ip", []*cel.Type{CIDRType}, IPType,
 				cel.UnaryBinding(netCIDRIP)),
 		),
 		cel.Function(cidrFunc,
+			// K8s Parity: Following the pattern, this is "string_to_cidr"
 			cel.Overload("string_to_cidr", []*cel.Type{cel.StringType}, CIDRType,
 				cel.UnaryBinding(netCIDRString)),
 		),
@@ -214,7 +235,7 @@ func (*networkLib) CompileOptions() []cel.EnvOption {
 				cel.UnaryBinding(netIPIsLinkLocalUnicast)),
 		),
 		cel.Function(containsIPFunc,
-			cel.MemberOverload("cidr_contains_ip", []*cel.Type{CIDRType, IPType}, cel.BoolType,
+			cel.MemberOverload("cidr_contains_ip_ip", []*cel.Type{CIDRType, IPType}, cel.BoolType,
 				cel.BinaryBinding(netCIDRContainsIP)),
 			cel.MemberOverload("cidr_contains_ip_string", []*cel.Type{CIDRType, cel.StringType}, cel.BoolType,
 				cel.BinaryBinding(netCIDRContainsIPString)),
@@ -308,6 +329,11 @@ func netIPString(val ref.Val) ref.Val {
 	return IP{Addr: addr}
 }
 
+func netIPToString(val ref.Val) ref.Val {
+	ip := val.(IP)
+	return types.String(ip.Addr.String())
+}
+
 func netCIDRString(val ref.Val) ref.Val {
 	s := val.(types.String)
 	str := string(s)
@@ -316,6 +342,11 @@ func netCIDRString(val ref.Val) ref.Val {
 		return types.WrapErr(err)
 	}
 	return CIDR{Prefix: prefix}
+}
+
+func netCIDRToString(val ref.Val) ref.Val {
+	cidr := val.(CIDR)
+	return types.String(cidr.Prefix.String())
 }
 
 func netIPFamily(val ref.Val) ref.Val {
