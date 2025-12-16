@@ -138,13 +138,13 @@ func (e *Env) LookupIdent(name string) *decls.VariableDecl {
 		}
 
 		// Next try to import the name as a reference to a message type.
-		if t, found := e.provider.FindStructType(candidate); found {
-			return decls.NewVariable(candidate, t)
-		}
 		if i, found := e.provider.FindIdent(candidate); found {
 			if t, ok := i.(*types.Type); ok {
 				return decls.NewVariable(candidate, types.NewTypeTypeWithParam(t))
 			}
+		}
+		if t, found := e.provider.FindStructType(candidate); found {
+			return decls.NewVariable(candidate, t)
 		}
 
 		// Next try to import this as an enum value by splitting the name in a type prefix and
