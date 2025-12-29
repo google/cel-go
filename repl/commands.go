@@ -61,6 +61,14 @@ from disk or from a predefined package. Supported packages are "cel-spec-test-ty
 
 	helpUsage = `Help prints usage information for the commands supported by the REPL.
 %help`
+
+	statusUsage = `Status prints the current state of the REPL session
+%status
+%status --yaml`
+
+	configUsage = `Config loads a canned REPL state from a config file
+%configure """%let foo : int = 42"""
+%configure --yaml --file 'path/to/env.yaml'`
 )
 
 type letVarCmd struct {
@@ -201,6 +209,8 @@ func Parse(line string) (Cmder, error) {
 			declareUsage,
 			deleteUsage,
 			letUsage,
+			statusUsage,
+			configUsage,
 			optionUsage,
 			loadDescriptorsUsage,
 			helpUsage,

@@ -176,7 +176,15 @@ func TestParse(t *testing.T) {
             Let introduces a variable or function defined by a sub-CEL expression.
             %let <identifier> (: <type>)? = <expr>
             %let <identifier> (<param_identifier> : <param_type>, ...) : <result-type> -> <expr>
-            
+
+            Status prints the current state of the REPL session
+            %status
+            %status --yaml
+
+            Config loads a canned REPL state from a config file
+            %configure """%let foo : int = 42"""
+            %configure --yaml --file 'path/to/env.yaml'
+
             Option enables a CEL environment option which enables configuration and
             optional language features.
             %option --container 'google.protobuf'

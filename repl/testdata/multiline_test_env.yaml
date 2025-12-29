@@ -1,0 +1,41 @@
+name: repl-session
+container: cel.expr.conformance
+extensions:
+    - name: cel.lib.ext.encoders
+      version: latest
+    - name: cel.lib.ext.sets
+      version: latest
+    - name: cel.lib.ext.protos
+      version: latest
+    - name: cel.lib.ext.cel.bindings
+      version: latest
+    - name: cel.lib.ext.lists
+      version: latest
+    - name: cel.lib.ext.math
+      version: latest
+    - name: cel.lib.ext.comprev2
+      version: latest
+    - name: cel.lib.ext.strings
+      version: latest
+    - name: optional
+      version: latest
+variables:
+    - name: pb3
+      type_name: cel.expr.conformance.proto3.TestAllTypes
+    - name: pb2
+      type_name: cel.expr.conformance.proto2.TestAllTypes
+features:
+    - name: cel.feature.macro_call_tracking
+      enabled: true
+
+
+# REPL Bindings:
+# %load_descriptors --pkg 'cel-spec-test-types'
+# %let pb3 = proto3.TestAllTypes{ \
+#              single_int64: 42 \
+#            }
+#
+# %let pb2 = proto2.TestAllTypes{ \
+#              single_int32: 42 \
+#            }
+#
