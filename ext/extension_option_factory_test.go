@@ -51,6 +51,25 @@ func TestExtensionOptionFactoryInvalidExtensionVersion(t *testing.T) {
 }
 
 func TestExtensionOptionFactoryValidBindingsExtension(t *testing.T) {
+	e := &env.Extension{Name: "cel.lib.ext.cel.bindings", Version: "latest"}
+	opt, validExtension := ExtensionOptionFactory(e)
+	if !validExtension {
+		t.Fatalf("ExtensionOptionFactory(%s) returned invalid extension", e.Name)
+	}
+	en, err := cel.NewCustomEnv(opt)
+	if err != nil {
+		t.Fatalf("ExtensionOptionFactory(%s) returned invalid extension", e.Name)
+	}
+	cfg, err := en.ToConfig("test config")
+	if err != nil {
+		t.Fatalf("ToConfig(%s) returned error: %v", e.Name, err)
+	}
+	if len(cfg.Extensions) != 1 || cfg.Extensions[0].Name != "cel.lib.ext.cel.bindings" || cfg.Extensions[0].Version != "latest" {
+		t.Fatalf("ExtensionOptionFactory(%s) returned invalid extension", e.Name)
+	}
+}
+
+func TestExtensionOptionFactoryValidBindingsExtensionAlias(t *testing.T) {
 	e := &env.Extension{Name: "bindings", Version: "latest"}
 	opt, validExtension := ExtensionOptionFactory(e)
 	if !validExtension {
