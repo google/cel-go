@@ -454,9 +454,9 @@ func TestSetOption(t *testing.T) {
 		t.Fatalf("NewEvaluator() failed with: %v", err)
 	}
 
-	err = eval.AddOption(&testContainerOption{container: "google.protobuf"}, true)
+	err = eval.AddSerializableOption(&testContainerOption{container: "google.protobuf"})
 	if err != nil {
-		t.Errorf("eval.AddOption() got error: %v, wanted nil", err)
+		t.Errorf("eval.AddSerializableOption() got error: %v, wanted nil", err)
 	}
 
 	val, _, err := eval.Evaluate("Int64Value{value: 42} == 42")
@@ -475,9 +475,9 @@ func TestSetOptionError(t *testing.T) {
 		t.Fatalf("NewEvaluator() failed with: %v", err)
 	}
 
-	err = eval.AddOption(&testContainerOption{container: "google.protobuf"}, true)
+	err = eval.AddSerializableOption(&testContainerOption{container: "google.protobuf"})
 	if err != nil {
-		t.Errorf("eval.AddOption() got error: %v, wanted nil", err)
+		t.Errorf("eval.AddSerializableOption() got error: %v, wanted nil", err)
 	}
 
 	err = eval.AddLetVar("x", "Int64Value{value: 42} == 42", nil)
@@ -485,9 +485,9 @@ func TestSetOptionError(t *testing.T) {
 		t.Errorf("eval.Evaluate() got error: %v, expected nil", err)
 	}
 
-	err = eval.AddOption(&testContainerOption{container: ""}, true)
+	err = eval.AddSerializableOption(&testContainerOption{container: ""})
 	if err == nil {
-		t.Error("eval.AddOption() got nil expected error")
+		t.Error("eval.AddSerializableOption() got nil expected error")
 	}
 }
 
@@ -1002,6 +1002,68 @@ func TestProcess(t *testing.T) {
 					src:        "2",
 					resultType: mustParseType(t, "int"),
 					params:     nil,
+				},
+				&simpleCmd{
+					cmd:  "status",
+					args: []string{"--yaml"},
+				},
+			},
+			wantText: `# CEL environment YAML
+name: repl-session
+container: google
+variables:
+    - name: x
+      type_name: int
+functions:
+    - name: fn
+      overloads:
+        - id: fn
+          return:
+            type_name: int
+features:
+    - name: cel.feature.macro_call_tracking
+      enabled: true
+
+
+# REPL Bindings: 
+# %let fn() : int -> 2
+#
+# %let x = 1
+#
+`,
+			wantExit:  false,
+			wantError: false,
+		},
+		{
+			name: "StatusYAMLRoundTrip",
+			commands: []Cmder{
+				&simpleCmd{
+					cmd: "configure",
+					args: []string{
+						"--yaml",
+						`# CEL environment YAML
+name: repl-session
+container: google
+variables:
+    - name: x
+      type_name: int
+functions:
+    - name: fn
+      overloads:
+        - id: fn
+          return:
+            type_name: int
+features:
+    - name: cel.feature.macro_call_tracking
+      enabled: true
+
+
+# REPL Bindings: 
+# %let fn() : int -> 2
+#
+# %let x = 1
+#`,
+					},
 				},
 				&simpleCmd{
 					cmd:  "status",

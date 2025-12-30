@@ -288,11 +288,16 @@ type contextOption struct {
 }
 
 type genericOption struct {
-	o cel.EnvOption
+	envOpt cel.EnvOption
+}
+
+func (o *genericOption) String() string {
+	return "// unsupported %configure option. see:\n" +
+		"// %status --yaml"
 }
 
 func (o *genericOption) Option() cel.EnvOption {
-	return o.o
+	return o.envOpt
 }
 
 // EvaluationContext context for the repl.
@@ -607,9 +612,21 @@ func (e *Evaluator) AddDeclFn(name string, params []letFunctionParam, typeHint *
 // AddOption adds an option to the basic environment.
 // Options are applied before evaluating any of the let statements.
 // Returns an error if setting the option prevents planning any of the defined let expressions.
-func (e *Evaluator) AddOption(opt Optioner, isYAML bool) error {
+func (e *Evaluator) AddOption(opt Optioner) error {
 	cpy := e.ctx.copy()
-	cpy.addOption(opt, isYAML)
+	cpy.addOption(opt, false)
+	err := updateContextPlans(cpy, e.env)
+	if err != nil {
+		return err
+	}
+	e.ctx = *cpy
+	return nil
+}
+
+// AddSerializableOption adds an option to the basic environment that is flagged as YAML compatible.
+func (e *Evaluator) AddSerializableOption(opt Optioner) error {
+	cpy := e.ctx.copy()
+	cpy.addOption(opt, true)
 	err := updateContextPlans(cpy, e.env)
 	if err != nil {
 		return err
@@ -681,7 +698,7 @@ func (e *Evaluator) handleStatus(args []string) (string, error) {
 	case statusFormatREPL:
 		return e.REPLConfig(), nil
 	case statusFormatYAML:
-		return e.YAMLConfig(), nil
+		return e.YAMLConfig()
 	}
 
 	return "", errors.New("status: unsupported status format requested")
@@ -724,7 +741,7 @@ func (e *Evaluator) handleConfig(args []string) (string, error) {
 	return "", fmt.Errorf("configure: not yet implemented %v %v %v ", format, fromFile, configRef)
 }
 
-// Status returns a stringified view of the current evaluator state.
+// ReplConfig returns a stringified view of the current evaluator state in terms of REPL Commands.
 func (e *Evaluator) REPLConfig() string {
 	var status strings.Builder
 
@@ -762,16 +779,34 @@ func (e *Evaluator) REPLConfig() string {
 	return status.String()
 }
 
-func (e *Evaluator) YAMLConfig() string {
+func pruneDuplicateDecls(conf *env.Config) {
+	// Duplicate variables are allowed when they have an equivalent type. The way the REPL handles
+	// bindings ends up with a declaration in the config and a repeat when the "%let" operation is
+	// applied. Filter here to keep the config clear.
+	filtered := make([]*env.Variable, 0, len(conf.Variables))
+	seen := make(map[string]bool)
+	for _, v := range conf.Variables {
+		if seen[v.Name] {
+			continue
+		}
+		seen[v.Name] = true
+		filtered = append(filtered, v)
+	}
+	conf.Variables = filtered
+}
+
+// YAMLConfig returns a yaml-based CEL environment representing the current evaluator state.
+func (e *Evaluator) YAMLConfig() (string, error) {
 	var status strings.Builder
 	status.WriteString("# CEL environment YAML\n")
 	conf, err := e.getEffectiveEnv().ToConfig("repl-session")
 	if err != nil {
-		panic(fmt.Errorf("REPL env broken %w", err))
+		return "", fmt.Errorf("status: REPL env broken: %w", err)
 	}
+	pruneDuplicateDecls(conf)
 	data, err := yaml.Marshal(conf)
 	if err != nil {
-		panic(fmt.Errorf("Unserializable environment"))
+		return "", fmt.Errorf("status: unserializable YAML environment: %w", err)
 	}
 	status.Write(data)
 	status.WriteString("\n\n# REPL Bindings: \n")
@@ -821,7 +856,7 @@ func (e *Evaluator) YAMLConfig() string {
 		status.WriteString("\n#\n")
 	}
 
-	return status.String()
+	return status.String(), nil
 }
 
 var trailerRegexp = regexp.MustCompile("# REPL Bindings:")
@@ -891,7 +926,7 @@ func (e *Evaluator) parseYAMLConfig(conf []byte) (string, error) {
 		return "", errors.New("configure: unsupported REPL config. Option defines variables")
 	}
 
-	err := updated.AddOption(&genericOption{o: cel.FromConfig(&c, ext.ExtensionOptionFactory)}, true)
+	err := updated.AddSerializableOption(&genericOption{envOpt: cel.FromConfig(&c, ext.ExtensionOptionFactory)})
 
 	if err != nil {
 		return "", fmt.Errorf("configure: failed to apply yaml: %w", err)
@@ -1046,7 +1081,7 @@ func (e *Evaluator) setOption(args []string) error {
 				issues = append(issues, fmt.Sprintf("extension: %v", err))
 			}
 		case "--enable_escaped_fields":
-			err := e.AddOption(&backtickOpt{enabled: true}, true)
+			err := e.AddSerializableOption(&backtickOpt{enabled: true})
 			if err != nil {
 				issues = append(issues, fmt.Sprintf("enable_escaped_fields: %v", err))
 			}
@@ -1080,7 +1115,7 @@ func (e *Evaluator) loadContainerOption(idx int, args []string) error {
 
 	container := args[idx]
 	idx++
-	err = e.AddOption(&containerOption{container: container}, true)
+	err = e.AddSerializableOption(&containerOption{container: container})
 	if err != nil {
 		return err
 	}
@@ -1113,7 +1148,7 @@ func (e *Evaluator) loadExtensionOptionType(extType string) error {
 		return err
 	}
 
-	err = e.AddOption(extensionOption, true)
+	err = e.AddSerializableOption(extensionOption)
 	if err != nil {
 		return err
 	}
@@ -1170,7 +1205,7 @@ func (e *Evaluator) loadDescriptorFromPackage(pkg string) error {
 			File: descriptorProtos,
 		}
 
-		return e.AddOption(&typeOption{pkg, &fds, true}, false)
+		return e.AddOption(&typeOption{pkg, &fds, true})
 	case "google-rpc":
 		fdp := (&attrpb.AttributeContext{}).ProtoReflect().Type().Descriptor().ParentFile()
 
@@ -1181,7 +1216,7 @@ func (e *Evaluator) loadDescriptorFromPackage(pkg string) error {
 			File: descriptorProtos,
 		}
 
-		return e.AddOption(&typeOption{pkg, &fds, true}, false)
+		return e.AddOption(&typeOption{pkg, &fds, true})
 	}
 
 	return fmt.Errorf("unknown type package: '%s'", pkg)
@@ -1193,7 +1228,7 @@ func (e *Evaluator) loadDescriptorFromFile(p string, textfmt bool) error {
 		return fmt.Errorf("error loading file: %v", err)
 	}
 
-	return e.AddOption(&typeOption{path: p, fds: fds}, false)
+	return e.AddOption(&typeOption{path: p, fds: fds})
 }
 
 func (e *Evaluator) loadDescriptors(args []string) error {
