@@ -31,6 +31,7 @@ go_library(
         "//cel:go_default_library",
         "//checker:go_default_library",
         "//checker/decls:go_default_library",
+        "//common/env:go_default_library",
         "//common/functions:go_default_library",
         "//common/types:go_default_library",
         "//common/types/ref:go_default_library",
@@ -39,6 +40,7 @@ go_library(
         "@com_github_antlr4_go_antlr_v4//:go_default_library",
         "@dev_cel_expr//conformance/proto2:go_default_library",
         "@dev_cel_expr//conformance/proto3:go_default_library",
+        "@in_yaml_go_yaml_v3//:go_default_library",
         "@org_golang_google_genproto_googleapis_api//expr/v1alpha1:go_default_library",
         "@org_golang_google_genproto_googleapis_rpc//context/attribute_context:go_default_library",
         "@org_golang_google_protobuf//encoding/prototext:go_default_library",
@@ -62,6 +64,7 @@ go_test(
     deps = [
         "//cel:go_default_library",
         "//test/proto2pb:go_default_library",
+        "@com_github_google_go_cmp//cmp:go_default_library",
         "@org_golang_google_genproto_googleapis_api//expr/v1alpha1:go_default_library",
         "@org_golang_google_protobuf//proto:go_default_library",
     ],

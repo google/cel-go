@@ -19,12 +19,15 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/cel"
+	"github.com/google/go-cmp/cmp"
 
 	proto2pb "github.com/google/cel-go/test/proto2pb"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 var testTextDescriptorFile string = "testdata/attribute_context_fds.textproto"
+var testYAMLEnvFile string = "testdata/test_env.yaml"
+var testMultilineYAMLEnvFile string = "testdata/multiline_test_env.yaml"
 
 func mustParseType(t testing.TB, name string) *exprpb.Type {
 	t.Helper()
@@ -451,9 +454,9 @@ func TestSetOption(t *testing.T) {
 		t.Fatalf("NewEvaluator() failed with: %v", err)
 	}
 
-	err = eval.AddOption(&testContainerOption{container: "google.protobuf"})
+	err = eval.AddSerializableOption(&testContainerOption{container: "google.protobuf"})
 	if err != nil {
-		t.Errorf("eval.AddOption() got error: %v, wanted nil", err)
+		t.Errorf("eval.AddSerializableOption() got error: %v, wanted nil", err)
 	}
 
 	val, _, err := eval.Evaluate("Int64Value{value: 42} == 42")
@@ -472,9 +475,9 @@ func TestSetOptionError(t *testing.T) {
 		t.Fatalf("NewEvaluator() failed with: %v", err)
 	}
 
-	err = eval.AddOption(&testContainerOption{container: "google.protobuf"})
+	err = eval.AddSerializableOption(&testContainerOption{container: "google.protobuf"})
 	if err != nil {
-		t.Errorf("eval.AddOption() got error: %v, wanted nil", err)
+		t.Errorf("eval.AddSerializableOption() got error: %v, wanted nil", err)
 	}
 
 	err = eval.AddLetVar("x", "Int64Value{value: 42} == 42", nil)
@@ -482,9 +485,9 @@ func TestSetOptionError(t *testing.T) {
 		t.Errorf("eval.Evaluate() got error: %v, expected nil", err)
 	}
 
-	err = eval.AddOption(&testContainerOption{container: ""})
+	err = eval.AddSerializableOption(&testContainerOption{container: ""})
 	if err == nil {
-		t.Error("eval.AddOption() got nil expected error")
+		t.Error("eval.AddSerializableOption() got nil expected error")
 	}
 }
 
@@ -980,6 +983,220 @@ func TestProcess(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "StatusYAML",
+			commands: []Cmder{
+				&simpleCmd{
+					cmd: "option",
+					args: []string{
+						"--container",
+						"google",
+					},
+				},
+				&letVarCmd{
+					identifier: "x",
+					typeHint:   mustParseType(t, "int"),
+					src:        "1",
+				},
+				&letFnCmd{
+					identifier: "fn",
+					src:        "2",
+					resultType: mustParseType(t, "int"),
+					params:     nil,
+				},
+				&simpleCmd{
+					cmd:  "status",
+					args: []string{"--yaml"},
+				},
+			},
+			wantText: `# CEL environment YAML
+name: repl-session
+container: google
+variables:
+    - name: x
+      type_name: int
+functions:
+    - name: fn
+      overloads:
+        - id: fn
+          return:
+            type_name: int
+features:
+    - name: cel.feature.macro_call_tracking
+      enabled: true
+
+
+# REPL Bindings: 
+# %let fn() : int -> 2
+#
+# %let x = 1
+#
+`,
+			wantExit:  false,
+			wantError: false,
+		},
+		{
+			name: "StatusYAMLRoundTrip",
+			commands: []Cmder{
+				&simpleCmd{
+					cmd: "configure",
+					args: []string{
+						"--yaml",
+						`# CEL environment YAML
+name: repl-session
+container: google
+variables:
+    - name: x
+      type_name: int
+functions:
+    - name: fn
+      overloads:
+        - id: fn
+          return:
+            type_name: int
+features:
+    - name: cel.feature.macro_call_tracking
+      enabled: true
+
+
+# REPL Bindings: 
+# %let fn() : int -> 2
+#
+# %let x = 1
+#`,
+					},
+				},
+				&simpleCmd{
+					cmd:  "status",
+					args: []string{"--yaml"},
+				},
+			},
+			wantText: `# CEL environment YAML
+name: repl-session
+container: google
+variables:
+    - name: x
+      type_name: int
+functions:
+    - name: fn
+      overloads:
+        - id: fn
+          return:
+            type_name: int
+features:
+    - name: cel.feature.macro_call_tracking
+      enabled: true
+
+
+# REPL Bindings: 
+# %let fn() : int -> 2
+#
+# %let x = 1
+#
+`,
+			wantExit:  false,
+			wantError: false,
+		},
+		{
+			name: "ConfigureYAML",
+			commands: []Cmder{
+				&simpleCmd{
+					cmd: "configure",
+					args: []string{
+						"--yaml",
+						"--file",
+						testYAMLEnvFile,
+					},
+				},
+				&evalCmd{
+					expr: "optional.of(math.least([1, 2, 3])).value()",
+				},
+			},
+			wantText:  `1 : int`,
+			wantExit:  false,
+			wantError: false,
+		},
+		{
+			name: "ConfigureYAMLReplTrailer",
+			commands: []Cmder{
+				&simpleCmd{
+					cmd: "configure",
+					args: []string{
+						"--yaml",
+						"--file",
+						testYAMLEnvFile,
+					},
+				},
+				&evalCmd{
+					expr: "has(pb3.single_int64)",
+				},
+			},
+			wantText:  `false : bool`,
+			wantExit:  false,
+			wantError: false,
+		},
+		{
+			name: "ConfigureYAMLReplMultiline",
+			commands: []Cmder{
+				&simpleCmd{
+					cmd: "configure",
+					args: []string{
+						"--yaml",
+						"--file",
+						testMultilineYAMLEnvFile,
+					},
+				},
+				&evalCmd{
+					expr: "pb3.single_int64",
+				},
+			},
+			wantText:  `42 : int`,
+			wantExit:  false,
+			wantError: false,
+		},
+		{
+			name: "ConfigureError",
+			commands: []Cmder{
+				&simpleCmd{
+					cmd: "configure",
+					args: []string{
+						"--yaml",
+						`name: repl-session
+container: cel.expr.conformance
+extensions:
+    - name: unknown-ext
+      version: latest`,
+					},
+				},
+			},
+			wantText:  "",
+			wantExit:  false,
+			wantError: true,
+		},
+		{
+			name: "ConfigureErrorReplTrailer",
+			commands: []Cmder{
+				&simpleCmd{
+					cmd: "configure",
+					args: []string{
+						"--yaml",
+						`name: repl-session
+container: cel.expr.conformance
+extensions:
+    - name: optional
+      version: latest
+
+# REPL Bindings:
+# %let foo : int = "bar"
+#
+`,
+					},
+				},
+			},
+			wantText:  "",
+			wantExit:  false,
+			wantError: true,
+		},
+		{
 			name: "Reset",
 			commands: []Cmder{
 				&simpleCmd{
@@ -1038,9 +1255,10 @@ func TestProcess(t *testing.T) {
 				text = stripWhitespace(text)
 				wantText = stripWhitespace(wantText)
 			}
-			if text != wantText || exit != tc.wantExit || (gotErr != tc.wantError) {
-				t.Errorf("For command %s got (output: '%s' exit: %v err: %v (%v)) wanted (output: '%s' exit: %v err: %v)",
-					tc.commands[n-1], text, exit, gotErr, err, tc.wantText, tc.wantExit, tc.wantError)
+			diff := cmp.Diff(text, wantText)
+			if diff != "" || exit != tc.wantExit || (gotErr != tc.wantError) {
+				t.Errorf("For command %s got (diff: '%s' exit: %v err: %v (%v)) wanted (output: '%s' exit: %v err: %v)",
+					tc.commands[n-1], diff, exit, gotErr, err, tc.wantText, tc.wantExit, tc.wantError)
 			}
 		})
 	}
