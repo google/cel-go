@@ -741,7 +741,7 @@ func (e *Evaluator) handleConfig(args []string) (string, error) {
 	return "", fmt.Errorf("configure: not yet implemented %v %v %v ", format, fromFile, configRef)
 }
 
-// ReplConfig returns a stringified view of the current evaluator state in terms of REPL Commands.
+// REPLConfig returns a stringified view of the current evaluator state in terms of REPL Commands.
 func (e *Evaluator) REPLConfig() string {
 	var status strings.Builder
 
@@ -909,8 +909,6 @@ func (e *Evaluator) parseYAMLConfig(conf []byte) (string, error) {
 		case *letFnCmd, *letVarCmd:
 			cmds = append(cmds, pCmd)
 			continue
-		default:
-			break
 		}
 		_, exit, err := updated.Process(pCmd)
 
