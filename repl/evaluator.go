@@ -1302,16 +1302,28 @@ func (e *Evaluator) Process(cmd Cmder) (string, bool, error) {
 		}
 		return prototext.Format(pAST), false, nil
 	case *evalCmd:
-		val, resultT, err := e.Evaluate(cmd.expr)
+		var (
+			val     ref.Val
+			resultT *exprpb.Type
+			err     error
+		)
+		if cmd.parseOnly {
+			val, resultT, err = e.EvaluateParseOnly(cmd.expr)
+		} else {
+			val, resultT, err = e.Evaluate(cmd.expr)
+		}
 		if err != nil {
 			return "", false, fmt.Errorf("expr failed:\n%v", err)
 		}
 		if val != nil {
-			t := UnparseType(resultT)
 			unknown, ok := val.Value().(*types.Unknown)
 			if ok {
 				return fmt.Sprintf("Unknown %v", unknown), false, nil
 			}
+			if cmd.parseOnly {
+				return fmt.Sprintf("%s", types.Format(val)), false, nil
+			}
+			t := UnparseType(resultT)
 			return fmt.Sprintf("%s : %s", types.Format(val), t), false, nil
 		}
 	case *letVarCmd:
@@ -1379,6 +1391,29 @@ func (e *Evaluator) Evaluate(expr string) (ref.Val, *exprpb.Type, error) {
 	}
 
 	ast, iss := env.Compile(expr)
+	if iss.Err() != nil {
+		return nil, nil, iss.Err()
+	}
+
+	p, err := env.Program(ast, e.ctx.programOptions()...)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	act, _ = env.PartialVars(act)
+	val, _, err := p.Eval(act)
+	// expression can be well-formed and result in an error
+	return val, ast.ResultType(), err
+}
+
+// EvaluateParseOnly evalutes the CEL expression using the current REPL context without type checking.
+func (e *Evaluator) EvaluateParseOnly(expr string) (ref.Val, *exprpb.Type, error) {
+	env, act, err := e.applyContext()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	ast, iss := env.Parse(expr)
 	if iss.Err() != nil {
 		return nil, nil, iss.Err()
 	}
