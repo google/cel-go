@@ -285,7 +285,7 @@ func TestParse(t *testing.T) {
 			},
 		},
 		{
-			commandLine: `%eval --parse-only foo`,
+			commandLine: `%eval --parse-only -- foo`,
 			wantCmd: &evalCmd{
 				parseOnly: true,
 				expr:      `foo`,
@@ -362,6 +362,9 @@ func TestParseErrors(t *testing.T) {
 		},
 		{
 			commandLine: "%eval -bad-flag foo",
+		},
+		{
+			commandLine: "%eval --parse-only foo",
 		},
 		{
 			commandLine: "%eval -parse-only foo",

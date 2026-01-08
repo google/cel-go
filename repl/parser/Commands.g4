@@ -51,7 +51,7 @@ compile: '%compile' e=expr;
 
 parse: '%parse' e=expr;
 
-exprCmd: ('%eval' (flags+=FLAG)*)? e=expr;
+exprCmd: ('%eval' (flags+=FLAG (flags+=FLAG)* '--')?)? e=expr;
 
 qualId: leadingDot='.'? rid=IDENTIFIER ('.' qualifiers+=IDENTIFIER)*;
 
