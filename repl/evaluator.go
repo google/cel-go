@@ -1406,7 +1406,7 @@ func (e *Evaluator) Evaluate(expr string) (ref.Val, *exprpb.Type, error) {
 	return val, ast.ResultType(), err
 }
 
-// Evaluate sets up a CEL evaluation using the current REPL context.
+// EvaluateParseOnly evalutes the CEL expression using the current REPL context without type checking.
 func (e *Evaluator) EvaluateParseOnly(expr string) (ref.Val, *exprpb.Type, error) {
 	env, act, err := e.applyContext()
 	if err != nil {
