@@ -60,7 +60,7 @@ func TestAccept(t *testing.T) {
 		"%exit",
 		"%let id = 2",
 		"%arbitrary",
-		"%arbitrary --flag -alt_flag 'string arg'",
+		"%arbitrary --flag --another-flag 'string arg'",
 		" ",
 		"%let y : int = [1, 2, 3]",
 		"%let fn (y : int) : int -> y + 10",
