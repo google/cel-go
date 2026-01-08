@@ -203,10 +203,10 @@ func TestParse(t *testing.T) {
             %exit`),
 		},
 		{
-			commandLine: `%arbitrary --flag -FLAG 'string literal\n'`,
+			commandLine: `%arbitrary --flag --another-flag 'string literal\n'`,
 			wantCmd: &simpleCmd{cmd: "arbitrary",
 				args: []string{
-					"--flag", "--flag", "string literal\\n",
+					"--flag", "--another-flag", "string literal\\n",
 				},
 			},
 		},
@@ -284,6 +284,13 @@ func TestParse(t *testing.T) {
 				src:        "",
 			},
 		},
+		{
+			commandLine: `%eval --parse-only foo`,
+			wantCmd: &evalCmd{
+				parseOnly: true,
+				expr:      `foo`,
+			},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -343,6 +350,21 @@ func TestParseErrors(t *testing.T) {
 		{
 			// not an identifier
 			commandLine: "%delete 123",
+		},
+		{
+			commandLine: "%eval --badflag foo",
+		},
+		{
+			commandLine: "%eval --bad-flag foo",
+		},
+		{
+			commandLine: "%eval -badflag foo",
+		},
+		{
+			commandLine: "%eval -bad-flag foo",
+		},
+		{
+			commandLine: "%eval -parse-only foo",
 		},
 	}
 	for _, tc := range testCases {

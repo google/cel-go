@@ -102,7 +102,8 @@ type parseCmd struct {
 }
 
 type evalCmd struct {
-	expr string
+	parseOnly bool
+	expr      string
 }
 
 // Cmder interface provides normalized command name from a repl command.
@@ -308,7 +309,18 @@ func (c *commandParseListener) EnterParse(ctx *parser.ParseContext) {
 }
 
 func (c *commandParseListener) EnterExprCmd(ctx *parser.ExprCmdContext) {
-	c.cmd = &evalCmd{}
+	cmd := &evalCmd{}
+	for _, f := range ctx.GetFlags() {
+		ft := strings.TrimPrefix(strings.TrimPrefix(f.GetText(), "--"), "-")
+		switch ft {
+		case "parse-only":
+			cmd.parseOnly = true
+		default:
+			c.reportIssue(fmt.Errorf("unknown or unsupported flag: %q", ft))
+			return
+		}
+	}
+	c.cmd = cmd
 }
 
 func (c *commandParseListener) ExitFnDecl(ctx *parser.FnDeclContext) {

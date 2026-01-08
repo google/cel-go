@@ -51,7 +51,7 @@ compile: '%compile' e=expr;
 
 parse: '%parse' e=expr;
 
-exprCmd: '%eval'? e=expr;
+exprCmd: ('%eval' (flags+=FLAG)*)? e=expr;
 
 qualId: leadingDot='.'? rid=IDENTIFIER ('.' qualifiers+=IDENTIFIER)*;
 
@@ -69,6 +69,6 @@ typeParamList:
 
 // lexer rules:
 COMMAND: '%' IDENTIFIER;
-FLAG: '-'? '-' IDENTIFIER;
+FLAG: '-' ('-' IDENTIFIER)+;
 ARROW: '->';
 EQUAL_ASSIGN: '=';

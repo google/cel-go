@@ -1,4 +1,4 @@
-// Code generated from ./Commands.g4 by ANTLR 4.13.1. DO NOT EDIT.
+// Code generated from ./repl/parser/Commands.g4 by ANTLR 4.13.1. DO NOT EDIT.
 
 package parser // Commands
 import "github.com/antlr4-go/antlr/v4"
