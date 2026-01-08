@@ -1429,8 +1429,6 @@ func (e *Evaluator) EvaluateParseOnly(expr string) (ref.Val, *exprpb.Type, error
 	return val, ast.ResultType(), err
 }
 
-// Evaluate sets up a CEL evaluation using the current REPL context.
-
 // Compile compiles the input expression using the current REPL context.
 func (e *Evaluator) Compile(expr string) (*cel.Ast, error) {
 	env, _, err := e.applyContext()
