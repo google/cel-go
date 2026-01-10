@@ -91,6 +91,7 @@ func init() {
 		ext.Math(),
 		ext.Protos(),
 		ext.Strings(),
+		ext.TwoVarComprehensions(),
 		cel.Lib(celBlockLib{}),
 		cel.EnableIdentifierEscapeSyntax(),
 	}
