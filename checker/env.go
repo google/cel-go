@@ -197,12 +197,6 @@ func (e *Env) resolveTypeIdent(name string) *decls.VariableDecl {
 		if t, found := e.provider.FindStructType(candidate); found {
 			return decls.NewVariable(candidate, t)
 		}
-
-		// Next try to import this as an enum value by splitting the name in a type prefix and
-		// the enum inside.
-		if enumValue := e.provider.EnumValue(candidate); enumValue.Type() != types.ErrType {
-			return decls.NewConstant(candidate, types.IntType, enumValue)
-		}
 	}
 	return nil
 }
