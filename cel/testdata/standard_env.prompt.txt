@@ -11,6 +11,21 @@ found in C++ or Java code.
 
 Only use the following variables, macros, and functions in expressions.
 
+Variables:
+
+* bool is a type
+* bytes is a type
+* double is a type
+* google.protobuf.Duration is a type
+* google.protobuf.Timestamp is a type
+* int is a type
+* list is a type
+* map is a type
+* null_type is a type
+* string is a type
+* type is a type
+* uint is a type
+
 Functions:
 
 * !_ - logically negate a boolean value.

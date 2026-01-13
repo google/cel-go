@@ -187,12 +187,13 @@ func (e *Env) resolveQualifiedIdent(qualifiers ...string) *attributeResolution {
 // Returns nil if no such identifier is found in the Env.
 func (e *Env) resolveTypeIdent(name string) *decls.VariableDecl {
 	for _, candidate := range e.container.ResolveCandidateNames(name) {
-		// Next try to import the name as a reference to a message type.
+		// Try to import the name as a reference to a message type.
 		if i, found := e.provider.FindIdent(candidate); found {
 			if t, ok := i.(*types.Type); ok {
 				return decls.NewVariable(candidate, types.NewTypeTypeWithParam(t))
 			}
 		}
+		// Next, try to find the struct type.
 		if t, found := e.provider.FindStructType(candidate); found {
 			return decls.NewVariable(candidate, t)
 		}
