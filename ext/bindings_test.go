@@ -161,9 +161,6 @@ var bindingTests = []struct {
 func TestBindings(t *testing.T) {
 	for _, tst := range bindingTests {
 		tc := tst
-		if tc.name != "namespace disambiguation" {
-			continue
-		}
 		t.Run(tc.name, func(t *testing.T) {
 			var asts []*cel.Ast
 			opts := append([]cel.EnvOption{Bindings(BindingsVersion(0)), Strings()}, tc.vars...)
