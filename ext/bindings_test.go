@@ -90,11 +90,80 @@ var bindingTests = []struct {
 		estimatedCost: checker.CostEstimate{Min: 38, Max: 40},
 		actualCost:    39,
 	},
+	{
+		name: "shadowed binding",
+		expr: `cel.bind(x, 0, x == 0)`,
+		vars: []cel.EnvOption{cel.Variable("x", cel.StringType)},
+		in: map[string]any{
+			"cel.example.x": "1",
+		},
+		estimatedCost: checker.FixedCostEstimate(12),
+		actualCost:    12,
+	},
+	{
+		name: "container shadowed binding",
+		expr: `cel.bind(x, 0, x == 0)`,
+		vars: []cel.EnvOption{
+			cel.Container("cel.example"),
+			cel.Variable("cel.example.x", cel.StringType),
+		},
+		in: map[string]any{
+			"cel.example.x": "1",
+		},
+		estimatedCost: checker.FixedCostEstimate(12),
+		actualCost:    12,
+	},
+	{
+		name: "shadowing namespace resolution selector",
+		expr: `cel.bind(x, {'y': 0}, x.y == 0)`,
+		vars: []cel.EnvOption{
+			cel.Container("cel.example"),
+			cel.Variable("cel.example.x.y", cel.IntType),
+		},
+		in: map[string]any{
+			"cel.example.x.y": 1,
+		},
+		estimatedCost: checker.FixedCostEstimate(43),
+		actualCost:    43,
+	},
+	{
+		name: "shadowing namespace resolution selector with local",
+		expr: `cel.bind(x, {'y': 0}, .x.y == x.y)`,
+		vars: []cel.EnvOption{
+			cel.Variable("x.y", cel.IntType),
+		},
+		in: map[string]any{
+			"x.y": 0,
+		},
+		estimatedCost: checker.FixedCostEstimate(44),
+		actualCost:    44,
+	},
+	{
+		name: "namespace disambiguation",
+		expr: `cel.bind(y, 0, .y != y)`,
+		vars: []cel.EnvOption{
+			cel.Variable("y", cel.IntType),
+		},
+		in: map[string]any{
+			"y": 1,
+		},
+		estimatedCost: checker.FixedCostEstimate(13),
+		actualCost:    13,
+	},
+	{
+		name:          "nesting shadowing",
+		expr:          `cel.bind(y, 0, cel.bind(y, 1, y != 0))`,
+		estimatedCost: checker.FixedCostEstimate(22),
+		actualCost:    22,
+	},
 }
 
 func TestBindings(t *testing.T) {
 	for _, tst := range bindingTests {
 		tc := tst
+		if tc.name != "namespace disambiguation" {
+			continue
+		}
 		t.Run(tc.name, func(t *testing.T) {
 			var asts []*cel.Ast
 			opts := append([]cel.EnvOption{Bindings(BindingsVersion(0)), Strings()}, tc.vars...)

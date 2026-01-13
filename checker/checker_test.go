@@ -2229,9 +2229,9 @@ _&&_(_==_(list~type(list(dyn))^list,
 					decls.NewVariable("NotAMessage", types.NewNullableType(types.IntType)),
 				},
 			},
-			err: `ERROR: <input>:1:12: 'wrapper(int)' is not a type
-			| NotAMessage{}
-			| ...........^`,
+			err: `ERROR: <input>:1:12: undeclared reference to 'NotAMessage' (in container '')
+             | NotAMessage{}
+             | ...........^`,
 		},
 		{
 			in: `{}.map(c,[c,type(c)])`,
@@ -2261,6 +2261,156 @@ _&&_(_==_(list~type(list(dyn))^list,
 				// Result
 				@result~list(list(dyn))^@result)~list(list(dyn))`,
 			outType: types.NewListType(types.NewListType(types.DynType)),
+		},
+		{
+			in: `[{'z': 0}].exists(y, y.z == 0)`,
+			env: testEnv{
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("cel.example.y", types.NewMapType(types.StringType, types.IntType)),
+				},
+			},
+			out: `__comprehension__(
+              // Variable
+              y,
+              // Target
+              [
+                {
+                  "z"~string:0~int
+                }~map(string, int)
+              ]~list(map(string, int)),
+              // Accumulator
+              @result,
+              // Init
+              false~bool,
+              // LoopCondition
+              @not_strictly_false(
+                !_(
+                  @result~bool^@result
+                )~bool^logical_not
+              )~bool^not_strictly_false,
+              // LoopStep
+              _||_(
+                @result~bool^@result,
+                _==_(
+                  y~map(string, int)^y.z~int,
+                  0~int
+                )~bool^equals
+              )~bool^logical_or,
+              // Result
+              @result~bool^@result)~bool`,
+			outType: types.BoolType,
+		},
+		{
+			in: `[{'y': 0}].exists(x, x.y == 0)`,
+			env: testEnv{
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("x", types.NewMapType(types.StringType, types.IntType)),
+				},
+			},
+			out: `__comprehension__(
+              // Variable
+              x,
+              // Target
+              [
+                {
+                  "y"~string:0~int
+                }~map(string, int)
+              ]~list(map(string, int)),
+              // Accumulator
+              @result,
+              // Init
+              false~bool,
+              // LoopCondition
+              @not_strictly_false(
+                !_(
+                  @result~bool^@result
+                )~bool^logical_not
+              )~bool^not_strictly_false,
+              // LoopStep
+              _||_(
+                @result~bool^@result,
+                _==_(
+                  x~map(string, int)^x.y~int,
+                  0~int
+                )~bool^equals
+              )~bool^logical_or,
+              // Result
+              @result~bool^@result)~bool`,
+			outType: types.BoolType,
+		},
+		{
+			in: `[0].exists(x, x != .x)`,
+			env: testEnv{
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("x", types.IntType),
+				},
+			},
+			out: `__comprehension__(
+              // Variable
+              x,
+              // Target
+              [
+                0~int
+              ]~list(int),
+              // Accumulator
+              @result,
+              // Init
+              false~bool,
+              // LoopCondition
+              @not_strictly_false(
+                !_(
+                  @result~bool^@result
+                )~bool^logical_not
+              )~bool^not_strictly_false,
+              // LoopStep
+              _||_(
+                @result~bool^@result,
+                _!=_(
+                  x~int^x,
+                  .x~int^.x
+                )~bool^not_equals
+              )~bool^logical_or,
+              // Result
+              @result~bool^@result)~bool`,
+			outType: types.BoolType,
+		},
+		{
+			in: `[{'z': 0}].exists(y, .y.z == y.z)`,
+			env: testEnv{
+				idents: []*decls.VariableDecl{
+					decls.NewVariable("y.z", types.IntType),
+				},
+			},
+			out: `__comprehension__(
+              // Variable
+              y,
+              // Target
+              [
+                {
+                  "z"~string:0~int
+                }~map(string, int)
+              ]~list(map(string, int)),
+              // Accumulator
+              @result,
+              // Init
+              false~bool,
+              // LoopCondition
+              @not_strictly_false(
+                !_(
+                  @result~bool^@result
+                )~bool^logical_not
+              )~bool^not_strictly_false,
+              // LoopStep
+              _||_(
+                @result~bool^@result,
+                _==_(
+                  .y.z~int^.y.z,
+                  y~map(string, int)^y.z~int
+                )~bool^equals
+              )~bool^logical_or,
+              // Result
+              @result~bool^@result)~bool`,
+			outType: types.BoolType,
 		},
 	}
 }
