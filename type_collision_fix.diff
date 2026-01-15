@@ -1,0 +1,82 @@
+commit b5925cf0b39ff9ff652a6c545d7ceced58f5dd1a
+Author: TristonianJones <tswadell@google.com>
+Date:   Tue Dec 16 15:15:35 2025 -0800
+
+    Remove the treatment of standard identifiers as variables for types
+
+diff --git a/cel/library.go b/cel/library.go
+index 59a10e8..85e2aca 100644
+--- a/cel/library.go
++++ b/cel/library.go
+@@ -182,7 +182,7 @@ func (lib *stdLibrary) CompileOptions() []EnvOption {
+ 			if err = lib.subset.Validate(); err != nil {
+ 				return nil, err
+ 			}
+-			e.variables = append(e.variables, stdlib.Types()...)
++			// e.variables = append(e.variables, stdlib.Types()...)
+ 			for _, fn := range funcs {
+ 				existing, found := e.functions[fn.Name()]
+ 				if found {
+diff --git a/cel/testdata/standard_env.prompt.txt b/cel/testdata/standard_env.prompt.txt
+index 18f0faf..ca73de1 100644
+--- a/cel/testdata/standard_env.prompt.txt
++++ b/cel/testdata/standard_env.prompt.txt
+@@ -11,21 +11,6 @@ found in C++ or Java code.
+ 
+ Only use the following variables, macros, and functions in expressions.
+ 
+-Variables:
+-
+-* bool is a type
+-* bytes is a type
+-* double is a type
+-* google.protobuf.Duration is a type
+-* google.protobuf.Timestamp is a type
+-* int is a type
+-* list is a type
+-* map is a type
+-* null_type is a type
+-* string is a type
+-* type is a type
+-* uint is a type
+-
+ Functions:
+ 
+ * !_ - logically negate a boolean value.
+diff --git a/checker/env.go b/checker/env.go
+index 8e9aec8..dd738fb 100644
+--- a/checker/env.go
++++ b/checker/env.go
+@@ -138,14 +138,14 @@ func (e *Env) LookupIdent(name string) *decls.VariableDecl {
+ 		}
+ 
+ 		// Next try to import the name as a reference to a message type.
+-		if t, found := e.provider.FindStructType(candidate); found {
+-			return decls.NewVariable(candidate, t)
+-		}
+ 		if i, found := e.provider.FindIdent(candidate); found {
+ 			if t, ok := i.(*types.Type); ok {
+ 				return decls.NewVariable(candidate, types.NewTypeTypeWithParam(t))
+ 			}
+ 		}
++		if t, found := e.provider.FindStructType(candidate); found {
++			return decls.NewVariable(candidate, t)
++		}
+ 
+ 		// Next try to import this as an enum value by splitting the name in a type prefix and
+ 		// the enum inside.
+diff --git a/interpreter/interpreter_test.go b/interpreter/interpreter_test.go
+index b664520..51d737b 100644
+--- a/interpreter/interpreter_test.go
++++ b/interpreter/interpreter_test.go
+@@ -1041,6 +1041,10 @@ func testData(t testing.TB) []testCase {
+ 				},
+ 			},
+ 		},
++		{
++			name: "type_dyn_equals_string",
++			expr: `type(dyn('')) == string`,
++		},
+ 		{
+ 			name: "select_key",
+ 			expr: `m.strMap['val'] == 'string'

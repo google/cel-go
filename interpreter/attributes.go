@@ -324,11 +324,19 @@ func (a *absoluteAttribute) String() string {
 // a type, then the result is `nil`, `error` with the error indicating the name of the first
 // variable searched as missing.
 func (a *absoluteAttribute) Resolve(vars Activation) (any, error) {
-	var rootVars Activation
+	// unwrap any local activations to ensure that we reach the variables provided as input
+	// to the expression in the event that we need to disambiguate between global and local
+	// variables.
+	//
+	// Presently, only dynamic and constant slot activations created during comprehensions
+	// support 'unwrapping', which is consistent with how local variables are introduced into CEL.
+	var inputVars Activation
 	if len(a.disambiguateNames) > 0 {
-		rootVars = vars
-		for rootVars.Parent() != nil {
-			rootVars = rootVars.Parent()
+		inputVars = vars
+		wrapped, ok := inputVars.(activationWrapper)
+		for ok {
+			inputVars = wrapped.Unwrap()
+			wrapped, ok = inputVars.(activationWrapper)
 		}
 	}
 	for idx, nm := range a.namespaceNames {
@@ -336,7 +344,7 @@ func (a *absoluteAttribute) Resolve(vars Activation) (any, error) {
 		// determine whether the type is unknown before returning.
 		v := vars
 		if disambiguate, found := a.disambiguateNames[idx]; found && disambiguate {
-			v = rootVars
+			v = inputVars
 		}
 		obj, found := v.ResolveName(nm)
 		if found {
