@@ -137,8 +137,10 @@ func (esa evalStateActivation) asEvalState() EvalState {
 	return esa.state
 }
 
-// activationWrapper identifies an object that can be unwrapped to access the underlying activation.
+// activationWrapper identifies an object carrying local variables which should not be exposed to the user
+// Activations used for such purposes can be unwrapped to return the activation which omits local state.
 type activationWrapper interface {
+	// Unwrap returns the Activation which omits local state.
 	Unwrap() Activation
 }
 

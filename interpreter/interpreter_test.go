@@ -1511,6 +1511,102 @@ func testData(t testing.TB) []testCase {
 			expr: `{"invalid": dyn(null)}.?invalid.?nested`,
 			out:  types.OptionalNone,
 		},
+		{
+			name:      "local_shadow_identifier_in_select",
+			expr:      `[{'z': 0}].exists(y, y.z == 0)`,
+			container: "cel.example",
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("cel.example.y", types.IntType),
+			},
+			in: map[string]any{
+				"cel.example.y": map[string]int{"z": 1},
+			},
+			out: types.True,
+		},
+		{
+			name:      "local_shadow_identifier_in_select_global_disambiguation",
+			expr:      `[{'z': 0}].exists(y, y.z == 0 && .y.z == 1)`,
+			container: "y",
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("y.z", types.IntType),
+			},
+			in: map[string]any{
+				"y.z": 1,
+			},
+			out: types.True,
+		},
+		{
+			name: "local_shadow_identifier_with_global_disambiguation",
+			expr: `[0].exists(x, x == 0 && .x == 1)`,
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("x", types.IntType),
+			},
+			in: map[string]any{
+				"x": 1,
+			},
+			out: types.True,
+		},
+		{
+			name: "local_double_shadow_identifier_with_global_disambiguation",
+			expr: `[0].exists(x, [x+1].exists(x, x == .x))`,
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("x", types.IntType),
+			},
+			in: map[string]any{
+				"x": 1,
+			},
+			out: types.True,
+		},
+		{
+			name:      "unchecked_local_shadow_identifier_in_select",
+			expr:      `[{'z': 0}].exists(y, y.z == 0)`,
+			unchecked: true,
+			container: "cel.example",
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("cel.example.y", types.IntType),
+			},
+			in: map[string]any{
+				"cel.example.y": map[string]int{"z": 1},
+			},
+			out: types.True,
+		},
+		{
+			name:      "unchecked_local_shadow_identifier_in_select_global_disambiguation",
+			expr:      `[{'z': 0}].exists(y, y.z == 0 && .y.z == 1)`,
+			container: "y",
+			unchecked: true,
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("y.z", types.IntType),
+			},
+			in: map[string]any{
+				"y.z": 1,
+			},
+			out: types.True,
+		},
+		{
+			name:      "unchecked_local_shadow_identifier_with_global_disambiguation",
+			expr:      `[0].exists(x, x == 0 && .x == 1)`,
+			unchecked: true,
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("x", types.IntType),
+			},
+			in: map[string]any{
+				"x": 1,
+			},
+			out: types.True,
+		},
+		{
+			name:      "unchecked_local_double_shadow_identifier_with_global_disambiguation",
+			expr:      `[0].exists(x, [x+1].exists(x, x == .x))`,
+			unchecked: true,
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("x", types.IntType),
+			},
+			in: map[string]any{
+				"x": 1,
+			},
+			out: types.True,
+		},
 	}
 }
 
