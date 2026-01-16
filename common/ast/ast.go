@@ -160,6 +160,16 @@ func MaxID(a *AST) int64 {
 	return visitor.maxID + 1
 }
 
+// IDs returns the set of AST node IDs, including macro calls.
+func (a *AST) IDs() map[int64]bool {
+	visitor := make(idVisitor)
+	PostOrderVisit(a.Expr(), visitor)
+	for _, call := range a.SourceInfo().MacroCalls() {
+		PostOrderVisit(call, visitor)
+	}
+	return visitor
+}
+
 // Heights computes the heights of all AST expressions and returns a map from expression id to height.
 func Heights(a *AST) map[int64]int {
 	visitor := make(heightVisitor)
@@ -532,4 +542,14 @@ func (hv heightVisitor) maxEntryHeight(entries ...EntryExpr) int {
 		}
 	}
 	return max
+}
+
+type idVisitor map[int64]bool
+
+func (v idVisitor) VisitExpr(e Expr) {
+	v[e.ID()] = true
+}
+
+func (v idVisitor) VisitEntryExpr(e EntryExpr) {
+	v[e.ID()] = true
 }
