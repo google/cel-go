@@ -170,6 +170,7 @@ func (a *AST) IDs() map[int64]bool {
 	return visitor
 }
 
+// ClearUnusedIDs removes IDs not used in the AST or macro calls from SourceInfo.
 func (a *AST) ClearUnusedIDs() {
 	ids := a.IDs()
 	for id := range a.SourceInfo().OffsetRanges() {
