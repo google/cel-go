@@ -2555,15 +2555,15 @@ func TestCheck(t *testing.T) {
 			}
 
 			astIDs := cAst.IDs()
-			missingIDs := []int64{}
+			unusedIDs := []int64{}
 			for id := range cAst.SourceInfo().OffsetRanges() {
 				if !astIDs[id] {
-					missingIDs = append(missingIDs, id)
+					unusedIDs = append(unusedIDs, id)
 				}
 			}
-			if len(missingIDs) > 0 {
+			if len(unusedIDs) > 0 {
 				t.Errorf("SourceInfo has offset range for IDs %v, but no such nodes exists in AST: %s",
-					missingIDs, debug.ToDebugStringWithIDs(cAst.Expr()))
+					unusedIDs, debug.ToDebugStringWithIDs(cAst.Expr()))
 			}
 
 			actual := cAst.GetType(pAst.Expr().ID())

@@ -170,6 +170,15 @@ func (a *AST) IDs() map[int64]bool {
 	return visitor
 }
 
+func (a *AST) ClearUnusedIDs() {
+	ids := a.IDs()
+	for id := range a.SourceInfo().OffsetRanges() {
+		if !ids[id] {
+			a.SourceInfo().ClearOffsetRange(id)
+		}
+	}
+}
+
 // Heights computes the heights of all AST expressions and returns a map from expression id to height.
 func Heights(a *AST) map[int64]int {
 	visitor := make(heightVisitor)
