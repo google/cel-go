@@ -23,6 +23,7 @@ import (
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/containers"
+	"github.com/google/cel-go/common/debug"
 	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/stdlib"
 	"github.com/google/cel-go/common/types"
@@ -2551,6 +2552,18 @@ func TestCheck(t *testing.T) {
 				}
 			} else if tc.err != "" {
 				t.Errorf("Expected error not thrown: %s", tc.err)
+			}
+
+			astIDs := cAst.IDs()
+			unusedIDs := []int64{}
+			for id := range cAst.SourceInfo().OffsetRanges() {
+				if !astIDs[id] {
+					unusedIDs = append(unusedIDs, id)
+				}
+			}
+			if len(unusedIDs) > 0 {
+				t.Errorf("SourceInfo has offset range for IDs %v, but no such nodes exists in AST: %s",
+					unusedIDs, debug.ToDebugStringWithIDs(cAst.Expr()))
 			}
 
 			actual := cAst.GetType(pAst.Expr().ID())

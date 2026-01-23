@@ -2262,6 +2262,18 @@ func TestParse(t *testing.T) {
 					t.Fatal(test.DiffMessage(fmt.Sprintf("Macro Calls - %s", failureDisplayMethod), actualAdornedMacroCalls, tc.M))
 				}
 			}
+
+			astIDs := parsed.IDs()
+			unusedIDs := []int64{}
+			for id := range parsed.SourceInfo().OffsetRanges() {
+				if !astIDs[id] {
+					unusedIDs = append(unusedIDs, id)
+				}
+			}
+			if len(unusedIDs) > 0 {
+				t.Errorf("SourceInfo has offset range for IDs %v, but no such nodes exists in AST: %s",
+					unusedIDs, debug.ToDebugStringWithIDs(parsed.Expr()))
+			}
 		})
 	}
 }

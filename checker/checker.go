@@ -67,6 +67,10 @@ func Check(parsed *ast.AST, source common.Source, env *Env) (*ast.AST, *common.E
 	for id, t := range c.TypeMap() {
 		c.SetType(id, substitute(c.mappings, t, true))
 	}
+	// Remove source info for IDs without a corresponding AST node. This can happen because
+	// check() deletes some nodes while rewriting the AST. For example the Select operand is
+	// deleted when a variable reference is replaced with a Ident expression.
+	c.AST.ClearUnusedIDs()
 	return c.AST, errs
 }
 
