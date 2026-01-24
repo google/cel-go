@@ -531,6 +531,9 @@ func verifySourceInfoCoverage(t testing.TB, policy *Policy, ast *cel.Ast) {
 	coveredLines := make(map[int]bool)
 	ids := ast.NativeRep().IDs()
 	for id, offset := range info.GetPositions() {
+		if offset <= 0 {
+			t.Errorf("id %d has invalid offset %v", id, offset)
+		}
 		// Check that each position in the SourceInfo corresponds to a valid AST node.
 		if !ids[id] {
 			t.Errorf("id %d not found in AST", id)

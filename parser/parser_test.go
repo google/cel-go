@@ -2263,6 +2263,7 @@ func TestParse(t *testing.T) {
 				}
 			}
 
+			// Verify there are no unused IDs in the source info.
 			astIDs := parsed.IDs()
 			unusedIDs := []int64{}
 			for id := range parsed.SourceInfo().OffsetRanges() {
@@ -2273,6 +2274,29 @@ func TestParse(t *testing.T) {
 			if len(unusedIDs) > 0 {
 				t.Errorf("SourceInfo has offset range for IDs %v, but no such nodes exists in AST: %s",
 					unusedIDs, debug.ToDebugStringWithIDs(parsed.Expr()))
+			}
+
+			// Verify that source info offset ranges are shifted when the source is prepended with whitespace.
+			padding := strings.Repeat("         \n", 10)
+			padSrc := &RelativeSource{
+				Source:   common.NewTextSource(padding + src.Content()),
+				localSrc: src,
+				absLoc:   common.NewLocation(11, 0),
+			}
+			padded, padErrs := p.Parse(padSrc)
+			if len(padErrs.GetErrors()) > 0 {
+				t.Fatalf("Unexpected errors with padded source: %v", padErrs.ToDisplayString())
+			}
+			for id, origRange := range parsed.SourceInfo().OffsetRanges() {
+				padRange, found := padded.SourceInfo().GetOffsetRange(id)
+				if !found {
+					t.Errorf("ID %d not found in padded source info", id)
+					continue
+				}
+				want := ast.OffsetRange{Start: origRange.Start + 100, Stop: origRange.Stop + 100}
+				if padRange != want {
+					t.Errorf("ID %d offset range mismatch: got %v, want %v", id, padRange, want)
+				}
 			}
 		})
 	}
@@ -2383,4 +2407,25 @@ func newTestParser(t *testing.T, options ...Option) *Parser {
 		t.Fatalf("NewParser() failed: %v", err)
 	}
 	return p
+}
+
+// RelativeSource represents an embedded source element within a larger source.
+type RelativeSource struct {
+	common.Source
+	localSrc common.Source
+	absLoc   common.Location
+}
+
+// Content returns the embedded source snippet.
+func (rel *RelativeSource) Content() string {
+	return rel.localSrc.Content()
+}
+
+// OffsetLocation returns the absolute location given the relative offset, if found.
+func (rel *RelativeSource) OffsetLocation(offset int32) (common.Location, bool) {
+	absOffset, found := rel.Source.LocationOffset(rel.absLoc)
+	if !found {
+		return common.NoLocation, false
+	}
+	return rel.Source.OffsetLocation(absOffset + offset)
 }

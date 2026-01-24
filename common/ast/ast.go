@@ -404,6 +404,12 @@ func (s *SourceInfo) ComputeOffset(line, col int32) int32 {
 		line = s.baseLine + line
 		col = s.baseCol + col
 	}
+	return s.ComputeOffsetAbsolute(line, col)
+}
+
+// ComputeOffsetAbsolute calculates the 0-based character offset from a 1-based line and 0-based column
+// based on the absolute line and column of the SourceInfo.
+func (s *SourceInfo) ComputeOffsetAbsolute(line, col int32) int32 {
 	if line == 1 {
 		return col
 	}
