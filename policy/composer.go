@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/types"
@@ -76,7 +77,16 @@ func (c *RuleComposer) Compose(r *CompiledRule) (*cel.Ast, *cel.Issues) {
 		rule:       r,
 		varIndices: []varIndex{},
 	}
-	opt := cel.NewStaticOptimizer(composer)
+	// ruleRoot is a placeholder expression used as the root of the AST before optimization. Because
+	// StaticOptimizer would normally copy the source info from it, we must use OptimizeWithSource
+	// to override the correct source.
+	source := recoverOriginalSource(r)
+	opt, err := cel.NewStaticOptimizer(composer, cel.OptimizeWithSource(source))
+	if err != nil {
+		errs := common.NewErrors(source)
+		errs.ReportErrorString(common.NoLocation, err.Error())
+		return nil, cel.NewIssues(errs)
+	}
 	ast, iss := opt.Optimize(c.env, ruleRoot)
 	if iss.Err() != nil {
 		return nil, iss
@@ -85,8 +95,27 @@ func (c *RuleComposer) Compose(r *CompiledRule) (*cel.Ast, *cel.Issues) {
 		varIndices:       []varIndex{},
 		exprUnnestHeight: c.exprUnnestHeight,
 	}
-	opt = cel.NewStaticOptimizer(unnester)
+	opt, err = cel.NewStaticOptimizer(unnester)
+	if err != nil {
+		errs := common.NewErrors(source)
+		errs.ReportErrorString(common.NoLocation, err.Error())
+		return nil, cel.NewIssues(errs)
+	}
 	return opt.Optimize(c.env, ast)
+}
+
+func recoverOriginalSource(r *CompiledRule) cel.Source {
+	match := r.Matches()[0]
+	var source cel.Source
+	if match.Output() != nil {
+		source = match.Output().Expr().Source()
+	} else {
+		source = match.Condition().Source()
+	}
+	if rel, ok := source.(*RelativeSource); ok {
+		source = rel.Source
+	}
+	return source
 }
 
 type varIndex struct {
