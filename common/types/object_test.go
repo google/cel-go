@@ -97,9 +97,9 @@ func TestProtoObjectConvertToNative(t *testing.T) {
 	}
 
 	// JSON
-	jsonVal, err := objVal.ConvertToNative(jsonValueType)
+	jsonVal, err := objVal.ConvertToNative(JSONValueType)
 	if err != nil {
-		t.Fatalf("objVal.ConvertToNative(%v) failed: %v", jsonValueType, err)
+		t.Fatalf("objVal.ConvertToNative(%v) failed: %v", JSONValueType, err)
 	}
 	jsonBytes, err := protojson.Marshal(jsonVal.(proto.Message))
 	jsonTxt := string(jsonBytes)

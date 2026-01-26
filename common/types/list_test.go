@@ -127,7 +127,7 @@ func TestBaseListConvertToNative_Any(t *testing.T) {
 
 func TestBaseListConvertToNative_Json(t *testing.T) {
 	list := NewDynamicList(newTestRegistry(t), []float64{1.0, 2.0})
-	val, err := list.ConvertToNative(jsonListValueType)
+	val, err := list.ConvertToNative(JSONListType)
 	if err != nil {
 		t.Error(err)
 	}
@@ -359,7 +359,7 @@ func TestConcatListConvertToNative_Json(t *testing.T) {
 	listA := NewDynamicList(reg, []float32{1.0, 2.0})
 	listB := NewDynamicList(reg, []string{"3"})
 	list := listA.Add(listB)
-	jsonVal, err := list.ConvertToNative(jsonValueType)
+	jsonVal, err := list.ConvertToNative(JSONValueType)
 	if err != nil {
 		t.Fatalf("Got error '%v', expected value", err)
 	}
@@ -379,7 +379,7 @@ func TestConcatListConvertToNative_Json(t *testing.T) {
 	// Test proto3 to JSON conversion.
 	listC := NewDynamicList(reg, []*dpb.Duration{{Seconds: 100}})
 	listConcat := listA.Add(listC)
-	jsonVal, err = listConcat.ConvertToNative(jsonValueType)
+	jsonVal, err = listConcat.ConvertToNative(JSONValueType)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -607,7 +607,7 @@ func TestStringListConvertToNative_ListInterface(t *testing.T) {
 func TestStringListConvertToNative_Error(t *testing.T) {
 	reg := newTestRegistry(t)
 	list := NewStringList(reg, []string{"h", "e", "l", "p"})
-	_, err := list.ConvertToNative(jsonStructType)
+	_, err := list.ConvertToNative(JSONStructType)
 	if err == nil {
 		t.Error("Conversion of list to unsupported type did not error.")
 	}
@@ -616,7 +616,7 @@ func TestStringListConvertToNative_Error(t *testing.T) {
 func TestStringListConvertToNative_Json(t *testing.T) {
 	reg := newTestRegistry(t)
 	list := NewStringList(reg, []string{"h", "e", "l", "p"})
-	jsonVal, err := list.ConvertToNative(jsonValueType)
+	jsonVal, err := list.ConvertToNative(JSONValueType)
 	if err != nil {
 		t.Errorf("Got '%v', expected '%v'", err, jsonVal)
 	}
@@ -634,7 +634,7 @@ func TestStringListConvertToNative_Json(t *testing.T) {
 		t.Errorf("got json '%v', expected %v", jsonTxt, outList)
 	}
 
-	jsonList, err := list.ConvertToNative(jsonListValueType)
+	jsonList, err := list.ConvertToNative(JSONListType)
 	if err != nil {
 		t.Errorf("Got '%v', expected '%v'", err, jsonList)
 	}
@@ -681,7 +681,7 @@ func TestValueListAdd(t *testing.T) {
 func TestValueListConvertToNative_Json(t *testing.T) {
 	reg := newTestRegistry(t)
 	list := NewRefValList(reg, []ref.Val{String("hello"), String("world")})
-	jsonVal, err := list.ConvertToNative(jsonListValueType)
+	jsonVal, err := list.ConvertToNative(JSONListType)
 	if err != nil {
 		t.Errorf("Got '%v', expected '%v'", err, jsonVal)
 	}

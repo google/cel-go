@@ -35,11 +35,11 @@ func TestNullConvertToNative(t *testing.T) {
 		err    error
 	}{
 		{
-			goType: jsonValueType,
+			goType: JSONValueType,
 			out:    structpb.NewNullValue(),
 		},
 		{
-			goType: jsonNullType,
+			goType: JSONNullType,
 			out:    structpb.NullValue_NULL_VALUE,
 		},
 		{
@@ -69,11 +69,11 @@ func TestNullConvertToNative(t *testing.T) {
 			err:    errors.New("type conversion error from 'null_type' to 'int'"),
 		},
 		{
-			goType: jsonListValueType,
+			goType: JSONListType,
 			err:    errors.New("type conversion error from 'null_type' to '*structpb.ListValue'"),
 		},
 		{
-			goType: jsonStructType,
+			goType: JSONStructType,
 			err:    errors.New("type conversion error from 'null_type' to '*structpb.Struct'"),
 		},
 	}

@@ -155,7 +155,7 @@ func TestUintConvertToNative_Error(t *testing.T) {
 
 func TestUintConvertToNative_Json(t *testing.T) {
 	// Value can be represented accurately as a JSON number.
-	val, err := Uint(maxIntJSON).ConvertToNative(jsonValueType)
+	val, err := Uint(maxIntJSON).ConvertToNative(JSONValueType)
 	if err != nil {
 		t.Error(err)
 	} else if !proto.Equal(val.(proto.Message),
@@ -164,7 +164,7 @@ func TestUintConvertToNative_Json(t *testing.T) {
 	}
 
 	// Value converts to a JSON decimal string
-	val, err = Uint(maxIntJSON + 1).ConvertToNative(jsonValueType)
+	val, err = Uint(maxIntJSON + 1).ConvertToNative(JSONValueType)
 	if err != nil {
 		t.Error(err)
 	} else if !proto.Equal(val.(proto.Message), structpb.NewStringValue("9007199254740992")) {
