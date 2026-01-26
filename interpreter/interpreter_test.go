@@ -1042,6 +1042,20 @@ func testData(t testing.TB) []testCase {
 			},
 		},
 		{
+			name: "type_dyn_equals_string",
+			expr: `type(dyn('')) == string`,
+		},
+		{
+			name: "type_override",
+			expr: `type == 'string'`,
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("type", types.StringType),
+			},
+			in: map[string]any{
+				"type": "string",
+			},
+		},
+		{
 			name: "select_key",
 			expr: `m.strMap['val'] == 'string'
 				&& m.floatMap['val'] == 1.5
