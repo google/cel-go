@@ -166,10 +166,10 @@ type attrFactory struct {
 // The namespaceNames represent the names the variable could have based on namespace
 // resolution rules.
 func (r *attrFactory) AbsoluteAttribute(id int64, names ...string) NamespacedAttribute {
-	disambiguateNames := make(map[int]bool)
+	disambiguateNames := false
 	for idx, name := range names {
 		if strings.HasPrefix(name, ".") {
-			disambiguateNames[idx] = true
+			disambiguateNames = true
 			names[idx] = strings.TrimPrefix(name, ".")
 		}
 	}
@@ -259,8 +259,8 @@ type absoluteAttribute struct {
 	// namespaceNames represent the names the variable could have based on declared container
 	// (package) of the expression.
 	namespaceNames []string
-	// disambiguateNames stores a list of indices to namespaceNames which require disambiguation
-	disambiguateNames map[int]bool
+	// disambiguateNames indicates whether the namespaceNames require disambiguation with local variables.
+	disambiguateNames bool
 
 	qualifiers []Qualifier
 	adapter    types.Adapter
@@ -331,7 +331,7 @@ func (a *absoluteAttribute) Resolve(vars Activation) (any, error) {
 	// Presently, only dynamic and constant slot activations created during comprehensions
 	// support 'unwrapping', which is consistent with how local variables are introduced into CEL.
 	var inputVars Activation
-	if len(a.disambiguateNames) > 0 {
+	if a.disambiguateNames {
 		inputVars = vars
 		wrapped, ok := inputVars.(activationWrapper)
 		for ok {
@@ -339,11 +339,11 @@ func (a *absoluteAttribute) Resolve(vars Activation) (any, error) {
 			wrapped, ok = inputVars.(activationWrapper)
 		}
 	}
-	for idx, nm := range a.namespaceNames {
+	for _, nm := range a.namespaceNames {
 		// If the variable is found, process it. Otherwise, wait until the checks to
 		// determine whether the type is unknown before returning.
 		v := vars
-		if disambiguate, found := a.disambiguateNames[idx]; found && disambiguate {
+		if a.disambiguateNames {
 			v = inputVars
 		}
 		obj, found := v.ResolveName(nm)
