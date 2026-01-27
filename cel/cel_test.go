@@ -17,6 +17,7 @@ package cel
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -236,6 +237,43 @@ func TestAbbrevsDisambiguation(t *testing.T) {
 	}
 	if !proto.Equal(got.(*exprpb.Expr), want) {
 		t.Errorf("got %v, wanted '%v'", out, want)
+	}
+}
+
+func TestConvertToNativeJSONStructure(t *testing.T) {
+	env, err := NewEnv()
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	ast, issues := env.Compile(`{
+		"parts": [{"kind": "text"}]
+	}`)
+	if issues != nil && issues.Err() != nil {
+		t.Fatal(issues.Err())
+	}
+
+	prg, err := env.Program(ast)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, _, err := prg.Eval(map[string]any{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	native, err := result.ConvertToNative(types.JSONValueType)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	jsonBytes, err := json.Marshal(native)
+	if err != nil {
+		t.Fatalf("json.Marshal failed: %v", err)
+	}
+	want := `{"parts":[{"kind":"text"}]}`
+	if string(jsonBytes) != want {
+		t.Errorf("json.Marshal() failed, got : %s, wanted ", jsonBytes)
 	}
 }
 

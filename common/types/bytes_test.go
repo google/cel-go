@@ -97,7 +97,7 @@ func TestBytesConvertToNative_Error(t *testing.T) {
 }
 
 func TestBytesConvertToNative_Json(t *testing.T) {
-	val, err := Bytes("123").ConvertToNative(jsonValueType)
+	val, err := Bytes("123").ConvertToNative(JSONValueType)
 	if err != nil {
 		t.Error(err)
 	}

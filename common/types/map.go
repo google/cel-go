@@ -156,6 +156,9 @@ func (m *baseMap) Contains(index ref.Val) ref.Val {
 func (m *baseMap) ConvertToNative(typeDesc reflect.Type) (any, error) {
 	// If the map is already assignable to the desired type return it, e.g. interfaces and
 	// maps with the same key value types.
+	if typeDesc == reflect.TypeFor[any]() {
+		typeDesc = reflect.TypeFor[map[any]any]()
+	}
 	if reflect.TypeOf(m.value).AssignableTo(typeDesc) {
 		return m.value, nil
 	}
@@ -164,19 +167,19 @@ func (m *baseMap) ConvertToNative(typeDesc reflect.Type) (any, error) {
 	}
 	switch typeDesc {
 	case anyValueType:
-		json, err := m.ConvertToNative(jsonStructType)
+		json, err := m.ConvertToNative(JSONStructType)
 		if err != nil {
 			return nil, err
 		}
 		return anypb.New(json.(proto.Message))
-	case jsonValueType, jsonStructType:
+	case JSONValueType, JSONStructType:
 		jsonEntries, err :=
 			m.ConvertToNative(reflect.TypeOf(map[string]*structpb.Value{}))
 		if err != nil {
 			return nil, err
 		}
 		jsonMap := &structpb.Struct{Fields: jsonEntries.(map[string]*structpb.Value)}
-		if typeDesc == jsonStructType {
+		if typeDesc == JSONStructType {
 			return jsonMap, nil
 		}
 		return structpb.NewStructValue(jsonMap), nil
@@ -703,12 +706,12 @@ func (m *protoMap) ConvertToNative(typeDesc reflect.Type) (any, error) {
 	// maps with the same key value types.
 	switch typeDesc {
 	case anyValueType:
-		json, err := m.ConvertToNative(jsonStructType)
+		json, err := m.ConvertToNative(JSONStructType)
 		if err != nil {
 			return nil, err
 		}
 		return anypb.New(json.(proto.Message))
-	case jsonValueType, jsonStructType:
+	case JSONValueType, JSONStructType:
 		jsonEntries, err :=
 			m.ConvertToNative(reflect.TypeOf(map[string]*structpb.Value{}))
 		if err != nil {
@@ -716,7 +719,7 @@ func (m *protoMap) ConvertToNative(typeDesc reflect.Type) (any, error) {
 		}
 		jsonMap := &structpb.Struct{
 			Fields: jsonEntries.(map[string]*structpb.Value)}
-		if typeDesc == jsonStructType {
+		if typeDesc == JSONStructType {
 			return jsonMap, nil
 		}
 		return structpb.NewStructValue(jsonMap), nil

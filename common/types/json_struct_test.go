@@ -41,7 +41,7 @@ func TestJsonStructConvertToNative_Json(t *testing.T) {
 		"first":  structpb.NewStringValue("hello"),
 		"second": structpb.NewNumberValue(1)}}
 	mapVal := NewJSONStruct(newTestRegistry(t), structVal)
-	val, err := mapVal.ConvertToNative(jsonValueType)
+	val, err := mapVal.ConvertToNative(JSONValueType)
 	if err != nil {
 		t.Error(err)
 	}
@@ -50,7 +50,7 @@ func TestJsonStructConvertToNative_Json(t *testing.T) {
 		t.Errorf("Got '%v', expected '%v'", val, structVal)
 	}
 
-	strVal, err := mapVal.ConvertToNative(jsonStructType)
+	strVal, err := mapVal.ConvertToNative(JSONStructType)
 	if err != nil {
 		t.Error(err)
 	}

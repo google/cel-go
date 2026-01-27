@@ -76,7 +76,7 @@ func TestBoolConvertToNative_Error(t *testing.T) {
 }
 
 func TestBoolConvertToNative_Json(t *testing.T) {
-	val, err := True.ConvertToNative(jsonValueType)
+	val, err := True.ConvertToNative(JSONValueType)
 	pbVal := &structpb.Value{Kind: &structpb.Value_BoolValue{BoolValue: true}}
 	if err != nil {
 		t.Error(err)

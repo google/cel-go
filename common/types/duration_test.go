@@ -166,7 +166,7 @@ func TestDurationConvertToNative_Any(t *testing.T) {
 }
 
 func TestDurationConvertToNative_Error(t *testing.T) {
-	val, err := Duration{Duration: duration(7506, 1000)}.ConvertToNative(jsonValueType)
+	val, err := Duration{Duration: duration(7506, 1000)}.ConvertToNative(JSONValueType)
 	if err != nil {
 		t.Errorf("Got error: '%v', expected value", err)
 	}
@@ -178,7 +178,7 @@ func TestDurationConvertToNative_Error(t *testing.T) {
 }
 
 func TestDurationConvertToNative_Json(t *testing.T) {
-	val, err := Duration{Duration: duration(7506, 1000)}.ConvertToNative(jsonValueType)
+	val, err := Duration{Duration: duration(7506, 1000)}.ConvertToNative(JSONValueType)
 	if err != nil {
 		t.Error(err)
 	}

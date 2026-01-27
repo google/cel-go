@@ -78,7 +78,7 @@ func TestStringConvertToNative_Error(t *testing.T) {
 }
 
 func TestStringConvertToNative_Json(t *testing.T) {
-	val, err := String("hello").ConvertToNative(jsonValueType)
+	val, err := String("hello").ConvertToNative(JSONValueType)
 	pbVal := structpb.NewStringValue("hello")
 	if err != nil {
 		t.Error(err)

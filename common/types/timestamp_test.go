@@ -277,7 +277,7 @@ func TestTimestampConvertToNative(t *testing.T) {
 	if !proto.Equal(val.(proto.Message), want.(proto.Message)) {
 		t.Errorf("Got '%v', expected '%v'", val, want)
 	}
-	val, err = ts.ConvertToNative(jsonValueType)
+	val, err = ts.ConvertToNative(JSONValueType)
 	if err != nil {
 		t.Error(err)
 	}
