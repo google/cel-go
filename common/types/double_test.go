@@ -171,7 +171,7 @@ func TestDoubleConvertToNative_Float64(t *testing.T) {
 }
 
 func TestDoubleConvertToNative_Json(t *testing.T) {
-	val, err := Double(-1.4).ConvertToNative(jsonValueType)
+	val, err := Double(-1.4).ConvertToNative(JSONValueType)
 	pbVal := structpb.NewNumberValue(-1.4)
 	if err != nil {
 		t.Error(err)
@@ -179,7 +179,7 @@ func TestDoubleConvertToNative_Json(t *testing.T) {
 		t.Errorf("Got '%v', expected -1.4", val)
 	}
 
-	val, err = Double(math.NaN()).ConvertToNative(jsonValueType)
+	val, err = Double(math.NaN()).ConvertToNative(JSONValueType)
 	if err != nil {
 		t.Error(err)
 	} else {
@@ -189,14 +189,14 @@ func TestDoubleConvertToNative_Json(t *testing.T) {
 		}
 	}
 
-	val, err = Double(math.Inf(-1)).ConvertToNative(jsonValueType)
+	val, err = Double(math.Inf(-1)).ConvertToNative(JSONValueType)
 	pbVal = structpb.NewNumberValue(math.Inf(-1))
 	if err != nil {
 		t.Error(err)
 	} else if !proto.Equal(val.(proto.Message), pbVal) {
 		t.Errorf("Got '%v', expected -Infinity", val)
 	}
-	val, err = Double(math.Inf(0)).ConvertToNative(jsonValueType)
+	val, err = Double(math.Inf(0)).ConvertToNative(JSONValueType)
 	pbVal = structpb.NewNumberValue(math.Inf(0))
 	if err != nil {
 		t.Error(err)

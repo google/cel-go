@@ -35,7 +35,7 @@ func TestJsonListValueAdd(t *testing.T) {
 		structpb.NewNumberValue(2),
 		structpb.NewNumberValue(3)}})
 	list := listA.Add(listB).(traits.Lister)
-	nativeVal, err := list.ConvertToNative(jsonListValueType)
+	nativeVal, err := list.ConvertToNative(JSONListType)
 	if err != nil {
 		t.Error(err)
 	}
@@ -50,7 +50,7 @@ func TestJsonListValueAdd(t *testing.T) {
 	}
 	listC := NewStringList(reg, []string{"goodbye", "world"})
 	list = list.Add(listC).(traits.Lister)
-	nativeVal, err = list.ConvertToNative(jsonListValueType)
+	nativeVal, err = list.ConvertToNative(JSONListType)
 	if err != nil {
 		t.Error(err)
 	}
@@ -101,7 +101,7 @@ func TestJsonListValueConvertToNative_Json(t *testing.T) {
 	list := NewJSONList(newTestRegistry(t), &structpb.ListValue{Values: []*structpb.Value{
 		structpb.NewStringValue("hello"),
 		structpb.NewNumberValue(1)}})
-	listVal, err := list.ConvertToNative(jsonListValueType)
+	listVal, err := list.ConvertToNative(JSONListType)
 	if err != nil {
 		t.Error(err)
 	}
@@ -109,7 +109,7 @@ func TestJsonListValueConvertToNative_Json(t *testing.T) {
 		t.Error("List did not convert to its underlying representation.")
 	}
 
-	val, err := list.ConvertToNative(jsonValueType)
+	val, err := list.ConvertToNative(JSONValueType)
 	if err != nil {
 		t.Error(err)
 	}

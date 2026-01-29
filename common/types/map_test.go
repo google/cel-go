@@ -151,7 +151,7 @@ func TestDynamicMapConvertToNative_Json(t *testing.T) {
 	reg := newTestRegistry(t)
 	mapVal := NewDynamicMap(reg, map[string]map[string]float32{
 		"nested": {"1": -1.0}})
-	json, err := mapVal.ConvertToNative(jsonValueType)
+	json, err := mapVal.ConvertToNative(JSONValueType)
 	if err != nil {
 		t.Error(err)
 	}
@@ -304,7 +304,7 @@ func TestStringMapConvertToNative(t *testing.T) {
 	if !reflect.DeepEqual(val, mapVal) {
 		t.Errorf("got not-equal, wanted equal for %v == %v", val, mapVal)
 	}
-	jsonVal, err := mapVal.ConvertToNative(jsonStructType)
+	jsonVal, err := mapVal.ConvertToNative(JSONStructType)
 	if err != nil {
 		t.Fatalf("mapVal.ConvertToNative(jsonStructType) failed: %v", err)
 	}
@@ -919,7 +919,7 @@ func TestProtoMapConvertToNative(t *testing.T) {
 	if mapVal3.Equal(mapVal) != True || mapVal.Equal(mapVal3) != True {
 		t.Errorf("mapVal3.Equal(mapVal) returned false, wanted true")
 	}
-	convMap, err = mapVal.ConvertToNative(jsonValueType)
+	convMap, err = mapVal.ConvertToNative(JSONValueType)
 	if err != nil {
 		t.Fatalf("mapVal.ConvertToNative() failed: %v", err)
 	}
@@ -944,7 +944,7 @@ func TestProtoMapConvertToNative(t *testing.T) {
 	if mapVal6.Equal(mapVal) != True || mapVal.Equal(mapVal6) != True {
 		t.Errorf("mapVal6.Equal(mapVal) returned false, wanted true")
 	}
-	_, err = mapVal.ConvertToNative(jsonListValueType)
+	_, err = mapVal.ConvertToNative(JSONListType)
 	if err == nil {
 		t.Fatalf("mapVal.ConvertToNative() succeeded for invalid type")
 	}
