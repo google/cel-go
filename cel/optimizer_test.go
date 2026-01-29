@@ -45,7 +45,10 @@ func TestStaticOptimizerUpdateExpr(t *testing.T) {
 	if iss.Err() != nil {
 		t.Fatalf("Compile() failed: %v", iss.Err())
 	}
-	opt := cel.NewStaticOptimizer(&testOptimizer{t: t, inlineExpr: inlinedAST.NativeRep()})
+	opt, err := cel.NewStaticOptimizer(&testOptimizer{t: t, inlineExpr: inlinedAST.NativeRep()})
+	if err != nil {
+		t.Fatalf("NewStaticOptimizer() failed: %v", err)
+	}
 	optAST, iss := opt.Optimize(e, exprAST)
 	if iss.Err() != nil {
 		t.Fatalf("Optimize() generated an invalid AST: %v", iss.Err())
@@ -59,28 +62,17 @@ func TestStaticOptimizerUpdateExpr(t *testing.T) {
 	if err != nil {
 		t.Fatalf("cel.AstToCheckedExpr() failed: %v", err)
 	}
+	sourceInfoPB.Positions = nil
 	wantTextPB := `
 		location:  "<input>"
         line_offsets:  9
-        positions:  {
-          key:  2
-          value:  4
-        }
-        positions:  {
-          key:  3
-          value:  5
-        }
-        positions:  {
-          key:  4
-          value:  3
-        }
         macro_calls:  {
           key:  1
           value:  {
             call_expr:  {
               function:  "has"
               args:  {
-                id:  21
+                id:  24
                 select_expr:  {
                   operand:  {
                     id:  2
@@ -186,7 +178,10 @@ func TestStaticOptimizerNewAST(t *testing.T) {
 			if iss.Err() != nil {
 				t.Fatalf("Compile(%q) failed: %v", tc, iss.Err())
 			}
-			opt := cel.NewStaticOptimizer(&identityOptimizer{t: t})
+			opt, err := cel.NewStaticOptimizer(&identityOptimizer{t: t})
+			if err != nil {
+				t.Fatalf("NewStaticOptimizer() failed: %v", err)
+			}
 			optAST, iss := opt.Optimize(e, exprAST)
 			if iss.Err() != nil {
 				t.Fatalf("Optimize() generated an invalid AST: %v", iss.Err())
@@ -202,9 +197,69 @@ func TestStaticOptimizerNewAST(t *testing.T) {
 	}
 }
 
+func TestOptimizeWithSource(t *testing.T) {
+	initial := `has(a.b)`
+	replacement := `x["a"]`
+	e := optimizerEnv(t)
+	initialAST, iss := e.Compile(initial)
+	if iss.Err() != nil {
+		t.Fatalf("Compile(%q) failed: %v", initial, iss.Err())
+	}
+	replacementAST, iss := e.Compile(replacement)
+	if iss.Err() != nil {
+		t.Fatalf("Compile(%q) failed: %v", replacement, iss.Err())
+	}
+
+	opt, err := cel.NewStaticOptimizer(
+		&replaceOptimizer{t: t, targetAST: replacementAST.NativeRep()},
+		cel.OptimizeWithSource(replacementAST.Source()),
+	)
+	if err != nil {
+		t.Fatalf("NewStaticOptimizer() failed: %v", err)
+	}
+	optAST, iss := opt.Optimize(e, initialAST)
+	if iss.Err() != nil {
+		t.Fatalf("Optimize() returned an error: %v", iss.Err())
+	}
+
+	if optAST.Source().Content() != replacement {
+		t.Errorf("got source content %q, wanted %q", optAST.Source().Content(), replacement)
+	}
+	sourceInfoPB, err := ast.SourceInfoToProto(optAST.NativeRep().SourceInfo())
+	if err != nil {
+		t.Fatalf("cel.AstToCheckedExpr() failed: %v", err)
+	}
+	wantTextPB := `
+		location: "<input>"
+		line_offsets: 7
+        positions: {
+          key: 1
+          value: 1
+        }
+        positions: {
+          key: 2
+          value: 0
+        }
+        positions: {
+          key: 3
+          value: 2
+        }
+	`
+	var wantSourceInfoPB exprpb.SourceInfo
+	if err := prototext.Unmarshal([]byte(wantTextPB), &wantSourceInfoPB); err != nil {
+		t.Fatalf("prototext.Unmarshal() failed: %v", err)
+	}
+	if !proto.Equal(&wantSourceInfoPB, sourceInfoPB) {
+		t.Errorf("got source info: %s, wanted %s", prototext.Format(sourceInfoPB), wantTextPB)
+	}
+}
+
 func TestStaticOptimizerNilAST(t *testing.T) {
 	env := optimizerEnv(t)
-	opt := cel.NewStaticOptimizer(&identityOptimizer{t: t})
+	opt, err := cel.NewStaticOptimizer(&identityOptimizer{t: t})
+	if err != nil {
+		t.Fatalf("NewStaticOptimizer() failed: %v", err)
+	}
 	optAST, iss := opt.Optimize(env, nil)
 	if iss.Err() == nil || !strings.Contains(iss.Err().Error(), "unexpected unspecified type") {
 		t.Errorf("opt.Optimize(env, nil) got (%v, %v), wanted unexpected unspecified type", optAST, iss)
@@ -243,6 +298,17 @@ func (opt *testOptimizer) Optimize(ctx *cel.OptimizerContext, a *ast.AST) *ast.A
 	ctx.UpdateExpr(a.Expr(), presenceTest)
 	ctx.SetMacroCall(origID, hasMacro)
 	return ctx.NewAST(a.Expr())
+}
+
+type replaceOptimizer struct {
+	t         *testing.T
+	targetAST *ast.AST
+}
+
+func (opt *replaceOptimizer) Optimize(ctx *cel.OptimizerContext, a *ast.AST) *ast.AST {
+	opt.t.Helper()
+	copy := ctx.CopyASTAndMetadata(opt.targetAST)
+	return ctx.NewAST(copy)
 }
 
 func getMacroKeys(macroCalls map[int64]ast.Expr) []int {

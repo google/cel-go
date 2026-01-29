@@ -16,6 +16,8 @@
 package ast
 
 import (
+	"slices"
+
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
@@ -252,6 +254,23 @@ type SourceInfo struct {
 	macroCalls   map[int64]Expr
 }
 
+// RenumberIDs performs an in-place update of the expression IDs within the SourceInfo.
+func (s *SourceInfo) RenumberIDs(idGen IDGenerator) {
+	if s == nil {
+		return
+	}
+	oldIDs := []int64{}
+	for id := range s.offsetRanges {
+		oldIDs = append(oldIDs, id)
+	}
+	slices.Sort(oldIDs)
+	newRanges := make(map[int64]OffsetRange)
+	for _, id := range oldIDs {
+		newRanges[idGen(id)] = s.offsetRanges[id]
+	}
+	s.offsetRanges = newRanges
+}
+
 // SyntaxVersion returns the syntax version associated with the text expression.
 func (s *SourceInfo) SyntaxVersion() string {
 	if s == nil {
@@ -385,6 +404,12 @@ func (s *SourceInfo) ComputeOffset(line, col int32) int32 {
 		line = s.baseLine + line
 		col = s.baseCol + col
 	}
+	return s.ComputeOffsetAbsolute(line, col)
+}
+
+// ComputeOffsetAbsolute calculates the 0-based character offset from a 1-based line and 0-based column
+// based on the absolute line and column of the SourceInfo.
+func (s *SourceInfo) ComputeOffsetAbsolute(line, col int32) int32 {
 	if line == 1 {
 		return col
 	}
