@@ -89,6 +89,16 @@ func TestIssuesEmpty(t *testing.T) {
 	}
 }
 
+func TestErrorAsIssues(t *testing.T) {
+	iss := ErrorAsIssues(errors.New("wrapped-error"))
+	if iss.Err() == nil {
+		t.Fatal("iss.Err() got nil, wanted 'wrapped-error'")
+	}
+	if !strings.Contains(iss.Err().Error(), "wrapped-error") {
+		t.Errorf("iss.Err() got %v, wanted 'wrapped-error'", iss.Err())
+	}
+}
+
 func TestIssuesAppendSelf(t *testing.T) {
 	e, err := NewEnv()
 	if err != nil {

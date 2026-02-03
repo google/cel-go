@@ -877,6 +877,16 @@ type Issues struct {
 	info *celast.SourceInfo
 }
 
+// ErrorAsIssues wraps a Golang error into a CEL common error and issue set.
+//
+// This is a convenience method for early returning from an expression validation call path due to
+// internal state or configuration which is unrelated to the source being validated.
+func ErrorAsIssues(err error) *Issues {
+	errs := common.NewErrors(common.NewTextSource(""))
+	errs.ReportErrorString(common.NoLocation, err.Error())
+	return NewIssues(errs)
+}
+
 // NewIssues returns an Issues struct from a common.Errors object.
 func NewIssues(errs *common.Errors) *Issues {
 	return NewIssuesWithSourceInfo(errs, nil)
