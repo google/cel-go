@@ -185,6 +185,11 @@ func TestFunctionZeroArityBinding(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewFunction() failed: %v", err)
 	}
+	for _, od := range nowFunc.OverloadDecls() {
+		if !od.HasBinding() {
+			t.Errorf("Overload %s does not have binding, wanted function binding", od.ID())
+		}
+	}
 	bindings, err := nowFunc.Bindings()
 	if err != nil {
 		t.Fatalf("nowFunc.Bindings() produced an err: %v", err)
@@ -223,6 +228,9 @@ func TestFunctionSingletonBinding(t *testing.T) {
 	)
 	if err != nil {
 		t.Fatalf("NewFunction() failed: %v", err)
+	}
+	if !size.HasSingletonBinding() {
+		t.Error("size.HasSingletonBinding() got false, wanted true")
 	}
 	bindings, err := size.Bindings()
 	if err != nil {
