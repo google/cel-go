@@ -796,6 +796,14 @@ func (td *TypeDesc) Validate() error {
 			return fmt.Errorf("invalid type: optional_type expects 1 parameter, got %d", len(td.Params))
 		}
 		return td.Params[0].Validate()
+	case "type":
+		if len(td.Params) == 0 {
+			return nil
+		}
+		if len(td.Params) != 1 {
+			return fmt.Errorf("invalid type: type expects 0 or 1 parameters, got %d", len(td.Params))
+		}
+		return td.Params[0].Validate()
 	default:
 	}
 	return nil
@@ -832,6 +840,15 @@ func (td *TypeDesc) AsCELType(tp types.Provider) (*types.Type, error) {
 			return nil, err
 		}
 		return types.NewOptionalType(et), nil
+	case "type":
+		if len(td.Params) == 0 {
+			return types.TypeType, nil
+		}
+		pt, err := td.Params[0].AsCELType(tp)
+		if err != nil {
+			return nil, err
+		}
+		return types.NewTypeTypeWithParam(pt), nil
 	default:
 		if td.IsTypeParam {
 			return types.NewTypeParamType(td.TypeName), nil

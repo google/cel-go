@@ -545,6 +545,30 @@ func TestVariableAsCELVariable(t *testing.T) {
 			want: errors.New("undefined type name"),
 		},
 		{
+			name: "simple type",
+			v: &Variable{
+				Name:     "t",
+				TypeDesc: &TypeDesc{TypeName: "type"},
+			},
+			want: decls.NewVariable("t", types.TypeType),
+		},
+		{
+			name: "type with param",
+			v: &Variable{
+				Name:     "t",
+				TypeDesc: &TypeDesc{TypeName: "type", Params: []*TypeDesc{NewTypeParam("T")}},
+			},
+			want: decls.NewVariable("t", types.NewTypeTypeWithParam(types.NewTypeParamType("T"))),
+		},
+		{
+			name: "type with too many params",
+			v: &Variable{
+				Name:     "t",
+				TypeDesc: &TypeDesc{TypeName: "type", Params: []*TypeDesc{NewTypeParam("T"), NewTypeParam("U")}},
+			},
+			want: errors.New("expects 0 or 1 parameters"),
+		},
+		{
 			name: "int type",
 			v:    NewVariable("int_var", NewTypeDesc("int")),
 			want: decls.NewVariable("int_var", types.IntType),
@@ -648,6 +672,7 @@ func TestTypeDescString(t *testing.T) {
 	}{
 		{desc: NewTypeDesc("string"), want: "string"},
 		{desc: NewTypeDesc("list", NewTypeParam("T")), want: "list(T)"},
+		{desc: NewTypeDesc("type", NewTypeParam("T")), want: "type(T)"},
 		{desc: NewTypeDesc("map", NewTypeDesc("string"), NewTypeParam("T")), want: "map(string,T)"},
 	}
 	for _, tc := range tests {
@@ -766,7 +791,7 @@ func TestFunctionAsCELFunction(t *testing.T) {
 			want: mustNewFunction(t, "size", decls.MemberOverload("string_size", []*types.Type{types.StringType}, types.IntType)),
 		},
 		{
-			name: "member function",
+			name: "member function with examples",
 			f: &Function{Name: "size",
 				Description: "return the number of unicode code points in a string",
 				Overloads: []*Overload{{
@@ -785,6 +810,21 @@ func TestFunctionAsCELFunction(t *testing.T) {
 					decls.OverloadExamples(
 						`'hello'.size() // 5`,
 						`'hello world'.size() // 11`))),
+		},
+		{
+			name: "function with type containing params",
+			f: &Function{Name: "asType",
+				Overloads: []*Overload{
+					{ID: "bytes_asType_type(T)",
+						Target: &TypeDesc{TypeName: "bytes"},
+						Args:   []*TypeDesc{NewTypeDesc("type", NewTypeParam("T"))},
+						Return: NewTypeParam("T")},
+				},
+			},
+			want: mustNewFunction(t, "asType",
+				decls.MemberOverload("bytes_asType_type(T)",
+					[]*types.Type{types.BytesType, types.NewTypeTypeWithParam(types.NewTypeParamType("T"))},
+					types.NewTypeParamType("T"))),
 		},
 	}
 	tp, err := types.NewRegistry()
