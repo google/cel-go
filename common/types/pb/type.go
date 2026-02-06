@@ -20,6 +20,7 @@ import (
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	dynamicpb "google.golang.org/protobuf/types/dynamicpb"
@@ -254,30 +255,108 @@ func (fd *FieldDescription) GetFrom(target any) (any, error) {
 	}
 	pbRef := v.ProtoReflect()
 	pbDesc := pbRef.Descriptor()
-	var fieldVal any
+	var fieldVal protoreflect.Value
 	if pbDesc == fd.desc.ContainingMessage() {
 		// When the target protobuf shares the same message descriptor instance as the field
 		// descriptor, use the cached field descriptor value.
-		fieldVal = pbRef.Get(fd.desc).Interface()
+		fieldVal = pbRef.Get(fd.desc)
 	} else {
 		// Otherwise, fallback to a dynamic lookup of the field descriptor from the target
 		// instance as an attempt to use the cached field descriptor will result in a panic.
-		fieldVal = pbRef.Get(pbDesc.Fields().ByName(protoreflect.Name(fd.Name()))).Interface()
+		fieldVal = pbRef.Get(pbDesc.Fields().ByName(protoreflect.Name(fd.Name())))
 	}
-	switch fv := fieldVal.(type) {
+	return fd.getNativeValue(fieldVal)
+}
+
+func (fd *FieldDescription) getNativeType(v protoreflect.Value) (reflect.Type, error) {
+	switch fv := v.Interface().(type) {
+	case protoreflect.Message:
+		// Make sure to unwrap well-known protobuf types before returning.
+		unwrapped, _, err := fd.MaybeUnwrapDynamic(fv)
+		return reflect.TypeOf(unwrapped), err
+	case protoreflect.EnumNumber:
+		enumType, err := protoregistry.GlobalTypes.FindEnumByName(fd.desc.Enum().FullName())
+		if err != nil {
+			return nil, err
+		}
+		return reflect.TypeOf(enumType.New(0)), nil
+	case protoreflect.List:
+		if fv == nil {
+			return nil, nil
+		}
+
+		element := fv.NewElement()
+		et, err := fd.getNativeType(element)
+		if err != nil {
+			return nil, err
+		}
+		return reflect.SliceOf(et), nil
+	case protoreflect.Map:
+		vt, err := fd.getNativeType(fv.NewValue())
+		if err != nil {
+			return nil, err
+		}
+		return reflect.MapOf(fd.KeyType.reflectType, vt), nil
+	default:
+		return reflect.TypeOf(fv), nil
+	}
+}
+
+func (fd *FieldDescription) getNativeValue(v protoreflect.Value) (any, error) {
+	switch fv := v.Interface().(type) {
 	// Fast-path return for primitive types.
-	case bool, []byte, float32, float64, int32, int64, string, uint32, uint64, protoreflect.List:
+	case bool, []byte, float32, float64, int32, int64, string, uint32, uint64:
 		return fv, nil
 	case protoreflect.EnumNumber:
-		return int64(fv), nil
+		enumType, err := protoregistry.GlobalTypes.FindEnumByName(fd.desc.Enum().FullName())
+		if err != nil {
+			return nil, err
+		}
+		return enumType.New(fv), nil
 	case protoreflect.Map:
-		// Return a wrapper around the protobuf-reflected Map types which carries additional
-		// information about the key and value definitions of the map.
-		return &Map{Map: fv, KeyType: fd.KeyType, ValueType: fd.ValueType}, nil
+		if fv == nil {
+			return nil, nil
+		}
+
+		mapType, err := fd.getNativeType(v)
+		if err != nil {
+			return nil, err
+		}
+
+		m := reflect.MakeMap(mapType)
+		fv.Range(func(mk protoreflect.MapKey, v protoreflect.Value) bool {
+			vv, err := fd.getNativeValue(v)
+			if err != nil {
+				return false
+			}
+			m.SetMapIndex(reflect.ValueOf(mk.Interface()), reflect.ValueOf(vv))
+			return true
+		})
+		return m.Interface(), nil
 	case protoreflect.Message:
 		// Make sure to unwrap well-known protobuf types before returning.
 		unwrapped, _, err := fd.MaybeUnwrapDynamic(fv)
 		return unwrapped, err
+	case protoreflect.List:
+		if fv == nil {
+			return nil, nil
+		}
+
+		sliceType, err := fd.getNativeType(v)
+		if err != nil {
+			return nil, err
+		}
+
+		slice := reflect.MakeSlice(sliceType, fv.Len(), fv.Len())
+
+		for i := 0; i < fv.Len(); i++ {
+			elementVal, err := fd.getNativeValue(fv.Get(i))
+			if err != nil {
+				return nil, err
+			}
+			slice.Index(i).Set(reflect.ValueOf(elementVal))
+		}
+		return slice.Interface(), nil
 	default:
 		return fv, nil
 	}
