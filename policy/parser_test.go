@@ -18,6 +18,9 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/ext"
 	"github.com/google/go-cmp/cmp"
 	"go.yaml.in/yaml/v3"
 )
@@ -284,6 +287,89 @@ rule:
 	}
 }
 
+func TestCustomTagVisitor(t *testing.T) {
+	tst := `name: "test"
+description: |-2
+   A test description.
+version: 1
+version: 2
+last-modified: 2026-02-09
+rule:
+  match:
+    - condition: "true"
+      output: "true"
+`
+
+	handler := &testTagHandler{}
+	parser, err := NewParser(CustomTagVisitor(handler))
+	if err != nil {
+		t.Fatalf("NewParser() failed: %v", err)
+	}
+	policy, iss := parser.Parse(StringSource(tst, "<input>"))
+	if iss != nil {
+		t.Fatalf("Parse() failed: %v", iss.Err())
+	}
+
+	if dx := cmp.Diff(" A test description.", handler.description); dx != "" {
+		t.Errorf("handler.description (+got, -want): %s", dx)
+	}
+	if dx := cmp.Diff(" A test description.", policy.Description().Value); dx != "" {
+		t.Errorf("policy.Description() (+got, -want): %s", dx)
+	}
+
+	if len(policy.MetadataKeys()) != 3 {
+		t.Errorf("policy.MetadataKeys() got %v, wanted 2 keys", policy.MetadataKeys())
+	}
+	prevVer, found := policy.Metadata("prev.version")
+	if !found {
+		t.Fatalf("prev.version not found in policy.Metadata")
+	}
+	if prevVer != "1" {
+		t.Errorf("prev.version got %s, wanted 1", prevVer)
+	}
+}
+
+func TestSimpleVariables(t *testing.T) {
+	tst := `name: "test"
+rule:
+  variables:
+    - first: "1.5"
+    - second: "2.5"
+  match:
+    - output: >
+        variables.first + variables.second
+
+`
+
+	parser, err := NewParser(SimpleVariables())
+	if err != nil {
+		t.Fatalf("NewParser() failed: %v", err)
+	}
+	policy, iss := parser.Parse(StringSource(tst, "<input>"))
+	if iss != nil {
+		t.Fatalf("Parse() failed: %v", iss.Err())
+	}
+	env, err := cel.NewEnv(ext.Bindings())
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+	ast, iss := Compile(env, policy)
+	if iss != nil {
+		t.Fatalf("Compile() failed: %v", iss.Err())
+	}
+	prg, err := env.Program(ast)
+	if err != nil {
+		t.Fatalf("Program() failed: %v", err)
+	}
+	out, _, err := prg.Eval(cel.NoVars())
+	if err != nil {
+		t.Fatalf("prg.Eval() failed: %v", err)
+	}
+	if out != types.Double(4.0) {
+		t.Errorf("got %v, wanted 4.0", out)
+	}
+}
+
 type testTagHandler struct {
 	defaultTagVisitor
 
@@ -293,36 +379,13 @@ type testTagHandler struct {
 func (t *testTagHandler) PolicyTag(ctx ParserContext, id int64, tagName string, node *yaml.Node, p *Policy) {
 	if tagName == "description" {
 		t.description = node.Value
+		return
 	}
-}
-
-func TestDescriptionTag(t *testing.T) {
-	tst := `name: "test"
-description: |-2
-   A test description.
-rule:
-  match:
-    - condition: "true"
-      output: "true"
-
-`
-
-	parser, err := NewParser()
-	if err != nil {
-		t.Fatalf("NewParser() failed: %v", err)
-	}
-	handler := &testTagHandler{}
-	parser.TagVisitor = handler
-	policy, iss := parser.Parse(StringSource(tst, "<input>"))
-	if iss != nil {
-		t.Fatalf("Parse() failed: %v", iss.Err())
-	}
-
-	if dx := cmp.Diff(" A test description.", handler.description); dx != "" {
-		t.Errorf("handler.description (+got, -want): %s", dx)
-	}
-
-	if dx := cmp.Diff(" A test description.", policy.Description().Value); dx != "" {
-		t.Errorf("policy.Description() (+got, -want): %s", dx)
+	// Store the last value for a repeated tag
+	if meta, found := p.Metadata(tagName); found {
+		p.SetMetadata("prev."+tagName, meta)
+		p.SetMetadata(tagName, node.Value)
+	} else {
+		p.SetMetadata(tagName, node.Value)
 	}
 }
