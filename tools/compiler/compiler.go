@@ -97,6 +97,11 @@ type Compiler interface {
 	CreatePolicyParser() (*policy.Parser, error)
 	// PolicyCompilerOptions returns the policy compiler options.
 	PolicyCompilerOptions() []policy.CompilerOption
+}
+
+// CustomMetadataCompiler interface is used to set up a compiler with the following capabilities:
+// - fetch policy metadata environment options
+type CustomMetadataCompiler interface {
 	// PolicyMetadataEnvOptions returns the policy metadata environment options.
 	PolicyMetadataEnvOptions() []PolicyMetadataEnvOption
 }
@@ -522,9 +527,11 @@ func (f *FileExpression) CreateAST(compiler Compiler) (*cel.Ast, map[string]any,
 			return nil, nil, fmt.Errorf("parser.Parse(%q) failed: %w", src.Content(), iss.Err())
 		}
 		policyMetadata := clonePolicyMetadata(p)
-		for _, opt := range compiler.PolicyMetadataEnvOptions() {
-			if e, err = e.Extend(opt(policyMetadata)); err != nil {
-				return nil, nil, fmt.Errorf("e.Extend() with metadata option failed: %w", err)
+		if meta, ok := compiler.(CustomMetadataCompiler); ok {
+			for _, opt := range meta.PolicyMetadataEnvOptions() {
+				if e, err = e.Extend(opt(policyMetadata)); err != nil {
+					return nil, nil, fmt.Errorf("e.Extend() with metadata option failed: %w", err)
+				}
 			}
 		}
 		ast, iss := policy.Compile(e, p, compiler.PolicyCompilerOptions()...)

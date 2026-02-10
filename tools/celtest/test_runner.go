@@ -187,8 +187,8 @@ func TestRunnerOptionsFromFlags(testResourcesDir string, testRunnerOpts []TestRu
 	return func(tr *TestRunner) (*TestRunner, error) {
 		opts := []TestRunnerOption{
 			testRunnerCompilerFromFlags(testCompilerOpts...),
-			DefaultTestSuiteParser(testSuitePath),
-			AddFileDescriptorSet(fileDescriptorSetPath),
+			TestSuite(testSuitePath),
+			FileDescriptorSet(fileDescriptorSetPath),
 			TestExpression(celExpression),
 		}
 		if enableCoverage {
@@ -222,6 +222,18 @@ func testRunnerCompilerFromFlags(testCompilerOpts ...any) TestRunnerOption {
 	}
 	opts = append(opts, testCompilerOpts...)
 	return TestCompiler(opts...)
+}
+
+// ActivationFactory is a function which creates a CEL activation from the provided variables.
+type ActivationFactory func(vars any) (cel.Activation, error)
+
+// TestInputActivationFactory updates the test runner with the provided activation factory.
+// The activation factory is used to create a CEL activation from the provided variables.
+func TestInputActivationFactory(f ActivationFactory) TestRunnerOption {
+	return func(tr *TestRunner) (*TestRunner, error) {
+		tr.activationFactory = f
+		return tr, nil
+	}
 }
 
 // TestSuiteParser is an interface for parsing a test suite:
@@ -272,8 +284,17 @@ func (p *tsParser) ParseYAML(path string) (*test.Suite, error) {
 	return testSuite, err
 }
 
+// TestSuite provides a reference to the test suite file (either .yaml or .textproto)
+func TestSuite(path string) TestRunnerOption {
+	return func(tr *TestRunner) (*TestRunner, error) {
+		tr.TestSuiteFilePath = path
+		return tr, nil
+	}
+}
+
 // DefaultTestSuiteParser returns a TestRunnerOption which configures the test runner with
 // the default test suite parser.
+// Deprecated: prefer TestSuite(path)
 func DefaultTestSuiteParser(path string) TestRunnerOption {
 	return func(tr *TestRunner) (*TestRunner, error) {
 		if path == "" {
@@ -310,12 +331,14 @@ func TestSuiteParserOption(p TestSuiteParser) TestRunnerOption {
 // - ExecuteTest: Executes a single
 type TestRunner struct {
 	compiler.Compiler
-	Expressions           []compiler.InputExpression
-	TestSuiteFilePath     string
-	FileDescriptorSetPath string
-	testSuiteParser       TestSuiteParser
-	testProgramOptions    []cel.ProgramOption
-	EnableCoverage        bool
+	Expressions       []compiler.InputExpression
+	TestSuiteFilePath string
+	FileDescriptorSet *descpb.FileDescriptorSet
+	EnableCoverage    bool
+
+	activationFactory  ActivationFactory
+	testSuiteParser    TestSuiteParser
+	testProgramOptions []cel.ProgramOption
 }
 
 // Test represents a single test case to be executed. It encompasses the following:
@@ -325,12 +348,12 @@ type TestRunner struct {
 // returns a TestResult.
 type Test struct {
 	name          string
-	input         interpreter.PartialActivation
+	input         cel.PartialActivation
 	resultMatcher func(ref.Val, error) TestResult
 }
 
 // NewTest creates a new Test with the provided name, input and result matcher.
-func NewTest(name string, input interpreter.PartialActivation, resultMatcher func(ref.Val, error) TestResult) *Test {
+func NewTest(name string, input cel.PartialActivation, resultMatcher func(ref.Val, error) TestResult) *Test {
 	return &Test{
 		name:          name,
 		input:         input,
@@ -354,7 +377,10 @@ type TestResult struct {
 // - configure the Compiler used for parsing and compiling the input expressions
 // - configure the Test Runner used for parsing and executing the tests
 func NewTestRunner(opts ...TestRunnerOption) (*TestRunner, error) {
-	tr := &TestRunner{}
+	tr := &TestRunner{
+		activationFactory: cel.NewActivation,
+		testSuiteParser:   &tsParser{},
+	}
 	var err error
 	for _, opt := range opts {
 		tr, err = opt(tr)
@@ -402,25 +428,32 @@ func CustomTestCompiler(c compiler.Compiler) TestRunnerOption {
 	}
 }
 
-// AddFileDescriptorSet creates a Test Runner Option which adds a file descriptor set to the test
+// FileDescriptorSet creates a Test Runner Option which adds a file descriptor set to the test
 // runner. The file descriptor set is used to register proto messages in the global proto registry.
-func AddFileDescriptorSet(path string) TestRunnerOption {
+func FileDescriptorSet(path string) TestRunnerOption {
 	return func(tr *TestRunner) (*TestRunner, error) {
 		if path != "" {
-			tr.FileDescriptorSetPath = path
+			fds, err := fileDescriptorSet(path)
+			if err != nil {
+				return nil, err
+			}
+			tr.FileDescriptorSet = fds
 		}
 		return tr, nil
 	}
 }
 
-func registerMessages(path string) error {
-	if path == "" {
-		return nil
+// AddFileDescriptorSetProto creates a Test Runner Option which adds a file descriptor set proto to
+// the test runner. The file descriptor set is used to register proto messages in the global proto
+// registry.
+func AddFileDescriptorSetProto(fds *descpb.FileDescriptorSet) TestRunnerOption {
+	return func(tr *TestRunner) (*TestRunner, error) {
+		tr.FileDescriptorSet = fds
+		return tr, nil
 	}
-	fds, err := fileDescriptorSet(path)
-	if err != nil {
-		return err
-	}
+}
+
+func registerMessages(fds *descpb.FileDescriptorSet) error {
 	for _, file := range fds.GetFile() {
 		reflectFD, err := protodesc.NewFile(file, protoregistry.GlobalFiles)
 		if err != nil {
@@ -547,9 +580,9 @@ func (tr *TestRunner) Tests(t *testing.T) ([]*Test, error) {
 	} else if testSuite != nil {
 		return tr.createTestsFromYAML(t, testSuite)
 	}
-	err := registerMessages(tr.FileDescriptorSetPath)
+	err := registerMessages(tr.FileDescriptorSet)
 	if err != nil {
-		return nil, fmt.Errorf("registerMessages(%q) failed: %v", tr.FileDescriptorSetPath, err)
+		return nil, fmt.Errorf("registerMessages(%v) failed: %v", tr.FileDescriptorSet, err)
 	}
 	if testSuite, err := tr.testSuiteParser.ParseTextproto(tr.TestSuiteFilePath); err != nil &&
 		!strings.Contains(err.Error(), "invalid file extension") {
@@ -580,14 +613,14 @@ func (tr *TestRunner) createTestsFromTextproto(t *testing.T, testSuite *conforma
 	return tests, nil
 }
 
-func (tr *TestRunner) createTestInputFromPB(t *testing.T, testCase *conformancepb.TestCase) (interpreter.PartialActivation, error) {
+func (tr *TestRunner) createTestInputFromPB(t *testing.T, testCase *conformancepb.TestCase) (cel.PartialActivation, error) {
 	t.Helper()
 	input := map[string]any{}
 	e, err := tr.CreateEnv()
 	if err != nil {
 		return nil, err
 	}
-	var activation interpreter.Activation
+	var activation cel.Activation
 	if testCase.GetInputContext() != nil {
 		if len(testCase.GetInput()) != 0 {
 			return nil, fmt.Errorf("only one of input and input_context can be provided at a time")
@@ -634,9 +667,9 @@ func (tr *TestRunner) createTestInputFromPB(t *testing.T, testCase *conformancep
 			}
 		}
 	}
-	activation, err = interpreter.NewActivation(input)
+	activation, err = tr.activationFactory(input)
 	if err != nil {
-		return nil, fmt.Errorf("interpreter.NewActivation(%q) failed: %w", input, err)
+		return nil, fmt.Errorf("activationFactory(%q) failed: %w", input, err)
 	}
 	return e.PartialVars(activation)
 }
@@ -812,13 +845,13 @@ func (tr *TestRunner) createTestsFromYAML(t *testing.T, testSuite *test.Suite) (
 	return tests, nil
 }
 
-func (tr *TestRunner) createTestInput(t *testing.T, testCase *test.Case) (interpreter.PartialActivation, error) {
+func (tr *TestRunner) createTestInput(t *testing.T, testCase *test.Case) (cel.PartialActivation, error) {
 	t.Helper()
 	e, err := tr.CreateEnv()
 	if err != nil {
 		return nil, err
 	}
-	var activation interpreter.Activation
+	var activation cel.Activation
 	if testCase.InputContext != nil && testCase.InputContext.ContextExpr != "" {
 		if len(testCase.Input) != 0 {
 			return nil, fmt.Errorf("only one of input and input_context can be provided at a time")
@@ -850,9 +883,9 @@ func (tr *TestRunner) createTestInput(t *testing.T, testCase *test.Case) (interp
 		}
 		input[k] = v.Value
 	}
-	activation, err = interpreter.NewActivation(input)
+	activation, err = tr.activationFactory(input)
 	if err != nil {
-		return nil, fmt.Errorf("interpreter.NewActivation(%q) failed: %w", input, err)
+		return nil, fmt.Errorf("activationFactory(%q) failed: %w", input, err)
 	}
 	return e.PartialVars(activation)
 }
