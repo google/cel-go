@@ -109,14 +109,14 @@ func k8sParserOpts() policy.ParserOption {
 func TestTriggerTestsWithRunnerOptions(t *testing.T) {
 	t.Run("test trigger tests custom policy", func(t *testing.T) {
 		envOpt := compiler.EnvironmentFile("../../policy/testdata/k8s/config.yaml")
-		testSuiteParser := DefaultTestSuiteParser("../../policy/testdata/k8s/tests.yaml")
+		testSuite := TestSuite("../../policy/testdata/k8s/tests.yaml")
 		testCELPolicy := TestExpression("../../policy/testdata/k8s/policy.yaml")
 		c, err := compiler.NewCompiler(envOpt, k8sParserOpts())
 		if err != nil {
 			t.Fatalf("compiler.NewCompiler() failed: %v", err)
 		}
 		compilerOpt := CustomTestCompiler(c)
-		opts := []TestRunnerOption{compilerOpt, testSuiteParser, testCELPolicy}
+		opts := []TestRunnerOption{compilerOpt, testSuite, testCELPolicy}
 		TriggerTests(t, opts...)
 	})
 }
@@ -127,6 +127,7 @@ func customPolicyParserOption() policy.ParserOption {
 		return p, nil
 	}
 }
+
 func ParsePolicyVariables(metadata map[string]any) cel.EnvOption {
 	var variables []*decls.VariableDecl
 	for n, t := range metadata {
@@ -197,8 +198,8 @@ func TestTriggerTests(t *testing.T) {
 			}
 			testOpts = append(testOpts,
 				TestCompiler(compileOpts...),
-				DefaultTestSuiteParser(tc.testSuitePath),
-				AddFileDescriptorSet(tc.fileDescriptorSetPath),
+				FileDescriptorSet(tc.fileDescriptorSetPath),
+				TestSuite(tc.testSuitePath),
 				TestExpression(tc.celExpression),
 				PartialEvalProgramOption(),
 			)

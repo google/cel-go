@@ -87,9 +87,9 @@ func TestCoverageStats(t *testing.T) {
 				tc.compilerOpts = append(tc.compilerOpts, envOpt)
 			}
 			compilerOpt := TestCompiler(tc.compilerOpts...)
-			testSuiteParserOpt := DefaultTestSuiteParser(tc.testSuitePath)
+			testSuiteOpt := TestSuite(tc.testSuitePath)
 			testExprOpt := TestExpression(tc.celExpr)
-			tr, err := NewTestRunner(compilerOpt, testSuiteParserOpt, testExprOpt, EnableCoverage(), PartialEvalProgramOption())
+			tr, err := NewTestRunner(compilerOpt, testSuiteOpt, testExprOpt, EnableCoverage(), PartialEvalProgramOption())
 			if err != nil {
 				t.Fatalf("compiler.NewCompiler() failed: %v", err)
 			}
