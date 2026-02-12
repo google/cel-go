@@ -16,6 +16,7 @@ package cel
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -361,7 +362,11 @@ func (p *prog) ContextEval(ctx context.Context, input any) (ref.Val, *EvalDetail
 	default:
 		return nil, nil, fmt.Errorf("invalid input, wanted Activation or map[string]any, got: (%T)%v", input, input)
 	}
-	return p.Eval(vars)
+	out, det, err := p.Eval(vars)
+	if err != nil && errors.Is(err, interpreter.InterruptError{}) {
+		return out, det, context.Cause(ctx)
+	}
+	return out, det, err
 }
 
 type ctxEvalActivation struct {
