@@ -51,6 +51,14 @@ func TestOptionalConvertToNative(t *testing.T) {
 	if out != "hello" {
 		t.Errorf("OptionalOf('hello').ConvertToNative(string) got %v, wanted 'hello'", out)
 	}
+	optInt := OptionalOf(Int(20))
+	out, err = optInt.ConvertToNative(reflect.TypeFor[*Optional]())
+	if err != nil {
+		t.Fatalf("OptionalOf(20).ConvertToNative(optional_type) failed: %v", err)
+	}
+	if out != optInt {
+		t.Errorf("OptionalOf(20) got %v, wanted original value", out)
+	}
 }
 
 func TestOptionalConvertToType(t *testing.T) {

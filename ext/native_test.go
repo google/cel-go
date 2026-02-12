@@ -474,7 +474,7 @@ func TestNativeTypesJsonSerialization(t *testing.T) {
 					NestedListVal: ["first", "second"],
 				},
 				StringVal: "string",
-        custom_name: "name",
+                custom_name: "name",
 			}`,
 			out: `{
 				"BoolVal":  true,
@@ -495,7 +495,7 @@ func TestNativeTypesJsonSerialization(t *testing.T) {
 					]
 				},
 				"StringVal":  "string",
-        "custom_name": "name"
+                "custom_name": "name"
 			  }`,
 			additionalEnvOptions: []any{ParseStructTags(true)},
 		},
@@ -816,6 +816,52 @@ func TestNativeTypesWithOptional(t *testing.T) {
 	}
 }
 
+func TestNativeTypesWithCELTypedFields(t *testing.T) {
+	var nativeTests = []struct {
+		expr string
+	}{
+		{
+			expr: `ext.TestRefValFieldType{optional_name: optional.of('my name')}.optional_name.orValue('') == 'my name'`,
+		},
+		{
+			expr: `ext.TestRefValFieldType{IntVal: 2}.IntVal >= 1`,
+		},
+		{
+			expr: `ext.TestRefValFieldType{time: timestamp('2001-01-01T00:00:00Z')}.time > timestamp('1970-01-01T00:00:00Z')`,
+		},
+	}
+	env := testNativeEnv(t, cel.OptionalTypes(), ParseStructTag("cel"))
+	for i, tst := range nativeTests {
+		tc := tst
+		t.Run(fmt.Sprintf("[%d]", i), func(t *testing.T) {
+			var asts []*cel.Ast
+			pAst, iss := env.Parse(tc.expr)
+			if iss.Err() != nil {
+				t.Fatalf("env.Parse(%v) failed: %v", tc.expr, iss.Err())
+			}
+			asts = append(asts, pAst)
+			cAst, iss := env.Check(pAst)
+			if iss.Err() != nil {
+				t.Fatalf("env.Check(%v) failed: %v", tc.expr, iss.Err())
+			}
+			asts = append(asts, cAst)
+			for _, ast := range asts {
+				prg, err := env.Program(ast)
+				if err != nil {
+					t.Fatal(err)
+				}
+				out, _, err := prg.Eval(cel.NoVars())
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !reflect.DeepEqual(out.Value(), true) {
+					t.Errorf("got %v, wanted true for expr: %s", out.Value(), tc.expr)
+				}
+			}
+		})
+	}
+}
+
 func TestNativeTypeConvertToType(t *testing.T) {
 	var nativeTests = []struct {
 		tag string
@@ -1009,10 +1055,6 @@ func TestNativeTypesVersion(t *testing.T) {
 	}
 }
 
-type Custom struct {
-	Name string `cel:"name"`
-}
-
 func TestTypeResolutionRace(t *testing.T) {
 	customType := reflect.TypeFor[*Custom]()
 	env, err := cel.NewEnv(
@@ -1065,6 +1107,7 @@ func testNativeEnv(t *testing.T, opts ...any) *cel.Env {
 	}
 	nativeOpts := []any{
 		reflect.ValueOf(&TestAllTypes{}),
+		reflect.ValueOf(&TestRefValFieldType{}),
 	}
 	for _, o := range opts {
 		switch opt := o.(type) {
@@ -1096,6 +1139,10 @@ func mustParseTime(t *testing.T, timestamp string) time.Time {
 		t.Fatalf("time.Parse(%q) failed: %v", timestamp, err)
 	}
 	return out
+}
+
+type Custom struct {
+	Name string `cel:"name"`
 }
 
 type TestStructWithMultipleSameNames struct {
@@ -1151,4 +1198,10 @@ type TestMapVal struct {
 
 type TestEmbeddedTypes struct {
 	TestNestedType `json:"embedded,omitempty"`
+}
+
+type TestRefValFieldType struct {
+	OptionalName *types.Optional `cel:"optional_name"`
+	IntVal       types.Int
+	CELTime      types.Timestamp `cel:"time"`
 }
