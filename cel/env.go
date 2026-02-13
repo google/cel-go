@@ -18,6 +18,8 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
+	"strings"
 	"sync"
 
 	"github.com/google/cel-go/checker"
@@ -285,6 +287,32 @@ func (e *Env) ToConfig(name string) (*env.Config, error) {
 		}
 		conf.AddFeatures(env.NewFeature(featName, enabled))
 	}
+
+	// Sort repeated fields in config where reasonable to make the export
+	// stable.
+	slices.SortFunc(conf.Imports, func(a *env.Import, b *env.Import) int {
+		return strings.Compare(a.Name, b.Name)
+	})
+
+	slices.SortFunc(conf.Extensions, func(a *env.Extension, b *env.Extension) int {
+		return strings.Compare(a.Name, b.Name)
+	})
+
+	slices.SortFunc(conf.Variables, func(a *env.Variable, b *env.Variable) int {
+		return strings.Compare(a.Name, b.Name)
+	})
+
+	slices.SortFunc(conf.Functions, func(a *env.Function, b *env.Function) int {
+		return strings.Compare(a.Name, b.Name)
+	})
+
+	slices.SortFunc(conf.Validators, func(a *env.Validator, b *env.Validator) int {
+		return strings.Compare(a.Name, b.Name)
+	})
+
+	slices.SortFunc(conf.Features, func(a *env.Feature, b *env.Feature) int {
+		return strings.Compare(a.Name, b.Name)
+	})
 
 	return conf, nil
 }
