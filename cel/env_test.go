@@ -433,11 +433,11 @@ func TestEnvToConfig(t *testing.T) {
 				ASTValidators(ValidateComprehensionNestingLimit(1)),
 			},
 			want: env.NewConfig("validators").AddValidators(
-				env.NewValidator("cel.validator.duration"),
-				env.NewValidator("cel.validator.timestamp"),
-				env.NewValidator("cel.validator.matches"),
-				env.NewValidator("cel.validator.homogeneous_literals"),
 				env.NewValidator("cel.validator.comprehension_nesting_limit").SetConfig(map[string]any{"limit": 1}),
+				env.NewValidator("cel.validator.duration"),
+				env.NewValidator("cel.validator.homogeneous_literals"),
+				env.NewValidator("cel.validator.matches"),
+				env.NewValidator("cel.validator.timestamp"),
 			),
 		},
 	}
