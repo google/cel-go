@@ -2063,7 +2063,7 @@ _&&_(_==_(list~type(list(dyn))^list,
 					"b"
 				  )~optional_type(string)^select_optional_field
 				)~type(optional_type(string))^type,
-				optional_type~type(optional_type)^optional_type
+				optional_type~type(optional_type(dyn))^optional_type
 			  )~bool^equals`,
 		},
 		{
