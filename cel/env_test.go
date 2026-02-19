@@ -973,16 +973,16 @@ func TestEnvVariableValidation(t *testing.T) {
 		{
 			name: "incompatible_variable",
 			opts: []EnvOption{
-				Variable("foo", types.IntType),
-				Variable("foo", types.DoubleType),
+				Variable("foo", IntType),
+				Variable("foo", DoubleType),
 			},
 			wantErr: "overlapping identifier for name",
 		},
 		{
 			name: "incompatible_constant",
 			opts: []EnvOption{
-				Constant("foo", types.IntType, types.Int(42)),
-				Constant("foo", types.IntType, types.Int(43)),
+				Constant("foo", IntType, types.Int(42)),
+				Constant("foo", IntType, types.Int(43)),
 			},
 			wantErr: "conflicting constant definitions",
 		},
