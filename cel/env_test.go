@@ -580,6 +580,39 @@ func TestEnvFromConfig(t *testing.T) {
 			},
 		},
 		{
+			name: "custom env - variable to constant",
+			afterOpts: []EnvOption{
+				Constant("foo.bar", types.IntType, types.Int(42)),
+			},
+			conf: env.NewConfig("custom env - functions").
+				AddVariables(env.NewVariable("foo.bar", env.NewTypeDesc("int"))),
+			exprs: []exprCase{
+				{
+					name: "valid",
+					expr: "foo.bar == 42",
+					out:  types.True,
+				},
+			},
+		},
+		{
+			name: "custom env - variable to compatible constants",
+			beforeOpts: []EnvOption{
+				Constant("foo.bar", types.IntType, types.Int(42)),
+			},
+			afterOpts: []EnvOption{
+				Constant("foo.bar", types.IntType, types.Int(42)),
+			},
+			conf: env.NewConfig("custom env - functions").
+				AddVariables(env.NewVariable("foo.bar", env.NewTypeDesc("int"))),
+			exprs: []exprCase{
+				{
+					name: "valid",
+					expr: "foo.bar == 42",
+					out:  types.True,
+				},
+			},
+		},
+		{
 			name: "pure custom env",
 			beforeOpts: []EnvOption{func(*Env) (*Env, error) {
 				return NewCustomEnv()
@@ -905,6 +938,73 @@ func TestEnvFromConfigErrors(t *testing.T) {
 			_, err := NewEnv(FromConfig(tc.conf))
 			if err == nil || !strings.Contains(err.Error(), tc.want.Error()) {
 				t.Fatalf("NewEnv(FromConfig()) got %v, wanted error containing %v", err, tc.want)
+			}
+		})
+	}
+}
+
+func TestEnvVariableValidation(t *testing.T) {
+	tcs := []struct {
+		name    string
+		opts    []EnvOption
+		wantErr string
+	}{
+		{
+			name: "compatible_duplicate",
+			opts: []EnvOption{
+				Variable("foo", IntType),
+				Variable("foo", IntType),
+			},
+		},
+		{
+			name: "variable_and_constant",
+			opts: []EnvOption{
+				Variable("foo", IntType),
+				Constant("foo", IntType, types.Int(50)),
+			},
+		},
+		{
+			name: "compatible_constant",
+			opts: []EnvOption{
+				Constant("foo", StringType, types.String("foo")),
+				Constant("foo", StringType, types.String("foo")),
+			},
+		},
+		{
+			name: "incompatible_variable",
+			opts: []EnvOption{
+				Variable("foo", IntType),
+				Variable("foo", DoubleType),
+			},
+			wantErr: "overlapping identifier for name",
+		},
+		{
+			name: "incompatible_constant",
+			opts: []EnvOption{
+				Constant("foo", IntType, types.Int(42)),
+				Constant("foo", IntType, types.Int(43)),
+			},
+			wantErr: "conflicting constant definitions",
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(*testing.T) {
+			env, err := NewEnv(tc.opts...)
+			if err != nil {
+				t.Fatalf("NewEnv() returned error: %v", err)
+			}
+			// Variables are lazily validated.
+			_, iss := env.Compile("foo")
+			err = iss.Err()
+			if tc.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+					t.Errorf("Compile() returned error %v, wanted %s", err, tc.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("Compile() returned error %v wanted nil", err)
 			}
 		})
 	}
