@@ -735,6 +735,52 @@ func TestEnvFromConfig(t *testing.T) {
 			},
 		},
 		{
+			name: "limits_recursion",
+			conf: env.NewConfig("limits").
+				AddLimits(env.NewLimit("cel.limit.parse_recursion_depth", 3)),
+			exprs: []exprCase{
+				{
+					name: "under limit",
+					expr: "1 + 2",
+					out:  types.Int(3),
+				},
+				{
+					name: "over limit",
+					expr: "1 + 2 + 3 + 4 + 5",
+					iss:  errors.New("max recursion depth exceeded"),
+				},
+			},
+		},
+		{
+			name: "limits_codepoints",
+			conf: env.NewConfig("limits").
+				AddLimits(env.NewLimit("cel.limit.expression_code_points", 10)),
+			exprs: []exprCase{
+				{
+					name: "under limit",
+					expr: "'12345'",
+					out:  types.String("12345"),
+				},
+				{
+					name: "over limit",
+					expr: "'1234567890'",
+					iss:  errors.New("code point size exceeds limit: size: 12, limit 10"),
+				},
+			},
+		},
+		{
+			name: "limits_error_recovery",
+			conf: env.NewConfig("limits").
+				AddLimits(env.NewLimit("cel.limit.parse_error_recovery", 4)),
+			exprs: []exprCase{
+				{
+					name: "over limit",
+					expr: "a ? b ((?))",
+					iss:  errors.New("Syntax error: error recovery attempt limit exceeded: 4"),
+				},
+			},
+		},
+		{
 			name: "validators",
 			conf: env.NewConfig("validators").
 				AddVariables(

@@ -102,6 +102,8 @@ func TestConfig(t *testing.T) {
 				),
 			).AddFeatures(
 				NewFeature("cel.feature.macro_call_tracking", true),
+			).AddLimits(
+				NewLimit("cel.limit.parse_recursion_depth", 7),
 			).AddValidators(
 				NewValidator("cel.validator.duration"),
 				NewValidator("cel.validator.matches"),
@@ -204,6 +206,19 @@ func TestConfig(t *testing.T) {
 					}
 					if f.Enabled != wf.Enabled {
 						t.Errorf("Features[%d] got enabled %t, wanted %t", i, f.Enabled, wf.Enabled)
+					}
+				}
+			}
+			if len(got.Limits) != len(tc.want.Limits) {
+				t.Errorf("Limits count got %d, wanted %d", len(got.Limits), len(tc.want.Limits))
+			} else {
+				for i, l := range got.Limits {
+					wl := tc.want.Limits[i]
+					if l.Name != wl.Name {
+						t.Errorf("Limits[%d] got name %s, wanted %s", i, l.Name, wl.Name)
+					}
+					if l.Value != wl.Value {
+						t.Errorf("Limits[%d] got enabled %d, wanted %d", i, l.Value, wl.Value)
 					}
 				}
 			}
