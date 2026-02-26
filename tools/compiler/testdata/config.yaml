@@ -80,6 +80,3 @@ validators:
 features:
   - name: cel.feature.macro_call_tracking
     enabled: true
-limits:
-  - name: cel.limit.parse_recursion_depth
-    value: 7
