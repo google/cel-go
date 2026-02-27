@@ -3238,14 +3238,14 @@ func TestOptionalValuesEval(t *testing.T) {
 
 	for i, tst := range tests {
 		tc := tst
-		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+		t.Run(fmt.Sprintf("%s/%d", tc.expr, i), func(t *testing.T) {
 			ast, iss := env.Compile(tc.expr)
 			if iss.Err() != nil {
 				t.Fatalf("%v failed: %v", tc.expr, iss.Err())
 			}
 			prg, err := env.Program(ast)
 			if err != nil {
-				t.Errorf("env.Program() failed: %v", err)
+				t.Fatalf("env.Program() failed: %v", err)
 			}
 			out, _, err := prg.Eval(tc.in)
 			if err != nil && err.Error() != tc.out {
@@ -3254,6 +3254,150 @@ func TestOptionalValuesEval(t *testing.T) {
 			want := adapter.NativeToValue(tc.out)
 			if err == nil && out.Equal(want) != types.True {
 				t.Errorf("prg.Eval() got %v, wanted %v", out, want)
+			}
+		})
+	}
+}
+
+func unknownsEquivalent(t *testing.T, a *types.Unknown, b *types.Unknown) bool {
+	t.Helper()
+	return a.Contains(b) && b.Contains(a)
+}
+
+func TestOptionalValuesEvalUnknowns(t *testing.T) {
+	env := testEnv(t,
+		OptionalTypes(),
+		// Container and test message types.
+		Container("google.expr.proto2.test"),
+		Types(&proto2pb.TestAllTypes{}),
+		// Test variables.
+		Variable("x", OptionalType(IntType)),
+		Variable("y", OptionalType(IntType)),
+		Variable("z", IntType),
+	)
+
+	tests := []struct {
+		expr string
+		in   map[string]any
+		out  ref.Val
+	}{
+		{
+			expr: `x.or(y).orValue(z)`,
+			in: map[string]any{
+				"y": types.OptionalNone,
+				"z": 42,
+			},
+			out: types.NewUnknown(1, types.NewAttributeTrail("x")),
+		},
+		{
+			expr: `x.or(y).orValue(z)`,
+			in: map[string]any{
+				"x": types.OptionalNone,
+				"y": types.OptionalNone,
+			},
+			out: types.NewUnknown(5, types.NewAttributeTrail("z")),
+		},
+		{
+			expr: `x.or(y).orValue(z)`,
+			in: map[string]any{
+				"x": types.OptionalOf(types.IntOne),
+				"y": types.OptionalNone,
+			},
+			out: types.IntOne,
+		},
+		{
+			expr: `x.or(y).orValue(z)`,
+			in: map[string]any{
+				"x": types.OptionalNone,
+				"y": types.OptionalOf(types.IntOne),
+			},
+			out: types.IntOne,
+		},
+	}
+	for i, tst := range tests {
+		tc := tst
+		t.Run(fmt.Sprintf("%s/%d", tc.expr, i), func(t *testing.T) {
+			ast, iss := env.Compile(tc.expr)
+			if iss.Err() != nil {
+				t.Fatalf("%v failed: %v", tc.expr, iss.Err())
+			}
+			prg, err := env.Program(ast, EvalOptions(OptPartialEval))
+			if err != nil {
+				t.Fatalf("env.Program() failed: %v", err)
+			}
+			act, err := env.PartialVars(tc.in)
+			if err != nil {
+				t.Fatalf("env.PartialVars() returned error %v", err)
+			}
+			out, _, err := prg.Eval(act)
+			if err != nil {
+				t.Fatalf("prg.Eval() got error %v, wanted nil", err)
+			}
+			// unknowns don't define equality so special case.
+			if wantUnk, ok := tc.out.(*types.Unknown); ok {
+				if unk, ok := out.(*types.Unknown); !ok || !unknownsEquivalent(t, unk, wantUnk) {
+					t.Errorf("prg.Eval() got %v, wanted %v", unk, tc.out)
+				}
+				return
+			}
+			if eq, ok := out.Equal(tc.out).Value().(bool); !ok || !eq {
+				t.Errorf("prg.Eval() got %v, wanted %v", out, tc.out)
+			}
+
+		})
+	}
+}
+
+func TestOptionalValuesEvalErrorCases(t *testing.T) {
+	env := testEnv(t,
+		OptionalTypes(),
+		// Container and test message types.
+		Container("google.expr.proto2.test"),
+		Types(&proto2pb.TestAllTypes{}),
+		// Test variables.
+		Variable("x", OptionalType(IntType)),
+		Variable("y", OptionalType(IntType)),
+		Variable("z", IntType),
+	)
+	tests := []struct {
+		expr    string
+		in      map[string]any
+		wantErr string
+	}{
+		{
+			expr:    `dyn(1).or(optional.of(2))`,
+			wantErr: "no such overload",
+		},
+		{
+			expr:    `dyn(1).orValue(2)`,
+			wantErr: "no such overload",
+		},
+		{
+			expr:    `optional.of(1/0).or(optional.of(2))`,
+			wantErr: "division by zero",
+		},
+		{
+			expr:    `optional.of(1/0).orValue(2)`,
+			wantErr: "division by zero",
+		},
+	}
+	for i, tst := range tests {
+		tc := tst
+		t.Run(fmt.Sprintf("%s/%d", tc.expr, i), func(t *testing.T) {
+			ast, iss := env.Compile(tc.expr)
+			if iss.Err() != nil {
+				t.Fatalf("%v failed: %v", tc.expr, iss.Err())
+			}
+			prg, err := env.Program(ast)
+			if err != nil {
+				t.Errorf("env.Program() failed: %v", err)
+			}
+			_, _, err = prg.Eval(tc.in)
+			if err == nil {
+				t.Fatalf("prg.Eval got nil error, wanted %v", tc.wantErr)
+			}
+			if !strings.Contains(err.Error(), tc.wantErr) {
+				t.Errorf("prg.Eval() got %v, wanted %v", err, tc.wantErr)
 			}
 		})
 	}
