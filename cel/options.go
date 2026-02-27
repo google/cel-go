@@ -93,6 +93,40 @@ func featureIDByName(name string) (int, bool) {
 	return 0, false
 }
 
+// limitID is used as a key for configurable limits. These are options that
+// support exporting to YAML environment config.
+type limitID int
+
+const (
+	_ = limitID(iota)
+	// The number of recursive calls permitted in parsing.
+	limitParseRecursionDepth
+	// The number of code points permitted in an input expression string.
+	limitCodePointSize
+	// The number of attempts to recover from a parse error.
+	limitParseErrorRecovery
+)
+
+var limitIDsToNames = map[limitID]string{
+	limitCodePointSize:       "cel.limit.expression_code_points",
+	limitParseErrorRecovery:  "cel.limit.parse_error_recovery",
+	limitParseRecursionDepth: "cel.limit.parse_recursion_depth",
+}
+
+func limitNameByID(id limitID) (string, bool) {
+	v, ok := limitIDsToNames[id]
+	return v, ok
+}
+
+func limitIDByName(name string) (limitID, bool) {
+	for k, v := range limitIDsToNames {
+		if v == name {
+			return k, true
+		}
+	}
+	return limitID(0), false
+}
+
 // EnvOption is a functional interface for configuring the environment.
 type EnvOption func(e *Env) (*Env, error)
 
@@ -564,7 +598,7 @@ func configToEnvOptions(config *env.Config, provider types.Provider, optFactorie
 		envOpts = append(envOpts, FunctionDecls(funcs...))
 	}
 
-	// Configure features
+	// Configure features and common limits.
 	for _, feat := range config.Features {
 		// Note, if a feature is not found, it is skipped as it is possible the feature
 		// is not intended to be supported publicly. In the future, a refinement of
@@ -572,6 +606,12 @@ func configToEnvOptions(config *env.Config, provider types.Provider, optFactorie
 		// be covered as a standard ConfigOptionFactory
 		if id, found := featureIDByName(feat.Name); found {
 			envOpts = append(envOpts, features(id, feat.Enabled))
+		}
+	}
+
+	for _, limit := range config.Limits {
+		if id, found := limitIDByName(limit.Name); found {
+			envOpts = append(envOpts, setLimit(id, limit.Value))
 		}
 	}
 
@@ -847,22 +887,32 @@ func features(flag int, enabled bool) EnvOption {
 	}
 }
 
-// ParserRecursionLimit adjusts the AST depth the parser will tolerate.
-// Defaults defined in the parser package.
-func ParserRecursionLimit(limit int) EnvOption {
+func setLimit(id limitID, limit int) EnvOption {
+	if limit < 0 {
+		limit = -1
+	}
 	return func(e *Env) (*Env, error) {
-		e.prsrOpts = append(e.prsrOpts, parser.MaxRecursionDepth(limit))
+		e.limits[id] = limit
 		return e, nil
 	}
 }
 
-// ParserExpressionSizeLimit adjusts the number of code points the expression parser is allowed to parse.
+// ParserRecursionLimit adjusts the AST depth the parser will tolerate.
 // Defaults defined in the parser package.
+func ParserRecursionLimit(limit int) EnvOption {
+	return setLimit(limitParseRecursionDepth, limit)
+}
+
+// ParserRecursionLimit adjusts the AST depth the parser will tolerate.
+// Defaults defined in the parser package.
+func ParserErrorRecoveryLimit(limit int) EnvOption {
+	return setLimit(limitParseErrorRecovery, limit)
+}
+
+// ParserExpressionSizeLimit adjusts the number of code points the expression parser is allowed to parse.
+// Defaults are defined in the parser package. A negative value means unbounded.
 func ParserExpressionSizeLimit(limit int) EnvOption {
-	return func(e *Env) (*Env, error) {
-		e.prsrOpts = append(e.prsrOpts, parser.ExpressionSizeCodePointLimit(limit))
-		return e, nil
-	}
+	return setLimit(limitCodePointSize, limit)
 }
 
 // EnableHiddenAccumulatorName sets the parser to use the identifier '@result' for accumulators

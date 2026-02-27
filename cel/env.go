@@ -141,6 +141,7 @@ type Env struct {
 	provider        types.Provider
 	features        map[int]bool
 	appliedFeatures map[int]bool
+	limits          map[limitID]int
 	libraries       map[string]SingletonLibrary
 	validators      []ASTValidator
 	costOptions     []checker.CostOption
@@ -288,6 +289,15 @@ func (e *Env) ToConfig(name string) (*env.Config, error) {
 		conf.AddFeatures(env.NewFeature(featName, enabled))
 	}
 
+	for id, val := range e.limits {
+		limitName, found := limitNameByID(id)
+		if !found || val == 0 {
+			// skip if explicitly defaulted or not supported in config
+			continue
+		}
+		conf.AddLimits(env.NewLimit(limitName, val))
+	}
+
 	// Sort repeated fields in config where reasonable to make the export
 	// stable.
 	slices.SortFunc(conf.Imports, func(a *env.Import, b *env.Import) int {
@@ -311,6 +321,10 @@ func (e *Env) ToConfig(name string) (*env.Config, error) {
 	})
 
 	slices.SortFunc(conf.Features, func(a *env.Feature, b *env.Feature) int {
+		return strings.Compare(a.Name, b.Name)
+	})
+
+	slices.SortFunc(conf.Limits, func(a *env.Limit, b *env.Limit) int {
 		return strings.Compare(a.Name, b.Name)
 	})
 
@@ -361,6 +375,7 @@ func NewCustomEnv(opts ...EnvOption) (*Env, error) {
 		provider:         registry,
 		features:         map[int]bool{},
 		appliedFeatures:  map[int]bool{},
+		limits:           map[limitID]int{},
 		libraries:        map[string]SingletonLibrary{},
 		validators:       []ASTValidator{},
 		progOpts:         []ProgramOption{},
@@ -525,6 +540,10 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 	for k, v := range e.appliedFeatures {
 		appliedFeaturesCopy[k] = v
 	}
+	limitsCopy := make(map[limitID]int, len(e.limits))
+	for k, v := range e.limits {
+		limitsCopy[k] = v
+	}
 	funcsCopy := make(map[string]*decls.FunctionDecl, len(e.functions))
 	for k, v := range e.functions {
 		funcsCopy[k] = v
@@ -547,6 +566,7 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 		progOpts:        progOptsCopy,
 		adapter:         adapter,
 		features:        featuresCopy,
+		limits:          limitsCopy,
 		appliedFeatures: appliedFeaturesCopy,
 		libraries:       libsCopy,
 		validators:      validatorsCopy,
@@ -812,6 +832,15 @@ func (e *Env) configure(opts []EnvOption) (*Env, error) {
 	}
 	if e.HasFeature(featureIdentEscapeSyntax) {
 		prsrOpts = append(prsrOpts, parser.EnableIdentEscapeSyntax(true))
+	}
+	if l := e.limits[limitParseErrorRecovery]; l != 0 {
+		prsrOpts = append(prsrOpts, parser.ErrorRecoveryLimit(l))
+	}
+	if l := e.limits[limitCodePointSize]; l != 0 {
+		prsrOpts = append(prsrOpts, parser.ExpressionSizeCodePointLimit(l))
+	}
+	if l := e.limits[limitParseRecursionDepth]; l != 0 {
+		prsrOpts = append(prsrOpts, parser.MaxRecursionDepth(l))
 	}
 	e.prsr, err = parser.NewParser(prsrOpts...)
 	if err != nil {

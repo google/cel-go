@@ -50,6 +50,7 @@ type Config struct {
 	Functions       []*Function      `yaml:"functions,omitempty"`
 	Validators      []*Validator     `yaml:"validators,omitempty"`
 	Features        []*Feature       `yaml:"features,omitempty"`
+	Limits          []*Limit         `yaml:"limits,omitempty"`
 }
 
 // Validate validates the whole configuration is well-formed.
@@ -89,6 +90,11 @@ func (c *Config) Validate() error {
 	}
 	for _, feat := range c.Features {
 		if err := feat.Validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	for _, limit := range c.Limits {
+		if err := limit.Validate(); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -203,6 +209,12 @@ func (c *Config) AddValidators(vals ...*Validator) *Config {
 // AddFeatures appends one or more features to the config.
 func (c *Config) AddFeatures(feats ...*Feature) *Config {
 	c.Features = append(c.Features, feats...)
+	return c
+}
+
+// AddLimits appends one or more limits to the config.
+func (c *Config) AddLimits(limits ...*Limit) *Config {
+	c.Limits = append(c.Limits, limits...)
 	return c
 }
 
@@ -730,6 +742,25 @@ func (feat *Feature) Validate() error {
 	}
 	if feat.Name == "" {
 		return errors.New("invalid feature: missing name")
+	}
+	return nil
+}
+
+type Limit struct {
+	Name  string `yaml:"name"`
+	Value int    `yaml:"value"`
+}
+
+func NewLimit(name string, value int) *Limit {
+	return &Limit{name, value}
+}
+
+func (l *Limit) Validate() error {
+	if l == nil {
+		return errors.New("invalid limit: nil")
+	}
+	if l.Name == "" {
+		return errors.New("invalid limit: missing name")
 	}
 	return nil
 }
