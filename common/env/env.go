@@ -746,15 +746,19 @@ func (feat *Feature) Validate() error {
 	return nil
 }
 
+// Limit represents a named limit in the CEL environment. This is used to control
+// the complexity tolerated before failing parsing, type checking, or planning.
 type Limit struct {
 	Name  string `yaml:"name"`
 	Value int    `yaml:"value"`
 }
 
+// NewLimit creates a new limit.
 func NewLimit(name string, value int) *Limit {
 	return &Limit{name, value}
 }
 
+// Validate validates a limit.
 func (l *Limit) Validate() error {
 	if l == nil {
 		return errors.New("invalid limit: nil")
