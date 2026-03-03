@@ -903,8 +903,8 @@ func ParserRecursionLimit(limit int) EnvOption {
 	return setLimit(limitParseRecursionDepth, limit)
 }
 
-// ParserRecursionLimit adjusts the AST depth the parser will tolerate.
-// Defaults defined in the parser package.
+// ParserErrorRecoveryLimit sets the number of attemtps the parser will take
+// to recover after encountering an error.
 func ParserErrorRecoveryLimit(limit int) EnvOption {
 	return setLimit(limitParseErrorRecovery, limit)
 }
