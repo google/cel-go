@@ -54,6 +54,32 @@ func TestTypeDescription(t *testing.T) {
 	}
 }
 
+func TestTypeDescriptionJSONFieldNames(t *testing.T) {
+	pbdb := NewDb(JSONFieldNames(true))
+	msg := &proto2pb.TestAllTypes{}
+	msgType := string(msg.ProtoReflect().Descriptor().FullName())
+	_, err := pbdb.RegisterMessage(msg)
+	if err != nil {
+		t.Fatalf("pbdb.RegisterMessage() failed: %v", err)
+	}
+	td, found := pbdb.DescribeType(msgType)
+	if !found {
+		t.Fatalf("pbdb.DescribeType(%s) not found", msgType)
+	}
+	_, found = td.FieldByName("singleBoolWrapper")
+	if !found {
+		t.Fatal("td.FieldByName(singleBoolWrapper) failed")
+	}
+	enumName := "google.expr.proto2.test.TestAllTypes.NestedEnum.BAR"
+	en, found := pbdb.DescribeEnum(enumName)
+	if !found {
+		t.Fatalf("pbdb.DescribeEnum(%s) not found", enumName)
+	}
+	if en.Value() != 1 && en.Name() != enumName {
+		t.Errorf("got %v, wanted %s: %d", en, enumName, 1)
+	}
+}
+
 func TestTypeDescriptionGroupFields(t *testing.T) {
 	pbdb := NewDb()
 	msg := &proto2pb.TestAllTypes{}

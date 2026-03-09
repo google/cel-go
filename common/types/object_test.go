@@ -49,75 +49,134 @@ func TestNewProtoObject(t *testing.T) {
 }
 
 func TestProtoObjectConvertToNative(t *testing.T) {
-	reg := newTestRegistry(t, &exprpb.Expr{})
 	msg := &exprpb.ParsedExpr{
+		Expr: &exprpb.Expr{
+			Id: 1,
+			ExprKind: &exprpb.Expr_ConstExpr{
+				ConstExpr: &exprpb.Constant{
+					ConstantKind: &exprpb.Constant_BoolValue{
+						BoolValue: true,
+					},
+				},
+			},
+		},
 		SourceInfo: &exprpb.SourceInfo{
 			LineOffsets: []int32{1, 2, 3}}}
-	objVal := reg.NativeToValue(msg)
 
-	// Proto Message
-	val, err := objVal.ConvertToNative(reflect.TypeOf(&exprpb.ParsedExpr{}))
-	if err != nil {
-		t.Error(err)
-	}
-	if !proto.Equal(val.(proto.Message), msg) {
-		t.Errorf("Messages were not equal, expect '%v', got '%v'", objVal.Value(), msg)
-	}
-
-	// Dynamic protobuf
-	dynPB := reg.NewValue(
-		string(msg.ProtoReflect().Descriptor().FullName()),
-		map[string]ref.Val{
-			"source_info": reg.NativeToValue(msg.GetSourceInfo()),
-		})
-	if IsError(dynPB) {
-		t.Fatalf("reg.NewValue() failed: %v", dynPB)
-	}
-	dynVal := reg.NativeToValue(dynPB)
-	val, err = dynVal.ConvertToNative(reflect.TypeOf(msg))
-	if err != nil {
-		t.Fatalf("dynVal.ConvertToNative() failed: %v", err)
-	}
-	if !proto.Equal(val.(proto.Message), msg) {
-		t.Errorf("Messages were not equal, expect '%v', got '%v'", objVal.Value(), msg)
-	}
-
-	// google.protobuf.Any
-	anyVal, err := objVal.ConvertToNative(anyValueType)
-	if err != nil {
-		t.Fatalf("objVal.ConvertToNative() failed: %v", err)
-	}
-	anyMsg := anyVal.(*anypb.Any)
-	unpackedAny, err := anyMsg.UnmarshalNew()
-	if err != nil {
-		t.Fatalf("UnmarshalNew() failed: %v", err)
-	}
-	if !proto.Equal(unpackedAny, objVal.Value().(proto.Message)) {
-		t.Errorf("Messages were not equal, expect '%v', got '%v'", objVal.Value(), unpackedAny)
-	}
-
-	// JSON
-	jsonVal, err := objVal.ConvertToNative(JSONValueType)
-	if err != nil {
-		t.Fatalf("objVal.ConvertToNative(%v) failed: %v", JSONValueType, err)
-	}
-	jsonBytes, err := protojson.Marshal(jsonVal.(proto.Message))
-	jsonTxt := string(jsonBytes)
-	if err != nil {
-		t.Fatalf("protojson.Marshal(%v) failed: %v", jsonVal, err)
-	}
-	outMap := map[string]any{}
-	err = json.Unmarshal(jsonBytes, &outMap)
-	if err != nil {
-		t.Fatalf("json.Unmarshal(%q) failed: %v", jsonTxt, err)
-	}
-	want := map[string]any{
-		"sourceInfo": map[string]any{
-			"lineOffsets": []any{1.0, 2.0, 3.0},
+	tests := []struct {
+		opts     []RegistryOption
+		fieldMap func(reg *Registry) map[string]ref.Val
+		outValue map[string]any
+	}{
+		{
+			opts: []RegistryOption{ProtoTypes(&exprpb.Expr{}), JSONFieldNames(true)},
+			fieldMap: func(reg *Registry) map[string]ref.Val {
+				return map[string]ref.Val{
+					"expr":       reg.NativeToValue(msg.GetExpr()),
+					"sourceInfo": reg.NativeToValue(msg.GetSourceInfo()),
+				}
+			},
+			outValue: map[string]any{
+				"expr": map[string]any{
+					// The id is encoded to a string because it is int64 type, though
+					// this is not exactly what's documented in protojson serialization
+					// and so could signal a bug in the json-handling for int values
+					// as the serialization to int or string is based on the value precision.
+					"id": "1",
+					"constExpr": map[string]any{
+						"boolValue": true,
+					},
+				},
+				"sourceInfo": map[string]any{
+					"lineOffsets": []any{1.0, 2.0, 3.0},
+				},
+			},
+		},
+		{
+			opts: []RegistryOption{ProtoTypes(&exprpb.Expr{}), JSONFieldNames(false)},
+			fieldMap: func(reg *Registry) map[string]ref.Val {
+				return map[string]ref.Val{
+					"expr":        reg.NativeToValue(msg.GetExpr()),
+					"source_info": reg.NativeToValue(msg.GetSourceInfo()),
+				}
+			},
+			outValue: map[string]any{
+				"expr": map[string]any{
+					"id": "1",
+					"constExpr": map[string]any{
+						"boolValue": true,
+					},
+				},
+				"sourceInfo": map[string]any{
+					"lineOffsets": []any{1.0, 2.0, 3.0},
+				},
+			},
 		},
 	}
-	if !reflect.DeepEqual(outMap, want) {
-		t.Errorf("got json '%v', expected %v", outMap, want)
+
+	for _, tst := range tests {
+		reg := newTestRegistry(t, tst.opts...)
+		objVal := reg.NativeToValue(msg)
+
+		// Proto Message
+		val, err := objVal.ConvertToNative(reflect.TypeOf(&exprpb.ParsedExpr{}))
+		if err != nil {
+			t.Error(err)
+		}
+		if !proto.Equal(val.(proto.Message), msg) {
+			t.Errorf("Messages were not equal, expect '%v', got '%v'", objVal.Value(), msg)
+		}
+
+		// Dynamic protobuf
+		dynPB := reg.NewValue(
+			string(msg.ProtoReflect().Descriptor().FullName()),
+			tst.fieldMap(reg),
+		)
+		if IsError(dynPB) {
+			t.Fatalf("reg.NewValue() failed: %v", dynPB)
+		}
+		dynVal := reg.NativeToValue(dynPB)
+		val, err = dynVal.ConvertToNative(reflect.TypeOf(msg))
+		if err != nil {
+			t.Fatalf("dynVal.ConvertToNative() failed: %v", err)
+		}
+		if !proto.Equal(val.(proto.Message), msg) {
+			t.Errorf("Messages were not equal, expect '%v', got '%v'", objVal.Value(), msg)
+		}
+
+		// google.protobuf.Any
+		anyVal, err := objVal.ConvertToNative(anyValueType)
+		if err != nil {
+			t.Fatalf("objVal.ConvertToNative() failed: %v", err)
+		}
+		anyMsg := anyVal.(*anypb.Any)
+		unpackedAny, err := anyMsg.UnmarshalNew()
+		if err != nil {
+			t.Fatalf("UnmarshalNew() failed: %v", err)
+		}
+		if !proto.Equal(unpackedAny, objVal.Value().(proto.Message)) {
+			t.Errorf("Messages were not equal, expect '%v', got '%v'", objVal.Value(), unpackedAny)
+		}
+
+		// JSON
+		jsonVal, err := objVal.ConvertToNative(JSONValueType)
+		if err != nil {
+			t.Fatalf("objVal.ConvertToNative(%v) failed: %v", JSONValueType, err)
+		}
+		jsonBytes, err := protojson.Marshal(jsonVal.(proto.Message))
+		jsonTxt := string(jsonBytes)
+		if err != nil {
+			t.Fatalf("protojson.Marshal(%v) failed: %v", jsonVal, err)
+		}
+		outMap := map[string]any{}
+		err = json.Unmarshal(jsonBytes, &outMap)
+		if err != nil {
+			t.Fatalf("json.Unmarshal(%q) failed: %v", jsonTxt, err)
+		}
+		want := tst.outValue
+		if !reflect.DeepEqual(outMap, want) {
+			t.Errorf("got json '%v', expected %v", outMap, want)
+		}
 	}
 }
 
@@ -127,7 +186,7 @@ func TestProtoObjectIsSet(t *testing.T) {
 			LineOffsets: []int32{1, 2, 3},
 		},
 	}
-	reg := newTestRegistry(t, msg)
+	reg := newTestRegistry(t, ProtoTypes(msg))
 	objVal := reg.NativeToValue(msg).(*protoObj)
 	if objVal.IsSet(String("source_info")) != True {
 		t.Error("got 'source_info' not set, wanted set")
@@ -144,7 +203,7 @@ func TestProtoObjectIsSet(t *testing.T) {
 }
 
 func TestProtoObjectIsZeroValue(t *testing.T) {
-	reg := newTestRegistry(t, &exprpb.ParsedExpr{})
+	reg := newTestRegistry(t, ProtoTypes(&exprpb.ParsedExpr{}))
 	emptyObj := reg.NativeToValue(&exprpb.ParsedExpr{})
 	pb, ok := emptyObj.(traits.Zeroer)
 	if !ok {
@@ -166,7 +225,7 @@ func TestProtoObjectGet(t *testing.T) {
 			LineOffsets: []int32{1, 2, 3},
 		},
 	}
-	reg := newTestRegistry(t, msg)
+	reg := newTestRegistry(t, ProtoTypes(msg))
 	objVal := reg.NativeToValue(msg).(*protoObj)
 	if objVal.Get(String("source_info")).Equal(reg.NativeToValue(msg.GetSourceInfo())) != True {
 		t.Error("could not get 'source_info'")
@@ -188,7 +247,7 @@ func TestProtoObjectConvertToType(t *testing.T) {
 			LineOffsets: []int32{1, 2, 3},
 		},
 	}
-	reg := newTestRegistry(t, msg)
+	reg := newTestRegistry(t, ProtoTypes(msg))
 	objVal := reg.NativeToValue(msg)
 	tv := objVal.Type().(ref.Val)
 	if objVal.ConvertToType(TypeType).Equal(tv) != True {

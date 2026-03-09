@@ -2413,6 +2413,34 @@ _&&_(_==_(list~type(list(dyn))^list,
               @result~bool^@result)~bool`,
 			outType: types.BoolType,
 		},
+		{
+			in:        `TestAllTypes{?singleInt32: {}.?i}`,
+			container: "google.expr.proto2.test",
+			env:       testEnv{optionalSyntax: true, jsonFieldNames: true},
+			out: `google.expr.proto2.test.TestAllTypes{
+			?singleInt32:_?._(
+			  {}~map(dyn, int),
+			  "i"
+			)~optional_type(int)^select_optional_field
+		  }~google.expr.proto2.test.TestAllTypes^google.expr.proto2.test.TestAllTypes`,
+			outType: types.NewObjectType(
+				"google.expr.proto2.test.TestAllTypes",
+			),
+		},
+		{
+			in:        `TestAllTypes{?singleInt32: {'i': 20}.?i}.singleInt32`,
+			container: "google.expr.proto2.test",
+			env:       testEnv{optionalSyntax: true, jsonFieldNames: true},
+			out: `google.expr.proto2.test.TestAllTypes{
+              ?singleInt32:_?._(
+                {
+                  "i"~string:20~int
+                }~map(string, int),
+                "i"
+              )~optional_type(int)^select_optional_field
+            }~google.expr.proto2.test.TestAllTypes^google.expr.proto2.test.TestAllTypes.singleInt32~int`,
+			outType: types.IntType,
+		},
 	}
 }
 
@@ -2470,6 +2498,7 @@ type testEnv struct {
 	functions      []*decls.FunctionDecl
 	variadicASTs   bool
 	optionalSyntax bool
+	jsonFieldNames bool
 }
 
 func TestCheck(t *testing.T) {
@@ -2505,9 +2534,12 @@ func TestCheck(t *testing.T) {
 				t.Fatalf("Unexpected parse errors: %v", errors.ToDisplayString())
 			}
 
-			reg, err := types.NewRegistry(&proto2pb.TestAllTypes{}, &proto3pb.TestAllTypes{})
+			reg, err := types.NewProtoRegistry(
+				types.JSONFieldNames(tc.env.jsonFieldNames),
+				types.ProtoTypes(&proto2pb.TestAllTypes{}, &proto3pb.TestAllTypes{}),
+			)
 			if err != nil {
-				t.Fatalf("types.NewRegistry() failed: %v", err)
+				t.Fatalf("types.NewProtoRegistry() failed: %v", err)
 			}
 			if tc.env.optionalSyntax {
 				if err := reg.RegisterType(types.OptionalType); err != nil {
@@ -2521,6 +2553,9 @@ func TestCheck(t *testing.T) {
 			opts := []Option{CrossTypeNumericComparisons(true)}
 			if len(tc.opts) != 0 {
 				opts = tc.opts
+			}
+			if tc.env.jsonFieldNames {
+				opts = append(opts, JSONFieldNames(true))
 			}
 			env, err := NewEnv(cont, reg, opts...)
 			if err != nil {

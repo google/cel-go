@@ -71,6 +71,11 @@ func Check(parsed *ast.AST, source common.Source, env *Env) (*ast.AST, *common.E
 	// check() deletes some nodes while rewriting the AST. For example the Select operand is
 	// deleted when a variable reference is replaced with a Ident expression.
 	c.AST.ClearUnusedIDs()
+	if env.jsonFieldNames {
+		c.AST.SourceInfo().AddExtension(
+			ast.NewExtension("json_name", ast.NewExtensionVersion(1, 1), ast.ComponentRuntime),
+		)
+	}
 	return c.AST, errs
 }
 

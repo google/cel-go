@@ -18,8 +18,6 @@ import (
 	"reflect"
 	"testing"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/ast"
@@ -556,7 +554,7 @@ func TestNavigableSelectExpr_TestOnly(t *testing.T) {
 	}
 }
 
-func mustTypeCheck(t testing.TB, expr string) *ast.AST {
+func mustTypeCheck(t testing.TB, expr string, opts ...any) *ast.AST {
 	t.Helper()
 	p, err := parser.NewParser(
 		parser.Macros(parser.AllMacros...),
@@ -570,8 +568,21 @@ func mustTypeCheck(t testing.TB, expr string) *ast.AST {
 	if len(iss.GetErrors()) != 0 {
 		t.Fatalf("Parse(%s) failed: %s", expr, iss.ToDisplayString())
 	}
-	reg := newTestRegistry(t, &proto3pb.TestAllTypes{})
-	env := newTestEnv(t, containers.DefaultContainer, reg)
+	regOpts := []types.RegistryOption{}
+	chkOpts := []checker.Option{}
+	for _, opt := range opts {
+		switch v := opt.(type) {
+		case types.RegistryOption:
+			regOpts = append(regOpts, v)
+		case checker.Option:
+			chkOpts = append(chkOpts, v)
+		default:
+			t.Fatalf("mustTypeCheck() failed with invalid option type: %T", v)
+		}
+	}
+	regOpts = append(regOpts, types.ProtoTypes(&proto3pb.TestAllTypes{}))
+	reg := newTestRegistry(t, regOpts...)
+	env := newTestEnv(t, containers.DefaultContainer, reg, chkOpts...)
 	checked, iss := checker.Check(parsed, exprSrc, env)
 	if len(iss.GetErrors()) != 0 {
 		t.Fatalf("Check(%s) failed: %s", expr, iss.ToDisplayString())
@@ -579,18 +590,20 @@ func mustTypeCheck(t testing.TB, expr string) *ast.AST {
 	return checked
 }
 
-func newTestRegistry(t testing.TB, msgs ...proto.Message) *types.Registry {
+func newTestRegistry(t testing.TB, opts ...types.RegistryOption) *types.Registry {
 	t.Helper()
-	reg, err := types.NewRegistry(msgs...)
+	reg, err := types.NewProtoRegistry(opts...)
 	if err != nil {
-		t.Fatalf("types.NewRegistry(%v) failed: %v", msgs, err)
+		t.Fatalf("types.NewProtoRegistry() failed: %v", err)
 	}
 	return reg
 }
 
-func newTestEnv(t testing.TB, cont *containers.Container, reg *types.Registry) *checker.Env {
+func newTestEnv(t testing.TB, cont *containers.Container, reg *types.Registry, opts ...checker.Option) *checker.Env {
 	t.Helper()
-	env, err := checker.NewEnv(cont, reg, checker.CrossTypeNumericComparisons(true))
+	chkOpts := []checker.Option{checker.CrossTypeNumericComparisons(true)}
+	chkOpts = append(chkOpts, opts...)
+	env, err := checker.NewEnv(cont, reg, chkOpts...)
 	if err != nil {
 		t.Fatalf("checker.NewEnv(%v, %v) failed: %v", cont, reg, err)
 	}
