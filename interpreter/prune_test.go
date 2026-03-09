@@ -491,7 +491,7 @@ func TestPrune(t *testing.T) {
 			t.Fatalf("Parse(%q) failed: %v", tst.expr, iss.ToDisplayString())
 		}
 		state := NewEvalState()
-		reg := newTestRegistry(t, &proto3pb.TestAllTypes{})
+		reg := newTestRegistry(t, types.ProtoTypeDefs(&proto3pb.TestAllTypes{}))
 		attrs := NewPartialAttributeFactory(containers.DefaultContainer, reg, reg)
 		dispatcher := NewDispatcher()
 		addFunctionBindings(t, dispatcher)

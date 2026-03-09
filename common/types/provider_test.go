@@ -299,7 +299,7 @@ func TestRegistryFindStructFieldType(t *testing.T) {
 }
 
 func TestRegistryNewValue(t *testing.T) {
-	reg := newTestRegistry(t, ProtoTypes(&proto3pb.TestAllTypes{}, &exprpb.SourceInfo{}))
+	reg := newTestRegistry(t, ProtoTypeDefs(&proto3pb.TestAllTypes{}, &exprpb.SourceInfo{}))
 	tests := []struct {
 		typeName string
 		fields   map[string]ref.Val
@@ -427,7 +427,7 @@ func TestRegistryNewValue(t *testing.T) {
 }
 
 func TestRegistryNewValueErrors(t *testing.T) {
-	reg := newTestRegistry(t, ProtoTypes(&proto3pb.TestAllTypes{}, &exprpb.SourceInfo{}))
+	reg := newTestRegistry(t, ProtoTypeDefs(&proto3pb.TestAllTypes{}, &exprpb.SourceInfo{}))
 	tests := []struct {
 		typeName string
 		fields   map[string]ref.Val
@@ -504,7 +504,7 @@ func TestRegistryNewValueErrors(t *testing.T) {
 }
 
 func TestRegistryGetters(t *testing.T) {
-	reg := newTestRegistry(t, ProtoTypes(&exprpb.ParsedExpr{}))
+	reg := newTestRegistry(t, ProtoTypeDefs(&exprpb.ParsedExpr{}))
 	if sourceInfo := reg.NewValue(
 		"google.api.expr.v1alpha1.SourceInfo",
 		map[string]ref.Val{
@@ -540,7 +540,7 @@ func TestRegistryGetters(t *testing.T) {
 }
 
 func TestConvertToNative(t *testing.T) {
-	reg := newTestRegistry(t, ProtoTypes(&exprpb.ParsedExpr{}))
+	reg := newTestRegistry(t, ProtoTypeDefs(&exprpb.ParsedExpr{}))
 
 	// Core type conversion tests.
 	expectValueToNative(t, True, true)
@@ -605,7 +605,7 @@ func TestConvertToNative(t *testing.T) {
 }
 
 func TestNativeToValue_Any(t *testing.T) {
-	reg := newTestRegistry(t, ProtoTypes(&exprpb.ParsedExpr{}))
+	reg := newTestRegistry(t, ProtoTypeDefs(&exprpb.ParsedExpr{}))
 	// NullValue
 	anyValue, err := NullValue.ConvertToNative(anyValueType)
 	if err != nil {
@@ -666,7 +666,7 @@ func TestNativeToValue_Any(t *testing.T) {
 }
 
 func TestNativeToValue_Json(t *testing.T) {
-	reg := newTestRegistry(t, ProtoTypes(&exprpb.ParsedExpr{}))
+	reg := newTestRegistry(t, ProtoTypeDefs(&exprpb.ParsedExpr{}))
 	// Json primitive conversion test.
 	expectNativeToValue(t, structpb.NewBoolValue(false), False)
 	expectNativeToValue(t, structpb.NewNumberValue(1.1), Double(1.1))
@@ -856,7 +856,7 @@ func expectValueToNative(t *testing.T, in ref.Val, out any) {
 
 func expectNativeToValue(t *testing.T, in any, out ref.Val) {
 	t.Helper()
-	reg := newTestRegistry(t, ProtoTypes(&exprpb.ParsedExpr{}))
+	reg := newTestRegistry(t, ProtoTypeDefs(&exprpb.ParsedExpr{}))
 	if val := reg.NativeToValue(in); IsError(val) {
 		t.Error(val)
 	} else {

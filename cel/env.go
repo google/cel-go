@@ -149,6 +149,9 @@ type Env struct {
 	funcBindOnce     sync.Once
 	functionBindings []*functions.Overload
 
+	// JSON field name support
+	jsonRegistry *types.Registry
+
 	// Internal parser representation
 	prsr     *parser.Parser
 	prsrOpts []parser.Option
@@ -182,6 +185,16 @@ func (e *Env) ToConfig(name string) (*env.Config, error) {
 	}
 	for _, typeName := range e.Container.AliasSet() {
 		conf.AddImports(env.NewImport(typeName))
+	}
+
+	// Serialize features
+	for featID, enabled := range e.features {
+		featName, found := featureNameByID(featID)
+		if !found {
+			// If the feature isn't named, it isn't intended to be publicly exposed
+			continue
+		}
+		conf.AddFeatures(env.NewFeature(featName, enabled))
 	}
 
 	libOverloads := map[string][]string{}
@@ -244,7 +257,7 @@ func (e *Env) ToConfig(name string) (*env.Config, error) {
 		fields := e.contextProto.Fields()
 		for i := 0; i < fields.Len(); i++ {
 			field := fields.Get(i)
-			variable, err := fieldToVariable(field)
+			variable, err := fieldToVariable(field, e.HasFeature(featureJSONFieldNames))
 			if err != nil {
 				return nil, fmt.Errorf("could not serialize context field variable %q, reason: %w", field.FullName(), err)
 			}
@@ -277,16 +290,6 @@ func (e *Env) ToConfig(name string) (*env.Config, error) {
 		if confVal, ok := val.(ConfigurableASTValidator); ok {
 			conf.AddValidators(confVal.ToConfig())
 		}
-	}
-
-	// Serialize features
-	for featID, enabled := range e.features {
-		featName, found := featureNameByID(featID)
-		if !found {
-			// If the feature isn't named, it isn't intended to be publicly exposed
-			continue
-		}
-		conf.AddFeatures(env.NewFeature(featName, enabled))
 	}
 
 	for id, val := range e.limits {
@@ -361,7 +364,7 @@ func NewEnv(opts ...EnvOption) (*Env, error) {
 // See the EnvOption helper functions for the options that can be used to configure the
 // environment.
 func NewCustomEnv(opts ...EnvOption) (*Env, error) {
-	registry, err := types.NewRegistry()
+	registry, err := types.NewProtoRegistry()
 	if err != nil {
 		return nil, err
 	}
@@ -554,8 +557,14 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 	}
 	validatorsCopy := make([]ASTValidator, len(e.validators))
 	copy(validatorsCopy, e.validators)
+
 	costOptsCopy := make([]checker.CostOption, len(e.costOptions))
 	copy(costOptsCopy, e.costOptions)
+
+	var jsonRegistryCopy *types.Registry
+	if e.jsonRegistry != nil {
+		jsonRegistryCopy = e.jsonRegistry.Copy()
+	}
 
 	ext := &Env{
 		Container:       e.Container,
@@ -574,6 +583,7 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 		chkOpts:         chkOptsCopy,
 		prsrOpts:        prsrOptsCopy,
 		costOptions:     costOptsCopy,
+		jsonRegistry:    jsonRegistryCopy,
 	}
 	return ext.configure(opts)
 }
@@ -847,6 +857,21 @@ func (e *Env) configure(opts []EnvOption) (*Env, error) {
 		return nil, err
 	}
 
+	// Enable JSON field names is using a proto-based *types.Registry
+	if e.HasFeature(featureJSONFieldNames) {
+		reg, isReg := e.provider.(*types.Registry)
+		if !isReg {
+			return nil, fmt.Errorf("JSONFieldNames() option is only compatible with *types.Registry providers")
+		}
+		jsonReg, err := reg.WithJSONFieldNames(true)
+		if err != nil {
+			return nil, err
+		}
+		e.jsonRegistry = jsonReg
+	} else {
+		e.jsonRegistry = nil
+	}
+
 	// Ensure that the checker init happens eagerly rather than lazily.
 	if e.HasFeature(featureEagerlyValidateDeclarations) {
 		_, err := e.initChecker()
@@ -865,8 +890,14 @@ func (e *Env) initChecker() (*checker.Env, error) {
 		chkOpts = append(chkOpts,
 			checker.CrossTypeNumericComparisons(
 				e.HasFeature(featureCrossTypeNumericComparisons)))
+		chkOpts = append(chkOpts,
+			checker.JSONFieldNames(e.HasFeature(featureJSONFieldNames)))
 
-		ce, err := checker.NewEnv(e.Container, e.provider, chkOpts...)
+		provider := e.provider
+		if e.HasFeature(featureJSONFieldNames) {
+			provider = e.jsonRegistry
+		}
+		ce, err := checker.NewEnv(e.Container, provider, chkOpts...)
 		if err != nil {
 			e.setCheckerOrError(nil, err)
 			return

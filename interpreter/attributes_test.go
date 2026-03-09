@@ -397,7 +397,7 @@ func TestAttributesConditionalAttrFalseBranch(t *testing.T) {
 }
 
 func TestAttributesOptional(t *testing.T) {
-	reg := newTestRegistry(t, &proto3pb.TestAllTypes{})
+	reg := newTestRegistry(t, types.ProtoTypeDefs(&proto3pb.TestAllTypes{}))
 	cont, err := containers.NewContainer(containers.Name("ns"))
 	if err != nil {
 		t.Fatalf("")
@@ -778,7 +778,7 @@ func BenchmarkResolverFieldQualifier(b *testing.B) {
 			},
 		},
 	}
-	reg := newTestRegistry(b, msg)
+	reg := newTestRegistry(b, types.ProtoTypeDefs(msg))
 	attrs := NewAttributeFactory(containers.DefaultContainer, reg, reg)
 	vars, _ := NewActivation(map[string]any{
 		"msg": msg,

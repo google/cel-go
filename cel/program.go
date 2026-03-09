@@ -219,12 +219,22 @@ func newProgram(e *Env, a *ast.AST, opts []ProgramOption) (Program, error) {
 	attrFactorOpts := []interpreter.AttrFactoryOption{
 		interpreter.EnableErrorOnBadPresenceTest(p.HasFeature(featureEnableErrorOnBadPresenceTest)),
 	}
-	if p.evalOpts&OptPartialEval == OptPartialEval {
-		attrFactory = interpreter.NewPartialAttributeFactory(e.Container, e.adapter, e.provider, attrFactorOpts...)
-	} else {
-		attrFactory = interpreter.NewAttributeFactory(e.Container, e.adapter, e.provider, attrFactorOpts...)
+
+	// Configure the type provider, considering whether the AST indicates whether it supports JSON field names
+	provider := p.provider
+	if a.SourceInfo().HasExtension("json_name", ast.NewExtensionVersion(1, 1)) {
+		if e.HasFeature(featureJSONFieldNames) {
+			provider = p.jsonRegistry
+		} else {
+			return nil, errors.New("the AST extension 'json_name' requires the option cel.JSONFieldNames(true)")
+		}
 	}
-	interp := interpreter.NewInterpreter(disp, e.Container, e.provider, e.adapter, attrFactory)
+	if p.evalOpts&OptPartialEval == OptPartialEval {
+		attrFactory = interpreter.NewPartialAttributeFactory(e.Container, e.adapter, provider, attrFactorOpts...)
+	} else {
+		attrFactory = interpreter.NewAttributeFactory(e.Container, e.adapter, provider, attrFactorOpts...)
+	}
+	interp := interpreter.NewInterpreter(disp, e.Container, provider, e.adapter, attrFactory)
 	p.interpreter = interp
 
 	// Translate the EvalOption flags into InterpretableDecorator instances.

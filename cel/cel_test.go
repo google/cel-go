@@ -2234,6 +2234,62 @@ func TestContextProto(t *testing.T) {
 	}
 }
 
+func TestContextProtoJSONFieldNames(t *testing.T) {
+	descriptor := new(proto3pb.TestAllTypes).ProtoReflect().Descriptor()
+	env := testEnv(t, JSONFieldNames(true), DeclareContextProto(descriptor))
+	expression := `
+	singleInt64 == 1
+	&& singleDouble == 1.0
+	&& singleBool == true
+	&& singleString == ''
+	&& singleNestedMessage == google.expr.proto3.test.TestAllTypes.NestedMessage{}
+	&& standaloneEnum == google.expr.proto3.test.TestAllTypes.NestedEnum.FOO
+	&& singleDuration == duration('5s')
+	&& singleTimestamp == timestamp(63154820)
+	&& singleAny == null
+	&& singleUint32Wrapper == null
+	&& singleUint64Wrapper == 0u
+	&& repeatedInt32 == [1,2]
+	&& mapStringString == {'': ''}
+	&& mapInt64NestedType == {0 : google.expr.proto3.test.NestedTestAllTypes{}}`
+	ast, iss := env.Compile(expression)
+	if iss.Err() != nil {
+		t.Fatalf("env.Compile(%s) failed: %s", expression, iss.Err())
+	}
+	prg, err := env.Program(ast)
+	if err != nil {
+		t.Fatalf("env.Program() failed: %v", err)
+	}
+	in := &proto3pb.TestAllTypes{
+		SingleInt64:  1,
+		SingleDouble: 1.0,
+		SingleBool:   true,
+		NestedType: &proto3pb.TestAllTypes_SingleNestedMessage{
+			SingleNestedMessage: &proto3pb.TestAllTypes_NestedMessage{},
+		},
+		StandaloneEnum: proto3pb.TestAllTypes_FOO,
+		SingleDuration: &durationpb.Duration{Seconds: 5},
+		SingleTimestamp: &timestamppb.Timestamp{
+			Seconds: 63154820,
+		},
+		SingleUint64Wrapper: wrapperspb.UInt64(0),
+		RepeatedInt32:       []int32{1, 2},
+		MapStringString:     map[string]string{"": ""},
+		MapInt64NestedType:  map[int64]*proto3pb.NestedTestAllTypes{0: {}},
+	}
+	vars, err := ContextProtoVars(in, types.JSONFieldNames(true))
+	if err != nil {
+		t.Fatalf("ContextProtoVars(%v) failed: %v", in, err)
+	}
+	out, _, err := prg.Eval(vars)
+	if err != nil {
+		t.Fatalf("prg.Eval() failed: %v", err)
+	}
+	if out.Equal(types.True) != types.True {
+		t.Errorf("prg.Eval() got %v, wanted true", out)
+	}
+}
+
 func TestRegexOptimizer(t *testing.T) {
 	var stringTests = []struct {
 		expr          string
@@ -3604,6 +3660,109 @@ func TestAstProgramNilValue(t *testing.T) {
 	prg, err := env.Program(ast)
 	if err == nil || !strings.Contains(err.Error(), "unsupported expr") {
 		t.Errorf("env.Program() got (%v,%v) wanted unsupported expr error", prg, err)
+	}
+}
+
+func TestJSONFieldNames(t *testing.T) {
+	tests := []struct {
+		name           string
+		expr           string
+		jsonFieldNames bool
+	}{
+		{
+			name: "proto simple field",
+			expr: `msg.single_int32 == 1`,
+		},
+		{
+			name: "proto map field",
+			expr: `msg.map_string_string['key'] == 'value'`,
+		},
+		{
+			name:           "json simple field",
+			expr:           `msg.singleInt32 == 1`,
+			jsonFieldNames: true,
+		},
+		{
+			name:           "json repeated field",
+			expr:           `msg.mapStringString['key'] == 'value'`,
+			jsonFieldNames: true,
+		},
+	}
+	msg := &proto3pb.TestAllTypes{
+		SingleInt32: 1,
+		MapStringString: map[string]string{
+			"key": "value",
+		},
+	}
+	for _, tst := range tests {
+		tc := tst
+		t.Run(tc.name, func(t *testing.T) {
+			env, err := NewEnv(
+				JSONFieldNames(tc.jsonFieldNames),
+				Types(msg),
+				Variable("msg", ObjectType(string(msg.ProtoReflect().Descriptor().FullName()))),
+			)
+			if err != nil {
+				t.Fatalf("NewEnv() failed: %v", err)
+			}
+			ast, iss := env.Compile(tc.expr)
+			if iss.Err() != nil {
+				t.Fatalf("env.Compile() failed: %v", iss.Err())
+			}
+			prg, err := env.Program(ast)
+			if err != nil {
+				t.Fatalf("env.Program() failed: %v", err)
+			}
+			out, _, err := prg.Eval(map[string]any{"msg": msg})
+			if err != nil {
+				t.Fatalf("prg.Eval() failed: %v", err)
+			}
+			if out != types.True {
+				t.Errorf("prg.Eval() got %v, wanted 'true'", out)
+			}
+
+			if tc.jsonFieldNames {
+				noJSONEnv, err := env.Extend(JSONFieldNames(false))
+				if err != nil {
+					t.Fatalf("env.Extend() failed: %v", err)
+				}
+				_, err = noJSONEnv.Program(ast)
+				if err == nil {
+					t.Fatal("env with json disabled allowed program with json extension to be planned")
+				}
+			} else {
+				jsonEnv, err := env.Extend(JSONFieldNames(true))
+				if err != nil {
+					t.Fatalf("env.Extend() failed: %v", err)
+				}
+				prg, err = jsonEnv.Program(ast)
+				if err != nil {
+					t.Fatalf("env.Program() failed: %v", err)
+				}
+				out, _, err := prg.Eval(map[string]any{"msg": msg})
+				if err != nil {
+					t.Fatalf("prg.Eval() failed: %v", err)
+				}
+				if out != types.True {
+					t.Errorf("prg.Eval() got %v, wanted 'true'", out)
+				}
+			}
+		})
+	}
+}
+
+func TestJSONFieldNamesInvalidProvider(t *testing.T) {
+	type wrapperRegistry struct {
+		*types.Registry
+	}
+	reg, err := types.NewProtoRegistry(types.JSONFieldNames(true))
+	if err != nil {
+		t.Fatalf("types.NewProtoRegistry() failed: %v", err)
+	}
+	wrapped := wrapperRegistry{Registry: reg}
+	_, err = NewEnv(CustomTypeProvider(wrapped), CustomTypeAdapter(reg), JSONFieldNames(true))
+	if err == nil {
+		t.Error("NewEnv() created a CEL environment successfully despite incompatible configs")
 	}
 }
 
