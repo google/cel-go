@@ -81,6 +81,9 @@ type FieldType struct {
 
 	// GetFrom retrieves the field value on the input object, if set.
 	GetFrom ref.FieldGetter
+
+	// Description provides a description of the field. Empty if no description available.
+	Description string
 }
 
 // Registry provides type information for a set of registered types.
@@ -206,9 +209,11 @@ func (p *Registry) FindStructFieldType(structType, fieldName string) (*FieldType
 		return nil, false
 	}
 	return &FieldType{
-		Type:    fieldDescToCELType(field),
-		IsSet:   field.IsSet,
-		GetFrom: field.GetFrom}, true
+		Type:        fieldDescToCELType(field),
+		IsSet:       field.IsSet,
+		GetFrom:     field.GetFrom,
+		Description: field.Documentation(),
+	}, true
 }
 
 // FindIdent takes a qualified identifier name and returns a ref.Val if one exists.
