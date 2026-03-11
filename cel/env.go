@@ -149,9 +149,6 @@ type Env struct {
 	funcBindOnce     sync.Once
 	functionBindings []*functions.Overload
 
-	// JSON field name support
-	jsonRegistry *types.Registry
-
 	// Internal parser representation
 	prsr     *parser.Parser
 	prsrOpts []parser.Option
@@ -561,11 +558,6 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 	costOptsCopy := make([]checker.CostOption, len(e.costOptions))
 	copy(costOptsCopy, e.costOptions)
 
-	var jsonRegistryCopy *types.Registry
-	if e.jsonRegistry != nil {
-		jsonRegistryCopy = e.jsonRegistry.Copy()
-	}
-
 	ext := &Env{
 		Container:       e.Container,
 		variables:       varsCopy,
@@ -583,7 +575,6 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 		chkOpts:         chkOptsCopy,
 		prsrOpts:        prsrOptsCopy,
 		costOptions:     costOptsCopy,
-		jsonRegistry:    jsonRegistryCopy,
 	}
 	return ext.configure(opts)
 }
@@ -863,13 +854,11 @@ func (e *Env) configure(opts []EnvOption) (*Env, error) {
 		if !isReg {
 			return nil, fmt.Errorf("JSONFieldNames() option is only compatible with *types.Registry providers")
 		}
-		jsonReg, err := reg.WithJSONFieldNames(true)
+		var err error
+		e.provider, err = reg.WithJSONFieldNames(true)
 		if err != nil {
 			return nil, err
 		}
-		e.jsonRegistry = jsonReg
-	} else {
-		e.jsonRegistry = nil
 	}
 
 	// Ensure that the checker init happens eagerly rather than lazily.
@@ -893,11 +882,7 @@ func (e *Env) initChecker() (*checker.Env, error) {
 		chkOpts = append(chkOpts,
 			checker.JSONFieldNames(e.HasFeature(featureJSONFieldNames)))
 
-		provider := e.provider
-		if e.HasFeature(featureJSONFieldNames) {
-			provider = e.jsonRegistry
-		}
-		ce, err := checker.NewEnv(e.Container, provider, chkOpts...)
+		ce, err := checker.NewEnv(e.Container, e.provider, chkOpts...)
 		if err != nil {
 			e.setCheckerOrError(nil, err)
 			return

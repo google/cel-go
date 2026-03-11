@@ -162,7 +162,7 @@ func TestRegistryFindStructFieldNames(t *testing.T) {
 		tc := tst
 		t.Run(fmt.Sprintf("%s", tc.typeName), func(t *testing.T) {
 			reg := newTestRegistry(t,
-				ProtoTypes(&exprpb.Decl{}, &exprpb.Reference{}),
+				ProtoTypeDefs(&exprpb.Decl{}, &exprpb.Reference{}),
 				JSONFieldNames(tc.jsonFieldNames))
 			fields, _ := reg.FindStructFieldNames(tc.typeName)
 			sort.Strings(fields)

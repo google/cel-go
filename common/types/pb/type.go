@@ -356,15 +356,6 @@ func (fd *FieldDescription) JSONName() string {
 	return string(fd.desc.Name())
 }
 
-// JSONName returns the JSON name of the field, if present.
-func (fd *FieldDescription) JSONName() string {
-	jsonName := fd.desc.JSONName()
-	if len(jsonName) != 0 {
-		return jsonName
-	}
-	return string(fd.desc.Name())
-}
-
 // ProtoKind returns the protobuf reflected kind of the field.
 func (fd *FieldDescription) ProtoKind() protoreflect.Kind {
 	return fd.desc.Kind()
