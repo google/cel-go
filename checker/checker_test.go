@@ -2441,6 +2441,14 @@ _&&_(_==_(list~type(list(dyn))^list,
             }~google.expr.proto2.test.TestAllTypes^google.expr.proto2.test.TestAllTypes.singleInt32~int`,
 			outType: types.IntType,
 		},
+		{
+			in:        `TestAllTypes{singleInt32: 1, single_bool: true}.singleInt32`,
+			container: "google.expr.proto2.test",
+			env:       testEnv{optionalSyntax: true, jsonFieldNames: true},
+			err: `ERROR: <input>:1:41: undefined field 'single_bool'
+             | TestAllTypes{singleInt32: 1, single_bool: true}.singleInt32
+             | ........................................^`,
+		},
 	}
 }
 

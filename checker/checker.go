@@ -723,6 +723,9 @@ func (c *checker) lookupFieldType(exprID int64, structType, fieldName string) (*
 	}
 
 	if ft, found := c.env.provider.FindStructFieldType(structType, fieldName); found {
+		if c.env.jsonFieldNames && !ft.IsJSONField {
+			c.errors.undefinedField(exprID, c.locationByID(exprID), fieldName)
+		}
 		return ft.Type, found
 	}
 

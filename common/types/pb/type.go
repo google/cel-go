@@ -44,17 +44,22 @@ func newTypeDescription(typeName string, desc protoreflect.MessageDescriptor, pb
 	msgType := dynamicpb.NewMessageType(desc)
 	msgZero := dynamicpb.NewMessage(desc)
 	fieldMap := map[string]*FieldDescription{}
+	jsonFieldMap := map[string]*FieldDescription{}
 	fields := desc.Fields()
 	for i := 0; i < fields.Len(); i++ {
 		f := fields.Get(i)
 		fd := newFieldDescription(f, pbdb.jsonFieldNames)
 		fieldMap[fd.Name()] = fd
+		if pbdb.jsonFieldNames {
+			jsonFieldMap[fd.JSONName()] = fd
+		}
 	}
 	return &TypeDescription{
 		typeName:       typeName,
 		desc:           desc,
 		msgType:        msgType,
 		fieldMap:       fieldMap,
+		jsonFieldMap:   jsonFieldMap,
 		extensions:     pbdb.extensions,
 		reflectType:    reflectTypeOf(msgZero),
 		zeroMsg:        zeroValueOf(msgZero),
@@ -65,13 +70,14 @@ func newTypeDescription(typeName string, desc protoreflect.MessageDescriptor, pb
 // TypeDescription is a collection of type metadata relevant to expression
 // checking and evaluation.
 type TypeDescription struct {
-	typeName    string
-	desc        protoreflect.MessageDescriptor
-	msgType     protoreflect.MessageType
-	fieldMap    map[string]*FieldDescription
-	extensions  extensionMap
-	reflectType reflect.Type
-	zeroMsg     proto.Message
+	typeName     string
+	desc         protoreflect.MessageDescriptor
+	msgType      protoreflect.MessageType
+	fieldMap     map[string]*FieldDescription
+	jsonFieldMap map[string]*FieldDescription
+	extensions   extensionMap
+	reflectType  reflect.Type
+	zeroMsg      proto.Message
 	// jsonFieldNames indicates if the type's fields are accessible via their JSON names.
 	jsonFieldNames bool
 }
@@ -83,6 +89,7 @@ func (td *TypeDescription) Copy(pbdb *Db) *TypeDescription {
 		desc:           td.desc,
 		msgType:        td.msgType,
 		fieldMap:       td.fieldMap,
+		jsonFieldMap:   td.jsonFieldMap,
 		extensions:     pbdb.extensions,
 		reflectType:    td.reflectType,
 		zeroMsg:        td.zeroMsg,
@@ -92,6 +99,9 @@ func (td *TypeDescription) Copy(pbdb *Db) *TypeDescription {
 
 // FieldMap returns a string field name to FieldDescription map.
 func (td *TypeDescription) FieldMap() map[string]*FieldDescription {
+	if td.jsonFieldNames {
+		return td.jsonFieldMap
+	}
 	return td.fieldMap
 }
 
@@ -102,11 +112,15 @@ func (td *TypeDescription) FieldByName(name string) (*FieldDescription, bool) {
 		return fd, true
 	}
 	extFieldMap, found := td.extensions[td.typeName]
-	if !found {
-		return nil, false
+	if found {
+		fd, found = extFieldMap[name]
+		return fd, found
 	}
-	fd, found = extFieldMap[name]
-	return fd, found
+	if td.jsonFieldNames {
+		fd, found = td.jsonFieldMap[name]
+		return fd, found
+	}
+	return nil, false
 }
 
 // MaybeUnwrap accepts a proto message as input and unwraps it to a primitive CEL type if possible.
@@ -328,10 +342,16 @@ func (fd *FieldDescription) MaybeUnwrapDynamic(msg protoreflect.Message) (any, b
 	return unwrapDynamic(fd, msg)
 }
 
-// Name returns the CamelCase name of the field within the proto-based struct.
+// Name returns the snake_case name of the field within the proto-based struct.
 func (fd *FieldDescription) Name() string {
-	if fd.jsonFieldName && len(fd.desc.JSONName()) != 0 {
-		return fd.desc.JSONName()
+	return string(fd.desc.Name())
+}
+
+// JSONName returns the JSON name of the field, if present.
+func (fd *FieldDescription) JSONName() string {
+	jsonName := fd.desc.JSONName()
+	if len(jsonName) != 0 {
+		return jsonName
 	}
 	return string(fd.desc.Name())
 }

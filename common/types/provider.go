@@ -81,6 +81,9 @@ type FieldType struct {
 
 	// GetFrom retrieves the field value on the input object, if set.
 	GetFrom ref.FieldGetter
+
+	// IsJSONField
+	IsJSONField bool
 }
 
 // Registry provides type information for a set of registered types.
@@ -211,9 +214,11 @@ func (p *Registry) FindFieldType(structType, fieldName string) (*ref.FieldType, 
 		return nil, false
 	}
 	return &ref.FieldType{
-		Type:    field.CheckedType(),
-		IsSet:   field.IsSet,
-		GetFrom: field.GetFrom}, true
+		Type:        field.CheckedType(),
+		IsSet:       field.IsSet,
+		GetFrom:     field.GetFrom,
+		IsJSONField: p.pbdb.JSONFieldNames() && fieldName == field.JSONName(),
+	}, true
 }
 
 // FindStructFieldNames returns the set of field names for the given struct type,
@@ -245,9 +250,11 @@ func (p *Registry) FindStructFieldType(structType, fieldName string) (*FieldType
 		return nil, false
 	}
 	return &FieldType{
-		Type:    fieldDescToCELType(field),
-		IsSet:   field.IsSet,
-		GetFrom: field.GetFrom}, true
+		Type:        fieldDescToCELType(field),
+		IsSet:       field.IsSet,
+		GetFrom:     field.GetFrom,
+		IsJSONField: p.pbdb.JSONFieldNames() && fieldName == field.JSONName(),
+	}, true
 }
 
 // FindIdent takes a qualified identifier name and returns a ref.Val if one exists.
@@ -307,9 +314,8 @@ func (p *Registry) NewValue(structType string, fields map[string]ref.Val) ref.Va
 		return NewErr("unknown type '%s'", structType)
 	}
 	msg := td.New()
-	fieldMap := td.FieldMap()
 	for name, value := range fields {
-		field, found := fieldMap[name]
+		field, found := td.FieldByName(name)
 		if !found {
 			return NewErr("no such field: %s", name)
 		}

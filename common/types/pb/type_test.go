@@ -66,9 +66,15 @@ func TestTypeDescriptionJSONFieldNames(t *testing.T) {
 	if !found {
 		t.Fatalf("pbdb.DescribeType(%s) not found", msgType)
 	}
-	_, found = td.FieldByName("singleBoolWrapper")
+	fd, found := td.FieldByName("singleBoolWrapper")
 	if !found {
 		t.Fatal("td.FieldByName(singleBoolWrapper) failed")
+	}
+	if fd.JSONName() != "singleBoolWrapper" {
+		t.Fatalf("fd.JSONName() does not return the correct json name: %s", fd.JSONName())
+	}
+	if fd.Name() != "single_bool_wrapper" {
+		t.Fatalf("fd.Name() does not return correct proto name: %s", fd.Name())
 	}
 	enumName := "google.expr.proto2.test.TestAllTypes.NestedEnum.BAR"
 	en, found := pbdb.DescribeEnum(enumName)
@@ -121,6 +127,26 @@ func TestTypeDescriptionFieldMap(t *testing.T) {
 	}
 	if len(td.FieldMap()) != 2 {
 		t.Errorf("Unexpected field count. got '%d', wanted '%d'", len(td.FieldMap()), 2)
+	}
+}
+
+func TestTypeDescriptionJSONFieldMap(t *testing.T) {
+	pbdb := NewDb(JSONFieldNames(true))
+	msg := &proto3pb.TestAllTypes{}
+	pbdb.RegisterMessage(msg)
+	td, found := pbdb.DescribeType("google.expr.proto3.test.TestAllTypes")
+	if !found {
+		t.Fatalf("pbdb.DescribeType(%v) not found", msg)
+	}
+	fd, found := td.FieldMap()["singleNestedMessage"]
+	if !found {
+		t.Fatal("singleNestedMessage not found")
+	}
+	if fd.Name() != "single_nested_message" {
+		t.Fatalf("fd.Name() got %s, wanted 'single_nested_message'", fd.Name())
+	}
+	if fd.JSONName() != "singleNestedMessage" {
+		t.Fatalf("fd.JSONName() got %s, wanted 'singleNestedMessage'", fd.JSONName())
 	}
 }
 

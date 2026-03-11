@@ -134,10 +134,10 @@ func TestRegistryFindStructType(t *testing.T) {
 }
 
 func TestRegistryFindStructFieldNames(t *testing.T) {
-	reg := newTestRegistry(t, ProtoTypes(&exprpb.Decl{}, &exprpb.Reference{}))
 	tests := []struct {
-		typeName string
-		fields   []string
+		typeName       string
+		fields         []string
+		jsonFieldNames bool
 	}{
 		{
 			typeName: "google.api.expr.v1alpha1.Reference",
@@ -151,11 +151,19 @@ func TestRegistryFindStructFieldNames(t *testing.T) {
 			typeName: "invalid.TypeName",
 			fields:   []string{},
 		},
+		{
+			typeName:       "google.api.expr.v1alpha1.Reference",
+			fields:         []string{"name", "overloadId", "value"},
+			jsonFieldNames: true,
+		},
 	}
 
 	for _, tst := range tests {
 		tc := tst
 		t.Run(fmt.Sprintf("%s", tc.typeName), func(t *testing.T) {
+			reg := newTestRegistry(t,
+				ProtoTypes(&exprpb.Decl{}, &exprpb.Reference{}),
+				JSONFieldNames(tc.jsonFieldNames))
 			fields, _ := reg.FindStructFieldNames(tc.typeName)
 			sort.Strings(fields)
 			sort.Strings(tc.fields)
@@ -167,16 +175,12 @@ func TestRegistryFindStructFieldNames(t *testing.T) {
 }
 
 func TestRegistryFindStructFieldType(t *testing.T) {
-	reg := newTestRegistry(t)
-	err := reg.RegisterDescriptor(proto3pb.GlobalEnum_GOO.Descriptor().ParentFile())
-	if err != nil {
-		t.Fatalf("RegisterDescriptor() failed: %v", err)
-	}
 	msgTypeName := ".google.expr.proto3.test.TestAllTypes"
 	tests := []struct {
-		typeName string
-		field    string
-		found    bool
+		typeName       string
+		field          string
+		found          bool
+		jsonFieldNames bool
 	}{
 		{
 			typeName: msgTypeName,
@@ -238,11 +242,28 @@ func TestRegistryFindStructFieldType(t *testing.T) {
 			field:    "map_string_string",
 			found:    false,
 		},
+		{
+			typeName:       msgTypeName,
+			field:          "mapStringString",
+			found:          true,
+			jsonFieldNames: true,
+		},
+		{
+			typeName:       msgTypeName,
+			field:          "map_string_string",
+			found:          true,
+			jsonFieldNames: true,
+		},
 	}
 
 	for _, tst := range tests {
 		tc := tst
 		t.Run(fmt.Sprintf("%s.%s", tc.typeName, tc.field), func(t *testing.T) {
+			reg := newTestRegistry(t, JSONFieldNames(tc.jsonFieldNames))
+			err := reg.RegisterDescriptor(proto3pb.GlobalEnum_GOO.Descriptor().ParentFile())
+			if err != nil {
+				t.Fatalf("RegisterDescriptor() failed: %v", err)
+			}
 			// When the field is expected to be found, test parity of the results
 			if tc.found {
 				refField, found := reg.FindFieldType(tc.typeName, tc.field)
