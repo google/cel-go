@@ -344,8 +344,14 @@ func (fd *FieldDescription) MaybeUnwrapDynamic(msg protoreflect.Message) (any, b
 
 // Name returns the snake_case name of the field within the proto-based struct.
 func (fd *FieldDescription) Name() string {
-	if fd.jsonFieldName && len(fd.desc.JSONName()) != 0 {
-		return fd.desc.JSONName()
+	return string(fd.desc.Name())
+}
+
+// JSONName returns the JSON name of the field, if present.
+func (fd *FieldDescription) JSONName() string {
+	jsonName := fd.desc.JSONName()
+	if len(jsonName) != 0 {
+		return jsonName
 	}
 	return string(fd.desc.Name())
 }
