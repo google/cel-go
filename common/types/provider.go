@@ -81,6 +81,9 @@ type FieldType struct {
 
 	// GetFrom retrieves the field value on the input object, if set.
 	GetFrom ref.FieldGetter
+
+	// IsJSONField
+	IsJSONField bool
 }
 
 // Registry provides type information for a set of registered types.
@@ -93,11 +96,50 @@ type Registry struct {
 // provider which can create new instances of the provided message or any
 // message that proto depends upon in its FileDescriptor.
 func NewRegistry(types ...proto.Message) (*Registry, error) {
-	p := &Registry{
+	return NewProtoRegistry(ProtoTypes(types...))
+}
+
+// RegistryOption configures the behavior of the registry.
+type RegistryOption func(r *Registry) (*Registry, error)
+
+// JSONFieldNames configures JSON field name support within the protobuf types in the registry.
+func JSONFieldNames(enabled bool) RegistryOption {
+	return func(r *Registry) (*Registry, error) {
+		if enabled != r.pbdb.JSONFieldNames() {
+			newDB := pb.NewDb(pb.JSONFieldNames(enabled))
+			files := r.pbdb.FileDescriptions()
+			for _, fd := range files {
+				_, err := newDB.RegisterDescriptor(fd.FileDescriptor())
+				if err != nil {
+					return nil, err
+				}
+			}
+			r.pbdb = newDB
+		}
+		return r, nil
+	}
+}
+
+// ProtoTypes creates a RegistryOption which registers the individual proto messages with the registry.
+func ProtoTypes(types ...proto.Message) RegistryOption {
+	return func(r *Registry) (*Registry, error) {
+		for _, msgType := range types {
+			err := r.RegisterMessage(msgType)
+			if err != nil {
+				return nil, err
+			}
+		}
+		return r, nil
+	}
+}
+
+// NewProtoRegistry creates a proto-based registry with a set of configurable options.
+func NewProtoRegistry(opts ...RegistryOption) (*Registry, error) {
+	r := &Registry{
 		revTypeMap: make(map[string]*Type),
 		pbdb:       pb.NewDb(),
 	}
-	err := p.RegisterType(
+	err := r.RegisterType(
 		BoolType,
 		BytesType,
 		DoubleType,
@@ -114,19 +156,19 @@ func NewRegistry(types ...proto.Message) (*Registry, error) {
 		return nil, err
 	}
 	// This block ensures that the well-known protobuf types are registered by default.
-	for _, fd := range p.pbdb.FileDescriptions() {
-		err = p.registerAllTypes(fd)
+	for _, fd := range r.pbdb.FileDescriptions() {
+		err = r.registerAllTypes(fd)
 		if err != nil {
 			return nil, err
 		}
 	}
-	for _, msgType := range types {
-		err = p.RegisterMessage(msgType)
+	for _, opt := range opts {
+		r, err = opt(r)
 		if err != nil {
 			return nil, err
 		}
 	}
-	return p, nil
+	return r, nil
 }
 
 // NewEmptyRegistry returns a registry which is completely unconfigured.
@@ -172,9 +214,11 @@ func (p *Registry) FindFieldType(structType, fieldName string) (*ref.FieldType, 
 		return nil, false
 	}
 	return &ref.FieldType{
-		Type:    field.CheckedType(),
-		IsSet:   field.IsSet,
-		GetFrom: field.GetFrom}, true
+		Type:        field.CheckedType(),
+		IsSet:       field.IsSet,
+		GetFrom:     field.GetFrom,
+		IsJSONField: p.pbdb.JSONFieldNames() && fieldName == field.JSONName(),
+	}, true
 }
 
 // FindStructFieldNames returns the set of field names for the given struct type,
@@ -206,9 +250,11 @@ func (p *Registry) FindStructFieldType(structType, fieldName string) (*FieldType
 		return nil, false
 	}
 	return &FieldType{
-		Type:    fieldDescToCELType(field),
-		IsSet:   field.IsSet,
-		GetFrom: field.GetFrom}, true
+		Type:        fieldDescToCELType(field),
+		IsSet:       field.IsSet,
+		GetFrom:     field.GetFrom,
+		IsJSONField: p.pbdb.JSONFieldNames() && fieldName == field.JSONName(),
+	}, true
 }
 
 // FindIdent takes a qualified identifier name and returns a ref.Val if one exists.
@@ -268,9 +314,8 @@ func (p *Registry) NewValue(structType string, fields map[string]ref.Val) ref.Va
 		return NewErr("unknown type '%s'", structType)
 	}
 	msg := td.New()
-	fieldMap := td.FieldMap()
 	for name, value := range fields {
-		field, found := fieldMap[name]
+		field, found := td.FieldByName(name)
 		if !found {
 			return NewErr("no such field: %s", name)
 		}

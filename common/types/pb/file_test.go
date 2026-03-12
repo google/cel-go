@@ -76,6 +76,19 @@ func TestFileDescriptionGetExtensions(t *testing.T) {
 	}
 }
 
+func TestFileDescriptionJSONFieldNames(t *testing.T) {
+	pbdb := NewDb(JSONFieldNames(true))
+	msg := &proto2pb.TestAllTypes{}
+	fd, err := pbdb.RegisterMessage(msg)
+	if err != nil {
+		t.Fatalf("pbdb.RegisterMessage() failed: %v", err)
+	}
+	fileDesc := msg.ProtoReflect().Descriptor().ParentFile()
+	if fd.FileDescriptor() != fileDesc {
+		t.Errorf("got %v, wanted %v file descriptor", fd.FileDescriptor(), fileDesc)
+	}
+}
+
 func TestFileDescriptionGetTypes(t *testing.T) {
 	pbdb := NewDb()
 	fd, err := pbdb.RegisterMessage(&proto3pb.TestAllTypes{})

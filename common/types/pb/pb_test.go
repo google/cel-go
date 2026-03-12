@@ -29,6 +29,69 @@ import (
 	tpb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
+func TestDbJSONFieldNames(t *testing.T) {
+	pbdb := NewDb(JSONFieldNames(true))
+	if pbdb.JSONFieldNames() != true {
+		t.Errorf("pbdb.JSONFieldNames() got %v, wanted true", pbdb.JSONFieldNames())
+	}
+	fd, err := pbdb.RegisterMessage(&proto2pb.TestAllTypes{})
+	if err != nil {
+		t.Fatalf("pbdb.RegisterMessage() failed: %v", err)
+	}
+	td, found := fd.GetTypeDescription("google.expr.proto2.test.TestAllTypes")
+	if !found {
+		t.Fatal("fd.GetTypeDescription() not found")
+	}
+	var fieldNames []string
+	for fieldName, f := range td.FieldMap() {
+		fieldNames = append(fieldNames, fieldName)
+		if f.jsonFieldName != true {
+			t.Error("f.jsonFieldName did not propagate")
+		}
+	}
+	// Note that 'group' type names don't have camelCase representations.
+	wantFields := []string{"singleInt32", "repeatedInt64", "nestedgroup"}
+	for _, want := range wantFields {
+		found := false
+		for _, field := range fieldNames {
+			if field == want {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("%v field name not found", want)
+		}
+	}
+	copied := pbdb.Copy()
+	if copied.JSONFieldNames() != true {
+		t.Errorf("copied.JSONFieldNames() got %v, wanted true", copied.JSONFieldNames())
+	}
+	td, found = copied.DescribeType("google.expr.proto2.test.TestAllTypes")
+	if !found {
+		t.Fatal("copied.DescribeType() not found")
+	}
+	fieldNames = []string{}
+	for fieldName, f := range td.FieldMap() {
+		fieldNames = append(fieldNames, fieldName)
+		if f.jsonFieldName != true {
+			t.Error("f.jsonFieldName did not propagate")
+		}
+	}
+	for _, want := range wantFields {
+		found := false
+		for _, field := range fieldNames {
+			if field == want {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("%v field name not found", want)
+		}
+	}
+}
+
 func TestDbCopy(t *testing.T) {
 	clone := DefaultDb.Copy()
 	if !reflect.DeepEqual(clone, DefaultDb) {

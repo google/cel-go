@@ -134,10 +134,10 @@ func TestRegistryFindStructType(t *testing.T) {
 }
 
 func TestRegistryFindStructFieldNames(t *testing.T) {
-	reg := newTestRegistry(t, &exprpb.Decl{}, &exprpb.Reference{})
 	tests := []struct {
-		typeName string
-		fields   []string
+		typeName       string
+		fields         []string
+		jsonFieldNames bool
 	}{
 		{
 			typeName: "google.api.expr.v1alpha1.Reference",
@@ -151,11 +151,19 @@ func TestRegistryFindStructFieldNames(t *testing.T) {
 			typeName: "invalid.TypeName",
 			fields:   []string{},
 		},
+		{
+			typeName:       "google.api.expr.v1alpha1.Reference",
+			fields:         []string{"name", "overloadId", "value"},
+			jsonFieldNames: true,
+		},
 	}
 
 	for _, tst := range tests {
 		tc := tst
 		t.Run(fmt.Sprintf("%s", tc.typeName), func(t *testing.T) {
+			reg := newTestRegistry(t,
+				ProtoTypes(&exprpb.Decl{}, &exprpb.Reference{}),
+				JSONFieldNames(tc.jsonFieldNames))
 			fields, _ := reg.FindStructFieldNames(tc.typeName)
 			sort.Strings(fields)
 			sort.Strings(tc.fields)
@@ -167,16 +175,12 @@ func TestRegistryFindStructFieldNames(t *testing.T) {
 }
 
 func TestRegistryFindStructFieldType(t *testing.T) {
-	reg := newTestRegistry(t)
-	err := reg.RegisterDescriptor(proto3pb.GlobalEnum_GOO.Descriptor().ParentFile())
-	if err != nil {
-		t.Fatalf("RegisterDescriptor() failed: %v", err)
-	}
 	msgTypeName := ".google.expr.proto3.test.TestAllTypes"
 	tests := []struct {
-		typeName string
-		field    string
-		found    bool
+		typeName       string
+		field          string
+		found          bool
+		jsonFieldNames bool
 	}{
 		{
 			typeName: msgTypeName,
@@ -238,11 +242,28 @@ func TestRegistryFindStructFieldType(t *testing.T) {
 			field:    "map_string_string",
 			found:    false,
 		},
+		{
+			typeName:       msgTypeName,
+			field:          "mapStringString",
+			found:          true,
+			jsonFieldNames: true,
+		},
+		{
+			typeName:       msgTypeName,
+			field:          "map_string_string",
+			found:          true,
+			jsonFieldNames: true,
+		},
 	}
 
 	for _, tst := range tests {
 		tc := tst
 		t.Run(fmt.Sprintf("%s.%s", tc.typeName, tc.field), func(t *testing.T) {
+			reg := newTestRegistry(t, JSONFieldNames(tc.jsonFieldNames))
+			err := reg.RegisterDescriptor(proto3pb.GlobalEnum_GOO.Descriptor().ParentFile())
+			if err != nil {
+				t.Fatalf("RegisterDescriptor() failed: %v", err)
+			}
 			// When the field is expected to be found, test parity of the results
 			if tc.found {
 				refField, found := reg.FindFieldType(tc.typeName, tc.field)
@@ -278,7 +299,7 @@ func TestRegistryFindStructFieldType(t *testing.T) {
 }
 
 func TestRegistryNewValue(t *testing.T) {
-	reg := newTestRegistry(t, &proto3pb.TestAllTypes{}, &exprpb.SourceInfo{})
+	reg := newTestRegistry(t, ProtoTypes(&proto3pb.TestAllTypes{}, &exprpb.SourceInfo{}))
 	tests := []struct {
 		typeName string
 		fields   map[string]ref.Val
@@ -406,7 +427,7 @@ func TestRegistryNewValue(t *testing.T) {
 }
 
 func TestRegistryNewValueErrors(t *testing.T) {
-	reg := newTestRegistry(t, &proto3pb.TestAllTypes{}, &exprpb.SourceInfo{})
+	reg := newTestRegistry(t, ProtoTypes(&proto3pb.TestAllTypes{}, &exprpb.SourceInfo{}))
 	tests := []struct {
 		typeName string
 		fields   map[string]ref.Val
@@ -483,7 +504,7 @@ func TestRegistryNewValueErrors(t *testing.T) {
 }
 
 func TestRegistryGetters(t *testing.T) {
-	reg := newTestRegistry(t, &exprpb.ParsedExpr{})
+	reg := newTestRegistry(t, ProtoTypes(&exprpb.ParsedExpr{}))
 	if sourceInfo := reg.NewValue(
 		"google.api.expr.v1alpha1.SourceInfo",
 		map[string]ref.Val{
@@ -519,7 +540,7 @@ func TestRegistryGetters(t *testing.T) {
 }
 
 func TestConvertToNative(t *testing.T) {
-	reg := newTestRegistry(t, &exprpb.ParsedExpr{})
+	reg := newTestRegistry(t, ProtoTypes(&exprpb.ParsedExpr{}))
 
 	// Core type conversion tests.
 	expectValueToNative(t, True, true)
@@ -584,7 +605,7 @@ func TestConvertToNative(t *testing.T) {
 }
 
 func TestNativeToValue_Any(t *testing.T) {
-	reg := newTestRegistry(t, &exprpb.ParsedExpr{})
+	reg := newTestRegistry(t, ProtoTypes(&exprpb.ParsedExpr{}))
 	// NullValue
 	anyValue, err := NullValue.ConvertToNative(anyValueType)
 	if err != nil {
@@ -645,7 +666,7 @@ func TestNativeToValue_Any(t *testing.T) {
 }
 
 func TestNativeToValue_Json(t *testing.T) {
-	reg := newTestRegistry(t, &exprpb.ParsedExpr{})
+	reg := newTestRegistry(t, ProtoTypes(&exprpb.ParsedExpr{}))
 	// Json primitive conversion test.
 	expectNativeToValue(t, structpb.NewBoolValue(false), False)
 	expectNativeToValue(t, structpb.NewNumberValue(1.1), Double(1.1))
@@ -835,7 +856,7 @@ func expectValueToNative(t *testing.T, in ref.Val, out any) {
 
 func expectNativeToValue(t *testing.T, in any, out ref.Val) {
 	t.Helper()
-	reg := newTestRegistry(t, &exprpb.ParsedExpr{})
+	reg := newTestRegistry(t, ProtoTypes(&exprpb.ParsedExpr{}))
 	if val := reg.NativeToValue(in); IsError(val) {
 		t.Error(val)
 	} else {
@@ -918,11 +939,11 @@ type testFloat32 float32
 type testFloat64 float64
 type testString string
 
-func newTestRegistry(t *testing.T, types ...proto.Message) *Registry {
+func newTestRegistry(t *testing.T, opts ...RegistryOption) *Registry {
 	t.Helper()
-	reg, err := NewRegistry(types...)
+	reg, err := NewProtoRegistry(opts...)
 	if err != nil {
-		t.Fatalf("NewRegistry(%v) failed: %v", types, err)
+		t.Fatalf("NewProtoRegistry() failed: %v", err)
 	}
 	return reg
 }

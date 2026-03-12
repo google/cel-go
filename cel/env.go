@@ -1052,9 +1052,10 @@ func (p *interopCELTypeProvider) FindStructFieldType(structType, fieldName strin
 			return nil, false
 		}
 		return &types.FieldType{
-			Type:    t,
-			IsSet:   ft.IsSet,
-			GetFrom: ft.GetFrom,
+			Type:        t,
+			IsSet:       ft.IsSet,
+			GetFrom:     ft.GetFrom,
+			IsJSONField: ft.IsJSONField,
 		}, true
 	}
 	return nil, false

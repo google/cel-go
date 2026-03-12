@@ -54,6 +54,38 @@ func TestTypeDescription(t *testing.T) {
 	}
 }
 
+func TestTypeDescriptionJSONFieldNames(t *testing.T) {
+	pbdb := NewDb(JSONFieldNames(true))
+	msg := &proto2pb.TestAllTypes{}
+	msgType := string(msg.ProtoReflect().Descriptor().FullName())
+	_, err := pbdb.RegisterMessage(msg)
+	if err != nil {
+		t.Fatalf("pbdb.RegisterMessage() failed: %v", err)
+	}
+	td, found := pbdb.DescribeType(msgType)
+	if !found {
+		t.Fatalf("pbdb.DescribeType(%s) not found", msgType)
+	}
+	fd, found := td.FieldByName("singleBoolWrapper")
+	if !found {
+		t.Fatal("td.FieldByName(singleBoolWrapper) failed")
+	}
+	if fd.JSONName() != "singleBoolWrapper" {
+		t.Fatalf("fd.JSONName() does not return the correct json name: %s", fd.JSONName())
+	}
+	if fd.Name() != "single_bool_wrapper" {
+		t.Fatalf("fd.Name() does not return correct proto name: %s", fd.Name())
+	}
+	enumName := "google.expr.proto2.test.TestAllTypes.NestedEnum.BAR"
+	en, found := pbdb.DescribeEnum(enumName)
+	if !found {
+		t.Fatalf("pbdb.DescribeEnum(%s) not found", enumName)
+	}
+	if en.Value() != 1 && en.Name() != enumName {
+		t.Errorf("got %v, wanted %s: %d", en, enumName, 1)
+	}
+}
+
 func TestTypeDescriptionGroupFields(t *testing.T) {
 	pbdb := NewDb()
 	msg := &proto2pb.TestAllTypes{}
@@ -95,6 +127,26 @@ func TestTypeDescriptionFieldMap(t *testing.T) {
 	}
 	if len(td.FieldMap()) != 2 {
 		t.Errorf("Unexpected field count. got '%d', wanted '%d'", len(td.FieldMap()), 2)
+	}
+}
+
+func TestTypeDescriptionJSONFieldMap(t *testing.T) {
+	pbdb := NewDb(JSONFieldNames(true))
+	msg := &proto3pb.TestAllTypes{}
+	pbdb.RegisterMessage(msg)
+	td, found := pbdb.DescribeType("google.expr.proto3.test.TestAllTypes")
+	if !found {
+		t.Fatalf("pbdb.DescribeType(%v) not found", msg)
+	}
+	fd, found := td.FieldMap()["singleNestedMessage"]
+	if !found {
+		t.Fatal("singleNestedMessage not found")
+	}
+	if fd.Name() != "single_nested_message" {
+		t.Fatalf("fd.Name() got %s, wanted 'single_nested_message'", fd.Name())
+	}
+	if fd.JSONName() != "singleNestedMessage" {
+		t.Fatalf("fd.JSONName() got %s, wanted 'singleNestedMessage'", fd.JSONName())
 	}
 }
 

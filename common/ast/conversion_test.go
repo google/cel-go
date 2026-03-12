@@ -38,10 +38,12 @@ import (
 func TestConvertAST(t *testing.T) {
 	fac := ast.NewExprFactory()
 	tests := []struct {
+		name  string
 		goAST *ast.AST
 		pbAST *exprpb.CheckedExpr
 	}{
 		{
+			name: "simple ast",
 			goAST: ast.NewCheckedAST(ast.NewAST(nil, nil),
 				map[int64]*types.Type{
 					1: types.BoolType,
@@ -71,6 +73,7 @@ func TestConvertAST(t *testing.T) {
 			},
 		},
 		{
+			name: "comprehension ast",
 			goAST: ast.NewAST(
 				fac.NewComprehensionTwoVar(1,
 					fac.NewIdent(2, "data"),
@@ -179,11 +182,74 @@ func TestConvertAST(t *testing.T) {
 				ReferenceMap: map[int64]*exprpb.Reference{},
 			},
 		},
+		{
+			name: "json names ast",
+			goAST: ast.NewCheckedAST(
+				ast.NewAST(
+					fac.NewCall(2, overloads.LogicalNot, fac.NewIdent(1, "value")),
+					sourceWithExtension(
+						ast.NewSourceInfo(common.NewTextSource("!value")),
+						ast.NewExtension("json_name", ast.NewExtensionVersion(1, 1), ast.ComponentRuntime),
+					),
+				),
+				map[int64]*types.Type{
+					1: types.BoolType,
+					2: types.BoolType,
+				},
+				map[int64]*ast.ReferenceInfo{
+					1: ast.NewFunctionReference(overloads.LogicalNot),
+					2: ast.NewIdentReference("value", nil),
+				},
+			),
+			pbAST: &exprpb.CheckedExpr{
+				Expr: &exprpb.Expr{
+					Id: 2,
+					ExprKind: &exprpb.Expr_CallExpr{
+						CallExpr: &exprpb.Expr_Call{
+							Function: "!_",
+							Args: []*exprpb.Expr{
+								{
+									Id: 1,
+									ExprKind: &exprpb.Expr_IdentExpr{
+										IdentExpr: &exprpb.Expr_Ident{
+											Name: "value",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				SourceInfo: &exprpb.SourceInfo{
+					Location: "<input>",
+					Extensions: []*exprpb.SourceInfo_Extension{
+						{
+							Id: "json_name",
+							Version: &exprpb.SourceInfo_Extension_Version{
+								Major: 1,
+								Minor: 1,
+							},
+							AffectedComponents: []exprpb.SourceInfo_Extension_Component{
+								exprpb.SourceInfo_Extension_COMPONENT_RUNTIME,
+							},
+						},
+					},
+				},
+				TypeMap: map[int64]*exprpb.Type{
+					1: chkdecls.Bool,
+					2: chkdecls.Bool,
+				},
+				ReferenceMap: map[int64]*exprpb.Reference{
+					1: {OverloadId: []string{overloads.LogicalNot}},
+					2: {Name: "value"},
+				},
+			},
+		},
 	}
 
-	for i, tst := range tests {
+	for _, tst := range tests {
 		tc := tst
-		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+		t.Run(tc.name, func(t *testing.T) {
 			goAST := tc.goAST
 			pbAST := tc.pbAST
 			checkedAST, err := ast.ToAST(pbAST)
@@ -193,6 +259,10 @@ func TestConvertAST(t *testing.T) {
 			if !reflect.DeepEqual(checkedAST.ReferenceMap(), goAST.ReferenceMap()) ||
 				!reflect.DeepEqual(checkedAST.TypeMap(), goAST.TypeMap()) {
 				t.Errorf("conversion to AST did not produce identical results: got %v, wanted %v", checkedAST, goAST)
+			}
+			if !reflect.DeepEqual(checkedAST.SourceInfo().Extensions(), goAST.SourceInfo().Extensions()) {
+				t.Errorf("conversion to AST did not preserve SourceInfo extensions. got %v, wanted %v",
+					checkedAST.SourceInfo().Extensions(), goAST.SourceInfo().Extensions())
 			}
 			if len(checkedAST.ReferenceMap()) > 2 {
 				if !checkedAST.ReferenceMap()[1].Equals(goAST.ReferenceMap()[1]) ||
@@ -655,4 +725,9 @@ func TestConstantToValError(t *testing.T) {
 	if err == nil {
 		t.Errorf("ConstantToVal() got %v, wanted error", out)
 	}
+}
+
+func sourceWithExtension(info *ast.SourceInfo, ext ast.Extension) *ast.SourceInfo {
+	info.AddExtension(ext)
+	return info
 }

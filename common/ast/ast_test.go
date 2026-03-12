@@ -20,6 +20,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/overloads"
@@ -43,6 +44,55 @@ func TestASTCopy(t *testing.T) {
 
 	for _, tst := range tests {
 		checked := mustTypeCheck(t, tst)
+		copyChecked := ast.Copy(checked)
+		if !reflect.DeepEqual(copyChecked.Expr(), checked.Expr()) {
+			t.Errorf("Copy() got expr %v, wanted %v", copyChecked.Expr(), checked.Expr())
+		}
+		if !reflect.DeepEqual(copyChecked.SourceInfo(), checked.SourceInfo()) {
+			t.Errorf("Copy() got source info %v, wanted %v", copyChecked.SourceInfo(), checked.SourceInfo())
+		}
+		copyParsed := ast.Copy(ast.NewAST(checked.Expr(), checked.SourceInfo()))
+		if !reflect.DeepEqual(copyParsed.Expr(), checked.Expr()) {
+			t.Errorf("Copy() got expr %v, wanted %v", copyParsed.Expr(), checked.Expr())
+		}
+		if !reflect.DeepEqual(copyParsed.SourceInfo(), checked.SourceInfo()) {
+			t.Errorf("Copy() got source info %v, wanted %v", copyParsed.SourceInfo(), checked.SourceInfo())
+		}
+		checkedPB, err := ast.ToProto(checked)
+		if err != nil {
+			t.Errorf("ast.ToProto() failed: %v", err)
+		}
+		copyCheckedPB, err := ast.ToProto(copyChecked)
+		if err != nil {
+			t.Errorf("ast.ToProto() failed: %v", err)
+		}
+		if !proto.Equal(checkedPB, copyCheckedPB) {
+			t.Errorf("Copy() produced different proto results, got %v, wanted %v",
+				prototext.Format(checkedPB), prototext.Format(copyCheckedPB))
+		}
+		checkedRoundtrip, err := ast.ToAST(checkedPB)
+		if err != nil {
+			t.Errorf("ast.ToAST() failed: %v", err)
+		}
+		same := reflect.DeepEqual(checked.Expr(), checkedRoundtrip.Expr()) &&
+			reflect.DeepEqual(checked.ReferenceMap(), checkedRoundtrip.ReferenceMap()) &&
+			reflect.DeepEqual(checked.TypeMap(), checkedRoundtrip.TypeMap()) &&
+			reflect.DeepEqual(checked.SourceInfo().MacroCalls(), checkedRoundtrip.SourceInfo().MacroCalls())
+		if !same {
+			t.Errorf("Roundtrip got %v, wanted %v", checkedRoundtrip, checked)
+		}
+	}
+}
+
+func TestASTJsonNames(t *testing.T) {
+	tests := []string{
+		`google.expr.proto3.test.TestAllTypes{}`,
+		`google.expr.proto3.test.TestAllTypes{repeatedInt32: [1, 2]}`,
+		`google.expr.proto3.test.TestAllTypes{singleInt32: 2}.singleInt32 == 2`,
+	}
+
+	for _, tst := range tests {
+		checked := mustTypeCheck(t, tst, checker.JSONFieldNames(true), types.JSONFieldNames(true))
 		copyChecked := ast.Copy(checked)
 		if !reflect.DeepEqual(copyChecked.Expr(), checked.Expr()) {
 			t.Errorf("Copy() got expr %v, wanted %v", copyChecked.Expr(), checked.Expr())
@@ -183,6 +233,9 @@ func TestSourceInfoNilSafety(t *testing.T) {
 			}
 			if len(testInfo.MacroCalls()) != 0 {
 				t.Errorf("MacroCalls() got %v, wanted empty map", testInfo.MacroCalls())
+			}
+			if len(testInfo.Extensions()) != 0 {
+				t.Errorf("Extensions() got %v, wanted empty list", testInfo.Extensions())
 			}
 			if call, found := testInfo.GetMacroCall(0); found {
 				t.Errorf("GetMacroCall(0) got %v, wanted not found", call)

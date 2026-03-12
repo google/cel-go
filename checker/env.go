@@ -74,6 +74,7 @@ type Env struct {
 	declarations        *Scopes
 	aggLitElemType      aggregateLiteralElementType
 	filteredOverloadIDs map[string]struct{}
+	jsonFieldNames      bool
 }
 
 // NewEnv returns a new *Env with the given parameters.
@@ -104,6 +105,7 @@ func NewEnv(container *containers.Container, provider types.Provider, opts ...Op
 		declarations:        declarations,
 		aggLitElemType:      aggLitElemType,
 		filteredOverloadIDs: filteredOverloadIDs,
+		jsonFieldNames:      envOptions.jsonFieldNames,
 	}, nil
 }
 
