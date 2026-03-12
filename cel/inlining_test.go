@@ -22,6 +22,299 @@ import (
 	proto3pb "github.com/google/cel-go/test/proto3pb"
 )
 
+func TestInliningOptimizerNoopShadow(t *testing.T) {
+	type varExpr struct {
+		name  string
+		alias string
+		t     *cel.Type
+		expr  string
+	}
+	tests := []struct {
+		name    string
+		expr    string
+		vars    []varExpr
+		inlined string
+	}{
+		{
+			name: "shadow at parent",
+			expr: `[0].exists(shadowed_ident, shadowed_ident == 0)`,
+			vars: []varExpr{
+				{
+					name: "shadowed_ident",
+					t:    cel.IntType,
+					expr: "1",
+				},
+			},
+			inlined: `[0].exists(shadowed_ident, shadowed_ident == 0)`,
+		},
+		{
+			name: "shadow in ancestor",
+			expr: `[[1]].all(shadowed_ident, shadowed_ident.all(shadowed, shadowed + 1 == 2))`,
+			vars: []varExpr{
+				{
+					name: "shadowed_ident",
+					t:    cel.IntType,
+					expr: "42",
+				},
+			},
+			inlined: `[[1]].all(shadowed_ident, shadowed_ident.all(shadowed, shadowed + 1 == 2))`,
+		},
+	}
+	for _, tst := range tests {
+		tc := tst
+		t.Run(tc.name, func(t *testing.T) {
+			opts := []cel.EnvOption{
+				cel.OptionalTypes(),
+				cel.EnableMacroCallTracking(),
+			}
+			varDecls := make([]cel.EnvOption, len(tc.vars))
+			for i, v := range tc.vars {
+				varDecls[i] = cel.Variable(v.name, v.t)
+			}
+			e, err := cel.NewEnv(append(varDecls, opts...)...)
+			if err != nil {
+				t.Fatalf("NewEnv() failed: %v", err)
+			}
+			inlinedVars := []*cel.InlineVariable{}
+			for _, v := range tc.vars {
+				if v.expr == "" {
+					continue
+				}
+				checked, iss := e.Compile(v.expr)
+				if iss.Err() != nil {
+					t.Fatalf("Compile(%q) failed: %v", v.expr, iss.Err())
+				}
+				if v.alias == "" {
+					inlinedVars = append(inlinedVars, cel.NewInlineVariable(v.name, checked))
+				} else {
+					inlinedVars = append(inlinedVars, cel.NewInlineVariableWithAlias(v.name, v.alias, checked))
+				}
+			}
+			checked, iss := e.Compile(tc.expr)
+			if iss.Err() != nil {
+				t.Fatalf("Compile() failed: %v", iss.Err())
+			}
+			opt, err := cel.NewStaticOptimizer(cel.NewInliningOptimizer(inlinedVars...))
+			if err != nil {
+				t.Fatalf("NewStaticOptimizer() failed: %v", err)
+			}
+			optimized, iss := opt.Optimize(e, checked)
+			if iss.Err() != nil {
+				t.Fatalf("Optimize() generated an invalid AST: %v", iss.Err())
+			}
+			inlined, err := cel.AstToString(optimized)
+			if err != nil {
+				t.Fatalf("cel.AstToString() failed: %v", err)
+			}
+			if inlined != tc.inlined {
+				t.Errorf("inlined got %q, wanted %q", inlined, tc.inlined)
+			}
+		})
+	}
+}
+
+func TestInliningOptimizerPresenceTests(t *testing.T) {
+	type varExpr struct {
+		name  string
+		alias string
+		t     *cel.Type
+		expr  string
+	}
+	tests := []struct {
+		name    string
+		expr    string
+		vars    []varExpr
+		inlined string
+	}{
+		{
+			name: "presence with bool literal",
+			expr: `has(msg.single_any.processing_purpose)`,
+			vars: []varExpr{
+				{
+					name: "msg.single_any.processing_purpose",
+					t:    cel.BoolType,
+					expr: "true",
+				},
+			},
+			inlined: `true != false`,
+		},
+		{
+			name: "presence with bytes literal",
+			expr: `has(msg.single_any.processing_purpose)`,
+			vars: []varExpr{
+				{
+					name: "msg.single_any.processing_purpose",
+					t:    cel.BytesType,
+					expr: "b'abc'",
+				},
+			},
+			inlined: `b"\141\142\143".size() != 0`,
+		},
+		{
+			name: "presence with double literal",
+			expr: `has(msg.single_any.processing_purpose)`,
+			vars: []varExpr{
+				{
+					name: "msg.single_any.processing_purpose",
+					t:    cel.DoubleType,
+					expr: "42.0",
+				},
+			},
+			inlined: `42.0 != 0.0`,
+		},
+		{
+			name: "presence with duration literal",
+			expr: `has(msg.single_any.processing_purpose)`,
+			vars: []varExpr{
+				{
+					name: "msg.single_any.processing_purpose",
+					t:    cel.DurationType,
+					expr: "duration('1s')",
+				},
+			},
+			inlined: `duration("1s") != duration("0s")`,
+		},
+		{
+			name: "presence with int literal",
+			expr: `has(msg.single_any.processing_purpose)`,
+			vars: []varExpr{
+				{
+					name: "msg.single_any.processing_purpose",
+					t:    cel.IntType,
+					expr: "1",
+				},
+			},
+			inlined: `1 != 0`,
+		},
+		{
+			name: "presence with list literal",
+			expr: `has(msg.single_any.processing_purpose)`,
+			vars: []varExpr{
+				{
+					name: "msg.single_any.processing_purpose",
+					t:    cel.ListType(cel.StringType),
+					expr: "['foo', 'bar']",
+				},
+			},
+			inlined: `["foo", "bar"].size() != 0`,
+		},
+		{
+			name: "presence with map literal",
+			expr: `has(msg.single_any.processing_purpose)`,
+			vars: []varExpr{
+				{
+					name: "msg.single_any.processing_purpose",
+					t:    cel.MapType(cel.StringType, cel.StringType),
+					expr: "{'foo': 'bar'}",
+				},
+			},
+			inlined: `{"foo": "bar"}.size() != 0`,
+		},
+		{
+			name: "presence with string literal",
+			expr: `has(msg.single_any.processing_purpose)`,
+			vars: []varExpr{
+				{
+					name: "msg.single_any.processing_purpose",
+					t:    cel.StringType,
+					expr: "'foo'",
+				},
+			},
+			inlined: `"foo".size() != 0`,
+		},
+		{
+			name: "presence with struct literal",
+			expr: `has(msg.single_any.processing_purpose)`,
+			vars: []varExpr{
+				{
+					name: "msg.single_any.processing_purpose",
+					t:    cel.ObjectType("google.expr.proto3.test.TestAllTypes"),
+					expr: "TestAllTypes{single_int64: 1}",
+				},
+			},
+			inlined: `google.expr.proto3.test.TestAllTypes{single_int64: 1} != google.expr.proto3.test.TestAllTypes{}`,
+		},
+		{
+			name: "presence with timestamp literal",
+			expr: `has(msg.single_any.processing_purpose)`,
+			vars: []varExpr{
+				{
+					name: "msg.single_any.processing_purpose",
+					t:    cel.TimestampType,
+					expr: "timestamp(123)",
+				},
+			},
+			inlined: `timestamp(123) != timestamp(0)`,
+		},
+		{
+			name: "presence with uint literal",
+			expr: `has(msg.single_any.processing_purpose)`,
+			vars: []varExpr{
+				{
+					name: "msg.single_any.processing_purpose",
+					t:    cel.UintType,
+					expr: "1u",
+				},
+			},
+			inlined: `1u != 0u`,
+		},
+	}
+	for _, tst := range tests {
+		tc := tst
+		t.Run(tc.name, func(t *testing.T) {
+			opts := []cel.EnvOption{
+				cel.Container("google.expr.proto3.test"),
+				cel.Types(&proto3pb.TestAllTypes{}),
+				cel.Variable("msg", cel.ObjectType("google.expr.proto3.test.TestAllTypes")),
+				cel.OptionalTypes(),
+				cel.EnableMacroCallTracking(),
+			}
+			varDecls := make([]cel.EnvOption, len(tc.vars))
+			for i, v := range tc.vars {
+				varDecls[i] = cel.Variable(v.name, v.t)
+			}
+			e, err := cel.NewEnv(append(varDecls, opts...)...)
+			if err != nil {
+				t.Fatalf("NewEnv() failed: %v", err)
+			}
+			inlinedVars := []*cel.InlineVariable{}
+			for _, v := range tc.vars {
+				if v.expr == "" {
+					continue
+				}
+				checked, iss := e.Compile(v.expr)
+				if iss.Err() != nil {
+					t.Fatalf("Compile(%q) failed: %v", v.expr, iss.Err())
+				}
+				if v.alias == "" {
+					inlinedVars = append(inlinedVars, cel.NewInlineVariable(v.name, checked))
+				} else {
+					inlinedVars = append(inlinedVars, cel.NewInlineVariableWithAlias(v.name, v.alias, checked))
+				}
+			}
+			checked, iss := e.Compile(tc.expr)
+			if iss.Err() != nil {
+				t.Fatalf("Compile() failed: %v", iss.Err())
+			}
+			opt, err := cel.NewStaticOptimizer(cel.NewInliningOptimizer(inlinedVars...))
+			if err != nil {
+				t.Fatalf("NewStaticOptimizer() failed: %v", err)
+			}
+			optimized, iss := opt.Optimize(e, checked)
+			if iss.Err() != nil {
+				t.Fatalf("Optimize() generated an invalid AST: %v", iss.Err())
+			}
+			inlined, err := cel.AstToString(optimized)
+			if err != nil {
+				t.Fatalf("cel.AstToString() failed: %v", err)
+			}
+			if inlined != tc.inlined {
+				t.Errorf("inlined got %q, wanted %q", inlined, tc.inlined)
+			}
+		})
+	}
+}
+
 func TestInliningOptimizer(t *testing.T) {
 	type varExpr struct {
 		name  string
