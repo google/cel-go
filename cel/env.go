@@ -854,8 +854,7 @@ func (e *Env) configure(opts []EnvOption) (*Env, error) {
 		if !isReg {
 			return nil, fmt.Errorf("JSONFieldNames() option is only compatible with *types.Registry providers")
 		}
-		var err error
-		e.provider, err = reg.WithJSONFieldNames(true)
+		err := reg.WithJSONFieldNames(true)
 		if err != nil {
 			return nil, err
 		}

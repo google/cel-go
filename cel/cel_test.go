@@ -3687,6 +3687,21 @@ func TestJSONFieldNames(t *testing.T) {
 			expr:           `msg.mapStringString['key'] == 'value'`,
 			jsonFieldNames: true,
 		},
+		{
+			name:           "message with json field",
+			expr:           `TestAllTypes{singleInt32: 1} != msg`,
+			jsonFieldNames: true,
+		},
+		{
+			name:           "message with json field and proto fallback",
+			expr:           `dyn(TestAllTypes{singleInt32: 2}).single_int32 == 2`,
+			jsonFieldNames: true,
+		},
+		{
+			name:           "json with proto fallback",
+			expr:           `dyn(msg).single_int32 == dyn(msg).singleInt32`,
+			jsonFieldNames: true,
+		},
 	}
 	msg := &proto3pb.TestAllTypes{
 		SingleInt32: 1,
@@ -3700,6 +3715,7 @@ func TestJSONFieldNames(t *testing.T) {
 			env, err := NewEnv(
 				JSONFieldNames(tc.jsonFieldNames),
 				Types(msg),
+				Container(string(msg.ProtoReflect().Descriptor().ParentFile().Package())),
 				Variable("msg", ObjectType(string(msg.ProtoReflect().Descriptor().FullName()))),
 			)
 			if err != nil {

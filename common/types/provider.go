@@ -16,7 +16,6 @@ package types
 
 import (
 	"fmt"
-	"maps"
 	"reflect"
 	"time"
 
@@ -106,7 +105,8 @@ type RegistryOption func(r *Registry) (*Registry, error)
 // JSONFieldNames configures JSON field name support within the protobuf types in the registry.
 func JSONFieldNames(enabled bool) RegistryOption {
 	return func(r *Registry) (*Registry, error) {
-		return r.WithJSONFieldNames(enabled)
+		err := r.WithJSONFieldNames(enabled)
+		return r, err
 	}
 }
 
@@ -187,24 +187,20 @@ func (p *Registry) JSONFieldNames() bool {
 }
 
 // WithJSONFieldNames configures the registry with the JSON field name support enabled or disabled.
-func (p *Registry) WithJSONFieldNames(enabled bool) (*Registry, error) {
+func (p *Registry) WithJSONFieldNames(enabled bool) error {
 	if enabled == p.pbdb.JSONFieldNames() {
-		return p, nil
+		return nil
 	}
 	newDB := pb.NewDb(pb.JSONFieldNames(enabled))
 	files := p.pbdb.FileDescriptions()
 	for _, fd := range files {
 		_, err := newDB.RegisterDescriptor(fd.FileDescriptor())
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
-	updated := &Registry{
-		revTypeMap: make(map[string]*Type),
-		pbdb:       newDB,
-	}
-	maps.Copy(updated.revTypeMap, p.revTypeMap)
-	return updated, nil
+	p.pbdb = newDB
+	return nil
 }
 
 // EnumValue returns the numeric value of the given enum value name.
