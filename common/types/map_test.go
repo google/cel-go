@@ -44,7 +44,7 @@ type testStruct struct {
 }
 
 func TestMapContains(t *testing.T) {
-	reg := newTestRegistry(t, ProtoTypes(&proto3pb.TestAllTypes{}))
+	reg := newTestRegistry(t, ProtoTypeDefs(&proto3pb.TestAllTypes{}))
 	reflectMap := reg.NativeToValue(map[any]any{
 		int64(1):  "hello",
 		uint64(2): "world",
@@ -582,7 +582,7 @@ func TestMapIsZeroValue(t *testing.T) {
 			"hello": "world",
 		},
 	}
-	reg := newTestRegistry(t, ProtoTypes(msg))
+	reg := newTestRegistry(t, ProtoTypeDefs(msg))
 	obj := reg.NativeToValue(msg).(traits.Indexer)
 
 	tests := []struct {
@@ -749,7 +749,7 @@ func TestProtoMap(t *testing.T) {
 		"welcome": "back",
 	}
 	msg := &proto3pb.TestAllTypes{MapStringString: strMap}
-	reg := newTestRegistry(t, ProtoTypes(msg))
+	reg := newTestRegistry(t, ProtoTypeDefs(msg))
 	obj := reg.NativeToValue(msg).(traits.Indexer)
 
 	// Test a simple proto map of string string.
@@ -850,7 +850,7 @@ func TestProtoMapGet(t *testing.T) {
 		"welcome": "back",
 	}
 	msg := &proto3pb.TestAllTypes{MapStringString: strMap}
-	reg := newTestRegistry(t, ProtoTypes(msg))
+	reg := newTestRegistry(t, ProtoTypeDefs(msg))
 	obj := reg.NativeToValue(msg).(traits.Indexer)
 	field := obj.Get(String("map_string_string"))
 	mapVal, ok := field.(traits.Mapper)
@@ -890,7 +890,7 @@ func TestProtoMapConvertToNative(t *testing.T) {
 		"welcome": "back",
 	}
 	msg := &proto3pb.TestAllTypes{MapStringString: strMap}
-	reg := newTestRegistry(t, ProtoTypes(msg))
+	reg := newTestRegistry(t, ProtoTypeDefs(msg))
 	obj := reg.NativeToValue(msg).(traits.Indexer)
 	// Test a simple proto map of string string.
 	field := obj.Get(String("map_string_string"))
@@ -974,7 +974,7 @@ func TestProtoMapConvertToNative_NestedProto(t *testing.T) {
 		},
 	}
 	msg := &proto3pb.TestAllTypes{MapInt64NestedType: nestedTypeMap}
-	reg := newTestRegistry(t, ProtoTypes(msg))
+	reg := newTestRegistry(t, ProtoTypeDefs(msg))
 	obj := reg.NativeToValue(msg).(traits.Indexer)
 	// Test a simple proto map of string string.
 	field := obj.Get(String("map_int64_nested_type"))

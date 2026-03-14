@@ -580,7 +580,7 @@ func mustTypeCheck(t testing.TB, expr string, opts ...any) *ast.AST {
 			t.Fatalf("mustTypeCheck() failed with invalid option type: %T", v)
 		}
 	}
-	regOpts = append(regOpts, types.ProtoTypes(&proto3pb.TestAllTypes{}))
+	regOpts = append(regOpts, types.ProtoTypeDefs(&proto3pb.TestAllTypes{}))
 	reg := newTestRegistry(t, regOpts...)
 	env := newTestEnv(t, containers.DefaultContainer, reg, chkOpts...)
 	checked, iss := checker.Check(parsed, exprSrc, env)

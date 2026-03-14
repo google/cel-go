@@ -96,7 +96,7 @@ type Registry struct {
 // provider which can create new instances of the provided message or any
 // message that proto depends upon in its FileDescriptor.
 func NewRegistry(types ...proto.Message) (*Registry, error) {
-	return NewProtoRegistry(ProtoTypes(types...))
+	return NewProtoRegistry(ProtoTypeDefs(types...))
 }
 
 // RegistryOption configures the behavior of the registry.
@@ -105,23 +105,13 @@ type RegistryOption func(r *Registry) (*Registry, error)
 // JSONFieldNames configures JSON field name support within the protobuf types in the registry.
 func JSONFieldNames(enabled bool) RegistryOption {
 	return func(r *Registry) (*Registry, error) {
-		if enabled != r.pbdb.JSONFieldNames() {
-			newDB := pb.NewDb(pb.JSONFieldNames(enabled))
-			files := r.pbdb.FileDescriptions()
-			for _, fd := range files {
-				_, err := newDB.RegisterDescriptor(fd.FileDescriptor())
-				if err != nil {
-					return nil, err
-				}
-			}
-			r.pbdb = newDB
-		}
-		return r, nil
+		err := r.WithJSONFieldNames(enabled)
+		return r, err
 	}
 }
 
-// ProtoTypes creates a RegistryOption which registers the individual proto messages with the registry.
-func ProtoTypes(types ...proto.Message) RegistryOption {
+// ProtoTypeDefs creates a RegistryOption which registers the individual proto messages with the registry.
+func ProtoTypeDefs(types ...proto.Message) RegistryOption {
 	return func(r *Registry) (*Registry, error) {
 		for _, msgType := range types {
 			err := r.RegisterMessage(msgType)
@@ -189,6 +179,28 @@ func (p *Registry) Copy() *Registry {
 		copy.revTypeMap[k] = v
 	}
 	return copy
+}
+
+// JSONFieldNames returns whether json field names are enabled in this registry.
+func (p *Registry) JSONFieldNames() bool {
+	return p.pbdb.JSONFieldNames()
+}
+
+// WithJSONFieldNames configures the registry with the JSON field name support enabled or disabled.
+func (p *Registry) WithJSONFieldNames(enabled bool) error {
+	if enabled == p.pbdb.JSONFieldNames() {
+		return nil
+	}
+	newDB := pb.NewDb(pb.JSONFieldNames(enabled))
+	files := p.pbdb.FileDescriptions()
+	for _, fd := range files {
+		_, err := newDB.RegisterDescriptor(fd.FileDescriptor())
+		if err != nil {
+			return err
+		}
+	}
+	p.pbdb = newDB
+	return nil
 }
 
 // EnumValue returns the numeric value of the given enum value name.

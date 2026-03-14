@@ -69,7 +69,7 @@ func TestProtoObjectConvertToNative(t *testing.T) {
 		outValue map[string]any
 	}{
 		{
-			opts: []RegistryOption{ProtoTypes(&exprpb.Expr{}), JSONFieldNames(true)},
+			opts: []RegistryOption{ProtoTypeDefs(&exprpb.Expr{}), JSONFieldNames(true)},
 			fieldMap: func(reg *Registry) map[string]ref.Val {
 				return map[string]ref.Val{
 					"expr":       reg.NativeToValue(msg.GetExpr()),
@@ -93,7 +93,7 @@ func TestProtoObjectConvertToNative(t *testing.T) {
 			},
 		},
 		{
-			opts: []RegistryOption{ProtoTypes(&exprpb.Expr{}), JSONFieldNames(false)},
+			opts: []RegistryOption{ProtoTypeDefs(&exprpb.Expr{}), JSONFieldNames(false)},
 			fieldMap: func(reg *Registry) map[string]ref.Val {
 				return map[string]ref.Val{
 					"expr":        reg.NativeToValue(msg.GetExpr()),
@@ -186,7 +186,7 @@ func TestProtoObjectIsSet(t *testing.T) {
 			LineOffsets: []int32{1, 2, 3},
 		},
 	}
-	reg := newTestRegistry(t, ProtoTypes(msg))
+	reg := newTestRegistry(t, ProtoTypeDefs(msg))
 	objVal := reg.NativeToValue(msg).(*protoObj)
 	if objVal.IsSet(String("source_info")) != True {
 		t.Error("got 'source_info' not set, wanted set")
@@ -203,7 +203,7 @@ func TestProtoObjectIsSet(t *testing.T) {
 }
 
 func TestProtoObjectIsZeroValue(t *testing.T) {
-	reg := newTestRegistry(t, ProtoTypes(&exprpb.ParsedExpr{}))
+	reg := newTestRegistry(t, ProtoTypeDefs(&exprpb.ParsedExpr{}))
 	emptyObj := reg.NativeToValue(&exprpb.ParsedExpr{})
 	pb, ok := emptyObj.(traits.Zeroer)
 	if !ok {
@@ -225,7 +225,7 @@ func TestProtoObjectGet(t *testing.T) {
 			LineOffsets: []int32{1, 2, 3},
 		},
 	}
-	reg := newTestRegistry(t, ProtoTypes(msg))
+	reg := newTestRegistry(t, ProtoTypeDefs(msg))
 	objVal := reg.NativeToValue(msg).(*protoObj)
 	if objVal.Get(String("source_info")).Equal(reg.NativeToValue(msg.GetSourceInfo())) != True {
 		t.Error("could not get 'source_info'")
@@ -247,7 +247,7 @@ func TestProtoObjectConvertToType(t *testing.T) {
 			LineOffsets: []int32{1, 2, 3},
 		},
 	}
-	reg := newTestRegistry(t, ProtoTypes(msg))
+	reg := newTestRegistry(t, ProtoTypeDefs(msg))
 	objVal := reg.NativeToValue(msg)
 	tv := objVal.Type().(ref.Val)
 	if objVal.ConvertToType(TypeType).Equal(tv) != True {

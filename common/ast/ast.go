@@ -438,6 +438,17 @@ func (s *SourceInfo) Extensions() []Extension {
 	return s.extensions
 }
 
+// HasExtension returns whether the source info contains the extension which satisfies the minimum version requirement.
+//
+// For an extension to be considered 'present' it must have the same major version as the minVersion and a minor version
+// at least as great as the lowest minor version specified.
+func (s *SourceInfo) HasExtension(id string, minVersion ExtensionVersion) bool {
+	for _, ext := range s.Extensions() {
+		return ext.ID == id && ext.Version.Major == minVersion.Major && ext.Version.Minor >= minVersion.Minor
+	}
+	return false
+}
+
 // AddExtension adds an extension record into the SourceInfo.
 func (s *SourceInfo) AddExtension(ext Extension) {
 	if s == nil {

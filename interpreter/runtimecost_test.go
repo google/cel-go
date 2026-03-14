@@ -123,7 +123,7 @@ func computeCost(t *testing.T, expr string, vars []*decls.VariableDecl, ctx Acti
 	}
 
 	cont := containers.DefaultContainer
-	reg := newTestRegistry(t, &proto3pb.TestAllTypes{})
+	reg := newTestRegistry(t, types.ProtoTypeDefs(&proto3pb.TestAllTypes{}))
 	attrs := NewAttributeFactory(cont, reg, reg)
 	env := newTestEnv(t, cont, reg)
 	err = env.AddIdents(vars...)

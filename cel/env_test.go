@@ -198,9 +198,9 @@ func TestEnvPartialVarsError(t *testing.T) {
 }
 
 func TestTypeProviderInterop(t *testing.T) {
-	reg, err := types.NewRegistry(&proto3pb.TestAllTypes{})
+	reg, err := types.NewProtoRegistry(types.ProtoTypeDefs(&proto3pb.TestAllTypes{}))
 	if err != nil {
-		t.Fatalf("types.NewRegistry() failed: %v", err)
+		t.Fatalf("types.NewProtoRegistry() failed: %v", err)
 	}
 	tests := []struct {
 		name     string
@@ -400,6 +400,14 @@ func TestEnvToConfig(t *testing.T) {
 				)),
 		},
 		{
+			name: "json field names",
+			opts: []EnvOption{
+				JSONFieldNames(true),
+			},
+			want: env.NewConfig("json field names").
+				AddFeatures(env.NewFeature("cel.feature.json_field_names", true)),
+		},
+		{
 			name: "context proto - with extra variable",
 			opts: []EnvOption{
 				DeclareContextProto((&proto3pb.TestAllTypes{}).ProtoReflect().Descriptor()),
@@ -495,7 +503,7 @@ func TestEnvFromConfig(t *testing.T) {
 		{
 			name:       "std env - imports",
 			beforeOpts: []EnvOption{Types(&proto3pb.TestAllTypes{})},
-			conf: env.NewConfig("std env - context proto").
+			conf: env.NewConfig("std env - imports").
 				AddImports(env.NewImport("google.expr.proto3.test.TestAllTypes")),
 			exprs: []exprCase{
 				{
@@ -516,6 +524,22 @@ func TestEnvFromConfig(t *testing.T) {
 					name: "field select literal",
 					in:   mustContextProto(t, &proto3pb.TestAllTypes{SingleInt64: 10}),
 					expr: "TestAllTypes{single_int64: single_int64}.single_int64",
+					out:  types.Int(10),
+				},
+			},
+		},
+		{
+			name:       "std env - context proto w/ json field names",
+			beforeOpts: []EnvOption{Types(&proto3pb.TestAllTypes{})},
+			conf: env.NewConfig("std env - context proto w/ json field names").
+				SetContainer("google.expr.proto3.test").
+				SetContextVariable(env.NewContextVariable("google.expr.proto3.test.TestAllTypes")).
+				AddFeatures(env.NewFeature("cel.feature.json_field_names", true)),
+			exprs: []exprCase{
+				{
+					name: "field select literal",
+					in:   mustContextProto(t, &proto3pb.TestAllTypes{SingleInt64: 10}, types.JSONFieldNames(true)),
+					expr: "TestAllTypes{singleInt64: singleInt64}.singleInt64",
 					out:  types.Int(10),
 				},
 			},
@@ -1154,9 +1178,9 @@ func BenchmarkEnvExtendEagerDecls(b *testing.B) {
 	}
 }
 
-func mustContextProto(t *testing.T, pb proto.Message) Activation {
+func mustContextProto(t *testing.T, pb proto.Message, opts ...types.RegistryOption) Activation {
 	t.Helper()
-	ctx, err := ContextProtoVars(pb)
+	ctx, err := ContextProtoVars(pb, opts...)
 	if err != nil {
 		t.Fatalf("ContextProtoVars() failed: %v", err)
 	}

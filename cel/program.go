@@ -219,6 +219,12 @@ func newProgram(e *Env, a *ast.AST, opts []ProgramOption) (Program, error) {
 	attrFactorOpts := []interpreter.AttrFactoryOption{
 		interpreter.EnableErrorOnBadPresenceTest(p.HasFeature(featureEnableErrorOnBadPresenceTest)),
 	}
+	if a.SourceInfo().HasExtension("json_name", ast.NewExtensionVersion(1, 1)) {
+		if !e.HasFeature(featureJSONFieldNames) {
+			return nil, errors.New("the AST extension 'json_name' requires the option cel.JSONFieldNames(true)")
+		}
+	}
+	// Configure the type provider, considering whether the AST indicates whether it supports JSON field names
 	if p.evalOpts&OptPartialEval == OptPartialEval {
 		attrFactory = interpreter.NewPartialAttributeFactory(e.Container, e.adapter, e.provider, attrFactorOpts...)
 	} else {

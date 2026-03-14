@@ -757,9 +757,9 @@ func TestCost(t *testing.T) {
 			if len(errs.GetErrors()) != 0 {
 				t.Fatalf("parser.Parse(%v) failed: %v", tc.expr, errs.ToDisplayString())
 			}
-			reg, err := types.NewRegistry(&proto3pb.TestAllTypes{})
+			reg, err := types.NewProtoRegistry(types.ProtoTypeDefs(&proto3pb.TestAllTypes{}))
 			if err != nil {
-				t.Fatalf("types.NewRegistry(...) failed: %v", err)
+				t.Fatalf("types.NewProtoRegistry(...) failed: %v", err)
 			}
 
 			e, err := NewEnv(containers.DefaultContainer, reg)
