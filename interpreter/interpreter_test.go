@@ -25,8 +25,6 @@ import (
 	"testing"
 	"time"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/ast"
@@ -54,7 +52,7 @@ type testCase struct {
 	expr      string
 	container string
 	abbrevs   []string
-	types     []proto.Message
+	typeOpts  []types.RegistryOption
 	vars      []*decls.VariableDecl
 	funcs     []*decls.FunctionDecl
 	attrs     AttributeFactory
@@ -600,7 +598,7 @@ func testData(t testing.TB) []testCase {
 		{
 			name:      "literal_pb3_msg",
 			container: "google.api.expr",
-			types:     []proto.Message{&exprpb.Expr{}},
+			typeOpts:  []types.RegistryOption{types.ProtoTypeDefs(&exprpb.Expr{})},
 			expr: `v1alpha1.Expr{
 				id: 1,
 				const_expr: v1alpha1.Constant{
@@ -616,7 +614,7 @@ func testData(t testing.TB) []testCase {
 		{
 			name:      "literal_pb_enum",
 			container: "google.expr.proto3.test",
-			types:     []proto.Message{&proto3pb.TestAllTypes{}},
+			typeOpts:  []types.RegistryOption{types.ProtoTypeDefs(&proto3pb.TestAllTypes{})},
 			expr: `TestAllTypes{
 				repeated_nested_enum: [
 					0,
@@ -637,7 +635,7 @@ func testData(t testing.TB) []testCase {
 		{
 			name:      "literal_pb_wrapper_assign",
 			container: "google.expr.proto3.test",
-			types:     []proto.Message{&proto3pb.TestAllTypes{}},
+			typeOpts:  []types.RegistryOption{types.ProtoTypeDefs(&proto3pb.TestAllTypes{})},
 			expr: `TestAllTypes{
 				single_int64_wrapper: 10,
 				single_int32_wrapper: TestAllTypes{}.single_int32_wrapper,
@@ -649,7 +647,7 @@ func testData(t testing.TB) []testCase {
 		{
 			name:      "literal_pb_wrapper_assign_roundtrip",
 			container: "google.expr.proto3.test",
-			types:     []proto.Message{&proto3pb.TestAllTypes{}},
+			typeOpts:  []types.RegistryOption{types.ProtoTypeDefs(&proto3pb.TestAllTypes{})},
 			expr: `TestAllTypes{
 				single_int32_wrapper: TestAllTypes{}.single_int32_wrapper,
 			}.single_int32_wrapper == null`,
@@ -658,7 +656,7 @@ func testData(t testing.TB) []testCase {
 		{
 			name:      "literal_pb_list_assign_null_wrapper",
 			container: "google.expr.proto3.test",
-			types:     []proto.Message{&proto3pb.TestAllTypes{}},
+			typeOpts:  []types.RegistryOption{types.ProtoTypeDefs(&proto3pb.TestAllTypes{})},
 			expr: `TestAllTypes{
 				repeated_int32: [123, 456, TestAllTypes{}.single_int32_wrapper],
 			}`,
@@ -667,7 +665,7 @@ func testData(t testing.TB) []testCase {
 		{
 			name:      "literal_pb_map_assign_null_entry_value",
 			container: "google.expr.proto3.test",
-			types:     []proto.Message{&proto3pb.TestAllTypes{}},
+			typeOpts:  []types.RegistryOption{types.ProtoTypeDefs(&proto3pb.TestAllTypes{})},
 			expr: `TestAllTypes{
 				map_string_string: {
 					'hello': 'world',
@@ -679,7 +677,7 @@ func testData(t testing.TB) []testCase {
 		{
 			name:      "unset_wrapper_access",
 			container: "google.expr.proto3.test",
-			types:     []proto.Message{&proto3pb.TestAllTypes{}},
+			typeOpts:  []types.RegistryOption{types.ProtoTypeDefs(&proto3pb.TestAllTypes{})},
 			expr:      `TestAllTypes{}.single_string_wrapper`,
 			out:       types.NullValue,
 		},
@@ -803,7 +801,7 @@ func testData(t testing.TB) []testCase {
 		{
 			name:      "macro_has_pb2_field_undefined",
 			container: "google.expr.proto2.test",
-			types:     []proto.Message{&proto2pb.TestAllTypes{}},
+			typeOpts:  []types.RegistryOption{types.ProtoTypeDefs(&proto2pb.TestAllTypes{})},
 			unchecked: true,
 			expr:      `has(TestAllTypes{}.invalid_field)`,
 			err:       "no such field 'invalid_field'",
@@ -811,7 +809,7 @@ func testData(t testing.TB) []testCase {
 		{
 			name:      "macro_has_pb2_field",
 			container: "google.expr.proto2.test",
-			types:     []proto.Message{&proto2pb.TestAllTypes{}},
+			typeOpts:  []types.RegistryOption{types.ProtoTypeDefs(&proto2pb.TestAllTypes{})},
 			vars: []*decls.VariableDecl{
 				decls.NewVariable("pb2", types.NewObjectType("google.expr.proto2.test.TestAllTypes")),
 			},
@@ -836,8 +834,37 @@ func testData(t testing.TB) []testCase {
 			&& !has(pb2.map_string_string)`,
 		},
 		{
-			name:  "macro_has_pb3_field",
-			types: []proto.Message{&proto3pb.TestAllTypes{}},
+			name:      "macro_has_pb2_field_json",
+			container: "google.expr.proto2.test",
+			typeOpts:  []types.RegistryOption{types.JSONFieldNames(true), types.ProtoTypeDefs(&proto2pb.TestAllTypes{})},
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("pb2", types.NewObjectType("google.expr.proto2.test.TestAllTypes")),
+			},
+			in: map[string]any{
+				"pb2": &proto2pb.TestAllTypes{
+					RepeatedBool: []bool{false},
+					MapInt64NestedType: map[int64]*proto2pb.NestedTestAllTypes{
+						1: {},
+					},
+					MapStringString: map[string]string{},
+				},
+			},
+			expr: `has(TestAllTypes{standaloneEnum: TestAllTypes.NestedEnum.BAR}.standaloneEnum)
+			&& has(TestAllTypes{standaloneEnum: TestAllTypes.NestedEnum.FOO}.standaloneEnum)
+			&& !has(TestAllTypes{singleNestedEnum: TestAllTypes.NestedEnum.FOO}.singleNestedMessage)
+			&& has(TestAllTypes{singleNestedEnum: TestAllTypes.NestedEnum.FOO}.singleNestedEnum)
+			&& !has(TestAllTypes{}.singleNestedMessage)
+			&& has(TestAllTypes{singleNestedMessage: TestAllTypes.NestedMessage{}}.singleNestedMessage)
+			&& !has(TestAllTypes{}.standaloneEnum)
+			&& !has(pb2.singleInt64)
+			&& has(pb2.repeatedBool)
+			&& !has(pb2.repeatedInt32)
+			&& has(pb2.mapInt64NestedType)
+			&& !has(pb2.mapStringString)`,
+		},
+		{
+			name:     "macro_has_pb3_field",
+			typeOpts: []types.RegistryOption{types.ProtoTypeDefs(&proto3pb.TestAllTypes{})},
 			vars: []*decls.VariableDecl{
 				decls.NewVariable("pb3", types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
@@ -863,6 +890,35 @@ func testData(t testing.TB) []testCase {
 			&& !has(pb3.repeated_int32)
 			&& has(pb3.map_int64_nested_type)
 			&& !has(pb3.map_string_string)`,
+		},
+		{
+			name:     "macro_has_pb3_field_json",
+			typeOpts: []types.RegistryOption{types.JSONFieldNames(true), types.ProtoTypeDefs(&proto3pb.TestAllTypes{})},
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("pb3", types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
+			},
+			container: "google.expr.proto3.test",
+			in: map[string]any{
+				"pb3": &proto3pb.TestAllTypes{
+					RepeatedBool: []bool{false},
+					MapInt64NestedType: map[int64]*proto3pb.NestedTestAllTypes{
+						1: {},
+					},
+					MapStringString: map[string]string{},
+				},
+			},
+			expr: `has(TestAllTypes{standaloneEnum: TestAllTypes.NestedEnum.BAR}.standaloneEnum)
+			&& !has(TestAllTypes{standaloneEnum: TestAllTypes.NestedEnum.FOO}.standaloneEnum)
+			&& !has(TestAllTypes{singleNestedEnum: TestAllTypes.NestedEnum.FOO}.singleNestedMessage)
+			&& has(TestAllTypes{singleNestedEnum: TestAllTypes.NestedEnum.FOO}.singleNestedEnum)
+			&& !has(TestAllTypes{}.singleNestedMessage)
+			&& has(TestAllTypes{singleNestedMessage: TestAllTypes.NestedMessage{}}.singleNestedMessage)
+			&& !has(TestAllTypes{}.standaloneEnum)
+			&& !has(pb3.singleInt64)
+			&& has(pb3.repeatedBool)
+			&& !has(pb3.repeatedInt32)
+			&& has(pb3.mapInt64NestedType)
+			&& !has(pb3.mapStringString)`,
 		},
 		{
 			name: "macro_map",
@@ -907,9 +963,9 @@ func testData(t testing.TB) []testCase {
 			progErr: "unexpected ): `)k.*`",
 		},
 		{
-			name:  "nested_proto_field",
-			expr:  `pb3.single_nested_message.bb`,
-			types: []proto.Message{&proto3pb.TestAllTypes{}},
+			name:     "nested_proto_field",
+			expr:     `pb3.single_nested_message.bb`,
+			typeOpts: []types.RegistryOption{types.ProtoTypeDefs(&proto3pb.TestAllTypes{})},
 			vars: []*decls.VariableDecl{
 				decls.NewVariable("pb3",
 					types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
@@ -926,9 +982,9 @@ func testData(t testing.TB) []testCase {
 			out: types.Int(1234),
 		},
 		{
-			name:  "nested_proto_field_with_index",
-			expr:  `pb3.map_int64_nested_type[0].child.payload.single_int32 == 1`,
-			types: []proto.Message{&proto3pb.TestAllTypes{}},
+			name:     "nested_proto_field_with_index",
+			expr:     `pb3.map_int64_nested_type[0].child.payload.single_int32 == 1`,
+			typeOpts: []types.RegistryOption{types.ProtoTypeDefs(&proto3pb.TestAllTypes{})},
 			vars: []*decls.VariableDecl{
 				decls.NewVariable("pb3",
 					types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
@@ -1175,7 +1231,7 @@ func testData(t testing.TB) []testCase {
 				&& pb3.repeated_nested_enum[0] == test.TestAllTypes.NestedEnum.BAR
 				&& json.list[0] == 'world'`,
 			container: "google.expr.proto3",
-			types:     []proto.Message{&proto3pb.TestAllTypes{}},
+			typeOpts:  []types.RegistryOption{types.ProtoTypeDefs(&proto3pb.TestAllTypes{})},
 			vars: []*decls.VariableDecl{
 				decls.NewVariable("a.b", types.NewMapType(types.StringType, types.BoolType)),
 				decls.NewVariable("pb3", types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
@@ -1217,7 +1273,7 @@ func testData(t testing.TB) []testCase {
 			&& a.single_double == 6.4
 			&& a.single_bool
 			&& "empty" == a.single_string`,
-			types: []proto.Message{&proto2pb.TestAllTypes{}},
+			typeOpts: []types.RegistryOption{types.ProtoTypeDefs(&proto2pb.TestAllTypes{})},
 			in: map[string]any{
 				"a": &proto2pb.TestAllTypes{},
 			},
@@ -1232,8 +1288,8 @@ func testData(t testing.TB) []testCase {
 				&& has(a.single_int64_wrapper) && a.single_int64_wrapper == 0
 				&& has(a.single_string_wrapper) && a.single_string_wrapper == "hello"
 				&& a.single_int64_wrapper == Int32Value{value: 0}`,
-			types:   []proto.Message{&proto3pb.TestAllTypes{}},
-			abbrevs: []string{"google.protobuf.Int32Value"},
+			typeOpts: []types.RegistryOption{types.ProtoTypeDefs(&proto3pb.TestAllTypes{})},
+			abbrevs:  []string{"google.protobuf.Int32Value"},
 			vars: []*decls.VariableDecl{
 				decls.NewVariable("a", types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
@@ -1248,7 +1304,7 @@ func testData(t testing.TB) []testCase {
 			name:      "select_pb3_compare",
 			expr:      `a.single_uint64 > 3u`,
 			container: "google.expr.proto3.test",
-			types:     []proto.Message{&proto3pb.TestAllTypes{}},
+			typeOpts:  []types.RegistryOption{types.ProtoTypeDefs(&proto3pb.TestAllTypes{})},
 			vars: []*decls.VariableDecl{
 				decls.NewVariable("a", types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
 			},
@@ -1263,7 +1319,7 @@ func testData(t testing.TB) []testCase {
 			name:      "select_custom_pb3_compare",
 			expr:      `a.bb > 100`,
 			container: "google.expr.proto3.test",
-			types:     []proto.Message{&proto3pb.TestAllTypes_NestedMessage{}},
+			typeOpts:  []types.RegistryOption{types.ProtoTypeDefs(&proto3pb.TestAllTypes_NestedMessage{})},
 			vars: []*decls.VariableDecl{
 				decls.NewVariable("a",
 					types.NewObjectType("google.expr.proto3.test.TestAllTypes.NestedMessage")),
@@ -1271,8 +1327,8 @@ func testData(t testing.TB) []testCase {
 			attrs: &custAttrFactory{
 				AttributeFactory: NewAttributeFactory(
 					testContainer("google.expr.proto3.test"),
-					newTestRegistry(t, &proto3pb.TestAllTypes_NestedMessage{}),
-					newTestRegistry(t, &proto3pb.TestAllTypes_NestedMessage{}),
+					newTestRegistry(t, types.ProtoTypeDefs(&proto3pb.TestAllTypes_NestedMessage{})),
+					newTestRegistry(t, types.ProtoTypeDefs(&proto3pb.TestAllTypes_NestedMessage{})),
 				),
 			},
 			in: map[string]any{
@@ -1286,7 +1342,7 @@ func testData(t testing.TB) []testCase {
 			name:      "select_custom_pb3_optional_field",
 			expr:      `a.?bb`,
 			container: "google.expr.proto3.test",
-			types:     []proto.Message{&proto3pb.TestAllTypes_NestedMessage{}},
+			typeOpts:  []types.RegistryOption{types.ProtoTypeDefs(&proto3pb.TestAllTypes_NestedMessage{})},
 			vars: []*decls.VariableDecl{
 				decls.NewVariable("a",
 					types.NewObjectType("google.expr.proto3.test.TestAllTypes.NestedMessage")),
@@ -1294,8 +1350,8 @@ func testData(t testing.TB) []testCase {
 			attrs: &custAttrFactory{
 				AttributeFactory: NewAttributeFactory(
 					testContainer("google.expr.proto3.test"),
-					newTestRegistry(t, &proto3pb.TestAllTypes_NestedMessage{}),
-					newTestRegistry(t, &proto3pb.TestAllTypes_NestedMessage{}),
+					newTestRegistry(t, types.ProtoTypeDefs(&proto3pb.TestAllTypes_NestedMessage{})),
+					newTestRegistry(t, types.ProtoTypeDefs(&proto3pb.TestAllTypes_NestedMessage{})),
 				),
 			},
 			in: map[string]any{
@@ -1345,7 +1401,7 @@ func testData(t testing.TB) []testCase {
 		{
 			name:      "select_empty_repeated_nested",
 			expr:      `TestAllTypes{}.repeated_nested_message.size() == 0`,
-			types:     []proto.Message{&proto3pb.TestAllTypes{}},
+			typeOpts:  []types.RegistryOption{types.ProtoTypeDefs(&proto3pb.TestAllTypes{})},
 			container: "google.expr.proto3.test",
 			out:       types.True,
 		},
@@ -1428,7 +1484,7 @@ func testData(t testing.TB) []testCase {
 			name:      "literal_pb_optional_field",
 			expr:      `TestAllTypes{?single_int32: {'value': 1}.?value, ?single_string: {}.?missing}`,
 			container: "google.expr.proto3.test",
-			types:     []proto.Message{&proto3pb.TestAllTypes{}},
+			typeOpts:  []types.RegistryOption{types.ProtoTypeDefs(&proto3pb.TestAllTypes{})},
 			out: &proto3pb.TestAllTypes{
 				SingleInt32: 1,
 			},
@@ -1437,7 +1493,7 @@ func testData(t testing.TB) []testCase {
 			name:      "literal_pb_optional_field_bad_init",
 			expr:      `TestAllTypes{?single_int32: 1}`,
 			container: "google.expr.proto3.test",
-			types:     []proto.Message{&proto3pb.TestAllTypes{}},
+			typeOpts:  []types.RegistryOption{types.ProtoTypeDefs(&proto3pb.TestAllTypes{})},
 			unchecked: true,
 			err:       `cannot initialize optional entry 'single_int32' from non-optional`,
 		},
@@ -1745,9 +1801,9 @@ func TestInterpreter(t *testing.T) {
 
 func TestInterpreter_ProtoAttributeOpt(t *testing.T) {
 	inst, _, err := program(t, &testCase{
-		name:  "nested_proto_field_with_index",
-		expr:  `pb3.map_int64_nested_type[0].child.payload.single_int32`,
-		types: []proto.Message{&proto3pb.TestAllTypes{}},
+		name:     "nested_proto_field_with_index",
+		expr:     `pb3.map_int64_nested_type[0].child.payload.single_int32`,
+		typeOpts: []types.RegistryOption{types.ProtoTypeDefs(&proto3pb.TestAllTypes{})},
 		vars: []*decls.VariableDecl{
 			decls.NewVariable("pb3",
 				types.NewObjectType("google.expr.proto3.test.TestAllTypes")),
@@ -1806,7 +1862,7 @@ func TestInterpreter_ExhaustiveConditionalExpr(t *testing.T) {
 	parsed := testMustParse(t, `a ? b < 1.0 : c == ['hello']`)
 	state := NewEvalState()
 	cont := containers.DefaultContainer
-	reg := newTestRegistry(t, &exprpb.ParsedExpr{})
+	reg := newTestRegistry(t, types.ProtoTypeDefs(&exprpb.ParsedExpr{}))
 	attrs := NewAttributeFactory(cont, reg, reg)
 	intr := newStandardInterpreter(t, cont, reg, reg, attrs)
 	interpretable, _ := intr.NewInterpretable(parsed, ExhaustiveEval(),
@@ -1908,7 +1964,7 @@ func TestInterpreter_ExhaustiveLogicalOrEquals(t *testing.T) {
 	// Operator "==" is at Expr 4, should be evaluated though "a" is true
 	parsed := testMustParse(t, `a || b == "b"`)
 	state := NewEvalState()
-	reg := newTestRegistry(t, &exprpb.Expr{})
+	reg := newTestRegistry(t, types.ProtoTypeDefs(&exprpb.Expr{}))
 	cont := testContainer("test")
 	attrs := NewAttributeFactory(cont, reg, reg)
 	interp := newStandardInterpreter(t, cont, reg, reg, attrs)
@@ -1944,7 +2000,7 @@ func TestInterpreter_SetProto2PrimitiveFields(t *testing.T) {
 		}`)
 	parsed := testMustParse(t, src)
 	cont := testContainer("google.expr.proto2.test")
-	reg := newTestRegistry(t, &proto2pb.TestAllTypes{})
+	reg := newTestRegistry(t, types.ProtoTypeDefs(&proto2pb.TestAllTypes{}))
 	env := newTestEnv(t, cont, reg)
 	env.AddIdents(
 		decls.NewVariable("input",
@@ -2229,8 +2285,8 @@ func program(t testing.TB, tst *testCase, opts ...PlannerOption) (Interpretable,
 	var reg *types.Registry
 	var env *checker.Env
 	reg = newTestRegistry(t)
-	if tst.types != nil {
-		reg = newTestRegistry(t, tst.types...)
+	if tst.typeOpts != nil {
+		reg = newTestRegistry(t, tst.typeOpts...)
 	}
 	env = newTestEnv(t, cont, reg)
 	attrs := NewAttributeFactory(cont, reg, reg)
@@ -2361,11 +2417,11 @@ func newTestEnv(t testing.TB, cont *containers.Container, reg *types.Registry) *
 	return env
 }
 
-func newTestRegistry(t testing.TB, msgs ...proto.Message) *types.Registry {
+func newTestRegistry(t testing.TB, opts ...types.RegistryOption) *types.Registry {
 	t.Helper()
-	reg, err := types.NewRegistry(msgs...)
+	reg, err := types.NewProtoRegistry(opts...)
 	if err != nil {
-		t.Fatalf("types.NewRegistry(%v) failed: %v", msgs, err)
+		t.Fatalf("types.NewProtoRegistry() failed: %v", err)
 	}
 	return reg
 }

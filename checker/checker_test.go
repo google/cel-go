@@ -2544,7 +2544,7 @@ func TestCheck(t *testing.T) {
 
 			reg, err := types.NewProtoRegistry(
 				types.JSONFieldNames(tc.env.jsonFieldNames),
-				types.ProtoTypes(&proto2pb.TestAllTypes{}, &proto3pb.TestAllTypes{}),
+				types.ProtoTypeDefs(&proto2pb.TestAllTypes{}, &proto3pb.TestAllTypes{}),
 			)
 			if err != nil {
 				t.Fatalf("types.NewProtoRegistry() failed: %v", err)
@@ -2654,9 +2654,9 @@ func BenchmarkCheck(b *testing.B) {
 			if len(errors.GetErrors()) > 0 {
 				b.Fatalf("Unexpected parse errors: %v", errors.ToDisplayString())
 			}
-			reg, err := types.NewRegistry(&proto2pb.TestAllTypes{}, &proto3pb.TestAllTypes{})
+			reg, err := types.NewProtoRegistry(types.ProtoTypeDefs(&proto2pb.TestAllTypes{}, &proto3pb.TestAllTypes{}))
 			if err != nil {
-				b.Fatalf("types.NewRegistry() failed: %v", err)
+				b.Fatalf("types.NewProtoRegistry() failed: %v", err)
 			}
 			if tc.env.optionalSyntax {
 				if err := reg.RegisterType(types.OptionalType); err != nil {
@@ -2723,9 +2723,9 @@ func BenchmarkCheck(b *testing.B) {
 }
 
 func TestAddDuplicateDeclarations(t *testing.T) {
-	reg, err := types.NewRegistry(&proto2pb.TestAllTypes{}, &proto3pb.TestAllTypes{})
+	reg, err := types.NewProtoRegistry(types.ProtoTypeDefs(&proto2pb.TestAllTypes{}, &proto3pb.TestAllTypes{}))
 	if err != nil {
-		t.Fatalf("types.NewRegistry() failed: %v", err)
+		t.Fatalf("types.NewProtoRegistry() failed: %v", err)
 	}
 	env, err := NewEnv(containers.DefaultContainer, reg, CrossTypeNumericComparisons(true))
 	if err != nil {
@@ -2742,9 +2742,9 @@ func TestAddDuplicateDeclarations(t *testing.T) {
 }
 
 func TestAddEquivalentDeclarations(t *testing.T) {
-	reg, err := types.NewRegistry(&proto2pb.TestAllTypes{}, &proto3pb.TestAllTypes{})
+	reg, err := types.NewProtoRegistry(types.ProtoTypeDefs(&proto2pb.TestAllTypes{}, &proto3pb.TestAllTypes{}))
 	if err != nil {
-		t.Fatalf("types.NewRegistry() failed: %v", err)
+		t.Fatalf("types.NewProtoRegistry() failed: %v", err)
 	}
 	env, err := NewEnv(containers.DefaultContainer, reg, CrossTypeNumericComparisons(true))
 	if err != nil {
