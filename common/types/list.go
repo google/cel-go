@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -353,9 +354,11 @@ func (l *mutableList) ToImmutableList() traits.Lister {
 // The `Adapter` enables native type to CEL type conversions.
 type concatList struct {
 	Adapter
-	value    any
-	prevList traits.Lister
-	nextList traits.Lister
+	value      any
+	prevList   traits.Lister
+	nextList   traits.Lister
+	sizeOnce   sync.Once
+	cachedSize ref.Val
 }
 
 // Add implements the traits.Adder interface method.
@@ -477,7 +480,10 @@ func (l *concatList) Iterator() traits.Iterator {
 
 // Size implements the traits.Sizer interface method.
 func (l *concatList) Size() ref.Val {
-	return l.prevList.Size().(Int).Add(l.nextList.Size())
+	l.sizeOnce.Do(func() {
+		l.cachedSize = l.prevList.Size().(Int).Add(l.nextList.Size())
+	})
+	return l.cachedSize
 }
 
 // String converts the concatenated list to a human-readable string.
