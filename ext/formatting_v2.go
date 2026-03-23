@@ -784,5 +784,8 @@ func parsePrecisionV2(formatStr string) (int, int, error) {
 	if precision < 0 {
 		return -1, -1, fmt.Errorf("negative precision: %d", precision)
 	}
+	if precision > maxPrecision {
+		return -1, -1, fmt.Errorf("precision %d exceeds maximum allowed precision %d", precision, maxPrecision)
+	}
 	return i, precision, nil
 }

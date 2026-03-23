@@ -870,6 +870,8 @@ func parseFormattingClause(formatStr string, callback formatStringInterpolator) 
 	}
 }
 
+const maxPrecision = 1000
+
 func parsePrecision(formatStr string) (int, *int, error) {
 	i := 0
 	if formatStr[i] != '.' {
@@ -890,6 +892,9 @@ func parsePrecision(formatStr string) (int, *int, error) {
 	precision, err := strconv.Atoi(buffer.String())
 	if err != nil {
 		return -1, nil, fmt.Errorf("error while converting precision to integer: %w", err)
+	}
+	if precision > maxPrecision {
+		return -1, nil, fmt.Errorf("precision %d exceeds maximum allowed precision %d", precision, maxPrecision)
 	}
 	return i, &precision, nil
 }
