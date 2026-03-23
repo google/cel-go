@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	"sync"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -133,10 +132,7 @@ func (l *baseList) Add(other ref.Val) ref.Val {
 	if otherList.Size() == IntZero {
 		return l
 	}
-	return &concatList{
-		Adapter:  l.Adapter,
-		prevList: l,
-		nextList: otherList}
+	return newConcatList(l.Adapter, l, otherList)
 }
 
 // Contains implements the traits.Container interface method.
@@ -357,9 +353,18 @@ type concatList struct {
 	value      any
 	prevList   traits.Lister
 	nextList   traits.Lister
-	sizeOnce   sync.Once
 	cachedSize ref.Val
 }
+
+func newConcatList(adapter Adapter, prevList, nextList traits.Lister) *concatList {
+	return &concatList{
+		Adapter:    adapter,
+		prevList:   prevList,
+		nextList:   nextList,
+		cachedSize: prevList.Size().(Int).Add(nextList.Size()),
+	}
+}
+
 
 // Add implements the traits.Adder interface method.
 func (l *concatList) Add(other ref.Val) ref.Val {
@@ -373,10 +378,7 @@ func (l *concatList) Add(other ref.Val) ref.Val {
 	if otherList.Size() == IntZero {
 		return l
 	}
-	return &concatList{
-		Adapter:  l.Adapter,
-		prevList: l,
-		nextList: otherList}
+	return newConcatList(l.Adapter, l, otherList)
 }
 
 // Contains implements the traits.Container interface method.
@@ -480,9 +482,6 @@ func (l *concatList) Iterator() traits.Iterator {
 
 // Size implements the traits.Sizer interface method.
 func (l *concatList) Size() ref.Val {
-	l.sizeOnce.Do(func() {
-		l.cachedSize = l.prevList.Size().(Int).Add(l.nextList.Size())
-	})
 	return l.cachedSize
 }
 
