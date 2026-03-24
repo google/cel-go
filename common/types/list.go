@@ -126,12 +126,6 @@ func (l *baseList) Add(other ref.Val) ref.Val {
 	if !ok {
 		return MaybeNoSuchOverloadErr(other)
 	}
-	if l.Size() == IntZero {
-		return other
-	}
-	if otherList.Size() == IntZero {
-		return l
-	}
 	return newConcatList(l.Adapter, l, otherList)
 }
 
@@ -356,27 +350,28 @@ type concatList struct {
 	cachedSize ref.Val
 }
 
-func newConcatList(adapter Adapter, prevList, nextList traits.Lister) *concatList {
+func newConcatList(adapter Adapter, prevList, nextList traits.Lister) ref.Val {
+	prevSize := prevList.Size().(Int)
+	nextSize := nextList.Size().(Int)
+	if prevSize == IntZero {
+		return nextList.(ref.Val)
+	}
+	if nextSize == IntZero {
+		return prevList.(ref.Val)
+	}
 	return &concatList{
 		Adapter:    adapter,
 		prevList:   prevList,
 		nextList:   nextList,
-		cachedSize: prevList.Size().(Int).Add(nextList.Size()),
+		cachedSize: prevSize.Add(nextSize),
 	}
 }
-
 
 // Add implements the traits.Adder interface method.
 func (l *concatList) Add(other ref.Val) ref.Val {
 	otherList, ok := other.(traits.Lister)
 	if !ok {
 		return MaybeNoSuchOverloadErr(other)
-	}
-	if l.Size() == IntZero {
-		return other
-	}
-	if otherList.Size() == IntZero {
-		return l
 	}
 	return newConcatList(l.Adapter, l, otherList)
 }
