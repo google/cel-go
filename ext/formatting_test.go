@@ -866,6 +866,14 @@ func TestStringFormat(t *testing.T) {
 			formatArgs: "3.14",
 			err:        "error during formatting: octal clause can only be used on integers",
 		},
+		{
+			name:             "high precision allowed on older version",
+			format:           "%.200f",
+			formatArgs:       "1.0",
+			expectedOutput:   "1." + strings.Repeat("0", 200),
+			skipCompileCheck: true,
+			locale:           "en_US",
+		},
 	}
 	evalExpr := func(env *cel.Env, expr string, evalArgs any, expectedRuntimeCost uint64, expectedEstimatedCost checker.CostEstimate, t *testing.T) (ref.Val, error) {
 		t.Logf("evaluating expr: %s", expr)
