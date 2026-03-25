@@ -1190,14 +1190,17 @@ func deps(d protoreflect.FileDescriptor) []*descpb.FileDescriptorProto {
 func (e *Evaluator) loadDescriptorFromPackage(pkg string) error {
 	switch pkg {
 	case "cel-spec-test-types":
-		fdp := (&test2pb.TestAllTypes{}).ProtoReflect().Type().Descriptor().ParentFile()
-		fdp2 := (&test3pb.TestAllTypes{}).ProtoReflect().Type().Descriptor().ParentFile()
+		fdp2 := (&test2pb.TestAllTypes{}).ProtoReflect().Type().Descriptor().ParentFile()
+		fdp2ext := (&test2pb.Proto2ExtensionScopedMessage{}).ProtoReflect().Type().Descriptor().ParentFile()
+		fdp3 := (&test3pb.TestAllTypes{}).ProtoReflect().Type().Descriptor().ParentFile()
 
-		descriptorProtos := deps(fdp)
+		// We only depend on WKTs.
+		descriptorProtos := deps(fdp2)
 
 		descriptorProtos = append(descriptorProtos,
-			protodesc.ToFileDescriptorProto(fdp),
-			protodesc.ToFileDescriptorProto(fdp2))
+			protodesc.ToFileDescriptorProto(fdp2),
+			protodesc.ToFileDescriptorProto(fdp2ext),
+			protodesc.ToFileDescriptorProto(fdp3))
 
 		fds := descpb.FileDescriptorSet{
 			File: descriptorProtos,
