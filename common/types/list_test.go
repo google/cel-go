@@ -910,3 +910,23 @@ func validateIterator123(t *testing.T, list traits.Lister) {
 		t.Errorf("Iterator did not iterate until last value")
 	}
 }
+
+func TestConcatListSizeCached(t *testing.T) {
+	reg := newTestRegistry(t)
+	// Build a deep chain of concat lists
+	var list traits.Lister = NewDynamicList(reg, []int64{0})
+	for i := 0; i < 200; i++ {
+		list = list.Add(NewDynamicList(reg, []int64{0})).(traits.Lister)
+	}
+	// Size() should return instantly since it's precomputed
+	size := list.Size()
+	if size != Int(201) {
+		t.Errorf("Expected size 201, got %v", size)
+	}
+	// Call Size() many times to confirm no quadratic behavior
+	for i := 0; i < 1000; i++ {
+		if list.Size() != Int(201) {
+			t.Errorf("Size() returned inconsistent value on call %d", i)
+		}
+	}
+}
