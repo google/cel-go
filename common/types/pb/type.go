@@ -107,16 +107,16 @@ func (td *TypeDescription) FieldMap() map[string]*FieldDescription {
 
 // FieldByName returns (FieldDescription, true) if the field name is declared within the type.
 func (td *TypeDescription) FieldByName(name string) (*FieldDescription, bool) {
-	fd, found := td.fieldMap[name]
-	if found {
-		return fd, true
-	}
-
 	if td.jsonFieldNames {
-		fd, found = td.jsonFieldMap[name]
+		fd, found := td.jsonFieldMap[name]
 		if found {
 			return fd, true
 		}
+	}
+
+	fd, found := td.fieldMap[name]
+	if found {
+		return fd, true
 	}
 
 	extFieldMap, found := td.extensions[td.typeName]
