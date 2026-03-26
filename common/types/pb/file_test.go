@@ -100,6 +100,7 @@ func TestFileDescriptionGetTypes(t *testing.T) {
 		"google.expr.proto3.test.TestAllTypes.NestedMessage",
 		"google.expr.proto3.test.TestAllTypes.MapStringStringEntry",
 		"google.expr.proto3.test.TestAllTypes.MapInt64NestedTypeEntry",
+		"google.expr.proto3.test.TestJsonNames",
 		"google.expr.proto3.test.NestedTestAllTypes"}
 	if len(fd.GetTypeNames()) != len(expected) {
 		t.Errorf("got '%v', wanted '%v'", fd.GetTypeNames(), expected)
