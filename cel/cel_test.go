@@ -3702,6 +3702,30 @@ func TestJSONFieldNames(t *testing.T) {
 			expr:           `dyn(msg).single_int32 == dyn(msg).singleInt32`,
 			jsonFieldNames: true,
 		},
+		{
+			name:           "proto with extensions",
+			expr:           `google.expr.proto2.test.ExampleType{fooBar: 'value'}.fooBar == 'value'`,
+			jsonFieldNames: true,
+		},
+		{
+			name: "json opt fields",
+			expr: "jsonOptMsg.int32_snake_case_json_name == 1 && " +
+				"jsonOptMsg.int64CamelCaseJsonName == 2 && " +
+				"jsonOptMsg.uint32DefaultJsonName == 3u && " +
+				"jsonOptMsg.`uint64-custom-json-name` == 4u && " +
+				"jsonOptMsg.single_string == 'shadows' && " +
+				"jsonOptMsg.singleString == 'shadowed'",
+			jsonFieldNames: true,
+		},
+		{
+			name: "json opt fields fallback",
+			expr: "dyn(jsonOptMsg).int32_snake_case_json_name == 1 && " +
+				"dyn(jsonOptMsg).`uint64-custom-json-name` == 4u && " +
+				"dyn(jsonOptMsg).single_string == 'shadows' && " +
+				"dyn(jsonOptMsg).string_json_name_shadows == 'shadows' && " +
+				"dyn(jsonOptMsg).singleString == 'shadowed'",
+			jsonFieldNames: true,
+		},
 	}
 	msg := &proto3pb.TestAllTypes{
 		SingleInt32: 1,
@@ -3709,14 +3733,24 @@ func TestJSONFieldNames(t *testing.T) {
 			"key": "value",
 		},
 	}
+	jsonOptMsg := &proto3pb.TestJsonNames{
+		Int32SnakeCaseJsonName: 1,
+		Int64CamelCaseJsonName: 2,
+		Uint32DefaultJsonName:  3,
+		Uint64CustomJsonName:   4,
+		StringJsonNameShadows:  "shadows",
+		SingleString:           "shadowed",
+	}
 	for _, tst := range tests {
 		tc := tst
 		t.Run(tc.name, func(t *testing.T) {
 			env, err := NewEnv(
+				EnableIdentifierEscapeSyntax(),
 				JSONFieldNames(tc.jsonFieldNames),
-				Types(msg),
+				Types(msg, &proto2pb.ExternalMessageType{}, jsonOptMsg),
 				Container(string(msg.ProtoReflect().Descriptor().ParentFile().Package())),
 				Variable("msg", ObjectType(string(msg.ProtoReflect().Descriptor().FullName()))),
+				Variable("jsonOptMsg", ObjectType(string(jsonOptMsg.ProtoReflect().Descriptor().FullName()))),
 			)
 			if err != nil {
 				t.Fatalf("NewEnv() failed: %v", err)
@@ -3729,7 +3763,7 @@ func TestJSONFieldNames(t *testing.T) {
 			if err != nil {
 				t.Fatalf("env.Program() failed: %v", err)
 			}
-			out, _, err := prg.Eval(map[string]any{"msg": msg})
+			out, _, err := prg.Eval(map[string]any{"msg": msg, "jsonOptMsg": jsonOptMsg})
 			if err != nil {
 				t.Fatalf("prg.Eval() failed: %v", err)
 			}

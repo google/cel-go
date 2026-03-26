@@ -994,6 +994,10 @@ func (o *typeOption) String() string {
 	return fmt.Sprintf("%%load_descriptors %s '%s'", flags, o.path)
 }
 
+func (o *typeOption) Option() cel.EnvOption {
+	return cel.TypeDescs(o.fds)
+}
+
 type backtickOpt struct {
 	enabled bool
 }
@@ -1009,8 +1013,17 @@ func (o *backtickOpt) String() string {
 	return "%option --enable_escaped_fields"
 }
 
-func (o *typeOption) Option() cel.EnvOption {
-	return cel.TypeDescs(o.fds)
+type jsonOpt struct {
+	enabled bool
+}
+
+func (o *jsonOpt) Option() cel.EnvOption {
+
+	return cel.JSONFieldNames(o.enabled)
+}
+
+func (o *jsonOpt) String() string {
+	return "%option --enable_escaped_fields"
 }
 
 type containerOption struct {
@@ -1082,6 +1095,11 @@ func (e *Evaluator) setOption(args []string) error {
 			err := e.AddSerializableOption(&backtickOpt{enabled: true})
 			if err != nil {
 				issues = append(issues, fmt.Sprintf("enable_escaped_fields: %v", err))
+			}
+		case "--enable_json_field_names":
+			err := e.AddSerializableOption(&jsonOpt{enabled: true})
+			if err != nil {
+				issues = append(issues, fmt.Sprintf("enable_json_field_names: %v", err))
 			}
 		case "--enable_partial_eval":
 			err := e.EnablePartialEval()
@@ -1190,14 +1208,17 @@ func deps(d protoreflect.FileDescriptor) []*descpb.FileDescriptorProto {
 func (e *Evaluator) loadDescriptorFromPackage(pkg string) error {
 	switch pkg {
 	case "cel-spec-test-types":
-		fdp := (&test2pb.TestAllTypes{}).ProtoReflect().Type().Descriptor().ParentFile()
-		fdp2 := (&test3pb.TestAllTypes{}).ProtoReflect().Type().Descriptor().ParentFile()
+		fdp2 := (&test2pb.TestAllTypes{}).ProtoReflect().Type().Descriptor().ParentFile()
+		fdp2ext := (&test2pb.Proto2ExtensionScopedMessage{}).ProtoReflect().Type().Descriptor().ParentFile()
+		fdp3 := (&test3pb.TestAllTypes{}).ProtoReflect().Type().Descriptor().ParentFile()
 
-		descriptorProtos := deps(fdp)
+		// We only depend on WKTs.
+		descriptorProtos := deps(fdp2)
 
 		descriptorProtos = append(descriptorProtos,
-			protodesc.ToFileDescriptorProto(fdp),
-			protodesc.ToFileDescriptorProto(fdp2))
+			protodesc.ToFileDescriptorProto(fdp2),
+			protodesc.ToFileDescriptorProto(fdp2ext),
+			protodesc.ToFileDescriptorProto(fdp3))
 
 		fds := descpb.FileDescriptorSet{
 			File: descriptorProtos,

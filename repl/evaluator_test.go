@@ -904,6 +904,37 @@ func TestProcess(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "LoadDescriptorsPackageSpecExtensions",
+			commands: []Cmder{
+				&simpleCmd{
+					cmd: "load_descriptors",
+					args: []string{
+						"--pkg",
+						"cel-spec-test-types",
+					},
+				},
+				&simpleCmd{
+					cmd: "option",
+					args: []string{
+						"--container",
+						"cel.expr.conformance",
+					},
+				},
+				&simpleCmd{
+					cmd: "option",
+					args: []string{
+						"--enable_escaped_fields",
+					},
+				},
+				&evalCmd{
+					expr: "proto2.TestAllTypes{`cel.expr.conformance.proto2.int32_ext`: 42}.`cel.expr.conformance.proto2.int32_ext` == 42",
+				},
+			},
+			wantText:  `true : bool`,
+			wantExit:  false,
+			wantError: false,
+		},
+		{
 			name: "LoadDescriptorsPackageRpc",
 			commands: []Cmder{
 				&simpleCmd{
