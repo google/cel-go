@@ -1106,6 +1106,21 @@ func TestAttributeStateTracking(t *testing.T) {
 			),
 			out: types.NewUnknown(5, types.QualifyAttribute[string](types.NewAttributeTrail("a"), "b")),
 		},
+		{
+			expr: `['a', b.val, 'c'].filter(i, i + 'b' != 'ab')`,
+			vars: []*decls.VariableDecl{
+				decls.NewVariable("b", types.NewMapType(types.StringType, types.DynType)),
+			},
+			in: partialActivation(
+				map[string]any{
+					"b": map[string]any{
+						"val": 1,
+					},
+				},
+			),
+			// Error node 9 corresponds to the `i + 'b'` expression
+			out: types.LabelErrNode(9, types.NoSuchOverloadErr()),
+		},
 	}
 	for _, test := range tests {
 		tc := test
@@ -1170,8 +1185,18 @@ func TestAttributeStateTracking(t *testing.T) {
 				if !reflect.DeepEqual(tc.out, out) {
 					t.Errorf("got %v, wanted %v", out, tc.out)
 				}
+			} else if types.IsError(tc.out) && types.IsError(out) {
+				if tc.out.(*types.Err).Error() != out.(*types.Err).Error() {
+					t.Errorf("got %v, wanted %v", out, tc.out)
+				}
 			} else if tc.out.Equal(out) != types.True {
 				t.Errorf("got %v, wanted %v", out, tc.out)
+			}
+			if err, isErr := out.(*types.Err); isErr && err.NodeID() != 0 {
+				wantErr := tc.out.(*types.Err)
+				if err.NodeID() != wantErr.NodeID() {
+					t.Errorf("err.NodeID() got %d, wanted %d", err.NodeID(), wantErr.NodeID())
+				}
 			}
 			for id, val := range tc.state {
 				stVal, found := holder.st.Value(id)
