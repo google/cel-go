@@ -111,15 +111,20 @@ func (td *TypeDescription) FieldByName(name string) (*FieldDescription, bool) {
 	if found {
 		return fd, true
 	}
+
+	if td.jsonFieldNames {
+		fd, found = td.jsonFieldMap[name]
+		if found {
+			return fd, true
+		}
+	}
+
 	extFieldMap, found := td.extensions[td.typeName]
 	if found {
 		fd, found = extFieldMap[name]
 		return fd, found
 	}
-	if td.jsonFieldNames {
-		fd, found = td.jsonFieldMap[name]
-		return fd, found
-	}
+
 	return nil, false
 }
 

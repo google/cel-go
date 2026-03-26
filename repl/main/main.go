@@ -43,6 +43,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/google/cel-go/repl"
 
@@ -52,6 +53,7 @@ import (
 func main() {
 	var c readline.Config
 	c.Prompt = "cel-repl> "
+	c.HistoryFile = filepath.Join(os.Getenv("HOME"), ".cel-repl.history")
 
 	err := c.Init()
 	if err != nil {

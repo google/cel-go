@@ -994,6 +994,10 @@ func (o *typeOption) String() string {
 	return fmt.Sprintf("%%load_descriptors %s '%s'", flags, o.path)
 }
 
+func (o *typeOption) Option() cel.EnvOption {
+	return cel.TypeDescs(o.fds)
+}
+
 type backtickOpt struct {
 	enabled bool
 }
@@ -1009,8 +1013,17 @@ func (o *backtickOpt) String() string {
 	return "%option --enable_escaped_fields"
 }
 
-func (o *typeOption) Option() cel.EnvOption {
-	return cel.TypeDescs(o.fds)
+type jsonOpt struct {
+	enabled bool
+}
+
+func (o *jsonOpt) Option() cel.EnvOption {
+
+	return cel.JSONFieldNames(o.enabled)
+}
+
+func (o *jsonOpt) String() string {
+	return "%option --enable_escaped_fields"
 }
 
 type containerOption struct {
@@ -1082,6 +1095,11 @@ func (e *Evaluator) setOption(args []string) error {
 			err := e.AddSerializableOption(&backtickOpt{enabled: true})
 			if err != nil {
 				issues = append(issues, fmt.Sprintf("enable_escaped_fields: %v", err))
+			}
+		case "--enable_json_field_names":
+			err := e.AddSerializableOption(&jsonOpt{enabled: true})
+			if err != nil {
+				issues = append(issues, fmt.Sprintf("enable_json_field_names: %v", err))
 			}
 		case "--enable_partial_eval":
 			err := e.EnablePartialEval()
