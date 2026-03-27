@@ -880,6 +880,13 @@ func TestStringFormatV2(t *testing.T) {
 			formatArgs: "3.14",
 			err:        "octal clause can only be used on ints and uints, was given double",
 		},
+		{
+			name:             "precision exceeds maximum",
+			format:           "%.9999999f",
+			formatArgs:       "3.14",
+			skipCompileCheck: true,
+			err:              "precision 9999999 exceeds maximum allowed precision 100",
+		},
 	}
 	evalExpr := func(env *cel.Env, expr string, evalArgs any, expectedRuntimeCost uint64, expectedEstimatedCost checker.CostEstimate, t *testing.T) (ref.Val, error) {
 		t.Logf("evaluating expr: %s", expr)
