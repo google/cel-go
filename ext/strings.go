@@ -366,10 +366,6 @@ func StringsMaxPrecision(limit int) StringsOption {
 
 // CompileOptions implements the Library interface method.
 func (lib *stringLib) CompileOptions() []cel.EnvOption {
-	maxPrecision := lib.maxPrecision
-	if maxPrecision == 0 && lib.version >= 5 {
-		maxPrecision = 100
-	}
 	formatLocale := "en_US"
 	if lib.version < 4 && lib.locale != "" {
 		// ensure locale is properly-formed if set
@@ -484,6 +480,13 @@ func (lib *stringLib) CompileOptions() []cel.EnvOption {
 					s := str.(types.String)
 					return stringOrError(upperASCII(string(s)))
 				}))),
+	}
+	// maxPrecision is unbounded (0) for versions < 5 to maintain backward
+	// compatibility. For version >= 5, the default is 100 if not explicitly
+	// configured via StringsMaxPrecision().
+	maxPrecision := lib.maxPrecision
+	if maxPrecision == 0 && lib.version >= 5 {
+		maxPrecision = 100
 	}
 	if lib.version >= 1 {
 		if lib.version >= 4 {
