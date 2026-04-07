@@ -29,7 +29,7 @@ func TestUnparseType(t *testing.T) {
 	}{
 		{
 			exprType: &exprpb.Type{},
-			wantFmt:  "<unknown type>",
+			wantFmt:  "*unknown type kind*",
 		},
 		{
 			exprType: &exprpb.Type{TypeKind: &exprpb.Type_Dyn{}},
@@ -65,7 +65,7 @@ func TestUnparseType(t *testing.T) {
 		},
 		{
 			exprType: &exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_PRIMITIVE_TYPE_UNSPECIFIED}},
-			wantFmt:  "primitive_type_unspecified",
+			wantFmt:  "*unspecified primitive*",
 		},
 		{
 			exprType: &exprpb.Type{TypeKind: &exprpb.Type_WellKnown{WellKnown: exprpb.Type_DURATION}},
@@ -81,33 +81,33 @@ func TestUnparseType(t *testing.T) {
 		},
 		{
 			exprType: &exprpb.Type{TypeKind: &exprpb.Type_WellKnown{WellKnown: exprpb.Type_WELL_KNOWN_TYPE_UNSPECIFIED}},
-			wantFmt:  "well_known:WELL_KNOWN_TYPE_UNSPECIFIED",
+			wantFmt:  "*unspecified wellknown*",
 		},
 		{
 			exprType: &exprpb.Type{TypeKind: &exprpb.Type_MapType_{MapType: &exprpb.Type_MapType{
 				KeyType:   &exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_STRING}},
 				ValueType: &exprpb.Type{TypeKind: &exprpb.Type_WellKnown{WellKnown: exprpb.Type_TIMESTAMP}},
 			}}},
-			wantFmt: "map(string, timestamp)",
+			wantFmt: "map<string, timestamp>",
 		},
 		{
 			exprType: &exprpb.Type{TypeKind: &exprpb.Type_ListType_{
 				ListType: &exprpb.Type_ListType{ElemType: &exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_DOUBLE}}}}},
-			wantFmt: "list(double)",
+			wantFmt: "list<double>",
 		},
 		{
 			exprType: &exprpb.Type{TypeKind: &exprpb.Type_Type{
 				Type: &exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_DOUBLE}}}},
-			wantFmt: "type(double)",
+			wantFmt: "type<double>",
 		},
 		{
 			exprType: &exprpb.Type{TypeKind: &exprpb.Type_Wrapper{
 				Wrapper: exprpb.Type_UINT64}},
-			wantFmt: "wrapper(uint)",
+			wantFmt: "wrapper_uint",
 		},
 		{
 			exprType: &exprpb.Type{TypeKind: &exprpb.Type_Error{}},
-			wantFmt:  "!error!",
+			wantFmt:  "*error*",
 		},
 		{
 			exprType: &exprpb.Type{TypeKind: &exprpb.Type_MessageType{
@@ -119,7 +119,7 @@ func TestUnparseType(t *testing.T) {
 			exprType: &exprpb.Type{TypeKind: &exprpb.Type_TypeParam{
 				TypeParam: "T",
 			}},
-			wantFmt: "T",
+			wantFmt: "~T",
 		},
 		{
 			exprType: &exprpb.Type{TypeKind: &exprpb.Type_Function{
@@ -131,7 +131,7 @@ func TestUnparseType(t *testing.T) {
 					},
 				},
 			}},
-			wantFmt: "(double, double) -> double",
+			wantFmt: "function<double(double, double)>",
 		},
 		{
 			exprType: &exprpb.Type{TypeKind: &exprpb.Type_AbstractType_{
@@ -143,7 +143,7 @@ func TestUnparseType(t *testing.T) {
 					},
 				},
 			}},
-			wantFmt: "MyAbstractParamType(double, string)",
+			wantFmt: "MyAbstractParamType<double, string>",
 		},
 		{
 			exprType: &exprpb.Type{TypeKind: &exprpb.Type_AbstractType_{
@@ -151,7 +151,7 @@ func TestUnparseType(t *testing.T) {
 					Name: "MyAbstractType",
 				},
 			}},
-			wantFmt: "MyAbstractType()",
+			wantFmt: "MyAbstractType<>",
 		},
 		{
 			exprType: &exprpb.Type{TypeKind: &exprpb.Type_MapType_{MapType: &exprpb.Type_MapType{
@@ -159,7 +159,7 @@ func TestUnparseType(t *testing.T) {
 				ValueType: &exprpb.Type{TypeKind: &exprpb.Type_ListType_{
 					ListType: &exprpb.Type_ListType{ElemType: &exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_DOUBLE}}}}},
 			}}},
-			wantFmt: "map(string, list(double))",
+			wantFmt: "map<string, list<double>>",
 		},
 	}
 
@@ -202,27 +202,27 @@ func TestParseType(t *testing.T) {
 			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_BOOL}},
 		},
 		{
-			fmt:          "wrapper(int)",
+			fmt:          "wrapper_int",
 			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_Wrapper{Wrapper: exprpb.Type_INT64}},
 		},
 		{
-			fmt:          "wrapper(uint)",
+			fmt:          "wrapper_uint",
 			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_Wrapper{Wrapper: exprpb.Type_UINT64}},
 		},
 		{
-			fmt:          "wrapper(double)",
+			fmt:          "wrapper_double",
 			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_Wrapper{Wrapper: exprpb.Type_DOUBLE}},
 		},
 		{
-			fmt:          "wrapper(string)",
+			fmt:          "wrapper_string",
 			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_Wrapper{Wrapper: exprpb.Type_STRING}},
 		},
 		{
-			fmt:          "wrapper(bytes)",
+			fmt:          "wrapper_bytes",
 			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_Wrapper{Wrapper: exprpb.Type_BYTES}},
 		},
 		{
-			fmt:          "wrapper(bool)",
+			fmt:          "wrapper_bool",
 			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_Wrapper{Wrapper: exprpb.Type_BOOL}},
 		},
 		{
@@ -258,7 +258,7 @@ func TestParseType(t *testing.T) {
 			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_WellKnown{WellKnown: exprpb.Type_DURATION}},
 		},
 		{
-			fmt: "map(string, int)",
+			fmt: "map<string, int>",
 			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_MapType_{
 				MapType: &exprpb.Type_MapType{
 					KeyType:   &exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_STRING}},
@@ -266,7 +266,7 @@ func TestParseType(t *testing.T) {
 				}}},
 		},
 		{
-			fmt: "map(string, map(string, int))",
+			fmt: "map<string, map<string, int>>",
 			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_MapType_{
 				MapType: &exprpb.Type_MapType{
 					KeyType: &exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_STRING}},
@@ -279,12 +279,12 @@ func TestParseType(t *testing.T) {
 		},
 
 		{
-			fmt: "list(int)",
+			fmt: "list<int>",
 			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_ListType_{
 				ListType: &exprpb.Type_ListType{ElemType: &exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_INT64}}}}},
 		},
 		{
-			fmt: "list(list(int))",
+			fmt: "list<list<int>>",
 			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_ListType_{
 				ListType: &exprpb.Type_ListType{ElemType: &exprpb.Type{TypeKind: &exprpb.Type_ListType_{
 					ListType: &exprpb.Type_ListType{ElemType: &exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_INT64}}}}}}}},
@@ -294,12 +294,12 @@ func TestParseType(t *testing.T) {
 			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_MessageType{MessageType: ".com.example.Message"}},
 		},
 		{
-			fmt: "type(int)",
+			fmt: "type<int>",
 			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_Type{
 				Type: &exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_INT64}}}},
 		},
 		{
-			fmt: "type(type(wrapper(int)))",
+			fmt: "type<type<wrapper_int>>",
 			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_Type{
 				Type: &exprpb.Type{TypeKind: &exprpb.Type_Type{
 					Type: &exprpb.Type{TypeKind: &exprpb.Type_Wrapper{Wrapper: exprpb.Type_INT64}}}}}},
@@ -314,7 +314,7 @@ func TestParseType(t *testing.T) {
 					}}}},
 		},
 		{
-			fmt: "optional_type(string)",
+			fmt: "optional_type<string>",
 			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_AbstractType_{
 				AbstractType: &exprpb.Type_AbstractType{
 					Name: "optional_type",
@@ -323,7 +323,7 @@ func TestParseType(t *testing.T) {
 					}}}},
 		},
 		{
-			fmt: "MyAbstractType(string)",
+			fmt: "MyAbstractType<string>",
 			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_AbstractType_{
 				AbstractType: &exprpb.Type_AbstractType{
 					Name: "MyAbstractType",
@@ -334,13 +334,15 @@ func TestParseType(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		exprType, err := ParseType(tc.fmt)
-		if err != nil {
-			t.Fatalf("ParseType(%s) failed: %v", tc.fmt, err)
-		}
-		if !proto.Equal(exprType, tc.wantExprType) {
-			t.Errorf("ParseType(%s) got %s, wanted %s", tc.fmt, exprType, tc.wantExprType)
-		}
+		t.Run(tc.fmt, func(t *testing.T) {
+			exprType, err := ParseType(tc.fmt)
+			if err != nil {
+				t.Fatalf("ParseType(%s) failed: %v", tc.fmt, err)
+			}
+			if !proto.Equal(exprType, tc.wantExprType) {
+				t.Errorf("ParseType(%s) got %s, wanted %s", tc.fmt, exprType, tc.wantExprType)
+			}
+		})
 	}
 }
 

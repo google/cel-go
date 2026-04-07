@@ -27,7 +27,8 @@ variables:
 features:
     - name: cel.feature.macro_call_tracking
       enabled: true
-
+validators:
+    - name: cel.validator.homogeneous_literals
 
 # REPL Bindings:
 # %load_descriptors --pkg 'cel-spec-test-types'

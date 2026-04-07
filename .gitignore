@@ -11,3 +11,6 @@ proto/syntax.pb.go
 *~
 MODULE.bazel.lock
 .ijwb/
+*antlr*.jar
+.antlr/
+

@@ -188,7 +188,7 @@ func TestAddLetFn(t *testing.T) {
 		mustParseType(t, "int"),
 		"x * x - y * y")
 
-	eval.AddLetVar("testcases", "[[1, 2], [2, 3], [3, 4], [10, 20]]", mustParseType(t, "list(list(int))"))
+	eval.AddLetVar("testcases", "[[1, 2], [2, 3], [3, 4], [10, 20]]", mustParseType(t, "list<list<int>>"))
 
 	result, _, err := eval.Evaluate("testcases.all(e, fn(e[0], e[1]) == (e[0] - e[1]) * (e[0] + e[1]))")
 
@@ -560,7 +560,7 @@ func TestProcess(t *testing.T) {
 					expr: `['abc', 123, 3.14, duration('2m')]`,
 				},
 			},
-			wantText:  `["abc", 123, 3.14, duration("120s")] : list(dyn)`,
+			wantText:  `["abc", 123, 3.14, duration("120s")] : list<dyn>`,
 			wantExit:  false,
 			wantError: false,
 		},
@@ -571,7 +571,7 @@ func TestProcess(t *testing.T) {
 					expr: `{1: 123, 2: 3.14, 3: duration('2m'), 4: b'123'}`,
 				},
 			},
-			wantText:  `{1: 123, 2: 3.14, 3: duration("120s"), 4: b"\061\062\063"} : map(int, dyn)`,
+			wantText:  `{1: 123, 2: 3.14, 3: duration("120s"), 4: b"\061\062\063"} : map<int, dyn>`,
 			wantExit:  false,
 			wantError: false,
 		},
@@ -604,7 +604,7 @@ func TestProcess(t *testing.T) {
 					expr: "Int64Value{value: 20}",
 				},
 			},
-			wantText:  "20 : wrapper(int)",
+			wantText:  "20 : wrapper_int",
 			wantExit:  false,
 			wantError: false,
 		},
@@ -638,14 +638,14 @@ func TestProcess(t *testing.T) {
 				},
 				&letVarCmd{
 					identifier: "x",
-					typeHint:   mustParseType(t, "optional_type(string)"),
+					typeHint:   mustParseType(t, "optional_type<string>"),
 					src:        "optional.of('foo')",
 				},
 				&evalCmd{
 					expr: "x.or(optional.of('bar'))",
 				},
 			},
-			wantText:  "optional.of(\"foo\") : optional_type(string)",
+			wantText:  "optional.of(\"foo\") : optional_type<string>",
 			wantExit:  false,
 			wantError: false,
 		},
@@ -829,7 +829,7 @@ func TestProcess(t *testing.T) {
 				},
 				&letVarCmd{
 					identifier: "foo",
-					typeHint:   mustParseType(t, "map(string, string)"),
+					typeHint:   mustParseType(t, "map<string, string>"),
 					src:        "{'example.com': 'great'}",
 				},
 				&evalCmd{
