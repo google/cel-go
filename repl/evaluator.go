@@ -24,8 +24,9 @@ import (
 	"strings"
 
 	"github.com/google/cel-go/cel"
-	"github.com/google/cel-go/checker/decls"
+	"github.com/google/cel-go/common/decls"
 	"github.com/google/cel-go/common/env"
+	envlib "github.com/google/cel-go/common/env"
 	"github.com/google/cel-go/common/functions"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
@@ -40,7 +41,6 @@ import (
 
 	test2pb "cel.dev/expr/conformance/proto2"
 	test3pb "cel.dev/expr/conformance/proto3"
-	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	attrpb "google.golang.org/genproto/googleapis/rpc/context/attribute_context"
 	descpb "google.golang.org/protobuf/types/descriptorpb"
 )
@@ -63,10 +63,10 @@ var (
 type letVariable struct {
 	identifier string
 	src        string
-	typeHint   *exprpb.Type
+	typeHint   *env.TypeDesc
 
 	// memoized results from building the expression AST and program
-	resultType *exprpb.Type
+	resultType *env.TypeDesc
 	env        *cel.Env
 	ast        *cel.Ast
 	prog       cel.Program
@@ -74,16 +74,16 @@ type letVariable struct {
 
 type letFunctionParam struct {
 	identifier string
-	typeHint   *exprpb.Type
+	typeHint   *env.TypeDesc
 }
 
 // letFunction coordinates let function data (type definition and CEL function implementation).
 type letFunction struct {
 	identifier string
 	src        string
-	resultType *exprpb.Type
+	resultType *env.TypeDesc
 	params     []letFunctionParam
-	receiver   *exprpb.Type // if not nil indicates an instance function
+	receiver   *env.TypeDesc // if not nil indicates an instance function
 
 	// memoized results from building the expression AST and program
 	env   *cel.Env // the context env for repl evaluation
@@ -92,36 +92,68 @@ type letFunction struct {
 	impl  functions.FunctionOp
 }
 
-func typeAssignable(rtType ref.Type, declType *exprpb.Type) bool {
-	// TODO(issue/535): add better type agreement support
-	return UnparseType(declType) == rtType.TypeName()
+func runtimeTypeAgrees(env *cel.Env, val ref.Val, declType *envlib.TypeDesc) bool {
+	to, err := declType.AsCELType(env.CELTypeProvider())
+
+	if err != nil {
+		return val.Type().TypeName() == declType.TypeName
+	}
+	return to.IsAssignableRuntimeType(val)
 }
 
-func checkArgsMatch(params []letFunctionParam, args []ref.Val) error {
+func typeAssignable(env *cel.Env, rtType ref.Type, declType *envlib.TypeDesc) bool {
+	// This is not totally correct (we don't bind parameter types correctly), but
+	// good enough for the repl.
+	from, ok := rtType.(*types.Type)
+	to, err := declType.AsCELType(env.CELTypeProvider())
+
+	if !ok || err != nil {
+		return rtType.TypeName() == declType.TypeName
+	}
+
+	return to.IsAssignableType(from)
+}
+
+func checkArgsMatch(env *cel.Env, params []letFunctionParam, args []ref.Val) error {
 	if len(params) != len(args) {
 		return fmt.Errorf("got %d args, expected %d", len(args), len(params))
 	}
 	for i, arg := range args {
-		if !typeAssignable(arg.Type(), params[i].typeHint) {
-			return fmt.Errorf("got %s, expected %s for argument %d", arg.Type().TypeName(), UnparseType(params[i].typeHint), i)
+		if !runtimeTypeAgrees(env, arg, params[i].typeHint) {
+			return fmt.Errorf("got %s, expected %s for argument %d", arg.Type().TypeName(), params[i].typeHint.SpecifierFormat(), i)
 		}
 	}
 	return nil
 }
 
-func (l *letFunction) updateImpl(env *cel.Env, deps []*functions.Overload) error {
-	var paramVars []*exprpb.Decl
+func (l *letFunction) updateImpl(env *cel.Env) error {
+	// declaration but no binding.
+	if l.src == "" {
+		l.impl = nil
+		return nil
+	}
+	var paramVars []*decls.VariableDecl
 
 	if l.receiver != nil {
-		paramVars = append(paramVars, decls.NewVar("this", l.receiver))
+		decl, err := envlib.NewVariable(
+			"this", l.receiver).AsCELVariable(env.CELTypeProvider())
+
+		if err != nil {
+			return err
+		}
+		paramVars = append(paramVars, decl)
 	}
 
 	for _, p := range l.params {
-		paramVars = append(paramVars, decls.NewVar(p.identifier, p.typeHint))
+		decl, err := envlib.NewVariable(p.identifier, p.typeHint).AsCELVariable(env.CELTypeProvider())
+		if err != nil {
+			return err
+		}
+		paramVars = append(paramVars, decl)
 	}
 
 	var err error
-	l.fnEnv, err = env.Extend(cel.Declarations(paramVars...))
+	l.fnEnv, err = env.Extend(cel.VariableDecls(paramVars...))
 	if err != nil {
 		return err
 	}
@@ -132,11 +164,11 @@ func (l *letFunction) updateImpl(env *cel.Env, deps []*functions.Overload) error
 		return iss.Err()
 	}
 
-	if !proto.Equal(ast.ResultType(), l.resultType) {
-		return fmt.Errorf("got result type %s for %s", UnparseType(ast.ResultType()), l)
+	if !typeAssignable(env, ast.OutputType(), l.resultType) {
+		return fmt.Errorf("got result type %s for function %s", UnparseType(ast.OutputType()), l)
 	}
 
-	l.prog, err = l.fnEnv.Program(ast, cel.Functions(deps...))
+	l.prog, err = l.fnEnv.Program(ast)
 
 	if err != nil {
 		return err
@@ -149,7 +181,7 @@ func (l *letFunction) updateImpl(env *cel.Env, deps []*functions.Overload) error
 			instance = args[0]
 			args = args[1:]
 		}
-		err = checkArgsMatch(l.params, args)
+		err = checkArgsMatch(env, l.params, args)
 		if err != nil {
 			return types.NewErr("error evaluating %s: %v", l, err)
 		}
@@ -160,8 +192,8 @@ func (l *letFunction) updateImpl(env *cel.Env, deps []*functions.Overload) error
 		}
 
 		if instance != nil {
-			if !typeAssignable(instance.Type(), l.receiver) {
-				return types.NewErr("error evaluating %s: got receiver type: %s wanted %s", l, instance.Type().TypeName(), UnparseType(l.receiver))
+			if !runtimeTypeAgrees(env, instance, l.receiver) {
+				return types.NewErr("error evaluating %s: got receiver type: %s wanted %s", l, instance.Type().TypeName(), l.receiver.SpecifierFormat())
 			}
 			activation["this"] = instance
 		}
@@ -177,37 +209,52 @@ func (l *letFunction) updateImpl(env *cel.Env, deps []*functions.Overload) error
 	return nil
 }
 
-func (l *letFunction) update(env *cel.Env, deps []*functions.Overload) error {
+func (l *letFunction) update(env *cel.Env) error {
 	var err error
-	if l.src != "" {
-		err = l.updateImpl(env, deps)
+
+	err = l.updateImpl(env)
+	if err != nil {
+		return err
+	}
+
+	paramTypes := make([]*types.Type, len(l.params))
+	for i, p := range l.params {
+		ty, err := p.typeHint.AsCELType(env.CELTypeProvider())
 		if err != nil {
 			return err
 		}
+		paramTypes[i] = ty
 	}
 
-	paramTypes := make([]*exprpb.Type, len(l.params))
-	for i, p := range l.params {
-		paramTypes[i] = p.typeHint
+	resultTy, err := l.resultType.AsCELType(env.CELTypeProvider())
+	if err != nil {
+		return err
 	}
 
 	var opt cel.EnvOption
 	if l.receiver != nil {
-		paramTypes = append([]*exprpb.Type{l.receiver}, paramTypes...)
-		opt = cel.Declarations(
-			decls.NewFunction(l.identifier,
-				decls.NewInstanceOverload(
-					l.identifier,
-					paramTypes,
-					l.resultType,
-				)))
-	} else {
-		opt = cel.Declarations(
-			decls.NewFunction(
+		ty, err := l.receiver.AsCELType(env.CELTypeProvider())
+		if err != nil {
+			return err
+		}
+		paramTypes = append([]*types.Type{ty}, paramTypes...)
+		opt = cel.Function(
+			l.identifier,
+			cel.MemberOverload(
 				l.identifier,
-				decls.NewOverload(l.identifier,
-					paramTypes,
-					l.resultType)))
+				paramTypes,
+				resultTy,
+				l.generateFunctionBinding()...,
+			))
+	} else {
+		opt = cel.Function(
+			l.identifier,
+			cel.Overload(
+				l.identifier,
+				paramTypes,
+				resultTy,
+				l.generateFunctionBinding()...,
+			))
 	}
 
 	l.env, err = env.Extend(opt)
@@ -226,7 +273,7 @@ func formatParams(params []letFunctionParam) string {
 	fmtParams := make([]string, len(params))
 
 	for i, p := range params {
-		fmtParams[i] = fmt.Sprintf("%s: %s", p.identifier, UnparseType(p.typeHint))
+		fmtParams[i] = fmt.Sprintf("%s: %s", p.identifier, p.typeHint.SpecifierFormat())
 	}
 
 	return fmt.Sprintf("(%s)", strings.Join(fmtParams, ", "))
@@ -235,33 +282,27 @@ func formatParams(params []letFunctionParam) string {
 func (l letFunction) String() string {
 	receiverFmt := ""
 	if l.receiver != nil {
-		receiverFmt = fmt.Sprintf("%s.", UnparseType(l.receiver))
+		receiverFmt = fmt.Sprintf("%s.", l.receiver.SpecifierFormat())
 	}
 
-	return fmt.Sprintf("%s%s%s : %s -> %s", receiverFmt, l.identifier, formatParams(l.params), UnparseType(l.resultType), l.src)
+	return fmt.Sprintf("%s%s%s : %s -> %s", receiverFmt, l.identifier, formatParams(l.params), l.resultType.SpecifierFormat(), l.src)
 }
 
-func (l *letFunction) generateFunction() *functions.Overload {
+func (l *letFunction) generateFunctionBinding() []cel.OverloadOpt {
+	if l.impl == nil {
+		return nil
+	}
 	argLen := len(l.params)
 	if l.receiver != nil {
 		argLen++
 	}
 	switch argLen {
 	case 1:
-		return &functions.Overload{
-			Operator: l.identifier,
-			Unary:    func(v ref.Val) ref.Val { return l.impl(v) },
-		}
+		return []cel.OverloadOpt{cel.UnaryBinding(func(v ref.Val) ref.Val { return l.impl(v) })}
 	case 2:
-		return &functions.Overload{
-			Operator: l.identifier,
-			Binary:   func(lhs ref.Val, rhs ref.Val) ref.Val { return l.impl(lhs, rhs) },
-		}
+		return []cel.OverloadOpt{cel.BinaryBinding(func(lhs ref.Val, rhs ref.Val) ref.Val { return l.impl(lhs, rhs) })}
 	default:
-		return &functions.Overload{
-			Operator: l.identifier,
-			Function: l.impl,
-		}
+		return []cel.OverloadOpt{cel.FunctionBinding(l.impl)}
 	}
 }
 
@@ -283,7 +324,7 @@ type Optioner interface {
 
 type contextOption struct {
 	opt Optioner
-	// True if the option is captured by a yaml config.
+	// True if the option is captured by the environment yaml format.
 	yaml bool
 }
 
@@ -318,18 +359,26 @@ func (ctx *EvaluationContext) indexLetVar(name string) int {
 	return -1
 }
 
+func (ctx *EvaluationContext) applyContextOptions(env *cel.Env) *cel.Env {
+	if len(ctx.options) == 0 {
+		return env
+	}
+	opts := make([]cel.EnvOption, 0, len(ctx.options))
+	for _, o := range ctx.options {
+		opts = append(opts, o.opt.Option())
+	}
+	env, _ = env.Extend(opts...)
+	return env
+}
+
 func (ctx *EvaluationContext) getEffectiveEnv(env *cel.Env) *cel.Env {
 	if len(ctx.letVars) > 0 {
 		env = ctx.letVars[len(ctx.letVars)-1].env
 	} else if len(ctx.letFns) > 0 {
 		env = ctx.letFns[len(ctx.letFns)-1].env
-	} else if len(ctx.options) > 0 {
-		for _, opt := range ctx.options {
-			env, _ = env.Extend(opt.opt.Option())
-		}
 	}
 
-	return env
+	return ctx.applyContextOptions(env)
 }
 
 func (ctx *EvaluationContext) indexLetFn(name string) int {
@@ -382,7 +431,7 @@ func (ctx *EvaluationContext) delLetFn(name string) {
 }
 
 // Add or update an existing let then invalidate any computed plans.
-func (ctx *EvaluationContext) addLetVar(name string, expr string, typeHint *exprpb.Type) {
+func (ctx *EvaluationContext) addLetVar(name string, expr string, typeHint *envlib.TypeDesc) {
 	idx := ctx.indexLetVar(name)
 	newVar := letVariable{identifier: name, src: expr, typeHint: typeHint}
 	if idx < 0 {
@@ -397,7 +446,7 @@ func (ctx *EvaluationContext) addLetVar(name string, expr string, typeHint *expr
 }
 
 // Try to normalize a defined function name as either a namespaced function or a receiver call.
-func (ctx *EvaluationContext) resolveFn(name string) (string, *exprpb.Type) {
+func (ctx *EvaluationContext) resolveFn(env *cel.Env, name string) (string, *envlib.TypeDesc) {
 	leadingDot := ""
 	id := name
 	if strings.HasPrefix(name, ".") {
@@ -416,13 +465,16 @@ func (ctx *EvaluationContext) resolveFn(name string) (string, *exprpb.Type) {
 	if err != nil {
 		return name, nil
 	}
+	env = ctx.applyContextOptions(env)
+	t, err := maybeType.AsCELType(env.CELTypeProvider())
+	if err != nil {
+		return name, nil
+	}
 
-	switch maybeType.TypeKind.(type) {
+	switch t.Kind() {
 	// unsupported type assume it's just namespaced
-	case *exprpb.Type_AbstractType_:
-	case *exprpb.Type_MessageType:
-	case *exprpb.Type_Error:
-	case *exprpb.Type_Function:
+	case types.OpaqueKind:
+	case types.ErrorKind:
 	default:
 		return id, maybeType
 	}
@@ -431,8 +483,8 @@ func (ctx *EvaluationContext) resolveFn(name string) (string, *exprpb.Type) {
 }
 
 // Add or update an existing let then invalidate any computed plans.
-func (ctx *EvaluationContext) addLetFn(name string, params []letFunctionParam, resultType *exprpb.Type, expr string) {
-	name, receiver := ctx.resolveFn(name)
+func (ctx *EvaluationContext) addLetFn(env *cel.Env, name string, params []letFunctionParam, resultType *envlib.TypeDesc, expr string) {
+	name, receiver := ctx.resolveFn(env, name)
 	idx := ctx.indexLetFn(name)
 	newFn := letFunction{identifier: name, params: params, receiver: receiver, resultType: resultType, src: expr}
 	if idx < 0 {
@@ -460,11 +512,7 @@ func (ctx *EvaluationContext) addOption(opt Optioner, isYAML bool) {
 // programOptions generates the program options for planning.
 // Assumes context has been planned.
 func (ctx *EvaluationContext) programOptions() []cel.ProgramOption {
-	var fns = make([]*functions.Overload, len(ctx.letFns))
-	for i, fn := range ctx.letFns {
-		fns[i] = fn.generateFunction()
-	}
-	result := []cel.ProgramOption{cel.Functions(fns...)}
+	result := []cel.ProgramOption{}
 	if ctx.enablePartialEval {
 		result = append(result, cel.EvalOptions(cel.OptPartialEval))
 	}
@@ -500,19 +548,13 @@ func updateContextPlans(ctx *EvaluationContext, env *cel.Env) error {
 			return err
 		}
 	}
-	overloads := make([]*functions.Overload, 0)
 	for i := range ctx.letFns {
 		letFn := &ctx.letFns[i]
-		err := letFn.update(env, overloads)
+		err := letFn.update(env)
 		if err != nil {
 			return fmt.Errorf("error updating %s: %w", letFn, err)
 		}
 		env = letFn.env
-		// if no src, this is declared but not defined.
-		if letFn.src != "" {
-			overloads = append(overloads, letFn.generateFunction())
-		}
-
 	}
 	for i := range ctx.letVars {
 		el := &ctx.letVars[i]
@@ -523,15 +565,15 @@ func updateContextPlans(ctx *EvaluationContext, env *cel.Env) error {
 				return fmt.Errorf("error updating %v\n%w", el, iss.Err())
 			}
 
-			if el.typeHint != nil && !proto.Equal(ast.ResultType(), el.typeHint) {
+			if el.typeHint != nil && !typeAssignable(env, ast.OutputType(), el.typeHint) {
 				return fmt.Errorf("error updating %v\ntype mismatch got %v expected %v",
 					el,
-					UnparseType(ast.ResultType()),
-					UnparseType(el.typeHint))
+					UnparseType(ast.OutputType()),
+					el.typeHint.SpecifierFormat())
 			}
 
 			el.ast = ast
-			el.resultType = ast.ResultType()
+			el.resultType = envlib.SerializeTypeDesc(ast.OutputType())
 
 			plan, err := env.Program(ast, ctx.programOptions()...)
 			if err != nil {
@@ -543,7 +585,11 @@ func updateContextPlans(ctx *EvaluationContext, env *cel.Env) error {
 			el.resultType = el.typeHint
 		}
 		if el.env == nil {
-			env, err := env.Extend(cel.Declarations(decls.NewVar(el.identifier, el.resultType)))
+			t, err := el.resultType.AsCELType(env.CELTypeProvider())
+			if err != nil {
+				return err
+			}
+			env, err := env.Extend(cel.Variable(el.identifier, t))
 			if err != nil {
 				return err
 			}
@@ -556,7 +602,7 @@ func updateContextPlans(ctx *EvaluationContext, env *cel.Env) error {
 
 // AddLetVar adds a let variable to the evaluation context.
 // The expression is planned but evaluated lazily.
-func (e *Evaluator) AddLetVar(name string, expr string, typeHint *exprpb.Type) error {
+func (e *Evaluator) AddLetVar(name string, expr string, typeHint *envlib.TypeDesc) error {
 	// copy the current context and attempt to update dependant expressions.
 	// if successful, swap the current context with the updated copy.
 	ctx := e.ctx.copy()
@@ -570,11 +616,11 @@ func (e *Evaluator) AddLetVar(name string, expr string, typeHint *exprpb.Type) e
 }
 
 // AddLetFn adds a let function to the evaluation context.
-func (e *Evaluator) AddLetFn(name string, params []letFunctionParam, resultType *exprpb.Type, expr string) error {
+func (e *Evaluator) AddLetFn(name string, params []letFunctionParam, resultType *envlib.TypeDesc, expr string) error {
 	// copy the current context and attempt to update dependant expressions.
 	// if successful, swap the current context with the updated copy.
 	cpy := e.ctx.copy()
-	cpy.addLetFn(name, params, resultType, expr)
+	cpy.addLetFn(e.env, name, params, resultType, expr)
 	err := updateContextPlans(cpy, e.env)
 	if err != nil {
 		return err
@@ -585,7 +631,7 @@ func (e *Evaluator) AddLetFn(name string, params []letFunctionParam, resultType 
 
 // AddDeclVar declares a variable in the environment but doesn't register an expr with it.
 // This allows planning to succeed, but with no value for the variable at runtime.
-func (e *Evaluator) AddDeclVar(name string, typeHint *exprpb.Type) error {
+func (e *Evaluator) AddDeclVar(name string, typeHint *envlib.TypeDesc) error {
 	ctx := e.ctx.copy()
 	ctx.addLetVar(name, "", typeHint)
 	err := updateContextPlans(ctx, e.env)
@@ -598,9 +644,9 @@ func (e *Evaluator) AddDeclVar(name string, typeHint *exprpb.Type) error {
 
 // AddDeclFn declares a function in the environment but doesn't register an expr with it.
 // This allows planning to succeed, but with no value for the function at runtime.
-func (e *Evaluator) AddDeclFn(name string, params []letFunctionParam, typeHint *exprpb.Type) error {
+func (e *Evaluator) AddDeclFn(name string, params []letFunctionParam, typeHint *envlib.TypeDesc) error {
 	ctx := e.ctx.copy()
-	ctx.addLetFn(name, params, typeHint, "")
+	ctx.addLetFn(e.env, name, params, typeHint, "")
 	err := updateContextPlans(ctx, e.env)
 	if err != nil {
 		return err
@@ -1023,7 +1069,7 @@ func (o *jsonOpt) Option() cel.EnvOption {
 }
 
 func (o *jsonOpt) String() string {
-	return "%option --enable_escaped_fields"
+	return "%option --enable_json_field_names"
 }
 
 type containerOption struct {
@@ -1325,7 +1371,7 @@ func (e *Evaluator) Process(cmd Cmder) (string, bool, error) {
 	case *evalCmd:
 		var (
 			val     ref.Val
-			resultT *exprpb.Type
+			resultT *types.Type
 			err     error
 		)
 		if cmd.parseOnly {
@@ -1344,7 +1390,7 @@ func (e *Evaluator) Process(cmd Cmder) (string, bool, error) {
 			if cmd.parseOnly {
 				return fmt.Sprintf("%s", types.Format(val)), false, nil
 			}
-			t := UnparseType(resultT)
+			t := envlib.SerializeTypeDesc(resultT).SpecifierFormat()
 			return fmt.Sprintf("%s : %s", types.Format(val), t), false, nil
 		}
 	case *letVarCmd:
@@ -1405,7 +1451,7 @@ func (e *Evaluator) Process(cmd Cmder) (string, bool, error) {
 }
 
 // Evaluate sets up a CEL evaluation using the current REPL context.
-func (e *Evaluator) Evaluate(expr string) (ref.Val, *exprpb.Type, error) {
+func (e *Evaluator) Evaluate(expr string) (ref.Val, *types.Type, error) {
 	env, act, err := e.applyContext()
 	if err != nil {
 		return nil, nil, err
@@ -1424,11 +1470,11 @@ func (e *Evaluator) Evaluate(expr string) (ref.Val, *exprpb.Type, error) {
 	act, _ = env.PartialVars(act)
 	val, _, err := p.Eval(act)
 	// expression can be well-formed and result in an error
-	return val, ast.ResultType(), err
+	return val, ast.OutputType(), err
 }
 
 // EvaluateParseOnly evalutes the CEL expression using the current REPL context without type checking.
-func (e *Evaluator) EvaluateParseOnly(expr string) (ref.Val, *exprpb.Type, error) {
+func (e *Evaluator) EvaluateParseOnly(expr string) (ref.Val, *types.Type, error) {
 	env, act, err := e.applyContext()
 	if err != nil {
 		return nil, nil, err
@@ -1447,7 +1493,7 @@ func (e *Evaluator) EvaluateParseOnly(expr string) (ref.Val, *exprpb.Type, error
 	act, _ = env.PartialVars(act)
 	val, _, err := p.Eval(act)
 	// expression can be well-formed and result in an error
-	return val, ast.ResultType(), err
+	return val, ast.OutputType(), err
 }
 
 // Compile compiles the input expression using the current REPL context.

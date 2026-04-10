@@ -21,9 +21,8 @@ import (
 
 	antlr "github.com/antlr4-go/antlr/v4"
 
+	"github.com/google/cel-go/common/env"
 	"github.com/google/cel-go/repl/parser"
-
-	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 var (
@@ -73,13 +72,13 @@ from disk or from a predefined package. Supported packages are "cel-spec-test-ty
 
 type letVarCmd struct {
 	identifier string
-	typeHint   *exprpb.Type
+	typeHint   *env.TypeDesc
 	src        string
 }
 
 type letFnCmd struct {
 	identifier string
-	resultType *exprpb.Type
+	resultType *env.TypeDesc
 	params     []letFunctionParam
 	src        string
 }
@@ -279,7 +278,7 @@ func (c *commandParseListener) EnterDeclare(ctx *parser.DeclareContext) {
 }
 
 func (c *commandParseListener) ExitDeclare(ctx *parser.DeclareContext) {
-	var typeHint *exprpb.Type
+	var typeHint *env.TypeDesc
 	switch cmd := c.cmd.(type) {
 	case *letVarCmd:
 		typeHint = cmd.typeHint

@@ -20,20 +20,26 @@ import (
 
 	antlr "github.com/antlr4-go/antlr/v4"
 
-	"github.com/google/cel-go/checker"
+	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/env"
+	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/repl/parser"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
-// UnparseType pretty-prints a type for the REPL.
-func UnparseType(t *exprpb.Type) string {
-	s := checker.FormatCheckedType(t)
-	if s == "" {
-		return "<unknown type>"
+// UnparseExprType pretty-prints a type (proto representation) for the REPL.
+func UnparseExprType(t *exprpb.Type) string {
+	ty, err := cel.ExprTypeToType(t)
+	if err != nil {
+		return "*unknown type kind*"
 	}
+	return UnparseType(ty)
+}
 
-	return s
+// UnparseType pretty-prints a type for the REPL.
+func UnparseType(t *types.Type) string {
+	return env.SerializeTypeDesc(t).SpecifierFormat()
 }
 
 type errorListener struct {
@@ -54,7 +60,7 @@ type typesVisitor struct {
 
 var _ parser.CommandsVisitor = &typesVisitor{}
 
-type typeParams []*exprpb.Type
+type typeParams []*env.TypeDesc
 
 func (t *typesVisitor) Visit(tree antlr.ParseTree) any {
 	switch ctx := tree.(type) {
@@ -83,21 +89,26 @@ func (t *typesVisitor) expectUnparameterized(p typeParams, id string) {
 	}
 }
 
-func makeAbstract(name string, params typeParams) *exprpb.Type {
-	return &exprpb.Type{TypeKind: &exprpb.Type_AbstractType_{
-		AbstractType: &exprpb.Type_AbstractType{
-			Name:           name,
-			ParameterTypes: params}}}
-}
-
-func checkWellKnown(name string) *exprpb.Type {
+func checkWellKnown(name string) *env.TypeDesc {
 	switch name {
 	case "google.protobuf.Timestamp", ".google.protobuf.Timestamp", "timestamp":
-		return &exprpb.Type{TypeKind: &exprpb.Type_WellKnown{WellKnown: exprpb.Type_TIMESTAMP}}
+		return env.NewTypeDesc("timestamp")
 	case "google.protobuf.Duration", ".google.protobuf.Duration", "duration":
-		return &exprpb.Type{TypeKind: &exprpb.Type_WellKnown{WellKnown: exprpb.Type_DURATION}}
+		return env.NewTypeDesc("duration")
 	case "google.protobuf.Any", ".google.protobuf.Any", "any":
-		return &exprpb.Type{TypeKind: &exprpb.Type_WellKnown{WellKnown: exprpb.Type_ANY}}
+		return env.NewTypeDesc("any")
+	case "google.protobuf.Int64Value", ".google.protobuf.Int64Value", "google.protobuf.Int32Value", ".google.protobuf.Int32Value":
+		return env.NewTypeDesc("int_wrapper")
+	case "google.protobuf.Uint64Value", ".google.protobuf.Uint64Value", "google.protobuf.Uint32Value", ".google.protobuf.Uint32Value":
+		return env.NewTypeDesc("uint_wrapper")
+	case "google.protobuf.DoubleValue", ".google.protobuf.DoubleValue", "google.protobuf.FloatValue", ".google.protobuf.FloatValue":
+		return env.NewTypeDesc("uint_wrapper")
+	case "google.protobuf.StringValue", ".google.protobuf.StringValue":
+		return env.NewTypeDesc("string_wrapper")
+	case "google.protobuf.BytesValue", ".google.protobuf.BytesValue":
+		return env.NewTypeDesc("bytes_wrapper")
+	case "google.protobuf.BoolValue", ".google.protobuf.BoolValue":
+		return env.NewTypeDesc("bool_wrapper")
 	}
 	return nil
 }
@@ -122,17 +133,30 @@ func (t *typesVisitor) VisitTypeParamList(ctx *parser.TypeParamListContext) any 
 	var params typeParams
 	for _, ty := range ctx.GetTypes() {
 		p := t.Visit(ty)
-		params = append(params, p.(*exprpb.Type))
+		if p == nil {
+			return nil
+		}
+		params = append(params, p.(*env.TypeDesc))
 	}
 	return params
 }
 
 func (t *typesVisitor) VisitType(ctx *parser.TypeContext) any {
-	emptyType := &exprpb.Type{}
 
-	r := t.Visit(ctx.GetId())
+	if ctx.ParamId() != nil {
+		param := ctx.ParamId().GetText()
+		if !strings.HasPrefix(param, "~") || len(param) < 2 {
+			t.errs = append(t.errs, fmt.Errorf("unexpected type param"))
+			return nil
+		}
+		return env.NewTypeParam(strings.TrimPrefix(param, "~"))
+	}
+	if ctx.TypeId() == nil {
+		return nil
+	}
+	r := t.Visit(ctx.TypeId())
 	if r == nil {
-		return emptyType
+		return nil
 	}
 
 	typeID := r.(string)
@@ -143,95 +167,52 @@ func (t *typesVisitor) VisitType(ctx *parser.TypeContext) any {
 	if paramsCtx != nil {
 		r = t.Visit(paramsCtx)
 		if r == nil {
-			return emptyType
+			return nil
 		}
 		params = r.(typeParams)
 	}
 
 	switch typeID {
-	case "int":
+	case "int", "uint", "double", "bytes", "string", "bool", "dyn":
 		t.expectUnparameterized(params, typeID)
-		return &exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_INT64}}
-	case "uint":
+	case "null", "null_type":
 		t.expectUnparameterized(params, typeID)
-		return &exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_UINT64}}
-	case "double":
-		t.expectUnparameterized(params, typeID)
-		return &exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_DOUBLE}}
-	case "bytes":
-		t.expectUnparameterized(params, typeID)
-		return &exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_BYTES}}
-	case "string":
-		t.expectUnparameterized(params, typeID)
-		return &exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_STRING}}
-	case "bool":
-		t.expectUnparameterized(params, typeID)
-		return &exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_BOOL}}
-	case "dyn":
-		t.expectUnparameterized(params, typeID)
-		return &exprpb.Type{TypeKind: &exprpb.Type_Dyn{}}
-	case "null":
-		t.expectUnparameterized(params, typeID)
-		return &exprpb.Type{TypeKind: &exprpb.Type_Null{}}
-	case "wrapper":
-		if params == nil || len(params) != 1 {
-			t.errs = append(t.errs, fmt.Errorf("expected exactly one parameter for wrapper"))
-			return emptyType
-		}
-		p := params[0]
-		if p.GetPrimitive() == exprpb.Type_PRIMITIVE_TYPE_UNSPECIFIED {
-			t.errs = append(t.errs, fmt.Errorf("expected primitive param for wrapper"))
-		}
-		return &exprpb.Type{TypeKind: &exprpb.Type_Wrapper{Wrapper: p.GetPrimitive()}}
+		typeID = "null"
 	case "list":
 		if params == nil || len(params) != 1 {
 			t.errs = append(t.errs, fmt.Errorf("expected exactly one parameter for list"))
-			return emptyType
+			return nil
 		}
-		p := params[0]
-		return &exprpb.Type{TypeKind: &exprpb.Type_ListType_{ListType: &exprpb.Type_ListType{ElemType: p}}}
 	case "map":
 		if params == nil || len(params) != 2 {
 			t.errs = append(t.errs, fmt.Errorf("expected exactly two parameters for map"))
-			return emptyType
+			return nil
 		}
-		k, v := params[0], params[1]
-		return &exprpb.Type{TypeKind: &exprpb.Type_MapType_{
-			MapType: &exprpb.Type_MapType{
-				KeyType:   k,
-				ValueType: v,
-			}}}
 	case "type":
-		if params == nil || len(params) != 1 {
-			t.errs = append(t.errs, fmt.Errorf("expected exactly one parameter for type"))
-			return emptyType
+		if len(params) > 1 {
+			t.errs = append(t.errs, fmt.Errorf("expected 0 or 1 parameter for type"))
+			return nil
 		}
-		p := params[0]
-		return &exprpb.Type{TypeKind: &exprpb.Type_Type{Type: p}}
 	case "optional_type":
 		if len(params) == 0 {
-			params = []*exprpb.Type{{TypeKind: &exprpb.Type_Dyn{}}}
+			params = []*env.TypeDesc{env.NewTypeDesc("dyn")}
 		}
 		if len(params) != 1 {
 			t.errs = append(t.errs, fmt.Errorf("expected exactly one parameter for optional_type"))
-			return emptyType
+			return nil
 		}
-		return makeAbstract("optional_type", params)
 	default:
 		wkt := checkWellKnown(typeID)
 		if wkt != nil {
+			t.expectUnparameterized(params, typeID)
 			return wkt
 		}
-
-		if params != nil {
-			return makeAbstract(typeID, params)
-		}
-		return &exprpb.Type{TypeKind: &exprpb.Type_MessageType{MessageType: typeID}}
 	}
+	return env.NewTypeDesc(typeID, params...)
 }
 
 // ParseType parses a human readable type string into the protobuf representation.
-func ParseType(t string) (*exprpb.Type, error) {
+func ParseType(t string) (*env.TypeDesc, error) {
 	var errListener errorListener
 	visitor := &typesVisitor{}
 	is := antlr.NewInputStream(t)
@@ -242,10 +223,10 @@ func ParseType(t string) (*exprpb.Type, error) {
 	p.RemoveErrorListeners()
 	p.AddErrorListener(&errListener)
 
-	var result *exprpb.Type
+	var result *env.TypeDesc
 	s := visitor.Visit(p.StartType())
 	if s != nil {
-		result = s.(*exprpb.Type)
+		result = s.(*env.TypeDesc)
 	}
 
 	errs := append(errListener.errs, visitor.errs...)
