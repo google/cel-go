@@ -27,8 +27,8 @@ type internalTypeDesc struct {
 	IsTypeParam bool        `yaml:"is_type_param,omitempty"`
 }
 
-// Embedding TypeDesc causes custom unmarshaller to apply to Variable.
-// Workaround with a custom type.
+// Embedding TypeDesc in variable causes issues with customizing
+// unmarshalling / marshalling. Work around with a parallel type.
 type internalVariable struct {
 	Name        string `yaml:"name"`
 	Description string `yaml:"description,omitempty"`
@@ -41,7 +41,7 @@ type internalVariable struct {
 	IsTypeParam bool        `yaml:"is_type_param,omitempty"`
 }
 
-// UnmarshalYAML implements go-yaml interface for custom unmarshaling
+// UnmarshalYAML implements yaml.Unmarshal
 func (v *Variable) UnmarshalYAML(n *yaml.Node) error {
 	buf := internalVariable{}
 	err := n.Decode(&buf)
@@ -62,7 +62,7 @@ func (v *Variable) UnmarshalYAML(n *yaml.Node) error {
 	return nil
 }
 
-// Marshal YAML implements go-yaml interface for custom marshaller
+// MarshalYAML implements yaml.Marshaler
 func (v *Variable) MarshalYAML() (any, error) {
 	// The presence of an unmarshaller alters the default marshaller behavior so
 	// provide a simple marshal implementation.
@@ -78,7 +78,7 @@ func (v *Variable) MarshalYAML() (any, error) {
 	return &buf, nil
 }
 
-// UnmarshalYAML implements go-yaml interface for custom unmarshaling
+// UnmarshalYAML implements yaml.Unmarshaler
 func (td *TypeDesc) UnmarshalYAML(n *yaml.Node) error {
 	if td == nil {
 		return fmt.Errorf("unexpected Unmarshal for TypeDesc at: %d", n.Line)

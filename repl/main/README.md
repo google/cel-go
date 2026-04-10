@@ -24,7 +24,7 @@ CEL REPL
 cel-repl> %let x = 10
 cel-repl> %let y = {'abc': {'def': [1, 2, 3]}}
 cel-repl> y.abc.def.filter(el, el < x)
-[1 2 3] : list(int)
+[1, 2, 3] : list<int>
 cel-repl> %delete x
 cel-repl> y.abc.def.filter(el, el < x)
 Expr failed:
@@ -35,9 +35,9 @@ cel-repl> %declare x : int
 cel-repl> y.abc.def.filter(el, el < x)
 Expr failed:
 no such attribute: id: 8, names: [x]
-no such attribute: id: 8, names: [x] : list(int)
+no such attribute: id: 8, names: [x] : list<int>
 cel-repl> y.abc.def.filter(el, el < x || el > 0)
-[1 2 3] : list(int)
+[1, 2, 3] : list<int>
 cel-repl> %exit
 ```
 

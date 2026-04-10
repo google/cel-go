@@ -28,7 +28,7 @@ import (
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
-// UnparseType pretty-prints a type for the REPL.
+// UnparseExprType pretty-prints a type (proto representation) for the REPL.
 func UnparseExprType(t *exprpb.Type) string {
 	ty, err := cel.ExprTypeToType(t)
 	if err != nil {
@@ -37,6 +37,7 @@ func UnparseExprType(t *exprpb.Type) string {
 	return UnparseType(ty)
 }
 
+// UnparseType pretty-prints a type for the REPL.
 func UnparseType(t *types.Type) string {
 	return env.SerializeTypeDesc(t).SpecifierFormat()
 }
@@ -107,7 +108,7 @@ func checkWellKnown(name string) *env.TypeDesc {
 	case "google.protobuf.BytesValue", ".google.protobuf.BytesValue":
 		return env.NewTypeDesc("bytes_wrapper")
 	case "google.protobuf.BoolValue", ".google.protobuf.BoolValue":
-		return env.NewTypeDesc("bytes_wrapper")
+		return env.NewTypeDesc("bool_wrapper")
 	}
 	return nil
 }
@@ -144,12 +145,11 @@ func (t *typesVisitor) VisitType(ctx *parser.TypeContext) any {
 
 	if ctx.ParamId() != nil {
 		param := ctx.ParamId().GetText()
-		if !strings.HasPrefix(param, "~") {
+		if !strings.HasPrefix(param, "~") || len(param) < 2 {
 			t.errs = append(t.errs, fmt.Errorf("unexpected type param"))
 			return nil
 		}
-		return &exprpb.Type{TypeKind: &exprpb.Type_TypeParam{TypeParam: strings.TrimPrefix(
-			param, "~")}}
+		return env.NewTypeParam(strings.TrimPrefix(param, "~"))
 	}
 	if ctx.TypeId() == nil {
 		return nil

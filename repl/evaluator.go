@@ -19,7 +19,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"reflect"
 	"regexp"
 	"sort"
 	"strings"
@@ -93,22 +92,34 @@ type letFunction struct {
 	impl  functions.FunctionOp
 }
 
-func typeAssignable(rtType ref.Type, declType *envlib.TypeDesc) bool {
-	// TODO(issue/535): add better type agreement support
-	ty, ok := rtType.(*types.Type)
-	if !ok {
-		return rtType.TypeName() == declType.TypeName
+func runtimeTypeAgrees(env *cel.Env, val ref.Val, declType *envlib.TypeDesc) bool {
+	to, err := declType.AsCELType(env.CELTypeProvider())
+
+	if err != nil {
+		return val.Type().TypeName() == declType.TypeName
 	}
-	desc := env.SerializeTypeDesc(ty)
-	return reflect.DeepEqual(desc, declType)
+	return to.IsAssignableRuntimeType(val)
 }
 
-func checkArgsMatch(params []letFunctionParam, args []ref.Val) error {
+func typeAssignable(env *cel.Env, rtType ref.Type, declType *envlib.TypeDesc) bool {
+	// This is not totally correct (we don't bind parameter types correctly), but
+	// good enough for the repl.
+	from, ok := rtType.(*types.Type)
+	to, err := declType.AsCELType(env.CELTypeProvider())
+
+	if !ok || err != nil {
+		return rtType.TypeName() == declType.TypeName
+	}
+
+	return to.IsAssignableType(from)
+}
+
+func checkArgsMatch(env *cel.Env, params []letFunctionParam, args []ref.Val) error {
 	if len(params) != len(args) {
 		return fmt.Errorf("got %d args, expected %d", len(args), len(params))
 	}
 	for i, arg := range args {
-		if !typeAssignable(arg.Type(), params[i].typeHint) {
+		if !runtimeTypeAgrees(env, arg, params[i].typeHint) {
 			return fmt.Errorf("got %s, expected %s for argument %d", arg.Type().TypeName(), params[i].typeHint.SpecifierFormat(), i)
 		}
 	}
@@ -153,7 +164,7 @@ func (l *letFunction) updateImpl(env *cel.Env) error {
 		return iss.Err()
 	}
 
-	if !typeAssignable(ast.OutputType(), l.resultType) {
+	if !typeAssignable(env, ast.OutputType(), l.resultType) {
 		return fmt.Errorf("got result type %s for function %s", UnparseType(ast.OutputType()), l)
 	}
 
@@ -170,7 +181,7 @@ func (l *letFunction) updateImpl(env *cel.Env) error {
 			instance = args[0]
 			args = args[1:]
 		}
-		err = checkArgsMatch(l.params, args)
+		err = checkArgsMatch(env, l.params, args)
 		if err != nil {
 			return types.NewErr("error evaluating %s: %v", l, err)
 		}
@@ -181,7 +192,7 @@ func (l *letFunction) updateImpl(env *cel.Env) error {
 		}
 
 		if instance != nil {
-			if !typeAssignable(instance.Type(), l.receiver) {
+			if !runtimeTypeAgrees(env, instance, l.receiver) {
 				return types.NewErr("error evaluating %s: got receiver type: %s wanted %s", l, instance.Type().TypeName(), l.receiver.SpecifierFormat())
 			}
 			activation["this"] = instance
@@ -554,7 +565,7 @@ func updateContextPlans(ctx *EvaluationContext, env *cel.Env) error {
 				return fmt.Errorf("error updating %v\n%w", el, iss.Err())
 			}
 
-			if el.typeHint != nil && !typeAssignable(ast.OutputType(), el.typeHint) {
+			if el.typeHint != nil && !typeAssignable(env, ast.OutputType(), el.typeHint) {
 				return fmt.Errorf("error updating %v\ntype mismatch got %v expected %v",
 					el,
 					UnparseType(ast.OutputType()),
