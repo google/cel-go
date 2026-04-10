@@ -85,6 +85,9 @@ func TestConfig(t *testing.T) {
 				NewVariableWithDoc("msg",
 					NewTypeDesc("google.expr.proto3.test.TestAllTypes"),
 					`msg represents all possible type permutation which CEL understands from a proto perspective`),
+				NewVariableWithDoc("opt_msg",
+					NewTypeDesc("optional_type", NewTypeDesc("google.expr.proto3.test.TestAllTypes")),
+					`opt_msg represents all possible type permutation which CEL understands from a proto perspective`),
 			).AddFunctions(
 				NewFunctionWithDoc("isEmpty",
 					common.MultilineDescription(
@@ -98,8 +101,20 @@ func TestConfig(t *testing.T) {
 						NewTypeDesc("list", NewTypeParam("T")), nil,
 						NewTypeDesc("bool"),
 						`[].isEmpty() // true`,
-						`[1].isEmpty() // false`),
-				),
+						`[1].isEmpty() // false`)),
+				NewFunctionWithDoc("isEmptyAlt",
+					common.MultilineDescription(
+						`determines whether a list is empty,`,
+						`or a string has no characters`),
+					NewMemberOverload("wrapper_string_isEmpty",
+						NewTypeDesc("google.protobuf.StringValue"), nil,
+						NewTypeDesc("bool"),
+						`''.isEmptyAlt() // true`),
+					NewMemberOverload("list_isEmpty",
+						NewTypeDesc("list", NewTypeParam("T")), nil,
+						NewTypeDesc("bool"),
+						`[].isEmptyAlt() // true`,
+						`[1].isEmptyAlt() // false`)),
 			).AddFeatures(
 				NewFeature("cel.feature.macro_call_tracking", true),
 			).AddLimits(
@@ -1438,9 +1453,9 @@ func assertFuncEquals(t *testing.T, got, want *decls.FunctionDecl) {
 
 func unmarshalYAML(t *testing.T, data []byte) *Config {
 	t.Helper()
-	config := &Config{}
-	if err := yaml.Unmarshal(data, config); err != nil {
-		t.Fatalf("yaml.Unmarshal(%q) failed: %v", string(data), err)
+	config, err := ConfigFromYAML(data)
+	if err != nil {
+		t.Fatalf("ConfigFromYaml(%q) failed: %v", string(data), err)
 	}
 	return config
 }

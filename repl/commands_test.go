@@ -17,10 +17,9 @@ package repl
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
-
-	"google.golang.org/protobuf/proto"
 )
 
 func cmdMatches(t testing.TB, got Cmder, expected Cmder) (result bool) {
@@ -58,13 +57,13 @@ func cmdMatches(t testing.TB, got Cmder, expected Cmder) (result bool) {
 		gotLetFn := got.(*letFnCmd)
 		if gotLetFn.identifier != want.identifier ||
 			gotLetFn.src != want.src ||
-			!proto.Equal(gotLetFn.resultType, want.resultType) ||
+			!reflect.DeepEqual(gotLetFn.resultType, want.resultType) ||
 			len(gotLetFn.params) != len(want.params) {
 			return false
 		}
 		for i, wantP := range want.params {
 			if gotLetFn.params[i].identifier != wantP.identifier ||
-				!proto.Equal(gotLetFn.params[i].typeHint, wantP.typeHint) {
+				!reflect.DeepEqual(gotLetFn.params[i].typeHint, wantP.typeHint) {
 				return false
 			}
 		}
@@ -72,7 +71,7 @@ func cmdMatches(t testing.TB, got Cmder, expected Cmder) (result bool) {
 	case *letVarCmd:
 		gotLetVar := got.(*letVarCmd)
 		return gotLetVar.identifier == want.identifier &&
-			proto.Equal(gotLetVar.typeHint, want.typeHint) &&
+			reflect.DeepEqual(gotLetVar.typeHint, want.typeHint) &&
 			gotLetVar.src == want.src
 	}
 	return false
@@ -83,11 +82,11 @@ func (c *evalCmd) String() string {
 }
 
 func (c *letVarCmd) String() string {
-	return fmt.Sprintf("%%let %s : %s = %s", c.identifier, UnparseType(c.typeHint), c.src)
+	return fmt.Sprintf("%%let %s : %s = %s", c.identifier, c.typeHint.SpecifierFormat(), c.src)
 }
 
 func fmtParam(p letFunctionParam) string {
-	return fmt.Sprintf("%s : %s", p.identifier, UnparseType(p.typeHint))
+	return fmt.Sprintf("%s : %s", p.identifier, p.typeHint.SpecifierFormat())
 }
 
 func fmtParams(ps []letFunctionParam) string {
@@ -99,7 +98,7 @@ func fmtParams(ps []letFunctionParam) string {
 }
 
 func (c *letFnCmd) String() string {
-	return fmt.Sprintf("%%let %s (%s) : %s -> %s", c.identifier, fmtParams(c.params), UnparseType(c.resultType), c.src)
+	return fmt.Sprintf("%%let %s (%s) : %s -> %s", c.identifier, fmtParams(c.params), c.resultType.SpecifierFormat(), c.src)
 }
 
 func (c *delCmd) String() string {

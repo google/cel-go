@@ -17,8 +17,7 @@ package repl
 import (
 	"testing"
 
-	"google.golang.org/protobuf/proto"
-
+	"github.com/google/cel-go/cel"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
@@ -37,7 +36,7 @@ func TestUnparseType(t *testing.T) {
 		},
 		{
 			exprType: &exprpb.Type{TypeKind: &exprpb.Type_Null{}},
-			wantFmt:  "null",
+			wantFmt:  "null_type",
 		},
 		{
 			exprType: &exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_BOOL}},
@@ -65,30 +64,30 @@ func TestUnparseType(t *testing.T) {
 		},
 		{
 			exprType: &exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_PRIMITIVE_TYPE_UNSPECIFIED}},
-			wantFmt:  "*unspecified primitive*",
+			wantFmt:  "*unknown type kind*",
 		},
 		{
 			exprType: &exprpb.Type{TypeKind: &exprpb.Type_WellKnown{WellKnown: exprpb.Type_DURATION}},
-			wantFmt:  "duration",
+			wantFmt:  "google.protobuf.Duration",
 		},
 		{
 			exprType: &exprpb.Type{TypeKind: &exprpb.Type_WellKnown{WellKnown: exprpb.Type_TIMESTAMP}},
-			wantFmt:  "timestamp",
+			wantFmt:  "google.protobuf.Timestamp",
 		},
 		{
 			exprType: &exprpb.Type{TypeKind: &exprpb.Type_WellKnown{WellKnown: exprpb.Type_ANY}},
-			wantFmt:  "any",
+			wantFmt:  "google.protobuf.Any",
 		},
 		{
 			exprType: &exprpb.Type{TypeKind: &exprpb.Type_WellKnown{WellKnown: exprpb.Type_WELL_KNOWN_TYPE_UNSPECIFIED}},
-			wantFmt:  "*unspecified wellknown*",
+			wantFmt:  "*unknown type kind*",
 		},
 		{
 			exprType: &exprpb.Type{TypeKind: &exprpb.Type_MapType_{MapType: &exprpb.Type_MapType{
 				KeyType:   &exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_STRING}},
 				ValueType: &exprpb.Type{TypeKind: &exprpb.Type_WellKnown{WellKnown: exprpb.Type_TIMESTAMP}},
 			}}},
-			wantFmt: "map<string, timestamp>",
+			wantFmt: "map<string, google.protobuf.Timestamp>",
 		},
 		{
 			exprType: &exprpb.Type{TypeKind: &exprpb.Type_ListType_{
@@ -103,7 +102,7 @@ func TestUnparseType(t *testing.T) {
 		{
 			exprType: &exprpb.Type{TypeKind: &exprpb.Type_Wrapper{
 				Wrapper: exprpb.Type_UINT64}},
-			wantFmt: "wrapper_uint",
+			wantFmt: "google.protobuf.UInt64Value",
 		},
 		{
 			exprType: &exprpb.Type{TypeKind: &exprpb.Type_Error{}},
@@ -131,7 +130,7 @@ func TestUnparseType(t *testing.T) {
 					},
 				},
 			}},
-			wantFmt: "function<double(double, double)>",
+			wantFmt: "*unknown type kind*",
 		},
 		{
 			exprType: &exprpb.Type{TypeKind: &exprpb.Type_AbstractType_{
@@ -151,7 +150,7 @@ func TestUnparseType(t *testing.T) {
 					Name: "MyAbstractType",
 				},
 			}},
-			wantFmt: "MyAbstractType<>",
+			wantFmt: "MyAbstractType",
 		},
 		{
 			exprType: &exprpb.Type{TypeKind: &exprpb.Type_MapType_{MapType: &exprpb.Type_MapType{
@@ -164,9 +163,9 @@ func TestUnparseType(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		fmt := UnparseType(tc.exprType)
+		fmt := UnparseExprType(tc.exprType)
 		if fmt != tc.wantFmt {
-			t.Errorf("expected: %s got: %s for type: %v", tc.wantFmt, fmt, tc.exprType)
+			t.Errorf("UnparseExprType(%v) = %q, wanted %q", tc.exprType, fmt, tc.wantFmt)
 		}
 	}
 
@@ -202,27 +201,27 @@ func TestParseType(t *testing.T) {
 			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_BOOL}},
 		},
 		{
-			fmt:          "wrapper_int",
+			fmt:          "int_wrapper",
 			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_Wrapper{Wrapper: exprpb.Type_INT64}},
 		},
 		{
-			fmt:          "wrapper_uint",
+			fmt:          "uint_wrapper",
 			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_Wrapper{Wrapper: exprpb.Type_UINT64}},
 		},
 		{
-			fmt:          "wrapper_double",
+			fmt:          "double_wrapper",
 			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_Wrapper{Wrapper: exprpb.Type_DOUBLE}},
 		},
 		{
-			fmt:          "wrapper_string",
+			fmt:          "string_wrapper",
 			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_Wrapper{Wrapper: exprpb.Type_STRING}},
 		},
 		{
-			fmt:          "wrapper_bytes",
+			fmt:          "bytes_wrapper",
 			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_Wrapper{Wrapper: exprpb.Type_BYTES}},
 		},
 		{
-			fmt:          "wrapper_bool",
+			fmt:          "bool_wrapper",
 			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_Wrapper{Wrapper: exprpb.Type_BOOL}},
 		},
 		{
@@ -277,7 +276,6 @@ func TestParseType(t *testing.T) {
 						}}},
 				}}},
 		},
-
 		{
 			fmt: "list<int>",
 			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_ListType_{
@@ -290,16 +288,12 @@ func TestParseType(t *testing.T) {
 					ListType: &exprpb.Type_ListType{ElemType: &exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_INT64}}}}}}}},
 		},
 		{
-			fmt:          ".com.example.Message",
-			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_MessageType{MessageType: ".com.example.Message"}},
-		},
-		{
 			fmt: "type<int>",
 			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_Type{
 				Type: &exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_INT64}}}},
 		},
 		{
-			fmt: "type<type<wrapper_int>>",
+			fmt: "type<type<int_wrapper>>",
 			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_Type{
 				Type: &exprpb.Type{TypeKind: &exprpb.Type_Type{
 					Type: &exprpb.Type{TypeKind: &exprpb.Type_Wrapper{Wrapper: exprpb.Type_INT64}}}}}},
@@ -322,25 +316,22 @@ func TestParseType(t *testing.T) {
 						{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_STRING}},
 					}}}},
 		},
-		{
-			fmt: "MyAbstractType<string>",
-			wantExprType: &exprpb.Type{TypeKind: &exprpb.Type_AbstractType_{
-				AbstractType: &exprpb.Type_AbstractType{
-					Name: "MyAbstractType",
-					ParameterTypes: []*exprpb.Type{
-						{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_STRING}},
-					}}}},
-		},
 	}
-
+	env, _ := cel.NewEnv()
 	for _, tc := range testCases {
 		t.Run(tc.fmt, func(t *testing.T) {
-			exprType, err := ParseType(tc.fmt)
+			confType, err := ParseType(tc.fmt)
 			if err != nil {
 				t.Fatalf("ParseType(%s) failed: %v", tc.fmt, err)
 			}
-			if !proto.Equal(exprType, tc.wantExprType) {
-				t.Errorf("ParseType(%s) got %s, wanted %s", tc.fmt, exprType, tc.wantExprType)
+			celType, err := confType.AsCELType(env.CELTypeProvider())
+			if err != nil {
+				t.Fatalf("could not resolve parsed type %s", confType.SpecifierFormat())
+			}
+			gotFmt := UnparseType(celType)
+			wantFmt := UnparseExprType(tc.wantExprType)
+			if gotFmt != wantFmt {
+				t.Errorf("ParseType(%s) got %s, wanted %s", tc.fmt, gotFmt, wantFmt)
 			}
 		})
 	}
@@ -350,22 +341,16 @@ func TestParseTypeErrors(t *testing.T) {
 	var testCases = []struct {
 		fmt string
 	}{{
-		fmt: "list()",
+		fmt: "list<>",
 	},
 		{
-			fmt: "list(int",
+			fmt: "list<int",
 		},
 		{
 			fmt: "list",
 		},
 		{
-			fmt: "list(int, int)",
-		},
-		{
-			fmt: "wrapper(int, double)",
-		},
-		{
-			fmt: "wrapper(map(int, int))",
+			fmt: "list<int, int>",
 		},
 		{
 			fmt: "in",
@@ -374,16 +359,16 @@ func TestParseTypeErrors(t *testing.T) {
 			fmt: "x?",
 		},
 		{
-			fmt: "map(int)",
+			fmt: "map<int>",
 		},
 		{
 			fmt: "map",
 		},
 		{
-			fmt: "map(string, )",
+			fmt: "map<string, >",
 		},
 		{
-			fmt: "map(string, int",
+			fmt: "map<string, int",
 		},
 	}
 

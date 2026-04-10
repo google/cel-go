@@ -19,17 +19,17 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/env"
 	"github.com/google/go-cmp/cmp"
 
 	proto2pb "github.com/google/cel-go/test/proto2pb"
-	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
 var testTextDescriptorFile string = "testdata/attribute_context_fds.textproto"
 var testYAMLEnvFile string = "testdata/test_env.yaml"
 var testMultilineYAMLEnvFile string = "testdata/multiline_test_env.yaml"
 
-func mustParseType(t testing.TB, name string) *exprpb.Type {
+func mustParseType(t testing.TB, name string) *env.TypeDesc {
 	t.Helper()
 	ty, err := ParseType(name)
 	if err != nil {
@@ -182,11 +182,14 @@ func TestAddLetFn(t *testing.T) {
 		t.Fatalf("NewEvaluator() failed with: %v", err)
 	}
 
-	eval.AddLetFn("fn", []letFunctionParam{
+	err = eval.AddLetFn("fn", []letFunctionParam{
 		{identifier: "x", typeHint: mustParseType(t, "int")},
 		{identifier: "y", typeHint: mustParseType(t, "int")}},
 		mustParseType(t, "int"),
 		"x * x - y * y")
+	if err != nil {
+		t.Fatalf("AddLetFn{fn(x: int, y: int): int -> x * x - y * y} = (err) %v", err)
+	}
 
 	eval.AddLetVar("testcases", "[[1, 2], [2, 3], [3, 4], [10, 20]]", mustParseType(t, "list<list<int>>"))
 
@@ -604,7 +607,7 @@ func TestProcess(t *testing.T) {
 					expr: "Int64Value{value: 20}",
 				},
 			},
-			wantText:  "20 : wrapper_int",
+			wantText:  "20 : google.protobuf.Int64Value",
 			wantExit:  false,
 			wantError: false,
 		},
@@ -1286,10 +1289,10 @@ extensions:
 				text = stripWhitespace(text)
 				wantText = stripWhitespace(wantText)
 			}
-			diff := cmp.Diff(text, wantText)
+			diff := cmp.Diff(wantText, text)
 			if diff != "" || exit != tc.wantExit || (gotErr != tc.wantError) {
-				t.Errorf("For command %s got (diff: '%s' exit: %v err: %v (%v)) wanted (output: '%s' exit: %v err: %v)",
-					tc.commands[n-1], diff, exit, gotErr, err, tc.wantText, tc.wantExit, tc.wantError)
+				t.Errorf("For command %s got diff (+got -want) :\n'%s'\nexit: %v err: %v (%v)) wanted (exit: %v err: %v)",
+					tc.commands[n-1], diff, exit, gotErr, err, tc.wantExit, tc.wantError)
 			}
 		})
 	}
