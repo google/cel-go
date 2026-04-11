@@ -21,6 +21,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"unicode/utf8"
 
 	"github.com/google/cel-go/checker"
 	chkdecls "github.com/google/cel-go/checker/decls"
@@ -436,6 +437,35 @@ func (e *Env) Check(ast *Ast) (*Ast, *Issues) {
 	return ast, nil
 }
 
+// defaultExpressionSizeCodePointLimit is the default maximum number of code points
+// permitted in a CEL expression. This value must be kept in sync with the parser default.
+const defaultExpressionSizeCodePointLimit = 100_000
+
+// effectiveCodePointLimit returns the configured expression size code point limit,
+// or the default limit if none has been configured.
+func (e *Env) effectiveCodePointLimit() int {
+	if l := e.limits[limitCodePointSize]; l != 0 {
+		return l
+	}
+	return defaultExpressionSizeCodePointLimit
+}
+
+// checkExpressionSize checks whether the input text exceeds the configured expression
+// size code point limit before source construction to avoid allocating memory
+// proportional to the full input size for oversized expressions.
+func (e *Env) checkExpressionSize(txt string) *Issues {
+	limit := e.effectiveCodePointLimit()
+	size := utf8.RuneCountInString(txt)
+	if size > limit {
+		errs := common.NewErrors(common.NewTextSource(""))
+		errs.ReportErrorAtID(0, common.NoLocation,
+			"expression code point size exceeds limit: size: %d, limit %d",
+			size, limit)
+		return &Issues{errs: errs}
+	}
+	return nil
+}
+
 // Compile combines the Parse and Check phases CEL program compilation to produce an Ast and
 // associated issues.
 //
@@ -445,6 +475,9 @@ func (e *Env) Check(ast *Ast) (*Ast, *Issues) {
 //
 // Note, for parse-only uses of CEL use Parse.
 func (e *Env) Compile(txt string) (*Ast, *Issues) {
+	if iss := e.checkExpressionSize(txt); iss != nil {
+		return nil, iss
+	}
 	return e.CompileSource(common.NewTextSource(txt))
 }
 
@@ -649,6 +682,9 @@ func (e *Env) Validators() []ASTValidator {
 // This form of Parse creates a Source value for the input `txt` and forwards to the
 // ParseSource method.
 func (e *Env) Parse(txt string) (*Ast, *Issues) {
+	if iss := e.checkExpressionSize(txt); iss != nil {
+		return nil, iss
+	}
 	src := common.NewTextSource(txt)
 	return e.ParseSource(src)
 }

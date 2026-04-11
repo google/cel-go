@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -3693,4 +3694,56 @@ func interpret(t testing.TB, env *Env, expr string, vars any) (ref.Val, error) {
 		return nil, fmt.Errorf("prg.Eval(%v) failed: %v", vars, err)
 	}
 	return out, nil
+}
+
+func TestExpressionSizeLimitEarlyEnforcement(t *testing.T) {
+	env, err := NewEnv(ParserExpressionSizeLimit(1000))
+	if err != nil {
+		t.Fatalf("NewEnv() failed: %v", err)
+	}
+
+	tests := []struct {
+		name string
+		mode string
+	}{
+		{name: "compile_rejects_oversized", mode: "compile"},
+		{name: "parse_rejects_oversized", mode: "parse"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			payload := strings.Repeat("a", 10_000_000)
+
+			var m1, m2 runtime.MemStats
+			runtime.GC()
+			runtime.ReadMemStats(&m1)
+
+			switch tc.mode {
+			case "compile":
+				_, iss := env.Compile(payload)
+				if iss == nil || iss.Err() == nil {
+					t.Fatal("expected size limit error, got nil")
+				}
+				if !strings.Contains(iss.Err().Error(), "expression code point size exceeds limit") {
+					t.Fatalf("unexpected error: %v", iss.Err())
+				}
+			case "parse":
+				_, iss := env.Parse(payload)
+				if iss == nil || iss.Err() == nil {
+					t.Fatal("expected size limit error, got nil")
+				}
+				if !strings.Contains(iss.Err().Error(), "expression code point size exceeds limit") {
+					t.Fatalf("unexpected error: %v", iss.Err())
+				}
+			}
+
+			runtime.ReadMemStats(&m2)
+			allocDelta := (m2.TotalAlloc - m1.TotalAlloc) / (1024 * 1024)
+			if allocDelta > 5 {
+				t.Errorf("excessive memory allocation: %dMiB during %s (expected <5MiB with early enforcement)",
+					allocDelta, tc.mode)
+			}
+			t.Logf("[%s] memory delta: %dMiB", tc.mode, allocDelta)
+		})
+	}
 }
