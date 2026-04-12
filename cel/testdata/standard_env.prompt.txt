@@ -219,7 +219,6 @@ Functions:
 * duration - convert a value to a google.protobuf.Duration
 
       duration(duration('1s')) // duration('1s')
-      duration(int) -> google.protobuf.Duration
       duration('1h2m3s') // duration('3723s')
 
 * dyn - indicate that the type is dynamic for type-checking purposes
