@@ -126,6 +126,14 @@ func checkArgsMatch(env *cel.Env, params []letFunctionParam, args []ref.Val) err
 	return nil
 }
 
+func makeParamVar(env *cel.Env, id string, t *envlib.TypeDesc) (*decls.VariableDecl, error) {
+	rt, err := t.AsCELType(env.CELTypeProvider())
+	if err != nil {
+		return nil, err
+	}
+	return decls.NewVariable(id, rt), nil
+}
+
 func (l *letFunction) updateImpl(env *cel.Env) error {
 	// declaration but no binding.
 	if l.src == "" {
@@ -135,8 +143,7 @@ func (l *letFunction) updateImpl(env *cel.Env) error {
 	var paramVars []*decls.VariableDecl
 
 	if l.receiver != nil {
-		decl, err := envlib.NewVariable(
-			"this", l.receiver).AsCELVariable(env.CELTypeProvider())
+		decl, err := makeParamVar(env, "this", l.receiver)
 
 		if err != nil {
 			return err
@@ -145,7 +152,7 @@ func (l *letFunction) updateImpl(env *cel.Env) error {
 	}
 
 	for _, p := range l.params {
-		decl, err := envlib.NewVariable(p.identifier, p.typeHint).AsCELVariable(env.CELTypeProvider())
+		decl, err := makeParamVar(env, p.identifier, p.typeHint)
 		if err != nil {
 			return err
 		}
