@@ -579,6 +579,41 @@ func TestProcess(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "FunctionWithTypeParam",
+			commands: []Cmder{
+				&letFnCmd{
+					identifier: "getOrDefault",
+					resultType: mustParseType(t, "~V"),
+					params: []letFunctionParam{
+						{
+							"input",
+							mustParseType(t, "map<~K, ~V>"),
+						},
+						{
+							"key",
+							env.NewTypeParam("K"),
+						},
+						{
+							"default",
+							env.NewTypeParam("V"),
+						},
+					},
+					// Example for most complicated signature users should add.
+					// The type parameters variables in the function definition
+					// work here because they are treated as dyn, but this
+					// doesn't exactly match how type parameters work normally
+					// in CEL.
+					src: "key in input ? input[key] : default",
+				},
+				&evalCmd{
+					expr: `getOrDefault({0: "bar"}, 42, "foo")`,
+				},
+			},
+			wantText:  `"foo" : string`,
+			wantExit:  false,
+			wantError: false,
+		},
+		{
 			name: "OptionBasic",
 			commands: []Cmder{
 				&simpleCmd{

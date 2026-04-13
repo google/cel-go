@@ -94,6 +94,7 @@ func TestReject(t *testing.T) {
 		"%declare 1",
 		"%let 1 = 2",
 		"%1badid",
+		"%let fn(x : ~more_than_a_letter): int -> 1",
 		"%let fn x : int : int -> x + 2", // parens required
 		"%let fn (x : int) -> x + 2",     // return type required
 		"x{{",                            // won't parse as CEL expr

@@ -113,6 +113,7 @@ type typeDescParser struct {
 	length int
 }
 
+// ParseTypeDesc parses a TypeDesc from the type specifier format: "map<string, int>"
 func ParseTypeDesc(text string) (*TypeDesc, error) {
 	p := &typeDescParser{text: text, length: len(text)}
 	res, err := p.parseTypeElem()

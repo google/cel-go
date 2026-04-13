@@ -276,6 +276,9 @@ func (v *Variable) Validate() error {
 	if err := v.GetType().Validate(); err != nil {
 		return fmt.Errorf("invalid variable %q: %w", v.Name, err)
 	}
+	if v.GetType().IsTypeParam {
+		return fmt.Errorf("invalid variable %q: variables cannot be type parameters", v.Name)
+	}
 	return nil
 }
 
@@ -865,6 +868,7 @@ func formatSpecifierImpl(td *TypeDesc, sb *strings.Builder) {
 	sb.WriteRune('>')
 }
 
+// SpecifierFormat returns the short text representation of the type. e.g. "map<string, int>"
 func (td *TypeDesc) SpecifierFormat() string {
 	var sb strings.Builder
 	formatSpecifierImpl(td, &sb)

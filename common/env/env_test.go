@@ -115,6 +115,19 @@ func TestConfig(t *testing.T) {
 						NewTypeDesc("bool"),
 						`[].isEmptyAlt() // true`,
 						`[1].isEmptyAlt() // false`)),
+				NewFunctionWithDoc(
+					"getOrDefault",
+					common.MultilineDescription(
+						"Returns the value of a key in a map or the provided",
+						"default value."),
+					NewMemberOverload("map_getOrDefault",
+						NewTypeDesc("map", NewTypeParam("K"), NewTypeParam("V")),
+						[]*TypeDesc{
+							NewTypeParam("K"),
+							NewTypeParam("V"),
+						},
+						NewTypeParam("V"),
+					)),
 			).AddFeatures(
 				NewFeature("cel.feature.macro_call_tracking", true),
 			).AddLimits(
@@ -287,6 +300,11 @@ func TestConfigValidateErrors(t *testing.T) {
 			name: "invalid variable",
 			in:   NewConfig("invalid variable").AddVariables(NewVariable("", nil)),
 			want: errors.New("invalid variable"),
+		},
+		{
+			name: "invalid variable",
+			in:   NewConfig("invalid variable").AddVariables(NewVariable("foo", NewTypeParam("X"))),
+			want: errors.New("variables cannot be type parameters"),
 		},
 		{
 			name: "colliding context variable",

@@ -70,6 +70,17 @@ functions:
           - "[1].isEmptyAlt() // false"
         target: "list<~T>"
         return: "bool"
+  - name: "getOrDefault"
+    description: |-
+      Returns the value of a key in a map or the provided
+      default value.
+    overloads:
+      - id: "map_getOrDefault"
+        target: "map<~K, ~V>"
+        return: "~V"
+        args:
+          - "~K"
+          - "~V"
 validators:
   - name: cel.validator.duration
   - name: cel.validator.matches
