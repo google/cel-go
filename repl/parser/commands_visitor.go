@@ -1,4 +1,4 @@
-// Code generated from ./repl/parser/Commands.g4 by ANTLR 4.13.1. DO NOT EDIT.
+// Code generated from ./Commands.g4 by ANTLR 4.13.1. DO NOT EDIT.
 
 package parser // Commands
 import "github.com/antlr4-go/antlr/v4"
@@ -60,6 +60,9 @@ type CommandsVisitor interface {
 
 	// Visit a parse tree produced by CommandsParser#typeId.
 	VisitTypeId(ctx *TypeIdContext) interface{}
+
+	// Visit a parse tree produced by CommandsParser#paramId.
+	VisitParamId(ctx *ParamIdContext) interface{}
 
 	// Visit a parse tree produced by CommandsParser#typeParamList.
 	VisitTypeParamList(ctx *TypeParamListContext) interface{}

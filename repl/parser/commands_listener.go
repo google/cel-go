@@ -1,4 +1,4 @@
-// Code generated from ./repl/parser/Commands.g4 by ANTLR 4.13.1. DO NOT EDIT.
+// Code generated from ./Commands.g4 by ANTLR 4.13.1. DO NOT EDIT.
 
 package parser // Commands
 import "github.com/antlr4-go/antlr/v4"
@@ -60,6 +60,9 @@ type CommandsListener interface {
 
 	// EnterTypeId is called when entering the typeId production.
 	EnterTypeId(c *TypeIdContext)
+
+	// EnterParamId is called when entering the paramId production.
+	EnterParamId(c *ParamIdContext)
 
 	// EnterTypeParamList is called when entering the typeParamList production.
 	EnterTypeParamList(c *TypeParamListContext)
@@ -225,6 +228,9 @@ type CommandsListener interface {
 
 	// ExitTypeId is called when exiting the typeId production.
 	ExitTypeId(c *TypeIdContext)
+
+	// ExitParamId is called when exiting the paramId production.
+	ExitParamId(c *ParamIdContext)
 
 	// ExitTypeParamList is called when exiting the typeParamList production.
 	ExitTypeParamList(c *TypeParamListContext)

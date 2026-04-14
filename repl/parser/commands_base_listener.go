@@ -1,4 +1,4 @@
-// Code generated from ./repl/parser/Commands.g4 by ANTLR 4.13.1. DO NOT EDIT.
+// Code generated from ./Commands.g4 by ANTLR 4.13.1. DO NOT EDIT.
 
 package parser // Commands
 import "github.com/antlr4-go/antlr/v4"
@@ -127,6 +127,12 @@ func (s *BaseCommandsListener) EnterTypeId(ctx *TypeIdContext) {}
 
 // ExitTypeId is called when production typeId is exited.
 func (s *BaseCommandsListener) ExitTypeId(ctx *TypeIdContext) {}
+
+// EnterParamId is called when production paramId is entered.
+func (s *BaseCommandsListener) EnterParamId(ctx *ParamIdContext) {}
+
+// ExitParamId is called when production paramId is exited.
+func (s *BaseCommandsListener) ExitParamId(ctx *ParamIdContext) {}
 
 // EnterTypeParamList is called when production typeParamList is entered.
 func (s *BaseCommandsListener) EnterTypeParamList(ctx *TypeParamListContext) {}

@@ -59,16 +59,20 @@ qualId: leadingDot='.'? rid=IDENTIFIER ('.' qualifiers+=IDENTIFIER)*;
 startType : t=type EOF;
 
 type :
-    id=typeId params=typeParamList? ;
+    (typeId params=typeParamList?) | paramId ;
 
 typeId :
     leadingDot='.'? id=(IDENTIFIER|NUL) ('.' qualifiers+=IDENTIFIER )* ;
 
+paramId :
+  PARAM_SPECIFIER;
+
 typeParamList:
-    '(' ( types+=type (',' types+=type)* )? ')' ;
+    '<' ( types+=type (',' types+=type)* )? '>' ;
 
 // lexer rules:
 COMMAND: '%' IDENTIFIER;
 FLAG: '-' ('-' IDENTIFIER)+;
 ARROW: '->';
 EQUAL_ASSIGN: '=';
+PARAM_SPECIFIER: '~' LETTER;

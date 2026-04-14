@@ -25,6 +25,11 @@ variables:
     description: >-
       msg represents all possible type permutation which
       CEL understands from a proto perspective
+  - name: "opt_msg"
+    type: "optional_type<google.expr.proto3.test.TestAllTypes>"
+    description: >-
+      opt_msg represents all possible type permutation which
+      CEL understands from a proto perspective
 functions:
   - name: "isEmpty"
     description: |-
@@ -49,6 +54,33 @@ functions:
               is_type_param: true
         return:
           type_name: "bool"
+  - name: "isEmptyAlt"
+    description: |-
+      determines whether a list is empty,
+      or a string has no characters
+    overloads:
+      - id: "wrapper_string_isEmpty"
+        examples:
+          - "''.isEmptyAlt() // true"
+        target: "google.protobuf.StringValue"
+        return: "bool"
+      - id: "list_isEmpty"
+        examples:
+          - "[].isEmptyAlt() // true"
+          - "[1].isEmptyAlt() // false"
+        target: "list<~T>"
+        return: "bool"
+  - name: "getOrDefault"
+    description: |-
+      Returns the value of a key in a map or the provided
+      default value.
+    overloads:
+      - id: "map_getOrDefault"
+        target: "map<~K, ~V>"
+        return: "~V"
+        args:
+          - "~K"
+          - "~V"
 validators:
   - name: cel.validator.duration
   - name: cel.validator.matches

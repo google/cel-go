@@ -67,8 +67,10 @@ func TestAccept(t *testing.T) {
 		"%let fn () : int -> 10",
 		"%let fn (x:int, y : int) : int -> x + y",
 		"%let fn (x:int, y : int) : int -> x + y",
-		"%let x : Abstract() = MakeAbstract()",
+		"%let x : Abstract<> = MakeAbstract()",
+		"%let x : optional_type<int> = optional.of(42)",
 		"%let com.google.fn (x:int, y : int) : int -> x + y",
+		"%let my_map(x: map<int, ~T>) : list<map<int, ~T>> -> x.map(k, v, {k: v})",
 		"%let int.plus (x: int) : int -> this + x",
 		"%delete id",
 		"%delete com.google.id",
@@ -92,6 +94,7 @@ func TestReject(t *testing.T) {
 		"%declare 1",
 		"%let 1 = 2",
 		"%1badid",
+		"%let fn(x : ~more_than_a_letter): int -> 1",
 		"%let fn x : int : int -> x + 2", // parens required
 		"%let fn (x : int) -> x + 2",     // return type required
 		"x{{",                            // won't parse as CEL expr
