@@ -837,3 +837,77 @@ func FuzzQuote(f *testing.F) {
 		}
 	})
 }
+
+func TestStringsCostTracking(t *testing.T) {
+	tests := []struct {
+		name      string
+		expr      string
+		vars      map[string]any
+		costLimit uint64
+		wantErr   bool
+	}{
+		{
+			name:      "indexOf_large_cost_exceeds_limit",
+			expr:      `s.indexOf(pattern)`,
+			vars:      map[string]any{"s": strings.Repeat("A", 10000), "pattern": strings.Repeat("A", 9999) + "B"},
+			costLimit: 100,
+			wantErr:   true,
+		},
+		{
+			name:      "lastIndexOf_large_cost_exceeds_limit",
+			expr:      `s.lastIndexOf(pattern)`,
+			vars:      map[string]any{"s": strings.Repeat("A", 10000), "pattern": strings.Repeat("A", 9999) + "B"},
+			costLimit: 100,
+			wantErr:   true,
+		},
+		{
+			name:      "join_large_cost_exceeds_limit",
+			expr:      `data.join("")`,
+			vars:      map[string]any{"data": func() []string { d := make([]string, 1000); for i := range d { d[i] = strings.Repeat("x", 1000) }; return d }()},
+			costLimit: 100,
+			wantErr:   true,
+		},
+		{
+			name:      "indexOf_small_within_limit",
+			expr:      `s.indexOf("x")`,
+			vars:      map[string]any{"s": "hello world"},
+			costLimit: 100,
+			wantErr:   false,
+		},
+		{
+			name:      "join_small_within_limit",
+			expr:      `data.join(",")`,
+			vars:      map[string]any{"data": []string{"a", "b", "c"}},
+			costLimit: 100,
+			wantErr:   false,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			varOpts := make([]cel.EnvOption, 0)
+			for k := range tc.vars {
+				varOpts = append(varOpts, cel.Variable(k, cel.DynType))
+			}
+			opts := append([]cel.EnvOption{Strings(StringsVersion(5)), Lists(ListsVersion(3))}, varOpts...)
+			env, err := cel.NewEnv(opts...)
+			if err != nil {
+				t.Fatalf("cel.NewEnv() failed: %v", err)
+			}
+			ast, iss := env.Compile(tc.expr)
+			if iss.Err() != nil {
+				t.Fatalf("Compile(%q) failed: %v", tc.expr, iss.Err())
+			}
+			prg, err := env.Program(ast, cel.CostLimit(tc.costLimit))
+			if err != nil {
+				t.Fatalf("Program() failed: %v", err)
+			}
+			_, _, evalErr := prg.Eval(tc.vars)
+			if tc.wantErr && evalErr == nil {
+				t.Errorf("Eval(%q) got no error, want cost limit exceeded", tc.expr)
+			}
+			if !tc.wantErr && evalErr != nil {
+				t.Errorf("Eval(%q) got error %v, want nil", tc.expr, evalErr)
+			}
+		})
+	}
+}
