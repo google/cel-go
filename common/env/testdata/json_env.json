@@ -1,5 +1,5 @@
 {
-  "name": "extended-env",
+  "name": "json-env",
   "container": "google.expr",
   "extensions": [
     {
@@ -14,7 +14,7 @@
   "variables": [
     {
       "name": "msg",
-      "type_name": "google.expr.proto3.test.TestAllTypes",
+      "type": "google.expr.proto3.test.TestAllTypes",
       "description": "msg represents all possible type permutation which CEL understands from a proto perspective"
     },
     {
@@ -33,51 +33,14 @@
           "examples": [
             "''.isEmpty() // true"
           ],
-          "target": {
-            "type_name": "google.protobuf.StringValue"
-          },
-          "return": {
-            "type_name": "bool"
-          }
+          "target": "wrapper_string",
+          "return": "bool"
         },
         {
           "id": "list_isEmpty",
           "examples": [
             "[].isEmpty() // true",
             "[1].isEmpty() // false"
-          ],
-          "target": {
-            "type_name": "list",
-            "params": [
-              {
-                "type_name": "T",
-                "is_type_param": true
-              }
-            ]
-          },
-          "return": {
-            "type_name": "bool"
-          }
-        }
-      ]
-    },
-    {
-      "name": "isEmptyAlt",
-      "description": "determines whether a list is empty,\nor a string has no characters",
-      "overloads": [
-        {
-          "id": "wrapper_string_isEmpty",
-          "examples": [
-            "''.isEmptyAlt() // true"
-          ],
-          "target": "google.protobuf.StringValue",
-          "return": "bool"
-        },
-        {
-          "id": "list_isEmpty",
-          "examples": [
-            "[].isEmptyAlt() // true",
-            "[1].isEmptyAlt() // false"
           ],
           "target": "list<~T>",
           "return": "bool"

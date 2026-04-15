@@ -35,11 +35,10 @@ import (
 func TestConfig(t *testing.T) {
 	tests := []struct {
 		name string
-		json bool
 		want *Config
 	}{
 		{
-			name: "context_env",
+			name: "context_env.yaml",
 			want: NewConfig("context-env").
 				SetContainer("google.expr").
 				AddImports(NewImport("google.expr.proto3.test.TestAllTypes")).
@@ -76,7 +75,7 @@ func TestConfig(t *testing.T) {
 				),
 		},
 		{
-			name: "extended_env",
+			name: "extended_env.yaml",
 			want: NewConfig("extended-env").
 				SetContainer("google.expr").
 				AddExtensions(
@@ -108,7 +107,7 @@ func TestConfig(t *testing.T) {
 						`determines whether a list is empty,`,
 						`or a string has no characters`),
 					NewMemberOverload("wrapper_string_isEmpty",
-						NewTypeDesc("google.protobuf.StringValue"), nil,
+						NewTypeDesc("string_wrapper"), nil,
 						NewTypeDesc("bool"),
 						`''.isEmptyAlt() // true`),
 					NewMemberOverload("list_isEmpty",
@@ -142,8 +141,7 @@ func TestConfig(t *testing.T) {
 			),
 		},
 		{
-			name: "extended_env",
-			json: true,
+			name: "json_env.json",
 			want: NewConfig("extended-env").
 				SetContainer("google.expr").
 				AddExtensions(
@@ -162,7 +160,7 @@ func TestConfig(t *testing.T) {
 						`determines whether a list is empty,`,
 						`or a string has no characters`),
 					NewMemberOverload("wrapper_string_isEmpty",
-						NewTypeDesc("google.protobuf.StringValue"), nil,
+						NewTypeDesc("wrapper_string"), nil,
 						NewTypeDesc("bool"),
 						`''.isEmpty() // true`),
 					NewMemberOverload("list_isEmpty",
@@ -170,19 +168,6 @@ func TestConfig(t *testing.T) {
 						NewTypeDesc("bool"),
 						`[].isEmpty() // true`,
 						`[1].isEmpty() // false`)),
-				NewFunctionWithDoc("isEmptyAlt",
-					common.MultilineDescription(
-						`determines whether a list is empty,`,
-						`or a string has no characters`),
-					NewMemberOverload("wrapper_string_isEmpty",
-						NewTypeDesc("google.protobuf.StringValue"), nil,
-						NewTypeDesc("bool"),
-						`''.isEmptyAlt() // true`),
-					NewMemberOverload("list_isEmpty",
-						NewTypeDesc("list", NewTypeParam("T")), nil,
-						NewTypeDesc("bool"),
-						`[].isEmptyAlt() // true`,
-						`[1].isEmptyAlt() // false`)),
 				NewFunctionWithDoc(
 					"getOrDefault",
 					common.MultilineDescription(
@@ -209,7 +194,7 @@ func TestConfig(t *testing.T) {
 			),
 		},
 		{
-			name: "subset_env",
+			name: "subset_env.yaml",
 			want: NewConfig("subset-env").
 				SetStdLib(NewLibrarySubset().
 					AddExcludedMacros("map", "filter").
@@ -238,10 +223,7 @@ func TestConfig(t *testing.T) {
 	for _, tst := range tests {
 		tc := tst
 		t.Run(tc.name, func(t *testing.T) {
-			fileName := fmt.Sprintf("testdata/%s.yaml", tc.name)
-			if tc.json {
-				fileName = fmt.Sprintf("testdata/%s.json", tc.name)
-			}
+			fileName := fmt.Sprintf("testdata/%s", tc.name)
 			data, err := os.ReadFile(fileName)
 			if err != nil {
 				t.Fatalf("os.ReadFile(%q) failed: %v", fileName, err)
@@ -753,6 +735,14 @@ func TestVariableAsCELVariable(t *testing.T) {
 			v: &Variable{
 				Name:     "msg",
 				TypeDesc: NewTypeDesc("google.protobuf.StringValue"),
+			},
+			want: decls.NewVariable("msg", types.NewNullableType(types.StringType)),
+		},
+		{
+			name: "wrapper type alias variable",
+			v: &Variable{
+				Name:     "msg",
+				TypeDesc: NewTypeDesc("string_wrapper"),
 			},
 			want: decls.NewVariable("msg", types.NewNullableType(types.StringType)),
 		},
