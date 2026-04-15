@@ -32,8 +32,8 @@ stdlib:
         - id: "string_to_duration"
 variables:
   - name: "x"
-    type_name: "int"
+    type: "int"
   - name: "y"
-    type_name: "double"
+    type: "double"
   - name: "z"
-    type_name: "uint"
+    type: "uint"

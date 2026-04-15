@@ -21,9 +21,9 @@ extensions:
       version: latest
 variables:
     - name: pb3
-      type_name: cel.expr.conformance.proto3.TestAllTypes
+      type: cel.expr.conformance.proto3.TestAllTypes
     - name: pb2
-      type_name: cel.expr.conformance.proto2.TestAllTypes
+      type: cel.expr.conformance.proto2.TestAllTypes
 features:
     - name: cel.feature.macro_call_tracking
       enabled: true

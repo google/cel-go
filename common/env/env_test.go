@@ -35,6 +35,7 @@ import (
 func TestConfig(t *testing.T) {
 	tests := []struct {
 		name string
+		json bool
 		want *Config
 	}{
 		{
@@ -141,6 +142,73 @@ func TestConfig(t *testing.T) {
 			),
 		},
 		{
+			name: "extended_env",
+			json: true,
+			want: NewConfig("extended-env").
+				SetContainer("google.expr").
+				AddExtensions(
+					NewExtension("optional", 2),
+					NewExtension("math", math.MaxUint32),
+				).AddVariables(
+				NewVariableWithDoc("msg",
+					NewTypeDesc("google.expr.proto3.test.TestAllTypes"),
+					`msg represents all possible type permutation which CEL understands from a proto perspective`),
+				NewVariableWithDoc("opt_msg",
+					NewTypeDesc("optional_type", NewTypeDesc("google.expr.proto3.test.TestAllTypes")),
+					`opt_msg represents all possible type permutation which CEL understands from a proto perspective`),
+			).AddFunctions(
+				NewFunctionWithDoc("isEmpty",
+					common.MultilineDescription(
+						`determines whether a list is empty,`,
+						`or a string has no characters`),
+					NewMemberOverload("wrapper_string_isEmpty",
+						NewTypeDesc("google.protobuf.StringValue"), nil,
+						NewTypeDesc("bool"),
+						`''.isEmpty() // true`),
+					NewMemberOverload("list_isEmpty",
+						NewTypeDesc("list", NewTypeParam("T")), nil,
+						NewTypeDesc("bool"),
+						`[].isEmpty() // true`,
+						`[1].isEmpty() // false`)),
+				NewFunctionWithDoc("isEmptyAlt",
+					common.MultilineDescription(
+						`determines whether a list is empty,`,
+						`or a string has no characters`),
+					NewMemberOverload("wrapper_string_isEmpty",
+						NewTypeDesc("google.protobuf.StringValue"), nil,
+						NewTypeDesc("bool"),
+						`''.isEmptyAlt() // true`),
+					NewMemberOverload("list_isEmpty",
+						NewTypeDesc("list", NewTypeParam("T")), nil,
+						NewTypeDesc("bool"),
+						`[].isEmptyAlt() // true`,
+						`[1].isEmptyAlt() // false`)),
+				NewFunctionWithDoc(
+					"getOrDefault",
+					common.MultilineDescription(
+						"Returns the value of a key in a map or the provided",
+						"default value."),
+					NewMemberOverload("map_getOrDefault",
+						NewTypeDesc("map", NewTypeParam("K"), NewTypeParam("V")),
+						[]*TypeDesc{
+							NewTypeParam("K"),
+							NewTypeParam("V"),
+						},
+						NewTypeParam("V"),
+					)),
+			).AddFeatures(
+				NewFeature("cel.feature.macro_call_tracking", true),
+			).AddLimits(
+				NewLimit("cel.limit.parse_recursion_depth", 7),
+			).AddValidators(
+				NewValidator("cel.validator.duration"),
+				NewValidator("cel.validator.matches"),
+				NewValidator("cel.validator.timestamp"),
+				NewValidator("cel.validator.comprehension_nesting_limit").
+					SetConfig(map[string]any{"limit": 2}),
+			),
+		},
+		{
 			name: "subset_env",
 			want: NewConfig("subset-env").
 				SetStdLib(NewLibrarySubset().
@@ -171,6 +239,9 @@ func TestConfig(t *testing.T) {
 		tc := tst
 		t.Run(tc.name, func(t *testing.T) {
 			fileName := fmt.Sprintf("testdata/%s.yaml", tc.name)
+			if tc.json {
+				fileName = fmt.Sprintf("testdata/%s.json", tc.name)
+			}
 			data, err := os.ReadFile(fileName)
 			if err != nil {
 				t.Fatalf("os.ReadFile(%q) failed: %v", fileName, err)

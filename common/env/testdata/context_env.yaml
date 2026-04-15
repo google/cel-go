@@ -43,23 +43,20 @@ functions:
           - "coalesce(null, 1) // 1"
           - "coalesce(2, 1) // 2"
         args:
-          - type_name: "google.protobuf.Int64Value"
-          - type_name: "int"
-        return:
-          type_name: "int"
+          - "google.protobuf.Int64Value"
+          - "int"
+        return: "int"
       - id: "coalesce_wrapped_double"
         examples:
           - "coalesce(null, 1.3) // 1.3"
         args:
-          - type_name: "google.protobuf.DoubleValue"
-          - type_name: "double"
-        return:
-          type_name: "double"
+          - "google.protobuf.DoubleValue"
+          - "double"
+        return: "double"
       - id: "coalesce_wrapped_uint"
         examples:
           - "coalesce(null, 14u) // 14u"
         args:
-          - type_name: "google.protobuf.UInt64Value"
-          - type_name: "uint"
-        return:
-          type_name: "uint"
+          - "google.protobuf.UInt64Value"
+          - "uint"
+        return: "uint"
