@@ -1160,8 +1160,11 @@ func TestContextEval(t *testing.T) {
 	if err == nil {
 		t.Errorf("Got result %v, wanted timeout error", out)
 	}
-	if err != nil && err.Error() != "context deadline exceeded" {
+	if err != nil && !errors.Is(err, context.DeadlineExceeded) {
 		t.Errorf("Got %v, wanted context deadline exceeded", err)
+	}
+	if err != nil && !strings.Contains(err.Error(), "operation interrupted") {
+		t.Errorf("Got %v, wanted error containing 'operation interrupted'", err)
 	}
 }
 
