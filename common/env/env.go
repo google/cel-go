@@ -260,7 +260,7 @@ type Variable struct {
 	//
 	// When serialized, 'type' is used for shorthand specifier string.
 	//
-	// Deprecated: use the embedded *TypeDesc fields directly.
+	// Use GetType() for getting the effective type.
 	Type *TypeDesc `yaml:"type,omitempty"`
 
 	// TypeDesc is an embedded set of fields allowing for the specification of the Variable type.
