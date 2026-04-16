@@ -62,7 +62,7 @@ functions:
       - id: "wrapper_string_isEmpty"
         examples:
           - "''.isEmptyAlt() // true"
-        target: "google.protobuf.StringValue"
+        target: "string_wrapper"
         return: "bool"
       - id: "list_isEmpty"
         examples:

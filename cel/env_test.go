@@ -545,6 +545,28 @@ func TestEnvFromConfig(t *testing.T) {
 			},
 		},
 		{
+			name:       "std env - wrapper type aliases",
+			beforeOpts: []EnvOption{Types(&proto3pb.TestAllTypes{})},
+			conf: env.NewConfig("std env - wrapper_type_aliases").
+				AddVariables(env.NewVariable("single_int64_wrapper", env.NewTypeDesc("int_wrapper")),
+					env.NewVariable("single_double_wrapper", env.NewTypeDesc("double_wrapper"))),
+
+			exprs: []exprCase{
+				{
+					name: "eq_int_wrapper",
+					in:   map[string]any{"single_int64_wrapper": 42},
+					expr: "single_int64_wrapper != null && single_int64_wrapper == 42",
+					out:  types.True,
+				},
+				{
+					name: "eq_double_wrapper",
+					in:   map[string]any{"single_double_wrapper": 42.1},
+					expr: "single_double_wrapper != null && single_double_wrapper == 42.1",
+					out:  types.True,
+				},
+			},
+		},
+		{
 			name:       "custom env - variables",
 			beforeOpts: []EnvOption{Types(&proto3pb.TestAllTypes{})},
 			conf: env.NewConfig("custom env - variables").

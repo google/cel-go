@@ -1115,20 +1115,20 @@ name: repl-session
 container: google
 variables:
     - name: x
-      type_name: int
+      type: int
 functions:
     - name: fn
       overloads:
         - id: fn
-          return:
-            type_name: int
+          args: ["int"]
+          return: "int"
 features:
     - name: cel.feature.macro_call_tracking
       enabled: true
 
 
 # REPL Bindings: 
-# %let fn() : int -> 2
+# %let fn(x : int) : int -> x + 2
 #
 # %let x = 1
 #`,
@@ -1149,6 +1149,8 @@ functions:
     - name: fn
       overloads:
         - id: fn
+          args:
+            - type_name: int
           return:
             type_name: int
 features:
@@ -1157,7 +1159,7 @@ features:
 
 
 # REPL Bindings: 
-# %let fn() : int -> 2
+# %let fn(x: int) : int -> x + 2
 #
 # %let x = 1
 #

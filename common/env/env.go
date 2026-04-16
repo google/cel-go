@@ -258,7 +258,9 @@ type Variable struct {
 
 	// Type represents the type declaration for the variable.
 	//
-	// Deprecated: use the embedded *TypeDesc fields directly.
+	// When serialized, 'type' is used for shorthand specifier string.
+	//
+	// Use GetType() for getting the effective type.
 	Type *TypeDesc `yaml:"type,omitempty"`
 
 	// TypeDesc is an embedded set of fields allowing for the specification of the Variable type.

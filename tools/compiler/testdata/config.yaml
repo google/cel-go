@@ -25,19 +25,13 @@ stdlib:
     - name: "_==_"
       overloads:
         - id: equals
-          args:
-            - type_name: "string"
-            - type_name: "string"
-          return:
-            type_name: "bool"
+          args: ["string", "string"]
+          return: "bool"
     - name: "_||_"
       overloads:
         - id: logical_or
-          args:
-            - type_name: "bool"
-            - type_name: "bool"
-          return:
-            type_name: "bool"
+          args: ["bool", "bool"]
+          return: "bool"
 extensions:
   - name: "lists"
     version: "latest"
@@ -45,33 +39,23 @@ extensions:
     version: "latest"
 variables:
   - name: "destination.ip"
-    type_name: "string"
+    type: "string"
   - name: "origin.ip"
-    type_name: "string"
+    type: "string"
   - name: "spec.restricted_destinations"
-    type_name: "list"
-    params:
-      - type_name: "string"
+    type: "list<string>"
   - name: "spec.origin"
-    type_name: "string"
+    type: "string"
   - name: "request"
-    type_name: "map"
-    params:
-      - type_name: "string"
-      - type_name: "dyn"
+    type: "map<string, dyn>"
   - name: "resource"
-    type_name: "map"
-    params:
-      - type_name: "string"
-      - type_name: "dyn"
+    type: "map<string, dyn>"
 functions:
   - name: "locationCode"
     overloads:
       - id: "locationCode_string"
-        args:
-          - type_name: "string"
-        return:
-          type_name: "string"
+        args: ["string"]
+        return: "string"
 validators:
   - name: cel.validator.duration
   - name: cel.validator.comprehension_nesting_limit
