@@ -28,9 +28,11 @@ import (
 	"golang.org/x/text/language"
 
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
+	"github.com/google/cel-go/interpreter"
 )
 
 const (
@@ -571,8 +573,41 @@ func (lib *stringLib) CompileOptions() []cel.EnvOption {
 }
 
 // ProgramOptions implements the Library interface method.
-func (*stringLib) ProgramOptions() []cel.ProgramOption {
-	return []cel.ProgramOption{}
+func (lib *stringLib) ProgramOptions() []cel.ProgramOption {
+	trackers := []interpreter.CostTrackerOption{
+		// O(n) single-pass operations
+		interpreter.OverloadCostTracker("string_char_at_int", trackStringArgCost),
+		interpreter.OverloadCostTracker("string_lower_ascii", trackStringArgCost),
+		interpreter.OverloadCostTracker("string_upper_ascii", trackStringArgCost),
+		interpreter.OverloadCostTracker("string_trim", trackStringArgCost),
+		interpreter.OverloadCostTracker("string_substring_int", trackStringArgCost),
+		interpreter.OverloadCostTracker("string_substring_int_int", trackStringArgCost),
+		// O(n*m) search operations
+		interpreter.OverloadCostTracker("string_index_of_string", trackStringSearchCost),
+		interpreter.OverloadCostTracker("string_index_of_string_int", trackStringSearchCost),
+		interpreter.OverloadCostTracker("string_last_index_of_string", trackStringSearchCost),
+		interpreter.OverloadCostTracker("string_last_index_of_string_int", trackStringSearchCost),
+		// O(n) search + output allocation
+		interpreter.OverloadCostTracker("string_replace_string_string", trackStringReplaceCost),
+		interpreter.OverloadCostTracker("string_replace_string_string_int", trackStringReplaceCost),
+		// O(n*m) search + list allocation
+		interpreter.OverloadCostTracker("string_split_string", trackStringSplitCost),
+		interpreter.OverloadCostTracker("string_split_string_int", trackStringSplitCost),
+	}
+	if lib.version >= 2 {
+		trackers = append(trackers,
+			interpreter.OverloadCostTracker("list_join", trackStringResultCost),
+			interpreter.OverloadCostTracker("list_join_string", trackStringResultCost),
+		)
+	}
+	if lib.version >= 3 {
+		trackers = append(trackers,
+			interpreter.OverloadCostTracker("string_reverse", trackStringArgCost),
+		)
+	}
+	return []cel.ProgramOption{
+		cel.CostTrackerOptions(trackers...),
+	}
 }
 
 func charAt(str string, ind int64) (string, error) {
@@ -812,3 +847,55 @@ func sanitize(s string) string {
 var (
 	stringListType = reflect.TypeOf([]string{})
 )
+
+// trackStringArgCost computes runtime cost proportional to the first argument's string size.
+// Used for O(n) single-pass operations (charAt, lowerAscii, upperAscii, trim, substring, reverse).
+func trackStringArgCost(args []ref.Val, _ ref.Val) *uint64 {
+	cost := callCost + uint64(math.Ceil(float64(actualSize(args[0]))*common.StringTraversalCostFactor))
+	return &cost
+}
+
+// trackStringSearchCost computes runtime cost for O(n*m) string search operations (indexOf, lastIndexOf).
+func trackStringSearchCost(args []ref.Val, _ ref.Val) *uint64 {
+	strCost := uint64(math.Ceil(float64(actualSize(args[0])) * common.StringTraversalCostFactor))
+	substrCost := uint64(math.Ceil(float64(actualSize(args[1])) * common.StringTraversalCostFactor))
+	if strCost == 0 {
+		strCost = 1
+	}
+	if substrCost == 0 {
+		substrCost = 1
+	}
+	cost := callCost + strCost*substrCost
+	return &cost
+}
+
+// trackStringReplaceCost computes runtime cost for string replace operations.
+// Cost accounts for both the search traversal and the output string allocation.
+func trackStringReplaceCost(args []ref.Val, result ref.Val) *uint64 {
+	strCost := uint64(math.Ceil(float64(actualSize(args[0])) * common.StringTraversalCostFactor))
+	if strCost == 0 {
+		strCost = 1
+	}
+	resultCost := uint64(math.Ceil(float64(actualSize(result)) * common.StringTraversalCostFactor))
+	cost := callCost + strCost + resultCost
+	return &cost
+}
+
+// trackStringSplitCost computes runtime cost for string split operations.
+// Cost accounts for the search traversal and the list allocation.
+func trackStringSplitCost(args []ref.Val, result ref.Val) *uint64 {
+	strCost := uint64(math.Ceil(float64(actualSize(args[0])) * common.StringTraversalCostFactor))
+	if strCost == 0 {
+		strCost = 1
+	}
+	resultCost := uint64(actualSize(result))
+	cost := callCost + strCost + resultCost + common.ListCreateBaseCost
+	return &cost
+}
+
+// trackStringResultCost computes runtime cost proportional to the result size.
+// Used for join operations where the cost is dominated by the output string.
+func trackStringResultCost(_ []ref.Val, result ref.Val) *uint64 {
+	cost := callCost + uint64(math.Ceil(float64(actualSize(result))*common.StringTraversalCostFactor))
+	return &cost
+}
