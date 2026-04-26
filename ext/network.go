@@ -20,6 +20,7 @@ import (
 	"reflect"
 
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 )
@@ -119,10 +120,14 @@ const (
 //	cidr('192.168.1.5/24').ip() == ip('192.168.1.5')
 //	cidr('192.168.1.5/24').masked() == cidr('192.168.1.0/24')
 //	cidr('192.168.1.0/24').prefixLength() == 24
-func Network(version uint32) cel.EnvOption {
+func Network(opts ...NetworkOption) cel.EnvOption {
+	lib := &networkLib{version: Version1}
+	for _, o := range opts {
+		lib = o(lib)
+	}
 	return func(e *cel.Env) (*cel.Env, error) {
 		// Install the library (Types and Functions)
-		e, err := cel.Lib(&networkLib{version: version})(e)
+		e, err := cel.Lib(lib)(e)
 		if err != nil {
 			return nil, err
 		}
@@ -133,8 +138,19 @@ func Network(version uint32) cel.EnvOption {
 	}
 }
 
+// NetworkOption declares a functional operator for configuring the Network library behavior.
+type NetworkOption func(*networkLib) *networkLib
+
+// NetworkVersion sets the version of the network library to an explicit version.
+func NetworkVersion(version uint32) NetworkOption {
+	return func(lib *networkLib) *networkLib {
+		lib.version = version
+		return lib
+	}
+}
+
 const (
-	// Function names matching Kubernetes implementation
+	// Function names matching the original Kubernetes implementation of this networking library
 	isIPFunc             = "isIP"
 	isCIDRFunc           = "isCIDR"
 	ipFunc               = "ip"
@@ -254,6 +270,10 @@ func (*networkLib) CompileOptions() []cel.EnvOption {
 			cel.MemberOverload("cidr_prefix_length", []*cel.Type{CIDRType}, cel.IntType,
 				cel.UnaryBinding(netCIDRPrefixLength)),
 		),
+		cel.ASTValidators(
+			networkFormatValidator{funcName: ipFunc, argNum: 0, check: checkIP},
+			networkFormatValidator{funcName: cidrFunc, argNum: 0, check: checkCIDR},
+		),
 	}
 }
 
@@ -279,59 +299,51 @@ func (a *networkAdapter) NativeToValue(value any) ref.Val {
 
 // --- Implementation Logic ---
 
-func parseIPAddr(raw string) (netip.Addr, error) {
-	addr, err := netip.ParseAddr(raw)
-	if err != nil {
-		return netip.Addr{}, fmt.Errorf("IP Address %q parse error during conversion from string: %v", raw, err)
-	}
-	if addr.Zone() != "" {
-		return netip.Addr{}, fmt.Errorf("IP address %q with zone value is not allowed", raw)
-	}
-	if addr.Is4In6() {
-		return netip.Addr{}, fmt.Errorf("IPv4-mapped IPv6 address %q is not allowed", raw)
-	}
-	return addr, nil
+func netCIDRContainsCIDR(lhs, rhs ref.Val) ref.Val {
+	parent := lhs.(CIDR)
+	child := rhs.(CIDR)
+	return types.Bool(parent.Prefix.Overlaps(child.Prefix) && parent.Prefix.Bits() <= child.Prefix.Bits())
 }
 
-func parseCIDR(raw string) (netip.Prefix, error) {
-	prefix, err := netip.ParsePrefix(raw)
-	if err != nil {
-		return netip.Prefix{}, fmt.Errorf("CIDR %q parse error during conversion from string: %v", raw, err)
-	}
-	if prefix.Addr().Zone() != "" {
-		return netip.Prefix{}, fmt.Errorf("CIDR %q with zone value is not allowed", raw)
-	}
-	if prefix.Addr().Is4In6() {
-		return netip.Prefix{}, fmt.Errorf("IPv4-mapped IPv6 address %q is not allowed", raw)
-	}
-	return prefix, nil
-}
-
-func netIsIP(val ref.Val) ref.Val {
-	s := val.(types.String)
-	_, err := parseIPAddr(string(s))
-	return types.Bool(err == nil)
-}
-
-func netIsCIDR(val ref.Val) ref.Val {
-	s := val.(types.String)
-	_, err := parseCIDR(string(s))
-	return types.Bool(err == nil)
-}
-
-func netIPString(val ref.Val) ref.Val {
-	s := val.(types.String)
-	str := string(s)
-	addr, err := parseIPAddr(str)
+func netCIDRContainsCIDRString(lhs, rhs ref.Val) ref.Val {
+	parent := lhs.(CIDR)
+	s := rhs.(types.String)
+	childPrefix, err := parseCIDR(string(s))
 	if err != nil {
 		return types.WrapErr(err)
 	}
-	return IP{Addr: addr}
+	return types.Bool(parent.Prefix.Overlaps(childPrefix) && parent.Prefix.Bits() <= childPrefix.Bits())
 }
 
-func netIPToString(val ref.Val) ref.Val {
-	ip := val.(IP)
-	return types.String(ip.Addr.String())
+func netCIDRContainsIP(lhs, rhs ref.Val) ref.Val {
+	cidr := lhs.(CIDR)
+	ip := rhs.(IP)
+	return types.Bool(cidr.Prefix.Contains(ip.Addr))
+}
+
+func netCIDRContainsIPString(lhs, rhs ref.Val) ref.Val {
+	cidr := lhs.(CIDR)
+	s := rhs.(types.String)
+	addr, err := parseIPAddr(string(s))
+	if err != nil {
+		return types.WrapErr(err)
+	}
+	return types.Bool(cidr.Prefix.Contains(addr))
+}
+
+func netCIDRIP(val ref.Val) ref.Val {
+	cidr := val.(CIDR)
+	return IP{Addr: cidr.Prefix.Addr()}
+}
+
+func netCIDRMasked(val ref.Val) ref.Val {
+	cidr := val.(CIDR)
+	return CIDR{Prefix: cidr.Prefix.Masked()}
+}
+
+func netCIDRPrefixLength(val ref.Val) ref.Val {
+	cidr := val.(CIDR)
+	return types.Int(cidr.Prefix.Bits())
 }
 
 func netCIDRString(val ref.Val) ref.Val {
@@ -347,6 +359,26 @@ func netCIDRString(val ref.Val) ref.Val {
 func netCIDRToString(val ref.Val) ref.Val {
 	cidr := val.(CIDR)
 	return types.String(cidr.Prefix.String())
+}
+
+func netIsCIDR(val ref.Val) ref.Val {
+	s := val.(types.String)
+	_, err := parseCIDR(string(s))
+	return types.Bool(err == nil)
+}
+
+func parseCIDR(raw string) (netip.Prefix, error) {
+	prefix, err := netip.ParsePrefix(raw)
+	if err != nil {
+		return netip.Prefix{}, fmt.Errorf("CIDR %q parse error during conversion from string: %v", raw, err)
+	}
+	if prefix.Addr().Zone() != "" {
+		return netip.Prefix{}, fmt.Errorf("CIDR %q with zone value is not allowed", raw)
+	}
+	if prefix.Addr().Is4In6() {
+		return netip.Prefix{}, fmt.Errorf("IPv4-mapped IPv6 address %q is not allowed", raw)
+	}
+	return prefix, nil
 }
 
 func netIPFamily(val ref.Val) ref.Val {
@@ -367,19 +399,9 @@ func netIPIsCanonical(val ref.Val) ref.Val {
 	return types.Bool(addr.String() == str)
 }
 
-func netIPIsLoopback(val ref.Val) ref.Val {
-	ip := val.(IP)
-	return types.Bool(ip.Addr.IsLoopback())
-}
-
 func netIPIsGlobalUnicast(val ref.Val) ref.Val {
 	ip := val.(IP)
 	return types.Bool(ip.Addr.IsGlobalUnicast())
-}
-
-func netIPIsUnspecified(val ref.Val) ref.Val {
-	ip := val.(IP)
-	return types.Bool(ip.Addr.IsUnspecified())
 }
 
 func netIPIsLinkLocalMulticast(val ref.Val) ref.Val {
@@ -392,51 +414,49 @@ func netIPIsLinkLocalUnicast(val ref.Val) ref.Val {
 	return types.Bool(ip.Addr.IsLinkLocalUnicast())
 }
 
-func netCIDRContainsIP(lhs, rhs ref.Val) ref.Val {
-	cidr := lhs.(CIDR)
-	ip := rhs.(IP)
-	return types.Bool(cidr.Prefix.Contains(ip.Addr))
+func netIPIsLoopback(val ref.Val) ref.Val {
+	ip := val.(IP)
+	return types.Bool(ip.Addr.IsLoopback())
 }
 
-func netCIDRContainsIPString(lhs, rhs ref.Val) ref.Val {
-	cidr := lhs.(CIDR)
-	s := rhs.(types.String)
-	addr, err := parseIPAddr(string(s))
+func netIPIsUnspecified(val ref.Val) ref.Val {
+	ip := val.(IP)
+	return types.Bool(ip.Addr.IsUnspecified())
+}
+
+func netIPString(val ref.Val) ref.Val {
+	s := val.(types.String)
+	str := string(s)
+	addr, err := parseIPAddr(str)
 	if err != nil {
 		return types.WrapErr(err)
 	}
-	return types.Bool(cidr.Prefix.Contains(addr))
+	return IP{Addr: addr}
 }
 
-func netCIDRContainsCIDR(lhs, rhs ref.Val) ref.Val {
-	parent := lhs.(CIDR)
-	child := rhs.(CIDR)
-	return types.Bool(parent.Prefix.Overlaps(child.Prefix) && parent.Prefix.Bits() <= child.Prefix.Bits())
+func netIPToString(val ref.Val) ref.Val {
+	ip := val.(IP)
+	return types.String(ip.Addr.String())
 }
 
-func netCIDRContainsCIDRString(lhs, rhs ref.Val) ref.Val {
-	parent := lhs.(CIDR)
-	s := rhs.(types.String)
-	childPrefix, err := parseCIDR(string(s))
+func netIsIP(val ref.Val) ref.Val {
+	s := val.(types.String)
+	_, err := parseIPAddr(string(s))
+	return types.Bool(err == nil)
+}
+
+func parseIPAddr(raw string) (netip.Addr, error) {
+	addr, err := netip.ParseAddr(raw)
 	if err != nil {
-		return types.WrapErr(err)
+		return netip.Addr{}, fmt.Errorf("IP Address %q parse error during conversion from string: %v", raw, err)
 	}
-	return types.Bool(parent.Prefix.Overlaps(childPrefix) && parent.Prefix.Bits() <= childPrefix.Bits())
-}
-
-func netCIDRMasked(val ref.Val) ref.Val {
-	cidr := val.(CIDR)
-	return CIDR{Prefix: cidr.Prefix.Masked()}
-}
-
-func netCIDRPrefixLength(val ref.Val) ref.Val {
-	cidr := val.(CIDR)
-	return types.Int(cidr.Prefix.Bits())
-}
-
-func netCIDRIP(val ref.Val) ref.Val {
-	cidr := val.(CIDR)
-	return IP{Addr: cidr.Prefix.Addr()}
+	if addr.Zone() != "" {
+		return netip.Addr{}, fmt.Errorf("IP address %q with zone value is not allowed", raw)
+	}
+	if addr.Is4In6() {
+		return netip.Addr{}, fmt.Errorf("IPv4-mapped IPv6 address %q is not allowed", raw)
+	}
+	return addr, nil
 }
 
 // --- Opaque Type Wrappers ---
@@ -445,6 +465,7 @@ type IP struct {
 	netip.Addr
 }
 
+// ConvertToNative converts the IP value to a native Go type.
 func (i IP) ConvertToNative(typeDesc reflect.Type) (any, error) {
 	if typeDesc == reflect.TypeFor[netip.Addr]() {
 		return i.Addr, nil
@@ -455,6 +476,7 @@ func (i IP) ConvertToNative(typeDesc reflect.Type) (any, error) {
 	return nil, fmt.Errorf("unsupported type conversion to '%v'", typeDesc)
 }
 
+// ConvertToType converts the IP value to a CEL type.
 func (i IP) ConvertToType(typeValue ref.Type) ref.Val {
 	switch typeValue {
 	case types.StringType:
@@ -467,18 +489,21 @@ func (i IP) ConvertToType(typeValue ref.Type) ref.Val {
 	return types.NewErr("type conversion error from '%s' to '%s'", IPType, typeValue)
 }
 
+// Equal returns true if this IP is equal to the other ref.Val.
 func (i IP) Equal(other ref.Val) ref.Val {
 	o, ok := other.(IP)
 	if !ok {
-		return types.ValOrErr(other, "no such overload")
+		return types.False
 	}
 	return types.Bool(i.Addr == o.Addr)
 }
 
+// Type returns the CEL type of the IP.
 func (i IP) Type() ref.Type {
 	return IPType
 }
 
+// Value returns the raw Go value (netip.Addr) of the IP.
 func (i IP) Value() any {
 	return i.Addr
 }
@@ -487,6 +512,7 @@ type CIDR struct {
 	netip.Prefix
 }
 
+// ConvertToNative converts the CIDR value to a native Go type.
 func (c CIDR) ConvertToNative(typeDesc reflect.Type) (any, error) {
 	if typeDesc == reflect.TypeFor[netip.Prefix]() {
 		return c.Prefix, nil
@@ -497,6 +523,7 @@ func (c CIDR) ConvertToNative(typeDesc reflect.Type) (any, error) {
 	return nil, fmt.Errorf("unsupported type conversion to '%v'", typeDesc)
 }
 
+// ConvertToType converts the CIDR value to a CEL type.
 func (c CIDR) ConvertToType(typeValue ref.Type) ref.Val {
 	switch typeValue {
 	case types.StringType:
@@ -509,18 +536,65 @@ func (c CIDR) ConvertToType(typeValue ref.Type) ref.Val {
 	return types.NewErr("type conversion error from '%s' to '%s'", CIDRType, typeValue)
 }
 
+// Equal returns true if this CIDR is equal to the other ref.Val.
 func (c CIDR) Equal(other ref.Val) ref.Val {
 	o, ok := other.(CIDR)
 	if !ok {
-		return types.ValOrErr(other, "no such overload")
+		return types.False
 	}
 	return types.Bool(c.Prefix == o.Prefix)
 }
 
+// Type returns the CEL type of the CIDR.
 func (c CIDR) Type() ref.Type {
 	return CIDRType
 }
 
+// Value returns the raw Go value (netip.Prefix) of the CIDR.
 func (c CIDR) Value() any {
 	return c.Prefix
+}
+
+// --- Static Validators ---
+
+type argChecker func(e *cel.Env, call, arg ast.Expr) error
+
+type networkFormatValidator struct {
+	funcName string
+	argNum   int
+	check    argChecker
+}
+
+func (v networkFormatValidator) Name() string {
+	return fmt.Sprintf("cel.validator.network.%s", v.funcName)
+}
+
+func (v networkFormatValidator) Validate(e *cel.Env, _ cel.ValidatorConfig, a *ast.AST, iss *cel.Issues) {
+	root := ast.NavigateAST(a)
+	funcCalls := ast.MatchDescendants(root, ast.FunctionMatcher(v.funcName))
+	for _, call := range funcCalls {
+		callArgs := call.AsCall().Args()
+		if len(callArgs) <= v.argNum {
+			continue
+		}
+		litArg := callArgs[v.argNum]
+		if litArg.Kind() != ast.LiteralKind {
+			continue
+		}
+		if err := v.check(e, call, litArg); err != nil {
+			iss.ReportErrorAtID(litArg.ID(), "invalid %s argument: %v", v.funcName, err)
+		}
+	}
+}
+
+func checkIP(e *cel.Env, call, arg ast.Expr) error {
+	pattern := arg.AsLiteral().Value().(string)
+	_, err := parseIPAddr(pattern)
+	return err
+}
+
+func checkCIDR(e *cel.Env, call, arg ast.Expr) error {
+	pattern := arg.AsLiteral().Value().(string)
+	_, err := parseCIDR(pattern)
+	return err
 }

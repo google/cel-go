@@ -15,6 +15,7 @@
 package ext
 
 import (
+	"net/netip"
 	"reflect"
 	"testing"
 
@@ -259,7 +260,7 @@ func TestNetwork_Success(t *testing.T) {
 	}
 
 	// Initialize the environment with the Network extension
-	env, err := cel.NewEnv(Network(Version1))
+	env, err := cel.NewEnv(Network())
 	if err != nil {
 		t.Fatalf("cel.NewEnv(Network()) failed: %v", err)
 	}
@@ -301,21 +302,6 @@ func TestNetwork_RuntimeErrors(t *testing.T) {
 		errContains string
 	}{
 		{
-			name:        "ip constructor invalid",
-			expr:        "ip('999.999.999.999')",
-			errContains: "parse error",
-		},
-		{
-			name:        "cidr constructor invalid",
-			expr:        "cidr('1.2.3.4')",
-			errContains: "parse error",
-		},
-		{
-			name:        "cidr constructor invalid mask",
-			expr:        "cidr('10.0.0.0/999')",
-			errContains: "parse error",
-		},
-		{
 			name:        "containsIP string overload invalid",
 			expr:        "cidr('10.0.0.0/8').containsIP('not-an-ip')",
 			errContains: "parse error",
@@ -327,7 +313,7 @@ func TestNetwork_RuntimeErrors(t *testing.T) {
 		},
 	}
 
-	env, err := cel.NewEnv(Network(Version1))
+	env, err := cel.NewEnv(Network())
 	if err != nil {
 		t.Fatalf("cel.NewEnv(Network()) failed: %v", err)
 	}
@@ -375,6 +361,185 @@ func TestNetwork_RuntimeErrors(t *testing.T) {
 
 			if !found {
 				t.Errorf("Expected error containing %q, got %q", tst.errContains, gotErr)
+			}
+		})
+	}
+}
+
+func TestNetwork_TypeConversions(t *testing.T) {
+	addr, _ := netip.ParseAddr("1.2.3.4")
+	prefix, _ := netip.ParsePrefix("10.0.0.0/8")
+
+	ipVal := IP{Addr: addr}
+	cidrVal := CIDR{Prefix: prefix}
+
+	// --- IP Conversions ---
+	t.Run("IP ConvertToNative netip.Addr", func(t *testing.T) {
+		got, err := ipVal.ConvertToNative(reflect.TypeOf(netip.Addr{}))
+		if err != nil {
+			t.Fatalf("ConvertToNative failed: %v", err)
+		}
+		if got != addr {
+			t.Errorf("got %v, want %v", got, addr)
+		}
+	})
+
+	t.Run("IP ConvertToNative string", func(t *testing.T) {
+		got, err := ipVal.ConvertToNative(reflect.TypeOf(""))
+		if err != nil {
+			t.Fatalf("ConvertToNative failed: %v", err)
+		}
+		if got != "1.2.3.4" {
+			t.Errorf("got %v, want %v", got, "1.2.3.4")
+		}
+	})
+
+	t.Run("IP ConvertToNative unsupported", func(t *testing.T) {
+		_, err := ipVal.ConvertToNative(reflect.TypeOf(0))
+		if err == nil {
+			t.Error("expected error, got nil")
+		}
+	})
+
+	t.Run("IP ConvertToType StringType", func(t *testing.T) {
+		got := ipVal.ConvertToType(types.StringType)
+		if got.Type() != types.StringType {
+			t.Errorf("got type %v, want %v", got.Type(), types.StringType)
+		}
+		if got.Value() != "1.2.3.4" {
+			t.Errorf("got value %v, want %v", got.Value(), "1.2.3.4")
+		}
+	})
+
+	t.Run("IP ConvertToType IPType", func(t *testing.T) {
+		got := ipVal.ConvertToType(IPType)
+		if got != ipVal {
+			t.Errorf("got %v, want %v", got, ipVal)
+		}
+	})
+
+	t.Run("IP ConvertToType TypeType", func(t *testing.T) {
+		got := ipVal.ConvertToType(types.TypeType)
+		if got != IPType {
+			t.Errorf("got %v, want %v", got, IPType)
+		}
+	})
+
+	// --- CIDR Conversions ---
+	t.Run("CIDR ConvertToNative netip.Prefix", func(t *testing.T) {
+		got, err := cidrVal.ConvertToNative(reflect.TypeOf(netip.Prefix{}))
+		if err != nil {
+			t.Fatalf("ConvertToNative failed: %v", err)
+		}
+		if got != prefix {
+			t.Errorf("got %v, want %v", got, prefix)
+		}
+	})
+
+	t.Run("CIDR ConvertToNative string", func(t *testing.T) {
+		got, err := cidrVal.ConvertToNative(reflect.TypeOf(""))
+		if err != nil {
+			t.Fatalf("ConvertToNative failed: %v", err)
+		}
+		if got != "10.0.0.0/8" {
+			t.Errorf("got %v, want %v", got, "10.0.0.0/8")
+		}
+	})
+
+	t.Run("CIDR ConvertToNative unsupported", func(t *testing.T) {
+		_, err := cidrVal.ConvertToNative(reflect.TypeOf(0))
+		if err == nil {
+			t.Error("expected error, got nil")
+		}
+	})
+
+	t.Run("CIDR ConvertToType StringType", func(t *testing.T) {
+		got := cidrVal.ConvertToType(types.StringType)
+		if got.Type() != types.StringType {
+			t.Errorf("got type %v, want %v", got.Type(), types.StringType)
+		}
+		if got.Value() != "10.0.0.0/8" {
+			t.Errorf("got value %v, want %v", got.Value(), "10.0.0.0/8")
+		}
+	})
+
+	t.Run("CIDR ConvertToType CIDRType", func(t *testing.T) {
+		got := cidrVal.ConvertToType(CIDRType)
+		if got != cidrVal {
+			t.Errorf("got %v, want %v", got, cidrVal)
+		}
+	})
+
+	t.Run("CIDR ConvertToType TypeType", func(t *testing.T) {
+		got := cidrVal.ConvertToType(types.TypeType)
+		if got != CIDRType {
+			t.Errorf("got %v, want %v", got, CIDRType)
+		}
+	})
+}
+
+func TestNetwork_CompileErrors(t *testing.T) {
+	tests := []struct {
+		name        string
+		expr        string
+		errContains string
+	}{
+		{
+			name:        "ip constructor invalid literal",
+			expr:        "ip('999.999.999.999')",
+			errContains: "invalid ip argument",
+		},
+		{
+			name:        "cidr constructor invalid literal",
+			expr:        "cidr('1.2.3.4')",
+			errContains: "invalid cidr argument",
+		},
+		{
+			name:        "cidr constructor invalid mask literal",
+			expr:        "cidr('10.0.0.0/999')",
+			errContains: "invalid cidr argument",
+		},
+		{
+			name:        "ip constructor valid literal",
+			expr:        "ip('127.0.0.1')",
+			errContains: "",
+		},
+		{
+			name:        "cidr constructor valid literal",
+			expr:        "cidr('10.0.0.0/8')",
+			errContains: "",
+		},
+	}
+
+	env, err := cel.NewEnv(Network())
+	if err != nil {
+		t.Fatalf("cel.NewEnv(Network()) failed: %v", err)
+	}
+
+	for _, tst := range tests {
+		t.Run(tst.name, func(t *testing.T) {
+			_, iss := env.Compile(tst.expr)
+			if tst.errContains != "" {
+				if iss.Err() == nil {
+					t.Errorf("Expected compile error for %q, got nil", tst.expr)
+					return
+				}
+				gotErr := iss.Err().Error()
+				// Simple string contains check
+				found := false
+				for i := 0; i < len(gotErr)-len(tst.errContains)+1; i++ {
+					if gotErr[i:i+len(tst.errContains)] == tst.errContains {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("Expected compile error containing %q, got %q", tst.errContains, gotErr)
+				}
+			} else {
+				if iss.Err() != nil {
+					t.Errorf("Compile(%q) failed unexpectedly: %v", tst.expr, iss.Err())
+				}
 			}
 		})
 	}
