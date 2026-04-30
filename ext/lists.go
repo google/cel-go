@@ -403,8 +403,17 @@ func (lib *listsLib) ProgramOptions() []cel.ProgramOption {
 	return opts
 }
 
+// maxRangeSize is the maximum number of elements lists.range() will allocate.
+const maxRangeSize = 10_000_000
+
 func genRange(n types.Int) (ref.Val, error) {
-	var newList []ref.Val
+	if n < 0 {
+		return nil, fmt.Errorf("lists.range: size must be non-negative, got %d", n)
+	}
+	if n > maxRangeSize {
+		return nil, fmt.Errorf("lists.range: size %d exceeds maximum allowed (%d)", n, maxRangeSize)
+	}
+	newList := make([]ref.Val, 0, n)
 	for i := types.Int(0); i < n; i++ {
 		newList = append(newList, i)
 	}

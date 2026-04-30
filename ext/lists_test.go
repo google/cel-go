@@ -521,3 +521,26 @@ func testListsEnv(t *testing.T, opts ...cel.EnvOption) *cel.Env {
 	}
 	return env
 }
+
+func TestGenRangeMaxSize(t *testing.T) {
+	// Negative size should fail.
+	_, err := genRange(-1)
+	if err == nil {
+		t.Error("genRange(-1) should fail")
+	}
+
+	// Small size should work.
+	val, err := genRange(10)
+	if err != nil {
+		t.Fatalf("genRange(10) failed: %v", err)
+	}
+	if val == nil {
+		t.Fatal("genRange(10) returned nil")
+	}
+
+	// Over the limit should fail, not allocate.
+	_, err = genRange(maxRangeSize + 1)
+	if err == nil {
+		t.Error("genRange(maxRangeSize+1) should fail")
+	}
+}
