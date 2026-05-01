@@ -160,15 +160,13 @@ func newBufferWithLimit(data string, lines bool, limit int) (Buffer, []int32, er
 	if len(data) == 0 {
 		return nilBuffer, []int32{0}, nil
 	}
-	capHint := len(data)
-	if limit >= 0 && capHint > limit {
-		capHint = limit
-	}
+	// The resulting buffers store one element per code point, so the worst case
+	// element count never exceeds len(data).
 	var (
 		idx         = 0
 		off   int32 = 0
 		count       = 0
-		buf8        = make([]byte, 0, capHint)
+		buf8        = make([]byte, 0, len(data))
 		buf16 []uint16
 		buf32 []rune
 		offs  []int32
@@ -192,7 +190,7 @@ func newBufferWithLimit(data string, lines bool, limit int) (Buffer, []int32, er
 			continue
 		}
 		if r <= 0xffff {
-			buf16 = make([]uint16, len(buf8), capHint)
+			buf16 = make([]uint16, len(buf8), len(data))
 			for i, v := range buf8 {
 				buf16[i] = uint16(v)
 			}
@@ -201,7 +199,7 @@ func newBufferWithLimit(data string, lines bool, limit int) (Buffer, []int32, er
 			off++
 			goto copy16
 		}
-		buf32 = make([]rune, len(buf8), capHint)
+		buf32 = make([]rune, len(buf8), len(data))
 		for i, v := range buf8 {
 			buf32[i] = rune(uint32(v))
 		}
@@ -236,7 +234,7 @@ copy16:
 			off++
 			continue
 		}
-		buf32 = make([]rune, len(buf16), capHint)
+		buf32 = make([]rune, len(buf16), len(data))
 		for i, v := range buf16 {
 			buf32[i] = rune(uint32(v))
 		}
