@@ -160,12 +160,21 @@ func newBufferWithLimit(data string, lines bool, limit int) (Buffer, []int32, er
 	if len(data) == 0 {
 		return nilBuffer, []int32{0}, nil
 	}
+	if limit >= 0 && len(data) > limit {
+		size := countRemainingCodePoints(data, 0, 0)
+		if size > limit {
+			return nil, nil, &SizeLimitError{
+				Size:  size,
+				Limit: limit,
+			}
+		}
+	}
+
 	// The resulting buffers store one element per code point, so the worst case
 	// element count never exceeds len(data).
 	var (
 		idx         = 0
 		off   int32 = 0
-		count       = 0
 		buf8        = make([]byte, 0, len(data))
 		buf16 []uint16
 		buf32 []rune
@@ -174,13 +183,6 @@ func newBufferWithLimit(data string, lines bool, limit int) (Buffer, []int32, er
 	for idx < len(data) {
 		r, s := utf8.DecodeRuneInString(data[idx:])
 		idx += s
-		count++
-		if limit >= 0 && count > limit {
-			return nil, nil, &SizeLimitError{
-				Size:  countRemainingCodePoints(data, idx, count),
-				Limit: limit,
-			}
-		}
 		if lines && r == '\n' {
 			offs = append(offs, off+1)
 		}
@@ -219,13 +221,6 @@ copy16:
 	for idx < len(data) {
 		r, s := utf8.DecodeRuneInString(data[idx:])
 		idx += s
-		count++
-		if limit >= 0 && count > limit {
-			return nil, nil, &SizeLimitError{
-				Size:  countRemainingCodePoints(data, idx, count),
-				Limit: limit,
-			}
-		}
 		if lines && r == '\n' {
 			offs = append(offs, off+1)
 		}
@@ -254,13 +249,6 @@ copy32:
 	for idx < len(data) {
 		r, s := utf8.DecodeRuneInString(data[idx:])
 		idx += s
-		count++
-		if limit >= 0 && count > limit {
-			return nil, nil, &SizeLimitError{
-				Size:  countRemainingCodePoints(data, idx, count),
-				Limit: limit,
-			}
-		}
 		if lines && r == '\n' {
 			offs = append(offs, off+1)
 		}
