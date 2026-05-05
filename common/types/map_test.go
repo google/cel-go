@@ -927,7 +927,7 @@ func TestProtoMapConvertToNative(t *testing.T) {
 	if mapVal4.Equal(mapVal) != True || mapVal.Equal(mapVal4) != True {
 		t.Errorf("mapVal4.Equal(mapVal) returned false, wanted true")
 	}
-	convMap, err = mapVal.ConvertToNative(reflect.TypeOf(&pb.Map{}))
+	convMap, err = mapVal.ConvertToNative(reflect.TypeOf(map[string]string{}))
 	if err != nil {
 		t.Fatalf("mapVal.ConvertToNative() failed: %v", err)
 	}
