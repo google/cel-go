@@ -16,6 +16,7 @@ package cel
 
 import (
 	_ "embed"
+	"strings"
 	"sync"
 	"testing"
 
@@ -56,6 +57,12 @@ func testFds(t *testing.T) *dpb.FileDescriptorSet {
 	return fds
 }
 
+// normalizePrompt normalizes line endings in embedded prompt fixture strings
+// to LF for cross-platform test comparisons.
+func normalizePrompt(s string) string {
+	return normalizeLF(s)
+}
+
 func TestPromptTemplate(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -64,17 +71,17 @@ func TestPromptTemplate(t *testing.T) {
 	}{
 		{
 			name: "basic",
-			out:  wantBasicPrompt,
+			out:  normalizePrompt(wantBasicPrompt),
 		},
 		{
 			name:    "macros",
 			envOpts: []EnvOption{Macros(StandardMacros...)},
-			out:     wantMacrosPrompt,
+			out:     normalizePrompt(wantMacrosPrompt),
 		},
 		{
 			name:    "standard_env",
 			envOpts: []EnvOption{StdLib(StdLibSubset(env.NewLibrarySubset().SetDisableMacros(true)))},
-			out:     wantStandardEnvPrompt,
+			out:     normalizePrompt(wantStandardEnvPrompt),
 		},
 	}
 
@@ -114,7 +121,7 @@ func TestPromptTemplateFieldPaths(t *testing.T) {
 					common.MultilineDescription("A team of gifted youngsters")),
 				StdLib(StdLibSubset(env.NewLibrarySubset().SetDisableMacros(true))),
 			},
-			out: wantFieldPathsPrompt,
+			out: normalizePrompt(wantFieldPathsPrompt),
 		},
 	}
 
@@ -136,6 +143,74 @@ func TestPromptTemplateFieldPaths(t *testing.T) {
 			out := prompt.Render("<USER_PROMPT>")
 			if diff := cmp.Diff(tc.out, out); diff != "" {
 				t.Errorf("got %s, diff (-want +got): %s", out, diff)
+			}
+		})
+	}
+}
+
+// TestRenderSanitizesTemplateDirectives verifies that user-supplied input containing
+// Go text/template action delimiters is rendered as literal text and never executed
+// as template directives.
+//
+// Go's text/template renders struct field values (such as .UserPrompt) as literal
+// strings — it does not re-parse or re-evaluate them as template syntax. This means
+// a caller passing "{{.Persona}}" as the user prompt will see that exact string in
+// the output, not the expanded persona content.
+func TestRenderSanitizesTemplateDirectives(t *testing.T) {
+	env, err := NewEnv()
+	if err != nil {
+		t.Fatalf("cel.NewEnv() failed: %v", err)
+	}
+	prompt, err := AuthoringPrompt(env)
+	if err != nil {
+		t.Fatalf("cel.AuthoringPrompt() failed: %v", err)
+	}
+
+	tests := []struct {
+		name        string
+		input       string
+		wantLiteral string
+		wantAbsent  string
+	}{
+		{
+			name:        "template_field_not_executed",
+			input:       "{{.Persona}} should be literal",
+			wantLiteral: "{{.Persona}} should be literal",
+		},
+		{
+			name:        "closing_delimiters_escaped",
+			input:       "hello }} world",
+			wantLiteral: "hello }} world",
+		},
+		{
+			name:        "format_rules_field_not_executed",
+			input:       "{{.FormatRules}} injected",
+			wantLiteral: "{{.FormatRules}} injected",
+		},
+		{
+			name:        "persona_not_duplicated_via_injection",
+			input:       "{{.Persona}}",
+			wantLiteral: "{{.Persona}}",
+			// Persona text appears once legitimately at the top of the rendered output.
+			// A second occurrence would mean the injected directive executed and dumped
+			// the persona content again into the user prompt section.
+			wantAbsent: "software engineer\nauthoring boolean",
+		},
+	}
+
+	for _, tst := range tests {
+		tc := tst
+		t.Run(tc.name, func(t *testing.T) {
+			out := prompt.Render(tc.input)
+			if !strings.Contains(out, tc.wantLiteral) {
+				t.Errorf("Render(%q):\n  want literal substring: %q\n  got output:\n%s",
+					tc.input, tc.wantLiteral, out)
+			}
+			if tc.wantAbsent != "" {
+				if strings.Count(out, tc.wantAbsent) > 1 {
+					t.Errorf("Render(%q): template injection detected — %q appears multiple times in output:\n%s",
+						tc.input, tc.wantAbsent, out)
+				}
 			}
 		})
 	}

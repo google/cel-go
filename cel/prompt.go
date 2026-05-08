@@ -60,6 +60,15 @@ func splitImpl(str string) []string {
 	return trimmed
 }
 
+// normalizeLF normalizes CRLF and standalone CR line endings to LF.
+// This ensures cross-platform consistency in rendered output regardless
+// of the line endings present in embedded template files or string constants.
+func normalizeLF(s string) string {
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	s = strings.ReplaceAll(s, "\r", "\n")
+	return s
+}
+
 // AuthoringPrompt creates a prompt template from a CEL environment for the purpose of AI-assisted authoring.
 func AuthoringPrompt(env *Env) (*Prompt, error) {
 	funcMap := template.FuncMap{
@@ -67,14 +76,14 @@ func AuthoringPrompt(env *Env) (*Prompt, error) {
 		"newlineToSpace": func(str string) string { return strings.ReplaceAll(str, "\n", " ") },
 	}
 	tmpl := template.New("cel").Funcs(funcMap)
-	tmpl, err := tmpl.Parse(authoringPrompt)
+	tmpl, err := tmpl.Parse(normalizeLF(authoringPrompt))
 	if err != nil {
 		return nil, err
 	}
 	return &Prompt{
-		Persona:      defaultPersona,
-		FormatRules:  defaultFormatRules,
-		GeneralUsage: defaultGeneralUsage,
+		Persona:      normalizeLF(defaultPersona),
+		FormatRules:  normalizeLF(defaultFormatRules),
+		GeneralUsage: normalizeLF(defaultGeneralUsage),
 		tmpl:         tmpl,
 		env:          env,
 	}, nil
@@ -108,7 +117,7 @@ type Prompt struct {
 	// tmpl is the text template base-configuration for rendering text.
 	tmpl *template.Template
 
-	// fieldPaths is a flag to enable including reachable field paths in the prompt.
+	// fieldPaths is a flag to include reachable field paths in the prompt.
 	fieldPaths bool
 
 	// env reference used to collect variables, functions, and macros available to the prompt.
@@ -131,6 +140,12 @@ type promptInst struct {
 
 // Render renders the user prompt with the associated context from the prompt template
 // for use with LLM generators.
+//
+// User-supplied input is passed as template data via the UserPrompt field, which
+// Go's text/template renders as a literal string value. Template action delimiters
+// such as {{.Persona}} in the user prompt are never evaluated as template directives
+// because text/template only executes directives present in the template definition
+// itself, not in data values interpolated at render time.
 func (p *Prompt) Render(userPrompt string) string {
 	var buffer strings.Builder
 	vars := make([]*promptVariable, len(p.env.Variables()))
@@ -178,7 +193,8 @@ func (p *Prompt) Render(userPrompt string) string {
 		Variables:  vars,
 		Macros:     macs,
 		Functions:  funcs,
-		UserPrompt: userPrompt}
+		UserPrompt: userPrompt,
+	}
 	p.tmpl.Execute(&buffer, inst)
 	return buffer.String()
 }
