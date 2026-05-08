@@ -266,6 +266,10 @@ func (c *checker) checkCall(e ast.Expr) {
 		c.checkOptSelect(e)
 		return
 	}
+	if fnName == "cel.@block" {
+		c.checkCelBlock(e)
+		return
+	}
 
 	args := call.Args()
 	// Traverse arguments.
@@ -771,3 +775,29 @@ var (
 		types.UintKind:      "google.protobuf.UInt64Value",
 	}
 )
+
+func (c *checker) checkCelBlock(e ast.Expr) {
+	call := e.AsCall()
+	if len(call.Args()) != 2 {
+		c.errors.unexpectedASTType(e.ID(), c.location(e), "cel.@block", "incorrect argument count")
+		c.setType(e, types.ErrorType)
+		return
+	}
+
+	varsList := call.Args()[0]
+	if varsList.Kind() != ast.ListKind {
+		c.check(varsList)
+	} else {
+		create := varsList.AsList()
+		for _, elem := range create.Elements() {
+			c.check(elem)
+		}
+		c.setType(varsList, types.NewListType(types.DynType))
+	}
+
+	body := call.Args()[1]
+	c.check(body)
+	c.setType(e, c.getType(body))
+
+	c.setReference(e, ast.NewFunctionReference("cel_block_list"))
+}

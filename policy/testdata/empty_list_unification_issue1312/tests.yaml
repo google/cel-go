@@ -1,0 +1,8 @@
+description: Issue 1312 simple test
+section:
+  - name: "basic"
+    tests:
+      - name: "test"
+        input: {}
+        output:
+          expr: "[1]"
