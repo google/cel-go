@@ -1301,7 +1301,7 @@ func applyQualifiers(vars Activation, obj any, qualifiers []Qualifier) (any, boo
 		if !optObj.HasValue() {
 			return optObj, false, nil
 		}
-		obj = optObj.GetValue().Value()
+		obj = optObj.GetValue()
 	}
 
 	var err error

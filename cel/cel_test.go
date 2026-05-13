@@ -3293,6 +3293,8 @@ func TestOptionalValuesEval(t *testing.T) {
 		{expr: `[optional.none(), optional.none()].unwrapOpt()`, out: []any{}},
 		{expr: `[optional.of(42), optional.none(), optional.of("a")].unwrapOpt()`, out: []any{types.Int(42), types.String("a")}},
 		{expr: `[optional.of(42), optional.of("a")].unwrapOpt()`, out: []any{types.Int(42), types.String("a")}},
+		{expr: `optional.of(optional.of(1)) != dyn(optional.of(1))`, out: types.True},
+		{expr: `(true ? optional.of(optional.of(1)) : dyn(optional.of(2))) != dyn(optional.of(1))`, out: types.True},
 	}
 
 	for i, tst := range tests {

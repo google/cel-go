@@ -29,6 +29,31 @@ func TestOptionalOptionalOf(t *testing.T) {
 	}
 }
 
+func TestOptionalOptionalFormat(t *testing.T) {
+	tests := []struct {
+		val  ref.Val
+		want string
+	}{
+		{
+			val:  OptionalNone,
+			want: "optional.none()",
+		},
+		{
+			val:  OptionalOf(True),
+			want: "optional.of(true)",
+		},
+		{
+			val:  OptionalOf(OptionalOf(False)),
+			want: "optional.of(optional.of(false))",
+		},
+	}
+	for _, tc := range tests {
+		if Format(tc.val) != tc.want {
+			t.Errorf("got %v, wanted %v", Format(tc.val), tc.want)
+		}
+	}
+}
+
 func TestOptionalGetValue(t *testing.T) {
 	opt := OptionalOf(IntOne)
 	if opt.GetValue() != IntOne {
@@ -113,6 +138,26 @@ func TestOptionalEqual(t *testing.T) {
 			a:   OptionalOf(IntOne),
 			b:   OptionalOf(Double(1.0)),
 			out: True,
+		},
+		{
+			a:   OptionalOf(OptionalOf(IntOne)),
+			b:   OptionalOf(Double(1.0)),
+			out: False,
+		},
+		{
+			a:   OptionalOf(OptionalOf(IntOne)),
+			b:   OptionalOf(OptionalOf(OptionalOf(Double(1.0)))),
+			out: False,
+		},
+		{
+			a:   OptionalOf(Double(1.0)),
+			b:   OptionalOf(OptionalOf(IntOne)),
+			out: False,
+		},
+		{
+			a:   OptionalOf(OptionalOf(OptionalOf(Double(1.0)))),
+			b:   OptionalOf(OptionalOf(IntOne)),
+			out: False,
 		},
 	}
 
