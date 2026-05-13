@@ -60,15 +60,6 @@ func splitImpl(str string) []string {
 	return trimmed
 }
 
-// normalizeLF normalizes CRLF and standalone CR line endings to LF.
-// This ensures cross-platform consistency in rendered output regardless
-// of the line endings present in embedded template files or string constants.
-func normalizeLF(s string) string {
-	s = strings.ReplaceAll(s, "\r\n", "\n")
-	s = strings.ReplaceAll(s, "\r", "\n")
-	return s
-}
-
 // AuthoringPrompt creates a prompt template from a CEL environment for the purpose of AI-assisted authoring.
 func AuthoringPrompt(env *Env) (*Prompt, error) {
 	funcMap := template.FuncMap{
@@ -76,14 +67,14 @@ func AuthoringPrompt(env *Env) (*Prompt, error) {
 		"newlineToSpace": func(str string) string { return strings.ReplaceAll(str, "\n", " ") },
 	}
 	tmpl := template.New("cel").Funcs(funcMap)
-	tmpl, err := tmpl.Parse(normalizeLF(authoringPrompt))
+	tmpl, err := tmpl.Parse(authoringPrompt)
 	if err != nil {
 		return nil, err
 	}
 	return &Prompt{
-		Persona:      normalizeLF(defaultPersona),
-		FormatRules:  normalizeLF(defaultFormatRules),
-		GeneralUsage: normalizeLF(defaultGeneralUsage),
+		Persona:      defaultPersona,
+		FormatRules:  defaultFormatRules,
+		GeneralUsage: defaultGeneralUsage,
 		tmpl:         tmpl,
 		env:          env,
 	}, nil

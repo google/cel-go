@@ -57,12 +57,6 @@ func testFds(t *testing.T) *dpb.FileDescriptorSet {
 	return fds
 }
 
-// normalizePrompt normalizes line endings in embedded prompt fixture strings
-// to LF for cross-platform test comparisons.
-func normalizePrompt(s string) string {
-	return normalizeLF(s)
-}
-
 func TestPromptTemplate(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -71,17 +65,17 @@ func TestPromptTemplate(t *testing.T) {
 	}{
 		{
 			name: "basic",
-			out:  normalizePrompt(wantBasicPrompt),
+			out:  wantBasicPrompt,
 		},
 		{
 			name:    "macros",
 			envOpts: []EnvOption{Macros(StandardMacros...)},
-			out:     normalizePrompt(wantMacrosPrompt),
+			out:     wantMacrosPrompt,
 		},
 		{
 			name:    "standard_env",
 			envOpts: []EnvOption{StdLib(StdLibSubset(env.NewLibrarySubset().SetDisableMacros(true)))},
-			out:     normalizePrompt(wantStandardEnvPrompt),
+			out:     wantStandardEnvPrompt,
 		},
 	}
 
@@ -121,7 +115,7 @@ func TestPromptTemplateFieldPaths(t *testing.T) {
 					common.MultilineDescription("A team of gifted youngsters")),
 				StdLib(StdLibSubset(env.NewLibrarySubset().SetDisableMacros(true))),
 			},
-			out: normalizePrompt(wantFieldPathsPrompt),
+			out: wantFieldPathsPrompt,
 		},
 	}
 
