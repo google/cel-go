@@ -34,7 +34,6 @@ import (
 	_ "cel.dev/expr/conformance/proto3"
 )
 
-
 type testsFlag []string
 
 func (t *testsFlag) String() string {
@@ -71,6 +70,14 @@ func (t *skipTestsFlag) Get() any {
 	return ([]string)(*t)
 }
 
+const (
+	testsYAMLFileName       = "tests.yaml"
+	testsTextprotoFileName  = "tests.textproto"
+	policyYAMLFileName      = "policy.yaml"
+	configYAMLFileName      = "config.yaml"
+	configTextprotoFileName = "config.textproto"
+)
+
 var (
 	testdataDir string
 	tests       testsFlag
@@ -82,7 +89,6 @@ func init() {
 	flag.Var(&tests, "tests", "Paths to run, separate by a comma.")
 	flag.Var(&skipTests, "skip_tests", "Tests to skip, separate by a comma.")
 }
-
 
 func TestMain(m *testing.M) {
 	flag.Parse()
@@ -134,10 +140,11 @@ func discoverTestDirs(absTestdataDir string) []string {
 }
 
 func hasTestSuite(dir string) bool {
-	hasTests := fileExists(filepath.Join(dir, "tests.yaml")) || fileExists(filepath.Join(dir, "tests.textproto"))
-	hasPolicy := fileExists(filepath.Join(dir, "policy.yaml"))
+	hasTests := fileExists(filepath.Join(dir, testsYAMLFileName)) || fileExists(filepath.Join(dir, testsTextprotoFileName))
+	hasPolicy := fileExists(filepath.Join(dir, policyYAMLFileName))
 	return hasTests && hasPolicy
 }
+
 
 func fileExists(path string) bool {
 	info, err := os.Stat(path)
@@ -179,9 +186,9 @@ func TestConformance(t *testing.T) {
 
 	for _, dir := range testDirs {
 		fullDirPath := filepath.Join(absTestdataDir, dir)
-		yamlFile := filepath.Join(fullDirPath, "tests.yaml")
-		textprotoFile := filepath.Join(fullDirPath, "tests.textproto")
-		policyFile := filepath.Join(fullDirPath, "policy.yaml")
+		yamlFile := filepath.Join(fullDirPath, testsYAMLFileName)
+		textprotoFile := filepath.Join(fullDirPath, testsTextprotoFileName)
+		policyFile := filepath.Join(fullDirPath, policyYAMLFileName)
 
 		yamlExists := fileExists(yamlFile)
 		textprotoExists := fileExists(textprotoFile)
@@ -217,8 +224,8 @@ func runTestSuite(t *testing.T, fullDirPath, dir, testSuiteFile, policyFile, suf
 			compileOpts = append(compileOpts, compiler.TypeDescriptorSetFile(fdsPath))
 		}
 	}
-	yamlConfig := filepath.Join(fullDirPath, "config.yaml")
-	textprotoConfig := filepath.Join(fullDirPath, "config.textproto")
+	yamlConfig := filepath.Join(fullDirPath, configYAMLFileName)
+	textprotoConfig := filepath.Join(fullDirPath, configTextprotoFileName)
 	if fileExists(yamlConfig) {
 		compileOpts = append(compileOpts, compiler.EnvironmentFile(yamlConfig))
 	} else if fileExists(textprotoConfig) {
@@ -242,7 +249,6 @@ func runTestSuite(t *testing.T, fullDirPath, dir, testSuiteFile, policyFile, suf
 			testRunnerOpts = append(testRunnerOpts, celtest.FileDescriptorSet(fdsPath))
 		}
 	}
-
 
 	tr, err := celtest.NewTestRunner(testRunnerOpts...)
 	if err != nil {

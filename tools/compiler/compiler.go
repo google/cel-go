@@ -146,8 +146,8 @@ func extensionOpt() cel.EnvOption {
 	return func(e *cel.Env) (*cel.Env, error) {
 		envConfig := &env.Config{
 			Extensions: []*env.Extension{
-				&env.Extension{Name: "optional", Version: "latest"},
-				&env.Extension{Name: "bindings", Version: "latest"},
+				{Name: "optional", Version: "latest"},
+				{Name: "bindings", Version: "latest"},
 			},
 		}
 		return e.Extend(cel.FromConfig(envConfig, ext.ExtensionOptionFactory))
@@ -161,7 +161,6 @@ func (c *compiler) CreateEnv() (*cel.Env, error) {
 	})
 	return c.env, c.envErr
 }
-
 
 // CreatePolicyParser creates a policy parser using the optionally configured parser options.
 func (c *compiler) CreatePolicyParser() (*policy.Parser, error) {

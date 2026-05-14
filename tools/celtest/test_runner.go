@@ -705,7 +705,6 @@ func (tr *TestRunner) createResultMatcherFromPB(t *testing.T, testCase *conforma
 				val = optVal.GetValue()
 			}
 			outputVal, err := refValueToExprValue(val)
-
 			if err != nil {
 				return TestResult{Success: false, Wanted: fmt.Sprintf("simple value %v", want), Error: fmt.Errorf("refValueToExprValue(%q) failed: %v", val, err)}
 			}

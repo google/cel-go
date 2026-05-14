@@ -25,7 +25,6 @@ package(
     licenses = ["notice"],
 )
 
-
 go_library(
     name = "go_default_library",
     srcs = [

@@ -57,7 +57,6 @@ def cel_policy_conformance_test_go(
         name = name,
         size = "small",
         srcs = ["conformance_test.sh"],
-
         args = args,
         data = data,
         **kwargs
