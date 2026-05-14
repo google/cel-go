@@ -35,6 +35,8 @@ bazel_dep(
     version = "7.0.2",
 )
 bazel_dep(name = "rules_shell", version = "0.6.1")
+bazel_dep(name = "rules_license", version = "1.0.0")
+
 
 # local_path_override(
 #     module_name = "cel-spec",
@@ -81,3 +83,6 @@ use_repo(
     "org_golang_google_protobuf",
     "org_golang_x_text",
 )
+
+non_module_dependencies = use_extension("//:repositories.bzl", "non_module_dependencies")
+use_repo(non_module_dependencies, "cel_policy")

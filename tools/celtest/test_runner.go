@@ -361,6 +361,16 @@ func NewTest(name string, input cel.PartialActivation, resultMatcher func(ref.Va
 	}
 }
 
+// Name returns the name of the test case.
+func (t *Test) Name() string {
+	return t.name
+}
+
+// ResultMatcher returns the result matcher function of the test case.
+func (t *Test) ResultMatcher() func(ref.Val, error) TestResult {
+	return t.resultMatcher
+}
+
 // TestResult represents the result of a test case execution. It contains the validation result
 // along with the expected result and any errors encountered during the execution.
 // - Success: Whether the result matcher condition validating the test case was satisfied.
@@ -691,7 +701,11 @@ func (tr *TestRunner) createResultMatcherFromPB(t *testing.T, testCase *conforma
 			if err != nil {
 				return TestResult{Success: false, Wanted: fmt.Sprintf("simple value %v", want), Error: err}
 			}
+			if optVal, ok := val.(*types.Optional); ok && optVal.HasValue() {
+				val = optVal.GetValue()
+			}
 			outputVal, err := refValueToExprValue(val)
+
 			if err != nil {
 				return TestResult{Success: false, Wanted: fmt.Sprintf("simple value %v", want), Error: fmt.Errorf("refValueToExprValue(%q) failed: %v", val, err)}
 			}

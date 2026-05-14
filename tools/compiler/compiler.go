@@ -112,6 +112,7 @@ type compiler struct {
 	policyCompilerOptions    []policy.CompilerOption
 	policyMetadataEnvOptions []PolicyMetadataEnvOption
 	env                      *cel.Env
+	envErr                   error
 	doOnce                   sync.Once
 }
 
@@ -155,12 +156,12 @@ func extensionOpt() cel.EnvOption {
 
 // CreateEnv creates a singleton CEL environment with the configured environment options.
 func (c *compiler) CreateEnv() (*cel.Env, error) {
-	var err error
 	c.doOnce.Do(func() {
-		c.env, err = cel.NewCustomEnv(c.envOptions...)
+		c.env, c.envErr = cel.NewCustomEnv(c.envOptions...)
 	})
-	return c.env, err
+	return c.env, c.envErr
 }
+
 
 // CreatePolicyParser creates a policy parser using the optionally configured parser options.
 func (c *compiler) CreatePolicyParser() (*policy.Parser, error) {
