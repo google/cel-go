@@ -221,3 +221,21 @@ cel_go_test(
     test_src = "//policy/test:cel_test_runner.go",
     test_suite = "testdata/unnest/tests.yaml",
 )
+
+cel_go_test(
+    name = "nested_rules_variable_shadowing_policy",
+    cel_expr = "testdata/nested_rules_variable_shadowing/policy.yaml",
+    config = "testdata/nested_rules_variable_shadowing/config.yaml",
+    enable_coverage = True,
+    test_src = "//policy/test:cel_test_runner.go",
+    test_suite = "testdata/nested_rules_variable_shadowing/tests.yaml",
+)
+
+cel_go_test(
+    name = "variable_type_propagation_policy",
+    cel_expr = "testdata/variable_type_propagation/policy.yaml",
+    config = "testdata/variable_type_propagation/config.yaml",
+    enable_coverage = True,
+    test_src = "//policy/test:cel_test_runner.go",
+    test_suite = "testdata/variable_type_propagation/tests.yaml",
+)
