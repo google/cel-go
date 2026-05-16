@@ -146,12 +146,12 @@ func (opt *ruleComposerImpl) lookupLocal(name string) (int, bool) {
 	return -1, false
 }
 
-func (opt * ruleComposerImpl) enterScope() {
+func (opt *ruleComposerImpl) enterScope() {
 	opt.scopes = append(opt.scopes, localScope{})
 }
 
-func (r *ruleComposerImpl) exitScope() {
-	r.scopes = r.scopes[:len(r.scopes)-1]
+func (opt *ruleComposerImpl) exitScope() {
+	opt.scopes = opt.scopes[:len(opt.scopes)-1]
 }
 
 // Optimize implements an AST optimizer for CEL which composes an expression graph into a single
@@ -284,9 +284,9 @@ func (opt *ruleUnnesterImpl) Optimize(ctx *cel.OptimizerContext, a *ast.AST) *as
 	var varDecls []cel.EnvOption
 	unnestOffset := opt.nextVarIndex
 	if ruleExpr.Kind() == ast.CallKind && ruleExpr.AsCall().FunctionName() == "cel.@block" {
-		// Extract the expr from the cel.@block, args[1], as a navigable expr value.
-		// Also extract the variable declarations and all associated types from the cel.@block as
-		// varIndex values, but without doing any rewrites as the types are all correct already.
+		// Check that the result of the compose pass is consistent with the intial set of variable
+		// definitions in the optimizer. Extract the value expressions and types to set up the
+		// checker environment.
 		block := ruleExpr.AsCall()
 		ruleExpr = block.Args()[1].(ast.NavigableExpr)
 
@@ -294,7 +294,7 @@ func (opt *ruleUnnesterImpl) Optimize(ctx *cel.OptimizerContext, a *ast.AST) *as
 		blockList := block.Args()[0].(ast.NavigableExpr)
 		vars := blockList.AsList()
 		if vars.Size() != len(opt.varIndices) {
-			ctx.ReportErrorAtID(ruleExpr.ID(), "var list size does not match")
+			ctx.ReportErrorAtID(ruleExpr.ID(), "ast var list size and recorded one do not match")
 		}
 		varExprs = make([]ast.Expr, vars.Size())
 		varDecls = make([]cel.EnvOption, vars.Size())
@@ -302,7 +302,6 @@ func (opt *ruleUnnesterImpl) Optimize(ctx *cel.OptimizerContext, a *ast.AST) *as
 			if i >= len(varExprs) {
 				break
 			}
-			// Track the variable he varDecls set.
 			varDecls[i] = cel.Variable(v.indexVar, v.celType)
 			varExprs[i] = v.expr
 		}
