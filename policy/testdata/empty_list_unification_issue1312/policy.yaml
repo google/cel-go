@@ -1,0 +1,9 @@
+name: "empty_list_unification_issue1312"
+rule:
+  variables:
+    - name: "empty_list"
+      expression: "[]"
+    - name: "string_list"
+      expression: "['foo']"
+  match:
+    - output: "variables.empty_list + [1]"

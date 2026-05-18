@@ -210,6 +210,15 @@ var (
 			: optional.none())))
 	  : optional.of(@index3.format([@index0, @index2])))`,
 		},
+		{
+			name: "empty_list_unification_issue1312",
+			expr: `
+	cel.@block([
+	  [],
+	  ["foo"]],
+	  @index0 + [1])
+			`,
+		},
 	}
 
 	composerUnnestTests = []struct {
