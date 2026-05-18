@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: nested_rules_variable_shadowing
+name: variable_type_propagation
 variables:
   - name: x
     type: int

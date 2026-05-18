@@ -294,7 +294,8 @@ func (opt *ruleUnnesterImpl) Optimize(ctx *cel.OptimizerContext, a *ast.AST) *as
 		blockList := block.Args()[0].(ast.NavigableExpr)
 		vars := blockList.AsList()
 		if vars.Size() != len(opt.varIndices) {
-			ctx.ReportErrorAtID(ruleExpr.ID(), "ast var list size and recorded one do not match")
+			ctx.ReportErrorAtID(ruleExpr.ID(), "ast block list and computed one have different sizes")
+			return a
 		}
 		varExprs = make([]ast.Expr, vars.Size())
 		varDecls = make([]cel.EnvOption, vars.Size())
