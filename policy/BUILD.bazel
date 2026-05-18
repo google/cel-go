@@ -18,8 +18,9 @@ load("//test:cel_go_test.bzl", "cel_go_test")
 
 package(
     default_visibility = [
+        "//conformance:__subpackages__",
         "//policy:__subpackages__",
-        "//tools:__subpackages__"
+        "//tools:__subpackages__",
     ],
     licenses = ["notice"],
 )
