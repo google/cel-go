@@ -326,6 +326,10 @@ func TestConstantFoldingOptimizer(t *testing.T) {
 				"o": &proto3pb.TestAllTypes{RepeatedInt32: []int32{1, 2, 3}},
 			},
 		},
+		{
+			expr:   `[(x - 1 > 3) ? (x - 1) : 5].exists(x, x - 1 > 3)`,
+			folded: `[(x - 1 > 3) ? (x - 1) : 5].exists(x, x - 1 > 3)`,
+		},
 	}
 	e, err := NewEnv(
 		OptionalTypes(),
