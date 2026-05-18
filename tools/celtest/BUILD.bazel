@@ -33,6 +33,8 @@ go_library(
         "//common/operators:go_default_library",
         "//common/types:go_default_library",
         "//common/types/ref:go_default_library",
+        "//common/env:go_default_library",
+        "//common/debug:go_default_library",
         "//interpreter:go_default_library",
         "//parser:go_default_library",
         "//test:go_default_library",
