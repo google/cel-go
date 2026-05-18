@@ -1419,7 +1419,13 @@ func refQualify(adapter types.Adapter, obj any, idx ref.Val, presenceTest, prese
 		return val, true, nil
 	default:
 		if presenceTest && !errorOnBadPresenceTest {
-			return nil, false, nil
+			// Optional values and optional field selection (presenceOnly=false)
+			// report not-present for non-container types. has() macro
+			// (presenceOnly=true) on non-optional primitives falls through
+			// to missingKey to avoid silent false on bad presence tests.
+			if _, isOpt := celVal.(*types.Optional); isOpt || !presenceOnly {
+				return nil, false, nil
+			}
 		}
 		return nil, false, missingKey(idx)
 	}

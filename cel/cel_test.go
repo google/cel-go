@@ -2872,6 +2872,23 @@ func TestOptionalValuesEval(t *testing.T) {
 			expr: `has({?'foo': optional.none()}.foo.value)`,
 			out:  "no such key: foo",
 		},
+		// has() on non-container types errors instead of returning false.
+		{
+			expr: `has(dyn(42).field)`,
+			out:  "no such key: field",
+		},
+		{
+			expr: `has(dyn('hello').field)`,
+			out:  "no such key: field",
+		},
+		{
+			expr: `has(dyn(true).field)`,
+			out:  "no such key: field",
+		},
+		{
+			expr: `has(dyn(null).field)`,
+			out:  "no such key: field",
+		},
 		{
 			expr: `{}.?invalid`,
 			out:  types.OptionalNone,
