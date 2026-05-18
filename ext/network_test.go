@@ -239,11 +239,6 @@ func TestNetwork_Success(t *testing.T) {
 			out:  true,
 		},
 		{
-			name: "isInterfaceAddress valid (host bits)",
-			expr: "isInterfaceAddress('10.0.0.1/8')",
-			out:  true,
-		},
-		{
 			name: "isIP invalid",
 			expr: "isIP('not.an.ip')",
 			out:  false,
@@ -264,14 +259,24 @@ func TestNetwork_Success(t *testing.T) {
 			out:  false,
 		},
 		{
-			name: "isStrictCIDR invalid (host bits)",
-			expr: "isStrictCIDR('10.0.0.1/8')",
+			name: "isMask true (no host bits)",
+			expr: "cidr('10.0.0.0/8').isMask()",
+			out:  true,
+		},
+		{
+			name: "isMask false (host bits)",
+			expr: "cidr('10.0.0.1/8').isMask()",
 			out:  false,
 		},
 		{
-			name: "isStrictCIDR valid",
-			expr: "isStrictCIDR('10.0.0.0/8')",
+			name: "isMask IPv6 true (no host bits)",
+			expr: "cidr('2001:db8::/32').isMask()",
 			out:  true,
+		},
+		{
+			name: "isMask IPv6 false (host bits)",
+			expr: "cidr('2001:db8::1/32').isMask()",
+			out:  false,
 		},
 	}
 

@@ -68,27 +68,18 @@ const (
 // (CIDR) range. If the string is not valid, an error is returned.
 //
 // The `isCIDR` function checks if a string is a valid CIDR notation. Note that
-// `isCIDR` is "loose" and allows CIDRs with non-zero host bits (e.g.,
-// '10.0.0.1/8'). For strict validation of subnets, use `isStrictCIDR`.
-//
-// The `isStrictCIDR` function checks if a string is a valid canonical CIDR
-// (no host bits).
-//
-// The `isInterfaceAddress` function is an alias for `isCIDR` that explicitly
-// signifies the intent to allow host bits.
+// `isCIDR` allows CIDR values with or without host bits (e.g., '10.0.0.1/8'
+// or '10.0.0.0/8').
 //
 //	cidr(string) -> cidr
 //	isCIDR(string) -> bool
-//	isStrictCIDR(string) -> bool
-//	isInterfaceAddress(string) -> bool
 //
 // Examples:
 //
 //	cidr('192.168.0.0/24')
 //	cidr('::1/128')
 //	isCIDR('10.0.0.0/8') // true
-//	isStrictCIDR('10.0.0.1/8') // false
-//	isInterfaceAddress('10.0.0.1/8') // true
+//	isCIDR('10.0.0.1/8') // true
 //
 // # IP Inspection and Canonicalization
 //
@@ -122,6 +113,7 @@ const (
 //	<cidr>.containsIP(ip|string) -> bool
 //	<cidr>.containsCIDR(cidr|string) -> bool
 //	<cidr>.ip() -> ip
+//	<cidr>.isMask() -> bool
 //	<cidr>.masked() -> cidr
 //	<cidr>.prefixLength() -> int
 //
@@ -131,6 +123,8 @@ const (
 //	cidr('10.0.0.0/8').containsIP('10.0.0.1') == true
 //	cidr('10.0.0.0/8').containsCIDR('10.1.0.0/16') == true
 //	cidr('192.168.1.5/24').ip() == ip('192.168.1.5')
+//	cidr('192.168.1.0/24').isMask() == true
+//	cidr('192.168.1.5/24').isMask() == false
 //	cidr('192.168.1.5/24').masked() == cidr('192.168.1.0/24')
 //	cidr('192.168.1.0/24').prefixLength() == 24
 func Network(opts ...NetworkOption) cel.EnvOption {
@@ -176,12 +170,11 @@ const (
 	isCanonicalFunc      = "ip.isCanonical"
 	isCIDRFunc           = "isCIDR"
 	isGlobalUnicastFunc  = "isGlobalUnicast"
-	isInterfaceAddrFunc  = "isInterfaceAddress"
 	isIPFunc             = "isIP"
 	isLinkLocalMcastFunc = "isLinkLocalMulticast"
 	isLinkLocalUcastFunc = "isLinkLocalUnicast"
 	isLoopbackFunc       = "isLoopback"
-	isStrictCIDRFunc     = "isStrictCIDR"
+	isMaskFunc           = "isMask"
 	isUnspecifiedFunc    = "isUnspecified"
 	maskedFunc           = "masked"
 	prefixLengthFunc     = "prefixLength"
@@ -259,10 +252,6 @@ func (*networkLib) CompileOptions() []cel.EnvOption {
 			cel.MemberOverload("ip_is_global_unicast", []*cel.Type{IPType}, cel.BoolType,
 				cel.UnaryBinding(netIPIsGlobalUnicast)),
 		),
-		cel.Function(isInterfaceAddrFunc,
-			cel.Overload("is_interface_address", []*cel.Type{cel.StringType}, cel.BoolType,
-				cel.UnaryBinding(netIsCIDR)),
-		),
 		cel.Function(isIPFunc,
 			cel.Overload("is_ip", []*cel.Type{cel.StringType}, cel.BoolType,
 				cel.UnaryBinding(netIsIP)),
@@ -279,9 +268,9 @@ func (*networkLib) CompileOptions() []cel.EnvOption {
 			cel.MemberOverload("ip_is_loopback", []*cel.Type{IPType}, cel.BoolType,
 				cel.UnaryBinding(netIPIsLoopback)),
 		),
-		cel.Function(isStrictCIDRFunc,
-			cel.Overload("is_strict_cidr", []*cel.Type{cel.StringType}, cel.BoolType,
-				cel.UnaryBinding(netIsStrictCIDR)),
+		cel.Function(isMaskFunc,
+			cel.MemberOverload("cidr_is_mask", []*cel.Type{CIDRType}, cel.BoolType,
+				cel.UnaryBinding(netCIDRIsMask)),
 		),
 		cel.Function(isUnspecifiedFunc,
 			cel.MemberOverload("ip_is_unspecified", []*cel.Type{IPType}, cel.BoolType,
@@ -456,14 +445,9 @@ func netIsIP(val ref.Val) ref.Val {
 	return types.Bool(err == nil)
 }
 
-func netIsStrictCIDR(val ref.Val) ref.Val {
-	s := val.(types.String)
-	prefix, err := parseCIDR(string(s))
-	if err != nil {
-		return types.False
-	}
-	// Strict check: address must match its masked version (no host bits)
-	return types.Bool(prefix.Addr() == prefix.Masked().Addr())
+func netCIDRIsMask(val ref.Val) ref.Val {
+	cidr := val.(CIDR)
+	return types.Bool(cidr.Prefix.Addr() == cidr.Prefix.Masked().Addr())
 }
 
 func parseCIDR(raw string) (netip.Prefix, error) {
