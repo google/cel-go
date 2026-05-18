@@ -92,7 +92,8 @@ func (c *RuleComposer) Compose(r *CompiledRule) (*cel.Ast, *cel.Issues) {
 		return nil, iss
 	}
 	unnester := &ruleUnnesterImpl{
-		varIndices:       []varIndex{},
+		nextVarIndex: len(composer.varIndices),
+		varIndices:       composer.varIndices,
 		exprUnnestHeight: c.exprUnnestHeight,
 	}
 	opt, err = cel.NewStaticOptimizer(unnester)
@@ -126,10 +127,31 @@ type varIndex struct {
 	celType  *types.Type
 }
 
+type localScope map[string]int
+
 type ruleComposerImpl struct {
 	rule         *CompiledRule
 	nextVarIndex int
 	varIndices   []varIndex
+	scopes       []localScope
+}
+
+func (opt *ruleComposerImpl) lookupLocal(name string) (int, bool) {
+	// iterate through scopes in reverse order
+	for i := len(opt.scopes) - 1; i >= 0; i-- {
+		if idx, ok := opt.scopes[i][name]; ok {
+			return idx, true
+		}
+	}
+	return -1, false
+}
+
+func (opt *ruleComposerImpl) enterScope() {
+	opt.scopes = append(opt.scopes, localScope{})
+}
+
+func (opt *ruleComposerImpl) exitScope() {
+	opt.scopes = opt.scopes[:len(opt.scopes)-1]
 }
 
 // Optimize implements an AST optimizer for CEL which composes an expression graph into a single
@@ -160,6 +182,8 @@ func (opt *ruleComposerImpl) Optimize(ctx *cel.OptimizerContext, a *ast.AST) *as
 
 func (opt *ruleComposerImpl) optimizeRule(ctx *cel.OptimizerContext, r *CompiledRule) ast.Expr {
 	// Visitor to rewrite variables-prefixed identifiers with index names.
+	opt.enterScope()
+	defer opt.exitScope()
 	vars := r.Variables()
 	for _, v := range vars {
 		opt.registerVariable(ctx, v)
@@ -217,13 +241,12 @@ func (opt *ruleComposerImpl) rewriteVariableName(ctx *cel.OptimizerContext) ast.
 			return
 		}
 		varName := expr.AsIdent()
-		for i := len(opt.varIndices) - 1; i >= 0; i-- {
-			v := opt.varIndices[i]
-			if v.localVar == varName {
-				ctx.UpdateExpr(expr, ctx.NewIdent(v.indexVar))
-				return
-			}
+		idx, found := opt.lookupLocal(varName)
+		if !found {
+			return
 		}
+		rec := opt.varIndices[idx]
+		ctx.UpdateExpr(expr, ctx.NewIdent(rec.indexVar))
 	})
 }
 
@@ -241,6 +264,9 @@ func (opt *ruleComposerImpl) registerVariable(ctx *cel.OptimizerContext, v *Comp
 		expr:     varExpr,
 		celType:  v.Declaration().Type()}
 	opt.varIndices = append(opt.varIndices, vi)
+	if len(opt.scopes) > 0 {
+		opt.scopes[len(opt.scopes) - 1][varName] = len(opt.varIndices) - 1 
+	}
 	opt.nextVarIndex++
 }
 
@@ -256,25 +282,29 @@ func (opt *ruleUnnesterImpl) Optimize(ctx *cel.OptimizerContext, a *ast.AST) *as
 	ruleExpr := ast.NavigateAST(a)
 	var varExprs []ast.Expr
 	var varDecls []cel.EnvOption
+	unnestOffset := opt.nextVarIndex
 	if ruleExpr.Kind() == ast.CallKind && ruleExpr.AsCall().FunctionName() == "cel.@block" {
-		// Extract the expr from the cel.@block, args[1], as a navigable expr value.
-		// Also extract the variable declarations and all associated types from the cel.@block as
-		// varIndex values, but without doing any rewrites as the types are all correct already.
+		// Check that the result of the compose pass is consistent with the intial set of variable
+		// definitions in the optimizer. Extract the value expressions and types to set up the
+		// checker environment.
 		block := ruleExpr.AsCall()
 		ruleExpr = block.Args()[1].(ast.NavigableExpr)
 
 		// Collect the list of variables associated with the block
 		blockList := block.Args()[0].(ast.NavigableExpr)
 		vars := blockList.AsList()
+		if vars.Size() != len(opt.varIndices) {
+			ctx.ReportErrorAtID(ruleExpr.ID(), "ast block list and computed one have different sizes")
+			return a
+		}
 		varExprs = make([]ast.Expr, vars.Size())
 		varDecls = make([]cel.EnvOption, vars.Size())
-		copy(varExprs, vars.Elements())
-		for i, v := range varExprs {
-			// Track the variable he varDecls set.
-			indexVar := fmt.Sprintf("@index%d", i)
-			celType := a.GetType(v.ID())
-			varDecls[i] = cel.Variable(indexVar, celType)
-			opt.nextVarIndex++
+		for i, v := range opt.varIndices {
+			if i >= len(varExprs) {
+				break
+			}
+			varDecls[i] = cel.Variable(v.indexVar, v.celType)
+			varExprs[i] = v.expr
 		}
 	}
 	if len(varDecls) != 0 {
@@ -293,7 +323,7 @@ func (opt *ruleUnnesterImpl) Optimize(ctx *cel.OptimizerContext, a *ast.AST) *as
 
 	// Otherwise populate the cel.@block with the variable declarations and wrap the expression
 	// in the block.
-	for i := 0; i < len(opt.varIndices); i++ {
+	for i := unnestOffset; i < len(opt.varIndices); i++ {
 		vi := opt.varIndices[i]
 		varExprs = append(varExprs, vi.expr)
 		err := ctx.ExtendEnv(cel.Variable(vi.indexVar, vi.celType))
