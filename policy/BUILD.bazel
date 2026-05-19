@@ -259,9 +259,6 @@ cel_go_test(
     test_suite = "testdata/nested_rules_unwrap_rewrap/tests.yaml",
 )
 
-
-
-
 cel_go_test(
     name = "variable_type_propagation_policy",
     cel_expr = "testdata/variable_type_propagation/policy.yaml",

@@ -72,6 +72,8 @@ func (r *CompiledRule) HasOptionalOutput() bool {
 	optionalOutput := false
 	for _, m := range r.Matches() {
 		if m.NestedRule() != nil && m.NestedRule().HasOptionalOutput() {
+			// If the nested rule is unconditional, the matching may fallthrough to the next match
+			// in this context (unwrapping the optional value from the nested rule).
 			if !m.ConditionIsLiteral(types.True) {
 				return true
 			}
@@ -445,15 +447,16 @@ func (c *compiler) checkMatchOutputTypesAgree(rule *CompiledRule, iss *cel.Issue
 }
 
 func (c *compiler) checkUnreachableCode(rule *CompiledRule, iss *cel.Issues) {
-	ruleHasOptional := rule.HasOptionalOutput()
 	compiledMatches := rule.Matches()
 	matchCount := len(compiledMatches)
 	for i := matchCount - 1; i >= 0; i-- {
 		m := compiledMatches[i]
 		triviallyTrue := m.ConditionIsLiteral(types.True)
 
-		isExhaustive := triviallyTrue && !(m.NestedRule() != nil && m.NestedRule().HasOptionalOutput())
-		if isExhaustive && !ruleHasOptional && i != matchCount-1 {
+		// If the match is a single output or a nested rule that always returns a value, it is
+		// exhaustive. If the condition is trivially true, then all subsequent branches are unreachable.
+		isExhaustive := triviallyTrue && (m.NestedRule() == nil || !m.NestedRule().HasOptionalOutput())
+		if isExhaustive && i != matchCount-1 {
 			if m.Output() != nil {
 				iss.ReportErrorAtID(m.SourceID(), "match creates unreachable outputs")
 			}

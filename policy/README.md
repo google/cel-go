@@ -201,14 +201,14 @@ Example:
 rule:
   match:
     - rule:
-      variables:
-        - name: "foo"
-          value: 1 + 2
-      match:
-        - condition: "input > variables.foo"
-          output: '"a"'
-        - condition: "input == variables.foo"
-          output: '"b"'
+        variables:
+          - name: "foo"
+            expression: "3"
+        match:
+          - condition: "input > variables.foo"
+            output: '"a"'
+          - condition: "input == variables.foo"
+            output: '"b"'
     - output: '"c"'
 
 ```
