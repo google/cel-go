@@ -72,7 +72,7 @@ func (r *CompiledRule) HasOptionalOutput() bool {
 	optionalOutput := false
 	for _, m := range r.Matches() {
 		if m.NestedRule() != nil && m.NestedRule().HasOptionalOutput() {
-		  if !m.ConditionIsLiteral(types.True) {
+			if !m.ConditionIsLiteral(types.True) {
 				return true
 			}
 			optionalOutput = true
